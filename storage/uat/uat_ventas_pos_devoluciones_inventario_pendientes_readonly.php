@@ -10,6 +10,7 @@
 $args = isset($argv) ? $argv : array();
 $idAlmacen = 0;
 $decisionInventario = "pendientes";
+$inspeccionEstado = "";
 $folio = "";
 $limite = 50;
 
@@ -18,6 +19,8 @@ foreach ($args as $arg) {
         $idAlmacen = intval(trim(substr($arg, 13), "\"' "));
     } elseif (strpos($arg, "--decision_inventario=") === 0) {
         $decisionInventario = trim(substr($arg, 22), "\"' ");
+    } elseif (strpos($arg, "--inspeccion_estado=") === 0) {
+        $inspeccionEstado = trim(substr($arg, 20), "\"' ");
     } elseif (strpos($arg, "--folio=") === 0) {
         $folio = trim(substr($arg, 8), "\"' ");
     } elseif (strpos($arg, "--limite=") === 0) {
@@ -33,6 +36,7 @@ $ventas = new VentasErp();
 $respuesta = $ventas->devolucionesInventarioPendientesReadOnly(array(
     "id_almacen" => $idAlmacen,
     "decision_inventario" => $decisionInventario,
+    "inspeccion_estado" => $inspeccionEstado,
     "folio" => $folio,
     "limite" => $limite
 ));

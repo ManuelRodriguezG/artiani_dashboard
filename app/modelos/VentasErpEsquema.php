@@ -1296,6 +1296,30 @@ class VentasErpEsquema extends DBSchema {
     }
 
     /**
+     * Documentacion IA: Codex GPT-5, 2026-07-09.
+     * Proposito: preparar DDL para resolver destino final de partidas POS en cuarentena confirmada.
+     * Impacto: permite cerrar cuarentena hacia reintegro, merma, garantia o reparacion sin perder trazabilidad.
+     * Contrato: con $ejecutar=false solo genera SQL; con true requiere autorizacion externa y no mueve inventario.
+     */
+    public function planActualizarDestinoFinalCuarentenaPos($ejecutar = false) {
+        $plan = array();
+
+        $plan[] = $this->agregarColumnaSiNoExiste("erp_ventas_devoluciones_detalle", "destino_final", "VARCHAR(50) NULL AFTER `fecha_inspeccion_fisica`", $ejecutar);
+        $plan[] = $this->agregarColumnaSiNoExiste("erp_ventas_devoluciones_detalle", "fecha_destino_final", "DATETIME NULL AFTER `destino_final`", $ejecutar);
+        $plan[] = $this->agregarColumnaSiNoExiste("erp_ventas_devoluciones_detalle", "resuelto_por", "INT NULL AFTER `fecha_destino_final`", $ejecutar);
+        $plan[] = $this->agregarColumnaSiNoExiste("erp_ventas_devoluciones_detalle", "motivo_destino_final", "TEXT NULL AFTER `resuelto_por`", $ejecutar);
+        $plan[] = $this->agregarColumnaSiNoExiste("erp_ventas_devoluciones_detalle", "id_movimiento_inventario_destino_final", "BIGINT NULL AFTER `id_movimiento_inventario_devolucion`", $ejecutar);
+        $plan[] = $this->agregarColumnaSiNoExiste("erp_ventas_devoluciones_inspecciones", "destino_final", "VARCHAR(50) NULL AFTER `decision_fisica`", $ejecutar);
+        $plan[] = $this->agregarColumnaSiNoExiste("erp_ventas_devoluciones_inspecciones", "fecha_resolucion_destino", "DATETIME NULL AFTER `fecha_autorizacion`", $ejecutar);
+        $plan[] = $this->agregarColumnaSiNoExiste("erp_ventas_devoluciones_inspecciones", "resuelto_por", "INT NULL AFTER `autorizado_por`", $ejecutar);
+        $plan[] = $this->agregarIndiceSiNoExiste("erp_ventas_devoluciones_detalle", "idx_devolucion_detalle_destino_final", "KEY `idx_devolucion_detalle_destino_final` (`destino_final`, `inspeccion_estado`)", $ejecutar);
+        $plan[] = $this->agregarIndiceSiNoExiste("erp_ventas_devoluciones_detalle", "idx_devolucion_detalle_mov_destino", "KEY `idx_devolucion_detalle_mov_destino` (`id_movimiento_inventario_destino_final`)", $ejecutar);
+        $plan[] = $this->agregarIndiceSiNoExiste("erp_ventas_devoluciones_inspecciones", "idx_devolucion_inspeccion_destino", "KEY `idx_devolucion_inspeccion_destino` (`destino_final`, `estatus`)", $ejecutar);
+
+        return $plan;
+    }
+
+    /**
      * Documentacion IA: Codex GPT-5, 2026-06-30.
      * Proposito: auditar estructura para inspeccion fisica de devoluciones POS.
      * Impacto: solo lectura sobre INFORMATION_SCHEMA; no mueve inventario ni modifica devoluciones.
@@ -1360,6 +1384,67 @@ class VentasErpEsquema extends DBSchema {
             "error" => false,
             "tipo" => "success",
             "mensaje" => "Auditoria de inspeccion fisica de devoluciones POS generada",
+            "depurar" => $resultado
+        );
+    }
+
+    /**
+     * Documentacion IA: Codex GPT-5, 2026-07-09.
+     * Proposito: auditar estructura para destino final de cuarentena POS.
+     * Impacto: solo lectura sobre INFORMATION_SCHEMA; no mueve inventario ni cierra devoluciones.
+     * Contrato: no crea tablas, columnas ni indices.
+     */
+    public function auditarDestinoFinalCuarentenaPos() {
+        $tablas = array(
+            "erp_ventas_devoluciones_detalle",
+            "erp_ventas_devoluciones_inspecciones",
+            "erp_inventario_existencias",
+            "erp_inventario_movimientos"
+        );
+        $columnas = array(
+            "erp_ventas_devoluciones_detalle" => array(
+                "inspeccion_estado",
+                "id_inspeccion_fisica",
+                "destino_final",
+                "fecha_destino_final",
+                "resuelto_por",
+                "motivo_destino_final",
+                "id_movimiento_inventario_destino_final"
+            ),
+            "erp_ventas_devoluciones_inspecciones" => array(
+                "destino_final",
+                "fecha_resolucion_destino",
+                "resuelto_por",
+                "id_movimiento_inventario"
+            )
+        );
+        $indices = array(
+            "erp_ventas_devoluciones_detalle" => array(
+                "idx_devolucion_detalle_destino_final",
+                "idx_devolucion_detalle_mov_destino"
+            ),
+            "erp_ventas_devoluciones_inspecciones" => array(
+                "idx_devolucion_inspeccion_destino"
+            )
+        );
+        $resultado = array("tablas" => array(), "columnas" => array(), "indices" => array());
+        foreach ($tablas as $tabla) {
+            $resultado["tablas"][] = array("tabla" => $tabla, "existe" => $this->tablaExiste($tabla));
+        }
+        foreach ($columnas as $tabla => $cols) {
+            foreach ($cols as $columna) {
+                $resultado["columnas"][] = array("tabla" => $tabla, "columna" => $columna, "existe" => $this->columnaExiste($tabla, $columna));
+            }
+        }
+        foreach ($indices as $tabla => $idxs) {
+            foreach ($idxs as $indice) {
+                $resultado["indices"][] = array("tabla" => $tabla, "indice" => $indice, "existe" => $this->indiceExiste($tabla, $indice));
+            }
+        }
+        return array(
+            "error" => false,
+            "tipo" => "success",
+            "mensaje" => "Auditoria de destino final de cuarentena POS generada",
             "depurar" => $resultado
         );
     }

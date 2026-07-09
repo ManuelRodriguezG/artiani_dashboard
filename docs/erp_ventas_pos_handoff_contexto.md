@@ -4066,3 +4066,162 @@ AUTORIZO CERRAR TURNO POS UAT REAL usando respaldo UAT POS vigente con id_usuari
 - Siguiente frente sugerido:
   - decidir si cerramos pendiente historico `DEV-20260630-000001`;
   - o avanzar UI de devoluciones/inspeccion para operar este flujo desde POS sin scripts UAT.
+
+## Avance 2026-07-08 - UI inspeccion fisica devoluciones POS
+
+- Ruta de trabajo nueva:
+  - `C:\xampp\htdocs\panel_de_control`.
+- Estado read-only inicial:
+  - readiness POS `ok=true`;
+  - sin turno abierto;
+  - devoluciones fisicas pendientes `1`;
+  - pendiente historico `DEV-20260630-000001`, `id_devolucion_detalle=1`.
+- Cambios preparados:
+  - endpoint `/ventas/devolucion_inspeccion_fisica_registrar_erp`;
+  - vista `apps/erp/ventas/devoluciones.php` con panel de inspeccion fisica;
+  - JS `devoluciones.js` con seleccion de partida, prevalidacion y confirmacion de cuarentena.
+- Guardrails:
+  - POST con CSRF;
+  - requiere `ventas.operar`;
+  - modelo solo permite `mantener_cuarentena` en esta fase;
+  - no reintegra disponible;
+  - no crea merma;
+  - no crea garantia;
+  - no crea kardex ni mueve inventario.
+- Validaciones:
+  - `php -l app/controladores/Ventas.php`: sin errores;
+  - `node --check public/assets/js/custom/apps/erp/ventas/devoluciones.js`: sin errores.
+- Ajuste posterior:
+  - version de asset actualizada a `20260709-inspeccion-ui1` para evitar cache viejo del navegador.
+- Verificacion navegador:
+  - navegador integrado no disponible en esta sesion;
+  - queda pendiente UAT manual en `/ventas/devoluciones`.
+- Pendiente:
+  - probar desde navegador con usuario autorizado;
+  - si se confirma el pendiente historico desde UI, validar que la bandeja quede en cero.
+
+## Avance 2026-07-09 - Bandeja fisica POS sin pendientes
+
+- Observacion:
+  - el pendiente historico `DEV-20260630-000001` ya aparece con inspeccion registrada;
+  - no fue ejecutado por comandos de esta sesion, se toma como cambio existente/UAT externa.
+- Validacion read-only:
+  - `DEV-20260630-000001`;
+  - `id_devolucion_detalle=1`;
+  - `id_inspeccion_fisica=3`;
+  - `inspeccion_estado=cuarentena_confirmada`;
+  - `fecha_inspeccion_fisica=2026-07-09 09:07:14`;
+  - post-readonly reversa `hallazgos=[]`.
+- Readiness POS:
+  - devoluciones fisicas pendientes `0`;
+  - sin turno abierto;
+  - pedidos/apartados siguen bloqueados por turno/stock en readiness.
+- Impacto observado:
+  - no hay movimiento inventario de devolucion;
+  - no hay kardex de reintegro;
+  - no hay reembolso caja asociado a esa devolucion historica.
+- Siguiente frente:
+  - validar visualmente `/ventas/devoluciones` con la bandeja vacia;
+  - avanzar decisiones fisicas siguientes: reintegrar disponible, merma, garantia/proveedor o reparacion, todas con DDL/UAT separada.
+
+## Avance 2026-07-09 - Plan inspeccion fisica avanzada
+
+- Documento creado:
+  - `docs/erp_ventas_pos_inspeccion_fisica_plan.md`.
+- Alcance:
+  - define decisiones fisicas posteriores a cuarentena;
+  - separa devolucion comercial de destino fisico;
+  - marca riesgos de inventario, kardex, garantia/proveedor y reparacion.
+- Decision:
+  - no implementar reintegro/merma/garantia como botones directos hasta tener DDL, modelo transaccional, UAT y reportes.
+- Siguiente recomendado:
+  - preparar Fase 2 `reintegrar_disponible` en modo read-only.
+
+## Avance 2026-07-09 - Filtro destino final en devoluciones
+
+- Cambios:
+  - `VentasErp::devolucionesInventarioPendientesReadOnly` acepta `inspeccion_estado`;
+  - UI `Ventas > Devoluciones` agrega filtro de estado de inspeccion;
+  - JS evita mostrar boton `Inspeccionar` en partidas ya inspeccionadas;
+  - script UAT read-only acepta `--inspeccion_estado=...`.
+- Validaciones:
+  - `php -l app/modelos/VentasErp.php`: sin errores;
+  - `php -l app/vistas/paginas/apps/erp/ventas/devoluciones.php`: sin errores;
+  - `php -l storage/uat/uat_ventas_pos_devoluciones_inventario_pendientes_readonly.php`: sin errores;
+  - `node --check public/assets/js/custom/apps/erp/ventas/devoluciones.js`: sin errores.
+- Estado read-only:
+  - `cuarentena + pendiente`: `0`;
+  - `cuarentena + cuarentena_confirmada`: `3`.
+- Siguiente frente:
+  - preparar dry-run de destino final `reintegrar_disponible` sobre una de las 3 partidas, sin escribir BD.
+
+## Avance 2026-07-09 - Devoluciones listas para prueba real controlada
+
+- Vista ajustada:
+  - `app/vistas/paginas/apps/erp/ventas/devoluciones.php`.
+- Cambios:
+  - expone `window.ERP_CSRF_TOKEN` con `SesionSeguridad::csrfToken()`;
+  - actualiza textos para diferenciar simulacion de reversa vs inspeccion real de cuarentena;
+  - cache-bust de JS a `20260709-inspeccion-ui2`.
+- Alcance listo para navegador:
+  - `/ventas/devoluciones`;
+  - consultar devoluciones fisicas;
+  - prevalidar inspeccion;
+  - confirmar cuarentena documental real.
+- Guardrail:
+  - no mueve inventario;
+  - no crea kardex;
+  - no aplica destino final.
+- Documento operativo:
+  - `docs/erp_ventas_pos_inspeccion_fisica_plan.md`, seccion `Pieza lista para prueba real controlada`.
+
+## Avance 2026-07-09 - Dry-run destino final cuarentena POS
+
+- Cambios:
+  - modelo `VentasErp::destinoFinalCuarentenaDevolucionDryRun`;
+  - endpoint `/ventas/devolucion_destino_final_dryrun_erp`;
+  - panel `Destino final de cuarentena` en `/ventas/devoluciones`;
+  - script `storage/uat/uat_ventas_pos_destino_final_cuarentena_dryrun.php`.
+- Contrato:
+  - read-only/dry-run;
+  - no actualiza devolucion;
+  - no crea kardex;
+  - no mueve inventario;
+  - no crea garantia/reparacion/merma.
+- UAT read-only:
+  - `id_devolucion_detalle=3`;
+  - `reintegrar_disponible`: sin bloqueos, plan entrada existencia `34`, `0 -> 1`;
+  - `merma`: sin bloqueos, exige causa/evidencia/autorizador;
+  - `garantia_proveedor`: sin bloqueos, requiere folio operativo;
+  - `reparacion`: sin bloqueos, requiere folio operativo.
+- DDL requerido para apply real:
+  - `erp_ventas_devoluciones_detalle.destino_final`;
+  - `erp_ventas_devoluciones_detalle.fecha_destino_final`;
+  - `erp_ventas_devoluciones_detalle.resuelto_por`.
+- Siguiente autorizacion robusta:
+  - `AUTORIZO PREPARAR DDL DESTINO FINAL CUARENTENA POS usando respaldo UAT POS vigente con token VENTAS_POS_DESTINO_FINAL_CUARENTENA_DDL para UAT POS`.
+
+## Avance 2026-07-09 - Prepare DDL destino final cuarentena POS
+
+- Autorizacion recibida:
+  - `AUTORIZO PREPARAR DDL DESTINO FINAL CUARENTENA POS usando respaldo UAT POS vigente con token VENTAS_POS_DESTINO_FINAL_CUARENTENA_DDL para UAT POS`.
+- Cambios:
+  - `VentasErpEsquema::planActualizarDestinoFinalCuarentenaPos`;
+  - `VentasErpEsquema::auditarDestinoFinalCuarentenaPos`;
+  - `/ventas/esquema_auditar_destino_final_cuarentena_pos`;
+  - `/ventas/esquema_actualizar_destino_final_cuarentena_pos`;
+  - `storage/uat/uat_ventas_pos_destino_final_cuarentena_ddl_prepare.php`.
+- Resultado prepare:
+  - `ok=true`;
+  - `read_only=true`;
+  - SQL generado sin ejecutar.
+- Faltantes detectados:
+  - columnas de destino final en `erp_ventas_devoluciones_detalle`;
+  - columnas de destino final en `erp_ventas_devoluciones_inspecciones`;
+  - indices por destino final y movimiento destino.
+- Validaciones:
+  - `php -l app/modelos/VentasErpEsquema.php`: sin errores;
+  - `php -l app/controladores/Ventas.php`: sin errores;
+  - `php -l storage/uat/uat_ventas_pos_destino_final_cuarentena_ddl_prepare.php`: sin errores.
+- Siguiente autorizacion:
+  - `AUTORIZO APLICAR DDL DESTINO FINAL CUARENTENA POS usando respaldo UAT POS vigente con token VENTAS_POS_DESTINO_FINAL_CUARENTENA_DDL para UAT POS`.

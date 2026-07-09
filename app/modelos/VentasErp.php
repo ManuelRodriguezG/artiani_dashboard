@@ -2791,9 +2791,14 @@ class VentasErp extends CRUD {
             $db = $this->getConexion();
             $idAlmacen = intval($this->valor($datos, "id_almacen", 0));
             $decision = trim((string) $this->valor($datos, "decision_inventario", "pendientes"));
+            $inspeccionEstado = trim((string) $this->valor($datos, "inspeccion_estado", ""));
             $folio = trim((string) $this->valor($datos, "folio", ""));
             $limite = intval($this->valor($datos, "limite", 50));
             $limite = $limite > 0 && $limite <= 200 ? $limite : 50;
+            $estadosInspeccionPermitidos = array("pendiente", "cuarentena_confirmada", "resuelta", "todos");
+            if ($inspeccionEstado !== "" && !in_array($inspeccionEstado, $estadosInspeccionPermitidos, true)) {
+                $inspeccionEstado = "";
+            }
 
             if (!$this->tablaExiste($db, "erp_ventas_devoluciones") || !$this->tablaExiste($db, "erp_ventas_devoluciones_detalle")) {
                 return $this->respuesta(false, "warning", "Esquema de devoluciones pendiente", array(
@@ -2823,6 +2828,10 @@ class VentasErp extends CRUD {
             } elseif ($decision !== "todos") {
                 $where[] = "dd.decision_inventario=:decision";
                 $params[":decision"] = $decision;
+            }
+            if ($inspeccionEstado !== "" && $inspeccionEstado !== "todos" && $this->columnaExiste($db, "erp_ventas_devoluciones_detalle", "inspeccion_estado")) {
+                $where[] = "dd.inspeccion_estado=:inspeccion_estado";
+                $params[":inspeccion_estado"] = $inspeccionEstado;
             }
 
             $selectInspeccion = $tieneEstadoInspeccion ? "dd.inspeccion_estado, dd.id_inspeccion_fisica,
@@ -2886,6 +2895,7 @@ class VentasErp extends CRUD {
                 "filtros" => array(
                     "id_almacen" => $idAlmacen,
                     "decision_inventario" => $decision,
+                    "inspeccion_estado" => $inspeccionEstado,
                     "folio" => $folio,
                     "limite" => $limite
                 ),
@@ -3144,6 +3154,208 @@ class VentasErp extends CRUD {
             if ($db && $db->inTransaction()) {
                 $db->rollBack();
             }
+            return $this->respuesta(true, "danger", $e->getMessage());
+        }
+    }
+
+    /**
+     * Documentacion IA: Codex GPT-5, 2026-07-09.
+     * Proposito: prevalidar el destino final de una partida devuelta que ya esta en cuarentena confirmada.
+     * Impacto: permite decidir si procede reintegro, merma, garantia/proveedor o reparacion antes de ejecutar DDL/kardex.
+     * Contrato: dry-run/read-only; no actualiza devolucion, no crea kardex, no cambia inventario ni garantia.
+     */
+    public function destinoFinalCuarentenaDevolucionDryRun($datos = array()) {
+        try {
+            $db = $this->getConexion();
+            $idUsuario = intval($this->valor($datos, "id_usuario", 0));
+            $idDetalle = intval($this->valor($datos, "id_devolucion_detalle", 0));
+            $destino = trim((string) $this->valor($datos, "destino_final", "reintegrar_disponible"));
+            $motivo = trim((string) $this->valor($datos, "motivo", ""));
+            $permitidos = array("reintegrar_disponible", "merma", "garantia_proveedor", "reparacion", "mantener_cuarentena");
+            $bloqueos = array();
+            $avisos = array();
+            $plan = array();
+
+            if ($idUsuario <= 0) {
+                $bloqueos[] = "Usuario obligatorio para prevalidar destino final";
+            }
+            if ($idDetalle <= 0) {
+                $bloqueos[] = "Partida de devolucion obligatoria";
+            }
+            if (!in_array($destino, $permitidos, true)) {
+                $bloqueos[] = "Destino final invalido";
+            }
+            if ($motivo === "") {
+                $avisos[] = "El destino final real debera capturar motivo documentado";
+            }
+            if (!$this->tablaExiste($db, "erp_ventas_devoluciones") || !$this->tablaExiste($db, "erp_ventas_devoluciones_detalle")) {
+                $bloqueos[] = "Esquema de devoluciones pendiente";
+            }
+            if (!$this->tablaExiste($db, "erp_ventas_devoluciones_inspecciones")) {
+                $bloqueos[] = "Esquema de inspeccion fisica pendiente";
+            }
+
+            $partida = null;
+            $existencia = null;
+            $unidad = null;
+            if (empty($bloqueos)) {
+                $stmt = $db->prepare("SELECT dd.*, d.folio folio_devolucion, d.estatus devolucion_estatus,
+                        d.id_almacen, d.id_caja, d.id_turno_caja, d.id_venta,
+                        v.folio folio_venta, v.cliente_nombre_publico, v.id_cliente_crm,
+                        vd.sku, vd.descripcion, vd.controla_inventario, vd.modo_salida, vd.unidad_base,
+                        insp.folio folio_inspeccion, insp.decision_fisica, insp.estatus inspeccion_estatus,
+                        insp.condicion_producto, insp.diagnostico
+                    FROM erp_ventas_devoluciones_detalle dd
+                    INNER JOIN erp_ventas_devoluciones d ON d.id_devolucion=dd.id_devolucion
+                    INNER JOIN erp_ventas v ON v.id_venta=d.id_venta
+                    LEFT JOIN erp_ventas_detalle vd ON vd.id_venta_detalle=dd.id_venta_detalle
+                    LEFT JOIN erp_ventas_devoluciones_inspecciones insp ON insp.id_inspeccion_fisica=dd.id_inspeccion_fisica
+                    WHERE dd.id_devolucion_detalle=:detalle
+                    LIMIT 1");
+                $stmt->execute(array(":detalle" => $idDetalle));
+                $partida = $stmt->fetch(PDO::FETCH_ASSOC);
+                if (!$partida) {
+                    $bloqueos[] = "Partida de devolucion no encontrada";
+                }
+            }
+
+            if ($partida) {
+                $cantidad = $this->redondearPosReal($this->valor($partida, "cantidad_base", 0));
+                $idExistencia = intval($this->valor($partida, "id_existencia_inventario", 0));
+                $idUnidad = intval($this->valor($partida, "id_inventario_unidad", 0));
+
+                if ($this->valor($partida, "devolucion_estatus", "") !== "aplicada") {
+                    $bloqueos[] = "La devolucion no esta aplicada";
+                }
+                if ($this->valor($partida, "estatus", "") !== "aplicada") {
+                    $bloqueos[] = "La partida no esta aplicada";
+                }
+                if ($this->valor($partida, "decision_inventario", "") !== "cuarentena") {
+                    $bloqueos[] = "Solo se resuelve destino final de partidas en cuarentena";
+                }
+                if ($this->valor($partida, "inspeccion_estado", "") !== "cuarentena_confirmada") {
+                    $bloqueos[] = "La partida debe tener cuarentena confirmada antes de destino final";
+                }
+                if (intval($this->valor($partida, "id_movimiento_inventario_devolucion", 0)) > 0) {
+                    $bloqueos[] = "La partida ya tiene movimiento de inventario de devolucion";
+                }
+                if ($cantidad <= 0) {
+                    $bloqueos[] = "Cantidad de devolucion invalida";
+                }
+
+                if ($idExistencia > 0 && $this->tablaExiste($db, "erp_inventario_existencias")) {
+                    $stmt = $db->prepare("SELECT id_existencia_inventario, codigo_existencia, id_producto, id_sku_erp,
+                            id_almacen_clave, lote, fecha_caducidad, ubicacion_id, ubicacion,
+                            cantidad, cantidad_disponible, cantidad_apartada, costo_promedio, estatus_existencia
+                        FROM erp_inventario_existencias
+                        WHERE id_existencia_inventario=:existencia
+                        LIMIT 1");
+                    $stmt->execute(array(":existencia" => $idExistencia));
+                    $existencia = $stmt->fetch(PDO::FETCH_ASSOC);
+                    if (!$existencia) {
+                        $bloqueos[] = "Existencia origen no encontrada";
+                    }
+                }
+
+                if ($idUnidad > 0 && $this->tablaExiste($db, "erp_inventario_unidades")) {
+                    $stmt = $db->prepare("SELECT id_inventario_unidad, codigo_unico, codigo_etiqueta_interna,
+                            id_existencia_inventario, id_almacen, cantidad_base_original, cantidad_base_disponible,
+                            unidad_base, estatus, estado_etiqueta, estado_fisico
+                        FROM erp_inventario_unidades
+                        WHERE id_inventario_unidad=:unidad
+                        LIMIT 1");
+                    $stmt->execute(array(":unidad" => $idUnidad));
+                    $unidad = $stmt->fetch(PDO::FETCH_ASSOC);
+                    if (!$unidad) {
+                        $bloqueos[] = "Unidad fisica origen no encontrada";
+                    }
+                }
+
+                if ($destino === "reintegrar_disponible") {
+                    if (intval($this->valor($partida, "controla_inventario", 0)) !== 1) {
+                        $bloqueos[] = "El producto no controla inventario";
+                    }
+                    if ($idExistencia <= 0 || !$existencia) {
+                        $bloqueos[] = "Reintegrar requiere existencia origen";
+                    }
+                    if ($idUnidad > 0) {
+                        $bloqueos[] = "Reintegrar unidad fisica requiere flujo especifico de unidad cerrada/abierta antes de disponible";
+                    }
+                    if ($existencia) {
+                        $cantidadAntes = $this->redondearPosReal($this->valor($existencia, "cantidad", 0));
+                        $disponibleAntes = $this->redondearPosReal($this->valor($existencia, "cantidad_disponible", 0));
+                        $plan = array(
+                            "tipo_movimiento" => "entrada",
+                            "origen_tipo" => "devolucion_pos_inspeccion",
+                            "id_existencia_inventario" => $idExistencia,
+                            "id_almacen" => intval($this->valor($existencia, "id_almacen_clave", 0)),
+                            "cantidad_base" => $cantidad,
+                            "existencia_anterior" => $cantidadAntes,
+                            "existencia_nueva" => $this->redondearPosReal($cantidadAntes + $cantidad),
+                            "disponible_anterior" => $disponibleAntes,
+                            "disponible_nuevo" => $this->redondearPosReal($disponibleAntes + $cantidad),
+                            "referencia_sugerida" => "DEV-REINT-" . $this->valor($partida, "folio_devolucion", "")
+                        );
+                    }
+                } elseif ($destino === "merma") {
+                    $avisos[] = "Merma final debe exigir causa, evidencia y autorizador; normalmente no incrementa disponible";
+                    $plan = array(
+                        "tipo_movimiento" => "documental_merma_postventa",
+                        "requiere_catalogo_causa" => true,
+                        "requiere_evidencia" => true,
+                        "impacto_caja" => false,
+                        "impacto_disponible" => false
+                    );
+                } elseif (in_array($destino, array("garantia_proveedor", "reparacion"), true)) {
+                    $avisos[] = "Destino final debe crear folio operativo fuera de disponible y ligarse a cliente/venta/SKU";
+                    $plan = array(
+                        "tipo_movimiento" => "documental_postventa",
+                        "requiere_folio" => true,
+                        "requiere_responsable" => true,
+                        "impacto_caja" => false,
+                        "impacto_disponible" => false
+                    );
+                } else {
+                    $plan = array(
+                        "tipo_movimiento" => "sin_movimiento",
+                        "impacto_caja" => false,
+                        "impacto_disponible" => false
+                    );
+                }
+            }
+
+            $ddlRequerido = array();
+            if ($this->tablaExiste($db, "erp_ventas_devoluciones_detalle")) {
+                foreach (array("destino_final", "fecha_destino_final", "resuelto_por") as $columna) {
+                    if (!$this->columnaExiste($db, "erp_ventas_devoluciones_detalle", $columna)) {
+                        $ddlRequerido[] = "erp_ventas_devoluciones_detalle." . $columna;
+                    }
+                }
+            }
+
+            return $this->respuesta(false, empty($bloqueos) ? "success" : "warning", empty($bloqueos) ? "Dry-run de destino final valido" : "Dry-run de destino final bloqueado", array(
+                "dry_run" => true,
+                "read_only" => true,
+                "id_usuario" => $idUsuario,
+                "id_devolucion_detalle" => $idDetalle,
+                "destino_final" => $destino,
+                "motivo" => $motivo,
+                "bloqueos" => $bloqueos,
+                "avisos" => $avisos,
+                "ddl_requerido_para_apply_real" => $ddlRequerido,
+                "partida" => $partida,
+                "existencia" => $existencia,
+                "unidad" => $unidad,
+                "plan" => $plan,
+                "contrato_apply_futuro" => array(
+                    "requiere_transaccion" => true,
+                    "requiere_for_update" => true,
+                    "requiere_kardex_si_reintegra" => $destino === "reintegrar_disponible",
+                    "requiere_evento_postventa" => true,
+                    "no_escribe_bd_en_dry_run" => true
+                )
+            ));
+        } catch (Exception $e) {
             return $this->respuesta(true, "danger", $e->getMessage());
         }
     }

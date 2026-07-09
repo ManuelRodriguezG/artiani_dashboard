@@ -9,10 +9,10 @@
     <link href="assets/plugins/global/plugins.bundle.css" rel="stylesheet" type="text/css">
     <link href="assets/css/style.bundle.css" rel="stylesheet" type="text/css">
     <!--
-      Documentacion IA: Codex GPT-5, 2026-07-01.
-      Proposito: separar devoluciones/cancelaciones POS del tablero de ventas.
-      Impacto: prepara postventa ligada a caja, inventario, garantia y ticket.
-      Contrato: vista dry-run/read-only; no aplica reversas reales.
+      Documentacion IA: Codex GPT-5, 2026-07-09.
+      Proposito: separar devoluciones/cancelaciones POS del tablero de ventas y habilitar inspeccion fisica documental.
+      Impacto: prepara postventa ligada a caja, inventario, garantia, ticket e inspeccion en cuarentena.
+      Contrato: reversas siguen controladas; inspeccion fisica solo confirma cuarentena sin mover inventario.
     -->
     <style>
         .dev-card { border: 1px solid #e6e8ee; border-radius: 8px; background: #fff; }
@@ -37,7 +37,7 @@
                                 <div class="d-flex flex-wrap gap-2 mt-2">
                                     <span class="badge badge-light-warning">Simular reversa = no aplica devolucion</span>
                                     <span class="badge badge-light-primary">Pendientes/ticket = solo consulta</span>
-                                    <span class="badge badge-light-danger">Reembolso real requiere autorizacion</span>
+                                    <span class="badge badge-light-success">Inspeccion cuarentena = accion real controlada</span>
                                 </div>
                             </div>
                             <div class="d-flex gap-2">
@@ -50,7 +50,7 @@
                         <div class="app-container container-fluid">
                             <div class="alert alert-info py-3 mb-4">
                                 <div class="fw-bold">Modulo separado de postventa</div>
-                                <div class="fs-7">Esta version simula y consulta. No reembolsa, no mueve inventario y no crea kardex. Aplicar devoluciones reales sigue requiriendo autorizacion con respaldo.</div>
+                                <div class="fs-7">La reversa, reembolso y reintegro siguen protegidos. La inspeccion fisica permite confirmar cuarentena documental sin crear kardex ni mover inventario.</div>
                             </div>
                             <div class="row g-4">
                                 <div class="col-xl-5">
@@ -112,10 +112,91 @@
                                                     <option value="reintegrar">Reintegrar</option>
                                                     <option value="todos">Todas</option>
                                                 </select>
+                                                <select class="form-select form-select-solid form-select-sm" id="dev_inspeccion_estado_filtro">
+                                                    <option value="">Estado inspeccion</option>
+                                                    <option value="pendiente">Pendiente</option>
+                                                    <option value="cuarentena_confirmada">Cuarentena confirmada</option>
+                                                    <option value="todos">Todos</option>
+                                                </select>
                                                 <button class="btn btn-sm btn-light-primary" id="dev_fisicas_consultar" type="button"><i class="bi bi-search"></i> Consultar</button>
                                             </div>
                                         </div>
                                         <div id="dev_fisicas_resultado" class="dev-result"></div>
+                                    </div>
+                                    <div class="dev-card p-4 mb-4">
+                                        <div class="fw-bold fs-5 mb-1">Inspeccion fisica</div>
+                                        <div class="text-muted fs-7 mb-3">Confirma cuarentena documental sin mover inventario</div>
+                                        <div class="row g-3">
+                                            <div class="col-md-4">
+                                                <label class="form-label text-muted fs-8 text-uppercase">Detalle devolucion</label>
+                                                <input class="form-control form-control-solid" id="dev_inspeccion_detalle" placeholder="ID detalle">
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label class="form-label text-muted fs-8 text-uppercase">Decision fisica</label>
+                                                <select class="form-select form-select-solid" id="dev_inspeccion_decision">
+                                                    <option value="mantener_cuarentena">Mantener cuarentena</option>
+                                                </select>
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label class="form-label text-muted fs-8 text-uppercase">Condicion</label>
+                                                <select class="form-select form-select-solid" id="dev_inspeccion_condicion">
+                                                    <option value="pendiente_revision">Pendiente revision</option>
+                                                    <option value="empaque_danado">Empaque danado</option>
+                                                    <option value="producto_danado">Producto danado</option>
+                                                    <option value="no_apto_venta">No apto venta</option>
+                                                </select>
+                                            </div>
+                                            <div class="col-md-6">
+                                                <label class="form-label text-muted fs-8 text-uppercase">Motivo</label>
+                                                <textarea class="form-control form-control-solid" id="dev_inspeccion_motivo" rows="3" placeholder="Motivo documentado"></textarea>
+                                            </div>
+                                            <div class="col-md-6">
+                                                <label class="form-label text-muted fs-8 text-uppercase">Diagnostico</label>
+                                                <textarea class="form-control form-control-solid" id="dev_inspeccion_diagnostico" rows="3" placeholder="Diagnostico fisico"></textarea>
+                                            </div>
+                                            <div class="col-md-6">
+                                                <button class="btn btn-light-primary w-100" id="dev_inspeccion_prevalidar" type="button"><i class="bi bi-search"></i> Prevalidar</button>
+                                            </div>
+                                            <div class="col-md-6">
+                                                <button class="btn btn-warning w-100" id="dev_inspeccion_registrar" type="button"><i class="bi bi-clipboard-check"></i> Confirmar cuarentena</button>
+                                            </div>
+                                        </div>
+                                        <div class="alert alert-light-warning py-3 mt-4 mb-0 fs-8">
+                                            Las partidas ya inspeccionadas quedan en cuarentena confirmada; el destino final como reintegro, merma, garantia o reparacion se habilitara en una fase separada con kardex y autorizaciones.
+                                        </div>
+                                        <div id="dev_inspeccion_resultado" class="dev-result mt-4"></div>
+                                    </div>
+                                    <div class="dev-card p-4 mb-4">
+                                        <div class="fw-bold fs-5 mb-1">Destino final de cuarentena</div>
+                                        <div class="text-muted fs-7 mb-3">Prevalida reintegro, merma, garantia o reparacion sin escribir BD</div>
+                                        <div class="row g-3">
+                                            <div class="col-md-4">
+                                                <label class="form-label text-muted fs-8 text-uppercase">Detalle devolucion</label>
+                                                <input class="form-control form-control-solid" id="dev_destino_detalle" placeholder="ID detalle">
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label class="form-label text-muted fs-8 text-uppercase">Destino</label>
+                                                <select class="form-select form-select-solid" id="dev_destino_final">
+                                                    <option value="reintegrar_disponible">Reintegrar disponible</option>
+                                                    <option value="merma">Merma</option>
+                                                    <option value="garantia_proveedor">Garantia proveedor</option>
+                                                    <option value="reparacion">Reparacion</option>
+                                                    <option value="mantener_cuarentena">Mantener cuarentena</option>
+                                                </select>
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label class="form-label text-muted fs-8 text-uppercase">Accion</label>
+                                                <button class="btn btn-light-primary w-100" id="dev_destino_prevalidar" type="button"><i class="bi bi-shield-check"></i> Prevalidar destino</button>
+                                            </div>
+                                            <div class="col-12">
+                                                <label class="form-label text-muted fs-8 text-uppercase">Motivo</label>
+                                                <textarea class="form-control form-control-solid" id="dev_destino_motivo" rows="2" placeholder="Motivo para resolver cuarentena"></textarea>
+                                            </div>
+                                        </div>
+                                        <div class="alert alert-light-info py-3 mt-4 mb-0 fs-8">
+                                            Esta prevalidacion no reintegra inventario, no crea merma, no crea garantia y no cierra la cuarentena. Sirve para preparar la autorizacion robusta.
+                                        </div>
+                                        <div id="dev_destino_resultado" class="dev-result mt-4"></div>
                                     </div>
                                     <div class="dev-card p-4">
                                         <div class="fw-bold fs-5 mb-3">Ticket devolucion</div>
@@ -141,6 +222,9 @@
 </div>
 <script src="assets/plugins/global/plugins.bundle.js"></script>
 <script src="assets/js/scripts.bundle.js"></script>
-<script src="/assets/js/custom/apps/erp/ventas/devoluciones.js?v=20260702-acciones-venta1"></script>
+<script>
+    window.ERP_CSRF_TOKEN = "<?= htmlspecialchars(SesionSeguridad::csrfToken(), ENT_QUOTES, 'UTF-8') ?>";
+</script>
+<script src="/assets/js/custom/apps/erp/ventas/devoluciones.js?v=20260709-destino-dryrun1"></script>
 </body>
 </html>

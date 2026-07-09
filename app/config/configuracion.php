@@ -10,12 +10,13 @@ ini_set('session.gc_maxlifetime', SESSION_TIMEOUT_SECONDS);
 ini_set('session.cookie_httponly', 1);
 ini_set('session.cookie_samesite', 'Lax');
 session_start();
+$server_name_local = "panel.com.local";
 //Ruta url Ejemplo: http://localhost/ExamplePanoramex/
-if ($_SERVER["SERVER_NAME"] == "dashboard.com.local") {
-    define('RUTA_URL', 'http://dashboard.com.local/');
-    define('RUTA_URL_FRONT', 'http://dashboard.com.local/');
-    define('RUTA_RECURSOS', 'http://beay.com.local/');
-    define('RUTA_RECURSOS_IMG', 'http://dashboard.com.local/');
+if ($_SERVER["SERVER_NAME"] == $server_name_local) {
+    define('RUTA_URL', 'http://panel.com.local/');
+    define('RUTA_URL_FRONT', 'http://panel.com.local/');
+    define('RUTA_RECURSOS', 'http://panel.com.local/');
+    define('RUTA_RECURSOS_IMG', 'http://panel.com.local/');
 } else if ($_SERVER["SERVER_NAME"] == "dashboard_mgebike.com.local") {
     define('RUTA_URL', 'http://dashboard_mgebike.com.local/');
     define('RUTA_URL_FRONT', 'http://dashboard_mgebike.com.local/');
@@ -31,11 +32,11 @@ if ($_SERVER["SERVER_NAME"] == "dashboard.com.local") {
     define('RUTA_RECURSOS', 'https://panel.mgebikes.com/');
     define('RUTA_URL_FRONT', 'https://mgebikes.com.mx/');
     define('RUTA_RECURSOS_IMG', 'https://panel.mgebikes.com/');
-} else if ($_SERVER["SERVER_NAME"] == "panel.beay.com.mx") {
-    define('RUTA_URL', 'https://panel.beay.com.mx/');
-    define('RUTA_RECURSOS', 'https://panel.beay.com.mx/');
-    define('RUTA_URL_FRONT', 'https://beay.com.mx/');
-    define('RUTA_RECURSOS_IMG', 'https://panel.beay.com.mx/');
+} else if ($_SERVER["SERVER_NAME"] == "sys.artiani.com.mx") {
+    define('RUTA_URL', 'https://sys.artiani.com.mx/');
+    define('RUTA_RECURSOS', 'https://sys.artiani.com.mx/');
+    define('RUTA_URL_FRONT', 'https://artiani.com.mx/');
+    define('RUTA_RECURSOS_IMG', 'https://sys.artiani.com.mx/');
 }
 
 

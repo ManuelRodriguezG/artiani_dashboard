@@ -4600,6 +4600,71 @@ AUTORIZO REGISTRAR INSPECCION FISICA DEVOLUCION POS UAT REAL usando respaldo UAT
   - no movio inventario;
   - no creo kardex.
 
+## Evidencia tecnica - UI inspeccion fisica devoluciones POS
+
+- Fecha: 2026-07-08
+- Ruta:
+  - `C:\xampp\htdocs\panel_de_control`.
+- Objetivo:
+  - llevar a UI el flujo de inspeccion fisica documental que ya fue validado por scripts UAT;
+  - permitir cerrar cuarentena documental desde `Ventas > Devoluciones` sin mover inventario.
+- Cambios:
+  - `Ventas::devolucion_inspeccion_fisica_registrar_erp`;
+  - panel de inspeccion en `app/vistas/paginas/apps/erp/ventas/devoluciones.php`;
+  - acciones en `public/assets/js/custom/apps/erp/ventas/devoluciones.js`.
+- Validaciones:
+  - `C:\xampp\php\php.exe -l app\controladores\Ventas.php`: sin errores;
+  - `node --check public\assets\js\custom\apps\erp\ventas\devoluciones.js`: sin errores;
+  - readiness read-only confirma un pendiente fisico historico.
+- Contrato:
+  - la UI registra solo `mantener_cuarentena`;
+  - no reintegra inventario;
+  - no crea merma;
+  - no crea garantia;
+  - no crea kardex.
+
+## Evidencia read-only - Bandeja devoluciones fisicas en cero
+
+- Fecha: 2026-07-09
+- Observacion:
+  - el pendiente historico `DEV-20260630-000001` ya aparece cerrado con inspeccion;
+  - el cambio no fue ejecutado por comandos de esta sesion.
+- Validaciones:
+  - `uat_ventas_pos_devoluciones_inventario_pendientes_readonly.php`: `total_registros=0`;
+  - `uat_ventas_pos_readiness_readonly.php`: `devoluciones_fisicas_pendientes=0`;
+  - `uat_ventas_pos_reversa_post_readonly.php --folio_devolucion=DEV-20260630-000001`: `hallazgos=[]`.
+- Detalle historico:
+  - `id_devolucion_detalle=1`;
+  - `id_inspeccion_fisica=3`;
+  - `inspeccion_estado=cuarentena_confirmada`;
+  - `fecha_inspeccion_fisica=2026-07-09 09:07:14`;
+  - sin movimiento inventario de devolucion.
+- Impacto:
+  - bandeja fisica POS queda limpia;
+  - no se detecta reintegro de inventario;
+  - no se detecta kardex de devolucion.
+
+## Evidencia read-only - Cuarentena confirmada para destino final
+
+- Fecha: 2026-07-09
+- Cambios tecnicos:
+  - filtro `inspeccion_estado` agregado a modelo, UI y script UAT read-only;
+  - la UI distingue partidas pendientes de inspeccion vs partidas con destino final pendiente.
+- Validaciones:
+  - `cuarentena + pendiente`: `total_registros=0`;
+  - `cuarentena + cuarentena_confirmada`: `total_registros=3`;
+  - cantidad total `3`;
+  - importe historico `$885.00`.
+- Partidas:
+  - `DEV-20260707-000001`, `id_devolucion_detalle=3`, `IFD-20260707-000001`;
+  - `DEV-20260630-000002`, `id_devolucion_detalle=2`, `IFD-20260630-000001`;
+  - `DEV-20260630-000001`, `id_devolucion_detalle=1`, `IFD-20260709-000001`.
+- Impacto:
+  - no escribio BD;
+  - no movio inventario;
+  - no creo kardex;
+  - prepara fase `reintegrar_disponible`.
+
 ## Evidencia read-only - Reversa POS con saldo CRM
 
 - Fecha: 2026-07-07.

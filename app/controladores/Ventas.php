@@ -868,6 +868,30 @@ class Ventas extends Controlador {
     return json_encode($this->modelo("VentasErp")->inspeccionFisicaDevolucionDryRun($_POST));
   }
 
+  /**
+   * Documentacion IA: Codex GPT-5, 2026-07-08.
+   * Proposito: registrar desde UI una inspeccion fisica documental de devolucion POS.
+   * Impacto: cierra cuarentena documental sin reintegrar inventario, sin merma, sin garantia y sin kardex en esta fase.
+   * Contrato: POST con CSRF y `ventas.operar`; el modelo solo permite `mantener_cuarentena` en esta etapa.
+   */
+  public function devolucion_inspeccion_fisica_registrar_erp() {
+    $this->requerirPermiso("ventas.operar");
+    $_POST["id_usuario"] = $this->usuarioActualId();
+    return json_encode($this->modelo("VentasErp")->registrarInspeccionFisicaDevolucionPosReal($_POST));
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5, 2026-07-09.
+   * Proposito: prevalidar destino final de una devolucion ya confirmada en cuarentena.
+   * Impacto: prepara reintegro, merma, garantia o reparacion sin escribir BD ni mover inventario.
+   * Contrato: dry-run/read-only; requiere `ventas.operar`.
+   */
+  public function devolucion_destino_final_dryrun_erp() {
+    $this->requerirPermiso("ventas.operar");
+    $_POST["id_usuario"] = $this->usuarioActualId();
+    return json_encode($this->modelo("VentasErp")->destinoFinalCuarentenaDevolucionDryRun($_POST));
+  }
+
   public function esquema_auditar_ventas_pos() {
     $this->requerirPermiso("ventas.ver");
     $alcance = isset($_REQUEST["alcance"]) && $_REQUEST["alcance"] === "expandido" ? "expandido" : "base";
@@ -1021,6 +1045,53 @@ class Ventas extends Controlador {
       }
     }
     return json_encode($this->modelo("VentasErpEsquema")->planActualizarInspeccionFisicaDevolucionesPos($ejecutar));
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5, 2026-07-09.
+   * Proposito: auditar estructura para destino final de cuarentena POS.
+   * Impacto: prepara reintegro, merma, garantia o reparacion sin ejecutar DDL.
+   * Contrato: read-only; no cierra cuarentenas ni mueve inventario.
+   */
+  public function esquema_auditar_destino_final_cuarentena_pos() {
+    $this->requerirPermiso("ventas.ver");
+    return json_encode($this->modelo("VentasErpEsquema")->auditarDestinoFinalCuarentenaPos());
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5, 2026-07-09.
+   * Proposito: generar o aplicar DDL para destino final de cuarentena POS.
+   * Impacto: agrega trazabilidad estructural; no reintegra, no merma, no crea garantia y no mueve inventario.
+   * Contrato: solo ejecuta con `VENTAS_POS_DESTINO_FINAL_CUARENTENA_DDL` y respaldo externo valido.
+   */
+  public function esquema_actualizar_destino_final_cuarentena_pos() {
+    $this->requerirPermiso("sistema.soporte");
+    $ejecutar = isset($_POST["ejecutar"]) && intval($_POST["ejecutar"]) === 1;
+    if ($ejecutar) {
+      $autorizar = isset($_POST["autorizar"]) ? trim((string) $_POST["autorizar"]) : "";
+      $respaldo = isset($_POST["respaldo"]) ? trim((string) $_POST["respaldo"]) : "";
+      $validacionRespaldo = $this->validarRespaldoVentasPos($respaldo);
+      if ($autorizar !== "VENTAS_POS_DESTINO_FINAL_CUARENTENA_DDL" || !$validacionRespaldo["ok"]) {
+        return json_encode(array(
+          "error" => true,
+          "tipo" => "danger",
+          "mensaje" => "No se ejecuto DDL de destino final de cuarentena. Falta autorizacion explicita o respaldo valido.",
+          "depurar" => array(
+            "requerido" => array(
+              "autorizar" => "VENTAS_POS_DESTINO_FINAL_CUARENTENA_DDL",
+              "respaldo" => "RUTA_O_REFERENCIA"
+            ),
+            "validacion_respaldo" => $validacionRespaldo,
+            "reglas" => array(
+              "No ejecutar sin respaldo externo verificado.",
+              "No resolver partidas desde este endpoint.",
+              "No mover inventario desde este endpoint."
+            )
+          )
+        ));
+      }
+    }
+    return json_encode($this->modelo("VentasErpEsquema")->planActualizarDestinoFinalCuarentenaPos($ejecutar));
   }
 
   /**

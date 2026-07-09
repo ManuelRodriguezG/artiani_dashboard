@@ -1434,3 +1434,57 @@ Siguiente decision recomendada:
 
 - Cerrar el pendiente historico con una inspeccion documental similar, o
 - avanzar interfaz operativa para que evidencias, devoluciones e inspecciones se gestionen desde POS/Backoffice sin scripts UAT.
+
+## Preparado - UI inspeccion fisica devoluciones POS
+
+Estado:
+
+- Implementado en `C:\xampp\htdocs\panel_de_control`.
+- `Ventas > Devoluciones` ahora permite:
+  - consultar partidas fisicas pendientes;
+  - seleccionar una partida;
+  - prevalidar inspeccion;
+  - confirmar cuarentena documental desde UI.
+- Endpoint nuevo:
+  - `/ventas/devolucion_inspeccion_fisica_registrar_erp`.
+- Protecciones:
+  - requiere sesion, CSRF y permiso `ventas.operar`;
+  - el modelo solo permite `mantener_cuarentena`;
+  - no mueve inventario;
+  - no crea kardex;
+  - no crea garantia.
+
+Siguiente prueba manual recomendada:
+
+1. Abrir `/ventas/devoluciones`.
+2. Consultar `Pendientes`.
+3. Seleccionar el pendiente historico `DEV-20260630-000001`.
+4. Usar `Prevalidar`.
+5. Confirmar cuarentena solo si el resultado no muestra bloqueos.
+6. Volver a consultar pendientes y confirmar que queda en cero.
+
+Nota:
+
+- Este flujo ya no necesita script UAT para la decision `mantener_cuarentena`, pero sigue siendo una escritura real; debe probarse con cuidado en UAT.
+
+## Ejecutado/observado - Bandeja fisica POS limpia
+
+Estado observado el 2026-07-09:
+
+- `DEV-20260630-000001` ya tiene inspeccion fisica.
+- `id_inspeccion_fisica=3`.
+- `inspeccion_estado=cuarentena_confirmada`.
+- Bandeja `devoluciones_fisicas_pendientes=0`.
+- Reversa historica sin hallazgos en post-readonly.
+
+Nota operativa:
+
+- No fue ejecutado por comandos de esta sesion; se toma como UAT externa o prueba manual.
+- No queda autorizacion pendiente para `mantener_cuarentena`.
+
+Siguientes autorizaciones futuras probables:
+
+- DDL/modelo/UI para `reintegrar_disponible` con kardex de entrada y trazabilidad.
+- DDL/modelo/UI para `merma` con evidencia y razon operativa.
+- DDL/modelo/UI para `garantia_proveedor` ligado al modulo de garantias/proveedores.
+- DDL/modelo/UI para `reparacion` o diagnostico tecnico.
