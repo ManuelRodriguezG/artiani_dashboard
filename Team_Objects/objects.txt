@@ -1,0 +1,3 @@
+In this file we will write short or long term objectives to have the best control for this project
+
+2020-04-12 Manuel: Terminaré navbar (menu) principal, implementaré un menu para la portada y propondré una versión de menu para dispositivos mobiles. [Time: 5 días].

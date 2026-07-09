@@ -1,0 +1,74 @@
+.rowContForms{
+    padding:15px;
+}
+.rowDate{
+    justify-content:center;
+    text-align:center;
+    padding:10px;
+}
+.rowDates{
+    margin-top:10px;   
+}
+.rowTour{
+    justify-content:center;
+    text-align:center;
+    padding:10px;
+}
+.rowOpen{
+    background:rgba(0,123,32,0.61);
+    color:white;
+    justify-content:center;
+    border-radius:4px;
+    margin:0px;
+}
+.rowClose{
+    background:rgba(255,0,0,0.61);
+    color:white;
+    justify-content:center;
+    border-radius:4px;
+    margin:0px;
+}
+.dateOpen{
+    padding:0;
+}
+.rowDatesOpen{
+    text-align:center;
+    justify-content:center;
+}
+.rowDatesClose{
+    text-align:center;
+    justify-content:center;
+}
+.dateClose{
+    padding:0;
+}
+.centralContent{
+    justify-content: center;
+    text-align: center;
+}
+/*keywords*/
+#inputKeyword{
+    width:100%;
+}
+#containerKeywords{
+    padding:20px;
+}
+.contBtnAdd{
+    padding:25px;
+}
+.rowM{
+    padding:10px;
+}
+.cursor{
+    cursor:pointer;
+    text-align:center;
+}
+.cursor:hover{
+    background:rgba(0,0,0,0.3);
+}
+#msgStatus{
+    padding:10px;
+}
+.addK{
+ background:#beebff;   
+}

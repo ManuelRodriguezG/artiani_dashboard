@@ -1,0 +1,40 @@
+.listF{
+    list-style:none;
+}
+.styleH{
+    color:#afafaf;
+    font-family: 'Lato', sans-serif;
+    font-size:15px;
+}
+.styleH:hover{
+    color:white;
+}
+
+.iconS{
+    font-size:25px;
+    padding:5px;
+    color:white;
+}
+.fa-whatsapp:hover{
+    color:#00e676;
+}
+
+.fa-facebook-square:hover{
+    color:#1877f2;
+}
+.fa-instagram:hover{
+    color:#bd3096;
+}
+.fa-twitter:hover{
+    color:#00abf0;
+}
+.fa-envelope:hover{
+    color:#50a6ff;
+}
+.styleH > span{
+    padding-right:5px;
+}
+.row-footer{
+    margin:0;
+    background:#001C63;
+}

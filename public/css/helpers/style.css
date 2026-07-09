@@ -1,0 +1,72 @@
+/**
+* Css Helpers
+*/
+
+
+/* Alerts */
+
+
+.state-warning-alert{
+    color:#721c24;
+    background-color:#f8d7da;
+    border:1px solid #f5c6cb;
+}
+.state-info-alert{
+    color:#856404;
+    background-color:#fff3cd;
+    border:1px solid #ffeeba;
+}
+.state-success-alert{
+    color:#0c5460;
+    background-color:#d1ecf1;
+    border:1px solid #bee5eb;
+}
+
+/* Modal */
+
+.modal-body-company{
+    padding:10px;
+}
+.modal-header-company{
+    position:sticky;
+    z-index:1;
+    top:0;
+    right:0;
+    left:0;
+    background:white;
+    box-shadow:0px 0px 2px 0px;
+    padding:10px;
+}
+.modal-content-company{
+    background: white;
+    box-shadow: 0px 0px 2px 0px rgba(0,0,0,0.75);
+    border: 1px solid #c5c5c5;
+    width: 100%;
+    height: auto;
+    max-width:600px;
+    margin-top:100px;
+    margin:3.75rem auto;
+}
+.modal-company{
+    overflow-y:auto;
+    display:none;
+    position: fixed;
+    background: #00000069;
+    top: 0;
+    z-index: 1050;
+    color: black;
+    box-shadow: 0px 0px 4px 0px rgba(0,0,0,0.75);
+    width: 100%;
+    height: 100%;
+    
+}
+.btn-company{
+    float:right;
+    padding:10px;
+    opacity:0.5;
+    width:auto;
+    
+}
+.btn-company:focus{
+    box-shadow:none;
+}

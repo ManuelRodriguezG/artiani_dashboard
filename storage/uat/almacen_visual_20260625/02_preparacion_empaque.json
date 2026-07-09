@@ -1,0 +1,416 @@
+{
+  "title": "Preparacion y empaque",
+  "url": "http://dashboard.com.local/almacen/preparacion_empaque",
+  "hasLogin": false,
+  "bodySample": "Dashboards\nPages\nApps\nLayouts\nHelp\n1\n1\nResumen\nOPERACION\nCatalogo\nRentabilidad\nCompras\nProveedores\nAlmacen\nInventario\nVentas\nEcommerce\nADMINISTRACION\nUsuarios y roles\nCerrar sesion\n1\nPreparacion/Empaque\nConversion fisica de una existencia origen a presentaciones vendibles\n Etiquetado\n Nuevo borrador\nBorrador\nAlmacen\nFrancisco Javier Mina 971 - Bodega trasera\nSKU origen \nSelecciona SKU origen\nTP-40372 - Alimento churro blanco para peces agranel\nTP-40372-500GR - Alimento churro blanco para peces 500 gr\nTP-40352 - Alimento churro rojo para peces agranel\nSelecciona SKU origen\nPresentacion a preparar\nSelecciona primero SKU origen\nUnidades a preparar\nSelecciona SKU origen.\nObservaciones\n Guardar\n Confirmar\nExistencia origen\nSin SKU origen seleccionado.\nTodos\nBorrador\nConfirmada\nCancelada\n Actualizar\nFOLIO\tPRESENTACION\tALMACEN\tUNIDADES\tORIGEN\tESTADO\tACCIONES\nSin preparaciones",
+  "elements": [
+    {
+      "tag": "SPAN",
+      "text": "3",
+      "x": 0,
+      "y": 0,
+      "w": 0,
+      "h": 0
+    },
+    {
+      "tag": "INPUT",
+      "text": "",
+      "x": 0,
+      "y": 0,
+      "w": 0,
+      "h": 0
+    },
+    {
+      "tag": "INPUT",
+      "text": "",
+      "x": 0,
+      "y": 0,
+      "w": 0,
+      "h": 0
+    },
+    {
+      "tag": "INPUT",
+      "text": "has",
+      "x": 0,
+      "y": 0,
+      "w": 0,
+      "h": 0
+    },
+    {
+      "tag": "INPUT",
+      "text": "users",
+      "x": 0,
+      "y": 0,
+      "w": 0,
+      "h": 0
+    },
+    {
+      "tag": "INPUT",
+      "text": "orders",
+      "x": 0,
+      "y": 0,
+      "w": 0,
+      "h": 0
+    },
+    {
+      "tag": "INPUT",
+      "text": "projects",
+      "x": 0,
+      "y": 0,
+      "w": 0,
+      "h": 0
+    },
+    {
+      "tag": "INPUT",
+      "text": "",
+      "x": 0,
+      "y": 0,
+      "w": 0,
+      "h": 0
+    },
+    {
+      "tag": "INPUT",
+      "text": "",
+      "x": 0,
+      "y": 0,
+      "w": 0,
+      "h": 0
+    },
+    {
+      "tag": "INPUT",
+      "text": "has",
+      "x": 0,
+      "y": 0,
+      "w": 0,
+      "h": 0
+    },
+    {
+      "tag": "INPUT",
+      "text": "any",
+      "x": 0,
+      "y": 0,
+      "w": 0,
+      "h": 0
+    },
+    {
+      "tag": "SELECT",
+      "text": "Within the next\n                                        Within the last\n        ",
+      "x": 0,
+      "y": 0,
+      "w": 0,
+      "h": 0
+    },
+    {
+      "tag": "INPUT",
+      "text": "",
+      "x": 0,
+      "y": 0,
+      "w": 0,
+      "h": 0
+    },
+    {
+      "tag": "SELECT",
+      "text": "Days\n                                            Weeks\n                         ",
+      "x": 0,
+      "y": 0,
+      "w": 0,
+      "h": 0
+    },
+    {
+      "tag": "BUTTON",
+      "text": "Cancel",
+      "x": 0,
+      "y": 0,
+      "w": 0,
+      "h": 0
+    },
+    {
+      "tag": "INPUT",
+      "text": "1",
+      "x": 0,
+      "y": 0,
+      "w": 0,
+      "h": 0
+    },
+    {
+      "tag": "INPUT",
+      "text": "1",
+      "x": 0,
+      "y": 0,
+      "w": 0,
+      "h": 0
+    },
+    {
+      "tag": "INPUT",
+      "text": "1",
+      "x": 0,
+      "y": 0,
+      "w": 0,
+      "h": 0
+    },
+    {
+      "tag": "INPUT",
+      "text": "1",
+      "x": 0,
+      "y": 0,
+      "w": 0,
+      "h": 0
+    },
+    {
+      "tag": "INPUT",
+      "text": "1",
+      "x": 0,
+      "y": 0,
+      "w": 0,
+      "h": 0
+    },
+    {
+      "tag": "BUTTON",
+      "text": "Cancel",
+      "x": 0,
+      "y": 0,
+      "w": 0,
+      "h": 0
+    },
+    {
+      "tag": "BUTTON",
+      "text": "Save Changes",
+      "x": 0,
+      "y": 0,
+      "w": 0,
+      "h": 0
+    },
+    {
+      "tag": "SPAN",
+      "text": "1",
+      "x": 1199.625,
+      "y": 3.625,
+      "w": 22.75,
+      "h": 22.75
+    },
+    {
+      "tag": "BUTTON",
+      "text": "Leida",
+      "x": 0,
+      "y": 0,
+      "w": 0,
+      "h": 0
+    },
+    {
+      "tag": "SPAN",
+      "text": "1",
+      "x": 0,
+      "y": 0,
+      "w": 0,
+      "h": 0
+    },
+    {
+      "tag": "SPAN",
+      "text": "25 pending tasks",
+      "x": 0,
+      "y": 0,
+      "w": 0,
+      "h": 0
+    },
+    {
+      "tag": "SPAN",
+      "text": "Pro",
+      "x": 0,
+      "y": 0,
+      "w": 0,
+      "h": 0
+    },
+    {
+      "tag": "SPAN",
+      "text": "3",
+      "x": 0,
+      "y": 0,
+      "w": 0,
+      "h": 0
+    },
+    {
+      "tag": "INPUT",
+      "text": "1",
+      "x": 0,
+      "y": 0,
+      "w": 0,
+      "h": 0
+    },
+    {
+      "tag": "INPUT",
+      "text": "",
+      "x": 0,
+      "y": 0,
+      "w": 0,
+      "h": 0
+    },
+    {
+      "tag": "INPUT",
+      "text": "",
+      "x": 0,
+      "y": 0,
+      "w": 0,
+      "h": 0
+    },
+    {
+      "tag": "BUTTON",
+      "text": "Reactivar sesion\n                        Validando...",
+      "x": 0,
+      "y": 0,
+      "w": 0,
+      "h": 0
+    },
+    {
+      "tag": "BUTTON",
+      "text": "Nuevo borrador",
+      "x": 1248.109375,
+      "y": 128.609375,
+      "w": 161.890625,
+      "h": 43.5625
+    },
+    {
+      "tag": "INPUT",
+      "text": "",
+      "x": 0,
+      "y": 0,
+      "w": 0,
+      "h": 0
+    },
+    {
+      "tag": "SELECT",
+      "text": "Francisco Javier Mina 971 - Bodega trasera",
+      "x": 324.25,
+      "y": 344.78125,
+      "w": 302.328125,
+      "h": 43.5625
+    },
+    {
+      "tag": "SELECT",
+      "text": "Selecciona SKU origen\nTP-40372 - Alimento churro blanco para peces agranel\nTP-40",
+      "x": 324.25,
+      "y": 428.328125,
+      "w": 1,
+      "h": 1
+    },
+    {
+      "tag": "SELECT",
+      "text": "Selecciona primero SKU origen",
+      "x": 324.25,
+      "y": 511.875,
+      "w": 302.328125,
+      "h": 43.5625
+    },
+    {
+      "tag": "INPUT",
+      "text": "1",
+      "x": 324.25,
+      "y": 595.421875,
+      "w": 302.328125,
+      "h": 43.5625
+    },
+    {
+      "tag": "BUTTON",
+      "text": "Guardar",
+      "x": 324.25,
+      "y": 838.90625,
+      "w": 114.984375,
+      "h": 43.5625
+    },
+    {
+      "tag": "BUTTON",
+      "text": "Confirmar",
+      "x": 445.734375,
+      "y": 838.90625,
+      "w": 125.296875,
+      "h": 43.5625
+    },
+    {
+      "tag": "INPUT",
+      "text": "",
+      "x": 701.328125,
+      "y": 247.796875,
+      "w": 300,
+      "h": 43.5625
+    },
+    {
+      "tag": "SELECT",
+      "text": "Todos\nBorrador\nConfirmada\nCancelada",
+      "x": 1046.453125,
+      "y": 247.796875,
+      "w": 200,
+      "h": 43.5625
+    },
+    {
+      "tag": "BUTTON",
+      "text": "Actualizar",
+      "x": 1256.203125,
+      "y": 247.796875,
+      "w": 124.53125,
+      "h": 43.5625
+    },
+    {
+      "tag": "TH",
+      "text": "FOLIO",
+      "x": 701.328125,
+      "y": 301.109375,
+      "w": 78.75,
+      "h": 45.015625
+    },
+    {
+      "tag": "TH",
+      "text": "PRESENTACION",
+      "x": 780.078125,
+      "y": 301.109375,
+      "w": 193.578125,
+      "h": 45.015625
+    },
+    {
+      "tag": "TH",
+      "text": "ALMACEN",
+      "x": 973.65625,
+      "y": 301.109375,
+      "w": 134.75,
+      "h": 45.015625
+    },
+    {
+      "tag": "TH",
+      "text": "UNIDADES",
+      "x": 1108.40625,
+      "y": 301.109375,
+      "w": 139.3125,
+      "h": 45.015625
+    },
+    {
+      "tag": "TH",
+      "text": "ORIGEN",
+      "x": 1247.71875,
+      "y": 301.109375,
+      "w": 113.140625,
+      "h": 45.015625
+    },
+    {
+      "tag": "TH",
+      "text": "ESTADO",
+      "x": 1360.859375,
+      "y": 301.109375,
+      "w": 116.171875,
+      "h": 45.015625
+    },
+    {
+      "tag": "TH",
+      "text": "ACCIONES",
+      "x": 1477.03125,
+      "y": 301.109375,
+      "w": 124.296875,
+      "h": 45.015625
+    },
+    {
+      "tag": "TD",
+      "text": "Sin preparaciones",
+      "x": 701.328125,
+      "y": 346.125,
+      "w": 900,
+      "h": 85
+    }
+  ]
+}

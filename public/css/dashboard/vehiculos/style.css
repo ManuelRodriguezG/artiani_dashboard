@@ -1,0 +1,81 @@
+
+#agregar-modelo-marca{
+    display:none;
+    padding:10px;
+    margin:10px;
+    border:2px solid #ececec;
+}
+#select-modelo-vehiculo{
+        display:none;
+    }
+    #editable-modelo{
+        display:none;
+    }
+    #editable-marca{
+        display:none;
+    }
+    .edit-image{
+        
+    }
+    .edit-image>i{
+        display:block;
+    }
+    .edit-image>p{
+        display:none;
+    }
+    .update-image>p{
+        display:none;
+    }
+    .edit-icon{
+        display:none;
+        position:absolute;
+        bottom:0;
+        right:0;
+    }
+        .input-preview__src {
+	display: none;
+}
+
+.input-preview {
+	cursor:pointer;
+	min-height:40px;
+	border-radius: 0.5em;
+	width: 100%;
+	height: 100%;
+	display: flex;
+	justify-content: center;
+	align-items: center;
+	background-size: contain;
+	background-repeat: no-repeat;
+	background-position: center;
+	position: relative;
+	transition: ease-in-out 750ms;
+}
+
+.input-preview::after {
+	position: absolute;
+	top: 50%;
+	left: 0;
+	width: 100%;
+	text-align: center;
+	transform: translateY(50%);
+	
+	font-style: italic;
+	font-size: 1em;
+}
+
+.has-image::before {
+	
+	top: 0;
+	left: 0;
+	width: 100%;
+	height: 100%;
+	
+	content: " ";
+	transition: ease-in-out 750ms;
+}
+
+.has-image::after {
+	
+	color: white;
+}

@@ -1,0 +1,15 @@
+{
+  "wwwsqldesigner": {
+    "descripcion": "Diseñar esquema de base de datos",
+    "url": "https://ondras.zarovi.cz/sql/demo/?keyword=default"
+  },
+  "navicat": {
+    "descripcion": "Gestor de base de datos"
+  },
+  "xamp": {
+    "descripcion": "servidor web local"
+  },
+  "netbeans": {
+    "descripcion": "IDE gestor de código"
+  }
+}

@@ -1,0 +1,19 @@
+  @import url(https://fonts.googleapis.com/css?family=Montserrat:400,700);
+     
+     @font-face{
+        font-family: "Politica";
+        src: url('../../fonts/Politica-Bold.otf');
+    }
+    .titlePan{
+        font-family:"Politica";
+    }
+     .labelChart{
+         font-family: "Montserrat", sans-serif;
+     }
+     
+    .row-dashboard{
+        margin:0 !important;
+    }
+    #views-zone{
+        padding:10px;
+    }

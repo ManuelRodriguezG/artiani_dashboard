@@ -1,0 +1,25 @@
+/*----- Menu animation -----*/
+
+https://codepen.io/berikidis/pen/dweNVp
+
+https://codepen.io/lorryc/pen/aOJaeo
+
+https://codepen.io/MiXT4PE/pen/VdgZyW
+
+https://codepen.io/matthewsechrest/pen/JXrOdG
+
+https://codepen.io/clknap/pen/puies
+
+https://codepen.io/choogoor/pen/yJLOgp
+
+https://codepen.io/matthoiland/pen/gmFJs
+
+https://codepen.io/hexagoncircle/pen/OMJeja
+
+https://codepen.io/victorfreire/pen/QywRNM
+
+/*----- Optiones para carrito de Compras -----*/
+
+https://codepen.io/suez/pen/eNwwGp
+//effect
+https://codepen.io/sgamble/pen/EeGwbB

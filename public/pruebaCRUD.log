@@ -1,0 +1,9 @@
+PDOException: SQLSTATE[HY000] [1049] Unknown database 'db_beay' in C:\xampp\htdocs\beay\mvc\app\core\CRUD.php:21
+Stack trace:
+#0 C:\xampp\htdocs\beay\mvc\app\core\CRUD.php(21): PDO->__construct('mysql:host=loca...', 'root', '', Array)
+#1 C:\xampp\htdocs\beay\mvc\app\core\CRUD.php(38): MySqlDB->conectar()
+#2 C:\xampp\htdocs\beay\mvc\app\core\Controlador.php(12): CRUD->__construct()
+#3 C:\xampp\htdocs\beay\mvc\app\controladores\Categoria.php(31): Controlador->modelo('Categorias')
+#4 C:\xampp\htdocs\beay\mvc\app\core\Core.php(72): Categoria->consultar()
+#5 C:\xampp\htdocs\beay\mvc\public\index.php(3): Core->__construct()
+#6 {main}

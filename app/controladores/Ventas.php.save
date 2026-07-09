@@ -1,0 +1,633 @@
+<?php
+
+class Ventas extends Controlador {
+
+  public function __construct() {
+    if (!$_SESSION['id_usuario']) {
+      header('Location: /autenticacion/login');
+      exit;
+    }
+  }
+
+  public function index() {
+    
+  }
+
+  public function crear() {
+    $this->vista("apps/ecommerce/sales/agregar-venta");
+  }
+
+  public function editar() {
+    $this->vista("apps/ecommerce/sales/editar-venta");
+  }
+
+  public function mostrar() {
+    $this->vista("apps/ecommerce/sales/ventas");
+  }
+
+  public function estatus_pedido() {
+    $ventas = $this->modelo("Venta");
+    $estatus_ventas = $ventas->obtener_estatus();
+    return json_encode($estatus_ventas);
+  }
+
+  public function validar_datos_registro_cliente() {
+    
+  }
+
+  public function registrar_cliente() {
+    
+  }
+
+  public function actualizar() {
+
+    //Cliente
+    $id_cliente = $_POST['cliente']['id_cliente'];
+    $cliente_nombres = $_POST['cliente']['nombre'];
+    $cliente_apellido_paterno = $_POST['cliente']['apellido_paterno'];
+    $cliente_apellido_materno = $_POST['cliente']['apellido_materno'];
+    $cliente_contacto_1 = $_POST['cliente']['contacto_1'];
+    $cliente_contacto_2 = $_POST['cliente']['contacto_2'];
+    $cliente = $this->modelo("Cliente");
+    $cliente->setNombres($cliente_nombres);
+    $cliente->setApellido_materno($cliente_apellido_materno);
+    $cliente->setApellido_paterno($cliente_apellido_paterno);
+    $cliente->setCorreo("");
+    $cliente->setContacto1($cliente_contacto_1);
+    $cliente->setContacto2($cliente_contacto_2);
+    $respuesta_consulta_cliente = $cliente->consultar_cliente();
+    if ($respuesta_consulta_cliente['error'] == false) {
+      $id_cliente = $respuesta_consulta_cliente['depurar']['id_cliente'];
+      $cliente->setId_cliente($id_cliente);
+      $respuesta_actualizar_cliente = $cliente->actualizar_cliente();
+    } else {
+      $respuesta_registro_cliente = $cliente->registrar_cliente();
+      if ($respuesta_registro_cliente['error'] == false) {
+        $id_cliente = $respuesta_registro_cliente['depurar'];
+      }
+    }
+//    var_dump($respuesta_consulta_cliente);
+//    var_dump($id_cliente);
+//    $respuesta = $cliente->actualizar_cliente();
+//    var_dump($respuesta);
+    $datos_facturacion_default = array(
+        "uso_cfdi" => "Sin efectos fiscales",
+        "rfc" => "XXAXX",
+        "regimen_fiscal" => "Sin obligaciones fiscales"
+    );
+    //Facturacion
+    $id_datos_facturacion = $_POST['cliente']['datos_facturacion']['id_datos_facturacion'];
+    $facturacion_facturar = $_POST['cliente']['datos_facturacion']['facturar'];
+    $facturacion_uso_cfdi = $_POST['cliente']['datos_facturacion']['uso_cfdi'];
+    $facturacion_rfc = $_POST['cliente']['datos_facturacion']['rfc'];
+    $facturacion_razon_social = $_POST['cliente']['datos_facturacion']['rfc'];
+    $facturacion_regimen_fiscal = $_POST['cliente']['datos_facturacion']['regimen_fiscal'];
+    $facturacion_estado = $_POST['cliente']['datos_facturacion']['estado'];
+    $facturacion_ciudad = $_POST['cliente']['datos_facturacion']['ciudad'];
+    $facturacion_colonia = $_POST['cliente']['datos_facturacion']['colonia'];
+    $facturacion_calle = $_POST['cliente']['datos_facturacion']['calle'];
+    $facturacion_numero_exterior = $_POST['cliente']['datos_facturacion']['numero_exterior'];
+    $facturacion_interior = $_POST['cliente']['datos_facturacion']['numero_interior'];
+    $facturacion_codigo_postal = $_POST['cliente']['datos_facturacion']['codigo_postal'];
+    //Envio
+    $id_datos_envio = $_POST['cliente']['datos_envio']['id_datos_envio'];
+    $fecha = $_POST['cliente']['datos_envio']['fecha'];
+    $envio_estado = $_POST['cliente']['datos_envio']['estado'];
+    $envio_ciudad = $_POST['cliente']['datos_envio']['ciudad'];
+    $envio_colonia = $_POST['cliente']['datos_envio']['colonia'];
+    $envio_calle = $_POST['cliente']['datos_envio']['calle'];
+    $envio_numero_exterior = $_POST['cliente']['datos_envio']['numero_exterior'];
+    $envio_numero_interior = $_POST['cliente']['datos_envio']['numero_interior'];
+    $envio_codigo_postal = $_POST['cliente']['datos_envio']['codigo_postal'];
+    $envio_referencias = $_POST['cliente']['datos_envio']['referencias'];
+
+    //Pedido
+    //totales
+    $id_pedido = $_POST['pedido']['id_pedido'];
+    $pedido_subtotal = $_POST['pedido']['subtotal'];
+    $pedido_descuento = $_POST['pedido']['descuento'];
+    $pedido_envio = $_POST['pedido']['envio'];
+    $pedido_iva = $_POST['pedido']['iva'];
+    $pedido_total = $_POST['pedido']['total'];
+    //productos
+    $pedido_productos = $_POST['pedido']['productos'];
+    //tipos entrega
+    $id_tipo_entrega = $_POST['tipo_entrega']['id_tipo_entrega'];
+    $tipo_entrega = $_POST['tipo_entrega']['tipo_entrega'];
+    $puntos_entrega = $_POST['tipo_entrega']['puntos_entrega'];
+    //horario entrega
+    $fecha_entrega = $_POST['horario_entrega']['fecha_entrega'];
+    $hora_entrega = $_POST['horario_entrega']['hora_entrega'];
+    $turno_horario = $_POST['horario_entrega']['turno_horario'];
+    //pagos
+    $pagos = $_POST['pagos'];
+
+    $venta = $this->modelo("Venta");
+    //datos envio
+    $venta->setFecha_entrega($fecha);
+    $venta->setId_datos_envio($id_datos_envio);
+    $venta->setEnvio_estado($envio_estado);
+    $venta->setEnvio_ciudad($envio_ciudad);
+    $venta->setEnvio_colonia($envio_colonia);
+    $venta->setEnvio_calle($envio_calle);
+    $venta->setEnvio_numero_exterior($envio_numero_exterior);
+    $venta->setEnvio_numero_interior($envio_numero_interior);
+    $venta->setEnvio_referencias($envio_referencias);
+    $venta->setEnvio_codigo_postal($envio_codigo_postal);
+
+    $respuesta = $venta->actualizar_datos_envio();
+//    $id_datos_envio = $respuesta['depurar'];
+    var_dump($respuesta);
+    //datos facturacion
+    $venta->setId_datos_facturacion($id_datos_facturacion);
+    $venta->setRazon_social($facturacion_razon_social);
+    $venta->setRfc($facturacion_rfc);
+    $venta->setRegimen_fiscal($facturacion_regimen_fiscal);
+    $venta->setUso_cfdi($facturacion_uso_cfdi);
+    $venta->setFacturacion_estado($envio_estado);
+    $venta->setFacturacion_ciudad($envio_ciudad);
+    $venta->setFacturacion_colonia($envio_colonia);
+    $venta->setFacturacion_calle($envio_calle);
+    $venta->setFacturacion_numero_exterior($envio_numero_exterior);
+    $venta->setFacturacion_numero_interior($envio_numero_interior);
+    $venta->setFacturacion_referencias($envio_referencias);
+    $venta->setFacturacion_codigo_postal($envio_codigo_postal);
+
+    $respuesta = $venta->actualizar_datos_facturacion();
+    $id_datos_facturacion = $respuesta['depurar'];
+    var_dump($respuesta);
+    //pedido
+    $agente = $this->obtenerNavegadorWeb();
+    $venta->setId_pedido($id_pedido);
+    $venta->setIp($this->getRealIP());
+    $venta->setNavegador($agente ? $agente['agente'] : null);
+    $venta->setId_cliente($id_cliente);
+    $venta->setDescuento($pedido_descuento);
+    $venta->setEnvio($pedido_envio);
+    $venta->setIva($pedido_iva);
+    $venta->setSubtotal($pedido_subtotal);
+    $venta->setTotal($pedido_total);
+
+    $estatus_pedido = $this->procesar_pagos($pedido_subtotal, $pedido_envio, $pedido_descuento, $pagos);
+//    var_dump("estatus_pedido: " . $estatus_pedido);
+    $venta->setEstatus($estatus_pedido);
+
+    $respuesta = $venta->actualizar_pedido();
+    var_dump($respuesta);
+//    $id_pedido = $respuesta['depurar'];
+    //pagos
+    $errores_pagos = array();
+    if (sizeof($pagos) > 0) {
+      $venta->setId_pedido($id_pedido);
+      $respuesta_eliminar_pagos = $venta->eliminar_pagos();
+      var_dump($respuesta_eliminar_pagos);
+      if ($respuesta_eliminar_pagos['error'] == false) {
+        foreach ($pagos as $pago) {
+          $venta->setId_pedido($id_pedido);
+          $venta->setId_metodo_pago($pago['metodo']);
+          $venta->setCantidad_pago($pago['cantidad']);
+          $respuesta = $venta->registrar_pagos();
+//        var_dump($respuesta);
+          if ($respuesta['error'] == false) {
+            $errores_pagos[] = $respuesta;
+          }
+        }
+      }
+    }
+    var_dump(sizeof($pedido_productos));
+    if (sizeof($pedido_productos) > 0) {
+      $venta->setId_pedido($id_pedido);
+      $respuesta_eliminar_productos = $venta->eliminar_productos();
+      var_dump($respuesta_eliminar_productos);
+      if ($respuesta_eliminar_productos['error'] == false) {
+        foreach ($pedido_productos as $key => $values) {
+          $id_producto = $values['id_producto'];
+          $cantidad = $values['cantidad'];
+          $precio = $values['precio'];
+          $importe = $cantidad * $precio;
+          $portada = $values['portada'];
+          $nombre = $values['producto'];
+          $tipo = $values['tipo_item'];
+          //pedido
+          $venta->setId_pedido($id_pedido);
+          $venta->setId_producto($id_producto);
+          $venta->setProducto($nombre);
+          $venta->setCantidad($cantidad);
+          $venta->setPrecio($precio);
+          $venta->setDescuento(0);
+          $venta->setIva(0);
+          $venta->setItem_tipo($tipo);
+          $venta->setSubtotal($importe);
+          $respuesta = $venta->registrar_productos();
+          if ($respuesta['error'] == true) {
+            $errores_productos_pedido[] = "";
+          }
+        }
+      }
+    }
+
+    var_dump($errores_pagos);
+    //productos pedido
+  }
+
+  public function registrar() {
+
+    //Cliente
+    $cliente_nombres = $_POST['cliente']['nombre'];
+    $cliente_apellido_paterno = $_POST['cliente']['apellido_paterno'];
+    $cliente_apellido_materno = $_POST['cliente']['apellido_materno'];
+    $cliente_contacto_1 = $_POST['cliente']['contacto_1'];
+    $cliente_contacto_2 = $_POST['cliente']['contacto_2'];
+    $cliente = $this->modelo("Cliente");
+    $cliente->setNombres($cliente_nombres);
+    $cliente->setApellido_materno($cliente_apellido_materno);
+    $cliente->setApellido_paterno($cliente_apellido_paterno);
+    $cliente->setCorreo("");
+    $cliente->setContacto1($cliente_contacto_1);
+    $cliente->setContacto2($cliente_contacto_2);
+    //validar si ya existe
+    $respuesta_cliente = $cliente->consultar_cliente();
+    $id_cliente = 0;
+    if ($respuesta_cliente['error'] == false) {
+      $id_cliente = $respuesta_cliente['depurar']['id_cliente'];
+    } else {
+      $respuesta_cliente = $cliente->registrar_cliente();
+      $id_cliente = $respuesta_cliente['depurar'];
+    }
+
+    $datos_facturacion_default = array(
+        "uso_cfdi" => "Sin efectos fiscales",
+        "rfc" => "XXAXX",
+        "regimen_fiscal" => "Sin obligaciones fiscales"
+    );
+    //Facturacion
+    $facturacion_facturar = $_POST['cliente']['datos_facturacion']['facturar'];
+    $facturacion_uso_cfdi = $_POST['cliente']['datos_facturacion']['uso_cfdi'];
+    $facturacion_rfc = $_POST['cliente']['datos_facturacion']['rfc'];
+    $facturacion_razon_social = $_POST['cliente']['datos_facturacion']['razon_social'];
+    $facturacion_regimen_fiscal = $_POST['cliente']['datos_facturacion']['regimen_fiscal'];
+    $facturacion_estado = $_POST['cliente']['datos_facturacion']['estado'];
+    $facturacion_ciudad = $_POST['cliente']['datos_facturacion']['ciudad'];
+    $facturacion_colonia = $_POST['cliente']['datos_facturacion']['colonia'];
+    $facturacion_calle = $_POST['cliente']['datos_facturacion']['calle'];
+    $facturacion_numero_exterior = $_POST['cliente']['datos_facturacion']['numero_exterior'];
+    $facturacion_interior = $_POST['cliente']['datos_facturacion']['numero_interior'];
+    $facturacion_codigo_postal = $_POST['cliente']['datos_facturacion']['codigo_postal'];
+    //Envio
+    $envio_estado = $_POST['cliente']['datos_envio']['estado'];
+    $envio_ciudad = $_POST['cliente']['datos_envio']['ciudad'];
+    $envio_colonia = $_POST['cliente']['datos_envio']['colonia'];
+    $envio_calle = $_POST['cliente']['datos_envio']['calle'];
+    $envio_numero_exterior = $_POST['cliente']['datos_envio']['numero_exterior'];
+    $envio_numero_interior = $_POST['cliente']['datos_envio']['numero_interior'];
+    $envio_codigo_postal = $_POST['cliente']['datos_envio']['codigo_postal'];
+    $envio_referencias = $_POST['cliente']['datos_envio']['referencias'];
+    $fecha_entrega = $_POST['cliente']['datos_envio']['horario_entrega']['fecha_entrega'];
+    $hora_inicial = $_POST['cliente']['datos_envio']['horario_entrega']['hora_inicial_entrega'];
+    $hora_final = $_POST['cliente']['datos_envio']['horario_entrega']['hora_final_entrega'];
+    //Pedido
+    //totales
+    $pedido_subtotal = $_POST['pedido']['subtotal'];
+    $pedido_descuento = $_POST['pedido']['descuento'];
+    $pedido_envio = $_POST['pedido']['envio'];
+    $pedido_iva = $_POST['pedido']['iva'];
+    $pedido_total = $_POST['pedido']['total'];
+    $pedido_estatus = $_POST['pedido']['estatus'];
+    //productos
+    $pedido_productos = $_POST['pedido']['productos'];
+    //tipos entrega
+    $id_tipo_entrega = $_POST['tipo_entrega']['id_tipo_entrega'];
+    $tipo_entrega = $_POST['tipo_entrega']['tipo_entrega'];
+    $puntos_entrega = $_POST['tipo_entrega']['puntos_entrega'];
+    //horario entrega
+    $fecha_entrega = $_POST['cliente']['datos_envio']['horario_entrega']['fecha_entrega'];
+    $hora_entrega_inicial = $_POST['cliente']['datos_envio']['horario_entrega']['hora_inicial_entrega'];
+    $hora_entrega_final = $_POST['cliente']['datos_envio']['horario_entrega']['hora_final_entrega'];
+    $turno_horario = $_POST['cliente']['datos_envio']['horario_entrega']['turno_horario'];
+    //pagos
+    $pagos = $_POST['pagos'];
+
+    $venta = $this->modelo("Venta");
+    $venta->setFecha_entrega($fecha_entrega);
+    $venta->setHora_inicial($hora_entrega_inicial);
+    $venta->setHora_final($hora_entrega_final);
+    $venta->setEnvio_estado($envio_estado);
+    $venta->setEnvio_ciudad($envio_ciudad);
+    $venta->setEnvio_colonia($envio_colonia);
+    $venta->setEnvio_calle($envio_calle);
+    $venta->setEnvio_numero_exterior($envio_numero_exterior);
+    $venta->setEnvio_numero_interior($envio_numero_interior);
+    $venta->setEnvio_referencias($envio_referencias);
+    $venta->setEnvio_codigo_postal($envio_codigo_postal);
+    //datos envio
+    $respuesta = $venta->registrar_datos_envio();
+    $id_datos_envio = $respuesta['depurar'];
+
+    $venta->setRazon_social($facturacion_razon_social);
+    $venta->setRfc($facturacion_rfc);
+    $venta->setRegimen_fiscal($facturacion_regimen_fiscal);
+    $venta->setUso_cfdi($facturacion_uso_cfdi);
+    $venta->setFacturacion_estado($envio_estado);
+    $venta->setFacturacion_ciudad($envio_ciudad);
+    $venta->setFacturacion_colonia($envio_colonia);
+    $venta->setFacturacion_calle($envio_calle);
+    $venta->setFacturacion_numero_exterior($envio_numero_exterior);
+    $venta->setFacturacion_numero_interior($envio_numero_interior);
+    $venta->setFacturacion_referencias($envio_referencias);
+    $venta->setFacturacion_codigo_postal($envio_codigo_postal);
+    //datos facturacion
+    $respuesta = $venta->registrar_datos_facturacion();
+    $id_datos_facturacion = $respuesta['depurar'];
+    var_dump($respuesta);
+
+    $agente = $this->obtenerNavegadorWeb();
+    $venta->setIp($this->getRealIP());
+    $venta->setNavegador($agente ? $agente['agente'] : null);
+    $venta->setId_cliente($id_cliente);
+    $venta->setId_datos_envio($id_datos_envio);
+    $venta->setId_datos_facturacion($id_datos_facturacion);
+    $venta->setDescuento($pedido_descuento);
+    $venta->setEnvio($pedido_envio);
+    $venta->setIva($pedido_iva);
+    $venta->setSubtotal($pedido_subtotal);
+    $venta->setTotal($pedido_total);
+
+//    $estatus_pedido = $this->procesar_pagos($pedido_subtotal, $pedido_envio, $pedido_descuento, $pagos);
+//    var_dump("estatus_pedido: " . $estatus_pedido);
+    $venta->setEstatus($pedido_estatus);
+    //pedido
+    $respuesta = $venta->registrar_pedido();
+    var_dump($respuesta);
+    $id_pedido = $respuesta['depurar'];
+
+    //pedido estatus
+    $estatus_pedido = $this->registrar_estatus_pedido($venta, $pedido_estatus, $id_pedido);
+
+    //pagos
+    $errores_pagos = array();
+    $total_pagos = 0;
+    if (sizeof($pagos) > 0) {
+      foreach ($pagos as $pago) {
+        $venta->setId_pedido($id_pedido);
+        $venta->setId_metodo_pago($pago['metodo']);
+        $venta->setCantidad_pago($pago['cantidad']);
+        $total_pagos .= $pago['cantidad'];
+        $respuesta = $venta->registrar_pagos();
+        var_dump($respuesta);
+        if ($respuesta['error'] == false) {
+          $errores_pagos[] = $respuesta;
+        }
+      }
+    }
+
+    //pedido estatus
+    if ($total_pagos == $pedido_total) {
+      $estatus_pedido = $this->registrar_estatus_pedido($venta, 4, $id_pedido);
+    }
+
+    foreach ($pedido_productos as $key => $values) {
+      $id_producto = $values['id_producto'];
+      $cantidad = $values['cantidad'];
+      $precio = $values['precio'];
+      $importe = $cantidad * $precio;
+      $portada = $values['portada'];
+      $nombre = $values['producto'];
+      $tipo = $values['tipo_item'];
+      //pedido
+      $venta->setId_pedido($id_pedido);
+      $venta->setId_producto($id_producto);
+      $venta->setProducto($nombre);
+      $venta->setCantidad($cantidad);
+      $venta->setPrecio($precio);
+      $venta->setDescuento(0);
+      $venta->setIva(0);
+      $venta->setItem_tipo($tipo);
+      $venta->setSubtotal($importe);
+      $respuesta = $venta->registrar_productos();
+      if ($respuesta['error'] == true) {
+        $errores_productos_pedido[] = "";
+      }
+    }
+    var_dump($errores_pagos);
+    //productos pedido
+  }
+
+  public function registrar_estatus_pedido($venta, $pedido_estatus, $id_pedido) {
+
+    $venta->setId_estatus_pedido($pedido_estatus);
+    $venta->setId_pedido($id_pedido);
+    $respuesta = $venta->consultar_existencia_estatus_pedido();
+    if ($respuesta['error'] == false) {
+      //
+    } else {
+      $respuesta = $venta->insertar_estatus_pedido();
+    }
+  }
+
+  public function consultar() {
+    $venta = $this->modelo("Venta");
+    $respuesta = $venta->consultar_lista_ventas();
+    return json_encode($respuesta);
+  }
+
+  public function consulta_completa() {
+    $id_pedido = $_POST['id_pedido'] && $_POST['id_pedido'] != null ? $_POST['id_pedido'] : 0;
+    $respuesta = [
+        'error' => true,
+        'tipo' => "danger",
+        'mensaje' => "Datos incorrectos",
+        'depurar' => []
+    ];
+    //
+    if ($id_pedido != 0) {
+      $pedido = array();
+      //pedido
+      $venta = $this->modelo("Venta");
+      $venta->setId_pedido($id_pedido);
+      $respuesta = $venta->consultar_pedido();
+      if ($respuesta['error'] == false) {
+        $info_pedido = $respuesta['depurar'];
+        $id_cliente = $info_pedido['id_cliente'];
+        $id_datos_envio = $info_pedido['id_datos_envio'];
+        $id_datos_facturacion = $info_pedido['id_datos_facturacion'];
+        $pedido['pedido'] = $info_pedido;
+        //cliente
+        $venta->setId_cliente($id_cliente);
+        $respuesta = $venta->consultar_cliente();
+        if ($respuesta['error'] == false) {
+          $info_cliente = $respuesta['depurar'];
+          $pedido['cliente'] = $info_cliente;
+        }
+
+        //datos envio
+        $venta->setId_datos_envio($id_datos_envio);
+        $respuesta = $venta->consultar_datos_envio();
+var_dump($respuesta);
+        if ($respuesta['error'] == false) {
+          $datos_envio = $respuesta['depurar'];
+          $fecha_y_hora = $datos_envio['fecha_entrega'];
+          $separar = (explode(" ", $fecha_y_hora));
+          $fecha = $separar[0];
+          $hora = $separar[1];
+          $datos_envo['fecha'] = $fecha;
+          $datos_envio['hora'] = $hora;
+          $pedido['datos_envio'] = $datos_envio;
+        }
+        //datos facturacion
+        $venta->setId_datos_facturacion($id_datos_facturacion);
+        $respuesta = $venta->consultar_datos_facturacion();
+        if ($respuesta['error'] == false) {
+          $datos_facturacion = $respuesta['depurar'];
+          $pedido['datos_facturacion'] = $datos_facturacion;
+        }
+        //pagos
+        $venta->setId_pedido($id_pedido);
+        $respuesta = $venta->consultar_pagos();
+        if ($respuesta['error'] == false) {
+          $pagos = $respuesta['depurar'];
+          $pedido['pagos'] = $pagos;
+        }
+
+        //productos pedido
+        $ids_productos_pedido = array();
+        $arreglo_productos_por_id = array();
+        $ids_tipo_producto = array();
+        $venta->setId_pedido($id_pedido);
+        $respuesta = $venta->consultar_productos();
+//        var_dump($respuesta);
+        if ($respuesta['error'] == false) {
+          $productos_pedido = $respuesta['depurar'];
+          foreach ($productos_pedido as $key => $value) {
+            if (!in_array($value['id_producto'], $arreglo_productos_por_id)) {
+              $ids_tipo_producto[$value['id_producto']] = $value['tipo'];
+              $ids_productos_pedido[] = $value['id_producto'];
+              $arreglo_productos_por_id[$value['id_producto']] = $value;
+            }
+          }
+//          $respuesta = $this->consultar_productos_para_editar($productos);
+//          if ($respuesta['error'] == false) {
+//            $productos = $respuesta['depurar'];
+          $pedido['arr_ids'] = $ids_productos_pedido;
+          $pedido['productos_pedido'] = $productos_pedido;
+//          } else {
+//            
+//          }
+        }
+
+        //productos 
+        $productos_resp = array();
+        $productos = $this->modelo("Productos");
+        $respuesta = $productos->listar_productos_imagen();
+        if ($respuesta['error'] == false) {
+          $productos_resp = $respuesta['depurar'];
+          $pedido['productos'] = $productos_resp;
+        }
+
+        //paquetes 
+        $paquete = $this->modelo("Paquete");
+        $paquetes = array();
+        $respuesta = $paquete->listar_paquetes_imagen();
+        if ($respuesta['error'] == false) {
+          $paquetes = $respuesta['depurar'];
+          $pedido['paquetes'] = $paquetes;
+        }
+//        var_dump($ids_productos_pedido);
+        $items = array_merge($paquetes, $productos_resp);
+        foreach ($items as $key => $value) {
+          if ($items[$key]['tipo_item'] == "paquete" && in_array($items[$key]['id_paquete'], $ids_productos_pedido)) {
+            if ($arreglo_productos_por_id[$items[$key]['id_paquete']]['tipo'] == 'paquete') {
+              $items[$key]['cantidad'] = $arreglo_productos_por_id[$items[$key]['id_paquete']]['cantidad'];
+              $items[$key]['descuento'] = $arreglo_productos_por_id[$items[$key]['id_paquete']]['descuento'];
+              $items[$key]['id_pedido'] = $arreglo_productos_por_id[$items[$key]['id_paquete']]['id_pedido'];
+              $items[$key]['precio'] = $arreglo_productos_por_id[$items[$key]['id_paquete']]['precio'];
+              $items[$key]['subtotal'] = $arreglo_productos_por_id[$items[$key]['id_paquete']]['subtotal'];
+            }
+          } else if ($items[$key]['tipo_item'] == "producto" && in_array($items[$key]['id_producto'], $ids_productos_pedido)) {
+            if ($arreglo_productos_por_id[$items[$key]['id_producto']]['tipo'] == 'producto') {
+              $items[$key]['cantidad'] = $arreglo_productos_por_id[$items[$key]['id_producto']]['cantidad'];
+              $items[$key]['descuento'] = $arreglo_productos_por_id[$items[$key]['id_producto']]['descuento'];
+              $items[$key]['id_pedido'] = $arreglo_productos_por_id[$items[$key]['id_producto']]['id_pedido'];
+              $items[$key]['precio'] = $arreglo_productos_por_id[$items[$key]['id_producto']]['precio'];
+              $items[$key]['subtotal'] = $arreglo_productos_por_id[$items[$key]['id_producto']]['subtotal'];
+            }
+          }
+        }
+
+        $pedido['productos'] = $items;
+
+        $respuesta = [
+            'error' => false,
+            'tipo' => "success",
+            'mensaje' => "Pedido encontrado",
+            'depurar' => $pedido
+        ];
+      } else {
+        $respuesta = [
+            'error' => true,
+            'tipo' => "danger",
+            'mensaje' => "Pedido no encontrado",
+            'depurar' => []
+        ];
+      }
+    } else {
+      $respuesta = [
+          'error' => true,
+          'tipo' => "danger",
+          'mensaje' => "Pedido inválido",
+          'depurar' => []
+      ];
+    }
+    return json_encode($respuesta);
+  }
+
+  private function consultar_productos_para_editar($productos) {
+    $array_ids = array();
+    $length = sizeof($productos) - 1;
+    foreach ($productos as $key => $value) {
+//      var_dump($value);
+      $array_ids[] = $value['id_producto'];
+    }
+    $string_ids = implode(",", $array_ids);
+    $productos = $this->modelo("Productos");
+    $productos->setId_producto($string_ids);
+    $respuesta = $productos->consultar_para_editar_productos();
+//    var_dump($respuesta);
+    if ($respuesta['error'] == false) {
+      $respuesta = [
+          'error' => false,
+          'tipo' => "success",
+          'mensaje' => "Productos encontrados",
+          'depurar' => $respuesta['depurar']
+      ];
+    } else {
+      $respuesta = [
+          'error' => true,
+          'tipo' => "danger",
+          'mensaje' => "Productos no encontrados",
+          'depurar' => []
+      ];
+    }
+//    var_dump($respuesta);
+    return $respuesta;
+  }
+
+  private function procesar_pagos($productos_total, $pedido_envio, $pedido_descuento, $pagos) {
+    $total_pagos = 0;
+    foreach ($pagos as $pago) {
+      $total_pago += intval($pago['cantidad']);
+    }
+    var_dump($total_pago);
+    var_dump($productos_total);
+    var_dump("pedido_envio: " . $pedido_envio);
+    var_dump("pedido_descuento: " . $pedido_descuento);
+    $total_venta = intval($productos_total) + intval($pedido_envio) - intval($pedido_descuento);
+    var_dump("total_pago: " . $total_pago);
+    var_dump("productos_total: " . $total_venta);
+    if ($total_pago == $total_venta) {
+      return "pedido_pagado";
+    } else {
+      return "pedido_nuevo";
+    }
+  }
+
+}

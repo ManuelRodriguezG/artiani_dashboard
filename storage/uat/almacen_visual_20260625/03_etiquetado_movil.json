@@ -1,0 +1,904 @@
+{
+  "title": "Etiquetado de almacen",
+  "url": "http://dashboard.com.local/almacen/etiquetado",
+  "hasLogin": false,
+  "bodySample": "1\n1\nResumen\nOPERACION\nCatalogo\nRentabilidad\nCompras\nProveedores\nAlmacen\nInventario\nVentas\nEcommerce\nADMINISTRACION\nUsuarios y roles\nCerrar sesion\n1\nEtiquetado\nImpresion y pegado de etiquetas generadas por recepcion o preparacion\n Recepciones\n Imprimir seleccion\n Marcar pegadas\nTodos los estados\nPendiente impresion\nImpresa\nPegada\nReimpresa\nCancelada\nTodos los almacenes\nFrancisco Javier Mina 967 - Acuario\nFrancisco Javier Mina 971 - Mascotas frontal\nFrancisco Javier Mina 971 - Bodega trasera\n Actualizar\nUnidades 5\nPendientes 5\nImpresas 0\nPegadas 0\nSeleccionadas 0\n\tCODIGO\tSKU / PRODUCTO\tALMACEN\tORIGEN\tCONTENIDO\tESTADO\tACCIONES\n\t\nP25-P000006-0001\netiqueta_interna\t\nTP-40372-25GR\nAlimento churro blanco para peces 25 gr\n\tFrancisco Javier Mina 971 - Bodega trasera\nE1-C2-P1-A1-N3\n\t\nPREP-20260625-0002\nPreparacion/Empaque\n\t\n1 pza\nLote L1 | Cad. 2026-10-30\n\tPendiente impresionCerrada\t Imprimir\n\t\nP25-P000005-0001\netiqueta_interna\t\nTP-40372-25GR\nAlimento churro blanco para peces 25 gr\n\tFrancisco Javier Mina 971 - Bodega trasera\nE1-C2-P1-A1-N3\n\t\nPREP-20260625-0001\nPreparacion/Empaque\n\t\n1 pza\nLote L1 | Cad. 2026-10-30\n\tPendiente impresionCerrada\t Imprimir\n\t\nINV-00003-29-0002\netiqueta_interna\t\nTP-40311\nAlimento churro mix para peces agranel\n\tFrancisco Javier Mina 971 - Bodega trasera\nCSDAS-DF3\n\t\nREC-OC-25\nOC-2026-000025\n\t\n4 kg\nLote L01 | Cad. 2027-01-24\n\tPendiente impresionCerrada\t Imprimir\n\t\nINV-00003-29-0001\netiqueta_interna\t\nTP-40311\nAlimento churro mix para peces agranel\n\tFrancisco Javier Mina 971 - Bodega trasera\nCSDAS-DF3\n\t\nREC-OC-25\nOC-2026-000025\n\t\n4 kg\nLote L01 | Cad. 2027-01-24\n\tPendiente impresionCerrada\t Imprimir\n\t\nINV-00003-28-0001\netiqueta_interna\t\nTP-40311\nAlimento churro mix para peces agranel\n\tFrancisco Javier Mina 971 - Bodega trasera\nCSDAS-DF3\n\t\nREC-OC-25\nOC-2026-000025\n\t\n4 kg\nLote L01 | Cad. 2026-12-31\n\tPendiente impresionCerrada\t Imprimir\nDashboards\nDefault\nReports & statistics\neCommerce\nSales reports\nProjects\nTasts, graphs & charts\nOnline Courses\nStudent progre",
+  "elements": [
+    {
+      "tag": "INPUT",
+      "text": "",
+      "x": 0,
+      "y": 0,
+      "w": 0,
+      "h": 0
+    },
+    {
+      "tag": "INPUT",
+      "text": "",
+      "x": 0,
+      "y": 0,
+      "w": 0,
+      "h": 0
+    },
+    {
+      "tag": "INPUT",
+      "text": "has",
+      "x": 0,
+      "y": 0,
+      "w": 0,
+      "h": 0
+    },
+    {
+      "tag": "INPUT",
+      "text": "users",
+      "x": 0,
+      "y": 0,
+      "w": 0,
+      "h": 0
+    },
+    {
+      "tag": "INPUT",
+      "text": "orders",
+      "x": 0,
+      "y": 0,
+      "w": 0,
+      "h": 0
+    },
+    {
+      "tag": "INPUT",
+      "text": "projects",
+      "x": 0,
+      "y": 0,
+      "w": 0,
+      "h": 0
+    },
+    {
+      "tag": "INPUT",
+      "text": "",
+      "x": 0,
+      "y": 0,
+      "w": 0,
+      "h": 0
+    },
+    {
+      "tag": "INPUT",
+      "text": "",
+      "x": 0,
+      "y": 0,
+      "w": 0,
+      "h": 0
+    },
+    {
+      "tag": "INPUT",
+      "text": "has",
+      "x": 0,
+      "y": 0,
+      "w": 0,
+      "h": 0
+    },
+    {
+      "tag": "INPUT",
+      "text": "any",
+      "x": 0,
+      "y": 0,
+      "w": 0,
+      "h": 0
+    },
+    {
+      "tag": "SELECT",
+      "text": "Within the next\n                                        Within the last\n        ",
+      "x": 0,
+      "y": 0,
+      "w": 0,
+      "h": 0
+    },
+    {
+      "tag": "INPUT",
+      "text": "",
+      "x": 0,
+      "y": 0,
+      "w": 0,
+      "h": 0
+    },
+    {
+      "tag": "SELECT",
+      "text": "Days\n                                            Weeks\n                         ",
+      "x": 0,
+      "y": 0,
+      "w": 0,
+      "h": 0
+    },
+    {
+      "tag": "BUTTON",
+      "text": "Cancel",
+      "x": 0,
+      "y": 0,
+      "w": 0,
+      "h": 0
+    },
+    {
+      "tag": "INPUT",
+      "text": "1",
+      "x": 0,
+      "y": 0,
+      "w": 0,
+      "h": 0
+    },
+    {
+      "tag": "INPUT",
+      "text": "1",
+      "x": 0,
+      "y": 0,
+      "w": 0,
+      "h": 0
+    },
+    {
+      "tag": "INPUT",
+      "text": "1",
+      "x": 0,
+      "y": 0,
+      "w": 0,
+      "h": 0
+    },
+    {
+      "tag": "INPUT",
+      "text": "1",
+      "x": 0,
+      "y": 0,
+      "w": 0,
+      "h": 0
+    },
+    {
+      "tag": "INPUT",
+      "text": "1",
+      "x": 0,
+      "y": 0,
+      "w": 0,
+      "h": 0
+    },
+    {
+      "tag": "BUTTON",
+      "text": "Cancel",
+      "x": 0,
+      "y": 0,
+      "w": 0,
+      "h": 0
+    },
+    {
+      "tag": "BUTTON",
+      "text": "Save Changes",
+      "x": 0,
+      "y": 0,
+      "w": 0,
+      "h": 0
+    },
+    {
+      "tag": "SPAN",
+      "text": "1",
+      "x": 185.203125,
+      "y": 2,
+      "w": 21,
+      "h": 21
+    },
+    {
+      "tag": "BUTTON",
+      "text": "Leida",
+      "x": 0,
+      "y": 0,
+      "w": 0,
+      "h": 0
+    },
+    {
+      "tag": "SPAN",
+      "text": "1",
+      "x": 0,
+      "y": 0,
+      "w": 0,
+      "h": 0
+    },
+    {
+      "tag": "SPAN",
+      "text": "25 pending tasks",
+      "x": 0,
+      "y": 0,
+      "w": 0,
+      "h": 0
+    },
+    {
+      "tag": "SPAN",
+      "text": "Pro",
+      "x": 0,
+      "y": 0,
+      "w": 0,
+      "h": 0
+    },
+    {
+      "tag": "SPAN",
+      "text": "3",
+      "x": 0,
+      "y": 0,
+      "w": 0,
+      "h": 0
+    },
+    {
+      "tag": "INPUT",
+      "text": "1",
+      "x": 0,
+      "y": 0,
+      "w": 0,
+      "h": 0
+    },
+    {
+      "tag": "INPUT",
+      "text": "",
+      "x": 0,
+      "y": 0,
+      "w": 0,
+      "h": 0
+    },
+    {
+      "tag": "INPUT",
+      "text": "",
+      "x": 0,
+      "y": 0,
+      "w": 0,
+      "h": 0
+    },
+    {
+      "tag": "BUTTON",
+      "text": "Reactivar sesion\n                        Validando...",
+      "x": 0,
+      "y": 0,
+      "w": 0,
+      "h": 0
+    },
+    {
+      "tag": "INPUT",
+      "text": "",
+      "x": 47,
+      "y": 218.1875,
+      "w": 300,
+      "h": 40.390625
+    },
+    {
+      "tag": "BUTTON",
+      "text": "Imprimir seleccion",
+      "x": 47,
+      "y": 273.578125,
+      "w": 164.21875,
+      "h": 40.390625
+    },
+    {
+      "tag": "BUTTON",
+      "text": "Marcar pegadas",
+      "x": 47,
+      "y": 322.96875,
+      "w": 153.25,
+      "h": 40.390625
+    },
+    {
+      "tag": "SELECT",
+      "text": "Todos los estados\nPendiente impresion\nImpresa\nPegada\nReimpresa\nCancelada",
+      "x": 47,
+      "y": 372.359375,
+      "w": 225,
+      "h": 40.390625
+    },
+    {
+      "tag": "SELECT",
+      "text": "Todos los almacenes\nFrancisco Javier Mina 967 - Acuario\nFrancisco Javier Mina 97",
+      "x": 47,
+      "y": 421.75,
+      "w": 225,
+      "h": 40.390625
+    },
+    {
+      "tag": "BUTTON",
+      "text": "Actualizar",
+      "x": 47,
+      "y": 471.140625,
+      "w": 115.09375,
+      "h": 40.390625
+    },
+    {
+      "tag": "SPAN",
+      "text": "Unidades 5",
+      "x": 47,
+      "y": 523.53125,
+      "w": 72.828125,
+      "h": 19.1875
+    },
+    {
+      "tag": "SPAN",
+      "text": "Pendientes 5",
+      "x": 128.828125,
+      "y": 523.53125,
+      "w": 82.328125,
+      "h": 19.1875
+    },
+    {
+      "tag": "SPAN",
+      "text": "Impresas 0",
+      "x": 220.15625,
+      "y": 523.53125,
+      "w": 71.578125,
+      "h": 19.1875
+    },
+    {
+      "tag": "SPAN",
+      "text": "Pegadas 0",
+      "x": 47,
+      "y": 551.71875,
+      "w": 68.40625,
+      "h": 19.1875
+    },
+    {
+      "tag": "SPAN",
+      "text": "Seleccionadas 0",
+      "x": 124.40625,
+      "y": 551.71875,
+      "w": 100.71875,
+      "h": 19.1875
+    },
+    {
+      "tag": "TH",
+      "text": "",
+      "x": 47,
+      "y": 585.90625,
+      "w": 40,
+      "h": 44
+    },
+    {
+      "tag": "INPUT",
+      "text": "on",
+      "x": 47,
+      "y": 596.40625,
+      "w": 21,
+      "h": 21
+    },
+    {
+      "tag": "TH",
+      "text": "CODIGO",
+      "x": 87,
+      "y": 585.90625,
+      "w": 115.796875,
+      "h": 44
+    },
+    {
+      "tag": "TH",
+      "text": "SKU / PRODUCTO",
+      "x": 202.796875,
+      "y": 585.90625,
+      "w": 192.453125,
+      "h": 44
+    },
+    {
+      "tag": "TH",
+      "text": "ALMACEN",
+      "x": 395.25,
+      "y": 585.90625,
+      "w": 212.09375,
+      "h": 44
+    },
+    {
+      "tag": "TH",
+      "text": "ORIGEN",
+      "x": 607.34375,
+      "y": 585.90625,
+      "w": 134.515625,
+      "h": 44
+    },
+    {
+      "tag": "TH",
+      "text": "CONTENIDO",
+      "x": 741.859375,
+      "y": 585.90625,
+      "w": 130.21875,
+      "h": 44
+    },
+    {
+      "tag": "TH",
+      "text": "ESTADO",
+      "x": 872.078125,
+      "y": 585.90625,
+      "w": 172.765625,
+      "h": 44
+    },
+    {
+      "tag": "TH",
+      "text": "ACCIONES",
+      "x": 1044.84375,
+      "y": 585.90625,
+      "w": 102.15625,
+      "h": 44
+    },
+    {
+      "tag": "TD",
+      "text": "",
+      "x": 47,
+      "y": 629.90625,
+      "w": 40,
+      "h": 79
+    },
+    {
+      "tag": "INPUT",
+      "text": "on",
+      "x": 47,
+      "y": 658.15625,
+      "w": 21,
+      "h": 21
+    },
+    {
+      "tag": "TD",
+      "text": "P25-P000006-0001\netiqueta_interna",
+      "x": 87,
+      "y": 629.90625,
+      "w": 115.796875,
+      "h": 79
+    },
+    {
+      "tag": "TD",
+      "text": "TP-40372-25GR\nAlimento churro blanco para peces 25 gr",
+      "x": 202.796875,
+      "y": 629.90625,
+      "w": 192.453125,
+      "h": 79
+    },
+    {
+      "tag": "TD",
+      "text": "Francisco Javier Mina 971 - Bodega trasera\nE1-C2-P1-A1-N3",
+      "x": 395.25,
+      "y": 629.90625,
+      "w": 212.09375,
+      "h": 79
+    },
+    {
+      "tag": "TD",
+      "text": "PREP-20260625-0002\nPreparacion/Empaque",
+      "x": 607.34375,
+      "y": 629.90625,
+      "w": 134.515625,
+      "h": 79
+    },
+    {
+      "tag": "TD",
+      "text": "1 pza\nLote L1 | Cad. 2026-10-30",
+      "x": 741.859375,
+      "y": 629.90625,
+      "w": 130.21875,
+      "h": 79
+    },
+    {
+      "tag": "TD",
+      "text": "Pendiente impresionCerrada",
+      "x": 872.078125,
+      "y": 629.90625,
+      "w": 172.765625,
+      "h": 79
+    },
+    {
+      "tag": "SPAN",
+      "text": "Pendiente impresion",
+      "x": 881.078125,
+      "y": 651.421875,
+      "w": 112.328125,
+      "h": 17.984375
+    },
+    {
+      "tag": "SPAN",
+      "text": "Cerrada",
+      "x": 881.078125,
+      "y": 670.515625,
+      "w": 50.5625,
+      "h": 17.984375
+    },
+    {
+      "tag": "TD",
+      "text": "Imprimir",
+      "x": 1044.84375,
+      "y": 629.90625,
+      "w": 102.15625,
+      "h": 79
+    },
+    {
+      "tag": "BUTTON",
+      "text": "Imprimir",
+      "x": 1053.84375,
+      "y": 645.171875,
+      "w": 87.15625,
+      "h": 48.46875
+    },
+    {
+      "tag": "TD",
+      "text": "",
+      "x": 47,
+      "y": 708.90625,
+      "w": 40,
+      "h": 79
+    },
+    {
+      "tag": "INPUT",
+      "text": "on",
+      "x": 47,
+      "y": 737.15625,
+      "w": 21,
+      "h": 21
+    },
+    {
+      "tag": "TD",
+      "text": "P25-P000005-0001\netiqueta_interna",
+      "x": 87,
+      "y": 708.90625,
+      "w": 115.796875,
+      "h": 79
+    },
+    {
+      "tag": "TD",
+      "text": "TP-40372-25GR\nAlimento churro blanco para peces 25 gr",
+      "x": 202.796875,
+      "y": 708.90625,
+      "w": 192.453125,
+      "h": 79
+    },
+    {
+      "tag": "TD",
+      "text": "Francisco Javier Mina 971 - Bodega trasera\nE1-C2-P1-A1-N3",
+      "x": 395.25,
+      "y": 708.90625,
+      "w": 212.09375,
+      "h": 79
+    },
+    {
+      "tag": "TD",
+      "text": "PREP-20260625-0001\nPreparacion/Empaque",
+      "x": 607.34375,
+      "y": 708.90625,
+      "w": 134.515625,
+      "h": 79
+    },
+    {
+      "tag": "TD",
+      "text": "1 pza\nLote L1 | Cad. 2026-10-30",
+      "x": 741.859375,
+      "y": 708.90625,
+      "w": 130.21875,
+      "h": 79
+    },
+    {
+      "tag": "TD",
+      "text": "Pendiente impresionCerrada",
+      "x": 872.078125,
+      "y": 708.90625,
+      "w": 172.765625,
+      "h": 79
+    },
+    {
+      "tag": "SPAN",
+      "text": "Pendiente impresion",
+      "x": 881.078125,
+      "y": 730.421875,
+      "w": 112.328125,
+      "h": 17.984375
+    },
+    {
+      "tag": "SPAN",
+      "text": "Cerrada",
+      "x": 881.078125,
+      "y": 749.515625,
+      "w": 50.5625,
+      "h": 17.984375
+    },
+    {
+      "tag": "TD",
+      "text": "Imprimir",
+      "x": 1044.84375,
+      "y": 708.90625,
+      "w": 102.15625,
+      "h": 79
+    },
+    {
+      "tag": "BUTTON",
+      "text": "Imprimir",
+      "x": 1053.84375,
+      "y": 724.171875,
+      "w": 87.15625,
+      "h": 48.46875
+    },
+    {
+      "tag": "TD",
+      "text": "",
+      "x": 47,
+      "y": 787.90625,
+      "w": 40,
+      "h": 79
+    },
+    {
+      "tag": "INPUT",
+      "text": "on",
+      "x": 47,
+      "y": 816.15625,
+      "w": 21,
+      "h": 21
+    },
+    {
+      "tag": "TD",
+      "text": "INV-00003-29-0002\netiqueta_interna",
+      "x": 87,
+      "y": 787.90625,
+      "w": 115.796875,
+      "h": 79
+    },
+    {
+      "tag": "TD",
+      "text": "TP-40311\nAlimento churro mix para peces agranel",
+      "x": 202.796875,
+      "y": 787.90625,
+      "w": 192.453125,
+      "h": 79
+    },
+    {
+      "tag": "TD",
+      "text": "Francisco Javier Mina 971 - Bodega trasera\nCSDAS-DF3",
+      "x": 395.25,
+      "y": 787.90625,
+      "w": 212.09375,
+      "h": 79
+    },
+    {
+      "tag": "TD",
+      "text": "REC-OC-25\nOC-2026-000025",
+      "x": 607.34375,
+      "y": 787.90625,
+      "w": 134.515625,
+      "h": 79
+    },
+    {
+      "tag": "TD",
+      "text": "4 kg\nLote L01 | Cad. 2027-01-24",
+      "x": 741.859375,
+      "y": 787.90625,
+      "w": 130.21875,
+      "h": 79
+    },
+    {
+      "tag": "TD",
+      "text": "Pendiente impresionCerrada",
+      "x": 872.078125,
+      "y": 787.90625,
+      "w": 172.765625,
+      "h": 79
+    },
+    {
+      "tag": "SPAN",
+      "text": "Pendiente impresion",
+      "x": 881.078125,
+      "y": 809.421875,
+      "w": 112.328125,
+      "h": 17.984375
+    },
+    {
+      "tag": "SPAN",
+      "text": "Cerrada",
+      "x": 881.078125,
+      "y": 828.515625,
+      "w": 50.5625,
+      "h": 17.984375
+    },
+    {
+      "tag": "TD",
+      "text": "Imprimir",
+      "x": 1044.84375,
+      "y": 787.90625,
+      "w": 102.15625,
+      "h": 79
+    },
+    {
+      "tag": "BUTTON",
+      "text": "Imprimir",
+      "x": 1053.84375,
+      "y": 803.171875,
+      "w": 87.15625,
+      "h": 48.46875
+    },
+    {
+      "tag": "TD",
+      "text": "",
+      "x": 47,
+      "y": 866.90625,
+      "w": 40,
+      "h": 79
+    },
+    {
+      "tag": "INPUT",
+      "text": "on",
+      "x": 47,
+      "y": 895.15625,
+      "w": 21,
+      "h": 21
+    },
+    {
+      "tag": "TD",
+      "text": "INV-00003-29-0001\netiqueta_interna",
+      "x": 87,
+      "y": 866.90625,
+      "w": 115.796875,
+      "h": 79
+    },
+    {
+      "tag": "TD",
+      "text": "TP-40311\nAlimento churro mix para peces agranel",
+      "x": 202.796875,
+      "y": 866.90625,
+      "w": 192.453125,
+      "h": 79
+    },
+    {
+      "tag": "TD",
+      "text": "Francisco Javier Mina 971 - Bodega trasera\nCSDAS-DF3",
+      "x": 395.25,
+      "y": 866.90625,
+      "w": 212.09375,
+      "h": 79
+    },
+    {
+      "tag": "TD",
+      "text": "REC-OC-25\nOC-2026-000025",
+      "x": 607.34375,
+      "y": 866.90625,
+      "w": 134.515625,
+      "h": 79
+    },
+    {
+      "tag": "TD",
+      "text": "4 kg\nLote L01 | Cad. 2027-01-24",
+      "x": 741.859375,
+      "y": 866.90625,
+      "w": 130.21875,
+      "h": 79
+    },
+    {
+      "tag": "TD",
+      "text": "Pendiente impresionCerrada",
+      "x": 872.078125,
+      "y": 866.90625,
+      "w": 172.765625,
+      "h": 79
+    },
+    {
+      "tag": "SPAN",
+      "text": "Pendiente impresion",
+      "x": 881.078125,
+      "y": 888.421875,
+      "w": 112.328125,
+      "h": 17.984375
+    },
+    {
+      "tag": "SPAN",
+      "text": "Cerrada",
+      "x": 881.078125,
+      "y": 907.515625,
+      "w": 50.5625,
+      "h": 17.984375
+    },
+    {
+      "tag": "TD",
+      "text": "Imprimir",
+      "x": 1044.84375,
+      "y": 866.90625,
+      "w": 102.15625,
+      "h": 79
+    },
+    {
+      "tag": "BUTTON",
+      "text": "Imprimir",
+      "x": 1053.84375,
+      "y": 882.171875,
+      "w": 87.15625,
+      "h": 48.46875
+    },
+    {
+      "tag": "TD",
+      "text": "",
+      "x": 47,
+      "y": 945.90625,
+      "w": 40,
+      "h": 78.5
+    },
+    {
+      "tag": "INPUT",
+      "text": "on",
+      "x": 47,
+      "y": 974.15625,
+      "w": 21,
+      "h": 21
+    },
+    {
+      "tag": "TD",
+      "text": "INV-00003-28-0001\netiqueta_interna",
+      "x": 87,
+      "y": 945.90625,
+      "w": 115.796875,
+      "h": 78.5
+    },
+    {
+      "tag": "TD",
+      "text": "TP-40311\nAlimento churro mix para peces agranel",
+      "x": 202.796875,
+      "y": 945.90625,
+      "w": 192.453125,
+      "h": 78.5
+    },
+    {
+      "tag": "TD",
+      "text": "Francisco Javier Mina 971 - Bodega trasera\nCSDAS-DF3",
+      "x": 395.25,
+      "y": 945.90625,
+      "w": 212.09375,
+      "h": 78.5
+    },
+    {
+      "tag": "TD",
+      "text": "REC-OC-25\nOC-2026-000025",
+      "x": 607.34375,
+      "y": 945.90625,
+      "w": 134.515625,
+      "h": 78.5
+    },
+    {
+      "tag": "TD",
+      "text": "4 kg\nLote L01 | Cad. 2026-12-31",
+      "x": 741.859375,
+      "y": 945.90625,
+      "w": 130.21875,
+      "h": 78.5
+    },
+    {
+      "tag": "TD",
+      "text": "Pendiente impresionCerrada",
+      "x": 872.078125,
+      "y": 945.90625,
+      "w": 172.765625,
+      "h": 78.5
+    },
+    {
+      "tag": "SPAN",
+      "text": "Pendiente impresion",
+      "x": 881.078125,
+      "y": 967.421875,
+      "w": 112.328125,
+      "h": 17.984375
+    },
+    {
+      "tag": "SPAN",
+      "text": "Cerrada",
+      "x": 881.078125,
+      "y": 986.515625,
+      "w": 50.5625,
+      "h": 17.984375
+    },
+    {
+      "tag": "TD",
+      "text": "Imprimir",
+      "x": 1044.84375,
+      "y": 945.90625,
+      "w": 102.15625,
+      "h": 78.5
+    },
+    {
+      "tag": "BUTTON",
+      "text": "Imprimir",
+      "x": 1053.84375,
+      "y": 961.171875,
+      "w": 87.15625,
+      "h": 48.46875
+    },
+    {
+      "tag": "SPAN",
+      "text": "3",
+      "x": 0,
+      "y": 0,
+      "w": 0,
+      "h": 0
+    }
+  ]
+}

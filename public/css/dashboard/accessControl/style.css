@@ -1,0 +1,118 @@
+
+@import url("https://melorautopartes.com/fonts/fonts.css");
+#container-title-section{
+    text-align:center;
+    position:relative;
+}
+#modify-access{
+    padding:10px;
+}
+#add-access{
+    padding:10px;
+    border:2px solid rgb(218, 218, 218);
+    display:none;
+}
+.select-modify{
+    font-family:"Baloo Chettan 2";
+}
+.title-section{
+    font-family:"Baloo Chettan 2";
+    font-weight:600;
+    font-size:20px;
+    color:black;
+}
+.instruction-add{
+    font-family:"Baloo Chettan 2";
+    margin:0;
+}
+.col-modify{
+    padding:0px;
+}
+.container-input-select-employee{
+    justify-content:center;
+    margin:0;
+}
+
+.btn-add-access{
+    float: right;
+    position:absolute;
+    right:0;
+    background: white;
+    border-radius: 100%;
+    box-shadow: 0 1px 3px 0 rgba(60,64,67,0.302);
+    border: 1px solid #dedede;
+    color: #007bff;
+}
+
+.btn-add-access:hover{
+    box-shadow:0 3px 5px -1px rgba(0,0,0,0.2), 0 6px 10px 0 rgba(0,0,0,0.14), 0 1px 18px 0 rgba(0,0,0,0.12);
+    color: #007bff;
+}
+#accesos-employee{
+    padding:10px;
+}
+#container-button-access{
+    padding:10px;
+    justify-content:center;
+    text-align:center;
+}
+
+/**
+* Input check
+*/
+.control:hover input:not([disabled]):checked ~ .control__indicator,
+.control input:checked:focus ~ .control__indicator {
+  background: #0e647d;
+}
+.control input:disabled ~ .control__indicator {
+  background: #e6e6e6;
+  opacity: 0.6;
+  pointer-events: none;
+}
+.control__indicator:after {
+  content: "";
+  position: absolute;
+  display: none;
+}
+.control input:checked ~ .control__indicator:after {
+  display: block;
+}
+.control--checkbox .control__indicator:after {
+  left: 8px;
+  top: 3px;
+  width: 5px;
+  height: 10px;
+  border: solid #fff;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+.control--checkbox input:disabled ~ .control__indicator:after {
+  border-color: #7b7b7b;
+}
+        	                .control:hover input ~ .control__indicator,
+.control input:focus ~ .control__indicator {
+  background: #ccc;
+}
+.control input:checked ~ .control__indicator {
+  background: #2aa1c0;
+}
+        	                .control {
+  display: block;
+  position: relative;
+  padding-left: 30px;
+  margin-bottom: 15px;
+  cursor: pointer;
+}
+.control input {
+  position: absolute;
+  z-index: -1;
+  opacity: 0;
+}
+.control__indicator {
+  position: absolute;
+  top: 2px;
+  left: 0;
+  height: 20px;
+  width: 20px;
+  background: #e6e6e6;
+}

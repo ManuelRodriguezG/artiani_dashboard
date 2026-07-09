@@ -1,0 +1,750 @@
+/**
+* Imports
+*/
+@import url('https://fonts.googleapis.com/css?family=Lato:300,400&display=swap');
+@import url('https://fonts.googleapis.com/css?family=Open+Sans+Condensed:300');
+@import url('https://fonts.googleapis.com/css?family=Nunito');
+@import url('https://fonts.googleapis.com/css?family=Noticia+Text&display=swap');
+
+
+/**
+* Css general
+*/
+body{
+    margin:0;
+}
+.sectionI{
+    margin-top:35px;
+    margin-bottom:15px;
+    
+}
+.sectionII{
+    margin-top:10px;
+    padding:10px;
+}
+/**
+* Css modificado de bootstrap
+*/
+
+.container{
+    padding:0;
+}
+.btn-primary{
+    background-color:#001C63;
+    border-color:#001C63;
+}
+.row{
+    margin:0;
+}
+/* Todas las secciones*/
+
+#titleSect{
+    padding:10px 10px 0px 10px;
+    font-family: 'Lato', sans-serif;
+    font-weight:bold;
+    font-size:24px;
+    /*color:rgb(72,72,72);*/
+    color:black;
+    width:100%;
+    margin:0;
+    
+}
+.descripcion-seccion{
+ padding:0px 10px 10px 10px;   
+ margin:0;
+ font-family:'Lato',sans-serif;
+}
+.containerSect{
+    padding:0;
+}
+/*Termina css para todas las secciones*/
+
+/**
+* Css recomendados
+*/
+/*
+     _____________________
+    |                     |
+    |     Recomendados    |
+    |_____________________|
+*/
+#contPortada{
+    width:100%;
+    
+}
+
+#vidPort{
+    z-index:-1;
+    position:relative;
+}
+
+#sections{
+    background:white;
+    padding:0px
+}
+
+.product{
+    margin:0.75em;
+    
+    max-width:252px;
+    text-align:center;
+}
+.image{
+    width:252px;
+    height:252px;
+    margin-bottom:0.5em;
+    position:relative;
+    overflow:hidden;
+    cursor:pointer;
+    transition:box-shadow 0.25s;
+    border-radius:5px;
+}
+.category-image{
+    width:252px;
+    height:100px;
+    margin-bottom:0.5em;
+    position:relative;
+    overflow:hidden;
+    cursor:pointer;
+    transition:box-shadow 0.25s;
+    border-radius:5px;
+}
+.name{
+    font-family: 'Lato', sans-serif;
+    font-size:16px;
+    font-weight:bold;
+    position:absolute;
+    bottom:0;
+    width:100%;
+    background: linear-gradient(0, black, transparent);
+    padding:10px;
+    
+    
+}
+.enlaceName{
+    color:white;
+    text-shadow:4px 2px 6px black;
+}
+.enlaceName:hover{
+    color:white;
+    
+}
+
+.description{
+    font-family: 'Lato', sans-serif;
+    
+}
+.price{
+    font-family: 'Lato', sans-serif;
+    font-weight:bold;
+    padding:3px;
+    
+}
+.enlace{
+    font-family: 'Lato', sans-serif;
+    
+}
+.button{
+    -webkit-appearance:none;
+    -moz-appearance:none;
+    padding:0.5em;
+    background:transparent;
+    border:1px solid green;
+    border-radius:4px;
+    font-size:14px;
+    color:green !important;
+    -moz-user-select:none;
+    cursor:pointer;
+}
+.button:hover{
+    background:green;
+    color:white !important;
+    border:1px solid green;
+    
+}
+
+svg {
+    z-index:-1;
+    width:17px;
+    height:17px;
+    fill:blue;
+    
+}
+.buttonCar:hover > svg{
+    fill:white;
+}
+
+.buttonCar{
+    -webkit-appearance:none;
+    -moz-appearance:none;
+    padding:0.5em;
+    background:transparent;
+    border:1px solid blue;
+    border-radius:4px;
+    font-size:14px;
+    color:blue !important;
+    -moz-user-select:none;
+    cursor:pointer;
+}
+.buttonCar:hover{
+    background:blue;
+    color:white !important;
+    border:1px solid blue;
+    
+}
+.btns{
+    position:absolute;
+    bottom:20px;
+    right:68px;
+}
+
+/**
+* Css Destinos
+*/
+/*
+     _____________________
+    |                     |
+    |       Destinos      |
+    |_____________________|
+*/
+#categoriasG8{
+    width:200px;
+    height:300px;
+    margin-left:5px;
+    margin-right:5px;
+    border-radius:5px;
+}
+.column{
+    
+    
+     width:185px;
+    overflow:hidden;
+}
+.zoom {
+  width: 260px;
+  float: left;
+  z-index: 10;
+  -webkit-transition: all 0.3s ease-out;
+  -moz-transition: all 0.3s ease-out;
+  -o-transition: all 0.3s ease-out;
+  transition: all 0.3s ease-out;
+  -webkit-backface-visibility: hidden;
+  -webkit-perspective: 1000;
+}
+.zoom:hover {
+  -moz-transform: scale(1.1);
+  -webkit-transform: scale(1.1);
+  -o-transform: scale(1.1);
+  transform: scale(1.1);
+  -ms-transform: scale(1.1);
+  filter: progid:DXImageTransform.Microsoft.Matrix(
+      sizingMethod="auto expand",
+      M11=1.05,
+      M12=-0,
+      M21=0,
+      M22=1.05
+    );
+}
+.imagenn{
+    margin:0;
+    border:0;
+    width:260px !important;
+    height:100%;
+}
+.imagenn:hover{
+    opacity:0 !important;
+}
+
+.cant-tours-zona{
+    position: absolute;
+    top: 7px;
+    width: auto;
+    padding:2px 10px 2px 6px;
+    text-align: center;
+    background:white;
+    border-radius:0px 5px 5px 0px;
+}
+
+.text-cant-zona{
+    color: black;
+    /*text-shadow: 0px 2px 11px black;*/
+    font-family: 'Noticia Text', sans-serif;
+    font-size: 16px;
+    margin:0;
+}
+
+.cant-tours-category{
+    position: absolute;
+    top: 5px;
+    width: auto;
+    padding:2px 10px 2px 0px;
+    text-align: center;
+    /*background:white;*/
+    border-radius:0px 21px 21px 0px;
+}
+
+.text-cant-category{
+    cursor:pointer;
+    color: black;
+    border:1px solid lightgray;
+    border-left:0;
+    /*text-shadow: 0px 2px 11px black;*/
+    font-family: 'Noticia Text', sans-serif;
+    font-size: 16px;
+    margin:0;
+    background:white;
+    border-radius:0px 7px 5px 0px;
+    padding:1px 10px 1px 10px;
+}
+
+.carousel-captionn{
+    width:200px;
+    padding-bottom:0;
+    bottom:7px;
+    right:5px;
+    position:absolute;
+    background:linear-gradient(0, black, transparent);
+    border-radius:5px;
+    z-index:10;
+    padding-top:20px;
+    color:#fff;
+    text-align:center;
+}
+
+.nameDest{
+    font-family: 'Lato', sans-serif;
+    font-size:19px;
+    font-weight:501;
+    color: white;
+}
+.descDest{
+    font-family: 'Lato', sans-serif;
+    font-size:14px;
+}
+
+/**
+* Css Categorias
+*/
+/*
+     _____________________
+    |                     |
+    |      Categorias     |
+    |_____________________|
+*/
+/*.contContenido{
+    position:absolute;
+    bottom:0;
+    width:100%;
+    background: linear-gradient(0, black, transparent);
+    padding:10px;
+    height:50px;
+}*/
+.nameC{
+    font-family: 'Lato', sans-serif;
+    font-size:20px;
+    font-weight:bold;
+    color:white;
+    padding:6px;
+    
+}
+.productC{
+    max-width:252px;
+    text-align:center;
+}
+.fraseCat{
+    text-shadow:0px 2px 11px black;
+    font-family:'Lato', sans-serif;
+    font-size:14px;
+    display:none;
+    
+}
+.contAbs{
+    position:absolute;
+    bottom:0;
+    width:100%;
+    left:0;
+}
+.enlaceNameC{
+    text-shadow:0px 2px 11px black;
+    color:white;
+}
+.enlaceNameC:hover{
+    color:white;
+}
+.enlaceNameCategorys{
+    text-shadow:0px 2px 11px black;
+    color:white;
+    cursor:pointer;
+}
+.enlaceNameCategorys:hover{
+    color:white;
+    text-decoration:underline;
+}
+.descriptionC{
+    font-family: 'Lato', sans-serif;
+    color:black;
+    text-align:justify;
+    
+}
+.priceC{
+    font-family: 'Lato', sans-serif;
+    color:white;
+    
+}
+.enlaceEnlC{
+    color:white;
+}
+.enlaceC{
+    font-family: 'Lato', sans-serif;
+    color:white;
+    
+}
+
+.rowBtnCat{
+    width:100%;
+    height:37px;
+    
+}
+.contBtnCat{
+    position:absolute;
+    bottom:0;
+    left:96px;
+}
+.titleCat{
+    font-weight:300 !important;
+}
+.btnCat{
+    -webkit-appearance:none;
+    -moz-appearance:none;
+    padding:0.5em;
+    background:green;
+    border:1px solid green;
+    border-radius:4px;
+    font-size:14px;
+    color:white !important;
+    -moz-user-select:none;
+    cursor:pointer;
+    width:80px;
+}
+.btnCat:hover{
+    background:#008000ab;
+    color:white !important;
+    border:1px solid green;
+    
+}
+
+/**
+* Css seccion Hoteles
+*/
+/*
+     _____________________
+    |                     |
+    |        Hoteles      |
+    |_____________________|
+*/
+.containerG9 {
+  position: relative;
+  text-align: center;
+  color: white;
+  
+  margin-bottom:20px;
+}
+.containerG9 a:hover{
+    text-decoration:none;
+}
+/* Centered text */
+.centeredG9 {
+  color:white;
+  text-decoration:none;
+  font-size: 25px;
+  font-weight: bold;
+  top: 50%;
+  left: 50%;
+ 
+  text-shadow: 2px 2px 8px #000;
+}
+/**
+* Css seccion Hoteles
+*/
+/*
+     _____________________
+    |                     |
+    |     Comentarios     |
+    |_____________________|
+*/
+
+/* Import*/
+
+
+.seccionComentariosM{
+        background-color: #dadbdd;
+}
+.rowM{
+	margin: 0;
+	padding: 3px;
+
+}
+.owl-carouselM{
+	padding: 10px;
+}
+.itemM{
+	background-color: white;
+	-webkit-box-shadow: 7px 10px 5px -6px rgba(0,0,0,0.22);
+	-moz-box-shadow: 7px 10px 5px -6px rgba(0,0,0,0.22);
+	box-shadow: 7px 10px 5px -6px rgba(0,0,0,0.22);
+	height: 160px;
+	border-radius: 10px;
+}
+.owl-stage{
+	height: 165px;
+}
+
+.owl-carousel .owl-item .imagenFacebookM {
+	padding: 0;
+	
+	height: 70px;
+	width: 70px;
+border-radius: 100%;
+	
+
+}
+.contenedorRatingM{
+	justify-content:right;
+	padding-top: 45px;
+
+	
+}
+.contenedorheaderFacebookM{
+	height: 50px;
+	width: 100%;
+}
+.contenedorPrincipalFacebookM{
+	height: 160px;
+}
+.efectoAM{
+	color: #4267b2;
+}
+
+
+.likeM{
+	padding: 10px;
+}
+.contenedorStars1M{
+	padding-top: 10px;
+	display: inline-block;
+	position: relative;
+}
+.contenedorStars1M::before{
+	
+}
+.contenedorStarsM{
+	padding-top: 10px;
+	position: absolute;
+	top: 0;
+	left: 0;
+	overflow: hidden;
+	white-space: nowrap;  
+	color: #f8ce0b;
+	width: 95%;
+}
+.contenedorIframeM{
+	height: 20px;
+}
+
+.contenedorRatingGeneralM{
+	padding-top: 10px;
+	padding-right: 3px; 
+}
+.tituloFacebookM{
+	font-size: 15px;
+	font-family: 'Open Sans Condensed', sans-serif;
+}
+.contenedorLikeThisM{
+	padding-left: 5px;
+	font-size: 13px;
+	
+
+	font-family: 'Arimo', sans-serif;
+
+
+}
+.contenedorIconFacebookM{
+	
+	
+	padding-top: 2px;
+	color: blue;
+	
+	width: 25px;
+	height: 25px;
+	
+	}
+.fabM{
+	
+	color: #4267b2;
+	width: 20px;
+	height: 20px;
+	
+	font-size: 20px;
+	
+	
+
+}
+.fechaPublicacionM{
+	flex: none;
+	text-align: right;
+	padding-left: 30px;
+}
+.rowComentarioM{
+	overflow:hidden;
+	height: 123px;
+
+	
+}
+.iconFaceM{
+	padding: 0;
+}
+.contenedorTextoMensajeM{    
+	height: 10px;
+	width: 100%;
+
+
+
+}
+.textoMensajeM{
+
+	width: 100%;
+	margin:0;
+	position: absolute;
+	left: 0;
+	top: 0;
+	right: -20px;
+	bottom: 0;
+	padding: 5px;
+	overflow-y: scroll;
+	height: 123px;
+	font-family: 'Nunito', sans-serif;
+	font-size: 15px;
+}
+.rowFooterItemM{
+	padding-left: 10px;
+	justify-content:center;
+}
+
+
+/**
+* Css Owl Carousel
+*/
+.owl-carousel .owl-nav button.owl-prev{
+    position: absolute;top: 104px;background: #000000ba;height: 100px;color: white;left: 0px;width: 50px;height: 50px;border-radius: 100%;
+}
+.owl-carousel .owl-nav button.owl-prev i{
+    position: absolute;top: 9px;right: 2px;font-size: 32px;width:50px;height:50px;
+}
+/**/
+.owl-carousel .owl-nav button.owl-next{
+    position: absolute;top: 104px;font-size: 85px;background: #000000ba;height: 100px;color: white;right: 0;width: 50px;height: 50px;border-radius: 100%;
+}
+.owl-carousel .owl-nav button.owl-next i{
+    /*position: absolute;top: -50px;right: 8px;*/
+    position: absolute;top: 9px;left: 2px;font-size: 32px;width:50px;height:50px;
+}
+.owl-theme .owl-dots{
+    /*display:none;*/
+}
+
+/*
+     _____________________
+    |                     |
+    |     Efecto Letras   |
+    |_____________________|
+*/
+.textGift {
+  background: url("https://www.gdltours.com/imagenes/prueba-panoramex-portada-gif4.gif");
+  background-size: contain;
+  background-position: top left;
+  -webkit-background-clip: text;
+  color: transparent;
+  font-size: 115px;
+  font-weight: bold;
+  font-family: sans-serif;
+}
+
+ .cont-images-animation{
+		                width:95%;
+		                z-index:-1;
+		                height:100%;
+		                margin:auto;
+		                overflow:hidden;
+		                position:absolute;
+		            }
+		            
+		            .cont-images-animation img{
+		                
+		            }
+		            .item-image{
+		        opacity:0 !important;
+		            -webkit-transition: opacity 2s ease-out;
+                        -moz-transition: opacity 2s ease-out;
+                        -o-transition: opacity 2s ease-out;
+                        -ms-transition: opacity 2s ease-out;
+                        transition: opacity 2s ease-out;
+		        }
+		            .in{
+		                top:0;   
+                        position: absolute;
+                         opacity:1 !important;
+                         z-index:0;
+                        
+ 
+                        
+		            }
+		            .out{
+		            z-index:-1;
+		            position:absolute;
+		            top:0;
+		            
+                        
+                        
+		            }
+		            @keyframes fadeOut {
+                        0% { opacity: 1 !important;}
+                        99% { opacity: 0.01 !important;width: 100%; height: 100%;}
+                        100% { opacity: 0 !important;width: 0; height: 0;}
+                    }
+
+/**
+* Media querys
+*/
+@media (max-width: 768px) {
+    
+    .colH{
+        padding:3px !important;
+    }
+    
+}
+
+@media only screen and (max-width: 600px) {
+  #titleSect{
+   
+    padding:10px 10px 0px 10px;
+    font-size:24px;
+    color:black;
+    width:100%;
+    margin:0;
+    /*color:rgb(72,72,72);*/
+  }
+  .textGift{
+      font-size:50px;
+  }
+}
+
+@media (min-width: 1200px){
+    .modal-xl {
+        max-width: auto;
+    }
+}
+@media (max-width: 480px) {
+    .colH{
+        padding:0px !important;
+    }
+}

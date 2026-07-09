@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>UAT Inventario Visual</title>
+    <link href="/assets/plugins/global/plugins.bundle.css" rel="stylesheet" type="text/css">
+    <link href="/assets/css/style.bundle.css" rel="stylesheet" type="text/css">
+</head>
+<body class="app-default bg-light">
+<div class="container-fluid py-8">
+    <div class="card">
+        <div class="card-header border-0 pt-5">
+            <div>
+                <h1 class="page-heading text-dark fw-bold fs-3 mb-1">Existencias y kardex</h1>
+                <span class="text-muted">Fixture visual UAT: PREP-20260621-0003</span>
+            </div>
+        </div>
+        <div class="card-body pt-5">
+            <div class="row g-3 mb-5">
+                <div class="col-md-6">
+                    <div class="position-relative">
+                        <i class="bi bi-search fs-3 position-absolute ms-5 mt-3"></i>
+                        <input class="form-control form-control-solid ps-12" id="inventario_filtro_buscar" value="PREP-20260621-0003">
+                    </div>
+                </div>
+                <div class="col-md-3"><select class="form-select form-select-solid" id="inventario_filtro_almacen"></select></div>
+                <div class="col-md-1 d-flex align-items-center">
+                    <label class="form-check form-switch form-check-custom form-check-solid m-0">
+                        <input class="form-check-input" type="checkbox" id="inventario_filtro_agotadas">
+                        <span class="form-check-label text-muted fs-8 ms-2">Agotadas</span>
+                    </label>
+                </div>
+                <div class="col-md-2"><button class="btn btn-light-primary w-100" id="inventario_recargar" type="button"><i class="bi bi-arrow-clockwise"></i> Actualizar</button></div>
+            </div>
+            <ul class="nav nav-tabs nav-line-tabs fs-6 mb-5">
+                <li class="nav-item"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#inventario_tab_existencias">Existencias</button></li>
+                <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#inventario_tab_kardex">Kardex</button></li>
+                <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#inventario_tab_unidades">Unidades</button></li>
+            </ul>
+            <div class="tab-content">
+                <div class="tab-pane fade show active" id="inventario_tab_existencias">
+                    <div class="d-flex flex-wrap gap-3 mb-5" id="inventario_resumen"></div>
+                    <div class="table-responsive"><table class="table align-middle table-row-dashed gy-4"><thead><tr class="text-muted fw-bold fs-7 text-uppercase"><th>SKU / producto</th><th>Almacen</th><th>Lote / caducidad</th><th>Ubicacion</th><th>Existencia</th><th>Disponible</th><th>Costo promedio</th></tr></thead><tbody id="inventario_existencias"></tbody></table></div>
+                </div>
+                <div class="tab-pane fade" id="inventario_tab_kardex">
+                    <div class="table-responsive"><table class="table align-middle table-row-dashed gy-4"><thead><tr class="text-muted fw-bold fs-7 text-uppercase"><th>Fecha</th><th>Movimiento</th><th>SKU / producto</th><th>Almacen</th><th>Cantidad</th><th>Antes / despues</th><th>Referencia</th></tr></thead><tbody id="inventario_movimientos"></tbody></table></div>
+                </div>
+                <div class="tab-pane fade" id="inventario_tab_unidades">
+                    <div class="d-flex flex-wrap gap-3 mb-5" id="inventario_unidades_resumen"></div>
+                    <div class="table-responsive"><table class="table align-middle table-row-dashed gy-4"><thead><tr class="text-muted fw-bold fs-7 text-uppercase"><th>Codigo</th><th>SKU / producto</th><th>Almacen</th><th>Lote / caducidad</th><th>Origen</th><th>Estado</th></tr></thead><tbody id="inventario_unidades"></tbody></table></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<script>
+window.Swal = { fire: function (options) { console.error(options.text || options); } };
+window.fetch = function (url) {
+    var data = {error: false, tipo: "success", mensaje: "UAT", depurar: []};
+    if (String(url).indexOf("/inventario/catalogos_erp") === 0) {
+        data.depurar = {almacenes: [{id_almacen: 3, almacen: "Francisco Javier Mina 971 - Bodega trasera"}]};
+    } else if (String(url).indexOf("/inventario/existencias_erp") === 0) {
+        data.depurar = [
+            {sku: "TP-40372-100GR", nombre_sku: "Presentacion 100 g", producto: "TP-40372", codigo_existencia: "EXI-50-30", almacen: "Francisco Javier Mina 971 - Bodega trasera", lote: "L1", fecha_caducidad: "2026-10-30", ubicacion: "E1-C2-P1-A1-N3", cantidad: "5.0000", cantidad_disponible: "5.0000", cantidad_apartada: "0.0000", costo_promedio: "73.7069"},
+            {sku: "TP-40372-500GR", nombre_sku: "Presentacion 500 g", producto: "TP-40372", codigo_existencia: "EXI-50-29", almacen: "Francisco Javier Mina 971 - Bodega trasera", lote: "L1", fecha_caducidad: "2026-10-30", ubicacion: "E1-C2-P1-A1-N3", cantidad: "0.0000", cantidad_disponible: "0.0000", cantidad_apartada: "0.0000", costo_promedio: "368.5345"}
+        ];
+    } else if (String(url).indexOf("/inventario/movimientos_erp") === 0) {
+        data.depurar = [
+            {id_movimiento_inventario: 42, fecha_registro: "2026-06-21 23:04:39", tipo_movimiento: "entrada", origen_tipo: "preparacion_presentacion", referencia: "PREP-20260621-0003", almacen: "Francisco Javier Mina 971 - Bodega trasera", sku: "TP-40372-100GR", producto: "Presentacion 100 g", codigo_existencia: "EXI-50-30", cantidad: "5.0000", existencia_anterior: "0.0000", existencia_nueva: "5.0000"},
+            {id_movimiento_inventario: 41, fecha_registro: "2026-06-21 23:04:39", tipo_movimiento: "salida", origen_tipo: "preparacion_presentacion", referencia: "PREP-20260621-0003", almacen: "Francisco Javier Mina 971 - Bodega trasera", sku: "TP-40372-500GR", producto: "Presentacion 500 g", codigo_existencia: "EXI-50-29", cantidad: "1.0000", existencia_anterior: "1.0000", existencia_nueva: "0.0000"}
+        ];
+    } else if (String(url).indexOf("/inventario/unidades_erp") === 0) {
+        data.depurar = [
+            {codigo_etiqueta_interna: "P100-P000004-0001", tipo_identidad: "etiqueta_interna", sku: "TP-40372-100GR", producto: "Presentacion 100 g", almacen: "Francisco Javier Mina 971 - Bodega trasera", ubicacion: "E1-C2-P1-A1-N3", lote: "L1", fecha_caducidad: "2026-10-30", folio_recepcion: "PREP-20260621-0003", folio_orden_compra: "Preparacion/Empaque", estado_etiqueta: "pegada", estatus: "disponible"}
+        ];
+    }
+    return Promise.resolve({json: function () { return Promise.resolve(data); }});
+};
+</script>
+<script src="/assets/plugins/global/plugins.bundle.js"></script>
+<script src="/assets/js/scripts.bundle.js"></script>
+<script src="/assets/js/custom/apps/erp/inventarios/existencias_erp.js?v=20260621-1"></script>
+</body>
+</html>

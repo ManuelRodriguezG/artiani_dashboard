@@ -1,0 +1,16 @@
+
+	
+	#RewriteBase /WebPage/WebPage/mvc/melorautopartesweb/
+	RewriteEngine On
+	#AddDefaultCharset UTF-8
+	#RewriteRule ^$ public/ [L]
+	
+	RewriteRule ^.* public/$1 [L]
+	#RewriteCond %{HTTPS} !=on
+	#RewriteRule ^.*$ http://%{SERVER_NAME}%{REQUEST_URI} [R,L]
+	#RewriteRule ^http://%{SERVER_NAME}?$ http://%{SERVER_NAME}
+
+
+
+#RewriteRule ^.*$ https://%{SERVER_NAME}/public/$1	[L]
+

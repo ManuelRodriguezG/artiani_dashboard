@@ -1,0 +1,227 @@
+/*Import*/
+@import url('https://fonts.googleapis.com/css?family=Varela+Round');
+
+
+/*Generales*/
+.rowM{
+	margin:0px;
+}
+.colM{
+	padding: 0;
+	
+}
+
+.cardM{
+	border-radius: 0;
+	margin-top: 10px;
+	margin-bottom: 10px;
+	height:100%;
+	-webkit-box-shadow: -1px 2px 12px 0px rgba(0,0,0,0.17);
+-moz-box-shadow: -1px 2px 12px 0px rgba(0,0,0,0.17);
+box-shadow: -1px 2px 12px 0px rgba(0,0,0,0.17);
+	
+}
+.card-titleM{
+    font-size:17px;
+}
+.cardReseñaM{
+    font-size:13px;
+}
+.btnOrder{
+    position:absolute;
+    bottom:10px;
+    left:32%;
+}
+.containerCards{
+    margin-bottom:20px;
+}
+.rowPrincipal{
+    margin-bottom:20px;
+}
+.row2{
+    height:100%;
+}
+.card-img-topM{
+	border-radius: 0;
+	height:170px;
+	object-fit: cover;
+}
+.textSinResultados{
+	font-family: 'Varela Round', sans-serif;
+}
+.btnSee{
+	text-align: center;
+}
+.searchIcon{
+	font-size: 25px;
+	
+}
+.precioTour{
+    font-family: 'Varela Round', sans-serif;
+    text-align:center;
+}
+.alturaM{
+    color: white;
+    margin:75px 0px 0px 0px;
+}
+/***********************************Estilo busqueda*****************************************/
+.imgBusqueda{
+    width:25%;
+    min-width:80px;
+}
+.carousel.carousel-fade .item {
+	-webkit-transition: opacity 0.5s ease-in-out;
+	-moz-transition: opacity 0.5s ease-in-out;
+	-ms-transition: opacity 0.5s ease-in-out;
+	-o-transition: opacity 0.5s ease-in-out;
+	transition: opacity 0.5s ease-in-out;
+	opacity:0;
+}
+
+.carousel.carousel-fade .active.item {
+	opacity:1;
+}
+
+.carousel.carousel-fade .active.left,
+.carousel.carousel-fade .active.right {
+	left: 0;
+	z-index: 2;
+	opacity: 0;
+	filter: alpha(opacity=0);
+}
+
+.carousel.carousel-fade .next,
+.carousel.carousel-fade .prev {
+	left: 0;
+	z-index: 1;
+}
+
+.carousel.carousel-fade .carousel-control {
+	z-index: 3;
+}
+.search-box {
+    color:black;
+  position: relative;
+  width: 86%;
+  max-width: 360px;
+  height: 60px;
+  border-radius: 120px;
+  margin: 0 auto;
+}
+.search-icon, .go-icon {
+  position: absolute;
+  color:black;
+  top: 1px;
+  height: 0px;
+  width: 37px;
+  line-height: 61px;
+  text-align: center;
+}
+.search-icon {
+  left: 0;
+  pointer-events: none;
+  font-size: 1.22em;
+  will-change: transform;
+  transform: rotate(-5deg);
+  -webkit-transform: rotate(-5deg);
+  -moz-transform: rotate(-5deg);
+  -o-transform: rotate(-5deg);
+  transform-origin: center center;
+  -webkit-transform-origin: center center;
+  -moz-transform-origin: center center;
+  -o-transform-origin: center center;
+  transition: transform 400ms 220ms cubic-bezier(0.190, 1.000, 0.220, 1.000);
+  -webkit-transition: transform 400ms 220ms cubic-bezier(0.190, 1.000, 0.220, 1.000);
+  -moz-transition: transform 400ms 220ms cubic-bezier(0.190, 1.000, 0.220, 1.000);
+  -o-transition: transform 400ms 220ms cubic-bezier(0.190, 1.000, 0.220, 1.000);
+}
+.si-rotate {
+  transform: rotateY(180deg);
+  -webkit-transform: rotateY(180deg);
+  -moz-transform: rotateY(180deg);
+  -o-transform: rotateY(180deg);
+}
+.go-icon {
+  right: 0;
+  pointer-events: none;
+  font-size: 1.38em;
+  will-change: opacity;
+  cursor: default;
+  opacity: 0;
+  transform: rotate(45deg);
+  -webkit-transform: rotate(45deg);
+  -moz-transform: rotate(45deg);
+  -o-transform: rotate(45deg);
+  transition: opacity 190ms ease-out, transform 260ms cubic-bezier(0.190, 1.000, 0.220, 1.000);
+  -webkit-transition: opacity 190ms ease-out, transform 260ms cubic-bezier(0.190, 1.000, 0.220, 1.000);
+  -moz-transition: opacity 190ms ease-out, transform 260ms cubic-bezier(0.190, 1.000, 0.220, 1.000);
+  -o-transition: opacity 190ms ease-out, transform 260ms cubic-bezier(0.190, 1.000, 0.220, 1.000);
+}
+.go-in {
+  opacity: 1;
+  pointer-events: all;
+  cursor: pointer;
+  transform: rotate(0);
+  -webkit-transform: rotate(0);
+  -moz-transform: rotate(0);
+  -o-transform: rotate(0);
+  transition: opacity 190ms ease-out, transform 260ms 20ms cubic-bezier(0.190, 1.000, 0.220, 1.000);
+  -webkit-transition: opacity 190ms ease-out, transform 260ms 20ms cubic-bezier(0.190, 1.000, 0.220, 1.000);
+  -moz-transition: opacity 190ms ease-out, transform 260ms 20ms cubic-bezier(0.190, 1.000, 0.220, 1.000);
+  -o-transition: opacity 190ms ease-out, transform 260ms 20ms cubic-bezier(0.190, 1.000, 0.220, 1.000);
+}
+.search-border {
+  display: block;
+  width: 100%;
+  max-width: 360px;
+  height: 60px;
+}
+.border {
+  fill: none;
+  stroke: black;
+  stroke-width: 5;
+  stroke-miterlimit: 10;
+}
+.border {
+  stroke-dasharray: 740;
+  stroke-dashoffset: 0;
+  transition: stroke-dashoffset 400ms cubic-bezier(0.600, 0.040, 0.735, 0.990);
+  -webkit-transition: stroke-dashoffset 400ms cubic-bezier(0.600, 0.040, 0.735, 0.990);
+  -moz-transition: stroke-dashoffset 400ms cubic-bezier(0.600, 0.040, 0.735, 0.990);
+  -o-transition: stroke-dashoffset 400ms cubic-bezier(0.600, 0.040, 0.735, 0.990);
+}
+.border-searching .border {
+  stroke-dasharray: 740;
+  stroke-dashoffset: 459;
+  transition: stroke-dashoffset 650ms cubic-bezier(0.755, 0.150, 0.205, 1.000);
+  -webkit-transition: stroke-dashoffset 650ms cubic-bezier(0.755, 0.150, 0.205, 1.000);
+  -moz-transition: stroke-dashoffset 650ms cubic-bezier(0.755, 0.150, 0.205, 1.000);
+  -o-transition: stroke-dashoffset 650ms cubic-bezier(0.755, 0.150, 0.205, 1.000);
+}
+#busqueda {
+  font-family: 'Montserrat Alternates', sans-serif;
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  border-radius: 120px;
+  border: none;
+  background: rgba(0,0,0,0);
+  padding: 0 37px 0 41px;
+  color: black;
+  font-size: 1.32em;
+  font-weight: 400;
+  letter-spacing: -0.015em;
+  outline: none;
+}
+#busqueda::-webkit-input-placeholder {color: black;}
+#busqueda::-moz-placeholder {color: black;}
+#busqueda:-ms-input-placeholder {color: black;}
+#busqueda:-moz-placeholder {color: black;}
+#busqueda::-moz-selection {color: black; background: rgba(0,0,0,0.25);}
+#busqueda::selection {color: black; background: rgba(0,0,0,0.25);}
+
+
+
+/****************************************************************************/

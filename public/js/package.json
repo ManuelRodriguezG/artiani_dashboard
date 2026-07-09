@@ -1,0 +1,17 @@
+{
+  "name": "websocket",
+  "version": "1.0.0",
+  "description": "serivor web socket",
+  "main": "server.js",
+  "scripts": {
+    "test": "ds"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "ws": "^7.2.3"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.61.1"
+  }
+}

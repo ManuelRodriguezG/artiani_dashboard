@@ -1,0 +1,154 @@
+.colBtnL{
+            text-align:center;
+        }
+        .colBtnR{
+            text-align:left;
+        }
+        .tfootCard{
+            display:none;
+        }
+        .inpMail{
+            height:32px;
+        }
+        .contMail{
+            display:none;
+        }
+        .contInpEmail{
+            padding:10px;
+        }
+        
+        .btnCart{
+            background:#0048ff;
+            color:white;
+            height:auto;
+            width:auto;
+            font-size:12px;
+            border:1px solid #ffffffb3;
+            
+        }
+        .btnCart:hover{
+            background:#0032B1;
+            border:1px #ffffffb3 solid;
+            color:white;
+            
+        }
+        .delete{
+            padding:10px;
+            background:red;
+            color:white;
+            display:none;
+            text-align:center;
+            cursor:pointer;
+            font-weight:400;
+        }
+        .trash{
+            cursor:pointer;
+            padding:10px;
+            text-align:center;
+        }
+        .trash:hover{
+            
+            cursor:pointer;
+            background:white;
+            color:black;
+        }
+        .alignBtn{
+            margin-top:10px;
+        }
+        .contInfo{
+            margin:10px;
+            
+            height:auto; 
+            /*overflow:auto;*/
+            
+            position:absolute;
+            
+            background:white;
+            right:-11px;
+            top:48px;
+            padding:10px;
+            border:1px solid rgba(125, 125, 125, 0.57);
+            color:black;
+            border-radius:5px;
+            min-width:270px;
+            -webkit-box-shadow: 0px 0px 2px 0px rgba(0,0,0,0.75);
+            -moz-box-shadow: 0px 0px 2px 0px rgba(0,0,0,0.75);
+            box-shadow: 0px 0px 2px 0px rgba(0,0,0,0.75);
+        }
+        .contLabel{
+            padding:10px;
+            text-align:right;
+            
+             cursor:pointer;
+        }
+        .contLabelCart{
+            padding:10px;
+            text-align:center;
+            /*max-width:200px;*/
+            margin-bottom:4px;
+        }
+        .imgElement{
+            width:50px;
+            height:50px;
+            object-fit:cover;
+            border-radius:5px;
+        }
+        .divCart{
+            border:1px solid white;
+            position:fixed;
+            background:#001C63;
+            min-width:60px;
+            min-height:50px;
+            right:0;
+            top:25%;
+            color:white;
+            z-index:10;
+        }
+        .colSub{
+           text-align:right;
+        }
+        .contLabel svg{
+            z-index:1;
+            width:23px;
+            height:23px;
+            fill:white;
+            
+            
+        }
+        .labelCart{
+            cursor:pointer;
+        }
+        
+        /* Tooltip*/
+        .contArrow{
+                width:0;
+                height:0;
+                position:absolute;
+                top:49px;
+                right:16px;
+                border-left:9px solid transparent !important;
+                border-right:9px solid transparent !important;
+                border-bottom:9px solid rgba(125, 125, 125, 0.57) !important;
+                
+            }
+            .contArrow span{
+                border-left:8px solid transparent !important;
+                border-right:8px solid transparent !important;
+                border-bottom:8px solid;
+                position:absolute;
+                top:2px;
+                right:-8px;
+                z-index:12;
+            }
+            .infoCart{
+                
+                display:none;
+            }
+            .tableCart{
+                width:100%;
+            }
+            .nItms{
+                color:gray;
+                text-align:center;
+            }
+           

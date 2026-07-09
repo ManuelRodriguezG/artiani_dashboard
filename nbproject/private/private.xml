@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project-private xmlns="http://www.netbeans.org/ns/project-private/1">
+    <editor-bookmarks xmlns="http://www.netbeans.org/ns/editor-bookmarks/2" lastBookmarkId="0"/>
+    <open-files xmlns="http://www.netbeans.org/ns/projectui-open-files/2">
+        <group>
+            <file>file:/C:/xampp/htdocs/panel/public/assets/js/custom/apps/erp/compras/orden_de_compra_editar/pedidos.js</file>
+            <file>file:/C:/xampp/htdocs/panel/index.php</file>
+            <file>file:/C:/xampp/htdocs/panel/app/config/mysql.php</file>
+            <file>file:/C:/xampp/htdocs/panel/app/vistas/includes/header/sidebar.php</file>
+            <file>file:/C:/xampp/htdocs/panel/app/vistas/paginas/apps/erp/utilidad/mostrar_grupos.php</file>
+            <file>file:/C:/xampp/htdocs/panel/app/controladores/Costo.php</file>
+            <file>file:/C:/xampp/htdocs/panel/app/modelos/Proveedores.php</file>
+            <file>file:/C:/xampp/htdocs/panel/app/controladores/Proveedor.php</file>
+            <file>file:/C:/xampp/htdocs/panel/app/modelos/Costos.php</file>
+            <file>file:/C:/xampp/htdocs/panel/app/config/configuracion.php</file>
+            <file>file:/C:/xampp/htdocs/panel/app/config/CRUDD.php</file>
+            <file>file:/C:/xampp/htdocs/panel/app/vistas/paginas/apps/ecommerce/catalog/editar-producto.php</file>
+            <file>file:/C:/xampp/htdocs/panel/public/assets/js/custom/apps/erp/compras/solicitud_de_compra_editar/compra_venta.js</file>
+            <file>file:/C:/xampp/htdocs/panel/public/assets/js/custom/apps/erp/compras/solicitud_de_compra_editar/pedidos.js</file>
+            <file>file:/C:/xampp/htdocs/panel/app/modelos/Compras.php</file>
+            <file>file:/C:/xampp/htdocs/panel/public/assets/js/custom/apps/erp/compras/orden_de_compra_editar/compra_venta.js</file>
+            <file>file:/C:/xampp/htdocs/panel/app/controladores/Compra.php</file>
+        </group>
+    </open-files>
+</project-private>

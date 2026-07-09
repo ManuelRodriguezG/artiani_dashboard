@@ -1,0 +1,5 @@
+Extra small    < 576px
+small          >= 576px
+Medium         >= 768px
+Large          >= 992px
+Extra Large	   >= 1200px

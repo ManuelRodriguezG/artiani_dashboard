@@ -1,0 +1,5 @@
+{
+  "title": "Etiquetado de almacen",
+  "url": "http://dashboard.com.local/almacen/etiquetado",
+  "bodySample": "Dashboards\nPages\nApps\nLayouts\nHelp\n1\n1\nResumen\nOPERACION\nCatalogo\nRentabilidad\nCompras\nProveedores\nAlmacen\nInventario\nVentas\nEcommerce\nADMINISTRACION\nUsuarios y roles\nCerrar sesion\n1\nEtiquetado\nImpresion y pegado de etiquetas generadas por recepcion o preparacion\n Recepciones\n Imprimir seleccion\n Marcar pegadas\nTodos los estados\nPendiente impresion\nImpresa\nPegada\nReimpresa\nCancelada\nTodos los almacenes\nFrancisco Javier Mina 967 - Acuario\nFrancisco Javier Mina 971 - Mascotas frontal\nFrancisco Javier Mina 971 - Bodega trasera\n Actualizar\nUnidades 1\nPendientes 0\nImpresas 0\nPegadas 1\nSeleccionadas 0\n\tCODIGO\tSKU / PRODUCTO\tALMACEN\tORIGEN\tCONTENIDO\tESTADO\tACCIONES\n\t\nP25-P000006-0001\netiqueta_interna\t\nTP-40372-25GR\nAlimento churro blanco para peces 25 gr\n\tFrancisco Javier Mina 971 - Bodega trasera\nE1-C2-P1-A1-N3\n\t\nPREP-20260625-0002\nPreparacion/Empaque\n\t\n1 pza\nLote L1 | Cad. 2026-10-30\n\tPegadaCerrada\t Imprimir"
+}
