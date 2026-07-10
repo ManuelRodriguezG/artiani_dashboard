@@ -1349,11 +1349,15 @@ class InventarioErp extends CRUD {
                 return $this->respuesta(false, "success", "Escribe al menos dos caracteres", array());
             }
             $sql = "SELECT s.id_sku, s.sku, s.nombre nombre_sku, s.costo_referencia,
+                s.factor_unidad_base,
                 p.id_producto_erp, p.codigo_producto, p.nombre producto,
                 COALESCE(r.permite_venta_fraccionaria, 0) permite_venta_fraccionaria,
                 COALESCE(r.precision_decimal, 0) precision_decimal,
                 COALESCE(r.incremento_minimo_venta, 1.000000) incremento_minimo_venta,
                 COALESCE(NULLIF(r.unidad_venta_label, ''), ub.abreviatura, ub.codigo, '') unidad_venta_label,
+                COALESCE(ub.abreviatura, ub.codigo, '') unidad_base_label,
+                COALESCE(sp.factor_conversion, s.factor_unidad_base, 1.000000) factor_conversion_compra,
+                COALESCE(uc.abreviatura, uc.codigo, '') unidad_compra_label,
                 COALESCE(r.generar_etiqueta_interna, 0) generar_etiqueta_interna,
                 COALESCE(r.requiere_lote, 0) requiere_lote,
                 COALESCE(r.requiere_caducidad, 0) requiere_caducidad,
@@ -1362,12 +1366,15 @@ class InventarioErp extends CRUD {
                 INNER JOIN erp_catalogo_productos p ON p.id_producto_erp=s.id_producto_erp
                 LEFT JOIN erp_catalogo_sku_reglas_inventario r ON r.id_sku=s.id_sku
                 LEFT JOIN erp_catalogo_unidades ub ON ub.id_unidad=s.id_unidad_base
+                LEFT JOIN erp_catalogo_sku_proveedores sp ON sp.id_sku=s.id_sku AND sp.estatus='activo' AND sp.es_preferido=1
+                LEFT JOIN erp_catalogo_unidades uc ON uc.id_unidad=sp.id_unidad_compra
                 LEFT JOIN erp_inventario_existencias e ON e.id_sku_erp=s.id_sku
                 WHERE s.estatus='activo' AND p.estatus='activo'
                   AND (s.sku LIKE :termino OR s.nombre LIKE :termino OR p.nombre LIKE :termino OR p.codigo_producto LIKE :termino)
-                GROUP BY s.id_sku, s.sku, s.nombre, s.costo_referencia, p.id_producto_erp, p.codigo_producto, p.nombre,
+                GROUP BY s.id_sku, s.sku, s.nombre, s.costo_referencia, s.factor_unidad_base, p.id_producto_erp, p.codigo_producto, p.nombre,
                     r.permite_venta_fraccionaria, r.precision_decimal, r.incremento_minimo_venta, r.unidad_venta_label,
-                    r.generar_etiqueta_interna, r.requiere_lote, r.requiere_caducidad, ub.abreviatura, ub.codigo
+                    r.generar_etiqueta_interna, r.requiere_lote, r.requiere_caducidad, ub.abreviatura, ub.codigo,
+                    sp.factor_conversion, uc.abreviatura, uc.codigo
                 ORDER BY p.nombre, s.sku LIMIT 50";
             $stmt = $db->prepare($sql);
             $stmt->execute(array(":almacen" => intval($idAlmacen), ":almacen_todos" => intval($idAlmacen), ":termino" => "%" . $termino . "%"));
@@ -1396,17 +1403,17 @@ class InventarioErp extends CRUD {
             $indiceItem = 0;
             foreach ($items as $item) {
                 $indiceItem++;
-                $cantidad = round(floatval(isset($item["cantidad"]) ? $item["cantidad"] : 0), 4);
+                $sku = $this->consultarSku($db, intval(isset($item["id_sku"]) ? $item["id_sku"] : 0));
+                $cantidad = $this->cantidadBaseAjuste($sku, $item, $documentoOperacion);
                 if ($cantidad <= 0) {
                     throw new Exception("Todas las cantidades deben ser mayores a cero");
                 }
-                $sku = $this->consultarSku($db, intval(isset($item["id_sku"]) ? $item["id_sku"] : 0));
                 $this->validarReglasItem($sku, $item, $cantidad, $documentoOperacion);
                 if ($tipo === "entrada") {
                     $existencia = $this->obtenerOCrearExistencia($db, $sku, $idAlmacen, $item);
                     $idMovimiento = $this->aplicarCambio($db, $existencia, $cantidad, "entrada", $documentoOperacion, 0, $referencia, $datos, $idUsuario);
                     if ($documentoOperacion === "inventario_inicial") {
-                        $etiquetasGeneradas += $this->generarUnidadesInventarioInicial($db, $sku, $existencia, $cantidad, $referencia, $idMovimiento, $indiceItem, $datos);
+                        $etiquetasGeneradas += $this->generarUnidadesInventarioInicial($db, $sku, $existencia, $cantidad, $item, $referencia, $idMovimiento, $indiceItem, $datos);
                     }
                     $movimientos++;
                     continue;
@@ -1503,6 +1510,10 @@ class InventarioErp extends CRUD {
 
     private function consultarSku($db, $idSku) {
         $stmt = $db->prepare("SELECT s.id_sku, s.sku, s.id_producto_erp, s.costo_referencia,
+                s.factor_unidad_base,
+                COALESCE(ub.abreviatura, ub.codigo, '') unidad_base_label,
+                COALESCE(sp.factor_conversion, s.factor_unidad_base, 1.000000) factor_conversion_compra,
+                COALESCE(uc.abreviatura, uc.codigo, '') unidad_compra_label,
                 COALESCE(r.requiere_lote, 0) requiere_lote,
                 COALESCE(r.requiere_caducidad, 0) requiere_caducidad,
                 COALESCE(r.generar_etiqueta_interna, 0) generar_etiqueta_interna,
@@ -1512,6 +1523,9 @@ class InventarioErp extends CRUD {
                 COALESCE(r.prefijo_etiqueta_interna, '') prefijo_etiqueta_interna
             FROM erp_catalogo_skus s INNER JOIN erp_catalogo_productos p ON p.id_producto_erp=s.id_producto_erp
             LEFT JOIN erp_catalogo_sku_reglas_inventario r ON r.id_sku=s.id_sku
+            LEFT JOIN erp_catalogo_unidades ub ON ub.id_unidad=s.id_unidad_base
+            LEFT JOIN erp_catalogo_sku_proveedores sp ON sp.id_sku=s.id_sku AND sp.estatus='activo' AND sp.es_preferido=1
+            LEFT JOIN erp_catalogo_unidades uc ON uc.id_unidad=sp.id_unidad_compra
             WHERE s.id_sku=:sku AND s.estatus='activo' AND p.estatus='activo'");
         $stmt->execute(array(":sku" => $idSku));
         $sku = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -1565,7 +1579,55 @@ class InventarioErp extends CRUD {
         throw new Exception("Selecciona un motivo de ajuste valido");
     }
 
+    /**
+     * IA: Codex GPT-5
+     * Fecha: 2026-07-09
+     * Proposito: normaliza captura de inventario inicial real a cantidad base antes del kardex.
+     * Impacto: Inventario inicial; soporta stock historico por unidad base, unidad de compra y unidad fisica cerrada/abierta.
+     * Contrato: no escribe por si misma; devuelve cantidad positiva en unidad base para existencia y movimiento.
+     */
+    private function cantidadBaseAjuste($sku, $item, $documentoOperacion) {
+        if ($documentoOperacion !== "inventario_inicial") {
+            return round(floatval(isset($item["cantidad"]) ? $item["cantidad"] : 0), 4);
+        }
+
+        $modo = trim(isset($item["modo_captura"]) ? $item["modo_captura"] : "base");
+        if (!in_array($modo, array("base", "unidad_compra", "unidad_fisica_cerrada", "unidad_fisica_abierta"), true)) {
+            throw new Exception("Modo de captura de inventario inicial no valido");
+        }
+
+        if ($modo === "unidad_compra") {
+            $cantidadCompra = round(floatval(isset($item["cantidad_compra"]) ? $item["cantidad_compra"] : (isset($item["cantidad"]) ? $item["cantidad"] : 0)), 6);
+            $factor = round(floatval(isset($item["factor_conversion"]) ? $item["factor_conversion"] : $sku["factor_conversion_compra"]), 6);
+            if ($cantidadCompra <= 0 || $factor <= 0) {
+                throw new Exception("Captura cantidad de compra y factor de conversion validos para " . $sku["sku"]);
+            }
+            return round($cantidadCompra * $factor, 4);
+        }
+
+        if ($modo === "unidad_fisica_cerrada") {
+            $unidades = intval(isset($item["cantidad_unidades_fisicas"]) ? $item["cantidad_unidades_fisicas"] : (isset($item["cantidad"]) ? $item["cantidad"] : 0));
+            $contenido = round(floatval(isset($item["contenido_base_original"]) ? $item["contenido_base_original"] : 0), 6);
+            if ($unidades <= 0 || $contenido <= 0) {
+                throw new Exception("Captura unidades fisicas cerradas y contenido base validos para " . $sku["sku"]);
+            }
+            return round($unidades * $contenido, 4);
+        }
+
+        if ($modo === "unidad_fisica_abierta") {
+            $original = round(floatval(isset($item["contenido_base_original"]) ? $item["contenido_base_original"] : 0), 6);
+            $disponible = round(floatval(isset($item["contenido_base_disponible"]) ? $item["contenido_base_disponible"] : (isset($item["cantidad"]) ? $item["cantidad"] : 0)), 6);
+            if ($original <= 0 || $disponible <= 0 || $disponible > $original + 0.000001) {
+                throw new Exception("Captura contenido original y disponible validos para la unidad abierta de " . $sku["sku"]);
+            }
+            return round($disponible, 4);
+        }
+
+        return round(floatval(isset($item["cantidad"]) ? $item["cantidad"] : 0), 4);
+    }
+
     private function validarReglasItem($sku, $item, $cantidad, $documentoOperacion) {
+        $modo = trim(isset($item["modo_captura"]) ? $item["modo_captura"] : "base");
         if (intval($sku["permite_venta_fraccionaria"]) !== 1 && abs($cantidad - round($cantidad)) > 0.0001) {
             throw new Exception("La cantidad de " . $sku["sku"] . " debe ser entera");
         }
@@ -1575,7 +1637,9 @@ class InventarioErp extends CRUD {
         if (intval($sku["requiere_caducidad"]) === 1 && trim(isset($item["fecha_caducidad"]) ? $item["fecha_caducidad"] : "") === "") {
             throw new Exception("El SKU " . $sku["sku"] . " requiere caducidad");
         }
-        if ($documentoOperacion === "inventario_inicial" && intval($sku["generar_etiqueta_interna"]) === 1 && abs($cantidad - floor($cantidad)) > 0.0001) {
+        if ($documentoOperacion === "inventario_inicial" && intval($sku["generar_etiqueta_interna"]) === 1
+            && !in_array($modo, array("unidad_fisica_cerrada", "unidad_fisica_abierta"), true)
+            && abs($cantidad - floor($cantidad)) > 0.0001) {
             throw new Exception("El SKU " . $sku["sku"] . " genera etiquetas y debe cargarse en unidades enteras");
         }
     }
@@ -1793,11 +1857,26 @@ class InventarioErp extends CRUD {
         return implode(" | ", $partes);
     }
 
-    private function generarUnidadesInventarioInicial($db, $sku, $existencia, $cantidad, $referencia, $idMovimiento, $indiceItem, $datos) {
-        if (intval($sku["generar_etiqueta_interna"]) !== 1) {
+    private function generarUnidadesInventarioInicial($db, $sku, $existencia, $cantidad, $item, $referencia, $idMovimiento, $indiceItem, $datos) {
+        $modo = trim(isset($item["modo_captura"]) ? $item["modo_captura"] : "base");
+        $requiereUnidadFisica = in_array($modo, array("unidad_fisica_cerrada", "unidad_fisica_abierta"), true);
+        if (intval($sku["generar_etiqueta_interna"]) !== 1 && !$requiereUnidadFisica) {
             return 0;
         }
         $cantidadEntera = intval($cantidad);
+        $contenidoOriginal = 1.000000;
+        $contenidoDisponible = 1.000000;
+        $estadoFisico = "cerrada";
+        if ($modo === "unidad_fisica_cerrada") {
+            $cantidadEntera = intval(isset($item["cantidad_unidades_fisicas"]) ? $item["cantidad_unidades_fisicas"] : 0);
+            $contenidoOriginal = round(floatval(isset($item["contenido_base_original"]) ? $item["contenido_base_original"] : 0), 6);
+            $contenidoDisponible = $contenidoOriginal;
+        } elseif ($modo === "unidad_fisica_abierta") {
+            $cantidadEntera = 1;
+            $contenidoOriginal = round(floatval(isset($item["contenido_base_original"]) ? $item["contenido_base_original"] : 0), 6);
+            $contenidoDisponible = round(floatval(isset($item["contenido_base_disponible"]) ? $item["contenido_base_disponible"] : $cantidad), 6);
+            $estadoFisico = "abierta";
+        }
         if ($cantidadEntera <= 0) {
             return 0;
         }
@@ -1809,13 +1888,17 @@ class InventarioErp extends CRUD {
         $stmt = $db->prepare("INSERT INTO erp_inventario_unidades
             (codigo_unico, tipo_identidad, codigo_etiqueta_interna, id_producto, id_sku_erp,
              id_recepcion_almacen, id_recepcion_lote, id_existencia_inventario, id_almacen, ubicacion_id,
-             lote, fecha_caducidad, estatus, estado_etiqueta, origen_tipo, origen_id, origen_detalle_id, observaciones)
+             lote, fecha_caducidad, cantidad_base_original, cantidad_base_disponible, unidad_base,
+             estatus, estado_etiqueta, estado_fisico, origen_tipo, origen_id, origen_detalle_id, observaciones)
             VALUES (:codigo, 'etiqueta_interna', :codigo_etiqueta, :producto, :sku,
              NULL, NULL, :existencia, :almacen, :ubicacion_id,
-             :lote, :caducidad, 'disponible', 'pendiente_impresion', 'inventario_inicial', :origen, :detalle, :observaciones)");
+             :lote, :caducidad, :cantidad_base_original, :cantidad_base_disponible, :unidad_base,
+             'disponible', 'pendiente_impresion', :estado_fisico, 'inventario_inicial', :origen, :detalle, :observaciones)");
 
         for ($i = 1; $i <= $cantidadEntera; $i++) {
             $codigo = $prefijo . "-II" . str_pad((string) intval($idMovimiento), 6, "0", STR_PAD_LEFT) . "-" . str_pad((string) $i, 4, "0", STR_PAD_LEFT);
+            $contenidoItemOriginal = $requiereUnidadFisica ? $contenidoOriginal : 1.000000;
+            $contenidoItemDisponible = $requiereUnidadFisica ? $contenidoDisponible : 1.000000;
             $stmt->execute(array(
                 ":codigo" => $codigo,
                 ":codigo_etiqueta" => $codigo,
@@ -1826,6 +1909,10 @@ class InventarioErp extends CRUD {
                 ":ubicacion_id" => intval($existencia["ubicacion_id"]) ?: null,
                 ":lote" => $existencia["lote"],
                 ":caducidad" => $existencia["fecha_caducidad"],
+                ":cantidad_base_original" => $contenidoItemOriginal,
+                ":cantidad_base_disponible" => $contenidoItemDisponible,
+                ":unidad_base" => trim(isset($sku["unidad_base_label"]) ? $sku["unidad_base_label"] : "") ?: null,
+                ":estado_fisico" => $estadoFisico,
                 ":origen" => intval($idMovimiento),
                 ":detalle" => intval($indiceItem),
                 ":observaciones" => trim("Inventario inicial " . $referencia . ($observaciones !== "" ? " | " . $observaciones : ""))

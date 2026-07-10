@@ -2033,6 +2033,104 @@ Conclusion:
 - Inventario/Existencias queda cerrado como base operativa robusta para saldos, kardex, trazabilidad, diagnostico, valuacion, conteos y reservas basicas.
 - El siguiente crecimiento natural no es seguir metiendo logica comercial aqui, sino avanzar al modulo que consumira inventario: Ventas/Pedidos/Mayoreo o Costos/Rentabilidad, segun prioridad del negocio.
 
+## INV-T030 - Inventario inicial real multi-tienda con granel y unidades fisicas
+
+Fecha: 2026-07-09
+
+Origen:
+
+- El negocio ya tiene mercancia fisica en tiendas.
+- Esa mercancia no debe simularse como compra/recepcion si no existe documento real de recepcion.
+- Inventario inicial debe poder capturar stock historico en la misma logica robusta que Recepcion: unidad base, unidad de compra y unidad fisica trazable.
+
+Decision ERP robusta:
+
+- Inventario inicial sigue siendo un movimiento documentado con referencia obligatoria `INV-INICIAL-*`.
+- El Kardex y la existencia agregada siempre guardan cantidad en unidad base.
+- La pantalla puede capturar distintas formas operativas, pero el backend normaliza antes de mover inventario.
+- Las ubicaciones deben existir antes en Almacen; Inventario inicial no crea ubicaciones libres.
+- Las unidades fisicas abiertas son stock disponible, pero no representan unidad cerrada vendible.
+
+Modos soportados en Inventario inicial:
+
+| Modo | Uso operativo | Cantidad base resultante |
+| --- | --- | --- |
+| Unidad base | Conteo directo en kg, pza, g, ml, etc. | `cantidad` |
+| Unidad compra | Cajas, costales o empaques de proveedor. | `cantidad_compra * factor_conversion` |
+| Unidad cerrada | Piezas fisicas trazables con etiqueta. | `cantidad_unidades_fisicas * contenido_base_original` |
+| Unidad abierta | Bolsa/caja ya abierta en tienda. | `contenido_base_disponible` |
+
+Cambios aplicados sin escritura de BD:
+
+- `app/modelos/InventarioErp.php`
+  - `buscarSkus()` expone `factor_unidad_base`, `unidad_base_label`, `factor_conversion_compra` y `unidad_compra_label`.
+  - `aplicarAjuste()` normaliza cantidad base para `documento_operacion='inventario_inicial'`.
+  - Agrega `cantidadBaseAjuste()` para capturas por unidad base, unidad compra, unidad cerrada y unidad abierta.
+  - `generarUnidadesInventarioInicial()` ahora puede crear unidad fisica trazable aun cuando el SKU no genere etiqueta automaticamente, si el modo de captura lo solicita.
+  - Las unidades de inventario inicial guardan `cantidad_base_original`, `cantidad_base_disponible`, `unidad_base` y `estado_fisico`.
+- `public/assets/js/custom/apps/erp/inventarios/operacion_erp.js`
+  - En Inventario inicial muestra modo de captura por partida.
+  - Permite capturar unidad compra, factor, unidades fisicas, contenido original y contenido disponible.
+  - Calcula visualmente la cantidad base resultante antes de aplicar.
+  - Valida que una unidad abierta no tenga disponible mayor al contenido original.
+- `app/vistas/paginas/apps/erp/inventarios/operacion.php`
+  - Versiona `operacion_erp.js` a `v=20260709-1`.
+- `storage/uat/uat_inv_inicial_real_preflight_readonly.php`
+  - Agrega preflight flexible para validar tienda, SKU, modo de captura, referencia, lote/caducidad y cantidad base calculada.
+  - Devuelve payload recomendado, advertencias y comando aplicador futuro.
+- `storage/uat/uat_inv_inicial_real_apply_authorized.php`
+  - Agrega aplicador bloqueado por defecto.
+  - Requiere `--autorizar=INV_INICIAL_REAL_UAT` y respaldo externo legible.
+  - No aplica si la referencia ya existe en Kardex.
+
+Validaciones tecnicas:
+
+| Comando | Resultado |
+| --- | --- |
+| `C:\xampp\php\php.exe -l app\modelos\InventarioErp.php` | OK |
+| `C:\xampp\php\php.exe -l app\vistas\paginas\apps\erp\inventarios\operacion.php` | OK |
+| `node --check public\assets\js\custom\apps\erp\inventarios\operacion_erp.js` | OK |
+| `C:\xampp\php\php.exe -l storage\uat\uat_inv_inicial_real_preflight_readonly.php` | OK |
+| `C:\xampp\php\php.exe -l storage\uat\uat_inv_inicial_real_apply_authorized.php` | OK |
+
+Preflight read-only ejecutado:
+
+- Comando:
+  - `C:\xampp\php\php.exe storage\uat\uat_inv_inicial_real_preflight_readonly.php --id_almacen=3 --sku=TP-40372 --modo=unidad_compra --cantidad_compra=5 --factor_conversion=4 --lote=UAT-INV-INICIAL-REAL --caducidad=2027-12-31 --referencia=INV-INICIAL-ACUARIO-20260709-UAT01`
+- Resultado:
+  - `ok=true`
+  - almacen `3` / `BOD971`
+  - SKU `TP-40372`
+  - modo `unidad_compra`
+  - cantidad base calculada `20 kg`
+  - bloqueos `[]`
+  - advertencia: unidad compra preferida aparece como `kg`, aunque el factor de conversion es `4.000000`; validar en Catalogo/Proveedor si se esperaba `CAJA`.
+
+Prueba de seguridad del aplicador:
+
+- Ejecutado con respaldo placeholder `C:\xampp\panel_db_backups\RESPALDO_PENDIENTE.sql`.
+- Resultado esperado: `ok=false`.
+- Bloqueo confirmado: `Respaldo externo no valido o no legible`.
+- No hubo escrituras de BD.
+
+UAT pendiente con autorizacion:
+
+1. Crear respaldo externo antes de cualquier escritura.
+2. Ejecutar preflight read-only para una tienda real y un SKU granel.
+3. Cargar un folio controlado, por ejemplo `INV-INICIAL-ACUARIO-20260709-UAT01`.
+4. Validar en Existencias:
+   - saldo agregado en unidad base;
+   - lote/caducidad/ubicacion;
+   - unidad fisica cerrada o abierta si aplica;
+   - diferencia saldo vs unidades trazables en cero cuando toda la existencia sea trazable.
+5. Validar Kardex por referencia `INV-INICIAL-*`.
+6. Validar Unidades/Etiquetado si se generaron unidades fisicas.
+
+Regla de cierre:
+
+- No cargar inventario real de tiendas hasta ejecutar respaldo externo y UAT por tienda/SKU.
+- No corregir inventario inicial con SQL manual; usar movimiento documentado o conteo fisico segun corresponda.
+
 ## INV-UA-T001 - Visibilidad de unidades fisicas abiertas
 
 Fecha: 2026-06-25
