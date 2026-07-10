@@ -49,7 +49,7 @@ if ($_SERVER["SERVER_NAME"] == "localhost") {
      * Base de datos local
      * * */
     $mysqlHost = "201.131.127.234";
-    $mysqlBase = "artianicom_artiani";
+    $mysqlBase = "artianicom_sys";
     $mysqlUser = "artianicom_artianicom";
     $mysqlPass = 'N^emH;iTA9Po';
 } else {
