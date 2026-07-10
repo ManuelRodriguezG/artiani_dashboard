@@ -2092,6 +2092,8 @@ Validaciones tecnicas:
 | `node --check public\assets\js\custom\apps\erp\inventarios\operacion_erp.js` | OK |
 | `C:\xampp\php\php.exe -l storage\uat\uat_inv_inicial_real_preflight_readonly.php` | OK |
 | `C:\xampp\php\php.exe -l storage\uat\uat_inv_inicial_real_apply_authorized.php` | OK |
+| `node --check storage\uat\uat_inv_operacion_existencia_check.js` | OK |
+| `node storage\uat\uat_inv_operacion_existencia_check.js` | `ok=true`, incluye modos de inventario inicial real |
 
 Preflight read-only ejecutado:
 
@@ -2112,6 +2114,96 @@ Prueba de seguridad del aplicador:
 - Resultado esperado: `ok=false`.
 - Bloqueo confirmado: `Respaldo externo no valido o no legible`.
 - No hubo escrituras de BD.
+
+Validacion adicional de UI/JS:
+
+- `storage/uat/uat_inv_operacion_existencia_check.js` ahora cubre:
+  - deteccion de Inventario inicial;
+  - calculo de cantidad base por modo;
+  - unidad compra;
+  - unidad fisica cerrada;
+  - unidad fisica abierta;
+  - validacion de disponible <= contenido original;
+  - render del selector `data-partida-modo-captura`;
+  - envio de campos de contenido base en `items`.
+
+Hallazgo INV-H030-01:
+
+- Preflight read-only con unidad fisica abierta:
+  - `TP-40372`
+  - modo `unidad_fisica_abierta`
+  - contenido original `4 kg`
+  - contenido disponible `2.5 kg`
+  - referencia `INV-INICIAL-ACUARIO-20260709-UAT-ABIERTA`
+- Resultado:
+  - `ok=false`
+  - bloqueo: `El SKU no permite fraccionarios y la cantidad base calculada no es entera`.
+- Interpretacion:
+  - Inventario esta protegiendo correctamente la regla de Catalogo.
+  - Para operar `TP-40372` como granel real, Catalogo debe tener `permite_venta_fraccionaria=1` y precision/incremento coherente para `kg`.
+  - No se corrige desde Inventario porque Catalogo define la politica del SKU.
+
+Resolucion INV-H030-01:
+
+- Fecha: 2026-07-10.
+- Catalogo fue corregido por el dueno del proyecto.
+- Validacion read-only posterior:
+  - `TP-40372`
+  - `permite_venta_fraccionaria=1`
+  - `precision_decimal=3`
+  - `unidad_venta_label=kg`
+  - `incremento_minimo_venta=1.000000`
+- Preflight read-only repetido con unidad fisica abierta:
+  - modo `unidad_fisica_abierta`
+  - contenido original `4 kg`
+  - contenido disponible `2.5 kg`
+  - referencia `INV-INICIAL-ACUARIO-20260709-UAT-ABIERTA`
+  - resultado `ok=true`
+  - cantidad base calculada `2.5`
+  - bloqueos `[]`
+- Observacion:
+  - El incremento minimo `1.000000 kg` puede ser demasiado alto para UX de venta/captura granel si se vendera por gramos o fracciones menores.
+  - No bloquea el preflight ni la captura manual, pero Catalogo deberia definir si el incremento operativo sera `0.001`, `0.01`, `0.1` o `1`.
+
+Preflight read-only posterior para unidad compra:
+
+- `TP-40372`
+- modo `unidad_compra`
+- `5 x 4 kg = 20 kg`
+- referencia `INV-INICIAL-ACUARIO-20260709-UAT01`
+- resultado `ok=true`
+- bloqueos `[]`
+- advertencia vigente:
+  - unidad compra preferida aparece como `kg`; si operativamente debe decir `CAJA`, corresponde a Catalogo/Proveedor.
+
+Preflight read-only con ubicacion operativa:
+
+- Fecha: 2026-07-10.
+- Ubicacion elegida para UAT controlado:
+  - `id_ubicacion=13`
+  - `E1-C2-P1-A1-N3`
+- Unidad abierta:
+  - comando con `--modo=unidad_fisica_abierta`
+  - contenido original `4 kg`
+  - contenido disponible `2.5 kg`
+  - referencia `INV-INICIAL-ACUARIO-20260710-UAT-ABIERTA`
+  - resultado `ok=true`
+  - bloqueos `[]`
+- Unidad compra:
+  - comando con `--modo=unidad_compra`
+  - `5 x 4 kg = 20 kg`
+  - referencia `INV-INICIAL-ACUARIO-20260710-UAT01`
+  - resultado `ok=true`
+  - bloqueos `[]`
+  - advertencia vigente: unidad compra preferida aparece como `kg`.
+
+Decision para el primer UAT con escritura:
+
+- Recomendado ejecutar primero `unidad_fisica_abierta` porque valida el caso nuevo mas delicado:
+  - crea existencia por `2.5 kg`;
+  - crea una unidad fisica abierta con original `4 kg` y disponible `2.5 kg`;
+  - debe verse en Existencias como stock disponible, no unidad cerrada.
+- Despues ejecutar `unidad_compra` para validar entrada historica por caja/factor.
 
 UAT pendiente con autorizacion:
 

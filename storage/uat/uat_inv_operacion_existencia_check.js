@@ -25,7 +25,15 @@ const checks = [
   ["exige referencia de inventario inicial", js.includes("INV-INICIAL-")],
   ["valida lote requerido", js.includes("Captura lote para")],
   ["valida caducidad requerida", js.includes("Captura caducidad para")],
-  ["limpia partidas al cambiar documento", js.includes("inventario_documento_operacion") && js.includes("actualizarDocumentoOperacion")]
+  ["limpia partidas al cambiar documento", js.includes("inventario_documento_operacion") && js.includes("actualizarDocumentoOperacion")],
+  ["detecta inventario inicial", js.includes("function esInventarioInicial()")],
+  ["calcula cantidad base por modo", js.includes("function cantidadBasePartida(item)")],
+  ["soporta unidad compra", js.includes("unidad_compra") && js.includes("cantidad_compra") && js.includes("factor_conversion")],
+  ["soporta unidad fisica cerrada", js.includes("unidad_fisica_cerrada") && js.includes("cantidad_unidades_fisicas")],
+  ["soporta unidad fisica abierta", js.includes("unidad_fisica_abierta") && js.includes("contenido_base_disponible")],
+  ["valida abierta menor o igual al original", js.includes("no puede tener disponible mayor al contenido original")],
+  ["renderiza selector de modo de captura", js.includes("data-partida-modo-captura")],
+  ["envia campos de unidad fisica en items", js.includes("contenido_base_original") && js.includes("contenido_base_disponible")]
 ];
 
 const failed = checks.filter(([, ok]) => !ok);

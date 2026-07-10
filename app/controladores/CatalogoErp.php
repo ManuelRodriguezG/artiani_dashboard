@@ -1,6 +1,6 @@
 <?php
 
-class CatalogoErp extends Controlador {
+class Catalogoerp extends Controlador {
 
   public function __construct() {
     $this->requerirSesion();
