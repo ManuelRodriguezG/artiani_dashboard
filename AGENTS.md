@@ -1,5 +1,11 @@
 # AGENTS.md - Guia de arquitectura e indexacion critica
 
+## Proyecto activo y ruta canonica
+
+- La ruta activa de este proyecto es `C:\xampp\htdocs\panel_de_control`.
+- No realizar cambios en `C:\xampp\htdocs\panel` para este proyecto salvo que el dueno lo pida explicitamente.
+- Si la sesion, IDE o herramienta muestra otra ruta, confirmar y usar `C:\xampp\htdocs\panel_de_control` como `workdir` antes de editar.
+- Los documentos, controladores, modelos, vistas y assets nuevos de ERP/POS deben crearse en `panel_de_control`.
 Este archivo es la puerta de entrada para agentes que trabajen en este proyecto. Su objetivo es reducir lecturas repetidas, ubicar rapido las reglas de negocio y evitar inventar decisiones. Si una regla de negocio no esta clara en codigo o docs, pregunta al dueno del proyecto antes de implementarla.
 
 ## Lectura inicial recomendada
@@ -216,3 +222,4 @@ No ejecutes migraciones, escrituras masivas, formateadores o cambios de esquema 
 - Para alertas/notificaciones operativas, revisa `docs/erp_notificaciones_alertas_trabajo.md`; no uses auditoria ni chat como reemplazo de pendientes persistentes.
 - Para Compras, respeta la documentacion viva en `docs/` y confirma con el dueno cualquier cambio de objetivo o politica.
 - Para codigo nuevo o funciones modificadas por IA, documenta segun `docs/erp_estandar_documentacion_codigo.md`: version IA, fecha, proposito, impacto y contrato cuando aplique.
+

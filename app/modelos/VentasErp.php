@@ -3964,6 +3964,96 @@ class VentasErp extends CRUD {
         }
     }
 
+
+    /**
+     * Documentacion IA: Codex GPT-5, 2026-07-10.
+     * Proposito: consultar precio, imagen y disponibilidad para checador POS/celular.
+     * Impacto: reutiliza Catalogo/Inventario/Ventas como fuente de verdad sin crear ventas ni reservas.
+     * Contrato: read-only; el precio y disponibilidad son informativos y deben revalidarse al cobrar.
+     */
+    public function checadorPrecioPosReadOnly($filtros = array()) {
+        try {
+            $db = $this->getConexion();
+            $termino = trim((string) $this->valor($filtros, "q", ""));
+            $idSku = intval($this->valor($filtros, "id_sku", 0));
+            $idAlmacen = intval($this->valor($filtros, "id_almacen", 0));
+            $canal = trim((string) $this->valor($filtros, "canal", "pos"));
+            if (!in_array($canal, array("pos", "pedido_tienda", "ecommerce"), true)) {
+                $canal = "pos";
+            }
+            if ($idSku <= 0 && strlen($termino) < 2) {
+                return $this->respuesta(false, "success", "Escanea o escribe al menos dos caracteres", array(
+                    "producto" => null,
+                    "coincidencias" => array(),
+                    "modo" => "esperando_busqueda"
+                ));
+            }
+
+            $coincidencias = $idSku > 0 ? array() : $this->buscarSkusParaChecador($db, $termino, $idAlmacen, 8);
+            if ($idSku <= 0 && !empty($coincidencias)) {
+                $idSku = intval($coincidencias[0]["id_sku"]);
+            }
+            if ($idSku <= 0) {
+                return $this->respuesta(false, "warning", "Producto no encontrado", array(
+                    "producto" => null,
+                    "coincidencias" => array(),
+                    "modo" => "sin_resultados"
+                ));
+            }
+
+            $sku = $this->consultarSkuVenta($db, $idSku);
+            if (!$sku) {
+                return $this->respuesta(true, "warning", "SKU no encontrado o no activo");
+            }
+            $visual = $this->consultarVisualSkuChecador($db, $idSku);
+            $schemaListasPendiente = !$this->tablaExiste($db, "erp_listas_precios") || !$this->tablaExiste($db, "erp_listas_precios_detalle");
+            $precio = $this->resolverPrecioSkuDryRun($db, $sku, array(), $canal, $idAlmacen, $schemaListasPendiente);
+            $existencias = $this->existenciasDisponiblesVenta($db, $idSku, $idAlmacen);
+            $unidades = $this->unidadesDisponiblesVenta($db, $idSku, $idAlmacen);
+            $resumen = $this->resumenDisponibilidad($existencias, $unidades);
+
+            $estadoPublico = "agotado";
+            if (intval($sku["controla_inventario"]) !== 1) {
+                $estadoPublico = "sin_control_inventario";
+            } elseif (floatval($resumen["disponible"]) > 3) {
+                $estadoPublico = "disponible";
+            } elseif (floatval($resumen["disponible"]) > 0) {
+                $estadoPublico = "pocas_piezas";
+            } elseif (intval($sku["permite_venta_sin_existencia"]) === 1) {
+                $estadoPublico = "consultar_disponibilidad";
+            }
+
+            $producto = array_merge($sku, $visual, array(
+                "precio_base" => $precio["precio_base"],
+                "precio_aplicado" => $precio["precio_aplicado"],
+                "id_lista_precio" => $precio["id_lista_precio"],
+                "lista_precio_snapshot" => $precio["lista_precio_snapshot"],
+                "regla_precio_origen" => $precio["regla_precio_origen"],
+                "schema_listas_pendiente" => !empty($precio["schema_listas_pendiente"]),
+                "disponibilidad" => $resumen,
+                "estado_publico" => $estadoPublico,
+                "id_almacen_consulta" => $idAlmacen,
+                "canal" => $canal
+            ));
+
+            return $this->respuesta(false, "success", "Producto consultado", array(
+                "producto" => $producto,
+                "coincidencias" => $coincidencias,
+                "existencias" => $existencias,
+                "unidades" => $unidades,
+                "modo" => "read_only",
+                "contrato" => array(
+                    "no_cobra" => true,
+                    "no_reserva" => true,
+                    "no_mueve_inventario" => true,
+                    "revalidar_al_cobrar" => true
+                )
+            ));
+        } catch (Exception $e) {
+            return $this->respuesta(true, "danger", $e->getMessage());
+        }
+    }
+
     /**
      * Documentacion IA: Codex GPT-5, 2026-06-26.
      * Proposito: consultar una etiqueta/unidad fisica para decidir si POS puede venderla cerrada o a granel.
@@ -7332,7 +7422,7 @@ class VentasErp extends CRUD {
     /**
      * Documentacion IA: Codex GPT-5, 2026-06-26.
      * Proposito: validar que el carrito POS este asociado a caja de la misma tienda.
-     * Impacto: evita diseñar ventas sin contexto tienda/almacen/caja.
+     * Impacto: evita diseÃ±ar ventas sin contexto tienda/almacen/caja.
      * Contrato: read-only; antes de existir esquema devuelve bloqueo operativo informativo.
      */
     private function validarCajaOperativa($db, $idAlmacen, $idCaja) {
@@ -7857,6 +7947,99 @@ class VentasErp extends CRUD {
             LIMIT 1");
         $stmt->execute(array(":sku" => intval($idSku)));
         return $stmt->fetch(PDO::FETCH_ASSOC);
+    }
+
+    private function consultarVisualSkuChecador($db, $idSku) {
+        $stmt = $db->prepare("SELECT p.codigo_producto,
+                COALESCE(m.nombre, '') marca,
+                COALESCE(cat.nombre, '') categoria,
+                COALESCE(cod.codigo, '') codigo_barras,
+                COALESCE(img.url_imagen, img_producto.url_imagen, '') url_imagen
+            FROM erp_catalogo_skus s
+            INNER JOIN erp_catalogo_productos p ON p.id_producto_erp=s.id_producto_erp
+            LEFT JOIN erp_catalogo_marcas m ON m.id_marca_erp=p.id_marca_erp
+            LEFT JOIN erp_catalogo_producto_categorias pc ON pc.id_producto_erp=p.id_producto_erp AND pc.es_principal=1
+            LEFT JOIN erp_catalogo_categorias cat ON cat.id_categoria_erp=pc.id_categoria_erp
+            LEFT JOIN erp_catalogo_sku_codigos cod ON cod.id_sku=s.id_sku AND cod.estatus='activo'
+                AND cod.id_sku_codigo = (
+                    SELECT c2.id_sku_codigo FROM erp_catalogo_sku_codigos c2
+                    WHERE c2.id_sku=s.id_sku AND c2.estatus='activo'
+                    ORDER BY c2.es_principal DESC, c2.tipo_codigo IN ('codigo_barras','barras') DESC, c2.id_sku_codigo DESC
+                    LIMIT 1
+                )
+            LEFT JOIN erp_catalogo_imagenes img ON img.id_sku=s.id_sku AND img.estatus='activo'
+                AND img.id_imagen_erp = (
+                    SELECT i2.id_imagen_erp FROM erp_catalogo_imagenes i2
+                    WHERE i2.id_sku=s.id_sku AND i2.estatus='activo'
+                    ORDER BY i2.tipo_imagen='portada' DESC, i2.id_imagen_erp ASC
+                    LIMIT 1
+                )
+            LEFT JOIN erp_catalogo_imagenes img_producto ON img_producto.id_producto_erp=s.id_producto_erp AND img_producto.estatus='activo'
+                AND img_producto.id_imagen_erp = (
+                    SELECT i3.id_imagen_erp FROM erp_catalogo_imagenes i3
+                    WHERE i3.id_producto_erp=s.id_producto_erp AND i3.estatus='activo'
+                    ORDER BY i3.tipo_imagen='portada' DESC, i3.id_imagen_erp ASC
+                    LIMIT 1
+                )
+            WHERE s.id_sku=:sku
+            LIMIT 1");
+        $stmt->execute(array(":sku" => intval($idSku)));
+        $visual = $stmt->fetch(PDO::FETCH_ASSOC);
+        return $visual ?: array("codigo_producto" => "", "marca" => "", "categoria" => "", "codigo_barras" => "", "url_imagen" => "");
+    }
+
+    private function buscarSkusParaChecador($db, $termino, $idAlmacen, $limite = 8) {
+        $termino = trim((string) $termino);
+        if (strlen($termino) < 2) {
+            return array();
+        }
+        $sql = "SELECT s.id_sku, s.sku, COALESCE(s.nombre, p.nombre) nombre_sku,
+                p.nombre producto, COALESCE(cod.codigo, '') codigo_barras,
+                COALESCE(pr.precio, 0) precio,
+                COALESCE(inv.disponible, 0) existencia_disponible
+            FROM erp_catalogo_skus s
+            INNER JOIN erp_catalogo_productos p ON p.id_producto_erp=s.id_producto_erp
+            LEFT JOIN erp_catalogo_sku_precios pr ON pr.id_sku=s.id_sku
+                AND pr.lista_precio='general' AND pr.moneda='MXN' AND pr.estatus='activo'
+            LEFT JOIN erp_catalogo_sku_codigos cod ON cod.id_sku=s.id_sku AND cod.estatus='activo'
+                AND cod.id_sku_codigo = (
+                    SELECT c2.id_sku_codigo FROM erp_catalogo_sku_codigos c2
+                    WHERE c2.id_sku=s.id_sku AND c2.estatus='activo'
+                    ORDER BY c2.es_principal DESC, c2.tipo_codigo IN ('codigo_barras','barras') DESC, c2.id_sku_codigo DESC
+                    LIMIT 1
+                )
+            LEFT JOIN (
+                SELECT id_sku_erp, SUM(cantidad_disponible) disponible
+                FROM erp_inventario_existencias
+                WHERE (:almacen=0 OR id_almacen_clave=:almacen_filtro)
+                GROUP BY id_sku_erp
+            ) inv ON inv.id_sku_erp=s.id_sku
+            WHERE s.estatus='activo' AND p.estatus='activo'
+              AND (
+                s.sku LIKE :buscar OR s.nombre LIKE :buscar OR p.nombre LIKE :buscar OR p.codigo_producto LIKE :buscar
+                OR EXISTS (
+                    SELECT 1 FROM erp_catalogo_sku_codigos c
+                    WHERE c.id_sku=s.id_sku AND c.estatus='activo' AND c.codigo LIKE :buscar_codigo
+                )
+              )
+            ORDER BY
+                CASE WHEN s.sku=:exacto THEN 0
+                     WHEN cod.codigo=:exacto_codigo THEN 1
+                     WHEN s.sku LIKE :prefijo THEN 2
+                     ELSE 3 END,
+                p.nombre, s.sku
+            LIMIT " . intval(max(1, min(20, $limite)));
+        $stmt = $db->prepare($sql);
+        $stmt->execute(array(
+            ":almacen" => intval($idAlmacen),
+            ":almacen_filtro" => intval($idAlmacen),
+            ":buscar" => "%" . $termino . "%",
+            ":buscar_codigo" => "%" . $termino . "%",
+            ":exacto" => $termino,
+            ":exacto_codigo" => $termino,
+            ":prefijo" => $termino . "%"
+        ));
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
     private function existenciasDisponiblesVenta($db, $idSku, $idAlmacen) {
@@ -10028,3 +10211,5 @@ class VentasErp extends CRUD {
         return array("error" => $error, "tipo" => $tipo, "mensaje" => $mensaje, "depurar" => $depurar);
     }
 }
+
+

@@ -34,6 +34,16 @@ class Ventas extends Controlador {
     $this->requerirPermiso("ventas.operar");
     $this->vista("apps/erp/ventas/pos");
   }
+  /**
+   * Documentacion IA: Codex GPT-5, 2026-07-10.
+   * Proposito: abrir checador read-only de precios y disponibilidad para mostrador/celular.
+   * Impacto: permite escanear o buscar productos sin cobrar, reservar, descontar ni mezclar ecommerce legacy.
+   * Contrato: vista de consulta; todos los datos vienen de VentasErp/Catalogo/Inventario en modo solo lectura.
+   */
+  public function checador_precios() {
+    $this->requerirPermiso("ventas.ver");
+    $this->vista("apps/erp/ventas/checador_precios");
+  }
 
   public function editar() {
     $this->requerirPermiso("ventas.ver");
@@ -54,7 +64,7 @@ class Ventas extends Controlador {
   /**
    * Documentacion IA: Codex GPT-5, 2026-06-26.
    * Proposito: absorber enlaces legacy de detalle hacia el tablero ERP.
-   * Impacto: evita pantallas antiguas incompletas mientras se diseña detalle de venta/pedido.
+   * Impacto: evita pantallas antiguas incompletas mientras se diseÃ±a detalle de venta/pedido.
    * Contrato: no consulta ni modifica ventas legacy.
    */
   public function detalles() {
@@ -254,6 +264,16 @@ class Ventas extends Controlador {
   public function pos_buscar_skus_erp() {
     $this->requerirPermiso("ventas.ver");
     return json_encode($this->modelo("VentasErp")->buscarSkusPos($_GET));
+  }
+  /**
+   * Documentacion IA: Codex GPT-5, 2026-07-10.
+   * Proposito: resolver una consulta puntual del checador de precios POS sin escribir BD.
+   * Impacto: centraliza precio, imagen y disponibilidad para mostrador/celular.
+   * Contrato: GET protegido por ventas.ver; no crea venta, carrito, reserva, movimiento ni auditoria operativa.
+   */
+  public function pos_checador_precio_erp() {
+    $this->requerirPermiso("ventas.ver");
+    return json_encode($this->modelo("VentasErp")->checadorPrecioPosReadOnly($_GET));
   }
 
   public function pos_disponibilidad_erp() {
@@ -1839,7 +1859,7 @@ class Ventas extends Controlador {
       $respuesta = [
           'error' => true,
           'tipo' => "danger",
-          'mensaje' => "Pedido inválido",
+          'mensaje' => "Pedido invÃ¡lido",
           'depurar' => []
       ];
     }
@@ -1897,3 +1917,5 @@ class Ventas extends Controlador {
   }
 
 }
+
+

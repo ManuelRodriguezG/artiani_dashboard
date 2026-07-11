@@ -150,6 +150,30 @@ Debe soportar:
 Estado actual:
 
 - Prevalidacion y contrato listos; venta real pendiente.
+### 2.1 Checador de precios read-only
+
+Objetivo:
+
+- Consultar precio, imagen y disponibilidad desde mostrador o celular sin abrir una venta.
+- Escanear codigo de barras con camara cuando el navegador lo soporte.
+- Mantener busqueda manual siempre disponible para escaner USB, SKU, etiqueta o nombre.
+
+Reglas:
+
+- No cobra.
+- No crea carrito.
+- No reserva.
+- No descuenta inventario.
+- No sustituye la validacion transaccional del POS al cobrar.
+- Si la camara no funciona por navegador/HTTPS, la pantalla sigue siendo util con busqueda manual.
+
+Estado 2026-07-10:
+
+- Ruta activa del proyecto: `C:\xampp\htdocs\panel_de_control`.
+- Se agrego ruta `Ventas::checador_precios`.
+- Se agrego endpoint read-only `Ventas::pos_checador_precio_erp`.
+- Se agrego vista `apps/erp/ventas/checador_precios`.
+- El backend consulta Catalogo/Inventario/Ventas y devuelve contrato `no_cobra`, `no_reserva`, `no_mueve_inventario`.
 
 ### 3. Clientes
 
@@ -566,3 +590,4 @@ El POS se considera robusto cuando:
 - conserva auditoria y snapshots;
 - puede validar una venta completa por folio;
 - tiene UAT documentado por SKU, folio, caja, turno y cliente.
+
