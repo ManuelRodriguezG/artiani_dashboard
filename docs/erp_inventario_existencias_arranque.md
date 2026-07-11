@@ -2205,6 +2205,18 @@ Decision para el primer UAT con escritura:
   - debe verse en Existencias como stock disponible, no unidad cerrada.
 - Despues ejecutar `unidad_compra` para validar entrada historica por caja/factor.
 
+Respaldo previo generado:
+
+- Fecha: 2026-07-10.
+- Archivo:
+  - `C:\xampp\panel_db_backups\artianilocal_panel_20260710_antes_inv_inicial_real_uat_abierta.sql`
+- Resultado:
+  - `error=false`
+  - bytes `28223019`
+  - base `artianilocal`
+- Estado:
+  - listo para solicitar autorizacion de escritura UAT `unidad_fisica_abierta`.
+
 UAT pendiente con autorizacion:
 
 1. Crear respaldo externo antes de cualquier escritura.
@@ -2222,6 +2234,223 @@ Regla de cierre:
 
 - No cargar inventario real de tiendas hasta ejecutar respaldo externo y UAT por tienda/SKU.
 - No corregir inventario inicial con SQL manual; usar movimiento documentado o conteo fisico segun corresponda.
+
+### INV-T030-UAT01 - Escritura controlada unidad fisica abierta
+
+Fecha: 2026-07-10
+
+Autorizacion recibida:
+
+```text
+AUTORIZO INVENTARIO INICIAL REAL UAT unidad_fisica_abierta usando respaldo C:\xampp\panel_db_backups\artianilocal_panel_20260710_antes_inv_inicial_real_uat_abierta.sql
+```
+
+Respaldo externo:
+
+- `C:\xampp\panel_db_backups\artianilocal_panel_20260710_antes_inv_inicial_real_uat_abierta.sql`
+- Base: `artianilocal`
+- Bytes: `28223019`
+
+Payload aplicado:
+
+| Campo | Valor |
+| --- | --- |
+| Referencia | `INV-INICIAL-ACUARIO-20260710-UAT-ABIERTA` |
+| SKU | `TP-40372` |
+| ID SKU | `146` |
+| Almacen | `3` / `BOD971` |
+| Ubicacion | `13` / `E1-C2-P1-A1-N3` |
+| Modo captura | `unidad_fisica_abierta` |
+| Lote | `UAT-INV-INICIAL-ABIERTA` |
+| Caducidad | `2027-12-31` |
+| Contenido original | `4.000000 kg` |
+| Contenido disponible | `2.500000 kg` |
+
+Resultado del aplicador:
+
+| Indicador | Valor |
+| --- | --- |
+| `ok` | `true` |
+| Mensaje | `Inventario inicial ERP aplicado` |
+| Movimientos | `1` |
+| Etiquetas/unidades generadas | `1` |
+| Origen tipo | `inventario_inicial` |
+
+Evidencia antes/despues:
+
+| Indicador | Antes | Despues |
+| --- | ---: | ---: |
+| Cantidad SKU/almacen | `18.9500` | `21.4500` |
+| Disponible SKU/almacen | `18.9500` | `21.4500` |
+| Existencias SKU/almacen | `2` | `3` |
+| Movimientos referencia | `0` | `1` |
+| Unidades referencia | `0` | `1` |
+
+Evidencia generada:
+
+| Elemento | Valor |
+| --- | --- |
+| Existencia | `EXI-50-35` |
+| Movimiento | `83` |
+| Unidad | `INV-II000083-0001` |
+| Estado fisico | `abierta` |
+| Estado etiqueta | `pendiente_impresion` |
+| Estatus unidad | `disponible` |
+| Cantidad existencia | `2.5000 kg` |
+| Contenido unidad original | `4.000000 kg` |
+| Contenido unidad disponible | `2.500000 kg` |
+
+Validacion desde `listarExistencias()`:
+
+- Busqueda por `INV-INICIAL-ACUARIO-20260710-UAT-ABIERTA`.
+- Resultado:
+  - `EXI-50-35`
+  - `cantidad=2.5000`
+  - `cantidad_disponible=2.5000`
+  - `unidades_abiertas=1`
+  - `contenido_base_original=4.000000`
+  - `contenido_base_disponible=2.500000`
+  - `unidad_base_trazable=kg`
+  - `diferencia_contenido_unidades=0.000000`
+
+Conclusion:
+
+- Inventario inicial real ya puede registrar unidad fisica abierta de producto granel.
+- La existencia agregada y la unidad fisica trazable cuadran.
+- La unidad abierta queda disponible para Preparacion/POS futuro y no representa unidad cerrada vendible.
+
+### INV-T030-UAT02 - Preflight unidad compra / factor
+
+Fecha: 2026-07-10
+
+Objetivo:
+
+- Validar el segundo caso de inventario inicial real: captura por unidad de compra y factor de conversion.
+- No escribir BD hasta contar con respaldo y autorizacion puntual.
+
+Preflight read-only:
+
+| Campo | Valor |
+| --- | --- |
+| Referencia | `INV-INICIAL-ACUARIO-20260710-UAT-CAJA` |
+| SKU | `TP-40372` |
+| ID SKU | `146` |
+| Almacen | `3` / `BOD971` |
+| Ubicacion | `13` / `E1-C2-P1-A1-N3` |
+| Modo captura | `unidad_compra` |
+| Cantidad compra | `5` |
+| Factor conversion | `4` |
+| Cantidad base calculada | `20 kg` |
+| Lote | `UAT-INV-INICIAL-REAL-CAJA` |
+| Caducidad | `2027-12-31` |
+| Resultado | `ok=true` |
+| Bloqueos | `[]` |
+
+Advertencia vigente:
+
+- La unidad compra preferida del SKU aparece como `kg`; si operativamente debe decir `CAJA`, corresponde a Catalogo/Proveedor.
+- El factor `4.000000` si esta disponible y el preflight calcula correctamente `20 kg`.
+
+Estado previo actual:
+
+- Referencias `INV-INICIAL-ACUARIO-20260710-UAT%`:
+  - movimientos `1`;
+  - cantidad `2.5000 kg`.
+
+Respaldo previo generado:
+
+- Archivo:
+  - `C:\xampp\panel_db_backups\artianilocal_panel_20260710_antes_inv_inicial_real_uat_caja.sql`
+- Resultado:
+  - `error=false`
+  - bytes `28224118`
+  - base `artianilocal`
+- Estado:
+  - listo para solicitar autorizacion de escritura UAT `unidad_compra`.
+
+### INV-T030-UAT02 - Escritura controlada unidad compra / factor
+
+Fecha: 2026-07-10
+
+Autorizacion:
+
+- El dueno del proyecto indico continuar despues de revisar preflight y respaldo.
+
+Respaldo externo:
+
+- `C:\xampp\panel_db_backups\artianilocal_panel_20260710_antes_inv_inicial_real_uat_caja.sql`
+- Base: `artianilocal`
+- Bytes: `28224118`
+
+Payload aplicado:
+
+| Campo | Valor |
+| --- | --- |
+| Referencia | `INV-INICIAL-ACUARIO-20260710-UAT-CAJA` |
+| SKU | `TP-40372` |
+| ID SKU | `146` |
+| Almacen | `3` / `BOD971` |
+| Ubicacion | `13` / `E1-C2-P1-A1-N3` |
+| Modo captura | `unidad_compra` |
+| Cantidad compra | `5` |
+| Factor conversion | `4` |
+| Cantidad base | `20.0000 kg` |
+| Lote | `UAT-INV-INICIAL-REAL-CAJA` |
+| Caducidad | `2027-12-31` |
+
+Resultado del aplicador:
+
+| Indicador | Valor |
+| --- | --- |
+| `ok` | `true` |
+| Mensaje | `Inventario inicial ERP aplicado` |
+| Movimientos | `1` |
+| Etiquetas/unidades generadas | `0` |
+| Origen tipo | `inventario_inicial` |
+
+Evidencia antes/despues:
+
+| Indicador | Antes | Despues |
+| --- | ---: | ---: |
+| Cantidad SKU/almacen | `21.4500` | `41.4500` |
+| Disponible SKU/almacen | `21.4500` | `41.4500` |
+| Existencias SKU/almacen | `3` | `4` |
+| Movimientos referencia | `0` | `1` |
+| Unidades referencia | `0` | `0` |
+
+Evidencia generada:
+
+| Elemento | Valor |
+| --- | --- |
+| Existencia | `EXI-50-36` |
+| Movimiento | `84` |
+| Cantidad existencia | `20.0000 kg` |
+| Disponible | `20.0000 kg` |
+| Lote | `UAT-INV-INICIAL-REAL-CAJA` |
+| Ubicacion | `E1-C2-P1-A1-N3` |
+
+Validacion desde `listarExistencias()`:
+
+- Busqueda por `INV-INICIAL-ACUARIO-20260710-UAT-CAJA`.
+- Resultado:
+  - `EXI-50-36`
+  - `cantidad=20.0000`
+  - `cantidad_disponible=20.0000`
+  - `unidades_total=0`
+  - `diferencia_contenido_unidades=20.000000`
+
+Interpretacion operativa:
+
+- `unidad_compra` registra saldo agregado convertido a unidad base.
+- No crea unidad fisica trazable ni etiqueta.
+- La diferencia trazable de `20.000000` es esperada en este modo porque no toda existencia agregada tiene unidad fisica asociada.
+- Si se quiere que cada caja quede identificada, etiquetable y con estado fisico, debe usarse `unidad_fisica_cerrada`.
+
+Conclusion:
+
+- Inventario inicial real ya puede cargar stock historico por unidad de compra/factor sin tocar Compras ni Recepcion.
+- Kardex conserva folio y referencia documental.
+- Queda validada la diferencia entre carga agregada y unidad fisica trazable.
 
 ## INV-UA-T001 - Visibilidad de unidades fisicas abiertas
 
