@@ -5,6 +5,8 @@
     var stream = null;
     var detectorActivo = false;
     var torchActivo = false;
+    var camaras = [];
+    var camaraSeleccionada = "";
     var placeholderImagen = "data:image/svg+xml;charset=UTF-8,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%20400%20300'%3E%3Crect%20width='400'%20height='300'%20fill='%23f1f3f6'/%3E%3Cpath%20d='M80%20225h240l-70-85-55%2065-35-42z'%20fill='%23c8ced8'/%3E%3Ccircle%20cx='135'%20cy='105'%20r='28'%20fill='%23d7dce5'/%3E%3C/svg%3E";
 
     function $(id) { return document.getElementById(id); }
@@ -138,16 +140,77 @@
             "</div>";
         }).join("");
     }
-    function restriccionesCamara() {
-        return {
-            audio: false,
-            video: {
-                facingMode: {ideal: "environment"},
-                width: {ideal: 1920},
-                height: {ideal: 1080},
-                frameRate: {ideal: 30, max: 60}
+    function prepararCamaras() {
+        if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) {
+            return Promise.resolve([]);
+        }
+        return navigator.mediaDevices.enumerateDevices().then(function (devices) {
+            var videoDevices = devices.filter(function (device) { return device.kind === "videoinput"; });
+            if (videoDevices.some(function (device) { return device.label; })) {
+                return videoDevices;
             }
+            return navigator.mediaDevices.getUserMedia({video: true, audio: false}).then(function (tmpStream) {
+                tmpStream.getTracks().forEach(function (track) { track.stop(); });
+                return navigator.mediaDevices.enumerateDevices().then(function (devicesAfterPermission) {
+                    return devicesAfterPermission.filter(function (device) { return device.kind === "videoinput"; });
+                });
+            }).catch(function () { return videoDevices; });
+        }).then(function (videoDevices) {
+            camaras = videoDevices || [];
+            renderSelectorCamaras();
+            return camaras;
+        });
+    }
+    function renderSelectorCamaras() {
+        var select = $("checker_camera_device");
+        var label = $("checker_camera_device_label");
+        if (!select || !label || camaras.length <= 1) {
+            if (select) { select.classList.add("d-none"); }
+            if (label) { label.classList.add("d-none"); }
+            return;
+        }
+        select.innerHTML = camaras.map(function (device, index) {
+            var nombre = device.label || ("Camara " + (index + 1));
+            return "<option value=\"" + escapeHtml(device.deviceId) + "\">" + escapeHtml(nombre) + "</option>";
+        }).join("");
+        if (camaraSeleccionada) {
+            select.value = camaraSeleccionada;
+        }
+        select.classList.remove("d-none");
+        label.classList.remove("d-none");
+    }
+    function elegirCamaraPreferida() {
+        if (camaraSeleccionada) { return camaraSeleccionada; }
+        if (!camaras.length) { return ""; }
+        var candidatas = camaras.map(function (device, index) {
+            return {device: device, index: index, label: String(device.label || "").toLowerCase()};
+        });
+        var noFrontal = candidatas.filter(function (item) {
+            return !/(front|frontal|user|facetime|selfie)/i.test(item.label);
+        });
+        var noUltraWide = noFrontal.filter(function (item) {
+            return !/(ultra|wide|gran angular|0\.5|macro)/i.test(item.label);
+        });
+        var traseraNormal = noUltraWide.find(function (item) {
+            return /(back|rear|environment|trasera|posterior|principal|main)/i.test(item.label);
+        });
+        if (traseraNormal) { return traseraNormal.device.deviceId; }
+        if (noUltraWide.length) { return noUltraWide[noUltraWide.length - 1].device.deviceId; }
+        if (noFrontal.length) { return noFrontal[noFrontal.length - 1].device.deviceId; }
+        return camaras[camaras.length - 1].deviceId;
+    }
+    function restriccionesCamara(deviceId) {
+        var video = {
+            width: {ideal: 1280},
+            height: {ideal: 720},
+            frameRate: {ideal: 30, max: 30}
         };
+        if (deviceId) {
+            video.deviceId = {exact: deviceId};
+        } else {
+            video.facingMode = {ideal: "environment"};
+        }
+        return {audio: false, video: video};
     }
     function trackCamara() {
         return stream ? stream.getVideoTracks()[0] : null;
@@ -165,11 +228,6 @@
         }
         if (caps.whiteBalanceMode && caps.whiteBalanceMode.indexOf("continuous") !== -1) {
             advanced.push({whiteBalanceMode: "continuous"});
-        }
-        if (caps.zoom && Number(caps.zoom.max || 0) > Number(caps.zoom.min || 0)) {
-            var min = Number(caps.zoom.min || 1);
-            var max = Number(caps.zoom.max || min);
-            advanced.push({zoom: Math.min(max, Math.max(min, min + ((max - min) * 0.25)))});
         }
         if (!advanced.length) { return Promise.resolve(false); }
         return track.applyConstraints({advanced: advanced}).then(function () { return true; }).catch(function () { return false; });
@@ -191,19 +249,33 @@
             return;
         }
         detenerCamara(false);
-        navigator.mediaDevices.getUserMedia(restriccionesCamara()).then(function (mediaStream) {
+        $("checker_camera_estado").textContent = "Buscando camaras disponibles...";
+        prepararCamaras().then(function () {
+            var deviceId = elegirCamaraPreferida();
+            camaraSeleccionada = deviceId;
+            renderSelectorCamaras();
+            return navigator.mediaDevices.getUserMedia(restriccionesCamara(deviceId)).catch(function () {
+                return navigator.mediaDevices.getUserMedia(restriccionesCamara(""));
+            });
+        }).then(function (mediaStream) {
             stream = mediaStream;
             detectorActivo = true;
             torchActivo = false;
+            var track = trackCamara();
+            var settings = track && track.getSettings ? track.getSettings() : {};
+            if (settings.deviceId) {
+                camaraSeleccionada = settings.deviceId;
+                renderSelectorCamaras();
+            }
             $("checker_video").srcObject = stream;
             $("checker_video").classList.remove("d-none");
             actualizarControlesCamara();
             $("checker_video").play();
             aplicarMejorasCamara().then(function (mejorado) {
-                var track = trackCamara();
-                var settings = track && track.getSettings ? track.getSettings() : {};
-                var tamano = settings.width && settings.height ? " (" + settings.width + "x" + settings.height + ")" : "";
-                $("checker_camera_estado").textContent = mejorado ? "Camara lista con enfoque mejorado" + tamano + "." : "Camara lista" + tamano + ". Acerca el codigo y toca Mejorar enfoque si se ve borroso.";
+                var activeTrack = trackCamara();
+                var activeSettings = activeTrack && activeTrack.getSettings ? activeTrack.getSettings() : {};
+                var tamano = activeSettings.width && activeSettings.height ? " (" + activeSettings.width + "x" + activeSettings.height + ")" : "";
+                $("checker_camera_estado").textContent = mejorado ? "Camara lista con enfoque continuo" + tamano + "." : "Camara lista" + tamano + ". Si se ve borrosa, cambia de camara en el selector y evita lentes ultra wide/macro.";
             });
             detectarLoop(new BarcodeDetector({formats: ["ean_13", "ean_8", "code_128", "code_39", "upc_a", "upc_e", "qr_code"]}));
         }).catch(function (error) {
@@ -237,15 +309,21 @@
         track.applyConstraints({advanced: [{torch: torchActivo}]}).then(function () {
             $("checker_camera_torch").classList.toggle("btn-warning", torchActivo);
             $("checker_camera_torch").classList.toggle("btn-light-warning", !torchActivo);
-            $("checker_camera_estado").textContent = torchActivo ? "Luz encendida. Mantén el codigo a 10-20 cm." : "Luz apagada.";
+            $("checker_camera_estado").textContent = torchActivo ? "Luz encendida. Manten el codigo a la distancia donde se vea nitido." : "Luz apagada.";
         }).catch(function () {
             torchActivo = false;
             $("checker_camera_estado").textContent = "Este dispositivo no permite controlar la luz desde el navegador.";
         });
     }
+    function reiniciarCamaraConSeleccion() {
+        var select = $("checker_camera_device");
+        if (!select || !select.value) { return; }
+        camaraSeleccionada = select.value;
+        iniciarCamara();
+    }
     function mejorarEnfoqueManual() {
         aplicarMejorasCamara().then(function (ok) {
-            $("checker_camera_estado").textContent = ok ? "Enfoque/zoom reajustado. Mantén el código quieto unos segundos." : "El navegador no permite ajustar enfoque; prueba acercar/alejar el código.";
+            $("checker_camera_estado").textContent = ok ? "Enfoque continuo solicitado. Manten el codigo quieto unos segundos." : "Este navegador no permite ajustar enfoque; prueba otra camara en el selector.";
         });
     }
     function detenerCamara(mostrarMensaje) {
@@ -255,7 +333,7 @@
             stream.getTracks().forEach(function (track) { track.stop(); });
         }
         stream = null;
-        $("checker_video").classList.add("d-none");
+        $("checker_camera_wrap").classList.add("d-none");
         $("checker_camera_focus").classList.add("d-none");
         $("checker_camera_torch").classList.add("d-none");
         $("checker_camera_stop").classList.add("d-none");
@@ -284,6 +362,7 @@
             consultar({id_sku: row.getAttribute("data-sku")});
         });
         $("checker_camera_btn").addEventListener("click", iniciarCamara);
+        $("checker_camera_device").addEventListener("change", reiniciarCamaraConSeleccion);
         $("checker_camera_focus").addEventListener("click", mejorarEnfoqueManual);
         $("checker_camera_torch").addEventListener("click", alternarLuz);
         $("checker_camera_stop").addEventListener("click", detenerCamara);

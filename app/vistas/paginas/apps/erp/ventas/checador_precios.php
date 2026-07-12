@@ -21,7 +21,11 @@
         .checker-product-img { width: 100%; aspect-ratio: 4 / 3; object-fit: cover; background: #f1f3f6; }
         .checker-price { font-size: clamp(2.1rem, 6vw, 4.4rem); line-height: 1; font-weight: 800; letter-spacing: 0; color: #181c32; }
         .checker-status { border-radius: 8px; padding: 12px 14px; }
-        .checker-camera { width: 100%; min-height: 260px; max-height: 420px; border-radius: 8px; background: #111827; object-fit: contain; }
+        .checker-camera-wrap { position: relative; width: 100%; min-height: 260px; max-height: 420px; border-radius: 8px; overflow: hidden; background: #111827; }
+        .checker-camera { width: 100%; min-height: 260px; max-height: 420px; background: #111827; object-fit: cover; }
+        .checker-camera-guide { position: absolute; left: 8%; right: 8%; top: 38%; height: 24%; border: 2px solid rgba(255,255,255,.9); border-radius: 8px; box-shadow: 0 0 0 999px rgba(17,24,39,.25); pointer-events: none; }
+        .checker-camera-guide:after { content: ""; position: absolute; left: 8%; right: 8%; top: 50%; border-top: 2px solid rgba(27,132,255,.95); }
+        .checker-camera-hint { position: absolute; left: 10px; right: 10px; bottom: 10px; padding: 8px 10px; border-radius: 8px; background: rgba(17,24,39,.78); color: #fff; font-size: .82rem; pointer-events: none; }
         .checker-hit { border: 1px solid #e7e9ef; border-radius: 8px; background: #fff; padding: 10px 12px; cursor: pointer; }
         .checker-hit:hover { border-color: #1b84ff; background: #f1f7ff; }
         .checker-meta { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
@@ -86,8 +90,14 @@
                                             <h3 class="card-title fw-bold">Camara</h3>
                                         </div>
                                         <div class="card-body pt-0">
-                                            <video class="checker-camera d-none" id="checker_video" playsinline muted></video>
+                                            <div class="checker-camera-wrap d-none" id="checker_camera_wrap">
+                                                <video class="checker-camera" id="checker_video" playsinline muted></video>
+                                                <div class="checker-camera-guide"></div>
+                                                <div class="checker-camera-hint">Alinea el codigo dentro del recuadro. Si se ve borroso, prueba otra camara.</div>
+                                            </div>
                                             <div class="alert alert-info py-3 mb-3" id="checker_camera_estado">En celular, la camara puede requerir HTTPS o navegador compatible.</div>
+                                            <label class="form-label text-muted fs-8 text-uppercase d-none" id="checker_camera_device_label">Camara</label>
+                                            <select class="form-select form-select-solid mb-3 d-none" id="checker_camera_device"></select>
                                             <div class="d-flex flex-wrap gap-2">
                                                 <button class="btn btn-light-primary flex-grow-1 d-none" id="checker_camera_focus" type="button"><i class="bi bi-bullseye"></i> Mejorar enfoque</button>
                                                 <button class="btn btn-light-warning flex-grow-1 d-none" id="checker_camera_torch" type="button"><i class="bi bi-lightbulb"></i> Luz</button>
@@ -114,6 +124,6 @@
 </div>
 <script src="assets/plugins/global/plugins.bundle.js"></script>
 <script src="assets/js/scripts.bundle.js"></script>
-<script src="/assets/js/custom/apps/erp/ventas/checador_precios.js?v=20260711-camera1"></script>
+<script src="/assets/js/custom/apps/erp/ventas/checador_precios.js?v=20260711-camera3"></script>
 </body>
 </html>
