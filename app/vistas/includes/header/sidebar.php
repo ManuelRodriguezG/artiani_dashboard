@@ -92,6 +92,7 @@ $gruposMenu = array(
         'items' => array(
             array('titulo' => 'Tablero de ventas', 'ruta' => '/ventas/mostrar', 'permiso' => 'ventas.ver'),
             array('titulo' => 'POS', 'ruta' => '/ventas/pos', 'permiso' => 'ventas.operar'),
+            array('titulo' => 'Checador de precios', 'ruta' => '/ventas/checador_precios', 'permiso' => 'ventas.ver'),
             array('titulo' => 'Pedidos', 'ruta' => '/ventas/pedidos', 'permiso' => 'ventas.ver'),
             array('titulo' => 'Devoluciones', 'ruta' => '/ventas/devoluciones', 'permiso' => 'ventas.ver'),
             array('titulo' => 'Caja y turnos', 'ruta' => '/ventas/caja_turnos', 'permiso' => 'ventas.ver'),
