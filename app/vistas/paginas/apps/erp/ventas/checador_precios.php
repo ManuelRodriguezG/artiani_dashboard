@@ -21,7 +21,7 @@
         .checker-product-img { width: 100%; aspect-ratio: 4 / 3; object-fit: cover; background: #f1f3f6; }
         .checker-price { font-size: clamp(2.1rem, 6vw, 4.4rem); line-height: 1; font-weight: 800; letter-spacing: 0; color: #181c32; }
         .checker-status { border-radius: 8px; padding: 12px 14px; }
-        .checker-camera { width: 100%; max-height: 340px; border-radius: 8px; background: #111827; object-fit: cover; }
+        .checker-camera { width: 100%; min-height: 260px; max-height: 420px; border-radius: 8px; background: #111827; object-fit: contain; }
         .checker-hit { border: 1px solid #e7e9ef; border-radius: 8px; background: #fff; padding: 10px 12px; cursor: pointer; }
         .checker-hit:hover { border-color: #1b84ff; background: #f1f7ff; }
         .checker-meta { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
@@ -88,7 +88,11 @@
                                         <div class="card-body pt-0">
                                             <video class="checker-camera d-none" id="checker_video" playsinline muted></video>
                                             <div class="alert alert-info py-3 mb-3" id="checker_camera_estado">En celular, la camara puede requerir HTTPS o navegador compatible.</div>
-                                            <button class="btn btn-light-danger w-100 d-none" id="checker_camera_stop" type="button"><i class="bi bi-stop-circle"></i> Detener camara</button>
+                                            <div class="d-flex flex-wrap gap-2">
+                                                <button class="btn btn-light-primary flex-grow-1 d-none" id="checker_camera_focus" type="button"><i class="bi bi-bullseye"></i> Mejorar enfoque</button>
+                                                <button class="btn btn-light-warning flex-grow-1 d-none" id="checker_camera_torch" type="button"><i class="bi bi-lightbulb"></i> Luz</button>
+                                                <button class="btn btn-light-danger flex-grow-1 d-none" id="checker_camera_stop" type="button"><i class="bi bi-stop-circle"></i> Detener camara</button>
+                                            </div>
                                         </div>
                                     </div>
                                     <div class="card">
@@ -110,6 +114,6 @@
 </div>
 <script src="assets/plugins/global/plugins.bundle.js"></script>
 <script src="assets/js/scripts.bundle.js"></script>
-<script src="/assets/js/custom/apps/erp/ventas/checador_precios.js?v=20260710-readonly1"></script>
+<script src="/assets/js/custom/apps/erp/ventas/checador_precios.js?v=20260711-camera1"></script>
 </body>
 </html>

@@ -4,6 +4,7 @@
     var debounce = null;
     var stream = null;
     var detectorActivo = false;
+    var torchActivo = false;
     var placeholderImagen = "data:image/svg+xml;charset=UTF-8,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%20400%20300'%3E%3Crect%20width='400'%20height='300'%20fill='%23f1f3f6'/%3E%3Cpath%20d='M80%20225h240l-70-85-55%2065-35-42z'%20fill='%23c8ced8'/%3E%3Ccircle%20cx='135'%20cy='105'%20r='28'%20fill='%23d7dce5'/%3E%3C/svg%3E";
 
     function $(id) { return document.getElementById(id); }
@@ -137,6 +138,49 @@
             "</div>";
         }).join("");
     }
+    function restriccionesCamara() {
+        return {
+            audio: false,
+            video: {
+                facingMode: {ideal: "environment"},
+                width: {ideal: 1920},
+                height: {ideal: 1080},
+                frameRate: {ideal: 30, max: 60}
+            }
+        };
+    }
+    function trackCamara() {
+        return stream ? stream.getVideoTracks()[0] : null;
+    }
+    function aplicarMejorasCamara() {
+        var track = trackCamara();
+        if (!track || !track.getCapabilities) { return Promise.resolve(false); }
+        var caps = track.getCapabilities();
+        var advanced = [];
+        if (caps.focusMode && caps.focusMode.indexOf("continuous") !== -1) {
+            advanced.push({focusMode: "continuous"});
+        }
+        if (caps.exposureMode && caps.exposureMode.indexOf("continuous") !== -1) {
+            advanced.push({exposureMode: "continuous"});
+        }
+        if (caps.whiteBalanceMode && caps.whiteBalanceMode.indexOf("continuous") !== -1) {
+            advanced.push({whiteBalanceMode: "continuous"});
+        }
+        if (caps.zoom && Number(caps.zoom.max || 0) > Number(caps.zoom.min || 0)) {
+            var min = Number(caps.zoom.min || 1);
+            var max = Number(caps.zoom.max || min);
+            advanced.push({zoom: Math.min(max, Math.max(min, min + ((max - min) * 0.25)))});
+        }
+        if (!advanced.length) { return Promise.resolve(false); }
+        return track.applyConstraints({advanced: advanced}).then(function () { return true; }).catch(function () { return false; });
+    }
+    function actualizarControlesCamara() {
+        var track = trackCamara();
+        var caps = track && track.getCapabilities ? track.getCapabilities() : {};
+        $("checker_camera_focus").classList.toggle("d-none", !track);
+        $("checker_camera_stop").classList.toggle("d-none", !track);
+        $("checker_camera_torch").classList.toggle("d-none", !(caps && caps.torch));
+    }
     function iniciarCamara() {
         if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
             $("checker_camera_estado").textContent = "Este navegador no expone camara para la pagina actual.";
@@ -146,14 +190,21 @@
             $("checker_camera_estado").textContent = "Tu navegador no tiene lector nativo de codigos; usa busqueda manual o escaner USB.";
             return;
         }
-        navigator.mediaDevices.getUserMedia({video: {facingMode: "environment"}, audio: false}).then(function (mediaStream) {
+        detenerCamara(false);
+        navigator.mediaDevices.getUserMedia(restriccionesCamara()).then(function (mediaStream) {
             stream = mediaStream;
             detectorActivo = true;
+            torchActivo = false;
             $("checker_video").srcObject = stream;
             $("checker_video").classList.remove("d-none");
-            $("checker_camera_stop").classList.remove("d-none");
+            actualizarControlesCamara();
             $("checker_video").play();
-            $("checker_camera_estado").textContent = "Apunta al codigo de barras.";
+            aplicarMejorasCamara().then(function (mejorado) {
+                var track = trackCamara();
+                var settings = track && track.getSettings ? track.getSettings() : {};
+                var tamano = settings.width && settings.height ? " (" + settings.width + "x" + settings.height + ")" : "";
+                $("checker_camera_estado").textContent = mejorado ? "Camara lista con enfoque mejorado" + tamano + "." : "Camara lista" + tamano + ". Acerca el codigo y toca Mejorar enfoque si se ve borroso.";
+            });
             detectarLoop(new BarcodeDetector({formats: ["ean_13", "ean_8", "code_128", "code_39", "upc_a", "upc_e", "qr_code"]}));
         }).catch(function (error) {
             $("checker_camera_estado").textContent = "No se pudo abrir la camara: " + error.message;
@@ -179,15 +230,40 @@
             if (detectorActivo) { setTimeout(function () { detectarLoop(detector); }, 600); }
         });
     }
-    function detenerCamara() {
+    function alternarLuz() {
+        var track = trackCamara();
+        if (!track) { return; }
+        torchActivo = !torchActivo;
+        track.applyConstraints({advanced: [{torch: torchActivo}]}).then(function () {
+            $("checker_camera_torch").classList.toggle("btn-warning", torchActivo);
+            $("checker_camera_torch").classList.toggle("btn-light-warning", !torchActivo);
+            $("checker_camera_estado").textContent = torchActivo ? "Luz encendida. Mantén el codigo a 10-20 cm." : "Luz apagada.";
+        }).catch(function () {
+            torchActivo = false;
+            $("checker_camera_estado").textContent = "Este dispositivo no permite controlar la luz desde el navegador.";
+        });
+    }
+    function mejorarEnfoqueManual() {
+        aplicarMejorasCamara().then(function (ok) {
+            $("checker_camera_estado").textContent = ok ? "Enfoque/zoom reajustado. Mantén el código quieto unos segundos." : "El navegador no permite ajustar enfoque; prueba acercar/alejar el código.";
+        });
+    }
+    function detenerCamara(mostrarMensaje) {
         detectorActivo = false;
+        torchActivo = false;
         if (stream) {
             stream.getTracks().forEach(function (track) { track.stop(); });
         }
         stream = null;
         $("checker_video").classList.add("d-none");
+        $("checker_camera_focus").classList.add("d-none");
+        $("checker_camera_torch").classList.add("d-none");
         $("checker_camera_stop").classList.add("d-none");
-        $("checker_camera_estado").textContent = "Camara detenida.";
+        $("checker_camera_torch").classList.remove("btn-warning");
+        $("checker_camera_torch").classList.add("btn-light-warning");
+        if (mostrarMensaje !== false) {
+            $("checker_camera_estado").textContent = "Camara detenida.";
+        }
     }
     function bind() {
         $("checker_buscar").addEventListener("click", buscarActual);
@@ -208,6 +284,8 @@
             consultar({id_sku: row.getAttribute("data-sku")});
         });
         $("checker_camera_btn").addEventListener("click", iniciarCamara);
+        $("checker_camera_focus").addEventListener("click", mejorarEnfoqueManual);
+        $("checker_camera_torch").addEventListener("click", alternarLuz);
         $("checker_camera_stop").addEventListener("click", detenerCamara);
         window.addEventListener("beforeunload", detenerCamara);
     }
