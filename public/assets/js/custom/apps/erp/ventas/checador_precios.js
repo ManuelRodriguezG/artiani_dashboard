@@ -267,10 +267,16 @@
                 camaraSeleccionada = settings.deviceId;
                 renderSelectorCamaras();
             }
-            $("checker_video").srcObject = stream;
-            $("checker_video").classList.remove("d-none");
+            var video = $("checker_video");
+            video.srcObject = stream;
+            $("checker_camera_wrap").classList.remove("d-none");
             actualizarControlesCamara();
-            $("checker_video").play();
+            video.onloadedmetadata = function () {
+                video.play().catch(function () {
+                    $("checker_camera_estado").textContent = "Camara abierta, toca la vista si el navegador bloquea el preview.";
+                });
+            };
+            video.play().catch(function () {});
             aplicarMejorasCamara().then(function (mejorado) {
                 var activeTrack = trackCamara();
                 var activeSettings = activeTrack && activeTrack.getSettings ? activeTrack.getSettings() : {};

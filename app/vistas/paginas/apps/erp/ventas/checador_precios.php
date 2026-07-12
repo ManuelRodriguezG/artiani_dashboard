@@ -22,7 +22,7 @@
         .checker-price { font-size: clamp(2.1rem, 6vw, 4.4rem); line-height: 1; font-weight: 800; letter-spacing: 0; color: #181c32; }
         .checker-status { border-radius: 8px; padding: 12px 14px; }
         .checker-camera-wrap { position: relative; width: 100%; min-height: 260px; max-height: 420px; border-radius: 8px; overflow: hidden; background: #111827; }
-        .checker-camera { width: 100%; min-height: 260px; max-height: 420px; background: #111827; object-fit: cover; }
+        .checker-camera { display: block; width: 100%; height: clamp(260px, 42vh, 420px); background: #111827; object-fit: cover; }
         .checker-camera-guide { position: absolute; left: 8%; right: 8%; top: 38%; height: 24%; border: 2px solid rgba(255,255,255,.9); border-radius: 8px; box-shadow: 0 0 0 999px rgba(17,24,39,.25); pointer-events: none; }
         .checker-camera-guide:after { content: ""; position: absolute; left: 8%; right: 8%; top: 50%; border-top: 2px solid rgba(27,132,255,.95); }
         .checker-camera-hint { position: absolute; left: 10px; right: 10px; bottom: 10px; padding: 8px 10px; border-radius: 8px; background: rgba(17,24,39,.78); color: #fff; font-size: .82rem; pointer-events: none; }
@@ -91,7 +91,7 @@
                                         </div>
                                         <div class="card-body pt-0">
                                             <div class="checker-camera-wrap d-none" id="checker_camera_wrap">
-                                                <video class="checker-camera" id="checker_video" playsinline muted></video>
+                                                <video class="checker-camera" id="checker_video" autoplay playsinline muted></video>
                                                 <div class="checker-camera-guide"></div>
                                                 <div class="checker-camera-hint">Alinea el codigo dentro del recuadro. Si se ve borroso, prueba otra camara.</div>
                                             </div>
@@ -124,6 +124,6 @@
 </div>
 <script src="assets/plugins/global/plugins.bundle.js"></script>
 <script src="assets/js/scripts.bundle.js"></script>
-<script src="/assets/js/custom/apps/erp/ventas/checador_precios.js?v=20260711-camera3"></script>
+<script src="/assets/js/custom/apps/erp/ventas/checador_precios.js?v=20260711-camera4"></script>
 </body>
 </html>
