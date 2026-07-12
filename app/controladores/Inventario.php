@@ -145,6 +145,65 @@ class Inventario extends Controlador {
         return json_encode($this->modelo("InventarioErp")->listarReservas($_GET));
     }
 
+    /**
+     * Documentacion IA: Codex GPT-5, 2026-07-12.
+     * Proposito: listar pendientes de inventario generados por POS.
+     * Impacto: permite que Inventario/Existencias atienda faltantes originados en caja sin mover stock.
+     * Contrato: read-only; no cierra pendientes ni crea kardex.
+     */
+    public function pos_pendientes_inventario_erp() {
+        $this->requerirPermiso("inventario.ver");
+        return json_encode($this->modelo("InventarioErp")->listarPendientesPosInventario($_GET));
+    }
+
+    /**
+     * Documentacion IA: Codex GPT-5, 2026-07-12.
+     * Proposito: consultar expediente de pendiente POS por folio o id.
+     * Impacto: muestra venta, SKU, saldos actuales y eventos antes de resolver.
+     * Contrato: read-only.
+     */
+    public function pos_pendiente_inventario_consultar_erp() {
+        $this->requerirPermiso("inventario.ver");
+        return json_encode($this->modelo("InventarioErp")->consultarPendientePosInventario($_GET));
+    }
+
+    /**
+     * Documentacion IA: Codex GPT-5, 2026-07-12.
+     * Proposito: simular resolucion de pendiente POS con conteo fisico.
+     * Impacto: propone cierre/ajuste sin escribir inventario, venta ni pendiente.
+     * Contrato: dry-run protegido por `inventario.ajustar`.
+     */
+    public function pos_pendiente_inventario_resolucion_dryrun_erp() {
+        $this->requerirPermiso("inventario.ajustar");
+        return json_encode($this->modelo("InventarioErp")->resolucionPendientePosInventarioDryRun($_POST, $this->usuarioActualId()));
+    }
+
+    /**
+     * Documentacion IA: Codex GPT-5, 2026-07-12.
+     * Proposito: resolver pendiente POS de inventario con conteo fisico y ajuste autorizado.
+     * Impacto: puede crear kardex, cerrar pendiente POS y ligar movimiento de ajuste.
+     * Contrato: requiere `inventario.ajustar`, token explicito y respaldo externo vigente.
+     */
+    public function pos_pendiente_inventario_resolver_erp() {
+        $this->requerirPermiso("inventario.ajustar");
+        $autorizar = isset($_POST["autorizar"]) ? trim((string) $_POST["autorizar"]) : "";
+        $respaldo = isset($_POST["respaldo"]) ? trim((string) $_POST["respaldo"]) : "";
+        if ($autorizar !== "INVENTARIO_POS_PENDIENTE_RESOLVER_REAL" || $respaldo === "") {
+            return json_encode(array(
+                "error" => true,
+                "tipo" => "danger",
+                "mensaje" => "No se resolvio pendiente POS. Falta autorizacion explicita o respaldo vigente.",
+                "depurar" => array(
+                    "requerido" => array("autorizar" => "INVENTARIO_POS_PENDIENTE_RESOLVER_REAL", "respaldo" => "UAT POS vigente"),
+                    "reglas" => array("Puede crear kardex.", "Puede cerrar pendiente.", "No debe ejecutarse sin conteo fisico documentado.")
+                )
+            ));
+        }
+        $respuesta = $this->modelo("InventarioErp")->resolverPendientePosInventarioReal($_POST, $this->usuarioActualId());
+        $this->auditarMovimiento("pos_pendiente_inventario_resolver_erp", $respuesta);
+        return json_encode($respuesta);
+    }
+
     public function reserva_crear_erp() {
         $this->requerirPermiso("inventario.ajustar");
         $respuesta = $this->modelo("InventarioErp")->crearReserva($_POST, $this->usuarioActualId());

@@ -1820,3 +1820,99 @@ Criterio:
 - Las clasificaciones heredadas quedan como soporte estructural del arbol, no como canal ecommerce.
 - Una categoria raiz estructural ordena el arbol; las categorias hijas operativas son las que se asignan a productos.
 - Si se necesita crear una nueva raiz o subcategoria, se usa `Nueva categoria` desde Configuracion > Catalogos maestros > Categorias.
+
+### Configuracion - CRUD claro de marcas y criterio de categorias multiples
+
+Fecha: 2026-07-11
+
+Hallazgo:
+
+- En `panel_de_control`, el CRUD backend de marcas ya existe, pero la accion visual quedaba como `Nuevo registro`, lo que podia confundir la captura del catalogo maestro activo.
+- La configuracion de categorias muestra el arbol maestro, pero el criterio operativo de raices como `Acuario` y categorias secundarias no estaba suficientemente explicito para el usuario.
+
+Decision:
+
+- Marcas debe tener una accion clara `Nueva marca` en Configuracion > Catalogos maestros > Marcas.
+- Categorias debe partir de raices estructurales como `Acuario`, `Aves`, `Betta`, etc., y desglosarse en subcategorias operativas asignables.
+- Un producto puede pertenecer a mas de una categoria, pero debe conservar una categoria principal para operacion, reportes y defaults. Las categorias secundarias se usan para navegacion, venta o clasificacion alterna.
+
+Cambio aplicado:
+
+- El boton superior de alta cambia su texto segun la pestana activa: marca, categoria, unidad o atributo.
+- Se agrego accion directa `Nueva marca` en la pestana Marcas.
+- La ayuda de Categorias explica que el producto puede tener categoria principal y categorias secundarias.
+- El filtro de Categorias inicia en `Arbol principal ERP`, dejando las categorias `ECOM-CAT-*` como legado ecommerce filtrable, sin borrarlas.
+- Al crear/editar categorias, el selector de categoria padre excluye el legado ecommerce para evitar ensuciar de nuevo el arbol principal.
+
+### Productos - categorias secundarias en edicion
+
+Fecha: 2026-07-11
+
+Hallazgo:
+
+- La tabla `erp_catalogo_producto_categorias` ya soporta multiples categorias por producto con `es_principal`.
+- La edicion de producto solo exponia `Categoria principal`.
+- Al guardar, el modelo limpiaba todas las relaciones y dejaba solo la principal, por lo que cualquier categoria secundaria se perdia.
+
+Cambio aplicado:
+
+- En el modal de edicion de producto se agrego `Categorias secundarias` como selector multiple.
+- El detalle del producto ahora devuelve `categorias_producto` con principal y secundarias.
+- El guardado conserva una unica categoria principal y agrega las secundarias seleccionadas con `es_principal=0`.
+- Si una secundaria coincide con la principal, se ignora como secundaria.
+- Solo se aceptan categorias activas, maestras y operativas (`permite_productos=1`).
+
+Criterio operativo:
+
+- Categoria principal: default de operacion, reportes y reglas.
+- Categorias secundarias: navegacion, venta o clasificacion alterna.
+- Catalogo no debe usar categorias `ECOM-CAT-*` como arbol principal; quedan como legado/mapeo.
+
+### Productos - alta no crea categorias libres
+
+Fecha: 2026-07-11
+
+Decision:
+
+- El alta/edicion de producto no debe crear categorias por texto libre.
+- Las categorias nuevas deben crearse en Configuracion para definir padre, uso, imagen y mantener el arbol principal ERP.
+- El producto solo selecciona categorias existentes y operativas.
+
+Cambio aplicado:
+
+- Se retiro `O crear categoria` del alta de producto.
+- Backend bloquea `categoria_nueva` si llega desde un formulario antiguo o llamada manual.
+- El mensaje indica crear la categoria desde Configuracion antes de asignarla al producto.
+
+### Configuracion - codigo automatico para marcas/categorias
+
+Fecha: 2026-07-11
+
+Hallazgo:
+
+- El CRUD de catalogos maestros exigia `Codigo` y `Nombre` para todos los tipos.
+- Para marcas y categorias, esto frena captura operativa porque el usuario normalmente conoce el nombre y no un codigo tecnico.
+
+Decision:
+
+- Marca y categoria pueden capturarse solo con nombre; el sistema autogenera `MAR-*` o `CAT-*`.
+- Unidad y atributo conservan `Codigo` requerido porque suelen formar parte de contratos tecnicos o reglas de captura.
+
+Cambio aplicado:
+
+- Backend autogenera codigo para marca/categoria si llega vacio.
+- UI deja de marcar `Codigo` como obligatorio en marca/categoria y muestra ayuda de autogeneracion.
+
+### Publicacion UI - version de assets Catalogo
+
+Fecha: 2026-07-12
+
+Motivo:
+
+- En pruebas de servidor, las vistas de Catalogo seguian referenciando versiones antiguas de `productos.js` y `configuracion.js`.
+- Esto podia provocar que el navegador mantuviera cache y no cargara los ajustes de marcas, categorias principales/secundarias y filtros del arbol.
+
+Cambio aplicado:
+
+- `productos.php` ahora carga `productos.js?v=20260712-categorias-1`.
+- `configuracion.php` ahora carga `configuracion.js?v=20260712-maestros-1`.

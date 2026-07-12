@@ -614,7 +614,7 @@
         var imagenCategoria = filtroImagenCategoria ? filtroImagenCategoria.value : "";
         var estatusCategoria = filtroEstatusCategoria ? filtroEstatusCategoria.value : "";
         var categoriasVisibles = datos.categorias.filter(function (x) {
-            return (!tipoCategoria || x.tipo_categoria === tipoCategoria) &&
+            return categoriaCumpleFiltroTipo(x, tipoCategoria) &&
                 (!usoCategoria || categoriaCumpleUso(x, usoCategoria)) &&
                 (!imagenCategoria || categoriaCumpleImagen(x, imagenCategoria)) &&
                 (!estatusCategoria || x.estatus === estatusCategoria) &&
@@ -771,6 +771,28 @@
             return categoriaCumpleImagen(categoria, uso);
         }
         return true;
+    }
+
+    /**
+     * IA: Codex GPT-5 | Fecha: 2026-07-11
+     * Proposito: separa el arbol principal ERP de categorias heredadas de ecommerce sin borrar datos.
+     * Impacto: Configuracion de Catalogo ERP; muestra raices como Acuario primero y deja ECOM-CAT como legado filtrable.
+     */
+    function categoriaCumpleFiltroTipo(categoria, filtro) {
+        if (filtro === "principal") {
+            return categoria.tipo_categoria === "maestra" && !categoriaEsLegadoEcommerce(categoria);
+        }
+        if (filtro === "ecommerce") {
+            return categoriaEsLegadoEcommerce(categoria);
+        }
+        if (filtro) {
+            return categoria.tipo_categoria === filtro;
+        }
+        return true;
+    }
+
+    function categoriaEsLegadoEcommerce(categoria) {
+        return categoria.tipo_categoria === "legado_canal" || /^ECOM-CAT-/i.test(String(categoria.codigo || ""));
     }
 
     /**
@@ -1078,7 +1100,7 @@
             setValor("origen", "erp");
             marcar("permite_productos", true);
         }
-        document.getElementById("catalogo_aux_titulo").textContent = "Nuevo registro";
+        document.getElementById("catalogo_aux_titulo").textContent = "Nueva " + etiquetaCatalogoAuxiliar(tipoActual).toLowerCase();
         modal.show();
     }
 
@@ -1106,9 +1128,29 @@
     function configurarCampos(tipo) {
         document.querySelectorAll(".campo").forEach(function (el) { el.classList.add("d-none"); });
         document.querySelectorAll(".campo-" + tipo).forEach(function (el) { el.classList.remove("d-none"); });
+        configurarCodigoAuxiliar(tipo);
         var estados = tipo === "atributo" ? [["activo", "Activo"], ["inactivo", "Inactivo"]] : [["activa", "Activa"], ["inactiva", "Inactiva"]];
         document.getElementById("aux_estatus").innerHTML = estados.map(function (x) { return "<option value=\"" + x[0] + "\">" + x[1] + "</option>"; }).join("");
         configurarTipoAtributo();
+    }
+
+    /**
+     * IA: Codex GPT-5 | Fecha: 2026-07-11
+     * Proposito: muestra codigo como opcional en marcas/categorias porque backend puede generarlo desde nombre.
+     * Impacto: Configuracion de Catalogo ERP; reduce friccion al crear catálogos maestros simples.
+     */
+    function configurarCodigoAuxiliar(tipo) {
+        var input = form ? form.querySelector("[name='codigo']") : null;
+        if (!input) {
+            return;
+        }
+        var opcional = tipo === "marca" || tipo === "categoria";
+        input.required = !opcional;
+        input.placeholder = opcional ? "Se genera si lo dejas vacío" : "";
+        var label = input.closest(".col-md-4") ? input.closest(".col-md-4").querySelector(".form-label") : null;
+        if (label) {
+            label.classList.toggle("required", !opcional);
+        }
     }
 
     function configurarTipoAtributo() {
@@ -1127,6 +1169,16 @@
         }
     }
 
+    /**
+     * IA: Codex GPT-5 | Fecha: 2026-07-11
+     * Proposito: nombra acciones de alta por catalogo maestro para evitar capturas en el tipo equivocado.
+     * Impacto: Configuracion de Catalogo ERP; aclara altas de marcas, categorias, unidades y atributos.
+     */
+    function etiquetaCatalogoAuxiliar(tipo) {
+        var etiquetas = {marca: "Marca", categoria: "Categoria", unidad: "Unidad", atributo: "Atributo"};
+        return etiquetas[tipo] || "Registro";
+    }
+
     function etiquetaTipo(tipo) {
         var etiquetas = {texto: "Texto", numero: "Número", booleano: "Sí / No", fecha: "Fecha", lista: "Lista", color: "Color"};
         return escapeHtml(etiquetas[tipo] || tipo);
@@ -1140,7 +1192,7 @@
     function llenarPadres(idCategoriaActual) {
         idCategoriaActual = Number(idCategoriaActual || 0);
         document.getElementById("aux_categoria_padre").innerHTML = "<option value=\"\">Nivel raíz</option>" + datos.categorias.filter(function (x) {
-            return x.tipo_categoria === "maestra" && Number(x.id_categoria_erp) !== idCategoriaActual && !categoriaEsDescendienteFrontend(Number(x.id_categoria_erp), idCategoriaActual);
+            return x.tipo_categoria === "maestra" && !categoriaEsLegadoEcommerce(x) && Number(x.id_categoria_erp) !== idCategoriaActual && !categoriaEsDescendienteFrontend(Number(x.id_categoria_erp), idCategoriaActual);
         }).map(function (x) {
             return "<option value=\"" + x.id_categoria_erp + "\">" + escapeHtml(x.ruta || x.nombre) + "</option>";
         }).join("");
@@ -1494,6 +1546,14 @@
      * Impacto: Catalogo ERP; evita confundir acciones de arbol maestro con marcas, unidades o atributos.
      */
     function actualizarAccionesCatalogosMaestros() {
+        var botonNuevo = document.getElementById("catalogo_aux_nuevo");
+        if (botonNuevo) {
+            botonNuevo.innerHTML = "<i class=\"bi bi-plus-lg\"></i> Nueva " + etiquetaCatalogoAuxiliar(tipoActual).toLowerCase();
+        }
+        var accionesMarcas = document.getElementById("catalogo_marcas_acciones");
+        if (accionesMarcas) {
+            accionesMarcas.classList.toggle("d-none", tipoActual !== "marca");
+        }
         var accionesCategorias = document.getElementById("catalogo_categorias_acciones");
         if (accionesCategorias) {
             accionesCategorias.classList.toggle("d-none", tipoActual !== "categoria");
@@ -1553,6 +1613,11 @@
         });
         document.getElementById("catalogo_taxonomia_sincronizar").addEventListener("click", sincronizarTaxonomiaEcommerce);
         document.getElementById("catalogo_taxonomia_buscar").addEventListener("input", renderTaxonomias);
+        // IA: Codex GPT-5 | Fecha: 2026-07-11 | Proposito: alta directa de marcas desde la pestana Marcas.
+        document.getElementById("catalogo_marca_nueva").addEventListener("click", function () {
+            tipoActual = "marca";
+            abrirNuevo();
+        });
         // IA: Codex GPT-5 | Fecha: 2026-07-03 | Proposito: alta directa de categorias desde la pestana Categorias.
         document.getElementById("catalogo_categoria_nueva").addEventListener("click", function () {
             tipoActual = "categoria";

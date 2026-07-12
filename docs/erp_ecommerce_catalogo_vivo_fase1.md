@@ -52,6 +52,49 @@ Nombre recomendado:
 
 Esta fachada puede vivir dentro del MVC actual al inicio, pero con contratos preparados para que un frontend separado los consuma despues.
 
+## Flujo ERP -> Ecommerce: publicacion, no copia de catalogo
+
+La Fase 1 no debe duplicar el catalogo ERP como una copia independiente. El ERP sigue siendo la fuente viva de producto, SKU, precio, imagen, marca, categoria e inventario.
+
+`erp_ecommerce_publicaciones` funciona como capa de publicacion/curaduria:
+
+- decide si un SKU se muestra o no en ecommerce;
+- define estado publico: borrador, publicado, pausado, oculto, agotado manual;
+- guarda slug y textos publicos cuando se quiera ajustar la presentacion comercial;
+- guarda metadata ecommerce: especie de mascota, necesidades, destacado, orden, flags de mostrar precio/disponibilidad;
+- no reemplaza el maestro ERP.
+
+Datos que deben leerse vivos desde ERP al consultar ecommerce:
+
+- precio vigente desde listas/precios ERP;
+- imagen activa desde catalogo ERP;
+- marca y categoria desde catalogo ERP;
+- nombre/base SKU desde catalogo ERP, salvo override publico;
+- disponibilidad desde inventario ERP traducida a estado publico simple.
+
+Datos que puede sobreescribir ecommerce:
+
+- `titulo_publico`;
+- `descripcion_publica`;
+- `presentacion_publica`;
+- `slug`;
+- `mascota_especie`;
+- `necesidades_json`;
+- `destacado`, `orden`;
+- flags de visibilidad/cotizacion.
+
+Regla de actualizacion:
+
+- Si cambia el precio en ERP, ecommerce debe reflejarlo al consultar el catalogo.
+- Si cambia la imagen activa en ERP, ecommerce debe reflejarla al consultar el catalogo.
+- Si cambia marca/categoria/presentacion base en ERP, ecommerce debe reflejarlo salvo que exista override publico.
+- Si se pausa una publicacion ecommerce, el producto deja de mostrarse aunque siga activo en ERP.
+- Si se desactiva producto/SKU en ERP, no debe mostrarse aunque la publicacion siga marcada como publicada.
+
+Las cotizaciones si deben guardar snapshot de nombre, precio, presentacion y disponibilidad al momento de enviarse, porque representan lo que el cliente vio en ese instante. Ese snapshot no convierte la cotizacion en venta ni aparta inventario.
+
+Mas adelante puede existir cache o indice publico por rendimiento, pero debe tratarse como derivado regenerable, no como fuente de verdad.
+
 ## 1. Publicacion de productos ERP hacia ecommerce
 
 No usar `estatus='activo'` como publicacion. Activo significa que el maestro ERP vive; publicable significa que el negocio decide mostrarlo.
@@ -372,3 +415,359 @@ Usa AGENTS.md y docs/erp_ecommerce_catalogo_vivo_fase1.md.
 Objetivo: preparar solo auditoria read-only y plan DDL para publicaciones/cotizaciones ecommerce.
 No ejecutar DDL, no registrar cotizaciones reales, no tocar ecom_* ni POS.
 ```
+
+## Avance 2026-07-11 - Auditoria read-only y plan DDL preparados
+
+Archivos creados:
+
+- `app/controladores/EcommercePublico.php`
+- `app/modelos/EcommerceCatalogoPublico.php`
+- `app/modelos/EcommercePublicoEsquema.php`
+
+Endpoints internos preparados:
+
+- `GET /ecommercePublico/publicaciones_auditar_erp`
+- `GET /ecommercePublico/esquema_auditar_ecommerce_publico`
+- `GET /ecommercePublico/esquema_plan_ecommerce_publico`
+
+Reglas de seguridad actuales:
+
+- Los tres endpoints requieren `catalogo.ver`.
+- No ejecutan DDL.
+- No crean publicaciones.
+- No registran cotizaciones.
+- No tocan `ecom_*`.
+- No mueven inventario ni crean ventas/POS.
+
+Resultado validado por CLI read-only:
+
+- Auditoria de publicabilidad:
+  - `skus_total=1752`
+  - `skus_activos_producto_activo=1724`
+  - `skus_con_precio=1731`
+  - `skus_con_imagen=1544`
+  - `skus_con_categoria=1597`
+  - `skus_con_marca=754`
+  - `skus_fraccionarios=7`
+  - `skus_ya_publicados=0`
+  - `skus_publicables_fase_1=1363`
+- Auditoria de esquema ecommerce publico:
+  - `tablas_faltantes=5`
+- Plan DDL:
+  - `ddl_total=5`
+  - `ddl_pendientes=5`
+  - `read_only=true`
+
+Validaciones tecnicas:
+
+- `php -l app/modelos/EcommerceCatalogoPublico.php`: sin errores.
+- `php -l app/modelos/EcommercePublicoEsquema.php`: sin errores.
+- `php -l app/controladores/EcommercePublico.php`: sin errores.
+
+Siguiente paso recomendado:
+
+1. Revisar auditoria desde sesion ERP con usuario que tenga `catalogo.ver`.
+2. Preparar pantalla interna `ERP > Ecommerce publico > Publicaciones` en modo read-only.
+3. Despues pedir autorizacion fuerte para aplicar DDL con respaldo externo.
+
+## Avance 2026-07-11 - Pantalla interna read-only de publicaciones
+
+Archivos agregados/actualizados:
+
+- `app/vistas/paginas/apps/erp/ecommerce/publicaciones.php`
+- `public/assets/js/custom/apps/erp/ecommerce/publicaciones.js`
+- `app/controladores/EcommercePublico.php`
+- `app/vistas/includes/header/sidebar.php`
+
+Ruta interna:
+
+- `/ecommercePublico/publicaciones`
+
+Navegacion:
+
+- Se agrega acceso en `ERP > Catalogo > Ecommerce publico`.
+- Permiso requerido: `catalogo.ver`.
+
+Alcance de la pantalla:
+
+- Muestra KPIs de publicabilidad.
+- Lista SKUs candidatos con dictamen `Publicable` o bloqueos: sin precio, sin imagen, sin categoria o granel bloqueado.
+- Muestra disponibilidad publica sugerida sin cantidades exactas.
+- Muestra auditoria/plan DDL de Fase 1 sin ejecutar SQL.
+
+Guardrails mantenidos:
+
+- No crea publicaciones.
+- No ejecuta DDL.
+- No registra cotizaciones.
+- No toca `ecom_*`.
+- No reserva ni descuenta inventario.
+- No convierte a venta, pedido, apartado ni atencion POS.
+
+Validaciones tecnicas:
+
+- `php -l app/controladores/EcommercePublico.php`: sin errores.
+- `php -l app/vistas/paginas/apps/erp/ecommerce/publicaciones.php`: sin errores.
+- `node --check public/assets/js/custom/apps/erp/ecommerce/publicaciones.js`: sin errores.
+- `php -l app/vistas/includes/header/sidebar.php`: sin errores.
+
+Siguiente paso recomendado:
+
+1. Probar visualmente `/ecommercePublico/publicaciones` con sesion autorizada.
+2. Ajustar criterios de publicabilidad si el dueno decide exigir marca, especie de mascota o necesidad antes de publicar.
+3. Preparar solicitud de autorizacion DDL para `erp_ecommerce_*` solo despues de validar la pantalla read-only.
+
+## Avance 2026-07-11 - Paquete de autorizacion DDL preparado
+
+Archivos agregados:
+
+- `docs/erp_ecommerce_publico_schema_solicitud_autorizacion.md`
+- `docs/erp_ecommerce_publico_schema_runbook_aplicacion.md`
+- `docs/erp_ecommerce_publico_schema_plan_reversa.md`
+- `storage/uat/uat_ecommerce_publico_schema_readonly.php`
+- `storage/uat/uat_ecommerce_publico_schema_apply_authorized.php`
+
+Token de autorizacion propuesto:
+
+- `ECOMMERCE_PUBLICO_DDL_FASE1`
+
+Alcance:
+
+- El preflight read-only valida respaldo, auditoria de tablas, plan DDL y publicabilidad.
+- El script apply queda bloqueado por defecto.
+- El apply exige token textual y respaldo valido.
+- No se ejecuta DDL en esta fase de preparacion.
+
+Guardrails:
+
+- No toca `ecom_*`.
+- No crea publicaciones.
+- No registra cotizaciones reales.
+- No mueve inventario.
+- No crea checkout ni pasarela.
+- No convierte nada a POS/Pedidos.
+
+Validaciones tecnicas:
+
+- `C:\xampp\php\php.exe -l storage\uat\uat_ecommerce_publico_schema_readonly.php`: sin errores.
+- `C:\xampp\php\php.exe -l storage\uat\uat_ecommerce_publico_schema_apply_authorized.php`: sin errores.
+- `uat_ecommerce_publico_schema_readonly.php --respaldo=RESPALDO_EXTERN0_ECOM_FASE1`:
+  - `ok=true`
+  - `modo=read-only`
+  - `tablas_faltantes=5`
+  - `ddl.total=5`
+  - `ddl.pendientes=5`
+  - `skus_publicables_fase_1=1363`
+- `uat_ecommerce_publico_schema_apply_authorized.php` sin token:
+  - `ok=false`
+  - `modo=bloqueado`
+  - no ejecuto DDL.
+
+## Avance 2026-07-11 - Contratos publicos read-only preparados
+
+Endpoints publicos agregados en `EcommercePublico`:
+
+- `GET /ecommercePublico/catalogo`
+- `GET /ecommercePublico/producto/{slug}`
+- `GET /ecommercePublico/filtros`
+- `GET /ecommercePublico/disponibilidad?id_sku=...`
+- `GET /ecommercePublico/disponibilidad?slug=...`
+
+Contrato:
+
+- No requieren sesion ERP.
+- Solo leen publicaciones con `estatus_publicacion='publicado'`.
+- Si `erp_ecommerce_publicaciones` aun no existe, responden vacio/configurado=false.
+- No leen `ecom_*` como fuente publica.
+- No exponen cantidades exactas de inventario.
+- No descuentan, reservan, apartan ni crean cotizaciones.
+
+Datos publicos previstos:
+
+- imagen;
+- nombre publico;
+- marca;
+- categoria;
+- presentacion;
+- precio visible si `mostrar_precio=1`;
+- disponibilidad simple si `mostrar_disponibilidad=1`;
+- mascota/especie;
+- necesidades;
+- flags de cotizacion/WhatsApp.
+
+Validaciones tecnicas:
+
+- `C:\xampp\php\php.exe -l app\controladores\EcommercePublico.php`: sin errores.
+- `C:\xampp\php\php.exe -l app\modelos\EcommerceCatalogoPublico.php`: sin errores.
+- Prueba CLI `catalogoPublico` sin esquema aplicado:
+  - `error=false`
+  - `tipo=info`
+  - `configurado=false`
+  - `items=[]`
+- Prueba CLI `filtrosPublicos` sin esquema aplicado:
+  - filtros vacios.
+- Prueba CLI `disponibilidadPublica` sin esquema aplicado:
+  - `disponibilidad=consultar_disponibilidad`.
+
+## Avance 2026-07-12 - Preparacion read-only de publicaciones
+
+Endpoint interno agregado:
+
+- `GET /ecommercePublico/publicaciones_preparar_erp?id_sku=...`
+
+Alcance:
+
+- Requiere `catalogo.ver`.
+- Consulta un SKU activo del Catalogo ERP.
+- Devuelve una propuesta de publicacion sin guardar:
+  - slug sugerido;
+  - titulo publico;
+  - presentacion publica;
+  - especie de mascota inferida si es posible;
+  - necesidades inferidas si es posible;
+  - precio vivo desde ERP;
+  - imagen viva desde ERP;
+  - disponibilidad publica sugerida;
+  - bloqueos de publicabilidad.
+
+Pantalla actualizada:
+
+- `app/vistas/paginas/apps/erp/ecommerce/publicaciones.php`
+- `public/assets/js/custom/apps/erp/ecommerce/publicaciones.js`
+
+Ahora cada SKU candidato tiene boton `Preparar`, que muestra una vista previa read-only de la ficha ecommerce. No crea registros y no requiere que el esquema `erp_ecommerce_*` exista.
+
+Validacion CLI:
+
+- Se preparo una publicacion de prueba para `id_sku=1291`.
+- Resultado:
+  - `error=false`
+  - `publicable_fase_1=true`
+  - `slug=aceite-de-salmon-pza-fl3627`
+  - `precio=220`
+  - `disponibilidad_publica_sugerida=agotado`
+  - `necesidades=["alimento"]`
+
+Decision operativa:
+
+- Un SKU puede ser publicable aunque su disponibilidad publica sea `agotado`; esto permite mostrar catalogo vivo sin vender ni apartar. Si el negocio prefiere ocultar agotados, se debe resolver como politica de publicacion/disponibilidad, no como regla de catalogo maestro.
+
+## Correccion 2026-07-12 - ERP como proveedor API, no como sitio publico
+
+Decision corregida:
+
+- El proyecto ecommerce publico se trabajara aparte.
+- Este ERP no debe construir la vista publica final.
+- Este ERP debe preparar contratos/API y administracion interna para que el proyecto ecommerce consulte informacion viva.
+
+Se retira el alcance de vista publica dentro del ERP:
+
+- No usar `/ecommercePublico` como tienda.
+- No crear vistas publicas finales dentro de `app/vistas/paginas/ecommerce`.
+- No crear JS de tienda publica dentro de `public/assets/js/custom/ecommerce`.
+
+Lo que si corresponde a este sistema:
+
+- Endpoints publicos read-only para catalogo, producto, filtros y disponibilidad.
+- Endpoints internos protegidos para auditar y preparar publicaciones.
+- Esquema `erp_ecommerce_*` para publicaciones, configuracion, cotizaciones y eventos cuando sea autorizado.
+- Contratos estables para que el frontend ecommerce separado consuma informacion viva desde ERP.
+
+Endpoints que debe consumir el proyecto ecommerce:
+
+- `GET /ecommercePublico/catalogo`
+- `GET /ecommercePublico/producto/{slug}`
+- `GET /ecommercePublico/filtros`
+- `GET /ecommercePublico/configuracion`
+- `GET /ecommercePublico/disponibilidad?id_sku=...`
+- `GET /ecommercePublico/disponibilidad?slug=...`
+
+Siguiente paso recomendado:
+
+1. Refinar contratos JSON para el ecommerce separado.
+2. Preparar CORS/token/rate limit para consumo externo seguro.
+3. Autorizar/aplicar DDL `erp_ecommerce_*` con respaldo externo cuando el dueno lo indique.
+4. Habilitar guardado interno de publicaciones en borrador/publicado con permiso `catalogo.editar`.
+
+## Avance 2026-07-12 - Manifiesto de contratos API
+
+Endpoint agregado:
+
+- `GET /ecommercePublico/contratos`
+
+Documento agregado:
+
+- `docs/erp_ecommerce_publico_api_contratos.md`
+
+Alcance:
+
+- Describe rutas publicas read-only que consumira el proyecto ecommerce externo.
+- Define parametros de catalogo, producto, filtros y disponibilidad.
+- Define shape de item de catalogo.
+- Documenta estados de disponibilidad publica.
+- Documenta guardrails y seguridad futura: CORS, API key/firma, rate limit y captcha para POST futuros.
+
+Decision:
+
+- El frontend ecommerce no debe leer tablas internas.
+- El frontend ecommerce debe consumir contratos publicados por `EcommercePublico`.
+- Este ERP no construye la tienda visual, solo administra/publica datos vivos.
+
+## Avance 2026-07-12 - Estado/readiness del API
+
+Endpoint agregado:
+
+- `GET /ecommercePublico/estado`
+
+Alcance:
+
+- Reporta si el esquema de publicaciones/configuracion existe.
+- Reporta cuantas publicaciones estan en `publicado`.
+- Reporta cuantos SKUs son publicables en Fase 1.
+- Reporta pendientes de seguridad antes de produccion.
+- No expone stock exacto, costos, proveedores ni datos internos.
+
+Tambien se agregaron metadatos `api` a las respuestas del modelo:
+
+- `api.nombre`
+- `api.version`
+- `api.modo`
+- `api.fuente_verdad`
+- `api.moneda_default`
+
+Validacion CLI:
+
+- `estadoApiPublica()`:
+  - `error=false`
+  - `api.version=fase1-2026-07-12`
+  - `ready=false`
+  - `ddl_pendiente=true`
+  - `publicadas=0`
+  - `publicables=1363`
+- `catalogoPublico()`:
+  - conserva `api.version=fase1-2026-07-12`
+  - `configurado=false` mientras no exista esquema aplicado.
+
+## Avance 2026-07-12 - Configuracion publica para frontend externo
+
+Endpoint agregado:
+
+- `GET /ecommercePublico/configuracion`
+
+Alcance:
+
+- Devuelve configuracion publica del canal ecommerce.
+- Si `erp_ecommerce_configuracion` aun no existe, responde `configurado=false`.
+- No hardcodea numero WhatsApp.
+- No expone secretos ni claves internas.
+
+Claves publicables:
+
+- `moneda_default`
+- `whatsapp_numero_principal`
+- `whatsapp_mensaje_base`
+- `cotizacion_habilitada`
+- `mostrar_stock_exacto`
+- `modo_sin_stock`
+- `texto_total_estimado`
+- `url_sitio_publico`

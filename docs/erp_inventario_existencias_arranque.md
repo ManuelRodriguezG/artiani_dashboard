@@ -2452,6 +2452,209 @@ Conclusion:
 - Kardex conserva folio y referencia documental.
 - Queda validada la diferencia entre carga agregada y unidad fisica trazable.
 
+### INV-T030-UAT03 - Preflight unidad fisica cerrada
+
+Fecha: 2026-07-11
+
+Contexto de ruta:
+
+- Trabajo realizado sobre `C:\xampp\htdocs\panel_de_control`.
+- Se valida explicitamente la ruta porque el entorno base puede mostrar `C:\xampp\htdocs\panel`.
+
+Objetivo:
+
+- Validar el tercer modo de inventario inicial real: unidades fisicas cerradas.
+- Este modo debe crear saldo agregado y unidades fisicas trazables/etiquetables.
+
+Preflight read-only:
+
+| Campo | Valor |
+| --- | --- |
+| Referencia | `INV-INICIAL-ACUARIO-20260711-UAT-CERRADA` |
+| SKU | `TP-40372` |
+| ID SKU | `146` |
+| Almacen | `3` / `BOD971` |
+| Ubicacion | `13` / `E1-C2-P1-A1-N3` |
+| Modo captura | `unidad_fisica_cerrada` |
+| Unidades fisicas | `2` |
+| Contenido por unidad | `4 kg` |
+| Cantidad base calculada | `8 kg` |
+| Lote | `UAT-INV-INICIAL-CERRADA` |
+| Caducidad | `2027-12-31` |
+| Resultado | `ok=true` |
+| Bloqueos | `[]` |
+
+Estado previo actual:
+
+- `TP-40372` en almacen `3`:
+  - cantidad `41.4500`
+  - disponible `41.4500`
+  - existencias `4`
+
+Respaldo previo generado:
+
+- Archivo:
+  - `C:\xampp\panel_db_backups\artianilocal_panel_20260711_antes_inv_inicial_real_uat_cerrada.sql`
+- Resultado:
+  - `error=false`
+  - bytes `28227854`
+  - base `artianilocal`
+- Estado:
+  - listo para solicitar autorizacion de escritura UAT `unidad_fisica_cerrada`.
+
+### INV-T030-UAT03 - Escritura controlada unidad fisica cerrada
+
+Fecha: 2026-07-11
+
+Autorizacion recibida:
+
+```text
+AUTORIZO INVENTARIO INICIAL REAL UAT unidad_fisica_cerrada usando respaldo C:\xampp\panel_db_backups\artianilocal_panel_20260711_antes_inv_inicial_real_uat_cerrada.sql
+```
+
+Respaldo externo:
+
+- `C:\xampp\panel_db_backups\artianilocal_panel_20260711_antes_inv_inicial_real_uat_cerrada.sql`
+- Base: `artianilocal`
+- Bytes: `28227854`
+
+Payload aplicado:
+
+| Campo | Valor |
+| --- | --- |
+| Referencia | `INV-INICIAL-ACUARIO-20260711-UAT-CERRADA` |
+| SKU | `TP-40372` |
+| ID SKU | `146` |
+| Almacen | `3` / `BOD971` |
+| Ubicacion | `13` / `E1-C2-P1-A1-N3` |
+| Modo captura | `unidad_fisica_cerrada` |
+| Unidades fisicas | `2` |
+| Contenido por unidad | `4.000000 kg` |
+| Cantidad base | `8.0000 kg` |
+| Lote | `UAT-INV-INICIAL-CERRADA` |
+| Caducidad | `2027-12-31` |
+
+Resultado del aplicador:
+
+| Indicador | Valor |
+| --- | --- |
+| `ok` | `true` |
+| Mensaje | `Inventario inicial ERP aplicado` |
+| Movimientos | `1` |
+| Etiquetas/unidades generadas | `2` |
+| Origen tipo | `inventario_inicial` |
+
+Evidencia antes/despues:
+
+| Indicador | Antes | Despues |
+| --- | ---: | ---: |
+| Cantidad SKU/almacen | `41.4500` | `49.4500` |
+| Disponible SKU/almacen | `41.4500` | `49.4500` |
+| Existencias SKU/almacen | `4` | `5` |
+| Movimientos referencia | `0` | `1` |
+| Unidades referencia | `0` | `2` |
+
+Evidencia generada:
+
+| Elemento | Valor |
+| --- | --- |
+| Existencia | `EXI-50-37` |
+| Movimiento | `85` |
+| Unidad 1 | `INV-II000085-0001` |
+| Unidad 2 | `INV-II000085-0002` |
+| Estado fisico | `cerrada` |
+| Estado etiqueta | `pendiente_impresion` |
+| Estatus unidad | `disponible` |
+| Contenido por unidad | `4.000000 kg` |
+
+Validacion desde `listarExistencias()`:
+
+- Busqueda por `INV-INICIAL-ACUARIO-20260711-UAT-CERRADA`.
+- Resultado:
+  - `EXI-50-37`
+  - `cantidad=8.0000`
+  - `cantidad_disponible=8.0000`
+  - `unidades_total=2`
+  - `unidades_cerradas=2`
+  - `unidades_abiertas=0`
+  - `contenido_base_original=8.000000`
+  - `contenido_base_disponible=8.000000`
+  - `unidad_base_trazable=kg`
+  - `diferencia_contenido_unidades=0.000000`
+
+Conclusion:
+
+- Inventario inicial real ya puede registrar unidades fisicas cerradas trazables.
+- La existencia agregada y las unidades fisicas cuadran.
+- Las unidades quedan pendientes de impresion/pegado para continuar en Almacen > Etiquetado.
+
+## INV-T031 - Cierre read-only de Inventario Inicial Real
+
+Fecha: 2026-07-11
+
+Objetivo:
+
+- Validar automaticamente las tres modalidades de Inventario Inicial Real ya aplicadas.
+- Mantener la validacion read-only para no mover inventario ni modificar etiquetas.
+
+Script agregado:
+
+- `storage/uat/uat_inv_inicial_real_cierre_readonly.php`
+
+Cobertura:
+
+| Modalidad | Referencia | Esperado |
+| --- | --- | --- |
+| Unidad abierta | `INV-INICIAL-ACUARIO-20260710-UAT-ABIERTA` | `2.5 kg`, `1` abierta, diferencia `0` |
+| Unidad compra | `INV-INICIAL-ACUARIO-20260710-UAT-CAJA` | `20 kg`, sin unidades fisicas, diferencia `20` esperada |
+| Unidad cerrada | `INV-INICIAL-ACUARIO-20260711-UAT-CERRADA` | `8 kg`, `2` cerradas, diferencia `0` |
+
+Validaciones tecnicas:
+
+| Comando | Resultado |
+| --- | --- |
+| `C:\xampp\php\php.exe -l storage\uat\uat_inv_inicial_real_cierre_readonly.php` | OK |
+| `C:\xampp\php\php.exe storage\uat\uat_inv_inicial_real_cierre_readonly.php` | `ok=true`, `fallos=[]` |
+| `C:\xampp\php\php.exe -l app\modelos\InventarioErp.php` | OK |
+| `node --check public\assets\js\custom\apps\erp\inventarios\operacion_erp.js` | OK |
+
+Evidencia validada:
+
+- `EXI-50-35`
+  - `2.5000 kg`
+  - unidad `INV-II000083-0001`
+  - `estado_fisico=abierta`
+  - `estado_etiqueta=pendiente_impresion`
+  - diferencia `0.000000`
+- `EXI-50-36`
+  - `20.0000 kg`
+  - sin unidades fisicas
+  - diferencia trazable `20.000000`, esperada por ser saldo agregado
+- `EXI-50-37`
+  - `8.0000 kg`
+  - unidades `INV-II000085-0001` y `INV-II000085-0002`
+  - `estado_fisico=cerrada`
+  - `estado_etiqueta=pendiente_impresion`
+  - diferencia `0.000000`
+
+UAT manual pendiente:
+
+1. Abrir `/inventario/productos_existencias`.
+2. Buscar las tres referencias.
+3. Validar Existencias, Kardex y pestana Unidades.
+4. Continuar a `/almacen/etiquetado` para imprimir/pegar:
+   - `INV-II000083-0001`;
+   - `INV-II000085-0001`;
+   - `INV-II000085-0002`.
+
+Decision de cierre:
+
+- Inventario Inicial Real queda tecnicamente validado para:
+  - saldos agregados por unidad compra;
+  - unidades fisicas abiertas;
+  - unidades fisicas cerradas.
+- Antes de cargar inventario real de tiendas, conviene definir folios por tienda y usar conteo fisico real.
+
 ## INV-UA-T001 - Visibilidad de unidades fisicas abiertas
 
 Fecha: 2026-06-25

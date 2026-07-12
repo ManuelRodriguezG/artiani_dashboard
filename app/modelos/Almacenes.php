@@ -33,6 +33,19 @@ class Almacenes extends CRUD {
 
     /**
      * IA: Codex GPT-5
+     * Fecha: 2026-07-11
+     * Proposito: permite que Resurtido opere en modo lectura aunque el DDL autorizado aun no exista.
+     * Impacto: Almacen/Resurtido; evita errores fatales y reporta schema pendiente sin escribir en BD.
+     */
+    private function tablaExisteAlmacen($db, $tabla) {
+        $stmt = $db->prepare("SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES
+            WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = :tabla LIMIT 1");
+        $stmt->execute(array(":tabla" => $tabla));
+        return (bool) $stmt->fetchColumn();
+    }
+
+    /**
+     * IA: Codex GPT-5
      * Fecha: 2026-06-27
      * Proposito: confirma si Catalogo ya expone las reglas de cantidad real variable para Recepcion.
      * Impacto: Almacen/Recepciones; las reglas se leen solo cuando el esquema autorizado existe.
@@ -289,6 +302,353 @@ class Almacenes extends CRUD {
             $stmt->execute($params);
             $id_guardado = $id > 0 ? $id : intval($db->lastInsertId());
             return $this->crudResponse(false, "success", "Ubicacion guardada", array("id_ubicacion" => $id_guardado));
+        } catch (Exception $e) {
+            return $this->crudResponse(true, "danger", $e->getMessage());
+        }
+    }
+
+    /**
+     * IA: Codex GPT-5
+     * Fecha: 2026-07-11
+     * Proposito: previsualiza necesidades de resurtido por almacen/SKU usando reglas globales de Catalogo.
+     * Impacto: Almacen/Resurtido; no crea solicitudes, alertas ni movimientos de inventario.
+     * Contrato: consulta read-only; hasta que exista politica local por tienda/SKU, usa stock_minimo, stock_maximo y punto_reorden globales del SKU.
+     */
+    public function preflight_stock_bajo_resurtido($filtros = array()) {
+        try {
+            $db = $this->getConexion();
+            $id_almacen = intval($this->valor($filtros, "id_almacen", 0));
+            $id_sku = intval($this->valor($filtros, "id_sku", 0));
+            $q = trim((string) $this->valor($filtros, "q", ""));
+            $solo_bajos = intval($this->valor($filtros, "solo_bajos", 1)) === 1;
+
+            if ($id_almacen <= 0) {
+                return $this->crudResponse(true, "warning", "Selecciona almacen para calcular resurtido");
+            }
+
+            $stmt = $db->prepare("SELECT id_almacen, codigo_almacen, almacen, tipo_almacen, estatus
+                FROM {$this->tabla_erp_almacenes}
+                WHERE id_almacen=:almacen AND COALESCE(estatus,'activo')='activo'
+                LIMIT 1");
+            $stmt->execute(array(":almacen" => $id_almacen));
+            $almacen = $stmt->fetch(PDO::FETCH_ASSOC);
+            if (!$almacen) {
+                return $this->crudResponse(true, "warning", "Almacen no encontrado o inactivo");
+            }
+
+            $where = array("s.estatus='activo'", "p.estatus='activo'", "COALESCE(r.controla_inventario, 1)=1");
+            $params = array(":almacen" => $id_almacen);
+            if ($id_sku > 0) {
+                $where[] = "s.id_sku=:sku";
+                $params[":sku"] = $id_sku;
+            }
+            if ($q !== "") {
+                $where[] = "(s.sku LIKE :q OR s.nombre LIKE :q OR p.nombre LIKE :q OR p.codigo_producto LIKE :q)";
+                $params[":q"] = "%" . $q . "%";
+            }
+
+            $sql = "SELECT s.id_sku, s.sku, s.nombre AS nombre_sku, p.id_producto_erp, p.nombre AS producto,
+                    COALESCE(NULLIF(r.unidad_venta_label,''), ub.abreviatura, ub.codigo, '') AS unidad_base,
+                    COALESCE(r.stock_minimo, 0.000000) AS stock_minimo,
+                    r.stock_maximo,
+                    COALESCE(r.punto_reorden, 0.000000) AS punto_reorden,
+                    COALESCE(SUM(CASE WHEN e.id_almacen_clave=:almacen THEN e.cantidad ELSE 0 END), 0) AS cantidad,
+                    COALESCE(SUM(CASE WHEN e.id_almacen_clave=:almacen THEN e.cantidad_apartada ELSE 0 END), 0) AS cantidad_apartada,
+                    COALESCE(SUM(CASE WHEN e.id_almacen_clave=:almacen THEN e.cantidad_disponible ELSE 0 END), 0) AS cantidad_disponible
+                FROM erp_catalogo_skus s
+                INNER JOIN erp_catalogo_productos p ON p.id_producto_erp=s.id_producto_erp
+                LEFT JOIN erp_catalogo_sku_reglas_inventario r ON r.id_sku=s.id_sku
+                LEFT JOIN erp_catalogo_unidades ub ON ub.id_unidad=s.id_unidad_base
+                LEFT JOIN {$this->tabla_erp_inventario_existencias} e ON e.id_sku_erp=s.id_sku
+                WHERE " . implode(" AND ", $where) . "
+                GROUP BY s.id_sku, s.sku, s.nombre, p.id_producto_erp, p.nombre, r.unidad_venta_label,
+                    ub.abreviatura, ub.codigo, r.stock_minimo, r.stock_maximo, r.punto_reorden
+                ORDER BY p.nombre ASC, s.sku ASC
+                LIMIT 500";
+            $stmt = $db->prepare($sql);
+            $stmt->execute($params);
+            $items = array();
+            foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $fila) {
+                $disponible = round(floatval($fila["cantidad_disponible"]), 6);
+                $punto = round(floatval($fila["punto_reorden"]), 6);
+                $minimo = round(floatval($fila["stock_minimo"]), 6);
+                $maximo = $fila["stock_maximo"] === null ? null : round(floatval($fila["stock_maximo"]), 6);
+                $umbral = $punto > 0 ? $punto : $minimo;
+                $requiere = $umbral > 0 && $disponible <= $umbral + 0.000001;
+                $sugerida = 0.000000;
+                if ($requiere) {
+                    if ($maximo !== null && $maximo > $disponible) {
+                        $sugerida = round($maximo - $disponible, 6);
+                    } elseif ($punto > $disponible) {
+                        $sugerida = round($punto - $disponible, 6);
+                    } elseif ($minimo > $disponible) {
+                        $sugerida = round($minimo - $disponible, 6);
+                    }
+                }
+                if ($solo_bajos && !$requiere) {
+                    continue;
+                }
+                $fila["umbral_usado"] = $umbral;
+                $fila["requiere_resurtido"] = $requiere ? 1 : 0;
+                $fila["cantidad_sugerida"] = $sugerida;
+                $fila["politica_fuente"] = "catalogo_global";
+                $items[] = $fila;
+            }
+
+            return $this->crudResponse(false, "success", "Preflight de stock bajo consultado", array(
+                "almacen" => $almacen,
+                "total" => count($items),
+                "items" => $items,
+                "solo_bajos" => $solo_bajos ? 1 : 0,
+                "politica_local_disponible" => 0
+            ));
+        } catch (Exception $e) {
+            return $this->crudResponse(true, "danger", $e->getMessage());
+        }
+    }
+
+    /**
+     * IA: Codex GPT-5
+     * Fecha: 2026-07-11
+     * Proposito: lista solicitudes de resurtido en modo read-only y detecta si el esquema esta pendiente.
+     * Impacto: Almacen/Resurtido; habilita pantalla inicial sin permitir escrituras ni movimientos de inventario.
+     * Contrato: no crea ni modifica datos; si faltan tablas devuelve schema_pendiente=1 e items vacios.
+     */
+    public function consultar_resurtidos_readonly($filtros = array()) {
+        try {
+            $db = $this->getConexion();
+            $tablas = array(
+                "erp_almacen_resurtidos",
+                "erp_almacen_resurtido_detalle",
+                "erp_almacen_resurtido_diferencias"
+            );
+            $faltantes = array();
+            foreach ($tablas as $tabla) {
+                if (!$this->tablaExisteAlmacen($db, $tabla)) {
+                    $faltantes[] = $tabla;
+                }
+            }
+            if (!empty($faltantes)) {
+                return $this->crudResponse(false, "info", "Esquema de resurtido pendiente", array(
+                    "schema_pendiente" => 1,
+                    "tablas_faltantes" => $faltantes,
+                    "items" => array(),
+                    "total" => 0
+                ));
+            }
+
+            $where = array("1=1");
+            $params = array();
+            $estatus = trim((string) $this->valor($filtros, "estatus", ""));
+            $id_origen = intval($this->valor($filtros, "id_almacen_origen", 0));
+            $id_destino = intval($this->valor($filtros, "id_almacen_destino", 0));
+            $q = trim((string) $this->valor($filtros, "q", ""));
+            $estatus_validos = array("borrador", "solicitado", "autorizado", "rechazado", "preparando", "preparado", "enviado", "recibido_parcial", "recibido", "cerrado", "cancelado");
+
+            if ($estatus !== "" && in_array($estatus, $estatus_validos, true)) {
+                $where[] = "r.estatus=:estatus";
+                $params[":estatus"] = $estatus;
+            }
+            if ($id_origen > 0) {
+                $where[] = "r.id_almacen_origen=:origen";
+                $params[":origen"] = $id_origen;
+            }
+            if ($id_destino > 0) {
+                $where[] = "r.id_almacen_solicitante=:destino";
+                $params[":destino"] = $id_destino;
+            }
+            if ($q !== "") {
+                $where[] = "(r.folio LIKE :q OR ao.almacen LIKE :q OR ad.almacen LIKE :q OR r.observaciones LIKE :q)";
+                $params[":q"] = "%" . $q . "%";
+            }
+
+            $sql = "SELECT r.id_resurtido_almacen, r.id_resurtido_almacen AS id_resurtido,
+                    r.folio, r.estatus, r.prioridad, r.fecha_solicitud,
+                    r.fecha_autorizacion, r.fecha_envio, r.fecha_recepcion,
+                    r.id_almacen_origen, r.id_almacen_solicitante AS id_almacen_destino, ao.almacen AS almacen_origen,
+                    ad.almacen AS almacen_destino, r.observaciones,
+                    COALESCE(det.total_partidas, 0) AS total_partidas,
+                    COALESCE(det.cantidad_solicitada, 0) AS cantidad_solicitada,
+                    COALESCE(det.cantidad_autorizada, 0) AS cantidad_autorizada,
+                    COALESCE(det.cantidad_preparada, 0) AS cantidad_preparada,
+                    COALESCE(det.cantidad_enviada, 0) AS cantidad_enviada,
+                    COALESCE(det.cantidad_recibida, 0) AS cantidad_recibida,
+                    COALESCE(dif.total_diferencias, 0) AS total_diferencias
+                FROM erp_almacen_resurtidos r
+                LEFT JOIN {$this->tabla_erp_almacenes} ao ON ao.id_almacen=r.id_almacen_origen
+                LEFT JOIN {$this->tabla_erp_almacenes} ad ON ad.id_almacen=r.id_almacen_solicitante
+                LEFT JOIN (
+                    SELECT id_resurtido_almacen, COUNT(*) AS total_partidas,
+                        SUM(cantidad_solicitada) AS cantidad_solicitada,
+                        SUM(cantidad_autorizada) AS cantidad_autorizada,
+                        SUM(cantidad_preparada) AS cantidad_preparada,
+                        SUM(cantidad_enviada) AS cantidad_enviada,
+                        SUM(cantidad_recibida) AS cantidad_recibida
+                    FROM erp_almacen_resurtido_detalle
+                    GROUP BY id_resurtido_almacen
+                ) det ON det.id_resurtido_almacen=r.id_resurtido_almacen
+                LEFT JOIN (
+                    SELECT id_resurtido_almacen, COUNT(*) AS total_diferencias
+                    FROM erp_almacen_resurtido_diferencias
+                    GROUP BY id_resurtido_almacen
+                ) dif ON dif.id_resurtido_almacen=r.id_resurtido_almacen
+                WHERE " . implode(" AND ", $where) . "
+                ORDER BY r.id_resurtido_almacen DESC
+                LIMIT 200";
+            $stmt = $db->prepare($sql);
+            $stmt->execute($params);
+            $items = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            return $this->crudResponse(false, "success", "Resurtidos consultados", array(
+                "schema_pendiente" => 0,
+                "items" => $items,
+                "total" => count($items)
+            ));
+        } catch (Exception $e) {
+            return $this->crudResponse(true, "danger", $e->getMessage());
+        }
+    }
+
+    /**
+     * IA: Codex GPT-5
+     * Fecha: 2026-07-12
+     * Proposito: consulta un folio de resurtido completo en modo read-only para auditoria/UAT.
+     * Impacto: Almacen/Resurtido; no modifica solicitudes ni inventario y conserva trazabilidad por tablas documentales.
+     * Contrato: acepta id_resurtido_almacen/id_resurtido o folio; si falta DDL devuelve schema_pendiente=1.
+     */
+    public function consultar_resurtido_readonly($filtros = array()) {
+        try {
+            $db = $this->getConexion();
+            $tablas = array(
+                "erp_almacen_resurtidos",
+                "erp_almacen_resurtido_detalle",
+                "erp_almacen_resurtido_preparacion",
+                "erp_almacen_resurtido_envios",
+                "erp_almacen_resurtido_recepciones",
+                "erp_almacen_resurtido_diferencias"
+            );
+            $faltantes = array();
+            foreach ($tablas as $tabla) {
+                if (!$this->tablaExisteAlmacen($db, $tabla)) {
+                    $faltantes[] = $tabla;
+                }
+            }
+            if (!empty($faltantes)) {
+                return $this->crudResponse(false, "info", "Esquema de resurtido pendiente", array(
+                    "schema_pendiente" => 1,
+                    "tablas_faltantes" => $faltantes,
+                    "encabezado" => null,
+                    "detalle" => array(),
+                    "preparacion" => array(),
+                    "envios" => array(),
+                    "recepciones" => array(),
+                    "diferencias" => array()
+                ));
+            }
+
+            $id = intval($this->valor($filtros, "id_resurtido_almacen", $this->valor($filtros, "id_resurtido", 0)));
+            $folio = trim((string) $this->valor($filtros, "folio", ""));
+            if ($id <= 0 && $folio === "") {
+                return $this->crudResponse(true, "warning", "Selecciona folio de resurtido");
+            }
+
+            $where = $id > 0 ? "r.id_resurtido_almacen=:id" : "r.folio=:folio";
+            $params = $id > 0 ? array(":id" => $id) : array(":folio" => $folio);
+            $sql = "SELECT r.id_resurtido_almacen, r.id_resurtido_almacen AS id_resurtido,
+                    r.folio, r.tipo_documento, r.estatus, r.prioridad, r.origen_solicitud,
+                    r.id_almacen_solicitante, r.id_almacen_solicitante AS id_almacen_destino,
+                    r.id_almacen_origen, r.id_almacen_transito,
+                    sol.almacen AS almacen_solicitante, sol.almacen AS almacen_destino,
+                    ori.almacen AS almacen_origen, tra.almacen AS almacen_transito,
+                    r.fecha_solicitud, r.fecha_autorizacion, r.fecha_preparacion,
+                    r.fecha_envio, r.fecha_recepcion, r.fecha_cierre,
+                    r.solicitado_por, r.autorizado_por, r.preparado_por, r.enviado_por,
+                    r.recibido_por, r.cerrado_por, r.observaciones, r.motivo_cancelacion,
+                    r.fecha_registro, r.fecha_actualizacion
+                FROM erp_almacen_resurtidos r
+                LEFT JOIN {$this->tabla_erp_almacenes} sol ON sol.id_almacen=r.id_almacen_solicitante
+                LEFT JOIN {$this->tabla_erp_almacenes} ori ON ori.id_almacen=r.id_almacen_origen
+                LEFT JOIN {$this->tabla_erp_almacenes} tra ON tra.id_almacen=r.id_almacen_transito
+                WHERE {$where}
+                LIMIT 1";
+            $stmt = $db->prepare($sql);
+            $stmt->execute($params);
+            $encabezado = $stmt->fetch(PDO::FETCH_ASSOC);
+            if (!$encabezado) {
+                return $this->crudResponse(true, "warning", "Folio de resurtido no encontrado");
+            }
+
+            $id_resurtido = intval($encabezado["id_resurtido_almacen"]);
+            $params_id = array(":id" => $id_resurtido);
+
+            $stmt = $db->prepare("SELECT id_resurtido_detalle, id_resurtido_almacen, id_sku_erp, id_producto,
+                    sku, nombre_producto, unidad_base, cantidad_solicitada, cantidad_autorizada,
+                    cantidad_preparada, cantidad_enviada, cantidad_recibida, cantidad_diferencia,
+                    estatus, motivo_rechazo, observaciones, fecha_registro, fecha_actualizacion
+                FROM erp_almacen_resurtido_detalle
+                WHERE id_resurtido_almacen=:id
+                ORDER BY id_resurtido_detalle ASC");
+            $stmt->execute($params_id);
+            $detalle = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+            $stmt = $db->prepare("SELECT p.id_resurtido_preparacion, p.id_resurtido_almacen,
+                    p.id_resurtido_detalle, p.id_existencia_origen, p.id_inventario_unidad,
+                    p.id_almacen_origen, a.almacen AS almacen_origen, p.ubicacion_origen_id,
+                    p.id_sku_erp, p.lote, p.fecha_caducidad, p.cantidad_preparada,
+                    p.cantidad_unidad_antes, p.cantidad_unidad_despues, p.estado_fisico_unidad,
+                    p.estatus, p.preparado_por, p.fecha_preparacion, p.observaciones,
+                    e.codigo_existencia, u.codigo_unico, u.codigo_etiqueta_interna
+                FROM erp_almacen_resurtido_preparacion p
+                LEFT JOIN {$this->tabla_erp_almacenes} a ON a.id_almacen=p.id_almacen_origen
+                LEFT JOIN {$this->tabla_erp_inventario_existencias} e ON e.id_existencia_inventario=p.id_existencia_origen
+                LEFT JOIN {$this->tabla_erp_inventario_unidades} u ON u.id_inventario_unidad=p.id_inventario_unidad
+                WHERE p.id_resurtido_almacen=:id
+                ORDER BY p.id_resurtido_preparacion ASC");
+            $stmt->execute($params_id);
+            $preparacion = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+            $stmt = $db->prepare("SELECT id_resurtido_envio, id_resurtido_almacen, id_resurtido_preparacion,
+                    id_movimiento_salida, id_movimiento_transito_entrada, id_existencia_transito,
+                    id_inventario_unidad, cantidad_enviada, estatus, enviado_por, fecha_envio, observaciones
+                FROM erp_almacen_resurtido_envios
+                WHERE id_resurtido_almacen=:id
+                ORDER BY id_resurtido_envio ASC");
+            $stmt->execute($params_id);
+            $envios = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+            $stmt = $db->prepare("SELECT r.id_resurtido_recepcion, r.id_resurtido_almacen, r.id_resurtido_envio,
+                    r.id_almacen_destino, a.almacen AS almacen_destino, r.ubicacion_destino_id,
+                    r.id_movimiento_transito_salida, r.id_movimiento_entrada_destino,
+                    r.id_existencia_destino, r.id_inventario_unidad, r.lote_recibido,
+                    r.fecha_caducidad_recibida, r.cantidad_recibida, r.estatus,
+                    r.recibido_por, r.fecha_recepcion, r.observaciones
+                FROM erp_almacen_resurtido_recepciones r
+                LEFT JOIN {$this->tabla_erp_almacenes} a ON a.id_almacen=r.id_almacen_destino
+                WHERE r.id_resurtido_almacen=:id
+                ORDER BY r.id_resurtido_recepcion ASC");
+            $stmt->execute($params_id);
+            $recepciones = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+            $stmt = $db->prepare("SELECT id_resurtido_diferencia, id_resurtido_almacen, id_resurtido_detalle,
+                    id_resurtido_envio, id_resurtido_recepcion, tipo_diferencia, severidad,
+                    id_sku_erp, id_inventario_unidad, cantidad_esperada, cantidad_recibida,
+                    cantidad_diferencia, lote_esperado, lote_recibido, fecha_caducidad_esperada,
+                    fecha_caducidad_recibida, estatus, accion_sugerida, accion_tomada,
+                    registrado_por, resuelto_por, fecha_registro, fecha_resolucion, observaciones
+                FROM erp_almacen_resurtido_diferencias
+                WHERE id_resurtido_almacen=:id
+                ORDER BY id_resurtido_diferencia ASC");
+            $stmt->execute($params_id);
+            $diferencias = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+            return $this->crudResponse(false, "success", "Resurtido consultado", array(
+                "schema_pendiente" => 0,
+                "encabezado" => $encabezado,
+                "detalle" => $detalle,
+                "preparacion" => $preparacion,
+                "envios" => $envios,
+                "recepciones" => $recepciones,
+                "diferencias" => $diferencias
+            ));
         } catch (Exception $e) {
             return $this->crudResponse(true, "danger", $e->getMessage());
         }

@@ -207,8 +207,7 @@
                                     <div class="col-md-4"><label class="form-label">Marca existente</label><select class="form-select" name="id_marca_erp" id="catalogo_marca"><option value="">Sin marca</option></select></div>
                                     <div class="col-md-4"><label class="form-label">O crear marca</label><input class="form-control" name="marca_nueva" maxlength="150"></div>
                                     <div class="col-md-4"><label class="form-label">Estado maestro inicial</label><select class="form-select" name="estatus"><option value="activo">Activo - maestro vigente</option><option value="borrador">Borrador - captura inicial</option><option value="en_revision">En revision - validar datos</option><option value="inactivo">Inactivo - no operativo</option><option value="descontinuado">Descontinuado</option></select><div class="form-text">Activo no significa listo para vender.</div></div>
-                                    <div class="col-md-6"><label class="form-label">Categoría existente</label><select class="form-select" name="id_categoria_erp" id="catalogo_categoria"><option value="">Sin categoría</option></select></div>
-                                    <div class="col-md-6"><label class="form-label">O crear categoría</label><input class="form-control" name="categoria_nueva" maxlength="150"></div>
+                                    <div class="col-md-8"><label class="form-label">Categoría principal</label><select class="form-select" name="id_categoria_erp" id="catalogo_categoria"><option value="">Sin categoría</option></select><div class="form-text">Las categorías nuevas se crean en Configuración para definir padre, uso e imagen.</div></div>
                                     <div class="col-12"><label class="form-label">Descripción</label><textarea class="form-control" name="descripcion" rows="3"></textarea></div>
                                     <div class="col-12"><label class="form-check form-switch form-check-custom form-check-solid"><input class="form-check-input" type="checkbox" name="maneja_variantes" value="1"><span class="form-check-label">Este producto tendrá variantes</span></label></div>
                                 </div>
@@ -372,7 +371,8 @@
                                     <div class="col-md-3"><label class="form-label">Tipo</label><select class="form-select" name="tipo_producto"><option value="producto">Producto</option><option value="insumo">Insumo</option><option value="kit">Kit</option><option value="servicio">Servicio</option></select></div>
                                     <div class="col-md-3"><label class="form-label">Estado maestro</label><select class="form-select" name="estatus"><option value="activo">Activo - maestro vigente</option><option value="borrador">Borrador - captura inicial</option><option value="en_revision">En revision - validar datos</option><option value="inactivo">Inactivo - no operativo</option><option value="descontinuado">Descontinuado</option></select><div class="form-text">Activo no significa listo para vender.</div></div>
                                     <div class="col-md-3"><label class="form-label">Marca</label><select class="form-select" name="id_marca_erp" id="catalogo_editar_marca"><option value="">Sin marca</option></select></div>
-                                    <div class="col-md-3"><label class="form-label">Categoría principal</label><select class="form-select" name="id_categoria_erp" id="catalogo_editar_categoria"><option value="">Sin categoría</option></select></div>
+                                    <div class="col-md-3"><label class="form-label">Categoría principal</label><select class="form-select" name="id_categoria_erp" id="catalogo_editar_categoria"><option value="">Sin categoría</option></select><div class="form-text">Default operativo para reportes y reglas.</div></div>
+                                    <div class="col-md-6"><label class="form-label">Categorías secundarias</label><select class="form-select" name="categorias_secundarias[]" id="catalogo_editar_categorias_secundarias" multiple data-placeholder="Buscar categorías alternas"></select><div class="form-text">Opcionales para navegación, venta o clasificación alterna. No sustituyen la principal.</div></div>
                                     <div class="col-12"><label class="form-label">Descripción</label><textarea class="form-control" name="descripcion" rows="3"></textarea></div>
                                     <div class="col-12"><label class="form-check form-switch form-check-custom form-check-solid"><input class="form-check-input" type="checkbox" name="maneja_variantes" value="1"><span class="form-check-label">Maneja variantes</span></label></div>
                                 </div>
@@ -805,6 +805,6 @@
             "costos" => SesionSeguridad::tienePermiso("catalogo.costos")
         )); ?>;
     </script>
-    <script src="/assets/js/custom/apps/erp/catalogo/productos.js?v=20260626-recepcion-paquetes-1"></script>
+    <script src="/assets/js/custom/apps/erp/catalogo/productos.js?v=20260712-categorias-1"></script>
 </body>
 </html>

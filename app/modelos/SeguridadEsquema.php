@@ -163,6 +163,14 @@ class SeguridadEsquema extends DBSchema {
       array("modulo" => "crm", "accion" => "auditoria", "permiso" => "crm.auditoria", "descripcion" => "Auditar fuentes, migraciones, duplicados y esquema CRM"),
       array("modulo" => "ventas", "accion" => "ver", "permiso" => "ventas.ver", "descripcion" => "Consultar ventas, clientes y disponibilidad comercial"),
       array("modulo" => "ventas", "accion" => "operar", "permiso" => "ventas.operar", "descripcion" => "Registrar pedidos, ventas o apartados"),
+      array("modulo" => "ventas", "accion" => "listas_ver", "permiso" => "ventas.listas.ver", "descripcion" => "Consultar listas de precios, vigencias, alcances y origen de precio"),
+      array("modulo" => "ventas", "accion" => "listas_crear", "permiso" => "ventas.listas.crear", "descripcion" => "Crear listas de precios en estado borrador o preparacion"),
+      array("modulo" => "ventas", "accion" => "listas_editar", "permiso" => "ventas.listas.editar", "descripcion" => "Editar encabezados, detalles, vigencias y alcances de listas de precios"),
+      array("modulo" => "ventas", "accion" => "listas_activar", "permiso" => "ventas.listas.activar", "descripcion" => "Activar listas de precios autorizadas para resolucion comercial"),
+      array("modulo" => "ventas", "accion" => "listas_pausar", "permiso" => "ventas.listas.pausar", "descripcion" => "Pausar temporalmente listas de precios sin eliminar historial"),
+      array("modulo" => "ventas", "accion" => "listas_cancelar", "permiso" => "ventas.listas.cancelar", "descripcion" => "Cancelar listas de precios con motivo y trazabilidad"),
+      array("modulo" => "ventas", "accion" => "listas_asignar_cliente", "permiso" => "ventas.listas.asignar_cliente", "descripcion" => "Asignar listas de precios a clientes CRM con vigencia y prioridad"),
+      array("modulo" => "ventas", "accion" => "listas_auditoria", "permiso" => "ventas.listas.auditoria", "descripcion" => "Consultar auditoria comercial y dry-runs de listas de precios"),
       array("modulo" => "ventas", "accion" => "precio_manual", "permiso" => "ventas.precio_manual", "descripcion" => "Solicitar o aplicar precio manual en POS segun politica autorizada"),
       array("modulo" => "ventas", "accion" => "descuento_partida", "permiso" => "ventas.descuento_partida", "descripcion" => "Solicitar o aplicar descuento por partida en POS segun politica autorizada"),
       array("modulo" => "ventas", "accion" => "descuento_general", "permiso" => "ventas.descuento_general", "descripcion" => "Solicitar o aplicar descuento general en POS segun politica autorizada"),
@@ -199,6 +207,8 @@ class SeguridadEsquema extends DBSchema {
       "direccion" => array(
         "seguridad.ver", "catalogo.ver", "catalogo.costos",
         "compras.ver", "compras.aprobar", "almacen.ver", "inventario.ver", "crm.ver", "crm.auditoria", "ventas.ver",
+        "ventas.listas.ver", "ventas.listas.crear", "ventas.listas.editar", "ventas.listas.activar", "ventas.listas.pausar",
+        "ventas.listas.cancelar", "ventas.listas.asignar_cliente", "ventas.listas.auditoria",
         "ventas.precio_manual", "ventas.descuento_partida", "ventas.descuento_general", "ventas.autorizar_excepcion_comercial",
         "ventas.caja_evidencias.revisar", "ventas.caja_diferencias.ver", "ventas.caja_diferencias.revisar", "ventas.caja_diferencias.resolver",
         "ventas.pos_config.ver", "ventas.pos_config.crear", "ventas.pos_config.editar", "ventas.pos_config.desactivar", "ventas.pos_config.asignar_usuario",
@@ -216,6 +226,8 @@ class SeguridadEsquema extends DBSchema {
         "inventario.ajustar", "inventario.traspasar", "inventario.conteo",
         "crm.ver", "crm.crear", "crm.editar", "crm.fusionar", "crm.auditoria",
         "ventas.ver", "ventas.operar", "ventas.precio_manual", "ventas.descuento_partida",
+        "ventas.listas.ver", "ventas.listas.crear", "ventas.listas.editar", "ventas.listas.activar", "ventas.listas.pausar",
+        "ventas.listas.cancelar", "ventas.listas.asignar_cliente", "ventas.listas.auditoria",
         "ventas.descuento_general", "ventas.autorizar_excepcion_comercial", "ventas.caja_evidencias.revisar",
         "ventas.caja_diferencias.ver", "ventas.caja_diferencias.revisar", "ventas.caja_diferencias.resolver",
         "ventas.pos_config.ver", "ventas.pos_config.crear", "ventas.pos_config.editar", "ventas.pos_config.desactivar", "ventas.pos_config.asignar_usuario", "ecommerce.ver",
@@ -247,15 +259,15 @@ class SeguridadEsquema extends DBSchema {
         "proveedores.ver", "garantias.ver"
       ),
       "ventas" => array(
-        "catalogo.ver", "inventario.ver", "crm.ver", "crm.crear", "ventas.ver", "ventas.operar", "ventas.caja_diferencias.ver", "ecommerce.ver", "notificaciones.ver", "reportes.ver",
+        "catalogo.ver", "inventario.ver", "crm.ver", "crm.crear", "ventas.ver", "ventas.operar", "ventas.listas.ver", "ventas.caja_diferencias.ver", "ecommerce.ver", "notificaciones.ver", "reportes.ver",
         "garantias.ver", "garantias.reclamos.crear"
       ),
       "crm" => array(
         "crm.ver", "crm.crear", "crm.editar", "crm.fusionar", "crm.auditoria",
-        "ventas.ver", "garantias.ver", "garantias.reclamos.crear", "notificaciones.ver", "reportes.ver"
+        "ventas.ver", "ventas.listas.ver", "garantias.ver", "garantias.reclamos.crear", "notificaciones.ver", "reportes.ver"
       ),
       "ecommerce" => array(
-        "catalogo.ver", "catalogo.editar", "inventario.ver", "ventas.ver", "ecommerce.ver",
+        "catalogo.ver", "catalogo.editar", "inventario.ver", "ventas.ver", "ventas.listas.ver", "ecommerce.ver",
         "ecommerce.sincronizar", "notificaciones.ver", "reportes.ver"
       ),
       "catalogo_productos" => array(
@@ -266,6 +278,7 @@ class SeguridadEsquema extends DBSchema {
       ),
       "finanzas_contabilidad" => array(
         "catalogo.ver", "catalogo.costos", "compras.ver", "ventas.ver",
+        "ventas.listas.ver", "ventas.listas.auditoria",
         "ventas.caja_diferencias.ver", "ventas.caja_diferencias.revisar", "ventas.caja_diferencias.resolver",
         "finanzas.ver", "finanzas.operar", "notificaciones.ver", "auditoria.ver", "reportes.ver",
         "proveedores.ver", "proveedores.fiscales", "proveedores.condiciones", "proveedores.documentos",
@@ -274,11 +287,12 @@ class SeguridadEsquema extends DBSchema {
       ),
       "auditor" => array(
         "catalogo.ver", "compras.ver", "almacen.ver", "inventario.ver", "ventas.ver",
-        "ventas.pos_config.ver", "ecommerce.ver", "finanzas.ver", "notificaciones.ver", "auditoria.ver", "reportes.ver",
+        "ventas.listas.ver", "ventas.listas.auditoria", "ventas.pos_config.ver", "ecommerce.ver", "finanzas.ver", "notificaciones.ver", "auditoria.ver", "reportes.ver",
         "proveedores.ver", "proveedores.auditoria", "rentabilidad.ver", "garantias.ver", "garantias.reportes"
       ),
       "solo_lectura" => array(
         "catalogo.ver", "compras.ver", "almacen.ver", "inventario.ver", "ventas.ver",
+        "ventas.listas.ver",
         "ecommerce.ver", "finanzas.ver", "notificaciones.ver", "reportes.ver", "proveedores.ver", "rentabilidad.ver",
         "garantias.ver"
       ),

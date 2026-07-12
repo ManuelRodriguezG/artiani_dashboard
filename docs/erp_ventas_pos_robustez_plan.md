@@ -591,3 +591,90 @@ El POS se considera robusto cuando:
 - puede validar una venta completa por folio;
 - tiene UAT documentado por SKU, folio, caja, turno y cliente.
 
+
+## Venta POS con inventario pendiente controlado
+
+Estado 2026-07-12: DDL base y DDL de politicas aplicado en UAT POS; politica UAT `PINV-UAT-A5-S1760-POS` sembrada para almacen 5 / SKU 1760 con limite 1 unidad y $295; dry-run funcional preparado para calcular faltante sin escribir ventas, pendientes, notificaciones ni kardex.
+
+Objetivo operativo:
+
+- Permitir que caja venda un SKU aunque el ERP todavia no tenga existencia validada en esa sucursal, solo cuando la politica POS lo autorice.
+- Registrar el faltante como pendiente formal para Inventario/Existencias.
+- Generar trazabilidad por venta, detalle, SKU, almacen, cajero y folio.
+- Mantener separado el cobro real de la correccion de inventario.
+- Resolver el pendiente con mini inventario: conteo fisico, ajuste autorizado y cierre de alerta.
+
+Reglas:
+
+- No se debe usar para ecommerce como disponibilidad vendible.
+- No debe tomar unidades abiertas como unidad cerrada.
+- No reemplaza kardex: si existe stock, se descuenta con kardex normal; si falta stock, se registra pendiente y se genera alerta operativa.
+- El pendiente debe mostrar cantidad vendida, cantidad cubierta y cantidad faltante.
+- La resolucion pertenece a Inventario/Existencias, no a caja.
+- El ajuste posterior debe quedar ligado al pendiente y no borrar la evidencia de venta original.
+- Para permitir inventario pendiente en POS manda la politica activa de `erp_pos_politicas_venta_inventario` por sucursal/SKU/canal. Las banderas globales del SKU quedan como referencia informativa para no activar faltantes en ecommerce por accidente.
+
+DDL aplicado:
+
+- Columnas de estado en `erp_ventas`, `erp_ventas_detalle` y `erp_ventas_detalle_inventario`.
+- Tabla `erp_pos_politicas_venta_inventario` para autorizar inventario pendiente por POS/sucursal/SKU/canal.
+- Tabla `erp_pos_inventario_pendientes` para el expediente del faltante.
+- Tabla `erp_pos_inventario_pendientes_eventos` para historial operativo.
+- Endpoints de esquema:
+  - `/ventas/esquema_auditar_inventario_pendiente_pos`
+  - `/ventas/esquema_actualizar_inventario_pendiente_pos`
+- Endpoint dry-run funcional:
+  - `/ventas/pos_inventario_pendiente_dryrun_erp`
+  - `/ventas/esquema_auditar_politicas_inventario_pendiente_pos`
+  - `/ventas/esquema_actualizar_politicas_inventario_pendiente_pos`
+- Endpoint protegido preparado y probado para sembrar politica UAT por sucursal/SKU/canal:
+  - `/ventas/pos_politica_inventario_pendiente_guardar_erp`
+- Endpoint real preparado para UAT de venta con inventario pendiente:
+  - `/ventas/pos_inventario_pendiente_real_erp`
+  - Crea venta, pago, movimiento de caja, expediente pendiente y evento solo si existe turno abierto y pago completo.
+
+Evidencia UAT politica sembrada:
+
+- `id_politica_inventario_pos=1`
+- `codigo=PINV-UAT-A5-S1760-POS`
+- `id_almacen=5`
+- `id_sku_erp=1760`
+- `canal=pos`
+- `cantidad_maxima_pendiente=1`
+- `monto_maximo=295`
+- `estatus=activa`
+- Dry-run posterior: `estado=pendiente_autorizable`, `bloqueos=[]`, `politica_id=1`.
+- Intento de UAT real 2026-07-12: bloqueado correctamente sin escrituras por `turno_abierto_pendiente`; contadores posteriores `ventas_pendientes_inv=0`, `pendientes=0`, `eventos=0`.
+- UAT real 2026-07-11 ejecutada con turno `TUR-20260711-002-001`:
+  - Venta `POS-20260711-000001`, `id_venta=18`, total `$295`, estatus `pagada`, `inventario_validacion_estado=pendiente_inventario`.
+  - Detalle `id_venta_detalle=19`, SKU `1760`, cantidad pendiente `1`, `id_inventario_pendiente=1`.
+  - Pendiente `PINV-20260711-000001`, estatus `pendiente_revision`, cantidad cubierta `0`, cantidad pendiente `1`.
+  - Evento `creacion_pos`, referencia `POS-20260711-000001`.
+  - Pago efectivo `id_venta_pago=23`, movimiento caja `id_movimiento_caja=42`, monto `$295`, ligado a `id_venta=18`.
+  - Turno esperado paso de `$500` a `$795`.
+  - No se genero `id_movimiento_inventario`; la salida quedo como `tipo_asignacion=inventario_pendiente`.
+  - Cierre de turno ejecutado: `TUR-20260711-002-001`, monto esperado `$795`, contado `$795`, diferencia `$0`, cerrado por `id_usuario=1`.
+
+Resolucion Inventario/Existencias preparada:
+
+- Endpoints Inventario:
+  - `/inventario/pos_pendientes_inventario_erp`
+  - `/inventario/pos_pendiente_inventario_consultar_erp`
+  - `/inventario/pos_pendiente_inventario_resolucion_dryrun_erp`
+  - `/inventario/pos_pendiente_inventario_resolver_erp`
+- Pruebas read-only:
+  - Bandeja almacén 5: `1` pendiente, folio `PINV-20260711-000001`, estatus `pendiente_revision`.
+  - Consulta expediente: `1` evento, `0` existencias actuales.
+  - Dry-run conteo fisico `0`, decision `cerrar_sin_ajuste`: cierra sin kardex.
+  - Dry-run conteo fisico `5`, decision `ajustar_a_conteo`: propone ajuste `entrada` por `5`, referencia `PINV-RES-PINV-20260711-000001`, cerrar pendiente.
+- Apply real preparado pero no ejecutado; requiere token `INVENTARIO_POS_PENDIENTE_RESOLVER_REAL` y respaldo vigente.
+
+Siguiente autorizacion posterior para UAT real con caja abierta:
+
+`AUTORIZO ABRIR TURNO POS UAT usando respaldo UAT POS vigente con id_usuario=1 y monto_inicial=500 observaciones="Apertura UAT POS inventario pendiente"`
+
+`AUTORIZO EJECUTAR UAT VENTA POS CON INVENTARIO PENDIENTE usando respaldo UAT POS vigente con token VENTAS_POS_INVENTARIO_PENDIENTE_REAL id_usuario=1 id_almacen=5 id_sku=1760 cantidad=1 pago=295 id_metodo_pago=1 motivo="UAT venta con inventario pendiente"`
+
+Siguiente autorizacion para resolver pendiente desde Inventario:
+
+`AUTORIZO RESOLVER PENDIENTE INVENTARIO POS UAT REAL usando respaldo UAT POS vigente con token INVENTARIO_POS_PENDIENTE_RESOLVER_REAL id_usuario=1 folio=PINV-20260711-000001 cantidad_fisica=5 decision=ajustar_a_conteo motivo="UAT conteo encuentra 5 piezas despues de venta POS pendiente"`

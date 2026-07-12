@@ -1833,10 +1833,19 @@ class CatalogoErpDatos extends CRUD {
     }
   }
 
+  /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-07-11
+   * Proposito: guarda catalogos maestros y autogenera codigo para marca/categoria cuando el usuario captura solo nombre.
+   * Impacto: Configuracion de Catalogo ERP; facilita CRUD operativo sin relajar codigos de unidades/atributos.
+   */
   public function guardarCatalogoAuxiliar($tipo, $datos) {
     $permitidos = array("marca", "categoria", "unidad", "atributo");
     if (!in_array($tipo, $permitidos, true)) {
       return $this->respuesta(true, "warning", "Tipo de catálogo no permitido");
+    }
+    if ($this->texto($datos, "codigo") === "" && in_array($tipo, array("marca", "categoria"), true) && $this->texto($datos, "nombre") !== "") {
+      $datos["codigo"] = $this->codigoDesdeTexto($this->texto($datos, "nombre"), $tipo === "marca" ? "MAR" : "CAT");
     }
     if ($this->texto($datos, "codigo") === "" || $this->texto($datos, "nombre") === "") {
       return $this->respuesta(true, "warning", "Código y nombre son obligatorios");
@@ -3161,6 +3170,7 @@ class CatalogoErpDatos extends CRUD {
       if (!$producto) {
         return $this->respuesta(true, "warning", "Producto ERP no encontrado");
       }
+      $categoriasProducto = $this->consultarCategoriasProducto($db, intval($idProducto));
 
       $recepcionVariableSelect = $this->esquemaRecepcionVariableDisponible($db)
         ? "r.requiere_cantidad_variable_recepcion, r.requiere_unidades_fisicas_recepcion, r.tolerancia_recepcion_porcentaje, r.nota_recepcion_variable,"
@@ -3206,6 +3216,7 @@ class CatalogoErpDatos extends CRUD {
 
       return $this->respuesta(false, "success", "Producto ERP consultado", array(
         "producto" => $producto,
+        "categorias_producto" => $categoriasProducto,
         "skus" => $skus,
         "imagenes" => $this->consultarImagenesProducto($db, intval($idProducto)),
         "proveedores" => $this->consultarSkuProveedores($db, intval($idProducto)),
@@ -3216,6 +3227,22 @@ class CatalogoErpDatos extends CRUD {
     } catch (Exception $e) {
       return $this->respuesta(true, "danger", $e->getMessage());
     }
+  }
+
+  /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-07-11
+   * Proposito: lista categoria principal y secundarias de un producto para edicion controlada.
+   * Impacto: Catalogo ERP; habilita clasificacion multiple sin cambiar esquema ni afectar otros modulos.
+   */
+  private function consultarCategoriasProducto($db, $idProducto) {
+    $stmt = $db->prepare("SELECT pc.id_categoria_erp, pc.es_principal, c.nombre, c.ruta
+      FROM erp_catalogo_producto_categorias pc
+      INNER JOIN erp_catalogo_categorias c ON c.id_categoria_erp=pc.id_categoria_erp
+      WHERE pc.id_producto_erp=:producto
+      ORDER BY pc.es_principal DESC, c.ruta, c.nombre");
+    $stmt->execute(array(":producto" => intval($idProducto)));
+    return $stmt->fetchAll(PDO::FETCH_ASSOC);
   }
 
   public function guardarVariantesProducto($datos) {
@@ -4815,6 +4842,7 @@ class CatalogoErpDatos extends CRUD {
       }
       $idMarca = $this->resolverMarca($db, $datos);
       $idCategoria = $this->resolverCategoria($db, $datos);
+      $categoriasSecundarias = $this->resolverCategoriasSecundariasProducto($db, $datos, $idCategoria);
       $stmt = $db->prepare("UPDATE erp_catalogo_productos SET
         codigo_producto = :codigo, nombre = :nombre, descripcion = :descripcion,
         tipo_producto = :tipo, id_marca_erp = :marca, maneja_variantes = :variantes,
@@ -4831,23 +4859,63 @@ class CatalogoErpDatos extends CRUD {
         ":usuario" => intval($idUsuario) ?: null,
         ":producto" => $idProducto
       ));
-      $stmt = $db->prepare("UPDATE erp_catalogo_producto_categorias SET es_principal=0 WHERE id_producto_erp=:producto");
+      $stmt = $db->prepare("DELETE FROM erp_catalogo_producto_categorias WHERE id_producto_erp=:producto");
       $stmt->execute(array(":producto" => $idProducto));
       if ($idCategoria > 0) {
         $stmt = $db->prepare("INSERT INTO erp_catalogo_producto_categorias
           (id_producto_erp, id_categoria_erp, es_principal)
-          VALUES (:producto, :categoria, 1)
-          ON DUPLICATE KEY UPDATE es_principal=1");
+          VALUES (:producto, :categoria, 1)");
         $stmt->execute(array(":producto" => $idProducto, ":categoria" => $idCategoria));
       }
+      foreach ($categoriasSecundarias as $idCategoriaSecundaria) {
+        $stmt = $db->prepare("INSERT INTO erp_catalogo_producto_categorias
+          (id_producto_erp, id_categoria_erp, es_principal)
+          VALUES (:producto, :categoria, 0)");
+        $stmt->execute(array(":producto" => $idProducto, ":categoria" => $idCategoriaSecundaria));
+      }
       $db->commit();
-      return $this->respuesta(false, "success", "Producto maestro actualizado", array("id_producto_erp" => $idProducto));
+      return $this->respuesta(false, "success", "Producto maestro actualizado", array(
+        "id_producto_erp" => $idProducto,
+        "categorias_secundarias" => count($categoriasSecundarias)
+      ));
     } catch (Exception $e) {
       if ($db->inTransaction()) {
         $db->rollBack();
       }
       return $this->respuesta(true, "danger", $e->getCode() === "23000" ? "El código de producto ya existe" : $e->getMessage());
     }
+  }
+
+  /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-07-11
+   * Proposito: normaliza y valida categorias secundarias de producto manteniendo una unica principal.
+   * Impacto: Catalogo ERP; permite multiclase operativa sin aceptar categorias estructurales ni legado ecommerce.
+   */
+  private function resolverCategoriasSecundariasProducto($db, $datos, $idCategoriaPrincipal) {
+    $entrada = isset($datos["categorias_secundarias"]) ? $datos["categorias_secundarias"] : array();
+    if (!is_array($entrada)) {
+      $entrada = $entrada === "" ? array() : explode(",", (string) $entrada);
+    }
+    $ids = array();
+    foreach ($entrada as $valor) {
+      $id = intval($valor);
+      if ($id > 0 && $id !== intval($idCategoriaPrincipal)) {
+        $ids[$id] = $id;
+      }
+    }
+    if (!$ids) {
+      return array();
+    }
+    $stmt = $db->prepare("SELECT id_categoria_erp FROM erp_catalogo_categorias
+      WHERE id_categoria_erp=:categoria AND estatus='activa' AND tipo_categoria='maestra' AND permite_productos=1");
+    foreach ($ids as $id) {
+      $stmt->execute(array(":categoria" => $id));
+      if (!$stmt->fetchColumn()) {
+        throw new Exception("Una categoria secundaria no esta activa o no permite productos");
+      }
+    }
+    return array_values($ids);
   }
 
   public function agregarSku($datos, $idUsuario) {
@@ -5302,6 +5370,12 @@ class CatalogoErpDatos extends CRUD {
     return $stmt->fetch(PDO::FETCH_ASSOC);
   }
 
+  /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-07-11
+   * Proposito: resuelve solo categorias operativas existentes para evitar raices sueltas desde producto.
+   * Impacto: Catalogo ERP; obliga a crear categorias en Configuracion con padre, uso e imagen.
+   */
   private function resolverCategoria($db, $datos) {
     $id = intval(isset($datos["id_categoria_erp"]) ? $datos["id_categoria_erp"] : 0);
     $nombre = $this->texto($datos, "categoria_nueva");
@@ -5317,16 +5391,7 @@ class CatalogoErpDatos extends CRUD {
     if ($nombre === "") {
       return 0;
     }
-    $stmt = $db->prepare("SELECT id_categoria_erp FROM erp_catalogo_categorias WHERE nombre = :nombre AND id_categoria_padre IS NULL LIMIT 1");
-    $stmt->execute(array(":nombre" => $nombre));
-    $existente = $stmt->fetch(PDO::FETCH_ASSOC);
-    if ($existente) {
-      return intval($existente["id_categoria_erp"]);
-    }
-    $codigo = $this->codigoDesdeTexto($nombre, "CAT");
-    $stmt = $db->prepare("INSERT INTO erp_catalogo_categorias (codigo, nombre, ruta) VALUES (:codigo, :nombre, :ruta)");
-    $stmt->execute(array(":codigo" => $codigo, ":nombre" => $nombre, ":ruta" => $nombre));
-    return intval($db->lastInsertId());
+    throw new Exception("Crea la categoria desde Configuracion para definir padre, uso e imagen antes de asignarla al producto");
   }
 
   private function validarAlta($datos) {

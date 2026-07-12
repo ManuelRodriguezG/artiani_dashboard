@@ -347,7 +347,8 @@ class VentasErpEsquema extends DBSchema {
 
         $plan[] = $this->crearTablaSiNoExiste("erp_clientes_listas_precios", array(
             "`id_cliente_lista_precio` BIGINT NOT NULL AUTO_INCREMENT",
-            "`id_cliente` INT NOT NULL",
+            "`id_cliente` INT NULL",
+            "`id_cliente_crm` BIGINT NULL",
             "`id_lista_precio` INT NOT NULL",
             "`prioridad` INT NOT NULL DEFAULT 1",
             "`fecha_inicio` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
@@ -357,6 +358,7 @@ class VentasErpEsquema extends DBSchema {
             "`observaciones` TEXT NULL",
             "PRIMARY KEY (`id_cliente_lista_precio`)",
             "KEY `idx_cliente_lista_cliente` (`id_cliente`, `estatus`, `prioridad`)",
+            "KEY `idx_cliente_lista_cliente_crm` (`id_cliente_crm`, `estatus`, `prioridad`)",
             "KEY `idx_cliente_lista_lista` (`id_lista_precio`, `estatus`)"
         ), $opciones, $ejecutar);
 
@@ -1643,6 +1645,324 @@ class VentasErpEsquema extends DBSchema {
         );
     }
 
+
+
+    /**
+     * Documentacion IA: Codex GPT-5, 2026-07-12.
+     * Proposito: preparar politicas POS por sucursal/SKU para permitir inventario pendiente sin activar reglas globales de ecommerce.
+     * Impacto: define limites, permisos y vigencia para ventas POS con faltante; no crea ventas ni pendientes.
+     * Contrato: con $ejecutar=false solo genera SQL; con true requiere autorizacion externa.
+     */
+    public function planActualizarPoliticasInventarioPendientePos($ejecutar = false) {
+        $opciones = "ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci";
+        $plan = array();
+        $plan[] = $this->crearTablaSiNoExiste("erp_pos_politicas_venta_inventario", array(
+            "`id_politica_inventario_pos` BIGINT NOT NULL AUTO_INCREMENT",
+            "`codigo` VARCHAR(60) NOT NULL",
+            "`nombre` VARCHAR(180) NOT NULL",
+            "`id_almacen` INT NOT NULL",
+            "`id_sku_erp` BIGINT NULL",
+            "`familia` VARCHAR(120) NULL",
+            "`canal` VARCHAR(30) NOT NULL DEFAULT 'pos'",
+            "`permite_inventario_pendiente` TINYINT(1) NOT NULL DEFAULT 0",
+            "`cantidad_maxima_pendiente` DECIMAL(18,6) NOT NULL DEFAULT 0",
+            "`monto_maximo` DECIMAL(18,6) NOT NULL DEFAULT 0",
+            "`requiere_autorizacion` TINYINT(1) NOT NULL DEFAULT 1",
+            "`permiso_requerido` VARCHAR(120) NULL",
+            "`motivo_obligatorio` TINYINT(1) NOT NULL DEFAULT 1",
+            "`estatus` VARCHAR(30) NOT NULL DEFAULT 'activa'",
+            "`fecha_inicio` DATETIME NULL",
+            "`fecha_fin` DATETIME NULL",
+            "`creado_por` INT NULL",
+            "`autorizado_por` INT NULL",
+            "`fecha_autorizacion` DATETIME NULL",
+            "`observaciones` TEXT NULL",
+            "`datos_snapshot` TEXT NULL",
+            "`fecha_registro` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
+            "`fecha_actualizacion` DATETIME NULL",
+            "PRIMARY KEY (`id_politica_inventario_pos`)",
+            "UNIQUE KEY `idx_pos_inv_pol_codigo` (`codigo`)",
+            "KEY `idx_pos_inv_pol_almacen_sku` (`id_almacen`, `id_sku_erp`, `estatus`)",
+            "KEY `idx_pos_inv_pol_canal` (`canal`, `estatus`, `fecha_inicio`, `fecha_fin`)",
+            "KEY `idx_pos_inv_pol_permiso` (`permiso_requerido`, `estatus`)"
+        ), $opciones, $ejecutar);
+        return $plan;
+    }
+
+    /**
+     * Documentacion IA: Codex GPT-5, 2026-07-12.
+     * Proposito: auditar politicas POS para inventario pendiente por sucursal/SKU.
+     * Impacto: solo lectura sobre INFORMATION_SCHEMA.
+     * Contrato: no crea tablas, columnas ni indices.
+     */
+    public function auditarPoliticasInventarioPendientePos() {
+        $tabla = "erp_pos_politicas_venta_inventario";
+        $columnas = array(
+            "id_politica_inventario_pos", "codigo", "nombre", "id_almacen", "id_sku_erp", "familia", "canal",
+            "permite_inventario_pendiente", "cantidad_maxima_pendiente", "monto_maximo", "requiere_autorizacion",
+            "permiso_requerido", "motivo_obligatorio", "estatus", "fecha_inicio", "fecha_fin", "creado_por",
+            "autorizado_por", "fecha_autorizacion", "observaciones", "datos_snapshot", "fecha_registro", "fecha_actualizacion"
+        );
+        $indices = array("idx_pos_inv_pol_codigo", "idx_pos_inv_pol_almacen_sku", "idx_pos_inv_pol_canal", "idx_pos_inv_pol_permiso");
+        $resultado = array("tablas" => array(array("tabla" => $tabla, "existe" => $this->tablaExiste($tabla))), "columnas" => array(), "indices" => array());
+        foreach ($columnas as $columna) {
+            $resultado["columnas"][] = array("tabla" => $tabla, "columna" => $columna, "existe" => $this->columnaExiste($tabla, $columna));
+        }
+        foreach ($indices as $indice) {
+            $resultado["indices"][] = array("tabla" => $tabla, "indice" => $indice, "existe" => $this->indiceExiste($tabla, $indice));
+        }
+        return array(
+            "error" => false,
+            "tipo" => "success",
+            "mensaje" => "Auditoria de politicas inventario pendiente POS generada",
+            "depurar" => $resultado
+        );
+    }
+    /**
+     * Documentacion IA: Codex GPT-5, 2026-07-11.
+     * Proposito: preparar estructura para ventas POS con inventario pendiente controlado.
+     * Impacto: permite vender con faltante autorizado y abrir pendiente operativo para mini inventario por SKU/sucursal.
+     * Contrato: con $ejecutar=false solo genera SQL; con true requiere autorizacion externa y no corrige inventario por si mismo.
+     */
+    public function planActualizarInventarioPendientePos($ejecutar = false) {
+        $plan = array();
+        $opciones = "ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci";
+
+        $plan[] = $this->agregarColumnaSiNoExiste("erp_ventas", "inventario_validacion_estado", "VARCHAR(40) NOT NULL DEFAULT 'normal' AFTER `estatus`", $ejecutar);
+        $plan[] = $this->agregarColumnaSiNoExiste("erp_ventas", "inventario_pendiente_total", "DECIMAL(18,6) NOT NULL DEFAULT 0 AFTER `saldo_total`", $ejecutar);
+        $plan[] = $this->agregarIndiceSiNoExiste("erp_ventas", "idx_ventas_inv_validacion", "KEY `idx_ventas_inv_validacion` (`inventario_validacion_estado`, `id_almacen`, `fecha_venta`)", $ejecutar);
+
+        $plan[] = $this->agregarColumnaSiNoExiste("erp_ventas_detalle", "inventario_estado", "VARCHAR(40) NOT NULL DEFAULT 'normal' AFTER `modo_salida`", $ejecutar);
+        $plan[] = $this->agregarColumnaSiNoExiste("erp_ventas_detalle", "permite_inventario_pendiente", "TINYINT(1) NOT NULL DEFAULT 0 AFTER `inventario_estado`", $ejecutar);
+        $plan[] = $this->agregarColumnaSiNoExiste("erp_ventas_detalle", "cantidad_inventario_pendiente", "DECIMAL(18,6) NOT NULL DEFAULT 0 AFTER `cantidad_base`", $ejecutar);
+        $plan[] = $this->agregarColumnaSiNoExiste("erp_ventas_detalle", "id_inventario_pendiente", "BIGINT NULL AFTER `cantidad_inventario_pendiente`", $ejecutar);
+        $plan[] = $this->agregarIndiceSiNoExiste("erp_ventas_detalle", "idx_ventas_detalle_inv_estado", "KEY `idx_ventas_detalle_inv_estado` (`inventario_estado`, `id_sku_erp`, `estatus`)", $ejecutar);
+        $plan[] = $this->agregarIndiceSiNoExiste("erp_ventas_detalle", "idx_ventas_detalle_inv_pendiente", "KEY `idx_ventas_detalle_inv_pendiente` (`id_inventario_pendiente`)", $ejecutar);
+
+        $plan[] = $this->agregarColumnaSiNoExiste("erp_ventas_detalle_inventario", "tipo_asignacion", "VARCHAR(40) NOT NULL DEFAULT 'existencia' AFTER `id_movimiento_inventario`", $ejecutar);
+        $plan[] = $this->agregarColumnaSiNoExiste("erp_ventas_detalle_inventario", "cantidad_pendiente_validacion", "DECIMAL(18,6) NOT NULL DEFAULT 0 AFTER `cantidad_base`", $ejecutar);
+        $plan[] = $this->agregarColumnaSiNoExiste("erp_ventas_detalle_inventario", "id_inventario_pendiente", "BIGINT NULL AFTER `cantidad_pendiente_validacion`", $ejecutar);
+        $plan[] = $this->agregarIndiceSiNoExiste("erp_ventas_detalle_inventario", "idx_venta_inv_tipo", "KEY `idx_venta_inv_tipo` (`tipo_asignacion`, `id_almacen`, `fecha_registro`)", $ejecutar);
+        $plan[] = $this->agregarIndiceSiNoExiste("erp_ventas_detalle_inventario", "idx_venta_inv_pendiente", "KEY `idx_venta_inv_pendiente` (`id_inventario_pendiente`)", $ejecutar);
+
+        $plan[] = $this->crearTablaSiNoExiste("erp_pos_inventario_pendientes", array(
+            "`id_inventario_pendiente` BIGINT NOT NULL AUTO_INCREMENT",
+            "`folio` VARCHAR(50) NOT NULL",
+            "`id_venta` BIGINT NOT NULL",
+            "`id_venta_detalle` BIGINT NOT NULL",
+            "`id_almacen` INT NOT NULL",
+            "`id_sku_erp` BIGINT NOT NULL",
+            "`sku` VARCHAR(150) NULL",
+            "`descripcion` VARCHAR(500) NULL",
+            "`cantidad_vendida` DECIMAL(18,6) NOT NULL DEFAULT 0",
+            "`cantidad_cubierta` DECIMAL(18,6) NOT NULL DEFAULT 0",
+            "`cantidad_pendiente` DECIMAL(18,6) NOT NULL DEFAULT 0",
+            "`unidad_base` VARCHAR(40) NULL",
+            "`precio_unitario_snapshot` DECIMAL(18,6) NOT NULL DEFAULT 0",
+            "`estatus` VARCHAR(40) NOT NULL DEFAULT 'pendiente_revision'",
+            "`prioridad` VARCHAR(20) NOT NULL DEFAULT 'alta'",
+            "`origen` VARCHAR(40) NOT NULL DEFAULT 'pos_venta'",
+            "`id_notificacion` BIGINT NULL",
+            "`politica_snapshot` TEXT NULL",
+            "`datos_snapshot` TEXT NULL",
+            "`creado_por` INT NULL",
+            "`asignado_a` INT NULL",
+            "`fecha_registro` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
+            "`fecha_revision` DATETIME NULL",
+            "`revisado_por` INT NULL",
+            "`cantidad_fisica_validada` DECIMAL(18,6) NULL",
+            "`cantidad_ajuste_requerida` DECIMAL(18,6) NULL",
+            "`id_movimiento_ajuste` BIGINT NULL",
+            "`motivo_revision` TEXT NULL",
+            "`fecha_resolucion` DATETIME NULL",
+            "PRIMARY KEY (`id_inventario_pendiente`)",
+            "UNIQUE KEY `idx_pos_inv_pend_folio` (`folio`)",
+            "KEY `idx_pos_inv_pend_venta` (`id_venta`, `id_venta_detalle`)",
+            "KEY `idx_pos_inv_pend_sku` (`id_almacen`, `id_sku_erp`, `estatus`)",
+            "KEY `idx_pos_inv_pend_estado` (`estatus`, `prioridad`, `fecha_registro`)",
+            "KEY `idx_pos_inv_pend_notificacion` (`id_notificacion`)",
+            "KEY `idx_pos_inv_pend_mov_ajuste` (`id_movimiento_ajuste`)"
+        ), $opciones, $ejecutar);
+
+        $plan[] = $this->crearTablaSiNoExiste("erp_pos_inventario_pendientes_eventos", array(
+            "`id_evento_inventario_pendiente` BIGINT NOT NULL AUTO_INCREMENT",
+            "`id_inventario_pendiente` BIGINT NOT NULL",
+            "`tipo_evento` VARCHAR(60) NOT NULL",
+            "`estatus_anterior` VARCHAR(40) NULL",
+            "`estatus_nuevo` VARCHAR(40) NULL",
+            "`cantidad` DECIMAL(18,6) NOT NULL DEFAULT 0",
+            "`referencia` VARCHAR(180) NULL",
+            "`observaciones` TEXT NULL",
+            "`datos_snapshot` TEXT NULL",
+            "`creado_por` INT NULL",
+            "`fecha_registro` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
+            "PRIMARY KEY (`id_evento_inventario_pendiente`)",
+            "KEY `idx_pos_inv_pend_evt_pendiente` (`id_inventario_pendiente`, `fecha_registro`)",
+            "KEY `idx_pos_inv_pend_evt_tipo` (`tipo_evento`, `fecha_registro`)"
+        ), $opciones, $ejecutar);
+
+        return $plan;
+    }
+
+    /**
+     * Documentacion IA: Codex GPT-5, 2026-07-11.
+     * Proposito: auditar estructura para venta POS con inventario pendiente.
+     * Impacto: solo lectura sobre INFORMATION_SCHEMA; no modifica ventas, inventario ni notificaciones.
+     * Contrato: no crea tablas, columnas ni indices.
+     */
+    public function auditarInventarioPendientePos() {
+        $columnas = array(
+            "erp_ventas" => array("inventario_validacion_estado", "inventario_pendiente_total"),
+            "erp_ventas_detalle" => array("inventario_estado", "permite_inventario_pendiente", "cantidad_inventario_pendiente", "id_inventario_pendiente"),
+            "erp_ventas_detalle_inventario" => array("tipo_asignacion", "cantidad_pendiente_validacion", "id_inventario_pendiente"),
+            "erp_pos_inventario_pendientes" => array("id_inventario_pendiente", "folio", "id_venta", "id_venta_detalle", "id_almacen", "id_sku_erp", "cantidad_pendiente", "estatus", "id_notificacion", "id_movimiento_ajuste"),
+            "erp_pos_inventario_pendientes_eventos" => array("id_evento_inventario_pendiente", "id_inventario_pendiente", "tipo_evento", "estatus_nuevo")
+        );
+        $indices = array(
+            "erp_ventas" => array("idx_ventas_inv_validacion"),
+            "erp_ventas_detalle" => array("idx_ventas_detalle_inv_estado", "idx_ventas_detalle_inv_pendiente"),
+            "erp_ventas_detalle_inventario" => array("idx_venta_inv_tipo", "idx_venta_inv_pendiente"),
+            "erp_pos_inventario_pendientes" => array("idx_pos_inv_pend_folio", "idx_pos_inv_pend_venta", "idx_pos_inv_pend_sku", "idx_pos_inv_pend_estado", "idx_pos_inv_pend_notificacion", "idx_pos_inv_pend_mov_ajuste"),
+            "erp_pos_inventario_pendientes_eventos" => array("idx_pos_inv_pend_evt_pendiente", "idx_pos_inv_pend_evt_tipo")
+        );
+        $resultado = array("tablas" => array(), "columnas" => array(), "indices" => array());
+        foreach ($columnas as $tabla => $listaColumnas) {
+            $resultado["tablas"][] = array("tabla" => $tabla, "existe" => $this->tablaExiste($tabla));
+            foreach ($listaColumnas as $columna) {
+                $resultado["columnas"][] = array("tabla" => $tabla, "columna" => $columna, "existe" => $this->columnaExiste($tabla, $columna));
+            }
+        }
+        foreach ($indices as $tabla => $listaIndices) {
+            foreach ($listaIndices as $indice) {
+                $resultado["indices"][] = array("tabla" => $tabla, "indice" => $indice, "existe" => $this->indiceExiste($tabla, $indice));
+            }
+        }
+
+        return array(
+            "error" => false,
+            "tipo" => "success",
+            "mensaje" => "Auditoria de inventario pendiente POS generada",
+            "depurar" => $resultado
+        );
+    }
+
+    /**
+     * Documentacion IA: Codex GPT-5, 2026-07-12.
+     * Proposito: preparar el contrato canonico CRM para asignaciones de listas de precios.
+     * Impacto: Ventas/Listas de precios; no crea listas ni cambia precios por si mismo.
+     * Contrato: con $ejecutar=false solo genera SQL; con true requiere autorizacion externa previa.
+     */
+    public function planActualizarListasPreciosCrm($ejecutar = false) {
+        $plan = array();
+        $plan[] = $this->agregarColumnaSiNoExiste("erp_clientes_listas_precios", "id_cliente_crm", "BIGINT NULL AFTER `id_cliente`", $ejecutar);
+        $plan[] = $this->modificarColumna("erp_clientes_listas_precios", "id_cliente", "INT NULL", $ejecutar);
+        $plan[] = $this->agregarIndiceSiNoExiste("erp_clientes_listas_precios", "idx_cliente_lista_cliente_crm", "KEY `idx_cliente_lista_cliente_crm` (`id_cliente_crm`, `estatus`, `prioridad`)", $ejecutar);
+        return $plan;
+    }
+
+    /**
+     * Documentacion IA: Codex GPT-5, 2026-07-12.
+     * Proposito: auditar si la asignacion cliente-lista ya soporta CRM canonico.
+     * Impacto: solo lectura sobre INFORMATION_SCHEMA; no modifica listas, clientes ni ventas.
+     * Contrato: devuelve columnas/indices necesarios para resolver prioridad por cliente CRM.
+     */
+    public function auditarListasPreciosCrm() {
+        $tabla = "erp_clientes_listas_precios";
+        $columnas = array("id_cliente_lista_precio", "id_cliente", "id_cliente_crm", "id_lista_precio", "prioridad", "fecha_inicio", "fecha_fin", "estatus");
+        $indices = array("idx_cliente_lista_cliente", "idx_cliente_lista_cliente_crm", "idx_cliente_lista_lista");
+        $resultado = array(
+            "tablas" => array(array("tabla" => $tabla, "existe" => $this->tablaExiste($tabla))),
+            "columnas" => array(),
+            "indices" => array()
+        );
+        foreach ($columnas as $columna) {
+            $resultado["columnas"][] = array("tabla" => $tabla, "columna" => $columna, "existe" => $this->columnaExiste($tabla, $columna));
+        }
+        foreach ($indices as $indice) {
+            $resultado["indices"][] = array("tabla" => $tabla, "indice" => $indice, "existe" => $this->indiceExiste($tabla, $indice));
+        }
+        return array(
+            "error" => false,
+            "tipo" => "success",
+            "mensaje" => "Auditoria CRM/listas de precios generada",
+            "depurar" => $resultado
+        );
+    }
+
+    /**
+     * Documentacion IA: Codex GPT-5, 2026-07-12.
+     * Proposito: preparar auditoria comercial profunda para futuros cambios de listas de precios.
+     * Impacto: permite registrar antes/despues, motivo, usuario y entidad afectada sin modificar ventas pasadas.
+     * Contrato: con $ejecutar=false solo genera SQL; con true requiere autorizacion externa y respaldo.
+     */
+    public function planActualizarAuditoriaListasPrecios($ejecutar = false) {
+        $opciones = "ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci";
+        $plan = array();
+        $plan[] = $this->crearTablaSiNoExiste("erp_listas_precios_eventos", array(
+            "`id_evento_lista_precio` BIGINT NOT NULL AUTO_INCREMENT",
+            "`id_lista_precio` INT NULL",
+            "`id_lista_precio_detalle` BIGINT NULL",
+            "`id_cliente_lista_precio` BIGINT NULL",
+            "`entidad` VARCHAR(60) NOT NULL",
+            "`entidad_id` VARCHAR(80) NULL",
+            "`accion` VARCHAR(80) NOT NULL",
+            "`tipo_evento` VARCHAR(80) NOT NULL DEFAULT 'operacion'",
+            "`resultado` VARCHAR(40) NOT NULL DEFAULT 'ok'",
+            "`resumen` VARCHAR(255) NULL",
+            "`motivo` TEXT NULL",
+            "`datos_antes` TEXT NULL",
+            "`datos_despues` TEXT NULL",
+            "`origen` VARCHAR(60) NOT NULL DEFAULT 'erp_ventas_listas_precios'",
+            "`ip` VARCHAR(80) NULL",
+            "`user_agent` TEXT NULL",
+            "`creado_por` INT NULL",
+            "`fecha_registro` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
+            "PRIMARY KEY (`id_evento_lista_precio`)",
+            "KEY `idx_lp_evt_lista` (`id_lista_precio`, `fecha_registro`)",
+            "KEY `idx_lp_evt_detalle` (`id_lista_precio_detalle`, `fecha_registro`)",
+            "KEY `idx_lp_evt_cliente_lista` (`id_cliente_lista_precio`, `fecha_registro`)",
+            "KEY `idx_lp_evt_entidad` (`entidad`, `entidad_id`, `fecha_registro`)",
+            "KEY `idx_lp_evt_accion` (`accion`, `resultado`, `fecha_registro`)",
+            "KEY `idx_lp_evt_usuario` (`creado_por`, `fecha_registro`)"
+        ), $opciones, $ejecutar);
+        return $plan;
+    }
+
+    /**
+     * Documentacion IA: Codex GPT-5, 2026-07-12.
+     * Proposito: auditar estructura de eventos comerciales de listas de precios.
+     * Impacto: solo lectura sobre INFORMATION_SCHEMA; no crea auditorias ni cambia precios.
+     * Contrato: devuelve cobertura de tabla, columnas e indices requeridos para trazabilidad.
+     */
+    public function auditarAuditoriaListasPrecios() {
+        $tabla = "erp_listas_precios_eventos";
+        $columnas = array(
+            "id_evento_lista_precio", "id_lista_precio", "id_lista_precio_detalle", "id_cliente_lista_precio",
+            "entidad", "entidad_id", "accion", "tipo_evento", "resultado", "resumen", "motivo",
+            "datos_antes", "datos_despues", "origen", "ip", "user_agent", "creado_por", "fecha_registro"
+        );
+        $indices = array(
+            "idx_lp_evt_lista", "idx_lp_evt_detalle", "idx_lp_evt_cliente_lista",
+            "idx_lp_evt_entidad", "idx_lp_evt_accion", "idx_lp_evt_usuario"
+        );
+        $resultado = array(
+            "tablas" => array(array("tabla" => $tabla, "existe" => $this->tablaExiste($tabla))),
+            "columnas" => array(),
+            "indices" => array()
+        );
+        foreach ($columnas as $columna) {
+            $resultado["columnas"][] = array("tabla" => $tabla, "columna" => $columna, "existe" => $this->columnaExiste($tabla, $columna));
+        }
+        foreach ($indices as $indice) {
+            $resultado["indices"][] = array("tabla" => $tabla, "indice" => $indice, "existe" => $this->indiceExiste($tabla, $indice));
+        }
+        return array(
+            "error" => false,
+            "tipo" => "success",
+            "mensaje" => "Auditoria de eventos de listas de precios generada",
+            "depurar" => $resultado
+        );
+    }
     /**
      * Documentacion IA: Codex GPT-5, 2026-06-26.
      * Proposito: resumir cobertura de tablas del diseno POS para auditoria previa.

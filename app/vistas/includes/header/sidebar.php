@@ -24,6 +24,7 @@ $gruposMenu = array(
             array('titulo' => 'Productos ERP', 'ruta' => '/catalogoerp', 'permiso' => 'catalogo.ver'),
             array('titulo' => 'Organizacion catalogo', 'ruta' => '/catalogoerp/organizacion', 'permiso' => 'catalogo.ver'),
             array('titulo' => 'Revision migracion', 'ruta' => '/catalogoerp/migracion_ecommerce', 'permiso' => 'catalogo.ver'),
+            array('titulo' => 'Ecommerce publico', 'ruta' => '/ecommercePublico/publicaciones', 'permiso' => 'catalogo.ver'),
             array('titulo' => 'Configuracion catalogo', 'ruta' => '/catalogoerp/configuracion', 'permiso' => 'catalogo.editar'),
             array('titulo' => 'Existencias', 'ruta' => '/inventario/productos_existencias', 'permiso' => 'inventario.ver'),
             array('titulo' => 'Catalogo ecommerce', 'ruta' => '/producto/catalogo', 'permiso' => 'ecommerce.ver')
@@ -68,6 +69,7 @@ $gruposMenu = array(
         'permiso' => 'almacen.ver',
         'items' => array(
             array('titulo' => 'Recepciones', 'ruta' => '/almacen/mostrar_recepciones', 'permiso' => 'almacen.ver'),
+            array('titulo' => 'Resurtido', 'ruta' => '/almacen/resurtido', 'permiso' => 'almacen.ver'),
             array('titulo' => 'Preparacion/Empaque', 'ruta' => '/almacen/preparacion_empaque', 'permiso' => 'almacen.ver'),
             array('titulo' => 'Etiquetado', 'ruta' => '/almacen/etiquetado', 'permiso' => 'almacen.ver'),
             array('titulo' => 'Configuracion', 'ruta' => '/almacen/configuracion', 'permiso' => 'almacen.ubicaciones')

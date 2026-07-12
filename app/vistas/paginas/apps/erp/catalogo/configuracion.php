@@ -20,7 +20,7 @@
                     <div class="app-toolbar py-3 py-lg-6">
                         <div class="app-container container-fluid d-flex flex-stack">
                             <div><h1 class="page-heading text-dark fw-bold fs-3 mb-1">Configuración del catálogo</h1><span class="text-muted">Catálogos maestros utilizados por productos y SKU</span></div>
-                            <button class="btn btn-primary" id="catalogo_aux_nuevo" data-permiso-editar><i class="bi bi-plus-lg"></i> Nuevo registro</button>
+                            <button class="btn btn-primary" id="catalogo_aux_nuevo" data-permiso-editar><i class="bi bi-plus-lg"></i> Nueva marca</button>
                         </div>
                     </div>
                     <div class="app-content flex-column-fluid">
@@ -359,6 +359,9 @@
                                         <li class="nav-item"><button class="nav-link" data-tipo="unidad" data-bs-toggle="tab" data-bs-target="#tab_unidades">Unidades</button></li>
                                         <li class="nav-item"><button class="nav-link" data-tipo="atributo" data-bs-toggle="tab" data-bs-target="#tab_atributos">Atributos</button></li>
                                     </ul>
+                                    <div class="card-toolbar d-none" id="catalogo_marcas_acciones">
+                                        <button class="btn btn-sm btn-primary" id="catalogo_marca_nueva" type="button" data-permiso-editar><i class="bi bi-plus-lg"></i> Nueva marca</button>
+                                    </div>
                                     <div class="card-toolbar" id="catalogo_categorias_acciones">
                                         <button class="btn btn-sm btn-primary me-3" id="catalogo_categoria_nueva" type="button" data-permiso-editar><i class="bi bi-plus-lg"></i> Nueva categoria</button>
                                         <button class="btn btn-sm btn-light-success me-3 d-none" id="catalogo_categorias_relacionar" type="button" data-permiso-editar><i class="bi bi-arrow-left-right"></i> Aplicar relaciones históricas</button>
@@ -381,12 +384,12 @@
                                                 <i class="bi bi-info-circle fs-3 mt-1"></i>
                                                 <div>
                                                     <div class="fw-bold mb-1">Categorías maestras del ERP</div>
-                                                    <div class="text-muted fs-7">Usa categorías raíz como Acuario y subcategorías para ordenar el producto. La categoría principal debe salir de este árbol; las clasificaciones heredadas solo ayudan a construirlo.</div>
+                                                    <div class="text-muted fs-7">Usa categorías raíz como Acuario y subcategorías para ordenar el producto. Cada producto debe tener una categoría principal para operación/reportes y puede tener categorías secundarias para navegación o venta; las clasificaciones heredadas solo ayudan a construir el árbol.</div>
                                                 </div>
                                             </div>
                                             <div class="d-flex flex-column flex-md-row gap-3 mb-5">
                                                 <div class="position-relative flex-grow-1"><i class="bi bi-search fs-3 position-absolute ms-5 mt-3"></i><input class="form-control form-control-solid ps-12" id="catalogo_categorias_buscar" placeholder="Buscar categoría o ruta"></div>
-                                                <select class="form-select form-select-solid w-md-225px" id="catalogo_categorias_filtro"><option value="">Todas</option><option value="maestra">Árbol maestro</option><option value="legado_canal">Clasificación heredada</option></select>
+                                                <select class="form-select form-select-solid w-md-225px" id="catalogo_categorias_filtro"><option value="principal" selected>Árbol principal ERP</option><option value="maestra">Todas las maestras</option><option value="ecommerce">Legado ecommerce</option><option value="">Todas</option></select>
                                                 <select class="form-select form-select-solid w-md-225px" id="catalogo_categorias_uso"><option value="">Cualquier uso</option><option value="operativa">Operativas</option><option value="estructural">Estructurales</option><option value="con_productos">Con productos</option><option value="sin_productos">Sin productos</option><option value="texto_danado">Texto dañado</option></select>
                                                 <select class="form-select form-select-solid w-md-200px" id="catalogo_categorias_imagen"><option value="">Cualquier imagen</option><option value="con_imagen">Con imagen</option><option value="sin_imagen">Sin imagen</option></select>
                                                 <select class="form-select form-select-solid w-md-175px" id="catalogo_categorias_estatus"><option value="">Todo estado</option><option value="activa">Activas</option><option value="inactiva">Inactivas</option></select>
@@ -515,6 +518,6 @@
         "costos" => SesionSeguridad::tienePermiso("catalogo.costos")
     )); ?>;
 </script>
-<script src="/assets/js/custom/apps/erp/catalogo/configuracion.js?v=20260629-1"></script>
+<script src="/assets/js/custom/apps/erp/catalogo/configuracion.js?v=20260712-maestros-1"></script>
 </body>
 </html>

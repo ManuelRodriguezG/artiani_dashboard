@@ -1384,6 +1384,377 @@ class InventarioErp extends CRUD {
         }
     }
 
+    /**
+     * Documentacion IA: Codex GPT-5, 2026-07-12.
+     * Proposito: listar pendientes POS que requieren conteo/validacion de Inventario.
+     * Impacto: no modifica ventas, pendientes ni existencias; abre bandeja operativa de mini inventarios.
+     * Contrato: read-only.
+     */
+    public function listarPendientesPosInventario($filtros = array()) {
+        try {
+            $db = $this->getConexion();
+            if (!$this->tablaExiste($db, "erp_pos_inventario_pendientes")) {
+                return $this->respuesta(false, "warning", "Esquema de pendientes POS no disponible", array("pendientes" => array()));
+            }
+            $idAlmacen = intval(isset($filtros["id_almacen"]) ? $filtros["id_almacen"] : 0);
+            $estatus = trim(isset($filtros["estatus"]) ? (string) $filtros["estatus"] : "pendiente_revision");
+            $q = trim(isset($filtros["q"]) ? (string) $filtros["q"] : "");
+            $where = array("1=1");
+            $params = array();
+            if ($idAlmacen > 0) {
+                $where[] = "p.id_almacen=:almacen";
+                $params[":almacen"] = $idAlmacen;
+            }
+            if ($estatus !== "" && $estatus !== "todos") {
+                $where[] = "p.estatus=:estatus";
+                $params[":estatus"] = $estatus;
+            }
+            if ($q !== "") {
+                $where[] = "(p.folio LIKE :q OR p.sku LIKE :q OR p.descripcion LIKE :q OR v.folio LIKE :q)";
+                $params[":q"] = "%" . $q . "%";
+            }
+            $sql = "SELECT p.id_inventario_pendiente, p.folio, p.id_venta, v.folio folio_venta,
+                    p.id_venta_detalle, p.id_almacen, a.almacen, p.id_sku_erp, p.sku, p.descripcion,
+                    p.cantidad_vendida, p.cantidad_cubierta, p.cantidad_pendiente, p.unidad_base,
+                    p.estatus, p.prioridad, p.origen, p.fecha_registro, p.fecha_revision, p.fecha_resolucion,
+                    COALESCE(ex.disponible_actual, 0) disponible_actual
+                FROM erp_pos_inventario_pendientes p
+                LEFT JOIN erp_ventas v ON v.id_venta=p.id_venta
+                LEFT JOIN erp_almacenes a ON a.id_almacen=p.id_almacen
+                LEFT JOIN (
+                    SELECT id_almacen_clave, id_sku_erp, SUM(cantidad_disponible) disponible_actual
+                    FROM erp_inventario_existencias
+                    GROUP BY id_almacen_clave, id_sku_erp
+                ) ex ON ex.id_almacen_clave=p.id_almacen AND ex.id_sku_erp=p.id_sku_erp
+                WHERE " . implode(" AND ", $where) . "
+                ORDER BY FIELD(p.prioridad, 'critica', 'alta', 'normal', 'info'), p.fecha_registro ASC, p.id_inventario_pendiente ASC
+                LIMIT 200";
+            $stmt = $db->prepare($sql);
+            $stmt->execute($params);
+            $pendientes = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            return $this->respuesta(false, "success", "Pendientes POS de inventario consultados", array(
+                "pendientes" => $pendientes,
+                "total" => count($pendientes),
+                "read_only" => true
+            ));
+        } catch (Exception $e) {
+            return $this->respuesta(true, "danger", $e->getMessage());
+        }
+    }
+
+    /**
+     * Documentacion IA: Codex GPT-5, 2026-07-12.
+     * Proposito: consultar expediente de pendiente POS con venta, eventos y saldos actuales.
+     * Impacto: solo lectura para preparar resolucion desde Inventario/Existencias.
+     * Contrato: acepta `id_inventario_pendiente` o `folio`.
+     */
+    public function consultarPendientePosInventario($datos = array()) {
+        try {
+            $db = $this->getConexion();
+            $pendiente = $this->cargarPendientePosInventario($db, $datos);
+            if (!$pendiente) {
+                return $this->respuesta(false, "warning", "Pendiente POS de inventario no encontrado", array("pendiente" => null));
+            }
+            return $this->respuesta(false, "success", "Pendiente POS de inventario consultado", array(
+                "pendiente" => $pendiente,
+                "existencias_actuales" => $this->existenciasPendientePos($db, intval($pendiente["id_sku_erp"]), intval($pendiente["id_almacen"])),
+                "eventos" => $this->eventosPendientePos($db, intval($pendiente["id_inventario_pendiente"])),
+                "read_only" => true
+            ));
+        } catch (Exception $e) {
+            return $this->respuesta(true, "danger", $e->getMessage());
+        }
+    }
+
+    /**
+     * Documentacion IA: Codex GPT-5, 2026-07-12.
+     * Proposito: simular resolucion de pendiente POS con conteo fisico actual.
+     * Impacto: propone ajuste de entrada/cierre sin escribir BD ni mover kardex.
+     * Contrato: dry-run; el apply real requiere autorizacion posterior.
+     */
+    public function resolucionPendientePosInventarioDryRun($datos = array(), $idUsuario = 0) {
+        try {
+            $db = $this->getConexion();
+            $pendiente = $this->cargarPendientePosInventario($db, $datos);
+            if (!$pendiente) {
+                return $this->respuesta(false, "warning", "Pendiente POS de inventario no encontrado", array("bloqueos" => array("pendiente_no_encontrado")));
+            }
+            $cantidadFisica = round(floatval(isset($datos["cantidad_fisica"]) ? $datos["cantidad_fisica"] : 0), 6);
+            $decision = trim(isset($datos["decision"]) ? (string) $datos["decision"] : "ajustar_a_conteo");
+            $motivo = trim(isset($datos["motivo"]) ? (string) $datos["motivo"] : "");
+            $bloqueos = array();
+            $avisos = array();
+            if (!in_array($decision, array("ajustar_a_conteo", "cerrar_sin_ajuste", "mantener_pendiente"), true)) {
+                $bloqueos[] = "Decision de resolucion invalida";
+            }
+            if ($cantidadFisica < 0) {
+                $bloqueos[] = "La cantidad fisica no puede ser negativa";
+            }
+            if ($motivo === "") {
+                $avisos[] = "El apply real debera capturar motivo/evidencia de conteo";
+            }
+            if (!in_array($pendiente["estatus"], array("pendiente_revision", "en_revision"), true)) {
+                $bloqueos[] = "El pendiente no esta abierto para resolucion";
+            }
+
+            $existencias = $this->existenciasPendientePos($db, intval($pendiente["id_sku_erp"]), intval($pendiente["id_almacen"]));
+            $disponibleActual = 0;
+            foreach ($existencias as $existencia) {
+                $disponibleActual += floatval($existencia["cantidad_disponible"]);
+            }
+            $diferenciaAjuste = round($cantidadFisica - $disponibleActual, 6);
+            $requiereAjuste = abs($diferenciaAjuste) > 0.000001 && $decision === "ajustar_a_conteo";
+            $tipoAjuste = $diferenciaAjuste >= 0 ? "entrada" : "salida";
+            if ($decision === "cerrar_sin_ajuste" && abs($diferenciaAjuste) > 0.000001) {
+                $avisos[] = "El conteo fisico no coincide con ERP; cerrar sin ajuste dejaria diferencia visible";
+            }
+            if ($decision === "mantener_pendiente") {
+                $requiereAjuste = false;
+                $avisos[] = "El pendiente quedaria abierto para revision posterior";
+            }
+
+            return $this->respuesta(false, empty($bloqueos) ? "success" : "warning", empty($bloqueos) ? "Dry-run de resolucion POS generado" : "Dry-run de resolucion POS con bloqueos", array(
+                "dry_run" => true,
+                "id_usuario" => intval($idUsuario),
+                "pendiente" => $pendiente,
+                "existencias_actuales" => $existencias,
+                "conteo" => array(
+                    "cantidad_fisica" => $cantidadFisica,
+                    "disponible_erp_actual" => round($disponibleActual, 6),
+                    "diferencia_ajuste" => $diferenciaAjuste,
+                    "decision" => $decision,
+                    "motivo" => $motivo
+                ),
+                "propuesta" => array(
+                    "requiere_ajuste" => $requiereAjuste,
+                    "tipo_ajuste" => $requiereAjuste ? $tipoAjuste : null,
+                    "cantidad_ajuste" => $requiereAjuste ? abs($diferenciaAjuste) : 0,
+                    "referencia_sugerida" => "PINV-RES-" . $pendiente["folio"],
+                    "nuevo_estatus_pendiente" => $decision === "mantener_pendiente" ? "pendiente_revision" : "resuelto",
+                    "crear_kardex" => $requiereAjuste,
+                    "cerrar_pendiente" => $decision !== "mantener_pendiente"
+                ),
+                "bloqueos" => $bloqueos,
+                "avisos" => $avisos,
+                "contrato" => array(
+                    "no_escribe_bd" => true,
+                    "no_mueve_inventario" => true,
+                    "apply_requiere_autorizacion" => true
+                )
+            ));
+        } catch (Exception $e) {
+            return $this->respuesta(true, "danger", $e->getMessage());
+        }
+    }
+
+    /**
+     * Documentacion IA: Codex GPT-5, 2026-07-12.
+     * Proposito: resolver pendiente POS con conteo fisico y ajuste de inventario cuando aplique.
+     * Impacto: escribe kardex, actualiza pendiente/eventos y marca venta como validada post venta.
+     * Contrato: transaccional; debe invocarse solo desde controlador con token/respaldo.
+     */
+    public function resolverPendientePosInventarioReal($datos = array(), $idUsuario = 0) {
+        $db = $this->getConexion();
+        try {
+            $preview = $this->resolucionPendientePosInventarioDryRun($datos, $idUsuario);
+            $depurarPreview = isset($preview["depurar"]) && is_array($preview["depurar"]) ? $preview["depurar"] : array();
+            $bloqueos = isset($depurarPreview["bloqueos"]) && is_array($depurarPreview["bloqueos"]) ? $depurarPreview["bloqueos"] : array();
+            if (!empty($preview["error"]) || !empty($bloqueos)) {
+                return $this->respuesta(false, "warning", "Resolucion de pendiente POS bloqueada por dry-run", array(
+                    "bloqueos" => $bloqueos,
+                    "dry_run" => $depurarPreview
+                ));
+            }
+            $pendientePreview = $depurarPreview["pendiente"];
+            $propuesta = $depurarPreview["propuesta"];
+            $conteo = $depurarPreview["conteo"];
+            $decision = $conteo["decision"];
+            $motivo = trim((string) $conteo["motivo"]);
+            if ($motivo === "") {
+                throw new Exception("Motivo de resolucion obligatorio");
+            }
+
+            $db->beginTransaction();
+            $stmt = $db->prepare("SELECT * FROM erp_pos_inventario_pendientes
+                WHERE id_inventario_pendiente=:pendiente
+                FOR UPDATE");
+            $stmt->execute(array(":pendiente" => intval($pendientePreview["id_inventario_pendiente"])));
+            $pendiente = $stmt->fetch(PDO::FETCH_ASSOC);
+            if (!$pendiente || !in_array($pendiente["estatus"], array("pendiente_revision", "en_revision"), true)) {
+                throw new Exception("El pendiente ya no esta abierto para resolucion");
+            }
+
+            $idMovimientoAjuste = null;
+            $referencia = $propuesta["referencia_sugerida"];
+            if (!empty($propuesta["requiere_ajuste"])) {
+                $sku = $this->consultarSku($db, intval($pendiente["id_sku_erp"]));
+                $item = array(
+                    "id_sku" => intval($pendiente["id_sku_erp"]),
+                    "cantidad" => floatval($propuesta["cantidad_ajuste"]),
+                    "lote" => isset($datos["lote"]) ? $datos["lote"] : "",
+                    "fecha_caducidad" => isset($datos["fecha_caducidad"]) ? $datos["fecha_caducidad"] : "",
+                    "ubicacion_id" => isset($datos["ubicacion_id"]) ? $datos["ubicacion_id"] : 0,
+                    "ubicacion" => isset($datos["ubicacion"]) ? $datos["ubicacion"] : "",
+                    "costo_unitario" => isset($datos["costo_unitario"]) ? $datos["costo_unitario"] : (isset($sku["costo_referencia"]) ? $sku["costo_referencia"] : 0)
+                );
+                $datosAjuste = array_merge($datos, array(
+                    "documento_operacion" => "ajuste",
+                    "motivo_ajuste" => "Resolucion pendiente POS " . $pendiente["folio"] . ": " . $motivo,
+                    "referencia" => $referencia
+                ));
+                if ($propuesta["tipo_ajuste"] === "entrada") {
+                    $existencia = $this->obtenerOCrearExistencia($db, $sku, intval($pendiente["id_almacen"]), $item);
+                    $idMovimientoAjuste = $this->aplicarCambio($db, $existencia, floatval($propuesta["cantidad_ajuste"]), "entrada", "ajuste", 0, $referencia, $datosAjuste, $idUsuario);
+                } else {
+                    $cantidadPendiente = floatval($propuesta["cantidad_ajuste"]);
+                    foreach ($this->existenciasDisponibles($db, intval($pendiente["id_sku_erp"]), intval($pendiente["id_almacen"]), $item) as $existencia) {
+                        if ($cantidadPendiente <= 0) {
+                            break;
+                        }
+                        $retirar = min($cantidadPendiente, floatval($existencia["cantidad_disponible"]));
+                        $idMovimientoAjuste = $this->aplicarCambio($db, $existencia, $retirar, "salida", "ajuste", 0, $referencia, $datosAjuste, $idUsuario);
+                        $cantidadPendiente = round($cantidadPendiente - $retirar, 6);
+                    }
+                    if ($cantidadPendiente > 0.000001) {
+                        throw new Exception("Existencia insuficiente para aplicar salida de resolucion POS");
+                    }
+                }
+            }
+
+            $nuevoEstatus = $decision === "mantener_pendiente" ? "pendiente_revision" : "resuelto";
+            $cantidadAjuste = !empty($propuesta["requiere_ajuste"]) ? floatval($propuesta["cantidad_ajuste"]) : 0;
+            $db->prepare("UPDATE erp_pos_inventario_pendientes
+                SET estatus=:estatus, fecha_revision=NOW(), revisado_por=:usuario,
+                    cantidad_fisica_validada=:fisica, cantidad_ajuste_requerida=:ajuste,
+                    id_movimiento_ajuste=:movimiento, motivo_revision=:motivo,
+                    fecha_resolucion=CASE WHEN :cerrar=1 THEN NOW() ELSE fecha_resolucion END
+                WHERE id_inventario_pendiente=:pendiente")
+                ->execute(array(
+                    ":estatus" => $nuevoEstatus,
+                    ":usuario" => intval($idUsuario) ?: null,
+                    ":fisica" => floatval($conteo["cantidad_fisica"]),
+                    ":ajuste" => $cantidadAjuste,
+                    ":movimiento" => $idMovimientoAjuste,
+                    ":motivo" => $motivo,
+                    ":cerrar" => $nuevoEstatus === "resuelto" ? 1 : 0,
+                    ":pendiente" => intval($pendiente["id_inventario_pendiente"])
+                ));
+
+            $db->prepare("INSERT INTO erp_pos_inventario_pendientes_eventos
+                (id_inventario_pendiente, tipo_evento, estatus_anterior, estatus_nuevo,
+                 cantidad, referencia, observaciones, datos_snapshot, creado_por)
+                VALUES (:pendiente, 'resolucion_inventario', :anterior, :nuevo,
+                 :cantidad, :referencia, :observaciones, :snapshot, :usuario)")
+                ->execute(array(
+                    ":pendiente" => intval($pendiente["id_inventario_pendiente"]),
+                    ":anterior" => $pendiente["estatus"],
+                    ":nuevo" => $nuevoEstatus,
+                    ":cantidad" => floatval($conteo["cantidad_fisica"]),
+                    ":referencia" => $referencia,
+                    ":observaciones" => $motivo,
+                    ":snapshot" => json_encode($depurarPreview, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+                    ":usuario" => intval($idUsuario) ?: null
+                ));
+
+            if ($nuevoEstatus === "resuelto") {
+                $db->prepare("UPDATE erp_ventas SET inventario_validacion_estado='validado_post_venta', fecha_actualizacion=NOW() WHERE id_venta=:venta")
+                    ->execute(array(":venta" => intval($pendiente["id_venta"])));
+                $db->prepare("UPDATE erp_ventas_detalle SET inventario_estado='validado_post_venta', fecha_actualizacion=NOW() WHERE id_venta_detalle=:detalle")
+                    ->execute(array(":detalle" => intval($pendiente["id_venta_detalle"])));
+                $db->prepare("UPDATE erp_ventas_detalle_inventario
+                    SET id_movimiento_inventario=:movimiento, estatus='validado_post_venta'
+                    WHERE id_inventario_pendiente=:pendiente")
+                    ->execute(array(
+                        ":movimiento" => $idMovimientoAjuste,
+                        ":pendiente" => intval($pendiente["id_inventario_pendiente"])
+                    ));
+            }
+
+            $db->commit();
+            return $this->respuesta(false, "success", "Pendiente POS de inventario resuelto", array(
+                "id_inventario_pendiente" => intval($pendiente["id_inventario_pendiente"]),
+                "folio" => $pendiente["folio"],
+                "estatus" => $nuevoEstatus,
+                "referencia" => $referencia,
+                "id_movimiento_ajuste" => $idMovimientoAjuste,
+                "cantidad_fisica_validada" => floatval($conteo["cantidad_fisica"]),
+                "cantidad_ajuste" => $cantidadAjuste
+            ));
+        } catch (Exception $e) {
+            if ($db instanceof PDO && $db->inTransaction()) {
+                $db->rollBack();
+            }
+            return $this->respuesta(true, "danger", "No se pudo resolver pendiente POS de inventario", array(
+                "error" => $e->getMessage(),
+                "rollback" => true
+            ));
+        }
+    }
+
+    private function cargarPendientePosInventario($db, $datos = array()) {
+        if (!$this->tablaExiste($db, "erp_pos_inventario_pendientes")) {
+            return null;
+        }
+        $id = intval(isset($datos["id_inventario_pendiente"]) ? $datos["id_inventario_pendiente"] : 0);
+        $folio = trim(isset($datos["folio"]) ? (string) $datos["folio"] : "");
+        if ($id <= 0 && $folio === "") {
+            return null;
+        }
+        $where = $id > 0 ? "p.id_inventario_pendiente=:ref" : "p.folio=:ref";
+        $stmt = $db->prepare("SELECT p.*, v.folio folio_venta, v.estatus estatus_venta,
+                v.inventario_validacion_estado, v.total total_venta, v.pagado_total,
+                d.inventario_estado detalle_inventario_estado, d.total total_detalle,
+                a.almacen, a.codigo_almacen
+            FROM erp_pos_inventario_pendientes p
+            LEFT JOIN erp_ventas v ON v.id_venta=p.id_venta
+            LEFT JOIN erp_ventas_detalle d ON d.id_venta_detalle=p.id_venta_detalle
+            LEFT JOIN erp_almacenes a ON a.id_almacen=p.id_almacen
+            WHERE {$where}
+            LIMIT 1");
+        $stmt->execute(array(":ref" => $id > 0 ? $id : $folio));
+        $pendiente = $stmt->fetch(PDO::FETCH_ASSOC);
+        return $pendiente ?: null;
+    }
+
+    private function existenciasPendientePos($db, $idSku, $idAlmacen) {
+        if (!$this->tablaExiste($db, "erp_inventario_existencias")) {
+            return array();
+        }
+        $stmt = $db->prepare("SELECT id_existencia_inventario, codigo_existencia, id_almacen_clave id_almacen,
+                id_sku_erp, lote, fecha_caducidad, ubicacion_id, ubicacion, cantidad,
+                cantidad_apartada, cantidad_disponible, costo_promedio, estatus_existencia,
+                ultimo_movimiento_id
+            FROM erp_inventario_existencias
+            WHERE id_sku_erp=:sku AND id_almacen_clave=:almacen
+              AND (cantidad<>0 OR cantidad_disponible<>0 OR cantidad_apartada<>0)
+            ORDER BY fecha_caducidad_clave ASC, fecha_registro ASC, id_existencia_inventario ASC");
+        $stmt->execute(array(":sku" => intval($idSku), ":almacen" => intval($idAlmacen)));
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    private function eventosPendientePos($db, $idPendiente) {
+        if (!$this->tablaExiste($db, "erp_pos_inventario_pendientes_eventos")) {
+            return array();
+        }
+        $stmt = $db->prepare("SELECT id_evento_inventario_pendiente, id_inventario_pendiente,
+                tipo_evento, estatus_anterior, estatus_nuevo, cantidad, referencia,
+                observaciones, creado_por, fecha_registro
+            FROM erp_pos_inventario_pendientes_eventos
+            WHERE id_inventario_pendiente=:pendiente
+            ORDER BY fecha_registro ASC, id_evento_inventario_pendiente ASC");
+        $stmt->execute(array(":pendiente" => intval($idPendiente)));
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    private function tablaExiste($db, $tabla) {
+        if (!preg_match('/^[a-zA-Z0-9_]+$/', (string) $tabla)) {
+            return false;
+        }
+        $stmt = $db->prepare("SHOW TABLES LIKE :tabla");
+        $stmt->execute(array(":tabla" => $tabla));
+        return (bool) $stmt->fetchColumn();
+    }
+
     public function aplicarAjuste($datos, $idUsuario = 0) {
         $idAlmacen = intval(isset($datos["id_almacen"]) ? $datos["id_almacen"] : 0);
         $tipo = isset($datos["tipo_ajuste"]) ? trim($datos["tipo_ajuste"]) : "";

@@ -23,10 +23,22 @@
     var paqueteGrupoActualId = 0;
 
     function request(url, data) {
+        var body = null;
+        if (data) {
+            var params = new URLSearchParams();
+            Object.keys(data).forEach(function (key) {
+                if (Array.isArray(data[key])) {
+                    data[key].forEach(function (value) { params.append(key, value); });
+                } else {
+                    params.append(key, data[key]);
+                }
+            });
+            body = params.toString();
+        }
         return fetch(url, {
             method: data ? "POST" : "GET",
             headers: data ? {"Content-Type": "application/x-www-form-urlencoded; charset=UTF-8"} : {},
-            body: data ? new URLSearchParams(data).toString() : null,
+            body: body,
             credentials: "same-origin"
         }).then(function (response) {
             return response.json();
@@ -66,6 +78,7 @@
         llenarSelect("catalogo_masivo_marca", catalogos.marcas || [], "id_marca_erp", etiquetaNombre, true);
         llenarSelect("catalogo_categoria", catalogos.categorias || [], "id_categoria_erp", etiquetaCategoria, true);
         llenarSelect("catalogo_editar_categoria", catalogos.categorias || [], "id_categoria_erp", etiquetaCategoria, true);
+        llenarSelect("catalogo_editar_categorias_secundarias", catalogos.categorias || [], "id_categoria_erp", etiquetaCategoria, false);
         llenarSelect("catalogo_temporal_categoria", catalogos.categorias || [], "id_categoria_erp", etiquetaCategoria, true);
         llenarSelect("catalogo_masivo_categoria", catalogos.categorias || [], "id_categoria_erp", etiquetaCategoria, true);
         llenarSelect("catalogo_paquete_sku_unidad_inline", catalogos.unidades || [], "id_unidad", etiquetaUnidad, false);
@@ -599,8 +612,9 @@
             if (response.error) {
                 throw new Error(response.mensaje);
             }
-            llenarDetalleProducto(response.depurar.producto);
             detalleActual = response.depurar;
+            detalleActual.producto.categorias_producto = detalleActual.categorias_producto || [];
+            llenarDetalleProducto(detalleActual.producto);
             filtroObjetivoSku = "todos";
             mostrarSkusArchivados = false;
             renderSkus(response.depurar.skus || []);
@@ -655,6 +669,7 @@
                 setValor(editar, name, origen || "");
             });
             setValor(editar, "nombre_producto", producto.nombre);
+            seleccionarCategoriasSecundarias(producto.categorias_producto || []);
             editar.querySelector("[name='maneja_variantes']").checked = String(producto.maneja_variantes) === "1";
         }
         if (skuForm) {
@@ -683,6 +698,29 @@
             limpiarFormularioPresentacion();
         }
         limpiarFormularioPaquete();
+    }
+
+    /**
+     * IA: Codex GPT-5 | Fecha: 2026-07-11
+     * Proposito: precarga categorias secundarias sin mezclar la categoria principal del producto.
+     * Impacto: Catalogo ERP; permite clasificacion alterna sin perder el default operativo.
+     */
+    function seleccionarCategoriasSecundarias(categoriasProducto) {
+        var select = document.getElementById("catalogo_editar_categorias_secundarias");
+        if (!select) {
+            return;
+        }
+        var valores = (categoriasProducto || []).filter(function (item) {
+            return String(item.es_principal) !== "1";
+        }).map(function (item) {
+            return String(item.id_categoria_erp);
+        });
+        Array.prototype.forEach.call(select.options, function (option) {
+            option.selected = valores.indexOf(String(option.value)) !== -1;
+        });
+        if (window.jQuery && jQuery.fn && jQuery.fn.select2) {
+            jQuery(select).trigger("change.select2");
+        }
     }
 
     /**
@@ -2711,7 +2749,16 @@
         button.disabled = true;
         errorBox.classList.add("d-none");
         var data = {};
-        new FormData(currentForm).forEach(function (value, key) { data[key] = value; });
+        new FormData(currentForm).forEach(function (value, key) {
+            if (Object.prototype.hasOwnProperty.call(data, key)) {
+                if (!Array.isArray(data[key])) {
+                    data[key] = [data[key]];
+                }
+                data[key].push(value);
+            } else {
+                data[key] = value;
+            }
+        });
         request(url, data).then(function (response) {
             if (response.error) {
                 throw new Error(response.mensaje);

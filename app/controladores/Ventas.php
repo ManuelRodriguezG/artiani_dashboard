@@ -160,9 +160,143 @@ class Ventas extends Controlador {
     $this->vista("apps/erp/ventas/pos_configuracion");
   }
 
+  /**
+   * Documentacion IA: Codex GPT-5, 2026-07-12.
+   * Proposito: abrir modulo read-only de Listas de precios.
+   * Impacto: permite revisar listas, detalles, asignaciones y conflictos antes del CRUD real.
+   * Contrato: no crea ni edita precios; escritura queda para fase autorizada.
+   */
+  public function listas_precios() {
+    $this->requerirPermiso("ventas.ver");
+    $this->vista("apps/erp/ventas/listas_precios");
+  }
+
   public function pos_catalogos_erp() {
     $this->requerirPermiso("ventas.ver");
     return json_encode($this->modelo("VentasErp")->catalogosPos());
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5, 2026-07-12.
+   * Proposito: consultar resumen read-only del modulo Listas de precios.
+   * Impacto: alimenta dashboard operativo sin escribir BD.
+   * Contrato: protegido por `ventas.ver`.
+   */
+  public function listas_precios_resumen_erp() {
+    $this->requerirPermiso("ventas.ver");
+    return json_encode($this->modelo("ListasPreciosErp")->resumenReadOnly($_GET));
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5, 2026-07-12.
+   * Proposito: listar encabezados de listas de precios.
+   * Impacto: prepara CRUD formal y auditoria visual.
+   * Contrato: read-only; no cambia estatus ni precios.
+   */
+  public function listas_precios_listar_erp() {
+    $this->requerirPermiso("ventas.ver");
+    return json_encode($this->modelo("ListasPreciosErp")->listarReadOnly($_GET));
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5, 2026-07-12.
+   * Proposito: consultar detalle de una lista de precios.
+   * Impacto: muestra SKUs, asignaciones CRM y conflictos de la lista.
+   * Contrato: read-only; no escribe BD.
+   */
+  public function listas_precios_consultar_erp() {
+    $this->requerirPermiso("ventas.ver");
+    $idLista = isset($_GET["id_lista_precio"]) ? intval($_GET["id_lista_precio"]) : 0;
+    return json_encode($this->modelo("ListasPreciosErp")->consultarReadOnly($idLista));
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5, 2026-07-12.
+   * Proposito: detectar conflictos de listas de precios antes de habilitar escritura.
+   * Impacto: prepara validaciones del futuro CRUD.
+   * Contrato: read-only; no corrige datos.
+   */
+  public function listas_precios_conflictos_erp() {
+    $this->requerirPermiso("ventas.ver");
+    return json_encode($this->modelo("ListasPreciosErp")->conflictosReadOnly($_GET));
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5, 2026-07-12.
+   * Proposito: validar encabezado futuro de lista de precios sin escribir BD.
+   * Impacto: prepara CRUD real con reglas de codigo, canal, vigencia y prioridad.
+   * Contrato: dry-run protegido por `ventas.ver`.
+   */
+  public function listas_precios_lista_dryrun_erp() {
+    $this->requerirPermiso("ventas.ver");
+    return json_encode($this->modelo("ListasPreciosErp")->listaDryRun($_POST));
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5, 2026-07-12.
+   * Proposito: validar detalle futuro de lista sin guardar precio.
+   * Impacto: detecta precios invalidos, alcances ambiguos y duplicados.
+   * Contrato: dry-run protegido por `ventas.ver`.
+   */
+  public function listas_precios_detalle_dryrun_erp() {
+    $this->requerirPermiso("ventas.ver");
+    return json_encode($this->modelo("ListasPreciosErp")->detalleDryRun($_POST));
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5, 2026-07-12.
+   * Proposito: validar asignacion futura de lista a cliente CRM sin escribir BD.
+   * Impacto: prepara contrato cliente/lista antes de habilitar guardado real.
+   * Contrato: dry-run protegido por `ventas.ver`.
+   */
+  public function listas_precios_asignacion_dryrun_erp() {
+    $this->requerirPermiso("ventas.ver");
+    return json_encode($this->modelo("ListasPreciosErp")->asignacionClienteDryRun($_POST));
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5, 2026-07-12.
+   * Proposito: guardar encabezado de lista de precios con permisos finos y auditoria.
+   * Impacto: escritura controlada sobre `erp_listas_precios`; no modifica ventas pasadas.
+   * Contrato: requiere permiso `ventas.listas.*`, respaldo y token `VENTAS_LISTAS_PRECIOS_GUARDAR_UAT`.
+   */
+  public function listas_precios_lista_guardar_erp() {
+    $this->requerirPermisoListaPreciosGuardar("lista");
+    $validacion = $this->validarAutorizacionListasPreciosGuardar();
+    if (!empty($validacion["error"])) {
+      return json_encode($validacion);
+    }
+    return json_encode($this->modelo("ListasPreciosErp")->listaGuardarAutorizado($_POST, $this->usuarioActualId()));
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5, 2026-07-12.
+   * Proposito: guardar detalle SKU/producto de lista de precios con auditoria.
+   * Impacto: cambia precio base futuro del resolutor backend; snapshots previos no cambian.
+   * Contrato: requiere `ventas.listas.editar`, respaldo y token UAT.
+   */
+  public function listas_precios_detalle_guardar_erp() {
+    $this->requerirPermiso("ventas.listas.editar");
+    $validacion = $this->validarAutorizacionListasPreciosGuardar();
+    if (!empty($validacion["error"])) {
+      return json_encode($validacion);
+    }
+    return json_encode($this->modelo("ListasPreciosErp")->detalleGuardarAutorizado($_POST, $this->usuarioActualId()));
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5, 2026-07-12.
+   * Proposito: guardar asignacion cliente CRM/lista de precios con vigencia y prioridad.
+   * Impacto: cambia resolucion futura para cliente; no afecta ventas emitidas.
+   * Contrato: requiere `ventas.listas.asignar_cliente`, respaldo y token UAT.
+   */
+  public function listas_precios_asignacion_guardar_erp() {
+    $this->requerirPermiso("ventas.listas.asignar_cliente");
+    $validacion = $this->validarAutorizacionListasPreciosGuardar();
+    if (!empty($validacion["error"])) {
+      return json_encode($validacion);
+    }
+    return json_encode($this->modelo("ListasPreciosErp")->asignacionClienteGuardarAutorizado($_POST, $this->usuarioActualId()));
   }
 
   /**
@@ -350,6 +484,72 @@ class Ventas extends Controlador {
     return json_encode($this->modelo("VentasErp")->pedidoGuardarReal($_POST));
   }
 
+
+  /**
+   * Documentacion IA: Codex GPT-5, 2026-07-11.
+   * Proposito: simular venta POS con inventario pendiente controlado.
+   * Impacto: calcula faltante y alerta propuesta sin crear venta, notificacion ni kardex.
+   * Contrato: dry-run protegido por `ventas.operar`.
+   */
+  public function pos_inventario_pendiente_dryrun_erp() {
+    $this->requerirPermiso("ventas.operar");
+    $_POST["id_usuario"] = $this->usuarioActualId();
+    return json_encode($this->modelo("VentasErp")->ventaInventarioPendienteDryRun($_POST));
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5, 2026-07-12.
+   * Proposito: registrar politica POS para permitir inventario pendiente por sucursal/SKU/canal.
+   * Impacto: escritura controlada sobre `erp_pos_politicas_venta_inventario`; no crea ventas, pendientes ni movimientos.
+   * Contrato: requiere soporte, respaldo externo y token `VENTAS_POS_INVENTARIO_PENDIENTE_POLITICA_UAT`.
+   */
+  public function pos_politica_inventario_pendiente_guardar_erp() {
+    $this->requerirPermiso("sistema.soporte");
+    $autorizar = isset($_POST["autorizar"]) ? trim((string) $_POST["autorizar"]) : "";
+    $respaldo = isset($_POST["respaldo"]) ? trim((string) $_POST["respaldo"]) : "";
+    $validacionRespaldo = $this->validarRespaldoVentasPos($respaldo);
+    if ($autorizar !== "VENTAS_POS_INVENTARIO_PENDIENTE_POLITICA_UAT" || !$validacionRespaldo["ok"]) {
+      return json_encode(array(
+        "error" => true,
+        "tipo" => "danger",
+        "mensaje" => "No se registro politica POS de inventario pendiente. Falta autorizacion explicita o respaldo valido.",
+        "depurar" => array(
+          "requerido" => array("autorizar" => "VENTAS_POS_INVENTARIO_PENDIENTE_POLITICA_UAT", "respaldo" => "RUTA_O_REFERENCIA"),
+          "validacion_respaldo" => $validacionRespaldo,
+          "reglas" => array("No crea ventas.", "No mueve inventario.", "No activa ecommerce.")
+        )
+      ));
+    }
+    $_POST["id_usuario"] = $this->usuarioActualId();
+    return json_encode($this->modelo("VentasErp")->guardarPoliticaInventarioPendientePosReal($_POST));
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5, 2026-07-12.
+   * Proposito: ejecutar UAT real de venta POS con inventario pendiente controlado.
+   * Impacto: crea venta/pago/caja y expediente de inventario pendiente; no ajusta inventario fisico.
+   * Contrato: requiere soporte, respaldo externo y token `VENTAS_POS_INVENTARIO_PENDIENTE_REAL`.
+   */
+  public function pos_inventario_pendiente_real_erp() {
+    $this->requerirPermiso("sistema.soporte");
+    $autorizar = isset($_POST["autorizar"]) ? trim((string) $_POST["autorizar"]) : "";
+    $respaldo = isset($_POST["respaldo"]) ? trim((string) $_POST["respaldo"]) : "";
+    $validacionRespaldo = $this->validarRespaldoVentasPos($respaldo);
+    if ($autorizar !== "VENTAS_POS_INVENTARIO_PENDIENTE_REAL" || !$validacionRespaldo["ok"]) {
+      return json_encode(array(
+        "error" => true,
+        "tipo" => "danger",
+        "mensaje" => "No se ejecuto venta POS con inventario pendiente. Falta autorizacion explicita o respaldo valido.",
+        "depurar" => array(
+          "requerido" => array("autorizar" => "VENTAS_POS_INVENTARIO_PENDIENTE_REAL", "respaldo" => "RUTA_O_REFERENCIA"),
+          "validacion_respaldo" => $validacionRespaldo,
+          "reglas" => array("Requiere turno abierto.", "Registra pendiente para Inventario.", "No corrige existencias desde POS.")
+        )
+      ));
+    }
+    $_POST["id_usuario"] = $this->usuarioActualId();
+    return json_encode($this->modelo("VentasErp")->ventaInventarioPendienteReal($_POST));
+  }
   /**
    * Documentacion IA: Codex GPT-5, 2026-06-26.
    * Proposito: simular resolucion de cliente/lista/precio sin escribir datos.
@@ -612,6 +812,45 @@ class Ventas extends Controlador {
     }
     $this->requerirPermiso($id > 0 ? "ventas.pos_config.editar" : "ventas.pos_config.crear");
     return true;
+  }
+
+  private function requerirPermisoListaPreciosGuardar($tipo) {
+    if ($tipo === "lista") {
+      $id = isset($_POST["id_lista_precio"]) ? intval($_POST["id_lista_precio"]) : 0;
+      $estatus = isset($_POST["estatus"]) ? trim((string) $_POST["estatus"]) : "";
+      $this->requerirPermiso($id > 0 ? "ventas.listas.editar" : "ventas.listas.crear");
+      if ($estatus === "activa") {
+        $this->requerirPermiso("ventas.listas.activar");
+      } elseif ($estatus === "pausada") {
+        $this->requerirPermiso("ventas.listas.pausar");
+      } elseif ($estatus === "cancelada") {
+        $this->requerirPermiso("ventas.listas.cancelar");
+      }
+    }
+    return true;
+  }
+
+  private function validarAutorizacionListasPreciosGuardar() {
+    $autorizar = isset($_POST["autorizar"]) ? trim((string) $_POST["autorizar"]) : "";
+    $respaldo = isset($_POST["respaldo"]) ? trim((string) $_POST["respaldo"]) : "";
+    $validacionRespaldo = $this->validarRespaldoVentasPos($respaldo);
+    if ($autorizar !== "VENTAS_LISTAS_PRECIOS_GUARDAR_UAT" || !$validacionRespaldo["ok"]) {
+      return array(
+        "error" => true,
+        "tipo" => "danger",
+        "mensaje" => "No se guardo lista de precios. Falta autorizacion UAT o respaldo externo valido.",
+        "depurar" => array(
+          "requerido" => array("autorizar" => "VENTAS_LISTAS_PRECIOS_GUARDAR_UAT", "respaldo" => "RUTA_O_REFERENCIA"),
+          "validacion_respaldo" => $validacionRespaldo,
+          "reglas" => array(
+            "No guardar sin permisos finos sembrados.",
+            "No guardar sin auditoria comercial `erp_listas_precios_eventos`.",
+            "No modifica ventas pasadas; POS conserva snapshot por partida."
+          )
+        )
+      );
+    }
+    return array("error" => false, "tipo" => "success", "mensaje" => "Autorizacion UAT validada");
   }
 
   /**
@@ -1114,6 +1353,173 @@ class Ventas extends Controlador {
     return json_encode($this->modelo("VentasErpEsquema")->planActualizarDestinoFinalCuarentenaPos($ejecutar));
   }
 
+
+
+  /**
+   * Documentacion IA: Codex GPT-5, 2026-07-12.
+   * Proposito: auditar contrato CRM para asignacion de listas de precios.
+   * Impacto: solo lectura; permite validar si `erp_clientes_listas_precios` ya soporta `id_cliente_crm`.
+   * Contrato: requiere `ventas.ver`; no crea listas, clientes ni precios.
+   */
+  public function esquema_auditar_listas_precios_crm() {
+    $this->requerirPermiso("ventas.ver");
+    return json_encode($this->modelo("VentasErpEsquema")->auditarListasPreciosCrm());
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5, 2026-07-12.
+   * Proposito: generar o aplicar DDL para contrato CRM de listas de precios.
+   * Impacto: prepara `id_cliente_crm` en asignaciones cliente-lista; no crea listas ni cambia precios.
+   * Contrato: solo ejecuta con `VENTAS_LISTAS_PRECIOS_CRM_DDL` y respaldo externo valido.
+   */
+  public function esquema_actualizar_listas_precios_crm() {
+    $this->requerirPermiso("sistema.soporte");
+    $ejecutar = isset($_POST["ejecutar"]) && intval($_POST["ejecutar"]) === 1;
+    if ($ejecutar) {
+      $autorizar = isset($_POST["autorizar"]) ? trim((string) $_POST["autorizar"]) : "";
+      $respaldo = isset($_POST["respaldo"]) ? trim((string) $_POST["respaldo"]) : "";
+      $validacionRespaldo = $this->validarRespaldoVentasPos($respaldo);
+      if ($autorizar !== "VENTAS_LISTAS_PRECIOS_CRM_DDL" || !$validacionRespaldo["ok"]) {
+        return json_encode(array(
+          "error" => true,
+          "tipo" => "danger",
+          "mensaje" => "No se ejecuto DDL CRM de listas de precios. Falta autorizacion explicita o respaldo valido.",
+          "depurar" => array(
+            "requerido" => array("autorizar" => "VENTAS_LISTAS_PRECIOS_CRM_DDL", "respaldo" => "RUTA_O_REFERENCIA"),
+            "validacion_respaldo" => $validacionRespaldo,
+            "reglas" => array("No ejecutar sin respaldo externo verificado.", "No crea listas ni precios.", "No modifica clientes CRM.")
+          )
+        ));
+      }
+    }
+    return json_encode($this->modelo("VentasErpEsquema")->planActualizarListasPreciosCrm($ejecutar));
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5, 2026-07-12.
+   * Proposito: auditar tabla de eventos comerciales para listas de precios.
+   * Impacto: solo lectura; prepara trazabilidad antes de habilitar guardado real.
+   * Contrato: requiere `ventas.ver`; no crea eventos ni modifica precios.
+   */
+  public function esquema_auditar_auditoria_listas_precios() {
+    $this->requerirPermiso("ventas.ver");
+    return json_encode($this->modelo("VentasErpEsquema")->auditarAuditoriaListasPrecios());
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5, 2026-07-12.
+   * Proposito: generar o aplicar DDL para auditoria comercial profunda de listas de precios.
+   * Impacto: prepara `erp_listas_precios_eventos`; no cambia listas, detalles, clientes ni ventas.
+   * Contrato: solo ejecuta con `VENTAS_LISTAS_PRECIOS_AUDITORIA_DDL` y respaldo externo valido.
+   */
+  public function esquema_actualizar_auditoria_listas_precios() {
+    $this->requerirPermiso("sistema.soporte");
+    $ejecutar = isset($_POST["ejecutar"]) && intval($_POST["ejecutar"]) === 1;
+    if ($ejecutar) {
+      $autorizar = isset($_POST["autorizar"]) ? trim((string) $_POST["autorizar"]) : "";
+      $respaldo = isset($_POST["respaldo"]) ? trim((string) $_POST["respaldo"]) : "";
+      $validacionRespaldo = $this->validarRespaldoVentasPos($respaldo);
+      if ($autorizar !== "VENTAS_LISTAS_PRECIOS_AUDITORIA_DDL" || !$validacionRespaldo["ok"]) {
+        return json_encode(array(
+          "error" => true,
+          "tipo" => "danger",
+          "mensaje" => "No se ejecuto DDL de auditoria de listas de precios. Falta autorizacion explicita o respaldo valido.",
+          "depurar" => array(
+            "requerido" => array("autorizar" => "VENTAS_LISTAS_PRECIOS_AUDITORIA_DDL", "respaldo" => "RUTA_O_REFERENCIA"),
+            "validacion_respaldo" => $validacionRespaldo,
+            "reglas" => array("No ejecutar sin respaldo externo verificado.", "No cambia precios vigentes.", "No modifica ventas pasadas.")
+          )
+        ));
+      }
+    }
+    return json_encode($this->modelo("VentasErpEsquema")->planActualizarAuditoriaListasPrecios($ejecutar));
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5, 2026-07-12.
+   * Proposito: auditar politicas POS de inventario pendiente por sucursal/SKU.
+   * Impacto: solo lectura; no activa ventas con faltante.
+   * Contrato: requiere `ventas.ver`.
+   */
+  public function esquema_auditar_politicas_inventario_pendiente_pos() {
+    $this->requerirPermiso("ventas.ver");
+    return json_encode($this->modelo("VentasErpEsquema")->auditarPoliticasInventarioPendientePos());
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5, 2026-07-12.
+   * Proposito: generar o aplicar DDL de politicas POS para inventario pendiente.
+   * Impacto: prepara reglas por sucursal/SKU/canal; no crea ventas, pendientes ni ajustes.
+   * Contrato: solo ejecuta con `VENTAS_POS_INVENTARIO_PENDIENTE_POLITICAS_DDL` y respaldo externo valido.
+   */
+  public function esquema_actualizar_politicas_inventario_pendiente_pos() {
+    $this->requerirPermiso("sistema.soporte");
+    $ejecutar = isset($_POST["ejecutar"]) && intval($_POST["ejecutar"]) === 1;
+    if ($ejecutar) {
+      $autorizar = isset($_POST["autorizar"]) ? trim((string) $_POST["autorizar"]) : "";
+      $respaldo = isset($_POST["respaldo"]) ? trim((string) $_POST["respaldo"]) : "";
+      $validacionRespaldo = $this->validarRespaldoVentasPos($respaldo);
+      if ($autorizar !== "VENTAS_POS_INVENTARIO_PENDIENTE_POLITICAS_DDL" || !$validacionRespaldo["ok"]) {
+        return json_encode(array(
+          "error" => true,
+          "tipo" => "danger",
+          "mensaje" => "No se ejecuto DDL de politicas inventario pendiente POS. Falta autorizacion explicita o respaldo valido.",
+          "depurar" => array(
+            "requerido" => array("autorizar" => "VENTAS_POS_INVENTARIO_PENDIENTE_POLITICAS_DDL", "respaldo" => "RUTA_O_REFERENCIA"),
+            "validacion_respaldo" => $validacionRespaldo,
+            "reglas" => array("No ejecutar sin respaldo externo verificado.", "No activa ventas con faltante.", "No modifica Catalogo ni Inventario.")
+          )
+        ));
+      }
+    }
+    return json_encode($this->modelo("VentasErpEsquema")->planActualizarPoliticasInventarioPendientePos($ejecutar));
+  }
+  /**
+   * Documentacion IA: Codex GPT-5, 2026-07-11.
+   * Proposito: auditar estructura para venta POS con inventario pendiente sin ejecutar DDL.
+   * Impacto: solo lectura; no permite venta negativa ni genera alertas.
+   * Contrato: requiere `ventas.ver`.
+   */
+  public function esquema_auditar_inventario_pendiente_pos() {
+    $this->requerirPermiso("ventas.ver");
+    return json_encode($this->modelo("VentasErpEsquema")->auditarInventarioPendientePos());
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5, 2026-07-11.
+   * Proposito: generar o aplicar DDL para venta POS con inventario pendiente controlado.
+   * Impacto: prepara trazabilidad de faltantes y pendientes de mini inventario; no ejecuta ventas ni ajustes.
+   * Contrato: solo ejecuta con `VENTAS_POS_INVENTARIO_PENDIENTE_DDL` y respaldo externo valido.
+   */
+  public function esquema_actualizar_inventario_pendiente_pos() {
+    $this->requerirPermiso("sistema.soporte");
+    $ejecutar = isset($_POST["ejecutar"]) && intval($_POST["ejecutar"]) === 1;
+    if ($ejecutar) {
+      $autorizar = isset($_POST["autorizar"]) ? trim((string) $_POST["autorizar"]) : "";
+      $respaldo = isset($_POST["respaldo"]) ? trim((string) $_POST["respaldo"]) : "";
+      $validacionRespaldo = $this->validarRespaldoVentasPos($respaldo);
+      if ($autorizar !== "VENTAS_POS_INVENTARIO_PENDIENTE_DDL" || !$validacionRespaldo["ok"]) {
+        return json_encode(array(
+          "error" => true,
+          "tipo" => "danger",
+          "mensaje" => "No se ejecuto DDL de inventario pendiente POS. Falta autorizacion explicita o respaldo valido.",
+          "depurar" => array(
+            "requerido" => array(
+              "autorizar" => "VENTAS_POS_INVENTARIO_PENDIENTE_DDL",
+              "respaldo" => "RUTA_O_REFERENCIA"
+            ),
+            "validacion_respaldo" => $validacionRespaldo,
+            "reglas" => array(
+              "No ejecutar sin respaldo externo verificado.",
+              "No activar venta con inventario pendiente desde este endpoint.",
+              "No ajustar inventario ni resolver alertas desde este endpoint."
+            )
+          )
+        ));
+      }
+    }
+    return json_encode($this->modelo("VentasErpEsquema")->planActualizarInventarioPendientePos($ejecutar));
+  }
   /**
    * Documentacion IA: Codex GPT-5, 2026-06-27.
    * Proposito: generar o aplicar DDL de caja POS completa con guardrail explicito.

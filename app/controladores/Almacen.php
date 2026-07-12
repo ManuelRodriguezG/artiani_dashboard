@@ -32,6 +32,11 @@ class Almacen extends Controlador {
         $this->vista("apps/erp/almacen/preparacion_empaque");
     }
 
+    public function resurtido() {
+        $this->requerirPermiso("almacen.ver");
+        $this->vista("apps/erp/almacen/resurtido");
+    }
+
     public function configuracion() {
         $this->requerirPermiso("almacen.ubicaciones");
         $this->vista("apps/erp/almacen/configuracion");
@@ -48,6 +53,24 @@ class Almacen extends Controlador {
         $this->requerirPermiso("almacen.ubicaciones");
         $almacen = $this->modelo('Almacenes');
         return json_encode($almacen->consultar_almacenes_configuracion($_GET));
+    }
+
+    public function resurtido_stock_bajo_preflight_erp() {
+        $this->requerirPermiso("almacen.ver");
+        $almacen = $this->modelo('Almacenes');
+        return json_encode($almacen->preflight_stock_bajo_resurtido($_GET));
+    }
+
+    public function resurtido_listar_erp() {
+        $this->requerirPermiso("almacen.ver");
+        $almacen = $this->modelo('Almacenes');
+        return json_encode($almacen->consultar_resurtidos_readonly($_GET));
+    }
+
+    public function resurtido_consultar_erp() {
+        $this->requerirPermiso("almacen.ver");
+        $almacen = $this->modelo('Almacenes');
+        return json_encode($almacen->consultar_resurtido_readonly($_GET));
     }
 
     public function almacen_configuracion_guardar_erp() {
