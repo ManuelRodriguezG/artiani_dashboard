@@ -24,9 +24,14 @@
                                 <span class="text-muted">Solicitud, preparacion, transito y recepcion por folio</span>
                             </div>
                             <div class="d-flex gap-2">
-                                <button class="btn btn-light-primary" id="alm_res_btn_stock" type="button"><i class="bi bi-graph-down-arrow"></i> Stock bajo</button>
-                                <button class="btn btn-primary" id="alm_res_btn_nuevo" type="button" disabled title="Pendiente de esquema autorizado"><i class="bi bi-plus-circle"></i> Nueva solicitud</button>
-                            </div>
+                                                <button class="btn btn-light-primary" id="alm_res_btn_stock" type="button"><i class="bi bi-graph-down-arrow"></i> Stock bajo</button>
+                                                <button class="btn btn-light-info" id="alm_res_btn_resumen" type="button"><i class="bi bi-shop"></i> Resumen tiendas</button>
+                                                <button class="btn btn-light-dark" id="alm_res_btn_estados" type="button"><i class="bi bi-diagram-3"></i> Estados</button>
+                                                <button class="btn btn-light-warning" id="alm_res_btn_prep_envio" type="button"><i class="bi bi-box-seam"></i> Prep/envio</button>
+                                                <button class="btn btn-light-danger" id="alm_res_btn_recepcion" type="button"><i class="bi bi-clipboard2-check"></i> Recepcion</button>
+                                                <button class="btn btn-light-success" id="alm_res_btn_politicas" type="button"><i class="bi bi-sliders"></i> Politicas</button>
+                                                <button class="btn btn-primary" id="alm_res_btn_nuevo" type="button" disabled title="Pendiente de esquema autorizado"><i class="bi bi-plus-circle"></i> Nueva solicitud</button>
+                                            </div>
                         </div>
                     </div>
                     <div class="app-content flex-column-fluid">
@@ -46,6 +51,10 @@
                                                 <select class="form-select form-select-solid" id="alm_res_stock_almacen"></select>
                                             </div>
                                             <div class="mb-4">
+                                                <label class="form-label">Origen sugerido</label>
+                                                <select class="form-select form-select-solid" id="alm_res_stock_origen"></select>
+                                            </div>
+                                            <div class="mb-4">
                                                 <label class="form-label">SKU o producto</label>
                                                 <input class="form-control form-control-solid" id="alm_res_stock_q" placeholder="Buscar SKU o producto">
                                             </div>
@@ -54,8 +63,19 @@
                                                 <label class="form-check-label" for="alm_res_stock_solo_bajos">Solo bajo reorden</label>
                                             </div>
                                             <button class="btn btn-primary w-100" id="alm_res_stock_buscar" type="button"><i class="bi bi-search"></i> Consultar</button>
+                                            <button class="btn btn-light-primary w-100 mt-3" id="alm_res_simular" type="button"><i class="bi bi-file-earmark-text"></i> Simular solicitud</button>
+                                            <button class="btn btn-light-warning w-100 mt-3" id="alm_res_validar" type="button"><i class="bi bi-shield-check"></i> Validar solicitud</button>
+                                            <button class="btn btn-light-info w-100 mt-3" id="alm_res_payload" type="button"><i class="bi bi-braces"></i> Payload RES-T008</button>
                                             <div class="separator my-5"></div>
                                             <div id="alm_res_stock_resumen" class="text-muted">Selecciona una tienda para calcular necesidades.</div>
+                                            <div class="separator my-5"></div>
+                                            <div id="alm_res_simulacion" class="text-muted">Sin simulacion generada.</div>
+                                            <div class="separator my-5"></div>
+                                            <div id="alm_res_validacion" class="text-muted">Validacion pendiente.</div>
+                                            <div class="separator my-5"></div>
+                                            <div id="alm_res_payload_preview" class="text-muted">Payload pendiente.</div>
+                                            <div class="separator my-5"></div>
+                                            <div id="alm_res_resumen_tiendas" class="text-muted">Resumen multi-tienda pendiente.</div>
                                         </div>
                                     </div>
                                     <div class="card mt-5">
@@ -66,6 +86,46 @@
                                         </div>
                                         <div class="card-body" id="alm_res_detalle">
                                             Selecciona una solicitud para revisar partidas y trazabilidad.
+                                        </div>
+                                    </div>
+                                    <div class="card mt-5">
+                                        <div class="card-header">
+                                            <div class="card-title">
+                                                <h3 class="fw-bold m-0">Estados</h3>
+                                            </div>
+                                        </div>
+                                        <div class="card-body" id="alm_res_estados_panel">
+                                            Contrato operativo pendiente de consultar.
+                                        </div>
+                                    </div>
+                                    <div class="card mt-5">
+                                        <div class="card-header">
+                                            <div class="card-title">
+                                                <h3 class="fw-bold m-0">Preparacion/envio</h3>
+                                            </div>
+                                        </div>
+                                        <div class="card-body" id="alm_res_prep_envio_panel">
+                                            Contrato tecnico pendiente de consultar.
+                                        </div>
+                                    </div>
+                                    <div class="card mt-5">
+                                        <div class="card-header">
+                                            <div class="card-title">
+                                                <h3 class="fw-bold m-0">Recepcion/diferencias</h3>
+                                            </div>
+                                        </div>
+                                        <div class="card-body" id="alm_res_recepcion_panel">
+                                            Contrato tecnico pendiente de consultar.
+                                        </div>
+                                    </div>
+                                    <div class="card mt-5">
+                                        <div class="card-header">
+                                            <div class="card-title">
+                                                <h3 class="fw-bold m-0">Politicas/alertas</h3>
+                                            </div>
+                                        </div>
+                                        <div class="card-body" id="alm_res_politicas_panel">
+                                            Contrato tecnico pendiente de consultar.
                                         </div>
                                     </div>
                                 </div>
@@ -126,6 +186,6 @@
 </div>
 <script src="assets/plugins/global/plugins.bundle.js"></script>
 <script src="assets/js/scripts.bundle.js"></script>
-<script src="/assets/js/custom/apps/erp/almacen/resurtido/resurtido.js?v=20260711-1"></script>
+<script src="/assets/js/custom/apps/erp/almacen/resurtido/resurtido.js?v=20260713-2"></script>
 </body>
 </html>

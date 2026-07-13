@@ -39,10 +39,46 @@ class UatCatalogoClasificacionPendienteReadonly extends CatalogoErpDatos {
   }
 }
 
+$opciones = array();
+foreach ($argv as $arg) {
+  if ($arg === "--summary") {
+    $opciones["summary"] = true;
+    continue;
+  }
+  if (strpos($arg, "--") === 0 && strpos($arg, "=") !== false) {
+    list($key, $value) = explode("=", substr($arg, 2), 2);
+    $opciones[$key] = $value;
+  }
+}
+$limite = isset($opciones["limit"]) ? intval($opciones["limit"]) : 10;
+$limite = max(1, min(100, $limite));
+
 $modelo = new UatCatalogoClasificacionPendienteReadonly();
 $respuesta = $modelo->listarRevisionMetadatosCatalogo();
 $depurar = isset($respuesta["depurar"]) && is_array($respuesta["depurar"]) ? $respuesta["depurar"] : array();
 $pendientes = isset($depurar["pendientes"]) && is_array($depurar["pendientes"]) ? $depurar["pendientes"] : array();
+$categorias = isset($depurar["categorias"]) && is_array($depurar["categorias"]) ? $depurar["categorias"] : array();
+$marcas = isset($depurar["marcas"]) && is_array($depurar["marcas"]) ? $depurar["marcas"] : array();
+
+$muestraCategoria = array_slice(array_values(array_filter($pendientes, function ($item) {
+  return isset($item["tipo_revision"]) && $item["tipo_revision"] === "categoria";
+})), 0, $limite);
+$muestraMarca = array_slice(array_values(array_filter($pendientes, function ($item) {
+  return isset($item["tipo_revision"]) && $item["tipo_revision"] === "marca";
+})), 0, $limite);
+
+if (!empty($opciones["summary"])) {
+  $respuesta["depurar"] = array(
+    "sin_categoria" => isset($depurar["sin_categoria"]) ? intval($depurar["sin_categoria"]) : 0,
+    "marcas_ambiguas" => isset($depurar["marcas_ambiguas"]) ? intval($depurar["marcas_ambiguas"]) : 0,
+    "categorias_disponibles" => count($categorias),
+    "marcas_disponibles" => count($marcas)
+  );
+} else {
+  $respuesta["depurar"]["pendientes"] = array_slice($pendientes, 0, $limite);
+  $respuesta["depurar"]["categorias"] = array_slice($categorias, 0, $limite);
+  $respuesta["depurar"]["marcas"] = array_slice($marcas, 0, $limite);
+}
 
 $respuesta["depurar"]["contrato_uat"] = array(
   "read_only" => true,
@@ -50,8 +86,7 @@ $respuesta["depurar"]["contrato_uat"] = array(
   "criterio_categoria" => "Producto sin relacion principal en erp_catalogo_producto_categorias.es_principal=1"
 );
 $respuesta["depurar"]["relaciones_categoria_pendientes"] = $modelo->relacionesCategoriaPendientes();
-$respuesta["depurar"]["muestra_categoria"] = array_slice(array_values(array_filter($pendientes, function ($item) {
-  return isset($item["tipo_revision"]) && $item["tipo_revision"] === "categoria";
-})), 0, 10);
+$respuesta["depurar"]["muestra_categoria"] = $muestraCategoria;
+$respuesta["depurar"]["muestra_marca"] = $muestraMarca;
 
 echo json_encode($respuesta, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);

@@ -14,6 +14,7 @@ Ejecutar:
 
 ```bash
 php storage/uat/uat_ecommerce_publico_schema_readonly.php --respaldo=RUTA_O_REFERENCIA
+php storage/uat/uat_ecommerce_publico_schema_sql_readonly.php --respaldo=RUTA_O_REFERENCIA
 ```
 
 Validar que:
@@ -21,6 +22,8 @@ Validar que:
 - `ok=true`
 - `modo=read-only`
 - `ddl.total=5`
+- `ddl_total=5` en la salida SQL;
+- `sha256_sql` quede registrado para comparar contra la version revisada;
 - `guardrails.no_toca_ecom_legacy=true`
 - `guardrails.no_mueve_inventario=true`
 - el respaldo tenga `ok=true`
@@ -40,6 +43,14 @@ El script debe devolver:
 - `modo=apply_authorized`
 - `ok=true`
 - respuesta del modelo `EcommercePublicoEsquema`
+
+Antes de ejecutar, comparar visualmente que las tablas del SQL read-only sean solo:
+
+- `erp_ecommerce_publicaciones`
+- `erp_ecommerce_configuracion`
+- `erp_ecommerce_cotizaciones`
+- `erp_ecommerce_cotizaciones_detalle`
+- `erp_ecommerce_cotizaciones_eventos`
 
 ## Verificacion posterior
 

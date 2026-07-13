@@ -19,11 +19,19 @@ chdir(__DIR__ . "/../../public");
 require_once "../app/iniciador.php";
 require_once "../app/modelos/VentasErpEsquema.php";
 require_once "../app/modelos/SeguridadEsquema.php";
+require_once "../app/modelos/SeguridadPermisos.php";
 require_once "../app/modelos/ListasPreciosErp.php";
+
+class SeguridadPermisosListasPreflight extends SeguridadPermisos {
+    public function conexionUat() {
+        return $this->getConexion();
+    }
+}
 
 $esquema = new VentasErpEsquema();
 $seguridad = new SeguridadEsquema();
 $listas = new ListasPreciosErp();
+$seguridadBd = new SeguridadPermisosListasPreflight();
 
 $auditoriaCrm = $esquema->auditarListasPreciosCrm();
 $auditoriaEventos = $esquema->auditarAuditoriaListasPrecios();
@@ -32,6 +40,7 @@ $planEventos = $esquema->planActualizarAuditoriaListasPrecios(false);
 $resumen = $listas->resumenReadOnly(array("limite" => 20));
 $permisosListas = permisosListas($seguridad->permisosBaseERP());
 $rolesListas = rolesConPermisosListas($seguridad->permisosPorRolBaseERP());
+$permisosBd = consultarPermisosBd($seguridadBd, $permisosListas);
 $respaldoValidacion = validarRespaldoReferencia($respaldo);
 
 $bloqueos = array();
@@ -61,6 +70,9 @@ if (count(extraerSql($planEventos)) !== 1) {
 if ($respaldo !== "" && !$respaldoValidacion["ok"]) {
     $bloqueos[] = "Referencia de respaldo no valida";
 }
+if (!empty($permisosBd["faltantes_bd"])) {
+    $avisos[] = "Faltan sembrar permisos ventas.listas.* en BD";
+}
 
 echo json_encode(array(
     "ok" => empty($bloqueos),
@@ -70,7 +82,8 @@ echo json_encode(array(
     "permisos" => array(
         "ventas_listas_total" => count($permisosListas),
         "ventas_listas" => array_values($permisosListas),
-        "roles_con_listas" => $rolesListas
+        "roles_con_listas" => $rolesListas,
+        "bd" => $permisosBd
     ),
     "schema" => array(
         "auditoria_crm" => $auditoriaCrm,
@@ -89,7 +102,9 @@ echo json_encode(array(
         "ddl_crm_token" => "VENTAS_LISTAS_PRECIOS_CRM_DDL",
         "ddl_auditoria_token" => "VENTAS_LISTAS_PRECIOS_AUDITORIA_DDL",
         "guardado_uat_token" => "VENTAS_LISTAS_PRECIOS_GUARDAR_UAT",
-        "requiere_respaldo_externo" => true,
+        "permisos_token" => "VENTAS_LISTAS_PRECIOS_PERMISOS",
+        "requiere_respaldo_externo_para_ddl" => true,
+        "requiere_respaldo_externo_para_crud_normal" => false,
         "no_promociones" => true,
         "no_ecommerce_activo" => true
     ),
@@ -126,6 +141,41 @@ function rolesConPermisosListas($roles) {
         }
     }
     return $resultado;
+}
+
+function consultarPermisosBd($modelo, $permisos) {
+    if (empty($permisos)) {
+        return array("permisos_bd" => array(), "faltantes_bd" => array(), "roles_bd" => array());
+    }
+    $db = $modelo->conexionUat();
+    $lista = array_values($permisos);
+    $marcadores = implode(",", array_fill(0, count($lista), "?"));
+    $stmt = $db->prepare("SELECT id_permiso, permiso, estatus FROM sys_permisos WHERE permiso IN ($marcadores) ORDER BY permiso");
+    $stmt->execute($lista);
+    $permisosBd = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    $set = array();
+    foreach ($permisosBd as $permiso) {
+        $set[$permiso["permiso"]] = true;
+    }
+    $faltantes = array();
+    foreach ($lista as $permiso) {
+        if (!isset($set[$permiso])) {
+            $faltantes[] = $permiso;
+        }
+    }
+    $stmt = $db->prepare("SELECT r.rol, p.permiso
+        FROM sys_roles r
+        INNER JOIN sys_roles_permisos rp ON rp.id_rol=r.id_rol
+        INNER JOIN sys_permisos p ON p.id_permiso=rp.id_permiso
+        WHERE p.permiso IN ($marcadores)
+        ORDER BY r.rol, p.permiso");
+    $stmt->execute($lista);
+    return array(
+        "permisos_bd" => $permisosBd,
+        "faltantes_bd" => $faltantes,
+        "roles_bd" => $stmt->fetchAll(PDO::FETCH_ASSOC),
+        "requiere_siembra" => !empty($faltantes)
+    );
 }
 
 function tablaExisteEnAuditoria($auditoria, $tabla) {

@@ -34,8 +34,9 @@
                     <div class="app-toolbar py-3 py-lg-5">
                         <div class="app-container container-fluid d-flex flex-stack flex-wrap gap-3">
                             <div>
+                                <div class="text-muted fs-8 text-uppercase fw-semibold mb-1">ERP / Comercial</div>
                                 <h1 class="page-heading text-dark fw-bold fs-3 mb-1">Listas de precios</h1>
-                                <span class="text-muted">Precios por cliente, canal, sucursal y vigencia</span>
+                                <span class="text-muted">Precios por producto, cliente, canal, sucursal y vigencia</span>
                                 <div class="d-flex flex-wrap gap-2 mt-2">
                                     <span class="badge badge-light-primary">Read-only inicial</span>
                                     <span class="badge badge-light-success">Backend resuelve precios</span>
@@ -177,12 +178,12 @@
                                     <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
                                         <div>
                                             <div class="fw-bold">Guardado UAT controlado</div>
-                                            <div class="text-muted fs-8">Requiere permisos finos, respaldo externo, token UAT y auditoria comercial aplicada.</div>
+                                            <div class="text-muted fs-8">Requiere permisos finos, token UAT y auditoria comercial aplicada. El respaldo externo queda reservado para DDL.</div>
                                         </div>
                                         <span class="badge badge-light-danger">Puede escribir BD si todo esta autorizado</span>
                                     </div>
                                     <div class="row g-3 align-items-end">
-                                        <div class="col-lg-3"><label class="form-label text-muted fs-8 text-uppercase">Respaldo externo</label><input class="form-control form-control-solid" id="lp_uat_respaldo" placeholder="Ruta o referencia"></div>
+                                        <div class="col-lg-3"><label class="form-label text-muted fs-8 text-uppercase">Referencia UAT</label><input class="form-control form-control-solid" id="lp_uat_referencia" placeholder="Folio o nota opcional"></div>
                                         <div class="col-lg-3"><label class="form-label text-muted fs-8 text-uppercase">Token</label><input class="form-control form-control-solid" id="lp_uat_token" placeholder="VENTAS_LISTAS_PRECIOS_GUARDAR_UAT"></div>
                                         <div class="col-lg-3"><label class="form-label text-muted fs-8 text-uppercase">Motivo</label><input class="form-control form-control-solid" id="lp_uat_motivo" placeholder="UAT lista de precios"></div>
                                         <div class="col-lg-3 d-flex flex-wrap gap-2">
@@ -218,6 +219,20 @@
                                         <div class="fw-bold fs-5 mb-2">Conflictos</div>
                                         <div id="lp_conflictos" class="text-muted fs-7">Sin conflictos cargados.</div>
                                     </div>
+                                    <div class="lp-card p-4 mt-4">
+                                        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+                                            <div>
+                                                <div class="fw-bold fs-5">Auditoria</div>
+                                                <div class="text-muted fs-8">Eventos comerciales de listas, detalles y clientes.</div>
+                                            </div>
+                                            <button class="btn btn-sm btn-light-primary" id="lp_auditoria_btn" type="button"><i class="bi bi-clock-history"></i> Ver</button>
+                                        </div>
+                                        <div class="row g-2 mb-3">
+                                            <div class="col-7"><input class="form-control form-control-sm form-control-solid" id="lp_auditoria_lista" inputmode="numeric" placeholder="Lista ID"></div>
+                                            <div class="col-5"><input class="form-control form-control-sm form-control-solid" id="lp_auditoria_accion" placeholder="Accion"></div>
+                                        </div>
+                                        <div id="lp_auditoria" class="text-muted fs-7">Selecciona una lista o consulta eventos.</div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -229,6 +244,6 @@
 </div>
 <script src="assets/plugins/global/plugins.bundle.js"></script>
 <script src="assets/js/scripts.bundle.js"></script>
-<script src="/assets/js/custom/apps/erp/ventas/listas_precios.js?v=20260712-uat1"></script>
+<script src="/assets/js/custom/apps/erp/ventas/listas_precios.js?v=20260713-comercial1"></script>
 </body>
 </html>

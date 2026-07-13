@@ -47,7 +47,7 @@
 			require_once '../app/controladores/'.$this->controladorActual.'.php';
 			$nombreControlador = $this->controladorActual;
 			$controladoresProtegidos = array(
-				'Almacen', 'Archivos', 'Busqueda', 'CatalogoErp', 'Categoria', 'Clientes', 'Crm', 'Compra', 'Compra_venta',
+				'Almacen', 'Archivos', 'Busqueda', 'CatalogoErp', 'Categoria', 'Clientes', 'Comercial', 'Crm', 'Compra', 'Compra_venta',
 				'Costo', 'Dashboard', 'Empresa', 'Garantias', 'Inicio', 'Inventario', 'Link', 'Marca', 'Panel',
 				'Paquetes', 'Producto', 'Proveedor', 'Rentabilidad', 'Sistema', 'Sucursal', 'Users', 'Usuario',
 				'Utilidad', 'Ventas'
@@ -111,6 +111,7 @@
 				'CatalogoErp.categorias_arbol_preparar',
 				'CatalogoErp.categorias_relaciones_sincronizar',
 				'CatalogoErp.auxiliar_guardar',
+				'EcommercePublico.publicaciones_guardar_borrador_erp',
 				'Almacen.guardar_recepcion',
 				'Almacen.etiqueta_marcar_impresa_erp',
 				'Almacen.etiquetas_marcar_impresas_erp',

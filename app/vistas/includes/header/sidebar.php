@@ -14,6 +14,13 @@ $puede = function ($permiso) use ($permisosSesion) {
     return in_array($permiso, $permisosSesion, true);
 };
 
+$seccionesMenu = array(
+    'ERP' => array('icono' => 'bi-diagram-3'),
+    'CRM' => array('icono' => 'bi-people'),
+    'Ecommerce' => array('icono' => 'bi-shop'),
+    'Administracion' => array('icono' => 'bi-shield-lock')
+);
+
 $gruposMenu = array(
     array(
         'seccion' => 'ERP',
@@ -24,19 +31,47 @@ $gruposMenu = array(
             array('titulo' => 'Productos ERP', 'ruta' => '/catalogoerp', 'permiso' => 'catalogo.ver'),
             array('titulo' => 'Organizacion catalogo', 'ruta' => '/catalogoerp/organizacion', 'permiso' => 'catalogo.ver'),
             array('titulo' => 'Revision migracion', 'ruta' => '/catalogoerp/migracion_ecommerce', 'permiso' => 'catalogo.ver'),
-            array('titulo' => 'Ecommerce publico', 'ruta' => '/ecommercePublico/publicaciones', 'permiso' => 'catalogo.ver'),
-            array('titulo' => 'Configuracion catalogo', 'ruta' => '/catalogoerp/configuracion', 'permiso' => 'catalogo.editar'),
-            array('titulo' => 'Existencias', 'ruta' => '/inventario/productos_existencias', 'permiso' => 'inventario.ver'),
-            array('titulo' => 'Catalogo ecommerce', 'ruta' => '/producto/catalogo', 'permiso' => 'ecommerce.ver')
+            array('titulo' => 'Configuracion catalogo', 'ruta' => '/catalogoerp/configuracion', 'permiso' => 'catalogo.editar')
         )
     ),
     array(
         'seccion' => 'ERP',
-        'titulo' => 'Rentabilidad',
-        'icono' => 'bi-graph-up-arrow',
-        'permiso' => 'rentabilidad.ver',
+        'titulo' => 'Comercial',
+        'icono' => 'bi-tags',
+        'permiso' => '',
         'items' => array(
+            array('titulo' => 'Listas de precios', 'ruta' => '/comercial/listas_precios', 'permiso' => 'ventas.listas.ver'),
             array('titulo' => 'Analisis comercial', 'ruta' => '/rentabilidad/analisis', 'permiso' => 'rentabilidad.ver')
+        )
+    ),
+    array(
+        'seccion' => 'ERP',
+        'titulo' => 'Ventas y POS',
+        'icono' => 'bi-receipt',
+        'permiso' => 'ventas.ver',
+        'items' => array(
+            array('titulo' => 'Tablero de ventas', 'ruta' => '/ventas/mostrar', 'permiso' => 'ventas.ver'),
+            array('titulo' => 'POS', 'ruta' => '/ventas/pos', 'permiso' => 'ventas.operar'),
+            array('titulo' => 'Checador de precios', 'ruta' => '/ventas/checador_precios', 'permiso' => 'ventas.ver'),
+            array('titulo' => 'Pedidos', 'ruta' => '/ventas/pedidos', 'permiso' => 'ventas.ver'),
+            array('titulo' => 'Devoluciones', 'ruta' => '/ventas/devoluciones', 'permiso' => 'ventas.ver'),
+            array('titulo' => 'Caja y turnos', 'ruta' => '/ventas/caja_turnos', 'permiso' => 'ventas.ver'),
+            array('titulo' => 'Movimientos caja', 'ruta' => '/ventas/caja_movimientos', 'permiso' => 'ventas.ver'),
+            array('titulo' => 'Evidencias caja', 'ruta' => '/ventas/caja_evidencias', 'permiso' => 'ventas.ver'),
+            array('titulo' => 'Configuracion POS', 'ruta' => '/ventas/pos_configuracion', 'permiso' => 'ventas.pos_config.ver')
+        )
+    ),
+    array(
+        'seccion' => 'CRM',
+        'titulo' => 'CRM',
+        'icono' => 'bi-person-vcard',
+        'permiso' => 'crm.ver',
+        'items' => array(
+            array('titulo' => 'Clientes', 'ruta' => '/crm/clientes#crm_tab_clientes', 'permiso' => 'crm.ver'),
+            array('titulo' => 'Seguimiento', 'ruta' => '/crm/seguimiento', 'permiso' => 'crm.ver'),
+            array('titulo' => 'Condiciones comerciales', 'ruta' => '/crm/clientes#crm_tab_comercial', 'permiso' => 'crm.ver'),
+            array('titulo' => 'Recompensas', 'ruta' => '/crm/recompensas', 'permiso' => 'crm.ver'),
+            array('titulo' => 'Auditoria', 'ruta' => '/crm/clientes#crm_tab_auditoria', 'permiso' => 'crm.ver')
         )
     ),
     array(
@@ -48,8 +83,7 @@ $gruposMenu = array(
             array('titulo' => 'Ordenes de compra', 'ruta' => '/compra/mostrar_compra_ordenes', 'permiso' => 'compras.ver'),
             array('titulo' => 'Nueva orden', 'ruta' => '/compra/crear_orden_compra', 'permiso' => 'compras.crear'),
             array('titulo' => 'Solicitudes', 'ruta' => '/compra/mostrar_solicitudes', 'permiso' => 'compras.ver'),
-            array('titulo' => 'Nueva solicitud', 'ruta' => '/compra/solicitud_compra_nueva', 'permiso' => 'compras.crear'),
-            array('titulo' => 'Proveedores legacy', 'ruta' => '/proveedor/listas_mostrar', 'permiso' => 'compras.ver')
+            array('titulo' => 'Nueva solicitud', 'ruta' => '/compra/solicitud_compra_nueva', 'permiso' => 'compras.crear')
         )
     ),
     array(
@@ -59,7 +93,8 @@ $gruposMenu = array(
         'permiso' => 'proveedores.ver',
         'items' => array(
             array('titulo' => 'Maestro proveedores', 'ruta' => '/proveedor/mostrar_proveedores_erp', 'permiso' => 'proveedores.ver'),
-            array('titulo' => 'Auditoria proveedores', 'ruta' => '/proveedor/auditoria_erp', 'permiso' => 'proveedores.auditoria')
+            array('titulo' => 'Auditoria proveedores', 'ruta' => '/proveedor/auditoria_erp', 'permiso' => 'proveedores.auditoria'),
+            array('titulo' => 'Proveedores legacy', 'ruta' => '/proveedor/listas_mostrar', 'permiso' => 'compras.ver')
         )
     ),
     array(
@@ -87,38 +122,8 @@ $gruposMenu = array(
         )
     ),
     array(
-        'seccion' => 'POS',
-        'titulo' => 'Ventas',
-        'icono' => 'bi-receipt',
-        'permiso' => 'ventas.ver',
-        'items' => array(
-            array('titulo' => 'Tablero de ventas', 'ruta' => '/ventas/mostrar', 'permiso' => 'ventas.ver'),
-            array('titulo' => 'POS', 'ruta' => '/ventas/pos', 'permiso' => 'ventas.operar'),
-            array('titulo' => 'Checador de precios', 'ruta' => '/ventas/checador_precios', 'permiso' => 'ventas.ver'),
-            array('titulo' => 'Pedidos', 'ruta' => '/ventas/pedidos', 'permiso' => 'ventas.ver'),
-            array('titulo' => 'Devoluciones', 'ruta' => '/ventas/devoluciones', 'permiso' => 'ventas.ver'),
-            array('titulo' => 'Caja y turnos', 'ruta' => '/ventas/caja_turnos', 'permiso' => 'ventas.ver'),
-            array('titulo' => 'Movimientos caja', 'ruta' => '/ventas/caja_movimientos', 'permiso' => 'ventas.ver'),
-            array('titulo' => 'Evidencias caja', 'ruta' => '/ventas/caja_evidencias', 'permiso' => 'ventas.ver'),
-            array('titulo' => 'Configuracion POS', 'ruta' => '/ventas/pos_configuracion', 'permiso' => 'ventas.pos_config.ver')
-        )
-    ),
-    array(
-        'seccion' => 'CRM',
-        'titulo' => 'CRM',
-        'icono' => 'bi-person-vcard',
-        'permiso' => 'crm.ver',
-        'items' => array(
-            array('titulo' => 'Clientes', 'ruta' => '/crm/clientes#crm_tab_clientes', 'permiso' => 'crm.ver'),
-            array('titulo' => 'Seguimiento', 'ruta' => '/crm/seguimiento', 'permiso' => 'crm.ver'),
-            array('titulo' => 'Comercial', 'ruta' => '/crm/clientes#crm_tab_comercial', 'permiso' => 'crm.ver'),
-            array('titulo' => 'Recompensas', 'ruta' => '/crm/recompensas', 'permiso' => 'crm.ver'),
-            array('titulo' => 'Auditoria', 'ruta' => '/crm/clientes#crm_tab_auditoria', 'permiso' => 'crm.ver')
-        )
-    ),
-    array(
-        'seccion' => 'Postventa',
-        'titulo' => 'Garantias',
+        'seccion' => 'ERP',
+        'titulo' => 'Postventa',
         'icono' => 'bi-shield-check',
         'permiso' => 'garantias.ver',
         'items' => array(
@@ -129,8 +134,9 @@ $gruposMenu = array(
         'seccion' => 'Ecommerce',
         'titulo' => 'Ecommerce',
         'icono' => 'bi-shop',
-        'permiso' => 'ecommerce.ver',
+        'permiso' => '',
         'items' => array(
+            array('titulo' => 'Ecommerce publico', 'ruta' => '/ecommercePublico/publicaciones', 'permiso' => 'catalogo.ver'),
             array('titulo' => 'Catalogo ecommerce', 'ruta' => '/producto/catalogo', 'permiso' => 'ecommerce.ver')
         )
     )
@@ -158,50 +164,79 @@ $gruposMenu = array(
                     </a>
                 </div>
 
-                <?php $seccionMenuActual = ''; ?>
-                <?php foreach ($gruposMenu as $grupo): ?>
-                    <?php
+                <?php
+                $modulosVisibles = array();
+                foreach ($gruposMenu as $grupo) {
                     $itemsVisibles = array_values(array_filter($grupo['items'], function ($item) use ($puede) {
                         return $puede($item['permiso']);
                     }));
-                    if (!$puede($grupo['permiso']) || empty($itemsVisibles)) {
+                    $permisoGrupo = isset($grupo['permiso']) ? $grupo['permiso'] : '';
+                    if (($permisoGrupo !== '' && !$puede($permisoGrupo)) || empty($itemsVisibles)) {
                         continue;
                     }
+
                     $seccionGrupo = isset($grupo['seccion']) ? $grupo['seccion'] : 'Operacion';
-                    ?>
-                    <?php if ($seccionGrupo !== $seccionMenuActual): ?>
-                        <?php $seccionMenuActual = $seccionGrupo; ?>
-                        <div class="menu-item pt-5">
-                            <div class="menu-content"><span class="menu-heading fw-bold text-uppercase fs-7"><?= htmlspecialchars($seccionGrupo) ?></span></div>
-                        </div>
-                    <?php endif; ?>
+                    if (!isset($modulosVisibles[$seccionGrupo])) {
+                        $modulosVisibles[$seccionGrupo] = array(
+                            'titulo' => $seccionGrupo,
+                            'icono' => isset($seccionesMenu[$seccionGrupo]['icono']) ? $seccionesMenu[$seccionGrupo]['icono'] : 'bi-grid',
+                            'grupos' => array()
+                        );
+                    }
+
+                    $grupo['items_visibles'] = $itemsVisibles;
+                    $modulosVisibles[$seccionGrupo]['grupos'][] = $grupo;
+                }
+                ?>
+
+                <?php foreach ($modulosVisibles as $modulo): ?>
                     <div data-kt-menu-trigger="click" class="menu-item menu-accordion">
                         <span class="menu-link">
-                            <span class="menu-icon"><i class="bi <?= htmlspecialchars($grupo['icono']) ?> fs-3"></i></span>
-                            <span class="menu-title"><?= htmlspecialchars($grupo['titulo']) ?></span>
+                            <span class="menu-icon"><i class="bi <?= htmlspecialchars($modulo['icono']) ?> fs-3"></i></span>
+                            <span class="menu-title"><?= htmlspecialchars($modulo['titulo']) ?></span>
                             <span class="menu-arrow"></span>
                         </span>
                         <div class="menu-sub menu-sub-accordion">
-                            <?php foreach ($itemsVisibles as $item): ?>
-                                <div class="menu-item">
-                                    <a class="menu-link" href="<?= htmlspecialchars($item['ruta']) ?>">
-                                        <span class="menu-bullet"><span class="bullet bullet-dot"></span></span>
-                                        <span class="menu-title"><?= htmlspecialchars($item['titulo']) ?></span>
-                                    </a>
-                                </div>
+                            <?php foreach ($modulo['grupos'] as $grupo): ?>
+                                <?php $itemsDirectos = count($modulo['grupos']) === 1 && $grupo['titulo'] === $modulo['titulo']; ?>
+                                <?php if ($itemsDirectos): ?>
+                                    <?php foreach ($grupo['items_visibles'] as $item): ?>
+                                        <div class="menu-item">
+                                            <a class="menu-link" href="<?= htmlspecialchars($item['ruta']) ?>">
+                                                <span class="menu-bullet"><span class="bullet bullet-dot"></span></span>
+                                                <span class="menu-title"><?= htmlspecialchars($item['titulo']) ?></span>
+                                            </a>
+                                        </div>
+                                    <?php endforeach; ?>
+                                <?php else: ?>
+                                    <div data-kt-menu-trigger="click" class="menu-item menu-accordion">
+                                        <span class="menu-link">
+                                            <span class="menu-bullet"><i class="bi <?= htmlspecialchars($grupo['icono']) ?> fs-6"></i></span>
+                                            <span class="menu-title"><?= htmlspecialchars($grupo['titulo']) ?></span>
+                                            <span class="menu-arrow"></span>
+                                        </span>
+                                        <div class="menu-sub menu-sub-accordion">
+                                            <?php foreach ($grupo['items_visibles'] as $item): ?>
+                                                <div class="menu-item">
+                                                    <a class="menu-link" href="<?= htmlspecialchars($item['ruta']) ?>">
+                                                        <span class="menu-bullet"><span class="bullet bullet-dot"></span></span>
+                                                        <span class="menu-title"><?= htmlspecialchars($item['titulo']) ?></span>
+                                                    </a>
+                                                </div>
+                                            <?php endforeach; ?>
+                                        </div>
+                                    </div>
+                                <?php endif; ?>
                             <?php endforeach; ?>
                         </div>
                     </div>
                 <?php endforeach; ?>
 
                 <?php if ($puede('seguridad.ver')): ?>
-                    <div class="menu-item pt-5">
-                        <div class="menu-content"><span class="menu-heading fw-bold text-uppercase fs-7">Administracion</span></div>
-                    </div>
                     <div class="menu-item">
                         <a class="menu-link" href="/sistema/seguridad">
-                            <span class="menu-icon"><i class="bi bi-shield-lock fs-3"></i></span>
-                            <span class="menu-title">Usuarios y roles</span>
+                            <span class="menu-icon"><i class="bi <?= htmlspecialchars($seccionesMenu['Administracion']['icono']) ?> fs-3"></i></span>
+                            <span class="menu-title">Administracion</span>
                         </a>
                     </div>
                 <?php endif; ?>

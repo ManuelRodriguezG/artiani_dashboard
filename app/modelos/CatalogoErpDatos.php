@@ -446,7 +446,7 @@ class CatalogoErpDatos extends CRUD {
       $nombresClasificacion = array();
       foreach ($clasificaciones as $orden => $clasificacion) {
         $idClasificacion = intval($clasificacion["id_clasificacion"]);
-        $nombre = trim($clasificacion["clasificacion"]);
+        $nombre = $this->normalizarTextoHistoricoCatalogo($clasificacion["clasificacion"]);
         $stmtCategoriaMaestra->execute(array(
           ":padre" => null,
           ":codigo" => "CLAS-HIST-" . $idClasificacion,
@@ -492,7 +492,7 @@ class CatalogoErpDatos extends CRUD {
         if (!isset($nodosClasificacion[$idClasificacion], $categoriasClasificacion[$idClasificacion])) {
           continue;
         }
-        $nombreCategoria = trim($rama["categoria"]);
+        $nombreCategoria = $this->normalizarTextoHistoricoCatalogo($rama["categoria"]);
         $rutaCategoria = $nombresClasificacion[$idClasificacion] . " / " . $nombreCategoria;
         $stmtCategoriaMaestra->execute(array(
           ":padre" => $categoriasClasificacion[$idClasificacion],
@@ -5728,6 +5728,43 @@ class CatalogoErpDatos extends CRUD {
 
   private function texto($datos, $campo, $default = "") {
     return isset($datos[$campo]) ? trim((string) $datos[$campo]) : $default;
+  }
+
+  /**
+   * IA: GPT-5 Codex
+   * Fecha: 2026-07-12
+   * Proposito: normaliza texto historico con mojibake conocido antes de reconstruir taxonomias ERP desde tablas ecom_*.
+   * Impacto: Catalogo ERP; previene que sincronizaciones heredadas vuelvan a escribir categorias maestras con acentos dañados.
+   * Contrato: recibe texto plano, devuelve texto recortado; no consulta ni modifica BD.
+   */
+  private function normalizarTextoHistoricoCatalogo($texto) {
+    $texto = trim((string) $texto);
+    return strtr($texto, array(
+      "\xE2\x94\x9C\xC2\xA1" => "\xC3\xAD",
+      "\xE2\x94\x9C\xC3\xAD" => "\xC3\xA1",
+      "\xE2\x94\x9C\xE2\x94\x82" => "\xC3\xB3",
+      "\xE2\x94\x9C\xC2\xAE" => "\xC3\xA9",
+      "\xE2\x94\x9C\xE2\x95\x91" => "\xC3\xBA",
+      "\xE2\x94\x9C\xE2\x96\x92" => "\xC3\xB1",
+      "\xE2\x94\x9C\xC3\xBC" => "\xC3\x81",
+      "\xE2\x94\x9C\xC3\xAC" => "\xC3\x8D",
+      "\xE2\x94\x9C\xC3\xB4" => "\xC3\x93",
+      "\xE2\x94\x9C\xC3\xAB" => "\xC3\x89",
+      "\xE2\x94\x9C\xC3\x9C" => "\xC3\x9A",
+      "\xE2\x94\x9C\xC3\xA6" => "\xC3\x91",
+      "\xE2\x94\x9C\xC3\xA2\xE2\x94\xAC\xC3\xAD" => "\xC3\xA1",
+      "\xE2\x94\x9C\xC3\xA2\xE2\x94\xAC\xC2\xA1" => "\xC3\xAD",
+      "\xE2\x94\x9C\xC3\xA2\xE2\x94\xAC\xE2\x94\x82" => "\xC3\xB3",
+      "\xE2\x94\x9C\xC3\xA2\xE2\x94\xAC\xC2\xAE" => "\xC3\xA9",
+      "\xE2\x94\x9C\xC3\xA2\xE2\x94\xAC\xE2\x95\x91" => "\xC3\xBA",
+      "\xE2\x94\x9C\xC3\xA2\xE2\x94\xAC\xE2\x96\x92" => "\xC3\xB1",
+      "\xE2\x94\x9C\xC3\xA2\xE2\x94\xAC\xC3\xBC" => "\xC3\x81",
+      "\xE2\x94\x9C\xC3\xA2\xE2\x94\xAC\xC3\xAC" => "\xC3\x8D",
+      "\xE2\x94\x9C\xC3\xA2\xE2\x94\xAC\xC3\xB4" => "\xC3\x93",
+      "\xE2\x94\x9C\xC3\xA2\xE2\x94\xAC\xC3\xAB" => "\xC3\x89",
+      "\xE2\x94\x9C\xC3\xA2\xE2\x94\xAC\xC3\x9C" => "\xC3\x9A",
+      "\xE2\x94\x9C\xC3\xA2\xE2\x94\xAC\xC3\xA6" => "\xC3\x91"
+    ));
   }
 
   private function decimal($datos, $campo) {

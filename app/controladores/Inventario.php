@@ -182,19 +182,24 @@ class Inventario extends Controlador {
      * Documentacion IA: Codex GPT-5, 2026-07-12.
      * Proposito: resolver pendiente POS de inventario con conteo fisico y ajuste autorizado.
      * Impacto: puede crear kardex, cerrar pendiente POS y ligar movimiento de ajuste.
-     * Contrato: requiere `inventario.ajustar`, token explicito y respaldo externo vigente.
+     * Contrato: requiere `inventario.ajustar`, token explicito, respaldo externo vigente y confirmacion textual.
      */
     public function pos_pendiente_inventario_resolver_erp() {
         $this->requerirPermiso("inventario.ajustar");
         $autorizar = isset($_POST["autorizar"]) ? trim((string) $_POST["autorizar"]) : "";
         $respaldo = isset($_POST["respaldo"]) ? trim((string) $_POST["respaldo"]) : "";
-        if ($autorizar !== "INVENTARIO_POS_PENDIENTE_RESOLVER_REAL" || $respaldo === "") {
+        $confirmacion = isset($_POST["confirmacion"]) ? strtoupper(trim((string) $_POST["confirmacion"])) : "";
+        if ($autorizar !== "INVENTARIO_POS_PENDIENTE_RESOLVER_REAL" || $respaldo === "" || $confirmacion !== "RESOLVER PENDIENTE") {
             return json_encode(array(
                 "error" => true,
                 "tipo" => "danger",
-                "mensaje" => "No se resolvio pendiente POS. Falta autorizacion explicita o respaldo vigente.",
+                "mensaje" => "No se resolvio pendiente POS. Falta autorizacion explicita, respaldo vigente o confirmacion textual.",
                 "depurar" => array(
-                    "requerido" => array("autorizar" => "INVENTARIO_POS_PENDIENTE_RESOLVER_REAL", "respaldo" => "UAT POS vigente"),
+                    "requerido" => array(
+                        "autorizar" => "INVENTARIO_POS_PENDIENTE_RESOLVER_REAL",
+                        "respaldo" => "UAT POS vigente",
+                        "confirmacion" => "RESOLVER PENDIENTE"
+                    ),
                     "reglas" => array("Puede crear kardex.", "Puede cerrar pendiente.", "No debe ejecutarse sin conteo fisico documentado.")
                 )
             ));

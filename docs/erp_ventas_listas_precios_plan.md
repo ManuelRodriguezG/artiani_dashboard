@@ -758,7 +758,7 @@ Guardrails de controlador:
   - cancelar requiere tambien `ventas.listas.cancelar`.
 - Detalle requiere `ventas.listas.editar`.
 - Asignacion cliente CRM requiere `ventas.listas.asignar_cliente`.
-- Todos requieren respaldo externo valido y token `VENTAS_LISTAS_PRECIOS_GUARDAR_UAT`.
+- Todos requieren token `VENTAS_LISTAS_PRECIOS_GUARDAR_UAT`; el respaldo externo queda reservado para DDL/cambios de esquema.
 
 Validaciones ejecutadas:
 
@@ -800,10 +800,10 @@ La pantalla `/ventas/listas_precios` ya permite pasar de validacion dry-run a in
 Guardrails vigentes:
 
 - Si falta token `VENTAS_LISTAS_PRECIOS_GUARDAR_UAT`, backend rechaza.
-- Si falta respaldo externo valido, backend rechaza.
 - Si faltan permisos finos sembrados, backend rechaza.
 - Si falta `erp_listas_precios_eventos`, el modelo rechaza antes de escribir.
 - Si falta `id_cliente_crm`, la asignacion cliente/lista rechaza antes de escribir.
+- Los guardados normales de listas no requieren respaldo de BD; deben quedar auditados en eventos.
 
 Validaciones ejecutadas:
 
@@ -825,7 +825,7 @@ Siguiente paso recomendado:
 Se agrego preflight read-only:
 
 ```text
-C:\xampp\php\php.exe storage\uat\uat_ventas_listas_precios_preflight_readonly.php --respaldo=REFERENCIA_RESPALDO
+C:\xampp\php\php.exe storage\uat\uat_ventas_listas_precios_preflight_readonly.php
 ```
 
 Archivo:
@@ -867,7 +867,9 @@ Guardrails:
 - bloqueado por defecto;
 - requiere `--autorizar_crm=VENTAS_LISTAS_PRECIOS_CRM_DDL`;
 - requiere `--autorizar_auditoria=VENTAS_LISTAS_PRECIOS_AUDITORIA_DDL`;
-- requiere `--respaldo=REFERENCIA_RESPALDO`;
+- puede generar respaldo externo automaticamente con `--generar_respaldo=1`;
+- permite `--directorio_respaldo=RUTA_EXTERNA` para elegir carpeta fuera del proyecto;
+- tambien permite `--respaldo=REFERENCIA_RESPALDO` si ya existe un respaldo externo;
 - audita antes/despues de CRM/listas y eventos.
 
 Validacion ejecutada:
@@ -885,9 +887,62 @@ Resultado esperado sin tokens:
 
 Siguiente paso recomendado:
 
-1. Ejecutar preflight con referencia real de respaldo.
-2. Si no hay bloqueos, pedir autorizacion explicita para DDL CRM/listas y auditoria.
+1. Ejecutar preflight read-only.
+2. Si no hay bloqueos, generar respaldo externo automaticamente al aplicar DDL autorizado.
 3. Despues aplicar semillas de permisos y pasar rutas read-only a `ventas.listas.ver`.
+
+## Decision operativa 2026-07-12 - respaldo externo reservado para DDL
+
+Regla actualizada por el dueno:
+
+- El agente puede generar el respaldo externo.
+- El respaldo debe guardarse fuera del proyecto.
+- El respaldo se hace cuando se modifica el esquema de la base de datos.
+- No se debe pedir respaldo de BD para CRUD normal de listas, detalles o asignaciones.
+
+Aplicacion en Listas de precios:
+
+- `uat_ventas_listas_precios_schema_apply_authorized.php` genera respaldo de esquema con `--generar_respaldo=1` antes de aplicar DDL.
+- La ruta default queda fuera del proyecto: `Documents\RespaldosBD\panel`.
+- La UI UAT de guardado de listas ya no pide respaldo; solo token, motivo/referencia operativa, permisos y auditoria.
+- Los endpoints de DDL siguen bloqueados por autorizacion y respaldo; el camino recomendado para aplicar DDL es el script CLI autorizado con respaldo automatico.
+
+## Avance tecnico 2026-07-12 - permisos separados de DDL
+
+Se agregaron scripts UAT para permisos de Listas de precios:
+
+- `storage/uat/uat_ventas_listas_precios_permisos_readonly.php`
+- `storage/uat/uat_ventas_listas_precios_permisos_apply_authorized.php`
+
+Regla:
+
+- Sembrar permisos no modifica esquema.
+- No requiere respaldo externo.
+- Siembra bloqueada por token `VENTAS_LISTAS_PRECIOS_PERMISOS` e `id_usuario`.
+- Registra auditoria en `sys_auditoria_eventos` cuando la tabla esta disponible.
+
+Validacion ejecutada:
+
+```text
+C:\xampp\php\php.exe -l storage\uat\uat_ventas_listas_precios_permisos_readonly.php
+C:\xampp\php\php.exe -l storage\uat\uat_ventas_listas_precios_permisos_apply_authorized.php
+C:\xampp\php\php.exe storage\uat\uat_ventas_listas_precios_permisos_readonly.php
+C:\xampp\php\php.exe storage\uat\uat_ventas_listas_precios_permisos_apply_authorized.php
+```
+
+Resultado:
+
+- Read-only detecto los 8 permisos en codigo.
+- BD actual todavia no tiene los 8 permisos `ventas.listas.*`.
+- Apply sin token quedo bloqueado.
+- No se escribio BD.
+
+Siguiente paso recomendado:
+
+1. Autorizar/aplicar DDL de CRM/listas y auditoria con respaldo automatico.
+2. Autorizar/aplicar permisos con `VENTAS_LISTAS_PRECIOS_PERMISOS`.
+3. Repetir preflight.
+4. Cambiar rutas read-only a `ventas.listas.ver`.
 
 ## Avance tecnico 2026-07-12 - guia operativa en UI
 
@@ -920,3 +975,571 @@ Nota de cruce con Catalogo:
 - `CatalogoErpDatos::auditarCalidadCatalogo()` ya muestra el problema como `SKU sin precio provisional`.
 - `productos.js` ya muestra `Venta sin precio prov.` y aclara que el precio final vive despues en Listas de precios/canal.
 - No se requiere cambio adicional en Catalogo para este punto.
+
+## Avance tecnico 2026-07-12 - UAT guardado de lista borrador preparado
+
+Se agregaron scripts para el primer guardado real controlado de Listas de precios:
+
+- `storage/uat/uat_ventas_listas_precios_guardado_borrador_readonly.php`
+- `storage/uat/uat_ventas_listas_precios_guardado_borrador_apply_authorized.php`
+
+Reglas:
+
+- El preflight es read-only y no escribe BD.
+- El apply queda bloqueado por defecto.
+- Para escribir requiere token `VENTAS_LISTAS_PRECIOS_GUARDAR_UAT` e `id_usuario`.
+- No requiere respaldo externo porque guardar una lista en borrador es CRUD normal.
+- Antes de escribir valida que exista `erp_listas_precios_eventos`.
+- Antes de escribir valida que exista `ventas.listas.crear` en BD.
+- La falta de `id_cliente_crm` queda como aviso para asignaciones CRM; no bloquea guardar solo el encabezado de lista.
+
+Validacion ejecutada:
+
+```text
+C:\xampp\php\php.exe -l storage\uat\uat_ventas_listas_precios_guardado_borrador_readonly.php
+C:\xampp\php\php.exe -l storage\uat\uat_ventas_listas_precios_guardado_borrador_apply_authorized.php
+C:\xampp\php\php.exe storage\uat\uat_ventas_listas_precios_guardado_borrador_readonly.php
+C:\xampp\php\php.exe storage\uat\uat_ventas_listas_precios_guardado_borrador_apply_authorized.php
+```
+
+Resultado:
+
+- Sintaxis correcta en ambos scripts.
+- Apply sin token quedo bloqueado y no escribio BD.
+- Read-only valido que `LP-UAT-BORRADOR-01` puede guardarse por reglas de negocio.
+- Bloqueo actual: falta `erp_listas_precios_eventos`.
+- Aviso actual: falta `id_cliente_crm`, relevante para asignaciones CRM pero no para encabezado borrador.
+
+Siguiente paso recomendado:
+
+1. Validar estos scripts sin token.
+2. Aplicar DDL y permisos solo con autorizacion.
+3. Ejecutar el guardado UAT en borrador.
+4. Despues preparar UAT de detalle SKU `1760`.
+
+## Avance tecnico 2026-07-12 - UAT detalle SKU preparado
+
+Se agregaron scripts para validar y aplicar un precio UAT por SKU dentro de una lista existente:
+
+- `storage/uat/uat_ventas_listas_precios_detalle_sku_readonly.php`
+- `storage/uat/uat_ventas_listas_precios_detalle_sku_apply_authorized.php`
+
+Valores default:
+
+- Lista por codigo: `LP-UAT-BORRADOR-01`
+- SKU: `1760`
+- Precio: `315.00`
+- Moneda: `MXN`
+- Estatus: `activo`
+
+Reglas:
+
+- El preflight es read-only.
+- El apply queda bloqueado por defecto.
+- Para escribir requiere token `VENTAS_LISTAS_PRECIOS_GUARDAR_UAT` e `id_usuario`.
+- No requiere respaldo externo porque es CRUD normal.
+- Antes de escribir valida que exista la lista objetivo.
+- Antes de escribir valida `erp_listas_precios_eventos`.
+- Antes de escribir valida permiso `ventas.listas.editar` en BD.
+- Reutiliza `detalleDryRun()` para impedir precio invalido o duplicado.
+
+Siguiente paso recomendado:
+
+1. Validar sintaxis y bloqueo sin token.
+2. Despues de crear `LP-UAT-BORRADOR-01`, ejecutar preflight de detalle.
+3. Aplicar detalle autorizado.
+4. Prevalidar resolutor POS antes de activar la lista.
+
+Validacion ejecutada:
+
+```text
+C:\xampp\php\php.exe -l storage\uat\uat_ventas_listas_precios_detalle_sku_readonly.php
+C:\xampp\php\php.exe -l storage\uat\uat_ventas_listas_precios_detalle_sku_apply_authorized.php
+C:\xampp\php\php.exe storage\uat\uat_ventas_listas_precios_detalle_sku_readonly.php
+C:\xampp\php\php.exe storage\uat\uat_ventas_listas_precios_detalle_sku_apply_authorized.php
+```
+
+Resultado:
+
+- Sintaxis correcta en ambos scripts.
+- Apply sin token quedo bloqueado y no escribio BD.
+- Read-only bloqueo porque aun no existe `LP-UAT-BORRADOR-01`.
+- Read-only bloqueo porque falta `erp_listas_precios_eventos`.
+- El SKU `1760`, precio `315.00` y moneda `MXN` quedaron como entrada UAT propuesta.
+
+## Avance tecnico 2026-07-12 - UAT asignacion cliente CRM preparado
+
+Se agregaron scripts para validar y aplicar una asignacion directa cliente CRM-lista:
+
+- `storage/uat/uat_ventas_listas_precios_asignacion_cliente_readonly.php`
+- `storage/uat/uat_ventas_listas_precios_asignacion_cliente_apply_authorized.php`
+
+Valores default:
+
+- Lista por codigo: `LP-UAT-BORRADOR-01`
+- Cliente CRM: `1`
+- Prioridad: `1`
+- Estatus: `activo`
+
+Reglas:
+
+- El preflight es read-only.
+- El apply queda bloqueado por defecto.
+- Para escribir requiere token `VENTAS_LISTAS_PRECIOS_GUARDAR_UAT` e `id_usuario`.
+- No requiere respaldo externo porque es CRUD normal.
+- Antes de escribir valida que exista la lista objetivo.
+- Antes de escribir valida `id_cliente_crm` en `erp_clientes_listas_precios`.
+- Antes de escribir valida `erp_listas_precios_eventos`.
+- Antes de escribir valida permiso `ventas.listas.asignar_cliente` en BD.
+- Reutiliza `asignacionClienteDryRun()` para impedir cliente/lista invalida o duplicada.
+
+Siguiente paso recomendado:
+
+1. Validar sintaxis y bloqueo sin token.
+2. Aplicar DDL CRM/listas y auditoria solo con autorizacion y respaldo externo.
+3. Sembrar permisos.
+4. Crear lista borrador, detalle SKU y asignacion cliente.
+5. Ejecutar resolutor POS con cliente CRM para comprobar `lista_cliente`.
+
+Validacion ejecutada:
+
+```text
+C:\xampp\php\php.exe -l storage\uat\uat_ventas_listas_precios_asignacion_cliente_readonly.php
+C:\xampp\php\php.exe -l storage\uat\uat_ventas_listas_precios_asignacion_cliente_apply_authorized.php
+C:\xampp\php\php.exe storage\uat\uat_ventas_listas_precios_asignacion_cliente_readonly.php
+C:\xampp\php\php.exe storage\uat\uat_ventas_listas_precios_asignacion_cliente_apply_authorized.php
+```
+
+Resultado:
+
+- Sintaxis correcta en ambos scripts.
+- Apply sin token quedo bloqueado y no escribio BD.
+- Read-only bloqueo porque aun no existe `LP-UAT-BORRADOR-01`.
+- Read-only bloqueo porque falta `id_cliente_crm` en `erp_clientes_listas_precios`.
+- Read-only bloqueo porque falta `erp_listas_precios_eventos`.
+- Cliente CRM `1` quedo como entrada UAT propuesta.
+
+## Avance tecnico 2026-07-12 - UAT activacion de lista preparado
+
+Se agregaron scripts para activar una lista UAT solo despues de tener detalle activo:
+
+- `storage/uat/uat_ventas_listas_precios_activar_lista_readonly.php`
+- `storage/uat/uat_ventas_listas_precios_activar_lista_apply_authorized.php`
+
+Reglas:
+
+- El preflight es read-only.
+- El apply queda bloqueado por defecto.
+- Para escribir requiere token `VENTAS_LISTAS_PRECIOS_GUARDAR_UAT` e `id_usuario`.
+- No requiere respaldo externo porque es cambio comercial, no DDL.
+- Antes de activar valida que exista la lista objetivo.
+- Antes de activar valida que exista al menos un detalle activo.
+- Antes de activar valida `erp_listas_precios_eventos`.
+- Antes de activar valida permisos `ventas.listas.editar` y `ventas.listas.activar`.
+- Reutiliza `listaGuardarAutorizado()` para dejar evento comercial.
+
+Siguiente paso recomendado:
+
+1. Validar sintaxis y bloqueo sin token.
+2. Despues de crear lista/detalle, ejecutar preflight de activacion.
+3. Activar lista UAT.
+4. Ejecutar resolutor POS read-only antes de venta real.
+
+Validacion ejecutada:
+
+```text
+C:\xampp\php\php.exe -l storage\uat\uat_ventas_listas_precios_activar_lista_readonly.php
+C:\xampp\php\php.exe -l storage\uat\uat_ventas_listas_precios_activar_lista_apply_authorized.php
+C:\xampp\php\php.exe storage\uat\uat_ventas_listas_precios_activar_lista_readonly.php
+C:\xampp\php\php.exe storage\uat\uat_ventas_listas_precios_activar_lista_apply_authorized.php
+```
+
+Resultado:
+
+- Sintaxis correcta en ambos scripts.
+- Apply sin token quedo bloqueado y no escribio BD.
+- Read-only bloqueo porque aun no existe `LP-UAT-BORRADOR-01`.
+- Read-only bloqueo porque no hay detalles activos.
+- Read-only bloqueo porque falta `erp_listas_precios_eventos`.
+
+## Avance tecnico 2026-07-12 - UAT resolutor post-aplicacion preparado
+
+Se agrego verificador final read-only:
+
+- `storage/uat/uat_ventas_listas_precios_resolutor_post_uat_readonly.php`
+
+Valida:
+
+- Lista UAT existe y esta activa.
+- Detalle activo del SKU `1760` existe con precio esperado.
+- Asignacion activa cliente CRM/lista existe.
+- El resolutor backend con cliente CRM devuelve:
+  - `regla_precio_origen=lista_cliente`;
+  - `id_lista_precio` de la lista UAT;
+  - precio esperado;
+  - `lista_precio_snapshot`.
+
+Regla:
+
+- No crea venta real.
+- No crea snapshot real.
+- No escribe BD.
+- Sirve como ultimo semaforo antes de autorizar venta UAT POS.
+
+Siguiente paso recomendado:
+
+1. Validar sintaxis.
+2. Ejecutar el read-only ahora para confirmar bloqueos esperados.
+3. Despues de aplicar DDL/permisos/CRUD, repetirlo hasta `ok=true`.
+
+Validacion ejecutada:
+
+```text
+C:\xampp\php\php.exe -l storage\uat\uat_ventas_listas_precios_resolutor_post_uat_readonly.php
+C:\xampp\php\php.exe storage\uat\uat_ventas_listas_precios_resolutor_post_uat_readonly.php
+```
+
+Resultado:
+
+- Sintaxis correcta.
+- No escribio BD.
+- El resolutor actual sigue funcionando con la semilla existente `Lista UAT POS` y precio `295`.
+- El verificador post-UAT bloqueo correctamente porque aun no existe la lista objetivo `LP-UAT-BORRADOR-01`.
+- Tambien bloqueo porque falta detalle/asignacion de esa lista y no coincide el precio esperado `315.00`.
+
+## Avance tecnico 2026-07-12 - preflight maestro UAT
+
+Se agrego:
+
+- `storage/uat/uat_ventas_listas_precios_flujo_completo_readonly.php`
+
+Objetivo:
+
+- Consolidar en una sola salida el estado completo del flujo UAT:
+  - DDL CRM/listas;
+  - DDL auditoria eventos;
+  - permisos;
+  - lista UAT;
+  - detalle SKU;
+  - asignacion cliente;
+  - activacion;
+  - resolutor POS.
+
+Tambien se corrigio el verificador post-UAT para leer `precio_aplicado`, que es el campo real devuelto por el dry-run POS, dejando `precio_unitario` solo como compatibilidad.
+
+Siguiente paso recomendado:
+
+1. Validar sintaxis del preflight maestro.
+2. Ejecutarlo para confirmar bloqueos actuales.
+3. Usarlo como semaforo unico despues de cada paso autorizado.
+
+Validacion ejecutada:
+
+```text
+C:\xampp\php\php.exe -l storage\uat\uat_ventas_listas_precios_flujo_completo_readonly.php
+C:\xampp\php\php.exe -l storage\uat\uat_ventas_listas_precios_resolutor_post_uat_readonly.php
+C:\xampp\php\php.exe storage\uat\uat_ventas_listas_precios_flujo_completo_readonly.php
+C:\xampp\php\php.exe storage\uat\uat_ventas_listas_precios_resolutor_post_uat_readonly.php
+```
+
+Resultado:
+
+- Sintaxis correcta.
+- No escribio BD.
+- El preflight maestro reporta pendientes las 8 etapas:
+  - DDL CRM/listas;
+  - DDL auditoria eventos;
+  - permisos;
+  - lista UAT;
+  - detalle SKU;
+  - asignacion cliente;
+  - activacion;
+  - resolutor cliente.
+- El resolutor actual sigue devolviendo la semilla existente `Lista UAT POS` con precio `295`.
+- El nuevo precio UAT esperado `315.00` queda reservado para cuando se cree y active `LP-UAT-BORRADOR-01`.
+
+## Avance tecnico 2026-07-12 - verificador snapshot venta UAT
+
+Se agrego:
+
+- `storage/uat/uat_ventas_listas_precios_snapshot_venta_readonly.php`
+
+Objetivo:
+
+- Validar una venta POS UAT ya emitida por `folio`.
+- Confirmar que el snapshot de precio historico quedo en `erp_ventas_detalle`:
+  - `id_lista_precio`;
+  - `lista_precio_snapshot`;
+  - `regla_precio_origen`;
+  - `precio_base`;
+  - `precio_aplicado`.
+- Comparar contra la lista actual para confirmar que una venta pasada no depende de recalcular la lista.
+
+Regla:
+
+- El script exige `--folio=...`.
+- No modifica ventas, listas, inventario ni pagos.
+- El detalle de venta es la fuente historica fina; el encabezado puede quedar incompleto si hay listas mixtas.
+
+Siguiente paso recomendado:
+
+1. Validar sintaxis.
+2. Ejecutarlo sin folio para confirmar bloqueo seguro.
+3. Usarlo despues de la venta POS UAT real.
+
+Validacion ejecutada:
+
+```text
+C:\xampp\php\php.exe -l storage\uat\uat_ventas_listas_precios_snapshot_venta_readonly.php
+C:\xampp\php\php.exe storage\uat\uat_ventas_listas_precios_snapshot_venta_readonly.php
+```
+
+Resultado:
+
+- Sintaxis correcta.
+- Sin `--folio`, bloquea con mensaje claro.
+- No escribio BD.
+- Queda listo para ejecutarse despues de la venta POS UAT real.
+
+## Avance tecnico 2026-07-12 - cambio posterior de precio
+
+Se agregaron scripts para cerrar la prueba de inmutabilidad historica:
+
+- `storage/uat/uat_ventas_listas_precios_cambio_posterior_readonly.php`
+- `storage/uat/uat_ventas_listas_precios_cambio_posterior_apply_authorized.php`
+
+Tambien se extendio:
+
+- `storage/uat/uat_ventas_listas_precios_snapshot_venta_readonly.php`
+
+Nuevo parametro:
+
+- `--precio_lista_actual_esperado=325.00`
+
+Flujo:
+
+1. Emitir venta UAT con precio historico `315.00`.
+2. Validar snapshot de venta.
+3. Cambiar precio actual de la lista a `325.00`.
+4. Revalidar la misma venta:
+   - venta debe conservar `precio_aplicado=315.00`;
+   - lista actual puede tener `325.00`.
+
+Regla:
+
+- Cambiar una lista afecta resoluciones futuras.
+- No debe alterar ventas pasadas.
+- El cambio posterior es CRUD comercial auditado, no DDL; no requiere respaldo externo.
+
+Siguiente paso recomendado:
+
+1. Validar sintaxis.
+2. Ejecutar apply sin token para confirmar bloqueo.
+3. Ejecutar read-only para confirmar bloqueos actuales.
+
+Validacion ejecutada:
+
+```text
+C:\xampp\php\php.exe -l storage\uat\uat_ventas_listas_precios_cambio_posterior_readonly.php
+C:\xampp\php\php.exe -l storage\uat\uat_ventas_listas_precios_cambio_posterior_apply_authorized.php
+C:\xampp\php\php.exe -l storage\uat\uat_ventas_listas_precios_snapshot_venta_readonly.php
+C:\xampp\php\php.exe storage\uat\uat_ventas_listas_precios_cambio_posterior_apply_authorized.php
+C:\xampp\php\php.exe storage\uat\uat_ventas_listas_precios_cambio_posterior_readonly.php
+```
+
+Resultado:
+
+- Sintaxis correcta.
+- Apply sin token quedo bloqueado y no escribio BD.
+- Read-only bloqueo porque aun no existe `LP-UAT-BORRADOR-01`.
+- Read-only bloqueo porque aun no existe detalle activo del SKU `1760`.
+- Read-only bloqueo porque falta `erp_listas_precios_eventos`.
+- Quedo preparado el cambio posterior de `315.00` a `325.00` para validar snapshot historico.
+
+## Avance tecnico 2026-07-13 - lectura de auditoria comercial
+
+Se agrego lectura formal de eventos:
+
+- Modelo: `ListasPreciosErp::auditoriaReadOnly()`
+- Endpoint: `/ventas/listas_precios_auditoria_erp`
+- UAT: `storage/uat/uat_ventas_listas_precios_auditoria_eventos_readonly.php`
+
+Valida:
+
+- Eventos por lista.
+- Accion filtrada cuando aplique.
+- `datos_antes`.
+- `datos_despues`.
+- Usuario.
+- Motivo.
+
+Regla:
+
+- Es read-only.
+- Si `erp_listas_precios_eventos` no existe, devuelve pendiente de esquema.
+- El endpoint queda temporalmente protegido por `ventas.ver`; al sembrar permisos se debe cambiar a `ventas.listas.auditoria`.
+
+Siguiente paso recomendado:
+
+1. Validar sintaxis.
+2. Ejecutar UAT read-only de auditoria para confirmar bloqueo actual.
+3. Despues de operaciones UAT, usarlo para comprobar trazabilidad.
+
+Validacion ejecutada:
+
+```text
+C:\xampp\php\php.exe -l app\modelos\ListasPreciosErp.php
+C:\xampp\php\php.exe -l app\controladores\Ventas.php
+C:\xampp\php\php.exe -l storage\uat\uat_ventas_listas_precios_auditoria_eventos_readonly.php
+C:\xampp\php\php.exe storage\uat\uat_ventas_listas_precios_auditoria_eventos_readonly.php
+```
+
+Resultado:
+
+- Sintaxis correcta.
+- No escribio BD.
+- UAT read-only bloqueo porque falta `erp_listas_precios_eventos`.
+- UAT read-only bloqueo porque aun no existe `LP-UAT-BORRADOR-01`.
+- Queda listo para comprobar eventos despues de DDL y operaciones UAT.
+
+## Decision de arquitectura 2026-07-13 - ubicacion del modulo
+
+Listas de precios queda ubicado conceptualmente en `ERP > Comercial > Listas de precios`.
+
+Razon:
+
+- No es una pantalla propia de POS; POS solo consume el precio ya resuelto por backend.
+- No es solo Catalogo; Catalogo define identidad, unidad, presentaciones y atributos del producto, pero no decide el precio final.
+- No es solo Ventas; Ventas registra la operacion y guarda snapshot, pero no debe gobernar politicas comerciales globales.
+- Comercial concentra precio base, vigencia, prioridad, canal, cliente, segmento, sucursal/almacen y excepciones controladas.
+
+Implementacion inicial:
+
+- Ruta canonica de UI: `/comercial/listas_precios`.
+- Controlador de organizacion: `Comercial::listas_precios()`.
+- Vista reutilizada: `apps/erp/ventas/listas_precios`.
+- Endpoints tecnicos existentes permanecen temporalmente en `/ventas/listas_precios_*` para no romper POS, Checador ni UAT.
+
+Regla operativa:
+
+- `ERP > Comercial` gobierna precios.
+- `ERP > Ventas y POS` vende y muestra el precio aplicado.
+- `CRM` es modulo hermano del ERP; desde CRM se asignan condiciones/listas a clientes.
+- `ERP > Catalogo` define productos, unidades, presentaciones y datos base.
+- `Ecommerce` es modulo hermano y debera consumir listas permitidas para canal ecommerce, nunca listas POS internas sin regla explicita.
+
+Decision de navegacion:
+
+- El sidebar usa menus principales por modulo de sistema: `ERP`, `CRM`, `Ecommerce` y `Administracion`.
+- Cada modulo principal tiene icono propio en el mismo estilo visual de los menus existentes.
+- Dentro de `ERP` viven submodulos operativos como acordeones: Catalogo, Comercial, Ventas y POS, Compras, Proveedores, Almacen, Inventario y Postventa.
+- `Listas de precios` queda en `ERP > Comercial` porque es politica comercial base, no una funcion exclusiva de POS.
+
+Siguiente ajuste recomendado:
+
+1. Mantener compatibilidad con endpoints actuales.
+2. Crear permisos finos `ventas.listas.ver`, `ventas.listas.editar`, `ventas.listas.auditoria` o renombrarlos a `comercial.listas.*` antes de abrir CRUD completo.
+3. Cuando el CRUD este estable, evaluar mover endpoints de `/ventas/listas_precios_*` a `/comercial/listas_precios_*` con aliases temporales.
+
+## Avance tecnico 2026-07-13 - endpoints canonicos Comercial
+
+Se agregaron aliases canonicos en `Comercial`:
+
+- `/comercial/listas_precios_resumen_erp`
+- `/comercial/listas_precios_listar_erp`
+- `/comercial/listas_precios_consultar_erp`
+- `/comercial/listas_precios_conflictos_erp`
+- `/comercial/listas_precios_auditoria_erp`
+- `/comercial/listas_precios_lista_dryrun_erp`
+- `/comercial/listas_precios_detalle_dryrun_erp`
+- `/comercial/listas_precios_asignacion_dryrun_erp`
+- `/comercial/listas_precios_lista_guardar_erp`
+- `/comercial/listas_precios_detalle_guardar_erp`
+- `/comercial/listas_precios_asignacion_guardar_erp`
+- `/comercial/esquema_auditar_listas_precios_crm`
+- `/comercial/esquema_actualizar_listas_precios_crm`
+- `/comercial/esquema_auditar_auditoria_listas_precios`
+- `/comercial/esquema_actualizar_auditoria_listas_precios`
+
+Regla:
+
+- La UI canonica `ERP > Comercial > Listas de precios` consume `/comercial/listas_precios_*`.
+- Los endpoints viejos `/ventas/listas_precios_*` se conservan como compatibilidad temporal para no romper UAT ni enlaces existentes.
+- Los guardados siguen bloqueados por permisos finos, token UAT y auditoria comercial.
+- Los endpoints web de DDL en Comercial requieren `sistema.soporte`, token especifico y respaldo externo valido.
+- No se escribio BD ni se ejecuto DDL.
+
+Validacion ejecutada:
+
+```text
+C:\xampp\php\php.exe storage\uat\uat_ventas_listas_precios_flujo_completo_readonly.php
+```
+
+Resultado:
+
+- Preflight maestro sigue bloqueado por falta de DDL CRM/listas, auditoria de eventos, permisos sembrados y datos UAT.
+- El resolutor actual sigue devolviendo la semilla previa `Lista UAT POS` con precio `295`.
+- El precio UAT nuevo `315.00` queda pendiente hasta crear y activar `LP-UAT-BORRADOR-01`.
+
+## Avance tecnico 2026-07-13 - DDL, permisos y UAT aplicados
+
+Se ejecuto DDL autorizado con respaldo externo automatico.
+
+Respaldo generado fuera del proyecto:
+
+```text
+C:\Users\aleja\Documents\RespaldosBD\panel\panel_artianilocal_20260712_213505_antes_ventas_listas_precios_schema.sql
+```
+
+Cambios de esquema aplicados:
+
+- `erp_clientes_listas_precios.id_cliente_crm`.
+- `erp_clientes_listas_precios.id_cliente` quedo nullable para convivencia CRM.
+- Indice `idx_cliente_lista_cliente_crm`.
+- Tabla `erp_listas_precios_eventos`.
+- Indices de auditoria de eventos comerciales.
+
+Permisos sembrados:
+
+- `ventas.listas.ver`
+- `ventas.listas.crear`
+- `ventas.listas.editar`
+- `ventas.listas.activar`
+- `ventas.listas.pausar`
+- `ventas.listas.cancelar`
+- `ventas.listas.asignar_cliente`
+- `ventas.listas.auditoria`
+
+Datos UAT creados:
+
+- Lista: `LP-UAT-BORRADOR-01`, `id_lista_precio=2`, canal `pos`, almacen `5`, estatus `activa`.
+- Detalle: SKU `1760`, precio `315.00 MXN`, estatus `activo`.
+- Asignacion: cliente CRM `1`, prioridad `1`, estatus `activo`.
+
+Auditoria comercial:
+
+- `crear_lista`
+- `crear_detalle`
+- `crear_asignacion_cliente`
+- `editar_lista` para activacion
+
+Hallazgo y correccion:
+
+- El resolutor seguia ganando con la lista legacy `LP-UAT-POS` (`id_lista_precio=1`, precio `295`) porque trataba `id_cliente=1` como compatibilidad CRM con la misma prioridad que `id_cliente_crm=1`.
+- Se ajusto `VentasErp::resolverPrecioSkuDryRun()` para ordenar primero la coincidencia CRM canonica `id_cliente_crm`, despues compatibilidad legacy `id_cliente`.
+- El preflight maestro quedo `ok=true`.
+
+Validacion final:
+
+- Con cliente CRM `1`, SKU `1760`, almacen `5`, canal `pos`:
+  - `id_lista_precio=2`;
+  - `precio_aplicado=315`;
+  - `regla_precio_origen=lista_cliente`;
+  - `lista_precio_snapshot=Lista UAT borrador`.
+- Sin cliente, sigue ganando la lista canal/sucursal previa `LP-UAT-POS` con precio `295`, como comparativo de prioridad.
+
+Siguiente paso:
+
+1. Ejecutar venta POS UAT real solo con autorizacion operativa.
+2. Validar snapshot en `erp_ventas_detalle` con `storage/uat/uat_ventas_listas_precios_snapshot_venta_readonly.php --folio=...`.
+3. Probar cambio posterior de precio y confirmar que la venta pasada conserva snapshot historico.

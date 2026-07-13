@@ -1502,11 +1502,16 @@ class InventarioErp extends CRUD {
             foreach ($existencias as $existencia) {
                 $disponibleActual += floatval($existencia["cantidad_disponible"]);
             }
-            $diferenciaAjuste = round($cantidadFisica - $disponibleActual, 6);
+            $cantidadPendienteVendida = round(floatval($pendiente["cantidad_pendiente"]), 6);
+            $existenciaObjetivoAntesSalida = round($cantidadFisica + $cantidadPendienteVendida, 6);
+            $diferenciaAjuste = round($existenciaObjetivoAntesSalida - $disponibleActual, 6);
             $requiereAjuste = abs($diferenciaAjuste) > 0.000001 && $decision === "ajustar_a_conteo";
             $tipoAjuste = $diferenciaAjuste >= 0 ? "entrada" : "salida";
             if ($decision === "cerrar_sin_ajuste" && abs($diferenciaAjuste) > 0.000001) {
                 $avisos[] = "El conteo fisico no coincide con ERP; cerrar sin ajuste dejaria diferencia visible";
+            }
+            if ($decision === "cerrar_sin_ajuste" && $disponibleActual + 0.000001 < $cantidadPendienteVendida) {
+                $bloqueos[] = "No hay existencia ERP suficiente para reconocer la salida vendida pendiente sin ajuste";
             }
             if ($decision === "mantener_pendiente") {
                 $requiereAjuste = false;
@@ -1521,6 +1526,8 @@ class InventarioErp extends CRUD {
                 "conteo" => array(
                     "cantidad_fisica" => $cantidadFisica,
                     "disponible_erp_actual" => round($disponibleActual, 6),
+                    "cantidad_pendiente_vendida" => $cantidadPendienteVendida,
+                    "existencia_objetivo_antes_salida" => $existenciaObjetivoAntesSalida,
                     "diferencia_ajuste" => $diferenciaAjuste,
                     "decision" => $decision,
                     "motivo" => $motivo
@@ -1529,9 +1536,12 @@ class InventarioErp extends CRUD {
                     "requiere_ajuste" => $requiereAjuste,
                     "tipo_ajuste" => $requiereAjuste ? $tipoAjuste : null,
                     "cantidad_ajuste" => $requiereAjuste ? abs($diferenciaAjuste) : 0,
+                    "requiere_salida_venta_pendiente" => $decision !== "mantener_pendiente" && $cantidadPendienteVendida > 0,
+                    "cantidad_salida_venta_pendiente" => $decision !== "mantener_pendiente" ? $cantidadPendienteVendida : 0,
+                    "disponible_final_estimado" => $decision !== "mantener_pendiente" ? $cantidadFisica : $disponibleActual,
                     "referencia_sugerida" => "PINV-RES-" . $pendiente["folio"],
                     "nuevo_estatus_pendiente" => $decision === "mantener_pendiente" ? "pendiente_revision" : "resuelto",
-                    "crear_kardex" => $requiereAjuste,
+                    "crear_kardex" => $requiereAjuste || ($decision !== "mantener_pendiente" && $cantidadPendienteVendida > 0),
                     "cerrar_pendiente" => $decision !== "mantener_pendiente"
                 ),
                 "bloqueos" => $bloqueos,
@@ -1585,18 +1595,19 @@ class InventarioErp extends CRUD {
             }
 
             $idMovimientoAjuste = null;
+            $idMovimientoSalidaPendiente = null;
             $referencia = $propuesta["referencia_sugerida"];
+            $sku = $this->consultarSku($db, intval($pendiente["id_sku_erp"]));
+            $item = array(
+                "id_sku" => intval($pendiente["id_sku_erp"]),
+                "cantidad" => max(floatval($propuesta["cantidad_ajuste"]), floatval($propuesta["cantidad_salida_venta_pendiente"])),
+                "lote" => isset($datos["lote"]) ? $datos["lote"] : "",
+                "fecha_caducidad" => isset($datos["fecha_caducidad"]) ? $datos["fecha_caducidad"] : "",
+                "ubicacion_id" => isset($datos["ubicacion_id"]) ? $datos["ubicacion_id"] : 0,
+                "ubicacion" => isset($datos["ubicacion"]) ? $datos["ubicacion"] : "",
+                "costo_unitario" => isset($datos["costo_unitario"]) ? $datos["costo_unitario"] : (isset($sku["costo_referencia"]) ? $sku["costo_referencia"] : 0)
+            );
             if (!empty($propuesta["requiere_ajuste"])) {
-                $sku = $this->consultarSku($db, intval($pendiente["id_sku_erp"]));
-                $item = array(
-                    "id_sku" => intval($pendiente["id_sku_erp"]),
-                    "cantidad" => floatval($propuesta["cantidad_ajuste"]),
-                    "lote" => isset($datos["lote"]) ? $datos["lote"] : "",
-                    "fecha_caducidad" => isset($datos["fecha_caducidad"]) ? $datos["fecha_caducidad"] : "",
-                    "ubicacion_id" => isset($datos["ubicacion_id"]) ? $datos["ubicacion_id"] : 0,
-                    "ubicacion" => isset($datos["ubicacion"]) ? $datos["ubicacion"] : "",
-                    "costo_unitario" => isset($datos["costo_unitario"]) ? $datos["costo_unitario"] : (isset($sku["costo_referencia"]) ? $sku["costo_referencia"] : 0)
-                );
                 $datosAjuste = array_merge($datos, array(
                     "documento_operacion" => "ajuste",
                     "motivo_ajuste" => "Resolucion pendiente POS " . $pendiente["folio"] . ": " . $motivo,
@@ -1618,6 +1629,32 @@ class InventarioErp extends CRUD {
                     if ($cantidadPendiente > 0.000001) {
                         throw new Exception("Existencia insuficiente para aplicar salida de resolucion POS");
                     }
+                }
+            }
+
+            if (!empty($propuesta["requiere_salida_venta_pendiente"])) {
+                $cantidadSalidaPendiente = floatval($propuesta["cantidad_salida_venta_pendiente"]);
+                $stmtVentaFolio = $db->prepare("SELECT folio FROM erp_ventas WHERE id_venta=:venta LIMIT 1");
+                $stmtVentaFolio->execute(array(":venta" => intval($pendiente["id_venta"])));
+                $folioVenta = (string) $stmtVentaFolio->fetchColumn();
+                if ($folioVenta === "") {
+                    $folioVenta = $pendiente["folio"];
+                }
+                $datosSalidaPendiente = array_merge($datos, array(
+                    "documento_operacion" => "venta_pos",
+                    "motivo_ajuste" => "Salida venta POS pendiente " . $pendiente["folio"] . ": " . $motivo,
+                    "referencia" => $folioVenta
+                ));
+                foreach ($this->existenciasDisponibles($db, intval($pendiente["id_sku_erp"]), intval($pendiente["id_almacen"]), $item) as $existencia) {
+                    if ($cantidadSalidaPendiente <= 0) {
+                        break;
+                    }
+                    $retirar = min($cantidadSalidaPendiente, floatval($existencia["cantidad_disponible"]));
+                    $idMovimientoSalidaPendiente = $this->aplicarCambio($db, $existencia, $retirar, "salida", "venta_pos", intval($pendiente["id_venta"]), $folioVenta, $datosSalidaPendiente, $idUsuario);
+                    $cantidadSalidaPendiente = round($cantidadSalidaPendiente - $retirar, 6);
+                }
+                if ($cantidadSalidaPendiente > 0.000001) {
+                    throw new Exception("Existencia insuficiente para reconocer salida de venta POS pendiente");
                 }
             }
 
@@ -1665,9 +1702,12 @@ class InventarioErp extends CRUD {
                     SET id_movimiento_inventario=:movimiento, estatus='validado_post_venta'
                     WHERE id_inventario_pendiente=:pendiente")
                     ->execute(array(
-                        ":movimiento" => $idMovimientoAjuste,
+                        ":movimiento" => $idMovimientoSalidaPendiente ?: $idMovimientoAjuste,
                         ":pendiente" => intval($pendiente["id_inventario_pendiente"])
                     ));
+                $notificacionesResueltas = $this->resolverNotificacionInventarioPendientePos($db, intval($pendiente["id_inventario_pendiente"]));
+            } else {
+                $notificacionesResueltas = 0;
             }
 
             $db->commit();
@@ -1677,8 +1717,11 @@ class InventarioErp extends CRUD {
                 "estatus" => $nuevoEstatus,
                 "referencia" => $referencia,
                 "id_movimiento_ajuste" => $idMovimientoAjuste,
+                "id_movimiento_salida_pendiente" => $idMovimientoSalidaPendiente,
                 "cantidad_fisica_validada" => floatval($conteo["cantidad_fisica"]),
-                "cantidad_ajuste" => $cantidadAjuste
+                "cantidad_ajuste" => $cantidadAjuste,
+                "cantidad_salida_pendiente" => floatval($propuesta["cantidad_salida_venta_pendiente"]),
+                "notificaciones_resueltas" => $notificacionesResueltas
             ));
         } catch (Exception $e) {
             if ($db instanceof PDO && $db->inTransaction()) {
@@ -1688,6 +1731,29 @@ class InventarioErp extends CRUD {
                 "error" => $e->getMessage(),
                 "rollback" => true
             ));
+        }
+    }
+
+    /**
+     * Documentacion IA: Codex GPT-5, 2026-07-12.
+     * Proposito: cerrar alerta global cuando se resuelve un pendiente POS de inventario.
+     * Impacto: mantiene sincronizada la bandeja de notificaciones con Inventario/Existencias.
+     * Contrato: no falla la resolucion si notificaciones no esta disponible.
+     */
+    private function resolverNotificacionInventarioPendientePos($db, $idPendiente) {
+        try {
+            if (!$this->tablaExiste($db, "erp_notificaciones") || intval($idPendiente) <= 0) {
+                return 0;
+            }
+            require_once __DIR__ . "/NotificacionesErp.php";
+            $notificaciones = new NotificacionesErp();
+            return $notificaciones->resolverOperativaPorHuellaEnConexion(
+                $db,
+                "pos_venta_inventario_pendiente",
+                "pos_inventario_pendiente|" . intval($idPendiente)
+            );
+        } catch (Exception $e) {
+            return 0;
         }
     }
 

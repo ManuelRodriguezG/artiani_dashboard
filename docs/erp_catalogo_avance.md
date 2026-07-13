@@ -1916,3 +1916,415 @@ Cambio aplicado:
 
 - `productos.php` ahora carga `productos.js?v=20260712-categorias-1`.
 - `configuracion.php` ahora carga `configuracion.js?v=20260712-maestros-1`.
+- `configuracion.php` se actualizo despues a `configuracion.js?v=20260712-maestros-2` para publicar baja/reactivacion logica de maestros.
+
+## Avance 2026-07-12 - verificacion Configuracion marcas/categorias
+
+Contexto: se retomo el cierre del flujo de `Catalogo ERP > Configuracion > Catalogos maestros`, despues de separar el tema de precios hacia Ventas/Listas.
+
+Validacion read-only realizada:
+
+- `CatalogoErpDatos::listarCatalogosAdministrativos()` responde sin error.
+- La raiz maestra `Acuario` existe como categoria estructural activa:
+  - `id_categoria_erp=259`.
+  - `codigo=CLAS-HIST-1`.
+  - `ruta=Acuario`.
+  - `tipo_categoria=maestra`.
+  - `permite_productos=0`.
+  - `total_hijas=18`.
+- El backend `guardarCatalogoAuxiliar()` autogenera codigo para `marca` y `categoria` cuando el usuario deja `codigo` vacio y captura `nombre`.
+- La UI `configuracion.js` marca el codigo como opcional para marca/categoria y mantiene obligatorio para unidad/atributo.
+- El selector de categoria padre filtra categorias maestras y excluye legado ecommerce `ECOM-CAT-*`.
+
+Criterio de prueba manual pendiente:
+
+1. En `ERP > Catalogo > Configuracion > Catalogos maestros > Marcas`, crear una marca dejando `Codigo` vacio.
+2. Confirmar que se guarda con codigo autogenerado `MAR-*`.
+3. En `Categorias`, crear una categoria nueva dejando `Codigo` vacio.
+4. Seleccionar `Acuario` como categoria padre.
+5. Confirmar que la ruta queda `Acuario / <nueva categoria>` y que aparece en el arbol principal ERP.
+
+Nota: no se crearon registros de prueba desde Codex para evitar ensuciar catalogos reales.
+
+### Preflight read-only agregado
+
+Se creo `storage/uat/uat_catalogo_configuracion_marcas_categorias_readonly.php`.
+
+Proposito:
+
+- Validar sin escritura que el flujo de Configuracion esta listo para:
+  - crear marca con `Codigo` vacio;
+  - crear categoria con `Codigo` vacio;
+  - usar `Acuario` como categoria padre;
+  - excluir legado ecommerce del selector de padres.
+
+Resultado ejecutado:
+
+```json
+{
+  "ok": true,
+  "codigo_marca_muestra": "MAR-MARCA-PRUEBA-UAT-39C42B",
+  "codigo_categoria_muestra": "CAT-CATEGORIA-PRUEBA-UAT-406ECA",
+  "acuario": {
+    "id_categoria_erp": "259",
+    "ruta": "Acuario",
+    "total_hijas": "18"
+  },
+  "selector_padres": {
+    "maestros_disponibles": 171,
+    "legado_ecommerce_en_padres": 0
+  }
+}
+```
+
+Cambios UX aplicados:
+
+- El modal de catalogos maestros muestra ayuda bajo `Codigo`: en marcas y categorias puede quedar vacio porque el sistema lo genera.
+- El selector `Categoria padre` muestra ayuda para usar una raiz estructural como `Acuario` y crear subcategorias operativas.
+- CRUD actual validado a nivel codigo:
+  - Alta/edicion de marcas y categorias usa `/catalogoerp/auxiliar_guardar`.
+  - Marca/categoria pueden guardar con `Codigo` vacio porque `guardarCatalogoAuxiliar()` genera `MAR-*` o `CAT-*`.
+  - La baja operativa es logica por `estatus=inactiva`; ahora tambien hay accion directa de inactivar/reactivar en tabla.
+  - El modelo bloquea inactivar marcas con productos relacionados y categorias con productos, subcategorias activas o navegacion relacionada.
+
+Validaciones:
+
+```text
+C:\xampp\php\php.exe -l app\vistas\paginas\apps\erp\catalogo\configuracion.php
+node --check public\assets\js\custom\apps\erp\catalogo\configuracion.js
+C:\xampp\php\php.exe -l storage\uat\uat_catalogo_configuracion_marcas_categorias_readonly.php
+C:\xampp\php\php.exe storage\uat\uat_catalogo_configuracion_marcas_categorias_readonly.php
+```
+
+Siguiente paso:
+
+- Probar manualmente en UI la creacion real de una marca y una categoria hija bajo `Acuario`.
+- Si la prueba real funciona, continuar con saneamiento de categorias principales pendientes desde `Configuracion > Clasificacion pendiente`.
+
+### Baja logica desde tablas de maestros
+
+Se agrego accion directa de inactivar/reactivar en las tablas de `Marcas`, `Categorias`, `Unidades` y `Atributos`.
+
+Decision operativa:
+
+- No se borra fisicamente ningun catalogo maestro.
+- La accion reutiliza `/catalogoerp/auxiliar_guardar` con el payload completo del registro.
+- Las validaciones de backend siguen decidiendo si puede inactivarse:
+  - marca con productos relacionados: bloqueada;
+  - categoria con productos, hijas activas o navegacion relacionada: bloqueada;
+  - unidad usada por SKUs/proveedores/paquetes/configuraciones: bloqueada;
+  - atributo usado por SKUs/variantes: bloqueado.
+- El boton de imagenes queda limitado a marcas y categorias, porque unidades/atributos no tienen gestor visual.
+
+Validacion:
+
+```text
+node --check public\assets\js\custom\apps\erp\catalogo\configuracion.js
+C:\xampp\php\php.exe -l app\vistas\paginas\apps\erp\catalogo\configuracion.php
+C:\xampp\php\php.exe -l storage\uat\uat_catalogo_maestros_baja_logica_readonly.php
+C:\xampp\php\php.exe storage\uat\uat_catalogo_maestros_baja_logica_readonly.php
+```
+
+Preflight read-only:
+
+- Se creo `storage/uat/uat_catalogo_maestros_baja_logica_readonly.php`.
+- Resultado `ok=true`.
+- Confirmo:
+  - boton de estatus presente;
+  - payload completo antes de guardar;
+  - confirmacion con `Swal`;
+  - uso de `/catalogoerp/auxiliar_guardar`;
+  - proteccion por permiso `catalogo.editar`;
+  - imagenes solo para marcas/categorias;
+  - version publicada `configuracion.js?v=20260712-maestros-2`;
+  - guardas de backend para marca, categoria, unidad y atributo.
+- Conteos al momento de la prueba:
+  - 42 marcas activas, 0 inactivas.
+  - 246 categorias activas, 0 inactivas.
+  - 10 unidades activas, 0 inactivas.
+  - 28 atributos activos, 3 inactivos.
+- No se inactivo ni reactivo ningun registro desde Codex.
+
+Prueba manual sugerida:
+
+1. En `Configuracion > Catalogos maestros`, filtrar una marca sin productos.
+2. Usar el boton de inactivar y confirmar que cambia a `inactiva`.
+3. Usar el boton de reactivar y confirmar que vuelve a `activa`.
+4. Intentar inactivar una marca o categoria usada y confirmar que el backend bloquea la operacion con mensaje claro.
+
+## Avance 2026-07-12 - saneamiento de categorias maestras
+
+Contexto: se continuo con `ERP > Catalogo > Configuracion`, especificamente categorias, jerarquia y limpieza de datos heredados.
+
+Hallazgos read-only:
+
+- `erp_catalogo_categorias` tiene 246 categorias activas.
+- 171 categorias son `maestra` y 75 siguen identificadas como `legado_canal`.
+- No hay padres inexistentes.
+- No hay codigos duplicados.
+- No hay nombres duplicados bajo el mismo padre.
+- No hay rutas inconsistentes.
+- Hay 42 categorias con texto danado por codificacion, principalmente en nombres/rutas como:
+  - `Mam├¡feros` -> `Mamíferos`.
+  - `H├ímster` -> `Hámster`.
+  - `Filtraci├│n y oxigenaci├│n` -> `Filtración y oxigenación`.
+  - `Decoraci├│n` -> `Decoración`.
+  - `Transportadoras mascoteras de pl├ístico` -> `Transportadoras mascoteras de plástico`.
+
+Guardrail agregado:
+
+- `storage/uat/uat_catalogo_categorias_maestro_readonly.php` audita categorias sin escribir.
+- `storage/uat/uat_catalogo_categorias_texto_reparar_apply.php` queda en modo preview por defecto.
+- El reparador solo aplica cambios si se ejecuta con:
+  - `--execute`
+  - `--token=CATALOGO_CATEGORIAS_TEXTO_REPARAR`
+  - `--respaldo=<ruta o referencia real fuera del proyecto>`
+- Sin esos parametros, responde `modo=preview` o `modo=bloqueado` y confirma `No se modifico BD`.
+
+Validaciones ejecutadas:
+
+```text
+C:\xampp\php\php.exe -l storage\uat\uat_catalogo_categorias_maestro_readonly.php
+C:\xampp\php\php.exe -l storage\uat\uat_catalogo_categorias_texto_reparar_apply.php
+C:\xampp\php\php.exe storage\uat\uat_catalogo_categorias_texto_reparar_apply.php --limit=8
+C:\xampp\php\php.exe storage\uat\uat_catalogo_categorias_texto_reparar_apply.php --execute --limit=3
+C:\xampp\php\php.exe storage\uat\uat_catalogo_categorias_maestro_readonly.php
+```
+
+Resultado:
+
+- Vista previa detecta 42 reparaciones reales.
+- Prueba con `--execute` sin token/respaldo queda bloqueada correctamente.
+- No se aplicaron cambios de BD.
+
+Pendiente de autorizacion fuerte:
+
+- Si se desea reparar nombres/rutas de categorias en BD, autorizar explicitamente con token `CATALOGO_CATEGORIAS_TEXTO_REPARAR` y respaldo externo real.
+- Alcance recomendado de esa aplicacion: solo `erp_catalogo_categorias.nombre`, `descripcion`, `ruta`, `fecha_actualizacion`; sin tocar productos, SKUs, relaciones, paquetes ni otros modulos.
+
+## Avance 2026-07-12 - clasificacion pendiente acotada
+
+Contexto: se reviso `Configuracion > Clasificacion pendiente` despues de dejar listo el arbol maestro y la baja logica de catalogos.
+
+Mejora UAT:
+
+- `storage/uat/uat_catalogo_clasificacion_pendiente_readonly.php` ahora acepta:
+  - `--summary` para devolver conteos y una muestra corta.
+  - `--limit=N` para limitar pendientes, categorias y marcas devueltas.
+- Sigue siendo solo lectura:
+  - no aplica asignaciones;
+  - no crea categorias;
+  - no modifica marcas;
+  - no toca productos.
+
+Resultado read-only:
+
+- Productos sin categoria principal: 154.
+- Marcas ambiguas: 6.
+- Categorias disponibles para asignar: 148.
+- Marcas disponibles para resolver ambiguedades: 42.
+- Relaciones de categoria ya existentes en esos productos pendientes:
+  - total: 154.
+  - con relaciones previas: 0.
+  - con una relacion previa: 0.
+  - con varias relaciones previas: 0.
+
+Interpretacion operativa:
+
+- No hay categoria secundaria previa que se pueda promover automaticamente a principal.
+- El saneamiento de esos 154 productos depende de captura/seleccion desde la bandeja de clasificacion pendiente.
+- La UI ya permite asignacion masiva de categoria para seleccionados, por lo que el siguiente trabajo real es operativo: agrupar productos por familia y aplicar categoria principal.
+
+Validaciones:
+
+```text
+C:\xampp\php\php.exe -l storage\uat\uat_catalogo_clasificacion_pendiente_readonly.php
+C:\xampp\php\php.exe storage\uat\uat_catalogo_clasificacion_pendiente_readonly.php --summary --limit=5
+C:\xampp\php\php.exe storage\uat\uat_catalogo_clasificacion_pendiente_readonly.php --limit=3
+```
+
+## Avance 2026-07-12 - auditoria de maestros auxiliares
+
+Contexto: se ejecuto auditoria read-only de marcas, unidades y atributos para separar pendientes de configuracion real contra pendientes de captura de productos.
+
+Resultado read-only:
+
+- Marcas:
+  - total: 42.
+  - activas: 42.
+  - inactivas: 0.
+  - texto danado: 0.
+  - codigos duplicados: 0.
+  - nombres duplicados: 0.
+  - todas tienen productos relacionados; por regla, no deben inactivarse sin reasignar productos primero.
+- Unidades:
+  - total: 10.
+  - activas: 10.
+  - inactivas: 0.
+  - texto danado: 0.
+  - codigos duplicados: 0.
+  - nombres duplicados: 0.
+  - sin abreviatura: 0.
+  - sin clave SAT: 0.
+  - 7 permiten decimales.
+  - hay unidades sin uso actual (`cm`, `L`, `m`, `ml`, `paq`, `serv`), pero pueden conservarse porque son catalogo base para granel, presentaciones, servicios o configuraciones futuras.
+- Atributos:
+  - total: 31.
+  - activos: 28.
+  - inactivos: 3.
+  - texto danado: 0.
+  - codigos duplicados: 0.
+  - duplicados activos: 0.
+  - nombres duplicados historicos/inactivos: `Alto`, `Ancho`, `Diametro`.
+  - 5 atributos sin uso.
+
+Interpretacion:
+
+- No se requiere correccion urgente de marcas, unidades ni atributos antes de seguir con productos.
+- Los duplicados de atributos ya no estan activos simultaneamente, por lo que no bloquean operacion.
+- El siguiente cuello real en Configuracion sigue siendo asignar categoria principal a los 154 productos pendientes y resolver 6 marcas ambiguas.
+
+Validacion:
+
+```text
+C:\xampp\php\php.exe -l storage\uat\uat_catalogo_maestros_auxiliares_readonly.php
+C:\xampp\php\php.exe storage\uat\uat_catalogo_maestros_auxiliares_readonly.php
+```
+
+## Avance 2026-07-12 - UX clasificacion pendiente por familias visibles
+
+Contexto: la bandeja de `Configuracion > Clasificacion pendiente` tiene 154 productos sin categoria principal. Para acelerar captura operativa sin automatizar decisiones de negocio, se agregaron controles de seleccion temporal.
+
+Cambio aplicado:
+
+- En la vista de clasificacion pendiente se agregaron:
+  - boton `Seleccionar visibles`;
+  - boton `Limpiar seleccion`;
+  - contador de seleccion temporal y asignaciones preparadas.
+- Se agregaron sugerencias dinamicas por palabras frecuentes de productos pendientes.
+- Se agregaron atajos para marcas ambiguas cuando una candidata coincide con una marca activa existente.
+- `Seleccionar visibles` respeta busqueda, filtro actual y pagina visible; sirve para buscar una familia textual, seleccionar el grupo en pantalla y aplicar una categoria masiva sin seleccionar paginas ocultas.
+- `Limpiar seleccion` solo limpia checks temporales; no borra las asignaciones ya preparadas hasta que el usuario decida guardar o cambiar manualmente.
+- Las sugerencias solo rellenan la busqueda; no asignan categorias ni modifican productos.
+- Los atajos de marca solo preparan la seleccion en pantalla; no guardan BD hasta usar `Guardar asignaciones`.
+- No se guardan cambios en BD hasta usar `Guardar asignaciones`.
+- Antes de guardar se muestra confirmacion con total de productos, categorias y marcas preparadas.
+- El codigo de producto en cada fila ahora enlaza a `/catalogoerp?id_producto_erp=<id>` para inspeccion puntual antes de decidir.
+- Se corrigio `Seleccionar visibles` para que seleccione solo la pagina visible, no todos los resultados filtrados.
+- Se publico `configuracion.js?v=20260712-maestros-8`.
+
+Criterio operativo sugerido:
+
+1. Usar una sugerencia dinamica o buscar una familia, por ejemplo `arena`, `alimento`, `jaula`, `pecera`.
+2. Filtrar `Sin categoria principal`.
+3. Usar `Seleccionar visibles`.
+4. Elegir categoria principal masiva.
+5. Revisar la muestra seleccionada.
+6. Guardar asignaciones cuando el grupo sea correcto.
+
+Validacion:
+
+```text
+node --check public\assets\js\custom\apps\erp\catalogo\configuracion.js
+C:\xampp\php\php.exe -l app\vistas\paginas\apps\erp\catalogo\configuracion.php
+C:\xampp\php\php.exe -l storage\uat\uat_catalogo_clasificacion_ui_readonly.php
+C:\xampp\php\php.exe storage\uat\uat_catalogo_clasificacion_ui_readonly.php
+```
+
+Preflight read-only:
+
+- Se creo `storage/uat/uat_catalogo_clasificacion_ui_readonly.php`.
+- Resultado `ok=true`.
+- Confirma:
+  - boton `Seleccionar visibles`;
+  - boton `Limpiar seleccion`;
+  - contador de seleccion;
+  - contenedor y funciones de sugerencias dinamicas;
+  - seleccion limitada a pagina visible;
+  - atajos de marcas ambiguas por candidata existente;
+  - confirmacion previa de guardado masivo;
+  - enlace directo al producto ERP desde cada pendiente;
+  - funciones JS conectadas;
+  - version publicada `configuracion.js?v=20260712-maestros-8`.
+
+Marcas ambiguas detectadas en UAT read-only:
+
+- 4 productos `Bomba sumergible` con candidatas `ECOFAUONT | ECOFOUNT`.
+- `Filtro para acuaterrario tortugueros` con candidatas `AQUA KRIL | ZREMA-65`.
+- `Rocaliente para reptiles` con candidatas `AQUA KRIL | AQUA KRILL`.
+
+Decision UX:
+
+- Mostrar chips clicables solo para candidatas que ya existen como marca activa.
+- Mostrar candidata no registrada como badge de advertencia, sin crear marca automaticamente.
+- Mantener la decision humana, porque una marca ambigua puede representar error de escritura o conflicto real de proveedor.
+
+## Avance 2026-07-12 - Auditoria de codificacion en categorias
+
+Contexto: categorias del arbol maestro seguian mostrandose con textos como `Mam├¡feros`, `Filtraci├│n` y `Decoraci├│n`.
+
+Auditoria aplicada:
+
+- Se creo `storage/uat/uat_catalogo_encoding_auditoria_readonly.php`.
+- El auditor es solo lectura; revisa conexion, collations y muestras `HEX()` de texto almacenado.
+- La conexion activa por `app/core/CRUD.php` reporta:
+  - `character_set_client=utf8mb4`;
+  - `character_set_connection=utf8mb4`;
+  - `character_set_results=utf8mb4`;
+  - base y tablas de Catalogo revisadas en `utf8mb4_general_ci`.
+- Tablas revisadas:
+  - `erp_catalogo_categorias`;
+  - `erp_catalogo_marcas`;
+  - `erp_catalogo_unidades`;
+  - `erp_catalogo_atributos`;
+  - `erp_catalogo_skus`.
+
+Hallazgo:
+
+- El problema de categorias no es solo visual ni de la vista actual.
+- Hay 42 categorias con mojibake real guardado en BD.
+- Marcas y unidades no reportaron mojibake binario en esta auditoria.
+- Ejemplos confirmados por `HEX()`:
+  - `Mam├¡feros` guarda bytes `E2949C C2A1` donde deberia existir `í`.
+  - `Filtraci├│n y oxigenaci├│n` guarda caracteres mojibake reales en `nombre` y `ruta`.
+  - Varias categorias hijas heredan el error en `ruta` aunque su `nombre` no tenga acento.
+- `CatalogoErpDatos::sincronizarTaxonomiaEcommerce()` copia `ecom_clasificaciones` y `ecom_categorias` hacia `erp_catalogo_categorias`; el auditor confirmo que esos origenes historicos tambien tienen texto dañado.
+- Al buscar mojibake en archivos fuente de Catalogo con `rg`, no se confirmo daño real en PHP/JS operativo salvo los ejemplos documentados y el detector intencional de `configuracion.js`. Algunas lecturas por consola pueden verse raras si PowerShell interpreta la salida con otra pagina de codigos, por eso el criterio confiable es `HEX()` en BD o busqueda binaria.
+
+Conclusion tecnica:
+
+- La conexion actual principal no parece ser la causa activa para Catalogo ERP, porque opera en `utf8mb4`.
+- La causa inmediata de las categorias es dato historico ya dañado en BD, reproducido desde origenes ecommerce dañados.
+- Como existe `app/config/CRUDD.php` con `SET NAMES utf8`, debe tratarse como archivo legado/riesgo, aunque no se encontro uso directo en Catalogo ERP.
+
+Origen historico confirmado:
+
+- `ecom_clasificaciones`: 3 registros con mojibake.
+  - Ejemplos: `Mam├¡feros`, `H├ímster`, `Hur├│n`.
+- `ecom_categorias`: 20 registros con mojibake.
+  - Ejemplos: `Filtraci├│n y oxigenaci├│n`, `Decoraci├│n para peces`, `Transportadoras mascoteras de pl├ístico`.
+- Si se vuelve a ejecutar una sincronizacion desde `ecom_*` sin reparar o normalizar entrada, las categorias ERP pueden volver a dañarse.
+
+Accion recomendada:
+
+1. No corregir esto desde UI ni con reemplazos visuales.
+2. Reparar primero los textos dañados en `erp_catalogo_categorias.nombre` y `erp_catalogo_categorias.ruta`, con respaldo externo y token explicito.
+3. Reparar o aislar despues las tablas historicas origen `ecom_clasificaciones` y `ecom_categorias`; si se conservan como legado, no volver a sincronizar sin normalizar entrada.
+4. Mantener el detector visual en Configuracion como alerta de calidad, no como reparador automatico.
+5. Mantener nuevos archivos y dumps en UTF-8 sin BOM; toda conexion debe usar `utf8mb4`.
+
+Cambio preventivo aplicado:
+
+- `CatalogoErpDatos::sincronizarTaxonomiaEcommerce()` ahora normaliza texto historico antes de guardar categorias y nodos ERP desde `ecom_clasificaciones` y `ecom_categorias`.
+- Se agrego `CatalogoErpDatos::normalizarTextoHistoricoCatalogo()`.
+- La funcion no modifica BD por si sola; solo transforma en memoria los textos usados por la sincronizacion.
+- Objetivo: evitar que una resincronizacion futura vuelva a escribir `Mam├¡feros`, `Filtraci├│n`, `Decoraci├│n`, etc. en categorias maestras.
+- Esto no repara los 42 registros existentes; para eso sigue pendiente la autorizacion fuerte del reparador.
+
+Validacion:
+
+```text
+C:\xampp\php\php.exe -l app\modelos\CatalogoErpDatos.php
+C:\xampp\php\php.exe -l storage\uat\uat_catalogo_encoding_auditoria_readonly.php
+C:\xampp\php\php.exe storage\uat\uat_catalogo_encoding_auditoria_readonly.php
+```

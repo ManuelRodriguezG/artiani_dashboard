@@ -4011,6 +4011,12 @@ class VentasErp extends CRUD {
                 $advertencias[] = "El SKU no controla inventario; no requiere pendiente operativo.";
             } else if ($cantidadPendiente <= 0) {
                 $advertencias[] = "Inventario suficiente; se debe vender por flujo normal con kardex.";
+            } else if ($cantidadCubierta > 0) {
+                $estado = "pendiente_autorizable";
+                $advertencias[] = "Flujo mixto: la parte disponible debe descontarse con kardex y solo el faltante queda como pendiente de Inventario/Existencias.";
+                if (!$permiteSinExistencia || !$permiteExistenciaNegativa) {
+                    $advertencias[] = "Las banderas globales del SKU no autorizan faltantes; POS usara solo politica por sucursal/canal para no afectar ecommerce.";
+                }
             } else {
                 $estado = "pendiente_autorizable";
                 $advertencias[] = "La venta podria permitirse solo bajo politica de inventario pendiente y generando alerta a Inventario/Existencias.";
@@ -4082,6 +4088,12 @@ class VentasErp extends CRUD {
                 "disponible_actual" => $disponible,
                 "cantidad_cubierta" => $cantidadCubierta,
                 "cantidad_pendiente" => $cantidadPendiente,
+                "flujo_mixto" => $cantidadCubierta > 0 && $cantidadPendiente > 0,
+                "contrato_flujo_mixto" => array(
+                    "descontar_cantidad_cubierta_con_kardex" => $cantidadCubierta > 0 && $cantidadPendiente > 0,
+                    "crear_pendiente_solo_por_faltante" => $cantidadPendiente > 0,
+                    "validar_transaccionalmente_existencia_cubierta" => $cantidadCubierta > 0 && $cantidadPendiente > 0
+                ),
                 "politica" => array(
                     "permite_venta_sin_existencia" => $permiteSinExistencia,
                     "permite_existencia_negativa" => $permiteExistenciaNegativa,
@@ -4264,8 +4276,8 @@ class VentasErp extends CRUD {
     /**
      * Documentacion IA: Codex GPT-5, 2026-07-12.
      * Proposito: registrar venta POS real con inventario pendiente autorizado por politica de sucursal/SKU/canal.
-     * Impacto: crea venta, detalle, pago, movimiento de caja, expediente pendiente y evento; no descuenta stock inexistente ni ajusta inventario.
-     * Contrato: transaccional; requiere turno abierto y pago completo. Si falta caja/turno/pago no escribe datos.
+     * Impacto: crea venta, detalle, pago, movimiento de caja, expediente pendiente, evento y notificacion; en flujo mixto descuenta la parte cubierta con kardex.
+     * Contrato: transaccional; requiere turno abierto, pago completo y politica POS para el faltante. Si falta caja/turno/pago no escribe datos.
      */
     public function ventaInventarioPendienteReal($datos = array()) {
         $db = null;
@@ -4352,7 +4364,9 @@ class VentasErp extends CRUD {
             $cantidadPendiente = round(floatval($this->valor($dry, "cantidad_pendiente", 0)), 6);
 
             $db->beginTransaction();
+            $this->asegurarTransaccionPosReal($db, "inicio_flujo_pendiente");
             $turnoBloqueado = $this->bloquearTurnoPosReal($db, $idTurno, $idCaja, $idAlmacen);
+            $this->asegurarTransaccionPosReal($db, "turno_bloqueado");
             if (!$turnoBloqueado) {
                 throw new Exception("El turno ya no esta abierto para la caja asignada");
             }
@@ -4378,7 +4392,10 @@ class VentasErp extends CRUD {
                 ":observaciones" => $motivo
             ));
             $idVenta = intval($db->lastInsertId());
+            $this->asegurarTransaccionPosReal($db, "venta_insertada");
 
+            $modoSalidaPendiente = $cantidadCubierta > 0 ? "mixto_kardex_pendiente_pos" : "inventario_pendiente_pos";
+            $estadoInventarioDetalle = $cantidadCubierta > 0 ? "pendiente_inventario_parcial" : "pendiente_inventario";
             $stmt = $db->prepare("INSERT INTO erp_ventas_detalle
                 (id_venta, renglon, id_producto_erp, id_sku_erp, sku, descripcion,
                  tipo_partida, controla_inventario, modo_salida, inventario_estado, permite_inventario_pendiente,
@@ -4386,7 +4403,7 @@ class VentasErp extends CRUD {
                  precio_unitario, precio_unitario_sin_impuesto, precio_base, precio_aplicado,
                  id_lista_precio, lista_precio_snapshot, regla_precio_origen, descuento, impuestos, subtotal, total, estatus)
                 VALUES (:venta, 1, :producto, :sku_id, :sku, :descripcion,
-                 'producto', 1, 'inventario_pendiente_pos', 'pendiente_inventario', 1,
+                 'producto', 1, :modo_salida, :inventario_estado, 1,
                  :cantidad, :unidad, :cantidad_base, :cantidad_pendiente, :unidad_base,
                  :precio, :precio, :precio_base, :precio_aplicado,
                  :lista_id, :lista_snapshot, :regla_precio, 0, 0, :subtotal, :total, 'confirmada')");
@@ -4396,6 +4413,8 @@ class VentasErp extends CRUD {
                 ":sku_id" => $idSku,
                 ":sku" => $this->valor($sku, "sku", ""),
                 ":descripcion" => $this->valor($sku, "nombre_sku", $this->valor($sku, "producto", "")),
+                ":modo_salida" => $modoSalidaPendiente,
+                ":inventario_estado" => $estadoInventarioDetalle,
                 ":cantidad" => $cantidad,
                 ":unidad" => $this->valor($sku, "unidad_venta_label", ""),
                 ":cantidad_base" => $cantidad,
@@ -4411,6 +4430,19 @@ class VentasErp extends CRUD {
                 ":total" => $total
             ));
             $idDetalle = intval($db->lastInsertId());
+            $this->asegurarTransaccionPosReal($db, "detalle_insertado");
+
+            $evidenciaInventarioCubierta = array();
+            if ($cantidadCubierta > 0) {
+                $planCubierto = $this->planSalidaInventario($db, $idSku, $idAlmacen, $cantidadCubierta, "existencia_agregada", 0);
+                if (round(floatval($this->valor($planCubierto, "faltante", 0)), 6) > 0) {
+                    throw new Exception("Existencia cubierta insuficiente al confirmar venta POS con inventario pendiente mixto");
+                }
+                foreach ($this->valor($planCubierto, "asignaciones", array()) as $asignacionInv) {
+                    $evidenciaInventarioCubierta[] = $this->aplicarSalidaInventarioPosReal($db, $idVenta, $idDetalle, $folio, $sku, $asignacionInv, $idAlmacen, $idUsuario);
+                    $this->asegurarTransaccionPosReal($db, "kardex_cubierto_insertado");
+                }
+            }
 
             $folioPendiente = $this->generarFolioInventarioPendientePosReal($db);
             $snapshot = array(
@@ -4420,7 +4452,8 @@ class VentasErp extends CRUD {
                     "cantidad_cubierta" => $cantidadCubierta,
                     "cantidad_pendiente" => $cantidadPendiente,
                     "disponible_actual" => $this->valor($dry, "disponible_actual", 0)
-                )
+                ),
+                "kardex_cubierto" => $evidenciaInventarioCubierta
             );
             $stmt = $db->prepare("INSERT INTO erp_pos_inventario_pendientes
                 (folio, id_venta, id_venta_detalle, id_almacen, id_sku_erp, sku, descripcion,
@@ -4447,11 +4480,13 @@ class VentasErp extends CRUD {
                 ":usuario" => $idUsuario
             ));
             $idPendiente = intval($db->lastInsertId());
+            $this->asegurarTransaccionPosReal($db, "pendiente_insertado");
 
             $db->prepare("UPDATE erp_ventas_detalle
                 SET id_inventario_pendiente=:pendiente
                 WHERE id_venta_detalle=:detalle")
                 ->execute(array(":pendiente" => $idPendiente, ":detalle" => $idDetalle));
+            $this->asegurarTransaccionPosReal($db, "detalle_ligado_pendiente");
             $db->prepare("INSERT INTO erp_ventas_detalle_inventario
                 (id_venta, id_venta_detalle, tipo_asignacion, id_almacen, cantidad_base,
                  cantidad_pendiente_validacion, id_inventario_pendiente, estatus)
@@ -4464,6 +4499,7 @@ class VentasErp extends CRUD {
                     ":cantidad_pendiente" => $cantidadPendiente,
                     ":pendiente" => $idPendiente
                 ));
+            $this->asegurarTransaccionPosReal($db, "detalle_inventario_pendiente_insertado");
             $db->prepare("INSERT INTO erp_pos_inventario_pendientes_eventos
                 (id_inventario_pendiente, tipo_evento, estatus_anterior, estatus_nuevo,
                  cantidad, referencia, observaciones, datos_snapshot, creado_por)
@@ -4477,6 +4513,25 @@ class VentasErp extends CRUD {
                     ":snapshot" => json_encode($snapshot, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
                     ":usuario" => $idUsuario
                 ));
+            $this->asegurarTransaccionPosReal($db, "evento_pendiente_insertado");
+            $idNotificacionPendiente = $this->registrarNotificacionInventarioPendientePos(
+                $db,
+                $idPendiente,
+                $folioPendiente,
+                $folio,
+                $idAlmacen,
+                $idSku,
+                $sku,
+                $cantidadPendiente,
+                $idUsuario
+            );
+            if (intval($idNotificacionPendiente) > 0) {
+                $db->prepare("UPDATE erp_pos_inventario_pendientes
+                    SET id_notificacion=:notificacion
+                    WHERE id_inventario_pendiente=:pendiente")
+                    ->execute(array(":notificacion" => intval($idNotificacionPendiente), ":pendiente" => $idPendiente));
+            }
+            $this->asegurarTransaccionPosReal($db, "notificacion_pendiente_registrada");
 
             $pagos = array(array(
                 "id_metodo_pago" => $idMetodoPago,
@@ -4489,10 +4544,23 @@ class VentasErp extends CRUD {
                 "id_caja" => $idCaja,
                 "id_turno_caja" => $idTurno
             ), $pagos, $total, $idUsuario);
-            $db->prepare("UPDATE erp_pos_turnos
-                SET monto_esperado=ROUND(monto_esperado+:monto, 6)
-                WHERE id_turno_caja=:turno")
-                ->execute(array(":monto" => $total, ":turno" => $idTurno));
+            $this->asegurarTransaccionPosReal($db, "pagos_registrados");
+            $db->prepare("UPDATE erp_pos_turnos t
+                SET monto_esperado=ROUND(monto_inicial + COALESCE((
+                    SELECT SUM(CASE
+                        WHEN mc.tipo='ingreso' THEN mc.monto
+                        WHEN mc.tipo IN ('egreso','gasto_caja','reembolso') THEN -mc.monto
+                        ELSE 0
+                    END)
+                    FROM erp_pos_movimientos_caja mc
+                    LEFT JOIN erp_ventas v ON v.id_venta=mc.id_venta
+                    WHERE mc.id_turno_caja=t.id_turno_caja
+                      AND mc.estatus IN ('registrado','aprobado')
+                      AND (mc.categoria<>'venta_pos' OR v.id_venta IS NOT NULL)
+                ), 0), 6)
+                WHERE t.id_turno_caja=:turno")
+                ->execute(array(":turno" => $idTurno));
+            $this->asegurarTransaccionPosReal($db, "turno_recalculado");
 
             $db->commit();
             return $this->respuesta(false, "success", "Venta POS con inventario pendiente registrada", array(
@@ -4505,7 +4573,10 @@ class VentasErp extends CRUD {
                 "id_caja" => $idCaja,
                 "id_almacen" => $idAlmacen,
                 "total" => $total,
+                "cantidad_cubierta" => $cantidadCubierta,
                 "cantidad_pendiente" => $cantidadPendiente,
+                "inventario_cubierto" => $evidenciaInventarioCubierta,
+                "id_notificacion_pendiente" => $idNotificacionPendiente,
                 "pagos" => $evidenciaPagos
             ));
         } catch (Exception $e) {
@@ -4516,6 +4587,86 @@ class VentasErp extends CRUD {
                 "error" => $e->getMessage(),
                 "rollback" => true
             ));
+        }
+    }
+
+    /**
+     * Documentacion IA: Codex GPT-5, 2026-07-12.
+     * Proposito: indexar una venta POS con inventario pendiente en la bandeja global de notificaciones.
+     * Impacto: crea/actualiza alerta operativa para Inventario; no mueve inventario ni altera la venta.
+     * Contrato: idempotente por huella `pos_inventario_pendiente|id`.
+     */
+    private function registrarNotificacionInventarioPendientePos($db, $idPendiente, $folioPendiente, $folioVenta, $idAlmacen, $idSku, $sku, $cantidadPendiente, $idUsuario) {
+        try {
+            if (!$this->tablaExiste($db, "erp_notificaciones") || intval($idPendiente) <= 0) {
+                return null;
+            }
+            $skuCodigo = $this->valor($sku, "sku", "");
+            $descripcion = $this->valor($sku, "nombre_sku", $this->valor($sku, "producto", ""));
+            $huella = "pos_inventario_pendiente|" . intval($idPendiente);
+            $payload = array(
+                "huella" => $huella,
+                "folio_pendiente" => $folioPendiente,
+                "folio_venta" => $folioVenta,
+                "id_inventario_pendiente" => intval($idPendiente),
+                "id_almacen" => intval($idAlmacen),
+                "id_sku" => intval($idSku),
+                "sku" => $skuCodigo,
+                "descripcion" => $descripcion,
+                "cantidad_pendiente" => floatval($cantidadPendiente),
+                "accion_sugerida" => "validar_conteo_fisico_en_inventario_existencias"
+            );
+            $payloadJson = json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+            $stmt = $db->prepare("SELECT id_notificacion
+                FROM erp_notificaciones
+                WHERE tipo='pos_venta_inventario_pendiente'
+                  AND modulo_origen='ventas_pos'
+                  AND entidad_origen='erp_pos_inventario_pendientes'
+                  AND id_entidad_origen=:pendiente
+                  AND estatus IN ('pendiente','en_revision','bloqueada')
+                  AND payload_json LIKE :huella
+                ORDER BY id_notificacion DESC
+                LIMIT 1");
+            $stmt->execute(array(
+                ":pendiente" => intval($idPendiente),
+                ":huella" => '%"huella":"' . $huella . '"%'
+            ));
+            $idNotificacion = intval($stmt->fetchColumn());
+            if ($idNotificacion > 0) {
+                $stmt = $db->prepare("UPDATE erp_notificaciones
+                    SET area_responsable='inventario',
+                        permiso_requerido='inventario.ver',
+                        titulo='Venta POS con inventario pendiente',
+                        descripcion=:descripcion,
+                        prioridad='alta',
+                        url_accion='/inventario/productos_existencias#pendientes-pos',
+                        payload_json=:payload,
+                        fecha_actualizacion=NOW()
+                    WHERE id_notificacion=:notificacion");
+                $stmt->execute(array(
+                    ":descripcion" => "Validar existencia fisica del SKU " . $skuCodigo . " por venta " . $folioVenta . ".",
+                    ":payload" => $payloadJson,
+                    ":notificacion" => $idNotificacion
+                ));
+                return $idNotificacion;
+            }
+            $stmt = $db->prepare("INSERT INTO erp_notificaciones
+                (tipo, modulo_origen, entidad_origen, id_entidad_origen,
+                 area_responsable, permiso_requerido, titulo, descripcion,
+                 prioridad, estatus, url_accion, payload_json, creado_por, asignado_a)
+                VALUES
+                ('pos_venta_inventario_pendiente', 'ventas_pos', 'erp_pos_inventario_pendientes', :pendiente,
+                 'inventario', 'inventario.ver', 'Venta POS con inventario pendiente', :descripcion,
+                 'alta', 'pendiente', '/inventario/productos_existencias#pendientes-pos', :payload, :usuario, NULL)");
+            $stmt->execute(array(
+                ":pendiente" => intval($idPendiente),
+                ":descripcion" => "Validar existencia fisica del SKU " . $skuCodigo . " por venta " . $folioVenta . ".",
+                ":payload" => $payloadJson,
+                ":usuario" => intval($idUsuario) ?: null
+            ));
+            return intval($db->lastInsertId());
+        } catch (Exception $e) {
+            return null;
         }
     }
     /**
@@ -8274,7 +8425,7 @@ class VentasErp extends CRUD {
             ":almacen" => intval($idAlmacen)
         );
         $whereCliente = "";
-        $selectCliente = "0 es_cliente, 0 prioridad_cliente";
+        $selectCliente = "0 es_cliente, 0 prioridad_cliente, 9999 prioridad_cliente_tipo";
         if (($idClienteCrm > 0 || $idCliente > 0) && $this->tablaExiste($db, "erp_clientes_listas_precios")) {
             $condicionesCliente = array();
             $tieneClienteCrmEnLista = $this->columnaExiste($db, "erp_clientes_listas_precios", "id_cliente_crm");
@@ -8297,8 +8448,19 @@ class VentasErp extends CRUD {
                     AND cl.estatus='activo'
                     AND cl.fecha_inicio<=:ahora_cliente
                     AND (cl.fecha_fin IS NULL OR cl.fecha_fin>=:ahora_cliente)";
+                $prioridadClienteTipo = "2";
+                if ($idClienteCrm > 0 && $tieneClienteCrmEnLista) {
+                    $prioridadClienteTipo = "CASE
+                        WHEN cl.id_cliente_crm=:cliente_crm THEN 0
+                        WHEN cl.id_cliente=:cliente_crm_compat THEN 1
+                        ELSE 2
+                    END";
+                } elseif ($idCliente > 0) {
+                    $prioridadClienteTipo = "CASE WHEN cl.id_cliente=:cliente_erp THEN 0 ELSE 1 END";
+                }
                 $selectCliente = "CASE WHEN cl.id_cliente_lista_precio IS NOT NULL THEN 1 ELSE 0 END es_cliente,
-                    COALESCE(cl.prioridad, 9999) prioridad_cliente";
+                    COALESCE(cl.prioridad, 9999) prioridad_cliente,
+                    {$prioridadClienteTipo} prioridad_cliente_tipo";
             }
             $params[":ahora_cliente"] = date("Y-m-d H:i:s");
         }
@@ -8317,6 +8479,7 @@ class VentasErp extends CRUD {
               AND (d.fecha_fin IS NULL OR d.fecha_fin>=:ahora)
             ORDER BY
               es_cliente DESC,
+              prioridad_cliente_tipo ASC,
               CASE WHEN l.id_lista_precio=:lista_default_crm THEN 1 ELSE 0 END DESC,
               CASE WHEN l.canal=:canal AND l.id_almacen=:almacen THEN 1 ELSE 0 END DESC,
               CASE WHEN (l.canal IS NULL OR l.canal='') AND (l.id_almacen IS NULL OR l.id_almacen=0) THEN 1 ELSE 0 END ASC,
@@ -8350,7 +8513,8 @@ class VentasErp extends CRUD {
                 "canal" => $canal,
                 "id_almacen" => intval($idAlmacen),
                 "prioridad_lista" => intval($precio["prioridad"]),
-                "prioridad_cliente" => intval($precio["prioridad_cliente"])
+                "prioridad_cliente" => intval($precio["prioridad_cliente"]),
+                "prioridad_cliente_tipo" => intval($precio["prioridad_cliente_tipo"])
             );
         }
         return $resultado;
@@ -10046,6 +10210,18 @@ class VentasErp extends CRUD {
         $stmt = $db->prepare("SELECT COUNT(*) FROM erp_pos_inventario_pendientes WHERE folio LIKE :folio");
         $stmt->execute(array(":folio" => $base . "%"));
         return $base . str_pad((string) (intval($stmt->fetchColumn()) + 1), 6, "0", STR_PAD_LEFT);
+    }
+
+    /**
+     * Documentacion IA: Codex GPT-5, 2026-07-12.
+     * Proposito: detectar perdida de transaccion durante flujos POS con inventario/caja antes de confirmar.
+     * Impacto: no escribe datos; convierte fallos silenciosos en mensajes con paso diagnostico para evitar duplicidades.
+     * Contrato: debe llamarse solo dentro de flujos que ya ejecutaron beginTransaction().
+     */
+    private function asegurarTransaccionPosReal($db, $paso) {
+        if (!$db instanceof PDO || !$db->inTransaction()) {
+            throw new Exception("Transaccion POS inactiva en paso: " . $paso);
+        }
     }
 
     private function aplicarSalidaInventarioPosReal($db, $idVenta, $idDetalle, $folio, $sku, $asignacionInv, $idAlmacen, $idUsuario) {

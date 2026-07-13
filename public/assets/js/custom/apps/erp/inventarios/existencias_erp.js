@@ -1,6 +1,14 @@
 "use strict";
 (function () {
     function request(url) { return fetch(url, {credentials: "same-origin"}).then(function (response) { return response.json(); }); }
+    function post(url, data) {
+        return fetch(url, {
+            method: "POST",
+            credentials: "same-origin",
+            headers: {"Content-Type": "application/x-www-form-urlencoded; charset=UTF-8", "X-CSRF-Token": window.ERP_CSRF_TOKEN || ""},
+            body: new URLSearchParams(data).toString()
+        }).then(function (response) { return response.json(); });
+    }
     function escapeHtml(value) { var div = document.createElement("div"); div.textContent = value == null ? "" : String(value); return div.innerHTML; }
     function filtros() {
         return new URLSearchParams({
@@ -29,7 +37,8 @@
             request("/inventario/movimientos_erp?" + filtros()),
             request("/inventario/unidades_erp?" + filtros()),
             request("/inventario/diagnostico_erp?" + filtrosDiagnostico()),
-            request("/inventario/valuacion_erp?" + filtros())
+            request("/inventario/valuacion_erp?" + filtros()),
+            request("/inventario/pos_pendientes_inventario_erp?" + filtrosPendientesPos())
         ]).then(function (responses) {
             responses.forEach(function (response) { if (response.error) { throw new Error(response.mensaje); } });
             renderExistencias(responses[0].depurar || []);
@@ -37,9 +46,17 @@
             renderUnidades(responses[2].depurar || []);
             renderDiagnostico(responses[3].depurar || {});
             renderValuacion(responses[4].depurar || {});
+            renderPendientesPos(responses[5].depurar || {});
         }).catch(function (error) {
             Swal.fire({text: error.message, icon: "error", confirmButtonText: "Aceptar"});
         });
+    }
+    function filtrosPendientesPos() {
+        return new URLSearchParams({
+            q: document.getElementById("inventario_filtro_buscar").value.trim(),
+            id_almacen: document.getElementById("inventario_filtro_almacen").value,
+            estatus: "todos"
+        }).toString();
     }
     function dinero(value) {
         return "$" + Number(value || 0).toLocaleString("es-MX", {minimumFractionDigits: 2, maximumFractionDigits: 2});
@@ -220,6 +237,161 @@
                 "<td class=\"fw-bold\">" + dinero(item.valor_total || 0) + "</td></tr>";
         }).join("") || "<tr><td colspan=\"8\" class=\"text-center text-muted py-10\">Sin inventario valuado</td></tr>";
     }
+    function badgePendientePos(estatus) {
+        if (estatus === "resuelto") { return {clase: "badge-light-success", texto: "Resuelto"}; }
+        if (estatus === "en_revision") { return {clase: "badge-light-warning", texto: "En revision"}; }
+        if (estatus === "cancelado") { return {clase: "badge-light-secondary", texto: "Cancelado"}; }
+        return {clase: "badge-light-danger", texto: "Pendiente"};
+    }
+    function renderPendientesPos(data) {
+        var items = data.pendientes || [];
+        var abiertos = items.filter(function (item) { return item.estatus === "pendiente_revision" || item.estatus === "en_revision"; }).length;
+        var resueltos = items.filter(function (item) { return item.estatus === "resuelto"; }).length;
+        var cantidadPendiente = items.reduce(function (suma, item) { return suma + Number(item.cantidad_pendiente || 0); }, 0);
+        document.getElementById("inventario_pendientes_pos_resumen").innerHTML =
+            "<span class=\"badge badge-light-primary fs-7\">Registros " + items.length + "</span>" +
+            "<span class=\"badge badge-light-danger fs-7\">Abiertos " + abiertos + "</span>" +
+            "<span class=\"badge badge-light-success fs-7\">Resueltos " + resueltos + "</span>" +
+            "<span class=\"badge badge-light-warning fs-7\">Pendiente " + cantidadPendiente.toFixed(2) + "</span>";
+        document.getElementById("inventario_pendientes_pos").innerHTML = items.map(function (item) {
+            var estado = badgePendientePos(item.estatus);
+            var folio = item.folio || "";
+            return "<tr><td><div class=\"fw-bold\">" + escapeHtml(folio) + "</div><div class=\"text-muted fs-8\">" + escapeHtml(item.folio_venta || "-") + "</div></td>" +
+                "<td><div class=\"fw-bold\">" + escapeHtml(item.sku || "") + "</div><div class=\"text-muted fs-8\">" + escapeHtml(item.descripcion || "") + "</div></td>" +
+                "<td>" + escapeHtml(item.almacen || "-") + "</td>" +
+                "<td><div>Vendida <span class=\"fw-bold\">" + Number(item.cantidad_vendida || 0).toFixed(2) + "</span></div><div class=\"text-muted fs-8\">Pendiente " + Number(item.cantidad_pendiente || 0).toFixed(2) + " " + escapeHtml(item.unidad_base || "") + "</div><div class=\"text-success fs-8\">Disp. actual " + Number(item.disponible_actual || 0).toFixed(2) + "</div></td>" +
+                "<td><span class=\"badge " + estado.clase + "\">" + estado.texto + "</span><div class=\"text-muted fs-8\">" + escapeHtml(item.prioridad || "") + "</div></td>" +
+                "<td><div class=\"fs-8\">" + escapeHtml(item.fecha_registro || "") + "</div><div class=\"text-muted fs-8\">" + escapeHtml(item.fecha_resolucion || "") + "</div></td>" +
+                "<td class=\"text-end\"><button class=\"btn btn-sm btn-light-info\" type=\"button\" data-pendiente-pos=\"" + escapeHtml(folio) + "\"><i class=\"bi bi-folder2-open\"></i> Expediente</button></td></tr>";
+        }).join("") || "<tr><td colspan=\"7\" class=\"text-center text-muted py-10\"><div class=\"fw-semibold\">Sin pendientes POS</div><div class=\"fs-8 mt-1\">Las ventas autorizadas con inventario pendiente apareceran aqui para seguimiento y mini inventario.</div></td></tr>";
+    }
+    function abrirPendientePos(folio) {
+        var titulo = document.getElementById("inventario_pendiente_pos_titulo");
+        var body = document.getElementById("inventario_pendiente_pos_body");
+        titulo.textContent = "Pendiente POS: " + folio;
+        body.innerHTML = "<div class=\"text-center text-muted py-10\"><span class=\"spinner-border spinner-border-sm me-2\"></span>Consultando expediente</div>";
+        bootstrap.Modal.getOrCreateInstance(document.getElementById("inventario_pendiente_pos_modal")).show();
+        request("/inventario/pos_pendiente_inventario_consultar_erp?" + new URLSearchParams({folio: folio}).toString()).then(function (response) {
+            if (response.error) { throw new Error(response.mensaje); }
+            body.innerHTML = renderPendientePosDetalle(response.depurar || {});
+        }).catch(function (error) {
+            body.innerHTML = "<div class=\"alert alert-danger mb-0\">" + escapeHtml(error.message) + "</div>";
+        });
+    }
+    function renderPendientePosDetalle(data) {
+        var pendiente = data.pendiente || {};
+        if (!pendiente.id_inventario_pendiente) {
+            return "<div class=\"alert alert-warning mb-0\">Pendiente no encontrado.</div>";
+        }
+        var estado = badgePendientePos(pendiente.estatus);
+        var existencias = data.existencias_actuales || [];
+        var eventos = data.eventos || [];
+        var existenciasHtml = existencias.length ? existencias.map(function (item) {
+            return "<tr><td class=\"fw-bold\">" + escapeHtml(item.codigo_existencia || "") + "</td><td>" + escapeHtml(item.lote || "-") + "</td><td>" + escapeHtml(item.ubicacion || "-") + "</td><td>" + Number(item.cantidad || 0).toFixed(2) + "</td><td class=\"text-success fw-bold\">" + Number(item.cantidad_disponible || 0).toFixed(2) + "</td><td>" + escapeHtml(item.ultimo_movimiento_id || "-") + "</td></tr>";
+        }).join("") : "<tr><td colspan=\"6\" class=\"text-center text-muted py-5\">Sin existencias actuales relacionadas</td></tr>";
+        var eventosHtml = eventos.length ? eventos.map(function (item) {
+            return "<tr><td>" + escapeHtml(item.fecha_registro || "") + "</td><td><span class=\"badge badge-light-primary\">" + escapeHtml(item.tipo_evento || "") + "</span></td><td>" + escapeHtml(item.estatus_anterior || "-") + " / " + escapeHtml(item.estatus_nuevo || "-") + "</td><td>" + Number(item.cantidad || 0).toFixed(2) + "</td><td>" + escapeHtml(item.referencia || "-") + "<div class=\"text-muted fs-8\">" + escapeHtml(item.observaciones || "") + "</div></td></tr>";
+        }).join("") : "<tr><td colspan=\"5\" class=\"text-center text-muted py-5\">Sin eventos registrados</td></tr>";
+        var formularioDryRun = "";
+        if (pendiente.estatus === "pendiente_revision" || pendiente.estatus === "en_revision") {
+            formularioDryRun = "<div class=\"border rounded p-4 mb-6\"><div class=\"fw-bold mb-3\">Simular resolucion</div>" +
+                "<form data-pendiente-pos-dryrun=\"" + escapeHtml(pendiente.folio || "") + "\" class=\"row g-3 align-items-end\">" +
+                "<div class=\"col-md-3\"><label class=\"form-label fs-8 text-muted\">Cantidad fisica</label><input class=\"form-control form-control-solid\" name=\"cantidad_fisica\" type=\"number\" min=\"0\" step=\"0.0001\" value=\"" + Number(pendiente.cantidad_pendiente || 0).toFixed(4) + "\"></div>" +
+                "<div class=\"col-md-3\"><label class=\"form-label fs-8 text-muted\">Decision</label><select class=\"form-select form-select-solid\" name=\"decision\"><option value=\"ajustar_a_conteo\">Ajustar a conteo</option><option value=\"cerrar_sin_ajuste\">Cerrar sin ajuste</option><option value=\"mantener_pendiente\">Mantener pendiente</option></select></div>" +
+                "<div class=\"col-md-4\"><label class=\"form-label fs-8 text-muted\">Motivo</label><input class=\"form-control form-control-solid\" name=\"motivo\" placeholder=\"Conteo fisico y evidencia\"></div>" +
+                "<div class=\"col-md-2\"><button class=\"btn btn-light-primary w-100\" type=\"submit\"><i class=\"bi bi-calculator\"></i> Dry-run</button></div>" +
+                "</form><div class=\"mt-4\" data-pendiente-pos-dryrun-result></div></div>";
+        }
+        return "<div class=\"d-flex flex-wrap gap-2 mb-5\">" +
+            "<span class=\"badge " + estado.clase + " fs-7\">" + estado.texto + "</span>" +
+            "<span class=\"badge badge-light-primary fs-7\">" + escapeHtml(pendiente.folio || "") + "</span>" +
+            "<span class=\"badge badge-light-info fs-7\">Venta " + escapeHtml(pendiente.folio_venta || "-") + "</span>" +
+            "</div>" +
+            "<div class=\"row g-4 mb-6\"><div class=\"col-md-6\"><div class=\"border rounded p-4 h-100\"><div class=\"fw-bold mb-2\">Producto</div><div>" + escapeHtml(pendiente.sku || "") + "</div><div class=\"text-muted fs-8\">" + escapeHtml(pendiente.descripcion || "") + "</div><div class=\"mt-3 text-muted fs-8\">Almacen: " + escapeHtml(pendiente.almacen || "-") + "</div></div></div>" +
+            "<div class=\"col-md-6\"><div class=\"border rounded p-4 h-100\"><div class=\"fw-bold mb-2\">Conteo y resolucion</div><div>Vendida: <span class=\"fw-bold\">" + Number(pendiente.cantidad_vendida || 0).toFixed(2) + "</span></div><div>Pendiente: <span class=\"fw-bold\">" + Number(pendiente.cantidad_pendiente || 0).toFixed(2) + "</span></div><div>Fisica validada: <span class=\"fw-bold\">" + Number(pendiente.cantidad_fisica_validada || 0).toFixed(2) + "</span></div><div class=\"text-muted fs-8 mt-2\">Movimiento ajuste: " + escapeHtml(pendiente.id_movimiento_ajuste || "-") + "</div></div></div></div>" +
+            formularioDryRun +
+            "<h4 class=\"fs-6 fw-bold mb-3\">Existencias actuales</h4><div class=\"table-responsive mb-6\"><table class=\"table align-middle table-row-dashed gy-3\"><thead><tr class=\"text-muted fw-bold fs-8 text-uppercase\"><th>Existencia</th><th>Lote</th><th>Ubicacion</th><th>Cantidad</th><th>Disponible</th><th>Ult. mov.</th></tr></thead><tbody>" + existenciasHtml + "</tbody></table></div>" +
+            "<h4 class=\"fs-6 fw-bold mb-3\">Eventos</h4><div class=\"table-responsive\"><table class=\"table align-middle table-row-dashed gy-3\"><thead><tr class=\"text-muted fw-bold fs-8 text-uppercase\"><th>Fecha</th><th>Evento</th><th>Estado</th><th>Cantidad</th><th>Referencia</th></tr></thead><tbody>" + eventosHtml + "</tbody></table></div>";
+    }
+    function renderDryRunPendientePos(data) {
+        var pendiente = data.pendiente || {};
+        var propuesta = data.propuesta || {};
+        var conteo = data.conteo || {};
+        var bloqueos = data.bloqueos || [];
+        var avisos = data.avisos || [];
+        var clase = bloqueos.length ? "alert-warning" : "alert-success";
+        var partes = [
+            "<div class=\"fw-bold mb-2\">Resultado dry-run</div>",
+            "<div>Decision: <span class=\"fw-bold\">" + escapeHtml(conteo.decision || "-") + "</span></div>",
+            "<div>Fisico: <span class=\"fw-bold\">" + Number(conteo.cantidad_fisica || 0).toFixed(4) + "</span> / ERP: <span class=\"fw-bold\">" + Number(conteo.disponible_erp_actual || 0).toFixed(4) + "</span></div>",
+            "<div>Diferencia: <span class=\"fw-bold\">" + Number(conteo.diferencia_ajuste || 0).toFixed(4) + "</span></div>",
+            "<div>Accion: " + (propuesta.requiere_ajuste ? "<span class=\"fw-bold\">" + escapeHtml(propuesta.tipo_ajuste || "") + " por " + Number(propuesta.cantidad_ajuste || 0).toFixed(4) + "</span>" : "<span class=\"fw-bold\">sin kardex</span>") + "</div>",
+            "<div>Cierre pendiente: <span class=\"fw-bold\">" + (propuesta.cerrar_pendiente ? "si" : "no") + "</span></div>",
+            "<div class=\"text-muted fs-8\">Referencia sugerida: " + escapeHtml(propuesta.referencia_sugerida || "-") + "</div>"
+        ];
+        if (bloqueos.length) { partes.push("<div class=\"mt-2 text-danger fs-8\">Bloqueos: " + bloqueos.map(escapeHtml).join(", ") + "</div>"); }
+        if (avisos.length) { partes.push("<div class=\"mt-2 text-muted fs-8\">Avisos: " + avisos.map(escapeHtml).join(", ") + "</div>"); }
+        if (!bloqueos.length && propuesta.cerrar_pendiente) {
+            partes.push("<div class=\"border-top mt-4 pt-4\"><div class=\"fw-bold mb-3\">Preparar resolucion real</div>" +
+                "<form data-pendiente-pos-resolver=\"" + escapeHtml(pendiente.folio || "") + "\" class=\"row g-3 align-items-end\">" +
+                "<input type=\"hidden\" name=\"cantidad_fisica\" value=\"" + escapeHtml(conteo.cantidad_fisica || 0) + "\">" +
+                "<input type=\"hidden\" name=\"decision\" value=\"" + escapeHtml(conteo.decision || "") + "\">" +
+                "<input type=\"hidden\" name=\"motivo\" value=\"" + escapeHtml(conteo.motivo || "") + "\">" +
+                "<div class=\"col-md-3\"><label class=\"form-label fs-8 text-muted\">Token</label><input class=\"form-control form-control-solid\" name=\"autorizar\" placeholder=\"INVENTARIO_POS...\"></div>" +
+                "<div class=\"col-md-3\"><label class=\"form-label fs-8 text-muted\">Respaldo</label><input class=\"form-control form-control-solid\" name=\"respaldo\" placeholder=\"UAT POS vigente\"></div>" +
+                "<div class=\"col-md-4\"><label class=\"form-label fs-8 text-muted\">Confirmacion</label><input class=\"form-control form-control-solid\" name=\"confirmacion\" placeholder=\"RESOLVER PENDIENTE\"></div>" +
+                "<div class=\"col-md-2\"><button class=\"btn btn-light-danger w-100\" type=\"submit\"><i class=\"bi bi-check2-circle\"></i> Resolver</button></div>" +
+                "</form><div class=\"mt-4\" data-pendiente-pos-resolver-result></div></div>");
+        }
+        return "<div class=\"alert " + clase + " mb-0\">" + partes.join("") + "</div>";
+    }
+    function simularPendientePos(form) {
+        var destino = form.querySelector("[data-pendiente-pos-dryrun-result]");
+        destino = form.parentElement.querySelector("[data-pendiente-pos-dryrun-result]");
+        destino.innerHTML = "<div class=\"text-muted fs-8\"><span class=\"spinner-border spinner-border-sm me-2\"></span>Calculando propuesta</div>";
+        post("/inventario/pos_pendiente_inventario_resolucion_dryrun_erp", {
+            folio: form.getAttribute("data-pendiente-pos-dryrun") || "",
+            cantidad_fisica: form.elements.cantidad_fisica.value,
+            decision: form.elements.decision.value,
+            motivo: form.elements.motivo.value
+        }).then(function (response) {
+            if (response.error) { throw new Error(response.mensaje); }
+            destino.innerHTML = renderDryRunPendientePos(response.depurar || {});
+        }).catch(function (error) {
+            destino.innerHTML = "<div class=\"alert alert-danger mb-0\">" + escapeHtml(error.message) + "</div>";
+        });
+    }
+    function resolverPendientePos(form) {
+        var confirmacion = (form.elements.confirmacion.value || "").trim().toUpperCase();
+        var destino = form.parentElement.querySelector("[data-pendiente-pos-resolver-result]");
+        if (confirmacion !== "RESOLVER PENDIENTE") {
+            destino.innerHTML = "<div class=\"alert alert-warning mb-0\">Escribe RESOLVER PENDIENTE para confirmar.</div>";
+            return;
+        }
+        var mensaje = "Esta accion puede crear kardex y cerrar el pendiente POS. El backend volvera a validar permisos, token y respaldo.";
+        var confirmar = window.Swal
+            ? Swal.fire({text: mensaje, icon: "warning", showCancelButton: true, confirmButtonText: "Resolver", cancelButtonText: "Cancelar"}).then(function (r) { return !!r.isConfirmed; })
+            : Promise.resolve(window.confirm(mensaje));
+        confirmar.then(function (ok) {
+            if (!ok) { return; }
+            destino.innerHTML = "<div class=\"text-muted fs-8\"><span class=\"spinner-border spinner-border-sm me-2\"></span>Enviando resolucion real</div>";
+            post("/inventario/pos_pendiente_inventario_resolver_erp", {
+                folio: form.getAttribute("data-pendiente-pos-resolver") || "",
+                cantidad_fisica: form.elements.cantidad_fisica.value,
+                decision: form.elements.decision.value,
+                motivo: form.elements.motivo.value,
+                autorizar: form.elements.autorizar.value,
+                respaldo: form.elements.respaldo.value,
+                confirmacion: form.elements.confirmacion.value
+            }).then(function (response) {
+                if (response.error) { throw new Error(response.mensaje); }
+                destino.innerHTML = "<div class=\"alert alert-success mb-0\"><div class=\"fw-bold\">" + escapeHtml(response.mensaje || "Pendiente resuelto") + "</div><div class=\"fs-8 text-muted\">Recarga la bandeja para ver el estado actualizado.</div></div>";
+                cargar();
+            }).catch(function (error) {
+                destino.innerHTML = "<div class=\"alert alert-danger mb-0\">" + escapeHtml(error.message) + "</div>";
+            });
+        });
+    }
     function renderMovimientos(items) {
         document.getElementById("inventario_movimientos").innerHTML = items.map(function (item) {
             var clase = item.tipo_movimiento === "entrada" ? "badge-light-success" : "badge-light-danger";
@@ -290,8 +462,26 @@
         });
         document.addEventListener("click", function (event) {
             var boton = event.target.closest ? event.target.closest("[data-trazabilidad]") : null;
-            if (!boton) { return; }
-            abrirTrazabilidad(boton.getAttribute("data-trazabilidad"));
+            if (boton) {
+                abrirTrazabilidad(boton.getAttribute("data-trazabilidad"));
+                return;
+            }
+            var pendiente = event.target.closest ? event.target.closest("[data-pendiente-pos]") : null;
+            if (pendiente) {
+                abrirPendientePos(pendiente.getAttribute("data-pendiente-pos"));
+            }
+        });
+        document.addEventListener("submit", function (event) {
+            var formResolver = event.target.closest ? event.target.closest("[data-pendiente-pos-resolver]") : null;
+            if (formResolver) {
+                event.preventDefault();
+                resolverPendientePos(formResolver);
+                return;
+            }
+            var form = event.target.closest ? event.target.closest("[data-pendiente-pos-dryrun]") : null;
+            if (!form) { return; }
+            event.preventDefault();
+            simularPendientePos(form);
         });
         if (window.location.hash === "#kardex") {
             var trigger = document.querySelector("[data-bs-target='#inventario_tab_kardex']");
@@ -304,6 +494,10 @@
         if (window.location.hash === "#valuacion") {
             var valuacion = document.querySelector("[data-bs-target='#inventario_tab_valuacion']");
             if (valuacion) { bootstrap.Tab.getOrCreateInstance(valuacion).show(); }
+        }
+        if (window.location.hash === "#pendientes-pos") {
+            var pendientesPos = document.querySelector("[data-bs-target='#inventario_tab_pendientes_pos']");
+            if (pendientesPos) { bootstrap.Tab.getOrCreateInstance(pendientesPos).show(); }
         }
     });
 })();

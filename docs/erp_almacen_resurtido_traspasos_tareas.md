@@ -19,6 +19,7 @@ Estado: primeras tareas definidas; sin escrituras de BD.
 
 - `docs/erp_almacen_resurtido_traspasos_arranque.md`
 - `docs/erp_almacen_resurtido_traspasos_schema_propuesta.sql`
+- `docs/erp_almacen_resurtido_paquete_autorizacion_uat.md`
 - `docs/erp_almacen_sucursales_almacenes_arranque.md`
 - `docs/erp_inventario_existencias_arranque.md`
 - `docs/erp_almacen_unidades_fisicas_arranque.md`
@@ -39,9 +40,24 @@ Estado: primeras tareas definidas; sin escrituras de BD.
 | `RES-T007A` | Pantalla read-only antes de DDL | Menu, vista y endpoints GET sin escritura | No |
 | `RES-T007B` | Detalle read-only por folio | Consulta documental completa sin escritura | No |
 | `RES-T007C` | UAT read-only del modulo | Prueba repetible antes/despues de DDL | No |
+| `RES-T007D` | Script apply autorizado especifico | DDL resurtido bloqueado por token/respaldo | No para crear script; si se ejecuta, si |
+| `RES-T007E` | Simulacion read-only de solicitud | Preview de solicitud desde stock bajo | No |
+| `RES-T007F` | Cobertura origen read-only | Valida si bodega puede surtir preview | No |
+| `RES-T007G` | Origen manual en simulacion | Comparar bodegas/origen sin guardar | No |
+| `RES-T007H` | Resumen multi-tienda read-only | Comparar necesidades Acuario/Mascotas | No |
+| `RES-T007I` | Validacion solicitud read-only | Bloqueos/advertencias previos a guardado | No |
+| `RES-T007J` | Payload RES-T008 read-only | Contrato de POST futuro sin guardar | No |
+| `RES-T007K` | UAT contrato payload | Valida campos obligatorios del POST futuro | No |
 | `RES-T008` | Backend solicitud/resurtido | Crear/listar/consultar/autorizacion sin mover inventario | Si para UAT con escritura |
+| `RES-T009A` | Contrato estados read-only | Endpoint/UI/UAT de estados y transiciones | No |
+| `RES-T009B` | Contrato preparacion/envio read-only | Endpoint/UI/UAT de trazabilidad y movimientos esperados | No |
+| `RES-T009C` | Preflight folio preparacion/envio | Validar folio antes de preparar/enviar sin escritura | No |
 | `RES-T009` | Backend preparacion/envio | Salida origen + transito con trazabilidad | Si, con respaldo externo |
+| `RES-T010A` | Contrato recepcion/diferencias read-only | Endpoint/UI/UAT de comparacion enviado vs recibido | No |
 | `RES-T010` | Backend recepcion/diferencias | Recepcion tienda y diferencias persistentes | Si, con respaldo externo |
+| `RES-T011A` | Contrato politicas tienda/SKU read-only | Min/max/reorden sin crear politicas | No |
+| `RES-T012A` | Contrato alertas stock bajo read-only | Eventos futuros sin crear notificaciones | No |
+| `RES-T013A` | Paquete autorizacion/UAT | Preflight y secuencia para DDL + primer folio | No |
 | `RES-T011` | UI operativa | Pantalla Almacen > Resurtido | No para codigo; si UAT real mueve stock, si |
 | `RES-T012` | Alertas stock bajo | Integracion con Notificaciones | Si hay semillas o datos |
 | `RES-T013` | UAT cierre modulo | Casos `RES-UAT-*` documentados | Si para movimientos reales |
@@ -58,7 +74,23 @@ Estado: primeras tareas definidas; sin escrituras de BD.
 - `RES-T007A`: completada pantalla inicial read-only de Almacen > Resurtido.
 - `RES-T007B`: completada consulta read-only de folio y trazabilidad documental.
 - `RES-T007C`: completada prueba UAT read-only del modulo.
-- `RES-T008` en adelante: bloqueadas hasta autorizacion de DDL/respaldo.
+- `RES-T007D`: completada preparacion de script apply autorizado; no ejecutado.
+- `RES-T007E`: completada simulacion read-only de solicitud desde stock bajo.
+- `RES-T007F`: completada cobertura read-only del almacen origen.
+- `RES-T007G`: completada seleccion manual de origen en simulacion.
+- `RES-T007H`: completado resumen multi-tienda read-only.
+- `RES-T007I`: completada validacion read-only de solicitud.
+- `RES-T007J`: completado payload read-only para POST futuro.
+- `RES-T007K`: completada validacion de contrato payload en UAT.
+- `RES-T008`: iniciado como endpoint POST bloqueado por esquema pendiente; escritura real bloqueada hasta DDL/respaldo.
+- `RES-T009A`: completado contrato read-only de estados/transiciones para backend, UI y UAT.
+- `RES-T009B`: completado contrato read-only de preparacion/envio para backend, UI y UAT.
+- `RES-T009C`: completado preflight read-only por folio antes de preparacion/envio.
+- `RES-T010A`: completado contrato read-only de recepcion/diferencias para backend, UI y UAT.
+- `RES-T011A`: completado contrato read-only de politicas tienda/SKU.
+- `RES-T012A`: completado contrato read-only de alertas futuras de stock bajo.
+- `RES-T013A`: completado paquete de autorizacion/UAT read-only para DDL y primer folio controlado.
+- `RES-T009` en adelante: bloqueadas hasta autorizacion de DDL/respaldo y cierre de solicitud real.
 
 ## RES-T007A - Pantalla read-only antes de DDL
 
@@ -177,10 +209,491 @@ Guardrails confirmados:
 - Requiere respaldo externo para DDL.
 - Requiere autorizacion textual:
   - `AUTORIZO DDL RESURTIDO ALMACEN usando respaldo RUTA_O_REFERENCIA`
+- Token tecnico de script:
+  - `ALMACEN_RESURTIDO_DDL`
 - No escribe BD.
 - No mueve kardex.
 - No modifica etiquetas.
 - No toca POS/ecommerce.
+
+## RES-T007D - Script apply autorizado especifico
+
+Fecha: 2026-07-12
+
+Archivo:
+
+- `storage/uat/uat_almacen_resurtido_schema_apply_authorized.php`
+
+Decision tecnica:
+
+- No usar `AlmacenEsquema::planActualizarAlmacenInventario(true)` para aplicar este modulo, porque el plan general puede incluir pendientes ajenos a Resurtido.
+- Usar el SQL especifico `docs/erp_almacen_resurtido_traspasos_schema_propuesta.sql`.
+- Bloquear ejecucion por defecto con token y respaldo.
+
+Token requerido:
+
+```text
+--autorizar=ALMACEN_RESURTIDO_DDL
+```
+
+Confirmacion textual requerida:
+
+```text
+--confirmacion="AUTORIZO DDL RESURTIDO ALMACEN usando respaldo RUTA_O_REFERENCIA"
+```
+
+Respaldo requerido:
+
+```text
+--respaldo=RUTA_O_REFERENCIA_RESPALDO
+```
+
+Contrato:
+
+- Si falta token o respaldo valido, responde `modo=bloqueado`.
+- Si falta confirmacion textual, responde `modo=bloqueado`.
+- Si se autoriza, ejecuta solo las sentencias del SQL de Resurtido.
+- No crea solicitudes reales.
+- No mueve inventario.
+- No toca POS/ecommerce.
+- No usa el actualizador general de Almacen.
+
+Validaciones:
+
+- `php -l storage/uat/uat_almacen_resurtido_schema_apply_authorized.php`: OK.
+- Ejecucion sin parametros: bloqueada correctamente; no ejecuto DDL.
+
+## RES-T007E - Simulacion read-only de solicitud
+
+Fecha: 2026-07-12
+
+Objetivo:
+
+- Preparar el contrato de `RES-T008` sin crear folios reales.
+- Convertir el preflight de stock bajo en una vista previa de solicitud.
+- Validar origen/destino antes de habilitar guardado.
+
+Implementado:
+
+- Controlador: `Almacen::resurtido_simular_solicitud_erp()`.
+- Modelo: `Almacenes::simular_solicitud_resurtido_readonly()`.
+- UI: boton `Simular solicitud` en `Almacen > Resurtido`.
+- UAT: `storage/uat/uat_almacen_resurtido_readonly.php` ahora valida simulacion.
+
+Contrato:
+
+- Solo `GET`.
+- No crea encabezado.
+- No crea detalle.
+- No aparta stock.
+- No mueve inventario.
+- Si no se pasa origen, propone un almacen activo tipo `bodega`/`principal` o con `permite_preparacion=1`.
+
+Resultado UAT:
+
+- `ok=true`.
+- Folio preview: `SIM-RES-20260712-ACUARIO967`.
+- Origen sugerido: `Francisco Javier Mina 971 - Bodega trasera`.
+- Destino: `Francisco Javier Mina 967 - Acuario`.
+- Partidas sugeridas: 2.
+- `schema_pendiente=1`.
+
+Decision:
+
+- La simulacion usa reglas globales de Catalogo mientras no exista politica local por tienda/SKU.
+- La solicitud real seguira bloqueada hasta DDL autorizado y respaldo externo.
+
+## RES-T007F - Cobertura origen read-only
+
+Fecha: 2026-07-12
+
+Objetivo:
+
+- Verificar desde la simulacion si el almacen origen sugerido puede surtir lo solicitado.
+- Evitar que `RES-T008` cree solicitudes aparentemente validas pero imposibles de preparar.
+- Mantener el calculo sin apartados ni movimientos.
+
+Implementado:
+
+- `Almacenes::simular_solicitud_resurtido_readonly()` ahora agrega por partida:
+  - `cantidad_disponible_origen`
+  - `cantidad_surtible_origen`
+  - `puede_surtir_origen`
+  - `estatus_cobertura_origen`
+- Agrega resumen:
+  - `partidas_con_origen_insuficiente`
+  - `cantidad_total_surtible_origen`
+- UI muestra badges `Origen suficiente` / `Origen insuficiente`.
+- UAT read-only reporta cobertura del origen.
+
+Resultado UAT:
+
+- Acuario (`id_almacen=4`) mantiene 2 partidas sugeridas.
+- Cantidad total sugerida: 51.
+- Cantidad total surtible desde Bodega trasera: 3.
+- Partidas con origen insuficiente: 1.
+- `schema_pendiente=1`.
+
+Hallazgo:
+
+- `RES-H010`: el resurtido robusto debe distinguir necesidad de tienda contra capacidad real del origen. Una solicitud puede nacer desde stock bajo, pero antes de autorizar/preparar debe marcar lineas insuficientes para compra, ajuste de origen o autorizacion parcial.
+
+Decision:
+
+- En `RES-T008`, el guardado real debera permitir:
+  - crear solicitud con linea marcada como insuficiente;
+  - autorizar parcial;
+  - o bloquear envio a preparacion si no hay cobertura.
+- No se apartara stock hasta etapa de preparacion/envio definida en `RES-T009`.
+
+## RES-T007G - Origen manual en simulacion
+
+Fecha: 2026-07-12
+
+Objetivo:
+
+- Permitir comparar cobertura usando origen automatico o un origen elegido por el usuario.
+- Validar que origen y destino no sean el mismo almacen.
+- Mantener la simulacion sin persistencia.
+
+Implementado:
+
+- UI: selector `Origen sugerido` en `Almacen > Resurtido`.
+- JS: `simularSolicitud()` envia `id_almacen_origen` cuando se elige manualmente.
+- UAT: `uat_almacen_resurtido_readonly.php` valida simulacion con origen explicito.
+
+Guardrails:
+
+- Si origen = destino, el modelo responde `warning` con `Origen y destino no pueden ser el mismo almacen`.
+- No crea folio.
+- No aparta stock.
+- No mueve inventario.
+
+Resultado UAT:
+
+- Destino: Acuario (`id_almacen=4`).
+- Origen explicito: Bodega trasera (`id_almacen=3`).
+- Simulacion con origen explicito: `success`, 2 partidas, `schema_pendiente=1`.
+
+## RES-T007H - Resumen multi-tienda read-only
+
+Fecha: 2026-07-12
+
+Objetivo:
+
+- Comparar necesidades de resurtido de todas las tiendas activas en una sola lectura.
+- Detectar carga operativa antes de crear folios reales.
+- Mantener el flujo sin alertas persistentes ni movimientos.
+
+Implementado:
+
+- Controlador: `Almacen::resurtido_resumen_tiendas_erp()`.
+- Modelo: `Almacenes::resumen_resurtido_tiendas_readonly()`.
+- UI: boton `Resumen tiendas`.
+- UAT: `uat_almacen_resurtido_readonly.php` valida resumen multi-tienda.
+
+Contrato:
+
+- Solo `GET`.
+- Solo tiendas activas con `permite_venta=1`.
+- Usa simulacion read-only por tienda.
+- No crea solicitudes.
+- No crea alertas persistentes.
+- No aparta stock.
+- No mueve inventario.
+
+Resultado UAT:
+
+- Tiendas analizadas: 2.
+- Partidas sugeridas: 4.
+- Partidas con origen insuficiente: 2.
+- Cantidad total sugerida: 102.
+- Cantidad total surtible origen: 6.
+- `schema_pendiente=1`.
+
+Hallazgo:
+
+- `RES-H011`: para operar resurtido multi-tienda no basta una alerta por tienda; se necesita tablero consolidado para priorizar tiendas y separar necesidad real de capacidad de origen.
+
+Decision:
+
+- El tablero read-only puede quedarse como preoperativo.
+- En `RES-T012`, cuando existan alertas persistentes, este resumen debe alimentar pendientes por tienda/SKU sin sustituir el folio documental.
+
+## RES-T007I - Validacion solicitud read-only
+
+Fecha: 2026-07-13
+
+Objetivo:
+
+- Preparar el contrato previo a `RES-T008` sin habilitar POST ni escrituras.
+- Indicar si una simulacion puede convertirse en solicitud real.
+- Separar bloqueos de advertencias operativas.
+
+Implementado:
+
+- Controlador: `Almacen::resurtido_validar_solicitud_erp()`.
+- Modelo: `Almacenes::validar_solicitud_resurtido_readonly()`.
+- UI: boton `Validar solicitud`.
+- UAT: `uat_almacen_resurtido_readonly.php` valida resultado.
+
+Bloqueos actuales:
+
+- `RES-VAL-001`: esquema pendiente.
+- `RES-VAL-002`: sin partidas sugeridas.
+- `RES-VAL-004`: cantidad solicitada invalida.
+
+Advertencias actuales:
+
+- `RES-VAL-003`: partidas con origen insuficiente.
+
+Resultado UAT:
+
+- `puede_guardar=0`.
+- Bloqueos: 1 (`RES-VAL-001`, esquema pendiente).
+- Advertencias: 1 (`RES-VAL-003`, origen insuficiente).
+- No se creo folio, detalle, apartado ni movimiento.
+
+Decision:
+
+- Cuando el DDL este aplicado, `RES-T008` podra usar esta validacion como preflight antes del POST real.
+- Las advertencias no deben bloquear necesariamente el borrador, pero si deben bloquear envio a preparacion salvo autorizacion parcial o resolucion operativa.
+
+## RES-T007J - Payload RES-T008 read-only
+
+Fecha: 2026-07-13
+
+Objetivo:
+
+- Definir el contrato del futuro POST de guardado sin habilitar escrituras.
+- Mostrar encabezado y detalle que se enviarian a `RES-T008`.
+- Mantener bloqueado el envio real mientras exista esquema pendiente.
+
+Implementado:
+
+- Controlador: `Almacen::resurtido_payload_solicitud_erp()`.
+- Modelo: `Almacenes::payload_solicitud_resurtido_readonly()`.
+- UI: boton `Payload RES-T008`.
+- UAT: `uat_almacen_resurtido_readonly.php` valida payload.
+
+Payload propuesto:
+
+- Encabezado:
+  - `tipo_documento=resurtido_tienda`
+  - `estatus=borrador`
+  - `prioridad=normal`
+  - `origen_solicitud=stock_bajo_preflight`
+  - `id_almacen_solicitante`
+  - `id_almacen_origen`
+  - `id_almacen_transito=null`
+- Detalle:
+  - `id_sku_erp`
+  - `sku`
+  - `nombre_producto`
+  - `unidad_base`
+  - `cantidad_solicitada`
+  - `cantidad_autorizada=0`
+  - `estatus=pendiente`
+  - `cobertura_origen`
+
+Resultado UAT:
+
+- `payload_puede_enviar_post=0`.
+- `payload_lineas=2`.
+- `endpoint_futuro=/almacen/resurtido_guardar_erp`.
+- Bloqueado por `RES-VAL-001` mientras el esquema este pendiente.
+
+Decision:
+
+- `RES-T008` debe reutilizar este contrato y volver a ejecutar validacion del lado servidor antes de escribir.
+- El folio real se generara en backend al guardar; el folio preview no debe persistirse como folio definitivo.
+
+## RES-T007K - UAT contrato payload
+
+Fecha: 2026-07-13
+
+Objetivo:
+
+- Asegurar que el payload read-only tenga todos los campos minimos antes de convertirlo en POST real.
+- Evitar que `RES-T008` nazca con contrato incompleto.
+
+Implementado:
+
+- `storage/uat/uat_almacen_resurtido_readonly.php` ahora valida:
+  - encabezado obligatorio;
+  - detalle no vacio;
+  - campos obligatorios por linea;
+  - cobertura de origen por linea;
+  - cantidad solicitada mayor a cero.
+
+Campos de encabezado obligatorios:
+
+- `tipo_documento`
+- `estatus`
+- `prioridad`
+- `origen_solicitud`
+- `id_almacen_solicitante`
+- `id_almacen_origen`
+
+Campos de detalle obligatorios:
+
+- `id_sku_erp`
+- `sku`
+- `nombre_producto`
+- `unidad_base`
+- `cantidad_solicitada`
+- `cantidad_autorizada`
+- `estatus`
+- `cobertura_origen`
+
+Resultado UAT:
+
+- `payload_contrato.ok=true`.
+- Fallos: 0.
+- Campos de encabezado: 10.
+- Lineas de detalle: 2.
+
+Decision:
+
+- `RES-T008` no debe aceptar payload sin revalidar este contrato en servidor.
+- Este UAT debe ejecutarse antes y despues de aplicar DDL.
+
+## RES-T008 - Inicio seguro backend solicitud/resurtido
+
+Fecha: 2026-07-13
+
+Objetivo:
+
+- Dejar preparado el endpoint POST real sin permitir escrituras mientras falte DDL.
+- Reutilizar el payload validado por `RES-T007J/K`.
+- Confirmar por UAT que hoy el guardado queda bloqueado.
+
+Implementado:
+
+- Controlador: `Almacen::resurtido_guardar_erp()`.
+- Modelo: `Almacenes::guardar_solicitud_resurtido()`.
+- Helpers:
+  - `tablasResurtidoFaltantes()`
+  - `normalizarPayloadSolicitudResurtido()`
+  - `generarFolioResurtido()`
+
+Contrato actual:
+
+- Endpoint futuro: `/almacen/resurtido_guardar_erp`.
+- Metodo: `POST`.
+- Permiso inicial conservador: `almacen.recibir`.
+- Si falta esquema, retorna:
+  - `schema_pendiente=1`
+  - `guardado=0`
+  - lista de tablas faltantes
+- No valida/insertar payload si falta esquema.
+
+Contrato cuando exista DDL:
+
+- Inserta encabezado en `erp_almacen_resurtidos`.
+- Inserta detalle en `erp_almacen_resurtido_detalle`.
+- Estados iniciales permitidos:
+  - `borrador`
+  - `solicitado`
+- Genera folio backend `RES-YYYYMMDD-####`.
+- No mueve inventario.
+- No aparta stock.
+- No crea preparacion/envio/recepcion.
+
+Resultado UAT actual:
+
+- `guardado_bloqueado.tipo=info`.
+- `guardado_schema_pendiente=1`.
+- `guardado_realizado=0`.
+- UAT completo `ok=true`.
+
+Pendiente para completar `RES-T008`:
+
+- Aplicar DDL con respaldo externo y autorizacion.
+- Ejecutar UAT read-only despues del DDL.
+- Ejecutar UAT controlado de guardado real por folio/SKU.
+- Revisar si se crean permisos finos `almacen.resurtido.*` antes de operacion real.
+
+### UAT autorizado de guardado RES-T008
+
+Fecha: 2026-07-13
+
+Archivo:
+
+- `storage/uat/uat_almacen_resurtido_guardar_authorized.php`
+
+Objetivo:
+
+- Crear una solicitud UAT real solo despues de DDL, respaldo y autorizacion explicita.
+- Probar encabezado/detalle sin mover inventario.
+
+Token requerido:
+
+```text
+--autorizar=ALMACEN_RESURTIDO_GUARDAR_UAT
+```
+
+Confirmacion textual requerida:
+
+```text
+--confirmacion="AUTORIZO UAT GUARDAR RESURTIDO usando respaldo RUTA_O_REFERENCIA"
+```
+
+Parametros:
+
+```text
+--respaldo=RUTA_O_REFERENCIA_RESPALDO
+--destino=ID_ALMACEN_TIENDA
+--origen=ID_ALMACEN_ORIGEN
+```
+
+Alcance:
+
+- Crea encabezado.
+- Crea detalle.
+- No mueve inventario.
+- No aparta stock.
+- No crea preparacion.
+- No crea envio.
+- No crea recepcion.
+- No toca POS/ecommerce.
+
+Validacion ejecutada:
+
+- `php -l storage/uat/uat_almacen_resurtido_guardar_authorized.php`: OK.
+- Ejecucion sin parametros: `modo=bloqueado`; no creo solicitud.
+
+### UAT read-only por folio RES-T008
+
+Fecha: 2026-07-13
+
+Archivo:
+
+- `storage/uat/uat_almacen_resurtido_folio_readonly.php`
+
+Objetivo:
+
+- Validar una solicitud creada por `RES-T008` sin modificarla.
+- Confirmar que existe encabezado y detalle.
+- Confirmar que aun no hay preparacion, envio ni recepcion antes de `RES-T009`.
+
+Uso esperado despues de guardar UAT:
+
+```text
+php storage/uat/uat_almacen_resurtido_folio_readonly.php --folio=RES-YYYYMMDD-####
+```
+
+Contrato:
+
+- Read-only.
+- No mueve kardex.
+- No aparta stock.
+- Espera solo encabezado/detalle para cierre de `RES-T008`.
+
+Validacion ejecutada:
+
+- `php -l storage/uat/uat_almacen_resurtido_folio_readonly.php`: OK.
+- Ejecucion con folio de ejemplo y esquema pendiente: `ok=true`, aviso de `schema_pendiente`; no escribio datos.
 
 ## Contrato preliminar de estados
 
@@ -613,6 +1126,304 @@ Estado:
 
 - Paquete preparado.
 - Aplicacion no ejecutada.
+
+## RES-T008A - Validacion interna de payload antes de guardar
+
+Fecha: 2026-07-13
+
+Objetivo:
+
+- Reforzar el endpoint futuro de guardado de solicitudes de resurtido para que no dependa solo del payload generado por UI.
+- Mantener el guardado real bloqueado mientras el esquema no exista.
+
+Cambios:
+
+- `Almacenes::guardar_solicitud_resurtido()` valida internamente encabezado, origen, destino, estatus inicial y detalle antes de insertar.
+- Se agregaron bloqueos con IDs `RES-GUA-001` a `RES-GUA-009`.
+- Se agrego advertencia `RES-GUA-010` cuando el origen no alcanza para surtir completo.
+- El flujo sigue sin apartar stock, sin mover kardex y sin tocar etiquetas.
+
+Validaciones ejecutadas:
+
+- `php -l app/modelos/Almacenes.php`: OK.
+- `storage/uat/uat_almacen_resurtido_readonly.php`: OK.
+
+Resultado UAT read-only:
+
+- Stock bajo Acuario: 2 partidas.
+- Simulacion Acuario: folio preview `SIM-RES-20260712-ACUARIO967`, 2 partidas.
+- Resumen tiendas: 2 tiendas, 4 partidas sugeridas, 2 con origen insuficiente.
+- Payload RES-T008: contrato OK, 2 lineas.
+- Guardado real: bloqueado por esquema pendiente, `guardado=0`.
+
+Guardrails:
+
+- No se ejecuto DDL.
+- No se escribio BD.
+- No se movio inventario.
+- No se toco POS/ecommerce.
+
+## RES-T009 - Contrato de estados y permisos documentado
+
+Fecha: 2026-07-13
+
+Objetivo:
+
+- Cerrar el contrato operativo antes de implementar acciones reales de autorizacion, preparacion, envio, recepcion y cierre.
+- Evitar saltos de estado como solicitado directo a enviado o preparado directo a recibido.
+
+Documento creado:
+
+- `docs/erp_almacen_resurtido_estados_permisos.md`
+
+Decision:
+
+- Estados de encabezado definidos: `borrador`, `solicitado`, `autorizado`, `rechazado`, `preparando`, `preparado`, `enviado`, `recibido_parcial`, `recibido`, `cerrado`, `cancelado`.
+- Estados de detalle definidos para conservar solicitado/autorizado/preparado/enviado/recibido.
+- Permisos finos quedan como candidatos, no se crean todavia.
+- Read-only sigue con `almacen.ver`.
+- Guardado futuro sigue protegido temporalmente por `almacen.recibir`.
+
+Guardrails:
+
+- No se modifico Seguridad.
+- No se ejecuto DDL.
+- No se escribio BD.
+- No se movio inventario.
+
+## RES-T009A - Contrato estados read-only en backend/UI/UAT
+
+Fecha: 2026-07-13
+
+Objetivo:
+
+- Exponer la matriz de estados y transiciones como contrato consultable por el modulo.
+- Validar desde UAT que los saltos peligrosos no aparezcan como permitidos.
+- Preparar `RES-T009` sin habilitar acciones reales.
+
+Implementado:
+
+- Controlador: `Almacen::resurtido_estados_erp()`.
+- Modelo: `Almacenes::estados_resurtido_readonly()`.
+- UI: panel `Estados` en `Almacen > Resurtido`.
+- UAT: `storage/uat/uat_almacen_resurtido_readonly.php` valida estados/transiciones.
+
+Contrato:
+
+- Solo `GET`.
+- No consulta folios reales.
+- No cambia estados.
+- No crea permisos.
+- No escribe BD.
+- No mueve inventario.
+
+Validaciones UAT:
+
+- Estados de encabezado: 11.
+- Estados de detalle: 8.
+- Transiciones permitidas: 12.
+- `preparado -> enviado`: permitido.
+- `solicitado -> enviado`: bloqueado.
+- UAT maestro: `ok=true`.
+
+Decision:
+
+- Los permisos finos siguen como candidatos.
+- Las acciones reales de autorizar, preparar, enviar, recibir y cerrar quedan pendientes hasta DDL autorizado, respaldo externo y UAT por folio/SKU.
+
+## RES-T009B - Contrato preparacion/envio read-only
+
+Fecha: 2026-07-13
+
+Objetivo:
+
+- Definir el contrato tecnico de preparacion y envio antes de escribir BD o mover inventario.
+- Alinear el resurtido con existencias, movimientos, lotes, caducidad y unidades fisicas.
+- Preparar el backend real de `RES-T009` con guardrails comprobables.
+
+Implementado:
+
+- Controlador: `Almacen::resurtido_preparacion_envio_contrato_erp()`.
+- Modelo: `Almacenes::preparacion_envio_resurtido_contrato_readonly()`.
+- UI: panel `Preparacion/envio` en `Almacen > Resurtido`.
+- UAT: `storage/uat/uat_almacen_resurtido_readonly.php` valida contrato.
+- Documento vivo: `docs/erp_almacen_resurtido_estados_permisos.md`.
+
+Contrato:
+
+- Preparacion requiere folio `autorizado` y detalle `autorizada`.
+- Preparacion fija existencia, ubicacion, lote, caducidad y unidad fisica si aplica.
+- Preparacion no afecta inventario.
+- Envio requiere folio `preparado`.
+- Envio genera salida de origen y entrada a transito.
+- Envio conserva SKU, lote, caducidad, unidad fisica y referencia `RES-*`.
+- Envio es el primer punto que afecta inventario.
+
+Validaciones UAT:
+
+- Contrato consultado en modo read-only.
+- Preparacion declara `no_afecta_inventario=1`.
+- Envio declara `afecta_inventario=1`.
+- Envio define 2 movimientos esperados: salida origen y entrada transito.
+- UAT maestro: `ok=true`.
+
+Decision:
+
+- Recomendacion vigente: usar almacen tecnico `TRANSITO` real.
+- La implementacion real de preparacion/envio queda bloqueada hasta DDL autorizado, respaldo externo y UAT por folio/SKU.
+
+## RES-T009C - Preflight folio preparacion/envio
+
+Fecha: 2026-07-13
+
+Objetivo:
+
+- Validar un folio `RES-*` antes de ejecutar acciones reales de preparacion/envio.
+- Detectar estado no preparable, detalle sin autorizacion o recepciones previas.
+- Mantener la verificacion sin escritura y sin movimiento de inventario.
+
+Implementado:
+
+- UAT: `storage/uat/uat_almacen_resurtido_preparacion_envio_preflight.php`.
+
+Contrato:
+
+- Acepta `--folio=RES-*` o `--id=ID_RESURTIDO`.
+- Consulta el folio en modo read-only.
+- Consulta contrato `preparacion_envio_resurtido_contrato_readonly()`.
+- No autoriza.
+- No prepara.
+- No envia.
+- No aparta stock.
+- No mueve inventario.
+
+Validaciones:
+
+- Con esquema pendiente devuelve advertencia `RES-PRE-002`.
+- Cuando exista esquema, exige estatus `autorizado`, `preparando` o `preparado`.
+- Exige lineas con `cantidad_autorizada > 0`.
+- Bloquea folios con recepciones antes de `RES-T009`.
+
+Decision:
+
+- Este preflight debe ejecutarse despues de crear el primer folio UAT y antes de cualquier script real de preparacion/envio.
+
+## RES-T010A - Contrato recepcion/diferencias read-only
+
+Fecha: 2026-07-13
+
+Objetivo:
+
+- Definir el contrato tecnico de recepcion antes de escribir BD o mover inventario.
+- Separar recepcion completa de recepcion parcial con diferencias.
+- Alinear diferencias por folio/SKU/lote/caducidad/unidad fisica.
+
+Implementado:
+
+- Controlador: `Almacen::resurtido_recepcion_diferencias_contrato_erp()`.
+- Modelo: `Almacenes::recepcion_diferencias_resurtido_contrato_readonly()`.
+- UI: panel `Recepcion/diferencias` en `Almacen > Resurtido`.
+- UAT: `storage/uat/uat_almacen_resurtido_readonly.php` valida contrato.
+- Documento vivo: `docs/erp_almacen_resurtido_estados_permisos.md`.
+
+Contrato:
+
+- Recepcion requiere folio `enviado`.
+- Recepcion compara enviado contra recibido.
+- Recepcion genera salida de transito y entrada a tienda.
+- Recepcion puede dejar folio en `recibido` o `recibido_parcial`.
+- Diferencias minimas: faltante, sobrante, danado, lote_distinto, caducidad_distinta, unidad_no_recibida, unidad_no_enviada.
+- Cierre solo con diferencias resueltas o aceptadas con responsable y observacion.
+
+Validaciones UAT:
+
+- Contrato consultado en modo read-only.
+- Recepcion declara `afecta_inventario=1`.
+- Recepcion define 2 movimientos esperados: salida transito y entrada tienda.
+- Recepcion define al menos 6 diferencias minimas.
+- UAT maestro: `ok=true`.
+
+Decision:
+
+- Las diferencias abiertas bloquean cierre operativo.
+- La implementacion real de recepcion/diferencias queda bloqueada hasta DDL autorizado, respaldo externo y UAT por folio/SKU.
+
+## RES-T011A/RES-T012A - Contrato politicas y alertas read-only
+
+Fecha: 2026-07-13
+
+Objetivo:
+
+- Definir politicas tienda/SKU antes de crear datos.
+- Definir eventos futuros de alerta sin crear notificaciones persistentes.
+- Mantener fallback actual a reglas globales de Catalogo mientras no exista politica local.
+
+Implementado:
+
+- Controlador: `Almacen::resurtido_politicas_alertas_contrato_erp()`.
+- Modelo: `Almacenes::politicas_alertas_resurtido_contrato_readonly()`.
+- UI: panel `Politicas/alertas` en `Almacen > Resurtido`.
+- UAT: `storage/uat/uat_almacen_resurtido_readonly.php` valida contrato.
+- Documento vivo: `docs/erp_almacen_resurtido_estados_permisos.md`.
+
+Contrato:
+
+- Tabla futura: `erp_inventario_politicas_almacen_sku`.
+- Clave unica: `id_almacen + id_sku_erp`.
+- Campos minimos: `stock_minimo`, `punto_reorden`, `prioridad`, `estatus`.
+- Campos opcionales: `stock_maximo`, `cantidad_sugerida`, `dias_cobertura_objetivo`, `observaciones`.
+- Alertas futuras: stock bajo, stock critico, origen insuficiente y politica faltante.
+
+Validaciones UAT:
+
+- Contrato consultado en modo read-only.
+- Politica local reporta `schema_pendiente=1` mientras no exista tabla.
+- Campos obligatorios: 6.
+- Reglas de formula: 5.
+- Eventos de alerta: 4.
+- UAT maestro: `ok=true`.
+
+Decision:
+
+- No crear politicas ni alertas hasta DDL/respaldo/autorizacion.
+- Cuando se implemente, las alertas deben ser persistentes y respetar permisos; auditoria no sera bandeja de trabajo.
+
+## RES-T013A - Paquete autorizacion/UAT read-only
+
+Fecha: 2026-07-13
+
+Objetivo:
+
+- Preparar la secuencia final para aplicar DDL y crear el primer folio UAT `RES-*`.
+- Validar archivos, tokens, comandos y alcance sin ejecutar DDL ni escrituras.
+- Documentar evidencia minima por folio/SKU.
+
+Implementado:
+
+- Documento: `docs/erp_almacen_resurtido_paquete_autorizacion_uat.md`.
+- UAT preflight: `storage/uat/uat_almacen_resurtido_autorizacion_preflight.php`.
+
+Contrato:
+
+- Solo read-only.
+- No aplica DDL.
+- No crea solicitudes.
+- No mueve inventario.
+- No toca POS/ecommerce.
+- Devuelve tokens y secuencia autorizada para cuando exista respaldo externo.
+
+Secuencia preparada:
+
+- UAT read-only antes de DDL.
+- DDL con token `ALMACEN_RESURTIDO_DDL`.
+- UAT read-only despues de DDL.
+- Folio UAT con token `ALMACEN_RESURTIDO_GUARDAR_UAT`.
+- Validacion read-only por folio.
+
+Decision:
+
+- El paquete queda listo para autorizacion humana.
+- Cualquier ejecucion real sigue bloqueada hasta respaldo externo y confirmacion textual.
 
 ## UAT minimo de cierre
 

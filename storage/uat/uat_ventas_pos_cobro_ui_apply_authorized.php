@@ -40,7 +40,9 @@ foreach ($args as $arg) {
     }
 }
 
-if ($autorizar !== "VENTAS_POS_COBRO_UI_REAL" || $idUsuario <= 0 || $respaldo === "" || !is_file($respaldo)) {
+$respaldoPareceRuta = preg_match('/^[A-Za-z]:[\\\\\\/]/', $respaldo) === 1 || strpos($respaldo, "\\") !== false || strpos($respaldo, "/") !== false;
+$respaldoOk = $respaldo !== "" && (!$respaldoPareceRuta || is_file($respaldo));
+if ($autorizar !== "VENTAS_POS_COBRO_UI_REAL" || $idUsuario <= 0 || !$respaldoOk) {
     responder(array(
         "ok" => false,
         "bloqueado" => true,
@@ -48,12 +50,17 @@ if ($autorizar !== "VENTAS_POS_COBRO_UI_REAL" || $idUsuario <= 0 || $respaldo ==
         "mensaje" => "No se ejecuto cobro real POS UI. Falta autorizacion, respaldo valido o id_usuario.",
         "requisitos" => array(
             "--autorizar=VENTAS_POS_COBRO_UI_REAL",
-            "--respaldo=RUTA_RESPALDO_EXISTENTE",
+            "--respaldo=RUTA_RESPALDO_EXISTENTE_O_REFERENCIA_VIGENTE",
             "--id_usuario=ID_OPERADOR_POS",
             "--id_sku=ID_SKU",
             "--cantidad=CANTIDAD",
             "--precio=PRECIO",
             "--pago=PAGO"
+        ),
+        "validacion_respaldo" => array(
+            "referencia" => $respaldo,
+            "parece_ruta_local" => $respaldoPareceRuta,
+            "archivo_existe" => $respaldoPareceRuta ? is_file($respaldo) : false
         )
     ));
 }

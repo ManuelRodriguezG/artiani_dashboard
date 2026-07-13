@@ -278,6 +278,7 @@
         var pagina = visibles.slice(inicio, inicio + tamanoPaginaCostos);
         var sinCategoria = revisionMetadatos.filter(function (x) { return x.tipo_revision === "categoria"; }).length;
         var marcasAmbiguas = revisionMetadatos.filter(function (x) { return x.tipo_revision === "marca"; }).length;
+        renderSugerenciasClasificacion();
         document.getElementById("catalogo_clasificacion_resumen").innerHTML =
             "<span class=\"badge badge-light-warning fs-7\">Sin categoría principal " + sinCategoria + "</span>" +
             "<span class=\"badge badge-light-danger fs-7\">Marcas ambiguas " + marcasAmbiguas + "</span>" +
@@ -290,8 +291,11 @@
             var select = esCategoria
                 ? "<select class=\"form-select form-select-sm\" data-clasificacion-categoria=\"" + escapeHtml(item.clave_revision) + "\">" + opcionesRevision(categoriasRevision, "id_categoria_erp", "nombre", item.id_categoria_erp) + "</select>"
                 : "<select class=\"form-select form-select-sm\" data-clasificacion-marca=\"" + escapeHtml(item.clave_revision) + "\">" + opcionesRevision(marcasRevision, "id_marca_erp", "nombre", item.id_marca_erp) + "</select>";
+            if (!esCategoria) {
+                select += renderCandidatasMarca(item);
+            }
             return "<tr><td><input class=\"form-check-input\" type=\"checkbox\" data-clasificacion-seleccionar=\"" + escapeHtml(item.clave_revision) + "\"" + (item.seleccionado ? " checked" : "") + "></td>" +
-                "<td><div class=\"fw-bold\">" + escapeHtml(item.codigo_producto) + "</div><div class=\"text-muted fs-7\">" + escapeHtml(item.nombre) + "</div></td>" +
+                "<td><div class=\"fw-bold\"><a class=\"text-primary\" href=\"/catalogoerp?id_producto_erp=" + encodeURIComponent(item.id_producto_erp) + "\">" + escapeHtml(item.codigo_producto) + "</a></div><div class=\"text-muted fs-7\">" + escapeHtml(item.nombre) + "</div></td>" +
                 "<td>" + escapeHtml(item.skus || "-") + "</td><td>" + pendiente + "</td><td style=\"min-width:260px\">" + select + "</td></tr>";
         }).join("") || "<tr><td colspan=\"5\" class=\"text-center text-muted py-8\">No hay pendientes con estos filtros</td></tr>";
         document.getElementById("catalogo_clasificacion_info").textContent = visibles.length
@@ -300,6 +304,126 @@
         document.getElementById("catalogo_clasificacion_anterior").disabled = paginaClasificacion <= 1;
         document.getElementById("catalogo_clasificacion_siguiente").disabled = paginaClasificacion >= totalPaginas;
         document.getElementById("catalogo_clasificacion_todos").checked = pagina.length > 0 && pagina.every(function (item) { return item.seleccionado; });
+        actualizarSeleccionClasificacion();
+    }
+
+    /**
+     * IA: Codex GPT-5 | Fecha: 2026-07-12
+     * Proposito: resume seleccion y asignaciones preparadas en la bandeja de clasificacion pendiente.
+     * Impacto: Catalogo ERP; ayuda a aplicar categorias por familias visibles sin modificar productos hasta guardar.
+     */
+    function actualizarSeleccionClasificacion() {
+        var seleccionados = revisionMetadatos.filter(function (item) { return item.seleccionado; }).length;
+        var conAsignacion = revisionMetadatos.filter(function (item) { return item.id_categoria_erp || item.id_marca_erp; }).length;
+        var info = document.getElementById("catalogo_clasificacion_seleccion_info");
+        if (info) {
+            info.textContent = seleccionados ? (seleccionados + " seleccionados | " + conAsignacion + " con asignacion preparada") : "Sin seleccion";
+        }
+    }
+
+    /**
+     * IA: Codex GPT-5 | Fecha: 2026-07-12
+     * Proposito: selecciona todos los pendientes que cumplen filtros visibles de clasificacion.
+     * Impacto: Catalogo ERP; acelera captura masiva sin guardar automaticamente cambios en BD.
+     */
+    function seleccionarClasificacionVisible() {
+        var visibles = revisionMetadatosVisible();
+        var pagina = visibles.slice((paginaClasificacion - 1) * tamanoPaginaCostos, paginaClasificacion * tamanoPaginaCostos);
+        pagina.forEach(function (item) {
+            item.seleccionado = true;
+        });
+        renderRevisionMetadatos();
+    }
+
+    /**
+     * IA: Codex GPT-5 | Fecha: 2026-07-12
+     * Proposito: limpia seleccion temporal de la bandeja de clasificacion sin perder asignaciones capturadas.
+     * Impacto: Catalogo ERP; permite cambiar de grupo operativo antes de guardar.
+     */
+    function limpiarSeleccionClasificacion() {
+        revisionMetadatos.forEach(function (item) {
+            item.seleccionado = false;
+        });
+        renderRevisionMetadatos();
+    }
+
+    /**
+     * IA: Codex GPT-5 | Fecha: 2026-07-12
+     * Proposito: sugiere busquedas frecuentes para clasificar productos pendientes por familias.
+     * Impacto: Catalogo ERP; acelera agrupacion manual sin asignar categorias automaticamente.
+     */
+    function renderSugerenciasClasificacion() {
+        var contenedor = document.getElementById("catalogo_clasificacion_sugerencias");
+        if (!contenedor) {
+            return;
+        }
+        var sugerencias = sugerenciasClasificacion();
+        contenedor.innerHTML = sugerencias.length
+            ? sugerencias.map(function (item) {
+                return "<button type=\"button\" class=\"btn btn-sm btn-light\" data-clasificacion-sugerencia=\"" + escapeAttr(item.termino) + "\">" + escapeHtml(item.termino) + " <span class=\"badge badge-light-primary ms-1\">" + item.total + "</span></button>";
+            }).join("")
+            : "<span class=\"text-muted fs-7\">Sin sugerencias por ahora</span>";
+    }
+
+    /**
+     * IA: Codex GPT-5 | Fecha: 2026-07-12
+     * Proposito: calcula palabras utiles repetidas en productos sin categoria para usarlas como filtros rapidos.
+     * Impacto: Catalogo ERP; mantiene la decision humana y evita clasificacion automatica riesgosa.
+     */
+    function sugerenciasClasificacion() {
+        var stopwords = {"para": true, "con": true, "sin": true, "los": true, "las": true, "por": true, "del": true, "de": true, "la": true, "el": true, "y": true, "en": true, "un": true, "una": true, "kg": true, "gr": true, "g": true, "ml": true, "cm": true, "lts": true, "litros": true};
+        var conteo = {};
+        revisionMetadatos.filter(function (item) {
+            return item.tipo_revision === "categoria";
+        }).forEach(function (item) {
+            var texto = normalizarTextoClasificacion([item.nombre, item.skus, item.codigo_producto].join(" "));
+            texto.split(/\s+/).forEach(function (palabra) {
+                if (palabra.length < 4 || stopwords[palabra] || /^\d+$/.test(palabra)) {
+                    return;
+                }
+                conteo[palabra] = (conteo[palabra] || 0) + 1;
+            });
+        });
+        return Object.keys(conteo).filter(function (palabra) {
+            return conteo[palabra] >= 3;
+        }).sort(function (a, b) {
+            return conteo[b] - conteo[a] || a.localeCompare(b);
+        }).slice(0, 12).map(function (palabra) {
+            return {termino: palabra, total: conteo[palabra]};
+        });
+    }
+
+    function normalizarTextoClasificacion(texto) {
+        return String(texto || "").toLowerCase()
+            .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+            .replace(/[^a-z0-9]+/g, " ")
+            .trim();
+    }
+
+    /**
+     * IA: Codex GPT-5 | Fecha: 2026-07-12
+     * Proposito: muestra candidatas de marca como atajos cuando existen en el catalogo maestro.
+     * Impacto: Catalogo ERP; acelera resolver marcas ambiguas sin elegir desde una lista larga.
+     */
+    function renderCandidatasMarca(item) {
+        var candidatas = String(item.marcas_candidatas || "").split("|").map(function (x) { return x.trim(); }).filter(Boolean);
+        if (!candidatas.length) {
+            return "";
+        }
+        return "<div class=\"d-flex flex-wrap gap-1 mt-2\">" + candidatas.map(function (nombre) {
+            var marca = marcaPorNombreCandidato(nombre);
+            if (!marca) {
+                return "<span class=\"badge badge-light-warning\" title=\"Candidata no registrada como marca activa\">" + escapeHtml(nombre) + "</span>";
+            }
+            return "<button type=\"button\" class=\"btn btn-xs btn-light-success py-1 px-2\" data-clasificacion-marca-rapida=\"" + escapeAttr(item.clave_revision) + "\" data-id-marca=\"" + escapeAttr(marca.id_marca_erp) + "\" title=\"Usar marca existente\">" + escapeHtml(marca.nombre) + "</button>";
+        }).join("") + "</div>";
+    }
+
+    function marcaPorNombreCandidato(nombre) {
+        var normalizada = normalizarTextoClasificacion(nombre);
+        return marcasRevision.find(function (marca) {
+            return normalizarTextoClasificacion(marca.nombre) === normalizada;
+        });
     }
 
     function aplicarCategoriaMasiva() {
@@ -331,16 +455,46 @@
             Swal.fire({text: "Realiza al menos una asignación", icon: "warning", confirmButtonText: "Aceptar"});
             return;
         }
-        request("/catalogoerp/metadatos_revision_aplicar", {asignaciones: JSON.stringify(asignaciones)}).then(function (response) {
-            if (response.error) {
-                throw new Error(response.mensaje);
+        var resumen = resumenAsignacionesMetadatos(asignaciones);
+        Swal.fire({
+            title: "Confirmar asignaciones",
+            text: "Se guardaran " + asignaciones.length + " productos: " + resumen.categorias + " con categoria y " + resumen.marcas + " con marca.",
+            icon: "warning",
+            showCancelButton: true,
+            confirmButtonText: "Guardar",
+            cancelButtonText: "Cancelar"
+        }).then(function (result) {
+            if (!result.isConfirmed) {
+                return;
             }
-            Swal.fire({text: response.mensaje, icon: "success", confirmButtonText: "Aceptar"});
-            cargarRevisionMetadatos();
-            cargarAuditoria();
-        }).catch(function (error) {
-            Swal.fire({text: error.message, icon: "error", confirmButtonText: "Aceptar"});
+            request("/catalogoerp/metadatos_revision_aplicar", {asignaciones: JSON.stringify(asignaciones)}).then(function (response) {
+                if (response.error) {
+                    throw new Error(response.mensaje);
+                }
+                Swal.fire({text: response.mensaje, icon: "success", confirmButtonText: "Aceptar"});
+                cargarRevisionMetadatos();
+                cargarAuditoria();
+            }).catch(function (error) {
+                Swal.fire({text: error.message, icon: "error", confirmButtonText: "Aceptar"});
+            });
         });
+    }
+
+    /**
+     * IA: Codex GPT-5 | Fecha: 2026-07-12
+     * Proposito: resume asignaciones preparadas antes de guardar clasificacion pendiente.
+     * Impacto: Catalogo ERP; reduce guardados masivos accidentales en categoria o marca.
+     */
+    function resumenAsignacionesMetadatos(asignaciones) {
+        return asignaciones.reduce(function (acc, item) {
+            if (Number(item.id_categoria_erp || 0) > 0) {
+                acc.categorias++;
+            }
+            if (Number(item.id_marca_erp || 0) > 0) {
+                acc.marcas++;
+            }
+            return acc;
+        }, {categorias: 0, marcas: 0});
     }
 
     function cargarPropuestasCostos() {
@@ -1063,10 +1217,33 @@
 
     function estado(valor) { return "<span class=\"badge " + (String(valor).indexOf("inactiv") === 0 ? "badge-light-danger" : "badge-light-success") + "\">" + escapeHtml(valor) + "</span>"; }
     function accion(tipo, id) { return "<button type=\"button\" class=\"btn btn-sm btn-icon btn-light-primary\" data-editar=\"" + tipo + "\" data-id=\"" + id + "\" title=\"Editar\"><i class=\"bi bi-pencil-square\"></i></button>"; }
+
+    /**
+     * IA: Codex GPT-5 | Fecha: 2026-07-12
+     * Proposito: ofrece baja/reactivacion logica de catalogos maestros desde la tabla sin borrado fisico.
+     * Impacto: Catalogo ERP; completa CRUD operativo conservando validaciones de uso en backend.
+     */
+    function accionEstatusMaestro(tipo, id) {
+        if (!permisos.editar) {
+            return "";
+        }
+        var item = obtenerItemCatalogo(tipo, id);
+        var estatus = item ? String(item.estatus || "") : "";
+        var inactivo = estatus.indexOf("inactiv") === 0;
+        var destino = tipo === "atributo" ? (inactivo ? "activo" : "inactivo") : (inactivo ? "activa" : "inactiva");
+        var titulo = inactivo ? "Reactivar" : "Inactivar";
+        var clase = inactivo ? "btn-light-success" : "btn-light-danger";
+        var icono = inactivo ? "bi-arrow-counterclockwise" : "bi-slash-circle";
+        return "<button type=\"button\" class=\"btn btn-sm btn-icon " + clase + "\" data-estatus-maestro=\"" + tipo + "\" data-id=\"" + id + "\" data-estatus-destino=\"" + destino + "\" title=\"" + titulo + "\"><i class=\"bi " + icono + "\"></i></button>";
+    }
     function accionesMaestro(tipo, id) {
+        var imagen = tipo === "marca" || tipo === "categoria"
+            ? "<button type=\"button\" class=\"btn btn-sm btn-icon btn-light-info\" data-imagen-maestro=\"" + tipo + "\" data-id=\"" + id + "\" title=\"Imágenes\"><i class=\"bi bi-image\"></i></button>"
+            : "";
         return "<div class=\"d-flex justify-content-end gap-2\">" +
-            "<button type=\"button\" class=\"btn btn-sm btn-icon btn-light-info\" data-imagen-maestro=\"" + tipo + "\" data-id=\"" + id + "\" title=\"Imágenes\"><i class=\"bi bi-image\"></i></button>" +
+            imagen +
             accion(tipo, id) +
+            accionEstatusMaestro(tipo, id) +
             "</div>";
     }
 
@@ -1235,6 +1412,42 @@
     }
 
     /**
+     * IA: Codex GPT-5 | Fecha: 2026-07-12
+     * Proposito: cambia estatus de un catalogo maestro reutilizando el contrato de guardado existente.
+     * Impacto: Catalogo ERP; evita endpoints nuevos y deja que el modelo bloquee marcas/categorias en uso.
+     */
+    function cambiarEstatusMaestro(tipo, id, estatusDestino) {
+        var item = obtenerItemCatalogo(tipo, id);
+        if (!item) {
+            Swal.fire({text: "No se encontro el registro seleccionado.", icon: "warning", confirmButtonText: "Aceptar"});
+            return;
+        }
+        var inactivar = String(estatusDestino).indexOf("inactiv") === 0;
+        Swal.fire({
+            text: inactivar ? "Se inactivara el registro. No se borra historial ni relaciones." : "Se reactivara el registro para volver a usarlo.",
+            icon: inactivar ? "warning" : "info",
+            showCancelButton: true,
+            confirmButtonText: inactivar ? "Inactivar" : "Reactivar",
+            cancelButtonText: "Cancelar"
+        }).then(function (result) {
+            if (!result.isConfirmed) {
+                return;
+            }
+            var data = payloadCatalogoMaestro(tipo, item);
+            data.estatus = estatusDestino;
+            request("/catalogoerp/auxiliar_guardar", data).then(function (response) {
+                if (response.error) {
+                    throw new Error(response.mensaje);
+                }
+                cargar();
+                Swal.fire({text: response.mensaje, icon: "success", confirmButtonText: "Aceptar"});
+            }).catch(function (error) {
+                Swal.fire({text: error.message, icon: "warning", confirmButtonText: "Aceptar"});
+            });
+        });
+    }
+
+    /**
      * IA: Codex GPT-5 | Fecha: 2026-06-29
      * Proposito: abre el gestor de imagenes de marca/categoria con candado de esquema pendiente.
      * Impacto: Catalogo ERP; prepara captura visual sin ejecutar DDL desde la UI.
@@ -1376,9 +1589,30 @@
     }
 
     function obtenerItemCatalogo(tipo, id) {
-        var lista = tipo === "marca" ? datos.marcas : datos.categorias;
-        var key = tipo === "marca" ? "id_marca_erp" : "id_categoria_erp";
+        var listas = {marca: "marcas", categoria: "categorias", unidad: "unidades", atributo: "atributos"};
+        var keys = {marca: "id_marca_erp", categoria: "id_categoria_erp", unidad: "id_unidad", atributo: "id_atributo_erp"};
+        var lista = datos[listas[tipo]] || [];
+        var key = keys[tipo];
         return (lista || []).find(function (item) { return String(item[key]) === String(id); });
+    }
+
+    /**
+     * IA: Codex GPT-5 | Fecha: 2026-07-12
+     * Proposito: arma payload completo para guardar cambios rapidos de estatus en catalogos maestros.
+     * Impacto: Catalogo ERP; conserva campos existentes al inactivar/reactivar desde acciones de tabla.
+     */
+    function payloadCatalogoMaestro(tipo, item) {
+        var keys = {marca: "id_marca_erp", categoria: "id_categoria_erp", unidad: "id_unidad", atributo: "id_atributo_erp"};
+        var data = {tipo_catalogo: tipo, id: item[keys[tipo]] || item.id || 0};
+        Object.keys(item || {}).forEach(function (key) {
+            if (item[key] != null && typeof item[key] !== "object") {
+                data[key] = item[key];
+            }
+        });
+        if (tipo === "atributo") {
+            data.opciones_lista = opcionesAtributo(item).join("\n");
+        }
+        return data;
     }
 
     function setValorImagen(name, value) {
@@ -1636,6 +1870,17 @@
         document.getElementById("catalogo_clasificacion_siguiente").addEventListener("click", function () { paginaClasificacion += 1; renderRevisionMetadatos(); });
         document.getElementById("catalogo_clasificacion_aplicar_categoria").addEventListener("click", aplicarCategoriaMasiva);
         document.getElementById("catalogo_clasificacion_guardar").addEventListener("click", guardarRevisionMetadatos);
+        document.getElementById("catalogo_clasificacion_seleccionar_visibles").addEventListener("click", seleccionarClasificacionVisible);
+        document.getElementById("catalogo_clasificacion_limpiar_seleccion").addEventListener("click", limpiarSeleccionClasificacion);
+        document.getElementById("catalogo_clasificacion_sugerencias").addEventListener("click", function (event) {
+            var boton = event.target.closest("[data-clasificacion-sugerencia]");
+            if (!boton) {
+                return;
+            }
+            document.getElementById("catalogo_clasificacion_buscar").value = boton.getAttribute("data-clasificacion-sugerencia") || "";
+            paginaClasificacion = 1;
+            renderRevisionMetadatos();
+        });
         document.getElementById("catalogo_clasificacion_pendientes").addEventListener("change", function (event) {
             var claveRevision = event.target.getAttribute("data-clasificacion-seleccionar") ||
                 event.target.getAttribute("data-clasificacion-categoria") ||
@@ -1653,6 +1898,20 @@
                     item.id_categoria_erp = event.target.value;
                 } else if (event.target.matches("[data-clasificacion-marca]")) {
                     item.id_marca_erp = event.target.value;
+                }
+            });
+            renderRevisionMetadatos();
+        });
+        document.getElementById("catalogo_clasificacion_pendientes").addEventListener("click", function (event) {
+            var boton = event.target.closest("[data-clasificacion-marca-rapida]");
+            if (!boton) {
+                return;
+            }
+            var claveRevision = boton.getAttribute("data-clasificacion-marca-rapida");
+            revisionMetadatos.forEach(function (item) {
+                if (item.clave_revision === claveRevision) {
+                    item.id_marca_erp = boton.getAttribute("data-id-marca") || "";
+                    item.seleccionado = true;
                 }
             });
             renderRevisionMetadatos();
@@ -1704,6 +1963,16 @@
                 if (imagenButton) {
                     event.preventDefault();
                     abrirImagenesMaestro(imagenButton.getAttribute("data-imagen-maestro"), imagenButton.getAttribute("data-id"));
+                    return;
+                }
+                var estatusButton = event.target.closest("[data-estatus-maestro]");
+                if (estatusButton) {
+                    event.preventDefault();
+                    cambiarEstatusMaestro(
+                        estatusButton.getAttribute("data-estatus-maestro"),
+                        estatusButton.getAttribute("data-id"),
+                        estatusButton.getAttribute("data-estatus-destino")
+                    );
                     return;
                 }
                 var button = event.target.closest("[data-editar]");

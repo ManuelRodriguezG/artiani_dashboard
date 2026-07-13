@@ -36,8 +36,10 @@ class UatCatalogoCategoriasMaestroReadonly extends CRUD {
 
     foreach ($categorias as $categoria) {
       $ids[intval($categoria["id_categoria_erp"])] = true;
-      $porTipo[$categoria["tipo_categoria"]] = isset($porTipo[$categoria["tipo_categoria"]]) ? $porTipo[$categoria["tipo_categoria"]] + 1 : 1;
-      $porEstatus[$categoria["estatus"]] = isset($porEstatus[$categoria["estatus"]]) ? $porEstatus[$categoria["estatus"]] + 1 : 1;
+      $tipo = (string)$categoria["tipo_categoria"];
+      $estatus = (string)$categoria["estatus"];
+      $porTipo[$tipo] = isset($porTipo[$tipo]) ? $porTipo[$tipo] + 1 : 1;
+      $porEstatus[$estatus] = isset($porEstatus[$estatus]) ? $porEstatus[$estatus] + 1 : 1;
       if (empty($categoria["id_categoria_padre"])) {
         $raices++;
       }
@@ -128,7 +130,13 @@ class UatCatalogoCategoriasMaestroReadonly extends CRUD {
 
   private function textoPareceDanado($texto) {
     $texto = (string)$texto;
-    return $texto !== "" && preg_match('/(Ã|Â|�|├|┬|â€™|â€œ|â€)/u', $texto) === 1;
+    return $texto !== "" && (
+      strpos($texto, "\xE2\x94\x9C") !== false ||
+      strpos($texto, "\xE2\x94\xAC") !== false ||
+      strpos($texto, "\xC3\x83") !== false ||
+      strpos($texto, "\xC3\x82") !== false ||
+      strpos($texto, "\xEF\xBF\xBD") !== false
+    );
   }
 
   private function repararMojibake($texto) {
@@ -137,18 +145,30 @@ class UatCatalogoCategoriasMaestroReadonly extends CRUD {
 
   private function mapaTextoDanado() {
     return array(
-      "├â┬í" => "á",
-      "├â┬¡" => "í",
-      "├â┬│" => "ó",
-      "├â┬®" => "é",
-      "├â┬║" => "ú",
-      "├â┬▒" => "ñ",
-      "├â┬ü" => "Á",
-      "├â┬ì" => "Í",
-      "├â┬ô" => "Ó",
-      "├â┬ë" => "É",
-      "├â┬Ü" => "Ú",
-      "├â┬æ" => "Ñ"
+      "\xE2\x94\x9C\xC2\xA1" => "\xC3\xAD",
+      "\xE2\x94\x9C\xC3\xAD" => "\xC3\xA1",
+      "\xE2\x94\x9C\xE2\x94\x82" => "\xC3\xB3",
+      "\xE2\x94\x9C\xC2\xAE" => "\xC3\xA9",
+      "\xE2\x94\x9C\xE2\x95\x91" => "\xC3\xBA",
+      "\xE2\x94\x9C\xE2\x96\x92" => "\xC3\xB1",
+      "\xE2\x94\x9C\xC3\xBC" => "\xC3\x81",
+      "\xE2\x94\x9C\xC3\xAC" => "\xC3\x8D",
+      "\xE2\x94\x9C\xC3\xB4" => "\xC3\x93",
+      "\xE2\x94\x9C\xC3\xAB" => "\xC3\x89",
+      "\xE2\x94\x9C\xC3\x9C" => "\xC3\x9A",
+      "\xE2\x94\x9C\xC3\xA6" => "\xC3\x91",
+      "\xE2\x94\x9C\xC3\xA2\xE2\x94\xAC\xC3\xAD" => "\xC3\xA1",
+      "\xE2\x94\x9C\xC3\xA2\xE2\x94\xAC\xC2\xA1" => "\xC3\xAD",
+      "\xE2\x94\x9C\xC3\xA2\xE2\x94\xAC\xE2\x94\x82" => "\xC3\xB3",
+      "\xE2\x94\x9C\xC3\xA2\xE2\x94\xAC\xC2\xAE" => "\xC3\xA9",
+      "\xE2\x94\x9C\xC3\xA2\xE2\x94\xAC\xE2\x95\x91" => "\xC3\xBA",
+      "\xE2\x94\x9C\xC3\xA2\xE2\x94\xAC\xE2\x96\x92" => "\xC3\xB1",
+      "\xE2\x94\x9C\xC3\xA2\xE2\x94\xAC\xC3\xBC" => "\xC3\x81",
+      "\xE2\x94\x9C\xC3\xA2\xE2\x94\xAC\xC3\xAC" => "\xC3\x8D",
+      "\xE2\x94\x9C\xC3\xA2\xE2\x94\xAC\xC3\xB4" => "\xC3\x93",
+      "\xE2\x94\x9C\xC3\xA2\xE2\x94\xAC\xC3\xAB" => "\xC3\x89",
+      "\xE2\x94\x9C\xC3\xA2\xE2\x94\xAC\xC3\x9C" => "\xC3\x9A",
+      "\xE2\x94\x9C\xC3\xA2\xE2\x94\xAC\xC3\xA6" => "\xC3\x91"
     );
   }
 

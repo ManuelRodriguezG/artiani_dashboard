@@ -609,6 +609,7 @@ Reglas:
 - No se debe usar para ecommerce como disponibilidad vendible.
 - No debe tomar unidades abiertas como unidad cerrada.
 - No reemplaza kardex: si existe stock, se descuenta con kardex normal; si falta stock, se registra pendiente y se genera alerta operativa.
+- Flujo mixto 2026-07-12: si `cantidad_cubierta > 0` y `cantidad_pendiente > 0`, la parte cubierta debe descontarse en la venta con kardex y trazabilidad normal; solo el faltante debe quedar como expediente pendiente para Inventario/Existencias.
 - El pendiente debe mostrar cantidad vendida, cantidad cubierta y cantidad faltante.
 - La resolucion pertenece a Inventario/Existencias, no a caja.
 - El ajuste posterior debe quedar ligado al pendiente y no borrar la evidencia de venta original.
@@ -631,7 +632,7 @@ DDL aplicado:
   - `/ventas/pos_politica_inventario_pendiente_guardar_erp`
 - Endpoint real preparado para UAT de venta con inventario pendiente:
   - `/ventas/pos_inventario_pendiente_real_erp`
-  - Crea venta, pago, movimiento de caja, expediente pendiente y evento solo si existe turno abierto y pago completo.
+  - Crea venta, pago, movimiento de caja, expediente pendiente, evento y notificacion global para Inventario solo si existe turno abierto y pago completo.
 
 Evidencia UAT politica sembrada:
 
@@ -662,12 +663,62 @@ Resolucion Inventario/Existencias preparada:
   - `/inventario/pos_pendiente_inventario_consultar_erp`
   - `/inventario/pos_pendiente_inventario_resolucion_dryrun_erp`
   - `/inventario/pos_pendiente_inventario_resolver_erp`
+- UI Inventario/Existencias:
+  - Pestaña `Pendientes POS` agregada para consultar pendientes, estado, venta relacionada, cantidades y expediente.
+  - Modal de expediente muestra producto, almacen, conteo/resolucion, existencias actuales y eventos.
+  - Modal permite simular resolucion con cantidad fisica, decision y motivo usando dry-run; no escribe BD ni mueve inventario.
+  - Despues de un dry-run exitoso, la UI puede preparar resolucion real con token, respaldo, texto `RESOLVER PENDIENTE` y confirmacion; el backend revalida permisos y contrato antes de escribir.
+  - Hash directo soportado: `/inventario/productos_existencias#pendientes-pos`.
+- Notificaciones:
+  - Al crear una venta POS con inventario pendiente se registra/actualiza notificacion `pos_venta_inventario_pendiente` para area `inventario`, permiso `inventario.ver`, URL `/inventario/productos_existencias#pendientes-pos`.
+  - Al resolver el pendiente desde Inventario/Existencias se cierra la notificacion por huella `pos_inventario_pendiente|ID`.
+- Flujo mixto preparado en codigo:
+  - `VentasErp::ventaInventarioPendienteDryRun` marca el caso mixto como `pendiente_autorizable` si la politica cubre solo el faltante.
+  - `VentasErp::ventaInventarioPendienteReal` usa `aplicarSalidaInventarioPosReal` para descontar `cantidad_cubierta` con kardex y trazabilidad `erp_ventas_detalle_inventario`.
+  - La misma venta crea expediente `erp_pos_inventario_pendientes` solo por `cantidad_pendiente`.
+  - El detalle queda con `modo_salida=mixto_kardex_pendiente_pos` e `inventario_estado=pendiente_inventario_parcial`.
+  - `InventarioErp::resolverPendientePosInventarioDryRun` calcula el conteo como inventario fisico actual post-venta, suma la cantidad pendiente vendida para obtener la existencia objetivo antes de salida y propone ajuste preventa + salida de venta pendiente.
+  - `InventarioErp::resolverPendientePosInventarioReal` crea el ajuste preventa cuando aplique y despues registra kardex de salida `venta_pos` para la cantidad pendiente vendida; la trazabilidad del detalle pendiente apunta al movimiento de salida.
+  - Script UAT protegido preparado: `storage/uat/uat_ventas_pos_inventario_pendiente_apply_authorized.php`.
+  - Guardrail del script validado sin parametros: queda bloqueado, no escribe BD.
+- Preflight read-only:
+  - Script: `storage/uat/uat_pos_inventario_pendiente_notificaciones_readonly.php`.
+  - Script complementario de saldos/estatus: `storage/uat/uat_inventario_estatus_existencias_readonly.php`.
+  - Script preparado, no ejecutado, para normalizacion autorizada: `storage/uat/uat_inventario_estatus_existencias_apply_authorized.php`.
+  - Resultado 2026-07-12: `ok=true`; tablas/columnas requeridas presentes; politica `PINV-UAT-A5-S1760-POS` activa; no hay pendientes abiertos; no hay notificaciones POS pendientes.
+  - Aviso tecnico: existencia `EXI-1016-34` tiene `cantidad_disponible=5` pero `estatus_existencia=agotada`; normalizar antes o durante la siguiente UAT visual para evitar confusion operativa.
+  - Auditoria estatus 2026-07-12: `total_inconsistencias=1`; `disponible_marcado_agotado=1`; muestra `EXI-1016-34`, almacen `5`, SKU `1760`, cantidad `5`, disponible `5`, estatus `agotada`.
+  - Apply autorizado 2026-07-12 con token `INVENTARIO_ESTATUS_EXISTENCIAS_NORMALIZAR`: `EXI-1016-34` paso de `agotada` a `disponible`, manteniendo cantidad `5`, disponible `5`, apartado `0`; no creo kardex ni modifico cantidades.
+  - Auditoria posterior 2026-07-12: `total_inconsistencias=0` para almacen `5` / SKU `1760`.
+- Hallazgo `POS-PINV-H001`: antes del guardrail, una venta con existencia parcial podia calcular `cantidad_cubierta` y `cantidad_pendiente`, pero el flujo real de pendiente no descontaba con kardex la parte cubierta. Se bloqueo el caso mixto en dry-run y real hasta implementar el descuento mixto completo.
+- Resolucion `POS-PINV-H001`: flujo mixto preparado en backend; pendiente UAT real. Dry-run 2026-07-12 con almacen `5`, SKU `1760`, cantidad `5`: disponible `4`, cubierta `4`, pendiente `1`, estado `pendiente_autorizable`, bloqueos `[]`.
+- Hallazgo `POS-PINV-H002`: la resolucion anterior del pendiente puro ajustaba stock al conteo fisico actual, pero no generaba la salida/kardex de la cantidad pendiente vendida. Se corrigio prospectivamente para que la resolucion cree ajuste preventa y salida `venta_pos` pendiente; la UAT historica `PINV-20260711-000001` queda documentada como anterior a esta mejora.
+- Prueba negativa 2026-07-12: dry-run mixto con cantidad `6` queda `bloqueado` porque el faltante `2` supera politica `cantidad_maxima_pendiente=1` y `monto_maximo=295`.
+
+Siguiente UAT real mixta sugerida:
+
+`AUTORIZO ABRIR TURNO POS UAT usando respaldo UAT POS vigente con id_usuario=1 y monto_inicial=500 observaciones="Apertura UAT POS inventario pendiente mixto"`
+
+`AUTORIZO EJECUTAR UAT VENTA POS CON INVENTARIO PENDIENTE MIXTO usando respaldo UAT POS vigente con token VENTAS_POS_INVENTARIO_PENDIENTE_REAL id_usuario=1 id_almacen=5 id_sku=1760 cantidad=5 pago=1475 id_metodo_pago=1 motivo="UAT venta mixta POS: 4 con kardex y 1 pendiente inventario" cliente="Cliente UAT POS pendiente mixto"`
+
+Validaciones esperadas despues de venta mixta:
+
+- Venta nueva `POS-...` pagada por `$1475`.
+- Kardex de salida por cantidad cubierta `4`, existencia `EXI-1016-34` de `4` a `0`.
+- Expediente `PINV-...` por cantidad pendiente `1`.
+- Notificacion `pos_venta_inventario_pendiente` abierta para Inventario/Existencias.
+- Turno esperado aumenta `$1475`.
+- La resolucion posterior del pendiente debe usar conteo fisico actual post-venta y crear ajuste preventa + salida `venta_pos` pendiente.
 - Pruebas read-only:
   - Bandeja almacén 5: `1` pendiente, folio `PINV-20260711-000001`, estatus `pendiente_revision`.
   - Consulta expediente: `1` evento, `0` existencias actuales.
   - Dry-run conteo fisico `0`, decision `cerrar_sin_ajuste`: cierra sin kardex.
   - Dry-run conteo fisico `5`, decision `ajustar_a_conteo`: propone ajuste `entrada` por `5`, referencia `PINV-RES-PINV-20260711-000001`, cerrar pendiente.
-- Apply real preparado pero no ejecutado; requiere token `INVENTARIO_POS_PENDIENTE_RESOLVER_REAL` y respaldo vigente.
+- Apply real UAT ejecutado:
+  - Pendiente `PINV-20260711-000001` resuelto.
+  - Conteo fisico validado `5`.
+  - Movimiento kardex `86`, tipo `entrada`, referencia `PINV-RES-PINV-20260711-000001`.
+  - Venta `POS-20260711-000001` marcada como `validado_post_venta`.
 
 Siguiente autorizacion posterior para UAT real con caja abierta:
 
@@ -675,6 +726,127 @@ Siguiente autorizacion posterior para UAT real con caja abierta:
 
 `AUTORIZO EJECUTAR UAT VENTA POS CON INVENTARIO PENDIENTE usando respaldo UAT POS vigente con token VENTAS_POS_INVENTARIO_PENDIENTE_REAL id_usuario=1 id_almacen=5 id_sku=1760 cantidad=1 pago=295 id_metodo_pago=1 motivo="UAT venta con inventario pendiente"`
 
-Siguiente autorizacion para resolver pendiente desde Inventario:
+Siguiente autorizacion para repetir ciclo de pendiente desde Inventario con nuevo folio:
 
-`AUTORIZO RESOLVER PENDIENTE INVENTARIO POS UAT REAL usando respaldo UAT POS vigente con token INVENTARIO_POS_PENDIENTE_RESOLVER_REAL id_usuario=1 folio=PINV-20260711-000001 cantidad_fisica=5 decision=ajustar_a_conteo motivo="UAT conteo encuentra 5 piezas despues de venta POS pendiente"`
+`AUTORIZO RESOLVER PENDIENTE INVENTARIO POS UAT REAL usando respaldo UAT POS vigente con token INVENTARIO_POS_PENDIENTE_RESOLVER_REAL id_usuario=1 folio=PINV-NUEVO cantidad_fisica=CONTEO decision=ajustar_a_conteo confirmacion="RESOLVER PENDIENTE" motivo="UAT conteo fisico posterior a venta POS pendiente"`
+
+Siguiente autorizacion para normalizar solo estatus de existencias:
+
+`AUTORIZO NORMALIZAR ESTATUS EXISTENCIAS INVENTARIO UAT usando respaldo UAT POS vigente con token INVENTARIO_ESTATUS_EXISTENCIAS_NORMALIZAR confirmacion="NORMALIZAR ESTATUS" para corregir existencias con saldo disponible y estatus agotada sin mover kardex ni modificar cantidades`
+
+Siguiente tarea UI/UAT:
+
+- Generar un nuevo pendiente abierto, probar desde Inventario/Existencias el expediente, dry-run y resolucion real con token operativo.
+- Validar que la notificacion global se crea al vender con inventario pendiente y se resuelve al cerrar el pendiente.
+- Revisar normalizacion de `estatus_existencia` cuando un ajuste posterior devuelve disponibilidad a una existencia previamente agotada.
+
+## Readiness POS normal post normalizacion
+
+Evidencia 2026-07-12:
+
+- Script: `storage/uat/uat_ventas_pos_cobro_ui_readiness_readonly.php`.
+- Parametros: usuario `1`, almacen asignado `5`, caja `2`, SKU `1760`, cantidad `1`, precio/pago `$295`, cliente `3312345678`.
+- Resultado read-only: no escribio ventas, pagos, movimientos caja, kardex, existencias ni garantias; conteos antes/despues iguales.
+- Esquema requerido presente y endpoint real `/ventas/pos_confirmar_erp` expuesto.
+- Usuario `1` conserva permiso `ventas.operar`.
+- Stock actual suficiente: SKU `1760` tiene `5` disponibles despues de normalizar estatus.
+- Bloqueo actual: no hay turno abierto para la caja asignada; `id_turno_caja=0`.
+
+Siguiente autorizacion para venta POS normal con kardex:
+
+`AUTORIZO ABRIR TURNO POS UAT usando respaldo UAT POS vigente con id_usuario=1 y monto_inicial=500 observaciones="Apertura UAT POS venta normal post normalizacion"`
+
+`AUTORIZO EJECUTAR COBRO REAL POS UI UAT usando respaldo UAT POS vigente con token VENTAS_POS_COBRO_UI_REAL id_usuario=1 id_sku=1760 cantidad=1 precio=295 pago=295 cliente="Cliente UAT POS normal post normalizacion"`
+
+Evidencia UAT real 2026-07-12:
+
+- Apertura autorizada:
+  - Turno `TUR-20260712-002-001`, `id_turno_caja=21`.
+  - Caja `2`, almacen `5`, usuario `1`.
+  - Movimiento caja inicial `43`, monto `$500`.
+- Readiness previo con turno abierto:
+  - `ok=true`, bloqueos `[]`.
+  - No escribio BD; conteos antes/despues iguales.
+- Cobro real POS UI:
+  - Venta `POS-20260712-000001`, `id_venta=19`, estatus `pagada`.
+  - Cliente publico `Cliente UAT POS normal post normalizacion`, identificador `3312345678`.
+  - Total `$295`, pagado `$295`, saldo `$0`.
+  - Detalle `id_venta_detalle=20`, SKU `1760`, cantidad `1`, lista `Lista UAT POS`.
+  - Pago `id_venta_pago=24`, movimiento caja `44`, metodo `Efectivo`, referencia `UAT-POS-UI`.
+  - Kardex salida `id_movimiento_inventario=87`, existencia `EXI-1016-34` de `5` a `4`.
+  - Trazabilidad `erp_ventas_detalle_inventario.id_venta_detalle_inventario=19`.
+  - Snapshot garantia `id_venta_detalle_garantia=12`, resumen `Sin garantia`.
+- Verificaciones read-only posteriores:
+  - Post-venta `ok=true`, hallazgos `[]`.
+  - Auditoria estatus existencias: `total_inconsistencias=0`.
+  - Ticket formal read-only: `ok=true`, `28` lineas, hallazgos `[]`.
+  - Turno esperado `$795`, movimientos caja `2` (`500` inicial + `295` venta), turno sigue abierto.
+
+Siguiente autorizacion para cerrar este turno:
+
+`AUTORIZO CERRAR TURNO POS UAT REAL usando respaldo UAT POS vigente con id_usuario=1 monto_contado=795 observaciones="Cierre UAT POS venta normal post normalizacion POS-20260712-000001"`
+
+Cierre UAT real 2026-07-12:
+
+- Preflight cierre:
+  - Turno `TUR-20260712-002-001`, monto esperado `$795`, contado `$795`, diferencia `$0`.
+  - Bloqueos `[]`; no escribio BD.
+- Cierre aplicado:
+  - `id_turno_caja=21`, estatus `cerrado`.
+  - `id_usuario_cierre=1`.
+  - `monto_inicial=$500`, `monto_esperado=$795`, `monto_contado=$795`, `diferencia=$0`.
+  - Ventas `1`, total `$295`, pagado `$295`, saldo `$0`.
+  - Movimientos caja:
+    - `43` entrada monto inicial `$500`.
+    - `44` ingreso venta POS `$295`.
+- Verificaciones posteriores:
+  - Post-cierre `ok=true`, hallazgos `[]`.
+  - Asignacion usuario/caja sigue activa, pero `turno_abierto=null`.
+  - Readiness de nueva venta bloquea correctamente por falta de turno abierto y no escribe BD.
+  - Post-venta `POS-20260712-000001` sigue `ok=true`, hallazgos `[]`.
+
+## UAT POS inventario pendiente mixto
+
+Evidencia 2026-07-12:
+
+- Apertura autorizada:
+  - Turno `TUR-20260712-002-002`, `id_turno_caja=22`.
+  - Caja `2`, almacen `5`, usuario `1`.
+  - Movimiento inicial `45`, monto `$500`.
+- Preflight venta mixta:
+  - SKU `1760`, almacen `5`, cantidad solicitada `5`.
+  - Disponible ERP antes de venta: `4`.
+  - Cantidad cubierta con kardex: `4`.
+  - Cantidad pendiente de inventario: `1`.
+  - Politica activa `PINV-UAT-A5-S1760-POS`, maximo pendiente `1`, monto maximo `$295`.
+  - Estado `pendiente_autorizable`, bloqueos `[]`.
+- Hallazgo tecnico corregido:
+  - `POS-PINV-H003`: registrar notificacion con una nueva instancia de modelo durante una transaccion POS podia cerrar la transaccion por PDO persistente.
+  - Correccion: `registrarNotificacionInventarioPendientePos()` inserta/actualiza `erp_notificaciones` con la misma conexion transaccional y liga `id_notificacion` al expediente pendiente.
+  - Se agrego guardia `asegurarTransaccionPosReal()` para detectar perdida de transaccion con paso diagnostico.
+- Venta mixta real:
+  - Venta `POS-20260712-000002`, `id_venta=23`, estatus `pagada`.
+  - Total `$1475`, pagado `$1475`, saldo `$0`.
+  - Detalle `id_venta_detalle=24`, SKU `1760`, cantidad `5`, modo `mixto_kardex_pendiente_pos`.
+  - Kardex cubierto `id_movimiento_inventario=91`, existencia `EXI-1016-34` de `4` a `0`.
+  - Pendiente `PINV-20260712-000001`, `id_inventario_pendiente=5`, cantidad pendiente `1`, estatus `pendiente_revision`.
+  - Notificacion operativa `id_notificacion=18`, tipo `pos_venta_inventario_pendiente`, estatus `pendiente`.
+  - Pago `id_venta_pago=27`, movimiento caja real `48`, metodo `Efectivo`, monto `$1475`.
+- Validador post-venta:
+  - Cuadre detalle/pagos correcto.
+  - Trazabilidad mixta correcta: una fila `existencia` con kardex y una fila `inventario_pendiente` por validar.
+  - Hallazgo restante `VENTAS-POST-009`: sin snapshot de garantia para SKU; corresponde a cierre del modulo Garantias/Catalogo, no bloquea inventario pendiente.
+- Caja pendiente de correccion:
+  - Los intentos fallidos previos dejaron movimientos caja huerfanos `46` y `47`, ambos `venta_pos` por `$1475`, ligados a ventas inexistentes `20` y `21`.
+  - El movimiento real valido es `48`, ligado a `POS-20260712-000002`.
+  - Se preparo `storage/uat/uat_pos_caja_orfanos_corregir_apply_authorized.php`, bloqueado por token, para cancelar solo esos huerfanos y recalcular turno excluyendo venta_pos sin venta valida.
+
+Siguiente autorizacion para corregir caja huerfana del turno abierto:
+
+`AUTORIZO CORREGIR CAJA ORFANA POS UAT REAL usando respaldo UAT POS vigente con token VENTAS_POS_CAJA_ORFANOS_CORREGIR id_usuario=1 id_turno_caja=22 ids_movimiento_caja=46,47 confirmacion="CORREGIR CAJA ORFANA" motivo="UAT limpiar movimientos caja huerfanos por intento fallido de venta mixta"`
+
+Despues de corregir caja:
+
+- Resolver `PINV-20260712-000001` desde Inventario/Existencias con conteo fisico.
+- Si el conteo fisico actual confirma `0` piezas, la resolucion debe crear ajuste de entrada a existencia teorica previa y salida de venta pendiente, dejando final `0`.
+- Cerrar turno `TUR-20260712-002-002` con monto contado esperado `$1975` si no hay otros movimientos.

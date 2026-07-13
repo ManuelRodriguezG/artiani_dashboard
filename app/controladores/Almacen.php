@@ -73,6 +73,68 @@ class Almacen extends Controlador {
         return json_encode($almacen->consultar_resurtido_readonly($_GET));
     }
 
+    public function resurtido_simular_solicitud_erp() {
+        $this->requerirPermiso("almacen.ver");
+        $almacen = $this->modelo('Almacenes');
+        return json_encode($almacen->simular_solicitud_resurtido_readonly($_GET));
+    }
+
+    public function resurtido_resumen_tiendas_erp() {
+        $this->requerirPermiso("almacen.ver");
+        $almacen = $this->modelo('Almacenes');
+        return json_encode($almacen->resumen_resurtido_tiendas_readonly($_GET));
+    }
+
+    public function resurtido_validar_solicitud_erp() {
+        $this->requerirPermiso("almacen.ver");
+        $almacen = $this->modelo('Almacenes');
+        return json_encode($almacen->validar_solicitud_resurtido_readonly($_GET));
+    }
+
+    public function resurtido_payload_solicitud_erp() {
+        $this->requerirPermiso("almacen.ver");
+        $almacen = $this->modelo('Almacenes');
+        return json_encode($almacen->payload_solicitud_resurtido_readonly($_GET));
+    }
+
+    public function resurtido_estados_erp() {
+        $this->requerirPermiso("almacen.ver");
+        $almacen = $this->modelo('Almacenes');
+        return json_encode($almacen->estados_resurtido_readonly($_GET));
+    }
+
+    public function resurtido_preparacion_envio_contrato_erp() {
+        $this->requerirPermiso("almacen.ver");
+        $almacen = $this->modelo('Almacenes');
+        return json_encode($almacen->preparacion_envio_resurtido_contrato_readonly($_GET));
+    }
+
+    public function resurtido_recepcion_diferencias_contrato_erp() {
+        $this->requerirPermiso("almacen.ver");
+        $almacen = $this->modelo('Almacenes');
+        return json_encode($almacen->recepcion_diferencias_resurtido_contrato_readonly($_GET));
+    }
+
+    public function resurtido_politicas_alertas_contrato_erp() {
+        $this->requerirPermiso("almacen.ver");
+        $almacen = $this->modelo('Almacenes');
+        return json_encode($almacen->politicas_alertas_resurtido_contrato_readonly($_GET));
+    }
+
+    public function resurtido_guardar_erp() {
+        $this->requerirPermiso("almacen.recibir");
+        $almacen = $this->modelo('Almacenes');
+        $respuesta = $almacen->guardar_solicitud_resurtido($_POST, $this->usuarioActualId());
+        SesionSeguridad::registrarAuditoria("almacen", "resurtido_guardar_erp", array(
+            "entidad" => "erp_almacen_resurtidos",
+            "entidad_id" => isset($respuesta["depurar"]["id_resurtido_almacen"]) ? intval($respuesta["depurar"]["id_resurtido_almacen"]) : 0,
+            "resultado" => $respuesta["error"] ? "error" : "ok",
+            "mensaje" => $respuesta["mensaje"],
+            "datos_despues" => isset($respuesta["depurar"]) ? $respuesta["depurar"] : null
+        ));
+        return json_encode($respuesta);
+    }
+
     public function almacen_configuracion_guardar_erp() {
         $this->requerirPermiso("almacen.ubicaciones");
         $almacen = $this->modelo('Almacenes');

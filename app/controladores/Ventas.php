@@ -222,6 +222,17 @@ class Ventas extends Controlador {
   }
 
   /**
+   * Documentacion IA: Codex GPT-5, 2026-07-13.
+   * Proposito: consultar auditoria comercial de listas de precios.
+   * Impacto: permite validar eventos de lista, detalle y asignacion sin escribir BD.
+   * Contrato: read-only; protegido temporalmente por `ventas.ver` hasta sembrar `ventas.listas.auditoria`.
+   */
+  public function listas_precios_auditoria_erp() {
+    $this->requerirPermiso("ventas.ver");
+    return json_encode($this->modelo("ListasPreciosErp")->auditoriaReadOnly($_GET));
+  }
+
+  /**
    * Documentacion IA: Codex GPT-5, 2026-07-12.
    * Proposito: validar encabezado futuro de lista de precios sin escribir BD.
    * Impacto: prepara CRUD real con reglas de codigo, canal, vigencia y prioridad.
@@ -258,7 +269,7 @@ class Ventas extends Controlador {
    * Documentacion IA: Codex GPT-5, 2026-07-12.
    * Proposito: guardar encabezado de lista de precios con permisos finos y auditoria.
    * Impacto: escritura controlada sobre `erp_listas_precios`; no modifica ventas pasadas.
-   * Contrato: requiere permiso `ventas.listas.*`, respaldo y token `VENTAS_LISTAS_PRECIOS_GUARDAR_UAT`.
+   * Contrato: requiere permiso `ventas.listas.*` y token `VENTAS_LISTAS_PRECIOS_GUARDAR_UAT`.
    */
   public function listas_precios_lista_guardar_erp() {
     $this->requerirPermisoListaPreciosGuardar("lista");
@@ -273,7 +284,7 @@ class Ventas extends Controlador {
    * Documentacion IA: Codex GPT-5, 2026-07-12.
    * Proposito: guardar detalle SKU/producto de lista de precios con auditoria.
    * Impacto: cambia precio base futuro del resolutor backend; snapshots previos no cambian.
-   * Contrato: requiere `ventas.listas.editar`, respaldo y token UAT.
+   * Contrato: requiere `ventas.listas.editar` y token UAT.
    */
   public function listas_precios_detalle_guardar_erp() {
     $this->requerirPermiso("ventas.listas.editar");
@@ -288,7 +299,7 @@ class Ventas extends Controlador {
    * Documentacion IA: Codex GPT-5, 2026-07-12.
    * Proposito: guardar asignacion cliente CRM/lista de precios con vigencia y prioridad.
    * Impacto: cambia resolucion futura para cliente; no afecta ventas emitidas.
-   * Contrato: requiere `ventas.listas.asignar_cliente`, respaldo y token UAT.
+   * Contrato: requiere `ventas.listas.asignar_cliente` y token UAT.
    */
   public function listas_precios_asignacion_guardar_erp() {
     $this->requerirPermiso("ventas.listas.asignar_cliente");
@@ -832,20 +843,18 @@ class Ventas extends Controlador {
 
   private function validarAutorizacionListasPreciosGuardar() {
     $autorizar = isset($_POST["autorizar"]) ? trim((string) $_POST["autorizar"]) : "";
-    $respaldo = isset($_POST["respaldo"]) ? trim((string) $_POST["respaldo"]) : "";
-    $validacionRespaldo = $this->validarRespaldoVentasPos($respaldo);
-    if ($autorizar !== "VENTAS_LISTAS_PRECIOS_GUARDAR_UAT" || !$validacionRespaldo["ok"]) {
+    if ($autorizar !== "VENTAS_LISTAS_PRECIOS_GUARDAR_UAT") {
       return array(
         "error" => true,
         "tipo" => "danger",
-        "mensaje" => "No se guardo lista de precios. Falta autorizacion UAT o respaldo externo valido.",
+        "mensaje" => "No se guardo lista de precios. Falta autorizacion UAT.",
         "depurar" => array(
-          "requerido" => array("autorizar" => "VENTAS_LISTAS_PRECIOS_GUARDAR_UAT", "respaldo" => "RUTA_O_REFERENCIA"),
-          "validacion_respaldo" => $validacionRespaldo,
+          "requerido" => array("autorizar" => "VENTAS_LISTAS_PRECIOS_GUARDAR_UAT"),
           "reglas" => array(
             "No guardar sin permisos finos sembrados.",
             "No guardar sin auditoria comercial `erp_listas_precios_eventos`.",
-            "No modifica ventas pasadas; POS conserva snapshot por partida."
+            "No modifica ventas pasadas; POS conserva snapshot por partida.",
+            "El respaldo externo se reserva para cambios de esquema/DDL."
           )
         )
       );

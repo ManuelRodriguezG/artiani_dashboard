@@ -1,0 +1,737 @@
+INSTRUCCIONES PARA INICIAR PROYECTO FRONTEND ECOMMERCE PUBLICO
+ERP > Ecommerce publico / Catalogo vivo conectado al ERP
+
+Fecha: 2026-07-13
+Proyecto ERP fuente: C:\xampp\htdocs\panel_de_control
+Estado actual ERP: contratos API listos en modo read-only; datos reales pendientes de DDL, configuracion, CORS, WhatsApp y publicaciones.
+
+======================================================================
+1. OBJETIVO DEL NUEVO PROYECTO FRONTEND
+======================================================================
+
+Crear un proyecto frontend separado del ERP para mostrar un catalogo publico vivo de productos para mascotas.
+
+Este proyecto NO debe ser un checkout completo en Fase 1.
+
+Objetivo Fase 1:
+- Mostrar productos publicados desde el ERP.
+- Mostrar imagen, nombre, marca, categoria, presentacion, precio y disponibilidad publica simple.
+- Permitir filtros por mascota y necesidad.
+- Permitir busqueda rapida.
+- Permitir carrito local tipo cotizacion.
+- Validar carrito contra el ERP con endpoint dry-run.
+- Generar mensaje para WhatsApp.
+- No cobrar online.
+- No descontar inventario.
+- No crear pedido confirmado.
+- No usar tablas legacy ecom_* como fuente.
+
+Idea de negocio:
+- No construir una tienda generica.
+- Construir un ecosistema alrededor de mascotas.
+- Ayudar al cliente a encontrar rapido productos para su mascota.
+- Preparar el camino para futuras mascotas registradas, recomendaciones, recordatorios, recompensas, alianzas con veterinarias y campanas.
+
+======================================================================
+2. ARQUITECTURA GENERAL
+======================================================================
+
+El ERP es la fuente de verdad.
+
+El frontend ecommerce sera un proyecto separado que consume API publica del ERP.
+
+Responsabilidades del ERP:
+- Catalogo real.
+- SKU, producto, marca, categoria, imagenes, presentacion.
+- Precio vivo.
+- Disponibilidad publica simple.
+- Configuracion publica del canal.
+- Cotizacion dry-run.
+- Futuro registro interno de cotizacion/prospecto.
+
+Responsabilidades del frontend:
+- Experiencia visual publica.
+- Busqueda y filtros.
+- Carrito local.
+- UX de cotizacion.
+- Llamadas a API del ERP.
+- Armado de mensaje WhatsApp usando datos recalculados por ERP.
+
+No hacer desde frontend:
+- Leer base de datos.
+- Leer tablas internas del ERP.
+- Consumir tablas o endpoints legacy ecom_*.
+- Calcular precio final como fuente de verdad.
+- Mostrar stock exacto.
+- Descontar inventario.
+- Crear pedidos confirmados.
+- Procesar pagos.
+
+======================================================================
+3. ESTADO ACTUAL DE INTEGRACION
+======================================================================
+
+Hoy el ERP permite iniciar el frontend en modo tecnico/mock, no con catalogo vivo real.
+
+Comando en el ERP para revisar semaforo:
+
+C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_frontend_readiness_readonly.php
+
+Estado esperado actual:
+
+senal_frontend=amarillo_mock_contratos
+puede_iniciar_frontend_mock=true
+puede_integrar_datos_reales=false
+
+Significado:
+- Si: puedes crear el frontend, cliente API, pantallas, estados vacios y mocks.
+- No: todavia no debes prometer catalogo real publicado.
+
+Para pasar a datos reales, el ERP debe tener:
+- DDL erp_ecommerce_* aplicado con respaldo y autorizacion.
+- CORS configurado.
+- WhatsApp configurado.
+- Primeras publicaciones activas.
+- Endpoint /catalogo devolviendo productos reales.
+
+Senal futura:
+
+senal_frontend=verde_datos_reales
+puede_integrar_datos_reales=true
+
+======================================================================
+4. HOST Y VARIABLES DE ENTORNO
+======================================================================
+
+En desarrollo local, el ERP esta en el virtual host:
+
+http://panel.com.local
+
+Base API ecommerce:
+
+http://panel.com.local/ecommercePublico
+
+Variables sugeridas para el nuevo proyecto frontend:
+
+ERP_API_BASE_URL=http://panel.com.local
+ERP_ECOMMERCE_BASE_PATH=/ecommercePublico
+ERP_ECOMMERCE_API_VERSION=fase1-2026-07-12
+
+Si usas Vite/React:
+
+VITE_ERP_API_BASE_URL=http://panel.com.local
+VITE_ERP_ECOMMERCE_BASE_PATH=/ecommercePublico
+VITE_ERP_ECOMMERCE_API_VERSION=fase1-2026-07-12
+
+Si usas Next.js:
+
+NEXT_PUBLIC_ERP_API_BASE_URL=http://panel.com.local
+NEXT_PUBLIC_ERP_ECOMMERCE_BASE_PATH=/ecommercePublico
+NEXT_PUBLIC_ERP_ECOMMERCE_API_VERSION=fase1-2026-07-12
+
+Importante:
+- No guardar secretos HMAC en variables publicas del navegador.
+- Si en el futuro hay API key/firma, debe vivir en backend del ecommerce, no en SPA estatica.
+
+Verificacion real del host ERP:
+
+Abrir en navegador:
+
+http://panel.com.local/ecommercePublico/estado
+http://panel.com.local/ecommercePublico/contratos
+http://panel.com.local/ecommercePublico/configuracion
+
+Debe responder JSON, no HTML de login.
+
+Comando smoke desde el ERP:
+
+C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_http_smoke_readonly.php --base=http://panel.com.local
+
+Resultado esperado actual:
+
+ok=true
+frontend_base_correcta=http://panel.com.local/ecommercePublico
+estado.tipo=success
+catalogo.tipo=info
+cotizacion_dryrun.tipo=info
+
+======================================================================
+5. ENDPOINTS ERP QUE DEBE CONSUMIR EL FRONTEND
+======================================================================
+
+Base:
+
+{ERP_API_BASE_URL}{ERP_ECOMMERCE_BASE_PATH}
+
+Ejemplo local:
+
+http://panel.com.local/ecommercePublico
+
+No usar para este entorno:
+
+http://localhost/panel_de_control/ecommercePublico
+
+Esa ruta puede caer en login o en otra configuracion de Apache. El host verificado para este ERP es `panel.com.local`.
+
+Endpoints:
+
+GET /contratos
+GET /estado
+GET /configuracion
+GET /filtros
+GET /catalogo
+GET /producto/{slug}
+GET /disponibilidad?slug={slug}
+GET /disponibilidad?id_sku={id_sku}
+POST /cotizacion_dryrun
+
+No usar todavia:
+
+POST /cotizacion_registrar
+
+Ese endpoint esta bloqueado en Fase 1 hasta definir persistencia real, seguridad, rate limit y politica operativa.
+
+======================================================================
+6. CONTRATOS FUNCIONALES DE API
+======================================================================
+
+GET /estado
+
+Uso:
+- Saber si el ERP ya esta listo para datos reales.
+- Si ready=false, mostrar "catalogo en preparacion".
+
+Campos importantes:
+- depurar.ready
+- depurar.schema.ddl_pendiente
+- depurar.publicaciones.publicadas
+- depurar.configuracion.whatsapp_configurado
+- depurar.configuracion.cors_configurado
+
+GET /contratos
+
+Uso:
+- Validar version y endpoints.
+
+Validar:
+- depurar.api.version debe ser fase1-2026-07-12.
+
+GET /configuracion
+
+Uso:
+- Obtener moneda, numero WhatsApp, mensaje base y politicas publicas.
+
+No hardcodear WhatsApp en frontend.
+
+GET /filtros
+
+Uso:
+- Obtener mascotas, necesidades, marcas y categorias disponibles.
+
+GET /catalogo
+
+Parametros opcionales:
+- q
+- mascota
+- necesidad
+- marca
+- categoria
+- pagina
+- limite
+
+Uso:
+- Mostrar grilla/listado de productos publicados.
+
+Nota:
+- Antes de datos reales puede regresar vacio y eso no es error fatal.
+
+GET /producto/{slug}
+
+Uso:
+- Mostrar detalle de producto publicado.
+
+GET /disponibilidad
+
+Uso:
+- Consultar disponibilidad publica simple.
+
+Estados esperados:
+- disponible
+- pocas_piezas
+- consultar_disponibilidad
+- agotado
+
+POST /cotizacion_dryrun
+
+Uso:
+- Revalidar carrito antes de WhatsApp.
+- Recalcular precios y totales desde ERP.
+- No escribe BD.
+- No descuenta inventario.
+- No crea pedido.
+
+Body ejemplo:
+
+{
+  "items": [
+    {
+      "id_publicacion": 1,
+      "slug": "producto-ejemplo",
+      "id_sku": 123,
+      "cantidad": 2
+    }
+  ],
+  "contacto": {
+    "nombre": "Cliente",
+    "telefono": "",
+    "mensaje": ""
+  },
+  "utm": {
+    "source": "web"
+  }
+}
+
+Regla:
+- El frontend puede guardar carrito local, pero debe confiar en el resultado del dry-run para precio, subtotal y mensaje final.
+
+======================================================================
+7. SEGURIDAD Y CORS
+======================================================================
+
+Estado Fase 1:
+- CORS esta cerrado por defecto.
+- El ERP solo permitira origenes configurados en erp_ecommerce_configuracion.cors_origenes_permitidos.
+- API key/HMAC esta documentado como seguridad futura, no requerido para read-only local.
+
+Cuando el frontend tenga host local, configurar en ERP:
+
+cors_origenes_permitidos=http://localhost:3000
+
+Si usa otro puerto:
+
+cors_origenes_permitidos=http://localhost:5173
+
+Nunca usar:
+
+Access-Control-Allow-Origin: *
+
+Produccion:
+- Usar dominio exacto del ecommerce.
+- No exponer secretos en navegador.
+- Si hay HMAC, implementarlo en backend del ecommerce.
+- No habilitar POST real sin rate limit/captcha/politica de seguimiento.
+
+Headers futuros documentados:
+
+X-Ecommerce-Api-Key
+X-Ecommerce-Timestamp
+X-Ecommerce-Nonce
+X-Ecommerce-Signature
+
+En Fase 1 no construir dependencia dura de esos headers si el ERP aun esta en modo read-only local.
+
+======================================================================
+8. ESTRUCTURA SUGERIDA DEL NUEVO PROYECTO
+======================================================================
+
+Ejemplo si se usa React/Vite:
+
+frontend-ecommerce-mascotas/
+  AGENTS.md
+  README.md
+  .env.example
+  package.json
+  index.html
+  src/
+    main.tsx
+    App.tsx
+    config/
+      env.ts
+    api/
+      erpEcommerceApi.ts
+      erpEcommerceTypes.ts
+    domain/
+      cart.ts
+      availability.ts
+      whatsapp.ts
+    components/
+      AppShell.tsx
+      SearchBox.tsx
+      FilterBar.tsx
+      ProductGrid.tsx
+      ProductCard.tsx
+      AvailabilityBadge.tsx
+      CartDrawer.tsx
+      EmptyState.tsx
+      LoadingState.tsx
+      ErrorState.tsx
+    pages/
+      CatalogPage.tsx
+      ProductPage.tsx
+      CartQuotePage.tsx
+      StatusPage.tsx
+    styles/
+      globals.css
+    tests/
+      api-contract.test.ts
+
+Si usas Next.js, adaptar a:
+
+app/
+  page.tsx
+  producto/[slug]/page.tsx
+  cotizacion/page.tsx
+src/
+  api/
+  domain/
+  components/
+
+======================================================================
+9. ARCHIVO .env.example SUGERIDO
+======================================================================
+
+VITE_ERP_API_BASE_URL=http://panel.com.local
+VITE_ERP_ECOMMERCE_BASE_PATH=/ecommercePublico
+VITE_ERP_ECOMMERCE_API_VERSION=fase1-2026-07-12
+VITE_APP_MODE=development
+
+======================================================================
+10. CLIENTE API SUGERIDO
+======================================================================
+
+Crear una capa unica llamada erpEcommerceApi.
+
+Metodos:
+- getEstado()
+- getContratos()
+- getConfiguracion()
+- getFiltros()
+- getCatalogo(params)
+- getProducto(slug)
+- getDisponibilidad({ slug, id_sku })
+- cotizacionDryRun(payload)
+
+Reglas:
+- Centralizar base URL.
+- Usar timeout.
+- Manejar error HTTP.
+- Manejar error funcional cuando respuesta.error=true.
+- No depender de tablas ni endpoints internos.
+- Validar version del contrato.
+- No duplicar logica de precios.
+
+======================================================================
+11. UX OBLIGATORIA FASE 1
+======================================================================
+
+La primera pantalla debe ser el catalogo usable, no una landing generica.
+
+Debe existir:
+- Buscador visible.
+- Filtros por mascota.
+- Filtros por necesidad.
+- Filtros por marca/categoria cuando existan.
+- Tarjetas de producto con imagen, nombre, marca, precio, presentacion y disponibilidad.
+- Boton para agregar a cotizacion.
+- Carrito/cotizacion persistido localmente.
+- Boton de WhatsApp solo cuando configuracion lo permita.
+
+Estados obligatorios:
+- API no disponible.
+- API disponible pero ready=false.
+- Catalogo en preparacion.
+- Catalogo vacio.
+- Producto no encontrado.
+- Producto agotado.
+- Consultar disponibilidad.
+- Cotizacion dry-run con observaciones.
+- WhatsApp no configurado.
+
+Texto importante:
+- Usar "cotizacion", no "pedido confirmado".
+- Usar "total estimado sujeto a confirmacion".
+- No decir "pagado".
+- No decir "compra finalizada".
+
+Disponibilidad publica:
+- Disponible
+- Pocas piezas
+- Consultar disponibilidad
+- Agotado
+
+No mostrar cantidad exacta.
+
+======================================================================
+12. CARRITO LOCAL
+======================================================================
+
+El carrito vive en el frontend/localStorage en Fase 1.
+
+Campos minimos:
+- id_publicacion
+- id_sku
+- slug
+- nombre
+- imagen
+- presentacion
+- cantidad
+
+Campos que pueden guardarse solo para mostrar, pero no como verdad:
+- precio
+- disponibilidad
+- subtotal
+
+Antes de abrir WhatsApp:
+1. Enviar carrito a POST /cotizacion_dryrun.
+2. Usar lineas y totales devueltos por ERP.
+3. Si hay bloqueos, mostrar observaciones.
+4. Generar mensaje WhatsApp con datos recalculados.
+
+======================================================================
+13. WHATSAPP
+======================================================================
+
+No hardcodear numero.
+
+Leer:
+
+GET /configuracion
+
+Campo:
+
+whatsapp_numero_principal
+
+Si viene vacio:
+- Mostrar "WhatsApp pendiente de configuracion".
+- No abrir link wa.me real.
+
+Cuando venga configurado:
+- Usar https://wa.me/{numero}?text={mensajeCodificado}
+- Mensaje basado en dry-run.
+- Incluir total estimado.
+- Incluir "sujeto a confirmacion".
+
+======================================================================
+14. AGENTS.md SUGERIDO PARA EL NUEVO PROYECTO
+======================================================================
+
+Copiar este contenido como AGENTS.md en la raiz del nuevo frontend:
+
+----------------------------------------------------------------------
+# AGENTS.md - Frontend Ecommerce Mascotas
+
+## Proyecto
+
+Este proyecto es el frontend publico separado del ERP para el catalogo vivo ecommerce de mascotas.
+
+El ERP fuente de verdad vive en:
+
+`C:\xampp\htdocs\panel_de_control`
+
+En desarrollo local el API base es:
+
+`http://panel.com.local/ecommercePublico`
+
+## Objetivo Fase 1
+
+Construir una experiencia publica de catalogo vivo conectado al ERP:
+
+- catalogo de productos publicados;
+- filtros por mascota, necesidad, marca y categoria;
+- buscador;
+- detalle de producto;
+- carrito local tipo cotizacion;
+- validacion de carrito via `/cotizacion_dryrun`;
+- envio por WhatsApp cuando el ERP tenga configuracion.
+
+No construir checkout, pasarela, pagos, pedidos confirmados ni descuento de inventario en Fase 1.
+
+## Reglas de arquitectura
+
+- El ERP es la fuente de verdad.
+- Este frontend no lee BD.
+- Este frontend no consume tablas internas.
+- Este frontend no consume legacy `ecom_*`.
+- Todo dato de catalogo viene de `/ecommercePublico`.
+- Precios y disponibilidad se revalidan con el ERP antes de WhatsApp.
+- El carrito local no descuenta inventario.
+- El frontend no crea pedidos ni ventas.
+
+## Endpoints permitidos
+
+- `GET /contratos`
+- `GET /estado`
+- `GET /configuracion`
+- `GET /filtros`
+- `GET /catalogo`
+- `GET /producto/{slug}`
+- `GET /disponibilidad`
+- `POST /cotizacion_dryrun`
+
+No usar todavia:
+
+- `POST /cotizacion_registrar`
+
+## Seguridad
+
+- CORS debe usar origenes exactos configurados en el ERP.
+- No usar `Access-Control-Allow-Origin: *`.
+- No guardar secretos HMAC/API secret en navegador.
+- Si en el futuro se requiere firma HMAC, implementarla en backend del ecommerce.
+
+## UX
+
+- La primera pantalla debe ser el catalogo usable, no una landing generica.
+- La UI debe sentirse de negocio de mascotas, no tienda generica.
+- Priorizar busqueda rapida, filtros claros y carrito simple.
+- No mostrar stock exacto.
+- Disponibilidad publica: Disponible, Pocas piezas, Consultar disponibilidad, Agotado.
+- Usar "cotizacion" y "total estimado sujeto a confirmacion".
+- No decir "pedido confirmado", "pagado" o "compra finalizada".
+
+## Estados obligatorios
+
+- API no disponible.
+- API disponible pero `ready=false`.
+- Catalogo en preparacion.
+- Catalogo vacio.
+- Producto no encontrado.
+- Producto agotado.
+- WhatsApp no configurado.
+- Cotizacion dry-run con bloqueos.
+
+## Variables
+
+Usar `.env.example`:
+
+`VITE_ERP_API_BASE_URL=http://panel.com.local`
+`VITE_ERP_ECOMMERCE_BASE_PATH=/ecommercePublico`
+`VITE_ERP_ECOMMERCE_API_VERSION=fase1-2026-07-12`
+
+## Validacion
+
+Antes de entregar cambios:
+
+- probar carga de `/estado`;
+- probar carga de `/contratos`;
+- probar estado `ready=false`;
+- probar catalogo vacio;
+- probar carrito local;
+- probar dry-run;
+- probar WhatsApp no configurado;
+- revisar responsive mobile/desktop.
+
+## Documentos fuente en ERP
+
+Consultar en `C:\xampp\htdocs\panel_de_control`:
+
+- `docs/erp_ecommerce_publico_frontend_handoff.md`
+- `docs/erp_ecommerce_publico_instrucciones_proyecto_frontend.md`
+- `docs/erp_ecommerce_publico_api_contratos.md`
+- `docs/erp_ecommerce_publico_checklist_salida_fase1.md`
+- `docs/erp_ecommerce_catalogo_vivo_fase1.md`
+----------------------------------------------------------------------
+
+======================================================================
+15. README.md SUGERIDO
+======================================================================
+
+Nombre sugerido:
+
+Ecommerce Mascotas - Catalogo Vivo ERP
+
+Descripcion:
+
+Frontend publico separado para consultar el catalogo vivo del ERP y generar cotizaciones por WhatsApp sin checkout ni pago online en Fase 1.
+
+Scripts sugeridos:
+
+npm install
+npm run dev
+npm run build
+npm run preview
+
+Variables:
+
+Copiar `.env.example` a `.env.local` y ajustar host/puerto.
+
+======================================================================
+16. CHECKLIST DE ARRANQUE DEL NUEVO FRONTEND
+======================================================================
+
+1. Crear proyecto nuevo.
+2. Agregar AGENTS.md con el contenido sugerido.
+3. Agregar README.md.
+4. Agregar .env.example.
+5. Crear cliente API.
+6. Consumir GET /estado.
+7. Consumir GET /contratos.
+8. Validar version fase1-2026-07-12.
+9. Crear estados de carga/error/preparacion.
+10. Crear pagina catalogo.
+11. Crear filtros y buscador.
+12. Crear tarjetas de producto.
+13. Crear carrito local.
+14. Crear dry-run de cotizacion.
+15. Crear flujo WhatsApp pendiente/configurado.
+16. Validar mobile y desktop.
+17. No conectar pagos ni pedidos.
+
+======================================================================
+17. CUANDO EL ERP ESTE LISTO PARA DATOS REALES
+======================================================================
+
+En el ERP correr:
+
+C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_frontend_readiness_readonly.php
+
+Debe devolver:
+
+senal_frontend=verde_datos_reales
+puede_integrar_datos_reales=true
+
+Entonces el frontend puede dejar de depender de mocks/vacios y usar:
+
+GET /catalogo
+GET /filtros
+GET /producto/{slug}
+POST /cotizacion_dryrun
+
+Mensaje esperado:
+
+Ya puedes iniciar/integrar la vista del ecommerce externo con datos reales.
+El ERP tiene DDL aplicado, CORS configurado, WhatsApp configurado y primeras publicaciones activas.
+
+======================================================================
+18. FUERA DE ALCANCE FASE 1
+======================================================================
+
+- Checkout.
+- Pasarela.
+- Pago online.
+- Pedido confirmado.
+- Descuento de inventario.
+- Registro autoservicio de clientes.
+- Mascotas registradas por cliente.
+- Recompensas.
+- Historial de compras.
+- Recomendaciones avanzadas.
+- Integracion con veterinarias.
+- Registro real de cotizaciones sin autorizacion ERP.
+- Conversion automatica a POS/Pedidos.
+
+======================================================================
+19. NOTAS FINALES
+======================================================================
+
+Este frontend debe sentirse como una experiencia especializada para mascotas:
+
+- rapido para encontrar producto;
+- claro para elegir por especie/necesidad;
+- honesto con disponibilidad;
+- simple para cotizar por WhatsApp;
+- preparado para crecer hacia CRM, mascotas, recomendaciones y fidelizacion.
+
+La fuente de verdad siempre es el ERP.
+El frontend es la experiencia publica.
+La venta real se cierra por WhatsApp/POS/Pedidos hasta fases futuras.

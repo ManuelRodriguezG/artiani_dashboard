@@ -1,6 +1,6 @@
 "use strict";
 (function () {
-    var estado = {listas: [], conflictos: []};
+    var estado = {listas: [], conflictos: [], listaSeleccionada: null};
 
     /**
      * IA: Codex GPT-5 | Fecha: 2026-07-12
@@ -41,7 +41,7 @@
     }
 
     function cargarResumen() {
-        request("/ventas/listas_precios_resumen_erp?" + new URLSearchParams(filtros()).toString()).then(function (response) {
+        request("/comercial/listas_precios_resumen_erp?" + new URLSearchParams(filtros()).toString()).then(function (response) {
             if (response.error) { throw new Error(response.mensaje); }
             var data = response.depurar || {};
             estado.listas = data.listas || [];
@@ -106,7 +106,12 @@
     }
 
     function consultarLista(idLista) {
-        request("/ventas/listas_precios_consultar_erp?id_lista_precio=" + encodeURIComponent(idLista)).then(function (response) {
+        estado.listaSeleccionada = idLista;
+        var auditoriaLista = document.getElementById("lp_auditoria_lista");
+        if (auditoriaLista) {
+            auditoriaLista.value = idLista;
+        }
+        request("/comercial/listas_precios_consultar_erp?id_lista_precio=" + encodeURIComponent(idLista)).then(function (response) {
             if (response.error) { throw new Error(response.mensaje); }
             renderDetalle(response.depurar || {});
         }).catch(function (error) {
@@ -183,14 +188,15 @@
     }
 
     function agregarAutorizacionUat(data) {
+        var referencia = document.getElementById("lp_uat_referencia").value.trim();
+        var motivo = document.getElementById("lp_uat_motivo").value.trim();
         data.autorizar = document.getElementById("lp_uat_token").value;
-        data.respaldo = document.getElementById("lp_uat_respaldo").value;
-        data.motivo = document.getElementById("lp_uat_motivo").value;
+        data.motivo = referencia !== "" ? (motivo + " | Ref: " + referencia).trim() : motivo;
         return data;
     }
 
     function cargarConflictos() {
-        request("/ventas/listas_precios_conflictos_erp").then(function (response) {
+        request("/comercial/listas_precios_conflictos_erp").then(function (response) {
             if (response.error) { throw new Error(response.mensaje); }
             estado.conflictos = ((response.depurar || {}).conflictos) || [];
             renderConflictos(estado.conflictos);
@@ -205,28 +211,56 @@
         }).join("") || "<div class=\"text-muted fs-7\">Sin conflictos detectados con las reglas actuales.</div>";
     }
 
+    function cargarAuditoria() {
+        var idLista = document.getElementById("lp_auditoria_lista").value.trim() || estado.listaSeleccionada || "";
+        var accion = document.getElementById("lp_auditoria_accion").value.trim();
+        var params = new URLSearchParams({id_lista_precio: idLista, accion: accion, limite: "30"});
+        request("/comercial/listas_precios_auditoria_erp?" + params.toString()).then(function (response) {
+            if (response.error) { throw new Error(response.mensaje); }
+            renderAuditoria(response.depurar || {});
+        }).catch(function (error) {
+            document.getElementById("lp_auditoria").innerHTML = "<div class=\"alert alert-danger py-3\">" + escapeHtml(error.message || String(error)) + "</div>";
+        });
+    }
+
+    function renderAuditoria(data) {
+        if (data.schema_pendiente) {
+            document.getElementById("lp_auditoria").innerHTML = "<div class=\"alert alert-warning py-3 mb-0\"><div class=\"fw-bold\">Auditoria pendiente</div><div class=\"fs-8\">Falta aplicar <code>erp_listas_precios_eventos</code>.</div></div>";
+            return;
+        }
+        var eventos = data.eventos || [];
+        document.getElementById("lp_auditoria").innerHTML = eventos.map(function (item) {
+            return "<div class=\"border rounded p-3 mb-2\">" +
+                "<div class=\"d-flex justify-content-between gap-2\"><div class=\"fw-semibold\">" + escapeHtml(item.accion || "-") + "</div><span class=\"badge badge-light\">" + escapeHtml(item.resultado || "ok") + "</span></div>" +
+                "<div class=\"fs-8 text-muted\">" + escapeHtml(item.fecha_registro || "") + " | Usuario " + escapeHtml(item.creado_por || "-") + "</div>" +
+                "<div class=\"fs-8 mt-1\">" + escapeHtml(item.resumen || "") + "</div>" +
+                (item.motivo ? "<div class=\"fs-8 text-muted mt-1\">Motivo: " + escapeHtml(item.motivo) + "</div>" : "") +
+            "</div>";
+        }).join("") || "<div class=\"text-muted fs-7\">Sin eventos para los filtros actuales.</div>";
+    }
+
     function validarListaDryRun() {
-        postRequest("/ventas/listas_precios_lista_dryrun_erp", payloadLista()).then(renderDryRun).catch(renderDryRunError);
+        postRequest("/comercial/listas_precios_lista_dryrun_erp", payloadLista()).then(renderDryRun).catch(renderDryRunError);
     }
 
     function validarDetalleDryRun() {
-        postRequest("/ventas/listas_precios_detalle_dryrun_erp", payloadDetalle()).then(renderDryRun).catch(renderDryRunError);
+        postRequest("/comercial/listas_precios_detalle_dryrun_erp", payloadDetalle()).then(renderDryRun).catch(renderDryRunError);
     }
 
     function validarAsignacionDryRun() {
-        postRequest("/ventas/listas_precios_asignacion_dryrun_erp", payloadAsignacion()).then(renderDryRun).catch(renderDryRunError);
+        postRequest("/comercial/listas_precios_asignacion_dryrun_erp", payloadAsignacion()).then(renderDryRun).catch(renderDryRunError);
     }
 
     function guardarListaUat() {
-        postRequest("/ventas/listas_precios_lista_guardar_erp", agregarAutorizacionUat(payloadLista())).then(renderGuardado).catch(renderDryRunError);
+        postRequest("/comercial/listas_precios_lista_guardar_erp", agregarAutorizacionUat(payloadLista())).then(renderGuardado).catch(renderDryRunError);
     }
 
     function guardarDetalleUat() {
-        postRequest("/ventas/listas_precios_detalle_guardar_erp", agregarAutorizacionUat(payloadDetalle())).then(renderGuardado).catch(renderDryRunError);
+        postRequest("/comercial/listas_precios_detalle_guardar_erp", agregarAutorizacionUat(payloadDetalle())).then(renderGuardado).catch(renderDryRunError);
     }
 
     function guardarAsignacionUat() {
-        postRequest("/ventas/listas_precios_asignacion_guardar_erp", agregarAutorizacionUat(payloadAsignacion())).then(renderGuardado).catch(renderDryRunError);
+        postRequest("/comercial/listas_precios_asignacion_guardar_erp", agregarAutorizacionUat(payloadAsignacion())).then(renderGuardado).catch(renderDryRunError);
     }
 
     function renderGuardado(response) {
@@ -269,6 +303,7 @@
         document.getElementById("lp_recargar").addEventListener("click", cargarResumen);
         document.getElementById("lp_filtrar").addEventListener("click", cargarResumen);
         document.getElementById("lp_conflictos_btn").addEventListener("click", cargarConflictos);
+        document.getElementById("lp_auditoria_btn").addEventListener("click", cargarAuditoria);
         document.getElementById("lp_dry_lista_validar").addEventListener("click", validarListaDryRun);
         document.getElementById("lp_dry_det_validar").addEventListener("click", validarDetalleDryRun);
         document.getElementById("lp_dry_asig_validar").addEventListener("click", validarAsignacionDryRun);

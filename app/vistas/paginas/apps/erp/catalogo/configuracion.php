@@ -211,6 +211,12 @@
                                             </div>
                                         </div>
                                     </div>
+                                    <div class="d-flex flex-wrap align-items-center gap-2 mb-5">
+                                        <button class="btn btn-sm btn-light-primary" id="catalogo_clasificacion_seleccionar_visibles" type="button"><i class="bi bi-check2-square"></i> Seleccionar visibles</button>
+                                        <button class="btn btn-sm btn-light" id="catalogo_clasificacion_limpiar_seleccion" type="button"><i class="bi bi-square"></i> Limpiar selección</button>
+                                        <span class="text-muted fs-7" id="catalogo_clasificacion_seleccion_info">Sin selección</span>
+                                    </div>
+                                    <div class="d-flex flex-wrap gap-2 mb-5" id="catalogo_clasificacion_sugerencias"></div>
                                     <div class="d-flex flex-wrap gap-3 mb-5" id="catalogo_clasificacion_resumen"></div>
                                     <div class="table-responsive">
                                         <table class="table align-middle table-row-dashed gy-4 mb-0">
@@ -481,10 +487,14 @@
                 <div class="modal-body">
                     <input type="hidden" name="tipo_catalogo" value="marca"><input type="hidden" name="id">
                     <div class="row g-5">
-                        <div class="col-md-4"><label class="form-label required">Código</label><input class="form-control" name="codigo" required></div>
+                        <div class="col-md-4">
+                            <label class="form-label required">Código</label>
+                            <input class="form-control" name="codigo" required>
+                            <div class="form-text">En marcas y categorías puede quedar vacío; el sistema lo genera.</div>
+                        </div>
                         <div class="col-md-8"><label class="form-label required">Nombre</label><input class="form-control" name="nombre" required></div>
                         <div class="col-12 campo campo-marca campo-categoria"><label class="form-label">Descripción</label><textarea class="form-control" name="descripcion" rows="3"></textarea></div>
-                        <div class="col-md-6 campo campo-categoria"><label class="form-label">Categoría padre</label><select class="form-select" name="id_categoria_padre" id="aux_categoria_padre"><option value="">Nivel raíz</option></select></div>
+                        <div class="col-md-6 campo campo-categoria"><label class="form-label">Categoría padre</label><select class="form-select" name="id_categoria_padre" id="aux_categoria_padre"><option value="">Nivel raíz</option></select><div class="form-text">Usa una raíz estructural como Acuario para crear subcategorías operativas.</div></div>
                         <div class="col-md-3 campo campo-categoria"><label class="form-label">Tipo</label><select class="form-select" name="tipo_categoria"><option value="maestra">Maestra</option><option value="legado_canal">Clasificación heredada</option></select></div>
                         <div class="col-md-3 campo campo-categoria"><label class="form-label">Origen</label><select class="form-select" name="origen"><option value="erp">ERP</option><option value="manual">Manual</option><option value="ecommerce">Histórico</option></select></div>
                         <div class="col-12 campo campo-categoria">
@@ -518,6 +528,6 @@
         "costos" => SesionSeguridad::tienePermiso("catalogo.costos")
     )); ?>;
 </script>
-<script src="/assets/js/custom/apps/erp/catalogo/configuracion.js?v=20260712-maestros-1"></script>
+<script src="/assets/js/custom/apps/erp/catalogo/configuracion.js?v=20260712-maestros-8"></script>
 </body>
 </html>

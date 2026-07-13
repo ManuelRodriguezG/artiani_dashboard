@@ -108,6 +108,81 @@ class ListasPreciosErp extends CRUD {
     }
 
     /**
+     * Documentacion IA: Codex GPT-5, 2026-07-13.
+     * Proposito: consultar auditoria comercial de Listas de precios sin escribir BD.
+     * Impacto: permite validar eventos de lista, detalle y asignacion despues de cada UAT.
+     * Contrato: read-only; tolera que `erp_listas_precios_eventos` aun no exista.
+     */
+    public function auditoriaReadOnly($filtros = array()) {
+        try {
+            $db = $this->getConexion();
+            if (!$this->tablaExiste($db, "erp_listas_precios_eventos")) {
+                return $this->respuesta(false, "warning", "Auditoria comercial de listas pendiente", array(
+                    "schema_pendiente" => true,
+                    "eventos" => array(),
+                    "filtros" => $filtros
+                ));
+            }
+
+            $where = array("1=1");
+            $params = array();
+            $idLista = intval($this->valor($filtros, "id_lista_precio", 0));
+            $idDetalle = intval($this->valor($filtros, "id_lista_precio_detalle", 0));
+            $idAsignacion = intval($this->valor($filtros, "id_cliente_lista_precio", 0));
+            $accion = trim((string) $this->valor($filtros, "accion", ""));
+            $entidad = trim((string) $this->valor($filtros, "entidad", ""));
+            $limite = intval($this->valor($filtros, "limite", 50));
+            $limite = $limite > 0 && $limite <= 200 ? $limite : 50;
+
+            if ($idLista > 0) {
+                $where[] = "e.id_lista_precio=:lista";
+                $params[":lista"] = $idLista;
+            }
+            if ($idDetalle > 0) {
+                $where[] = "e.id_lista_precio_detalle=:detalle";
+                $params[":detalle"] = $idDetalle;
+            }
+            if ($idAsignacion > 0) {
+                $where[] = "e.id_cliente_lista_precio=:asignacion";
+                $params[":asignacion"] = $idAsignacion;
+            }
+            if ($accion !== "") {
+                $where[] = "e.accion=:accion";
+                $params[":accion"] = $accion;
+            }
+            if ($entidad !== "") {
+                $where[] = "e.entidad=:entidad";
+                $params[":entidad"] = $entidad;
+            }
+
+            $stmt = $db->prepare("SELECT e.*, l.codigo lista_codigo, l.nombre lista_nombre
+                FROM erp_listas_precios_eventos e
+                LEFT JOIN erp_listas_precios l ON l.id_lista_precio=e.id_lista_precio
+                WHERE " . implode(" AND ", $where) . "
+                ORDER BY e.fecha_registro DESC, e.id_evento_lista_precio DESC
+                LIMIT " . intval($limite));
+            $stmt->execute($params);
+            $eventos = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+            return $this->respuesta(false, "success", "Auditoria comercial de listas consultada", array(
+                "schema_pendiente" => false,
+                "eventos" => $eventos,
+                "total" => count($eventos),
+                "filtros" => array(
+                    "id_lista_precio" => $idLista,
+                    "id_lista_precio_detalle" => $idDetalle,
+                    "id_cliente_lista_precio" => $idAsignacion,
+                    "accion" => $accion,
+                    "entidad" => $entidad,
+                    "limite" => $limite
+                )
+            ));
+        } catch (Exception $e) {
+            return $this->respuesta(true, "danger", $e->getMessage());
+        }
+    }
+
+    /**
      * Documentacion IA: Codex GPT-5, 2026-07-12.
      * Proposito: validar alta/edicion futura de encabezado de lista sin guardar.
      * Impacto: prepara CRUD de Listas de precios con reglas de vigencia, canal y unicidad.
@@ -352,7 +427,7 @@ class ListasPreciosErp extends CRUD {
      * Documentacion IA: Codex GPT-5, 2026-07-12.
      * Proposito: guardar encabezado de lista de precios con transaccion y auditoria comercial.
      * Impacto: crea/edita `erp_listas_precios`; no afecta ventas pasadas ni recalcula POS por si mismo.
-     * Contrato: usar solo desde controlador con permiso fino, respaldo y autorizacion explicita.
+     * Contrato: usar solo desde controlador/script UAT con permiso fino, token y auditoria comercial.
      */
     public function listaGuardarAutorizado($datos = array(), $idUsuario = 0) {
         $db = null;
@@ -438,7 +513,7 @@ class ListasPreciosErp extends CRUD {
      * Documentacion IA: Codex GPT-5, 2026-07-12.
      * Proposito: guardar precio de SKU/producto dentro de una lista con auditoria.
      * Impacto: cambia precio base futuro del resolutor; ventas ya emitidas conservan snapshot.
-     * Contrato: usar solo desde controlador con `ventas.listas.editar`, respaldo y autorizacion.
+     * Contrato: usar solo desde controlador/script UAT con `ventas.listas.editar`, token y auditoria comercial.
      */
     public function detalleGuardarAutorizado($datos = array(), $idUsuario = 0) {
         $db = null;

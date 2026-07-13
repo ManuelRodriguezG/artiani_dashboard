@@ -43,6 +43,7 @@
                                         <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#inventario_tab_kardex">Kardex</button></li>
                                         <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#inventario_tab_unidades">Unidades</button></li>
                                         <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#inventario_tab_valuacion">Valuacion</button></li>
+                                        <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#inventario_tab_pendientes_pos">Pendientes POS</button></li>
                                     </ul>
                                 </div>
                                 <div class="card-body pt-5">
@@ -70,6 +71,10 @@
                                             <div class="d-flex flex-wrap gap-3 mb-5" id="inventario_valuacion_resumen"></div>
                                             <div class="table-responsive"><table class="table align-middle table-row-dashed gy-4"><thead><tr class="text-muted fw-bold fs-7 text-uppercase"><th>SKU / producto</th><th>Almacen</th><th>Existencias</th><th>Cantidad</th><th>Disponible</th><th>Apartada</th><th>Costo prom.</th><th>Valor</th></tr></thead><tbody id="inventario_valuacion"></tbody></table></div>
                                         </div>
+                                        <div class="tab-pane fade" id="inventario_tab_pendientes_pos">
+                                            <div class="d-flex flex-wrap gap-3 mb-5" id="inventario_pendientes_pos_resumen"></div>
+                                            <div class="table-responsive"><table class="table align-middle table-row-dashed gy-4"><thead><tr class="text-muted fw-bold fs-7 text-uppercase"><th>Pendiente / venta</th><th>SKU</th><th>Almacen</th><th>Cantidades</th><th>Estado</th><th>Fechas</th><th class="text-end">Acciones</th></tr></thead><tbody id="inventario_pendientes_pos"></tbody></table></div>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -94,8 +99,22 @@
         </div>
     </div>
 </div>
+<div class="modal fade" id="inventario_pendiente_pos_modal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div>
+                    <h3 class="modal-title mb-1" id="inventario_pendiente_pos_titulo">Pendiente POS</h3>
+                    <div class="text-muted fs-7">Expediente de venta con inventario pendiente</div>
+                </div>
+                <button type="button" class="btn btn-icon btn-sm btn-active-light-primary" data-bs-dismiss="modal"><i class="bi bi-x-lg"></i></button>
+            </div>
+            <div class="modal-body" id="inventario_pendiente_pos_body"></div>
+        </div>
+    </div>
+</div>
 <script src="assets/plugins/global/plugins.bundle.js"></script>
 <script src="assets/js/scripts.bundle.js"></script>
-<script src="/assets/js/custom/apps/erp/inventarios/existencias_erp.js?v=20260625-ua1"></script>
+<script src="/assets/js/custom/apps/erp/inventarios/existencias_erp.js?v=20260712-pospend1"></script>
 </body>
 </html>

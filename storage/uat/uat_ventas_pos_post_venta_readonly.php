@@ -159,6 +159,10 @@ foreach ($detalles as $detalle) {
         $detalleTieneTrazabilidad = false;
         foreach ($trazabilidad as $traza) {
             if (intval($traza["id_venta_detalle"]) === intval($detalle["id_venta_detalle"])) {
+                if ($traza["tipo_asignacion"] === "inventario_pendiente" && floatval($traza["cantidad_pendiente_validacion"]) > 0) {
+                    $detalleTieneTrazabilidad = true;
+                    continue;
+                }
                 $detalleTieneTrazabilidad = true;
                 if ($traza["tipo_movimiento"] !== "salida" || $traza["origen_tipo"] !== "venta_pos" || $traza["referencia"] !== $folio) {
                     $hallazgos[] = hallazgo("VENTAS-POST-005", "alta", "La trazabilidad no apunta a kardex de venta_pos con folio ERP.", array(

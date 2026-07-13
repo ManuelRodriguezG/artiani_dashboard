@@ -766,8 +766,402 @@ Claves publicables:
 - `moneda_default`
 - `whatsapp_numero_principal`
 - `whatsapp_mensaje_base`
+- `cors_origenes_permitidos`
 - `cotizacion_habilitada`
 - `mostrar_stock_exacto`
 - `modo_sin_stock`
 - `texto_total_estimado`
 - `url_sitio_publico`
+
+## Avance 2026-07-12 - Headers API y CORS restringido
+
+Se agrego un responder comun para endpoints publicos de `EcommercePublico`:
+
+- `Content-Type: application/json; charset=utf-8`
+- `X-ERP-Ecommerce-API-Version: fase1-2026-07-12`
+- `X-ERP-Ecommerce-Mode: catalogo-vivo-readonly`
+- `Vary: Origin`
+
+CORS:
+
+- Cerrado por defecto.
+- Solo responde `Access-Control-Allow-Origin` si `HTTP_ORIGIN` coincide exactamente con una entrada de `cors_origenes_permitidos`.
+- `cors_origenes_permitidos` se lee desde `erp_ecommerce_configuracion` cuando exista.
+- Permite `GET, OPTIONS`.
+- Headers permitidos previstos: `Content-Type`, `X-Ecommerce-Api-Key`, `X-Ecommerce-Signature`.
+
+Guardrail:
+
+- No se configura `*` como origen.
+- No se habilitan POST publicos.
+- No se autentica todavia con API key; solo se reserva el contrato de headers para una fase posterior.
+
+Validacion CLI:
+
+- `php -l app/controladores/EcommercePublico.php`: sin errores.
+- `php -l app/modelos/EcommerceCatalogoPublico.php`: sin errores.
+- `origenCorsPermitido('https://tienda.example.com')` sin configuracion:
+  - `false`
+- `configuracionPublica()` incluye:
+  - `cors_origenes_permitidos`
+
+## Avance 2026-07-12 - Contrato de autenticacion futura
+
+Se agrego al manifiesto `GET /ecommercePublico/contratos` la seccion `autenticacion_futura`.
+
+Estado actual:
+
+- No requerida para GET read-only en Fase 1/local.
+- No se guarda ni expone ningun secreto.
+- No se rompe el consumo actual de contratos.
+
+Modo recomendado para produccion:
+
+- API key publica para identificar canal.
+- Firma HMAC-SHA256 con secreto privado.
+- Headers:
+  - `X-Ecommerce-Api-Key`
+  - `X-Ecommerce-Timestamp`
+  - `X-Ecommerce-Nonce`
+  - `X-Ecommerce-Signature`
+
+String canonico sugerido:
+
+```text
+HTTP_METHOD
+REQUEST_PATH
+QUERY_STRING_ORDENADO
+X_ECOMMERCE_TIMESTAMP
+X_ECOMMERCE_NONCE
+SHA256_BODY_HEX
+```
+
+Guardrails:
+
+- No exponer secretos en `configuracion`.
+- No loggear secretos ni firma completa.
+- Activar antes de POST publicos o dominios expuestos.
+- Mantener CORS restringido aunque exista firma.
+
+Validacion CLI:
+
+- `php -l app/modelos/EcommerceCatalogoPublico.php`: sin errores.
+- `php -l app/controladores/EcommercePublico.php`: sin errores.
+- `contratosApiPublicos()`:
+  - `autenticacion_futura.estado_actual=no_requerida_en_fase1_readonly`
+  - `autenticacion_futura.modo_recomendado=api_key_hmac_sha256`
+  - headers publicados: `X-Ecommerce-Api-Key`, `X-Ecommerce-Timestamp`, `X-Ecommerce-Nonce`, `X-Ecommerce-Signature`
+- `estadoApiPublica()`:
+  - `autenticacion_activa=false`
+  - `autenticacion_modo_futuro=api_key_hmac`
+
+## Avance 2026-07-12 - Cotizacion dry-run para ecommerce externo
+
+Endpoint agregado:
+
+- `POST /ecommercePublico/cotizacion_dryrun`
+
+Alcance:
+
+- Recibe un carrito del ecommerce externo.
+- Recalcula productos publicados desde ERP.
+- Ignora cualquier precio enviado por el frontend.
+- Devuelve lineas, totales estimados, bloqueos y preview de WhatsApp.
+
+Guardrails:
+
+- No guarda BD.
+- No crea cotizacion real.
+- No crea pedido, venta ni atencion POS.
+- No aparta ni descuenta inventario.
+- Si `erp_ecommerce_publicaciones` aun no existe, responde `configurado=false`.
+
+Body sugerido:
+
+```json
+{
+  "items": [
+    {"id_publicacion": 1, "cantidad": 2},
+    {"slug": "producto-publico", "cantidad": 1}
+  ],
+  "contacto": {
+    "nombre": "Cliente",
+    "telefono": "5555555555",
+    "mensaje": "Quiero confirmar disponibilidad"
+  },
+  "utm": {}
+}
+```
+
+Validacion CLI:
+
+- `php -l app/controladores/EcommercePublico.php`: sin errores.
+- `php -l app/modelos/EcommerceCatalogoPublico.php`: sin errores.
+- `cotizacionDryRun()` sin esquema aplicado:
+  - `error=false`
+  - `tipo=info`
+  - `configurado=false`
+  - `dry_run=true`
+  - `bloqueos=["esquema_publicaciones_pendiente"]`
+- `contratosApiPublicos()`:
+  - `endpoints=7`
+  - incluye `cotizacion_dryrun`.
+
+## Avance 2026-07-12 - Registro real de cotizacion reservado y bloqueado
+
+Endpoint reservado:
+
+- `POST /ecommercePublico/cotizacion_registrar`
+
+Estado:
+
+- Bloqueado en Fase 1.
+- No escribe BD.
+- No registra cotizacion real.
+- No crea pedido, venta ni atencion POS.
+- No aparta ni descuenta inventario.
+
+Motivo:
+
+- El ecommerce externo ya puede conocer el contrato futuro sin inventar otro endpoint.
+- La persistencia queda condicionada a DDL autorizado, autenticacion activa, rate limit y politica de seguimiento.
+
+Requisitos de activacion:
+
+- Aplicar DDL `erp_ecommerce_*` con respaldo externo.
+- Activar API key o firma HMAC.
+- Definir rate limit/captcha si aplica.
+- Definir politica de contacto y seguimiento CRM.
+- Configurar `whatsapp_numero_principal`.
+
+Validacion CLI:
+
+- `php -l app/controladores/EcommercePublico.php`: sin errores.
+- `php -l app/modelos/EcommerceCatalogoPublico.php`: sin errores.
+- `cotizacionRegistrarBloqueada()`:
+  - `error=true`
+  - `tipo=warning`
+  - `bloqueado=true`
+  - `no_escribe_bd=true`
+  - conserva resumen del body sin persistir.
+- `contratosApiPublicos()`:
+  - `endpoints=8`
+  - incluye `cotizacion_registrar`.
+
+## Avance 2026-07-12 - UAT read-only de contratos API
+
+Script agregado:
+
+- `storage/uat/uat_ecommerce_publico_api_contracts_readonly.php`
+
+Alcance:
+
+- Valida manifiesto de contratos.
+- Valida estado/readiness.
+- Valida configuracion publica.
+- Valida catalogo publico en modo controlado.
+- Valida disponibilidad sin cantidad exacta.
+- Valida cotizacion dry-run.
+- Valida que registro real de cotizacion siga bloqueado.
+- Valida que guardado interno de publicacion siga bloqueado.
+
+Guardrails:
+
+- No escribe BD.
+- No ejecuta DDL.
+- No toca `ecom_*`.
+- No mueve inventario.
+- No registra cotizaciones.
+
+Validacion CLI:
+
+- `php -l storage/uat/uat_ecommerce_publico_api_contracts_readonly.php`: sin errores.
+- Resultado UAT:
+  - `ok=true`
+  - `modo=read-only`
+  - `api.version=fase1-2026-07-12`
+  - `endpoints_total=8`
+  - `ready=false`
+  - `ddl_pendiente=true`
+  - `publicadas=0`
+  - `publicables=1363`
+  - `registro_cotizacion_bloqueado=true`
+  - `guardado_publicacion_bloqueado=true`
+
+## Avance 2026-07-12 - Handoff para frontend ecommerce externo
+
+Documento agregado:
+
+- `docs/erp_ecommerce_publico_frontend_handoff.md`
+
+Incluye:
+
+- variables sugeridas para el proyecto ecommerce;
+- orden recomendado de consumo de endpoints;
+- readiness esperado;
+- ejemplos de catalogo, item y cotizacion dry-run;
+- reglas de configuracion publica;
+- reglas de CORS/autenticacion futura;
+- UAT read-only para validar contratos;
+- lista de cosas que el frontend externo no debe hacer.
+
+Decision reforzada:
+
+- El ecommerce visual vive fuera del ERP.
+- El ERP solo expone informacion viva y contratos controlados.
+
+## Avance 2026-07-12 - Checklist e instrucciones para iniciar frontend externo
+
+Documentos agregados:
+
+- `docs/erp_ecommerce_publico_checklist_salida_fase1.md`
+- `docs/erp_ecommerce_publico_instrucciones_proyecto_frontend.md`
+
+Estado comunicado:
+
+- Ya se puede iniciar el proyecto frontend externo como maqueta tecnica/cliente API.
+- Aun no se debe tratar como catalogo vivo real con productos publicados, porque falta DDL y publicaciones.
+
+La senal actual para el dueno del proyecto:
+
+```text
+Puedes iniciar el proyecto frontend externo como maqueta tecnica/cliente API, pero aun no como catalogo vivo real.
+```
+
+La senal futura esperada:
+
+```text
+Ya puedes iniciar/integrar la vista del ecommerce externo con datos reales.
+El ERP tiene DDL aplicado, CORS configurado, WhatsApp configurado y primeras publicaciones activas.
+```
+
+## Avance 2026-07-12 - Runbook y preflight de activacion operativa
+
+Archivos agregados:
+
+- `docs/erp_ecommerce_publico_activacion_operativa.md`
+- `storage/uat/uat_ecommerce_publico_activacion_preflight_readonly.php`
+
+Alcance:
+
+- Define pasos para activar Fase 1 real.
+- Valida respaldo externo antes de solicitar DDL.
+- Valida DDL pendiente y contratos API.
+- Valida SKUs publicables para lote inicial.
+- Confirma que cotizacion real y guardado real de publicaciones siguen bloqueados antes de activacion.
+
+Guardrails:
+
+- No ejecuta DDL.
+- No crea publicaciones.
+- No registra cotizaciones.
+- No mueve inventario.
+
+Validacion CLI:
+
+- `php -l storage/uat/uat_ecommerce_publico_activacion_preflight_readonly.php`: sin errores.
+- Preflight con `--respaldo=RESPALDO_EXTERN0_ECOM_FASE1`:
+  - `ok=true`
+  - `modo=read-only`
+  - `tablas_faltantes=5`
+  - `ddl_total=5`
+  - `ddl_pendiente=true`
+  - `api.version=fase1-2026-07-12`
+  - `endpoints_total=8`
+  - `ready=false`
+  - `whatsapp_configurado=false`
+  - `cors_configurado=false`
+  - `skus_publicables_fase_1=1363`
+  - `registro_real_bloqueado=true`
+  - `guardado_real_bloqueado=true`
+
+Decision:
+
+- El preflight esta listo para solicitar autorizacion DDL con respaldo externo.
+- Aun no se debe avisar inicio de vista con datos reales porque faltan DDL, CORS, WhatsApp y publicaciones activas.
+
+## Avance 2026-07-12 - Lote inicial sugerido read-only
+
+Script agregado:
+
+- `storage/uat/uat_ecommerce_publico_lote_inicial_readonly.php`
+
+Alcance:
+
+- Propone un lote inicial de SKUs publicables.
+- Genera slug sugerido.
+- Sugiere mascota y necesidades cuando se pueden inferir.
+- Devuelve precio vivo, imagen/categoria/marca y disponibilidad publica sugerida.
+- Sugiere crear como `borrador` cuando se habilite guardado.
+
+Guardrails:
+
+- No escribe BD.
+- No crea publicaciones.
+- No mueve inventario.
+- No toca `ecom_*`.
+- No publica automaticamente.
+
+Validacion CLI:
+
+- `php -l storage/uat/uat_ecommerce_publico_lote_inicial_readonly.php`: sin errores.
+- `uat_ecommerce_publico_lote_inicial_readonly.php --limite=10`:
+  - `ok=true`
+  - `modo=read-only`
+  - `total_lote=10`
+  - `skus_publicables_fase_1=1363`
+  - `estatus_sugerido=borrador`
+
+Observacion operativa:
+
+- El lote inicial por orden actual sale sesgado a productos de acuario/pez y con disponibilidad `agotado`.
+- Antes de activar publicaciones reales conviene ajustar criterio de seleccion comercial: mezclar perro/gato, alimento/higiene, disponibilidad consultable/disponible y productos con alta rotacion.
+
+## Avance 2026-07-12 - Guardado interno de publicaciones reservado y bloqueado
+
+Endpoint interno reservado:
+
+- `POST /ecommercePublico/publicaciones_guardar_erp`
+
+Seguridad:
+
+- Requiere `catalogo.editar`.
+- Al ser POST autenticado, queda sujeto a CSRF del Core.
+
+Estado:
+
+- Bloqueado en Fase 1.
+- No escribe BD.
+- No crea publicacion.
+- No publica SKUs.
+
+Motivo:
+
+- La pantalla interna ya puede tener un contrato futuro claro para guardar borradores/publicados.
+- La accion real queda condicionada a DDL aplicado, politica de publicacion y auditoria explicita.
+
+Campos futuros esperados:
+
+- `id_sku`
+- `estatus_publicacion`
+- `slug`
+- `titulo_publico`
+- `descripcion_publica`
+- `presentacion_publica`
+- `mascota_especie`
+- `necesidades`
+- `destacado`
+- `orden`
+- `permite_cotizacion`
+- `permite_whatsapp`
+- `mostrar_precio`
+- `mostrar_disponibilidad`
+
+Requisitos de activacion:
+
+- Aplicar DDL `erp_ecommerce_*` con respaldo externo.
+- Validar pantalla read-only de publicaciones.
+- Confirmar politica de publicacion por SKU.
+- Definir si productos agotados se muestran, se ocultan o pasan a consultar.
+- Mantener permiso `catalogo.editar`.
+- Agregar auditoria explicita al guardar.
