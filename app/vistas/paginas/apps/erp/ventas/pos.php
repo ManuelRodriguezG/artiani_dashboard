@@ -195,6 +195,7 @@
                                             <div class="pos-module-bar" aria-label="Modulos POS">
                                                 <button class="pos-module-btn pos-module-primary" id="pos_prevalidar" type="button"><i class="bi bi-shield-check"></i> Prevalidar</button>
                                                 <button class="pos-module-btn" id="pos_dryrun" type="button"><i class="bi bi-clipboard-pulse"></i> Simular</button>
+                                                <button class="pos-module-btn" id="pos_inventario_pendiente_dryrun" type="button" title="Simular venta controlada con alerta a Inventario"><i class="bi bi-exclamation-triangle"></i> Inventario pendiente</button>
                                                 <button class="pos-module-btn" id="pos_pedido_dryrun" type="button" title="Simular pedido sin crear folio ni reserva"><i class="bi bi-bookmark-check"></i> Simular pedido</button>
                                                 <a class="pos-module-btn" href="/ventas/pedidos" title="Abrir seguimiento de pedidos y apartados"><i class="bi bi-journal-bookmark"></i> Pedidos</a>
                                                 <button class="pos-module-btn" id="pos_ticket_preview" type="button"><i class="bi bi-receipt"></i> Ticket</button>

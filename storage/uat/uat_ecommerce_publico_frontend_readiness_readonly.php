@@ -20,7 +20,7 @@ $filtros = $api->filtrosPublicos();
 $dryrun = $api->cotizacionDryRun(array("items" => array(array("id_publicacion" => 1, "cantidad" => 1))));
 
 $endpoints = valorFrontendReadiness($contratos, array("depurar", "endpoints_publicos"), array());
-$publicadas = intval(valorFrontendReadiness($estado, array("depurar", "publicaciones", "publicadas"), 0));
+$publicadas = intval(valorFrontendReadiness($estado, array("depurar", "publicaciones", "total_publicadas"), 0));
 $ddlPendiente = valorFrontendReadiness($estado, array("depurar", "schema", "ddl_pendiente"), true);
 $config = valorFrontendReadiness($configuracion, array("depurar", "configuracion"), array());
 $whatsapp = trim((string) valorFrontendReadiness($config, array("whatsapp_numero_principal"), ""));

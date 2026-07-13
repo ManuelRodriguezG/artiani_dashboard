@@ -192,6 +192,17 @@ class EcommercePublico extends Controlador {
   }
 
   /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-07-13
+   * Proposito: mostrar readiness interno para arrancar frontend ecommerce externo con mocks o datos reales.
+   * Impacto: Ecommerce publico; concentra bloqueos de DDL, CORS, WhatsApp y publicaciones sin escribir BD.
+   * Contrato: GET protegido por `catalogo.ver`; solo lectura.
+   */
+  public function publicaciones_readiness_erp() {
+    $this->requerirPermiso("catalogo.ver");
+    return json_encode($this->modelo("EcommerceCatalogoPublico")->readinessFrontendInterna($_GET));
+  }
+
+  /**
    * Documentacion IA: Codex GPT-5 | Fecha: 2026-07-12
    * Proposito: preparar una propuesta read-only de publicacion ecommerce para un SKU ERP.
    * Impacto: Ecommerce publico/Catalogo ERP; permite revisar slug, textos y metadata antes de guardar.

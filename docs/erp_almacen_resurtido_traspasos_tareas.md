@@ -20,6 +20,7 @@ Estado: primeras tareas definidas; sin escrituras de BD.
 - `docs/erp_almacen_resurtido_traspasos_arranque.md`
 - `docs/erp_almacen_resurtido_traspasos_schema_propuesta.sql`
 - `docs/erp_almacen_resurtido_paquete_autorizacion_uat.md`
+- `docs/erp_almacen_resurtido_handoff_pre_ddl.md`
 - `docs/erp_almacen_sucursales_almacenes_arranque.md`
 - `docs/erp_inventario_existencias_arranque.md`
 - `docs/erp_almacen_unidades_fisicas_arranque.md`
@@ -48,16 +49,23 @@ Estado: primeras tareas definidas; sin escrituras de BD.
 | `RES-T007I` | Validacion solicitud read-only | Bloqueos/advertencias previos a guardado | No |
 | `RES-T007J` | Payload RES-T008 read-only | Contrato de POST futuro sin guardar | No |
 | `RES-T007K` | UAT contrato payload | Valida campos obligatorios del POST futuro | No |
+| `RES-T007L` | UAT estatico SQL DDL | Valida tablas/columnas/constraints y ausencia de SQL destructivo | No |
 | `RES-T008` | Backend solicitud/resurtido | Crear/listar/consultar/autorizacion sin mover inventario | Si para UAT con escritura |
 | `RES-T009A` | Contrato estados read-only | Endpoint/UI/UAT de estados y transiciones | No |
 | `RES-T009B` | Contrato preparacion/envio read-only | Endpoint/UI/UAT de trazabilidad y movimientos esperados | No |
 | `RES-T009C` | Preflight folio preparacion/envio | Validar folio antes de preparar/enviar sin escritura | No |
+| `RES-T009D` | Arnes preparar/enviar autorizado | Token/respaldo sin implementar movimientos aun | No |
+| `RES-T009E` | Backend pendiente preparar/enviar | Endpoint/modelo bloqueado por esquema/implementacion | No |
 | `RES-T009` | Backend preparacion/envio | Salida origen + transito con trazabilidad | Si, con respaldo externo |
 | `RES-T010A` | Contrato recepcion/diferencias read-only | Endpoint/UI/UAT de comparacion enviado vs recibido | No |
+| `RES-T010B` | Preflight folio recepcion/diferencias | Validar folio enviado antes de recibir sin escritura | No |
+| `RES-T010C` | Arnes recibir autorizado | Token/respaldo sin implementar recepcion aun | No |
+| `RES-T010D` | Backend pendiente recibir | Endpoint/modelo bloqueado por esquema/implementacion | No |
 | `RES-T010` | Backend recepcion/diferencias | Recepcion tienda y diferencias persistentes | Si, con respaldo externo |
 | `RES-T011A` | Contrato politicas tienda/SKU read-only | Min/max/reorden sin crear politicas | No |
 | `RES-T012A` | Contrato alertas stock bajo read-only | Eventos futuros sin crear notificaciones | No |
 | `RES-T013A` | Paquete autorizacion/UAT | Preflight y secuencia para DDL + primer folio | No |
+| `RES-T013B` | Handoff pre-DDL | Estado consolidado antes de autorizacion de esquema | No |
 | `RES-T011` | UI operativa | Pantalla Almacen > Resurtido | No para codigo; si UAT real mueve stock, si |
 | `RES-T012` | Alertas stock bajo | Integracion con Notificaciones | Si hay semillas o datos |
 | `RES-T013` | UAT cierre modulo | Casos `RES-UAT-*` documentados | Si para movimientos reales |
@@ -82,14 +90,21 @@ Estado: primeras tareas definidas; sin escrituras de BD.
 - `RES-T007I`: completada validacion read-only de solicitud.
 - `RES-T007J`: completado payload read-only para POST futuro.
 - `RES-T007K`: completada validacion de contrato payload en UAT.
+- `RES-T007L`: completada validacion estatica del SQL propuesto sin conectar BD.
 - `RES-T008`: iniciado como endpoint POST bloqueado por esquema pendiente; escritura real bloqueada hasta DDL/respaldo.
 - `RES-T009A`: completado contrato read-only de estados/transiciones para backend, UI y UAT.
 - `RES-T009B`: completado contrato read-only de preparacion/envio para backend, UI y UAT.
 - `RES-T009C`: completado preflight read-only por folio antes de preparacion/envio.
+- `RES-T009D`: completado arnes autorizado bloqueado para futura preparacion/envio.
+- `RES-T009E`: completado backend pendiente para preparar/enviar, sin movimientos.
 - `RES-T010A`: completado contrato read-only de recepcion/diferencias para backend, UI y UAT.
+- `RES-T010B`: completado preflight read-only por folio antes de recepcion/diferencias.
+- `RES-T010C`: completado arnes autorizado bloqueado para futura recepcion.
+- `RES-T010D`: completado backend pendiente para recibir, sin movimientos.
 - `RES-T011A`: completado contrato read-only de politicas tienda/SKU.
 - `RES-T012A`: completado contrato read-only de alertas futuras de stock bajo.
 - `RES-T013A`: completado paquete de autorizacion/UAT read-only para DDL y primer folio controlado.
+- `RES-T013B`: completado handoff pre-DDL consolidado.
 - `RES-T009` en adelante: bloqueadas hasta autorizacion de DDL/respaldo y cierre de solicitud real.
 
 ## RES-T007A - Pantalla read-only antes de DDL
@@ -557,6 +572,47 @@ Decision:
 
 - `RES-T008` no debe aceptar payload sin revalidar este contrato en servidor.
 - Este UAT debe ejecutarse antes y despues de aplicar DDL.
+
+## RES-T007L - UAT estatico SQL DDL
+
+Fecha: 2026-07-13
+
+Archivo:
+
+- `storage/uat/uat_almacen_resurtido_sql_static.php`
+
+Objetivo:
+
+- Validar el SQL propuesto antes de cualquier autorizacion de DDL.
+- Confirmar que existan las 7 tablas esperadas.
+- Confirmar columnas minimas usadas por backend/modelo.
+- Confirmar indices y constraints criticos.
+- Bloquear si aparecen operaciones destructivas o DML no esperado.
+
+Contrato:
+
+- No conecta BD.
+- No ejecuta DDL.
+- No escribe datos.
+- No mueve inventario.
+- No toca POS/ecommerce.
+
+Validaciones:
+
+- `C:\xampp\php\php.exe -l storage\uat\uat_almacen_resurtido_sql_static.php`: OK.
+- `C:\xampp\php\php.exe storage\uat\uat_almacen_resurtido_sql_static.php`: `ok=true`.
+
+Resultado observado:
+
+- Tablas detectadas: 7.
+- Bloqueos: 0.
+- Avisos: 0.
+- Guardrails read-only confirmados.
+
+Decision:
+
+- Este UAT debe ejecutarse antes del script autorizado `RES-T007D`.
+- Que este UAT pase no autoriza DDL por si mismo; sigue requiriendo respaldo externo y autorizacion textual.
 
 ## RES-T008 - Inicio seguro backend solicitud/resurtido
 
@@ -1308,6 +1364,73 @@ Decision:
 
 - Este preflight debe ejecutarse despues de crear el primer folio UAT y antes de cualquier script real de preparacion/envio.
 
+## RES-T009D - Arnes preparar/enviar autorizado
+
+Fecha: 2026-07-13
+
+Objetivo:
+
+- Dejar preparado el contrato de autorizacion para futura prueba real de preparacion/envio.
+- Evitar ejecuciones accidentales sin token, confirmacion y respaldo.
+- Hacer explicito que la implementacion de movimientos sigue pendiente.
+
+Implementado:
+
+- UAT: `storage/uat/uat_almacen_resurtido_preparar_enviar_authorized.php`.
+
+Contrato actual:
+
+- Bloqueado por defecto.
+- Requiere token `ALMACEN_RESURTIDO_PREPARAR_ENVIAR_UAT`.
+- Requiere confirmacion textual `AUTORIZO UAT PREPARAR ENVIAR RESURTIDO usando respaldo RUTA_O_REFERENCIA`.
+- Requiere respaldo.
+- Aun con autorizacion responde `implementacion_pendiente`.
+- No mueve inventario ni modifica unidades.
+
+Decision:
+
+- El arnes no sustituye el backend real `RES-T009`.
+- Implementar movimientos solo despues de DDL, respaldo y folio UAT validado.
+
+## RES-T009E - Backend pendiente preparar/enviar
+
+Fecha: 2026-07-13
+
+Objetivo:
+
+- Exponer un endpoint/modelo real para la accion futura de preparar/enviar.
+- Mantenerlo bloqueado por esquema pendiente o implementacion pendiente.
+- Evitar que el arnes autorizado quede desconectado del dominio `Almacenes`.
+
+Implementado:
+
+- Controlador: `Almacen::resurtido_preparar_enviar_erp()`.
+- Modelo: `Almacenes::preparar_enviar_resurtido_pendiente()`.
+- Validadores internos:
+  - `validarFolioResurtidoParaPrepararEnviar()`.
+
+Contrato actual:
+
+- Si falta esquema, devuelve `schema_pendiente=1`.
+- Si existe esquema pero el folio no es valido, devuelve bloqueos `RES-ENV-VAL-*`.
+- Si el folio es candidato, devuelve `implementacion_pendiente=1`.
+- Siempre devuelve `preparado=0`, `enviado=0`, `movimientos_generados=0`.
+- No inserta preparacion.
+- No inserta envio.
+- No descuenta origen.
+- No crea transito.
+- No modifica unidades fisicas.
+- No toca POS/ecommerce.
+
+Validacion:
+
+- `storage/uat/uat_almacen_resurtido_readonly.php` valida que el contrato quede bloqueado y sin movimientos.
+- `storage/uat/uat_almacen_resurtido_preparar_enviar_authorized.php` consulta este backend despues del token/respaldo.
+
+Decision:
+
+- La implementacion real `RES-T009` debe reemplazar este metodo o evolucionarlo solo despues de DDL aplicado, respaldo externo, folio UAT creado y preflight validado.
+
 ## RES-T010A - Contrato recepcion/diferencias read-only
 
 Fecha: 2026-07-13
@@ -1347,6 +1470,108 @@ Decision:
 
 - Las diferencias abiertas bloquean cierre operativo.
 - La implementacion real de recepcion/diferencias queda bloqueada hasta DDL autorizado, respaldo externo y UAT por folio/SKU.
+
+## RES-T010B - Preflight folio recepcion/diferencias
+
+Fecha: 2026-07-13
+
+Objetivo:
+
+- Validar un folio `RES-*` antes de ejecutar recepcion real.
+- Detectar folios no enviados, sin envios, ya recibidos o con diferencias previas.
+- Mantener la verificacion sin escritura y sin movimiento de inventario.
+
+Implementado:
+
+- UAT: `storage/uat/uat_almacen_resurtido_recepcion_diferencias_preflight.php`.
+
+Contrato:
+
+- Acepta `--folio=RES-*` o `--id=ID_RESURTIDO`.
+- Consulta el folio en modo read-only.
+- Consulta contrato `recepcion_diferencias_resurtido_contrato_readonly()`.
+- No recibe.
+- No registra diferencias.
+- No mueve inventario.
+- No modifica unidades.
+
+Validaciones:
+
+- Con esquema pendiente devuelve advertencia `RES-REC-PRE-002`.
+- Cuando exista esquema, exige estatus `enviado`.
+- Exige envios con cantidad enviada mayor a cero.
+- Advierte si ya hay recepciones o diferencias.
+
+Decision:
+
+- Este preflight debe ejecutarse despues de `RES-T009` y antes de cualquier recepcion real `RES-T010`.
+
+## RES-T010C - Arnes recibir autorizado
+
+Fecha: 2026-07-13
+
+Objetivo:
+
+- Dejar preparado el contrato de autorizacion para futura prueba real de recepcion/diferencias.
+- Evitar ejecuciones accidentales sin token, confirmacion y respaldo.
+- Hacer explicito que la implementacion de recepcion sigue pendiente.
+
+Implementado:
+
+- UAT: `storage/uat/uat_almacen_resurtido_recibir_authorized.php`.
+
+Contrato actual:
+
+- Bloqueado por defecto.
+- Requiere token `ALMACEN_RESURTIDO_RECIBIR_UAT`.
+- Requiere confirmacion textual `AUTORIZO UAT RECIBIR RESURTIDO usando respaldo RUTA_O_REFERENCIA`.
+- Requiere respaldo.
+- Aun con autorizacion responde `implementacion_pendiente`.
+- No recibe, no registra diferencias, no mueve inventario ni modifica unidades.
+
+Decision:
+
+- El arnes no sustituye el backend real `RES-T010`.
+- Implementar recepcion solo despues de DDL, respaldo, envio UAT y preflight de recepcion validado.
+
+## RES-T010D - Backend pendiente recibir
+
+Fecha: 2026-07-13
+
+Objetivo:
+
+- Exponer un endpoint/modelo real para la accion futura de recibir en tienda y registrar diferencias.
+- Mantenerlo bloqueado por esquema pendiente o implementacion pendiente.
+- Evitar que el arnes autorizado quede desconectado del dominio `Almacenes`.
+
+Implementado:
+
+- Controlador: `Almacen::resurtido_recibir_erp()`.
+- Modelo: `Almacenes::recibir_resurtido_pendiente()`.
+- Validadores internos:
+  - `validarFolioResurtidoParaRecibir()`.
+
+Contrato actual:
+
+- Si falta esquema, devuelve `schema_pendiente=1`.
+- Si existe esquema pero el folio no es valido, devuelve bloqueos `RES-REC-VAL-*`.
+- Si el folio es candidato, devuelve `implementacion_pendiente=1`.
+- Siempre devuelve `recibido=0`, `diferencias_registradas=0`, `movimientos_generados=0`.
+- No inserta recepcion.
+- No inserta diferencias.
+- No descuenta transito.
+- No entra tienda.
+- No modifica unidades fisicas.
+- No toca POS/ecommerce.
+
+Validacion:
+
+- `storage/uat/uat_almacen_resurtido_readonly.php` valida que el contrato quede bloqueado y sin movimientos.
+- `storage/uat/uat_almacen_resurtido_recibir_authorized.php` consulta este backend despues del token/respaldo.
+
+Decision:
+
+- La implementacion real `RES-T010` debe reemplazar este metodo o evolucionarlo solo despues de DDL aplicado, folio enviado con `RES-T009`, respaldo externo y preflight de recepcion validado.
 
 ## RES-T011A/RES-T012A - Contrato politicas y alertas read-only
 
@@ -1402,6 +1627,7 @@ Implementado:
 
 - Documento: `docs/erp_almacen_resurtido_paquete_autorizacion_uat.md`.
 - UAT preflight: `storage/uat/uat_almacen_resurtido_autorizacion_preflight.php`.
+- El preflight valida presencia de scripts read-only, DDL autorizado, folio UAT, preflights RES-T009/RES-T010 y arneses futuros.
 
 Contrato:
 
@@ -1419,6 +1645,9 @@ Secuencia preparada:
 - UAT read-only despues de DDL.
 - Folio UAT con token `ALMACEN_RESURTIDO_GUARDAR_UAT`.
 - Validacion read-only por folio.
+- Preflight read-only de preparacion/envio.
+- Preflight read-only de recepcion/diferencias.
+- Tokens futuros para arneses `RES-T009D` y `RES-T010C`.
 
 Decision:
 

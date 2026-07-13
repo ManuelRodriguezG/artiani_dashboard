@@ -20,6 +20,11 @@
         .ecom-kpi__label { color: #7e8299; font-size: .82rem; text-transform: uppercase; font-weight: 700; }
         .ecom-product-img { width: 56px; height: 56px; border-radius: 8px; object-fit: cover; background: #f1f3f6; border: 1px solid #e7e9ef; }
         .ecom-block-list { display: flex; flex-wrap: wrap; gap: 6px; }
+        .ecom-readiness { border: 1px solid #e7e9ef; border-radius: 8px; background: #fff; }
+        .ecom-readiness__signal { width: 12px; height: 12px; border-radius: 50%; display: inline-block; }
+        .ecom-readiness__signal--verde { background: #50cd89; }
+        .ecom-readiness__signal--amarillo { background: #ffc700; }
+        .ecom-readiness__signal--rojo { background: #f1416c; }
     </style>
 </head>
 <body id="kt_app_body" data-kt-app-layout="dark-sidebar" data-kt-app-header-fixed="true" data-kt-app-sidebar-enabled="true" data-kt-app-sidebar-fixed="true" class="app-default">
@@ -49,6 +54,49 @@
                                 <div>
                                     <div class="fw-bold">Fase 1: catalogo vivo, no checkout</div>
                                     <div>Esta pantalla no publica productos, no ejecuta DDL, no registra cotizaciones y no descuenta inventario.</div>
+                                </div>
+                            </div>
+
+                            <div class="ecom-readiness p-5 mb-5" id="ecom_readiness">
+                                <div class="d-flex flex-wrap align-items-start justify-content-between gap-4">
+                                    <div>
+                                        <div class="d-flex align-items-center gap-2 mb-1">
+                                            <span class="ecom-readiness__signal ecom-readiness__signal--amarillo" id="ecom_readiness_signal"></span>
+                                            <h2 class="fs-5 fw-bold mb-0" id="ecom_readiness_titulo">Validando readiness del frontend</h2>
+                                        </div>
+                                        <div class="text-muted fs-7" id="ecom_readiness_subtitulo">Revisando contratos, DDL, CORS, WhatsApp y publicaciones.</div>
+                                    </div>
+                                    <div class="text-lg-end">
+                                        <div class="text-muted fs-8 text-uppercase fw-bold">Base API frontend</div>
+                                        <code class="fs-7" id="ecom_readiness_base">http://panel.com.local/ecommercePublico</code>
+                                    </div>
+                                </div>
+                                <div class="separator my-4"></div>
+                                <div class="row g-4">
+                                    <div class="col-lg-4">
+                                        <div class="text-muted fs-8 text-uppercase fw-bold mb-2">Estado</div>
+                                        <div id="ecom_readiness_estados" class="d-flex flex-wrap gap-2"></div>
+                                    </div>
+                                    <div class="col-lg-4">
+                                        <div class="text-muted fs-8 text-uppercase fw-bold mb-2">Bloqueos para datos reales</div>
+                                        <div id="ecom_readiness_bloqueos" class="ecom-block-list"></div>
+                                    </div>
+                                    <div class="col-lg-4">
+                                        <div class="text-muted fs-8 text-uppercase fw-bold mb-2">Que sigue</div>
+                                        <div id="ecom_readiness_siguientes" class="fs-7 text-gray-700"></div>
+                                    </div>
+                                </div>
+                                <div class="separator my-4"></div>
+                                <div class="row g-4">
+                                    <div class="col-lg-6">
+                                        <div class="text-muted fs-8 text-uppercase fw-bold mb-2">Comandos read-only</div>
+                                        <div id="ecom_readiness_comandos_readonly" class="fs-8"></div>
+                                    </div>
+                                    <div class="col-lg-6">
+                                        <div class="text-muted fs-8 text-uppercase fw-bold mb-2">Apply autorizado</div>
+                                        <div class="alert alert-warning py-2 px-3 fs-8 mb-3">No ejecutar sin respaldo externo y autorizacion explicita.</div>
+                                        <div id="ecom_readiness_comandos_apply" class="fs-8"></div>
+                                    </div>
                                 </div>
                             </div>
 

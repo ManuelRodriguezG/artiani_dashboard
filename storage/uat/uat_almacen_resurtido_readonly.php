@@ -50,6 +50,8 @@ $contratoPoliticas = $almacenes->politicas_alertas_resurtido_contrato_readonly(a
 $guardadoBloqueado = $payloadSolicitud === null ? null : $almacenes->guardar_solicitud_resurtido(array(
     "payload" => json_encode(valor($payloadSolicitud, array("depurar", "payload"), array()))
 ), 0);
+$prepararEnviarPendiente = $almacenes->preparar_enviar_resurtido_pendiente(array("folio" => "RES-UAT-READONLY"), 0);
+$recibirPendiente = $almacenes->recibir_resurtido_pendiente(array("folio" => "RES-UAT-READONLY"), 0);
 
 $bloqueos = array();
 $avisos = array();
@@ -145,6 +147,18 @@ $guardadoSchemaPendiente = $guardadoBloqueado === null ? null : valor($guardadoB
 if ($guardadoSchemaPendiente !== 1) {
     $bloqueos[] = "Guardado RES-T008 no quedo bloqueado por schema_pendiente";
 }
+if (intval(valor($prepararEnviarPendiente, array("depurar", "schema_pendiente"), 0)) !== 1) {
+    $bloqueos[] = "Preparar/enviar RES-T009 no quedo bloqueado por schema_pendiente";
+}
+if (intval(valor($prepararEnviarPendiente, array("depurar", "movimientos_generados"), 1)) !== 0) {
+    $bloqueos[] = "Preparar/enviar RES-T009 reporto movimientos generados";
+}
+if (intval(valor($recibirPendiente, array("depurar", "schema_pendiente"), 0)) !== 1) {
+    $bloqueos[] = "Recibir RES-T010 no quedo bloqueado por schema_pendiente";
+}
+if (intval(valor($recibirPendiente, array("depurar", "movimientos_generados"), 1)) !== 0) {
+    $bloqueos[] = "Recibir RES-T010 reporto movimientos generados";
+}
 $payloadContrato = $payloadSolicitud === null ? null : validarPayloadContrato($payloadSolicitud);
 if ($payloadContrato !== null && !$payloadContrato["ok"]) {
     foreach ($payloadContrato["fallos"] as $fallo) {
@@ -215,6 +229,12 @@ echo json_encode(array(
         "guardado_bloqueado" => $guardadoBloqueado === null ? null : resumenRespuesta($guardadoBloqueado),
         "guardado_schema_pendiente" => $guardadoSchemaPendiente,
         "guardado_realizado" => $guardadoBloqueado === null ? null : valor($guardadoBloqueado, array("depurar", "guardado"), null),
+        "preparar_enviar_pendiente" => resumenRespuesta($prepararEnviarPendiente),
+        "preparar_enviar_schema_pendiente" => valor($prepararEnviarPendiente, array("depurar", "schema_pendiente"), null),
+        "preparar_enviar_movimientos" => valor($prepararEnviarPendiente, array("depurar", "movimientos_generados"), null),
+        "recibir_pendiente" => resumenRespuesta($recibirPendiente),
+        "recibir_schema_pendiente" => valor($recibirPendiente, array("depurar", "schema_pendiente"), null),
+        "recibir_movimientos" => valor($recibirPendiente, array("depurar", "movimientos_generados"), null),
         "almacen_preflight" => $almacenPreflight,
         "almacen_origen_explicito" => $almacenOrigen
     ),

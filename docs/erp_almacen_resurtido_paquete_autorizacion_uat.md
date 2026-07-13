@@ -25,11 +25,15 @@ Pasar de la fase read-only al primer folio UAT `RES-*` de forma controlada, con 
 - `docs/erp_almacen_resurtido_schema_runbook_aplicacion.md`
 - `docs/erp_almacen_resurtido_schema_plan_reversa.md`
 - `storage/uat/uat_almacen_resurtido_readonly.php`
+- `storage/uat/uat_almacen_resurtido_sql_static.php`
 - `storage/uat/uat_almacen_resurtido_autorizacion_preflight.php`
 - `storage/uat/uat_almacen_resurtido_schema_apply_authorized.php`
 - `storage/uat/uat_almacen_resurtido_guardar_authorized.php`
 - `storage/uat/uat_almacen_resurtido_folio_readonly.php`
 - `storage/uat/uat_almacen_resurtido_preparacion_envio_preflight.php`
+- `storage/uat/uat_almacen_resurtido_recepcion_diferencias_preflight.php`
+- `storage/uat/uat_almacen_resurtido_preparar_enviar_authorized.php`
+- `storage/uat/uat_almacen_resurtido_recibir_authorized.php`
 
 ## Preflight sin escritura
 
@@ -89,20 +93,64 @@ C:\xampp\php\php.exe storage\uat\uat_almacen_resurtido_guardar_authorized.php --
 C:\xampp\php\php.exe storage\uat\uat_almacen_resurtido_readonly.php
 ```
 
-2. Aplicar DDL con token, confirmacion y respaldo.
-3. Repetir UAT read-only.
-4. Crear folio UAT `RES-*` con token, confirmacion y respaldo.
-5. Validar folio:
+2. Ejecutar UAT estatico del SQL:
+
+```powershell
+C:\xampp\php\php.exe storage\uat\uat_almacen_resurtido_sql_static.php
+```
+
+3. Aplicar DDL con token, confirmacion y respaldo.
+4. Repetir UAT read-only.
+5. Crear folio UAT `RES-*` con token, confirmacion y respaldo.
+6. Validar folio:
 
 ```powershell
 C:\xampp\php\php.exe storage\uat\uat_almacen_resurtido_folio_readonly.php --folio=RES-YYYYMMDD-####
 ```
 
-6. Prevalidar folio antes de preparacion/envio:
+7. Prevalidar folio antes de preparacion/envio:
 
 ```powershell
 C:\xampp\php\php.exe storage\uat\uat_almacen_resurtido_preparacion_envio_preflight.php --folio=RES-YYYYMMDD-####
 ```
+
+8. Despues de `RES-T009`, prevalidar folio antes de recepcion/diferencias:
+
+```powershell
+C:\xampp\php\php.exe storage\uat\uat_almacen_resurtido_recepcion_diferencias_preflight.php --folio=RES-YYYYMMDD-####
+```
+
+## Tokens futuros RES-T009/RES-T010
+
+Preparar/enviar:
+
+```text
+ALMACEN_RESURTIDO_PREPARAR_ENVIAR_UAT
+```
+
+Confirmacion textual:
+
+```text
+AUTORIZO UAT PREPARAR ENVIAR RESURTIDO usando respaldo RUTA_O_REFERENCIA
+```
+
+Recibir:
+
+```text
+ALMACEN_RESURTIDO_RECIBIR_UAT
+```
+
+Confirmacion textual:
+
+```text
+AUTORIZO UAT RECIBIR RESURTIDO usando respaldo RUTA_O_REFERENCIA
+```
+
+Estado actual:
+
+- Los arneses estan bloqueados por token/respaldo.
+- Aun con token valido responden `implementacion_pendiente`.
+- No mueven inventario hasta que se implemente y valide el backend real de `RES-T009` y `RES-T010`.
 
 ## Evidencia minima por folio/SKU
 
@@ -118,6 +166,7 @@ C:\xampp\php\php.exe storage\uat\uat_almacen_resurtido_preparacion_envio_preflig
 - Sin movimientos de inventario.
 - Sin afectacion POS/ecommerce.
 - Preflight `RES-T009` ejecutado antes de cualquier preparacion/envio real.
+- Preflight `RES-T010` ejecutado antes de cualquier recepcion real.
 
 ## Lo que queda despues del primer folio
 

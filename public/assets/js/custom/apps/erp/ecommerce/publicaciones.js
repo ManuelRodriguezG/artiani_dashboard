@@ -48,11 +48,18 @@
 
     function cargarTodo() {
         setEstado("Cargando...", "badge-light-info");
-        Promise.all([cargarAuditoria(), cargarSchema()]).then(function () {
+        Promise.all([cargarReadiness(), cargarAuditoria(), cargarSchema()]).then(function () {
             setEstado("Read-only", "badge-light-success");
         }).catch(function (error) {
             setEstado("Error", "badge-light-danger");
             renderError(error.message || String(error));
+        });
+    }
+
+    function cargarReadiness() {
+        return getJson("/ecommercePublico/publicaciones_readiness_erp", {base_url: "http://panel.com.local"}).then(function (response) {
+            if (response.error) { throw new Error(response.mensaje || "No se pudo cargar readiness"); }
+            renderReadiness(response.depurar || {}, response.mensaje || "");
         });
     }
 
@@ -82,6 +89,105 @@
         $("ecom_kpi_publicables").textContent = Number(resumen.skus_publicables_fase_1 || 0);
         $("ecom_kpi_imagen").textContent = Number(resumen.skus_con_imagen || 0);
         $("ecom_kpi_categoria").textContent = Number(resumen.skus_con_categoria || 0);
+    }
+
+    function renderReadiness(data, mensaje) {
+        var senal = String(data.senal_frontend || "amarillo_mock_contratos");
+        var esVerde = senal.indexOf("verde") === 0;
+        var esRojo = senal.indexOf("rojo") === 0;
+        var signal = $("ecom_readiness_signal");
+        var bloqueos = data.bloqueos_datos_reales || [];
+        var publicaciones = data.publicaciones || {};
+        var schema = data.schema || {};
+        var configuracion = data.configuracion || {};
+        var comandosReadonly = data.comandos_readonly || {};
+        var comandosApply = data.comandos_apply_autorizados || {};
+
+        signal.className = "ecom-readiness__signal " + (esVerde ? "ecom-readiness__signal--verde" : (esRojo ? "ecom-readiness__signal--rojo" : "ecom-readiness__signal--amarillo"));
+        $("ecom_readiness_titulo").textContent = mensaje || (esVerde ? "Frontend listo para datos reales" : "Frontend listo para iniciar con mocks");
+        $("ecom_readiness_subtitulo").textContent = esVerde
+            ? "El frontend externo ya puede consumir catalogo real publicado desde ERP."
+            : "Puedes iniciar el proyecto frontend con cliente API, mocks y contratos; datos reales siguen bloqueados hasta activar la operacion.";
+        $("ecom_readiness_base").textContent = data.base_api_recomendada || "http://panel.com.local/ecommercePublico";
+
+        $("ecom_readiness_estados").innerHTML = [
+            badgeEstado(data.puede_iniciar_frontend_mock, "Mock frontend"),
+            badgeEstado(data.puede_integrar_datos_reales, "Datos reales"),
+            badgeEstado(!(schema.ddl_pendiente), "DDL"),
+            badgeEstado(Number(publicaciones.total_publicadas || 0) > 0, "Publicados"),
+            badgeEstado(configuracion.whatsapp_configurado, "WhatsApp"),
+            badgeEstado(configuracion.cors_configurado, "CORS")
+        ].join("");
+
+        $("ecom_readiness_bloqueos").innerHTML = bloqueos.length
+            ? bloqueos.map(function (bloqueo) {
+                return "<span class=\"badge badge-light-warning\">" + escapeHtml(etiquetaBloqueoReadiness(bloqueo)) + "</span>";
+            }).join("")
+            : "<span class=\"badge badge-light-success\">Sin bloqueos</span>";
+
+        var pasos = data.siguientes_pasos || [];
+        $("ecom_readiness_siguientes").innerHTML = pasos.length
+            ? pasos.map(function (paso) { return "<div class=\"mb-1\">- " + escapeHtml(etiquetaPasoReadiness(paso)) + "</div>"; }).join("")
+            : "<span class=\"text-muted\">Sin pendientes.</span>";
+
+        $("ecom_readiness_comandos_readonly").innerHTML = renderComandosReadiness(comandosReadonly, ["readiness_frontend", "bundle_activacion", "secuencia_activacion", "green_gate"]);
+        $("ecom_readiness_comandos_apply").innerHTML = renderComandosReadiness(comandosApply, ["ddl", "configuracion", "borrador", "publicar_borrador"]);
+    }
+
+    function renderComandosReadiness(comandos, orden) {
+        var html = [];
+        orden.forEach(function (clave) {
+            if (!comandos[clave]) { return; }
+            html.push(
+                "<div class=\"mb-3\">" +
+                    "<div class=\"fw-semibold text-gray-700 mb-1\">" + escapeHtml(etiquetaComandoReadiness(clave)) + "</div>" +
+                    "<code class=\"d-block text-break bg-light border rounded p-2\">" + escapeHtml(comandos[clave]) + "</code>" +
+                "</div>"
+            );
+        });
+        return html.join("") || "<span class=\"text-muted\">Sin comandos disponibles.</span>";
+    }
+
+    function etiquetaComandoReadiness(clave) {
+        var mapa = {
+            readiness_frontend: "Semaforo frontend",
+            bundle_activacion: "Bundle activacion",
+            secuencia_activacion: "Secuencia sugerida",
+            green_gate: "Compuerta verde",
+            ddl: "Aplicar DDL",
+            configuracion: "Guardar configuracion",
+            borrador: "Crear borrador",
+            publicar_borrador: "Publicar borrador"
+        };
+        return mapa[clave] || clave;
+    }
+
+    function badgeEstado(ok, texto) {
+        return "<span class=\"badge " + (ok ? "badge-light-success" : "badge-light-warning") + "\">" + escapeHtml(texto) + "</span>";
+    }
+
+    function etiquetaBloqueoReadiness(bloqueo) {
+        var mapa = {
+            ddl_ecommerce_publico_pendiente: "DDL ecommerce pendiente",
+            sin_publicaciones_activas: "Sin publicaciones activas",
+            whatsapp_no_configurado: "WhatsApp sin configurar",
+            cors_origenes_permitidos_no_configurado: "CORS sin configurar",
+            conexion_mysql_no_disponible: "Sin conexion MySQL"
+        };
+        return mapa[bloqueo] || bloqueo;
+    }
+
+    function etiquetaPasoReadiness(paso) {
+        var mapa = {
+            iniciar_frontend_con_mocks_y_cliente_api: "Iniciar frontend con mocks y cliente API",
+            aplicar_ddl_solo_con_respaldo_y_token: "Aplicar DDL solo con respaldo y token autorizado",
+            configurar_whatsapp_y_cors: "Configurar WhatsApp y CORS",
+            crear_borradores_y_publicar_lote_inicial: "Crear borradores y publicar lote inicial",
+            iniciar_frontend_con_datos_reales: "Iniciar frontend con datos reales",
+            validar_whatsapp_en_dispositivo: "Validar WhatsApp en dispositivo",
+            monitorear_cotizacion_dryrun: "Monitorear cotizacion dry-run"
+        };
+        return mapa[paso] || paso;
     }
 
     function disponibilidadBadge(estado) {

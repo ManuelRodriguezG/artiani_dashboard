@@ -20,9 +20,14 @@ $archivos = array(
     "reversa" => "docs/erp_almacen_resurtido_schema_plan_reversa.md",
     "solicitud_autorizacion" => "docs/erp_almacen_resurtido_schema_solicitud_autorizacion.md",
     "uat_readonly" => "storage/uat/uat_almacen_resurtido_readonly.php",
+    "uat_sql_static" => "storage/uat/uat_almacen_resurtido_sql_static.php",
     "uat_apply_authorized" => "storage/uat/uat_almacen_resurtido_schema_apply_authorized.php",
     "uat_guardar_authorized" => "storage/uat/uat_almacen_resurtido_guardar_authorized.php",
-    "uat_folio_readonly" => "storage/uat/uat_almacen_resurtido_folio_readonly.php"
+    "uat_folio_readonly" => "storage/uat/uat_almacen_resurtido_folio_readonly.php",
+    "uat_preparacion_envio_preflight" => "storage/uat/uat_almacen_resurtido_preparacion_envio_preflight.php",
+    "uat_recepcion_diferencias_preflight" => "storage/uat/uat_almacen_resurtido_recepcion_diferencias_preflight.php",
+    "uat_preparar_enviar_authorized" => "storage/uat/uat_almacen_resurtido_preparar_enviar_authorized.php",
+    "uat_recibir_authorized" => "storage/uat/uat_almacen_resurtido_recibir_authorized.php"
 );
 $estadoArchivos = array();
 $bloqueos = array();
@@ -64,14 +69,21 @@ echo json_encode(array(
         "ddl_autorizar" => "ALMACEN_RESURTIDO_DDL",
         "ddl_confirmacion" => "AUTORIZO DDL RESURTIDO ALMACEN usando respaldo RUTA_O_REFERENCIA",
         "guardar_autorizar" => "ALMACEN_RESURTIDO_GUARDAR_UAT",
-        "guardar_confirmacion" => "AUTORIZO UAT GUARDAR RESURTIDO usando respaldo RUTA_O_REFERENCIA"
+        "guardar_confirmacion" => "AUTORIZO UAT GUARDAR RESURTIDO usando respaldo RUTA_O_REFERENCIA",
+        "preparar_enviar_autorizar" => "ALMACEN_RESURTIDO_PREPARAR_ENVIAR_UAT",
+        "preparar_enviar_confirmacion" => "AUTORIZO UAT PREPARAR ENVIAR RESURTIDO usando respaldo RUTA_O_REFERENCIA",
+        "recibir_autorizar" => "ALMACEN_RESURTIDO_RECIBIR_UAT",
+        "recibir_confirmacion" => "AUTORIZO UAT RECIBIR RESURTIDO usando respaldo RUTA_O_REFERENCIA"
     ),
     "secuencia_autorizada" => array(
         "1_preflight_readonly" => "C:\\xampp\\php\\php.exe storage\\uat\\uat_almacen_resurtido_readonly.php",
-        "2_aplicar_ddl" => "C:\\xampp\\php\\php.exe storage\\uat\\uat_almacen_resurtido_schema_apply_authorized.php --autorizar=ALMACEN_RESURTIDO_DDL --confirmacion=\"AUTORIZO DDL RESURTIDO ALMACEN usando respaldo RUTA_O_REFERENCIA\" --respaldo=RUTA_O_REFERENCIA_RESPALDO",
-        "3_validar_post_ddl" => "C:\\xampp\\php\\php.exe storage\\uat\\uat_almacen_resurtido_readonly.php",
-        "4_crear_folio_uat" => "C:\\xampp\\php\\php.exe storage\\uat\\uat_almacen_resurtido_guardar_authorized.php --autorizar=ALMACEN_RESURTIDO_GUARDAR_UAT --confirmacion=\"AUTORIZO UAT GUARDAR RESURTIDO usando respaldo RUTA_O_REFERENCIA\" --respaldo=RUTA_O_REFERENCIA_RESPALDO --destino=4 --origen=3",
-        "5_validar_folio" => "C:\\xampp\\php\\php.exe storage\\uat\\uat_almacen_resurtido_folio_readonly.php --folio=RES-YYYYMMDD-####"
+        "2_validar_sql_static" => "C:\\xampp\\php\\php.exe storage\\uat\\uat_almacen_resurtido_sql_static.php",
+        "3_aplicar_ddl" => "C:\\xampp\\php\\php.exe storage\\uat\\uat_almacen_resurtido_schema_apply_authorized.php --autorizar=ALMACEN_RESURTIDO_DDL --confirmacion=\"AUTORIZO DDL RESURTIDO ALMACEN usando respaldo RUTA_O_REFERENCIA\" --respaldo=RUTA_O_REFERENCIA_RESPALDO",
+        "4_validar_post_ddl" => "C:\\xampp\\php\\php.exe storage\\uat\\uat_almacen_resurtido_readonly.php",
+        "5_crear_folio_uat" => "C:\\xampp\\php\\php.exe storage\\uat\\uat_almacen_resurtido_guardar_authorized.php --autorizar=ALMACEN_RESURTIDO_GUARDAR_UAT --confirmacion=\"AUTORIZO UAT GUARDAR RESURTIDO usando respaldo RUTA_O_REFERENCIA\" --respaldo=RUTA_O_REFERENCIA_RESPALDO --destino=4 --origen=3",
+        "6_validar_folio" => "C:\\xampp\\php\\php.exe storage\\uat\\uat_almacen_resurtido_folio_readonly.php --folio=RES-YYYYMMDD-####",
+        "7_preflight_preparacion_envio" => "C:\\xampp\\php\\php.exe storage\\uat\\uat_almacen_resurtido_preparacion_envio_preflight.php --folio=RES-YYYYMMDD-####",
+        "8_preflight_recepcion_diferencias" => "C:\\xampp\\php\\php.exe storage\\uat\\uat_almacen_resurtido_recepcion_diferencias_preflight.php --folio=RES-YYYYMMDD-####"
     ),
     "guardrails" => array(
         "no_ejecuta_ddl" => true,

@@ -70,6 +70,7 @@ $ventasTurno = consultarTodos($db, "SELECT id_venta, folio, estatus, total, paga
         fecha_venta
     FROM erp_ventas
     WHERE id_turno_caja=:turno
+      AND estatus NOT IN ('cancelada','cancelado')
     ORDER BY id_venta ASC", array(":turno" => $idTurno));
 
 $pagos = consultarTodos($db, "SELECT p.id_venta_pago, p.id_venta, v.folio, p.metodo_pago, p.monto,
@@ -77,13 +78,29 @@ $pagos = consultarTodos($db, "SELECT p.id_venta_pago, p.id_venta, v.folio, p.met
     FROM erp_ventas_pagos p
     INNER JOIN erp_ventas v ON v.id_venta=p.id_venta
     WHERE v.id_turno_caja=:turno
+      AND p.estatus='registrado'
+      AND v.estatus NOT IN ('cancelada','cancelado')
     ORDER BY p.id_venta_pago ASC", array(":turno" => $idTurno));
 
-$movimientosCaja = consultarTodos($db, "SELECT id_movimiento_caja, tipo, motivo, monto,
-        referencia, creado_por, fecha_registro
-    FROM erp_pos_movimientos_caja
-    WHERE id_turno_caja=:turno
-    ORDER BY id_movimiento_caja ASC", array(":turno" => $idTurno));
+$movimientosCaja = consultarTodos($db, "SELECT mc.id_movimiento_caja, mc.tipo, mc.motivo, mc.monto,
+        mc.referencia, mc.creado_por, mc.fecha_registro, mc.estatus, mc.categoria,
+        mc.id_venta, v.folio folio_venta
+    FROM erp_pos_movimientos_caja mc
+    LEFT JOIN erp_ventas v ON v.id_venta=mc.id_venta
+    WHERE mc.id_turno_caja=:turno
+      AND mc.estatus IN ('registrado','aprobado')
+      AND (mc.categoria<>'venta_pos' OR v.id_venta IS NOT NULL)
+    ORDER BY mc.id_movimiento_caja ASC", array(":turno" => $idTurno));
+
+$movimientosCajaExcluidos = consultarTodos($db, "SELECT mc.id_movimiento_caja, mc.tipo, mc.motivo, mc.monto,
+        mc.referencia, mc.creado_por, mc.fecha_registro, mc.estatus, mc.categoria,
+        mc.id_venta, v.folio folio_venta
+    FROM erp_pos_movimientos_caja mc
+    LEFT JOIN erp_ventas v ON v.id_venta=mc.id_venta
+    WHERE mc.id_turno_caja=:turno
+      AND (mc.estatus NOT IN ('registrado','aprobado')
+        OR (mc.categoria='venta_pos' AND v.id_venta IS NULL))
+    ORDER BY mc.id_movimiento_caja ASC", array(":turno" => $idTurno));
 
 $totales = array(
     "ventas" => sumar($ventasTurno, "total"),
@@ -106,6 +123,7 @@ $salida = array(
     "ventas" => $ventasTurno,
     "pagos" => $pagos,
     "movimientos_caja" => $movimientosCaja,
+    "movimientos_caja_excluidos" => $movimientosCajaExcluidos,
     "asignacion_actual_usuario_apertura" => isset($asignacion["depurar"]) ? $asignacion["depurar"] : $asignacion,
     "hallazgos" => hallazgos($turno, $totales)
 );

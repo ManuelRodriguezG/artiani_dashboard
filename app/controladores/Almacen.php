@@ -135,6 +135,18 @@ class Almacen extends Controlador {
         return json_encode($respuesta);
     }
 
+    public function resurtido_preparar_enviar_erp() {
+        $this->requerirPermiso("almacen.recibir");
+        $almacen = $this->modelo('Almacenes');
+        return json_encode($almacen->preparar_enviar_resurtido_pendiente($_POST, $this->usuarioActualId()));
+    }
+
+    public function resurtido_recibir_erp() {
+        $this->requerirPermiso("almacen.recibir");
+        $almacen = $this->modelo('Almacenes');
+        return json_encode($almacen->recibir_resurtido_pendiente($_POST, $this->usuarioActualId()));
+    }
+
     public function almacen_configuracion_guardar_erp() {
         $this->requerirPermiso("almacen.ubicaciones");
         $almacen = $this->modelo('Almacenes');

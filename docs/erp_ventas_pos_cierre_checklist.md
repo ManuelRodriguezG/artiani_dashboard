@@ -131,6 +131,38 @@ Revalidacion 2026-07-03:
 7. Decidir alcance de CRUD real de configuracion POS: tiendas, almacenes, cajas, terminales y asignaciones usuario/caja.
 8. Cerrar devoluciones fisicas: inspeccion, decision de inventario, evidencia y trazabilidad.
 
+## Corte actualizado 2026-07-13
+
+Estado validado:
+
+- POS normal ya tiene ciclos reales UAT con venta, caja, ticket, garantia snapshot, kardex y cierre.
+- Pedidos/apartados ya tienen ciclos UAT con anticipo, abono, entrega, cancelacion y decision financiera.
+- Saldo cliente CRM ya se probo en venta y reversa mixta.
+- Caja soporta diferencias documentadas, evidencias, correcciones y cierre aunque no cuadre en cero.
+- Inventario pendiente POS ya se probo en UAT con venta mixta, notificacion a Inventario/Existencias, resolucion por conteo y cierre de turno.
+- UI POS ya expone `Inventario pendiente` como simulacion segura/read-only.
+
+Pendiente antes de promover inventario pendiente a operacion real:
+
+- Sembrar permiso fino `ventas.pos.inventario_pendiente.autorizar`.
+- Exponer endpoint productivo sin token UAT.
+- Mantener confirmacion, motivo, politica almacen/SKU/canal, auditoria y alerta a Inventario/Existencias.
+- Probar una venta normal despues del cambio para asegurar que el cobro base no se afecto.
+- Probar una venta con inventario pendiente dentro de politica.
+- Resolver el pendiente desde Inventario/Existencias.
+
+Comando readiness recomendado:
+
+```powershell
+C:\xampp\php\php.exe storage\uat\uat_ventas_pos_productivo_readiness_readonly.php --id_usuario=1 --id_almacen=5 --id_sku=1760 --cantidad=1
+```
+
+Siguiente autorizacion robusta:
+
+```text
+AUTORIZO SEMBRAR PERMISO INVENTARIO PENDIENTE POS PRODUCTIVO usando respaldo UAT POS vigente con token VENTAS_POS_INVENTARIO_PENDIENTE_PERMISO id_usuario=1 para UAT POS
+```
+
 ## Politica de respaldo para UAT POS
 
 - No pedir respaldo en cada peticion pequena si ya hay un respaldo vigente validado para el ciclo UAT.

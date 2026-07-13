@@ -845,8 +845,384 @@ Siguiente autorizacion para corregir caja huerfana del turno abierto:
 
 `AUTORIZO CORREGIR CAJA ORFANA POS UAT REAL usando respaldo UAT POS vigente con token VENTAS_POS_CAJA_ORFANOS_CORREGIR id_usuario=1 id_turno_caja=22 ids_movimiento_caja=46,47 confirmacion="CORREGIR CAJA ORFANA" motivo="UAT limpiar movimientos caja huerfanos por intento fallido de venta mixta"`
 
+Correccion aplicada 2026-07-13:
+
+- Script: `storage/uat/uat_pos_caja_orfanos_corregir_apply_authorized.php`.
+- Movimientos cancelados:
+  - `46`, ingreso venta POS `$1475`, ligado a venta inexistente `20`.
+  - `47`, ingreso venta POS `$1475`, ligado a venta inexistente `21`.
+- Movimiento valido conservado:
+  - `48`, ingreso venta POS `$1475`, ligado a venta `23` / `POS-20260712-000002`.
+- Turno `TUR-20260712-002-002` recalculado:
+  - Monto inicial `$500`.
+  - Monto esperado `$1975`.
+  - Estatus `abierto`.
+- Verificacion read-only:
+  - Venta `POS-20260712-000002` sigue `pagada`, total/pagado `$1475`.
+  - Pendiente `PINV-20260712-000001` sigue `pendiente_revision`.
+  - Existencia `EXI-1016-34` sigue en `0` disponible, ultimo kardex `91`.
+  - Post-venta solo conserva hallazgo `VENTAS-POST-009` por garantia pendiente de catalogo/garantias.
+
 Despues de corregir caja:
 
 - Resolver `PINV-20260712-000001` desde Inventario/Existencias con conteo fisico.
 - Si el conteo fisico actual confirma `0` piezas, la resolucion debe crear ajuste de entrada a existencia teorica previa y salida de venta pendiente, dejando final `0`.
 - Cerrar turno `TUR-20260712-002-002` con monto contado esperado `$1975` si no hay otros movimientos.
+
+Resolucion aplicada 2026-07-13:
+
+- Script: `storage/uat/uat_inventario_pos_pendiente_resolver_apply_authorized.php`.
+- Pendiente resuelto:
+  - `PINV-20260712-000001`, `id_inventario_pendiente=5`.
+  - Conteo fisico actual `0`.
+  - Decision `ajustar_a_conteo`.
+  - Motivo `UAT conteo fisico post venta mixta confirma cero piezas`.
+- Dry-run previo:
+  - Disponible ERP actual `0`.
+  - Pendiente vendido `1`.
+  - Existencia objetivo antes de salida `1`.
+  - Ajuste requerido: entrada `1`.
+  - Salida venta pendiente requerida: `1`.
+  - Disponible final estimado `0`.
+- Apply real:
+  - Ajuste entrada `id_movimiento_ajuste=92`.
+  - Salida venta pendiente `id_movimiento_salida_pendiente=93`.
+  - Notificacion `18` resuelta.
+  - Pendiente `PINV-20260712-000001` estatus `resuelto`.
+  - Venta `POS-20260712-000002` inventario `validado_post_venta`.
+  - Detalle `24` inventario `validado_post_venta`.
+  - Trazabilidad pendiente `erp_ventas_detalle_inventario.id_movimiento_inventario=93`, estatus `validado_post_venta`.
+  - Existencia `EXI-1016-34` queda `0` disponible, ultimo movimiento `93`.
+- Verificacion read-only:
+  - Pendientes abiertos `0`.
+  - Notificaciones abiertas `0`, resueltas `1`.
+  - Turno `TUR-20260712-002-002` sigue abierto con monto esperado `$1975`.
+  - Post-venta conserva solo `VENTAS-POST-009` por garantia pendiente de catalogo/garantias.
+
+Siguiente autorizacion para cerrar turno de venta mixta:
+
+`AUTORIZO CERRAR TURNO POS UAT REAL usando respaldo UAT POS vigente con id_usuario=1 monto_contado=1975 observaciones="Cierre UAT POS venta mixta inventario pendiente POS-20260712-000002"`
+
+Cierre aplicado 2026-07-13:
+
+- Script: `storage/uat/uat_ventas_pos_turno_cierre_apply_authorized.php`.
+- Turno cerrado:
+  - `TUR-20260712-002-002`, `id_turno_caja=22`.
+  - Monto inicial `$500`.
+  - Venta real `POS-20260712-000002` por `$1475`.
+  - Monto esperado `$1975`.
+  - Monto contado `$1975`.
+  - Diferencia `$0`.
+  - Estatus `cerrado`.
+- Verificacion post-cierre:
+  - Ventas validas `1`, total `$1475`.
+  - Pagos validos `1`, total `$1475`.
+  - Movimientos caja validos `2`, total esperado `$1975`:
+    - `45` apertura `$500`.
+    - `48` ingreso venta POS `$1475`.
+  - Movimientos caja excluidos por correccion:
+    - `46` cancelado, venta inexistente `20`.
+    - `47` cancelado, venta inexistente `21`.
+  - Hallazgos `[]`.
+  - Asignacion POS sigue activa, pero no queda turno abierto.
+- Correccion de calculo/reportes:
+  - `VentasErp::cierreTurnoDryRun()` ahora cuenta pagos solo si tienen venta valida.
+  - `VentasErp::cierreTurnoDryRun()` ahora cuenta movimientos caja solo con estatus `registrado/aprobado` y no cuenta `venta_pos` sin venta valida.
+  - `storage/uat/uat_ventas_pos_turno_post_cierre_readonly.php` separa movimientos validos de excluidos para evidencia de auditoria.
+
+## Snapshot de garantia en venta POS pendiente/mixta
+
+Hallazgo 2026-07-13:
+
+- La venta normal POS ya guardaba snapshot de garantia.
+- La venta POS con inventario pendiente/mixto no guardaba snapshot de garantia.
+- El post-venta de `POS-20260712-000002` reportaba `VENTAS-POST-009` porque `id_venta_detalle=24` no tenia registro en `erp_ventas_detalle_garantias`.
+- El resolutor de garantias para SKU `1760` devuelve:
+  - tipo `sin_garantia`;
+  - resumen ticket `Sin garantia`;
+  - alerta `politica_no_configurada`.
+
+Correccion prospectiva:
+
+- `VentasErp::ventaInventarioPendienteReal()` ahora llama `GarantiasErp::guardarSnapshotsVenta()` despues de insertar el detalle y antes de pagos/commit.
+- El resultado de venta pendiente/mixta devuelve `garantias` en depuracion igual que el cobro POS normal.
+- Se agrego guardia de transaccion posterior a `garantia_snapshot_insertado`.
+
+Auditoria read-only historica:
+
+- Script: `storage/uat/uat_ventas_pos_garantia_snapshot_backfill_readonly.php`.
+- Folio auditado: `POS-20260712-000002`.
+- Total faltantes: `1`.
+- Detalle faltante: `id_venta_detalle=24`, SKU `1760`.
+- Snapshot sugerido: `Sin garantia`.
+
+Backfill preparado, no ejecutado:
+
+- Script: `storage/uat/uat_ventas_pos_garantia_snapshot_backfill_apply_authorized.php`.
+- Guardrail validado: bloquea sin token, respaldo, usuario, folio, confirmacion y motivo.
+
+Siguiente autorizacion para completar snapshot historico de garantia:
+
+`AUTORIZO BACKFILL SNAPSHOT GARANTIA POS UAT REAL usando respaldo UAT POS vigente con token VENTAS_POS_GARANTIA_SNAPSHOT_BACKFILL id_usuario=1 folio=POS-20260712-000002 confirmacion="BACKFILL GARANTIA POS" motivo="UAT completar snapshot garantia historico POS"`
+
+Backfill aplicado 2026-07-13:
+
+- Script: `storage/uat/uat_ventas_pos_garantia_snapshot_backfill_apply_authorized.php`.
+- Folio `POS-20260712-000002`.
+- Snapshot creado:
+  - `id_venta_detalle_garantia=13`.
+  - `id_venta_detalle=24`.
+  - SKU `1760`.
+  - Tipo `sin_garantia`.
+  - Resumen ticket `Sin garantia`.
+- Verificaciones read-only:
+  - `storage/uat/uat_ventas_pos_post_venta_readonly.php --folio=POS-20260712-000002`: `ok=true`, hallazgos `[]`, garantias `1`.
+  - `storage/uat/uat_ventas_pos_garantia_snapshot_backfill_readonly.php --folio=POS-20260712-000002`: faltantes `0`, existentes `1`.
+  - `storage/uat/uat_ventas_pos_ticket_formal_readonly.php --folio=POS-20260712-000002`: `ok=true`, ticket `28` lineas, hallazgos `[]`, muestra `Garantia: Sin garantia`.
+
+## UAT final read-only POS venta mixta
+
+Evidencia 2026-07-13:
+
+- Turno/caja:
+  - Script: `storage/uat/uat_ventas_pos_turno_post_cierre_readonly.php --id_turno_caja=22`.
+  - Turno `TUR-20260712-002-002` cerrado.
+  - Monto inicial `$500`, esperado `$1975`, contado `$1975`, diferencia `$0`.
+  - Ventas validas `1`, total `$1475`.
+  - Pagos validos `1`, total `$1475`.
+  - Movimientos caja validos `2`, total `$1975`.
+  - Movimientos excluidos visibles para auditoria: `46` y `47`, ambos cancelados.
+  - Hallazgos `[]`.
+  - Asignacion POS activa, sin turno abierto.
+- Pendientes/notificaciones:
+  - Script: `storage/uat/uat_pos_inventario_pendiente_notificaciones_readonly.php`.
+  - Pendientes abiertos `0`.
+  - Pendientes resueltos `2`.
+  - Notificaciones abiertas `0`.
+  - Notificacion `18` resuelta.
+  - Stock SKU `1760` almacen `5`: `0` disponible, sin inconsistencias.
+- Post-venta:
+  - Script: `storage/uat/uat_ventas_pos_post_venta_readonly.php --folio=POS-20260712-000002`.
+  - `ok=true`, hallazgos `[]`.
+  - Detalle `24` con inventario `validado_post_venta`.
+  - Garantia snapshot `13`, resumen `Sin garantia`.
+  - Trazabilidad inventario `2`: salida cubierta `91` y salida pendiente validada `93`.
+- Ticket:
+  - Script: `storage/uat/uat_ventas_pos_ticket_formal_readonly.php --folio=POS-20260712-000002`.
+  - `ok=true`, hallazgos `[]`.
+  - Ticket `28` lineas.
+  - Muestra tienda, caja, turno, cliente, lista de precio, garantia `Sin garantia`, pago y trazabilidad.
+
+Dictamen:
+
+- Flujo POS venta mixta con inventario pendiente queda validado end-to-end en UAT.
+- Contratos cubiertos: caja/turno, pago, kardex parcial, pendiente de inventario, notificacion, resolucion de pendiente, cierre de caja, garantia snapshot y ticket.
+- Pendiente no bloqueante: limpiar/estandarizar scripts UAT antiguos que aun calculan por patrones previos si se usan fuera del flujo actual.
+
+## UI POS para inventario pendiente
+
+Avance 2026-07-13:
+
+- Se agrego en `/ventas/pos` una accion visible `Inventario pendiente`.
+- La accion llama `/ventas/pos_inventario_pendiente_dryrun_erp` y no escribe BD.
+- La prevalidacion normal ahora muestra boton contextual `Revisar inventario pendiente` cuando el backend detecta que existe politica POS para permitir faltante, pero que el cobro normal debe pasar por flujo especializado.
+- La UI muestra:
+  - estado del flujo (`normal`, `pendiente_autorizable` o `bloqueado`);
+  - disponible actual;
+  - cantidad cubierta con kardex;
+  - cantidad pendiente para Inventario/Existencias;
+  - politica POS aplicable;
+  - total estimado y advertencias.
+- Restricciones intencionales:
+  - solo valida una partida por vez;
+  - solo aplica a salida por existencia agregada/stock;
+  - no convierte unidades fisicas cerradas o abiertas en pendiente;
+  - no ejecuta cobro real ni crea alerta desde UI sin autorizacion operacional.
+
+Pendiente de decision/productivo:
+
+- Definir si el cobro real con inventario pendiente queda como:
+  - accion de supervisor dentro de POS con permiso fino y motivo obligatorio; o
+  - flujo administrativo separado hasta que Inventario/Existencias tenga tablero de mini inventarios completamente operativo.
+- Para productivo, el endpoint real no debe depender de token UAT; debe usar permiso granular, politica vigente, confirmacion UI, auditoria y evidencia en reportes.
+
+## Readiness Productivo POS
+
+Avance 2026-07-13:
+
+- Se agrego auditor read-only `storage/uat/uat_ventas_pos_productivo_readiness_readonly.php`.
+- El auditor revisa sin escribir BD:
+  - tablas base de ventas, caja, inventario, garantias, CRM y listas;
+  - permisos esperados y permisos del usuario auditado;
+  - asignacion POS usuario/tienda/caja/terminal;
+  - turno abierto/cerrado;
+  - politicas de inventario pendiente;
+  - pendientes y notificaciones POS;
+  - ventas recientes;
+  - dry-run de inventario pendiente.
+- Ejecucion UAT:
+  - Comando: `C:\xampp\php\php.exe storage\uat\uat_ventas_pos_productivo_readiness_readonly.php --id_usuario=1 --id_almacen=5 --id_sku=1760 --cantidad=1`.
+  - Resultado: `ok=true`.
+  - Bloqueos: `[]`.
+  - Avisos:
+    - falta sembrar permiso fino `ventas.pos.inventario_pendiente.autorizar`;
+    - no hay turno abierto para el usuario, esperado fuera de horario y bloqueante solo para cobro real.
+- Estado detectado:
+  - usuario `1` tiene asignacion POS activa a almacen `5`, caja `2`, terminal `2`;
+  - no hay turnos abiertos;
+  - ultimo turno auditado `TUR-20260712-002-002` cerrado con diferencia `0`;
+  - no hay pendientes de inventario POS abiertos;
+  - notificacion de pendiente POS resuelta;
+  - politica de inventario pendiente activa para almacen `5`, SKU `1760`, canal `pos`;
+  - dry-run de inventario pendiente para cantidad `1` queda `pendiente_autorizable`.
+
+Dictamen productivo:
+
+- POS base esta listo para pruebas operativas con turno abierto.
+- Inventario pendiente productivo NO debe liberarse con token UAT.
+- Siguiente cambio fuerte recomendado:
+  - sembrar permiso `ventas.pos.inventario_pendiente.autorizar`;
+  - crear endpoint real productivo con `ventas.operar` + permiso supervisor;
+  - exigir confirmacion UI, motivo obligatorio y politica activa;
+  - conservar no-ecommerce y alerta a Inventario/Existencias.
+
+Preparacion sin ejecucion:
+
+- Se preparo `storage/uat/uat_ventas_pos_inventario_pendiente_permiso_apply_authorized.php`.
+- El script esta bloqueado por defecto y requiere:
+  - token `VENTAS_POS_INVENTARIO_PENDIENTE_PERMISO`;
+  - respaldo externo o referencia valida;
+  - `id_usuario`.
+- Validacion realizada:
+  - `php -l` sin errores;
+  - ejecucion sin parametros queda bloqueada correctamente.
+
+Siguiente autorizacion robusta sugerida:
+
+`AUTORIZO SEMBRAR PERMISO INVENTARIO PENDIENTE POS PRODUCTIVO usando respaldo UAT POS vigente con token VENTAS_POS_INVENTARIO_PENDIENTE_PERMISO id_usuario=1 para UAT POS`
+
+## Contrato productivo para venta POS con inventario pendiente
+
+Fecha: 2026-07-13
+
+Objetivo:
+
+- Permitir ventas controladas cuando la tienda fisicamente puede vender, pero el ERP aun no tiene existencia formal suficiente.
+- Crear una alerta accionable para Inventario/Existencias y resolverla con mini inventario.
+- Evitar que esta excepcion se convierta en venta negativa libre o en atajo para ecommerce.
+
+Estado actual:
+
+- UI POS ya tiene dry-run en `/ventas/pos`.
+- Backend ya puede simular con `/ventas/pos_inventario_pendiente_dryrun_erp`.
+- Flujo real UAT existe protegido por token/respaldo.
+- Falta version productiva sin token UAT.
+
+Reglas obligatorias del endpoint productivo:
+
+- Requiere sesion vigente.
+- Requiere turno POS abierto.
+- Requiere asignacion activa de usuario a tienda/almacen/caja/terminal.
+- Requiere permiso base `ventas.operar`.
+- Requiere permiso supervisor `ventas.pos.inventario_pendiente.autorizar`.
+- Requiere politica activa por almacen, SKU y canal `pos`.
+- Requiere motivo obligatorio escrito por operador/supervisor.
+- Requiere confirmacion explicita desde UI, por ejemplo `AUTORIZAR INVENTARIO PENDIENTE`.
+- Debe registrar auditoria explicita.
+- Debe generar folio de venta, pago, movimiento de caja y ticket como venta POS formal.
+- Debe descontar con kardex la parte cubierta por inventario disponible.
+- Debe crear expediente `erp_pos_inventario_pendientes` solo por la cantidad faltante.
+- Debe crear notificacion persistente a Inventario/Existencias.
+- Debe dejar trazabilidad por detalle: cantidad cubierta, cantidad pendiente y politica aplicada.
+- Debe respetar garantia snapshot.
+
+Reglas de bloqueo:
+
+- No aplica a ecommerce.
+- No aplica a unidad fisica cerrada: si no hay unidad disponible/cerrada, bloquea.
+- No aplica a unidad abierta vendida como unidad cerrada.
+- No aplica a granel si el SKU no permite granel.
+- No permite saltar limites de cantidad o monto de la politica.
+- No permite operar sin turno abierto.
+- No permite operar sin caja asignada.
+- No permite pagos incompletos.
+- No permite generar movimientos de caja antes de confirmar toda la transaccion.
+
+Contrato UX:
+
+- El operador primero usa `Prevalidar` o `Inventario pendiente`.
+- La UI debe mostrar disponible, cubierto con kardex, faltante, total y politica.
+- Si el resultado es autorizable, la accion real debe verse como excepcion supervisada, no como boton normal de cobro.
+- El motivo debe capturarse antes de cobrar.
+- Despues del cobro, el ticket y detalle deben indicar que hubo validacion pendiente de inventario.
+- La alerta debe llevar a Inventario/Existencias, no a auditoria generica.
+
+Prueba minima posterior a autorizacion:
+
+1. Sembrar permiso fino.
+2. Abrir turno POS.
+3. Ejecutar venta normal para confirmar que no se rompio el cobro base.
+4. Ejecutar dry-run de inventario pendiente.
+5. Ejecutar venta real con faltante dentro de politica.
+6. Confirmar caja, ticket, kardex parcial, expediente pendiente y notificacion.
+7. Resolver pendiente desde Inventario/Existencias con conteo fisico.
+8. Cerrar turno con diferencia cero o diferencia documentada.
+
+Autorizacion fuerte pendiente:
+
+```text
+AUTORIZO SEMBRAR PERMISO INVENTARIO PENDIENTE POS PRODUCTIVO usando respaldo UAT POS vigente con token VENTAS_POS_INVENTARIO_PENDIENTE_PERMISO id_usuario=1 para UAT POS
+```
+
+Autorizacion posterior a esa, todavia no solicitada:
+
+```text
+AUTORIZO PREPARAR ENDPOINT PRODUCTIVO VENTA INVENTARIO PENDIENTE POS usando respaldo UAT POS vigente con token VENTAS_POS_INVENTARIO_PENDIENTE_PRODUCTIVO_ENDPOINT para UAT POS/Inventario
+```
+
+## Revalidacion Readiness POS
+
+Fecha: 2026-07-13
+
+Comando ejecutado:
+
+```powershell
+C:\xampp\php\php.exe storage\uat\uat_ventas_pos_productivo_readiness_readonly.php --id_usuario=1 --id_almacen=5 --id_sku=1760 --cantidad=1
+```
+
+Resultado:
+
+- `ok=true`.
+- Read-only confirmado.
+- Tablas base de ventas, caja, inventario, CRM, saldos cliente y listas de precios presentes.
+- Usuario `1` con asignacion POS activa:
+  - almacen `5`;
+  - caja `2`;
+  - terminal `2`;
+  - tienda `Mascotas Mina 971`.
+- Turnos abiertos: `0`.
+- Ultimo turno auditado: `TUR-20260712-002-002`, cerrado con diferencia `0`.
+- Pendientes POS abiertos: `0`.
+- Pendientes POS resueltos: `2`.
+- Notificaciones POS abiertas: `0`.
+- Politica activa de inventario pendiente:
+  - `PINV-UAT-A5-S1760-POS`;
+  - cantidad maxima pendiente `1`;
+  - monto maximo `$295`;
+  - permiso requerido `ventas.pos.inventario_pendiente.autorizar`.
+- Dry-run SKU `1760`, almacen `5`, cantidad `1`:
+  - estado `pendiente_autorizable`;
+  - disponible `0`;
+  - cubierta con kardex `0`;
+  - pendiente propuesta `1`;
+  - total estimado `$295`.
+
+Avisos actuales:
+
+- Falta sembrar permiso fino `ventas.pos.inventario_pendiente.autorizar`.
+- No hay turno abierto, esperado fuera de operacion y bloqueante solo para cobro real.
+
+Dictamen:
+
+- POS base queda listo para pruebas operativas con turno abierto.
+- Inventario pendiente productivo sigue detenido correctamente hasta permiso fino y endpoint real sin token UAT.

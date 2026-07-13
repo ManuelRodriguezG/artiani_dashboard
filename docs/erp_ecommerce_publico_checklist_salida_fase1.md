@@ -8,6 +8,10 @@ Estado: checklist de salida; no autoriza DDL ni inicio automatico de tienda.
 
 El ERP ya tiene contratos API preparados para el ecommerce externo, pero todavia no esta listo para una tienda publica con productos reales porque falta aplicar DDL y crear publicaciones.
 
+Resumen vivo:
+
+- `docs/erp_ecommerce_publico_estado_actual.md`
+
 Estado:
 
 - Contratos API: listo para integracion tecnica read-only.
@@ -43,7 +47,7 @@ La salida `senal_frontend` puede ser:
 - `verde_datos_reales`: se puede integrar la vista externa con productos reales publicados.
 - `rojo_bloqueado`: resolver contratos/API antes de iniciar.
 
-### Verde para iniciar maqueta tecnica
+### Amarillo para iniciar maqueta tecnica
 
 Ya se puede iniciar el proyecto frontend externo si el objetivo es:
 
@@ -55,7 +59,20 @@ Ya se puede iniciar el proyecto frontend externo si el objetivo es:
 - usar mocks o respuestas vacias controladas;
 - preparar carrito local y llamada a `cotizacion_dryrun`.
 
-### Amarillo para integrar datos reales
+### Verde para integrar datos reales
+
+Solo avanzar a datos reales cuando el semaforo diga `verde_datos_reales`.
+
+Debe estar resuelto:
+
+- DDL `erp_ecommerce_*` aplicado;
+- `whatsapp_numero_principal` configurado;
+- `cors_origenes_permitidos` configurado;
+- primeras publicaciones internas creadas y publicadas;
+- `/catalogo` con productos publicados;
+- `/cotizacion_dryrun` con publicaciones reales.
+
+### Pendiente para datos reales
 
 Esperar antes de prometer catalogo vivo real. Faltan:
 

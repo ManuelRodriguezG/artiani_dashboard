@@ -26,6 +26,14 @@ Ejecutar:
 php storage/uat/uat_ecommerce_publico_activacion_preflight_readonly.php --respaldo=RUTA_O_REFERENCIA
 ```
 
+Tambien se puede generar la secuencia completa sin ejecutar nada:
+
+```bash
+php storage/uat/uat_ecommerce_publico_secuencia_activacion_readonly.php --base=http://panel.com.local --respaldo=RUTA_O_REFERENCIA --whatsapp=NUMERO_WHATSAPP --cors=ORIGEN_FRONTEND --url=URL_FRONTEND --id_sku=ID_SKU
+```
+
+Ese script solo imprime comandos ordenados. No aplica DDL, no guarda configuracion y no publica SKUs.
+
 Debe devolver:
 
 - `ok=true`
@@ -184,6 +192,36 @@ Guardrails:
 
 Publicar un borrador debe ser otra accion posterior, con revision de slug, titulo, mascota, necesidades, disponibilidad y politica de agotados.
 
+### Publicacion autorizada de un borrador
+
+Primero generar plan read-only:
+
+```bash
+php storage/uat/uat_ecommerce_publico_publicar_borrador_plan_readonly.php --id_sku=1291 --confirmar_revision=1
+```
+
+Si el SKU esta agotado y aun asi se decide mostrarlo, el plan exige:
+
+```bash
+--confirmar_agotado=1
+```
+
+Aplicar solo con autorizacion:
+
+```bash
+php storage/uat/uat_ecommerce_publico_publicar_borrador_apply_authorized.php --autorizar=ECOMMERCE_PUBLICO_PUBLICAR_BORRADOR --respaldo=RUTA_O_REFERENCIA --id_sku=1291 --confirmar_revision=1
+```
+
+Guardrails:
+
+- requiere token `ECOMMERCE_PUBLICO_PUBLICAR_BORRADOR`;
+- requiere respaldo externo o referencia suficiente;
+- solo publica registros en `borrador`;
+- exige revision confirmada;
+- exige confirmacion especial si el SKU esta `agotado`;
+- no toca inventario;
+- no toca `ecom_*`.
+
 ### Lote inicial sugerido read-only
 
 Antes de activar guardado real se puede generar una propuesta:
@@ -219,6 +257,26 @@ Endpoints:
 - `POST /ecommercePublico/cotizacion_dryrun`
 
 No usar `cotizacion_registrar` todavia.
+
+## Paso 7 - Compuerta verde final
+
+Antes de avisar al frontend que ya puede integrar datos reales, ejecutar:
+
+```bash
+php storage/uat/uat_ecommerce_publico_green_gate_readonly.php --base=http://panel.com.local
+```
+
+Debe devolver:
+
+- `ok=true`;
+- `senal_frontend=verde_datos_reales`;
+- `catalogo.tiene_item_real=true`;
+- `cotizacion_dryrun.ok=true`;
+- `bloqueos=[]`.
+
+Este script no escribe BD. Valida que no se declare verde solo por tener DDL: exige una publicacion real visible por `/catalogo` y un dry-run calculado con un item publicado.
+
+Si devuelve `amarillo_mock_contratos`, no avisar datos reales todavia.
 
 ## Paso 7 - Senal para iniciar vista externa con datos reales
 

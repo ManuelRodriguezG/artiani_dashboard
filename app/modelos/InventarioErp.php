@@ -1745,13 +1745,14 @@ class InventarioErp extends CRUD {
             if (!$this->tablaExiste($db, "erp_notificaciones") || intval($idPendiente) <= 0) {
                 return 0;
             }
-            require_once __DIR__ . "/NotificacionesErp.php";
-            $notificaciones = new NotificacionesErp();
-            return $notificaciones->resolverOperativaPorHuellaEnConexion(
-                $db,
-                "pos_venta_inventario_pendiente",
-                "pos_inventario_pendiente|" . intval($idPendiente)
-            );
+            $huella = "pos_inventario_pendiente|" . intval($idPendiente);
+            $stmt = $db->prepare("UPDATE erp_notificaciones
+                SET estatus='resuelta', fecha_resolucion=NOW(), fecha_actualizacion=NOW()
+                WHERE tipo='pos_venta_inventario_pendiente'
+                  AND estatus IN ('pendiente','en_revision','bloqueada')
+                  AND payload_json LIKE :huella");
+            $stmt->execute(array(":huella" => '%"huella":"' . $huella . '"%'));
+            return intval($stmt->rowCount());
         } catch (Exception $e) {
             return 0;
         }

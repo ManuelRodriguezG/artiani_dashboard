@@ -44,8 +44,14 @@ $configPlan = $api->planConfiguracionInicial($configValores);
 $publicabilidad = $api->auditarPublicabilidad(array("limite" => 30, "solo_publicables" => 1));
 $lote = sugerirLoteBundle($api, $loteLimite);
 $planPrimeraPublicacion = array();
+$planPublicarPrimera = array();
 if (!empty($lote)) {
   $planPrimeraPublicacion = $api->planGuardarPublicacion(array("id_sku" => intval($lote[0]["id_sku"])));
+  $planPublicarPrimera = $api->planPublicarBorrador(array(
+    "id_sku" => intval($lote[0]["id_sku"]),
+    "confirmar_revision" => 1,
+    "confirmar_agotado" => 1
+  ));
 }
 $http = smokeHttpBundle($base);
 
@@ -126,6 +132,13 @@ echo json_encode(array(
       "id_sku" => !empty($lote) ? intval($lote[0]["id_sku"]) : 0,
       "bloqueos" => valorBundle($planPrimeraPublicacion, array("depurar", "bloqueos_publicacion"), array()),
       "sha256_sql" => valorBundle($planPrimeraPublicacion, array("depurar", "sha256_sql"), "")
+    ),
+    "primer_sku_publicar_plan" => array(
+      "id_sku" => !empty($lote) ? intval($lote[0]["id_sku"]) : 0,
+      "requiere_revision" => true,
+      "confirmar_agotado_usado_en_plan" => true,
+      "bloqueos" => valorBundle($planPublicarPrimera, array("depurar", "bloqueos_publicacion"), array()),
+      "sha256_sql" => valorBundle($planPublicarPrimera, array("depurar", "sha256_sql"), "")
     )
   ),
   "bloqueos_para_verde_datos_reales" => $bloqueosVerde,

@@ -23,7 +23,7 @@ foreach ($args as $arg) {
     } elseif (strpos($arg, "--id_usuario=") === 0) {
         $idUsuario = intval(trim(substr($arg, 13), "\"' "));
     } elseif (strpos($arg, "--id_turno_caja=") === 0) {
-        $idTurno = intval(trim(substr($arg, 17), "\"' "));
+        $idTurno = intval(trim(substr($arg, 16), "\"' "));
     } elseif (strpos($arg, "--ids_movimiento_caja=") === 0) {
         $raw = trim(substr($arg, 22), "\"' ");
         foreach (explode(",", $raw) as $id) {
@@ -93,8 +93,7 @@ try {
     $db->beginTransaction();
     $stmt = $db->prepare("UPDATE erp_pos_movimientos_caja
         SET estatus='cancelado',
-            observaciones=CONCAT(COALESCE(observaciones,''), ' | Correccion UAT caja huerfana por usuario ', ?),
-            fecha_actualizacion=NOW()
+            observaciones=CONCAT(COALESCE(observaciones,''), ' | Correccion UAT caja huerfana por usuario ', ?)
         WHERE id_turno_caja=?
           AND id_movimiento_caja IN ($placeholders)
           AND categoria='venta_pos'
@@ -115,8 +114,7 @@ try {
             WHERE mc.id_turno_caja=t.id_turno_caja
               AND mc.estatus IN ('registrado','aprobado')
               AND (mc.categoria<>'venta_pos' OR v.id_venta IS NOT NULL)
-        ), 0), 6),
-        fecha_actualizacion=NOW()
+        ), 0), 6)
         WHERE t.id_turno_caja=:turno")
         ->execute(array(":turno" => $idTurno));
 

@@ -1136,25 +1136,30 @@ class VentasErp extends CRUD {
                     $ventas = $stmt->fetch(PDO::FETCH_ASSOC);
                 }
                 if ($this->tablaExiste($db, "erp_ventas_pagos")) {
-                    $stmt = $db->prepare("SELECT metodo_pago, tipo_pago,
+                    $stmt = $db->prepare("SELECT p.metodo_pago, p.tipo_pago,
                             COUNT(*) operaciones,
-                            COALESCE(SUM(monto), 0) monto
-                        FROM erp_ventas_pagos
-                        WHERE id_turno_caja=:turno AND id_caja=:caja
-                            AND estatus='registrado'
-                        GROUP BY metodo_pago, tipo_pago
-                        ORDER BY metodo_pago, tipo_pago");
+                            COALESCE(SUM(p.monto), 0) monto
+                        FROM erp_ventas_pagos p
+                        INNER JOIN erp_ventas v ON v.id_venta=p.id_venta
+                        WHERE p.id_turno_caja=:turno AND p.id_caja=:caja
+                            AND p.estatus='registrado'
+                            AND v.estatus NOT IN ('cancelada','cancelado')
+                        GROUP BY p.metodo_pago, p.tipo_pago
+                        ORDER BY p.metodo_pago, p.tipo_pago");
                     $stmt->execute(array(":turno" => $idTurno, ":caja" => $idCaja));
                     $pagosPorMetodo = $stmt->fetchAll(PDO::FETCH_ASSOC);
                 }
                 if ($this->tablaExiste($db, "erp_pos_movimientos_caja")) {
-                    $stmt = $db->prepare("SELECT tipo, motivo,
+                    $stmt = $db->prepare("SELECT mc.tipo, mc.motivo,
                             COUNT(*) operaciones,
-                            COALESCE(SUM(monto), 0) monto
-                        FROM erp_pos_movimientos_caja
-                        WHERE id_turno_caja=:turno
-                        GROUP BY tipo, motivo
-                        ORDER BY tipo, motivo");
+                            COALESCE(SUM(mc.monto), 0) monto
+                        FROM erp_pos_movimientos_caja mc
+                        LEFT JOIN erp_ventas v ON v.id_venta=mc.id_venta
+                        WHERE mc.id_turno_caja=:turno
+                          AND mc.estatus IN ('registrado','aprobado')
+                          AND (mc.categoria<>'venta_pos' OR v.id_venta IS NOT NULL)
+                        GROUP BY mc.tipo, mc.motivo
+                        ORDER BY mc.tipo, mc.motivo");
                     $stmt->execute(array(":turno" => $idTurno));
                     $movimientosPorTipo = $stmt->fetchAll(PDO::FETCH_ASSOC);
                     foreach ($movimientosPorTipo as $movimiento) {
@@ -4432,6 +4437,31 @@ class VentasErp extends CRUD {
             $idDetalle = intval($db->lastInsertId());
             $this->asegurarTransaccionPosReal($db, "detalle_insertado");
 
+            $snapshotsGarantia = array("depurar" => array("guardados" => array()));
+            if ($this->tablaExiste($db, "erp_ventas_detalle_garantias")) {
+                require_once __DIR__ . "/GarantiasErp.php";
+                $garantias = new GarantiasErp();
+                $snapshotsGarantia = $garantias->guardarSnapshotsVenta($db, array(
+                    "id_venta" => $idVenta,
+                    "id_almacen" => $idAlmacen,
+                    "canal" => "pos",
+                    "fecha" => date("Y-m-d"),
+                    "detalles" => array(array(
+                        "id_venta_detalle" => $idDetalle,
+                        "id_producto_erp" => intval($this->valor($sku, "id_producto_erp", 0)),
+                        "id_sku_erp" => $idSku
+                    ))
+                ));
+                if (!empty($snapshotsGarantia["error"])) {
+                    throw new Exception("No se pudo guardar snapshot de garantia: " . $snapshotsGarantia["mensaje"]);
+                }
+                $bloqueosGarantia = $this->valorRutaPosReal($snapshotsGarantia, array("depurar", "bloqueos"), array());
+                if (!empty($bloqueosGarantia)) {
+                    throw new Exception("Snapshot de garantia bloqueado: " . implode("; ", $bloqueosGarantia));
+                }
+                $this->asegurarTransaccionPosReal($db, "garantia_snapshot_insertado");
+            }
+
             $evidenciaInventarioCubierta = array();
             if ($cantidadCubierta > 0) {
                 $planCubierto = $this->planSalidaInventario($db, $idSku, $idAlmacen, $cantidadCubierta, "existencia_agregada", 0);
@@ -4577,6 +4607,7 @@ class VentasErp extends CRUD {
                 "cantidad_pendiente" => $cantidadPendiente,
                 "inventario_cubierto" => $evidenciaInventarioCubierta,
                 "id_notificacion_pendiente" => $idNotificacionPendiente,
+                "garantias" => $this->valorRutaPosReal($snapshotsGarantia, array("depurar", "guardados"), array()),
                 "pagos" => $evidenciaPagos
             ));
         } catch (Exception $e) {

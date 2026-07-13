@@ -2257,3 +2257,76 @@ Validaciones CLI read-only:
 C:\xampp\php\php.exe storage\uat\uat_ventas_pos_saldo_crm_runbook_readonly.php --compact=1
 C:\xampp\php\php.exe storage\uat\uat_ventas_pos_saldo_crm_post_readonly.php --folio=POS-YYYYMMDD-###### --compact=1
 ```
+
+### Prueba 63 - POS inventario pendiente desde UI, solo simulacion
+
+Fecha: 2026-07-13
+
+Objetivo: confirmar que el POS puede detectar una venta que requiere mini inventario sin cobrar, sin descontar stock y sin crear alerta real hasta que exista autorizacion productiva.
+
+Contexto:
+
+- Esta prueba es read-only desde la UI.
+- No abre turno.
+- No crea venta.
+- No crea movimiento de caja.
+- No crea kardex.
+- No crea pendiente real de inventario.
+- No aplica a ecommerce.
+
+Precondiciones:
+
+- Usuario con asignacion POS activa a tienda/almacen/caja/terminal.
+- SKU con politica activa de inventario pendiente POS, por ejemplo SKU `1760` en almacen `5` para UAT.
+- El carrito debe tener una sola partida.
+- La partida debe salir por existencia agregada, no por unidad fisica cerrada ni unidad abierta.
+
+Pasos UI:
+
+1. Abrir `/ventas/pos`.
+2. Confirmar que el encabezado muestre usuario, tienda, almacen, caja y terminal.
+3. Buscar el SKU `1760` o un SKU equivalente con politica activa.
+4. Agregar una sola partida al carrito.
+5. Dejar cantidad `1` para UAT basico.
+6. Presionar `Prevalidar`.
+7. Si el backend detecta que el cobro normal no puede continuar pero existe politica POS, usar `Revisar inventario pendiente`.
+8. Alternativamente, usar el boton superior `Inventario pendiente`.
+9. Revisar el resultado mostrado en el panel de validacion.
+
+Resultado esperado:
+
+- El panel debe mostrar estado `pendiente_autorizable` si la politica permite vender con faltante controlado.
+- Debe mostrar disponible actual.
+- Debe mostrar cantidad cubierta con kardex.
+- Debe mostrar cantidad pendiente para Inventario/Existencias.
+- Debe mostrar politica POS aplicada.
+- Debe mostrar total estimado.
+- Debe advertir que el cobro real requiere autorizacion operativa.
+- No debe aparecer folio de venta nuevo.
+- No debe cambiar caja.
+- No debe cambiar inventario.
+
+Resultado bloqueado esperado:
+
+- Si el carrito tiene mas de una partida, la simulacion debe pedir probar una partida por vez.
+- Si la partida es unidad fisica cerrada o unidad abierta, no debe convertirse a inventario pendiente.
+- Si no hay politica activa, debe bloquear.
+- Si la cantidad supera politica, debe bloquear.
+
+Validacion CLI read-only relacionada:
+
+```powershell
+C:\xampp\php\php.exe storage\uat\uat_ventas_pos_productivo_readiness_readonly.php --id_usuario=1 --id_almacen=5 --id_sku=1760 --cantidad=1
+```
+
+Dictamen esperado UAT:
+
+- POS normal queda listo para pruebas operativas con turno abierto.
+- Inventario pendiente queda visible como simulacion segura.
+- Para habilitar cobro real productivo falta sembrar permiso fino y exponer endpoint real sin token UAT.
+
+Siguiente autorizacion robusta recomendada:
+
+```text
+AUTORIZO SEMBRAR PERMISO INVENTARIO PENDIENTE POS PRODUCTIVO usando respaldo UAT POS vigente con token VENTAS_POS_INVENTARIO_PENDIENTE_PERMISO id_usuario=1 para UAT POS
+```

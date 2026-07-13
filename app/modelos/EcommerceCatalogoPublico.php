@@ -803,6 +803,148 @@ class EcommerceCatalogoPublico extends CRUD {
   }
 
   /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-07-13
+   * Proposito: resumir readiness interno para decidir si el frontend externo puede arrancar con mocks o datos reales.
+   * Impacto: Ecommerce publico; concentra bloqueos operativos sin ejecutar DDL ni publicar productos.
+   * Contrato: solo lectura; no escribe BD, no expone stock exacto y no usa legacy `ecom_*` como fuente.
+   */
+  public function readinessFrontendInterna($opciones = array()) {
+    try {
+      $db = $this->getConexion();
+      if (!$db) {
+        return $this->respuesta(true, "warning", "Conexion MySQL no disponible", array(
+          "senal_frontend" => "rojo_sin_conexion",
+          "puede_iniciar_frontend_mock" => false,
+          "puede_integrar_datos_reales" => false,
+          "bloqueos_datos_reales" => array("conexion_mysql_no_disponible")
+        ));
+      }
+
+      $tablas = array(
+        "erp_ecommerce_publicaciones",
+        "erp_ecommerce_configuracion",
+        "erp_ecommerce_cotizaciones",
+        "erp_ecommerce_cotizaciones_detalle",
+        "erp_ecommerce_cotizaciones_eventos"
+      );
+      $tablasEstado = array();
+      $tablasFaltantes = array();
+      foreach ($tablas as $tabla) {
+        $existe = $this->tablaExiste($db, $tabla);
+        $tablasEstado[$tabla] = $existe;
+        if (!$existe) {
+          $tablasFaltantes[] = $tabla;
+        }
+      }
+
+      $resumen = $this->resumenPublicabilidad($db);
+      $publicaciones = array("borrador" => 0, "publicado" => 0, "pausado" => 0);
+      if (!empty($tablasEstado["erp_ecommerce_publicaciones"])) {
+        $stmt = $db->query("SELECT estatus_publicacion, COUNT(*) total FROM erp_ecommerce_publicaciones GROUP BY estatus_publicacion");
+        foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $fila) {
+          $estatus = (string) $fila["estatus_publicacion"];
+          $publicaciones[$estatus] = intval($fila["total"]);
+        }
+      }
+
+      $configPublica = $this->configuracionPublicaDefault();
+      $configPersistida = false;
+      if (!empty($tablasEstado["erp_ecommerce_configuracion"])) {
+        $configPersistida = true;
+        $stmt = $db->prepare("SELECT clave, valor FROM erp_ecommerce_configuracion WHERE estatus='activo'");
+        $stmt->execute();
+        foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $fila) {
+          $clave = (string) $fila["clave"];
+          if (array_key_exists($clave, $configPublica)) {
+            $configPublica[$clave] = (string) $fila["valor"];
+          }
+        }
+      }
+
+      $bloqueos = array();
+      if (!empty($tablasFaltantes)) {
+        $bloqueos[] = "ddl_ecommerce_publico_pendiente";
+      }
+      if (intval($publicaciones["publicado"]) <= 0) {
+        $bloqueos[] = "sin_publicaciones_activas";
+      }
+      if (trim((string) $configPublica["whatsapp_numero_principal"]) === "") {
+        $bloqueos[] = "whatsapp_no_configurado";
+      }
+      if (trim((string) $configPublica["cors_origenes_permitidos"]) === "") {
+        $bloqueos[] = "cors_origenes_permitidos_no_configurado";
+      }
+
+      $puedeMock = true;
+      $puedeReal = empty($bloqueos);
+      $senal = $puedeReal ? "verde_datos_reales" : "amarillo_mock_contratos";
+      $baseUrl = trim((string) $this->valor($opciones, "base_url", "http://panel.com.local"));
+
+      return $this->respuesta(false, $puedeReal ? "success" : "warning", $puedeReal ? "Frontend listo para datos reales" : "Frontend puede iniciar con mocks y contratos", array(
+        "senal_frontend" => $senal,
+        "puede_iniciar_frontend_mock" => $puedeMock,
+        "puede_integrar_datos_reales" => $puedeReal,
+        "base_api_recomendada" => rtrim($baseUrl, "/") . "/ecommercePublico",
+        "bloqueos_datos_reales" => array_values(array_unique($bloqueos)),
+        "schema" => array(
+          "tablas_estado" => $tablasEstado,
+          "tablas_faltantes" => $tablasFaltantes,
+          "ddl_pendiente" => !empty($tablasFaltantes)
+        ),
+        "publicaciones" => array(
+          "total_publicadas" => intval($publicaciones["publicado"]),
+          "total_borradores" => intval($publicaciones["borrador"]),
+          "total_pausadas" => intval($publicaciones["pausado"]),
+          "skus_publicables_fase_1" => intval($this->valor($resumen, "skus_publicables_fase_1", 0))
+        ),
+        "configuracion" => array(
+          "persistida" => $configPersistida,
+          "whatsapp_configurado" => trim((string) $configPublica["whatsapp_numero_principal"]) !== "",
+          "cors_configurado" => trim((string) $configPublica["cors_origenes_permitidos"]) !== "",
+          "url_sitio_publico" => $configPublica["url_sitio_publico"]
+        ),
+        "contratos" => array(
+          "estado" => "/ecommercePublico/estado",
+          "catalogo" => "/ecommercePublico/catalogo",
+          "filtros" => "/ecommercePublico/filtros",
+          "configuracion" => "/ecommercePublico/configuracion",
+          "disponibilidad" => "/ecommercePublico/disponibilidad",
+          "cotizacion_dryrun" => "/ecommercePublico/cotizacion_dryrun"
+        ),
+        "comandos_readonly" => array(
+          "readiness_frontend" => "C:\\xampp\\php\\php.exe storage\\uat\\uat_ecommerce_publico_frontend_readiness_readonly.php",
+          "bundle_activacion" => "C:\\xampp\\php\\php.exe storage\\uat\\uat_ecommerce_publico_activacion_bundle_readonly.php --base=http://panel.com.local --respaldo=RUTA_O_REFERENCIA --whatsapp=NUMERO_WHATSAPP --cors=ORIGEN_FRONTEND --url=URL_FRONTEND --lote=8",
+          "secuencia_activacion" => "C:\\xampp\\php\\php.exe storage\\uat\\uat_ecommerce_publico_secuencia_activacion_readonly.php --base=http://panel.com.local --respaldo=RUTA_O_REFERENCIA --whatsapp=NUMERO_WHATSAPP --cors=ORIGEN_FRONTEND --url=URL_FRONTEND --id_sku=ID_SKU",
+          "green_gate" => "C:\\xampp\\php\\php.exe storage\\uat\\uat_ecommerce_publico_green_gate_readonly.php --base=http://panel.com.local"
+        ),
+        "comandos_apply_autorizados" => array(
+          "nota" => "No ejecutar sin respaldo externo y autorizacion explicita.",
+          "ddl" => "C:\\xampp\\php\\php.exe storage\\uat\\uat_ecommerce_publico_schema_apply_authorized.php --autorizar=ECOMMERCE_PUBLICO_DDL_FASE1 --respaldo=RUTA_O_REFERENCIA",
+          "configuracion" => "C:\\xampp\\php\\php.exe storage\\uat\\uat_ecommerce_publico_configuracion_apply_authorized.php --autorizar=ECOMMERCE_PUBLICO_CONFIGURACION_FASE1 --respaldo=RUTA_O_REFERENCIA --whatsapp=NUMERO_WHATSAPP --cors=ORIGEN_FRONTEND --url=URL_FRONTEND",
+          "borrador" => "C:\\xampp\\php\\php.exe storage\\uat\\uat_ecommerce_publico_publicacion_borrador_apply_authorized.php --autorizar=ECOMMERCE_PUBLICO_PUBLICACION_BORRADOR --respaldo=RUTA_O_REFERENCIA --id_sku=ID_SKU",
+          "publicar_borrador" => "C:\\xampp\\php\\php.exe storage\\uat\\uat_ecommerce_publico_publicar_borrador_apply_authorized.php --autorizar=ECOMMERCE_PUBLICO_PUBLICAR_BORRADOR --respaldo=RUTA_O_REFERENCIA --id_sku=ID_SKU --confirmar_revision=1"
+        ),
+        "siguientes_pasos" => $puedeReal ? array(
+          "iniciar_frontend_con_datos_reales",
+          "validar_whatsapp_en_dispositivo",
+          "monitorear_cotizacion_dryrun"
+        ) : array(
+          "iniciar_frontend_con_mocks_y_cliente_api",
+          "aplicar_ddl_solo_con_respaldo_y_token",
+          "configurar_whatsapp_y_cors",
+          "crear_borradores_y_publicar_lote_inicial"
+        )
+      ));
+    } catch (Exception $e) {
+      return $this->respuesta(true, "danger", $e->getMessage(), array(
+        "senal_frontend" => "rojo_error_readiness",
+        "puede_iniciar_frontend_mock" => false,
+        "puede_integrar_datos_reales" => false
+      ));
+    }
+  }
+
+  /**
    * Documentacion IA: Codex GPT-5 | Fecha: 2026-07-12
    * Proposito: generar una propuesta de publicacion ecommerce para un SKU sin escribir BD.
    * Impacto: Ecommerce publico; aterriza curaduria de mascota/necesidad/slug antes de crear registros.
@@ -1117,6 +1259,175 @@ class EcommerceCatalogoPublico extends CRUD {
         "no_toca_ecom_legacy" => true,
         "publicacion" => $guardada,
         "plan_sha256_sql" => $this->valor($depurarPlan, "sha256_sql", "")
+      ));
+    } catch (Exception $e) {
+      if (isset($db) && $db && $db->inTransaction()) {
+        $db->rollBack();
+      }
+      return $this->respuesta(true, "danger", $e->getMessage(), array("escribe_bd" => false));
+    }
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-07-13
+   * Proposito: preparar la publicacion de un borrador ecommerce sin ejecutarla.
+   * Impacto: fuerza revision previa antes de exponer un SKU al catalogo publico.
+   * Contrato: read-only; no cambia estatus y no toca inventario.
+   */
+  public function planPublicarBorrador($datos = array()) {
+    try {
+      $db = $this->getConexion();
+      if (!$db) {
+        return $this->respuesta(true, "warning", "Conexion MySQL no disponible", array("read_only" => true));
+      }
+      $idPublicacion = intval($this->valor($datos, "id_publicacion", 0));
+      $idSku = intval($this->valor($datos, "id_sku", 0));
+      $bloqueos = array();
+      $tablaExiste = $this->tablaExiste($db, "erp_ecommerce_publicaciones");
+      if (!$tablaExiste) {
+        $bloqueos[] = "tabla_erp_ecommerce_publicaciones_pendiente";
+      }
+      if ($idPublicacion <= 0 && $idSku <= 0) {
+        $bloqueos[] = "id_publicacion_o_id_sku_requerido";
+      }
+
+      $publicacion = array();
+      if ($tablaExiste && ($idPublicacion > 0 || $idSku > 0)) {
+        $where = $idPublicacion > 0 ? "id_publicacion=:id" : "id_sku=:sku AND canal='catalogo_publico'";
+        $stmt = $db->prepare("SELECT * FROM erp_ecommerce_publicaciones WHERE " . $where . " LIMIT 1");
+        $stmt->execute($idPublicacion > 0 ? array(":id" => $idPublicacion) : array(":sku" => $idSku));
+        $publicacion = $stmt->fetch(PDO::FETCH_ASSOC) ?: array();
+        if (empty($publicacion)) {
+          $bloqueos[] = "publicacion_borrador_no_encontrada";
+        }
+      }
+
+      if (!empty($publicacion)) {
+        if ((string) $publicacion["estatus_publicacion"] !== "borrador") {
+          $bloqueos[] = "solo_borrador_puede_publicarse";
+        }
+        if (trim((string) $publicacion["slug"]) === "") {
+          $bloqueos[] = "slug_requerido";
+        }
+        if (trim((string) $publicacion["titulo_publico"]) === "") {
+          $bloqueos[] = "titulo_publico_requerido";
+        }
+        $idSku = intval($publicacion["id_sku"]);
+      }
+
+      $candidato = $idSku > 0 ? $this->consultarCandidatoPorSku($db, $idSku) : null;
+      if ($candidato) {
+        $bloqueos = array_merge($bloqueos, $this->bloqueosPublicacion($candidato));
+        $disponibilidad = $this->disponibilidadPublicaSugerida($candidato);
+        if ($disponibilidad === "agotado" && intval($this->valor($datos, "confirmar_agotado", 0)) !== 1) {
+          $bloqueos[] = "sku_agotado_requiere_confirmar_agotado";
+        }
+      } elseif ($idSku > 0) {
+        $bloqueos[] = "sku_no_encontrado_o_inactivo";
+      }
+
+      if (intval($this->valor($datos, "confirmar_revision", 0)) !== 1) {
+        $bloqueos[] = "confirmar_revision_requerido";
+      }
+
+      $sql = $idPublicacion > 0
+        ? "UPDATE `erp_ecommerce_publicaciones` SET `estatus_publicacion`='publicado', `fecha_publicacion`=COALESCE(`fecha_publicacion`, NOW()), `fecha_actualizacion`=NOW() WHERE `id_publicacion`=" . intval($idPublicacion) . " AND `estatus_publicacion`='borrador' LIMIT 1;"
+        : "UPDATE `erp_ecommerce_publicaciones` SET `estatus_publicacion`='publicado', `fecha_publicacion`=COALESCE(`fecha_publicacion`, NOW()), `fecha_actualizacion`=NOW() WHERE `id_sku`=" . intval($idSku) . " AND `canal`='catalogo_publico' AND `estatus_publicacion`='borrador' LIMIT 1;";
+
+      return $this->respuesta(false, empty($bloqueos) ? "success" : "warning", "Plan de publicacion de borrador generado sin ejecutar", array(
+        "read_only" => true,
+        "no_escribe_bd" => true,
+        "tabla_publicaciones_existe" => $tablaExiste,
+        "bloqueos_publicacion" => array_values(array_unique($bloqueos)),
+        "publicacion_actual" => $publicacion,
+        "producto_vivo_erp" => $candidato ? array(
+          "id_sku" => intval($candidato["id_sku"]),
+          "sku" => $candidato["sku"],
+          "nombre" => $candidato["nombre_publico"],
+          "marca" => $candidato["marca"],
+          "categoria" => $candidato["categoria"],
+          "precio" => floatval($candidato["precio"]),
+          "moneda" => $candidato["moneda"] ?: "MXN",
+          "disponibilidad_publica_sugerida" => $this->disponibilidadPublicaSugerida($candidato)
+        ) : array(),
+        "sql_total" => 1,
+        "sha256_sql" => hash("sha256", $sql),
+        "sql" => array($sql),
+        "guardrails" => array(
+          "requiere_confirmar_revision" => true,
+          "requiere_confirmar_agotado_si_aplica" => true,
+          "no_toca_inventario" => true,
+          "no_toca_ecom_legacy" => true
+        )
+      ));
+    } catch (Exception $e) {
+      return $this->respuesta(true, "danger", $e->getMessage(), array("read_only" => true));
+    }
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-07-13
+   * Proposito: publicar un borrador ecommerce solo con autorizacion explicita.
+   * Impacto: expone el SKU en catalogo publico; no descuenta inventario ni modifica catalogo ERP.
+   * Contrato: escribe BD solo con token `ECOMMERCE_PUBLICO_PUBLICAR_BORRADOR`.
+   */
+  public function publicarBorradorAutorizado($datos = array(), $opciones = array()) {
+    $token = trim((string) $this->valor($opciones, "autorizar", $this->valor($datos, "autorizar", "")));
+    if ($token !== "ECOMMERCE_PUBLICO_PUBLICAR_BORRADOR") {
+      return $this->respuesta(true, "warning", "Publicacion de borrador bloqueada", array(
+        "bloqueado" => true,
+        "no_escribe_bd" => true,
+        "token_requerido" => "ECOMMERCE_PUBLICO_PUBLICAR_BORRADOR"
+      ));
+    }
+
+    try {
+      $db = $this->getConexion();
+      if (!$db) {
+        return $this->respuesta(true, "warning", "Conexion MySQL no disponible", array("no_escribe_bd" => true));
+      }
+      $plan = $this->planPublicarBorrador($datos);
+      $bloqueos = $this->valor($plan, array("depurar", "bloqueos_publicacion"), array());
+      if (!empty($bloqueos)) {
+        return $this->respuesta(true, "warning", "No se publico borrador por bloqueos", array(
+          "no_escribe_bd" => true,
+          "bloqueos_publicacion" => $bloqueos,
+          "plan" => $plan
+        ));
+      }
+
+      $idPublicacion = intval($this->valor($datos, "id_publicacion", 0));
+      $idSku = intval($this->valor($datos, "id_sku", 0));
+      $db->beginTransaction();
+      if ($idPublicacion > 0) {
+        $stmt = $db->prepare("UPDATE erp_ecommerce_publicaciones
+          SET estatus_publicacion='publicado', fecha_publicacion=COALESCE(fecha_publicacion, NOW()), fecha_actualizacion=NOW()
+          WHERE id_publicacion=:id AND estatus_publicacion='borrador'
+          LIMIT 1");
+        $stmt->execute(array(":id" => $idPublicacion));
+      } else {
+        $stmt = $db->prepare("UPDATE erp_ecommerce_publicaciones
+          SET estatus_publicacion='publicado', fecha_publicacion=COALESCE(fecha_publicacion, NOW()), fecha_actualizacion=NOW()
+          WHERE id_sku=:sku AND canal='catalogo_publico' AND estatus_publicacion='borrador'
+          LIMIT 1");
+        $stmt->execute(array(":sku" => $idSku));
+      }
+      $afectados = $stmt->rowCount();
+      $consulta = $db->prepare("SELECT id_publicacion, id_producto_erp, id_sku, canal, estatus_publicacion, slug, titulo_publico, fecha_publicacion
+        FROM erp_ecommerce_publicaciones
+        WHERE " . ($idPublicacion > 0 ? "id_publicacion=:id" : "id_sku=:sku AND canal='catalogo_publico'") . "
+        LIMIT 1");
+      $consulta->execute($idPublicacion > 0 ? array(":id" => $idPublicacion) : array(":sku" => $idSku));
+      $publicacion = $consulta->fetch(PDO::FETCH_ASSOC);
+      $db->commit();
+
+      return $this->respuesta($afectados <= 0, $afectados > 0 ? "success" : "warning", $afectados > 0 ? "Borrador ecommerce publicado" : "No se encontro borrador para publicar", array(
+        "escribe_bd" => $afectados > 0,
+        "filas_afectadas" => $afectados,
+        "publicacion" => $publicacion,
+        "no_toca_inventario" => true,
+        "no_toca_ecom_legacy" => true,
+        "plan_sha256_sql" => $this->valor($plan, array("depurar", "sha256_sql"), "")
       ));
     } catch (Exception $e) {
       if (isset($db) && $db && $db->inTransaction()) {

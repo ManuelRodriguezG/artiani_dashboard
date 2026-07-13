@@ -77,6 +77,18 @@ Comando en el ERP para revisar semaforo:
 
 C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_frontend_readiness_readonly.php
 
+Compuerta final antes de integrar datos reales:
+
+C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_green_gate_readonly.php --base=http://panel.com.local
+
+Esta compuerta solo debe dar verde cuando exista catalogo real y cotizacion dry-run con un producto publicado.
+
+Pantalla interna ERP para revisar el mismo criterio:
+
+http://panel.com.local/ecommercePublico/publicaciones
+
+Esta pantalla es privada del ERP y sirve para revisar readiness, bloqueos, publicabilidad y plan DDL. No es la tienda publica ni debe copiarse como frontend ecommerce.
+
 Estado esperado actual:
 
 senal_frontend=amarillo_mock_contratos
@@ -132,6 +144,8 @@ NEXT_PUBLIC_ERP_ECOMMERCE_API_VERSION=fase1-2026-07-12
 Importante:
 - No guardar secretos HMAC en variables publicas del navegador.
 - Si en el futuro hay API key/firma, debe vivir en backend del ecommerce, no en SPA estatica.
+- Mientras `cors_origenes_permitidos` no este configurado en el ERP, el navegador puede bloquear llamadas directas desde `localhost:5173` o `localhost:3000`.
+- Aunque el navegador bloquee por CORS, el endpoint puede estar funcionando correctamente; validar con el smoke HTTP del ERP.
 
 Verificacion real del host ERP:
 
@@ -154,6 +168,23 @@ frontend_base_correcta=http://panel.com.local/ecommercePublico
 estado.tipo=success
 catalogo.tipo=info
 cotizacion_dryrun.tipo=info
+
+Opciones para desarrollo mientras CORS no esta activo:
+
+1. Trabajar con mocks/fixtures del contrato API.
+2. Usar un proxy de desarrollo del framework frontend.
+3. Esperar a que el ERP aplique DDL y configure `cors_origenes_permitidos`.
+
+Ejemplo conceptual Vite proxy:
+
+server.proxy["/ecommercePublico"] -> "http://panel.com.local"
+
+En ese caso el frontend llamaria:
+
+/ecommercePublico/estado
+/ecommercePublico/catalogo
+
+Y Vite reenviaria al ERP. No usar esto como seguridad de produccion; es solo comodidad local.
 
 ======================================================================
 5. ENDPOINTS ERP QUE DEBE CONSUMIR EL FRONTEND
@@ -625,6 +656,7 @@ Antes de entregar cambios:
 
 Consultar en `C:\xampp\htdocs\panel_de_control`:
 
+- `docs/erp_ecommerce_publico_estado_actual.md`
 - `docs/erp_ecommerce_publico_frontend_handoff.md`
 - `docs/erp_ecommerce_publico_instrucciones_proyecto_frontend.md`
 - `docs/erp_ecommerce_publico_api_contratos.md`

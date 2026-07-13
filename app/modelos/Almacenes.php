@@ -1506,6 +1506,134 @@ class Almacenes extends CRUD {
         }
     }
 
+    /**
+     * IA: Codex GPT-5
+     * Fecha: 2026-07-13
+     * Proposito: fijar el contrato de accion RES-T009 sin ejecutar movimientos antes de autorizar backend real.
+     * Impacto: Almacen/Resurtido; expone bloqueos de esquema/implementacion para preparar y enviar.
+     * Contrato: no inserta preparacion/envio, no descuenta origen, no crea transito y no modifica unidades.
+     */
+    public function preparar_enviar_resurtido_pendiente($datos = array(), $id_usuario = 0) {
+        try {
+            $db = $this->getConexion();
+            $faltantes = $this->tablasResurtidoFaltantes($db);
+            $id = intval($this->valor($datos, "id_resurtido_almacen", $this->valor($datos, "id_resurtido", 0)));
+            $folio = strtoupper(trim((string) $this->valor($datos, "folio", "")));
+            $contrato = $this->preparacion_envio_resurtido_contrato_readonly(array());
+
+            if (!empty($faltantes)) {
+                return $this->crudResponse(false, "info", "Esquema de resurtido pendiente; no se preparo ni envio", array(
+                    "schema_pendiente" => 1,
+                    "tablas_faltantes" => $faltantes,
+                    "implementacion_pendiente" => 1,
+                    "preparado" => 0,
+                    "enviado" => 0,
+                    "movimientos_generados" => 0,
+                    "id_resurtido_almacen" => $id,
+                    "folio" => $folio,
+                    "contrato" => isset($contrato["depurar"]) ? $contrato["depurar"] : array()
+                ));
+            }
+
+            $consulta = $this->consultar_resurtido_readonly(array(
+                "id_resurtido_almacen" => $id,
+                "folio" => $folio
+            ));
+            $validacion = $this->validarFolioResurtidoParaPrepararEnviar($consulta);
+            if (!empty($validacion["bloqueos"])) {
+                return $this->crudResponse(true, "warning", "Folio no valido para preparar/enviar", array(
+                    "schema_pendiente" => 0,
+                    "implementacion_pendiente" => 1,
+                    "bloqueos" => $validacion["bloqueos"],
+                    "advertencias" => $validacion["advertencias"],
+                    "consulta" => isset($consulta["depurar"]) ? $consulta["depurar"] : array()
+                ));
+            }
+
+            return $this->crudResponse(false, "info", "RES-T009 pendiente de implementacion; no se preparo ni envio", array(
+                "schema_pendiente" => 0,
+                "implementacion_pendiente" => 1,
+                "preparado" => 0,
+                "enviado" => 0,
+                "movimientos_generados" => 0,
+                "id_resurtido_almacen" => $id,
+                "folio" => $folio,
+                "bloqueos" => array(array(
+                    "id" => "RES-ENV-IMP-001",
+                    "mensaje" => "Implementacion real de preparacion/envio pendiente; requiere respaldo y autorizacion antes de mover inventario"
+                )),
+                "advertencias" => $validacion["advertencias"],
+                "contrato" => isset($contrato["depurar"]) ? $contrato["depurar"] : array()
+            ));
+        } catch (Exception $e) {
+            return $this->crudResponse(true, "danger", $e->getMessage());
+        }
+    }
+
+    /**
+     * IA: Codex GPT-5
+     * Fecha: 2026-07-13
+     * Proposito: fijar el contrato de accion RES-T010 sin ejecutar recepcion antes de autorizar backend real.
+     * Impacto: Almacen/Resurtido; expone bloqueos de esquema/implementacion para recibir y registrar diferencias.
+     * Contrato: no inserta recepciones/diferencias, no descuenta transito, no entra tienda y no modifica unidades.
+     */
+    public function recibir_resurtido_pendiente($datos = array(), $id_usuario = 0) {
+        try {
+            $db = $this->getConexion();
+            $faltantes = $this->tablasResurtidoFaltantes($db);
+            $id = intval($this->valor($datos, "id_resurtido_almacen", $this->valor($datos, "id_resurtido", 0)));
+            $folio = strtoupper(trim((string) $this->valor($datos, "folio", "")));
+            $contrato = $this->recepcion_diferencias_resurtido_contrato_readonly(array());
+
+            if (!empty($faltantes)) {
+                return $this->crudResponse(false, "info", "Esquema de resurtido pendiente; no se recibio resurtido", array(
+                    "schema_pendiente" => 1,
+                    "tablas_faltantes" => $faltantes,
+                    "implementacion_pendiente" => 1,
+                    "recibido" => 0,
+                    "diferencias_registradas" => 0,
+                    "movimientos_generados" => 0,
+                    "id_resurtido_almacen" => $id,
+                    "folio" => $folio,
+                    "contrato" => isset($contrato["depurar"]) ? $contrato["depurar"] : array()
+                ));
+            }
+
+            $consulta = $this->consultar_resurtido_readonly(array(
+                "id_resurtido_almacen" => $id,
+                "folio" => $folio
+            ));
+            $validacion = $this->validarFolioResurtidoParaRecibir($consulta);
+            if (!empty($validacion["bloqueos"])) {
+                return $this->crudResponse(true, "warning", "Folio no valido para recibir", array(
+                    "schema_pendiente" => 0,
+                    "implementacion_pendiente" => 1,
+                    "bloqueos" => $validacion["bloqueos"],
+                    "advertencias" => $validacion["advertencias"],
+                    "consulta" => isset($consulta["depurar"]) ? $consulta["depurar"] : array()
+                ));
+            }
+
+            return $this->crudResponse(false, "info", "RES-T010 pendiente de implementacion; no se recibio resurtido", array(
+                "schema_pendiente" => 0,
+                "implementacion_pendiente" => 1,
+                "recibido" => 0,
+                "diferencias_registradas" => 0,
+                "movimientos_generados" => 0,
+                "id_resurtido_almacen" => $id,
+                "folio" => $folio,
+                "bloqueos" => array(array(
+                    "id" => "RES-REC-IMP-001",
+                    "mensaje" => "Implementacion real de recepcion pendiente; requiere respaldo y autorizacion antes de mover inventario"
+                )),
+                "advertencias" => $validacion["advertencias"],
+                "contrato" => isset($contrato["depurar"]) ? $contrato["depurar"] : array()
+            ));
+        } catch (Exception $e) {
+            return $this->crudResponse(true, "danger", $e->getMessage());
+        }
+    }
+
     private function tablasResurtidoFaltantes($db) {
         $tablas = array(
             "erp_almacen_resurtidos",
@@ -1620,6 +1748,80 @@ class Almacenes extends CRUD {
             LIMIT 1");
         $stmt->execute(array(":destino" => intval($id_destino)));
         return $stmt->fetch(PDO::FETCH_ASSOC);
+    }
+
+    private function validarFolioResurtidoParaPrepararEnviar($consulta) {
+        $bloqueos = array();
+        $advertencias = array();
+        if (!empty($consulta["error"])) {
+            return array(
+                "bloqueos" => array(array("id" => "RES-ENV-VAL-001", "mensaje" => $this->valor($consulta, "mensaje", "No se pudo consultar folio"))),
+                "advertencias" => $advertencias
+            );
+        }
+        $depurar = isset($consulta["depurar"]) && is_array($consulta["depurar"]) ? $consulta["depurar"] : array();
+        if (intval($this->valor($depurar, "schema_pendiente", 0)) === 1) {
+            return array("bloqueos" => $bloqueos, "advertencias" => $advertencias);
+        }
+        $encabezado = isset($depurar["encabezado"]) && is_array($depurar["encabezado"]) ? $depurar["encabezado"] : null;
+        $detalle = isset($depurar["detalle"]) && is_array($depurar["detalle"]) ? $depurar["detalle"] : array();
+        $recepciones = isset($depurar["recepciones"]) && is_array($depurar["recepciones"]) ? $depurar["recepciones"] : array();
+        $diferencias = isset($depurar["diferencias"]) && is_array($depurar["diferencias"]) ? $depurar["diferencias"] : array();
+        if ($encabezado === null) {
+            $bloqueos[] = array("id" => "RES-ENV-VAL-002", "mensaje" => "Folio no encontrado");
+        } else {
+            $estatus = trim((string) $this->valor($encabezado, "estatus", ""));
+            if (!in_array($estatus, array("autorizado", "preparando", "preparado"), true)) {
+                $bloqueos[] = array("id" => "RES-ENV-VAL-003", "mensaje" => "Folio no esta en estado valido para preparar/enviar", "estatus" => $estatus);
+            }
+        }
+        if (empty($detalle)) {
+            $bloqueos[] = array("id" => "RES-ENV-VAL-004", "mensaje" => "Folio sin detalle");
+        }
+        if (!empty($recepciones)) {
+            $bloqueos[] = array("id" => "RES-ENV-VAL-005", "mensaje" => "Folio ya tiene recepciones");
+        }
+        if (!empty($diferencias)) {
+            $advertencias[] = array("id" => "RES-ENV-VAL-006", "mensaje" => "Folio ya tiene diferencias registradas");
+        }
+        return array("bloqueos" => $bloqueos, "advertencias" => $advertencias);
+    }
+
+    private function validarFolioResurtidoParaRecibir($consulta) {
+        $bloqueos = array();
+        $advertencias = array();
+        if (!empty($consulta["error"])) {
+            return array(
+                "bloqueos" => array(array("id" => "RES-REC-VAL-001", "mensaje" => $this->valor($consulta, "mensaje", "No se pudo consultar folio"))),
+                "advertencias" => $advertencias
+            );
+        }
+        $depurar = isset($consulta["depurar"]) && is_array($consulta["depurar"]) ? $consulta["depurar"] : array();
+        if (intval($this->valor($depurar, "schema_pendiente", 0)) === 1) {
+            return array("bloqueos" => $bloqueos, "advertencias" => $advertencias);
+        }
+        $encabezado = isset($depurar["encabezado"]) && is_array($depurar["encabezado"]) ? $depurar["encabezado"] : null;
+        $envios = isset($depurar["envios"]) && is_array($depurar["envios"]) ? $depurar["envios"] : array();
+        $recepciones = isset($depurar["recepciones"]) && is_array($depurar["recepciones"]) ? $depurar["recepciones"] : array();
+        $diferencias = isset($depurar["diferencias"]) && is_array($depurar["diferencias"]) ? $depurar["diferencias"] : array();
+        if ($encabezado === null) {
+            $bloqueos[] = array("id" => "RES-REC-VAL-002", "mensaje" => "Folio no encontrado");
+        } else {
+            $estatus = trim((string) $this->valor($encabezado, "estatus", ""));
+            if ($estatus !== "enviado") {
+                $bloqueos[] = array("id" => "RES-REC-VAL-003", "mensaje" => "Folio no esta en estado enviado", "estatus" => $estatus);
+            }
+        }
+        if (empty($envios)) {
+            $bloqueos[] = array("id" => "RES-REC-VAL-004", "mensaje" => "Folio sin envios para recibir");
+        }
+        if (!empty($recepciones)) {
+            $advertencias[] = array("id" => "RES-REC-VAL-005", "mensaje" => "Folio ya tiene recepciones registradas");
+        }
+        if (!empty($diferencias)) {
+            $advertencias[] = array("id" => "RES-REC-VAL-006", "mensaje" => "Folio ya tiene diferencias registradas");
+        }
+        return array("bloqueos" => $bloqueos, "advertencias" => $advertencias);
     }
 
     private function skuActivoResurtido($db, $id_sku) {

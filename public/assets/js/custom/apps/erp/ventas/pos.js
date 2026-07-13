@@ -908,6 +908,39 @@
         enviarValidacion("/ventas/pos_confirmar_dryrun_erp", renderDryRun);
     }
     /**
+     * IA: Codex GPT-5 | Fecha: 2026-07-13
+     * Proposito: simular desde POS el caso controlado de inventario pendiente sin escribir BD.
+     * Impacto: el cajero ve si la venta seria normal, mixta o bloqueada antes de pedir autorizacion real.
+     * Contrato: read-only; no crea venta, caja, kardex, pendiente ni notificacion.
+     */
+    function inventarioPendienteDryRun() {
+        if (!carrito.length) {
+            mostrarError(new Error("Agrega una partida antes de validar inventario pendiente"));
+            return;
+        }
+        if (carrito.length !== 1) {
+            document.getElementById("pos_validacion").innerHTML = "<div class=\"alert alert-warning py-3 mb-0\"><div class=\"fw-bold mb-1\">Inventario pendiente requiere una partida por validacion</div><div class=\"fs-7\">Para ventas multipartida, valida primero cada SKU con faltante. Despues debe consolidarse en el flujo real autorizado para no mezclar kardex y pendientes sin trazabilidad.</div></div>";
+            return;
+        }
+        var item = carrito[0];
+        if (item.modo_salida !== "existencia_agregada") {
+            document.getElementById("pos_validacion").innerHTML = "<div class=\"alert alert-warning py-3 mb-0\"><div class=\"fw-bold mb-1\">Usa salida por stock para inventario pendiente</div><div class=\"fs-7\">Las unidades fisicas cerradas o abiertas no deben convertirse en pendiente. Cambia la salida a Stock para validar faltante agregado.</div></div>";
+            return;
+        }
+        document.getElementById("pos_validacion").innerHTML = "<div class=\"alert alert-info py-3 mb-0\"><span class=\"spinner-border spinner-border-sm me-2\"></span>Validando politica de inventario pendiente...</div>";
+        request("/ventas/pos_inventario_pendiente_dryrun_erp", {
+            id_almacen: almacenActual(),
+            canal: document.getElementById("pos_canal").value || "pos",
+            id_sku: item.id_sku,
+            cantidad: cantidad(item.cantidad),
+            id_cliente: idClienteCrmActivo(),
+            motivo: "Validacion POS UI por faltante de inventario"
+        }).then(function (response) {
+            if (response.error) { throw new Error(response.mensaje); }
+            renderInventarioPendienteDryRun(response);
+        }).catch(mostrarError);
+    }
+    /**
      * IA: Codex GPT-5 | Fecha: 2026-06-26
      * Proposito: simular pedido/apartado con reserva sin apartar inventario.
      * Impacto: permite validar datos de cliente/fecha antes del modulo real de pedidos.
@@ -1417,6 +1450,9 @@
         } else {
             html += "<div class=\"fs-7\">Inventario suficiente. Si el pago cubre el total y el turno sigue abierto, puedes cobrar; el backend registrara caja, kardex, garantia y trazabilidad.</div>";
         }
+        if (bloqueos.some(function (item) { return String(item || "").indexOf("politica POS autoriza inventario pendiente") >= 0; })) {
+            html += "<div class=\"mt-3\"><button class=\"btn btn-sm btn-light-warning\" type=\"button\" data-pos-inventario-pendiente-dryrun=\"1\"><i class=\"bi bi-exclamation-triangle\"></i> Revisar inventario pendiente</button></div>";
+        }
         html += renderPlanSalida(depurar.partidas || []);
         html += "</div>";
         document.getElementById("pos_validacion").innerHTML = html;
@@ -1427,6 +1463,39 @@
             document.getElementById("pos_saldo").textContent = dinero(depurar.totales.saldo_total || 0);
             document.getElementById("pos_cambio").textContent = dinero(depurar.totales.cambio || 0);
         }
+    }
+    function renderInventarioPendienteDryRun(response) {
+        var depurar = response.depurar || {};
+        var bloqueos = depurar.bloqueos || [];
+        var advertencias = depurar.advertencias || [];
+        var pendiente = depurar.pendiente_propuesto || {};
+        var politica = ((depurar.politica || {}).politica_pos) || {};
+        var clase = bloqueos.length ? "alert-warning" : (Number(depurar.cantidad_pendiente || 0) > 0 ? "alert-info" : "alert-success");
+        var html = "<div class=\"alert " + clase + " py-3 mb-3\">" +
+            "<div class=\"fw-bold mb-1\">" + escapeHtml(response.mensaje || "Inventario pendiente POS") + "</div>" +
+            "<div class=\"fs-7\">Estado: <span class=\"fw-bold\">" + escapeHtml(depurar.estado || "-") + "</span>" +
+            " | Disponible: " + numero(depurar.disponible_actual || 0) +
+            " | Cubierto con kardex: " + numero(depurar.cantidad_cubierta || 0) +
+            " | Pendiente: " + numero(depurar.cantidad_pendiente || 0) +
+            " | Total: " + dinero(depurar.total_estimado || 0) + "</div>";
+        if (bloqueos.length) {
+            html += "<ul class=\"mb-0 mt-2 ps-4\">" + bloqueos.map(function (item) { return "<li>" + escapeHtml(item) + "</li>"; }).join("") + "</ul>";
+        }
+        if (advertencias.length) {
+            html += "<ul class=\"mb-0 mt-2 ps-4 text-muted\">" + advertencias.map(function (item) { return "<li>" + escapeHtml(item) + "</li>"; }).join("") + "</ul>";
+        }
+        html += "</div>";
+        if (pendiente && pendiente.cantidad_pendiente != null) {
+            html += "<div class=\"table-responsive mb-3\"><table class=\"table table-sm align-middle mb-0\"><thead><tr class=\"text-muted fs-8 text-uppercase\"><th>SKU</th><th>Politica</th><th class=\"text-end\">Vendido</th><th class=\"text-end\">Kardex</th><th class=\"text-end\">Pendiente</th><th class=\"text-end\">Precio</th></tr></thead><tbody>" +
+                "<tr><td><div class=\"fw-bold\">" + escapeHtml(pendiente.sku || "") + "</div><div class=\"text-muted fs-8\">" + escapeHtml(pendiente.descripcion || "") + "</div></td>" +
+                "<td><div class=\"fw-semibold\">" + escapeHtml(politica.codigo || "Sin politica aplicable") + "</div><div class=\"text-muted fs-8\">" + escapeHtml(politica.nombre || "") + "</div></td>" +
+                "<td class=\"text-end\">" + numero(pendiente.cantidad_vendida || 0) + "</td>" +
+                "<td class=\"text-end\">" + numero(pendiente.cantidad_cubierta || 0) + "</td>" +
+                "<td class=\"text-end fw-bold text-warning\">" + numero(pendiente.cantidad_pendiente || 0) + "</td>" +
+                "<td class=\"text-end\">" + dinero(pendiente.precio_unitario_snapshot || 0) + "</td></tr></tbody></table></div>";
+        }
+        html += "<div class=\"alert alert-light-warning py-3 mb-0\"><div class=\"fw-bold\">Venta real protegida</div><div class=\"fs-8\">Esta pantalla solo valida. El cobro real con inventario pendiente debe ejecutarse con autorizacion operacional porque crea venta, caja, kardex parcial, pendiente y alerta a Inventario/Existencias.</div></div>";
+        document.getElementById("pos_validacion").innerHTML = html;
     }
     /**
      * IA: Codex GPT-5 | Fecha: 2026-06-26
@@ -2414,6 +2483,10 @@
             var ticketReal = event.target.closest("[data-pos-ticket-real]");
             if (ticketReal) {
                 abrirTicketVentaReal(ticketReal.getAttribute("data-pos-ticket-real"));
+                return;
+            }
+            if (event.target.closest("[data-pos-inventario-pendiente-dryrun]")) {
+                inventarioPendienteDryRun();
             }
         });
         document.getElementById("pos_cuentas").addEventListener("click", function (event) {
@@ -2449,6 +2522,7 @@
         document.getElementById("pos_prevalidar").addEventListener("click", prevalidar);
         document.getElementById("pos_prevalidar_top").addEventListener("click", prevalidar);
         document.getElementById("pos_dryrun").addEventListener("click", dryRunConfirmacion);
+        document.getElementById("pos_inventario_pendiente_dryrun").addEventListener("click", inventarioPendienteDryRun);
         document.getElementById("pos_cobrar_real").addEventListener("click", cobrarReal);
         document.getElementById("pos_pedido_dryrun").addEventListener("click", dryRunPedidoReserva);
         document.getElementById("pos_ticket_preview").addEventListener("click", ticketPreview);

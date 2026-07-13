@@ -134,6 +134,8 @@ Fase 1:
 
 - CORS cerrado hasta configurar `cors_origenes_permitidos`.
 - API key/HMAC documentado pero no requerido.
+- Si el frontend corre en `localhost:5173` o `localhost:3000`, el navegador puede bloquear llamadas directas hasta que el ERP tenga CORS configurado.
+- Para desarrollo temprano usar mocks, fixture JSON o proxy local del framework; no interpretar el bloqueo CORS como fallo del endpoint si el smoke HTTP responde JSON.
 
 Produccion:
 
