@@ -38,10 +38,23 @@ class Almacenes extends CRUD {
      * Impacto: Almacen/Resurtido; evita errores fatales y reporta schema pendiente sin escribir en BD.
      */
     private function tablaExisteAlmacen($db, $tabla) {
+        if (!$db) {
+            throw new Exception("Conexion de BD no disponible para validar esquema de almacen");
+        }
         $stmt = $db->prepare("SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES
             WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = :tabla LIMIT 1");
         $stmt->execute(array(":tabla" => $tabla));
         return (bool) $stmt->fetchColumn();
+    }
+
+    /**
+     * IA: Codex GPT-5
+     * Fecha: 2026-07-13
+     * Proposito: permitir que UAT read-only reporte conexion caida sin acceder a metodos protegidos.
+     * Impacto: Almacen/UAT; no ejecuta consultas de negocio ni escribe datos.
+     */
+    public function conexion_disponible_readonly() {
+        return (bool) $this->getConexion();
     }
 
     /**
@@ -640,6 +653,259 @@ class Almacenes extends CRUD {
     /**
      * IA: Codex GPT-5
      * Fecha: 2026-07-13
+     * Proposito: calcular el plan FEFO de preparacion de un resurtido sin apartar stock ni crear movimientos.
+     * Impacto: Almacen/Resurtido RES-T009; permite revisar existencias, lotes, caducidades y unidades fisicas antes de ejecutar envio.
+     * Contrato: read-only; no inserta preparacion/envio, no bloquea filas, no descuenta origen y no modifica unidades.
+     */
+    public function plan_preparacion_resurtido_readonly($filtros = array()) {
+        try {
+            $db = $this->getConexion();
+            $id = intval($this->valor($filtros, "id_resurtido_almacen", $this->valor($filtros, "id_resurtido", 0)));
+            $folio = strtoupper(trim((string) $this->valor($filtros, "folio", "")));
+            $id_destino = intval($this->valor($filtros, "id_almacen_destino", $this->valor($filtros, "id_almacen", 0)));
+            $id_origen = intval($this->valor($filtros, "id_almacen_origen", 0));
+            $q = trim((string) $this->valor($filtros, "q", ""));
+            $lineas = array();
+            $encabezado = array();
+            $origen = null;
+            $destino = null;
+            $origen_documento = "simulacion_stock_bajo";
+            $schema_pendiente = $this->tablaExisteAlmacen($db, "erp_almacen_resurtido_preparacion") ? 0 : 1;
+
+            if ($id > 0 || $folio !== "") {
+                if (!$this->tablaExisteAlmacen($db, "erp_almacen_resurtidos")) {
+                    return $this->crudResponse(false, "info", "Esquema de resurtido pendiente; no se puede planear por folio real", array(
+                        "read_only" => 1,
+                        "schema_pendiente" => 1,
+                        "folio" => $folio,
+                        "id_resurtido_almacen" => $id,
+                        "plan" => array(),
+                        "movimientos_generados" => 0,
+                        "guardrails" => $this->guardrailsPlanPreparacionResurtido()
+                    ));
+                }
+                $consulta = $this->consultar_resurtido_readonly(array("id_resurtido_almacen" => $id, "folio" => $folio));
+                if (!empty($consulta["error"])) {
+                    return $consulta;
+                }
+                $depurar = isset($consulta["depurar"]) && is_array($consulta["depurar"]) ? $consulta["depurar"] : array();
+                $encabezado = isset($depurar["encabezado"]) && is_array($depurar["encabezado"]) ? $depurar["encabezado"] : array();
+                $detalle = isset($depurar["detalle"]) && is_array($depurar["detalle"]) ? $depurar["detalle"] : array();
+                $origen = array(
+                    "id_almacen" => intval($this->valor($encabezado, "id_almacen_origen", 0)),
+                    "almacen" => $this->valor($encabezado, "almacen_origen", "")
+                );
+                $destino = array(
+                    "id_almacen" => intval($this->valor($encabezado, "id_almacen_solicitante", $this->valor($encabezado, "id_almacen_destino", 0))),
+                    "almacen" => $this->valor($encabezado, "almacen_destino", $this->valor($encabezado, "almacen_solicitante", ""))
+                );
+                foreach ($detalle as $item) {
+                    $estatus = trim((string) $this->valor($item, "estatus", ""));
+                    if (in_array($estatus, array("rechazada", "cancelada", "enviada", "recibida"), true)) {
+                        continue;
+                    }
+                    $cantidad = round(floatval($this->valor($item, "cantidad_autorizada", 0)), 6);
+                    if ($cantidad <= 0) {
+                        $cantidad = round(floatval($this->valor($item, "cantidad_solicitada", 0)), 6);
+                    }
+                    if ($cantidad <= 0) {
+                        continue;
+                    }
+                    $lineas[] = array(
+                        "id_resurtido_detalle" => intval($this->valor($item, "id_resurtido_detalle", 0)),
+                        "id_sku_erp" => intval($this->valor($item, "id_sku_erp", 0)),
+                        "sku" => $this->valor($item, "sku", ""),
+                        "nombre_producto" => $this->valor($item, "nombre_producto", ""),
+                        "nombre_sku" => $this->valor($item, "nombre_sku", ""),
+                        "unidad_base" => $this->valor($item, "unidad_base", ""),
+                        "cantidad_requerida" => $cantidad
+                    );
+                }
+                $origen_documento = "folio_resurtido";
+            } else {
+                $simulacion = $this->simular_solicitud_resurtido_readonly(array(
+                    "id_almacen_destino" => $id_destino,
+                    "id_almacen_origen" => $id_origen,
+                    "q" => $q
+                ));
+                if (!empty($simulacion["error"])) {
+                    return $simulacion;
+                }
+                $depurar = isset($simulacion["depurar"]) && is_array($simulacion["depurar"]) ? $simulacion["depurar"] : array();
+                $origen = $this->valor($depurar, "almacen_origen", array());
+                $destino = $this->valor($depurar, "almacen_destino", array());
+                $encabezado = array(
+                    "folio" => $this->valor($depurar, "folio_preview", ""),
+                    "estatus" => "simulado",
+                    "id_almacen_origen" => intval($this->valor($origen, "id_almacen", 0)),
+                    "id_almacen_solicitante" => intval($this->valor($destino, "id_almacen", 0))
+                );
+                foreach ($this->valor($depurar, "lineas", array()) as $item) {
+                    $cantidad = round(floatval($this->valor($item, "cantidad_solicitada", 0)), 6);
+                    if ($cantidad <= 0) {
+                        continue;
+                    }
+                    $lineas[] = array(
+                        "id_resurtido_detalle" => 0,
+                        "id_sku_erp" => intval($this->valor($item, "id_sku_erp", 0)),
+                        "sku" => $this->valor($item, "sku", ""),
+                        "nombre_producto" => $this->valor($item, "nombre_producto", ""),
+                        "nombre_sku" => $this->valor($item, "nombre_sku", ""),
+                        "unidad_base" => $this->valor($item, "unidad_base", ""),
+                        "cantidad_requerida" => $cantidad
+                    );
+                }
+            }
+
+            $id_origen_final = intval($this->valor($origen, "id_almacen", 0));
+            if ($id_origen_final <= 0) {
+                return $this->crudResponse(true, "warning", "No se encontro almacen origen para planear preparacion");
+            }
+
+            $plan = array();
+            $totales = array(
+                "partidas" => count($lineas),
+                "cantidad_requerida" => 0.000000,
+                "cantidad_planeada" => 0.000000,
+                "cantidad_faltante" => 0.000000,
+                "partidas_completas" => 0,
+                "partidas_incompletas" => 0,
+                "selecciones_existencia" => 0,
+                "selecciones_unidad" => 0
+            );
+            foreach ($lineas as $linea) {
+                $cantidad_requerida = round(floatval($this->valor($linea, "cantidad_requerida", 0)), 6);
+                $existencias = $this->consultarExistenciasPlanResurtido($db, intval($linea["id_sku_erp"]), $id_origen_final);
+                $asignacion = $this->asignarPlanPreparacionResurtido($existencias, $cantidad_requerida);
+                $plan[] = array_merge($linea, array(
+                    "cantidad_planeada" => $asignacion["cantidad_planeada"],
+                    "cantidad_faltante" => $asignacion["cantidad_faltante"],
+                    "cobertura" => $asignacion["cantidad_faltante"] <= 0 ? "completa" : "incompleta",
+                    "existencias_candidatas" => count($existencias),
+                    "selecciones" => $asignacion["selecciones"],
+                    "advertencias" => $asignacion["advertencias"]
+                ));
+                $totales["cantidad_requerida"] = round($totales["cantidad_requerida"] + $cantidad_requerida, 6);
+                $totales["cantidad_planeada"] = round($totales["cantidad_planeada"] + $asignacion["cantidad_planeada"], 6);
+                $totales["cantidad_faltante"] = round($totales["cantidad_faltante"] + $asignacion["cantidad_faltante"], 6);
+                if ($asignacion["cantidad_faltante"] <= 0) {
+                    $totales["partidas_completas"]++;
+                } else {
+                    $totales["partidas_incompletas"]++;
+                }
+                foreach ($asignacion["selecciones"] as $sel) {
+                    $totales["selecciones_existencia"]++;
+                    if (intval($this->valor($sel, "id_inventario_unidad", 0)) > 0) {
+                        $totales["selecciones_unidad"]++;
+                    }
+                }
+            }
+
+            return $this->crudResponse(false, "success", "Plan de preparacion de resurtido calculado", array(
+                "read_only" => 1,
+                "schema_pendiente" => $schema_pendiente,
+                "origen_documento" => $origen_documento,
+                "encabezado" => $encabezado,
+                "almacen_origen" => $origen,
+                "almacen_destino" => $destino,
+                "plan" => $plan,
+                "totales" => $totales,
+                "movimientos_generados" => 0,
+                "preparaciones_generadas" => 0,
+                "guardrails" => $this->guardrailsPlanPreparacionResurtido()
+            ));
+        } catch (Exception $e) {
+            return $this->crudResponse(true, "danger", $e->getMessage());
+        }
+    }
+
+    /**
+     * IA: Codex GPT-5
+     * Fecha: 2026-07-13
+     * Proposito: generar el payload futuro de preparar/enviar resurtido desde el plan FEFO read-only.
+     * Impacto: Almacen/Resurtido RES-T009G; fija contrato de POST antes de habilitar movimientos reales.
+     * Contrato: read-only; no inserta preparacion/envio, no aparta stock, no mueve inventario y no modifica unidades.
+     */
+    public function payload_preparacion_envio_resurtido_readonly($filtros = array()) {
+        try {
+            $planRespuesta = $this->plan_preparacion_resurtido_readonly($filtros);
+            if (!empty($planRespuesta["error"])) {
+                return $planRespuesta;
+            }
+            $depurar = isset($planRespuesta["depurar"]) && is_array($planRespuesta["depurar"]) ? $planRespuesta["depurar"] : array();
+            $plan = isset($depurar["plan"]) && is_array($depurar["plan"]) ? $depurar["plan"] : array();
+            $encabezado = isset($depurar["encabezado"]) && is_array($depurar["encabezado"]) ? $depurar["encabezado"] : array();
+            $origen = isset($depurar["almacen_origen"]) && is_array($depurar["almacen_origen"]) ? $depurar["almacen_origen"] : array();
+            $destino = isset($depurar["almacen_destino"]) && is_array($depurar["almacen_destino"]) ? $depurar["almacen_destino"] : array();
+            $preparaciones = array();
+            $bloqueos = array();
+            $advertencias = array();
+            foreach ($plan as $linea) {
+                $cantidadFaltante = round(floatval($this->valor($linea, "cantidad_faltante", 0)), 6);
+                if ($cantidadFaltante > 0) {
+                    $advertencias[] = array(
+                        "id" => "RES-PAY-ENV-001",
+                        "id_sku_erp" => intval($this->valor($linea, "id_sku_erp", 0)),
+                        "sku" => $this->valor($linea, "sku", ""),
+                        "mensaje" => "Linea con cobertura incompleta; envio real debera autorizar parcial, ajustar origen o bloquear"
+                    );
+                }
+                foreach ($this->valor($linea, "selecciones", array()) as $seleccion) {
+                    $preparaciones[] = array(
+                        "id_resurtido_detalle" => intval($this->valor($linea, "id_resurtido_detalle", 0)),
+                        "id_sku_erp" => intval($this->valor($linea, "id_sku_erp", 0)),
+                        "id_existencia_origen" => intval($this->valor($seleccion, "id_existencia_inventario", 0)),
+                        "id_inventario_unidad" => intval($this->valor($seleccion, "id_inventario_unidad", 0)) ?: null,
+                        "cantidad_preparada" => round(floatval($this->valor($seleccion, "cantidad_planificada", 0)), 6),
+                        "lote" => $this->valor($seleccion, "lote", null),
+                        "fecha_caducidad" => $this->valor($seleccion, "fecha_caducidad", null),
+                        "ubicacion_origen_id" => $this->valor($seleccion, "ubicacion_id", null),
+                        "codigo_existencia" => $this->valor($seleccion, "codigo_existencia", null),
+                        "codigo_unico" => $this->valor($seleccion, "codigo_unico", null),
+                        "trazabilidad" => $this->valor($seleccion, "trazabilidad", "existencia_lote_ubicacion")
+                    );
+                }
+            }
+            if (empty($preparaciones)) {
+                $bloqueos[] = array("id" => "RES-PAY-ENV-002", "mensaje" => "No hay selecciones de existencia para preparar");
+            }
+            if (intval($this->valor($encabezado, "id_almacen_origen", $this->valor($origen, "id_almacen", 0))) <= 0) {
+                $bloqueos[] = array("id" => "RES-PAY-ENV-003", "mensaje" => "Almacen origen no definido");
+            }
+
+            $payload = array(
+                "id_resurtido_almacen" => intval($this->valor($encabezado, "id_resurtido_almacen", 0)),
+                "folio" => $this->valor($encabezado, "folio", ""),
+                "accion" => "preparar_enviar",
+                "modo_transito" => "almacen_tecnico",
+                "id_almacen_origen" => intval($this->valor($encabezado, "id_almacen_origen", $this->valor($origen, "id_almacen", 0))),
+                "id_almacen_destino" => intval($this->valor($encabezado, "id_almacen_solicitante", $this->valor($destino, "id_almacen", 0))),
+                "preparaciones" => $preparaciones,
+                "observaciones" => "Payload RES-T009 generado en modo read-only"
+            );
+
+            return $this->crudResponse(false, "success", "Payload de preparacion/envio read-only generado", array(
+                "read_only" => 1,
+                "schema_pendiente" => intval($this->valor($depurar, "schema_pendiente", 1)),
+                "metodo_futuro" => "POST",
+                "endpoint_futuro" => "/almacen/resurtido_preparar_enviar_erp",
+                "puede_enviar_post" => empty($bloqueos) && empty($advertencias) && intval($this->valor($depurar, "schema_pendiente", 1)) === 0 ? 1 : 0,
+                "payload" => $payload,
+                "bloqueos" => $bloqueos,
+                "advertencias" => $advertencias,
+                "plan_totales" => $this->valor($depurar, "totales", array()),
+                "movimientos_generados" => 0,
+                "preparaciones_generadas" => 0,
+                "guardrails" => $this->guardrailsPlanPreparacionResurtido()
+            ));
+        } catch (Exception $e) {
+            return $this->crudResponse(true, "danger", $e->getMessage());
+        }
+    }
+
+    /**
+     * IA: Codex GPT-5
+     * Fecha: 2026-07-13
      * Proposito: documentar en payload ejecutable el contrato de recepcion y diferencias de resurtido.
      * Impacto: Almacen/Resurtido RES-T010; define comparacion enviado vs recibido antes de mover inventario o crear incidencias.
      * Contrato: read-only; no consulta folios reales, no inserta recepciones/diferencias y no mueve inventario.
@@ -838,6 +1104,119 @@ class Almacenes extends CRUD {
                 "guardrails" => array(
                     "no_escribe_bd" => 1,
                     "no_crea_alertas" => 1,
+                    "no_mueve_inventario" => 1,
+                    "no_toca_pos_ecommerce" => 1
+                )
+            ));
+        } catch (Exception $e) {
+            return $this->crudResponse(true, "danger", $e->getMessage());
+        }
+    }
+
+    /**
+     * IA: Codex GPT-5
+     * Fecha: 2026-07-13
+     * Proposito: exponer en modo lectura el contrato de acciones documentales y operativas de Resurtido.
+     * Impacto: Almacen/Resurtido; permite preparar UI/UAT sin ejecutar POST ni mover inventario.
+     * Contrato: read-only; no autoriza, no cancela, no guarda politicas y no toca POS/ecommerce.
+     */
+    public function acciones_resurtido_contrato_readonly($filtros = array()) {
+        try {
+            $db = $this->getConexion();
+            $faltantes = $this->tablasResurtidoFaltantes($db);
+            $politicas_pendientes = $this->tablaExisteAlmacen($db, "erp_inventario_politicas_almacen_sku") ? 0 : 1;
+            $schema_resurtido_pendiente = empty($faltantes) ? 0 : 1;
+            $acciones = array(
+                array(
+                    "id" => "RES-ACT-001",
+                    "accion" => "guardar_solicitud",
+                    "endpoint" => "/almacen/resurtido_guardar_erp",
+                    "metodo" => "POST",
+                    "permiso_actual" => "almacen.recibir",
+                    "permiso_candidato" => "almacen.resurtido.solicitar",
+                    "estados_validos" => array("nuevo"),
+                    "estado_resultado" => "borrador|solicitado",
+                    "afecta_inventario" => 0,
+                    "requiere_respaldo_uat" => 1,
+                    "implementacion" => "bloqueada_por_schema_o_uat"
+                ),
+                array(
+                    "id" => "RES-ACT-002",
+                    "accion" => "autorizar",
+                    "endpoint" => "/almacen/resurtido_autorizar_erp",
+                    "metodo" => "POST",
+                    "permiso_actual" => "almacen.recibir",
+                    "permiso_candidato" => "almacen.resurtido.autorizar",
+                    "estados_validos" => array("borrador", "solicitado"),
+                    "estado_resultado" => "autorizado|rechazado",
+                    "afecta_inventario" => 0,
+                    "requiere_respaldo_uat" => 1,
+                    "implementacion" => $schema_resurtido_pendiente ? "bloqueada_por_schema" : "lista_post_ddl"
+                ),
+                array(
+                    "id" => "RES-ACT-003",
+                    "accion" => "cancelar",
+                    "endpoint" => "/almacen/resurtido_cancelar_erp",
+                    "metodo" => "POST",
+                    "permiso_actual" => "almacen.recibir",
+                    "permiso_candidato" => "almacen.resurtido.cancelar",
+                    "estados_validos" => array("borrador", "solicitado", "autorizado", "preparando", "preparado"),
+                    "estado_resultado" => "cancelado",
+                    "afecta_inventario" => 0,
+                    "requiere_motivo" => 1,
+                    "requiere_respaldo_uat" => 1,
+                    "implementacion" => $schema_resurtido_pendiente ? "bloqueada_por_schema" : "lista_post_ddl"
+                ),
+                array(
+                    "id" => "RES-ACT-004",
+                    "accion" => "preparar_enviar",
+                    "endpoint" => "/almacen/resurtido_preparar_enviar_erp",
+                    "metodo" => "POST",
+                    "permiso_actual" => "almacen.recibir",
+                    "permiso_candidato" => "almacen.resurtido.preparar",
+                    "estados_validos" => array("autorizado", "preparando", "preparado"),
+                    "estado_resultado" => "enviado",
+                    "afecta_inventario" => 1,
+                    "movimientos_esperados" => array("salida_origen", "entrada_transito"),
+                    "requiere_respaldo_uat" => 1,
+                    "implementacion" => "pendiente"
+                ),
+                array(
+                    "id" => "RES-ACT-005",
+                    "accion" => "recibir",
+                    "endpoint" => "/almacen/resurtido_recibir_erp",
+                    "metodo" => "POST",
+                    "permiso_actual" => "almacen.recibir",
+                    "permiso_candidato" => "almacen.resurtido.recibir",
+                    "estados_validos" => array("enviado"),
+                    "estado_resultado" => "recibido_parcial|recibido",
+                    "afecta_inventario" => 1,
+                    "movimientos_esperados" => array("salida_transito", "entrada_tienda"),
+                    "requiere_respaldo_uat" => 1,
+                    "implementacion" => "pendiente"
+                ),
+                array(
+                    "id" => "RES-ACT-006",
+                    "accion" => "guardar_politica",
+                    "endpoint" => "/almacen/resurtido_politica_guardar_erp",
+                    "metodo" => "POST",
+                    "permiso_actual" => "almacen.ubicaciones",
+                    "permiso_candidato" => "almacen.resurtido.politicas",
+                    "estados_validos" => array("n/a"),
+                    "estado_resultado" => "politica_activa",
+                    "afecta_inventario" => 0,
+                    "requiere_respaldo_uat" => 1,
+                    "implementacion" => $politicas_pendientes ? "bloqueada_por_schema" : "lista_post_ddl"
+                )
+            );
+            return $this->crudResponse(false, "success", "Contrato de acciones de resurtido consultado", array(
+                "read_only" => 1,
+                "schema_pendiente" => empty($faltantes) && !$politicas_pendientes ? 0 : 1,
+                "tablas_faltantes" => array_values(array_unique(array_merge($faltantes, $politicas_pendientes ? array("erp_inventario_politicas_almacen_sku") : array()))),
+                "acciones" => $acciones,
+                "guardrails" => array(
+                    "no_ejecuta_post" => 1,
+                    "no_escribe_bd" => 1,
                     "no_mueve_inventario" => 1,
                     "no_toca_pos_ecommerce" => 1
                 )
@@ -1634,6 +2013,363 @@ class Almacenes extends CRUD {
         }
     }
 
+    /**
+     * IA: Codex GPT-5
+     * Fecha: 2026-07-13
+     * Proposito: autorizar/rechazar folios RES-T008 solo cuando el esquema exista y el UAT este autorizado.
+     * Impacto: Almacen/Resurtido; prepara autorizacion documental sin mover inventario.
+     * Contrato: bloquea si falta DDL; post-DDL actualiza encabezado/detalle, no aparta stock y no genera movimientos.
+     */
+    public function autorizar_resurtido_pendiente($datos = array(), $id_usuario = 0) {
+        try {
+            $db = $this->getConexion();
+            $faltantes = $this->tablasResurtidoFaltantes($db);
+            $id = intval($this->valor($datos, "id_resurtido_almacen", $this->valor($datos, "id_resurtido", 0)));
+            $folio = strtoupper(trim((string) $this->valor($datos, "folio", "")));
+            $accion = trim((string) $this->valor($datos, "accion", "autorizar"));
+            if (!in_array($accion, array("autorizar", "rechazar"), true)) {
+                return $this->crudResponse(true, "warning", "Accion de autorizacion no valida", array(
+                    "bloqueos" => array(array("id" => "RES-AUT-VAL-001", "mensaje" => "Accion permitida: autorizar o rechazar"))
+                ));
+            }
+            if (!empty($faltantes)) {
+                return $this->crudResponse(false, "info", "Esquema de resurtido pendiente; no se autorizo ni rechazo", array(
+                    "schema_pendiente" => 1,
+                    "tablas_faltantes" => $faltantes,
+                    "implementacion_pendiente" => 1,
+                    "autorizado" => 0,
+                    "rechazado" => 0,
+                    "movimientos_generados" => 0,
+                    "id_resurtido_almacen" => $id,
+                    "folio" => $folio,
+                    "accion" => $accion
+                ));
+            }
+
+            $consulta = $this->consultar_resurtido_readonly(array("id_resurtido_almacen" => $id, "folio" => $folio));
+            $validacion = $this->validarFolioResurtidoParaAutorizar($consulta, $accion);
+            if (!empty($validacion["bloqueos"])) {
+                return $this->crudResponse(true, "warning", "Folio no valido para autorizacion", array(
+                    "schema_pendiente" => 0,
+                    "implementacion_pendiente" => 0,
+                    "bloqueos" => $validacion["bloqueos"],
+                    "advertencias" => $validacion["advertencias"]
+                ));
+            }
+
+            $depurar = isset($consulta["depurar"]) && is_array($consulta["depurar"]) ? $consulta["depurar"] : array();
+            $encabezado = isset($depurar["encabezado"]) && is_array($depurar["encabezado"]) ? $depurar["encabezado"] : array();
+            $detalleActual = isset($depurar["detalle"]) && is_array($depurar["detalle"]) ? $depurar["detalle"] : array();
+            $id_resurtido = intval($this->valor($encabezado, "id_resurtido_almacen", $id));
+            $detalleAutorizacion = $this->normalizarDetalleAutorizacionResurtido($datos);
+
+            $db->beginTransaction();
+            $stmt = $db->prepare("SELECT id_resurtido_almacen, folio, estatus
+                FROM erp_almacen_resurtidos
+                WHERE id_resurtido_almacen=:id
+                FOR UPDATE");
+            $stmt->execute(array(":id" => $id_resurtido));
+            $folioBloqueado = $stmt->fetch(PDO::FETCH_ASSOC);
+            if (!$folioBloqueado || !in_array($folioBloqueado["estatus"], array("borrador", "solicitado"), true)) {
+                throw new Exception("Folio no esta en estado autorizable");
+            }
+
+            $autorizadas = 0;
+            $rechazadas = 0;
+            foreach ($detalleActual as $linea) {
+                $idDetalle = intval($this->valor($linea, "id_resurtido_detalle", 0));
+                if ($idDetalle <= 0) {
+                    continue;
+                }
+                $cantidadSolicitada = round(floatval($this->valor($linea, "cantidad_solicitada", 0)), 6);
+                $config = isset($detalleAutorizacion[$idDetalle]) ? $detalleAutorizacion[$idDetalle] : array();
+                $cantidadAutorizada = $accion === "rechazar"
+                    ? 0.000000
+                    : round(floatval($this->valor($config, "cantidad_autorizada", $cantidadSolicitada)), 6);
+                if ($cantidadAutorizada < 0 || $cantidadAutorizada > $cantidadSolicitada) {
+                    throw new Exception("Cantidad autorizada invalida para detalle " . $idDetalle);
+                }
+                $estatusDetalle = $accion === "rechazar" || $cantidadAutorizada <= 0 ? "rechazada" : "autorizada";
+                if ($estatusDetalle === "autorizada") {
+                    $autorizadas++;
+                } else {
+                    $rechazadas++;
+                }
+                $stmt = $db->prepare("UPDATE erp_almacen_resurtido_detalle
+                    SET cantidad_autorizada=:cantidad_autorizada,
+                        estatus=:estatus,
+                        motivo_rechazo=:motivo,
+                        fecha_actualizacion=NOW()
+                    WHERE id_resurtido_detalle=:detalle
+                        AND id_resurtido_almacen=:resurtido");
+                $stmt->execute(array(
+                    ":cantidad_autorizada" => $cantidadAutorizada,
+                    ":estatus" => $estatusDetalle,
+                    ":motivo" => $estatusDetalle === "rechazada" ? $this->valor($config, "motivo_rechazo", $this->valor($datos, "motivo_rechazo", null)) : null,
+                    ":detalle" => $idDetalle,
+                    ":resurtido" => $id_resurtido
+                ));
+            }
+
+            $estatusFinal = $accion === "rechazar" || $autorizadas <= 0 ? "rechazado" : "autorizado";
+            $stmt = $db->prepare("UPDATE erp_almacen_resurtidos
+                SET estatus=:estatus,
+                    fecha_autorizacion=NOW(),
+                    autorizado_por=:usuario,
+                    fecha_actualizacion=NOW()
+                WHERE id_resurtido_almacen=:id");
+            $stmt->execute(array(
+                ":estatus" => $estatusFinal,
+                ":usuario" => intval($id_usuario) ?: null,
+                ":id" => $id_resurtido
+            ));
+            $db->commit();
+
+            return $this->crudResponse(false, "success", "Resurtido " . ($estatusFinal === "autorizado" ? "autorizado" : "rechazado"), array(
+                "schema_pendiente" => 0,
+                "implementacion_pendiente" => 0,
+                "autorizado" => $estatusFinal === "autorizado" ? 1 : 0,
+                "rechazado" => $estatusFinal === "rechazado" ? 1 : 0,
+                "movimientos_generados" => 0,
+                "id_resurtido_almacen" => $id_resurtido,
+                "folio" => $this->valor($encabezado, "folio", $folio),
+                "accion" => $accion,
+                "estatus" => $estatusFinal,
+                "partidas_autorizadas" => $autorizadas,
+                "partidas_rechazadas" => $rechazadas,
+                "advertencias" => $validacion["advertencias"]
+            ));
+        } catch (Exception $e) {
+            if (isset($db) && $db->inTransaction()) {
+                $db->rollBack();
+            }
+            return $this->crudResponse(true, "danger", $e->getMessage());
+        }
+    }
+
+    /**
+     * IA: Codex GPT-5
+     * Fecha: 2026-07-13
+     * Proposito: cancelar folios RES-T008 solo cuando el esquema exista y el UAT este autorizado.
+     * Impacto: Almacen/Resurtido; prepara cancelacion segura sin mover inventario.
+     * Contrato: bloquea si falta DDL; post-DDL cancela encabezado/detalle, no revierte movimientos.
+     */
+    public function cancelar_resurtido_pendiente($datos = array(), $id_usuario = 0) {
+        try {
+            $db = $this->getConexion();
+            $faltantes = $this->tablasResurtidoFaltantes($db);
+            $id = intval($this->valor($datos, "id_resurtido_almacen", $this->valor($datos, "id_resurtido", 0)));
+            $folio = strtoupper(trim((string) $this->valor($datos, "folio", "")));
+            $motivo = trim((string) $this->valor($datos, "motivo_cancelacion", ""));
+            if (!empty($faltantes)) {
+                return $this->crudResponse(false, "info", "Esquema de resurtido pendiente; no se cancelo folio", array(
+                    "schema_pendiente" => 1,
+                    "tablas_faltantes" => $faltantes,
+                    "implementacion_pendiente" => 1,
+                    "cancelado" => 0,
+                    "movimientos_generados" => 0,
+                    "id_resurtido_almacen" => $id,
+                    "folio" => $folio
+                ));
+            }
+            if ($motivo === "") {
+                return $this->crudResponse(true, "warning", "Motivo de cancelacion obligatorio", array(
+                    "bloqueos" => array(array("id" => "RES-CAN-VAL-001", "mensaje" => "Captura motivo antes de cancelar"))
+                ));
+            }
+
+            $consulta = $this->consultar_resurtido_readonly(array("id_resurtido_almacen" => $id, "folio" => $folio));
+            $validacion = $this->validarFolioResurtidoParaCancelar($consulta);
+            if (!empty($validacion["bloqueos"])) {
+                return $this->crudResponse(true, "warning", "Folio no valido para cancelacion", array(
+                    "schema_pendiente" => 0,
+                    "implementacion_pendiente" => 0,
+                    "bloqueos" => $validacion["bloqueos"],
+                    "advertencias" => $validacion["advertencias"]
+                ));
+            }
+
+            $depurar = isset($consulta["depurar"]) && is_array($consulta["depurar"]) ? $consulta["depurar"] : array();
+            $encabezado = isset($depurar["encabezado"]) && is_array($depurar["encabezado"]) ? $depurar["encabezado"] : array();
+            $id_resurtido = intval($this->valor($encabezado, "id_resurtido_almacen", $id));
+
+            $db->beginTransaction();
+            $stmt = $db->prepare("SELECT id_resurtido_almacen, estatus
+                FROM erp_almacen_resurtidos
+                WHERE id_resurtido_almacen=:id
+                FOR UPDATE");
+            $stmt->execute(array(":id" => $id_resurtido));
+            $folioBloqueado = $stmt->fetch(PDO::FETCH_ASSOC);
+            if (!$folioBloqueado || in_array($folioBloqueado["estatus"], array("enviado", "recibido", "recibido_parcial", "cerrado", "cancelado"), true)) {
+                throw new Exception("Folio no esta en estado cancelable sin reversa");
+            }
+
+            $stmt = $db->prepare("UPDATE erp_almacen_resurtido_detalle
+                SET estatus='cancelada',
+                    fecha_actualizacion=NOW()
+                WHERE id_resurtido_almacen=:id
+                    AND estatus NOT IN ('rechazada','cancelada')");
+            $stmt->execute(array(":id" => $id_resurtido));
+            $partidasCanceladas = $stmt->rowCount();
+
+            $stmt = $db->prepare("UPDATE erp_almacen_resurtidos
+                SET estatus='cancelado',
+                    motivo_cancelacion=:motivo,
+                    cerrado_por=:usuario,
+                    fecha_cierre=NOW(),
+                    fecha_actualizacion=NOW()
+                WHERE id_resurtido_almacen=:id");
+            $stmt->execute(array(
+                ":motivo" => $motivo,
+                ":usuario" => intval($id_usuario) ?: null,
+                ":id" => $id_resurtido
+            ));
+            $db->commit();
+
+            return $this->crudResponse(false, "success", "Resurtido cancelado", array(
+                "schema_pendiente" => 0,
+                "implementacion_pendiente" => 0,
+                "cancelado" => 1,
+                "movimientos_generados" => 0,
+                "id_resurtido_almacen" => $id_resurtido,
+                "folio" => $this->valor($encabezado, "folio", $folio),
+                "partidas_canceladas" => $partidasCanceladas,
+                "advertencias" => $validacion["advertencias"]
+            ));
+        } catch (Exception $e) {
+            if (isset($db) && $db->inTransaction()) {
+                $db->rollBack();
+            }
+            return $this->crudResponse(true, "danger", $e->getMessage());
+        }
+    }
+
+    /**
+     * IA: Codex GPT-5
+     * Fecha: 2026-07-13
+     * Proposito: guardar politicas tienda/SKU solo cuando el esquema exista y el UAT este autorizado.
+     * Impacto: Almacen/Resurtido; prepara min/max/reorden por tienda/SKU.
+     * Contrato: bloquea si falta DDL; post-DDL inserta/actualiza politicas y no genera alertas persistentes.
+     */
+    public function guardar_politica_resurtido_pendiente($datos = array(), $id_usuario = 0) {
+        try {
+            $db = $this->getConexion();
+            if (!$this->tablaExisteAlmacen($db, "erp_inventario_politicas_almacen_sku")) {
+                return $this->crudResponse(false, "info", "Esquema de politicas por tienda/SKU pendiente; no se guardo politica", array(
+                    "schema_pendiente" => 1,
+                    "implementacion_pendiente" => 1,
+                    "guardado" => 0,
+                    "alertas_generadas" => 0,
+                    "id_almacen" => intval($this->valor($datos, "id_almacen", 0)),
+                    "id_sku_erp" => intval($this->valor($datos, "id_sku_erp", 0))
+                ));
+            }
+            $validacion = $this->validarPayloadPoliticaResurtido($datos);
+            if (!empty($validacion["bloqueos"])) {
+                return $this->crudResponse(true, "warning", "Politica de resurtido no valida", array(
+                    "schema_pendiente" => 0,
+                    "implementacion_pendiente" => 0,
+                    "bloqueos" => $validacion["bloqueos"],
+                    "advertencias" => $validacion["advertencias"]
+                ));
+            }
+
+            $id_almacen = intval($this->valor($datos, "id_almacen", 0));
+            $id_sku = intval($this->valor($datos, "id_sku_erp", 0));
+            $minimo = round(floatval($this->valor($datos, "stock_minimo", 0)), 6);
+            $maximoRaw = $this->valor($datos, "stock_maximo", null);
+            $maximo = $maximoRaw === null || $maximoRaw === "" ? null : round(floatval($maximoRaw), 6);
+            $reorden = round(floatval($this->valor($datos, "punto_reorden", 0)), 6);
+            $sugeridaRaw = $this->valor($datos, "cantidad_sugerida", null);
+            $sugerida = $sugeridaRaw === null || $sugeridaRaw === "" ? null : round(floatval($sugeridaRaw), 6);
+            $prioridad = trim((string) $this->valor($datos, "prioridad", "normal"));
+            $estatus = trim((string) $this->valor($datos, "estatus", "activa"));
+            if ($prioridad === "") {
+                $prioridad = "normal";
+            }
+            if ($estatus === "") {
+                $estatus = "activa";
+            }
+            if (!$this->consultarAlmacenActivoResurtido($db, $id_almacen)) {
+                return $this->crudResponse(true, "warning", "Almacen no valido para politica", array(
+                    "bloqueos" => array(array("id" => "RES-POL-VAL-006", "mensaje" => "Almacen no existe o esta inactivo"))
+                ));
+            }
+            if (!$this->skuActivoResurtido($db, $id_sku)) {
+                return $this->crudResponse(true, "warning", "SKU no valido para politica", array(
+                    "bloqueos" => array(array("id" => "RES-POL-VAL-007", "mensaje" => "SKU no existe o esta inactivo"))
+                ));
+            }
+
+            $stmt = $db->prepare("SELECT id_politica_almacen_sku
+                FROM erp_inventario_politicas_almacen_sku
+                WHERE id_almacen=:almacen AND id_sku_erp=:sku
+                LIMIT 1");
+            $stmt->execute(array(":almacen" => $id_almacen, ":sku" => $id_sku));
+            $id_politica = intval($stmt->fetchColumn());
+
+            if ($id_politica > 0) {
+                $stmt = $db->prepare("UPDATE erp_inventario_politicas_almacen_sku
+                    SET stock_minimo=:minimo,
+                        stock_maximo=:maximo,
+                        punto_reorden=:reorden,
+                        cantidad_sugerida=:sugerida,
+                        prioridad=:prioridad,
+                        estatus=:estatus,
+                        observaciones=:observaciones,
+                        actualizado_por=:usuario,
+                        fecha_actualizacion=NOW()
+                    WHERE id_politica_almacen_sku=:id");
+                $stmt->execute(array(
+                    ":minimo" => $minimo,
+                    ":maximo" => $maximo,
+                    ":reorden" => $reorden,
+                    ":sugerida" => $sugerida,
+                    ":prioridad" => $prioridad,
+                    ":estatus" => $estatus,
+                    ":observaciones" => $this->valor($datos, "observaciones", null),
+                    ":usuario" => intval($id_usuario) ?: null,
+                    ":id" => $id_politica
+                ));
+                $accion = "actualizada";
+            } else {
+                $stmt = $db->prepare("INSERT INTO erp_inventario_politicas_almacen_sku
+                    (id_almacen, id_sku_erp, stock_minimo, stock_maximo, punto_reorden,
+                     cantidad_sugerida, prioridad, estatus, observaciones, creado_por, fecha_registro)
+                    VALUES (:almacen, :sku, :minimo, :maximo, :reorden,
+                     :sugerida, :prioridad, :estatus, :observaciones, :usuario, NOW())");
+                $stmt->execute(array(
+                    ":almacen" => $id_almacen,
+                    ":sku" => $id_sku,
+                    ":minimo" => $minimo,
+                    ":maximo" => $maximo,
+                    ":reorden" => $reorden,
+                    ":sugerida" => $sugerida,
+                    ":prioridad" => $prioridad,
+                    ":estatus" => $estatus,
+                    ":observaciones" => $this->valor($datos, "observaciones", null),
+                    ":usuario" => intval($id_usuario) ?: null
+                ));
+                $id_politica = intval($db->lastInsertId());
+                $accion = "creada";
+            }
+
+            return $this->crudResponse(false, "success", "Politica de resurtido " . $accion, array(
+                "schema_pendiente" => 0,
+                "implementacion_pendiente" => 0,
+                "guardado" => 1,
+                "alertas_generadas" => 0,
+                "id_politica_almacen_sku" => $id_politica,
+                "id_almacen" => $id_almacen,
+                "id_sku_erp" => $id_sku,
+                "accion" => $accion,
+                "advertencias" => $validacion["advertencias"]
+            ));
+        } catch (Exception $e) {
+            return $this->crudResponse(true, "danger", $e->getMessage());
+        }
+    }
+
     private function tablasResurtidoFaltantes($db) {
         $tablas = array(
             "erp_almacen_resurtidos",
@@ -1725,6 +2461,132 @@ class Almacenes extends CRUD {
         $stmt->execute(array(":prefijo" => $prefijo . "%"));
         $consecutivo = intval($stmt->fetchColumn()) + 1;
         return $prefijo . str_pad((string) $consecutivo, 4, "0", STR_PAD_LEFT);
+    }
+
+    private function consultarExistenciasPlanResurtido($db, $id_sku, $id_almacen) {
+        $stmt = $db->prepare("SELECT
+                exi.id_existencia_inventario,
+                exi.id_producto,
+                exi.id_sku_erp,
+                exi.id_almacen,
+                exi.id_almacen_clave,
+                alm.almacen,
+                exi.codigo_existencia,
+                exi.lote,
+                exi.fecha_caducidad,
+                exi.ubicacion_id,
+                exi.ubicacion,
+                exi.cantidad,
+                exi.cantidad_apartada,
+                exi.cantidad_disponible,
+                exi.costo_promedio,
+                exi.estatus_existencia
+            FROM {$this->tabla_erp_inventario_existencias} exi
+            LEFT JOIN {$this->tabla_erp_almacenes} alm ON alm.id_almacen=exi.id_almacen_clave
+            WHERE exi.id_sku_erp=:sku
+              AND exi.id_almacen_clave=:almacen
+              AND exi.estatus_existencia='disponible'
+              AND exi.cantidad_disponible>0
+            ORDER BY CASE WHEN exi.fecha_caducidad IS NULL THEN 1 ELSE 0 END,
+              exi.fecha_caducidad, exi.fecha_registro, exi.id_existencia_inventario");
+        $stmt->execute(array(":sku" => intval($id_sku), ":almacen" => intval($id_almacen)));
+        $existencias = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        return $this->adjuntar_unidades_fisicas_preparacion($db, $existencias);
+    }
+
+    private function asignarPlanPreparacionResurtido($existencias, $cantidad_requerida) {
+        $restante = round(floatval($cantidad_requerida), 6);
+        $planeada = 0.000000;
+        $selecciones = array();
+        $advertencias = array();
+        foreach ($existencias as $existencia) {
+            if ($restante <= 0) {
+                break;
+            }
+            $unidades = isset($existencia["unidades_fisicas"]) && is_array($existencia["unidades_fisicas"]) ? $existencia["unidades_fisicas"] : array();
+            if (!empty($unidades)) {
+                foreach ($unidades as $unidad) {
+                    if ($restante <= 0) {
+                        break;
+                    }
+                    $disponibleUnidad = round(floatval($this->valor($unidad, "cantidad_base_disponible", 0)), 6);
+                    if ($disponibleUnidad <= 0) {
+                        continue;
+                    }
+                    $tomar = min($restante, $disponibleUnidad);
+                    $selecciones[] = array(
+                        "id_existencia_inventario" => intval($this->valor($existencia, "id_existencia_inventario", 0)),
+                        "codigo_existencia" => $this->valor($existencia, "codigo_existencia", ""),
+                        "id_inventario_unidad" => intval($this->valor($unidad, "id_inventario_unidad", 0)),
+                        "codigo_unico" => $this->valor($unidad, "codigo_unico", ""),
+                        "codigo_etiqueta_interna" => $this->valor($unidad, "codigo_etiqueta_interna", ""),
+                        "lote" => $this->valor($unidad, "lote", $this->valor($existencia, "lote", "")),
+                        "fecha_caducidad" => $this->valor($unidad, "fecha_caducidad", $this->valor($existencia, "fecha_caducidad", null)),
+                        "ubicacion_id" => $this->valor($existencia, "ubicacion_id", null),
+                        "ubicacion" => $this->valor($existencia, "ubicacion", ""),
+                        "cantidad_disponible" => $disponibleUnidad,
+                        "cantidad_planificada" => round($tomar, 6),
+                        "estado_fisico" => $this->valor($unidad, "estado_fisico", ""),
+                        "trazabilidad" => "unidad_fisica"
+                    );
+                    $planeada = round($planeada + $tomar, 6);
+                    $restante = round($restante - $tomar, 6);
+                }
+                if ($restante > 0) {
+                    $advertencias[] = array(
+                        "id" => "RES-PLAN-UNI-001",
+                        "mensaje" => "Existencia con unidades fisicas no cubre toda la cantidad requerida; no se sugiere saldo agregado sin unidad"
+                    );
+                }
+                continue;
+            }
+
+            $disponible = round(floatval($this->valor($existencia, "cantidad_disponible", 0)), 6);
+            if ($disponible <= 0) {
+                continue;
+            }
+            $tomar = min($restante, $disponible);
+            $selecciones[] = array(
+                "id_existencia_inventario" => intval($this->valor($existencia, "id_existencia_inventario", 0)),
+                "codigo_existencia" => $this->valor($existencia, "codigo_existencia", ""),
+                "id_inventario_unidad" => null,
+                "codigo_unico" => null,
+                "codigo_etiqueta_interna" => null,
+                "lote" => $this->valor($existencia, "lote", ""),
+                "fecha_caducidad" => $this->valor($existencia, "fecha_caducidad", null),
+                "ubicacion_id" => $this->valor($existencia, "ubicacion_id", null),
+                "ubicacion" => $this->valor($existencia, "ubicacion", ""),
+                "cantidad_disponible" => $disponible,
+                "cantidad_planificada" => round($tomar, 6),
+                "estado_fisico" => null,
+                "trazabilidad" => "existencia_lote_ubicacion"
+            );
+            $planeada = round($planeada + $tomar, 6);
+            $restante = round($restante - $tomar, 6);
+        }
+        if ($restante > 0) {
+            $advertencias[] = array(
+                "id" => "RES-PLAN-STK-001",
+                "mensaje" => "Stock origen insuficiente para cubrir cantidad requerida",
+                "cantidad_faltante" => round($restante, 6)
+            );
+        }
+        return array(
+            "cantidad_planeada" => round($planeada, 6),
+            "cantidad_faltante" => round(max($restante, 0), 6),
+            "selecciones" => $selecciones,
+            "advertencias" => $advertencias
+        );
+    }
+
+    private function guardrailsPlanPreparacionResurtido() {
+        return array(
+            "no_escribe_bd" => 1,
+            "no_aparta_stock" => 1,
+            "no_mueve_inventario" => 1,
+            "no_modifica_unidades" => 1,
+            "no_toca_pos_ecommerce" => 1
+        );
     }
 
     private function consultarAlmacenActivoResurtido($db, $id_almacen) {
@@ -1820,6 +2682,128 @@ class Almacenes extends CRUD {
         }
         if (!empty($diferencias)) {
             $advertencias[] = array("id" => "RES-REC-VAL-006", "mensaje" => "Folio ya tiene diferencias registradas");
+        }
+        return array("bloqueos" => $bloqueos, "advertencias" => $advertencias);
+    }
+
+    private function validarFolioResurtidoParaAutorizar($consulta, $accion) {
+        $bloqueos = array();
+        $advertencias = array();
+        if (!empty($consulta["error"])) {
+            return array(
+                "bloqueos" => array(array("id" => "RES-AUT-VAL-002", "mensaje" => $this->valor($consulta, "mensaje", "No se pudo consultar folio"))),
+                "advertencias" => $advertencias
+            );
+        }
+        $depurar = isset($consulta["depurar"]) && is_array($consulta["depurar"]) ? $consulta["depurar"] : array();
+        if (intval($this->valor($depurar, "schema_pendiente", 0)) === 1) {
+            return array("bloqueos" => $bloqueos, "advertencias" => $advertencias);
+        }
+        $encabezado = isset($depurar["encabezado"]) && is_array($depurar["encabezado"]) ? $depurar["encabezado"] : null;
+        $detalle = isset($depurar["detalle"]) && is_array($depurar["detalle"]) ? $depurar["detalle"] : array();
+        if ($encabezado === null) {
+            $bloqueos[] = array("id" => "RES-AUT-VAL-003", "mensaje" => "Folio no encontrado");
+        } else {
+            $estatus = trim((string) $this->valor($encabezado, "estatus", ""));
+            if (!in_array($estatus, array("borrador", "solicitado"), true)) {
+                $bloqueos[] = array("id" => "RES-AUT-VAL-004", "mensaje" => "Folio no esta en estado autorizable", "estatus" => $estatus);
+            }
+        }
+        if (empty($detalle)) {
+            $bloqueos[] = array("id" => "RES-AUT-VAL-005", "mensaje" => "Folio sin detalle");
+        }
+        if ($accion === "autorizar") {
+            $lineasAutorizables = 0;
+            foreach ($detalle as $linea) {
+                if (floatval($this->valor($linea, "cantidad_solicitada", 0)) > 0) {
+                    $lineasAutorizables++;
+                }
+            }
+            if ($lineasAutorizables <= 0) {
+                $bloqueos[] = array("id" => "RES-AUT-VAL-006", "mensaje" => "No hay lineas con cantidad solicitada para autorizar");
+            }
+        }
+        return array("bloqueos" => $bloqueos, "advertencias" => $advertencias);
+    }
+
+    private function normalizarDetalleAutorizacionResurtido($datos) {
+        $raw = $this->valor($datos, "detalle", array());
+        if (is_string($raw)) {
+            $decodificado = json_decode($raw, true);
+            $raw = is_array($decodificado) ? $decodificado : array();
+        }
+        $resultado = array();
+        if (!is_array($raw)) {
+            return $resultado;
+        }
+        foreach ($raw as $linea) {
+            if (!is_array($linea)) {
+                continue;
+            }
+            $idDetalle = intval($this->valor($linea, "id_resurtido_detalle", 0));
+            if ($idDetalle <= 0) {
+                continue;
+            }
+            $resultado[$idDetalle] = $linea;
+        }
+        return $resultado;
+    }
+
+    private function validarFolioResurtidoParaCancelar($consulta) {
+        $bloqueos = array();
+        $advertencias = array();
+        if (!empty($consulta["error"])) {
+            return array(
+                "bloqueos" => array(array("id" => "RES-CAN-VAL-002", "mensaje" => $this->valor($consulta, "mensaje", "No se pudo consultar folio"))),
+                "advertencias" => $advertencias
+            );
+        }
+        $depurar = isset($consulta["depurar"]) && is_array($consulta["depurar"]) ? $consulta["depurar"] : array();
+        if (intval($this->valor($depurar, "schema_pendiente", 0)) === 1) {
+            return array("bloqueos" => $bloqueos, "advertencias" => $advertencias);
+        }
+        $encabezado = isset($depurar["encabezado"]) && is_array($depurar["encabezado"]) ? $depurar["encabezado"] : null;
+        $envios = isset($depurar["envios"]) && is_array($depurar["envios"]) ? $depurar["envios"] : array();
+        $recepciones = isset($depurar["recepciones"]) && is_array($depurar["recepciones"]) ? $depurar["recepciones"] : array();
+        if ($encabezado === null) {
+            $bloqueos[] = array("id" => "RES-CAN-VAL-003", "mensaje" => "Folio no encontrado");
+        } else {
+            $estatus = trim((string) $this->valor($encabezado, "estatus", ""));
+            if (in_array($estatus, array("cerrado", "cancelado"), true)) {
+                $bloqueos[] = array("id" => "RES-CAN-VAL-004", "mensaje" => "Folio ya esta cerrado o cancelado", "estatus" => $estatus);
+            }
+            if (!empty($envios) || !empty($recepciones) || in_array($estatus, array("enviado", "recibido", "recibido_parcial"), true)) {
+                $bloqueos[] = array("id" => "RES-CAN-VAL-005", "mensaje" => "Folio con envio/recepcion requiere reversa controlada, no cancelacion simple", "estatus" => $estatus);
+            }
+        }
+        return array("bloqueos" => $bloqueos, "advertencias" => $advertencias);
+    }
+
+    private function validarPayloadPoliticaResurtido($datos) {
+        $bloqueos = array();
+        $advertencias = array();
+        $id_almacen = intval($this->valor($datos, "id_almacen", 0));
+        $id_sku = intval($this->valor($datos, "id_sku_erp", 0));
+        $minimo = round(floatval($this->valor($datos, "stock_minimo", 0)), 6);
+        $maximoRaw = $this->valor($datos, "stock_maximo", null);
+        $maximo = $maximoRaw === null || $maximoRaw === "" ? null : round(floatval($maximoRaw), 6);
+        $reorden = round(floatval($this->valor($datos, "punto_reorden", 0)), 6);
+        $sugeridaRaw = $this->valor($datos, "cantidad_sugerida", null);
+        $sugerida = $sugeridaRaw === null || $sugeridaRaw === "" ? null : round(floatval($sugeridaRaw), 6);
+        if ($id_almacen <= 0) {
+            $bloqueos[] = array("id" => "RES-POL-VAL-001", "campo" => "id_almacen", "mensaje" => "Almacen obligatorio");
+        }
+        if ($id_sku <= 0) {
+            $bloqueos[] = array("id" => "RES-POL-VAL-002", "campo" => "id_sku_erp", "mensaje" => "SKU obligatorio");
+        }
+        if ($minimo < 0 || $reorden < 0 || ($maximo !== null && $maximo < 0) || ($sugerida !== null && $sugerida < 0)) {
+            $bloqueos[] = array("id" => "RES-POL-VAL-003", "mensaje" => "Cantidades de politica no pueden ser negativas");
+        }
+        if ($maximo !== null && $maximo > 0 && $minimo > $maximo) {
+            $bloqueos[] = array("id" => "RES-POL-VAL-004", "mensaje" => "Stock minimo no puede ser mayor que maximo");
+        }
+        if ($maximo !== null && $maximo > 0 && $reorden > $maximo) {
+            $advertencias[] = array("id" => "RES-POL-VAL-005", "mensaje" => "Punto de reorden mayor que maximo; revisar politica");
         }
         return array("bloqueos" => $bloqueos, "advertencias" => $advertencias);
     }

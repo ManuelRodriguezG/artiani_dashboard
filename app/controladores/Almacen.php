@@ -109,6 +109,18 @@ class Almacen extends Controlador {
         return json_encode($almacen->preparacion_envio_resurtido_contrato_readonly($_GET));
     }
 
+    public function resurtido_plan_preparacion_erp() {
+        $this->requerirPermiso("almacen.ver");
+        $almacen = $this->modelo('Almacenes');
+        return json_encode($almacen->plan_preparacion_resurtido_readonly($_GET));
+    }
+
+    public function resurtido_payload_preparacion_envio_erp() {
+        $this->requerirPermiso("almacen.ver");
+        $almacen = $this->modelo('Almacenes');
+        return json_encode($almacen->payload_preparacion_envio_resurtido_readonly($_GET));
+    }
+
     public function resurtido_recepcion_diferencias_contrato_erp() {
         $this->requerirPermiso("almacen.ver");
         $almacen = $this->modelo('Almacenes');
@@ -119,6 +131,12 @@ class Almacen extends Controlador {
         $this->requerirPermiso("almacen.ver");
         $almacen = $this->modelo('Almacenes');
         return json_encode($almacen->politicas_alertas_resurtido_contrato_readonly($_GET));
+    }
+
+    public function resurtido_acciones_contrato_erp() {
+        $this->requerirPermiso("almacen.ver");
+        $almacen = $this->modelo('Almacenes');
+        return json_encode($almacen->acciones_resurtido_contrato_readonly($_GET));
     }
 
     public function resurtido_guardar_erp() {
@@ -145,6 +163,48 @@ class Almacen extends Controlador {
         $this->requerirPermiso("almacen.recibir");
         $almacen = $this->modelo('Almacenes');
         return json_encode($almacen->recibir_resurtido_pendiente($_POST, $this->usuarioActualId()));
+    }
+
+    public function resurtido_autorizar_erp() {
+        $this->requerirPermiso("almacen.recibir");
+        $almacen = $this->modelo('Almacenes');
+        $respuesta = $almacen->autorizar_resurtido_pendiente($_POST, $this->usuarioActualId());
+        SesionSeguridad::registrarAuditoria("almacen", "resurtido_autorizar_erp", array(
+            "entidad" => "erp_almacen_resurtidos",
+            "entidad_id" => isset($respuesta["depurar"]["id_resurtido_almacen"]) ? intval($respuesta["depurar"]["id_resurtido_almacen"]) : 0,
+            "resultado" => $respuesta["error"] ? "error" : "ok",
+            "mensaje" => $respuesta["mensaje"],
+            "datos_despues" => isset($respuesta["depurar"]) ? $respuesta["depurar"] : null
+        ));
+        return json_encode($respuesta);
+    }
+
+    public function resurtido_cancelar_erp() {
+        $this->requerirPermiso("almacen.recibir");
+        $almacen = $this->modelo('Almacenes');
+        $respuesta = $almacen->cancelar_resurtido_pendiente($_POST, $this->usuarioActualId());
+        SesionSeguridad::registrarAuditoria("almacen", "resurtido_cancelar_erp", array(
+            "entidad" => "erp_almacen_resurtidos",
+            "entidad_id" => isset($respuesta["depurar"]["id_resurtido_almacen"]) ? intval($respuesta["depurar"]["id_resurtido_almacen"]) : 0,
+            "resultado" => $respuesta["error"] ? "error" : "ok",
+            "mensaje" => $respuesta["mensaje"],
+            "datos_despues" => isset($respuesta["depurar"]) ? $respuesta["depurar"] : null
+        ));
+        return json_encode($respuesta);
+    }
+
+    public function resurtido_politica_guardar_erp() {
+        $this->requerirPermiso("almacen.ubicaciones");
+        $almacen = $this->modelo('Almacenes');
+        $respuesta = $almacen->guardar_politica_resurtido_pendiente($_POST, $this->usuarioActualId());
+        SesionSeguridad::registrarAuditoria("almacen", "resurtido_politica_guardar_erp", array(
+            "entidad" => "erp_inventario_politicas_almacen_sku",
+            "entidad_id" => isset($respuesta["depurar"]["id_politica_almacen_sku"]) ? intval($respuesta["depurar"]["id_politica_almacen_sku"]) : 0,
+            "resultado" => $respuesta["error"] ? "error" : "ok",
+            "mensaje" => $respuesta["mensaje"],
+            "datos_despues" => isset($respuesta["depurar"]) ? $respuesta["depurar"] : null
+        ));
+        return json_encode($respuesta);
     }
 
     public function almacen_configuracion_guardar_erp() {

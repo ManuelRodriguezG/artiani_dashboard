@@ -80,16 +80,20 @@ Read-only:
 - `Almacen::resurtido_payload_solicitud_erp()`
 - `Almacen::resurtido_estados_erp()`
 - `Almacen::resurtido_preparacion_envio_contrato_erp()`
+- `Almacen::resurtido_plan_preparacion_erp()`
 - `Almacen::resurtido_recepcion_diferencias_contrato_erp()`
 - `Almacen::resurtido_politicas_alertas_contrato_erp()`
 
 Guardado bloqueado por esquema/autorizacion operativa:
 
 - `Almacen::resurtido_guardar_erp()`
+- `Almacen::resurtido_autorizar_erp()`
+- `Almacen::resurtido_cancelar_erp()`
 - `Almacen::resurtido_preparar_enviar_erp()`
 - `Almacen::resurtido_recibir_erp()`
+- `Almacen::resurtido_politica_guardar_erp()`
 
-Nota: no invocar los POST desde UI mientras no exista DDL aplicado y respaldo externo autorizado. Los endpoints de preparar/enviar y recibir actualmente devuelven `implementacion_pendiente` o `schema_pendiente`; no mueven inventario.
+Nota: no invocar los POST desde UI mientras no exista DDL aplicado y respaldo externo autorizado. Los endpoints de autorizar, cancelar y guardar politicas quedan listos para UAT real post-DDL; antes del DDL devuelven `schema_pendiente`. Preparar/enviar y recibir siguen devolviendo `implementacion_pendiente` y no mueven inventario.
 
 ## UAT sin escritura
 
@@ -116,7 +120,12 @@ Resultado esperado actual:
 - Simulacion de solicitud: disponible sin guardar.
 - Validacion/payload: disponibles sin POST.
 - Contratos de estados, preparacion/envio, recepcion/diferencias y politicas: disponibles.
+- Plan read-only de preparacion FEFO: disponible sin apartar stock ni mover unidades.
+- Payload read-only de preparacion/envio: disponible como contrato de POST futuro sin ejecutar acciones.
 - Backend pendiente de preparar/enviar y recibir: bloqueado y sin movimientos.
+- Backend de autorizar/cancelar y politicas tienda/SKU: listo post-DDL, bloqueado por `schema_pendiente` mientras falten tablas.
+- Contrato read-only de acciones: UI/backend/UAT listan acciones futuras sin ejecutar POST.
+- Arneses autorizados de autorizar/cancelar/politicas: bloqueados por token/respaldo e incluidos en preflight.
 - SQL propuesto: validacion estatica disponible antes de cualquier DDL.
 
 ## Arneses bloqueados
@@ -131,6 +140,24 @@ Crear primer folio UAT:
 
 ```powershell
 C:\xampp\php\php.exe storage\uat\uat_almacen_resurtido_guardar_authorized.php --autorizar=ALMACEN_RESURTIDO_GUARDAR_UAT --confirmacion="AUTORIZO UAT GUARDAR RESURTIDO usando respaldo RUTA_O_REFERENCIA" --respaldo=RUTA_O_REFERENCIA_RESPALDO --destino=4 --origen=3
+```
+
+Autorizar folio UAT:
+
+```powershell
+C:\xampp\php\php.exe storage\uat\uat_almacen_resurtido_autorizar_authorized.php --autorizar=ALMACEN_RESURTIDO_AUTORIZAR_UAT --confirmacion="AUTORIZO UAT AUTORIZAR RESURTIDO usando respaldo RUTA_O_REFERENCIA" --respaldo=RUTA_O_REFERENCIA_RESPALDO --folio=RES-YYYYMMDD-#### --accion=autorizar
+```
+
+Cancelar folio UAT:
+
+```powershell
+C:\xampp\php\php.exe storage\uat\uat_almacen_resurtido_cancelar_authorized.php --autorizar=ALMACEN_RESURTIDO_CANCELAR_UAT --confirmacion="AUTORIZO UAT CANCELAR RESURTIDO usando respaldo RUTA_O_REFERENCIA" --respaldo=RUTA_O_REFERENCIA_RESPALDO --folio=RES-YYYYMMDD-#### --motivo="Cancelacion UAT"
+```
+
+Politica tienda/SKU:
+
+```powershell
+C:\xampp\php\php.exe storage\uat\uat_almacen_resurtido_politica_authorized.php --autorizar=ALMACEN_RESURTIDO_POLITICA_UAT --confirmacion="AUTORIZO UAT POLITICA RESURTIDO usando respaldo RUTA_O_REFERENCIA" --respaldo=RUTA_O_REFERENCIA_RESPALDO --almacen=4 --sku=1
 ```
 
 Preparar/enviar futuro:
@@ -161,10 +188,22 @@ Los dos ultimos arneses aun responden `implementacion_pendiente`; existen para f
 C:\xampp\php\php.exe storage\uat\uat_almacen_resurtido_folio_readonly.php --folio=RES-YYYYMMDD-####
 ```
 
-8. Implementar `RES-T009`: preparacion/envio con salida de origen y entrada a transito.
-9. Implementar `RES-T010`: recepcion tienda y diferencias.
-10. Implementar `RES-T011`: politicas reales tienda/SKU.
-11. Implementar `RES-T012`: alertas persistentes de stock bajo.
+8. Revisar plan de preparacion FEFO por folio/tienda antes de confirmar movimientos.
+
+```powershell
+C:\xampp\php\php.exe storage\uat\uat_almacen_resurtido_plan_preparacion_readonly.php --folio=RES-YYYYMMDD-####
+```
+
+9. Revisar payload de preparacion/envio antes de confirmar movimientos.
+
+```powershell
+C:\xampp\php\php.exe storage\uat\uat_almacen_resurtido_payload_preparacion_envio_readonly.php --folio=RES-YYYYMMDD-####
+```
+
+10. Implementar `RES-T009`: preparacion/envio con salida de origen y entrada a transito.
+11. Implementar `RES-T010`: recepcion tienda y diferencias.
+12. Ejecutar UAT de politicas tienda/SKU post-DDL si se requiere min/max/reorden local antes de movimientos.
+13. Implementar `RES-T012`: alertas persistentes de stock bajo.
 
 ## Guardrails vivos
 

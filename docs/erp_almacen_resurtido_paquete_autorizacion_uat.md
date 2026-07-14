@@ -29,8 +29,13 @@ Pasar de la fase read-only al primer folio UAT `RES-*` de forma controlada, con 
 - `storage/uat/uat_almacen_resurtido_autorizacion_preflight.php`
 - `storage/uat/uat_almacen_resurtido_schema_apply_authorized.php`
 - `storage/uat/uat_almacen_resurtido_guardar_authorized.php`
+- `storage/uat/uat_almacen_resurtido_autorizar_authorized.php`
+- `storage/uat/uat_almacen_resurtido_cancelar_authorized.php`
+- `storage/uat/uat_almacen_resurtido_politica_authorized.php`
 - `storage/uat/uat_almacen_resurtido_folio_readonly.php`
 - `storage/uat/uat_almacen_resurtido_preparacion_envio_preflight.php`
+- `storage/uat/uat_almacen_resurtido_plan_preparacion_readonly.php`
+- `storage/uat/uat_almacen_resurtido_payload_preparacion_envio_readonly.php`
 - `storage/uat/uat_almacen_resurtido_recepcion_diferencias_preflight.php`
 - `storage/uat/uat_almacen_resurtido_preparar_enviar_authorized.php`
 - `storage/uat/uat_almacen_resurtido_recibir_authorized.php`
@@ -108,13 +113,31 @@ C:\xampp\php\php.exe storage\uat\uat_almacen_resurtido_sql_static.php
 C:\xampp\php\php.exe storage\uat\uat_almacen_resurtido_folio_readonly.php --folio=RES-YYYYMMDD-####
 ```
 
-7. Prevalidar folio antes de preparacion/envio:
+7. Autorizar folio UAT, solo despues de DDL/respaldo:
+
+```powershell
+C:\xampp\php\php.exe storage\uat\uat_almacen_resurtido_autorizar_authorized.php --autorizar=ALMACEN_RESURTIDO_AUTORIZAR_UAT --confirmacion="AUTORIZO UAT AUTORIZAR RESURTIDO usando respaldo RUTA_O_REFERENCIA" --respaldo=RUTA_O_REFERENCIA_RESPALDO --folio=RES-YYYYMMDD-#### --accion=autorizar
+```
+
+8. Prevalidar folio antes de preparacion/envio:
 
 ```powershell
 C:\xampp\php\php.exe storage\uat\uat_almacen_resurtido_preparacion_envio_preflight.php --folio=RES-YYYYMMDD-####
 ```
 
-8. Despues de `RES-T009`, prevalidar folio antes de recepcion/diferencias:
+9. Revisar plan read-only de preparacion por folio/tienda antes de confirmar movimientos.
+
+```powershell
+C:\xampp\php\php.exe storage\uat\uat_almacen_resurtido_plan_preparacion_readonly.php --folio=RES-YYYYMMDD-####
+```
+
+10. Revisar payload read-only de preparacion/envio:
+
+```powershell
+C:\xampp\php\php.exe storage\uat\uat_almacen_resurtido_payload_preparacion_envio_readonly.php --folio=RES-YYYYMMDD-####
+```
+
+11. Despues de `RES-T009`, prevalidar folio antes de recepcion/diferencias:
 
 ```powershell
 C:\xampp\php\php.exe storage\uat\uat_almacen_resurtido_recepcion_diferencias_preflight.php --folio=RES-YYYYMMDD-####
@@ -152,6 +175,40 @@ Estado actual:
 - Aun con token valido responden `implementacion_pendiente`.
 - No mueven inventario hasta que se implemente y valide el backend real de `RES-T009` y `RES-T010`.
 
+## Tokens adicionales RES-T008/RES-T011
+
+Estado actual:
+
+- Los arneses estan bloqueados por token/respaldo.
+- Si falta DDL, responden `schema_pendiente` y no escriben cambios.
+- Con DDL aplicado y datos validos, autorizar/cancelar modifican solo documentos de resurtido.
+- Con DDL aplicado y datos validos, politica tienda/SKU inserta o actualiza la regla local.
+- Ninguno de estos arneses mueve inventario ni toca POS/ecommerce.
+
+Autorizar/rechazar:
+
+```text
+ALMACEN_RESURTIDO_AUTORIZAR_UAT
+```
+
+Confirmacion textual:
+
+```text
+AUTORIZO UAT AUTORIZAR RESURTIDO usando respaldo RUTA_O_REFERENCIA
+```
+
+Cancelar:
+
+```text
+ALMACEN_RESURTIDO_CANCELAR_UAT
+```
+
+Politica tienda/SKU:
+
+```text
+ALMACEN_RESURTIDO_POLITICA_UAT
+```
+
 ## Evidencia minima por folio/SKU
 
 - Folio `RES-*`.
@@ -166,6 +223,8 @@ Estado actual:
 - Sin movimientos de inventario.
 - Sin afectacion POS/ecommerce.
 - Preflight `RES-T009` ejecutado antes de cualquier preparacion/envio real.
+- Plan `RES-T009F` revisado para existencia/lote/caducidad/unidad antes de cualquier preparacion/envio real.
+- Payload `RES-T009G` revisado antes de cualquier preparacion/envio real.
 - Preflight `RES-T010` ejecutado antes de cualquier recepcion real.
 
 ## Lo que queda despues del primer folio

@@ -16,6 +16,24 @@ require_once "../app/modelos/AlmacenEsquema.php";
 $almacenes = new Almacenes();
 $esquema = new AlmacenEsquema();
 
+if (!$almacenes->conexion_disponible_readonly()) {
+    echo json_encode(array(
+        "ok" => false,
+        "modo" => "almacen_resurtido_readonly",
+        "read_only" => true,
+        "error_entorno" => "Conexion de BD no disponible",
+        "guardrails" => array(
+            "no_ejecuta_ddl" => true,
+            "no_escribe_bd" => true,
+            "no_mueve_kardex" => true,
+            "no_toca_pos_ecommerce" => true
+        ),
+        "bloqueos" => array("MySQL/MariaDB local no esta disponible para UAT read-only"),
+        "siguiente_paso" => "Levantar MySQL local y repetir UAT read-only antes de autorizar DDL."
+    ), JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT) . PHP_EOL;
+    exit(1);
+}
+
 $auditoria = $esquema->auditarAlmacenInventario();
 $plan = $esquema->planActualizarAlmacenInventario(false);
 $listado = $almacenes->consultar_resurtidos_readonly(array());
@@ -45,13 +63,36 @@ $estadosContrato = $almacenes->estados_resurtido_readonly(array());
 $transicionPermitida = $almacenes->estados_resurtido_readonly(array("desde" => "preparado", "hacia" => "enviado"));
 $transicionBloqueada = $almacenes->estados_resurtido_readonly(array("desde" => "solicitado", "hacia" => "enviado"));
 $contratoPrepEnvio = $almacenes->preparacion_envio_resurtido_contrato_readonly(array());
+$planPreparacion = ($almacenPreflight && $almacenOrigen)
+    ? $almacenes->plan_preparacion_resurtido_readonly(array(
+        "id_almacen_destino" => $almacenPreflight["id_almacen"],
+        "id_almacen_origen" => $almacenOrigen["id_almacen"]
+    ))
+    : null;
+$payloadPreparacion = ($almacenPreflight && $almacenOrigen)
+    ? $almacenes->payload_preparacion_envio_resurtido_readonly(array(
+        "id_almacen_destino" => $almacenPreflight["id_almacen"],
+        "id_almacen_origen" => $almacenOrigen["id_almacen"]
+    ))
+    : null;
 $contratoRecepcion = $almacenes->recepcion_diferencias_resurtido_contrato_readonly(array());
 $contratoPoliticas = $almacenes->politicas_alertas_resurtido_contrato_readonly(array());
+$contratoAcciones = $almacenes->acciones_resurtido_contrato_readonly(array());
 $guardadoBloqueado = $payloadSolicitud === null ? null : $almacenes->guardar_solicitud_resurtido(array(
     "payload" => json_encode(valor($payloadSolicitud, array("depurar", "payload"), array()))
 ), 0);
 $prepararEnviarPendiente = $almacenes->preparar_enviar_resurtido_pendiente(array("folio" => "RES-UAT-READONLY"), 0);
 $recibirPendiente = $almacenes->recibir_resurtido_pendiente(array("folio" => "RES-UAT-READONLY"), 0);
+$autorizarPendiente = $almacenes->autorizar_resurtido_pendiente(array("folio" => "RES-UAT-READONLY", "accion" => "autorizar"), 0);
+$cancelarPendiente = $almacenes->cancelar_resurtido_pendiente(array("folio" => "RES-UAT-READONLY", "motivo_cancelacion" => "UAT read-only"), 0);
+$politicaPendiente = $almacenes->guardar_politica_resurtido_pendiente(array(
+    "id_almacen" => $almacenPreflight ? $almacenPreflight["id_almacen"] : 0,
+    "id_sku_erp" => 1,
+    "stock_minimo" => 1,
+    "stock_maximo" => 10,
+    "punto_reorden" => 2,
+    "cantidad_sugerida" => 5
+), 0);
 
 $bloqueos = array();
 $avisos = array();
@@ -116,6 +157,33 @@ if (intval(valor($contratoPrepEnvio, array("depurar", "envio", "afecta_inventari
 if (count(valor($contratoPrepEnvio, array("depurar", "envio", "movimientos_esperados"), array())) < 2) {
     $bloqueos[] = "Contrato envio no define salida y entrada a transito";
 }
+if ($planPreparacion !== null && !empty($planPreparacion["error"])) {
+    $avisos[] = "Plan preparacion read-only devolvio aviso/error: " . valor($planPreparacion, array("mensaje"), "sin mensaje");
+}
+if ($planPreparacion !== null && intval(valor($planPreparacion, array("depurar", "read_only"), 0)) !== 1) {
+    $bloqueos[] = "Plan preparacion no declara read_only";
+}
+if ($planPreparacion !== null && intval(valor($planPreparacion, array("depurar", "movimientos_generados"), 1)) !== 0) {
+    $bloqueos[] = "Plan preparacion reporto movimientos generados";
+}
+if ($planPreparacion !== null && intval(valor($planPreparacion, array("depurar", "preparaciones_generadas"), 1)) !== 0) {
+    $bloqueos[] = "Plan preparacion reporto preparaciones generadas";
+}
+if ($planPreparacion !== null && count(valor($planPreparacion, array("depurar", "plan"), array())) < 1) {
+    $avisos[] = "Plan preparacion no encontro partidas candidatas";
+}
+if ($payloadPreparacion !== null && !empty($payloadPreparacion["error"])) {
+    $avisos[] = "Payload preparacion/envio read-only devolvio aviso/error: " . valor($payloadPreparacion, array("mensaje"), "sin mensaje");
+}
+if ($payloadPreparacion !== null && intval(valor($payloadPreparacion, array("depurar", "read_only"), 0)) !== 1) {
+    $bloqueos[] = "Payload preparacion/envio no declara read_only";
+}
+if ($payloadPreparacion !== null && intval(valor($payloadPreparacion, array("depurar", "movimientos_generados"), 1)) !== 0) {
+    $bloqueos[] = "Payload preparacion/envio reporto movimientos generados";
+}
+if ($payloadPreparacion !== null && intval(valor($payloadPreparacion, array("depurar", "puede_enviar_post"), 1)) !== 0) {
+    $bloqueos[] = "Payload preparacion/envio quedo habilitado indebidamente antes de DDL/cobertura completa";
+}
 if (!empty($contratoRecepcion["error"])) {
     $bloqueos[] = "Contrato recepcion/diferencias devolvio error: " . valor($contratoRecepcion, array("mensaje"), "sin mensaje");
 }
@@ -131,6 +199,9 @@ if (count(valor($contratoRecepcion, array("depurar", "diferencias"), array())) <
 if (!empty($contratoPoliticas["error"])) {
     $bloqueos[] = "Contrato politicas/alertas devolvio error: " . valor($contratoPoliticas, array("mensaje"), "sin mensaje");
 }
+if (!empty($contratoAcciones["error"])) {
+    $bloqueos[] = "Contrato acciones devolvio error: " . valor($contratoAcciones, array("mensaje"), "sin mensaje");
+}
 if (count(valor($contratoPoliticas, array("depurar", "contrato_politica", "campos_obligatorios"), array())) < 6) {
     $bloqueos[] = "Contrato politicas no define campos obligatorios minimos";
 }
@@ -139,6 +210,19 @@ if (count(valor($contratoPoliticas, array("depurar", "formula"), array())) < 4) 
 }
 if (count(valor($contratoPoliticas, array("depurar", "alertas_futuras", "eventos"), array())) < 4) {
     $bloqueos[] = "Contrato politicas no define eventos de alerta";
+}
+$acciones = valor($contratoAcciones, array("depurar", "acciones"), array());
+if (count($acciones) < 6) {
+    $bloqueos[] = "Contrato acciones no define acciones minimas";
+}
+$accionesInventario = 0;
+foreach ($acciones as $accion) {
+    if (intval(valor($accion, array("afecta_inventario"), 0)) === 1) {
+        $accionesInventario++;
+    }
+}
+if ($accionesInventario < 2) {
+    $bloqueos[] = "Contrato acciones no marca preparar/enviar y recibir como acciones con inventario";
 }
 if ($guardadoBloqueado !== null && !empty($guardadoBloqueado["error"])) {
     $avisos[] = "Guardado bloqueado devolvio error inesperado: " . valor($guardadoBloqueado, array("mensaje"), "sin mensaje");
@@ -158,6 +242,24 @@ if (intval(valor($recibirPendiente, array("depurar", "schema_pendiente"), 0)) !=
 }
 if (intval(valor($recibirPendiente, array("depurar", "movimientos_generados"), 1)) !== 0) {
     $bloqueos[] = "Recibir RES-T010 reporto movimientos generados";
+}
+if (intval(valor($autorizarPendiente, array("depurar", "schema_pendiente"), 0)) !== 1) {
+    $bloqueos[] = "Autorizar RES-T008 no quedo bloqueado por schema_pendiente";
+}
+if (intval(valor($autorizarPendiente, array("depurar", "movimientos_generados"), 1)) !== 0) {
+    $bloqueos[] = "Autorizar RES-T008 reporto movimientos generados";
+}
+if (intval(valor($cancelarPendiente, array("depurar", "schema_pendiente"), 0)) !== 1) {
+    $bloqueos[] = "Cancelar resurtido no quedo bloqueado por schema_pendiente";
+}
+if (intval(valor($cancelarPendiente, array("depurar", "movimientos_generados"), 1)) !== 0) {
+    $bloqueos[] = "Cancelar resurtido reporto movimientos generados";
+}
+if (intval(valor($politicaPendiente, array("depurar", "schema_pendiente"), 0)) !== 1) {
+    $bloqueos[] = "Politica tienda/SKU no quedo bloqueada por schema_pendiente";
+}
+if (intval(valor($politicaPendiente, array("depurar", "guardado"), 1)) !== 0) {
+    $bloqueos[] = "Politica tienda/SKU reporto guardado real";
 }
 $payloadContrato = $payloadSolicitud === null ? null : validarPayloadContrato($payloadSolicitud);
 if ($payloadContrato !== null && !$payloadContrato["ok"]) {
@@ -216,6 +318,13 @@ echo json_encode(array(
         "preparacion_no_afecta_inventario" => valor($contratoPrepEnvio, array("depurar", "preparacion", "no_afecta_inventario"), null),
         "envio_afecta_inventario" => valor($contratoPrepEnvio, array("depurar", "envio", "afecta_inventario"), null),
         "envio_movimientos_esperados" => count(valor($contratoPrepEnvio, array("depurar", "envio", "movimientos_esperados"), array())),
+        "plan_preparacion" => resumenRespuesta($planPreparacion),
+        "plan_preparacion_partidas" => count(valor($planPreparacion, array("depurar", "plan"), array())),
+        "plan_preparacion_totales" => valor($planPreparacion, array("depurar", "totales"), array()),
+        "plan_preparacion_movimientos" => valor($planPreparacion, array("depurar", "movimientos_generados"), null),
+        "payload_preparacion_envio" => resumenRespuesta($payloadPreparacion),
+        "payload_preparacion_lineas" => count(valor($payloadPreparacion, array("depurar", "payload", "preparaciones"), array())),
+        "payload_preparacion_puede_post" => valor($payloadPreparacion, array("depurar", "puede_enviar_post"), null),
         "contrato_recepcion_diferencias" => resumenRespuesta($contratoRecepcion),
         "recepcion_afecta_inventario" => valor($contratoRecepcion, array("depurar", "recepcion", "afecta_inventario"), null),
         "recepcion_movimientos_esperados" => count(valor($contratoRecepcion, array("depurar", "movimientos_esperados"), array())),
@@ -226,6 +335,9 @@ echo json_encode(array(
         "politica_campos_obligatorios" => count(valor($contratoPoliticas, array("depurar", "contrato_politica", "campos_obligatorios"), array())),
         "politica_formula_reglas" => count(valor($contratoPoliticas, array("depurar", "formula"), array())),
         "politica_alertas_eventos" => count(valor($contratoPoliticas, array("depurar", "alertas_futuras", "eventos"), array())),
+        "contrato_acciones" => resumenRespuesta($contratoAcciones),
+        "acciones_total" => count($acciones),
+        "acciones_inventario" => $accionesInventario,
         "guardado_bloqueado" => $guardadoBloqueado === null ? null : resumenRespuesta($guardadoBloqueado),
         "guardado_schema_pendiente" => $guardadoSchemaPendiente,
         "guardado_realizado" => $guardadoBloqueado === null ? null : valor($guardadoBloqueado, array("depurar", "guardado"), null),
@@ -235,6 +347,15 @@ echo json_encode(array(
         "recibir_pendiente" => resumenRespuesta($recibirPendiente),
         "recibir_schema_pendiente" => valor($recibirPendiente, array("depurar", "schema_pendiente"), null),
         "recibir_movimientos" => valor($recibirPendiente, array("depurar", "movimientos_generados"), null),
+        "autorizar_pendiente" => resumenRespuesta($autorizarPendiente),
+        "autorizar_schema_pendiente" => valor($autorizarPendiente, array("depurar", "schema_pendiente"), null),
+        "autorizar_movimientos" => valor($autorizarPendiente, array("depurar", "movimientos_generados"), null),
+        "cancelar_pendiente" => resumenRespuesta($cancelarPendiente),
+        "cancelar_schema_pendiente" => valor($cancelarPendiente, array("depurar", "schema_pendiente"), null),
+        "cancelar_movimientos" => valor($cancelarPendiente, array("depurar", "movimientos_generados"), null),
+        "politica_pendiente" => resumenRespuesta($politicaPendiente),
+        "politica_schema_pendiente" => valor($politicaPendiente, array("depurar", "schema_pendiente"), null),
+        "politica_guardado" => valor($politicaPendiente, array("depurar", "guardado"), null),
         "almacen_preflight" => $almacenPreflight,
         "almacen_origen_explicito" => $almacenOrigen
     ),

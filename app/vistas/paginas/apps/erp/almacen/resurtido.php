@@ -28,7 +28,9 @@
                                                 <button class="btn btn-light-info" id="alm_res_btn_resumen" type="button"><i class="bi bi-shop"></i> Resumen tiendas</button>
                                                 <button class="btn btn-light-dark" id="alm_res_btn_estados" type="button"><i class="bi bi-diagram-3"></i> Estados</button>
                                                 <button class="btn btn-light-warning" id="alm_res_btn_prep_envio" type="button"><i class="bi bi-box-seam"></i> Prep/envio</button>
+                                                <button class="btn btn-light-success" id="alm_res_btn_plan_prep" type="button"><i class="bi bi-list-check"></i> Plan prep</button>
                                                 <button class="btn btn-light-danger" id="alm_res_btn_recepcion" type="button"><i class="bi bi-clipboard2-check"></i> Recepcion</button>
+                                                <button class="btn btn-light-primary" id="alm_res_btn_acciones" type="button"><i class="bi bi-lightning-charge"></i> Acciones</button>
                                                 <button class="btn btn-light-success" id="alm_res_btn_politicas" type="button"><i class="bi bi-sliders"></i> Politicas</button>
                                                 <button class="btn btn-primary" id="alm_res_btn_nuevo" type="button" disabled title="Pendiente de esquema autorizado"><i class="bi bi-plus-circle"></i> Nueva solicitud</button>
                                             </div>
@@ -111,6 +113,26 @@
                                     <div class="card mt-5">
                                         <div class="card-header">
                                             <div class="card-title">
+                                                <h3 class="fw-bold m-0">Plan preparacion</h3>
+                                            </div>
+                                        </div>
+                                        <div class="card-body" id="alm_res_plan_prep_panel">
+                                            Plan FEFO pendiente de consultar.
+                                        </div>
+                                    </div>
+                                    <div class="card mt-5">
+                                        <div class="card-header">
+                                            <div class="card-title">
+                                                <h3 class="fw-bold m-0">Payload RES-T009</h3>
+                                            </div>
+                                        </div>
+                                        <div class="card-body" id="alm_res_payload_prep_panel">
+                                            Payload de preparacion/envio pendiente.
+                                        </div>
+                                    </div>
+                                    <div class="card mt-5">
+                                        <div class="card-header">
+                                            <div class="card-title">
                                                 <h3 class="fw-bold m-0">Recepcion/diferencias</h3>
                                             </div>
                                         </div>
@@ -126,6 +148,16 @@
                                         </div>
                                         <div class="card-body" id="alm_res_politicas_panel">
                                             Contrato tecnico pendiente de consultar.
+                                        </div>
+                                    </div>
+                                    <div class="card mt-5">
+                                        <div class="card-header">
+                                            <div class="card-title">
+                                                <h3 class="fw-bold m-0">Acciones</h3>
+                                            </div>
+                                        </div>
+                                        <div class="card-body" id="alm_res_acciones_panel">
+                                            Contrato de acciones pendiente de consultar.
                                         </div>
                                     </div>
                                 </div>

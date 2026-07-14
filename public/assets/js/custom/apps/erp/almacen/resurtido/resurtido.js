@@ -544,6 +544,161 @@
             $("alm_res_politicas_panel").innerHTML = "<span class=\"text-danger\">" + escapeHtml(error.message) + "</span>";
         });
     }
+    /**
+     * IA: Codex GPT-5 | Fecha: 2026-07-13
+     * Proposito: muestra el plan FEFO read-only de preparacion para resurtido.
+     * Impacto: UI Almacen/Resurtido RES-T009; permite revisar lote, caducidad, ubicacion y unidad fisica antes de mover inventario.
+     * Contrato: GET read-only; no aparta stock, no prepara, no envia y no modifica unidades.
+     */
+    function cargarPlanPreparacion() {
+        var params = new URLSearchParams({
+            id_almacen_destino: $("alm_res_stock_almacen").value || "",
+            id_almacen_origen: $("alm_res_stock_origen").value || "",
+            q: $("alm_res_stock_q").value || ""
+        });
+        $("alm_res_plan_prep_panel").innerHTML = "Calculando plan...";
+        $("alm_res_payload_prep_panel").innerHTML = "Generando payload...";
+        return request("/almacen/resurtido_plan_preparacion_erp?" + params.toString()).then(function (response) {
+            if (response.error) { throw new Error(response.mensaje); }
+            var payload = response.depurar || {};
+            var rows = payload.plan || [];
+            var totales = payload.totales || {};
+            renderSchemaPendiente(payload);
+            if (!rows.length) {
+                $("alm_res_plan_prep_panel").innerHTML = "<div class=\"text-muted\">Sin partidas para planear.</div>";
+                return;
+            }
+            $("alm_res_plan_prep_panel").innerHTML =
+                "<div class=\"d-flex flex-wrap gap-2 mb-3\">" +
+                "<span class=\"badge badge-light-dark\">Read-only</span>" +
+                "<span class=\"badge badge-light-primary\">" + numero(totales.partidas) + " partidas</span>" +
+                "<span class=\"badge badge-light-success\">Planeado " + numero(totales.cantidad_planeada) + "</span>" +
+                "<span class=\"badge badge-light-warning\">Faltante " + numero(totales.cantidad_faltante) + "</span>" +
+                "<span class=\"badge badge-light-info\">" + numero(totales.selecciones_unidad) + " unidades</span>" +
+                "</div>" +
+                rows.map(renderPlanPreparacionLinea).join("");
+            return cargarPayloadPreparacion(params);
+        }).catch(function (error) {
+            $("alm_res_plan_prep_panel").innerHTML = "<span class=\"text-danger\">" + escapeHtml(error.message) + "</span>";
+            $("alm_res_payload_prep_panel").innerHTML = "<span class=\"text-danger\">" + escapeHtml(error.message) + "</span>";
+        });
+    }
+    /**
+     * IA: Codex GPT-5 | Fecha: 2026-07-13
+     * Proposito: muestra el payload futuro RES-T009 sin ejecutar POST.
+     * Impacto: UI Almacen/Resurtido; permite revisar selecciones de preparacion/envio antes del backend real.
+     * Contrato: GET read-only; no aparta stock, no genera preparaciones y no mueve inventario.
+     */
+    function cargarPayloadPreparacion(params) {
+        return request("/almacen/resurtido_payload_preparacion_envio_erp?" + params.toString()).then(function (response) {
+            if (response.error) { throw new Error(response.mensaje); }
+            var payload = response.depurar || {};
+            var data = payload.payload || {};
+            var preparaciones = data.preparaciones || [];
+            var estado = Number(payload.puede_enviar_post || 0) === 1
+                ? "<span class=\"badge badge-light-success\">POST posible</span>"
+                : "<span class=\"badge badge-light-danger\">POST bloqueado</span>";
+            $("alm_res_payload_prep_panel").innerHTML =
+                "<div class=\"d-flex justify-content-between align-items-center mb-3\">" +
+                "<div class=\"fw-bold\">Payload preparar/enviar</div>" + estado + "</div>" +
+                "<div class=\"d-flex flex-wrap gap-2 mb-3\">" +
+                "<span class=\"badge badge-light-primary\">" + numero(preparaciones.length) + " preparaciones</span>" +
+                "<span class=\"badge badge-light-info\">" + escapeHtml(payload.metodo_futuro || "POST") + "</span>" +
+                "<span class=\"badge badge-light-secondary\">" + escapeHtml(payload.endpoint_futuro || "") + "</span>" +
+                "</div>" +
+                renderMensajesValidacion("Bloqueos", payload.bloqueos || [], "danger") +
+                renderMensajesValidacion("Advertencias", payload.advertencias || [], "warning") +
+                "<pre class=\"bg-light rounded p-3 fs-8\" style=\"max-height: 260px; overflow:auto; white-space: pre-wrap;\">" +
+                escapeHtml(JSON.stringify(data, null, 2)) +
+                "</pre>";
+        }).catch(function (error) {
+            $("alm_res_payload_prep_panel").innerHTML = "<span class=\"text-danger\">" + escapeHtml(error.message) + "</span>";
+        });
+    }
+    function renderPlanPreparacionLinea(item) {
+        var selecciones = item.selecciones || [];
+        var cobertura = item.cobertura === "completa"
+            ? "<span class=\"badge badge-light-success\">Completa</span>"
+            : "<span class=\"badge badge-light-danger\">Incompleta</span>";
+        return "<div class=\"border-bottom py-3\">" +
+            "<div class=\"d-flex justify-content-between align-items-start gap-3\">" +
+            "<div><div class=\"fw-bold\">" + escapeHtml(item.sku || item.id_sku_erp || "-") + "</div>" +
+            "<div class=\"text-muted fs-8\">" + escapeHtml(item.nombre_producto || item.nombre_sku || "") + "</div></div>" +
+            cobertura +
+            "</div>" +
+            "<div class=\"d-flex flex-wrap gap-2 mt-2 mb-2\">" +
+            "<span class=\"badge badge-light-primary\">Req. " + numero(item.cantidad_requerida) + "</span>" +
+            "<span class=\"badge badge-light-success\">Plan " + numero(item.cantidad_planeada) + "</span>" +
+            "<span class=\"badge badge-light-warning\">Falta " + numero(item.cantidad_faltante) + "</span>" +
+            "<span class=\"badge badge-light-secondary\">" + numero(item.existencias_candidatas) + " exist.</span>" +
+            "</div>" +
+            (selecciones.length ? selecciones.map(function (sel) {
+                var unidad = sel.id_inventario_unidad
+                    ? " | " + escapeHtml(sel.codigo_unico || sel.codigo_etiqueta_interna || ("Unidad " + sel.id_inventario_unidad))
+                    : "";
+                return "<div class=\"text-muted fs-8 py-1\">" +
+                    "<span class=\"fw-bold\">" + numero(sel.cantidad_planificada) + "</span> " +
+                    escapeHtml(sel.trazabilidad || "") + unidad +
+                    " | lote " + escapeHtml(sel.lote || "-") +
+                    " | cad. " + escapeHtml(sel.fecha_caducidad || "-") +
+                    " | " + escapeHtml(sel.ubicacion || "sin ubicacion") +
+                    "</div>";
+            }).join("") : "<div class=\"text-muted fs-8\">Sin existencia candidata.</div>") +
+            renderAdvertenciasPlan(item.advertencias || []) +
+            "</div>";
+    }
+    function renderAdvertenciasPlan(rows) {
+        if (!rows.length) { return ""; }
+        return rows.map(function (item) {
+            return "<div class=\"alert alert-light-warning py-2 px-3 mt-2 mb-0\">" +
+                "<span class=\"fw-bold\">" + escapeHtml(item.id || "-") + "</span> " + escapeHtml(item.mensaje || "") +
+                "</div>";
+        }).join("");
+    }
+    /**
+     * IA: Codex GPT-5 | Fecha: 2026-07-13
+     * Proposito: muestra el contrato read-only de acciones futuras sin ejecutar POST.
+     * Impacto: UI Almacen/Resurtido; adelanta revision operativa de autorizacion, cancelacion, envio, recepcion y politicas.
+     * Contrato: GET read-only; no escribe BD, no mueve inventario y no toca POS/ecommerce.
+     */
+    function cargarContratoAcciones() {
+        $("alm_res_acciones_panel").innerHTML = "Consultando contrato...";
+        return request("/almacen/resurtido_acciones_contrato_erp").then(function (response) {
+            if (response.error) { throw new Error(response.mensaje); }
+            var payload = response.depurar || {};
+            renderSchemaPendiente(payload);
+            var acciones = payload.acciones || [];
+            if (!acciones.length) {
+                $("alm_res_acciones_panel").innerHTML = "<div class=\"text-muted\">Sin acciones configuradas.</div>";
+                return;
+            }
+            $("alm_res_acciones_panel").innerHTML =
+                "<div class=\"d-flex flex-wrap gap-2 mb-3\">" +
+                "<span class=\"badge badge-light-primary\">" + numero(acciones.length) + " acciones</span>" +
+                "<span class=\"badge badge-light-warning\">Schema " + (payload.schema_pendiente ? "pendiente" : "listo") + "</span>" +
+                "<span class=\"badge badge-light-info\">Read-only</span>" +
+                "</div>" +
+                acciones.map(function (accion) {
+                    var inv = Number(accion.afecta_inventario || 0) === 1
+                        ? "<span class=\"badge badge-light-danger\">Afecta inventario</span>"
+                        : "<span class=\"badge badge-light-success\">Documental</span>";
+                    return "<div class=\"border-bottom py-3\">" +
+                        "<div class=\"d-flex justify-content-between align-items-start gap-3\">" +
+                        "<div><div class=\"fw-bold\">" + escapeHtml(accion.accion || "-") + "</div>" +
+                        "<div class=\"text-muted fs-8\">" + escapeHtml(accion.endpoint || "-") + "</div></div>" +
+                        "<span class=\"badge badge-light-dark\">" + escapeHtml(accion.implementacion || "-") + "</span>" +
+                        "</div>" +
+                        "<div class=\"d-flex flex-wrap gap-2 mt-2\">" +
+                        "<span class=\"badge badge-light-primary\">" + escapeHtml(accion.metodo || "GET") + "</span>" +
+                        "<span class=\"badge badge-light-info\">" + escapeHtml(accion.estado_resultado || "-") + "</span>" +
+                        "<span class=\"badge badge-light-secondary\">" + escapeHtml(accion.permiso_actual || "-") + "</span>" +
+                        inv +
+                        "</div></div>";
+                }).join("");
+        }).catch(function (error) {
+            $("alm_res_acciones_panel").innerHTML = "<span class=\"text-danger\">" + escapeHtml(error.message) + "</span>";
+        });
+    }
     function renderFormulaPoliticas(formula) {
         var rows = Object.keys(formula).map(function (key) {
             return "<div class=\"border-bottom py-2\"><span class=\"fw-bold\">" + escapeHtml(key) + "</span><div class=\"text-muted fs-8\">" + escapeHtml(formula[key]) + "</div></div>";
@@ -568,7 +723,9 @@
         $("alm_res_btn_resumen").addEventListener("click", cargarResumenTiendas);
         $("alm_res_btn_estados").addEventListener("click", cargarEstados);
         $("alm_res_btn_prep_envio").addEventListener("click", cargarContratoPreparacionEnvio);
+        $("alm_res_btn_plan_prep").addEventListener("click", cargarPlanPreparacion);
         $("alm_res_btn_recepcion").addEventListener("click", cargarContratoRecepcion);
+        $("alm_res_btn_acciones").addEventListener("click", cargarContratoAcciones);
         $("alm_res_btn_politicas").addEventListener("click", cargarContratoPoliticas);
         $("alm_res_stock_q").addEventListener("keyup", function (event) {
             if (event.key === "Enter") { consultarStockBajo(); }
@@ -580,6 +737,7 @@
             cargarResurtidos();
             cargarEstados();
             cargarContratoPreparacionEnvio();
+            cargarPlanPreparacion();
             cargarContratoRecepcion();
             cargarContratoPoliticas();
             if ($("alm_res_stock_almacen").value) {
