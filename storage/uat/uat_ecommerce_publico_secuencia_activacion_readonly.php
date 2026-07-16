@@ -91,6 +91,13 @@ $comandos = array(
   ),
   array(
     "paso" => 10,
+    "nombre" => "Validar SEO publico",
+    "comando" => "C:\\xampp\\php\\php.exe storage\\uat\\uat_ecommerce_publico_http_smoke_readonly.php --base=" . $base,
+    "esperado" => "seo responde JSON y sitemap/robots sugeridos; sin stock exacto.",
+    "escritura" => false
+  ),
+  array(
+    "paso" => 11,
     "nombre" => "Compuerta verde final",
     "comando" => "C:\\xampp\\php\\php.exe storage\\uat\\uat_ecommerce_publico_green_gate_readonly.php --base=" . $base,
     "esperado" => "ok=true; catalogo con item real; cotizacion_dryrun con item publicado.",

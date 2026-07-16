@@ -64,6 +64,7 @@ $shapeBloqueos = shapeBundle(array(
   "contratos" => $contratos,
   "estado" => $estado,
   "configuracion" => $configActual,
+  "seo" => $api->seoPublico(array("limite" => 1)),
   "catalogo" => $api->catalogoPublico(array("limite" => 1)),
   "filtros" => $api->filtrosPublicos(),
   "dryrun" => $api->cotizacionDryRun(array("items" => array(array("id_publicacion" => 1, "cantidad" => 1))))
@@ -93,7 +94,7 @@ if (!$respaldoValidado["ok"]) {
 if (intval(valorBundle($schemaPlan, array("depurar", "ddl_total"), 0)) !== 5) {
   $bloqueosActivacion[] = "plan_ddl_inesperado";
 }
-if (count($endpoints) < 8) {
+if (count($endpoints) < 9) {
   $bloqueosActivacion[] = "contratos_api_incompletos";
 }
 if (!empty($shapeBloqueos)) {
@@ -200,8 +201,8 @@ function shapeBundle($respuestas, $endpoints) {
       $bloqueos[] = $nombre . "_version_invalida";
     }
   }
-  if (count($endpoints) < 8) {
-    $bloqueos[] = "endpoints_publicos_menor_a_8";
+  if (count($endpoints) < 9) {
+    $bloqueos[] = "endpoints_publicos_menor_a_9";
   }
   foreach (array(
     "/ecommercePublico/estado",
@@ -209,6 +210,7 @@ function shapeBundle($respuestas, $endpoints) {
     "/ecommercePublico/producto/{slug}",
     "/ecommercePublico/filtros",
     "/ecommercePublico/configuracion",
+    "/ecommercePublico/seo",
     "/ecommercePublico/disponibilidad",
     "/ecommercePublico/cotizacion_dryrun",
     "/ecommercePublico/cotizacion_registrar"
@@ -231,6 +233,7 @@ function smokeHttpBundle($base) {
   $pruebas = array(
     "estado" => requestHttpBundle($base . "/ecommercePublico/estado"),
     "contratos" => requestHttpBundle($base . "/ecommercePublico/contratos"),
+    "seo" => requestHttpBundle($base . "/ecommercePublico/seo"),
     "catalogo" => requestHttpBundle($base . "/ecommercePublico/catalogo"),
     "cotizacion_dryrun" => requestHttpBundle($base . "/ecommercePublico/cotizacion_dryrun", "POST", array(
       "items" => array(array("id_publicacion" => 1, "cantidad" => 1))

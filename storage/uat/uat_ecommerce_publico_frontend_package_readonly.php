@@ -80,6 +80,7 @@ echo json_encode(array(
     "docs/erp_ecommerce_publico_frontend_handoff.md",
     "docs/erp_ecommerce_publico_frontend_herramientas_integracion.md",
     "docs/erp_ecommerce_publico_seguridad_api_futura.md",
+    "docs/erp_ecommerce_publico_seo_frontend.md",
     "docs/erp_ecommerce_publico_api_contratos.md",
     "docs/erp_ecommerce_publico_cliente_api_frontend.md",
     "docs/erp_ecommerce_publico_frontend_contract_tests.md",

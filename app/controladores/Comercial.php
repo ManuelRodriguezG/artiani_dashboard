@@ -96,6 +96,18 @@ class Comercial extends Controlador
         return json_encode($this->modelo('ClientesCrm')->buscarExpressDryRun($_GET));
     }
 
+    /**
+     * Documentacion IA: Codex GPT-5, 2026-07-16.
+     * Proposito: previsualizar el precio que resolveria POS para SKU/cliente/canal/almacen.
+     * Impacto: permite validar listas antes de activarlas sin duplicar reglas ni escribir ventas.
+     * Contrato: read-only; delega en VentasErp::clientePrecioDryRun.
+     */
+    public function listas_precios_precio_preview_erp()
+    {
+        $this->requerirPermiso('ventas.listas.ver');
+        return json_encode($this->modelo('VentasErp')->clientePrecioDryRun($_POST));
+    }
+
     public function listas_precios_lista_dryrun_erp()
     {
         $this->requerirPermiso('ventas.listas.auditoria');

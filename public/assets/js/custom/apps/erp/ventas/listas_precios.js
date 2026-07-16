@@ -144,6 +144,7 @@
         document.getElementById("lp_lista_observaciones").value = lista.observaciones || "";
         document.getElementById("lp_lista_canal").value = lista.canal || "general";
         document.getElementById("lp_lista_almacen").value = lista.id_almacen || "";
+        document.getElementById("lp_preview_almacen").value = lista.id_almacen || document.getElementById("lp_preview_almacen").value || "";
         document.getElementById("lp_lista_prioridad").value = lista.prioridad || "100";
         document.getElementById("lp_titulo_lista").textContent = lista.id_lista_precio ? (lista.codigo + " | " + lista.nombre) : "Nueva lista";
         document.getElementById("lp_subtitulo_lista").textContent = lista.id_lista_precio ? ("Lista " + lista.id_lista_precio + " en " + (lista.estatus || "borrador")) : "Guarda el encabezado antes de capturar precios.";
@@ -237,7 +238,7 @@
                 "<td class=\"text-end\">" + dinero(item.precio_general) + "</td>" +
                 "<td class=\"text-end\"><input class=\"form-control form-control-sm form-control-solid text-end lp-price-input\" data-lp-precio=\"" + escapeHtml(item.id_sku) + "\" data-lp-original=\"" + escapeHtml(precioLista) + "\" value=\"" + escapeHtml(precioLista) + "\" placeholder=\"0.00\"></td>" +
                 "<td class=\"text-end\"><div class=\"fw-semibold\" data-lp-margen=\"" + escapeHtml(item.id_sku) + "\">" + escapeHtml(margen) + "</div><div class=\"text-muted fs-8\" data-lp-utilidad=\"" + escapeHtml(item.id_sku) + "\">" + dinero(item.utilidad_estimada || 0) + "</div><span class=\"badge " + tipoBadge + "\" data-lp-riesgo=\"" + escapeHtml(item.id_sku) + "\">" + escapeHtml(riesgo.texto || "-") + "</span></td>" +
-                "<td class=\"text-end\"><button class=\"btn btn-sm btn-light-primary\" data-lp-guardar-precio=\"" + escapeHtml(item.id_sku) + "\" type=\"button\"><i class=\"bi bi-save\"></i></button></td>" +
+                "<td class=\"text-end\"><div class=\"d-flex justify-content-end gap-1\"><button class=\"btn btn-sm btn-light\" data-lp-preview-sku=\"" + escapeHtml(item.id_sku) + "\" type=\"button\"><i class=\"bi bi-calculator\"></i></button><button class=\"btn btn-sm btn-light-primary\" data-lp-guardar-precio=\"" + escapeHtml(item.id_sku) + "\" type=\"button\"><i class=\"bi bi-save\"></i></button></div></td>" +
             "</tr>";
         }).join("") || "<tr><td colspan=\"7\" class=\"text-center text-muted py-8\">Sin productos para los filtros actuales</td></tr>";
 
@@ -251,6 +252,12 @@
         document.querySelectorAll("[data-lp-guardar-precio]").forEach(function (boton) {
             boton.addEventListener("click", function () {
                 guardarPrecioProducto(boton.getAttribute("data-lp-guardar-precio"));
+            });
+        });
+        document.querySelectorAll("[data-lp-preview-sku]").forEach(function (boton) {
+            boton.addEventListener("click", function () {
+                document.getElementById("lp_preview_sku").value = boton.getAttribute("data-lp-preview-sku") || "";
+                previsualizarPrecio();
             });
         });
     }
@@ -457,6 +464,56 @@
         });
     }
 
+    function previsualizarPrecio() {
+        var idSku = document.getElementById("lp_preview_sku").value.trim();
+        var cantidad = document.getElementById("lp_preview_cantidad").value.trim() || "1";
+        var idAlmacen = document.getElementById("lp_preview_almacen").value.trim() || document.getElementById("lp_lista_almacen").value.trim();
+        var canal = document.getElementById("lp_lista_canal").value || "pos";
+        var idCliente = document.getElementById("lp_asig_cliente").value.trim();
+        if (!idSku) {
+            mostrarAlerta("warning", "Selecciona SKU para previsualizar precio.");
+            return;
+        }
+        if (!idAlmacen) {
+            mostrarAlerta("warning", "Captura almacen de prueba para previsualizar como POS.");
+            return;
+        }
+        postRequest("/comercial/listas_precios_precio_preview_erp", {
+            id_almacen: idAlmacen,
+            canal: canal === "general" ? "pos" : canal,
+            id_cliente: idCliente,
+            items: JSON.stringify([{id_sku: idSku, cantidad: cantidad}])
+        }).then(function (response) {
+            if (response.error) {
+                throw new Error(response.mensaje);
+            }
+            renderPreviewPrecio(response.depurar || {});
+        }).catch(mostrarError);
+    }
+
+    function renderPreviewPrecio(data) {
+        var partidas = data.partidas || [];
+        var partida = partidas.length ? partidas[0] : null;
+        if (!partida) {
+            document.getElementById("lp_preview_resultado").innerHTML = "<div class=\"alert alert-warning py-3 mb-0\">Sin partida resuelta.</div>";
+            return;
+        }
+        var bloqueos = data.bloqueos || partida.bloqueos || [];
+        var tipo = bloqueos.length ? "warning" : "success";
+        var html = "<div class=\"alert alert-" + tipo + " py-3 mb-3\"><div class=\"fw-bold\">" + escapeHtml(partida.sku || ("SKU " + partida.id_sku)) + "</div>" +
+            "<div class=\"fs-8\">Origen: " + escapeHtml(partida.regla_precio_origen || "-") + " | Lista: " + escapeHtml(partida.lista_precio_snapshot || "-") + "</div></div>";
+        html += "<div class=\"d-flex justify-content-between fs-7 mb-1\"><span>Precio base</span><strong>" + dinero(partida.precio_base || 0) + "</strong></div>";
+        html += "<div class=\"d-flex justify-content-between fs-7 mb-1\"><span>Precio aplicado</span><strong>" + dinero(partida.precio_aplicado || 0) + "</strong></div>";
+        html += "<div class=\"d-flex justify-content-between fs-7\"><span>Importe</span><strong>" + dinero(partida.importe || 0) + "</strong></div>";
+        if (partida.id_lista_precio) {
+            html += "<div class=\"text-muted fs-8 mt-2\">id_lista_precio " + escapeHtml(partida.id_lista_precio) + "</div>";
+        }
+        if (bloqueos.length) {
+            html += "<ul class=\"fs-8 ps-4 mt-2 mb-0\">" + bloqueos.map(function (item) { return "<li>" + escapeHtml(item) + "</li>"; }).join("") + "</ul>";
+        }
+        document.getElementById("lp_preview_resultado").innerHTML = html;
+    }
+
     function cargarRevision() {
         var idLista = document.getElementById("lp_lista_id").value;
         if (!idLista) {
@@ -598,6 +655,7 @@
         document.getElementById("lp_guardar_cambios").addEventListener("click", guardarCambiosLote);
         document.getElementById("lp_cliente_buscar").addEventListener("click", buscarClientesCrm);
         document.getElementById("lp_guardar_asig").addEventListener("click", guardarAsignacion);
+        document.getElementById("lp_preview_btn").addEventListener("click", previsualizarPrecio);
         document.getElementById("lp_revision_btn").addEventListener("click", cargarRevision);
         document.getElementById("lp_auditoria_btn").addEventListener("click", cargarAuditoria);
         document.getElementById("lp_filtro_q").addEventListener("keyup", function (event) {

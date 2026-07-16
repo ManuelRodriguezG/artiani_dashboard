@@ -47,7 +47,7 @@ if (!$validacionRespaldo["ok"]) {
 if ($ddlTotal !== 5) {
   $bloqueos[] = "Plan DDL esperado 5 tablas, recibido " . $ddlTotal;
 }
-if (count($endpoints) < 8) {
+if (count($endpoints) < 9) {
   $bloqueos[] = "Contratos API incompletos";
 }
 if ($skusPublicables <= 0) {
@@ -70,7 +70,7 @@ echo json_encode(array(
     "ddl_pendiente" => valor($estado, array("depurar", "schema", "ddl_pendiente"), true)
   ),
   "api" => array(
-    "version" => valor($contratos, array("api", "version"), ""),
+    "version" => valor($contratos, array("depurar", "api", "version"), ""),
     "endpoints_total" => count($endpoints),
     "ready" => valor($estado, array("depurar", "ready"), false)
   ),

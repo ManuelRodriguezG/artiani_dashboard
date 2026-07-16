@@ -36,6 +36,7 @@ Notas:
 - `docs/erp_ecommerce_publico_carrito_whatsapp_frontend.md`
 - `docs/erp_ecommerce_publico_frontend_herramientas_integracion.md`
 - `docs/erp_ecommerce_publico_seguridad_api_futura.md`
+- `docs/erp_ecommerce_publico_seo_frontend.md`
 
 ## Paquete compacto
 

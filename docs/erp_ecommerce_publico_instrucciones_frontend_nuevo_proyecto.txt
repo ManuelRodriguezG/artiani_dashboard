@@ -65,6 +65,7 @@ Cliente API y estados UI:
 - docs/erp_ecommerce_publico_carrito_whatsapp_frontend.md
 - docs/erp_ecommerce_publico_frontend_herramientas_integracion.md
 - docs/erp_ecommerce_publico_seguridad_api_futura.md
+- docs/erp_ecommerce_publico_seo_frontend.md
 
 OpenAPI basico:
 - `C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_openapi_readonly.php`
@@ -775,6 +776,7 @@ Consultar en `C:\xampp\htdocs\panel_de_control`:
 - `docs/erp_ecommerce_publico_carrito_whatsapp_frontend.md`
 - `docs/erp_ecommerce_publico_frontend_herramientas_integracion.md`
 - `docs/erp_ecommerce_publico_seguridad_api_futura.md`
+- `docs/erp_ecommerce_publico_seo_frontend.md`
 - `docs/erp_ecommerce_publico_api_contratos.md`
 - `docs/erp_ecommerce_publico_checklist_salida_fase1.md`
 - `docs/erp_ecommerce_catalogo_vivo_fase1.md`

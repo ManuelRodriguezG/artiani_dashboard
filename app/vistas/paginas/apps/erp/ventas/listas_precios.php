@@ -243,6 +243,28 @@
                                             </section>
 
                                             <section class="lp-card p-4">
+                                                <div class="fw-bold fs-5 mb-3">Vista previa POS</div>
+                                                <div class="row g-3">
+                                                    <div class="col-7">
+                                                        <label class="form-label text-muted fs-8 text-uppercase">SKU ID</label>
+                                                        <input class="form-control form-control-solid" id="lp_preview_sku" inputmode="numeric" placeholder="id_sku">
+                                                    </div>
+                                                    <div class="col-5">
+                                                        <label class="form-label text-muted fs-8 text-uppercase">Cantidad</label>
+                                                        <input class="form-control form-control-solid" id="lp_preview_cantidad" inputmode="decimal" value="1">
+                                                    </div>
+                                                    <div class="col-12">
+                                                        <label class="form-label text-muted fs-8 text-uppercase">Almacen prueba</label>
+                                                        <input class="form-control form-control-solid" id="lp_preview_almacen" inputmode="numeric" placeholder="Ej. 5">
+                                                    </div>
+                                                    <div class="col-12">
+                                                        <button class="btn btn-light-primary w-100" id="lp_preview_btn" type="button"><i class="bi bi-calculator"></i> Resolver precio</button>
+                                                    </div>
+                                                </div>
+                                                <div id="lp_preview_resultado" class="mt-3 text-muted fs-7">Selecciona un SKU para previsualizar.</div>
+                                            </section>
+
+                                            <section class="lp-card p-4">
                                                 <div class="d-flex justify-content-between align-items-center mb-3">
                                                     <div class="fw-bold fs-5">Revision</div>
                                                     <button class="btn btn-sm btn-light-primary" id="lp_revision_btn" type="button"><i class="bi bi-shield-check"></i></button>
@@ -270,6 +292,6 @@
 </div>
 <script src="assets/plugins/global/plugins.bundle.js"></script>
 <script src="assets/js/scripts.bundle.js"></script>
-<script src="/assets/js/custom/apps/erp/ventas/listas_precios.js?v=20260716-clientes2"></script>
+<script src="/assets/js/custom/apps/erp/ventas/listas_precios.js?v=20260716-preview1"></script>
 </body>
 </html>
