@@ -69,6 +69,17 @@ class EcommercePublico extends Controlador {
   }
 
   /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-07-16
+   * Proposito: exponer metadatos SEO/descubrimiento para el frontend ecommerce externo.
+   * Impacto: Ecommerce publico; permite construir title, description, sitemap, robots y JSON-LD sin consultar BD directa.
+   * Contrato: GET publico read-only; no escribe BD, no publica productos y no usa legacy ecom_*.
+   */
+  public function seo() {
+    if ($this->esOptionsPublicas()) { return $this->responderOpcionesPublicas(); }
+    return $this->responderApiPublica($this->modelo("EcommerceCatalogoPublico")->seoPublico($_GET));
+  }
+
+  /**
    * Documentacion IA: Codex GPT-5 | Fecha: 2026-07-11
    * Proposito: exponer disponibilidad publica simple de una publicacion o SKU publicado.
    * Impacto: Ecommerce publico/Inventario; traduce stock interno a estados simples.

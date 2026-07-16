@@ -14,10 +14,17 @@ $pruebas = array(
   "estado" => requestHttp($base . "/ecommercePublico/estado"),
   "contratos" => requestHttp($base . "/ecommercePublico/contratos"),
   "configuracion" => requestHttp($base . "/ecommercePublico/configuracion"),
+  "seo" => requestHttp($base . "/ecommercePublico/seo"),
   "filtros" => requestHttp($base . "/ecommercePublico/filtros"),
   "catalogo" => requestHttp($base . "/ecommercePublico/catalogo"),
+  "producto" => requestHttp($base . "/ecommercePublico/producto/slug-de-prueba-no-publicado"),
+  "disponibilidad" => requestHttp($base . "/ecommercePublico/disponibilidad?slug=slug-de-prueba-no-publicado"),
   "cotizacion_dryrun" => requestHttp($base . "/ecommercePublico/cotizacion_dryrun", "POST", array(
     "items" => array(array("id_publicacion" => 1, "cantidad" => 1))
+  )),
+  "cotizacion_registrar" => requestHttp($base . "/ecommercePublico/cotizacion_registrar", "POST", array(
+    "items" => array(array("id_publicacion" => 1, "cantidad" => 1)),
+    "contacto" => array("nombre" => "Smoke read-only", "telefono" => "5555555555")
   ))
 );
 
@@ -26,6 +33,9 @@ foreach ($pruebas as $nombre => $prueba) {
   if (!$prueba["json_valido"]) {
     $bloqueos[] = $nombre . "_no_responde_json";
   }
+}
+if (empty($pruebas["cotizacion_registrar"]["depurar_resumen"]["bloqueado"])) {
+  $bloqueos[] = "cotizacion_registrar_debe_seguir_bloqueado";
 }
 
 echo json_encode(array(
@@ -81,6 +91,9 @@ function resumenDepurarHttpSmoke($depurar) {
     "ready" => valorHttpSmoke($depurar, array("ready"), null),
     "configurado" => valorHttpSmoke($depurar, array("configurado"), null),
     "dry_run" => valorHttpSmoke($depurar, array("dry_run"), null),
+    "bloqueado" => valorHttpSmoke($depurar, array("bloqueado"), null),
+    "disponibilidad" => valorHttpSmoke($depurar, array("disponibilidad"), null),
+    "item_presente" => array_key_exists("item", $depurar) ? ($depurar["item"] !== null) : null,
     "items_total" => is_array(valorHttpSmoke($depurar, array("items"), null)) ? count($depurar["items"]) : null,
     "bloqueos" => valorHttpSmoke($depurar, array("bloqueos"), array())
   );

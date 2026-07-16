@@ -1,9 +1,85 @@
 INSTRUCCIONES PARA INICIAR PROYECTO FRONTEND ECOMMERCE PUBLICO
 ERP > Ecommerce publico / Catalogo vivo conectado al ERP
 
-Fecha: 2026-07-13
+Fecha: 2026-07-15
 Proyecto ERP fuente: C:\xampp\htdocs\panel_de_control
 Estado actual ERP: contratos API listos en modo read-only; datos reales pendientes de DDL, configuracion, CORS, WhatsApp y publicaciones.
+
+======================================================================
+0. ARRANQUE RAPIDO PARA EL NUEVO FRONTEND
+======================================================================
+
+Copiar este bloque al iniciar el nuevo proyecto:
+
+Objetivo:
+- Crear un frontend publico separado del ERP para catalogo vivo de mascotas.
+- Fase 1 no es checkout: es catalogo, carrito local tipo cotizacion y WhatsApp.
+- El ERP es fuente de verdad; el frontend no lee BD ni tablas internas.
+
+Base API:
+- ERP_API_BASE_URL=http://panel.com.local
+- ERP_ECOMMERCE_BASE_PATH=/ecommercePublico
+- API completa=http://panel.com.local/ecommercePublico
+
+Estado actual:
+- senal_frontend=amarillo_mock_contratos
+- puede_iniciar_frontend_mock=true
+- puede_integrar_datos_reales=false
+
+Se puede iniciar:
+- estructura del proyecto;
+- AGENTS.md;
+- cliente API;
+- mocks/fixtures;
+- estados vacios;
+- pantallas responsive;
+- carrito local;
+- dry-run preparado.
+
+No se debe iniciar como datos reales hasta que:
+- `uat_ecommerce_publico_green_gate_readonly.php` devuelva `ok=true`;
+- exista al menos un item real en `/catalogo`;
+- `cotizacion_dryrun` funcione con publicacion real.
+
+Comandos ERP clave:
+- `C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_frontend_readiness_readonly.php`
+- `C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_frontend_package_readonly.php --base=http://panel.com.local`
+- `C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_green_gate_readonly.php --base=http://panel.com.local`
+- `C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_frontend_fixtures_readonly.php`
+
+Pantalla interna ERP:
+- http://panel.com.local/ecommercePublico/publicaciones
+
+Prompt corto para pegar al iniciar el nuevo proyecto:
+- docs/erp_ecommerce_publico_prompt_inicio_frontend.txt
+
+Fixtures para UI mientras el ERP siga en amarillo:
+- docs/erp_ecommerce_publico_fixtures_frontend.md
+
+Contract tests sugeridos para el frontend:
+- docs/erp_ecommerce_publico_frontend_contract_tests.md
+
+Cliente API y estados UI:
+- docs/erp_ecommerce_publico_cliente_api_frontend.md
+- docs/erp_ecommerce_publico_frontend_estados_ui.md
+- docs/erp_ecommerce_publico_carrito_whatsapp_frontend.md
+- docs/erp_ecommerce_publico_frontend_herramientas_integracion.md
+- docs/erp_ecommerce_publico_seguridad_api_futura.md
+
+OpenAPI basico:
+- `C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_openapi_readonly.php`
+
+Variables de entorno/proxy local:
+- `C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_frontend_env_readonly.php --base=http://panel.com.local --frontend=http://localhost:5173`
+
+Coleccion Postman/Insomnia:
+- `C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_postman_collection_readonly.php --base=http://panel.com.local`
+
+Prueba carrito/WhatsApp:
+- `C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_carrito_whatsapp_readonly.php`
+
+Prueba de casos negativos:
+- `C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_negative_cases_readonly.php --base=http://panel.com.local`
 
 ======================================================================
 1. OBJETIVO DEL NUEVO PROYECTO FRONTEND
@@ -76,6 +152,10 @@ Hoy el ERP permite iniciar el frontend en modo tecnico/mock, no con catalogo viv
 Comando en el ERP para revisar semaforo:
 
 C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_frontend_readiness_readonly.php
+
+Paquete compacto para entregar al nuevo frontend:
+
+C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_frontend_package_readonly.php --base=http://panel.com.local
 
 Compuerta final antes de integrar datos reales:
 
@@ -175,6 +255,20 @@ Opciones para desarrollo mientras CORS no esta activo:
 2. Usar un proxy de desarrollo del framework frontend.
 3. Esperar a que el ERP aplique DDL y configure `cors_origenes_permitidos`.
 
+Fixtures oficiales:
+
+C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_frontend_fixtures_readonly.php
+
+Estos datos son solo para UI; no son productos reales.
+
+Generador de `.env.example` y proxy local:
+
+C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_frontend_env_readonly.php --base=http://panel.com.local --frontend=http://localhost:5173
+
+Coleccion Postman/Insomnia para probar contratos:
+
+C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_postman_collection_readonly.php --base=http://panel.com.local
+
 Ejemplo conceptual Vite proxy:
 
 server.proxy["/ecommercePublico"] -> "http://panel.com.local"
@@ -202,19 +296,24 @@ No usar para este entorno:
 
 http://localhost/panel_de_control/ecommercePublico
 
-Esa ruta puede caer en login o en otra configuracion de Apache. El host verificado para este ERP es `panel.com.local`.
+Esa ruta no es el contrato de integracion. Puede caer en login, otra configuracion de Apache o no resolver ningun controlador esperado. El host verificado para este ERP es `panel.com.local`.
 
 Endpoints:
 
 GET /contratos
 GET /estado
 GET /configuracion
+GET /seo
 GET /filtros
 GET /catalogo
 GET /producto/{slug}
 GET /disponibilidad?slug={slug}
 GET /disponibilidad?id_sku={id_sku}
 POST /cotizacion_dryrun
+
+Nota:
+- No existe ni se requiere `/bootstrap` en Fase 1.
+- Consumir endpoints separados para mantener contratos simples y depurables.
 
 No usar todavia:
 
@@ -235,9 +334,12 @@ Uso:
 Campos importantes:
 - depurar.ready
 - depurar.schema.ddl_pendiente
-- depurar.publicaciones.publicadas
-- depurar.configuracion.whatsapp_configurado
-- depurar.configuracion.cors_configurado
+- depurar.publicaciones.total_publicadas
+- depurar.publicaciones.catalogo_publico_vacio
+
+Para WhatsApp y CORS, consultar tambien:
+- GET /configuracion
+- scripts read-only de readiness del ERP
 
 GET /contratos
 
@@ -253,6 +355,13 @@ Uso:
 - Obtener moneda, numero WhatsApp, mensaje base y politicas publicas.
 
 No hardcodear WhatsApp en frontend.
+
+GET /seo
+
+Uso:
+- Obtener metadatos para title/description, robots, sitemap y JSON-LD.
+- El frontend externo genera `robots.txt`, `sitemap.xml` y meta tags con este contrato.
+- No inventar URLs canonicas si `url_sitio_publico` aun no esta configurado.
 
 GET /filtros
 
@@ -658,7 +767,14 @@ Consultar en `C:\xampp\htdocs\panel_de_control`:
 
 - `docs/erp_ecommerce_publico_estado_actual.md`
 - `docs/erp_ecommerce_publico_frontend_handoff.md`
-- `docs/erp_ecommerce_publico_instrucciones_proyecto_frontend.md`
+- `docs/erp_ecommerce_publico_instrucciones_frontend_nuevo_proyecto.txt`
+- `docs/erp_ecommerce_publico_prompt_inicio_frontend.txt`
+- `docs/erp_ecommerce_publico_cliente_api_frontend.md`
+- `docs/erp_ecommerce_publico_frontend_contract_tests.md`
+- `docs/erp_ecommerce_publico_frontend_estados_ui.md`
+- `docs/erp_ecommerce_publico_carrito_whatsapp_frontend.md`
+- `docs/erp_ecommerce_publico_frontend_herramientas_integracion.md`
+- `docs/erp_ecommerce_publico_seguridad_api_futura.md`
 - `docs/erp_ecommerce_publico_api_contratos.md`
 - `docs/erp_ecommerce_publico_checklist_salida_fase1.md`
 - `docs/erp_ecommerce_catalogo_vivo_fase1.md`
@@ -717,10 +833,20 @@ En el ERP correr:
 
 C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_frontend_readiness_readonly.php
 
+Y como compuerta final:
+
+C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_green_gate_readonly.php --base=http://panel.com.local
+
 Debe devolver:
 
 senal_frontend=verde_datos_reales
 puede_integrar_datos_reales=true
+
+La compuerta final debe devolver:
+
+ok=true
+catalogo.tiene_item_real=true
+cotizacion_dryrun.ok=true
 
 Entonces el frontend puede dejar de depender de mocks/vacios y usar:
 

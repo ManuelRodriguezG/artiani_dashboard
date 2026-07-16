@@ -59,6 +59,43 @@ class Comercial extends Controlador
         return json_encode($this->modelo('ListasPreciosErp')->auditoriaReadOnly($_GET));
     }
 
+    /**
+     * Documentacion IA: Codex GPT-5, 2026-07-15.
+     * Proposito: alimentar la mesa operativa de productos/precios con costo y margen.
+     * Impacto: permite editar listas desde Comercial sin depender de IDs sueltos ni vistas de POS.
+     * Contrato: solo consulta catalogo/lista; el margen mostrado se recalcula en backend al guardar.
+     */
+    public function listas_precios_productos_erp()
+    {
+        $this->requerirPermiso('ventas.listas.ver');
+        return json_encode($this->modelo('ListasPreciosErp')->productosParaListaReadOnly($_GET));
+    }
+
+    /**
+     * Documentacion IA: Codex GPT-5, 2026-07-15.
+     * Proposito: mostrar semaforo de activacion para una lista de precios.
+     * Impacto: evita activar listas vacias, duplicadas o con precios invalidos desde Comercial.
+     * Contrato: read-only; el guardado activo vuelve a validar en backend.
+     */
+    public function listas_precios_revision_erp()
+    {
+        $this->requerirPermiso('ventas.listas.ver');
+        $idLista = isset($_GET['id_lista_precio']) ? intval($_GET['id_lista_precio']) : 0;
+        return json_encode($this->modelo('ListasPreciosErp')->revisionListaReadOnly($idLista));
+    }
+
+    /**
+     * Documentacion IA: Codex GPT-5, 2026-07-16.
+     * Proposito: buscar clientes CRM para asignarlos a una lista de precios sin capturar IDs manuales.
+     * Impacto: mejora flujo Comercial/Listas y mantiene CRM como dueno de identidad del cliente.
+     * Contrato: read-only; no crea clientes ni modifica asignaciones.
+     */
+    public function listas_precios_clientes_buscar_erp()
+    {
+        $this->requerirPermiso('ventas.listas.asignar_cliente');
+        return json_encode($this->modelo('ClientesCrm')->buscarExpressDryRun($_GET));
+    }
+
     public function listas_precios_lista_dryrun_erp()
     {
         $this->requerirPermiso('ventas.listas.auditoria');
@@ -104,6 +141,54 @@ class Comercial extends Controlador
         if (!empty($validacion['error'])) {
             return json_encode($validacion);
         }
+        return json_encode($this->modelo('ListasPreciosErp')->asignacionClienteGuardarAutorizado($_POST, $this->usuarioActualId()));
+    }
+
+    /**
+     * Documentacion IA: Codex GPT-5, 2026-07-15.
+     * Proposito: guardar encabezado desde el flujo operativo Comercial sin token UAT visible.
+     * Impacto: convierte Listas de precios en CRUD funcional bajo permisos finos y auditoria.
+     * Contrato: no toca ventas pasadas; activar lista requiere permiso `ventas.listas.activar`.
+     */
+    public function listas_precios_lista_guardar_operativo_erp()
+    {
+        $this->requerirPermisoListaPreciosGuardar('lista');
+        return json_encode($this->modelo('ListasPreciosErp')->listaGuardarAutorizado($_POST, $this->usuarioActualId()));
+    }
+
+    /**
+     * Documentacion IA: Codex GPT-5, 2026-07-15.
+     * Proposito: guardar precio SKU/lista desde la tabla operativa de productos.
+     * Impacto: permite construir listas por producto con margen visible y auditoria por partida.
+     * Contrato: el precio final sigue resolviendose en backend y POS solo consume el resultado.
+     */
+    public function listas_precios_detalle_guardar_operativo_erp()
+    {
+        $this->requerirPermiso('ventas.listas.editar');
+        return json_encode($this->modelo('ListasPreciosErp')->detalleGuardarAutorizado($_POST, $this->usuarioActualId()));
+    }
+
+    /**
+     * Documentacion IA: Codex GPT-5, 2026-07-15.
+     * Proposito: guardar varios precios modificados desde la mesa operativa.
+     * Impacto: reduce captura repetitiva y conserva auditoria por partida.
+     * Contrato: cada precio se valida como detalle individual; no activa listas ni toca ventas pasadas.
+     */
+    public function listas_precios_detalles_lote_guardar_operativo_erp()
+    {
+        $this->requerirPermiso('ventas.listas.editar');
+        return json_encode($this->modelo('ListasPreciosErp')->detallesLoteGuardarAutorizado($_POST, $this->usuarioActualId()));
+    }
+
+    /**
+     * Documentacion IA: Codex GPT-5, 2026-07-15.
+     * Proposito: guardar asignacion cliente CRM/lista desde el flujo operativo.
+     * Impacto: conecta listas comerciales con CRM sin exponer formulario tecnico UAT.
+     * Contrato: requiere permiso fino y auditoria; no cambia ventas emitidas.
+     */
+    public function listas_precios_asignacion_guardar_operativo_erp()
+    {
+        $this->requerirPermiso('ventas.listas.asignar_cliente');
         return json_encode($this->modelo('ListasPreciosErp')->asignacionClienteGuardarAutorizado($_POST, $this->usuarioActualId()));
     }
 

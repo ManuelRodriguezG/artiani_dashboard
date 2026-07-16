@@ -60,6 +60,12 @@ class EcommerceCatalogoPublico extends CRUD {
         ),
         array(
           "metodo" => "GET",
+          "ruta" => "/ecommercePublico/seo",
+          "descripcion" => "Metadatos SEO/descubrimiento para que el frontend genere title, description, sitemap, robots y JSON-LD.",
+          "respuesta_depurar" => array("configurado", "meta", "robots", "sitemap", "json_ld")
+        ),
+        array(
+          "metodo" => "GET",
           "ruta" => "/ecommercePublico/disponibilidad",
           "descripcion" => "Disponibilidad publica simple por id_sku o slug.",
           "parametros" => array("id_sku" => "Opcional si se envia slug.", "slug" => "Opcional si se envia id_sku."),
@@ -436,6 +442,114 @@ class EcommerceCatalogoPublico extends CRUD {
       ));
     } catch (Exception $e) {
       return $this->respuesta(true, "danger", $e->getMessage(), array("configurado" => false, "configuracion" => $this->configuracionPublicaDefault()));
+    }
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-07-16
+   * Proposito: entregar metadatos SEO/descubrimiento para el proyecto ecommerce externo.
+   * Impacto: frontend publico; evita inventar titles, sitemap, robots y JSON-LD fuera del contrato ERP.
+   * Contrato: solo lectura; no escribe BD, no expone stock exacto y no usa legacy `ecom_*`.
+   */
+  public function seoPublico($opciones = array()) {
+    try {
+      $db = $this->getConexion();
+      $configResp = $this->configuracionPublica();
+      $config = $this->valor($configResp, array("depurar", "configuracion"), $this->configuracionPublicaDefault());
+      $urlSitio = rtrim(trim((string) $this->valor($config, "url_sitio_publico", "")), "/");
+      $limite = max(1, min(200, intval($this->valor($opciones, "limite", 100))));
+
+      $meta = array(
+        "site_name" => "Catalogo mascotas",
+        "title_default" => "Catalogo de productos para mascotas",
+        "description_default" => "Consulta productos para tus mascotas, disponibilidad publica y cotiza por WhatsApp.",
+        "og_type_catalogo" => "website",
+        "og_type_producto" => "product",
+        "canonical_base" => $urlSitio,
+        "robots_default" => "index,follow"
+      );
+
+      $sitemap = array(
+        "base_url_configurada" => $urlSitio,
+        "rutas_estaticas" => array(
+          array("path" => "/", "priority" => "1.0", "changefreq" => "daily"),
+          array("path" => "/cotizacion", "priority" => "0.3", "changefreq" => "weekly")
+        ),
+        "productos" => array(),
+        "filtros" => array("mascotas" => array(), "necesidades" => array())
+      );
+
+      if ($db && $this->tablaExiste($db, "erp_ecommerce_publicaciones")) {
+        $catalogo = $this->catalogoPublico(array("limite" => $limite));
+        foreach ($this->valor($catalogo, array("depurar", "items"), array()) as $item) {
+          $sitemap["productos"][] = array(
+            "slug" => $this->valor($item, "slug", ""),
+            "path" => "/producto/" . $this->valor($item, "slug", ""),
+            "title" => $this->valor($item, "nombre", ""),
+            "description" => trim((string) $this->valor($item, "descripcion", "")),
+            "image" => $this->valor($item, "imagen", ""),
+            "priority" => "0.8",
+            "changefreq" => "daily"
+          );
+        }
+        $filtros = $this->filtrosPublicos();
+        foreach ($this->valor($filtros, array("depurar", "mascotas"), array()) as $fila) {
+          $valor = $this->valor($fila, "valor", "");
+          if ($valor !== "") {
+            $sitemap["filtros"]["mascotas"][] = array("valor" => $valor, "path" => "/?mascota=" . rawurlencode($valor));
+          }
+        }
+        foreach ($this->valor($filtros, array("depurar", "necesidades"), array()) as $fila) {
+          $valor = $this->valor($fila, "valor", "");
+          if ($valor !== "") {
+            $sitemap["filtros"]["necesidades"][] = array("valor" => $valor, "path" => "/?necesidad=" . rawurlencode($valor));
+          }
+        }
+      }
+
+      return $this->respuesta(false, "success", "SEO ecommerce publico consultado", array(
+        "configurado" => $db && $this->tablaExiste($db, "erp_ecommerce_publicaciones"),
+        "meta" => $meta,
+        "robots" => array(
+          "permitir_indexacion" => true,
+          "robots_txt_sugerido" => $urlSitio !== ""
+            ? "User-agent: *\nAllow: /\nSitemap: " . $urlSitio . "/sitemap.xml"
+            : "User-agent: *\nAllow: /",
+          "noindex_si_catalogo_vacio" => true
+        ),
+        "sitemap" => $sitemap,
+        "json_ld" => array(
+          "organization" => array(
+            "@context" => "https://schema.org",
+            "@type" => "PetStore",
+            "name" => $meta["site_name"],
+            "url" => $urlSitio
+          ),
+          "product_contract" => array(
+            "@context" => "https://schema.org",
+            "@type" => "Product",
+            "name" => "item.nombre",
+            "image" => "item.imagen",
+            "description" => "item.descripcion",
+            "sku" => "item.sku",
+            "brand" => "item.marca",
+            "offers" => array(
+              "@type" => "Offer",
+              "price" => "item.precio",
+              "priceCurrency" => "item.moneda",
+              "availability" => "mapear item.disponibilidad"
+            )
+          )
+        ),
+        "guardrails" => array(
+          "frontend_genera_archivos_seo" => true,
+          "no_escribe_bd" => true,
+          "no_usa_ecom_legacy" => true,
+          "no_muestra_stock_exacto" => true
+        )
+      ));
+    } catch (Exception $e) {
+      return $this->respuesta(true, "danger", $e->getMessage(), array("configurado" => false));
     }
   }
 

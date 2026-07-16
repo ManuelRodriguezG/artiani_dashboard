@@ -9,18 +9,24 @@
     <link href="assets/plugins/global/plugins.bundle.css" rel="stylesheet" type="text/css">
     <link href="assets/css/style.bundle.css" rel="stylesheet" type="text/css">
     <!--
-      Documentacion IA: Codex GPT-5, 2026-07-12.
-      Proposito: abrir tablero operativo de Listas de precios con guia de responsabilidades.
-      Impacto: permite auditar listas, detalles, clientes y conflictos; el guardado queda bajo UAT controlado.
-      Contrato: backend resuelve precios; Catalogo conserva solo precio provisional/fallback.
+      Documentacion IA: Codex GPT-5, 2026-07-15.
+      Proposito: convertir Listas de precios en una mesa operativa Comercial con productos, margen y alcance.
+      Impacto: elimina accesos visuales a Ventas/POS/Checador dentro de esta vista y enfoca el flujo en listas.
+      Contrato: backend guarda/resuelve precios; POS solo consume precio resuelto y snapshot.
     -->
     <style>
+        .lp-shell { display: grid; grid-template-columns: 340px minmax(0, 1fr); gap: 16px; }
         .lp-card { border: 1px solid #e6e8ee; border-radius: 8px; background: #fff; }
-        .lp-kpi { min-height: 92px; }
-        .lp-table-wrap { max-height: 520px; overflow: auto; }
-        .lp-detail-wrap { max-height: 360px; overflow: auto; }
-        .lp-conflict { border-left: 4px solid #f1416c; }
-        .lp-uat { border: 1px dashed #f6c000; background: #fff8dd; border-radius: 8px; }
+        .lp-listas { max-height: 680px; overflow: auto; }
+        .lp-productos { max-height: 560px; overflow: auto; }
+        .lp-lista-item { border: 1px solid #edf0f5; border-radius: 8px; cursor: pointer; }
+        .lp-lista-item.active { border-color: #3e97ff; background: #f1f7ff; }
+        .lp-price-input { min-width: 120px; }
+        .lp-row-dirty { background: #fff8dd; }
+        .lp-side { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 16px; }
+        @media (max-width: 1400px) {
+            .lp-shell, .lp-side { grid-template-columns: 1fr; }
+        }
     </style>
 </head>
 <body id="kt_app_body" data-kt-app-layout="dark-sidebar" data-kt-app-header-fixed="true" data-kt-app-sidebar-enabled="true" data-kt-app-sidebar-fixed="true" class="app-default">
@@ -36,204 +42,224 @@
                             <div>
                                 <div class="text-muted fs-8 text-uppercase fw-semibold mb-1">ERP / Comercial</div>
                                 <h1 class="page-heading text-dark fw-bold fs-3 mb-1">Listas de precios</h1>
-                                <span class="text-muted">Precios por producto, cliente, canal, sucursal y vigencia</span>
-                                <div class="d-flex flex-wrap gap-2 mt-2">
-                                    <span class="badge badge-light-primary">Read-only inicial</span>
-                                    <span class="badge badge-light-success">Backend resuelve precios</span>
-                                    <span class="badge badge-light-warning">DDL CRM pendiente de autorizacion</span>
-                                </div>
+                                <span class="text-muted">Construccion de precios por SKU con margen, vigencia y alcance comercial</span>
                             </div>
                             <div class="d-flex flex-wrap gap-2">
-                                <a class="btn btn-light" href="/ventas/mostrar"><i class="bi bi-receipt"></i> Ventas</a>
-                                <a class="btn btn-light-primary" href="/ventas/pos"><i class="bi bi-shop-window"></i> POS</a>
-                                <a class="btn btn-light-primary" href="/ventas/checador_precios"><i class="bi bi-upc-scan"></i> Checador</a>
-                                <button class="btn btn-primary" id="lp_recargar" type="button"><i class="bi bi-arrow-clockwise"></i> Actualizar</button>
+                                <button class="btn btn-light" id="lp_recargar" type="button"><i class="bi bi-arrow-clockwise"></i> Actualizar</button>
+                                <button class="btn btn-primary" id="lp_nueva" type="button"><i class="bi bi-plus-lg"></i> Nueva lista</button>
                             </div>
                         </div>
                     </div>
                     <div class="app-content flex-column-fluid">
                         <div class="app-container container-fluid">
                             <div id="lp_alerta" class="mb-4"></div>
-                            <div class="lp-card p-4 mb-4">
-                                <div class="d-flex flex-wrap justify-content-between align-items-start gap-3">
-                                    <div>
-                                        <div class="fw-bold fs-5 mb-1">Gobierno de precios</div>
-                                        <div class="text-muted fs-7">Esta pantalla gobierna el precio formal por canal, cliente, sucursal y vigencia. POS y Checador consumen el precio resuelto por backend.</div>
+
+                            <div class="lp-shell">
+                                <aside class="lp-card p-4">
+                                    <div class="d-flex justify-content-between align-items-center mb-3">
+                                        <div class="fw-bold fs-5">Listas</div>
+                                        <span class="badge badge-light-primary" id="lp_kpi_total">0</span>
                                     </div>
-                                    <span class="badge badge-light-primary">Fuente comercial formal</span>
-                                </div>
-                                <div class="row g-3 mt-1">
-                                    <div class="col-lg-4">
-                                        <div class="border rounded p-3 h-100">
-                                            <div class="fw-semibold mb-1">Catalogo</div>
-                                            <div class="text-muted fs-8">Identidad del SKU, unidad, marca, categoria y precio provisional solo como fallback.</div>
+                                    <div class="row g-2 mb-3">
+                                        <div class="col-12">
+                                            <input class="form-control form-control-solid" id="lp_filtro_q" placeholder="Buscar lista">
+                                        </div>
+                                        <div class="col-6">
+                                            <select class="form-select form-select-solid" id="lp_filtro_estatus">
+                                                <option value="">Estatus</option>
+                                                <option value="borrador">Borrador</option>
+                                                <option value="activa">Activa</option>
+                                                <option value="pausada">Pausada</option>
+                                                <option value="cancelada">Cancelada</option>
+                                            </select>
+                                        </div>
+                                        <div class="col-6">
+                                            <select class="form-select form-select-solid" id="lp_filtro_canal">
+                                                <option value="">Canal</option>
+                                                <option value="general">General</option>
+                                                <option value="pos">POS</option>
+                                                <option value="pedido_tienda">Pedido tienda</option>
+                                                <option value="ecommerce">Ecommerce</option>
+                                                <option value="mayoreo">Mayoreo</option>
+                                            </select>
+                                        </div>
+                                        <div class="col-7">
+                                            <input class="form-control form-control-solid" id="lp_filtro_almacen" inputmode="numeric" placeholder="Almacen">
+                                        </div>
+                                        <div class="col-5">
+                                            <button class="btn btn-light-primary w-100" id="lp_filtrar" type="button"><i class="bi bi-funnel"></i></button>
                                         </div>
                                     </div>
-                                    <div class="col-lg-4">
-                                        <div class="border rounded p-3 h-100">
-                                            <div class="fw-semibold mb-1">Listas de precios</div>
-                                            <div class="text-muted fs-8">Precio base por SKU/producto, canal, cliente CRM, almacen, prioridad y vigencia.</div>
-                                        </div>
-                                    </div>
-                                    <div class="col-lg-4">
-                                        <div class="border rounded p-3 h-100">
-                                            <div class="fw-semibold mb-1">Costos y rentabilidad</div>
-                                            <div class="text-muted fs-8">Costo, margen y utilidad validan decisiones, pero no sustituyen la lista comercial.</div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="row g-3 mb-4">
-                                <div class="col-md-3"><div class="lp-card lp-kpi p-4"><div class="text-muted fs-8 text-uppercase">Listas activas</div><div class="fw-bold fs-2" id="lp_kpi_activas">0</div></div></div>
-                                <div class="col-md-3"><div class="lp-card lp-kpi p-4"><div class="text-muted fs-8 text-uppercase">Listas total</div><div class="fw-bold fs-2" id="lp_kpi_total">0</div></div></div>
-                                <div class="col-md-3"><div class="lp-card lp-kpi p-4"><div class="text-muted fs-8 text-uppercase">Detalles activos</div><div class="fw-bold fs-2" id="lp_kpi_detalles">0</div></div></div>
-                                <div class="col-md-3"><div class="lp-card lp-kpi p-4"><div class="text-muted fs-8 text-uppercase">Asignaciones</div><div class="fw-bold fs-2" id="lp_kpi_asignaciones">0</div></div></div>
-                            </div>
-                            <div class="lp-card p-4 mb-4">
-                                <div class="row g-3 align-items-end">
-                                    <div class="col-lg-3">
-                                        <label class="form-label text-muted fs-8 text-uppercase">Buscar</label>
-                                        <input class="form-control form-control-solid" id="lp_filtro_q" placeholder="Codigo o nombre">
-                                    </div>
-                                    <div class="col-lg-2">
-                                        <label class="form-label text-muted fs-8 text-uppercase">Estatus</label>
-                                        <select class="form-select form-select-solid" id="lp_filtro_estatus">
-                                            <option value="">Todos</option>
-                                            <option value="activa">Activa</option>
-                                            <option value="borrador">Borrador</option>
-                                            <option value="pausada">Pausada</option>
-                                            <option value="cancelada">Cancelada</option>
-                                        </select>
-                                    </div>
-                                    <div class="col-lg-2">
-                                        <label class="form-label text-muted fs-8 text-uppercase">Canal</label>
-                                        <select class="form-select form-select-solid" id="lp_filtro_canal">
-                                            <option value="">Todos</option>
-                                            <option value="pos">POS</option>
-                                            <option value="pedido_tienda">Pedido tienda</option>
-                                            <option value="ecommerce">Ecommerce</option>
-                                            <option value="general">General</option>
-                                        </select>
-                                    </div>
-                                    <div class="col-lg-2">
-                                        <label class="form-label text-muted fs-8 text-uppercase">Almacen</label>
-                                        <input class="form-control form-control-solid" id="lp_filtro_almacen" inputmode="numeric" placeholder="ID">
-                                    </div>
-                                    <div class="col-lg-3 d-flex gap-2">
-                                        <button class="btn btn-light-primary flex-fill" id="lp_filtrar" type="button"><i class="bi bi-funnel"></i> Filtrar</button>
-                                        <button class="btn btn-light flex-fill" id="lp_conflictos_btn" type="button"><i class="bi bi-exclamation-triangle"></i> Conflictos</button>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="lp-card p-4 mb-4">
-                                <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-4">
-                                    <div>
-                                        <div class="fw-bold fs-5">Validaciones dry-run</div>
-                                        <div class="text-muted fs-7">Valida capturas futuras sin crear ni modificar listas.</div>
-                                    </div>
-                                    <span class="badge badge-light-warning">No guarda BD</span>
-                                </div>
-                                <ul class="nav nav-tabs nav-line-tabs mb-5 fs-7" role="tablist">
-                                    <li class="nav-item" role="presentation"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#lp_tab_lista" type="button" role="tab">Lista</button></li>
-                                    <li class="nav-item" role="presentation"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#lp_tab_detalle" type="button" role="tab">Detalle</button></li>
-                                    <li class="nav-item" role="presentation"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#lp_tab_asignacion" type="button" role="tab">Cliente CRM</button></li>
-                                </ul>
-                                <div class="tab-content">
-                                    <div class="tab-pane fade show active" id="lp_tab_lista" role="tabpanel">
-                                        <div class="row g-3 align-items-end">
-                                            <div class="col-md-1"><label class="form-label text-muted fs-8 text-uppercase">ID</label><input class="form-control form-control-solid" id="lp_dry_lista_id" inputmode="numeric" placeholder="Nuevo"></div>
-                                            <div class="col-md-2"><label class="form-label text-muted fs-8 text-uppercase">Codigo</label><input class="form-control form-control-solid" id="lp_dry_lista_codigo" placeholder="LP-POS-01"></div>
-                                            <div class="col-md-2"><label class="form-label text-muted fs-8 text-uppercase">Nombre</label><input class="form-control form-control-solid" id="lp_dry_lista_nombre" placeholder="Lista mostrador"></div>
-                                            <div class="col-md-2"><label class="form-label text-muted fs-8 text-uppercase">Canal</label><select class="form-select form-select-solid" id="lp_dry_lista_canal"><option value="pos">POS</option><option value="pedido_tienda">Pedido tienda</option><option value="ecommerce">Ecommerce</option><option value="general">General</option></select></div>
-                                            <div class="col-md-1"><label class="form-label text-muted fs-8 text-uppercase">Alm.</label><input class="form-control form-control-solid" id="lp_dry_lista_almacen" inputmode="numeric"></div>
-                                            <div class="col-md-1"><label class="form-label text-muted fs-8 text-uppercase">Prior.</label><input class="form-control form-control-solid" id="lp_dry_lista_prioridad" inputmode="numeric" value="100"></div>
-                                            <div class="col-md-2"><label class="form-label text-muted fs-8 text-uppercase">Estatus</label><select class="form-select form-select-solid" id="lp_dry_lista_estatus"><option value="borrador">Borrador</option><option value="activa">Activa</option><option value="pausada">Pausada</option></select></div>
-                                            <div class="col-md-1"><button class="btn btn-light-primary w-100" id="lp_dry_lista_validar" type="button"><i class="bi bi-check2-circle"></i></button></div>
-                                        </div>
-                                    </div>
-                                    <div class="tab-pane fade" id="lp_tab_detalle" role="tabpanel">
-                                        <div class="row g-3 align-items-end">
-                                            <div class="col-md-1"><label class="form-label text-muted fs-8 text-uppercase">ID</label><input class="form-control form-control-solid" id="lp_dry_det_id" inputmode="numeric" placeholder="Nuevo"></div>
-                                            <div class="col-md-2"><label class="form-label text-muted fs-8 text-uppercase">Lista ID</label><input class="form-control form-control-solid" id="lp_dry_det_lista" inputmode="numeric" value="1"></div>
-                                            <div class="col-md-2"><label class="form-label text-muted fs-8 text-uppercase">SKU ID</label><input class="form-control form-control-solid" id="lp_dry_det_sku" inputmode="numeric" value="1760"></div>
-                                            <div class="col-md-1"><label class="form-label text-muted fs-8 text-uppercase">Producto</label><input class="form-control form-control-solid" id="lp_dry_det_producto" inputmode="numeric"></div>
-                                            <div class="col-md-2"><label class="form-label text-muted fs-8 text-uppercase">Precio</label><input class="form-control form-control-solid" id="lp_dry_det_precio" inputmode="decimal" value="295"></div>
-                                            <div class="col-md-2"><label class="form-label text-muted fs-8 text-uppercase">Moneda</label><input class="form-control form-control-solid" id="lp_dry_det_moneda" value="MXN"></div>
-                                            <div class="col-md-1"><label class="form-label text-muted fs-8 text-uppercase">Estatus</label><select class="form-select form-select-solid" id="lp_dry_det_estatus"><option value="activo">Activo</option><option value="pausado">Pausado</option></select></div>
-                                            <div class="col-md-1"><button class="btn btn-light-primary w-100" id="lp_dry_det_validar" type="button"><i class="bi bi-check2-circle"></i></button></div>
-                                        </div>
-                                    </div>
-                                    <div class="tab-pane fade" id="lp_tab_asignacion" role="tabpanel">
-                                        <div class="row g-3 align-items-end">
-                                            <div class="col-md-2"><label class="form-label text-muted fs-8 text-uppercase">ID</label><input class="form-control form-control-solid" id="lp_dry_asig_id" inputmode="numeric" placeholder="Nuevo"></div>
-                                            <div class="col-md-2"><label class="form-label text-muted fs-8 text-uppercase">Lista ID</label><input class="form-control form-control-solid" id="lp_dry_asig_lista" inputmode="numeric" value="1"></div>
-                                            <div class="col-md-3"><label class="form-label text-muted fs-8 text-uppercase">Cliente CRM ID</label><input class="form-control form-control-solid" id="lp_dry_asig_cliente" inputmode="numeric" value="1"></div>
-                                            <div class="col-md-2"><label class="form-label text-muted fs-8 text-uppercase">Prioridad</label><input class="form-control form-control-solid" id="lp_dry_asig_prioridad" inputmode="numeric" value="1"></div>
-                                            <div class="col-md-2"><label class="form-label text-muted fs-8 text-uppercase">Estatus</label><select class="form-select form-select-solid" id="lp_dry_asig_estatus"><option value="activo">Activo</option><option value="pausado">Pausado</option></select></div>
-                                            <div class="col-md-1"><button class="btn btn-light-primary w-100" id="lp_dry_asig_validar" type="button"><i class="bi bi-check2-circle"></i></button></div>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="lp-uat p-3 mt-4">
-                                    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
-                                        <div>
-                                            <div class="fw-bold">Guardado UAT controlado</div>
-                                            <div class="text-muted fs-8">Requiere permisos finos, token UAT y auditoria comercial aplicada. El respaldo externo queda reservado para DDL.</div>
-                                        </div>
-                                        <span class="badge badge-light-danger">Puede escribir BD si todo esta autorizado</span>
-                                    </div>
-                                    <div class="row g-3 align-items-end">
-                                        <div class="col-lg-3"><label class="form-label text-muted fs-8 text-uppercase">Referencia UAT</label><input class="form-control form-control-solid" id="lp_uat_referencia" placeholder="Folio o nota opcional"></div>
-                                        <div class="col-lg-3"><label class="form-label text-muted fs-8 text-uppercase">Token</label><input class="form-control form-control-solid" id="lp_uat_token" placeholder="VENTAS_LISTAS_PRECIOS_GUARDAR_UAT"></div>
-                                        <div class="col-lg-3"><label class="form-label text-muted fs-8 text-uppercase">Motivo</label><input class="form-control form-control-solid" id="lp_uat_motivo" placeholder="UAT lista de precios"></div>
-                                        <div class="col-lg-3 d-flex flex-wrap gap-2">
-                                            <button class="btn btn-warning flex-fill" id="lp_guardar_lista" type="button"><i class="bi bi-save"></i> Lista</button>
-                                            <button class="btn btn-warning flex-fill" id="lp_guardar_detalle" type="button"><i class="bi bi-save"></i> Detalle</button>
-                                            <button class="btn btn-warning flex-fill" id="lp_guardar_asig" type="button"><i class="bi bi-save"></i> Cliente</button>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div id="lp_dry_resultado" class="mt-4"></div>
-                            </div>
-                            <div class="row g-4">
-                                <div class="col-xl-7">
-                                    <div class="lp-card p-4">
-                                        <div class="d-flex justify-content-between align-items-center mb-3">
-                                            <div class="fw-bold fs-5">Listas</div>
-                                            <span class="text-muted fs-8">Consulta sin escritura</span>
-                                        </div>
-                                        <div class="table-responsive lp-table-wrap">
-                                            <table class="table align-middle table-row-dashed gy-3 mb-0">
-                                                <thead><tr class="text-muted fw-bold fs-8 text-uppercase"><th>Lista</th><th>Canal / almacen</th><th>Detalles</th><th>Precio</th><th>Estatus</th><th class="text-end">Accion</th></tr></thead>
-                                                <tbody id="lp_listas"></tbody>
-                                            </table>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="col-xl-5">
-                                    <div class="lp-card p-4 mb-4">
-                                        <div class="fw-bold fs-5 mb-2">Detalle</div>
-                                        <div id="lp_detalle" class="text-muted fs-7">Selecciona una lista para revisar partidas y asignaciones.</div>
-                                    </div>
-                                    <div class="lp-card p-4">
-                                        <div class="fw-bold fs-5 mb-2">Conflictos</div>
-                                        <div id="lp_conflictos" class="text-muted fs-7">Sin conflictos cargados.</div>
-                                    </div>
-                                    <div class="lp-card p-4 mt-4">
-                                        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+                                    <div class="lp-listas" id="lp_listas"></div>
+                                </aside>
+
+                                <main class="d-flex flex-column gap-4">
+                                    <section class="lp-card p-4">
+                                        <div class="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-4">
                                             <div>
-                                                <div class="fw-bold fs-5">Auditoria</div>
-                                                <div class="text-muted fs-8">Eventos comerciales de listas, detalles y clientes.</div>
+                                                <div class="fw-bold fs-5" id="lp_titulo_lista">Nueva lista</div>
+                                                <div class="text-muted fs-8" id="lp_subtitulo_lista">Guarda el encabezado antes de capturar precios.</div>
                                             </div>
-                                            <button class="btn btn-sm btn-light-primary" id="lp_auditoria_btn" type="button"><i class="bi bi-clock-history"></i> Ver</button>
+                                            <div class="d-flex flex-wrap gap-2">
+                                                <button class="btn btn-light-warning" id="lp_pausar" type="button"><i class="bi bi-pause-circle"></i> Pausar</button>
+                                                <button class="btn btn-success" id="lp_activar" type="button"><i class="bi bi-check2-circle"></i> Activar</button>
+                                                <button class="btn btn-primary" id="lp_guardar_lista" type="button"><i class="bi bi-save"></i> Guardar lista</button>
+                                            </div>
                                         </div>
-                                        <div class="row g-2 mb-3">
-                                            <div class="col-7"><input class="form-control form-control-sm form-control-solid" id="lp_auditoria_lista" inputmode="numeric" placeholder="Lista ID"></div>
-                                            <div class="col-5"><input class="form-control form-control-sm form-control-solid" id="lp_auditoria_accion" placeholder="Accion"></div>
+                                        <div class="row g-3">
+                                            <input type="hidden" id="lp_lista_id">
+                                            <div class="col-lg-2">
+                                                <label class="form-label text-muted fs-8 text-uppercase">Codigo</label>
+                                                <input class="form-control form-control-solid" id="lp_lista_codigo" placeholder="LP-POS-01">
+                                            </div>
+                                            <div class="col-lg-4">
+                                                <label class="form-label text-muted fs-8 text-uppercase">Nombre</label>
+                                                <input class="form-control form-control-solid" id="lp_lista_nombre" placeholder="Lista mostrador">
+                                            </div>
+                                            <div class="col-lg-2">
+                                                <label class="form-label text-muted fs-8 text-uppercase">Vigencia inicio</label>
+                                                <input class="form-control form-control-solid" id="lp_lista_inicio" type="date">
+                                            </div>
+                                            <div class="col-lg-2">
+                                                <label class="form-label text-muted fs-8 text-uppercase">Vigencia fin</label>
+                                                <input class="form-control form-control-solid" id="lp_lista_fin" type="date">
+                                            </div>
+                                            <div class="col-lg-2">
+                                                <label class="form-label text-muted fs-8 text-uppercase">Estatus</label>
+                                                <select class="form-select form-select-solid" id="lp_lista_estatus">
+                                                    <option value="borrador">Borrador</option>
+                                                    <option value="activa">Activa</option>
+                                                    <option value="pausada">Pausada</option>
+                                                    <option value="cancelada">Cancelada</option>
+                                                </select>
+                                            </div>
+                                            <div class="col-12">
+                                                <label class="form-label text-muted fs-8 text-uppercase">Observaciones</label>
+                                                <input class="form-control form-control-solid" id="lp_lista_observaciones" placeholder="Motivo comercial, temporada o condicion interna">
+                                            </div>
                                         </div>
-                                        <div id="lp_auditoria" class="text-muted fs-7">Selecciona una lista o consulta eventos.</div>
+                                    </section>
+
+                                    <div class="lp-side">
+                                        <section class="lp-card p-4">
+                                            <div class="d-flex flex-wrap justify-content-between align-items-end gap-3 mb-4">
+                                                <div>
+                                                    <div class="fw-bold fs-5">Productos y precios</div>
+                                                    <div class="text-muted fs-8">Costo de referencia, precio general, precio de lista y margen estimado.</div>
+                                                </div>
+                                                <div class="d-flex flex-wrap gap-2">
+                                                    <input class="form-control form-control-solid w-250px" id="lp_producto_q" placeholder="SKU o producto">
+                                                    <select class="form-select form-select-solid w-175px" id="lp_producto_solo">
+                                                        <option value="todos">Todos</option>
+                                                        <option value="con_precio">Con precio</option>
+                                                        <option value="sin_precio">Sin precio</option>
+                                                        <option value="margen_bajo">Margen bajo</option>
+                                                    </select>
+                                                    <button class="btn btn-light-primary" id="lp_productos_buscar" type="button"><i class="bi bi-search"></i></button>
+                                                </div>
+                                            </div>
+                                            <div class="d-flex flex-wrap justify-content-between align-items-end gap-3 mb-4">
+                                                <div class="d-flex flex-wrap gap-2 align-items-end">
+                                                    <div>
+                                                        <label class="form-label text-muted fs-8 text-uppercase">Margen objetivo</label>
+                                                        <div class="input-group input-group-solid w-175px">
+                                                            <input class="form-control" id="lp_margen_objetivo" inputmode="decimal" value="35">
+                                                            <span class="input-group-text">%</span>
+                                                        </div>
+                                                    </div>
+                                                    <button class="btn btn-light" id="lp_aplicar_margen" type="button"><i class="bi bi-percent"></i> Aplicar a visibles</button>
+                                                </div>
+                                                <button class="btn btn-primary" id="lp_guardar_cambios" type="button"><i class="bi bi-save2"></i> Guardar cambios <span class="badge badge-light ms-2" id="lp_cambios_count">0</span></button>
+                                            </div>
+                                            <div class="table-responsive lp-productos">
+                                                <table class="table align-middle table-row-dashed gy-3 mb-0">
+                                                    <thead>
+                                                    <tr class="text-muted fw-bold fs-8 text-uppercase">
+                                                        <th>Producto</th>
+                                                        <th>Unidad</th>
+                                                        <th class="text-end">Costo</th>
+                                                        <th class="text-end">General</th>
+                                                        <th class="text-end">Lista</th>
+                                                        <th class="text-end">Margen / utilidad</th>
+                                                        <th class="text-end">Accion</th>
+                                                    </tr>
+                                                    </thead>
+                                                    <tbody id="lp_productos"></tbody>
+                                                </table>
+                                            </div>
+                                        </section>
+
+                                        <aside class="d-flex flex-column gap-4">
+                                            <section class="lp-card p-4">
+                                                <div class="fw-bold fs-5 mb-3">Alcance</div>
+                                                <div class="row g-3">
+                                                    <div class="col-12">
+                                                        <label class="form-label text-muted fs-8 text-uppercase">Canal</label>
+                                                        <select class="form-select form-select-solid" id="lp_lista_canal">
+                                                            <option value="general">General</option>
+                                                            <option value="pos">POS</option>
+                                                            <option value="pedido_tienda">Pedido tienda</option>
+                                                            <option value="ecommerce">Ecommerce</option>
+                                                            <option value="mayoreo">Mayoreo</option>
+                                                        </select>
+                                                    </div>
+                                                    <div class="col-6">
+                                                        <label class="form-label text-muted fs-8 text-uppercase">Almacen</label>
+                                                        <input class="form-control form-control-solid" id="lp_lista_almacen" inputmode="numeric" placeholder="Todos">
+                                                    </div>
+                                                    <div class="col-6">
+                                                        <label class="form-label text-muted fs-8 text-uppercase">Prioridad</label>
+                                                        <input class="form-control form-control-solid" id="lp_lista_prioridad" inputmode="numeric" value="100">
+                                                    </div>
+                                                </div>
+                                            </section>
+
+                                            <section class="lp-card p-4">
+                                                <div class="fw-bold fs-5 mb-3">Cliente CRM</div>
+                                                <div class="row g-3">
+                                                    <input type="hidden" id="lp_asig_id">
+                                                    <div class="col-12">
+                                                        <label class="form-label text-muted fs-8 text-uppercase">Buscar cliente</label>
+                                                        <div class="input-group input-group-solid">
+                                                            <input class="form-control" id="lp_cliente_q" placeholder="Nombre, codigo, telefono o correo">
+                                                            <button class="btn btn-light-primary" id="lp_cliente_buscar" type="button"><i class="bi bi-search"></i></button>
+                                                        </div>
+                                                    </div>
+                                                    <div class="col-7">
+                                                        <label class="form-label text-muted fs-8 text-uppercase">Cliente seleccionado</label>
+                                                        <input class="form-control form-control-solid" id="lp_asig_cliente" inputmode="numeric" placeholder="id_cliente_crm">
+                                                    </div>
+                                                    <div class="col-5">
+                                                        <label class="form-label text-muted fs-8 text-uppercase">Prioridad</label>
+                                                        <input class="form-control form-control-solid" id="lp_asig_prioridad" inputmode="numeric" value="1">
+                                                    </div>
+                                                    <div class="col-12">
+                                                        <button class="btn btn-light-primary w-100" id="lp_guardar_asig" type="button"><i class="bi bi-person-check"></i> Asignar cliente</button>
+                                                    </div>
+                                                </div>
+                                                <div id="lp_clientes_resultados" class="mt-3"></div>
+                                                <div class="separator my-4"></div>
+                                                <div id="lp_asignaciones" class="text-muted fs-7">Selecciona una lista para ver clientes.</div>
+                                            </section>
+
+                                            <section class="lp-card p-4">
+                                                <div class="d-flex justify-content-between align-items-center mb-3">
+                                                    <div class="fw-bold fs-5">Revision</div>
+                                                    <button class="btn btn-sm btn-light-primary" id="lp_revision_btn" type="button"><i class="bi bi-shield-check"></i></button>
+                                                </div>
+                                                <div id="lp_revision" class="text-muted fs-7">Guarda o selecciona una lista para revisar activacion.</div>
+                                            </section>
+
+                                            <section class="lp-card p-4">
+                                                <div class="d-flex justify-content-between align-items-center mb-3">
+                                                    <div class="fw-bold fs-5">Auditoria</div>
+                                                    <button class="btn btn-sm btn-light-primary" id="lp_auditoria_btn" type="button"><i class="bi bi-clock-history"></i></button>
+                                                </div>
+                                                <div id="lp_auditoria" class="text-muted fs-7">Sin eventos cargados.</div>
+                                            </section>
+                                        </aside>
                                     </div>
-                                </div>
+                                </main>
                             </div>
                         </div>
                     </div>
@@ -244,6 +270,6 @@
 </div>
 <script src="assets/plugins/global/plugins.bundle.js"></script>
 <script src="assets/js/scripts.bundle.js"></script>
-<script src="/assets/js/custom/apps/erp/ventas/listas_precios.js?v=20260713-comercial1"></script>
+<script src="/assets/js/custom/apps/erp/ventas/listas_precios.js?v=20260716-clientes2"></script>
 </body>
 </html>

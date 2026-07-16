@@ -1,7 +1,7 @@
 # ERP Ecommerce publico - Handoff para frontend externo
 
 Documentacion IA: Codex GPT-5  
-Fecha: 2026-07-12  
+Fecha: 2026-07-15  
 Estado: guia de integracion read-only para proyecto ecommerce separado.
 
 ## Decision
@@ -11,7 +11,7 @@ El ecommerce publico se construira como proyecto separado. Este ERP solo expone 
 ## Variables sugeridas en el proyecto ecommerce
 
 ```env
-ERP_API_BASE_URL=https://dominio-del-erp.com
+ERP_API_BASE_URL=http://panel.com.local
 ERP_ECOMMERCE_BASE_PATH=/ecommercePublico
 ERP_ECOMMERCE_API_VERSION=fase1-2026-07-12
 ERP_ECOMMERCE_API_KEY=
@@ -22,18 +22,84 @@ Notas:
 
 - `ERP_ECOMMERCE_API_KEY` y `ERP_ECOMMERCE_API_SECRET` no se usan todavia en Fase 1 read-only.
 - No guardar secretos en frontend publico. Si se activa HMAC, la firma debe hacerse desde backend/server del ecommerce.
-- Mientras no exista dominio definitivo, consumir en local o mismo origen.
+- Host local verificado para este ERP: `http://panel.com.local`.
+- No usar `http://localhost/panel_de_control` en este entorno.
+
+## Documentos de apoyo
+
+- `docs/erp_ecommerce_publico_prompt_inicio_frontend.txt`
+- `docs/erp_ecommerce_publico_instrucciones_frontend_nuevo_proyecto.txt`
+- `docs/erp_ecommerce_publico_cliente_api_frontend.md`
+- `docs/erp_ecommerce_publico_frontend_contract_tests.md`
+- `docs/erp_ecommerce_publico_frontend_estados_ui.md`
+- `docs/erp_ecommerce_publico_fixtures_frontend.md`
+- `docs/erp_ecommerce_publico_carrito_whatsapp_frontend.md`
+- `docs/erp_ecommerce_publico_frontend_herramientas_integracion.md`
+- `docs/erp_ecommerce_publico_seguridad_api_futura.md`
+
+## Paquete compacto
+
+Comando:
+
+```bash
+C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_frontend_package_readonly.php --base=http://panel.com.local
+```
+
+Uso:
+
+- confirma la base API correcta;
+- lista endpoints publicos Fase 1;
+- lista documentos y scripts que debe recibir el proyecto frontend;
+- reporta `senal_frontend_actual`;
+- reporta bloqueos para pasar a datos reales.
+
+## Fixtures mientras el ERP esta en amarillo
+
+Comando:
+
+```bash
+C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_frontend_fixtures_readonly.php
+```
+
+Uso:
+
+- construir UI sin datos reales;
+- probar tarjetas, filtros, ficha y carrito;
+- validar forma de `cotizacion_dryrun`.
+
+No usar fixtures como productos reales. Cambiar a API real solo cuando:
+
+```bash
+C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_green_gate_readonly.php --base=http://panel.com.local
+```
+
+devuelva `ok=true`.
+
+## Herramientas para el frontend
+
+Variables de entorno/proxy local:
+
+```bash
+C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_frontend_env_readonly.php --base=http://panel.com.local --frontend=http://localhost:5173
+```
+
+Coleccion Postman/Insomnia:
+
+```bash
+C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_postman_collection_readonly.php --base=http://panel.com.local
+```
 
 ## Orden recomendado de consumo
 
 1. `GET /ecommercePublico/estado`
 2. `GET /ecommercePublico/contratos`
 3. `GET /ecommercePublico/configuracion`
-4. `GET /ecommercePublico/filtros`
-5. `GET /ecommercePublico/catalogo`
-6. `GET /ecommercePublico/producto/{slug}`
-7. `GET /ecommercePublico/disponibilidad?id_sku=...`
-8. `POST /ecommercePublico/cotizacion_dryrun`
+4. `GET /ecommercePublico/seo`
+5. `GET /ecommercePublico/filtros`
+6. `GET /ecommercePublico/catalogo`
+7. `GET /ecommercePublico/producto/{slug}`
+8. `GET /ecommercePublico/disponibilidad?id_sku=...`
+9. `POST /ecommercePublico/cotizacion_dryrun`
 
 No usar `POST /ecommercePublico/cotizacion_registrar` hasta que el ERP lo reporte como desbloqueado en una fase posterior.
 
@@ -59,6 +125,23 @@ Comportamiento recomendado:
 - Si `ready=false`, la web puede mostrar estado de preparacion o consumir catalogo vacio.
 - Si `total_publicadas=0`, mostrar catalogo en preparacion.
 - Si `ddl_pendiente=true`, no intentar registrar cotizaciones reales.
+
+## Contract tests ERP
+
+Antes de conectar el frontend contra API real, validar desde el ERP:
+
+```bash
+C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_http_smoke_readonly.php --base=http://panel.com.local
+C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_contract_shape_readonly.php
+C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_negative_cases_readonly.php --base=http://panel.com.local
+C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_cors_preflight_readonly.php --base=http://panel.com.local --origin=http://localhost:5173
+```
+
+Esperado actual:
+
+- smoke HTTP `ok=true`;
+- shape `ok=true`;
+- CORS cerrado hasta configurar `cors_origenes_permitidos`.
 
 ## Catalogo
 
@@ -233,7 +316,7 @@ Resultado esperado actual:
 
 - `ok=true`
 - `modo=read-only`
-- `endpoints_total=8`
+- `endpoints_total=9`
 - `ready=false`
 - `ddl_pendiente=true`
 - `registro_cotizacion_bloqueado=true`

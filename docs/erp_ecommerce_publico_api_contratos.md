@@ -1,8 +1,8 @@
 # ERP Ecommerce publico - Contratos API Fase 1
 
 Documentacion IA: Codex GPT-5  
-Fecha: 2026-07-12  
-Estado: contrato read-only para frontend ecommerce externo.
+Fecha: 2026-07-15  
+Estado: contrato read-only para frontend ecommerce externo; API publica Fase 1 cubierta por smoke HTTP.
 
 ## Decision
 
@@ -23,6 +23,10 @@ Uso:
 - no escribe BD.
 
 ## Endpoints publicos Fase 1
+
+La API publica se mantiene en contratos separados. No se agrega endpoint `bootstrap` en esta fase para evitar acoplar el primer render del frontend a un payload combinado.
+
+Total actual: 9 endpoints publicos.
 
 ### Estado/readiness
 
@@ -99,6 +103,22 @@ Devuelve solo claves publicables para el frontend:
 
 Si `erp_ecommerce_configuracion` aun no existe, responde `configurado=false` con defaults seguros y sin numero WhatsApp hardcodeado.
 
+### SEO/descubrimiento
+
+```http
+GET /ecommercePublico/seo
+```
+
+Devuelve metadatos para que el frontend externo genere:
+
+- title/description por defecto;
+- robots sugerido;
+- rutas para sitemap;
+- rutas de productos publicados cuando existan;
+- contrato JSON-LD base para `PetStore` y `Product`.
+
+El ERP no renderiza `robots.txt` ni `sitemap.xml` en Fase 1; el frontend los genera usando este contrato.
+
 ### Cotizacion dry-run
 
 ```http
@@ -133,6 +153,7 @@ Reglas:
 - No aparta ni descuenta inventario.
 - No crea pedido, venta ni atencion POS.
 - Si el esquema aun no existe, responde `configurado=false`.
+- En estado amarillo, puede responder `configurado=false` antes de validar si `items` viene vacio.
 
 ### Registro de cotizacion futuro
 
@@ -211,20 +232,69 @@ Script:
 
 ```bash
 php storage/uat/uat_ecommerce_publico_api_contracts_readonly.php
+php storage/uat/uat_ecommerce_publico_http_smoke_readonly.php --base=http://panel.com.local
+php storage/uat/uat_ecommerce_publico_contract_shape_readonly.php
+php storage/uat/uat_ecommerce_publico_negative_cases_readonly.php --base=http://panel.com.local
+php storage/uat/uat_ecommerce_publico_cors_preflight_readonly.php --base=http://panel.com.local --origin=http://localhost:5173
+php storage/uat/uat_ecommerce_publico_frontend_fixtures_readonly.php
+php storage/uat/uat_ecommerce_publico_frontend_env_readonly.php --base=http://panel.com.local --frontend=http://localhost:5173
+php storage/uat/uat_ecommerce_publico_postman_collection_readonly.php --base=http://panel.com.local
+php storage/uat/uat_ecommerce_publico_openapi_readonly.php
+php storage/uat/uat_ecommerce_publico_carrito_whatsapp_readonly.php
 ```
 
 Valida:
 
 - manifiesto `/ecommercePublico/contratos`;
+- shape minimo de wrappers `error/tipo/mensaje/api/depurar`;
+- casos negativos controlados para metodos, parametros y slugs invalidos;
 - endpoint de estado/readiness;
 - configuracion publica;
 - catalogo publico sin usar `ecom_*`;
+- producto por slug no publicado devolviendo JSON controlado;
 - disponibilidad sin cantidad exacta;
 - cotizacion dry-run;
 - registro real de cotizacion bloqueado;
 - guardado interno de publicacion bloqueado.
+- preflight CORS cerrado hasta configurar `cors_origenes_permitidos`.
+- variables de entorno/proxy para el frontend externo.
+- coleccion Postman/Insomnia para probar los 9 endpoints publicos y el POST bloqueado.
 
 No escribe BD, no ejecuta DDL, no toca inventario y no registra cotizaciones.
+
+## Fixtures para frontend
+
+Mientras `senal_frontend=amarillo_mock_contratos`, el frontend puede usar:
+
+```bash
+php storage/uat/uat_ecommerce_publico_frontend_fixtures_readonly.php
+```
+
+Incluye respuestas ejemplo para:
+
+- `estado`
+- `configuracion`
+- `filtros`
+- `catalogo`
+- `producto`
+- `disponibilidad`
+- `cotizacion_dryrun`
+
+Estos fixtures son solo para UI. No representan productos reales y deben retirarse cuando `uat_ecommerce_publico_green_gate_readonly.php` devuelva `ok=true`.
+
+## OpenAPI basico
+
+Para generar una especificacion OpenAPI 3.0.3 basica:
+
+```bash
+php storage/uat/uat_ecommerce_publico_openapi_readonly.php
+```
+
+La especificacion es de apoyo para mocks, docs o generadores de cliente. El contrato fuente sigue siendo el endpoint:
+
+```http
+GET /ecommercePublico/contratos
+```
 
 ## Autenticacion futura de canal
 

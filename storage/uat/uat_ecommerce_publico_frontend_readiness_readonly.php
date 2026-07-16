@@ -77,9 +77,15 @@ echo json_encode(array(
     ? "Ya puedes iniciar/integrar la vista del ecommerce externo con datos reales."
     : "Puedes iniciar el proyecto frontend externo como maqueta tecnica/cliente API, pero aun no como catalogo vivo real.",
   "documentos_frontend" => array(
+    "docs/erp_ecommerce_publico_prompt_inicio_frontend.txt",
+    "docs/erp_ecommerce_publico_instrucciones_frontend_nuevo_proyecto.txt",
     "docs/erp_ecommerce_publico_frontend_handoff.md",
-    "docs/erp_ecommerce_publico_instrucciones_proyecto_frontend.md",
-    "docs/erp_ecommerce_publico_api_contratos.md"
+    "docs/erp_ecommerce_publico_api_contratos.md",
+    "docs/erp_ecommerce_publico_cliente_api_frontend.md",
+    "docs/erp_ecommerce_publico_frontend_contract_tests.md",
+    "docs/erp_ecommerce_publico_frontend_estados_ui.md",
+    "docs/erp_ecommerce_publico_carrito_whatsapp_frontend.md",
+    "docs/erp_ecommerce_publico_frontend_herramientas_integracion.md"
   ),
   "guardrails" => array(
     "no_escribe_bd" => true,

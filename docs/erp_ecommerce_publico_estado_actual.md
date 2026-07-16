@@ -1,7 +1,7 @@
 # ERP Ecommerce publico - Estado actual Fase 1
 
 Documentacion IA: Codex GPT-5  
-Fecha: 2026-07-13  
+Fecha: 2026-07-15  
 Estado: contratos y activacion preparada; datos reales aun no activados.
 
 ## Senal actual
@@ -54,6 +54,7 @@ Esa ruta puede resolver a login u otra configuracion de Apache.
 - `GET /ecommercePublico/contratos`
 - `GET /ecommercePublico/estado`
 - `GET /ecommercePublico/configuracion`
+- `GET /ecommercePublico/seo`
 - `GET /ecommercePublico/filtros`
 - `GET /ecommercePublico/catalogo`
 - `GET /ecommercePublico/producto/{slug}`
@@ -86,11 +87,35 @@ ddl_pendiente=true
 ```bash
 C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_http_smoke_readonly.php --base=http://panel.com.local
 C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_frontend_readiness_readonly.php
+C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_frontend_package_readonly.php
+C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_frontend_fixtures_readonly.php
+C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_frontend_env_readonly.php --base=http://panel.com.local --frontend=http://localhost:5173
+C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_postman_collection_readonly.php --base=http://panel.com.local
+C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_contract_shape_readonly.php
+C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_negative_cases_readonly.php --base=http://panel.com.local
+C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_cors_preflight_readonly.php --base=http://panel.com.local --origin=http://localhost:5173
+C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_openapi_readonly.php
+C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_carrito_whatsapp_readonly.php
 C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_activacion_bundle_readonly.php --base=http://panel.com.local --respaldo=RUTA_O_REFERENCIA --whatsapp=NUMERO_WHATSAPP --cors=ORIGEN_FRONTEND --url=URL_FRONTEND --lote=8
 C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_secuencia_activacion_readonly.php --base=http://panel.com.local --respaldo=RUTA_O_REFERENCIA --whatsapp=NUMERO_WHATSAPP --cors=ORIGEN_FRONTEND --url=URL_FRONTEND --id_sku=ID_SKU
+C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_green_gate_readonly.php --base=http://panel.com.local
 ```
 
 Todos estos son read-only.
+
+El paquete mas util para abrir el nuevo proyecto frontend es:
+
+```bash
+C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_frontend_package_readonly.php --base=http://panel.com.local
+```
+
+Ese comando concentra endpoints, documentos, scripts, senal actual y bloqueos para pasar de mocks a datos reales.
+
+Herramientas nuevas para iniciar el otro proyecto:
+
+- `uat_ecommerce_publico_frontend_env_readonly.php`: variables `.env` y proxy local sugerido.
+- `uat_ecommerce_publico_postman_collection_readonly.php`: coleccion Postman/Insomnia para probar contratos.
+- `docs/erp_ecommerce_publico_frontend_herramientas_integracion.md`: indice de herramientas para el frontend.
 
 ## Scripts apply autorizados
 

@@ -60,6 +60,14 @@ $ddlPendiente = valorBundle($estado, array("depurar", "schema", "ddl_pendiente")
 $publicadas = intval(valorBundle($estado, array("depurar", "publicaciones", "total_publicadas"), 0));
 $whatsappActual = trim((string) valorBundle($configActual, array("depurar", "configuracion", "whatsapp_numero_principal"), ""));
 $corsActual = trim((string) valorBundle($configActual, array("depurar", "configuracion", "cors_origenes_permitidos"), ""));
+$shapeBloqueos = shapeBundle(array(
+  "contratos" => $contratos,
+  "estado" => $estado,
+  "configuracion" => $configActual,
+  "catalogo" => $api->catalogoPublico(array("limite" => 1)),
+  "filtros" => $api->filtrosPublicos(),
+  "dryrun" => $api->cotizacionDryRun(array("items" => array(array("id_publicacion" => 1, "cantidad" => 1))))
+), $endpoints);
 
 $bloqueosVerde = array();
 if (!$http["ok"]) {
@@ -88,6 +96,9 @@ if (intval(valorBundle($schemaPlan, array("depurar", "ddl_total"), 0)) !== 5) {
 if (count($endpoints) < 8) {
   $bloqueosActivacion[] = "contratos_api_incompletos";
 }
+if (!empty($shapeBloqueos)) {
+  $bloqueosActivacion[] = "shape_api_incompleto";
+}
 if (intval(valorBundle($publicabilidad, array("depurar", "resumen", "skus_publicables_fase_1"), 0)) <= 0) {
   $bloqueosActivacion[] = "sin_skus_publicables";
 }
@@ -110,7 +121,9 @@ echo json_encode(array(
   "api" => array(
     "version" => valorBundle($contratos, array("depurar", "api", "version"), ""),
     "endpoints_total" => count($endpoints),
-    "ready" => valorBundle($estado, array("depurar", "ready"), false)
+    "ready" => valorBundle($estado, array("depurar", "ready"), false),
+    "shape_ok" => empty($shapeBloqueos),
+    "shape_bloqueos" => $shapeBloqueos
   ),
   "configuracion" => array(
     "actual" => array(
@@ -173,6 +186,45 @@ function sugerirLoteBundle($api, $limite) {
     );
   }
   return $lote;
+}
+
+function shapeBundle($respuestas, $endpoints) {
+  $bloqueos = array();
+  foreach ($respuestas as $nombre => $respuesta) {
+    foreach (array("error", "tipo", "mensaje", "api", "depurar") as $key) {
+      if (!is_array($respuesta) || !array_key_exists($key, $respuesta)) {
+        $bloqueos[] = $nombre . "_falta_" . $key;
+      }
+    }
+    if (valorBundle($respuesta, array("api", "version"), "") !== "fase1-2026-07-12") {
+      $bloqueos[] = $nombre . "_version_invalida";
+    }
+  }
+  if (count($endpoints) < 8) {
+    $bloqueos[] = "endpoints_publicos_menor_a_8";
+  }
+  foreach (array(
+    "/ecommercePublico/estado",
+    "/ecommercePublico/catalogo",
+    "/ecommercePublico/producto/{slug}",
+    "/ecommercePublico/filtros",
+    "/ecommercePublico/configuracion",
+    "/ecommercePublico/disponibilidad",
+    "/ecommercePublico/cotizacion_dryrun",
+    "/ecommercePublico/cotizacion_registrar"
+  ) as $ruta) {
+    $existe = false;
+    foreach ($endpoints as $endpoint) {
+      if (isset($endpoint["ruta"]) && $endpoint["ruta"] === $ruta) {
+        $existe = true;
+        break;
+      }
+    }
+    if (!$existe) {
+      $bloqueos[] = "falta_endpoint_" . $ruta;
+    }
+  }
+  return array_values(array_unique($bloqueos));
 }
 
 function smokeHttpBundle($base) {

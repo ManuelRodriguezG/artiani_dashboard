@@ -1,8 +1,13 @@
 # ERP Ecommerce publico - Instrucciones para proyecto frontend externo
 
+> Documento historico. La guia viva para iniciar el nuevo frontend es:
+> `docs/erp_ecommerce_publico_instrucciones_frontend_nuevo_proyecto.txt`.
+> El prompt corto para arrancar el otro proyecto es:
+> `docs/erp_ecommerce_publico_prompt_inicio_frontend.txt`.
+
 Documentacion IA: Codex GPT-5  
-Fecha: 2026-07-12  
-Estado: guia para iniciar el proyecto visual separado.
+Fecha: 2026-07-15  
+Estado: referencia historica; no usar como fuente principal si contradice la guia nueva.
 
 ## Objetivo del proyecto frontend
 

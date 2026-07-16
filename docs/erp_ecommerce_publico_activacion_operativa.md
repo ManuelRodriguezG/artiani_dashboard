@@ -250,6 +250,7 @@ Endpoints:
 
 - `GET /ecommercePublico/estado`
 - `GET /ecommercePublico/configuracion`
+- `GET /ecommercePublico/seo`
 - `GET /ecommercePublico/filtros`
 - `GET /ecommercePublico/catalogo`
 - `GET /ecommercePublico/producto/{slug}`
@@ -285,7 +286,7 @@ Enviar al dueno/proyecto frontend:
 ```text
 Ya puedes iniciar/integrar la vista del ecommerce externo con datos reales.
 El ERP tiene DDL aplicado, CORS configurado, WhatsApp configurado y primeras publicaciones activas.
-Usa docs/erp_ecommerce_publico_frontend_handoff.md y docs/erp_ecommerce_publico_instrucciones_proyecto_frontend.md.
+Usa docs/erp_ecommerce_publico_frontend_handoff.md y docs/erp_ecommerce_publico_instrucciones_frontend_nuevo_proyecto.txt.
 ```
 
 ## Fuera de alcance en esta activacion

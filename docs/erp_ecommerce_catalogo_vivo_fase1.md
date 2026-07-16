@@ -679,6 +679,7 @@ Endpoints que debe consumir el proyecto ecommerce:
 - `GET /ecommercePublico/producto/{slug}`
 - `GET /ecommercePublico/filtros`
 - `GET /ecommercePublico/configuracion`
+- `GET /ecommercePublico/seo`
 - `GET /ecommercePublico/disponibilidad?id_sku=...`
 - `GET /ecommercePublico/disponibilidad?slug=...`
 
@@ -980,7 +981,7 @@ Validacion CLI:
   - `ok=true`
   - `modo=read-only`
   - `api.version=fase1-2026-07-12`
-  - `endpoints_total=8`
+  - `endpoints_total=9`
   - `ready=false`
   - `ddl_pendiente=true`
   - `publicadas=0`
@@ -1015,7 +1016,8 @@ Decision reforzada:
 Documentos agregados:
 
 - `docs/erp_ecommerce_publico_checklist_salida_fase1.md`
-- `docs/erp_ecommerce_publico_instrucciones_proyecto_frontend.md`
+- `docs/erp_ecommerce_publico_instrucciones_frontend_nuevo_proyecto.txt`
+- `docs/erp_ecommerce_publico_prompt_inicio_frontend.txt`
 
 Estado comunicado:
 
@@ -1067,7 +1069,7 @@ Validacion CLI:
   - `ddl_total=5`
   - `ddl_pendiente=true`
   - `api.version=fase1-2026-07-12`
-  - `endpoints_total=8`
+  - `endpoints_total=9`
   - `ready=false`
   - `whatsapp_configurado=false`
   - `cors_configurado=false`

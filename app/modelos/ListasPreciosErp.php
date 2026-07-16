@@ -183,6 +183,127 @@ class ListasPreciosErp extends CRUD {
     }
 
     /**
+     * Documentacion IA: Codex GPT-5, 2026-07-15.
+     * Proposito: listar SKUs candidatos para construir una lista de precios con costo, precio base y margen.
+     * Impacto: habilita una mesa comercial editable sin que POS/JS decidan precios finales.
+     * Contrato: read-only; el costo usado es `erp_catalogo_skus.costo_referencia` hasta consolidar costo promedio formal.
+     */
+    public function productosParaListaReadOnly($filtros = array()) {
+        try {
+            $db = $this->getConexion();
+            if (!$this->tablaExiste($db, "erp_catalogo_skus") || !$this->tablaExiste($db, "erp_catalogo_productos")) {
+                return $this->respuesta(false, "warning", "Catalogo ERP incompleto para precios", array("productos" => array()));
+            }
+
+            $idLista = intval($this->valor($filtros, "id_lista_precio", 0));
+            $q = trim((string) $this->valor($filtros, "q", ""));
+            $solo = trim((string) $this->valor($filtros, "solo", "todos"));
+            $limite = max(20, min(300, intval($this->valor($filtros, "limite", 120))));
+            $where = array("s.estatus='activo'", "p.estatus<>'fusionado'");
+            $params = array();
+
+            if ($q !== "") {
+                $where[] = "(s.sku LIKE :q OR s.nombre LIKE :q OR p.nombre LIKE :q OR p.codigo_producto LIKE :q OR (:q_id > 0 AND s.id_sku=:q_id))";
+                $params[":q"] = "%" . $q . "%";
+                $params[":q_id"] = ctype_digit($q) ? intval($q) : 0;
+            }
+
+            $joinDetalle = "LEFT JOIN (SELECT NULL id_lista_precio_detalle, NULL id_sku, NULL precio, NULL moneda, NULL estatus) d ON 1=0";
+            if ($idLista > 0 && $this->tablaExiste($db, "erp_listas_precios_detalle")) {
+                $joinDetalle = "LEFT JOIN (
+                    SELECT dx.id_sku, MIN(dx.id_lista_precio_detalle) id_lista_precio_detalle, MAX(dx.precio) precio, MAX(dx.moneda) moneda, MAX(dx.estatus) estatus
+                    FROM erp_listas_precios_detalle dx
+                    WHERE dx.id_lista_precio=:lista_detalle AND dx.estatus<>'cancelado' AND dx.id_sku IS NOT NULL
+                    GROUP BY dx.id_sku
+                ) d ON d.id_sku=s.id_sku";
+                $params[":lista_detalle"] = $idLista;
+            }
+
+            if ($solo === "con_precio") {
+                $where[] = "d.precio IS NOT NULL";
+            } elseif ($solo === "sin_precio") {
+                $where[] = "d.precio IS NULL";
+            }
+
+            $joinPrecio = $this->tablaExiste($db, "erp_catalogo_sku_precios")
+                ? "LEFT JOIN erp_catalogo_sku_precios pr ON pr.id_sku=s.id_sku AND pr.lista_precio='general' AND pr.moneda='MXN' AND pr.estatus='activo'"
+                : "LEFT JOIN (SELECT NULL id_sku, NULL precio, NULL moneda) pr ON 1=0";
+            $joinMarca = $this->tablaExiste($db, "erp_catalogo_marcas")
+                ? "LEFT JOIN erp_catalogo_marcas m ON m.id_marca_erp=p.id_marca_erp"
+                : "LEFT JOIN (SELECT NULL id_marca_erp, NULL nombre) m ON 1=0";
+            $joinUnidad = $this->tablaExiste($db, "erp_catalogo_unidades")
+                ? "LEFT JOIN erp_catalogo_unidades u ON u.id_unidad=s.id_unidad_base"
+                : "LEFT JOIN (SELECT NULL id_unidad, NULL abreviatura, NULL nombre) u ON 1=0";
+            $categoriaSelect = $this->tablaExiste($db, "erp_catalogo_producto_categorias") && $this->tablaExiste($db, "erp_catalogo_categorias")
+                ? "(SELECT c.nombre FROM erp_catalogo_producto_categorias pc INNER JOIN erp_catalogo_categorias c ON c.id_categoria_erp=pc.id_categoria_erp WHERE pc.id_producto_erp=p.id_producto_erp ORDER BY pc.es_principal DESC, pc.id_producto_categoria ASC LIMIT 1) categoria"
+                : "NULL categoria";
+
+            $sql = "SELECT s.id_sku, s.sku, s.nombre sku_nombre, s.tipo_inventario, s.costo_referencia, s.factor_unidad_base,
+                    p.id_producto_erp, p.codigo_producto, p.nombre producto, COALESCE(m.nombre, '') marca,
+                    COALESCE(u.abreviatura, u.nombre, '') unidad_base, $categoriaSelect,
+                    COALESCE(pr.precio, 0) precio_general, COALESCE(pr.moneda, 'MXN') moneda_general,
+                    d.id_lista_precio_detalle, d.precio precio_lista, COALESCE(d.moneda, 'MXN') moneda_lista, d.estatus estatus_detalle
+                FROM erp_catalogo_skus s
+                INNER JOIN erp_catalogo_productos p ON p.id_producto_erp=s.id_producto_erp
+                $joinPrecio
+                $joinDetalle
+                $joinMarca
+                $joinUnidad
+                WHERE " . implode(" AND ", $where) . "
+                ORDER BY d.precio IS NULL ASC, p.nombre ASC, s.sku ASC
+                LIMIT " . intval($limite);
+            $stmt = $db->prepare($sql);
+            $stmt->execute($params);
+            $productos = array();
+            foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $fila) {
+                $precioLista = $fila["precio_lista"] === null ? null : floatval($fila["precio_lista"]);
+                $precioBase = $precioLista !== null ? $precioLista : floatval($fila["precio_general"]);
+                $costo = floatval($fila["costo_referencia"]);
+                $margen = $this->calcularMargenPrecio($precioBase, $costo);
+                if ($solo === "margen_bajo" && !($margen !== null && $margen < 15)) {
+                    continue;
+                }
+                $fila["costo_referencia"] = round($costo, 6);
+                $fila["precio_general"] = round(floatval($fila["precio_general"]), 6);
+                $fila["precio_lista"] = $precioLista === null ? null : round($precioLista, 6);
+                $fila["precio_calculo"] = round($precioBase, 6);
+                $fila["utilidad_estimada"] = $precioBase > 0 ? round($precioBase - $costo, 6) : null;
+                $fila["margen_estimado"] = $margen;
+                $fila["riesgo_margen"] = $this->riesgoMargen($precioBase, $costo, $margen);
+                $productos[] = $fila;
+            }
+
+            return $this->respuesta(false, "success", "Productos para lista consultados", array(
+                "productos" => $productos,
+                "total" => count($productos),
+                "filtros" => array("id_lista_precio" => $idLista, "q" => $q, "solo" => $solo, "limite" => $limite),
+                "fuente_costo" => "erp_catalogo_skus.costo_referencia"
+            ));
+        } catch (Exception $e) {
+            return $this->respuesta(true, "danger", $e->getMessage());
+        }
+    }
+
+    /**
+     * Documentacion IA: Codex GPT-5, 2026-07-15.
+     * Proposito: revisar si una lista esta lista para activarse.
+     * Impacto: da semaforo operativo de detalles, conflictos y margen antes de que POS consuma la lista.
+     * Contrato: solo lectura; `listaGuardarAutorizado` vuelve a bloquear activaciones inseguras.
+     */
+    public function revisionListaReadOnly($idLista) {
+        try {
+            $db = $this->getConexion();
+            $idLista = intval($idLista);
+            if ($idLista <= 0 || !$this->existeLista($db, $idLista)) {
+                return $this->respuesta(true, "warning", "Lista obligatoria para revision");
+            }
+            return $this->respuesta(false, "success", "Revision de lista consultada", $this->construirRevisionLista($db, $idLista));
+        } catch (Exception $e) {
+            return $this->respuesta(true, "danger", $e->getMessage());
+        }
+    }
+
+    /**
      * Documentacion IA: Codex GPT-5, 2026-07-12.
      * Proposito: validar alta/edicion futura de encabezado de lista sin guardar.
      * Impacto: prepara CRUD de Listas de precios con reglas de vigencia, canal y unicidad.
@@ -447,6 +568,15 @@ class ListasPreciosErp extends CRUD {
             if ($idLista > 0 && !$antes) {
                 return $this->respuesta(true, "warning", "Lista no encontrada para edicion");
             }
+            if ($lista["estatus"] === "activa") {
+                if ($idLista <= 0) {
+                    return $this->respuesta(true, "warning", "Primero guarda la lista como borrador y captura precios antes de activarla");
+                }
+                $revisionActivacion = $this->construirRevisionLista($db, $idLista);
+                if (!empty($revisionActivacion["bloqueos"])) {
+                    return $this->respuesta(true, "warning", "No se puede activar la lista; resuelve bloqueos de revision", $revisionActivacion);
+                }
+            }
 
             $db->beginTransaction();
             if ($idLista > 0) {
@@ -589,6 +719,66 @@ class ListasPreciosErp extends CRUD {
             if ($db && $db->inTransaction()) {
                 $db->rollBack();
             }
+            return $this->respuesta(true, "danger", $e->getMessage());
+        }
+    }
+
+    /**
+     * Documentacion IA: Codex GPT-5, 2026-07-15.
+     * Proposito: guardar lote de precios modificados desde Comercial.
+     * Impacto: acelera captura masiva manteniendo validacion/auditoria del detalle individual.
+     * Contrato: recibe `precios_json`; cada partida usa `detalleGuardarAutorizado`.
+     */
+    public function detallesLoteGuardarAutorizado($datos = array(), $idUsuario = 0) {
+        try {
+            $idLista = intval($this->valor($datos, "id_lista_precio", 0));
+            $json = trim((string) $this->valor($datos, "precios_json", "[]"));
+            $items = json_decode($json, true);
+            if (!is_array($items)) {
+                return $this->respuesta(true, "warning", "Formato de lote invalido");
+            }
+            if ($idLista <= 0) {
+                return $this->respuesta(true, "warning", "Lista obligatoria para guardar lote");
+            }
+            if (count($items) > 200) {
+                return $this->respuesta(true, "warning", "El lote no puede exceder 200 precios por guardado");
+            }
+
+            $guardados = array();
+            $errores = array();
+            foreach ($items as $item) {
+                if (!is_array($item)) {
+                    $errores[] = array("mensaje" => "Partida invalida");
+                    continue;
+                }
+                $payload = array(
+                    "id_lista_precio_detalle" => $this->valor($item, "id_lista_precio_detalle", ""),
+                    "id_lista_precio" => $idLista,
+                    "id_sku" => $this->valor($item, "id_sku", ""),
+                    "id_producto_erp" => $this->valor($item, "id_producto_erp", ""),
+                    "precio" => $this->valor($item, "precio", ""),
+                    "moneda" => $this->valor($item, "moneda", "MXN"),
+                    "estatus" => $this->valor($item, "estatus", "activo"),
+                    "motivo" => trim((string) $this->valor($datos, "motivo", "Guardado operativo por lote"))
+                );
+                $respuesta = $this->detalleGuardarAutorizado($payload, $idUsuario);
+                if (!empty($respuesta["error"])) {
+                    $errores[] = array(
+                        "id_sku" => $this->valor($item, "id_sku", ""),
+                        "mensaje" => $respuesta["mensaje"],
+                        "depurar" => isset($respuesta["depurar"]) ? $respuesta["depurar"] : null
+                    );
+                } else {
+                    $guardados[] = isset($respuesta["depurar"]) ? $respuesta["depurar"] : array();
+                }
+            }
+
+            return $this->respuesta(false, empty($errores) ? "success" : "warning", empty($errores) ? "Lote de precios guardado" : "Lote guardado parcialmente", array(
+                "guardados" => count($guardados),
+                "errores" => $errores,
+                "total" => count($items)
+            ));
+        } catch (Exception $e) {
             return $this->respuesta(true, "danger", $e->getMessage());
         }
     }
@@ -758,6 +948,75 @@ class ListasPreciosErp extends CRUD {
             LIMIT 200");
         $stmt->execute(array(":lista" => intval($idLista)));
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    private function construirRevisionLista($db, $idLista) {
+        $idLista = intval($idLista);
+        $bloqueos = array();
+        $avisos = array();
+        $detallesActivos = 0;
+        $margen = array("sin_costo" => 0, "margen_bajo" => 0, "perdida" => 0);
+
+        if (!$this->tablaExiste($db, "erp_listas_precios_detalle")) {
+            $bloqueos[] = "Falta tabla de detalles de listas de precios";
+        } else {
+            $stmt = $db->prepare("SELECT COUNT(*) FROM erp_listas_precios_detalle WHERE id_lista_precio=:lista AND estatus='activo'");
+            $stmt->execute(array(":lista" => $idLista));
+            $detallesActivos = intval($stmt->fetchColumn());
+            if ($detallesActivos <= 0) {
+                $bloqueos[] = "La lista no tiene productos con precio activo";
+            }
+
+            $stmt = $db->prepare("SELECT d.id_lista_precio_detalle, d.precio, COALESCE(s.costo_referencia, 0) costo_referencia
+                FROM erp_listas_precios_detalle d
+                LEFT JOIN erp_catalogo_skus s ON s.id_sku=d.id_sku
+                WHERE d.id_lista_precio=:lista AND d.estatus='activo'
+                LIMIT 500");
+            $stmt->execute(array(":lista" => $idLista));
+            foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $fila) {
+                $precio = floatval($fila["precio"]);
+                $costo = floatval($fila["costo_referencia"]);
+                $margenPct = $this->calcularMargenPrecio($precio, $costo);
+                if ($costo <= 0) {
+                    $margen["sin_costo"]++;
+                } elseif (($precio - $costo) < 0) {
+                    $margen["perdida"]++;
+                } elseif ($margenPct !== null && $margenPct < 15) {
+                    $margen["margen_bajo"]++;
+                }
+            }
+        }
+
+        $conflictos = $this->detectarConflictosLista($db, $idLista);
+        foreach ($conflictos as $conflicto) {
+            $tipo = isset($conflicto["tipo"]) ? $conflicto["tipo"] : "";
+            $severidad = isset($conflicto["severidad"]) ? $conflicto["severidad"] : "";
+            if (in_array($tipo, array("detalle_sin_alcance", "precio_no_valido", "detalle_duplicado"), true) || $severidad === "alta") {
+                $bloqueos[] = isset($conflicto["mensaje"]) ? $conflicto["mensaje"] : "Conflicto de lista";
+            } elseif ($tipo !== "asignacion_lista_inactiva") {
+                $avisos[] = isset($conflicto["mensaje"]) ? $conflicto["mensaje"] : "Aviso de lista";
+            }
+        }
+        if ($margen["perdida"] > 0) {
+            $bloqueos[] = "Hay " . $margen["perdida"] . " producto(s) con precio debajo del costo de referencia";
+        }
+        if ($margen["margen_bajo"] > 0) {
+            $avisos[] = "Hay " . $margen["margen_bajo"] . " producto(s) con margen menor a 15%";
+        }
+        if ($margen["sin_costo"] > 0) {
+            $avisos[] = "Hay " . $margen["sin_costo"] . " producto(s) sin costo de referencia";
+        }
+
+        $bloqueos = array_values(array_unique($bloqueos));
+        $avisos = array_values(array_unique($avisos));
+        return array(
+            "puede_activar" => empty($bloqueos),
+            "bloqueos" => $bloqueos,
+            "avisos" => $avisos,
+            "detalles_activos" => $detallesActivos,
+            "margen" => $margen,
+            "conflictos" => $conflictos
+        );
     }
 
     private function detectarConflictosLista($db, $idLista) {
@@ -1013,6 +1272,33 @@ class ListasPreciosErp extends CRUD {
         $stmt = $db->prepare("SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=:base AND TABLE_NAME=:tabla AND COLUMN_NAME=:columna LIMIT 1");
         $stmt->execute(array(":base" => MYSQLBASE, ":tabla" => $tabla, ":columna" => $columna));
         return (bool) $stmt->fetch(PDO::FETCH_ASSOC);
+    }
+
+    private function calcularMargenPrecio($precio, $costo) {
+        $precio = floatval($precio);
+        $costo = floatval($costo);
+        if ($precio <= 0) {
+            return null;
+        }
+        return round((($precio - $costo) / $precio) * 100, 2);
+    }
+
+    private function riesgoMargen($precio, $costo, $margen) {
+        $precio = floatval($precio);
+        $costo = floatval($costo);
+        if ($precio <= 0) {
+            return array("clave" => "sin_precio", "texto" => "Sin precio", "tipo" => "muted");
+        }
+        if ($costo <= 0) {
+            return array("clave" => "sin_costo", "texto" => "Sin costo", "tipo" => "warning");
+        }
+        if (($precio - $costo) < 0) {
+            return array("clave" => "perdida", "texto" => "Perdida", "tipo" => "danger");
+        }
+        if ($margen !== null && floatval($margen) < 15) {
+            return array("clave" => "margen_bajo", "texto" => "Margen bajo", "tipo" => "warning");
+        }
+        return array("clave" => "ok", "texto" => "Margen OK", "tipo" => "success");
     }
 
     private function valor($datos, $clave, $default = null) {

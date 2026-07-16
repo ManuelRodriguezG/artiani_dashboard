@@ -37,8 +37,8 @@ $publicacionBloqueada = $modelo->guardarPublicacionBloqueada(array(
 
 $bloqueos = array();
 $endpoints = valor($contratos, array("depurar", "endpoints_publicos"), array());
-if (count($endpoints) < 8) {
-  $bloqueos[] = "El manifiesto API debe incluir al menos 8 endpoints documentados";
+if (count($endpoints) < 9) {
+  $bloqueos[] = "El manifiesto API debe incluir al menos 9 endpoints documentados";
 }
 if (!contieneEndpoint($endpoints, "/ecommercePublico/catalogo")) {
   $bloqueos[] = "Falta contrato /ecommercePublico/catalogo";
