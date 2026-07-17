@@ -121,3 +121,11 @@ Suite completa read-only:
 ```powershell
 C:\xampp\php\php.exe storage\uat\uat_listas_precios_segmentos_suite_readonly.php 2 RECURRENTE 1760 5
 ```
+
+Paquete de autorizacion read-only:
+
+```powershell
+C:\xampp\php\php.exe storage\uat\uat_listas_precios_segmentos_autorizacion_paquete_readonly.php
+```
+
+Este paquete no ejecuta comandos; solo valida respaldo, lista, cliente, segmento, tabla puente y devuelve el orden de apply recomendado.

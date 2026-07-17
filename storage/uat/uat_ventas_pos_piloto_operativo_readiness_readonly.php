@@ -46,6 +46,16 @@ $checks[] = ejecutar("evidencia_ciclo", array(
     "--id_usuario=" . $idUsuario,
     "--folio=" . $folio
 ), true);
+$checks[] = ejecutar("inventario_sku", array(
+    "uat_ventas_pos_inventario_sku_readonly.php",
+    "--id_almacen=" . $idAlmacen,
+    "--id_sku=" . $idSku,
+    "--cantidad=" . $cantidad
+), true);
+
+$checks[] = ejecutar("evidencias_caja", array(
+    "uat_ventas_pos_caja_evidencias_readonly.php"
+), true);
 
 $bloqueos = array();
 $avisos = array();
@@ -59,6 +69,10 @@ $cierre = buscarCheck($checks, "cierre_final");
 $evidencia = buscarCheck($checks, "evidencia_ciclo");
 $cierreJson = valor($cierre, "salida_json", array());
 $evidenciaJson = valor($evidencia, "salida_json", array());
+$inventarioCheck = buscarCheck($checks, "inventario_sku");
+$evidenciasCajaCheck = buscarCheck($checks, "evidencias_caja");
+$inventarioJson = valor($inventarioCheck, "salida_json", array());
+$evidenciasCajaJson = valor($evidenciasCajaCheck, "salida_json", array());
 $cierreResumen = valor($cierreJson, "resumen_ejecutivo", array());
 $evidenciaResumen = valor($evidenciaJson, "resumen", array());
 $folioDetectado = trim((string) valor($evidenciaResumen, "folio_detectado", ""));
@@ -75,6 +89,13 @@ foreach (valor($cierreResumen, "avisos", array()) as $aviso) {
 }
 foreach (valor($evidenciaResumen, "avisos", array()) as $aviso) {
     $avisos[] = "evidencia_ciclo: " . $aviso;
+}
+if (!empty($inventarioJson) && empty(valor(valor($inventarioJson, "resumen", array()), "cubre_cantidad_requerida", false))) {
+    $avisos[] = "inventario_sku: Stock piloto insuficiente para SKU " . $idSku . " en almacen " . $idAlmacen . "; cargar stock/recepcion/ajuste autorizado antes de venta real.";
+}
+$totalEvidenciasPendientes = intval(valor(valor($evidenciasCajaJson, "resumen", array()), "total_registros", 0));
+if ($totalEvidenciasPendientes > 0) {
+    $avisos[] = "evidencias_caja: Hay " . $totalEvidenciasPendientes . " evidencia(s) de caja pendiente(s); no bloquea piloto normal, pero debe cerrarse por control administrativo.";
 }
 
 $cicloRealCompleto = $folioDetectado !== "" && $idVentaDetectado > 0;

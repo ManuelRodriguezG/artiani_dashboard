@@ -80,6 +80,17 @@
                                                     <label class="form-label fs-8 text-muted">Categoria principal para seleccionados</label>
                                                     <select class="form-select form-select-sm" id="catalogo_masivo_categoria"><option value="">No cambiar categoria</option></select>
                                                 </div>
+                                                <div style="width:210px">
+                                                    <label class="form-label fs-8 text-muted">Estado maestro</label>
+                                                    <select class="form-select form-select-sm" id="catalogo_masivo_estatus">
+                                                        <option value="">No cambiar estado</option>
+                                                        <option value="borrador">Borrador</option>
+                                                        <option value="en_revision">En revision</option>
+                                                        <option value="activo">Activo</option>
+                                                        <option value="inactivo">Inactivo</option>
+                                                        <option value="descontinuado">Descontinuado</option>
+                                                    </select>
+                                                </div>
                                                 <?php if (SesionSeguridad::tienePermiso('catalogo.costos')): ?>
                                                 <div class="flex-grow-1">
                                                     <label class="form-label fs-8 text-muted">Proveedor para SKU sin proveedor</label>
@@ -100,7 +111,7 @@
                                                 <?php endif; ?>
                                                 <button class="btn btn-sm btn-primary" type="button" id="catalogo_masivo_aplicar"><i class="bi bi-check2-square"></i> Aplicar a seleccionados</button>
                                             </div>
-                                            <div class="form-text mt-2" id="catalogo_masivo_info">Selecciona productos visibles para aplicar marca, categoria o proveedor por bloque.</div>
+                                            <div class="form-text mt-2" id="catalogo_masivo_info">Selecciona productos visibles para aplicar marca, categoria, estado maestro o proveedor por bloque.</div>
                                             <div class="alert alert-danger d-none mt-3 mb-0" id="catalogo_masivo_error"></div>
                                         </div>
                                         <?php endif; ?>

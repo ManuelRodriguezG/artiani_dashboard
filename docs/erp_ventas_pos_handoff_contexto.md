@@ -4453,3 +4453,40 @@ Resultado vigente:
 - `bloqueos_para_cobro_atencion=[]`.
 - `pendientes_inventario_abiertos=0`.
 - Siguiente paso operativo: piloto controlado desde UI con turno nuevo, venta normal y cierre de caja.
+## Corte 2026-07-17 - suite base POS post-DDL aplicado
+
+Se ajustaron checks read-only antiguos para estado post-DDL:
+
+- `storage/uat/uat_ventas_pos_base_autorizacion_preflight_readonly.php` ahora reconoce `schema_base_aplicado=true` cuando la auditoria no tiene tablas pendientes.
+- `DDL base_total=0` y `DDL expandido_total=0` ya no bloquean si el esquema base esta aplicado.
+- `storage/uat/uat_ventas_pos_base_readiness_suite_readonly.php` actualiza el siguiente paso: no repetir DDL base; pasar a piloto controlado POS.
+
+Validacion:
+
+```powershell
+C:\xampp\php\php.exe -l storage\uat\uat_ventas_pos_base_autorizacion_preflight_readonly.php
+C:\xampp\php\php.exe -l storage\uat\uat_ventas_pos_base_readiness_suite_readonly.php
+C:\xampp\php\php.exe storage\uat\uat_ventas_pos_base_autorizacion_preflight_readonly.php --respaldo=UAT_POS_VIGENTE --id_usuario=1
+C:\xampp\php\php.exe storage\uat\uat_ventas_pos_base_readiness_suite_readonly.php --id_usuario=1 --id_almacen=5 --id_sku=1760
+```
+
+Resultado vigente:
+
+- Preflight base: `ok=true`, `schema_base_aplicado=true`, bloqueos `[]`.
+- Suite base: `ok=true`, bloqueos `[]`.
+- Siguiente paso: piloto controlado POS, no repetir DDL base.
+## Corte 2026-07-17 - semaforo piloto enriquecido
+
+Se actualizo `storage/uat/uat_ventas_pos_piloto_operativo_readiness_readonly.php` para incluir avisos operativos no bloqueantes:
+
+- Verifica inventario del SKU piloto con `uat_ventas_pos_inventario_sku_readonly.php`.
+- Verifica evidencias de caja pendientes con `uat_ventas_pos_caja_evidencias_readonly.php`.
+- Mantiene `decision=apto_para_piloto_controlado` si no hay bloqueos reales, pero advierte condiciones previas al turno.
+
+Resultado vigente:
+
+- `ok=true`.
+- `decision=apto_para_piloto_controlado`.
+- Bloqueos `[]`.
+- Aviso: SKU `1760` sin stock disponible en almacen `5`; antes de venta real se requiere stock por compra/recepcion/ajuste autorizado o carga UAT autorizada.
+- Aviso: existe 1 evidencia historica de caja pendiente por `$50.00`; no bloquea piloto normal, pero debe cerrarse por control administrativo.

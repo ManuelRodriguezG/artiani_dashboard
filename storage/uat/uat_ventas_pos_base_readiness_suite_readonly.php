@@ -42,6 +42,7 @@ $preflight = buscarCheck($checks, "preflight_base");
 $compatibilidad = buscarCheck($checks, "compatibilidad");
 $guardrails = buscarCheck($checks, "guardrails");
 $postConfig = buscarCheck($checks, "post_config_pre_ddl");
+$schemaBaseAplicado = !empty(valor($preflight, array("json", "ddl", "schema_base_aplicado"), false));
 
 echo json_encode(array(
     "ok" => empty($bloqueos),
@@ -62,7 +63,7 @@ echo json_encode(array(
     "checks" => $checks,
     "bloqueos" => $bloqueos,
     "siguiente_paso" => empty($bloqueos)
-        ? "Readiness base completo. Siguiente paso requiere autorizacion VENTAS_POS_DDL_BASE."
+        ? ($schemaBaseAplicado ? "Readiness base completo y esquema ya aplicado. Siguiente paso: piloto controlado POS, no repetir DDL base." : "Readiness base completo. Siguiente paso requiere autorizacion VENTAS_POS_DDL_BASE.")
         : "Resolver bloqueos antes de solicitar autorizacion."
 ), JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
 

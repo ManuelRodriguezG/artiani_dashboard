@@ -343,6 +343,24 @@ class Catalogoerp extends Controlador {
     return json_encode($respuesta);
   }
 
+  /**
+   * IA: Codex GPT-5 | Fecha: 2026-07-17
+   * Proposito: cambia el estado maestro de productos seleccionados desde el listado de Catalogo.
+   * Impacto: Catalogo ERP; evita editar uno por uno y mantiene fusionado fuera de cambios manuales.
+   * Contrato: recibe `ids_productos` JSON y `estatus` permitido por el maestro de producto.
+   */
+  public function productos_estatus_masivo() {
+    $this->requerirPermiso("catalogo.editar");
+    $respuesta = $this->modelo("CatalogoErpDatos")->actualizarEstatusProductosMasivo($_POST, $this->usuarioActualId());
+    SesionSeguridad::registrarAuditoria("catalogo", "actualizar_estatus_productos_masivo", array(
+      "entidad" => "erp_catalogo_productos",
+      "resultado" => $respuesta["error"] ? "error" : "ok",
+      "mensaje" => $respuesta["mensaje"],
+      "datos_despues" => isset($respuesta["depurar"]) ? $respuesta["depurar"] : null
+    ));
+    return json_encode($respuesta);
+  }
+
   public function taxonomias_listar() {
     $this->requerirPermiso("catalogo.ver");
     return json_encode($this->modelo("CatalogoErpDatos")->listarTaxonomiasCatalogo());

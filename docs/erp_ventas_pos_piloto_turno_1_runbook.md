@@ -112,3 +112,10 @@ Si el turno piloto cierra sin bloqueos altos, se puede ampliar lentamente:
 - despues mas cajas/sucursales.
 
 No ampliar a devoluciones, apartados, descuentos libres ni inventario pendiente productivo hasta cerrar sus UAT y permisos productivos.
+## Condiciones Previas Detectadas
+
+Antes del primer piloto real:
+
+- Confirmar stock disponible del SKU que se vendera. El ultimo semaforo detecto SKU `1760` sin disponible en almacen `5`.
+- Si no hay stock, no forzar venta normal. Primero cargar inventario por recepcion/ajuste autorizado o usar una carga UAT autorizada.
+- Revisar evidencias de caja pendientes. La evidencia historica `GASTO-UAT-001` por `$50.00` no bloquea venta normal, pero debe cerrarse por control administrativo.

@@ -2400,3 +2400,36 @@ Comandos:
 C:\xampp\php\php.exe storage\uat\uat_catalogo_imagenes_productos_portadas_apply.php --execute --token=CATALOGO_IMAGENES_PRODUCTOS_PORTADAS --respaldo=C:\xampp\panel_db_backups\artianilocal_panel_20260716_antes_catalogo_imagenes_productos.sql
 C:\xampp\php\php.exe storage\uat\uat_catalogo_imagenes_productos_portadas_apply.php --limit=10
 ```
+
+## Avance 2026-07-17 - Cambio masivo de estado maestro desde Productos
+
+Contexto:
+
+- Proyecto activo: `C:\xampp\htdocs\panel_de_control`.
+- No continuar cambios de Catalogo ERP en `C:\xampp\htdocs\panel` para este frente.
+- El operador necesitaba cambiar el estado maestro de productos seleccionados desde el listado sin abrir cada ficha.
+
+Cambio aplicado:
+
+- En `Catalogo ERP > Productos` se agrego el selector `Estado maestro` dentro de la barra de acciones masivas.
+- La accion usa los checkboxes existentes del listado.
+- Se agrego endpoint auditado `/catalogoerp/productos_estatus_masivo`.
+- Se agrego `CatalogoErpDatos::actualizarEstatusProductosMasivo`.
+- Estados permitidos:
+  - `borrador`;
+  - `en_revision`;
+  - `activo`;
+  - `inactivo`;
+  - `descontinuado`.
+- `fusionado` queda reservado al flujo formal de fusion y se omite de cambios manuales.
+
+Contrato:
+
+- Cambia solo `erp_catalogo_productos.estatus`.
+- No cambia SKUs, proveedores, categorias, imagenes, costos, precios ni inventario.
+- Maximo 250 productos por operacion.
+
+Pendiente relacionado:
+
+- `CATALOGO_CATEGORIAS_TEXTO_REPARAR` ya existe en este proyecto como UAT con preview, token y respaldo externo.
+- No se aplico en esta tarea; queda para continuar con diagnostico/ejecucion controlada cuando corresponda.

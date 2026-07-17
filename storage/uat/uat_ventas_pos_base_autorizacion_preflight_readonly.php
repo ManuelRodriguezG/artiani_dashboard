@@ -36,6 +36,8 @@ $planTerminales = $ventas->planAsignacionTerminalPos(array(
     "usuario_nombre" => $idUsuario > 0 ? "Usuario POS " . $idUsuario : "Usuario POS por asignar"
 ));
 $postConfig = $esquema->auditarVentasPos("base");
+$tablasBasePendientes = tablasPendientes(valor($postConfig, array("depurar"), array()));
+$schemaBaseAplicado = empty($tablasBasePendientes);
 
 $ddlBase = extraerSql($planDdlBase);
 $ddlExpandido = extraerSql($planDdlExpandido);
@@ -59,10 +61,10 @@ if ($idUsuario <= 0) {
 if (!empty($asignacionesSinUsuario)) {
     $bloqueos[] = "Hay asignaciones sin usuario real: " . implode(", ", $asignacionesSinUsuario);
 }
-if (count($ddlBase) !== 11) {
+if (count($ddlBase) !== 11 && !$schemaBaseAplicado) {
     $bloqueos[] = "DDL base esperado 11 tablas, recibido " . count($ddlBase);
 }
-if (count($ddlExpandido) !== 21) {
+if (count($ddlExpandido) !== 21 && !$schemaBaseAplicado) {
     $bloqueos[] = "DDL expandido esperado 21 tablas, recibido " . count($ddlExpandido);
 }
 if (count($propuestasCajas) <= 0) {
@@ -84,6 +86,7 @@ echo json_encode(array(
     "ddl" => array(
         "base_total" => count($ddlBase),
         "expandido_total" => count($ddlExpandido),
+        "schema_base_aplicado" => $schemaBaseAplicado,
         "base_no_incluye_clientes" => !contieneTabla($ddlBase, "erp_clientes"),
         "base_no_incluye_atenciones" => !contieneTabla($ddlBase, "erp_pos_atenciones"),
         "expandido_incluye_clientes" => contieneTabla($ddlExpandido, "erp_clientes"),
@@ -96,7 +99,7 @@ echo json_encode(array(
         "asignaciones_sin_usuario" => $asignacionesSinUsuario
     ),
     "auditoria_base" => array(
-        "tablas_pendientes" => tablasPendientes(valor($postConfig, array("depurar"), array()))
+        "tablas_pendientes" => $tablasBasePendientes
     ),
     "guardrails" => array(
         "token_base" => "VENTAS_POS_DDL_BASE",
@@ -105,7 +108,7 @@ echo json_encode(array(
     ),
     "bloqueos" => $bloqueos,
     "siguiente_paso" => empty($bloqueos)
-        ? "Listo para solicitar autorizacion textual del esquema base."
+        ? ($schemaBaseAplicado ? "Esquema base ya aplicado; no solicitar DDL base nuevamente." : "Listo para solicitar autorizacion textual del esquema base.")
         : "Resolver bloqueos antes de autorizar esquema base."
 ), JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
 

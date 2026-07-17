@@ -1737,6 +1737,89 @@ class CatalogoErpDatos extends CRUD {
     }
   }
 
+  /**
+   * IA: Codex GPT-5 | Fecha: 2026-07-17
+   * Proposito: actualizar por lote el estado de vida del producto maestro sin abrir cada ficha.
+   * Impacto: Catalogo ERP; acelera saneamiento operativo y conserva `fusionado` reservado al flujo de fusion.
+   * Contrato: `ids_productos` JSON, maximo 250 productos, `estatus` en borrador/en_revision/activo/inactivo/descontinuado.
+   */
+  public function actualizarEstatusProductosMasivo($datos, $idUsuario) {
+    $ids = json_decode(isset($datos["ids_productos"]) ? $datos["ids_productos"] : "[]", true);
+    if (!is_array($ids) || empty($ids)) {
+      return $this->respuesta(true, "warning", "Selecciona al menos un producto");
+    }
+    $ids = array_values(array_unique(array_filter(array_map("intval", $ids), function ($id) {
+      return $id > 0;
+    })));
+    if (empty($ids)) {
+      return $this->respuesta(true, "warning", "Selecciona productos validos");
+    }
+    if (count($ids) > 250) {
+      return $this->respuesta(true, "warning", "Aplica como maximo 250 productos por operacion");
+    }
+    $estatusSolicitado = $this->texto($datos, "estatus");
+    if (!in_array($estatusSolicitado, array("borrador", "en_revision", "activo", "inactivo", "descontinuado"), true)) {
+      return $this->respuesta(true, "warning", "Selecciona un estado maestro valido");
+    }
+
+    $db = $this->getConexion();
+    try {
+      $db->beginTransaction();
+      $placeholders = implode(",", array_fill(0, count($ids), "?"));
+      $stmt = $db->prepare("SELECT id_producto_erp, estatus FROM erp_catalogo_productos
+        WHERE id_producto_erp IN ($placeholders)
+        FOR UPDATE");
+      foreach ($ids as $idx => $idProducto) {
+        $stmt->bindValue($idx + 1, $idProducto, PDO::PARAM_INT);
+      }
+      $stmt->execute();
+      $productos = $stmt->fetchAll(PDO::FETCH_ASSOC);
+      if (empty($productos)) {
+        throw new Exception("No se encontraron productos seleccionados");
+      }
+      $actualizables = array();
+      $fusionados = 0;
+      foreach ($productos as $producto) {
+        if ((string) $producto["estatus"] === "fusionado") {
+          $fusionados++;
+          continue;
+        }
+        $actualizables[] = intval($producto["id_producto_erp"]);
+      }
+      if (empty($actualizables)) {
+        throw new Exception("Los productos seleccionados no pueden cambiarse manualmente");
+      }
+      $placeholdersUpdate = implode(",", array_fill(0, count($actualizables), "?"));
+      $actualizar = $db->prepare("UPDATE erp_catalogo_productos
+        SET estatus=?, actualizado_por=?, fecha_actualizacion=CURRENT_TIMESTAMP
+        WHERE id_producto_erp IN ($placeholdersUpdate)
+          AND estatus<>'fusionado'");
+      $actualizar->bindValue(1, $estatusSolicitado);
+      if (intval($idUsuario) > 0) {
+        $actualizar->bindValue(2, intval($idUsuario), PDO::PARAM_INT);
+      } else {
+        $actualizar->bindValue(2, null, PDO::PARAM_NULL);
+      }
+      foreach ($actualizables as $idx => $idProducto) {
+        $actualizar->bindValue($idx + 3, $idProducto, PDO::PARAM_INT);
+      }
+      $actualizar->execute();
+      $db->commit();
+      return $this->respuesta(false, "success", "Estado maestro actualizado", array(
+        "productos_seleccionados" => count($ids),
+        "productos_encontrados" => count($productos),
+        "productos_actualizados" => $actualizar->rowCount(),
+        "fusionados_omitidos" => $fusionados,
+        "estatus" => $estatusSolicitado
+      ));
+    } catch (Exception $e) {
+      if ($db->inTransaction()) {
+        $db->rollBack();
+      }
+      return $this->respuesta(true, "danger", $e->getMessage());
+    }
+  }
+
   public function listarPropuestasReorden($politica = array()) {
     $niveles = array(
       "AAA" => array("minimo" => 6, "reorden" => 6, "maximo" => 12),

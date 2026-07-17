@@ -101,6 +101,9 @@ Estado 2026-07-16:
 - Apply protegido para asignar cliente a segmento preparado: `storage/uat/uat_crm_cliente_segmento_apply_authorized.php` con token `CRM_CLIENTES_SEGMENTO`; actualiza `id_segmento_default` si se solicita y no toca listas ni ventas.
 - Suite read-only de preparacion completa: `storage/uat/uat_listas_precios_segmentos_suite_readonly.php 2 RECURRENTE 1760 5`.
 - Estado actual de la suite: lista UAT 2 existe con SKU 1760 y cliente candidato 1 existe; faltan segmento `RECURRENTE` y tabla puente `erp_segmentos_listas_precios`.
+- Paquete read-only de autorizacion preparado: `storage/uat/uat_listas_precios_segmentos_autorizacion_paquete_readonly.php`. Valida respaldo, confirma estado actual y devuelve los comandos en orden sin ejecutarlos.
+- Plan de reversa documentado: `docs/erp_listas_precios_segmentos_plan_reversa.md`.
+- Preflight de reversa read-only preparado: `storage/uat/uat_listas_precios_segmentos_reversa_preflight_readonly.php`; estado actual `reversa_no_aplica_sin_tabla`.
 
 Reglas del apply:
 

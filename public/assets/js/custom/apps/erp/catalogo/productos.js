@@ -308,7 +308,7 @@
         var seleccionarPagina = document.getElementById("catalogo_seleccionar_pagina");
         var total = productosSeleccionadosIds().length;
         if (info) {
-            info.textContent = total ? total + " producto(s) seleccionados para actualizacion masiva." : "Selecciona productos visibles para aplicar marca, categoria o proveedor por bloque.";
+            info.textContent = total ? total + " producto(s) seleccionados para actualizacion masiva." : "Selecciona productos visibles para aplicar marca, categoria, estado maestro o proveedor por bloque.";
         }
         if (seleccionarPagina) {
             seleccionarPagina.checked = productosPaginaActual.length > 0 && productosPaginaActual.every(function (id) {
@@ -322,13 +322,14 @@
 
     /**
      * IA: Codex GPT-5 | Fecha: 2026-06-25
-     * Proposito: aplica marca y/o categoria a productos seleccionados desde la bandeja de saneamiento.
-     * Impacto: Catalogo ERP; acelera limpieza de migracion usando el contrato auditado de revision de metadatos.
+     * Proposito: aplica marca, categoria y estado maestro a productos seleccionados desde la bandeja de saneamiento.
+     * Impacto: Catalogo ERP; acelera limpieza de migracion usando contratos auditados sin abrir cada producto.
      */
     function aplicarMetadatosMasivos() {
         var errorBox = document.getElementById("catalogo_masivo_error");
         var marca = document.getElementById("catalogo_masivo_marca");
         var categoria = document.getElementById("catalogo_masivo_categoria");
+        var estatus = document.getElementById("catalogo_masivo_estatus");
         var proveedor = document.getElementById("catalogo_masivo_proveedor");
         var unidadCompra = document.getElementById("catalogo_masivo_unidad_compra");
         var factor = document.getElementById("catalogo_masivo_factor");
@@ -336,6 +337,7 @@
         var ids = productosSeleccionadosIds();
         var idMarca = marca ? marca.value : "";
         var idCategoria = categoria ? categoria.value : "";
+        var estatusMaestro = estatus ? estatus.value : "";
         var idProveedor = proveedor ? proveedor.value : "";
         var idUnidadCompra = unidadCompra ? unidadCompra.value : "";
         var factorCompra = factor ? parseFloat(factor.value || "0") : 0;
@@ -345,8 +347,8 @@
             mostrarError(errorBox, new Error("Selecciona al menos un producto"));
             return;
         }
-        if (!idMarca && !idCategoria && !aplicarProveedor) {
-            mostrarError(errorBox, new Error("Selecciona marca, categoria o proveedor para aplicar"));
+        if (!idMarca && !idCategoria && !estatusMaestro && !aplicarProveedor) {
+            mostrarError(errorBox, new Error("Selecciona marca, categoria, estado maestro o proveedor para aplicar"));
             return;
         }
         if (aplicarProveedor && (!idUnidadCompra || factorCompra <= 0 || minimaCompra <= 0)) {
@@ -369,12 +371,13 @@
                 throw new Error(simulacion.mensaje);
             }
             var detalleProveedor = "";
+            var detalleEstatus = estatusMaestro ? " El estado maestro cambiara a " + estatusMaestro + "." : "";
             if (simulacion && simulacion.depurar) {
                 detalleProveedor = " Se relacionaran " + Number(simulacion.depurar.skus_relacionables || 0) +
                     " SKU(s) sin proveedor de " + Number(simulacion.depurar.productos_afectados || 0) + " producto(s).";
             }
             return Swal.fire({
-                text: "Se actualizaran " + ids.length + " producto(s) seleccionados." + detalleProveedor,
+                text: "Se actualizaran " + ids.length + " producto(s) seleccionados." + detalleEstatus + detalleProveedor,
                 icon: "warning",
                 showCancelButton: true,
                 confirmButtonText: "Aplicar",
@@ -401,6 +404,12 @@
                     asignaciones: JSON.stringify(asignaciones)
                 }));
             }
+            if (estatusMaestro) {
+                tareas.push(request("/catalogoerp/productos_estatus_masivo", {
+                    ids_productos: JSON.stringify(ids),
+                    estatus: estatusMaestro
+                }));
+            }
             if (aplicarProveedor) {
                 tareas.push(request("/catalogoerp/proveedor_masivo_skus_sin_proveedor", {
                     ids_productos: JSON.stringify(ids),
@@ -419,6 +428,7 @@
                 productosSeleccionados = {};
                 if (marca) { marca.value = ""; }
                 if (categoria) { categoria.value = ""; }
+                if (estatus) { estatus.value = ""; }
                 if (proveedor) { proveedor.value = ""; }
                 if (unidadCompra) { unidadCompra.value = ""; }
                 if (factor) { factor.value = "1"; }
