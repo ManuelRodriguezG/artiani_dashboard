@@ -1963,6 +1963,77 @@ class VentasErpEsquema extends DBSchema {
             "depurar" => $resultado
         );
     }
+
+    /**
+     * Documentacion IA: Codex GPT-5, 2026-07-16.
+     * Proposito: preparar asignacion escalable de listas de precios por segmento/tipo CRM.
+     * Impacto: crea tabla puente futura entre CRM Segmentos y ERP Listas; no cambia ventas pasadas.
+     * Contrato: con $ejecutar=false solo genera SQL; con true requiere autorizacion externa y respaldo.
+     */
+    public function planActualizarSegmentosListasPrecios($ejecutar = false) {
+        $opciones = "ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci";
+        $plan = array();
+        $plan[] = $this->crearTablaSiNoExiste("erp_segmentos_listas_precios", array(
+            "`id_segmento_lista_precio` BIGINT NOT NULL AUTO_INCREMENT",
+            "`id_segmento_crm` BIGINT NOT NULL",
+            "`id_lista_precio` INT NOT NULL",
+            "`canal` VARCHAR(40) NOT NULL DEFAULT 'general'",
+            "`id_almacen` INT NULL",
+            "`prioridad` INT NOT NULL DEFAULT 100",
+            "`fecha_inicio` DATETIME NULL",
+            "`fecha_fin` DATETIME NULL",
+            "`estatus` VARCHAR(30) NOT NULL DEFAULT 'activo'",
+            "`motivo` TEXT NULL",
+            "`creado_por` INT NULL",
+            "`fecha_registro` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
+            "`actualizado_por` INT NULL",
+            "`fecha_actualizacion` DATETIME NULL",
+            "PRIMARY KEY (`id_segmento_lista_precio`)",
+            "KEY `idx_seg_lp_segmento` (`id_segmento_crm`, `estatus`, `prioridad`)",
+            "KEY `idx_seg_lp_lista` (`id_lista_precio`, `estatus`)",
+            "KEY `idx_seg_lp_alcance` (`canal`, `id_almacen`, `estatus`, `prioridad`)",
+            "KEY `idx_seg_lp_vigencia` (`fecha_inicio`, `fecha_fin`, `estatus`)"
+        ), $opciones, $ejecutar);
+        return $plan;
+    }
+
+    /**
+     * Documentacion IA: Codex GPT-5, 2026-07-16.
+     * Proposito: auditar estructura futura de segmento CRM/lista de precios.
+     * Impacto: solo lectura sobre INFORMATION_SCHEMA; no crea vinculos ni modifica precios.
+     * Contrato: devuelve cobertura de tabla, columnas e indices para UAT de resolutor por segmento.
+     */
+    public function auditarSegmentosListasPrecios() {
+        $tabla = "erp_segmentos_listas_precios";
+        $columnas = array(
+            "id_segmento_lista_precio", "id_segmento_crm", "id_lista_precio", "canal", "id_almacen",
+            "prioridad", "fecha_inicio", "fecha_fin", "estatus", "motivo", "creado_por",
+            "fecha_registro", "actualizado_por", "fecha_actualizacion"
+        );
+        $indices = array("idx_seg_lp_segmento", "idx_seg_lp_lista", "idx_seg_lp_alcance", "idx_seg_lp_vigencia");
+        $resultado = array(
+            "tablas" => array(
+                array("tabla" => "crm_clientes_segmentos", "existe" => $this->tablaExiste("crm_clientes_segmentos")),
+                array("tabla" => "crm_clientes_segmentos_rel", "existe" => $this->tablaExiste("crm_clientes_segmentos_rel")),
+                array("tabla" => "erp_listas_precios", "existe" => $this->tablaExiste("erp_listas_precios")),
+                array("tabla" => $tabla, "existe" => $this->tablaExiste($tabla))
+            ),
+            "columnas" => array(),
+            "indices" => array()
+        );
+        foreach ($columnas as $columna) {
+            $resultado["columnas"][] = array("tabla" => $tabla, "columna" => $columna, "existe" => $this->columnaExiste($tabla, $columna));
+        }
+        foreach ($indices as $indice) {
+            $resultado["indices"][] = array("tabla" => $tabla, "indice" => $indice, "existe" => $this->indiceExiste($tabla, $indice));
+        }
+        return array(
+            "error" => false,
+            "tipo" => "success",
+            "mensaje" => "Auditoria de segmentos/listas de precios generada",
+            "depurar" => $resultado
+        );
+    }
     /**
      * Documentacion IA: Codex GPT-5, 2026-06-26.
      * Proposito: resumir cobertura de tablas del diseno POS para auditoria previa.

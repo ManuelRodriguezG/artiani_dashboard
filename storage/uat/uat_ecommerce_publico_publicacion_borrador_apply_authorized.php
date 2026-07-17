@@ -87,7 +87,8 @@ function validarRespaldoPublicacionBorrador($respaldo) {
     $legible = $existe && is_readable($respaldo);
     $tamano = $existe ? filesize($respaldo) : null;
   }
-  $okReferencia = strlen($respaldo) >= 8;
+  $placeholder = respaldoPlaceholderPublicacionBorrador($respaldo);
+  $okReferencia = strlen($respaldo) >= 8 && !$placeholder;
   $okRuta = !$esRutaLocal || ($existe && $legible && $tamano !== null && $tamano > 0);
   return array(
     "ok" => $okReferencia && $okRuta,
@@ -96,6 +97,15 @@ function validarRespaldoPublicacionBorrador($respaldo) {
     "parece_ruta_local" => $esRutaLocal,
     "archivo_existe" => $esRutaLocal ? $existe : null,
     "archivo_legible" => $esRutaLocal ? $legible : null,
-    "tamano_bytes" => $tamano
+    "tamano_bytes" => $tamano,
+    "placeholder_bloqueado" => $placeholder
   );
+}
+
+function respaldoPlaceholderPublicacionBorrador($valor) {
+  $valor = strtoupper(trim((string) $valor));
+  return $valor === ""
+    || strpos($valor, "RUTA_O_REFERENCIA") !== false
+    || strpos($valor, "REVISION_READONLY") !== false
+    || strpos($valor, "PLACEHOLDER") !== false;
 }

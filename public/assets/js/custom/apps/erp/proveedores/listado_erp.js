@@ -1502,6 +1502,7 @@
         document.getElementById("proveedores_erp_matching_error").classList.add("d-none");
         setInputValor("proveedores_erp_matching_buscar", "");
         setInputValor("proveedores_erp_matching_estado", "");
+        actualizarBotonMatchingMasivo(0);
         bootstrap.Modal.getOrCreateInstance(document.getElementById("proveedores_erp_matching_modal")).show();
         get("/proveedor/proveedor_lista_matching_dry_run_erp", {
             id_proveedor: proveedorActual.id_proveedor,
@@ -1534,6 +1535,7 @@
         if (conteo) {
             conteo.textContent = propuestas.length + " de " + ((data.propuestas || matchingPropuestasActuales || []).length) + " renglones";
         }
+        actualizarBotonMatchingMasivo(contarMatchingMasivoElegible(matchingPropuestasActuales.length ? matchingPropuestasActuales : (data.propuestas || [])));
         document.getElementById("proveedores_erp_matching_body").innerHTML = propuestas.map(function (p) {
             var proveedor = [p.sku_proveedor, p.codigo_barras, p.codigo_interno].filter(Boolean).join(" | ") || "Sin codigo";
             var candidatos = renderCandidatosMatching(p);
@@ -1549,6 +1551,93 @@
                 "<td>" + esc(p.criterio_match || "-") + "</td>" +
                 "</tr>";
         }).join("") || "<tr><td colspan=\"4\" class=\"text-center text-muted py-6\">Sin propuestas</td></tr>";
+    }
+
+    /**
+     * IA: Codex GPT-5 | Fecha: 2026-07-16
+     * Proposito: identificar candidatos seguros para seleccion masiva antes de guardar decisiones.
+     * Impacto: UI de matching de Proveedores; el servidor recalcula y valida nuevamente antes de escribir.
+     */
+    function esMatchingMasivoElegible(p) {
+        var candidatos = p && Array.isArray(p.candidatos) ? p.candidatos : [];
+        var estado = String(p && p.estado_match || "");
+        var estadoActual = String(p && p.estado_match_actual || "");
+        var criterio = String(p && p.criterio_match || "");
+        return candidatos.length === 1 &&
+            ["match_seleccionado", "relacion_aplicada", "costo_aplicado"].indexOf(estadoActual) < 0 &&
+            ["relacionado", "match_exacto_pendiente"].indexOf(estado) >= 0 &&
+            ["relacion_activa_proveedor_sku", "incidencia_catalogo_sku_temporal", "sku_o_codigo_exacto"].indexOf(criterio) >= 0 &&
+            Number(candidatos[0].id_sku || 0) > 0;
+    }
+
+    /**
+     * IA: Codex GPT-5 | Fecha: 2026-07-16
+     * Proposito: mostrar al operador cuantos matches seguros puede seleccionar en lote.
+     * Impacto: UI de matching de Proveedores; no ejecuta escrituras.
+     */
+    function contarMatchingMasivoElegible(propuestas) {
+        return (propuestas || []).filter(esMatchingMasivoElegible).length;
+    }
+
+    /**
+     * IA: Codex GPT-5 | Fecha: 2026-07-16
+     * Proposito: actualizar estado y texto del boton de seleccion masiva.
+     * Impacto: UI de matching de Proveedores; evita habilitar acciones sin candidatos confiables.
+     */
+    function actualizarBotonMatchingMasivo(total) {
+        var boton = document.getElementById("proveedores_erp_matching_masivo");
+        if (!boton) {
+            return;
+        }
+        boton.disabled = !(permisos.matching && Number(total || 0) > 0);
+        boton.innerHTML = "<i class=\"bi bi-magic\"></i> Seleccionar confiables" + (Number(total || 0) > 0 ? " (" + esc(total) + ")" : "");
+    }
+
+    /**
+     * IA: Codex GPT-5 | Fecha: 2026-07-16
+     * Proposito: confirmar y solicitar al servidor la seleccion masiva de matches confiables.
+     * Impacto: Proveedores ERP; guarda decisiones de matching, pero no aplica relaciones ni costos.
+     */
+    function seleccionarMatchingMasivo() {
+        if (!proveedorActual || !listaDetalleActual || !permisos.matching) {
+            return;
+        }
+        var total = contarMatchingMasivoElegible(matchingPropuestasActuales);
+        if (total <= 0) {
+            Swal.fire({text: "No hay candidatos confiables para seleccionar en lote.", icon: "info", confirmButtonText: "Aceptar"});
+            return;
+        }
+        Swal.fire({
+            title: "Seleccionar matches confiables",
+            text: "Se seleccionaran " + total + " candidato(s) exactos o ya relacionados. No se aplicaran relaciones ni costos; los ambiguos y posibles quedaran para revision manual.",
+            icon: "warning",
+            showCancelButton: true,
+            confirmButtonText: "Seleccionar confiables",
+            cancelButtonText: "Cancelar"
+        }).then(function (result) {
+            if (!result.isConfirmed) {
+                return;
+            }
+            var boton = document.getElementById("proveedores_erp_matching_masivo");
+            if (boton) {
+                boton.disabled = true;
+            }
+            post("/proveedor/proveedor_lista_matching_masivo_erp", {
+                id_proveedor: proveedorActual.id_proveedor,
+                id_lista_proveedor_erp: listaDetalleActual.id_lista_proveedor_erp
+            }).then(function (response) {
+                if (response.error) {
+                    throw new Error(response.mensaje || "No fue posible seleccionar matching masivo.");
+                }
+                Swal.fire({text: response.mensaje, icon: "success", confirmButtonText: "Aceptar"});
+                ejecutarMatchingDryRun();
+                abrirDetalleLista(listaDetalleActual);
+            }).catch(function (err) {
+                Swal.fire({text: err.message, icon: "error", confirmButtonText: "Aceptar"});
+            }).finally(function () {
+                actualizarBotonMatchingMasivo(contarMatchingMasivoElegible(matchingPropuestasActuales));
+            });
+        });
     }
 
     function filtrarMatchingPropuestas(propuestas) {
@@ -2791,6 +2880,10 @@
         var matchingDryRun = document.getElementById("proveedores_erp_lista_matching_dry_run");
         if (matchingDryRun && permisos.matching) {
             matchingDryRun.addEventListener("click", ejecutarMatchingDryRun);
+        }
+        var matchingMasivo = document.getElementById("proveedores_erp_matching_masivo");
+        if (matchingMasivo && permisos.matching) {
+            matchingMasivo.addEventListener("click", seleccionarMatchingMasivo);
         }
         var relacionesLotePreview = document.getElementById("proveedores_erp_relaciones_lote_preview");
         if (relacionesLotePreview && permisos.matching) {

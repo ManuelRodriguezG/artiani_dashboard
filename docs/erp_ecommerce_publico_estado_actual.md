@@ -4,6 +4,24 @@ Documentacion IA: Codex GPT-5
 Fecha: 2026-07-15  
 Estado: contratos y activacion preparada; datos reales aun no activados.
 
+Actualizacion 2026-07-16:
+
+- Entorno local `http://panel.com.local` responde JSON para `/ecommercePublico/estado`.
+- MySQL acepta conexion TCP en `127.0.0.1:3306`.
+- Contratos API Fase 1 pasan validacion de shape.
+- Preflight read-only detecta SKUs publicables Fase 1. El conteo es vivo y puede cambiar si Catalogo/Inventario cambian; consultar `uat_ecommerce_publico_autorizacion_paquete_readonly.php`.
+- Lote solo disponibles detecta `2` SKUs disponibles; ambos de peces/alimento.
+- Lote amplio puede incluir perro/gato, pero hoy arrastra muchos SKUs agotados y requiere decision de politica.
+- Siguen faltando las 5 tablas `erp_ecommerce_*`.
+- Casos negativos pasan: `cotizacion_registrar` sigue bloqueado y `cotizacion_dryrun` no escribe BD.
+- CORS permanece cerrado hasta configurar `cors_origenes_permitidos`.
+- El log historico de MySQL conserva advertencia sobre `mysql.plugin`; revisar si reaparece, pero no bloquea contratos mientras API y MySQL respondan.
+- WhatsApp recibido: `3322068429`; configuracion sugerida para `wa.me`: `523322068429`.
+- Origen frontend local definido: `http://artiani.com.local`.
+- URL frontend de pruebas definida: `http://artiani.com.local`.
+- URL frontend futura de produccion: `https://artiani.com.mx`.
+- Ruta estandar de respaldos externos: `C:\xampp\panel_db_backups` segun `docs/erp_respaldo_bd_estandar.md`.
+
 ## Senal actual
 
 ```text
@@ -84,19 +102,36 @@ ddl_pendiente=true
 
 ## Scripts read-only principales
 
+Primero validar el entorno local. Si este comando reporta MySQL caido, HTTP sin JSON o corrupcion de tablas de sistema, no interpretar como falla de contratos ecommerce:
+
+```bash
+C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_entorno_readonly.php --base=http://panel.com.local
+```
+
+Luego validar suite ecommerce completa:
+
+```bash
+C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_activacion_suite_readonly.php --base=http://panel.com.local --origin=http://artiani.com.local
+```
+
+Luego validar contratos puntuales:
+
 ```bash
 C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_http_smoke_readonly.php --base=http://panel.com.local
 C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_frontend_readiness_readonly.php
 C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_frontend_package_readonly.php
 C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_frontend_fixtures_readonly.php
-C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_frontend_env_readonly.php --base=http://panel.com.local --frontend=http://localhost:5173
+C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_frontend_env_readonly.php --base=http://panel.com.local --frontend=http://artiani.com.local
 C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_postman_collection_readonly.php --base=http://panel.com.local
 C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_contract_shape_readonly.php
 C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_negative_cases_readonly.php --base=http://panel.com.local
-C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_cors_preflight_readonly.php --base=http://panel.com.local --origin=http://localhost:5173
+C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_cors_preflight_readonly.php --base=http://panel.com.local --origin=http://artiani.com.local
 C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_openapi_readonly.php
 C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_carrito_whatsapp_readonly.php
+C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_cotizacion_registro_plan_readonly.php --base=http://panel.com.local --origin=http://artiani.com.local
 C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_activacion_bundle_readonly.php --base=http://panel.com.local --respaldo=RUTA_O_REFERENCIA --whatsapp=NUMERO_WHATSAPP --cors=ORIGEN_FRONTEND --url=URL_FRONTEND --lote=8
+C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_apply_checklist_readonly.php --base=http://panel.com.local --respaldo=RUTA_O_REFERENCIA --whatsapp=NUMERO_WHATSAPP --cors=ORIGEN_FRONTEND --url=URL_FRONTEND --sku1=1759 --sku2=1757
+C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_post_apply_verificacion_readonly.php --base=http://panel.com.local --origin=http://artiani.com.local
 C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_secuencia_activacion_readonly.php --base=http://panel.com.local --respaldo=RUTA_O_REFERENCIA --whatsapp=NUMERO_WHATSAPP --cors=ORIGEN_FRONTEND --url=URL_FRONTEND --id_sku=ID_SKU
 C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_green_gate_readonly.php --base=http://panel.com.local
 ```
@@ -113,9 +148,21 @@ Ese comando concentra endpoints, documentos, scripts, senal actual y bloqueos pa
 
 Herramientas nuevas para iniciar el otro proyecto:
 
+- `docs/erp_ecommerce_publico_frontend_AGENTS_template.md`: plantilla de `AGENTS.md` para el proyecto frontend externo.
+- `docs/erp_ecommerce_publico_frontend_archivos_iniciales.md`: estructura inicial recomendada, `.env`, cliente API y pruebas contractuales.
+- `docs/erp_ecommerce_publico_orden_activacion_autorizada.md`: plantilla con datos requeridos y textos de autorizacion para pasar a datos reales.
+- `uat_ecommerce_publico_activacion_suite_readonly.php`: suite principal para conocer semaforo, bloqueos y siguiente paso sin escribir BD.
 - `uat_ecommerce_publico_frontend_env_readonly.php`: variables `.env` y proxy local sugerido.
 - `uat_ecommerce_publico_postman_collection_readonly.php`: coleccion Postman/Insomnia para probar contratos.
+- `uat_ecommerce_publico_entorno_readonly.php`: diagnostico de XAMPP/MySQL/API antes de probar el frontend.
+- `uat_ecommerce_publico_apply_checklist_readonly.php`: valida datos reales antes de copiar comandos `apply_authorized`.
+- `uat_ecommerce_publico_autorizacion_paquete_readonly.php`: genera paquete compacto de autorizacion con hashes, SKUs sugeridos y comandos no ejecutados.
+- `uat_ecommerce_publico_cotizacion_registro_plan_readonly.php`: plan del registro interno futuro de carrito/prospecto sin desbloquear escrituras publicas.
+- `uat_ecommerce_publico_post_apply_verificacion_readonly.php`: identifica etapa posterior a DDL/config/publicacion.
+- `uat_ecommerce_publico_reversa_preflight_readonly.php`: valida si una reversa tecnica siquiera aplica, sin ejecutar `DROP TABLE`.
 - `docs/erp_ecommerce_publico_frontend_herramientas_integracion.md`: indice de herramientas para el frontend.
+- `docs/erp_ecommerce_publico_diagnostico_entorno.md`: como distinguir entorno caido de contrato ecommerce roto.
+- `docs/erp_ecommerce_publico_decision_activacion_fase1.md`: decision compacta para DDL, configuracion y primer lote.
 
 ## Scripts apply autorizados
 

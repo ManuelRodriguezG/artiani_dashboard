@@ -1749,6 +1749,97 @@ class VentasErp extends CRUD {
     }
 
     /**
+     * Documentacion IA: Codex GPT-5, 2026-07-17.
+     * Proposito: consultar el detalle read-only de una atencion POS compartida para cargarla en caja o validar UAT.
+     * Impacto: habilita checks y UI de atenciones multiusuario sin tomar bloqueo ni convertir la atencion en venta.
+     * Contrato: read-only; no bloquea, no reserva, no cobra, no descuenta inventario y no cambia estatus.
+     */
+    public function atencionDetalleReadOnly($filtros = array()) {
+        try {
+            $db = $this->getConexion();
+            if (!$db) {
+                return $this->respuesta(true, "warning", "No hay conexion MySQL para consultar atencion");
+            }
+            if (!$this->schemaAtencionesPosCompleto($db)) {
+                return $this->respuesta(false, "warning", "Detalle de atencion pendiente de esquema", array(
+                    "schema_pendiente" => true,
+                    "atencion" => null,
+                    "partidas" => array()
+                ));
+            }
+
+            $idAtencion = intval($this->valor($filtros, "id_atencion", 0));
+            $idAlmacen = intval($this->valor($filtros, "id_almacen", 0));
+            if ($idAtencion <= 0) {
+                return $this->respuesta(true, "warning", "Indica la atencion POS a consultar");
+            }
+
+            $where = "a.id_atencion_pos=:atencion";
+            $params = array(":atencion" => $idAtencion);
+            if ($idAlmacen > 0) {
+                $where .= " AND a.id_almacen=:almacen";
+                $params[":almacen"] = $idAlmacen;
+            }
+
+            $stmt = $db->prepare("SELECT a.id_atencion_pos, a.folio_temporal, a.id_almacen, al.almacen,
+                    a.id_caja, a.id_turno_caja, a.id_usuario, a.id_cliente, a.cliente_nombre_publico,
+                    a.cliente_identificador_publico, a.estatus, a.origen, a.subtotal, a.total, a.fecha_apertura
+                FROM erp_pos_atenciones a
+                LEFT JOIN erp_almacenes al ON al.id_almacen=a.id_almacen
+                WHERE " . $where . "
+                LIMIT 1");
+            $stmt->execute($params);
+            $atencion = $stmt->fetch(PDO::FETCH_ASSOC);
+            if (!$atencion) {
+                return $this->respuesta(true, "warning", "Atencion POS no encontrada para esta tienda");
+            }
+
+            $stmtDetalle = $db->prepare("SELECT id_atencion_detalle, renglon, id_producto_erp, id_sku_erp,
+                    sku, descripcion, controla_inventario, modo_salida, cantidad_venta, unidad_venta,
+                    cantidad_base, unidad_base, precio_unitario, subtotal, total, datos_snapshot
+                FROM erp_pos_atenciones_detalle
+                WHERE id_atencion_pos=:atencion AND estatus='activa'
+                ORDER BY renglon ASC");
+            $stmtDetalle->execute(array(":atencion" => $idAtencion));
+            $partidas = array();
+            foreach ($stmtDetalle->fetchAll(PDO::FETCH_ASSOC) as $detalle) {
+                $snapshot = json_decode((string) $this->valor($detalle, "datos_snapshot", ""), true);
+                if (!is_array($snapshot)) {
+                    $snapshot = array();
+                }
+                $partidas[] = array(
+                    "id_atencion_detalle" => intval($detalle["id_atencion_detalle"]),
+                    "renglon" => intval($detalle["renglon"]),
+                    "id_sku" => intval($detalle["id_sku_erp"]),
+                    "sku" => (string) $detalle["sku"],
+                    "descripcion" => (string) $detalle["descripcion"],
+                    "controla_inventario" => intval($detalle["controla_inventario"]),
+                    "modo_salida" => (string) $detalle["modo_salida"],
+                    "cantidad" => floatval($detalle["cantidad_venta"]),
+                    "precio_unitario" => floatval($detalle["precio_unitario"]),
+                    "subtotal" => floatval($detalle["subtotal"]),
+                    "total" => floatval($detalle["total"]),
+                    "snapshot" => $snapshot
+                );
+            }
+
+            return $this->respuesta(false, "success", "Detalle de atencion consultado", array(
+                "read_only" => true,
+                "atencion" => $atencion,
+                "partidas" => $partidas,
+                "contrato" => array(
+                    "cargar_carrito_local" => true,
+                    "no_tomar_bloqueo" => true,
+                    "no_convertir_venta" => true,
+                    "revalidar_al_cobrar" => true
+                )
+            ));
+        } catch (Exception $e) {
+            return $this->respuesta(true, "danger", $e->getMessage());
+        }
+    }
+
+    /**
      * Documentacion IA: Codex GPT-5, 2026-06-30.
      * Proposito: listar movimientos de caja que requieren evidencia sin modificar registros.
      * Impacto: permite auditar reembolsos/gastos/vales pendientes de comprobante despues del cierre.
@@ -8448,6 +8539,7 @@ class VentasErp extends CRUD {
         $idCliente = intval($this->valor($cliente, "id_cliente", 0));
         $idClienteCrm = intval($this->valor($cliente, "id_cliente_crm", $this->valor($cliente, "id", 0)));
         $idListaDefaultCrm = intval($this->valor($cliente, "id_lista_precio_default", 0));
+        $idSegmentoCrm = intval($this->valor($cliente, "id_segmento_default", 0));
         $params = array(
             ":sku" => intval($sku["id_sku"]),
             ":producto" => intval($sku["id_producto_erp"]),
@@ -8495,10 +8587,27 @@ class VentasErp extends CRUD {
             }
             $params[":ahora_cliente"] = date("Y-m-d H:i:s");
         }
+        $whereSegmento = "";
+        $selectSegmento = "0 es_segmento, 9999 prioridad_segmento";
+        if ($idSegmentoCrm > 0 && $this->tablaExiste($db, "erp_segmentos_listas_precios")) {
+            $whereSegmento = "LEFT JOIN erp_segmentos_listas_precios sl ON sl.id_lista_precio=l.id_lista_precio
+                AND sl.id_segmento_crm=:segmento_crm
+                AND sl.estatus='activo'
+                AND (sl.canal IS NULL OR sl.canal='' OR sl.canal=:canal)
+                AND (sl.id_almacen IS NULL OR sl.id_almacen=0 OR sl.id_almacen=:almacen)
+                AND (sl.fecha_inicio IS NULL OR sl.fecha_inicio<=:ahora_segmento)
+                AND (sl.fecha_fin IS NULL OR sl.fecha_fin>=:ahora_segmento)";
+            $selectSegmento = "CASE WHEN sl.id_segmento_lista_precio IS NOT NULL THEN 1 ELSE 0 END es_segmento,
+                COALESCE(sl.prioridad, 9999) prioridad_segmento";
+            $params[":segmento_crm"] = $idSegmentoCrm;
+            $params[":ahora_segmento"] = date("Y-m-d H:i:s");
+        }
         $sql = "SELECT l.id_lista_precio, l.nombre, l.canal, l.id_almacen, l.prioridad, d.precio, $selectCliente
+                , $selectSegmento
             FROM erp_listas_precios l
             INNER JOIN erp_listas_precios_detalle d ON d.id_lista_precio=l.id_lista_precio
             $whereCliente
+            $whereSegmento
             WHERE l.estatus='activa'
               AND d.estatus='activo'
               AND (d.id_sku=:sku OR d.id_producto_erp=:producto)
@@ -8512,9 +8621,11 @@ class VentasErp extends CRUD {
               es_cliente DESC,
               prioridad_cliente_tipo ASC,
               CASE WHEN l.id_lista_precio=:lista_default_crm THEN 1 ELSE 0 END DESC,
+              es_segmento DESC,
               CASE WHEN l.canal=:canal AND l.id_almacen=:almacen THEN 1 ELSE 0 END DESC,
               CASE WHEN (l.canal IS NULL OR l.canal='') AND (l.id_almacen IS NULL OR l.id_almacen=0) THEN 1 ELSE 0 END ASC,
               prioridad_cliente ASC,
+              prioridad_segmento ASC,
               l.prioridad ASC,
               d.id_sku DESC,
               d.id_lista_precio_detalle DESC
@@ -8532,6 +8643,8 @@ class VentasErp extends CRUD {
                 $resultado["regla_precio_origen"] = "lista_cliente";
             } elseif ($idListaDefaultCrm > 0 && intval($precio["id_lista_precio"]) === $idListaDefaultCrm) {
                 $resultado["regla_precio_origen"] = "lista_cliente_default";
+            } elseif (intval($this->valor($precio, "es_segmento", 0)) === 1) {
+                $resultado["regla_precio_origen"] = "lista_segmento_cliente";
             } elseif ((string) $precio["canal"] === "" && intval($precio["id_almacen"]) === 0) {
                 $resultado["regla_precio_origen"] = "lista_general_erp";
             } else {
@@ -8541,11 +8654,13 @@ class VentasErp extends CRUD {
                 "id_cliente_crm" => $idClienteCrm,
                 "id_cliente_erp" => $idCliente,
                 "id_lista_precio_default_crm" => $idListaDefaultCrm,
+                "id_segmento_crm" => $idSegmentoCrm,
                 "canal" => $canal,
                 "id_almacen" => intval($idAlmacen),
                 "prioridad_lista" => intval($precio["prioridad"]),
                 "prioridad_cliente" => intval($precio["prioridad_cliente"]),
-                "prioridad_cliente_tipo" => intval($precio["prioridad_cliente_tipo"])
+                "prioridad_cliente_tipo" => intval($precio["prioridad_cliente_tipo"]),
+                "prioridad_segmento" => intval($this->valor($precio, "prioridad_segmento", 9999))
             );
         }
         return $resultado;

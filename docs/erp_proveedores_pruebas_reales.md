@@ -674,6 +674,11 @@ Registro:
 
 Checklist:
 
+- [ ] Abrir `Matching dry-run`.
+- [ ] Revisar conteo de `Seleccionar confiables`.
+- [ ] Ejecutar `Seleccionar confiables` solo si el conteo corresponde a matches exactos o relaciones activas.
+- [ ] Confirmar que los renglones elegibles quedan en `match_seleccionado`.
+- [ ] Confirmar que `ambiguo`, `sin_match` y `match_posible` quedan para revision manual.
 - [ ] Aplicar una relacion individual proveedor-SKU con un producto seguro.
 - [ ] Confirmar unidad de compra.
 - [ ] Confirmar factor de conversion.
@@ -688,6 +693,9 @@ Registro:
 
 | Campo | Valor |
 | --- | --- |
+| Matching masivo confiable probado |  |
+| Renglones seleccionados masivamente |  |
+| Ambiguos/posibles conservados para revision |  |
 | Relacion individual probada |  |
 | Preview lote revisado |  |
 | Relaciones aplicadas |  |

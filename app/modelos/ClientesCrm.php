@@ -976,6 +976,202 @@ class ClientesCrm extends CRUD {
 
   /**
    * IA: Codex GPT-5
+   * Fecha: 2026-07-16
+   * Proposito: listar segmentos CRM configurables con conteo de clientes sin escribir datos.
+   * Impacto: permite administrar tipos de cliente para listas de precios sin hardcodearlos.
+   * Contrato: read-only; no crea, pausa ni cancela segmentos.
+   */
+  public function segmentosCatalogoReadOnly($filtros = array()) {
+    try {
+      $db = $this->getConexion();
+      if (!$db) {
+        return $this->respuesta(true, "warning", "No hay conexion MySQL para consultar segmentos CRM");
+      }
+      if (!$this->tablaExiste($db, "crm_clientes_segmentos")) {
+        return $this->respuesta(false, "warning", "Catalogo de segmentos CRM pendiente", array("segmentos" => array(), "schema_pendiente" => true));
+      }
+
+      $q = trim((string) $this->valor($filtros, "q", ""));
+      $estatus = trim((string) $this->valor($filtros, "estatus", ""));
+      $tipo = trim((string) $this->valor($filtros, "tipo", ""));
+      $limite = intval($this->valor($filtros, "limite", 100));
+      $limite = $limite > 0 && $limite <= 200 ? $limite : 100;
+      $where = array("1=1");
+      $params = array();
+      if ($q !== "") {
+        $where[] = "(s.codigo LIKE :q OR s.nombre LIKE :q OR s.descripcion LIKE :q)";
+        $params[":q"] = "%" . $q . "%";
+      }
+      if ($estatus !== "") {
+        $where[] = "s.estatus=:estatus";
+        $params[":estatus"] = $estatus;
+      }
+      if ($tipo !== "") {
+        $where[] = "s.tipo=:tipo";
+        $params[":tipo"] = $tipo;
+      }
+      $conteoClientes = $this->tablaExiste($db, "crm_clientes_segmentos_rel")
+        ? "(SELECT COUNT(*) FROM crm_clientes_segmentos_rel r WHERE r.id_segmento_crm=s.id_segmento_crm AND r.estatus='activo') clientes_activos"
+        : "0 clientes_activos";
+      $stmt = $db->prepare("SELECT s.id_segmento_crm, s.codigo, s.nombre, s.tipo, s.descripcion, s.estatus,
+          s.fecha_registro, s.fecha_actualizacion, $conteoClientes
+        FROM crm_clientes_segmentos s
+        WHERE " . implode(" AND ", $where) . "
+        ORDER BY s.estatus='activo' DESC, s.tipo ASC, s.nombre ASC
+        LIMIT " . intval($limite));
+      $stmt->execute($params);
+      return $this->respuesta(false, "success", "Segmentos CRM consultados", array(
+        "segmentos" => $stmt->fetchAll(PDO::FETCH_ASSOC),
+        "schema_pendiente" => false,
+        "no_escribe_bd" => true
+      ));
+    } catch (Exception $e) {
+      return $this->respuesta(true, "danger", $e->getMessage());
+    }
+  }
+
+  /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-07-16
+   * Proposito: validar alta/edicion/cancelacion de segmento CRM configurable sin escribir BD.
+   * Impacto: prepara catalogo de tipos de cliente para listas de precios, CRM y futuras recompensas.
+   * Contrato: dry-run; no modifica segmentos ni clientes.
+   */
+  public function segmentoCatalogoDryRun($datos = array()) {
+    try {
+      $db = $this->getConexion();
+      $idSegmento = intval($this->valor($datos, "id_segmento_crm", 0));
+      $codigo = strtoupper(trim((string) $this->valor($datos, "codigo", "")));
+      $nombre = trim((string) $this->valor($datos, "nombre", ""));
+      $tipo = trim((string) $this->valor($datos, "tipo", "comercial"));
+      $descripcion = trim((string) $this->valor($datos, "descripcion", ""));
+      $estatus = trim((string) $this->valor($datos, "estatus", "activo"));
+      $bloqueos = array();
+      $avisos = array();
+      $actual = null;
+      $duplicado = null;
+
+      if (!$db) {
+        $bloqueos[] = "No hay conexion MySQL para validar segmento CRM";
+      }
+      if ($db && !$this->tablaExiste($db, "crm_clientes_segmentos")) {
+        $bloqueos[] = "Tabla crm_clientes_segmentos pendiente";
+      }
+      if (!preg_match('/^[A-Z0-9_\\-]{3,60}$/', $codigo)) {
+        $bloqueos[] = "Codigo obligatorio de 3 a 60 caracteres; usar letras, numeros, guion o guion bajo";
+      }
+      if ($nombre === "" || strlen($nombre) > 160) {
+        $bloqueos[] = "Nombre obligatorio de maximo 160 caracteres";
+      }
+      if (!in_array($tipo, array("comercial", "operativo", "marketing", "postventa", "riesgo", "otro"), true)) {
+        $bloqueos[] = "Tipo de segmento no permitido";
+      }
+      if (!in_array($estatus, array("activo", "pausado", "cancelado"), true)) {
+        $bloqueos[] = "Estatus de segmento no permitido";
+      }
+      if ($estatus === "cancelado") {
+        $avisos[] = "Cancelar segmento no elimina relaciones historicas; solo lo deja fuera de nuevas reglas";
+      }
+
+      if ($db && $this->tablaExiste($db, "crm_clientes_segmentos")) {
+        if ($idSegmento > 0) {
+          $stmt = $db->prepare("SELECT * FROM crm_clientes_segmentos WHERE id_segmento_crm=:id LIMIT 1");
+          $stmt->execute(array(":id" => $idSegmento));
+          $actual = $stmt->fetch(PDO::FETCH_ASSOC);
+          if (!$actual) {
+            $bloqueos[] = "Segmento CRM no encontrado para edicion";
+          }
+        }
+        if ($codigo !== "") {
+          $stmt = $db->prepare("SELECT id_segmento_crm, codigo, nombre, estatus FROM crm_clientes_segmentos WHERE codigo=:codigo AND id_segmento_crm<>:id LIMIT 1");
+          $stmt->execute(array(":codigo" => $codigo, ":id" => $idSegmento));
+          $duplicado = $stmt->fetch(PDO::FETCH_ASSOC);
+          if ($duplicado) {
+            $bloqueos[] = "Ya existe un segmento CRM con ese codigo";
+          }
+        }
+      }
+
+      return $this->respuesta(false, empty($bloqueos) ? "success" : "warning", empty($bloqueos) ? "Segmento CRM valido en dry-run" : "Segmento CRM con bloqueos", array(
+        "dry_run" => true,
+        "puede_guardar" => empty($bloqueos),
+        "segmento_normalizado" => array(
+          "id_segmento_crm" => $idSegmento,
+          "codigo" => $codigo,
+          "nombre" => $nombre,
+          "tipo" => $tipo,
+          "descripcion" => $descripcion,
+          "estatus" => $estatus
+        ),
+        "actual" => $actual,
+        "duplicado" => $duplicado,
+        "bloqueos" => $bloqueos,
+        "avisos" => $avisos,
+        "no_escribe_bd" => true
+      ));
+    } catch (Exception $e) {
+      return $this->respuesta(true, "danger", $e->getMessage());
+    }
+  }
+
+  /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-07-16
+   * Proposito: guardar segmento CRM configurable despues de autorizacion fuerte.
+   * Impacto: permite crear, editar, pausar o cancelar tipos de cliente sin hardcodear reglas.
+   * Contrato: escribe BD; requiere respaldo/token en controlador y no modifica listas ni ventas.
+   */
+  public function segmentoCatalogoGuardarAutorizado($datos = array()) {
+    $db = $this->getConexion();
+    try {
+      if (!$db) {
+        return $this->respuesta(true, "warning", "No hay conexion MySQL para guardar segmento CRM");
+      }
+      $preflight = $this->segmentoCatalogoDryRun($datos);
+      $depurar = isset($preflight["depurar"]) && is_array($preflight["depurar"]) ? $preflight["depurar"] : array();
+      if (!empty($preflight["error"]) || empty($depurar["puede_guardar"])) {
+        return $this->respuesta(false, "warning", "Segmento CRM bloqueado por preflight", array("preflight" => $preflight));
+      }
+      $segmento = $depurar["segmento_normalizado"];
+      $idSegmento = intval($segmento["id_segmento_crm"]);
+      if ($idSegmento > 0) {
+        $stmt = $db->prepare("UPDATE crm_clientes_segmentos
+          SET codigo=:codigo, nombre=:nombre, tipo=:tipo, descripcion=:descripcion, estatus=:estatus, fecha_actualizacion=CURRENT_TIMESTAMP
+          WHERE id_segmento_crm=:id");
+        $stmt->execute(array(
+          ":codigo" => $segmento["codigo"],
+          ":nombre" => $segmento["nombre"],
+          ":tipo" => $segmento["tipo"],
+          ":descripcion" => $segmento["descripcion"] !== "" ? $segmento["descripcion"] : null,
+          ":estatus" => $segmento["estatus"],
+          ":id" => $idSegmento
+        ));
+      } else {
+        $stmt = $db->prepare("INSERT INTO crm_clientes_segmentos
+          (codigo, nombre, tipo, descripcion, estatus)
+          VALUES (:codigo, :nombre, :tipo, :descripcion, :estatus)");
+        $stmt->execute(array(
+          ":codigo" => $segmento["codigo"],
+          ":nombre" => $segmento["nombre"],
+          ":tipo" => $segmento["tipo"],
+          ":descripcion" => $segmento["descripcion"] !== "" ? $segmento["descripcion"] : null,
+          ":estatus" => $segmento["estatus"]
+        ));
+        $idSegmento = intval($db->lastInsertId());
+      }
+      return $this->respuesta(false, "success", "Segmento CRM guardado", array(
+        "id_segmento_crm" => $idSegmento,
+        "no_modifica_clientes" => true,
+        "no_modifica_listas" => true,
+        "no_toca_pos_ventas" => true
+      ));
+    } catch (Exception $e) {
+      return $this->respuesta(true, "danger", $e->getMessage());
+    }
+  }
+
+  /**
+   * IA: Codex GPT-5
    * Fecha: 2026-06-30
    * Proposito: generar reportes operativos CRM sin escribir datos.
    * Impacto: muestra contactabilidad, campanas, recompensas/garantias y bloqueos antes de automatizar procesos.

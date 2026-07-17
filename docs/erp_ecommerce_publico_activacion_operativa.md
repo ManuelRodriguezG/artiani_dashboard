@@ -20,16 +20,24 @@ No se activa ecommerce real por tener productos activos. Solo se muestran SKUs p
 
 ## Paso 0 - Preflight read-only
 
+Antes del preflight funcional, validar salud de XAMPP/MySQL/API:
+
+```bash
+C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_entorno_readonly.php --base=http://panel.com.local
+```
+
+Si reporta `mysql_no_acepta_conexion_tcp_3306`, `api_http_no_responde_json` o corrupcion en tablas de sistema, resolver el entorno antes de interpretar fallas de ecommerce.
+
 Ejecutar:
 
 ```bash
-php storage/uat/uat_ecommerce_publico_activacion_preflight_readonly.php --respaldo=RUTA_O_REFERENCIA
+C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_activacion_preflight_readonly.php --respaldo=RUTA_O_REFERENCIA
 ```
 
 Tambien se puede generar la secuencia completa sin ejecutar nada:
 
 ```bash
-php storage/uat/uat_ecommerce_publico_secuencia_activacion_readonly.php --base=http://panel.com.local --respaldo=RUTA_O_REFERENCIA --whatsapp=NUMERO_WHATSAPP --cors=ORIGEN_FRONTEND --url=URL_FRONTEND --id_sku=ID_SKU
+C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_secuencia_activacion_readonly.php --base=http://panel.com.local --respaldo=RUTA_O_REFERENCIA --whatsapp=NUMERO_WHATSAPP --cors=ORIGEN_FRONTEND --url=URL_FRONTEND --id_sku=ID_SKU
 ```
 
 Ese script solo imprime comandos ordenados. No aplica DDL, no guarda configuracion y no publica SKUs.
@@ -51,6 +59,12 @@ Antes de DDL:
 - confirmar ruta o referencia;
 - no continuar sin respaldo legible o referencia externa valida.
 
+Antes de ejecutar cualquier comando con escritura, generar checklist final:
+
+```bash
+C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_apply_checklist_readonly.php --base=http://panel.com.local --respaldo=RUTA_O_REFERENCIA --whatsapp=NUMERO_WHATSAPP --cors=ORIGEN_FRONTEND --url=URL_FRONTEND --sku1=1759 --sku2=1757
+```
+
 ## Paso 2 - Autorizar DDL
 
 Token:
@@ -62,7 +76,7 @@ ECOMMERCE_PUBLICO_DDL_FASE1
 Comando:
 
 ```bash
-php storage/uat/uat_ecommerce_publico_schema_apply_authorized.php --autorizar=ECOMMERCE_PUBLICO_DDL_FASE1 --respaldo=RUTA_O_REFERENCIA
+C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_schema_apply_authorized.php --autorizar=ECOMMERCE_PUBLICO_DDL_FASE1 --respaldo=RUTA_O_REFERENCIA
 ```
 
 No usar SQL manual salvo emergencia documentada.
@@ -72,8 +86,9 @@ No usar SQL manual salvo emergencia documentada.
 Ejecutar:
 
 ```bash
-php storage/uat/uat_ecommerce_publico_schema_readonly.php --respaldo=RUTA_O_REFERENCIA
-php storage/uat/uat_ecommerce_publico_api_contracts_readonly.php
+C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_schema_readonly.php --respaldo=RUTA_O_REFERENCIA
+C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_api_contracts_readonly.php
+C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_post_apply_verificacion_readonly.php --base=http://panel.com.local --origin=ORIGEN_FRONTEND
 ```
 
 Esperado despues de DDL:
@@ -104,7 +119,7 @@ No configurar secretos HMAC como claves publicas.
 Antes de escribir configuracion, generar el paquete revisable:
 
 ```bash
-php storage/uat/uat_ecommerce_publico_configuracion_plan_readonly.php --whatsapp=NUMERO_WHATSAPP --cors=http://localhost:3000 --url=http://localhost:3000
+C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_configuracion_plan_readonly.php --whatsapp=NUMERO_WHATSAPP --cors=http://localhost:3000 --url=http://localhost:3000
 ```
 
 El script:
@@ -122,7 +137,7 @@ No usar `Access-Control-Allow-Origin: *`. Registrar origenes exactos separados p
 Despues de aplicar DDL y validar respaldo:
 
 ```bash
-php storage/uat/uat_ecommerce_publico_configuracion_apply_authorized.php --autorizar=ECOMMERCE_PUBLICO_CONFIGURACION_FASE1 --respaldo=RUTA_O_REFERENCIA --whatsapp=NUMERO_WHATSAPP --cors=ORIGEN_FRONTEND --url=URL_FRONTEND
+C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_configuracion_apply_authorized.php --autorizar=ECOMMERCE_PUBLICO_CONFIGURACION_FASE1 --respaldo=RUTA_O_REFERENCIA --whatsapp=NUMERO_WHATSAPP --cors=ORIGEN_FRONTEND --url=URL_FRONTEND
 ```
 
 Guardrails:
@@ -144,6 +159,18 @@ Recomendacion:
 - incluir productos de perro/gato y alimento/higiene para probar filtros;
 - dejar agotados como `consultar` o `agotado` segun politica.
 
+Para revisar solo SKUs disponibles antes de incluir agotados:
+
+```bash
+C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_lote_inicial_readonly.php --limite=12 --solo_disponibles=1
+```
+
+Decision actual documentada:
+
+```text
+docs/erp_ecommerce_publico_decision_activacion_fase1.md
+```
+
 Flujo:
 
 1. Revisar `/ecommercePublico/publicaciones`.
@@ -159,7 +186,7 @@ Flujo:
 Antes de habilitar guardado real:
 
 ```bash
-php storage/uat/uat_ecommerce_publico_publicacion_plan_readonly.php --id_sku=1291
+C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_publicacion_plan_readonly.php --id_sku=1291
 ```
 
 El script:
@@ -177,7 +204,7 @@ El script:
 Cuando ya exista DDL, respaldo y decision operativa, guardar un SKU como borrador con:
 
 ```bash
-php storage/uat/uat_ecommerce_publico_publicacion_borrador_apply_authorized.php --autorizar=ECOMMERCE_PUBLICO_PUBLICACION_BORRADOR --respaldo=RUTA_O_REFERENCIA --id_sku=1291
+C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_publicacion_borrador_apply_authorized.php --autorizar=ECOMMERCE_PUBLICO_PUBLICACION_BORRADOR --respaldo=RUTA_O_REFERENCIA --id_sku=1291
 ```
 
 Guardrails:
@@ -197,7 +224,7 @@ Publicar un borrador debe ser otra accion posterior, con revision de slug, titul
 Primero generar plan read-only:
 
 ```bash
-php storage/uat/uat_ecommerce_publico_publicar_borrador_plan_readonly.php --id_sku=1291 --confirmar_revision=1
+C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_publicar_borrador_plan_readonly.php --id_sku=1291 --confirmar_revision=1
 ```
 
 Si el SKU esta agotado y aun asi se decide mostrarlo, el plan exige:
@@ -209,7 +236,7 @@ Si el SKU esta agotado y aun asi se decide mostrarlo, el plan exige:
 Aplicar solo con autorizacion:
 
 ```bash
-php storage/uat/uat_ecommerce_publico_publicar_borrador_apply_authorized.php --autorizar=ECOMMERCE_PUBLICO_PUBLICAR_BORRADOR --respaldo=RUTA_O_REFERENCIA --id_sku=1291 --confirmar_revision=1
+C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_publicar_borrador_apply_authorized.php --autorizar=ECOMMERCE_PUBLICO_PUBLICAR_BORRADOR --respaldo=RUTA_O_REFERENCIA --id_sku=1291 --confirmar_revision=1
 ```
 
 Guardrails:
@@ -227,7 +254,7 @@ Guardrails:
 Antes de activar guardado real se puede generar una propuesta:
 
 ```bash
-php storage/uat/uat_ecommerce_publico_lote_inicial_readonly.php --limite=30
+C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_lote_inicial_readonly.php --limite=30
 ```
 
 El script:
@@ -264,7 +291,7 @@ No usar `cotizacion_registrar` todavia.
 Antes de avisar al frontend que ya puede integrar datos reales, ejecutar:
 
 ```bash
-php storage/uat/uat_ecommerce_publico_green_gate_readonly.php --base=http://panel.com.local
+C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_green_gate_readonly.php --base=http://panel.com.local
 ```
 
 Debe devolver:
@@ -300,3 +327,4 @@ Usa docs/erp_ecommerce_publico_frontend_handoff.md y docs/erp_ecommerce_publico_
 - Reserva/apartado automatico.
 - Descuento de inventario desde web.
 - Conversion automatica a POS/Pedidos.
+

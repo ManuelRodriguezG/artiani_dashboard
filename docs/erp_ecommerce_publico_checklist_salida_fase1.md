@@ -30,13 +30,13 @@ Estado:
 Comando oficial read-only:
 
 ```bash
-php storage/uat/uat_ecommerce_publico_frontend_readiness_readonly.php
+C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_frontend_readiness_readonly.php
 ```
 
 Comando completo de activacion/readiness:
 
 ```bash
-php storage/uat/uat_ecommerce_publico_activacion_bundle_readonly.php --base=http://panel.com.local --respaldo=RUTA_O_REFERENCIA --whatsapp=NUMERO_WHATSAPP --cors=ORIGEN_FRONTEND --url=URL_FRONTEND
+C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_activacion_bundle_readonly.php --base=http://panel.com.local --respaldo=RUTA_O_REFERENCIA --whatsapp=NUMERO_WHATSAPP --cors=ORIGEN_FRONTEND --url=URL_FRONTEND
 ```
 
 Este bundle valida host HTTP real, contratos, DDL, configuracion, publicabilidad, lote inicial y bloqueos para pasar a datos reales. No escribe BD.
@@ -70,7 +70,8 @@ Debe estar resuelto:
 - `cors_origenes_permitidos` configurado;
 - primeras publicaciones internas creadas y publicadas;
 - `/catalogo` con productos publicados;
-- `/cotizacion_dryrun` con publicaciones reales.
+- `/cotizacion_dryrun` con publicaciones reales;
+- `cotizacion_registrar` todavia bloqueado salvo cambio posterior especifico de seguridad/CRM.
 
 ### Pendiente para datos reales
 
@@ -122,6 +123,8 @@ No publicar en produccion todavia si falta cualquiera de estos puntos:
 - [ ] Publicar un lote pequeno de SKUs.
 - [ ] Validar `GET /ecommercePublico/catalogo`.
 - [ ] Validar `POST /ecommercePublico/cotizacion_dryrun`.
+- [ ] Validar plan futuro de registro sin desbloquear escrituras:
+      `C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_cotizacion_registro_plan_readonly.php --base=http://panel.com.local --origin=http://localhost:5173`
 
 ## Senal para iniciar vista externa con datos reales
 
@@ -140,3 +143,4 @@ La senal actual es:
 ```text
 Puedes iniciar el proyecto frontend externo como maqueta tecnica/cliente API, pero aun no como catalogo vivo real.
 ```
+

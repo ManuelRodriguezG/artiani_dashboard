@@ -507,6 +507,63 @@ class Crm extends Controlador {
 
   /**
    * IA: Codex GPT-5
+   * Fecha: 2026-07-16
+   * Proposito: listar catalogo configurable de segmentos CRM sin escribir.
+   * Impacto: permite usar tipos de cliente en Listas de precios sin hardcodear valores.
+   * Contrato: read-only; no crea ni modifica segmentos.
+   */
+  public function segmentos_catalogo_listar_erp() {
+    $this->requerirPermiso("crm.ver");
+    return json_encode($this->modelo("ClientesCrm")->segmentosCatalogoReadOnly($_GET));
+  }
+
+  /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-07-16
+   * Proposito: validar alta/edicion/cancelacion de segmento CRM sin escribir.
+   * Impacto: prepara catalogo de tipos de cliente configurable para listas y CRM comercial.
+   * Contrato: dry-run; no modifica segmentos ni clientes.
+   */
+  public function segmento_catalogo_dryrun_erp() {
+    $this->requerirPermiso("crm.editar");
+    return json_encode($this->modelo("ClientesCrm")->segmentoCatalogoDryRun($_POST));
+  }
+
+  /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-07-16
+   * Proposito: guardar segmento CRM configurable solo con respaldo y autorizacion explicita.
+   * Impacto: permite crear, editar, pausar o cancelar segmentos sin tocar listas ni ventas.
+   * Contrato: escribe BD; requiere token CRM_CLIENTES_SEGMENTO_CATALOGO y respaldo valido.
+   */
+  public function segmento_catalogo_guardar_autorizado_erp() {
+    $this->requerirPermiso("crm.editar");
+    $autorizar = isset($_POST["autorizar"]) ? trim((string) $_POST["autorizar"]) : "";
+    $respaldo = isset($_POST["respaldo"]) ? trim((string) $_POST["respaldo"]) : "";
+    $validacionRespaldo = $this->validarRespaldoCrm($respaldo);
+    if ($autorizar !== "CRM_CLIENTES_SEGMENTO_CATALOGO" || !$validacionRespaldo["ok"]) {
+      return json_encode(array(
+        "error" => true,
+        "tipo" => "danger",
+        "mensaje" => "No se guardo segmento CRM. Falta autorizacion explicita o respaldo valido.",
+        "depurar" => array(
+          "requerido" => array("autorizar" => "CRM_CLIENTES_SEGMENTO_CATALOGO", "respaldo" => "RUTA_O_REFERENCIA"),
+          "validacion_respaldo" => $validacionRespaldo,
+          "reglas" => array(
+            "Este apply solo crea/edita/pausa/cancela un segmento CRM.",
+            "No asigna clientes al segmento.",
+            "No asigna listas de precios.",
+            "No modifica ventas pasadas.",
+            "No toca POS, ecommerce, recompensas, garantias ni legacy."
+          )
+        )
+      ));
+    }
+    return json_encode($this->modelo("ClientesCrm")->segmentoCatalogoGuardarAutorizado($_POST));
+  }
+
+  /**
+   * IA: Codex GPT-5
    * Fecha: 2026-06-30
    * Proposito: asignar segmento CRM solo con respaldo y autorizacion explicita.
    * Impacto: activa segmentacion comercial sin tocar POS ni ventas.

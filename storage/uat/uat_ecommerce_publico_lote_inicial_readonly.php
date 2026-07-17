@@ -9,9 +9,14 @@
 
 $args = isset($argv) ? $argv : array();
 $limite = 30;
+$soloDisponibles = false;
 foreach ($args as $arg) {
   if (strpos($arg, "--limite=") === 0) {
     $limite = max(5, min(100, intval(trim(substr($arg, 9), "\"' "))));
+  }
+  $prefijoSoloDisponibles = "--solo_disponibles=";
+  if (strpos($arg, $prefijoSoloDisponibles) === 0) {
+    $soloDisponibles = intval(trim(substr($arg, strlen($prefijoSoloDisponibles)), "\"' ")) === 1;
   }
 }
 $poolLimite = min(500, max(200, $limite * 10));
@@ -38,6 +43,12 @@ foreach ($candidatos as $fila) {
   $preparacion = $modelo->prepararPublicacion(array("id_sku" => intval($fila["id_sku"])));
   $sugerida = valor($preparacion, array("depurar", "publicacion_sugerida"), array());
   $producto = valor($preparacion, array("depurar", "producto_vivo_erp"), array());
+  if ($soloDisponibles) {
+    $disponibilidad = strtolower(trim((string) valor($producto, array("disponibilidad_publica_sugerida"), "")));
+    if (!in_array($disponibilidad, array("disponible", "pocas_piezas"), true)) {
+      continue;
+    }
+  }
   $mascota = trim((string) valor($sugerida, array("mascota_especie"), ""));
   $necesidades = valor($sugerida, array("necesidades"), array());
   $categoria = trim((string) valor($producto, array("categoria"), ""));
@@ -162,8 +173,15 @@ echo json_encode(array(
   "ok" => empty($auditoria["error"]),
   "modo" => "read-only",
   "limite" => $limite,
+  "solo_disponibles" => $soloDisponibles,
   "pool_evaluado" => count($evaluados),
   "total_lote" => count($lote),
+  "auditoria" => array(
+    "error" => isset($auditoria["error"]) ? (bool) $auditoria["error"] : null,
+    "tipo" => isset($auditoria["tipo"]) ? $auditoria["tipo"] : "",
+    "mensaje" => isset($auditoria["mensaje"]) ? $auditoria["mensaje"] : "",
+    "candidatos_total" => count($candidatos)
+  ),
   "resumen" => array(
     "skus_publicables_fase_1" => valor($auditoria, array("depurar", "resumen", "skus_publicables_fase_1"), 0),
     "mascotas_inferidas" => $resumenMascotas,

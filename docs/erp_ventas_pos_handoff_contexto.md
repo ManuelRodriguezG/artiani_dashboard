@@ -4225,3 +4225,231 @@ AUTORIZO CERRAR TURNO POS UAT REAL usando respaldo UAT POS vigente con id_usuari
   - `php -l storage/uat/uat_ventas_pos_destino_final_cuarentena_ddl_prepare.php`: sin errores.
 - Siguiente autorizacion:
   - `AUTORIZO APLICAR DDL DESTINO FINAL CUARENTENA POS usando respaldo UAT POS vigente con token VENTAS_POS_DESTINO_FINAL_CUARENTENA_DDL para UAT POS`.
+
+## Corte 2026-07-17 - POS multiusuario listo para ciclo real controlado
+
+Proyecto canonico actual:
+
+- `C:\xampp\htdocs\panel_de_control`.
+- No continuar cambios de este modulo en `C:\xampp\htdocs\panel` salvo solicitud explicita.
+- Host canonico: `http://panel.com.local/`.
+
+Archivos clave agregados/actualizados:
+
+- `storage/uat/uat_ventas_pos_pase_prueba_real_suite_readonly.php`.
+- `storage/uat/uat_ventas_pos_cierre_final_readonly.php`.
+- `storage/uat/uat_ventas_pos_autorizacion_ciclo_multiusuario_readonly.php`.
+- `storage/uat/uat_ventas_pos_piloto_operativo_readiness_readonly.php`.
+- `storage/uat/uat_ventas_pos_ciclo_recuperacion_readonly.php`.
+- `storage/uat/uat_ventas_pos_ciclo_evidencia_readonly.php`.
+- `storage/uat/uat_ventas_pos_ciclo_dependencias_readonly.php`.
+- `storage/uat/uat_ventas_pos_ui_sintaxis_readonly.php`.
+- `storage/uat/uat_ventas_pos_rutas_surface_readonly.php`.
+- `storage/uat/uat_ventas_pos_encoding_bom_readonly.php`.
+- `docs/erp_ventas_pos_pase_prueba_real_checklist.md`.
+- `docs/erp_ventas_pos_prueba_real_usuario.md`.
+- `docs/erp_ventas_pos_manual_cajero.md`.
+- `docs/erp_ventas_pos_piloto_operativo_checklist.md`.
+- `docs/erp_ventas_pos_piloto_turno_1_runbook.md`.
+
+Correccion funcional en `panel_de_control`:
+
+- `app/modelos/VentasErp.php` ahora incluye `atencionDetalleReadOnly`.
+- Proposito: consultar detalle de atencion POS compartida sin tomar bloqueo, cobrar, reservar ni descontar inventario.
+- Validacion: `php -l app/modelos/VentasErp.php` sin errores.
+
+Semaforo final:
+
+```powershell
+C:\xampp\php\php.exe storage\uat\uat_ventas_pos_cierre_final_readonly.php --id_usuario=1 --id_almacen=5 --id_sku=1760 --id_atencion=2 --cantidad=1
+```
+
+Resultado:
+
+- `ok=true`.
+- `pase_uat_multiusuario_listo=true`.
+- `pos_base_productivo_sin_bloqueos=true`.
+- `atencion_sigue_pendiente_pre_ciclo=true`.
+- Bloqueos: `[]`.
+- Usuario asignado: `true`.
+- Turno abierto: `false`.
+- Inventario cubre: `false`.
+- Reservas activas: `0`.
+- Pendientes POS abiertos: `0`.
+- Atencion convertida: `false`.
+- Venta ligada: `false`.
+
+Paquete de autorizacion:
+
+```powershell
+C:\xampp\php\php.exe storage\uat\uat_ventas_pos_autorizacion_ciclo_multiusuario_readonly.php --id_usuario=1 --id_almacen=5 --id_sku=1760 --id_atencion=2 --cantidad_stock=1 --pago=295 --monto_inicial=500 --monto_contado=795
+```
+
+Resultado:
+
+- `ok=true`.
+- Precheck `cierre_final`: `ok=true`.
+- Guardrail sin token: `bloqueado=true`.
+- Bloqueos: `[]`.
+
+Prevalidacion directa del aplicador real:
+
+```powershell
+C:\xampp\php\php.exe storage\uat\uat_ventas_pos_atencion_multiusuario_ciclo_apply_authorized.php --prevalidar=1 --id_usuario=1 --id_almacen=5 --id_sku=1760 --id_atencion=2 --cantidad_stock=1 --pago=295 --monto_inicial=500 --monto_contado=795
+```
+
+Resultado 2026-07-17:
+
+- `ok=true`.
+- Modo `prevalidacion_inicial_readonly`.
+- Bloqueos: `[]`.
+- Atencion `2` / `ATN-20260713-210522-889`.
+- Estatus `lista_para_cobro`.
+- Total `$295.00`.
+- Partidas atencion: `1`.
+- Usuario `1` asignado a caja `CJ-MASCOTAS971-01`, terminal `TERM-MASCOTAS971-01`, almacen `MASCOTAS971`.
+- Contrato read-only: no abre turno, no carga stock, no cobra, no cierra turno.
+
+Estado operativo antes de autorizacion real:
+
+- Usuario `1` asignado a almacen `5`, caja `2`, terminal `2`.
+- Atencion `2` / `ATN-20260713-210522-889` en `lista_para_cobro`.
+- SKU `1760` sin stock disponible antes de la carga UAT.
+- Sin turno abierto.
+- Sin reservas activas.
+- Sin pendientes POS abiertos.
+- Sin notificaciones POS abiertas.
+
+Avisos no bloqueantes:
+
+- Falta permiso fino productivo `ventas.pos.inventario_pendiente.autorizar`.
+- Inventario pendiente productivo debe reemplazar token UAT por permiso, motivo obligatorio, auditoria explicita, politica por sucursal/SKU/canal y alerta a Inventario/Existencias.
+
+Autorizacion siguiente:
+
+```text
+AUTORIZO EJECUTAR CICLO REAL ATENCION POS MULTIUSUARIO usando respaldo UAT POS vigente con token VENTAS_POS_ATENCION_MULTIUSUARIO_CICLO_REAL id_usuario=1 id_almacen=5 id_sku=1760 id_atencion=2 cantidad_stock=1 pago=295 monto_inicial=500 monto_contado=795 para UAT POS
+```
+
+Alcance si se autoriza:
+
+- abre turno;
+- carga stock UAT;
+- cobra atencion;
+- crea venta;
+- mueve caja;
+- mueve inventario/kardex;
+- convierte atencion;
+- valida ticket;
+- valida postventa;
+- cierra turno.
+
+Postchecks posteriores:
+
+```powershell
+C:\xampp\php\php.exe storage\uat\uat_ventas_pos_ciclo_evidencia_readonly.php --id_atencion=2 --id_usuario=1
+C:\xampp\php\php.exe storage\uat\uat_ventas_pos_cierre_final_readonly.php --id_usuario=1 --id_almacen=5 --id_sku=1760 --id_atencion=2 --cantidad=1
+```
+
+Paso despues del ciclo real:
+
+- Revisar `docs/erp_ventas_pos_piloto_operativo_checklist.md`.
+- Si el semaforo de piloto queda apto, usar `docs/erp_ventas_pos_piloto_turno_1_runbook.md` para ejecutar el primer turno controlado.
+- Ejecutar:
+
+```powershell
+C:\xampp\php\php.exe storage\uat\uat_ventas_pos_piloto_operativo_readiness_readonly.php --id_usuario=1 --id_almacen=5 --id_sku=1760 --id_atencion=2 --cantidad=1
+```
+
+- Resultado actual antes del ciclo real: `ok=false`, `decision=no_apto_aun`, unico bloqueo esperado `Falta ejecutar o evidenciar el ciclo real multiusuario antes del piloto`.
+- Superficie UI/rutas de piloto validada con `storage/uat/uat_ventas_pos_piloto_surface_readonly.php`: `ok=true`, `20` archivos, `18` metodos, bloqueos `[]`.
+- El piloto operativo debe iniciar limitado a 1 sucursal, 1 caja, 1 turno corto y 1 a 2 usuarios.
+- No habilitar descuentos libres, inventario pendiente productivo, devoluciones reales ni apartados nuevos en el primer piloto sin autorizacion separada.
+
+## Escritura autorizada 2026-07-16 - ciclo real atencion POS multiusuario completado
+
+Proyecto canonico:
+
+- `C:\xampp\htdocs\panel_de_control`.
+- No modificar `C:\xampp\htdocs\panel` para este modulo.
+
+Autorizacion operativa recibida en conversacion:
+
+- continuar para terminar en `panel_de_control`.
+- ciclo ejecutado con token `VENTAS_POS_ATENCION_MULTIUSUARIO_CICLO_REAL` y respaldo `UAT_POS_VIGENTE`.
+
+Resultado real:
+
+- Turno abierto: `TUR-20260716-002-001`, `id_turno_caja=23`.
+- Stock UAT cargado: SKU `1760`, cantidad `1`, referencia `INV-INICIAL-POS-UAT-ATENCION-MULTI-1760`.
+- Atencion convertida: `id_atencion=2`, folio temporal `ATN-20260713-210522-889`.
+- Venta generada: `POS-20260716-000001`, `id_venta=24`.
+- Pago: efectivo `$295.00`, `id_venta_pago=28`, movimiento caja `50`.
+- Inventario/kardex: movimiento inventario `95`, salida `1.000 kg`, existencia anterior `1`, nueva `0`.
+- Garantia snapshot: `id_venta_detalle_garantia=14`, resumen `Sin garantia`.
+- Turno cerrado: monto esperado `$795.00`, contado `$795.00`, diferencia `$0.00`.
+
+Correccion de checks read-only:
+
+- `uat_ventas_pos_atencion_conversion_post_readonly.php` acepta `pagada` como estatus operativo valido de venta convertida.
+- `uat_ventas_pos_cierre_final_readonly.php` distingue pre-ciclo y post-ciclo real.
+- `uat_ventas_pos_piloto_operativo_readiness_readonly.php` decide piloto por evidencia real completada, no por prevalidar una atencion ya convertida.
+- Archivos guardados UTF-8 sin BOM; `uat_ventas_pos_encoding_bom_readonly.php` devuelve `ok=true`.
+
+Postchecks:
+
+- `uat_ventas_pos_atencion_conversion_post_readonly.php --id_atencion=2 --compact=1`: `ok=true`, hallazgos `[]`.
+- `uat_ventas_pos_cierre_final_readonly.php --id_usuario=1 --id_almacen=5 --id_sku=1760 --id_atencion=2 --cantidad=1`: `ok=true`, bloqueos `[]`, `ciclo_real_completo=true`.
+- `uat_ventas_pos_piloto_operativo_readiness_readonly.php --id_usuario=1 --id_almacen=5 --id_sku=1760 --id_atencion=2 --cantidad=1`: `ok=true`, decision `apto_para_piloto_controlado`.
+- `uat_ventas_pos_ticket_formal_readonly.php --folio=POS-20260716-000001 --compact=1`: `ok=true`, `28` lineas, hallazgos `[]`.
+- `uat_ventas_pos_turno_post_cierre_readonly.php --id_turno_caja=23 --monto_contado=795`: `ok=true`, hallazgos `[]`.
+
+Decision:
+
+- POS multiusuario queda apto para piloto operativo controlado.
+- Primer piloto recomendado: 1 sucursal, 1 caja, 1 turno corto y 1 a 2 usuarios.
+- Mantener fuera del primer piloto: inventario pendiente productivo, devoluciones reales, descuentos libres y apartados nuevos sin UAT separada.
+## Corte read-only 2026-07-17 - dependencias piloto POS
+
+Proyecto canonico validado: `C:\xampp\htdocs\panel_de_control` con host operativo `panel.com.local`.
+
+Verificaciones ejecutadas despues del ciclo real `POS-20260716-000001`:
+
+- CRM saldos cliente `id_cliente_crm=157`: `ok=true`, saldo disponible MXN `$100.00`, movimientos trazados a POS/devolucion/apartado.
+- Postventa `POS-20260716-000001`: `ok=true`, venta `pagada`, total `$295.00`, pago `$295.00`, una partida, una garantia snapshot y una trazabilidad/kardex.
+- Diferencias de caja: `ok=true`, sin diferencias pendientes en el rango revisado.
+- Inventario pendiente/notificaciones: `ok=true`, pendientes abiertos `0`, ultimos pendientes resueltos, notificacion POS resuelta.
+- Configuracion POS: `ok=true`, usuario `1` asignado a almacen `5`, caja `2`, terminal `2`; sin turno abierto actualmente, normal fuera de operacion.
+- Readiness productivo: `ok=true`, sin bloqueos; avisos solo por permiso fino de inventario pendiente productivo y ausencia de turno abierto.
+- Superficie piloto UI: `ok=true`, 20 archivos y 18 metodos esperados presentes.
+- Reportes caja: `ok=true`, ultimos 6 turnos, diferencias `0`, ventas total `$2,655.00`.
+- Sintaxis JS: `node --check` correcto para `pos.js`, `caja_turnos.js`, `reportes.js`, `pos_configuracion.js` y `checador_precios.js`.
+
+Decision operativa vigente:
+
+- POS base queda listo para piloto controlado con ventas normales, atenciones multiusuario, caja/turnos, ticket, kardex, garantia snapshot, reportes basicos y trazabilidad.
+- Mantener fuera del primer piloto: inventario pendiente productivo, devoluciones reales, descuentos libres, apartados nuevos y reglas avanzadas de precios sin UAT separada.
+- Para operar, abrir turno desde Caja/Turnos antes de cobrar; el cierre puede registrar diferencia si el contado no cuadra, y esa diferencia debe entrar al flujo de revision.
+## Corte 2026-07-17 - ajuste semaforo cierre modulo POS
+
+Se actualizo `storage/uat/uat_ventas_pos_cierre_modulo_readiness_readonly.php` para evitar falso bloqueo post-ciclo:
+
+- Si la atencion UAT ya esta `convertida`, el semaforo no exige turno abierto ni preflight de cobro para esa misma atencion.
+- La salida compacta marca `preflight_atencion.ok=true` con mensaje `Atencion ya convertida; no requiere preflight`.
+- Las recomendaciones dejan de pedir repetir el ciclo real y apuntan al piloto operativo controlado.
+
+Validacion:
+
+```powershell
+C:\xampp\php\php.exe -l storage\uat\uat_ventas_pos_cierre_modulo_readiness_readonly.php
+C:\xampp\php\php.exe storage\uat\uat_ventas_pos_cierre_modulo_readiness_readonly.php --id_usuario=1 --id_almacen=5 --id_sku=1760 --id_atencion=2
+```
+
+Resultado vigente:
+
+- `ok=true`.
+- `scripts_faltantes=[]`.
+- `metodos_faltantes=[]`.
+- `bloqueos_para_cobro_atencion=[]`.
+- `pendientes_inventario_abiertos=0`.
+- Siguiente paso operativo: piloto controlado desde UI con turno nuevo, venta normal y cierre de caja.

@@ -29,6 +29,16 @@ Antes de revertir:
 - Confirmar que no existen cotizaciones reales recibidas por WhatsApp.
 - Confirmar que no hay pantallas o endpoints productivos dependiendo de estas tablas.
 
+Preflight read-only:
+
+```bash
+C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_reversa_preflight_readonly.php
+```
+
+Ese comando no ejecuta `DROP TABLE`; solo revisa si las tablas existen y si estan vacias.
+
+Si devuelve `etapa=reversa_no_aplica_sin_tablas`, significa que el DDL aun no fue aplicado y no hay nada que revertir.
+
 ## Si ya hay datos reales
 
 No usar `DROP TABLE` como primera opcion. En ese caso:

@@ -166,6 +166,69 @@
                             <div class="crm-panel mb-4">
                                 <div class="p-4 border-bottom d-flex justify-content-between align-items-center">
                                     <div>
+                                        <div class="fw-bold">Segmentos configurables</div>
+                                        <div class="text-muted fs-7">Catalogo de tipos de cliente para condiciones comerciales y listas de precios</div>
+                                    </div>
+                                    <button type="button" class="btn btn-sm btn-light-primary" id="crm_segmentos_recargar"><i class="bi bi-arrow-clockwise"></i> Recargar</button>
+                                </div>
+                                <div class="p-4">
+                                    <div id="crm_segmentos_resumen" class="mb-4"></div>
+                                    <div class="row g-3 mb-4">
+                                        <input type="hidden" id="crm_seg_id">
+                                        <div class="col-md-3">
+                                            <label class="form-label text-muted fs-8 text-uppercase">Codigo</label>
+                                            <input class="form-control form-control-solid" id="crm_seg_codigo" placeholder="RECURRENTE">
+                                        </div>
+                                        <div class="col-md-4">
+                                            <label class="form-label text-muted fs-8 text-uppercase">Nombre</label>
+                                            <input class="form-control form-control-solid" id="crm_seg_nombre" placeholder="Cliente recurrente">
+                                        </div>
+                                        <div class="col-md-2">
+                                            <label class="form-label text-muted fs-8 text-uppercase">Tipo</label>
+                                            <select class="form-select form-select-solid" id="crm_seg_tipo">
+                                                <option value="comercial">Comercial</option>
+                                                <option value="operativo">Operativo</option>
+                                                <option value="marketing">Marketing</option>
+                                                <option value="postventa">Postventa</option>
+                                                <option value="riesgo">Riesgo</option>
+                                                <option value="otro">Otro</option>
+                                            </select>
+                                        </div>
+                                        <div class="col-md-2">
+                                            <label class="form-label text-muted fs-8 text-uppercase">Estatus</label>
+                                            <select class="form-select form-select-solid" id="crm_seg_estatus">
+                                                <option value="activo">Activo</option>
+                                                <option value="pausado">Pausado</option>
+                                                <option value="cancelado">Cancelado</option>
+                                            </select>
+                                        </div>
+                                        <div class="col-md-1 d-flex align-items-end">
+                                            <button class="btn btn-light-primary w-100" id="crm_seg_validar" type="button"><i class="bi bi-check2-circle"></i></button>
+                                        </div>
+                                        <div class="col-12">
+                                            <label class="form-label text-muted fs-8 text-uppercase">Descripcion</label>
+                                            <input class="form-control form-control-solid" id="crm_seg_descripcion" placeholder="Uso comercial del segmento">
+                                        </div>
+                                        <div class="col-md-5">
+                                            <label class="form-label text-muted fs-8 text-uppercase">Referencia/respaldo</label>
+                                            <input class="form-control form-control-solid" id="crm_seg_respaldo" placeholder="C:\xampp\panel_db_backups\...sql">
+                                        </div>
+                                        <div class="col-md-4">
+                                            <label class="form-label text-muted fs-8 text-uppercase">Token autorizado</label>
+                                            <input class="form-control form-control-solid" id="crm_seg_autorizar" placeholder="CRM_CLIENTES_SEGMENTO_CATALOGO">
+                                        </div>
+                                        <div class="col-md-3 d-flex align-items-end">
+                                            <button class="btn btn-primary w-100" id="crm_seg_guardar" type="button"><i class="bi bi-save"></i> Guardar segmento</button>
+                                        </div>
+                                    </div>
+                                    <div id="crm_segmentos_dryrun" class="mb-4"></div>
+                                    <div id="crm_segmentos_tabla"></div>
+                                </div>
+                            </div>
+
+                            <div class="crm-panel mb-4">
+                                <div class="p-4 border-bottom d-flex justify-content-between align-items-center">
+                                    <div>
                                         <div class="fw-bold">Tareas de seguimiento</div>
                                         <div class="text-muted fs-7">Bandeja read-only; no cierra, reasigna ni crea tareas</div>
                                     </div>
@@ -388,6 +451,6 @@
 </div>
 <script src="assets/plugins/global/plugins.bundle.js"></script>
 <script src="assets/js/scripts.bundle.js"></script>
-<script src="/assets/js/custom/apps/crm/clientes/listado.js?v=20260630-tabs-2"></script>
+<script src="/assets/js/custom/apps/crm/clientes/listado.js?v=20260716-segmentos-catalogo2"></script>
 </body>
 </html>

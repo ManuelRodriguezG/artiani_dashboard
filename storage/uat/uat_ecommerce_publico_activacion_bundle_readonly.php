@@ -173,6 +173,17 @@ echo json_encode(array(
 function sugerirLoteBundle($api, $limite) {
   $auditoria = $api->auditarPublicabilidad(array("limite" => max(30, $limite * 4), "solo_publicables" => 1));
   $candidatos = valorBundle($auditoria, array("depurar", "candidatos"), array());
+  usort($candidatos, function($a, $b) {
+    $pa = puntajeDisponibilidadBundle(valorBundle($a, array("disponibilidad_publica_sugerida"), ""));
+    $pb = puntajeDisponibilidadBundle(valorBundle($b, array("disponibilidad_publica_sugerida"), ""));
+    if ($pa === $pb) {
+      return strcmp(
+        (string) valorBundle($a, array("nombre_publico"), ""),
+        (string) valorBundle($b, array("nombre_publico"), "")
+      );
+    }
+    return $pa < $pb ? 1 : -1;
+  });
   $lote = array();
   foreach ($candidatos as $fila) {
     if (count($lote) >= $limite) {
@@ -187,6 +198,20 @@ function sugerirLoteBundle($api, $limite) {
     );
   }
   return $lote;
+}
+
+function puntajeDisponibilidadBundle($disponibilidad) {
+  $disponibilidad = strtolower(trim((string) $disponibilidad));
+  if ($disponibilidad === "disponible") {
+    return 40;
+  }
+  if ($disponibilidad === "pocas_piezas") {
+    return 30;
+  }
+  if ($disponibilidad === "consultar_disponibilidad") {
+    return 10;
+  }
+  return 0;
 }
 
 function shapeBundle($respuestas, $endpoints) {

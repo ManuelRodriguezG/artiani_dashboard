@@ -154,9 +154,16 @@
                                                         <option value="con_precio">Con precio</option>
                                                         <option value="sin_precio">Sin precio</option>
                                                         <option value="margen_bajo">Margen bajo</option>
+                                                        <option value="modificados">Modificados</option>
                                                     </select>
                                                     <button class="btn btn-light-primary" id="lp_productos_buscar" type="button"><i class="bi bi-search"></i></button>
                                                 </div>
+                                            </div>
+                                            <div class="d-flex flex-wrap gap-2 mb-4">
+                                                <span class="badge badge-light">Visibles <span id="lp_res_productos">0</span></span>
+                                                <span class="badge badge-light-warning">Margen bajo <span id="lp_res_margen_bajo">0</span></span>
+                                                <span class="badge badge-light-danger">Sin costo <span id="lp_res_sin_costo">0</span></span>
+                                                <span class="badge badge-light-primary">Cambios <span id="lp_res_cambios">0</span></span>
                                             </div>
                                             <div class="d-flex flex-wrap justify-content-between align-items-end gap-3 mb-4">
                                                 <div class="d-flex flex-wrap gap-2 align-items-end">
@@ -168,8 +175,26 @@
                                                         </div>
                                                     </div>
                                                     <button class="btn btn-light" id="lp_aplicar_margen" type="button"><i class="bi bi-percent"></i> Aplicar a visibles</button>
+                                                    <button class="btn btn-light" id="lp_copiar_general" type="button"><i class="bi bi-arrow-down-square"></i> Copiar general</button>
+                                                    <div>
+                                                        <label class="form-label text-muted fs-8 text-uppercase">Redondeo</label>
+                                                        <select class="form-select form-select-solid w-150px" id="lp_redondeo_modo">
+                                                            <option value="entero">Entero</option>
+                                                            <option value="medio">0.50</option>
+                                                            <option value="noventa">.90</option>
+                                                        </select>
+                                                    </div>
+                                                    <button class="btn btn-light" id="lp_redondear" type="button"><i class="bi bi-arrow-up-right-circle"></i> Redondear</button>
                                                 </div>
-                                                <button class="btn btn-primary" id="lp_guardar_cambios" type="button"><i class="bi bi-save2"></i> Guardar cambios <span class="badge badge-light ms-2" id="lp_cambios_count">0</span></button>
+                                                <div class="d-flex flex-wrap gap-2 align-items-end">
+                                                    <div>
+                                                        <label class="form-label text-muted fs-8 text-uppercase">Copiar lista ID</label>
+                                                        <input class="form-control form-control-solid w-150px" id="lp_copiar_lista_id" inputmode="numeric" placeholder="Origen">
+                                                    </div>
+                                                    <button class="btn btn-light" id="lp_copiar_lista" type="button"><i class="bi bi-copy"></i> Copiar visibles</button>
+                                                    <button class="btn btn-light-danger" id="lp_limpiar_cambios" type="button"><i class="bi bi-arrow-counterclockwise"></i></button>
+                                                    <button class="btn btn-primary" id="lp_guardar_cambios" type="button"><i class="bi bi-save2"></i> Guardar cambios <span class="badge badge-light ms-2" id="lp_cambios_count">0</span></button>
+                                                </div>
                                             </div>
                                             <div class="table-responsive lp-productos">
                                                 <table class="table align-middle table-row-dashed gy-3 mb-0">
@@ -192,6 +217,12 @@
                                         <aside class="d-flex flex-column gap-4">
                                             <section class="lp-card p-4">
                                                 <div class="fw-bold fs-5 mb-3">Alcance</div>
+                                                <div class="d-flex flex-wrap gap-2 mb-3">
+                                                    <button class="btn btn-sm btn-light-primary" type="button" data-lp-alcance="general"><i class="bi bi-globe"></i> General</button>
+                                                    <button class="btn btn-sm btn-light" type="button" data-lp-alcance="pos"><i class="bi bi-shop"></i> POS</button>
+                                                    <button class="btn btn-sm btn-light" type="button" data-lp-alcance="ecommerce"><i class="bi bi-bag"></i> Ecommerce</button>
+                                                    <button class="btn btn-sm btn-light" type="button" data-lp-alcance="mayoreo"><i class="bi bi-box-seam"></i> Mayoreo</button>
+                                                </div>
                                                 <div class="row g-3">
                                                     <div class="col-12">
                                                         <label class="form-label text-muted fs-8 text-uppercase">Canal</label>
@@ -212,10 +243,69 @@
                                                         <input class="form-control form-control-solid" id="lp_lista_prioridad" inputmode="numeric" value="100">
                                                     </div>
                                                 </div>
+                                                <div id="lp_alcance_resumen" class="alert alert-light py-3 mt-3 mb-0 fs-7">Define canal, almacen y prioridad para esta lista.</div>
                                             </section>
 
                                             <section class="lp-card p-4">
-                                                <div class="fw-bold fs-5 mb-3">Cliente CRM</div>
+                                                <div class="fw-bold fs-5 mb-1">Clientes y segmentos</div>
+                                                <div class="text-muted fs-8 mb-3">La asignacion directa a cliente es una excepcion; para miles de clientes debe usarse segmento/tipo CRM.</div>
+                                                <div class="alert alert-light-info py-3 mb-3 fs-7">
+                                                    Siguiente fase: asignar listas a segmentos CRM como recurrente, mayoreo, VIP o convenio. El resolutor backend debe ganar por prioridad y guardar snapshot en venta.
+                                                </div>
+                                                <div class="d-flex justify-content-between align-items-center mb-2">
+                                                    <div class="fw-semibold fs-7">Segmentos CRM</div>
+                                                    <button class="btn btn-sm btn-light-primary" id="lp_segmentos_recargar" type="button"><i class="bi bi-arrow-clockwise"></i></button>
+                                                </div>
+                                                <div id="lp_segmentos_crm" class="mb-4 text-muted fs-7">Cargando segmentos...</div>
+                                                <div class="row g-3">
+                                                    <input type="hidden" id="lp_seg_asig_id">
+                                                    <div class="col-12">
+                                                        <label class="form-label text-muted fs-8 text-uppercase">Segmento seleccionado</label>
+                                                        <input class="form-control form-control-solid" id="lp_seg_id" inputmode="numeric" placeholder="id_segmento_crm">
+                                                    </div>
+                                                    <div class="col-6">
+                                                        <label class="form-label text-muted fs-8 text-uppercase">Canal</label>
+                                                        <select class="form-select form-select-solid" id="lp_seg_canal">
+                                                            <option value="general">General</option>
+                                                            <option value="pos">POS</option>
+                                                            <option value="pedido_tienda">Pedido tienda</option>
+                                                            <option value="ecommerce">Ecommerce</option>
+                                                            <option value="mayoreo">Mayoreo</option>
+                                                        </select>
+                                                    </div>
+                                                    <div class="col-6">
+                                                        <label class="form-label text-muted fs-8 text-uppercase">Almacen</label>
+                                                        <input class="form-control form-control-solid" id="lp_seg_almacen" inputmode="numeric" placeholder="Todos">
+                                                    </div>
+                                                    <div class="col-6">
+                                                        <label class="form-label text-muted fs-8 text-uppercase">Prioridad</label>
+                                                        <input class="form-control form-control-solid" id="lp_seg_prioridad" inputmode="numeric" value="100">
+                                                    </div>
+                                                    <div class="col-6">
+                                                        <label class="form-label text-muted fs-8 text-uppercase">Estatus</label>
+                                                        <select class="form-select form-select-solid" id="lp_seg_estatus">
+                                                            <option value="activo">Activo</option>
+                                                            <option value="pausado">Pausado</option>
+                                                            <option value="cancelado">Cancelado</option>
+                                                        </select>
+                                                    </div>
+                                                    <div class="col-6">
+                                                        <label class="form-label text-muted fs-8 text-uppercase">Inicio</label>
+                                                        <input class="form-control form-control-solid" id="lp_seg_inicio" type="date">
+                                                    </div>
+                                                    <div class="col-6">
+                                                        <label class="form-label text-muted fs-8 text-uppercase">Fin</label>
+                                                        <input class="form-control form-control-solid" id="lp_seg_fin" type="date">
+                                                    </div>
+                                                    <div class="col-6">
+                                                        <button class="btn btn-light-primary w-100" id="lp_seg_validar" type="button"><i class="bi bi-diagram-3"></i> Validar segmento</button>
+                                                    </div>
+                                                    <div class="col-6">
+                                                        <button class="btn btn-primary w-100" id="lp_seg_guardar" type="button"><i class="bi bi-save"></i> Guardar vinculo</button>
+                                                    </div>
+                                                </div>
+                                                <div id="lp_segmento_dryrun" class="mt-3"></div>
+                                                <div class="separator my-4"></div>
                                                 <div class="row g-3">
                                                     <input type="hidden" id="lp_asig_id">
                                                     <div class="col-12">
@@ -238,6 +328,9 @@
                                                     </div>
                                                 </div>
                                                 <div id="lp_clientes_resultados" class="mt-3"></div>
+                                                <div class="separator my-4"></div>
+                                                <div class="fw-semibold fs-7 mb-2">Vinculos por segmento</div>
+                                                <div id="lp_asignaciones_segmentos" class="text-muted fs-7">Selecciona una lista para ver segmentos vinculados.</div>
                                                 <div class="separator my-4"></div>
                                                 <div id="lp_asignaciones" class="text-muted fs-7">Selecciona una lista para ver clientes.</div>
                                             </section>
@@ -292,6 +385,6 @@
 </div>
 <script src="assets/plugins/global/plugins.bundle.js"></script>
 <script src="assets/js/scripts.bundle.js"></script>
-<script src="/assets/js/custom/apps/erp/ventas/listas_precios.js?v=20260716-preview1"></script>
+<script src="/assets/js/custom/apps/erp/ventas/listas_precios.js?v=20260716-segmentos2"></script>
 </body>
 </html>

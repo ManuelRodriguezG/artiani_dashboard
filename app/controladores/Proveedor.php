@@ -363,6 +363,27 @@ class Proveedor extends Controlador {
         echo json_encode($respuesta);
     }
 
+    /**
+     * IA: Codex GPT-5
+     * Fecha: 2026-07-16
+     * Proposito: seleccionar en lote candidatos de matching confiables sin aplicar relaciones ni costos.
+     * Impacto: Proveedores ERP; reduce captura manual y conserva aplicacion de relacion como paso separado.
+     * Contrato: requiere proveedores.matching y recalcula candidatos en servidor antes de escribir.
+     */
+    public function proveedor_lista_matching_masivo_erp() {
+        $this->requerirPermiso("proveedores.matching");
+        $respuesta = $this->modelo("Proveedores")->seleccionarMatchingMasivoListaErp($_POST, $this->usuarioActualId());
+        SesionSeguridad::registrarAuditoria("proveedores", "proveedor_matching_masivo", array(
+            "entidad" => "erp_proveedores_listas_detalle_erp",
+            "entidad_id" => isset($respuesta["depurar"]["id_lista_proveedor_erp"]) ? intval($respuesta["depurar"]["id_lista_proveedor_erp"]) : null,
+            "resultado" => $respuesta["error"] ? "error" : "ok",
+            "mensaje" => $respuesta["mensaje"],
+            "datos_antes" => null,
+            "datos_despues" => isset($respuesta["depurar"]) ? $respuesta["depurar"] : null
+        ));
+        echo json_encode($respuesta);
+    }
+
     public function proveedor_sku_relacion_aplicar_erp() {
         $this->requerirPermiso("proveedores.matching");
         $respuesta = $this->modelo("Proveedores")->aplicarRelacionSkuProveedorErp($_POST, $this->usuarioActualId());

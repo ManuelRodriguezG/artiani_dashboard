@@ -4990,6 +4990,148 @@ class Proveedores extends CRUD {
         }
     }
 
+    /**
+     * IA: Codex GPT-5
+     * Fecha: 2026-07-16
+     * Proposito: guardar decisiones de matching en lote solo para candidatos confiables recalculados en servidor.
+     * Impacto: Proveedores ERP; agiliza listas grandes sin crear relaciones proveedor-SKU ni tocar costos.
+     * Contrato: solo acepta un candidato para `relacionado` o `match_exacto_pendiente`; excluye ambiguos, posibles por nombre y renglones ya seleccionados/aplicados.
+     */
+    public function seleccionarMatchingMasivoListaErp($datos, $id_usuario) {
+        $db = $this->getConexion();
+        try {
+            $idProveedor = isset($datos["id_proveedor"]) ? intval($datos["id_proveedor"]) : 0;
+            $idLista = isset($datos["id_lista_proveedor_erp"]) ? intval($datos["id_lista_proveedor_erp"]) : 0;
+            if ($idProveedor <= 0 || $idLista <= 0) {
+                return array("error" => true, "tipo" => "warning", "mensaje" => "Lista invalida para matching masivo", "depurar" => null);
+            }
+
+            $lista = $this->consultarListaProveedorErp($db, $idLista, $idProveedor);
+            if (!$lista) {
+                return array("error" => true, "tipo" => "warning", "mensaje" => "Lista ERP no encontrada", "depurar" => null);
+            }
+
+            $detalle = $this->consultarListaDetalleErp($idProveedor, $idLista);
+            if ($detalle["error"]) {
+                return $detalle;
+            }
+
+            $aplicables = array();
+            $excluidos = array();
+            foreach ($detalle["depurar"]["detalle"] as $renglon) {
+                $resultado = $this->matchingRenglonListaDryRunErp($db, $idProveedor, $renglon);
+                $aplicabilidad = $this->evaluarMatchingMasivoAplicableErp($renglon, $resultado);
+                if ($aplicabilidad["aplicable"]) {
+                    $aplicables[] = array("renglon" => $renglon, "resultado" => $resultado, "candidato" => $aplicabilidad["candidato"]);
+                } else {
+                    $excluidos[] = $aplicabilidad["excluido"];
+                }
+            }
+
+            if (empty($aplicables)) {
+                return array("error" => true, "tipo" => "warning", "mensaje" => "No hay matches confiables para seleccionar en lote", "depurar" => array(
+                    "id_proveedor" => $idProveedor,
+                    "id_lista_proveedor_erp" => $idLista,
+                    "excluidos" => $excluidos
+                ));
+            }
+
+            $db->beginTransaction();
+            $stmt = $db->prepare("UPDATE erp_proveedores_listas_detalle_erp SET
+                id_sku = :id_sku,
+                id_sku_proveedor = :id_sku_proveedor,
+                estado_match = 'match_seleccionado',
+                criterio_match = :criterio_match,
+                observaciones = :observaciones,
+                fecha_actualizacion = NOW()
+                WHERE id_lista_detalle_erp = :id_detalle
+                  AND id_lista_proveedor_erp = :id_lista");
+
+            $seleccionados = array();
+            foreach ($aplicables as $item) {
+                $renglon = $item["renglon"];
+                $resultado = $item["resultado"];
+                $candidato = $item["candidato"];
+                $observacionesPrevias = isset($renglon["observaciones"]) ? trim((string) $renglon["observaciones"]) : "";
+                $observacion = "Matching masivo: candidato confiable por " . (isset($resultado["criterio_match"]) ? $resultado["criterio_match"] : "criterio seguro");
+                $observacionesFinales = $observacionesPrevias !== "" ? $observacionesPrevias . "\n" . $observacion : $observacion;
+                $stmt->execute(array(
+                    ":id_sku" => intval($candidato["id_sku"]),
+                    ":id_sku_proveedor" => intval(isset($candidato["id_sku_proveedor"]) ? $candidato["id_sku_proveedor"] : 0) > 0 ? intval($candidato["id_sku_proveedor"]) : null,
+                    ":criterio_match" => $this->valorNuloProveedorErp(isset($resultado["criterio_match"]) ? $resultado["criterio_match"] : ""),
+                    ":observaciones" => $this->valorNuloProveedorErp($observacionesFinales),
+                    ":id_detalle" => intval($resultado["id_lista_detalle_erp"]),
+                    ":id_lista" => $idLista
+                ));
+                $seleccionados[] = array(
+                    "id_lista_detalle_erp" => intval($resultado["id_lista_detalle_erp"]),
+                    "id_sku" => intval($candidato["id_sku"]),
+                    "id_sku_proveedor" => intval(isset($candidato["id_sku_proveedor"]) ? $candidato["id_sku_proveedor"] : 0) ?: null,
+                    "criterio_match" => isset($resultado["criterio_match"]) ? $resultado["criterio_match"] : ""
+                );
+            }
+            $db->commit();
+
+            return array(
+                "error" => false,
+                "tipo" => "success",
+                "mensaje" => "Matching masivo seleccionado para " . count($seleccionados) . " renglon(es)",
+                "depurar" => array(
+                    "id_proveedor" => $idProveedor,
+                    "id_lista_proveedor_erp" => $idLista,
+                    "seleccionados" => count($seleccionados),
+                    "excluidos" => count($excluidos),
+                    "renglones" => $seleccionados,
+                    "excluidos_detalle" => $excluidos
+                )
+            );
+        } catch (Exception $e) {
+            if ($db->inTransaction()) {
+                $db->rollBack();
+            }
+            return array("error" => true, "tipo" => "danger", "mensaje" => $e->getMessage(), "depurar" => null);
+        }
+    }
+
+    /**
+     * IA: Codex GPT-5
+     * Fecha: 2026-07-16
+     * Proposito: clasificar si una propuesta de matching puede seleccionarse de forma masiva sin revision humana.
+     * Impacto: protege Proveedores/Catalogo evitando que matches ambiguos o posibles por nombre se guarden automaticamente.
+     * Contrato: devuelve `aplicable` con candidato unico o `excluido` con motivo auditable.
+     */
+    private function evaluarMatchingMasivoAplicableErp($renglon, $resultado) {
+        $idDetalle = intval(isset($resultado["id_lista_detalle_erp"]) ? $resultado["id_lista_detalle_erp"] : 0);
+        $estadoActual = strtolower(trim((string) (isset($renglon["estado_match"]) ? $renglon["estado_match"] : "")));
+        $estado = strtolower(trim((string) (isset($resultado["estado_match"]) ? $resultado["estado_match"] : "")));
+        $criterio = strtolower(trim((string) (isset($resultado["criterio_match"]) ? $resultado["criterio_match"] : "")));
+        $candidatos = isset($resultado["candidatos"]) && is_array($resultado["candidatos"]) ? $resultado["candidatos"] : array();
+        $base = array(
+            "id_lista_detalle_erp" => $idDetalle,
+            "estado_match" => $estado,
+            "criterio_match" => $criterio
+        );
+
+        if (in_array($estadoActual, array("match_seleccionado", "relacion_aplicada", "costo_aplicado"), true)) {
+            return array("aplicable" => false, "excluido" => $base + array("motivo" => "ya_seleccionado_o_aplicado"));
+        }
+        if (count($candidatos) !== 1) {
+            return array("aplicable" => false, "excluido" => $base + array("motivo" => "sin_candidato_unico"));
+        }
+        if (!in_array($estado, array("relacionado", "match_exacto_pendiente"), true)) {
+            return array("aplicable" => false, "excluido" => $base + array("motivo" => "estado_no_masivo"));
+        }
+        if (!in_array($criterio, array("relacion_activa_proveedor_sku", "incidencia_catalogo_sku_temporal", "sku_o_codigo_exacto"), true)) {
+            return array("aplicable" => false, "excluido" => $base + array("motivo" => "criterio_no_masivo"));
+        }
+
+        $candidato = $candidatos[0];
+        if (intval(isset($candidato["id_sku"]) ? $candidato["id_sku"] : 0) <= 0) {
+            return array("aplicable" => false, "excluido" => $base + array("motivo" => "sku_invalido"));
+        }
+        return array("aplicable" => true, "candidato" => $candidato);
+    }
+
     private function skuErpExiste($db, $idSku) {
         $stmt = $db->prepare("SELECT id_sku FROM erp_catalogo_skus WHERE id_sku = :id_sku AND estatus <> 'fusionado' LIMIT 1");
         $stmt->execute(array(":id_sku" => intval($idSku)));
@@ -7113,6 +7255,7 @@ class Proveedores extends CRUD {
             "descripcion_proveedor" => isset($renglon["descripcion_proveedor"]) ? $renglon["descripcion_proveedor"] : null,
             "costo" => isset($renglon["costo"]) ? $renglon["costo"] : null,
             "moneda" => isset($renglon["moneda"]) ? $renglon["moneda"] : null,
+            "estado_match_actual" => isset($renglon["estado_match"]) ? $renglon["estado_match"] : null,
             "estado_match" => $estado,
             "criterio_match" => $criterio,
             "candidatos" => $candidatos

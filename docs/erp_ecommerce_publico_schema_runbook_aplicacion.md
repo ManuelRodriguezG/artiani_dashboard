@@ -13,8 +13,8 @@ Aplicar el esquema minimo `erp_ecommerce_*` para que la Fase 1 pueda guardar pub
 Ejecutar:
 
 ```bash
-php storage/uat/uat_ecommerce_publico_schema_readonly.php --respaldo=RUTA_O_REFERENCIA
-php storage/uat/uat_ecommerce_publico_schema_sql_readonly.php --respaldo=RUTA_O_REFERENCIA
+C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_schema_readonly.php --respaldo=RUTA_O_REFERENCIA
+C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_schema_sql_readonly.php --respaldo=RUTA_O_REFERENCIA
 ```
 
 Validar que:
@@ -35,7 +35,7 @@ Si el respaldo no es ruta local, debe ser una referencia externa suficientemente
 Ejecutar solo con autorizacion textual:
 
 ```bash
-php storage/uat/uat_ecommerce_publico_schema_apply_authorized.php --autorizar=ECOMMERCE_PUBLICO_DDL_FASE1 --respaldo=RUTA_O_REFERENCIA
+C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_schema_apply_authorized.php --autorizar=ECOMMERCE_PUBLICO_DDL_FASE1 --respaldo=RUTA_O_REFERENCIA
 ```
 
 El script debe devolver:
@@ -57,7 +57,7 @@ Antes de ejecutar, comparar visualmente que las tablas del SQL read-only sean so
 Ejecutar de nuevo:
 
 ```bash
-php storage/uat/uat_ecommerce_publico_schema_readonly.php --respaldo=RUTA_O_REFERENCIA
+C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_schema_readonly.php --respaldo=RUTA_O_REFERENCIA
 ```
 
 Resultado esperado:
@@ -82,3 +82,4 @@ Tambien validar en ERP:
 ## Siguiente paso despues de aplicar
 
 Crear funcionalidad interna controlada para seleccionar SKUs publicables y guardar publicaciones en `erp_ecommerce_publicaciones`, con auditoria y permiso apropiado. Esa accion debe ser una fase separada.
+

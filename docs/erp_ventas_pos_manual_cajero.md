@@ -2,7 +2,7 @@
 
 Documentacion IA: Codex GPT-5  
 Fecha: 2026-06-26  
-Estado: guia operativa; la venta real sigue pendiente de autorizacion.
+Estado: guia operativa para POS; la operacion real requiere turno abierto, permisos vigentes y politicas activas.
 
 ## Inicio del dia
 
@@ -14,6 +14,12 @@ Estado: guia operativa; la venta real sigue pendiente de autorizacion.
 6. Abrir turno cuando el sistema lo permita.
 7. Contar el fondo inicial de caja.
 8. Registrar el monto inicial autorizado.
+
+Regla de identidad:
+
+- Si el POS muestra otro operador, otra sucursal o una caja distinta, no vender.
+- Cada cobro debe quedar ligado al usuario que lo ejecuto.
+- Varias personas pueden atender cuentas, pero el cobro debe registrar quien lo realiza y en que caja/turno.
 
 ## Venta normal
 
@@ -33,6 +39,13 @@ Estado: guia operativa; la venta real sigue pendiente de autorizacion.
 7. Prevalidar carrito.
 8. Si no hay bloqueos, confirmar venta cuando el boton real este autorizado.
 9. Entregar ticket.
+
+Antes de cobrar:
+
+- El turno debe estar abierto.
+- La tienda/caja/terminal deben ser las asignadas.
+- El pago debe cubrir el total o quedar en flujo formal de pedido/apartado.
+- Si el sistema advierte inventario pendiente, no forzar venta normal: usar solo el flujo autorizado con motivo y trazabilidad.
 
 ## Unidad cerrada
 

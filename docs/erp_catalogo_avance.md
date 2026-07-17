@@ -2328,3 +2328,75 @@ C:\xampp\php\php.exe -l app\modelos\CatalogoErpDatos.php
 C:\xampp\php\php.exe -l storage\uat\uat_catalogo_encoding_auditoria_readonly.php
 C:\xampp\php\php.exe storage\uat\uat_catalogo_encoding_auditoria_readonly.php
 ```
+
+## Avance 2026-07-16 - Recuperacion masiva controlada de imagenes de productos
+
+Contexto: la depuracion manual de imagenes de productos en Catalogo ERP es lenta y se requiere acelerar la identificacion visual de productos sin imagen.
+
+Guardrail creado:
+
+- Se creo `storage/uat/uat_catalogo_imagenes_productos_portadas_apply.php`.
+- Por defecto corre en `preview` y no modifica BD.
+- Solo considera productos ERP que no tienen ninguna imagen activa.
+- Solo toma imagenes heredadas desde `ecom_productos_imagenes` cuando:
+  - existe vinculo `erp_catalogo_canales_vinculos` entre producto ecommerce y producto ERP;
+  - la URL no esta vacia;
+  - la URL empieza con `media/`;
+  - no existe ya una imagen ERP con `fuente='ecommerce'` e `id_externo` igual al `id_producto_imagen`;
+  - el archivo existe fisicamente bajo `public/media/...`.
+- Para cada producto candidato:
+  - la primera imagen sugerida se insertara como `portada`;
+  - las demas se insertaran como `galeria`;
+  - no se toca ningun producto que ya tenga imagen activa.
+
+Preview ejecutado:
+
+- Productos ERP sin imagen activa: 25.
+- Productos que pueden resolverse con imagen ecommerce disponible: 22.
+- Imagenes candidatas detectadas: 73.
+- Imagenes candidatas insertables con archivo local existente: 72.
+- Imagenes excluidas por archivo local faltante: 1.
+- Portadas a insertar: 22.
+- No se modifico BD.
+
+Aplicacion pendiente de autorizacion:
+
+```text
+C:\xampp\php\php.exe storage\uat\uat_catalogo_imagenes_productos_portadas_apply.php --execute --token=CATALOGO_IMAGENES_PRODUCTOS_PORTADAS --respaldo=<ruta-o-referencia-externa>
+```
+
+Validacion:
+
+```text
+C:\xampp\php\php.exe -l storage\uat\uat_catalogo_imagenes_productos_portadas_apply.php
+C:\xampp\php\php.exe storage\uat\uat_catalogo_imagenes_productos_portadas_apply.php --limit=8
+```
+
+Aplicacion autorizada:
+
+- Fecha: 2026-07-16.
+- Token: `CATALOGO_IMAGENES_PRODUCTOS_PORTADAS`.
+- Respaldo externo informado: `C:\xampp\panel_db_backups\artianilocal_panel_20260716_antes_catalogo_imagenes_productos.sql`.
+- Resultado:
+  - productos actualizados: 22;
+  - imagenes insertadas: 72;
+  - portadas insertadas: 22.
+- Regla aplicada:
+  - solo productos sin imagen activa previa;
+  - primera imagen existente como `portada`;
+  - imagenes restantes como `galeria`;
+  - sin duplicar imagenes ecommerce ya relacionadas.
+
+Verificacion posterior:
+
+- Productos sin imagen activa despues de aplicar: 3.
+- Candidatas ecommerce detectadas despues de aplicar: 0.
+- Candidatas insertables despues de aplicar: 0.
+- No quedan imagenes ecommerce locales pendientes para recuperar por este flujo masivo.
+
+Comandos:
+
+```text
+C:\xampp\php\php.exe storage\uat\uat_catalogo_imagenes_productos_portadas_apply.php --execute --token=CATALOGO_IMAGENES_PRODUCTOS_PORTADAS --respaldo=C:\xampp\panel_db_backups\artianilocal_panel_20260716_antes_catalogo_imagenes_productos.sql
+C:\xampp\php\php.exe storage\uat\uat_catalogo_imagenes_productos_portadas_apply.php --limit=10
+```

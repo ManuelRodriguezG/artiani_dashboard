@@ -155,9 +155,26 @@ class EcommerceCatalogoPublico extends CRUD {
       if (!$db) {
         return $this->respuesta(true, "warning", "Conexion MySQL no disponible", array(
           "ready" => false,
-          "schema" => array("disponible" => false),
-          "publicaciones" => array("total_publicadas" => 0),
-          "configuracion" => array("disponible" => false)
+          "schema" => array(
+            "disponible" => false,
+            "ddl_pendiente" => true
+          ),
+          "publicaciones" => array(
+            "total_publicadas" => 0,
+            "skus_publicables_fase_1" => 0,
+            "catalogo_publico_vacio" => true
+          ),
+          "configuracion" => array("disponible" => false),
+          "seguridad" => array(
+            "post_dryrun_disponible" => true,
+            "post_registro_bloqueado" => true
+          ),
+          "guardrails" => array(
+            "solo_readonly" => true,
+            "no_checkout" => true,
+            "no_descuenta_inventario" => true,
+            "no_ecom_legacy_fuente" => true
+          )
         ));
       }
 
@@ -254,7 +271,16 @@ class EcommerceCatalogoPublico extends CRUD {
     try {
       $db = $this->getConexion();
       if (!$db) {
-        return $this->respuesta(true, "warning", "Conexion MySQL no disponible", array("items" => array()));
+        return $this->respuesta(true, "warning", "Conexion MySQL no disponible", array(
+          "configurado" => false,
+          "items" => array(),
+          "paginacion" => array("pagina" => 1, "limite" => 24, "total" => 0),
+          "guardrails" => array(
+            "no_usa_ecom_legacy_como_fuente" => true,
+            "no_muestra_stock_exacto" => true,
+            "no_descuenta_inventario" => true
+          )
+        ));
       }
       if (!$this->tablaExiste($db, "erp_ecommerce_publicaciones")) {
         return $this->respuesta(false, "info", "Catalogo publico ecommerce aun no configurado", array(
@@ -883,7 +909,20 @@ class EcommerceCatalogoPublico extends CRUD {
     try {
       $db = $this->getConexion();
       if (!$db) {
-        return $this->respuesta(true, "warning", "Conexion MySQL no disponible", array("read_only" => true));
+        return $this->respuesta(true, "warning", "Conexion MySQL no disponible", array(
+          "read_only" => true,
+          "no_escribe_bd" => true,
+          "resumen" => array(
+            "skus_total" => 0,
+            "skus_publicables_fase_1" => 0
+          ),
+          "candidatos" => array(),
+          "guardrails" => array(
+            "no_crea_publicaciones" => true,
+            "no_mueve_inventario" => true,
+            "no_toca_ecom_legacy" => true
+          )
+        ));
       }
 
       $limite = max(10, min(500, intval($this->valor($filtros, "limite", 50))));
@@ -1022,10 +1061,12 @@ class EcommerceCatalogoPublico extends CRUD {
           "catalogo" => "/ecommercePublico/catalogo",
           "filtros" => "/ecommercePublico/filtros",
           "configuracion" => "/ecommercePublico/configuracion",
+          "seo" => "/ecommercePublico/seo",
           "disponibilidad" => "/ecommercePublico/disponibilidad",
           "cotizacion_dryrun" => "/ecommercePublico/cotizacion_dryrun"
         ),
         "comandos_readonly" => array(
+          "salud_entorno" => "C:\\xampp\\php\\php.exe storage\\uat\\uat_ecommerce_publico_entorno_readonly.php --base=http://panel.com.local",
           "readiness_frontend" => "C:\\xampp\\php\\php.exe storage\\uat\\uat_ecommerce_publico_frontend_readiness_readonly.php",
           "bundle_activacion" => "C:\\xampp\\php\\php.exe storage\\uat\\uat_ecommerce_publico_activacion_bundle_readonly.php --base=http://panel.com.local --respaldo=RUTA_O_REFERENCIA --whatsapp=NUMERO_WHATSAPP --cors=ORIGEN_FRONTEND --url=URL_FRONTEND --lote=8",
           "secuencia_activacion" => "C:\\xampp\\php\\php.exe storage\\uat\\uat_ecommerce_publico_secuencia_activacion_readonly.php --base=http://panel.com.local --respaldo=RUTA_O_REFERENCIA --whatsapp=NUMERO_WHATSAPP --cors=ORIGEN_FRONTEND --url=URL_FRONTEND --id_sku=ID_SKU",

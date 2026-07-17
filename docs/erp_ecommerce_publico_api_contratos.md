@@ -178,6 +178,14 @@ Requisitos para activarlo:
 - Politica de contacto/seguimiento CRM definida.
 - Numero WhatsApp configurado desde ERP.
 
+Plan read-only:
+
+```bash
+C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_cotizacion_registro_plan_readonly.php --base=http://panel.com.local --origin=http://localhost:5173
+```
+
+Ese plan documenta el payload futuro, tablas destino y bloqueos vigentes sin desbloquear escrituras.
+
 ## Item de catalogo
 
 Campos esperados:
@@ -231,16 +239,17 @@ Campos esperados:
 Script:
 
 ```bash
-php storage/uat/uat_ecommerce_publico_api_contracts_readonly.php
-php storage/uat/uat_ecommerce_publico_http_smoke_readonly.php --base=http://panel.com.local
-php storage/uat/uat_ecommerce_publico_contract_shape_readonly.php
-php storage/uat/uat_ecommerce_publico_negative_cases_readonly.php --base=http://panel.com.local
-php storage/uat/uat_ecommerce_publico_cors_preflight_readonly.php --base=http://panel.com.local --origin=http://localhost:5173
-php storage/uat/uat_ecommerce_publico_frontend_fixtures_readonly.php
-php storage/uat/uat_ecommerce_publico_frontend_env_readonly.php --base=http://panel.com.local --frontend=http://localhost:5173
-php storage/uat/uat_ecommerce_publico_postman_collection_readonly.php --base=http://panel.com.local
-php storage/uat/uat_ecommerce_publico_openapi_readonly.php
-php storage/uat/uat_ecommerce_publico_carrito_whatsapp_readonly.php
+C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_api_contracts_readonly.php
+C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_http_smoke_readonly.php --base=http://panel.com.local
+C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_contract_shape_readonly.php
+C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_negative_cases_readonly.php --base=http://panel.com.local
+C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_cors_preflight_readonly.php --base=http://panel.com.local --origin=http://localhost:5173
+C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_frontend_fixtures_readonly.php
+C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_frontend_env_readonly.php --base=http://panel.com.local --frontend=http://localhost:5173
+C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_postman_collection_readonly.php --base=http://panel.com.local
+C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_openapi_readonly.php
+C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_carrito_whatsapp_readonly.php
+C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_cotizacion_registro_plan_readonly.php --base=http://panel.com.local --origin=http://localhost:5173
 ```
 
 Valida:
@@ -267,7 +276,7 @@ No escribe BD, no ejecuta DDL, no toca inventario y no registra cotizaciones.
 Mientras `senal_frontend=amarillo_mock_contratos`, el frontend puede usar:
 
 ```bash
-php storage/uat/uat_ecommerce_publico_frontend_fixtures_readonly.php
+C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_frontend_fixtures_readonly.php
 ```
 
 Incluye respuestas ejemplo para:
@@ -287,7 +296,7 @@ Estos fixtures son solo para UI. No representan productos reales y deben retirar
 Para generar una especificacion OpenAPI 3.0.3 basica:
 
 ```bash
-php storage/uat/uat_ecommerce_publico_openapi_readonly.php
+C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_openapi_readonly.php
 ```
 
 La especificacion es de apoyo para mocks, docs o generadores de cliente. El contrato fuente sigue siendo el endpoint:

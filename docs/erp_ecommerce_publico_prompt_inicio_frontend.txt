@@ -60,6 +60,7 @@ Comandos ERP de referencia:
 - C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_frontend_env_readonly.php --base=http://panel.com.local --frontend=http://localhost:5173
 - C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_postman_collection_readonly.php --base=http://panel.com.local
 - C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_negative_cases_readonly.php --base=http://panel.com.local
+- C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_cotizacion_registro_plan_readonly.php --base=http://panel.com.local --origin=http://localhost:5173
 
 Pantalla interna ERP:
 http://panel.com.local/ecommercePublico/publicaciones
@@ -77,6 +78,8 @@ Documentacion completa:
 - docs/erp_ecommerce_publico_frontend_herramientas_integracion.md
 - docs/erp_ecommerce_publico_seguridad_api_futura.md
 - docs/erp_ecommerce_publico_seo_frontend.md
+- docs/erp_ecommerce_publico_frontend_AGENTS_template.md
+- docs/erp_ecommerce_publico_frontend_archivos_iniciales.md
 
 Reglas de producto:
 - Enfocar UX en mascotas, no tienda generica.

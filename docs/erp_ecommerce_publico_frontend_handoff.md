@@ -37,6 +37,8 @@ Notas:
 - `docs/erp_ecommerce_publico_frontend_herramientas_integracion.md`
 - `docs/erp_ecommerce_publico_seguridad_api_futura.md`
 - `docs/erp_ecommerce_publico_seo_frontend.md`
+- `docs/erp_ecommerce_publico_frontend_AGENTS_template.md`
+- `docs/erp_ecommerce_publico_frontend_archivos_iniciales.md`
 
 ## Paquete compacto
 
@@ -310,7 +312,7 @@ Produccion:
 Desde el ERP:
 
 ```bash
-php storage/uat/uat_ecommerce_publico_api_contracts_readonly.php
+C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_api_contracts_readonly.php
 ```
 
 Resultado esperado actual:
@@ -332,3 +334,4 @@ Resultado esperado actual:
 - No guardar secretos HMAC en navegador.
 - No implementar checkout/pasarela en Fase 1.
 - No marcar venta pagada ni pedido confirmado desde la web.
+

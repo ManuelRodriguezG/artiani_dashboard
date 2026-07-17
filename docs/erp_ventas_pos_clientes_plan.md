@@ -138,7 +138,7 @@ Prioridad recomendada de precio:
 1. Precio manual autorizado en venta.
 2. Promocion especifica vigente.
 3. Lista asignada al cliente.
-4. Lista asignada al segmento del cliente.
+4. Lista asignada al segmento/tipo del cliente.
 5. Lista por canal/sucursal.
 6. Lista general.
 
@@ -148,6 +148,8 @@ Reglas:
 - Si una lista cambia manana, ventas pasadas no cambian.
 - Descuentos manuales requieren permiso y motivo.
 - Lista por cliente debe tener vigencia y auditoria.
+- Lista por cliente es excepcion comercial; para miles de clientes, usar segmentos/tipos CRM.
+- El cliente puede subir a un segmento con mejores precios mediante autorizacion futura, sin reescribir ventas pasadas.
 - Debe poder haber precio por SKU, categoria, marca o familia, pero POS debe recibir un precio final ya resuelto por backend.
 
 ## Incentivos y recompensas

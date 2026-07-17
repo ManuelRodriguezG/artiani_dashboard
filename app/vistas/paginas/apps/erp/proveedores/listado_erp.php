@@ -794,6 +794,11 @@
                         <option value="ambiguo">Ambiguo</option>
                         <option value="sin_match">Sin match</option>
                     </select>
+                    <?php if (SesionSeguridad::tienePermiso('proveedores.matching')): ?>
+                    <button class="btn btn-sm btn-light-success" type="button" id="proveedores_erp_matching_masivo" disabled>
+                        <i class="bi bi-magic"></i> Seleccionar confiables
+                    </button>
+                    <?php endif; ?>
                     <span class="text-muted fs-8 align-self-center" id="proveedores_erp_matching_conteo"></span>
                 </div>
                 <div class="table-responsive">

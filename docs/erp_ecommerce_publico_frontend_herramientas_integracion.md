@@ -10,6 +10,14 @@ Centralizar herramientas para que el frontend externo pruebe contratos sin leer 
 
 ## Paquete compacto
 
+Antes de usar el paquete compacto, revisar salud local de XAMPP/MySQL/API:
+
+```bash
+C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_entorno_readonly.php --base=http://panel.com.local
+```
+
+Si ese comando reporta MySQL caido o API sin JSON, no interpretar errores posteriores como fallas del frontend.
+
 ```bash
 C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_frontend_package_readonly.php --base=http://panel.com.local
 ```
@@ -65,6 +73,19 @@ El contrato fuente sigue siendo:
 GET http://panel.com.local/ecommercePublico/contratos
 ```
 
+## Registro interno futuro
+
+```bash
+C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_cotizacion_registro_plan_readonly.php --base=http://panel.com.local --origin=http://localhost:5173
+```
+
+Uso:
+
+- revisar el payload futuro de `cotizacion_registrar`;
+- confirmar que el endpoint sigue bloqueado en Fase 1;
+- confirmar que el registro planeado no descuenta inventario, no crea pedido y no cobra;
+- listar requisitos pendientes antes de desbloquear escrituras publicas.
+
 ## Fixtures
 
 ```bash
@@ -75,6 +96,7 @@ Uso:
 
 - disenar tarjetas, filtros, detalle y carrito mientras el ERP esta en amarillo;
 - probar estados de UI sin prometer datos reales.
+- no validar salud de MySQL ni existencia de publicaciones reales.
 
 Retirar fixtures cuando:
 
@@ -95,8 +117,7 @@ C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_cors_preflight_readonly.p
 
 Estado esperado actual:
 
-- smoke `ok=true`;
 - shape `ok=true`;
 - negativos `ok=true`;
 - CORS cerrado hasta configurar `cors_origenes_permitidos`.
-
+- smoke depende de que XAMPP/MySQL/API esten sanos.

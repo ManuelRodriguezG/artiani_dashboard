@@ -60,6 +60,18 @@ class Comercial extends Controlador
     }
 
     /**
+     * Documentacion IA: Codex GPT-5, 2026-07-16.
+     * Proposito: mostrar segmentos CRM candidatos para listas de precios por tipo de cliente.
+     * Impacto: prepara el flujo escalable sin obligar asignacion cliente por cliente.
+     * Contrato: read-only; no crea vinculos segmento/lista ni modifica CRM.
+     */
+    public function listas_precios_segmentos_crm_erp()
+    {
+        $this->requerirPermiso('ventas.listas.ver');
+        return json_encode($this->modelo('ListasPreciosErp')->segmentosCrmReadOnly($_GET));
+    }
+
+    /**
      * Documentacion IA: Codex GPT-5, 2026-07-15.
      * Proposito: alimentar la mesa operativa de productos/precios con costo y margen.
      * Impacto: permite editar listas desde Comercial sin depender de IDs sueltos ni vistas de POS.
@@ -124,6 +136,12 @@ class Comercial extends Controlador
     {
         $this->requerirPermiso('ventas.listas.auditoria');
         return json_encode($this->modelo('ListasPreciosErp')->asignacionClienteDryRun($_POST));
+    }
+
+    public function listas_precios_segmento_dryrun_erp()
+    {
+        $this->requerirPermiso('ventas.listas.auditoria');
+        return json_encode($this->modelo('ListasPreciosErp')->asignacionSegmentoDryRun($_POST));
     }
 
     public function listas_precios_lista_guardar_erp()
@@ -205,6 +223,18 @@ class Comercial extends Controlador
     }
 
     /**
+     * Documentacion IA: Codex GPT-5, 2026-07-16.
+     * Proposito: guardar vinculacion segmento CRM/lista cuando el DDL puente ya exista.
+     * Impacto: permite escalar precios por tipo de cliente sin asignar clientes uno por uno.
+     * Contrato: requiere permiso de asignacion de listas; no crea segmentos, clientes ni cambia ventas pasadas.
+     */
+    public function listas_precios_segmento_guardar_operativo_erp()
+    {
+        $this->requerirPermiso('ventas.listas.asignar_cliente');
+        return json_encode($this->modelo('ListasPreciosErp')->asignacionSegmentoGuardarAutorizado($_POST, $this->usuarioActualId()));
+    }
+
+    /**
      * Documentacion IA: Codex GPT-5, 2026-07-13.
      * Proposito: auditar contrato CRM/listas desde el modulo Comercial.
      * Impacto: valida si asignaciones cliente-lista soportan `id_cliente_crm`.
@@ -280,6 +310,42 @@ class Comercial extends Controlador
             }
         }
         return json_encode($this->modelo('VentasErpEsquema')->planActualizarAuditoriaListasPrecios($ejecutar));
+    }
+
+    public function esquema_auditar_segmentos_listas_precios()
+    {
+        $this->requerirPermiso('ventas.listas.auditoria');
+        return json_encode($this->modelo('VentasErpEsquema')->auditarSegmentosListasPrecios());
+    }
+
+    /**
+     * Documentacion IA: Codex GPT-5, 2026-07-16.
+     * Proposito: exponer DDL planeado para vincular segmentos CRM con listas de precios.
+     * Impacto: prepara `erp_segmentos_listas_precios`; no crea segmentos, listas ni cambia ventas.
+     * Contrato: solo ejecuta con token `VENTAS_LISTAS_PRECIOS_SEGMENTOS_DDL` y respaldo externo valido.
+     */
+    public function esquema_actualizar_segmentos_listas_precios()
+    {
+        $this->requerirPermiso('sistema.soporte');
+        $ejecutar = isset($_POST['ejecutar']) && intval($_POST['ejecutar']) === 1;
+        if ($ejecutar) {
+            $autorizar = isset($_POST['autorizar']) ? trim((string) $_POST['autorizar']) : '';
+            $respaldo = isset($_POST['respaldo']) ? trim((string) $_POST['respaldo']) : '';
+            $validacionRespaldo = $this->validarRespaldoListasPrecios($respaldo);
+            if ($autorizar !== 'VENTAS_LISTAS_PRECIOS_SEGMENTOS_DDL' || !$validacionRespaldo['ok']) {
+                return json_encode(array(
+                    'error' => true,
+                    'tipo' => 'danger',
+                    'mensaje' => 'No se ejecuto DDL de segmentos/listas. Falta autorizacion explicita o respaldo valido.',
+                    'depurar' => array(
+                        'requerido' => array('autorizar' => 'VENTAS_LISTAS_PRECIOS_SEGMENTOS_DDL', 'respaldo' => 'RUTA_O_REFERENCIA'),
+                        'validacion_respaldo' => $validacionRespaldo,
+                        'reglas' => array('No ejecutar sin respaldo externo verificado.', 'No crea segmentos CRM.', 'No asigna listas ni modifica ventas pasadas.')
+                    )
+                ));
+            }
+        }
+        return json_encode($this->modelo('VentasErpEsquema')->planActualizarSegmentosListasPrecios($ejecutar));
     }
 
     private function requerirPermisoListaPreciosGuardar($tipo)

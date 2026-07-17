@@ -6516,3 +6516,62 @@ Decision operativa viva:
 Verificacion adicional:
 
 - `node --check public\assets\js\custom\apps\erp\proveedores\listado_erp.js`
+
+## Avance tecnico 2026-07-16 - Matching masivo conservador
+
+Documentacion IA: Codex GPT-5
+
+Archivos:
+
+- `app/controladores/Proveedor.php`
+- `app/modelos/Proveedores.php`
+- `app/vistas/paginas/apps/erp/proveedores/listado_erp.php`
+- `public/assets/js/custom/apps/erp/proveedores/listado_erp.js`
+
+Implementacion:
+
+- Se agrego endpoint `proveedor_lista_matching_masivo_erp`.
+- Se agrego boton `Seleccionar confiables` dentro del modal `Matching dry-run`.
+- El boton solo se habilita cuando el dry-run encuentra candidatos elegibles.
+- El servidor recalcula el matching antes de escribir; no confia solo en el conteo del navegador.
+- La seleccion masiva solo guarda `match_seleccionado`.
+- No aplica relaciones proveedor-SKU.
+- No aplica costos.
+- No toca `costo_referencia`.
+
+Regla de seguridad:
+
+- Elegibles:
+  - `relacionado` con un unico candidato por relacion activa proveedor-SKU.
+  - `match_exacto_pendiente` con un unico candidato por SKU/codigo exacto.
+  - `match_exacto_pendiente` con un unico candidato creado desde incidencia de Catalogo.
+- Excluidos:
+  - `ambiguo`.
+  - `sin_match`.
+  - `match_posible` por nombre/descripcion.
+  - renglones ya en `match_seleccionado`.
+  - renglones ya en `relacion_aplicada` o `costo_aplicado`.
+  - cualquier renglon sin candidato unico.
+
+Finalidad:
+
+- Reducir captura repetitiva cuando una lista nueva tiene muchos matches obvios.
+- Mantener revision manual para casos dudosos.
+- Conservar el flujo robusto: primero seleccionar matching, despues revisar/aplicar relaciones en lote, despues costos si corresponde.
+
+Verificacion:
+
+- `C:\xampp\php\php.exe -l app\controladores\Proveedor.php`
+- `C:\xampp\php\php.exe -l app\modelos\Proveedores.php`
+- `C:\xampp\php\php.exe -l app\vistas\paginas\apps\erp\proveedores\listado_erp.php`
+- `node --check public\assets\js\custom\apps\erp\proveedores\listado_erp.js`
+
+Prueba real pendiente:
+
+- Cargar una lista nueva de proveedor.
+- Abrir `Matching dry-run`.
+- Confirmar conteo de `Seleccionar confiables`.
+- Ejecutar seleccion masiva.
+- Confirmar que solo cambia a `match_seleccionado`.
+- Confirmar que ambiguos/posibles/sin match quedan sin seleccion automatica.
+- Ejecutar `Preview relaciones` y aplicar solo si el preview es correcto.

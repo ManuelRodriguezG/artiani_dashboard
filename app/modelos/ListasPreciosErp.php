@@ -82,7 +82,9 @@ class ListasPreciosErp extends CRUD {
                 "lista" => $lista,
                 "detalles" => $this->listarDetalles($db, $idLista),
                 "asignaciones" => $this->listarAsignaciones($db, $idLista),
-                "conflictos" => $this->detectarConflictosLista($db, $idLista)
+                "asignaciones_segmentos" => $this->listarAsignacionesSegmentos($db, $idLista),
+                "conflictos" => $this->detectarConflictosLista($db, $idLista),
+                "schema" => $this->schemaListas($db)
             ));
         } catch (Exception $e) {
             return $this->respuesta(true, "danger", $e->getMessage());
@@ -176,6 +178,72 @@ class ListasPreciosErp extends CRUD {
                     "entidad" => $entidad,
                     "limite" => $limite
                 )
+            ));
+        } catch (Exception $e) {
+            return $this->respuesta(true, "danger", $e->getMessage());
+        }
+    }
+
+    /**
+     * Documentacion IA: Codex GPT-5, 2026-07-16.
+     * Proposito: listar segmentos CRM candidatos para asignacion futura de listas de precios.
+     * Impacto: permite disenar el flujo escalable por tipo de cliente sin escribir BD ni crear DDL.
+     * Contrato: read-only; `erp_segmentos_listas_precios` es futura y se reporta como pendiente si no existe.
+     */
+    public function segmentosCrmReadOnly($filtros = array()) {
+        try {
+            $db = $this->getConexion();
+            if (!$db) {
+                return $this->respuesta(true, "warning", "No hay conexion MySQL para consultar segmentos CRM");
+            }
+            if (!$this->tablaExiste($db, "crm_clientes_segmentos")) {
+                return $this->respuesta(false, "warning", "Segmentos CRM pendientes", array(
+                    "segmentos" => array(),
+                    "schema" => array(
+                        "crm_segmentos" => false,
+                        "crm_segmentos_rel" => $this->tablaExiste($db, "crm_clientes_segmentos_rel"),
+                        "segmentos_listas" => $this->tablaExiste($db, "erp_segmentos_listas_precios")
+                    ),
+                    "modo" => "planeado"
+                ));
+            }
+
+            $idLista = intval($this->valor($filtros, "id_lista_precio", 0));
+            $q = trim((string) $this->valor($filtros, "q", ""));
+            $limite = intval($this->valor($filtros, "limite", 30));
+            $limite = $limite > 0 && $limite <= 100 ? $limite : 30;
+            $tieneRel = $this->tablaExiste($db, "crm_clientes_segmentos_rel");
+            $tieneSegmentoLista = $this->tablaExiste($db, "erp_segmentos_listas_precios");
+            $where = array("s.estatus='activo'");
+            $params = array();
+            if ($q !== "") {
+                $where[] = "(s.codigo LIKE :q OR s.nombre LIKE :q OR s.tipo LIKE :q)";
+                $params[":q"] = "%" . $q . "%";
+            }
+            $clientesSql = $tieneRel
+                ? "(SELECT COUNT(*) FROM crm_clientes_segmentos_rel r WHERE r.id_segmento_crm=s.id_segmento_crm AND r.estatus='activo') clientes_activos"
+                : "0 clientes_activos";
+            $asignacionSql = $tieneSegmentoLista && $idLista > 0
+                ? "(SELECT COUNT(*) FROM erp_segmentos_listas_precios sl WHERE sl.id_segmento_crm=s.id_segmento_crm AND sl.id_lista_precio=" . intval($idLista) . " AND sl.estatus='activo') asignaciones_lista"
+                : "0 asignaciones_lista";
+
+            $stmt = $db->prepare("SELECT s.id_segmento_crm, s.codigo, s.nombre, s.tipo, s.descripcion, s.estatus,
+                    $clientesSql,
+                    $asignacionSql
+                FROM crm_clientes_segmentos s
+                WHERE " . implode(" AND ", $where) . "
+                ORDER BY s.tipo ASC, s.nombre ASC
+                LIMIT " . $limite);
+            $stmt->execute($params);
+            return $this->respuesta(false, "success", "Segmentos CRM consultados", array(
+                "segmentos" => $stmt->fetchAll(PDO::FETCH_ASSOC),
+                "schema" => array(
+                    "crm_segmentos" => true,
+                    "crm_segmentos_rel" => $tieneRel,
+                    "segmentos_listas" => $tieneSegmentoLista
+                ),
+                "id_lista_precio" => $idLista,
+                "modo" => $tieneSegmentoLista ? "preparado" : "planeado"
             ));
         } catch (Exception $e) {
             return $this->respuesta(true, "danger", $e->getMessage());
@@ -545,6 +613,97 @@ class ListasPreciosErp extends CRUD {
     }
 
     /**
+     * Documentacion IA: Codex GPT-5, 2026-07-16.
+     * Proposito: validar asignacion futura de lista a segmento/tipo CRM sin guardar.
+     * Impacto: prepara precios escalables por segmento sin obligar asignacion cliente por cliente.
+     * Contrato: dry-run; no crea tabla, no crea segmentos, no asigna listas ni modifica ventas.
+     */
+    public function asignacionSegmentoDryRun($datos = array()) {
+        try {
+            $db = $this->getConexion();
+            $idAsignacion = intval($this->valor($datos, "id_segmento_lista_precio", 0));
+            $idSegmentoCrm = intval($this->valor($datos, "id_segmento_crm", 0));
+            $idLista = intval($this->valor($datos, "id_lista_precio", 0));
+            $canal = trim((string) $this->valor($datos, "canal", "general"));
+            $idAlmacen = intval($this->valor($datos, "id_almacen", 0));
+            $prioridad = intval($this->valor($datos, "prioridad", 100));
+            $fechaInicio = trim((string) $this->valor($datos, "fecha_inicio", ""));
+            $fechaFin = trim((string) $this->valor($datos, "fecha_fin", ""));
+            $estatus = trim((string) $this->valor($datos, "estatus", "activo"));
+            $bloqueos = array();
+            $avisos = array();
+
+            if (!$this->tablaExiste($db, "erp_segmentos_listas_precios")) {
+                $bloqueos[] = "Falta tabla erp_segmentos_listas_precios; ejecutar DDL autorizado antes de asignar segmentos";
+            }
+            if (!$this->tablaExiste($db, "crm_clientes_segmentos")) {
+                $bloqueos[] = "Falta tabla CRM de segmentos";
+            }
+            if (!$this->tablaExiste($db, "crm_clientes_segmentos_rel")) {
+                $avisos[] = "Falta relacion cliente-segmento; el resolutor solo usara segmento default del cliente";
+            }
+            if (!$this->existeLista($db, $idLista)) {
+                $bloqueos[] = "Lista no existe";
+            }
+            if (!$this->existeSegmentoCrm($db, $idSegmentoCrm)) {
+                $bloqueos[] = "Segmento CRM no existe o no esta activo";
+            }
+            if (!in_array($canal, array("general", "pos", "pedido_tienda", "ecommerce", "mayoreo"), true)) {
+                $bloqueos[] = "Canal no permitido para asignacion segmento/lista";
+            }
+            if ($idAlmacen < 0) {
+                $bloqueos[] = "Almacen invalido";
+            }
+            if ($prioridad <= 0 || $prioridad > 9999) {
+                $bloqueos[] = "Prioridad debe estar entre 1 y 9999";
+            }
+            if (!$this->fechaValida($fechaInicio)) {
+                $bloqueos[] = "Fecha inicio invalida";
+            }
+            if (!$this->fechaValida($fechaFin)) {
+                $bloqueos[] = "Fecha fin invalida";
+            }
+            if ($fechaInicio !== "" && $fechaFin !== "" && strtotime($fechaInicio) > strtotime($fechaFin)) {
+                $bloqueos[] = "Fecha inicio no puede ser posterior a fecha fin";
+            }
+            if (!in_array($estatus, array("activo", "pausado", "cancelado"), true)) {
+                $bloqueos[] = "Estatus de asignacion no permitido";
+            }
+            if ($canal === "ecommerce") {
+                $avisos[] = "Ecommerce debe consumir solo listas explicitamente autorizadas para ese canal";
+            }
+            if ($prioridad <= 50) {
+                $avisos[] = "Prioridad alta: esta lista puede ganar sobre canal/almacen y reglas generales";
+            }
+            $duplicados = $this->buscarSegmentosListasDuplicadas($db, $idAsignacion, $idSegmentoCrm, $idLista, $canal, $idAlmacen);
+            if (!empty($duplicados)) {
+                $bloqueos[] = "Ya existe asignacion activa equivalente para segmento/lista/alcance";
+            }
+
+            return $this->respuesta(false, empty($bloqueos) ? "success" : "warning", empty($bloqueos) ? "Asignacion segmento/lista valida en dry-run" : "Asignacion segmento/lista con bloqueos", array(
+                "dry_run" => true,
+                "puede_guardar" => empty($bloqueos),
+                "asignacion_normalizada" => array(
+                    "id_segmento_lista_precio" => $idAsignacion,
+                    "id_segmento_crm" => $idSegmentoCrm,
+                    "id_lista_precio" => $idLista,
+                    "canal" => $canal,
+                    "id_almacen" => $idAlmacen > 0 ? $idAlmacen : null,
+                    "prioridad" => $prioridad,
+                    "fecha_inicio" => $fechaInicio !== "" ? $fechaInicio : null,
+                    "fecha_fin" => $fechaFin !== "" ? $fechaFin : null,
+                    "estatus" => $estatus
+                ),
+                "duplicados" => $duplicados,
+                "bloqueos" => $bloqueos,
+                "avisos" => $avisos
+            ));
+        } catch (Exception $e) {
+            return $this->respuesta(true, "danger", $e->getMessage());
+        }
+    }
+
+    /**
      * Documentacion IA: Codex GPT-5, 2026-07-12.
      * Proposito: guardar encabezado de lista de precios con transaccion y auditoria comercial.
      * Impacto: crea/edita `erp_listas_precios`; no afecta ventas pasadas ni recalcula POS por si mismo.
@@ -871,6 +1030,98 @@ class ListasPreciosErp extends CRUD {
         }
     }
 
+    /**
+     * Documentacion IA: Codex GPT-5, 2026-07-16.
+     * Proposito: guardar vinculacion segmento CRM/lista de precios con alcance y vigencia.
+     * Impacto: evita asignar listas cliente por cliente y permite resolver precios por tipo de cliente.
+     * Contrato: solo opera si existe `erp_segmentos_listas_precios`; no crea segmentos ni modifica ventas pasadas.
+     */
+    public function asignacionSegmentoGuardarAutorizado($datos = array(), $idUsuario = 0) {
+        $db = null;
+        try {
+            $db = $this->getConexion();
+            $validacion = $this->asignacionSegmentoDryRun($datos);
+            if (!empty($validacion["error"]) || empty($validacion["depurar"]["puede_guardar"])) {
+                return $validacion;
+            }
+            if (!$this->tablaExiste($db, "erp_segmentos_listas_precios")) {
+                return $this->respuesta(true, "warning", "Falta tabla erp_segmentos_listas_precios; no se puede guardar asignacion por segmento");
+            }
+            if (!$this->tablaExiste($db, "erp_listas_precios_eventos")) {
+                return $this->respuesta(true, "warning", "Falta auditoria comercial de listas; no se permite guardar sin trazabilidad");
+            }
+
+            $asignacion = $validacion["depurar"]["asignacion_normalizada"];
+            $idAsignacion = intval($asignacion["id_segmento_lista_precio"]);
+            $antes = $idAsignacion > 0 ? $this->obtenerFilaPorId($db, "erp_segmentos_listas_precios", "id_segmento_lista_precio", $idAsignacion) : null;
+            if ($idAsignacion > 0 && !$antes) {
+                return $this->respuesta(true, "warning", "Asignacion segmento/lista no encontrada para edicion");
+            }
+
+            $db->beginTransaction();
+            if ($idAsignacion > 0) {
+                $stmt = $db->prepare("UPDATE erp_segmentos_listas_precios
+                    SET id_segmento_crm=:segmento, id_lista_precio=:lista, canal=:canal, id_almacen=:almacen,
+                        prioridad=:prioridad, fecha_inicio=:fecha_inicio, fecha_fin=:fecha_fin, estatus=:estatus,
+                        motivo=:motivo, actualizado_por=:usuario, fecha_actualizacion=CURRENT_TIMESTAMP
+                    WHERE id_segmento_lista_precio=:id");
+                $stmt->execute(array(
+                    ":segmento" => $asignacion["id_segmento_crm"],
+                    ":lista" => $asignacion["id_lista_precio"],
+                    ":canal" => $asignacion["canal"],
+                    ":almacen" => $asignacion["id_almacen"],
+                    ":prioridad" => $asignacion["prioridad"],
+                    ":fecha_inicio" => $asignacion["fecha_inicio"],
+                    ":fecha_fin" => $asignacion["fecha_fin"],
+                    ":estatus" => $asignacion["estatus"],
+                    ":motivo" => trim((string) $this->valor($datos, "motivo", "")),
+                    ":usuario" => intval($idUsuario),
+                    ":id" => $idAsignacion
+                ));
+                $accion = "editar_asignacion_segmento";
+            } else {
+                $stmt = $db->prepare("INSERT INTO erp_segmentos_listas_precios
+                    (id_segmento_crm, id_lista_precio, canal, id_almacen, prioridad, fecha_inicio, fecha_fin, estatus, motivo, creado_por)
+                    VALUES (:segmento, :lista, :canal, :almacen, :prioridad, :fecha_inicio, :fecha_fin, :estatus, :motivo, :usuario)");
+                $stmt->execute(array(
+                    ":segmento" => $asignacion["id_segmento_crm"],
+                    ":lista" => $asignacion["id_lista_precio"],
+                    ":canal" => $asignacion["canal"],
+                    ":almacen" => $asignacion["id_almacen"],
+                    ":prioridad" => $asignacion["prioridad"],
+                    ":fecha_inicio" => $asignacion["fecha_inicio"],
+                    ":fecha_fin" => $asignacion["fecha_fin"],
+                    ":estatus" => $asignacion["estatus"],
+                    ":motivo" => trim((string) $this->valor($datos, "motivo", "")),
+                    ":usuario" => intval($idUsuario)
+                ));
+                $idAsignacion = intval($db->lastInsertId());
+                $accion = "crear_asignacion_segmento";
+            }
+
+            $despues = $this->obtenerFilaPorId($db, "erp_segmentos_listas_precios", "id_segmento_lista_precio", $idAsignacion);
+            $this->registrarEventoLista($db, array(
+                "id_lista_precio" => intval($asignacion["id_lista_precio"]),
+                "entidad" => "erp_segmentos_listas_precios",
+                "entidad_id" => $idAsignacion,
+                "accion" => $accion,
+                "resumen" => "Guardado de asignacion segmento CRM/lista",
+                "motivo" => trim((string) $this->valor($datos, "motivo", "")),
+                "datos_antes" => $antes,
+                "datos_despues" => $despues,
+                "creado_por" => intval($idUsuario)
+            ));
+            $db->commit();
+
+            return $this->respuesta(false, "success", "Asignacion segmento/lista guardada", array("id_segmento_lista_precio" => $idAsignacion, "asignacion" => $despues));
+        } catch (Exception $e) {
+            if ($db && $db->inTransaction()) {
+                $db->rollBack();
+            }
+            return $this->respuesta(true, "danger", $e->getMessage());
+        }
+    }
+
     private function listarListasInterno($db, $filtros) {
         $where = array("1=1");
         $params = array();
@@ -950,19 +1201,69 @@ class ListasPreciosErp extends CRUD {
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
+    private function listarAsignacionesSegmentos($db, $idLista) {
+        if (!$this->tablaExiste($db, "erp_segmentos_listas_precios")) {
+            return array();
+        }
+        $joinSegmento = $this->tablaExiste($db, "crm_clientes_segmentos")
+            ? "LEFT JOIN crm_clientes_segmentos s ON s.id_segmento_crm=sl.id_segmento_crm"
+            : "";
+        $selectSegmento = $joinSegmento !== ""
+            ? "s.codigo codigo_segmento, s.nombre nombre_segmento, s.tipo tipo_segmento"
+            : "NULL codigo_segmento, NULL nombre_segmento, NULL tipo_segmento";
+        $stmt = $db->prepare("SELECT sl.*, $selectSegmento
+            FROM erp_segmentos_listas_precios sl
+            $joinSegmento
+            WHERE sl.id_lista_precio=:lista
+            ORDER BY sl.estatus='activo' DESC, sl.prioridad ASC, sl.id_segmento_lista_precio DESC
+            LIMIT 200");
+        $stmt->execute(array(":lista" => intval($idLista)));
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
     private function construirRevisionLista($db, $idLista) {
         $idLista = intval($idLista);
         $bloqueos = array();
         $avisos = array();
         $detallesActivos = 0;
+        $detalleTotal = 0;
+        $precioMin = null;
+        $precioMax = null;
+        $asignacionesActivas = 0;
+        $segmentosActivos = 0;
+        $lista = null;
         $margen = array("sin_costo" => 0, "margen_bajo" => 0, "perdida" => 0);
+
+        if ($this->tablaExiste($db, "erp_listas_precios")) {
+            $stmt = $db->prepare("SELECT id_lista_precio, codigo, nombre, canal, id_almacen, prioridad, estatus, fecha_inicio, fecha_fin
+                FROM erp_listas_precios
+                WHERE id_lista_precio=:lista
+                LIMIT 1");
+            $stmt->execute(array(":lista" => $idLista));
+            $lista = $stmt->fetch(PDO::FETCH_ASSOC);
+            if (!$lista) {
+                $bloqueos[] = "Lista no existe";
+            }
+        } else {
+            $bloqueos[] = "Falta tabla de listas de precios";
+        }
 
         if (!$this->tablaExiste($db, "erp_listas_precios_detalle")) {
             $bloqueos[] = "Falta tabla de detalles de listas de precios";
         } else {
-            $stmt = $db->prepare("SELECT COUNT(*) FROM erp_listas_precios_detalle WHERE id_lista_precio=:lista AND estatus='activo'");
+            $stmt = $db->prepare("SELECT
+                    COUNT(*) detalles_total,
+                    SUM(CASE WHEN estatus='activo' THEN 1 ELSE 0 END) detalles_activos,
+                    MIN(CASE WHEN estatus='activo' THEN precio ELSE NULL END) precio_min,
+                    MAX(CASE WHEN estatus='activo' THEN precio ELSE NULL END) precio_max
+                FROM erp_listas_precios_detalle
+                WHERE id_lista_precio=:lista");
             $stmt->execute(array(":lista" => $idLista));
-            $detallesActivos = intval($stmt->fetchColumn());
+            $conteo = $stmt->fetch(PDO::FETCH_ASSOC);
+            $detalleTotal = intval($this->valor($conteo, "detalles_total", 0));
+            $detallesActivos = intval($this->valor($conteo, "detalles_activos", 0));
+            $precioMin = $this->valor($conteo, "precio_min", null);
+            $precioMax = $this->valor($conteo, "precio_max", null);
             if ($detallesActivos <= 0) {
                 $bloqueos[] = "La lista no tiene productos con precio activo";
             }
@@ -985,6 +1286,19 @@ class ListasPreciosErp extends CRUD {
                     $margen["margen_bajo"]++;
                 }
             }
+        }
+
+        if ($this->tablaExiste($db, "erp_clientes_listas_precios")) {
+            $stmt = $db->prepare("SELECT COUNT(*) FROM erp_clientes_listas_precios WHERE id_lista_precio=:lista AND estatus='activo'");
+            $stmt->execute(array(":lista" => $idLista));
+            $asignacionesActivas = intval($stmt->fetchColumn());
+        }
+        if ($this->tablaExiste($db, "erp_segmentos_listas_precios")) {
+            $stmt = $db->prepare("SELECT COUNT(*) FROM erp_segmentos_listas_precios WHERE id_lista_precio=:lista AND estatus='activo'");
+            $stmt->execute(array(":lista" => $idLista));
+            $segmentosActivos = intval($stmt->fetchColumn());
+        } elseif ($lista && in_array($this->valor($lista, "canal", "general"), array("mayoreo", "ecommerce"), true)) {
+            $avisos[] = "Asignacion por segmento pendiente de DDL; las listas de mayoreo/ecommerce deberan vincularse por segmento cuando se active el puente";
         }
 
         $conflictos = $this->detectarConflictosLista($db, $idLista);
@@ -1014,6 +1328,12 @@ class ListasPreciosErp extends CRUD {
             "bloqueos" => $bloqueos,
             "avisos" => $avisos,
             "detalles_activos" => $detallesActivos,
+            "detalles_total" => $detalleTotal,
+            "precio_min" => $precioMin,
+            "precio_max" => $precioMax,
+            "asignaciones_activas" => $asignacionesActivas,
+            "segmentos_activos" => $segmentosActivos,
+            "lista" => $lista,
             "margen" => $margen,
             "conflictos" => $conflictos
         );
@@ -1076,6 +1396,14 @@ class ListasPreciosErp extends CRUD {
                 WHERE cl.estatus='activo' AND (l.id_lista_precio IS NULL OR l.estatus<>'activa')
                 LIMIT 50");
         }
+        if ($this->tablaExiste($db, "erp_segmentos_listas_precios")) {
+            $this->agregarConflictos($conflictos, $db, "segmento_lista_inactiva", "media", "SELECT sl.id_lista_precio, sl.id_segmento_lista_precio,
+                    'Asignacion de segmento activa apunta a lista no activa' mensaje
+                FROM erp_segmentos_listas_precios sl
+                LEFT JOIN erp_listas_precios l ON l.id_lista_precio=sl.id_lista_precio
+                WHERE sl.estatus='activo' AND (l.id_lista_precio IS NULL OR l.estatus<>'activa')
+                LIMIT 50");
+        }
 
         return $conflictos;
     }
@@ -1125,6 +1453,15 @@ class ListasPreciosErp extends CRUD {
         return (bool) $stmt->fetch(PDO::FETCH_ASSOC);
     }
 
+    private function existeSegmentoCrm($db, $idSegmentoCrm) {
+        if (!$this->tablaExiste($db, "crm_clientes_segmentos") || intval($idSegmentoCrm) <= 0) {
+            return false;
+        }
+        $stmt = $db->prepare("SELECT id_segmento_crm FROM crm_clientes_segmentos WHERE id_segmento_crm=:id AND estatus='activo' LIMIT 1");
+        $stmt->execute(array(":id" => intval($idSegmentoCrm)));
+        return (bool) $stmt->fetch(PDO::FETCH_ASSOC);
+    }
+
     private function buscarDetallesDuplicados($db, $idLista, $idDetalle, $idSku, $idProducto, $moneda) {
         if (!$this->tablaExiste($db, "erp_listas_precios_detalle") || intval($idLista) <= 0) {
             return array();
@@ -1169,6 +1506,29 @@ class ListasPreciosErp extends CRUD {
             ":asignacion" => intval($idAsignacion),
             ":lista" => intval($idLista),
             ":cliente" => intval($idClienteCrm)
+        ));
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    private function buscarSegmentosListasDuplicadas($db, $idAsignacion, $idSegmentoCrm, $idLista, $canal, $idAlmacen) {
+        if (!$this->tablaExiste($db, "erp_segmentos_listas_precios") || intval($idLista) <= 0 || intval($idSegmentoCrm) <= 0) {
+            return array();
+        }
+        $stmt = $db->prepare("SELECT id_segmento_lista_precio, id_segmento_crm, id_lista_precio, canal, id_almacen, prioridad, estatus
+            FROM erp_segmentos_listas_precios
+            WHERE id_segmento_lista_precio<>:asignacion
+              AND id_segmento_crm=:segmento
+              AND id_lista_precio=:lista
+              AND canal=:canal
+              AND COALESCE(id_almacen, 0)=:almacen
+              AND estatus='activo'
+            LIMIT 10");
+        $stmt->execute(array(
+            ":asignacion" => intval($idAsignacion),
+            ":segmento" => intval($idSegmentoCrm),
+            ":lista" => intval($idLista),
+            ":canal" => $canal,
+            ":almacen" => intval($idAlmacen)
         ));
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
@@ -1231,12 +1591,13 @@ class ListasPreciosErp extends CRUD {
             "listas_activas" => $this->contar($db, "erp_listas_precios", "estatus='activa'"),
             "listas_total" => $this->contar($db, "erp_listas_precios", "1=1"),
             "detalles_activos" => $this->contar($db, "erp_listas_precios_detalle", "estatus='activo'"),
-            "asignaciones_activas" => $schema["clientes_listas"] ? $this->contar($db, "erp_clientes_listas_precios", "estatus='activo'") : 0
+            "asignaciones_activas" => $schema["clientes_listas"] ? $this->contar($db, "erp_clientes_listas_precios", "estatus='activo'") : 0,
+            "segmentos_asignados" => $schema["segmentos_listas"] ? $this->contar($db, "erp_segmentos_listas_precios", "estatus='activo'") : 0
         );
     }
 
     private function kpisVacios() {
-        return array("listas_activas" => 0, "listas_total" => 0, "detalles_activos" => 0, "asignaciones_activas" => 0);
+        return array("listas_activas" => 0, "listas_total" => 0, "detalles_activos" => 0, "asignaciones_activas" => 0, "segmentos_asignados" => 0);
     }
 
     private function contar($db, $tabla, $where) {
@@ -1252,6 +1613,7 @@ class ListasPreciosErp extends CRUD {
             "detalle" => $this->tablaExiste($db, "erp_listas_precios_detalle"),
             "clientes_listas" => $this->tablaExiste($db, "erp_clientes_listas_precios"),
             "cliente_crm_columna" => $this->columnaExiste($db, "erp_clientes_listas_precios", "id_cliente_crm"),
+            "segmentos_listas" => $this->tablaExiste($db, "erp_segmentos_listas_precios"),
             "catalogo_fallback" => $this->tablaExiste($db, "erp_catalogo_sku_precios")
         );
     }

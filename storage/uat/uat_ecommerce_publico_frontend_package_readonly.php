@@ -54,6 +54,10 @@ if (empty($dryrun) || !empty($dryrun["error"]) || empty(valorFrontendPackage($dr
 }
 
 $puedeIntegrarDatosReales = empty($bloqueosVerde);
+$catalogoTieneItemReal = !empty($primerItem);
+$cotizacionDryrunOk = !empty($dryrun)
+  && empty($dryrun["error"])
+  && !empty(valorFrontendPackage($dryrun, array("depurar", "lineas"), array()));
 
 echo json_encode(array(
   "ok" => true,
@@ -78,28 +82,41 @@ echo json_encode(array(
     "docs/erp_ecommerce_publico_prompt_inicio_frontend.txt",
     "docs/erp_ecommerce_publico_instrucciones_frontend_nuevo_proyecto.txt",
     "docs/erp_ecommerce_publico_frontend_handoff.md",
+    "docs/erp_ecommerce_publico_frontend_AGENTS_template.md",
+    "docs/erp_ecommerce_publico_frontend_archivos_iniciales.md",
     "docs/erp_ecommerce_publico_frontend_herramientas_integracion.md",
     "docs/erp_ecommerce_publico_seguridad_api_futura.md",
     "docs/erp_ecommerce_publico_seo_frontend.md",
+    "docs/erp_ecommerce_publico_diagnostico_entorno.md",
+    "docs/erp_ecommerce_publico_decision_activacion_fase1.md",
+    "docs/erp_ecommerce_publico_orden_activacion_autorizada.md",
     "docs/erp_ecommerce_publico_api_contratos.md",
     "docs/erp_ecommerce_publico_cliente_api_frontend.md",
     "docs/erp_ecommerce_publico_frontend_contract_tests.md",
     "docs/erp_ecommerce_publico_frontend_estados_ui.md",
     "docs/erp_ecommerce_publico_carrito_whatsapp_frontend.md",
     "docs/erp_ecommerce_publico_fixtures_frontend.md",
-    "docs/erp_ecommerce_publico_estado_actual.md"
+    "docs/erp_ecommerce_publico_estado_actual.md",
+    "docs/erp_ecommerce_publico_checklist_salida_fase1.md"
   ),
   "scripts_readonly" => array(
+    "C:\\xampp\\php\\php.exe storage\\uat\\uat_ecommerce_publico_activacion_suite_readonly.php --base=http://panel.com.local --origin=http://artiani.com.local",
+    "C:\\xampp\\php\\php.exe storage\\uat\\uat_ecommerce_publico_entorno_readonly.php --base=http://panel.com.local",
     "C:\\xampp\\php\\php.exe storage\\uat\\uat_ecommerce_publico_frontend_readiness_readonly.php",
     "C:\\xampp\\php\\php.exe storage\\uat\\uat_ecommerce_publico_http_smoke_readonly.php --base=http://panel.com.local",
     "C:\\xampp\\php\\php.exe storage\\uat\\uat_ecommerce_publico_contract_shape_readonly.php",
     "C:\\xampp\\php\\php.exe storage\\uat\\uat_ecommerce_publico_negative_cases_readonly.php --base=http://panel.com.local",
-    "C:\\xampp\\php\\php.exe storage\\uat\\uat_ecommerce_publico_cors_preflight_readonly.php --base=http://panel.com.local --origin=http://localhost:5173",
+    "C:\\xampp\\php\\php.exe storage\\uat\\uat_ecommerce_publico_cors_preflight_readonly.php --base=http://panel.com.local --origin=http://artiani.com.local",
     "C:\\xampp\\php\\php.exe storage\\uat\\uat_ecommerce_publico_frontend_fixtures_readonly.php",
-    "C:\\xampp\\php\\php.exe storage\\uat\\uat_ecommerce_publico_frontend_env_readonly.php --base=http://panel.com.local --frontend=http://localhost:5173",
+    "C:\\xampp\\php\\php.exe storage\\uat\\uat_ecommerce_publico_frontend_env_readonly.php --base=http://panel.com.local --frontend=http://artiani.com.local",
     "C:\\xampp\\php\\php.exe storage\\uat\\uat_ecommerce_publico_postman_collection_readonly.php --base=http://panel.com.local",
     "C:\\xampp\\php\\php.exe storage\\uat\\uat_ecommerce_publico_carrito_whatsapp_readonly.php",
+    "C:\\xampp\\php\\php.exe storage\\uat\\uat_ecommerce_publico_cotizacion_registro_plan_readonly.php --base=http://panel.com.local --origin=http://artiani.com.local",
     "C:\\xampp\\php\\php.exe storage\\uat\\uat_ecommerce_publico_openapi_readonly.php",
+    "C:\\xampp\\php\\php.exe storage\\uat\\uat_ecommerce_publico_autorizacion_paquete_readonly.php --base=http://panel.com.local --respaldo=RUTA_O_REFERENCIA --whatsapp=NUMERO_WHATSAPP --cors=ORIGEN_FRONTEND --url=URL_FRONTEND --sku1=1759 --sku2=1757",
+    "C:\\xampp\\php\\php.exe storage\\uat\\uat_ecommerce_publico_apply_checklist_readonly.php --base=http://panel.com.local --respaldo=RUTA_O_REFERENCIA --whatsapp=NUMERO_WHATSAPP --cors=ORIGEN_FRONTEND --url=URL_FRONTEND --sku1=1759 --sku2=1757",
+    "C:\\xampp\\php\\php.exe storage\\uat\\uat_ecommerce_publico_post_apply_verificacion_readonly.php --base=http://panel.com.local --origin=http://artiani.com.local",
+    "C:\\xampp\\php\\php.exe storage\\uat\\uat_ecommerce_publico_reversa_preflight_readonly.php",
     "C:\\xampp\\php\\php.exe storage\\uat\\uat_ecommerce_publico_green_gate_readonly.php --base=http://panel.com.local"
   ),
   "no_usar" => array(
@@ -113,9 +130,11 @@ echo json_encode(array(
     "stock exacto"
   ),
   "criterio_para_datos_reales" => array(
-    "green_gate_ok" => true,
-    "catalogo_tiene_item_real" => true,
-    "cotizacion_dryrun_ok" => true
+    "green_gate_ok" => $puedeIntegrarDatosReales,
+    "catalogo_tiene_item_real" => $catalogoTieneItemReal,
+    "cotizacion_dryrun_ok" => $cotizacionDryrunOk,
+    "requiere_entorno_sano" => true,
+    "requiere_ddl_configuracion_publicaciones" => true
   ),
   "bloqueos_para_verde_datos_reales" => $bloqueosVerde
 ), JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) . PHP_EOL;

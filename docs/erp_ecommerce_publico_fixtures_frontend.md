@@ -36,6 +36,12 @@ C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_frontend_fixtures_readonl
 
 El script no consulta BD y no escribe nada.
 
+Por eso no debe usarse como diagnostico del ERP real. Para validar si el host `http://panel.com.local` y MySQL estan sanos, usar:
+
+```bash
+C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_entorno_readonly.php --base=http://panel.com.local
+```
+
 ## Secciones del JSON
 
 - `estado`

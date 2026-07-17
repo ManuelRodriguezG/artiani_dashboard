@@ -195,6 +195,7 @@ Conserva este contrato salvo que el modulo ya use otro formato.
 - Los endpoints de esquema suelen separar auditoria de actualizacion.
 - El dump `dbesquema/artianilocal.sql` es pesado y debe ser ultima opcion para busquedas puntuales.
 - Si falta una tabla/columna, primero busca si existe un `*Esquema.php` que ya la declare.
+- Para respaldos externos antes de DDL o scripts `apply_authorized`, usar la ruta estandar `C:\xampp\panel_db_backups` y documentar el archivo en `docs/erp_respaldo_bd_estandar.md`.
 
 ## Comandos y verificaciones utiles
 
