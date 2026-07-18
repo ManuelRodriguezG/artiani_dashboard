@@ -249,9 +249,10 @@
                                             <section class="lp-card p-4">
                                                 <div class="fw-bold fs-5 mb-1">Clientes y segmentos</div>
                                                 <div class="text-muted fs-8 mb-3">La asignacion directa a cliente es una excepcion; para miles de clientes debe usarse segmento/tipo CRM.</div>
-                                                <div class="alert alert-light-info py-3 mb-3 fs-7">
-                                                    Siguiente fase: asignar listas a segmentos CRM como recurrente, mayoreo, VIP o convenio. El resolutor backend debe ganar por prioridad y guardar snapshot en venta.
+                                                <div class="alert alert-light-warning py-3 mb-3 fs-7">
+                                                    Segmentos CRM esta en prevalidacion: puedes revisar candidatos y dry-run, pero el guardado real espera el DDL autorizado de <code>erp_segmentos_listas_precios</code>.
                                                 </div>
+                                                <div id="lp_segmentos_preparacion" class="mb-3"></div>
                                                 <div class="d-flex justify-content-between align-items-center mb-2">
                                                     <div class="fw-semibold fs-7">Segmentos CRM</div>
                                                     <button class="btn btn-sm btn-light-primary" id="lp_segmentos_recargar" type="button"><i class="bi bi-arrow-clockwise"></i></button>
@@ -301,7 +302,7 @@
                                                         <button class="btn btn-light-primary w-100" id="lp_seg_validar" type="button"><i class="bi bi-diagram-3"></i> Validar segmento</button>
                                                     </div>
                                                     <div class="col-6">
-                                                        <button class="btn btn-primary w-100" id="lp_seg_guardar" type="button"><i class="bi bi-save"></i> Guardar vinculo</button>
+                                                        <button class="btn btn-light w-100" id="lp_seg_guardar" type="button" disabled title="Pendiente DDL erp_segmentos_listas_precios"><i class="bi bi-save"></i> Guardar vinculo</button>
                                                     </div>
                                                 </div>
                                                 <div id="lp_segmento_dryrun" class="mt-3"></div>
@@ -385,6 +386,6 @@
 </div>
 <script src="assets/plugins/global/plugins.bundle.js"></script>
 <script src="assets/js/scripts.bundle.js"></script>
-<script src="/assets/js/custom/apps/erp/ventas/listas_precios.js?v=20260716-segmentos2"></script>
+<script src="/assets/js/custom/apps/erp/ventas/listas_precios.js?v=20260717-segmentos-guard3"></script>
 </body>
 </html>

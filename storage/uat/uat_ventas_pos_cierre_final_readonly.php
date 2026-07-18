@@ -103,6 +103,19 @@ if ($cicloRealCompleto) {
 $listoUat = !empty($paseResumen["listo_para_autorizacion_agrupada"]) || $cicloRealCompleto;
 $posBaseProductivo = empty(valor($productivoJson, "bloqueos", array()));
 $atencionPendiente = empty(valor($recuperacionEstado, "venta_ligada", false));
+$permisosProductivo = valor($productivoJson, "permisos", array());
+$permisoInventarioPendienteListo = in_array(
+    "ventas.pos.inventario_pendiente.autorizar",
+    valor($permisosProductivo, "existentes_catalogo", array()),
+    true
+) && in_array(
+    "ventas.pos.inventario_pendiente.autorizar",
+    valor($permisosProductivo, "asignados_usuario", array()),
+    true
+);
+$pendienteProductivo = $permisoInventarioPendienteListo
+    ? "Permiso fino ventas.pos.inventario_pendiente.autorizar sembrado; queda reemplazar token UAT por flujo productivo con permiso, motivo y auditoria."
+    : "Sembrar permiso fino ventas.pos.inventario_pendiente.autorizar para reemplazar token UAT en inventario pendiente productivo.";
 
 $salida = array(
     "ok" => empty($bloqueos),
@@ -128,7 +141,7 @@ $salida = array(
     ),
     "checks" => compactarChecks($checks),
     "autorizacion_siguiente" => "AUTORIZO EJECUTAR CICLO REAL ATENCION POS MULTIUSUARIO usando respaldo UAT POS vigente con token VENTAS_POS_ATENCION_MULTIUSUARIO_CICLO_REAL id_usuario=1 id_almacen=5 id_sku=1760 id_atencion=2 cantidad_stock=1 pago=295 monto_inicial=500 monto_contado=795 para UAT POS",
-    "pendiente_productivo_no_bloqueante" => "Sembrar permiso fino ventas.pos.inventario_pendiente.autorizar para reemplazar token UAT en inventario pendiente productivo.",
+    "pendiente_productivo_no_bloqueante" => $pendienteProductivo,
     "contrato" => array(
         "read_only" => true,
         "no_escribe_bd" => true,

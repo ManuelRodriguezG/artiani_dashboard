@@ -11,6 +11,11 @@
     var cuentasKeyBase = "erp_pos_cuentas_atencion_v1";
     var asignacionOficial = null;
     var clientesCrmSeleccionables = {};
+    var scanStream = null;
+    var scanActivo = false;
+    var scanTorchActivo = false;
+    var scanCamaras = [];
+    var scanCamaraSeleccionada = "";
     var placeholderImagen = "data:image/svg+xml;charset=UTF-8,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%20400%20300'%3E%3Crect%20width='400'%20height='300'%20fill='%23f1f3f6'/%3E%3Cpath%20d='M80%20225h240l-70-85-55%2065-35-42z'%20fill='%23c8ced8'/%3E%3Ccircle%20cx='135'%20cy='105'%20r='28'%20fill='%23d7dce5'/%3E%3C/svg%3E";
 
     function request(url, data) {
@@ -609,6 +614,31 @@
             }).catch(mostrarError);
         }, 220);
     }
+    /**
+     * IA: Codex GPT-5 | Fecha: 2026-07-17
+     * Proposito: resolver codigo leido por camara dentro del POS sin modificar el checador read-only.
+     * Impacto: acelera captura de partidas; solo agrega al carrito si hay coincidencia unica y mantiene validacion backend.
+     * Contrato: no cobra, no reserva y no mueve inventario; usa busqueda POS existente y `agregarProducto`.
+     */
+    function buscarCodigoEscaneado(valor) {
+        valor = String(valor || "").trim();
+        if (!valor) { return; }
+        document.getElementById("pos_buscar").value = valor;
+        document.getElementById("pos_resultados_estado").textContent = "Codigo leido: " + valor + ". Buscando...";
+        request("/ventas/pos_buscar_skus_erp?" + new URLSearchParams({q: valor, id_almacen: almacenActual(), limite: "8"}).toString()).then(function (response) {
+            if (response.error) { throw new Error(response.mensaje); }
+            var items = response.depurar || [];
+            renderResultados(items);
+            if (items.length === 1) {
+                document.getElementById("pos_resultados_estado").textContent = "Codigo leido. Producto agregado a la cuenta.";
+                agregarProducto(items[0]);
+            } else if (items.length > 1) {
+                document.getElementById("pos_resultados_estado").textContent = "Codigo leido con varias coincidencias. Elige el producto correcto.";
+            } else {
+                document.getElementById("pos_resultados_estado").textContent = "Codigo leido sin coincidencias visibles.";
+            }
+        }).catch(mostrarError);
+    }
     function renderResultados(items) {
         var contenedor = document.getElementById("pos_resultados");
         var vacio = document.getElementById("pos_vacio");
@@ -637,6 +667,211 @@
                 agregarProducto(items[Number(button.getAttribute("data-pos-agregar"))]);
             });
         });
+    }
+    function prepararCamarasPos() {
+        if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) {
+            return Promise.resolve([]);
+        }
+        return navigator.mediaDevices.enumerateDevices().then(function (devices) {
+            var videoDevices = devices.filter(function (device) { return device.kind === "videoinput"; });
+            if (videoDevices.some(function (device) { return device.label; })) {
+                return videoDevices;
+            }
+            return navigator.mediaDevices.getUserMedia({video: true, audio: false}).then(function (tmpStream) {
+                tmpStream.getTracks().forEach(function (track) { track.stop(); });
+                return navigator.mediaDevices.enumerateDevices().then(function (devicesAfterPermission) {
+                    return devicesAfterPermission.filter(function (device) { return device.kind === "videoinput"; });
+                });
+            }).catch(function () { return videoDevices; });
+        }).then(function (videoDevices) {
+            scanCamaras = videoDevices || [];
+            renderSelectorCamarasPos();
+            return scanCamaras;
+        });
+    }
+    function renderSelectorCamarasPos() {
+        var select = document.getElementById("pos_scan_camera_device");
+        var label = document.getElementById("pos_scan_camera_device_label");
+        if (!select || !label || scanCamaras.length <= 1) {
+            if (select) { select.classList.add("d-none"); }
+            if (label) { label.classList.add("d-none"); }
+            return;
+        }
+        select.innerHTML = scanCamaras.map(function (device, index) {
+            var nombre = device.label || ("Camara " + (index + 1));
+            return "<option value=\"" + escapeHtml(device.deviceId) + "\">" + escapeHtml(nombre) + "</option>";
+        }).join("");
+        if (scanCamaraSeleccionada) {
+            select.value = scanCamaraSeleccionada;
+        }
+        select.classList.remove("d-none");
+        label.classList.remove("d-none");
+    }
+    function elegirCamaraPreferidaPos() {
+        if (scanCamaraSeleccionada) { return scanCamaraSeleccionada; }
+        if (!scanCamaras.length) { return ""; }
+        var candidatas = scanCamaras.map(function (device, index) {
+            return {device: device, index: index, label: String(device.label || "").toLowerCase()};
+        });
+        var noFrontal = candidatas.filter(function (item) {
+            return !/(front|frontal|user|facetime|selfie)/i.test(item.label);
+        });
+        var noUltraWide = noFrontal.filter(function (item) {
+            return !/(ultra|wide|gran angular|0\.5|macro)/i.test(item.label);
+        });
+        var traseraNormal = noUltraWide.find(function (item) {
+            return /(back|rear|environment|trasera|posterior|principal|main)/i.test(item.label);
+        });
+        if (traseraNormal) { return traseraNormal.device.deviceId; }
+        if (noUltraWide.length) { return noUltraWide[noUltraWide.length - 1].device.deviceId; }
+        if (noFrontal.length) { return noFrontal[noFrontal.length - 1].device.deviceId; }
+        return scanCamaras[scanCamaras.length - 1].deviceId;
+    }
+    function restriccionesCamaraPos(deviceId) {
+        var video = {
+            width: {ideal: 1280},
+            height: {ideal: 720},
+            frameRate: {ideal: 30, max: 30}
+        };
+        if (deviceId) {
+            video.deviceId = {exact: deviceId};
+        } else {
+            video.facingMode = {ideal: "environment"};
+        }
+        return {audio: false, video: video};
+    }
+    function scanTrackPos() {
+        return scanStream ? scanStream.getVideoTracks()[0] : null;
+    }
+    function aplicarMejorasCamaraPos() {
+        var track = scanTrackPos();
+        if (!track || !track.getCapabilities) { return Promise.resolve(false); }
+        var caps = track.getCapabilities();
+        var advanced = [];
+        if (caps.focusMode && caps.focusMode.indexOf("continuous") !== -1) { advanced.push({focusMode: "continuous"}); }
+        if (caps.exposureMode && caps.exposureMode.indexOf("continuous") !== -1) { advanced.push({exposureMode: "continuous"}); }
+        if (caps.whiteBalanceMode && caps.whiteBalanceMode.indexOf("continuous") !== -1) { advanced.push({whiteBalanceMode: "continuous"}); }
+        if (!advanced.length) { return Promise.resolve(false); }
+        return track.applyConstraints({advanced: advanced}).then(function () { return true; }).catch(function () { return false; });
+    }
+    function actualizarControlesCamaraPos() {
+        var track = scanTrackPos();
+        var caps = track && track.getCapabilities ? track.getCapabilities() : {};
+        document.getElementById("pos_scan_focus").classList.toggle("d-none", !track);
+        document.getElementById("pos_scan_stop").classList.toggle("d-none", !track);
+        document.getElementById("pos_scan_torch").classList.toggle("d-none", !(caps && caps.torch));
+    }
+    function iniciarCamaraPos() {
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+            document.getElementById("pos_scan_estado").textContent = "Este navegador no expone camara para la pagina actual.";
+            return;
+        }
+        if (!("BarcodeDetector" in window)) {
+            document.getElementById("pos_scan_estado").textContent = "Tu navegador no tiene lector nativo de codigos; usa busqueda manual o escaner USB.";
+            return;
+        }
+        detenerCamaraPos(false);
+        document.getElementById("pos_scan_estado").textContent = "Buscando camaras disponibles...";
+        prepararCamarasPos().then(function () {
+            var deviceId = elegirCamaraPreferidaPos();
+            scanCamaraSeleccionada = deviceId;
+            renderSelectorCamarasPos();
+            return navigator.mediaDevices.getUserMedia(restriccionesCamaraPos(deviceId)).catch(function () {
+                return navigator.mediaDevices.getUserMedia(restriccionesCamaraPos(""));
+            });
+        }).then(function (mediaStream) {
+            scanStream = mediaStream;
+            scanActivo = true;
+            scanTorchActivo = false;
+            var track = scanTrackPos();
+            var settings = track && track.getSettings ? track.getSettings() : {};
+            if (settings.deviceId) {
+                scanCamaraSeleccionada = settings.deviceId;
+                renderSelectorCamarasPos();
+            }
+            var video = document.getElementById("pos_scan_video");
+            video.srcObject = scanStream;
+            document.getElementById("pos_scan_wrap").classList.remove("d-none");
+            actualizarControlesCamaraPos();
+            video.onloadedmetadata = function () {
+                video.play().catch(function () {
+                    document.getElementById("pos_scan_estado").textContent = "Camara abierta, toca la vista si el navegador bloquea el preview.";
+                });
+            };
+            video.play().catch(function () {});
+            aplicarMejorasCamaraPos().then(function (mejorado) {
+                var activeTrack = scanTrackPos();
+                var activeSettings = activeTrack && activeTrack.getSettings ? activeTrack.getSettings() : {};
+                var tamano = activeSettings.width && activeSettings.height ? " (" + activeSettings.width + "x" + activeSettings.height + ")" : "";
+                document.getElementById("pos_scan_estado").textContent = mejorado ? "Camara lista con enfoque continuo" + tamano + "." : "Camara lista" + tamano + ". Si se ve borrosa, cambia de camara y evita lentes ultra wide/macro.";
+            });
+            detectarLoopCamaraPos(new BarcodeDetector({formats: ["ean_13", "ean_8", "code_128", "code_39", "upc_a", "upc_e", "qr_code"]}));
+        }).catch(function (error) {
+            document.getElementById("pos_scan_estado").textContent = "No se pudo abrir la camara: " + error.message;
+        });
+    }
+    function detectarLoopCamaraPos(detector) {
+        var video = document.getElementById("pos_scan_video");
+        if (!scanActivo || !video || video.readyState < 2) {
+            if (scanActivo) { setTimeout(function () { detectarLoopCamaraPos(detector); }, 250); }
+            return;
+        }
+        detector.detect(video).then(function (codigos) {
+            if (codigos && codigos.length) {
+                var valor = codigos[0].rawValue || "";
+                if (valor) {
+                    document.getElementById("pos_scan_estado").textContent = "Codigo leido: " + valor;
+                    detenerCamaraPos(false);
+                    bootstrap.Modal.getOrCreateInstance(document.getElementById("pos_scan_modal")).hide();
+                    buscarCodigoEscaneado(valor);
+                    return;
+                }
+            }
+            if (scanActivo) { setTimeout(function () { detectarLoopCamaraPos(detector); }, 350); }
+        }).catch(function () {
+            if (scanActivo) { setTimeout(function () { detectarLoopCamaraPos(detector); }, 600); }
+        });
+    }
+    function alternarLuzCamaraPos() {
+        var track = scanTrackPos();
+        if (!track) { return; }
+        scanTorchActivo = !scanTorchActivo;
+        track.applyConstraints({advanced: [{torch: scanTorchActivo}]}).then(function () {
+            document.getElementById("pos_scan_torch").classList.toggle("btn-warning", scanTorchActivo);
+            document.getElementById("pos_scan_torch").classList.toggle("btn-light-warning", !scanTorchActivo);
+            document.getElementById("pos_scan_estado").textContent = scanTorchActivo ? "Luz encendida. Manten el codigo a distancia nitida." : "Luz apagada.";
+        }).catch(function () {
+            scanTorchActivo = false;
+            document.getElementById("pos_scan_estado").textContent = "Este dispositivo no permite controlar la luz desde el navegador.";
+        });
+    }
+    function reiniciarCamaraConSeleccionPos() {
+        var select = document.getElementById("pos_scan_camera_device");
+        if (!select || !select.value) { return; }
+        scanCamaraSeleccionada = select.value;
+        iniciarCamaraPos();
+    }
+    function mejorarEnfoqueCamaraPos() {
+        aplicarMejorasCamaraPos().then(function (ok) {
+            document.getElementById("pos_scan_estado").textContent = ok ? "Enfoque continuo solicitado. Manten el codigo quieto unos segundos." : "Este navegador no permite ajustar enfoque; prueba otra camara.";
+        });
+    }
+    function detenerCamaraPos(mostrarMensaje) {
+        scanActivo = false;
+        scanTorchActivo = false;
+        if (scanStream) {
+            scanStream.getTracks().forEach(function (track) { track.stop(); });
+        }
+        scanStream = null;
+        document.getElementById("pos_scan_wrap").classList.add("d-none");
+        document.getElementById("pos_scan_focus").classList.add("d-none");
+        document.getElementById("pos_scan_torch").classList.add("d-none");
+        document.getElementById("pos_scan_stop").classList.add("d-none");
+        document.getElementById("pos_scan_torch").classList.remove("btn-warning");
+        document.getElementById("pos_scan_torch").classList.add("btn-light-warning");
+        if (mostrarMensaje !== false) {
+            document.getElementById("pos_scan_estado").textContent = "Camara detenida.";
+        }
     }
     function agregarProducto(producto) {
         if (!almacenActual()) {
@@ -1494,8 +1729,59 @@
                 "<td class=\"text-end fw-bold text-warning\">" + numero(pendiente.cantidad_pendiente || 0) + "</td>" +
                 "<td class=\"text-end\">" + dinero(pendiente.precio_unitario_snapshot || 0) + "</td></tr></tbody></table></div>";
         }
-        html += "<div class=\"alert alert-light-warning py-3 mb-0\"><div class=\"fw-bold\">Venta real protegida</div><div class=\"fs-8\">Esta pantalla solo valida. El cobro real con inventario pendiente debe ejecutarse con autorizacion operacional porque crea venta, caja, kardex parcial, pendiente y alerta a Inventario/Existencias.</div></div>";
+        if (!bloqueos.length && String(depurar.estado || "") === "pendiente_autorizable" && Number(depurar.cantidad_pendiente || 0) > 0) {
+            html += "<div class=\"border rounded p-3 mb-0 bg-light-warning\">" +
+                "<div class=\"fw-bold mb-2\"><i class=\"bi bi-shield-exclamation me-1\"></i>Autorizacion supervisada</div>" +
+                "<div class=\"row g-2 align-items-end\">" +
+                "<div class=\"col-lg-5\"><label class=\"form-label fs-8 text-muted mb-1\">Motivo</label><input class=\"form-control form-control-sm\" id=\"pos_inventario_pendiente_motivo\" value=\"\" placeholder=\"Ej. Mini inventario express en tienda\"></div>" +
+                "<div class=\"col-lg-5\"><label class=\"form-label fs-8 text-muted mb-1\">Confirmacion</label><input class=\"form-control form-control-sm\" id=\"pos_inventario_pendiente_confirmacion\" value=\"\" placeholder=\"AUTORIZAR INVENTARIO PENDIENTE\"></div>" +
+                "<div class=\"col-lg-2\"><button class=\"btn btn-sm btn-warning w-100\" type=\"button\" data-pos-inventario-pendiente-cobrar=\"1\"><i class=\"bi bi-cash-coin\"></i> Cobrar</button></div>" +
+                "</div>" +
+                "<div class=\"fs-8 text-muted mt-2\">Requiere permiso supervisor, turno abierto, pago completo y politica POS activa. Ecommerce queda fuera de este flujo.</div>" +
+                "</div>";
+        } else {
+            html += "<div class=\"alert alert-light-warning py-3 mb-0\"><div class=\"fw-bold\">Venta real protegida</div><div class=\"fs-8\">Esta pantalla solo valida. El cobro real con inventario pendiente debe ejecutarse con autorizacion operacional porque crea venta, caja, kardex parcial, pendiente y alerta a Inventario/Existencias.</div></div>";
+        }
         document.getElementById("pos_validacion").innerHTML = html;
+    }
+    /**
+     * IA: Codex GPT-5 | Fecha: 2026-07-18
+     * Proposito: cobrar inventario pendiente desde POS solo con autorizacion supervisada.
+     * Impacto: llama endpoint productivo protegido; backend revalida politica, turno, pago, kardex parcial y alerta.
+     */
+    function cobrarInventarioPendienteReal() {
+        if (!turnoActual()) {
+            document.getElementById("pos_validacion").innerHTML += "<div class=\"alert alert-warning py-3 mt-3 mb-0\">Abre turno de caja antes de cobrar inventario pendiente.</div>";
+            return;
+        }
+        var motivoNode = document.getElementById("pos_inventario_pendiente_motivo");
+        var confirmacionNode = document.getElementById("pos_inventario_pendiente_confirmacion");
+        var motivo = motivoNode ? motivoNode.value.trim() : "";
+        var confirmacion = confirmacionNode ? confirmacionNode.value.trim() : "";
+        if (!motivo || confirmacion.toUpperCase() !== "AUTORIZAR INVENTARIO PENDIENTE") {
+            document.getElementById("pos_validacion").innerHTML += "<div class=\"alert alert-warning py-3 mt-3 mb-0\">Captura motivo y escribe AUTORIZAR INVENTARIO PENDIENTE para continuar.</div>";
+            return;
+        }
+        var payload = payloadVentaPos();
+        payload.motivo = motivo;
+        payload.confirmacion = confirmacion;
+        var boton = document.querySelector("[data-pos-inventario-pendiente-cobrar]");
+        if (boton && boton.disabled) { return; }
+        if (boton) {
+            boton.disabled = true;
+            boton.setAttribute("data-original-text", boton.innerHTML);
+            boton.innerHTML = "<span class=\"spinner-border spinner-border-sm me-2\"></span>Cobrando";
+        }
+        request("/ventas/pos_inventario_pendiente_cobrar_erp", payload).then(function (response) {
+            if (response.error) { throw new Error(response.mensaje); }
+            renderCobroReal(response);
+        }).catch(mostrarError).finally(function () {
+            if (boton) {
+                boton.disabled = false;
+                boton.innerHTML = boton.getAttribute("data-original-text") || "<i class=\"bi bi-cash-coin\"></i> Cobrar";
+                actualizarEstadoCobro();
+            }
+        });
     }
     /**
      * IA: Codex GPT-5 | Fecha: 2026-06-26
@@ -2356,6 +2642,15 @@
             item.cantidad = cantidad(unidad.cantidad_base_disponible || item.cantidad);
         }
     }
+    function abrirEscanerPos() {
+        if (!almacenActual()) {
+            mostrarError(new Error("Selecciona o configura el punto de venta antes de escanear."));
+            return;
+        }
+        document.getElementById("pos_scan_estado").textContent = "Abriendo camara...";
+        bootstrap.Modal.getOrCreateInstance(document.getElementById("pos_scan_modal")).show();
+        iniciarCamaraPos();
+    }
     /**
      * IA: Codex GPT-5 | Fecha: 2026-06-30
      * Proposito: registrar atajos POS de bajo conflicto para operacion de mostrador.
@@ -2377,6 +2672,11 @@
                 event.preventDefault();
                 document.getElementById("pos_buscar").focus();
                 document.getElementById("pos_buscar").select();
+                return;
+            }
+            if (key === "F3") {
+                event.preventDefault();
+                abrirEscanerPos();
                 return;
             }
             if (editando && !event.altKey && !(event.ctrlKey || event.metaKey) && ["F4", "F6", "F8", "F9", "F10"].indexOf(key) < 0) {
@@ -2469,6 +2769,14 @@
             document.getElementById("pos_buscar").value = "";
             renderResultados([]);
         });
+        document.getElementById("pos_scan_camera_btn").addEventListener("click", abrirEscanerPos);
+        document.getElementById("pos_scan_start").addEventListener("click", iniciarCamaraPos);
+        document.getElementById("pos_scan_camera_device").addEventListener("change", reiniciarCamaraConSeleccionPos);
+        document.getElementById("pos_scan_focus").addEventListener("click", mejorarEnfoqueCamaraPos);
+        document.getElementById("pos_scan_torch").addEventListener("click", alternarLuzCamaraPos);
+        document.getElementById("pos_scan_stop").addEventListener("click", detenerCamaraPos);
+        document.getElementById("pos_scan_modal").addEventListener("hidden.bs.modal", detenerCamaraPos);
+        window.addEventListener("beforeunload", detenerCamaraPos);
         document.getElementById("pos_vaciar").addEventListener("click", function () {
             carrito = [];
             pagos = [];
@@ -2487,6 +2795,10 @@
             }
             if (event.target.closest("[data-pos-inventario-pendiente-dryrun]")) {
                 inventarioPendienteDryRun();
+                return;
+            }
+            if (event.target.closest("[data-pos-inventario-pendiente-cobrar]")) {
+                cobrarInventarioPendienteReal();
             }
         });
         document.getElementById("pos_cuentas").addEventListener("click", function (event) {

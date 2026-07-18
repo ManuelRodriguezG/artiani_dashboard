@@ -130,7 +130,7 @@ if (intval($notificaciones["abiertas"]) > intval($pendientes["abiertos"]) + 2) {
 
 $contratoProductivo = array(
     "pos_normal_ui" => "Operativo con ventas.operar y turno abierto",
-    "inventario_pendiente_ui" => "Solo dry-run en UI; real todavia protegido por sistema.soporte/token UAT",
+    "inventario_pendiente_ui" => "Dry-run en UI y endpoint productivo supervisado cuando existe permiso, turno, motivo y confirmacion",
     "requisito_para_productivo_inventario_pendiente" => array(
         "crear_permiso_catalogo" => "ventas.pos.inventario_pendiente.autorizar",
         "asignar_permiso_a_supervisor" => true,
@@ -141,6 +141,32 @@ $contratoProductivo = array(
         "no_activar_ecommerce" => true
     )
 );
+$rootProyecto = realpath(__DIR__ . "/../..");
+$controladorVentas = is_file($rootProyecto . "/app/controladores/Ventas.php") ? file_get_contents($rootProyecto . "/app/controladores/Ventas.php") : "";
+$jsPos = is_file($rootProyecto . "/public/assets/js/custom/apps/erp/ventas/pos.js") ? file_get_contents($rootProyecto . "/public/assets/js/custom/apps/erp/ventas/pos.js") : "";
+$endpointInventarioPendienteProductivo = strpos($controladorVentas, "public function pos_inventario_pendiente_cobrar_erp") !== false
+    && strpos($controladorVentas, "ventas.pos.inventario_pendiente.autorizar") !== false
+    && strpos($controladorVentas, "AUTORIZAR INVENTARIO PENDIENTE") !== false
+    && strpos($jsPos, "/ventas/pos_inventario_pendiente_cobrar_erp") !== false;
+$permisoInventarioPendienteListo = in_array(
+    "ventas.pos.inventario_pendiente.autorizar",
+    isset($permisos["existentes_catalogo"]) ? $permisos["existentes_catalogo"] : array(),
+    true
+) && in_array(
+    "ventas.pos.inventario_pendiente.autorizar",
+    isset($permisos["asignados_usuario"]) ? $permisos["asignados_usuario"] : array(),
+    true
+);
+$siguientePaso = empty($bloqueos)
+    ? (
+        $permisoInventarioPendienteListo && $endpointInventarioPendienteProductivo
+            ? "POS base listo para pruebas operativas. Inventario pendiente productivo preparado; para probarlo se requiere abrir turno y autorizacion de UAT real controlada."
+            : ($permisoInventarioPendienteListo
+            ? "POS base listo para pruebas operativas. Para inventario pendiente productivo falta preparar endpoint real sin token UAT con permiso, confirmacion, motivo y auditoria."
+            : "POS base listo para pruebas operativas. Para inventario pendiente productivo falta sembrar permiso fino y exponer endpoint real sin token UAT."
+            )
+    )
+    : "Resolver bloqueos antes de promover POS a pruebas operativas reales.";
 
 echo json_encode(array(
     "ok" => empty($bloqueos),
@@ -164,11 +190,15 @@ echo json_encode(array(
     ),
     "dry_run_inventario_pendiente" => $dryInventarioPendiente,
     "contrato_productivo" => $contratoProductivo,
+    "endpoint_inventario_pendiente_productivo" => array(
+        "preparado" => $endpointInventarioPendienteProductivo,
+        "requiere_permiso" => "ventas.pos.inventario_pendiente.autorizar",
+        "confirmacion" => "AUTORIZAR INVENTARIO PENDIENTE",
+        "motivo_obligatorio" => true
+    ),
     "bloqueos" => $bloqueos,
     "avisos" => $avisos,
-    "siguiente_paso" => empty($bloqueos)
-        ? "POS base listo para pruebas operativas. Para inventario pendiente productivo falta autorizacion de cambio: permiso fino + endpoint real sin token UAT."
-        : "Resolver bloqueos antes de promover POS a pruebas operativas reales."
+    "siguiente_paso" => $siguientePaso
 ), JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE) . PHP_EOL;
 
 exit(empty($bloqueos) ? 0 : 1);

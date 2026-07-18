@@ -4490,3 +4490,542 @@ Resultado vigente:
 - Bloqueos `[]`.
 - Aviso: SKU `1760` sin stock disponible en almacen `5`; antes de venta real se requiere stock por compra/recepcion/ajuste autorizado o carga UAT autorizada.
 - Aviso: existe 1 evidencia historica de caja pendiente por `$50.00`; no bloquea piloto normal, pero debe cerrarse por control administrativo.
+
+## Corte 2026-07-17 - preparacion piloto POS multiusuario
+
+Se agregaron herramientas de avance sin escritura fuerte para validar operacion POS con varios usuarios sobre la misma tienda/caja/terminal:
+
+- `storage/uat/uat_ventas_pos_multiusuario_preflight_readonly.php`
+- `storage/uat/uat_ventas_pos_multiusuario_piloto_apply_authorized.php`
+
+Resultado read-only vigente para `id_usuarios=1,2,3`, almacen `5`, caja `2`, terminal `2`:
+
+- Usuario `1`: listo para POS piloto.
+- Usuario `2`: activo, pero falta rol/permisos de ventas y asignacion POS objetivo.
+- Usuario `3`: activo, pero falta rol/permisos de ventas y asignacion POS objetivo.
+- Rol `ventas`: `id_rol=6`.
+
+Validaciones realizadas:
+
+```powershell
+C:\xampp\php\php.exe -l storage\uat\uat_ventas_pos_multiusuario_preflight_readonly.php
+C:\xampp\php\php.exe -l storage\uat\uat_ventas_pos_multiusuario_piloto_apply_authorized.php
+C:\xampp\php\php.exe storage\uat\uat_ventas_pos_multiusuario_piloto_apply_authorized.php --id_usuarios=2,3 --id_rol_ventas=6 --id_almacen=5 --id_caja=2 --id_terminal=2 --respaldo=UAT_POS_VIGENTE
+```
+
+El script autorizado bloqueo correctamente sin token (`guardrail`) y no escribe BD sin `VENTAS_POS_MULTIUSUARIO_PILOTO`. Antes de escribir, valida que todos los usuarios objetivo existan y esten activos.
+
+Autorizacion pendiente si se quiere habilitar piloto multiusuario:
+
+```text
+AUTORIZO HABILITAR USUARIOS POS PILOTO usando respaldo UAT POS vigente con token VENTAS_POS_MULTIUSUARIO_PILOTO id_usuarios=2,3 id_rol_ventas=6 id_almacen=5 id_caja=2 id_terminal=2 para UAT POS
+```
+
+## Corte 2026-07-17 - escaner rapido en POS
+
+Se integro una opcion de camara dentro de `/ventas/pos` sin modificar el checador de precios independiente:
+
+- Boton de camara junto al buscador de producto.
+- Modal `pos_scan_modal` con preview, selector de camara, luz y enfoque cuando el navegador/dispositivo lo permite.
+- Atajo `F3` para abrir escaner.
+- Usa `BarcodeDetector` nativo del navegador.
+- Al leer codigo, consulta `/ventas/pos_buscar_skus_erp`.
+- Si existe una coincidencia unica, agrega el producto al carrito actual.
+- Si hay varias coincidencias, renderiza tarjetas para elegir.
+- No cobra, no reserva, no mueve caja ni inventario.
+
+Validaciones:
+
+```powershell
+node --check public\assets\js\custom\apps\erp\ventas\pos.js
+C:\xampp\php\php.exe -l app\vistas\paginas\apps\erp\ventas\pos.php
+```
+
+## Corte 2026-07-17 - semaforo escaner POS
+
+Se agrego `storage/uat/uat_ventas_pos_escaner_ui_readiness_readonly.php` para validar la superficie del escaner sin abrir camara ni tocar BD.
+
+Mejoras adicionales:
+
+- `abrirEscanerPos()` exige punto de venta configurado antes de abrir camara.
+- El escaner mantiene contrato read-only hasta que el producto entra al carrito; el cobro real sigue dependiendo de `Cobrar`.
+
+Validacion ejecutada:
+
+```powershell
+node --check public\assets\js\custom\apps\erp\ventas\pos.js
+C:\xampp\php\php.exe -l storage\uat\uat_ventas_pos_escaner_ui_readiness_readonly.php
+C:\xampp\php\php.exe storage\uat\uat_ventas_pos_escaner_ui_readiness_readonly.php
+C:\xampp\php\php.exe -l app\vistas\paginas\apps\erp\ventas\pos.php
+```
+
+Resultado vigente:
+
+- `ok=true`.
+- Checks de vista/JS presentes.
+- Bloqueos `[]`.
+- Avisos `[]`.
+
+## Corte 2026-07-17 - go/no-go piloto POS
+
+Se agrego `storage/uat/uat_ventas_pos_piloto_go_nogo_readonly.php` para reunir en una sola salida:
+
+- Readiness operativo POS.
+- Superficie UI del escaner rapido.
+- Preflight multiusuario.
+- Stock del SKU piloto.
+- Evidencias historicas de caja pendientes.
+
+Validacion ejecutada:
+
+```powershell
+C:\xampp\php\php.exe -l storage\uat\uat_ventas_pos_piloto_go_nogo_readonly.php
+C:\xampp\php\php.exe storage\uat\uat_ventas_pos_piloto_go_nogo_readonly.php --id_usuario=1 --id_almacen=5 --id_caja=2 --id_terminal=2 --id_sku=1760 --id_atencion=2 --cantidad=1 --usuarios=1,2,3
+```
+
+Resultado vigente:
+
+- `ok=true`.
+- `decision=apto_con_condiciones`.
+- Bloqueos `[]`.
+- Condiciones:
+  - SKU `1760` sin stock disponible para venta real.
+  - Existe una evidencia historica de caja pendiente por `$50.00`.
+  - Usuarios `2` y `3` aun no pueden participar en piloto multiusuario porque les falta rol/permisos de ventas y asignacion POS objetivo.
+- Nota de datos: el nombre de usuario `3` aparece con mojibake desde la fuente de datos; no proviene de archivos tocados en este corte.
+
+## Corte 2026-07-17 - runbook piloto POS multiusuario
+
+Se agrego `docs/erp_ventas_pos_multiusuario_runbook.md` para guiar la prueba real de varias sesiones/personas sobre la misma caja/terminal.
+
+Incluye:
+
+- Precondiciones.
+- Flujo sugerido usuario A / usuario B / supervisor.
+- Evidencia minima.
+- Criterios de aceptacion.
+- Autorizacion fuerte para habilitar usuarios faltantes.
+
+Tambien se parametrizo `storage/uat/uat_ventas_pos_piloto_go_nogo_readonly.php` para aceptar `--id_caja` y `--id_terminal`, evitando caja/terminal fijos dentro del script.
+
+## Corte 2026-07-17 - usuarios POS piloto habilitados
+
+Autorizacion ejecutada:
+
+```text
+AUTORIZO HABILITAR USUARIOS POS PILOTO usando respaldo UAT POS vigente con token VENTAS_POS_MULTIUSUARIO_PILOTO id_usuarios=2,3 id_rol_ventas=6 id_almacen=5 id_caja=2 id_terminal=2 para UAT POS
+```
+
+Resultado:
+
+- Usuario `2`: rol `ventas` asignado y asignacion POS creada `id_usuario_caja=4`.
+- Usuario `3`: rol `ventas` asignado y asignacion POS creada `id_usuario_caja=5`.
+- No se abrio turno.
+- No se movio caja.
+- No se movio inventario.
+- No se creo venta.
+
+Validacion post-habilitacion:
+
+```powershell
+C:\xampp\php\php.exe storage\uat\uat_ventas_pos_multiusuario_preflight_readonly.php --usuarios=1,2,3 --id_almacen=5 --id_caja=2 --id_terminal=2
+C:\xampp\php\php.exe storage\uat\uat_ventas_pos_piloto_go_nogo_readonly.php --id_usuario=1 --id_almacen=5 --id_caja=2 --id_terminal=2 --id_sku=1760 --id_atencion=2 --cantidad=1 --usuarios=1,2,3
+```
+
+Estado vigente:
+
+- Usuarios `1`, `2` y `3`: `puede_participar_piloto=true`.
+- Bloqueos multiusuario: `[]`.
+- POS sigue `apto_con_condiciones`.
+- Condiciones pendientes:
+  - SKU `1760` sin stock disponible en almacen `5` para venta real.
+  - Evidencia historica de caja pendiente por `$50.00`.
+  - No hay turno abierto actualmente; normal fuera de operacion, pero se requiere abrir turno para cobrar.
+
+Siguiente autorizacion fuerte sugerida para venta real UAT:
+
+```text
+AUTORIZO CARGAR STOCK UAT POS usando respaldo UAT POS vigente con id_usuario=1 id_almacen=5 id_sku=1760 cantidad=1 referencia=INV-INICIAL-POS-UAT-MULTIUSUARIO-01
+```
+
+## Corte 2026-07-17 - readiness venta piloto multiusuario
+
+Se agrego `storage/uat/uat_ventas_pos_piloto_multiusuario_venta_readiness_readonly.php` para prevalidar una venta piloto multiusuario antes de pedir escrituras reales.
+
+Comando compacto:
+
+```powershell
+C:\xampp\php\php.exe storage\uat\uat_ventas_pos_piloto_multiusuario_venta_readiness_readonly.php --id_usuario_supervisor=1 --id_usuario_cobra=2 --id_almacen=5 --id_caja=2 --id_terminal=2 --id_sku=1760 --cantidad=1 --precio=295 --pago=295 --monto_inicial=500 --usuarios=1,2,3 --cliente="Cliente UAT POS multiusuario" --compact=1
+```
+
+Resultado vigente:
+
+- `decision=requiere_autorizaciones_previas`.
+- Bloqueo real: stock insuficiente para SKU `1760` en almacen `5`.
+- Aviso: no hay turno abierto para esta caja.
+- Aviso administrativo: evidencia historica de caja pendiente por `$50.00`.
+- Autorizaciones sugeridas en orden:
+  1. Cargar stock UAT POS.
+  2. Abrir turno POS UAT.
+  3. Repetir readiness compacto para confirmar que la venta queda lista.
+
+Autorizaciones sugeridas:
+
+```text
+AUTORIZO CARGAR STOCK UAT POS usando respaldo UAT POS vigente con id_usuario=1 id_almacen=5 id_sku=1760 cantidad=1 referencia=INV-INICIAL-POS-UAT-MULTIUSUARIO-01
+
+AUTORIZO ABRIR TURNO POS UAT usando respaldo UAT POS vigente con id_usuario=1 y monto_inicial=500 observaciones="Piloto POS multiusuario"
+```
+
+## Corte 2026-07-17 - stock y turno piloto multiusuario aplicados
+
+Autorizaciones ejecutadas:
+
+```text
+AUTORIZO CARGAR STOCK UAT POS usando respaldo UAT POS vigente con id_usuario=1 id_almacen=5 id_sku=1760 cantidad=1 referencia=INV-INICIAL-POS-UAT-MULTIUSUARIO-01
+
+AUTORIZO ABRIR TURNO POS UAT usando respaldo UAT POS vigente con id_usuario=1 y monto_inicial=500 observaciones="Piloto POS multiusuario"
+```
+
+Resultados:
+
+- Stock UAT cargado para SKU `1760` en almacen `5`.
+- Movimiento inventario `96`, referencia `INV-INICIAL-POS-UAT-MULTIUSUARIO-01`.
+- Existencia `34` quedo con disponible `1.0000` y estatus `disponible`.
+- Turno abierto `id_turno_caja=24`, folio `TUR-20260717-002-001`.
+- Movimiento inicial caja `id_movimiento_caja=51`, monto inicial `$500.00`.
+
+Validaciones post-aplicacion:
+
+```powershell
+C:\xampp\php\php.exe storage\uat\uat_ventas_pos_piloto_multiusuario_venta_readiness_readonly.php --id_usuario_supervisor=1 --id_usuario_cobra=2 --id_almacen=5 --id_caja=2 --id_terminal=2 --id_sku=1760 --cantidad=1 --precio=295 --pago=295 --monto_inicial=500 --usuarios=1,2,3 --cliente="Cliente UAT POS multiusuario" --compact=1
+C:\xampp\php\php.exe storage\uat\uat_ventas_pos_inventario_sku_readonly.php --id_almacen=5 --id_sku=1760 --cantidad_requerida=1
+C:\xampp\php\php.exe storage\uat\uat_ventas_pos_venta_preflight_readonly.php --id_usuario=2 --id_sku=1760 --cantidad=1 --precio=295 --pago=295 --respaldo=UAT_POS_VIGENTE --cliente="Cliente UAT POS multiusuario"
+```
+
+Estado vigente:
+
+- Readiness venta multiusuario: `decision=listo_para_venta_real`.
+- Preflight venta usuario `2`: `puede_vender_real=true`.
+- Turno abierto: `id_turno_caja=24`.
+- Plan salida inventario: existencia agregada `id_existencia_inventario=34`, antes `1`, despues `0`.
+- Bloqueos venta: `[]`.
+- Aviso administrativo no bloqueante: evidencia historica de caja pendiente por `$50.00`.
+
+Siguiente autorizacion fuerte sugerida:
+
+```text
+AUTORIZO EJECUTAR VENTA POS UAT REAL usando respaldo UAT POS vigente con id_usuario=2 id_sku=1760 cantidad=1 precio=295 pago=295 cliente="Cliente UAT POS multiusuario"
+```
+
+## Corte 2026-07-17 - venta piloto multiusuario ejecutada
+
+Autorizacion ejecutada:
+
+```text
+AUTORIZO EJECUTAR VENTA POS UAT REAL usando respaldo UAT POS vigente con id_usuario=2 id_sku=1760 cantidad=1 precio=295 pago=295 cliente="Cliente UAT POS multiusuario"
+```
+
+Evidencia:
+
+- Venta POS `POS-20260717-000001`, `id_venta=25`, estatus `pagada`.
+- Usuario cobrador `2`.
+- Turno `TUR-20260717-002-001`, `id_turno_caja=24`, caja `2`.
+- Total `$295.00`, pagado `$295.00`, saldo `$0.00`.
+- SKU `1760` / `TP-40352-500GR`, cantidad `1.000000`.
+- Precio aplicado `$295.00`, lista snapshot `Lista UAT POS`.
+- Pago `id_venta_pago=29`, movimiento caja `id_movimiento_caja=52`, metodo `Efectivo`.
+- Kardex salida `id_movimiento_inventario=97`, referencia `POS-20260717-000001`.
+- Existencia `34`: anterior `1.0000`, nueva `0.0000`, estatus actual `agotada`.
+- Snapshot garantia `id_venta_detalle_garantia=15`, resumen `Sin garantia`.
+- Ticket formal read-only generado sin hallazgos.
+
+Preflight de cierre:
+
+- Turno abierto: `TUR-20260717-002-001`.
+- Monto esperado: `$795.00`.
+- Monto contado sugerido: `$795.00`.
+- Diferencia: `$0.00`.
+- Bloqueos: `[]`.
+
+Siguiente autorizacion fuerte sugerida:
+
+```text
+AUTORIZO CERRAR TURNO POS UAT REAL usando respaldo UAT POS vigente con id_usuario=1 monto_contado=795 observaciones="Cierre UAT POS piloto multiusuario POS-20260717-000001"
+```
+
+## Corte 2026-07-18 - permiso inventario pendiente POS productivo
+
+Autorizacion previamente otorgada y ejecutada:
+
+```text
+AUTORIZO SEMBRAR PERMISO INVENTARIO PENDIENTE POS PRODUCTIVO usando respaldo UAT POS vigente con token VENTAS_POS_INVENTARIO_PENDIENTE_PERMISO id_usuario=1 para UAT POS
+```
+
+Resultado:
+
+- Permiso `ventas.pos.inventario_pendiente.autorizar` sembrado.
+- Roles con permiso: `direccion`, `administrador_erp`.
+- Usuario `1` queda con permiso disponible por su rol.
+- No se movio caja, inventario, turnos ni ventas.
+
+Validacion posterior:
+
+- `uat_ventas_pos_productivo_readiness_readonly.php`: `ok=true`.
+- `faltantes_catalogo=[]`.
+- `faltantes_usuario=[]`.
+- `avisos=[]`.
+
+## Corte 2026-07-18 - semaforo estado actual piloto multiusuario
+
+Se agrego `storage/uat/uat_ventas_pos_piloto_multiusuario_estado_actual_readonly.php` para validar el piloto vigente por folio/turno actual sin depender de atenciones UAT historicas ya convertidas.
+
+Validacion ejecutada:
+
+```powershell
+C:\xampp\php\php.exe -l storage\uat\uat_ventas_pos_piloto_multiusuario_estado_actual_readonly.php
+C:\xampp\php\php.exe storage\uat\uat_ventas_pos_piloto_multiusuario_estado_actual_readonly.php --folio=POS-20260717-000001 --id_usuario_supervisor=1 --id_almacen=5 --id_caja=2 --id_terminal=2 --id_sku=1760 --usuarios=1,2,3 --monto_contado=795
+```
+
+Resultado:
+
+- `decision=listo_para_cerrar_turno_piloto`.
+- Venta pagada `POS-20260717-000001`, `id_venta=25`.
+- Turno abierto `TUR-20260717-002-001`, `id_turno_caja=24`.
+- Multiusuario `ok=true`.
+- Escaner POS UI `ok=true`.
+- Readiness productivo `sin_bloqueos=true`.
+- Monto esperado `$795.00`, contado `$795.00`, diferencia `$0.00`.
+- Bloqueos `[]`.
+- Aviso no bloqueante: 1 evidencia historica de caja pendiente.
+
+Siguiente autorizacion fuerte sugerida:
+
+```text
+AUTORIZO CERRAR TURNO POS UAT REAL usando respaldo UAT POS vigente con id_usuario=1 monto_contado=795 observaciones="Cierre UAT POS preflight TUR-20260717-002-001"
+```
+
+## Corte 2026-07-18 - readiness endpoint productivo inventario pendiente
+
+Se preparo `storage/uat/uat_ventas_pos_inventario_pendiente_endpoint_productivo_readiness.php` para revisar si el flujo de inventario pendiente POS ya puede pasar de UAT/token a endpoint productivo.
+
+Contrato del script:
+
+- Read-only.
+- No habilita endpoint.
+- No cobra.
+- No mueve caja.
+- No mueve inventario.
+- No crea pendientes.
+
+Validaciones ejecutadas:
+
+```powershell
+C:\xampp\php\php.exe -l storage\uat\uat_ventas_pos_productivo_readiness_readonly.php
+C:\xampp\php\php.exe -l storage\uat\uat_ventas_pos_inventario_pendiente_endpoint_productivo_readiness.php
+C:\xampp\php\php.exe storage\uat\uat_ventas_pos_inventario_pendiente_endpoint_productivo_readiness.php --id_usuario=1 --id_almacen=5 --id_sku=1760 --cantidad=1
+C:\xampp\php\php.exe storage\uat\uat_ventas_pos_productivo_readiness_readonly.php --id_usuario=1 --id_almacen=5 --id_sku=1760 --cantidad=1
+```
+
+Resultado:
+
+- `ok=true`.
+- Controlador actual sigue protegido como UAT por `sistema.soporte` + token.
+- Modelo real transaccional existe y reutilizable: `ventaInventarioPendienteReal`.
+- UI POS sigue solo en dry-run para faltantes.
+- Permiso `ventas.pos.inventario_pendiente.autorizar` existe en catalogo.
+- Usuario `1` tiene el permiso por rol.
+- Politica activa para almacen `5`, SKU `1760`, canal `pos`.
+- Dry-run para cantidad `1` queda `pendiente_autorizable`.
+- Bloqueos `[]`.
+
+Tareas del siguiente cambio fuerte:
+
+- Agregar endpoint productivo separado en `Ventas.php`.
+- Requerir `ventas.operar` y `ventas.pos.inventario_pendiente.autorizar`.
+- Exigir confirmacion exacta `AUTORIZAR INVENTARIO PENDIENTE`.
+- Exigir motivo obligatorio.
+- Mantener validacion por politica almacen/SKU/canal.
+- Delegar al modelo transaccional existente para no duplicar reglas.
+- Registrar auditoria explicita.
+- Actualizar POS UI para mostrar accion supervisada solo despues de dry-run autorizable.
+- Mantener ecommerce fuera del flujo.
+
+Siguiente autorizacion fuerte sugerida:
+
+```text
+AUTORIZO PREPARAR ENDPOINT PRODUCTIVO VENTA INVENTARIO PENDIENTE POS usando respaldo UAT POS vigente con token VENTAS_POS_INVENTARIO_PENDIENTE_PRODUCTIVO_ENDPOINT para UAT POS/Inventario
+```
+
+## Corte 2026-07-18 - cierre real turno piloto multiusuario
+
+Autorizacion ejecutada:
+
+```text
+AUTORIZO CERRAR TURNO POS UAT REAL usando respaldo UAT POS vigente con id_usuario=1 monto_contado=795 observaciones="Cierre UAT POS preflight TUR-20260717-002-001"
+```
+
+Resultado:
+
+- Turno `TUR-20260717-002-001`, `id_turno_caja=24`, cerrado.
+- Monto inicial `$500.00`.
+- Venta POS del turno `$295.00`.
+- Monto esperado `$795.00`.
+- Monto contado `$795.00`.
+- Diferencia `$0.00`.
+- Venta ligada al turno: `POS-20260717-000001`, estatus `pagada`.
+- Pago `id_venta_pago=29`, metodo `Efectivo`, monto `$295.00`.
+- Post-cierre read-only `ok=true`, hallazgos `[]`.
+
+Observacion tecnica no bloqueante:
+
+- El post-cierre muestra el movimiento caja `52` de la venta en `movimientos_caja_excluidos` porque el movimiento no trae `id_venta` directo, aunque el pago si lo referencia. No bloqueo el cierre actual, pero debe revisarse despues para reportes/cortes perfectos.
+
+## Corte 2026-07-18 - endpoint productivo inventario pendiente preparado
+
+Autorizacion ejecutada:
+
+```text
+AUTORIZO PREPARAR ENDPOINT PRODUCTIVO VENTA INVENTARIO PENDIENTE POS usando respaldo UAT POS vigente con token VENTAS_POS_INVENTARIO_PENDIENTE_PRODUCTIVO_ENDPOINT para UAT POS/Inventario
+```
+
+Cambios:
+
+- `app/controladores/Ventas.php`:
+  - nuevo endpoint `pos_inventario_pendiente_cobrar_erp`;
+  - requiere `ventas.operar`;
+  - requiere `ventas.pos.inventario_pendiente.autorizar`;
+  - exige confirmacion exacta `AUTORIZAR INVENTARIO PENDIENTE`;
+  - exige motivo obligatorio;
+  - restringe esta version a una partida y un pago de caja;
+  - delega en `VentasErp::ventaInventarioPendienteReal`;
+  - registra auditoria explicita `pos_inventario_pendiente_*`.
+- `public/assets/js/custom/apps/erp/ventas/pos.js`:
+  - despues del dry-run autorizable muestra bloque de autorizacion supervisada;
+  - pide motivo y confirmacion exacta;
+  - llama `/ventas/pos_inventario_pendiente_cobrar_erp`;
+  - reutiliza `renderCobroReal` para mostrar folio/ticket cuando el backend confirma.
+- `storage/uat/uat_ventas_pos_inventario_pendiente_endpoint_productivo_readiness.php`:
+  - actualizado para validar endpoint productivo, UI, permiso, politica y dry-run.
+- `storage/uat/uat_ventas_pos_productivo_readiness_readonly.php`:
+  - actualizado para reconocer el endpoint productivo preparado.
+
+Validaciones:
+
+```powershell
+C:\xampp\php\php.exe -l app\controladores\Ventas.php
+node --check public\assets\js\custom\apps\erp\ventas\pos.js
+C:\xampp\php\php.exe -l storage\uat\uat_ventas_pos_inventario_pendiente_endpoint_productivo_readiness.php
+C:\xampp\php\php.exe -l storage\uat\uat_ventas_pos_productivo_readiness_readonly.php
+C:\xampp\php\php.exe storage\uat\uat_ventas_pos_inventario_pendiente_endpoint_productivo_readiness.php --id_usuario=1 --id_almacen=5 --id_sku=1760 --cantidad=1
+C:\xampp\php\php.exe storage\uat\uat_ventas_pos_productivo_readiness_readonly.php --id_usuario=1 --id_almacen=5 --id_sku=1760 --cantidad=1
+```
+
+Resultado:
+
+- Endpoint readiness `ok=true`.
+- Productivo readiness `ok=true`.
+- `controlador_productivo_preparado=true`.
+- `ui_dryrun_y_accion_supervisada=true`.
+- `permiso_catalogo=true`.
+- `permiso_usuario=true`.
+- `politica_pos_activa=true`.
+- `dry_run_autorizable=true`.
+- Bloqueos `[]`.
+- Aviso operativo: no hay turno abierto actualmente; esperado despues del cierre, bloquea solo cobro real hasta abrir turno.
+
+Siguiente autorizacion fuerte sugerida para UAT real del endpoint productivo:
+
+```text
+AUTORIZO ABRIR TURNO POS UAT usando respaldo UAT POS vigente con id_usuario=1 y monto_inicial=500 observaciones="Apertura UAT endpoint productivo inventario pendiente POS"
+
+AUTORIZO EJECUTAR UAT PRODUCTIVA VENTA INVENTARIO PENDIENTE POS usando respaldo UAT POS vigente con token VENTAS_POS_INVENTARIO_PENDIENTE_PRODUCTIVO_REAL id_usuario=1 id_almacen=5 id_sku=1760 cantidad=1 pago=295 motivo="UAT endpoint productivo inventario pendiente POS" confirmacion="AUTORIZAR INVENTARIO PENDIENTE" para UAT POS/Inventario
+```
+
+## Corte 2026-07-18 - UAT real endpoint productivo inventario pendiente
+
+Autorizacion ejecutada:
+
+```text
+AUTORIZO ABRIR TURNO POS UAT usando respaldo UAT POS vigente con id_usuario=1 y monto_inicial=500 observaciones="Apertura UAT endpoint productivo inventario pendiente POS"
+
+AUTORIZO EJECUTAR UAT PRODUCTIVA VENTA INVENTARIO PENDIENTE POS usando respaldo UAT POS vigente con token VENTAS_POS_INVENTARIO_PENDIENTE_PRODUCTIVO_REAL id_usuario=1 id_almacen=5 id_sku=1760 cantidad=1 pago=295 motivo="UAT endpoint productivo inventario pendiente POS" confirmacion="AUTORIZAR INVENTARIO PENDIENTE" para UAT POS/Inventario
+```
+
+Resultado:
+
+- Turno abierto: `TUR-20260717-002-002`, `id_turno_caja=25`, caja `2`, almacen `5`, monto inicial `$500.00`.
+- Venta creada: `POS-20260717-000002`, `id_venta=26`, estatus `pagada`, total `$295.00`, pagado `$295.00`.
+- Detalle: `id_venta_detalle=27`, SKU `1760`, cantidad `1`, modo salida `inventario_pendiente_pos`.
+- Inventario:
+  - cantidad cubierta con kardex `0`;
+  - cantidad pendiente `1`;
+  - pendiente creado `PINV-20260717-000001`, `id_inventario_pendiente=6`, estatus `pendiente_revision`.
+- Caja:
+  - pago `id_venta_pago=30`, metodo `Efectivo`, monto `$295.00`;
+  - movimiento caja `id_movimiento_caja=54`.
+- Notificaciones:
+  - notificacion `id_notificacion=19`, tipo `pos_venta_inventario_pendiente`, prioridad `alta`, estatus `pendiente`;
+  - URL de accion `/inventario/productos_existencias#pendientes-pos`.
+- Ticket formal:
+  - generado en modo read-only;
+  - incluye folio, tienda, caja, turno, cliente mostrador, partida, precio, garantia, total y pago.
+- Garantia:
+  - snapshot `id_venta_detalle_garantia=16`;
+  - resumen `Sin garantia`.
+
+Validaciones:
+
+```powershell
+C:\xampp\php\php.exe storage\uat\uat_ventas_pos_post_venta_readonly.php --folio=POS-20260717-000002
+C:\xampp\php\php.exe storage\uat\uat_ventas_pos_ticket_formal_readonly.php --folio=POS-20260717-000002
+C:\xampp\php\php.exe storage\uat\uat_pos_inventario_pendiente_notificaciones_readonly.php
+C:\xampp\php\php.exe storage\uat\uat_ventas_pos_inventario_sku_readonly.php --id_almacen=5 --id_sku=1760 --cantidad_requerida=1
+C:\xampp\php\php.exe storage\uat\uat_ventas_pos_turno_cierre_preflight_readonly.php --id_usuario=1 --monto_contado=795 --respaldo=UAT_POS_VIGENTE
+```
+
+Estado posterior:
+
+- Existencia disponible SKU `1760` almacen `5`: `0`.
+- Pendientes POS abiertos para SKU/almacen: `1`.
+- Preflight de cierre del turno `25`: monto esperado `$795.00`, monto contado propuesto `$795.00`, diferencia `$0.00`, bloqueos `[]`.
+
+Siguiente autorizacion fuerte sugerida:
+
+```text
+AUTORIZO CERRAR TURNO POS UAT REAL usando respaldo UAT POS vigente con id_usuario=1 monto_contado=795 observaciones="Cierre UAT endpoint productivo inventario pendiente POS-20260717-000002"
+```
+
+## Corte 2026-07-18 - cierre UAT endpoint productivo inventario pendiente
+
+Autorizacion ejecutada:
+
+```text
+AUTORIZO CERRAR TURNO POS UAT REAL usando respaldo UAT POS vigente con id_usuario=1 monto_contado=795 observaciones="Cierre UAT endpoint productivo inventario pendiente POS-20260717-000002"
+```
+
+Resultado:
+
+- Turno cerrado: `TUR-20260717-002-002`, `id_turno_caja=25`.
+- Monto inicial: `$500.00`.
+- Venta del turno: `POS-20260717-000002`, total `$295.00`, pagada `$295.00`.
+- Monto esperado: `$795.00`.
+- Monto contado: `$795.00`.
+- Diferencia: `$0.00`.
+- Movimientos caja:
+  - `53`, entrada por apertura, `$500.00`;
+  - `54`, ingreso por venta POS, `$295.00`, ligado a `id_venta=26`.
+- `movimientos_caja_excluidos=[]`.
+- Hallazgos post-cierre `[]`.
+
+Estado posterior:
+
+- No queda turno abierto para usuario/caja.
+- Queda pendiente de inventario abierto `PINV-20260717-000001`.
+- Queda notificacion abierta `id_notificacion=19` para Inventario/Existencias.
+
+Siguiente autorizacion fuerte sugerida para cerrar el ciclo de mini inventario:
+
+```text
+AUTORIZO RESOLVER PENDIENTE INVENTARIO POS UAT REAL usando respaldo UAT POS vigente con token INVENTARIO_POS_PENDIENTE_RESOLVER_REAL id_usuario=1 folio=PINV-20260717-000001 cantidad_fisica=0 decision=ajustar_a_conteo confirmacion="RESOLVER PENDIENTE" motivo="UAT resolver pendiente endpoint productivo inventario pendiente POS"
+```

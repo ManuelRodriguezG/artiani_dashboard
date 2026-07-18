@@ -87,6 +87,8 @@ Estado 2026-07-16:
 - Comercial/Listas ya expone seleccion y validacion de segmentos CRM desde la vista operativa. El guardado de vinculo segmento/lista queda preparado en backend y UI, pero bloquea mientras falte `erp_segmentos_listas_precios`.
 - Endpoint preparado para guardado futuro de vinculo segmento/lista: `/comercial/listas_precios_segmento_guardar_operativo_erp`. No crea segmentos, no asigna clientes y no modifica ventas pasadas.
 - La consulta de lista ya devuelve `asignaciones_segmentos` y `schema.segmentos_listas`; antes del DDL la UI muestra el estado pendiente sin romper el flujo.
+- La UI mantiene deshabilitado el boton de guardar vinculo segmento/lista cuando `schema.segmentos_listas=false`; permite dry-run, pero no guardado real hasta aplicar el DDL autorizado.
+- La UI muestra una preparacion segura de segmentos con tres estados: catalogo CRM, relacion cliente/segmento y puente segmento/lista. El puente debe aparecer pendiente hasta aplicar el DDL.
 - Revision de lista ya contempla conteo de segmentos activos y advierte que listas de `mayoreo`/`ecommerce` deben vincularse por segmento cuando exista el puente.
 - UAT read-only `storage/uat/uat_listas_precios_segmentos_readonly.php 2` valida auditoria, SQL planeado, consulta de lista, segmentos candidatos y dry-run sin ejecutar DDL.
 - Respaldo externo generado para la fase: `C:\xampp\panel_db_backups\artianilocal_panel_20260717_000533_antes_listas_precios_segmentos.sql`.
@@ -100,10 +102,33 @@ Estado 2026-07-16:
 - Candidatos cliente/segmento read-only preparado: `storage/uat/uat_crm_cliente_segmento_candidatos_readonly.php RECURRENTE 10`.
 - Apply protegido para asignar cliente a segmento preparado: `storage/uat/uat_crm_cliente_segmento_apply_authorized.php` con token `CRM_CLIENTES_SEGMENTO`; actualiza `id_segmento_default` si se solicita y no toca listas ni ventas.
 - Suite read-only de preparacion completa: `storage/uat/uat_listas_precios_segmentos_suite_readonly.php 2 RECURRENTE 1760 5`.
-- Estado actual de la suite: lista UAT 2 existe con SKU 1760 y cliente candidato 1 existe; faltan segmento `RECURRENTE` y tabla puente `erp_segmentos_listas_precios`.
+- Estado actual de la suite: lista UAT 2 existe con SKU 1760 y cliente candidato 2 existe; faltan segmento `RECURRENTE` y tabla puente `erp_segmentos_listas_precios`.
 - Paquete read-only de autorizacion preparado: `storage/uat/uat_listas_precios_segmentos_autorizacion_paquete_readonly.php`. Valida respaldo, confirma estado actual y devuelve los comandos en orden sin ejecutarlos.
+- Paquete read-only validado con respaldo `C:\xampp\panel_db_backups\artianilocal_panel_20260717_000533_antes_listas_precios_segmentos.sql`: respaldo existe, cliente UAT 1 existe, lista 2 existe, faltan segmento `RECURRENTE` y tabla puente.
+- El paquete read-only de autorizacion ahora incluye `verificaciones_post_apply`: acceptance, baseline de ventas y suite consolidada.
 - Plan de reversa documentado: `docs/erp_listas_precios_segmentos_plan_reversa.md`.
 - Preflight de reversa read-only preparado: `storage/uat/uat_listas_precios_segmentos_reversa_preflight_readonly.php`; estado actual `reversa_no_aplica_sin_tabla`.
+- Runbook operativo de activacion documentado: `docs/erp_listas_precios_segmentos_runbook_activacion.md`.
+- Readiness read-only del runbook preparado y validado: `storage/uat/uat_listas_precios_segmentos_runbook_readiness_readonly.php`; estado `ok=true`, sin archivos ni tokens faltantes.
+- UAT read-only de prioridad del resolutor preparado: `storage/uat/uat_listas_precios_prioridad_resolutor_readonly.php`. Estado actual con cliente UAT 1, SKU 1760, almacen 5, canal POS: gana `lista_cliente` por asignacion directa activa a lista 2; esto es correcto y tiene prioridad sobre segmento.
+- UAT read-only de cliente puro para segmento preparado: `storage/uat/uat_listas_precios_segmento_cliente_puro_readonly.php`. Estado actual: cliente CRM `2` es candidato recomendado para probar `lista_segmento_cliente` porque no tiene lista directa activa ni lista default.
+- Semaforo go/no-go read-only preparado: `storage/uat/uat_listas_precios_segmentos_go_nogo_readonly.php`. Estado actual: `GO_PARA_PEDIR_AUTORIZACION`; respaldo, lista 2, cliente puro 2 y resolutor previo estan correctos. Pendientes esperados: sembrar segmento `RECURRENTE` y crear `erp_segmentos_listas_precios`.
+- Acceptance post-apply read-only preparado: `storage/uat/uat_listas_precios_segmentos_post_apply_acceptance_readonly.php`. Estado actual antes del apply: `PENDIENTE_O_FAIL` esperado por falta de segmento, tabla puente, vinculo y cliente segmentado. Despues del apply debe devolver `PASS_POST_APPLY`.
+- Guardrails negativos de apply documentados: `docs/erp_listas_precios_segmentos_guardrails_apply.md`. Los 4 scripts protegidos fueron probados sin argumentos y quedaron en `modo=bloqueado`.
+- Baseline read-only de impacto en ventas preparada: `storage/uat/uat_listas_precios_segmentos_ventas_impacto_readonly.php`. Estado actual: `erp_ventas.total=22`, `erp_ventas.max_id=25`, `erp_ventas_detalle.total=23`, `erp_ventas_detalle.max_id=26`; el apply de segmentos no debe cambiar esos valores ni snapshots historicos.
+- Comparador read-only de baseline de ventas preparado: `storage/uat/uat_listas_precios_segmentos_ventas_baseline_compare_readonly.php`. Estado actual con baseline `22/25/23/26`: `BASELINE_VENTAS_INTACTA`; debe repetirse despues del apply.
+- Suite consolidada post-apply read-only preparada: `storage/uat/uat_listas_precios_segmentos_post_apply_suite_readonly.php`. Estado actual antes del apply: `PENDIENTE_O_FAIL_SUITE_POST_APPLY`, con `BASELINE_VENTAS_INTACTA` y acceptance pendiente por falta de segmento/tabla/vinculo. Despues del apply debe devolver `PASS_SUITE_POST_APPLY`.
+- Validacion final preautorizacion 2026-07-17: `uat_listas_precios_segmentos_go_nogo_readonly.php` devuelve `GO_PARA_PEDIR_AUTORIZACION`; `uat_listas_precios_segmentos_runbook_readiness_readonly.php` devuelve `ok=true`; el paquete de autorizacion devuelve los 4 comandos en orden y las 3 verificaciones post-apply sin ejecutar escritura.
+- Apply autorizado ejecutado 2026-07-17:
+  - segmentos CRM base sembrados/actualizados: `PUBLICO_GENERAL`, `RECURRENTE`, `MAYOREO`, `VIP`, `INSTALADOR`, `CONVENIO`, `ECOMMERCE_REG`;
+  - tabla `erp_segmentos_listas_precios` creada con indices de segmento, lista, alcance y vigencia;
+  - lista `2` vinculada al segmento `RECURRENTE` para canal `pos`, almacen `5`, prioridad `100`;
+  - cliente CRM `2` asignado a `RECURRENTE` y `id_segmento_default=2`.
+- Cierre post-apply 2026-07-17: `uat_listas_precios_segmentos_post_apply_suite_readonly.php --id_lista_precio=2 --codigo_segmento=RECURRENTE --id_cliente_crm=2 --id_sku=1760 --id_almacen=5 --canal=pos --ventas_total=23 --ventas_max_id=26 --detalle_total=24 --detalle_max_id=27` devuelve `PASS_SUITE_POST_APPLY`.
+- Resolutor validado:
+  - cliente CRM `2`, SKU `1760`, almacen `5`, canal `pos`: `regla_precio_origen=lista_segmento_cliente`, `id_lista_precio=2`, snapshot `Lista UAT borrador`, precio aplicado `315`;
+  - cliente CRM `1` conserva prioridad `lista_cliente` por asignacion directa activa a lista `2`.
+- Nota de baseline: antes del primer apply autorizado (`22:23:40`) ya existia la venta `POS-20260717-000002` a las `22:20:20`; por eso el baseline vigente para cierre quedo en `erp_ventas.total=23`, `erp_ventas.max_id=26`, `erp_ventas_detalle.total=24`, `erp_ventas_detalle.max_id=27`.
 
 Reglas del apply:
 

@@ -3,6 +3,7 @@
 ## Proyecto activo y ruta canonica
 
 - La ruta activa de este proyecto es `C:\xampp\htdocs\panel_de_control`.
+- El host local canonico es `http://panel.com.local/`.
 - No realizar cambios en `C:\xampp\htdocs\panel` para este proyecto salvo que el dueno lo pida explicitamente.
 - Si la sesion, IDE o herramienta muestra otra ruta, confirmar y usar `C:\xampp\htdocs\panel_de_control` como `workdir` antes de editar.
 - Los documentos, controladores, modelos, vistas y assets nuevos de ERP/POS deben crearse en `panel_de_control`.
@@ -14,9 +15,10 @@ Este archivo es la puerta de entrada para agentes que trabajen en este proyecto.
 2. Para plan maestro de ERP, lee `docs/erp_plan_maestro_fundamentos.md`.
 3. Para Compras, lee despues `docs/erp_compras_vision_operativa.md` y, si necesitas plan/tareas, `docs/erp_compras_plan_modulo.md`.
 4. Para notificaciones/alertas operativas transversales, lee `docs/erp_notificaciones_alertas_trabajo.md`.
-5. Usa busquedas puntuales por controlador, modelo, endpoint o metodo antes de abrir archivos grandes.
-6. No abras `dbesquema/artianilocal.sql` salvo que necesites validar una tabla/columna/indice especifico.
-7. No copies ni expongas credenciales desde `app/config/mysql.php`; solo menciona que define la conexion segun `SERVER_NAME`.
+5. Para configurar el entorno local, lee `docs/entorno_local_xampp_panel.md`.
+6. Usa busquedas puntuales por controlador, modelo, endpoint o metodo antes de abrir archivos grandes.
+7. No abras `dbesquema/artianilocal.sql` salvo que necesites validar una tabla/columna/indice especifico.
+8. No copies ni expongas credenciales desde `app/config/mysql.php`; solo menciona que define la conexion segun `SERVER_NAME`.
 
 ## Arquitectura base
 

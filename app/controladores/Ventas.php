@@ -561,6 +561,97 @@ class Ventas extends Controlador {
     $_POST["id_usuario"] = $this->usuarioActualId();
     return json_encode($this->modelo("VentasErp")->ventaInventarioPendienteReal($_POST));
   }
+
+  /**
+   * Documentacion IA: Codex GPT-5, 2026-07-18.
+   * Proposito: cobrar desde POS una venta productiva con inventario pendiente autorizado por supervisor.
+   * Impacto: crea venta, pago/caja, kardex parcial si aplica, expediente pendiente y alerta a Inventario/Existencias.
+   * Contrato: POST con CSRF, sesion, `ventas.operar`, `ventas.pos.inventario_pendiente.autorizar`, confirmacion exacta y motivo obligatorio.
+   */
+  public function pos_inventario_pendiente_cobrar_erp() {
+    $this->requerirPermiso("ventas.operar");
+    $this->requerirPermiso("ventas.pos.inventario_pendiente.autorizar");
+
+    $confirmacion = isset($_POST["confirmacion"]) ? strtoupper(trim((string) $_POST["confirmacion"])) : "";
+    $motivo = isset($_POST["motivo"]) ? trim((string) $_POST["motivo"]) : "";
+    if ($confirmacion !== "AUTORIZAR INVENTARIO PENDIENTE" || $motivo === "") {
+      $respuesta = array(
+        "error" => true,
+        "tipo" => "warning",
+        "mensaje" => "Inventario pendiente requiere confirmacion exacta y motivo obligatorio.",
+        "depurar" => array(
+          "bloqueos" => array("confirmacion_o_motivo_pendiente"),
+          "confirmacion_requerida" => "AUTORIZAR INVENTARIO PENDIENTE",
+          "reglas" => array("No aplica ecommerce.", "Requiere politica POS activa.", "Genera alerta a Inventario/Existencias.")
+        )
+      );
+      $this->auditarInventarioPendientePos("bloqueado", $respuesta);
+      return json_encode($respuesta);
+    }
+
+    $items = $this->jsonArrayPostVentas("items");
+    $pagos = $this->jsonArrayPostVentas("pagos");
+    if (count($items) !== 1) {
+      $respuesta = array(
+        "error" => true,
+        "tipo" => "warning",
+        "mensaje" => "Inventario pendiente productivo requiere una sola partida por operacion.",
+        "depurar" => array("bloqueos" => array("multipartida_no_soportada_en_inventario_pendiente_productivo"))
+      );
+      $this->auditarInventarioPendientePos("bloqueado", $respuesta);
+      return json_encode($respuesta);
+    }
+
+    $pagoCaja = null;
+    foreach ($pagos as $pago) {
+      $tipoPago = isset($pago["tipo_pago"]) ? strtolower(trim((string) $pago["tipo_pago"])) : "";
+      $metodoPago = isset($pago["metodo_pago"]) ? strtolower(trim((string) $pago["metodo_pago"])) : "";
+      if ($tipoPago === "saldo_cliente" || $metodoPago === "saldo_crm") {
+        continue;
+      }
+      if ($pagoCaja !== null) {
+        $respuesta = array(
+          "error" => true,
+          "tipo" => "warning",
+          "mensaje" => "Inventario pendiente productivo permite un solo pago de caja en esta version.",
+          "depurar" => array("bloqueos" => array("multipago_no_soportado_en_inventario_pendiente_productivo"))
+        );
+        $this->auditarInventarioPendientePos("bloqueado", $respuesta);
+        return json_encode($respuesta);
+      }
+      $pagoCaja = $pago;
+    }
+    if ($pagoCaja === null) {
+      $respuesta = array(
+        "error" => true,
+        "tipo" => "warning",
+        "mensaje" => "Inventario pendiente productivo requiere pago de caja.",
+        "depurar" => array("bloqueos" => array("pago_caja_obligatorio"))
+      );
+      $this->auditarInventarioPendientePos("bloqueado", $respuesta);
+      return json_encode($respuesta);
+    }
+
+    $item = $items[0];
+    $datos = array(
+      "id_usuario" => $this->usuarioActualId(),
+      "id_almacen" => isset($_POST["id_almacen"]) ? intval($_POST["id_almacen"]) : 0,
+      "canal" => "pos",
+      "id_sku" => isset($item["id_sku"]) ? intval($item["id_sku"]) : 0,
+      "cantidad" => isset($item["cantidad"]) ? floatval($item["cantidad"]) : 0,
+      "pago" => isset($pagoCaja["monto"]) ? floatval($pagoCaja["monto"]) : 0,
+      "id_metodo_pago" => isset($pagoCaja["id_metodo_pago"]) ? intval($pagoCaja["id_metodo_pago"]) : 0,
+      "referencia_pago" => isset($pagoCaja["referencia"]) ? trim((string) $pagoCaja["referencia"]) : "",
+      "cliente" => isset($_POST["cliente_nombre_publico"]) ? trim((string) $_POST["cliente_nombre_publico"]) : "Cliente mostrador",
+      "cliente_nombre_publico" => isset($_POST["cliente_nombre_publico"]) ? trim((string) $_POST["cliente_nombre_publico"]) : "Cliente mostrador",
+      "motivo" => $motivo,
+      "confirmacion" => $confirmacion,
+      "origen_productivo" => "pos_ui"
+    );
+    $respuesta = $this->modelo("VentasErp")->ventaInventarioPendienteReal($datos);
+    $this->auditarInventarioPendientePos("cobrar", $respuesta);
+    return json_encode($respuesta);
+  }
   /**
    * Documentacion IA: Codex GPT-5, 2026-06-26.
    * Proposito: simular resolucion de cliente/lista/precio sin escribir datos.
@@ -807,6 +898,29 @@ class Ventas extends Controlador {
       "mensaje" => isset($respuesta["mensaje"]) ? $respuesta["mensaje"] : "",
       "datos_despues" => $depurar
     ));
+  }
+
+  private function auditarInventarioPendientePos($accion, $respuesta) {
+    $depurar = isset($respuesta["depurar"]) && is_array($respuesta["depurar"]) ? $respuesta["depurar"] : array();
+    SesionSeguridad::registrarAuditoria("ventas", "pos_inventario_pendiente_" . $accion, array(
+      "entidad" => "erp_pos_inventario_pendientes",
+      "entidad_id" => isset($depurar["id_inventario_pendiente"]) ? $depurar["id_inventario_pendiente"] : null,
+      "resultado" => !empty($respuesta["error"]) ? "error" : (isset($respuesta["tipo"]) && $respuesta["tipo"] === "success" ? "ok" : "warning"),
+      "mensaje" => isset($respuesta["mensaje"]) ? $respuesta["mensaje"] : "",
+      "datos_despues" => $depurar
+    ));
+  }
+
+  private function jsonArrayPostVentas($campo) {
+    if (!isset($_POST[$campo])) {
+      return array();
+    }
+    $valor = $_POST[$campo];
+    if (is_array($valor)) {
+      return $valor;
+    }
+    $json = json_decode((string) $valor, true);
+    return is_array($json) ? $json : array();
   }
 
   private function requerirPermisoCajaDiferenciasResolver() {

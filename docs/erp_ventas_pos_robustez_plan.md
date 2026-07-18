@@ -1180,6 +1180,71 @@ Autorizacion posterior a esa, todavia no solicitada:
 AUTORIZO PREPARAR ENDPOINT PRODUCTIVO VENTA INVENTARIO PENDIENTE POS usando respaldo UAT POS vigente con token VENTAS_POS_INVENTARIO_PENDIENTE_PRODUCTIVO_ENDPOINT para UAT POS/Inventario
 ```
 
+## Readiness Endpoint Productivo Inventario Pendiente
+
+Fecha: 2026-07-18
+
+Se agrego `storage/uat/uat_ventas_pos_inventario_pendiente_endpoint_productivo_readiness.php` para auditar el pase de UAT/token a flujo productivo.
+
+Resultado vigente:
+
+- Permiso `ventas.pos.inventario_pendiente.autorizar` ya esta sembrado.
+- Usuario `1` tiene `ventas.operar`, `ventas.pos.inventario_pendiente.autorizar` e `inventario.ver`.
+- Politica POS activa para almacen `5`, SKU `1760`, canal `pos`.
+- El controlador conserva el endpoint real como UAT protegido por `sistema.soporte` y token.
+- El modelo real transaccional ya existe y debe reutilizarse.
+- UI POS no cobra inventario pendiente; solo hace dry-run y muestra venta real protegida.
+- Dry-run de SKU `1760` cantidad `1` queda `pendiente_autorizable`.
+- Bloqueos `[]`.
+
+Dictamen:
+
+- Ya no falta permiso.
+- Endpoint productivo separado ya fue preparado con permiso, confirmacion, motivo obligatorio y auditoria.
+- Falta UAT real controlada con turno abierto para validar venta, caja, expediente pendiente y notificacion desde la UI/endpoint productivo.
+
+Validaciones posteriores:
+
+- `php -l app/controladores/Ventas.php`: sin errores.
+- `node --check public/assets/js/custom/apps/erp/ventas/pos.js`: sin errores.
+- `uat_ventas_pos_inventario_pendiente_endpoint_productivo_readiness.php`: `ok=true`.
+- `uat_ventas_pos_productivo_readiness_readonly.php`: `ok=true`.
+
+Autorizacion siguiente para prueba real:
+
+```text
+AUTORIZO ABRIR TURNO POS UAT usando respaldo UAT POS vigente con id_usuario=1 y monto_inicial=500 observaciones="Apertura UAT endpoint productivo inventario pendiente POS"
+
+AUTORIZO EJECUTAR UAT PRODUCTIVA VENTA INVENTARIO PENDIENTE POS usando respaldo UAT POS vigente con token VENTAS_POS_INVENTARIO_PENDIENTE_PRODUCTIVO_REAL id_usuario=1 id_almacen=5 id_sku=1760 cantidad=1 pago=295 motivo="UAT endpoint productivo inventario pendiente POS" confirmacion="AUTORIZAR INVENTARIO PENDIENTE" para UAT POS/Inventario
+```
+
+## Avance 2026-07-18 - endpoint productivo inventario pendiente validado en UAT
+
+Estado:
+
+- Endpoint productivo preparado en `Ventas::pos_inventario_pendiente_cobrar_erp`.
+- UI POS preparada para mostrar autorizacion supervisada despues de dry-run autorizable.
+- UAT real ejecutada con venta `POS-20260717-000002`.
+- Caja ligada a turno `TUR-20260717-002-002`.
+- Pendiente inventario creado `PINV-20260717-000001`.
+- Notificacion creada `id_notificacion=19`.
+- Ticket formal read-only generado sin hallazgos.
+- Garantia snapshot creada como `Sin garantia`.
+
+Pendiente antes de cerrar este ciclo:
+
+- Cerrar turno `TUR-20260717-002-002` con monto contado esperado `$795.00`.
+- Resolver `PINV-20260717-000001` desde Inventario/Existencias con conteo fisico autorizado.
+- Revisar que reportes/cortes no dependan de `erp_pos_movimientos_caja.id_venta` cuando el enlace formal existe por `erp_ventas_pagos.id_movimiento_caja`.
+
+Siguiente bloque recomendable despues del cierre:
+
+- UAT de endpoint productivo desde navegador con sesion real y CSRF, no solo aplicador CLI.
+- Prueba UX: dry-run visible, motivo, confirmacion exacta y cobro.
+- Prueba negativa: sin permiso, sin motivo o confirmacion incorrecta debe bloquear.
+- Prueba de resolucion inventario pendiente y cierre de notificacion.
+- Reporte operativo: ventas normales, ventas con inventario pendiente, pendientes abiertos, pendientes resueltos y diferencia de caja por turno.
+
 ## Revalidacion Readiness POS
 
 Fecha: 2026-07-13

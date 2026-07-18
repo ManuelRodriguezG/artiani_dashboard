@@ -107,3 +107,11 @@ Esperado antes del DDL:
 - Auditoria debe mostrar `erp_segmentos_listas_precios` existente con columnas e indices.
 - Dry-run de asignacion segmento/lista debe validar segmento, lista, canal, almacen, prioridad y vigencia.
 - Resolver precio con cliente que tenga `id_segmento_default` debe poder devolver `regla_precio_origen=lista_segmento_cliente` cuando exista asignacion activa.
+
+## Runbook completo
+
+Para ejecutar la activacion en orden controlado, revisar:
+
+```text
+docs/erp_listas_precios_segmentos_runbook_activacion.md
+```

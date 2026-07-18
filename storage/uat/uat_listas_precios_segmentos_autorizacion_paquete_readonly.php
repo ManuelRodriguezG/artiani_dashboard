@@ -10,7 +10,7 @@
 $respaldo = isset($argv[1]) ? trim((string) $argv[1]) : "C:\\xampp\\panel_db_backups\\artianilocal_panel_20260717_000533_antes_listas_precios_segmentos.sql";
 $idLista = isset($argv[2]) ? intval($argv[2]) : 2;
 $codigoSegmento = isset($argv[3]) ? trim((string) $argv[3]) : "RECURRENTE";
-$idCliente = isset($argv[4]) ? intval($argv[4]) : 1;
+$idCliente = isset($argv[4]) ? intval($argv[4]) : 2;
 $idSku = isset($argv[5]) ? intval($argv[5]) : 1760;
 $idAlmacen = isset($argv[6]) ? intval($argv[6]) : 5;
 
@@ -37,6 +37,7 @@ $esquema = new VentasErpEsquema();
 $segmentos = $crm->segmentosCatalogoReadOnly(array("q" => $codigoSegmento, "limite" => 20));
 $segmento = buscarSegmentoPaquete($segmentos, $codigoSegmento);
 $cliente = clientePaquete($db, $idCliente);
+$asignacionesDirectasCliente = asignacionesDirectasClientePaquete($db, $idCliente);
 $consultaLista = $listas->consultarReadOnly($idLista);
 $auditoria = $esquema->auditarSegmentosListasPrecios();
 
@@ -78,6 +79,27 @@ $comandos = array(
     )
 );
 
+$verificacionesPostApply = array(
+    array(
+        "paso" => "post-1",
+        "nombre" => "Acceptance post-apply",
+        "escritura" => false,
+        "comando" => "C:\\xampp\\php\\php.exe storage\\uat\\uat_listas_precios_segmentos_post_apply_acceptance_readonly.php " . $idLista . " " . $codigoSegmento . " " . $idCliente . " " . $idSku . " " . $idAlmacen . " pos"
+    ),
+    array(
+        "paso" => "post-2",
+        "nombre" => "Baseline ventas intacta",
+        "escritura" => false,
+        "comando" => "C:\\xampp\\php\\php.exe storage\\uat\\uat_listas_precios_segmentos_ventas_baseline_compare_readonly.php --ventas_total=23 --ventas_max_id=26 --detalle_total=24 --detalle_max_id=27"
+    ),
+    array(
+        "paso" => "post-3",
+        "nombre" => "Suite consolidada post-apply",
+        "escritura" => false,
+        "comando" => "C:\\xampp\\php\\php.exe storage\\uat\\uat_listas_precios_segmentos_post_apply_suite_readonly.php --id_lista_precio=" . $idLista . " --codigo_segmento=" . $codigoSegmento . " --id_cliente_crm=" . $idCliente . " --id_sku=" . $idSku . " --id_almacen=" . $idAlmacen . " --canal=pos --ventas_total=23 --ventas_max_id=26 --detalle_total=24 --detalle_max_id=27"
+    )
+);
+
 echo json_encode(array(
     "ok" => true,
     "modo" => "read-only",
@@ -97,12 +119,33 @@ echo json_encode(array(
     ),
     "segmento" => $segmento,
     "cliente" => $cliente,
+    "asignaciones_directas_cliente" => $asignacionesDirectasCliente,
+    "advertencias_uat" => array_values(array_filter(array(
+        !empty($asignacionesDirectasCliente) ? "El cliente UAT tiene lista directa activa; el resolutor debe devolver lista_cliente aunque exista segmento. Para probar lista_segmento_cliente usa cliente sin lista directa o pausa la asignacion directa con autorizacion." : null
+    ))),
     "lista" => array(
         "error" => isset($consultaLista["error"]) ? $consultaLista["error"] : null,
         "mensaje" => isset($consultaLista["mensaje"]) ? $consultaLista["mensaje"] : "",
         "lista" => valorPaquete($consultaLista, array("depurar", "lista"), null)
     ),
     "comandos_en_orden" => $comandos,
+    "verificaciones_post_apply" => $verificacionesPostApply,
+    "autorizacion_requerida" => array(
+        "escribir_bd" => true,
+        "frase_sugerida" => "Autorizo ejecutar los 4 pasos apply_authorized de listas por segmento CRM usando el respaldo " . $respaldo . " y detenerse si algun paso falla.",
+        "alcance" => array(
+            "sembrar_segmentos_crm_base",
+            "crear_tabla_erp_segmentos_listas_precios",
+            "vincular_lista_" . $idLista . "_con_segmento_" . $codigoSegmento,
+            "asignar_cliente_" . $idCliente . "_al_segmento_" . $codigoSegmento
+        ),
+        "no_incluye" => array(
+            "modificar_ventas_pasadas",
+            "crear_promociones",
+            "activar_ecommerce",
+            "asignar_listas_directas_a_clientes_masivos"
+        )
+    ),
     "plan_reversa" => array(
         "documento" => "docs/erp_listas_precios_segmentos_plan_reversa.md",
         "preflight_readonly" => "C:\\xampp\\php\\php.exe storage\\uat\\uat_listas_precios_segmentos_reversa_preflight_readonly.php",
@@ -127,6 +170,37 @@ function clientePaquete($db, $idCliente) {
     $stmt->execute(array(":cliente" => intval($idCliente)));
     $cliente = $stmt->fetch(PDO::FETCH_ASSOC);
     return $cliente ? $cliente : null;
+}
+
+function asignacionesDirectasClientePaquete($db, $idCliente) {
+    if (!$db || intval($idCliente) <= 0 || !tablaPaqueteExiste($db, "erp_clientes_listas_precios")) {
+        return array();
+    }
+    if (!columnaPaqueteExiste($db, "erp_clientes_listas_precios", "id_cliente_crm")) {
+        return array();
+    }
+    $stmt = $db->prepare("SELECT cl.id_cliente_lista_precio, cl.id_lista_precio, cl.prioridad, cl.estatus,
+            l.codigo, l.nombre, l.canal, l.id_almacen, l.estatus estatus_lista
+        FROM erp_clientes_listas_precios cl
+        INNER JOIN erp_listas_precios l ON l.id_lista_precio=cl.id_lista_precio
+        WHERE cl.id_cliente_crm=:cliente
+          AND cl.estatus='activo'
+        ORDER BY cl.prioridad ASC, cl.id_cliente_lista_precio DESC
+        LIMIT 20");
+    $stmt->execute(array(":cliente" => intval($idCliente)));
+    return $stmt->fetchAll(PDO::FETCH_ASSOC);
+}
+
+function tablaPaqueteExiste($db, $tabla) {
+    $stmt = $db->prepare("SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=:tabla");
+    $stmt->execute(array(":tabla" => $tabla));
+    return intval($stmt->fetchColumn()) > 0;
+}
+
+function columnaPaqueteExiste($db, $tabla, $columna) {
+    $stmt = $db->prepare("SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=:tabla AND COLUMN_NAME=:columna");
+    $stmt->execute(array(":tabla" => $tabla, ":columna" => $columna));
+    return intval($stmt->fetchColumn()) > 0;
 }
 
 function buscarSegmentoPaquete($respuesta, $codigo) {

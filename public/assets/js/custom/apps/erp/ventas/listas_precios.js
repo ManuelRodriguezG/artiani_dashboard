@@ -1,6 +1,6 @@
 "use strict";
 (function () {
-    var estado = {listas: [], lista: null, productos: [], productosVisibles: [], cambios: {}, revision: null};
+    var estado = {listas: [], lista: null, productos: [], productosVisibles: [], cambios: {}, revision: null, segmentosListasDisponible: false};
 
     /**
      * IA: Codex GPT-5 | Fecha: 2026-07-15
@@ -169,6 +169,7 @@
         renderAsignaciones([]);
         renderAsignacionesSegmentos([], false);
         renderClientesResultados([]);
+        renderPreparacionSegmentos({crm_segmentos: false, crm_segmentos_rel: false, segmentos_listas: false}, "sin_validar");
         cargarSegmentosCrm();
         limpiarSegmentoSeleccionado();
         renderRevisionVacia();
@@ -758,6 +759,7 @@
             }
             renderSegmentosCrm(response.depurar || {});
         }).catch(function (error) {
+            renderPreparacionSegmentos({crm_segmentos: false, crm_segmentos_rel: false, segmentos_listas: false}, "sin_validar");
             var contenedor = document.getElementById("lp_segmentos_crm");
             if (contenedor) {
                 contenedor.innerHTML = "<div class=\"alert alert-warning py-3 mb-0\">" + escapeHtml(error.message || String(error)) + "</div>";
@@ -773,6 +775,9 @@
         var schema = data.schema || {};
         var segmentos = data.segmentos || [];
         var modo = data.modo || "planeado";
+        estado.segmentosListasDisponible = !!schema.segmentos_listas;
+        actualizarBotonGuardarSegmento();
+        renderPreparacionSegmentos(schema, modo);
         var html = "<div class=\"alert " + (schema.segmentos_listas ? "alert-light-success" : "alert-light-warning") + " py-3 mb-3\">" +
             "<div class=\"fw-semibold\">" + (schema.segmentos_listas ? "Asignacion por segmento preparada" : "Asignacion por segmento pendiente de DDL") + "</div>" +
             "<div class=\"fs-8\">Modo " + escapeHtml(modo) + ": CRM es dueno de segmentos; Listas solo debe vincularlos con permiso y auditoria.</div>" +
@@ -798,6 +803,30 @@
                 validarSegmentoLista();
             });
         });
+    }
+
+    function renderPreparacionSegmentos(schema, modo) {
+        var contenedor = document.getElementById("lp_segmentos_preparacion");
+        if (!contenedor) {
+            return;
+        }
+        var pasos = [
+            {ok: !!schema.crm_segmentos, texto: "Catalogo de segmentos CRM"},
+            {ok: !!schema.crm_segmentos_rel, texto: "Relacion cliente/segmento"},
+            {ok: !!schema.segmentos_listas, texto: "Puente segmento/lista de precios"}
+        ];
+        contenedor.innerHTML = "<div class=\"border rounded p-3 bg-light\">" +
+            "<div class=\"d-flex justify-content-between align-items-center mb-2\">" +
+                "<div class=\"fw-semibold fs-8 text-uppercase text-muted\">Preparacion segura</div>" +
+                "<span class=\"badge " + (schema.segmentos_listas ? "badge-light-success" : "badge-light-warning") + "\">" + escapeHtml(modo || "planeado") + "</span>" +
+            "</div>" +
+            pasos.map(function (paso) {
+                return "<div class=\"d-flex justify-content-between align-items-center fs-8 py-1\">" +
+                    "<span>" + escapeHtml(paso.texto) + "</span>" +
+                    "<span class=\"badge " + (paso.ok ? "badge-light-success" : "badge-light-warning") + "\">" + (paso.ok ? "listo" : "pendiente") + "</span>" +
+                "</div>";
+            }).join("") +
+        "</div>";
     }
 
     function limpiarSegmentoSeleccionado() {
@@ -863,6 +892,10 @@
     function guardarSegmentoLista() {
         if (!document.getElementById("lp_lista_id").value) {
             mostrarAlerta("warning", "Guarda o selecciona una lista antes de guardar segmento.");
+            return;
+        }
+        if (!estado.segmentosListasDisponible) {
+            mostrarAlerta("warning", "Falta aplicar el DDL de segmentos/listas antes de guardar el vinculo. Puedes validar en dry-run, pero no guardar.");
             return;
         }
         postRequest("/comercial/listas_precios_segmento_guardar_operativo_erp", payloadSegmentoLista()).then(function (response) {
@@ -1038,9 +1071,13 @@
             return;
         }
         if (!schemaDisponible) {
+            estado.segmentosListasDisponible = false;
+            actualizarBotonGuardarSegmento();
             contenedor.innerHTML = "<div class=\"alert alert-light-warning py-3 mb-0\">Tabla puente de segmentos pendiente. Ya puedes validar, pero el guardado real espera DDL autorizado.</div>";
             return;
         }
+        estado.segmentosListasDisponible = true;
+        actualizarBotonGuardarSegmento();
         contenedor.innerHTML = (asignaciones || []).map(function (item) {
             var almacen = item.id_almacen && Number(item.id_almacen) > 0 ? ("Alm. " + item.id_almacen) : "Todos";
             return "<div class=\"border rounded p-3 mb-2\">" +
@@ -1095,6 +1132,16 @@
 
     function badgeDetalle(estatus) {
         return "<span class=\"badge " + (estatus === "activo" ? "badge-light-success" : "badge-light") + "\">" + escapeHtml(estatus || "-") + "</span>";
+    }
+
+    function actualizarBotonGuardarSegmento() {
+        var boton = document.getElementById("lp_seg_guardar");
+        if (!boton) {
+            return;
+        }
+        boton.disabled = !estado.segmentosListasDisponible;
+        boton.className = estado.segmentosListasDisponible ? "btn btn-primary w-100" : "btn btn-light w-100";
+        boton.title = estado.segmentosListasDisponible ? "Guardar vinculo segmento/lista" : "Pendiente DDL erp_segmentos_listas_precios";
     }
 
     function cargarAuditoria() {

@@ -58,6 +58,10 @@
         .pos-corte-result { max-height: 320px; overflow: auto; }
         .pos-atenciones-result { max-height: 320px; overflow: auto; }
         .pos-cliente-result { max-height: 320px; overflow: auto; }
+        .pos-scan-preview { position: relative; border-radius: 8px; overflow: hidden; background: #111827; min-height: 360px; }
+        .pos-scan-preview video { width: 100%; min-height: 360px; object-fit: cover; display: block; }
+        .pos-scan-guide { position: absolute; left: 10%; right: 10%; top: 38%; height: 86px; border: 2px solid rgba(255,255,255,.9); border-radius: 8px; box-shadow: 0 0 0 999px rgba(0,0,0,.22); pointer-events: none; }
+        .pos-scan-line { position: absolute; left: 12%; right: 12%; top: calc(38% + 43px); height: 2px; background: #50cd89; box-shadow: 0 0 12px rgba(80,205,137,.75); pointer-events: none; }
         @media (max-width: 991px) {
             .pos-cart-list { max-height: none; }
             .pos-product { width: 190px; min-width: 190px; }
@@ -141,9 +145,10 @@
                                     </div>
                                     <div class="col-lg-12">
                                         <label class="form-label text-muted fs-8 text-uppercase">Buscar producto</label>
-                                        <div class="position-relative">
-                                            <i class="bi bi-search fs-3 position-absolute ms-4 mt-3"></i>
-                                            <input class="form-control form-control-lg ps-12" id="pos_buscar" autocomplete="off" placeholder="Escanea o busca SKU, producto, codigo o etiqueta">
+                                        <div class="input-group input-group-lg">
+                                            <span class="input-group-text bg-white"><i class="bi bi-search fs-3"></i></span>
+                                            <input class="form-control" id="pos_buscar" autocomplete="off" placeholder="Escanea o busca SKU, producto, codigo o etiqueta">
+                                            <button class="btn btn-light-primary" id="pos_scan_camera_btn" type="button" title="Escanear con camara"><i class="bi bi-camera"></i></button>
                                         </div>
                                     </div>
                                 </div>
@@ -261,6 +266,35 @@
                         </div>
                     </div>
                 </div>
+            </div>
+        </div>
+    </div>
+</div>
+<div class="modal fade" id="pos_scan_modal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div>
+                    <h3 class="modal-title mb-1">Escanear producto</h3>
+                    <div class="text-muted fs-7">Lee codigo de barras para agregar a la cuenta actual</div>
+                </div>
+                <button type="button" class="btn btn-icon btn-sm btn-active-light-primary" data-bs-dismiss="modal"><i class="bi bi-x-lg"></i></button>
+            </div>
+            <div class="modal-body">
+                <div class="d-flex flex-wrap gap-2 align-items-center mb-3">
+                    <label class="form-label text-muted fs-8 text-uppercase mb-0 d-none" id="pos_scan_camera_device_label">Camara</label>
+                    <select class="form-select form-select-solid w-auto d-none" id="pos_scan_camera_device"></select>
+                    <button class="btn btn-light-primary" id="pos_scan_start" type="button"><i class="bi bi-camera-video"></i> Iniciar</button>
+                    <button class="btn btn-light-warning d-none" id="pos_scan_torch" type="button"><i class="bi bi-lightbulb"></i> Luz</button>
+                    <button class="btn btn-light-info d-none" id="pos_scan_focus" type="button"><i class="bi bi-bullseye"></i> Enfoque</button>
+                    <button class="btn btn-light-danger d-none" id="pos_scan_stop" type="button"><i class="bi bi-stop-circle"></i> Detener</button>
+                </div>
+                <div class="pos-scan-preview d-none" id="pos_scan_wrap">
+                    <video id="pos_scan_video" playsinline muted autoplay></video>
+                    <div class="pos-scan-guide"></div>
+                    <div class="pos-scan-line"></div>
+                </div>
+                <div class="text-muted fs-7 mt-3" id="pos_scan_estado">Abre la camara y apunta al codigo. El producto se agregara solo si hay coincidencia unica.</div>
             </div>
         </div>
     </div>
@@ -441,6 +475,6 @@ window.POS_USUARIO_ACTUAL = <?= json_encode(array(
 </script>
 <script src="assets/plugins/global/plugins.bundle.js"></script>
 <script src="assets/js/scripts.bundle.js"></script>
-<script src="/assets/js/custom/apps/erp/ventas/pos.js?v=20260703-pedidos-f10"></script>
+<script src="/assets/js/custom/apps/erp/ventas/pos.js?v=20260717-scan-pos"></script>
 </body>
 </html>

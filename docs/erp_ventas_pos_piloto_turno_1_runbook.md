@@ -119,3 +119,60 @@ Antes del primer piloto real:
 - Confirmar stock disponible del SKU que se vendera. El ultimo semaforo detecto SKU `1760` sin disponible en almacen `5`.
 - Si no hay stock, no forzar venta normal. Primero cargar inventario por recepcion/ajuste autorizado o usar una carga UAT autorizada.
 - Revisar evidencias de caja pendientes. La evidencia historica `GASTO-UAT-001` por `$50.00` no bloquea venta normal, pero debe cerrarse por control administrativo.
+
+## Piloto Multiusuario
+
+Para que varias personas cobren o preparen atenciones sobre el mismo POS, cada una debe entrar con su propio usuario. El turno puede pertenecer a la misma caja/terminal, pero la trazabilidad debe guardar quien creo la atencion, quien la tomo y quien cobro.
+
+Estado actual:
+
+- Usuario `1`: listo.
+- Usuarios `2` y `3`: activos, pero sin rol/permisos ventas y sin asignacion POS objetivo.
+
+No iniciar piloto multiusuario real hasta habilitar usuarios y validar nuevamente el preflight:
+
+```powershell
+C:\xampp\php\php.exe storage\uat\uat_ventas_pos_multiusuario_preflight_readonly.php --usuarios=1,2,3 --id_almacen=5 --id_caja=2 --id_terminal=2
+```
+
+Runbook especifico:
+
+```text
+docs/erp_ventas_pos_multiusuario_runbook.md
+```
+
+## Prueba Rapida De Escaneo En POS
+
+Esta prueba no cobra ni mueve inventario hasta que presiones `Cobrar`.
+
+1. Entrar a `http://panel.com.local/ventas/pos`.
+2. Confirmar que el POS abra con operador, sucursal, caja y turno correcto.
+3. Presionar el boton de camara junto al buscador, o usar `F3`.
+4. Permitir camara en el navegador.
+5. Si aparecen varias camaras, elegir la trasera/principal; evitar ultra wide o macro si se ve borroso.
+6. Apuntar al codigo de barras.
+7. Resultado esperado:
+   - Si hay una coincidencia unica, el producto se agrega al carrito de la cuenta actual.
+   - Si hay varias coincidencias, se muestran tarjetas y eliges la correcta.
+   - Si no hay coincidencias, el POS deja el codigo en el buscador para captura manual o revision de catalogo.
+8. Revisar cantidad/peso, precio y modo de salida antes de cobrar.
+
+Check tecnico read-only disponible:
+
+```powershell
+C:\xampp\php\php.exe storage\uat\uat_ventas_pos_escaner_ui_readiness_readonly.php
+```
+
+## Semaforo Go/No-Go
+
+Antes de iniciar piloto o pedir autorizaciones fuertes, ejecutar:
+
+```powershell
+C:\xampp\php\php.exe storage\uat\uat_ventas_pos_piloto_go_nogo_readonly.php --id_usuario=1 --id_almacen=5 --id_caja=2 --id_terminal=2 --id_sku=1760 --id_atencion=2 --cantidad=1 --usuarios=1,2,3
+```
+
+Interpretacion actual:
+
+- `apto_con_condiciones` significa que el POS base no tiene bloqueo tecnico para piloto controlado.
+- No significa que ya haya stock para vender ni que todos los usuarios puedan operar.
+- Si se quiere piloto multiusuario, primero habilitar usuarios faltantes con autorizacion fuerte.
