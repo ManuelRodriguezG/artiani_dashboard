@@ -129,6 +129,7 @@ Estado 2026-07-16:
   - cliente CRM `2`, SKU `1760`, almacen `5`, canal `pos`: `regla_precio_origen=lista_segmento_cliente`, `id_lista_precio=2`, snapshot `Lista UAT borrador`, precio aplicado `315`;
   - cliente CRM `1` conserva prioridad `lista_cliente` por asignacion directa activa a lista `2`.
 - Nota de baseline: antes del primer apply autorizado (`22:23:40`) ya existia la venta `POS-20260717-000002` a las `22:20:20`; por eso el baseline vigente para cierre quedo en `erp_ventas.total=23`, `erp_ventas.max_id=26`, `erp_ventas_detalle.total=24`, `erp_ventas_detalle.max_id=27`.
+- UI operativa 2026-07-18: `Comercial > Listas de precios` ya muestra segmentos como activos, oculta el ID tecnico en la captura principal, permite seleccionar segmento por tarjeta, limpiar el formulario de vinculo y operar vinculos existentes con cargar/pausar/activar/cancelar. El boton guardar solo queda bloqueado si el schema de segmentos/listas no esta disponible.
 
 Reglas del apply:
 

@@ -1049,6 +1049,9 @@ class VentasErp extends CRUD {
                 $bloqueos[] = "El monto inicial no puede ser negativo";
             }
             $folioSugerido = "TUR-" . date("Ymd") . "-" . str_pad((string) max(1, $idCaja), 3, "0", STR_PAD_LEFT);
+            if ($idCaja > 0 && $this->tablaExiste($db, "erp_pos_turnos")) {
+                $folioSugerido = $this->siguienteFolioTurnoPos($db, $idCaja);
+            }
             return $this->respuesta(false, empty($bloqueos) ? "success" : "warning", empty($bloqueos) ? "Dry-run de apertura valido" : "Dry-run de apertura bloqueado", array(
                 "dry_run" => true,
                 "id_almacen" => $idAlmacen,
@@ -1064,6 +1067,171 @@ class VentasErp extends CRUD {
                 )
             ));
         } catch (Exception $e) {
+            return $this->respuesta(true, "danger", $e->getMessage());
+        }
+    }
+
+    /**
+     * Documentacion IA: Codex GPT-5, 2026-07-18.
+     * Proposito: abrir turno POS real desde UI con asignacion oficial y confirmacion explicita.
+     * Impacto: inserta `erp_pos_turnos` y movimiento inicial de caja en una transaccion.
+     * Contrato: escribe BD; requiere usuario asignado, sin turno abierto, monto valido y confirmacion `ABRIR TURNO`.
+     */
+    public function abrirTurnoRealPos($datos = array()) {
+        $db = null;
+        try {
+            $db = $this->getConexion();
+            if (!$db) {
+                return $this->respuesta(true, "warning", "No se puede abrir turno sin conexion MySQL", array(
+                    "bloqueos" => array("Conexion MySQL no disponible para apertura real")
+                ));
+            }
+
+            $idUsuario = intval($this->valor($datos, "id_usuario", 0));
+            $idAlmacen = intval($this->valor($datos, "id_almacen", 0));
+            $idCaja = intval($this->valor($datos, "id_caja", 0));
+            $montoInicial = round(floatval($this->valor($datos, "monto_inicial", 0)), 6);
+            $observaciones = trim((string) $this->valor($datos, "observaciones", ""));
+            $confirmacion = strtoupper(trim((string) $this->valor($datos, "confirmacion", "")));
+            $bloqueos = array();
+
+            if ($idUsuario <= 0) {
+                $bloqueos[] = "Usuario invalido para apertura";
+            }
+            if ($montoInicial < 0) {
+                $bloqueos[] = "El monto inicial no puede ser negativo";
+            }
+            if ($confirmacion !== "ABRIR TURNO") {
+                $bloqueos[] = "Escribe ABRIR TURNO para confirmar";
+            }
+            foreach (array("erp_pos_cajas", "erp_pos_usuarios_cajas", "erp_pos_turnos", "erp_pos_movimientos_caja") as $tabla) {
+                if (!$this->tablaExiste($db, $tabla)) {
+                    $bloqueos[] = "Falta tabla requerida: " . $tabla;
+                }
+            }
+
+            $asignacionRespuesta = $idUsuario > 0 ? $this->asignacionActualTerminalPos(array("id_usuario" => $idUsuario)) : array();
+            $depurarAsignacion = $this->valor($asignacionRespuesta, "depurar", array());
+            $asignacion = $this->valor($depurarAsignacion, "asignacion", array());
+            if (empty($depurarAsignacion["asignacion_activa"]) || empty($asignacion)) {
+                $bloqueos[] = "Usuario sin asignacion POS activa";
+            } else {
+                $idAlmacenAsignado = intval($this->valor($asignacion, "id_almacen", 0));
+                $idCajaAsignada = intval($this->valor($asignacion, "id_caja", 0));
+                if ($idAlmacen <= 0) {
+                    $idAlmacen = $idAlmacenAsignado;
+                }
+                if ($idCaja <= 0) {
+                    $idCaja = $idCajaAsignada;
+                }
+                if ($idAlmacen !== $idAlmacenAsignado || $idCaja !== $idCajaAsignada) {
+                    $bloqueos[] = "La apertura debe corresponder a la caja asignada al usuario";
+                }
+                if (!empty($depurarAsignacion["turno_abierto"])) {
+                    $turnoAbierto = $this->valor($depurarAsignacion, "turno_abierto", array());
+                    $bloqueos[] = "Ya existe turno abierto para esta caja: " . $this->valor($turnoAbierto, "folio", "");
+                }
+            }
+
+            $dryRun = empty($bloqueos) ? $this->aperturaTurnoDryRun(array(
+                "id_almacen" => $idAlmacen,
+                "id_caja" => $idCaja,
+                "monto_inicial" => $montoInicial
+            )) : array("error" => true, "depurar" => array("bloqueos" => $bloqueos));
+            $depurarDryRun = $this->valor($dryRun, "depurar", array());
+            $bloqueosDryRun = $this->valor($depurarDryRun, "bloqueos", array());
+            if (!empty($dryRun["error"]) && empty($bloqueosDryRun)) {
+                $bloqueosDryRun[] = $this->valor($dryRun, "mensaje", "Dry-run de apertura con error");
+            }
+            foreach ($bloqueosDryRun as $bloqueoDryRun) {
+                $bloqueos[] = $bloqueoDryRun;
+            }
+
+            if (!empty($bloqueos)) {
+                return $this->respuesta(false, "warning", "Apertura real bloqueada", array(
+                    "bloqueos" => array_values(array_unique($bloqueos)),
+                    "asignacion" => $depurarAsignacion,
+                    "dry_run" => $depurarDryRun
+                ));
+            }
+
+            $db->beginTransaction();
+
+            $stmt = $db->prepare("SELECT id_turno_caja, folio
+                FROM erp_pos_turnos
+                WHERE id_caja=:caja AND id_almacen=:almacen AND estatus='abierto'
+                LIMIT 1 FOR UPDATE");
+            $stmt->execute(array(":caja" => $idCaja, ":almacen" => $idAlmacen));
+            $abierto = $stmt->fetch(PDO::FETCH_ASSOC);
+            if ($abierto) {
+                throw new Exception("Ya existe turno abierto para esta caja: " . $this->valor($abierto, "folio", ""));
+            }
+
+            $folio = $this->siguienteFolioTurnoPos($db, $idCaja);
+            $stmt = $db->prepare("INSERT INTO erp_pos_turnos
+                (folio, id_caja, id_almacen, id_usuario_apertura, monto_inicial, monto_esperado, monto_contado, diferencia, estatus, fecha_apertura, observaciones_apertura)
+                VALUES (:folio, :caja, :almacen, :usuario, :monto, :monto_esperado, 0, 0, 'abierto', NOW(), :observaciones)");
+            $stmt->execute(array(
+                ":folio" => $folio,
+                ":caja" => $idCaja,
+                ":almacen" => $idAlmacen,
+                ":usuario" => $idUsuario,
+                ":monto" => $montoInicial,
+                ":monto_esperado" => $montoInicial,
+                ":observaciones" => $observaciones
+            ));
+            $idTurno = intval($db->lastInsertId());
+
+            if ($this->columnaExiste($db, "erp_pos_movimientos_caja", "id_caja")) {
+                $stmt = $db->prepare("INSERT INTO erp_pos_movimientos_caja
+                    (id_turno_caja, id_caja, id_almacen, tipo, categoria, motivo, monto, estatus,
+                     referencia, requiere_autorizacion, requiere_evidencia, observaciones, creado_por, fecha_registro, fecha_actualizacion)
+                    VALUES (:turno, :caja, :almacen, 'entrada', 'apertura_turno', 'monto_inicial', :monto, 'registrado',
+                     :referencia, 0, 0, :observaciones, :usuario, NOW(), NOW())");
+                $stmt->execute(array(
+                    ":turno" => $idTurno,
+                    ":caja" => $idCaja,
+                    ":almacen" => $idAlmacen,
+                    ":monto" => $montoInicial,
+                    ":referencia" => $folio,
+                    ":observaciones" => $observaciones,
+                    ":usuario" => $idUsuario
+                ));
+            } else {
+                $stmt = $db->prepare("INSERT INTO erp_pos_movimientos_caja
+                    (id_turno_caja, tipo, motivo, monto, referencia, observaciones, creado_por, fecha_registro)
+                    VALUES (:turno, 'entrada', 'monto_inicial', :monto, :referencia, :observaciones, :usuario, NOW())");
+                $stmt->execute(array(
+                    ":turno" => $idTurno,
+                    ":monto" => $montoInicial,
+                    ":referencia" => $folio,
+                    ":observaciones" => $observaciones,
+                    ":usuario" => $idUsuario
+                ));
+            }
+            $idMovimientoCaja = intval($db->lastInsertId());
+
+            $db->commit();
+            return $this->respuesta(false, "success", "Turno POS abierto correctamente", array(
+                "id_usuario" => $idUsuario,
+                "id_almacen" => $idAlmacen,
+                "id_caja" => $idCaja,
+                "id_turno_caja" => $idTurno,
+                "folio" => $folio,
+                "id_movimiento_caja" => $idMovimientoCaja,
+                "monto_inicial" => $montoInicial,
+                "monto_esperado" => $montoInicial,
+                "contrato" => array(
+                    "abierto_por_usuario_asignado" => true,
+                    "crea_movimiento_inicial" => true,
+                    "impide_doble_turno_abierto" => true,
+                    "no_mueve_inventario" => true
+                )
+            ));
+        } catch (Exception $e) {
+            if ($db && $db->inTransaction()) {
+                $db->rollBack();
+            }
             return $this->respuesta(true, "danger", $e->getMessage());
         }
     }
@@ -11049,6 +11217,13 @@ class VentasErp extends CRUD {
         $stmt = $db->prepare("SELECT COUNT(*) FROM erp_inventario_reservas WHERE folio LIKE :prefijo");
         $stmt->execute(array(":prefijo" => $prefijo . "%"));
         return $prefijo . str_pad((string) (intval($stmt->fetchColumn()) + 1), 6, "0", STR_PAD_LEFT);
+    }
+
+    private function siguienteFolioTurnoPos($db, $idCaja) {
+        $prefijo = "TUR-" . date("Ymd") . "-" . str_pad((string) intval($idCaja), 3, "0", STR_PAD_LEFT) . "-";
+        $stmt = $db->prepare("SELECT COUNT(*) FROM erp_pos_turnos WHERE folio LIKE :prefijo");
+        $stmt->execute(array(":prefijo" => $prefijo . "%"));
+        return $prefijo . str_pad((string) (intval($stmt->fetchColumn()) + 1), 3, "0", STR_PAD_LEFT);
     }
 
     private function valorRutaPosReal($datos, $ruta, $default = null) {

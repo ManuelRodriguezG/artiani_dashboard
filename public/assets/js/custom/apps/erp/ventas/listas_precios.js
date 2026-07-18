@@ -1,6 +1,6 @@
 "use strict";
 (function () {
-    var estado = {listas: [], lista: null, productos: [], productosVisibles: [], cambios: {}, revision: null, segmentosListasDisponible: false};
+    var estado = {listas: [], lista: null, productos: [], productosVisibles: [], cambios: {}, revision: null, segmentosListasDisponible: false, segmentosPorId: {}};
 
     /**
      * IA: Codex GPT-5 | Fecha: 2026-07-15
@@ -775,6 +775,10 @@
         var schema = data.schema || {};
         var segmentos = data.segmentos || [];
         var modo = data.modo || "planeado";
+        estado.segmentosPorId = {};
+        segmentos.forEach(function (item) {
+            estado.segmentosPorId[String(item.id_segmento_crm || "")] = item;
+        });
         estado.segmentosListasDisponible = !!schema.segmentos_listas;
         actualizarBotonGuardarSegmento();
         renderPreparacionSegmentos(schema, modo);
@@ -798,11 +802,27 @@
         contenedor.innerHTML = html;
         document.querySelectorAll("[data-lp-segmento-usar]").forEach(function (boton) {
             boton.addEventListener("click", function () {
-                document.getElementById("lp_seg_id").value = boton.getAttribute("data-lp-segmento-usar") || "";
-                mostrarAlerta("success", "Segmento seleccionado: " + (boton.getAttribute("data-lp-segmento-nombre") || ""));
+                seleccionarSegmento(
+                    boton.getAttribute("data-lp-segmento-usar") || "",
+                    boton.getAttribute("data-lp-segmento-nombre") || ""
+                );
                 validarSegmentoLista();
             });
         });
+    }
+
+    function seleccionarSegmento(idSegmento, nombre) {
+        document.getElementById("lp_seg_id").value = idSegmento || "";
+        document.getElementById("lp_seg_nombre").value = nombre || nombreSegmentoPorId(idSegmento) || "";
+        mostrarAlerta("success", "Segmento seleccionado: " + (document.getElementById("lp_seg_nombre").value || idSegmento || ""));
+    }
+
+    function nombreSegmentoPorId(idSegmento) {
+        var segmento = estado.segmentosPorId[String(idSegmento || "")] || null;
+        if (!segmento) {
+            return "";
+        }
+        return segmento.nombre || segmento.codigo || ("Segmento " + idSegmento);
     }
 
     function renderPreparacionSegmentos(schema, modo) {
@@ -830,7 +850,7 @@
     }
 
     function limpiarSegmentoSeleccionado() {
-        ["lp_seg_asig_id", "lp_seg_id", "lp_segmento_dryrun"].forEach(function (id) {
+        ["lp_seg_asig_id", "lp_seg_id", "lp_seg_nombre", "lp_segmento_dryrun"].forEach(function (id) {
             var el = document.getElementById(id);
             if (el) {
                 if (id === "lp_segmento_dryrun") {
@@ -895,7 +915,7 @@
             return;
         }
         if (!estado.segmentosListasDisponible) {
-            mostrarAlerta("warning", "Falta aplicar el DDL de segmentos/listas antes de guardar el vinculo. Puedes validar en dry-run, pero no guardar.");
+            mostrarAlerta("warning", "La tabla de segmentos/listas no esta disponible. Recarga la pantalla o valida esquema.");
             return;
         }
         postRequest("/comercial/listas_precios_segmento_guardar_operativo_erp", payloadSegmentoLista()).then(function (response) {
@@ -1083,14 +1103,20 @@
             return "<div class=\"border rounded p-3 mb-2\">" +
                 "<div class=\"d-flex justify-content-between gap-2\"><div class=\"fw-semibold\">" + escapeHtml(item.nombre_segmento || item.codigo_segmento || ("Segmento " + (item.id_segmento_crm || "-"))) + "</div>" + badgeDetalle(item.estatus || "") + "</div>" +
                 "<div class=\"text-muted fs-8 mb-2\">" + escapeHtml(item.codigo_segmento || "") + " | " + escapeHtml(item.canal || "general") + " | " + escapeHtml(almacen) + " | prioridad " + escapeHtml(item.prioridad || "100") + "</div>" +
-                "<button class=\"btn btn-sm btn-light-primary\" type=\"button\" data-lp-seg-editar=\"" + escapeHtml(item.id_segmento_lista_precio || "") + "\" data-lp-seg-id=\"" + escapeHtml(item.id_segmento_crm || "") + "\" data-lp-seg-canal=\"" + escapeHtml(item.canal || "general") + "\" data-lp-seg-almacen=\"" + escapeHtml(item.id_almacen || "") + "\" data-lp-seg-prioridad=\"" + escapeHtml(item.prioridad || "100") + "\" data-lp-seg-estatus=\"" + escapeHtml(item.estatus || "activo") + "\" data-lp-seg-inicio=\"" + escapeHtml(fechaInput(item.fecha_inicio)) + "\" data-lp-seg-fin=\"" + escapeHtml(fechaInput(item.fecha_fin)) + "\"><i class=\"bi bi-pencil\"></i> Cargar</button>" +
+                "<div class=\"d-flex flex-wrap gap-2\">" +
+                    botonSegmentoAccion("Cargar", "bi-pencil", "light-primary", item, "") +
+                    (item.estatus === "activo" ? botonSegmentoAccion("Pausar", "bi-pause-circle", "light-warning", item, "pausado") : "") +
+                    (item.estatus === "pausado" ? botonSegmentoAccion("Activar", "bi-check2-circle", "light-success", item, "activo") : "") +
+                    (item.estatus !== "cancelado" ? botonSegmentoAccion("Cancelar", "bi-x-circle", "light-danger", item, "cancelado") : "") +
+                "</div>" +
             "</div>";
         }).join("") || "<div class=\"text-muted fs-7\">Sin segmentos vinculados.</div>";
 
-        document.querySelectorAll("[data-lp-seg-editar]").forEach(function (boton) {
+        document.querySelectorAll("[data-lp-seg-cargar]").forEach(function (boton) {
             boton.addEventListener("click", function () {
                 document.getElementById("lp_seg_asig_id").value = boton.getAttribute("data-lp-seg-editar") || "";
                 document.getElementById("lp_seg_id").value = boton.getAttribute("data-lp-seg-id") || "";
+                document.getElementById("lp_seg_nombre").value = boton.getAttribute("data-lp-seg-nombre") || nombreSegmentoPorId(boton.getAttribute("data-lp-seg-id") || "");
                 document.getElementById("lp_seg_canal").value = boton.getAttribute("data-lp-seg-canal") || "general";
                 document.getElementById("lp_seg_almacen").value = boton.getAttribute("data-lp-seg-almacen") || "";
                 document.getElementById("lp_seg_prioridad").value = boton.getAttribute("data-lp-seg-prioridad") || "100";
@@ -1100,6 +1126,61 @@
                 validarSegmentoLista();
             });
         });
+        document.querySelectorAll("[data-lp-seg-estatus-rapido]").forEach(function (boton) {
+            boton.addEventListener("click", function () {
+                cambiarEstatusSegmento(
+                    boton.getAttribute("data-lp-seg-estatus-rapido") || "",
+                    boton
+                );
+            });
+        });
+    }
+
+    function botonSegmentoAccion(texto, icono, clase, item, estatusRapido) {
+        var attrs = " data-lp-seg-editar=\"" + escapeHtml(item.id_segmento_lista_precio || "") + "\"" +
+            " data-lp-seg-id=\"" + escapeHtml(item.id_segmento_crm || "") + "\"" +
+            " data-lp-seg-nombre=\"" + escapeHtml(item.nombre_segmento || item.codigo_segmento || "") + "\"" +
+            " data-lp-seg-canal=\"" + escapeHtml(item.canal || "general") + "\"" +
+            " data-lp-seg-almacen=\"" + escapeHtml(item.id_almacen || "") + "\"" +
+            " data-lp-seg-prioridad=\"" + escapeHtml(item.prioridad || "100") + "\"" +
+            " data-lp-seg-estatus=\"" + escapeHtml(item.estatus || "activo") + "\"" +
+            " data-lp-seg-inicio=\"" + escapeHtml(fechaInput(item.fecha_inicio)) + "\"" +
+            " data-lp-seg-fin=\"" + escapeHtml(fechaInput(item.fecha_fin)) + "\"";
+        if (estatusRapido) {
+            attrs += " data-lp-seg-estatus-rapido=\"" + escapeHtml(estatusRapido) + "\"";
+        } else {
+            attrs += " data-lp-seg-cargar=\"1\"";
+        }
+        return "<button class=\"btn btn-sm btn-" + escapeHtml(clase) + "\" type=\"button\"" + attrs + "><i class=\"bi " + escapeHtml(icono) + "\"></i> " + escapeHtml(texto) + "</button>";
+    }
+
+    function cambiarEstatusSegmento(estatus, boton) {
+        if (!estatus || !boton) {
+            return;
+        }
+        var texto = estatus === "cancelado" ? "Cancelar este vinculo por segmento?" : "Cambiar este vinculo a " + estatus + "?";
+        if (!window.confirm(texto)) {
+            return;
+        }
+        postRequest("/comercial/listas_precios_segmento_guardar_operativo_erp", {
+            id_segmento_lista_precio: boton.getAttribute("data-lp-seg-editar") || "",
+            id_segmento_crm: boton.getAttribute("data-lp-seg-id") || "",
+            id_lista_precio: document.getElementById("lp_lista_id").value,
+            canal: boton.getAttribute("data-lp-seg-canal") || "general",
+            id_almacen: boton.getAttribute("data-lp-seg-almacen") || "",
+            prioridad: boton.getAttribute("data-lp-seg-prioridad") || "100",
+            fecha_inicio: boton.getAttribute("data-lp-seg-inicio") || "",
+            fecha_fin: boton.getAttribute("data-lp-seg-fin") || "",
+            estatus: estatus,
+            motivo: "Cambio operativo de estatus de vinculo segmento/lista"
+        }).then(function (response) {
+            if (response.error) {
+                throw new Error(response.mensaje);
+            }
+            mostrarAlerta("success", response.mensaje || "Vinculo actualizado.");
+            consultarLista(document.getElementById("lp_lista_id").value);
+            cargarResumen();
+        }).catch(mostrarError);
     }
 
     function quitarAsignacionCliente(idAsignacion, idCliente, prioridad) {
@@ -1192,6 +1273,7 @@
         document.getElementById("lp_guardar_cambios").addEventListener("click", guardarCambiosLote);
         document.getElementById("lp_cliente_buscar").addEventListener("click", buscarClientesCrm);
         document.getElementById("lp_segmentos_recargar").addEventListener("click", cargarSegmentosCrm);
+        document.getElementById("lp_seg_nuevo").addEventListener("click", limpiarSegmentoSeleccionado);
         document.getElementById("lp_seg_validar").addEventListener("click", validarSegmentoLista);
         document.getElementById("lp_seg_guardar").addEventListener("click", guardarSegmentoLista);
         document.getElementById("lp_guardar_asig").addEventListener("click", guardarAsignacion);

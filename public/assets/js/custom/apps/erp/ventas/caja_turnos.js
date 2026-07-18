@@ -66,7 +66,7 @@
         document.getElementById("pos_caja_kpi_movimientos").textContent = Number(resumen.movimientos_recientes || 0);
         document.getElementById("pos_caja_alerta").innerHTML = estado.schema_pendiente
             ? "<div class=\"alert alert-warning py-3\"><div class=\"fw-bold\">Configuracion POS incompleta</div><div class=\"fs-7\">Faltan tablas o columnas para operar caja productiva. Esta vista solo consulta y simula.</div></div>"
-            : "<div class=\"alert alert-info py-3\"><div class=\"fw-bold\">Caja separada del POS</div><div class=\"fs-7\">Esta pantalla consulta caja y simula corte. Cerrar un turno real requiere autorizacion con respaldo.</div></div>";
+            : "<div class=\"alert alert-info py-3\"><div class=\"fw-bold\">Caja separada del POS</div><div class=\"fs-7\">Esta pantalla abre/cierra turnos con dry-run previo, caja asignada y confirmacion escrita.</div></div>";
         llenarSelectores();
         renderDenominaciones();
         calcularArqueo();
@@ -193,12 +193,12 @@
             if (response.error) { throw new Error(response.mensaje); }
             var data = response.depurar || {};
             var bloqueos = data.bloqueos || [];
-            var html = "<div class=\"alert " + (bloqueos.length ? "alert-warning" : "alert-success") + " py-3\"><div class=\"fw-bold\">" + escapeHtml(response.mensaje || "Apertura validada") + "</div><div class=\"fs-8 text-muted\">No se creo turno ni movimiento de caja.</div>";
+            var html = "<div class=\"alert " + (bloqueos.length ? "alert-warning" : "alert-success") + " py-3\"><div class=\"fw-bold\">" + escapeHtml(response.mensaje || "Apertura validada") + "</div><div class=\"fs-8 text-muted\">El dry-run no creo turno ni movimiento de caja.</div>";
             html += "<div class=\"fs-8\">Monto inicial: " + dinero(data.monto_inicial || 0) + " | Folio sugerido: " + escapeHtml(data.folio_sugerido || "-") + "</div>";
             if (bloqueos.length) {
                 html += "<ul class=\"mb-0 mt-2 ps-4\">" + bloqueos.map(function (item) { return "<li>" + escapeHtml(item) + "</li>"; }).join("") + "</ul>";
             } else {
-                html += renderAutorizacionApertura(data);
+                html += renderAperturaRealControlada(data);
             }
             html += "</div>";
             document.getElementById("pos_caja_apertura_resultado").innerHTML = html;
@@ -207,15 +207,27 @@
         });
     }
 
-    function renderAutorizacionApertura(data) {
-        var usuario = (window.POS_USUARIO_ACTUAL || {}).id_usuario || "";
+    function renderAperturaRealControlada(data) {
         var montoInicial = Number(data.monto_inicial || 0);
-        var texto = "AUTORIZO ABRIR TURNO POS UAT usando respaldo UAT POS vigente con id_usuario=" + usuario + " y monto_inicial=" + montoInicial.toFixed(0) + " observaciones=\"Apertura UAT POS desde Caja/Turnos\"";
+        var idAlmacen = data.id_almacen || document.getElementById("pos_caja_apertura_almacen").value || "";
+        var idCaja = data.id_caja || document.getElementById("pos_caja_apertura_caja").value || "";
         return "<div class=\"separator my-3\"></div>" +
-            "<div class=\"fw-bold mb-2\">Siguiente paso si quieres abrir real</div>" +
-            "<div class=\"fs-8 text-muted mb-2\">Copia esta autorizacion en el chat. La pantalla no abre turnos directamente.</div>" +
-            "<div class=\"d-flex justify-content-end mb-2\"><button type=\"button\" class=\"btn btn-sm btn-light-primary\" data-copy-autorizacion=\"" + escapeHtml(texto) + "\">Copiar autorizacion</button></div>" +
-            "<pre class=\"bg-light p-3 rounded fs-8 mb-0\" style=\"white-space: pre-wrap;\">" + escapeHtml(texto) + "</pre>";
+            "<div class=\"border rounded bg-white p-3\">" +
+            "<div class=\"d-flex justify-content-between align-items-start gap-3 mb-3\">" +
+            "<div><div class=\"fw-bold\">Apertura real de turno</div><div class=\"text-muted fs-8\">Valida que sea la caja correcta y confirma para iniciar ventas.</div></div>" +
+            "<span class=\"badge badge-light-success\">" + dinero(montoInicial) + "</span>" +
+            "</div>" +
+            "<div class=\"row g-2 mb-3\">" +
+            resumenCaja("Almacen", idAlmacen) +
+            resumenCaja("Caja", idCaja) +
+            "</div>" +
+            "<label class=\"form-label fs-8 text-muted text-uppercase\">Observaciones de apertura</label>" +
+            "<input class=\"form-control form-control-solid mb-2\" id=\"pos_caja_apertura_observaciones\" value=\"Apertura POS desde Caja/Turnos\">" +
+            "<label class=\"form-label fs-8 text-muted text-uppercase\">Confirmacion</label>" +
+            "<input class=\"form-control form-control-solid mb-3\" id=\"pos_caja_apertura_confirmacion\" placeholder=\"Escribe ABRIR TURNO\">" +
+            "<button class=\"btn btn-danger w-100\" id=\"pos_caja_apertura_real\" type=\"button\"><i class=\"bi bi-lock-fill\"></i> Abrir turno real</button>" +
+            "<div class=\"text-muted fs-8 mt-2 text-center\">La apertura queda ligada al usuario actual, caja oficial y movimiento inicial.</div>" +
+            "</div>";
     }
 
     function renderTurnos() {
@@ -445,6 +457,43 @@
         });
     }
 
+    function abrirTurnoReal(event) {
+        var boton = event.target.closest("#pos_caja_apertura_real");
+        if (!boton) { return; }
+        var confirmacionEl = document.getElementById("pos_caja_apertura_confirmacion");
+        var confirmacion = confirmacionEl ? confirmacionEl.value : "";
+        if (confirmacion.trim().toUpperCase() !== "ABRIR TURNO") {
+            document.getElementById("pos_caja_apertura_resultado").insertAdjacentHTML("afterbegin", "<div class=\"alert alert-warning py-2\">Escribe ABRIR TURNO para confirmar la apertura real.</div>");
+            return;
+        }
+        boton.disabled = true;
+        boton.innerHTML = "<span class=\"spinner-border spinner-border-sm me-2\"></span>Abriendo turno";
+        request("/ventas/turno_apertura_real_erp", {
+            id_almacen: document.getElementById("pos_caja_apertura_almacen").value,
+            id_caja: document.getElementById("pos_caja_apertura_caja").value,
+            monto_inicial: monto(document.getElementById("pos_caja_monto_inicial").value),
+            observaciones: (document.getElementById("pos_caja_apertura_observaciones") || {}).value || "",
+            confirmacion: confirmacion
+        }).then(function (response) {
+            if (response.error) { throw new Error(response.mensaje); }
+            var data = response.depurar || {};
+            var bloqueos = data.bloqueos || [];
+            var html = "<div class=\"alert " + (bloqueos.length ? "alert-warning" : "alert-success") + " py-3\"><div class=\"fw-bold\">" + escapeHtml(response.mensaje || "Apertura procesada") + "</div>";
+            if (bloqueos.length) {
+                html += "<ul class=\"mb-0 mt-2 ps-4\">" + bloqueos.map(function (item) { return "<li>" + escapeHtml(item) + "</li>"; }).join("") + "</ul>";
+            } else {
+                html += "<div class=\"fs-8\">Turno: " + escapeHtml(data.folio || "-") + " | Inicial: " + dinero(data.monto_inicial || 0) + " | Movimiento: " + escapeHtml(data.id_movimiento_caja || "-") + "</div>";
+            }
+            html += "</div>";
+            document.getElementById("pos_caja_apertura_resultado").innerHTML = html;
+            cargar();
+        }).catch(function (error) {
+            boton.disabled = false;
+            boton.innerHTML = "<i class=\"bi bi-lock-fill\"></i> Abrir turno real";
+            document.getElementById("pos_caja_apertura_resultado").insertAdjacentHTML("afterbegin", "<div class=\"alert alert-danger py-2\">" + escapeHtml(error.message || String(error)) + "</div>");
+        });
+    }
+
     function consultarCorteImprimible() {
         var referencia = (document.getElementById("pos_caja_corte_folio") || {}).value || "";
         referencia = referencia.trim();
@@ -505,6 +554,7 @@
         document.getElementById("pos_caja_corte_consultar").addEventListener("click", consultarCorteImprimible);
         document.getElementById("pos_caja_corte_imprimir").addEventListener("click", imprimirCorte);
         document.getElementById("pos_caja_apertura_resultado").addEventListener("click", copiarAutorizacion);
+        document.getElementById("pos_caja_apertura_resultado").addEventListener("click", abrirTurnoReal);
         document.getElementById("pos_caja_corte_resultado").addEventListener("click", copiarAutorizacion);
         document.getElementById("pos_caja_corte_resultado").addEventListener("click", cerrarTurnoReal);
         document.getElementById("pos_caja_readiness_resultado").addEventListener("click", copiarAutorizacion);

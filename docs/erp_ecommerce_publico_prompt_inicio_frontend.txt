@@ -7,21 +7,21 @@ Objetivo:
 Crear un frontend publico separado del ERP para un catalogo vivo de productos para mascotas. Fase 1 no es checkout: es catalogo, filtros, buscador, carrito local tipo cotizacion, validacion dry-run contra ERP y envio por WhatsApp.
 
 Estado actual ERP:
-- senal_frontend=amarillo_mock_contratos
+- senal_frontend=verde_datos_reales
 - puede_iniciar_frontend_mock=true
-- puede_integrar_datos_reales=false
+- puede_integrar_datos_reales=true
 
-Se puede iniciar:
+Se puede iniciar/integrar:
 - estructura del proyecto frontend;
 - AGENTS.md;
 - cliente API;
-- mocks/fixtures;
+- datos reales iniciales y mocks solo como respaldo de UI;
 - pantallas responsive;
 - estados vacios;
 - carrito local;
 - flujo WhatsApp preparado.
 
-No se debe integrar como datos reales hasta que el ERP devuelva:
+El ERP ya devuelve:
 - green gate ok=true;
 - catalogo.tiene_item_real=true;
 - cotizacion_dryrun.ok=true.

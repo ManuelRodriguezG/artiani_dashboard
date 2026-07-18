@@ -2,7 +2,7 @@
 
 Documentacion IA: Codex GPT-5  
 Fecha: 2026-07-15  
-Estado: contratos y activacion preparada; datos reales aun no activados.
+Estado: verde con datos reales Fase 1; catalogo publico activado sin checkout.
 
 Actualizacion 2026-07-16:
 
@@ -21,21 +21,28 @@ Actualizacion 2026-07-16:
 - URL frontend de pruebas definida: `http://artiani.com.local`.
 - URL frontend futura de produccion: `https://artiani.com.mx`.
 - Ruta estandar de respaldos externos: `C:\xampp\panel_db_backups` segun `docs/erp_respaldo_bd_estandar.md`.
+- DDL ecommerce publico aplicado: 5 tablas `erp_ecommerce_*`.
+- Configuracion publica aplicada: WhatsApp/CORS/URL local.
+- Publicaciones activas: `2`.
+- Green gate: `ok=true`, `senal_frontend=verde_datos_reales`.
+- Productos publicados:
+  - `1759` - Alimento churro blanco para peces 100 gr - `disponible` - precio `85`.
+  - `1757` - Alimento churro blanco para peces 25 gr - `disponible` - precio `25`.
 
 ## Senal actual
 
 ```text
-senal_frontend=amarillo_mock_contratos
+senal_frontend=verde_datos_reales
 puede_iniciar_frontend_mock=true
-puede_integrar_datos_reales=false
+puede_integrar_datos_reales=true
 ```
 
 Esto significa:
 
-- el frontend externo puede iniciar como maqueta tecnica/cliente API;
-- aun no debe prometer catalogo vivo real;
-- aun no hay publicaciones reales;
-- aun falta DDL, configuracion WhatsApp/CORS y publicar SKUs.
+- el frontend externo ya puede integrar datos reales;
+- el catalogo publico devuelve productos publicados;
+- `cotizacion_dryrun` funciona con publicaciones reales;
+- `cotizacion_registrar` sigue bloqueado en Fase 1.
 
 Tambien puede verse desde la consola interna del ERP:
 
@@ -96,8 +103,8 @@ DDL Fase 1 propone 5 tablas:
 Estado actual:
 
 ```text
-tablas_faltantes=5
-ddl_pendiente=true
+tablas_faltantes=0
+ddl_pendiente=false
 ```
 
 ## Scripts read-only principales

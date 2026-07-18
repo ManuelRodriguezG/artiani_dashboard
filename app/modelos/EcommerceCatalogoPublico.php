@@ -836,7 +836,7 @@ class EcommerceCatalogoPublico extends CRUD {
           "slug" => $publicacion["slug"],
           "sku" => $publicacion["sku"],
           "nombre" => $publicacion["titulo_publico"] ?: $publicacion["nombre_sku"],
-          "presentacion" => $publicacion["presentacion_publica"],
+          "presentacion" => $this->presentacionPublicaSalida($publicacion),
           "precio_unitario" => $precio,
           "moneda" => $publicacion["moneda"] ?: "MXN",
           "cantidad" => $cantidad,
@@ -1473,6 +1473,11 @@ class EcommerceCatalogoPublico extends CRUD {
       $candidato = $idSku > 0 ? $this->consultarCandidatoPorSku($db, $idSku) : null;
       if ($candidato) {
         $bloqueos = array_merge($bloqueos, $this->bloqueosPublicacion($candidato));
+        if (!empty($publicacion)) {
+          $bloqueos = array_values(array_filter($bloqueos, function($bloqueo) {
+            return $bloqueo !== "publicacion_existente";
+          }));
+        }
         $disponibilidad = $this->disponibilidadPublicaSugerida($candidato);
         if ($disponibilidad === "agotado" && intval($this->valor($datos, "confirmar_agotado", 0)) !== 1) {
           $bloqueos[] = "sku_agotado_requiere_confirmar_agotado";
@@ -1881,7 +1886,7 @@ class EcommerceCatalogoPublico extends CRUD {
       "nombre" => $fila["titulo_publico"] ?: $fila["nombre_sku"],
       "marca" => $fila["marca"],
       "categoria" => $fila["categoria"],
-      "presentacion" => $fila["presentacion_publica"],
+      "presentacion" => $this->presentacionPublicaSalida($fila),
       "descripcion" => $fila["descripcion_publica"],
       "imagen" => $fila["url_imagen"],
       "precio" => $mostrarPrecio ? floatval($fila["precio"]) : null,
@@ -1892,6 +1897,27 @@ class EcommerceCatalogoPublico extends CRUD {
       "permite_cotizacion" => intval($fila["permite_cotizacion"]) === 1,
       "permite_whatsapp" => intval($fila["permite_whatsapp"]) === 1
     );
+  }
+
+  private function presentacionPublicaSalida($fila) {
+    $presentacion = trim((string) $this->valor($fila, "presentacion_publica", ""));
+    if ($presentacion !== "" && !in_array(strtolower($presentacion), array("g", "gr", "kg", "ml", "l", "lt"), true)) {
+      return $presentacion;
+    }
+    $texto = trim((string) $this->valor($fila, "titulo_publico", ""));
+    if ($texto === "") {
+      $texto = trim((string) $this->valor($fila, "nombre_sku", $this->valor($fila, "nombre_publico", "")));
+    }
+    if (preg_match('/(\d+(?:[\\.,]\d+)?)\s*(kg|kilo|kilos|gr|g|gramo|gramos|ml|l|lt|litro|litros|pza|pzas|pieza|piezas)\b/i', $texto, $m)) {
+      $cantidad = str_replace(",", ".", $m[1]);
+      $unidad = strtolower($m[2]);
+      if (in_array($unidad, array("g", "gr", "gramo", "gramos"), true)) { $unidad = "gr"; }
+      if (in_array($unidad, array("kilo", "kilos"), true)) { $unidad = "kg"; }
+      if (in_array($unidad, array("l", "lt", "litro", "litros"), true)) { $unidad = "lt"; }
+      if (in_array($unidad, array("pza", "pzas", "pieza", "piezas"), true)) { $unidad = "pzas"; }
+      return trim($cantidad . " " . $unidad);
+    }
+    return $presentacion;
   }
 
   private function necesidadesPublicas($db) {

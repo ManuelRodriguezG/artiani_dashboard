@@ -22,24 +22,24 @@ Base API:
 - API completa=http://panel.com.local/ecommercePublico
 
 Estado actual:
-- senal_frontend=amarillo_mock_contratos
+- senal_frontend=verde_datos_reales
 - puede_iniciar_frontend_mock=true
-- puede_integrar_datos_reales=false
+- puede_integrar_datos_reales=true
 
 Se puede iniciar:
 - estructura del proyecto;
 - AGENTS.md;
 - cliente API;
-- mocks/fixtures;
+- datos reales iniciales y mocks solo como respaldo de UI;
 - estados vacios;
 - pantallas responsive;
 - carrito local;
 - dry-run preparado.
 
-No se debe iniciar como datos reales hasta que:
-- `uat_ecommerce_publico_green_gate_readonly.php` devuelva `ok=true`;
-- exista al menos un item real en `/catalogo`;
-- `cotizacion_dryrun` funcione con publicacion real.
+Ya se puede iniciar como datos reales porque:
+- `uat_ecommerce_publico_green_gate_readonly.php` devuelve `ok=true`;
+- existen 2 items reales en `/catalogo`;
+- `cotizacion_dryrun` funciona con publicacion real.
 
 Comandos ERP clave:
 - `C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_entorno_readonly.php --base=http://panel.com.local`
@@ -155,7 +155,7 @@ No hacer desde frontend:
 3. ESTADO ACTUAL DE INTEGRACION
 ======================================================================
 
-Hoy el ERP permite iniciar el frontend en modo tecnico/mock, no con catalogo vivo real.
+Hoy el ERP permite integrar el frontend con catalogo vivo real inicial.
 
 Comando en el ERP para revisar semaforo:
 
@@ -181,20 +181,21 @@ Esta pantalla es privada del ERP y sirve para revisar readiness, bloqueos, publi
 
 Estado esperado actual:
 
-senal_frontend=amarillo_mock_contratos
+senal_frontend=verde_datos_reales
 puede_iniciar_frontend_mock=true
-puede_integrar_datos_reales=false
+puede_integrar_datos_reales=true
 
 Significado:
 - Si: puedes crear el frontend, cliente API, pantallas, estados vacios y mocks.
+- Si: puedes consumir datos reales iniciales desde `/catalogo`.
 - Si: puedes usar fixtures para disenar UI y pruebas locales.
-- No: no puedes anunciar catalogo vivo real mientras el entorno, DDL, WhatsApp, CORS y publicaciones sigan pendientes.
+- Si: puedes anunciar catalogo vivo real inicial, dejando claro que Fase 1 es cotizacion por WhatsApp, no checkout.
 
 Nota importante:
 - `uat_ecommerce_publico_frontend_fixtures_readonly.php` no consulta BD y siempre genera datos demo.
 - `uat_ecommerce_publico_entorno_readonly.php` si valida salud local de XAMPP/MySQL/API.
 - Si el entorno reporta MySQL caido o API sin JSON, resolver eso antes de culpar al frontend o a los contratos.
-- No: todavia no debes prometer catalogo real publicado.
+- No: todavia no debes prometer checkout, pago online ni pedido confirmado.
 
 Para pasar a datos reales, el ERP debe tener:
 - DDL erp_ecommerce_* aplicado con respaldo y autorizacion.

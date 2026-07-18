@@ -11,8 +11,8 @@
     <!--
       Documentacion IA: Codex GPT-5, 2026-07-04.
       Proposito: separar turnos/corte de caja POS de la pantalla de cobro.
-      Impacto: Ventas/POS/Caja; simula apertura/cierre, calcula arqueo y genera autorizaciones controladas.
-      Contrato: vista read-only/dry-run; cierre real se ejecuta fuera de UI con autorizacion.
+      Impacto: Ventas/POS/Caja; valida apertura/cierre, calcula arqueo y ejecuta turnos reales con confirmacion fuerte.
+      Contrato: vista operativa; apertura/cierre real requieren permiso, CSRF, dry-run previo y confirmacion escrita.
     -->
     <style>
         .pos-admin-card { border: 1px solid #e6e8ee; border-radius: 8px; background: #fff; }
@@ -40,8 +40,8 @@
                                 <span class="text-muted">Turnos, corte, arqueo y movimientos recientes</span>
                                 <div class="d-flex flex-wrap gap-2 mt-2">
                                     <span class="badge badge-light-primary">Consulta de caja = solo lectura</span>
-                                    <span class="badge badge-light-warning">Simular corte = no cierra turno</span>
-                                    <span class="badge badge-light-danger">Cerrar turno real requiere autorizacion</span>
+                                    <span class="badge badge-light-warning">Dry-run antes de escribir</span>
+                                    <span class="badge badge-light-danger">Abrir/cerrar real exige confirmacion</span>
                                     <span class="badge badge-light-info">Diferencias quedan en reportes</span>
                                 </div>
                             </div>
@@ -70,9 +70,9 @@
                                         <div class="d-flex justify-content-between align-items-center mb-4">
                                             <div>
                                                 <div class="fw-bold fs-5">Apertura de turno</div>
-                                                <div class="text-muted fs-7">Valida la apertura sin crear turno ni movimiento</div>
+                                                <div class="text-muted fs-7">Valida y abre turno para la caja asignada</div>
                                             </div>
-                                            <span class="badge badge-light-warning">Dry-run</span>
+                                            <span class="badge badge-light-danger">Confirmacion</span>
                                         </div>
                                         <div class="row g-3 align-items-end">
                                             <div class="col-md-6">
@@ -92,8 +92,8 @@
                                                 <input class="form-control form-control-solid" value="Usuario actual" disabled>
                                             </div>
                                             <div class="col-12">
-                                                <button class="btn btn-primary w-100" id="pos_caja_apertura_dryrun" type="button"><i class="bi bi-door-open"></i> Validar apertura sin crear</button>
-                                                <div class="text-muted fs-8 mt-2 text-center">Usa la caja asignada al usuario actual. La apertura real requiere autorizacion escrita en el chat.</div>
+                                                <button class="btn btn-primary w-100" id="pos_caja_apertura_dryrun" type="button"><i class="bi bi-door-open"></i> Validar apertura</button>
+                                                <div class="text-muted fs-8 mt-2 text-center">Usa la caja asignada al usuario actual. Si valida, podras confirmar apertura real.</div>
                                             </div>
                                         </div>
                                         <div id="pos_caja_apertura_resultado" class="pos-admin-result mt-4"></div>
@@ -149,14 +149,14 @@
                                                             <input class="form-control form-control-solid text-end pos-caja-arqueo-extra mb-2" id="pos_caja_arqueo_transferencia" inputmode="decimal" value="0">
                                                             <label class="form-label fs-8 text-muted">Vales / saldo a favor</label>
                                                             <input class="form-control form-control-solid text-end pos-caja-arqueo-extra" id="pos_caja_arqueo_vales" inputmode="decimal" value="0">
-                                                            <div class="alert alert-light-info py-2 mt-3 mb-0 fs-8">El total alimenta la simulacion. El cierre real sigue requiriendo autorizacion escrita.</div>
+                                                            <div class="alert alert-light-info py-2 mt-3 mb-0 fs-8">El total alimenta el dry-run. Si valida, podras confirmar cierre real.</div>
                                                         </div>
                                                     </div>
                                                 </div>
                                             </div>
                                             <div class="col-12">
-                                                <button class="btn btn-success w-100" id="pos_caja_corte_dryrun" type="button"><i class="bi bi-calculator"></i> Simular corte sin cerrar</button>
-                                                <div class="text-muted fs-8 mt-2 text-center">Para cerrar realmente se requiere autorizacion con respaldo.</div>
+                                                <button class="btn btn-success w-100" id="pos_caja_corte_dryrun" type="button"><i class="bi bi-calculator"></i> Validar corte</button>
+                                                <div class="text-muted fs-8 mt-2 text-center">El cierre real exige escribir CERRAR TURNO.</div>
                                             </div>
                                         </div>
                                         <div id="pos_caja_corte_resultado" class="pos-admin-result mt-4"></div>
@@ -245,6 +245,6 @@ window.POS_USUARIO_ACTUAL = <?= json_encode(array(
     "id_usuario" => isset($_SESSION["id_usuario"]) ? intval($_SESSION["id_usuario"]) : 0
 ), JSON_UNESCAPED_UNICODE); ?>;
 </script>
-<script src="/assets/js/custom/apps/erp/ventas/caja_turnos.js?v=20260704-corte-print1"></script>
+<script src="/assets/js/custom/apps/erp/ventas/caja_turnos.js?v=20260718-apertura-real1"></script>
 </body>
 </html>

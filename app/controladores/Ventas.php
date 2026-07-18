@@ -1037,6 +1037,21 @@ class Ventas extends Controlador {
   }
 
   /**
+   * Documentacion IA: Codex GPT-5, 2026-07-18.
+   * Proposito: abrir turno POS real desde Caja/Turnos con confirmacion explicita.
+   * Impacto: crea turno y movimiento inicial de caja; no crea ventas ni mueve inventario.
+   * Contrato: POST con CSRF, sesion, `ventas.operar`, confirmacion `ABRIR TURNO` y caja asignada.
+   */
+  public function turno_apertura_real_erp() {
+    $this->requerirPermiso("ventas.operar");
+    $datos = $_POST;
+    $datos["id_usuario"] = $this->usuarioActualId();
+    $respuesta = $this->modelo("VentasErp")->abrirTurnoRealPos($datos);
+    $this->auditarCierreTurnoPos("abrir", $respuesta);
+    return json_encode($respuesta);
+  }
+
+  /**
    * Documentacion IA: Codex GPT-5, 2026-06-26.
    * Proposito: simular cierre de turno de caja sin escribir datos.
    * Impacto: prepara corte de caja y diferencias antes de autorizar transacciones POS.

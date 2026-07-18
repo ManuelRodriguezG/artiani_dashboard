@@ -249,8 +249,8 @@
                                             <section class="lp-card p-4">
                                                 <div class="fw-bold fs-5 mb-1">Clientes y segmentos</div>
                                                 <div class="text-muted fs-8 mb-3">La asignacion directa a cliente es una excepcion; para miles de clientes debe usarse segmento/tipo CRM.</div>
-                                                <div class="alert alert-light-warning py-3 mb-3 fs-7">
-                                                    Segmentos CRM esta en prevalidacion: puedes revisar candidatos y dry-run, pero el guardado real espera el DDL autorizado de <code>erp_segmentos_listas_precios</code>.
+                                                <div class="alert alert-light-success py-3 mb-3 fs-7">
+                                                    Segmentos CRM activo: vincula esta lista a tipos de cliente para evitar asignaciones cliente por cliente.
                                                 </div>
                                                 <div id="lp_segmentos_preparacion" class="mb-3"></div>
                                                 <div class="d-flex justify-content-between align-items-center mb-2">
@@ -260,9 +260,13 @@
                                                 <div id="lp_segmentos_crm" class="mb-4 text-muted fs-7">Cargando segmentos...</div>
                                                 <div class="row g-3">
                                                     <input type="hidden" id="lp_seg_asig_id">
+                                                    <input type="hidden" id="lp_seg_id">
                                                     <div class="col-12">
                                                         <label class="form-label text-muted fs-8 text-uppercase">Segmento seleccionado</label>
-                                                        <input class="form-control form-control-solid" id="lp_seg_id" inputmode="numeric" placeholder="id_segmento_crm">
+                                                        <div class="input-group input-group-solid">
+                                                            <input class="form-control" id="lp_seg_nombre" readonly placeholder="Selecciona un segmento CRM">
+                                                            <button class="btn btn-light" id="lp_seg_nuevo" type="button"><i class="bi bi-plus-circle"></i></button>
+                                                        </div>
                                                     </div>
                                                     <div class="col-6">
                                                         <label class="form-label text-muted fs-8 text-uppercase">Canal</label>
@@ -302,7 +306,7 @@
                                                         <button class="btn btn-light-primary w-100" id="lp_seg_validar" type="button"><i class="bi bi-diagram-3"></i> Validar segmento</button>
                                                     </div>
                                                     <div class="col-6">
-                                                        <button class="btn btn-light w-100" id="lp_seg_guardar" type="button" disabled title="Pendiente DDL erp_segmentos_listas_precios"><i class="bi bi-save"></i> Guardar vinculo</button>
+                                                        <button class="btn btn-light w-100" id="lp_seg_guardar" type="button" disabled title="Validando segmentos/listas"><i class="bi bi-save"></i> Guardar vinculo</button>
                                                     </div>
                                                 </div>
                                                 <div id="lp_segmento_dryrun" class="mt-3"></div>
@@ -386,6 +390,6 @@
 </div>
 <script src="assets/plugins/global/plugins.bundle.js"></script>
 <script src="assets/js/scripts.bundle.js"></script>
-<script src="/assets/js/custom/apps/erp/ventas/listas_precios.js?v=20260717-segmentos-guard3"></script>
+<script src="/assets/js/custom/apps/erp/ventas/listas_precios.js?v=20260718-segmentos-operativo1"></script>
 </body>
 </html>

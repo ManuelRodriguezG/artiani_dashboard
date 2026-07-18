@@ -5029,3 +5029,148 @@ Siguiente autorizacion fuerte sugerida para cerrar el ciclo de mini inventario:
 ```text
 AUTORIZO RESOLVER PENDIENTE INVENTARIO POS UAT REAL usando respaldo UAT POS vigente con token INVENTARIO_POS_PENDIENTE_RESOLVER_REAL id_usuario=1 folio=PINV-20260717-000001 cantidad_fisica=0 decision=ajustar_a_conteo confirmacion="RESOLVER PENDIENTE" motivo="UAT resolver pendiente endpoint productivo inventario pendiente POS"
 ```
+
+## Corte 2026-07-18 - apertura real de turno desde Caja/Turnos preparada
+
+Objetivo:
+
+- Quitar la dependencia operativa de scripts/chat para una accion normal del POS.
+- Mantener seguridad: apertura real solo desde usuario con caja asignada, CSRF, permiso `ventas.operar`, dry-run previo y confirmacion `ABRIR TURNO`.
+
+Cambios:
+
+- `VentasErp::abrirTurnoRealPos`:
+  - valida usuario, asignacion POS activa, caja/almacen oficiales y monto inicial;
+  - bloquea doble turno abierto por caja;
+  - ejecuta `aperturaTurnoDryRun` antes de escribir;
+  - inserta `erp_pos_turnos`;
+  - inserta movimiento inicial en `erp_pos_movimientos_caja`;
+  - usa transaccion y rollback ante error;
+  - no crea ventas ni mueve inventario.
+- `Ventas::turno_apertura_real_erp`:
+  - endpoint POST protegido por `ventas.operar`;
+  - usa usuario de sesion;
+  - audita accion `pos_turno_abrir`.
+- `/ventas/caja_turnos`:
+  - textos actualizados para indicar que apertura/cierre real existen en UI;
+  - apertura muestra bloque real solo despues de dry-run valido;
+  - exige escribir `ABRIR TURNO`;
+  - cierre ya exigia `CERRAR TURNO`.
+- `public/assets/js/custom/apps/erp/ventas/caja_turnos.js`:
+  - agrega `abrirTurnoReal`;
+  - llama `/ventas/turno_apertura_real_erp`;
+  - recarga estado al abrir turno.
+
+Validaciones:
+
+```powershell
+C:\xampp\php\php.exe -l app\modelos\VentasErp.php
+C:\xampp\php\php.exe -l app\controladores\Ventas.php
+C:\xampp\php\php.exe -l app\vistas\paginas\apps\erp\ventas\caja_turnos.php
+node --check public\assets\js\custom\apps\erp\ventas\caja_turnos.js
+C:\xampp\php\php.exe storage\uat\uat_ventas_pos_productivo_readiness_readonly.php --id_usuario=1 --id_almacen=5 --id_sku=1760 --cantidad=1
+C:\xampp\php\php.exe storage\uat\uat_ventas_pos_cierre_modulo_readiness_readonly.php --id_usuario=1 --id_almacen=5 --id_sku=1760 --id_atencion=2
+```
+
+Resultado:
+
+- Sintaxis PHP/JS correcta.
+- Readiness productivo `ok=true`.
+- Readiness cierre modulo `ok=true`.
+- Turnos abiertos actuales: `0`.
+- Pendientes POS inventario abiertos: `1` (`PINV-20260717-000001`).
+- Prueba negativa de apertura real sin confirmacion correcta:
+  - resultado `Apertura real bloqueada`;
+  - bloqueo esperado `Escribe ABRIR TURNO para confirmar`;
+  - no abre turno.
+
+Nota tecnica:
+
+- Durante una lectura larga, MariaDB se detuvo con `MySQL server has gone away`; se reinicio `mysqld.exe` y las validaciones read-only posteriores pasaron.
+
+Siguiente UAT recomendada para UI:
+
+1. Entrar a `/ventas/caja_turnos`.
+2. En `Apertura de turno`, validar apertura.
+3. Escribir `ABRIR TURNO` y abrir turno real.
+4. Ir a `/ventas/pos`, hacer venta normal o prueba controlada.
+5. Regresar a `/ventas/caja_turnos`, validar corte.
+6. Escribir `CERRAR TURNO` y cerrar real.
+
+## Corte 2026-07-18 - readiness read-only Caja/Turnos UI
+
+Cambios adicionales:
+
+- `VentasErp::aperturaTurnoDryRun` ahora muestra folio sugerido completo con consecutivo real, por ejemplo `TUR-20260718-002-001`.
+- Se agrego `storage/uat/uat_ventas_pos_caja_turnos_ui_readiness_readonly.php`.
+
+Validaciones:
+
+```powershell
+C:\xampp\php\php.exe -l app\modelos\VentasErp.php
+C:\xampp\php\php.exe -l storage\uat\uat_ventas_pos_caja_turnos_ui_readiness_readonly.php
+node --check public\assets\js\custom\apps\erp\ventas\caja_turnos.js
+C:\xampp\php\php.exe storage\uat\uat_ventas_pos_caja_turnos_ui_readiness_readonly.php --id_usuario=1 --id_almacen=5 --id_caja=2 --monto_inicial=500
+```
+
+Resultado:
+
+- `ok=true`.
+- Checks de controlador/modelo/vista/JS en true:
+  - apertura real;
+  - cierre real;
+  - UI con confirmacion;
+  - guardrails sin confirmacion.
+- Asignacion oficial activa para usuario `1`.
+- Turno abierto actual: `false`.
+- Folio sugerido apertura: `TUR-20260718-002-001`.
+- Apertura sin confirmacion bloquea con `Escribe ABRIR TURNO para confirmar`.
+- Cierre sin confirmacion bloquea con `Escribe CERRAR TURNO para confirmar`.
+- Contrato read-only cumplido: no abre turno, no cierra turno, no mueve caja, no mueve inventario.
+
+## Corte 2026-07-18 - dry-run resolucion pendiente inventario POS
+
+Pendiente revisado:
+
+- Folio `PINV-20260717-000001`.
+- Venta origen `POS-20260717-000002`.
+- SKU `1760`.
+- Almacen `5`.
+- Cantidad pendiente vendida `1`.
+- Disponible ERP actual `0`.
+- Notificacion ligada `19`.
+
+Dry-run con conteo fisico `0`:
+
+- Bloqueos `[]`.
+- Requiere ajuste: `true`.
+- Tipo ajuste: `entrada`.
+- Cantidad ajuste: `1`.
+- Salida venta pendiente: `1`.
+- Disponible final estimado: `0`.
+- Referencia sugerida: `PINV-RES-PINV-20260717-000001`.
+- Cierra pendiente: `true`.
+
+Interpretacion:
+
+- Como el ERP estaba en cero pero ya se vendio una pieza pendiente, para reconocer la salida historica necesita primero reconstruir la existencia previa con entrada `1` y luego salida `1`, quedando final `0`.
+
+Dry-run con conteo fisico `5`:
+
+- Bloqueos `[]`.
+- Requiere ajuste: `true`.
+- Tipo ajuste: `entrada`.
+- Cantidad ajuste: `6`.
+- Salida venta pendiente: `1`.
+- Disponible final estimado: `5`.
+- Referencia sugerida: `PINV-RES-PINV-20260717-000001`.
+- Cierra pendiente: `true`.
+
+Interpretacion:
+
+- Si fisicamente quedan `5` despues de la venta, antes de la venta habia `6`; el sistema propone entrada `6` y salida `1`, quedando disponible final `5`.
+
+Regla operativa:
+
+- La autorizacion real debe usar la cantidad fisica contada en tienda, no una cantidad inventada.
+- El apply real requiere confirmacion `RESOLVER PENDIENTE`, motivo y respaldo vigente.

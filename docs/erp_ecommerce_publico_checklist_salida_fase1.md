@@ -2,11 +2,11 @@
 
 Documentacion IA: Codex GPT-5  
 Fecha: 2026-07-12  
-Estado: checklist de salida; no autoriza DDL ni inicio automatico de tienda.
+Estado: checklist de salida; Fase 1 publica activada con datos reales.
 
 ## Estado actual
 
-El ERP ya tiene contratos API preparados para el ecommerce externo, pero todavia no esta listo para una tienda publica con productos reales porque falta aplicar DDL y crear publicaciones.
+El ERP ya tiene contratos API preparados y datos reales iniciales publicados para el ecommerce externo.
 
 Resumen vivo:
 
@@ -22,8 +22,8 @@ Estado:
 - Cotizacion dry-run: listo, pero sin publicaciones reales responde pendiente.
 - Registro real de cotizacion: bloqueado.
 - Guardado interno de publicaciones: bloqueado.
-- DDL `erp_ecommerce_*`: pendiente de autorizacion.
-- Publicaciones reales: pendientes.
+- DDL `erp_ecommerce_*`: aplicado.
+- Publicaciones reales: 2 productos publicados.
 
 ## Semaforo de inicio del frontend externo
 
@@ -41,10 +41,13 @@ C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_activacion_bundle_readonl
 
 Este bundle valida host HTTP real, contratos, DDL, configuracion, publicabilidad, lote inicial y bloqueos para pasar a datos reales. No escribe BD.
 
-La salida `senal_frontend` puede ser:
+La salida `senal_frontend` actual debe ser:
+
+- `verde_datos_reales`: se puede integrar la vista externa con productos reales publicados.
+
+Otros estados posibles:
 
 - `amarillo_mock_contratos`: se puede iniciar frontend como maqueta tecnica/cliente API.
-- `verde_datos_reales`: se puede integrar la vista externa con productos reales publicados.
 - `rojo_bloqueado`: resolver contratos/API antes de iniciar.
 
 ### Amarillo para iniciar maqueta tecnica
@@ -141,6 +144,7 @@ Usa docs/erp_ecommerce_publico_frontend_handoff.md y docs/erp_ecommerce_publico_
 La senal actual es:
 
 ```text
-Puedes iniciar el proyecto frontend externo como maqueta tecnica/cliente API, pero aun no como catalogo vivo real.
+Ya puedes iniciar/integrar la vista del ecommerce externo con datos reales.
+El ERP tiene DDL aplicado, CORS configurado, WhatsApp configurado y primeras publicaciones activas.
 ```
 

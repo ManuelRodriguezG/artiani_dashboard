@@ -1245,6 +1245,53 @@ Siguiente bloque recomendable despues del cierre:
 - Prueba de resolucion inventario pendiente y cierre de notificacion.
 - Reporte operativo: ventas normales, ventas con inventario pendiente, pendientes abiertos, pendientes resueltos y diferencia de caja por turno.
 
+## Avance 2026-07-18 - apertura/cierre manual desde Caja/Turnos
+
+Decision:
+
+- Apertura y cierre de turno pertenecen a `/ventas/caja_turnos`, no al mostrador POS.
+- POS debe mostrar si hay turno abierto, pero no debe mezclar administracion de caja con cobro.
+- Abrir/cerrar desde UI requiere dry-run previo y confirmacion escrita para evitar errores de operador.
+
+Implementado:
+
+- Apertura real:
+  - modelo `VentasErp::abrirTurnoRealPos`;
+  - endpoint `/ventas/turno_apertura_real_erp`;
+  - UI en `/ventas/caja_turnos` despues de validar apertura;
+  - confirmacion `ABRIR TURNO`;
+  - crea turno y movimiento inicial;
+  - bloquea doble turno abierto.
+- Cierre real:
+  - ya existia `VentasErp::cerrarTurnoRealPos`;
+  - endpoint `/ventas/turno_cierre_real_erp`;
+  - UI despues de validar corte;
+  - confirmacion `CERRAR TURNO`;
+  - permite diferencia y la deja trazable para reportes.
+
+Pendiente:
+
+- UAT visual completa desde navegador:
+  - abrir turno real;
+  - vender;
+  - cerrar turno real;
+  - revisar corte imprimible;
+  - confirmar que POS bloquea cobro si no hay turno abierto.
+- Resolver pendiente `PINV-20260717-000001` para dejar inventario/notificacion sin abiertos antes de piloto.
+
+Readiness agregado:
+
+- Script `storage/uat/uat_ventas_pos_caja_turnos_ui_readiness_readonly.php`.
+- Valida sin escribir:
+  - endpoint de apertura real;
+  - endpoint de cierre real;
+  - modelo transaccional;
+  - UI de confirmacion;
+  - asignacion oficial;
+  - bloqueo por falta de `ABRIR TURNO`;
+  - bloqueo por falta de `CERRAR TURNO`.
+- Ultimo resultado: `ok=true`, folio sugerido `TUR-20260718-002-001`, turnos abiertos `0`.
+
 ## Revalidacion Readiness POS
 
 Fecha: 2026-07-13
