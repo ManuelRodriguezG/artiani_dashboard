@@ -9,7 +9,7 @@ const { chromium } = require('../../public/js/node_modules/@playwright/test');
  * Contrato: read-only; no cobra, no abre turno, no cierra turno, no mueve caja ni inventario.
  */
 
-const baseUrl = process.env.POS_UAT_POS_URL || 'http://dashboard.com.local/ventas/pos';
+const baseUrl = process.env.POS_UAT_POS_URL || 'http://panel.com.local/ventas/pos';
 const usuario = process.env.POS_UAT_USER || '';
 const contrasenia = process.env.POS_UAT_PASS || '';
 const identificador = process.env.POS_UAT_CLIENTE_IDENTIFICADOR || '2871085474';

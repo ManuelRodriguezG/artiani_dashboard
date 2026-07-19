@@ -1,7 +1,7 @@
 <?php
 
 /**
- * Documentacion IA: Codex GPT-5, 2026-07-17.
+ * Documentacion IA: Codex GPT-5, 2026-07-17 / 2026-07-19.
  * Proposito: concentrar semaforos read-only para decidir si POS puede pasar a piloto controlado.
  * Impacto: evita revisar scripts sueltos y muestra condiciones previas sin escribir BD.
  * Contrato: solo ejecuta checks read-only; no abre turno, no cobra, no reserva, no mueve caja ni inventario.
@@ -37,6 +37,11 @@ foreach (isset($argv) ? $argv : array() as $arg) {
 }
 
 $checks = array(
+    "navegacion" => ejecutar("uat_ventas_pos_navegacion_readiness_readonly.php", array()),
+    "crosslinks" => ejecutar("uat_ventas_pos_crosslinks_readiness_readonly.php", array()),
+    "turnos_ui" => ejecutar("uat_ventas_pos_turnos_ui_readiness_readonly.php", array()),
+    "atajos_ui" => ejecutar("uat_ventas_pos_atajos_ui_readiness_readonly.php", array()),
+    "ticket_trazabilidad" => ejecutar("uat_ventas_pos_ticket_trazabilidad_readiness_readonly.php", array()),
     "piloto_operativo" => ejecutar("uat_ventas_pos_piloto_operativo_readiness_readonly.php", array(
         "--id_usuario=" . $idUsuario,
         "--id_almacen=" . $idAlmacen,
@@ -50,6 +55,11 @@ $checks = array(
         "--id_almacen=" . $idAlmacen,
         "--id_caja=" . $idCaja,
         "--id_terminal=" . $idTerminal
+    )),
+    "reportes_piloto" => ejecutar("uat_ventas_pos_reportes_piloto_readiness_readonly.php", array(
+        "--id_usuario=" . $idUsuario,
+        "--id_almacen=" . $idAlmacen,
+        "--id_sku=" . $idSku
     ))
 );
 
@@ -73,6 +83,7 @@ foreach ($checks as $nombre => $check) {
 }
 
 $multiBloqueos = valor($checks["multiusuario"], "bloqueos_para_piloto_multiusuario", array());
+$multiusuarioListo = multiusuarioListo($checks["multiusuario"]);
 foreach ($multiBloqueos as $bloqueo) {
     $avisos[] = "multiusuario: " . $bloqueo;
 }
@@ -100,6 +111,8 @@ if ($evidenciaAviso) {
 }
 if (!empty($multiBloqueos)) {
     $recomendaciones[] = "Para piloto multiusuario, habilitar rol/asignacion POS de usuarios faltantes con autorizacion fuerte.";
+} elseif ($multiusuarioListo) {
+    $recomendaciones[] = "Multiusuario listo para piloto controlado; cada operador debe entrar con su propio usuario.";
 }
 $recomendaciones[] = "Ejecutar primer piloto con venta normal; dejar fuera devoluciones, apartados nuevos, descuentos libres e inventario pendiente productivo.";
 
@@ -125,7 +138,8 @@ responder(array(
     "avisos" => array_values(array_unique($avisos)),
     "recomendaciones" => $recomendaciones,
     "checks" => $checks,
-    "autorizacion_sugerida_multiusuario" => valor($checks["multiusuario"], "autorizacion_sugerida_si_se_quiere_habilitar", ""),
+    "multiusuario_listo" => $multiusuarioListo,
+    "autorizacion_sugerida_multiusuario" => $multiusuarioListo ? null : valor($checks["multiusuario"], "autorizacion_sugerida_si_se_quiere_habilitar", ""),
     "contrato" => array(
         "no_escribe_bd" => true,
         "no_abre_turno" => true,
@@ -158,6 +172,25 @@ function ejecutar($script, $args) {
 
 function valor($datos, $campo, $default = null) {
     return is_array($datos) && array_key_exists($campo, $datos) ? $datos[$campo] : $default;
+}
+
+function multiusuarioListo($check) {
+    if (empty(valor($check, "ok", false))) {
+        return false;
+    }
+    if (!empty(valor($check, "bloqueos_para_piloto_multiusuario", array()))) {
+        return false;
+    }
+    $usuarios = valor($check, "usuarios", array());
+    if (empty($usuarios)) {
+        return false;
+    }
+    foreach ($usuarios as $usuario) {
+        if (empty($usuario["puede_participar_piloto"])) {
+            return false;
+        }
+    }
+    return true;
 }
 
 function responder($payload, $exit = 0) {

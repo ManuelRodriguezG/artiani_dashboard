@@ -10,6 +10,8 @@ Host canonico: `http://panel.com.local/`.
 
 Ejecutar el primer turno piloto de POS con alcance controlado, evidencia clara y sin habilitar procesos todavia sensibles.
 
+Etiqueta operativa: Primer piloto POS controlado.
+
 ## Alcance permitido
 
 - 1 sucursal.
@@ -102,6 +104,14 @@ Revisar:
 - que inventario tenga kardex;
 - que cualquier diferencia de caja tenga observacion.
 
+Check tecnico de ticket/trazabilidad:
+
+```powershell
+C:\xampp\php\php.exe storage\uat\uat_ventas_pos_ticket_trazabilidad_readiness_readonly.php
+```
+
+Debe salir `ok=true` para considerar cubierto ticket formal, garantia snapshot y trazabilidad visible.
+
 ## Decision
 
 Si el turno piloto cierra sin bloqueos altos, se puede ampliar lentamente:
@@ -127,9 +137,10 @@ Para que varias personas cobren o preparen atenciones sobre el mismo POS, cada u
 Estado actual:
 
 - Usuario `1`: listo.
-- Usuarios `2` y `3`: activos, pero sin rol/permisos ventas y sin asignacion POS objetivo.
+- Usuarios `2` y `3`: listos para piloto multiusuario controlado.
+- Preflight 2026-07-19: `ok=true`, sin bloqueos, usuarios `1,2,3` con `ventas.ver`, `ventas.operar` y asignacion activa a almacen `5`, caja `2`, terminal `2`.
 
-No iniciar piloto multiusuario real hasta habilitar usuarios y validar nuevamente el preflight:
+Antes de iniciar piloto multiusuario real, validar nuevamente el preflight:
 
 ```powershell
 C:\xampp\php\php.exe storage\uat\uat_ventas_pos_multiusuario_preflight_readonly.php --usuarios=1,2,3 --id_almacen=5 --id_caja=2 --id_terminal=2
@@ -163,6 +174,27 @@ Check tecnico read-only disponible:
 C:\xampp\php\php.exe storage\uat\uat_ventas_pos_escaner_ui_readiness_readonly.php
 ```
 
+## Atajos De Operacion Rapida
+
+Los atajos aceleran la captura, pero no sustituyen validaciones del backend.
+
+- `F2` o `Ctrl+K`: buscador de producto.
+- `F3`: camara POS para escanear.
+- `Alt+1`: pago efectivo.
+- `Alt+2`: pago tarjeta.
+- `Alt+3`: pago transferencia.
+- `F6`: monto de pago.
+- `F9`: prevalidar.
+- `Ctrl+Enter`: cobrar con validaciones.
+- `F8`: movimientos caja.
+- `F10`: pedidos/apartados.
+
+Check tecnico read-only disponible:
+
+```powershell
+C:\xampp\php\php.exe storage\uat\uat_ventas_pos_atajos_ui_readiness_readonly.php
+```
+
 ## Semaforo Go/No-Go
 
 Antes de iniciar piloto o pedir autorizaciones fuertes, ejecutar:
@@ -171,8 +203,15 @@ Antes de iniciar piloto o pedir autorizaciones fuertes, ejecutar:
 C:\xampp\php\php.exe storage\uat\uat_ventas_pos_piloto_go_nogo_readonly.php --id_usuario=1 --id_almacen=5 --id_caja=2 --id_terminal=2 --id_sku=1760 --id_atencion=2 --cantidad=1 --usuarios=1,2,3
 ```
 
+Comando consolidado de salida operativa:
+
+```powershell
+C:\xampp\php\php.exe storage\uat\uat_ventas_pos_salida_operativa_readiness_readonly.php --id_usuario=1 --id_almacen=5 --id_caja=2 --id_terminal=2 --id_sku=1760 --id_atencion=2 --cantidad=1 --usuarios=1,2,3 --compact=1
+```
+
 Interpretacion actual:
 
 - `apto_con_condiciones` significa que el POS base no tiene bloqueo tecnico para piloto controlado.
 - No significa que ya haya stock para vender ni que todos los usuarios puedan operar.
-- Si se quiere piloto multiusuario, primero habilitar usuarios faltantes con autorizacion fuerte.
+- En el corte 2026-07-19, usuarios `1,2,3` ya pueden participar en piloto multiusuario; aun asi, debe existir turno abierto y stock disponible antes de cobrar.
+- En el corte vigente existe pendiente de inventario `PINV-20260717-000001`; no impide revisar POS, pero debe resolverse o mantenerse identificado antes de ampliar el piloto.

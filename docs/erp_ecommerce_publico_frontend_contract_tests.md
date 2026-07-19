@@ -135,14 +135,15 @@ Desde el ERP:
 ```bash
 C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_contract_shape_readonly.php
 C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_http_smoke_readonly.php --base=http://panel.com.local
-C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_cors_preflight_readonly.php --base=http://panel.com.local --origin=http://localhost:5173
+C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_cors_preflight_readonly.php --base=http://panel.com.local --origin=http://artiani.com.local
 ```
 
 Nota CORS:
 
 - `OPTIONS` no requiere body JSON.
-- En estado actual debe reportar `cors_abierto_para_origin=false`.
-- Cuando se configure `cors_origenes_permitidos`, debe abrir solo el origen exacto del frontend.
+- En estado actual debe reportar `cors_abierto_para_origin=true` para `http://artiani.com.local`.
+- Debe mantener `cors_sin_wildcard=true`.
+- Para origenes no configurados, el navegador debe quedar bloqueado por CORS.
 
 ## Fixtures
 
@@ -157,3 +158,14 @@ Usar fixtures solo con:
 ```text
 senal_frontend=amarillo_mock_contratos
 ```
+
+## Prueba post-expansion a 6 productos
+
+Cuando se autorice y publique la expansion, validar:
+
+```bash
+C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_post_apply_verificacion_readonly.php --base=http://panel.com.local --origin=http://artiani.com.local --min_publicaciones=6
+C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_frontend_snapshot_readonly.php --base=http://panel.com.local --origin=http://artiani.com.local --limite=6 --min_publicaciones=6
+```
+
+Ambos deben devolver `ok=true` antes de considerar listo el frontend con el catalogo ampliado.

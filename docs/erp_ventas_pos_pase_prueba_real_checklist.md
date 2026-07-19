@@ -204,7 +204,7 @@ Validacion 2026-07-17 en `C:\xampp\htdocs\panel_de_control`:
 C:\xampp\php\php.exe storage\uat\uat_ventas_pos_productivo_readiness_readonly.php --id_usuario=1 --id_almacen=5 --id_sku=1760 --cantidad=1
 ```
 
-Resultado:
+Resultado historico 2026-07-17:
 
 - `ok=true`.
 - Sin bloqueos para POS base.
@@ -225,11 +225,20 @@ Resultado:
 - Usuario `1` tiene permisos base para operar POS, CRM, inventario, listas y revisiones de caja.
 - Usuario `1` tiene asignacion activa a almacen `5`, caja `2`, terminal `2`.
 - Turnos abiertos: `0`; esperado fuera de horario, pero bloquea cobro real hasta abrir turno.
-- Pendientes POS de inventario abiertos: `0`.
-- Notificaciones POS abiertas: `0`.
+- Pendientes POS de inventario abiertos: `0` al corte 2026-07-17.
+- Notificaciones POS abiertas: `0` al corte 2026-07-17.
 - Aviso pendiente para promocion productiva completa:
   - falta sembrar permiso fino `ventas.pos.inventario_pendiente.autorizar`;
   - inventario pendiente productivo debe reemplazar token UAT por permiso, motivo obligatorio, auditoria explicita, politica por sucursal/SKU/canal y alerta a Inventario/Existencias.
+
+Resultado vigente 2026-07-19:
+
+- POS base productivo: `ok=true`, sin bloqueos base.
+- Usuario `1` conserva asignacion activa a almacen `5`, caja `2`, terminal `2`.
+- Turnos abiertos: `0`; esperado fuera de horario, pero bloquea cobro real hasta abrir turno.
+- Pendientes POS de inventario abiertos: `1`, folio `PINV-20260717-000001`.
+- Notificaciones POS abiertas: `1`, ligada a venta POS con inventario pendiente.
+- Permiso fino de inventario pendiente productivo ya existe y endpoint productivo esta preparado; mantener fuera del primer piloto salvo autorizacion controlada.
 
 ## Semaforo Final POS
 
@@ -408,3 +417,36 @@ Lectura correcta del documento:
 - Las secciones anteriores conservan el contexto previo y la autorizacion usada.
 - Para el estado actual, tomar este bloque como vigente.
 - No repetir el ciclo sobre la misma atencion porque ya esta convertida.
+
+## Corte 2026-07-19 - suite de pase real post-ciclo
+
+Se ajusto `storage/uat/uat_ventas_pos_pase_prueba_real_suite_readonly.php` para que distinga dos estados:
+
+- atencion pendiente antes del ciclo real;
+- atencion ya convertida con post-check correcto.
+
+Resultado vigente:
+
+- `ok=true`.
+- `checks=12`.
+- `bloqueos=[]`.
+- `ciclo_real_ya_completado=true`.
+- `listo_para_autorizacion_agrupada=false`, porque no debe repetirse la misma atencion.
+- `autorizacion_siguiente=null`.
+- Siguiente paso: no repetir la atencion `2`; continuar con piloto controlado, stock disponible y cierre de pendientes administrativos.
+- No repetir esta atencion: `id_atencion=2` ya esta convertida y ligada a la venta `POS-20260716-000001`.
+- Corte 2026-07-19 07:15: suite reejecutada en `panel_de_control` con `ok=true`, `checks=12`, `bloqueos=[]`, `ciclo_real_ya_completado=true`.
+- Inventario SKU: `pendientes_pos_abiertos=1`, `cubre_cantidad_requerida=false`.
+- Configuracion POS: `cajas=2`, `terminales=3`, `asignaciones=5`, `turnos_abiertos=0`.
+
+Avisos aceptados:
+
+- La prevalidacion del ciclo se omite porque la atencion ya esta convertida.
+- La referencia de stock anterior ya fue usada, esperado despues del ciclo real.
+- SKU `1760` no cubre cantidad requerida al corte, por lo que una nueva venta real necesita stock disponible o autorizacion separada.
+
+Comando vigente:
+
+```powershell
+C:\xampp\php\php.exe storage\uat\uat_ventas_pos_pase_prueba_real_suite_readonly.php --id_usuario=1 --id_almacen=5 --id_sku=1760 --id_atencion=2
+```

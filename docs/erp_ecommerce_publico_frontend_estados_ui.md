@@ -17,6 +17,7 @@ Evitar que el frontend trate estados operativos como errores fatales.
 | API viva, sin DDL | `/estado depurar.schema.ddl_pendiente=true` | Catalogo en preparacion | Ver informacion general sin productos |
 | Catalogo no configurado | `/catalogo depurar.configurado=false` | Catalogo en preparacion | Sin accion de compra |
 | Catalogo vacio | `items=[]` con `configurado=true` | Sin resultados | Cambiar filtros o consultar WhatsApp |
+| Catalogo inicial pequeno | `total_publicadas>0` y pocos productos | Catalogo usable en crecimiento | Comprar/cotizar disponibles y permitir busqueda |
 | Filtros vacios | arrays vacios | Ocultar filtros no disponibles | Usar buscador |
 | Producto no encontrado | `producto.depurar.item=null` | Producto no disponible | Volver al catalogo |
 | Disponibilidad consultar | `consultar_disponibilidad` | Badge "Consultar disponibilidad" | Permitir cotizacion si producto lo permite |
@@ -29,6 +30,7 @@ Evitar que el frontend trate estados operativos como errores fatales.
 ## Textos recomendados
 
 - Catalogo en preparacion: `Estamos preparando el catalogo en linea. Puedes consultarnos por WhatsApp.`
+- Catalogo en crecimiento: `Estamos agregando productos al catalogo. Si no encuentras algo, escribenos por WhatsApp.`
 - Total estimado: `Total estimado sujeto a confirmacion.`
 - Disponibilidad consultar: `Consultar disponibilidad`
 - Agotado: `Agotado`
@@ -54,4 +56,11 @@ Cambiar a datos reales cuando:
 
 ```text
 uat_ecommerce_publico_green_gate_readonly.php -> ok=true
+```
+
+Estado actual:
+
+```text
+senal_frontend=verde_datos_reales
+catalogo inicial real pequeno
 ```

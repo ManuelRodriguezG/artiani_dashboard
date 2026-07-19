@@ -29,7 +29,15 @@ $archivos = array(
     "storage/uat/uat_listas_precios_segmentos_ventas_baseline_compare_readonly.php",
     "storage/uat/uat_listas_precios_segmentos_suite_readonly.php",
     "storage/uat/uat_listas_precios_prioridad_resolutor_readonly.php",
-    "storage/uat/uat_listas_precios_segmentos_reversa_preflight_readonly.php"
+    "storage/uat/uat_listas_precios_segmentos_reversa_preflight_readonly.php",
+    "storage/uat/uat_listas_precios_segmentos_ui_readiness_readonly.php",
+    "storage/uat/uat_listas_precios_segmentos_estatus_ui_dryrun_readonly.php",
+    "storage/uat/uat_listas_precios_lote_dryrun_readonly.php",
+    "storage/uat/uat_listas_precios_revision_activacion_readonly.php",
+    "storage/uat/uat_listas_precios_auditoria_operativa_readonly.php",
+    "storage/uat/uat_listas_precios_comparador_readonly.php",
+    "storage/uat/uat_crm_segmentos_catalogo_ui_readiness_readonly.php",
+    "storage/uat/uat_crm_segmentos_catalogo_estatus_dryrun_readonly.php"
 );
 
 $tokens = array(

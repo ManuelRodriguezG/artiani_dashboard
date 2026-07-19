@@ -22,7 +22,9 @@
         .lp-lista-item { border: 1px solid #edf0f5; border-radius: 8px; cursor: pointer; }
         .lp-lista-item.active { border-color: #3e97ff; background: #f1f7ff; }
         .lp-price-input { min-width: 120px; }
+        .lp-suggested { min-height: 18px; }
         .lp-row-dirty { background: #fff8dd; }
+        .lp-row-selected { background: #f1f7ff; }
         .lp-side { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 16px; }
         @media (max-width: 1400px) {
             .lp-shell, .lp-side { grid-template-columns: 1fr; }
@@ -157,10 +159,12 @@
                                                         <option value="modificados">Modificados</option>
                                                     </select>
                                                     <button class="btn btn-light-primary" id="lp_productos_buscar" type="button"><i class="bi bi-search"></i></button>
+                                                    <button class="btn btn-light" id="lp_exportar_csv" type="button"><i class="bi bi-download"></i></button>
                                                 </div>
                                             </div>
                                             <div class="d-flex flex-wrap gap-2 mb-4">
                                                 <span class="badge badge-light">Visibles <span id="lp_res_productos">0</span></span>
+                                                <span class="badge badge-light-info">Seleccionados <span id="lp_res_seleccionados">0</span></span>
                                                 <span class="badge badge-light-warning">Margen bajo <span id="lp_res_margen_bajo">0</span></span>
                                                 <span class="badge badge-light-danger">Sin costo <span id="lp_res_sin_costo">0</span></span>
                                                 <span class="badge badge-light-primary">Cambios <span id="lp_res_cambios">0</span></span>
@@ -168,13 +172,22 @@
                                             <div class="d-flex flex-wrap justify-content-between align-items-end gap-3 mb-4">
                                                 <div class="d-flex flex-wrap gap-2 align-items-end">
                                                     <div>
+                                                        <label class="form-label text-muted fs-8 text-uppercase">Aplicar a</label>
+                                                        <select class="form-select form-select-solid w-175px" id="lp_accion_alcance">
+                                                            <option value="seleccionados">Seleccionados</option>
+                                                            <option value="visibles">Visibles</option>
+                                                        </select>
+                                                    </div>
+                                                    <div>
                                                         <label class="form-label text-muted fs-8 text-uppercase">Margen objetivo</label>
                                                         <div class="input-group input-group-solid w-175px">
                                                             <input class="form-control" id="lp_margen_objetivo" inputmode="decimal" value="35">
                                                             <span class="input-group-text">%</span>
                                                         </div>
                                                     </div>
-                                                    <button class="btn btn-light" id="lp_aplicar_margen" type="button"><i class="bi bi-percent"></i> Aplicar a visibles</button>
+                                                    <button class="btn btn-light" id="lp_sugerir_margen" type="button"><i class="bi bi-lightbulb"></i> Calcular sugeridos</button>
+                                                    <button class="btn btn-light-primary" id="lp_usar_sugeridos" type="button"><i class="bi bi-check2-square"></i> Usar sugeridos</button>
+                                                    <button class="btn btn-light" id="lp_aplicar_margen" type="button"><i class="bi bi-percent"></i> Aplicar margen</button>
                                                     <button class="btn btn-light" id="lp_copiar_general" type="button"><i class="bi bi-arrow-down-square"></i> Copiar general</button>
                                                     <div>
                                                         <label class="form-label text-muted fs-8 text-uppercase">Redondeo</label>
@@ -191,15 +204,36 @@
                                                         <label class="form-label text-muted fs-8 text-uppercase">Copiar lista ID</label>
                                                         <input class="form-control form-control-solid w-150px" id="lp_copiar_lista_id" inputmode="numeric" placeholder="Origen">
                                                     </div>
-                                                    <button class="btn btn-light" id="lp_copiar_lista" type="button"><i class="bi bi-copy"></i> Copiar visibles</button>
+                                                    <button class="btn btn-light-info" id="lp_comparar_lista" type="button"><i class="bi bi-columns-gap"></i> Comparar</button>
+                                                    <button class="btn btn-light-primary" id="lp_aplicar_comparacion" type="button"><i class="bi bi-check2-square"></i> Usar diferencias</button>
+                                                    <button class="btn btn-light" id="lp_copiar_lista" type="button"><i class="bi bi-copy"></i> Copiar lista</button>
                                                     <button class="btn btn-light-danger" id="lp_limpiar_cambios" type="button"><i class="bi bi-arrow-counterclockwise"></i></button>
                                                     <button class="btn btn-primary" id="lp_guardar_cambios" type="button"><i class="bi bi-save2"></i> Guardar cambios <span class="badge badge-light ms-2" id="lp_cambios_count">0</span></button>
                                                 </div>
+                                            </div>
+                                            <div class="border rounded p-3 mb-4" id="lp_comparacion_resultado">
+                                                <div class="text-muted fs-7">Compara contra otra lista para revisar diferencias antes de copiar precios.</div>
+                                            </div>
+                                            <div class="border rounded p-3 mb-4">
+                                                <div class="d-flex flex-wrap justify-content-between align-items-end gap-3">
+                                                    <div class="min-w-250px flex-grow-1">
+                                                        <label class="form-label text-muted fs-8 text-uppercase">Importar CSV</label>
+                                                        <input class="form-control form-control-solid" id="lp_importar_csv" type="file" accept=".csv,text/csv">
+                                                    </div>
+                                                    <div class="d-flex flex-wrap gap-2">
+                                                        <button class="btn btn-light-primary" id="lp_importar_prevalidar" type="button"><i class="bi bi-file-earmark-check"></i> Prevalidar</button>
+                                                        <button class="btn btn-light" id="lp_importar_aplicar" type="button"><i class="bi bi-check2-circle"></i> Aplicar importacion</button>
+                                                    </div>
+                                                </div>
+                                                <div id="lp_importar_resultado" class="text-muted fs-7 mt-3">CSV esperado: id_sku o sku, y precio_lista.</div>
                                             </div>
                                             <div class="table-responsive lp-productos">
                                                 <table class="table align-middle table-row-dashed gy-3 mb-0">
                                                     <thead>
                                                     <tr class="text-muted fw-bold fs-8 text-uppercase">
+                                                        <th class="w-40px text-center">
+                                                            <input class="form-check-input" type="checkbox" id="lp_productos_select_all" title="Seleccionar visibles">
+                                                        </th>
                                                         <th>Producto</th>
                                                         <th>Unidad</th>
                                                         <th class="text-end">Costo</th>
@@ -371,9 +405,21 @@
                                             </section>
 
                                             <section class="lp-card p-4">
-                                                <div class="d-flex justify-content-between align-items-center mb-3">
-                                                    <div class="fw-bold fs-5">Auditoria</div>
-                                                    <button class="btn btn-sm btn-light-primary" id="lp_auditoria_btn" type="button"><i class="bi bi-clock-history"></i></button>
+                                                <div class="d-flex flex-wrap justify-content-between align-items-end gap-2 mb-3">
+                                                    <div>
+                                                        <div class="fw-bold fs-5">Auditoria</div>
+                                                        <div class="text-muted fs-8">Eventos comerciales, motivos y cambios de la lista.</div>
+                                                    </div>
+                                                    <div class="d-flex gap-2">
+                                                        <select class="form-select form-select-sm form-select-solid w-125px" id="lp_auditoria_tipo">
+                                                            <option value="">Todo</option>
+                                                            <option value="lista">Lista</option>
+                                                            <option value="precio">Precios</option>
+                                                            <option value="segmento">Segmentos</option>
+                                                            <option value="cliente">Clientes</option>
+                                                        </select>
+                                                        <button class="btn btn-sm btn-light-primary" id="lp_auditoria_btn" type="button"><i class="bi bi-clock-history"></i></button>
+                                                    </div>
                                                 </div>
                                                 <div id="lp_auditoria" class="text-muted fs-7">Sin eventos cargados.</div>
                                             </section>
@@ -390,6 +436,6 @@
 </div>
 <script src="assets/plugins/global/plugins.bundle.js"></script>
 <script src="assets/js/scripts.bundle.js"></script>
-<script src="/assets/js/custom/apps/erp/ventas/listas_precios.js?v=20260718-segmentos-operativo1"></script>
+<script src="/assets/js/custom/apps/erp/ventas/listas_precios.js?v=20260719-comparador-listas1"></script>
 </body>
 </html>

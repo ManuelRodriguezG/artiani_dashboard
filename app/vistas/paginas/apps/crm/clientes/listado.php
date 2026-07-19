@@ -166,13 +166,19 @@
                             <div class="crm-panel mb-4">
                                 <div class="p-4 border-bottom d-flex justify-content-between align-items-center">
                                     <div>
-                                        <div class="fw-bold">Segmentos configurables</div>
-                                        <div class="text-muted fs-7">Catalogo de tipos de cliente para condiciones comerciales y listas de precios</div>
+                                        <div class="fw-bold">Tipos de cliente</div>
+                                        <div class="text-muted fs-7">Segmentos CRM configurables para listas de precios, condiciones comerciales y futuras autorizaciones</div>
                                     </div>
-                                    <button type="button" class="btn btn-sm btn-light-primary" id="crm_segmentos_recargar"><i class="bi bi-arrow-clockwise"></i> Recargar</button>
+                                    <div class="d-flex gap-2">
+                                        <button type="button" class="btn btn-sm btn-light" id="crm_seg_nuevo"><i class="bi bi-plus-circle"></i> Nuevo</button>
+                                        <button type="button" class="btn btn-sm btn-light-primary" id="crm_segmentos_recargar"><i class="bi bi-arrow-clockwise"></i> Recargar</button>
+                                    </div>
                                 </div>
                                 <div class="p-4">
                                     <div id="crm_segmentos_resumen" class="mb-4"></div>
+                                    <div class="alert alert-light-info py-3 mb-4 fs-7">
+                                        CRM es el dueño de los tipos de cliente. Comercial/Listas solo vincula listas a estos segmentos; POS consume el precio resuelto por backend.
+                                    </div>
                                     <div class="row g-3 mb-4">
                                         <input type="hidden" id="crm_seg_id">
                                         <div class="col-md-3">
@@ -451,6 +457,6 @@
 </div>
 <script src="assets/plugins/global/plugins.bundle.js"></script>
 <script src="assets/js/scripts.bundle.js"></script>
-<script src="/assets/js/custom/apps/crm/clientes/listado.js?v=20260716-segmentos-catalogo2"></script>
+<script src="/assets/js/custom/apps/crm/clientes/listado.js?v=20260718-segmentos-operativo2"></script>
 </body>
 </html>

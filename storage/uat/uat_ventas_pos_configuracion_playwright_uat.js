@@ -9,8 +9,8 @@ const { chromium } = require('../../public/js/node_modules/@playwright/test');
  * Contrato: read-only; no presiona botones Guardar ni Desactivar, no mueve caja ni inventario.
  */
 
-const baseUrl = process.env.POS_UAT_CONFIG_URL || 'http://dashboard.com.local/ventas/pos_configuracion';
-const loginUrl = process.env.POS_UAT_LOGIN_URL || 'http://dashboard.com.local/autenticacion/login';
+const baseUrl = process.env.POS_UAT_CONFIG_URL || 'http://panel.com.local/ventas/pos_configuracion';
+const loginUrl = process.env.POS_UAT_LOGIN_URL || 'http://panel.com.local/autenticacion/login';
 const usuario = process.env.POS_UAT_USER || '';
 const contrasenia = process.env.POS_UAT_PASS || '';
 const outDir = path.resolve(__dirname, '../../public/storage/uat');

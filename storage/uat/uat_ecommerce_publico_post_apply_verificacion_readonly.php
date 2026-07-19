@@ -7,9 +7,10 @@
  * Contrato: read-only; no escribe BD, no publica SKUs, no registra cotizaciones y no toca inventario.
  */
 
-$opciones = getopt("", array("base::", "origin::"));
+$opciones = getopt("", array("base::", "origin::", "min_publicaciones::"));
 $base = isset($opciones["base"]) ? rtrim(trim((string) $opciones["base"]), "/") : "http://panel.com.local";
-$origin = isset($opciones["origin"]) ? trim((string) $opciones["origin"]) : "http://localhost:5173";
+$origin = isset($opciones["origin"]) ? trim((string) $opciones["origin"]) : "http://artiani.com.local";
+$minPublicaciones = isset($opciones["min_publicaciones"]) ? max(1, intval($opciones["min_publicaciones"])) : 1;
 
 chdir(__DIR__ . "/../../public");
 require_once "../app/iniciador.php";
@@ -18,7 +19,7 @@ require_once "../app/modelos/EcommerceCatalogoPublico.php";
 $api = new EcommerceCatalogoPublico();
 $estado = $api->estadoApiPublica();
 $configuracion = $api->configuracionPublica();
-$catalogo = $api->catalogoPublico(array("limite" => 1));
+$catalogo = $api->catalogoPublico(array("limite" => max(1, min(60, $minPublicaciones))));
 $items = valorPostApply($catalogo, array("depurar", "items"), array());
 $primerItem = !empty($items) ? $items[0] : array();
 $dryrun = array();
@@ -36,6 +37,8 @@ $whatsappOk = trim((string) valorPostApply($configuracion, array("depurar", "con
 $corsConfig = trim((string) valorPostApply($configuracion, array("depurar", "configuracion", "cors_origenes_permitidos"), ""));
 $corsOk = origenPermitidoPostApply($corsConfig, $origin);
 $catalogoOk = !empty($primerItem);
+$publicacionesActuales = intval(valorPostApply($estado, array("depurar", "publicaciones", "total_publicadas"), 0));
+$minPublicacionesOk = $publicacionesActuales >= $minPublicaciones;
 $dryrunOk = !empty($dryrun)
   && empty($dryrun["error"])
   && !empty(valorPostApply($dryrun, array("depurar", "lineas"), array()));
@@ -53,6 +56,9 @@ if (!$corsOk) {
 if (!$catalogoOk) {
   $bloqueos[] = "catalogo_sin_publicaciones";
 }
+if (!$minPublicacionesOk) {
+  $bloqueos[] = "publicaciones_menor_a_minimo_" . $minPublicaciones;
+}
 if (!$dryrunOk) {
   $bloqueos[] = "cotizacion_dryrun_sin_item_real";
 }
@@ -62,6 +68,8 @@ if ($ddlOk && (!$whatsappOk || !$corsOk)) {
   $etapa = "ddl_ok_configuracion_pendiente";
 } elseif ($ddlOk && $whatsappOk && $corsOk && !$catalogoOk) {
   $etapa = "configuracion_ok_publicaciones_pendientes";
+} elseif ($ddlOk && $whatsappOk && $corsOk && $catalogoOk && !$minPublicacionesOk) {
+  $etapa = "catalogo_ok_minimo_publicaciones_pendiente";
 } elseif ($ddlOk && $whatsappOk && $corsOk && $catalogoOk && !$dryrunOk) {
   $etapa = "catalogo_ok_dryrun_pendiente";
 } elseif (empty($bloqueos)) {
@@ -79,7 +87,13 @@ echo json_encode(array(
     "whatsapp_ok" => $whatsappOk,
     "cors_ok" => $corsOk,
     "catalogo_ok" => $catalogoOk,
+    "min_publicaciones_ok" => $minPublicacionesOk,
     "dryrun_ok" => $dryrunOk
+  ),
+  "publicaciones" => array(
+    "actuales" => $publicacionesActuales,
+    "minimo_esperado" => $minPublicaciones,
+    "items_snapshot" => count($items)
   ),
   "primer_item" => empty($primerItem) ? null : array(
     "id_publicacion" => valorPostApply($primerItem, array("id_publicacion"), null),
@@ -107,6 +121,9 @@ function siguientePasoPostApply($etapa) {
   }
   if ($etapa === "configuracion_ok_publicaciones_pendientes") {
     return "Crear borradores y publicar al menos un SKU revisado.";
+  }
+  if ($etapa === "catalogo_ok_minimo_publicaciones_pendiente") {
+    return "Publicar los borradores faltantes o bajar el minimo esperado si solo se valida Fase 1 inicial.";
   }
   if ($etapa === "catalogo_ok_dryrun_pendiente") {
     return "Revisar cotizacion_dryrun contra publicacion real.";

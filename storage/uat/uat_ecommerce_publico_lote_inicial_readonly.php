@@ -10,6 +10,7 @@
 $args = isset($argv) ? $argv : array();
 $limite = 30;
 $soloDisponibles = false;
+$incluirExistentes = false;
 foreach ($args as $arg) {
   if (strpos($arg, "--limite=") === 0) {
     $limite = max(5, min(100, intval(trim(substr($arg, 9), "\"' "))));
@@ -17,6 +18,10 @@ foreach ($args as $arg) {
   $prefijoSoloDisponibles = "--solo_disponibles=";
   if (strpos($arg, $prefijoSoloDisponibles) === 0) {
     $soloDisponibles = intval(trim(substr($arg, strlen($prefijoSoloDisponibles)), "\"' ")) === 1;
+  }
+  $prefijoIncluirExistentes = "--incluir_existentes=";
+  if (strpos($arg, $prefijoIncluirExistentes) === 0) {
+    $incluirExistentes = intval(trim(substr($arg, strlen($prefijoIncluirExistentes)), "\"' ")) === 1;
   }
 }
 $poolLimite = min(500, max(200, $limite * 10));
@@ -38,11 +43,17 @@ $resumenMascotas = array();
 $resumenNecesidades = array();
 $resumenCategorias = array();
 $descartesDiversidad = 0;
+$descartesExistentes = 0;
 
 foreach ($candidatos as $fila) {
   $preparacion = $modelo->prepararPublicacion(array("id_sku" => intval($fila["id_sku"])));
   $sugerida = valor($preparacion, array("depurar", "publicacion_sugerida"), array());
   $producto = valor($preparacion, array("depurar", "producto_vivo_erp"), array());
+  $bloqueos = valor($preparacion, array("depurar", "bloqueos_publicacion"), array());
+  if (!$incluirExistentes && in_array("publicacion_existente", $bloqueos, true)) {
+    $descartesExistentes++;
+    continue;
+  }
   if ($soloDisponibles) {
     $disponibilidad = strtolower(trim((string) valor($producto, array("disponibilidad_publica_sugerida"), "")));
     if (!in_array($disponibilidad, array("disponible", "pocas_piezas"), true)) {
@@ -174,6 +185,7 @@ echo json_encode(array(
   "modo" => "read-only",
   "limite" => $limite,
   "solo_disponibles" => $soloDisponibles,
+  "incluir_existentes" => $incluirExistentes,
   "pool_evaluado" => count($evaluados),
   "total_lote" => count($lote),
   "auditoria" => array(
@@ -187,7 +199,8 @@ echo json_encode(array(
     "mascotas_inferidas" => $resumenMascotas,
     "necesidades_inferidas" => $resumenNecesidades,
     "categorias" => $resumenCategorias,
-    "descartes_por_diversidad" => $descartesDiversidad
+    "descartes_por_diversidad" => $descartesDiversidad,
+    "descartes_por_publicacion_existente" => $descartesExistentes
   ),
   "criterios_priorizacion" => array(
     "preferir_perro_y_gato_sin_excluir_otras_especies",
@@ -205,7 +218,7 @@ echo json_encode(array(
     "estatus_sugerido" => "borrador"
   ),
   "lote_sugerido" => $lote,
-  "siguiente_paso" => "Revisar lote, ajustar mascota/necesidades y convertir a borrador solo despues de DDL autorizado."
+  "siguiente_paso" => "Revisar lote, ajustar mascota/necesidades y convertir a borrador solo con autorizacion explicita."
 ), JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE) . PHP_EOL;
 
 function valor($datos, $ruta, $default = null) {
@@ -228,7 +241,7 @@ function construirItemLote($evaluado, $producto, $sugerida, $preparacion, $masco
     "nombre" => valor($producto, array("nombre"), ""),
     "marca" => valor($producto, array("marca"), ""),
     "categoria" => valor($producto, array("categoria"), ""),
-    "presentacion" => valor($sugerida, array("presentacion_publica"), ""),
+    "presentacion" => presentacionPublicaLote($producto, $sugerida),
     "precio" => valor($producto, array("precio"), 0),
     "moneda" => valor($producto, array("moneda"), "MXN"),
     "disponibilidad_publica_sugerida" => valor($producto, array("disponibilidad_publica_sugerida"), ""),
@@ -239,6 +252,26 @@ function construirItemLote($evaluado, $producto, $sugerida, $preparacion, $masco
     "publicable_fase_1" => valor($preparacion, array("depurar", "publicable_fase_1"), false),
     "bloqueos" => valor($preparacion, array("depurar", "bloqueos_publicacion"), array())
   );
+}
+
+function presentacionPublicaLote($producto, $sugerida) {
+  $presentacion = trim((string) valor($sugerida, array("presentacion_publica"), ""));
+  $genericas = array("g", "gr", "gramo", "gramos", "kg", "ml", "l", "lt", "pz", "pza", "pieza", "piezas");
+  if ($presentacion !== "" && !in_array(strtolower($presentacion), $genericas, true)) {
+    return $presentacion;
+  }
+  $texto = trim((string) valor($producto, array("nombre"), "") . " " . valor($producto, array("sku"), ""));
+  if (preg_match('/\b(\d+(?:[.,]\d+)?)\s*(kg|kilos?|g|gr|gramos?|ml|pz|pza|piezas?)\b/i', $texto, $m)
+    || preg_match('/\b(\d+(?:[.,]\d+)?)\s*(l|lt|litros?|lts)\b(?!\s*\/\s*hr)/i', (string) valor($producto, array("nombre"), ""), $m)) {
+    $cantidad = str_replace(",", ".", $m[1]);
+    $unidad = strtolower($m[2]);
+    $unidad = in_array($unidad, array("g", "gr", "gramo", "gramos"), true) ? "gr" : $unidad;
+    $unidad = in_array($unidad, array("kilo", "kilos"), true) ? "kg" : $unidad;
+    $unidad = in_array($unidad, array("l", "lt", "litro", "litros"), true) ? "lt" : $unidad;
+    $unidad = in_array($unidad, array("pz", "pza", "pieza", "piezas"), true) ? "pz" : $unidad;
+    return $cantidad . " " . $unidad;
+  }
+  return $presentacion;
 }
 
 function loteContieneSku($lote, $idSku) {

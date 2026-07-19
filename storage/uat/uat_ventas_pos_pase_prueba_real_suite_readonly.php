@@ -1,8 +1,8 @@
 <?php
 
 /**
- * Documentacion IA: Codex GPT-5, 2026-07-15.
- * Proposito: ejecutar una suite compacta read-only para saber si POS esta listo para la siguiente UAT real.
+ * Documentacion IA: Codex GPT-5, 2026-07-15 / 2026-07-19.
+ * Proposito: ejecutar una suite compacta read-only para saber si POS esta listo para la siguiente UAT real o si el ciclo ya quedo completado.
  * Impacto: agrupa semaforo, prevalidacion de ciclo, bandeja, detalle y post-check esperado sin escribir BD.
  * Contrato: solo lectura; no abre turno, no carga stock, no cobra, no cierra caja y no mueve inventario.
  */
@@ -106,18 +106,26 @@ $checks[] = ejecutar("post_conversion_esperado_pendiente", array(
     "--compact=1"
 ), true);
 
-$bloqueos = array();
-$avisos = array();
-foreach ($checks as $check) {
-    if (empty($check["ok"]) && empty($check["permitir_falla"])) {
-        $bloqueos[] = "Fallo check " . $check["paso"];
-    }
-}
-
 $semaforo = buscarCheck($checks, "semaforo_cierre");
 $prevalidacion = buscarCheck($checks, "prevalidacion_ciclo");
 $postConversion = buscarCheck($checks, "post_conversion_esperado_pendiente");
 $inventarioSku = buscarCheck($checks, "inventario_sku");
+$prevalidacionJson = valor($prevalidacion, "salida_json", array());
+$postConversionJson = valor($postConversion, "salida_json", array());
+$atencionYaConvertida = atencionYaConvertida($prevalidacionJson);
+$postConversionOk = postConversionOk($postConversionJson);
+
+$bloqueos = array();
+$avisos = array();
+foreach ($checks as $check) {
+    if (empty($check["ok"]) && empty($check["permitir_falla"])) {
+        if (valor($check, "paso", "") === "prevalidacion_ciclo" && $atencionYaConvertida && $postConversionOk) {
+            $avisos[] = "Prevalidacion omitida: la atencion ya esta convertida y el post-check confirma venta/pago/kardex.";
+        } else {
+            $bloqueos[] = "Fallo check " . $check["paso"];
+        }
+    }
+}
 
 foreach (valor(valor($semaforo, "salida_json", array()), "bloqueos_para_cobro_atencion", array()) as $bloqueo) {
     if (in_array($bloqueo, array(
@@ -131,8 +139,12 @@ foreach (valor(valor($semaforo, "salida_json", array()), "bloqueos_para_cobro_at
         $bloqueos[] = "Bloqueo no esperado en semaforo: " . $bloqueo;
     }
 }
-foreach (valor(valor(valor($prevalidacion, "salida_json", array()), "prevalidacion", array()), "bloqueos", array()) as $bloqueo) {
-    $bloqueos[] = "Prevalidacion ciclo: " . $bloqueo;
+foreach (valor(valor($prevalidacionJson, "prevalidacion", array()), "bloqueos", array()) as $bloqueo) {
+    if ($atencionYaConvertida && $postConversionOk && bloqueoPrevalidacionPorAtencionConvertida($bloqueo)) {
+        $avisos[] = "Prevalidacion ciclo omitida por atencion ya convertida: " . $bloqueo;
+    } else {
+        $bloqueos[] = "Prevalidacion ciclo: " . $bloqueo;
+    }
 }
 $resumenInventario = valor(valor($inventarioSku, "salida_json", array()), "resumen", array());
 if (!empty($resumenInventario) && empty($resumenInventario["cubre_cantidad_requerida"])) {
@@ -157,10 +169,16 @@ $salida = array(
         "checks" => count($checks),
         "bloqueos" => $bloqueos,
         "avisos" => array_values(array_unique($avisos)),
-        "listo_para_autorizacion_agrupada" => empty($bloqueos)
+        "listo_para_autorizacion_agrupada" => empty($bloqueos) && !$atencionYaConvertida,
+        "ciclo_real_ya_completado" => $atencionYaConvertida && $postConversionOk
     ),
     "checks" => compactarChecks($checks),
-    "autorizacion_siguiente" => "AUTORIZO EJECUTAR CICLO REAL ATENCION POS MULTIUSUARIO usando respaldo UAT POS vigente con token VENTAS_POS_ATENCION_MULTIUSUARIO_CICLO_REAL id_usuario=1 id_almacen=5 id_sku=1760 id_atencion=2 cantidad_stock=1 pago=295 monto_inicial=500 monto_contado=795 para UAT POS",
+    "autorizacion_siguiente" => $atencionYaConvertida && $postConversionOk
+        ? null
+        : "AUTORIZO EJECUTAR CICLO REAL ATENCION POS MULTIUSUARIO usando respaldo UAT POS vigente con token VENTAS_POS_ATENCION_MULTIUSUARIO_CICLO_REAL id_usuario=1 id_almacen=5 id_sku=1760 id_atencion=2 cantidad_stock=1 pago=295 monto_inicial=500 monto_contado=795 para UAT POS",
+    "siguiente_paso" => $atencionYaConvertida && $postConversionOk
+        ? "No repetir esta atencion: ya esta convertida. Continuar con piloto controlado, stock disponible y cierre de pendientes administrativos."
+        : "Preparar autorizacion agrupada solo si la atencion sigue disponible para cobro.",
     "contrato" => array(
         "read_only" => true,
         "no_escribe_bd" => true,
@@ -223,4 +241,40 @@ function compactarChecks($checks) {
 
 function valor($datos, $campo, $default = null) {
     return is_array($datos) && array_key_exists($campo, $datos) ? $datos[$campo] : $default;
+}
+
+function atencionYaConvertida($prevalidacionJson) {
+    $prevalidacion = valor($prevalidacionJson, "prevalidacion", array());
+    $atencion = valor($prevalidacion, "atencion", array());
+    if (valor($atencion, "estatus", "") === "convertida" && intval(valor($atencion, "id_venta_convertida", 0)) > 0) {
+        return true;
+    }
+    foreach (valor($prevalidacion, "bloqueos", array()) as $bloqueo) {
+        if (stripos($bloqueo, "atencion ya tiene venta convertida") !== false) {
+            return true;
+        }
+    }
+    return false;
+}
+
+function postConversionOk($postConversionJson) {
+    $resumen = valor($postConversionJson, "resumen", array());
+    if (empty($resumen)) {
+        return false;
+    }
+    return valor($resumen, "estatus_atencion", "") === "convertida"
+        && intval(valor($resumen, "id_venta_convertida", 0)) > 0
+        && valor($resumen, "estatus_venta", "") === "pagada"
+        && floatval(valor($resumen, "total_venta", 0)) > 0
+        && floatval(valor($resumen, "pagado_total", 0)) >= floatval(valor($resumen, "total_venta", 0))
+        && intval(valor($resumen, "detalles_venta", 0)) > 0
+        && intval(valor($resumen, "pagos", 0)) > 0
+        && intval(valor($resumen, "movimientos_caja", 0)) > 0
+        && intval(valor($resumen, "trazabilidad_inventario", 0)) > 0;
+}
+
+function bloqueoPrevalidacionPorAtencionConvertida($bloqueo) {
+    return stripos($bloqueo, "referencia de stock ya fue usada") !== false
+        || stripos($bloqueo, "atencion no esta disponible para cobro: convertida") !== false
+        || stripos($bloqueo, "atencion ya tiene venta convertida") !== false;
 }

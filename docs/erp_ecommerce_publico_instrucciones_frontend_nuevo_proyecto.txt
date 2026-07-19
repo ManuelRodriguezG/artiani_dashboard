@@ -3,7 +3,7 @@ ERP > Ecommerce publico / Catalogo vivo conectado al ERP
 
 Fecha: 2026-07-15
 Proyecto ERP fuente: C:\xampp\htdocs\panel_de_control
-Estado actual ERP: contratos API listos en modo read-only; datos reales pendientes de DDL, configuracion, CORS, WhatsApp y publicaciones.
+Estado actual ERP: verde con datos reales Fase 1; DDL, configuracion, CORS, WhatsApp y primeras publicaciones ya estan activos.
 
 ======================================================================
 0. ARRANQUE RAPIDO PARA EL NUEVO FRONTEND
@@ -45,6 +45,8 @@ Comandos ERP clave:
 - `C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_entorno_readonly.php --base=http://panel.com.local`
 - `C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_frontend_readiness_readonly.php`
 - `C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_frontend_package_readonly.php --base=http://panel.com.local`
+- `C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_frontend_entregable_gate_readonly.php --base=http://panel.com.local --origin=http://artiani.com.local --skus_preview=415,866,386,1138 --min_publicadas=2 --min_preview=6`
+- `C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_frontend_snapshot_readonly.php --base=http://panel.com.local --origin=http://artiani.com.local --limite=2`
 - `C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_green_gate_readonly.php --base=http://panel.com.local`
 - `C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_frontend_fixtures_readonly.php`
 
@@ -54,7 +56,7 @@ Pantalla interna ERP:
 Prompt corto para pegar al iniciar el nuevo proyecto:
 - docs/erp_ecommerce_publico_prompt_inicio_frontend.txt
 
-Fixtures para UI mientras el ERP siga en amarillo:
+Fixtures para UI como respaldo de diseno, no como fuente principal:
 - docs/erp_ecommerce_publico_fixtures_frontend.md
 
 Contract tests sugeridos para el frontend:
@@ -65,6 +67,9 @@ Cliente API y estados UI:
 - docs/erp_ecommerce_publico_frontend_estados_ui.md
 - docs/erp_ecommerce_publico_carrito_whatsapp_frontend.md
 - docs/erp_ecommerce_publico_frontend_herramientas_integracion.md
+- docs/erp_ecommerce_publico_frontend_snapshot_vivo.md
+- docs/erp_ecommerce_publico_expansion_catalogo_plan.md
+- docs/erp_ecommerce_publico_expansion_6_productos_runbook.md
 - docs/erp_ecommerce_publico_seguridad_api_futura.md
 - docs/erp_ecommerce_publico_seo_frontend.md
 - docs/erp_ecommerce_publico_diagnostico_entorno.md
@@ -75,7 +80,7 @@ OpenAPI basico:
 - `C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_openapi_readonly.php`
 
 Variables de entorno/proxy local:
-- `C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_frontend_env_readonly.php --base=http://panel.com.local --frontend=http://localhost:5173`
+- `C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_frontend_env_readonly.php --base=http://panel.com.local --frontend=http://artiani.com.local`
 
 Coleccion Postman/Insomnia:
 - `C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_postman_collection_readonly.php --base=http://panel.com.local`
@@ -84,10 +89,24 @@ Prueba carrito/WhatsApp:
 - `C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_carrito_whatsapp_readonly.php`
 
 Plan de registro interno futuro:
-- `C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_cotizacion_registro_plan_readonly.php --base=http://panel.com.local --origin=http://localhost:5173`
+- `C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_cotizacion_registro_plan_readonly.php --base=http://panel.com.local --origin=http://artiani.com.local`
 
 Prueba de casos negativos:
 - `C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_negative_cases_readonly.php --base=http://panel.com.local`
+
+Expansion read-only de catalogo:
+- `C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_expansion_catalogo_readonly.php --limite=20 --pool=1500 --solo_disponibles=1`
+- `C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_expansion_bundle_readonly.php --base=http://panel.com.local --origin=http://artiani.com.local --respaldo=C:\xampp\panel_db_backups\artianilocal_panel_20260716_232839_antes_ecommerce_publico_fase1.sql --skus=415,866,386,1138 --min_actual=2 --min_objetivo=6`
+- `C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_frontend_preview_expansion_readonly.php --base=http://panel.com.local --origin=http://artiani.com.local --skus=415,866,386,1138 --resumen=1`
+- `C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_expansion_publicacion_paquete_readonly.php --skus=415,866,386,1138 --base=http://panel.com.local`
+- `C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_expansion_apply_checklist_readonly.php --base=http://panel.com.local --respaldo=C:\xampp\panel_db_backups\artianilocal_panel_20260716_232839_antes_ecommerce_publico_fase1.sql --skus=415,866,386,1138`
+
+Preview de frontend:
+- El API real actual devuelve 2 productos publicados.
+- El preview read-only combina esos 2 productos con 4 candidatos reales para poder disenar una experiencia de catalogo mas completa.
+- Los productos con `preview_no_publicado=true` no deben tratarse como publicados ni persistirse en el frontend.
+- La fuente real sigue siendo `GET http://panel.com.local/ecommercePublico/catalogo`.
+- Cuando el ERP publique la expansion con autorizacion, validar con snapshot `--min_publicaciones=6` y quitar cualquier dependencia del preview.
 
 ======================================================================
 1. OBJETIVO DEL NUEVO PROYECTO FRONTEND
@@ -167,6 +186,14 @@ Paquete compacto para entregar al nuevo frontend:
 
 C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_frontend_package_readonly.php --base=http://panel.com.local
 
+Compuerta unica de entregable frontend:
+
+C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_frontend_entregable_gate_readonly.php --base=http://panel.com.local --origin=http://artiani.com.local --skus_preview=415,866,386,1138 --min_publicadas=2 --min_preview=6
+
+Resultado esperado:
+
+senal_entregable_frontend=verde_entregable_frontend
+
 Compuerta final antes de integrar datos reales:
 
 C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_green_gate_readonly.php --base=http://panel.com.local
@@ -186,9 +213,9 @@ puede_iniciar_frontend_mock=true
 puede_integrar_datos_reales=true
 
 Significado:
-- Si: puedes crear el frontend, cliente API, pantallas, estados vacios y mocks.
+- Si: puedes crear el frontend, cliente API, pantallas y estados vacios.
 - Si: puedes consumir datos reales iniciales desde `/catalogo`.
-- Si: puedes usar fixtures para disenar UI y pruebas locales.
+- Si: puedes usar fixtures solo como respaldo de UI/pruebas locales, pero el flujo principal ya debe consumir API real.
 - Si: puedes anunciar catalogo vivo real inicial, dejando claro que Fase 1 es cotizacion por WhatsApp, no checkout.
 
 Nota importante:
@@ -242,8 +269,8 @@ NEXT_PUBLIC_ERP_ECOMMERCE_API_VERSION=fase1-2026-07-12
 Importante:
 - No guardar secretos HMAC en variables publicas del navegador.
 - Si en el futuro hay API key/firma, debe vivir en backend del ecommerce, no en SPA estatica.
-- Mientras `cors_origenes_permitidos` no este configurado en el ERP, el navegador puede bloquear llamadas directas desde `localhost:5173` o `localhost:3000`.
-- Aunque el navegador bloquee por CORS, el endpoint puede estar funcionando correctamente; validar con el smoke HTTP del ERP.
+- CORS ya esta configurado para `http://artiani.com.local`.
+- Si usas otro host/puerto en el frontend, debes agregar ese origen exacto en `cors_origenes_permitidos`; no usar wildcard.
 
 Verificacion real del host ERP:
 
@@ -264,14 +291,14 @@ Resultado esperado actual:
 ok=true
 frontend_base_correcta=http://panel.com.local/ecommercePublico
 estado.tipo=success
-catalogo.tipo=info
-cotizacion_dryrun.tipo=info
+catalogo.tipo=success
+cotizacion_dryrun.tipo=success
 
-Opciones para desarrollo mientras CORS no esta activo:
+Opciones para desarrollo si cambias de host local y CORS aun no incluye ese origen:
 
-1. Trabajar con mocks/fixtures del contrato API.
+1. Trabajar temporalmente con mocks/fixtures del contrato API.
 2. Usar un proxy de desarrollo del framework frontend.
-3. Esperar a que el ERP aplique DDL y configure `cors_origenes_permitidos`.
+3. Configurar en ERP el origen exacto del frontend.
 
 Fixtures oficiales:
 
@@ -281,7 +308,7 @@ Estos datos son solo para UI; no son productos reales.
 
 Generador de `.env.example` y proxy local:
 
-C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_frontend_env_readonly.php --base=http://panel.com.local --frontend=http://localhost:5173
+C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_frontend_env_readonly.php --base=http://panel.com.local --frontend=http://artiani.com.local
 
 Coleccion Postman/Insomnia para probar contratos:
 
@@ -457,15 +484,16 @@ Regla:
 ======================================================================
 
 Estado Fase 1:
-- CORS esta cerrado por defecto.
-- El ERP solo permitira origenes configurados en erp_ecommerce_configuracion.cors_origenes_permitidos.
+- CORS esta cerrado por defecto para origenes no configurados.
+- El ERP permite `http://artiani.com.local` porque esta configurado en `erp_ecommerce_configuracion.cors_origenes_permitidos`.
+- El ERP solo debe permitir origenes exactos configurados; nunca wildcard.
 - API key/HMAC esta documentado como seguridad futura, no requerido para read-only local.
 
-Cuando el frontend tenga host local, configurar en ERP:
+Origen local configurado actualmente:
 
-cors_origenes_permitidos=http://localhost:3000
+cors_origenes_permitidos=http://artiani.com.local
 
-Si usa otro puerto:
+Si usa otro puerto/host, agregar ese origen exacto:
 
 cors_origenes_permitidos=http://localhost:5173
 

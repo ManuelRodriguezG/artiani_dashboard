@@ -165,6 +165,7 @@ class ListasPreciosErp extends CRUD {
                 LIMIT " . intval($limite));
             $stmt->execute($params);
             $eventos = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            $eventos = $this->enriquecerEventosAuditoria($eventos);
 
             return $this->respuesta(false, "success", "Auditoria comercial de listas consultada", array(
                 "schema_pendiente" => false,
@@ -943,6 +944,122 @@ class ListasPreciosErp extends CRUD {
     }
 
     /**
+     * Documentacion IA: Codex GPT-5, 2026-07-18.
+     * Proposito: prevalidar un lote de precios antes del guardado operativo.
+     * Impacto: permite que CSV/importacion y edicion masiva detecten bloqueos y margen sin escribir BD.
+     * Contrato: read-only; no inicia transaccion, no llama guardado y no modifica listas ni ventas.
+     */
+    public function detallesLoteDryRun($datos = array()) {
+        try {
+            $db = $this->getConexion();
+            $idLista = intval($this->valor($datos, "id_lista_precio", 0));
+            $json = trim((string) $this->valor($datos, "precios_json", "[]"));
+            $items = json_decode($json, true);
+            if (!is_array($items)) {
+                return $this->respuesta(true, "warning", "Formato de lote invalido");
+            }
+            if ($idLista <= 0) {
+                return $this->respuesta(true, "warning", "Lista obligatoria para prevalidar lote");
+            }
+            if (count($items) > 200) {
+                return $this->respuesta(true, "warning", "El lote no puede exceder 200 precios por prevalidacion");
+            }
+
+            $validos = array();
+            $errores = array();
+            $resumen = array(
+                "total" => count($items),
+                "validos" => 0,
+                "errores" => 0,
+                "perdida" => 0,
+                "margen_bajo" => 0,
+                "sin_costo" => 0,
+                "ok_margen" => 0
+            );
+            $vistos = array();
+
+            foreach ($items as $idx => $item) {
+                if (!is_array($item)) {
+                    $errores[] = array("fila" => $idx + 1, "mensaje" => "Partida invalida");
+                    continue;
+                }
+                $payload = array(
+                    "id_lista_precio_detalle" => $this->valor($item, "id_lista_precio_detalle", ""),
+                    "id_lista_precio" => $idLista,
+                    "id_sku" => $this->valor($item, "id_sku", ""),
+                    "id_producto_erp" => $this->valor($item, "id_producto_erp", ""),
+                    "precio" => $this->valor($item, "precio", ""),
+                    "moneda" => $this->valor($item, "moneda", "MXN"),
+                    "estatus" => $this->valor($item, "estatus", "activo")
+                );
+                $clave = intval($this->valor($payload, "id_sku", 0)) > 0
+                    ? "sku:" . intval($this->valor($payload, "id_sku", 0)) . ":" . strtoupper((string) $this->valor($payload, "moneda", "MXN"))
+                    : "producto:" . intval($this->valor($payload, "id_producto_erp", 0)) . ":" . strtoupper((string) $this->valor($payload, "moneda", "MXN"));
+                $respuesta = $this->detalleDryRun($payload);
+                $bloqueos = isset($respuesta["depurar"]["bloqueos"]) && is_array($respuesta["depurar"]["bloqueos"]) ? $respuesta["depurar"]["bloqueos"] : array();
+                if (isset($vistos[$clave])) {
+                    $bloqueos[] = "SKU/producto duplicado dentro del lote";
+                }
+                $vistos[$clave] = true;
+                if (!empty($respuesta["error"]) || empty($respuesta["depurar"]["puede_guardar"]) || !empty($bloqueos)) {
+                    $errores[] = array(
+                        "fila" => $idx + 1,
+                        "id_sku" => $this->valor($item, "id_sku", ""),
+                        "mensaje" => $respuesta["mensaje"],
+                        "bloqueos" => $bloqueos
+                    );
+                    continue;
+                }
+                $detalle = $respuesta["depurar"]["detalle_normalizado"];
+                $costo = $this->costoReferenciaDetalle($db, intval($this->valor($detalle, "id_sku", 0)), intval($this->valor($detalle, "id_producto_erp", 0)));
+                $margen = $this->calcularMargenPrecio($detalle["precio"], $costo);
+                $riesgo = $this->riesgoMargen($detalle["precio"], $costo, $margen);
+                if ($riesgo["clave"] === "perdida") {
+                    $resumen["perdida"]++;
+                } elseif ($riesgo["clave"] === "margen_bajo") {
+                    $resumen["margen_bajo"]++;
+                } elseif ($riesgo["clave"] === "sin_costo") {
+                    $resumen["sin_costo"]++;
+                } elseif ($riesgo["clave"] === "ok") {
+                    $resumen["ok_margen"]++;
+                }
+                $validos[] = array(
+                    "fila" => $idx + 1,
+                    "detalle" => $detalle,
+                    "costo_referencia" => round(floatval($costo), 6),
+                    "margen_estimado" => $margen,
+                    "riesgo_margen" => $riesgo
+                );
+            }
+
+            $resumen["validos"] = count($validos);
+            $resumen["errores"] = count($errores);
+            $avisos = array();
+            if ($resumen["perdida"] > 0) {
+                $avisos[] = "El lote contiene precios con perdida";
+            }
+            if ($resumen["margen_bajo"] > 0) {
+                $avisos[] = "El lote contiene precios con margen bajo";
+            }
+            if ($resumen["sin_costo"] > 0) {
+                $avisos[] = "El lote contiene SKUs sin costo de referencia";
+            }
+
+            return $this->respuesta(false, empty($errores) ? "success" : "warning", empty($errores) ? "Lote valido en dry-run" : "Lote con errores", array(
+                "dry_run" => true,
+                "puede_guardar" => empty($errores),
+                "resumen" => $resumen,
+                "validos" => $validos,
+                "errores" => $errores,
+                "avisos" => $avisos,
+                "no_escribe_bd" => true
+            ));
+        } catch (Exception $e) {
+            return $this->respuesta(true, "danger", $e->getMessage());
+        }
+    }
+
+    /**
      * Documentacion IA: Codex GPT-5, 2026-07-12.
      * Proposito: guardar asignacion de lista de precios a cliente CRM con prioridad y vigencia.
      * Impacto: puede cambiar resolucion futura de precios para el cliente; no toca ventas pasadas.
@@ -1301,6 +1418,35 @@ class ListasPreciosErp extends CRUD {
             $avisos[] = "Asignacion por segmento pendiente de DDL; las listas de mayoreo/ecommerce deberan vincularse por segmento cuando se active el puente";
         }
 
+        if ($lista) {
+            $canalLista = trim((string) $this->valor($lista, "canal", ""));
+            $canalLista = $canalLista === "" ? "general" : $canalLista;
+            $idAlmacenLista = intval($this->valor($lista, "id_almacen", 0));
+            $prioridadLista = intval($this->valor($lista, "prioridad", 100));
+            $fechaInicioLista = trim((string) $this->valor($lista, "fecha_inicio", ""));
+            $fechaFinLista = trim((string) $this->valor($lista, "fecha_fin", ""));
+            $hoy = date("Y-m-d");
+
+            if ($fechaFinLista !== "" && substr($fechaFinLista, 0, 10) < $hoy) {
+                $bloqueos[] = "La vigencia de la lista ya termino; ajusta fecha fin antes de activar";
+            }
+            if ($fechaInicioLista !== "" && substr($fechaInicioLista, 0, 10) > $hoy) {
+                $avisos[] = "La lista inicia en fecha futura; POS no la aplicara hasta la vigencia";
+            }
+            if ($canalLista === "ecommerce" && $segmentosActivos <= 0 && $asignacionesActivas <= 0) {
+                $bloqueos[] = "Lista ecommerce requiere asignacion explicita a segmento o cliente antes de activarse";
+            }
+            if ($canalLista === "mayoreo" && $segmentosActivos <= 0 && $asignacionesActivas <= 0) {
+                $avisos[] = "Lista mayoreo sin segmento/cliente activo; quedara como regla de canal si el resolutor la considera aplicable";
+            }
+            if ($canalLista === "general" && $idAlmacenLista <= 0 && $segmentosActivos <= 0 && $asignacionesActivas <= 0) {
+                $avisos[] = "Lista general global: aplicara como base amplia cuando no gane una regla mas especifica";
+            }
+            if ($canalLista === "general" && $prioridadLista <= 50) {
+                $avisos[] = "Lista general con prioridad alta; revisa que no desplace listas especificas";
+            }
+        }
+
         $conflictos = $this->detectarConflictosLista($db, $idLista);
         foreach ($conflictos as $conflicto) {
             $tipo = isset($conflicto["tipo"]) ? $conflicto["tipo"] : "";
@@ -1578,6 +1724,104 @@ class ListasPreciosErp extends CRUD {
         return $json === false ? null : $json;
     }
 
+    private function enriquecerEventosAuditoria($eventos) {
+        $resultado = array();
+        foreach ($eventos as $evento) {
+            $accion = trim((string) $this->valor($evento, "accion", ""));
+            $entidad = trim((string) $this->valor($evento, "entidad", ""));
+            $antes = $this->jsonDecodeSeguro($this->valor($evento, "datos_antes", null));
+            $despues = $this->jsonDecodeSeguro($this->valor($evento, "datos_despues", null));
+            $cambios = $this->resumirCambiosAuditoria($antes, $despues);
+            $evento["accion_etiqueta"] = $this->etiquetaAccionAuditoria($accion);
+            $evento["accion_tipo"] = $this->tipoAccionAuditoria($accion, $entidad);
+            $evento["cambios_resumen"] = $cambios;
+            $evento["cambios_total"] = count($cambios);
+            $evento["tiene_motivo"] = trim((string) $this->valor($evento, "motivo", "")) !== "";
+            unset($evento["datos_antes"], $evento["datos_despues"]);
+            $resultado[] = $evento;
+        }
+        return $resultado;
+    }
+
+    private function jsonDecodeSeguro($json) {
+        if ($json === null || $json === "") {
+            return null;
+        }
+        $data = json_decode((string) $json, true);
+        return is_array($data) ? $data : null;
+    }
+
+    private function resumirCambiosAuditoria($antes, $despues) {
+        if (!is_array($antes) && !is_array($despues)) {
+            return array();
+        }
+        $antes = is_array($antes) ? $antes : array();
+        $despues = is_array($despues) ? $despues : array();
+        $llaves = array_unique(array_merge(array_keys($antes), array_keys($despues)));
+        $ignorar = array("fecha_registro", "fecha_actualizacion", "creado_por", "actualizado_por");
+        $cambios = array();
+        foreach ($llaves as $llave) {
+            if (in_array($llave, $ignorar, true)) {
+                continue;
+            }
+            $valorAntes = array_key_exists($llave, $antes) ? $antes[$llave] : null;
+            $valorDespues = array_key_exists($llave, $despues) ? $despues[$llave] : null;
+            if ((string) $valorAntes === (string) $valorDespues) {
+                continue;
+            }
+            $cambios[] = array(
+                "campo" => $llave,
+                "antes" => $this->valorAuditoriaCorto($valorAntes),
+                "despues" => $this->valorAuditoriaCorto($valorDespues)
+            );
+            if (count($cambios) >= 8) {
+                break;
+            }
+        }
+        return $cambios;
+    }
+
+    private function valorAuditoriaCorto($valor) {
+        if ($valor === null) {
+            return "";
+        }
+        if (is_array($valor)) {
+            return "[json]";
+        }
+        $texto = (string) $valor;
+        return strlen($texto) > 80 ? substr($texto, 0, 77) . "..." : $texto;
+    }
+
+    private function etiquetaAccionAuditoria($accion) {
+        $mapa = array(
+            "crear_lista" => "Crear lista",
+            "editar_lista" => "Editar lista",
+            "crear_detalle" => "Crear precio",
+            "editar_detalle" => "Editar precio",
+            "crear_asignacion_cliente" => "Asignar cliente",
+            "editar_asignacion_cliente" => "Editar cliente",
+            "crear_asignacion_segmento" => "Asignar segmento",
+            "editar_asignacion_segmento" => "Editar segmento"
+        );
+        return isset($mapa[$accion]) ? $mapa[$accion] : ($accion !== "" ? $accion : "Evento");
+    }
+
+    private function tipoAccionAuditoria($accion, $entidad) {
+        if (strpos($accion, "detalle") !== false || strpos($entidad, "detalle") !== false) {
+            return "precio";
+        }
+        if (strpos($accion, "segmento") !== false || strpos($entidad, "segmentos") !== false) {
+            return "segmento";
+        }
+        if (strpos($accion, "cliente") !== false || strpos($entidad, "clientes") !== false) {
+            return "cliente";
+        }
+        if (strpos($accion, "lista") !== false || strpos($entidad, "listas_precios") !== false) {
+            return "lista";
+        }
+        return "operacion";
+    }
+
     private function fechaValida($fecha) {
         $fecha = trim((string) $fecha);
         if ($fecha === "") {
@@ -1661,6 +1905,22 @@ class ListasPreciosErp extends CRUD {
             return array("clave" => "margen_bajo", "texto" => "Margen bajo", "tipo" => "warning");
         }
         return array("clave" => "ok", "texto" => "Margen OK", "tipo" => "success");
+    }
+
+    private function costoReferenciaDetalle($db, $idSku, $idProducto) {
+        if ($idSku > 0 && $this->tablaExiste($db, "erp_catalogo_skus")) {
+            $stmt = $db->prepare("SELECT COALESCE(costo_referencia, 0) costo FROM erp_catalogo_skus WHERE id_sku=:sku LIMIT 1");
+            $stmt->execute(array(":sku" => intval($idSku)));
+            $fila = $stmt->fetch(PDO::FETCH_ASSOC);
+            return $fila ? floatval($fila["costo"]) : 0;
+        }
+        if ($idProducto > 0 && $this->tablaExiste($db, "erp_catalogo_skus")) {
+            $stmt = $db->prepare("SELECT COALESCE(MIN(NULLIF(costo_referencia, 0)), 0) costo FROM erp_catalogo_skus WHERE id_producto_erp=:producto AND estatus='activo'");
+            $stmt->execute(array(":producto" => intval($idProducto)));
+            $fila = $stmt->fetch(PDO::FETCH_ASSOC);
+            return $fila ? floatval($fila["costo"]) : 0;
+        }
+        return 0;
     }
 
     private function valor($datos, $clave, $default = null) {

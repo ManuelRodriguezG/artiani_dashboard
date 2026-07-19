@@ -132,6 +132,18 @@ class Comercial extends Controlador
         return json_encode($this->modelo('ListasPreciosErp')->detalleDryRun($_POST));
     }
 
+    /**
+     * Documentacion IA: Codex GPT-5, 2026-07-18.
+     * Proposito: prevalidar lote de precios desde Comercial antes de guardar cambios masivos.
+     * Impacto: permite detectar errores y margen en servidor sin escribir BD.
+     * Contrato: read-only; no modifica listas, detalles ni ventas.
+     */
+    public function listas_precios_detalles_lote_dryrun_erp()
+    {
+        $this->requerirPermiso('ventas.listas.editar');
+        return json_encode($this->modelo('ListasPreciosErp')->detallesLoteDryRun($_POST));
+    }
+
     public function listas_precios_asignacion_dryrun_erp()
     {
         $this->requerirPermiso('ventas.listas.auditoria');

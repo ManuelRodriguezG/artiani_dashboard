@@ -1017,8 +1017,9 @@ Ya se autorizo y ejecuto:
   - `php -l app/vistas/paginas/apps/erp/ventas/pos.php`: OK;
   - alta rapida POS dry-run propone `CRM-POSUAT-20260630-0001` sobre CRM canonico;
   - listado CRM read-only encuentra `id_cliente_crm=1`, telefono `3312345678`;
-  - Playwright headless local con `localhost` redirige a otro proyecto; host correcto para POS local: `http://dashboard.com.local`;
-  - Playwright autenticado en `dashboard.com.local` carga POS con buscador, barra de modulos, cliente y cobrar;
+  - Evidencia historica: Playwright headless local con `localhost` redirigia a otro proyecto; esa evidencia uso `dashboard.com.local`.
+  - Host vigente para POS local en este proyecto: `http://panel.com.local/`.
+  - Scripts Playwright UAT vigentes deben apuntar por default a `panel.com.local`, dejando `dashboard.com.local` solo como referencia historica de pruebas anteriores.
   - evidencia visual:
     - `public/storage/uat/pos_ux_cliente2_authenticated_dashboard.png`;
     - `public/storage/uat/pos_ux_cliente_busqueda_crm.png`;
@@ -5174,3 +5175,96 @@ Regla operativa:
 
 - La autorizacion real debe usar la cantidad fisica contada en tienda, no una cantidad inventada.
 - El apply real requiere confirmacion `RESOLVER PENDIENTE`, motivo y respaldo vigente.
+
+## Corte 2026-07-18 - semaforo piloto actual
+
+Estado consolidado despues de preparar apertura/cierre manual de turnos desde UI:
+
+- Proyecto canonico confirmado para esta linea de trabajo: `C:\xampp\htdocs\panel_de_control`.
+- Host operativo canonico: `http://panel.com.local/`.
+- Caja/Turnos:
+  - apertura real desde UI preparada;
+  - cierre real desde UI preparado;
+  - ambos flujos usan dry-run previo y confirmacion escrita.
+- POS venta normal:
+  - funcional con turno abierto, caja asignada, pago y kardex.
+  - bloquea venta normal sin turno.
+- POS inventario pendiente:
+  - endpoint productivo preparado y probado en UAT.
+  - queda pendiente abierto `PINV-20260717-000001`.
+  - no debe usarse como venta normal sin politica y confirmacion.
+- Multiusuario:
+  - listo para piloto controlado con usuarios asignados a la misma caja/terminal.
+  - cada cobro debe conservar `id_usuario` del operador que cobra.
+- Condiciones antes de vender otra vez en piloto:
+  - abrir turno desde `Ventas > Caja/Turnos`;
+  - tener existencia disponible o autorizacion explicita para stock/pendiente;
+  - resolver o mantener identificado el pendiente `PINV-20260717-000001`.
+
+Scanner POS:
+
+- El POS ya cuenta con scanner de camara propio para agregar productos a la cuenta actual.
+- El checador de precios queda separado y read-only.
+- El scanner POS usa busqueda POS existente y solo agrega automaticamente si el codigo tiene coincidencia unica.
+- El semaforo `storage/uat/uat_ventas_pos_piloto_surface_readonly.php` valida boton, modal, video, selector de camara, `BarcodeDetector`, foco, luz y agregado por coincidencia unica.
+
+Suite pase real:
+
+- `storage/uat/uat_ventas_pos_pase_prueba_real_suite_readonly.php` fue ajustado para no pedir repetir una atencion ya convertida.
+- Resultado vigente: `ok=true`, `bloqueos=[]`, `ciclo_real_ya_completado=true`, `autorizacion_siguiente=null`.
+- Si una nueva UAT requiere otra atencion, debe crearse una atencion nueva o usarse venta normal/piloto; no reutilizar `id_atencion=2`.
+
+Go/No-Go piloto:
+
+- `storage/uat/uat_ventas_pos_piloto_go_nogo_readonly.php` fue ajustado para no sugerir habilitacion multiusuario cuando todos los usuarios del objetivo ya pueden participar.
+- Resultado vigente: `ok=true`, `decision=apto_con_condiciones`, `multiusuario_listo=true`, `autorizacion_sugerida_multiusuario=null`.
+- Ahora integra tambien `navegacion`, `crosslinks`, `turnos_ui`, `atajos_ui`, `ticket_trazabilidad` y `reportes_piloto`, ademas de piloto operativo, escaner y multiusuario.
+
+Turnos UI:
+
+- Se agrego `storage/uat/uat_ventas_pos_turnos_ui_readiness_readonly.php`.
+- Valida que `Ventas > Caja y turnos` tenga apertura y cierre manual desde UI con dry-run previo, confirmacion `ABRIR TURNO`/`CERRAR TURNO`, endpoints reales, permisos y modelo ERP.
+- Resultado vigente: `ok=true`, bloqueos `[]`.
+- Contrato: no consulta BD, no escribe BD, no abre/cierra turno y no mueve caja/inventario.
+
+Atajos UI:
+
+- Se agrego `storage/uat/uat_ventas_pos_atajos_ui_readiness_readonly.php`.
+- Valida atajos de bajo conflicto para busqueda, camara, pagos rapidos, monto de pago, prevalidacion, cobro y navegacion.
+- Atajos vigentes: `F2`, `Ctrl+K`, `F3`, `Alt+1`, `Alt+2`, `Alt+3`, `F6`, `F9`, `Ctrl+Enter`, `F8`, `F10`.
+- Resultado vigente: `ok=true`, bloqueos `[]`.
+- Contrato: los atajos solo disparan acciones UI existentes; no saltan permisos, turno, caja, inventario ni validaciones backend.
+
+Ticket y trazabilidad:
+
+- Se agrego `storage/uat/uat_ventas_pos_ticket_trazabilidad_readiness_readonly.php`.
+- Valida preview de ticket, ticket formal por venta confirmada, ticket de devolucion, detalle de venta, garantia snapshot y trazabilidad de inventario.
+- Resultado vigente: `ok=true`, bloqueos `[]`.
+- Contrato: no consulta BD, no escribe BD, no genera folios, no imprime, no cobra y no mueve caja/inventario.
+
+Salida operativa:
+
+- Se agrego `storage/uat/uat_ventas_pos_salida_operativa_readiness_readonly.php`.
+- Consolida Go/No-Go, readiness productivo, manual cajero, runbook turno 1, handoff y checklist de piloto.
+- Resultado vigente: `ok=true`, `decision=listo_para_piloto_controlado_con_condiciones`, bloqueos `[]`.
+- Condiciones vigentes antes de operar: abrir turno, usar stock disponible o resolver/cargar inventario con autorizacion, mantener identificado `PINV-20260717-000001`, cerrar/documentar `GASTO-UAT-001` y dejar fuera del primer piloto devoluciones reales, descuentos libres, apartados nuevos e inventario pendiente productivo.
+
+Navegacion POS:
+
+- Se agrego `Reportes POS` al submenu `Ventas y POS` en `app/vistas/includes/header/sidebar.php`.
+- Se agrego `storage/uat/uat_ventas_pos_navegacion_readiness_readonly.php`.
+- Resultado vigente: `ok=true`, 10 items revisados, bloqueos `[]`.
+- Se agrego `storage/uat/uat_ventas_pos_crosslinks_readiness_readonly.php`.
+- Resultado vigente crosslinks: `ok=true`, 5 vistas revisadas, bloqueos `[]`.
+
+Reportes piloto:
+
+- Se agrego `storage/uat/uat_ventas_pos_reportes_piloto_readiness_readonly.php`.
+- Resultado vigente: `ok=true`, turnos reportados `6`, ventas `$2,950.00`, diferencias pendientes `0`, evidencias pendientes `1`, pendientes inventario abiertos `1`.
+- Contrato: no escribe BD, no cierra turnos, no resuelve diferencias, no adjunta evidencias y no mueve inventario.
+
+Siguiente autorizacion fuerte sugerida si se desea cerrar el pendiente de mini inventario:
+
+```text
+AUTORIZO RESOLVER PENDIENTE INVENTARIO POS UAT REAL usando respaldo UAT POS vigente con token INVENTARIO_POS_PENDIENTE_RESOLVER_REAL id_usuario=1 folio=PINV-20260717-000001 cantidad_fisica=CONTEO_REAL decision=ajustar_a_conteo confirmacion="RESOLVER PENDIENTE" motivo="Resolver mini inventario POS pendiente"
+```

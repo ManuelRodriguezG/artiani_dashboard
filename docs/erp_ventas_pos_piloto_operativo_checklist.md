@@ -62,6 +62,30 @@ Resultado 2026-07-17:
 - bloqueos `[]`;
 - avisos `[]`.
 
+Resultado 2026-07-19:
+
+- `ok=true`;
+- `archivos_revisados=20`;
+- `metodos_revisados=18`;
+- bloqueos `[]`;
+- avisos `[]`;
+- scanner POS validado:
+  - boton de camara en POS;
+  - modal propio de escaneo;
+  - preview de video;
+  - selector de camara;
+  - `BarcodeDetector`;
+  - enfoque continuo cuando el navegador lo soporta;
+  - luz/torch cuando el dispositivo lo soporta;
+  - agregado automatico solo con coincidencia unica.
+
+Regla para scanner:
+
+- El checador de precios permanece como herramienta read-only.
+- El scanner dentro de POS sirve para agregar productos a la cuenta actual, sin cobrar por si solo.
+- Si el codigo tiene varias coincidencias, el operador debe elegir el producto correcto.
+- Si no hay coincidencia, no se agrega partida.
+
 ## Criterios para permitir piloto
 
 - Cada usuario entra con su propia cuenta.
@@ -161,6 +185,130 @@ Decision vigente:
 - POS multiusuario puede pasar a piloto operativo controlado.
 - Primer piloto: 1 sucursal, 1 caja, 1 turno corto, 1 a 2 usuarios.
 - Mantener fuera del piloto inicial: inventario pendiente productivo, devoluciones reales, descuentos libres y apartados nuevos.
+
+## Corte 2026-07-18 - estado posterior a inventario pendiente productivo
+
+Resultado read-only vigente:
+
+- POS sigue `apto_con_condiciones` para piloto controlado.
+- Caja/Turnos ya cuenta con apertura real desde UI y cierre real desde UI.
+- Apertura real requiere dry-run valido y confirmacion escrita `ABRIR TURNO`.
+- Cierre real requiere dry-run valido y confirmacion escrita `CERRAR TURNO`.
+- No hay turno abierto actualmente, normal fuera de operacion.
+- Existe pendiente de mini inventario abierto: `PINV-20260717-000001`.
+- Existe una evidencia historica de caja pendiente de revision: movimiento `5`, referencia `GASTO-UAT-001`, monto `$50.00`.
+- SKU piloto `1760` no tiene disponible ERP al corte revisado.
+
+Comando de verificacion Caja/Turnos UI:
+
+```powershell
+C:\xampp\php\php.exe storage\uat\uat_ventas_pos_caja_turnos_ui_readiness_readonly.php --id_usuario=1 --id_almacen=5 --id_caja=2 --monto_inicial=500
+```
+
+Resultado esperado:
+
+- `ok=true`;
+- `turno_abierto=false` fuera de operacion;
+- `folio_sugerido_apertura` con consecutivo real;
+- apertura bloqueada sin escribir `ABRIR TURNO`;
+- cierre bloqueado sin escribir `CERRAR TURNO`;
+- contrato read-only cumplido.
+
+Condiciones antes de una prueba real nueva:
+
+- Abrir turno desde `Ventas > Caja/Turnos`.
+- Usar un SKU con existencia disponible o cargar stock UAT con autorizacion.
+- Resolver o aceptar conscientemente el pendiente `PINV-20260717-000001`.
+- Revisar posteriormente la evidencia historica `GASTO-UAT-001`.
+
+## Corte 2026-07-19 - Go/No-Go piloto
+
+Comando:
+
+```powershell
+C:\xampp\php\php.exe storage\uat\uat_ventas_pos_piloto_go_nogo_readonly.php --id_usuario=1 --id_almacen=5 --id_caja=2 --id_terminal=2 --id_sku=1760 --id_atencion=2 --cantidad=1 --usuarios=1,2,3
+```
+
+Comando consolidado de salida operativa:
+
+```powershell
+C:\xampp\php\php.exe storage\uat\uat_ventas_pos_salida_operativa_readiness_readonly.php --id_usuario=1 --id_almacen=5 --id_caja=2 --id_terminal=2 --id_sku=1760 --id_atencion=2 --cantidad=1 --usuarios=1,2,3 --compact=1
+```
+
+Resultado vigente:
+
+- `ok=true`.
+- `decision=listo_para_piloto_controlado_con_condiciones`.
+- `bloqueos=[]`.
+- `go_nogo_decision=apto_con_condiciones`.
+- `multiusuario_listo=true`.
+
+Resultado vigente:
+
+- `ok=true`.
+- `decision=apto_con_condiciones`.
+- `bloqueos=[]`.
+- `multiusuario_listo=true`.
+- `autorizacion_sugerida_multiusuario=null`.
+- Usuarios `1,2,3` pueden participar en piloto controlado.
+- Incluye checks de:
+  - navegacion POS;
+  - enlaces cruzados de pantallas POS;
+  - apertura/cierre manual de turnos desde UI;
+  - atajos rapidos POS;
+  - ticket formal, garantia snapshot y trazabilidad;
+  - piloto operativo;
+  - escaner POS;
+  - multiusuario;
+  - reportes piloto.
+
+Navegacion validada:
+
+- `Tablero de ventas`.
+- `POS`.
+- `Checador de precios`.
+- `Pedidos`.
+- `Devoluciones`.
+- `Caja y turnos`.
+- `Movimientos caja`.
+- `Evidencias caja`.
+- `Reportes POS`.
+- `Configuracion POS`.
+
+Enlaces internos validados:
+
+- Caja/Turnos, Movimientos, Evidencias, Reportes, Devoluciones y POS tienen accesos cruzados para no depender solo del menu lateral.
+- `Reportes POS` esta disponible desde Caja/Turnos, Movimientos, Evidencias y Devoluciones.
+
+Condiciones:
+
+- No hay turno abierto, esperado fuera de operacion.
+- SKU `1760` no tiene disponible en almacen `5`.
+- Existe pendiente `PINV-20260717-000001`.
+- Existe una evidencia historica de caja pendiente `GASTO-UAT-001`.
+
+## Corte 2026-07-19 - reportes piloto POS
+
+Se agrego semaforo read-only:
+
+```powershell
+C:\xampp\php\php.exe storage\uat\uat_ventas_pos_reportes_piloto_readiness_readonly.php --id_usuario=1 --id_almacen=5 --id_sku=1760
+```
+
+Resultado vigente:
+
+- `ok=true`.
+- Turnos reportados: `6`.
+- Ventas reportadas: `$2,950.00`.
+- Diferencias pendientes: `0`.
+- Evidencias pendientes: `1`.
+- Pendientes de inventario abiertos: `1`.
+- Bloqueos: `[]`.
+
+Uso operativo:
+
+- Ejecutar antes/despues del primer piloto para validar que caja, diferencias, evidencias, corte y pendientes sean visibles sin mover datos.
+- Si aparecen diferencias, se revisan administrativamente; no se corrigen borrando ventas o movimientos.
 ## Corte read-only 2026-07-17 - dependencias piloto POS
 
 Proyecto canonico validado: `C:\xampp\htdocs\panel_de_control` con host operativo `panel.com.local`.

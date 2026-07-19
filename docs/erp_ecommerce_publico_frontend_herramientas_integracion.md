@@ -34,7 +34,7 @@ Devuelve:
 ## Variables de entorno
 
 ```bash
-C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_frontend_env_readonly.php --base=http://panel.com.local --frontend=http://localhost:5173
+C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_frontend_env_readonly.php --base=http://panel.com.local --frontend=http://artiani.com.local
 ```
 
 Uso:
@@ -76,7 +76,7 @@ GET http://panel.com.local/ecommercePublico/contratos
 ## Registro interno futuro
 
 ```bash
-C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_cotizacion_registro_plan_readonly.php --base=http://panel.com.local --origin=http://localhost:5173
+C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_cotizacion_registro_plan_readonly.php --base=http://panel.com.local --origin=http://artiani.com.local
 ```
 
 Uso:
@@ -112,12 +112,12 @@ devuelva `ok=true`.
 C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_http_smoke_readonly.php --base=http://panel.com.local
 C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_contract_shape_readonly.php
 C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_negative_cases_readonly.php --base=http://panel.com.local
-C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_cors_preflight_readonly.php --base=http://panel.com.local --origin=http://localhost:5173
+C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_cors_preflight_readonly.php --base=http://panel.com.local --origin=http://artiani.com.local
 ```
 
 Estado esperado actual:
 
 - shape `ok=true`;
 - negativos `ok=true`;
-- CORS cerrado hasta configurar `cors_origenes_permitidos`.
+- CORS abierto para `http://artiani.com.local` y cerrado para origenes no configurados.
 - smoke depende de que XAMPP/MySQL/API esten sanos.

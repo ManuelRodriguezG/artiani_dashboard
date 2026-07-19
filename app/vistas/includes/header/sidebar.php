@@ -58,6 +58,7 @@ $gruposMenu = array(
             array('titulo' => 'Caja y turnos', 'ruta' => '/ventas/caja_turnos', 'permiso' => 'ventas.ver'),
             array('titulo' => 'Movimientos caja', 'ruta' => '/ventas/caja_movimientos', 'permiso' => 'ventas.ver'),
             array('titulo' => 'Evidencias caja', 'ruta' => '/ventas/caja_evidencias', 'permiso' => 'ventas.ver'),
+            array('titulo' => 'Reportes POS', 'ruta' => '/ventas/reportes', 'permiso' => 'ventas.ver'),
             array('titulo' => 'Configuracion POS', 'ruta' => '/ventas/pos_configuracion', 'permiso' => 'ventas.pos_config.ver')
         )
     ),

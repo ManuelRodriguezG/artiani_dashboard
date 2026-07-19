@@ -2,8 +2,8 @@
 
 /**
  * Documentacion IA: Codex GPT-5, 2026-07-15.
- * Proposito: validar preflight CORS del API ecommerce publico sin abrir origenes por defecto.
- * Impacto: ayuda al frontend externo a distinguir API funcional de CORS pendiente.
+ * Proposito: validar preflight CORS del API ecommerce publico para un origen concreto.
+ * Impacto: ayuda al frontend externo a distinguir API funcional de CORS pendiente o mal configurado.
  * Contrato: read-only; no escribe BD, no registra cotizaciones y no toca inventario.
  */
 
@@ -23,9 +23,13 @@ foreach ($rutas as $nombre => $ruta) {
 }
 
 $corsAbierto = false;
+$corsWildcard = false;
 foreach ($pruebas as $prueba) {
   if ($prueba["access_control_allow_origin"] !== "") {
     $corsAbierto = true;
+  }
+  if ($prueba["access_control_allow_origin"] === "*") {
+    $corsWildcard = true;
   }
 }
 
@@ -35,7 +39,8 @@ echo json_encode(array(
   "base_url" => $base,
   "origin_probado" => $origin,
   "cors_abierto_para_origin" => $corsAbierto,
-  "estado_esperado_actual" => "cerrado_hasta_configurar_cors_origenes_permitidos",
+  "cors_sin_wildcard" => !$corsWildcard,
+  "estado_esperado_actual" => $corsAbierto ? "abierto_solo_para_origin_configurado" : "cerrado_para_origin_no_configurado",
   "pruebas" => $pruebas,
   "guardrails" => array(
     "no_escribe_bd" => true,
@@ -55,7 +60,7 @@ function requestCorsPreflight($url, $origin) {
     )
   ));
   $raw = @file_get_contents($url, false, $context);
-  $headers = isset($GLOBALS["http_response_header"]) && is_array($GLOBALS["http_response_header"]) ? $GLOBALS["http_response_header"] : array();
+  $headers = isset($http_response_header) && is_array($http_response_header) ? $http_response_header : array();
   $normalizados = array();
   foreach ($headers as $header) {
     $pos = strpos($header, ":");

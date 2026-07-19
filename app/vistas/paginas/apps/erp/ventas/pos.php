@@ -312,6 +312,10 @@
             <div class="modal-body">
                 <pre class="bg-light p-4 rounded fs-7 mb-0" id="pos_ticket_texto" style="white-space: pre-wrap;"></pre>
             </div>
+            <div class="modal-footer">
+                <button class="btn btn-light" type="button" data-bs-dismiss="modal">Cerrar</button>
+                <button class="btn btn-primary" id="pos_ticket_imprimir" type="button"><i class="bi bi-printer"></i> Imprimir</button>
+            </div>
         </div>
     </div>
 </div>

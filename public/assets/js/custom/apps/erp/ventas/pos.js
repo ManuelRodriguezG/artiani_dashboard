@@ -16,6 +16,7 @@
     var scanTorchActivo = false;
     var scanCamaras = [];
     var scanCamaraSeleccionada = "";
+    var ticketPosActual = "";
     var placeholderImagen = "data:image/svg+xml;charset=UTF-8,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%20400%20300'%3E%3Crect%20width='400'%20height='300'%20fill='%23f1f3f6'/%3E%3Cpath%20d='M80%20225h240l-70-85-55%2065-35-42z'%20fill='%23c8ced8'/%3E%3Ccircle%20cx='135'%20cy='105'%20r='28'%20fill='%23d7dce5'/%3E%3C/svg%3E";
 
     function request(url, data) {
@@ -1665,13 +1666,16 @@
     }
     function abrirTicketVentaReal(folio) {
         if (!folio) { return; }
+        ticketPosActual = "";
         document.getElementById("pos_ticket_texto").textContent = "Consultando ticket...";
         bootstrap.Modal.getOrCreateInstance(document.getElementById("pos_ticket_modal")).show();
         requestGet("/ventas/ticket_venta_readonly_erp", {folio: folio}).then(function (response) {
             if (response.error) { throw new Error(response.mensaje); }
             var depurar = response.depurar || {};
-            document.getElementById("pos_ticket_texto").textContent = depurar.ticket_texto || "";
+            ticketPosActual = depurar.ticket_texto || "";
+            document.getElementById("pos_ticket_texto").textContent = ticketPosActual;
         }).catch(function (error) {
+            ticketPosActual = "";
             document.getElementById("pos_ticket_texto").textContent = error.message || String(error);
         });
     }
@@ -1849,10 +1853,22 @@
     }
     function renderTicketPreview(response) {
         var depurar = response.depurar || {};
-        document.getElementById("pos_ticket_texto").textContent = depurar.ticket_texto || "";
+        ticketPosActual = depurar.ticket_texto || "";
+        document.getElementById("pos_ticket_texto").textContent = ticketPosActual;
         document.getElementById("pos_validacion").innerHTML = "<div class=\"alert " + ((depurar.bloqueos || []).length ? "alert-warning" : "alert-success") + " py-3 mb-0\"><div class=\"fw-bold\">" + escapeHtml(response.mensaje || "Ticket preview") + "</div><div class=\"fs-7\">El ticket es temporal y no representa una venta confirmada.</div></div>";
         var modal = bootstrap.Modal.getOrCreateInstance(document.getElementById("pos_ticket_modal"));
         modal.show();
+    }
+    function imprimirTicketPos() {
+        if (!ticketPosActual) { return; }
+        var ventana = window.open("", "erp_pos_ticket_directo", "width=420,height=720");
+        if (!ventana) { return; }
+        ventana.document.write("<!doctype html><html><head><title>Ticket POS</title><style>body{font-family:Consolas,'Liberation Mono',monospace;font-size:12px;white-space:pre-wrap;margin:12px;color:#111;}@media print{body{margin:0;}}</style></head><body>");
+        ventana.document.write(escapeHtml(ticketPosActual));
+        ventana.document.write("</body></html>");
+        ventana.document.close();
+        ventana.focus();
+        ventana.print();
     }
     function renderClientePrecio(response) {
         var depurar = response.depurar || {};
@@ -2504,9 +2520,11 @@
                 document.getElementById("pos_evidencias_resultado").insertAdjacentHTML("afterbegin", "<div class=\"alert alert-warning py-3 mb-3\">" + escapeHtml(mensaje) + "</div>");
                 return;
             }
+            ticketPosActual = ticket;
             document.getElementById("pos_ticket_texto").textContent = ticket;
             bootstrap.Modal.getOrCreateInstance(document.getElementById("pos_ticket_modal")).show();
         }).catch(function (error) {
+            ticketPosActual = "";
             document.getElementById("pos_evidencias_resultado").insertAdjacentHTML("afterbegin", "<div class=\"alert alert-warning py-3 mb-3\">" + escapeHtml(error.message || String(error)) + "</div>");
         });
     }
@@ -2838,6 +2856,7 @@
         document.getElementById("pos_cobrar_real").addEventListener("click", cobrarReal);
         document.getElementById("pos_pedido_dryrun").addEventListener("click", dryRunPedidoReserva);
         document.getElementById("pos_ticket_preview").addEventListener("click", ticketPreview);
+        document.getElementById("pos_ticket_imprimir").addEventListener("click", imprimirTicketPos);
         document.getElementById("pos_cliente_precio_modal_btn").addEventListener("click", function () {
             abrirClienteAutorizacion("cliente");
         });

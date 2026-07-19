@@ -112,13 +112,13 @@ devuelva `ok=true`.
 Paquete compacto de autorizacion:
 
 ```bash
-C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_autorizacion_paquete_readonly.php --base=http://panel.com.local --respaldo=RUTA_O_REFERENCIA --whatsapp=NUMERO_WHATSAPP --cors=http://localhost:5173 --url=http://localhost:5173 --sku1=1759 --sku2=1757
+C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_autorizacion_paquete_readonly.php --base=http://panel.com.local --respaldo=RUTA_O_REFERENCIA --whatsapp=NUMERO_WHATSAPP --cors=http://artiani.com.local --url=http://artiani.com.local --sku1=1759 --sku2=1757
 ```
 
 Generar comandos exactos sin ejecutarlos:
 
 ```bash
-C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_apply_checklist_readonly.php --base=http://panel.com.local --respaldo=RUTA_O_REFERENCIA --whatsapp=NUMERO_WHATSAPP --cors=http://localhost:5173 --url=http://localhost:5173 --sku1=1759 --sku2=1757
+C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_apply_checklist_readonly.php --base=http://panel.com.local --respaldo=RUTA_O_REFERENCIA --whatsapp=NUMERO_WHATSAPP --cors=http://artiani.com.local --url=http://artiani.com.local --sku1=1759 --sku2=1757
 ```
 
 Debe devolver `ok=true` antes de copiar cualquier comando `apply_authorized`.

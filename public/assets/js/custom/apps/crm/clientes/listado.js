@@ -13,7 +13,7 @@
         return fetch(url, {
             credentials: "same-origin",
             method: "POST",
-            headers: {"Content-Type": "application/x-www-form-urlencoded; charset=UTF-8"},
+            headers: {"Content-Type": "application/x-www-form-urlencoded; charset=UTF-8", "X-CSRF-Token": window.ERP_CSRF_TOKEN || ""},
             body: new URLSearchParams(data || {}).toString()
         }).then(function (response) { return response.json(); });
     }
@@ -272,47 +272,86 @@
             "<div class=\"d-flex flex-wrap gap-2\">" +
             badge("Actuales: " + segmentos.length, segmentos.length ? "success" : "warning") +
             badge("Base sugerida: " + sugeridos.length, "primary") +
-            badge("Configurable", "info") +
+            badge("Tipos de cliente configurables", "info") +
             "</div>";
 
-        var sugeridosHtml = "<div class=\"alert alert-light-primary py-3 mb-3\"><div class=\"fw-semibold mb-2\">Base sugerida</div>" +
+        var sugeridosHtml = "<div class=\"alert alert-light-primary py-3 mb-3\"><div class=\"fw-semibold mb-2\">Base sugerida para precios</div>" +
             "<div class=\"d-flex flex-wrap gap-2\">" + sugeridos.map(function (item) {
                 return "<button class=\"btn btn-sm btn-light\" type=\"button\" data-crm-seg-base=\"" + escapeHtml(item.codigo) + "\" data-crm-seg-nombre=\"" + escapeHtml(item.nombre) + "\" data-crm-seg-tipo=\"" + escapeHtml(item.tipo) + "\">" + escapeHtml(item.codigo) + "</button>";
             }).join("") + "</div></div>";
 
-        var tabla = "<div class=\"table-responsive\"><table class=\"table align-middle table-row-dashed gy-3 mb-0\"><thead><tr class=\"text-muted fw-bold fs-8 text-uppercase\"><th>Segmento</th><th>Tipo</th><th>Clientes</th><th>Estatus</th><th class=\"text-end\">Accion</th></tr></thead><tbody>";
+        var tabla = "<div class=\"table-responsive\"><table class=\"table align-middle table-row-dashed gy-3 mb-0\"><thead><tr class=\"text-muted fw-bold fs-8 text-uppercase\"><th>Tipo de cliente</th><th>Uso</th><th>Clientes</th><th>Estatus</th><th class=\"text-end\">Acciones</th></tr></thead><tbody>";
         tabla += segmentos.map(function (item) {
             return "<tr><td><div class=\"fw-semibold\">" + escapeHtml(item.nombre || "") + "</div><div class=\"text-muted fs-8\">" + escapeHtml(item.codigo || "") + "</div></td>" +
                 "<td>" + badge(item.tipo || "comercial", "light") + "</td>" +
                 "<td>" + escapeHtml(item.clientes_activos || 0) + "</td>" +
                 "<td>" + badge(item.estatus || "-", item.estatus === "activo" ? "success" : "warning") + "</td>" +
-                "<td class=\"text-end\"><button class=\"btn btn-sm btn-light-primary\" type=\"button\" data-crm-seg-editar=\"" + escapeHtml(item.id_segmento_crm || "") + "\" data-crm-seg-codigo=\"" + escapeHtml(item.codigo || "") + "\" data-crm-seg-nombre=\"" + escapeHtml(item.nombre || "") + "\" data-crm-seg-tipo=\"" + escapeHtml(item.tipo || "comercial") + "\" data-crm-seg-estatus=\"" + escapeHtml(item.estatus || "activo") + "\" data-crm-seg-descripcion=\"" + escapeHtml(item.descripcion || "") + "\"><i class=\"bi bi-pencil\"></i> Cargar</button></td></tr>";
+                "<td class=\"text-end\"><div class=\"d-flex justify-content-end flex-wrap gap-2\">" +
+                    botonSegmentoCatalogo("Cargar", "bi-pencil", "light-primary", item, "") +
+                    (item.estatus === "activo" ? botonSegmentoCatalogo("Pausar", "bi-pause-circle", "light-warning", item, "pausado") : "") +
+                    (item.estatus === "pausado" ? botonSegmentoCatalogo("Activar", "bi-check2-circle", "light-success", item, "activo") : "") +
+                    (item.estatus !== "cancelado" ? botonSegmentoCatalogo("Cancelar", "bi-x-circle", "light-danger", item, "cancelado") : "") +
+                "</div></td></tr>";
         }).join("") || "<tr><td colspan=\"5\" class=\"text-center text-muted py-6\">Sin segmentos configurados.</td></tr>";
         tabla += "</tbody></table></div>";
         document.getElementById("crm_segmentos_tabla").innerHTML = sugeridosHtml + tabla;
 
         document.querySelectorAll("[data-crm-seg-base]").forEach(function (boton) {
             boton.addEventListener("click", function () {
-                document.getElementById("crm_seg_id").value = "";
+                limpiarSegmentoCatalogo();
                 document.getElementById("crm_seg_codigo").value = boton.getAttribute("data-crm-seg-base") || "";
                 document.getElementById("crm_seg_nombre").value = boton.getAttribute("data-crm-seg-nombre") || "";
                 document.getElementById("crm_seg_tipo").value = boton.getAttribute("data-crm-seg-tipo") || "comercial";
-                document.getElementById("crm_seg_estatus").value = "activo";
-                document.getElementById("crm_seg_descripcion").value = "";
                 validarSegmentoCatalogo();
             });
         });
-        document.querySelectorAll("[data-crm-seg-editar]").forEach(function (boton) {
+        document.querySelectorAll("[data-crm-seg-cargar]").forEach(function (boton) {
             boton.addEventListener("click", function () {
-                document.getElementById("crm_seg_id").value = boton.getAttribute("data-crm-seg-editar") || "";
-                document.getElementById("crm_seg_codigo").value = boton.getAttribute("data-crm-seg-codigo") || "";
-                document.getElementById("crm_seg_nombre").value = boton.getAttribute("data-crm-seg-nombre") || "";
-                document.getElementById("crm_seg_tipo").value = boton.getAttribute("data-crm-seg-tipo") || "comercial";
-                document.getElementById("crm_seg_estatus").value = boton.getAttribute("data-crm-seg-estatus") || "activo";
-                document.getElementById("crm_seg_descripcion").value = boton.getAttribute("data-crm-seg-descripcion") || "";
+                cargarSegmentoCatalogoDesdeBoton(boton, boton.getAttribute("data-crm-seg-estatus") || "activo");
                 validarSegmentoCatalogo();
             });
         });
+        document.querySelectorAll("[data-crm-seg-estatus-rapido]").forEach(function (boton) {
+            boton.addEventListener("click", function () {
+                cargarSegmentoCatalogoDesdeBoton(boton, boton.getAttribute("data-crm-seg-estatus-rapido") || "activo");
+                validarSegmentoCatalogo();
+            });
+        });
+    }
+
+    function botonSegmentoCatalogo(texto, icono, clase, item, estatusRapido) {
+        var attrs = " data-crm-seg-editar=\"" + escapeHtml(item.id_segmento_crm || "") + "\"" +
+            " data-crm-seg-codigo=\"" + escapeHtml(item.codigo || "") + "\"" +
+            " data-crm-seg-nombre=\"" + escapeHtml(item.nombre || "") + "\"" +
+            " data-crm-seg-tipo=\"" + escapeHtml(item.tipo || "comercial") + "\"" +
+            " data-crm-seg-estatus=\"" + escapeHtml(item.estatus || "activo") + "\"" +
+            " data-crm-seg-descripcion=\"" + escapeHtml(item.descripcion || "") + "\"";
+        if (estatusRapido) {
+            attrs += " data-crm-seg-estatus-rapido=\"" + escapeHtml(estatusRapido) + "\"";
+        } else {
+            attrs += " data-crm-seg-cargar=\"1\"";
+        }
+        return "<button class=\"btn btn-sm btn-" + escapeHtml(clase) + "\" type=\"button\"" + attrs + "><i class=\"bi " + escapeHtml(icono) + "\"></i> " + escapeHtml(texto) + "</button>";
+    }
+
+    function cargarSegmentoCatalogoDesdeBoton(boton, estatus) {
+        document.getElementById("crm_seg_id").value = boton.getAttribute("data-crm-seg-editar") || "";
+        document.getElementById("crm_seg_codigo").value = boton.getAttribute("data-crm-seg-codigo") || "";
+        document.getElementById("crm_seg_nombre").value = boton.getAttribute("data-crm-seg-nombre") || "";
+        document.getElementById("crm_seg_tipo").value = boton.getAttribute("data-crm-seg-tipo") || "comercial";
+        document.getElementById("crm_seg_estatus").value = estatus || boton.getAttribute("data-crm-seg-estatus") || "activo";
+        document.getElementById("crm_seg_descripcion").value = boton.getAttribute("data-crm-seg-descripcion") || "";
+    }
+
+    function limpiarSegmentoCatalogo() {
+        document.getElementById("crm_seg_id").value = "";
+        document.getElementById("crm_seg_codigo").value = "";
+        document.getElementById("crm_seg_nombre").value = "";
+        document.getElementById("crm_seg_tipo").value = "comercial";
+        document.getElementById("crm_seg_estatus").value = "activo";
+        document.getElementById("crm_seg_descripcion").value = "";
+        document.getElementById("crm_seg_autorizar").value = "";
+        document.getElementById("crm_segmentos_dryrun").innerHTML = "";
     }
 
     function validarSegmentoCatalogo() {
@@ -357,6 +396,9 @@
             var html = "<div class=\"alert alert-" + tipo + " py-3 mb-0\"><div class=\"fw-bold\">" + escapeHtml(response.mensaje || "") + "</div>";
             if (data.validacion_respaldo) {
                 html += "<div class=\"fs-8 mt-2\">Respaldo: " + escapeHtml(data.validacion_respaldo.ok ? "validado" : "pendiente") + "</div>";
+            }
+            if (response.error && data.requerido) {
+                html += "<div class=\"fs-8 mt-2\">Requiere respaldo externo y token <span class=\"crm-code\">" + escapeHtml(data.requerido.autorizar || "CRM_CLIENTES_SEGMENTO_CATALOGO") + "</span>.</div>";
             }
             html += "</div>";
             document.getElementById("crm_segmentos_dryrun").innerHTML = html;
@@ -684,6 +726,7 @@
         document.getElementById("crm_tareas_recargar").addEventListener("click", cargarTareas);
         document.getElementById("crm_comercial_recargar").addEventListener("click", cargarComercial);
         document.getElementById("crm_segmentos_recargar").addEventListener("click", cargarSegmentosCatalogo);
+        document.getElementById("crm_seg_nuevo").addEventListener("click", limpiarSegmentoCatalogo);
         document.getElementById("crm_seg_validar").addEventListener("click", validarSegmentoCatalogo);
         document.getElementById("crm_seg_guardar").addEventListener("click", guardarSegmentoCatalogo);
         document.getElementById("crm_reportes_recargar").addEventListener("click", cargarReportes);

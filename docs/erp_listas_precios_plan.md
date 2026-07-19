@@ -130,6 +130,34 @@ Estado 2026-07-16:
   - cliente CRM `1` conserva prioridad `lista_cliente` por asignacion directa activa a lista `2`.
 - Nota de baseline: antes del primer apply autorizado (`22:23:40`) ya existia la venta `POS-20260717-000002` a las `22:20:20`; por eso el baseline vigente para cierre quedo en `erp_ventas.total=23`, `erp_ventas.max_id=26`, `erp_ventas_detalle.total=24`, `erp_ventas_detalle.max_id=27`.
 - UI operativa 2026-07-18: `Comercial > Listas de precios` ya muestra segmentos como activos, oculta el ID tecnico en la captura principal, permite seleccionar segmento por tarjeta, limpiar el formulario de vinculo y operar vinculos existentes con cargar/pausar/activar/cancelar. El boton guardar solo queda bloqueado si el schema de segmentos/listas no esta disponible.
+- UAT UI read-only 2026-07-18:
+  - `storage/uat/uat_listas_precios_segmentos_ui_readiness_readonly.php` devuelve `PASS_UI_SEGMENTOS_OPERATIVA`;
+  - `storage/uat/uat_listas_precios_segmentos_estatus_ui_dryrun_readonly.php` devuelve `PASS_ESTATUS_UI_DRYRUN` para pausar, activar y cancelar el vinculo `RECURRENTE/lista 2` sin escribir BD.
+- CRM operativo 2026-07-18: la pantalla `CRM > Clientes` expone la seccion `Tipos de cliente` como duena del catalogo de segmentos. Comercial/Listas no crea tipos de cliente; solo vincula listas a segmentos ya existentes. POS sigue consumiendo el resolutor backend.
+- UI CRM 2026-07-18:
+  - permite crear/limpiar captura de tipo de cliente;
+  - permite cargar un tipo existente;
+  - permite preparar pausar/activar/cancelar como dry-run antes del guardado autorizado;
+  - envia CSRF en los POST de catalogo de segmentos.
+- UAT CRM read-only 2026-07-18:
+  - `storage/uat/uat_crm_segmentos_catalogo_ui_readiness_readonly.php` devuelve `PASS_CRM_SEGMENTOS_UI`;
+  - `storage/uat/uat_crm_segmentos_catalogo_estatus_dryrun_readonly.php` devuelve `PASS_CRM_SEGMENTOS_ESTATUS_DRYRUN` para `RECURRENTE` sin escribir BD.
+- Mesa de productos 2026-07-18: `Comercial > Listas de precios` ya permite seleccionar SKUs visibles, ver conteo de seleccionados y elegir si las acciones masivas aplican a `seleccionados` o `visibles`.
+- Acciones masivas protegidas en UI:
+  - calcular precios sugeridos por margen objetivo y redondeo sin tocar inputs;
+  - aplicar precios sugeridos como cambios pendientes solo cuando el usuario lo confirma;
+  - aplicar margen objetivo;
+  - copiar precio general;
+  - copiar precios desde otra lista;
+  - redondear precios.
+- La opcion recomendada para operacion diaria es trabajar con `seleccionados`, dejando `visibles` para cambios controlados despues de filtrar por busqueda/estatus.
+- Exportacion operativa 2026-07-18: la mesa puede generar CSV de productos visibles con SKU, producto, unidad, costo, precio general, precio de lista, sugerido y margen estimado. Es solo salida local de navegador; no importa datos ni escribe BD.
+- Importacion operativa 2026-07-18: la mesa puede cargar un CSV con columnas `id_sku` o `sku` y `precio_lista`/`precio`, prevalidarlo contra productos visibles y aplicar los precios solo como cambios pendientes en pantalla. El guardado real sigue usando `/comercial/listas_precios_detalles_lote_guardar_operativo_erp`, permisos, validaciones y auditoria por partida.
+- Prevalidacion backend de lote 2026-07-18: antes de guardar cambios masivos, la UI llama `/comercial/listas_precios_detalles_lote_dryrun_erp`. El endpoint valida el mismo payload que se guardara, detecta errores de detalle, duplicados dentro del lote, precios invalidos y resume margen/perdida/sin costo sin escribir BD.
+- Revision de activacion 2026-07-18: el backend bloquea listas con vigencia vencida, ecommerce sin segmento/cliente explicito y productos con perdida. La UI tambien bloquea activacion si hay cambios sin guardar y advierte si existen sugeridos/importaciones CSV pendientes de aplicar.
+- Auditoria operativa 2026-07-18: la bitacora visible de `Comercial > Listas de precios` filtra por lista/precio/segmento/cliente, muestra eventos con etiqueta, tipo, usuario, motivo y resumen corto de campos modificados. El backend enriquece eventos y oculta JSON crudo de `datos_antes/datos_despues` para la UI operativa.
+- Historial por SKU 2026-07-18: cada producto con precio guardado puede abrir su historial de auditoria filtrado por `id_lista_precio_detalle`. Esto permite ver cambios de precio, usuario, motivo y campos modificados sin buscar manualmente en la bitacora general.
+- Comparador de listas 2026-07-19: la mesa permite capturar una lista origen, comparar sus precios contra los productos visibles de la lista actual y revisar iguales, diferentes, faltantes, diferencia monetaria, porcentaje y margen estimado del precio origen antes de copiar. La accion `Usar diferencias` solo modifica inputs como cambios pendientes; el guardado real sigue pasando por prevalidacion backend, permisos y auditoria.
 
 Reglas del apply:
 

@@ -7,13 +7,15 @@ Estado: guia operativa para POS; la operacion real requiere turno abierto, permi
 ## Inicio del dia
 
 1. Entrar al sistema con tu propio usuario.
-2. Abrir `Ventas > POS`.
-3. Confirmar que arriba diga `Operador: tu nombre`.
-4. Confirmar que el POS muestre la sucursal/caja asignada.
-5. Si la sucursal o caja no corresponde, no vender y avisar a administracion.
-6. Abrir turno cuando el sistema lo permita.
-7. Contar el fondo inicial de caja.
-8. Registrar el monto inicial autorizado.
+2. Abrir `Ventas > Caja/Turnos`.
+3. Confirmar que el sistema muestre la sucursal/caja asignada.
+4. Si la sucursal o caja no corresponde, no vender y avisar a administracion.
+5. En `Apertura de turno`, capturar el fondo inicial contado.
+6. Presionar `Validar apertura`.
+7. Si no hay bloqueos, escribir `ABRIR TURNO`.
+8. Presionar `Abrir turno real`.
+9. Abrir `Ventas > POS`.
+10. Confirmar que arriba diga `Operador: tu nombre`.
 
 Regla de identidad:
 
@@ -39,6 +41,21 @@ Regla de identidad:
 7. Prevalidar carrito.
 8. Si no hay bloqueos, confirmar venta cuando el boton real este autorizado.
 9. Entregar ticket.
+
+Atajos utiles:
+
+- `F2` o `Ctrl+K`: ir al buscador de producto.
+- `F3`: abrir camara del POS para escanear codigo.
+- `Alt+1`: agregar pago en efectivo.
+- `Alt+2`: agregar pago con tarjeta.
+- `Alt+3`: agregar pago por transferencia.
+- `F6`: ir al monto del primer pago o agregar efectivo si no hay pago.
+- `F9`: prevalidar venta.
+- `Ctrl+Enter`: cobrar, solo si el POS y backend permiten la operacion.
+- `F8`: abrir movimientos de caja.
+- `F10`: abrir pedidos/apartados.
+
+Los atajos no saltan permisos, turno, inventario, pagos ni validaciones de caja.
 
 Antes de cobrar:
 
@@ -145,12 +162,31 @@ No entregar producto ni cobrar con descuento si el folio aparece bloqueado, cons
 ## Cierre del dia
 
 1. Dejar de capturar ventas.
-2. Revisar ventas del turno.
-3. Contar efectivo.
-4. Comparar monto esperado contra monto contado.
-5. Registrar diferencia si existe.
-6. Cerrar turno cuando el sistema lo permita.
-7. No borrar ventas, pagos ni tickets para corregir diferencias.
+2. Abrir `Ventas > Caja/Turnos`.
+3. Presionar `Validar corte`.
+4. Revisar ventas, pagos, gastos/retiros y monto esperado.
+5. Contar efectivo fisico.
+6. Capturar `Monto contado`.
+7. Capturar observaciones si hay diferencia.
+8. Si el corte es correcto, escribir `CERRAR TURNO`.
+9. Presionar `Cerrar turno real`.
+10. No borrar ventas, pagos ni tickets para corregir diferencias.
+
+Nota operativa:
+
+- El turno se puede cerrar aunque exista diferencia entre esperado y contado.
+- La diferencia no se corrige borrando movimientos; queda registrada para revision de caja.
+- Si el sistema bloquea el cierre, revisar el mensaje: puede faltar monto contado, confirmacion escrita o turno abierto.
+
+## Revision del cierre
+
+Despues de cerrar turno, el supervisor puede revisar:
+
+- `Ventas > Reportes POS` para turnos, ventas, diferencias y corte.
+- `Ventas > Evidencias caja` para gastos, retiros o reembolsos que requieren comprobante.
+- `Ventas > Tablero de ventas` para consultar folios POS y tickets.
+
+Si aparece diferencia o evidencia pendiente, no se reabre ni se borra la venta: se documenta y se sigue el flujo administrativo.
 
 ## Reglas importantes
 

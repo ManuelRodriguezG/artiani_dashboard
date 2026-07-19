@@ -2,6 +2,11 @@
 
 class Autenticacion extends Controlador {
 
+  function index() {
+    header('Location: /autenticacion/login');
+    exit;
+  }
+
   function login() {
     $this->vista('autentication/login');
   }

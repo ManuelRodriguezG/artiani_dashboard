@@ -12,9 +12,9 @@ Actualizacion 2026-07-16:
 - Preflight read-only detecta SKUs publicables Fase 1. El conteo es vivo y puede cambiar si Catalogo/Inventario cambian; consultar `uat_ecommerce_publico_autorizacion_paquete_readonly.php`.
 - Lote solo disponibles detecta `2` SKUs disponibles; ambos de peces/alimento.
 - Lote amplio puede incluir perro/gato, pero hoy arrastra muchos SKUs agotados y requiere decision de politica.
-- Siguen faltando las 5 tablas `erp_ecommerce_*`.
+- Las 5 tablas `erp_ecommerce_*` ya fueron creadas.
 - Casos negativos pasan: `cotizacion_registrar` sigue bloqueado y `cotizacion_dryrun` no escribe BD.
-- CORS permanece cerrado hasta configurar `cors_origenes_permitidos`.
+- CORS permite `http://artiani.com.local` y permanece cerrado para origenes no configurados.
 - El log historico de MySQL conserva advertencia sobre `mysql.plugin`; revisar si reaparece, pero no bloquea contratos mientras API y MySQL respondan.
 - WhatsApp recibido: `3322068429`; configuracion sugerida para `wa.me`: `523322068429`.
 - Origen frontend local definido: `http://artiani.com.local`.
@@ -25,9 +25,20 @@ Actualizacion 2026-07-16:
 - Configuracion publica aplicada: WhatsApp/CORS/URL local.
 - Publicaciones activas: `2`.
 - Green gate: `ok=true`, `senal_frontend=verde_datos_reales`.
+- CORS preflight: `cors_abierto_para_origin=true`, `cors_sin_wildcard=true` para `http://artiani.com.local`.
 - Productos publicados:
   - `1759` - Alimento churro blanco para peces 100 gr - `disponible` - precio `85`.
   - `1757` - Alimento churro blanco para peces 25 gr - `disponible` - precio `25`.
+- Expansion auditada read-only despues de excluir publicados:
+  - candidatos evaluados sin publicacion: `1490`;
+  - disponibles: `1`;
+  - pocas piezas: `3`;
+  - agotados: `1486`.
+  - paquete de publicacion read-only: 4 SKUs listos sin revision (`415`, `866`, `386`, `1138`).
+  - expansion bundle read-only: `ok=true`, `senal_expansion=lista_para_autorizacion`.
+  - checklist apply read-only: `ok=true`, publicaciones esperadas si se publican todos: `6`.
+  - Ver `docs/erp_ecommerce_publico_expansion_catalogo_plan.md`.
+  - Ver `docs/erp_ecommerce_publico_expansion_6_productos_runbook.md`.
 
 ## Senal actual
 
@@ -216,7 +227,7 @@ Si el SKU esta agotado y se decide publicarlo:
 - Las publicaciones reales requieren DDL, token, respaldo y permiso.
 - Publicar un borrador exige revision.
 - Publicar agotados exige confirmacion adicional.
-- CORS queda cerrado hasta configurar origenes exactos.
+- CORS queda restringido a origenes exactos configurados.
 
 ## Senal verde esperada
 

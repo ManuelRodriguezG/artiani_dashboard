@@ -43,6 +43,7 @@
                                 <a class="btn btn-light" href="/ventas/mostrar"><i class="bi bi-receipt"></i> Ventas</a>
                                 <a class="btn btn-light-primary" href="/ventas/caja_turnos"><i class="bi bi-clock-history"></i> Turnos</a>
                                 <a class="btn btn-light-primary" href="/ventas/caja_movimientos"><i class="bi bi-cash-stack"></i> Movimientos</a>
+                                <a class="btn btn-light-primary" href="/ventas/reportes"><i class="bi bi-bar-chart"></i> Reportes</a>
                                 <a class="btn btn-light-primary" href="/ventas/pos_configuracion"><i class="bi bi-sliders"></i> Configuracion</a>
                                 <a class="btn btn-primary" href="/ventas/pos"><i class="bi bi-shop-window"></i> POS</a>
                             </div>

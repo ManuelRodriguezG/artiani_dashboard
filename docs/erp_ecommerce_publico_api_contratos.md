@@ -181,7 +181,7 @@ Requisitos para activarlo:
 Plan read-only:
 
 ```bash
-C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_cotizacion_registro_plan_readonly.php --base=http://panel.com.local --origin=http://localhost:5173
+C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_cotizacion_registro_plan_readonly.php --base=http://panel.com.local --origin=http://artiani.com.local
 ```
 
 Ese plan documenta el payload futuro, tablas destino y bloqueos vigentes sin desbloquear escrituras.
@@ -243,13 +243,13 @@ C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_api_contracts_readonly.ph
 C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_http_smoke_readonly.php --base=http://panel.com.local
 C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_contract_shape_readonly.php
 C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_negative_cases_readonly.php --base=http://panel.com.local
-C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_cors_preflight_readonly.php --base=http://panel.com.local --origin=http://localhost:5173
+C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_cors_preflight_readonly.php --base=http://panel.com.local --origin=http://artiani.com.local
 C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_frontend_fixtures_readonly.php
-C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_frontend_env_readonly.php --base=http://panel.com.local --frontend=http://localhost:5173
+C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_frontend_env_readonly.php --base=http://panel.com.local --frontend=http://artiani.com.local
 C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_postman_collection_readonly.php --base=http://panel.com.local
 C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_openapi_readonly.php
 C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_carrito_whatsapp_readonly.php
-C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_cotizacion_registro_plan_readonly.php --base=http://panel.com.local --origin=http://localhost:5173
+C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_cotizacion_registro_plan_readonly.php --base=http://panel.com.local --origin=http://artiani.com.local
 ```
 
 Valida:
@@ -265,7 +265,7 @@ Valida:
 - cotizacion dry-run;
 - registro real de cotizacion bloqueado;
 - guardado interno de publicacion bloqueado.
-- preflight CORS cerrado hasta configurar `cors_origenes_permitidos`.
+- preflight CORS abierto solo para origenes exactos configurados; actualmente `http://artiani.com.local`.
 - variables de entorno/proxy para el frontend externo.
 - coleccion Postman/Insomnia para probar los 9 endpoints publicos y el POST bloqueado.
 
@@ -273,7 +273,7 @@ No escribe BD, no ejecuta DDL, no toca inventario y no registra cotizaciones.
 
 ## Fixtures para frontend
 
-Mientras `senal_frontend=amarillo_mock_contratos`, el frontend puede usar:
+Como respaldo de UI si el ERP local no esta disponible, el frontend puede usar:
 
 ```bash
 C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_frontend_fixtures_readonly.php
@@ -289,7 +289,17 @@ Incluye respuestas ejemplo para:
 - `disponibilidad`
 - `cotizacion_dryrun`
 
-Estos fixtures son solo para UI. No representan productos reales y deben retirarse cuando `uat_ecommerce_publico_green_gate_readonly.php` devuelva `ok=true`.
+Estos fixtures son solo para UI. No representan productos reales. En el estado actual el `green_gate` ya devuelve `ok=true`, por lo que el flujo principal del frontend debe consumir API real.
+
+## Snapshot vivo para frontend
+
+Para generar ejemplos reales actuales de catalogo, producto, disponibilidad y dry-run:
+
+```bash
+C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_frontend_snapshot_readonly.php --base=http://panel.com.local --origin=http://artiani.com.local --limite=2
+```
+
+Este snapshot es read-only y sirve como paquete de integracion para el proyecto ecommerce externo.
 
 ## OpenAPI basico
 

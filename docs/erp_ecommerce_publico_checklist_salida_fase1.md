@@ -18,8 +18,8 @@ Estado:
 - Manifiesto `/ecommercePublico/contratos`: listo.
 - Estado `/ecommercePublico/estado`: listo.
 - Configuracion publica `/ecommercePublico/configuracion`: listo con defaults.
-- Catalogo `/ecommercePublico/catalogo`: listo, pero devolvera vacio hasta publicar.
-- Cotizacion dry-run: listo, pero sin publicaciones reales responde pendiente.
+- Catalogo `/ecommercePublico/catalogo`: listo y devuelve productos reales publicados.
+- Cotizacion dry-run: listo y valida publicaciones reales sin escribir BD.
 - Registro real de cotizacion: bloqueado.
 - Guardado interno de publicaciones: bloqueado.
 - DDL `erp_ecommerce_*`: aplicado.
@@ -76,16 +76,17 @@ Debe estar resuelto:
 - `/cotizacion_dryrun` con publicaciones reales;
 - `cotizacion_registrar` todavia bloqueado salvo cambio posterior especifico de seguridad/CRM.
 
-### Pendiente para datos reales
+### Datos reales ya habilitados
 
-Esperar antes de prometer catalogo vivo real. Faltan:
+El catalogo vivo real inicial ya puede integrarse en el frontend externo porque:
 
-- aplicar DDL `erp_ecommerce_*`;
-- configurar `whatsapp_numero_principal`;
-- configurar `cors_origenes_permitidos`;
-- crear primeras publicaciones internas;
-- validar `/catalogo` con productos publicados;
-- validar `/cotizacion_dryrun` con publicaciones reales.
+- DDL `erp_ecommerce_*` aplicado;
+- `whatsapp_numero_principal` configurado;
+- `cors_origenes_permitidos` configurado para `http://artiani.com.local`;
+- primeras publicaciones internas creadas y publicadas;
+- `/catalogo` devuelve productos publicados;
+- `/cotizacion_dryrun` valida publicaciones reales;
+- `cotizacion_registrar` sigue bloqueado correctamente.
 
 ### Rojo para produccion
 
@@ -127,7 +128,9 @@ No publicar en produccion todavia si falta cualquiera de estos puntos:
 - [ ] Validar `GET /ecommercePublico/catalogo`.
 - [ ] Validar `POST /ecommercePublico/cotizacion_dryrun`.
 - [ ] Validar plan futuro de registro sin desbloquear escrituras:
-      `C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_cotizacion_registro_plan_readonly.php --base=http://panel.com.local --origin=http://localhost:5173`
+      `C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_cotizacion_registro_plan_readonly.php --base=http://panel.com.local --origin=http://artiani.com.local`
+- [ ] Generar snapshot vivo para el frontend:
+      `C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_frontend_snapshot_readonly.php --base=http://panel.com.local --origin=http://artiani.com.local --limite=2`
 
 ## Senal para iniciar vista externa con datos reales
 

@@ -1,6 +1,6 @@
 "use strict";
 (function () {
-    var estado = {listas: [], lista: null, productos: [], productosVisibles: [], cambios: {}, revision: null, segmentosListasDisponible: false, segmentosPorId: {}};
+    var estado = {listas: [], lista: null, productos: [], productosVisibles: [], cambios: {}, seleccionados: {}, sugeridos: {}, importacion: null, comparacion: null, revision: null, segmentosListasDisponible: false, segmentosPorId: {}};
 
     /**
      * IA: Codex GPT-5 | Fecha: 2026-07-15
@@ -164,6 +164,10 @@
         estado.productos = [];
         estado.productosVisibles = [];
         estado.cambios = {};
+        estado.seleccionados = {};
+        estado.sugeridos = {};
+        estado.importacion = null;
+        estado.comparacion = null;
         estado.revision = null;
         llenarFormularioLista({estatus: "borrador", prioridad: 100, canal: "general"});
         renderAsignaciones([]);
@@ -173,8 +177,10 @@
         cargarSegmentosCrm();
         limpiarSegmentoSeleccionado();
         renderRevisionVacia();
+        renderComparacionListas();
         actualizarContadorCambios();
-        document.getElementById("lp_productos").innerHTML = "<tr><td colspan=\"7\" class=\"text-center text-muted py-8\">Guarda la lista para cargar productos.</td></tr>";
+        document.getElementById("lp_productos").innerHTML = "<tr><td colspan=\"8\" class=\"text-center text-muted py-8\">Guarda la lista para cargar productos.</td></tr>";
+        actualizarCheckboxSeleccionTodos();
         document.querySelectorAll("[data-lp-lista]").forEach(function (item) { item.classList.remove("active"); });
     }
 
@@ -268,8 +274,13 @@
     }
 
     function cambiarEstatusLista(estatus) {
-        if (estatus === "activa" && Object.keys(estado.cambios || {}).length > 0) {
-            mostrarAlerta("warning", "Guarda o descarta los cambios pendientes antes de activar la lista.");
+        var revisionLocal = revisionLocalPantalla();
+        if (estatus === "activa" && revisionLocal.bloqueos.length > 0) {
+            mostrarAlerta("warning", revisionLocal.bloqueos[0]);
+            return;
+        }
+        if (estatus === "activa" && revisionLocal.avisos.length > 0) {
+            mostrarAlerta("warning", revisionLocal.avisos[0]);
             return;
         }
         if (estatus === "activa" && estado.revision && estado.revision.puede_activar === false) {
@@ -294,8 +305,9 @@
         var idLista = document.getElementById("lp_lista_id").value;
         var solo = document.getElementById("lp_producto_solo").value;
         if (!idLista) {
-            document.getElementById("lp_productos").innerHTML = "<tr><td colspan=\"7\" class=\"text-center text-muted py-8\">Guarda la lista para cargar productos.</td></tr>";
+            document.getElementById("lp_productos").innerHTML = "<tr><td colspan=\"8\" class=\"text-center text-muted py-8\">Guarda la lista para cargar productos.</td></tr>";
             actualizarResumenProductos([]);
+            actualizarCheckboxSeleccionTodos();
             return;
         }
         if (solo === "modificados") {
@@ -308,6 +320,12 @@
             }
             estado.productos = (response.depurar || {}).productos || [];
             estado.cambios = {};
+            estado.seleccionados = {};
+            estado.sugeridos = {};
+            estado.importacion = null;
+            estado.comparacion = null;
+            document.getElementById("lp_importar_resultado").innerHTML = "CSV esperado: id_sku o sku, y precio_lista.";
+            renderComparacionListas();
             actualizarContadorCambios();
             renderProductos(estado.productos);
         }).catch(mostrarError);
@@ -322,17 +340,24 @@
             var margen = item.margen_estimado == null ? "-" : numero(item.margen_estimado, 2) + "%";
             var riesgo = item.riesgo_margen || {};
             var tipoBadge = riesgo.tipo === "danger" ? "badge-light-danger" : (riesgo.tipo === "warning" ? "badge-light-warning" : (riesgo.tipo === "success" ? "badge-light-success" : "badge-light"));
-            return "<tr data-lp-producto=\"" + escapeHtml(item.id_sku) + "\">" +
+            var seleccionado = !!estado.seleccionados[String(item.id_sku)];
+            return "<tr data-lp-producto=\"" + escapeHtml(item.id_sku) + "\"" + (seleccionado ? " class=\"lp-row-selected\"" : "") + ">" +
+                "<td class=\"text-center\"><input class=\"form-check-input\" type=\"checkbox\" data-lp-seleccionar-sku=\"" + escapeHtml(item.id_sku) + "\"" + (seleccionado ? " checked" : "") + "></td>" +
                 "<td><div class=\"fw-bold\">" + escapeHtml(item.sku || "") + "</div><div class=\"text-muted fs-8\">" + escapeHtml(item.sku_nombre || item.producto || "") + "</div><div class=\"text-muted fs-8\">" + escapeHtml([item.marca, item.categoria].filter(Boolean).join(" / ")) + "</div></td>" +
                 "<td><span class=\"badge badge-light\">" + escapeHtml(item.unidad_base || "-") + "</span></td>" +
                 "<td class=\"text-end\">" + dinero(item.costo_referencia) + "</td>" +
                 "<td class=\"text-end\">" + dinero(item.precio_general) + "</td>" +
-                "<td class=\"text-end\"><input class=\"form-control form-control-sm form-control-solid text-end lp-price-input\" data-lp-precio=\"" + escapeHtml(item.id_sku) + "\" data-lp-original=\"" + escapeHtml(precioLista) + "\" value=\"" + escapeHtml(precioLista) + "\" placeholder=\"0.00\"></td>" +
+                "<td class=\"text-end\"><input class=\"form-control form-control-sm form-control-solid text-end lp-price-input\" data-lp-precio=\"" + escapeHtml(item.id_sku) + "\" data-lp-original=\"" + escapeHtml(precioLista) + "\" value=\"" + escapeHtml(precioLista) + "\" placeholder=\"0.00\"><div class=\"text-muted fs-9 lp-suggested\" data-lp-sugerido=\"" + escapeHtml(item.id_sku) + "\">" + textoPrecioSugerido(item.id_sku) + "</div></td>" +
                 "<td class=\"text-end\"><div class=\"fw-semibold\" data-lp-margen=\"" + escapeHtml(item.id_sku) + "\">" + escapeHtml(margen) + "</div><div class=\"text-muted fs-8\" data-lp-utilidad=\"" + escapeHtml(item.id_sku) + "\">" + dinero(item.utilidad_estimada || 0) + "</div><span class=\"badge " + tipoBadge + "\" data-lp-riesgo=\"" + escapeHtml(item.id_sku) + "\">" + escapeHtml(riesgo.texto || "-") + "</span></td>" +
-                "<td class=\"text-end\"><div class=\"d-flex justify-content-end gap-1\"><button class=\"btn btn-sm btn-light\" data-lp-preview-sku=\"" + escapeHtml(item.id_sku) + "\" type=\"button\"><i class=\"bi bi-calculator\"></i></button><button class=\"btn btn-sm btn-light-primary\" data-lp-guardar-precio=\"" + escapeHtml(item.id_sku) + "\" type=\"button\"><i class=\"bi bi-save\"></i></button>" + (item.id_lista_precio_detalle ? "<button class=\"btn btn-sm btn-light-danger\" data-lp-quitar-precio=\"" + escapeHtml(item.id_sku) + "\" type=\"button\"><i class=\"bi bi-x-circle\"></i></button>" : "") + "</div></td>" +
+                "<td class=\"text-end\"><div class=\"d-flex justify-content-end gap-1\"><button class=\"btn btn-sm btn-light\" data-lp-preview-sku=\"" + escapeHtml(item.id_sku) + "\" type=\"button\"><i class=\"bi bi-calculator\"></i></button>" + (item.id_lista_precio_detalle ? "<button class=\"btn btn-sm btn-light\" data-lp-historial-sku=\"" + escapeHtml(item.id_sku) + "\" data-lp-historial-detalle=\"" + escapeHtml(item.id_lista_precio_detalle) + "\" type=\"button\"><i class=\"bi bi-clock-history\"></i></button>" : "") + "<button class=\"btn btn-sm btn-light-primary\" data-lp-guardar-precio=\"" + escapeHtml(item.id_sku) + "\" type=\"button\"><i class=\"bi bi-save\"></i></button>" + (item.id_lista_precio_detalle ? "<button class=\"btn btn-sm btn-light-danger\" data-lp-quitar-precio=\"" + escapeHtml(item.id_sku) + "\" type=\"button\"><i class=\"bi bi-x-circle\"></i></button>" : "") + "</div></td>" +
             "</tr>";
-        }).join("") || "<tr><td colspan=\"7\" class=\"text-center text-muted py-8\">Sin productos para los filtros actuales</td></tr>";
+        }).join("") || "<tr><td colspan=\"8\" class=\"text-center text-muted py-8\">Sin productos para los filtros actuales</td></tr>";
 
+        document.querySelectorAll("[data-lp-seleccionar-sku]").forEach(function (input) {
+            input.addEventListener("change", function () {
+                cambiarSeleccionSku(input.getAttribute("data-lp-seleccionar-sku"), input.checked);
+            });
+        });
         document.querySelectorAll("[data-lp-precio]").forEach(function (input) {
             input.addEventListener("input", function () {
                 var idSku = input.getAttribute("data-lp-precio");
@@ -351,11 +376,20 @@
                 previsualizarPrecio();
             });
         });
+        document.querySelectorAll("[data-lp-historial-sku]").forEach(function (boton) {
+            boton.addEventListener("click", function () {
+                cargarAuditoriaSku(
+                    boton.getAttribute("data-lp-historial-sku") || "",
+                    boton.getAttribute("data-lp-historial-detalle") || ""
+                );
+            });
+        });
         document.querySelectorAll("[data-lp-quitar-precio]").forEach(function (boton) {
             boton.addEventListener("click", function () {
                 quitarPrecioProducto(boton.getAttribute("data-lp-quitar-precio"));
             });
         });
+        actualizarCheckboxSeleccionTodos();
     }
 
     function productosModificados() {
@@ -387,6 +421,7 @@
         });
         var nodos = {
             lp_res_productos: productos.length,
+            lp_res_seleccionados: Object.keys(estado.seleccionados || {}).length,
             lp_res_margen_bajo: margenBajo,
             lp_res_sin_costo: sinCosto,
             lp_res_cambios: cambios
@@ -401,6 +436,83 @@
 
     function productoPorSku(idSku) {
         return (estado.productos || []).find(function (item) { return String(item.id_sku) === String(idSku); }) || null;
+    }
+
+    function cambiarSeleccionSku(idSku, seleccionado) {
+        var row = document.querySelector("[data-lp-producto='" + idSku + "']");
+        if (seleccionado) {
+            estado.seleccionados[String(idSku)] = true;
+        } else {
+            delete estado.seleccionados[String(idSku)];
+        }
+        if (row) {
+            row.classList.toggle("lp-row-selected", !!seleccionado);
+        }
+        actualizarResumenProductos(estado.productosVisibles || []);
+        actualizarCheckboxSeleccionTodos();
+    }
+
+    function seleccionarProductosVisibles(seleccionado) {
+        (estado.productosVisibles || []).forEach(function (item) {
+            var idSku = String(item.id_sku);
+            if (seleccionado) {
+                estado.seleccionados[idSku] = true;
+            } else {
+                delete estado.seleccionados[idSku];
+            }
+        });
+        renderProductos(estado.productosVisibles || []);
+    }
+
+    function actualizarCheckboxSeleccionTodos() {
+        var checkbox = document.getElementById("lp_productos_select_all");
+        if (!checkbox) {
+            return;
+        }
+        var visibles = estado.productosVisibles || [];
+        var seleccionadosVisibles = visibles.filter(function (item) {
+            return !!estado.seleccionados[String(item.id_sku)];
+        }).length;
+        checkbox.checked = visibles.length > 0 && seleccionadosVisibles === visibles.length;
+        checkbox.indeterminate = seleccionadosVisibles > 0 && seleccionadosVisibles < visibles.length;
+    }
+
+    function productosParaAccionMasiva() {
+        var alcance = document.getElementById("lp_accion_alcance").value || "seleccionados";
+        var visibles = estado.productosVisibles || [];
+        if (alcance === "visibles") {
+            return visibles;
+        }
+        return visibles.filter(function (item) {
+            return !!estado.seleccionados[String(item.id_sku)];
+        });
+    }
+
+    function textoAlcanceAccion() {
+        return (document.getElementById("lp_accion_alcance").value || "seleccionados") === "visibles" ? "visible(s)" : "seleccionado(s)";
+    }
+
+    function validarProductosAccionMasiva() {
+        var productos = productosParaAccionMasiva();
+        if (!productos.length) {
+            mostrarAlerta("warning", "Selecciona productos o cambia el alcance a visibles.");
+            return null;
+        }
+        return productos;
+    }
+
+    function textoPrecioSugerido(idSku) {
+        var sugerido = estado.sugeridos[String(idSku)];
+        if (sugerido == null) {
+            return "";
+        }
+        return "Sugerido " + dinero(sugerido);
+    }
+
+    function renderSugeridos() {
+        document.querySelectorAll("[data-lp-sugerido]").forEach(function (nodo) {
+            nodo.textContent = textoPrecioSugerido(nodo.getAttribute("data-lp-sugerido"));
+        });
     }
 
     function recalcularMargenLocal(idSku) {
@@ -459,6 +571,7 @@
         }
         var visibles = document.getElementById("lp_producto_solo").value === "modificados" ? productosModificados() : (estado.productosVisibles || estado.productos || []);
         actualizarResumenProductos(visibles);
+        actualizarCheckboxSeleccionTodos();
         actualizarBotonesEstatus();
     }
 
@@ -468,8 +581,12 @@
             mostrarAlerta("warning", "Captura un margen objetivo mayor a 0 y menor a 95.");
             return;
         }
+        var productos = validarProductosAccionMasiva();
+        if (!productos) {
+            return;
+        }
         var aplicados = 0;
-        (estado.productos || []).forEach(function (item) {
+        productos.forEach(function (item) {
             var costo = Number(item.costo_referencia || 0);
             var input = document.querySelector("[data-lp-precio='" + item.id_sku + "']");
             if (costo <= 0 || !input) {
@@ -481,7 +598,251 @@
             marcarCambioPrecio(item.id_sku);
             aplicados++;
         });
-        mostrarAlerta(aplicados ? "success" : "warning", aplicados ? ("Margen aplicado a " + aplicados + " producto(s) visibles.") : "No hay productos visibles con costo para aplicar margen.");
+        mostrarAlerta(aplicados ? "success" : "warning", aplicados ? ("Margen aplicado a " + aplicados + " producto(s) " + textoAlcanceAccion() + ".") : "No hay productos con costo para aplicar margen en el alcance elegido.");
+    }
+
+    function calcularPreciosSugeridos() {
+        var margen = Number(document.getElementById("lp_margen_objetivo").value || 0);
+        if (!isFinite(margen) || margen <= 0 || margen >= 95) {
+            mostrarAlerta("warning", "Captura un margen objetivo mayor a 0 y menor a 95.");
+            return;
+        }
+        var productos = validarProductosAccionMasiva();
+        if (!productos) {
+            return;
+        }
+        var modo = document.getElementById("lp_redondeo_modo").value || "entero";
+        var calculados = 0;
+        var omitidos = 0;
+        productos.forEach(function (item) {
+            var costo = Number(item.costo_referencia || 0);
+            if (costo <= 0) {
+                omitidos++;
+                return;
+            }
+            var precio = costo / (1 - (margen / 100));
+            estado.sugeridos[String(item.id_sku)] = numero(redondearPrecio(precio, modo), 2);
+            calculados++;
+        });
+        renderSugeridos();
+        mostrarAlerta(calculados ? "success" : "warning", calculados ? ("Se calcularon " + calculados + " sugerido(s). No se guardaron cambios." + (omitidos ? " Omitidos sin costo: " + omitidos + "." : "")) : "No hay productos con costo para sugerir precio.");
+    }
+
+    function usarPreciosSugeridos() {
+        var productos = validarProductosAccionMasiva();
+        if (!productos) {
+            return;
+        }
+        var usados = 0;
+        productos.forEach(function (item) {
+            var precio = estado.sugeridos[String(item.id_sku)];
+            var input = document.querySelector("[data-lp-precio='" + item.id_sku + "']");
+            if (precio == null || !input) {
+                return;
+            }
+            input.value = numero(precio, 2);
+            recalcularMargenLocal(item.id_sku);
+            marcarCambioPrecio(item.id_sku);
+            usados++;
+        });
+        mostrarAlerta(usados ? "success" : "warning", usados ? ("Se aplicaron " + usados + " sugerido(s) como cambios pendientes.") : "Primero calcula precios sugeridos para los productos seleccionados.");
+    }
+
+    function csvValor(value) {
+        var texto = value == null ? "" : String(value);
+        return "\"" + texto.replace(/"/g, "\"\"") + "\"";
+    }
+
+    function exportarProductosCsv() {
+        var productos = estado.productosVisibles || [];
+        if (!productos.length) {
+            mostrarAlerta("warning", "No hay productos visibles para exportar.");
+            return;
+        }
+        var encabezados = ["id_sku", "sku", "producto", "unidad", "costo_referencia", "precio_general", "precio_lista", "precio_sugerido", "margen_estimado"];
+        var filas = productos.map(function (item) {
+            var input = document.querySelector("[data-lp-precio='" + item.id_sku + "']");
+            var precioLista = input ? input.value : (item.precio_lista == null ? "" : item.precio_lista);
+            return [
+                item.id_sku,
+                item.sku || "",
+                item.sku_nombre || item.producto || "",
+                item.unidad_base || "",
+                numero(item.costo_referencia || 0, 2),
+                numero(item.precio_general || 0, 2),
+                precioLista,
+                estado.sugeridos[String(item.id_sku)] || "",
+                item.margen_estimado == null ? "" : numero(item.margen_estimado, 2)
+            ].map(csvValor).join(",");
+        });
+        var csv = encabezados.join(",") + "\r\n" + filas.join("\r\n");
+        var blob = new Blob([csv], {type: "text/csv;charset=utf-8;"});
+        var enlace = document.createElement("a");
+        var idLista = document.getElementById("lp_lista_id").value || "nueva";
+        enlace.href = URL.createObjectURL(blob);
+        enlace.download = "lista_precios_" + idLista + "_productos.csv";
+        document.body.appendChild(enlace);
+        enlace.click();
+        document.body.removeChild(enlace);
+        URL.revokeObjectURL(enlace.href);
+        mostrarAlerta("success", "CSV generado con " + productos.length + " producto(s) visible(s).");
+    }
+
+    function parseCsv(texto) {
+        var filas = [];
+        var fila = [];
+        var valor = "";
+        var entreComillas = false;
+        for (var i = 0; i < texto.length; i++) {
+            var c = texto.charAt(i);
+            var siguiente = texto.charAt(i + 1);
+            if (c === "\"" && entreComillas && siguiente === "\"") {
+                valor += "\"";
+                i++;
+            } else if (c === "\"") {
+                entreComillas = !entreComillas;
+            } else if (c === "," && !entreComillas) {
+                fila.push(valor);
+                valor = "";
+            } else if ((c === "\n" || c === "\r") && !entreComillas) {
+                if (c === "\r" && siguiente === "\n") {
+                    i++;
+                }
+                fila.push(valor);
+                if (fila.some(function (item) { return String(item).trim() !== ""; })) {
+                    filas.push(fila);
+                }
+                fila = [];
+                valor = "";
+            } else {
+                valor += c;
+            }
+        }
+        fila.push(valor);
+        if (fila.some(function (item) { return String(item).trim() !== ""; })) {
+            filas.push(fila);
+        }
+        return filas;
+    }
+
+    function normalizarClaveCsv(value) {
+        return String(value || "").trim().toLowerCase().replace(/\s+/g, "_");
+    }
+
+    function numeroCsv(value) {
+        var texto = String(value == null ? "" : value).trim().replace(/\$/g, "").replace(/\s/g, "");
+        if (texto.indexOf(",") >= 0 && texto.indexOf(".") < 0) {
+            texto = texto.replace(",", ".");
+        } else {
+            texto = texto.replace(/,/g, "");
+        }
+        var n = Number(texto);
+        return isFinite(n) ? n : null;
+    }
+
+    function mapaProductosVisibles() {
+        var mapa = {porId: {}, porSku: {}};
+        (estado.productosVisibles || []).forEach(function (item) {
+            mapa.porId[String(item.id_sku)] = item;
+            mapa.porSku[String(item.sku || "").trim().toUpperCase()] = item;
+        });
+        return mapa;
+    }
+
+    function prevalidarImportacionCsv() {
+        var archivo = document.getElementById("lp_importar_csv").files[0];
+        if (!archivo) {
+            mostrarAlerta("warning", "Selecciona un archivo CSV para prevalidar.");
+            return;
+        }
+        if (!(estado.productosVisibles || []).length) {
+            mostrarAlerta("warning", "Carga productos visibles antes de importar para poder cruzar SKUs.");
+            return;
+        }
+        archivo.text().then(function (texto) {
+            var filas = parseCsv(texto);
+            if (filas.length < 2) {
+                throw new Error("El CSV no tiene encabezado y datos.");
+            }
+            var encabezados = filas[0].map(normalizarClaveCsv);
+            var idxId = encabezados.indexOf("id_sku");
+            var idxSku = encabezados.indexOf("sku");
+            var idxPrecio = encabezados.indexOf("precio_lista");
+            if (idxPrecio < 0) {
+                idxPrecio = encabezados.indexOf("precio");
+            }
+            if (idxId < 0 && idxSku < 0) {
+                throw new Error("El CSV debe incluir columna id_sku o sku.");
+            }
+            if (idxPrecio < 0) {
+                throw new Error("El CSV debe incluir columna precio_lista o precio.");
+            }
+            var mapa = mapaProductosVisibles();
+            var validos = [];
+            var errores = [];
+            filas.slice(1).forEach(function (fila, index) {
+                var idSku = idxId >= 0 ? String(fila[idxId] || "").trim() : "";
+                var sku = idxSku >= 0 ? String(fila[idxSku] || "").trim().toUpperCase() : "";
+                var producto = idSku ? mapa.porId[idSku] : null;
+                if (!producto && sku) {
+                    producto = mapa.porSku[sku] || null;
+                }
+                var precio = numeroCsv(fila[idxPrecio]);
+                if (!producto) {
+                    errores.push("Fila " + (index + 2) + ": SKU no visible o no encontrado.");
+                    return;
+                }
+                if (precio == null || precio <= 0) {
+                    errores.push("Fila " + (index + 2) + ": precio invalido.");
+                    return;
+                }
+                validos.push({id_sku: producto.id_sku, sku: producto.sku, precio: numero(precio, 2)});
+            });
+            estado.importacion = {validos: validos, errores: errores};
+            renderImportacionCsv();
+        }).catch(function (error) {
+            estado.importacion = null;
+            document.getElementById("lp_importar_resultado").innerHTML = "<div class=\"alert alert-danger py-3 mb-0\">" + escapeHtml(error.message || String(error)) + "</div>";
+        });
+    }
+
+    function renderImportacionCsv() {
+        var data = estado.importacion || {validos: [], errores: []};
+        var tipo = data.validos.length ? (data.errores.length ? "warning" : "success") : "warning";
+        var html = "<div class=\"alert alert-" + tipo + " py-3 mb-2\"><div class=\"fw-semibold\">Prevalidacion CSV</div>" +
+            "<div class=\"fs-8\">Validos: " + escapeHtml(data.validos.length) + " | Errores: " + escapeHtml(data.errores.length) + " | No se guardo en BD.</div></div>";
+        if (data.validos.length) {
+            html += "<div class=\"fs-8 mb-2\">Primeros validos: " + data.validos.slice(0, 5).map(function (item) {
+                return escapeHtml((item.sku || item.id_sku) + " = " + dinero(item.precio));
+            }).join(" | ") + "</div>";
+        }
+        if (data.errores.length) {
+            html += "<ul class=\"fs-8 ps-4 mb-0\">" + data.errores.slice(0, 8).map(function (item) {
+                return "<li>" + escapeHtml(item) + "</li>";
+            }).join("") + (data.errores.length > 8 ? "<li>" + escapeHtml("Mas errores: " + (data.errores.length - 8)) + "</li>" : "") + "</ul>";
+        }
+        document.getElementById("lp_importar_resultado").innerHTML = html;
+    }
+
+    function aplicarImportacionCsv() {
+        var data = estado.importacion || null;
+        if (!data || !data.validos || !data.validos.length) {
+            mostrarAlerta("warning", "Prevalida un CSV con productos validos antes de aplicar importacion.");
+            return;
+        }
+        var aplicados = 0;
+        data.validos.forEach(function (item) {
+            var producto = productoPorSku(item.id_sku);
+            var input = document.querySelector("[data-lp-precio='" + item.id_sku + "']");
+            if (!producto || !input) {
+                return;
+            }
+            input.value = numero(item.precio, 2);
+            recalcularMargenLocal(item.id_sku);
+            marcarCambioPrecio(item.id_sku);
+            aplicados++;
+        });
+        mostrarAlerta(aplicados ? "success" : "warning", aplicados ? ("Importacion aplicada como cambios pendientes: " + aplicados + " precio(s).") : "No se pudo aplicar ningun precio del CSV.");
     }
 
     function copiarPreciosDesdeLista() {
@@ -510,8 +871,12 @@
                     origen[String(item.id_sku)] = item.precio_lista;
                 }
             });
+            var productos = validarProductosAccionMasiva();
+            if (!productos) {
+                return;
+            }
             var copiados = 0;
-            (estado.productos || []).forEach(function (item) {
+            productos.forEach(function (item) {
                 var precio = origen[String(item.id_sku)];
                 var input = document.querySelector("[data-lp-precio='" + item.id_sku + "']");
                 if (precio == null || !input) {
@@ -522,8 +887,146 @@
                 marcarCambioPrecio(item.id_sku);
                 copiados++;
             });
-            mostrarAlerta(copiados ? "success" : "warning", copiados ? ("Se copiaron " + copiados + " precio(s) visibles desde la lista " + idOrigen + ".") : "La lista origen no tiene precios para los productos visibles.");
+            mostrarAlerta(copiados ? "success" : "warning", copiados ? ("Se copiaron " + copiados + " precio(s) " + textoAlcanceAccion() + " desde la lista " + idOrigen + ".") : "La lista origen no tiene precios para el alcance elegido.");
         }).catch(mostrarError);
+    }
+
+    function precioActualProducto(item) {
+        var input = document.querySelector("[data-lp-precio='" + item.id_sku + "']");
+        if (input && String(input.value || "").trim() !== "") {
+            return Number(input.value || 0);
+        }
+        return item.precio_lista == null ? null : Number(item.precio_lista);
+    }
+
+    function compararListaOrigen() {
+        var idOrigen = document.getElementById("lp_copiar_lista_id").value.trim();
+        var idActual = document.getElementById("lp_lista_id").value.trim();
+        var productos = estado.productosVisibles || [];
+        if (!idActual) {
+            mostrarAlerta("warning", "Selecciona una lista destino antes de comparar.");
+            return;
+        }
+        if (!idOrigen || idOrigen === idActual) {
+            mostrarAlerta("warning", "Captura una lista origen distinta a la lista actual.");
+            return;
+        }
+        if (!productos.length) {
+            mostrarAlerta("warning", "Carga productos visibles antes de comparar listas.");
+            return;
+        }
+        request("/comercial/listas_precios_productos_erp?" + new URLSearchParams({
+            id_lista_precio: idOrigen,
+            q: document.getElementById("lp_producto_q").value.trim(),
+            solo: "con_precio",
+            limite: "300"
+        }).toString()).then(function (response) {
+            if (response.error) {
+                throw new Error(response.mensaje);
+            }
+            var origen = {};
+            ((response.depurar || {}).productos || []).forEach(function (item) {
+                if (item.precio_lista != null) {
+                    origen[String(item.id_sku)] = item;
+                }
+            });
+            var filas = [];
+            var iguales = 0;
+            var diferentes = 0;
+            var faltantes = 0;
+            productos.forEach(function (item) {
+                var itemOrigen = origen[String(item.id_sku)] || null;
+                var precioActual = precioActualProducto(item);
+                var precioOrigen = itemOrigen ? Number(itemOrigen.precio_lista || 0) : null;
+                var diferencia = precioOrigen == null || precioActual == null ? null : precioOrigen - precioActual;
+                var diferenciaPct = diferencia == null || Number(precioActual || 0) === 0 ? null : (diferencia / precioActual) * 100;
+                var tipo = "faltante";
+                if (precioOrigen != null && precioActual != null && Math.abs(precioOrigen - precioActual) < 0.005) {
+                    tipo = "igual";
+                    iguales++;
+                } else if (precioOrigen != null) {
+                    tipo = "diferente";
+                    diferentes++;
+                } else {
+                    faltantes++;
+                }
+                filas.push({
+                    id_sku: item.id_sku,
+                    sku: item.sku || "",
+                    producto: item.sku_nombre || item.producto || "",
+                    costo: Number(item.costo_referencia || 0),
+                    precio_actual: precioActual,
+                    precio_origen: precioOrigen,
+                    diferencia: diferencia,
+                    diferencia_pct: diferenciaPct,
+                    tipo: tipo
+                });
+            });
+            estado.comparacion = {
+                id_origen: idOrigen,
+                filas: filas,
+                resumen: {iguales: iguales, diferentes: diferentes, faltantes: faltantes, visibles: productos.length}
+            };
+            renderComparacionListas();
+            mostrarAlerta("success", "Comparacion lista. Revisa diferencias antes de usarlas como cambios pendientes.");
+        }).catch(mostrarError);
+    }
+
+    function renderComparacionListas() {
+        var nodo = document.getElementById("lp_comparacion_resultado");
+        if (!nodo) {
+            return;
+        }
+        var data = estado.comparacion || null;
+        if (!data) {
+            nodo.innerHTML = "<div class=\"text-muted fs-7\">Compara contra otra lista para revisar diferencias antes de copiar precios.</div>";
+            return;
+        }
+        var resumen = data.resumen || {};
+        var diferencias = (data.filas || []).filter(function (item) { return item.tipo === "diferente"; }).slice(0, 8);
+        var faltantes = (data.filas || []).filter(function (item) { return item.tipo === "faltante"; }).length;
+        var html = "<div class=\"d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3\">" +
+            "<div><div class=\"fw-bold\">Comparacion contra lista " + escapeHtml(data.id_origen) + "</div><div class=\"text-muted fs-8\">Solo productos visibles en esta mesa.</div></div>" +
+            "<div class=\"d-flex flex-wrap gap-1\"><span class=\"badge badge-light-primary\">" + escapeHtml(resumen.visibles || 0) + " visibles</span><span class=\"badge badge-light-success\">" + escapeHtml(resumen.iguales || 0) + " iguales</span><span class=\"badge badge-light-warning\">" + escapeHtml(resumen.diferentes || 0) + " diferentes</span><span class=\"badge badge-light-danger\">" + escapeHtml(faltantes) + " sin precio origen</span></div>" +
+            "</div>";
+        if (!diferencias.length) {
+            html += "<div class=\"text-muted fs-7\">No hay diferencias aplicables en los productos visibles.</div>";
+            nodo.innerHTML = html;
+            return;
+        }
+        html += "<div class=\"table-responsive\"><table class=\"table table-sm align-middle mb-0\"><thead><tr class=\"text-muted fs-8 text-uppercase\"><th>SKU</th><th>Producto</th><th class=\"text-end\">Actual</th><th class=\"text-end\">Origen</th><th class=\"text-end\">Diferencia</th><th class=\"text-end\">%</th><th class=\"text-end\">Margen origen</th></tr></thead><tbody>";
+        html += diferencias.map(function (item) {
+            var margenOrigen = item.precio_origen && item.costo > 0 ? ((item.precio_origen - item.costo) / item.precio_origen) * 100 : null;
+            return "<tr><td class=\"fw-bold\">" + escapeHtml(item.sku) + "</td><td class=\"text-muted\">" + escapeHtml(item.producto) + "</td><td class=\"text-end\">" + (item.precio_actual == null ? "-" : dinero(item.precio_actual)) + "</td><td class=\"text-end\">" + dinero(item.precio_origen) + "</td><td class=\"text-end\">" + dinero(item.diferencia || 0) + "</td><td class=\"text-end\">" + (item.diferencia_pct == null ? "-" : numero(item.diferencia_pct, 2) + "%") + "</td><td class=\"text-end\">" + (margenOrigen == null ? "-" : numero(margenOrigen, 2) + "%") + "</td></tr>";
+        }).join("");
+        html += "</tbody></table></div>";
+        if ((resumen.diferentes || 0) > diferencias.length) {
+            html += "<div class=\"text-muted fs-8 mt-2\">Mostrando primeras " + diferencias.length + " diferencias de " + escapeHtml(resumen.diferentes) + ".</div>";
+        }
+        nodo.innerHTML = html;
+    }
+
+    function aplicarDiferenciasComparacion() {
+        var data = estado.comparacion || null;
+        if (!data || !data.filas || !data.filas.length) {
+            mostrarAlerta("warning", "Primero compara contra una lista origen.");
+            return;
+        }
+        var aplicados = 0;
+        data.filas.forEach(function (item) {
+            if (item.tipo !== "diferente" || item.precio_origen == null) {
+                return;
+            }
+            var input = document.querySelector("[data-lp-precio='" + item.id_sku + "']");
+            if (!input) {
+                return;
+            }
+            input.value = numero(item.precio_origen, 2);
+            recalcularMargenLocal(item.id_sku);
+            marcarCambioPrecio(item.id_sku);
+            aplicados++;
+        });
+        mostrarAlerta(aplicados ? "success" : "warning", aplicados ? ("Se aplicaron " + aplicados + " diferencia(s) como cambios pendientes.") : "No hay diferencias aplicables.");
     }
 
     function copiarPrecioGeneralVisibles() {
@@ -531,8 +1034,12 @@
             mostrarAlerta("warning", "Guarda o selecciona una lista destino antes de copiar precios.");
             return;
         }
+        var productos = validarProductosAccionMasiva();
+        if (!productos) {
+            return;
+        }
         var copiados = 0;
-        (estado.productos || []).forEach(function (item) {
+        productos.forEach(function (item) {
             var precio = Number(item.precio_general || 0);
             var input = document.querySelector("[data-lp-precio='" + item.id_sku + "']");
             if (precio <= 0 || !input) {
@@ -543,7 +1050,7 @@
             marcarCambioPrecio(item.id_sku);
             copiados++;
         });
-        mostrarAlerta(copiados ? "success" : "warning", copiados ? ("Precio general copiado a " + copiados + " producto(s) visibles.") : "No hay productos visibles con precio general.");
+        mostrarAlerta(copiados ? "success" : "warning", copiados ? ("Precio general copiado a " + copiados + " producto(s) " + textoAlcanceAccion() + ".") : "No hay productos con precio general en el alcance elegido.");
     }
 
     function redondearPrecio(precio, modo) {
@@ -567,9 +1074,13 @@
             mostrarAlerta("warning", "Guarda o selecciona una lista destino antes de redondear precios.");
             return;
         }
+        var productos = validarProductosAccionMasiva();
+        if (!productos) {
+            return;
+        }
         var modo = document.getElementById("lp_redondeo_modo").value || "entero";
         var redondeados = 0;
-        (estado.productos || []).forEach(function (item) {
+        productos.forEach(function (item) {
             var input = document.querySelector("[data-lp-precio='" + item.id_sku + "']");
             if (!input) {
                 return;
@@ -583,7 +1094,7 @@
             marcarCambioPrecio(item.id_sku);
             redondeados++;
         });
-        mostrarAlerta(redondeados ? "success" : "warning", redondeados ? ("Redondeo aplicado a " + redondeados + " producto(s) visibles.") : "No hay precios visibles para redondear.");
+        mostrarAlerta(redondeados ? "success" : "warning", redondeados ? ("Redondeo aplicado a " + redondeados + " producto(s) " + textoAlcanceAccion() + ".") : "No hay precios para redondear en el alcance elegido.");
     }
 
     function limpiarCambiosPendientes() {
@@ -670,6 +1181,39 @@
             mostrarAlerta("info", "No hay precios modificados por guardar.");
             return;
         }
+        prevalidarCambiosLoteBackend(idLista, cambios).then(function (ok) {
+            if (!ok) {
+                return;
+            }
+            guardarCambiosLoteConfirmado(idLista, cambios);
+        }).catch(mostrarError);
+    }
+
+    function prevalidarCambiosLoteBackend(idLista, cambios) {
+        return postRequest("/comercial/listas_precios_detalles_lote_dryrun_erp", {
+            id_lista_precio: idLista,
+            precios_json: JSON.stringify(cambios),
+            motivo: "Prevalidacion backend de lote"
+        }).then(function (response) {
+            var data = response.depurar || {};
+            var resumen = data.resumen || {};
+            var errores = data.errores || [];
+            var avisos = data.avisos || [];
+            if (response.error || data.puede_guardar === false) {
+                var detalle = errores.slice(0, 4).map(function (item) {
+                    return "Fila " + (item.fila || "-") + ": " + (item.bloqueos || [item.mensaje || "Error"]).join(" | ");
+                }).join("; ");
+                mostrarAlerta("warning", (response.mensaje || "Lote con bloqueos") + (detalle ? ". " + detalle : ""));
+                return false;
+            }
+            if (avisos.length || Number(resumen.perdida || 0) > 0 || Number(resumen.margen_bajo || 0) > 0) {
+                mostrarAlerta("warning", "Prevalidacion backend OK con avisos: perdida " + Number(resumen.perdida || 0) + ", margen bajo " + Number(resumen.margen_bajo || 0) + ", sin costo " + Number(resumen.sin_costo || 0) + ".");
+            }
+            return true;
+        });
+    }
+
+    function guardarCambiosLoteConfirmado(idLista, cambios) {
         postRequest("/comercial/listas_precios_detalles_lote_guardar_operativo_erp", {
             id_lista_precio: idLista,
             precios_json: JSON.stringify(cambios),
@@ -995,8 +1539,9 @@
 
     function renderRevision(data) {
         estado.revision = data || null;
-        var bloqueos = data.bloqueos || [];
-        var avisos = data.avisos || [];
+        var revisionLocal = revisionLocalPantalla();
+        var bloqueos = (data.bloqueos || []).concat(revisionLocal.bloqueos || []);
+        var avisos = (data.avisos || []).concat(revisionLocal.avisos || []);
         var lista = data.lista || {};
         var margen = data.margen || {};
         var conflictos = data.conflictos || [];
@@ -1028,6 +1573,24 @@
         actualizarBotonesEstatus();
     }
 
+    function revisionLocalPantalla() {
+        var bloqueos = [];
+        var avisos = [];
+        var pendientes = Object.keys(estado.cambios || {}).length;
+        var sugeridos = Object.keys(estado.sugeridos || {}).length;
+        var importacion = estado.importacion || null;
+        if (pendientes > 0) {
+            bloqueos.push("Hay " + pendientes + " cambio(s) de precio sin guardar en pantalla");
+        }
+        if (sugeridos > 0) {
+            avisos.push("Hay precios sugeridos calculados; aplicalos o descarta cambios antes de activar");
+        }
+        if (importacion && importacion.validos && importacion.validos.length > 0) {
+            avisos.push("Hay una importacion CSV prevalidada; aplicala o cambia productos antes de activar");
+        }
+        return {bloqueos: bloqueos, avisos: avisos};
+    }
+
     function renderRevisionVacia() {
         estado.revision = null;
         document.getElementById("lp_revision").innerHTML = "<div class=\"text-muted fs-7\">Guarda o selecciona una lista para revisar activacion.</div>";
@@ -1041,8 +1604,9 @@
         var estatus = document.getElementById("lp_lista_estatus").value;
         var pendientes = Object.keys(estado.cambios || {}).length;
         var revision = estado.revision || {};
-        var bloqueos = revision.puede_activar === false || (revision.bloqueos || []).length > 0;
-        var avisos = (revision.avisos || []).length > 0;
+        var revisionLocal = revisionLocalPantalla();
+        var bloqueos = revision.puede_activar === false || (revision.bloqueos || []).length > 0 || revisionLocal.bloqueos.length > 0;
+        var avisos = (revision.avisos || []).length > 0 || revisionLocal.avisos.length > 0;
         if (activar) {
             activar.disabled = !idLista || pendientes > 0 || bloqueos || estatus === "activa";
             activar.className = avisos && !bloqueos ? "btn btn-warning" : "btn btn-success";
@@ -1227,26 +1791,85 @@
 
     function cargarAuditoria() {
         var idLista = document.getElementById("lp_lista_id").value;
+        var tipo = document.getElementById("lp_auditoria_tipo").value || "";
         if (!idLista) {
             renderAuditoriaVacia();
             return;
         }
-        request("/comercial/listas_precios_auditoria_erp?" + new URLSearchParams({id_lista_precio: idLista, limite: "20"}).toString()).then(function (response) {
+        var params = {id_lista_precio: idLista, limite: "30"};
+        if (tipo === "lista") {
+            params.entidad = "erp_listas_precios";
+        } else if (tipo === "precio") {
+            params.entidad = "erp_listas_precios_detalle";
+        } else if (tipo === "cliente") {
+            params.entidad = "erp_clientes_listas_precios";
+        } else if (tipo === "segmento") {
+            params.entidad = "erp_segmentos_listas_precios";
+        }
+        request("/comercial/listas_precios_auditoria_erp?" + new URLSearchParams(params).toString()).then(function (response) {
             if (response.error) {
                 throw new Error(response.mensaje);
             }
-            renderAuditoria((response.depurar || {}).eventos || []);
+            renderAuditoria(response.depurar || {});
         }).catch(mostrarError);
     }
 
-    function renderAuditoria(eventos) {
-        document.getElementById("lp_auditoria").innerHTML = (eventos || []).map(function (item) {
+    function cargarAuditoriaSku(idSku, idDetalle) {
+        var idLista = document.getElementById("lp_lista_id").value;
+        if (!idLista || !idDetalle) {
+            mostrarAlerta("warning", "Este SKU aun no tiene historial de precio guardado en la lista.");
+            return;
+        }
+        document.getElementById("lp_auditoria_tipo").value = "precio";
+        request("/comercial/listas_precios_auditoria_erp?" + new URLSearchParams({
+            id_lista_precio: idLista,
+            id_lista_precio_detalle: idDetalle,
+            limite: "30"
+        }).toString()).then(function (response) {
+            if (response.error) {
+                throw new Error(response.mensaje);
+            }
+            var data = response.depurar || {};
+            data.titulo_contexto = "Historial SKU " + idSku;
+            renderAuditoria(data);
+        }).catch(mostrarError);
+    }
+
+    function renderAuditoria(data) {
+        var eventos = data.eventos || [];
+        if (data.schema_pendiente) {
+            document.getElementById("lp_auditoria").innerHTML = "<div class=\"alert alert-light-warning py-3 mb-0\">Auditoria comercial pendiente de esquema.</div>";
+            return;
+        }
+        var titulo = data.titulo_contexto ? "<div class=\"alert alert-light-primary py-3 mb-3\"><div class=\"fw-semibold\">" + escapeHtml(data.titulo_contexto) + "</div><div class=\"fs-8\">Eventos filtrados por detalle de precio.</div></div>" : "";
+        document.getElementById("lp_auditoria").innerHTML = titulo + ((eventos || []).map(function (item) {
+            var cambios = item.cambios_resumen || [];
+            var motivo = item.motivo ? "<div class=\"fs-8 mt-1\"><span class=\"text-muted\">Motivo:</span> " + escapeHtml(item.motivo) + "</div>" : "";
+            var cambiosHtml = cambios.length ? "<div class=\"mt-2\">" + cambios.map(function (cambio) {
+                return "<div class=\"fs-9 text-muted\">" + escapeHtml(cambio.campo || "") + ": " + escapeHtml(cambio.antes || "") + " -> <span class=\"text-dark\">" + escapeHtml(cambio.despues || "") + "</span></div>";
+            }).join("") + "</div>" : "";
             return "<div class=\"border rounded p-3 mb-2\">" +
-                "<div class=\"fw-semibold\">" + escapeHtml(item.accion || "-") + "</div>" +
-                "<div class=\"text-muted fs-8\">" + escapeHtml(item.fecha_registro || "") + "</div>" +
-                "<div class=\"fs-8\">" + escapeHtml(item.resumen || "") + "</div>" +
+                "<div class=\"d-flex justify-content-between gap-2 align-items-start\">" +
+                    "<div><div class=\"fw-semibold\">" + escapeHtml(item.accion_etiqueta || item.accion || "-") + "</div>" +
+                    "<div class=\"text-muted fs-8\">" + escapeHtml(item.fecha_registro || "") + " | Usuario " + escapeHtml(item.creado_por || "0") + "</div></div>" +
+                    badgeAuditoria(item.accion_tipo || "operacion") +
+                "</div>" +
+                "<div class=\"fs-8 mt-2\">" + escapeHtml(item.resumen || "") + "</div>" +
+                motivo +
+                cambiosHtml +
             "</div>";
-        }).join("") || "<div class=\"text-muted fs-7\">Sin eventos para esta lista.</div>";
+        }).join("") || "<div class=\"text-muted fs-7\">Sin eventos para esta lista.</div>");
+    }
+
+    function badgeAuditoria(tipo) {
+        var clases = {
+            lista: "badge-light-primary",
+            precio: "badge-light-success",
+            segmento: "badge-light-info",
+            cliente: "badge-light-warning",
+            operacion: "badge-light"
+        };
+        return "<span class=\"badge " + (clases[tipo] || "badge-light") + "\">" + escapeHtml(tipo || "operacion") + "</span>";
     }
 
     function renderAuditoriaVacia() {
@@ -1265,9 +1888,16 @@
         document.getElementById("lp_activar").addEventListener("click", function () { cambiarEstatusLista("activa"); });
         document.getElementById("lp_pausar").addEventListener("click", function () { cambiarEstatusLista("pausada"); });
         document.getElementById("lp_productos_buscar").addEventListener("click", cargarProductos);
+        document.getElementById("lp_exportar_csv").addEventListener("click", exportarProductosCsv);
+        document.getElementById("lp_importar_prevalidar").addEventListener("click", prevalidarImportacionCsv);
+        document.getElementById("lp_importar_aplicar").addEventListener("click", aplicarImportacionCsv);
+        document.getElementById("lp_sugerir_margen").addEventListener("click", calcularPreciosSugeridos);
+        document.getElementById("lp_usar_sugeridos").addEventListener("click", usarPreciosSugeridos);
         document.getElementById("lp_aplicar_margen").addEventListener("click", aplicarMargenObjetivo);
         document.getElementById("lp_copiar_general").addEventListener("click", copiarPrecioGeneralVisibles);
         document.getElementById("lp_redondear").addEventListener("click", redondearPreciosVisibles);
+        document.getElementById("lp_comparar_lista").addEventListener("click", compararListaOrigen);
+        document.getElementById("lp_aplicar_comparacion").addEventListener("click", aplicarDiferenciasComparacion);
         document.getElementById("lp_copiar_lista").addEventListener("click", copiarPreciosDesdeLista);
         document.getElementById("lp_limpiar_cambios").addEventListener("click", limpiarCambiosPendientes);
         document.getElementById("lp_guardar_cambios").addEventListener("click", guardarCambiosLote);
@@ -1280,10 +1910,14 @@
         document.getElementById("lp_preview_btn").addEventListener("click", previsualizarPrecio);
         document.getElementById("lp_revision_btn").addEventListener("click", cargarRevision);
         document.getElementById("lp_auditoria_btn").addEventListener("click", cargarAuditoria);
+        document.getElementById("lp_auditoria_tipo").addEventListener("change", cargarAuditoria);
         document.querySelectorAll("[data-lp-alcance]").forEach(function (boton) {
             boton.addEventListener("click", function () {
                 aplicarPresetAlcance(boton.getAttribute("data-lp-alcance") || "general");
             });
+        });
+        document.getElementById("lp_productos_select_all").addEventListener("change", function () {
+            seleccionarProductosVisibles(this.checked);
         });
         ["lp_lista_canal", "lp_lista_almacen", "lp_lista_prioridad"].forEach(function (id) {
             document.getElementById(id).addEventListener("input", actualizarResumenAlcance);

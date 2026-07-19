@@ -56,5 +56,3 @@ define('SOCIO', 10);
 define('PROGRAMADOR', 11);
 
 //define('LANGUAGES',array('ES','EN'));
-	
-	

@@ -2,7 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const { chromium } = require('../../public/js/node_modules/@playwright/test');
 
-const baseUrl = process.env.POS_UAT_URL || 'http://dashboard.com.local/ventas/pos';
+const baseUrl = process.env.POS_UAT_URL || 'http://panel.com.local/ventas/pos';
 const outDir = path.resolve(__dirname, '../../public/storage/uat');
 const screenshotPath = path.join(outDir, 'pos_playwright_real_route.png');
 

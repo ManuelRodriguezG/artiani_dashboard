@@ -1,7 +1,7 @@
 <?php
 
 /**
- * Documentacion IA: Codex GPT-5, 2026-07-17.
+ * Documentacion IA: Codex GPT-5, 2026-07-17 / 2026-07-18.
  * Proposito: validar en solo lectura que existe la superficie minima de POS para piloto operativo.
  * Impacto: revisa controlador, vistas, JS y documentos de operacion sin conectarse a BD ni modificar archivos.
  * Contrato: read-only; no ejecuta endpoints, no abre navegador, no cobra y no mueve inventario.
@@ -94,6 +94,8 @@ foreach ($metodos as $metodo) {
 
 $jsPosRuta = $base . DIRECTORY_SEPARATOR . "public" . DIRECTORY_SEPARATOR . "assets" . DIRECTORY_SEPARATOR . "js" . DIRECTORY_SEPARATOR . "custom" . DIRECTORY_SEPARATOR . "apps" . DIRECTORY_SEPARATOR . "erp" . DIRECTORY_SEPARATOR . "ventas" . DIRECTORY_SEPARATOR . "pos.js";
 $jsPos = is_file($jsPosRuta) ? file_get_contents($jsPosRuta) : "";
+$vistaPosRuta = $base . DIRECTORY_SEPARATOR . "app" . DIRECTORY_SEPARATOR . "vistas" . DIRECTORY_SEPARATOR . "paginas" . DIRECTORY_SEPARATOR . "apps" . DIRECTORY_SEPARATOR . "erp" . DIRECTORY_SEPARATOR . "ventas" . DIRECTORY_SEPARATOR . "pos.php";
+$vistaPos = is_file($vistaPosRuta) ? file_get_contents($vistaPosRuta) : "";
 $marcasUi = array(
     "buscador_producto" => "pos_buscar",
     "ticket_preview" => "pos_ticket_preview",
@@ -108,6 +110,29 @@ foreach ($marcasUi as $clave => $marca) {
     $detalleUi[$clave] = $existe;
     if (!$existe) {
         $avisos[] = "No se encontro marca UI " . $marca . " en pos.js";
+    }
+}
+
+$marcasScanner = array(
+    "boton_camara_pos" => array("archivo" => "vista", "marca" => "pos_scan_camera_btn"),
+    "modal_scanner_pos" => array("archivo" => "vista", "marca" => "pos_scan_modal"),
+    "video_scanner_pos" => array("archivo" => "vista", "marca" => "pos_scan_video"),
+    "selector_camara_pos" => array("archivo" => "vista", "marca" => "pos_scan_camera_device"),
+    "estado_scanner_pos" => array("archivo" => "vista", "marca" => "pos_scan_estado"),
+    "barcode_detector" => array("archivo" => "js", "marca" => "BarcodeDetector"),
+    "busqueda_codigo_escaneado" => array("archivo" => "js", "marca" => "buscarCodigoEscaneado"),
+    "camara_preferida" => array("archivo" => "js", "marca" => "elegirCamaraPreferidaPos"),
+    "foco_continuo" => array("archivo" => "js", "marca" => "focusMode"),
+    "luz_torch" => array("archivo" => "js", "marca" => "torch"),
+    "agrega_coincidencia_unica" => array("archivo" => "js", "marca" => "agregarProducto(items[0])")
+);
+$detalleScanner = array();
+foreach ($marcasScanner as $clave => $config) {
+    $contenido = $config["archivo"] === "vista" ? $vistaPos : $jsPos;
+    $existe = strpos($contenido, $config["marca"]) !== false;
+    $detalleScanner[$clave] = $existe;
+    if (!$existe) {
+        $avisos[] = "No se encontro marca scanner POS " . $config["marca"] . " en " . $config["archivo"];
     }
 }
 
@@ -127,7 +152,8 @@ responder(array(
     "detalle" => array(
         "archivos" => $detalleArchivos,
         "metodos" => $detalleMetodos,
-        "ui" => $detalleUi
+        "ui" => $detalleUi,
+        "scanner_pos" => $detalleScanner
     ),
     "contrato" => array(
         "read_only" => true,

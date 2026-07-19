@@ -9,7 +9,7 @@ const { chromium } = require('../../public/js/node_modules/@playwright/test');
  * Contrato: no presiona autorizaciones reales, no abre turno, no cierra turno, no mueve caja.
  */
 
-const baseUrl = process.env.POS_UAT_CAJA_URL || 'http://dashboard.com.local/ventas/caja_turnos';
+const baseUrl = process.env.POS_UAT_CAJA_URL || 'http://panel.com.local/ventas/caja_turnos';
 const usuario = process.env.POS_UAT_USER || '';
 const contrasenia = process.env.POS_UAT_PASS || '';
 const outDir = path.resolve(__dirname, '../../public/storage/uat');

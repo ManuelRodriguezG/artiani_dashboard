@@ -24,7 +24,7 @@ Regla:
 - validar desde ERP con:
 
 ```bash
-C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_cors_preflight_readonly.php --base=http://panel.com.local --origin=http://localhost:5173
+C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_cors_preflight_readonly.php --base=http://panel.com.local --origin=http://artiani.com.local
 ```
 
 ## Headers futuros
@@ -116,4 +116,3 @@ El ERP recalcula todo desde publicaciones vivas y disponibilidad publica simple.
 - checkout.
 - apartado automatico de inventario.
 - conversion automatica a pedido confirmado.
-

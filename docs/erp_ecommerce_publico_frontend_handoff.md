@@ -2,11 +2,20 @@
 
 Documentacion IA: Codex GPT-5  
 Fecha: 2026-07-15  
-Estado: guia de integracion read-only para proyecto ecommerce separado.
+Estado: guia de integracion read-only con datos reales Fase 1 para proyecto ecommerce separado.
 
 ## Decision
 
 El ecommerce publico se construira como proyecto separado. Este ERP solo expone contratos/API y administra la publicacion de productos, configuracion y futuras cotizaciones.
+
+## Estado actual
+
+- `senal_frontend_actual=verde_datos_reales`.
+- El frontend local autorizado es `http://artiani.com.local`.
+- La base API verificada es `http://panel.com.local/ecommercePublico`.
+- Hay 2 publicaciones reales activas.
+- `cotizacion_dryrun` funciona con publicaciones reales y no escribe BD.
+- `cotizacion_registrar` sigue bloqueado por diseno en Fase 1.
 
 ## Variables sugeridas en el proyecto ecommerce
 
@@ -35,6 +44,9 @@ Notas:
 - `docs/erp_ecommerce_publico_fixtures_frontend.md`
 - `docs/erp_ecommerce_publico_carrito_whatsapp_frontend.md`
 - `docs/erp_ecommerce_publico_frontend_herramientas_integracion.md`
+- `docs/erp_ecommerce_publico_frontend_snapshot_vivo.md`
+- `docs/erp_ecommerce_publico_expansion_catalogo_plan.md`
+- `docs/erp_ecommerce_publico_expansion_6_productos_runbook.md`
 - `docs/erp_ecommerce_publico_seguridad_api_futura.md`
 - `docs/erp_ecommerce_publico_seo_frontend.md`
 - `docs/erp_ecommerce_publico_frontend_AGENTS_template.md`
@@ -56,7 +68,87 @@ Uso:
 - reporta `senal_frontend_actual`;
 - reporta bloqueos para pasar a datos reales.
 
-## Fixtures mientras el ERP esta en amarillo
+## Compuerta de entregable frontend
+
+Comando:
+
+```bash
+C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_frontend_entregable_gate_readonly.php --base=http://panel.com.local --origin=http://artiani.com.local --skus_preview=415,866,386,1138 --min_publicadas=2 --min_preview=6
+```
+
+Uso:
+
+- valida API real actual con minimo 2 productos publicados;
+- valida CORS para `http://artiani.com.local`;
+- valida WhatsApp y `cotizacion_dryrun`;
+- valida que el preview de expansion pueda mostrar 6 tarjetas;
+- devuelve `senal_entregable_frontend=verde_entregable_frontend` cuando el frontend puede avanzar.
+
+## Snapshot vivo
+
+Comando:
+
+```bash
+C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_frontend_snapshot_readonly.php --base=http://panel.com.local --origin=http://artiani.com.local --limite=2
+```
+
+Uso:
+
+- entrega ejemplos reales actuales de catalogo, producto, disponibilidad y dry-run;
+- confirma CORS para `http://artiani.com.local`;
+- muestra variables `.env` sugeridas para el frontend;
+- sirve como prueba rapida de que el frontend puede consumir datos reales.
+
+## Preview frontend de 6 tarjetas
+
+Comando read-only:
+
+```bash
+C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_frontend_preview_expansion_readonly.php --base=http://panel.com.local --origin=http://artiani.com.local --skus=415,866,386,1138 --resumen=1
+```
+
+Uso:
+
+- entrega una vista simulada con los 2 productos publicados actuales mas 4 candidatos reales;
+- permite disenar grid, filtros, carrito y estados visuales con 6 tarjetas;
+- no crea publicaciones, no registra cotizaciones y no toca inventario;
+- no sustituye `GET /ecommercePublico/catalogo`.
+
+Regla: mientras la expansion no este autorizada y publicada, el frontend debe consumir `/catalogo` como fuente real y usar este preview solo como apoyo de diseno/QA.
+
+## Expansion de catalogo
+
+Comando read-only:
+
+```bash
+C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_expansion_catalogo_readonly.php --limite=20 --pool=1500 --solo_disponibles=1
+```
+
+Uso:
+
+- detecta candidatos no publicados;
+- separa `disponible`, `pocas_piezas`, `consultar_disponibilidad` y `agotado`;
+- ayuda a decidir si conviene publicar mas productos o primero depurar inventario/catalogo.
+
+Paquete read-only para los 4 candidatos disponibles actuales:
+
+```bash
+C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_expansion_publicacion_paquete_readonly.php --skus=415,866,386,1138 --base=http://panel.com.local
+```
+
+Checklist read-only antes de autorizar expansion:
+
+```bash
+C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_expansion_bundle_readonly.php --base=http://panel.com.local --origin=http://artiani.com.local --respaldo=C:\xampp\panel_db_backups\artianilocal_panel_20260716_232839_antes_ecommerce_publico_fase1.sql --skus=415,866,386,1138 --min_actual=2 --min_objetivo=6
+```
+
+Checklist detallado:
+
+```bash
+C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_expansion_apply_checklist_readonly.php --base=http://panel.com.local --respaldo=C:\xampp\panel_db_backups\artianilocal_panel_20260716_232839_antes_ecommerce_publico_fase1.sql --skus=415,866,386,1138
+```
+
+## Fixtures como respaldo de UI
 
 Comando:
 
@@ -66,11 +158,11 @@ C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_frontend_fixtures_readonl
 
 Uso:
 
-- construir UI sin datos reales;
+- construir UI si el ERP local no esta disponible;
 - probar tarjetas, filtros, ficha y carrito;
 - validar forma de `cotizacion_dryrun`.
 
-No usar fixtures como productos reales. Cambiar a API real solo cuando:
+No usar fixtures como productos reales. La API real ya esta habilitada cuando:
 
 ```bash
 C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_green_gate_readonly.php --base=http://panel.com.local
@@ -83,7 +175,7 @@ devuelva `ok=true`.
 Variables de entorno/proxy local:
 
 ```bash
-C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_frontend_env_readonly.php --base=http://panel.com.local --frontend=http://localhost:5173
+C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_frontend_env_readonly.php --base=http://panel.com.local --frontend=http://artiani.com.local
 ```
 
 Coleccion Postman/Insomnia:
@@ -137,14 +229,15 @@ Antes de conectar el frontend contra API real, validar desde el ERP:
 C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_http_smoke_readonly.php --base=http://panel.com.local
 C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_contract_shape_readonly.php
 C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_negative_cases_readonly.php --base=http://panel.com.local
-C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_cors_preflight_readonly.php --base=http://panel.com.local --origin=http://localhost:5173
+C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_cors_preflight_readonly.php --base=http://panel.com.local --origin=http://artiani.com.local
 ```
 
 Esperado actual:
 
 - smoke HTTP `ok=true`;
 - shape `ok=true`;
-- CORS cerrado hasta configurar `cors_origenes_permitidos`.
+- CORS abierto solo para `http://artiani.com.local`.
+- CORS sin wildcard.
 
 ## Catalogo
 

@@ -9,8 +9,8 @@ const { chromium } = require('../../public/js/node_modules/@playwright/test');
  * Contrato: solo navega y consulta; no ejecuta resoluciones ni movimientos.
  */
 
-const baseUrl = process.env.POS_UAT_REPORTES_URL || 'http://dashboard.com.local/ventas/reportes';
-const loginUrl = process.env.POS_UAT_LOGIN_URL || 'http://dashboard.com.local/autenticacion/login';
+const baseUrl = process.env.POS_UAT_REPORTES_URL || 'http://panel.com.local/ventas/reportes';
+const loginUrl = process.env.POS_UAT_LOGIN_URL || 'http://panel.com.local/autenticacion/login';
 const usuario = process.env.POS_UAT_USER || '';
 const contrasenia = process.env.POS_UAT_PASS || '';
 const outDir = path.resolve(__dirname, '../../public/storage/uat');

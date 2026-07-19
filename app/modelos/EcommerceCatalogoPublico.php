@@ -1783,7 +1783,7 @@ class EcommerceCatalogoPublico extends CRUD {
       "perro" => array("perro", "canino", "cachorro"),
       "gato" => array("gato", "felino", "gatito"),
       "ave" => array("ave", "pajaro", "perico", "canario"),
-      "pez" => array("pez", "peces", "acuario"),
+      "pez" => array("pez", "peces", "acuario", "filtro", "filtracion", "oxigenacion", "actinia"),
       "reptil" => array("reptil", "tortuga", "iguana"),
       "roedor" => array("roedor", "hamster", "conejo", "cuyo")
     );
@@ -1803,7 +1803,7 @@ class EcommerceCatalogoPublico extends CRUD {
       "higiene" => array("higiene", "arena", "shampoo", "limpieza", "sanitario"),
       "salud" => array("salud", "vitamina", "suplemento", "medicina", "antipulgas"),
       "paseo" => array("paseo", "collar", "correa", "pechera"),
-      "habitat" => array("habitat", "cama", "jaula", "casa", "pecera", "acuario"),
+      "habitat" => array("habitat", "cama", "jaula", "casa", "pecera", "acuario", "filtro", "filtracion", "oxigenacion", "iluminacion", "lampara", "actinia", "cascada", "canastilla"),
       "juguete" => array("juguete", "pelota", "mordedera"),
       "estetica" => array("estetica", "cepillo", "corte", "perfume")
     );
