@@ -1,6 +1,6 @@
 "use strict";
 (function () {
-    var estado = {listas: [], lista: null, productos: [], productosVisibles: [], cambios: {}, seleccionados: {}, sugeridos: {}, importacion: null, comparacion: null, revision: null, segmentosListasDisponible: false, segmentosPorId: {}};
+    var estado = {listas: [], lista: null, productos: [], productosVisibles: [], cambios: {}, seleccionados: {}, sugeridos: {}, importacion: null, comparacion: null, revision: null, asignacionesClientes: [], asignacionesSegmentos: [], segmentosListasDisponible: false, segmentosPorId: {}};
 
     /**
      * IA: Codex GPT-5 | Fecha: 2026-07-15
@@ -49,6 +49,119 @@
         document.getElementById("lp_alerta").innerHTML = "<div class=\"alert alert-" + escapeHtml(tipo || "info") + " py-3 mb-4\">" + escapeHtml(mensaje || "") + "</div>";
     }
 
+    function actualizarFlujoOperativo(pasoActivo) {
+        var idLista = document.getElementById("lp_lista_id") ? document.getElementById("lp_lista_id").value : "";
+        var codigo = document.getElementById("lp_lista_codigo") ? document.getElementById("lp_lista_codigo").value.trim() : "";
+        var nombre = document.getElementById("lp_lista_nombre") ? document.getElementById("lp_lista_nombre").value.trim() : "";
+        var canal = document.getElementById("lp_lista_canal") ? document.getElementById("lp_lista_canal").value : "general";
+        var prioridad = Number(document.getElementById("lp_lista_prioridad") ? document.getElementById("lp_lista_prioridad").value || 0 : 0);
+        var productos = estado.productos || [];
+        var conPrecio = productos.filter(function (item) { return Number(item.precio_lista || 0) > 0; }).length;
+        var cambios = Object.keys(estado.cambios || {}).length;
+        var asignaciones = (estado.asignacionesClientes || []).length + (estado.asignacionesSegmentos || []).length;
+        var revision = estado.revision || null;
+        var pasos = {
+            encabezado: {
+                listo: !!idLista && !!codigo && !!nombre,
+                texto: idLista ? (codigo + " guardada") : "Captura codigo y nombre."
+            },
+            productos: {
+                listo: conPrecio > 0 || cambios > 0,
+                texto: productos.length ? (conPrecio + " con precio, " + cambios + " pendiente(s)") : "Carga SKUs y precios."
+            },
+            alcance: {
+                listo: !!canal && isFinite(prioridad) && prioridad > 0,
+                texto: (canal || "general") + " | prioridad " + (prioridad || "-")
+            },
+            asignacion: {
+                listo: asignaciones > 0 || canal === "general",
+                texto: asignaciones ? (asignaciones + " vinculo(s)") : "General o pendiente de segmento."
+            },
+            revision: {
+                listo: !!revision && revision.puede_activar !== false && cambios === 0,
+                texto: revision ? (revision.puede_activar === false ? "Con bloqueos por resolver." : "Lista revisada.") : "Prevalida antes de activar."
+            }
+        };
+        Object.keys(pasos).forEach(function (clave) {
+            var boton = document.querySelector("[data-lp-flujo='" + clave + "']");
+            var texto = document.getElementById("lp_flujo_" + clave);
+            if (boton) {
+                boton.classList.toggle("is-ready", !!pasos[clave].listo);
+                boton.classList.toggle("is-active", pasoActivo === clave);
+            }
+            if (texto) {
+                texto.textContent = pasos[clave].texto;
+            }
+        });
+        var listos = Object.keys(pasos).filter(function (clave) { return pasos[clave].listo; }).length;
+        var estadoNodo = document.getElementById("lp_flujo_estado");
+        if (estadoNodo) {
+            estadoNodo.textContent = idLista ? (listos + "/5 listo") : "Sin lista";
+            estadoNodo.className = listos >= 5 ? "badge badge-light-success" : (idLista ? "badge badge-light-primary" : "badge badge-light");
+        }
+    }
+
+    function activarFlujoOperativo() {
+        document.querySelectorAll("[data-lp-flujo]").forEach(function (boton) {
+            boton.addEventListener("click", function () {
+                var destino = document.querySelector(boton.getAttribute("data-lp-scroll") || "");
+                var paso = boton.getAttribute("data-lp-flujo") || "";
+                cambiarTabEditor(tabDesdePasoFlujo(paso));
+                actualizarFlujoOperativo(paso);
+                if (destino) {
+                    destino.scrollIntoView({behavior: "smooth", block: "center"});
+                    if (typeof destino.focus === "function") {
+                        setTimeout(function () { destino.focus(); }, 250);
+                    }
+                }
+            });
+        });
+    }
+
+    function activarTabsEditor() {
+        document.querySelectorAll("[data-lp-editor-tab]").forEach(function (boton) {
+            boton.addEventListener("click", function () {
+                cambiarTabEditor(boton.getAttribute("data-lp-editor-tab") || "encabezado");
+            });
+        });
+    }
+
+    function cambiarTabEditor(tab) {
+        tab = tab || "encabezado";
+        document.querySelectorAll("[data-lp-editor-tab]").forEach(function (boton) {
+            boton.classList.toggle("is-active", boton.getAttribute("data-lp-editor-tab") === tab);
+        });
+        document.querySelectorAll("[data-lp-editor-panel]").forEach(function (panel) {
+            panel.hidden = panel.getAttribute("data-lp-editor-panel") !== tab;
+        });
+        var estadoTab = document.getElementById("lp_editor_tab_estado");
+        if (estadoTab) {
+            estadoTab.textContent = etiquetaTabEditor(tab);
+        }
+    }
+
+    function etiquetaTabEditor(tab) {
+        var etiquetas = {
+            encabezado: "Encabezado",
+            productos: "Productos",
+            alcance: "Alcance",
+            asignacion: "Clientes/Segmentos",
+            revision: "Revision"
+        };
+        return etiquetas[tab] || "Encabezado";
+    }
+
+    function tabDesdePasoFlujo(paso) {
+        var mapa = {
+            encabezado: "encabezado",
+            productos: "productos",
+            alcance: "alcance",
+            asignacion: "asignacion",
+            revision: "revision"
+        };
+        return mapa[paso] || "encabezado";
+    }
+
     function filtrosListas() {
         return {
             q: document.getElementById("lp_filtro_q").value.trim(),
@@ -73,6 +186,65 @@
                 marcarLista(estado.lista.id_lista_precio);
             }
         }).catch(mostrarError);
+    }
+
+    function cargarFase1Readiness() {
+        var contenedor = document.getElementById("lp_fase1_readiness");
+        if (contenedor) {
+            contenedor.innerHTML = "<div class=\"text-muted fs-7\">Validando arranque...</div>";
+        }
+        request("/comercial/listas_precios_fase1_readiness_erp").then(function (response) {
+            if (response.error) {
+                throw new Error(response.mensaje);
+            }
+            renderFase1Readiness(response.depurar || {}, response.mensaje || "");
+        }).catch(mostrarError);
+    }
+
+    function renderFase1Readiness(data, mensaje) {
+        var contenedor = document.getElementById("lp_fase1_readiness");
+        var badge = document.getElementById("lp_fase1_estado");
+        if (!contenedor) {
+            return;
+        }
+        var listo = !!data.puede_piloto_pos;
+        if (badge) {
+            badge.textContent = listo ? "Listo piloto POS" : "Con bloqueos";
+            badge.className = listo ? "badge badge-light-success" : "badge badge-light-warning";
+        }
+        var checks = data.checks || [];
+        var kpis = data.kpis || {};
+        var html = "<div class=\"row g-3\">" +
+            "<div class=\"col-xl-3 col-md-6\"><div class=\"border rounded p-3 h-100\"><div class=\"text-muted fs-9 text-uppercase\">Estado</div><div class=\"fw-bold " + (listo ? "text-success" : "text-warning") + "\">" + escapeHtml(mensaje || data.estado || "-") + "</div></div></div>" +
+            "<div class=\"col-xl-3 col-md-6\"><div class=\"border rounded p-3 h-100\"><div class=\"text-muted fs-9 text-uppercase\">Listas activas</div><div class=\"fw-bold\">" + escapeHtml(kpis.listas_activas || 0) + " / " + escapeHtml(kpis.listas_total || 0) + "</div></div></div>" +
+            "<div class=\"col-xl-3 col-md-6\"><div class=\"border rounded p-3 h-100\"><div class=\"text-muted fs-9 text-uppercase\">Precios activos</div><div class=\"fw-bold\">" + escapeHtml(kpis.detalles_activos || 0) + "</div></div></div>" +
+            "<div class=\"col-xl-3 col-md-6\"><div class=\"border rounded p-3 h-100\"><div class=\"text-muted fs-9 text-uppercase\">Ecommerce</div><div class=\"fw-bold text-muted\">" + (data.puede_ecommerce ? "Listo" : "Pendiente contrato") + "</div></div></div>" +
+        "</div>";
+        html += "<div class=\"row g-3 mt-1\">" + checks.map(function (check) {
+            var clase = check.ok ? "badge-light-success" : (check.tipo === "pendiente" ? "badge-light" : (check.tipo === "recomendado" ? "badge-light-warning" : "badge-light-danger"));
+            var texto = check.ok ? "OK" : (check.tipo === "pendiente" ? "Fase 2" : (check.tipo === "recomendado" ? "Recomendado" : "Bloquea"));
+            return "<div class=\"col-xl-3 col-md-4 col-sm-6\"><div class=\"border rounded p-3 h-100\">" +
+                "<div class=\"d-flex justify-content-between gap-2 align-items-start\"><div class=\"fw-semibold\">" + escapeHtml(check.texto || check.id || "") + "</div><span class=\"badge " + clase + "\">" + texto + "</span></div>" +
+            "</div></div>";
+        }).join("") + "</div>";
+        if ((data.bloqueos || []).length) {
+            html += "<div class=\"alert alert-light-danger py-3 mt-3 mb-0\"><div class=\"fw-semibold mb-1\">Bloqueos antes de piloto</div>" + renderListaSimple(data.bloqueos) + "</div>";
+        } else {
+            html += "<div class=\"alert alert-light-success py-3 mt-3 mb-0\"><div class=\"fw-semibold\">Puedes iniciar piloto POS controlado.</div><div class=\"fs-8\">Ecommerce y granel/presentaciones siguen como fases posteriores.</div></div>";
+        }
+        if ((data.recomendaciones || []).length || (data.pendientes_fase_2 || []).length) {
+            html += "<div class=\"alert alert-light py-3 mt-3 mb-0\"><div class=\"fw-semibold mb-1\">Siguientes notas</div>" + renderListaSimple((data.recomendaciones || []).concat(data.pendientes_fase_2 || [])) + "</div>";
+        }
+        if ((data.siguiente_uat || []).length) {
+            html += "<div class=\"mt-3\"><div class=\"fw-semibold fs-7 mb-1\">UAT operativo minimo</div>" + renderListaSimple(data.siguiente_uat) + "</div>";
+        }
+        contenedor.innerHTML = html;
+    }
+
+    function renderListaSimple(items) {
+        return "<ul class=\"mb-0 ps-4\">" + (items || []).map(function (item) {
+            return "<li>" + escapeHtml(item) + "</li>";
+        }).join("") + "</ul>";
     }
 
     function renderSchema(schema) {
@@ -157,6 +329,7 @@
         document.getElementById("lp_subtitulo_lista").textContent = lista.id_lista_precio ? ("Lista " + lista.id_lista_precio + " en " + (lista.estatus || "borrador")) : "Guarda el encabezado antes de capturar precios.";
         actualizarResumenAlcance();
         actualizarBotonesEstatus();
+        actualizarFlujoOperativo("encabezado");
     }
 
     function nuevaLista() {
@@ -182,6 +355,7 @@
         document.getElementById("lp_productos").innerHTML = "<tr><td colspan=\"8\" class=\"text-center text-muted py-8\">Guarda la lista para cargar productos.</td></tr>";
         actualizarCheckboxSeleccionTodos();
         document.querySelectorAll("[data-lp-lista]").forEach(function (item) { item.classList.remove("active"); });
+        actualizarFlujoOperativo("encabezado");
     }
 
     function payloadLista() {
@@ -256,6 +430,35 @@
         if (!document.getElementById("lp_preview_almacen").value.trim()) {
             document.getElementById("lp_preview_almacen").value = almacen;
         }
+        actualizarGuiaPrioridad(prioridad, canal, almacen);
+        actualizarFlujoOperativo("alcance");
+    }
+
+    function actualizarGuiaPrioridad(prioridad, canal, almacen) {
+        var nodo = document.getElementById("lp_prioridad_resumen");
+        if (!nodo) {
+            return;
+        }
+        var tipo = "primary";
+        var texto = "Dentro del mismo nivel, menor prioridad gana.";
+        if (!isFinite(prioridad) || prioridad < 1 || prioridad > 9999) {
+            tipo = "danger";
+            texto = "Prioridad invalida: usa un numero de 1 a 9999.";
+        } else if (prioridad <= 50) {
+            tipo = "warning";
+            texto = "Prioridad alta: esta lista gana ante listas equivalentes de mayor numero.";
+        } else if (prioridad >= 500) {
+            tipo = "info";
+            texto = "Prioridad baja/base: adecuada para lista general o respaldo comercial.";
+        } else {
+            texto = "Prioridad normal: cliente o segmento aun pueden ganar por ser mas especificos.";
+        }
+        if (canal === "general" && !almacen && prioridad < 500) {
+            tipo = "warning";
+            texto += " Para lista general conviene usar prioridad 500 o mayor.";
+        }
+        nodo.className = "alert alert-light-" + tipo + " py-2 mt-3 mb-0 fs-8";
+        nodo.textContent = texto;
     }
 
     function guardarLista() {
@@ -270,6 +473,7 @@
             cargarResumen();
             cargarRevision();
             cargarProductos();
+            actualizarFlujoOperativo("encabezado");
         }).catch(mostrarError);
     }
 
@@ -277,10 +481,6 @@
         var revisionLocal = revisionLocalPantalla();
         if (estatus === "activa" && revisionLocal.bloqueos.length > 0) {
             mostrarAlerta("warning", revisionLocal.bloqueos[0]);
-            return;
-        }
-        if (estatus === "activa" && revisionLocal.avisos.length > 0) {
-            mostrarAlerta("warning", revisionLocal.avisos[0]);
             return;
         }
         if (estatus === "activa" && estado.revision && estado.revision.puede_activar === false) {
@@ -297,8 +497,17 @@
             id_lista_precio: document.getElementById("lp_lista_id").value,
             q: document.getElementById("lp_producto_q").value.trim(),
             solo: solo === "modificados" ? "todos" : solo,
+            margen_minimo: margenMinimoOperativo(),
             limite: "160"
         };
+    }
+
+    function margenMinimoOperativo() {
+        var valor = Number((document.getElementById("lp_margen_minimo") || {}).value || 15);
+        if (!isFinite(valor) || valor <= 0 || valor > 95) {
+            return 15;
+        }
+        return valor;
     }
 
     function cargarProductos() {
@@ -308,6 +517,7 @@
             document.getElementById("lp_productos").innerHTML = "<tr><td colspan=\"8\" class=\"text-center text-muted py-8\">Guarda la lista para cargar productos.</td></tr>";
             actualizarResumenProductos([]);
             actualizarCheckboxSeleccionTodos();
+            actualizarFlujoOperativo("productos");
             return;
         }
         if (solo === "modificados") {
@@ -326,8 +536,10 @@
             estado.comparacion = null;
             document.getElementById("lp_importar_resultado").innerHTML = "CSV esperado: id_sku o sku, y precio_lista.";
             renderComparacionListas();
+            renderPrevalidacionLote(null);
             actualizarContadorCambios();
             renderProductos(estado.productos);
+            actualizarFlujoOperativo("productos");
         }).catch(mostrarError);
     }
 
@@ -341,6 +553,7 @@
             var riesgo = item.riesgo_margen || {};
             var tipoBadge = riesgo.tipo === "danger" ? "badge-light-danger" : (riesgo.tipo === "warning" ? "badge-light-warning" : (riesgo.tipo === "success" ? "badge-light-success" : "badge-light"));
             var seleccionado = !!estado.seleccionados[String(item.id_sku)];
+            var pendiente = motivoPendienteComercial(item);
             return "<tr data-lp-producto=\"" + escapeHtml(item.id_sku) + "\"" + (seleccionado ? " class=\"lp-row-selected\"" : "") + ">" +
                 "<td class=\"text-center\"><input class=\"form-check-input\" type=\"checkbox\" data-lp-seleccionar-sku=\"" + escapeHtml(item.id_sku) + "\"" + (seleccionado ? " checked" : "") + "></td>" +
                 "<td><div class=\"fw-bold\">" + escapeHtml(item.sku || "") + "</div><div class=\"text-muted fs-8\">" + escapeHtml(item.sku_nombre || item.producto || "") + "</div><div class=\"text-muted fs-8\">" + escapeHtml([item.marca, item.categoria].filter(Boolean).join(" / ")) + "</div></td>" +
@@ -348,8 +561,8 @@
                 "<td class=\"text-end\">" + dinero(item.costo_referencia) + "</td>" +
                 "<td class=\"text-end\">" + dinero(item.precio_general) + "</td>" +
                 "<td class=\"text-end\"><input class=\"form-control form-control-sm form-control-solid text-end lp-price-input\" data-lp-precio=\"" + escapeHtml(item.id_sku) + "\" data-lp-original=\"" + escapeHtml(precioLista) + "\" value=\"" + escapeHtml(precioLista) + "\" placeholder=\"0.00\"><div class=\"text-muted fs-9 lp-suggested\" data-lp-sugerido=\"" + escapeHtml(item.id_sku) + "\">" + textoPrecioSugerido(item.id_sku) + "</div></td>" +
-                "<td class=\"text-end\"><div class=\"fw-semibold\" data-lp-margen=\"" + escapeHtml(item.id_sku) + "\">" + escapeHtml(margen) + "</div><div class=\"text-muted fs-8\" data-lp-utilidad=\"" + escapeHtml(item.id_sku) + "\">" + dinero(item.utilidad_estimada || 0) + "</div><span class=\"badge " + tipoBadge + "\" data-lp-riesgo=\"" + escapeHtml(item.id_sku) + "\">" + escapeHtml(riesgo.texto || "-") + "</span></td>" +
-                "<td class=\"text-end\"><div class=\"d-flex justify-content-end gap-1\"><button class=\"btn btn-sm btn-light\" data-lp-preview-sku=\"" + escapeHtml(item.id_sku) + "\" type=\"button\"><i class=\"bi bi-calculator\"></i></button>" + (item.id_lista_precio_detalle ? "<button class=\"btn btn-sm btn-light\" data-lp-historial-sku=\"" + escapeHtml(item.id_sku) + "\" data-lp-historial-detalle=\"" + escapeHtml(item.id_lista_precio_detalle) + "\" type=\"button\"><i class=\"bi bi-clock-history\"></i></button>" : "") + "<button class=\"btn btn-sm btn-light-primary\" data-lp-guardar-precio=\"" + escapeHtml(item.id_sku) + "\" type=\"button\"><i class=\"bi bi-save\"></i></button>" + (item.id_lista_precio_detalle ? "<button class=\"btn btn-sm btn-light-danger\" data-lp-quitar-precio=\"" + escapeHtml(item.id_sku) + "\" type=\"button\"><i class=\"bi bi-x-circle\"></i></button>" : "") + "</div></td>" +
+                "<td class=\"text-end\"><div class=\"fw-semibold\" data-lp-margen=\"" + escapeHtml(item.id_sku) + "\">" + escapeHtml(margen) + "</div><div class=\"text-muted fs-8\" data-lp-utilidad=\"" + escapeHtml(item.id_sku) + "\">" + dinero(item.utilidad_estimada || 0) + "</div><span class=\"badge " + tipoBadge + "\" data-lp-riesgo=\"" + escapeHtml(item.id_sku) + "\">" + escapeHtml(riesgo.texto || "-") + "</span><div class=\"text-muted fs-9 mt-1\" data-lp-pendiente-motivo=\"" + escapeHtml(item.id_sku) + "\">" + escapeHtml(pendiente) + "</div></td>" +
+                "<td class=\"text-end\"><div class=\"d-flex justify-content-end gap-1\"><button class=\"btn btn-sm btn-light\" data-lp-preview-sku=\"" + escapeHtml(item.id_sku) + "\" type=\"button\"><i class=\"bi bi-calculator\"></i></button><button class=\"btn btn-sm btn-light-success\" data-lp-usar-sugerido-fila=\"" + escapeHtml(item.id_sku) + "\" type=\"button\" title=\"Aplicar sugerido a este SKU\"><i class=\"bi bi-magic\"></i></button>" + (item.id_lista_precio_detalle ? "<button class=\"btn btn-sm btn-light\" data-lp-historial-sku=\"" + escapeHtml(item.id_sku) + "\" data-lp-historial-detalle=\"" + escapeHtml(item.id_lista_precio_detalle) + "\" type=\"button\"><i class=\"bi bi-clock-history\"></i></button>" : "") + "<button class=\"btn btn-sm btn-light-primary\" data-lp-guardar-precio=\"" + escapeHtml(item.id_sku) + "\" type=\"button\"><i class=\"bi bi-save\"></i></button>" + (item.id_lista_precio_detalle ? "<button class=\"btn btn-sm btn-light-danger\" data-lp-quitar-precio=\"" + escapeHtml(item.id_sku) + "\" type=\"button\"><i class=\"bi bi-x-circle\"></i></button>" : "") + "</div></td>" +
             "</tr>";
         }).join("") || "<tr><td colspan=\"8\" class=\"text-center text-muted py-8\">Sin productos para los filtros actuales</td></tr>";
 
@@ -376,6 +589,11 @@
                 previsualizarPrecio();
             });
         });
+        document.querySelectorAll("[data-lp-usar-sugerido-fila]").forEach(function (boton) {
+            boton.addEventListener("click", function () {
+                usarSugeridoFila(boton.getAttribute("data-lp-usar-sugerido-fila") || "");
+            });
+        });
         document.querySelectorAll("[data-lp-historial-sku]").forEach(function (boton) {
             boton.addEventListener("click", function () {
                 cargarAuditoriaSku(
@@ -390,6 +608,7 @@
             });
         });
         actualizarCheckboxSeleccionTodos();
+        actualizarFlujoOperativo("productos");
     }
 
     function productosModificados() {
@@ -404,6 +623,9 @@
         var cambios = Object.keys(estado.cambios || {}).length;
         var margenBajo = 0;
         var sinCosto = 0;
+        var perdida = 0;
+        var sinPrecio = 0;
+        var margenMinimo = margenMinimoOperativo();
         productos.forEach(function (item) {
             var costo = Number(item.costo_referencia || 0);
             var input = document.querySelector("[data-lp-precio='" + item.id_sku + "']");
@@ -415,15 +637,24 @@
             if (costo <= 0) {
                 sinCosto++;
             }
-            if (precio > 0 && costo > 0 && (precio < costo || (margen != null && margen < 15))) {
+            if (precio <= 0) {
+                sinPrecio++;
+            }
+            if (precio > 0 && costo > 0 && precio < costo) {
+                perdida++;
+            }
+            if (precio > 0 && costo > 0 && (precio < costo || (margen != null && margen < margenMinimo))) {
                 margenBajo++;
             }
         });
         var nodos = {
             lp_res_productos: productos.length,
+            lp_tab_productos_count: productos.length,
             lp_res_seleccionados: Object.keys(estado.seleccionados || {}).length,
             lp_res_margen_bajo: margenBajo,
+            lp_res_perdida: perdida,
             lp_res_sin_costo: sinCosto,
+            lp_res_sin_precio: sinPrecio,
             lp_res_cambios: cambios
         };
         Object.keys(nodos).forEach(function (id) {
@@ -432,6 +663,38 @@
                 nodo.textContent = nodos[id];
             }
         });
+        renderBarraCambios(productos.length, cambios, perdida, margenBajo, sinCosto);
+    }
+
+    function renderBarraCambios(visibles, cambios, perdida, margenBajo, sinCosto) {
+        var nodo = document.getElementById("lp_cambios_barra");
+        if (!nodo) {
+            return;
+        }
+        var hayCambios = cambios > 0;
+        var tipo = hayCambios ? (perdida > 0 ? "danger" : (margenBajo > 0 || sinCosto > 0 ? "warning" : "primary")) : "light";
+        nodo.className = "alert alert-" + tipo + " py-3 mb-4";
+        var titulo = hayCambios ? (cambios + " cambio(s) pendiente(s)") : "Sin cambios pendientes";
+        var detalle = hayCambios
+            ? ("Visibles " + visibles + " | perdida " + perdida + " | margen bajo " + margenBajo + " | sin costo " + sinCosto)
+            : "Captura precios o aplica sugeridos para prevalidar el lote.";
+        var tituloNodo = nodo.querySelector(".fw-semibold");
+        var detalleNodo = nodo.querySelector(".text-muted");
+        if (tituloNodo) {
+            tituloNodo.textContent = titulo;
+        }
+        if (detalleNodo) {
+            detalleNodo.textContent = detalle;
+        }
+    }
+
+    function verProductosModificados() {
+        var select = document.getElementById("lp_producto_solo");
+        if (select) {
+            select.value = "modificados";
+        }
+        renderProductos(productosModificados());
+        mostrarAlerta("info", "Mostrando productos con cambios pendientes.");
     }
 
     function productoPorSku(idSku) {
@@ -515,6 +778,42 @@
         });
     }
 
+    function precioActualFila(item) {
+        var input = document.querySelector("[data-lp-precio='" + item.id_sku + "']");
+        if (input) {
+            return Number(input.value || 0);
+        }
+        return Number(item.precio_lista || 0);
+    }
+
+    function motivoPendienteComercial(item) {
+        var precio = precioActualFila(item);
+        var costo = Number(item.costo_referencia || 0);
+        var margenMinimo = margenMinimoOperativo();
+        if (precio <= 0) {
+            return "Pendiente: sin precio";
+        }
+        if (costo <= 0) {
+            return "Revisar: sin costo";
+        }
+        if (precio < costo) {
+            return "Pendiente: precio debajo de costo";
+        }
+        var margen = ((precio - costo) / precio) * 100;
+        if (margen < margenMinimo) {
+            return "Pendiente: margen menor a " + numero(margenMinimo, 2) + "%";
+        }
+        return "";
+    }
+
+    function actualizarMotivoPendienteFila(idSku) {
+        var item = productoPorSku(idSku);
+        var nodo = document.querySelector("[data-lp-pendiente-motivo='" + idSku + "']");
+        if (item && nodo) {
+            nodo.textContent = motivoPendienteComercial(item);
+        }
+    }
+
     function recalcularMargenLocal(idSku) {
         var item = productoPorSku(idSku);
         var input = document.querySelector("[data-lp-precio='" + idSku + "']");
@@ -524,14 +823,16 @@
         var precio = Number(input.value || 0);
         var costo = Number(item.costo_referencia || 0);
         var margen = precio > 0 ? ((precio - costo) / precio) * 100 : null;
+        var margenMinimo = margenMinimoOperativo();
         var margenNodo = document.querySelector("[data-lp-margen='" + idSku + "']");
         var utilidadNodo = document.querySelector("[data-lp-utilidad='" + idSku + "']");
         var riesgoNodo = document.querySelector("[data-lp-riesgo='" + idSku + "']");
         margenNodo.textContent = margen == null ? "-" : numero(margen, 2) + "%";
         utilidadNodo.textContent = dinero(precio - costo);
-        var riesgo = precio <= 0 ? ["Sin precio", "badge-light"] : (costo <= 0 ? ["Sin costo", "badge-light-warning"] : (precio < costo ? ["Perdida", "badge-light-danger"] : (margen < 15 ? ["Margen bajo", "badge-light-warning"] : ["Margen OK", "badge-light-success"])));
+        var riesgo = precio <= 0 ? ["Sin precio", "badge-light"] : (costo <= 0 ? ["Sin costo", "badge-light-warning"] : (precio < costo ? ["Perdida", "badge-light-danger"] : (margen < margenMinimo ? ["Margen < " + numero(margenMinimo, 2) + "%", "badge-light-warning"] : ["Margen OK", "badge-light-success"])));
         riesgoNodo.className = "badge " + riesgo[1];
         riesgoNodo.textContent = riesgo[0];
+        actualizarMotivoPendienteFila(idSku);
     }
 
     function marcarCambioPrecio(idSku) {
@@ -573,6 +874,7 @@
         actualizarResumenProductos(visibles);
         actualizarCheckboxSeleccionTodos();
         actualizarBotonesEstatus();
+        actualizarFlujoOperativo("productos");
     }
 
     function aplicarMargenObjetivo() {
@@ -628,6 +930,65 @@
         mostrarAlerta(calculados ? "success" : "warning", calculados ? ("Se calcularon " + calculados + " sugerido(s). No se guardaron cambios." + (omitidos ? " Omitidos sin costo: " + omitidos + "." : "")) : "No hay productos con costo para sugerir precio.");
     }
 
+    function esProductoPendienteComercial(item) {
+        var input = document.querySelector("[data-lp-precio='" + item.id_sku + "']");
+        var precio = input ? Number(input.value || 0) : Number(item.precio_lista || 0);
+        var costo = Number(item.costo_referencia || 0);
+        var margenMinimo = margenMinimoOperativo();
+        var margen = precio > 0 && costo > 0 ? ((precio - costo) / precio) * 100 : null;
+        return precio <= 0 || (precio > 0 && costo > 0 && precio < costo) || (margen !== null && margen < margenMinimo);
+    }
+
+    function productosPendientesComerciales() {
+        return (estado.productosVisibles || []).filter(function (item) {
+            return esProductoPendienteComercial(item);
+        });
+    }
+
+    function calcularSugeridosPendientes() {
+        var margen = Number(document.getElementById("lp_margen_objetivo").value || 0);
+        if (!isFinite(margen) || margen <= 0 || margen >= 95) {
+            mostrarAlerta("warning", "Captura un margen objetivo mayor a 0 y menor a 95.");
+            return;
+        }
+        var productos = productosPendientesComerciales();
+        if (!productos.length) {
+            mostrarAlerta("success", "No hay pendientes comerciales visibles para sugerir.");
+            return;
+        }
+        var modo = document.getElementById("lp_redondeo_modo").value || "entero";
+        var calculados = 0;
+        var omitidos = 0;
+        productos.forEach(function (item) {
+            var costo = Number(item.costo_referencia || 0);
+            if (costo <= 0) {
+                omitidos++;
+                return;
+            }
+            var precio = costo / (1 - (margen / 100));
+            estado.sugeridos[String(item.id_sku)] = numero(redondearPrecio(precio, modo), 2);
+            calculados++;
+        });
+        renderSugeridos();
+        mostrarAlerta(calculados ? "success" : "warning", calculados ? ("Se calcularon sugeridos para " + calculados + " pendiente(s). No se guardaron cambios." + (omitidos ? " Omitidos sin costo: " + omitidos + "." : "")) : "Los pendientes visibles no tienen costo para calcular sugeridos.");
+    }
+
+    function calcularSugeridoFila(item) {
+        var margen = Number(document.getElementById("lp_margen_objetivo").value || 0);
+        if (!isFinite(margen) || margen <= 0 || margen >= 95) {
+            mostrarAlerta("warning", "Captura un margen objetivo mayor a 0 y menor a 95.");
+            return null;
+        }
+        var costo = Number(item.costo_referencia || 0);
+        if (costo <= 0) {
+            mostrarAlerta("warning", "Este SKU no tiene costo de referencia para calcular sugerido.");
+            return null;
+        }
+        var modo = document.getElementById("lp_redondeo_modo").value || "entero";
+        var precio = costo / (1 - (margen / 100));
+        return numero(redondearPrecio(precio, modo), 2);
+    }
+
     function usarPreciosSugeridos() {
         var productos = validarProductosAccionMasiva();
         if (!productos) {
@@ -646,6 +1007,49 @@
             usados++;
         });
         mostrarAlerta(usados ? "success" : "warning", usados ? ("Se aplicaron " + usados + " sugerido(s) como cambios pendientes.") : "Primero calcula precios sugeridos para los productos seleccionados.");
+    }
+
+    function usarSugeridosPendientes() {
+        var productos = productosPendientesComerciales();
+        if (!productos.length) {
+            mostrarAlerta("success", "No hay pendientes comerciales visibles para aplicar.");
+            return;
+        }
+        var usados = 0;
+        productos.forEach(function (item) {
+            var precio = estado.sugeridos[String(item.id_sku)];
+            var input = document.querySelector("[data-lp-precio='" + item.id_sku + "']");
+            if (precio == null || !input) {
+                return;
+            }
+            input.value = numero(precio, 2);
+            recalcularMargenLocal(item.id_sku);
+            marcarCambioPrecio(item.id_sku);
+            usados++;
+        });
+        mostrarAlerta(usados ? "success" : "warning", usados ? ("Se aplicaron " + usados + " sugerido(s) de pendientes como cambios pendientes.") : "Primero calcula sugeridos para pendientes visibles.");
+    }
+
+    function usarSugeridoFila(idSku) {
+        var item = productoPorSku(idSku);
+        var input = document.querySelector("[data-lp-precio='" + idSku + "']");
+        if (!item || !input) {
+            mostrarAlerta("warning", "No se encontro el SKU visible para aplicar sugerido.");
+            return;
+        }
+        var precio = estado.sugeridos[String(idSku)];
+        if (precio == null) {
+            precio = calcularSugeridoFila(item);
+            if (precio == null) {
+                return;
+            }
+            estado.sugeridos[String(idSku)] = precio;
+            renderSugeridos();
+        }
+        input.value = numero(precio, 2);
+        recalcularMargenLocal(idSku);
+        marcarCambioPrecio(idSku);
+        mostrarAlerta("success", "Sugerido aplicado al SKU " + (item.sku || idSku) + " como cambio pendiente.");
     }
 
     function csvValor(value) {
@@ -1107,6 +1511,7 @@
             row.classList.remove("lp-row-dirty");
         });
         actualizarContadorCambios();
+        renderPrevalidacionLote(null);
         mostrarAlerta("info", "Cambios pendientes descartados en pantalla.");
     }
 
@@ -1173,15 +1578,10 @@
     function guardarCambiosLote() {
         var idLista = document.getElementById("lp_lista_id").value;
         var cambios = Object.keys(estado.cambios || {}).map(function (idSku) { return estado.cambios[idSku]; });
-        if (!idLista) {
-            mostrarAlerta("warning", "Selecciona y guarda una lista antes de guardar cambios.");
+        if (!validarCambiosPendientes(idLista, cambios)) {
             return;
         }
-        if (!cambios.length) {
-            mostrarAlerta("info", "No hay precios modificados por guardar.");
-            return;
-        }
-        prevalidarCambiosLoteBackend(idLista, cambios).then(function (ok) {
+        prevalidarCambiosLoteBackend(idLista, cambios, true).then(function (ok) {
             if (!ok) {
                 return;
             }
@@ -1189,7 +1589,32 @@
         }).catch(mostrarError);
     }
 
-    function prevalidarCambiosLoteBackend(idLista, cambios) {
+    function prevalidarCambiosPendientes() {
+        var idLista = document.getElementById("lp_lista_id").value;
+        var cambios = Object.keys(estado.cambios || {}).map(function (idSku) { return estado.cambios[idSku]; });
+        if (!validarCambiosPendientes(idLista, cambios)) {
+            return;
+        }
+        prevalidarCambiosLoteBackend(idLista, cambios, false).then(function (ok) {
+            if (ok) {
+                mostrarAlerta("success", "Prevalidacion completada. Revisa el resumen antes de guardar.");
+            }
+        }).catch(mostrarError);
+    }
+
+    function validarCambiosPendientes(idLista, cambios) {
+        if (!idLista) {
+            mostrarAlerta("warning", "Selecciona y guarda una lista antes de guardar cambios.");
+            return false;
+        }
+        if (!cambios.length) {
+            mostrarAlerta("info", "No hay precios modificados por guardar.");
+            return false;
+        }
+        return true;
+    }
+
+    function prevalidarCambiosLoteBackend(idLista, cambios, confirmarAvisos) {
         return postRequest("/comercial/listas_precios_detalles_lote_dryrun_erp", {
             id_lista_precio: idLista,
             precios_json: JSON.stringify(cambios),
@@ -1199,6 +1624,7 @@
             var resumen = data.resumen || {};
             var errores = data.errores || [];
             var avisos = data.avisos || [];
+            renderPrevalidacionLote(data);
             if (response.error || data.puede_guardar === false) {
                 var detalle = errores.slice(0, 4).map(function (item) {
                     return "Fila " + (item.fila || "-") + ": " + (item.bloqueos || [item.mensaje || "Error"]).join(" | ");
@@ -1206,11 +1632,57 @@
                 mostrarAlerta("warning", (response.mensaje || "Lote con bloqueos") + (detalle ? ". " + detalle : ""));
                 return false;
             }
-            if (avisos.length || Number(resumen.perdida || 0) > 0 || Number(resumen.margen_bajo || 0) > 0) {
-                mostrarAlerta("warning", "Prevalidacion backend OK con avisos: perdida " + Number(resumen.perdida || 0) + ", margen bajo " + Number(resumen.margen_bajo || 0) + ", sin costo " + Number(resumen.sin_costo || 0) + ".");
+            if (Number(resumen.perdida || 0) > 0) {
+                mostrarAlerta("warning", "El lote tiene precios con perdida. Corrige esos cambios antes de guardar.");
+                return false;
+            }
+            if (avisos.length || Number(resumen.margen_bajo || 0) > 0 || Number(resumen.sin_costo || 0) > 0) {
+                mostrarAlerta("warning", "Prevalidacion backend OK con avisos: margen bajo " + Number(resumen.margen_bajo || 0) + ", sin costo " + Number(resumen.sin_costo || 0) + ".");
+                if (!confirmarAvisos) {
+                    return true;
+                }
+                return window.confirm("El lote tiene avisos comerciales. ¿Deseas guardar de todas formas?");
             }
             return true;
         });
+    }
+
+    function renderPrevalidacionLote(data) {
+        var nodo = document.getElementById("lp_lote_prevalidacion");
+        if (!nodo) {
+            return;
+        }
+        if (!data) {
+            nodo.innerHTML = "<div class=\"text-muted fs-7\">Los cambios pendientes se prevalidan antes de guardar.</div>";
+            return;
+        }
+        var resumen = data.resumen || {};
+        var errores = data.errores || [];
+        var avisos = data.avisos || [];
+        var perdida = Number(resumen.perdida || 0);
+        var tipo = errores.length || perdida > 0 || data.puede_guardar === false ? "danger" : ((avisos.length || Number(resumen.margen_bajo || 0) > 0 || Number(resumen.sin_costo || 0) > 0) ? "warning" : "success");
+        var titulo = tipo === "danger" ? "Lote bloqueado" : (tipo === "warning" ? "Lote guardable con avisos" : "Lote listo para guardar");
+        var html = "<div class=\"alert alert-" + tipo + " py-3 mb-3\"><div class=\"fw-semibold\">" + titulo + "</div><div class=\"fs-8\">Prevalidacion backend de cambios pendientes.</div></div>";
+        html += "<div class=\"d-flex flex-wrap gap-1 mb-2\">" +
+            "<span class=\"badge badge-light-primary\">Total " + escapeHtml(resumen.total || 0) + "</span>" +
+            "<span class=\"badge badge-light-success\">Validos " + escapeHtml(resumen.validos || 0) + "</span>" +
+            "<span class=\"badge badge-light-danger\">Errores " + escapeHtml(resumen.errores || 0) + "</span>" +
+            "<span class=\"badge badge-light-danger\">Perdida " + escapeHtml(resumen.perdida || 0) + "</span>" +
+            "<span class=\"badge badge-light-warning\">Margen bajo " + escapeHtml(resumen.margen_bajo || 0) + "</span>" +
+            "<span class=\"badge badge-light-warning\">Sin costo " + escapeHtml(resumen.sin_costo || 0) + "</span>" +
+            "<span class=\"badge badge-light-success\">OK margen " + escapeHtml(resumen.ok_margen || 0) + "</span>" +
+        "</div>";
+        if (errores.length) {
+            html += "<div class=\"fs-8 text-muted mb-1\">Primeros errores</div><ul class=\"fs-8 ps-4 mb-2\">" + errores.slice(0, 4).map(function (item) {
+                return "<li>Fila " + escapeHtml(item.fila || "-") + ": " + escapeHtml((item.bloqueos || [item.mensaje || "Error"]).join(" | ")) + "</li>";
+            }).join("") + "</ul>";
+        }
+        if (avisos.length) {
+            html += "<div class=\"fs-8 text-muted mb-1\">Avisos</div><ul class=\"fs-8 ps-4 mb-0\">" + avisos.slice(0, 4).map(function (item) {
+                return "<li>" + escapeHtml(item) + "</li>";
+            }).join("") + "</ul>";
+        }
+        nodo.innerHTML = html;
     }
 
     function guardarCambiosLoteConfirmado(idLista, cambios) {
@@ -1223,11 +1695,42 @@
                 throw new Error(response.mensaje);
             }
             var data = response.depurar || {};
+            renderResultadoGuardadoLote(data, response);
             mostrarAlerta(response.tipo === "warning" ? "warning" : "success", (response.mensaje || "Cambios guardados") + " (" + (data.guardados || 0) + "/" + (data.total || cambios.length) + ")");
             cargarProductos();
             cargarRevision();
             cargarResumen();
         }).catch(mostrarError);
+    }
+
+    function renderResultadoGuardadoLote(data, response) {
+        var nodo = document.getElementById("lp_lote_prevalidacion");
+        if (!nodo) {
+            return;
+        }
+        data = data || {};
+        var guardados = data.guardados_detalle || [];
+        var errores = data.errores || [];
+        var total = Number(data.total || 0);
+        var guardadosConteo = Number(data.guardados || guardados.length || 0);
+        var tipo = errores.length ? "warning" : "success";
+        var html = "<div class=\"alert alert-" + tipo + " py-3 mb-3\"><div class=\"fw-semibold\">" + escapeHtml((response || {}).mensaje || "Resultado de guardado") + "</div><div class=\"fs-8\">Guardados " + escapeHtml(guardadosConteo) + " de " + escapeHtml(total) + ". Auditoria por partida conservada en backend.</div></div>";
+        html += "<div class=\"d-flex flex-wrap gap-1 mb-2\">" +
+            "<span class=\"badge badge-light-success\">Guardados " + escapeHtml(guardadosConteo) + "</span>" +
+            "<span class=\"badge badge-light-danger\">Errores " + escapeHtml(errores.length) + "</span>" +
+            "<span class=\"badge badge-light-primary\">Total " + escapeHtml(total) + "</span>" +
+        "</div>";
+        if (guardados.length) {
+            html += "<div class=\"fs-8 text-muted mb-1\">Primeros guardados</div><ul class=\"fs-8 ps-4 mb-2\">" + guardados.slice(0, 8).map(function (item) {
+                return "<li>Fila " + escapeHtml(item.fila || "-") + ": SKU " + escapeHtml(item.id_sku || "-") + " | " + dinero(item.precio || 0) + " | " + escapeHtml(item.estatus || "activo") + "</li>";
+            }).join("") + (guardadosConteo > guardados.length ? "<li>" + escapeHtml("Mas guardados: " + (guardadosConteo - guardados.length)) + "</li>" : "") + "</ul>";
+        }
+        if (errores.length) {
+            html += "<div class=\"fs-8 text-muted mb-1\">Errores</div><ul class=\"fs-8 ps-4 mb-0\">" + errores.slice(0, 8).map(function (item) {
+                return "<li>Fila " + escapeHtml(item.fila || "-") + ": SKU " + escapeHtml(item.id_sku || "-") + " | " + escapeHtml(item.mensaje || "Error") + "</li>";
+            }).join("") + (errores.length > 8 ? "<li>" + escapeHtml("Mas errores: " + (errores.length - 8)) + "</li>" : "") + "</ul>";
+        }
+        nodo.innerHTML = html;
     }
 
     function payloadAsignacion() {
@@ -1540,6 +2043,7 @@
     function renderRevision(data) {
         estado.revision = data || null;
         var revisionLocal = revisionLocalPantalla();
+        var revisionProductos = construirRevisionProductosVisibles();
         var bloqueos = (data.bloqueos || []).concat(revisionLocal.bloqueos || []);
         var avisos = (data.avisos || []).concat(revisionLocal.avisos || []);
         var lista = data.lista || {};
@@ -1563,6 +2067,7 @@
             "<span class=\"badge badge-light\">Sin costo " + escapeHtml(margen.sin_costo || 0) + "</span>" +
             "<span class=\"badge badge-light-primary\">Conflictos " + escapeHtml(conflictos.length || 0) + "</span>" +
         "</div>";
+        html += renderRevisionProductosVisibles(revisionProductos);
         if (bloqueos.length) {
             html += "<div class=\"fw-semibold fs-8 text-uppercase text-muted mb-1\">Bloqueos</div><ul class=\"fs-8 ps-4 mb-3\">" + bloqueos.map(function (item) { return "<li>" + escapeHtml(item) + "</li>"; }).join("") + "</ul>";
         }
@@ -1570,7 +2075,9 @@
             html += "<div class=\"fw-semibold fs-8 text-uppercase text-muted mb-1\">Avisos</div><ul class=\"fs-8 ps-4 mb-0\">" + avisos.map(function (item) { return "<li>" + escapeHtml(item) + "</li>"; }).join("") + "</ul>";
         }
         document.getElementById("lp_revision").innerHTML = html;
+        activarAccionesRevisionComercial();
         actualizarBotonesEstatus();
+        actualizarFlujoOperativo("revision");
     }
 
     function revisionLocalPantalla() {
@@ -1579,6 +2086,7 @@
         var pendientes = Object.keys(estado.cambios || {}).length;
         var sugeridos = Object.keys(estado.sugeridos || {}).length;
         var importacion = estado.importacion || null;
+        var productos = construirRevisionProductosVisibles();
         if (pendientes > 0) {
             bloqueos.push("Hay " + pendientes + " cambio(s) de precio sin guardar en pantalla");
         }
@@ -1588,13 +2096,98 @@
         if (importacion && importacion.validos && importacion.validos.length > 0) {
             avisos.push("Hay una importacion CSV prevalidada; aplicala o cambia productos antes de activar");
         }
+        if (productos.perdida > 0) {
+            avisos.push("La vista actual tiene " + productos.perdida + " producto(s) con perdida");
+        }
+        if (productos.margen_bajo > 0) {
+            avisos.push("La vista actual tiene " + productos.margen_bajo + " producto(s) bajo el margen minimo");
+        }
+        if (productos.sin_costo > 0) {
+            avisos.push("La vista actual tiene " + productos.sin_costo + " producto(s) sin costo de referencia");
+        }
+        if (productos.sin_precio > 0) {
+            avisos.push("La vista actual tiene " + productos.sin_precio + " producto(s) sin precio de lista capturado");
+        }
         return {bloqueos: bloqueos, avisos: avisos};
+    }
+
+    function construirRevisionProductosVisibles() {
+        var resumen = {visibles: 0, con_precio: 0, sin_precio: 0, sin_costo: 0, perdida: 0, margen_bajo: 0, margen_minimo: margenMinimoOperativo()};
+        (estado.productosVisibles || []).forEach(function (item) {
+            var input = document.querySelector("[data-lp-precio='" + item.id_sku + "']");
+            var precio = input ? Number(input.value || 0) : Number(item.precio_lista || 0);
+            var costo = Number(item.costo_referencia || 0);
+            var margen = precio > 0 && costo > 0 ? ((precio - costo) / precio) * 100 : null;
+            resumen.visibles++;
+            if (precio > 0) {
+                resumen.con_precio++;
+            } else {
+                resumen.sin_precio++;
+            }
+            if (costo <= 0) {
+                resumen.sin_costo++;
+            }
+            if (precio > 0 && costo > 0 && precio < costo) {
+                resumen.perdida++;
+            }
+            if (precio > 0 && costo > 0 && margen !== null && margen < resumen.margen_minimo) {
+                resumen.margen_bajo++;
+            }
+        });
+        return resumen;
+    }
+
+    function renderRevisionProductosVisibles(resumen) {
+        if (!resumen || !resumen.visibles) {
+            return "<div class=\"alert alert-light py-3 mb-3 fs-8\">Carga productos para ver la revision comercial de la pantalla actual.</div>";
+        }
+        var tipo = resumen.perdida > 0 ? "danger" : (resumen.margen_bajo > 0 || resumen.sin_costo > 0 || resumen.sin_precio > 0 ? "warning" : "success");
+        var titulo = tipo === "success" ? "Pantalla actual sin alertas comerciales" : "Pantalla actual con puntos por revisar";
+        var acciones = [
+            {filtro: "sin_precio", texto: "Ver sin precio", total: resumen.sin_precio, clase: "btn-light"},
+            {filtro: "sin_costo", texto: "Ver sin costo", total: resumen.sin_costo, clase: "btn-light-warning"},
+            {filtro: "perdida", texto: "Ver perdida", total: resumen.perdida, clase: "btn-light-danger"},
+            {filtro: "margen_bajo", texto: "Ver margen bajo", total: resumen.margen_bajo, clase: "btn-light-warning"}
+        ].filter(function (item) { return Number(item.total || 0) > 0; });
+        return "<div class=\"alert alert-" + tipo + " py-3 mb-3\">" +
+            "<div class=\"fw-semibold\">" + titulo + "</div>" +
+            "<div class=\"fs-8 mb-2\">Revision local de " + escapeHtml(resumen.visibles) + " producto(s) visibles con margen minimo " + escapeHtml(numero(resumen.margen_minimo, 2)) + "%.</div>" +
+            "<div class=\"d-flex flex-wrap gap-1\">" +
+                "<span class=\"badge badge-light-success\">Con precio " + escapeHtml(resumen.con_precio) + "</span>" +
+                "<span class=\"badge badge-light\">Sin precio " + escapeHtml(resumen.sin_precio) + "</span>" +
+                "<span class=\"badge badge-light-warning\">Sin costo " + escapeHtml(resumen.sin_costo) + "</span>" +
+                "<span class=\"badge badge-light-danger\">Perdida " + escapeHtml(resumen.perdida) + "</span>" +
+                "<span class=\"badge badge-light-warning\">Margen bajo " + escapeHtml(resumen.margen_bajo) + "</span>" +
+            "</div>" +
+            (acciones.length ? "<div class=\"d-flex flex-wrap gap-2 mt-3\">" + acciones.map(function (item) {
+                return "<button class=\"btn btn-sm " + item.clase + "\" type=\"button\" data-lp-revision-filtro=\"" + escapeHtml(item.filtro) + "\">" + escapeHtml(item.texto) + " (" + escapeHtml(item.total) + ")</button>";
+            }).join("") + "</div>" : "") +
+        "</div>";
+    }
+
+    function activarAccionesRevisionComercial() {
+        document.querySelectorAll("[data-lp-revision-filtro]").forEach(function (boton) {
+            boton.addEventListener("click", function () {
+                filtrarDesdeRevisionComercial(boton.getAttribute("data-lp-revision-filtro") || "todos");
+            });
+        });
+    }
+
+    function filtrarDesdeRevisionComercial(filtro) {
+        var select = document.getElementById("lp_producto_solo");
+        if (!select) {
+            return;
+        }
+        select.value = filtro;
+        cargarProductos();
+        mostrarAlerta("info", "Filtro aplicado desde revision: " + filtro + ".");
     }
 
     function renderRevisionVacia() {
         estado.revision = null;
         document.getElementById("lp_revision").innerHTML = "<div class=\"text-muted fs-7\">Guarda o selecciona una lista para revisar activacion.</div>";
         actualizarBotonesEstatus();
+        actualizarFlujoOperativo("revision");
     }
 
     function actualizarBotonesEstatus() {
@@ -1618,6 +2211,7 @@
     }
 
     function renderAsignaciones(asignaciones) {
+        estado.asignacionesClientes = asignaciones || [];
         document.getElementById("lp_asignaciones").innerHTML = (asignaciones || []).map(function (item) {
             return "<div class=\"border rounded p-3 mb-2\">" +
                 "<div class=\"d-flex justify-content-between gap-2\"><div class=\"fw-semibold\">" + escapeHtml(item.nombre_publico || ("Cliente " + (item.id_cliente_crm || "-"))) + "</div>" + badgeDetalle(item.estatus || "") + "</div>" +
@@ -1647,6 +2241,7 @@
                 );
             });
         });
+        actualizarFlujoOperativo("asignacion");
     }
 
     function renderAsignacionesSegmentos(asignaciones, schemaDisponible) {
@@ -1654,10 +2249,12 @@
         if (!contenedor) {
             return;
         }
+        estado.asignacionesSegmentos = asignaciones || [];
         if (!schemaDisponible) {
             estado.segmentosListasDisponible = false;
             actualizarBotonGuardarSegmento();
             contenedor.innerHTML = "<div class=\"alert alert-light-warning py-3 mb-0\">Tabla puente de segmentos pendiente. Ya puedes validar, pero el guardado real espera DDL autorizado.</div>";
+            actualizarFlujoOperativo("asignacion");
             return;
         }
         estado.segmentosListasDisponible = true;
@@ -1698,6 +2295,7 @@
                 );
             });
         });
+        actualizarFlujoOperativo("asignacion");
     }
 
     function botonSegmentoAccion(texto, icono, clase, item, estatusRapido) {
@@ -1881,7 +2479,11 @@
     }
 
     document.addEventListener("DOMContentLoaded", function () {
+        activarFlujoOperativo();
+        activarTabsEditor();
+        cambiarTabEditor("encabezado");
         document.getElementById("lp_recargar").addEventListener("click", function () { cargarResumen(); cargarProductos(); });
+        document.getElementById("lp_fase1_recargar").addEventListener("click", cargarFase1Readiness);
         document.getElementById("lp_nueva").addEventListener("click", nuevaLista);
         document.getElementById("lp_filtrar").addEventListener("click", cargarResumen);
         document.getElementById("lp_guardar_lista").addEventListener("click", guardarLista);
@@ -1893,6 +2495,8 @@
         document.getElementById("lp_importar_aplicar").addEventListener("click", aplicarImportacionCsv);
         document.getElementById("lp_sugerir_margen").addEventListener("click", calcularPreciosSugeridos);
         document.getElementById("lp_usar_sugeridos").addEventListener("click", usarPreciosSugeridos);
+        document.getElementById("lp_sugerir_pendientes").addEventListener("click", calcularSugeridosPendientes);
+        document.getElementById("lp_usar_pendientes").addEventListener("click", usarSugeridosPendientes);
         document.getElementById("lp_aplicar_margen").addEventListener("click", aplicarMargenObjetivo);
         document.getElementById("lp_copiar_general").addEventListener("click", copiarPrecioGeneralVisibles);
         document.getElementById("lp_redondear").addEventListener("click", redondearPreciosVisibles);
@@ -1900,7 +2504,11 @@
         document.getElementById("lp_aplicar_comparacion").addEventListener("click", aplicarDiferenciasComparacion);
         document.getElementById("lp_copiar_lista").addEventListener("click", copiarPreciosDesdeLista);
         document.getElementById("lp_limpiar_cambios").addEventListener("click", limpiarCambiosPendientes);
+        document.getElementById("lp_prevalidar_cambios").addEventListener("click", prevalidarCambiosPendientes);
         document.getElementById("lp_guardar_cambios").addEventListener("click", guardarCambiosLote);
+        document.getElementById("lp_ver_modificados").addEventListener("click", verProductosModificados);
+        document.getElementById("lp_prevalidar_cambios_top").addEventListener("click", prevalidarCambiosPendientes);
+        document.getElementById("lp_limpiar_cambios_top").addEventListener("click", limpiarCambiosPendientes);
         document.getElementById("lp_cliente_buscar").addEventListener("click", buscarClientesCrm);
         document.getElementById("lp_segmentos_recargar").addEventListener("click", cargarSegmentosCrm);
         document.getElementById("lp_seg_nuevo").addEventListener("click", limpiarSegmentoSeleccionado);
@@ -1916,6 +2524,10 @@
                 aplicarPresetAlcance(boton.getAttribute("data-lp-alcance") || "general");
             });
         });
+        ["lp_lista_codigo", "lp_lista_nombre", "lp_lista_estatus"].forEach(function (id) {
+            document.getElementById(id).addEventListener("input", function () { actualizarFlujoOperativo("encabezado"); });
+            document.getElementById(id).addEventListener("change", function () { actualizarFlujoOperativo("encabezado"); });
+        });
         document.getElementById("lp_productos_select_all").addEventListener("change", function () {
             seleccionarProductosVisibles(this.checked);
         });
@@ -1929,10 +2541,27 @@
         document.getElementById("lp_producto_q").addEventListener("keyup", function (event) {
             if (event.key === "Enter") { cargarProductos(); }
         });
+        document.getElementById("lp_producto_solo").addEventListener("change", cargarProductos);
+        document.getElementById("lp_margen_minimo").addEventListener("input", function () {
+            actualizarResumenProductos(estado.productosVisibles || []);
+            (estado.productosVisibles || []).forEach(function (item) {
+                recalcularMargenLocal(item.id_sku);
+            });
+        });
+        document.getElementById("lp_margen_minimo").addEventListener("keyup", function (event) {
+            if (event.key === "Enter") { cargarProductos(); }
+        });
         document.getElementById("lp_cliente_q").addEventListener("keyup", function (event) {
             if (event.key === "Enter") { buscarClientesCrm(); }
         });
-        nuevaLista();
+        cargarFase1Readiness();
         cargarResumen();
+        var params = new URLSearchParams(window.location.search || "");
+        var idInicial = params.get("id_lista_precio") || params.get("id");
+        if (idInicial) {
+            consultarLista(idInicial);
+        } else {
+            nuevaLista();
+        }
     });
 })();

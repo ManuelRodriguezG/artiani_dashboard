@@ -14,14 +14,21 @@ $detalle = array(
     "pos" => revisar("POS ticket directo", array(
         "app/vistas/paginas/apps/erp/ventas/pos.php" => array(
             "pos_ticket_modal" => "modal ticket",
+            "pos_ticket_titulo" => "titulo dinamico ticket",
+            "pos_ticket_subtitulo" => "subtitulo dinamico ticket",
             "pos_ticket_imprimir" => "boton imprimir ticket",
+            "pos_ticket_imprimir\" type=\"button\" disabled" => "impresion deshabilitada sin ticket",
         ),
         "public/assets/js/custom/apps/erp/ventas/pos.js" => array(
             "ticketPosActual" => "estado ticket POS",
+            "function actualizarModalTicket" => "helper modal ticket",
             "function imprimirTicketPos" => "funcion imprimir ticket POS",
             "window.open(\"\", \"erp_pos_ticket_directo\"" => "ventana impresion POS",
             "ventana.print()" => "print POS",
             "pos_ticket_imprimir" => "listener boton imprimir POS",
+            "Ticket de venta" => "titulo ticket venta",
+            "Ticket preview" => "titulo ticket preview",
+            "Ticket de devolucion" => "titulo ticket devolucion",
         ),
     ), $root, $bloqueos),
     "listado" => revisar("Listado ventas ticket", array(

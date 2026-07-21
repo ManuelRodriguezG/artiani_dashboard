@@ -443,6 +443,25 @@ class Catalogoerp extends Controlador {
     return json_encode($respuesta);
   }
 
+  /**
+   * IA: Codex GPT-5 | Fecha: 2026-07-19
+   * Proposito: crea un producto nuevo usando otro producto como plantilla controlada.
+   * Impacto: Catalogo ERP; acelera altas similares sin copiar imagenes, codigos, proveedores ni movimientos.
+   * Contrato: requiere producto origen, codigo nuevo, SKU nuevo, nota y opciones explicitas de copia.
+   */
+  public function duplicar_producto() {
+    $this->requerirPermiso("catalogo.editar");
+    $respuesta = $this->modelo("CatalogoErpDatos")->duplicarProducto($_POST, $this->usuarioActualId());
+    SesionSeguridad::registrarAuditoria("catalogo", "duplicar_producto", array(
+      "entidad" => "erp_catalogo_productos",
+      "entidad_id" => isset($respuesta["depurar"]["id_producto_erp"]) ? intval($respuesta["depurar"]["id_producto_erp"]) : null,
+      "resultado" => $respuesta["error"] ? "error" : "ok",
+      "mensaje" => $respuesta["mensaje"],
+      "datos_despues" => isset($respuesta["depurar"]) ? $respuesta["depurar"] : null
+    ));
+    return json_encode($respuesta);
+  }
+
   public function actualizar() {
     $this->requerirPermiso("catalogo.editar");
     $respuesta = $this->modelo("CatalogoErpDatos")->actualizarProducto($_POST, $this->usuarioActualId());

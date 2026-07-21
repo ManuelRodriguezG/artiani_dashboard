@@ -2433,3 +2433,77 @@ Pendiente relacionado:
 
 - `CATALOGO_CATEGORIAS_TEXTO_REPARAR` ya existe en este proyecto como UAT con preview, token y respaldo externo.
 - No se aplico en esta tarea; queda para continuar con diagnostico/ejecucion controlada cuando corresponda.
+
+## Plan 2026-07-19 - Duplicar producto controlado
+
+Contexto:
+
+- Se requiere acelerar altas de productos similares sin crear copias peligrosas de identidad, imagenes, codigos o relaciones operativas.
+- La funcion debe vivir en Catalogo ERP y no tocar Compras, Ventas, Inventario ni Almacen.
+
+Documento creado:
+
+- `docs/erp_catalogo_duplicar_producto_plan.md`
+
+Decision:
+
+- Duplicar producto no debe ser una copia exacta.
+- Debe crear producto nuevo en `borrador` o `en_revision`.
+- Debe exigir codigo de producto nuevo, SKU nuevo y nota de duplicacion.
+- Fase 1 debe excluir:
+  - codigos de barras;
+  - imagenes;
+  - proveedores activos;
+  - paquetes;
+  - presentaciones;
+  - precios/costos;
+  - cualquier uso operativo, inventario, compra o venta.
+- Se puede copiar opcionalmente:
+  - marca;
+  - categorias;
+  - descripcion;
+  - unidad base/factor;
+  - tipo de inventario;
+  - fiscal;
+  - reglas de inventario/granel/recepcion variable.
+
+Implementacion fase 1:
+
+- Se agrego boton `Duplicar` dentro del modal de producto.
+- Se agrego modal con captura obligatoria de codigo nuevo, nombre nuevo, SKU nuevo y nota.
+- Se agregaron selectores para copiar marca, categorias, descripcion, fiscal, reglas de inventario/granel/recepcion variable y stock/reorden.
+- Unidad base, factor y tipo de inventario se copian como requisito de fase 1.
+- Se agrego endpoint auditado `/catalogoerp/duplicar_producto`.
+- Se agrego `CatalogoErpDatos::duplicarProducto` con transaccion completa.
+
+Guardrails:
+
+- El producto duplicado nace en `borrador` o `en_revision`.
+- No se copian imagenes, codigos de barras, proveedores, costos, precios, paquetes, presentaciones, compras, ventas, existencias ni movimientos.
+- No se permite usar un producto o SKU `fusionado` como origen.
+
+Siguiente paso recomendado:
+
+- Probar con un producto de bajo riesgo, usando codigo/SKU de prueba y confirmando que el nuevo producto no hereda imagenes, proveedores ni codigos.
+
+## Hallazgo 2026-07-20 - Cierre de incidencias Proveedores -> Catalogo
+
+Caso observado:
+
+- SKU `ALA-0003`.
+- Producto ERP `1547` activo.
+- SKU ERP `1765` seguia en `borrador`.
+- Incidencia `6` seguia `en_revision`.
+- Renglon proveedor `11009` seguia `sin_match`, sin `id_sku` ni `id_sku_proveedor`.
+
+Decision de flujo:
+
+- Editar el producto en Catalogo no debe cerrar por si solo una incidencia `proveedor_sku_sin_match`.
+- Crear el borrador desde Catalogo solo atiende la parte de maestro/SKU.
+- El cierre operativo correcto ocurre cuando Proveedores vuelve al matching, selecciona el SKU creado y aplica la relacion proveedor-SKU.
+
+Ajuste aplicado:
+
+- Proveedores ahora resuelve la incidencia de Catalogo al aplicar la relacion proveedor-SKU individual o en lote.
+- La incidencia se cierra como `resuelta` con `resolucion_json` auditable.
+- No se aplicaron escrituras de datos reales en esta revision; el cierre sucedera cuando el usuario aplique la relacion desde Proveedores.

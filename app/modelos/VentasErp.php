@@ -6286,6 +6286,16 @@ class VentasErp extends CRUD {
     public function clientePrecioDryRun($datos = array()) {
         try {
             $db = $this->getConexion();
+            if (!$db) {
+                return $this->respuesta(true, "danger", "Conexion MySQL no disponible para resolver precios POS en dry-run", array(
+                    "dry_run" => true,
+                    "bloqueos" => array("Conexion MySQL no disponible"),
+                    "contrato" => array(
+                        "backend_resuelve_precio" => true,
+                        "sin_conexion_no_hay_precio_confiable" => true
+                    )
+                ));
+            }
             $idAlmacen = intval($this->valor($datos, "id_almacen", 0));
             $canal = trim((string) $this->valor($datos, "canal", "pos"));
             $idCliente = intval($this->valor($datos, "id_cliente", 0));

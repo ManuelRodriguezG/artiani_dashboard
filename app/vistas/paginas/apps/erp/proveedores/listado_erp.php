@@ -23,6 +23,9 @@
                             <span class="text-muted">Maestro operativo de proveedores</span>
                         </div>
                         <div class="d-flex gap-3">
+                            <a class="btn btn-light-info" href="/proveedor/manual_erp">
+                                <i class="bi bi-question-circle"></i> Manual
+                            </a>
                             <?php if (SesionSeguridad::tienePermiso('proveedores.crear')): ?>
                             <button class="btn btn-primary" type="button" id="proveedores_erp_nuevo">
                                 <i class="bi bi-plus-lg"></i> Nuevo proveedor
@@ -602,7 +605,17 @@
                 <button type="button" class="btn btn-sm btn-icon btn-light" data-bs-dismiss="modal" title="Cerrar"><i class="bi bi-x-lg"></i></button>
             </div>
             <div class="modal-body">
-                <div class="d-flex flex-wrap gap-2 mb-4" id="proveedores_erp_lista_preview_resumen"></div>
+                <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-4">
+                    <div class="d-flex flex-wrap gap-2" id="proveedores_erp_lista_preview_resumen"></div>
+                    <div class="d-flex align-items-center gap-2">
+                        <label class="form-label text-muted mb-0 small" for="proveedores_erp_lista_preview_limite">Mostrar</label>
+                        <select class="form-select form-select-sm w-auto" id="proveedores_erp_lista_preview_limite" title="Cantidad de renglones a mostrar en vista previa">
+                            <option value="100">100</option>
+                            <option value="500">500</option>
+                            <option value="1000">1000</option>
+                        </select>
+                    </div>
+                </div>
                 <div class="alert alert-warning d-none mb-6" id="proveedores_erp_lista_preview_aviso"></div>
                 <div class="row g-3 mb-6" id="proveedores_erp_lista_preview_mapeo"></div>
                 <div class="table-responsive">
@@ -654,6 +667,9 @@
                     </button>
                     <?php endif; ?>
                     <?php if (SesionSeguridad::tienePermiso('proveedores.listas')): ?>
+                    <button class="btn btn-sm btn-light-info" type="button" id="proveedores_erp_compra_lote_abrir">
+                        <i class="bi bi-ui-checks-grid"></i> Completar compra
+                    </button>
                     <button class="btn btn-sm btn-light-primary" type="button" id="proveedores_erp_agregar_lista_detalle">
                         <i class="bi bi-plus-lg"></i> Agregar renglon
                     </button>
@@ -728,14 +744,51 @@
                         <div class="col-md-3"><label class="form-label">Codigo interno</label><input class="form-control" name="codigo_interno" maxlength="120"></div>
                         <div class="col-md-3"><label class="form-label">Marca proveedor</label><input class="form-control" name="marca_proveedor" maxlength="160"></div>
                         <div class="col-12"><label class="form-label">Descripcion proveedor</label><textarea class="form-control" name="descripcion_proveedor" rows="3" maxlength="5000"></textarea></div>
-                        <div class="col-md-3"><label class="form-label">Unidad texto</label><input class="form-control" name="unidad_compra_texto" maxlength="80"></div>
-                        <div class="col-md-3"><label class="form-label">Unidad compra</label><select class="form-select" name="id_unidad_compra" id="proveedores_erp_lista_detalle_unidad"><option value="">Seleccionar unidad</option></select></div>
-                        <div class="col-md-3"><label class="form-label">Factor</label><input class="form-control" type="number" name="factor_conversion" step="0.000001"></div>
-                        <div class="col-md-3"><label class="form-label">Cantidad minima</label><input class="form-control" type="number" name="cantidad_minima" step="0.0001"></div>
+                        <div class="col-md-3">
+                            <label class="form-label">Presentacion del proveedor</label>
+                            <input class="form-control" name="unidad_compra_texto" maxlength="80" placeholder="Ej. caja, pieza, paquete">
+                            <div class="form-text">Texto tal como viene en la lista. Sirve como referencia visual.</div>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Unidad de compra ERP</label>
+                            <select class="form-select proveedores-erp-unidad-compra" name="id_unidad_compra" id="proveedores_erp_lista_detalle_unidad"><option value="">Seleccionar unidad</option></select>
+                            <div class="form-text">Unidad formal para compras: pieza, caja, paquete, etc.</div>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Factor de conversion</label>
+                            <input class="form-control" type="number" name="factor_conversion" step="0.000001" placeholder="Ej. 1, 6, 12">
+                            <div class="form-text">Cuantas unidades base contiene la unidad de compra.</div>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Compra minima</label>
+                            <input class="form-control" type="number" name="cantidad_minima" step="0.0001" placeholder="Ej. 1">
+                            <div class="form-text">Cantidad minima que el proveedor permite comprar de esta presentacion.</div>
+                        </div>
                         <div class="col-md-3"><label class="form-label">Costo</label><input class="form-control" type="number" name="costo" step="0.0001"></div>
-                        <div class="col-md-3"><label class="form-label">Moneda</label><input class="form-control text-uppercase" name="moneda" maxlength="10"></div>
-                        <div class="col-md-3"><label class="form-label">Incluye impuestos</label><input class="form-control" type="number" name="costo_incluye_impuestos" min="0" max="1" step="1"></div>
-                        <div class="col-md-3"><label class="form-label">Existencia reportada</label><input class="form-control" type="number" name="existencia_reportada" step="0.0001"></div>
+                        <div class="col-md-3">
+                            <label class="form-label">Moneda</label>
+                            <select class="form-select" name="moneda">
+                                <option value="">Seleccionar moneda</option>
+                                <option value="MXN">MXN - Peso mexicano</option>
+                                <option value="USD">USD - Dolar estadounidense</option>
+                                <option value="EUR">EUR - Euro</option>
+                            </select>
+                            <div class="form-text">Moneda del costo reportado por el proveedor.</div>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Costo incluye impuestos</label>
+                            <select class="form-select" name="costo_incluye_impuestos">
+                                <option value="">No definido</option>
+                                <option value="1">Si, incluye impuestos</option>
+                                <option value="0">No, es antes de impuestos</option>
+                            </select>
+                            <div class="form-text">Antes era 1/0. Ahora: Si = 1, No = 0.</div>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Existencia reportada</label>
+                            <input class="form-control" type="number" name="existencia_reportada" step="0.0001">
+                            <div class="form-text">Stock disponible que el proveedor informa en su lista. No es inventario propio.</div>
+                        </div>
                         <div class="col-12">
                             <label class="form-label">Buscar SKU ERP</label>
                             <div class="input-group">
@@ -766,6 +819,97 @@
                 <div class="modal-footer">
                     <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancelar</button>
                     <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg"></i> Guardar renglon</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="proveedores_erp_compra_lote_modal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content">
+            <form id="proveedores_erp_compra_lote_form" data-erp-ajax="true">
+                <div class="modal-header">
+                    <div>
+                        <h2 class="mb-1">Completar compra en lote</h2>
+                        <span class="text-muted" id="proveedores_erp_compra_lote_subtitulo">Prepara renglones para aplicar relacion proveedor-SKU</span>
+                    </div>
+                    <button type="button" class="btn btn-sm btn-icon btn-light" data-bs-dismiss="modal" title="Cerrar"><i class="bi bi-x-lg"></i></button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" name="_csrf" value="<?= htmlspecialchars(SesionSeguridad::csrfToken(), ENT_QUOTES, 'UTF-8') ?>">
+                    <input type="hidden" name="id_proveedor">
+                    <input type="hidden" name="id_lista_proveedor_erp">
+                    <input type="hidden" name="ids_json">
+                    <div class="alert alert-info">
+                        Esta accion solo completa datos de compra en los renglones seleccionados. No aplica relaciones, no aplica costos y no cambia Catalogo.
+                    </div>
+                    <div class="row g-5">
+                        <div class="col-md-6">
+                            <label class="form-label">Aplicar a</label>
+                            <select class="form-select" id="proveedores_erp_compra_lote_alcance">
+                                <option value="pendientes">Renglones filtrados con compra pendiente</option>
+                                <option value="filtrados">Todos los renglones filtrados</option>
+                            </select>
+                            <div class="form-text">Usa los filtros/buscador del detalle para acotar el lote.</div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Modo</label>
+                            <select class="form-select" name="sobrescribir">
+                                <option value="0">Solo completar campos vacios</option>
+                                <option value="1">Sobrescribir tambien campos existentes</option>
+                            </select>
+                            <div class="form-text">Recomendado: solo completar vacios.</div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Presentacion del proveedor</label>
+                            <input class="form-control" name="unidad_compra_texto" maxlength="80" placeholder="Ej. pieza, caja, paquete">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Unidad de compra ERP</label>
+                            <select class="form-select proveedores-erp-unidad-compra" name="id_unidad_compra"><option value="">No cambiar</option></select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Factor de conversion</label>
+                            <input class="form-control" type="number" name="factor_conversion" step="0.000001" placeholder="Ej. 1">
+                            <div class="form-text">Si compras por pieza, normalmente factor 1.</div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Compra minima</label>
+                            <input class="form-control" type="number" name="cantidad_minima" step="0.0001" placeholder="Ej. 1">
+                            <div class="form-text">Si no hay minimo especial, normalmente 1.</div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Moneda</label>
+                            <select class="form-select" name="moneda">
+                                <option value="">No cambiar</option>
+                                <option value="MXN">MXN - Peso mexicano</option>
+                                <option value="USD">USD - Dolar estadounidense</option>
+                                <option value="EUR">EUR - Euro</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Costo incluye impuestos</label>
+                            <select class="form-select" name="costo_incluye_impuestos">
+                                <option value="">No cambiar</option>
+                                <option value="1">Si, incluye impuestos</option>
+                                <option value="0">No, es antes de impuestos</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Existencia reportada</label>
+                            <input class="form-control" type="number" name="existencia_reportada" step="0.0001" placeholder="Opcional">
+                            <div class="form-text">Solo stock informado por proveedor; no afecta inventario.</div>
+                        </div>
+                        <div class="col-md-6 d-flex align-items-end">
+                            <div class="fw-semibold" id="proveedores_erp_compra_lote_conteo">0 renglones seleccionados</div>
+                        </div>
+                    </div>
+                    <div class="alert alert-danger d-none mt-6" id="proveedores_erp_compra_lote_error"></div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-info"><i class="bi bi-check2-square"></i> Completar compra</button>
                 </div>
             </form>
         </div>

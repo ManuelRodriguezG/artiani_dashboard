@@ -267,6 +267,10 @@ class ListasPreciosErp extends CRUD {
             $idLista = intval($this->valor($filtros, "id_lista_precio", 0));
             $q = trim((string) $this->valor($filtros, "q", ""));
             $solo = trim((string) $this->valor($filtros, "solo", "todos"));
+            $umbralMargen = floatval($this->valor($filtros, "margen_minimo", 15));
+            if ($umbralMargen <= 0 || $umbralMargen > 95) {
+                $umbralMargen = 15;
+            }
             $limite = max(20, min(300, intval($this->valor($filtros, "limite", 120))));
             $where = array("s.estatus='activo'", "p.estatus<>'fusionado'");
             $params = array();
@@ -329,7 +333,14 @@ class ListasPreciosErp extends CRUD {
                 $precioBase = $precioLista !== null ? $precioLista : floatval($fila["precio_general"]);
                 $costo = floatval($fila["costo_referencia"]);
                 $margen = $this->calcularMargenPrecio($precioBase, $costo);
-                if ($solo === "margen_bajo" && !($margen !== null && $margen < 15)) {
+                $riesgo = $this->riesgoMargen($precioBase, $costo, $margen, $umbralMargen);
+                if ($solo === "margen_bajo" && !($riesgo["clave"] === "margen_bajo" || $riesgo["clave"] === "perdida")) {
+                    continue;
+                }
+                if ($solo === "perdida" && $riesgo["clave"] !== "perdida") {
+                    continue;
+                }
+                if ($solo === "sin_costo" && $riesgo["clave"] !== "sin_costo") {
                     continue;
                 }
                 $fila["costo_referencia"] = round($costo, 6);
@@ -338,14 +349,14 @@ class ListasPreciosErp extends CRUD {
                 $fila["precio_calculo"] = round($precioBase, 6);
                 $fila["utilidad_estimada"] = $precioBase > 0 ? round($precioBase - $costo, 6) : null;
                 $fila["margen_estimado"] = $margen;
-                $fila["riesgo_margen"] = $this->riesgoMargen($precioBase, $costo, $margen);
+                $fila["riesgo_margen"] = $riesgo;
                 $productos[] = $fila;
             }
 
             return $this->respuesta(false, "success", "Productos para lista consultados", array(
                 "productos" => $productos,
                 "total" => count($productos),
-                "filtros" => array("id_lista_precio" => $idLista, "q" => $q, "solo" => $solo, "limite" => $limite),
+                "filtros" => array("id_lista_precio" => $idLista, "q" => $q, "solo" => $solo, "limite" => $limite, "margen_minimo" => $umbralMargen),
                 "fuente_costo" => "erp_catalogo_skus.costo_referencia"
             ));
         } catch (Exception $e) {
@@ -367,6 +378,77 @@ class ListasPreciosErp extends CRUD {
                 return $this->respuesta(true, "warning", "Lista obligatoria para revision");
             }
             return $this->respuesta(false, "success", "Revision de lista consultada", $this->construirRevisionLista($db, $idLista));
+        } catch (Exception $e) {
+            return $this->respuesta(true, "danger", $e->getMessage());
+        }
+    }
+
+    /**
+     * Documentacion IA: Codex GPT-5, 2026-07-20.
+     * Proposito: calcular semaforo de fase 1 para pruebas operativas reales de Listas/POS.
+     * Impacto: concentra readiness de esquema, UI, resolutor, snapshot y manual sin escribir BD.
+     * Contrato: read-only; ecommerce y granel se reportan como pendientes planeados, no bloquean piloto POS.
+     */
+    public function fase1ReadinessReadOnly() {
+        try {
+            $db = $this->getConexion();
+            $schema = $this->schemaListas($db);
+            $raiz = dirname(__DIR__, 2);
+            $ventasDetalleOk = $this->tablaExiste($db, "erp_ventas_detalle")
+                && $this->columnaExiste($db, "erp_ventas_detalle", "id_lista_precio")
+                && $this->columnaExiste($db, "erp_ventas_detalle", "lista_precio_snapshot")
+                && $this->columnaExiste($db, "erp_ventas_detalle", "regla_precio_origen");
+            $ventasErp = $raiz . DIRECTORY_SEPARATOR . "app" . DIRECTORY_SEPARATOR . "modelos" . DIRECTORY_SEPARATOR . "VentasErp.php";
+            $posJs = $raiz . DIRECTORY_SEPARATOR . "public" . DIRECTORY_SEPARATOR . "assets" . DIRECTORY_SEPARATOR . "js" . DIRECTORY_SEPARATOR . "custom" . DIRECTORY_SEPARATOR . "apps" . DIRECTORY_SEPARATOR . "erp" . DIRECTORY_SEPARATOR . "ventas" . DIRECTORY_SEPARATOR . "pos.js";
+            $listasVista = $raiz . DIRECTORY_SEPARATOR . "app" . DIRECTORY_SEPARATOR . "vistas" . DIRECTORY_SEPARATOR . "paginas" . DIRECTORY_SEPARATOR . "apps" . DIRECTORY_SEPARATOR . "erp" . DIRECTORY_SEPARATOR . "ventas" . DIRECTORY_SEPARATOR . "listas_precios.php";
+            $listasJs = $raiz . DIRECTORY_SEPARATOR . "public" . DIRECTORY_SEPARATOR . "assets" . DIRECTORY_SEPARATOR . "js" . DIRECTORY_SEPARATOR . "custom" . DIRECTORY_SEPARATOR . "apps" . DIRECTORY_SEPARATOR . "erp" . DIRECTORY_SEPARATOR . "ventas" . DIRECTORY_SEPARATOR . "listas_precios.js";
+            $manualVista = $raiz . DIRECTORY_SEPARATOR . "app" . DIRECTORY_SEPARATOR . "vistas" . DIRECTORY_SEPARATOR . "paginas" . DIRECTORY_SEPARATOR . "apps" . DIRECTORY_SEPARATOR . "erp" . DIRECTORY_SEPARATOR . "ventas" . DIRECTORY_SEPARATOR . "listas_precios_manual.php";
+            $sidebar = $raiz . DIRECTORY_SEPARATOR . "app" . DIRECTORY_SEPARATOR . "vistas" . DIRECTORY_SEPARATOR . "includes" . DIRECTORY_SEPARATOR . "header" . DIRECTORY_SEPARATOR . "sidebar.php";
+
+            $checks = array(
+                array("id" => "tablas_base", "ok" => $schema["listas"] && $schema["detalle"], "tipo" => "bloqueante", "texto" => "Tablas base de listas y detalle"),
+                array("id" => "asignacion_crm", "ok" => $schema["clientes_listas"] && $schema["cliente_crm_columna"], "tipo" => "bloqueante", "texto" => "Asignacion cliente CRM/lista preparada"),
+                array("id" => "auditoria_comercial", "ok" => $this->tablaExiste($db, "erp_listas_precios_eventos"), "tipo" => "bloqueante", "texto" => "Auditoria comercial de listas"),
+                array("id" => "snapshot_venta", "ok" => $ventasDetalleOk, "tipo" => "bloqueante", "texto" => "Snapshot de lista en detalle de venta"),
+                array("id" => "resolutor_backend", "ok" => $this->archivoContiene($ventasErp, array("resolverPrecioSkuDryRun", "regla_precio_origen", "lista_precio_snapshot")), "tipo" => "bloqueante", "texto" => "Resolutor backend conectado"),
+                array("id" => "pos_visible", "ok" => $this->archivoContiene($posJs, array("regla_precio_origen", "lista_precio_snapshot")), "tipo" => "bloqueante", "texto" => "POS muestra origen y snapshot"),
+                array("id" => "mesa_operativa", "ok" => $this->archivoContiene($listasVista, array("Productos y precios", "Clientes y segmentos", "Revision")) && $this->archivoContiene($listasJs, array("listas_precios_detalles_lote_guardar_operativo_erp", "listas_precios_precio_preview_erp")), "tipo" => "bloqueante", "texto" => "Mesa operativa con precios, margen y preview"),
+                array("id" => "segmentos_crm", "ok" => $schema["segmentos_listas"], "tipo" => "recomendado", "texto" => "Listas por segmento CRM"),
+                array("id" => "manual_operativo", "ok" => is_file($manualVista) && $this->archivoContiene($sidebar, array("/comercial/listas_precios_manual")), "tipo" => "bloqueante", "texto" => "Manual operativo visible en sidebar"),
+                array("id" => "ecommerce_contrato", "ok" => false, "tipo" => "pendiente", "texto" => "Contrato ecommerce read-only por canal"),
+                array("id" => "granel_presentaciones", "ok" => false, "tipo" => "pendiente", "texto" => "Granel, presentaciones y rollo completo")
+            );
+
+            $bloqueos = array();
+            $recomendaciones = array();
+            $pendientes = array();
+            foreach ($checks as $check) {
+                if (!$check["ok"] && $check["tipo"] === "bloqueante") {
+                    $bloqueos[] = $check["texto"];
+                } elseif (!$check["ok"] && $check["tipo"] === "recomendado") {
+                    $recomendaciones[] = $check["texto"];
+                } elseif ($check["tipo"] === "pendiente") {
+                    $pendientes[] = $check["texto"];
+                }
+            }
+
+            return $this->respuesta(false, empty($bloqueos) ? "success" : "warning", empty($bloqueos) ? "Fase 1 lista para piloto POS controlado" : "Fase 1 con bloqueos por resolver", array(
+                "estado" => empty($bloqueos) ? "listo_piloto_pos" : "bloqueado",
+                "puede_piloto_pos" => empty($bloqueos),
+                "puede_ecommerce" => false,
+                "checks" => $checks,
+                "bloqueos" => $bloqueos,
+                "recomendaciones" => $recomendaciones,
+                "pendientes_fase_2" => $pendientes,
+                "schema" => $schema,
+                "kpis" => $schema["listas"] && $schema["detalle"] ? $this->kpisListas($db, $schema) : $this->kpisVacios(),
+                "siguiente_uat" => array(
+                    "Crear lista POS activa para almacen UAT",
+                    "Asignar SKU con precio distinto al catalogo",
+                    "Previsualizar precio desde Comercial",
+                    "Ejecutar venta POS UAT y validar snapshot en erp_ventas_detalle"
+                )
+            ));
         } catch (Exception $e) {
             return $this->respuesta(true, "danger", $e->getMessage());
         }
@@ -906,9 +988,9 @@ class ListasPreciosErp extends CRUD {
 
             $guardados = array();
             $errores = array();
-            foreach ($items as $item) {
+            foreach ($items as $idx => $item) {
                 if (!is_array($item)) {
-                    $errores[] = array("mensaje" => "Partida invalida");
+                    $errores[] = array("fila" => $idx + 1, "mensaje" => "Partida invalida");
                     continue;
                 }
                 $payload = array(
@@ -924,17 +1006,28 @@ class ListasPreciosErp extends CRUD {
                 $respuesta = $this->detalleGuardarAutorizado($payload, $idUsuario);
                 if (!empty($respuesta["error"])) {
                     $errores[] = array(
+                        "fila" => $idx + 1,
                         "id_sku" => $this->valor($item, "id_sku", ""),
                         "mensaje" => $respuesta["mensaje"],
                         "depurar" => isset($respuesta["depurar"]) ? $respuesta["depurar"] : null
                     );
                 } else {
-                    $guardados[] = isset($respuesta["depurar"]) ? $respuesta["depurar"] : array();
+                    $depurarGuardado = isset($respuesta["depurar"]) ? $respuesta["depurar"] : array();
+                    $detalleGuardado = isset($depurarGuardado["detalle"]) && is_array($depurarGuardado["detalle"]) ? $depurarGuardado["detalle"] : array();
+                    $guardados[] = array(
+                        "fila" => $idx + 1,
+                        "id_lista_precio_detalle" => $this->valor($depurarGuardado, "id_lista_precio_detalle", ""),
+                        "id_sku" => $this->valor($detalleGuardado, "id_sku", $this->valor($item, "id_sku", "")),
+                        "id_producto_erp" => $this->valor($detalleGuardado, "id_producto_erp", $this->valor($item, "id_producto_erp", "")),
+                        "precio" => $this->valor($detalleGuardado, "precio", $this->valor($item, "precio", "")),
+                        "estatus" => $this->valor($detalleGuardado, "estatus", $this->valor($item, "estatus", "activo"))
+                    );
                 }
             }
 
             return $this->respuesta(false, empty($errores) ? "success" : "warning", empty($errores) ? "Lote de precios guardado" : "Lote guardado parcialmente", array(
                 "guardados" => count($guardados),
+                "guardados_detalle" => array_slice($guardados, 0, 20),
                 "errores" => $errores,
                 "total" => count($items)
             ));
@@ -1851,6 +1944,22 @@ class ListasPreciosErp extends CRUD {
         return intval($db->query("SELECT COUNT(*) FROM `$tabla` WHERE $where")->fetchColumn());
     }
 
+    private function archivoContiene($ruta, $tokens) {
+        if (!is_file($ruta) || !is_readable($ruta)) {
+            return false;
+        }
+        $contenido = file_get_contents($ruta);
+        if ($contenido === false) {
+            return false;
+        }
+        foreach ($tokens as $token) {
+            if (strpos($contenido, $token) === false) {
+                return false;
+            }
+        }
+        return true;
+    }
+
     private function schemaListas($db) {
         return array(
             "listas" => $this->tablaExiste($db, "erp_listas_precios"),
@@ -1889,9 +1998,13 @@ class ListasPreciosErp extends CRUD {
         return round((($precio - $costo) / $precio) * 100, 2);
     }
 
-    private function riesgoMargen($precio, $costo, $margen) {
+    private function riesgoMargen($precio, $costo, $margen, $umbralMargen = 15) {
         $precio = floatval($precio);
         $costo = floatval($costo);
+        $umbralMargen = floatval($umbralMargen);
+        if ($umbralMargen <= 0 || $umbralMargen > 95) {
+            $umbralMargen = 15;
+        }
         if ($precio <= 0) {
             return array("clave" => "sin_precio", "texto" => "Sin precio", "tipo" => "muted");
         }
@@ -1901,8 +2014,8 @@ class ListasPreciosErp extends CRUD {
         if (($precio - $costo) < 0) {
             return array("clave" => "perdida", "texto" => "Perdida", "tipo" => "danger");
         }
-        if ($margen !== null && floatval($margen) < 15) {
-            return array("clave" => "margen_bajo", "texto" => "Margen bajo", "tipo" => "warning");
+        if ($margen !== null && floatval($margen) < $umbralMargen) {
+            return array("clave" => "margen_bajo", "texto" => "Margen < " . rtrim(rtrim(number_format($umbralMargen, 2, ".", ""), "0"), ".") . "%", "tipo" => "warning");
         }
         return array("clave" => "ok", "texto" => "Margen OK", "tipo" => "success");
     }

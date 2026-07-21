@@ -43,12 +43,19 @@
         return div.innerHTML;
     }
     function textoLegible(value) {
-        return String(value == null ? "" : value)
+        var texto = String(value == null ? "" : value)
             .replace(/\u00c3\u00a1/g, "\u00e1").replace(/\u00c3\u00a9/g, "\u00e9").replace(/\u00c3\u00ad/g, "\u00ed")
             .replace(/\u00c3\u00b3/g, "\u00f3").replace(/\u00c3\u00ba/g, "\u00fa").replace(/\u00c3\u0081/g, "\u00c1")
             .replace(/\u00c3\u0089/g, "\u00c9").replace(/\u00c3\u008d/g, "\u00cd").replace(/\u00c3\u0093/g, "\u00d3")
             .replace(/\u00c3\u009a/g, "\u00da").replace(/\u00c3\u00b1/g, "\u00f1").replace(/\u00c3\u0091/g, "\u00d1")
+            .replace(/├â┬í/g, "á").replace(/├â┬®/g, "é").replace(/├â┬¡/g, "í").replace(/├â┬│/g, "ó")
+            .replace(/├â┬║/g, "ú").replace(/├â┬▒/g, "ñ").replace(/├â┬ü/g, "Á").replace(/├â┬ë/g, "É")
+            .replace(/├â┬ì/g, "Í").replace(/├â┬ô/g, "Ó").replace(/├â┬Ü/g, "Ú").replace(/├â┬æ/g, "Ñ")
+            .replace(/Ã¡/g, "á").replace(/Ã©/g, "é").replace(/Ã­/g, "í").replace(/Ã³/g, "ó")
+            .replace(/Ãº/g, "ú").replace(/Ã±/g, "ñ").replace(/Ã/g, "Á").replace(/Ã‰/g, "É")
+            .replace(/Ã/g, "Í").replace(/Ã“/g, "Ó").replace(/Ãš/g, "Ú").replace(/Ã‘/g, "Ñ")
             .replace(/\u00c2/g, "").replace(/\ufffd/g, "");
+        return texto.replace(/â€“|â€”/g, "-").replace(/â€™/g, "'").replace(/â€œ|â€/g, "\"");
     }
     function cantidad(value) {
         var numero = Number(String(value == null ? "" : value).replace(",", "."));
@@ -274,6 +281,16 @@
     }
     function tipoDocumentoActual() {
         return document.getElementById("pos_tipo_documento").value || "venta";
+    }
+    function actualizarVisibilidadDocumento() {
+        var tipo = tipoDocumentoActual();
+        var compromiso = document.getElementById("pos_compromiso_wrap");
+        if (compromiso) {
+            compromiso.classList.toggle("d-none", tipo === "venta");
+        }
+        if (tipo === "venta" && document.getElementById("pos_fecha_compromiso")) {
+            document.getElementById("pos_fecha_compromiso").value = "";
+        }
     }
     function exigePagoCompleto() {
         return tipoDocumentoActual() === "venta" ? "1" : "0";
@@ -1068,9 +1085,10 @@
         }).join("") || "<option value=\"\">Sin metodos</option>";
     }
     function metodoPorNombre(fragmento) {
-        fragmento = fragmento.toLowerCase();
+        fragmento = textoLegible(fragmento).toLowerCase();
         return (catalogos.metodos_pago || []).find(function (item) {
-            return textoLegible(item.metodo_pago || "").toLowerCase().indexOf(fragmento) !== -1;
+            var metodo = textoLegible(item.metodo_pago || "").toLowerCase();
+            return metodo.indexOf(fragmento) !== -1;
         }) || (catalogos.metodos_pago || [])[0] || {};
     }
     function agregarPago() {
@@ -1666,17 +1684,18 @@
     }
     function abrirTicketVentaReal(folio) {
         if (!folio) { return; }
+        actualizarModalTicket("Ticket de venta", folio, "Consultando ticket...");
         ticketPosActual = "";
-        document.getElementById("pos_ticket_texto").textContent = "Consultando ticket...";
+        document.getElementById("pos_ticket_imprimir").disabled = true;
         bootstrap.Modal.getOrCreateInstance(document.getElementById("pos_ticket_modal")).show();
         requestGet("/ventas/ticket_venta_readonly_erp", {folio: folio}).then(function (response) {
             if (response.error) { throw new Error(response.mensaje); }
             var depurar = response.depurar || {};
-            ticketPosActual = depurar.ticket_texto || "";
-            document.getElementById("pos_ticket_texto").textContent = ticketPosActual;
+            actualizarModalTicket("Ticket de venta", folio, depurar.ticket_texto || "");
         }).catch(function (error) {
+            actualizarModalTicket("Ticket de venta", folio, error.message || String(error));
             ticketPosActual = "";
-            document.getElementById("pos_ticket_texto").textContent = error.message || String(error);
+            document.getElementById("pos_ticket_imprimir").disabled = true;
         });
     }
     function renderValidacion(response) {
@@ -1853,8 +1872,7 @@
     }
     function renderTicketPreview(response) {
         var depurar = response.depurar || {};
-        ticketPosActual = depurar.ticket_texto || "";
-        document.getElementById("pos_ticket_texto").textContent = ticketPosActual;
+        actualizarModalTicket("Ticket preview", "Vista previa sin folio real ni descuento de inventario", depurar.ticket_texto || "");
         document.getElementById("pos_validacion").innerHTML = "<div class=\"alert " + ((depurar.bloqueos || []).length ? "alert-warning" : "alert-success") + " py-3 mb-0\"><div class=\"fw-bold\">" + escapeHtml(response.mensaje || "Ticket preview") + "</div><div class=\"fs-7\">El ticket es temporal y no representa una venta confirmada.</div></div>";
         var modal = bootstrap.Modal.getOrCreateInstance(document.getElementById("pos_ticket_modal"));
         modal.show();
@@ -1869,6 +1887,13 @@
         ventana.document.close();
         ventana.focus();
         ventana.print();
+    }
+    function actualizarModalTicket(titulo, subtitulo, texto) {
+        ticketPosActual = texto || "";
+        document.getElementById("pos_ticket_titulo").textContent = titulo || "Ticket POS";
+        document.getElementById("pos_ticket_subtitulo").textContent = subtitulo || "Consulta de ticket";
+        document.getElementById("pos_ticket_texto").textContent = ticketPosActual;
+        document.getElementById("pos_ticket_imprimir").disabled = !ticketPosActual;
     }
     function renderClientePrecio(response) {
         var depurar = response.depurar || {};
@@ -2520,8 +2545,7 @@
                 document.getElementById("pos_evidencias_resultado").insertAdjacentHTML("afterbegin", "<div class=\"alert alert-warning py-3 mb-3\">" + escapeHtml(mensaje) + "</div>");
                 return;
             }
-            ticketPosActual = ticket;
-            document.getElementById("pos_ticket_texto").textContent = ticket;
+            actualizarModalTicket("Ticket de devolucion", folioDevolucion, ticket);
             bootstrap.Modal.getOrCreateInstance(document.getElementById("pos_ticket_modal")).show();
         }).catch(function (error) {
             ticketPosActual = "";
@@ -2759,6 +2783,7 @@
         renderCarrito();
         renderPagos();
         actualizarOperador();
+        actualizarVisibilidadDocumento();
         registrarAtajosPos();
         document.getElementById("pos_buscar").addEventListener("input", buscar);
         document.getElementById("pos_almacen").addEventListener("change", function () {
@@ -2774,6 +2799,7 @@
             buscar();
         });
         document.getElementById("pos_caja").addEventListener("change", llenarTurnos);
+        document.getElementById("pos_tipo_documento").addEventListener("change", actualizarVisibilidadDocumento);
         document.getElementById("pos_refrescar").addEventListener("click", cargarCatalogos);
         document.getElementById("pos_terminal_config_btn").addEventListener("click", function () {
             var oficial = !!(asignacionOficial && asignacionOficial.asignacion_activa);
@@ -2850,7 +2876,6 @@
             });
         });
         document.getElementById("pos_prevalidar").addEventListener("click", prevalidar);
-        document.getElementById("pos_prevalidar_top").addEventListener("click", prevalidar);
         document.getElementById("pos_dryrun").addEventListener("click", dryRunConfirmacion);
         document.getElementById("pos_inventario_pendiente_dryrun").addEventListener("click", inventarioPendienteDryRun);
         document.getElementById("pos_cobrar_real").addEventListener("click", cobrarReal);

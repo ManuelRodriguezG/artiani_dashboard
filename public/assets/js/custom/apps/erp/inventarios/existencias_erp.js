@@ -294,12 +294,13 @@
         }).join("") : "<tr><td colspan=\"5\" class=\"text-center text-muted py-5\">Sin eventos registrados</td></tr>";
         var formularioDryRun = "";
         if (pendiente.estatus === "pendiente_revision" || pendiente.estatus === "en_revision") {
-            formularioDryRun = "<div class=\"border rounded p-4 mb-6\"><div class=\"fw-bold mb-3\">Simular resolucion</div>" +
+            formularioDryRun = "<div class=\"border rounded p-4 mb-6\"><div class=\"fw-bold mb-1\">Previsualizar resolucion</div>" +
+                "<div class=\"text-muted fs-8 mb-3\">No mueve inventario. Sirve para revisar la formula antes de resolver: conteo fisico actual despues de la venta + cantidad vendida pendiente = existencia que debio haber antes de registrar la salida.</div>" +
                 "<form data-pendiente-pos-dryrun=\"" + escapeHtml(pendiente.folio || "") + "\" class=\"row g-3 align-items-end\">" +
-                "<div class=\"col-md-3\"><label class=\"form-label fs-8 text-muted\">Cantidad fisica</label><input class=\"form-control form-control-solid\" name=\"cantidad_fisica\" type=\"number\" min=\"0\" step=\"0.0001\" value=\"" + Number(pendiente.cantidad_pendiente || 0).toFixed(4) + "\"></div>" +
+                "<div class=\"col-md-3\"><label class=\"form-label fs-8 text-muted\">Cantidad fisica actual</label><input class=\"form-control form-control-solid\" name=\"cantidad_fisica\" type=\"number\" min=\"0\" step=\"0.0001\" value=\"" + Number(pendiente.cantidad_pendiente || 0).toFixed(4) + "\"><div class=\"text-muted fs-9 mt-1\">Lo que cuentas ahora, despues de la venta.</div></div>" +
                 "<div class=\"col-md-3\"><label class=\"form-label fs-8 text-muted\">Decision</label><select class=\"form-select form-select-solid\" name=\"decision\"><option value=\"ajustar_a_conteo\">Ajustar a conteo</option><option value=\"cerrar_sin_ajuste\">Cerrar sin ajuste</option><option value=\"mantener_pendiente\">Mantener pendiente</option></select></div>" +
                 "<div class=\"col-md-4\"><label class=\"form-label fs-8 text-muted\">Motivo</label><input class=\"form-control form-control-solid\" name=\"motivo\" placeholder=\"Conteo fisico y evidencia\"></div>" +
-                "<div class=\"col-md-2\"><button class=\"btn btn-light-primary w-100\" type=\"submit\"><i class=\"bi bi-calculator\"></i> Dry-run</button></div>" +
+                "<div class=\"col-md-2\"><button class=\"btn btn-light-primary w-100\" type=\"submit\"><i class=\"bi bi-calculator\"></i> Previsualizar</button></div>" +
                 "</form><div class=\"mt-4\" data-pendiente-pos-dryrun-result></div></div>";
         }
         return "<div class=\"d-flex flex-wrap gap-2 mb-5\">" +
@@ -321,25 +322,30 @@
         var avisos = data.avisos || [];
         var clase = bloqueos.length ? "alert-warning" : "alert-success";
         var partes = [
-            "<div class=\"fw-bold mb-2\">Resultado dry-run</div>",
+            "<div class=\"fw-bold mb-2\">Resultado de previsualizacion</div>",
             "<div>Decision: <span class=\"fw-bold\">" + escapeHtml(conteo.decision || "-") + "</span></div>",
-            "<div>Fisico: <span class=\"fw-bold\">" + Number(conteo.cantidad_fisica || 0).toFixed(4) + "</span> / ERP: <span class=\"fw-bold\">" + Number(conteo.disponible_erp_actual || 0).toFixed(4) + "</span></div>",
-            "<div>Diferencia: <span class=\"fw-bold\">" + Number(conteo.diferencia_ajuste || 0).toFixed(4) + "</span></div>",
-            "<div>Accion: " + (propuesta.requiere_ajuste ? "<span class=\"fw-bold\">" + escapeHtml(propuesta.tipo_ajuste || "") + " por " + Number(propuesta.cantidad_ajuste || 0).toFixed(4) + "</span>" : "<span class=\"fw-bold\">sin kardex</span>") + "</div>",
+            "<div>Conteo actual despues de venta: <span class=\"fw-bold\">" + Number(conteo.cantidad_fisica || 0).toFixed(4) + "</span></div>",
+            "<div>Vendido pendiente: <span class=\"fw-bold\">" + Number(conteo.cantidad_pendiente_vendida || 0).toFixed(4) + "</span></div>",
+            "<div>Formula: <span class=\"fw-bold\">" + Number(conteo.cantidad_fisica || 0).toFixed(4) + " + " + Number(conteo.cantidad_pendiente_vendida || 0).toFixed(4) + " = " + Number(conteo.existencia_objetivo_antes_salida || 0).toFixed(4) + "</span> antes de reconocer la salida</div>",
+            "<div>Disponible ERP actual: <span class=\"fw-bold\">" + Number(conteo.disponible_erp_actual || 0).toFixed(4) + "</span></div>",
+            "<div>Ajuste preventa propuesto: " + (propuesta.requiere_ajuste ? "<span class=\"fw-bold\">" + escapeHtml(propuesta.tipo_ajuste || "") + " por " + Number(propuesta.cantidad_ajuste || 0).toFixed(4) + "</span>" : "<span class=\"fw-bold\">sin ajuste</span>") + "</div>",
+            "<div>Salida por venta pendiente: <span class=\"fw-bold\">" + Number(propuesta.cantidad_salida_venta_pendiente || 0).toFixed(4) + "</span></div>",
+            "<div>Disponible final estimado: <span class=\"fw-bold\">" + Number(propuesta.disponible_final_estimado || 0).toFixed(4) + "</span></div>",
             "<div>Cierre pendiente: <span class=\"fw-bold\">" + (propuesta.cerrar_pendiente ? "si" : "no") + "</span></div>",
             "<div class=\"text-muted fs-8\">Referencia sugerida: " + escapeHtml(propuesta.referencia_sugerida || "-") + "</div>"
         ];
         if (bloqueos.length) { partes.push("<div class=\"mt-2 text-danger fs-8\">Bloqueos: " + bloqueos.map(escapeHtml).join(", ") + "</div>"); }
         if (avisos.length) { partes.push("<div class=\"mt-2 text-muted fs-8\">Avisos: " + avisos.map(escapeHtml).join(", ") + "</div>"); }
         if (!bloqueos.length && propuesta.cerrar_pendiente) {
-            partes.push("<div class=\"border-top mt-4 pt-4\"><div class=\"fw-bold mb-3\">Preparar resolucion real</div>" +
+            partes.push("<div class=\"border-top mt-4 pt-4\"><div class=\"fw-bold mb-1\">Preparar resolucion real</div>" +
+                "<div class=\"alert alert-light-warning py-3 mb-4\"><div class=\"fw-bold mb-1\">Datos de autorizacion</div><div class=\"fs-8\">Estos datos son candados para una accion real: puede crear kardex, ajustar inventario y cerrar el pendiente. Token: escribe <strong>INVENTARIO_POS_PENDIENTE_RESOLVER_REAL</strong>. Respaldo: escribe la referencia del respaldo vigente; en UAT puedes usar <strong>UAT POS vigente</strong>. Confirmacion: escribe exactamente <strong>RESOLVER PENDIENTE</strong>.</div></div>" +
                 "<form data-pendiente-pos-resolver=\"" + escapeHtml(pendiente.folio || "") + "\" class=\"row g-3 align-items-end\">" +
                 "<input type=\"hidden\" name=\"cantidad_fisica\" value=\"" + escapeHtml(conteo.cantidad_fisica || 0) + "\">" +
                 "<input type=\"hidden\" name=\"decision\" value=\"" + escapeHtml(conteo.decision || "") + "\">" +
                 "<input type=\"hidden\" name=\"motivo\" value=\"" + escapeHtml(conteo.motivo || "") + "\">" +
-                "<div class=\"col-md-3\"><label class=\"form-label fs-8 text-muted\">Token</label><input class=\"form-control form-control-solid\" name=\"autorizar\" placeholder=\"INVENTARIO_POS...\"></div>" +
-                "<div class=\"col-md-3\"><label class=\"form-label fs-8 text-muted\">Respaldo</label><input class=\"form-control form-control-solid\" name=\"respaldo\" placeholder=\"UAT POS vigente\"></div>" +
-                "<div class=\"col-md-4\"><label class=\"form-label fs-8 text-muted\">Confirmacion</label><input class=\"form-control form-control-solid\" name=\"confirmacion\" placeholder=\"RESOLVER PENDIENTE\"></div>" +
+                "<div class=\"col-md-3\"><label class=\"form-label fs-8 text-muted\">Token</label><input class=\"form-control form-control-solid\" name=\"autorizar\" placeholder=\"INVENTARIO_POS_PENDIENTE_RESOLVER_REAL\"><div class=\"text-muted fs-9 mt-1\">Candado tecnico de esta accion.</div></div>" +
+                "<div class=\"col-md-3\"><label class=\"form-label fs-8 text-muted\">Respaldo</label><input class=\"form-control form-control-solid\" name=\"respaldo\" placeholder=\"UAT POS vigente\"><div class=\"text-muted fs-9 mt-1\">Referencia del respaldo usado/autorizado.</div></div>" +
+                "<div class=\"col-md-4\"><label class=\"form-label fs-8 text-muted\">Confirmacion</label><input class=\"form-control form-control-solid\" name=\"confirmacion\" placeholder=\"RESOLVER PENDIENTE\"><div class=\"text-muted fs-9 mt-1\">Frase exacta para evitar clic accidental.</div></div>" +
                 "<div class=\"col-md-2\"><button class=\"btn btn-light-danger w-100\" type=\"submit\"><i class=\"bi bi-check2-circle\"></i> Resolver</button></div>" +
                 "</form><div class=\"mt-4\" data-pendiente-pos-resolver-result></div></div>");
         }

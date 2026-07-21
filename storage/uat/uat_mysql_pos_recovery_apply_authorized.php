@@ -16,6 +16,9 @@ $mysqlBin = "C:\\xampp\\mysql\\bin";
 $permitirCopiaData = false;
 $permitirArranque = false;
 $permitirRecovery = false;
+$permitirAriaRepair = false;
+$backupVerificado = "";
+$confirmar = "";
 
 foreach ($args as $arg) {
     if (strpos($arg, "--autorizar=") === 0) {
@@ -34,15 +37,23 @@ foreach ($args as $arg) {
         $permitirArranque = true;
     } elseif ($arg === "--permitir_recovery=1") {
         $permitirRecovery = true;
+    } elseif ($arg === "--permitir_aria_repair=1") {
+        $permitirAriaRepair = true;
+    } elseif (strpos($arg, "--backup_verificado=") === 0) {
+        $backupVerificado = trim(substr($arg, 21), "\"' ");
+    } elseif (strpos($arg, "--confirmar=") === 0) {
+        $confirmar = trim(substr($arg, 12), "\"' ");
     }
 }
 
 $mysqld = rtrim($mysqlBin, "\\/") . "\\mysqld.exe";
 $mysqladmin = rtrim($mysqlBin, "\\/") . "\\mysqladmin.exe";
+$ariaChk = rtrim($mysqlBin, "\\/") . "\\aria_chk.exe";
 $myIni = rtrim($mysqlBin, "\\/") . "\\my.ini";
+$mysqlPluginMai = rtrim($mysqlData, "\\/") . "\\mysql\\plugin.MAI";
 $backupDataDir = rtrim(dirname($mysqlData), "\\/") . "\\data_pos_recovery_" . date("Ymd_His");
 
-$validacion = validarEntradas($autorizar, $respaldo, $mysqlData, $mysqld, $mysqladmin, $myIni);
+$validacion = validarEntradas($autorizar, $respaldo, $mysqlData, $mysqld, $mysqladmin, $ariaChk, $myIni, $mysqlPluginMai);
 if (!$validacion["ok"]) {
     responder(array(
         "ok" => false,
@@ -52,8 +63,11 @@ if (!$validacion["ok"]) {
         "requerido" => array(
             "--autorizar=MYSQL_UAT_POS_RECOVERY",
             "--respaldo=RUTA_SQL",
-            "--fase=diagnostico|copia_data|arranque_normal|arranque_recovery_1",
+            "--fase=diagnostico|copia_data|aria_check_mysql_plugin|aria_check_mysql_system|aria_repair_mysql_plugin|arranque_normal|arranque_recovery_1",
             "--permitir_copia_data=1 solo para fase copia_data",
+            "--permitir_aria_repair=1 solo para fase aria_repair_mysql_plugin",
+            "--backup_verificado=RUTA_BACKUP_DATA_EXISTENTE solo para fase aria_repair_mysql_plugin",
+            "--confirmar=REPARAR_ARIA solo para fase aria_repair_mysql_plugin",
             "--permitir_arranque=1 solo para fase arranque_normal",
             "--permitir_recovery=1 solo para fase arranque_recovery_1"
         )
@@ -67,6 +81,7 @@ if ($fase === "diagnostico") {
         "acciones" => array("validacion_entradas"),
         "validacion" => $validacion,
         "ping" => pingMysql($mysqladmin),
+        "aria_check_mysql_plugin_sugerido" => '"' . $ariaChk . '" --check "' . $mysqlPluginMai . '"',
         "contrato" => contrato(false, false, false)
     ));
 }
@@ -85,6 +100,69 @@ if ($fase === "copia_data") {
         "origen" => $mysqlData,
         "destino" => $backupDataDir,
         "contrato" => contrato(true, false, false)
+    ));
+}
+
+if ($fase === "aria_check_mysql_plugin") {
+    $resultado = ejecutarAriaChk($ariaChk, array("--check", $mysqlPluginMai));
+    responder(array(
+        "ok" => $resultado["ok"],
+        "modo" => "aria_check_mysql_plugin",
+        "resultado" => $resultado,
+        "contrato" => contrato(false, false, false)
+    ));
+}
+
+if ($fase === "aria_check_mysql_system") {
+    $archivos = glob(rtrim($mysqlData, "\\/") . "\\mysql\\*.MAI") ?: array();
+    $resultados = array();
+    $todoOk = true;
+    foreach ($archivos as $archivo) {
+        $resultado = ejecutarAriaChk($ariaChk, array("--check", $archivo));
+        $resultados[] = array(
+            "archivo" => $archivo,
+            "resultado" => $resultado
+        );
+        if (!$resultado["ok"]) {
+            $todoOk = false;
+        }
+    }
+    responder(array(
+        "ok" => $todoOk,
+        "modo" => "aria_check_mysql_system",
+        "archivos_revisados" => count($archivos),
+        "resultados" => $resultados,
+        "contrato" => contrato(false, false, false)
+    ));
+}
+
+if ($fase === "aria_repair_mysql_plugin") {
+    if (!$permitirAriaRepair) {
+        bloquearFase("La fase aria_repair_mysql_plugin requiere --permitir_aria_repair=1");
+    }
+    if ($confirmar !== "REPARAR_ARIA") {
+        bloquearFase("La fase aria_repair_mysql_plugin requiere --confirmar=REPARAR_ARIA");
+    }
+    $backupOk = validarBackupVerificado($backupVerificado, $mysqlData);
+    if (!$backupOk["ok"]) {
+        responder(array(
+            "ok" => false,
+            "modo" => "bloqueado",
+            "mensaje" => "La reparacion Aria requiere respaldo data verificado y separado del data vivo.",
+            "backup_verificado" => $backupOk
+        ));
+    }
+    $resultado = ejecutarAriaChk($ariaChk, array("--recover", $mysqlPluginMai));
+    responder(array(
+        "ok" => $resultado["ok"],
+        "modo" => "aria_repair_mysql_plugin",
+        "backup_verificado" => $backupOk,
+        "resultado" => $resultado,
+        "contrato" => array_merge(contrato(false, false, false), array(
+            "reparo_aria" => true,
+            "archivo_reparado" => $mysqlPluginMai,
+            "requiere_respaldo_data_previo" => true,
+        ))
     ));
 }
 
@@ -120,7 +198,7 @@ if ($fase === "arranque_recovery_1") {
 
 bloquearFase("Fase no soportada: " . $fase);
 
-function validarEntradas($autorizar, $respaldo, $mysqlData, $mysqld, $mysqladmin, $myIni) {
+function validarEntradas($autorizar, $respaldo, $mysqlData, $mysqld, $mysqladmin, $ariaChk, $myIni, $mysqlPluginMai) {
     $bloqueos = array();
     if ($autorizar !== "MYSQL_UAT_POS_RECOVERY") {
         $bloqueos[] = "Token de autorizacion invalido";
@@ -137,8 +215,14 @@ function validarEntradas($autorizar, $respaldo, $mysqlData, $mysqld, $mysqladmin
     if (!is_file($mysqladmin)) {
         $bloqueos[] = "mysqladmin.exe no existe";
     }
+    if (!is_file($ariaChk)) {
+        $bloqueos[] = "aria_chk.exe no existe";
+    }
     if (!is_file($myIni)) {
         $bloqueos[] = "my.ini no existe";
+    }
+    if (!is_file($mysqlPluginMai)) {
+        $bloqueos[] = "mysql.plugin MAI no existe";
     }
     return array(
         "ok" => empty($bloqueos),
@@ -147,6 +231,7 @@ function validarEntradas($autorizar, $respaldo, $mysqlData, $mysqld, $mysqladmin
         "mysql_data" => $mysqlData,
         "mysqld" => $mysqld,
         "mysqladmin" => $mysqladmin,
+        "aria_chk" => $ariaChk,
         "my_ini" => $myIni
     );
 }
@@ -181,6 +266,43 @@ function copiarDirectorio($origen, $destino) {
             copy($item->getPathname(), $target);
         }
     }
+}
+
+function ejecutarAriaChk($ariaChk, $argumentos) {
+    $cmd = '"' . $ariaChk . '"';
+    foreach ($argumentos as $argumento) {
+        $cmd .= ' "' . $argumento . '"';
+    }
+    $cmd .= " 2>&1";
+    $output = array();
+    $codigo = 1;
+    exec($cmd, $output, $codigo);
+    return array(
+        "ok" => $codigo === 0,
+        "exit_code" => $codigo,
+        "output" => $output
+    );
+}
+
+function validarBackupVerificado($backupVerificado, $mysqlData) {
+    $realBackup = realpath($backupVerificado);
+    $realData = realpath($mysqlData);
+    $bloqueos = array();
+    if ($backupVerificado === "" || $realBackup === false || !is_dir($realBackup)) {
+        $bloqueos[] = "backup_verificado no existe o no es carpeta";
+    }
+    if ($realBackup !== false && $realData !== false && strtolower($realBackup) === strtolower($realData)) {
+        $bloqueos[] = "backup_verificado no puede ser la carpeta data viva";
+    }
+    if ($realBackup !== false && !is_file($realBackup . DIRECTORY_SEPARATOR . "mysql" . DIRECTORY_SEPARATOR . "plugin.MAI")) {
+        $bloqueos[] = "backup_verificado no contiene mysql\\plugin.MAI";
+    }
+    return array(
+        "ok" => empty($bloqueos),
+        "ruta" => $backupVerificado,
+        "realpath" => $realBackup,
+        "bloqueos" => $bloqueos
+    );
 }
 
 function contrato($copioData, $intentoArranque, $usoRecovery) {

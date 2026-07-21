@@ -140,18 +140,21 @@
     }
 
     function llenarUnidadesListaDetalle() {
-        var select = document.getElementById("proveedores_erp_lista_detalle_unidad");
-        if (!select) {
+        var selects = document.querySelectorAll(".proveedores-erp-unidad-compra");
+        if (!selects.length) {
             return;
         }
-        var actual = select.value;
-        select.innerHTML = "<option value=\"\">Seleccionar unidad</option>" + (catalogosListaDetalle.unidades || []).map(function (u) {
-            var etiqueta = [u.abreviatura, u.nombre].filter(Boolean).join(" - ");
-            return "<option value=\"" + esc(u.id_unidad) + "\">" + esc(etiqueta || ("Unidad " + u.id_unidad)) + "</option>";
-        }).join("");
-        if (actual) {
-            select.value = actual;
-        }
+        selects.forEach(function (select) {
+            var actual = select.value;
+            var primera = select.getAttribute("name") === "id_unidad_compra" && select.closest("#proveedores_erp_compra_lote_form") ? "No cambiar" : "Seleccionar unidad";
+            select.innerHTML = "<option value=\"\">" + primera + "</option>" + (catalogosListaDetalle.unidades || []).map(function (u) {
+                var etiqueta = [u.abreviatura, u.nombre].filter(Boolean).join(" - ");
+                return "<option value=\"" + esc(u.id_unidad) + "\">" + esc(etiqueta || ("Unidad " + u.id_unidad)) + "</option>";
+            }).join("");
+            if (actual) {
+                select.value = actual;
+            }
+        });
     }
 
     function renderListado(registros) {
@@ -958,9 +961,26 @@
         }
         document.getElementById("proveedores_erp_lista_preview_error").classList.add("d-none");
         bootstrap.Modal.getOrCreateInstance(document.getElementById("proveedores_erp_lista_preview_modal")).show();
+        cargarPreviewListaActual();
+    }
+
+    /**
+     * IA: Codex GPT-5 | Fecha: 2026-07-20
+     * Proposito: consultar vista previa con limite dinamico para listas grandes.
+     * Impacto: UI Proveedores; evita previews fijos y mantiene importacion separada.
+     */
+    function cargarPreviewListaActual() {
+        if (!proveedorActual || !listaPreviewActual || !listaPreviewActual.id_lista_proveedor_erp) {
+            return;
+        }
+        var limite = document.getElementById("proveedores_erp_lista_preview_limite");
+        document.getElementById("proveedores_erp_lista_preview_resumen").innerHTML = "<span class=\"text-muted\">Cargando vista previa...</span>";
+        document.getElementById("proveedores_erp_lista_preview_head").innerHTML = "";
+        document.getElementById("proveedores_erp_lista_preview_body").innerHTML = "";
         get("/proveedor/proveedor_lista_archivo_preview_erp", {
             id_proveedor: proveedorActual.id_proveedor,
-            id_lista_proveedor_erp: lista.id_lista_proveedor_erp
+            id_lista_proveedor_erp: listaPreviewActual.id_lista_proveedor_erp,
+            limite_preview: limite ? limite.value : 200
         }).then(function (response) {
             if (response.error) {
                 throw new Error(response.mensaje || "No fue posible generar vista previa.");
@@ -1192,7 +1212,7 @@
             var unidad = [
                 x.unidad_compra_texto,
                 x.factor_conversion ? "Factor " + x.factor_conversion : "",
-                x.cantidad_minima ? "Min " + x.cantidad_minima : ""
+                x.cantidad_minima ? "Compra min " + x.cantidad_minima : ""
             ].filter(Boolean).join(" | ") || "-";
             var estadoCompra = requiereCompra
                 ? "<div class=\"mt-1\"><span class=\"badge " + (compraOk ? "badge-light-success" : "badge-light-warning") + "\">" + (compraOk ? "Listo relacion" : "Completar compra") + "</span></div>"
@@ -1411,6 +1431,89 @@
             if (listaDetalleActual) {
                 abrirDetalleLista(listaDetalleActual);
             }
+        }).catch(function (err) {
+            error.textContent = err.message;
+            error.classList.remove("d-none");
+        }).finally(function () {
+            button.disabled = false;
+        });
+    }
+
+    function renglonesCompraLoteSeleccionados() {
+        var alcance = valor("proveedores_erp_compra_lote_alcance") || "pendientes";
+        var renglones = filtrarListaDetalleRenglones();
+        if (alcance === "pendientes") {
+            renglones = renglones.filter(function (x) {
+                return preparacionRenglonListaDetalle(x).compraPendiente;
+            });
+        }
+        return renglones;
+    }
+
+    function actualizarConteoCompraLote() {
+        var renglones = renglonesCompraLoteSeleccionados();
+        var conteo = document.getElementById("proveedores_erp_compra_lote_conteo");
+        if (conteo) {
+            conteo.textContent = renglones.length + " renglon(es) seleccionados";
+        }
+        var form = document.getElementById("proveedores_erp_compra_lote_form");
+        if (form) {
+            setValor(form, "ids_json", JSON.stringify(renglones.map(function (x) {
+                return Number(x.id_lista_detalle_erp || 0);
+            }).filter(Boolean)));
+        }
+    }
+
+    /**
+     * IA: Codex GPT-5 | Fecha: 2026-07-20
+     * Proposito: preparar en lote datos de compra de renglones ya matcheados sin aplicar relacion ni costo.
+     * Impacto: UI Proveedores; acelera limpieza operativa de listas grandes.
+     */
+    function abrirCompraLote() {
+        if (!proveedorActual || !listaDetalleActual || !permisos.listas) {
+            return;
+        }
+        var form = document.getElementById("proveedores_erp_compra_lote_form");
+        if (!form) {
+            return;
+        }
+        form.reset();
+        setValor(form, "id_proveedor", proveedorActual.id_proveedor);
+        setValor(form, "id_lista_proveedor_erp", listaDetalleActual.id_lista_proveedor_erp);
+        llenarUnidadesListaDetalle();
+        setValor(form, "sobrescribir", "0");
+        document.getElementById("proveedores_erp_compra_lote_error").classList.add("d-none");
+        actualizarConteoCompraLote();
+        bootstrap.Modal.getOrCreateInstance(document.getElementById("proveedores_erp_compra_lote_modal")).show();
+    }
+
+    function guardarCompraLote(event) {
+        event.preventDefault();
+        var form = event.currentTarget;
+        var ids = renglonesCompraLoteSeleccionados().map(function (x) {
+            return Number(x.id_lista_detalle_erp || 0);
+        }).filter(Boolean);
+        var error = document.getElementById("proveedores_erp_compra_lote_error");
+        var button = form.querySelector("[type='submit']");
+        if (!ids.length) {
+            error.textContent = "No hay renglones seleccionados para completar compra. Usa filtros o selecciona renglones con compra pendiente.";
+            error.classList.remove("d-none");
+            return;
+        }
+        setValor(form, "ids_json", JSON.stringify(ids));
+        var data = {};
+        new FormData(form).forEach(function (value, key) {
+            data[key] = value;
+        });
+        button.disabled = true;
+        error.classList.add("d-none");
+        post("/proveedor/proveedor_lista_detalle_compra_lote_erp", data).then(function (response) {
+            if (response.error) {
+                throw new Error(response.mensaje || "No fue posible completar compra en lote.");
+            }
+            bootstrap.Modal.getInstance(document.getElementById("proveedores_erp_compra_lote_modal")).hide();
+            Swal.fire({text: response.mensaje, icon: "success", confirmButtonText: "Aceptar"});
+            abrirDetalleLista(listaDetalleActual);
         }).catch(function (err) {
             error.textContent = err.message;
             error.classList.remove("d-none");
@@ -3020,6 +3123,22 @@
         var importarPreview = document.getElementById("proveedores_erp_lista_preview_importar");
         if (importarPreview) {
             importarPreview.addEventListener("click", importarPreviewLista);
+        }
+        var abrirCompraLoteBtn = document.getElementById("proveedores_erp_compra_lote_abrir");
+        if (abrirCompraLoteBtn) {
+            abrirCompraLoteBtn.addEventListener("click", abrirCompraLote);
+        }
+        var formCompraLote = document.getElementById("proveedores_erp_compra_lote_form");
+        if (formCompraLote) {
+            formCompraLote.addEventListener("submit", guardarCompraLote);
+        }
+        var alcanceCompraLote = document.getElementById("proveedores_erp_compra_lote_alcance");
+        if (alcanceCompraLote) {
+            alcanceCompraLote.addEventListener("change", actualizarConteoCompraLote);
+        }
+        var limitePreview = document.getElementById("proveedores_erp_lista_preview_limite");
+        if (limitePreview) {
+            limitePreview.addEventListener("change", cargarPreviewListaActual);
         }
         var formListaDetalle = document.getElementById("proveedores_erp_lista_detalle_form");
         if (formListaDetalle) {

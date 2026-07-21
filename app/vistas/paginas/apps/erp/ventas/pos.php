@@ -43,10 +43,14 @@
         .pos-cuenta-btn.active { border-color: #1b84ff; background: #f1f7ff; }
         .pos-cuenta-total { font-weight: 700; color: #181c32; }
         .pos-cuenta-close { width: 28px; height: 28px; padding: 0; }
-        .pos-module-bar { display: flex; gap: 8px; overflow-x: auto; padding: 8px 0 12px; }
-        .pos-module-btn { min-width: 128px; border: 1px solid #e4e6ef; background: #fff; border-radius: 8px; padding: 9px 10px; color: #3f4254; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; gap: 7px; white-space: nowrap; }
+        .pos-module-bar { display: flex; flex-wrap: wrap; gap: 8px; padding: 8px 0 0; width: 100%; }
+        .pos-module-btn { min-width: 112px; border: 1px solid #e4e6ef; background: #fff; border-radius: 8px; padding: 9px 10px; color: #3f4254; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; gap: 7px; white-space: nowrap; }
         .pos-module-btn:hover { border-color: #1b84ff; background: #f1f7ff; color: #1b84ff; }
         .pos-module-btn.pos-module-primary { background: #f1f7ff; color: #1b84ff; border-color: #b8d8ff; }
+        .pos-action-strip { border: 1px solid #e6e8ee; border-radius: 8px; background: #fff; padding: 10px; }
+        .pos-action-strip .pos-module-bar { justify-content: flex-start; }
+        .pos-shortcut-hint { margin-left: 2px; padding: 1px 5px; border-radius: 5px; background: rgba(126,130,153,.12); color: #7e8299; font-size: .67rem; font-weight: 800; line-height: 1.25; }
+        .pos-pay-quick { min-width: 132px; border-radius: 8px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; gap: 7px; }
         .pos-total-panel { border-left: 1px solid #eef0f6; padding-left: 18px; }
         .pos-badge-row { min-height: 26px; }
         .pos-empty { min-height: 180px; border: 1px dashed #d7dbe4; border-radius: 8px; }
@@ -65,6 +69,15 @@
         @media (max-width: 991px) {
             .pos-cart-list { max-height: none; }
             .pos-product { width: 190px; min-width: 190px; }
+            .pos-pay-grid { grid-template-columns: 1fr 96px 1fr 34px; }
+            .pos-total-panel { border-left: 0; padding-left: 0; }
+            .pos-action-strip .pos-module-btn { min-width: 104px; flex: 1 1 104px; }
+        }
+        @media (max-width: 575px) {
+            .pos-pay-grid { grid-template-columns: 1fr; }
+            .pos-pay-grid .btn { width: 100%; }
+            .pos-module-btn { min-width: 98px; font-size: .86rem; }
+            .pos-pay-quick { min-width: 100%; }
         }
     </style>
 </head>
@@ -91,15 +104,44 @@
                                 <button class="btn btn-light-primary" id="pos_refrescar" type="button" title="Actualizar catalogos">
                                     <i class="bi bi-arrow-clockwise"></i>
                                 </button>
-                                <button class="btn btn-primary" id="pos_prevalidar_top" type="button">
-                                    <i class="bi bi-shield-check"></i> Prevalidar
-                                </button>
+                                <a class="btn btn-light" href="/ventas/manual_pos"><i class="bi bi-question-circle"></i> Manual</a>
                             </div>
                         </div>
                     </div>
                     <div class="app-content flex-column-fluid">
                         <div class="app-container container-fluid">
                             <div class="pos-toolbar p-4 mb-4">
+                                <div class="pos-action-strip mb-4">
+                                    <div class="d-flex flex-wrap justify-content-between align-items-center gap-3">
+                                        <div>
+                                            <div class="fw-bold">Acciones POS</div>
+                                            <div class="text-muted fs-8">Venta rapida, ticket, caja y consultas sin mezclar modulos</div>
+                                        </div>
+                                        <div class="pos-module-bar py-0">
+                                            <button class="pos-module-btn pos-module-primary" id="pos_prevalidar" type="button" title="Revisar stock, caja, pagos y reglas antes de cobrar"><i class="bi bi-shield-check"></i> Prevalidar <span class="pos-shortcut-hint">F9</span></button>
+                                            <button class="pos-module-btn" id="pos_ticket_preview" type="button" title="Vista previa del ticket sin confirmar venta"><i class="bi bi-receipt"></i> Ticket</button>
+                                            <button class="pos-module-btn" id="pos_cliente_precio_modal_btn" type="button" title="Buscar o preparar cliente CRM"><i class="bi bi-person-vcard"></i> Cliente</button>
+                                            <button class="pos-module-btn" id="pos_excepcion_modal_btn" type="button" title="Precio manual o descuento autorizado"><i class="bi bi-shield-lock"></i> Autorizar</button>
+                                            <button class="pos-module-btn" id="pos_atenciones_modal_btn" type="button" title="Cuentas creadas por otros operadores"><i class="bi bi-people"></i> Atenciones</button>
+                                            <a class="pos-module-btn" href="/ventas/manual_pos#manual-arranque"><i class="bi bi-clipboard-check"></i> Arranque</a>
+                                            <a class="pos-module-btn" href="/ventas/caja_turnos"><i class="bi bi-calculator"></i> Caja</a>
+                                            <a class="pos-module-btn" href="/ventas/mostrar"><i class="bi bi-receipt-cutoff"></i> Ventas</a>
+                                            <a class="pos-module-btn" href="/ventas/caja_movimientos"><i class="bi bi-cash-stack"></i> Movimientos</a>
+                                            <a class="pos-module-btn" href="/ventas/caja_evidencias"><i class="bi bi-file-earmark-check"></i> Evidencias</a>
+                                            <a class="pos-module-btn" href="/ventas/reportes"><i class="bi bi-bar-chart"></i> Reportes</a>
+                                            <div class="dropdown">
+                                                <button class="pos-module-btn dropdown-toggle" type="button" data-bs-toggle="dropdown"><i class="bi bi-three-dots"></i> Mas</button>
+                                                <div class="dropdown-menu dropdown-menu-end">
+                                                    <button class="dropdown-item" id="pos_dryrun" type="button"><i class="bi bi-clipboard-pulse me-2"></i> Simular venta</button>
+                                                    <button class="dropdown-item" id="pos_pedido_dryrun" type="button"><i class="bi bi-bookmark-check me-2"></i> Simular pedido</button>
+                                                    <button class="dropdown-item" id="pos_inventario_pendiente_dryrun" type="button"><i class="bi bi-exclamation-triangle me-2"></i> Validar inventario pendiente</button>
+                                                    <a class="dropdown-item" href="/ventas/pedidos"><i class="bi bi-journal-bookmark me-2"></i> Pedidos/apartados</a>
+                                                    <a class="dropdown-item" href="/ventas/manual_pos"><i class="bi bi-question-circle me-2"></i> Manual POS</a>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
                                 <div class="row g-3 align-items-end">
                                     <div class="col-lg-3">
                                         <label class="form-label text-muted fs-8 text-uppercase">Punto de venta</label>
@@ -139,9 +181,10 @@
                                         <label class="form-label text-muted fs-8 text-uppercase">Telefono</label>
                                         <input class="form-control form-control-solid" id="pos_cliente_telefono" inputmode="tel" placeholder="Rapido">
                                     </div>
-                                    <div class="col-lg-2">
+                                    <div class="col-lg-2 d-none" id="pos_compromiso_wrap">
                                         <label class="form-label text-muted fs-8 text-uppercase">Compromiso</label>
                                         <input class="form-control form-control-solid" id="pos_fecha_compromiso" type="datetime-local">
+                                        <div class="text-muted fs-8 mt-1">Solo pedidos/apartados</div>
                                     </div>
                                     <div class="col-lg-12">
                                         <label class="form-label text-muted fs-8 text-uppercase">Buscar producto</label>
@@ -197,21 +240,6 @@
                                                 <button class="btn btn-sm btn-light-primary" id="pos_cuenta_nueva" type="button"><i class="bi bi-plus-lg"></i> Nueva cuenta</button>
                                             </div>
                                             <div class="pos-cuentas mb-3" id="pos_cuentas"></div>
-                                            <div class="pos-module-bar" aria-label="Modulos POS">
-                                                <button class="pos-module-btn pos-module-primary" id="pos_prevalidar" type="button"><i class="bi bi-shield-check"></i> Prevalidar</button>
-                                                <button class="pos-module-btn" id="pos_dryrun" type="button"><i class="bi bi-clipboard-pulse"></i> Simular</button>
-                                                <button class="pos-module-btn" id="pos_inventario_pendiente_dryrun" type="button" title="Simular venta controlada con alerta a Inventario"><i class="bi bi-exclamation-triangle"></i> Inventario pendiente</button>
-                                                <button class="pos-module-btn" id="pos_pedido_dryrun" type="button" title="Simular pedido sin crear folio ni reserva"><i class="bi bi-bookmark-check"></i> Simular pedido</button>
-                                                <a class="pos-module-btn" href="/ventas/pedidos" title="Abrir seguimiento de pedidos y apartados"><i class="bi bi-journal-bookmark"></i> Pedidos</a>
-                                                <button class="pos-module-btn" id="pos_ticket_preview" type="button"><i class="bi bi-receipt"></i> Ticket</button>
-                                                <button class="pos-module-btn" id="pos_cliente_precio_modal_btn" type="button"><i class="bi bi-person-vcard"></i> Cliente</button>
-                                                <button class="pos-module-btn" id="pos_excepcion_modal_btn" type="button"><i class="bi bi-shield-lock"></i> Autorizar</button>
-                                                <button class="pos-module-btn" id="pos_atenciones_modal_btn" type="button"><i class="bi bi-people"></i> Atenciones</button>
-                                                <a class="pos-module-btn" href="/ventas/caja_movimientos"><i class="bi bi-cash-stack"></i> Movimientos</a>
-                                                <a class="pos-module-btn" href="/ventas/caja_evidencias"><i class="bi bi-file-earmark-check"></i> Evidencias</a>
-                                                <a class="pos-module-btn" href="/ventas/caja_turnos"><i class="bi bi-calculator"></i> Corte</a>
-                                                <a class="pos-module-btn" href="/ventas/reportes"><i class="bi bi-bar-chart"></i> Reportes</a>
-                                            </div>
                                             <div class="pos-cart-list" id="pos_carrito"></div>
                                             <div class="separator my-4"></div>
                                             <div class="row g-4">
@@ -222,10 +250,11 @@
                                                             <span class="text-muted fs-8">Elige metodo rapido</span>
                                                         </div>
                                                         <div class="d-flex flex-wrap gap-2 mb-2">
-                                                            <button class="btn btn-sm btn-light-success" data-pos-pago-rapido="efectivo" type="button">Efectivo</button>
-                                                            <button class="btn btn-sm btn-light-info" data-pos-pago-rapido="tarjeta" type="button">Tarjeta</button>
-                                                            <button class="btn btn-sm btn-light-warning" data-pos-pago-rapido="transferencia" type="button">Transferencia</button>
-                                                            <button class="btn btn-sm btn-light-primary" data-pos-pago-rapido="saldo_crm" type="button">Saldo cliente</button>
+                                                            <button class="btn btn-sm btn-light-success pos-pay-quick" data-pos-pago-rapido="efectivo" type="button" title="Alt+1"><i class="bi bi-cash"></i> Efectivo <span class="pos-shortcut-hint">Alt+1</span></button>
+                                                            <button class="btn btn-sm btn-light-info pos-pay-quick" data-pos-pago-rapido="tarjeta" type="button" title="Alt+2"><i class="bi bi-credit-card"></i> Tarjeta <span class="pos-shortcut-hint">Alt+2</span></button>
+                                                            <button class="btn btn-sm btn-light-warning pos-pay-quick" data-pos-pago-rapido="transferencia" type="button" title="Alt+3"><i class="bi bi-bank"></i> Transferencia <span class="pos-shortcut-hint">Alt+3</span></button>
+                                                            <button class="btn btn-sm btn-light-primary pos-pay-quick" data-pos-pago-rapido="saldo_crm" type="button"><i class="bi bi-wallet2"></i> Saldo cliente</button>
+                                                            <button class="btn btn-sm btn-light pos-pay-quick" id="pos_agregar_pago" type="button"><i class="bi bi-plus-lg"></i> Otro pago</button>
                                                         </div>
                                                         <div id="pos_cliente_saldo_crm" class="mb-2"></div>
                                                         <div id="pos_pagos"></div>
@@ -255,7 +284,7 @@
                                                         <span>Total estimado</span>
                                                         <strong id="pos_total">$0.00</strong>
                                                     </div>
-                                                    <button class="btn btn-success btn-lg w-100" id="pos_cobrar_real" type="button"><i class="bi bi-cash-coin"></i> Cobrar</button>
+                                                    <button class="btn btn-success btn-lg w-100" id="pos_cobrar_real" type="button"><i class="bi bi-cash-coin"></i> Cobrar <span class="pos-shortcut-hint">Ctrl+Enter</span></button>
                                                     </div>
                                                 </div>
                                             </div>
@@ -304,8 +333,8 @@
         <div class="modal-content">
             <div class="modal-header">
                 <div>
-                    <h3 class="modal-title mb-1">Ticket preview</h3>
-                    <div class="text-muted fs-7">Vista previa sin folio real ni descuento de inventario</div>
+                    <h3 class="modal-title mb-1" id="pos_ticket_titulo">Ticket POS</h3>
+                    <div class="text-muted fs-7" id="pos_ticket_subtitulo">Consulta de ticket</div>
                 </div>
                 <button type="button" class="btn btn-icon btn-sm btn-active-light-primary" data-bs-dismiss="modal"><i class="bi bi-x-lg"></i></button>
             </div>
@@ -314,7 +343,7 @@
             </div>
             <div class="modal-footer">
                 <button class="btn btn-light" type="button" data-bs-dismiss="modal">Cerrar</button>
-                <button class="btn btn-primary" id="pos_ticket_imprimir" type="button"><i class="bi bi-printer"></i> Imprimir</button>
+                <button class="btn btn-primary" id="pos_ticket_imprimir" type="button" disabled><i class="bi bi-printer"></i> Imprimir</button>
             </div>
         </div>
     </div>

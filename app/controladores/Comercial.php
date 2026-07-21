@@ -16,9 +16,56 @@ class Comercial extends Controlador
     public function listas_precios()
     {
         $this->requerirPermiso('ventas.listas.ver');
-        $this->vista('apps/erp/ventas/listas_precios', array(
+        $this->vista('apps/erp/ventas/listas_precios_inicio', array(
             'modulo' => 'comercial',
             'ruta_canonica' => '/comercial/listas_precios'
+        ));
+    }
+
+    /**
+     * Documentacion IA: Codex GPT-5, 2026-07-20.
+     * Proposito: separar el editor operativo del listado de Listas de precios.
+     * Impacto: permite abrir una pantalla dedicada para crear una lista nueva sin perder contexto.
+     * Contrato: la vista reutiliza backend Comercial; guardar sigue protegido por permisos y auditoria.
+     */
+    public function listas_precios_nueva()
+    {
+        $this->requerirPermiso('ventas.listas.crear');
+        $this->vista('apps/erp/ventas/listas_precios', array(
+            'modulo' => 'comercial',
+            'ruta_canonica' => '/comercial/listas_precios_nueva',
+            'modo_editor' => 'nueva'
+        ));
+    }
+
+    /**
+     * Documentacion IA: Codex GPT-5, 2026-07-20.
+     * Proposito: abrir una lista existente en un editor dedicado por id.
+     * Impacto: evita que el usuario mezcle consulta general con edicion de una lista concreta.
+     * Contrato: la seleccion inicial se hace por query `id_lista_precio`; permisos finos aplican al guardar.
+     */
+    public function listas_precios_editar()
+    {
+        $this->requerirPermiso('ventas.listas.ver');
+        $this->vista('apps/erp/ventas/listas_precios', array(
+            'modulo' => 'comercial',
+            'ruta_canonica' => '/comercial/listas_precios_editar',
+            'modo_editor' => 'editar'
+        ));
+    }
+
+    /**
+     * Documentacion IA: Codex GPT-5, 2026-07-20.
+     * Proposito: mostrar manual operativo de Comercial/Listas de precios.
+     * Impacto: facilita arranque fase 1 y capacitacion sin depender de documentacion tecnica.
+     * Contrato: vista read-only; no modifica listas, POS, CRM ni ecommerce.
+     */
+    public function listas_precios_manual()
+    {
+        $this->requerirPermiso('ventas.listas.ver');
+        $this->vista('apps/erp/ventas/listas_precios_manual', array(
+            'modulo' => 'comercial',
+            'ruta_canonica' => '/comercial/listas_precios_manual'
         ));
     }
 
@@ -94,6 +141,18 @@ class Comercial extends Controlador
         $this->requerirPermiso('ventas.listas.ver');
         $idLista = isset($_GET['id_lista_precio']) ? intval($_GET['id_lista_precio']) : 0;
         return json_encode($this->modelo('ListasPreciosErp')->revisionListaReadOnly($idLista));
+    }
+
+    /**
+     * Documentacion IA: Codex GPT-5, 2026-07-20.
+     * Proposito: exponer semaforo read-only de fase 1 para arranque operativo de Listas/POS.
+     * Impacto: ayuda a decidir si el modulo esta listo para piloto real sin escribir BD.
+     * Contrato: solo lectura; no activa listas, no crea ventas y no toca ecommerce.
+     */
+    public function listas_precios_fase1_readiness_erp()
+    {
+        $this->requerirPermiso('ventas.listas.ver');
+        return json_encode($this->modelo('ListasPreciosErp')->fase1ReadinessReadOnly());
     }
 
     /**

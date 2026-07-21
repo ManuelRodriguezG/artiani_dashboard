@@ -360,7 +360,14 @@
                         <h2 class="mb-1" id="catalogo_detalle_titulo">Producto ERP</h2>
                         <span class="text-muted" id="catalogo_detalle_codigo"></span>
                     </div>
-                    <button type="button" class="btn btn-sm btn-icon btn-light" data-bs-dismiss="modal" title="Cerrar"><i class="bi bi-x-lg"></i></button>
+                    <div class="d-flex align-items-center gap-2">
+                        <?php if (SesionSeguridad::tienePermiso('catalogo.editar')): ?>
+                        <button type="button" class="btn btn-sm btn-light-primary" id="catalogo_duplicar_abrir">
+                            <i class="bi bi-copy"></i> Duplicar
+                        </button>
+                        <?php endif; ?>
+                        <button type="button" class="btn btn-sm btn-icon btn-light" data-bs-dismiss="modal" title="Cerrar"><i class="bi bi-x-lg"></i></button>
+                    </div>
                 </div>
                 <div class="modal-body">
                     <ul class="nav nav-tabs nav-line-tabs mb-7 fs-6">
@@ -806,6 +813,73 @@
             </div>
         </div>
     </div>
+
+    <?php if (SesionSeguridad::tienePermiso('catalogo.editar')): ?>
+    <div class="modal fade" id="catalogo_modal_duplicar" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-xl">
+            <div class="modal-content">
+                <form id="catalogo_form_duplicar" data-erp-ajax="true">
+                    <div class="modal-header">
+                        <div>
+                            <h2 class="mb-1">Duplicar producto</h2>
+                            <span class="text-muted" id="catalogo_duplicar_origen">Usa el producto actual como plantilla controlada</span>
+                        </div>
+                        <button type="button" class="btn btn-sm btn-icon btn-light" data-bs-dismiss="modal" title="Cerrar"><i class="bi bi-x-lg"></i></button>
+                    </div>
+                    <div class="modal-body">
+                        <input type="hidden" name="id_producto_origen">
+                        <div class="alert alert-light-warning">
+                            Se creara un producto nuevo en borrador. No se copiaran imagenes, codigos de barras, proveedores, costos, precios, paquetes, presentaciones ni movimientos.
+                        </div>
+                        <div class="row g-5">
+                            <div class="col-md-4"><label class="form-label required">Codigo nuevo</label><input class="form-control" name="codigo_producto" maxlength="80" required></div>
+                            <div class="col-md-8"><label class="form-label required">Nombre nuevo</label><input class="form-control" name="nombre_producto" maxlength="255" required></div>
+                            <div class="col-md-4"><label class="form-label required">SKU origen</label><select class="form-select" name="id_sku_origen" id="catalogo_duplicar_sku_origen" required></select></div>
+                            <div class="col-md-4"><label class="form-label required">SKU nuevo</label><input class="form-control" name="sku_nuevo" maxlength="150" required></div>
+                            <div class="col-md-4"><label class="form-label">Nombre SKU nuevo</label><input class="form-control" name="nombre_sku" maxlength="255"></div>
+                            <div class="col-md-4"><label class="form-label">Estado inicial</label><select class="form-select" name="estatus"><option value="borrador">Borrador</option><option value="en_revision">En revision</option></select></div>
+                            <div class="col-md-8"><label class="form-label required">Nota de duplicacion</label><input class="form-control" name="nota_duplicacion" maxlength="255" required placeholder="Ej. producto similar con configuracion base compartida"></div>
+                        </div>
+                        <div class="separator my-7"></div>
+                        <div class="row g-5">
+                            <div class="col-lg-4">
+                                <div class="catalogo-config-section h-100">
+                                    <div class="catalogo-config-section__title"><i class="bi bi-card-checklist"></i> Datos maestros</div>
+                                    <label class="form-check form-check-custom form-check-solid mb-3"><input class="form-check-input" type="checkbox" name="copiar_marca" value="1" checked><span class="form-check-label">Copiar marca</span></label>
+                                    <label class="form-check form-check-custom form-check-solid mb-3"><input class="form-check-input" type="checkbox" name="copiar_categoria_principal" value="1" checked><span class="form-check-label">Copiar categoria principal</span></label>
+                                    <label class="form-check form-check-custom form-check-solid mb-3"><input class="form-check-input" type="checkbox" name="copiar_categorias_secundarias" value="1" checked><span class="form-check-label">Copiar categorias secundarias</span></label>
+                                    <label class="form-check form-check-custom form-check-solid"><input class="form-check-input" type="checkbox" name="copiar_descripcion" value="1" checked><span class="form-check-label">Copiar descripcion</span></label>
+                                </div>
+                            </div>
+                            <div class="col-lg-4">
+                                <div class="catalogo-config-section h-100">
+                                    <div class="catalogo-config-section__title"><i class="bi bi-box-seam"></i> SKU e inventario</div>
+                                    <input type="hidden" name="copiar_unidad_tipo" value="1">
+                                    <label class="form-check form-check-custom form-check-solid mb-3"><input class="form-check-input" type="checkbox" value="1" checked disabled><span class="form-check-label">Copiar unidad, factor y tipo <span class="text-muted">(requerido fase 1)</span></span></label>
+                                    <label class="form-check form-check-custom form-check-solid mb-3"><input class="form-check-input" type="checkbox" name="copiar_reglas_inventario" value="1" checked><span class="form-check-label">Copiar reglas de inventario/granel</span></label>
+                                    <label class="form-check form-check-custom form-check-solid"><input class="form-check-input" type="checkbox" name="copiar_stock_reorden" value="1"><span class="form-check-label">Copiar stock minimo/maximo/reorden</span></label>
+                                </div>
+                            </div>
+                            <div class="col-lg-4">
+                                <div class="catalogo-config-section h-100">
+                                    <div class="catalogo-config-section__title"><i class="bi bi-receipt"></i> Fiscal y exclusiones</div>
+                                    <label class="form-check form-check-custom form-check-solid mb-3"><input class="form-check-input" type="checkbox" name="copiar_fiscal" value="1" checked><span class="form-check-label">Copiar fiscal si aplica igual</span></label>
+                                    <div class="text-muted fs-8">Siempre se omiten imagenes, codigos, proveedores, costos, precios, paquetes, presentaciones y movimientos.</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="alert alert-light-info mt-6 mb-0" id="catalogo_duplicar_preview"></div>
+                        <div class="alert alert-danger d-none mt-6 mb-0" id="catalogo_duplicar_error"></div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancelar</button>
+                        <button type="submit" class="btn btn-primary"><i class="bi bi-copy"></i> Crear duplicado</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    <?php endif; ?>
 
     <script src="assets/plugins/global/plugins.bundle.js"></script>
     <script src="assets/js/scripts.bundle.js"></script>

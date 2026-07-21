@@ -6575,3 +6575,212 @@ Prueba real pendiente:
 - Confirmar que solo cambia a `match_seleccionado`.
 - Confirmar que ambiguos/posibles/sin match quedan sin seleccion automatica.
 - Ejecutar `Preview relaciones` y aplicar solo si el preview es correcto.
+
+## Avance tecnico 2026-07-20 - Recarga conservadora de listas de proveedor
+
+Documentacion IA: Codex GPT-5
+
+Archivo:
+
+- `app/modelos/Proveedores.php`
+
+Hallazgo en prueba real:
+
+- En la lista de proveedor PET GLASS / ARTIANI TERRARIOS se cargo un archivo nuevo con renglones adicionales.
+- La lista si apuntaba al archivo nuevo, pero la vista previa solo mostraba una muestra corta y los productos agregados estaban al final.
+- La lista ya tenia renglones importados; el importador anterior rechazaba cualquier importacion si la lista no estaba vacia.
+
+Implementacion:
+
+- La vista previa de archivos `CSV/TXT/XLSX` dejo de usar una muestra corta fija; el limite se controla desde la UI.
+- La importacion de archivo actualizado ya no bloquea por tener renglones previos.
+- Si la lista ya tiene detalle, el importador anexa solo renglones nuevos.
+- La deteccion de duplicados usa la mejor clave disponible en este orden: `sku_proveedor`, `codigo_barras`, `codigo_interno` y, solo si no hay identificadores, `descripcion_proveedor`.
+- No se borran renglones existentes.
+- No se sobrescriben costos, matches, relaciones proveedor-SKU ni `costo_referencia`.
+
+Prueba real pendiente:
+
+- En Proveedores, abrir la lista de PET GLASS / ARTIANI TERRARIOS.
+- Entrar a `Vista previa archivo` y confirmar que aparecen los renglones nuevos del archivo reciente.
+- Revisar el mapeo de columnas.
+- Ejecutar importacion.
+- Confirmar que se agregan los renglones nuevos y que los 30 renglones previos quedan intactos.
+- Confirmar que los renglones nuevos quedan en `sin_match` para continuar con matching/revision normal.
+
+## Correccion 2026-07-20 - Preview dinamico y duplicados por mapeo
+
+Hallazgo posterior:
+
+- Al recargar la lista, el archivo nuevo podia mapear `CODIGO` hacia `codigo_interno` y no hacia `sku_proveedor`.
+- Los renglones previos tenian el mismo valor en `sku_proveedor`/`codigo_interno`, pero la comparacion anterior revisaba solo una clave prioritaria.
+- Esto permitio insertar renglones repetidos cuando el mismo identificador entraba por otra columna.
+
+Ajuste:
+
+- La deduplicacion ahora compara identificadores fuertes de forma cruzada:
+  - `sku_proveedor`
+  - `codigo_barras`
+  - `codigo_interno`
+  - clave generica `identificador`
+- `descripcion_proveedor` solo se usa como respaldo si no hay ningun identificador fuerte.
+- La vista previa ahora tiene selector de filas: `100`, `500`, `1000`.
+- El endpoint de preview recibe `limite_preview` con tope de `1000` para no saturar navegador.
+- La importacion tecnica sube el maximo a `50000` filas para listas grandes.
+
+Pendiente con autorizacion:
+
+- Limpiar los renglones duplicados que se insertaron en la prueba de PET GLASS, conservando los renglones originales y dejando solo los productos realmente nuevos.
+
+Limpieza autorizada y ejecutada:
+
+- Se eliminaron 30 renglones duplicados de la lista PET GLASS / ARTIANI TERRARIOS.
+- Rango eliminado: `id_lista_detalle_erp` `10943` a `10972`.
+- Validacion previa: no tenian `id_sku`, `id_sku_proveedor` ni costos ligados.
+- Resultado: lista `14` quedo con 34 renglones, conservando 30 originales y 4 nuevos (`10973` a `10976`).
+
+## Avance tecnico 2026-07-20 - Manual operativo dentro de Proveedores
+
+Archivos:
+
+- `app/controladores/Proveedor.php`
+- `app/vistas/paginas/apps/erp/proveedores/manual_erp.php`
+- `app/vistas/includes/header/sidebar.php`
+- `app/vistas/paginas/apps/erp/proveedores/listado_erp.php`
+
+Implementacion:
+
+- Se agrego la ruta `/proveedor/manual_erp` con permiso `proveedores.ver`.
+- Se agrego acceso en el sidebar de Proveedores como `Manual de uso`.
+- Se agrego boton `Manual` en la pantalla principal de Proveedores ERP.
+- El manual cubre flujo recomendado, maestro, listas, mapeo, matching, incidencias a Catalogo, costos, uso en Compras, errores comunes y checklist operativo.
+
+Finalidad:
+
+- Que el usuario pueda aprender y operar el modulo sin depender del chat.
+- Conservar una guia viva dentro del ERP mientras se siguen realizando pruebas reales.
+
+## Correccion 2026-07-20 - Matching exacto por codigo interno contra SKU ERP
+
+Hallazgo en prueba real:
+
+- Proveedor `24`, lista `15`, Terrarios madera.
+- Los renglones importados traen el identificador del producto en `codigo_interno`.
+- El buscador manual encontraba SKUs porque buscaba el termino contra `erp_catalogo_skus.sku`.
+- El matching dry-run solo comparaba `codigo_interno` contra `erp_catalogo_sku_codigos.codigo`, no contra el SKU principal.
+- Resultado anterior: productos con SKU ERP exacto podian caer como ambiguos por coincidencia de nombre.
+
+Ajuste:
+
+- `candidatosSkuExactoErp` ahora compara `sku_proveedor`, `codigo_barras` y `codigo_interno` contra:
+  - `erp_catalogo_skus.sku`
+  - `erp_catalogo_sku_codigos.codigo`
+- No crea relaciones.
+- No aplica costos.
+- No modifica renglones; solo mejora el calculo del dry-run.
+
+Validacion local:
+
+- Dry-run proveedor `24`, lista `15` despues del ajuste:
+  - `total`: 30
+  - `match_exacto_pendiente`: 10
+  - `ambiguo`: 20
+  - `sin_match`: 0
+- Los 20 ambiguos restantes no tienen SKU ERP exacto `TEMA...` detectado en Catalogo local; solo coinciden por nombre/descripcion.
+
+## Avance tecnico 2026-07-20 - Completar compra en lote y ayuda de campos
+
+Archivos:
+
+- `app/controladores/Proveedor.php`
+- `app/modelos/Proveedores.php`
+- `app/vistas/paginas/apps/erp/proveedores/listado_erp.php`
+- `public/assets/js/custom/apps/erp/proveedores/listado_erp.js`
+
+Implementacion:
+
+- Se agrego endpoint `proveedor_lista_detalle_compra_lote_erp`.
+- Se agrego boton `Completar compra` en el detalle de lista.
+- El lote puede aplicarse a:
+  - renglones filtrados con compra pendiente;
+  - todos los renglones filtrados.
+- Modo recomendado: `Solo completar campos vacios`.
+- Modo alterno: sobrescribir campos existentes si se autoriza desde la UI.
+- No aplica relacion proveedor-SKU.
+- No aplica costos.
+- No actualiza `costo_referencia`.
+- No modifica Catalogo.
+
+Campos aclarados en UI:
+
+- `Presentacion del proveedor`: texto de referencia como viene en la lista, por ejemplo pieza, caja o paquete.
+- `Unidad de compra ERP`: unidad formal para Compras.
+- `Factor de conversion`: cuantas unidades base contiene la unidad de compra.
+- `Compra minima`: cantidad minima que el proveedor permite comprar de esa presentacion.
+- `Moneda`: moneda del costo reportado, por ejemplo `MXN` peso mexicano, `USD` dolar.
+- `Costo incluye impuestos`: `Si` equivale a `1`; `No` equivale a `0`.
+- `Existencia reportada`: stock informado por el proveedor; no afecta inventario propio.
+
+Finalidad:
+
+- Evitar capturar de uno por uno unidad/factor/minimo/moneda/impuestos cuando una lista grande comparte condiciones de compra.
+- Preparar renglones con `match_seleccionado` para que luego puedan entrar al lote de aplicar relaciones.
+
+## Correccion 2026-07-20 - Recarga de lista actualiza costos de renglones existentes
+
+Hallazgo:
+
+- Al recargar una lista del mismo proveedor con los mismos SKUs/codigos, el importador evitaba duplicados pero tambien omitia cambios utiles.
+- Caso real: lista `15` Terrario madera, recargada para corregir precios con impuestos.
+
+Ajuste:
+
+- Cuando un renglon importado ya existe por identificador fuerte, ya no se omite automaticamente.
+- Se compara si cambiaron datos variables de la lista:
+  - `marca_proveedor`
+  - `descripcion_proveedor`
+  - `unidad_compra_texto`
+  - `factor_conversion`
+  - `costo`
+  - `moneda`
+  - `costo_incluye_impuestos`
+  - `existencia_reportada`
+- Si hay diferencias, se actualiza el detalle de la lista.
+- Si no hay diferencias, se omite como existente sin cambios.
+
+Regla operativa:
+
+- Actualizar el renglon de lista no aplica automaticamente el costo vigente del proveedor.
+- No cambia relaciones proveedor-SKU.
+- No actualiza `costo_referencia`.
+- Para que el costo corregido sea usado operativamente, despues debe revisarse/aplicarse desde el flujo de costos correspondiente.
+
+## Correccion 2026-07-20 - Cierre de incidencia Catalogo al aplicar relacion
+
+Hallazgo:
+
+- En el flujo Proveedores -> Catalogo -> Proveedores, crear un SKU temporal desde Catalogo dejaba la incidencia `proveedor_sku_sin_match` en `en_revision`.
+- Al aplicar la relacion proveedor-SKU, Proveedores resolvia la notificacion de seguimiento, pero no cerraba la incidencia de Catalogo.
+- Caso de referencia: SKU `ALA-0003`, incidencia `6`, renglon proveedor `11009`.
+
+Contrato corregido:
+
+- `en_revision` significa que Catalogo ya tomo la incidencia y creo/relaciono un candidato, pero falta cerrar el matching desde Proveedores.
+- La incidencia debe pasar a `resuelta` cuando el renglon de proveedor queda en `relacion_aplicada` con `id_sku` e `id_sku_proveedor`.
+- No se cierra al solo editar el producto o activar el maestro.
+
+Implementacion:
+
+- `Proveedores::aplicarRelacionSkuProveedorErp()` ahora llama `resolverIncidenciaCatalogoProveedorPorRelacion()`.
+- `Proveedores::aplicarRelacionesSkuProveedorLoteErp()` tambien cierra incidencias en lote.
+- La resolucion queda en `erp_catalogo_incidencias_calidad.resolucion_json` con proveedor, lista, renglon, SKU ERP y relacion proveedor-SKU.
+
+Siguiente paso operativo para el usuario:
+
+1. Volver a Proveedores, lista `Alamazonas` ID `16`.
+2. Ejecutar matching.
+3. Verificar que el renglon `11009` proponga el candidato `ALA-0003` por `incidencia_catalogo_sku_temporal`.
+4. Seleccionar el candidato.
+5. Completar unidad de compra, factor y compra minima si estan vacios.
+6. Aplicar relacion.
+7. Regresar a Catalogo y confirmar que la incidencia desaparece de abiertas.

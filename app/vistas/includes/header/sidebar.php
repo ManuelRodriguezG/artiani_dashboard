@@ -41,6 +41,7 @@ $gruposMenu = array(
         'permiso' => '',
         'items' => array(
             array('titulo' => 'Listas de precios', 'ruta' => '/comercial/listas_precios', 'permiso' => 'ventas.listas.ver'),
+            array('titulo' => 'Manual listas de precios', 'ruta' => '/comercial/listas_precios_manual', 'permiso' => 'ventas.listas.ver'),
             array('titulo' => 'Analisis comercial', 'ruta' => '/rentabilidad/analisis', 'permiso' => 'rentabilidad.ver')
         )
     ),
@@ -52,6 +53,7 @@ $gruposMenu = array(
         'items' => array(
             array('titulo' => 'Tablero de ventas', 'ruta' => '/ventas/mostrar', 'permiso' => 'ventas.ver'),
             array('titulo' => 'POS', 'ruta' => '/ventas/pos', 'permiso' => 'ventas.operar'),
+            array('titulo' => 'Manual POS', 'ruta' => '/ventas/manual_pos', 'permiso' => 'ventas.ver'),
             array('titulo' => 'Checador de precios', 'ruta' => '/ventas/checador_precios', 'permiso' => 'ventas.ver'),
             array('titulo' => 'Pedidos', 'ruta' => '/ventas/pedidos', 'permiso' => 'ventas.ver'),
             array('titulo' => 'Devoluciones', 'ruta' => '/ventas/devoluciones', 'permiso' => 'ventas.ver'),
@@ -94,6 +96,7 @@ $gruposMenu = array(
         'permiso' => 'proveedores.ver',
         'items' => array(
             array('titulo' => 'Maestro proveedores', 'ruta' => '/proveedor/mostrar_proveedores_erp', 'permiso' => 'proveedores.ver'),
+            array('titulo' => 'Manual de uso', 'ruta' => '/proveedor/manual_erp', 'permiso' => 'proveedores.ver'),
             array('titulo' => 'Auditoria proveedores', 'ruta' => '/proveedor/auditoria_erp', 'permiso' => 'proveedores.auditoria'),
             array('titulo' => 'Proveedores legacy', 'ruta' => '/proveedor/listas_mostrar', 'permiso' => 'compras.ver')
         )

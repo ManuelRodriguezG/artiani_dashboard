@@ -40,6 +40,17 @@ class Proveedor extends Controlador {
         $this->vista("apps/erp/proveedores/auditoria");
     }
 
+    /**
+     * IA: Codex GPT-5
+     * Fecha: 2026-07-20
+     * Proposito: mostrar manual operativo integrado al modulo de Proveedores ERP.
+     * Impacto: Proveedores; solo lectura, sin escrituras ni cambios de negocio.
+     */
+    public function manual_erp() {
+        $this->requerirPermiso("proveedores.ver");
+        $this->vista("apps/erp/proveedores/manual_erp");
+    }
+
     private function descargarAuditoriaProveedoresJson($respuesta, $fecha) {
         header("X-Content-Type-Options: nosniff");
         header("Content-Type: application/json; charset=UTF-8");
@@ -262,7 +273,8 @@ class Proveedor extends Controlador {
         $this->requerirPermiso("proveedores.listas");
         $id_proveedor = isset($_REQUEST["id_proveedor"]) ? $_REQUEST["id_proveedor"] : 0;
         $id_lista = isset($_REQUEST["id_lista_proveedor_erp"]) ? $_REQUEST["id_lista_proveedor_erp"] : 0;
-        echo json_encode($this->modelo("Proveedores")->previewArchivoListaProveedorErp($id_proveedor, $id_lista));
+        $limite = isset($_REQUEST["limite_preview"]) ? $_REQUEST["limite_preview"] : 200;
+        echo json_encode($this->modelo("Proveedores")->previewArchivoListaProveedorErp($id_proveedor, $id_lista, $limite));
     }
 
     public function proveedor_lista_archivo_importar_erp() {
@@ -310,6 +322,20 @@ class Proveedor extends Controlador {
             "mensaje" => $respuesta["mensaje"],
             "datos_antes" => isset($respuesta["depurar"]["antes"]) ? $respuesta["depurar"]["antes"] : null,
             "datos_despues" => isset($respuesta["depurar"]["despues"]) ? $respuesta["depurar"]["despues"] : null
+        ));
+        echo json_encode($respuesta);
+    }
+
+    public function proveedor_lista_detalle_compra_lote_erp() {
+        $this->requerirPermiso("proveedores.listas");
+        $respuesta = $this->modelo("Proveedores")->completarCompraListaDetalleLoteErp($_POST, $this->usuarioActualId());
+        SesionSeguridad::registrarAuditoria("proveedores", "proveedor_lista_detalle_compra_lote", array(
+            "entidad" => "erp_proveedores_listas_erp",
+            "entidad_id" => isset($respuesta["depurar"]["id_lista_proveedor_erp"]) ? intval($respuesta["depurar"]["id_lista_proveedor_erp"]) : null,
+            "resultado" => $respuesta["error"] ? "error" : "ok",
+            "mensaje" => $respuesta["mensaje"],
+            "datos_antes" => null,
+            "datos_despues" => isset($respuesta["depurar"]) ? $respuesta["depurar"] : null
         ));
         echo json_encode($respuesta);
     }

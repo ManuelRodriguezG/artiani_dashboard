@@ -2632,12 +2632,27 @@ class Proveedores extends CRUD {
         return dirname(__DIR__, 2) . DIRECTORY_SEPARATOR . str_replace("/", DIRECTORY_SEPARATOR, $rutaRelativa);
     }
 
-    private function leerPreviewArchivoListaProveedorErp($ruta, $mime, $extension) {
+    /**
+     * IA: Codex GPT-5
+     * Fecha: 2026-07-20
+     * Proposito: limitar dinamicamente la vista previa para listas grandes sin saturar el navegador.
+     * Impacto: Proveedores; solo afecta lectura de preview, no importacion ni persistencia.
+     */
+    private function limiteFilasPreviewListaProveedorErp($limite) {
+        $limite = intval($limite);
+        if ($limite <= 0) {
+            return 200;
+        }
+        return max(50, min($limite, 1000));
+    }
+
+    private function leerPreviewArchivoListaProveedorErp($ruta, $mime, $extension, $limiteFilas = 200) {
+        $limiteFilas = $this->limiteFilasPreviewListaProveedorErp($limiteFilas);
         if (in_array($extension, array("csv", "txt"), true) || in_array($mime, array("text/csv", "application/csv", "text/plain"), true)) {
-            return $this->leerPreviewCsvListaProveedorErp($ruta);
+            return $this->leerPreviewCsvListaProveedorErp($ruta, $limiteFilas);
         }
         if ($extension === "xlsx" || $mime === "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet") {
-            return $this->leerPreviewXlsxListaProveedorErp($ruta, 25, 40);
+            return $this->leerPreviewXlsxListaProveedorErp($ruta, $limiteFilas, 40);
         }
         if ($extension === "xls" || $mime === "application/vnd.ms-excel") {
             return array(
@@ -2661,13 +2676,12 @@ class Proveedores extends CRUD {
         );
     }
 
-    private function leerPreviewCsvListaProveedorErp($ruta) {
+    private function leerPreviewCsvListaProveedorErp($ruta, $maxFilas) {
         $handle = fopen($ruta, "r");
         if (!$handle) {
             throw new Exception("No fue posible abrir el archivo");
         }
         $filas = array();
-        $maxFilas = 25;
         while (($fila = fgetcsv($handle, 0, ",")) !== false && count($filas) < $maxFilas) {
             if (count($fila) === 1 && strpos((string) $fila[0], ";") !== false) {
                 $fila = str_getcsv((string) $fila[0], ";");
@@ -2986,6 +3000,106 @@ class Proveedores extends CRUD {
             }
         }
         return false;
+    }
+
+    /**
+     * IA: Codex GPT-5
+     * Fecha: 2026-07-20
+     * Proposito: detectar renglones ya importados al recargar una lista de proveedor.
+     * Impacto: Proveedores; permite anexar productos nuevos sin borrar ni sobrescribir detalle existente.
+     * Contrato: devuelve claves fuertes normalizadas; descripcion solo se usa si no hay identificadores.
+     */
+    private function clavesUnicasFilaListaProveedorErp($fila) {
+        $claves = array();
+        $campos = array(
+            "sku_proveedor" => "sku",
+            "codigo_barras" => "barcode",
+            "codigo_interno" => "interno"
+        );
+        foreach ($campos as $campo => $prefijo) {
+            $valor = isset($fila[$campo]) ? $this->normalizarClaveComparacionProveedorErp($fila[$campo]) : "";
+            if ($valor !== "") {
+                $claves[] = $prefijo . ":" . $valor;
+                $claves[] = "identificador:" . $valor;
+            }
+        }
+        if (!empty($claves)) {
+            return array_values(array_unique($claves));
+        }
+        $descripcion = isset($fila["descripcion_proveedor"]) ? $this->normalizarClaveComparacionProveedorErp($fila["descripcion_proveedor"]) : "";
+        return $descripcion !== "" ? array("descripcion:" . $descripcion) : array();
+    }
+
+    private function normalizarClaveComparacionProveedorErp($valor) {
+        $valor = strtolower(trim((string) $valor));
+        $buscar = array("Ã¡", "Ã©", "Ã­", "Ã³", "Ãº", "Ã±");
+        $reemplazar = array("a", "e", "i", "o", "u", "n");
+        $valor = str_replace($buscar, $reemplazar, $valor);
+        return preg_replace("/\s+/", " ", $valor);
+    }
+
+    private function cargarClavesExistentesListaProveedorErp($db, $idLista) {
+        $stmt = $db->prepare("SELECT *
+            FROM erp_proveedores_listas_detalle_erp
+            WHERE id_lista_proveedor_erp = :id_lista");
+        $stmt->execute(array(":id_lista" => intval($idLista)));
+        $claves = array();
+        while ($fila = $stmt->fetch(PDO::FETCH_ASSOC)) {
+            foreach ($this->clavesUnicasFilaListaProveedorErp($fila) as $clave) {
+                $claves[$clave] = $fila;
+            }
+        }
+        return $claves;
+    }
+
+    /**
+     * IA: Codex GPT-5
+     * Fecha: 2026-07-20
+     * Proposito: decidir si una recarga de lista debe actualizar datos variables de un renglon existente.
+     * Impacto: Proveedores; evita duplicados y permite corregir costos/moneda/impuestos desde archivo actualizado.
+     * Contrato: no cambia matching, relaciones SKU proveedor, costos vigentes ni costo_referencia.
+     */
+    private function cambiosImportacionRenglonExistenteProveedorErp($existente, $normalizado) {
+        $campos = array(
+            "marca_proveedor" => "texto",
+            "descripcion_proveedor" => "texto",
+            "unidad_compra_texto" => "texto",
+            "factor_conversion" => "decimal",
+            "costo" => "decimal",
+            "moneda" => "texto",
+            "costo_incluye_impuestos" => "booleano",
+            "existencia_reportada" => "decimal"
+        );
+        $cambios = array();
+        foreach ($campos as $campo => $tipo) {
+            $nuevo = isset($normalizado[$campo]) ? $normalizado[$campo] : null;
+            if ($nuevo === null || trim((string) $nuevo) === "") {
+                continue;
+            }
+            if ($tipo === "booleano") {
+                $nuevo = $this->booleanoImportacionProveedorErp($nuevo);
+                if ($nuevo === null) {
+                    continue;
+                }
+                $actual = isset($existente[$campo]) && $existente[$campo] !== null && trim((string) $existente[$campo]) !== "" ? intval($existente[$campo]) : null;
+            } elseif ($tipo === "decimal") {
+                $nuevo = floatval($nuevo);
+                $actual = isset($existente[$campo]) && $existente[$campo] !== null && trim((string) $existente[$campo]) !== "" ? floatval($existente[$campo]) : null;
+                if ($actual !== null && abs($actual - $nuevo) < 0.000001) {
+                    continue;
+                }
+            } else {
+                $nuevo = $campo === "moneda" ? strtoupper($this->limitarTextoProveedorErp($nuevo, 10)) : $this->limitarTextoProveedorErp($nuevo, $campo === "descripcion_proveedor" ? 5000 : 160);
+                $actual = isset($existente[$campo]) ? trim((string) $existente[$campo]) : "";
+                if ($campo === "moneda") {
+                    $actual = strtoupper($actual);
+                }
+            }
+            if ($actual !== $nuevo) {
+                $cambios[$campo] = $nuevo;
+            }
+        }
+        return $cambios;
     }
 
     private function filaImportacionEsNotaProveedorErp($fila) {
@@ -4306,11 +4420,12 @@ class Proveedores extends CRUD {
         }
     }
 
-    public function previewArchivoListaProveedorErp($id_proveedor, $id_lista_proveedor_erp) {
+    public function previewArchivoListaProveedorErp($id_proveedor, $id_lista_proveedor_erp, $limite_preview = 200) {
         try {
             $db = $this->getConexion();
             $idProveedor = intval($id_proveedor);
             $idLista = intval($id_lista_proveedor_erp);
+            $limitePreview = $this->limiteFilasPreviewListaProveedorErp($limite_preview);
             if ($idProveedor <= 0 || $idLista <= 0) {
                 return array("error" => true, "tipo" => "warning", "mensaje" => "Proveedor o lista invalida", "depurar" => null);
             }
@@ -4333,7 +4448,7 @@ class Proveedores extends CRUD {
 
             $mime = isset($documento["archivo_tipo"]) ? (string) $documento["archivo_tipo"] : "";
             $extension = strtolower(pathinfo(isset($documento["archivo_nombre"]) ? $documento["archivo_nombre"] : $ruta, PATHINFO_EXTENSION));
-            $preview = $this->leerPreviewArchivoListaProveedorErp($ruta, $mime, $extension);
+            $preview = $this->leerPreviewArchivoListaProveedorErp($ruta, $mime, $extension, $limitePreview);
             $mapeo = $this->sugerirMapeoColumnasListaProveedorErp($preview["encabezados"]);
 
             return array(
@@ -4353,6 +4468,7 @@ class Proveedores extends CRUD {
                     "preview" => $preview,
                     "mapeo_sugerido" => $mapeo,
                     "limites" => array(
+                        "Vista previa limitada a " . $limitePreview . " renglones para no saturar el navegador.",
                         "Solo muestra filas.",
                         "No importa renglones.",
                         "No aplica costos ni relaciones.",
@@ -4384,9 +4500,6 @@ class Proveedores extends CRUD {
                 return array("error" => true, "tipo" => "warning", "mensaje" => "Lista o archivo original no disponible", "depurar" => null);
             }
             $existentes = $this->contarProveedorErp($db, "erp_proveedores_listas_detalle_erp", "id_lista_proveedor_erp = :id_lista", array(":id_lista" => $idLista));
-            if ($existentes > 0) {
-                return array("error" => true, "tipo" => "warning", "mensaje" => "La importacion inicial solo esta permitida en listas vacias", "depurar" => array("renglones_existentes" => $existentes));
-            }
 
             $documento = $this->consultarDocumentoProveedorErp($db, intval($lista["id_documento_proveedor"]), $idProveedor);
             $ruta = $documento ? $this->resolverRutaArchivoProveedorErp($documento["archivo_ruta"]) : "";
@@ -4395,12 +4508,13 @@ class Proveedores extends CRUD {
             }
 
             $extension = strtolower(pathinfo(isset($documento["archivo_nombre"]) ? $documento["archivo_nombre"] : $ruta, PATHINFO_EXTENSION));
-            $lectura = $this->leerFilasImportacionListaProveedorErp($ruta, isset($documento["archivo_tipo"]) ? $documento["archivo_tipo"] : "", $extension, 10000);
+            $lectura = $this->leerFilasImportacionListaProveedorErp($ruta, isset($documento["archivo_tipo"]) ? $documento["archivo_tipo"] : "", $extension, 50000);
             if (!$lectura["parseable"]) {
                 return array("error" => true, "tipo" => "warning", "mensaje" => "Este archivo no se puede importar automaticamente", "depurar" => $lectura);
             }
 
             $db->beginTransaction();
+            $clavesExistentes = $this->cargarClavesExistentesListaProveedorErp($db, $idLista);
             $insert = $db->prepare("INSERT INTO erp_proveedores_listas_detalle_erp
                 (id_lista_proveedor_erp, sku_proveedor, codigo_barras, codigo_interno, marca_proveedor, descripcion_proveedor,
                  unidad_compra_texto, factor_conversion, costo, moneda, costo_incluye_impuestos, existencia_reportada,
@@ -4409,7 +4523,7 @@ class Proveedores extends CRUD {
                 (:id_lista, :sku_proveedor, :codigo_barras, :codigo_interno, :marca_proveedor, :descripcion_proveedor,
                  :unidad_compra_texto, :factor_conversion, :costo, :moneda, :costo_incluye_impuestos, :existencia_reportada,
                  'sin_match', 'importacion_lista_proveedor', :observaciones, NOW(), NOW())");
-            $conteos = array("leidos" => 0, "importados" => 0, "omitidos_vacios" => 0, "omitidos_notas" => 0, "sin_costo" => 0, "sin_moneda" => 0);
+            $conteos = array("leidos" => 0, "importados" => 0, "actualizados" => 0, "omitidos_vacios" => 0, "omitidos_notas" => 0, "omitidos_existentes" => 0, "sin_cambios" => 0, "sin_costo" => 0, "sin_moneda" => 0);
             foreach ($lectura["filas"] as $fila) {
                 $conteos["leidos"]++;
                 $normalizado = $this->normalizarFilaImportacionListaProveedorErp($fila, $mapeo, isset($lista["moneda"]) ? $lista["moneda"] : "");
@@ -4419,6 +4533,47 @@ class Proveedores extends CRUD {
                 }
                 if ($this->filaImportacionEsNotaProveedorErp($normalizado)) {
                     $conteos["omitidos_notas"]++;
+                    continue;
+                }
+                $clavesFila = $this->clavesUnicasFilaListaProveedorErp($normalizado);
+                $renglonExistente = null;
+                foreach ($clavesFila as $claveFila) {
+                    if (isset($clavesExistentes[$claveFila])) {
+                        $renglonExistente = $clavesExistentes[$claveFila];
+                        break;
+                    }
+                }
+                if ($renglonExistente) {
+                    $cambios = $this->cambiosImportacionRenglonExistenteProveedorErp($renglonExistente, $normalizado);
+                    if (empty($cambios)) {
+                        $conteos["omitidos_existentes"]++;
+                        $conteos["sin_cambios"]++;
+                        continue;
+                    }
+                    $sets = array();
+                    $paramsUpdate = array(
+                        ":id_detalle" => intval($renglonExistente["id_lista_detalle_erp"]),
+                        ":id_lista" => $idLista
+                    );
+                    foreach ($cambios as $campoCambio => $valorCambio) {
+                        $paramCambio = ":" . $campoCambio;
+                        $sets[] = $campoCambio . " = " . $paramCambio;
+                        $paramsUpdate[$paramCambio] = $valorCambio;
+                    }
+                    $stmtUpdateExistente = $db->prepare("UPDATE erp_proveedores_listas_detalle_erp
+                        SET " . implode(", ", $sets) . ",
+                            observaciones = CONCAT(COALESCE(observaciones, ''), CASE WHEN COALESCE(observaciones, '') = '' THEN '' ELSE '\n' END, 'Datos actualizados desde recarga de lista.'),
+                            fecha_actualizacion = NOW()
+                        WHERE id_lista_detalle_erp = :id_detalle
+                          AND id_lista_proveedor_erp = :id_lista");
+                    $stmtUpdateExistente->execute($paramsUpdate);
+                    $actualizado = $this->consultarListaDetalleProveedorErp($db, intval($renglonExistente["id_lista_detalle_erp"]), $idLista, $idProveedor);
+                    if ($actualizado) {
+                        foreach ($this->clavesUnicasFilaListaProveedorErp($actualizado) as $claveActualizada) {
+                            $clavesExistentes[$claveActualizada] = $actualizado;
+                        }
+                    }
+                    $conteos["actualizados"]++;
                     continue;
                 }
                 if (floatval(isset($normalizado["costo"]) ? $normalizado["costo"] : 0) <= 0) {
@@ -4442,6 +4597,16 @@ class Proveedores extends CRUD {
                     ":existencia_reportada" => $this->decimalValorNuloProveedorErp($normalizado["existencia_reportada"]),
                     ":observaciones" => "Importado desde archivo original de lista. Pendiente matching y validacion."
                 ));
+                $nuevoRenglon = $this->consultarListaDetalleProveedorErp($db, intval($db->lastInsertId()), $idLista, $idProveedor);
+                foreach ($clavesFila as $claveFila) {
+                    $clavesExistentes[$claveFila] = $nuevoRenglon ? $nuevoRenglon : array(
+                        "id_lista_detalle_erp" => 0,
+                        "sku_proveedor" => $normalizado["sku_proveedor"],
+                        "codigo_barras" => $normalizado["codigo_barras"],
+                        "codigo_interno" => $normalizado["codigo_interno"],
+                        "descripcion_proveedor" => $normalizado["descripcion_proveedor"]
+                    );
+                }
                 $conteos["importados"]++;
             }
             $db->commit();
@@ -4449,13 +4614,16 @@ class Proveedores extends CRUD {
             return array(
                 "error" => false,
                 "tipo" => "success",
-                "mensaje" => "Renglones importados en borrador",
+                "mensaje" => $existentes > 0 ? "Archivo revisado; se anexaron nuevos y se actualizaron existentes con cambios" : "Renglones importados en borrador",
                 "depurar" => array(
                     "id_proveedor" => $idProveedor,
                     "id_lista_proveedor_erp" => $idLista,
+                    "renglones_existentes_antes" => $existentes,
                     "conteos" => $conteos,
                     "reglas" => array(
                         "Estado match inicial: sin_match.",
+                        "Si la lista ya tenia detalle, se omitieron renglones existentes sin cambios.",
+                        "Si un renglon existente trae costo, moneda, impuestos, unidad o existencia distinta, se actualiza el detalle de lista.",
                         "No se aplicaron relaciones proveedor-SKU.",
                         "No se aplicaron costos vigentes.",
                         "No se actualizo costo_referencia."
@@ -4845,6 +5013,129 @@ class Proveedores extends CRUD {
                 )
             );
         } catch (Exception $e) {
+            return array("error" => true, "tipo" => "danger", "mensaje" => $e->getMessage(), "depurar" => null);
+        }
+    }
+
+    /**
+     * IA: Codex GPT-5
+     * Fecha: 2026-07-20
+     * Proposito: completar datos de compra en varios renglones de lista sin aplicar relacion ni costo.
+     * Impacto: Proveedores; prepara renglones para lote de relaciones conservando matching y evidencias.
+     * Contrato: actualiza solo IDs enviados de la misma lista/proveedor; puede llenar solo vacios o sobrescribir campos autorizados.
+     */
+    public function completarCompraListaDetalleLoteErp($datos, $id_usuario) {
+        $db = $this->getConexion();
+        try {
+            $idProveedor = isset($datos["id_proveedor"]) ? intval($datos["id_proveedor"]) : 0;
+            $idLista = isset($datos["id_lista_proveedor_erp"]) ? intval($datos["id_lista_proveedor_erp"]) : 0;
+            $idsJson = isset($datos["ids_json"]) ? (string) $datos["ids_json"] : "[]";
+            $ids = json_decode($idsJson, true);
+            if ($idProveedor <= 0 || $idLista <= 0 || !is_array($ids) || empty($ids)) {
+                return array("error" => true, "tipo" => "warning", "mensaje" => "Selecciona renglones validos para completar compra", "depurar" => null);
+            }
+            $lista = $this->consultarListaProveedorErp($db, $idLista, $idProveedor);
+            if (!$lista) {
+                return array("error" => true, "tipo" => "warning", "mensaje" => "Lista ERP no encontrada", "depurar" => null);
+            }
+
+            $ids = array_values(array_unique(array_filter(array_map("intval", $ids), function ($id) {
+                return $id > 0;
+            })));
+            if (empty($ids) || count($ids) > 1000) {
+                return array("error" => true, "tipo" => "warning", "mensaje" => "El lote debe tener entre 1 y 1000 renglones", "depurar" => array("total_ids" => count($ids)));
+            }
+
+            $campos = array();
+            $params = array(":id_lista" => $idLista);
+            $soloVacios = !isset($datos["sobrescribir"]) || intval($datos["sobrescribir"]) !== 1;
+            $valoresPermitidos = array(
+                "unidad_compra_texto" => array("tipo" => "texto", "max" => 80),
+                "id_unidad_compra" => array("tipo" => "entero"),
+                "factor_conversion" => array("tipo" => "decimal"),
+                "cantidad_minima" => array("tipo" => "decimal"),
+                "moneda" => array("tipo" => "moneda"),
+                "costo_incluye_impuestos" => array("tipo" => "booleano"),
+                "existencia_reportada" => array("tipo" => "decimal")
+            );
+
+            foreach ($valoresPermitidos as $campo => $config) {
+                if (!array_key_exists($campo, $datos) || trim((string) $datos[$campo]) === "") {
+                    continue;
+                }
+                $param = ":" . $campo;
+                if ($config["tipo"] === "texto") {
+                    $params[$param] = $this->textoProveedorErp($datos, $campo, $config["max"]);
+                } elseif ($config["tipo"] === "entero") {
+                    $valor = intval($datos[$campo]);
+                    if ($valor <= 0) {
+                        continue;
+                    }
+                    $params[$param] = $valor;
+                } elseif ($config["tipo"] === "decimal") {
+                    $valor = floatval($datos[$campo]);
+                    if ($valor < 0) {
+                        continue;
+                    }
+                    $params[$param] = $valor;
+                } elseif ($config["tipo"] === "moneda") {
+                    $params[$param] = strtoupper($this->textoProveedorErp($datos, $campo, 10));
+                } elseif ($config["tipo"] === "booleano") {
+                    $valor = intval($datos[$campo]);
+                    if (!in_array($valor, array(0, 1), true)) {
+                        continue;
+                    }
+                    $params[$param] = $valor;
+                }
+
+                $condicionVacio = $campo === "id_unidad_compra"
+                    ? "(id_unidad_compra IS NULL OR id_unidad_compra <= 0)"
+                    : ($campo === "factor_conversion" || $campo === "cantidad_minima" || $campo === "existencia_reportada"
+                        ? "(" . $campo . " IS NULL OR " . $campo . " <= 0)"
+                        : "(" . $campo . " IS NULL OR TRIM(CAST(" . $campo . " AS CHAR)) = '')");
+                $campos[] = $campo . " = " . ($soloVacios ? "CASE WHEN " . $condicionVacio . " THEN " . $param . " ELSE " . $campo . " END" : $param);
+            }
+
+            if (empty($campos)) {
+                return array("error" => true, "tipo" => "warning", "mensaje" => "Captura al menos un dato de compra para aplicar", "depurar" => null);
+            }
+
+            $placeholders = array();
+            foreach ($ids as $i => $idDetalle) {
+                $key = ":id_" . $i;
+                $placeholders[] = $key;
+                $params[$key] = $idDetalle;
+            }
+
+            $db->beginTransaction();
+            $stmt = $db->prepare("UPDATE erp_proveedores_listas_detalle_erp
+                SET " . implode(", ", $campos) . ",
+                    observaciones = CONCAT(COALESCE(observaciones, ''), CASE WHEN COALESCE(observaciones, '') = '' THEN '' ELSE '\n' END, 'Datos de compra completados en lote.'),
+                    fecha_actualizacion = NOW()
+                WHERE id_lista_proveedor_erp = :id_lista
+                  AND id_lista_detalle_erp IN (" . implode(",", $placeholders) . ")");
+            $stmt->execute($params);
+            $actualizados = $stmt->rowCount();
+            $db->commit();
+
+            return array(
+                "error" => false,
+                "tipo" => "success",
+                "mensaje" => "Datos de compra completados en lote",
+                "depurar" => array(
+                    "id_proveedor" => $idProveedor,
+                    "id_lista_proveedor_erp" => $idLista,
+                    "solicitados" => count($ids),
+                    "actualizados" => $actualizados,
+                    "solo_campos_vacios" => $soloVacios,
+                    "campos" => array_keys($params),
+                    "usuario" => intval($id_usuario) ?: null
+                )
+            );
+        } catch (Exception $e) {
+            if ($db->inTransaction()) {
+                $db->rollBack();
+            }
             return array("error" => true, "tipo" => "danger", "mensaje" => $e->getMessage(), "depurar" => null);
         }
     }
@@ -5269,6 +5560,7 @@ class Proveedores extends CRUD {
             ));
 
             $notificacionesResueltas = $this->resolverNotificacionMatchingCatalogoProveedor($db, $idProveedor, $idLista, $idDetalle, $idSku);
+            $incidenciasResueltas = $this->resolverIncidenciaCatalogoProveedorPorRelacion($db, $idProveedor, $idLista, $idDetalle, $idSku, $idSkuProveedor, $id_usuario);
             $despues = $this->consultarRelacionSkuProveedorErp($db, $idSkuProveedor, $idSku, $idProveedor);
             $despuesRenglon = $this->consultarListaDetalleProveedorErp($db, $idDetalle, $idLista, $idProveedor);
             $db->commit();
@@ -5284,6 +5576,7 @@ class Proveedores extends CRUD {
                     "id_lista_proveedor_erp" => $idLista,
                     "id_lista_detalle_erp" => $idDetalle,
                     "notificaciones_resueltas" => $notificacionesResueltas,
+                    "incidencias_catalogo_resueltas" => $incidenciasResueltas,
                     "antes" => $antes,
                     "despues" => $despues,
                     "renglon_despues" => $despuesRenglon
@@ -5467,6 +5760,7 @@ class Proveedores extends CRUD {
             $creados = 0;
             $actualizados = 0;
             $notificacionesResueltas = 0;
+            $incidenciasResueltas = 0;
 
             foreach ($aplicables as $item) {
                 $renglon = $item["renglon"];
@@ -5530,6 +5824,7 @@ class Proveedores extends CRUD {
                 ));
 
                 $notificacionesResueltas += $this->resolverNotificacionMatchingCatalogoProveedor($db, $idProveedor, $idLista, $idDetalle, $idSku);
+                $incidenciasResueltas += $this->resolverIncidenciaCatalogoProveedorPorRelacion($db, $idProveedor, $idLista, $idDetalle, $idSku, $idSkuProveedor, $id_usuario);
                 $aplicados[] = array(
                     "id_lista_detalle_erp" => $idDetalle,
                     "id_sku" => $idSku,
@@ -5551,6 +5846,7 @@ class Proveedores extends CRUD {
                     "creados" => $creados,
                     "actualizados" => $actualizados,
                     "notificaciones_resueltas" => $notificacionesResueltas,
+                    "incidencias_catalogo_resueltas" => $incidenciasResueltas,
                     "excluidos" => count($excluidos),
                     "renglones" => $aplicados
                 )
@@ -6884,6 +7180,50 @@ class Proveedores extends CRUD {
         }
     }
 
+    /**
+     * IA: Codex GPT-5
+     * Fecha: 2026-07-20
+     * Proposito: cerrar la incidencia de Catalogo creada desde Proveedores cuando ya existe relacion proveedor-SKU aplicada.
+     * Impacto: Proveedores/Catalogo; elimina alertas abiertas solo despues del cierre operativo real del matching.
+     * Contrato: resuelve incidencias `proveedor_sku_sin_match` abiertas para el renglon y SKU indicados.
+     */
+    private function resolverIncidenciaCatalogoProveedorPorRelacion($db, $idProveedor, $idLista, $idDetalle, $idSku, $idSkuProveedor, $idUsuario) {
+        try {
+            $resolucion = array(
+                "accion" => "proveedor_sku_relacionado",
+                "id_proveedor" => intval($idProveedor),
+                "id_lista_proveedor_erp" => intval($idLista),
+                "id_lista_detalle_erp" => intval($idDetalle),
+                "id_sku" => intval($idSku),
+                "id_sku_proveedor" => intval($idSkuProveedor),
+                "usuario_id" => intval($idUsuario) ?: null,
+                "fecha" => date("c"),
+                "nota" => "Relacion proveedor-SKU aplicada desde Proveedores; se cierra la incidencia de Catalogo."
+            );
+            $stmt = $db->prepare("UPDATE erp_catalogo_incidencias_calidad
+                SET estatus='resuelta',
+                    resolucion_json=:resolucion,
+                    resuelto_por=:usuario,
+                    fecha_resolucion=NOW(),
+                    fecha_actualizacion=NOW()
+                WHERE origen='proveedores'
+                  AND tipo_incidencia='proveedor_sku_sin_match'
+                  AND referencia_tipo='erp_proveedores_listas_detalle_erp'
+                  AND id_referencia=:id_detalle
+                  AND id_sku=:id_sku
+                  AND estatus IN ('pendiente','en_revision','bloqueada')");
+            $stmt->execute(array(
+                ":resolucion" => json_encode($resolucion, JSON_UNESCAPED_UNICODE),
+                ":usuario" => intval($idUsuario) ?: null,
+                ":id_detalle" => intval($idDetalle),
+                ":id_sku" => intval($idSku)
+            ));
+            return intval($stmt->rowCount());
+        } catch (Exception $e) {
+            return 0;
+        }
+    }
+
     private function registrarNotificacionIncidenciaCatalogoProveedor($db, $propuesta, $incidencia, $idProveedor, $idLista, $idDetalle, $idUsuario) {
         try {
             if (!is_array($incidencia) || intval(isset($incidencia["id_incidencia_calidad"]) ? $incidencia["id_incidencia_calidad"] : 0) <= 0) {
@@ -7178,6 +7518,13 @@ class Proveedores extends CRUD {
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
+    /**
+     * IA: Codex GPT-5
+     * Fecha: 2026-07-20
+     * Proposito: detectar matches exactos comparando identificadores del proveedor contra SKU ERP y codigos alternos.
+     * Impacto: Proveedores/Catalogo; mejora matching sin crear relaciones ni modificar datos.
+     * Contrato: solo devuelve candidatos; la aplicacion de relacion sigue en flujo autorizado.
+     */
     private function candidatosSkuExactoErp($db, $renglon) {
         $stmt = $db->prepare("SELECT DISTINCT
                 s.id_sku,
@@ -7187,7 +7534,11 @@ class Proveedores extends CRUD {
                 NULL AS sku_proveedor,
                 s.estatus,
                 CASE
-                  WHEN LOWER(TRIM(s.sku)) = LOWER(TRIM(:sku_proveedor_case)) THEN 'sku_erp_exacto'
+                  WHEN LOWER(TRIM(s.sku)) IN (
+                      LOWER(TRIM(:sku_proveedor_case)),
+                      LOWER(TRIM(:codigo_barras_case)),
+                      LOWER(TRIM(:codigo_interno_case))
+                  ) THEN 'sku_erp_exacto'
                   ELSE 'codigo_sku_exacto'
                 END AS criterio
             FROM erp_catalogo_skus s
@@ -7196,7 +7547,10 @@ class Proveedores extends CRUD {
               AND (
                 (:id_sku_cmp > 0 AND s.id_sku = :id_sku_val)
                 OR (:sku_proveedor_cmp <> '' AND LOWER(TRIM(s.sku)) = LOWER(TRIM(:sku_proveedor_val)))
+                OR (:sku_proveedor_cmp <> '' AND LOWER(TRIM(c.codigo)) = LOWER(TRIM(:sku_proveedor_val)))
+                OR (:codigo_barras_cmp <> '' AND LOWER(TRIM(s.sku)) = LOWER(TRIM(:codigo_barras_val)))
                 OR (:codigo_barras_cmp <> '' AND LOWER(TRIM(c.codigo)) = LOWER(TRIM(:codigo_barras_val)))
+                OR (:codigo_interno_cmp <> '' AND LOWER(TRIM(s.sku)) = LOWER(TRIM(:codigo_interno_val)))
                 OR (:codigo_interno_cmp <> '' AND LOWER(TRIM(c.codigo)) = LOWER(TRIM(:codigo_interno_val)))
               )
             ORDER BY s.estatus = 'activo' DESC, s.id_sku DESC
@@ -7205,6 +7559,8 @@ class Proveedores extends CRUD {
             ":id_sku_cmp" => intval(isset($renglon["id_sku"]) ? $renglon["id_sku"] : 0),
             ":id_sku_val" => intval(isset($renglon["id_sku"]) ? $renglon["id_sku"] : 0),
             ":sku_proveedor_case" => trim((string) (isset($renglon["sku_proveedor"]) ? $renglon["sku_proveedor"] : "")),
+            ":codigo_barras_case" => trim((string) (isset($renglon["codigo_barras"]) ? $renglon["codigo_barras"] : "")),
+            ":codigo_interno_case" => trim((string) (isset($renglon["codigo_interno"]) ? $renglon["codigo_interno"] : "")),
             ":sku_proveedor_cmp" => trim((string) (isset($renglon["sku_proveedor"]) ? $renglon["sku_proveedor"] : "")),
             ":sku_proveedor_val" => trim((string) (isset($renglon["sku_proveedor"]) ? $renglon["sku_proveedor"] : "")),
             ":codigo_barras_cmp" => trim((string) (isset($renglon["codigo_barras"]) ? $renglon["codigo_barras"] : "")),

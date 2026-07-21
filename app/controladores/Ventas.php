@@ -34,6 +34,18 @@ class Ventas extends Controlador {
     $this->requerirPermiso("ventas.operar");
     $this->vista("apps/erp/ventas/pos");
   }
+
+  /**
+   * Documentacion IA: Codex GPT-5, 2026-07-20.
+   * Proposito: abrir manual operativo POS para cajeros/supervisores.
+   * Impacto: explica flujo de apertura, venta, pagos, scanner, ticket, cierre y limites del piloto.
+   * Contrato: vista informativa; no consulta ni escribe BD.
+   */
+  public function manual_pos() {
+    $this->requerirPermiso("ventas.ver");
+    $this->vista("apps/erp/ventas/manual_pos");
+  }
+
   /**
    * Documentacion IA: Codex GPT-5, 2026-07-10.
    * Proposito: abrir checador read-only de precios y disponibilidad para mostrador/celular.

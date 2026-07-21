@@ -28,8 +28,12 @@ foreach ($args as $arg) {
 $mysqld = rtrim($mysqlBin, "\\/") . "\\mysqld.exe";
 $mysqladmin = rtrim($mysqlBin, "\\/") . "\\mysqladmin.exe";
 $mysql = rtrim($mysqlBin, "\\/") . "\\mysql.exe";
+$ariaChk = rtrim($mysqlBin, "\\/") . "\\aria_chk.exe";
 $myIni = rtrim($mysqlBin, "\\/") . "\\my.ini";
 $errorLog = rtrim($mysqlData, "\\/") . "\\mysql_error.log";
+$mysqlPluginMai = rtrim($mysqlData, "\\/") . "\\mysql\\plugin.MAI";
+$mysqlPluginMad = rtrim($mysqlData, "\\/") . "\\mysql\\plugin.MAD";
+$ariaLogs = glob(rtrim($mysqlData, "\\/") . "\\aria_log.*") ?: array();
 $backupDataDir = rtrim(dirname($mysqlData), "\\/") . "\\data_pos_recovery_" . date("Ymd_His");
 
 $bloqueos = array();
@@ -49,8 +53,20 @@ if (!is_file($mysqladmin)) {
 if (!is_file($mysql)) {
     $bloqueos[] = "mysql.exe no existe";
 }
+if (!is_file($ariaChk)) {
+    $bloqueos[] = "aria_chk.exe no existe";
+}
 if (!is_file($myIni)) {
     $bloqueos[] = "my.ini no existe";
+}
+if (!is_file($mysqlPluginMai)) {
+    $avisos[] = "mysql.plugin MAI no encontrado; revisar si la instalacion XAMPP esta incompleta";
+}
+if (!is_file($mysqlPluginMad)) {
+    $avisos[] = "mysql.plugin MAD no encontrado; revisar si la instalacion XAMPP esta incompleta";
+}
+if (empty($ariaLogs)) {
+    $avisos[] = "No se encontraron aria_log.* en mysql data";
 }
 $logTail = array();
 if (is_file($errorLog)) {
@@ -63,10 +79,14 @@ if (is_file($errorLog)) {
 $autorizacion = "AUTORIZO RECUPERAR MYSQL UAT POS usando respaldo " . $respaldo
     . " con token " . $token
     . " permitiendo respaldo previo de " . $mysqlData
-    . ", arranque controlado de MariaDB, diagnostico InnoDB y restauracion/importacion solo si es necesario para continuar UAT POS";
+    . ", arranque controlado de MariaDB, diagnostico InnoDB, reparacion Aria con aria_chk y restauracion/importacion solo si es necesario para continuar UAT POS";
 
 $comandosPropuestos = array(
     "preflight_ping" => $mysqladmin . " ping -h 127.0.0.1 -u root",
+    "salud_mysql_pos_readonly" => "C:\\xampp\\php\\php.exe storage\\uat\\uat_ventas_pos_mysql_health_readonly.php",
+    "aria_check_mysql_plugin" => $ariaChk . " --check " . $mysqlPluginMai,
+    "aria_check_mysql_system" => $ariaChk . " --check " . rtrim($mysqlData, "\\/") . "\\mysql\\*.MAI",
+    "aria_repair_mysql_plugin_autorizado" => $ariaChk . " --recover " . $mysqlPluginMai,
     "arranque_normal" => "Start-Process -FilePath " . $mysqld . " -ArgumentList \"--defaults-file=" . $myIni . "\" -WindowStyle Hidden",
     "arranque_recovery_1" => "Start-Process -FilePath " . $mysqld . " -ArgumentList \"--defaults-file=" . $myIni . " --innodb-force-recovery=1\" -WindowStyle Hidden",
     "respaldo_data_previo" => "Copy-Item -Path " . $mysqlData . " -Destination " . $backupDataDir . " -Recurse",
@@ -84,8 +104,12 @@ echo json_encode(array(
         "mysqld" => $mysqld,
         "mysqladmin" => $mysqladmin,
         "mysql" => $mysql,
+        "aria_chk" => $ariaChk,
         "my_ini" => $myIni,
         "error_log" => $errorLog,
+        "mysql_plugin_mai" => $mysqlPluginMai,
+        "mysql_plugin_mad" => $mysqlPluginMad,
+        "aria_logs" => $ariaLogs,
         "backup_data_dir_propuesto" => $backupDataDir
     ),
     "validacion" => array(
@@ -94,7 +118,11 @@ echo json_encode(array(
         "mysql_data_existe" => is_dir($mysqlData),
         "mysqld_existe" => is_file($mysqld),
         "mysql_existe" => is_file($mysql),
-        "my_ini_existe" => is_file($myIni)
+        "aria_chk_existe" => is_file($ariaChk),
+        "my_ini_existe" => is_file($myIni),
+        "mysql_plugin_mai_existe" => is_file($mysqlPluginMai),
+        "mysql_plugin_mad_existe" => is_file($mysqlPluginMad),
+        "aria_logs_detectados" => count($ariaLogs)
     ),
     "bloqueos" => $bloqueos,
     "avisos" => $avisos,

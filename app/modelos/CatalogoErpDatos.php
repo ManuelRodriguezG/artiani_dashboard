@@ -4904,6 +4904,232 @@ class CatalogoErpDatos extends CRUD {
     return $stmt->fetchAll(PDO::FETCH_ASSOC);
   }
 
+  /**
+   * IA: Codex GPT-5 | Fecha: 2026-07-19
+   * Proposito: crea un producto nuevo desde una plantilla de Catalogo con opciones de copia conservadoras.
+   * Impacto: Catalogo ERP; acelera altas similares sin copiar codigos, imagenes, proveedores, precios, costos ni movimientos.
+   * Contrato: requiere producto origen, SKU origen, codigo/SKU nuevos y nota; usa transaccion completa.
+   */
+  public function duplicarProducto($datos, $idUsuario) {
+    $idProductoOrigen = intval(isset($datos["id_producto_origen"]) ? $datos["id_producto_origen"] : 0);
+    $idSkuOrigen = intval(isset($datos["id_sku_origen"]) ? $datos["id_sku_origen"] : 0);
+    $codigoNuevo = $this->texto($datos, "codigo_producto");
+    $nombreNuevo = $this->texto($datos, "nombre_producto");
+    $skuNuevo = $this->texto($datos, "sku_nuevo");
+    $nota = $this->texto($datos, "nota_duplicacion");
+    $estatusNuevo = $this->opcion($datos, "estatus", array("borrador", "en_revision"), "borrador");
+    if ($idProductoOrigen <= 0 || $idSkuOrigen <= 0 || $codigoNuevo === "" || $nombreNuevo === "" || $skuNuevo === "" || $nota === "") {
+      return $this->respuesta(true, "warning", "Completa producto origen, SKU origen, codigo nuevo, nombre, SKU nuevo y nota");
+    }
+
+    $db = $this->getConexion();
+    try {
+      $db->beginTransaction();
+      $productoOrigen = $this->consultarProductoOrigenDuplicacion($db, $idProductoOrigen);
+      if (!$productoOrigen) {
+        throw new Exception("Producto origen no encontrado o no disponible para duplicar");
+      }
+      $skuOrigen = $this->consultarSkuOrigenDuplicacion($db, $idProductoOrigen, $idSkuOrigen);
+      if (!$skuOrigen) {
+        throw new Exception("SKU origen no pertenece al producto o no esta disponible");
+      }
+
+      $stmt = $db->prepare("SELECT id_producto_erp FROM erp_catalogo_productos WHERE codigo_producto=:codigo LIMIT 1");
+      $stmt->execute(array(":codigo" => $codigoNuevo));
+      if ($stmt->fetchColumn()) {
+        throw new Exception("El codigo nuevo de producto ya existe");
+      }
+      $stmt = $db->prepare("SELECT id_sku FROM erp_catalogo_skus WHERE sku=:sku LIMIT 1");
+      $stmt->execute(array(":sku" => $skuNuevo));
+      if ($stmt->fetchColumn()) {
+        throw new Exception("El SKU nuevo ya existe");
+      }
+
+      $copiarMarca = $this->booleano($datos, "copiar_marca");
+      $copiarDescripcion = $this->booleano($datos, "copiar_descripcion");
+      $stmt = $db->prepare("INSERT INTO erp_catalogo_productos
+        (codigo_producto, nombre, descripcion, tipo_producto, id_marca_erp, maneja_variantes, estatus, creado_por)
+        VALUES (:codigo, :nombre, :descripcion, :tipo, :marca, :variantes, :estatus, :usuario)");
+      $stmt->execute(array(
+        ":codigo" => $codigoNuevo,
+        ":nombre" => $nombreNuevo,
+        ":descripcion" => $copiarDescripcion ? $productoOrigen["descripcion"] : "",
+        ":tipo" => $productoOrigen["tipo_producto"],
+        ":marca" => $copiarMarca ? $productoOrigen["id_marca_erp"] : null,
+        ":variantes" => intval($productoOrigen["maneja_variantes"]),
+        ":estatus" => $estatusNuevo,
+        ":usuario" => intval($idUsuario) ?: null
+      ));
+      $idProductoNuevo = intval($db->lastInsertId());
+
+      $categoriasCopiadas = $this->copiarCategoriasProductoDuplicado($db, $idProductoOrigen, $idProductoNuevo, $datos);
+      $datosSku = $this->datosSkuDuplicado($skuOrigen, $datos, $skuNuevo, $nombreNuevo, $estatusNuevo);
+      $idSkuNuevo = $this->insertarSkuCompleto($db, $idProductoNuevo, $datosSku, $idUsuario);
+
+      $db->commit();
+      return $this->respuesta(false, "success", "Producto duplicado en borrador", array(
+        "id_producto_origen" => $idProductoOrigen,
+        "id_sku_origen" => $idSkuOrigen,
+        "id_producto_erp" => $idProductoNuevo,
+        "id_sku" => $idSkuNuevo,
+        "categorias_copiadas" => $categoriasCopiadas,
+        "opciones_copiadas" => $this->opcionesDuplicacionAplicadas($datos),
+        "omitido" => array("imagenes", "codigos_barras", "proveedores", "costos", "precios", "paquetes", "presentaciones", "movimientos"),
+        "nota_duplicacion" => $nota
+      ));
+    } catch (Exception $e) {
+      if ($db->inTransaction()) {
+        $db->rollBack();
+      }
+      $mensaje = $e->getCode() === "23000" ? "El codigo de producto o SKU nuevo ya existe" : $e->getMessage();
+      return $this->respuesta(true, "danger", $mensaje);
+    }
+  }
+
+  /**
+   * IA: Codex GPT-5 | Fecha: 2026-07-19
+   * Proposito: consulta solo productos origen aptos para duplicacion asistida.
+   * Impacto: Catalogo ERP; evita usar registros fusionados como plantilla.
+   */
+  private function consultarProductoOrigenDuplicacion($db, $idProducto) {
+    $stmt = $db->prepare("SELECT id_producto_erp, codigo_producto, nombre, descripcion, tipo_producto, id_marca_erp, maneja_variantes, estatus
+      FROM erp_catalogo_productos
+      WHERE id_producto_erp=:producto AND estatus<>'fusionado'
+      LIMIT 1");
+    $stmt->execute(array(":producto" => intval($idProducto)));
+    return $stmt->fetch(PDO::FETCH_ASSOC);
+  }
+
+  /**
+   * IA: Codex GPT-5 | Fecha: 2026-07-19
+   * Proposito: obtiene la configuracion del SKU origen para crear un SKU nuevo sin copiar identidad unica.
+   * Impacto: Catalogo ERP; centraliza datos copiables y omite codigos de barras, costo y precio.
+   */
+  private function consultarSkuOrigenDuplicacion($db, $idProducto, $idSku) {
+    $recepcionVariableSelect = $this->esquemaRecepcionVariableDisponible($db)
+      ? "r.requiere_cantidad_variable_recepcion, r.requiere_unidades_fisicas_recepcion, r.tolerancia_recepcion_porcentaje, r.nota_recepcion_variable,"
+      : "0 AS requiere_cantidad_variable_recepcion, 0 AS requiere_unidades_fisicas_recepcion, NULL AS tolerancia_recepcion_porcentaje, NULL AS nota_recepcion_variable,";
+    $stmt = $db->prepare("SELECT s.id_sku, s.sku, s.nombre, s.tipo_inventario, s.id_unidad_base, s.factor_unidad_base,
+      s.permite_venta_sin_existencia,
+      r.controla_inventario, r.permite_existencia_negativa, r.requiere_lote, r.requiere_caducidad, r.requiere_serie,
+      r.requiere_serie_fabricante, r.generar_etiqueta_interna, r.requiere_escaneo_venta,
+      r.permite_venta_fraccionaria, r.precision_decimal, r.incremento_minimo_venta, r.unidad_venta_label,
+      r.permite_etiqueta_fraccionada, r.prefijo_etiqueta_interna, r.plantilla_etiqueta, r.tipo_etiqueta_seguridad,
+      r.instrucciones_etiquetado, r.estrategia_salida, r.stock_minimo, r.stock_maximo, r.punto_reorden,
+      r.dias_alerta_caducidad, r.dias_minimos_recepcion,
+      " . $recepcionVariableSelect . "
+      imp.clave_producto_sat, imp.clave_unidad_sat, imp.objeto_impuesto, imp.iva_porcentaje, imp.ieps_porcentaje, imp.incluye_impuestos
+      FROM erp_catalogo_skus s
+      LEFT JOIN erp_catalogo_sku_reglas_inventario r ON r.id_sku=s.id_sku
+      LEFT JOIN erp_catalogo_sku_impuestos imp ON imp.id_sku=s.id_sku
+      WHERE s.id_producto_erp=:producto AND s.id_sku=:sku AND s.estatus<>'fusionado'
+      LIMIT 1");
+    $stmt->execute(array(":producto" => intval($idProducto), ":sku" => intval($idSku)));
+    return $stmt->fetch(PDO::FETCH_ASSOC);
+  }
+
+  /**
+   * IA: Codex GPT-5 | Fecha: 2026-07-19
+   * Proposito: copia categorias activas del producto origen segun seleccion del operador.
+   * Impacto: Catalogo ERP; mantiene categoria principal y secundarias sin tocar productos existentes.
+   */
+  private function copiarCategoriasProductoDuplicado($db, $idOrigen, $idDestino, $datos) {
+    if (!$this->booleano($datos, "copiar_categoria_principal") && !$this->booleano($datos, "copiar_categorias_secundarias")) {
+      return 0;
+    }
+    $stmt = $db->prepare("SELECT pc.id_categoria_erp, pc.es_principal
+      FROM erp_catalogo_producto_categorias pc
+      INNER JOIN erp_catalogo_categorias c ON c.id_categoria_erp=pc.id_categoria_erp
+      WHERE pc.id_producto_erp=:producto AND c.estatus='activa' AND c.tipo_categoria='maestra' AND c.permite_productos=1
+      ORDER BY pc.es_principal DESC, c.ruta, c.nombre");
+    $stmt->execute(array(":producto" => intval($idOrigen)));
+    $insertar = $db->prepare("INSERT INTO erp_catalogo_producto_categorias (id_producto_erp, id_categoria_erp, es_principal)
+      VALUES (:producto, :categoria, :principal)");
+    $copiadas = 0;
+    foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $categoria) {
+      $esPrincipal = intval($categoria["es_principal"]) === 1;
+      if (($esPrincipal && !$this->booleano($datos, "copiar_categoria_principal")) || (!$esPrincipal && !$this->booleano($datos, "copiar_categorias_secundarias"))) {
+        continue;
+      }
+      $insertar->execute(array(
+        ":producto" => intval($idDestino),
+        ":categoria" => intval($categoria["id_categoria_erp"]),
+        ":principal" => $esPrincipal ? 1 : 0
+      ));
+      $copiadas++;
+    }
+    return $copiadas;
+  }
+
+  /**
+   * IA: Codex GPT-5 | Fecha: 2026-07-19
+   * Proposito: arma datos seguros para crear el SKU duplicado con identidad nueva.
+   * Impacto: Catalogo ERP; excluye costo, precio y codigo de barras aunque el SKU origen los tenga.
+   */
+  private function datosSkuDuplicado($skuOrigen, $datos, $skuNuevo, $nombreProductoNuevo, $estatusNuevo) {
+    $copiarReglas = $this->booleano($datos, "copiar_reglas_inventario");
+    $copiarStock = $this->booleano($datos, "copiar_stock_reorden");
+    $copiarFiscal = $this->booleano($datos, "copiar_fiscal");
+    $datosSku = array(
+      "sku" => $skuNuevo,
+      "nombre_sku" => $this->texto($datos, "nombre_sku", $nombreProductoNuevo),
+      "id_unidad_base" => intval($skuOrigen["id_unidad_base"]),
+      "factor_unidad_base" => floatval($skuOrigen["factor_unidad_base"]) > 0 ? $skuOrigen["factor_unidad_base"] : 1,
+      "tipo_inventario" => $skuOrigen["tipo_inventario"],
+      "costo_referencia" => 0,
+      "precio" => 0,
+      "moneda" => "MXN",
+      "codigo_barras" => "",
+      "estatus" => $estatusNuevo,
+      "permite_venta_sin_existencia" => $copiarReglas ? intval($skuOrigen["permite_venta_sin_existencia"]) : 0,
+      "stock_minimo" => $copiarReglas && $copiarStock ? $skuOrigen["stock_minimo"] : 0,
+      "stock_maximo" => $copiarReglas && $copiarStock ? $skuOrigen["stock_maximo"] : "",
+      "punto_reorden" => $copiarReglas && $copiarStock ? $skuOrigen["punto_reorden"] : 0,
+      "estrategia_salida" => $copiarReglas ? $skuOrigen["estrategia_salida"] : "FIFO",
+      "dias_alerta_caducidad" => $copiarReglas ? $skuOrigen["dias_alerta_caducidad"] : 90,
+      "dias_minimos_recepcion" => $copiarReglas ? $skuOrigen["dias_minimos_recepcion"] : 0
+    );
+    foreach (array(
+      "requiere_lote", "requiere_caducidad", "requiere_serie", "requiere_serie_fabricante",
+      "generar_etiqueta_interna", "requiere_escaneo_venta", "permite_existencia_negativa",
+      "permite_venta_fraccionaria", "permite_etiqueta_fraccionada",
+      "requiere_cantidad_variable_recepcion", "requiere_unidades_fisicas_recepcion"
+    ) as $campo) {
+      $datosSku[$campo] = $copiarReglas ? intval($skuOrigen[$campo]) : 0;
+    }
+    foreach (array(
+      "precision_decimal", "incremento_minimo_venta", "unidad_venta_label", "prefijo_etiqueta_interna",
+      "plantilla_etiqueta", "tipo_etiqueta_seguridad", "instrucciones_etiquetado",
+      "tolerancia_recepcion_porcentaje", "nota_recepcion_variable"
+    ) as $campo) {
+      $datosSku[$campo] = $copiarReglas ? $skuOrigen[$campo] : "";
+    }
+    if ($copiarFiscal) {
+      foreach (array("clave_producto_sat", "clave_unidad_sat", "objeto_impuesto", "iva_porcentaje", "ieps_porcentaje", "incluye_impuestos") as $campo) {
+        $datosSku[$campo] = isset($skuOrigen[$campo]) ? $skuOrigen[$campo] : "";
+      }
+    }
+    return $datosSku;
+  }
+
+  private function opcionesDuplicacionAplicadas($datos) {
+    $opciones = array("unidad_tipo");
+    foreach (array(
+      "marca" => "copiar_marca",
+      "categoria_principal" => "copiar_categoria_principal",
+      "categorias_secundarias" => "copiar_categorias_secundarias",
+      "descripcion" => "copiar_descripcion",
+      "reglas_inventario" => "copiar_reglas_inventario",
+      "stock_reorden" => "copiar_stock_reorden",
+      "fiscal" => "copiar_fiscal"
+    ) as $nombre => $campo) {
+      if ($this->booleano($datos, $campo)) {
+        $opciones[] = $nombre;
+      }
+    }
+    return $opciones;
+  }
+
   public function actualizarProducto($datos, $idUsuario) {
     $idProducto = intval(isset($datos["id_producto_erp"]) ? $datos["id_producto_erp"] : 0);
     if ($idProducto <= 0 || $this->texto($datos, "codigo_producto") === "" || $this->texto($datos, "nombre_producto") === "") {

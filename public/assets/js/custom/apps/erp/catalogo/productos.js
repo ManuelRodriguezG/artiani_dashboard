@@ -711,6 +711,77 @@
     }
 
     /**
+     * IA: Codex GPT-5 | Fecha: 2026-07-19
+     * Proposito: abre el asistente de duplicacion usando el producto consultado como plantilla.
+     * Impacto: UI de Catalogo ERP; acelera altas similares sin copiar identidad unica ni relaciones operativas.
+     */
+    function abrirDuplicarProducto() {
+        var form = document.getElementById("catalogo_form_duplicar");
+        var producto = detalleActual.producto || {};
+        var skus = (detalleActual.skus || []).filter(function (sku) {
+            return String(sku.estatus || "") !== "fusionado";
+        });
+        if (!form || !producto.id_producto_erp) {
+            return;
+        }
+        form.reset();
+        setValor(form, "id_producto_origen", producto.id_producto_erp);
+        setValor(form, "nombre_producto", producto.nombre ? producto.nombre + " copia" : "");
+        setValor(form, "estatus", "borrador");
+        document.getElementById("catalogo_duplicar_origen").textContent = (producto.codigo_producto || "") + " - " + (producto.nombre || "");
+        llenarSelect("catalogo_duplicar_sku_origen", skus, "id_sku", etiquetaSku, false);
+        if (skus.length) {
+            setValor(form, "id_sku_origen", skus[0].id_sku);
+            setValor(form, "nombre_sku", skus[0].nombre || producto.nombre || "");
+        }
+        actualizarPreviewDuplicacion();
+        activarBuscadoresSelects(document.getElementById("catalogo_modal_duplicar"));
+        bootstrap.Modal.getOrCreateInstance(document.getElementById("catalogo_modal_duplicar")).show();
+    }
+
+    /**
+     * IA: Codex GPT-5 | Fecha: 2026-07-19
+     * Proposito: muestra al operador que se copiara y que se omitira antes de duplicar.
+     * Impacto: UX de Catalogo ERP; reduce errores por copia excesiva.
+     */
+    function actualizarPreviewDuplicacion() {
+        var form = document.getElementById("catalogo_form_duplicar");
+        var preview = document.getElementById("catalogo_duplicar_preview");
+        if (!form || !preview) {
+            return;
+        }
+        var copiadas = [];
+        [
+            ["copiar_marca", "marca"],
+            ["copiar_categoria_principal", "categoria principal"],
+            ["copiar_categorias_secundarias", "categorias secundarias"],
+            ["copiar_descripcion", "descripcion"],
+            ["copiar_reglas_inventario", "reglas de inventario/granel"],
+            ["copiar_stock_reorden", "stock minimo/maximo/reorden"],
+            ["copiar_fiscal", "fiscal"]
+        ].forEach(function (item) {
+            var input = form.querySelector("[name='" + item[0] + "']");
+            if (input && input.checked) {
+                copiadas.push(item[1]);
+            }
+        });
+        copiadas.unshift("unidad, factor y tipo de inventario");
+        preview.innerHTML = "<div class=\"fw-bold mb-2\">Previsualizacion</div>" +
+            "<div>Se copiara: " + escapeHtml(copiadas.join(", ")) + ".</div>" +
+            "<div class=\"text-muted fs-8 mt-1\">Se omitira siempre: imagenes, codigos de barras, proveedores, costos, precios, paquetes, presentaciones, compras, ventas, existencias y movimientos.</div>";
+    }
+
+    function guardarDuplicado(event) {
+        event.preventDefault();
+        var form = event.currentTarget;
+        enviarFormulario(form, "/catalogoerp/duplicar_producto", document.getElementById("catalogo_duplicar_error"), function (response) {
+            bootstrap.Modal.getInstance(document.getElementById("catalogo_modal_duplicar")).hide();
+            cargar();
+            abrirDetalle(response.depurar.id_producto_erp);
+        });
+    }
+
+    /**
      * IA: Codex GPT-5 | Fecha: 2026-07-11
      * Proposito: precarga categorias secundarias sin mezclar la categoria principal del producto.
      * Impacto: Catalogo ERP; permite clasificacion alterna sin perder el default operativo.
@@ -3274,6 +3345,8 @@
         }
         var editar = document.getElementById("catalogo_form_editar");
         var skuForm = document.getElementById("catalogo_form_sku");
+        var duplicarAbrir = document.getElementById("catalogo_duplicar_abrir");
+        var duplicarForm = document.getElementById("catalogo_form_duplicar");
         var imagenForm = document.getElementById("catalogo_form_imagen");
         var proveedorForm = document.getElementById("catalogo_form_sku_proveedor");
         var proveedorUnicoPreferido = document.getElementById("catalogo_proveedor_unico_preferido");
@@ -3294,6 +3367,14 @@
         var incidenciasRecargar = document.getElementById("catalogo_incidencias_recargar");
         if (editar) {
             editar.addEventListener("submit", guardarEdicion);
+        }
+        if (duplicarAbrir) {
+            duplicarAbrir.addEventListener("click", abrirDuplicarProducto);
+        }
+        if (duplicarForm) {
+            duplicarForm.addEventListener("submit", guardarDuplicado);
+            duplicarForm.addEventListener("change", actualizarPreviewDuplicacion);
+            duplicarForm.addEventListener("input", actualizarPreviewDuplicacion);
         }
         if (skuForm) {
             skuForm.addEventListener("submit", guardarSku);
