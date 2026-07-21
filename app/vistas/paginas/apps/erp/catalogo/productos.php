@@ -743,13 +743,14 @@
                             <div class="alert alert-light-info">
                                 Alcance de imagen: producto maestro para imagen general; SKU especifico para variante, presentacion o empaque.
                             </div>
-                            <form id="catalogo_form_imagen" data-erp-ajax="true">
+                            <form id="catalogo_form_imagen" data-erp-ajax="true" enctype="multipart/form-data">
                                 <input type="hidden" name="id_producto_erp">
                                 <input type="hidden" name="id_imagen_erp">
                                 <div class="row g-5 align-items-end">
                                     <div class="col-md-2"><label class="form-label">Tipo</label><select class="form-select" name="tipo_imagen"><option value="portada">Portada</option><option value="galeria">Galeria</option><option value="detalle">Detalle</option><option value="empaque">Empaque</option><option value="referencia">Referencia</option></select></div>
                                     <div class="col-md-2"><label class="form-label">SKU especifico</label><select class="form-select" name="id_sku" id="catalogo_imagen_sku"><option value="">Producto maestro</option></select></div>
-                                    <div class="col-md-4"><label class="form-label required">URL o ruta</label><input class="form-control" name="url_imagen" maxlength="700" required></div>
+                                    <div class="col-md-4"><label class="form-label">Archivo nuevo</label><input class="form-control" type="file" name="archivo_imagen" accept="image/jpeg,image/png,image/webp,image/gif"><div class="form-text">JPG, PNG, WEBP o GIF. Maximo 5 MB.</div></div>
+                                    <div class="col-md-4"><label class="form-label">URL o ruta</label><input class="form-control" name="url_imagen" maxlength="700" placeholder="Opcional si cargas archivo"></div>
                                     <div class="col-md-2"><label class="form-label">Orden</label><input class="form-control" type="number" name="orden" value="0"></div>
                                     <div class="col-md-2"><label class="form-label">Estado</label><select class="form-select" name="estatus"><option value="activo">Activo</option><option value="inactivo">Inactivo</option></select></div>
                                     <div class="col-md-8"><label class="form-label">Texto alternativo</label><input class="form-control" name="texto_alternativo" maxlength="255"></div>
@@ -890,6 +891,6 @@
             "costos" => SesionSeguridad::tienePermiso("catalogo.costos")
         )); ?>;
     </script>
-    <script src="/assets/js/custom/apps/erp/catalogo/productos.js?v=20260712-categorias-1"></script>
+    <script src="/assets/js/custom/apps/erp/catalogo/productos.js?v=20260721-imagenes-upload-1"></script>
 </body>
 </html>

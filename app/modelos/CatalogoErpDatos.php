@@ -3423,7 +3423,7 @@ class CatalogoErpDatos extends CRUD {
     $idSku = intval(isset($datos["id_sku"]) ? $datos["id_sku"] : 0);
     $url = $this->texto($datos, "url_imagen");
     if ($idProducto <= 0 || $url === "") {
-      return $this->respuesta(true, "warning", "Selecciona producto y captura la ruta de la imagen");
+      return $this->respuesta(true, "warning", "Selecciona producto y carga un archivo o captura la ruta de la imagen");
     }
     if (!preg_match('/^(https?:\/\/|\/|media\/|assets\/|uploads\/)/i', $url)) {
       return $this->respuesta(true, "warning", "Usa una URL http(s) o una ruta local valida");
@@ -3447,6 +3447,7 @@ class CatalogoErpDatos extends CRUD {
 
       $tipo = $this->opcion($datos, "tipo_imagen", array("portada", "galeria", "detalle", "empaque", "referencia"), "galeria");
       $estatus = $this->opcion($datos, "estatus", array("activo", "inactivo"), "activo");
+      $fuente = $this->opcion($datos, "fuente", array("erp", "upload", "ecommerce"), "erp");
       if ($tipo === "portada" && $estatus === "activo") {
         $db->prepare("UPDATE erp_catalogo_imagenes SET tipo_imagen='galeria', fecha_actualizacion=CURRENT_TIMESTAMP WHERE id_producto_erp=:producto AND tipo_imagen='portada' AND estatus='activo' AND id_imagen_erp<>:imagen")
           ->execute(array(":producto" => $idProducto, ":imagen" => $idImagen));
@@ -3477,7 +3478,7 @@ class CatalogoErpDatos extends CRUD {
       } else {
         $stmt = $db->prepare("INSERT INTO erp_catalogo_imagenes
           (id_producto_erp, id_sku, tipo_imagen, url_imagen, texto_alternativo, orden, fuente, estatus)
-          VALUES (:producto, :sku, :tipo, :url, :alt, :orden, 'erp', :estatus)");
+          VALUES (:producto, :sku, :tipo, :url, :alt, :orden, :fuente, :estatus)");
         $stmt->execute(array(
           ":producto" => $idProducto,
           ":sku" => $idSku > 0 ? $idSku : null,
@@ -3485,6 +3486,7 @@ class CatalogoErpDatos extends CRUD {
           ":url" => substr($url, 0, 700),
           ":alt" => $this->texto($datos, "texto_alternativo") ?: null,
           ":orden" => intval(isset($datos["orden"]) ? $datos["orden"] : 0),
+          ":fuente" => $fuente,
           ":estatus" => $estatus
         ));
         $idImagen = intval($db->lastInsertId());

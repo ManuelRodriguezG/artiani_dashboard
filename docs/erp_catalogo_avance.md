@@ -2507,3 +2507,29 @@ Ajuste aplicado:
 - Proveedores ahora resuelve la incidencia de Catalogo al aplicar la relacion proveedor-SKU individual o en lote.
 - La incidencia se cierra como `resuelta` con `resolucion_json` auditable.
 - No se aplicaron escrituras de datos reales en esta revision; el cierre sucedera cuando el usuario aplique la relacion desde Proveedores.
+
+## Implementacion 2026-07-21 - Carga manual de imagenes nuevas
+
+Necesidad:
+
+- Al cargar productos nuevos en Catalogo ERP, el operador necesitaba subir imagenes desde su equipo.
+- El modulo solo permitia guardar una URL/ruta o recuperar imagenes ya existentes de ecommerce.
+
+Cambio aplicado:
+
+- En la pestana `Imagenes` del producto se agrego campo `Archivo nuevo`.
+- El formulario ahora acepta `multipart/form-data`.
+- Se aceptan imagenes `JPG`, `PNG`, `WEBP` y `GIF` de hasta 5 MB.
+- Los archivos se guardan en:
+  - `public/uploads/erp/catalogo/productos/{id_producto_erp}/`
+- La ruta registrada en `erp_catalogo_imagenes.url_imagen` queda como:
+  - `uploads/erp/catalogo/productos/{id_producto_erp}/archivo.ext`
+- La fuente se guarda como `upload`.
+- Se conserva la captura manual de URL/ruta para imagenes externas o ya existentes.
+
+Reglas:
+
+- Si se selecciona archivo y tambien se captura ruta, el archivo cargado tiene prioridad.
+- Una imagen `portada` activa degrada portadas activas anteriores del producto a `galeria`.
+- No se cambia esquema.
+- No se borran archivos fisicos al desactivar imagenes; solo se marca el registro como `inactivo`.

@@ -1107,6 +1107,7 @@
         var preview = document.getElementById("catalogo_imagen_preview");
         var vacio = document.getElementById("catalogo_imagen_preview_vacio");
         var input = form ? form.querySelector("[name='url_imagen']") : null;
+        var archivo = form ? form.querySelector("[name='archivo_imagen']") : null;
         var url = input ? input.value.trim() : "";
         if (!preview || !vacio) {
             return;
@@ -1120,6 +1121,13 @@
             vacio.textContent = "No se pudo cargar";
             vacio.classList.remove("d-none");
         };
+        if (archivo && archivo.files && archivo.files.length) {
+            vacio.textContent = "Cargando";
+            vacio.classList.remove("d-none");
+            preview.classList.add("d-none");
+            preview.src = URL.createObjectURL(archivo.files[0]);
+            return;
+        }
         if (!url) {
             preview.removeAttribute("src");
             preview.classList.add("d-none");
@@ -2543,7 +2551,7 @@
     function guardarImagen(event) {
         event.preventDefault();
         var currentForm = event.currentTarget;
-        enviarFormulario(currentForm, "/catalogoerp/guardar_imagen", document.getElementById("catalogo_imagenes_error"), function () {
+        enviarFormularioArchivo(currentForm, "/catalogoerp/guardar_imagen", document.getElementById("catalogo_imagenes_error"), function () {
             limpiarFormularioImagen();
             abrirDetalle(productoActualId);
         });
@@ -2841,6 +2849,35 @@
             }
         });
         request(url, data).then(function (response) {
+            if (response.error) {
+                throw new Error(response.mensaje);
+            }
+            Swal.fire({text: response.mensaje, icon: "success", confirmButtonText: "Aceptar"});
+            success(response);
+        }).catch(function (error) {
+            mostrarError(errorBox, error);
+        }).finally(function () {
+            button.disabled = false;
+        });
+    }
+
+    /**
+     * IA: Codex GPT-5 | Fecha: 2026-07-21
+     * Proposito: enviar formularios con archivo real sin convertirlos a URLSearchParams.
+     * Impacto: Catalogo ERP; habilita carga de imagenes nuevas de producto conservando CSRF y campos del form.
+     * Contrato: espera respuesta JSON con `error`, `mensaje` y `depurar`.
+     */
+    function enviarFormularioArchivo(currentForm, url, errorBox, success) {
+        var button = currentForm.querySelector("[type='submit']");
+        button.disabled = true;
+        errorBox.classList.add("d-none");
+        fetch(url, {
+            method: "POST",
+            body: new FormData(currentForm),
+            credentials: "same-origin"
+        }).then(function (response) {
+            return response.json();
+        }).then(function (response) {
             if (response.error) {
                 throw new Error(response.mensaje);
             }
@@ -3402,6 +3439,12 @@
             var imagenUrl = imagenForm.querySelector("[name='url_imagen']");
             if (imagenUrl) {
                 imagenUrl.addEventListener("input", function () {
+                    actualizarPreviewImagen(imagenForm);
+                });
+            }
+            var imagenArchivo = imagenForm.querySelector("[name='archivo_imagen']");
+            if (imagenArchivo) {
+                imagenArchivo.addEventListener("change", function () {
                     actualizarPreviewImagen(imagenForm);
                 });
             }
