@@ -6784,3 +6784,162 @@ Siguiente paso operativo para el usuario:
 5. Completar unidad de compra, factor y compra minima si estan vacios.
 6. Aplicar relacion.
 7. Regresar a Catalogo y confirmar que la incidencia desaparece de abiertas.
+
+## Correccion 2026-07-21 - SKU proveedor en relaciones desde codigo interno
+
+Hallazgo:
+
+- En algunas listas el codigo real del proveedor no queda mapeado como `sku_proveedor`, sino como `codigo_interno`.
+- El matching podia encontrar el SKU ERP correcto porque ya compara `sku_proveedor`, `codigo_barras` y `codigo_interno` contra SKU/codigos de Catalogo.
+- El problema estaba al aplicar la relacion: `erp_catalogo_sku_proveedores.sku_proveedor` se guardaba solo desde `sku_proveedor`.
+- Si `sku_proveedor` venia vacio, la relacion proveedor-SKU quedaba creada pero sin clave operativa del proveedor.
+
+Ajuste aplicado:
+
+- Al crear o actualizar una relacion proveedor-SKU desde Proveedores, el identificador se toma con esta prioridad:
+  1. `sku_proveedor`
+  2. `codigo_interno`
+  3. `codigo_barras`
+- Esto aplica tanto para relacion individual como para relaciones en lote.
+
+Impacto esperado:
+
+- Las nuevas relaciones ya deben conservar el codigo que usa el proveedor aunque haya venido en `codigo_interno`.
+- El matching posterior podra reconocer relaciones activas por ese codigo proveedor.
+- No se modificaron datos existentes de base de datos en esta correccion.
+
+Pendiente con autorizacion:
+
+- Revisar y, si se autoriza, corregir relaciones ya creadas con `sku_proveedor` vacio tomando el valor desde el renglon de lista relacionado.
+
+## Correccion 2026-07-21 - Estado intermedio en matching masivo con relacion existente
+
+Hallazgo:
+
+- En lista `13` (`Lista sunny acuario`) se detectaron `720` renglones.
+- `661` estaban `sin_match`, por lo que aun no tienen SKU ERP y no pueden avanzar a relacion/costo.
+- `59` ya tenian `id_sku_proveedor`, es decir, ya habia relacion proveedor-SKU.
+- De esos `59`, `55` quedaron con `estado_match = match_seleccionado`.
+- Ese estado era correcto para un candidato SKU ERP aun no relacionado, pero no para un renglon que ya trae una relacion proveedor-SKU existente.
+
+Causa:
+
+- El matching masivo guardaba todos los candidatos confiables como `match_seleccionado`.
+- Cuando el candidato ya era una relacion activa de `erp_catalogo_sku_proveedores`, el sistema debia considerarlo operativo como `relacion_aplicada`.
+- Por eso no aparecian en `Preview relaciones` y tampoco avanzaban bien a costos: estaban relacionados en datos, pero no en estado operativo.
+
+Ajuste aplicado:
+
+- Matching individual:
+  - Si se selecciona un candidato con `id_sku` e `id_sku_proveedor`, el renglon queda como `relacion_aplicada`.
+  - Si solo se selecciona `id_sku`, queda como `match_seleccionado` para aplicar relacion despues.
+- Matching masivo:
+  - Si el candidato ya trae `id_sku_proveedor`, queda como `relacion_aplicada`.
+  - Si solo trae SKU ERP exacto, queda como `match_seleccionado`.
+- Preview/aplicacion de costos:
+  - Ahora permite continuar cuando el renglon tiene `id_sku` + `id_sku_proveedor` validos aunque haya quedado historicamente como `match_seleccionado`.
+
+Resultado esperado para lista `13`:
+
+- Con la nueva regla, `57` renglones quedan listos para preview/aplicacion de costos.
+- `661` siguen pendientes de matching/alta en Catalogo.
+- `2` siguen excluidos por costo o moneda incompleta.
+
+Nota operativa:
+
+- No se hizo escritura masiva para cambiar estados historicos.
+- La UI y el servidor ahora deben permitir avanzar sin depender de una limpieza manual previa.
+
+## Correccion 2026-07-21 - Validacion de lista no debe bloquear por relaciones sin costo
+
+Hallazgo:
+
+- Despues de aplicar costos en lista `13`, al intentar pasar la lista a `validada` el sistema respondia que necesitaba al menos un renglon operativo.
+- La lista si tenia renglones operativos y costos aplicados.
+- El bloqueo real venia de `2` renglones en `relacion_aplicada` sin moneda/impuestos, mientras `55` costos ya estaban vigentes y operativos.
+
+Causa:
+
+- La validacion trataba toda relacion proveedor-SKU como operativa obligatoria.
+- Eso hacia que una relacion sin costo/moneda bloqueara la validacion de toda la lista, aunque no se hubiera aplicado como costo vigente.
+
+Regla corregida:
+
+- Para validar una lista de proveedor debe existir al menos un costo vigente operativo:
+  - `id_sku`
+  - `id_sku_proveedor`
+  - costo positivo
+  - moneda definida
+  - estatus de costo `vigente`
+- Las relaciones sin costo vigente quedan como pendientes o evidencia, pero no bloquean validar la lista completa.
+
+Resultado esperado:
+
+- Lista `13` puede pasar a `validada` porque tiene `55` costos vigentes operativos.
+- Los renglones relacionados sin moneda/costo siguen visibles para correccion posterior.
+
+## Correccion 2026-07-21 - Detalle de lista cortaba renglones en listas grandes
+
+Hallazgo:
+
+- En lista `12` (`Lista sunny Veterinaria`) la ultima recarga si actualizo los renglones.
+- La base tiene `745` renglones para la lista.
+- La vista de detalle consultaba solo `500` renglones.
+- Por eso algunos productos importados no aparecian en el buscador de la lista aunque existian en base de datos.
+
+Evidencia:
+
+- Renglones finales existentes en base:
+  - `SP-2827`
+  - `SP-2826`
+  - `SP-2825`
+  - `SP-2824`
+  - `SP-2823`
+- Todos estaban fuera del primer bloque de 500 renglones.
+
+Ajuste aplicado:
+
+- El detalle de lista ahora carga hasta `5000` renglones.
+- Tambien se subio a `5000` el limite de los procesos masivos principales relacionados con:
+  - preview/aplicacion de relaciones proveedor-SKU
+  - preview/aplicacion de costos
+  - preview de costo referencia
+
+Pendiente recomendado:
+
+- Si las listas reales superan 5000 renglones, implementar paginacion/busqueda del lado servidor para el detalle de lista.
+
+## Correccion 2026-07-21 - Identificadores numericos importados con .0 no hacian matching
+
+Hallazgo:
+
+- Caso real en lista `12` (`Lista sunny Veterinaria`):
+  - SKU ERP en Catalogo: `417368` (`id_sku = 1379`).
+  - Relacion proveedor-SKU activa: `id_sku_proveedor = 658`, `sku_proveedor = 417368`, `costo_ultimo = 269`.
+  - Renglon importado desde la lista: `id_lista_detalle_erp = 10832`, `sku_proveedor = 417368.0`, `codigo_interno = 417368.0`, costo `277 MXN`, estado `sin_match`.
+- Compras mostraba `269` porque no habia costo vigente en `erp_proveedores_sku_costos` para ese SKU; solo existia el respaldo `costo_ultimo`.
+- El costo nuevo `277` estaba en la lista, pero no se habia relacionado ni aplicado porque el identificador venia con `.0`.
+
+Causa:
+
+- Excel entrega algunos codigos numericos como decimales (`417368.0`).
+- Catalogo y la relacion proveedor-SKU usan `417368`.
+- El matching exacto comparaba texto literal, por lo que `417368.0` no coincidia contra `417368`.
+
+Ajuste aplicado:
+
+- Se agrego normalizacion de identificadores de proveedor:
+  - `417368.0` se trata como `417368`.
+  - Solo se limpia el sufijo decimal `.0...` cuando el valor es entero numerico.
+  - No se modifican codigos alfanumericos reales.
+- La normalizacion aplica en:
+  - importacion de lista
+  - claves de deduplicacion
+  - matching contra relaciones proveedor-SKU
+  - matching contra SKU ERP/codigos de Catalogo
+  - escritura de nuevas relaciones proveedor-SKU
+
+Pendiente operativo:
+
+- Para el caso historico `417368.0`, volver a ejecutar matching en lista `12` y aplicar costo vigente.
+- Despues de aplicar costo, Compras debe tomar `277 MXN` desde `erp_proveedores_sku_costos` vigente en lugar del respaldo `269`.

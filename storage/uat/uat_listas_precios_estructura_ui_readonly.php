@@ -25,6 +25,8 @@ $checks = array(
     checkEstructura("editor_url_id", contieneEstructura($jsEditor, array("id_lista_precio", "consultarLista(idInicial)", "nuevaLista()")), "Editor abre lista inicial desde URL"),
     checkEstructura("editor_tabs_vista", contieneEstructura($editor, array("Seccion de trabajo", "data-lp-editor-tab=\"encabezado\"", "data-lp-editor-tab=\"productos\"", "data-lp-editor-panel=\"asignacion\"")), "Editor separa trabajo en pestanas internas"),
     checkEstructura("editor_tabs_js", contieneEstructura($jsEditor, array("activarTabsEditor", "cambiarTabEditor", "data-lp-editor-panel", "tabDesdePasoFlujo")), "JS muestra una seccion del editor a la vez"),
+    checkEstructura("productos_subtabs_vista", contieneEstructura($editor, array("data-lp-product-tab=\"captura\"", "data-lp-product-tab=\"herramientas\"", "data-lp-product-tab=\"importar\"", "data-lp-product-tab=\"prevalidacion\"")), "Productos se divide en captura, herramientas, importar y prevalidacion"),
+    checkEstructura("productos_subtabs_js", contieneEstructura($jsEditor, array("activarTabsProductos", "cambiarTabProducto", "data-lp-product-panel", "cambiarTabProducto(\"prevalidacion\")")), "JS controla subpestanas de productos"),
     checkEstructura("sidebar_apunta_listado", contieneEstructura($sidebar, array("'Listas de precios'", "'/comercial/listas_precios'")), "Sidebar apunta al listado principal"),
     checkEstructura("plan_documenta", contieneEstructura($plan, array("Estructura UI 2026-07-20", "listas_precios_nueva", "listas_precios_editar")), "Plan vivo documenta separacion UI")
 );

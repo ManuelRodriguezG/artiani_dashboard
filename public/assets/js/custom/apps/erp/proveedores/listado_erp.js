@@ -370,7 +370,7 @@
         var estatus = String(x.estatus || "borrador");
         var accionesEstado = permisos.autorizar
             ? "<div class=\"btn-group me-2\" role=\"group\">" +
-                (estatus !== "validada" && estatus !== "aplicada" ? "<button class=\"btn btn-sm btn-icon btn-light-success\" type=\"button\" title=\"Validada: tiene al menos un renglon operativo y esos renglones ya tienen identidad, costo y moneda.\" data-lista-estatus=\"validada\" data-lista-id=\"" + esc(x.id_lista_proveedor_erp) + "\"><i class=\"bi bi-check2-circle\"></i></button>" : "") +
+                (estatus !== "validada" && estatus !== "aplicada" ? "<button class=\"btn btn-sm btn-icon btn-light-success\" type=\"button\" title=\"Validada: tiene al menos un costo vigente aplicado. Otros renglones pueden quedar como pendientes o evidencia.\" data-lista-estatus=\"validada\" data-lista-id=\"" + esc(x.id_lista_proveedor_erp) + "\"><i class=\"bi bi-check2-circle\"></i></button>" : "") +
                 (estatus !== "aplicada" ? "<button class=\"btn btn-sm btn-icon btn-light-warning\" type=\"button\" title=\"Aplicada: ya tiene relaciones proveedor-SKU o costos aplicados para uso operativo.\" data-lista-estatus=\"aplicada\" data-lista-id=\"" + esc(x.id_lista_proveedor_erp) + "\"><i class=\"bi bi-send-check\"></i></button>" : "") +
                 (estatus !== "historica" ? "<button class=\"btn btn-sm btn-icon btn-light-secondary\" type=\"button\" title=\"Historica: conserva evidencia, pero deja de ser referencia activa.\" data-lista-estatus=\"historica\" data-lista-id=\"" + esc(x.id_lista_proveedor_erp) + "\"><i class=\"bi bi-archive\"></i></button>" : "") +
                 (estatus !== "cancelada" ? "<button class=\"btn btn-sm btn-icon btn-light-danger\" type=\"button\" title=\"Cancelada: no debe usarse operativamente, pero conserva evidencia.\" data-lista-estatus=\"cancelada\" data-lista-id=\"" + esc(x.id_lista_proveedor_erp) + "\"><i class=\"bi bi-x-circle\"></i></button>" : "") +
@@ -1218,10 +1218,12 @@
                 ? "<div class=\"mt-1\"><span class=\"badge " + (compraOk ? "badge-light-success" : "badge-light-warning") + "\">" + (compraOk ? "Listo relacion" : "Completar compra") + "</span></div>"
                 : "";
             var costo = [x.costo || "-", x.moneda || ""].filter(Boolean).join(" ");
-            var aplicar = permisos.matching && x.id_sku && String(x.estado_match || "") === "match_seleccionado"
+            var aplicar = permisos.matching && x.id_sku && !x.id_sku_proveedor && String(x.estado_match || "") === "match_seleccionado"
                 ? "<button class=\"btn btn-sm btn-icon btn-light-success me-2\" type=\"button\" title=\"Aplicar relacion\" data-aplicar-relacion=\"" + esc(x.id_lista_detalle_erp) + "\"><i class=\"bi bi-link-45deg\"></i></button>"
                 : "";
-            var aplicarCosto = permisos.costos && x.id_sku && x.id_sku_proveedor && Number(x.costo || 0) > 0 && String(x.estado_match || "") === "relacion_aplicada"
+            var estadoPermiteCosto = ["match_seleccionado", "relacion_aplicada", "costo_aplicado"].indexOf(String(x.estado_match || "")) >= 0;
+            var tieneCostoVigente = Number(x.tiene_costo_vigente || 0) > 0 || String(x.estado_match || "") === "costo_aplicado";
+            var aplicarCosto = permisos.costos && x.id_sku && x.id_sku_proveedor && Number(x.costo || 0) > 0 && estadoPermiteCosto && !tieneCostoVigente
                 ? "<button class=\"btn btn-sm btn-icon btn-light-warning me-2\" type=\"button\" title=\"Aplicar costo vigente\" data-aplicar-costo=\"" + esc(x.id_lista_detalle_erp) + "\"><i class=\"bi bi-currency-dollar\"></i></button>"
                 : "";
             var enviarCatalogo = permisos.autorizar && (!x.id_sku || Number(x.id_sku || 0) <= 0 || ["sin_match", "ambiguo"].indexOf(String(x.estado_match || "")) >= 0)
@@ -1310,8 +1312,8 @@
         var requiereCompra = idSku > 0 && ["match_seleccionado", "relacion_aplicada", "costo_aplicado"].indexOf(estado) >= 0;
 
         return {
-            listoRelacion: idSku > 0 && estado === "match_seleccionado" && compraCompleta,
-            listoCosto: idSku > 0 && idSkuProveedor > 0 && estado === "relacion_aplicada" && costo > 0 && moneda !== "" && idUnidad > 0 && factor > 0,
+            listoRelacion: idSku > 0 && idSkuProveedor <= 0 && estado === "match_seleccionado" && compraCompleta,
+            listoCosto: idSku > 0 && idSkuProveedor > 0 && ["match_seleccionado", "relacion_aplicada", "costo_aplicado"].indexOf(estado) >= 0 && costo > 0 && moneda !== "" && idUnidad > 0 && factor > 0,
             compraPendiente: requiereCompra && !compraCompleta
         };
     }
@@ -1564,7 +1566,7 @@
             return;
         }
         var mensajes = {
-            validada: "La lista quedara validada si tiene al menos un renglon operativo y esos renglones tienen identidad, costo y moneda. Los demas quedan como evidencia del proveedor.",
+            validada: "La lista quedara validada si tiene al menos un costo vigente aplicado. Los demas renglones pueden quedar como pendientes o evidencia del proveedor.",
             aplicada: "La lista quedara como aplicada solo si ya tiene relaciones o costos aplicados.",
             historica: "La lista quedara como historica y dejara de ser la referencia activa.",
             cancelada: "La lista quedara cancelada y no debe usarse operativamente."

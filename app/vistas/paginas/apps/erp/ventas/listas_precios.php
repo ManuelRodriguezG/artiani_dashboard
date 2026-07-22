@@ -38,6 +38,10 @@
         .lp-editor-tab.is-active { border-color: #3e97ff; background: #f1f7ff; color: #1b84ff; }
         .lp-editor-tab .badge { margin-left: 6px; }
         .lp-editor-panel[hidden] { display: none !important; }
+        .lp-product-tabs { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
+        .lp-product-tab { border: 1px solid #e4e6ef; background: #fff; border-radius: 8px; padding: 8px 12px; color: #5e6278; font-weight: 600; font-size: 12px; }
+        .lp-product-tab.is-active { border-color: #50cd89; background: #f4fbf7; color: #2f9461; }
+        [data-lp-product-panel][hidden] { display: none !important; }
         .lp-side.lp-tabs-mode { display: block; }
         .lp-side.lp-tabs-mode > aside { display: flex !important; }
         @media (max-width: 1400px) {
@@ -256,7 +260,13 @@
                                                     <button class="btn btn-light" id="lp_exportar_csv" type="button"><i class="bi bi-download"></i></button>
                                                 </div>
                                             </div>
-                                            <div class="d-flex flex-wrap gap-2 mb-4">
+                                            <div class="lp-product-tabs">
+                                                <button class="lp-product-tab is-active" type="button" data-lp-product-tab="captura"><i class="bi bi-table"></i> Captura</button>
+                                                <button class="lp-product-tab" type="button" data-lp-product-tab="herramientas"><i class="bi bi-tools"></i> Herramientas</button>
+                                                <button class="lp-product-tab" type="button" data-lp-product-tab="importar"><i class="bi bi-file-earmark-arrow-up"></i> Importar CSV</button>
+                                                <button class="lp-product-tab" type="button" data-lp-product-tab="prevalidacion"><i class="bi bi-shield-check"></i> Prevalidacion</button>
+                                            </div>
+                                            <div class="d-flex flex-wrap gap-2 mb-4" data-lp-product-panel="captura">
                                                 <span class="badge badge-light">Visibles <span id="lp_res_productos">0</span></span>
                                                 <span class="badge badge-light-info">Seleccionados <span id="lp_res_seleccionados">0</span></span>
                                                 <span class="badge badge-light-warning">Margen bajo <span id="lp_res_margen_bajo">0</span></span>
@@ -265,7 +275,7 @@
                                                 <span class="badge badge-light">Sin precio <span id="lp_res_sin_precio">0</span></span>
                                                 <span class="badge badge-light-primary">Cambios <span id="lp_res_cambios">0</span></span>
                                             </div>
-                                            <div class="alert alert-light py-3 mb-4" id="lp_cambios_barra">
+                                            <div class="alert alert-light py-3 mb-4" id="lp_cambios_barra" data-lp-product-panel="captura">
                                                 <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
                                                     <div>
                                                         <div class="fw-semibold">Sin cambios pendientes</div>
@@ -278,7 +288,7 @@
                                                     </div>
                                                 </div>
                                             </div>
-                                            <div class="d-flex flex-wrap justify-content-between align-items-end gap-3 mb-4">
+                                            <div class="d-flex flex-wrap justify-content-between align-items-end gap-3 mb-4" data-lp-product-panel="herramientas">
                                                 <div class="d-flex flex-wrap gap-2 align-items-end">
                                                     <div>
                                                         <label class="form-label text-muted fs-8 text-uppercase">Aplicar a</label>
@@ -323,13 +333,13 @@
                                                     <button class="btn btn-primary" id="lp_guardar_cambios" type="button"><i class="bi bi-save2"></i> Guardar cambios <span class="badge badge-light ms-2" id="lp_cambios_count">0</span></button>
                                                 </div>
                                             </div>
-                                            <div class="border rounded p-3 mb-4" id="lp_comparacion_resultado">
+                                            <div class="border rounded p-3 mb-4" id="lp_comparacion_resultado" data-lp-product-panel="herramientas">
                                                 <div class="text-muted fs-7">Compara contra otra lista para revisar diferencias antes de copiar precios.</div>
                                             </div>
-                                            <div class="border rounded p-3 mb-4" id="lp_lote_prevalidacion">
+                                            <div class="border rounded p-3 mb-4" id="lp_lote_prevalidacion" data-lp-product-panel="prevalidacion">
                                                 <div class="text-muted fs-7">Los cambios pendientes se prevalidan antes de guardar.</div>
                                             </div>
-                                            <div class="border rounded p-3 mb-4">
+                                            <div class="border rounded p-3 mb-4" data-lp-product-panel="importar">
                                                 <div class="d-flex flex-wrap justify-content-between align-items-end gap-3">
                                                     <div class="min-w-250px flex-grow-1">
                                                         <label class="form-label text-muted fs-8 text-uppercase">Importar CSV</label>
@@ -342,7 +352,7 @@
                                                 </div>
                                                 <div id="lp_importar_resultado" class="text-muted fs-7 mt-3">CSV esperado: id_sku o sku, y precio_lista.</div>
                                             </div>
-                                            <div class="table-responsive lp-productos">
+                                            <div class="table-responsive lp-productos" data-lp-product-panel="captura">
                                                 <table class="table align-middle table-row-dashed gy-3 mb-0">
                                                     <thead>
                                                     <tr class="text-muted fw-bold fs-8 text-uppercase">

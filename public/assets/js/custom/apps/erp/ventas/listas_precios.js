@@ -126,6 +126,27 @@
         });
     }
 
+    function activarTabsProductos() {
+        document.querySelectorAll("[data-lp-product-tab]").forEach(function (boton) {
+            boton.addEventListener("click", function () {
+                cambiarTabProducto(boton.getAttribute("data-lp-product-tab") || "captura");
+            });
+        });
+    }
+
+    function cambiarTabProducto(tab, activarEditor) {
+        tab = tab || "captura";
+        document.querySelectorAll("[data-lp-product-tab]").forEach(function (boton) {
+            boton.classList.toggle("is-active", boton.getAttribute("data-lp-product-tab") === tab);
+        });
+        document.querySelectorAll("[data-lp-product-panel]").forEach(function (panel) {
+            panel.hidden = panel.getAttribute("data-lp-product-panel") !== tab;
+        });
+        if (activarEditor !== false) {
+            cambiarTabEditor("productos");
+        }
+    }
+
     function cambiarTabEditor(tab) {
         tab = tab || "encabezado";
         document.querySelectorAll("[data-lp-editor-tab]").forEach(function (boton) {
@@ -1154,6 +1175,7 @@
     }
 
     function prevalidarImportacionCsv() {
+        cambiarTabProducto("importar");
         var archivo = document.getElementById("lp_importar_csv").files[0];
         if (!archivo) {
             mostrarAlerta("warning", "Selecciona un archivo CSV para prevalidar.");
@@ -1371,6 +1393,7 @@
                 filas: filas,
                 resumen: {iguales: iguales, diferentes: diferentes, faltantes: faltantes, visibles: productos.length}
             };
+            cambiarTabProducto("herramientas");
             renderComparacionListas();
             mostrarAlerta("success", "Comparacion lista. Revisa diferencias antes de usarlas como cambios pendientes.");
         }).catch(mostrarError);
@@ -1576,6 +1599,7 @@
     }
 
     function guardarCambiosLote() {
+        cambiarTabProducto("prevalidacion");
         var idLista = document.getElementById("lp_lista_id").value;
         var cambios = Object.keys(estado.cambios || {}).map(function (idSku) { return estado.cambios[idSku]; });
         if (!validarCambiosPendientes(idLista, cambios)) {
@@ -1590,6 +1614,7 @@
     }
 
     function prevalidarCambiosPendientes() {
+        cambiarTabProducto("prevalidacion");
         var idLista = document.getElementById("lp_lista_id").value;
         var cambios = Object.keys(estado.cambios || {}).map(function (idSku) { return estado.cambios[idSku]; });
         if (!validarCambiosPendientes(idLista, cambios)) {
@@ -2481,7 +2506,9 @@
     document.addEventListener("DOMContentLoaded", function () {
         activarFlujoOperativo();
         activarTabsEditor();
+        activarTabsProductos();
         cambiarTabEditor("encabezado");
+        cambiarTabProducto("captura", false);
         document.getElementById("lp_recargar").addEventListener("click", function () { cargarResumen(); cargarProductos(); });
         document.getElementById("lp_fase1_recargar").addEventListener("click", cargarFase1Readiness);
         document.getElementById("lp_nueva").addEventListener("click", nuevaLista);

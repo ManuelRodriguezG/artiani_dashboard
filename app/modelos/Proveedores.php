@@ -2987,6 +2987,9 @@ class Proveedores extends CRUD {
         if ($normalizado["moneda"] === "" && trim((string) $monedaLista) !== "") {
             $normalizado["moneda"] = $monedaLista;
         }
+        foreach (array("sku_proveedor", "codigo_barras", "codigo_interno") as $campoIdentificador) {
+            $normalizado[$campoIdentificador] = $this->normalizarIdentificadorProveedorErp($normalizado[$campoIdentificador]);
+        }
         $normalizado["costo"] = $this->normalizarDecimalImportacionProveedorErp($normalizado["costo"]);
         $normalizado["factor_conversion"] = $this->normalizarDecimalImportacionProveedorErp($normalizado["factor_conversion"]);
         $normalizado["existencia_reportada"] = $this->normalizarDecimalImportacionProveedorErp($normalizado["existencia_reportada"]);
@@ -3031,11 +3034,26 @@ class Proveedores extends CRUD {
     }
 
     private function normalizarClaveComparacionProveedorErp($valor) {
-        $valor = strtolower(trim((string) $valor));
+        $valor = strtolower($this->normalizarIdentificadorProveedorErp($valor));
         $buscar = array("Ã¡", "Ã©", "Ã­", "Ã³", "Ãº", "Ã±");
         $reemplazar = array("a", "e", "i", "o", "u", "n");
         $valor = str_replace($buscar, $reemplazar, $valor);
         return preg_replace("/\s+/", " ", $valor);
+    }
+
+    /**
+     * IA: Codex GPT-5
+     * Fecha: 2026-07-21
+     * Proposito: limpiar identificadores de proveedor que Excel entrega como numero decimal.
+     * Impacto: Proveedores/Catalogo/Compras; permite que `417368.0` compare contra SKU ERP `417368`.
+     * Contrato: solo elimina sufijo decimal `.0...` en valores enteros; no modifica codigos alfanumericos reales.
+     */
+    private function normalizarIdentificadorProveedorErp($valor) {
+        $texto = trim((string) $valor);
+        if (preg_match('/^([0-9]+)\.0+$/', $texto, $coincidencias)) {
+            return $coincidencias[1];
+        }
+        return $texto;
     }
 
     private function cargarClavesExistentesListaProveedorErp($db, $idLista) {
@@ -4719,7 +4737,7 @@ class Proveedores extends CRUD {
 
             $revision = $this->resumenValidacionListaProveedorErp($db, $idLista);
             if ($estatus === "validada" && !$revision["puede_validar"]) {
-                return array("error" => true, "tipo" => "warning", "mensaje" => "La lista necesita al menos un renglon operativo con identidad, costo y moneda para validarse", "depurar" => array("revision" => $revision));
+                return array("error" => true, "tipo" => "warning", "mensaje" => "La lista necesita al menos un costo vigente aplicado para validarse", "depurar" => array("revision" => $revision));
             }
             if ($estatus === "aplicada" && !$revision["puede_aplicar"]) {
                 return array("error" => true, "tipo" => "warning", "mensaje" => "La lista aun no tiene relaciones o costos aplicados", "depurar" => array("revision" => $revision));
@@ -4783,9 +4801,25 @@ class Proveedores extends CRUD {
         if (!$resumen) {
             $resumen = array("total" => 0, "sin_identidad" => 0, "sin_costo" => 0, "sin_moneda" => 0, "operativos" => 0, "operativos_sin_identidad" => 0, "operativos_sin_costo" => 0, "operativos_sin_moneda" => 0, "sin_match_informativo" => 0, "relaciones_aplicadas" => 0);
         }
-        $stmtCostos = $db->prepare("SELECT COUNT(*) FROM erp_proveedores_sku_costos WHERE id_lista_proveedor_erp = :id_lista");
+        $stmtCostos = $db->prepare("SELECT
+                COUNT(*) total,
+                SUM(CASE WHEN c.estatus = 'vigente' THEN 1 ELSE 0 END) vigentes,
+                SUM(CASE WHEN c.estatus = 'vigente'
+                    AND COALESCE(c.id_sku, 0) > 0
+                    AND COALESCE(c.id_sku_proveedor, 0) > 0
+                    AND COALESCE(c.costo, 0) > 0
+                    AND COALESCE(c.moneda, '') <> ''
+                    THEN 1 ELSE 0 END) vigentes_operativos
+            FROM erp_proveedores_sku_costos c
+            WHERE c.id_lista_proveedor_erp = :id_lista");
         $stmtCostos->execute(array(":id_lista" => intval($idLista)));
-        $costos = intval($stmtCostos->fetchColumn());
+        $resumenCostos = $stmtCostos->fetch(PDO::FETCH_ASSOC);
+        if (!$resumenCostos) {
+            $resumenCostos = array("total" => 0, "vigentes" => 0, "vigentes_operativos" => 0);
+        }
+        $costos = intval($resumenCostos["total"]);
+        $costosVigentes = intval($resumenCostos["vigentes"]);
+        $costosOperativos = intval($resumenCostos["vigentes_operativos"]);
         $total = intval($resumen["total"]);
         $sinIdentidad = intval($resumen["sin_identidad"]);
         $sinCosto = intval($resumen["sin_costo"]);
@@ -4808,7 +4842,9 @@ class Proveedores extends CRUD {
             "sin_match_informativo" => $sinMatchInformativo,
             "relaciones_aplicadas" => $relaciones,
             "costos_aplicados" => $costos,
-            "puede_validar" => $total > 0 && $operativos > 0 && $operativosSinIdentidad === 0 && $operativosSinCosto === 0 && $operativosSinMoneda === 0,
+            "costos_vigentes" => $costosVigentes,
+            "costos_operativos_validos" => $costosOperativos,
+            "puede_validar" => $total > 0 && $costosOperativos > 0,
             "puede_aplicar" => $total > 0 && ($relaciones > 0 || $costos > 0)
         );
     }
@@ -4827,11 +4863,19 @@ class Proveedores extends CRUD {
                 return array("error" => true, "tipo" => "warning", "mensaje" => "Lista ERP no encontrada", "depurar" => null);
             }
 
-            $stmt = $db->prepare("SELECT *
-                FROM erp_proveedores_listas_detalle_erp
-                WHERE id_lista_proveedor_erp = :id_lista
-                ORDER BY id_lista_detalle_erp ASC
-                LIMIT 500");
+            $stmt = $db->prepare("SELECT
+                    d.*,
+                    EXISTS (
+                        SELECT 1
+                        FROM erp_proveedores_sku_costos c
+                        WHERE c.id_lista_detalle_erp = d.id_lista_detalle_erp
+                          AND c.id_lista_proveedor_erp = d.id_lista_proveedor_erp
+                          AND c.estatus = 'vigente'
+                    ) AS tiene_costo_vigente
+                FROM erp_proveedores_listas_detalle_erp d
+                WHERE d.id_lista_proveedor_erp = :id_lista
+                ORDER BY d.id_lista_detalle_erp ASC
+                LIMIT 5000");
             $stmt->execute(array(":id_lista" => $idLista));
             $detalle = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
@@ -5245,6 +5289,11 @@ class Proveedores extends CRUD {
                 $observacionesFinales = $observacionesPrevias;
             }
 
+            $estadoFinal = $estado;
+            if ($estado === "match_seleccionado" && $idSku !== null && $idSkuProveedor !== null) {
+                $estadoFinal = "relacion_aplicada";
+            }
+
             $stmt = $db->prepare("UPDATE erp_proveedores_listas_detalle_erp SET
                 id_sku = :id_sku,
                 id_sku_proveedor = :id_sku_proveedor,
@@ -5256,7 +5305,7 @@ class Proveedores extends CRUD {
             $stmt->execute(array(
                 ":id_sku" => $idSku,
                 ":id_sku_proveedor" => $idSkuProveedor,
-                ":estado_match" => $estado,
+                ":estado_match" => $estadoFinal,
                 ":criterio_match" => $this->valorNuloProveedorErp($this->textoProveedorErp($datos, "criterio_match", 120)),
                 ":observaciones" => $this->valorNuloProveedorErp($observacionesFinales),
                 ":id_detalle" => $idDetalle,
@@ -5286,7 +5335,7 @@ class Proveedores extends CRUD {
      * Fecha: 2026-07-16
      * Proposito: guardar decisiones de matching en lote solo para candidatos confiables recalculados en servidor.
      * Impacto: Proveedores ERP; agiliza listas grandes sin crear relaciones proveedor-SKU ni tocar costos.
-     * Contrato: solo acepta un candidato para `relacionado` o `match_exacto_pendiente`; excluye ambiguos, posibles por nombre y renglones ya seleccionados/aplicados.
+     * Contrato: solo acepta un candidato para `relacionado` o `match_exacto_pendiente`; si ya existe relacion proveedor-SKU queda como `relacion_aplicada`, si solo existe SKU ERP queda como `match_seleccionado`.
      */
     public function seleccionarMatchingMasivoListaErp($datos, $id_usuario) {
         $db = $this->getConexion();
@@ -5331,7 +5380,7 @@ class Proveedores extends CRUD {
             $stmt = $db->prepare("UPDATE erp_proveedores_listas_detalle_erp SET
                 id_sku = :id_sku,
                 id_sku_proveedor = :id_sku_proveedor,
-                estado_match = 'match_seleccionado',
+                estado_match = :estado_match,
                 criterio_match = :criterio_match,
                 observaciones = :observaciones,
                 fecha_actualizacion = NOW()
@@ -5346,9 +5395,12 @@ class Proveedores extends CRUD {
                 $observacionesPrevias = isset($renglon["observaciones"]) ? trim((string) $renglon["observaciones"]) : "";
                 $observacion = "Matching masivo: candidato confiable por " . (isset($resultado["criterio_match"]) ? $resultado["criterio_match"] : "criterio seguro");
                 $observacionesFinales = $observacionesPrevias !== "" ? $observacionesPrevias . "\n" . $observacion : $observacion;
+                $idSkuProveedorCandidato = intval(isset($candidato["id_sku_proveedor"]) ? $candidato["id_sku_proveedor"] : 0);
+                $estadoMatchFinal = $idSkuProveedorCandidato > 0 ? "relacion_aplicada" : "match_seleccionado";
                 $stmt->execute(array(
                     ":id_sku" => intval($candidato["id_sku"]),
-                    ":id_sku_proveedor" => intval(isset($candidato["id_sku_proveedor"]) ? $candidato["id_sku_proveedor"] : 0) > 0 ? intval($candidato["id_sku_proveedor"]) : null,
+                    ":id_sku_proveedor" => $idSkuProveedorCandidato > 0 ? $idSkuProveedorCandidato : null,
+                    ":estado_match" => $estadoMatchFinal,
                     ":criterio_match" => $this->valorNuloProveedorErp(isset($resultado["criterio_match"]) ? $resultado["criterio_match"] : ""),
                     ":observaciones" => $this->valorNuloProveedorErp($observacionesFinales),
                     ":id_detalle" => intval($resultado["id_lista_detalle_erp"]),
@@ -5357,7 +5409,8 @@ class Proveedores extends CRUD {
                 $seleccionados[] = array(
                     "id_lista_detalle_erp" => intval($resultado["id_lista_detalle_erp"]),
                     "id_sku" => intval($candidato["id_sku"]),
-                    "id_sku_proveedor" => intval(isset($candidato["id_sku_proveedor"]) ? $candidato["id_sku_proveedor"] : 0) ?: null,
+                    "id_sku_proveedor" => $idSkuProveedorCandidato ?: null,
+                    "estado_match" => $estadoMatchFinal,
                     "criterio_match" => isset($resultado["criterio_match"]) ? $resultado["criterio_match"] : ""
                 );
             }
@@ -5473,6 +5526,23 @@ class Proveedores extends CRUD {
         return $fila ? $fila : null;
     }
 
+    /**
+     * IA: Codex GPT-5
+     * Fecha: 2026-07-21
+     * Proposito: elegir el identificador operativo del proveedor para guardar la relacion SKU proveedor.
+     * Impacto: Proveedores/Catalogo; evita relaciones sin sku_proveedor cuando la lista trae el SKU en codigo_interno.
+     * Contrato: prioridad sku_proveedor > codigo_interno > codigo_barras; devuelve null si no hay identificador.
+     */
+    private function skuProveedorRelacionDesdeRenglonErp($renglon) {
+        foreach (array("sku_proveedor", "codigo_interno", "codigo_barras") as $campo) {
+            $valor = $this->normalizarIdentificadorProveedorErp($this->textoProveedorErp($renglon, $campo, 120));
+            if ($valor !== "") {
+                return $this->valorNuloProveedorErp($valor);
+            }
+        }
+        return null;
+    }
+
     public function aplicarRelacionSkuProveedorErp($datos, $id_usuario) {
         $db = $this->getConexion();
         try {
@@ -5509,7 +5579,7 @@ class Proveedores extends CRUD {
                     "id_sku_proveedor" => intval($antes["id_sku_proveedor"])
                 ));
             }
-            $skuProveedor = $this->valorNuloProveedorErp($this->textoProveedorErp($renglon, "sku_proveedor", 120));
+            $skuProveedor = $this->skuProveedorRelacionDesdeRenglonErp($renglon);
 
             $db->beginTransaction();
             if ($antes) {
@@ -5608,7 +5678,7 @@ class Proveedores extends CRUD {
                 FROM erp_proveedores_listas_detalle_erp
                 WHERE id_lista_proveedor_erp = :id_lista
                 ORDER BY id_lista_detalle_erp ASC
-                LIMIT 1000");
+                LIMIT 5000");
             $stmt->execute(array(":id_lista" => $idLista));
             $renglones = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
@@ -5732,7 +5802,7 @@ class Proveedores extends CRUD {
                 FROM erp_proveedores_listas_detalle_erp
                 WHERE id_lista_proveedor_erp = :id_lista
                 ORDER BY id_lista_detalle_erp ASC
-                LIMIT 1000");
+                LIMIT 5000");
             $stmt->execute(array(":id_lista" => $idLista));
             $renglones = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
@@ -5769,7 +5839,7 @@ class Proveedores extends CRUD {
                 $idUnidad = intval($renglon["id_unidad_compra"]);
                 $factor = floatval($renglon["factor_conversion"]);
                 $cantidadMinima = floatval($renglon["cantidad_minima"]);
-                $skuProveedor = $this->valorNuloProveedorErp($this->textoProveedorErp($renglon, "sku_proveedor", 120));
+                $skuProveedor = $this->skuProveedorRelacionDesdeRenglonErp($renglon);
                 $antes = $this->consultarRelacionSkuProveedorErp($db, 0, $idSku, $idProveedor);
 
                 if ($antes) {
@@ -5877,7 +5947,7 @@ class Proveedores extends CRUD {
                 FROM erp_proveedores_listas_detalle_erp
                 WHERE id_lista_proveedor_erp = :id_lista
                 ORDER BY id_lista_detalle_erp ASC
-                LIMIT 1000");
+                LIMIT 5000");
             $stmt->execute(array(":id_lista" => $idLista));
             $renglones = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
@@ -5960,7 +6030,9 @@ class Proveedores extends CRUD {
         if ($idSku <= 0 || $idSkuProveedor <= 0) {
             return array("aplicable" => false, "motivo" => "sin_relacion", "item" => $base + array("motivo" => "sin_relacion", "detalle" => "Primero debe existir relacion proveedor-SKU aplicada."));
         }
-        if (!in_array($estado, array("relacion_aplicada", "costo_aplicado"), true)) {
+        $estadoPermiteCosto = in_array($estado, array("relacion_aplicada", "costo_aplicado"), true)
+            || ($estado === "match_seleccionado" && $idSku > 0 && $idSkuProveedor > 0);
+        if (!$estadoPermiteCosto) {
             return array("aplicable" => false, "motivo" => "estado_no_aplicable", "item" => $base + array("motivo" => "estado_no_aplicable", "detalle" => "El renglon debe tener relacion aplicada antes de costo."));
         }
         if ($costo <= 0 || $moneda === "") {
@@ -6012,7 +6084,7 @@ class Proveedores extends CRUD {
                 FROM erp_proveedores_listas_detalle_erp
                 WHERE id_lista_proveedor_erp = :id_lista
                 ORDER BY id_lista_detalle_erp ASC
-                LIMIT 1000");
+                LIMIT 5000");
             $stmt->execute(array(":id_lista" => $idLista));
             $renglones = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
@@ -6230,7 +6302,7 @@ class Proveedores extends CRUD {
                 LEFT JOIN erp_catalogo_sku_proveedores sp ON sp.id_sku_proveedor = c.id_sku_proveedor
                 LEFT JOIN erp_proveedores_listas_detalle_erp d ON d.id_lista_detalle_erp = c.id_lista_detalle_erp
                 ORDER BY sp.es_preferido DESC, s.sku ASC
-                LIMIT 1000");
+                LIMIT 5000");
             $stmt->execute(array(
                 ":id_proveedor" => $idProveedor,
                 ":id_lista" => $idLista
@@ -6683,6 +6755,17 @@ class Proveedores extends CRUD {
                 ":id_sku_proveedor" => $idSkuProveedor,
                 ":id_proveedor" => $idProveedor,
                 ":id_sku" => $idSku
+            ));
+
+            $stmtDetalle = $db->prepare("UPDATE erp_proveedores_listas_detalle_erp SET
+                estado_match = 'costo_aplicado',
+                criterio_match = 'costo_proveedor_individual_aplicado',
+                fecha_actualizacion = NOW()
+                WHERE id_lista_detalle_erp = :id_detalle
+                  AND id_lista_proveedor_erp = :id_lista");
+            $stmtDetalle->execute(array(
+                ":id_detalle" => $idDetalle,
+                ":id_lista" => $idLista
             ));
 
             $despuesCosto = $this->consultarCostoProveedorSkuPorDetalleErp($db, $idDetalle, $idProveedor);
@@ -7481,12 +7564,12 @@ class Proveedores extends CRUD {
             ":id_sku_proveedor_val" => intval(isset($renglon["id_sku_proveedor"]) ? $renglon["id_sku_proveedor"] : 0),
             ":id_sku_cmp" => intval(isset($renglon["id_sku"]) ? $renglon["id_sku"] : 0),
             ":id_sku_val" => intval(isset($renglon["id_sku"]) ? $renglon["id_sku"] : 0),
-            ":sku_proveedor_cmp" => trim((string) (isset($renglon["sku_proveedor"]) ? $renglon["sku_proveedor"] : "")),
-            ":sku_proveedor_val" => trim((string) (isset($renglon["sku_proveedor"]) ? $renglon["sku_proveedor"] : "")),
-            ":codigo_barras_cmp" => trim((string) (isset($renglon["codigo_barras"]) ? $renglon["codigo_barras"] : "")),
-            ":codigo_barras_val" => trim((string) (isset($renglon["codigo_barras"]) ? $renglon["codigo_barras"] : "")),
-            ":codigo_interno_cmp" => trim((string) (isset($renglon["codigo_interno"]) ? $renglon["codigo_interno"] : "")),
-            ":codigo_interno_val" => trim((string) (isset($renglon["codigo_interno"]) ? $renglon["codigo_interno"] : ""))
+            ":sku_proveedor_cmp" => $this->normalizarIdentificadorProveedorErp(isset($renglon["sku_proveedor"]) ? $renglon["sku_proveedor"] : ""),
+            ":sku_proveedor_val" => $this->normalizarIdentificadorProveedorErp(isset($renglon["sku_proveedor"]) ? $renglon["sku_proveedor"] : ""),
+            ":codigo_barras_cmp" => $this->normalizarIdentificadorProveedorErp(isset($renglon["codigo_barras"]) ? $renglon["codigo_barras"] : ""),
+            ":codigo_barras_val" => $this->normalizarIdentificadorProveedorErp(isset($renglon["codigo_barras"]) ? $renglon["codigo_barras"] : ""),
+            ":codigo_interno_cmp" => $this->normalizarIdentificadorProveedorErp(isset($renglon["codigo_interno"]) ? $renglon["codigo_interno"] : ""),
+            ":codigo_interno_val" => $this->normalizarIdentificadorProveedorErp(isset($renglon["codigo_interno"]) ? $renglon["codigo_interno"] : "")
         ));
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
@@ -7558,15 +7641,15 @@ class Proveedores extends CRUD {
         $stmt->execute(array(
             ":id_sku_cmp" => intval(isset($renglon["id_sku"]) ? $renglon["id_sku"] : 0),
             ":id_sku_val" => intval(isset($renglon["id_sku"]) ? $renglon["id_sku"] : 0),
-            ":sku_proveedor_case" => trim((string) (isset($renglon["sku_proveedor"]) ? $renglon["sku_proveedor"] : "")),
-            ":codigo_barras_case" => trim((string) (isset($renglon["codigo_barras"]) ? $renglon["codigo_barras"] : "")),
-            ":codigo_interno_case" => trim((string) (isset($renglon["codigo_interno"]) ? $renglon["codigo_interno"] : "")),
-            ":sku_proveedor_cmp" => trim((string) (isset($renglon["sku_proveedor"]) ? $renglon["sku_proveedor"] : "")),
-            ":sku_proveedor_val" => trim((string) (isset($renglon["sku_proveedor"]) ? $renglon["sku_proveedor"] : "")),
-            ":codigo_barras_cmp" => trim((string) (isset($renglon["codigo_barras"]) ? $renglon["codigo_barras"] : "")),
-            ":codigo_barras_val" => trim((string) (isset($renglon["codigo_barras"]) ? $renglon["codigo_barras"] : "")),
-            ":codigo_interno_cmp" => trim((string) (isset($renglon["codigo_interno"]) ? $renglon["codigo_interno"] : "")),
-            ":codigo_interno_val" => trim((string) (isset($renglon["codigo_interno"]) ? $renglon["codigo_interno"] : ""))
+            ":sku_proveedor_case" => $this->normalizarIdentificadorProveedorErp(isset($renglon["sku_proveedor"]) ? $renglon["sku_proveedor"] : ""),
+            ":codigo_barras_case" => $this->normalizarIdentificadorProveedorErp(isset($renglon["codigo_barras"]) ? $renglon["codigo_barras"] : ""),
+            ":codigo_interno_case" => $this->normalizarIdentificadorProveedorErp(isset($renglon["codigo_interno"]) ? $renglon["codigo_interno"] : ""),
+            ":sku_proveedor_cmp" => $this->normalizarIdentificadorProveedorErp(isset($renglon["sku_proveedor"]) ? $renglon["sku_proveedor"] : ""),
+            ":sku_proveedor_val" => $this->normalizarIdentificadorProveedorErp(isset($renglon["sku_proveedor"]) ? $renglon["sku_proveedor"] : ""),
+            ":codigo_barras_cmp" => $this->normalizarIdentificadorProveedorErp(isset($renglon["codigo_barras"]) ? $renglon["codigo_barras"] : ""),
+            ":codigo_barras_val" => $this->normalizarIdentificadorProveedorErp(isset($renglon["codigo_barras"]) ? $renglon["codigo_barras"] : ""),
+            ":codigo_interno_cmp" => $this->normalizarIdentificadorProveedorErp(isset($renglon["codigo_interno"]) ? $renglon["codigo_interno"] : ""),
+            ":codigo_interno_val" => $this->normalizarIdentificadorProveedorErp(isset($renglon["codigo_interno"]) ? $renglon["codigo_interno"] : "")
         ));
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
