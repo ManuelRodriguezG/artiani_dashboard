@@ -249,6 +249,11 @@
         }).catch(mostrarError);
     }
 
+    /**
+     * IA: Codex GPT-5 | Fecha: 2026-07-22
+     * Proposito: editar perfil interno y permitir restablecer contrasena sin exponer secretos al cliente.
+     * Impacto: UI de Seguridad/Usuarios; la contrasena es opcional y solo se envia si el operador la captura.
+     */
     function abrirEditarUsuario(usuario) {
         Swal.fire({
             title: "Editar usuario",
@@ -278,12 +283,18 @@
                 "<input id=\"seg_edit_telefono_secundario\" class=\"form-control mb-3\" inputmode=\"tel\" autocomplete=\"off\" value=\"" + escapeHtml(usuario.telefono_secundario || "") + "\">" +
                 "<label class=\"form-label\">Notas admin</label>" +
                 "<textarea id=\"seg_edit_notas_admin\" class=\"form-control mb-3\" rows=\"2\">" + escapeHtml(usuario.notas_admin || "") + "</textarea>" +
+                "<div class=\"separator my-4\"></div>" +
+                "<div class=\"fw-bold mb-2\">Restablecer contrasena</div>" +
+                "<div class=\"text-muted fs-8 mb-3\">Deja estos campos vacios para conservar la contrasena actual.</div>" +
+                "<label class=\"form-label\">Nueva contrasena</label>" +
+                "<input id=\"seg_edit_contrasenia\" class=\"form-control mb-3\" type=\"password\" autocomplete=\"new-password\">" +
+                "<label class=\"form-label\">Confirmar nueva contrasena</label>" +
+                "<input id=\"seg_edit_confirmar\" class=\"form-control mb-3\" type=\"password\" autocomplete=\"new-password\">" +
                 "<label class=\"form-label\">Estado</label>" +
                 "<select id=\"seg_edit_estatus\" class=\"form-select\">" +
                 "<option value=\"1\"" + (String(usuario.estatus) === "1" ? " selected" : "") + ">Activo</option>" +
                 "<option value=\"0\"" + (String(usuario.estatus) === "0" ? " selected" : "") + ">Inactivo</option>" +
                 "</select>" +
-                "<div class=\"text-muted fs-8 mt-3\">La contrasena se restablece en una accion separada.</div>" +
                 "</div>",
             icon: "info",
             showCancelButton: true,
@@ -305,11 +316,23 @@
                     puesto: document.getElementById("seg_edit_puesto").value.trim(),
                     telefono_secundario: document.getElementById("seg_edit_telefono_secundario").value.trim(),
                     notas_admin: document.getElementById("seg_edit_notas_admin").value.trim(),
+                    contrasenia: document.getElementById("seg_edit_contrasenia").value,
+                    confirmar_contrasenia: document.getElementById("seg_edit_confirmar").value,
                     estatus: document.getElementById("seg_edit_estatus").value
                 };
                 if (!datos.nombres || !datos.celular) {
                     Swal.showValidationMessage("Nombre y celular son obligatorios");
                     return false;
+                }
+                if (datos.contrasenia || datos.confirmar_contrasenia) {
+                    if (datos.contrasenia.length < 8) {
+                        Swal.showValidationMessage("La contrasena debe tener al menos 8 caracteres");
+                        return false;
+                    }
+                    if (datos.contrasenia !== datos.confirmar_contrasenia) {
+                        Swal.showValidationMessage("La contrasena no coincide");
+                        return false;
+                    }
                 }
                 return datos;
             }
@@ -372,7 +395,7 @@
                 "\"><i class=\"bi bi-power\"></i></button>" : "") + "</td>" +
                 "<td>" + chips + "</td>" +
                 "<td class=\"text-end\">" + (canAdminister ? "<div class=\"d-flex justify-content-end gap-2\">" +
-                "<button class=\"btn btn-sm btn-light-primary\" data-editar-usuario=\"" + usuario.id_usuario + "\">Editar</button>" +
+                "<button class=\"btn btn-sm btn-light-primary\" data-editar-usuario=\"" + usuario.id_usuario + "\">Editar / contrasena</button>" +
                 "<select class=\"form-select form-select-sm w-175px\" data-role-select>" + opciones + "</select>" +
                 "<button class=\"btn btn-sm btn-primary\" data-asignar=\"" + usuario.id_usuario + "\"><i class=\"bi bi-plus-lg\"></i></button>" +
                 "</div>" : "<span class=\"text-muted\">Solo consulta</span>") + "</td></tr>";

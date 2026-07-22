@@ -264,6 +264,9 @@ Implementado:
 - Backend sigue validando con `Controlador::requerirPermiso()`.
 - Configuracion separa bloques de Calidad, Proveedor, Clasificacion, Costos, Reglas operativas y Auxiliares.
 - Marcas ya tienen flujo operativo: Configuracion administra marcas; Productos permite seleccionar u ofrecer crear marca nueva.
+- Revision 2026-07-22: el rol base `ventas` ya no debe incluir `catalogo.ver`. Ventas consulta productos por endpoints propios (`ventas.ver` / `ventas.operar`) para POS, checador y disponibilidad; `catalogo.ver` abre el modulo administrativo/read-only de Catalogo y debe quedar para roles de Catalogo, direccion, auditoria o areas que realmente revisan maestro de productos.
+- Cierre BD 2026-07-22: se retiro la relacion real `ventas` + `catalogo.ver` en `sys_roles_permisos` para que un usuario solo ventas no vea el modulo Catalogo en el menu. La consulta posterior quedo en 0 asignaciones.
+- Correccion UI 2026-07-22: un usuario con solo `catalogo.ver` podia entrar al modulo, pero el JS se rompia porque intentaba registrar eventos en formularios de variantes que PHP oculta cuando no existe `catalogo.editar`. Se blindaron esos listeners y se actualizo la version del asset `productos.js?v=20260722-permisos-readonly-1`.
 
 Pendiente de decision:
 

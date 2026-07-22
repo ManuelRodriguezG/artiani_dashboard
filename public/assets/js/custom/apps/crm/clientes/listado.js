@@ -29,6 +29,10 @@
         return div.innerHTML;
     }
 
+    var permisosCrm = window.CRM_PERMISOS || {};
+    var puedeEditar = permisosCrm.editar === true;
+    var puedeAuditar = permisosCrm.auditoria === true;
+
     function setText(id, value) {
         var node = document.getElementById(id);
         if (node) {
@@ -54,12 +58,14 @@
         cargarSegmentosCatalogo();
         cargarReportes();
         cargarRecompensas();
-        cargarFuentes();
-        cargarMigracion();
-        cargarDuplicados();
-        cargarPreview();
-        cargarBorrador();
-        cargarSchema();
+        if (puedeAuditar) {
+            cargarFuentes();
+            cargarMigracion();
+            cargarDuplicados();
+            cargarPreview();
+            cargarBorrador();
+            cargarSchema();
+        }
     }
 
     /**
@@ -320,6 +326,9 @@
     }
 
     function botonSegmentoCatalogo(texto, icono, clase, item, estatusRapido) {
+        if (!puedeEditar) {
+            return "";
+        }
         var attrs = " data-crm-seg-editar=\"" + escapeHtml(item.id_segmento_crm || "") + "\"" +
             " data-crm-seg-codigo=\"" + escapeHtml(item.codigo || "") + "\"" +
             " data-crm-seg-nombre=\"" + escapeHtml(item.nombre || "") + "\"" +
@@ -381,6 +390,9 @@
     }
 
     function guardarSegmentoCatalogo() {
+        if (!puedeEditar) {
+            return;
+        }
         requestPost("/crm/segmento_catalogo_guardar_autorizado_erp", {
             id_segmento_crm: document.getElementById("crm_seg_id").value,
             codigo: document.getElementById("crm_seg_codigo").value,
@@ -726,15 +738,19 @@
         document.getElementById("crm_tareas_recargar").addEventListener("click", cargarTareas);
         document.getElementById("crm_comercial_recargar").addEventListener("click", cargarComercial);
         document.getElementById("crm_segmentos_recargar").addEventListener("click", cargarSegmentosCatalogo);
-        document.getElementById("crm_seg_nuevo").addEventListener("click", limpiarSegmentoCatalogo);
-        document.getElementById("crm_seg_validar").addEventListener("click", validarSegmentoCatalogo);
-        document.getElementById("crm_seg_guardar").addEventListener("click", guardarSegmentoCatalogo);
+        if (puedeEditar) {
+            document.getElementById("crm_seg_nuevo").addEventListener("click", limpiarSegmentoCatalogo);
+            document.getElementById("crm_seg_validar").addEventListener("click", validarSegmentoCatalogo);
+            document.getElementById("crm_seg_guardar").addEventListener("click", guardarSegmentoCatalogo);
+        }
         document.getElementById("crm_reportes_recargar").addEventListener("click", cargarReportes);
         document.getElementById("crm_recompensas_recargar").addEventListener("click", cargarRecompensas);
-        document.getElementById("crm_fuentes_recargar").addEventListener("click", cargarFuentes);
-        document.getElementById("crm_duplicados_recargar").addEventListener("click", cargarDuplicados);
-        document.getElementById("crm_preview_recargar").addEventListener("click", cargarPreview);
-        document.getElementById("crm_borrador_recargar").addEventListener("click", cargarBorrador);
+        if (puedeAuditar) {
+            document.getElementById("crm_fuentes_recargar").addEventListener("click", cargarFuentes);
+            document.getElementById("crm_duplicados_recargar").addEventListener("click", cargarDuplicados);
+            document.getElementById("crm_preview_recargar").addEventListener("click", cargarPreview);
+            document.getElementById("crm_borrador_recargar").addEventListener("click", cargarBorrador);
+        }
         document.getElementById("crm_buscar").addEventListener("click", buscarExpress);
         document.getElementById("crm_busqueda_q").addEventListener("keydown", function (event) {
             if (event.key === "Enter") {

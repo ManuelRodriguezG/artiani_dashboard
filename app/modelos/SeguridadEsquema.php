@@ -259,7 +259,7 @@ class SeguridadEsquema extends DBSchema {
         "proveedores.ver", "garantias.ver"
       ),
       "ventas" => array(
-        "catalogo.ver", "inventario.ver", "crm.ver", "crm.crear", "ventas.ver", "ventas.operar", "ventas.listas.ver", "ventas.caja_diferencias.ver", "ecommerce.ver", "notificaciones.ver", "reportes.ver",
+        "inventario.ver", "crm.ver", "crm.crear", "ventas.ver", "ventas.operar", "ventas.listas.ver", "ventas.caja_diferencias.ver", "ecommerce.ver", "notificaciones.ver", "reportes.ver",
         "garantias.ver", "garantias.reclamos.crear"
       ),
       "crm" => array(

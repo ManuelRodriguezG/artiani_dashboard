@@ -1,4 +1,9 @@
 <!DOCTYPE html>
+<?php
+$crmPermisosSesion = isset($_SESSION['permisos']) && is_array($_SESSION['permisos']) ? $_SESSION['permisos'] : array();
+$crmPuedeEditar = in_array('crm.editar', $crmPermisosSesion, true);
+$crmPuedeAuditar = in_array('crm.auditoria', $crmPermisosSesion, true);
+?>
 <html lang="es">
 <head>
     <base href="../../../">
@@ -128,11 +133,13 @@
                                         <i class="bi bi-people"></i> Clientes
                                     </a>
                                 </li>
-                                <li class="nav-item" role="presentation">
-                                    <a class="nav-link" data-bs-toggle="tab" href="#crm_tab_auditoria" role="tab">
-                                        <i class="bi bi-shield-check"></i> Auditoria legacy
-                                    </a>
-                                </li>
+                                <?php if ($crmPuedeAuditar): ?>
+                                    <li class="nav-item" role="presentation">
+                                        <a class="nav-link" data-bs-toggle="tab" href="#crm_tab_auditoria" role="tab">
+                                            <i class="bi bi-shield-check"></i> Auditoria legacy
+                                        </a>
+                                    </li>
+                                <?php endif; ?>
                             </ul>
 
                             <div class="tab-content" id="crm_clientes_workspace">
@@ -170,7 +177,9 @@
                                         <div class="text-muted fs-7">Segmentos CRM configurables para listas de precios, condiciones comerciales y futuras autorizaciones</div>
                                     </div>
                                     <div class="d-flex gap-2">
-                                        <button type="button" class="btn btn-sm btn-light" id="crm_seg_nuevo"><i class="bi bi-plus-circle"></i> Nuevo</button>
+                                        <?php if ($crmPuedeEditar): ?>
+                                            <button type="button" class="btn btn-sm btn-light" id="crm_seg_nuevo"><i class="bi bi-plus-circle"></i> Nuevo</button>
+                                        <?php endif; ?>
                                         <button type="button" class="btn btn-sm btn-light-primary" id="crm_segmentos_recargar"><i class="bi bi-arrow-clockwise"></i> Recargar</button>
                                     </div>
                                 </div>
@@ -183,15 +192,15 @@
                                         <input type="hidden" id="crm_seg_id">
                                         <div class="col-md-3">
                                             <label class="form-label text-muted fs-8 text-uppercase">Codigo</label>
-                                            <input class="form-control form-control-solid" id="crm_seg_codigo" placeholder="RECURRENTE">
+                                            <input class="form-control form-control-solid" id="crm_seg_codigo" placeholder="RECURRENTE"<?= $crmPuedeEditar ? '' : ' disabled'; ?>>
                                         </div>
                                         <div class="col-md-4">
                                             <label class="form-label text-muted fs-8 text-uppercase">Nombre</label>
-                                            <input class="form-control form-control-solid" id="crm_seg_nombre" placeholder="Cliente recurrente">
+                                            <input class="form-control form-control-solid" id="crm_seg_nombre" placeholder="Cliente recurrente"<?= $crmPuedeEditar ? '' : ' disabled'; ?>>
                                         </div>
                                         <div class="col-md-2">
                                             <label class="form-label text-muted fs-8 text-uppercase">Tipo</label>
-                                            <select class="form-select form-select-solid" id="crm_seg_tipo">
+                                            <select class="form-select form-select-solid" id="crm_seg_tipo"<?= $crmPuedeEditar ? '' : ' disabled'; ?>>
                                                 <option value="comercial">Comercial</option>
                                                 <option value="operativo">Operativo</option>
                                                 <option value="marketing">Marketing</option>
@@ -202,29 +211,33 @@
                                         </div>
                                         <div class="col-md-2">
                                             <label class="form-label text-muted fs-8 text-uppercase">Estatus</label>
-                                            <select class="form-select form-select-solid" id="crm_seg_estatus">
+                                            <select class="form-select form-select-solid" id="crm_seg_estatus"<?= $crmPuedeEditar ? '' : ' disabled'; ?>>
                                                 <option value="activo">Activo</option>
                                                 <option value="pausado">Pausado</option>
                                                 <option value="cancelado">Cancelado</option>
                                             </select>
                                         </div>
                                         <div class="col-md-1 d-flex align-items-end">
-                                            <button class="btn btn-light-primary w-100" id="crm_seg_validar" type="button"><i class="bi bi-check2-circle"></i></button>
+                                            <?php if ($crmPuedeEditar): ?>
+                                                <button class="btn btn-light-primary w-100" id="crm_seg_validar" type="button"><i class="bi bi-check2-circle"></i></button>
+                                            <?php endif; ?>
                                         </div>
                                         <div class="col-12">
                                             <label class="form-label text-muted fs-8 text-uppercase">Descripcion</label>
-                                            <input class="form-control form-control-solid" id="crm_seg_descripcion" placeholder="Uso comercial del segmento">
+                                            <input class="form-control form-control-solid" id="crm_seg_descripcion" placeholder="Uso comercial del segmento"<?= $crmPuedeEditar ? '' : ' disabled'; ?>>
                                         </div>
                                         <div class="col-md-5">
                                             <label class="form-label text-muted fs-8 text-uppercase">Referencia/respaldo</label>
-                                            <input class="form-control form-control-solid" id="crm_seg_respaldo" placeholder="C:\xampp\panel_db_backups\...sql">
+                                            <input class="form-control form-control-solid" id="crm_seg_respaldo" placeholder="C:\xampp\panel_db_backups\...sql"<?= $crmPuedeEditar ? '' : ' disabled'; ?>>
                                         </div>
                                         <div class="col-md-4">
                                             <label class="form-label text-muted fs-8 text-uppercase">Token autorizado</label>
-                                            <input class="form-control form-control-solid" id="crm_seg_autorizar" placeholder="CRM_CLIENTES_SEGMENTO_CATALOGO">
+                                            <input class="form-control form-control-solid" id="crm_seg_autorizar" placeholder="CRM_CLIENTES_SEGMENTO_CATALOGO"<?= $crmPuedeEditar ? '' : ' disabled'; ?>>
                                         </div>
                                         <div class="col-md-3 d-flex align-items-end">
-                                            <button class="btn btn-primary w-100" id="crm_seg_guardar" type="button"><i class="bi bi-save"></i> Guardar segmento</button>
+                                            <?php if ($crmPuedeEditar): ?>
+                                                <button class="btn btn-primary w-100" id="crm_seg_guardar" type="button"><i class="bi bi-save"></i> Guardar segmento</button>
+                                            <?php endif; ?>
                                         </div>
                                     </div>
                                     <div id="crm_segmentos_dryrun" class="mb-4"></div>
@@ -323,6 +336,7 @@
                             </div>
 
                                 </div>
+                                <?php if ($crmPuedeAuditar): ?>
                                 <div class="tab-pane fade" id="crm_tab_auditoria" role="tabpanel">
 
                             <div class="row g-4 mb-4">
@@ -446,6 +460,7 @@
                                 <div class="p-4" id="crm_schema_resumen"></div>
                             </div>
                                 </div>
+                                <?php endif; ?>
                             </div>
                         </div>
                     </div>
@@ -457,6 +472,12 @@
 </div>
 <script src="assets/plugins/global/plugins.bundle.js"></script>
 <script src="assets/js/scripts.bundle.js"></script>
+<script>
+    window.CRM_PERMISOS = {
+        editar: <?= $crmPuedeEditar ? 'true' : 'false'; ?>,
+        auditoria: <?= $crmPuedeAuditar ? 'true' : 'false'; ?>
+    };
+</script>
 <script src="/assets/js/custom/apps/crm/clientes/listado.js?v=20260718-segmentos-operativo2"></script>
 </body>
 </html>

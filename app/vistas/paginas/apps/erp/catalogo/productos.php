@@ -891,6 +891,6 @@
             "costos" => SesionSeguridad::tienePermiso("catalogo.costos")
         )); ?>;
     </script>
-    <script src="/assets/js/custom/apps/erp/catalogo/productos.js?v=20260721-imagenes-upload-1"></script>
+    <script src="/assets/js/custom/apps/erp/catalogo/productos.js?v=20260722-permisos-readonly-1"></script>
 </body>
 </html>

@@ -281,6 +281,8 @@ class Sistema extends Controlador {
     $puesto = isset($_POST["puesto"]) ? trim($_POST["puesto"]) : "";
     $telefonoSecundario = isset($_POST["telefono_secundario"]) ? trim($_POST["telefono_secundario"]) : "";
     $notasAdmin = isset($_POST["notas_admin"]) ? trim($_POST["notas_admin"]) : "";
+    $contrasenia = isset($_POST["contrasenia"]) ? $_POST["contrasenia"] : "";
+    $confirmarContrasenia = isset($_POST["confirmar_contrasenia"]) ? $_POST["confirmar_contrasenia"] : "";
     $estatus = isset($_POST["estatus"]) ? intval($_POST["estatus"]) : 1;
 
     if ($idUsuario <= 0 || $nombres === "" || $celular === "") {
@@ -291,9 +293,26 @@ class Sistema extends Controlador {
       echo json_encode(array("error" => true, "tipo" => "warning", "mensaje" => "No puedes desactivar tu propio usuario"));
       return;
     }
+    if ($contrasenia !== "" || $confirmarContrasenia !== "") {
+      if ($contrasenia !== $confirmarContrasenia) {
+        echo json_encode(array("error" => true, "tipo" => "warning", "mensaje" => "La contrasena no coincide"));
+        return;
+      }
+      if (strlen($contrasenia) < 8) {
+        echo json_encode(array("error" => true, "tipo" => "warning", "mensaje" => "La contrasena debe tener al menos 8 caracteres"));
+        return;
+      }
+    }
 
     $seguridad = $this->modelo("SeguridadPermisos");
-    $respuesta = $seguridad->actualizarUsuarioInterno($idUsuario, array(
+    /**
+     * IA: Codex GPT-5
+     * Fecha: 2026-07-22
+     * Proposito: permitir restablecer contrasena desde Seguridad sin registrar secretos en auditoria.
+     * Impacto: Seguridad/Usuarios; conserva validaciones de perfil y solo envia hash si el operador captura contrasena nueva.
+     * Contrato: `contrasenia_hash` es opcional y nunca debe exponerse en respuesta ni auditoria.
+     */
+    $datosActualizar = array(
       "nombres" => $nombres,
       "apellido_paterno" => $apellidoPaterno,
       "apellido_materno" => $apellidoMaterno,
@@ -307,12 +326,21 @@ class Sistema extends Controlador {
       "telefono_secundario" => $telefonoSecundario,
       "notas_admin" => $notasAdmin,
       "estatus" => $estatus
-    ));
+    );
+    if ($contrasenia !== "") {
+      $datosActualizar["contrasenia_hash"] = SesionSeguridad::hashContrasenia($contrasenia);
+    }
+    $respuesta = $seguridad->actualizarUsuarioInterno($idUsuario, $datosActualizar);
 
     if ($respuesta["error"] == false && $idUsuario === $this->usuarioActualId()) {
       $_SESSION["nombres"] = $nombres;
       $_SESSION["apellido_paterno"] = $apellidoPaterno;
       $_SESSION["apellido_materno"] = $apellidoMaterno;
+      $_SESSION["alias"] = $alias;
+      $_SESSION["correo"] = $correo;
+      $_SESSION["nombre_mostrar"] = $nombreMostrar;
+      $_SESSION["area_departamento"] = $areaDepartamento;
+      $_SESSION["puesto"] = $puesto;
     }
 
     SesionSeguridad::registrarAuditoria("seguridad", "editar_usuario", array(

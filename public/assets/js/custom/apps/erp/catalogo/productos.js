@@ -3539,21 +3539,35 @@
         if (prepararVariantes) {
             prepararVariantes.addEventListener("click", prepararVariante);
         }
-        document.getElementById("catalogo_variante_valores").addEventListener("input", function (event) {
-            if (event.target.matches("[data-color-selector]")) {
-                event.target.parentElement.querySelector("[data-color-text]").value = event.target.value.toUpperCase();
-            } else if (event.target.matches("[data-color-text]") && /^#[0-9a-f]{6}$/i.test(event.target.value)) {
-                event.target.parentElement.querySelector("[data-color-selector]").value = event.target.value;
-            }
-        });
-        document.getElementById("catalogo_variantes_encabezado").addEventListener("click", function (event) {
-            var button = event.target.closest("[data-editar-variante]");
-            if (button) {
-                document.getElementById("catalogo_variante_atributo").value = button.getAttribute("data-editar-variante");
-                document.querySelector("#catalogo_form_variantes [name='nuevo_atributo']").value = "";
-                prepararVariante();
-            }
-        });
+        /**
+         * IA: Codex GPT-5 | Fecha: 2026-07-22
+         * Proposito: permitir Catalogo en modo solo lectura sin romper el JS cuando PHP oculta formularios de edicion.
+         * Impacto: usuarios con `catalogo.ver` pueden listar y consultar productos aunque no tengan `catalogo.editar`.
+         * Contrato: los listeners de edicion solo se activan si el nodo existe; los listados read-only siguen activos.
+         */
+        var varianteValores = document.getElementById("catalogo_variante_valores");
+        if (varianteValores) {
+            varianteValores.addEventListener("input", function (event) {
+                if (event.target.matches("[data-color-selector]")) {
+                    event.target.parentElement.querySelector("[data-color-text]").value = event.target.value.toUpperCase();
+                } else if (event.target.matches("[data-color-text]") && /^#[0-9a-f]{6}$/i.test(event.target.value)) {
+                    event.target.parentElement.querySelector("[data-color-selector]").value = event.target.value;
+                }
+            });
+        }
+        var variantesEncabezado = document.getElementById("catalogo_variantes_encabezado");
+        if (variantesEncabezado) {
+            variantesEncabezado.addEventListener("click", function (event) {
+                var button = event.target.closest("[data-editar-variante]");
+                var atributo = document.getElementById("catalogo_variante_atributo");
+                var nuevo = document.querySelector("#catalogo_form_variantes [name='nuevo_atributo']");
+                if (button && atributo && nuevo) {
+                    atributo.value = button.getAttribute("data-editar-variante");
+                    nuevo.value = "";
+                    prepararVariante();
+                }
+            });
+        }
         document.getElementById("catalogo_detalle_skus_lista").addEventListener("click", function (event) {
             var button = event.target.closest("[data-editar-sku]");
             if (button) {

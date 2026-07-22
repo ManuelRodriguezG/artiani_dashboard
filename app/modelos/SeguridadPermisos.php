@@ -274,6 +274,7 @@ class SeguridadPermisos extends CRUD {
     $apellidoMaterno = isset($datos["apellido_materno"]) ? trim($datos["apellido_materno"]) : "";
     $celular = isset($datos["celular"]) ? trim($datos["celular"]) : "";
     $estatus = isset($datos["estatus"]) ? intval($datos["estatus"]) : 1;
+    $contraseniaHash = isset($datos["contrasenia_hash"]) ? trim($datos["contrasenia_hash"]) : "";
     $perfil = array(
       "alias" => isset($datos["alias"]) ? trim($datos["alias"]) : "",
       "correo" => isset($datos["correo"]) ? trim($datos["correo"]) : "",
@@ -371,6 +372,18 @@ class SeguridadPermisos extends CRUD {
           $paramsUpdate[":" . $campo] = $valor;
         }
       }
+      /**
+       * IA: Codex GPT-5
+       * Fecha: 2026-07-22
+       * Proposito: restablecer contrasena interna solo cuando el controlador entrega un hash validado.
+       * Impacto: Seguridad/Usuarios; evita guardar contrasenas vacias y mantiene la respuesta sin secretos.
+       * Contrato: `contrasenia_hash` debe llegar ya hasheada; aqui solo se persiste y se informa bandera booleana.
+       */
+      $contraseniaActualizada = $contraseniaHash !== "";
+      if ($contraseniaActualizada) {
+        $sets[] = "contrasenia=:contrasenia";
+        $paramsUpdate[":contrasenia"] = $contraseniaHash;
+      }
       $stmt = $db->prepare("UPDATE {$this->tabla_usuarios}
                             SET " . implode(", ", $sets) . "
                             WHERE id_usuario=:id");
@@ -385,7 +398,8 @@ class SeguridadPermisos extends CRUD {
           "apellido_paterno" => $apellidoPaterno,
           "apellido_materno" => $apellidoMaterno,
           "celular" => $celular,
-          "estatus" => $estatus
+          "estatus" => $estatus,
+          "contrasenia_actualizada" => $contraseniaActualizada
         ), $perfil)
       ));
     } catch (Exception $e) {

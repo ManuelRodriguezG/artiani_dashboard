@@ -105,6 +105,11 @@ class Autenticacion extends Controlador {
                 "apellido_paterno" => $respuesta['depurar']['apellido_paterno'],
                 "apellido_materno" => $respuesta['depurar']['apellido_materno'],
                 "nombres" => $respuesta['depurar']['nombres'],
+                "alias" => isset($respuesta['depurar']['alias']) ? $respuesta['depurar']['alias'] : null,
+                "correo" => isset($respuesta['depurar']['correo']) ? $respuesta['depurar']['correo'] : null,
+                "nombre_mostrar" => isset($respuesta['depurar']['nombre_mostrar']) ? $respuesta['depurar']['nombre_mostrar'] : null,
+                "area_departamento" => isset($respuesta['depurar']['area_departamento']) ? $respuesta['depurar']['area_departamento'] : null,
+                "puesto" => isset($respuesta['depurar']['puesto']) ? $respuesta['depurar']['puesto'] : null,
                 "id_usuario" => $respuesta['depurar']['id_usuario'],
                 "id_rango" => isset($respuesta['depurar']['id_rango']) ? $respuesta['depurar']['id_rango'] : null,
                 "id_rol" => isset($respuesta['depurar']['id_rol']) ? $respuesta['depurar']['id_rol'] : null

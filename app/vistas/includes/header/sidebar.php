@@ -74,7 +74,7 @@ $gruposMenu = array(
             array('titulo' => 'Seguimiento', 'ruta' => '/crm/seguimiento', 'permiso' => 'crm.ver'),
             array('titulo' => 'Condiciones comerciales', 'ruta' => '/crm/clientes#crm_tab_comercial', 'permiso' => 'crm.ver'),
             array('titulo' => 'Recompensas', 'ruta' => '/crm/recompensas', 'permiso' => 'crm.ver'),
-            array('titulo' => 'Auditoria', 'ruta' => '/crm/clientes#crm_tab_auditoria', 'permiso' => 'crm.ver')
+            array('titulo' => 'Auditoria', 'ruta' => '/crm/clientes#crm_tab_auditoria', 'permiso' => 'crm.auditoria')
         )
     ),
     array(

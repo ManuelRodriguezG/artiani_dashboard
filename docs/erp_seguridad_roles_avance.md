@@ -249,7 +249,7 @@ Notas:
 - Corregido 2026-06-10: accion `Editar` permite actualizar datos base y perfil robusto inicial de usuario desde Seguridad.
 - Corregido 2026-06-10: se audito `sys_usuarios`; ya existian `alias`, `correo` y `telefono`.
 - Corregido 2026-06-10: se agregaron al esquema y base local `nombre_mostrar`, `area_departamento`, `puesto`, `telefono_secundario` y `notas_admin`.
-- Pendiente futuro: restablecimiento de contrasena, filtros/paginacion y CRUD de roles.
+- Pendiente futuro: filtros/paginacion y CRUD de roles.
 - Pendiente medio: no hay paginacion; aceptable para pocos usuarios, pero se debe resolver antes de crecer.
 
 ### 7. Auditar auditoria
@@ -296,7 +296,7 @@ Notas:
 - Matriz conservadora sincronizada en `sys_roles_permisos`.
 - Base local verificada: `administrador_erp` 26 permisos, `direccion` 12, `compras` 12, `finanzas_contabilidad` 8, `soporte_sistema` 4.
 - Verificaciones de sintaxis PHP/JS ejecutadas correctamente.
-- Pendientes de fase avanzada: restablecimiento de contrasena, paginacion real de auditoria y `datos_antes` mas completo por modulo.
+- Pendientes de fase avanzada: paginacion real de auditoria y `datos_antes` mas completo por modulo.
 
 ### 9. Editar usuario interno
 
@@ -310,7 +310,7 @@ Notas:
   - Backend permite actualizar datos base existentes: `nombres`, `apellido_paterno`, `apellido_materno`, `celular` y `estatus` con validaciones.
   - Se audita y define si se agregan campos robustos de perfil: `correo`, `usuario`/`alias`, `nombre_mostrar`, `area_departamento`, `puesto`, `telefono_secundario` y `notas_admin`.
   - Si el usuario requiere operar almacen/inventario, se planea alcance por almacen en tabla separada, no como campo obligatorio del usuario.
-  - No se cambia contrasena desde la edicion normal.
+  - La contrasena puede restablecerse desde la edicion de usuario si el operador captura y confirma una nueva; si se deja vacia, se conserva la actual.
   - No se duplica `celular`, `correo` o `alias` cuando apliquen.
   - Cambio queda auditado como `seguridad.editar_usuario`.
   - Listado refleja cambios.
@@ -326,7 +326,10 @@ Notas:
 - 2026-06-10: Se validan `celular`, `alias` y `correo` contra duplicados.
 - 2026-06-10: Se audita como `seguridad.editar_usuario` con `datos_antes` y `datos_despues`.
 - 2026-06-10: `Sistema.seguridad_usuario_editar` agregado a auditoria explicita de `Core.php`.
-- Restablecer contrasena queda como accion separada futura, no mezclada con editar usuario.
+- 2026-07-22: Se habilito restablecimiento opcional de contrasena desde `Editar / contrasena`; backend valida minimo 8 caracteres, confirmacion y persiste solo hash.
+- 2026-07-22: Auditoria de edicion solo registra bandera `contrasenia_actualizada`, sin contrasena ni hash.
+- 2026-07-22: `SesionSeguridad` conserva datos de perfil en sesion (`alias`, `correo`, `nombre_mostrar`, `area_departamento`, `puesto`) para consumo de layout.
+- 2026-07-22: Navbar de usuario deja de usar datos demo; ahora renderiza nombre/rol de sesion y enlaces internos a Seguridad, Notificaciones y Cerrar sesion.
 
 ## Prompt recomendado para empezar
 
@@ -340,7 +343,7 @@ Criterio: actualizar docs/erp_seguridad_roles_avance.md con notas concretas por 
 
 ## Ultimo avance registrado
 
-- Fecha: 2026-06-10.
+- Fecha: 2026-07-22.
 - Pasos cerrados: 1. Esquema; 2. Roles base; 3. Permisos base; 4. Asignacion rol-permiso; 5. Endpoints; 6. UI usuarios/roles; 7. Auditoria; 8. Cierre; 9. Editar usuario interno.
-- Evidencia: tablas/indices verificados en MySQL local, duplicados revisados, dry-run de seguridad sin errores, matriz rol-permiso sincronizada, endpoints protegidos, UI y auditoria corregidas, edicion base y perfil robusto inicial de usuarios implementado.
-- Siguiente paso recomendado: probar alta/edicion/asignacion con un usuario real de rol administrativo y despues validar un usuario `compras`.
+- Evidencia: tablas/indices verificados en MySQL local, duplicados revisados, dry-run de seguridad sin errores, matriz rol-permiso sincronizada, endpoints protegidos, UI y auditoria corregidas, edicion base y perfil robusto inicial de usuarios implementado. El 2026-07-22 se agrego restablecimiento opcional de contrasena y navbar funcional con datos de sesion.
+- Siguiente paso recomendado: probar alta/edicion/restablecimiento/asignacion con un usuario real de rol administrativo y despues validar un usuario `compras`.

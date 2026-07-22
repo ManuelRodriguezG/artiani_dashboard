@@ -112,6 +112,11 @@ class SesionSeguridad {
     $_SESSION['apellido_paterno'] = isset($usuario['apellido_paterno']) ? $usuario['apellido_paterno'] : null;
     $_SESSION['apellido_materno'] = isset($usuario['apellido_materno']) ? $usuario['apellido_materno'] : null;
     $_SESSION['nombres'] = isset($usuario['nombres']) ? $usuario['nombres'] : null;
+    $_SESSION['alias'] = isset($usuario['alias']) ? $usuario['alias'] : null;
+    $_SESSION['correo'] = isset($usuario['correo']) ? $usuario['correo'] : null;
+    $_SESSION['nombre_mostrar'] = isset($usuario['nombre_mostrar']) ? $usuario['nombre_mostrar'] : null;
+    $_SESSION['area_departamento'] = isset($usuario['area_departamento']) ? $usuario['area_departamento'] : null;
+    $_SESSION['puesto'] = isset($usuario['puesto']) ? $usuario['puesto'] : null;
     $_SESSION['id_usuario'] = isset($usuario['id_usuario']) ? intval($usuario['id_usuario']) : 0;
     unset($_SESSION['usuario_reautenticar_id']);
     $_SESSION['roles'] = isset($usuario['roles']) && is_array($usuario['roles']) ? $usuario['roles'] : array();
