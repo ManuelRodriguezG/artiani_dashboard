@@ -143,6 +143,17 @@ $gruposMenu = array(
             array('titulo' => 'Ecommerce publico', 'ruta' => '/ecommercePublico/publicaciones', 'permiso' => 'catalogo.ver'),
             array('titulo' => 'Catalogo ecommerce', 'ruta' => '/producto/catalogo', 'permiso' => 'ecommerce.ver')
         )
+    ),
+    array(
+        'seccion' => 'Administracion',
+        'titulo' => 'Administracion',
+        'icono' => 'bi-shield-lock',
+        'permiso' => '',
+        'items' => array(
+            array('titulo' => 'Configuracion del sistema', 'ruta' => '/sistema/configuracion', 'permiso' => 'configuracion.administrar'),
+            array('titulo' => 'Usuarios y roles', 'ruta' => '/sistema/seguridad', 'permiso' => 'seguridad.ver'),
+            array('titulo' => 'Notificaciones', 'ruta' => '/sistema/notificaciones', 'permiso' => 'notificaciones.ver')
+        )
     )
 );
 ?>
@@ -235,15 +246,6 @@ $gruposMenu = array(
                         </div>
                     </div>
                 <?php endforeach; ?>
-
-                <?php if ($puede('seguridad.ver')): ?>
-                    <div class="menu-item">
-                        <a class="menu-link" href="/sistema/seguridad">
-                            <span class="menu-icon"><i class="bi <?= htmlspecialchars($seccionesMenu['Administracion']['icono']) ?> fs-3"></i></span>
-                            <span class="menu-title">Administracion</span>
-                        </a>
-                    </div>
-                <?php endif; ?>
             </div>
         </div>
     </div>

@@ -17,6 +17,7 @@
     var scanCamaras = [];
     var scanCamaraSeleccionada = "";
     var ticketPosActual = "";
+    var ventaRapidaValidada = null;
     var placeholderImagen = "data:image/svg+xml;charset=UTF-8,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%20400%20300'%3E%3Crect%20width='400'%20height='300'%20fill='%23f1f3f6'/%3E%3Cpath%20d='M80%20225h240l-70-85-55%2065-35-42z'%20fill='%23c8ced8'/%3E%3Ccircle%20cx='135'%20cy='105'%20r='28'%20fill='%23d7dce5'/%3E%3C/svg%3E";
 
     function request(url, data) {
@@ -922,6 +923,79 @@
             document.getElementById("pos_validacion").innerHTML = "";
         }).catch(mostrarError);
     }
+    function datosVentaRapida() {
+        return {
+            id_almacen: almacenActual(),
+            descripcion: document.getElementById("pos_vr_descripcion").value.trim(),
+            cantidad: document.getElementById("pos_vr_cantidad").value,
+            precio_unitario: document.getElementById("pos_vr_precio").value,
+            codigo_barras: document.getElementById("pos_vr_codigo").value.trim(),
+            categoria_provisional: document.getElementById("pos_vr_categoria").value.trim(),
+            marca_provisional: document.getElementById("pos_vr_marca").value.trim(),
+            proveedor_provisional: document.getElementById("pos_vr_proveedor").value.trim(),
+            motivo: document.getElementById("pos_vr_motivo").value,
+            observaciones: document.getElementById("pos_vr_observaciones").value.trim(),
+            controla_inventario: document.getElementById("pos_vr_controla_inventario").checked ? "1" : "0"
+        };
+    }
+    function validarVentaRapida() {
+        ventaRapidaValidada = null;
+        document.getElementById("pos_vr_agregar").disabled = true;
+        document.getElementById("pos_vr_resultado").innerHTML = "<div class=\"alert alert-info py-3\"><span class=\"spinner-border spinner-border-sm me-2\"></span>Validando venta rapida...</div>";
+        request("/ventas/pos_venta_rapida_dryrun_erp", datosVentaRapida()).then(function (response) {
+            var depurar = response.depurar || {};
+            var bloqueos = depurar.bloqueos || [];
+            var avisos = depurar.avisos || [];
+            if (response.error) { throw new Error(response.mensaje); }
+            ventaRapidaValidada = bloqueos.length ? null : depurar;
+            document.getElementById("pos_vr_agregar").disabled = !!bloqueos.length;
+            document.getElementById("pos_vr_resultado").innerHTML = "<div class=\"alert alert-" + (bloqueos.length ? "warning" : "success") + " py-3 mb-0\">" +
+                "<div class=\"fw-bold mb-1\">" + escapeHtml(response.mensaje || "Venta rapida validada") + "</div>" +
+                "<div class=\"fs-7\">Importe: <strong>" + dinero(depurar.subtotal || 0) + "</strong></div>" +
+                (bloqueos.length ? "<ul class=\"mb-0 ps-4 mt-2\">" + bloqueos.map(function (item) { return "<li>" + escapeHtml(item) + "</li>"; }).join("") + "</ul>" : "") +
+                (avisos.length ? "<div class=\"fs-8 text-muted mt-2\">" + escapeHtml(avisos.join(" | ")) + "</div>" : "") +
+            "</div>";
+        }).catch(function (error) {
+            document.getElementById("pos_vr_resultado").innerHTML = "<div class=\"alert alert-danger py-3 mb-0\">" + escapeHtml(error.message || String(error)) + "</div>";
+        });
+    }
+    function agregarVentaRapidaAlCarrito() {
+        if (!ventaRapidaValidada) {
+            validarVentaRapida();
+            return;
+        }
+        carrito.push({
+            id_sku: 0,
+            sku: ventaRapidaValidada.sku_snapshot || "VENTA-RAPIDA",
+            tipo_partida: "venta_rapida",
+            origen_partida: "venta_rapida_controlada",
+            descripcion: ventaRapidaValidada.descripcion_manual_snapshot || "",
+            descripcion_manual: ventaRapidaValidada.descripcion_manual_snapshot || "",
+            imagen: placeholderImagen,
+            precio_unitario: cantidad(ventaRapidaValidada.precio_unitario || 0),
+            cantidad: cantidad(ventaRapidaValidada.cantidad || 0),
+            modo_salida: "pendiente_catalogo",
+            id_inventario_unidad: "",
+            unidad_venta_label: "provisional",
+            permite_venta_fraccionaria: 1,
+            incremento_minimo_venta: 0.0001,
+            disponibilidad: {disponible: 0, resumen: "pendiente_catalogo"},
+            unidades: [],
+            motivo: ventaRapidaValidada.motivo || "",
+            categoria_provisional: ventaRapidaValidada.categoria_provisional || "",
+            marca_provisional: ventaRapidaValidada.marca_provisional || "",
+            proveedor_provisional: ventaRapidaValidada.proveedor_provisional || "",
+            codigo_barras: ventaRapidaValidada.codigo_barras || "",
+            observaciones: ventaRapidaValidada.observaciones || "",
+            controla_inventario: ventaRapidaValidada.controla_inventario_provisional || 0
+        });
+        limpiarExcepcionActiva();
+        guardarCuentas();
+        renderCarrito();
+        renderCuentas();
+        document.getElementById("pos_validacion").innerHTML = "<div class=\"alert alert-warning py-3 mb-0\"><div class=\"fw-bold\">Producto por clasificar agregado.</div><div class=\"fs-8\">Puedes cobrarlo con turno abierto y pago completo. El sistema generara pendiente a Catalogo/Inventario y no movera kardex hasta clasificar el SKU.</div></div>";
+        bootstrap.Modal.getOrCreateInstance(document.getElementById("pos_venta_rapida_modal")).hide();
+    }
     function tieneUnidadAbiertaGranel(item) {
         return Number(item.permite_venta_fraccionaria || 0) === 1 && item.unidades.some(function (unidad) {
             return unidad.estado_fisico === "abierta";
@@ -931,6 +1005,9 @@
         return item.unidades.some(function (unidad) { return unidad.estado_fisico === "cerrada"; });
     }
     function modosRapidos(item) {
+        if (item.tipo_partida === "venta_rapida") {
+            return "<span class=\"badge badge-light-warning\">Producto por clasificar</span>";
+        }
         var abiertas = item.unidades.some(function (unidad) { return unidad.estado_fisico === "abierta"; });
         var cerradas = item.unidades.some(function (unidad) { return unidad.estado_fisico === "cerrada"; });
         var granel = abiertas && Number(item.permite_venta_fraccionaria || 0) === 1;
@@ -941,6 +1018,9 @@
             "</div>";
     }
     function unidadResumen(item) {
+        if (item.tipo_partida === "venta_rapida") {
+            return "Pendiente para Catalogo ERP" + (item.controla_inventario ? " e Inventario" : "");
+        }
         if (item.modo_salida === "existencia_agregada") {
             return "Salida por existencia disponible";
         }
@@ -953,6 +1033,7 @@
         return unidadTexto(unidad);
     }
     function etiquetaCantidad(item) {
+        if (item.tipo_partida === "venta_rapida") { return "Cant."; }
         if (item.modo_salida === "granel_unidad_abierta") { return "Peso"; }
         if (item.modo_salida === "unidad_cerrada") { return "Pieza"; }
         return "Cant.";
@@ -1046,6 +1127,11 @@
             return;
         }
         boton.disabled = false;
+        if (carrito.some(function (item) { return item.tipo_partida === "venta_rapida"; })) {
+            boton.title = "Confirmar venta rapida controlada POS";
+            boton.innerHTML = "<i class=\"bi bi-lightning-charge\"></i> Cobrar venta rapida";
+            return;
+        }
         boton.title = "Confirmar venta POS";
         boton.innerHTML = "<i class=\"bi bi-cash-coin\"></i> Cobrar";
     }
@@ -1553,10 +1639,20 @@
         var items = carrito.map(function (item) {
             return {
                 id_sku: item.id_sku,
+                tipo_partida: item.tipo_partida || "sku",
+                origen_partida: item.origen_partida || "",
+                descripcion_manual: item.descripcion_manual || "",
                 cantidad: cantidad(item.cantidad),
                 precio_unitario: cantidad(item.precio_unitario),
                 modo_salida: item.modo_salida,
-                id_inventario_unidad: item.id_inventario_unidad || ""
+                id_inventario_unidad: item.id_inventario_unidad || "",
+                motivo: item.motivo || "",
+                categoria_provisional: item.categoria_provisional || "",
+                marca_provisional: item.marca_provisional || "",
+                proveedor_provisional: item.proveedor_provisional || "",
+                codigo_barras: item.codigo_barras || "",
+                observaciones: item.observaciones || "",
+                controla_inventario: item.controla_inventario == null ? "" : item.controla_inventario
             };
         });
         return {
@@ -1614,7 +1710,11 @@
         }
         var pagoCaja = pagos.reduce(function (suma, item) { return suma + (esPagoSaldoCrmUi(item) ? 0 : cantidad(item.monto)); }, 0);
         var pagoSaldo = pagos.reduce(function (suma, item) { return suma + (esPagoSaldoCrmUi(item) ? cantidad(item.monto) : 0); }, 0);
+        var contieneVentaRapida = carrito.some(function (item) { return item.tipo_partida === "venta_rapida"; });
         var mensaje = "Se confirmara una venta real por " + dinero(totalCobroActual()) + ". Caja recibira " + dinero(pagoCaja) + (pagoSaldo > 0 ? " y saldo cliente cubrira " + dinero(pagoSaldo) + " sin entrar a caja." : ".");
+        if (contieneVentaRapida) {
+            mensaje += " Incluye producto por clasificar: se creara pendiente a Catalogo/Inventario y no se movera kardex.";
+        }
         var confirmar = window.Swal
             ? Swal.fire({text: mensaje, icon: "warning", showCancelButton: true, confirmButtonText: "Cobrar", cancelButtonText: "Cancelar"}).then(function (r) { return !!r.isConfirmed; })
             : Promise.resolve(window.confirm(mensaje));
@@ -2814,6 +2914,15 @@
             renderResultados([]);
         });
         document.getElementById("pos_scan_camera_btn").addEventListener("click", abrirEscanerPos);
+        document.getElementById("pos_venta_rapida_btn").addEventListener("click", function () {
+            ventaRapidaValidada = null;
+            document.getElementById("pos_vr_agregar").disabled = true;
+            document.getElementById("pos_vr_resultado").innerHTML = "";
+            bootstrap.Modal.getOrCreateInstance(document.getElementById("pos_venta_rapida_modal")).show();
+            setTimeout(function () { document.getElementById("pos_vr_descripcion").focus(); }, 250);
+        });
+        document.getElementById("pos_vr_validar").addEventListener("click", validarVentaRapida);
+        document.getElementById("pos_vr_agregar").addEventListener("click", agregarVentaRapidaAlCarrito);
         document.getElementById("pos_scan_start").addEventListener("click", iniciarCamaraPos);
         document.getElementById("pos_scan_camera_device").addEventListener("change", reiniciarCamaraConSeleccionPos);
         document.getElementById("pos_scan_focus").addEventListener("click", mejorarEnfoqueCamaraPos);

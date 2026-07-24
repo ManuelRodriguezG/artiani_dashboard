@@ -121,6 +121,70 @@ class Sistema extends Controlador {
     $this->vista("apps/erp/seguridad/usuarios_roles");
   }
 
+  /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-07-23
+   * Proposito: abrir la consola SYS para revisar entorno, BD activa y preparacion de impresion POS.
+   * Impacto: Administracion/SYS; no persiste cambios ni expone credenciales.
+   * Contrato: requiere `configuracion.administrar` y entrega diagnostico saneado a la vista.
+   */
+  public function configuracion() {
+    $this->requerirPermiso("configuracion.administrar");
+    $configuracion = $this->modelo("SistemaConfiguracion");
+    $this->vista("apps/erp/sistema/configuracion", array(
+      "diagnostico" => $configuracion->consultarConfiguracion()
+    ));
+  }
+
+  /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-07-23
+   * Proposito: consultar por AJAX la configuracion SYS editable y diagnostico activo.
+   * Impacto: Administracion/SYS; permite refrescar UI sin recargar pagina.
+   * Contrato: requiere `configuracion.administrar` y no devuelve secretos.
+   */
+  public function configuracion_consultar() {
+    $this->requerirPermiso("configuracion.administrar");
+    $configuracion = $this->modelo("SistemaConfiguracion");
+    echo json_encode($configuracion->consultarConfiguracion());
+  }
+
+  /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-07-23
+   * Proposito: persistir parametros SYS autorizados desde Administracion.
+   * Impacto: Configuracion general e impresion POS; registra auditoria y conserva historial por clave.
+   * Contrato: `parametros` debe ser JSON objeto de claves existentes y editables.
+   */
+  public function configuracion_guardar() {
+    $this->requerirPermiso("configuracion.administrar");
+    $parametros = isset($_POST["parametros"]) ? json_decode($_POST["parametros"], true) : array();
+    $motivo = isset($_POST["motivo"]) ? trim($_POST["motivo"]) : "";
+    $configuracion = $this->modelo("SistemaConfiguracion");
+    $respuesta = $configuracion->guardarConfiguracion($parametros, $this->usuarioActualId(), $motivo);
+    SesionSeguridad::registrarAuditoria("configuracion", "guardar_parametros", array(
+      "entidad" => "sys_configuracion_parametros",
+      "resultado" => $respuesta["error"] ? "error" : "ok",
+      "datos_despues" => isset($respuesta["depurar"]) ? $respuesta["depurar"] : null,
+      "mensaje" => $respuesta["mensaje"]
+    ));
+    echo json_encode($respuesta);
+  }
+
+  /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-07-23
+   * Proposito: auditar o aplicar tablas SYS de configuracion persistente.
+   * Impacto: Esquema SYS; crea parametros e historial cuando se ejecuta con respaldo previo.
+   * Contrato: `ejecutar=1` aplica DDL; sin ese valor devuelve dry-run.
+   */
+  public function esquema_actualizar_sistema_configuracion() {
+    $this->requerirPermiso("sistema.soporte");
+    $ejecutar = isset($_POST["ejecutar"]) && $_POST["ejecutar"] == 1;
+    $esquema = $this->modelo("SistemaConfiguracionEsquema");
+    echo json_encode($esquema->planActualizarSistemaConfiguracion($ejecutar));
+  }
+
   public function seguridad_roles_listar() {
     $this->requerirPermiso("seguridad.ver");
     $seguridad = $this->modelo("SeguridadPermisos");

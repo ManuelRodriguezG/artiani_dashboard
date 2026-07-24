@@ -449,6 +449,18 @@ class Ventas extends Controlador {
   }
 
   /**
+   * Documentacion IA: Codex GPT-5, 2026-07-23.
+   * Proposito: validar una partida POS de venta rapida controlada sin escribir BD.
+   * Impacto: permite preparar `Producto por clasificar` para carrito y alerta futura a Catalogo.
+   * Contrato: dry-run; no crea SKU, no cobra, no registra notificacion, no mueve caja ni inventario.
+   */
+  public function pos_venta_rapida_dryrun_erp() {
+    $this->requerirPermiso("ventas.operar");
+    $_POST["id_usuario"] = $this->usuarioActualId();
+    return json_encode($this->modelo("VentasErp")->ventaRapidaControladaDryRun($_POST));
+  }
+
+  /**
    * Documentacion IA: Codex GPT-5, 2026-06-26.
    * Proposito: simular confirmacion POS sin escribir venta, pagos ni inventario.
    * Impacto: permite validar contrato completo antes de autorizar DDL/transacciones.
@@ -456,6 +468,7 @@ class Ventas extends Controlador {
    */
   public function pos_confirmar_dryrun_erp() {
     $this->requerirPermiso("ventas.operar");
+    $this->habilitarVentaRapidaPosUiSiAplica();
     return json_encode($this->modelo("VentasErp")->confirmarVentaPosDryRun($_POST));
   }
 
@@ -468,6 +481,7 @@ class Ventas extends Controlador {
   public function pos_confirmar_erp() {
     $this->requerirPermiso("ventas.operar");
     $_POST["id_usuario"] = $this->usuarioActualId();
+    $this->habilitarVentaRapidaPosUiSiAplica();
     $respuesta = $this->modelo("VentasErp")->confirmarVentaPosReal($_POST);
     $this->auditarCobroPos("confirmar", $respuesta);
     return json_encode($respuesta);
@@ -933,6 +947,26 @@ class Ventas extends Controlador {
     }
     $json = json_decode((string) $valor, true);
     return is_array($json) ? $json : array();
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5, 2026-07-23.
+   * Proposito: habilitar desde UI el cobro real de venta rapida controlada ya probada en UAT.
+   * Impacto: agrega token interno solo cuando el carrito contiene `venta_rapida`; no expone tokens al JS.
+   * Contrato: conserva permisos, CSRF, turno, pago completo y revalidacion del modelo.
+   */
+  private function habilitarVentaRapidaPosUiSiAplica() {
+    $items = $this->jsonArrayPostVentas("items");
+    foreach ($items as $item) {
+      $tipo = isset($item["tipo_partida"]) ? trim((string) $item["tipo_partida"]) : "";
+      $origen = isset($item["origen_partida"]) ? trim((string) $item["origen_partida"]) : "";
+      if ($tipo === "venta_rapida" || $origen === "venta_rapida_controlada") {
+        $_POST["autorizar_venta_rapida_real"] = "VENTAS_POS_VENTA_RAPIDA_REAL_MODELO";
+        $_POST["token"] = "VENTAS_POS_VENTA_RAPIDA_REAL";
+        return true;
+      }
+    }
+    return false;
   }
 
   private function requerirPermisoCajaDiferenciasResolver() {
@@ -1670,6 +1704,57 @@ class Ventas extends Controlador {
     }
     return json_encode($this->modelo("VentasErpEsquema")->planActualizarInventarioPendientePos($ejecutar));
   }
+
+  /**
+   * Documentacion IA: Codex GPT-5, 2026-07-23.
+   * Proposito: auditar estructura requerida para venta rapida controlada POS.
+   * Impacto: prepara Producto por clasificar y pendientes Catalogo/Inventario sin ejecutar DDL.
+   * Contrato: solo lectura; requiere soporte.
+   */
+  public function esquema_auditar_venta_rapida_pos() {
+    $this->requerirPermiso("sistema.soporte");
+    return json_encode($this->modelo("VentasErpEsquema")->auditarVentaRapidaControladaPos());
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5, 2026-07-23.
+   * Proposito: generar/aplicar DDL para venta rapida controlada POS.
+   * Impacto: crea tablas/columnas para productos por clasificar cuando se autorice.
+   * Contrato: con ejecutar=0 solo genera SQL; ejecutar=1 requiere token, respaldo valido y confirmacion.
+   */
+  public function esquema_actualizar_venta_rapida_pos() {
+    $this->requerirPermiso("sistema.soporte");
+    $ejecutar = isset($_POST["ejecutar"]) && intval($_POST["ejecutar"]) === 1;
+    if ($ejecutar) {
+      $autorizar = isset($_POST["autorizar"]) ? trim((string) $_POST["autorizar"]) : "";
+      $respaldo = isset($_POST["respaldo"]) ? trim((string) $_POST["respaldo"]) : "";
+      $confirmacion = isset($_POST["confirmacion"]) ? strtoupper(trim((string) $_POST["confirmacion"])) : "";
+      $validacionRespaldo = $this->validarRespaldoVentasPos($respaldo);
+      if ($autorizar !== "VENTAS_POS_VENTA_RAPIDA_DDL" || !$validacionRespaldo["ok"] || $confirmacion !== "APLICAR VENTA RAPIDA POS") {
+        return json_encode(array(
+          "error" => true,
+          "tipo" => "danger",
+          "mensaje" => "No se aplico DDL venta rapida POS. Falta token, respaldo valido o confirmacion exacta.",
+          "depurar" => array(
+            "requerido" => array(
+              "autorizar" => "VENTAS_POS_VENTA_RAPIDA_DDL",
+              "respaldo" => "UAT POS vigente o ruta autorizada",
+              "confirmacion" => "APLICAR VENTA RAPIDA POS"
+            ),
+            "validacion_respaldo" => $validacionRespaldo,
+            "reglas" => array(
+              "No crea ventas.",
+              "No crea SKU definitivo.",
+              "No mueve caja ni inventario.",
+              "Solo prepara estructura para pendientes Catalogo/Inventario."
+            )
+          )
+        ));
+      }
+    }
+    return json_encode($this->modelo("VentasErpEsquema")->planActualizarVentaRapidaControladaPos($ejecutar));
+  }
+
   /**
    * Documentacion IA: Codex GPT-5, 2026-06-27.
    * Proposito: generar o aplicar DDL de caja POS completa con guardrail explicito.

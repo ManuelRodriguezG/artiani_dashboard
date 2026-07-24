@@ -5186,6 +5186,94 @@ class VentasErp extends CRUD {
     }
 
     /**
+     * Documentacion IA: Codex GPT-5, 2026-07-23.
+     * Proposito: validar captura POS de producto no catalogado sin escritura.
+     * Impacto: prepara venta rapida controlada como `Producto por clasificar` y pendiente futuro a Catalogo.
+     * Contrato: dry-run; no crea venta, no crea SKU, no crea alerta, no mueve caja ni inventario.
+     */
+    public function ventaRapidaControladaDryRun($datos = array()) {
+        try {
+            $descripcion = trim((string) $this->valor($datos, "descripcion", ""));
+            $cantidad = round(floatval($this->valor($datos, "cantidad", 0)), 6);
+            $precio = round(floatval($this->valor($datos, "precio_unitario", $this->valor($datos, "precio", 0))), 6);
+            $motivo = trim((string) $this->valor($datos, "motivo", ""));
+            $categoria = trim((string) $this->valor($datos, "categoria_provisional", ""));
+            $marca = trim((string) $this->valor($datos, "marca_provisional", ""));
+            $proveedor = trim((string) $this->valor($datos, "proveedor_provisional", ""));
+            $codigo = trim((string) $this->valor($datos, "codigo_barras", ""));
+            $observaciones = trim((string) $this->valor($datos, "observaciones", ""));
+            $idAlmacen = intval($this->valor($datos, "id_almacen", 0));
+            $idUsuario = intval($this->valor($datos, "id_usuario", 0));
+            $controlaInventario = intval($this->valor($datos, "controla_inventario", 1)) === 1;
+            $bloqueos = array();
+            $avisos = array();
+
+            if ($idAlmacen <= 0) {
+                $bloqueos[] = "Selecciona punto de venta antes de usar venta rapida";
+            }
+            if ($idUsuario <= 0) {
+                $bloqueos[] = "Usuario operador obligatorio";
+            }
+            if (strlen($descripcion) < 12) {
+                $bloqueos[] = "Describe el producto con mas detalle";
+            }
+            if ($cantidad <= 0) {
+                $bloqueos[] = "La cantidad debe ser mayor a cero";
+            }
+            if ($precio <= 0) {
+                $bloqueos[] = "El precio unitario debe ser mayor a cero";
+            }
+            if ($motivo === "") {
+                $bloqueos[] = "Motivo obligatorio para venta rapida";
+            }
+            if ($categoria === "" && $marca === "" && $proveedor === "" && $codigo === "") {
+                $avisos[] = "Agrega categoria, marca, proveedor probable o codigo si lo tienes; ayudara a Catalogo a clasificar rapido";
+            }
+            if ($controlaInventario) {
+                $avisos[] = "Al no existir SKU definitivo, POS no descuenta kardex; debe quedar pendiente para Catalogo/Inventario";
+            } else {
+                $avisos[] = "Marcado sin control de inventario provisional; Catalogo debe confirmar esta decision al resolver";
+            }
+
+            $subtotal = round(max(0, $cantidad) * max(0, $precio), 6);
+            return $this->respuesta(false, empty($bloqueos) ? "success" : "warning", empty($bloqueos) ? "Venta rapida lista para agregar al carrito" : "Venta rapida requiere correcciones", array(
+                "dry_run" => true,
+                "tipo_partida" => "venta_rapida",
+                "sku_snapshot" => "VENTA-RAPIDA",
+                "descripcion_manual_snapshot" => $descripcion,
+                "cantidad" => $cantidad,
+                "precio_unitario" => $precio,
+                "subtotal" => $subtotal,
+                "motivo" => $motivo,
+                "categoria_provisional" => $categoria,
+                "marca_provisional" => $marca,
+                "proveedor_provisional" => $proveedor,
+                "codigo_barras" => $codigo,
+                "observaciones" => $observaciones,
+                "controla_inventario_provisional" => $controlaInventario ? 1 : 0,
+                "bloqueos" => $bloqueos,
+                "avisos" => $avisos,
+                "pendientes_futuros" => array(
+                    "catalogo" => "Crear o vincular SKU definitivo desde Producto por clasificar",
+                    "inventario" => $controlaInventario ? "Regularizar existencia/kardex cuando Catalogo resuelva SKU" : "Sin pendiente automatico si Catalogo confirma no inventariable",
+                    "proveedores" => "Vincular proveedor/costo si aplica",
+                    "listas_precios" => "Confirmar precio publico/lista despues de clasificar"
+                ),
+                "contrato" => array(
+                    "no_crea_sku" => true,
+                    "no_crea_venta" => true,
+                    "no_registra_notificacion" => true,
+                    "no_mueve_caja" => true,
+                    "no_mueve_inventario" => true,
+                    "cobro_real_requiere_endpoint_autorizado" => true
+                )
+            ));
+        } catch (Exception $e) {
+            return $this->respuesta(true, "danger", "No se pudo validar venta rapida", array("excepcion" => $e->getMessage()));
+        }
+    }
+
+    /**
      * Documentacion IA: Codex GPT-5, 2026-06-26.
      * Proposito: validar el contrato completo de confirmacion POS sin ejecutar escrituras.
      * Impacto: deja listo el punto de integracion para venta real con folio, pagos, caja, kardex y trazabilidad.
@@ -5195,6 +5283,8 @@ class VentasErp extends CRUD {
         $datos["exigir_pago_completo"] = 0;
         $prevalidacion = $this->prevalidarCarritoPos($datos);
         $schemaPendiente = !$this->schemaVentaPosCompleto($this->getConexion());
+        $schemaVentaRapidaPendiente = false;
+        $ventaRapidaAutorizada = $this->ventaRapidaRealAutorizada($datos);
         $bloqueos = array();
         if (isset($prevalidacion["depurar"]["bloqueos"]) && is_array($prevalidacion["depurar"]["bloqueos"])) {
             $bloqueos = $prevalidacion["depurar"]["bloqueos"];
@@ -5202,9 +5292,24 @@ class VentasErp extends CRUD {
         if ($schemaPendiente) {
             $bloqueos[] = "Esquema Ventas/POS pendiente de autorizacion y respaldo externo";
         }
+        $itemsEntrada = $this->decodificarItems($this->valor($datos, "items", array()));
+        $contieneVentaRapida = false;
+        foreach ($itemsEntrada as $itemEntrada) {
+            if ($this->esPartidaVentaRapidaControlada($itemEntrada)) {
+                $contieneVentaRapida = true;
+                $schemaVentaRapidaPendiente = !$this->schemaVentaRapidaControladaCompleto($this->getConexion());
+                if ($schemaVentaRapidaPendiente) {
+                    $bloqueos[] = "Venta rapida controlada requiere DDL aplicado para pendientes Catalogo/Inventario";
+                } elseif (!$ventaRapidaAutorizada) {
+                    $bloqueos[] = "Venta rapida controlada requiere autorizacion de endpoint real antes de confirmacion/cobro";
+                }
+                break;
+            }
+        }
         return $this->respuesta(false, empty($bloqueos) ? "success" : "warning", empty($bloqueos) ? "Dry-run de venta valido" : "Dry-run bloqueado", array(
             "dry_run" => true,
             "schema_pendiente" => $schemaPendiente,
+            "schema_venta_rapida_pendiente" => $schemaVentaRapidaPendiente,
             "prevalidacion" => $prevalidacion,
             "bloqueos" => $bloqueos,
             "contrato_confirmacion" => array(
@@ -5212,8 +5317,9 @@ class VentasErp extends CRUD {
                 "requiere_id_caja" => true,
                 "requiere_id_turno_caja" => true,
                 "requiere_folio_erp" => true,
-                "requiere_kardex" => true,
-                "requiere_trazabilidad_detalle_inventario" => true
+                "requiere_kardex" => !$contieneVentaRapida,
+                "requiere_trazabilidad_detalle_inventario" => !$contieneVentaRapida,
+                "venta_rapida_crea_pendiente_catalogo" => $contieneVentaRapida
             )
         ));
     }
@@ -5240,6 +5346,30 @@ class VentasErp extends CRUD {
         if (!$this->schemaVentaPosCompleto($db)) {
             return $this->respuesta(true, "warning", "Esquema Ventas/POS pendiente", array("bloqueos" => array("schema_ventas_pos_pendiente")));
         }
+        $itemsEntrada = $this->decodificarItems($this->valor($datos, "items", array()));
+        foreach ($itemsEntrada as $itemEntrada) {
+            if ($this->esPartidaVentaRapidaControlada($itemEntrada)) {
+                if (!$this->schemaVentaRapidaControladaCompleto($db)) {
+                    return $this->respuesta(true, "warning", "Esquema venta rapida controlada pendiente", array("bloqueos" => array("schema_venta_rapida_pendiente")));
+                }
+                if ($folioExcepcion !== "") {
+                    return $this->respuesta(true, "warning", "Venta rapida no debe mezclarse con excepcion comercial por SKU", array("bloqueos" => array("venta_rapida_excepcion_comercial_no_soportada")));
+                }
+                if (!$this->ventaRapidaRealAutorizada($datos)) {
+                    return $this->respuesta(true, "warning", "Venta rapida controlada aun no tiene endpoint real autorizado", array(
+                        "bloqueos" => array("venta_rapida_controlada_endpoint_pendiente"),
+                        "siguiente_autorizacion" => "AUTORIZO EJECUTAR UAT REAL VENTA RAPIDA CONTROLADA POS usando respaldo UAT POS vigente con token VENTAS_POS_VENTA_RAPIDA_REAL id_usuario=1 descripcion=\"...\" cantidad=1 precio=... motivo=\"...\" pago=... para UAT POS/Catalogo/Inventario",
+                        "reglas" => array(
+                            "No se crea SKU definitivo automatico.",
+                            "Debe generar pendiente para Catalogo ERP.",
+                            "Debe quedar trazabilidad en venta/caja.",
+                            "No descuenta kardex porque no existe SKU definitivo."
+                        )
+                    ));
+                }
+                break;
+            }
+        }
 
         $asignacion = $this->asignacionActualTerminalPos(array("id_usuario" => $idUsuario));
         $depurarAsignacion = isset($asignacion["depurar"]) && is_array($asignacion["depurar"]) ? $asignacion["depurar"] : array();
@@ -5262,7 +5392,8 @@ class VentasErp extends CRUD {
             "identificador_cliente" => trim((string) $this->valor($datos, "identificador_cliente", "")),
             "items" => $this->valor($datos, "items", array()),
             "pagos" => $this->valor($datos, "pagos", array()),
-            "exigir_pago_completo" => 1
+            "exigir_pago_completo" => 1,
+            "autorizar_venta_rapida_real" => $this->valor($datos, "autorizar_venta_rapida_real", "")
         );
 
         $atencionOrigen = null;
@@ -5470,7 +5601,73 @@ class VentasErp extends CRUD {
 
             $evidenciaInventario = array();
             $detallesGarantia = array();
+            $pendientesVentaRapida = array();
             foreach ($partidas as $partida) {
+                if ($this->esPartidaVentaRapidaControlada($partida)) {
+                    $cantidadVentaRapida = $this->redondearPosReal($this->valor($partida, "cantidad", 0));
+                    $precioVentaRapida = $this->redondearPosReal($this->valor($partida, "precio_unitario", 0));
+                    $totalVentaRapida = $this->redondearPosReal($this->valor($partida, "subtotal", $cantidadVentaRapida * $precioVentaRapida));
+                    $descripcionVentaRapida = trim((string) $this->valor($partida, "descripcion", ""));
+                    $pendienteCatalogo = $this->valor($partida, "pendiente_catalogo", array());
+                    $controlaInventarioRapida = intval($this->valor($partida, "controla_inventario", 1)) === 1;
+                    $datosPendiente = array(
+                        "tipo_partida" => "venta_rapida",
+                        "origen_partida" => "venta_rapida_controlada",
+                        "pendiente_catalogo" => $pendienteCatalogo,
+                        "operador" => array("id_usuario" => $idUsuario),
+                        "contrato" => array(
+                            "no_crea_sku" => true,
+                            "no_mueve_inventario" => true,
+                            "requiere_catalogo" => true,
+                            "requiere_regularizacion_inventario" => $controlaInventarioRapida
+                        )
+                    );
+                    $stmt = $db->prepare("INSERT INTO erp_ventas_detalle
+                        (id_venta, renglon, id_producto_erp, id_sku_erp, sku, descripcion,
+                         descripcion_manual_snapshot, datos_catalogo_pendiente, tipo_partida,
+                         origen_partida, controla_inventario, modo_salida, inventario_estado,
+                         inventario_regularizacion_estado, cantidad_venta, unidad_venta,
+                         cantidad_base, unidad_base, precio_unitario, precio_unitario_sin_impuesto,
+                         precio_base, precio_aplicado, id_lista_precio, lista_precio_snapshot,
+                         regla_precio_origen, descuento, impuestos, subtotal, total, estatus)
+                        VALUES (:venta, :renglon, NULL, NULL, 'VENTA-RAPIDA', :descripcion,
+                         :descripcion_manual, :datos_catalogo, 'venta_rapida',
+                         'venta_rapida_controlada', :controla, 'pendiente_catalogo', :inventario_estado,
+                         :regularizacion, :cantidad, 'provisional',
+                         :cantidad_base, 'provisional', :precio, :precio,
+                         :precio_base, :precio_aplicado, NULL, 'producto_por_clasificar',
+                         'precio_manual_venta_rapida', 0, 0, :subtotal, :total, 'confirmada')");
+                    $stmt->execute(array(
+                        ":venta" => $idVenta,
+                        ":renglon" => intval($this->valor($partida, "renglon", 0)),
+                        ":descripcion" => $descripcionVentaRapida,
+                        ":descripcion_manual" => $descripcionVentaRapida,
+                        ":datos_catalogo" => json_encode($datosPendiente, JSON_UNESCAPED_UNICODE),
+                        ":controla" => $controlaInventarioRapida ? 1 : 0,
+                        ":inventario_estado" => $controlaInventarioRapida ? "pendiente_catalogo" : "sin_inventario",
+                        ":regularizacion" => $controlaInventarioRapida ? "pendiente_regularizacion" : "no_inventariable_provisional",
+                        ":cantidad" => $cantidadVentaRapida,
+                        ":cantidad_base" => $cantidadVentaRapida,
+                        ":precio" => $precioVentaRapida,
+                        ":precio_base" => $precioVentaRapida,
+                        ":precio_aplicado" => $precioVentaRapida,
+                        ":subtotal" => $totalVentaRapida,
+                        ":total" => $totalVentaRapida
+                    ));
+                    $idDetalle = intval($db->lastInsertId());
+                    $pendientesVentaRapida[] = $this->registrarPendienteVentaRapidaPosReal(
+                        $db,
+                        $idVenta,
+                        $idDetalle,
+                        $folio,
+                        $datosVenta,
+                        $partida,
+                        $clienteSnapshot,
+                        $idClienteCrmVenta,
+                        $idUsuario
+                    );
+                    continue;
+                }
                 $sku = $this->consultarSkuVenta($db, intval($this->valor($partida, "id_sku", 0)));
                 if (!$sku) {
                     throw new Exception("SKU no encontrado durante venta real");
@@ -5551,20 +5748,23 @@ class VentasErp extends CRUD {
                 }
             }
 
-            $garantias = new GarantiasErp();
-            $snapshotsGarantia = $garantias->guardarSnapshotsVenta($db, array(
-                "id_venta" => $idVenta,
-                "id_almacen" => $datosVenta["id_almacen"],
-                "canal" => "pos",
-                "fecha" => date("Y-m-d"),
-                "detalles" => $detallesGarantia
-            ));
-            if (!empty($snapshotsGarantia["error"])) {
-                throw new Exception("No se pudo guardar snapshot de garantia: " . $snapshotsGarantia["mensaje"]);
-            }
-            $bloqueosGarantia = $this->valorRutaPosReal($snapshotsGarantia, array("depurar", "bloqueos"), array());
-            if (!empty($bloqueosGarantia)) {
-                throw new Exception("Snapshot de garantia bloqueado: " . implode("; ", $bloqueosGarantia));
+            $snapshotsGarantia = array("depurar" => array("guardados" => array()));
+            if (!empty($detallesGarantia)) {
+                $garantias = new GarantiasErp();
+                $snapshotsGarantia = $garantias->guardarSnapshotsVenta($db, array(
+                    "id_venta" => $idVenta,
+                    "id_almacen" => $datosVenta["id_almacen"],
+                    "canal" => "pos",
+                    "fecha" => date("Y-m-d"),
+                    "detalles" => $detallesGarantia
+                ));
+                if (!empty($snapshotsGarantia["error"])) {
+                    throw new Exception("No se pudo guardar snapshot de garantia: " . $snapshotsGarantia["mensaje"]);
+                }
+                $bloqueosGarantia = $this->valorRutaPosReal($snapshotsGarantia, array("depurar", "bloqueos"), array());
+                if (!empty($bloqueosGarantia)) {
+                    throw new Exception("Snapshot de garantia bloqueado: " . implode("; ", $bloqueosGarantia));
+                }
             }
 
             $evidenciaPagos = $this->registrarPagosPosReal($db, $idVenta, $folio, $datosVenta, $pagosPrevalidados, $total, $idUsuario, $idClienteCrmVenta, $clienteSnapshot);
@@ -5607,6 +5807,7 @@ class VentasErp extends CRUD {
                     "saldo_total" => $saldoTotal
                 ),
                 "inventario" => $evidenciaInventario,
+                "venta_rapida" => $pendientesVentaRapida,
                 "garantias" => $this->valorRutaPosReal($snapshotsGarantia, array("depurar", "guardados"), array()),
                 "pagos" => $evidenciaPagos,
                 "excepcion_comercial" => $excepcionBloqueada ? array(
@@ -6315,6 +6516,28 @@ class VentasErp extends CRUD {
             $partidas = array();
             $total = 0;
             foreach ($items as $indice => $item) {
+                if ($this->esPartidaVentaRapidaControlada($item)) {
+                    $cantidad = round(floatval($this->valor($item, "cantidad", 1)), 6);
+                    $precio = round(floatval($this->valor($item, "precio_unitario", 0)), 6);
+                    $importe = round(max(0, $cantidad) * max(0, $precio), 6);
+                    $total += $importe;
+                    $partidas[] = array(
+                        "renglon" => $indice + 1,
+                        "id_sku" => 0,
+                        "sku" => "VENTA-RAPIDA",
+                        "descripcion" => trim((string) $this->valor($item, "descripcion_manual", $this->valor($item, "descripcion", "Producto por clasificar"))),
+                        "cantidad" => $cantidad,
+                        "precio_base" => $precio,
+                        "precio_aplicado" => $precio,
+                        "importe" => $importe,
+                        "regla_precio_origen" => "precio_manual_venta_rapida",
+                        "id_lista_precio" => null,
+                        "lista_precio_snapshot" => "producto_por_clasificar",
+                        "requiere_snapshot_venta" => true,
+                        "pendiente_catalogo" => true
+                    );
+                    continue;
+                }
                 $idSku = intval($this->valor($item, "id_sku", 0));
                 $cantidad = round(floatval($this->valor($item, "cantidad", 1)), 6);
                 $sku = $this->consultarSkuVenta($db, $idSku);
@@ -9218,6 +9441,9 @@ class VentasErp extends CRUD {
     }
 
     private function prevalidarPartida($db, $item, $idAlmacen, $renglon, $cliente = array(), $canal = "pos", $schemaListasPendiente = true) {
+        if ($this->esPartidaVentaRapidaControlada($item)) {
+            return $this->prevalidarPartidaVentaRapidaControlada($item, $idAlmacen, $renglon);
+        }
         $idSku = intval($this->valor($item, "id_sku", 0));
         $cantidad = round(floatval($this->valor($item, "cantidad", 0)), 6);
         $modo = trim((string) $this->valor($item, "modo_salida", ""));
@@ -9322,6 +9548,71 @@ class VentasErp extends CRUD {
             "permite_venta_fraccionaria" => intval($sku["permite_venta_fraccionaria"]),
             "disponibilidad" => $disponibilidad,
             "plan_salida_inventario" => $planSalida,
+            "bloqueos" => $bloqueos
+        );
+    }
+
+    private function esPartidaVentaRapidaControlada($item) {
+        return trim((string) $this->valor($item, "tipo_partida", "")) === "venta_rapida"
+            || trim((string) $this->valor($item, "origen_partida", "")) === "venta_rapida_controlada";
+    }
+
+    private function prevalidarPartidaVentaRapidaControlada($item, $idAlmacen, $renglon) {
+        $descripcion = trim((string) $this->valor($item, "descripcion_manual", $this->valor($item, "descripcion", "")));
+        $cantidad = round(floatval($this->valor($item, "cantidad", 0)), 6);
+        $precio = round(floatval($this->valor($item, "precio_unitario", 0)), 6);
+        $motivo = trim((string) $this->valor($item, "motivo", ""));
+        $controlaInventario = intval($this->valor($item, "controla_inventario", 1)) === 1;
+        $bloqueos = array();
+        $avisos = array();
+        if ($idAlmacen <= 0) {
+            $bloqueos[] = "Selecciona almacen/punto de venta";
+        }
+        if (strlen($descripcion) < 12) {
+            $bloqueos[] = "Venta rapida requiere descripcion detallada";
+        }
+        if ($cantidad <= 0) {
+            $bloqueos[] = "La cantidad debe ser mayor a cero";
+        }
+        if ($precio <= 0) {
+            $bloqueos[] = "El precio unitario debe ser mayor a cero";
+        }
+        if ($motivo === "") {
+            $bloqueos[] = "Venta rapida requiere motivo";
+        }
+        $avisos[] = "Producto por clasificar: el cobro real requiere endpoint autorizado y generara pendiente a Catalogo ERP";
+        if ($controlaInventario) {
+            $avisos[] = "No se descuenta inventario hasta vincular SKU y regularizar desde Inventario/Existencias";
+        }
+        $subtotal = round(max(0, $cantidad) * max(0, $precio), 6);
+        return array(
+            "renglon" => $renglon,
+            "id_sku" => 0,
+            "sku" => "VENTA-RAPIDA",
+            "tipo_partida" => "venta_rapida",
+            "descripcion" => $descripcion,
+            "cantidad" => $cantidad,
+            "precio_unitario" => $precio,
+            "precio_enviado_pos" => $precio,
+            "precio_base" => $precio,
+            "precio_aplicado" => $precio,
+            "id_lista_precio" => null,
+            "lista_precio_snapshot" => "producto_por_clasificar",
+            "regla_precio_origen" => "precio_manual_venta_rapida",
+            "subtotal" => $subtotal,
+            "controla_inventario" => $controlaInventario ? 1 : 0,
+            "permite_venta_fraccionaria" => 1,
+            "disponibilidad" => array("disponible" => 0, "unidades" => array(), "resumen" => "pendiente_catalogo"),
+            "plan_salida_inventario" => array("modo" => "pendiente_catalogo", "salidas" => array(), "pendiente_catalogo" => true),
+            "pendiente_catalogo" => array(
+                "motivo" => $motivo,
+                "categoria_provisional" => $this->valor($item, "categoria_provisional", ""),
+                "marca_provisional" => $this->valor($item, "marca_provisional", ""),
+                "proveedor_provisional" => $this->valor($item, "proveedor_provisional", ""),
+                "codigo_barras" => $this->valor($item, "codigo_barras", ""),
+                "observaciones" => $this->valor($item, "observaciones", "")
+            ),
+            "avisos" => $avisos,
             "bloqueos" => $bloqueos
         );
     }
@@ -10534,6 +10825,163 @@ class VentasErp extends CRUD {
         $stmt = $db->prepare("SELECT COUNT(*) FROM erp_pos_inventario_pendientes WHERE folio LIKE :folio");
         $stmt->execute(array(":folio" => $base . "%"));
         return $base . str_pad((string) (intval($stmt->fetchColumn()) + 1), 6, "0", STR_PAD_LEFT);
+    }
+
+    private function generarFolioVentaRapidaPendientePosReal($db) {
+        $base = "VRP-" . date("Ymd") . "-";
+        $stmt = $db->prepare("SELECT COUNT(*) FROM erp_pos_venta_rapida_pendientes WHERE folio LIKE :folio");
+        $stmt->execute(array(":folio" => $base . "%"));
+        return $base . str_pad((string) (intval($stmt->fetchColumn()) + 1), 6, "0", STR_PAD_LEFT);
+    }
+
+    private function schemaVentaRapidaControladaCompleto($db) {
+        return $this->tablaExiste($db, "erp_pos_venta_rapida_pendientes")
+            && $this->tablaExiste($db, "erp_pos_venta_rapida_eventos")
+            && $this->columnaExiste($db, "erp_ventas_detalle", "origen_partida")
+            && $this->columnaExiste($db, "erp_ventas_detalle", "id_venta_rapida_pendiente")
+            && $this->columnaExiste($db, "erp_ventas_detalle", "descripcion_manual_snapshot")
+            && $this->columnaExiste($db, "erp_ventas_detalle", "datos_catalogo_pendiente")
+            && $this->columnaExiste($db, "erp_ventas_detalle", "inventario_regularizacion_estado");
+    }
+
+    private function ventaRapidaRealAutorizada($datos) {
+        return trim((string) $this->valor($datos, "autorizar_venta_rapida_real", "")) === "VENTAS_POS_VENTA_RAPIDA_REAL_MODELO"
+            || trim((string) $this->valor($datos, "token", "")) === "VENTAS_POS_VENTA_RAPIDA_REAL"
+            || trim((string) $this->valor($datos, "autorizar", "")) === "VENTAS_POS_VENTA_RAPIDA_REAL";
+    }
+
+    private function registrarPendienteVentaRapidaPosReal($db, $idVenta, $idDetalle, $folioVenta, $datosVenta, $partida, $clienteSnapshot, $idClienteCrm, $idUsuario) {
+        if (!$this->schemaVentaRapidaControladaCompleto($db)) {
+            throw new Exception("Esquema de venta rapida controlada incompleto durante cobro real");
+        }
+        $descripcion = trim((string) $this->valor($partida, "descripcion", ""));
+        $cantidad = $this->redondearPosReal($this->valor($partida, "cantidad", 0));
+        $precio = $this->redondearPosReal($this->valor($partida, "precio_unitario", 0));
+        $total = $this->redondearPosReal($this->valor($partida, "subtotal", $cantidad * $precio));
+        $pendienteCatalogo = $this->valor($partida, "pendiente_catalogo", array());
+        $controlaInventario = intval($this->valor($partida, "controla_inventario", 1)) === 1;
+        $folioPendiente = $this->generarFolioVentaRapidaPendientePosReal($db);
+        $snapshot = array(
+            "venta" => array("id_venta" => intval($idVenta), "folio" => $folioVenta),
+            "detalle" => array("id_venta_detalle" => intval($idDetalle), "renglon" => intval($this->valor($partida, "renglon", 0))),
+            "partida" => $partida,
+            "cliente_snapshot" => $clienteSnapshot,
+            "contrato" => array(
+                "no_crea_sku" => true,
+                "no_mueve_inventario" => true,
+                "regularizacion_posterior" => $controlaInventario
+            )
+        );
+
+        $stmt = $db->prepare("INSERT INTO erp_pos_venta_rapida_pendientes
+            (folio, id_venta, id_venta_detalle, folio_venta, id_almacen, id_caja, id_turno_caja,
+             id_usuario_operador, id_cliente_crm, cliente_snapshot, descripcion_manual, cantidad,
+             precio_unitario, total, codigo_barras, categoria_provisional, marca_provisional,
+             proveedor_provisional, controla_inventario, inventario_estado, estatus, prioridad,
+             motivo, observaciones_pos, datos_snapshot, creado_por, fecha_registro, fecha_actualizacion)
+            VALUES (:folio, :venta, :detalle, :folio_venta, :almacen, :caja, :turno,
+             :operador, :cliente_crm, :cliente_snapshot, :descripcion, :cantidad,
+             :precio, :total, :codigo, :categoria, :marca,
+             :proveedor, :controla, :inventario_estado, 'pendiente_catalogo', 'normal',
+             :motivo, :observaciones, :snapshot, :usuario, NOW(), NOW())");
+        $stmt->execute(array(
+            ":folio" => $folioPendiente,
+            ":venta" => intval($idVenta),
+            ":detalle" => intval($idDetalle),
+            ":folio_venta" => $folioVenta,
+            ":almacen" => intval($this->valor($datosVenta, "id_almacen", 0)),
+            ":caja" => intval($this->valor($datosVenta, "id_caja", 0)) ?: null,
+            ":turno" => intval($this->valor($datosVenta, "id_turno_caja", 0)) ?: null,
+            ":operador" => intval($idUsuario) ?: null,
+            ":cliente_crm" => intval($idClienteCrm) > 0 ? intval($idClienteCrm) : null,
+            ":cliente_snapshot" => $clienteSnapshot,
+            ":descripcion" => $descripcion,
+            ":cantidad" => $cantidad,
+            ":precio" => $precio,
+            ":total" => $total,
+            ":codigo" => trim((string) $this->valor($pendienteCatalogo, "codigo_barras", "")) ?: null,
+            ":categoria" => trim((string) $this->valor($pendienteCatalogo, "categoria_provisional", "")) ?: null,
+            ":marca" => trim((string) $this->valor($pendienteCatalogo, "marca_provisional", "")) ?: null,
+            ":proveedor" => trim((string) $this->valor($pendienteCatalogo, "proveedor_provisional", "")) ?: null,
+            ":controla" => $controlaInventario ? 1 : 0,
+            ":inventario_estado" => $controlaInventario ? "pendiente_regularizacion" : "no_inventariable_provisional",
+            ":motivo" => trim((string) $this->valor($pendienteCatalogo, "motivo", "")) ?: null,
+            ":observaciones" => trim((string) $this->valor($pendienteCatalogo, "observaciones", "")) ?: null,
+            ":snapshot" => json_encode($snapshot, JSON_UNESCAPED_UNICODE),
+            ":usuario" => intval($idUsuario) ?: null
+        ));
+        $idPendiente = intval($db->lastInsertId());
+
+        $db->prepare("UPDATE erp_ventas_detalle
+            SET id_venta_rapida_pendiente=:pendiente, fecha_actualizacion=NOW()
+            WHERE id_venta_detalle=:detalle")
+            ->execute(array(":pendiente" => $idPendiente, ":detalle" => intval($idDetalle)));
+
+        $this->registrarEventoVentaRapidaPosReal($db, $idPendiente, $folioPendiente, "pendiente_creado", null, "pendiente_catalogo", null, "Venta rapida POS pendiente de clasificacion", $snapshot, $idUsuario);
+        $idNotificacion = $this->registrarNotificacionVentaRapidaPosReal($db, $idPendiente, $folioPendiente, $folioVenta, $datosVenta, $descripcion, $idUsuario);
+
+        return array(
+            "id_venta_rapida_pendiente" => $idPendiente,
+            "folio_pendiente" => $folioPendiente,
+            "id_venta_detalle" => intval($idDetalle),
+            "descripcion" => $descripcion,
+            "cantidad" => $cantidad,
+            "total" => $total,
+            "controla_inventario" => $controlaInventario ? 1 : 0,
+            "id_notificacion" => $idNotificacion
+        );
+    }
+
+    private function registrarEventoVentaRapidaPosReal($db, $idPendiente, $folioPendiente, $tipoEvento, $estatusAnterior, $estatusNuevo, $idSku, $resumen, $snapshot, $idUsuario) {
+        if (!$this->tablaExiste($db, "erp_pos_venta_rapida_eventos")) {
+            return 0;
+        }
+        $stmt = $db->prepare("INSERT INTO erp_pos_venta_rapida_eventos
+            (id_venta_rapida_pendiente, folio_pendiente, tipo_evento, estatus_anterior,
+             estatus_nuevo, id_sku_erp, resumen, motivo, datos_snapshot, creado_por, fecha_registro)
+            VALUES (:pendiente, :folio, :tipo, :anterior,
+             :nuevo, :sku, :resumen, :motivo, :snapshot, :usuario, NOW())");
+        $stmt->execute(array(
+            ":pendiente" => intval($idPendiente),
+            ":folio" => $folioPendiente,
+            ":tipo" => $tipoEvento,
+            ":anterior" => $estatusAnterior,
+            ":nuevo" => $estatusNuevo,
+            ":sku" => intval($idSku) > 0 ? intval($idSku) : null,
+            ":resumen" => $resumen,
+            ":motivo" => $resumen,
+            ":snapshot" => json_encode($snapshot, JSON_UNESCAPED_UNICODE),
+            ":usuario" => intval($idUsuario) ?: null
+        ));
+        return intval($db->lastInsertId());
+    }
+
+    private function registrarNotificacionVentaRapidaPosReal($db, $idPendiente, $folioPendiente, $folioVenta, $datosVenta, $descripcion, $idUsuario) {
+        if (!$this->tablaExiste($db, "erp_notificaciones")) {
+            return 0;
+        }
+        $payload = array(
+            "folio_pendiente" => $folioPendiente,
+            "folio_venta" => $folioVenta,
+            "id_almacen" => intval($this->valor($datosVenta, "id_almacen", 0)),
+            "id_venta_rapida_pendiente" => intval($idPendiente)
+        );
+        $stmt = $db->prepare("INSERT INTO erp_notificaciones
+            (tipo, modulo_origen, entidad_origen, id_entidad_origen, area_responsable,
+             permiso_requerido, titulo, descripcion, prioridad, estatus, url_accion,
+             payload_json, creado_por, fecha_registro, fecha_actualizacion)
+            VALUES ('pendiente_catalogo_pos', 'ventas_pos', 'erp_pos_venta_rapida_pendientes', :pendiente, 'catalogo',
+             'catalogo.ver', :titulo, :descripcion, 'alta', 'pendiente', :url,
+             :payload, :usuario, NOW(), NOW())");
+        $stmt->execute(array(
+            ":pendiente" => intval($idPendiente),
+            ":titulo" => "Clasificar producto POS " . $folioPendiente,
+            ":descripcion" => "Clasificar producto vendido en POS " . $folioVenta . ": " . substr($descripcion, 0, 240),
+            ":url" => "/ventas/pos?pendiente_venta_rapida=" . urlencode($folioPendiente),
+            ":payload" => json_encode($payload, JSON_UNESCAPED_UNICODE),
+            ":usuario" => intval($idUsuario) ?: null
+        ));
+        return intval($db->lastInsertId());
     }
 
     /**

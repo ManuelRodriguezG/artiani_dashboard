@@ -55,6 +55,7 @@
                                     <a class="btn btn-sm btn-light-primary" href="#manual-resumen"><i class="bi bi-compass"></i> Resumen</a>
                                     <a class="btn btn-sm btn-light" href="#manual-arranque"><i class="bi bi-clipboard-check"></i> Checklist arranque</a>
                                     <a class="btn btn-sm btn-light" href="#manual-pos"><i class="bi bi-shop-window"></i> POS</a>
+                                    <a class="btn btn-sm btn-light" href="#manual-venta-rapida"><i class="bi bi-lightning-charge"></i> Venta rapida</a>
                                     <a class="btn btn-sm btn-light" href="#manual-tablero"><i class="bi bi-receipt-cutoff"></i> Ventas</a>
                                     <a class="btn btn-sm btn-light" href="#manual-checador"><i class="bi bi-upc-scan"></i> Checador</a>
                                     <a class="btn btn-sm btn-light" href="#manual-pedidos"><i class="bi bi-journal-bookmark"></i> Pedidos</a>
@@ -140,6 +141,17 @@
                                                         <li>Lo correcto es una politica por canal POS, sucursal/almacen y alcance: global controlado, categoria, marca o SKU.</li>
                                                         <li>Debe tener limite de cantidad, limite de monto, motivo obligatorio, permiso supervisor y alerta a Inventario.</li>
                                                         <li>Ecommerce no debe usar unidades abiertas ni inventario pendiente como unidad cerrada.</li>
+                                                    </ul>
+                                                </div>
+                                            </div>
+                                            <div class="col-md-6">
+                                                <div class="pos-manual-warning p-3 h-100">
+                                                    <div class="fw-bold mb-2">4B. Venta rapida controlada</div>
+                                                    <ul class="pos-manual-list text-muted mb-0">
+                                                        <li>Usala solo cuando el producto aun no existe o no se encuentra en Catalogo ERP.</li>
+                                                        <li>Captura descripcion detallada, cantidad, precio, motivo y datos provisionales que ayuden a identificarlo.</li>
+                                                        <li>Debe crear una venta real en caja y un pendiente para Catalogo; no debe crear un SKU definitivo automatico.</li>
+                                                        <li>Si el producto controla inventario, Inventario debe recibir pendiente de regularizacion.</li>
                                                     </ul>
                                                 </div>
                                             </div>
@@ -231,6 +243,40 @@
                                         <div class="pos-manual-danger p-3 mt-5">
                                             <div class="fw-bold">No hacer en POS sin autorizacion</div>
                                             <div class="text-muted fs-7">No vender con inventario pendiente como rutina, no cambiar precios sin motivo, no usar devoluciones reales desde POS normal y no cobrar en una caja/sucursal que no corresponda.</div>
+                                        </div>
+                                    </div>
+
+                                    <div class="pos-manual-card p-5 mb-4 pos-manual-section" id="manual-venta-rapida">
+                                        <h2 class="fw-bold fs-4 mb-4">Venta rapida controlada: producto por clasificar</h2>
+                                        <p class="text-muted">Venta rapida sirve para no detener la operacion cuando un producto todavia no esta bien dado de alta. No es una venta libre: cobra en caja, deja ticket y crea un pendiente para Catalogo ERP.</p>
+                                        <h3 class="fw-bold fs-6">Cuando usarla</h3>
+                                        <ul class="pos-manual-list text-muted">
+                                            <li>El producto fisico existe en tienda, pero no aparece en el buscador ni con codigo de barras.</li>
+                                            <li>El cliente necesita comprarlo en ese momento y no conviene detener la fila.</li>
+                                            <li>El operador puede describirlo con suficiente detalle para que Catálogo lo identifique despues.</li>
+                                        </ul>
+                                        <h3 class="fw-bold fs-6 mt-4">Datos que debe capturar el operador</h3>
+                                        <ul class="pos-manual-list text-muted">
+                                            <li>Descripcion detallada: nombre comun, medida, color, presentacion, marca visible o rasgo distintivo.</li>
+                                            <li>Cantidad y precio unitario.</li>
+                                            <li>Motivo: producto no registrado, codigo no encontrado o venta urgente de mostrador.</li>
+                                            <li>Codigo de barras, proveedor probable, categoria o foto si estan disponibles.</li>
+                                        </ul>
+                                        <h3 class="fw-bold fs-6 mt-4">Que debe generar el sistema</h3>
+                                        <ol class="text-muted">
+                                            <li>Venta real con folio, operador, sucursal, caja, turno, pago y ticket.</li>
+                                            <li>Detalle marcado como <strong>Producto por clasificar</strong>.</li>
+                                            <li>Pendiente para Catalogo ERP con los datos capturados.</li>
+                                            <li>Pendiente para Inventario/Existencias si el producto debe controlar stock.</li>
+                                            <li>Reporte de ventas rapidas abiertas hasta que Catalogo las cierre.</li>
+                                        </ol>
+                                        <div class="pos-manual-warning p-3 mt-4">
+                                            <div class="fw-bold">Diferencia contra inventario pendiente</div>
+                                            <div class="text-muted fs-7">Inventario pendiente se usa cuando el SKU ya existe pero no hay suficiente existencia. Venta rapida se usa cuando no hay SKU definitivo o el producto no se encuentra en Catalogo. Son flujos distintos.</div>
+                                        </div>
+                                        <div class="pos-manual-danger p-3 mt-4">
+                                            <div class="fw-bold">Limite operativo</div>
+                                            <div class="text-muted fs-7">No debe usarse para evitar registrar productos correctamente. Debe tener permiso, motivo, limites por turno y seguimiento diario hasta clasificar.</div>
                                         </div>
                                     </div>
 
@@ -455,6 +501,8 @@
                                             <li><strong>Pieza:</strong> venta de unidad cerrada completa.</li>
                                             <li><strong>Granel:</strong> venta por cantidad fraccionaria cuando el SKU lo permite.</li>
                                             <li><strong>Inventario pendiente:</strong> venta autorizada con faltante controlado que genera tarea para Inventario/Existencias.</li>
+                                            <li><strong>Venta rapida:</strong> venta POS de un producto fisico aun no clasificado en Catalogo ERP; debe crear pendiente de clasificacion.</li>
+                                            <li><strong>Producto por clasificar:</strong> partida cobrada con descripcion manual mientras Catalogo crea o vincula el SKU definitivo.</li>
                                             <li><strong>Cuarentena:</strong> inventario separado que no debe venderse hasta inspeccion/destino final.</li>
                                             <li><strong>Saldo a favor:</strong> dinero reconocido al cliente para uso posterior.</li>
                                             <li><strong>Evidencia:</strong> comprobante o respaldo de un movimiento sensible.</li>

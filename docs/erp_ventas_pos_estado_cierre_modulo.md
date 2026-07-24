@@ -87,6 +87,7 @@ Valida que `AGENTS.md`, esta hoja de cierre y los scripts Playwright POS usen `C
 - Scanner POS con camara para agregar productos a la cuenta actual.
 - Checador de precios independiente, read-only.
 - Manual Ventas y POS disponible desde `Ventas > Manual POS` y desde el boton `Manual` dentro de `/ventas/pos`; cubre tablero, POS, checador, pedidos, devoluciones, caja, movimientos, evidencias, reportes y configuracion.
+- Venta rapida controlada: DDL aplicado el 2026-07-23 para `Producto por clasificar`; UAT real ejecutada con venta `POS-20260723-000001` y pendiente `VRP-20260723-000001`, sin SKU definitivo y sin kardex. Turno `TUR-20260723-002-001` cerrado con diferencia `$0.00`; cobro real expuesto desde UI con token interno de controlador. Falta UAT UI desde navegador.
 - UX operativa POS ajustada: acciones principales arriba con iconos sin scroll horizontal propio, pagos rapidos visibles con atajos discretos, `Compromiso` solo para pedidos/apartados y acciones avanzadas bajo `Mas`.
 - Reportes piloto de turnos, ventas, diferencias, evidencias y pendientes de inventario.
 - Enlaces de navegacion entre POS, Caja/Turnos, Movimientos, Evidencias, Devoluciones, Reportes y Configuracion POS.
@@ -199,3 +200,4 @@ Usar `cantidad_fisica` con el conteo real posterior a la venta pendiente.
 - Probar scanner POS solo como UI si no se va a cobrar.
 - Probar impresion de ticket/corte con impresora configurada en Windows cuando se instale hardware.
 - Ejecutar semaforos read-only despues de cada ajuste visual.
+- Venta rapida controlada POS probada en UAT real: caja, venta, detalle provisional, pendiente `VRP`, evento y notificacion a Catalogo quedaron trazables; turno UAT cerrado sin diferencia. UI expuesta para cobro real; siguiente paso: UAT UI desde `/ventas/pos`.

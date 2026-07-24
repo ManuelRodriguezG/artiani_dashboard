@@ -119,6 +119,7 @@
                                         </div>
                                         <div class="pos-module-bar py-0">
                                             <button class="pos-module-btn pos-module-primary" id="pos_prevalidar" type="button" title="Revisar stock, caja, pagos y reglas antes de cobrar"><i class="bi bi-shield-check"></i> Prevalidar <span class="pos-shortcut-hint">F9</span></button>
+                                            <button class="pos-module-btn" id="pos_venta_rapida_btn" type="button" title="Producto no catalogado con pendiente para Catalogo"><i class="bi bi-lightning-charge"></i> Venta rapida</button>
                                             <button class="pos-module-btn" id="pos_ticket_preview" type="button" title="Vista previa del ticket sin confirmar venta"><i class="bi bi-receipt"></i> Ticket</button>
                                             <button class="pos-module-btn" id="pos_cliente_precio_modal_btn" type="button" title="Buscar o preparar cliente CRM"><i class="bi bi-person-vcard"></i> Cliente</button>
                                             <button class="pos-module-btn" id="pos_excepcion_modal_btn" type="button" title="Precio manual o descuento autorizado"><i class="bi bi-shield-lock"></i> Autorizar</button>
@@ -295,6 +296,80 @@
                         </div>
                     </div>
                 </div>
+            </div>
+        </div>
+    </div>
+</div>
+<div class="modal fade" id="pos_venta_rapida_modal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div>
+                    <h3 class="modal-title mb-1">Venta rapida controlada</h3>
+                    <div class="text-muted fs-7">Producto por clasificar; no crea SKU definitivo ni descuenta inventario todavia</div>
+                </div>
+                <button type="button" class="btn btn-icon btn-sm btn-active-light-primary" data-bs-dismiss="modal"><i class="bi bi-x-lg"></i></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-warning py-3">
+                    <div class="fw-bold">Usala solo cuando el producto fisico no aparece en Catalogo ERP.</div>
+                    <div class="fs-8">Si el SKU existe pero no tiene stock, usa inventario pendiente. Esta captura quedara como Producto por clasificar y debe generar pendiente a Catalogo en la etapa real.</div>
+                </div>
+                <div class="row g-3">
+                    <div class="col-12">
+                        <label class="form-label text-muted fs-8 text-uppercase">Descripcion detallada</label>
+                        <textarea class="form-control form-control-solid" id="pos_vr_descripcion" rows="3" placeholder="Ej. Filtro interno marca X, color negro, para pecera chica, etiqueta azul"></textarea>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label text-muted fs-8 text-uppercase">Cantidad</label>
+                        <input class="form-control form-control-solid" id="pos_vr_cantidad" inputmode="decimal" value="1">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label text-muted fs-8 text-uppercase">Precio unitario</label>
+                        <input class="form-control form-control-solid" id="pos_vr_precio" inputmode="decimal" placeholder="0.00">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label text-muted fs-8 text-uppercase">Codigo barras</label>
+                        <input class="form-control form-control-solid" id="pos_vr_codigo" placeholder="Opcional">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-check form-check-custom form-check-solid mt-8">
+                            <input class="form-check-input" id="pos_vr_controla_inventario" type="checkbox" value="1" checked>
+                            <span class="form-check-label">Controla inventario</span>
+                        </label>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label text-muted fs-8 text-uppercase">Categoria provisional</label>
+                        <input class="form-control form-control-solid" id="pos_vr_categoria" placeholder="Opcional">
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label text-muted fs-8 text-uppercase">Marca provisional</label>
+                        <input class="form-control form-control-solid" id="pos_vr_marca" placeholder="Opcional">
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label text-muted fs-8 text-uppercase">Proveedor probable</label>
+                        <input class="form-control form-control-solid" id="pos_vr_proveedor" placeholder="Opcional">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label text-muted fs-8 text-uppercase">Motivo</label>
+                        <select class="form-select form-select-solid" id="pos_vr_motivo">
+                            <option value="">Selecciona motivo</option>
+                            <option value="producto_no_registrado">Producto no registrado</option>
+                            <option value="codigo_no_encontrado">Codigo no encontrado</option>
+                            <option value="venta_urgente_mostrador">Venta urgente mostrador</option>
+                        </select>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label text-muted fs-8 text-uppercase">Observaciones</label>
+                        <input class="form-control form-control-solid" id="pos_vr_observaciones" placeholder="Opcional para Catalogo">
+                    </div>
+                </div>
+                <div id="pos_vr_resultado" class="mt-4"></div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-light" type="button" data-bs-dismiss="modal">Cerrar</button>
+                <button class="btn btn-light-primary" id="pos_vr_validar" type="button"><i class="bi bi-shield-check"></i> Validar</button>
+                <button class="btn btn-primary" id="pos_vr_agregar" type="button" disabled><i class="bi bi-cart-plus"></i> Agregar al carrito</button>
             </div>
         </div>
     </div>
@@ -508,6 +583,6 @@ window.POS_USUARIO_ACTUAL = <?= json_encode(array(
 </script>
 <script src="assets/plugins/global/plugins.bundle.js"></script>
 <script src="assets/js/scripts.bundle.js"></script>
-<script src="/assets/js/custom/apps/erp/ventas/pos.js?v=20260717-scan-pos"></script>
+<script src="/assets/js/custom/apps/erp/ventas/pos.js?v=20260723-venta-rapida-ui-real"></script>
 </body>
 </html>

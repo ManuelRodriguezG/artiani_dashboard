@@ -106,3 +106,17 @@ archivo_existe=true
 archivo_legible=true
 tamano_bytes=28578042
 ```
+
+Sistema configuracion SYS:
+
+```text
+C:\xampp\panel_db_backups\artianilocal_panel_20260723_171000_antes_sistema_configuracion.sql
+```
+
+Validacion:
+
+```text
+archivo_existe=true
+archivo_legible=true
+tamano_bytes=30669797
+```

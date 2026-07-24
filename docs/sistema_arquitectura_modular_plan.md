@@ -291,3 +291,11 @@ Actualizacion 2026-06-30:
   - saldos;
   - movimientos recientes.
 - La pantalla dedicada confirma la regla modular: cuando una pestana de CRM adquiere flujo propio, sube a submodulo navegable.
+
+Actualizacion 2026-07-23:
+
+- `Administracion > Configuracion del sistema` queda como pantalla SYS read-only en `/sistema/configuracion`.
+- La pantalla revisa entorno, URL base, conexion de BD activa e implicaciones de impresion POS sin exponer credenciales.
+- Decision: la configuracion general de ambiente/BD pertenece a SYS; POS solo debe consumir configuracion de terminal, caja e impresion.
+- Para tickets en productivo se recomienda un puente/agente local por terminal o sucursal, porque la impresora instalada vive en la computadora local aunque el sistema web corra en servidor productivo.
+- Documento vivo especifico: `docs/sistema_configuracion_plan.md`.

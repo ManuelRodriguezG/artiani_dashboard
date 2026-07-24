@@ -2034,6 +2034,135 @@ class VentasErpEsquema extends DBSchema {
             "depurar" => $resultado
         );
     }
+
+    /**
+     * Documentacion IA: Codex GPT-5, 2026-07-23.
+     * Proposito: preparar estructura para venta rapida controlada POS.
+     * Impacto: permite registrar `Producto por clasificar` ligado a venta, detalle, caja y pendiente para Catalogo/Inventario.
+     * Contrato: con $ejecutar=false solo genera SQL; con true requiere autorizacion externa y respaldo.
+     */
+    public function planActualizarVentaRapidaControladaPos($ejecutar = false) {
+        $opciones = "ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci";
+        $plan = array();
+
+        $plan[] = $this->agregarColumnaSiNoExiste("erp_ventas_detalle", "origen_partida", "VARCHAR(40) NOT NULL DEFAULT 'catalogo' AFTER `tipo_partida`", $ejecutar);
+        $plan[] = $this->agregarColumnaSiNoExiste("erp_ventas_detalle", "id_venta_rapida_pendiente", "BIGINT NULL AFTER `origen_partida`", $ejecutar);
+        $plan[] = $this->agregarColumnaSiNoExiste("erp_ventas_detalle", "descripcion_manual_snapshot", "TEXT NULL AFTER `descripcion`", $ejecutar);
+        $plan[] = $this->agregarColumnaSiNoExiste("erp_ventas_detalle", "datos_catalogo_pendiente", "TEXT NULL AFTER `descripcion_manual_snapshot`", $ejecutar);
+        $plan[] = $this->agregarColumnaSiNoExiste("erp_ventas_detalle", "inventario_regularizacion_estado", "VARCHAR(40) NULL AFTER `datos_catalogo_pendiente`", $ejecutar);
+        $plan[] = $this->agregarIndiceSiNoExiste("erp_ventas_detalle", "idx_ventas_detalle_origen_partida", "KEY `idx_ventas_detalle_origen_partida` (`origen_partida`, `estatus`)", $ejecutar);
+        $plan[] = $this->agregarIndiceSiNoExiste("erp_ventas_detalle", "idx_ventas_detalle_venta_rapida", "KEY `idx_ventas_detalle_venta_rapida` (`id_venta_rapida_pendiente`)", $ejecutar);
+
+        $plan[] = $this->crearTablaSiNoExiste("erp_pos_venta_rapida_pendientes", array(
+            "`id_venta_rapida_pendiente` BIGINT NOT NULL AUTO_INCREMENT",
+            "`folio` VARCHAR(50) NOT NULL",
+            "`id_venta` BIGINT NOT NULL",
+            "`id_venta_detalle` BIGINT NOT NULL",
+            "`folio_venta` VARCHAR(40) NOT NULL",
+            "`id_almacen` INT NOT NULL",
+            "`id_caja` INT NULL",
+            "`id_turno_caja` BIGINT NULL",
+            "`id_usuario_operador` INT NULL",
+            "`id_cliente_crm` BIGINT NULL",
+            "`cliente_snapshot` TEXT NULL",
+            "`descripcion_manual` TEXT NOT NULL",
+            "`cantidad` DECIMAL(18,6) NOT NULL DEFAULT 0",
+            "`precio_unitario` DECIMAL(18,6) NOT NULL DEFAULT 0",
+            "`total` DECIMAL(18,6) NOT NULL DEFAULT 0",
+            "`codigo_barras` VARCHAR(180) NULL",
+            "`categoria_provisional` VARCHAR(180) NULL",
+            "`marca_provisional` VARCHAR(180) NULL",
+            "`proveedor_provisional` VARCHAR(180) NULL",
+            "`controla_inventario` TINYINT(1) NOT NULL DEFAULT 1",
+            "`inventario_estado` VARCHAR(40) NOT NULL DEFAULT 'pendiente_regularizacion'",
+            "`id_sku_erp_resuelto` BIGINT NULL",
+            "`id_producto_erp_resuelto` BIGINT NULL",
+            "`id_proveedor_resuelto` INT NULL",
+            "`estatus` VARCHAR(40) NOT NULL DEFAULT 'pendiente_catalogo'",
+            "`prioridad` VARCHAR(30) NOT NULL DEFAULT 'normal'",
+            "`motivo` TEXT NULL",
+            "`observaciones_pos` TEXT NULL",
+            "`observaciones_resolucion` TEXT NULL",
+            "`datos_snapshot` TEXT NULL",
+            "`creado_por` INT NULL",
+            "`resuelto_por` INT NULL",
+            "`fecha_registro` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
+            "`fecha_resolucion` DATETIME NULL",
+            "`fecha_actualizacion` DATETIME NULL",
+            "PRIMARY KEY (`id_venta_rapida_pendiente`)",
+            "UNIQUE KEY `idx_pos_vr_folio` (`folio`)",
+            "KEY `idx_pos_vr_venta_detalle` (`id_venta`, `id_venta_detalle`)",
+            "KEY `idx_pos_vr_estado` (`estatus`, `prioridad`, `fecha_registro`)",
+            "KEY `idx_pos_vr_almacen` (`id_almacen`, `estatus`, `fecha_registro`)",
+            "KEY `idx_pos_vr_operador` (`id_usuario_operador`, `fecha_registro`)",
+            "KEY `idx_pos_vr_sku_resuelto` (`id_sku_erp_resuelto`, `estatus`)",
+            "KEY `idx_pos_vr_codigo` (`codigo_barras`)"
+        ), $opciones, $ejecutar);
+
+        $plan[] = $this->crearTablaSiNoExiste("erp_pos_venta_rapida_eventos", array(
+            "`id_venta_rapida_evento` BIGINT NOT NULL AUTO_INCREMENT",
+            "`id_venta_rapida_pendiente` BIGINT NOT NULL",
+            "`folio_pendiente` VARCHAR(50) NOT NULL",
+            "`tipo_evento` VARCHAR(80) NOT NULL",
+            "`estatus_anterior` VARCHAR(40) NULL",
+            "`estatus_nuevo` VARCHAR(40) NULL",
+            "`id_sku_erp` BIGINT NULL",
+            "`resumen` VARCHAR(255) NULL",
+            "`motivo` TEXT NULL",
+            "`datos_snapshot` TEXT NULL",
+            "`creado_por` INT NULL",
+            "`fecha_registro` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
+            "PRIMARY KEY (`id_venta_rapida_evento`)",
+            "KEY `idx_pos_vr_evt_pendiente` (`id_venta_rapida_pendiente`, `fecha_registro`)",
+            "KEY `idx_pos_vr_evt_tipo` (`tipo_evento`, `fecha_registro`)",
+            "KEY `idx_pos_vr_evt_sku` (`id_sku_erp`, `fecha_registro`)",
+            "KEY `idx_pos_vr_evt_usuario` (`creado_por`, `fecha_registro`)"
+        ), $opciones, $ejecutar);
+
+        return $plan;
+    }
+
+    /**
+     * Documentacion IA: Codex GPT-5, 2026-07-23.
+     * Proposito: auditar estructura requerida para venta rapida controlada POS.
+     * Impacto: solo lectura sobre INFORMATION_SCHEMA; no crea tablas, columnas ni indices.
+     * Contrato: devuelve cobertura y faltantes para preparar autorizacion de DDL.
+     */
+    public function auditarVentaRapidaControladaPos() {
+        $tablas = array("erp_ventas_detalle", "erp_pos_venta_rapida_pendientes", "erp_pos_venta_rapida_eventos");
+        $columnas = array(
+            "erp_ventas_detalle" => array("id_venta_detalle", "id_venta", "tipo_partida", "origen_partida", "id_venta_rapida_pendiente", "descripcion", "descripcion_manual_snapshot", "datos_catalogo_pendiente", "inventario_regularizacion_estado"),
+            "erp_pos_venta_rapida_pendientes" => array("id_venta_rapida_pendiente", "folio", "id_venta", "id_venta_detalle", "folio_venta", "id_almacen", "id_caja", "id_turno_caja", "id_usuario_operador", "id_cliente_crm", "cliente_snapshot", "descripcion_manual", "cantidad", "precio_unitario", "total", "codigo_barras", "categoria_provisional", "marca_provisional", "proveedor_provisional", "controla_inventario", "inventario_estado", "id_sku_erp_resuelto", "id_producto_erp_resuelto", "id_proveedor_resuelto", "estatus", "prioridad", "motivo", "observaciones_pos", "observaciones_resolucion", "datos_snapshot", "creado_por", "resuelto_por", "fecha_registro", "fecha_resolucion", "fecha_actualizacion"),
+            "erp_pos_venta_rapida_eventos" => array("id_venta_rapida_evento", "id_venta_rapida_pendiente", "folio_pendiente", "tipo_evento", "estatus_anterior", "estatus_nuevo", "id_sku_erp", "resumen", "motivo", "datos_snapshot", "creado_por", "fecha_registro")
+        );
+        $indices = array(
+            "erp_ventas_detalle" => array("idx_ventas_detalle_origen_partida", "idx_ventas_detalle_venta_rapida"),
+            "erp_pos_venta_rapida_pendientes" => array("idx_pos_vr_folio", "idx_pos_vr_venta_detalle", "idx_pos_vr_estado", "idx_pos_vr_almacen", "idx_pos_vr_operador", "idx_pos_vr_sku_resuelto", "idx_pos_vr_codigo"),
+            "erp_pos_venta_rapida_eventos" => array("idx_pos_vr_evt_pendiente", "idx_pos_vr_evt_tipo", "idx_pos_vr_evt_sku", "idx_pos_vr_evt_usuario")
+        );
+        $resultado = array("tablas" => array(), "columnas" => array(), "indices" => array());
+        foreach ($tablas as $tabla) {
+            $resultado["tablas"][] = array("tabla" => $tabla, "existe" => $this->tablaExiste($tabla));
+        }
+        foreach ($columnas as $tabla => $listaColumnas) {
+            foreach ($listaColumnas as $columna) {
+                $resultado["columnas"][] = array("tabla" => $tabla, "columna" => $columna, "existe" => $this->columnaExiste($tabla, $columna));
+            }
+        }
+        foreach ($indices as $tabla => $listaIndices) {
+            foreach ($listaIndices as $indice) {
+                $resultado["indices"][] = array("tabla" => $tabla, "indice" => $indice, "existe" => $this->indiceExiste($tabla, $indice));
+            }
+        }
+        return array(
+            "error" => false,
+            "tipo" => "success",
+            "mensaje" => "Auditoria venta rapida controlada POS generada",
+            "depurar" => $resultado,
+            "contrato" => array("no_escribe_bd" => true, "no_crea_tablas" => true, "no_modifica_ventas" => true, "no_mueve_inventario" => true)
+        );
+    }
+
     /**
      * Documentacion IA: Codex GPT-5, 2026-06-26.
      * Proposito: resumir cobertura de tablas del diseno POS para auditoria previa.
