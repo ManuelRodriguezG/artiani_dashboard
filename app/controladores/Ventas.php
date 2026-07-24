@@ -460,6 +460,40 @@ class Ventas extends Controlador {
     return json_encode($this->modelo("VentasErp")->ventaRapidaControladaDryRun($_POST));
   }
 
+
+  /**
+   * Documentacion IA: Codex GPT-5, 2026-07-24.
+   * Proposito: listar pendientes POS de venta rapida para Catalogo/Inventario.
+   * Impacto: expone productos por clasificar sin resolverlos ni mover inventario.
+   * Contrato: GET read-only protegido por `ventas.ver`.
+   */
+  public function pos_venta_rapida_pendientes_erp() {
+    $this->requerirPermiso("ventas.ver");
+    return json_encode($this->modelo("VentasErp")->ventaRapidaPendientesReadOnly($_GET));
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5, 2026-07-24.
+   * Proposito: consultar un pendiente VRP con snapshot, venta y eventos.
+   * Impacto: permite revisar evidencia antes de clasificar contra SKU real.
+   * Contrato: GET read-only protegido por `ventas.ver`.
+   */
+  public function pos_venta_rapida_pendiente_erp() {
+    $this->requerirPermiso("ventas.ver");
+    return json_encode($this->modelo("VentasErp")->ventaRapidaPendienteConsultarReadOnly($_GET));
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5, 2026-07-24.
+   * Proposito: simular resolucion de venta rapida contra SKU existente.
+   * Impacto: valida plan Catalogo/Inventario sin actualizar detalle, pendiente ni kardex.
+   * Contrato: POST dry-run; requiere `ventas.operar` y CSRF normal del Core.
+   */
+  public function pos_venta_rapida_resolucion_dryrun_erp() {
+    $this->requerirPermiso("ventas.operar");
+    $_POST["id_usuario"] = $this->usuarioActualId();
+    return json_encode($this->modelo("VentasErp")->ventaRapidaResolucionDryRun($_POST));
+  }
   /**
    * Documentacion IA: Codex GPT-5, 2026-06-26.
    * Proposito: simular confirmacion POS sin escribir venta, pagos ni inventario.

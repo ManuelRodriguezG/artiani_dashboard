@@ -50,6 +50,36 @@ $respuesta = array(
       "mensaje" => "Prueba de guardado omitida porque el esquema ya existe y este UAT debe seguir read-only",
       "depurar" => array("schema_pendiente" => false)
     ),
+    "accion_bloqueada_por_schema" => $schemaPendiente ? $modelo->aplicarAccionServicio(array(
+      "id_tms_servicio" => 1,
+      "accion" => "iniciar_ruta"
+    ), 0) : array(
+      "error" => false,
+      "tipo" => "info",
+      "mensaje" => "Prueba de accion omitida porque el esquema ya existe y este UAT debe seguir read-only",
+      "depurar" => array("schema_pendiente" => false)
+    ),
+    "evidencias_listado" => $modelo->listarEvidencias(1),
+    "evidencia_registro_bloqueado_por_schema" => $schemaPendiente ? $modelo->registrarEvidencia(array(
+      "id_tms_servicio" => 1,
+      "tipo_evidencia" => "nota",
+      "descripcion" => "Evidencia UAT sin escritura"
+    ), 0) : array(
+      "error" => false,
+      "tipo" => "info",
+      "mensaje" => "Prueba de evidencia omitida porque el esquema ya existe y este UAT debe seguir read-only",
+      "depurar" => array("schema_pendiente" => false)
+    ),
+    "evidencia_cancelacion_bloqueada_por_schema" => $schemaPendiente ? $modelo->cancelarEvidencia(array(
+      "id_tms_evidencia" => 1,
+      "motivo" => "Cancelacion UAT sin escritura"
+    ), 0) : array(
+      "error" => false,
+      "tipo" => "info",
+      "mensaje" => "Prueba de cancelacion de evidencia omitida porque el esquema ya existe y este UAT debe seguir read-only",
+      "depurar" => array("schema_pendiente" => false)
+    ),
+    "reportes_resumen" => $modelo->resumenReportes(array()),
     "solicitud_bloqueada" => $modelo->servicioDryRun(array(
       "tipo_servicio" => "entrega_local",
       "prioridad" => "normal",

@@ -583,6 +583,6 @@ window.POS_USUARIO_ACTUAL = <?= json_encode(array(
 </script>
 <script src="assets/plugins/global/plugins.bundle.js"></script>
 <script src="assets/js/scripts.bundle.js"></script>
-<script src="/assets/js/custom/apps/erp/ventas/pos.js?v=20260723-venta-rapida-ui-real"></script>
+<script src="/assets/js/custom/apps/erp/ventas/pos.js?v=20260724-venta-rapida-mensaje-real"></script>
 </body>
 </html>

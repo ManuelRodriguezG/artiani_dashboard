@@ -350,24 +350,444 @@ class TmsDelivery extends CRUD {
   /**
    * IA: Codex GPT-5
    * Fecha: 2026-07-24
+   * Proposito: operar cambios de estado TMS una vez que exista el esquema.
+   * Impacto: TMS Delivery; actualiza solo el servicio logistico y registra evento.
+   * Contrato: escritura transaccional sobre TMS; no cancela ventas, no mueve inventario y no decide garantias.
+   */
+  public function aplicarAccionServicio($datos = array(), $idUsuario = 0) {
+    try {
+      $db = $this->getConexion();
+      if (!$db) {
+        return $this->respuesta(true, "warning", "No hay conexion MySQL para operar TMS", array("conexion_mysql" => false));
+      }
+      if (!$this->schemaCompleto($db)) {
+        return $this->respuesta(true, "warning", "Esquema TMS pendiente; no se puede operar servicio", array(
+          "schema_pendiente" => true,
+          "tablas_requeridas" => array($this->tabla_servicios, $this->tabla_detalle, $this->tabla_costos, $this->tabla_eventos, $this->tabla_evidencias),
+          "regla" => "Aplicar DDL TMS con autorizacion antes de habilitar cambios de estado."
+        ));
+      }
+
+      $idServicio = intval($this->valor($datos, "id_tms_servicio", 0));
+      $accion = $this->texto($datos, "accion");
+      $contrato = $this->accionesTmsContratoArray();
+      if ($idServicio <= 0 || !isset($contrato[$accion])) {
+        return $this->respuesta(true, "warning", "Accion TMS invalida", array(
+          "id_tms_servicio" => $idServicio,
+          "accion" => $accion,
+          "acciones_validas" => array_keys($contrato)
+        ));
+      }
+
+      $bloqueos = $this->validarRequisitosAccion($datos, $contrato[$accion]["requiere"]);
+      if (!empty($bloqueos)) {
+        return $this->respuesta(true, "warning", "Accion TMS incompleta", array("bloqueos" => $bloqueos, "accion" => $accion));
+      }
+
+      $db->beginTransaction();
+      $stmt = $db->prepare("SELECT * FROM {$this->tabla_servicios} WHERE id_tms_servicio=:id FOR UPDATE");
+      $stmt->execute(array(":id" => $idServicio));
+      $servicio = $stmt->fetch(PDO::FETCH_ASSOC);
+      if (!$servicio) {
+        $db->rollBack();
+        return $this->respuesta(true, "warning", "Servicio TMS no encontrado", array("id_tms_servicio" => $idServicio));
+      }
+
+      $antes = array(
+        "estatus_servicio" => $servicio["estatus_servicio"],
+        "resultado_logistico" => $servicio["resultado_logistico"]
+      );
+      $actualizacion = $this->actualizacionPorAccion($accion, $datos, $servicio);
+      $sets = $actualizacion["sets"];
+      $params = $actualizacion["params"];
+      $params[":id"] = $idServicio;
+
+      $sql = "UPDATE {$this->tabla_servicios} SET " . implode(", ", $sets) . ", fecha_actualizacion=CURRENT_TIMESTAMP WHERE id_tms_servicio=:id";
+      $stmtUpdate = $db->prepare($sql);
+      $stmtUpdate->execute($params);
+
+      $despues = array(
+        "estatus_servicio" => isset($params[":estatus_servicio"]) ? $params[":estatus_servicio"] : $servicio["estatus_servicio"],
+        "resultado_logistico" => isset($params[":resultado_logistico"]) ? $params[":resultado_logistico"] : $servicio["resultado_logistico"]
+      );
+      $this->registrarEvento($db, $idServicio, $accion, $antes["estatus_servicio"], $despues["estatus_servicio"], $this->texto($datos, "comentario", $this->texto($datos, "motivo")), $idUsuario, array(
+        "antes" => $antes,
+        "despues" => $despues,
+        "contrato" => $this->contratoDominio()
+      ));
+
+      $db->commit();
+
+      return $this->respuesta(false, "success", "Accion TMS aplicada", array(
+        "id_tms_servicio" => $idServicio,
+        "accion" => $accion,
+        "antes" => $antes,
+        "despues" => $despues,
+        "contrato" => $this->contratoDominio()
+      ));
+    } catch (Exception $e) {
+      if (isset($db) && $db && $db->inTransaction()) {
+        $db->rollBack();
+      }
+      return $this->respuesta(true, "danger", $e->getMessage());
+    }
+  }
+
+  /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-07-24
+   * Proposito: listar evidencias ligadas a un folio TMS.
+   * Impacto: TMS Delivery; permite trazabilidad operativa sin tocar Ventas ni garantias.
+   * Contrato: read-only; si falta esquema devuelve lista vacia controlada.
+   */
+  public function listarEvidencias($idServicio) {
+    try {
+      $db = $this->getConexion();
+      if (!$db) {
+        return $this->respuesta(true, "warning", "No hay conexion MySQL para consultar evidencias TMS", array("conexion_mysql" => false));
+      }
+      if (!$this->tablaExiste($db, $this->tabla_evidencias)) {
+        return $this->respuesta(false, "info", "Esquema TMS pendiente; no hay evidencias para listar", array(
+          "schema_pendiente" => true,
+          "evidencias" => array()
+        ));
+      }
+
+      $stmt = $db->prepare("SELECT id_tms_evidencia, id_tms_servicio, tipo_evidencia, ruta,
+          nombre_original, descripcion, payload_json, estatus, creado_por, fecha_registro, fecha_cancelacion
+        FROM {$this->tabla_evidencias}
+        WHERE id_tms_servicio=:servicio
+        ORDER BY id_tms_evidencia DESC");
+      $stmt->execute(array(":servicio" => intval($idServicio)));
+
+      return $this->respuesta(false, "success", "Evidencias TMS consultadas", array(
+        "schema_pendiente" => false,
+        "evidencias" => $stmt->fetchAll(PDO::FETCH_ASSOC)
+      ));
+    } catch (Exception $e) {
+      return $this->respuesta(true, "danger", $e->getMessage());
+    }
+  }
+
+  /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-07-24
+   * Proposito: consultar indicadores basicos TMS Delivery.
+   * Impacto: TMS Delivery; mide servicio logistico sin recalcular ventas ni productos.
+   * Contrato: read-only; si falta esquema devuelve metricas en cero con schema_pendiente=true.
+   */
+  public function resumenReportes($filtros = array()) {
+    try {
+      $db = $this->getConexion();
+      if (!$db) {
+        return $this->respuesta(true, "warning", "No hay conexion MySQL para reportes TMS", array("conexion_mysql" => false));
+      }
+      if (!$this->tablaExiste($db, $this->tabla_servicios)) {
+        return $this->respuesta(false, "info", "Esquema TMS pendiente; reportes sin datos reales", array(
+          "schema_pendiente" => true,
+          "kpis" => $this->kpisTmsVacios(),
+          "por_tipo" => array(),
+          "por_resultado" => array(),
+          "por_zona" => array(),
+          "contrato" => $this->contratoDominio()
+        ));
+      }
+
+      $where = array("s.estatus <> 'cancelado'");
+      $params = array();
+      $desde = $this->texto($filtros, "desde");
+      $hasta = $this->texto($filtros, "hasta");
+      if ($desde !== "") {
+        $where[] = "DATE(s.fecha_solicitud) >= :desde";
+        $params[":desde"] = $desde;
+      }
+      if ($hasta !== "") {
+        $where[] = "DATE(s.fecha_solicitud) <= :hasta";
+        $params[":hasta"] = $hasta;
+      }
+      $whereSql = implode(" AND ", $where);
+
+      $kpis = $this->kpisTmsVacios();
+      $stmt = $db->prepare("SELECT
+          COUNT(*) total,
+          SUM(CASE WHEN s.resultado_logistico='completa' THEN 1 ELSE 0 END) completas,
+          SUM(CASE WHEN s.tipo_servicio='entrega_express' THEN 1 ELSE 0 END) express,
+          SUM(CASE WHEN s.estatus_servicio='no_entregada' OR s.resultado_logistico='sin_entrega' THEN 1 ELSE 0 END) no_entregadas,
+          SUM(CASE WHEN s.estatus_servicio='pendiente_cliente' OR s.resultado_logistico='cliente_recogera' THEN 1 ELSE 0 END) pendiente_cliente,
+          SUM(CASE WHEN s.estatus_cobro='bonificada' OR s.estatus_cobro='incluida_cortesia' THEN 1 ELSE 0 END) bonificadas,
+          COALESCE(SUM(c.precio_cobrado), 0) ingresos_logisticos,
+          COALESCE(SUM(c.costo_real), 0) costo_real,
+          COALESCE(SUM(CASE WHEN s.estatus_cobro='bonificada' OR s.estatus_cobro='incluida_cortesia' THEN c.precio_cobrado ELSE 0 END), 0) monto_bonificado,
+          AVG(TIMESTAMPDIFF(MINUTE, s.fecha_solicitud, s.fecha_cierre)) tiempo_promedio_minutos
+        FROM {$this->tabla_servicios} s
+        LEFT JOIN {$this->tabla_costos} c ON c.id_tms_servicio=s.id_tms_servicio AND c.estatus='activo'
+        WHERE {$whereSql}");
+      $stmt->execute($params);
+      $row = $stmt->fetch(PDO::FETCH_ASSOC);
+      if ($row) {
+        foreach ($kpis as $key => $value) {
+          $kpis[$key] = isset($row[$key]) ? (float) $row[$key] : $value;
+        }
+      }
+
+      return $this->respuesta(false, "success", "Reportes TMS consultados", array(
+        "schema_pendiente" => false,
+        "kpis" => $kpis,
+        "por_tipo" => $this->agregadoSimple($db, "s.tipo_servicio", $whereSql, $params),
+        "por_resultado" => $this->agregadoSimple($db, "s.resultado_logistico", $whereSql, $params),
+        "por_zona" => $this->agregadoSimple($db, "COALESCE(NULLIF(s.zona_snapshot, ''), 'Sin zona')", $whereSql, $params, 10),
+        "filtros" => $filtros,
+        "contrato" => $this->contratoDominio()
+      ));
+    } catch (Exception $e) {
+      return $this->respuesta(true, "danger", $e->getMessage());
+    }
+  }
+
+  /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-07-24
+   * Proposito: registrar evidencia operativa para un servicio TMS.
+   * Impacto: TMS Delivery; agrega trazabilidad sin resolver garantias ni modificar ventas.
+   * Contrato: escritura transaccional sobre TMS; no sube archivo fisico en esta fase.
+   */
+  public function registrarEvidencia($datos = array(), $idUsuario = 0) {
+    try {
+      $db = $this->getConexion();
+      if (!$db) {
+        return $this->respuesta(true, "warning", "No hay conexion MySQL para registrar evidencia TMS", array("conexion_mysql" => false));
+      }
+      if (!$this->schemaCompleto($db)) {
+        return $this->respuesta(true, "warning", "Esquema TMS pendiente; no se puede registrar evidencia", array(
+          "schema_pendiente" => true,
+          "tablas_requeridas" => array($this->tabla_servicios, $this->tabla_evidencias, $this->tabla_eventos),
+          "regla" => "Aplicar DDL TMS con autorizacion antes de habilitar evidencias."
+        ));
+      }
+
+      $idServicio = intval($this->valor($datos, "id_tms_servicio", 0));
+      $tipo = $this->texto($datos, "tipo_evidencia", "nota");
+      $descripcion = $this->texto($datos, "descripcion");
+      $tiposValidos = array("foto", "firma", "nota", "comprobante", "ubicacion", "chat_snapshot");
+      if ($idServicio <= 0 || !in_array($tipo, $tiposValidos, true) || $descripcion === "") {
+        return $this->respuesta(true, "warning", "Evidencia TMS incompleta", array(
+          "bloqueos" => array("Indica servicio, tipo valido y descripcion"),
+          "tipos_validos" => $tiposValidos
+        ));
+      }
+
+      $db->beginTransaction();
+      $servicio = $this->consultarServicioParaUpdate($db, $idServicio);
+      if (!$servicio) {
+        $db->rollBack();
+        return $this->respuesta(true, "warning", "Servicio TMS no encontrado", array("id_tms_servicio" => $idServicio));
+      }
+
+      $payload = array(
+        "latitud" => $this->texto($datos, "latitud"),
+        "longitud" => $this->texto($datos, "longitud"),
+        "capturado_desde" => $this->texto($datos, "capturado_desde", "manual"),
+        "contrato" => $this->contratoDominio()
+      );
+
+      $stmt = $db->prepare("INSERT INTO {$this->tabla_evidencias}
+        (id_tms_servicio, tipo_evidencia, ruta, nombre_original, descripcion, payload_json, estatus, creado_por)
+        VALUES (:servicio, :tipo, :ruta, :nombre, :descripcion, :payload, 'activa', :usuario)");
+      $stmt->execute(array(
+        ":servicio" => $idServicio,
+        ":tipo" => $tipo,
+        ":ruta" => $this->texto($datos, "ruta"),
+        ":nombre" => $this->texto($datos, "nombre_original"),
+        ":descripcion" => $descripcion,
+        ":payload" => json_encode($payload),
+        ":usuario" => intval($idUsuario) > 0 ? intval($idUsuario) : null
+      ));
+      $idEvidencia = intval($db->lastInsertId());
+
+      $this->registrarEvento($db, $idServicio, "evidencia_registrada", $servicio["estatus_servicio"], $servicio["estatus_servicio"], $descripcion, $idUsuario, array(
+        "id_tms_evidencia" => $idEvidencia,
+        "tipo_evidencia" => $tipo
+      ));
+
+      $db->commit();
+
+      return $this->respuesta(false, "success", "Evidencia TMS registrada", array(
+        "id_tms_evidencia" => $idEvidencia,
+        "id_tms_servicio" => $idServicio,
+        "tipo_evidencia" => $tipo,
+        "contrato" => $this->contratoDominio()
+      ));
+    } catch (Exception $e) {
+      if (isset($db) && $db && $db->inTransaction()) {
+        $db->rollBack();
+      }
+      return $this->respuesta(true, "danger", $e->getMessage());
+    }
+  }
+
+  /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-07-24
+   * Proposito: cancelar logicamente una evidencia TMS.
+   * Impacto: TMS Delivery; conserva historial operativo sin borrar evidencia.
+   * Contrato: baja logica; no elimina archivos fisicos en esta fase.
+   */
+  public function cancelarEvidencia($datos = array(), $idUsuario = 0) {
+    try {
+      $db = $this->getConexion();
+      if (!$db) {
+        return $this->respuesta(true, "warning", "No hay conexion MySQL para cancelar evidencia TMS", array("conexion_mysql" => false));
+      }
+      if (!$this->schemaCompleto($db)) {
+        return $this->respuesta(true, "warning", "Esquema TMS pendiente; no se puede cancelar evidencia", array("schema_pendiente" => true));
+      }
+
+      $idEvidencia = intval($this->valor($datos, "id_tms_evidencia", 0));
+      $motivo = $this->texto($datos, "motivo");
+      if ($idEvidencia <= 0 || $motivo === "") {
+        return $this->respuesta(true, "warning", "Captura evidencia y motivo de cancelacion", array("id_tms_evidencia" => $idEvidencia));
+      }
+
+      $db->beginTransaction();
+      $stmt = $db->prepare("SELECT * FROM {$this->tabla_evidencias} WHERE id_tms_evidencia=:id FOR UPDATE");
+      $stmt->execute(array(":id" => $idEvidencia));
+      $evidencia = $stmt->fetch(PDO::FETCH_ASSOC);
+      if (!$evidencia) {
+        $db->rollBack();
+        return $this->respuesta(true, "warning", "Evidencia TMS no encontrada", array("id_tms_evidencia" => $idEvidencia));
+      }
+
+      $stmtUpdate = $db->prepare("UPDATE {$this->tabla_evidencias}
+        SET estatus='cancelada', fecha_cancelacion=CURRENT_TIMESTAMP
+        WHERE id_tms_evidencia=:id");
+      $stmtUpdate->execute(array(":id" => $idEvidencia));
+
+      $this->registrarEvento($db, intval($evidencia["id_tms_servicio"]), "evidencia_cancelada", null, null, $motivo, $idUsuario, array(
+        "id_tms_evidencia" => $idEvidencia,
+        "tipo_evidencia" => $evidencia["tipo_evidencia"]
+      ));
+
+      $db->commit();
+
+      return $this->respuesta(false, "success", "Evidencia TMS cancelada", array(
+        "id_tms_evidencia" => $idEvidencia,
+        "baja_logica" => true
+      ));
+    } catch (Exception $e) {
+      if (isset($db) && $db && $db->inTransaction()) {
+        $db->rollBack();
+      }
+      return $this->respuesta(true, "danger", $e->getMessage());
+    }
+  }
+
+  /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-07-24
    * Proposito: documentar contrato de acciones TMS antes de implementar cambios de estado reales.
    * Impacto: TMS Delivery; permite preparar UI/UAT sin modificar servicios.
    * Contrato: read-only; no programa, no asigna, no entrega y no cancela servicios.
    */
   public function accionesContratoReadOnly() {
+    $acciones = array();
+    foreach ($this->accionesTmsContratoArray() as $accion => $contrato) {
+      $acciones[] = array(
+        "accion" => $accion,
+        "permiso" => $contrato["permiso"],
+        "requiere" => $contrato["requiere"]
+      );
+    }
     return $this->respuesta(false, "success", "Contrato de acciones TMS consultado", array(
-      "acciones" => array(
-        array("accion" => "programar", "permiso" => "tms.programar", "requiere" => array("id_tms_servicio", "fecha_programada", "ventana_inicio", "ventana_fin")),
-        array("accion" => "asignar_responsable", "permiso" => "tms.programar", "requiere" => array("id_tms_servicio", "responsable_asignado")),
-        array("accion" => "marcar_lista_salida", "permiso" => "tms.operar", "requiere" => array("id_tms_servicio")),
-        array("accion" => "iniciar_ruta", "permiso" => "tms.operar", "requiere" => array("id_tms_servicio")),
-        array("accion" => "entregar", "permiso" => "tms.operar", "requiere" => array("id_tms_servicio", "resultado_logistico", "evidencia_o_comentario")),
-        array("accion" => "no_entregada", "permiso" => "tms.operar", "requiere" => array("id_tms_servicio", "motivo")),
-        array("accion" => "pendiente_cliente", "permiso" => "tms.operar", "requiere" => array("id_tms_servicio", "motivo")),
-        array("accion" => "cancelar_servicio", "permiso" => "tms.operar", "requiere" => array("id_tms_servicio", "motivo"))
-      ),
+      "acciones" => $acciones,
       "regla" => "Estas acciones modificaran solo TMS cuando se implementen; no cancelan ventas ni deciden garantias."
     ));
+  }
+
+  private function accionesTmsContratoArray() {
+    return array(
+      "programar" => array("permiso" => "tms.programar", "requiere" => array("id_tms_servicio", "fecha_programada", "ventana_inicio", "ventana_fin")),
+      "asignar_responsable" => array("permiso" => "tms.programar", "requiere" => array("id_tms_servicio", "responsable_asignado")),
+      "marcar_lista_salida" => array("permiso" => "tms.operar", "requiere" => array("id_tms_servicio")),
+      "iniciar_ruta" => array("permiso" => "tms.operar", "requiere" => array("id_tms_servicio")),
+      "entregar" => array("permiso" => "tms.operar", "requiere" => array("id_tms_servicio", "resultado_logistico", "evidencia_o_comentario")),
+      "no_entregada" => array("permiso" => "tms.operar", "requiere" => array("id_tms_servicio", "motivo")),
+      "pendiente_cliente" => array("permiso" => "tms.operar", "requiere" => array("id_tms_servicio", "motivo")),
+      "reprogramar" => array("permiso" => "tms.programar", "requiere" => array("id_tms_servicio", "fecha_programada", "ventana_inicio", "ventana_fin", "motivo")),
+      "cancelar_servicio" => array("permiso" => "tms.operar", "requiere" => array("id_tms_servicio", "motivo"))
+    );
+  }
+
+  private function validarRequisitosAccion($datos, $requisitos) {
+    $bloqueos = array();
+    foreach ($requisitos as $campo) {
+      if ($campo === "evidencia_o_comentario") {
+        if ($this->texto($datos, "comentario") === "" && $this->texto($datos, "evidencia") === "") {
+          $bloqueos[] = "Captura comentario o evidencia para cerrar la entrega";
+        }
+        continue;
+      }
+      if ($campo === "id_tms_servicio" || $campo === "responsable_asignado") {
+        if (intval($this->valor($datos, $campo, 0)) <= 0) {
+          $bloqueos[] = "Falta " . $campo;
+        }
+        continue;
+      }
+      if ($this->texto($datos, $campo) === "") {
+        $bloqueos[] = "Falta " . $campo;
+      }
+    }
+    return $bloqueos;
+  }
+
+  private function actualizacionPorAccion($accion, $datos, $servicio) {
+    $sets = array();
+    $params = array();
+
+    if ($accion === "programar" || $accion === "reprogramar") {
+      $sets[] = "estatus_servicio=:estatus_servicio";
+      $sets[] = "resultado_logistico=:resultado_logistico";
+      $sets[] = "fecha_programada=:fecha_programada";
+      $sets[] = "ventana_inicio=:ventana_inicio";
+      $sets[] = "ventana_fin=:ventana_fin";
+      $params[":estatus_servicio"] = $accion === "programar" ? "programada" : "reprogramada";
+      $params[":resultado_logistico"] = $accion === "programar" ? $servicio["resultado_logistico"] : "nuevo_intento_requerido";
+      $params[":fecha_programada"] = $this->nullSiVacio($this->texto($datos, "fecha_programada"));
+      $params[":ventana_inicio"] = $this->nullSiVacio($this->texto($datos, "ventana_inicio"));
+      $params[":ventana_fin"] = $this->nullSiVacio($this->texto($datos, "ventana_fin"));
+      return array("sets" => $sets, "params" => $params);
+    }
+
+    if ($accion === "asignar_responsable") {
+      $sets[] = "responsable_asignado=:responsable_asignado";
+      $params[":responsable_asignado"] = intval($this->valor($datos, "responsable_asignado", 0));
+      return array("sets" => $sets, "params" => $params);
+    }
+
+    $mapa = array(
+      "marcar_lista_salida" => array("estatus" => "lista_para_salida", "resultado" => $servicio["resultado_logistico"], "fecha_cierre" => false, "fecha_salida" => false),
+      "iniciar_ruta" => array("estatus" => "en_ruta", "resultado" => $servicio["resultado_logistico"], "fecha_cierre" => false, "fecha_salida" => true),
+      "entregar" => array("estatus" => "entregada", "resultado" => $this->texto($datos, "resultado_logistico", "completa"), "fecha_cierre" => true, "fecha_salida" => false),
+      "no_entregada" => array("estatus" => "no_entregada", "resultado" => "sin_entrega", "fecha_cierre" => true, "fecha_salida" => false),
+      "pendiente_cliente" => array("estatus" => "pendiente_cliente", "resultado" => "cliente_recogera", "fecha_cierre" => false, "fecha_salida" => false),
+      "cancelar_servicio" => array("estatus" => "cancelada", "resultado" => "cerrada_sin_entrega", "fecha_cierre" => true, "fecha_salida" => false)
+    );
+
+    $destino = isset($mapa[$accion]) ? $mapa[$accion] : array("estatus" => $servicio["estatus_servicio"], "resultado" => $servicio["resultado_logistico"], "fecha_cierre" => false, "fecha_salida" => false);
+    $sets[] = "estatus_servicio=:estatus_servicio";
+    $sets[] = "resultado_logistico=:resultado_logistico";
+    $params[":estatus_servicio"] = $destino["estatus"];
+    $params[":resultado_logistico"] = $destino["resultado"];
+    if (!empty($destino["fecha_salida"])) {
+      $sets[] = "fecha_salida=COALESCE(fecha_salida, CURRENT_TIMESTAMP)";
+    }
+    if (!empty($destino["fecha_cierre"])) {
+      $sets[] = "fecha_cierre=CURRENT_TIMESTAMP";
+    }
+    if ($accion === "cancelar_servicio") {
+      $sets[] = "estatus='cancelado'";
+    }
+
+    return array("sets" => $sets, "params" => $params);
   }
 
   private function normalizarDetalle($datos) {
@@ -440,6 +860,38 @@ class TmsDelivery extends CRUD {
       ":payload" => json_encode($payload),
       ":creado_por" => intval($idUsuario) > 0 ? intval($idUsuario) : null
     ));
+  }
+
+  private function consultarServicioParaUpdate($db, $idServicio) {
+    $stmt = $db->prepare("SELECT * FROM {$this->tabla_servicios} WHERE id_tms_servicio=:id FOR UPDATE");
+    $stmt->execute(array(":id" => intval($idServicio)));
+    return $stmt->fetch(PDO::FETCH_ASSOC);
+  }
+
+  private function kpisTmsVacios() {
+    return array(
+      "total" => 0,
+      "completas" => 0,
+      "express" => 0,
+      "no_entregadas" => 0,
+      "pendiente_cliente" => 0,
+      "bonificadas" => 0,
+      "ingresos_logisticos" => 0,
+      "costo_real" => 0,
+      "monto_bonificado" => 0,
+      "tiempo_promedio_minutos" => 0
+    );
+  }
+
+  private function agregadoSimple($db, $campo, $whereSql, $params, $limite = 20) {
+    $stmt = $db->prepare("SELECT {$campo} etiqueta, COUNT(*) total
+      FROM {$this->tabla_servicios} s
+      WHERE {$whereSql}
+      GROUP BY etiqueta
+      ORDER BY total DESC
+      LIMIT " . intval($limite));
+    $stmt->execute($params);
+    return $stmt->fetchAll(PDO::FETCH_ASSOC);
   }
 
   private function schemaCompleto($db) {

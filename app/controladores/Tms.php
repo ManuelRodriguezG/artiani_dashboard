@@ -162,6 +162,93 @@ class Tms extends Controlador {
   /**
    * IA: Codex GPT-5
    * Fecha: 2026-07-24
+   * Proposito: aplicar acciones operativas sobre un servicio TMS.
+   * Impacto: TMS Delivery; cambia solo estado logistico y registra evento cuando exista esquema.
+   * Contrato: POST con permiso segun accion; si falta esquema responde bloqueo controlado y no escribe BD.
+   */
+  public function servicio_accion_erp() {
+    $accion = isset($_POST["accion"]) ? trim((string) $_POST["accion"]) : "";
+    $this->requerirPermiso($this->permisoAccionServicio($accion));
+    $respuesta = $this->modelo("TmsDelivery")->aplicarAccionServicio($_POST, $this->usuarioActualId());
+    if (isset($respuesta["error"]) && $respuesta["error"] === false) {
+      SesionSeguridad::registrarAuditoria("tms", "accion_servicio_" . $accion, array(
+        "entidad" => "erp_tms_servicios",
+        "entidad_id" => isset($respuesta["depurar"]["id_tms_servicio"]) ? $respuesta["depurar"]["id_tms_servicio"] : null,
+        "resultado" => "success",
+        "mensaje" => $accion
+      ));
+    }
+    return json_encode($respuesta);
+  }
+
+  /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-07-24
+   * Proposito: listar evidencias operativas de un servicio TMS.
+   * Impacto: TMS Delivery; consulta trazabilidad sin modificar servicios.
+   * Contrato: GET protegido por `tms.ver`; si falta esquema devuelve lista vacia controlada.
+   */
+  public function evidencias_listar_erp() {
+    $this->requerirPermiso("tms.ver");
+    $idServicio = isset($_GET["id_tms_servicio"]) ? intval($_GET["id_tms_servicio"]) : 0;
+    return json_encode($this->modelo("TmsDelivery")->listarEvidencias($idServicio));
+  }
+
+  /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-07-24
+   * Proposito: consultar resumen de reportes TMS Delivery.
+   * Impacto: TMS Delivery; mide operacion logistica sin recalcular ventas.
+   * Contrato: GET protegido por `tms.reportes`; read-only.
+   */
+  public function reportes_resumen_erp() {
+    $this->requerirPermiso("tms.reportes");
+    return json_encode($this->modelo("TmsDelivery")->resumenReportes($_GET));
+  }
+
+  /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-07-24
+   * Proposito: registrar evidencia operativa para un folio TMS.
+   * Impacto: TMS Delivery; agrega evidencia sin resolver garantias ni modificar ventas.
+   * Contrato: POST protegido por `tms.evidencias`; no sube archivo fisico en esta fase.
+   */
+  public function evidencia_registrar_erp() {
+    $this->requerirPermiso("tms.evidencias");
+    $respuesta = $this->modelo("TmsDelivery")->registrarEvidencia($_POST, $this->usuarioActualId());
+    if (isset($respuesta["error"]) && $respuesta["error"] === false) {
+      SesionSeguridad::registrarAuditoria("tms", "registrar_evidencia", array(
+        "entidad" => "erp_tms_evidencias",
+        "entidad_id" => isset($respuesta["depurar"]["id_tms_evidencia"]) ? $respuesta["depurar"]["id_tms_evidencia"] : null,
+        "resultado" => "success"
+      ));
+    }
+    return json_encode($respuesta);
+  }
+
+  /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-07-24
+   * Proposito: cancelar logicamente evidencia TMS.
+   * Impacto: TMS Delivery; conserva historial y evita borrado fisico en fase actual.
+   * Contrato: POST protegido por `tms.evidencias`; requiere motivo.
+   */
+  public function evidencia_cancelar_erp() {
+    $this->requerirPermiso("tms.evidencias");
+    $respuesta = $this->modelo("TmsDelivery")->cancelarEvidencia($_POST, $this->usuarioActualId());
+    if (isset($respuesta["error"]) && $respuesta["error"] === false) {
+      SesionSeguridad::registrarAuditoria("tms", "cancelar_evidencia", array(
+        "entidad" => "erp_tms_evidencias",
+        "entidad_id" => isset($respuesta["depurar"]["id_tms_evidencia"]) ? $respuesta["depurar"]["id_tms_evidencia"] : null,
+        "resultado" => "success"
+      ));
+    }
+    return json_encode($respuesta);
+  }
+
+  /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-07-24
    * Proposito: exponer contrato de acciones TMS antes de implementar cambios reales de estado.
    * Impacto: TMS Delivery; ayuda a preparar UI/UAT sin escrituras.
    * Contrato: read-only; no programa, no asigna, no entrega y no cancela servicios.
@@ -169,5 +256,12 @@ class Tms extends Controlador {
   public function acciones_contrato_erp() {
     $this->requerirPermiso("tms.ver");
     return json_encode($this->modelo("TmsDelivery")->accionesContratoReadOnly());
+  }
+
+  private function permisoAccionServicio($accion) {
+    if (in_array($accion, array("programar", "reprogramar", "asignar_responsable"), true)) {
+      return "tms.programar";
+    }
+    return "tms.operar";
   }
 }

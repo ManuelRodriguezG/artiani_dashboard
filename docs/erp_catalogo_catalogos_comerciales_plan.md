@@ -734,6 +734,232 @@ Validacion tecnica:
 - `C:\xampp\php\php.exe -l app\vistas\paginas\apps\erp\catalogo\catalogos_comerciales.php`: sin errores.
 - `node --check public\assets\js\custom\apps\erp\catalogo\catalogos_comerciales.js`: sin errores.
 
+## Ajuste MVP visual - Plantillas de previsualizacion 2026-07-24
+
+Se agregaron formatos de vista previa:
+
+- `Cuadrada redes`: tarjetas cuadradas para uso general en redes.
+- `Vertical redes`: tarjetas mas altas para publicaciones visuales verticales.
+- `Compacta`: formato tipo lista para revisar muchos productos rapido.
+
+Controles relacionados:
+
+- Mostrar/ocultar precio.
+- Mostrar/ocultar SKU.
+- Mostrar/ocultar disponibilidad simple.
+- Cambiar plantilla sin recargar ni perder seleccion.
+
+Reglas:
+
+- No genera imagenes ni PDF automaticamente.
+- No guarda la plantilla en BD.
+- La plantilla solo afecta la previsualizacion del MVP en navegador.
+- Se reemplazaron separadores visuales especiales por guion ASCII para evitar problemas recurrentes de codificacion.
+
+Validacion tecnica:
+
+- `C:\xampp\php\php.exe -l app\vistas\paginas\apps\erp\catalogo\catalogos_comerciales.php`: sin errores.
+- `node --check public\assets\js\custom\apps\erp\catalogo\catalogos_comerciales.js`: sin errores.
+
+## Ajuste MVP visual - Encabezado comercial temporal 2026-07-24
+
+Se agrego bloque `Datos del material`:
+
+- Titulo.
+- Subtitulo.
+- Contacto / CTA.
+
+Comportamiento:
+
+- Los campos se guardan en `localStorage` del navegador.
+- El encabezado aparece arriba de la vista previa.
+- Si se imprime desde navegador, se ocultan controles operativos y se imprime solo el area de material.
+
+Reglas:
+
+- No se guarda catalogo en BD.
+- No se publica enlace.
+- No genera imagenes ni PDF automaticamente.
+- El encabezado es temporal para validar capturas/impresion del MVP.
+
+Validacion tecnica:
+
+- `C:\xampp\php\php.exe -l app\vistas\paginas\apps\erp\catalogo\catalogos_comerciales.php`: sin errores.
+- `node --check public\assets\js\custom\apps\erp\catalogo\catalogos_comerciales.js`: sin errores.
+
+## Ajuste MVP visual - Modo captura 2026-07-24
+
+Se agrego boton `Modo captura` en la vista previa.
+
+Comportamiento:
+
+- Oculta sidebar, toolbar, filtros, metricas, candidatos y seleccion temporal.
+- Deja visible solo el area del material comercial.
+- Mantiene un boton flotante para salir del modo captura.
+- No modifica seleccion, orden, plantilla ni datos del material.
+
+Uso operativo:
+
+- Pensado para tomar capturas limpias desde navegador.
+- Complementa la impresion del navegador, pero no genera archivos automaticamente.
+
+Validacion tecnica:
+
+- `C:\xampp\php\php.exe -l app\vistas\paginas\apps\erp\catalogo\catalogos_comerciales.php`: sin errores.
+- `node --check public\assets\js\custom\apps\erp\catalogo\catalogos_comerciales.js`: sin errores.
+
+## Ajuste MVP operativo - Borrador local y copiado 2026-07-24
+
+Se agregaron acciones de trabajo sobre el borrador temporal:
+
+- `Copiar listado`: genera texto desde los productos seleccionados para pegarlo en WhatsApp, Facebook o notas.
+- `Reiniciar borrador`: limpia seleccion y encabezado temporal guardados en el navegador.
+
+Reglas:
+
+- No escribe base de datos.
+- No genera archivos.
+- No publica enlaces.
+- No consulta ni expone costos.
+- Respeta opciones visibles de precio, SKU y disponibilidad al construir el texto.
+
+Uso operativo:
+
+- Sirve para validar rapidamente surtidos o propuestas comerciales antes de invertir en exportacion formal.
+- El borrador sigue siendo local del navegador; no es un catalogo ERP persistente.
+
+Validacion tecnica:
+
+- `C:\xampp\php\php.exe -l app\vistas\paginas\apps\erp\catalogo\catalogos_comerciales.php`.
+- `node --check public\assets\js\custom\apps\erp\catalogo\catalogos_comerciales.js`.
+
+## Ajuste MVP visual - Campos visibles por material 2026-07-24
+
+Se agregaron controles para mostrar u ocultar:
+
+- precio;
+- marca;
+- categoria;
+- presentacion;
+- SKU;
+- disponibilidad simple.
+
+Reglas:
+
+- Los controles solo afectan la vista previa y el texto de `Copiar listado`.
+- No modifican datos maestros del producto.
+- No cambian precios, categorias, marcas ni disponibilidad real.
+- Permiten armar materiales mas limpios segun el canal: redes, WhatsApp, revision interna o impresion.
+
+Validacion tecnica:
+
+- `C:\xampp\php\php.exe -l app\vistas\paginas\apps\erp\catalogo\catalogos_comerciales.php`.
+- `node --check public\assets\js\custom\apps\erp\catalogo\catalogos_comerciales.js`.
+
+## Ajuste MVP operativo - Borradores locales nombrados 2026-07-24
+
+Se agrego administracion de borradores locales:
+
+- nombre del borrador;
+- guardar local;
+- cargar;
+- eliminar.
+
+Reglas:
+
+- El borrador se guarda en `localStorage` del navegador.
+- No es un catalogo ERP formal.
+- No se comparte entre usuarios.
+- No genera archivos.
+- No escribe base de datos.
+- Guarda seleccion temporal y datos del material.
+
+Uso operativo:
+
+- Permite preparar varias propuestas comerciales antes de decidir si hace falta persistencia formal.
+- Sirve para validar surtidos por tema, categoria, temporada o promocion.
+- Si el usuario cambia de navegador/equipo, esos borradores no viajan.
+
+Validacion tecnica:
+
+- `C:\xampp\php\php.exe -l app\vistas\paginas\apps\erp\catalogo\catalogos_comerciales.php`: sin errores.
+- `node --check public\assets\js\custom\apps\erp\catalogo\catalogos_comerciales.js`: sin errores.
+
+## Ajuste MVP visual - Portada y paginacion operativa 2026-07-24
+
+Se agrego una portada temporal del material:
+
+- mostrar/ocultar portada;
+- etiqueta;
+- descripcion;
+- nota.
+
+Comportamiento:
+
+- La portada aparece antes de las tarjetas de producto en la vista previa.
+- Usa el titulo del material como titulo principal de portada.
+- La descripcion y nota ayudan a explicar al cliente de que trata el conjunto de productos.
+- La portada se guarda dentro de los borradores locales.
+
+Se agrego paginacion operativa:
+
+- candidatos: 12 por pagina;
+- seleccion temporal: 8 por pagina.
+
+Reglas:
+
+- La paginacion solo afecta la operacion de la pantalla.
+- La vista previa sigue mostrando todo el material armado.
+- `Seleccionar visibles` y `Quitar visibles` aplican sobre la pagina visible de candidatos.
+- No escribe BD ni genera catalogos reales.
+
+Validacion tecnica:
+
+- `C:\xampp\php\php.exe -l app\vistas\paginas\apps\erp\catalogo\catalogos_comerciales.php`: sin errores.
+- `node --check public\assets\js\custom\apps\erp\catalogo\catalogos_comerciales.js`: sin errores.
+
+## Decision pendiente - Persistencia formal de catalogos comerciales
+
+El MVP ya permite guardar borradores locales, pero no catalogos ERP formales.
+
+Para guardar catalogos compartidos entre usuarios/equipos se requiere una fase nueva:
+
+- disenar tablas de catalogos, items, plantilla, portada y estatus;
+- permisos propios `catalogos_comerciales.*`;
+- auditoria de crear/editar/archivar/publicar;
+- endpoint de guardado real;
+- criterio de publicacion o exportacion.
+
+Esta fase requiere propuesta DDL y autorizacion explicita antes de aplicar cambios de esquema.
+
+## Ajuste MVP operativo - Exportar/importar borradores JSON 2026-07-24
+
+Se agrego portabilidad de borradores locales:
+
+- exportar borrador seleccionado a archivo `.json`;
+- importar borrador desde archivo `.json`;
+- validar formato basico antes de guardarlo localmente.
+
+Reglas:
+
+- No escribe base de datos.
+- No crea catalogos ERP reales.
+- No publica enlaces.
+- No genera imagenes ni PDF.
+- Sirve como puente para mover borradores entre navegadores/equipos mientras no exista persistencia formal.
+
+Formato exportado:
+
+- `formato`: `erp_catalogo_comercial_borrador_local`;
+- `version`: `1`;
+- `exportado_en`;
+- `borrador` con nombre, material, portada y seleccion.
+
+Validacion tecnica:
+
+- `C:\xampp\php\php.exe -l app\vistas\paginas\apps\erp\catalogo\catalogos_comerciales.php`: sin errores.
+- `node --check public\assets\js\custom\apps\erp\catalogo\catalogos_comerciales.js`: sin errores.
+
 ### Tarea 2 - Endpoint read-only de candidatos
 
 Objetivo:

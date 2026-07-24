@@ -5273,6 +5273,199 @@ class VentasErp extends CRUD {
         }
     }
 
+
+    /**
+     * Documentacion IA: Codex GPT-5, 2026-07-24.
+     * Proposito: listar pendientes POS de venta rapida para Catalogo/Inventario sin escribir BD.
+     * Impacto: permite priorizar productos vendidos sin SKU definitivo por tienda, folio, antiguedad y estado.
+     * Contrato: read-only; no vincula SKU, no crea producto, no mueve inventario ni cierra notificaciones.
+     */
+    public function ventaRapidaPendientesReadOnly($filtros = array()) {
+        try {
+            $db = $this->getConexion();
+            if (!$this->schemaVentaRapidaControladaCompleto($db)) {
+                return $this->respuesta(true, "warning", "Esquema venta rapida controlada incompleto", array("bloqueos" => array("schema_venta_rapida_pendiente")));
+            }
+            $where = array("1=1");
+            $params = array();
+            $estatus = trim((string) $this->valor($filtros, "estatus", "pendiente_catalogo"));
+            if ($estatus !== "todos") {
+                $where[] = "p.estatus=:estatus";
+                $params[":estatus"] = $estatus;
+            }
+            $inventario = trim((string) $this->valor($filtros, "inventario_estado", ""));
+            if ($inventario !== "" && $inventario !== "todos") {
+                $where[] = "p.inventario_estado=:inventario";
+                $params[":inventario"] = $inventario;
+            }
+            $folio = trim((string) $this->valor($filtros, "folio", ""));
+            if ($folio !== "") {
+                $where[] = "(p.folio=:folio OR p.folio_venta=:folio)";
+                $params[":folio"] = $folio;
+            }
+            $idAlmacen = intval($this->valor($filtros, "id_almacen", 0));
+            if ($idAlmacen > 0) {
+                $where[] = "p.id_almacen=:almacen";
+                $params[":almacen"] = $idAlmacen;
+            }
+            $q = trim((string) $this->valor($filtros, "q", ""));
+            if ($q !== "") {
+                $where[] = "(p.descripcion_manual LIKE :q OR p.codigo_barras LIKE :q OR p.marca_provisional LIKE :q OR p.proveedor_provisional LIKE :q)";
+                $params[":q"] = "%" . $q . "%";
+            }
+            $limite = intval($this->valor($filtros, "limite", 50));
+            if ($limite <= 0 || $limite > 100) { $limite = 50; }
+
+            $sql = "SELECT p.id_venta_rapida_pendiente, p.folio, p.folio_venta, p.id_venta, p.id_venta_detalle,
+                    p.id_almacen, p.id_caja, p.id_turno_caja, p.id_usuario_operador, p.descripcion_manual,
+                    p.cantidad, p.precio_unitario, p.total, p.codigo_barras, p.categoria_provisional,
+                    p.marca_provisional, p.proveedor_provisional, p.controla_inventario, p.inventario_estado,
+                    p.id_sku_erp_resuelto, p.id_producto_erp_resuelto, p.id_proveedor_resuelto,
+                    p.estatus, p.prioridad, p.motivo, p.observaciones_pos, p.fecha_registro,
+                    v.estatus venta_estatus, v.total venta_total,
+                    d.sku sku_detalle, d.inventario_regularizacion_estado detalle_regularizacion
+                FROM erp_pos_venta_rapida_pendientes p
+                LEFT JOIN erp_ventas v ON v.id_venta=p.id_venta
+                LEFT JOIN erp_ventas_detalle d ON d.id_venta_detalle=p.id_venta_detalle
+                WHERE " . implode(" AND ", $where) . "
+                ORDER BY FIELD(p.prioridad,'alta','normal','baja'), p.fecha_registro ASC, p.id_venta_rapida_pendiente ASC
+                LIMIT " . $limite;
+            $stmt = $db->prepare($sql);
+            $stmt->execute($params);
+            $pendientes = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+            $resumen = $db->query("SELECT estatus, inventario_estado, COUNT(*) total, COALESCE(SUM(total),0) monto
+                FROM erp_pos_venta_rapida_pendientes
+                GROUP BY estatus, inventario_estado
+                ORDER BY estatus, inventario_estado")->fetchAll(PDO::FETCH_ASSOC);
+
+            return $this->respuesta(false, "success", "Pendientes de venta rapida consultados", array(
+                "filtros" => array("estatus" => $estatus, "inventario_estado" => $inventario, "folio" => $folio, "id_almacen" => $idAlmacen, "q" => $q, "limite" => $limite),
+                "pendientes" => $pendientes,
+                "resumen" => $resumen,
+                "contrato" => array("read_only" => true, "no_resuelve_catalogo" => true, "no_mueve_inventario" => true)
+            ));
+        } catch (Exception $e) {
+            return $this->respuesta(true, "danger", "No se pudieron consultar pendientes de venta rapida", array("excepcion" => $e->getMessage()));
+        }
+    }
+
+    /**
+     * Documentacion IA: Codex GPT-5, 2026-07-24.
+     * Proposito: consultar detalle de un pendiente VRP con venta, detalle y eventos asociados.
+     * Impacto: permite a Catalogo revisar el snapshot original antes de vincular un SKU.
+     * Contrato: read-only; no cambia estatus ni notificaciones.
+     */
+    public function ventaRapidaPendienteConsultarReadOnly($filtros = array()) {
+        try {
+            $db = $this->getConexion();
+            if (!$this->schemaVentaRapidaControladaCompleto($db)) {
+                return $this->respuesta(true, "warning", "Esquema venta rapida controlada incompleto", array("bloqueos" => array("schema_venta_rapida_pendiente")));
+            }
+            $pendiente = $this->cargarPendienteVentaRapidaPos($db, $filtros);
+            if (!$pendiente) {
+                return $this->respuesta(true, "warning", "Pendiente venta rapida no encontrado", array("bloqueos" => array("vrp_no_encontrado")));
+            }
+            $stmt = $db->prepare("SELECT * FROM erp_pos_venta_rapida_eventos WHERE id_venta_rapida_pendiente=:pendiente ORDER BY fecha_registro ASC, id_venta_rapida_evento ASC");
+            $stmt->execute(array(":pendiente" => intval($pendiente["id_venta_rapida_pendiente"])));
+            $eventos = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            return $this->respuesta(false, "success", "Pendiente venta rapida consultado", array(
+                "pendiente" => $pendiente,
+                "eventos" => $eventos,
+                "contrato" => array("read_only" => true, "conserva_snapshot_pos" => true)
+            ));
+        } catch (Exception $e) {
+            return $this->respuesta(true, "danger", "No se pudo consultar pendiente venta rapida", array("excepcion" => $e->getMessage()));
+        }
+    }
+
+    /**
+     * Documentacion IA: Codex GPT-5, 2026-07-24.
+     * Proposito: simular resolucion de un pendiente VRP contra un SKU existente antes de escritura real.
+     * Impacto: valida estatus, SKU, reglas de inventario y plan de regularizacion sin crear kardex.
+     * Contrato: dry-run/read-only; no actualiza pendiente, detalle, notificacion, producto ni inventario.
+     */
+    public function ventaRapidaResolucionDryRun($datos = array()) {
+        try {
+            $db = $this->getConexion();
+            if (!$this->schemaVentaRapidaControladaCompleto($db)) {
+                return $this->respuesta(true, "warning", "Esquema venta rapida controlada incompleto", array("bloqueos" => array("schema_venta_rapida_pendiente")));
+            }
+            $pendiente = $this->cargarPendienteVentaRapidaPos($db, $datos);
+            $idSku = intval($this->valor($datos, "id_sku", $this->valor($datos, "id_sku_erp", 0)));
+            $decisionInventario = trim((string) $this->valor($datos, "decision_inventario", "mantener_pendiente_regularizacion"));
+            $motivo = trim((string) $this->valor($datos, "motivo", ""));
+            $bloqueos = array();
+            $avisos = array();
+            if (!$pendiente) {
+                $bloqueos[] = "Pendiente VRP no encontrado";
+            }
+            if ($idSku <= 0) {
+                $bloqueos[] = "Selecciona SKU definitivo para vincular";
+            }
+            $sku = $idSku > 0 ? $this->consultarSkuResolucionVentaRapida($db, $idSku) : null;
+            if ($idSku > 0 && !$sku) {
+                $bloqueos[] = "SKU definitivo no encontrado";
+            }
+            if ($pendiente && !in_array((string) $pendiente["estatus"], array("pendiente_catalogo", "en_revision"), true)) {
+                $bloqueos[] = "El pendiente no esta abierto para clasificacion";
+            }
+            if ($sku) {
+                if (in_array((string) $sku["estatus_sku"], array("fusionado", "inactivo", "descontinuado"), true)) {
+                    $bloqueos[] = "El SKU seleccionado no esta vigente para venta";
+                } elseif ((string) $sku["estatus_sku"] !== "activo") {
+                    $avisos[] = "El SKU no esta activo; Catalogo debe completar/activar datos maestros antes de usarlo en operacion cotidiana";
+                }
+            }
+            if ($pendiente && $sku) {
+                $pendienteControla = intval($pendiente["controla_inventario"]) === 1;
+                $skuControla = intval($this->valor($sku, "controla_inventario", 0)) === 1;
+                if ($pendienteControla && !$skuControla && $decisionInventario !== "confirmar_no_inventariable") {
+                    $bloqueos[] = "El pendiente fue vendido como inventariable, pero el SKU no controla inventario; confirma decision no inventariable o corrige SKU";
+                }
+                if ($pendienteControla && $skuControla) {
+                    $avisos[] = "No se creara kardex automatico en esta resolucion; Inventario/Existencias debe regularizar con conteo, ajuste, recepcion o incidencia";
+                }
+            }
+            if ($motivo === "") {
+                $avisos[] = "Motivo recomendado para auditoria de clasificacion";
+            }
+
+            $plan = array(
+                "actualizaria_pendiente" => array(
+                    "id_sku_erp_resuelto" => $sku ? intval($sku["id_sku"]) : null,
+                    "id_producto_erp_resuelto" => $sku ? intval($sku["id_producto_erp"]) : null,
+                    "estatus" => empty($bloqueos) ? "clasificado" : "sin_cambio",
+                    "inventario_estado" => ($pendiente && intval($pendiente["controla_inventario"]) === 1) ? "pendiente_regularizacion" : "no_inventariable_resuelto"
+                ),
+                "actualizaria_detalle_venta" => array(
+                    "id_sku_erp" => $sku ? intval($sku["id_sku"]) : null,
+                    "id_producto_erp" => $sku ? intval($sku["id_producto_erp"]) : null,
+                    "sku" => $sku ? $sku["sku"] : null,
+                    "conservar_descripcion_manual_snapshot" => true,
+                    "conservar_precio_ticket" => true
+                ),
+                "inventario" => array(
+                    "mover_kardex_en_resolucion_catalogo" => false,
+                    "decision_siguiente" => ($pendiente && intval($pendiente["controla_inventario"]) === 1) ? "regularizar_desde_inventario_existencias" : "sin_regularizacion_inventario"
+                ),
+                "notificacion" => array("cerraria_o_marcaria_en_revision" => empty($bloqueos))
+            );
+
+            return $this->respuesta(false, empty($bloqueos) ? "success" : "warning", empty($bloqueos) ? "Resolucion VRP lista para autorizacion real" : "Resolucion VRP requiere correcciones", array(
+                "dry_run" => true,
+                "pendiente" => $pendiente,
+                "sku" => $sku,
+                "decision_inventario" => $decisionInventario,
+                "plan" => $plan,
+                "bloqueos" => $bloqueos,
+                "avisos" => $avisos,
+                "contrato" => array("read_only" => true, "no_crea_sku" => true, "no_mueve_kardex" => true, "no_recalcula_ticket" => true)
+            ));
+        } catch (Exception $e) {
+            return $this->respuesta(true, "danger", "No se pudo simular resolucion VRP", array("excepcion" => $e->getMessage()));
+        }
+    }
     /**
      * Documentacion IA: Codex GPT-5, 2026-06-26.
      * Proposito: validar el contrato completo de confirmacion POS sin ejecutar escrituras.
@@ -10850,6 +11043,45 @@ class VentasErp extends CRUD {
             || trim((string) $this->valor($datos, "autorizar", "")) === "VENTAS_POS_VENTA_RAPIDA_REAL";
     }
 
+
+    private function cargarPendienteVentaRapidaPos($db, $filtros) {
+        $folio = trim((string) $this->valor($filtros, "folio", ""));
+        $idPendiente = intval($this->valor($filtros, "id_venta_rapida_pendiente", 0));
+        $where = $idPendiente > 0 ? "p.id_venta_rapida_pendiente=:id" : "p.folio=:folio";
+        $params = $idPendiente > 0 ? array(":id" => $idPendiente) : array(":folio" => $folio);
+        if ($idPendiente <= 0 && $folio === "") {
+            return null;
+        }
+        $stmt = $db->prepare("SELECT p.*, v.estatus venta_estatus, v.total venta_total, v.cliente_nombre_publico,
+                d.sku sku_detalle, d.descripcion detalle_descripcion, d.cantidad_venta detalle_cantidad,
+                d.precio_unitario detalle_precio, d.subtotal detalle_subtotal,
+                d.inventario_regularizacion_estado detalle_regularizacion
+            FROM erp_pos_venta_rapida_pendientes p
+            LEFT JOIN erp_ventas v ON v.id_venta=p.id_venta
+            LEFT JOIN erp_ventas_detalle d ON d.id_venta_detalle=p.id_venta_detalle
+            WHERE " . $where . "
+            LIMIT 1");
+        $stmt->execute($params);
+        $fila = $stmt->fetch(PDO::FETCH_ASSOC);
+        return $fila ?: null;
+    }
+
+    private function consultarSkuResolucionVentaRapida($db, $idSku) {
+        $stmt = $db->prepare("SELECT s.id_sku, s.sku, s.nombre nombre_sku, s.estatus estatus_sku,
+                s.tipo_inventario, s.id_producto_erp, p.nombre producto,
+                COALESCE(r.controla_inventario, CASE WHEN s.tipo_inventario IN ('servicio','cargo') THEN 0 ELSE 1 END) controla_inventario,
+                COALESCE(r.permite_venta_fraccionaria,0) permite_venta_fraccionaria,
+                COALESCE(r.unidad_venta_label,'') unidad_venta_label,
+                COALESCE(r.incremento_minimo_venta,1) incremento_minimo_venta
+            FROM erp_catalogo_skus s
+            INNER JOIN erp_catalogo_productos p ON p.id_producto_erp=s.id_producto_erp
+            LEFT JOIN erp_catalogo_sku_reglas_inventario r ON r.id_sku=s.id_sku
+            WHERE s.id_sku=:sku
+            LIMIT 1");
+        $stmt->execute(array(":sku" => intval($idSku)));
+        $fila = $stmt->fetch(PDO::FETCH_ASSOC);
+        return $fila ?: null;
+    }
     private function registrarPendienteVentaRapidaPosReal($db, $idVenta, $idDetalle, $folioVenta, $datosVenta, $partida, $clienteSnapshot, $idClienteCrm, $idUsuario) {
         if (!$this->schemaVentaRapidaControladaCompleto($db)) {
             throw new Exception("Esquema de venta rapida controlada incompleto durante cobro real");

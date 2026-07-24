@@ -2666,3 +2666,133 @@ Regla:
 - No escribe BD.
 - No comparte catalogos entre usuarios.
 - Solo evita perder el armado en curso durante pruebas del MVP.
+
+## Ajuste 2026-07-24 - Plantillas visuales catalogos comerciales
+
+Cambio aplicado:
+
+- Se agrego selector de plantilla en la vista previa.
+- Plantillas disponibles:
+  - cuadrada para redes;
+  - vertical para redes;
+  - compacta tipo lista.
+- La vista previa sigue respetando precio/SKU/disponibilidad configurables.
+- Se reemplazaron separadores visuales especiales por guion ASCII para evitar problemas de codificacion.
+
+Regla:
+
+- No hay exportacion automatica todavia.
+- No se guarda plantilla en BD.
+- Es una mejora de previsualizacion del MVP.
+
+## Ajuste 2026-07-24 - Encabezado comercial temporal
+
+Cambio aplicado:
+
+- Se agregaron datos del material:
+  - titulo;
+  - subtitulo;
+  - contacto / CTA.
+- El encabezado se muestra arriba de la vista previa.
+- Los datos se conservan en `localStorage`.
+- Se agregaron reglas CSS de impresion para ocultar controles operativos y dejar solo el material.
+
+Regla:
+
+- No guarda catalogos en BD.
+- No genera archivos automaticamente.
+- Es una mejora del MVP para capturas o impresion desde navegador.
+
+## Ajuste 2026-07-24 - Modo captura catalogos comerciales
+
+Cambio aplicado:
+
+- Se agrego boton `Modo captura`.
+- Al activarlo se ocultan controles operativos, filtros, sidebar y seleccion.
+- Se conserva solo el material comercial para captura limpia.
+- El boton cambia a `Salir captura`.
+
+Regla:
+
+- No genera archivos.
+- No escribe BD.
+- No cambia la seleccion ni el orden.
+- Es una ayuda visual para capturar desde navegador.
+
+## Ajuste 2026-07-24 - Borrador local catalogos comerciales
+
+Cambio aplicado:
+
+- Se agrego `Copiar listado` en la seleccion temporal.
+- Se agrego `Reiniciar borrador` en datos del material.
+- El texto copiado se arma con titulo, subtitulo, productos seleccionados, precio/SKU/disponibilidad segun opciones visibles y CTA.
+
+Regla:
+
+- No guarda catalogos en BD.
+- No genera archivos.
+- No borra productos.
+- Solo limpia o reutiliza datos temporales del navegador.
+
+## Ajuste 2026-07-24 - Campos visibles catalogos comerciales
+
+Cambio aplicado:
+
+- Se agregaron switches para mostrar/ocultar marca, categoria y presentacion.
+- La vista previa y `Copiar listado` ahora respetan esos switches junto con precio, SKU y disponibilidad.
+
+Regla:
+
+- No cambia el catalogo maestro.
+- No cambia precios ni categorias.
+- Solo ajusta la salida visual/textual del material comercial temporal.
+
+## Ajuste 2026-07-24 - Borradores locales catalogos comerciales
+
+Cambio aplicado:
+
+- Se agrego nombre de borrador.
+- Se agregaron acciones `Guardar local`, `Cargar` y `Eliminar`.
+- Cada borrador conserva seleccion temporal y datos del material.
+
+Regla:
+
+- Se guarda solo en `localStorage` del navegador.
+- No es persistencia formal ERP.
+- No escribe BD.
+- No genera archivos.
+- No se comparte entre usuarios o equipos.
+
+## Ajuste 2026-07-24 - Portada y paginacion catalogos comerciales
+
+Cambio aplicado:
+
+- Se agrego configuracion de portada temporal:
+  - mostrar portada;
+  - etiqueta;
+  - descripcion;
+  - nota.
+- La portada se muestra antes de los productos en la vista previa.
+- Se agrego paginacion a candidatos y seleccion temporal.
+
+Regla:
+
+- La portada y paginacion son parte del MVP local.
+- La paginacion facilita operar la pantalla, no limita la vista previa final.
+- `Seleccionar visibles` y `Quitar visibles` trabajan sobre la pagina visible.
+- Guardar catalogos reales compartidos queda pendiente de DDL/autorizacion.
+
+## Ajuste 2026-07-24 - Exportar e importar borradores catalogos comerciales
+
+Cambio aplicado:
+
+- Se agrego `Exportar` para descargar el borrador local seleccionado como JSON.
+- Se agrego `Importar` para cargar un borrador local desde JSON.
+- El archivo conserva nombre, material, portada y seleccion.
+
+Regla:
+
+- No escribe BD.
+- No crea catalogos ERP reales.
+- No publica enlaces.
+- Es un puente operativo mientras no exista persistencia formal compartida.

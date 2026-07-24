@@ -31,13 +31,45 @@
                     </div>
                     <div class="app-content flex-column-fluid">
                         <div class="app-container container-fluid">
+                            <div id="tms_config_alerta" class="mb-4"></div>
                             <div class="row g-4">
-                                <div class="col-lg-4"><div class="card card-flush h-100"><div class="card-body"><div class="fw-bold mb-2">Zonas</div><div class="text-muted">Pendiente</div></div></div></div>
-                                <div class="col-lg-4"><div class="card card-flush h-100"><div class="card-body"><div class="fw-bold mb-2">Tarifas</div><div class="text-muted">Pendiente</div></div></div></div>
-                                <div class="col-lg-4"><div class="card card-flush h-100"><div class="card-body"><div class="fw-bold mb-2">Autorizaciones</div><div class="text-muted">Pendiente</div></div></div></div>
+                                <div class="col-lg-4"><div class="card card-flush h-100"><div class="card-body"><div class="fw-bold mb-2">Tipos de servicio</div><div id="tms_config_tipos" class="d-flex flex-wrap gap-2"></div></div></div></div>
+                                <div class="col-lg-4"><div class="card card-flush h-100"><div class="card-body"><div class="fw-bold mb-2">Cobro logistico</div><div id="tms_config_cobros" class="d-flex flex-wrap gap-2"></div></div></div></div>
+                                <div class="col-lg-4"><div class="card card-flush h-100"><div class="card-body"><div class="fw-bold mb-2">Prioridades</div><div id="tms_config_prioridades" class="d-flex flex-wrap gap-2"></div></div></div></div>
                             </div>
-                            <div class="card card-flush mt-4">
-                                <div class="card-body text-muted">Superficie preparada para reglas logisticas independientes del catalogo de productos.</div>
+                            <div class="row g-4 mt-0">
+                                <div class="col-lg-5">
+                                    <div class="card card-flush h-100">
+                                        <div class="card-header align-items-center">
+                                            <h3 class="card-title">Contrato del modulo</h3>
+                                            <button type="button" class="btn btn-sm btn-light-primary" id="tms_config_refrescar">
+                                                <i class="bi bi-arrow-clockwise"></i> Actualizar
+                                            </button>
+                                        </div>
+                                        <div class="card-body" id="tms_config_contrato"></div>
+                                    </div>
+                                </div>
+                                <div class="col-lg-7">
+                                    <div class="card card-flush h-100">
+                                        <div class="card-header"><h3 class="card-title">Acciones operativas</h3></div>
+                                        <div class="card-body p-0">
+                                            <div class="table-responsive">
+                                                <table class="table table-row-dashed align-middle mb-0">
+                                                    <thead>
+                                                        <tr class="fw-bold text-muted">
+                                                            <th class="ps-6">Accion</th>
+                                                            <th>Permiso</th>
+                                                            <th>Requiere</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody id="tms_config_acciones">
+                                                        <tr><td colspan="3" class="text-center text-muted py-8">Cargando contrato TMS...</td></tr>
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -49,5 +81,6 @@
 </div>
 <script src="assets/plugins/global/plugins.bundle.js"></script>
 <script src="assets/js/scripts.bundle.js"></script>
+<script src="/assets/js/custom/apps/tms/configuracion.js?v=20260724-1"></script>
 </body>
 </html>

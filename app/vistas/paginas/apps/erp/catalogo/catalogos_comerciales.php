@@ -32,8 +32,53 @@
         .cc-card__title { font-weight: 800; font-size: .98rem; line-height: 1.25; color: #181c32; letter-spacing: 0; }
         .cc-card__meta { color: #5e6278; font-size: .78rem; line-height: 1.35; }
         .cc-card__price { font-weight: 800; color: #0f7a5f; font-size: 1.05rem; margin-top: auto; }
+        .cc-preview-grid--square { grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); }
+        .cc-preview-grid--square .cc-card { min-height: 360px; }
+        .cc-preview-grid--story { grid-template-columns: repeat(auto-fill, minmax(240px, 300px)); align-items: start; }
+        .cc-preview-grid--story .cc-card { min-height: 430px; }
+        .cc-preview-grid--story .cc-card__media { aspect-ratio: 4 / 5; }
+        .cc-preview-grid--compact { grid-template-columns: 1fr; gap: 8px; }
+        .cc-preview-grid--compact .cc-card { min-height: 136px; flex-direction: row; }
+        .cc-preview-grid--compact .cc-card__media { width: 136px; min-width: 136px; aspect-ratio: 1 / 1; }
+        .cc-preview-grid--compact .cc-card__body { padding: 10px 12px; gap: 4px; }
+        .cc-preview-grid--compact .cc-card__price { margin-top: 4px; }
+        .cc-material-form { display: grid; grid-template-columns: minmax(180px, 1fr) minmax(220px, 1.4fr) minmax(180px, 1fr); gap: 10px; }
+        .cc-preview-header { border: 1px solid #dfe3ea; border-radius: 8px; padding: 18px; margin-bottom: 14px; background: #fff; }
+        .cc-preview-header__title { font-size: 1.45rem; line-height: 1.15; font-weight: 850; color: #181c32; letter-spacing: 0; margin: 0; }
+        .cc-preview-header__subtitle { color: #5e6278; font-size: .92rem; margin-top: 6px; }
+        .cc-preview-header__cta { color: #0f7a5f; font-size: .9rem; font-weight: 700; margin-top: 10px; }
+        .cc-cover-card { border: 1px solid #dfe3ea; border-radius: 8px; min-height: 250px; padding: 22px; margin-bottom: 14px; background: #f8fafc; display: flex; flex-direction: column; justify-content: center; gap: 10px; }
+        .cc-cover-card__label { color: #0f7a5f; font-size: .78rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0; }
+        .cc-cover-card__title { color: #181c32; font-size: 2rem; line-height: 1.05; font-weight: 850; letter-spacing: 0; margin: 0; }
+        .cc-cover-card__desc { color: #5e6278; font-size: .98rem; line-height: 1.45; max-width: 760px; }
+        .cc-cover-card__cta { color: #181c32; font-size: .92rem; font-weight: 750; }
+        .cc-draft-form { display: grid; grid-template-columns: minmax(180px, 1fr) minmax(180px, 1fr) auto auto auto; gap: 10px; align-items: end; }
+        .cc-pager { display: flex; align-items: center; justify-content: flex-end; gap: 8px; flex-wrap: wrap; }
+        @media print {
+            body { background: #fff !important; }
+            .app-sidebar, .app-toolbar, .cc-panel:not(.cc-print-area), .cc-summary, #kt_app_header { display: none !important; }
+            .app-main, .app-content, .app-container { margin: 0 !important; padding: 0 !important; max-width: none !important; }
+            .cc-print-area { border: 0 !important; padding: 0 !important; }
+            .cc-card, .cc-preview-header { break-inside: avoid; page-break-inside: avoid; }
+        }
+        body.cc-capture-mode { background: #fff !important; }
+        body.cc-capture-mode .app-sidebar,
+        body.cc-capture-mode .app-toolbar,
+        body.cc-capture-mode .cc-panel:not(.cc-print-area),
+        body.cc-capture-mode .cc-summary,
+        body.cc-capture-mode #kt_app_header { display: none !important; }
+        body.cc-capture-mode .app-main,
+        body.cc-capture-mode .app-content,
+        body.cc-capture-mode .app-container { margin: 0 !important; padding: 0 !important; max-width: none !important; }
+        body.cc-capture-mode .cc-print-area { border: 0 !important; padding: 16px !important; margin: 0 !important; }
+        body.cc-capture-mode .cc-preview-toolbar select,
+        body.cc-capture-mode .cc-preview-toolbar label,
+        body.cc-capture-mode .cc-preview-toolbar button:not(#cc_modo_captura) { display: none !important; }
+        body.cc-capture-mode #cc_modo_captura { position: fixed; top: 12px; right: 12px; z-index: 9999; box-shadow: 0 8px 24px rgba(15, 23, 42, .16); }
         @media (max-width: 1200px) {
             .cc-toolbar { grid-template-columns: repeat(2, minmax(180px, 1fr)); }
+            .cc-material-form { grid-template-columns: 1fr; }
+            .cc-draft-form { grid-template-columns: 1fr; }
             .cc-summary { grid-template-columns: repeat(3, minmax(110px, 1fr)); }
         }
         @media (max-width: 640px) {
@@ -140,26 +185,118 @@
                                                 <tbody id="cc_body"></tbody>
                                             </table>
                                         </div>
+                                        <div class="cc-pager mt-4">
+                                            <span class="text-muted fs-8" id="cc_cand_paginacion_info">Pagina 1 de 1</span>
+                                            <button class="btn btn-icon btn-sm btn-light" type="button" id="cc_cand_prev"><i class="bi bi-chevron-left"></i></button>
+                                            <button class="btn btn-icon btn-sm btn-light" type="button" id="cc_cand_next"><i class="bi bi-chevron-right"></i></button>
+                                        </div>
                                     </div>
                                 </div>
                                 <div class="col-xl-5">
                                     <div class="cc-panel p-4 h-100">
                                         <div class="d-flex justify-content-between align-items-center gap-3 mb-3">
                                             <h2 class="fs-5 fw-bold mb-0">Seleccion temporal</h2>
-                                            <button class="btn btn-sm btn-light-danger" type="button" id="cc_limpiar"><i class="bi bi-trash"></i> Quitar todo</button>
+                                            <div class="d-flex gap-2 flex-wrap">
+                                                <button class="btn btn-sm btn-light-primary" type="button" id="cc_copiar_listado"><i class="bi bi-clipboard"></i> Copiar listado</button>
+                                                <button class="btn btn-sm btn-light-danger" type="button" id="cc_limpiar"><i class="bi bi-trash"></i> Quitar todo</button>
+                                            </div>
                                         </div>
                                         <div id="cc_seleccion" class="d-flex flex-column gap-3"></div>
+                                        <div class="cc-pager mt-4">
+                                            <span class="text-muted fs-8" id="cc_sel_paginacion_info">Pagina 1 de 1</span>
+                                            <button class="btn btn-icon btn-sm btn-light" type="button" id="cc_sel_prev"><i class="bi bi-chevron-left"></i></button>
+                                            <button class="btn btn-icon btn-sm btn-light" type="button" id="cc_sel_next"><i class="bi bi-chevron-right"></i></button>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
 
                             <div class="cc-panel p-4 mt-5">
+                                <div class="mb-4">
+                                    <div class="d-flex justify-content-between align-items-center gap-3 mb-3 flex-wrap">
+                                        <h2 class="fs-5 fw-bold mb-0">Datos del material</h2>
+                                        <button class="btn btn-sm btn-light-danger" type="button" id="cc_reiniciar_borrador"><i class="bi bi-arrow-counterclockwise"></i> Reiniciar borrador</button>
+                                    </div>
+                                    <div class="cc-material-form">
+                                        <div>
+                                            <label class="form-label fw-semibold">Titulo</label>
+                                            <input class="form-control form-control-solid" id="cc_material_titulo" maxlength="80" placeholder="Catalogo de productos">
+                                        </div>
+                                        <div>
+                                            <label class="form-label fw-semibold">Subtitulo</label>
+                                            <input class="form-control form-control-solid" id="cc_material_subtitulo" maxlength="140" placeholder="Promociones, novedades o categoria">
+                                        </div>
+                                        <div>
+                                            <label class="form-label fw-semibold">Contacto / CTA</label>
+                                            <input class="form-control form-control-solid" id="cc_material_cta" maxlength="120" placeholder="Pregunta por disponibilidad">
+                                        </div>
+                                    </div>
+                                    <div class="mt-4">
+                                        <label class="form-check form-check-sm form-check-custom form-check-solid mb-3">
+                                            <input class="form-check-input" type="checkbox" id="cc_portada_activa" checked>
+                                            <span class="form-check-label fw-semibold">Mostrar portada antes de productos</span>
+                                        </label>
+                                        <div class="cc-material-form">
+                                            <div>
+                                                <label class="form-label fw-semibold">Etiqueta portada</label>
+                                                <input class="form-control form-control-solid" id="cc_portada_etiqueta" maxlength="50" placeholder="Catalogo recomendado">
+                                            </div>
+                                            <div>
+                                                <label class="form-label fw-semibold">Descripcion portada</label>
+                                                <input class="form-control form-control-solid" id="cc_portada_descripcion" maxlength="180" placeholder="Seleccion de productos para tu proyecto">
+                                            </div>
+                                            <div>
+                                                <label class="form-label fw-semibold">Nota portada</label>
+                                                <input class="form-control form-control-solid" id="cc_portada_nota" maxlength="120" placeholder="Precios sujetos a disponibilidad">
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="separator my-4"></div>
+                                    <div class="cc-draft-form">
+                                        <div>
+                                            <label class="form-label fw-semibold">Nombre borrador</label>
+                                            <input class="form-control form-control-solid" id="cc_borrador_nombre" maxlength="80" placeholder="Ej. Promos acuario">
+                                        </div>
+                                        <div>
+                                            <label class="form-label fw-semibold">Borradores locales</label>
+                                            <select class="form-select form-select-solid" id="cc_borradores_guardados">
+                                                <option value="">Sin borradores</option>
+                                            </select>
+                                        </div>
+                                        <button class="btn btn-light-primary" type="button" id="cc_guardar_borrador"><i class="bi bi-save"></i> Guardar local</button>
+                                        <button class="btn btn-light-dark" type="button" id="cc_cargar_borrador"><i class="bi bi-folder2-open"></i> Cargar</button>
+                                        <button class="btn btn-light-info" type="button" id="cc_exportar_borrador"><i class="bi bi-download"></i> Exportar</button>
+                                        <button class="btn btn-light-success" type="button" id="cc_importar_borrador"><i class="bi bi-upload"></i> Importar</button>
+                                        <button class="btn btn-light-danger" type="button" id="cc_eliminar_borrador"><i class="bi bi-trash3"></i> Eliminar</button>
+                                        <input class="d-none" type="file" id="cc_importar_borrador_archivo" accept="application/json,.json">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="cc-panel cc-print-area p-4 mt-5">
                                 <div class="d-flex justify-content-between align-items-center gap-3 mb-4 flex-wrap">
                                     <h2 class="fs-5 fw-bold mb-0">Vista previa</h2>
-                                    <div class="d-flex align-items-center gap-3 flex-wrap">
+                                    <div class="cc-preview-toolbar d-flex align-items-center gap-3 flex-wrap">
+                                        <select class="form-select form-select-sm form-select-solid w-170px" id="cc_plantilla">
+                                            <option value="square">Cuadrada redes</option>
+                                            <option value="story">Vertical redes</option>
+                                            <option value="compact">Compacta</option>
+                                        </select>
                                         <label class="form-check form-check-sm form-check-custom form-check-solid mb-0">
                                             <input class="form-check-input" type="checkbox" id="cc_mostrar_precio" checked>
                                             <span class="form-check-label">Precio</span>
+                                        </label>
+                                        <label class="form-check form-check-sm form-check-custom form-check-solid mb-0">
+                                            <input class="form-check-input" type="checkbox" id="cc_mostrar_marca" checked>
+                                            <span class="form-check-label">Marca</span>
+                                        </label>
+                                        <label class="form-check form-check-sm form-check-custom form-check-solid mb-0">
+                                            <input class="form-check-input" type="checkbox" id="cc_mostrar_categoria">
+                                            <span class="form-check-label">Categoria</span>
+                                        </label>
+                                        <label class="form-check form-check-sm form-check-custom form-check-solid mb-0">
+                                            <input class="form-check-input" type="checkbox" id="cc_mostrar_presentacion" checked>
+                                            <span class="form-check-label">Presentacion</span>
                                         </label>
                                         <label class="form-check form-check-sm form-check-custom form-check-solid mb-0">
                                             <input class="form-check-input" type="checkbox" id="cc_mostrar_sku">
@@ -169,9 +306,11 @@
                                             <input class="form-check-input" type="checkbox" id="cc_mostrar_disponibilidad">
                                             <span class="form-check-label">Disponibilidad</span>
                                         </label>
+                                        <button class="btn btn-light-primary" type="button" id="cc_modo_captura"><i class="bi bi-aspect-ratio"></i> Modo captura</button>
                                         <button class="btn btn-light-dark" type="button" onclick="window.print()"><i class="bi bi-printer"></i> Imprimir</button>
                                     </div>
                                 </div>
+                                <div id="cc_preview_header"></div>
                                 <div class="cc-preview-grid" id="cc_preview"></div>
                             </div>
                         </div>
@@ -183,6 +322,6 @@
 </div>
 <script src="assets/plugins/global/plugins.bundle.js"></script>
 <script src="assets/js/scripts.bundle.js"></script>
-<script src="/assets/js/custom/apps/erp/catalogo/catalogos_comerciales.js?v=20260724-orden-local1"></script>
+<script src="/assets/js/custom/apps/erp/catalogo/catalogos_comerciales.js?v=20260724-borrador-json1"></script>
 </body>
 </html>

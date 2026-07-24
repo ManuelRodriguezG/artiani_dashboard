@@ -201,3 +201,23 @@ Usar `cantidad_fisica` con el conteo real posterior a la venta pendiente.
 - Probar impresion de ticket/corte con impresora configurada en Windows cuando se instale hardware.
 - Ejecutar semaforos read-only despues de cada ajuste visual.
 - Venta rapida controlada POS probada en UAT real: caja, venta, detalle provisional, pendiente `VRP`, evento y notificacion a Catalogo quedaron trazables; turno UAT cerrado sin diferencia. UI expuesta para cobro real; siguiente paso: UAT UI desde `/ventas/pos`.
+
+## UAT UI real venta rapida controlada 2026-07-24
+
+Autorizacion ejecutada: `VENTAS_POS_VENTA_RAPIDA_UI_REAL` con venta rapida desde `/ventas/pos`.
+
+Evidencia:
+
+- Turno abierto: `TUR-20260724-002-001`, id `27`, caja `2`, almacen `5`, monto inicial `$500.00`.
+- Venta UI real: `POS-20260724-000001`, id `28`, total `$100.00`, estatus `pagada`, operador `id_usuario=1`.
+- Detalle provisional: id `29`, SKU snapshot `VENTA-RAPIDA`, tipo `venta_rapida`, origen `venta_rapida_controlada`, descripcion `Producto UAT UI por clasificar`.
+- Pendiente generado: `VRP-20260724-000001`, id `2`, estatus `pendiente_catalogo`, inventario `pendiente_regularizacion`.
+- Evento VRP: `1` evento ligado al pendiente.
+- Caja: movimiento apertura id `57` por `$500.00`; movimiento venta id `58` por `$100.00`; turno cerrado con monto esperado `$600.00`, contado `$600.00` y diferencia `$0.00`.
+- Inventario/kardex: `0` movimientos para `POS-20260724-000001`, correcto para venta rapida no clasificada.
+- Garantia: `0` snapshots para `POS-20260724-000001`, correcto hasta clasificar SKU.
+- Evidencia UI: Playwright confirmo flujo de navegador y cobro real; no quedo PNG local persistido en esta corrida.
+
+Ajuste UX aplicado despues de la prueba: el mensaje post-cobro ahora distingue venta normal de venta rapida. Para venta rapida debe decir que caja quedo registrada y que el pendiente va a Catalogo/Inventario, sin afirmar kardex o garantia.
+
+Cierre real ejecutado: turno `TUR-20260724-002-001` cerrado por `id_usuario=1`; no quedan turnos abiertos despues de la UAT.

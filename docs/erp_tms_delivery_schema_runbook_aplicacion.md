@@ -70,6 +70,17 @@ Criterios:
 
 Despues del DDL:
 
-1. Preparar `TMS-T007` guardado real de servicio manual.
-2. Mantener integracion POS fuera hasta validar guardado manual y eventos.
-3. Preparar notificaciones TMS solo despues de tener servicios reales.
+1. Ejecutar verificacion post-DDL:
+
+```powershell
+C:\xampp\php\php.exe storage\uat\uat_tms_delivery_schema_postapply_readonly.php
+```
+
+2. Ejecutar UAT autorizado de servicio manual, con respaldo externo nuevo y token separado:
+
+```powershell
+C:\xampp\php\php.exe storage\uat\uat_tms_delivery_servicio_manual_apply_authorized.php --autorizar=TMS_UAT_SERVICIO_MANUAL --respaldo="[RUTA_RESPALDO]"
+```
+
+3. Mantener integracion POS fuera hasta validar guardado manual, eventos y evidencia.
+4. Preparar notificaciones TMS solo despues de tener servicios reales.

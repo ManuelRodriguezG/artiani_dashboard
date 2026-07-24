@@ -292,6 +292,11 @@ Resultado:
   - `app/vistas/paginas/apps/tms/costos.php`;
   - `app/vistas/paginas/apps/tms/reportes.php`;
   - `app/vistas/paginas/apps/tms/configuracion.php`.
+- Se crearon JS read-only para pantallas internas:
+  - `public/assets/js/custom/apps/tms/operacion.js`;
+  - `public/assets/js/custom/apps/tms/costos.js`;
+  - `public/assets/js/custom/apps/tms/reportes.js`;
+  - `public/assets/js/custom/apps/tms/configuracion.js`.
 - Se creo UAT de navegacion:
   - `storage/uat/uat_tms_delivery_sidebar_readonly.php`.
 - El JS consume:
@@ -308,8 +313,18 @@ Resultado:
   - `C:\xampp\php\php.exe -l app\vistas\paginas\apps\tms\reportes.php`: sin errores.
   - `C:\xampp\php\php.exe -l app\vistas\paginas\apps\tms\configuracion.php`: sin errores.
   - `node --check public\assets\js\custom\apps\tms\servicios.js`: sin errores.
+  - `node --check public\assets\js\custom\apps\tms\operacion.js`: sin errores.
+  - `node --check public\assets\js\custom\apps\tms\costos.js`: sin errores.
+  - `node --check public\assets\js\custom\apps\tms\configuracion.js`: sin errores.
   - `C:\xampp\php\php.exe -l app\vistas\includes\header\sidebar.php`: sin errores.
   - `C:\xampp\php\php.exe storage\uat\uat_tms_delivery_sidebar_readonly.php`: `ok=true`.
+
+Resultado ampliado 2026-07-24:
+
+- `Operacion y rutas` consulta cola TMS y KPIs operativos en modo read-only.
+- `Costos logisticos` consulta resumen financiero logistico en modo read-only.
+- `Configuracion delivery` muestra catalogos, contrato de dominio y acciones disponibles en modo read-only.
+- Ninguna pantalla interna modifica ventas, garantias, inventario o servicios mientras falta esquema.
 
 ## TMS-T006A - UAT read-only previo a permisos y DDL
 
@@ -425,7 +440,7 @@ Resultado:
 
 ## TMS-T008 - Operacion basica de estados
 
-Estado: pendiente.
+Estado: preparado en codigo; pendiente de esquema aplicado para uso real.
 
 Objetivo:
 
@@ -445,14 +460,37 @@ Acciones:
 
 Criterio de cierre:
 
-- cada accion registra evento;
-- no hay cambios automaticos sobre ventas/productos/garantias;
-- no entrega requiere motivo;
-- cancelar servicio requiere motivo.
+- [x] Metodo de modelo preparado: `aplicarAccionServicio($datos, $idUsuario = 0)`.
+- [x] Endpoint POST preparado: `/tms/servicio_accion_erp`.
+- [x] Permiso dinamico por accion:
+  - `programar`, `reprogramar`, `asignar_responsable`: `tms.programar`;
+  - resto de acciones operativas: `tms.operar`.
+- [x] Si falta esquema, devuelve bloqueo controlado sin escribir BD.
+- [x] UAT confirma bloqueo por esquema pendiente.
+- [x] No hay cambios automaticos sobre ventas/productos/garantias.
+- [x] No entrega requiere motivo.
+- [x] Cancelar servicio requiere motivo.
+- [ ] Cada accion registra evento persistido despues de aplicar DDL.
+- [ ] Acciones operativas validadas con servicios reales despues de aplicar DDL.
+
+Resultado:
+
+- Acciones preparadas:
+  - `programar`;
+  - `asignar_responsable`;
+  - `marcar_lista_salida`;
+  - `iniciar_ruta`;
+  - `entregar`;
+  - `no_entregada`;
+  - `pendiente_cliente`;
+  - `reprogramar`;
+  - `cancelar_servicio`.
+- El modelo actualiza solo columnas de `erp_tms_servicios` y registra evento en `erp_tms_eventos` cuando el esquema exista.
+- En la BD actual, el UAT devuelve `Esquema TMS pendiente; no se puede operar servicio`.
 
 ## TMS-T009 - Evidencias
 
-Estado: pendiente.
+Estado: preparado en codigo; pendiente de esquema aplicado para uso real.
 
 Objetivo:
 
@@ -468,9 +506,36 @@ Tipos:
 
 Criterio de cierre:
 
-- evidencia queda ligada a folio TMS;
-- cancelar evidencia es baja logica;
-- no borrar historial operativo.
+- [x] Metodo read-only preparado: `listarEvidencias($idServicio)`.
+- [x] Metodo de registro preparado: `registrarEvidencia($datos, $idUsuario = 0)`.
+- [x] Metodo de baja logica preparado: `cancelarEvidencia($datos, $idUsuario = 0)`.
+- [x] Endpoints preparados:
+  - `/tms/evidencias_listar_erp`;
+  - `/tms/evidencia_registrar_erp`;
+  - `/tms/evidencia_cancelar_erp`.
+- [x] Si falta esquema, listar devuelve estado vacio controlado.
+- [x] Si falta esquema, registrar/cancelar devuelve bloqueo controlado sin escribir BD.
+- [x] Cancelar evidencia queda como baja logica.
+- [x] No se borra historial operativo.
+- [ ] Evidencia queda ligada a folio TMS despues de aplicar DDL.
+- [ ] Cancelacion queda persistida despues de aplicar DDL.
+
+Resultado:
+
+- Tipos soportados en contrato inicial:
+  - `foto`;
+  - `firma`;
+  - `nota`;
+  - `comprobante`;
+  - `ubicacion`;
+  - `chat_snapshot`.
+- En esta fase no se implementa subida fisica de archivos; se registra metadata/ruta si existe.
+- El registro de evidencia crea evento `evidencia_registrada` cuando el esquema exista.
+- La cancelacion crea evento `evidencia_cancelada` cuando el esquema exista.
+- UAT confirma:
+  - `evidencias_listado`: lista vacia controlada por esquema pendiente;
+  - `evidencia_registro_bloqueado_por_schema`;
+  - `evidencia_cancelacion_bloqueada_por_schema`.
 
 ## TMS-T010 - Integracion POS como solicitante
 
@@ -520,7 +585,7 @@ Criterio de cierre:
 
 ## TMS-T012 - Reportes basicos
 
-Estado: pendiente.
+Estado: preparado en codigo; pendiente de esquema aplicado para datos reales.
 
 Objetivo:
 
@@ -539,18 +604,185 @@ Reportes:
 
 Criterio de cierre:
 
-- reporte read-only;
-- no recalcula ventas;
-- no modifica servicios.
+- [x] Metodo read-only preparado: `resumenReportes($filtros = array())`.
+- [x] Endpoint preparado: `/tms/reportes_resumen_erp`.
+- [x] Vista `app/vistas/paginas/apps/tms/reportes.php` conectada al endpoint.
+- [x] JS creado: `public/assets/js/custom/apps/tms/reportes.js`.
+- [x] Si falta esquema, devuelve KPIs en cero y `schema_pendiente=true`.
+- [x] Reporte read-only.
+- [x] No recalcula ventas.
+- [x] No modifica servicios.
+- [ ] Reporte devuelve datos reales despues de aplicar DDL.
+
+Resultado:
+
+- KPIs preparados:
+  - servicios totales;
+  - completas;
+  - express;
+  - no entregadas;
+  - pendiente cliente;
+  - bonificadas;
+  - ingresos logisticos;
+  - costo real;
+  - monto bonificado;
+  - tiempo promedio en minutos.
+- Agrupaciones preparadas:
+  - por tipo;
+  - por resultado logistico;
+  - por zona.
+- UAT confirma `reportes_resumen` con ceros y `schema_pendiente=true`.
+
+## TMS-T013 - Go/No-Go preactivacion
+
+Estado: completado read-only.
+
+Objetivo:
+
+Consolidar en un solo semaforo si TMS Delivery esta listo a nivel codigo antes de solicitar activaciones en BD.
+
+Criterio de cierre:
+
+- [x] Script read-only creado: `storage/uat/uat_tms_delivery_go_nogo_readonly.php`.
+- [x] No aplica permisos.
+- [x] No ejecuta DDL.
+- [x] No crea servicios.
+- [x] Valida controlador, modelo, esquema, vistas, JS, sidebar, permisos declarados, plan DDL, dry-run y reportes.
+- [x] Salida resumida por defecto.
+- [x] Salida detallada disponible con `--detalle=1`.
+
+Resultado 2026-07-24:
+
+- `ok=true`.
+- Estado: `go_con_activaciones_pendientes`.
+- Checks: 43/43 correctos.
+- Permisos TMS pendientes en BD: 8.
+- Esquema TMS pendiente: si.
+- Siguiente paso: generar respaldo externo y aplicar primero permisos TMS con autorizacion `TMS_PERMISOS_BASE`; DDL TMS queda en autorizacion separada `TMS_DELIVERY_DDL_BASE`.
+
+## TMS-T014 - Preflight de activacion controlada
+
+Estado: completado read-only.
+
+Objetivo:
+
+Preparar una salida operativa que indique orden, comandos y respaldos esperados para activar TMS sin mezclar permisos y DDL.
+
+Criterio de cierre:
+
+- [x] Script read-only creado: `storage/uat/uat_tms_delivery_preactivacion_readonly.php`.
+- [x] No crea respaldo.
+- [x] No sincroniza permisos.
+- [x] No ejecuta DDL.
+- [x] No crea servicios.
+- [x] Propone comandos separados para permisos y esquema.
+- [x] Reafirma reglas de dominio: no ventas, no garantias, no inventario.
+
+Resultado 2026-07-24:
+
+- `ok=true`.
+- Estado: `preactivacion_preparada`.
+- Checks: 6/6 correctos.
+- Orden recomendado:
+  - respaldo permisos;
+  - aplicar permisos TMS;
+  - validar menu/acceso TMS;
+  - respaldo schema;
+  - aplicar DDL TMS;
+  - validar guardado manual TMS.
+
+## TMS-T015 - Verificacion post-permisos
+
+Estado: completado read-only; pendiente de que se aplique `TMS_PERMISOS_BASE` para pasar a verde.
+
+Objetivo:
+
+Validar que despues de sincronizar permisos TMS existan los ocho permisos, relaciones esperadas por rol y sidebar listo.
+
+Criterio de cierre:
+
+- [x] Script read-only creado: `storage/uat/uat_tms_delivery_permisos_postapply_readonly.php`.
+- [x] No crea permisos.
+- [x] No asigna roles.
+- [x] No ejecuta DDL.
+- [x] Salida resumida por defecto.
+- [x] Salida detallada disponible con `--detalle=1`.
+- [x] Detecta menu TMS listo aunque BD de permisos siga pendiente.
+
+Resultado 2026-07-24:
+
+- Estado actual: `permisos_tms_pendientes`.
+- Permisos TMS en BD: 0/8.
+- Roles esperados con permisos TMS: 0/8.
+- Menu TMS: listo.
+- Este resultado es esperado antes de aplicar `TMS_PERMISOS_BASE`.
+
+## TMS-T016 - Verificacion post-DDL
+
+Estado: completado read-only; pendiente de que se aplique `TMS_DELIVERY_DDL_BASE` para pasar a verde.
+
+Objetivo:
+
+Validar que despues de crear tablas TMS existan las cinco tablas requeridas, no queden pendientes de columnas y los endpoints read-only cambien a modo con esquema disponible.
+
+Criterio de cierre:
+
+- [x] Script read-only creado: `storage/uat/uat_tms_delivery_schema_postapply_readonly.php`.
+- [x] No crea servicios.
+- [x] No inserta, actualiza ni borra registros.
+- [x] No toca Ventas.
+- [x] No decide garantias.
+- [x] No mueve inventario.
+- [x] Ejecuta `servicioDryRun` como validacion sin escritura.
+- [x] Revisa listado y reportes sin modificar datos.
+
+Resultado 2026-07-24:
+
+- Estado actual: `schema_tms_pendiente`.
+- Tablas esperadas: 5.
+- Pendientes schema actuales: 5.
+- Listado/reportes indican `schema_pendiente=true`.
+- Dry-run valido: si.
+- Este resultado es esperado antes de aplicar `TMS_DELIVERY_DDL_BASE`.
+
+## TMS-T017 - UAT autorizado de servicio manual
+
+Estado: preparado; bloqueado por defecto.
+
+Objetivo:
+
+Ejecutar, despues de permisos y DDL, una prueba controlada de ciclo manual TMS sin integrar POS/Ventas.
+
+Criterio de cierre:
+
+- [x] Script creado: `storage/uat/uat_tms_delivery_servicio_manual_apply_authorized.php`.
+- [x] Bloqueado sin token `TMS_UAT_SERVICIO_MANUAL`.
+- [x] Requiere respaldo externo valido.
+- [x] No sincroniza permisos.
+- [x] No ejecuta DDL.
+- [x] No toca Ventas.
+- [x] No decide garantias.
+- [x] No mueve inventario.
+- [x] En ejecucion autorizada futura crea solo servicio TMS de prueba, eventos y evidencia textual.
+
+Resultado 2026-07-24:
+
+- `php -l`: sin errores.
+- Ejecucion sin token/respaldo: bloqueada correctamente.
+- Alcance declarado:
+  - crea servicio TMS de prueba;
+  - crea eventos TMS;
+  - crea evidencia TMS;
+  - no toca ventas/POS/inventario/garantias.
 
 ## Handoff / continuidad
 
 Fecha: 2026-07-24
 
-- Contexto actual: TMS ya tiene documentos, DDL propuesto, modelo de esquema dry-run, modelo de dominio, controlador base y vista minima; no existe esquema aplicado y el guardado real queda bloqueado hasta crear tablas.
+- Contexto actual: TMS ya tiene documentos, DDL propuesto, modelo de esquema dry-run, modelo de dominio, controlador base, vistas base, JS, sidebar, reportes y UAT go/no-go; no existe esquema aplicado y el guardado real queda bloqueado hasta crear tablas.
 - Decision: TMS es modulo independiente, no submodulo de Ventas.
-- Cambios recientes: se creo plan rector, plan de tareas, DDL propuesto inicial, `TmsEsquema.php`, `TmsDelivery.php`, `Tms.php`, UI inicial, proteccion en `Core.php`, modulo padre `TMS` en sidebar con grupo `Delivery`, permisos `tms.*` en `SeguridadEsquema.php`, UAT read-only en `storage/uat`, scripts `apply_authorized` bloqueados por token/respaldo y endpoint de guardado protegido por esquema.
-- Validacion reciente: UAT read-only confirma permisos y tablas pendientes en BD; dry-run de dominio TMS funciona sin escritura; guardado real queda bloqueado mientras falta esquema.
+- Cambios recientes: se creo plan rector, plan de tareas, DDL propuesto inicial, `TmsEsquema.php`, `TmsDelivery.php`, `Tms.php`, UI inicial, proteccion en `Core.php`, modulo padre `TMS` en sidebar con grupo `Delivery`, permisos `tms.*` en `SeguridadEsquema.php`, UAT read-only en `storage/uat`, scripts `apply_authorized` bloqueados por token/respaldo, endpoint de guardado protegido por esquema, endpoint de operacion de estados protegido por esquema, endpoints de evidencias protegidos por esquema, reportes read-only protegidos por esquema y go/no-go consolidado.
+- Validacion reciente: UAT go/no-go confirma 45/45 checks correctos; preactivacion read-only confirma 6/6 checks; post-permisos detecta menu listo y BD de permisos pendiente; post-DDL detecta cinco tablas pendientes y dry-run valido; UAT manual autorizado queda bloqueado sin token/respaldo; permisos y tablas siguen pendientes en BD; guardado real, acciones operativas y evidencias quedan bloqueadas mientras falta esquema; reportes y pantallas internas devuelven estado controlado mientras falta esquema.
 - Pendiente inmediato: sincronizar permisos `tms.*` en BD con autorizacion o preparar `TMS-T007` solo despues de aplicar DDL TMS.
 - No tocar todavia: BD, vistas POS o integraciones reales.
 - Siguiente paso recomendado: pedir autorizacion para `TMS_PERMISOS_BASE`; despues probar acceso `/tms/servicios`. El DDL de tablas `erp_tms_*` debe ser otra autorizacion separada.

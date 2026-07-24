@@ -608,6 +608,30 @@ Estado:
   - endpoint `/tms/servicio_guardar_erp`;
   - crea encabezado, detalle, costo logistico y evento inicial cuando existan tablas;
   - no afecta Ventas, garantias ni inventario.
+- Operacion de estados preparada en codigo, bloqueada por esquema pendiente:
+  - modelo `TmsDelivery::aplicarAccionServicio($datos, $idUsuario = 0)`;
+  - endpoint `/tms/servicio_accion_erp`;
+  - acciones: programar, asignar responsable, lista para salida, iniciar ruta, entregar, no entregada, pendiente cliente, reprogramar y cancelar servicio;
+  - registra evento TMS cuando existan tablas;
+  - no afecta Ventas, garantias ni inventario.
+- Evidencias TMS preparadas en codigo, bloqueadas por esquema pendiente:
+  - modelo `TmsDelivery::listarEvidencias($idServicio)`;
+  - modelo `TmsDelivery::registrarEvidencia($datos, $idUsuario = 0)`;
+  - modelo `TmsDelivery::cancelarEvidencia($datos, $idUsuario = 0)`;
+  - endpoints `/tms/evidencias_listar_erp`, `/tms/evidencia_registrar_erp`, `/tms/evidencia_cancelar_erp`;
+  - tipos iniciales: foto, firma, nota, comprobante, ubicacion y chat_snapshot;
+  - no afecta Ventas, garantias ni inventario.
+- Reportes TMS preparados en codigo, read-only:
+  - modelo `TmsDelivery::resumenReportes($filtros = array())`;
+  - endpoint `/tms/reportes_resumen_erp`;
+  - vista `app/vistas/paginas/apps/tms/reportes.php`;
+  - JS `public/assets/js/custom/apps/tms/reportes.js`;
+  - mide servicios, express, entregas completas/no entregadas, pendientes de cliente, ingresos logisticos, bonificaciones, tiempo promedio y agrupaciones por tipo/resultado/zona.
+- Pantallas internas TMS ampliadas en modo read-only:
+  - `Operacion y rutas` consulta cola TMS y KPIs operativos;
+  - `Costos logisticos` consulta resumen financiero logistico;
+  - `Configuracion delivery` muestra catalogos, contrato de dominio y acciones disponibles;
+  - JS creados: `operacion.js`, `costos.js`, `configuracion.js`.
 - UI inicial creada:
   - `app/vistas/paginas/apps/tms/servicios.php`;
   - `public/assets/js/custom/apps/tms/servicios.js`.
@@ -626,6 +650,27 @@ Estado:
   - `storage/uat/uat_tms_delivery_permisos_readonly.php`;
   - `storage/uat/uat_tms_delivery_schema_readonly.php`;
   - `storage/uat/uat_tms_delivery_dryrun_readonly.php`.
+- UAT go/no-go consolidado creado y ejecutado:
+  - `storage/uat/uat_tms_delivery_go_nogo_readonly.php`;
+  - salida resumida por defecto;
+  - salida detallada con `--detalle=1`;
+  - resultado 2026-07-24: `ok=true`, 43/43 checks correctos, estado `go_con_activaciones_pendientes`.
+- Preflight de activacion controlada creado y ejecutado:
+  - `storage/uat/uat_tms_delivery_preactivacion_readonly.php`;
+  - resultado 2026-07-24: `ok=true`, 6/6 checks correctos, estado `preactivacion_preparada`;
+  - propone respaldos y comandos separados para permisos y esquema.
+- Verificacion post-permisos creada y ejecutada:
+  - `storage/uat/uat_tms_delivery_permisos_postapply_readonly.php`;
+  - resultado 2026-07-24: estado `permisos_tms_pendientes`, permisos 0/8, roles 0/8, menu TMS listo;
+  - resultado esperado antes de aplicar autorizacion `TMS_PERMISOS_BASE`.
+- Verificacion post-DDL creada y ejecutada:
+  - `storage/uat/uat_tms_delivery_schema_postapply_readonly.php`;
+  - resultado 2026-07-24: estado `schema_tms_pendiente`, pendientes schema 5/5, dry-run valido;
+  - resultado esperado antes de aplicar autorizacion `TMS_DELIVERY_DDL_BASE`.
+- UAT autorizado de servicio manual preparado:
+  - `storage/uat/uat_tms_delivery_servicio_manual_apply_authorized.php`;
+  - bloqueado sin token `TMS_UAT_SERVICIO_MANUAL` y respaldo valido;
+  - en ejecucion futura crea solo servicio TMS de prueba, eventos y evidencia; no toca Ventas/POS/Garantias/Inventario.
 - Scripts de aplicacion autorizada preparados y validados en modo bloqueado:
   - `storage/uat/uat_tms_delivery_permisos_apply_authorized.php`;
   - `storage/uat/uat_tms_delivery_schema_apply_authorized.php`.
@@ -634,6 +679,14 @@ Estado:
   - cinco tablas `erp_tms_*` pendientes en BD;
   - catalogos, listado sin esquema y dry-run de solicitud TMS responden sin escritura.
   - guardado real responde bloqueo controlado por esquema pendiente.
+  - acciones operativas responden bloqueo controlado por esquema pendiente.
+  - evidencias responden listado vacio o bloqueo controlado por esquema pendiente.
+  - reportes y pantallas internas responden KPIs/estado controlado con `schema_pendiente=true`.
+  - go/no-go confirma codigo listo y activaciones de BD pendientes.
+  - preactivacion confirma orden recomendado: permisos primero, DDL despues.
+  - post-permisos deja preparada validacion inmediata despues de sincronizar seguridad TMS.
+  - post-DDL deja preparada validacion inmediata despues de crear tablas `erp_tms_*`.
+  - UAT manual deja preparada la primera prueba real sin integrar POS.
 
 Pendiente:
 

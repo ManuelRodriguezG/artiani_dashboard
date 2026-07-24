@@ -31,13 +31,31 @@
                     </div>
                     <div class="app-content flex-column-fluid">
                         <div class="app-container container-fluid">
+                            <div id="tms_costos_alerta" class="mb-4"></div>
                             <div class="row g-4">
-                                <div class="col-lg-4"><div class="card card-flush h-100"><div class="card-body"><div class="text-muted fs-8 text-uppercase">Ingresos envio</div><div class="fs-2 fw-bold">$0.00</div></div></div></div>
-                                <div class="col-lg-4"><div class="card card-flush h-100"><div class="card-body"><div class="text-muted fs-8 text-uppercase">Costo real</div><div class="fs-2 fw-bold">$0.00</div></div></div></div>
-                                <div class="col-lg-4"><div class="card card-flush h-100"><div class="card-body"><div class="text-muted fs-8 text-uppercase">Bonificado</div><div class="fs-2 fw-bold">$0.00</div></div></div></div>
+                                <div class="col-lg-3"><div class="card card-flush h-100"><div class="card-body"><div class="text-muted fs-8 text-uppercase">Ingresos envio</div><div class="fs-2 fw-bold" id="tms_costos_ingresos">$0.00</div></div></div></div>
+                                <div class="col-lg-3"><div class="card card-flush h-100"><div class="card-body"><div class="text-muted fs-8 text-uppercase">Costo real</div><div class="fs-2 fw-bold" id="tms_costos_real">$0.00</div></div></div></div>
+                                <div class="col-lg-3"><div class="card card-flush h-100"><div class="card-body"><div class="text-muted fs-8 text-uppercase">Bonificado</div><div class="fs-2 fw-bold" id="tms_costos_bonificado">$0.00</div></div></div></div>
+                                <div class="col-lg-3"><div class="card card-flush h-100"><div class="card-body"><div class="text-muted fs-8 text-uppercase">Margen logistico</div><div class="fs-2 fw-bold" id="tms_costos_margen">$0.00</div></div></div></div>
                             </div>
-                            <div class="card card-flush mt-4">
-                                <div class="card-body text-muted">Superficie preparada para medir el servicio logistico sin mezclarlo con productos ni descuentos de venta.</div>
+                            <div class="row g-4 mt-0">
+                                <div class="col-lg-6">
+                                    <div class="card card-flush h-100">
+                                        <div class="card-header align-items-center">
+                                            <h3 class="card-title">Por tipo de servicio</h3>
+                                            <button type="button" class="btn btn-sm btn-light-primary" id="tms_costos_refrescar">
+                                                <i class="bi bi-arrow-clockwise"></i> Actualizar
+                                            </button>
+                                        </div>
+                                        <div class="card-body" id="tms_costos_tipo"></div>
+                                    </div>
+                                </div>
+                                <div class="col-lg-6">
+                                    <div class="card card-flush h-100">
+                                        <div class="card-header"><h3 class="card-title">Por zona</h3></div>
+                                        <div class="card-body" id="tms_costos_zona"></div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -49,5 +67,6 @@
 </div>
 <script src="assets/plugins/global/plugins.bundle.js"></script>
 <script src="assets/js/scripts.bundle.js"></script>
+<script src="/assets/js/custom/apps/tms/costos.js?v=20260724-1"></script>
 </body>
 </html>

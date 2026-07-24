@@ -1753,12 +1753,15 @@
             return;
         }
         var cliente = depurar.cliente || {};
+        var mensajeOperacion = (depurar.venta_rapida || []).length
+            ? "Caja registrada; venta rapida enviada a Catalogo/Inventario. No se movio kardex ni garantia hasta clasificar el SKU."
+            : "Caja, kardex, garantias y trazabilidad registrados por backend.";
         var html = "<div class=\"alert alert-success py-3 mb-0\">" +
             "<div class=\"fw-bold mb-1\">" + escapeHtml(response.mensaje || "Venta POS confirmada") + "</div>" +
             "<div class=\"fs-7\">Folio: <span class=\"fw-bold\">" + escapeHtml(depurar.folio || "") + "</span>" +
             " | Cliente: " + escapeHtml(cliente.nombre_publico || "Publico general") +
             " | Total: " + dinero(((depurar.totales || {}).total) || 0) + "</div>" +
-            "<div class=\"fs-8 text-muted mt-1\">Caja, kardex, garantias y trazabilidad registrados por backend.</div>" +
+            "<div class=\"fs-8 text-muted mt-1\">" + escapeHtml(mensajeOperacion) + "</div>" +
             "<div class=\"d-flex flex-wrap gap-2 mt-3\">" +
                 "<button class=\"btn btn-sm btn-light-primary\" type=\"button\" data-pos-ticket-real=\"" + escapeHtml(depurar.folio || "") + "\"><i class=\"bi bi-receipt\"></i> Ver ticket</button>" +
                 "<a class=\"btn btn-sm btn-light\" href=\"/ventas/venta_detalle?folio=" + encodeURIComponent(depurar.folio || "") + "\"><i class=\"bi bi-search\"></i> Ver venta</a>" +

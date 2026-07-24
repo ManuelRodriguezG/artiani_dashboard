@@ -193,3 +193,29 @@ Para ejecutar UAT real desde la pantalla `/ventas/pos`:
 ```text
 AUTORIZO UAT UI REAL VENTA RAPIDA POS usando respaldo UAT POS vigente con token VENTAS_POS_VENTA_RAPIDA_UI_REAL id_usuario=1 monto_inicial=500 descripcion="Producto UAT UI por clasificar" cantidad=1 precio=100 pago=100 motivo="UAT UI venta rapida controlada" para UAT POS/Catalogo/Inventario
 ```
+
+## Resolucion read-only/dry-run preparada 2026-07-24
+
+Se preparo la capa de salida para los pendientes `VRP` sin escritura fuerte:
+
+- Endpoint `GET /ventas/pos_venta_rapida_pendientes_erp`: lista pendientes por estatus, almacen, inventario, folio o busqueda libre.
+- Endpoint `GET /ventas/pos_venta_rapida_pendiente_erp`: consulta un pendiente con venta, detalle y eventos.
+- Endpoint `POST /ventas/pos_venta_rapida_resolucion_dryrun_erp`: simula vincular un `VRP` a un SKU existente.
+- Script UAT read-only: `storage/uat/uat_ventas_pos_venta_rapida_resolucion_readonly.php`.
+
+Resultado UAT read-only con `VRP-20260724-000001` y SKU candidato `1760`:
+
+- `ok=true`.
+- Pendientes abiertos: `2`.
+- Monto abierto: `$200.00`.
+- Pendiente consultado: `VRP-20260724-000001`, venta `POS-20260724-000001`, estatus `pendiente_catalogo`, inventario `pendiente_regularizacion`.
+- Dry-run sin bloqueos.
+- Plan simulado: vincular pendiente y detalle al SKU `1760`, conservar snapshot/descripion/ticket, no mover kardex, mantener regularizacion pendiente en Inventario/Existencias.
+
+Regla confirmada: clasificar una venta rapida no descuenta inventario retroactivamente. La clasificacion permite reportar el producto por SKU real y deja la regularizacion de existencia como tarea separada de Inventario/Existencias.
+
+Siguiente autorizacion fuerte posible:
+
+```text
+AUTORIZO EJECUTAR RESOLUCION REAL VENTA RAPIDA POS usando respaldo UAT POS vigente con token VENTAS_POS_VENTA_RAPIDA_RESOLVER_REAL id_usuario=1 folio=VRP-20260724-000001 id_sku=1760 decision_inventario=mantener_pendiente_regularizacion confirmacion="RESOLVER VENTA RAPIDA POS" motivo="Clasificar producto vendido por venta rapida POS" para UAT POS/Catalogo/Inventario
+```
