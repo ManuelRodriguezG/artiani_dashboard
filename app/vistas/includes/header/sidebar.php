@@ -16,6 +16,7 @@ $puede = function ($permiso) use ($permisosSesion) {
 
 $seccionesMenu = array(
     'ERP' => array('icono' => 'bi-diagram-3'),
+    'TMS' => array('icono' => 'bi-truck'),
     'CRM' => array('icono' => 'bi-people'),
     'Ecommerce' => array('icono' => 'bi-shop'),
     'Administracion' => array('icono' => 'bi-shield-lock')
@@ -40,6 +41,7 @@ $gruposMenu = array(
         'icono' => 'bi-tags',
         'permiso' => '',
         'items' => array(
+            array('titulo' => 'Catalogos comerciales', 'ruta' => '/catalogoerp/catalogos_comerciales', 'permiso' => 'catalogo.ver'),
             array('titulo' => 'Listas de precios', 'ruta' => '/comercial/listas_precios', 'permiso' => 'ventas.listas.ver'),
             array('titulo' => 'Manual listas de precios', 'ruta' => '/comercial/listas_precios_manual', 'permiso' => 'ventas.listas.ver'),
             array('titulo' => 'Analisis comercial', 'ruta' => '/rentabilidad/analisis', 'permiso' => 'rentabilidad.ver')
@@ -62,6 +64,19 @@ $gruposMenu = array(
             array('titulo' => 'Evidencias caja', 'ruta' => '/ventas/caja_evidencias', 'permiso' => 'ventas.ver'),
             array('titulo' => 'Reportes POS', 'ruta' => '/ventas/reportes', 'permiso' => 'ventas.ver'),
             array('titulo' => 'Configuracion POS', 'ruta' => '/ventas/pos_configuracion', 'permiso' => 'ventas.pos_config.ver')
+        )
+    ),
+    array(
+        'seccion' => 'TMS',
+        'titulo' => 'Delivery',
+        'icono' => 'bi-truck',
+        'permiso' => 'tms.ver',
+        'items' => array(
+            array('titulo' => 'Bandeja TMS', 'ruta' => '/tms/servicios', 'permiso' => 'tms.ver'),
+            array('titulo' => 'Operacion y rutas', 'ruta' => '/tms/operacion', 'permiso' => 'tms.operar'),
+            array('titulo' => 'Costos logisticos', 'ruta' => '/tms/costos', 'permiso' => 'tms.costos'),
+            array('titulo' => 'Reportes delivery', 'ruta' => '/tms/reportes', 'permiso' => 'tms.reportes'),
+            array('titulo' => 'Configuracion delivery', 'ruta' => '/tms/configuracion', 'permiso' => 'tms.autorizar')
         )
     ),
     array(

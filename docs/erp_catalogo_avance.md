@@ -284,12 +284,13 @@ No son subtareas activas ahora; son incidencias o decisiones para retomar cuando
 5. Resolver variantes sin atributos o firmas duplicadas de productos prioritarios.
 6. Probar permisos con perfiles reales.
 7. Ejecutar prueba controlada Almacen/Inventario con orden real cuando el flujo este listo.
-8. Definir politica de producto nuevo desde Compras/XML:
+8. Planear Catalogos comerciales para redes/WhatsApp/Facebook desde Catalogo ERP y publicaciones, sin reutilizar `Producto::catalogo_pdf()` legacy como base. Documento vivo: `docs/erp_catalogo_catalogos_comerciales_plan.md`.
+9. Definir politica de producto nuevo desde Compras/XML:
    - vincular SKU existente;
    - crear SKU nuevo autorizado;
    - crear relacion proveedor;
    - descartar con motivo.
-9. Disenar reversa/correccion de fusiones antes de permitir deshacer fusiones:
+10. Disenar reversa/correccion de fusiones antes de permitir deshacer fusiones:
    - snapshot obligatorio;
    - detalle de SKUs/imagenes/categorias/vinculos movidos;
    - validacion de uso posterior;
@@ -2536,3 +2537,132 @@ Reglas:
 - Una imagen `portada` activa degrada portadas activas anteriores del producto a `galeria`.
 - No se cambia esquema.
 - No se borran archivos fisicos al desactivar imagenes; solo se marca el registro como `inactivo`.
+
+## Planeacion 2026-07-23 - Catalogos comerciales para redes/WhatsApp
+
+Proyecto vigente:
+
+- `C:\xampp\htdocs\panel_de_control`.
+
+Documento vivo:
+
+- `docs/erp_catalogo_catalogos_comerciales_plan.md`.
+
+Decision:
+
+- No continuar el flujo legacy `Producto::catalogo_pdf()` como base del nuevo catalogo comercial.
+- El primer MVP sera una galeria comercial interna/read-only con datos vivos de Catalogo ERP.
+- No se generaran PDF/imagenes automaticamente en la primera fase.
+- No se aplicara DDL para catalogos comerciales hasta validar datos, UX y necesidad real de persistencia.
+
+Auditoria inicial:
+
+- Los datos actuales alcanzan para un endpoint read-only de candidatos: productos, SKUs, imagen portada, categorias, marcas, precios generales, publicaciones, presentaciones y paquetes configurables.
+- `erp_ecommerce_publicaciones` existe pero solo tiene 2 registros; por eso el MVP no debe depender solo de publicaciones ecommerce.
+- Las reglas estrictas de ecommerce publico deben convertirse en alertas para catalogos comerciales.
+
+Siguiente paso recomendado:
+
+- Crear endpoint interno read-only de candidatos para catalogos comerciales y vista minima de previsualizacion sin escritura de BD.
+
+## Implementacion 2026-07-23 - Endpoint candidatos catalogos comerciales
+
+Cambio aplicado:
+
+- Se agrego `GET /catalogoerp/catalogos_comerciales_candidatos`.
+- Permiso temporal MVP: `catalogo.ver`.
+- Fuente: Catalogo ERP, publicaciones ecommerce cuando existan, imagenes, categorias, marcas, precios generales, presentaciones, paquetes e inventario solo para disponibilidad simple.
+
+Contrato:
+
+- Solo lectura.
+- Sin DDL.
+- Sin publicar productos.
+- Sin generar PDF/imagenes.
+- Sin exponer costos.
+- Sin mostrar existencia exacta.
+
+Filtros:
+
+- `q`;
+- `limite`;
+- `solo_alertas`;
+- `solo_con_imagen`;
+- `modo_precio`.
+
+Siguiente paso recomendado:
+
+- Construir vista interna minima para filtrar candidatos, seleccionar items temporalmente y previsualizar tarjetas comerciales.
+
+## Implementacion 2026-07-23 - MVP visual catalogos comerciales
+
+Cambio aplicado:
+
+- Se agrego vista interna `GET /catalogoerp/catalogos_comerciales`.
+- Se agrego JS `public/assets/js/custom/apps/erp/catalogo/catalogos_comerciales.js`.
+- La pantalla consume el endpoint read-only de candidatos.
+
+Alcance:
+
+- Filtros por busqueda, precio, imagen, alertas y limite.
+- Seleccion temporal en navegador.
+- Vista previa tipo galeria/tarjetas.
+- Boton de impresion del navegador.
+
+Fuera de alcance por ahora:
+
+- Guardar catalogos.
+- Exportar PNG/JPG/PDF automatico.
+- Publicar enlaces publicos.
+- Menu definitivo.
+- Permisos `catalogos_comerciales.*`.
+
+Siguiente paso recomendado:
+
+- Probar `http://panel.com.local/catalogoerp/catalogos_comerciales` con productos reales y decidir si la siguiente fase requiere persistencia o solo mejorar la galeria.
+
+## Ajuste 2026-07-24 - Catalogos comerciales en sidebar
+
+Cambio aplicado:
+
+- Se agrego `Catalogos comerciales` en `ERP > Comercial`.
+- Ruta: `/catalogoerp/catalogos_comerciales`.
+- Permiso temporal MVP: `catalogo.ver`.
+
+Mejora visual:
+
+- La vista previa permite mostrar/ocultar precio, SKU y disponibilidad simple.
+
+Decision:
+
+- La ubicacion operativa es Comercial porque se trata de material de venta.
+- La ruta tecnica permanece temporalmente en `CatalogoErp` mientras el MVP no tenga persistencia ni permisos propios.
+
+## Ajuste 2026-07-24 - Seleccion masiva catalogos comerciales
+
+Cambio aplicado:
+
+- En candidatos se agrego `Seleccionar visibles`.
+- En candidatos se agrego `Quitar visibles`.
+- En seleccion temporal se cambio `Limpiar` por `Quitar todo`.
+
+Regla:
+
+- Las acciones solo afectan la seleccion temporal en navegador.
+- No eliminan productos ni registros.
+- No guardan catalogos todavia.
+
+## Ajuste 2026-07-24 - Orden y recuperacion local catalogos comerciales
+
+Cambio aplicado:
+
+- La seleccion temporal ahora se conserva en `localStorage` del navegador.
+- Se agregaron botones para subir/bajar items seleccionados.
+- La vista previa respeta el orden seleccionado.
+
+Regla:
+
+- No es persistencia formal del ERP.
+- No escribe BD.
+- No comparte catalogos entre usuarios.
+- Solo evita perder el armado en curso durante pruebas del MVP.

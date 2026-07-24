@@ -49,7 +49,7 @@
 			$controladoresProtegidos = array(
 				'Almacen', 'Archivos', 'Busqueda', 'CatalogoErp', 'Categoria', 'Clientes', 'Comercial', 'Crm', 'Compra', 'Compra_venta',
 				'Costo', 'Dashboard', 'Empresa', 'Garantias', 'Inicio', 'Inventario', 'Link', 'Marca', 'Panel',
-				'Paquetes', 'Producto', 'Proveedor', 'Rentabilidad', 'Sistema', 'Sucursal', 'Users', 'Usuario',
+				'Paquetes', 'Producto', 'Proveedor', 'Rentabilidad', 'Sistema', 'Sucursal', 'Tms', 'Users', 'Usuario',
 				'Utilidad', 'Ventas'
 			);
 			if (in_array($this->controladorActual, $controladoresProtegidos, true)) {

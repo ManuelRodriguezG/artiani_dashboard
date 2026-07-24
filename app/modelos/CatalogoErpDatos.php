@@ -56,6 +56,182 @@ class CatalogoErpDatos extends CRUD {
     }
   }
 
+  /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-07-23
+   * Proposito: listar candidatos read-only para catalogos comerciales desde Catalogo ERP.
+   * Impacto: Catalogo ERP/Comercial; alimenta una galeria comercial sin depender del PDF legacy ni de publicaciones ecommerce completas.
+   * Contrato: no escribe BD, no expone costos, no muestra stock exacto y convierte faltantes operativos en alertas.
+   */
+  public function listarCandidatosCatalogoComercial($filtros = array()) {
+    try {
+      $db = $this->getConexion();
+      if (!$db) {
+        return $this->respuesta(true, "warning", "Conexion MySQL no disponible", array(
+          "read_only" => true,
+          "items" => array(),
+          "resumen" => array("total" => 0)
+        ));
+      }
+
+      $limite = max(1, min(200, intval(isset($filtros["limite"]) ? $filtros["limite"] : 60)));
+      $q = trim((string) (isset($filtros["q"]) ? $filtros["q"] : ""));
+      $soloAlertas = intval(isset($filtros["solo_alertas"]) ? $filtros["solo_alertas"] : 0) === 1;
+      $soloConImagen = intval(isset($filtros["solo_con_imagen"]) ? $filtros["solo_con_imagen"] : 0) === 1;
+      $modoPrecio = $this->opcion($filtros, "modo_precio", array("con_precio", "sin_precio", "indistinto"), "indistinto");
+
+      $tienePublicaciones = $this->tablaExisteCatalogo($db, "erp_ecommerce_publicaciones");
+      $tienePresentaciones = $this->tablaExisteCatalogo($db, "erp_catalogo_sku_presentaciones");
+      $tienePaquetes = $this->tablaExisteCatalogo($db, "erp_catalogo_sku_paquetes");
+      $tieneInventario = $this->tablaExisteCatalogo($db, "erp_inventario_existencias");
+
+      $where = array("p.estatus<>'fusionado'", "s.estatus<>'fusionado'");
+      $params = array();
+      if ($q !== "") {
+        $where[] = "(p.nombre LIKE :q OR p.codigo_producto LIKE :q OR s.nombre LIKE :q OR s.sku LIKE :q OR m.nombre LIKE :q OR c.nombre LIKE :q OR c.ruta LIKE :q)";
+        $params[":q"] = "%" . $q . "%";
+      }
+      if ($soloConImagen) {
+        $where[] = "img.url_imagen IS NOT NULL";
+      }
+      if ($modoPrecio === "con_precio") {
+        $where[] = "pr.id_sku_precio IS NOT NULL";
+      }
+      if ($modoPrecio === "sin_precio") {
+        $where[] = "pr.id_sku_precio IS NULL";
+      }
+
+      $selectPublicacion = $tienePublicaciones
+        ? "pub.id_publicacion, pub.estatus_publicacion, pub.slug, pub.titulo_publico, pub.presentacion_publica, pub.mostrar_precio, pub.mostrar_disponibilidad"
+        : "NULL id_publicacion, NULL estatus_publicacion, NULL slug, NULL titulo_publico, NULL presentacion_publica, NULL mostrar_precio, NULL mostrar_disponibilidad";
+      $joinPublicacion = $tienePublicaciones
+        ? "LEFT JOIN erp_ecommerce_publicaciones pub ON pub.id_sku=s.id_sku AND pub.estatus_publicacion IN ('borrador','publicado','pausado')"
+        : "";
+
+      $selectPresentacion = $tienePresentaciones
+        ? "pres.id_sku_base, pres.factor_salida_base, pres.modo_disponibilidad AS modo_disponibilidad_presentacion, pres.requiere_empaque"
+        : "NULL id_sku_base, NULL factor_salida_base, NULL modo_disponibilidad_presentacion, NULL requiere_empaque";
+      $joinPresentacion = $tienePresentaciones
+        ? "LEFT JOIN erp_catalogo_sku_presentaciones pres ON pres.id_sku_presentacion=s.id_sku AND pres.estatus='activo'"
+        : "";
+
+      $selectPaquete = $tienePaquetes
+        ? "paq.id_paquete, paq.tipo_paquete, paq.modo_disponibilidad AS modo_disponibilidad_paquete, paq.permite_configuracion_cliente"
+        : "NULL id_paquete, NULL tipo_paquete, NULL modo_disponibilidad_paquete, NULL permite_configuracion_cliente";
+      $joinPaquete = $tienePaquetes
+        ? "LEFT JOIN erp_catalogo_sku_paquetes paq ON paq.id_sku_paquete=s.id_sku AND paq.estatus='activo'"
+        : "";
+
+      $selectInventario = $tieneInventario
+        ? "COALESCE(inv.cantidad_disponible, 0) AS existencia_disponible"
+        : "0 AS existencia_disponible";
+      $joinInventario = $tieneInventario
+        ? "LEFT JOIN (
+            SELECT id_sku_erp, SUM(cantidad_disponible) cantidad_disponible
+            FROM erp_inventario_existencias
+            WHERE estatus_existencia IN ('disponible','agotada')
+            GROUP BY id_sku_erp
+          ) inv ON inv.id_sku_erp=s.id_sku"
+        : "";
+
+      $sql = "SELECT p.id_producto_erp, p.codigo_producto, p.nombre AS producto, p.estatus AS estatus_producto,
+          s.id_sku, s.sku, COALESCE(NULLIF(s.nombre,''), p.nombre) AS nombre_sku, s.estatus AS estatus_sku,
+          s.tipo_inventario, u.codigo AS unidad_codigo, u.abreviatura AS unidad_abreviatura,
+          m.nombre AS marca, pc.id_categoria_erp, COALESCE(c.ruta, c.nombre) AS categoria,
+          img.url_imagen AS imagen_portada,
+          pr.precio, pr.moneda, r.unidad_venta_label, r.permite_venta_fraccionaria, r.controla_inventario,
+          " . $selectInventario . ",
+          " . $selectPublicacion . ",
+          " . $selectPresentacion . ",
+          " . $selectPaquete . "
+        FROM erp_catalogo_skus s
+        INNER JOIN erp_catalogo_productos p ON p.id_producto_erp=s.id_producto_erp
+        LEFT JOIN erp_catalogo_marcas m ON m.id_marca_erp=p.id_marca_erp
+        LEFT JOIN erp_catalogo_unidades u ON u.id_unidad=s.id_unidad_base
+        LEFT JOIN erp_catalogo_producto_categorias pc ON pc.id_producto_erp=p.id_producto_erp AND pc.es_principal=1
+        LEFT JOIN erp_catalogo_categorias c ON c.id_categoria_erp=pc.id_categoria_erp
+        LEFT JOIN erp_catalogo_sku_reglas_inventario r ON r.id_sku=s.id_sku
+        LEFT JOIN erp_catalogo_sku_precios pr ON pr.id_sku=s.id_sku AND pr.lista_precio='general' AND pr.moneda='MXN' AND pr.estatus='activo' AND pr.precio>0
+        LEFT JOIN (
+          SELECT i.id_producto_erp, i.url_imagen
+          FROM erp_catalogo_imagenes i
+          INNER JOIN (
+            SELECT id_producto_erp, MIN(id_imagen_erp) id_imagen_erp
+            FROM erp_catalogo_imagenes
+            WHERE estatus='activo' AND TRIM(COALESCE(url_imagen,''))<>''
+            GROUP BY id_producto_erp
+          ) x ON x.id_imagen_erp=i.id_imagen_erp
+        ) img ON img.id_producto_erp=p.id_producto_erp
+        " . $joinPublicacion . "
+        " . $joinPresentacion . "
+        " . $joinPaquete . "
+        " . $joinInventario . "
+        WHERE " . implode(" AND ", $where) . "
+        ORDER BY
+          CASE WHEN img.url_imagen IS NULL THEN 1 ELSE 0 END,
+          CASE WHEN pr.id_sku_precio IS NULL THEN 1 ELSE 0 END,
+          p.nombre, s.sku
+        LIMIT " . intval($soloAlertas ? min(600, $limite * 3) : $limite);
+
+      $stmt = $db->prepare($sql);
+      $stmt->execute($params);
+      $items = array();
+      $resumen = array(
+        "total" => 0,
+        "con_alertas" => 0,
+        "sin_imagen" => 0,
+        "sin_precio" => 0,
+        "sin_categoria" => 0,
+        "con_publicacion" => 0,
+        "paquetes" => 0,
+        "presentaciones" => 0
+      );
+      foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $fila) {
+        $item = $this->formatearCandidatoCatalogoComercial($fila);
+        if ($soloAlertas && empty($item["alertas"])) {
+          continue;
+        }
+        $items[] = $item;
+        $resumen["total"]++;
+        if (!empty($item["alertas"])) { $resumen["con_alertas"]++; }
+        if (in_array("sin_imagen", $item["alertas"], true)) { $resumen["sin_imagen"]++; }
+        if (in_array("sin_precio", $item["alertas"], true)) { $resumen["sin_precio"]++; }
+        if (in_array("sin_categoria", $item["alertas"], true)) { $resumen["sin_categoria"]++; }
+        if (!empty($item["publicacion"]["id_publicacion"])) { $resumen["con_publicacion"]++; }
+        if ($item["tipo_item"] === "paquete") { $resumen["paquetes"]++; }
+        if ($item["tipo_item"] === "presentacion") { $resumen["presentaciones"]++; }
+        if (count($items) >= $limite) {
+          break;
+        }
+      }
+
+      return $this->respuesta(false, "success", "Candidatos para catalogo comercial consultados", array(
+        "read_only" => true,
+        "no_escribe_bd" => true,
+        "no_expone_costos" => true,
+        "no_stock_exacto" => true,
+        "filtros" => array(
+          "q" => $q,
+          "limite" => $limite,
+          "solo_alertas" => $soloAlertas ? 1 : 0,
+          "solo_con_imagen" => $soloConImagen ? 1 : 0,
+          "modo_precio" => $modoPrecio
+        ),
+        "schema" => array(
+          "publicaciones" => $tienePublicaciones,
+          "presentaciones" => $tienePresentaciones,
+          "paquetes" => $tienePaquetes,
+          "inventario" => $tieneInventario
+        ),
+        "resumen" => $resumen,
+        "items" => $items
+      ));
+    } catch (Exception $e) {
+      return $this->respuesta(true, "danger", $e->getMessage(), array("read_only" => true, "items" => array()));
+    }
+  }
+
+
   public function listarIncidenciasMigracionEcommerce() {
     try {
       $db = $this->getConexion();
@@ -5308,6 +5484,92 @@ class CatalogoErpDatos extends CRUD {
     } catch (Exception $e) {
       return $this->respuesta(true, "danger", $e->getMessage());
     }
+  }
+
+  /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-07-23
+   * Proposito: convertir datos ERP de un SKU en contrato visual para catalogos comerciales.
+   * Impacto: Catalogo ERP/Comercial; evita que la UI interprete columnas crudas o exponga informacion sensible.
+   * Contrato: entrega alertas accionables, disponibilidad simple y precio opcional sin costo ni existencia exacta.
+   */
+  private function formatearCandidatoCatalogoComercial($fila) {
+    $tipoItem = "sku";
+    if (!empty($fila["id_paquete"])) {
+      $tipoItem = "paquete";
+    } elseif (!empty($fila["id_sku_base"])) {
+      $tipoItem = "presentacion";
+    }
+
+    $presentacion = trim((string) (isset($fila["presentacion_publica"]) ? $fila["presentacion_publica"] : ""));
+    if ($presentacion === "") {
+      $presentacion = trim((string) (isset($fila["unidad_venta_label"]) ? $fila["unidad_venta_label"] : ""));
+    }
+    if ($presentacion === "") {
+      $presentacion = trim((string) (isset($fila["unidad_abreviatura"]) ? $fila["unidad_abreviatura"] : ""));
+    }
+    if ($presentacion === "") {
+      $presentacion = trim((string) (isset($fila["unidad_codigo"]) ? $fila["unidad_codigo"] : ""));
+    }
+
+    $alertas = array();
+    if (trim((string) $fila["imagen_portada"]) === "") { $alertas[] = "sin_imagen"; }
+    if (trim((string) $fila["categoria"]) === "") { $alertas[] = "sin_categoria"; }
+    if (empty($fila["precio"]) || floatval($fila["precio"]) <= 0) { $alertas[] = "sin_precio"; }
+    if (trim((string) $fila["id_publicacion"]) === "") { $alertas[] = "sin_publicacion"; }
+    if ((string) $fila["estatus_producto"] !== "activo") { $alertas[] = "producto_" . (string) $fila["estatus_producto"]; }
+    if ((string) $fila["estatus_sku"] !== "activo") { $alertas[] = "sku_" . (string) $fila["estatus_sku"]; }
+    if (intval(isset($fila["permite_venta_fraccionaria"]) ? $fila["permite_venta_fraccionaria"] : 0) === 1) {
+      $alertas[] = "venta_fraccionaria";
+    }
+    if ($tipoItem === "presentacion") { $alertas[] = "presentacion_preparada"; }
+    if ($tipoItem === "paquete" && intval(isset($fila["permite_configuracion_cliente"]) ? $fila["permite_configuracion_cliente"] : 0) === 1) {
+      $alertas[] = "paquete_configurable";
+    }
+
+    $controlaInventario = intval(isset($fila["controla_inventario"]) ? $fila["controla_inventario"] : 1) === 1;
+    $disponibilidad = "consultar";
+    if ($controlaInventario) {
+      $disponibilidad = floatval(isset($fila["existencia_disponible"]) ? $fila["existencia_disponible"] : 0) > 0 ? "disponible" : "sin_existencia";
+    }
+
+    return array(
+      "id_producto_erp" => intval($fila["id_producto_erp"]),
+      "id_sku" => intval($fila["id_sku"]),
+      "tipo_item" => $tipoItem,
+      "codigo_producto" => $fila["codigo_producto"],
+      "sku" => $fila["sku"],
+      "nombre" => $fila["nombre_sku"],
+      "producto" => $fila["producto"],
+      "marca" => $fila["marca"],
+      "categoria" => $fila["categoria"],
+      "imagen_portada" => $fila["imagen_portada"],
+      "presentacion_comercial" => $presentacion,
+      "precio" => (!empty($fila["precio"]) && floatval($fila["precio"]) > 0) ? floatval($fila["precio"]) : null,
+      "moneda" => (!empty($fila["precio"]) && floatval($fila["precio"]) > 0) ? ($fila["moneda"] ?: "MXN") : null,
+      "disponibilidad_simple" => $disponibilidad,
+      "estatus" => array(
+        "producto" => $fila["estatus_producto"],
+        "sku" => $fila["estatus_sku"]
+      ),
+      "publicacion" => array(
+        "id_publicacion" => !empty($fila["id_publicacion"]) ? intval($fila["id_publicacion"]) : null,
+        "estatus" => $fila["estatus_publicacion"],
+        "slug" => $fila["slug"],
+        "titulo_publico" => $fila["titulo_publico"]
+      ),
+      "paquete" => array(
+        "id_paquete" => !empty($fila["id_paquete"]) ? intval($fila["id_paquete"]) : null,
+        "tipo_paquete" => $fila["tipo_paquete"],
+        "configurable" => intval(isset($fila["permite_configuracion_cliente"]) ? $fila["permite_configuracion_cliente"] : 0) === 1
+      ),
+      "presentacion" => array(
+        "id_sku_base" => !empty($fila["id_sku_base"]) ? intval($fila["id_sku_base"]) : null,
+        "factor_salida_base" => isset($fila["factor_salida_base"]) ? $fila["factor_salida_base"] : null,
+        "requiere_empaque" => intval(isset($fila["requiere_empaque"]) ? $fila["requiere_empaque"] : 0) === 1
+      ),
+      "alertas" => array_values(array_unique($alertas))
+    );
   }
 
   public function actualizarSku($datos, $idUsuario) {

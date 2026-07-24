@@ -26,6 +26,17 @@ class Catalogoerp extends Controlador {
     $this->vista("apps/erp/catalogo/organizacion");
   }
 
+  /**
+   * IA: Codex GPT-5 | Fecha: 2026-07-23
+   * Proposito: abrir el MVP interno de catalogos comerciales alimentado por Catalogo ERP.
+   * Impacto: Catalogo ERP/Comercial; permite validar candidatos y tarjetas sin persistencia ni exportacion formal.
+   * Contrato: vista protegida por `catalogo.ver`; no escribe BD y usa seleccion temporal en navegador.
+   */
+  public function catalogos_comerciales() {
+    $this->requerirPermiso("catalogo.ver");
+    $this->vista("apps/erp/catalogo/catalogos_comerciales");
+  }
+
   public function propuestas_nombres() {
     $this->requerirPermiso("catalogo.ver");
     return json_encode($this->modelo("CatalogoErpOrganizacion")->listarPropuestasNombres());
@@ -418,6 +429,17 @@ class Catalogoerp extends Controlador {
   public function listar() {
     $this->requerirPermiso("catalogo.ver");
     return json_encode($this->modelo("CatalogoErpDatos")->listarProductos());
+  }
+
+  /**
+   * IA: Codex GPT-5 | Fecha: 2026-07-23
+   * Proposito: exponer candidatos read-only para armar catalogos comerciales desde Catalogo ERP.
+   * Impacto: Catalogo ERP/Comercial; prepara galeria comercial sin publicar, escribir BD ni generar archivos.
+   * Contrato: GET protegido por `catalogo.ver`; devuelve datos y alertas, no costos ni stock exacto.
+   */
+  public function catalogos_comerciales_candidatos() {
+    $this->requerirPermiso("catalogo.ver");
+    return json_encode($this->modelo("CatalogoErpDatos")->listarCandidatosCatalogoComercial($_GET));
   }
 
   public function catalogos() {
