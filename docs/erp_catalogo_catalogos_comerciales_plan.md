@@ -960,6 +960,54 @@ Validacion tecnica:
 - `C:\xampp\php\php.exe -l app\vistas\paginas\apps\erp\catalogo\catalogos_comerciales.php`: sin errores.
 - `node --check public\assets\js\custom\apps\erp\catalogo\catalogos_comerciales.js`: sin errores.
 
+## Propuesta formal - Persistencia en BD 2026-07-24
+
+Se creo documento de propuesta:
+
+- `docs/erp_catalogo_catalogos_comerciales_persistencia_propuesta.md`
+
+Incluye:
+
+- estados formales;
+- permisos propios;
+- tablas propuestas;
+- DDL propuesto;
+- endpoints propuestos;
+- flujo recomendado;
+- texto de autorizacion sugerido.
+
+Regla:
+
+- No se aplico DDL.
+- No se modifico esquema.
+- No se cambio el MVP a guardado real.
+- La propuesta queda lista para autorizacion futura.
+
+## Preparacion tecnica - Contrato de esquema 2026-07-24
+
+Se preparo `app/modelos/CatalogoErpEsquema.php` para reconocer las tablas propuestas:
+
+- `erp_catalogo_comercial_catalogos`;
+- `erp_catalogo_comercial_items`;
+- `erp_catalogo_comercial_eventos`.
+
+Incluye:
+
+- auditoria de columnas e indices;
+- plan DDL en `planActualizarCatalogoErp`;
+- compatibilidad de tipos `BIGINT` con `erp_catalogo_skus.id_sku`.
+
+Regla:
+
+- No se ejecuto DDL.
+- No se crearon tablas.
+- El cambio solo deja listo el contrato para dry-run/autorizacion.
+
+Validacion tecnica:
+
+- `C:\xampp\php\php.exe -l app\modelos\CatalogoErpEsquema.php`: sin errores.
+- `CatalogoErpEsquema::planActualizarCatalogoErp(false)`: OK, plan generado en dry-run sin ejecutar DDL.
+
 ### Tarea 2 - Endpoint read-only de candidatos
 
 Objetivo:
@@ -1003,11 +1051,25 @@ Objetivo:
 
 - Decidir si ya se necesita guardar catalogos reales.
 
-Requiere autorizacion si implica DDL.
+Resultado 2026-07-24:
+
+- Persistencia formal aprobada para fase base.
+- DDL aplicado con token `CATALOGO_COMERCIAL_PERSISTENCIA_DDL`.
+- Respaldo externo: `C:\xampp\panel_db_backups\artianilocal_panel_20260724_antes_catalogos_comerciales.sql`.
+- Tablas creadas/verificadas:
+  - `erp_catalogo_comercial_catalogos`;
+  - `erp_catalogo_comercial_items`;
+  - `erp_catalogo_comercial_eventos`.
+
+Fuera de alcance:
+
+- Sin publicar enlaces.
+- Sin exportacion automatica.
+- Sin tocar Ventas.
 
 Cierre:
 
-- DDL aprobado o decision de seguir con vista read-only.
+- DDL aprobado, aplicado y verificado.
 
 ### Tarea 5 - CRUD de catalogos comerciales
 
@@ -1046,9 +1108,10 @@ Orden recomendado:
 
 ## Proxima accion recomendada
 
-Comenzar con Tarea 1: auditoria de base y contratos existentes para confirmar si el MVP puede salir sin DDL.
+Comenzar con Tarea 5: CRUD de catalogos comerciales.
 
 Criterio para avanzar a codigo:
 
-- Si los datos actuales permiten consultar candidatos, construir endpoint read-only y vista MVP sin tocar esquema.
-- Si falta estructura para guardar colecciones, preparar DDL, pero no aplicarlo sin autorizacion.
+- Crear endpoints para listar, consultar y guardar borradores en BD.
+- Mantener los borradores locales como apoyo, no como fuente oficial.
+- No publicar enlaces ni exportar automaticamente hasta una fase autorizada posterior.

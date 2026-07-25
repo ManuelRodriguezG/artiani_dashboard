@@ -367,6 +367,17 @@ class Ventas extends Controlador {
   }
 
   /**
+   * Documentacion IA: Codex GPT-5, 2026-07-24.
+   * Proposito: validar politica POS de inventario pendiente desde configuracion sin escribir BD.
+   * Impacto: permite revisar alcance masivo por tienda o puntual por SKU antes de activar ventas con faltante.
+   * Contrato: dry-run protegido por `ventas.ver`.
+   */
+  public function pos_configuracion_politica_inventario_pendiente_dryrun_erp() {
+    $this->requerirPermiso("ventas.ver");
+    return json_encode($this->modelo("VentasErp")->politicaInventarioPendientePosDryRun($_POST));
+  }
+
+  /**
    * Documentacion IA: Codex GPT-5, 2026-07-03.
    * Proposito: guardar caja POS real desde flujo autorizado de configuracion.
    * Impacto: crea/edita caja sin abrir turno ni mover caja.
@@ -402,6 +413,21 @@ class Ventas extends Controlador {
     $this->requerirPermiso("ventas.pos_config.asignar_usuario");
     $respuesta = $this->modelo("VentasErp")->configuracionAsignacionGuardarReal($_POST, $this->usuarioActualId());
     $this->auditarConfiguracionPos("asignacion_guardar", $respuesta);
+    return json_encode($respuesta);
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5, 2026-07-24.
+   * Proposito: guardar politica POS de inventario pendiente desde configuracion administrativa.
+   * Impacto: habilita venta con faltante solo para canal POS y alcance elegido; no crea venta ni mueve inventario.
+   * Contrato: POST con CSRF, sesion y permiso de configuracion POS.
+   */
+  public function pos_configuracion_politica_inventario_pendiente_guardar_erp() {
+    $this->requerirPermisoConfiguracionPosGuardar();
+    $_POST["canal"] = "pos";
+    $_POST["id_usuario"] = $this->usuarioActualId();
+    $respuesta = $this->modelo("VentasErp")->guardarPoliticaInventarioPendientePosReal($_POST);
+    $this->auditarConfiguracionPos("politica_inventario_pendiente_guardar", $respuesta);
     return json_encode($respuesta);
   }
 
@@ -493,6 +519,20 @@ class Ventas extends Controlador {
     $this->requerirPermiso("ventas.operar");
     $_POST["id_usuario"] = $this->usuarioActualId();
     return json_encode($this->modelo("VentasErp")->ventaRapidaResolucionDryRun($_POST));
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5, 2026-07-24.
+   * Proposito: ejecutar resolucion real de un pendiente VRP contra SKU existente.
+   * Impacto: clasifica venta rapida, actualiza detalle con SKU real, genera evento y alerta de inventario si aplica.
+   * Contrato: POST real; requiere `ventas.operar`, token, confirmacion y respaldo validado por flujo autorizado.
+   */
+  public function pos_venta_rapida_resolver_erp() {
+    $this->requerirPermiso("ventas.operar");
+    $_POST["id_usuario"] = $this->usuarioActualId();
+    $respuesta = $this->modelo("VentasErp")->ventaRapidaResolverReal($_POST);
+    $this->auditarCobroPos("resolver_venta_rapida", $respuesta);
+    return json_encode($respuesta);
   }
   /**
    * Documentacion IA: Codex GPT-5, 2026-06-26.
@@ -1789,6 +1829,55 @@ class Ventas extends Controlador {
     return json_encode($this->modelo("VentasErpEsquema")->planActualizarVentaRapidaControladaPos($ejecutar));
   }
 
+  /**
+   * Documentacion IA: Codex GPT-5, 2026-07-24.
+   * Proposito: auditar estructura de configuracion formal de ticket POS.
+   * Impacto: solo lectura; no altera ventas, caja, inventario ni configuracion de impresora.
+   * Contrato: requiere permiso de soporte y devuelve cobertura de tablas/columnas/indices.
+   */
+  public function esquema_auditar_ticket_config_pos() {
+    $this->requerirPermiso("sistema.soporte");
+    return json_encode($this->modelo("VentasErpEsquema")->auditarTicketConfigPos());
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5, 2026-07-24.
+   * Proposito: generar/aplicar DDL para configuracion formal de ticket POS.
+   * Impacto: crea estructura para datos de empresa y formato por almacen/caja/terminal; no crea ventas ni imprime.
+   * Contrato: con ejecutar=0 solo genera SQL; ejecutar=1 requiere token, respaldo vigente y confirmacion exacta.
+   */
+  public function esquema_actualizar_ticket_config_pos() {
+    $this->requerirPermiso("sistema.soporte");
+    $ejecutar = isset($_POST["ejecutar"]) && intval($_POST["ejecutar"]) === 1;
+    if ($ejecutar) {
+      $autorizar = isset($_POST["autorizar"]) ? trim((string) $_POST["autorizar"]) : "";
+      $respaldo = isset($_POST["respaldo"]) ? trim((string) $_POST["respaldo"]) : "";
+      $confirmacion = isset($_POST["confirmacion"]) ? strtoupper(trim((string) $_POST["confirmacion"])) : "";
+      $validacionRespaldo = $this->validarRespaldoVentasPos($respaldo);
+      if ($autorizar !== "VENTAS_POS_TICKET_CONFIG_DDL" || !$validacionRespaldo["ok"] || $confirmacion !== "APLICAR CONFIG TICKET POS") {
+        return json_encode(array(
+          "error" => true,
+          "tipo" => "danger",
+          "mensaje" => "No se aplico DDL configuracion ticket POS. Falta token, respaldo valido o confirmacion exacta.",
+          "depurar" => array(
+            "requerido" => array(
+              "autorizar" => "VENTAS_POS_TICKET_CONFIG_DDL",
+              "respaldo" => "UAT POS vigente o ruta autorizada",
+              "confirmacion" => "APLICAR CONFIG TICKET POS"
+            ),
+            "validacion_respaldo" => $validacionRespaldo,
+            "reglas" => array(
+              "No crea ventas.",
+              "No mueve caja ni inventario.",
+              "No configura impresoras del sistema operativo.",
+              "Solo prepara estructura para datos de empresa y formato de ticket."
+            )
+          )
+        ));
+      }
+    }
+    return json_encode($this->modelo("VentasErpEsquema")->planActualizarTicketConfigPos($ejecutar));
+  }
   /**
    * Documentacion IA: Codex GPT-5, 2026-06-27.
    * Proposito: generar o aplicar DDL de caja POS completa con guardrail explicito.

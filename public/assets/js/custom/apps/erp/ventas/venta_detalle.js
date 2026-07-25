@@ -168,13 +168,31 @@
         document.getElementById("venta_detalle_alerta").innerHTML = "<div class=\"alert alert-" + tipo + " py-3 mb-0\">" + escapeHtml(mensaje) + "</div>";
     }
 
+    /**
+     * IA: Codex GPT-5 | Fecha: 2026-07-24
+     * Proposito: preparar impresion termica 80mm desde navegador sin caer en hoja carta/PDF largo.
+     * Impacto: define @page de 80mm, altura estimada por lineas y area util de 76mm para reducir margenes.
+     */
+    function altoTicketMm(texto) {
+        var lineas = String(texto || "").split(/\r?\n/).length;
+        return Math.max(80, Math.min(900, Math.ceil(18 + (lineas * 3.2))));
+    }
+
+    function documentoTicketTermico(texto, titulo, altoMm) {
+        var css = "@page{size:80mm " + altoMm + "mm;margin:0;}" +
+            "html,body{width:80mm;margin:0;padding:0;background:#fff;color:#111;}" +
+            "body{font-family:Consolas,'Liberation Mono','Courier New',monospace;font-size:12px;line-height:1.25;}" +
+            ".ticket{box-sizing:border-box;width:80mm;margin:0;padding:1mm 1.5mm;white-space:pre;overflow:hidden;}" +
+            "@media screen{body{background:#f3f4f6;}.ticket{min-height:" + altoMm + "mm;background:#fff;box-shadow:0 0 0 1px #ddd;margin:8px auto;padding:3mm 2mm;}}" +
+            "@media print{html,body{width:80mm;height:" + altoMm + "mm;}.ticket{box-shadow:none;margin:0;padding:1mm 1.5mm;} }";
+        return "<!doctype html><html><head><meta charset=\"utf-8\"><title>" + escapeHtml(titulo || "Ticket POS") + "</title><style>" + css + "</style></head><body><pre class=\"ticket\">" + escapeHtml(texto || "") + "</pre></body></html>";
+    }
     function imprimirTicket() {
         if (!ticketActual) { return; }
-        var ventana = window.open("", "erp_pos_ticket_detalle", "width=420,height=720");
+        var altoMm = altoTicketMm(ticketActual);
+        var ventana = window.open("", "erp_pos_ticket_detalle", "width=340,height=720");
         if (!ventana) { return; }
-        ventana.document.write("<!doctype html><html><head><title>Ticket POS</title><style>body{font-family:Consolas,'Liberation Mono',monospace;font-size:12px;white-space:pre-wrap;margin:12px;color:#111;}@media print{body{margin:0;}}</style></head><body>");
-        ventana.document.write(escapeHtml(ticketActual));
-        ventana.document.write("</body></html>");
+        ventana.document.write(documentoTicketTermico(ticketActual, "Ticket POS", altoMm));
         ventana.document.close();
         ventana.focus();
         ventana.print();

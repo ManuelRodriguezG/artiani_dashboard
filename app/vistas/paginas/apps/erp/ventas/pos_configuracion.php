@@ -56,7 +56,7 @@
                                 <div class="col-md-3"><div class="pos-config-card pos-config-kpi p-4"><div class="text-muted fs-8 text-uppercase">Cajas</div><div class="fw-bold fs-2" id="pos_config_kpi_cajas">0</div></div></div>
                                 <div class="col-md-3"><div class="pos-config-card pos-config-kpi p-4"><div class="text-muted fs-8 text-uppercase">Terminales</div><div class="fw-bold fs-2" id="pos_config_kpi_terminales">0</div></div></div>
                                 <div class="col-md-3"><div class="pos-config-card pos-config-kpi p-4"><div class="text-muted fs-8 text-uppercase">Asignaciones</div><div class="fw-bold fs-2" id="pos_config_kpi_asignaciones">0</div></div></div>
-                                <div class="col-md-3"><div class="pos-config-card pos-config-kpi p-4"><div class="text-muted fs-8 text-uppercase">Modo</div><div class="fw-bold fs-5">Administracion POS</div></div></div>
+                                <div class="col-md-3"><div class="pos-config-card pos-config-kpi p-4"><div class="text-muted fs-8 text-uppercase">Politicas faltante</div><div class="fw-bold fs-2" id="pos_config_kpi_politicas">0</div></div></div>
                             </div>
                             <div class="pos-config-card p-4 mb-4">
                                 <div class="d-flex flex-wrap justify-content-between align-items-center gap-3">
@@ -74,6 +74,7 @@
                                     <li class="nav-item" role="presentation"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#pos_config_tab_caja" type="button" role="tab">Caja</button></li>
                                     <li class="nav-item" role="presentation"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#pos_config_tab_terminal" type="button" role="tab">Terminal</button></li>
                                     <li class="nav-item" role="presentation"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#pos_config_tab_asignacion" type="button" role="tab">Asignacion</button></li>
+                                    <li class="nav-item" role="presentation"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#pos_config_tab_inventario_pendiente" type="button" role="tab">Inventario pendiente</button></li>
                                 </ul>
                                 <div class="tab-content">
                                     <div class="tab-pane fade show active" id="pos_config_tab_caja" role="tabpanel">
@@ -110,6 +111,29 @@
                                             <div class="col-md-3"><label class="form-label text-muted fs-8 text-uppercase">Terminal</label><select class="form-select form-select-solid" id="pos_cfg_asig_terminal"></select></div>
                                             <div class="col-md-1"><label class="form-label text-muted fs-8 text-uppercase">Prior.</label><input class="form-control form-control-solid" id="pos_cfg_asig_prioridad" inputmode="numeric" value="1"></div>
                                             <div class="col-12 d-flex flex-wrap gap-2"><button class="btn btn-light-primary" id="pos_cfg_asig_validar" type="button"><i class="bi bi-check2-circle"></i> Validar</button><button class="btn btn-primary" id="pos_cfg_asig_guardar" type="button"><i class="bi bi-save"></i> Guardar asignacion</button><button class="btn btn-light" id="pos_cfg_limpiar" type="button"><i class="bi bi-eraser"></i> Limpiar captura</button></div>
+                                        </div>
+                                    </div>
+                                    <div class="tab-pane fade" id="pos_config_tab_inventario_pendiente" role="tabpanel">
+                                        <div class="alert alert-light-warning py-3 mb-4">
+                                            <div class="fw-bold">Venta con inventario pendiente</div>
+                                            <div class="fs-7">La politica masiva aplica solo al canal POS de esta tienda. No habilita ecommerce y cada cobro sigue pidiendo motivo, permiso y turno abierto.</div>
+                                        </div>
+                                        <div class="row g-3 align-items-end">
+                                            <div class="col-md-3"><label class="form-label text-muted fs-8 text-uppercase">Tienda</label><select class="form-select form-select-solid" id="pos_cfg_pinv_almacen"></select></div>
+                                            <div class="col-md-3">
+                                                <label class="form-label text-muted fs-8 text-uppercase">Alcance</label>
+                                                <select class="form-select form-select-solid" id="pos_cfg_pinv_alcance">
+                                                    <option value="almacen">Toda la tienda</option>
+                                                    <option value="sku">Solo un SKU</option>
+                                                </select>
+                                            </div>
+                                            <div class="col-md-2"><label class="form-label text-muted fs-8 text-uppercase">ID SKU</label><input class="form-control form-control-solid" id="pos_cfg_pinv_sku" inputmode="numeric" placeholder="Ej. 393"></div>
+                                            <div class="col-md-2"><label class="form-label text-muted fs-8 text-uppercase">Cantidad max.</label><input class="form-control form-control-solid" id="pos_cfg_pinv_cantidad" inputmode="decimal" value="1"></div>
+                                            <div class="col-md-2"><label class="form-label text-muted fs-8 text-uppercase">Monto max.</label><input class="form-control form-control-solid" id="pos_cfg_pinv_monto" inputmode="decimal" value="500"></div>
+                                            <div class="col-md-4"><label class="form-label text-muted fs-8 text-uppercase">Codigo</label><input class="form-control form-control-solid" id="pos_cfg_pinv_codigo" placeholder="Automatico si se deja vacio"></div>
+                                            <div class="col-md-4"><label class="form-label text-muted fs-8 text-uppercase">Nombre</label><input class="form-control form-control-solid" id="pos_cfg_pinv_nombre" placeholder="Inventario pendiente POS tienda"></div>
+                                            <div class="col-md-4"><label class="form-label text-muted fs-8 text-uppercase">Motivo operativo</label><input class="form-control form-control-solid" id="pos_cfg_pinv_motivo" placeholder="Arranque controlado con mini inventarios"></div>
+                                            <div class="col-12 d-flex flex-wrap gap-2"><button class="btn btn-light-primary" id="pos_cfg_pinv_validar" type="button"><i class="bi bi-shield-check"></i> Validar politica</button><button class="btn btn-warning" id="pos_cfg_pinv_guardar" type="button"><i class="bi bi-save"></i> Guardar politica</button></div>
                                         </div>
                                     </div>
                                 </div>
@@ -153,7 +177,7 @@
                                     </div>
                                 </div>
                                 <div class="col-12">
-                                    <div class="pos-config-card p-4">
+                                    <div class="pos-config-card p-4 mb-4">
                                         <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
                                             <div class="fw-bold fs-5">Asignaciones usuario/caja</div>
                                             <div class="btn-group btn-group-sm" role="group" aria-label="Filtro asignaciones">
@@ -170,6 +194,27 @@
                                         </div>
                                     </div>
                                 </div>
+                                <div class="col-12">
+                                    <div class="pos-config-card p-4">
+                                        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+                                            <div>
+                                                <div class="fw-bold fs-5">Politicas de inventario pendiente</div>
+                                                <div class="text-muted fs-7">Controla venta con faltante por tienda o SKU sin afectar ecommerce</div>
+                                            </div>
+                                            <div class="btn-group btn-group-sm" role="group" aria-label="Filtro politicas inventario">
+                                                <button class="btn btn-light-primary active" type="button" data-pos-filtro="politicas" data-valor="activos">Activas</button>
+                                                <button class="btn btn-light" type="button" data-pos-filtro="politicas" data-valor="historico">Historial</button>
+                                                <button class="btn btn-light" type="button" data-pos-filtro="politicas" data-valor="todos">Todas</button>
+                                            </div>
+                                        </div>
+                                        <div class="table-responsive pos-config-table">
+                                            <table class="table align-middle table-row-dashed gy-3 mb-0">
+                                                <thead><tr class="text-muted fw-bold fs-8 text-uppercase"><th>Politica</th><th>Tienda</th><th>Alcance</th><th>Limites</th><th>Reglas</th><th>Estatus</th></tr></thead>
+                                                <tbody id="pos_config_politicas"></tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -180,6 +225,6 @@
 </div>
 <script src="assets/plugins/global/plugins.bundle.js"></script>
 <script src="assets/js/scripts.bundle.js"></script>
-<script src="/assets/js/custom/apps/erp/ventas/pos_configuracion.js?v=20260704-filtros-historico1"></script>
+<script src="/assets/js/custom/apps/erp/ventas/pos_configuracion.js?v=20260724-politicas-inventario1"></script>
 </body>
 </html>

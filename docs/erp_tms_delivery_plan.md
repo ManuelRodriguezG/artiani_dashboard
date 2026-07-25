@@ -654,11 +654,11 @@ Estado:
   - `storage/uat/uat_tms_delivery_go_nogo_readonly.php`;
   - salida resumida por defecto;
   - salida detallada con `--detalle=1`;
-  - resultado 2026-07-24: `ok=true`, 43/43 checks correctos, estado `go_con_activaciones_pendientes`.
+  - resultado 2026-07-24: `ok=true`, 45/45 checks correctos, estado `go_con_activaciones_pendientes`.
 - Preflight de activacion controlada creado y ejecutado:
   - `storage/uat/uat_tms_delivery_preactivacion_readonly.php`;
-  - resultado 2026-07-24: `ok=true`, 6/6 checks correctos, estado `preactivacion_preparada`;
-  - propone respaldos y comandos separados para permisos y esquema.
+  - resultado 2026-07-24: `ok=true`, 9/9 checks correctos, estado `preactivacion_preparada`;
+  - propone respaldos y comandos separados para permisos, esquema y UAT manual.
 - Verificacion post-permisos creada y ejecutada:
   - `storage/uat/uat_tms_delivery_permisos_postapply_readonly.php`;
   - resultado 2026-07-24: estado `permisos_tms_pendientes`, permisos 0/8, roles 0/8, menu TMS listo;
@@ -669,6 +669,7 @@ Estado:
   - resultado esperado antes de aplicar autorizacion `TMS_DELIVERY_DDL_BASE`.
 - UAT autorizado de servicio manual preparado:
   - `storage/uat/uat_tms_delivery_servicio_manual_apply_authorized.php`;
+  - solicitud formal: `docs/erp_tms_delivery_uat_manual_solicitud_autorizacion.md`;
   - bloqueado sin token `TMS_UAT_SERVICIO_MANUAL` y respaldo valido;
   - en ejecucion futura crea solo servicio TMS de prueba, eventos y evidencia; no toca Ventas/POS/Garantias/Inventario.
 - Scripts de aplicacion autorizada preparados y validados en modo bloqueado:

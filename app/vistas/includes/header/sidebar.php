@@ -25,6 +25,15 @@ $seccionesMenu = array(
 $gruposMenu = array(
     array(
         'seccion' => 'ERP',
+        'titulo' => 'Proyectos',
+        'icono' => 'bi-kanban',
+        'permiso' => 'proyectos.ver',
+        'items' => array(
+            array('titulo' => 'Proyectos y tareas', 'ruta' => '/proyecto', 'permiso' => 'proyectos.ver')
+        )
+    ),
+    array(
+        'seccion' => 'ERP',
         'titulo' => 'Catalogo',
         'icono' => 'bi-box-seam',
         'permiso' => 'catalogo.ver',

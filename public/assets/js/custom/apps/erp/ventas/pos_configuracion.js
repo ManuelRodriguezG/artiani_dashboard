@@ -4,7 +4,8 @@
     var filtros = {
         cajas: "activos",
         terminales: "activos",
-        asignaciones: "activos"
+        asignaciones: "activos",
+        politicas: "activos"
     };
 
     /**
@@ -45,15 +46,18 @@
         var cajas = data.cajas || [];
         var terminales = data.terminales || [];
         var asignaciones = data.asignaciones || [];
+        var politicas = data.politicas_inventario_pendiente || [];
         renderKpi("pos_config_kpi_cajas", contarActivos(cajas, "activa"), contarHistoricos(cajas, "activa"));
         renderKpi("pos_config_kpi_terminales", contarActivos(terminales, "activa"), contarHistoricos(terminales, "activa"));
         renderKpi("pos_config_kpi_asignaciones", contarActivos(asignaciones, "activo"), contarHistoricos(asignaciones, "activo"));
+        renderKpi("pos_config_kpi_politicas", contarActivos(politicas, "activa"), contarHistoricos(politicas, "activa"));
         document.getElementById("pos_config_alerta").innerHTML = data.schema_pendiente
             ? "<div class=\"alert alert-warning py-3\"><div class=\"fw-bold\">Configuracion incompleta</div><div class=\"fs-7\">Hay tablas POS pendientes. La administracion queda en modo solo consulta.</div></div>"
             : "<div class=\"alert alert-info py-3\"><div class=\"fw-bold\">Configuracion POS separada</div><div class=\"fs-7\">Guardar requiere permiso administrativo; validar no escribe datos.</div></div>";
         renderCajas(filtrarPorEstado(cajas, filtros.cajas, "activa"));
         renderTerminales(filtrarPorEstado(terminales, filtros.terminales, "activa"));
         renderAsignaciones(filtrarPorEstado(asignaciones, filtros.asignaciones, "activo"));
+        renderPoliticasInventario(filtrarPorEstado(politicas, filtros.politicas, "activa"));
         llenarSelectores(data);
     }
 
@@ -95,7 +99,7 @@
         var almacenesHtml = almacenes.map(function (item) {
             return "<option value=\"" + escapeHtml(item.id_almacen) + "\">" + escapeHtml(item.codigo_almacen || item.almacen || item.id_almacen) + "</option>";
         }).join("") || "<option value=\"\">Sin tiendas</option>";
-        ["pos_cfg_caja_almacen", "pos_cfg_terminal_almacen", "pos_cfg_asig_almacen"].forEach(function (id) {
+        ["pos_cfg_caja_almacen", "pos_cfg_terminal_almacen", "pos_cfg_asig_almacen", "pos_cfg_pinv_almacen"].forEach(function (id) {
             document.getElementById(id).innerHTML = almacenesHtml;
         });
         var cajasHtml = cajas.map(function (item) {
@@ -186,6 +190,25 @@
         }).join("") || "<tr><td colspan=\"7\" class=\"text-center text-muted py-6\">Sin asignaciones para este filtro</td></tr>";
     }
 
+    function renderPoliticasInventario(filas) {
+        document.getElementById("pos_config_politicas").innerHTML = filas.map(function (item) {
+            var activo = String(item.estatus || "") === "activa";
+            var alcance = String(item.alcance || "") === "almacen"
+                ? "<span class=\"badge badge-light-warning\">Toda la tienda</span>"
+                : "<span class=\"badge badge-light-primary\">SKU " + escapeHtml(item.sku || item.id_sku_erp || "-") + "</span>";
+            var reglas = [];
+            if (Number(item.requiere_autorizacion || 0)) { reglas.push("Autorizacion"); }
+            if (Number(item.motivo_obligatorio || 0)) { reglas.push("Motivo"); }
+            reglas.push(String(item.canal || "pos").toUpperCase());
+            return "<tr><td><div class=\"fw-bold\">" + escapeHtml(item.codigo || "-") + "</div><div class=\"text-muted fs-8\">" + escapeHtml(item.nombre || "") + "</div></td>" +
+                "<td>" + escapeHtml(item.almacen || item.id_almacen || "-") + "</td>" +
+                "<td>" + alcance + "<div class=\"text-muted fs-8\">" + escapeHtml(item.sku_nombre || "") + "</div></td>" +
+                "<td><div class=\"fw-semibold\">Cant. " + escapeHtml(item.cantidad_maxima_pendiente || "0") + "</div><div class=\"text-muted fs-8\">Monto $" + escapeHtml(item.monto_maximo || "0") + "</div></td>" +
+                "<td>" + reglas.map(function (regla) { return "<span class=\"badge badge-light me-1\">" + escapeHtml(regla) + "</span>"; }).join("") + "</td>" +
+                "<td><span class=\"badge " + (activo ? "badge-light-success" : "badge-light") + "\">" + escapeHtml(item.estatus || "-") + "</span></td></tr>";
+        }).join("") || "<tr><td colspan=\"6\" class=\"text-center text-muted py-6\">Sin politicas de inventario pendiente para este filtro</td></tr>";
+    }
+
     function bool(id) {
         return document.getElementById(id).checked ? "1" : "0";
     }
@@ -224,6 +247,19 @@
         };
     }
 
+    function datosPoliticaInventario() {
+        return {
+            id_almacen: document.getElementById("pos_cfg_pinv_almacen").value,
+            alcance: document.getElementById("pos_cfg_pinv_alcance").value,
+            id_sku: document.getElementById("pos_cfg_pinv_sku").value,
+            cantidad_maxima: document.getElementById("pos_cfg_pinv_cantidad").value,
+            monto_maximo: document.getElementById("pos_cfg_pinv_monto").value,
+            codigo: document.getElementById("pos_cfg_pinv_codigo").value.trim(),
+            nombre: document.getElementById("pos_cfg_pinv_nombre").value.trim(),
+            motivo: document.getElementById("pos_cfg_pinv_motivo").value.trim()
+        };
+    }
+
     function validarCaja() {
         postRequest("/ventas/pos_configuracion_caja_dryrun_erp", datosCaja()).then(renderValidacion).catch(renderErrorValidacion);
     }
@@ -234,6 +270,10 @@
 
     function validarAsignacion() {
         postRequest("/ventas/pos_configuracion_asignacion_dryrun_erp", datosAsignacion()).then(renderValidacion).catch(renderErrorValidacion);
+    }
+
+    function validarPoliticaInventario() {
+        postRequest("/ventas/pos_configuracion_politica_inventario_pendiente_dryrun_erp", datosPoliticaInventario()).then(renderValidacion).catch(renderErrorValidacion);
     }
 
     function guardar(url, data) {
@@ -256,6 +296,10 @@
 
     function guardarAsignacion() {
         guardar("/ventas/pos_configuracion_asignacion_guardar_erp", datosAsignacion());
+    }
+
+    function guardarPoliticaInventario() {
+        guardar("/ventas/pos_configuracion_politica_inventario_pendiente_guardar_erp", datosPoliticaInventario());
     }
 
     function activarTab(selector) {
@@ -310,7 +354,7 @@
     }
 
     function limpiarCaptura() {
-        ["pos_cfg_caja_id", "pos_cfg_terminal_id", "pos_cfg_asig_id", "pos_cfg_caja_codigo", "pos_cfg_caja_nombre", "pos_cfg_terminal_codigo", "pos_cfg_terminal_nombre", "pos_cfg_terminal_identificador", "pos_cfg_asig_usuario"].forEach(function (id) {
+        ["pos_cfg_caja_id", "pos_cfg_terminal_id", "pos_cfg_asig_id", "pos_cfg_caja_codigo", "pos_cfg_caja_nombre", "pos_cfg_terminal_codigo", "pos_cfg_terminal_nombre", "pos_cfg_terminal_identificador", "pos_cfg_asig_usuario", "pos_cfg_pinv_codigo", "pos_cfg_pinv_nombre", "pos_cfg_pinv_motivo", "pos_cfg_pinv_sku"].forEach(function (id) {
             var element = document.getElementById(id);
             if (element) { element.value = ""; }
         });
@@ -375,9 +419,11 @@
         document.getElementById("pos_cfg_caja_validar").addEventListener("click", validarCaja);
         document.getElementById("pos_cfg_terminal_validar").addEventListener("click", validarTerminal);
         document.getElementById("pos_cfg_asig_validar").addEventListener("click", validarAsignacion);
+        document.getElementById("pos_cfg_pinv_validar").addEventListener("click", validarPoliticaInventario);
         document.getElementById("pos_cfg_caja_guardar").addEventListener("click", guardarCaja);
         document.getElementById("pos_cfg_terminal_guardar").addEventListener("click", guardarTerminal);
         document.getElementById("pos_cfg_asig_guardar").addEventListener("click", guardarAsignacion);
+        document.getElementById("pos_cfg_pinv_guardar").addEventListener("click", guardarPoliticaInventario);
         document.getElementById("pos_cfg_limpiar").addEventListener("click", limpiarCaptura);
         document.addEventListener("click", function (event) {
             var filtroBoton = event.target.closest("[data-pos-filtro]");

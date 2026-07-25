@@ -457,11 +457,20 @@
                                             <li>Si varios operadores usan la misma caja/turno, cada cobro debe quedar con el usuario que lo hizo.</li>
                                             <li>Los cambios de configuracion deben quedar auditados.</li>
                                         </ul>
+                                        <h3 class="fw-bold fs-6 mt-4">Politicas de inventario pendiente</h3>
+                                        <p class="text-muted">Se administran desde Ventas &gt; Configuracion POS &gt; Inventario pendiente. Puedes crear una politica para toda la tienda o para un SKU especifico. La politica masiva sirve para arranque operativo con mini inventarios: permite vender faltantes en POS con limites, motivo y autorizacion, pero no habilita ecommerce.</p>
                                     </div>
 
                                     <div class="pos-manual-card p-5 mb-4 pos-manual-section" id="manual-inventario-pendiente">
                                         <h2 class="fw-bold fs-4 mb-4">Inventario pendiente POS</h2>
                                         <p class="text-muted">Inventario pendiente se usa cuando se autoriza una venta aunque el ERP no tenga existencia suficiente. El sistema permite vender solo bajo politica y genera una alerta para Inventario/Existencias.</p>
+                                        <h3 class="fw-bold fs-6">Donde se activa</h3>
+                                        <ul class="pos-manual-list text-muted">
+                                            <li><strong>Catalogo:</strong> puede indicar que el SKU permite existencia negativa, pero eso no basta para vender en POS.</li>
+                                            <li><strong>Configuracion POS:</strong> debe existir una politica activa por tienda/canal POS. Puede ser masiva para toda la tienda o especifica por SKU.</li>
+                                            <li><strong>POS:</strong> al cobrar valida turno, permiso, pago, motivo, limite de cantidad/monto y politica activa.</li>
+                                            <li><strong>Inventario:</strong> recibe la alerta solo despues de una venta cobrada, no al agregar el producto al carrito.</li>
+                                        </ul>
                                         <h3 class="fw-bold fs-6">Que pasa al vender con pendiente</h3>
                                         <ol class="text-muted">
                                             <li>POS cobra la venta con autorizacion.</li>

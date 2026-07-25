@@ -219,3 +219,34 @@ Siguiente autorizacion fuerte posible:
 ```text
 AUTORIZO EJECUTAR RESOLUCION REAL VENTA RAPIDA POS usando respaldo UAT POS vigente con token VENTAS_POS_VENTA_RAPIDA_RESOLVER_REAL id_usuario=1 folio=VRP-20260724-000001 id_sku=1760 decision_inventario=mantener_pendiente_regularizacion confirmacion="RESOLVER VENTA RAPIDA POS" motivo="Clasificar producto vendido por venta rapida POS" para UAT POS/Catalogo/Inventario
 ```
+## Resolucion real UAT 2026-07-24
+
+Autorizacion ejecutada:
+
+```text
+AUTORIZO EJECUTAR RESOLUCION REAL VENTA RAPIDA POS usando respaldo UAT POS vigente con token VENTAS_POS_VENTA_RAPIDA_RESOLVER_REAL id_usuario=1 folio=VRP-20260724-000001 id_sku=1760 decision_inventario=mantener_pendiente_regularizacion confirmacion="RESOLVER VENTA RAPIDA POS" motivo="Clasificar producto vendido por venta rapida POS" para UAT POS/Catalogo/Inventario
+```
+
+Evidencia real:
+
+- Pendiente `VRP-20260724-000001` paso de `pendiente_catalogo` a `clasificado`.
+- Venta relacionada: `POS-20260724-000001`.
+- Detalle relacionado: `id_venta_detalle=29`.
+- SKU resuelto: `1760` / `TP-40352-500GR`, producto `1016`.
+- Precio y subtotal historicos permanecen en `$100.00`; no se recalcula ticket.
+- `descripcion_manual_snapshot` conserva `Producto UAT UI por clasificar`.
+- Estado de inventario queda `pendiente_regularizacion`.
+- Evento creado: `clasificado_sku`, con `id_sku_erp=1760`.
+- Notificacion Catalogo `39` quedo `resuelta`.
+- Notificacion Inventario `40` quedo `pendiente` para regularizar existencia.
+- Kardex generado durante clasificacion: `0`, correcto.
+
+Postcheck read-only:
+
+```powershell
+C:\xampp\php\php.exe storage\uat\uat_ventas_pos_venta_rapida_resolver_postcheck_readonly.php --folio=VRP-20260724-000001
+```
+
+Resultado: `ok=true`, sin bloqueos.
+
+Siguiente trabajo: resolver la regularizacion desde Inventario/Existencias. POS ya cumplio: cobro, caja, clasificacion catalogo, evento y alerta a Inventario.

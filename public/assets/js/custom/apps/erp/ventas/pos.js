@@ -1980,16 +1980,63 @@
         var modal = bootstrap.Modal.getOrCreateInstance(document.getElementById("pos_ticket_modal"));
         modal.show();
     }
+    /**
+     * IA: Codex GPT-5 | Fecha: 2026-07-24
+     * Proposito: preparar impresion termica 80mm desde navegador sin caer en hoja carta/PDF largo.
+     * Impacto: define @page de 80mm, altura estimada por lineas y area util de 76mm para reducir margenes.
+     */
+    function altoTicketMm(texto) {
+        var lineas = String(texto || "").split(/\r?\n/).length;
+        return Math.max(80, Math.min(900, Math.ceil(18 + (lineas * 3.2))));
+    }
+
+    function documentoTicketTermico(texto, titulo, altoMm) {
+        var css = "@page{size:80mm " + altoMm + "mm;margin:0;}" +
+            "html,body{width:80mm;margin:0;padding:0;background:#fff;color:#111;}" +
+            "body{font-family:Consolas,'Liberation Mono','Courier New',monospace;font-size:12px;line-height:1.25;}" +
+            ".ticket{box-sizing:border-box;width:80mm;margin:0;padding:1mm 1.5mm;white-space:pre;overflow:hidden;}" +
+            "@media screen{body{background:#f3f4f6;}.ticket{min-height:" + altoMm + "mm;background:#fff;box-shadow:0 0 0 1px #ddd;margin:8px auto;padding:3mm 2mm;}}" +
+            "@media print{html,body{width:80mm;height:" + altoMm + "mm;}.ticket{box-shadow:none;margin:0;padding:1mm 1.5mm;} }";
+        var script = "<script>window.addEventListener('afterprint',function(){setTimeout(function(){window.close();},300);});<\/script>";
+        return "<!doctype html><html><head><meta charset=\"utf-8\"><title>" + escapeHtml(titulo || "Ticket POS") + "</title><style>" + css + "</style></head><body><pre class=\"ticket\">" + escapeHtml(texto || "") + "</pre>" + script + "</body></html>";
+    }
     function imprimirTicketPos() {
         if (!ticketPosActual) { return; }
-        var ventana = window.open("", "erp_pos_ticket_directo", "width=420,height=720");
+        var altoMm = altoTicketMm(ticketPosActual);
+        var ventana = window.open("", "erp_pos_ticket_directo", "width=340,height=720");
         if (!ventana) { return; }
-        ventana.document.write("<!doctype html><html><head><title>Ticket POS</title><style>body{font-family:Consolas,'Liberation Mono',monospace;font-size:12px;white-space:pre-wrap;margin:12px;color:#111;}@media print{body{margin:0;}}</style></head><body>");
-        ventana.document.write(escapeHtml(ticketPosActual));
-        ventana.document.write("</body></html>");
+        ventana.document.write(documentoTicketTermico(ticketPosActual, "Ticket POS", altoMm));
         ventana.document.close();
         ventana.focus();
         ventana.print();
+    }
+    function imprimirTicketPrueba80() {
+        var ahora = new Date();
+        var texto = [
+            "                 ARTIANI                  ",
+            "              PRUEBA TICKET 80            ",
+            "------------------------------------------",
+            "Fecha: " + ahora.toLocaleString("es-MX"),
+            "POS: " + ((window.POS_USUARIO_ACTUAL || {}).nombre_mostrar || "Usuario POS"),
+            "Papel: 80mm",
+            "Columnas: 42",
+            "Modo: Chrome kiosk-printing",
+            "------------------------------------------",
+            "Producto prueba",
+            "1.000 pza x $10.00                 $10.00",
+            "------------------------------------------",
+            "TOTAL                               $10.00",
+            "Pagado                              $10.00",
+            "Saldo                                $0.00",
+            "------------------------------------------",
+            "Si este texto se lee completo,",
+            "el tamano y margen estan correctos.",
+            "Ticket no fiscal. Prueba de impresora.",
+            "Gracias por su compra."
+        ].join("\n");
+        ticketPosActual = texto;
+        actualizarModalTicket("Prueba ticket 80mm", "No es venta; valida papel, margen y lectura", texto);
+        imprimirTicketPos();
     }
     function actualizarModalTicket(titulo, subtitulo, texto) {
         ticketPosActual = texto || "";
@@ -2994,6 +3041,7 @@
         document.getElementById("pos_pedido_dryrun").addEventListener("click", dryRunPedidoReserva);
         document.getElementById("pos_ticket_preview").addEventListener("click", ticketPreview);
         document.getElementById("pos_ticket_imprimir").addEventListener("click", imprimirTicketPos);
+        document.getElementById("pos_ticket_prueba_80").addEventListener("click", imprimirTicketPrueba80);
         document.getElementById("pos_cliente_precio_modal_btn").addEventListener("click", function () {
             abrirClienteAutorizacion("cliente");
         });

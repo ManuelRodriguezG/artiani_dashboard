@@ -2846,6 +2846,33 @@ class VentasErp extends CRUD {
     }
 
     /**
+     * Documentacion IA: Codex GPT-5, 2026-07-24.
+     * Proposito: resolver configuracion efectiva de ticket POS sin escribir BD.
+     * Impacto: permite herencia global/almacen/caja/terminal para tickets y previews antes de conectar hardware.
+     * Contrato: read-only; no configura impresora, no imprime y no modifica ventas historicas.
+     */
+    public function ticketConfiguracionEfectivaReadOnly($datos = array()) {
+        try {
+            $db = $this->getConexion();
+            $config = $this->resolverConfiguracionTicketPos($db, array(
+                "id_almacen" => intval($this->valor($datos, "id_almacen", 0)),
+                "id_caja" => intval($this->valor($datos, "id_caja", 0)),
+                "id_terminal_pos" => intval($this->valor($datos, "id_terminal_pos", 0))
+            ));
+            return $this->respuesta(false, "success", "Configuracion efectiva de ticket consultada", array(
+                "read_only" => true,
+                "configuracion" => $config,
+                "contrato" => array(
+                    "no_escribe_bd" => true,
+                    "no_configura_impresora" => true,
+                    "no_imprime" => true
+                )
+            ));
+        } catch (Exception $e) {
+            return $this->respuesta(true, "danger", "No se pudo consultar configuracion de ticket", array("excepcion" => $e->getMessage()));
+        }
+    }
+    /**
      * Documentacion IA: Codex GPT-5, 2026-06-27.
      * Proposito: construir ticket formal read-only desde una venta ERP confirmada.
      * Impacto: permite reimprimir/validar ticket con caja, turno, pagos, precios, lista e inventario sin escribir BD.
@@ -2913,7 +2940,8 @@ class VentasErp extends CRUD {
             $stmt->execute(array(":venta" => intval($venta["id_venta"])));
             $trazabilidad = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-            $ticket = $this->formatearTicketVenta($venta, $detalles, $pagos, $trazabilidad);
+            $configuracionTicket = $this->configuracionTicketParaVenta($db, $venta);
+            $ticket = $this->formatearTicketVenta($venta, $detalles, $pagos, $trazabilidad, $configuracionTicket);
             return $this->respuesta(false, "success", "Ticket formal generado", array(
                 "read_only" => true,
                 "venta" => $venta,
@@ -2922,6 +2950,7 @@ class VentasErp extends CRUD {
                 "trazabilidad_inventario" => $trazabilidad,
                 "ticket_texto" => $ticket["texto"],
                 "ticket_lineas" => $ticket["lineas"],
+                "ticket_configuracion" => $configuracionTicket,
                 "hallazgos" => $ticket["hallazgos"],
                 "contrato" => array(
                     "no_es_fiscal" => true,
@@ -4433,6 +4462,7 @@ class VentasErp extends CRUD {
             }
             $idUsuario = intval($this->valor($datos, "id_usuario", 0));
             $idAlmacen = intval($this->valor($datos, "id_almacen", 0));
+            $alcance = trim((string) $this->valor($datos, "alcance", "sku"));
             $idSku = intval($this->valor($datos, "id_sku", $this->valor($datos, "id_sku_erp", 0)));
             $canal = trim((string) $this->valor($datos, "canal", "pos"));
             $cantidadMaxima = round(floatval($this->valor($datos, "cantidad_maxima", $this->valor($datos, "cantidad_maxima_pendiente", 0))), 6);
@@ -4441,26 +4471,41 @@ class VentasErp extends CRUD {
             if (!in_array($canal, array("pos", "pedido_tienda"), true)) {
                 $canal = "pos";
             }
-            if ($idUsuario <= 0 || $idAlmacen <= 0 || $idSku <= 0 || $cantidadMaxima <= 0) {
-                return $this->respuesta(true, "warning", "Usuario, almacen, SKU y cantidad maxima son obligatorios para politica POS");
+            if (!in_array($alcance, array("almacen", "sku"), true)) {
+                $alcance = $idSku > 0 ? "sku" : "almacen";
             }
-            if ($this->consultarSkuVenta($db, $idSku) === false) {
+            if ($alcance === "almacen") {
+                $idSku = 0;
+            }
+            if ($idUsuario <= 0 || $idAlmacen <= 0 || $cantidadMaxima <= 0) {
+                return $this->respuesta(true, "warning", "Usuario, almacen y cantidad maxima son obligatorios para politica POS");
+            }
+            if (!$this->almacenVentaPorId($db, $idAlmacen)) {
+                return $this->respuesta(true, "warning", "Almacen no vendible o inactivo para politica POS");
+            }
+            if ($alcance === "sku" && ($idSku <= 0 || $this->consultarSkuVenta($db, $idSku) === false)) {
                 return $this->respuesta(true, "warning", "SKU no encontrado o inactivo para politica POS");
             }
             $codigo = trim((string) $this->valor($datos, "codigo", ""));
             if ($codigo === "") {
-                $codigo = "PINV-UAT-A" . $idAlmacen . "-S" . $idSku . "-" . strtoupper($canal);
+                $codigo = $alcance === "sku"
+                    ? "PINV-A" . $idAlmacen . "-S" . $idSku . "-" . strtoupper($canal)
+                    : "PINV-A" . $idAlmacen . "-GLOBAL-" . strtoupper($canal);
             }
             $nombre = trim((string) $this->valor($datos, "nombre", ""));
             if ($nombre === "") {
-                $nombre = "Politica UAT inventario pendiente POS SKU " . $idSku;
+                $nombre = $alcance === "sku"
+                    ? "Inventario pendiente POS SKU " . $idSku
+                    : "Inventario pendiente POS tienda " . $idAlmacen;
             }
+            $idSkuSql = $alcance === "sku" ? $idSku : null;
 
             $snapshot = array(
                 "origen" => "pos_inventario_pendiente",
                 "id_usuario" => $idUsuario,
                 "id_almacen" => $idAlmacen,
-                "id_sku" => $idSku,
+                "alcance" => $alcance,
+                "id_sku" => $idSkuSql,
                 "canal" => $canal,
                 "cantidad_maxima_pendiente" => $cantidadMaxima,
                 "monto_maximo" => $montoMaximo,
@@ -4483,7 +4528,7 @@ class VentasErp extends CRUD {
                 $stmt->execute(array(
                     ":nombre" => $nombre,
                     ":almacen" => $idAlmacen,
-                    ":sku" => $idSku,
+                    ":sku" => $idSkuSql,
                     ":canal" => $canal,
                     ":cantidad" => $cantidadMaxima,
                     ":monto" => $montoMaximo,
@@ -4506,7 +4551,7 @@ class VentasErp extends CRUD {
                     ":codigo" => $codigo,
                     ":nombre" => $nombre,
                     ":almacen" => $idAlmacen,
-                    ":sku" => $idSku,
+                    ":sku" => $idSkuSql,
                     ":canal" => $canal,
                     ":cantidad" => $cantidadMaxima,
                     ":monto" => $montoMaximo,
@@ -4523,7 +4568,8 @@ class VentasErp extends CRUD {
                 "id_politica_inventario_pos" => $idPolitica,
                 "codigo" => $codigo,
                 "id_almacen" => $idAlmacen,
-                "id_sku" => $idSku,
+                "alcance" => $alcance,
+                "id_sku" => $idSkuSql,
                 "canal" => $canal,
                 "cantidad_maxima_pendiente" => $cantidadMaxima,
                 "monto_maximo" => $montoMaximo,
@@ -5466,6 +5512,144 @@ class VentasErp extends CRUD {
             return $this->respuesta(true, "danger", "No se pudo simular resolucion VRP", array("excepcion" => $e->getMessage()));
         }
     }
+
+    /**
+     * Documentacion IA: Codex GPT-5, 2026-07-24.
+     * Proposito: resolver un pendiente VRP vinculandolo a un SKU existente con trazabilidad.
+     * Impacto: actualiza pendiente y detalle de venta; no mueve kardex ni modifica precio/ticket historico.
+     * Contrato: escritura real transaccional; requiere token, confirmacion, usuario y dry-run sin bloqueos.
+     */
+    public function ventaRapidaResolverReal($datos = array()) {
+        $db = $this->getConexion();
+        $idUsuario = intval($this->valor($datos, "id_usuario", 0));
+        $token = trim((string) $this->valor($datos, "token", ""));
+        $confirmacion = strtoupper(trim((string) $this->valor($datos, "confirmacion", "")));
+        $motivo = trim((string) $this->valor($datos, "motivo", ""));
+        $decisionInventario = trim((string) $this->valor($datos, "decision_inventario", "mantener_pendiente_regularizacion"));
+
+        $bloqueos = array();
+        if ($token !== "VENTAS_POS_VENTA_RAPIDA_RESOLVER_REAL") { $bloqueos[] = "Token invalido para resolucion real VRP"; }
+        if ($confirmacion !== "RESOLVER VENTA RAPIDA POS") { $bloqueos[] = "Confirmacion exacta requerida"; }
+        if ($idUsuario <= 0) { $bloqueos[] = "Usuario obligatorio"; }
+        if ($motivo === "") { $bloqueos[] = "Motivo obligatorio"; }
+        if (!empty($bloqueos)) {
+            return $this->respuesta(true, "warning", "Resolucion real VRP bloqueada", array("bloqueos" => $bloqueos));
+        }
+
+        $dryRun = $this->ventaRapidaResolucionDryRun($datos);
+        $bloqueosDry = $this->valorRutaPosReal($dryRun, array("depurar", "bloqueos"), array());
+        if (!empty($dryRun["error"]) || !empty($bloqueosDry)) {
+            return $this->respuesta(true, "warning", "Resolucion real VRP bloqueada por dry-run", array(
+                "dry_run" => $dryRun,
+                "bloqueos" => $bloqueosDry
+            ));
+        }
+
+        try {
+            $db->beginTransaction();
+            $pendiente = $this->bloquearPendienteVentaRapidaPos($db, $datos);
+            if (!$pendiente) {
+                throw new Exception("Pendiente VRP no encontrado para resolucion real");
+            }
+            if (!in_array((string) $pendiente["estatus"], array("pendiente_catalogo", "en_revision"), true)) {
+                throw new Exception("El pendiente VRP ya no esta abierto para clasificacion");
+            }
+            $sku = $this->consultarSkuResolucionVentaRapida($db, intval($this->valor($datos, "id_sku", $this->valor($datos, "id_sku_erp", 0))));
+            if (!$sku) {
+                throw new Exception("SKU definitivo no encontrado durante resolucion real VRP");
+            }
+            $pendienteControla = intval($pendiente["controla_inventario"]) === 1;
+            $skuControla = intval($this->valor($sku, "controla_inventario", 0)) === 1;
+            $inventarioEstado = $pendienteControla && $skuControla ? "pendiente_regularizacion" : "no_inventariable_resuelto";
+            if ($pendienteControla && !$skuControla && $decisionInventario !== "confirmar_no_inventariable") {
+                throw new Exception("SKU no controla inventario; requiere decision_inventario=confirmar_no_inventariable");
+            }
+
+            $snapshot = array(
+                "pendiente_anterior" => $pendiente,
+                "sku_resuelto" => $sku,
+                "decision_inventario" => $decisionInventario,
+                "contrato" => array(
+                    "no_mueve_kardex" => true,
+                    "conserva_precio_ticket" => true,
+                    "conserva_descripcion_manual_snapshot" => true,
+                    "regularizacion_inventario_posterior" => $inventarioEstado === "pendiente_regularizacion"
+                )
+            );
+            $datosDetalle = array(
+                "resolucion" => array(
+                    "id_sku_erp" => intval($sku["id_sku"]),
+                    "id_producto_erp" => intval($sku["id_producto_erp"]),
+                    "sku" => $sku["sku"],
+                    "nombre_sku" => $sku["nombre_sku"],
+                    "fecha" => date("Y-m-d H:i:s"),
+                    "usuario" => $idUsuario,
+                    "motivo" => $motivo,
+                    "inventario_estado" => $inventarioEstado
+                ),
+                "snapshot_pos_original" => json_decode((string) $this->valor($pendiente, "datos_snapshot", ""), true)
+            );
+
+            $stmt = $db->prepare("UPDATE erp_pos_venta_rapida_pendientes
+                SET id_sku_erp_resuelto=:sku, id_producto_erp_resuelto=:producto,
+                    estatus='clasificado', inventario_estado=:inventario_estado,
+                    observaciones_resolucion=:motivo, resuelto_por=:usuario,
+                    fecha_resolucion=NOW(), fecha_actualizacion=NOW()
+                WHERE id_venta_rapida_pendiente=:pendiente AND estatus IN ('pendiente_catalogo','en_revision')");
+            $stmt->execute(array(
+                ":sku" => intval($sku["id_sku"]),
+                ":producto" => intval($sku["id_producto_erp"]),
+                ":inventario_estado" => $inventarioEstado,
+                ":motivo" => $motivo,
+                ":usuario" => $idUsuario,
+                ":pendiente" => intval($pendiente["id_venta_rapida_pendiente"])
+            ));
+            if ($stmt->rowCount() <= 0) {
+                throw new Exception("No se pudo actualizar pendiente VRP; pudo cambiar de estado");
+            }
+
+            $db->prepare("UPDATE erp_ventas_detalle
+                SET id_producto_erp=:producto, id_sku_erp=:sku_id, sku=:sku,
+                    modo_salida=:modo_salida, inventario_estado=:inventario_estado,
+                    inventario_regularizacion_estado=:regularizacion,
+                    datos_catalogo_pendiente=:datos, fecha_actualizacion=NOW()
+                WHERE id_venta_detalle=:detalle AND id_venta_rapida_pendiente=:pendiente")
+                ->execute(array(
+                    ":producto" => intval($sku["id_producto_erp"]),
+                    ":sku_id" => intval($sku["id_sku"]),
+                    ":sku" => $sku["sku"],
+                    ":modo_salida" => $inventarioEstado === "pendiente_regularizacion" ? "clasificado_pendiente_inv" : "clasificado_sin_inventario",
+                    ":inventario_estado" => $inventarioEstado,
+                    ":regularizacion" => $inventarioEstado,
+                    ":datos" => json_encode($datosDetalle, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+                    ":detalle" => intval($pendiente["id_venta_detalle"]),
+                    ":pendiente" => intval($pendiente["id_venta_rapida_pendiente"])
+                ));
+
+            $idEvento = $this->registrarEventoVentaRapidaPosReal($db, intval($pendiente["id_venta_rapida_pendiente"]), $pendiente["folio"], "clasificado_sku", $pendiente["estatus"], "clasificado", intval($sku["id_sku"]), $motivo, $snapshot, $idUsuario);
+            $this->resolverNotificacionVentaRapidaPos($db, intval($pendiente["id_venta_rapida_pendiente"]), $motivo, $idUsuario);
+            $idNotificacionInventario = 0;
+            if ($inventarioEstado === "pendiente_regularizacion") {
+                $idNotificacionInventario = $this->registrarNotificacionRegularizacionVentaRapidaPos($db, $pendiente, $sku, $motivo, $idUsuario);
+            }
+
+            $db->commit();
+            return $this->respuesta(false, "success", "Venta rapida POS clasificada", array(
+                "folio_pendiente" => $pendiente["folio"],
+                "folio_venta" => $pendiente["folio_venta"],
+                "id_venta_rapida_pendiente" => intval($pendiente["id_venta_rapida_pendiente"]),
+                "id_venta_detalle" => intval($pendiente["id_venta_detalle"]),
+                "sku" => array("id_sku" => intval($sku["id_sku"]), "sku" => $sku["sku"], "id_producto_erp" => intval($sku["id_producto_erp"])),
+                "inventario_estado" => $inventarioEstado,
+                "id_evento" => $idEvento,
+                "id_notificacion_inventario" => $idNotificacionInventario,
+                "contrato" => array("no_mueve_kardex" => true, "precio_ticket_intacto" => true, "regularizacion_posterior" => $inventarioEstado === "pendiente_regularizacion")
+            ));
+        } catch (Exception $e) {
+            if ($db->inTransaction()) { $db->rollBack(); }
+            return $this->respuesta(true, "danger", $e->getMessage(), array("rollback" => true));
+        }
+    }
     /**
      * Documentacion IA: Codex GPT-5, 2026-06-26.
      * Proposito: validar el contrato completo de confirmacion POS sin ejecutar escrituras.
@@ -6044,6 +6228,7 @@ class VentasErp extends CRUD {
             $cajas = $this->listarCajasPos($db);
             $terminales = $this->listarTerminalesPos($db);
             $asignaciones = $this->listarAsignacionesPos($db);
+            $politicasInventarioPendiente = $this->listarPoliticasInventarioPendientePos($db);
             $turnosAbiertos = $this->listarTurnosAbiertosPos($db);
             $movimientos = $this->listarMovimientosCajaRecientes($db, 25);
             return $this->respuesta(false, "success", "Configuracion POS consultada", array(
@@ -6053,12 +6238,14 @@ class VentasErp extends CRUD {
                 "cajas" => $cajas,
                 "terminales" => $terminales,
                 "asignaciones" => $asignaciones,
+                "politicas_inventario_pendiente" => $politicasInventarioPendiente,
                 "turnos_abiertos" => $turnosAbiertos,
                 "movimientos_recientes" => $movimientos,
                 "resumen" => array(
                     "cajas" => count($cajas),
                     "terminales" => count($terminales),
                     "asignaciones" => count($asignaciones),
+                    "politicas_inventario_pendiente" => count($politicasInventarioPendiente),
                     "turnos_abiertos" => count($turnosAbiertos),
                     "movimientos_recientes" => count($movimientos)
                 )
@@ -6067,6 +6254,91 @@ class VentasErp extends CRUD {
             return $this->respuesta(true, "danger", "No se pudo consultar configuracion POS", array(
                 "excepcion" => $e->getMessage()
             ));
+        }
+    }
+
+    /**
+     * Documentacion IA: Codex GPT-5, 2026-07-24.
+     * Proposito: validar politicas POS de inventario pendiente antes de activarlas desde UI.
+     * Impacto: permite configurar alcance masivo por tienda o puntual por SKU sin escribir datos en dry-run.
+     * Contrato: read-only; no crea ni actualiza politicas.
+     */
+    public function politicaInventarioPendientePosDryRun($datos = array()) {
+        try {
+            $db = $this->getConexion();
+            $bloqueos = array();
+            $avisos = array();
+            $idAlmacen = intval($this->valor($datos, "id_almacen", 0));
+            $alcance = trim((string) $this->valor($datos, "alcance", "almacen"));
+            $idSku = intval($this->valor($datos, "id_sku", $this->valor($datos, "id_sku_erp", 0)));
+            $cantidadMaxima = round(floatval($this->valor($datos, "cantidad_maxima", $this->valor($datos, "cantidad_maxima_pendiente", 0))), 6);
+            $montoMaximo = round(floatval($this->valor($datos, "monto_maximo", 0)), 6);
+            $nombre = trim((string) $this->valor($datos, "nombre", ""));
+            $motivo = trim((string) $this->valor($datos, "motivo", ""));
+
+            if (!$this->tablaExiste($db, "erp_pos_politicas_venta_inventario")) {
+                $bloqueos[] = "Falta esquema de politicas POS de inventario pendiente";
+            }
+            if (!$this->almacenVentaPorId($db, $idAlmacen)) {
+                $bloqueos[] = "Selecciona una tienda/almacen vendible activo";
+            }
+            if (!in_array($alcance, array("almacen", "sku"), true)) {
+                $alcance = "almacen";
+            }
+            if ($alcance === "sku" && ($idSku <= 0 || !$this->consultarSkuVenta($db, $idSku))) {
+                $bloqueos[] = "Para politica por SKU selecciona un SKU activo";
+            }
+            if ($cantidadMaxima <= 0) {
+                $bloqueos[] = "Define cantidad maxima pendiente mayor a cero";
+            }
+            if ($montoMaximo < 0) {
+                $bloqueos[] = "El monto maximo no puede ser negativo";
+            }
+            if ($motivo === "") {
+                $bloqueos[] = "Captura motivo operativo";
+            }
+            if ($alcance === "almacen") {
+                $avisos[] = "Politica masiva: aplica a cualquier SKU inventariable de esta tienda solo en canal POS.";
+                $avisos[] = "Ecommerce queda fuera porque el canal se fija como pos.";
+            } else {
+                $avisos[] = "Politica puntual: tiene prioridad sobre la politica masiva de la tienda.";
+            }
+
+            $codigo = trim((string) $this->valor($datos, "codigo", ""));
+            if ($codigo === "") {
+                $codigo = $alcance === "sku"
+                    ? "PINV-A" . $idAlmacen . "-S" . $idSku . "-POS"
+                    : "PINV-A" . $idAlmacen . "-GLOBAL-POS";
+            }
+            if ($nombre === "") {
+                $nombre = $alcance === "sku"
+                    ? "Inventario pendiente POS SKU " . $idSku
+                    : "Inventario pendiente POS tienda " . $idAlmacen;
+            }
+
+            return $this->respuesta(false, empty($bloqueos) ? "success" : "warning", empty($bloqueos) ? "Politica POS valida para guardar" : "Politica POS requiere ajustes", array(
+                "dry_run" => true,
+                "bloqueos" => $bloqueos,
+                "avisos" => $avisos,
+                "propuesta" => array(
+                    "codigo" => $codigo,
+                    "nombre" => $nombre,
+                    "id_almacen" => $idAlmacen,
+                    "alcance" => $alcance,
+                    "id_sku_erp" => $alcance === "sku" ? $idSku : null,
+                    "canal" => "pos",
+                    "permite_inventario_pendiente" => 1,
+                    "cantidad_maxima_pendiente" => $cantidadMaxima,
+                    "monto_maximo" => $montoMaximo,
+                    "requiere_autorizacion" => 1,
+                    "permiso_requerido" => "ventas.pos.inventario_pendiente.autorizar",
+                    "motivo_obligatorio" => 1,
+                    "estatus" => "activa",
+                    "observaciones" => $motivo
+                )
+            ));
+        } catch (Exception $e) {
+            return $this->respuesta(true, "danger", "No se pudo validar politica POS de inventario pendiente", array("excepcion" => $e->getMessage()));
         }
     }
 
@@ -8341,6 +8613,32 @@ class VentasErp extends CRUD {
     }
 
     /**
+     * Documentacion IA: Codex GPT-5, 2026-07-24.
+     * Proposito: listar politicas POS de inventario pendiente para administracion operativa.
+     * Impacto: permite ver politicas masivas por tienda y politicas puntuales por SKU sin escribir BD.
+     * Contrato: read-only.
+     */
+    private function listarPoliticasInventarioPendientePos($db) {
+        if (!$db || !$this->tablaExiste($db, "erp_pos_politicas_venta_inventario")) {
+            return array();
+        }
+        $sql = "SELECT p.id_politica_inventario_pos, p.codigo, p.nombre, p.id_almacen,
+                a.almacen, a.codigo_almacen, p.id_sku_erp, s.sku, s.nombre sku_nombre,
+                CASE WHEN p.id_sku_erp IS NULL THEN 'almacen' ELSE 'sku' END alcance,
+                p.canal, p.permite_inventario_pendiente, p.cantidad_maxima_pendiente,
+                p.monto_maximo, p.requiere_autorizacion, p.permiso_requerido,
+                p.motivo_obligatorio, p.fecha_inicio, p.fecha_fin, p.estatus,
+                p.observaciones, p.fecha_registro, p.fecha_actualizacion
+            FROM erp_pos_politicas_venta_inventario p
+            LEFT JOIN erp_almacenes a ON a.id_almacen=p.id_almacen
+            LEFT JOIN erp_catalogo_skus s ON s.id_sku=p.id_sku_erp
+            ORDER BY COALESCE(p.estatus, 'activa') ASC, a.almacen ASC,
+                CASE WHEN p.id_sku_erp IS NULL THEN 0 ELSE 1 END ASC,
+                p.id_politica_inventario_pos DESC";
+        return $db->query($sql)->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    /**
      * Documentacion IA: Codex GPT-5, 2026-07-01.
      * Proposito: listar terminales POS configuradas sin editar registros.
      * Impacto: alimenta pantalla Configuracion POS y evita configurar terminal desde caja de cobro.
@@ -10110,12 +10408,134 @@ class VentasErp extends CRUD {
         return $metodo === "saldo_crm" || $metodo === "saldo cliente" || $tipo === "saldo_cliente";
     }
 
-    private function formatearTicketVenta($venta, $detalles, $pagos, $trazabilidad) {
+    /**
+     * Documentacion IA: Codex GPT-5, 2026-07-24.
+     * Proposito: elegir configuracion de ticket para una venta confirmada.
+     * Impacto: respeta snapshot historico si existe; si no existe, usa configuracion efectiva actual.
+     * Contrato: read-only; no guarda snapshot ni modifica venta.
+     */
+    private function configuracionTicketParaVenta($db, $venta) {
+        $snapshot = $this->configuracionTicketDesdeSnapshot($this->valor($venta, "ticket_config_snapshot", ""));
+        if (!empty($snapshot)) {
+            $snapshot["origen_configuracion"] = "snapshot_venta";
+            return $snapshot;
+        }
+        return $this->resolverConfiguracionTicketPos($db, array(
+            "id_almacen" => intval($this->valor($venta, "id_almacen", 0)),
+            "id_caja" => intval($this->valor($venta, "id_caja", 0)),
+            "id_terminal_pos" => intval($this->valor($venta, "id_terminal_pos", 0))
+        ));
+    }
+
+    private function configuracionTicketDesdeSnapshot($snapshot) {
+        $snapshot = trim((string) $snapshot);
+        if ($snapshot === "") {
+            return array();
+        }
+        $datos = json_decode($snapshot, true);
+        return is_array($datos) ? $this->normalizarConfiguracionTicketPos($datos) : array();
+    }
+
+    private function resolverConfiguracionTicketPos($db, $scope = array()) {
+        $fallback = $this->normalizarConfiguracionTicketPos(array());
+        if (!$db instanceof PDO || !$this->tablaExiste($db, "erp_pos_ticket_configuracion") || !$this->tablaExiste($db, "erp_empresa_configuracion")) {
+            $fallback["origen_configuracion"] = "fallback_codigo";
+            return $fallback;
+        }
+
+        $idAlmacen = intval($this->valor($scope, "id_almacen", 0));
+        $idCaja = intval($this->valor($scope, "id_caja", 0));
+        $idTerminal = intval($this->valor($scope, "id_terminal_pos", 0));
+        $stmt = $db->prepare("SELECT t.*, e.clave_empresa, e.nombre_comercial, e.razon_social, e.rfc, e.regimen_fiscal,
+                e.direccion_fiscal, e.telefono, e.whatsapp, e.email, e.sitio_web, e.logo_url,
+                e.leyenda_ticket_general, e.leyenda_no_fiscal, e.leyenda_devoluciones, e.leyenda_garantias
+            FROM erp_pos_ticket_configuracion t
+            LEFT JOIN erp_empresa_configuracion e ON e.id_empresa_configuracion=t.id_empresa_configuracion AND e.estatus='activa'
+            WHERE t.estatus='activa'
+              AND (t.id_almacen IS NULL OR t.id_almacen=:almacen)
+              AND (t.id_caja IS NULL OR t.id_caja=:caja)
+              AND (t.id_terminal_pos IS NULL OR t.id_terminal_pos=:terminal)
+            ORDER BY
+              ((CASE WHEN t.id_almacen IS NULL THEN 0 ELSE 1 END) +
+               (CASE WHEN t.id_caja IS NULL THEN 0 ELSE 2 END) +
+               (CASE WHEN t.id_terminal_pos IS NULL THEN 0 ELSE 4 END)) DESC,
+              t.prioridad ASC,
+              t.id_ticket_configuracion ASC
+            LIMIT 1");
+        $stmt->execute(array(":almacen" => $idAlmacen, ":caja" => $idCaja, ":terminal" => $idTerminal));
+        $config = $stmt->fetch(PDO::FETCH_ASSOC);
+        if (!$config) {
+            $fallback["origen_configuracion"] = "fallback_sin_configuracion";
+            return $fallback;
+        }
+        $config = $this->normalizarConfiguracionTicketPos($config);
+        $config["origen_configuracion"] = "configuracion_efectiva";
+        $config["scope_solicitado"] = array("id_almacen" => $idAlmacen, "id_caja" => $idCaja, "id_terminal_pos" => $idTerminal);
+        return $config;
+    }
+
+    private function normalizarConfiguracionTicketPos($config) {
+        $columnas = intval($this->valor($config, "ticket_columnas", 42));
+        if ($columnas < 30 || $columnas > 60) {
+            $columnas = 42;
+        }
+        $anchoMm = trim((string) $this->valor($config, "ticket_ancho_mm", "80"));
+        if ($anchoMm === "") {
+            $anchoMm = "80";
+        }
+        return array(
+            "id_ticket_configuracion" => intval($this->valor($config, "id_ticket_configuracion", 0)),
+            "id_empresa_configuracion" => intval($this->valor($config, "id_empresa_configuracion", 0)),
+            "nombre_comercial" => trim((string) $this->valor($config, "nombre_comercial", "ARTIANI ERP")),
+            "razon_social" => trim((string) $this->valor($config, "razon_social", "")),
+            "rfc" => trim((string) $this->valor($config, "rfc", "")),
+            "direccion_fiscal" => trim((string) $this->valor($config, "direccion_fiscal", "")),
+            "telefono" => trim((string) $this->valor($config, "telefono", "")),
+            "whatsapp" => trim((string) $this->valor($config, "whatsapp", "")),
+            "sitio_web" => trim((string) $this->valor($config, "sitio_web", "")),
+            "logo_url" => trim((string) $this->valor($config, "logo_url", "")),
+            "mostrar_logo" => intval($this->valor($config, "mostrar_logo", 0)) === 1,
+            "logo_modo" => trim((string) $this->valor($config, "logo_modo", "texto")),
+            "ticket_ancho_mm" => $anchoMm,
+            "ticket_columnas" => $columnas,
+            "fuente" => trim((string) $this->valor($config, "fuente", "monospace")),
+            "impresion_modo" => trim((string) $this->valor($config, "impresion_modo", "navegador")),
+            "impresora_nombre_windows" => trim((string) $this->valor($config, "impresora_nombre_windows", "")),
+            "leyenda_ticket_general" => trim((string) $this->valor($config, "leyenda_ticket_general", "Gracias por su compra.")),
+            "leyenda_no_fiscal" => trim((string) $this->valor($config, "leyenda_no_fiscal", "Ticket no fiscal. Conserve este comprobante.")),
+            "leyenda_devoluciones" => trim((string) $this->valor($config, "leyenda_devoluciones", "")),
+            "leyenda_garantias" => trim((string) $this->valor($config, "leyenda_garantias", "")),
+            "mensaje_sucursal" => trim((string) $this->valor($config, "mensaje_sucursal", ""))
+        );
+    }
+    private function formatearTicketVenta($venta, $detalles, $pagos, $trazabilidad, $configuracionTicket = array()) {
         $lineas = array();
         $hallazgos = array();
-        $ancho = 42;
-        $lineas[] = str_pad("ARTIANI ERP", $ancho, " ", STR_PAD_BOTH);
+        $configuracionTicket = $this->normalizarConfiguracionTicketPos($configuracionTicket);
+        $ancho = intval($this->valor($configuracionTicket, "ticket_columnas", 42));
+        $nombreComercial = $this->textoTicket($this->valor($configuracionTicket, "nombre_comercial", "ARTIANI ERP"), $ancho);
+        $lineas[] = str_pad($nombreComercial, $ancho, " ", STR_PAD_BOTH);
         $lineas[] = str_pad("TICKET POS", $ancho, " ", STR_PAD_BOTH);
+        $razonSocial = trim((string) $this->valor($configuracionTicket, "razon_social", ""));
+        $rfc = trim((string) $this->valor($configuracionTicket, "rfc", ""));
+        $direccionFiscal = trim((string) $this->valor($configuracionTicket, "direccion_fiscal", ""));
+        $telefono = trim((string) $this->valor($configuracionTicket, "telefono", ""));
+        $sitioWeb = trim((string) $this->valor($configuracionTicket, "sitio_web", ""));
+        if ($razonSocial !== "") {
+            $lineas[] = str_pad($this->textoTicket($razonSocial, $ancho), $ancho, " ", STR_PAD_BOTH);
+        }
+        if ($rfc !== "") {
+            $lineas[] = str_pad($this->textoTicket("RFC: " . $rfc, $ancho), $ancho, " ", STR_PAD_BOTH);
+        }
+        if ($direccionFiscal !== "") {
+            $lineas[] = $this->textoTicket($direccionFiscal, $ancho);
+        }
+        if ($telefono !== "") {
+            $lineas[] = $this->textoTicket("Tel: " . $telefono, $ancho);
+        }
+        if ($sitioWeb !== "") {
+            $lineas[] = $this->textoTicket($sitioWeb, $ancho);
+        }
         $lineas[] = str_repeat("-", $ancho);
         $lineas[] = "Folio: " . $this->valor($venta, "folio", "");
         $lineas[] = "Fecha: " . $this->valor($venta, "fecha_venta", "");
@@ -10168,15 +10588,30 @@ class VentasErp extends CRUD {
         }
         $lineas[] = str_repeat("-", $ancho);
         $lineas[] = "Operacion: " . strtoupper((string) $this->valor($venta, "estatus", ""));
-        $lineas[] = "No fiscal. Conserve este ticket.";
+        $leyendaNoFiscal = trim((string) $this->valor($configuracionTicket, "leyenda_no_fiscal", "Ticket no fiscal. Conserve este comprobante."));
+        if ($leyendaNoFiscal !== "") {
+            $lineas[] = $this->textoTicket($leyendaNoFiscal, $ancho);
+        }
+        $leyendaGarantias = trim((string) $this->valor($configuracionTicket, "leyenda_garantias", ""));
+        if ($leyendaGarantias !== "") {
+            $lineas[] = $this->textoTicket($leyendaGarantias, $ancho);
+        }
+        $leyendaDevoluciones = trim((string) $this->valor($configuracionTicket, "leyenda_devoluciones", ""));
+        if ($leyendaDevoluciones !== "") {
+            $lineas[] = $this->textoTicket($leyendaDevoluciones, $ancho);
+        }
         if (!empty($trazabilidad)) {
             $lineas[] = "Inventario trazado: " . count($trazabilidad) . " mov.";
         }
-        $lineas[] = "Gracias por su compra";
+        $leyendaGeneral = trim((string) $this->valor($configuracionTicket, "leyenda_ticket_general", "Gracias por su compra."));
+        if ($leyendaGeneral !== "") {
+            $lineas[] = $this->textoTicket($leyendaGeneral, $ancho);
+        }
         return array(
             "lineas" => $lineas,
             "texto" => implode("\n", $lineas),
-            "hallazgos" => $hallazgos
+            "hallazgos" => $hallazgos,
+            "configuracion" => $configuracionTicket
         );
     }
 
@@ -11081,6 +11516,63 @@ class VentasErp extends CRUD {
         $stmt->execute(array(":sku" => intval($idSku)));
         $fila = $stmt->fetch(PDO::FETCH_ASSOC);
         return $fila ?: null;
+    }
+
+    private function bloquearPendienteVentaRapidaPos($db, $filtros) {
+        $folio = trim((string) $this->valor($filtros, "folio", ""));
+        $idPendiente = intval($this->valor($filtros, "id_venta_rapida_pendiente", 0));
+        $where = $idPendiente > 0 ? "p.id_venta_rapida_pendiente=:id" : "p.folio=:folio";
+        $params = $idPendiente > 0 ? array(":id" => $idPendiente) : array(":folio" => $folio);
+        if ($idPendiente <= 0 && $folio === "") { return null; }
+        $stmt = $db->prepare("SELECT p.*, d.datos_catalogo_pendiente
+            FROM erp_pos_venta_rapida_pendientes p
+            LEFT JOIN erp_ventas_detalle d ON d.id_venta_detalle=p.id_venta_detalle
+            WHERE " . $where . "
+            LIMIT 1 FOR UPDATE");
+        $stmt->execute($params);
+        $fila = $stmt->fetch(PDO::FETCH_ASSOC);
+        return $fila ?: null;
+    }
+
+    private function resolverNotificacionVentaRapidaPos($db, $idPendiente, $motivo, $idUsuario) {
+        if (!$this->tablaExiste($db, "erp_notificaciones")) { return 0; }
+        $stmt = $db->prepare("UPDATE erp_notificaciones
+            SET estatus='resuelta', fecha_resolucion=NOW(), fecha_actualizacion=NOW()
+            WHERE modulo_origen='ventas_pos'
+              AND entidad_origen='erp_pos_venta_rapida_pendientes'
+              AND id_entidad_origen=:pendiente
+              AND estatus='pendiente'");
+        $stmt->execute(array(":pendiente" => intval($idPendiente)));
+        return $stmt->rowCount();
+    }
+
+    private function registrarNotificacionRegularizacionVentaRapidaPos($db, $pendiente, $sku, $motivo, $idUsuario) {
+        if (!$this->tablaExiste($db, "erp_notificaciones")) { return 0; }
+        $payload = array(
+            "folio_pendiente" => $pendiente["folio"],
+            "folio_venta" => $pendiente["folio_venta"],
+            "id_venta_rapida_pendiente" => intval($pendiente["id_venta_rapida_pendiente"]),
+            "id_sku" => intval($sku["id_sku"]),
+            "sku" => $sku["sku"],
+            "motivo" => $motivo,
+            "contrato" => array("no_mover_kardex_desde_catalogo" => true)
+        );
+        $stmt = $db->prepare("INSERT INTO erp_notificaciones
+            (tipo, modulo_origen, entidad_origen, id_entidad_origen, area_responsable,
+             permiso_requerido, titulo, descripcion, prioridad, estatus, url_accion,
+             payload_json, creado_por, fecha_registro, fecha_actualizacion)
+            VALUES ('regularizacion_inventario_pos_vrp', 'ventas_pos', 'erp_pos_venta_rapida_pendientes', :pendiente, 'inventario',
+             'inventario.ver', :titulo, :descripcion, 'alta', 'pendiente', :url,
+             :payload, :usuario, NOW(), NOW())");
+        $stmt->execute(array(
+            ":pendiente" => intval($pendiente["id_venta_rapida_pendiente"]),
+            ":titulo" => "Regularizar inventario de " . $pendiente["folio"],
+            ":descripcion" => "Venta rapida POS clasificada como " . $sku["sku"] . "; Inventario debe regularizar existencia sin kardex automatico.",
+            ":url" => "/inventario/productos_existencias?id_sku=" . intval($sku["id_sku"]),
+            ":payload" => json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+            ":usuario" => intval($idUsuario) ?: null
+        ));
+        return intval($db->lastInsertId());
     }
     private function registrarPendienteVentaRapidaPosReal($db, $idVenta, $idDetalle, $folioVenta, $datosVenta, $partida, $clienteSnapshot, $idClienteCrm, $idUsuario) {
         if (!$this->schemaVentaRapidaControladaCompleto($db)) {

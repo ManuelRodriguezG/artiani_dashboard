@@ -39,7 +39,10 @@ class CatalogoErpEsquema extends DBSchema {
       "erp_catalogo_productos_fusiones",
       "erp_catalogo_taxonomias",
       "erp_catalogo_taxonomia_nodos",
-      "erp_catalogo_producto_taxonomia_nodos"
+      "erp_catalogo_producto_taxonomia_nodos",
+      "erp_catalogo_comercial_catalogos",
+      "erp_catalogo_comercial_items",
+      "erp_catalogo_comercial_eventos"
     );
   }
 
@@ -408,6 +411,29 @@ class CatalogoErpEsquema extends DBSchema {
         "indices" => array(
           "idx_producto_taxonomia_nodo" => array("columnas" => array("id_producto_erp", "id_nodo_taxonomia"), "severidad" => "media", "impacto" => "Evita duplicar producto en un nodo."),
           "idx_producto_taxonomia_nodo_nodo" => array("columnas" => array("id_nodo_taxonomia"), "severidad" => "baja", "impacto" => "Permite listar productos por nodo.")
+        )
+      ),
+      "erp_catalogo_comercial_catalogos" => array(
+        "columnas" => array("id_catalogo_comercial", "codigo", "nombre", "titulo", "subtitulo", "cta", "plantilla", "mostrar_precio", "mostrar_marca", "mostrar_categoria", "mostrar_presentacion", "mostrar_sku", "mostrar_disponibilidad", "portada_activa", "portada_etiqueta", "portada_descripcion", "portada_nota", "estatus", "id_usuario_creacion", "id_usuario_actualizacion", "fecha_registro", "fecha_actualizacion"),
+        "indices" => array(
+          "idx_catalogo_comercial_estatus" => array("columnas" => array("estatus"), "severidad" => "media", "impacto" => "Permite filtrar catalogos comerciales por estado operativo."),
+          "idx_catalogo_comercial_nombre" => array("columnas" => array("nombre"), "severidad" => "baja", "impacto" => "Acelera busqueda de catalogos comerciales guardados."),
+          "idx_catalogo_comercial_codigo" => array("columnas" => array("codigo"), "severidad" => "baja", "impacto" => "Permite ubicar catalogos por codigo interno.")
+        )
+      ),
+      "erp_catalogo_comercial_items" => array(
+        "columnas" => array("id_catalogo_item", "id_catalogo_comercial", "id_sku", "tipo_item", "posicion", "titulo_override", "descripcion_override", "precio_texto_override", "nota_item", "estatus", "fecha_registro", "fecha_actualizacion"),
+        "indices" => array(
+          "idx_catalogo_comercial_item_catalogo" => array("columnas" => array("id_catalogo_comercial", "posicion"), "severidad" => "alta", "impacto" => "Permite renderizar items del catalogo comercial en orden."),
+          "idx_catalogo_comercial_item_sku" => array("columnas" => array("id_sku"), "severidad" => "media", "impacto" => "Relaciona materiales comerciales con SKUs del catalogo maestro."),
+          "idx_catalogo_comercial_item_unico" => array("columnas" => array("id_catalogo_comercial", "id_sku", "tipo_item"), "severidad" => "media", "impacto" => "Evita duplicar el mismo item en un catalogo comercial.")
+        )
+      ),
+      "erp_catalogo_comercial_eventos" => array(
+        "columnas" => array("id_evento", "id_catalogo_comercial", "evento", "estatus_anterior", "estatus_nuevo", "detalle_json", "id_usuario", "fecha_registro"),
+        "indices" => array(
+          "idx_catalogo_comercial_evento_catalogo" => array("columnas" => array("id_catalogo_comercial", "fecha_registro"), "severidad" => "media", "impacto" => "Mantiene trazabilidad de cambios por catalogo comercial."),
+          "idx_catalogo_comercial_evento_evento" => array("columnas" => array("evento"), "severidad" => "baja", "impacto" => "Permite revisar eventos por tipo.")
         )
       )
     );
@@ -1071,6 +1097,8 @@ class CatalogoErpEsquema extends DBSchema {
       "CONSTRAINT `fk_producto_taxonomia_nodo` FOREIGN KEY (`id_nodo_taxonomia`) REFERENCES `erp_catalogo_taxonomia_nodos` (`id_nodo_taxonomia`)"
     ), $opciones, $ejecutar);
 
+    $plan = array_merge($plan, $this->planCatalogosComerciales($opciones, $ejecutar));
+
     $referenciasOperativas = array(
       "erp_compras_ordenes_detalle" => "idx_compra_detalle_sku_erp",
       "erp_almacen_recepciones_detalle" => "idx_recepcion_detalle_sku_erp",
@@ -1112,6 +1140,25 @@ class CatalogoErpEsquema extends DBSchema {
     );
   }
 
+  /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-07-24
+   * Proposito: generar/aplicar solo el DDL de Catalogos comerciales persistentes.
+   * Impacto: Catalogo ERP/Comercial; evita usar el actualizador general cuando solo se autorizan estas 3 tablas.
+   * Contrato: con $ejecutar=false es dry-run; con $ejecutar=true requiere respaldo externo y token validado por el llamador.
+   */
+  public function planActualizarCatalogosComerciales($ejecutar = false) {
+    $opciones = "ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci";
+    $plan = $this->planCatalogosComerciales($opciones, $ejecutar);
+
+    return array(
+      "error" => $this->planTieneErrores($plan),
+      "tipo" => $this->planTieneErrores($plan) ? "danger" : "success",
+      "mensaje" => $ejecutar ? "Esquema de Catalogos comerciales ejecutado" : "Plan de Catalogos comerciales generado en dry-run",
+      "depurar" => $plan
+    );
+  }
+
   private function planTieneErrores($plan) {
     foreach ($plan as $paso) {
       if (!empty($paso["error"])) {
@@ -1119,6 +1166,84 @@ class CatalogoErpEsquema extends DBSchema {
       }
     }
     return false;
+  }
+
+  /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-07-24
+   * Proposito: declara el plan DDL de catalogos comerciales persistentes sin ejecutarlo por defecto.
+   * Impacto: Catalogo ERP/Comercial; crea soporte para guardar materiales comerciales compartidos cuando exista autorizacion externa.
+   * Contrato: con $ejecutar=false solo devuelve pasos; con $ejecutar=true debe existir respaldo externo y autorizacion explicita.
+   */
+  private function planCatalogosComerciales($opciones, $ejecutar) {
+    $plan = array();
+
+    $plan[] = $this->crearTablaSiNoExiste("erp_catalogo_comercial_catalogos", array(
+      "`id_catalogo_comercial` BIGINT NOT NULL AUTO_INCREMENT",
+      "`codigo` VARCHAR(40) NULL",
+      "`nombre` VARCHAR(120) NOT NULL",
+      "`titulo` VARCHAR(120) NOT NULL",
+      "`subtitulo` VARCHAR(180) NULL",
+      "`cta` VARCHAR(160) NULL",
+      "`plantilla` VARCHAR(30) NOT NULL DEFAULT 'square'",
+      "`mostrar_precio` TINYINT(1) NOT NULL DEFAULT 1",
+      "`mostrar_marca` TINYINT(1) NOT NULL DEFAULT 1",
+      "`mostrar_categoria` TINYINT(1) NOT NULL DEFAULT 0",
+      "`mostrar_presentacion` TINYINT(1) NOT NULL DEFAULT 1",
+      "`mostrar_sku` TINYINT(1) NOT NULL DEFAULT 0",
+      "`mostrar_disponibilidad` TINYINT(1) NOT NULL DEFAULT 0",
+      "`portada_activa` TINYINT(1) NOT NULL DEFAULT 1",
+      "`portada_etiqueta` VARCHAR(80) NULL",
+      "`portada_descripcion` VARCHAR(255) NULL",
+      "`portada_nota` VARCHAR(180) NULL",
+      "`estatus` VARCHAR(30) NOT NULL DEFAULT 'borrador'",
+      "`id_usuario_creacion` INT NULL",
+      "`id_usuario_actualizacion` INT NULL",
+      "`fecha_registro` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
+      "`fecha_actualizacion` DATETIME NULL",
+      "PRIMARY KEY (`id_catalogo_comercial`)",
+      "KEY `idx_catalogo_comercial_estatus` (`estatus`)",
+      "KEY `idx_catalogo_comercial_nombre` (`nombre`)",
+      "KEY `idx_catalogo_comercial_codigo` (`codigo`)"
+    ), $opciones, $ejecutar);
+
+    $plan[] = $this->crearTablaSiNoExiste("erp_catalogo_comercial_items", array(
+      "`id_catalogo_item` BIGINT NOT NULL AUTO_INCREMENT",
+      "`id_catalogo_comercial` BIGINT NOT NULL",
+      "`id_sku` BIGINT NOT NULL",
+      "`tipo_item` VARCHAR(30) NOT NULL DEFAULT 'sku'",
+      "`posicion` INT NOT NULL DEFAULT 0",
+      "`titulo_override` VARCHAR(160) NULL",
+      "`descripcion_override` VARCHAR(255) NULL",
+      "`precio_texto_override` VARCHAR(80) NULL",
+      "`nota_item` VARCHAR(180) NULL",
+      "`estatus` TINYINT(1) NOT NULL DEFAULT 1",
+      "`fecha_registro` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
+      "`fecha_actualizacion` DATETIME NULL",
+      "PRIMARY KEY (`id_catalogo_item`)",
+      "KEY `idx_catalogo_comercial_item_catalogo` (`id_catalogo_comercial`, `posicion`)",
+      "KEY `idx_catalogo_comercial_item_sku` (`id_sku`)",
+      "UNIQUE KEY `idx_catalogo_comercial_item_unico` (`id_catalogo_comercial`, `id_sku`, `tipo_item`)",
+      "CONSTRAINT `fk_catalogo_comercial_item_catalogo` FOREIGN KEY (`id_catalogo_comercial`) REFERENCES `erp_catalogo_comercial_catalogos` (`id_catalogo_comercial`)",
+      "CONSTRAINT `fk_catalogo_comercial_item_sku` FOREIGN KEY (`id_sku`) REFERENCES `erp_catalogo_skus` (`id_sku`)"
+    ), $opciones, $ejecutar);
+
+    $plan[] = $this->crearTablaSiNoExiste("erp_catalogo_comercial_eventos", array(
+      "`id_evento` BIGINT NOT NULL AUTO_INCREMENT",
+      "`id_catalogo_comercial` BIGINT NOT NULL",
+      "`evento` VARCHAR(40) NOT NULL",
+      "`estatus_anterior` VARCHAR(30) NULL",
+      "`estatus_nuevo` VARCHAR(30) NULL",
+      "`detalle_json` TEXT NULL",
+      "`id_usuario` INT NULL",
+      "`fecha_registro` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
+      "PRIMARY KEY (`id_evento`)",
+      "KEY `idx_catalogo_comercial_evento_catalogo` (`id_catalogo_comercial`, `fecha_registro`)",
+      "KEY `idx_catalogo_comercial_evento_evento` (`evento`)",
+      "CONSTRAINT `fk_catalogo_comercial_evento_catalogo` FOREIGN KEY (`id_catalogo_comercial`) REFERENCES `erp_catalogo_comercial_catalogos` (`id_catalogo_comercial`)"
+    ), $opciones, $ejecutar);
+
+    return $plan;
   }
 
   private function planSemillaUnidades($ejecutar) {

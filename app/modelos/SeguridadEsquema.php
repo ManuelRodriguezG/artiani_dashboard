@@ -199,6 +199,13 @@ class SeguridadEsquema extends DBSchema {
       array("modulo" => "tms", "accion" => "costos", "permiso" => "tms.costos", "descripcion" => "Consultar y registrar costos del servicio logistico"),
       array("modulo" => "tms", "accion" => "autorizar", "permiso" => "tms.autorizar", "descripcion" => "Autorizar bonificaciones, cortesias o excepciones logisticas"),
       array("modulo" => "tms", "accion" => "reportes", "permiso" => "tms.reportes", "descripcion" => "Consultar reportes e indicadores de servicios logisticos"),
+      array("modulo" => "proyectos", "accion" => "ver", "permiso" => "proyectos.ver", "descripcion" => "Consultar proyectos, objetivos y tareas visibles"),
+      array("modulo" => "proyectos", "accion" => "crear", "permiso" => "proyectos.crear", "descripcion" => "Crear proyectos y tareas operativas"),
+      array("modulo" => "proyectos", "accion" => "editar", "permiso" => "proyectos.editar", "descripcion" => "Editar proyectos, tareas y comentarios operativos"),
+      array("modulo" => "proyectos", "accion" => "asignar", "permiso" => "proyectos.asignar", "descripcion" => "Asignar responsables a tareas y proyectos"),
+      array("modulo" => "proyectos", "accion" => "cerrar", "permiso" => "proyectos.cerrar", "descripcion" => "Cerrar, completar o descartar tareas y proyectos"),
+      array("modulo" => "proyectos", "accion" => "auditoria", "permiso" => "proyectos.auditoria", "descripcion" => "Consultar actividad completa del modulo Proyectos"),
+      array("modulo" => "proyectos", "accion" => "configurar", "permiso" => "proyectos.configurar", "descripcion" => "Configurar catalogos y reglas del modulo Proyectos"),
       array("modulo" => "ecommerce", "accion" => "ver", "permiso" => "ecommerce.ver", "descripcion" => "Consultar estado de sincronizacion ecommerce"),
       array("modulo" => "ecommerce", "accion" => "sincronizar", "permiso" => "ecommerce.sincronizar", "descripcion" => "Ejecutar sincronizaciones de productos, stock, precios o pedidos"),
       array("modulo" => "finanzas", "accion" => "ver", "permiso" => "finanzas.ver", "descripcion" => "Consultar informacion financiera y contable"),
@@ -225,7 +232,8 @@ class SeguridadEsquema extends DBSchema {
         "proveedores.documentos_sensibles", "proveedores.listas", "proveedores.costos",
         "proveedores.autorizar", "proveedores.auditoria", "rentabilidad.ver", "rentabilidad.snapshot",
         "garantias.ver", "garantias.autorizar", "garantias.reportes",
-        "tms.ver", "tms.autorizar", "tms.costos", "tms.reportes"
+        "tms.ver", "tms.autorizar", "tms.costos", "tms.reportes",
+        "proyectos.ver", "proyectos.crear", "proyectos.editar", "proyectos.asignar", "proyectos.cerrar", "proyectos.auditoria", "proyectos.configurar"
       ),
       "administrador_erp" => array(
         "seguridad.ver", "seguridad.administrar", "configuracion.administrar", "catalogo.ver",
@@ -248,7 +256,8 @@ class SeguridadEsquema extends DBSchema {
         "rentabilidad.ver", "rentabilidad.snapshot", "rentabilidad.configurar",
         "garantias.ver", "garantias.politicas", "garantias.reclamos.crear", "garantias.reclamos.resolver",
         "garantias.autorizar", "garantias.adjuntos", "garantias.reportes",
-        "tms.ver", "tms.crear", "tms.programar", "tms.operar", "tms.evidencias", "tms.costos", "tms.autorizar", "tms.reportes"
+        "tms.ver", "tms.crear", "tms.programar", "tms.operar", "tms.evidencias", "tms.costos", "tms.autorizar", "tms.reportes",
+        "proyectos.ver", "proyectos.crear", "proyectos.editar", "proyectos.asignar", "proyectos.cerrar", "proyectos.auditoria", "proyectos.configurar"
       ),
       "compras" => array(
         "catalogo.ver", "catalogo.costos", "compras.ver", "compras.crear", "compras.editar",
@@ -256,35 +265,35 @@ class SeguridadEsquema extends DBSchema {
         "finanzas.ver", "notificaciones.ver", "reportes.ver",
         "proveedores.ver", "proveedores.crear", "proveedores.editar", "proveedores.contactos",
         "proveedores.condiciones", "proveedores.documentos", "proveedores.listas",
-        "proveedores.matching", "proveedores.auditoria", "rentabilidad.ver", "garantias.ver"
+        "proveedores.matching", "proveedores.auditoria", "rentabilidad.ver", "garantias.ver", "proyectos.ver"
       ),
       "almacen" => array(
         "catalogo.ver", "compras.ver", "almacen.ver", "almacen.recibir", "almacen.ubicaciones",
         "inventario.ver", "inventario.traspasar", "notificaciones.ver", "auditoria.ver",
-        "proveedores.ver", "proveedores.contactos", "garantias.ver", "tms.ver"
+        "proveedores.ver", "proveedores.contactos", "garantias.ver", "tms.ver", "proyectos.ver"
       ),
       "inventario" => array(
         "catalogo.ver", "almacen.ver", "almacen.ubicaciones", "inventario.ver", "inventario.ajustar",
         "inventario.traspasar", "inventario.conteo", "notificaciones.ver", "auditoria.ver", "reportes.ver",
-        "proveedores.ver", "garantias.ver"
+        "proveedores.ver", "garantias.ver", "proyectos.ver"
       ),
       "ventas" => array(
         "inventario.ver", "crm.ver", "crm.crear", "ventas.ver", "ventas.operar", "ventas.listas.ver", "ventas.caja_diferencias.ver", "ecommerce.ver", "notificaciones.ver", "reportes.ver",
-        "garantias.ver", "garantias.reclamos.crear", "tms.ver", "tms.crear"
+        "garantias.ver", "garantias.reclamos.crear", "tms.ver", "tms.crear", "proyectos.ver"
       ),
       "crm" => array(
         "crm.ver", "crm.crear", "crm.editar", "crm.fusionar", "crm.auditoria",
-        "ventas.ver", "ventas.listas.ver", "garantias.ver", "garantias.reclamos.crear", "tms.ver", "tms.crear", "notificaciones.ver", "reportes.ver"
+        "ventas.ver", "ventas.listas.ver", "garantias.ver", "garantias.reclamos.crear", "tms.ver", "tms.crear", "notificaciones.ver", "reportes.ver", "proyectos.ver"
       ),
       "ecommerce" => array(
         "catalogo.ver", "catalogo.editar", "inventario.ver", "ventas.ver", "ventas.listas.ver", "ecommerce.ver",
-        "ecommerce.sincronizar", "notificaciones.ver", "reportes.ver"
+        "ecommerce.sincronizar", "notificaciones.ver", "reportes.ver", "proyectos.ver"
       ),
       "catalogo_productos" => array(
         "catalogo.ver", "catalogo.editar", "catalogo.costos", "compras.ver", "inventario.ver", "ecommerce.ver",
         "proveedores.ver", "proveedores.listas", "proveedores.matching", "proveedores.costos",
         "proveedores.auditoria", "notificaciones.ver", "rentabilidad.ver", "rentabilidad.snapshot",
-        "garantias.ver", "garantias.politicas"
+        "garantias.ver", "garantias.politicas", "proyectos.ver"
       ),
       "finanzas_contabilidad" => array(
         "catalogo.ver", "catalogo.costos", "compras.ver", "ventas.ver",
@@ -294,21 +303,22 @@ class SeguridadEsquema extends DBSchema {
         "proveedores.ver", "proveedores.fiscales", "proveedores.condiciones", "proveedores.documentos",
         "proveedores.documentos_sensibles", "proveedores.costos", "proveedores.autorizar",
         "proveedores.auditoria", "rentabilidad.ver", "rentabilidad.snapshot",
-        "tms.ver", "tms.costos", "tms.reportes"
+        "tms.ver", "tms.costos", "tms.reportes", "proyectos.ver"
       ),
       "auditor" => array(
         "catalogo.ver", "compras.ver", "almacen.ver", "inventario.ver", "ventas.ver",
         "ventas.listas.ver", "ventas.listas.auditoria", "ventas.pos_config.ver", "ecommerce.ver", "finanzas.ver", "notificaciones.ver", "auditoria.ver", "reportes.ver",
-        "proveedores.ver", "proveedores.auditoria", "rentabilidad.ver", "garantias.ver", "garantias.reportes", "tms.ver", "tms.reportes"
+        "proveedores.ver", "proveedores.auditoria", "rentabilidad.ver", "garantias.ver", "garantias.reportes", "tms.ver", "tms.reportes", "proyectos.ver", "proyectos.auditoria"
       ),
       "solo_lectura" => array(
         "catalogo.ver", "compras.ver", "almacen.ver", "inventario.ver", "ventas.ver",
         "ventas.listas.ver",
         "ecommerce.ver", "finanzas.ver", "notificaciones.ver", "reportes.ver", "proveedores.ver", "rentabilidad.ver",
-        "garantias.ver", "tms.ver"
+        "garantias.ver", "tms.ver", "proyectos.ver"
       ),
       "soporte_sistema" => array(
-        "seguridad.ver", "notificaciones.ver", "auditoria.ver", "reportes.ver", "sistema.soporte", "proveedores.auditoria", "rentabilidad.configurar"
+        "seguridad.ver", "notificaciones.ver", "auditoria.ver", "reportes.ver", "sistema.soporte", "proveedores.auditoria", "rentabilidad.configurar",
+        "proyectos.ver", "proyectos.crear", "proyectos.editar", "proyectos.asignar", "proyectos.cerrar", "proyectos.auditoria", "proyectos.configurar"
       )
     );
   }

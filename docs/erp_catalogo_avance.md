@@ -2796,3 +2796,96 @@ Regla:
 - No crea catalogos ERP reales.
 - No publica enlaces.
 - Es un puente operativo mientras no exista persistencia formal compartida.
+
+## Propuesta 2026-07-24 - Persistencia catalogos comerciales
+
+Documento creado:
+
+- `docs/erp_catalogo_catalogos_comerciales_persistencia_propuesta.md`
+
+Contenido:
+
+- tablas propuestas para catalogos, items y eventos;
+- estados formales: borrador, revision, publicado, archivado;
+- permisos propios `catalogos_comerciales.*`;
+- endpoints sugeridos;
+- DDL propuesto sin aplicar;
+- criterio de autorizacion.
+
+Regla:
+
+- No se aplico DDL.
+- No se cambio BD.
+- No se activo guardado real.
+
+## Preparacion 2026-07-24 - Contrato esquema catalogos comerciales
+
+Cambio aplicado:
+
+- `CatalogoErpEsquema` ahora contempla las tablas de catalogos comerciales en auditoria/plan.
+- Se agrego plan DDL acotado para catalogos, items y eventos.
+- Se ajusto la propuesta documental para usar `BIGINT` compatible con `erp_catalogo_skus`.
+
+Regla:
+
+- No se ejecuto DDL.
+- No se crearon tablas.
+- No se activo guardado real.
+
+Validacion:
+
+- Sintaxis de `CatalogoErpEsquema.php` sin errores.
+- Dry-run `planActualizarCatalogoErp(false)` generado correctamente.
+
+## Preparacion 2026-07-24 - Apply bloqueado catalogos comerciales
+
+Cambio aplicado:
+
+- Se agrego script `storage/uat/uat_catalogo_comercial_persistencia_schema_apply_authorized.php`.
+- Se agrego metodo acotado `CatalogoErpEsquema::planActualizarCatalogosComerciales`.
+- El script aplica solo 3 tablas si recibe token, confirmacion exacta y respaldo externo valido.
+
+Ruta de respaldos detectada:
+
+- `C:\xampp\panel_db_backups`
+
+Validacion:
+
+- Sintaxis del script sin errores.
+- Dry-run acotado devuelve 3 pasos.
+
+Regla:
+
+- No se ejecuto DDL.
+- No se crearon tablas.
+- No se uso el actualizador general de Catalogo.
+
+## Aplicacion 2026-07-24 - DDL catalogos comerciales
+
+Autorizacion recibida:
+
+- Token: `CATALOGO_COMERCIAL_PERSISTENCIA_DDL`.
+- Confirmacion: `APLICAR CATALOGOS COMERCIALES`.
+- Respaldo externo validado: `C:\xampp\panel_db_backups\artianilocal_panel_20260724_antes_catalogos_comerciales.sql`.
+
+Alcance aplicado:
+
+- `erp_catalogo_comercial_catalogos`.
+- `erp_catalogo_comercial_items`.
+- `erp_catalogo_comercial_eventos`.
+
+Regla cumplida:
+
+- No se publicaron enlaces.
+- No se agrego exportacion automatica.
+- No se toco Ventas.
+- No se uso el actualizador general de Catalogo; se uso el plan acotado `CatalogoErpEsquema::planActualizarCatalogosComerciales`.
+
+Validacion posterior:
+
+- `C:\xampp\php\php.exe -l storage\uat\uat_catalogo_comercial_persistencia_schema_apply_authorized.php`: sin errores.
+- Auditoria puntual: las tres tablas existen en `C:\xampp\htdocs\panel_de_control`.
+
+Siguiente paso:
+
+- Crear guardado/consulta formal de catalogos comerciales contra BD y mantener los borradores locales solo como herramienta auxiliar.

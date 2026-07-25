@@ -655,7 +655,7 @@ Resultado 2026-07-24:
 
 - `ok=true`.
 - Estado: `go_con_activaciones_pendientes`.
-- Checks: 43/43 correctos.
+- Checks: 45/45 correctos.
 - Permisos TMS pendientes en BD: 8.
 - Esquema TMS pendiente: si.
 - Siguiente paso: generar respaldo externo y aplicar primero permisos TMS con autorizacion `TMS_PERMISOS_BASE`; DDL TMS queda en autorizacion separada `TMS_DELIVERY_DDL_BASE`.
@@ -675,21 +675,24 @@ Criterio de cierre:
 - [x] No sincroniza permisos.
 - [x] No ejecuta DDL.
 - [x] No crea servicios.
-- [x] Propone comandos separados para permisos y esquema.
+- [x] Propone comandos separados para permisos, esquema y UAT manual.
 - [x] Reafirma reglas de dominio: no ventas, no garantias, no inventario.
 
 Resultado 2026-07-24:
 
 - `ok=true`.
 - Estado: `preactivacion_preparada`.
-- Checks: 6/6 correctos.
+- Checks: 9/9 correctos.
 - Orden recomendado:
   - respaldo permisos;
   - aplicar permisos TMS;
   - validar menu/acceso TMS;
   - respaldo schema;
   - aplicar DDL TMS;
-  - validar guardado manual TMS.
+  - validar schema TMS;
+  - respaldo UAT manual;
+  - ejecutar UAT manual TMS;
+  - validar UI TMS con datos de prueba.
 
 ## TMS-T015 - Verificacion post-permisos
 
@@ -769,6 +772,8 @@ Resultado 2026-07-24:
 
 - `php -l`: sin errores.
 - Ejecucion sin token/respaldo: bloqueada correctamente.
+- Solicitud de autorizacion creada:
+  - `docs/erp_tms_delivery_uat_manual_solicitud_autorizacion.md`.
 - Alcance declarado:
   - crea servicio TMS de prueba;
   - crea eventos TMS;
@@ -782,7 +787,7 @@ Fecha: 2026-07-24
 - Contexto actual: TMS ya tiene documentos, DDL propuesto, modelo de esquema dry-run, modelo de dominio, controlador base, vistas base, JS, sidebar, reportes y UAT go/no-go; no existe esquema aplicado y el guardado real queda bloqueado hasta crear tablas.
 - Decision: TMS es modulo independiente, no submodulo de Ventas.
 - Cambios recientes: se creo plan rector, plan de tareas, DDL propuesto inicial, `TmsEsquema.php`, `TmsDelivery.php`, `Tms.php`, UI inicial, proteccion en `Core.php`, modulo padre `TMS` en sidebar con grupo `Delivery`, permisos `tms.*` en `SeguridadEsquema.php`, UAT read-only en `storage/uat`, scripts `apply_authorized` bloqueados por token/respaldo, endpoint de guardado protegido por esquema, endpoint de operacion de estados protegido por esquema, endpoints de evidencias protegidos por esquema, reportes read-only protegidos por esquema y go/no-go consolidado.
-- Validacion reciente: UAT go/no-go confirma 45/45 checks correctos; preactivacion read-only confirma 6/6 checks; post-permisos detecta menu listo y BD de permisos pendiente; post-DDL detecta cinco tablas pendientes y dry-run valido; UAT manual autorizado queda bloqueado sin token/respaldo; permisos y tablas siguen pendientes en BD; guardado real, acciones operativas y evidencias quedan bloqueadas mientras falta esquema; reportes y pantallas internas devuelven estado controlado mientras falta esquema.
+- Validacion reciente: UAT go/no-go confirma 45/45 checks correctos; preactivacion read-only confirma 9/9 checks y propone permisos/schema/UAT manual en autorizaciones separadas; post-permisos detecta menu listo y BD de permisos pendiente; post-DDL detecta cinco tablas pendientes y dry-run valido; UAT manual autorizado queda bloqueado sin token/respaldo; permisos y tablas siguen pendientes en BD; guardado real, acciones operativas y evidencias quedan bloqueadas mientras falta esquema; reportes y pantallas internas devuelven estado controlado mientras falta esquema.
 - Pendiente inmediato: sincronizar permisos `tms.*` en BD con autorizacion o preparar `TMS-T007` solo despues de aplicar DDL TMS.
 - No tocar todavia: BD, vistas POS o integraciones reales.
 - Siguiente paso recomendado: pedir autorizacion para `TMS_PERMISOS_BASE`; despues probar acceso `/tms/servicios`. El DDL de tablas `erp_tms_*` debe ser otra autorizacion separada.

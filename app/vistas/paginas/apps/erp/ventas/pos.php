@@ -418,6 +418,7 @@
             </div>
             <div class="modal-footer">
                 <button class="btn btn-light" type="button" data-bs-dismiss="modal">Cerrar</button>
+                <button class="btn btn-light-info" id="pos_ticket_prueba_80" type="button"><i class="bi bi-receipt"></i> Prueba 80mm</button>
                 <button class="btn btn-primary" id="pos_ticket_imprimir" type="button" disabled><i class="bi bi-printer"></i> Imprimir</button>
             </div>
         </div>
@@ -583,6 +584,6 @@ window.POS_USUARIO_ACTUAL = <?= json_encode(array(
 </script>
 <script src="assets/plugins/global/plugins.bundle.js"></script>
 <script src="assets/js/scripts.bundle.js"></script>
-<script src="/assets/js/custom/apps/erp/ventas/pos.js?v=20260724-venta-rapida-mensaje-real"></script>
+<script src="/assets/js/custom/apps/erp/ventas/pos.js?v=20260724-ticket-kiosko-80mm"></script>
 </body>
 </html>

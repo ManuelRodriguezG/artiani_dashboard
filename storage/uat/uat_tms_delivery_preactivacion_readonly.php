@@ -19,14 +19,18 @@ $base = defined("MYSQLBASE") ? MYSQLBASE : "artianilocal";
 $backupDir = "C:\\xampp\\panel_db_backups";
 $backupPermisos = $backupDir . "\\" . $base . "_panel_" . $fecha . "_antes_tms_permisos.sql";
 $backupSchema = $backupDir . "\\" . $base . "_panel_" . $fecha . "_antes_tms_delivery_schema.sql";
+$backupUatManual = $backupDir . "\\" . $base . "_panel_" . $fecha . "_antes_tms_uat_manual.sql";
 
 $scripts = array(
   "go_nogo" => "storage/uat/uat_tms_delivery_go_nogo_readonly.php",
   "permisos_readonly" => "storage/uat/uat_tms_delivery_permisos_readonly.php",
+  "permisos_postapply" => "storage/uat/uat_tms_delivery_permisos_postapply_readonly.php",
   "schema_readonly" => "storage/uat/uat_tms_delivery_schema_readonly.php",
+  "schema_postapply" => "storage/uat/uat_tms_delivery_schema_postapply_readonly.php",
   "dryrun_readonly" => "storage/uat/uat_tms_delivery_dryrun_readonly.php",
   "permisos_apply" => "storage/uat/uat_tms_delivery_permisos_apply_authorized.php",
-  "schema_apply" => "storage/uat/uat_tms_delivery_schema_apply_authorized.php"
+  "schema_apply" => "storage/uat/uat_tms_delivery_schema_apply_authorized.php",
+  "uat_manual_apply" => "storage/uat/uat_tms_delivery_servicio_manual_apply_authorized.php"
 );
 
 $checks = array();
@@ -67,16 +71,22 @@ echo json_encode(array(
     "3_validar_menu_y_acceso_tms",
     "4_respaldo_schema",
     "5_aplicar_ddl_tms",
-    "6_validar_guardado_manual_tms"
+    "6_validar_schema_tms",
+    "7_respaldo_uat_manual",
+    "8_ejecutar_uat_manual_tms",
+    "9_validar_ui_tms_con_datos_prueba"
   ),
   "comandos_propuestos" => array(
     "respaldo_permisos" => "C:\\xampp\\mysql\\bin\\mysqldump.exe --host=localhost --user=root --result-file=\"" . $backupPermisos . "\" " . $base,
     "aplicar_permisos" => "C:\\xampp\\php\\php.exe storage\\uat\\uat_tms_delivery_permisos_apply_authorized.php --autorizar=TMS_PERMISOS_BASE --respaldo=\"" . $backupPermisos . "\"",
     "respaldo_schema" => "C:\\xampp\\mysql\\bin\\mysqldump.exe --host=localhost --user=root --result-file=\"" . $backupSchema . "\" " . $base,
-    "aplicar_schema" => "C:\\xampp\\php\\php.exe storage\\uat\\uat_tms_delivery_schema_apply_authorized.php --autorizar=TMS_DELIVERY_DDL_BASE --respaldo=\"" . $backupSchema . "\""
+    "aplicar_schema" => "C:\\xampp\\php\\php.exe storage\\uat\\uat_tms_delivery_schema_apply_authorized.php --autorizar=TMS_DELIVERY_DDL_BASE --respaldo=\"" . $backupSchema . "\"",
+    "respaldo_uat_manual" => "C:\\xampp\\mysql\\bin\\mysqldump.exe --host=localhost --user=root --result-file=\"" . $backupUatManual . "\" " . $base,
+    "ejecutar_uat_manual" => "C:\\xampp\\php\\php.exe storage\\uat\\uat_tms_delivery_servicio_manual_apply_authorized.php --autorizar=TMS_UAT_SERVICIO_MANUAL --respaldo=\"" . $backupUatManual . "\""
   ),
   "reglas" => array(
     "permisos_y_schema_en_autorizaciones_separadas" => true,
+    "uat_manual_en_autorizacion_separada" => true,
     "tms_no_modifica_ventas" => true,
     "tms_no_decide_garantias" => true,
     "tms_no_mueve_inventario" => true
