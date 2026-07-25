@@ -414,11 +414,13 @@
                 <button type="button" class="btn btn-icon btn-sm btn-active-light-primary" data-bs-dismiss="modal"><i class="bi bi-x-lg"></i></button>
             </div>
             <div class="modal-body">
+                <div class="text-center mb-3 d-none" id="pos_ticket_logo_wrap">
+                    <img id="pos_ticket_logo" src="" alt="Logo ticket" style="max-width: 180px; max-height: 72px; object-fit: contain;">
+                </div>
                 <pre class="bg-light p-4 rounded fs-7 mb-0" id="pos_ticket_texto" style="white-space: pre-wrap;"></pre>
             </div>
             <div class="modal-footer">
                 <button class="btn btn-light" type="button" data-bs-dismiss="modal">Cerrar</button>
-                <button class="btn btn-light-info" id="pos_ticket_prueba_80" type="button"><i class="bi bi-receipt"></i> Prueba 80mm</button>
                 <button class="btn btn-primary" id="pos_ticket_imprimir" type="button" disabled><i class="bi bi-printer"></i> Imprimir</button>
             </div>
         </div>
@@ -584,6 +586,6 @@ window.POS_USUARIO_ACTUAL = <?= json_encode(array(
 </script>
 <script src="assets/plugins/global/plugins.bundle.js"></script>
 <script src="assets/js/scripts.bundle.js"></script>
-<script src="/assets/js/custom/apps/erp/ventas/pos.js?v=20260724-ticket-kiosko-80mm"></script>
+<script src="/assets/js/custom/apps/erp/ventas/pos.js?v=20260724-ticket-layout1"></script>
 </body>
 </html>

@@ -2841,7 +2841,7 @@ class Proveedores extends CRUD {
             }
             return implode("", $partes);
         }
-        return isset($celda->v) ? (string) $celda->v : "";
+        return isset($celda->v) ? $this->normalizarNumeroCientificoTextoProveedorErp((string) $celda->v) : "";
     }
 
     private function normalizarPreviewFilasListaProveedorErp($tipo, $hoja, $filas) {
@@ -3043,13 +3043,52 @@ class Proveedores extends CRUD {
 
     /**
      * IA: Codex GPT-5
+     * Fecha: 2026-07-25
+     * Proposito: mostrar valores numericos de XLSX sin notacion cientifica.
+     * Impacto: Proveedores; evita que codigos de barras/codigos proveedor se vean como `1.00106012E8` al mapear.
+     * Contrato: convierte texto en notacion cientifica a decimal plano sin usar float; conserva valores no cientificos.
+     */
+    private function normalizarNumeroCientificoTextoProveedorErp($valor) {
+        $texto = trim((string) $valor);
+        if (!preg_match('/^([+-]?)(\d+(?:\.\d+)?|\.\d+)[eE]([+-]?\d+)$/', $texto, $coincidencias)) {
+            return $texto;
+        }
+
+        $signo = $coincidencias[1] === "-" ? "-" : "";
+        $mantisa = $coincidencias[2];
+        $exponente = intval($coincidencias[3]);
+        $partes = explode(".", $mantisa, 2);
+        $enteros = isset($partes[0]) ? $partes[0] : "";
+        $decimales = isset($partes[1]) ? $partes[1] : "";
+        if ($enteros === "") {
+            $enteros = "0";
+        }
+
+        $digitos = ltrim($enteros . $decimales, "0");
+        if ($digitos === "") {
+            return "0";
+        }
+        $posicionDecimal = strlen($enteros) + $exponente;
+        if ($posicionDecimal >= strlen($digitos)) {
+            return $signo . $digitos . str_repeat("0", $posicionDecimal - strlen($digitos));
+        }
+        if ($posicionDecimal <= 0) {
+            $resultado = "0." . str_repeat("0", abs($posicionDecimal)) . $digitos;
+        } else {
+            $resultado = substr($digitos, 0, $posicionDecimal) . "." . substr($digitos, $posicionDecimal);
+        }
+        return $signo . rtrim(rtrim($resultado, "0"), ".");
+    }
+
+    /**
+     * IA: Codex GPT-5
      * Fecha: 2026-07-21
      * Proposito: limpiar identificadores de proveedor que Excel entrega como numero decimal.
      * Impacto: Proveedores/Catalogo/Compras; permite que `417368.0` compare contra SKU ERP `417368`.
      * Contrato: solo elimina sufijo decimal `.0...` en valores enteros; no modifica codigos alfanumericos reales.
      */
     private function normalizarIdentificadorProveedorErp($valor) {
-        $texto = trim((string) $valor);
+        $texto = $this->normalizarNumeroCientificoTextoProveedorErp($valor);
         if (preg_match('/^([0-9]+)\.0+$/', $texto, $coincidencias)) {
             return $coincidencias[1];
         }
@@ -3079,6 +3118,9 @@ class Proveedores extends CRUD {
      */
     private function cambiosImportacionRenglonExistenteProveedorErp($existente, $normalizado) {
         $campos = array(
+            "sku_proveedor" => "identificador",
+            "codigo_barras" => "identificador",
+            "codigo_interno" => "identificador",
             "marca_proveedor" => "texto",
             "descripcion_proveedor" => "texto",
             "unidad_compra_texto" => "texto",
@@ -3094,7 +3136,13 @@ class Proveedores extends CRUD {
             if ($nuevo === null || trim((string) $nuevo) === "") {
                 continue;
             }
-            if ($tipo === "booleano") {
+            if ($tipo === "identificador") {
+                $nuevo = $this->normalizarIdentificadorProveedorErp($nuevo);
+                $actual = isset($existente[$campo]) ? $this->normalizarIdentificadorProveedorErp($existente[$campo]) : "";
+                if ($actual === $nuevo) {
+                    continue;
+                }
+            } elseif ($tipo === "booleano") {
                 $nuevo = $this->booleanoImportacionProveedorErp($nuevo);
                 if ($nuevo === null) {
                     continue;

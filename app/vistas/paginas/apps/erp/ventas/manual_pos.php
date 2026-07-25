@@ -459,6 +459,14 @@
                                         </ul>
                                         <h3 class="fw-bold fs-6 mt-4">Politicas de inventario pendiente</h3>
                                         <p class="text-muted">Se administran desde Ventas &gt; Configuracion POS &gt; Inventario pendiente. Puedes crear una politica para toda la tienda o para un SKU especifico. La politica masiva sirve para arranque operativo con mini inventarios: permite vender faltantes en POS con limites, motivo y autorizacion, pero no habilita ecommerce.</p>
+                                        <h3 class="fw-bold fs-6 mt-4">Ticket y negocio</h3>
+                                        <p class="text-muted">Se administra desde Ventas &gt; Configuracion POS &gt; Ticket y negocio. Ahi se capturan los datos que ve el cliente en el comprobante: nombre comercial, razon social si aplica, RFC, direccion, telefono, WhatsApp, sitio web, logo y leyendas. El ticket POS actual es no fiscal; el desglose fiscal/IVA se debe activar despues con reglas de impuestos y facturacion.</p>
+                                        <ul class="pos-manual-list text-muted">
+                                            <li><strong>Datos del negocio:</strong> son globales y deben servir despues tambien para ecommerce, reportes y documentos.</li>
+                                            <li><strong>Formato POS:</strong> se define por tienda/caja/terminal: ancho 80 mm o 58 mm, columnas, copias, modo de logo y modo de impresion.</li>
+                                            <li><strong>Logo:</strong> por ahora se captura como ruta publica a PNG, por ejemplo `/assets/media/logos/artiani-ticket.png`. Para impresora termica conviene usar logo simple, alto contraste y poco alto.</li>
+                                            <li><strong>Impresion:</strong> el modo actual recomendado es navegador. Impresion directa a hardware queda como integracion posterior para evitar depender del navegador o sistema operativo.</li>
+                                        </ul>
                                     </div>
 
                                     <div class="pos-manual-card p-5 mb-4 pos-manual-section" id="manual-inventario-pendiente">

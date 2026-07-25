@@ -26,7 +26,7 @@ if ($vistaContenido !== "") {
         "pos_scan_camera_device" => "selector camara",
         "pos_scan_torch" => "control luz",
         "pos_scan_focus" => "control enfoque",
-        "20260717-scan-pos" => "cache buster escaner"
+        "pos.js?v=" => "cache buster JS POS activo"
     ), $checks, $bloqueos);
 }
 

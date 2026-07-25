@@ -17,6 +17,7 @@
     var scanCamaras = [];
     var scanCamaraSeleccionada = "";
     var ticketPosActual = "";
+    var ticketConfigActual = {};
     var ventaRapidaValidada = null;
     var placeholderImagen = "data:image/svg+xml;charset=UTF-8,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%20400%20300'%3E%3Crect%20width='400'%20height='300'%20fill='%23f1f3f6'/%3E%3Cpath%20d='M80%20225h240l-70-85-55%2065-35-42z'%20fill='%23c8ced8'/%3E%3Ccircle%20cx='135'%20cy='105'%20r='28'%20fill='%23d7dce5'/%3E%3C/svg%3E";
 
@@ -279,6 +280,12 @@
     }
     function turnoActual() {
         return document.getElementById("pos_turno").value || "";
+    }
+    function terminalActual() {
+        if (asignacionOficial && asignacionOficial.asignacion && asignacionOficial.asignacion.id_terminal_pos) {
+            return asignacionOficial.asignacion.id_terminal_pos;
+        }
+        return terminalConfig().id_terminal_pos || "";
     }
     function tipoDocumentoActual() {
         return document.getElementById("pos_tipo_documento").value || "venta";
@@ -1658,6 +1665,7 @@
         return {
             id_almacen: almacenActual(),
             id_caja: cajaActual(),
+            id_terminal_pos: terminalActual(),
             id_turno_caja: turnoActual(),
             canal: document.getElementById("pos_canal").value || "pos",
             tipo_documento: tipoDocumentoActual(),
@@ -1794,7 +1802,7 @@
         requestGet("/ventas/ticket_venta_readonly_erp", {folio: folio}).then(function (response) {
             if (response.error) { throw new Error(response.mensaje); }
             var depurar = response.depurar || {};
-            actualizarModalTicket("Ticket de venta", folio, depurar.ticket_texto || "");
+            actualizarModalTicket("Ticket de venta", folio, depurar.ticket_texto || "", depurar.ticket_configuracion || {});
         }).catch(function (error) {
             actualizarModalTicket("Ticket de venta", folio, error.message || String(error));
             ticketPosActual = "";
@@ -1975,7 +1983,7 @@
     }
     function renderTicketPreview(response) {
         var depurar = response.depurar || {};
-        actualizarModalTicket("Ticket preview", "Vista previa sin folio real ni descuento de inventario", depurar.ticket_texto || "");
+        actualizarModalTicket("Vista previa de ticket", "Formato para cliente antes de confirmar cobro", depurar.ticket_texto || "", depurar.ticket_configuracion || {});
         document.getElementById("pos_validacion").innerHTML = "<div class=\"alert " + ((depurar.bloqueos || []).length ? "alert-warning" : "alert-success") + " py-3 mb-0\"><div class=\"fw-bold\">" + escapeHtml(response.mensaje || "Ticket preview") + "</div><div class=\"fs-7\">El ticket es temporal y no representa una venta confirmada.</div></div>";
         var modal = bootstrap.Modal.getOrCreateInstance(document.getElementById("pos_ticket_modal"));
         modal.show();
@@ -1990,22 +1998,27 @@
         return Math.max(80, Math.min(900, Math.ceil(18 + (lineas * 3.2))));
     }
 
-    function documentoTicketTermico(texto, titulo, altoMm) {
+    function documentoTicketTermico(texto, titulo, altoMm, config) {
+        config = config || {};
+        var logoUrl = String(config.logo_url || "").trim();
+        var mostrarLogo = logoUrl && (config.mostrar_logo === true || Number(config.mostrar_logo || 0) === 1 || String(config.logo_modo || "") === "imagen");
+        var logoHtml = mostrarLogo ? "<div class=\"logo\"><img src=\"" + escapeHtml(logoUrl) + "\" alt=\"Logo\"></div>" : "";
         var css = "@page{size:80mm " + altoMm + "mm;margin:0;}" +
             "html,body{width:80mm;margin:0;padding:0;background:#fff;color:#111;}" +
             "body{font-family:Consolas,'Liberation Mono','Courier New',monospace;font-size:12px;line-height:1.25;}" +
             ".ticket{box-sizing:border-box;width:80mm;margin:0;padding:1mm 1.5mm;white-space:pre;overflow:hidden;}" +
+            ".logo{width:80mm;text-align:center;padding:2mm 0 0;}.logo img{max-width:38mm;max-height:16mm;object-fit:contain;}" +
             "@media screen{body{background:#f3f4f6;}.ticket{min-height:" + altoMm + "mm;background:#fff;box-shadow:0 0 0 1px #ddd;margin:8px auto;padding:3mm 2mm;}}" +
             "@media print{html,body{width:80mm;height:" + altoMm + "mm;}.ticket{box-shadow:none;margin:0;padding:1mm 1.5mm;} }";
         var script = "<script>window.addEventListener('afterprint',function(){setTimeout(function(){window.close();},300);});<\/script>";
-        return "<!doctype html><html><head><meta charset=\"utf-8\"><title>" + escapeHtml(titulo || "Ticket POS") + "</title><style>" + css + "</style></head><body><pre class=\"ticket\">" + escapeHtml(texto || "") + "</pre>" + script + "</body></html>";
+        return "<!doctype html><html><head><meta charset=\"utf-8\"><title>" + escapeHtml(titulo || "Ticket POS") + "</title><style>" + css + "</style></head><body>" + logoHtml + "<pre class=\"ticket\">" + escapeHtml(texto || "") + "</pre>" + script + "</body></html>";
     }
     function imprimirTicketPos() {
         if (!ticketPosActual) { return; }
         var altoMm = altoTicketMm(ticketPosActual);
         var ventana = window.open("", "erp_pos_ticket_directo", "width=340,height=720");
         if (!ventana) { return; }
-        ventana.document.write(documentoTicketTermico(ticketPosActual, "Ticket POS", altoMm));
+        ventana.document.write(documentoTicketTermico(ticketPosActual, "Ticket POS", altoMm, ticketConfigActual));
         ventana.document.close();
         ventana.focus();
         ventana.print();
@@ -2035,14 +2048,23 @@
             "Gracias por su compra."
         ].join("\n");
         ticketPosActual = texto;
-        actualizarModalTicket("Prueba ticket 80mm", "No es venta; valida papel, margen y lectura", texto);
+        actualizarModalTicket("Prueba ticket 80mm", "No es venta; valida papel, margen y lectura", texto, {});
         imprimirTicketPos();
     }
-    function actualizarModalTicket(titulo, subtitulo, texto) {
+    function actualizarModalTicket(titulo, subtitulo, texto, config) {
         ticketPosActual = texto || "";
+        ticketConfigActual = config || {};
         document.getElementById("pos_ticket_titulo").textContent = titulo || "Ticket POS";
         document.getElementById("pos_ticket_subtitulo").textContent = subtitulo || "Consulta de ticket";
         document.getElementById("pos_ticket_texto").textContent = ticketPosActual;
+        var logoWrap = document.getElementById("pos_ticket_logo_wrap");
+        var logoImg = document.getElementById("pos_ticket_logo");
+        var logoUrl = String(ticketConfigActual.logo_url || "").trim();
+        var mostrarLogo = logoUrl && (ticketConfigActual.mostrar_logo === true || Number(ticketConfigActual.mostrar_logo || 0) === 1 || String(ticketConfigActual.logo_modo || "") === "imagen");
+        if (logoWrap && logoImg) {
+            logoWrap.classList.toggle("d-none", !mostrarLogo);
+            logoImg.src = mostrarLogo ? logoUrl : "";
+        }
         document.getElementById("pos_ticket_imprimir").disabled = !ticketPosActual;
     }
     function renderClientePrecio(response) {
@@ -3041,7 +3063,9 @@
         document.getElementById("pos_pedido_dryrun").addEventListener("click", dryRunPedidoReserva);
         document.getElementById("pos_ticket_preview").addEventListener("click", ticketPreview);
         document.getElementById("pos_ticket_imprimir").addEventListener("click", imprimirTicketPos);
-        document.getElementById("pos_ticket_prueba_80").addEventListener("click", imprimirTicketPrueba80);
+        if (document.getElementById("pos_ticket_prueba_80")) {
+            document.getElementById("pos_ticket_prueba_80").addEventListener("click", imprimirTicketPrueba80);
+        }
         document.getElementById("pos_cliente_precio_modal_btn").addEventListener("click", function () {
             abrirClienteAutorizacion("cliente");
         });

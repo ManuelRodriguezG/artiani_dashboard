@@ -6943,3 +6943,34 @@ Pendiente operativo:
 
 - Para el caso historico `417368.0`, volver a ejecutar matching en lista `12` y aplicar costo vigente.
 - Despues de aplicar costo, Compras debe tomar `277 MXN` desde `erp_proveedores_sku_costos` vigente en lugar del respaldo `269`.
+
+## Correccion 2026-07-25 - Codigos de barras en notacion cientifica desde XLSX
+
+Hallazgo:
+
+- Caso real: proveedor `HOBBY PET`, lista `23`, archivo `LISTA CARGAR SISTEMA HOBBY PET JULIO 2026.xlsx`.
+- La vista previa mostraba codigos como `1.00106012E8`.
+- En este archivo la columna `CODIGO` contiene codigos de producto/codigos de barras y algunos vienen almacenados por Excel como numero cientifico.
+
+Causa:
+
+- Cuando Excel guarda codigos numericos como numero y no como texto, el XLSX puede entregar valores en notacion cientifica.
+- Si el ERP conserva ese texto literal, el matching no encuentra coincidencias y el usuario pierde tiempo corrigiendo codigos.
+- Si Excel ya elimino ceros a la izquierda antes de guardar, el ERP no puede reconstruirlos con certeza; eso si requiere corregir el archivo origen o capturar el codigo real.
+
+Ajuste aplicado:
+
+- El lector XLSX convierte notacion cientifica a numero plano sin usar `float`.
+- Ejemplo confirmado en preview:
+  - antes: `1.00106012E8`
+  - despues: `100106012`
+- La normalizacion tambien aplica a identificadores de proveedor:
+  - `sku_proveedor`
+  - `codigo_barras`
+  - `codigo_interno`
+- En recargas, si un renglon existente tenia el codigo contaminado y el archivo ahora se lee limpio, el importador puede actualizar el identificador del renglon.
+
+Recomendacion para archivos de proveedor:
+
+- Si el proveedor manda codigos de barras, pedir que esa columna venga como texto.
+- Si se edita en Excel, revisar que el codigo no pierda ceros a la izquierda antes de guardar.

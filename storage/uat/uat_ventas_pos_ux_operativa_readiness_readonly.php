@@ -36,7 +36,7 @@ $checks = array(
         "validarVentaRapida" => "dry-run UI de venta rapida",
         "agregarVentaRapidaAlCarrito" => "partida provisional al carrito",
         "venta_rapida_controlada" => "origen de partida venta rapida",
-        "Venta rapida todavia no puede cobrarse real" => "guardrail contra cobro real sin DDL",
+        "Cobrar venta rapida" => "cobro real de venta rapida controlada conectado",
         "event.altKey && key === \"1\"" => "atajo pago efectivo implementado",
         "agregarPagoRapido(\"efectivo\")" => "atajo/boton pago efectivo conectado",
         "key === \"Enter\"" => "atajo cobrar conectado",

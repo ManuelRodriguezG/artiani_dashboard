@@ -378,6 +378,17 @@ class Ventas extends Controlador {
   }
 
   /**
+   * Documentacion IA: Codex GPT-5, 2026-07-24.
+   * Proposito: validar datos de negocio y formato de ticket POS sin escribir BD.
+   * Impacto: prepara logo, contacto y leyendas para ticket no fiscal por tienda/caja/terminal.
+   * Contrato: dry-run protegido por ventas.ver; no imprime ni modifica configuracion.
+   */
+  public function pos_configuracion_ticket_dryrun_erp() {
+    $this->requerirPermiso("ventas.ver");
+    return json_encode($this->modelo("VentasErp")->configuracionTicketPosDryRun($_POST));
+  }
+
+  /**
    * Documentacion IA: Codex GPT-5, 2026-07-03.
    * Proposito: guardar caja POS real desde flujo autorizado de configuracion.
    * Impacto: crea/edita caja sin abrir turno ni mover caja.
@@ -428,6 +439,19 @@ class Ventas extends Controlador {
     $_POST["id_usuario"] = $this->usuarioActualId();
     $respuesta = $this->modelo("VentasErp")->guardarPoliticaInventarioPendientePosReal($_POST);
     $this->auditarConfiguracionPos("politica_inventario_pendiente_guardar", $respuesta);
+    return json_encode($respuesta);
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5, 2026-07-24.
+   * Proposito: guardar configuracion formal de ticket POS.
+   * Impacto: actualiza datos de empresa y formato de ticket; no crea ventas, no mueve caja y no configura hardware.
+   * Contrato: POST con CSRF, sesion y permiso de configuracion POS.
+   */
+  public function pos_configuracion_ticket_guardar_erp() {
+    $this->requerirPermisoConfiguracionPosGuardar();
+    $respuesta = $this->modelo("VentasErp")->configuracionTicketPosGuardarReal($_POST, $this->usuarioActualId());
+    $this->auditarConfiguracionPos("ticket_guardar", $respuesta);
     return json_encode($respuesta);
   }
 

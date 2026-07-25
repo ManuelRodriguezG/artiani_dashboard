@@ -60,7 +60,8 @@
                     card("Trazabilidad inventario", tablaTrazabilidad(trazabilidad)) +
                 "</div>" +
                 "<div class=\"col-xl-5\">" +
-                    card("Ticket formal", ticketPanel(ticketActual, hallazgos)) +
+                    card("Ticket para cliente", ticketPanel(ticketActual)) +
+                    (hallazgos.length ? card("Observaciones internas", hallazgosPanel(hallazgos)) : "") +
                 "</div>" +
             "</div>";
     }
@@ -140,11 +141,14 @@
             }).join("") + "</tbody></table></div>";
     }
 
-    function ticketPanel(ticket, hallazgos) {
-        var alertas = hallazgos.length ? "<div class=\"alert alert-warning py-3\"><div class=\"fw-bold\">Observaciones</div><ul class=\"mb-0 ps-4\">" + hallazgos.map(function (item) {
+    function hallazgosPanel(hallazgos) {
+        return "<div class=\"alert alert-warning py-3 mb-0\"><div class=\"fw-bold\">No imprimir para cliente</div><ul class=\"mb-0 ps-4\">" + hallazgos.map(function (item) {
             return "<li>" + escapeHtml(item.id || "") + ": " + escapeHtml(item.mensaje || item) + "</li>";
-        }).join("") + "</ul></div>" : "";
-        return alertas + "<pre class=\"bg-light p-4 rounded fs-7 venta-ticket-pre\">" + escapeHtml(ticket || "Sin ticket") + "</pre>" +
+        }).join("") + "</ul></div>";
+    }
+
+    function ticketPanel(ticket) {
+        return "<pre class=\"bg-light p-4 rounded fs-7 venta-ticket-pre\">" + escapeHtml(ticket || "Sin ticket") + "</pre>" +
             "<div class=\"d-grid gap-2\"><button class=\"btn btn-light-primary\" id=\"venta_detalle_imprimir\" type=\"button\"><i class=\"bi bi-printer\"></i> Imprimir ticket</button></div>";
     }
 

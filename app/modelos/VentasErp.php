@@ -2816,31 +2816,91 @@ class VentasErp extends CRUD {
     public function ticketPreviewDryRun($datos = array()) {
         $prevalidacion = $this->prevalidarCarritoPos($datos);
         $depurar = isset($prevalidacion["depurar"]) ? $prevalidacion["depurar"] : array();
+        $db = $this->getConexion();
+        $configuracionTicket = $this->resolverConfiguracionTicketPos($db, array(
+            "id_almacen" => intval($this->valor($datos, "id_almacen", 0)),
+            "id_caja" => intval($this->valor($datos, "id_caja", 0)),
+            "id_terminal_pos" => intval($this->valor($datos, "id_terminal_pos", 0))
+        ));
+        $ancho = intval($this->valor($configuracionTicket, "ticket_columnas", 42));
         $totales = isset($depurar["totales"]) ? $depurar["totales"] : array();
         $lineas = array();
-        $lineas[] = "ARTIANI ERP - TICKET PREVIEW";
-        $lineas[] = "Folio: PREVIEW-" . date("Ymd-His");
-        $lineas[] = "Almacen: " . $this->valor($datos, "id_almacen", "-") . " Caja: " . $this->valor($datos, "id_caja", "-") . " Turno: " . $this->valor($datos, "id_turno_caja", "-");
-        $lineas[] = "--------------------------------";
+        $lineas[] = str_pad($this->textoTicket($this->valor($configuracionTicket, "nombre_comercial", "ARTIANI ERP"), $ancho), $ancho, " ", STR_PAD_BOTH);
+        $lineas[] = str_pad("TICKET POS", $ancho, " ", STR_PAD_BOTH);
+        $razonSocial = trim((string) $this->valor($configuracionTicket, "razon_social", ""));
+        $rfc = trim((string) $this->valor($configuracionTicket, "rfc", ""));
+        $direccionFiscal = trim((string) $this->valor($configuracionTicket, "direccion_fiscal", ""));
+        $telefono = trim((string) $this->valor($configuracionTicket, "telefono", ""));
+        $whatsapp = trim((string) $this->valor($configuracionTicket, "whatsapp", ""));
+        $email = trim((string) $this->valor($configuracionTicket, "email", ""));
+        $sitioWeb = trim((string) $this->valor($configuracionTicket, "sitio_web", ""));
+        $mensajeSucursal = trim((string) $this->valor($configuracionTicket, "mensaje_sucursal", ""));
+        if ($razonSocial !== "") {
+            $lineas[] = str_pad($this->textoTicket($razonSocial, $ancho), $ancho, " ", STR_PAD_BOTH);
+        }
+        if ($rfc !== "") {
+            $lineas[] = str_pad($this->textoTicket("RFC: " . $rfc, $ancho), $ancho, " ", STR_PAD_BOTH);
+        }
+        $lineas = array_merge($lineas, $this->lineasTicketWrap($direccionFiscal, $ancho));
+        $lineas = array_merge($lineas, $this->lineasTicketWrap($telefono !== "" ? "Tel: " . $telefono : "", $ancho));
+        $lineas = array_merge($lineas, $this->lineasTicketWrap($whatsapp !== "" ? "WhatsApp: " . $whatsapp : "", $ancho));
+        $lineas = array_merge($lineas, $this->lineasTicketWrap($email !== "" ? "Email: " . $email : "", $ancho));
+        $lineas = array_merge($lineas, $this->lineasTicketWrap($sitioWeb, $ancho));
+        $lineas = array_merge($lineas, $this->lineasTicketWrap($mensajeSucursal, $ancho));
+        $lineas[] = str_repeat("-", $ancho);
+        $lineas[] = "Folio: PENDIENTE";
+        $lineas[] = "Fecha: " . date("Y-m-d H:i:s");
+        $lineas[] = "Cliente: " . ($this->valor($datos, "cliente_nombre_publico", "") ?: "Publico general");
+        $lineas[] = str_repeat("-", $ancho);
+        $lineas[] = "Codigo / producto";
         foreach ($this->valor($depurar, "partidas", array()) as $partida) {
-            $lineas[] = $partida["sku"] . " x " . $partida["cantidad"] . " = $" . number_format(floatval($partida["subtotal"]), 2, ".", "");
-            if (!empty($partida["bloqueos"])) {
-                $lineas[] = "  BLOQUEO: " . implode("; ", $partida["bloqueos"]);
+            $sku = $this->valor($partida, "sku", "");
+            $descripcion = $this->valor($partida, "descripcion", "");
+            $cantidad = number_format(floatval($this->valor($partida, "cantidad", 0)), 3, ".", "");
+            $unidad = trim((string) $this->valor($partida, "unidad_venta", "pza"));
+            $precio = number_format(floatval($this->valor($partida, "precio_unitario", 0)), 2, ".", "");
+            $subtotal = number_format(floatval($this->valor($partida, "subtotal", 0)), 2, ".", "");
+            $lineas = array_merge($lineas, $this->lineasProductoTicket($sku, $descripcion, $ancho));
+            $lineas[] = $cantidad . " " . $unidad . " x $" . $precio . str_pad("$" . $subtotal, max(1, $ancho - strlen($cantidad . " " . $unidad . " x $" . $precio)), " ", STR_PAD_LEFT);
+        }
+        $lineas[] = str_repeat("-", $ancho);
+        $lineas[] = $this->lineaImporte("Subtotal", $this->valor($totales, "subtotal", 0), $ancho);
+        $lineas[] = $this->lineaImporte("TOTAL", $this->valor($totales, "total_estimado", 0), $ancho);
+        if (floatval($this->valor($totales, "pagado_total", 0)) > 0) {
+            $lineas[] = $this->lineaImporte("Pagado", $this->valor($totales, "pagado_total", 0), $ancho);
+            $lineas[] = $this->lineaImporte("Saldo", $this->valor($totales, "saldo_total", 0), $ancho);
+            $lineas[] = $this->lineaImporte("Cambio", $this->valor($totales, "cambio", 0), $ancho);
+        }
+        $pagosPreview = $this->decodificarItems($this->valor($datos, "pagos", array()));
+        if (!empty($pagosPreview)) {
+            $lineas[] = str_repeat("-", $ancho);
+            $lineas[] = "Pagos capturados";
+            foreach ($pagosPreview as $pago) {
+                $lineas[] = "  " . $this->textoTicket($this->etiquetaPagoPos($pago), 22) . " " . $this->lineaImporte("", $this->valor($pago, "monto", 0), $ancho - 25);
             }
         }
-        $lineas[] = "--------------------------------";
-        $lineas[] = "Subtotal: $" . number_format(floatval($this->valor($totales, "subtotal", 0)), 2, ".", "");
-        $lineas[] = "Total: $" . number_format(floatval($this->valor($totales, "total_estimado", 0)), 2, ".", "");
-        $lineas[] = "Pagado: $" . number_format(floatval($this->valor($totales, "pagado_total", 0)), 2, ".", "");
-        $lineas[] = "Saldo: $" . number_format(floatval($this->valor($totales, "saldo_total", 0)), 2, ".", "");
-        $lineas[] = "Cambio: $" . number_format(floatval($this->valor($totales, "cambio", 0)), 2, ".", "");
-        if (!empty($depurar["bloqueos"])) {
-            $lineas[] = "NO ES VENTA CONFIRMADA";
+        $lineas[] = str_repeat("-", $ancho);
+        $leyendaNoFiscal = trim((string) $this->valor($configuracionTicket, "leyenda_no_fiscal", "Ticket no fiscal. Conserve este comprobante."));
+        if ($leyendaNoFiscal !== "") {
+            $lineas[] = $this->textoTicket($leyendaNoFiscal, $ancho);
+        }
+        $leyendaGeneral = trim((string) $this->valor($configuracionTicket, "leyenda_ticket_general", "Gracias por su compra."));
+        if ($leyendaGeneral !== "") {
+            $lineas[] = $this->textoTicket($leyendaGeneral, $ancho);
+        }
+        $leyendaGarantias = trim((string) $this->valor($configuracionTicket, "leyenda_garantias", ""));
+        if ($leyendaGarantias !== "") {
+            $lineas[] = $this->textoTicket($leyendaGarantias, $ancho);
+        }
+        $leyendaDevoluciones = trim((string) $this->valor($configuracionTicket, "leyenda_devoluciones", ""));
+        if ($leyendaDevoluciones !== "") {
+            $lineas[] = $this->textoTicket($leyendaDevoluciones, $ancho);
         }
         return $this->respuesta(false, empty($depurar["bloqueos"]) ? "success" : "warning", "Ticket preview generado", array(
             "dry_run" => true,
             "prevalidacion" => $prevalidacion,
             "ticket_texto" => implode("\n", $lineas),
+            "ticket_configuracion" => $configuracionTicket,
             "bloqueos" => $this->valor($depurar, "bloqueos", array())
         ));
     }
@@ -6219,7 +6279,9 @@ class VentasErp extends CRUD {
                 "erp_pos_terminales",
                 "erp_pos_usuarios_cajas",
                 "erp_pos_turnos",
-                "erp_pos_movimientos_caja"
+                "erp_pos_movimientos_caja",
+                "erp_empresa_configuracion",
+                "erp_pos_ticket_configuracion"
             );
             $schema = array();
             foreach ($tablas as $tabla) {
@@ -6229,6 +6291,8 @@ class VentasErp extends CRUD {
             $terminales = $this->listarTerminalesPos($db);
             $asignaciones = $this->listarAsignacionesPos($db);
             $politicasInventarioPendiente = $this->listarPoliticasInventarioPendientePos($db);
+            $ticketConfiguraciones = $this->listarTicketConfiguracionesPos($db);
+            $ticketEfectiva = $this->resolverConfiguracionTicketPos($db, array());
             $turnosAbiertos = $this->listarTurnosAbiertosPos($db);
             $movimientos = $this->listarMovimientosCajaRecientes($db, 25);
             return $this->respuesta(false, "success", "Configuracion POS consultada", array(
@@ -6239,6 +6303,8 @@ class VentasErp extends CRUD {
                 "terminales" => $terminales,
                 "asignaciones" => $asignaciones,
                 "politicas_inventario_pendiente" => $politicasInventarioPendiente,
+                "ticket_configuraciones" => $ticketConfiguraciones,
+                "ticket_configuracion_efectiva" => $ticketEfectiva,
                 "turnos_abiertos" => $turnosAbiertos,
                 "movimientos_recientes" => $movimientos,
                 "resumen" => array(
@@ -6246,6 +6312,7 @@ class VentasErp extends CRUD {
                     "terminales" => count($terminales),
                     "asignaciones" => count($asignaciones),
                     "politicas_inventario_pendiente" => count($politicasInventarioPendiente),
+                    "ticket_configuraciones" => count($ticketConfiguraciones),
                     "turnos_abiertos" => count($turnosAbiertos),
                     "movimientos_recientes" => count($movimientos)
                 )
@@ -6254,6 +6321,302 @@ class VentasErp extends CRUD {
             return $this->respuesta(true, "danger", "No se pudo consultar configuracion POS", array(
                 "excepcion" => $e->getMessage()
             ));
+        }
+    }
+
+    /**
+     * Documentacion IA: Codex GPT-5, 2026-07-24.
+     * Proposito: validar configuracion de negocio/ticket POS antes de guardar.
+     * Impacto: separa identidad comercial de formato por tienda/caja/terminal.
+     * Contrato: dry-run; no escribe BD, no imprime y no toca ventas historicas.
+     */
+    public function configuracionTicketPosDryRun($datos = array()) {
+        try {
+            $db = $this->getConexion();
+            $bloqueos = array();
+            $avisos = array();
+            if (!$this->tablaExiste($db, "erp_empresa_configuracion") || !$this->tablaExiste($db, "erp_pos_ticket_configuracion")) {
+                $bloqueos[] = "Falta esquema de configuracion de ticket POS";
+            }
+
+            $nombreComercial = trim((string) $this->valor($datos, "nombre_comercial", ""));
+            $razonSocial = trim((string) $this->valor($datos, "razon_social", ""));
+            $rfc = strtoupper(trim((string) $this->valor($datos, "rfc", "")));
+            $direccionFiscal = trim((string) $this->valor($datos, "direccion_fiscal", ""));
+            $telefono = trim((string) $this->valor($datos, "telefono", ""));
+            $whatsapp = trim((string) $this->valor($datos, "whatsapp", ""));
+            $email = trim((string) $this->valor($datos, "email", ""));
+            $sitioWeb = trim((string) $this->valor($datos, "sitio_web", ""));
+            $logoUrl = trim((string) $this->valor($datos, "logo_url", ""));
+            $idAlmacen = intval($this->valor($datos, "id_almacen", 0));
+            $idCaja = intval($this->valor($datos, "id_caja", 0));
+            $idTerminal = intval($this->valor($datos, "id_terminal_pos", 0));
+            $nombreConfig = trim((string) $this->valor($datos, "nombre_configuracion", ""));
+            $anchoMm = trim((string) $this->valor($datos, "ticket_ancho_mm", "80"));
+            $columnas = intval($this->valor($datos, "ticket_columnas", 42));
+            $logoModo = trim((string) $this->valor($datos, "logo_modo", "texto"));
+            $impresionModo = trim((string) $this->valor($datos, "impresion_modo", "navegador"));
+            $copiasVenta = max(1, intval($this->valor($datos, "copias_venta", 1)));
+            $copiasDevolucion = max(1, intval($this->valor($datos, "copias_devolucion", 1)));
+            $leyendaNoFiscal = trim((string) $this->valor($datos, "leyenda_no_fiscal", ""));
+            $leyendaGeneral = trim((string) $this->valor($datos, "leyenda_ticket_general", ""));
+            $leyendaDevoluciones = trim((string) $this->valor($datos, "leyenda_devoluciones", ""));
+            $leyendaGarantias = trim((string) $this->valor($datos, "leyenda_garantias", ""));
+            $mensajeSucursal = trim((string) $this->valor($datos, "mensaje_sucursal", ""));
+
+            if ($nombreComercial === "") {
+                $bloqueos[] = "Captura nombre comercial del negocio";
+            }
+            if ($nombreConfig === "") {
+                $nombreConfig = "Ticket POS principal";
+                $avisos[] = "Se usara nombre de configuracion sugerido";
+            }
+            if (!in_array($anchoMm, array("58", "80"), true)) {
+                $bloqueos[] = "El ancho de ticket debe ser 58 mm u 80 mm";
+            }
+            if ($columnas < 30 || $columnas > 60) {
+                $bloqueos[] = "Las columnas deben estar entre 30 y 60";
+            }
+            if (!in_array($logoModo, array("texto", "imagen"), true)) {
+                $logoModo = "texto";
+            }
+            if ($logoModo === "imagen" && $logoUrl === "") {
+                $avisos[] = "Para imprimir logo como imagen captura una ruta publica PNG; mientras tanto se puede usar encabezado de texto";
+            }
+            if (!in_array($impresionModo, array("navegador", "directa_futura"), true)) {
+                $impresionModo = "navegador";
+            }
+            if ($idAlmacen > 0 && !$this->almacenVentaPorId($db, $idAlmacen)) {
+                $bloqueos[] = "La tienda seleccionada no existe o no esta activa";
+            }
+            if ($idCaja > 0) {
+                $caja = $this->cajaPosPorId($db, $idCaja);
+                if (!$caja) {
+                    $bloqueos[] = "La caja seleccionada no existe o no esta activa";
+                } elseif ($idAlmacen > 0 && intval($this->valor($caja, "id_almacen", 0)) !== $idAlmacen) {
+                    $bloqueos[] = "La caja no pertenece a la tienda seleccionada";
+                }
+            }
+            if ($idTerminal > 0) {
+                $terminal = $this->terminalPosPorId($db, $idTerminal);
+                if (!$terminal) {
+                    $bloqueos[] = "La terminal seleccionada no existe o no esta activa";
+                } elseif (($idAlmacen > 0 && intval($this->valor($terminal, "id_almacen", 0)) !== $idAlmacen)
+                    || ($idCaja > 0 && intval($this->valor($terminal, "id_caja", 0)) !== $idCaja)) {
+                    $bloqueos[] = "La terminal no pertenece a la tienda/caja seleccionada";
+                }
+            }
+            if ($leyendaNoFiscal === "") {
+                $leyendaNoFiscal = "Ticket no fiscal. Conserve este comprobante.";
+            }
+            if ($leyendaGeneral === "") {
+                $leyendaGeneral = "Gracias por su compra.";
+            }
+
+            return $this->respuesta(false, empty($bloqueos) ? "success" : "warning", empty($bloqueos) ? "Configuracion de ticket valida para guardar" : "Configuracion de ticket requiere ajustes", array(
+                "dry_run" => true,
+                "bloqueos" => $bloqueos,
+                "avisos" => $avisos,
+                "propuesta" => array(
+                    "empresa" => array(
+                        "clave_empresa" => "principal",
+                        "nombre_comercial" => $nombreComercial,
+                        "razon_social" => $razonSocial,
+                        "rfc" => $rfc,
+                        "direccion_fiscal" => $direccionFiscal,
+                        "telefono" => $telefono,
+                        "whatsapp" => $whatsapp,
+                        "email" => $email,
+                        "sitio_web" => $sitioWeb,
+                        "logo_url" => $logoUrl,
+                        "leyenda_ticket_general" => $leyendaGeneral,
+                        "leyenda_no_fiscal" => $leyendaNoFiscal,
+                        "leyenda_devoluciones" => $leyendaDevoluciones,
+                        "leyenda_garantias" => $leyendaGarantias
+                    ),
+                    "ticket" => array(
+                        "id_almacen" => $idAlmacen ?: null,
+                        "id_caja" => $idCaja ?: null,
+                        "id_terminal_pos" => $idTerminal ?: null,
+                        "nombre_configuracion" => $nombreConfig,
+                        "ticket_ancho_mm" => $anchoMm,
+                        "ticket_columnas" => $columnas,
+                        "mostrar_logo" => $logoUrl !== "" ? 1 : 0,
+                        "logo_modo" => $logoModo,
+                        "impresion_modo" => $impresionModo,
+                        "copias_venta" => $copiasVenta,
+                        "copias_devolucion" => $copiasDevolucion,
+                        "mensaje_sucursal" => $mensajeSucursal,
+                        "estatus" => "activa"
+                    )
+                ),
+                "contrato" => array(
+                    "datos_negocio_en_empresa" => true,
+                    "formato_por_tienda_caja_terminal" => true,
+                    "no_imprime" => true,
+                    "no_mueve_caja" => true,
+                    "no_mueve_inventario" => true
+                )
+            ));
+        } catch (Exception $e) {
+            return $this->respuesta(true, "danger", "No se pudo validar configuracion de ticket", array("excepcion" => $e->getMessage()));
+        }
+    }
+
+    /**
+     * Documentacion IA: Codex GPT-5, 2026-07-24.
+     * Proposito: guardar datos del negocio y configuracion de ticket POS.
+     * Impacto: habilita editor operativo de ticket no fiscal sin afectar ventas, caja ni inventario.
+     * Contrato: escritura transaccional con validacion previa y baja dependencia de hardware.
+     */
+    public function configuracionTicketPosGuardarReal($datos = array(), $idUsuario = 0) {
+        try {
+            $db = $this->getConexion();
+            if (!$db || !$this->tablaExiste($db, "erp_empresa_configuracion") || !$this->tablaExiste($db, "erp_pos_ticket_configuracion")) {
+                return $this->respuesta(true, "danger", "Esquema de configuracion de ticket POS no disponible");
+            }
+            $validacion = $this->configuracionTicketPosDryRun($datos);
+            $depurar = isset($validacion["depurar"]) && is_array($validacion["depurar"]) ? $validacion["depurar"] : array();
+            if (!empty($depurar["bloqueos"])) {
+                return $this->respuesta(false, "warning", "Configuracion de ticket requiere ajustes", $depurar);
+            }
+
+            $propuesta = $depurar["propuesta"];
+            $empresa = $propuesta["empresa"];
+            $ticket = $propuesta["ticket"];
+            $idUsuario = intval($idUsuario);
+            $idEmpresa = intval($this->valor($datos, "id_empresa_configuracion", 0));
+            $idTicket = intval($this->valor($datos, "id_ticket_configuracion", 0));
+
+            $db->beginTransaction();
+            if ($idEmpresa <= 0) {
+                $stmt = $db->prepare("SELECT id_empresa_configuracion FROM erp_empresa_configuracion WHERE clave_empresa='principal' LIMIT 1");
+                $stmt->execute();
+                $idEmpresa = intval($stmt->fetchColumn());
+            }
+            if ($idEmpresa > 0) {
+                $stmt = $db->prepare("UPDATE erp_empresa_configuracion
+                    SET nombre_comercial=:nombre, razon_social=:razon, rfc=:rfc, direccion_fiscal=:direccion,
+                        telefono=:telefono, whatsapp=:whatsapp, email=:email, sitio_web=:sitio, logo_url=:logo,
+                        leyenda_ticket_general=:leyenda_general, leyenda_no_fiscal=:leyenda_no_fiscal,
+                        leyenda_devoluciones=:leyenda_devoluciones, leyenda_garantias=:leyenda_garantias,
+                        actualizado_por=:usuario, fecha_actualizacion=NOW(), estatus='activa'
+                    WHERE id_empresa_configuracion=:id");
+                $stmt->execute(array(
+                    ":nombre" => $empresa["nombre_comercial"],
+                    ":razon" => $empresa["razon_social"] ?: null,
+                    ":rfc" => $empresa["rfc"] ?: null,
+                    ":direccion" => $empresa["direccion_fiscal"] ?: null,
+                    ":telefono" => $empresa["telefono"] ?: null,
+                    ":whatsapp" => $empresa["whatsapp"] ?: null,
+                    ":email" => $empresa["email"] ?: null,
+                    ":sitio" => $empresa["sitio_web"] ?: null,
+                    ":logo" => $empresa["logo_url"] ?: null,
+                    ":leyenda_general" => $empresa["leyenda_ticket_general"] ?: null,
+                    ":leyenda_no_fiscal" => $empresa["leyenda_no_fiscal"] ?: null,
+                    ":leyenda_devoluciones" => $empresa["leyenda_devoluciones"] ?: null,
+                    ":leyenda_garantias" => $empresa["leyenda_garantias"] ?: null,
+                    ":usuario" => $idUsuario ?: null,
+                    ":id" => $idEmpresa
+                ));
+                $accionEmpresa = "actualizada";
+            } else {
+                $stmt = $db->prepare("INSERT INTO erp_empresa_configuracion
+                    (clave_empresa, nombre_comercial, razon_social, rfc, direccion_fiscal, telefono, whatsapp, email, sitio_web, logo_url,
+                     leyenda_ticket_general, leyenda_no_fiscal, leyenda_devoluciones, leyenda_garantias, estatus, creado_por, actualizado_por, fecha_registro, fecha_actualizacion)
+                    VALUES ('principal', :nombre, :razon, :rfc, :direccion, :telefono, :whatsapp, :email, :sitio, :logo,
+                     :leyenda_general, :leyenda_no_fiscal, :leyenda_devoluciones, :leyenda_garantias, 'activa', :usuario, :usuario, NOW(), NOW())");
+                $stmt->execute(array(
+                    ":nombre" => $empresa["nombre_comercial"],
+                    ":razon" => $empresa["razon_social"] ?: null,
+                    ":rfc" => $empresa["rfc"] ?: null,
+                    ":direccion" => $empresa["direccion_fiscal"] ?: null,
+                    ":telefono" => $empresa["telefono"] ?: null,
+                    ":whatsapp" => $empresa["whatsapp"] ?: null,
+                    ":email" => $empresa["email"] ?: null,
+                    ":sitio" => $empresa["sitio_web"] ?: null,
+                    ":logo" => $empresa["logo_url"] ?: null,
+                    ":leyenda_general" => $empresa["leyenda_ticket_general"] ?: null,
+                    ":leyenda_no_fiscal" => $empresa["leyenda_no_fiscal"] ?: null,
+                    ":leyenda_devoluciones" => $empresa["leyenda_devoluciones"] ?: null,
+                    ":leyenda_garantias" => $empresa["leyenda_garantias"] ?: null,
+                    ":usuario" => $idUsuario ?: null
+                ));
+                $idEmpresa = intval($db->lastInsertId());
+                $accionEmpresa = "creada";
+            }
+
+            if ($idTicket > 0) {
+                $stmt = $db->prepare("UPDATE erp_pos_ticket_configuracion
+                    SET id_empresa_configuracion=:empresa, id_almacen=:almacen, id_caja=:caja, id_terminal_pos=:terminal,
+                        nombre_configuracion=:nombre, ticket_ancho_mm=:ancho, ticket_columnas=:columnas,
+                        mostrar_logo=:mostrar_logo, logo_modo=:logo_modo, impresion_modo=:impresion,
+                        copias_venta=:copias_venta, copias_devolucion=:copias_devolucion,
+                        mensaje_sucursal=:mensaje_sucursal, actualizado_por=:usuario, fecha_actualizacion=NOW(), estatus='activa'
+                    WHERE id_ticket_configuracion=:id");
+                $stmt->execute(array(
+                    ":empresa" => $idEmpresa,
+                    ":almacen" => $ticket["id_almacen"],
+                    ":caja" => $ticket["id_caja"],
+                    ":terminal" => $ticket["id_terminal_pos"],
+                    ":nombre" => $ticket["nombre_configuracion"],
+                    ":ancho" => $ticket["ticket_ancho_mm"],
+                    ":columnas" => $ticket["ticket_columnas"],
+                    ":mostrar_logo" => $ticket["mostrar_logo"],
+                    ":logo_modo" => $ticket["logo_modo"],
+                    ":impresion" => $ticket["impresion_modo"],
+                    ":copias_venta" => $ticket["copias_venta"],
+                    ":copias_devolucion" => $ticket["copias_devolucion"],
+                    ":mensaje_sucursal" => $ticket["mensaje_sucursal"] ?: null,
+                    ":usuario" => $idUsuario ?: null,
+                    ":id" => $idTicket
+                ));
+                $accionTicket = "actualizada";
+            } else {
+                $stmt = $db->prepare("INSERT INTO erp_pos_ticket_configuracion
+                    (id_empresa_configuracion, id_almacen, id_caja, id_terminal_pos, nombre_configuracion, prioridad,
+                     ticket_ancho_mm, ticket_columnas, fuente, mostrar_logo, logo_modo, impresion_modo,
+                     copias_venta, copias_devolucion, mensaje_sucursal, estatus, creado_por, actualizado_por, fecha_registro, fecha_actualizacion)
+                    VALUES (:empresa, :almacen, :caja, :terminal, :nombre, 100,
+                     :ancho, :columnas, 'monospace', :mostrar_logo, :logo_modo, :impresion,
+                     :copias_venta, :copias_devolucion, :mensaje_sucursal, 'activa', :usuario, :usuario, NOW(), NOW())");
+                $stmt->execute(array(
+                    ":empresa" => $idEmpresa,
+                    ":almacen" => $ticket["id_almacen"],
+                    ":caja" => $ticket["id_caja"],
+                    ":terminal" => $ticket["id_terminal_pos"],
+                    ":nombre" => $ticket["nombre_configuracion"],
+                    ":ancho" => $ticket["ticket_ancho_mm"],
+                    ":columnas" => $ticket["ticket_columnas"],
+                    ":mostrar_logo" => $ticket["mostrar_logo"],
+                    ":logo_modo" => $ticket["logo_modo"],
+                    ":impresion" => $ticket["impresion_modo"],
+                    ":copias_venta" => $ticket["copias_venta"],
+                    ":copias_devolucion" => $ticket["copias_devolucion"],
+                    ":mensaje_sucursal" => $ticket["mensaje_sucursal"] ?: null,
+                    ":usuario" => $idUsuario ?: null
+                ));
+                $idTicket = intval($db->lastInsertId());
+                $accionTicket = "creada";
+            }
+
+            $db->commit();
+            return $this->respuesta(false, "success", "Configuracion de ticket POS guardada", array(
+                "id_empresa_configuracion" => $idEmpresa,
+                "id_ticket_configuracion" => $idTicket,
+                "accion_empresa" => $accionEmpresa,
+                "accion_ticket" => $accionTicket,
+                "propuesta" => $propuesta,
+                "no_crea_venta" => true,
+                "no_mueve_caja" => true,
+                "no_mueve_inventario" => true,
+                "no_configura_hardware" => true
+            ));
+        } catch (Exception $e) {
+            if (isset($db) && $db && $db->inTransaction()) {
+                $db->rollBack();
+            }
+            return $this->respuesta(true, "danger", "No se pudo guardar configuracion de ticket POS", array("excepcion" => $e->getMessage()));
         }
     }
 
@@ -8639,6 +9002,43 @@ class VentasErp extends CRUD {
     }
 
     /**
+     * Documentacion IA: Codex GPT-5, 2026-07-24.
+     * Proposito: listar configuraciones de ticket POS con datos de negocio.
+     * Impacto: alimenta editor de logo, contacto y formato sin imprimir ni tocar ventas.
+     * Contrato: read-only; devuelve vacio si falta esquema.
+     */
+    private function listarTicketConfiguracionesPos($db) {
+        if (!$db || !$this->tablaExiste($db, "erp_pos_ticket_configuracion") || !$this->tablaExiste($db, "erp_empresa_configuracion")) {
+            return array();
+        }
+        $joinCaja = $this->tablaExiste($db, "erp_pos_cajas")
+            ? "LEFT JOIN erp_pos_cajas c ON c.id_caja=t.id_caja"
+            : "";
+        $joinTerminal = $this->tablaExiste($db, "erp_pos_terminales")
+            ? "LEFT JOIN erp_pos_terminales term ON term.id_terminal_pos=t.id_terminal_pos"
+            : "";
+        $sql = "SELECT t.id_ticket_configuracion, t.id_empresa_configuracion, t.id_almacen, t.id_caja, t.id_terminal_pos,
+                t.nombre_configuracion, t.prioridad, t.ticket_ancho_mm, t.ticket_columnas, t.fuente,
+                t.mostrar_logo, t.logo_modo, t.impresion_modo, t.impresora_nombre_windows,
+                t.copias_venta, t.copias_devolucion, t.mensaje_sucursal, t.estatus,
+                e.clave_empresa, e.nombre_comercial, e.razon_social, e.rfc, e.regimen_fiscal,
+                e.direccion_fiscal, e.telefono, e.whatsapp, e.email, e.sitio_web, e.logo_url,
+                e.leyenda_ticket_general, e.leyenda_no_fiscal, e.leyenda_devoluciones, e.leyenda_garantias,
+                a.almacen, a.codigo_almacen,
+                " . ($joinCaja ? "c.codigo AS caja_codigo, c.nombre AS caja_nombre" : "NULL AS caja_codigo, NULL AS caja_nombre") . ",
+                " . ($joinTerminal ? "term.codigo AS terminal_codigo, term.nombre AS terminal_nombre" : "NULL AS terminal_codigo, NULL AS terminal_nombre") . "
+            FROM erp_pos_ticket_configuracion t
+            LEFT JOIN erp_empresa_configuracion e ON e.id_empresa_configuracion=t.id_empresa_configuracion
+            LEFT JOIN erp_almacenes a ON a.id_almacen=t.id_almacen
+            $joinCaja
+            $joinTerminal
+            ORDER BY COALESCE(t.estatus, 'activa') ASC,
+                CASE WHEN t.id_almacen IS NULL THEN 0 ELSE 1 END ASC,
+                t.prioridad ASC, t.id_ticket_configuracion ASC";
+        return $db->query($sql)->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    /**
      * Documentacion IA: Codex GPT-5, 2026-07-01.
      * Proposito: listar terminales POS configuradas sin editar registros.
      * Impacto: alimenta pantalla Configuracion POS y evita configurar terminal desde caja de cobro.
@@ -10492,6 +10892,7 @@ class VentasErp extends CRUD {
             "direccion_fiscal" => trim((string) $this->valor($config, "direccion_fiscal", "")),
             "telefono" => trim((string) $this->valor($config, "telefono", "")),
             "whatsapp" => trim((string) $this->valor($config, "whatsapp", "")),
+            "email" => trim((string) $this->valor($config, "email", "")),
             "sitio_web" => trim((string) $this->valor($config, "sitio_web", "")),
             "logo_url" => trim((string) $this->valor($config, "logo_url", "")),
             "mostrar_logo" => intval($this->valor($config, "mostrar_logo", 0)) === 1,
@@ -10520,6 +10921,7 @@ class VentasErp extends CRUD {
         $rfc = trim((string) $this->valor($configuracionTicket, "rfc", ""));
         $direccionFiscal = trim((string) $this->valor($configuracionTicket, "direccion_fiscal", ""));
         $telefono = trim((string) $this->valor($configuracionTicket, "telefono", ""));
+        $email = trim((string) $this->valor($configuracionTicket, "email", ""));
         $sitioWeb = trim((string) $this->valor($configuracionTicket, "sitio_web", ""));
         if ($razonSocial !== "") {
             $lineas[] = str_pad($this->textoTicket($razonSocial, $ancho), $ancho, " ", STR_PAD_BOTH);
@@ -10527,15 +10929,13 @@ class VentasErp extends CRUD {
         if ($rfc !== "") {
             $lineas[] = str_pad($this->textoTicket("RFC: " . $rfc, $ancho), $ancho, " ", STR_PAD_BOTH);
         }
-        if ($direccionFiscal !== "") {
-            $lineas[] = $this->textoTicket($direccionFiscal, $ancho);
-        }
-        if ($telefono !== "") {
-            $lineas[] = $this->textoTicket("Tel: " . $telefono, $ancho);
-        }
-        if ($sitioWeb !== "") {
-            $lineas[] = $this->textoTicket($sitioWeb, $ancho);
-        }
+        $whatsapp = trim((string) $this->valor($configuracionTicket, "whatsapp", ""));
+        $lineas = array_merge($lineas, $this->lineasTicketWrap($direccionFiscal, $ancho));
+        $lineas = array_merge($lineas, $this->lineasTicketWrap($telefono !== "" ? "Tel: " . $telefono : "", $ancho));
+        $lineas = array_merge($lineas, $this->lineasTicketWrap($whatsapp !== "" ? "WhatsApp: " . $whatsapp : "", $ancho));
+        $lineas = array_merge($lineas, $this->lineasTicketWrap($email !== "" ? "Email: " . $email : "", $ancho));
+        $lineas = array_merge($lineas, $this->lineasTicketWrap($sitioWeb, $ancho));
+        $lineas = array_merge($lineas, $this->lineasTicketWrap($this->valor($configuracionTicket, "mensaje_sucursal", ""), $ancho));
         $lineas[] = str_repeat("-", $ancho);
         $lineas[] = "Folio: " . $this->valor($venta, "folio", "");
         $lineas[] = "Fecha: " . $this->valor($venta, "fecha_venta", "");
@@ -10544,25 +10944,20 @@ class VentasErp extends CRUD {
         $lineas[] = "Turno: " . $this->valor($venta, "turno_folio", "");
         $lineas[] = "Cliente: " . ($this->valor($venta, "cliente_nombre_publico", "") ?: "Publico general");
         $lineas[] = str_repeat("-", $ancho);
+        $lineas[] = "Codigo / producto";
         foreach ($detalles as $detalle) {
             $sku = $this->valor($detalle, "sku", "");
-            $descripcion = $this->textoTicket($this->valor($detalle, "descripcion", ""), $ancho);
+            $descripcion = $this->valor($detalle, "descripcion", "");
             $cantidad = number_format(floatval($this->valor($detalle, "cantidad_venta", 0)), 3, ".", "");
             $unidad = $this->valor($detalle, "unidad_venta", "");
             $precio = number_format(floatval($this->valor($detalle, "precio_unitario", 0)), 2, ".", "");
             $total = number_format(floatval($this->valor($detalle, "total", 0)), 2, ".", "");
-            $lineas[] = $sku;
-            $lineas[] = $descripcion;
+            $lineas = array_merge($lineas, $this->lineasProductoTicket($sku, $descripcion, $ancho));
             $lineas[] = $cantidad . " " . $unidad . " x $" . $precio . str_pad("$" . $total, max(1, $ancho - strlen($cantidad . " " . $unidad . " x $" . $precio)), " ", STR_PAD_LEFT);
-            $lista = trim((string) $this->valor($detalle, "lista_precio_snapshot", ""));
-            if ($lista !== "") {
-                $lineas[] = "  Precio: " . $this->textoTicket($lista, $ancho - 10);
-            }
             $garantia = trim((string) $this->valor($detalle, "resumen_ticket", ""));
             if ($garantia !== "") {
                 $lineas[] = "  Garantia: " . $this->textoTicket($garantia, $ancho - 13);
             } else {
-                $lineas[] = "  Garantia: pendiente snapshot";
                 $hallazgos[] = array(
                     "id" => "VENTAS-TICKET-001",
                     "severidad" => "media",
@@ -10599,9 +10994,6 @@ class VentasErp extends CRUD {
         $leyendaDevoluciones = trim((string) $this->valor($configuracionTicket, "leyenda_devoluciones", ""));
         if ($leyendaDevoluciones !== "") {
             $lineas[] = $this->textoTicket($leyendaDevoluciones, $ancho);
-        }
-        if (!empty($trazabilidad)) {
-            $lineas[] = "Inventario trazado: " . count($trazabilidad) . " mov.";
         }
         $leyendaGeneral = trim((string) $this->valor($configuracionTicket, "leyenda_ticket_general", "Gracias por su compra."));
         if ($leyendaGeneral !== "") {
@@ -10833,6 +11225,50 @@ class VentasErp extends CRUD {
             return $texto;
         }
         return substr($texto, 0, max(0, $maximo - 3)) . "...";
+    }
+
+    /**
+     * Documentacion IA: Codex GPT-5, 2026-07-24.
+     * Proposito: partir texto largo de ticket en renglones completos sin perder informacion.
+     * Impacto: evita que direccion/contacto se corte en papel termico.
+     * Contrato: helper puro; no altera datos de venta.
+     */
+    private function lineasTicketWrap($texto, $ancho, $prefijoContinuacion = "") {
+        $texto = trim(preg_replace('/\s+/', ' ', (string) $texto));
+        $ancho = max(10, intval($ancho));
+        if ($texto === "") {
+            return array();
+        }
+        $lineas = array();
+        $restante = $texto;
+        while (strlen($restante) > $ancho) {
+            $corte = strrpos(substr($restante, 0, $ancho + 1), " ");
+            if ($corte === false || $corte < 8) {
+                $corte = $ancho;
+            }
+            $lineas[] = rtrim(substr($restante, 0, $corte));
+            $restante = ltrim(substr($restante, $corte));
+            if ($prefijoContinuacion !== "" && $restante !== "") {
+                $restante = $prefijoContinuacion . $restante;
+            }
+        }
+        if ($restante !== "") {
+            $lineas[] = $restante;
+        }
+        return $lineas;
+    }
+
+    /**
+     * Documentacion IA: Codex GPT-5, 2026-07-24.
+     * Proposito: compactar codigo y producto en ticket sin desperdiciar un renglon solo para SKU.
+     * Impacto: mejora lectura en tickets de 58/80 mm conservando identificador y nombre.
+     * Contrato: helper puro; no modifica SKU ni descripcion.
+     */
+    private function lineasProductoTicket($sku, $descripcion, $ancho) {
+        $sku = trim((string) $sku);
+        $descripcion = trim(preg_replace('/\s+/', ' ', (string) $descripcion));
+        $base = trim($sku . " " . $descripcion);
+        return $this->lineasTicketWrap($base, $ancho, "  ");
     }
 
     private function bloquearTurnoPosReal($db, $idTurno, $idCaja, $idAlmacen) {

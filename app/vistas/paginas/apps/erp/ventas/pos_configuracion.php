@@ -75,6 +75,7 @@
                                     <li class="nav-item" role="presentation"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#pos_config_tab_terminal" type="button" role="tab">Terminal</button></li>
                                     <li class="nav-item" role="presentation"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#pos_config_tab_asignacion" type="button" role="tab">Asignacion</button></li>
                                     <li class="nav-item" role="presentation"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#pos_config_tab_inventario_pendiente" type="button" role="tab">Inventario pendiente</button></li>
+                                    <li class="nav-item" role="presentation"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#pos_config_tab_ticket" type="button" role="tab">Ticket y negocio</button></li>
                                 </ul>
                                 <div class="tab-content">
                                     <div class="tab-pane fade show active" id="pos_config_tab_caja" role="tabpanel">
@@ -134,6 +135,41 @@
                                             <div class="col-md-4"><label class="form-label text-muted fs-8 text-uppercase">Nombre</label><input class="form-control form-control-solid" id="pos_cfg_pinv_nombre" placeholder="Inventario pendiente POS tienda"></div>
                                             <div class="col-md-4"><label class="form-label text-muted fs-8 text-uppercase">Motivo operativo</label><input class="form-control form-control-solid" id="pos_cfg_pinv_motivo" placeholder="Arranque controlado con mini inventarios"></div>
                                             <div class="col-12 d-flex flex-wrap gap-2"><button class="btn btn-light-primary" id="pos_cfg_pinv_validar" type="button"><i class="bi bi-shield-check"></i> Validar politica</button><button class="btn btn-warning" id="pos_cfg_pinv_guardar" type="button"><i class="bi bi-save"></i> Guardar politica</button></div>
+                                        </div>
+                                    </div>
+                                    <div class="tab-pane fade" id="pos_config_tab_ticket" role="tabpanel">
+                                        <div class="alert alert-light-info py-3 mb-4">
+                                            <div class="fw-bold">Ticket POS no fiscal</div>
+                                            <div class="fs-7">Datos del negocio y leyendas viven como configuracion de empresa. Ancho, columnas y alcance viven como configuracion de ticket por tienda/caja/terminal.</div>
+                                        </div>
+                                        <div class="row g-3 align-items-end">
+                                            <input type="hidden" id="pos_cfg_ticket_id_empresa">
+                                            <input type="hidden" id="pos_cfg_ticket_id">
+                                            <div class="col-md-3"><label class="form-label text-muted fs-8 text-uppercase">Nombre comercial</label><input class="form-control form-control-solid" id="pos_cfg_ticket_nombre_comercial" placeholder="ARTIANI"></div>
+                                            <div class="col-md-3"><label class="form-label text-muted fs-8 text-uppercase">Razon social</label><input class="form-control form-control-solid" id="pos_cfg_ticket_razon_social" placeholder="Opcional"></div>
+                                            <div class="col-md-2"><label class="form-label text-muted fs-8 text-uppercase">RFC</label><input class="form-control form-control-solid" id="pos_cfg_ticket_rfc" placeholder="Opcional"></div>
+                                            <div class="col-md-2"><label class="form-label text-muted fs-8 text-uppercase">Telefono</label><input class="form-control form-control-solid" id="pos_cfg_ticket_telefono" placeholder="Telefono tienda"></div>
+                                            <div class="col-md-2"><label class="form-label text-muted fs-8 text-uppercase">WhatsApp</label><input class="form-control form-control-solid" id="pos_cfg_ticket_whatsapp" placeholder="WhatsApp"></div>
+                                            <div class="col-md-4"><label class="form-label text-muted fs-8 text-uppercase">Direccion</label><input class="form-control form-control-solid" id="pos_cfg_ticket_direccion" placeholder="Direccion que aparece en ticket"></div>
+                                            <div class="col-md-3"><label class="form-label text-muted fs-8 text-uppercase">Email</label><input class="form-control form-control-solid" id="pos_cfg_ticket_email" placeholder="contacto@..."></div>
+                                            <div class="col-md-3"><label class="form-label text-muted fs-8 text-uppercase">Sitio web</label><input class="form-control form-control-solid" id="pos_cfg_ticket_sitio" placeholder="www..."></div>
+                                            <div class="col-md-4"><label class="form-label text-muted fs-8 text-uppercase">Logo PNG / ruta publica</label><input class="form-control form-control-solid" id="pos_cfg_ticket_logo" placeholder="/assets/media/logos/artiani-ticket.png"></div>
+                                            <div class="col-md-3"><label class="form-label text-muted fs-8 text-uppercase">Tienda</label><select class="form-select form-select-solid" id="pos_cfg_ticket_almacen"></select></div>
+                                            <div class="col-md-3"><label class="form-label text-muted fs-8 text-uppercase">Caja</label><select class="form-select form-select-solid" id="pos_cfg_ticket_caja"></select></div>
+                                            <div class="col-md-3"><label class="form-label text-muted fs-8 text-uppercase">Terminal</label><select class="form-select form-select-solid" id="pos_cfg_ticket_terminal"></select></div>
+                                            <div class="col-md-3"><label class="form-label text-muted fs-8 text-uppercase">Nombre configuracion</label><input class="form-control form-control-solid" id="pos_cfg_ticket_nombre_config" placeholder="Ticket 80mm tienda"></div>
+                                            <div class="col-md-2"><label class="form-label text-muted fs-8 text-uppercase">Ancho</label><select class="form-select form-select-solid" id="pos_cfg_ticket_ancho"><option value="80">80 mm</option><option value="58">58 mm</option></select></div>
+                                            <div class="col-md-2"><label class="form-label text-muted fs-8 text-uppercase">Columnas</label><input class="form-control form-control-solid" id="pos_cfg_ticket_columnas" inputmode="numeric" value="42"></div>
+                                            <div class="col-md-2"><label class="form-label text-muted fs-8 text-uppercase">Logo</label><select class="form-select form-select-solid" id="pos_cfg_ticket_logo_modo"><option value="texto">Texto</option><option value="imagen">Imagen</option></select></div>
+                                            <div class="col-md-2"><label class="form-label text-muted fs-8 text-uppercase">Impresion</label><select class="form-select form-select-solid" id="pos_cfg_ticket_impresion"><option value="navegador">Navegador</option><option value="directa_futura">Directa futura</option></select></div>
+                                            <div class="col-md-2"><label class="form-label text-muted fs-8 text-uppercase">Copias venta</label><input class="form-control form-control-solid" id="pos_cfg_ticket_copias_venta" inputmode="numeric" value="1"></div>
+                                            <div class="col-md-2"><label class="form-label text-muted fs-8 text-uppercase">Copias devol.</label><input class="form-control form-control-solid" id="pos_cfg_ticket_copias_devolucion" inputmode="numeric" value="1"></div>
+                                            <div class="col-md-4"><label class="form-label text-muted fs-8 text-uppercase">Leyenda no fiscal</label><input class="form-control form-control-solid" id="pos_cfg_ticket_no_fiscal" value="Ticket no fiscal. Conserve este comprobante."></div>
+                                            <div class="col-md-4"><label class="form-label text-muted fs-8 text-uppercase">Leyenda general</label><input class="form-control form-control-solid" id="pos_cfg_ticket_leyenda" value="Gracias por su compra."></div>
+                                            <div class="col-md-4"><label class="form-label text-muted fs-8 text-uppercase">Mensaje sucursal</label><input class="form-control form-control-solid" id="pos_cfg_ticket_mensaje_sucursal" placeholder="Opcional"></div>
+                                            <div class="col-md-6"><label class="form-label text-muted fs-8 text-uppercase">Devoluciones</label><input class="form-control form-control-solid" id="pos_cfg_ticket_devoluciones" placeholder="Politica resumida"></div>
+                                            <div class="col-md-6"><label class="form-label text-muted fs-8 text-uppercase">Garantias</label><input class="form-control form-control-solid" id="pos_cfg_ticket_garantias" placeholder="Garantias segun producto y condiciones"></div>
+                                            <div class="col-12 d-flex flex-wrap gap-2"><button class="btn btn-light-primary" id="pos_cfg_ticket_validar" type="button"><i class="bi bi-receipt-cutoff"></i> Validar ticket</button><button class="btn btn-primary" id="pos_cfg_ticket_guardar" type="button"><i class="bi bi-save"></i> Guardar ticket</button></div>
                                         </div>
                                     </div>
                                 </div>
@@ -215,6 +251,22 @@
                                         </div>
                                     </div>
                                 </div>
+                                <div class="col-12">
+                                    <div class="pos-config-card p-4">
+                                        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+                                            <div>
+                                                <div class="fw-bold fs-5">Configuraciones de ticket</div>
+                                                <div class="text-muted fs-7">Datos de negocio, logo y formato usados en tickets POS</div>
+                                            </div>
+                                        </div>
+                                        <div class="table-responsive pos-config-table">
+                                            <table class="table align-middle table-row-dashed gy-3 mb-0">
+                                                <thead><tr class="text-muted fw-bold fs-8 text-uppercase"><th>Negocio</th><th>Alcance</th><th>Formato</th><th>Contacto</th><th>Estatus</th><th class="text-end">Acciones</th></tr></thead>
+                                                <tbody id="pos_config_tickets"></tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -225,6 +277,6 @@
 </div>
 <script src="assets/plugins/global/plugins.bundle.js"></script>
 <script src="assets/js/scripts.bundle.js"></script>
-<script src="/assets/js/custom/apps/erp/ventas/pos_configuracion.js?v=20260724-politicas-inventario1"></script>
+<script src="/assets/js/custom/apps/erp/ventas/pos_configuracion.js?v=20260724-ticket-config2"></script>
 </body>
 </html>

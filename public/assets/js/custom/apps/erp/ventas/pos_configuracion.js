@@ -47,6 +47,7 @@
         var terminales = data.terminales || [];
         var asignaciones = data.asignaciones || [];
         var politicas = data.politicas_inventario_pendiente || [];
+        var tickets = data.ticket_configuraciones || [];
         renderKpi("pos_config_kpi_cajas", contarActivos(cajas, "activa"), contarHistoricos(cajas, "activa"));
         renderKpi("pos_config_kpi_terminales", contarActivos(terminales, "activa"), contarHistoricos(terminales, "activa"));
         renderKpi("pos_config_kpi_asignaciones", contarActivos(asignaciones, "activo"), contarHistoricos(asignaciones, "activo"));
@@ -58,6 +59,7 @@
         renderTerminales(filtrarPorEstado(terminales, filtros.terminales, "activa"));
         renderAsignaciones(filtrarPorEstado(asignaciones, filtros.asignaciones, "activo"));
         renderPoliticasInventario(filtrarPorEstado(politicas, filtros.politicas, "activa"));
+        renderTickets(tickets);
         llenarSelectores(data);
     }
 
@@ -99,20 +101,24 @@
         var almacenesHtml = almacenes.map(function (item) {
             return "<option value=\"" + escapeHtml(item.id_almacen) + "\">" + escapeHtml(item.codigo_almacen || item.almacen || item.id_almacen) + "</option>";
         }).join("") || "<option value=\"\">Sin tiendas</option>";
-        ["pos_cfg_caja_almacen", "pos_cfg_terminal_almacen", "pos_cfg_asig_almacen", "pos_cfg_pinv_almacen"].forEach(function (id) {
+        ["pos_cfg_caja_almacen", "pos_cfg_terminal_almacen", "pos_cfg_asig_almacen", "pos_cfg_pinv_almacen", "pos_cfg_ticket_almacen"].forEach(function (id) {
             document.getElementById(id).innerHTML = almacenesHtml;
         });
         var cajasHtml = cajas.map(function (item) {
             return "<option value=\"" + escapeHtml(item.id_caja) + "\" data-almacen=\"" + escapeHtml(item.id_almacen) + "\">" + escapeHtml(item.codigo || item.nombre || item.id_caja) + "</option>";
         }).join("") || "<option value=\"\">Sin cajas</option>";
-        ["pos_cfg_terminal_caja", "pos_cfg_asig_caja"].forEach(function (id) {
+        ["pos_cfg_terminal_caja", "pos_cfg_asig_caja", "pos_cfg_ticket_caja"].forEach(function (id) {
             document.getElementById(id).innerHTML = cajasHtml;
         });
-        document.getElementById("pos_cfg_asig_terminal").innerHTML = "<option value=\"\">Sin terminal</option>" + terminales.map(function (item) {
+        var terminalesHtml = "<option value=\"\">Sin terminal</option>" + terminales.map(function (item) {
             return "<option value=\"" + escapeHtml(item.id_terminal_pos) + "\" data-almacen=\"" + escapeHtml(item.id_almacen) + "\" data-caja=\"" + escapeHtml(item.id_caja || "") + "\">" + escapeHtml(item.codigo || item.nombre || item.id_terminal_pos) + "</option>";
         }).join("");
+        document.getElementById("pos_cfg_asig_terminal").innerHTML = terminalesHtml;
+        document.getElementById("pos_cfg_ticket_terminal").innerHTML = terminalesHtml;
         sincronizarTerminal();
         sincronizarAsignacion("almacen");
+        sincronizarTicket("almacen");
+        llenarTicketDesdeActual(data.ticket_configuracion_efectiva || {});
     }
 
     function seleccionarCompatible(select, predicate) {
@@ -138,6 +144,24 @@
         var almacen = document.getElementById("pos_cfg_asig_almacen").value;
         var caja = document.getElementById("pos_cfg_asig_caja");
         var terminal = document.getElementById("pos_cfg_asig_terminal");
+        if (origen === "almacen") {
+            seleccionarCompatible(caja, function (option) {
+                return !almacen || option.getAttribute("data-almacen") === almacen || option.value === "";
+            });
+        }
+        var cajaValor = caja.value;
+        seleccionarCompatible(terminal, function (option) {
+            var optionAlmacen = option.getAttribute("data-almacen");
+            var optionCaja = option.getAttribute("data-caja");
+            if (option.value === "") { return true; }
+            return (!almacen || optionAlmacen === almacen) && (!cajaValor || optionCaja === cajaValor || optionCaja === "");
+        });
+    }
+
+    function sincronizarTicket(origen) {
+        var almacen = document.getElementById("pos_cfg_ticket_almacen").value;
+        var caja = document.getElementById("pos_cfg_ticket_caja");
+        var terminal = document.getElementById("pos_cfg_ticket_terminal");
         if (origen === "almacen") {
             seleccionarCompatible(caja, function (option) {
                 return !almacen || option.getAttribute("data-almacen") === almacen || option.value === "";
@@ -209,6 +233,27 @@
         }).join("") || "<tr><td colspan=\"6\" class=\"text-center text-muted py-6\">Sin politicas de inventario pendiente para este filtro</td></tr>";
     }
 
+    function renderTickets(filas) {
+        document.getElementById("pos_config_tickets").innerHTML = (filas || []).map(function (item) {
+            var activo = String(item.estatus || "") === "activa";
+            var scope = [];
+            scope.push(item.almacen || item.id_almacen ? "Tienda " + (item.almacen || item.id_almacen) : "Global");
+            if (item.caja_codigo || item.id_caja) { scope.push("Caja " + (item.caja_codigo || item.id_caja)); }
+            if (item.terminal_codigo || item.id_terminal_pos) { scope.push("Terminal " + (item.terminal_codigo || item.id_terminal_pos)); }
+            var contacto = [];
+            if (item.telefono) { contacto.push("Tel. " + item.telefono); }
+            if (item.whatsapp) { contacto.push("WA " + item.whatsapp); }
+            if (item.email) { contacto.push(item.email); }
+            if (item.sitio_web) { contacto.push(item.sitio_web); }
+            return "<tr><td><div class=\"fw-bold\">" + escapeHtml(item.nombre_comercial || "-") + "</div><div class=\"text-muted fs-8\">" + escapeHtml(item.rfc || item.razon_social || "") + "</div></td>" +
+                "<td>" + escapeHtml(scope.join(" / ")) + "</td>" +
+                "<td><div class=\"fw-semibold\">" + escapeHtml(item.ticket_ancho_mm || "80") + " mm / " + escapeHtml(item.ticket_columnas || "42") + " col.</div><div class=\"text-muted fs-8\">" + escapeHtml(item.impresion_modo || "navegador") + " / logo " + escapeHtml(item.logo_modo || "texto") + "</div></td>" +
+                "<td>" + escapeHtml(contacto.join(" | ") || "-") + "</td>" +
+                "<td><span class=\"badge " + (activo ? "badge-light-success" : "badge-light") + "\">" + escapeHtml(item.estatus || "-") + "</span></td>" +
+                "<td class=\"text-end\"><button class=\"btn btn-sm btn-light-primary\" type=\"button\" data-pos-config-editar=\"ticket\" data-id=\"" + escapeHtml(item.id_ticket_configuracion || "") + "\"><i class=\"bi bi-pencil\"></i></button></td></tr>";
+        }).join("") || "<tr><td colspan=\"6\" class=\"text-center text-muted py-6\">Sin configuraciones de ticket. Guarda una configuracion base para el POS.</td></tr>";
+    }
+
     function bool(id) {
         return document.getElementById(id).checked ? "1" : "0";
     }
@@ -260,6 +305,38 @@
         };
     }
 
+    function datosTicket() {
+        return {
+            id_empresa_configuracion: document.getElementById("pos_cfg_ticket_id_empresa").value,
+            id_ticket_configuracion: document.getElementById("pos_cfg_ticket_id").value,
+            nombre_comercial: document.getElementById("pos_cfg_ticket_nombre_comercial").value.trim(),
+            razon_social: document.getElementById("pos_cfg_ticket_razon_social").value.trim(),
+            rfc: document.getElementById("pos_cfg_ticket_rfc").value.trim(),
+            direccion_fiscal: document.getElementById("pos_cfg_ticket_direccion").value.trim(),
+            telefono: document.getElementById("pos_cfg_ticket_telefono").value.trim(),
+            whatsapp: document.getElementById("pos_cfg_ticket_whatsapp").value.trim(),
+            email: document.getElementById("pos_cfg_ticket_email").value.trim(),
+            sitio_web: document.getElementById("pos_cfg_ticket_sitio").value.trim(),
+            logo_url: document.getElementById("pos_cfg_ticket_logo").value.trim(),
+            id_almacen: document.getElementById("pos_cfg_ticket_almacen").value,
+            id_caja: document.getElementById("pos_cfg_ticket_caja").value,
+            id_terminal_pos: document.getElementById("pos_cfg_ticket_terminal").value,
+            nombre_configuracion: document.getElementById("pos_cfg_ticket_nombre_config").value.trim(),
+            ticket_ancho_mm: document.getElementById("pos_cfg_ticket_ancho").value,
+            ticket_columnas: document.getElementById("pos_cfg_ticket_columnas").value,
+            mostrar_logo: document.getElementById("pos_cfg_ticket_logo").value.trim() ? "1" : "0",
+            logo_modo: document.getElementById("pos_cfg_ticket_logo_modo").value,
+            impresion_modo: document.getElementById("pos_cfg_ticket_impresion").value,
+            copias_venta: document.getElementById("pos_cfg_ticket_copias_venta").value,
+            copias_devolucion: document.getElementById("pos_cfg_ticket_copias_devolucion").value,
+            leyenda_no_fiscal: document.getElementById("pos_cfg_ticket_no_fiscal").value.trim(),
+            leyenda_ticket_general: document.getElementById("pos_cfg_ticket_leyenda").value.trim(),
+            mensaje_sucursal: document.getElementById("pos_cfg_ticket_mensaje_sucursal").value.trim(),
+            leyenda_devoluciones: document.getElementById("pos_cfg_ticket_devoluciones").value.trim(),
+            leyenda_garantias: document.getElementById("pos_cfg_ticket_garantias").value.trim()
+        };
+    }
+
     function validarCaja() {
         postRequest("/ventas/pos_configuracion_caja_dryrun_erp", datosCaja()).then(renderValidacion).catch(renderErrorValidacion);
     }
@@ -274,6 +351,10 @@
 
     function validarPoliticaInventario() {
         postRequest("/ventas/pos_configuracion_politica_inventario_pendiente_dryrun_erp", datosPoliticaInventario()).then(renderValidacion).catch(renderErrorValidacion);
+    }
+
+    function validarTicket() {
+        postRequest("/ventas/pos_configuracion_ticket_dryrun_erp", datosTicket()).then(renderValidacion).catch(renderErrorValidacion);
     }
 
     function guardar(url, data) {
@@ -300,6 +381,10 @@
 
     function guardarPoliticaInventario() {
         guardar("/ventas/pos_configuracion_politica_inventario_pendiente_guardar_erp", datosPoliticaInventario());
+    }
+
+    function guardarTicket() {
+        guardar("/ventas/pos_configuracion_ticket_guardar_erp", datosTicket());
     }
 
     function activarTab(selector) {
@@ -338,7 +423,7 @@
             document.getElementById("pos_cfg_terminal_codigo").value = item.codigo || "";
             document.getElementById("pos_cfg_terminal_nombre").value = item.nombre || "";
             document.getElementById("pos_cfg_terminal_identificador").value = item.identificador_terminal || "";
-        } else {
+        } else if (tipo === "asignacion") {
             item = buscarPorId(estado.asignaciones, "id_usuario_caja", id);
             if (!item) { return; }
             activarTab("#pos_config_tab_asignacion");
@@ -350,7 +435,44 @@
             sincronizarAsignacion("caja");
             document.getElementById("pos_cfg_asig_terminal").value = item.id_terminal_pos || "";
             document.getElementById("pos_cfg_asig_prioridad").value = item.prioridad || "1";
+        } else if (tipo === "ticket") {
+            item = buscarPorId(estado.ticket_configuraciones, "id_ticket_configuracion", id);
+            if (!item) { return; }
+            activarTab("#pos_config_tab_ticket");
+            llenarTicketDesdeActual(item);
         }
+    }
+
+    function llenarTicketDesdeActual(item) {
+        item = item || {};
+        document.getElementById("pos_cfg_ticket_id_empresa").value = item.id_empresa_configuracion || "";
+        document.getElementById("pos_cfg_ticket_id").value = item.id_ticket_configuracion || "";
+        document.getElementById("pos_cfg_ticket_nombre_comercial").value = item.nombre_comercial || "ARTIANI";
+        document.getElementById("pos_cfg_ticket_razon_social").value = item.razon_social || "";
+        document.getElementById("pos_cfg_ticket_rfc").value = item.rfc || "";
+        document.getElementById("pos_cfg_ticket_direccion").value = item.direccion_fiscal || "";
+        document.getElementById("pos_cfg_ticket_telefono").value = item.telefono || "";
+        document.getElementById("pos_cfg_ticket_whatsapp").value = item.whatsapp || "";
+        document.getElementById("pos_cfg_ticket_email").value = item.email || "";
+        document.getElementById("pos_cfg_ticket_sitio").value = item.sitio_web || "";
+        document.getElementById("pos_cfg_ticket_logo").value = item.logo_url || "";
+        document.getElementById("pos_cfg_ticket_almacen").value = item.id_almacen || document.getElementById("pos_cfg_ticket_almacen").value;
+        sincronizarTicket("almacen");
+        document.getElementById("pos_cfg_ticket_caja").value = item.id_caja || document.getElementById("pos_cfg_ticket_caja").value;
+        sincronizarTicket("caja");
+        document.getElementById("pos_cfg_ticket_terminal").value = item.id_terminal_pos || "";
+        document.getElementById("pos_cfg_ticket_nombre_config").value = item.nombre_configuracion || "Ticket POS principal";
+        document.getElementById("pos_cfg_ticket_ancho").value = item.ticket_ancho_mm || "80";
+        document.getElementById("pos_cfg_ticket_columnas").value = item.ticket_columnas || "42";
+        document.getElementById("pos_cfg_ticket_logo_modo").value = item.logo_modo || "texto";
+        document.getElementById("pos_cfg_ticket_impresion").value = item.impresion_modo || "navegador";
+        document.getElementById("pos_cfg_ticket_copias_venta").value = item.copias_venta || "1";
+        document.getElementById("pos_cfg_ticket_copias_devolucion").value = item.copias_devolucion || "1";
+        document.getElementById("pos_cfg_ticket_no_fiscal").value = item.leyenda_no_fiscal || "Ticket no fiscal. Conserve este comprobante.";
+        document.getElementById("pos_cfg_ticket_leyenda").value = item.leyenda_ticket_general || "Gracias por su compra.";
+        document.getElementById("pos_cfg_ticket_mensaje_sucursal").value = item.mensaje_sucursal || "";
+        document.getElementById("pos_cfg_ticket_devoluciones").value = item.leyenda_devoluciones || "";
+        document.getElementById("pos_cfg_ticket_garantias").value = item.leyenda_garantias || "";
     }
 
     function limpiarCaptura() {
@@ -416,14 +538,18 @@
         document.getElementById("pos_cfg_terminal_almacen").addEventListener("change", sincronizarTerminal);
         document.getElementById("pos_cfg_asig_almacen").addEventListener("change", function () { sincronizarAsignacion("almacen"); });
         document.getElementById("pos_cfg_asig_caja").addEventListener("change", function () { sincronizarAsignacion("caja"); });
+        document.getElementById("pos_cfg_ticket_almacen").addEventListener("change", function () { sincronizarTicket("almacen"); });
+        document.getElementById("pos_cfg_ticket_caja").addEventListener("change", function () { sincronizarTicket("caja"); });
         document.getElementById("pos_cfg_caja_validar").addEventListener("click", validarCaja);
         document.getElementById("pos_cfg_terminal_validar").addEventListener("click", validarTerminal);
         document.getElementById("pos_cfg_asig_validar").addEventListener("click", validarAsignacion);
         document.getElementById("pos_cfg_pinv_validar").addEventListener("click", validarPoliticaInventario);
+        document.getElementById("pos_cfg_ticket_validar").addEventListener("click", validarTicket);
         document.getElementById("pos_cfg_caja_guardar").addEventListener("click", guardarCaja);
         document.getElementById("pos_cfg_terminal_guardar").addEventListener("click", guardarTerminal);
         document.getElementById("pos_cfg_asig_guardar").addEventListener("click", guardarAsignacion);
         document.getElementById("pos_cfg_pinv_guardar").addEventListener("click", guardarPoliticaInventario);
+        document.getElementById("pos_cfg_ticket_guardar").addEventListener("click", guardarTicket);
         document.getElementById("pos_cfg_limpiar").addEventListener("click", limpiarCaptura);
         document.addEventListener("click", function (event) {
             var filtroBoton = event.target.closest("[data-pos-filtro]");
