@@ -34,6 +34,20 @@
         return fetch(url, {method: data ? "POST" : "GET", headers: data ? {"Content-Type": "application/x-www-form-urlencoded; charset=UTF-8"} : {}, body: data ? new URLSearchParams(data).toString() : null, credentials: "same-origin"}).then(function (response) { return response.json(); });
     }
 
+    /**
+     * IA: Codex GPT-5 | Fecha: 2026-07-25
+     * Proposito: enviar formularios multipart para imagenes de marcas/categorias sin convertir archivos a texto.
+     * Impacto: Configuracion de Catalogo ERP; habilita carga real de archivos en catalogos maestros.
+     * Contrato: espera respuesta JSON con `error`, `mensaje` y `depurar`.
+     */
+    function requestArchivo(url, currentForm) {
+        return fetch(url, {
+            method: "POST",
+            body: new FormData(currentForm),
+            credentials: "same-origin"
+        }).then(function (response) { return response.json(); });
+    }
+
     function cargar() {
         request("/catalogoerp/auxiliares_listar").then(function (response) {
             datos = response.depurar || datos;
@@ -1456,6 +1470,7 @@
         var item = obtenerItemCatalogo(tipo, id);
         imagenMaestroActual = {tipo: tipo, id: Number(id), nombre: item ? item.nombre : "", schema: false, tipos: [], imagenes: []};
         limpiarFormularioImagenMaestro();
+        document.getElementById("catalogo_imagen_candidatas_lista").innerHTML = "";
         document.getElementById("catalogo_imagen_maestro_titulo").textContent = "Imágenes de " + (tipo === "marca" ? "marca" : "categoría") + ": " + (imagenMaestroActual.nombre || ("#" + id));
         modalImagenMaestro.show();
         cargarImagenesMaestro();
@@ -1486,8 +1501,13 @@
             input.disabled = !puedeEditar;
         });
         llenarTiposImagenMaestro();
+        document.getElementById("catalogo_imagen_candidatas_contenedor").classList.toggle("d-none", imagenMaestroActual.tipo !== "marca" && imagenMaestroActual.tipo !== "categoria");
+        document.getElementById("catalogo_imagen_candidatas_titulo").textContent = imagenMaestroActual.tipo === "marca"
+            ? "Imagenes anteriores de marca"
+            : "Portadas anteriores de categoria";
         document.getElementById("catalogo_imagen_maestro_lista").innerHTML = imagenMaestroActual.imagenes.map(function (item) {
-            var vista = item.url_imagen ? "<span class=\"symbol symbol-50px\"><img src=\"" + escapeAttr(item.url_imagen) + "\" alt=\"\"></span>" : "-";
+            var src = normalizarImagenUrl(item.url_imagen);
+            var vista = src ? "<span class=\"symbol symbol-50px\"><img src=\"" + escapeAttr(src) + "\" alt=\"\"></span>" : "-";
             var acciones = imagenMaestroActual.schema && permisos.editar
                 ? "<button type=\"button\" class=\"btn btn-sm btn-icon btn-light-primary me-1\" data-imagen-editar=\"" + escapeAttr(item.id_imagen) + "\" title=\"Editar\"><i class=\"bi bi-pencil-square\"></i></button>" +
                   "<button type=\"button\" class=\"btn btn-sm btn-icon btn-light-danger\" data-imagen-desactivar=\"" + escapeAttr(item.id_imagen) + "\" title=\"Desactivar\"><i class=\"bi bi-x-lg\"></i></button>"
@@ -1502,8 +1522,11 @@
             Swal.fire({text: "Primero aplica el esquema autorizado de imágenes de marcas/categorías", icon: "warning", confirmButtonText: "Aceptar"});
             return;
         }
-        var data = {}; new FormData(formImagenMaestro).forEach(function (value, key) { data[key] = value; });
-        request("/catalogoerp/imagen_maestro_guardar", data).then(function (response) {
+        var button = formImagenMaestro.querySelector("[type='submit']");
+        var box = document.getElementById("catalogo_imagen_maestro_error");
+        button.disabled = true;
+        box.classList.add("d-none");
+        requestArchivo("/catalogoerp/imagen_maestro_guardar", formImagenMaestro).then(function (response) {
             if (response.error) {
                 throw new Error(response.mensaje);
             }
@@ -1512,9 +1535,10 @@
             cargar();
             Swal.fire({text: response.mensaje, icon: "success", confirmButtonText: "Aceptar"});
         }).catch(function (error) {
-            var box = document.getElementById("catalogo_imagen_maestro_error");
             box.textContent = error.message;
             box.classList.remove("d-none");
+        }).finally(function () {
+            button.disabled = false;
         });
     }
 
@@ -1529,6 +1553,44 @@
         setValorImagen("texto_alternativo", item.texto_alternativo);
         setValorImagen("orden", item.orden);
         setValorImagen("estatus", item.estatus);
+    }
+
+    /**
+     * IA: Codex GPT-5 | Fecha: 2026-07-25
+     * Proposito: mostrar imagenes legacy candidatas para marca/categoria ERP abierta.
+     * Impacto: Configuracion de Catalogo ERP; no vincula ni copia imagenes automaticamente.
+     * Contrato: marca consulta ecom_marcas; categoria consulta portadas legacy de categorias/clasificaciones.
+     */
+    function auditarImagenesCandidatasMaestroLegacy() {
+        var contenedor = document.getElementById("catalogo_imagen_candidatas_lista");
+        if ((imagenMaestroActual.tipo !== "marca" && imagenMaestroActual.tipo !== "categoria") || !imagenMaestroActual.id) {
+            return;
+        }
+        contenedor.innerHTML = "<div class=\"text-muted fs-8\">" + (imagenMaestroActual.tipo === "marca" ? "Buscando imagenes anteriores de marca..." : "Buscando portadas anteriores de categoria...") + "</div>";
+        var url = imagenMaestroActual.tipo === "marca"
+            ? "/catalogoerp/imagenes_marca_candidatas?id_marca_erp=" + encodeURIComponent(imagenMaestroActual.id)
+            : "/catalogoerp/imagenes_categoria_candidatas?id_categoria_erp=" + encodeURIComponent(imagenMaestroActual.id);
+        request(url).then(function (response) {
+            if (response.error) {
+                throw new Error(response.mensaje);
+            }
+            var imagenes = response.depurar && response.depurar.imagenes ? response.depurar.imagenes : [];
+            contenedor.innerHTML = imagenes.map(function (item) {
+                var src = normalizarImagenUrl(item.url_imagen);
+                var titulo = item.titulo || "";
+                var detalle = (item.detalle || item.fuente || "") + " - " + (item.url_imagen || "");
+                return "<div class=\"d-flex align-items-center gap-3 border rounded p-3 mb-3\">" +
+                    "<div class=\"symbol symbol-60px bg-light\"><img src=\"" + escapeAttr(src) + "\" alt=\"\"></div>" +
+                    "<div class=\"flex-grow-1 min-w-0\"><div class=\"fw-bold text-truncate\">" + escapeHtml(titulo) + "</div>" +
+                    "<div class=\"text-muted fs-8 text-truncate\">" + escapeHtml(detalle) + "</div>" +
+                    "<span class=\"badge badge-light-primary\">" + escapeHtml(item.tipo_imagen || "imagen") + "</span> " +
+                    (item.fuente ? "<span class=\"badge badge-light-secondary\">" + escapeHtml(item.fuente) + "</span>" : "") + "</div>" +
+                    "<button type=\"button\" class=\"btn btn-sm btn-light-success\" data-usar-imagen-candidata=\"" + escapeAttr(item.url_imagen || "") + "\">Usar ruta</button>" +
+                    "</div>";
+            }).join("") || "<div class=\"text-muted fs-8\">" + (imagenMaestroActual.tipo === "marca" ? "No encontre imagenes legacy relacionadas con esta marca." : "No encontre portadas legacy relacionadas con esta categoria.") + "</div>";
+        }).catch(function (error) {
+            contenedor.innerHTML = "<div class=\"alert alert-light-warning mb-0\">" + escapeHtml(error.message || "No fue posible auditar imagenes") + "</div>";
+        });
     }
 
     function desactivarImagenMaestro(idImagen) {
@@ -1633,6 +1695,14 @@
      * Impacto: Catalogo ERP; evita errores al renderizar auditoria por objetivo.
      */
     function escapeAttr(value) { return escapeHtml(value).replace(/"/g, "&quot;").replace(/'/g, "&#39;"); }
+
+    function normalizarImagenUrl(url) {
+        url = String(url || "");
+        if (url === "" || /^https?:\/\//i.test(url) || url.indexOf("/") === 0) {
+            return url;
+        }
+        return "/" + url.replace(/^\.?\//, "");
+    }
 
     function aplicarPermisosFrontend() {
         document.querySelectorAll("[data-permiso-editar]").forEach(function (el) {
@@ -1986,6 +2056,16 @@
         document.getElementById("aux_atributo_tipo").addEventListener("change", configurarTipoAtributo);
         formImagenMaestro.addEventListener("submit", guardarImagenMaestro);
         document.getElementById("catalogo_imagen_maestro_limpiar").addEventListener("click", limpiarFormularioImagenMaestro);
+        document.getElementById("catalogo_imagen_candidatas").addEventListener("click", auditarImagenesCandidatasMaestroLegacy);
+        document.getElementById("catalogo_imagen_candidatas_lista").addEventListener("click", function (event) {
+            var boton = event.target.closest("[data-usar-imagen-candidata]");
+            if (!boton) {
+                return;
+            }
+            setValorImagen("url_imagen", boton.getAttribute("data-usar-imagen-candidata") || "");
+            setValorImagen("id_imagen", "");
+            document.getElementById("catalogo_imagen_maestro_error").classList.add("d-none");
+        });
         document.getElementById("catalogo_imagen_maestro_lista").addEventListener("click", function (event) {
             var editar = event.target.closest("[data-imagen-editar]");
             if (editar) {

@@ -12,7 +12,7 @@
       Documentacion IA: Codex GPT-5, 2026-07-04.
       Proposito: separar turnos/corte de caja POS de la pantalla de cobro.
       Impacto: Ventas/POS/Caja; valida apertura/cierre, calcula arqueo y ejecuta turnos reales con confirmacion fuerte.
-      Contrato: vista operativa; apertura/cierre real requieren permiso, CSRF, dry-run previo y confirmacion escrita.
+      Contrato: vista operativa; apertura/cierre real requieren permiso, CSRF, validacion previa y confirmacion escrita.
     -->
     <style>
         .pos-admin-card { border: 1px solid #e6e8ee; border-radius: 8px; background: #fff; }
@@ -40,7 +40,7 @@
                                 <span class="text-muted">Turnos, corte, arqueo y movimientos recientes</span>
                                 <div class="d-flex flex-wrap gap-2 mt-2">
                                     <span class="badge badge-light-primary">Consulta de caja = solo lectura</span>
-                                    <span class="badge badge-light-warning">Dry-run antes de escribir</span>
+                                    <span class="badge badge-light-warning">Validar antes de confirmar</span>
                                     <span class="badge badge-light-danger">Abrir/cerrar real exige confirmacion</span>
                                     <span class="badge badge-light-info">Diferencias quedan en reportes</span>
                                 </div>
@@ -102,7 +102,7 @@
                                         <div class="d-flex justify-content-between align-items-center mb-4">
                                             <div>
                                                 <div class="fw-bold fs-5">Corte de turno</div>
-                                                <div class="text-muted fs-7">Valida el corte sin cerrar el turno real</div>
+                                                <div class="text-muted fs-7">Valida el arqueo antes de cerrar el turno</div>
                                             </div>
                                             <button class="btn btn-sm btn-light-primary" id="pos_caja_recargar" type="button"><i class="bi bi-arrow-clockwise"></i></button>
                                         </div>
@@ -149,7 +149,7 @@
                                                             <input class="form-control form-control-solid text-end pos-caja-arqueo-extra mb-2" id="pos_caja_arqueo_transferencia" inputmode="decimal" value="0">
                                                             <label class="form-label fs-8 text-muted">Vales / saldo a favor</label>
                                                             <input class="form-control form-control-solid text-end pos-caja-arqueo-extra" id="pos_caja_arqueo_vales" inputmode="decimal" value="0">
-                                                            <div class="alert alert-light-info py-2 mt-3 mb-0 fs-8">El total alimenta el dry-run. Si valida, podras confirmar cierre real.</div>
+                                                            <div class="alert alert-light-info py-2 mt-3 mb-0 fs-8">El total contado se usara para validar el corte. Si todo esta correcto, podras confirmar el cierre.</div>
                                                         </div>
                                                     </div>
                                                 </div>
@@ -164,7 +164,7 @@
                                     <div class="pos-admin-card p-4 mb-4">
                                         <div class="d-flex justify-content-between align-items-start gap-3 mb-3">
                                             <div>
-                                                <div class="fw-bold fs-5">Readiness POS</div>
+                                                <div class="fw-bold fs-5">Revision operativa POS</div>
                                                 <div class="text-muted fs-7">Revision consolidada sin cerrar turno ni mover inventario</div>
                                             </div>
                                             <span class="badge badge-light-info">Solo lectura</span>
@@ -172,18 +172,18 @@
                                         <div class="row g-3 align-items-end">
                                             <div class="col-md-6">
                                                 <label class="form-label text-muted fs-8 text-uppercase">Folio venta</label>
-                                                <input class="form-control form-control-solid" id="pos_caja_readiness_folio" value="POS-20260701-000001">
+                                                <input class="form-control form-control-solid" id="pos_caja_readiness_folio" placeholder="Folio de venta opcional">
                                             </div>
                                             <div class="col-md-3">
                                                 <label class="form-label text-muted fs-8 text-uppercase">SKU ID</label>
-                                                <input class="form-control form-control-solid text-end" id="pos_caja_readiness_sku" inputmode="numeric" value="1760">
+                                                <input class="form-control form-control-solid text-end" id="pos_caja_readiness_sku" inputmode="numeric" placeholder="SKU ID">
                                             </div>
                                             <div class="col-md-3">
                                                 <label class="form-label text-muted fs-8 text-uppercase">Contado</label>
-                                                <input class="form-control form-control-solid text-end" id="pos_caja_readiness_contado" inputmode="decimal" value="795">
+                                                <input class="form-control form-control-solid text-end" id="pos_caja_readiness_contado" inputmode="decimal" placeholder="Monto contado">
                                             </div>
                                             <div class="col-12">
-                                                <button class="btn btn-light-primary w-100" id="pos_caja_readiness_consultar" type="button"><i class="bi bi-clipboard-check"></i> Revisar readiness</button>
+                                                <button class="btn btn-light-primary w-100" id="pos_caja_readiness_consultar" type="button"><i class="bi bi-clipboard-check"></i> Revisar operacion</button>
                                             </div>
                                         </div>
                                         <div id="pos_caja_readiness_resultado" class="pos-admin-result mt-4"></div>
@@ -205,7 +205,7 @@
                                                 <div class="fw-bold fs-5">Corte imprimible</div>
                                                 <div class="text-muted fs-7">Consulta y reimprime cortes sin modificar caja</div>
                                             </div>
-                                            <span class="badge badge-light-info">Read-only</span>
+                                            <span class="badge badge-light-info">Consulta</span>
                                         </div>
                                         <div class="row g-3 align-items-end">
                                             <div class="col-md-8">
@@ -245,6 +245,7 @@ window.POS_USUARIO_ACTUAL = <?= json_encode(array(
     "id_usuario" => isset($_SESSION["id_usuario"]) ? intval($_SESSION["id_usuario"]) : 0
 ), JSON_UNESCAPED_UNICODE); ?>;
 </script>
-<script src="/assets/js/custom/apps/erp/ventas/caja_turnos.js?v=20260718-apertura-real1"></script>
+<script src="/assets/js/custom/apps/erp/ventas/caja_turnos.js?v=20260725-operativo1"></script>
 </body>
 </html>
+

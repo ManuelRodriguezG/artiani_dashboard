@@ -126,7 +126,7 @@
         var resumen = data.resumen || {};
         document.getElementById("pos_reportes_alerta").innerHTML = data.schema_pendiente
             ? "<div class=\"alert alert-warning py-3\">Esquema de reportes POS pendiente.</div>"
-            : "<div class=\"alert alert-info py-3\"><div class=\"fw-bold\">Reporte consultado</div><div class=\"fs-8 text-muted\">Los importes son solo lectura. Las diferencias pueden cerrarse administrativamente sin mover caja ni inventario.</div></div>";
+            : "<div class=\"alert alert-info py-3\"><div class=\"fw-bold\">Reporte consultado</div><div class=\"fs-8 text-muted\">Los importes son de consulta. Las diferencias pueden cerrarse administrativamente sin mover caja ni inventario.</div></div>";
         document.getElementById("pos_rep_kpi_turnos").textContent = Number(resumen.turnos || 0);
         document.getElementById("pos_rep_kpi_diferencias").textContent = Number(resumen.turnos_con_diferencia || 0);
         document.getElementById("pos_rep_kpi_faltantes").textContent = dinero(resumen.faltantes_total || 0);

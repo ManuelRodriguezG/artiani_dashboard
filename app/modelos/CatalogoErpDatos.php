@@ -3026,6 +3026,219 @@ class CatalogoErpDatos extends CRUD {
 
   /**
    * IA: Codex GPT-5
+   * Fecha: 2026-07-25
+   * Proposito: auditar portadas legacy de marcas para reutilizacion manual en marcas ERP.
+   * Impacto: Catalogo ERP; solo lectura, no crea ni relaciona imagenes automaticamente.
+   * Contrato: recibe id_marca_erp y devuelve candidatos desde ecom_marcas.url_portada por codigo ECOM-MAR o nombre.
+   */
+  public function listarImagenesCandidatasMarca($idMarca) {
+    $idMarca = intval($idMarca);
+    if ($idMarca <= 0) {
+      return $this->respuesta(true, "warning", "Selecciona una marca para auditar imagenes candidatas");
+    }
+    try {
+      $db = $this->getConexion();
+      $stmt = $db->prepare("SELECT id_marca_erp, codigo, nombre, estatus FROM erp_catalogo_marcas WHERE id_marca_erp=:marca LIMIT 1");
+      $stmt->execute(array(":marca" => $idMarca));
+      $marca = $stmt->fetch(PDO::FETCH_ASSOC);
+      if (!$marca) {
+        return $this->respuesta(true, "warning", "Marca no encontrada");
+      }
+
+      $imagenes = array();
+      if ($this->tablaExisteCatalogo($db, "ecom_marcas")) {
+        $stmt = $db->prepare("SELECT em.id_marca id_origen, em.marca titulo, em.url_portada url_imagen,
+            'marca_legacy' fuente, 'logo' tipo_imagen,
+            CONCAT('Marca ecommerce #', em.id_marca) detalle
+          FROM ecom_marcas em
+          WHERE TRIM(COALESCE(em.url_portada,''))<>''
+            AND (
+              em.id_marca=CAST(REPLACE(:codigo, 'ECOM-MAR-', '') AS UNSIGNED)
+              OR LOWER(TRIM(em.marca))=LOWER(TRIM(:nombre))
+              OR LOWER(TRIM(em.identificador_marca))=LOWER(TRIM(REPLACE(:nombre_slug, ' ', '-')))
+            )
+          ORDER BY CASE WHEN em.id_marca=CAST(REPLACE(:codigo_orden, 'ECOM-MAR-', '') AS UNSIGNED) THEN 0 ELSE 1 END, em.id_marca
+          LIMIT 20");
+        $stmt->execute(array(
+          ":codigo" => isset($marca["codigo"]) ? $marca["codigo"] : "",
+          ":codigo_orden" => isset($marca["codigo"]) ? $marca["codigo"] : "",
+          ":nombre" => isset($marca["nombre"]) ? $marca["nombre"] : "",
+          ":nombre_slug" => isset($marca["nombre"]) ? $marca["nombre"] : ""
+        ));
+        foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $fila) {
+          $urlLocal = $this->normalizarRutaImagenLegacyLocal($fila["url_imagen"]);
+          if ($urlLocal === "") {
+            continue;
+          }
+          $imagenes[] = array(
+            "id_origen" => intval($fila["id_origen"]),
+            "fuente" => $fila["fuente"],
+            "titulo" => $fila["titulo"],
+            "detalle" => $fila["detalle"],
+            "tipo_imagen" => $fila["tipo_imagen"],
+            "url_imagen" => $urlLocal,
+            "url_origen" => $fila["url_imagen"],
+            "archivo_local" => $urlLocal !== trim($fila["url_imagen"])
+          );
+        }
+      }
+
+      return $this->respuesta(false, "success", "Candidatos de imagen consultados", array(
+        "marca" => $marca,
+        "total_candidatos" => count($imagenes),
+        "imagenes" => $imagenes
+      ));
+    } catch (Exception $e) {
+      return $this->respuesta(true, "danger", $e->getMessage());
+    }
+  }
+
+  /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-07-25
+   * Proposito: auditar portadas legacy de categorias/clasificaciones para reutilizacion manual en categorias ERP.
+   * Impacto: Catalogo ERP; solo lectura, no crea ni relaciona imagenes automaticamente.
+   * Contrato: recibe id_categoria_erp y devuelve maximo 30 candidatos de ecom_categorias/ecom_clasificaciones_portadas_catalogo.
+   */
+  public function listarImagenesCandidatasCategoria($idCategoria) {
+    $idCategoria = intval($idCategoria);
+    if ($idCategoria <= 0) {
+      return $this->respuesta(true, "warning", "Selecciona una categoria para auditar imagenes candidatas");
+    }
+    try {
+      $db = $this->getConexion();
+      $stmt = $db->prepare("SELECT id_categoria_erp, codigo, nombre, ruta, estatus FROM erp_catalogo_categorias WHERE id_categoria_erp=:categoria LIMIT 1");
+      $stmt->execute(array(":categoria" => $idCategoria));
+      $categoria = $stmt->fetch(PDO::FETCH_ASSOC);
+      if (!$categoria) {
+        return $this->respuesta(true, "warning", "Categoria no encontrada");
+      }
+
+      $imagenes = array();
+      $vistos = array();
+      if ($this->tablaExisteCatalogo($db, "ecom_categorias")) {
+        $stmt = $db->prepare("SELECT ec.id_categoria id_origen, ec.categoria titulo, ec.url_portada url_imagen,
+            'categoria_legacy' fuente, 'portada' tipo_imagen,
+            CONCAT('Categoria ecommerce #', ec.id_categoria) detalle
+          FROM ecom_categorias ec
+          LEFT JOIN erp_catalogo_categoria_equivalencias eq
+            ON eq.id_categoria_origen=ec.id_categoria
+            AND eq.id_categoria_destino=:categoria
+            AND eq.estatus IN ('aplicada','activo')
+          WHERE TRIM(COALESCE(ec.url_portada,''))<>''
+            AND (
+              eq.id_equivalencia IS NOT NULL
+              OR ec.id_categoria=CAST(REPLACE(:codigo, 'ECOM-CAT-', '') AS UNSIGNED)
+              OR LOWER(TRIM(ec.categoria))=LOWER(TRIM(:nombre))
+            )
+          ORDER BY CASE WHEN eq.id_equivalencia IS NOT NULL THEN 0 ELSE 1 END, ec.id_categoria
+          LIMIT 20");
+        $stmt->execute(array(
+          ":categoria" => $idCategoria,
+          ":codigo" => isset($categoria["codigo"]) ? $categoria["codigo"] : "",
+          ":nombre" => isset($categoria["nombre"]) ? $categoria["nombre"] : ""
+        ));
+        foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $fila) {
+          $this->agregarCandidatoImagenCategoria($imagenes, $vistos, $fila);
+        }
+      }
+
+      if ($this->tablaExisteCatalogo($db, "ecom_clasificaciones_portadas_catalogo") && $this->tablaExisteCatalogo($db, "ecom_clasificaciones")) {
+        $stmt = $db->prepare("SELECT DISTINCT cl.id_clasificacion id_origen, cl.clasificacion titulo,
+            cp.url_imagen_portada_clasificacion url_imagen,
+            'clasificacion_legacy' fuente, 'portada' tipo_imagen,
+            CONCAT('Clasificacion ecommerce #', cl.id_clasificacion) detalle
+          FROM ecom_clasificaciones cl
+          INNER JOIN ecom_clasificaciones_portadas_catalogo cp ON cp.id_clasificacion=cl.id_clasificacion
+          LEFT JOIN ecom_clasificaciones_categorias cc ON cc.id_clasificacion=cl.id_clasificacion
+          LEFT JOIN erp_catalogo_categoria_equivalencias eq
+            ON eq.id_categoria_origen=cc.id_categoria
+            AND eq.id_categoria_destino=:categoria
+            AND eq.estatus IN ('aplicada','activo')
+          WHERE TRIM(COALESCE(cp.url_imagen_portada_clasificacion,''))<>''
+            AND (
+              eq.id_equivalencia IS NOT NULL
+              OR LOWER(TRIM(cl.clasificacion))=LOWER(TRIM(:nombre))
+              OR LOWER(TRIM(cl.clasificacion))=LOWER(TRIM(:ruta))
+            )
+          ORDER BY CASE WHEN eq.id_equivalencia IS NOT NULL THEN 0 ELSE 1 END, cl.id_clasificacion
+          LIMIT 20");
+        $stmt->execute(array(
+          ":categoria" => $idCategoria,
+          ":nombre" => isset($categoria["nombre"]) ? $categoria["nombre"] : "",
+          ":ruta" => isset($categoria["ruta"]) ? $categoria["ruta"] : ""
+        ));
+        foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $fila) {
+          $this->agregarCandidatoImagenCategoria($imagenes, $vistos, $fila);
+        }
+      }
+
+      return $this->respuesta(false, "success", "Candidatos de categoria consultados", array(
+        "categoria" => $categoria,
+        "total_candidatos" => count($imagenes),
+        "imagenes" => array_slice($imagenes, 0, 30)
+      ));
+    } catch (Exception $e) {
+      return $this->respuesta(true, "danger", $e->getMessage());
+    }
+  }
+
+  /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-07-25
+   * Proposito: deduplicar candidatos visuales legacy por URL antes de responder a Configuracion.
+   * Impacto: Catalogo ERP; evita ruido visual cuando una portada llega por equivalencia y por coincidencia de nombre.
+   */
+  private function agregarCandidatoImagenCategoria(&$imagenes, &$vistos, $fila) {
+    $urlOrigen = trim(isset($fila["url_imagen"]) ? $fila["url_imagen"] : "");
+    $url = $this->normalizarRutaImagenLegacyLocal($urlOrigen);
+    if ($url === "" || isset($vistos[$url])) {
+      return;
+    }
+    $vistos[$url] = true;
+    $imagenes[] = array(
+      "id_origen" => isset($fila["id_origen"]) ? intval($fila["id_origen"]) : null,
+      "fuente" => isset($fila["fuente"]) ? $fila["fuente"] : "legacy",
+      "titulo" => isset($fila["titulo"]) ? $fila["titulo"] : "",
+      "detalle" => isset($fila["detalle"]) ? $fila["detalle"] : "",
+      "tipo_imagen" => isset($fila["tipo_imagen"]) ? $fila["tipo_imagen"] : "portada",
+      "url_imagen" => $url,
+      "url_origen" => $urlOrigen,
+      "archivo_local" => $url !== $urlOrigen
+    );
+  }
+
+  /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-07-25
+   * Proposito: convertir URLs legacy de Artiani a rutas publicas locales cuando el archivo existe en este sistema.
+   * Impacto: Catalogo ERP; evita guardar dominios historicos en imagenes maestras nuevas.
+   * Contrato: si `/public/{ruta}` existe devuelve `/{ruta}`; si no existe devuelve cadena vacia para no proponer dominios legacy.
+   */
+  private function normalizarRutaImagenLegacyLocal($url) {
+    $url = trim((string)$url);
+    if ($url === "") {
+      return "";
+    }
+    $path = $url;
+    if (preg_match('/^https?:\/\//i', $url)) {
+      $partes = parse_url($url);
+      $path = isset($partes["path"]) ? $partes["path"] : "";
+    }
+    $path = trim(str_replace("\\", "/", $path));
+    $path = ltrim($path, "/");
+    if ($path === "" || strpos($path, "../") !== false) {
+      return "";
+    }
+    if (!preg_match('/^(media|uploads|assets)\//i', $path)) {
+      return "";
+    }
+    $publicPath = dirname(__DIR__, 2) . DIRECTORY_SEPARATOR . "public" . DIRECTORY_SEPARATOR . str_replace("/", DIRECTORY_SEPARATOR, $path);
+    return is_file($publicPath) ? "/" . $path : "";
+  }
+
+  /**
+   * IA: Codex GPT-5
    * Fecha: 2026-06-29
    * Proposito: guarda imagen de marca/categoria cuando el esquema ya fue autorizado.
    * Impacto: Catalogo ERP; no toca productos, ventas ni canales; conserva baja logica por estatus.
@@ -3318,12 +3531,13 @@ class CatalogoErpDatos extends CRUD {
 
   /**
    * IA: Codex GPT-5
-   * Fecha: 2026-06-29
-   * Proposito: cuenta relaciones activas antes de inactivar una marca maestra.
-   * Impacto: Catalogo ERP; evita que productos existentes queden apuntando a una marca inactiva.
+   * Fecha: 2026-07-25
+   * Proposito: cuenta relaciones operativas antes de inactivar una marca maestra.
+   * Impacto: Catalogo ERP; permite archivar marcas duplicadas cuando solo quedan productos inactivos o descontinuados.
+   * Contrato: bloquea productos vigentes en captura/uso diario; conserva historial en productos archivados.
    */
   private function contarUsoMarcaCatalogo($db, $idMarca) {
-    return $this->contarCatalogo($db, "SELECT COUNT(*) FROM erp_catalogo_productos WHERE id_marca_erp=:id AND estatus<>'fusionado'", array(":id" => intval($idMarca)));
+    return $this->contarCatalogo($db, "SELECT COUNT(*) FROM erp_catalogo_productos WHERE id_marca_erp=:id AND estatus IN ('activo','borrador','en_revision')", array(":id" => intval($idMarca)));
   }
 
   /**

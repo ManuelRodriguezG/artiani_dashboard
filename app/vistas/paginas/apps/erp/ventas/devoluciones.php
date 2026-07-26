@@ -35,7 +35,7 @@
                                 <h1 class="page-heading text-dark fw-bold fs-3 mb-1">Devoluciones POS</h1>
                                 <span class="text-muted">Cancelaciones, reembolsos, saldo a favor e inspeccion fisica</span>
                                 <div class="d-flex flex-wrap gap-2 mt-2">
-                                    <span class="badge badge-light-warning">Simular reversa = no aplica devolucion</span>
+                                    <span class="badge badge-light-warning">Prevalidar reversa = no aplica devolucion</span>
                                     <span class="badge badge-light-primary">Pendientes/ticket = solo consulta</span>
                                     <span class="badge badge-light-success">Inspeccion cuarentena = accion real controlada</span>
                                 </div>
@@ -56,8 +56,8 @@
                             <div class="row g-4">
                                 <div class="col-xl-5">
                                     <div class="dev-card p-4">
-                                        <div class="fw-bold fs-5 mb-1">Simular devolucion/cancelacion</div>
-                                        <div class="text-muted fs-7 mb-3">Valida reglas sin aplicar la reversa real</div>
+                                        <div class="fw-bold fs-5 mb-1">Prevalidar devolucion/cancelacion</div>
+                                        <div class="text-muted fs-7 mb-3">Revisa reglas antes de aplicar la reversa real</div>
                                         <div class="row g-3">
                                             <div class="col-md-6">
                                                 <label class="form-label text-muted fs-8 text-uppercase">Tipo</label>
@@ -92,7 +92,7 @@
                                                 <textarea class="form-control form-control-solid" id="dev_motivo" rows="3" placeholder="Motivo documentado para auditoria"></textarea>
                                             </div>
                                             <div class="col-12">
-                                                <button class="btn btn-light-danger w-100" id="dev_simular" type="button"><i class="bi bi-arrow-counterclockwise"></i> Simular reversa sin aplicar</button>
+                                                <button class="btn btn-light-danger w-100" id="dev_simular" type="button"><i class="bi bi-arrow-counterclockwise"></i> Prevalidar reversa</button>
                                             </div>
                                         </div>
                                         <div id="dev_resultado" class="dev-result mt-4"></div>
@@ -226,6 +226,6 @@
 <script>
     window.ERP_CSRF_TOKEN = "<?= htmlspecialchars(SesionSeguridad::csrfToken(), ENT_QUOTES, 'UTF-8') ?>";
 </script>
-<script src="/assets/js/custom/apps/erp/ventas/devoluciones.js?v=20260709-destino-dryrun1"></script>
+<script src="/assets/js/custom/apps/erp/ventas/devoluciones.js?v=20260725-operativo1"></script>
 </body>
 </html>

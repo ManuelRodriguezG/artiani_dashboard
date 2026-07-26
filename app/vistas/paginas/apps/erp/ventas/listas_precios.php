@@ -12,7 +12,7 @@
       Documentacion IA: Codex GPT-5, 2026-07-15.
       Proposito: convertir Listas de precios en una mesa operativa Comercial con productos, margen y alcance.
       Impacto: elimina accesos visuales a Ventas/POS/Checador dentro de esta vista y enfoca el flujo en listas.
-      Contrato: backend guarda/resuelve precios; POS solo consume precio resuelto y snapshot.
+      Contrato operativo: Comercial guarda/resuelve precios; POS solo consume precio resuelto y snapshot.
     -->
     <style>
         .lp-shell { display: grid; grid-template-columns: 340px minmax(0, 1fr); gap: 16px; }
@@ -85,7 +85,7 @@
                                 <div class="d-flex flex-wrap justify-content-between align-items-start gap-3">
                                     <div>
                                         <div class="fw-bold fs-5">Arranque fase 1</div>
-                                        <div class="text-muted fs-8">Semaforo read-only para comenzar pruebas operativas reales en POS.</div>
+                                        <div class="text-muted fs-8">Revision de arranque para comenzar operacion controlada en POS.</div>
                                     </div>
                                     <div class="d-flex flex-wrap gap-2">
                                         <span class="badge badge-light" id="lp_fase1_estado">Sin validar</span>
@@ -541,7 +541,7 @@
                                                         <input class="form-control form-control-solid" id="lp_preview_cantidad" inputmode="decimal" value="1">
                                                     </div>
                                                     <div class="col-12">
-                                                        <label class="form-label text-muted fs-8 text-uppercase">Almacen prueba</label>
+                                                        <label class="form-label text-muted fs-8 text-uppercase">Almacen referencia</label>
                                                         <input class="form-control form-control-solid" id="lp_preview_almacen" inputmode="numeric" placeholder="Ej. 5">
                                                     </div>
                                                     <div class="col-12">

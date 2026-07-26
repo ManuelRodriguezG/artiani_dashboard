@@ -2882,21 +2882,21 @@ class VentasErp extends CRUD {
         $lineas[] = str_repeat("-", $ancho);
         $leyendaNoFiscal = trim((string) $this->valor($configuracionTicket, "leyenda_no_fiscal", "Ticket no fiscal. Conserve este comprobante."));
         if ($leyendaNoFiscal !== "") {
-            $lineas[] = $this->textoTicket($leyendaNoFiscal, $ancho);
+            $lineas = array_merge($lineas, $this->lineasTicketWrap($leyendaNoFiscal, $ancho));
         }
         $leyendaGeneral = trim((string) $this->valor($configuracionTicket, "leyenda_ticket_general", "Gracias por su compra."));
         if ($leyendaGeneral !== "") {
-            $lineas[] = $this->textoTicket($leyendaGeneral, $ancho);
+            $lineas = array_merge($lineas, $this->lineasTicketWrap($leyendaGeneral, $ancho));
         }
         $leyendaGarantias = trim((string) $this->valor($configuracionTicket, "leyenda_garantias", ""));
         if ($leyendaGarantias !== "") {
-            $lineas[] = $this->textoTicket($leyendaGarantias, $ancho);
+            $lineas = array_merge($lineas, $this->lineasTicketWrap($leyendaGarantias, $ancho));
         }
         $leyendaDevoluciones = trim((string) $this->valor($configuracionTicket, "leyenda_devoluciones", ""));
         if ($leyendaDevoluciones !== "") {
-            $lineas[] = $this->textoTicket($leyendaDevoluciones, $ancho);
+            $lineas = array_merge($lineas, $this->lineasTicketWrap($leyendaDevoluciones, $ancho));
         }
-        return $this->respuesta(false, empty($depurar["bloqueos"]) ? "success" : "warning", "Ticket preview generado", array(
+        return $this->respuesta(false, empty($depurar["bloqueos"]) ? "success" : "warning", "Vista previa de ticket generada", array(
             "dry_run" => true,
             "prevalidacion" => $prevalidacion,
             "ticket_texto" => implode("\n", $lineas),
@@ -10985,19 +10985,19 @@ class VentasErp extends CRUD {
         $lineas[] = "Operacion: " . strtoupper((string) $this->valor($venta, "estatus", ""));
         $leyendaNoFiscal = trim((string) $this->valor($configuracionTicket, "leyenda_no_fiscal", "Ticket no fiscal. Conserve este comprobante."));
         if ($leyendaNoFiscal !== "") {
-            $lineas[] = $this->textoTicket($leyendaNoFiscal, $ancho);
+            $lineas = array_merge($lineas, $this->lineasTicketWrap($leyendaNoFiscal, $ancho));
         }
         $leyendaGarantias = trim((string) $this->valor($configuracionTicket, "leyenda_garantias", ""));
         if ($leyendaGarantias !== "") {
-            $lineas[] = $this->textoTicket($leyendaGarantias, $ancho);
+            $lineas = array_merge($lineas, $this->lineasTicketWrap($leyendaGarantias, $ancho));
         }
         $leyendaDevoluciones = trim((string) $this->valor($configuracionTicket, "leyenda_devoluciones", ""));
         if ($leyendaDevoluciones !== "") {
-            $lineas[] = $this->textoTicket($leyendaDevoluciones, $ancho);
+            $lineas = array_merge($lineas, $this->lineasTicketWrap($leyendaDevoluciones, $ancho));
         }
         $leyendaGeneral = trim((string) $this->valor($configuracionTicket, "leyenda_ticket_general", "Gracias por su compra."));
         if ($leyendaGeneral !== "") {
-            $lineas[] = $this->textoTicket($leyendaGeneral, $ancho);
+            $lineas = array_merge($lineas, $this->lineasTicketWrap($leyendaGeneral, $ancho));
         }
         return array(
             "lineas" => $lineas,

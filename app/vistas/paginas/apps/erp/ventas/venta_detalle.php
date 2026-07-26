@@ -10,7 +10,7 @@
     <link href="assets/css/style.bundle.css" rel="stylesheet" type="text/css">
     <!--
       Documentacion IA: Codex GPT-5, 2026-07-02.
-      Proposito: mostrar detalle read-only de venta POS ERP.
+      Proposito: mostrar detalle de consulta de venta POS ERP.
       Impacto: conecta ticket, pagos, garantia y trazabilidad sin escribir BD.
       Contrato: vista de consulta; acciones operativas se abren en modulos dedicados.
     -->

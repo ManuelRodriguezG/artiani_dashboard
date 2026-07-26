@@ -11,7 +11,7 @@
     <!--
       Documentacion IA: Codex GPT-5, 2026-07-02.
       Proposito: separar evidencias y comprobantes sensibles de caja POS.
-      Impacto: permite seguimiento read-only sin aprobar, rechazar ni adjuntar desde esta vista.
+      Impacto: permite seguimiento de consulta sin aprobar, rechazar ni adjuntar desde esta vista.
       Contrato: consulta informacion; acciones reales quedan en flujo autorizado.
     -->
     <style>

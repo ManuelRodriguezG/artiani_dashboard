@@ -4,7 +4,7 @@
 
     /**
      * IA: Codex GPT-5 | Fecha: 2026-07-02
-     * Proposito: renderizar detalle read-only de venta POS ERP.
+     * Proposito: renderizar detalle de consulta de venta POS ERP.
      * Impacto: usa el ticket formal como fuente unica de venta, pagos, garantia y trazabilidad.
      */
     function request(url) {

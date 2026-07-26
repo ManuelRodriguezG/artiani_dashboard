@@ -11,8 +11,8 @@
     <!--
       Documentacion IA: Codex GPT-5, 2026-07-02.
       Proposito: separar pedidos/apartados POS del listado general y del cobro inmediato.
-      Impacto: prepara reservas, abonos y seguimiento sin escribir BD.
-      Contrato: vista operativa; acciones reales requieren simulacion previa y confirmacion explicita.
+      Impacto: prepara reservas, abonos y seguimiento con prevalidacion.
+      Contrato: vista operativa; acciones reales requieren validacion previa y confirmacion explicita.
     -->
     <style>
         .ped-card { border: 1px solid #e6e8ee; border-radius: 8px; background: #fff; }
@@ -46,7 +46,7 @@
                                 <span class="text-muted">Seguimiento de encargos, anticipos, saldos y entregas</span>
                                 <div class="d-flex flex-wrap gap-2 mt-2">
                                     <span class="badge badge-light-primary">Listado operativo</span>
-                                    <span class="badge badge-light-warning">Simular antes de guardar</span>
+                                    <span class="badge badge-light-warning">Validar antes de guardar</span>
                                     <span class="badge badge-light-danger">Accion real con confirmacion</span>
                                 </div>
                             </div>
@@ -125,8 +125,8 @@
                                     <div class="ped-card p-4 mb-4">
                                         <div class="d-flex justify-content-between align-items-start gap-3 mb-3">
                                             <div>
-                                                <div class="fw-bold fs-5 mb-1">Simular pedido/apartado</div>
-                                                <div class="text-muted fs-7">Valida cliente, politica, anticipo, stock y reserva sin crear folio</div>
+                                                <div class="fw-bold fs-5 mb-1">Validar pedido/apartado</div>
+                                                <div class="text-muted fs-7">Revisa cliente, politica, anticipo, stock y reserva antes de crear folio</div>
                                             </div>
                                             <span class="badge badge-light-warning">Prevalidacion</span>
                                         </div>
@@ -213,7 +213,7 @@
                                                             <tbody id="ped_partidas_body"></tbody>
                                                         </table>
                                                     </div>
-                                                    <div id="ped_partidas_empty" class="ped-line-empty d-flex align-items-center justify-content-center text-muted fs-8">Agrega una o varias partidas antes de simular.</div>
+                                                    <div id="ped_partidas_empty" class="ped-line-empty d-flex align-items-center justify-content-center text-muted fs-8">Agrega una o varias partidas antes de validar.</div>
                                                 </div>
                                                 <div class="ped-line-summary d-flex justify-content-between align-items-center px-3 text-muted fs-8" id="ped_partidas_resumen">
                                                     <span>0 partidas agregadas</span>
@@ -247,13 +247,13 @@
                                                 </div>
                                             </div>
                                             <div class="col-12">
-                                                <button class="btn btn-primary w-100" id="ped_reserva_simular" type="button"><i class="bi bi-bookmark-check"></i> Simular reserva</button>
+                                                <button class="btn btn-primary w-100" id="ped_reserva_simular" type="button"><i class="bi bi-bookmark-check"></i> Validar reserva</button>
                                             </div>
                                         </div>
                                         <div id="ped_reserva_resultado" class="ped-result mt-4"></div>
                                     </div>
                                     <div class="ped-card p-4 mb-4">
-                                        <div class="fw-bold fs-5 mb-1">Simular abono</div>
+                                        <div class="fw-bold fs-5 mb-1">Validar abono</div>
                                         <div class="text-muted fs-7 mb-4">Valida caja/turno/pago antes de registrar dinero</div>
                                         <div class="row g-3">
                                             <div class="col-12">
@@ -285,7 +285,7 @@
                                                 <input class="form-control form-control-solid" id="ped_abono_referencia" placeholder="Opcional">
                                             </div>
                                             <div class="col-12">
-                                                <button class="btn btn-success w-100" id="ped_abono_simular" type="button"><i class="bi bi-calculator"></i> Simular abono</button>
+                                                <button class="btn btn-success w-100" id="ped_abono_simular" type="button"><i class="bi bi-calculator"></i> Validar abono</button>
                                             </div>
                                         </div>
                                         <div id="ped_abono_resultado" class="ped-result mt-4"></div>
@@ -305,6 +305,6 @@
 </div>
 <script src="assets/plugins/global/plugins.bundle.js"></script>
 <script src="assets/js/scripts.bundle.js"></script>
-<script src="/assets/js/custom/apps/erp/ventas/pedidos.js?v=20260705-pedidos-real-ui3"></script>
+<script src="/assets/js/custom/apps/erp/ventas/pedidos.js?v=20260725-operativo1"></script>
 </body>
 </html>

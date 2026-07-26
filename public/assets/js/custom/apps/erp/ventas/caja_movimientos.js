@@ -4,8 +4,8 @@
 
     /**
      * IA: Codex GPT-5 | Fecha: 2026-07-02
-     * Proposito: operar pantalla de movimientos de caja POS en modo dry-run/read-only.
-     * Impacto: separa gastos/retiros/entradas del POS mostrador sin registrar dinero.
+     * Proposito: operar pantalla de movimientos de caja POS con validacion previa.
+     * Impacto: separa gastos/retiros/entradas del POS mostrador.
      */
     function request(url, data) {
         var opciones = {credentials: "same-origin"};
@@ -42,8 +42,8 @@
 
     function render() {
         document.getElementById("pos_mov_alerta").innerHTML = estado.schema_pendiente
-            ? "<div class=\"alert alert-warning py-3\"><div class=\"fw-bold\">Configuracion POS incompleta</div><div class=\"fs-7\">La pantalla queda en consulta/simulacion hasta completar esquema y autorizaciones.</div></div>"
-            : "<div class=\"alert alert-info py-3\"><div class=\"fw-bold\">Movimientos separados de la venta</div><div class=\"fs-7\">Aqui se simulan gastos, retiros y entradas. Registrar movimientos reales requiere autorizacion con respaldo.</div></div>";
+            ? "<div class=\"alert alert-warning py-3\"><div class=\"fw-bold\">Configuracion POS incompleta</div><div class=\"fs-7\">Completa caja, terminales y permisos antes de registrar movimientos reales.</div></div>"
+            : "<div class=\"alert alert-info py-3\"><div class=\"fw-bold\">Movimientos separados de la venta</div><div class=\"fs-7\">Aqui validas gastos, retiros y entradas antes de registrar dinero en caja.</div></div>";
         llenarSelectores();
         renderMovimientos();
     }
@@ -104,7 +104,7 @@
             var bloqueos = data.bloqueos || [];
             var avisos = data.avisos || [];
             var movimiento = data.movimiento || {};
-            var html = "<div class=\"alert " + (bloqueos.length ? "alert-warning" : "alert-success") + " py-3\"><div class=\"fw-bold\">" + escapeHtml(response.mensaje || "Movimiento simulado") + "</div><div class=\"fs-8 text-muted\">No se registro movimiento real ni se modifico el corte.</div>";
+            var html = "<div class=\"alert " + (bloqueos.length ? "alert-warning" : "alert-success") + " py-3\"><div class=\"fw-bold\">" + escapeHtml(response.mensaje || "Movimiento validado") + "</div><div class=\"fs-8 text-muted\">Validacion completada sin registrar movimiento ni modificar el corte.</div>";
             html += "<div class=\"fs-8\">Impacto esperado: " + dinero(movimiento.impacto_esperado || 0) + " | Monto: " + dinero(movimiento.monto || 0) + "</div>";
             if (avisos.length) {
                 html += "<div class=\"mt-2\">" + avisos.map(function (item) { return "<span class=\"badge badge-light-info me-1\">" + escapeHtml(item) + "</span>"; }).join("") + "</div>";
@@ -112,7 +112,7 @@
             if (bloqueos.length) {
                 html += "<ul class=\"mb-0 mt-2 ps-4\">" + bloqueos.map(function (item) { return "<li>" + escapeHtml(item) + "</li>"; }).join("") + "</ul>";
             } else {
-                html += "<div class=\"separator my-3\"></div><div class=\"fs-8 text-muted\">Para aplicar real se requiere autorizacion especifica de movimiento de caja y, si aplica, evidencia.</div>";
+                html += "<div class=\"separator my-3\"></div><div class=\"fs-8 text-muted\">Para registrar el movimiento se requiere confirmacion y, si aplica, evidencia.</div>";
             }
             html += "</div>";
             document.getElementById("pos_mov_resultado").innerHTML = html;

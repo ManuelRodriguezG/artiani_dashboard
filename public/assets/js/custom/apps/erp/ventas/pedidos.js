@@ -10,7 +10,7 @@
     /**
      * IA: Codex GPT-5 | Fecha: 2026-07-03
      * Proposito: operar modulo Pedidos/Apartados con prevalidacion y acciones reales confirmadas.
-     * Impacto: mantiene simulacion previa y acciones transaccionales controladas por backend.
+     * Impacto: mantiene validacion previa y acciones transaccionales controladas por backend.
      */
     function request(url, data) {
         var opciones = {credentials: "same-origin"};
@@ -380,7 +380,7 @@
         document.getElementById("ped_reserva_cantidad").value = "1";
         document.getElementById("ped_producto_q").value = "";
         document.getElementById("ped_producto_resultados").classList.add("d-none");
-        document.getElementById("ped_producto_estado").textContent = "Partida agregada. Puedes buscar otro producto o simular.";
+        document.getElementById("ped_producto_estado").textContent = "Partida agregada. Puedes buscar otro producto o validar.";
         renderPartidasReserva();
     }
 
@@ -415,7 +415,7 @@
     function validarPartidasReserva(items) {
         var errores = [];
         if (!items.length) {
-            errores.push("Agrega al menos una partida a la tabla antes de simular.");
+            errores.push("Agrega al menos una partida a la tabla antes de validar.");
         }
         items.forEach(function (item, index) {
             var linea = "Partida " + (index + 1) + ": ";
@@ -499,7 +499,7 @@
             var data = response.depurar || {};
             var bloqueos = data.bloqueos || [];
             var abono = data.abono || {};
-            var html = "<div class=\"alert " + (bloqueos.length ? "alert-warning" : "alert-success") + " py-3\"><div class=\"fw-bold\">" + escapeHtml(response.mensaje || "Abono simulado") + "</div><div class=\"fs-8 text-muted\">No se registro pago ni movimiento de caja.</div>";
+            var html = "<div class=\"alert " + (bloqueos.length ? "alert-warning" : "alert-success") + " py-3\"><div class=\"fw-bold\">" + escapeHtml(response.mensaje || "Abono validado") + "</div><div class=\"fs-8 text-muted\">No se registro pago ni movimiento de caja.</div>";
             html += "<div class=\"fs-8\">Folio: " + escapeHtml(data.folio || "") + " | Metodo: " + escapeHtml(abono.metodo_pago || "-") + " | Monto: " + dinero(abono.monto || 0) + "</div>";
             if (bloqueos.length) {
                 html += "<ul class=\"mb-0 mt-2 ps-4\">" + bloqueos.map(function (item) { return "<li>" + escapeHtml(item) + "</li>"; }).join("") + "</ul>";
@@ -535,12 +535,12 @@
         var propuesta = data.propuesta_reserva || {};
         var reservas = propuesta.reservas || [];
         var html = "<div class=\"alert " + (bloqueos.length ? "alert-warning" : "alert-success") + " py-3 mb-3\">";
-        html += "<div class=\"fw-bold\">" + escapeHtml(response.mensaje || "Reserva simulada") + "</div>";
+        html += "<div class=\"fw-bold\">" + escapeHtml(response.mensaje || "Reserva validada") + "</div>";
         html += "<div class=\"fs-8 text-muted\">No se creo pedido, no se aparto inventario y no se movio caja.</div>";
         html += "<div class=\"row g-2 mt-2 fs-8\">";
         html += "<div class=\"col-6\">Politica: <span class=\"fw-semibold\">" + escapeHtml(politica.codigo || "-") + "</span></div>";
         html += "<div class=\"col-6\">Anticipo minimo: <span class=\"fw-semibold\">" + dinero(data.anticipo_minimo || 0) + "</span></div>";
-        html += "<div class=\"col-6\">Pagado simulado: <span class=\"fw-semibold\">" + dinero(data.pagado_total || 0) + "</span></div>";
+        html += "<div class=\"col-6\">Pago previsto: <span class=\"fw-semibold\">" + dinero(data.pagado_total || 0) + "</span></div>";
         html += "<div class=\"col-6\">Saldo: <span class=\"fw-semibold\">" + dinero(data.saldo_estimado || 0) + "</span></div>";
         html += "<div class=\"col-12\">Fecha maxima: <span class=\"fw-semibold\">" + escapeHtml(data.fecha_maxima_compromiso || "-") + "</span></div>";
         html += "</div>";
@@ -625,7 +625,7 @@
 
     function renderAlerta(schemaPendiente) {
         document.getElementById("ped_alerta").innerHTML = schemaPendiente
-            ? "<div class=\"alert alert-warning py-3\"><div class=\"fw-bold\">Esquema de pedidos/apartados pendiente</div><div class=\"fs-7\">Esta pantalla queda en consulta/simulacion hasta autorizar reservas, abonos reales y eventos.</div></div>"
+            ? "<div class=\"alert alert-warning py-3\"><div class=\"fw-bold\">Esquema de pedidos/apartados pendiente</div><div class=\"fs-7\">Completa permisos y configuracion antes de crear reservas, registrar abonos reales y eventos.</div></div>"
             : "<div class=\"alert alert-info py-3\"><div class=\"fw-bold\">Modulo operativo de pedidos y apartados</div><div class=\"fs-7\">Primero prevalidas; despues, cada accion real confirma en backend caja, turno, reserva, pago e inventario. Contexto: " + escapeHtml(textoSeleccion(document.getElementById("ped_reserva_almacen"))) + " / " + escapeHtml(textoSeleccion(document.getElementById("ped_reserva_caja"))) + ".</div></div>";
     }
 

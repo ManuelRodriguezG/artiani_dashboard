@@ -79,7 +79,7 @@ $checks = array(
     "modelo_cierre_real_transaccional" => strpos($model, "public function cerrarTurnoRealPos") !== false
         && strpos($model, "CERRAR TURNO") !== false,
     "vista_caja_turnos_productiva" => strpos($view, "Abrir/cerrar real exige confirmacion") !== false
-        && strpos($view, "20260718-apertura-real1") !== false,
+        && strpos($view, "20260725-operativo1") !== false,
     "js_apertura_real_ui" => strpos($js, "/ventas/turno_apertura_real_erp") !== false
         && strpos($js, "function abrirTurnoReal") !== false
         && strpos($js, "ABRIR TURNO") !== false,

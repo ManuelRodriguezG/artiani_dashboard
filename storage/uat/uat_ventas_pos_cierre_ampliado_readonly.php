@@ -16,6 +16,7 @@ $scripts = array(
     "mysql_health" => "storage\\uat\\uat_ventas_pos_mysql_health_readonly.php",
     "preflight_piloto" => "storage\\uat\\uat_ventas_pos_piloto_preflight_compacto_readonly.php",
     "salida_operativa" => "storage\\uat\\uat_ventas_pos_salida_operativa_readiness_readonly.php --id_usuario=1 --id_almacen=5 --id_caja=2 --id_terminal=2 --id_sku=1760 --id_atencion=2 --cantidad=1 --usuarios=1,2,3 --compact=1",
+    "operacion_basica" => "storage\\uat\\uat_ventas_pos_operacion_basica_readonly.php --id_usuario=1 --id_almacen=5 --id_sku=1760 --cantidad=1",
     "postcheck_piloto" => "storage\\uat\\uat_ventas_pos_piloto_postcheck_compacto_readonly.php --id_usuario=1 --id_almacen=5 --id_sku=1760",
     "navegacion" => "storage\\uat\\uat_ventas_pos_navegacion_readiness_readonly.php",
     "atajos" => "storage\\uat\\uat_ventas_pos_atajos_ui_readiness_readonly.php",
@@ -38,6 +39,7 @@ $scripts = array(
     "listas_resolutor" => "storage\\uat\\uat_listas_precios_resolutor_conexion_guard_readonly.php",
     "listas_ui" => "storage\\uat\\uat_listas_precios_segmentos_ui_readiness_readonly.php",
     "encoding_bom" => "storage\\uat\\uat_ventas_pos_encoding_bom_readonly.php",
+    "lenguaje_operativo" => "storage\\uat\\uat_ventas_pos_lenguaje_operativo_readonly.php",
     "guardrails" => "storage\\uat\\uat_ventas_pos_guardrails_readonly.php",
 );
 

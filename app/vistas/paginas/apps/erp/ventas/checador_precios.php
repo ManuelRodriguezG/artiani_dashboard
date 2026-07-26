@@ -10,7 +10,7 @@
     <link href="assets/css/style.bundle.css" rel="stylesheet" type="text/css">
     <!--
       Documentacion IA: Codex GPT-5, 2026-07-10.
-      Proposito: checador read-only de precio/disponibilidad para POS y celular.
+      Proposito: checador de consulta de precio/disponibilidad para POS.
       Impacto: consulta Catalogo/Inventario/Ventas sin cobrar, reservar ni mover inventario.
       Contrato: la camara es ayuda de captura; el backend resuelve la informacion mostrada.
     -->

@@ -429,7 +429,7 @@
                 </div>
                 <div class="row g-5">
                     <div class="col-lg-5">
-                        <form id="catalogo_imagen_maestro_form" data-erp-ajax="true">
+                        <form id="catalogo_imagen_maestro_form" data-erp-ajax="true" enctype="multipart/form-data">
                             <input type="hidden" name="tipo_entidad">
                             <input type="hidden" name="id_entidad">
                             <input type="hidden" name="id_imagen">
@@ -438,8 +438,14 @@
                                 <select class="form-select" name="tipo_imagen" id="catalogo_imagen_maestro_tipo"></select>
                             </div>
                             <div class="mb-4">
-                                <label class="form-label required">URL o ruta</label>
-                                <input class="form-control" name="url_imagen" placeholder="media/... o https://..." required>
+                                <label class="form-label">Archivo nuevo</label>
+                                <input class="form-control" type="file" name="archivo_imagen" accept="image/jpeg,image/png,image/webp,image/gif">
+                                <div class="form-text">JPG, PNG, WEBP o GIF. Maximo 5 MB.</div>
+                            </div>
+                            <div class="mb-4">
+                                <label class="form-label">URL o ruta</label>
+                                <input class="form-control" name="url_imagen" placeholder="Opcional si cargas archivo">
+                                <div class="form-text">Puedes pegar una ruta existente o subir un archivo nuevo.</div>
                             </div>
                             <div class="mb-4">
                                 <label class="form-label">Texto alternativo</label>
@@ -466,6 +472,16 @@
                         </form>
                     </div>
                     <div class="col-lg-7">
+                        <div class="mb-6 d-none" id="catalogo_imagen_candidatas_contenedor">
+                            <div class="d-flex align-items-center justify-content-between mb-3">
+                                <div>
+                                    <div class="fw-bold" id="catalogo_imagen_candidatas_titulo">Imagenes anteriores</div>
+                                    <div class="text-muted fs-8">Busca imagenes usadas antes en marcas, categorias o clasificaciones legacy. No usa imagenes de productos.</div>
+                                </div>
+                                <button type="button" class="btn btn-sm btn-light-primary" id="catalogo_imagen_candidatas"><i class="bi bi-search"></i> Auditar</button>
+                            </div>
+                            <div id="catalogo_imagen_candidatas_lista"></div>
+                        </div>
                         <div class="table-responsive">
                             <table class="table align-middle table-row-dashed gy-4">
                                 <thead><tr class="text-muted fw-bold fs-7 text-uppercase"><th>Vista</th><th>Tipo</th><th>URL</th><th>Estado</th><th class="text-end">Acción</th></tr></thead>
@@ -528,6 +544,6 @@
         "costos" => SesionSeguridad::tienePermiso("catalogo.costos")
     )); ?>;
 </script>
-<script src="/assets/js/custom/apps/erp/catalogo/configuracion.js?v=20260712-maestros-8"></script>
+<script src="/assets/js/custom/apps/erp/catalogo/configuracion.js?v=20260725-maestros-legacy-3"></script>
 </body>
 </html>

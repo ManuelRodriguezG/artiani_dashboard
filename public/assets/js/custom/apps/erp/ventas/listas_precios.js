@@ -5,7 +5,7 @@
     /**
      * IA: Codex GPT-5 | Fecha: 2026-07-15
      * Proposito: operar Listas de precios desde Comercial con productos, margen y alcance.
-     * Impacto: elimina la consola UAT visible y usa endpoints operativos con permisos finos.
+     * Impacto: elimina herramientas tecnicas visibles y usa endpoints operativos con permisos finos.
      */
     function request(url) {
         return fetch(url, {credentials: "same-origin"}).then(function (response) { return response.json(); });
@@ -79,7 +79,7 @@
             },
             revision: {
                 listo: !!revision && revision.puede_activar !== false && cambios === 0,
-                texto: revision ? (revision.puede_activar === false ? "Con bloqueos por resolver." : "Lista revisada.") : "Prevalida antes de activar."
+                texto: revision ? (revision.puede_activar === false ? "Con pendientes por resolver." : "Lista revisada.") : "Prevalida antes de activar."
             }
         };
         Object.keys(pasos).forEach(function (clave) {
@@ -230,7 +230,7 @@
         }
         var listo = !!data.puede_piloto_pos;
         if (badge) {
-            badge.textContent = listo ? "Listo piloto POS" : "Con bloqueos";
+            badge.textContent = listo ? "Listo POS" : "Con pendientes";
             badge.className = listo ? "badge badge-light-success" : "badge badge-light-warning";
         }
         var checks = data.checks || [];
@@ -249,15 +249,15 @@
             "</div></div>";
         }).join("") + "</div>";
         if ((data.bloqueos || []).length) {
-            html += "<div class=\"alert alert-light-danger py-3 mt-3 mb-0\"><div class=\"fw-semibold mb-1\">Bloqueos antes de piloto</div>" + renderListaSimple(data.bloqueos) + "</div>";
+            html += "<div class=\"alert alert-light-danger py-3 mt-3 mb-0\"><div class=\"fw-semibold mb-1\">Pendientes antes de operar</div>" + renderListaSimple(data.bloqueos) + "</div>";
         } else {
-            html += "<div class=\"alert alert-light-success py-3 mt-3 mb-0\"><div class=\"fw-semibold\">Puedes iniciar piloto POS controlado.</div><div class=\"fs-8\">Ecommerce y granel/presentaciones siguen como fases posteriores.</div></div>";
+            html += "<div class=\"alert alert-light-success py-3 mt-3 mb-0\"><div class=\"fw-semibold\">Puedes iniciar operacion POS controlada.</div><div class=\"fs-8\">Ecommerce y granel/presentaciones siguen como fases posteriores.</div></div>";
         }
         if ((data.recomendaciones || []).length || (data.pendientes_fase_2 || []).length) {
             html += "<div class=\"alert alert-light py-3 mt-3 mb-0\"><div class=\"fw-semibold mb-1\">Siguientes notas</div>" + renderListaSimple((data.recomendaciones || []).concat(data.pendientes_fase_2 || [])) + "</div>";
         }
         if ((data.siguiente_uat || []).length) {
-            html += "<div class=\"mt-3\"><div class=\"fw-semibold fs-7 mb-1\">UAT operativo minimo</div>" + renderListaSimple(data.siguiente_uat) + "</div>";
+            html += "<div class=\"mt-3\"><div class=\"fw-semibold fs-7 mb-1\">Revision operativa minima</div>" + renderListaSimple(data.siguiente_uat) + "</div>";
         }
         contenedor.innerHTML = html;
     }
@@ -2012,7 +2012,7 @@
             return;
         }
         if (!idAlmacen) {
-            mostrarAlerta("warning", "Captura almacen de prueba para previsualizar como POS.");
+            mostrarAlerta("warning", "Captura almacen de referencia para previsualizar como POS.");
             return;
         }
         postRequest("/comercial/listas_precios_precio_preview_erp", {

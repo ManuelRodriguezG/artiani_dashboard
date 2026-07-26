@@ -10,7 +10,7 @@
     <link href="assets/css/style.bundle.css" rel="stylesheet" type="text/css">
     <!--
       Documentacion IA: Codex GPT-5, 2026-07-03.
-      Proposito: tablero read-only de reportes POS/caja.
+      Proposito: tablero de consulta de reportes POS/caja.
       Impacto: supervisa diferencias por turno sin mover caja, ventas ni inventario.
       Contrato: consulta y resolucion administrativa de diferencias con permiso; no mueve caja/inventario.
     -->
@@ -223,7 +223,7 @@
             <div class="modal-header">
                 <div>
                     <h3 class="modal-title">Corte de caja</h3>
-                    <div class="text-muted fs-7" id="pos_rep_corte_subtitulo">Consulta read-only</div>
+                    <div class="text-muted fs-7" id="pos_rep_corte_subtitulo">Consulta de corte</div>
                 </div>
                 <button type="button" class="btn btn-sm btn-icon btn-light" data-bs-dismiss="modal"><i class="bi bi-x-lg"></i></button>
             </div>
@@ -240,6 +240,6 @@
 </div>
 <script src="assets/plugins/global/plugins.bundle.js"></script>
 <script src="assets/js/scripts.bundle.js"></script>
-<script src="/assets/js/custom/apps/erp/ventas/reportes.js?v=20260703-filtros-caja1"></script>
+<script src="/assets/js/custom/apps/erp/ventas/reportes.js?v=20260725-operativo1"></script>
 </body>
 </html>

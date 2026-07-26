@@ -277,6 +277,6 @@
 </div>
 <script src="assets/plugins/global/plugins.bundle.js"></script>
 <script src="assets/js/scripts.bundle.js"></script>
-<script src="/assets/js/custom/apps/erp/ventas/pos_configuracion.js?v=20260724-ticket-config2"></script>
+<script src="/assets/js/custom/apps/erp/ventas/pos_configuracion.js?v=20260725-operativo1"></script>
 </body>
 </html>

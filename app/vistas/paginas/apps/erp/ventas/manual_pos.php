@@ -226,7 +226,7 @@
                                             <li><strong>Cliente:</strong> selecciona cliente CRM para historial, saldo, listas de precios y condiciones futuras.</li>
                                             <li><strong>Autorizar:</strong> precio manual o descuento con motivo y folio de autorizacion.</li>
                                             <li><strong>Atenciones:</strong> cuentas creadas por otro operador para tomarlas y cobrarlas.</li>
-                                            <li><strong>Mas:</strong> acciones avanzadas como simulaciones o inventario pendiente. No son flujo normal de cajero.</li>
+                                            <li><strong>Mas:</strong> revisiones avanzadas e inventario pendiente. No son flujo normal de cajero.</li>
                                             <li><strong>Cobrar:</strong> confirma la venta real.</li>
                                         </ul>
                                         <h3 class="fw-bold fs-6 mt-5">Atajos visibles</h3>
@@ -303,7 +303,7 @@
 
                                     <div class="pos-manual-card p-5 mb-4 pos-manual-section" id="manual-checador">
                                         <h2 class="fw-bold fs-4 mb-4">Checador de precios: consulta sin vender</h2>
-                                        <p class="text-muted">El checador es read-only. Sirve para responder rapido a un cliente cuanto cuesta un producto y si hay disponibilidad, sin abrir carrito ni afectar caja.</p>
+                                        <p class="text-muted">El checador solo consulta. Sirve para responder rapido a un cliente cuanto cuesta un producto y si hay disponibilidad, sin abrir carrito ni afectar caja.</p>
                                         <ul class="pos-manual-list text-muted">
                                             <li>Busca por nombre, SKU o codigo de barras.</li>
                                             <li>Puede usar camara para leer codigo.</li>
@@ -347,7 +347,7 @@
                                         </ol>
                                         <div class="pos-manual-danger p-3 mt-4">
                                             <div class="fw-bold">Regla importante</div>
-                                            <div class="text-muted fs-7">Nunca borres una venta para simular una devolucion. La venta original debe conservarse y la reversa debe quedar trazada.</div>
+                                            <div class="text-muted fs-7">Nunca borres una venta para corregir una devolucion. La venta original debe conservarse y la reversa debe quedar trazada.</div>
                                         </div>
                                     </div>
 
@@ -498,11 +498,11 @@
                                             <li><strong>Previsualizar resolucion:</strong> no mueve inventario; solo muestra la propuesta y la formula.</li>
                                             <li><strong>Resolver:</strong> accion real; puede crear kardex, ajustar inventario, cerrar el pendiente y cerrar la notificacion.</li>
                                         </ul>
-                                        <h3 class="fw-bold fs-6 mt-4">Token, respaldo y confirmacion</h3>
+                                        <h3 class="fw-bold fs-6 mt-4">Autorizacion administrativa</h3>
                                         <ul class="pos-manual-list text-muted">
-                                            <li><strong>Token:</strong> escribe `INVENTARIO_POS_PENDIENTE_RESOLVER_REAL`. Es un candado tecnico para esta accion.</li>
-                                            <li><strong>Respaldo:</strong> escribe la referencia del respaldo vigente autorizado. En UAT se puede usar `UAT POS vigente`.</li>
-                                            <li><strong>Confirmacion:</strong> escribe exactamente `RESOLVER PENDIENTE`. Evita cierres por accidente.</li>
+                                            <li><strong>Cajero:</strong> no debe resolver pendientes de inventario durante una venta normal.</li>
+                                            <li><strong>Inventario o supervisor:</strong> debe usar la pantalla autorizada, capturar conteo real, motivo y confirmacion exacta.</li>
+                                            <li><strong>Soporte:</strong> conserva candados tecnicos para acciones sensibles; no se deben compartir como rutina operativa de caja.</li>
                                         </ul>
                                     </div>
 

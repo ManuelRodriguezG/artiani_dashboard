@@ -12,7 +12,7 @@
       Documentacion IA: Codex GPT-5, 2026-06-26.
       Proposito: primera superficie POS ERP para busqueda, carrito y prevalidacion contra inventario.
       Impacto: no mezcla ecommerce legacy ni ejecuta cobros/descuentos.
-      Contrato: todos los datos operativos se consultan por endpoints VentasErp read-only.
+      Contrato: todos los datos operativos se consultan por endpoints VentasErp.
     -->
     <style>
         .pos-shell { min-height: calc(100vh - 190px); }
@@ -93,11 +93,11 @@
                         <div class="app-container container-fluid d-flex flex-stack flex-wrap gap-3">
                             <div>
                                 <h1 class="page-heading text-dark fw-bold fs-3 mb-1">POS ERP</h1>
-                                <span class="text-muted">Venta real con inventario, caja, kardex y ticket; simulaciones marcadas por separado</span>
+                                <span class="text-muted">Venta real con inventario, caja, kardex y ticket para mostrador</span>
                                 <div class="d-flex flex-wrap gap-2 mt-2">
                                     <span class="badge badge-light-success">Cobrar = accion real</span>
-                                    <span class="badge badge-light-primary">Prevalidar/Simular = no escribe</span>
-                                    <span class="badge badge-light-info">Ticket preview = solo vista previa</span>
+                                    <span class="badge badge-light-primary">Prevalidar = revisar antes de cobrar</span>
+                                    <span class="badge badge-light-info">Ticket = vista previa</span>
                                 </div>
                             </div>
                             <div class="d-flex gap-2">
@@ -133,9 +133,9 @@
                                             <div class="dropdown">
                                                 <button class="pos-module-btn dropdown-toggle" type="button" data-bs-toggle="dropdown"><i class="bi bi-three-dots"></i> Mas</button>
                                                 <div class="dropdown-menu dropdown-menu-end">
-                                                    <button class="dropdown-item" id="pos_dryrun" type="button"><i class="bi bi-clipboard-pulse me-2"></i> Simular venta</button>
-                                                    <button class="dropdown-item" id="pos_pedido_dryrun" type="button"><i class="bi bi-bookmark-check me-2"></i> Simular pedido</button>
-                                                    <button class="dropdown-item" id="pos_inventario_pendiente_dryrun" type="button"><i class="bi bi-exclamation-triangle me-2"></i> Validar inventario pendiente</button>
+                                                    <button class="dropdown-item" id="pos_dryrun" type="button"><i class="bi bi-clipboard-pulse me-2"></i> Revisar venta sin cobrar</button>
+                                                    <button class="dropdown-item" id="pos_pedido_dryrun" type="button"><i class="bi bi-bookmark-check me-2"></i> Revisar pedido/apartado</button>
+                                                    <button class="dropdown-item" id="pos_inventario_pendiente_dryrun" type="button"><i class="bi bi-exclamation-triangle me-2"></i> Inventario pendiente</button>
                                                     <a class="dropdown-item" href="/ventas/pedidos"><i class="bi bi-journal-bookmark me-2"></i> Pedidos/apartados</a>
                                                     <a class="dropdown-item" href="/ventas/manual_pos"><i class="bi bi-question-circle me-2"></i> Manual POS</a>
                                                 </div>
@@ -546,10 +546,10 @@
                 <button type="button" class="btn btn-icon btn-sm btn-active-light-primary" data-bs-dismiss="modal"><i class="bi bi-x-lg"></i></button>
             </div>
             <div class="modal-body">
-                <div class="alert alert-info py-3">Actualmente las cuentas son locales del navegador. Esta pantalla simula la futura bandeja persistente multiusuario.</div>
+                <div class="alert alert-info py-3">Usa esta bandeja para preparar cuentas de clientes y revisarlas antes de cobrarlas en caja.</div>
                 <div class="d-flex flex-wrap gap-2 mb-4">
                     <button class="btn btn-light-primary" id="pos_atenciones_bandeja" type="button"><i class="bi bi-list-check"></i> Consultar bandeja</button>
-                    <button class="btn btn-primary" id="pos_atenciones_simular" type="button"><i class="bi bi-cloud-arrow-up"></i> Simular compartir cuenta actual</button>
+                    <button class="btn btn-primary" id="pos_atenciones_simular" type="button"><i class="bi bi-cloud-arrow-up"></i> Preparar cuenta actual</button>
                 </div>
                 <div id="pos_atenciones_resultado" class="pos-atenciones-result"></div>
             </div>
@@ -569,7 +569,7 @@
             <div class="modal-body">
                 <label class="form-label text-muted fs-8 text-uppercase">Tienda de esta terminal</label>
                 <select class="form-select form-select-solid mb-4" id="pos_terminal_almacen"></select>
-                <div class="alert alert-info py-3 mb-0">Esta configuracion local es solo para UAT. Cuando exista asignacion oficial en BD, el POS abrira con usuario, terminal, caja y sucursal asignados.</div>
+                <div class="alert alert-info py-3 mb-0">Cuando exista asignacion oficial, el POS abrira con usuario, terminal, caja y sucursal asignados.</div>
             </div>
             <div class="modal-footer">
                 <button class="btn btn-light" id="pos_terminal_liberar" type="button">Liberar terminal</button>
@@ -586,6 +586,6 @@ window.POS_USUARIO_ACTUAL = <?= json_encode(array(
 </script>
 <script src="assets/plugins/global/plugins.bundle.js"></script>
 <script src="assets/js/scripts.bundle.js"></script>
-<script src="/assets/js/custom/apps/erp/ventas/pos.js?v=20260724-ticket-layout1"></script>
+<script src="/assets/js/custom/apps/erp/ventas/pos.js?v=20260725-operativo1"></script>
 </body>
 </html>

@@ -12,7 +12,7 @@
       Documentacion IA: Codex GPT-5, 2026-07-20.
       Proposito: portada operativa de Comercial/Listas de precios.
       Impacto: separa consulta/listado de la mesa de creacion/edicion para reducir confusion operativa.
-      Contrato: vista read-only salvo enlaces a pantallas dedicadas; precios se guardan en el editor.
+      Contrato: vista de consulta salvo enlaces a pantallas dedicadas; precios se guardan en el editor.
     -->
     <style>
         .lp-home-card { border: 1px solid #e6e8ee; border-radius: 8px; background: #fff; }
@@ -66,7 +66,7 @@
                                     <a class="lp-home-action d-block p-4 h-100" href="/comercial/listas_precios_manual">
                                         <div class="d-flex align-items-center gap-3">
                                             <i class="bi bi-journal-text fs-2 text-success"></i>
-                                            <div><div class="fw-bold">Manual operativo</div><div class="text-muted fs-8">Flujo, UAT y reglas.</div></div>
+                                            <div><div class="fw-bold">Manual operativo</div><div class="text-muted fs-8">Flujo, validaciones y reglas.</div></div>
                                         </div>
                                     </a>
                                 </div>

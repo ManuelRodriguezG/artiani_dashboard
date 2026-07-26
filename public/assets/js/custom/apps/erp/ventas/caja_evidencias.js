@@ -97,7 +97,7 @@
         var data = response.depurar || {};
         var filas = data.evidencias || [];
         var html = "<div class=\"alert " + (filas.length ? "alert-info" : "alert-light") + " py-3 mb-3\"><div class=\"fw-bold\">" + escapeHtml(response.mensaje || "Evidencias consultadas") + "</div>" +
-            "<div class=\"fs-8 text-muted\">Registros: " + escapeHtml(data.total_registros || 0) + " | Solo lectura; no aprueba ni corrige evidencias.</div></div>";
+            "<div class=\"fs-8 text-muted\">Registros: " + escapeHtml(data.total_registros || 0) + " | Consulta; no aprueba ni corrige evidencias.</div></div>";
         if (!filas.length) {
             document.getElementById("pos_evc_resultado").innerHTML = html + empty("Sin evidencias capturadas");
             return;

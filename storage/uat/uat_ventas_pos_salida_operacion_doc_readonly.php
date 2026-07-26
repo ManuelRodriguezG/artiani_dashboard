@@ -13,9 +13,10 @@ $ruta = $root . DIRECTORY_SEPARATOR . "docs" . DIRECTORY_SEPARATOR . "erp_ventas
 $contenido = is_file($ruta) ? file_get_contents($ruta) : "";
 $tokens = array(
     "Operacion controlada significa" => "definicion operativa",
-    "scripts_total=26" => "semaforo consolidado vigente",
-    "pendientes_total=5" => "pendientes vigentes",
-    "acciones_total=7" => "plan de acciones vigente",
+    "scripts_total=28" => "semaforo consolidado vigente",
+    "uat_ventas_pos_operacion_basica_readonly.php" => "semaforo operacion basica documentado",
+    "pendientes_total=4" => "pendientes vigentes",
+    "acciones_total=6" => "plan de acciones vigente",
     "pasos_total=6" => "paquete autorizacion vigente",
     "PINV-20260717-000001" => "pendiente inventario vigente",
     "GASTO-UAT-001" => "evidencia caja vigente",

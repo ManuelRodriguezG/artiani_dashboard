@@ -12,7 +12,7 @@
       Documentacion IA: Codex GPT-5, 2026-07-20.
       Proposito: manual operativo de Comercial/Listas de precios.
       Impacto: permite iniciar fase 1 con POS y preparar contrato ecommerce sin tocar reglas de backend.
-      Contrato: vista read-only; no escribe BD ni ejecuta acciones comerciales.
+      Contrato: vista de consulta; no escribe BD ni ejecuta acciones comerciales.
     -->
     <style>
         .lp-manual-grid { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 16px; }
@@ -51,7 +51,7 @@
                                         <div class="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-4">
                                             <div>
                                                 <div class="fw-bold fs-4 mb-1">Estado de fase 1</div>
-                                                <div class="text-muted">El modulo ya puede iniciar uso controlado para POS con UAT y permisos.</div>
+                                                <div class="text-muted">El modulo ya puede iniciar uso controlado para POS con validaciones y permisos.</div>
                                             </div>
                                             <span class="badge badge-light-success fs-8">Listo para piloto POS</span>
                                         </div>
@@ -122,9 +122,9 @@
                                     </section>
 
                                     <section class="lp-manual-card p-5">
-                                        <div class="fw-bold fs-4 mb-4">UAT minimo antes de operar en tienda</div>
+                                        <div class="fw-bold fs-4 mb-4">Revision minima antes de operar en tienda</div>
                                         <ol class="text-gray-700">
-                                            <li>Crear lista POS para almacen de prueba.</li>
+                                            <li>Crear lista POS para almacen de referencia.</li>
                                             <li>Asignar SKU conocido con precio distinto al catalogo.</li>
                                             <li>Previsualizar precio POS y confirmar origen, lista y snapshot.</li>
                                             <li>Asignar segmento CRM a la lista y probar cliente del segmento.</li>
@@ -136,7 +136,7 @@
 
                                     <section class="lp-manual-card p-5">
                                         <div class="fw-bold fs-4 mb-4">Prueba previa a venta real</div>
-                                        <div class="text-muted fs-8 mb-3">Antes de cobrar en POS, ejecuta un dry-run con los mismos datos del piloto. Debe devolver la lista esperada, origen, snapshot y confirmar que no creo ventas.</div>
+                                        <div class="text-muted fs-8 mb-3">Antes de cobrar en POS, ejecuta una validacion previa con los mismos datos del piloto. Debe devolver la lista esperada, origen, snapshot y confirmar que no creo ventas.</div>
                                         <div class="bg-light rounded p-4 fs-8 text-gray-700">
                                             <code>C:\xampp\php\php.exe storage\uat\uat_listas_precios_piloto_pos_readonly.php --id_lista_precio=2 --id_sku=1760 --id_cliente_crm=2 --id_almacen=5 --canal=pos --origen_esperado=lista_segmento_cliente</code>
                                         </div>
@@ -145,7 +145,7 @@
                                             <div class="fs-8">`PASS_PILOTO_POS_LISTAS_PRECIOS`, precio aplicado mayor a cero, snapshot presente y baseline de ventas intacto.</div>
                                         </div>
                                         <div class="separator my-4"></div>
-                                        <div class="fw-semibold mb-2">Despues de vender en UAT</div>
+                                        <div class="fw-semibold mb-2">Despues de vender en operacion controlada</div>
                                         <div class="text-muted fs-8 mb-3">Con el folio real, valida que la venta guardo el snapshot historico. Este comando solo lee la venta.</div>
                                         <div class="bg-light rounded p-4 fs-8 text-gray-700">
                                             <code>C:\xampp\php\php.exe storage\uat\uat_listas_precios_pos_venta_snapshot_readonly.php --folio=POS-... --id_lista_precio=2 --id_sku=1760 --origen_esperado=lista_segmento_cliente</code>
@@ -160,7 +160,7 @@
                                             <div class="d-flex justify-content-between"><span>CRUD de listas</span><span class="badge badge-light-success">listo</span></div>
                                             <div class="d-flex justify-content-between"><span>Mesa por SKU/margen</span><span class="badge badge-light-success">listo</span></div>
                                             <div class="d-flex justify-content-between"><span>Segmentos CRM</span><span class="badge badge-light-success">listo</span></div>
-                                            <div class="d-flex justify-content-between"><span>Resolutor POS</span><span class="badge badge-light-success">listo UAT</span></div>
+                                            <div class="d-flex justify-content-between"><span>Resolutor POS</span><span class="badge badge-light-success">listo</span></div>
                                             <div class="d-flex justify-content-between"><span>Ecommerce</span><span class="badge badge-light-warning">contrato pendiente</span></div>
                                             <div class="d-flex justify-content-between"><span>Granel/presentaciones</span><span class="badge badge-light-warning">fase posterior</span></div>
                                         </div>

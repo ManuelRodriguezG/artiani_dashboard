@@ -122,7 +122,7 @@
                         "<div class=\"checker-status bg-light-primary\"><div class=\"text-muted fs-8 text-uppercase\">Unidades cerradas</div><div class=\"fw-bold fs-4\">" + Number(disponibilidad.unidades_cerradas || 0) + "</div></div>" +
                         "<div class=\"checker-status bg-light-info\"><div class=\"text-muted fs-8 text-uppercase\">Unidades abiertas</div><div class=\"fw-bold fs-4\">" + Number(disponibilidad.unidades_abiertas || 0) + "</div></div>" +
                     "</div>" +
-                    "<div class=\"alert alert-info py-3 mt-4 mb-0\">Consulta read-only: el POS revalida precio e inventario al cobrar.</div>" +
+                    "<div class=\"alert alert-info py-3 mt-4 mb-0\">Consulta de precio: el POS revalida precio e inventario al cobrar.</div>" +
                 "</div>" +
             "</div>" +
         "</div>";

@@ -5,7 +5,7 @@
 
     /**
      * IA: Codex GPT-5 | Fecha: 2026-06-26
-     * Proposito: llamar endpoints ERP read-only del tablero de ventas.
+     * Proposito: llamar endpoints ERP de consulta del tablero de ventas.
      * Impacto: evita consumir endpoints legacy ecommerce desde la nueva seccion.
      */
     function request(url) {
@@ -80,7 +80,7 @@
 
     /**
      * IA: Codex GPT-5 | Fecha: 2026-06-26
-     * Proposito: mostrar plan dry-run de cajas iniciales por tienda.
+     * Proposito: mostrar preparacion de cajas iniciales por tienda.
      * Impacto: prepara autorizacion de caja POS sin escribir BD.
      */
     function cargarPlanCajas() {
@@ -107,7 +107,7 @@
 
     /**
      * IA: Codex GPT-5 | Fecha: 2026-06-26
-     * Proposito: llenar almacenes para simulacion de apertura/cierre de turno.
+     * Proposito: llenar almacenes para validacion de apertura/cierre de turno.
      * Impacto: permite validar contratos de caja desde tablero sin escribir BD.
      */
     function llenarAlmacenesTurno(items) {
@@ -163,7 +163,7 @@
 
     /**
      * IA: Codex GPT-5 | Fecha: 2026-06-26
-     * Proposito: simular cancelacion/devolucion sin afectar venta ni inventario.
+     * Proposito: prevalidar cancelacion/devolucion sin afectar venta ni inventario.
      * Impacto: valida contrato de reversa controlada desde el tablero.
      */
     function simularDevolucion() {
@@ -193,7 +193,7 @@
      * Impacto: evita que el usuario confunda ausencia de ventas con error operativo.
      */
     function renderAlertaSchema(pendiente) {
-        document.getElementById("ventas_alerta").innerHTML = pendiente ? "<div class=\"alert alert-warning d-flex align-items-center gap-3 py-3\"><i class=\"bi bi-database-exclamation fs-2\"></i><div><div class=\"fw-bold\">Esquema Ventas/POS pendiente</div><div class=\"fs-7\">La navegacion ERP ya esta lista, pero falta autorizar respaldo externo y creacion de tablas para cobrar, reservar, generar folios y kardex.</div></div></div>" : "";
+        document.getElementById("ventas_alerta").innerHTML = pendiente ? "<div class=\"alert alert-warning d-flex align-items-center gap-3 py-3\"><i class=\"bi bi-database-exclamation fs-2\"></i><div><div class=\"fw-bold\">Esquema Ventas/POS pendiente</div><div class=\"fs-7\">La navegacion ERP ya esta lista, pero falta completar configuracion y tablas para cobrar, reservar, generar folios y kardex.</div></div></div>" : "";
     }
 
     /**
@@ -236,7 +236,7 @@
                 "<td class=\"text-end\"><div class=\"d-inline-flex gap-2\">" +
                     "<a class=\"btn btn-sm btn-icon btn-light\" href=\"/ventas/venta_detalle?folio=" + encodeURIComponent(item.folio || "") + "\" title=\"Detalle\"><i class=\"bi bi-eye\"></i></a>" +
                     "<button class=\"btn btn-sm btn-icon btn-light-primary\" data-ticket-folio=\"" + folio + "\" type=\"button\" title=\"Ticket\"><i class=\"bi bi-receipt\"></i></button>" +
-                    "<a class=\"btn btn-sm btn-icon btn-light-warning\" href=\"/ventas/devoluciones?folio=" + encodeURIComponent(item.folio || "") + "\" title=\"Simular devolucion\"><i class=\"bi bi-arrow-counterclockwise\"></i></a>" +
+                    "<a class=\"btn btn-sm btn-icon btn-light-warning\" href=\"/ventas/devoluciones?folio=" + encodeURIComponent(item.folio || "") + "\" title=\"Prevalidar devolucion\"><i class=\"bi bi-arrow-counterclockwise\"></i></a>" +
                 "</div></td>" +
                 "</tr>";
         }).join("");

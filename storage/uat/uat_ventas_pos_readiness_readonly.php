@@ -69,7 +69,7 @@ $cierre = $idTurno > 0 ? $ventas->cierreTurnoDryRun(array(
     "id_caja" => $idCaja,
     "id_turno_caja" => $idTurno,
     "monto_contado" => $montoContado
-)) : respuestaBloqueada("Sin turno abierto para cierre dry-run");
+)) : respuestaBloqueada("Sin turno abierto para prevalidar cierre");
 
 $ticket = $folioVenta !== "" ? $ventas->ticketVentaFormalReadOnly(array(
     "folio" => $folioVenta
@@ -128,16 +128,16 @@ if (empty($turno)) {
     $hallazgos[] = "Sin turno abierto";
 }
 if (!empty($cierreBloqueos)) {
-    $hallazgos[] = "Cierre dry-run bloqueado: " . implode("; ", $cierreBloqueos);
+    $hallazgos[] = "Cierre no disponible en prevalidacion: " . implode("; ", $cierreBloqueos);
 }
 if (!empty($ticketHallazgos)) {
     $hallazgos[] = "Ticket con hallazgos: " . implode("; ", $ticketHallazgos);
 }
 if (!empty($reservaBloqueos)) {
-    $hallazgos[] = "Reserva dry-run bloqueada: " . implode("; ", $reservaBloqueos);
+    $hallazgos[] = "Reserva no disponible en prevalidacion: " . implode("; ", $reservaBloqueos);
 }
 if (!empty($abonoBloqueos)) {
-    $hallazgos[] = "Abono dry-run bloqueado: " . implode("; ", $abonoBloqueos);
+    $hallazgos[] = "Abono no disponible en prevalidacion: " . implode("; ", $abonoBloqueos);
 }
 if (intval(valor($devolucionesResumen, "total_registros", 0)) > 0) {
     $hallazgos[] = "Devoluciones fisicas pendientes: " . intval(valor($devolucionesResumen, "total_registros", 0));

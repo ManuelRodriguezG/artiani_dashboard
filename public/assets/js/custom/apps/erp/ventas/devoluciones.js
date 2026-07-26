@@ -2,7 +2,7 @@
 (function () {
     /**
      * IA: Codex GPT-5 | Fecha: 2026-07-01
-     * Proposito: operar pantalla separada de devoluciones POS en modo dry-run/read-only.
+     * Proposito: operar pantalla separada de devoluciones POS con prevalidacion y acciones controladas.
      * Impacto: evita mezclar reversas, reembolsos e inspeccion fisica dentro del tablero de ventas.
      */
     function request(url, data) {
@@ -41,7 +41,7 @@
             if (response.error) { throw new Error(response.mensaje); }
             var data = response.depurar || {};
             var bloqueos = data.bloqueos || [];
-            var html = "<div class=\"alert " + (bloqueos.length ? "alert-warning" : "alert-success") + " py-3\"><div class=\"fw-bold\">" + escapeHtml(response.mensaje || "Simulacion generada") + "</div><div class=\"fs-8 text-muted\">No se aplico devolucion real, no se reembolso y no se movio inventario.</div>";
+            var html = "<div class=\"alert " + (bloqueos.length ? "alert-warning" : "alert-success") + " py-3\"><div class=\"fw-bold\">" + escapeHtml(response.mensaje || "Reversa prevalidada") + "</div><div class=\"fs-8 text-muted\">Revision completada sin aplicar devolucion, reembolso ni movimiento de inventario.</div>";
             html += "<div class=\"fs-8\">Tipo: " + escapeHtml(data.tipo || "") + " | Inventario: " + escapeHtml(data.decision_inventario || "") + " | Financiera: " + escapeHtml(document.getElementById("dev_decision_financiera").value) + "</div>";
             if (bloqueos.length) {
                 html += "<ul class=\"mb-0 mt-2 ps-4\">" + bloqueos.map(function (item) { return "<li>" + escapeHtml(item) + "</li>"; }).join("") + "</ul>";
@@ -190,7 +190,7 @@
         if (ddl.length) {
             html += "<div class=\"fw-semibold fs-8 mt-2\">DDL requerido antes de aplicar real</div><ul class=\"mb-0 ps-4\">" + ddl.map(function (item) { return "<li>" + escapeHtml(item) + "</li>"; }).join("") + "</ul>";
         }
-        html += "<div class=\"fs-8 text-muted mt-2\">Dry-run: no escribe BD, no mueve inventario y no crea kardex.</div></div>";
+        html += "<div class=\"fs-8 text-muted mt-2\">Prevalidacion: no escribe BD, no mueve inventario y no crea kardex.</div></div>";
         document.getElementById("dev_destino_resultado").innerHTML = html;
     }
 
@@ -237,7 +237,7 @@
         var folioDevolucion = params.get("folio_devolucion") || "";
         if (folioVenta) {
             document.getElementById("dev_folio").value = folioVenta;
-            document.getElementById("dev_resultado").innerHTML = "<div class=\"alert alert-info py-3\"><div class=\"fw-bold\">Folio precargado desde ventas</div><div class=\"fs-8 text-muted\">Puedes simular la devolucion sin aplicar cambios reales.</div></div>";
+            document.getElementById("dev_resultado").innerHTML = "<div class=\"alert alert-info py-3\"><div class=\"fw-bold\">Folio precargado desde ventas</div><div class=\"fs-8 text-muted\">Puedes prevalidar la devolucion antes de aplicar cambios reales.</div></div>";
         }
         if (folioDevolucion) {
             document.getElementById("dev_ticket_folio").value = folioDevolucion;

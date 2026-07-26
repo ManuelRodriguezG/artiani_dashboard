@@ -2,9 +2,9 @@
 
 /**
  * Documentacion IA: Codex GPT-5, 2026-07-02.
- * Proposito: validar modulo Pedidos/Apartados POS en modo read-only/dry-run.
- * Impacto: consulta pedidos/apartados y simula reserva/abono sin crear pagos, caja, reservas ni kardex.
- * Contrato: no escribe BD; solo invoca metodos read-only/dry-run de VentasErp.
+ * Proposito: validar modulo Pedidos/Apartados POS en modo consulta y prevalidacion.
+ * Impacto: consulta pedidos/apartados y valida reserva/abono sin crear pagos, caja, reservas ni kardex.
+ * Contrato: no escribe BD; solo invoca metodos de consulta/prevalidacion de VentasErp.
  */
 
 $args = isset($argv) ? $argv : array();
@@ -163,8 +163,8 @@ $salida = array(
     "hallazgos" => array_values(array_filter(array(
         empty($pedidosLista) ? "Sin pedidos ERP en muestra UAT" : "",
         empty($apartadosLista) ? "Sin apartados ERP en muestra UAT" : "",
-        !empty($reservaBloqueos) ? "Reserva dry-run bloqueada: " . implode("; ", $reservaBloqueos) : "",
-        !empty($abonoBloqueos) ? "Abono dry-run bloqueado: " . implode("; ", $abonoBloqueos) : ""
+        !empty($reservaBloqueos) ? "Reserva no disponible en prevalidacion: " . implode("; ", $reservaBloqueos) : "",
+        !empty($abonoBloqueos) ? "Abono no disponible en prevalidacion: " . implode("; ", $abonoBloqueos) : ""
     ))),
     "contrato" => array(
         "no_escribe_bd" => true,

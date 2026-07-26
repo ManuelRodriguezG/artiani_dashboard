@@ -642,7 +642,7 @@
     }
     /**
      * IA: Codex GPT-5 | Fecha: 2026-07-17
-     * Proposito: resolver codigo leido por camara dentro del POS sin modificar el checador read-only.
+     * Proposito: resolver codigo leido por camara dentro del POS sin modificar el checador de precios.
      * Impacto: acelera captura de partidas; solo agrega al carrito si hay coincidencia unica y mantiene validacion backend.
      * Contrato: no cobra, no reserva y no mueve inventario; usa busqueda POS existente y `agregarProducto`.
      */
@@ -1244,8 +1244,8 @@
     }
     /**
      * IA: Codex GPT-5 | Fecha: 2026-06-26
-     * Proposito: simular confirmacion POS sin registrar venta ni inventario.
-     * Impacto: muestra bloqueos de esquema/caja/turno/kardex antes de autorizacion.
+     * Proposito: prevalidar confirmacion POS sin registrar venta ni inventario.
+     * Impacto: muestra pendientes de esquema/caja/turno/kardex antes de autorizacion.
      */
     function dryRunConfirmacion() {
         if (!carrito.length) {
@@ -1256,9 +1256,9 @@
     }
     /**
      * IA: Codex GPT-5 | Fecha: 2026-07-13
-     * Proposito: simular desde POS el caso controlado de inventario pendiente sin escribir BD.
+     * Proposito: prevalidar desde POS el caso controlado de inventario pendiente sin escribir BD.
      * Impacto: el cajero ve si la venta seria normal, mixta o bloqueada antes de pedir autorizacion real.
-     * Contrato: read-only; no crea venta, caja, kardex, pendiente ni notificacion.
+     * Contrato: consulta; no crea venta, caja, kardex, pendiente ni notificacion.
      */
     function inventarioPendienteDryRun() {
         if (!carrito.length) {
@@ -1289,7 +1289,7 @@
     }
     /**
      * IA: Codex GPT-5 | Fecha: 2026-06-26
-     * Proposito: simular pedido/apartado con reserva sin apartar inventario.
+     * Proposito: prevalidar pedido/apartado con reserva sin apartar inventario.
      * Impacto: permite validar datos de cliente/fecha antes del modulo real de pedidos.
      */
     function dryRunPedidoReserva() {
@@ -1326,7 +1326,7 @@
     }
     /**
      * IA: Codex GPT-5 | Fecha: 2026-06-27
-     * Proposito: simular resolucion de cliente/lista/precio desde backend.
+     * Proposito: prevalidar resolucion de cliente/lista/precio desde backend.
      * Impacto: evita que POS aplique descuentos o precios especiales desde JS.
      */
     function clientePrecioDryRun() {
@@ -1358,7 +1358,7 @@
      * IA: Codex GPT-5 | Fecha: 2026-06-30
      * Proposito: buscar cliente CRM canonico desde POS sin requerir carrito.
      * Impacto: permite seleccionar cliente antes de cobrar y evita usar telefono como modelo de cliente.
-     * Contrato: read-only; no crea cliente ni aplica listas de precio.
+     * Contrato: consulta; no crea cliente ni aplica listas de precio.
      */
     function clienteBuscarCrmDryRun() {
         var identificador = document.getElementById("pos_cliente_identificador").value.trim();
@@ -1377,7 +1377,7 @@
     }
     /**
      * IA: Codex GPT-5 | Fecha: 2026-06-27
-     * Proposito: simular alta rapida de cliente sin crear registros.
+     * Proposito: prevalidar alta rapida de cliente sin crear registros.
      * Impacto: permite revisar duplicados y contrato antes de autorizar escritura real.
      */
     function clienteAltaRapidaDryRun() {
@@ -1395,7 +1395,7 @@
     }
     /**
      * IA: Codex GPT-5 | Fecha: 2026-06-28
-     * Proposito: simular precio manual/descuento sin alterar el carrito en navegador.
+     * Proposito: prevalidar precio manual/descuento sin alterar el carrito en navegador.
      * Impacto: prepara autorizaciones comerciales con motivo y snapshot backend.
      */
     function excepcionComercialDryRun() {
@@ -1555,7 +1555,7 @@
     }
     /**
      * IA: Codex GPT-5 | Fecha: 2026-06-27
-     * Proposito: simular movimientos no venta de caja desde POS.
+     * Proposito: prevalidar movimientos no venta de caja desde POS.
      * Impacto: permite revisar gasto/retiro/vale/reembolso sin escribir BD.
      */
     function cajaMovimientoDryRun() {
@@ -1578,7 +1578,7 @@
     }
     /**
      * IA: Codex GPT-5 | Fecha: 2026-06-27
-     * Proposito: simular corte de caja desde POS sin cerrar turno.
+     * Proposito: prevalidar corte de caja desde POS sin cerrar turno.
      * Impacto: permite comparar esperado vs contado antes de autorizacion de cierre real.
      */
     function corteTurnoDryRun() {
@@ -1597,7 +1597,7 @@
     /**
      * IA: Codex GPT-5 | Fecha: 2026-06-27
      * Proposito: consultar bandeja futura de atenciones compartidas.
-     * Impacto: muestra bloqueo de esquema pendiente sin escribir BD.
+     * Impacto: muestra pendientes de esquema sin escribir BD.
      */
     function atencionesBandejaDryRun() {
         request("/ventas/atenciones_bandeja_dryrun_erp?id_almacen=" + encodeURIComponent(almacenActual())).then(function (response) {
@@ -1609,12 +1609,12 @@
     }
     /**
      * IA: Codex GPT-5 | Fecha: 2026-06-27
-     * Proposito: simular que la cuenta local actual se comparta con caja/vendedores.
+     * Proposito: prevalidar que la cuenta local actual se comparta con caja/vendedores.
      * Impacto: prepara atenciones persistentes sin crear registros ni reservar inventario.
      */
     function atencionPersistenteDryRun() {
         if (!carrito.length) {
-            document.getElementById("pos_atenciones_resultado").innerHTML = "<div class=\"alert alert-warning py-3\">Agrega partidas a la cuenta actual antes de simular.</div>";
+            document.getElementById("pos_atenciones_resultado").innerHTML = "<div class=\"alert alert-warning py-3\">Agrega partidas a la cuenta actual antes de prepararla.</div>";
             return;
         }
         var items = carrito.map(function (item) {
@@ -1774,7 +1774,7 @@
                 "<button class=\"btn btn-sm btn-light-primary\" type=\"button\" data-pos-ticket-real=\"" + escapeHtml(depurar.folio || "") + "\"><i class=\"bi bi-receipt\"></i> Ver ticket</button>" +
                 "<a class=\"btn btn-sm btn-light\" href=\"/ventas/venta_detalle?folio=" + encodeURIComponent(depurar.folio || "") + "\"><i class=\"bi bi-search\"></i> Ver venta</a>" +
                 "<a class=\"btn btn-sm btn-light-warning\" href=\"/ventas/caja_turnos\"><i class=\"bi bi-safe\"></i> Caja/corte</a>" +
-                "<a class=\"btn btn-sm btn-light-danger\" href=\"/ventas/devoluciones?folio=" + encodeURIComponent(depurar.folio || "") + "\"><i class=\"bi bi-arrow-counterclockwise\"></i> Simular devolucion</a>" +
+                "<a class=\"btn btn-sm btn-light-danger\" href=\"/ventas/devoluciones?folio=" + encodeURIComponent(depurar.folio || "") + "\"><i class=\"bi bi-arrow-counterclockwise\"></i> Devolucion</a>" +
             "</div>" +
             "</div>";
         document.getElementById("pos_validacion").innerHTML = html;
@@ -1840,9 +1840,10 @@
         var pendiente = depurar.pendiente_propuesto || {};
         var politica = ((depurar.politica || {}).politica_pos) || {};
         var clase = bloqueos.length ? "alert-warning" : (Number(depurar.cantidad_pendiente || 0) > 0 ? "alert-info" : "alert-success");
+        var estadoOperativo = String(depurar.estado || "") === "pendiente_autorizable" ? "Autorizable" : (depurar.estado || "-");
         var html = "<div class=\"alert " + clase + " py-3 mb-3\">" +
-            "<div class=\"fw-bold mb-1\">" + escapeHtml(response.mensaje || "Inventario pendiente POS") + "</div>" +
-            "<div class=\"fs-7\">Estado: <span class=\"fw-bold\">" + escapeHtml(depurar.estado || "-") + "</span>" +
+            "<div class=\"fw-bold mb-1\">" + escapeHtml(response.mensaje || "Revision de inventario pendiente") + "</div>" +
+            "<div class=\"fs-7\">Resultado: <span class=\"fw-bold\">" + escapeHtml(estadoOperativo) + "</span>" +
             " | Disponible: " + numero(depurar.disponible_actual || 0) +
             " | Cubierto con kardex: " + numero(depurar.cantidad_cubierta || 0) +
             " | Pendiente: " + numero(depurar.cantidad_pendiente || 0) +
@@ -1868,13 +1869,13 @@
                 "<div class=\"fw-bold mb-2\"><i class=\"bi bi-shield-exclamation me-1\"></i>Autorizacion supervisada</div>" +
                 "<div class=\"row g-2 align-items-end\">" +
                 "<div class=\"col-lg-5\"><label class=\"form-label fs-8 text-muted mb-1\">Motivo</label><input class=\"form-control form-control-sm\" id=\"pos_inventario_pendiente_motivo\" value=\"\" placeholder=\"Ej. Mini inventario express en tienda\"></div>" +
-                "<div class=\"col-lg-5\"><label class=\"form-label fs-8 text-muted mb-1\">Confirmacion</label><input class=\"form-control form-control-sm\" id=\"pos_inventario_pendiente_confirmacion\" value=\"\" placeholder=\"AUTORIZAR INVENTARIO PENDIENTE\"></div>" +
+                "<div class=\"col-lg-5\"><label class=\"form-label fs-8 text-muted mb-1\">Clave de autorizacion</label><input class=\"form-control form-control-sm\" id=\"pos_inventario_pendiente_confirmacion\" value=\"\" placeholder=\"AUTORIZAR INVENTARIO PENDIENTE\"></div>" +
                 "<div class=\"col-lg-2\"><button class=\"btn btn-sm btn-warning w-100\" type=\"button\" data-pos-inventario-pendiente-cobrar=\"1\"><i class=\"bi bi-cash-coin\"></i> Cobrar</button></div>" +
                 "</div>" +
-                "<div class=\"fs-8 text-muted mt-2\">Requiere permiso supervisor, turno abierto, pago completo y politica POS activa. Ecommerce queda fuera de este flujo.</div>" +
+                "<div class=\"fs-8 text-muted mt-2\">Solo supervisor: registra la venta, deja pendiente para Inventario/Existencias y no afecta ecommerce.</div>" +
                 "</div>";
         } else {
-            html += "<div class=\"alert alert-light-warning py-3 mb-0\"><div class=\"fw-bold\">Venta real protegida</div><div class=\"fs-8\">Esta pantalla solo valida. El cobro real con inventario pendiente debe ejecutarse con autorizacion operacional porque crea venta, caja, kardex parcial, pendiente y alerta a Inventario/Existencias.</div></div>";
+            html += "<div class=\"alert alert-light-warning py-3 mb-0\"><div class=\"fw-bold\">Venta protegida</div><div class=\"fs-8\">Si el producto no tiene disponible suficiente, debe autorizarse para crear el pendiente de Inventario/Existencias.</div></div>";
         }
         document.getElementById("pos_validacion").innerHTML = html;
     }
@@ -1919,7 +1920,7 @@
     }
     /**
      * IA: Codex GPT-5 | Fecha: 2026-06-26
-     * Proposito: mostrar plan read-only de salida de inventario por partida.
+     * Proposito: mostrar plan de salida de inventario por partida.
      * Impacto: da evidencia de lote/ubicacion/unidad sin mover inventario.
      */
     function renderPlanSalida(partidas) {
@@ -1944,11 +1945,11 @@
         var contrato = depurar.contrato_confirmacion || {};
         var prevalidacion = depurar.prevalidacion || {};
         var totales = (((prevalidacion || {}).depurar || {}).totales) || {};
-        var html = "<div class=\"alert alert-warning py-3 mb-0\"><div class=\"fw-bold mb-1\">" + escapeHtml(response.mensaje || "Dry-run") + "</div>";
+        var html = "<div class=\"alert alert-warning py-3 mb-0\"><div class=\"fw-bold mb-1\">" + escapeHtml(response.mensaje || "Revision de venta") + "</div>";
         if (bloqueos.length) {
             html += "<ul class=\"mb-2 ps-4\">" + bloqueos.map(function (item) { return "<li>" + escapeHtml(item) + "</li>"; }).join("") + "</ul>";
         }
-        html += "<div class=\"fs-8 text-muted\">Contrato: almacen " + (contrato.requiere_id_almacen ? "OK" : "-") +
+        html += "<div class=\"fs-8 text-muted\">Validaciones: almacen " + (contrato.requiere_id_almacen ? "OK" : "-") +
             " | caja " + (contrato.requiere_id_caja ? "OK" : "-") +
             " | turno " + (contrato.requiere_id_turno_caja ? "OK" : "-") +
             " | folio " + (contrato.requiere_folio_erp ? "OK" : "-") +
@@ -1968,7 +1969,7 @@
         var contrato = depurar.contrato_reserva || {};
         var prevalidacion = depurar.prevalidacion || {};
         var partidas = (((prevalidacion || {}).depurar || {}).partidas) || [];
-        var html = "<div class=\"alert alert-warning py-3 mb-0\"><div class=\"fw-bold mb-1\">" + escapeHtml(response.mensaje || "Dry-run pedido") + "</div>";
+        var html = "<div class=\"alert alert-warning py-3 mb-0\"><div class=\"fw-bold mb-1\">" + escapeHtml(response.mensaje || "Revision de pedido") + "</div>";
         html += "<div class=\"fs-8 mb-2\">Tipo: " + escapeHtml(depurar.tipo_documento || "") + " | Cliente: " + escapeHtml(depurar.cliente_nombre_publico || "-") + " | Compromiso: " + escapeHtml(depurar.fecha_entrega_compromiso || "-") + "</div>";
         if (bloqueos.length) {
             html += "<ul class=\"mb-2 ps-4\">" + bloqueos.map(function (item) { return "<li>" + escapeHtml(item) + "</li>"; }).join("") + "</ul>";
@@ -1984,7 +1985,7 @@
     function renderTicketPreview(response) {
         var depurar = response.depurar || {};
         actualizarModalTicket("Vista previa de ticket", "Formato para cliente antes de confirmar cobro", depurar.ticket_texto || "", depurar.ticket_configuracion || {});
-        document.getElementById("pos_validacion").innerHTML = "<div class=\"alert " + ((depurar.bloqueos || []).length ? "alert-warning" : "alert-success") + " py-3 mb-0\"><div class=\"fw-bold\">" + escapeHtml(response.mensaje || "Ticket preview") + "</div><div class=\"fs-7\">El ticket es temporal y no representa una venta confirmada.</div></div>";
+        document.getElementById("pos_validacion").innerHTML = "<div class=\"alert " + ((depurar.bloqueos || []).length ? "alert-warning" : "alert-success") + " py-3 mb-0\"><div class=\"fw-bold\">" + escapeHtml(response.mensaje || "Vista previa de ticket") + "</div><div class=\"fs-7\">Formato de revision antes de confirmar el cobro.</div></div>";
         var modal = bootstrap.Modal.getOrCreateInstance(document.getElementById("pos_ticket_modal"));
         modal.show();
     }
@@ -2022,34 +2023,6 @@
         ventana.document.close();
         ventana.focus();
         ventana.print();
-    }
-    function imprimirTicketPrueba80() {
-        var ahora = new Date();
-        var texto = [
-            "                 ARTIANI                  ",
-            "              PRUEBA TICKET 80            ",
-            "------------------------------------------",
-            "Fecha: " + ahora.toLocaleString("es-MX"),
-            "POS: " + ((window.POS_USUARIO_ACTUAL || {}).nombre_mostrar || "Usuario POS"),
-            "Papel: 80mm",
-            "Columnas: 42",
-            "Modo: Chrome kiosk-printing",
-            "------------------------------------------",
-            "Producto prueba",
-            "1.000 pza x $10.00                 $10.00",
-            "------------------------------------------",
-            "TOTAL                               $10.00",
-            "Pagado                              $10.00",
-            "Saldo                                $0.00",
-            "------------------------------------------",
-            "Si este texto se lee completo,",
-            "el tamano y margen estan correctos.",
-            "Ticket no fiscal. Prueba de impresora.",
-            "Gracias por su compra."
-        ].join("\n");
-        ticketPosActual = texto;
-        actualizarModalTicket("Prueba ticket 80mm", "No es venta; valida papel, margen y lectura", texto, {});
-        imprimirTicketPos();
     }
     function actualizarModalTicket(titulo, subtitulo, texto, config) {
         ticketPosActual = texto || "";
@@ -2097,9 +2070,7 @@
             "</tr>";
         }).join("") || "<tr><td colspan=\"6\" class=\"text-muted text-center py-4\">Sin partidas.</td></tr>";
         html += "</tbody></table></div>";
-        html += "<div class=\"fs-8 text-muted\">Contrato: backend precios " + (contrato.backend_resuelve_precio ? "OK" : "-") +
-            " | snapshot venta " + (contrato.venta_guarda_id_lista_precio ? "OK" : "-") +
-            " | JS sin descuentos " + (contrato.js_no_decide_descuentos ? "OK" : "-") + "</div>";
+        html += "<div class=\"fs-8 text-muted\">Precio revisado por reglas comerciales. La venta guardara la lista/precio aplicado para trazabilidad.</div>";
         document.getElementById("pos_cliente_precio_resultado").innerHTML = html;
         if (cliente && cliente.id_cliente_crm && !bloqueos.length) {
             seleccionarClienteCrm(cliente);
@@ -2116,13 +2087,13 @@
         clientesCrmSeleccionables = {};
         var html = "<div class=\"alert " + (resultados.length ? "alert-success" : "alert-warning") + " py-3 mb-3\">" +
             "<div class=\"fw-bold\">" + escapeHtml(response.mensaje || "Busqueda CRM") + "</div>" +
-            "<div class=\"fs-8 text-muted\">Read-only: no crea cliente, no cambia precios y no escribe BD.</div>";
+            "<div class=\"fs-8 text-muted\">Consulta solamente: no crea cliente ni cambia precios.</div>";
         if (avisos.length) {
             html += "<ul class=\"mb-0 mt-2 ps-4 text-muted\">" + avisos.map(function (item) { return "<li>" + escapeHtml(item) + "</li>"; }).join("") + "</ul>";
         }
         html += "</div>";
         if (!resultados.length) {
-            document.getElementById("pos_cliente_precio_resultado").innerHTML = html + "<div class=\"text-muted fs-7 mb-3\">No hay coincidencias. Puedes validar alta express; crear el cliente real requiere autorizacion con respaldo.</div>";
+            document.getElementById("pos_cliente_precio_resultado").innerHTML = html + "<div class=\"text-muted fs-7 mb-3\">No hay coincidencias. Puedes validar alta express; crear el cliente real requiere confirmacion administrativa.</div>";
             return;
         }
         if (exactos.length === 1) {
@@ -2187,7 +2158,7 @@
                     return "<tr><td>" + escapeHtml(item.nombre_publico || "") + "</td><td>" + escapeHtml(item.codigo_cliente || "") + "</td><td>" + escapeHtml(item.valor || "") + "</td><td><button class=\"btn btn-sm btn-light-primary pos-cliente-crm-seleccionar\" type=\"button\" data-cliente-key=\"" + escapeHtml(llave) + "\">Usar</button></td></tr>";
                 }).join("") + "</tbody></table></div>";
         }
-        html += "<div class=\"fs-8 text-muted\">Dry-run: no crea cliente. Si no hay bloqueos, requiere autorizacion con respaldo para aplicar alta rapida.</div>";
+        html += "<div class=\"fs-8 text-muted\">Consulta de alta rapida. Si todo esta correcto, el alta real requiere autorizacion administrativa.</div>";
         document.getElementById("pos_cliente_precio_resultado").innerHTML = html;
         Array.prototype.slice.call(document.querySelectorAll(".pos-cliente-crm-seleccionar")).forEach(function (boton) {
             boton.addEventListener("click", function () {
@@ -2234,9 +2205,7 @@
             "</tr>";
         }).join("") || "<tr><td colspan=\"6\" class=\"text-muted text-center py-4\">Sin partidas.</td></tr>";
         html += "</tbody></table></div>";
-        html += "<div class=\"fs-8 text-muted\">Contrato: backend precio " + (contrato.backend_resuelve_precio_base_y_lista ? "OK" : "-") +
-            " | JS sin precio final " + (contrato.js_no_decide_precio_final ? "OK" : "-") +
-            " | autorizacion venta real " + (contrato.venta_real_bloqueada_sin_permiso_supervisor ? "OK" : "-") + "</div>";
+        html += "<div class=\"fs-8 text-muted\">Precio final revisado por backend. La venta real solo se permite con autorizacion de supervisor cuando aplique.</div>";
         document.getElementById("pos_cliente_precio_resultado").innerHTML = html;
     }
     function renderExcepcionConsumo(response) {
@@ -2274,9 +2243,7 @@
             "</tr>";
         }).join("") || "<tr><td colspan=\"6\" class=\"text-muted text-center py-4\">Sin partidas.</td></tr>";
         html += "</tbody></table></div>";
-        html += "<div class=\"fs-8 text-muted\">Contrato: bloqueo folio " + (contrato.bloquear_excepcion_for_update ? "OK" : "-") +
-            " | no reutilizar " + (contrato.validar_no_consumida ? "OK" : "-") +
-            " | total backend " + (contrato.recalcular_totales_en_backend ? "OK" : "-") + "</div>";
+        html += "<div class=\"fs-8 text-muted\">Folio autorizado validado. No se puede reutilizar y el total se recalcula antes del cobro.</div>";
         document.getElementById("pos_cliente_precio_resultado").innerHTML = html;
         if (!bloqueos.length) {
             excepcionActiva = {
@@ -3063,9 +3030,6 @@
         document.getElementById("pos_pedido_dryrun").addEventListener("click", dryRunPedidoReserva);
         document.getElementById("pos_ticket_preview").addEventListener("click", ticketPreview);
         document.getElementById("pos_ticket_imprimir").addEventListener("click", imprimirTicketPos);
-        if (document.getElementById("pos_ticket_prueba_80")) {
-            document.getElementById("pos_ticket_prueba_80").addEventListener("click", imprimirTicketPrueba80);
-        }
         document.getElementById("pos_cliente_precio_modal_btn").addEventListener("click", function () {
             abrirClienteAutorizacion("cliente");
         });

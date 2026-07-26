@@ -17,7 +17,7 @@ class Ventas extends Controlador {
    * Documentacion IA: Codex GPT-5, 2026-06-26.
    * Proposito: conservar compatibilidad de ruta `crear` apuntando al POS ERP nuevo.
    * Impacto: evita abrir la captura legacy ecommerce desde el modulo Ventas.
-   * Contrato: no cobra ni descuenta; delega a la vista POS en modo prevalidacion.
+   * Contrato: delega a la vista POS; el cobro real queda protegido por turno, permisos y reglas de inventario.
    */
   public function crear() {
     $this->requerirPermiso("ventas.operar");
@@ -26,9 +26,9 @@ class Ventas extends Controlador {
 
   /**
    * Documentacion IA: Codex GPT-5, 2026-06-26.
-   * Proposito: abrir el POS ERP nuevo en modo preventa/prevalidacion.
+   * Proposito: abrir el POS ERP nuevo para venta en mostrador con validaciones operativas.
    * Impacto: separa el flujo ERP de ventas del POS legacy ecommerce hasta terminar auditoria y autorizacion de esquema.
-   * Contrato: la vista no cobra ni descuenta inventario; solo consume endpoints read-only/prevalidacion.
+   * Contrato: la vista orquesta cobro; backend valida turno, caja, inventario, pagos, ticket y trazabilidad.
    */
   public function pos() {
     $this->requerirPermiso("ventas.operar");
@@ -48,9 +48,9 @@ class Ventas extends Controlador {
 
   /**
    * Documentacion IA: Codex GPT-5, 2026-07-10.
-   * Proposito: abrir checador read-only de precios y disponibilidad para mostrador/celular.
+   * Proposito: abrir checador de precios y disponibilidad para mostrador.
    * Impacto: permite escanear o buscar productos sin cobrar, reservar, descontar ni mezclar ecommerce legacy.
-   * Contrato: vista de consulta; todos los datos vienen de VentasErp/Catalogo/Inventario en modo solo lectura.
+   * Contrato: vista de consulta; no cobra, reserva ni descuenta inventario.
    */
   public function checador_precios() {
     $this->requerirPermiso("ventas.ver");
@@ -66,7 +66,7 @@ class Ventas extends Controlador {
    * Documentacion IA: Codex GPT-5, 2026-06-26.
    * Proposito: abrir el tablero ERP de ventas en lugar del listado ecommerce antiguo.
    * Impacto: separa la operacion nueva de `ecom_pedidos` hasta auditar migracion.
-   * Contrato: vista read-only mientras falte esquema ERP autorizado.
+   * Contrato: vista de consulta y operacion ERP segun permisos; no usa el flujo legacy ecommerce para cobrar POS.
    */
   public function mostrar() {
     $this->requerirPermiso("ventas.ver");
@@ -86,9 +86,9 @@ class Ventas extends Controlador {
 
   /**
    * Documentacion IA: Codex GPT-5, 2026-07-02.
-   * Proposito: abrir detalle read-only de una venta ERP por folio/id.
+   * Proposito: abrir detalle de consulta de una venta ERP por folio/id.
    * Impacto: concentra ticket, pagos, garantias y trazabilidad sin mezclar POS ni legacy.
-   * Contrato: la vista solo consulta endpoints read-only; no cancela, cobra ni mueve inventario.
+   * Contrato: la vista solo consulta; no cancela, cobra ni mueve inventario.
    */
   public function venta_detalle() {
     $this->requerirPermiso("ventas.ver");
@@ -97,9 +97,9 @@ class Ventas extends Controlador {
 
   /**
    * Documentacion IA: Codex GPT-5, 2026-07-03.
-   * Proposito: abrir reportes gerenciales POS/Ventas en modo read-only.
+   * Proposito: abrir reportes gerenciales POS/Ventas.
    * Impacto: permite revisar caja, diferencias y operacion sin mover inventario ni dinero.
-   * Contrato: vista de consulta; acciones correctivas quedan fuera de esta fase.
+   * Contrato: vista de consulta; acciones correctivas se ejecutan en flujos administrativos dedicados.
    */
   public function reportes() {
     $this->requerirPermiso("ventas.ver");
@@ -121,7 +121,7 @@ class Ventas extends Controlador {
    * Documentacion IA: Codex GPT-5, 2026-07-01.
    * Proposito: abrir modulo dedicado de devoluciones/cancelaciones POS.
    * Impacto: separa reversas, reembolsos y decisiones fisicas del tablero de ventas.
-   * Contrato: vista inicial dry-run/read-only; devoluciones reales requieren autorizacion y permisos.
+   * Contrato: vista de prevalidacion y consulta; devoluciones reales requieren autorizacion y permisos.
    */
   public function devoluciones() {
     $this->requerirPermiso("ventas.ver");
@@ -132,7 +132,7 @@ class Ventas extends Controlador {
    * Documentacion IA: Codex GPT-5, 2026-07-01.
    * Proposito: abrir modulo dedicado de turnos/corte de caja POS fuera de la pantalla de cobro.
    * Impacto: separa administracion de caja del POS operativo; no cierra turnos por si mismo.
-   * Contrato: vista read-only/dry-run hasta autorizacion explicita de escrituras reales.
+   * Contrato: vista operativa; apertura/cierre real requiere permisos, confirmacion y auditoria.
    */
   public function caja_turnos() {
     $this->requerirPermiso("ventas.ver");
@@ -143,7 +143,7 @@ class Ventas extends Controlador {
    * Documentacion IA: Codex GPT-5, 2026-07-02.
    * Proposito: abrir modulo dedicado de movimientos de caja POS fuera de la pantalla de cobro.
    * Impacto: separa gastos, retiros, entradas y vales de la venta rapida.
-   * Contrato: vista dry-run/read-only; no registra movimientos reales sin autorizacion posterior.
+   * Contrato: vista operativa; movimientos reales requieren permisos, confirmacion y auditoria.
    */
   public function caja_movimientos() {
     $this->requerirPermiso("ventas.ver");
@@ -154,7 +154,7 @@ class Ventas extends Controlador {
    * Documentacion IA: Codex GPT-5, 2026-07-02.
    * Proposito: abrir modulo dedicado de evidencias de caja POS.
    * Impacto: permite seguimiento de comprobantes sensibles sin mezclarlo con POS mostrador.
-   * Contrato: vista read-only inicial; revisar/corregir evidencias queda en flujo autorizado.
+   * Contrato: vista de consulta; revisar/corregir evidencias queda en flujo autorizado.
    */
   public function caja_evidencias() {
     $this->requerirPermiso("ventas.ver");
@@ -165,7 +165,7 @@ class Ventas extends Controlador {
    * Documentacion IA: Codex GPT-5, 2026-07-01.
    * Proposito: abrir configuracion POS de tiendas, cajas, terminales y asignaciones.
    * Impacto: prepara CRUD formal sin mezclar configuracion con venta en mostrador.
-   * Contrato: vista read-only; altas/ediciones reales quedan pendientes de DDL/permisos/autorizacion.
+   * Contrato: vista administrativa; altas/ediciones reales requieren permisos finos y auditoria.
    */
   public function pos_configuracion() {
     $this->requerirPermiso("ventas.pos_config.ver");
@@ -174,9 +174,9 @@ class Ventas extends Controlador {
 
   /**
    * Documentacion IA: Codex GPT-5, 2026-07-12.
-   * Proposito: abrir modulo read-only de Listas de precios.
+   * Proposito: abrir modulo de Listas de precios.
    * Impacto: permite revisar listas, detalles, asignaciones y conflictos antes del CRUD real.
-   * Contrato: no crea ni edita precios; escritura queda para fase autorizada.
+   * Contrato: consulta y edicion segun permisos del modulo Comercial/Listas.
    */
   public function listas_precios() {
     $this->requerirPermiso("ventas.ver");
@@ -190,7 +190,7 @@ class Ventas extends Controlador {
 
   /**
    * Documentacion IA: Codex GPT-5, 2026-07-12.
-   * Proposito: consultar resumen read-only del modulo Listas de precios.
+   * Proposito: consultar resumen del modulo Listas de precios.
    * Impacto: alimenta dashboard operativo sin escribir BD.
    * Contrato: protegido por `ventas.ver`.
    */
@@ -203,7 +203,7 @@ class Ventas extends Controlador {
    * Documentacion IA: Codex GPT-5, 2026-07-12.
    * Proposito: listar encabezados de listas de precios.
    * Impacto: prepara CRUD formal y auditoria visual.
-   * Contrato: read-only; no cambia estatus ni precios.
+   * Contrato: consulta; no cambia estatus ni precios.
    */
   public function listas_precios_listar_erp() {
     $this->requerirPermiso("ventas.ver");
@@ -214,7 +214,7 @@ class Ventas extends Controlador {
    * Documentacion IA: Codex GPT-5, 2026-07-12.
    * Proposito: consultar detalle de una lista de precios.
    * Impacto: muestra SKUs, asignaciones CRM y conflictos de la lista.
-   * Contrato: read-only; no escribe BD.
+   * Contrato: consulta; no escribe BD.
    */
   public function listas_precios_consultar_erp() {
     $this->requerirPermiso("ventas.ver");
@@ -226,7 +226,7 @@ class Ventas extends Controlador {
    * Documentacion IA: Codex GPT-5, 2026-07-12.
    * Proposito: detectar conflictos de listas de precios antes de habilitar escritura.
    * Impacto: prepara validaciones del futuro CRUD.
-   * Contrato: read-only; no corrige datos.
+   * Contrato: consulta; no corrige datos.
    */
   public function listas_precios_conflictos_erp() {
     $this->requerirPermiso("ventas.ver");
@@ -237,7 +237,7 @@ class Ventas extends Controlador {
    * Documentacion IA: Codex GPT-5, 2026-07-13.
    * Proposito: consultar auditoria comercial de listas de precios.
    * Impacto: permite validar eventos de lista, detalle y asignacion sin escribir BD.
-   * Contrato: read-only; protegido temporalmente por `ventas.ver` hasta sembrar `ventas.listas.auditoria`.
+   * Contrato: consulta; protegido temporalmente por `ventas.ver` hasta sembrar `ventas.listas.auditoria`.
    */
   public function listas_precios_auditoria_erp() {
     $this->requerirPermiso("ventas.ver");
@@ -246,9 +246,9 @@ class Ventas extends Controlador {
 
   /**
    * Documentacion IA: Codex GPT-5, 2026-07-12.
-   * Proposito: validar encabezado futuro de lista de precios sin escribir BD.
+   * Proposito: prevalidar encabezado futuro de lista de precios sin escribir BD.
    * Impacto: prepara CRUD real con reglas de codigo, canal, vigencia y prioridad.
-   * Contrato: dry-run protegido por `ventas.ver`.
+   * Contrato: prevalidacion protegida por `ventas.ver`.
    */
   public function listas_precios_lista_dryrun_erp() {
     $this->requerirPermiso("ventas.ver");
@@ -259,7 +259,7 @@ class Ventas extends Controlador {
    * Documentacion IA: Codex GPT-5, 2026-07-12.
    * Proposito: validar detalle futuro de lista sin guardar precio.
    * Impacto: detecta precios invalidos, alcances ambiguos y duplicados.
-   * Contrato: dry-run protegido por `ventas.ver`.
+   * Contrato: prevalidacion protegida por `ventas.ver`.
    */
   public function listas_precios_detalle_dryrun_erp() {
     $this->requerirPermiso("ventas.ver");
@@ -270,7 +270,7 @@ class Ventas extends Controlador {
    * Documentacion IA: Codex GPT-5, 2026-07-12.
    * Proposito: validar asignacion futura de lista a cliente CRM sin escribir BD.
    * Impacto: prepara contrato cliente/lista antes de habilitar guardado real.
-   * Contrato: dry-run protegido por `ventas.ver`.
+   * Contrato: prevalidacion protegida por `ventas.ver`.
    */
   public function listas_precios_asignacion_dryrun_erp() {
     $this->requerirPermiso("ventas.ver");
@@ -326,7 +326,7 @@ class Ventas extends Controlador {
    * Documentacion IA: Codex GPT-5, 2026-07-01.
    * Proposito: consultar configuracion operativa POS para pantallas dedicadas de Caja/Configuracion.
    * Impacto: expone cajas, terminales, asignaciones, turnos y movimientos recientes sin escribir BD.
-   * Contrato: read-only protegido por `ventas.ver`.
+   * Contrato: consulta protegida por `ventas.ver`.
    */
   public function pos_configuracion_resumen_erp() {
     $this->requerirPermiso("ventas.pos_config.ver");
@@ -337,7 +337,7 @@ class Ventas extends Controlador {
    * Documentacion IA: Codex GPT-5, 2026-07-01.
    * Proposito: validar alta/edicion futura de caja POS sin escribir datos.
    * Impacto: prepara CRUD formal de Configuracion POS con reglas auditables.
-   * Contrato: dry-run protegido por `ventas.ver`; no crea ni actualiza cajas.
+   * Contrato: prevalidacion protegida por `ventas.ver`; no crea ni actualiza cajas.
    */
   public function pos_configuracion_caja_dryrun_erp() {
     $this->requerirPermiso("ventas.ver");
@@ -348,7 +348,7 @@ class Ventas extends Controlador {
    * Documentacion IA: Codex GPT-5, 2026-07-01.
    * Proposito: validar alta/edicion futura de terminal POS sin escribir datos.
    * Impacto: prepara amarre terminal/tienda/caja antes de permitir ventas reales.
-   * Contrato: dry-run protegido por `ventas.ver`; no crea ni actualiza terminales.
+   * Contrato: prevalidacion protegida por `ventas.ver`; no crea ni actualiza terminales.
    */
   public function pos_configuracion_terminal_dryrun_erp() {
     $this->requerirPermiso("ventas.ver");
@@ -359,7 +359,7 @@ class Ventas extends Controlador {
    * Documentacion IA: Codex GPT-5, 2026-07-01.
    * Proposito: validar asignacion futura usuario/caja/terminal sin escribir datos.
    * Impacto: evita POS con selector libre y prepara operacion por usuario/caja oficial.
-   * Contrato: dry-run protegido por `ventas.ver`; no crea ni modifica asignaciones.
+   * Contrato: prevalidacion protegida por `ventas.ver`; no crea ni modifica asignaciones.
    */
   public function pos_configuracion_asignacion_dryrun_erp() {
     $this->requerirPermiso("ventas.ver");
@@ -370,7 +370,7 @@ class Ventas extends Controlador {
    * Documentacion IA: Codex GPT-5, 2026-07-24.
    * Proposito: validar politica POS de inventario pendiente desde configuracion sin escribir BD.
    * Impacto: permite revisar alcance masivo por tienda o puntual por SKU antes de activar ventas con faltante.
-   * Contrato: dry-run protegido por `ventas.ver`.
+   * Contrato: prevalidacion protegida por `ventas.ver`.
    */
   public function pos_configuracion_politica_inventario_pendiente_dryrun_erp() {
     $this->requerirPermiso("ventas.ver");
@@ -381,7 +381,7 @@ class Ventas extends Controlador {
    * Documentacion IA: Codex GPT-5, 2026-07-24.
    * Proposito: validar datos de negocio y formato de ticket POS sin escribir BD.
    * Impacto: prepara logo, contacto y leyendas para ticket no fiscal por tienda/caja/terminal.
-   * Contrato: dry-run protegido por ventas.ver; no imprime ni modifica configuracion.
+   * Contrato: prevalidacion protegida por ventas.ver; no imprime ni modifica configuracion.
    */
   public function pos_configuracion_ticket_dryrun_erp() {
     $this->requerirPermiso("ventas.ver");
@@ -502,7 +502,7 @@ class Ventas extends Controlador {
    * Documentacion IA: Codex GPT-5, 2026-07-23.
    * Proposito: validar una partida POS de venta rapida controlada sin escribir BD.
    * Impacto: permite preparar `Producto por clasificar` para carrito y alerta futura a Catalogo.
-   * Contrato: dry-run; no crea SKU, no cobra, no registra notificacion, no mueve caja ni inventario.
+   * Contrato: prevalidacion; no crea SKU, no cobra, no registra notificacion, no mueve caja ni inventario.
    */
   public function pos_venta_rapida_dryrun_erp() {
     $this->requerirPermiso("ventas.operar");
@@ -515,7 +515,7 @@ class Ventas extends Controlador {
    * Documentacion IA: Codex GPT-5, 2026-07-24.
    * Proposito: listar pendientes POS de venta rapida para Catalogo/Inventario.
    * Impacto: expone productos por clasificar sin resolverlos ni mover inventario.
-   * Contrato: GET read-only protegido por `ventas.ver`.
+   * Contrato: GET de consulta protegido por `ventas.ver`.
    */
   public function pos_venta_rapida_pendientes_erp() {
     $this->requerirPermiso("ventas.ver");
@@ -526,7 +526,7 @@ class Ventas extends Controlador {
    * Documentacion IA: Codex GPT-5, 2026-07-24.
    * Proposito: consultar un pendiente VRP con snapshot, venta y eventos.
    * Impacto: permite revisar evidencia antes de clasificar contra SKU real.
-   * Contrato: GET read-only protegido por `ventas.ver`.
+   * Contrato: GET de consulta protegido por `ventas.ver`.
    */
   public function pos_venta_rapida_pendiente_erp() {
     $this->requerirPermiso("ventas.ver");
@@ -535,9 +535,9 @@ class Ventas extends Controlador {
 
   /**
    * Documentacion IA: Codex GPT-5, 2026-07-24.
-   * Proposito: simular resolucion de venta rapida contra SKU existente.
+   * Proposito: prevalidar resolucion de venta rapida contra SKU existente.
    * Impacto: valida plan Catalogo/Inventario sin actualizar detalle, pendiente ni kardex.
-   * Contrato: POST dry-run; requiere `ventas.operar` y CSRF normal del Core.
+   * Contrato: POST de prevalidacion; requiere `ventas.operar` y CSRF normal del Core.
    */
   public function pos_venta_rapida_resolucion_dryrun_erp() {
     $this->requerirPermiso("ventas.operar");
@@ -560,9 +560,9 @@ class Ventas extends Controlador {
   }
   /**
    * Documentacion IA: Codex GPT-5, 2026-06-26.
-   * Proposito: simular confirmacion POS sin escribir venta, pagos ni inventario.
+   * Proposito: prevalidar confirmacion POS sin escribir venta, pagos ni inventario.
    * Impacto: permite validar contrato completo antes de autorizar DDL/transacciones.
-   * Contrato: endpoint dry-run; siempre bloquea si falta esquema o hay bloqueos operativos.
+   * Contrato: endpoint de prevalidacion; siempre bloquea si falta esquema o hay bloqueos operativos.
    */
   public function pos_confirmar_dryrun_erp() {
     $this->requerirPermiso("ventas.operar");
@@ -588,7 +588,7 @@ class Ventas extends Controlador {
   /**
    * Documentacion IA: Codex GPT-5, 2026-06-30.
    * Proposito: consultar ticket formal de devolucion/cancelacion POS aplicada.
-   * Impacto: permite reimpresion/validacion read-only sin tocar caja, inventario ni venta original.
+   * Impacto: permite reimpresion/validacion de consulta sin tocar caja, inventario ni venta original.
    * Contrato: GET protegido por `ventas.ver`; no escribe BD.
    */
   public function pos_ticket_devolucion_erp() {
@@ -598,9 +598,9 @@ class Ventas extends Controlador {
 
   /**
    * Documentacion IA: Codex GPT-5, 2026-06-26.
-   * Proposito: simular pedido/apartado con reserva sin escribir inventario.
+   * Proposito: prevalidar pedido/apartado con reserva sin escribir inventario.
    * Impacto: prepara Pedidos ERP separados de ecommerce legacy.
-   * Contrato: dry-run; valida contrato de reserva pero no aparta stock.
+   * Contrato: prevalidacion; valida contrato de reserva pero no aparta stock.
    */
   public function pedido_reserva_dryrun_erp() {
     $this->requerirPermiso("ventas.operar");
@@ -622,9 +622,9 @@ class Ventas extends Controlador {
 
   /**
    * Documentacion IA: Codex GPT-5, 2026-07-11.
-   * Proposito: simular venta POS con inventario pendiente controlado.
+   * Proposito: prevalidar venta POS con inventario pendiente controlado.
    * Impacto: calcula faltante y alerta propuesta sin crear venta, notificacion ni kardex.
-   * Contrato: dry-run protegido por `ventas.operar`.
+   * Contrato: prevalidacion protegida por `ventas.operar`.
    */
   public function pos_inventario_pendiente_dryrun_erp() {
     $this->requerirPermiso("ventas.operar");
@@ -778,9 +778,9 @@ class Ventas extends Controlador {
   }
   /**
    * Documentacion IA: Codex GPT-5, 2026-06-26.
-   * Proposito: simular resolucion de cliente/lista/precio sin escribir datos.
+   * Proposito: prevalidar resolucion de cliente/lista/precio sin escribir datos.
    * Impacto: prepara POS para clientes, listas especiales y snapshots de precio.
-   * Contrato: dry-run; no crea cliente, no aplica descuentos y no modifica venta.
+   * Contrato: prevalidacion; no crea cliente, no aplica descuentos y no modifica venta.
    */
   public function pos_cliente_precio_dryrun_erp() {
     $this->requerirPermiso("ventas.operar");
@@ -789,9 +789,9 @@ class Ventas extends Controlador {
 
   /**
    * Documentacion IA: Codex GPT-5, 2026-06-28.
-   * Proposito: simular excepciones comerciales POS sin aplicar precio manual ni descuentos.
+   * Proposito: prevalidar excepciones comerciales POS sin aplicar precio manual ni descuentos.
    * Impacto: prepara autorizaciones de precio/descuento con motivo y snapshot sin escribir venta.
-   * Contrato: dry-run; el navegador no decide precio final ni margen autorizado.
+   * Contrato: prevalidacion; el navegador no decide precio final ni margen autorizado.
    */
   public function pos_excepcion_comercial_dryrun_erp() {
     $this->requerirPermiso("ventas.operar");
@@ -820,9 +820,9 @@ class Ventas extends Controlador {
 
   /**
    * Documentacion IA: Codex GPT-5, 2026-06-29.
-   * Proposito: simular consumo de un folio de excepcion comercial autorizado en POS.
+   * Proposito: prevalidar consumo de un folio de excepcion comercial autorizado en POS.
    * Impacto: permite validar precio manual/descuento contra carrito, caja y stock sin cobrar ni mover inventario.
-   * Contrato: read-only; no aplica excepcion, no crea venta y no escribe caja/kardex.
+   * Contrato: consulta; no aplica excepcion, no crea venta y no escribe caja/kardex.
    */
   public function pos_excepcion_consumo_dryrun_erp() {
     $this->requerirPermiso("ventas.operar");
@@ -831,9 +831,9 @@ class Ventas extends Controlador {
 
   /**
    * Documentacion IA: Codex GPT-5, 2026-06-27.
-   * Proposito: simular alta rapida de cliente POS sin crear registros.
+   * Proposito: prevalidar alta rapida de cliente POS sin crear registros.
    * Impacto: prepara clientes robustos con identificador unico, duplicados y snapshot futuro de venta.
-   * Contrato: dry-run; no escribe BD ni mezcla clientes legacy/ecommerce.
+   * Contrato: prevalidacion; no escribe BD ni mezcla clientes legacy/ecommerce.
    */
   public function pos_cliente_alta_rapida_dryrun_erp() {
     $this->requerirPermiso("ventas.operar");
@@ -845,9 +845,9 @@ class Ventas extends Controlador {
 
   /**
    * Documentacion IA: Codex GPT-5, 2026-06-26.
-   * Proposito: simular abono de apartado/pedido sin registrar pago ni caja.
+   * Proposito: prevalidar abono de apartado/pedido sin registrar pago ni caja.
    * Impacto: prepara pagos parciales ligados a folio, caja, turno y saldo.
-   * Contrato: dry-run; no crea abonos, no reduce saldo y no mueve inventario.
+   * Contrato: prevalidacion; no crea abonos, no reduce saldo y no mueve inventario.
    */
   public function apartado_abono_dryrun_erp() {
     $this->requerirPermiso("ventas.operar");
@@ -904,7 +904,7 @@ class Ventas extends Controlador {
 
   /**
    * Documentacion IA: Codex GPT-5, 2026-06-26.
-   * Proposito: entregar KPIs read-only para el tablero Ventas ERP.
+   * Proposito: entregar KPIs de consulta para el tablero Ventas ERP.
    * Impacto: no mezcla `ecom_pedidos`; reporta esquema pendiente si faltan tablas nuevas.
    * Contrato: respuesta JSON estandar del ERP.
    */
@@ -939,7 +939,7 @@ class Ventas extends Controlador {
    * Documentacion IA: Codex GPT-5, 2026-07-03.
    * Proposito: consultar faltantes/sobrantes de caja pendientes de seguimiento.
    * Impacto: prepara revision formal sin resolver diferencias ni mover dinero.
-   * Contrato: GET protegido por `ventas.ver`; read-only.
+   * Contrato: GET protegido por `ventas.ver`; consulta.
    */
   public function reportes_diferencias_caja_erp() {
     $this->requerirPermiso("ventas.ver");
@@ -1124,7 +1124,7 @@ class Ventas extends Controlador {
    * Documentacion IA: Codex GPT-5, 2026-06-26.
    * Proposito: diagnosticar cobertura tecnica del modulo Ventas/POS/Pedidos ERP.
    * Impacto: ayuda a decidir el siguiente paso sin tocar BD.
-   * Contrato: read-only; no crea tablas ni consulta ventas legacy como fuente operativa.
+   * Contrato: consulta; no crea tablas ni consulta ventas legacy como fuente operativa.
    */
   public function diagnostico_erp() {
     $this->requerirPermiso("ventas.ver");
@@ -1135,7 +1135,7 @@ class Ventas extends Controlador {
    * Documentacion IA: Codex GPT-5, 2026-06-26.
    * Proposito: proponer cajas iniciales por tienda sin escribir datos.
    * Impacto: prepara configuracion POS multi-sucursal antes de autorizar DDL/seed.
-   * Contrato: dry-run read-only; no crea cajas ni turnos.
+   * Contrato: prevalidacion de consulta; no crea cajas ni turnos.
    */
   public function cajas_plan_inicial_erp() {
     $this->requerirPermiso("ventas.ver");
@@ -1146,7 +1146,7 @@ class Ventas extends Controlador {
    * Documentacion IA: Codex GPT-5, 2026-06-26.
    * Proposito: proponer asignacion persistente usuario/terminal/caja sin escribir datos.
    * Impacto: prepara POS para abrir ligado a sucursal/caja del operador.
-   * Contrato: dry-run read-only; no crea terminales ni asignaciones.
+   * Contrato: prevalidacion de consulta; no crea terminales ni asignaciones.
    */
   public function terminal_plan_asignacion_erp() {
     $this->requerirPermiso("ventas.ver");
@@ -1160,7 +1160,7 @@ class Ventas extends Controlador {
    * Documentacion IA: Codex GPT-5, 2026-06-26.
    * Proposito: consultar la asignacion activa usuario/terminal/caja para abrir POS sin selector libre.
    * Impacto: cuando exista esquema POS, la UI podra quedar amarrada automaticamente a tienda/caja del operador.
-   * Contrato: read-only; no crea terminales, no crea cajas y no modifica turnos.
+   * Contrato: consulta; no crea terminales, no crea cajas y no modifica turnos.
    */
   public function terminal_asignacion_actual_erp() {
     $this->requerirPermiso("ventas.operar");
@@ -1171,9 +1171,9 @@ class Ventas extends Controlador {
 
   /**
    * Documentacion IA: Codex GPT-5, 2026-06-26.
-   * Proposito: simular apertura de turno de caja sin escribir datos.
+   * Proposito: prevalidar apertura de turno de caja sin escribir datos.
    * Impacto: prepara control de caja antes de autorizar transacciones POS.
-   * Contrato: dry-run; no crea turnos ni movimientos de caja.
+   * Contrato: prevalidacion; no crea turnos ni movimientos de caja.
    */
   public function turno_apertura_dryrun_erp() {
     $this->requerirPermiso("ventas.operar");
@@ -1197,9 +1197,9 @@ class Ventas extends Controlador {
 
   /**
    * Documentacion IA: Codex GPT-5, 2026-06-26.
-   * Proposito: simular cierre de turno de caja sin escribir datos.
+   * Proposito: prevalidar cierre de turno de caja sin escribir datos.
    * Impacto: prepara corte de caja y diferencias antes de autorizar transacciones POS.
-   * Contrato: dry-run; no cierra turno ni crea movimientos.
+   * Contrato: prevalidacion; no cierra turno ni crea movimientos.
    */
   public function turno_cierre_dryrun_erp() {
     $this->requerirPermiso("ventas.operar");
@@ -1225,7 +1225,7 @@ class Ventas extends Controlador {
    * Documentacion IA: Codex GPT-5, 2026-07-04.
    * Proposito: consultar corte formal imprimible de turno POS sin modificar caja.
    * Impacto: permite reimprimir cortes y auditar turnos cerrados desde Caja/Turnos.
-   * Contrato: read-only; requiere `ventas.ver`.
+   * Contrato: consulta; requiere `ventas.ver`.
    */
   public function corte_turno_readonly_erp() {
     $this->requerirPermiso("ventas.ver");
@@ -1234,9 +1234,9 @@ class Ventas extends Controlador {
 
   /**
    * Documentacion IA: Codex GPT-5, 2026-06-27.
-   * Proposito: simular movimientos de caja no venta sin registrar dinero real.
+   * Proposito: prevalidar movimientos de caja no venta sin registrar dinero real.
    * Impacto: prepara gastos, retiros, entradas, vales y reembolsos con reglas de corte.
-   * Contrato: dry-run; no inserta movimientos ni modifica turno.
+   * Contrato: prevalidacion; no inserta movimientos ni modifica turno.
    */
   public function caja_movimiento_dryrun_erp() {
     $this->requerirPermiso("ventas.operar");
@@ -1247,7 +1247,7 @@ class Ventas extends Controlador {
    * Documentacion IA: Codex GPT-5, 2026-06-30.
    * Proposito: consultar movimientos de caja con evidencia pendiente.
    * Impacto: permite seguimiento operativo de reembolsos/gastos sin modificar caja ni adjuntos.
-   * Contrato: read-only; requiere `ventas.ver`.
+   * Contrato: consulta; requiere `ventas.ver`.
    */
   public function caja_evidencias_pendientes_erp() {
     $this->requerirPermiso("ventas.ver");
@@ -1258,7 +1258,7 @@ class Ventas extends Controlador {
    * Documentacion IA: Codex GPT-5, 2026-06-30.
    * Proposito: consultar detalle de evidencias capturadas para movimientos sensibles de caja POS.
    * Impacto: permite revisar comprobantes antes de aprobar/rechazar sin modificar caja.
-   * Contrato: read-only; requiere `ventas.ver`.
+   * Contrato: consulta; requiere `ventas.ver`.
    */
   public function caja_evidencias_detalle_erp() {
     $this->requerirPermiso("ventas.ver");
@@ -1319,9 +1319,9 @@ class Ventas extends Controlador {
 
   /**
    * Documentacion IA: Codex GPT-5, 2026-06-27.
-   * Proposito: simular que una cuenta local POS se convierta en atencion compartida.
+   * Proposito: prevalidar que una cuenta local POS se convierta en atencion compartida.
    * Impacto: prepara flujo multiusuario/multidispositivo sin crear ventas ni reservas.
-   * Contrato: dry-run; no inserta atenciones ni detalle.
+   * Contrato: prevalidacion; no inserta atenciones ni detalle.
    */
   public function atencion_persistente_dryrun_erp() {
     $this->requerirPermiso("ventas.operar");
@@ -1332,9 +1332,9 @@ class Ventas extends Controlador {
 
   /**
    * Documentacion IA: Codex GPT-5, 2026-06-27.
-   * Proposito: consultar bandeja read-only de atenciones compartidas.
+   * Proposito: consultar bandeja de atenciones compartidas.
    * Impacto: prepara caja para tomar/cobrar cuentas levantadas por vendedores.
-   * Contrato: read-only; no bloquea ni convierte atenciones.
+   * Contrato: consulta; no bloquea ni convierte atenciones.
    */
   public function atenciones_bandeja_dryrun_erp() {
     $this->requerirPermiso("ventas.operar");
@@ -1345,7 +1345,7 @@ class Ventas extends Controlador {
    * Documentacion IA: Codex GPT-5, 2026-06-26.
    * Proposito: generar vista previa de ticket POS sin confirmar venta.
    * Impacto: valida contenido operativo antes de folios reales e impresion.
-   * Contrato: dry-run; no genera folio fiscal/venta ni descuenta inventario.
+   * Contrato: prevalidacion; no genera folio fiscal/venta ni descuenta inventario.
    */
   public function ticket_preview_dryrun_erp() {
     $this->requerirPermiso("ventas.operar");
@@ -1354,7 +1354,7 @@ class Ventas extends Controlador {
 
   /**
    * Documentacion IA: Codex GPT-5, 2026-06-27.
-   * Proposito: generar ticket formal read-only desde una venta POS confirmada.
+   * Proposito: generar ticket formal de consulta desde una venta POS confirmada.
    * Impacto: permite imprimir/reimprimir folios ERP con precio, caja, turno, pagos e inventario sin tocar ecommerce legacy.
    * Contrato: no escribe BD, no recalcula venta historica y reporta garantia pendiente si no existe snapshot.
    */
@@ -1367,7 +1367,7 @@ class Ventas extends Controlador {
    * Documentacion IA: Codex GPT-5, 2026-07-07.
    * Proposito: consultar saldo monetario CRM disponible para POS sin mover caja ni ledger.
    * Impacto: permite que el cajero vea si puede usar saldo cliente antes de cobrar.
-   * Contrato: GET read-only con sesion y permiso `ventas.operar`.
+   * Contrato: GET de consulta con sesion y permiso `ventas.operar`.
    */
   public function cliente_saldo_crm_readonly_erp() {
     $this->requerirPermiso("ventas.operar");
@@ -1376,9 +1376,9 @@ class Ventas extends Controlador {
 
   /**
    * Documentacion IA: Codex GPT-5, 2026-06-26.
-   * Proposito: simular cancelacion/devolucion sin afectar venta ni inventario.
+   * Proposito: prevalidar cancelacion/devolucion sin afectar venta ni inventario.
    * Impacto: prepara reversas controladas con trazabilidad y decision de inventario.
-   * Contrato: dry-run; no cancela ventas, no crea devoluciones y no mueve kardex.
+   * Contrato: prevalidacion; no cancela ventas, no crea devoluciones y no mueve kardex.
    */
   public function devolucion_dryrun_erp() {
     $this->requerirPermiso("ventas.operar");
@@ -1390,7 +1390,7 @@ class Ventas extends Controlador {
    * Documentacion IA: Codex GPT-5, 2026-06-30.
    * Proposito: consultar devoluciones POS pendientes de decision fisica de inventario/almacen.
    * Impacto: permite seguimiento de cuarentena, merma o reintegro sin mover stock.
-   * Contrato: read-only; requiere `ventas.ver`.
+   * Contrato: consulta; requiere `ventas.ver`.
    */
   public function devoluciones_inventario_pendientes_erp() {
     $this->requerirPermiso("ventas.ver");
@@ -1399,9 +1399,9 @@ class Ventas extends Controlador {
 
   /**
    * Documentacion IA: Codex GPT-5, 2026-06-30.
-   * Proposito: simular decision fisica sobre una partida devuelta sin mover inventario.
+   * Proposito: prevalidar decision fisica sobre una partida devuelta sin mover inventario.
    * Impacto: prepara inspeccion de cuarentena/reintegro/merma/garantia antes de autorizacion real.
-   * Contrato: dry-run; no crea inspeccion, kardex ni cambios de devolucion.
+   * Contrato: prevalidacion; no crea inspeccion, kardex ni cambios de devolucion.
    */
   public function devolucion_inspeccion_fisica_dryrun_erp() {
     $this->requerirPermiso("ventas.operar");
@@ -1425,7 +1425,7 @@ class Ventas extends Controlador {
    * Documentacion IA: Codex GPT-5, 2026-07-09.
    * Proposito: prevalidar destino final de una devolucion ya confirmada en cuarentena.
    * Impacto: prepara reintegro, merma, garantia o reparacion sin escribir BD ni mover inventario.
-   * Contrato: dry-run/read-only; requiere `ventas.operar`.
+   * Contrato: prevalidacion/consulta; requiere `ventas.operar`.
    */
   public function devolucion_destino_final_dryrun_erp() {
     $this->requerirPermiso("ventas.operar");
@@ -1476,7 +1476,7 @@ class Ventas extends Controlador {
    * Documentacion IA: Codex GPT-5, 2026-06-27.
    * Proposito: auditar columnas de caja completa sin ejecutar DDL.
    * Impacto: prepara gastos, retiros, vales, reembolsos y autorizaciones de caja.
-   * Contrato: read-only.
+   * Contrato: consulta sin cambios de datos.
    */
   public function esquema_auditar_caja_pos() {
     $this->requerirPermiso("ventas.ver");
@@ -1487,7 +1487,7 @@ class Ventas extends Controlador {
    * Documentacion IA: Codex GPT-5, 2026-06-27.
    * Proposito: auditar tablas de atenciones compartidas POS sin ejecutar DDL.
    * Impacto: prepara cuentas persistentes multiusuario sin tocar BD.
-   * Contrato: read-only.
+   * Contrato: consulta sin cambios de datos.
    */
   public function esquema_auditar_atenciones_pos() {
     $this->requerirPermiso("ventas.ver");
@@ -1498,7 +1498,7 @@ class Ventas extends Controlador {
    * Documentacion IA: Codex GPT-5, 2026-06-29.
    * Proposito: auditar estructura necesaria para devoluciones/cancelaciones POS reales.
    * Impacto: prepara reversas con reembolso, caja, inventario y trazabilidad sin ejecutar DDL.
-   * Contrato: read-only; no crea tablas, columnas ni movimientos.
+   * Contrato: consulta; no crea tablas, columnas ni movimientos.
    */
   public function esquema_auditar_reversas_pos() {
     $this->requerirPermiso("ventas.ver");
@@ -1545,7 +1545,7 @@ class Ventas extends Controlador {
    * Documentacion IA: Codex GPT-5, 2026-06-30.
    * Proposito: auditar estructura para inspeccion fisica de devoluciones POS.
    * Impacto: prepara cierre de cuarentena/reintegro/merma/garantia sin mover inventario.
-   * Contrato: read-only; no crea tablas, columnas ni movimientos.
+   * Contrato: consulta; no crea tablas, columnas ni movimientos.
    */
   public function esquema_auditar_inspeccion_fisica_devoluciones_pos() {
     $this->requerirPermiso("ventas.ver");
@@ -1592,7 +1592,7 @@ class Ventas extends Controlador {
    * Documentacion IA: Codex GPT-5, 2026-07-09.
    * Proposito: auditar estructura para destino final de cuarentena POS.
    * Impacto: prepara reintegro, merma, garantia o reparacion sin ejecutar DDL.
-   * Contrato: read-only; no cierra cuarentenas ni mueve inventario.
+   * Contrato: consulta; no cierra cuarentenas ni mueve inventario.
    */
   public function esquema_auditar_destino_final_cuarentena_pos() {
     $this->requerirPermiso("ventas.ver");
@@ -1640,7 +1640,7 @@ class Ventas extends Controlador {
   /**
    * Documentacion IA: Codex GPT-5, 2026-07-12.
    * Proposito: auditar contrato CRM para asignacion de listas de precios.
-   * Impacto: solo lectura; permite validar si `erp_clientes_listas_precios` ya soporta `id_cliente_crm`.
+   * Impacto: consulta; permite validar si `erp_clientes_listas_precios` ya soporta `id_cliente_crm`.
    * Contrato: requiere `ventas.ver`; no crea listas, clientes ni precios.
    */
   public function esquema_auditar_listas_precios_crm() {
@@ -1680,7 +1680,7 @@ class Ventas extends Controlador {
   /**
    * Documentacion IA: Codex GPT-5, 2026-07-12.
    * Proposito: auditar tabla de eventos comerciales para listas de precios.
-   * Impacto: solo lectura; prepara trazabilidad antes de habilitar guardado real.
+   * Impacto: consulta; prepara trazabilidad antes de habilitar guardado real.
    * Contrato: requiere `ventas.ver`; no crea eventos ni modifica precios.
    */
   public function esquema_auditar_auditoria_listas_precios() {
@@ -1720,7 +1720,7 @@ class Ventas extends Controlador {
   /**
    * Documentacion IA: Codex GPT-5, 2026-07-12.
    * Proposito: auditar politicas POS de inventario pendiente por sucursal/SKU.
-   * Impacto: solo lectura; no activa ventas con faltante.
+   * Impacto: consulta; no activa ventas con faltante.
    * Contrato: requiere `ventas.ver`.
    */
   public function esquema_auditar_politicas_inventario_pendiente_pos() {
@@ -1759,7 +1759,7 @@ class Ventas extends Controlador {
   /**
    * Documentacion IA: Codex GPT-5, 2026-07-11.
    * Proposito: auditar estructura para venta POS con inventario pendiente sin ejecutar DDL.
-   * Impacto: solo lectura; no permite venta negativa ni genera alertas.
+   * Impacto: consulta; no permite venta negativa ni genera alertas.
    * Contrato: requiere `ventas.ver`.
    */
   public function esquema_auditar_inventario_pendiente_pos() {
@@ -1807,7 +1807,7 @@ class Ventas extends Controlador {
    * Documentacion IA: Codex GPT-5, 2026-07-23.
    * Proposito: auditar estructura requerida para venta rapida controlada POS.
    * Impacto: prepara Producto por clasificar y pendientes Catalogo/Inventario sin ejecutar DDL.
-   * Contrato: solo lectura; requiere soporte.
+   * Contrato: consulta; requiere soporte.
    */
   public function esquema_auditar_venta_rapida_pos() {
     $this->requerirPermiso("sistema.soporte");
@@ -1856,7 +1856,7 @@ class Ventas extends Controlador {
   /**
    * Documentacion IA: Codex GPT-5, 2026-07-24.
    * Proposito: auditar estructura de configuracion formal de ticket POS.
-   * Impacto: solo lectura; no altera ventas, caja, inventario ni configuracion de impresora.
+   * Impacto: consulta; no altera ventas, caja, inventario ni configuracion de impresora.
    * Contrato: requiere permiso de soporte y devuelve cobertura de tablas/columnas/indices.
    */
   public function esquema_auditar_ticket_config_pos() {
@@ -1942,7 +1942,7 @@ class Ventas extends Controlador {
    * Documentacion IA: Codex GPT-5, 2026-06-30.
    * Proposito: auditar estructura de evidencias/adjuntos de caja POS.
    * Impacto: prepara comprobantes de reembolsos/gastos sin ejecutar DDL.
-   * Contrato: read-only.
+   * Contrato: consulta sin cambios de datos.
    */
   public function esquema_auditar_evidencias_caja_pos() {
     $this->requerirPermiso("ventas.ver");
@@ -1984,7 +1984,7 @@ class Ventas extends Controlador {
    * Documentacion IA: Codex GPT-5, 2026-06-30.
    * Proposito: auditar estructura de correcciones para evidencias de caja aprobadas.
    * Impacto: prepara flujo formal de correccion sin editar evidencias historicas.
-   * Contrato: read-only.
+   * Contrato: consulta sin cambios de datos.
    */
   public function esquema_auditar_correcciones_evidencias_caja_pos() {
     $this->requerirPermiso("ventas.ver");
@@ -2026,7 +2026,7 @@ class Ventas extends Controlador {
    * Documentacion IA: Codex GPT-5, 2026-07-03.
    * Proposito: auditar estructura de revision formal para diferencias de caja POS.
    * Impacto: prepara seguimiento de faltantes/sobrantes sin ejecutar DDL.
-   * Contrato: read-only.
+   * Contrato: consulta sin cambios de datos.
    */
   public function esquema_auditar_revision_diferencias_caja_pos() {
     $this->requerirPermiso("ventas.ver");

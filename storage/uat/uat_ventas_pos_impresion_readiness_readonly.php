@@ -27,7 +27,7 @@ $detalle = array(
             "ventana.print()" => "print POS",
             "pos_ticket_imprimir" => "listener boton imprimir POS",
             "Ticket de venta" => "titulo ticket venta",
-            "Ticket preview" => "titulo ticket preview",
+            "Vista previa de ticket" => "titulo vista previa ticket",
             "Ticket de devolucion" => "titulo ticket devolucion",
         ),
     ), $root, $bloqueos),

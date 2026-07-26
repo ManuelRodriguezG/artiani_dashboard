@@ -6,7 +6,7 @@
 
     /**
      * IA: Codex GPT-5 | Fecha: 2026-07-04
-     * Proposito: consumir endpoints read-only/dry-run de Caja POS y calcular arqueo operativo.
+     * Proposito: consumir endpoints de validacion/consulta de Caja POS y calcular arqueo operativo.
      * Impacto: separa apertura, corte, arqueo y supervision de turnos del POS de cobro.
      */
     function request(url, data) {
@@ -65,8 +65,8 @@
         document.getElementById("pos_caja_kpi_turnos").textContent = Number(resumen.turnos_abiertos || 0);
         document.getElementById("pos_caja_kpi_movimientos").textContent = Number(resumen.movimientos_recientes || 0);
         document.getElementById("pos_caja_alerta").innerHTML = estado.schema_pendiente
-            ? "<div class=\"alert alert-warning py-3\"><div class=\"fw-bold\">Configuracion POS incompleta</div><div class=\"fs-7\">Faltan tablas o columnas para operar caja productiva. Esta vista solo consulta y simula.</div></div>"
-            : "<div class=\"alert alert-info py-3\"><div class=\"fw-bold\">Caja separada del POS</div><div class=\"fs-7\">Esta pantalla abre/cierra turnos con dry-run previo, caja asignada y confirmacion escrita.</div></div>";
+            ? "<div class=\"alert alert-warning py-3\"><div class=\"fw-bold\">Configuracion POS incompleta</div><div class=\"fs-7\">Faltan tablas o columnas para operar caja.</div></div>"
+            : "<div class=\"alert alert-info py-3\"><div class=\"fw-bold\">Caja separada del POS</div><div class=\"fs-7\">Esta pantalla abre y cierra turnos con caja asignada, validacion previa y confirmacion escrita.</div></div>";
         llenarSelectores();
         renderDenominaciones();
         calcularArqueo();
@@ -193,7 +193,7 @@
             if (response.error) { throw new Error(response.mensaje); }
             var data = response.depurar || {};
             var bloqueos = data.bloqueos || [];
-            var html = "<div class=\"alert " + (bloqueos.length ? "alert-warning" : "alert-success") + " py-3\"><div class=\"fw-bold\">" + escapeHtml(response.mensaje || "Apertura validada") + "</div><div class=\"fs-8 text-muted\">El dry-run no creo turno ni movimiento de caja.</div>";
+            var html = "<div class=\"alert " + (bloqueos.length ? "alert-warning" : "alert-success") + " py-3\"><div class=\"fw-bold\">" + escapeHtml(response.mensaje || "Apertura validada") + "</div><div class=\"fs-8 text-muted\">Revision completada sin abrir turno ni mover caja.</div>";
             html += "<div class=\"fs-8\">Monto inicial: " + dinero(data.monto_inicial || 0) + " | Folio sugerido: " + escapeHtml(data.folio_sugerido || "-") + "</div>";
             if (bloqueos.length) {
                 html += "<ul class=\"mb-0 mt-2 ps-4\">" + bloqueos.map(function (item) { return "<li>" + escapeHtml(item) + "</li>"; }).join("") + "</ul>";
@@ -260,7 +260,7 @@
             var data = response.depurar || {};
             var bloqueos = data.bloqueos || [];
             var diferencia = Number(data.diferencia || 0);
-            var html = "<div class=\"alert " + (bloqueos.length ? "alert-warning" : "alert-success") + " py-3\"><div class=\"fw-bold\">" + escapeHtml(response.mensaje || "Corte simulado") + "</div><div class=\"fs-8 text-muted\">No se cerro el turno real.</div>";
+            var html = "<div class=\"alert " + (bloqueos.length ? "alert-warning" : "alert-success") + " py-3\"><div class=\"fw-bold\">" + escapeHtml(response.mensaje || "Corte validado") + "</div><div class=\"fs-8 text-muted\">Revision completada sin cerrar el turno.</div>";
             html += "<div class=\"fs-8\">Esperado: " + dinero(data.monto_esperado || 0) + " | Contado: " + dinero(data.monto_contado || 0) + " | Diferencia: " + dinero(data.diferencia || 0) + "</div>";
             html += renderResumenArqueo();
             if (!bloqueos.length && Math.abs(diferencia) > 0.0001) {
@@ -300,19 +300,6 @@
         return "<div class=\"col-6\"><div class=\"border rounded p-2 bg-white\"><div class=\"text-muted fs-8 text-uppercase\">" + escapeHtml(label) + "</div><div class=\"fw-bold\">" + escapeHtml(texto) + "</div></div></div>";
     }
 
-    function renderAutorizacionCierre(data) {
-        var turno = data.turno || {};
-        var folio = turno.folio || "TURNO";
-        var montoContado = Number(data.monto_contado || 0);
-        var usuario = (window.POS_USUARIO_ACTUAL || {}).id_usuario || "";
-        var texto = "AUTORIZO CERRAR TURNO POS UAT REAL usando respaldo UAT POS vigente con id_usuario=" + usuario + " monto_contado=" + montoContado.toFixed(0) + " observaciones=\"Cierre UAT POS " + folio + "\"";
-        return "<div class=\"separator my-3\"></div>" +
-            "<div class=\"fw-bold mb-2\">Siguiente paso si quieres cerrar real</div>" +
-            "<div class=\"fs-8 text-muted mb-2\">Copia esta autorizacion en el chat. No se ejecuta desde esta pantalla. Si hay diferencia, se guardara para reportes.</div>" +
-            "<div class=\"d-flex justify-content-end mb-2\"><button type=\"button\" class=\"btn btn-sm btn-light-primary\" data-copy-autorizacion=\"" + escapeHtml(texto) + "\">Copiar autorizacion</button></div>" +
-            "<pre class=\"bg-light p-3 rounded fs-8 mb-0\" style=\"white-space: pre-wrap;\">" + escapeHtml(texto) + "</pre>";
-    }
-
     function renderCierreRealControlado(data) {
         var turno = data.turno || {};
         var folio = turno.folio || "TURNO";
@@ -348,7 +335,7 @@
             monto_contado: monto(document.getElementById("pos_caja_readiness_contado").value),
             monto_abono: 100,
             folio_venta: document.getElementById("pos_caja_readiness_folio").value.trim(),
-            folio_apartado: "APT-UAT-000001"
+            folio_apartado: ""
         }).then(function (response) {
             if (response.error) { throw new Error(response.mensaje); }
             document.getElementById("pos_caja_readiness_resultado").innerHTML = renderReadiness(response.depurar || {});
@@ -361,7 +348,7 @@
         var resumen = data.resumen || {};
         var hallazgos = data.hallazgos || [];
         var contexto = data.contexto || {};
-        var html = "<div class=\"alert alert-info py-3 mb-3\"><div class=\"fw-bold\">Readiness consultado</div><div class=\"fs-8 text-muted\">No se cerro turno, no se creo pedido, no se reservo inventario y no se genero kardex.</div></div>";
+        var html = "<div class=\"alert alert-info py-3 mb-3\"><div class=\"fw-bold\">Revision operativa consultada</div><div class=\"fs-8 text-muted\">No se cerro turno, no se creo pedido, no se reservo inventario y no se genero kardex.</div></div>";
         html += "<div class=\"row g-2 mb-3\">";
         html += readinessKpi("Turno", contexto.turno_abierto ? "Abierto" : "Sin turno", contexto.turno_abierto ? "success" : "warning");
         html += readinessKpi("Diferencia", dinero(resumen.cierre_diferencia || 0), Number(resumen.cierre_diferencia || 0) === 0 ? "success" : "warning");
@@ -373,11 +360,11 @@
                 return "<li>" + escapeHtml(item) + "</li>";
             }).join("") + "</ul></div>";
         } else {
-            html += "<div class=\"alert alert-success py-3 mb-0\">Sin hallazgos de readiness.</div>";
+            html += "<div class=\"alert alert-success py-3 mb-0\">Sin hallazgos operativos.</div>";
         }
         html += "<div class=\"text-muted fs-8 mt-3\">" + escapeHtml(data.siguiente_recomendado || "") + "</div>";
         if (contexto.turno_abierto && !(resumen.cierre_bloqueos || []).length) {
-            html += renderAutorizacionReadiness(data);
+            html += "<div class=\"alert alert-light-primary py-3 mt-3 mb-0\"><div class=\"fw-bold\">Turno listo para cierre</div><div class=\"fs-8\">Regresa al panel de corte, valida el arqueo y confirma con CERRAR TURNO.</div></div>";
         }
         return html;
     }
@@ -385,38 +372,6 @@
     function readinessKpi(label, value, tipo) {
         var badge = tipo === "success" ? "badge-light-success" : "badge-light-warning";
         return "<div class=\"col-6\"><div class=\"border rounded p-3 h-100\"><div class=\"text-muted fs-8 text-uppercase\">" + escapeHtml(label) + "</div><span class=\"badge " + badge + " mt-1\">" + escapeHtml(value) + "</span></div></div>";
-    }
-
-    function renderAutorizacionReadiness(data) {
-        var detalle = data.detalle || {};
-        var cierre = (detalle.cierre || {}).depurar || {};
-        var turno = cierre.turno || {};
-        var folio = turno.folio || "TURNO";
-        var montoContado = Number(cierre.monto_contado || 0);
-        var usuario = (window.POS_USUARIO_ACTUAL || {}).id_usuario || "";
-        var texto = "AUTORIZO CERRAR TURNO POS UAT REAL usando respaldo UAT POS vigente con id_usuario=" + usuario + " monto_contado=" + montoContado.toFixed(0) + " observaciones=\"Cierre UAT POS readiness " + folio + "\"";
-        return "<div class=\"separator my-3\"></div>" +
-            "<div class=\"fw-bold mb-2\">Autorizacion sugerida para cierre real</div>" +
-            "<div class=\"fs-8 text-muted mb-2\">Copiala al chat si quieres cerrar el turno. Esta pantalla no ejecuta el cierre. Las diferencias quedan registradas.</div>" +
-            "<div class=\"d-flex justify-content-end mb-2\"><button type=\"button\" class=\"btn btn-sm btn-light-primary\" data-copy-autorizacion=\"" + escapeHtml(texto) + "\">Copiar autorizacion</button></div>" +
-            "<pre class=\"bg-light p-3 rounded fs-8 mb-0\" style=\"white-space: pre-wrap;\">" + escapeHtml(texto) + "</pre>";
-    }
-
-    function copiarAutorizacion(event) {
-        var boton = event.target.closest("[data-copy-autorizacion]");
-        if (!boton) { return; }
-        var texto = boton.getAttribute("data-copy-autorizacion") || "";
-        if (!texto) { return; }
-        if (navigator.clipboard && navigator.clipboard.writeText) {
-            navigator.clipboard.writeText(texto).then(function () {
-                boton.textContent = "Copiado";
-                setTimeout(function () { boton.textContent = "Copiar autorizacion"; }, 1500);
-            }).catch(function () {
-                boton.textContent = "Selecciona el texto";
-            });
-            return;
-        }
-        boton.textContent = "Selecciona el texto";
     }
 
     function cerrarTurnoReal(event) {
@@ -553,11 +508,8 @@
         document.getElementById("pos_caja_readiness_consultar").addEventListener("click", consultarReadiness);
         document.getElementById("pos_caja_corte_consultar").addEventListener("click", consultarCorteImprimible);
         document.getElementById("pos_caja_corte_imprimir").addEventListener("click", imprimirCorte);
-        document.getElementById("pos_caja_apertura_resultado").addEventListener("click", copiarAutorizacion);
         document.getElementById("pos_caja_apertura_resultado").addEventListener("click", abrirTurnoReal);
-        document.getElementById("pos_caja_corte_resultado").addEventListener("click", copiarAutorizacion);
         document.getElementById("pos_caja_corte_resultado").addEventListener("click", cerrarTurnoReal);
-        document.getElementById("pos_caja_readiness_resultado").addEventListener("click", copiarAutorizacion);
         document.addEventListener("input", function (event) {
             if (event.target.closest(".pos-caja-denom") || event.target.closest(".pos-caja-arqueo-extra")) {
                 calcularArqueo();

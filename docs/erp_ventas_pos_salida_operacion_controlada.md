@@ -1,10 +1,29 @@
 # ERP Ventas/POS - Salida a operacion controlada
 
-Documento vivo. Ultima actualizacion: 2026-07-20.
+Documento vivo. Ultima actualizacion: 2026-07-25.
 
 Proyecto canonico: `C:\xampp\htdocs\panel_de_control`.
 
 Host canonico local: `http://panel.com.local/`.
+
+## Actualizacion 2026-07-25
+
+El POS quedo nuevamente en semaforo ampliado verde despues de limpiar copy operativo y actualizar checks read-only de UX/impresion.
+
+Estado:
+
+- `pos_apto_para_piloto_controlado_con_condiciones`.
+- Bloqueos tecnicos: `0`.
+- Ticket/preview/cobro usan lenguaje operativo; los mensajes internos quedan para modales administrativos o validaciones de supervisor.
+- Impresion desde navegador sigue soportada; impresion directa silenciosa por Chrome queda como fase posterior de hardware, no como bloqueo para piloto.
+
+Antes de iniciar un turno real de tienda, confirmar:
+
+- turno abierto desde `Ventas > Caja y turnos`;
+- ticket configurado en `Ventas > Configuracion POS > Ticket y negocio`;
+- producto con existencia disponible o politica autorizada de inventario pendiente;
+- responsables definidos para revisar pendientes de Inventario/Existencias, Catalogo y Caja/Evidencias;
+- cierre de turno obligatorio aunque exista diferencia.
 
 ## Decision
 
@@ -27,16 +46,17 @@ Antes de iniciar:
 
 ```powershell
 C:\xampp\php\php.exe storage\uat\uat_ventas_pos_cierre_ampliado_readonly.php --compact=1
+C:\xampp\php\php.exe storage\uat\uat_ventas_pos_operacion_basica_readonly.php --id_usuario=1 --id_almacen=5 --id_sku=1760 --cantidad=1 --compact=1
 C:\xampp\php\php.exe storage\uat\uat_ventas_pos_piloto_plan_accion_readonly.php --id_usuario=1 --id_almacen=5 --id_sku=1760 --cantidad=1 --precio=295 --monto_inicial=500 --usuarios=1,2,3
 C:\xampp\php\php.exe storage\uat\uat_ventas_pos_piloto_paquete_autorizacion_readonly.php --id_usuario=1 --id_almacen=5 --id_sku=1760 --cantidad=1 --precio=295 --monto_inicial=500 --cantidad_fisica=CONTEO_REAL --monto_contado=MONTO_CONTADO_REAL
 ```
 
 Resultados esperados vigentes:
 
-- `scripts_total=26`.
+- `scripts_total=28`.
 - `bloqueos_total=0`.
-- `pendientes_total=5`.
-- `acciones_total=7`.
+- `pendientes_total=4`.
+- `acciones_total=6`.
 - `pasos_total=6`.
 
 ## Permitir en primer uso
@@ -68,7 +88,6 @@ Estos pendientes no indican falla del POS; indican tareas operativas o administr
 - `GASTO-UAT-001`: evidencia de caja pendiente.
 - SKU `1760` sin disponible en almacen `5`.
 - No hay turno abierto fuera de operacion.
-- Usuario `3` requiere correccion visual de nombre.
 
 ## Ruta humana recomendada
 

@@ -53,7 +53,7 @@
         renderKpi("pos_config_kpi_asignaciones", contarActivos(asignaciones, "activo"), contarHistoricos(asignaciones, "activo"));
         renderKpi("pos_config_kpi_politicas", contarActivos(politicas, "activa"), contarHistoricos(politicas, "activa"));
         document.getElementById("pos_config_alerta").innerHTML = data.schema_pendiente
-            ? "<div class=\"alert alert-warning py-3\"><div class=\"fw-bold\">Configuracion incompleta</div><div class=\"fs-7\">Hay tablas POS pendientes. La administracion queda en modo solo consulta.</div></div>"
+            ? "<div class=\"alert alert-warning py-3\"><div class=\"fw-bold\">Configuracion incompleta</div><div class=\"fs-7\">Hay tablas POS pendientes. La administracion queda disponible solo para revision.</div></div>"
             : "<div class=\"alert alert-info py-3\"><div class=\"fw-bold\">Configuracion POS separada</div><div class=\"fs-7\">Guardar requiere permiso administrativo; validar no escribe datos.</div></div>";
         renderCajas(filtrarPorEstado(cajas, filtros.cajas, "activa"));
         renderTerminales(filtrarPorEstado(terminales, filtros.terminales, "activa"));

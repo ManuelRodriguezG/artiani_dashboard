@@ -847,7 +847,23 @@ class Catalogoerp extends Controlador {
    */
   public function imagen_maestro_guardar() {
     $this->requerirPermiso("catalogo.editar");
-    $respuesta = $this->modelo("CatalogoErpDatos")->guardarImagenCatalogoMaestro($_POST);
+    $datos = $_POST;
+    $archivo = isset($_FILES["archivo_imagen"]) ? $_FILES["archivo_imagen"] : null;
+    if ($archivo && isset($archivo["error"]) && intval($archivo["error"]) !== UPLOAD_ERR_NO_FILE) {
+      $carga = $this->guardarArchivoImagenCatalogoMaestro(
+        $archivo,
+        isset($datos["tipo_entidad"]) ? $datos["tipo_entidad"] : "",
+        isset($datos["id_entidad"]) ? intval($datos["id_entidad"]) : 0
+      );
+      if ($carga["error"]) {
+        $respuesta = $carga;
+      } else {
+        $datos["url_imagen"] = $carga["depurar"]["url_imagen"];
+        $respuesta = $this->modelo("CatalogoErpDatos")->guardarImagenCatalogoMaestro($datos);
+      }
+    } else {
+      $respuesta = $this->modelo("CatalogoErpDatos")->guardarImagenCatalogoMaestro($datos);
+    }
     SesionSeguridad::registrarAuditoria("catalogo", "guardar_imagen_catalogo_maestro", array(
       "entidad" => isset($_POST["tipo_entidad"]) && $_POST["tipo_entidad"] === "categoria" ? "erp_catalogo_categoria_imagenes" : "erp_catalogo_marca_imagenes",
       "entidad_id" => isset($respuesta["depurar"]["id_imagen"]) ? intval($respuesta["depurar"]["id_imagen"]) : null,
@@ -856,6 +872,83 @@ class Catalogoerp extends Controlador {
       "datos_despues" => isset($respuesta["depurar"]) ? $respuesta["depurar"] : null
     ));
     return json_encode($respuesta);
+  }
+
+  /**
+   * IA: Codex GPT-5 | Fecha: 2026-07-25
+   * Proposito: recibe archivos de imagen para marcas/categorias maestras y genera una ruta publica segura.
+   * Impacto: Catalogo ERP; no toca productos, ventas, almacen ni inventario.
+   * Contrato: acepta JPG, PNG, WEBP o GIF de hasta 5 MB y guarda en `public/uploads/erp/catalogo/{marcas|categorias}/{id}`.
+   */
+  private function guardarArchivoImagenCatalogoMaestro($archivo, $tipoEntidad, $idEntidad) {
+    $tipoEntidad = $tipoEntidad === "categoria" ? "categoria" : ($tipoEntidad === "marca" ? "marca" : "");
+    if ($tipoEntidad === "" || $idEntidad <= 0) {
+      return array("error" => true, "tipo" => "warning", "mensaje" => "Selecciona marca o categoria antes de cargar imagen", "depurar" => null);
+    }
+    if (!isset($archivo["error"]) || intval($archivo["error"]) !== UPLOAD_ERR_OK) {
+      $errores = array(
+        UPLOAD_ERR_INI_SIZE => "La imagen excede el limite permitido por PHP",
+        UPLOAD_ERR_FORM_SIZE => "La imagen excede el limite permitido por el formulario",
+        UPLOAD_ERR_PARTIAL => "La imagen se recibio incompleta",
+        UPLOAD_ERR_NO_TMP_DIR => "No existe carpeta temporal para recibir la imagen",
+        UPLOAD_ERR_CANT_WRITE => "No fue posible escribir la imagen temporal",
+        UPLOAD_ERR_EXTENSION => "Una extension de PHP bloqueo la carga de la imagen"
+      );
+      $codigo = isset($archivo["error"]) ? intval($archivo["error"]) : -1;
+      return array("error" => true, "tipo" => "warning", "mensaje" => isset($errores[$codigo]) ? $errores[$codigo] : "No fue posible recibir el archivo de imagen", "depurar" => array("upload_error" => $codigo));
+    }
+    if (intval($archivo["size"]) <= 0 || intval($archivo["size"]) > 5 * 1024 * 1024) {
+      return array("error" => true, "tipo" => "warning", "mensaje" => "La imagen debe pesar maximo 5 MB", "depurar" => null);
+    }
+
+    $tmp = isset($archivo["tmp_name"]) ? $archivo["tmp_name"] : "";
+    $finfo = function_exists("finfo_open") ? finfo_open(FILEINFO_MIME_TYPE) : null;
+    $mime = $finfo ? finfo_file($finfo, $tmp) : "";
+    if ($finfo) {
+      finfo_close($finfo);
+    }
+    $permitidos = array("image/jpeg" => "jpg", "image/png" => "png", "image/webp" => "webp", "image/gif" => "gif");
+    if (!isset($permitidos[$mime])) {
+      return array("error" => true, "tipo" => "warning", "mensaje" => "Formato de imagen no permitido. Usa JPG, PNG, WEBP o GIF", "depurar" => array("mime" => $mime));
+    }
+
+    $carpeta = $tipoEntidad === "marca" ? "marcas" : "categorias";
+    $relativoDirectorio = "uploads/erp/catalogo/" . $carpeta . "/" . intval($idEntidad);
+    $directorio = dirname(__DIR__, 2) . DIRECTORY_SEPARATOR . "public" . DIRECTORY_SEPARATOR . str_replace("/", DIRECTORY_SEPARATOR, $relativoDirectorio);
+    if (!is_dir($directorio) && !mkdir($directorio, 0775, true)) {
+      return array("error" => true, "tipo" => "danger", "mensaje" => "No fue posible crear la carpeta de imagenes", "depurar" => null);
+    }
+    $nombre = $tipoEntidad . "-" . intval($idEntidad) . "-" . date("YmdHis") . "-" . bin2hex(random_bytes(4)) . "." . $permitidos[$mime];
+    $destino = $directorio . DIRECTORY_SEPARATOR . $nombre;
+    if (!move_uploaded_file($tmp, $destino)) {
+      return array("error" => true, "tipo" => "danger", "mensaje" => "No fue posible guardar el archivo de imagen", "depurar" => null);
+    }
+
+    return array("error" => false, "tipo" => "success", "mensaje" => "Archivo cargado", "depurar" => array("url_imagen" => $relativoDirectorio . "/" . $nombre));
+  }
+
+  /**
+   * IA: Codex GPT-5 | Fecha: 2026-07-25
+   * Proposito: auditar portadas legacy de marcas para reutilizarlas manualmente en marcas ERP.
+   * Impacto: Catalogo ERP; solo lectura, no relaciona imagenes automaticamente.
+   * Contrato: GET protegido por `catalogo.ver`, acepta `id_marca_erp` y devuelve candidatos.
+   */
+  public function imagenes_marca_candidatas() {
+    $this->requerirPermiso("catalogo.ver");
+    $idMarca = isset($_GET["id_marca_erp"]) ? intval($_GET["id_marca_erp"]) : 0;
+    return json_encode($this->modelo("CatalogoErpDatos")->listarImagenesCandidatasMarca($idMarca));
+  }
+
+  /**
+   * IA: Codex GPT-5 | Fecha: 2026-07-25
+   * Proposito: auditar portadas legacy de categorias/clasificaciones para reutilizarlas manualmente en categorias ERP.
+   * Impacto: Catalogo ERP; solo lectura, no relaciona imagenes automaticamente.
+   * Contrato: GET protegido por `catalogo.ver`, acepta `id_categoria_erp` y devuelve candidatos.
+   */
+  public function imagenes_categoria_candidatas() {
+    $this->requerirPermiso("catalogo.ver");
+    $idCategoria = isset($_GET["id_categoria_erp"]) ? intval($_GET["id_categoria_erp"]) : 0;
+    return json_encode($this->modelo("CatalogoErpDatos")->listarImagenesCandidatasCategoria($idCategoria));
   }
 
   /**

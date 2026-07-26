@@ -2889,3 +2889,160 @@ Validacion posterior:
 Siguiente paso:
 
 - Crear guardado/consulta formal de catalogos comerciales contra BD y mantener los borradores locales solo como herramienta auxiliar.
+
+## Ajuste 2026-07-25 - Baja logica de marcas con productos archivados
+
+Contexto:
+
+- En `Catalogo ERP > Configuracion > Marcas`, la marca `ECOM-MAR-24` no permitia inactivarse aunque el usuario ya habia retirado los productos vigentes.
+
+Hallazgo read-only:
+
+- Marca: `ECOM-MAR-24` / `Aqua.kril`.
+- Productos operativos bloqueantes: 0.
+- Productos archivados/inactivos relacionados: 3.
+- Los productos relacionados estaban `inactivo`, por lo que no deben impedir limpiar marcas duplicadas o mal escritas.
+
+Decision:
+
+- Inactivar una marca debe bloquearse solo si todavia tiene productos operativos:
+  - `activo`;
+  - `borrador`;
+  - `en_revision`.
+- Productos `inactivo`, `descontinuado` o `fusionado` conservan historial, pero no bloquean la baja logica de la marca.
+
+Cambio aplicado:
+
+- `CatalogoErpDatos::contarUsoMarcaCatalogo()` ahora cuenta solo productos operativos.
+- Se agrego UAT read-only `storage/uat/uat_catalogo_marca_bloqueo_readonly.php` para diagnosticar marcas que no pueden inactivarse.
+
+Validacion:
+
+- `C:\xampp\php\php.exe -l app\modelos\CatalogoErpDatos.php`: sin errores.
+- `C:\xampp\php\php.exe -l storage\uat\uat_catalogo_marca_bloqueo_readonly.php`: sin errores.
+- `C:\xampp\php\php.exe storage\uat\uat_catalogo_marca_bloqueo_readonly.php --codigo=ECOM-MAR-24`: 0 productos operativos bloqueantes, 3 productos archivados no bloqueantes.
+
+Siguiente prueba manual:
+
+- Volver a intentar inactivar `ECOM-MAR-24` desde Configuracion > Catalogos maestros > Marcas.
+
+## Ajuste 2026-07-25 - Sesion e imagenes de marcas en Configuracion
+
+Contexto:
+
+- Durante captura prolongada de marcas, la sesion podia caducar y el usuario terminaba entrando manualmente a `/autenticacion/login`, con riesgo de perder trabajo en pantalla.
+- El modal de imagenes de marcas/categorias solo permitia capturar URL o ruta; no permitia subir archivo nuevo.
+- Hacia falta una auditoria rapida para revisar si una marca ya tenia imagenes candidatas desde productos existentes, sin relacionarlas automaticamente.
+
+Cambios aplicados:
+
+- `Autenticacion::estado_session()` ahora renueva actividad cuando la sesion sigue viva.
+- Como `session-guard.js` consulta ese endpoint periodicamente, las pantallas administrativas abiertas ya no deberian caducar mientras el usuario esta trabajando.
+- `CatalogoErp::imagen_maestro_guardar()` ahora acepta `archivo_imagen` para marcas/categorias.
+- Se agrego guardado seguro de archivo en:
+  - `public/uploads/erp/catalogo/marcas/{id}`;
+  - `public/uploads/erp/catalogo/categorias/{id}`.
+- Se agrego endpoint read-only `CatalogoErp::imagenes_marca_candidatas()`.
+- `CatalogoErpDatos::listarImagenesCandidatasMarca()` lista imagenes activas de productos operativos de la marca para decision manual.
+- La UI de `Configuracion > Catalogos maestros > Marcas > Imagenes` ahora permite:
+  - subir archivo nuevo;
+  - capturar ruta manual;
+  - auditar imagenes candidatas de productos de la marca;
+  - usar la ruta candidata en el formulario sin guardar automaticamente.
+
+Reglas:
+
+- No se relacionan imagenes automaticamente.
+- No se copian archivos de producto a marca.
+- No se toca Ventas, Inventario ni Almacen.
+- Si la sesion ya expiro por completo o el navegador suspendio la pestaña demasiado tiempo, se mantiene el flujo de reautenticacion.
+
+Validacion:
+
+- `C:\xampp\php\php.exe -l app\controladores\Autenticacion.php`: sin errores.
+- `C:\xampp\php\php.exe -l app\controladores\CatalogoErp.php`: sin errores.
+- `C:\xampp\php\php.exe -l app\modelos\CatalogoErpDatos.php`: sin errores.
+- `C:\xampp\php\php.exe -l app\vistas\paginas\apps\erp\catalogo\configuracion.php`: sin errores.
+- `node --check public\assets\js\custom\apps\erp\catalogo\configuracion.js`: sin errores.
+- Prueba read-only de candidatas para marca `15` (`ECOM-MAR-24`): endpoint/modelo responde correctamente con 0 candidatas, consistente con productos relacionados inactivos.
+
+Pruebas manuales sugeridas:
+
+1. Abrir Configuracion > Catalogos maestros > Marcas.
+2. Editar imagenes de una marca activa.
+3. Subir un logo JPG/PNG/WEBP/GIF y guardar como `Logo`.
+4. Recargar auxiliares y confirmar miniatura en tabla.
+5. Usar `Auditar` en una marca con productos activos con imagen para revisar candidatas y elegir `Usar ruta` solo si corresponde.
+
+## Ajuste - auditoria de imagenes candidatas para categorias
+
+Fecha: 2026-07-25
+
+Contexto:
+
+- La auditoria solicitada para categorias no debia recuperar imagenes desde productos, sino portadas/imagenes usadas antes por categorias y clasificaciones legacy.
+- El flujo debe seguir siendo manual: auditar, revisar candidata y usar ruta solo si corresponde.
+
+Cambios aplicados:
+
+- Se agrego endpoint read-only `CatalogoErp::imagenes_categoria_candidatas()`.
+- Se agrego `CatalogoErpDatos::listarImagenesCandidatasCategoria()`.
+- La auditoria de categoria consulta:
+  - `ecom_categorias.url_portada` por equivalencia ERP aplicada, codigo `ECOM-CAT-{id}` o coincidencia de nombre;
+  - `ecom_clasificaciones_portadas_catalogo.url_imagen_portada_clasificacion` cuando la categoria ERP corresponde a una clasificacion anterior o a categorias legacy relacionadas.
+- La UI del modal de imagenes ahora muestra el bloque de auditoria para marcas y categorias:
+  - en marca: imagenes candidatas desde productos operativos relacionados;
+  - en categoria: portadas candidatas desde categorias/clasificaciones anteriores.
+- Se renombro el bloque visual para evitar que diga "productos" cuando se esta editando una categoria.
+
+Reglas:
+
+- No se relacionan imagenes automaticamente.
+- No se copian archivos legacy.
+- El boton `Usar ruta` solo llena el campo de ruta; el usuario debe guardar la imagen si decide aplicarla.
+- No se tocaron Ventas, Inventario, Almacen ni migraciones.
+
+Validacion:
+
+- `C:\xampp\php\php.exe -l app\controladores\Catalogoerp.php`: sin errores.
+- `C:\xampp\php\php.exe -l app\modelos\CatalogoErpDatos.php`: sin errores.
+- `C:\xampp\php\php.exe -l app\vistas\paginas\apps\erp\catalogo\configuracion.php`: sin errores.
+- `node --check public\assets\js\custom\apps\erp\catalogo\configuracion.js`: sin errores.
+- Prueba read-only con categoria ERP `24` (`ECOM-CAT-9`, `Alimentos para peces`): devolvio 1 candidata desde `ecom_categorias.url_portada`.
+
+Prueba manual sugerida:
+
+1. Abrir Configuracion > Catalogos maestros > Categorias.
+2. Abrir imagenes de una categoria migrada, por ejemplo `Alimentos para peces`.
+3. Presionar `Auditar`.
+4. Revisar candidata legacy y usar `Usar ruta` solo si la portada corresponde.
+5. Guardar como `Portada` o `Icono` segun aplique.
+
+### Correccion de alcance del boton Auditar
+
+Fecha: 2026-07-25
+
+- El bloque `Auditar` del modal de imagenes maestras ahora trabaja con fuentes legacy de la entidad abierta.
+- En `categoria`, la accion llama a `CatalogoErp::imagenes_categoria_candidatas()` y consulta:
+  - `ecom_categorias.url_portada`;
+  - `ecom_clasificaciones_portadas_catalogo.url_imagen_portada_clasificacion`.
+- En `marca`, la accion llama a `CatalogoErp::imagenes_marca_candidatas()` y consulta:
+  - `ecom_marcas.url_portada`.
+- Se retiro de este boton la consulta de imagenes de productos para evitar que una auditoria de marcas/categorias muestre imagenes de productos.
+- La vista carga `configuracion.js?v=20260725-maestros-legacy-3` para romper cache del navegador.
+- Prueba read-only con marca ERP `6` (`ECOM-MAR-3`, `LOMAS`): devolvio 1 candidata desde `ecom_marcas.url_portada`.
+
+### Correccion de rutas legacy a rutas locales
+
+Fecha: 2026-07-25
+
+- Las auditorias de imagenes maestras ya no proponen URLs completas de dominios historicos cuando existe archivo local.
+- `CatalogoErpDatos::normalizarRutaImagenLegacyLocal()` convierte rutas legacy a rutas publicas locales solo si el archivo existe fisicamente bajo `public/media`, `public/uploads` o `public/assets`.
+- Si el archivo historico no existe fisicamente en este proyecto, la auditoria no lo muestra como candidata.
+- Esto evita guardar valores como `https://panel.artiani.com.mx/...` o `https://artiani.com.mx/...` en las tablas nuevas de imagenes maestras.
+
+Validacion:
+
+- Marca ERP `6` (`ECOM-MAR-3`, `LOMAS`): candidata local `/media/apps/ecommerce/marcas/3/1711203697.png`.
+- Categoria ERP `259` (`Acuario`): candidata local `/media/apps/ecommerce/catalogo/acuario.png`.
+- Categoria ERP `24` (`Alimentos para peces`): 0 candidatas porque el archivo legacy `aliemntopeces.png` no existe fisicamente en `panel_de_control`.

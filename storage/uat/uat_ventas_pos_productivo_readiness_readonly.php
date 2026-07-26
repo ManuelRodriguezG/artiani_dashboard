@@ -130,7 +130,7 @@ if (intval($notificaciones["abiertas"]) > intval($pendientes["abiertos"]) + 2) {
 
 $contratoProductivo = array(
     "pos_normal_ui" => "Operativo con ventas.operar y turno abierto",
-    "inventario_pendiente_ui" => "Dry-run en UI y endpoint productivo supervisado cuando existe permiso, turno, motivo y confirmacion",
+    "inventario_pendiente_ui" => "Validacion previa en UI y endpoint productivo supervisado cuando existe permiso, turno, motivo y confirmacion",
     "requisito_para_productivo_inventario_pendiente" => array(
         "crear_permiso_catalogo" => "ventas.pos.inventario_pendiente.autorizar",
         "asignar_permiso_a_supervisor" => true,

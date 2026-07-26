@@ -166,8 +166,15 @@ class Autenticacion extends Controlador {
     return json_encode($respuesta);
   }
 
+  /**
+   * IA: Codex GPT-5 | Fecha: 2026-07-25
+   * Proposito: confirmar sesion viva y renovar actividad para pantallas administrativas con captura prolongada.
+   * Impacto: Seguridad/UX; evita perder trabajo mientras el usuario mantiene una pantalla abierta y autenticada.
+   * Contrato: devuelve 200 JSON si la sesion esta activa; 401 JSON si expiro.
+   */
   function estado_session() {
     if (SesionSeguridad::autenticado() && !SesionSeguridad::sesionExpirada()) {
+      SesionSeguridad::tocarActividad();
       return json_encode(array('error' => false, 'tipo' => 'success', 'mensaje' => 'Sesion activa'));
     }
     http_response_code(401);

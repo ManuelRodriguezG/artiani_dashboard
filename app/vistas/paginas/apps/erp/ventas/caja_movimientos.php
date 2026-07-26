@@ -11,8 +11,8 @@
     <!--
       Documentacion IA: Codex GPT-5, 2026-07-02.
       Proposito: separar gastos, retiros y entradas de caja del POS de cobro.
-      Impacto: Ventas/POS/Caja; no registra movimientos reales.
-      Contrato: vista dry-run/read-only hasta autorizacion explicita.
+      Impacto: Ventas/POS/Caja; valida movimientos antes de registrar dinero.
+      Contrato: vista de validacion/consulta hasta exponer registro real desde UI.
     -->
     <style>
         .pos-admin-card { border: 1px solid #e6e8ee; border-radius: 8px; background: #fff; }
@@ -33,7 +33,7 @@
                                 <h1 class="page-heading text-dark fw-bold fs-3 mb-1">Movimientos de caja POS</h1>
                                 <span class="text-muted">Gastos, retiros, entradas, vales y reembolsos controlados</span>
                                 <div class="d-flex flex-wrap gap-2 mt-2">
-                                    <span class="badge badge-light-warning">Simular movimiento = no registra dinero</span>
+                                    <span class="badge badge-light-warning">Validar movimiento = no registra dinero</span>
                                     <span class="badge badge-light-primary">Movimientos recientes = solo consulta</span>
                                     <span class="badge badge-light-danger">Aplicar movimiento real requiere autorizacion</span>
                                 </div>
@@ -56,8 +56,8 @@
                                     <div class="pos-admin-card p-4">
                                         <div class="d-flex justify-content-between align-items-center mb-4">
                                             <div>
-                                                <div class="fw-bold fs-5">Simular movimiento</div>
-                                                <div class="text-muted fs-7">Valida reglas de caja sin escribir BD</div>
+                                                <div class="fw-bold fs-5">Validar movimiento</div>
+                                                <div class="text-muted fs-7">Revisa reglas de caja antes de registrar</div>
                                             </div>
                                             <button class="btn btn-sm btn-light-primary" id="pos_mov_recargar" type="button"><i class="bi bi-arrow-clockwise"></i></button>
                                         </div>
@@ -105,8 +105,8 @@
                                                 <input class="form-control form-control-solid" id="pos_mov_observaciones" placeholder="Notas internas">
                                             </div>
                                             <div class="col-12">
-                                                <button class="btn btn-success w-100" id="pos_mov_simular" type="button"><i class="bi bi-calculator"></i> Simular sin registrar</button>
-                                                <div class="text-muted fs-8 mt-2 text-center">El movimiento real queda pendiente de autorizacion y evidencia cuando aplique.</div>
+                                                <button class="btn btn-success w-100" id="pos_mov_simular" type="button"><i class="bi bi-calculator"></i> Validar movimiento</button>
+                                                <div class="text-muted fs-8 mt-2 text-center">El registro real se confirmara con evidencia cuando aplique.</div>
                                             </div>
                                         </div>
                                         <div id="pos_mov_resultado" class="pos-admin-result mt-4"></div>
@@ -139,6 +139,6 @@
 </div>
 <script src="assets/plugins/global/plugins.bundle.js"></script>
 <script src="assets/js/scripts.bundle.js"></script>
-<script src="/assets/js/custom/apps/erp/ventas/caja_movimientos.js?v=20260702-readonly1"></script>
+<script src="/assets/js/custom/apps/erp/ventas/caja_movimientos.js?v=20260725-operativo1"></script>
 </body>
 </html>

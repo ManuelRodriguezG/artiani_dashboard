@@ -12,7 +12,7 @@
       Documentacion IA: Codex GPT-5, 2026-06-26.
       Proposito: reemplazar el listado legacy de ventas por tablero ERP operativo.
       Impacto: Ventas/POS/Pedidos; no consulta ecommerce ni ejecuta cobros.
-      Contrato: usa endpoints ERP read-only y muestra esquema pendiente cuando aun no existen tablas nuevas.
+      Contrato: usa endpoints ERP de consulta y muestra esquema pendiente cuando aun no existen tablas nuevas.
     -->
     <style>
         .ventas-kpi { border: 1px solid #e6e8ee; border-radius: 8px; background: #fff; min-height: 92px; }
@@ -133,7 +133,7 @@
             <div class="modal-header">
                 <div>
                     <h5 class="modal-title">Ticket POS</h5>
-                    <div class="text-muted fs-7" id="ventas_ticket_subtitulo">Consulta read-only</div>
+                    <div class="text-muted fs-7" id="ventas_ticket_subtitulo">Consulta de ticket</div>
                 </div>
                 <button type="button" class="btn btn-sm btn-icon btn-light" data-bs-dismiss="modal" aria-label="Cerrar"><i class="bi bi-x-lg"></i></button>
             </div>
@@ -150,6 +150,6 @@
 </div>
 <script src="assets/plugins/global/plugins.bundle.js"></script>
 <script src="assets/js/scripts.bundle.js"></script>
-<script src="/assets/js/custom/apps/erp/ventas/listado.js?v=20260702-detalle-venta1"></script>
+<script src="/assets/js/custom/apps/erp/ventas/listado.js?v=20260725-operativo1"></script>
 </body>
 </html>

@@ -1,6 +1,6 @@
 # ERP Ventas/POS - Guia primer turno piloto
 
-Documento vivo. Ultima actualizacion: 2026-07-20.
+Documento vivo. Ultima actualizacion: 2026-07-25.
 
 Proyecto: `C:\xampp\htdocs\panel_de_control`.
 
@@ -17,7 +17,7 @@ C:\xampp\php\php.exe storage\uat\uat_ventas_pos_cierre_ampliado_readonly.php --c
 Debe salir:
 
 - `ok=true`.
-- `scripts_total=26`.
+- `scripts_total=28`.
 - `bloqueos_total=0`.
 - `decision=pos_apto_para_piloto_controlado_con_condiciones`.
 
@@ -38,7 +38,7 @@ Avisos esperados al corte vigente:
 - No hay turno abierto antes de iniciar.
 - Existe pendiente `PINV-20260717-000001`.
 - Existe evidencia administrativa `GASTO-UAT-001`.
-- Usuario `3` puede mostrar caracteres raros en nombre visible.
+- Usuarios 1, 2 y 3 no presentan problemas visuales en el preflight vigente.
 
 Ejecutar plan de accion:
 
@@ -46,7 +46,15 @@ Ejecutar plan de accion:
 C:\xampp\php\php.exe storage\uat\uat_ventas_pos_piloto_plan_accion_readonly.php --id_usuario=1 --id_almacen=5 --id_sku=1760 --cantidad=1 --precio=295 --monto_inicial=500 --usuarios=1,2,3
 ```
 
-Debe salir `ok=true`, `pendientes_total=5` y `acciones_total=7`.
+Debe salir `ok=true`, `pendientes_total=4` y `acciones_total=6`.
+
+Ejecutar operacion basica:
+
+```powershell
+C:\xampp\php\php.exe storage\uat\uat_ventas_pos_operacion_basica_readonly.php --id_usuario=1 --id_almacen=5 --id_sku=1760 --cantidad=1 --compact=1
+```
+
+Debe indicar si se puede cobrar ahora, si hay turno abierto, si hay stock suficiente, si el ticket esta configurado y que acciones faltan antes de vender. Quita `--compact=1` solo si necesitas ver asignacion, turno y esquema completo.
 
 Ejecutar paquete de autorizacion:
 
@@ -62,28 +70,19 @@ Antes de abrir el turno piloto amplio, conviene atender estos puntos:
 
 1. Resolver o mantener documentado `PINV-20260717-000001`.
 2. Registrar evidencia administrativa de `GASTO-UAT-001`.
-3. Corregir visualmente el nombre del usuario `3` desde Seguridad > Usuarios.
-4. Cargar stock real o UAT suficiente para el SKU que se usara en la prueba.
+3. Cargar stock suficiente para el SKU que se usara en la prueba.
 
 Si se hara un piloto muy controlado, los puntos 1 y 2 pueden quedar como pendientes visibles, pero no deben ignorarse ni borrarse.
 
-## Autorizacion agrupada sugerida
+## Acciones administrativas previas
 
-El paquete de autorizacion genera frases humanas por paso. Para avanzar ordenado, usar este bloque como guia:
+Estas acciones no las debe resolver el cajero durante la venta. Deben quedar atendidas por administracion, inventario o soporte antes de abrir el turno:
 
-```text
-AUTORIZO RESOLVER PENDIENTE INVENTARIO POS UAT REAL usando respaldo UAT POS vigente con token INVENTARIO_POS_PENDIENTE_RESOLVER_REAL id_usuario=1 folio=PINV-20260717-000001 cantidad_fisica=CONTEO_REAL decision=ajustar_a_conteo confirmacion="RESOLVER PENDIENTE" motivo="Resolver mini inventario POS pendiente antes de piloto"
-
-AUTORIZO CARGAR STOCK UAT POS usando respaldo UAT POS vigente con id_usuario=1 id_almacen=5 id_sku=1760 cantidad=1 referencia=INV-INICIAL-POS-PILOTO-AAAAMMDD-A5-S1760
-
-AUTORIZO ABRIR TURNO POS UAT usando respaldo UAT POS vigente con id_usuario=1 y monto_inicial=500 observaciones="Apertura piloto POS"
-```
-
-Despues de vender:
-
-```text
-AUTORIZO CERRAR TURNO POS UAT REAL usando respaldo UAT POS vigente con id_usuario=1 monto_contado=MONTO_CONTADO_REAL observaciones="Cierre piloto POS"
-```
+1. Resolver el mini inventario pendiente si se quiere iniciar sin alertas previas.
+2. Cargar existencia real o elegir productos con disponible.
+3. Confirmar que el usuario esta ligado a su tienda, caja y terminal.
+4. Confirmar que la politica de inventario pendiente solo se usara si fue aprobada para el arranque.
+5. Confirmar que el ticket ya tiene datos del negocio y formato correcto.
 
 Nota: el cierre puede quedar con diferencia. Esa diferencia es informacion operativa y debe revisarse en reportes, no corregirse manualmente.
 
