@@ -6,7 +6,7 @@ class ProyectosEsquema extends DBSchema {
    * IA: Codex GPT-5
    * Fecha: 2026-07-24
    * Proposito: listar las tablas propias del modulo Proyectos/Tareas.
-   * Impacto: Proyectos ERP; separa planeacion operativa de docs, auditoria y notificaciones.
+   * Impacto: Proyectos transversal; separa planeacion operativa de docs, auditoria y notificaciones.
    * Contrato: solo devuelve nombres; no consulta ni modifica BD.
    */
   public function tablasProyectos() {
@@ -24,7 +24,7 @@ class ProyectosEsquema extends DBSchema {
    * IA: Codex GPT-5
    * Fecha: 2026-07-24
    * Proposito: auditar estructura minima del modulo antes de habilitar uso real.
-   * Impacto: Proyectos ERP; no crea tablas ni toca tareas de otros modulos.
+   * Impacto: Proyectos transversal; no crea tablas ni toca tareas de otros modulos.
    * Contrato: read-only sobre INFORMATION_SCHEMA.
    */
   public function auditarProyectosErp() {
@@ -72,7 +72,7 @@ class ProyectosEsquema extends DBSchema {
    * IA: Codex GPT-5
    * Fecha: 2026-07-24
    * Proposito: generar/aplicar DDL del modulo Proyectos con ejecucion controlada.
-   * Impacto: Proyectos ERP; crea estructura vacia sin precargar avances de otros modulos.
+   * Impacto: Proyectos transversal; crea estructura vacia sin precargar avances de otros modulos.
    * Contrato: ejecutar=false genera SQL; ejecutar=true requiere respaldo externo y autorizacion del dueno.
    */
   public function planActualizarProyectosErp($ejecutar = false) {
@@ -214,7 +214,7 @@ class ProyectosEsquema extends DBSchema {
    * IA: Codex GPT-5
    * Fecha: 2026-07-24
    * Proposito: definir columnas minimas auditables de Proyectos.
-   * Impacto: Proyectos ERP; mantiene contrato estable para UI y endpoints.
+   * Impacto: Proyectos transversal; mantiene contrato estable para UI y endpoints.
    */
   private function columnasRequeridas() {
     return array(
@@ -257,7 +257,7 @@ class ProyectosEsquema extends DBSchema {
       if (!empty($paso["depurar"]["ejecutado"])) {
         $resumen["ejecutados"]++;
       }
-      if (isset($paso["depurar"]["ejecutado"]) && $paso["depurar"]["ejecutado"] === false && $paso["tipo"] === "info") {
+      if (isset($paso["depurar"]["ejecutado"]) && $paso["depurar"]["ejecutado"] === false && isset($paso["depurar"]["sql"])) {
         $resumen["pendientes"]++;
       }
     }

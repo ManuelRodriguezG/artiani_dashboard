@@ -32,6 +32,18 @@ class Almacen extends Controlador {
         $this->vista("apps/erp/almacen/preparacion_empaque");
     }
 
+    /**
+     * IA: Codex GPT-5
+     * Fecha: 2026-07-25
+     * Proposito: expone la vista independiente para abrir empaques cerrados y habilitar piezas internas.
+     * Impacto: Almacen/Apertura de empaques; separa este flujo de Preparacion/Empaque y Resurtido.
+     * Contrato: requiere permiso de lectura de Almacen; las escrituras se hacen por endpoints POST separados.
+     */
+    public function apertura_empaques() {
+        $this->requerirPermiso("almacen.ver");
+        $this->vista("apps/erp/almacen/apertura_empaques");
+    }
+
     public function resurtido() {
         $this->requerirPermiso("almacen.ver");
         $this->vista("apps/erp/almacen/resurtido");
@@ -265,6 +277,100 @@ class Almacen extends Controlador {
         $id_almacen = isset($_GET["id_almacen"]) ? $_GET["id_almacen"] : 0;
         $almacen = $this->modelo("Almacenes");
         return json_encode($almacen->consultar_existencias_base_preparacion($id_sku_base, $id_almacen));
+    }
+
+    /**
+     * IA: Codex GPT-5
+     * Fecha: 2026-07-25
+     * Proposito: consulta SKUs cerrados configurados para apertura de empaques.
+     * Impacto: Almacen/Apertura de empaques; endpoint de lectura para preparar borradores sin afectar inventario.
+     */
+    public function apertura_skus_erp() {
+        $this->requerirPermiso("almacen.ver");
+        $almacen = $this->modelo("Almacenes");
+        return json_encode($almacen->consultar_skus_apertura_empaque($_GET));
+    }
+
+    /**
+     * IA: Codex GPT-5
+     * Fecha: 2026-07-25
+     * Proposito: consulta receta/componentes de un empaque abrible.
+     * Impacto: Almacen/Apertura de empaques; endpoint de lectura para captura multi-salida.
+     */
+    public function apertura_receta_erp() {
+        $this->requerirPermiso("almacen.ver");
+        $id_paquete = isset($_GET["id_paquete"]) ? $_GET["id_paquete"] : 0;
+        $almacen = $this->modelo("Almacenes");
+        return json_encode($almacen->consultar_receta_apertura_empaque($id_paquete));
+    }
+
+    /**
+     * IA: Codex GPT-5
+     * Fecha: 2026-07-25
+     * Proposito: consulta existencias fisicas disponibles para apertura en una ubicacion autorizada.
+     * Impacto: Almacen/Apertura de empaques; evita abrir SKUs teoricos sin stock.
+     */
+    public function apertura_existencias_erp() {
+        $this->requerirPermiso("almacen.ver");
+        $id_sku_origen = isset($_GET["id_sku_origen"]) ? $_GET["id_sku_origen"] : 0;
+        $id_almacen = isset($_GET["id_almacen"]) ? $_GET["id_almacen"] : 0;
+        $almacen = $this->modelo("Almacenes");
+        return json_encode($almacen->consultar_existencias_apertura_empaque($id_sku_origen, $id_almacen));
+    }
+
+    /**
+     * IA: Codex GPT-5
+     * Fecha: 2026-07-25
+     * Proposito: lista folios de apertura de empaques.
+     * Impacto: Almacen/Apertura de empaques; bandeja de seguimiento y confirmacion.
+     */
+    public function aperturas_empaque_erp() {
+        $this->requerirPermiso("almacen.ver");
+        $almacen = $this->modelo("Almacenes");
+        return json_encode($almacen->consultar_aperturas_empaque($_GET));
+    }
+
+    /**
+     * IA: Codex GPT-5
+     * Fecha: 2026-07-25
+     * Proposito: guarda borradores de apertura de empaques sin afectar inventario.
+     * Impacto: Almacen/Apertura de empaques; prepara folios APE para confirmar despues con kardex.
+     * Contrato: requiere permiso `almacen.recibir`; el modelo valida almacen habilitado, receta y existencia fisica origen.
+     */
+    public function apertura_guardar_borrador_erp() {
+        $this->requerirPermiso("almacen.recibir");
+        $almacen = $this->modelo("Almacenes");
+        $respuesta = $almacen->guardar_borrador_apertura_empaque($_POST, $this->usuarioActualId());
+        SesionSeguridad::registrarAuditoria("almacen", "apertura_guardar_borrador_erp", array(
+            "entidad" => "erp_almacen_aperturas_empaque",
+            "entidad_id" => isset($respuesta["depurar"]["id_apertura_empaque"]) ? intval($respuesta["depurar"]["id_apertura_empaque"]) : 0,
+            "resultado" => $respuesta["error"] ? "error" : "ok",
+            "mensaje" => $respuesta["mensaje"],
+            "datos_despues" => isset($respuesta["depurar"]) ? $respuesta["depurar"] : null
+        ));
+        return json_encode($respuesta);
+    }
+
+    /**
+     * IA: Codex GPT-5
+     * Fecha: 2026-07-25
+     * Proposito: confirma una apertura de empaque y genera movimientos de inventario.
+     * Impacto: Almacen/Inventario; consume una unidad cerrada y crea entradas por piezas internas bajo el mismo folio.
+     * Contrato: requiere permiso `almacen.recibir`; solo confirma aperturas en borrador.
+     */
+    public function apertura_confirmar_erp() {
+        $this->requerirPermiso("almacen.recibir");
+        $id_apertura = isset($_POST["id_apertura_empaque"]) ? $_POST["id_apertura_empaque"] : 0;
+        $almacen = $this->modelo("Almacenes");
+        $respuesta = $almacen->confirmar_apertura_empaque($id_apertura, $this->usuarioActualId());
+        SesionSeguridad::registrarAuditoria("almacen", "apertura_confirmar_erp", array(
+            "entidad" => "erp_almacen_aperturas_empaque",
+            "entidad_id" => intval($id_apertura),
+            "resultado" => $respuesta["error"] ? "error" : "ok",
+            "mensaje" => $respuesta["mensaje"],
+            "datos_despues" => isset($respuesta["depurar"]) ? $respuesta["depurar"] : null
+        ));
+        return json_encode($respuesta);
     }
 
     public function preparacion_guardar_borrador_erp() {

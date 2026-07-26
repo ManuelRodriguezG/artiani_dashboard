@@ -94,6 +94,35 @@ No activar hasta cumplir:
 - WhatsApp configurado en ERP;
 - green gate `ok=true`.
 
+## Partners y canales externos
+
+Para un partner/mayorista, no basta CORS. CORS reduce consumo desde navegadores no autorizados, pero no autentica al partner.
+
+Modelo recomendado:
+
+- canal API con estatus y scopes;
+- API key identificadora;
+- secreto HMAC solo en backend del partner;
+- origins permitidos;
+- IPs permitidas cuando aplique;
+- allowlist de productos por canal;
+- rate limit;
+- logs por canal;
+- rotacion/revocacion de credenciales.
+
+Si el partner solo tiene una SPA estatica sin backend:
+
+- no se le debe dar `api_secret`;
+- se puede permitir solo lectura muy limitada con dominio autorizado;
+- cualquier token visible en navegador se considera publico;
+- `cotizacion_registrar` debe pasar por backend propio o por un endpoint nuestro con captcha/rate limit.
+
+Documento vivo:
+
+```text
+docs/erp_ecommerce_publico_api_canales_partners.md
+```
+
 ## Datos que no debe aceptar como verdad
 
 El frontend nunca manda como verdad:

@@ -2871,7 +2871,10 @@ class VentasErp extends CRUD {
             $lineas[] = $this->lineaImporte("Saldo", $this->valor($totales, "saldo_total", 0), $ancho);
             $lineas[] = $this->lineaImporte("Cambio", $this->valor($totales, "cambio", 0), $ancho);
         }
-        $pagosPreview = $this->decodificarItems($this->valor($datos, "pagos", array()));
+        $pagosPreview = $this->valor($depurar, "pagos", array());
+        if (empty($pagosPreview)) {
+            $pagosPreview = $this->pagosPreviewConEtiqueta($db, $this->decodificarItems($this->valor($datos, "pagos", array())));
+        }
         if (!empty($pagosPreview)) {
             $lineas[] = str_repeat("-", $ancho);
             $lineas[] = "Pagos capturados";
@@ -2903,6 +2906,28 @@ class VentasErp extends CRUD {
             "ticket_configuracion" => $configuracionTicket,
             "bloqueos" => $this->valor($depurar, "bloqueos", array())
         ));
+    }
+
+    /**
+     * Documentacion IA: Codex GPT-5, 2026-07-25.
+     * Proposito: resolver etiquetas de pago para ticket preview cuando el navegador envia solo id_metodo_pago.
+     * Impacto: la vista previa muestra Efectivo/Tarjeta/Transferencia igual que el ticket real, sin registrar cobros.
+     * Contrato: read-only; no valida caja, no crea movimientos y no modifica pagos.
+     */
+    private function pagosPreviewConEtiqueta($db, $pagos) {
+        $metodos = $this->metodosPagoIndexados($db);
+        $resultado = array();
+        foreach ($pagos as $pago) {
+            $idMetodo = intval($this->valor($pago, "id_metodo_pago", 0));
+            if (!$this->esPagoSaldoCrmPos($pago) && $idMetodo > 0 && isset($metodos[$idMetodo])) {
+                $pago["metodo_pago"] = $metodos[$idMetodo]["metodo_pago"];
+            }
+            if (trim((string) $this->valor($pago, "tipo_pago", "")) === "") {
+                $pago["tipo_pago"] = "pago";
+            }
+            $resultado[] = $pago;
+        }
+        return $resultado;
     }
 
     /**
@@ -8755,12 +8780,30 @@ class VentasErp extends CRUD {
                 $montoContado = round(floatval($this->valor($turno, "monto_esperado", 0)), 6);
             }
 
+            $stockDisponible = 0.0;
+            if ($idAlmacen > 0 && $idSku > 0 && $this->tablaExiste($this->getConexion(), "erp_inventario_existencias")) {
+                $stmtStock = $this->getConexion()->prepare("SELECT COALESCE(SUM(cantidad_disponible),0) disponible
+                    FROM erp_inventario_existencias
+                    WHERE id_almacen_clave=:almacen AND id_sku_erp=:sku");
+                $stmtStock->execute(array(":almacen" => $idAlmacen, ":sku" => $idSku));
+                $stockDisponible = round(floatval($stmtStock->fetchColumn()), 6);
+            }
+
+            $ticketConfig = $this->ticketConfiguracionEfectivaReadOnly(array(
+                "id_almacen" => $idAlmacen,
+                "id_caja" => $idCaja,
+                "id_terminal_pos" => intval($this->valor($datosAsignacion, "id_terminal_pos", 0))
+            ));
+            $ticketConfigDepurar = $this->valor($ticketConfig, "depurar", array());
+            $ticketConfiguracion = $this->valor($ticketConfigDepurar, "configuracion", array());
+            $ticketConfigurado = empty($ticketConfig["error"]) && !empty($ticketConfiguracion);
+
             $cierre = $idTurno > 0 ? $this->cierreTurnoDryRun(array(
                 "id_almacen" => $idAlmacen,
                 "id_caja" => $idCaja,
                 "id_turno_caja" => $idTurno,
                 "monto_contado" => $montoContado
-            )) : $this->respuesta(false, "warning", "Sin turno abierto para cierre dry-run", array("bloqueos" => array("Sin turno abierto")));
+            )) : $this->respuesta(false, "warning", "Sin turno abierto para revisar cierre", array("bloqueos" => array("Sin turno abierto")));
 
             $ticket = $folioVenta !== "" ? $this->ticketVentaFormalReadOnly(array("folio" => $folioVenta)) : $this->respuesta(false, "warning", "Sin folio de venta para ticket", array("hallazgos" => array("Sin folio de venta")));
 
@@ -8814,17 +8857,23 @@ class VentasErp extends CRUD {
             if (empty($turno)) {
                 $hallazgos[] = "Sin turno abierto";
             }
+            if (!$ticketConfigurado) {
+                $hallazgos[] = "Ticket POS sin configuracion efectiva";
+            }
+            if ($idSku > 0 && $stockDisponible + 0.0001 < $cantidad) {
+                $hallazgos[] = "SKU " . $idSku . " sin stock suficiente para venta normal";
+            }
             if (!empty($cierreBloqueos)) {
-                $hallazgos[] = "Cierre dry-run bloqueado: " . implode("; ", $cierreBloqueos);
+                $hallazgos[] = "Cierre pendiente de validar: " . implode("; ", $cierreBloqueos);
             }
             if (!empty($ticketHallazgos)) {
                 $hallazgos[] = "Ticket con hallazgos: " . implode("; ", $ticketHallazgos);
             }
             if (!empty($reservaBloqueos)) {
-                $hallazgos[] = "Reserva dry-run bloqueada: " . implode("; ", $reservaBloqueos);
+                $hallazgos[] = "Reserva pendiente de validar: " . implode("; ", $reservaBloqueos);
             }
             if (!empty($abonoBloqueos)) {
-                $hallazgos[] = "Abono dry-run bloqueado: " . implode("; ", $abonoBloqueos);
+                $hallazgos[] = "Abono pendiente de validar: " . implode("; ", $abonoBloqueos);
             }
             if (intval($this->valor($devolucionesResumen, "total_registros", 0)) > 0) {
                 $hallazgos[] = "Devoluciones fisicas pendientes: " . intval($this->valor($devolucionesResumen, "total_registros", 0));
@@ -8844,7 +8893,12 @@ class VentasErp extends CRUD {
                     "cierre_diferencia" => $this->valor($this->valor($cierre, "depurar", array()), "diferencia", null),
                     "cierre_bloqueos" => $cierreBloqueos,
                     "cierre_requiere_revision" => abs(floatval($this->valor($this->valor($cierre, "depurar", array()), "diferencia", 0))) > 0.0001,
+                    "ticket_configurado" => $ticketConfigurado,
+                    "ticket_nombre_comercial" => $this->valor($ticketConfiguracion, "nombre_comercial", ""),
+                    "ticket_ancho_mm" => $this->valor($ticketConfiguracion, "ticket_ancho_mm", ""),
                     "ticket_lineas" => count($this->valor($this->valor($ticket, "depurar", array()), "ticket_lineas", array())),
+                    "stock_disponible_sku" => $stockDisponible,
+                    "stock_cubre_cantidad" => $stockDisponible + 0.0001 >= $cantidad,
                     "reserva_bloqueos" => $reservaBloqueos,
                     "abono_bloqueos" => $abonoBloqueos,
                     "devoluciones_fisicas_pendientes" => intval($this->valor($devolucionesResumen, "total_registros", 0))
@@ -8855,6 +8909,7 @@ class VentasErp extends CRUD {
                     : "Resolver bloqueos de turno/asignacion antes de autorizar operaciones reales.",
                 "detalle" => array(
                     "cierre" => $cierre,
+                    "ticket_configuracion_efectiva" => $ticketConfig,
                     "ticket" => $ticket,
                     "reserva" => $reserva,
                     "abono" => $abono,

@@ -291,4 +291,26 @@ class EcommercePublico extends Controlador {
     $this->requerirPermiso("catalogo.ver");
     return json_encode($this->modelo("EcommercePublicoEsquema")->planActualizarEcommercePublico(false));
   }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-07-25
+   * Proposito: auditar capa futura de canales/API keys para frontend propio y partners.
+   * Impacto: permite planear seguridad multi-canal sin activar autenticacion ni generar secretos.
+   * Contrato: GET protegido por `catalogo.ver`; solo lectura.
+   */
+  public function esquema_auditar_canales_api() {
+    $this->requerirPermiso("catalogo.ver");
+    return json_encode($this->modelo("EcommercePublicoEsquema")->auditarCanalesApi());
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-07-25
+   * Proposito: generar plan DDL read-only para canales, credenciales y logs API ecommerce.
+   * Impacto: prepara tokens para partners sin tocar frontend actual ni aplicar DDL.
+   * Contrato: GET protegido por `catalogo.ver`; no ejecuta DDL.
+   */
+  public function esquema_plan_canales_api() {
+    $this->requerirPermiso("catalogo.ver");
+    return json_encode($this->modelo("EcommercePublicoEsquema")->planActualizarCanalesApi(false));
+  }
 }

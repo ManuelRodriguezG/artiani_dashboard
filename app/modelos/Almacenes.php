@@ -16,6 +16,8 @@ class Almacenes extends CRUD {
     private $tabla_erp_almacen_preparaciones = "erp_almacen_preparaciones";
     private $tabla_erp_almacen_preparacion_consumos = "erp_almacen_preparacion_consumos";
     private $tabla_erp_almacen_preparacion_resultados = "erp_almacen_preparacion_resultados";
+    private $tabla_erp_almacen_aperturas_empaque = "erp_almacen_aperturas_empaque";
+    private $tabla_erp_almacen_apertura_resultados = "erp_almacen_apertura_resultados";
     private $tabla_erp_catalogo_sku_transformaciones = "erp_catalogo_sku_transformaciones";
 
     /**
@@ -79,6 +81,7 @@ class Almacenes extends CRUD {
 
     public function obtener_almacenes($filtros = array()) {
         $incluir_inactivos = isset($filtros["incluir_inactivos"]) && intval($filtros["incluir_inactivos"]) === 1;
+        $tiene_apertura = $this->columnaExisteAlmacen($this->getConexion(), $this->tabla_erp_almacenes, "permite_apertura_empaque");
         $where = array();
         $campos = array(
             "id_almacen",
@@ -97,6 +100,7 @@ class Almacenes extends CRUD {
             "permite_recepcion",
             "permite_venta",
             "permite_preparacion",
+            $tiene_apertura ? "permite_apertura_empaque" : "0 AS permite_apertura_empaque",
             "permite_ajustes",
             "es_tecnico",
             "'almacen' as tipo_establecimiento"
@@ -106,7 +110,10 @@ class Almacenes extends CRUD {
         if (!$incluir_inactivos) {
             $where[] = "COALESCE(estatus,'activo')='activo'";
         }
-        foreach (array("permite_recepcion", "permite_venta", "permite_preparacion", "permite_ajustes") as $flag) {
+        foreach (array("permite_recepcion", "permite_venta", "permite_preparacion", "permite_apertura_empaque", "permite_ajustes") as $flag) {
+            if ($flag === "permite_apertura_empaque" && !$tiene_apertura) {
+                continue;
+            }
             if (isset($filtros[$flag]) && $filtros[$flag] !== "") {
                 $where[] = $flag . "=" . intval($filtros[$flag]);
             }
@@ -121,6 +128,8 @@ class Almacenes extends CRUD {
     public function consultar_almacenes_configuracion($filtros = array()) {
         try {
             $db = $this->getConexion();
+            $tiene_apertura = $this->columnaExisteAlmacen($db, $this->tabla_erp_almacenes, "permite_apertura_empaque");
+            $campo_apertura = $tiene_apertura ? "permite_apertura_empaque" : "0 AS permite_apertura_empaque";
             $where = array("1=1");
             $params = array();
             $estatus = trim((string) $this->valor($filtros, "estatus", ""));
@@ -141,7 +150,7 @@ class Almacenes extends CRUD {
             $sql = "SELECT id_almacen, codigo_almacen, almacen, nombre_comercial, pais, estado, municipio, ciudad,
                     colonia, codigo_postal, calle, numero_exterior, numero_interior, contacto_recepcion,
                     telefono_recepcion, email_recepcion, referencias_direccion, estatus, tipo_almacen,
-                    permite_recepcion, permite_venta, permite_preparacion, permite_ajustes, es_tecnico,
+                    permite_recepcion, permite_venta, permite_preparacion, {$campo_apertura}, permite_ajustes, es_tecnico,
                     orden, observaciones, fecha_actualizacion
                 FROM {$this->tabla_erp_almacenes}
                 WHERE " . implode(" AND ", $where) . "
@@ -194,13 +203,16 @@ class Almacenes extends CRUD {
                 ":recepcion" => intval($this->valor($datos, "permite_recepcion", 0)),
                 ":venta" => intval($this->valor($datos, "permite_venta", 0)),
                 ":preparacion" => intval($this->valor($datos, "permite_preparacion", 0)),
+                ":apertura" => intval($this->valor($datos, "permite_apertura_empaque", 0)),
                 ":ajustes" => intval($this->valor($datos, "permite_ajustes", 0)),
                 ":tecnico" => intval($this->valor($datos, "es_tecnico", 0)),
                 ":orden" => intval($this->valor($datos, "orden", 100)),
                 ":observaciones" => $this->valor($datos, "observaciones", null)
             );
+            $tiene_apertura = $this->columnaExisteAlmacen($db, $this->tabla_erp_almacenes, "permite_apertura_empaque");
             if ($id > 0) {
                 $params[":id"] = $id;
+                $set_apertura = $tiene_apertura ? "permite_apertura_empaque=:apertura," : "";
                 $sql = "UPDATE {$this->tabla_erp_almacenes}
                     SET codigo_almacen=:codigo, almacen=:almacen, nombre_comercial=:nombre_comercial, pais=:pais,
                         estado=:estado, municipio=:municipio, ciudad=:ciudad, colonia=:colonia,
@@ -208,20 +220,25 @@ class Almacenes extends CRUD {
                         numero_interior=:numero_interior, contacto_recepcion=:contacto,
                         telefono_recepcion=:telefono, email_recepcion=:email, referencias_direccion=:referencias,
                         estatus=:estatus, tipo_almacen=:tipo, permite_recepcion=:recepcion, permite_venta=:venta,
-                        permite_preparacion=:preparacion, permite_ajustes=:ajustes, es_tecnico=:tecnico,
+                        permite_preparacion=:preparacion, {$set_apertura} permite_ajustes=:ajustes, es_tecnico=:tecnico,
                         orden=:orden, observaciones=:observaciones, fecha_actualizacion=NOW()
                     WHERE id_almacen=:id";
             } else {
+                $columnas_apertura = $tiene_apertura ? "permite_apertura_empaque, " : "";
+                $valores_apertura = $tiene_apertura ? ":apertura, " : "";
                 $sql = "INSERT INTO {$this->tabla_erp_almacenes}
                     (codigo_almacen, almacen, nombre_comercial, pais, estado, municipio, ciudad, colonia,
                      codigo_postal, calle, numero_exterior, numero_interior, contacto_recepcion,
                      telefono_recepcion, email_recepcion, referencias_direccion, estatus, tipo_almacen,
-                     permite_recepcion, permite_venta, permite_preparacion, permite_ajustes, es_tecnico,
+                     permite_recepcion, permite_venta, permite_preparacion, {$columnas_apertura}permite_ajustes, es_tecnico,
                      orden, observaciones, fecha_actualizacion)
                     VALUES (:codigo, :almacen, :nombre_comercial, :pais, :estado, :municipio, :ciudad, :colonia,
                      :codigo_postal, :calle, :numero_exterior, :numero_interior, :contacto,
                      :telefono, :email, :referencias, :estatus, :tipo, :recepcion, :venta,
-                     :preparacion, :ajustes, :tecnico, :orden, :observaciones, NOW())";
+                     :preparacion, {$valores_apertura}:ajustes, :tecnico, :orden, :observaciones, NOW())";
+            }
+            if (!$tiene_apertura) {
+                unset($params[":apertura"]);
             }
             $stmt = $db->prepare($sql);
             $stmt->execute($params);
@@ -3080,6 +3097,435 @@ class Almacenes extends CRUD {
      * Impacto: Almacen/Preparacion; evita preparar desde saldo agregado cuando hay etiquetas/unidades trazables.
      * Contrato: si la existencia origen tiene unidades disponibles, `id_unidad_origen` es obligatorio y debe cubrir el consumo.
      */
+
+    /**
+     * IA: Codex GPT-5
+     * Fecha: 2026-07-25
+     * Proposito: lista SKUs cerrados con receta de apertura/desarme configurada en Catalogo.
+     * Impacto: Almacen/Apertura de empaques; solo consulta configuracion, no crea existencias ni modifica inventario.
+     * Contrato: requiere `erp_catalogo_sku_paquetes.permite_desarmar=1` y componentes activos para aparecer como abrible.
+     */
+    public function consultar_skus_apertura_empaque($filtros = array()) {
+        try {
+            $db = $this->getConexion();
+            $termino = trim((string) $this->valor($filtros, "q", ""));
+            $params = array();
+            $where = "p.estatus='activo' AND s.estatus='activo' AND COALESCE(p.permite_desarmar,0)=1";
+            if ($termino !== "") {
+                $where .= " AND (s.sku LIKE :q OR s.nombre LIKE :q)";
+                $params[":q"] = "%" . $termino . "%";
+            }
+            $sql = "SELECT p.id_paquete, p.id_sku_paquete AS id_sku_origen, s.sku, s.nombre,
+                    p.tipo_paquete, p.modo_disponibilidad, p.permite_desarmar, p.observaciones,
+                    COUNT(c.id_componente) AS total_componentes,
+                    COALESCE(SUM(CASE WHEN c.estatus='activo' THEN c.cantidad ELSE 0 END), 0) AS cantidad_total_esperada
+                FROM erp_catalogo_sku_paquetes p
+                INNER JOIN erp_catalogo_skus s ON s.id_sku=p.id_sku_paquete
+                INNER JOIN erp_catalogo_sku_paquete_componentes c ON c.id_paquete=p.id_paquete AND c.estatus='activo'
+                WHERE {$where}
+                GROUP BY p.id_paquete, p.id_sku_paquete, s.sku, s.nombre, p.tipo_paquete,
+                    p.modo_disponibilidad, p.permite_desarmar, p.observaciones
+                ORDER BY s.sku ASC
+                LIMIT 50";
+            $stmt = $db->prepare($sql);
+            $stmt->execute($params);
+            return $this->crudResponse(false, "success", "SKUs de apertura consultados", $stmt->fetchAll(PDO::FETCH_ASSOC));
+        } catch (Exception $e) {
+            return $this->crudResponse(true, "danger", $e->getMessage());
+        }
+    }
+
+    /**
+     * IA: Codex GPT-5
+     * Fecha: 2026-07-25
+     * Proposito: consulta la receta/componentes esperados para abrir un empaque cerrado.
+     * Impacto: Almacen/Apertura de empaques; permite construir captura multi-salida por SKU interno.
+     * Contrato: no valida existencia fisica; solo devuelve configuracion activa de Catalogo.
+     */
+    public function consultar_receta_apertura_empaque($id_paquete) {
+        $id_paquete = intval($id_paquete);
+        if ($id_paquete <= 0) {
+            return $this->crudResponse(true, "warning", "Receta de apertura no valida");
+        }
+        try {
+            $db = $this->getConexion();
+            $stmt = $db->prepare("SELECT p.id_paquete, p.id_sku_paquete AS id_sku_origen, s.sku, s.nombre,
+                    p.tipo_paquete, p.modo_disponibilidad, p.permite_desarmar, p.observaciones
+                FROM erp_catalogo_sku_paquetes p
+                INNER JOIN erp_catalogo_skus s ON s.id_sku=p.id_sku_paquete
+                WHERE p.id_paquete=:paquete AND p.estatus='activo' AND s.estatus='activo'
+                LIMIT 1");
+            $stmt->execute(array(":paquete" => $id_paquete));
+            $paquete = $stmt->fetch(PDO::FETCH_ASSOC);
+            if (!$paquete) {
+                return $this->crudResponse(true, "warning", "Receta de apertura no encontrada");
+            }
+            if (intval($paquete["permite_desarmar"]) !== 1) {
+                return $this->crudResponse(true, "warning", "El SKU no permite apertura/desarme operativo");
+            }
+            $stmt = $db->prepare("SELECT c.id_componente, c.id_sku_componente AS id_sku_resultado,
+                    sc.sku, sc.nombre, c.cantidad AS cantidad_esperada, c.id_unidad,
+                    u.abreviatura AS unidad, c.factor_conversion, c.orden
+                FROM erp_catalogo_sku_paquete_componentes c
+                INNER JOIN erp_catalogo_skus sc ON sc.id_sku=c.id_sku_componente
+                LEFT JOIN erp_catalogo_unidades u ON u.id_unidad=c.id_unidad
+                WHERE c.id_paquete=:paquete AND c.estatus='activo' AND sc.estatus='activo'
+                ORDER BY c.orden ASC, sc.sku ASC");
+            $stmt->execute(array(":paquete" => $id_paquete));
+            $componentes = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            return $this->crudResponse(false, "success", "Receta de apertura consultada", array(
+                "paquete" => $paquete,
+                "componentes" => $componentes
+            ));
+        } catch (Exception $e) {
+            return $this->crudResponse(true, "danger", $e->getMessage());
+        }
+    }
+
+    /**
+     * IA: Codex GPT-5
+     * Fecha: 2026-07-25
+     * Proposito: consulta existencias cerradas disponibles para abrir un empaque en una ubicacion autorizada.
+     * Impacto: Almacen/Apertura de empaques; obliga a partir de stock fisico existente, no de SKU teorico.
+     * Contrato: el almacen debe tener `permite_apertura_empaque=1`; devuelve unidades fisicas cuando existan.
+     */
+    public function consultar_existencias_apertura_empaque($id_sku_origen, $id_almacen) {
+        $id_sku_origen = intval($id_sku_origen);
+        $id_almacen = intval($id_almacen);
+        if ($id_sku_origen <= 0 || $id_almacen <= 0) {
+            return $this->crudResponse(true, "warning", "SKU origen y ubicacion son obligatorios");
+        }
+        try {
+            $db = $this->getConexion();
+            $stmt = $db->prepare("SELECT id_almacen, permite_apertura_empaque
+                FROM {$this->tabla_erp_almacenes}
+                WHERE id_almacen=:almacen AND COALESCE(estatus,'activo')='activo'
+                LIMIT 1");
+            $stmt->execute(array(":almacen" => $id_almacen));
+            $almacen = $stmt->fetch(PDO::FETCH_ASSOC);
+            if (!$almacen) {
+                return $this->crudResponse(true, "warning", "Ubicacion no encontrada o inactiva");
+            }
+            if (intval($almacen["permite_apertura_empaque"]) !== 1) {
+                return $this->crudResponse(true, "warning", "La ubicacion no permite apertura de empaques");
+            }
+
+            $sql = "SELECT exi.id_existencia_inventario, exi.id_producto, exi.id_sku_erp,
+                    exi.id_almacen_clave, alm.almacen, exi.codigo_existencia, exi.lote,
+                    exi.fecha_caducidad, exi.ubicacion_id, exi.ubicacion, exi.cantidad,
+                    exi.cantidad_disponible, exi.costo_promedio, exi.estatus_existencia,
+                    sku.sku, sku.nombre AS nombre_sku
+                FROM {$this->tabla_erp_inventario_existencias} exi
+                INNER JOIN erp_catalogo_skus sku ON sku.id_sku=exi.id_sku_erp
+                LEFT JOIN {$this->tabla_erp_almacenes} alm ON alm.id_almacen=exi.id_almacen_clave
+                WHERE exi.id_sku_erp=:sku
+                  AND exi.id_almacen_clave=:almacen
+                  AND exi.estatus_existencia='disponible'
+                  AND exi.cantidad_disponible>0
+                ORDER BY CASE WHEN exi.fecha_caducidad IS NULL THEN 1 ELSE 0 END,
+                  exi.fecha_caducidad, exi.fecha_registro, exi.id_existencia_inventario";
+            $stmt = $db->prepare($sql);
+            $stmt->execute(array(":sku" => $id_sku_origen, ":almacen" => $id_almacen));
+            $existencias = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            $existencias = $this->adjuntar_unidades_fisicas_preparacion($db, $existencias);
+            return $this->crudResponse(false, "success", "Existencias para apertura consultadas", $existencias);
+        } catch (Exception $e) {
+            return $this->crudResponse(true, "danger", $e->getMessage());
+        }
+    }
+
+    /**
+     * IA: Codex GPT-5
+     * Fecha: 2026-07-25
+     * Proposito: lista folios de apertura de empaques con totales de salida.
+     * Impacto: Almacen/Apertura de empaques; permite construir bandeja sin tocar inventario.
+     */
+    public function consultar_aperturas_empaque($filtros = array()) {
+        try {
+            $db = $this->getConexion();
+            $estatus = trim((string) $this->valor($filtros, "estatus", ""));
+            $termino = trim((string) $this->valor($filtros, "q", ""));
+            $params = array();
+            $where = "";
+            if ($estatus !== "") {
+                $where .= " AND ape.estatus=:estatus";
+                $params[":estatus"] = $estatus;
+            }
+            if ($termino !== "") {
+                $where .= " AND (ape.folio LIKE :q OR sku.sku LIKE :q OR sku.nombre LIKE :q)";
+                $params[":q"] = "%" . $termino . "%";
+            }
+            $sql = "SELECT ape.id_apertura_empaque, ape.folio, ape.estatus, ape.fecha_apertura,
+                    ape.id_almacen, alm.almacen, ape.id_sku_origen, sku.sku AS sku_origen,
+                    sku.nombre AS nombre_origen, ape.id_existencia_origen, ape.id_unidad_origen,
+                    ape.id_paquete, ape.cantidad_origen, ape.cantidad_resultado_total,
+                    ape.lote, ape.fecha_caducidad, ape.ubicacion_id, ape.costo_total_origen,
+                    COUNT(res.id_apertura_resultado) AS total_lineas,
+                    COALESCE(SUM(res.cantidad_real), 0) AS total_resultados
+                FROM {$this->tabla_erp_almacen_aperturas_empaque} ape
+                INNER JOIN erp_catalogo_skus sku ON sku.id_sku=ape.id_sku_origen
+                LEFT JOIN {$this->tabla_erp_almacenes} alm ON alm.id_almacen=ape.id_almacen
+                LEFT JOIN {$this->tabla_erp_almacen_apertura_resultados} res ON res.id_apertura_empaque=ape.id_apertura_empaque
+                WHERE 1=1 {$where}
+                GROUP BY ape.id_apertura_empaque, ape.folio, ape.estatus, ape.fecha_apertura,
+                    ape.id_almacen, alm.almacen, ape.id_sku_origen, sku.sku, sku.nombre,
+                    ape.id_existencia_origen, ape.id_unidad_origen, ape.id_paquete,
+                    ape.cantidad_origen, ape.cantidad_resultado_total, ape.lote,
+                    ape.fecha_caducidad, ape.ubicacion_id, ape.costo_total_origen
+                ORDER BY ape.id_apertura_empaque DESC
+                LIMIT 100";
+            $stmt = $db->prepare($sql);
+            $stmt->execute($params);
+            return $this->crudResponse(false, "success", "Aperturas consultadas", $stmt->fetchAll(PDO::FETCH_ASSOC));
+        } catch (Exception $e) {
+            return $this->crudResponse(true, "danger", $e->getMessage());
+        }
+    }
+
+    /**
+     * IA: Codex GPT-5
+     * Fecha: 2026-07-25
+     * Proposito: guarda un borrador de apertura de empaque con multiples SKUs resultado.
+     * Impacto: Almacen/Apertura de empaques; prepara folio `APE-*` sin afectar inventario.
+     * Contrato: solo reemplaza lineas mientras el folio esta en borrador; requiere receta desarmable y resultados mayores a cero.
+     */
+    public function guardar_borrador_apertura_empaque($datos = array(), $id_usuario = 0) {
+        $id_apertura = intval($this->valor($datos, "id_apertura_empaque", 0));
+        $id_almacen = intval($this->valor($datos, "id_almacen", 0));
+        $id_paquete = intval($this->valor($datos, "id_paquete", 0));
+        $id_existencia = intval($this->valor($datos, "id_existencia_origen", 0));
+        $id_unidad = intval($this->valor($datos, "id_unidad_origen", 0));
+        $observaciones = trim((string) $this->valor($datos, "observaciones", ""));
+        $resultados = $this->valor($datos, "resultados", array());
+        if (is_string($resultados)) {
+            $resultados = json_decode($resultados, true);
+        }
+        if (!is_array($resultados)) {
+            $resultados = array();
+        }
+        if ($id_almacen <= 0 || $id_paquete <= 0 || $id_existencia <= 0) {
+            return $this->crudResponse(true, "warning", "Ubicacion, receta y existencia origen son obligatorias");
+        }
+
+        $db = $this->getConexion();
+        try {
+            $db->beginTransaction();
+            $this->validar_almacen_apertura_empaque($db, $id_almacen);
+            $paquete = $this->consultar_paquete_apertura_empaque_transaccion($db, $id_paquete);
+            $lineas = $this->normalizar_resultados_apertura_empaque($db, $id_paquete, $resultados);
+            $total_resultado = 0;
+            foreach ($lineas as $linea) {
+                $total_resultado += floatval($linea["cantidad_real"]);
+            }
+            if ($total_resultado <= 0) {
+                throw new Exception("Captura al menos una pieza resultado para la apertura");
+            }
+            $existencia = $this->seleccionar_existencia_origen_preparacion($db, $id_existencia, intval($paquete["id_sku_origen"]), $id_almacen, 1, false);
+            if ($id_unidad > 0) {
+                $this->seleccionar_unidad_origen_preparacion($db, $id_unidad, $id_existencia, intval($paquete["id_sku_origen"]), $id_almacen, 1, false);
+            } else if ($this->existencia_tiene_unidades_preparacion($db, $id_existencia)) {
+                throw new Exception("Selecciona la unidad fisica cerrada que se abrira");
+            }
+
+            if ($id_apertura > 0) {
+                $stmt = $db->prepare("SELECT id_apertura_empaque, folio, estatus
+                    FROM {$this->tabla_erp_almacen_aperturas_empaque}
+                    WHERE id_apertura_empaque=:apertura FOR UPDATE");
+                $stmt->execute(array(":apertura" => $id_apertura));
+                $actual = $stmt->fetch(PDO::FETCH_ASSOC);
+                if (!$actual) {
+                    throw new Exception("Borrador de apertura no encontrado");
+                }
+                if (trim($actual["estatus"]) !== "borrador") {
+                    throw new Exception("Solo se puede editar una apertura en borrador");
+                }
+                $folio = $actual["folio"];
+                $stmt = $db->prepare("DELETE FROM {$this->tabla_erp_almacen_apertura_resultados}
+                    WHERE id_apertura_empaque=:apertura");
+                $stmt->execute(array(":apertura" => $id_apertura));
+                $stmt = $db->prepare("UPDATE {$this->tabla_erp_almacen_aperturas_empaque}
+                    SET id_almacen=:almacen, id_sku_origen=:sku, id_existencia_origen=:existencia,
+                        id_unidad_origen=:unidad, id_paquete=:paquete, cantidad_origen=1.000000,
+                        cantidad_resultado_total=:total, lote=:lote, fecha_caducidad=:caducidad,
+                        ubicacion_id=:ubicacion, observaciones=:observaciones, fecha_actualizacion=NOW()
+                    WHERE id_apertura_empaque=:apertura");
+                $stmt->execute(array(
+                    ":almacen" => $id_almacen,
+                    ":sku" => intval($paquete["id_sku_origen"]),
+                    ":existencia" => $id_existencia,
+                    ":unidad" => $id_unidad > 0 ? $id_unidad : null,
+                    ":paquete" => $id_paquete,
+                    ":total" => round($total_resultado, 6),
+                    ":lote" => $existencia["lote"],
+                    ":caducidad" => $existencia["fecha_caducidad"],
+                    ":ubicacion" => intval($existencia["ubicacion_id"]) ?: null,
+                    ":observaciones" => $observaciones,
+                    ":apertura" => $id_apertura
+                ));
+            } else {
+                $folio = $this->generar_folio_apertura_empaque($db);
+                $stmt = $db->prepare("INSERT INTO {$this->tabla_erp_almacen_aperturas_empaque}
+                    (folio, id_almacen, id_sku_origen, id_existencia_origen, id_unidad_origen,
+                     id_paquete, cantidad_origen, cantidad_resultado_total, lote, fecha_caducidad,
+                     ubicacion_id, estatus, observaciones, creado_por, fecha_registro)
+                    VALUES (:folio, :almacen, :sku, :existencia, :unidad, :paquete, 1.000000,
+                     :total, :lote, :caducidad, :ubicacion, 'borrador', :observaciones, :usuario, NOW())");
+                $stmt->execute(array(
+                    ":folio" => $folio,
+                    ":almacen" => $id_almacen,
+                    ":sku" => intval($paquete["id_sku_origen"]),
+                    ":existencia" => $id_existencia,
+                    ":unidad" => $id_unidad > 0 ? $id_unidad : null,
+                    ":paquete" => $id_paquete,
+                    ":total" => round($total_resultado, 6),
+                    ":lote" => $existencia["lote"],
+                    ":caducidad" => $existencia["fecha_caducidad"],
+                    ":ubicacion" => intval($existencia["ubicacion_id"]) ?: null,
+                    ":observaciones" => $observaciones,
+                    ":usuario" => intval($id_usuario) ?: null
+                ));
+                $id_apertura = intval($db->lastInsertId());
+            }
+            $this->insertar_resultados_borrador_apertura_empaque($db, $id_apertura, $id_almacen, $existencia, $lineas);
+            $db->commit();
+            return $this->crudResponse(false, "success", "Borrador de apertura guardado", array(
+                "id_apertura_empaque" => $id_apertura,
+                "folio" => $folio,
+                "estatus" => "borrador",
+                "total_resultados" => round($total_resultado, 6)
+            ));
+        } catch (Exception $e) {
+            if ($db->inTransaction()) {
+                $db->rollBack();
+            }
+            return $this->crudResponse(true, "danger", $e->getMessage());
+        }
+    }
+
+    /**
+     * IA: Codex GPT-5
+     * Fecha: 2026-07-25
+     * Proposito: confirma una apertura registrando salida del SKU cerrado y entradas por SKUs internos.
+     * Impacto: Almacen/Inventario; crea kardex con `origen_tipo=apertura_empaque` bajo el mismo folio `APE-*`.
+     * Contrato: la apertura debe estar en borrador; si existe unidad fisica origen, queda consumida.
+     */
+    public function confirmar_apertura_empaque($id_apertura, $id_usuario = 0) {
+        $id_apertura = intval($id_apertura);
+        if ($id_apertura <= 0) {
+            return $this->crudResponse(true, "warning", "Apertura no valida");
+        }
+        $db = $this->getConexion();
+        try {
+            $db->beginTransaction();
+            $stmt = $db->prepare("SELECT * FROM {$this->tabla_erp_almacen_aperturas_empaque}
+                WHERE id_apertura_empaque=:apertura FOR UPDATE");
+            $stmt->execute(array(":apertura" => $id_apertura));
+            $apertura = $stmt->fetch(PDO::FETCH_ASSOC);
+            if (!$apertura) {
+                throw new Exception("Apertura no encontrada");
+            }
+            if (trim($apertura["estatus"]) !== "borrador") {
+                throw new Exception("Solo se puede confirmar una apertura en borrador");
+            }
+            $this->validar_almacen_apertura_empaque($db, intval($apertura["id_almacen"]));
+            $existencia = $this->seleccionar_existencia_origen_preparacion(
+                $db,
+                intval($apertura["id_existencia_origen"]),
+                intval($apertura["id_sku_origen"]),
+                intval($apertura["id_almacen"]),
+                1,
+                true
+            );
+            $unidad = null;
+            if (intval($apertura["id_unidad_origen"]) > 0) {
+                $unidad = $this->seleccionar_unidad_origen_preparacion(
+                    $db,
+                    intval($apertura["id_unidad_origen"]),
+                    intval($apertura["id_existencia_origen"]),
+                    intval($apertura["id_sku_origen"]),
+                    intval($apertura["id_almacen"]),
+                    1,
+                    true
+                );
+            } else if ($this->existencia_tiene_unidades_preparacion($db, intval($apertura["id_existencia_origen"]))) {
+                throw new Exception("La apertura requiere unidad fisica origen");
+            }
+            $stmt = $db->prepare("SELECT * FROM {$this->tabla_erp_almacen_apertura_resultados}
+                WHERE id_apertura_empaque=:apertura AND cantidad_real>0
+                ORDER BY orden_resultado, id_apertura_resultado
+                FOR UPDATE");
+            $stmt->execute(array(":apertura" => $id_apertura));
+            $resultados = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            if (count($resultados) === 0) {
+                throw new Exception("La apertura no tiene resultados capturados");
+            }
+
+            $costo_total = round(floatval($existencia["costo_promedio"]) * 1, 4);
+            $movimiento_salida = $this->aplicar_salida_apertura_empaque($db, $apertura, $existencia, $costo_total);
+            $this->actualizar_ultimo_movimiento_existencia($db, intval($existencia["id_existencia_inventario"]), $movimiento_salida);
+            if ($unidad) {
+                $this->actualizar_unidad_origen_apertura_empaque($db, $unidad, $movimiento_salida);
+            }
+
+            $total_real = 0;
+            foreach ($resultados as $resultado) {
+                $total_real += floatval($resultado["cantidad_real"]);
+            }
+            if ($total_real <= 0) {
+                throw new Exception("La apertura no tiene total real valido");
+            }
+            foreach ($resultados as $resultado) {
+                $costo_linea = round($costo_total * (floatval($resultado["cantidad_real"]) / $total_real), 4);
+                $existencia_resultado = $this->obtener_o_crear_existencia_resultado_apertura($db, $apertura, $existencia, $resultado, $costo_linea);
+                $movimiento_entrada = $this->aplicar_entrada_apertura_empaque($db, $apertura, $existencia_resultado, $resultado, $costo_linea);
+                $this->actualizar_ultimo_movimiento_existencia($db, intval($existencia_resultado["id_existencia_inventario"]), $movimiento_entrada);
+                $stmt = $db->prepare("UPDATE {$this->tabla_erp_almacen_apertura_resultados}
+                    SET id_existencia_inventario=:existencia, costo_unitario=:costo_unitario,
+                        costo_total=:costo_total, id_movimiento_entrada=:movimiento
+                    WHERE id_apertura_resultado=:resultado");
+                $stmt->execute(array(
+                    ":existencia" => intval($existencia_resultado["id_existencia_inventario"]),
+                    ":costo_unitario" => floatval($existencia_resultado["costo_unitario_apertura"]),
+                    ":costo_total" => $costo_linea,
+                    ":movimiento" => $movimiento_entrada,
+                    ":resultado" => intval($resultado["id_apertura_resultado"])
+                ));
+            }
+
+            $stmt = $db->prepare("UPDATE {$this->tabla_erp_almacen_aperturas_empaque}
+                SET estatus='confirmada', fecha_apertura=NOW(), confirmado_por=:usuario,
+                    costo_unitario_origen=:costo_unitario, costo_total_origen=:costo_total,
+                    id_movimiento_salida=:movimiento, fecha_actualizacion=NOW()
+                WHERE id_apertura_empaque=:apertura");
+            $stmt->execute(array(
+                ":usuario" => intval($id_usuario) ?: null,
+                ":costo_unitario" => floatval($existencia["costo_promedio"]),
+                ":costo_total" => $costo_total,
+                ":movimiento" => $movimiento_salida,
+                ":apertura" => $id_apertura
+            ));
+            $db->commit();
+            return $this->crudResponse(false, "success", "Apertura confirmada", array(
+                "id_apertura_empaque" => $id_apertura,
+                "folio" => $apertura["folio"],
+                "movimiento_salida" => $movimiento_salida,
+                "total_resultados" => round($total_real, 6)
+            ));
+        } catch (Exception $e) {
+            if ($db->inTransaction()) {
+                $db->rollBack();
+            }
+            return $this->crudResponse(true, "danger", $e->getMessage());
+        }
+    }
+
+    /**
+     * IA: Codex GPT-5
+     * Fecha: 2026-06-25
+     * Proposito: guarda borradores de preparacion enlazando existencia y, cuando aplique, unidad fisica origen.
+     * Impacto: Almacen/Preparacion; evita preparar desde saldo agregado cuando hay etiquetas/unidades trazables.
+     * Contrato: si la existencia origen tiene unidades disponibles, `id_unidad_origen` es obligatorio y debe cubrir el consumo.
+     */
     public function guardar_borrador_preparacion($datos = array(), $id_usuario = 0) {
         $id_preparacion = intval($this->valor($datos, "id_preparacion_almacen", 0));
         $id_almacen = intval($this->valor($datos, "id_almacen", 0));
@@ -5131,7 +5577,341 @@ class Almacenes extends CRUD {
         return $generadas;
     }
 
+    /**
+     * IA: Codex GPT-5
+     * Fecha: 2026-07-25
+     * Proposito: genera folios diarios para apertura de empaques.
+     * Impacto: Almacen/Apertura de empaques; separa evidencia `APE-*` de preparaciones `PREP-*`.
+     */
+    private function generar_folio_apertura_empaque($db) {
+        $prefijo = "APE-" . date("Ymd") . "-";
+        $stmt = $db->prepare("SELECT folio FROM {$this->tabla_erp_almacen_aperturas_empaque}
+            WHERE folio LIKE :prefijo ORDER BY folio DESC LIMIT 1");
+        $stmt->execute(array(":prefijo" => $prefijo . "%"));
+        $ultimo = $stmt->fetch(PDO::FETCH_ASSOC);
+        $consecutivo = 1;
+        if ($ultimo && preg_match('/-(\d{4})$/', $ultimo["folio"], $m)) {
+            $consecutivo = intval($m[1]) + 1;
+        }
+        return $prefijo . str_pad((string) $consecutivo, 4, "0", STR_PAD_LEFT);
+    }
+
+    /**
+     * IA: Codex GPT-5
+     * Fecha: 2026-07-25
+     * Proposito: valida que la ubicacion permita apertura de empaques.
+     * Impacto: Almacen/Apertura de empaques; permite operar en tienda o bodega solo si se autorizo explicitamente.
+     */
+    private function validar_almacen_apertura_empaque($db, $id_almacen) {
+        $stmt = $db->prepare("SELECT id_almacen, permite_apertura_empaque
+            FROM {$this->tabla_erp_almacenes}
+            WHERE id_almacen=:almacen AND COALESCE(estatus,'activo')='activo' LIMIT 1");
+        $stmt->execute(array(":almacen" => intval($id_almacen)));
+        $almacen = $stmt->fetch(PDO::FETCH_ASSOC);
+        if (!$almacen) {
+            throw new Exception("Ubicacion no encontrada o inactiva");
+        }
+        if (intval($almacen["permite_apertura_empaque"]) !== 1) {
+            throw new Exception("La ubicacion seleccionada no permite apertura de empaques");
+        }
+    }
+
+    /**
+     * IA: Codex GPT-5
+     * Fecha: 2026-07-25
+     * Proposito: consulta y valida una receta de Catalogo apta para apertura.
+     * Impacto: Almacen/Apertura de empaques; evita abrir SKUs sin relacion de componentes aprobada.
+     */
+    private function consultar_paquete_apertura_empaque_transaccion($db, $id_paquete) {
+        $stmt = $db->prepare("SELECT p.id_paquete, p.id_sku_paquete AS id_sku_origen,
+                p.permite_desarmar, p.estatus, s.sku, s.nombre
+            FROM erp_catalogo_sku_paquetes p
+            INNER JOIN erp_catalogo_skus s ON s.id_sku=p.id_sku_paquete
+            WHERE p.id_paquete=:paquete AND p.estatus='activo' AND s.estatus='activo'
+            LIMIT 1");
+        $stmt->execute(array(":paquete" => intval($id_paquete)));
+        $paquete = $stmt->fetch(PDO::FETCH_ASSOC);
+        if (!$paquete) {
+            throw new Exception("Receta de apertura no encontrada");
+        }
+        if (intval($paquete["permite_desarmar"]) !== 1) {
+            throw new Exception("La receta no permite apertura/desarme operativo");
+        }
+        return $paquete;
+    }
+
+    /**
+     * IA: Codex GPT-5
+     * Fecha: 2026-07-25
+     * Proposito: valida cantidades capturadas contra componentes activos de la receta.
+     * Impacto: Almacen/Apertura de empaques; impide crear resultados hacia SKUs que no pertenecen al empaque.
+     */
+    private function normalizar_resultados_apertura_empaque($db, $id_paquete, $resultados) {
+        $stmt = $db->prepare("SELECT c.id_componente, c.id_sku_componente AS id_sku_resultado,
+                c.cantidad AS cantidad_esperada, c.orden, sc.sku, sc.nombre
+            FROM erp_catalogo_sku_paquete_componentes c
+            INNER JOIN erp_catalogo_skus sc ON sc.id_sku=c.id_sku_componente
+            WHERE c.id_paquete=:paquete AND c.estatus='activo' AND sc.estatus='activo'");
+        $stmt->execute(array(":paquete" => intval($id_paquete)));
+        $componentes = array();
+        while ($fila = $stmt->fetch(PDO::FETCH_ASSOC)) {
+            $componentes[intval($fila["id_componente"])] = $fila;
+        }
+        if (count($componentes) === 0) {
+            throw new Exception("La receta no tiene componentes activos");
+        }
+        $lineas = array();
+        foreach ($resultados as $idx => $resultado) {
+            $id_componente = intval($this->valor($resultado, "id_componente", 0));
+            $cantidad = round(floatval($this->valor($resultado, "cantidad_real", $this->valor($resultado, "cantidad", 0))), 6);
+            if ($cantidad <= 0) {
+                continue;
+            }
+            if (!isset($componentes[$id_componente])) {
+                throw new Exception("Un resultado no pertenece a la receta de apertura");
+            }
+            $comp = $componentes[$id_componente];
+            $lineas[] = array(
+                "id_componente" => $id_componente,
+                "id_sku_resultado" => intval($comp["id_sku_resultado"]),
+                "cantidad_esperada" => round(floatval($comp["cantidad_esperada"]), 6),
+                "cantidad_real" => $cantidad,
+                "orden_resultado" => intval($this->valor($comp, "orden", $idx))
+            );
+        }
+        return $lineas;
+    }
+
+    /**
+     * IA: Codex GPT-5
+     * Fecha: 2026-07-25
+     * Proposito: inserta lineas resultado de un borrador de apertura.
+     * Impacto: Almacen/Apertura de empaques; conserva cantidades esperadas y reales antes de confirmar.
+     */
+    private function insertar_resultados_borrador_apertura_empaque($db, $id_apertura, $id_almacen, $existencia_origen, $lineas) {
+        $stmt = $db->prepare("INSERT INTO {$this->tabla_erp_almacen_apertura_resultados}
+            (id_apertura_empaque, orden_resultado, id_sku_resultado, id_componente,
+             id_existencia_inventario, id_almacen, ubicacion_id, lote, fecha_caducidad,
+             cantidad_esperada, cantidad_real, costo_unitario, costo_total, fecha_registro)
+            VALUES (:apertura, :orden, :sku, :componente, NULL, :almacen, :ubicacion,
+             :lote, :caducidad, :esperada, :real, 0, 0, NOW())");
+        foreach ($lineas as $linea) {
+            $stmt->execute(array(
+                ":apertura" => intval($id_apertura),
+                ":orden" => intval($linea["orden_resultado"]),
+                ":sku" => intval($linea["id_sku_resultado"]),
+                ":componente" => intval($linea["id_componente"]),
+                ":almacen" => intval($id_almacen),
+                ":ubicacion" => intval($existencia_origen["ubicacion_id"]) ?: null,
+                ":lote" => $existencia_origen["lote"],
+                ":caducidad" => $existencia_origen["fecha_caducidad"],
+                ":esperada" => floatval($linea["cantidad_esperada"]),
+                ":real" => floatval($linea["cantidad_real"])
+            ));
+        }
+    }
+
+    /**
+     * IA: Codex GPT-5
+     * Fecha: 2026-07-25
+     * Proposito: descuenta una unidad cerrada por apertura y crea movimiento de salida.
+     * Impacto: Inventario; registra kardex con `origen_tipo=apertura_empaque`.
+     */
+    private function aplicar_salida_apertura_empaque($db, $apertura, $existencia, $costo_total) {
+        $anterior = round(floatval($existencia["cantidad"]), 6);
+        $nueva = round($anterior - 1, 6);
+        $nueva_disponible = round(floatval($existencia["cantidad_disponible"]) - 1, 6);
+        $estatus = $nueva_disponible <= 0 ? "agotada" : "disponible";
+        $stmt = $db->prepare("UPDATE {$this->tabla_erp_inventario_existencias}
+            SET cantidad=:cantidad, cantidad_disponible=:disponible, estatus_existencia=:estatus, fecha_actualizacion=NOW()
+            WHERE id_existencia_inventario=:existencia");
+        $stmt->execute(array(
+            ":cantidad" => $nueva,
+            ":disponible" => $nueva_disponible,
+            ":estatus" => $estatus,
+            ":existencia" => intval($existencia["id_existencia_inventario"])
+        ));
+        $stmt = $db->prepare("INSERT INTO {$this->tabla_erp_inventario_movimientos}
+            (id_producto, id_sku_erp, id_almacen, tipo_movimiento, origen_tipo, origen_id,
+             origen_detalle_id, id_recepcion_lote, id_existencia_inventario, codigo_existencia,
+             lote, fecha_caducidad, ubicacion_id, ubicacion, cantidad, costo_unitario,
+             costo_total, existencia_anterior, existencia_nueva, referencia, observaciones)
+            VALUES (:producto, :sku, :almacen, 'salida', 'apertura_empaque', :origen,
+             NULL, NULL, :existencia, :codigo, :lote, :caducidad, :ubicacion_id, :ubicacion,
+             1, :costo, :total, :anterior, :nueva, :referencia, :observaciones)");
+        $stmt->execute(array(
+            ":producto" => intval($existencia["id_producto"]),
+            ":sku" => intval($apertura["id_sku_origen"]),
+            ":almacen" => intval($apertura["id_almacen"]),
+            ":origen" => intval($apertura["id_apertura_empaque"]),
+            ":existencia" => intval($existencia["id_existencia_inventario"]),
+            ":codigo" => $existencia["codigo_existencia"],
+            ":lote" => $existencia["lote"],
+            ":caducidad" => $existencia["fecha_caducidad"],
+            ":ubicacion_id" => intval($existencia["ubicacion_id"]) ?: null,
+            ":ubicacion" => $existencia["ubicacion"],
+            ":costo" => floatval($existencia["costo_promedio"]),
+            ":total" => floatval($costo_total),
+            ":anterior" => $anterior,
+            ":nueva" => $nueva,
+            ":referencia" => $apertura["folio"],
+            ":observaciones" => "Salida por apertura de empaque cerrado"
+        ));
+        return intval($db->lastInsertId());
+    }
+
+    /**
+     * IA: Codex GPT-5
+     * Fecha: 2026-07-25
+     * Proposito: marca la unidad cerrada origen como consumida por apertura.
+     * Impacto: Inventario/Unidades fisicas; evita reutilizar la misma etiqueta/unidad en otra apertura.
+     */
+    private function actualizar_unidad_origen_apertura_empaque($db, $unidad_origen, $id_movimiento_salida) {
+        $stmt = $db->prepare("UPDATE {$this->tabla_erp_inventario_unidades}
+            SET cantidad_base_disponible=0,
+                estado_fisico='consumida',
+                estatus='consumida',
+                id_movimiento_consumo=:movimiento,
+                fecha_consumo=NOW(),
+                fecha_actualizacion=NOW()
+            WHERE id_inventario_unidad=:unidad");
+        $stmt->execute(array(
+            ":movimiento" => intval($id_movimiento_salida),
+            ":unidad" => intval($unidad_origen["id_inventario_unidad"])
+        ));
+    }
+
+    /**
+     * IA: Codex GPT-5
+     * Fecha: 2026-07-25
+     * Proposito: crea o actualiza existencia del SKU interno generado por apertura.
+     * Impacto: Inventario; conserva lote/caducidad/ubicacion del empaque cerrado origen.
+     */
+    private function obtener_o_crear_existencia_resultado_apertura($db, $apertura, $existencia_origen, $resultado, $costo_total_linea) {
+        $cantidad = round(floatval($resultado["cantidad_real"]), 6);
+        $stmt = $db->prepare("SELECT id_producto_erp FROM erp_catalogo_skus WHERE id_sku=:sku LIMIT 1");
+        $stmt->execute(array(":sku" => intval($resultado["id_sku_resultado"])));
+        $sku = $stmt->fetch(PDO::FETCH_ASSOC);
+        if (!$sku) {
+            throw new Exception("SKU resultado no encontrado para apertura");
+        }
+        $id_producto = intval($sku["id_producto_erp"]);
+        $lote_clave = $this->normalizar_clave($existencia_origen["lote"]);
+        $caducidad_clave = trim((string) $existencia_origen["fecha_caducidad"]) !== "" ? $existencia_origen["fecha_caducidad"] : "1000-01-01";
+        $ubicacion_clave = intval($existencia_origen["ubicacion_id"]) ?: 0;
+        $costo_unitario = $cantidad > 0 ? round($costo_total_linea / $cantidad, 4) : 0;
+        $stmt = $db->prepare("SELECT * FROM {$this->tabla_erp_inventario_existencias}
+            WHERE id_producto=:producto AND COALESCE(id_sku_erp,0)=:sku AND id_almacen_clave=:almacen
+              AND lote_clave=:lote_clave AND fecha_caducidad_clave=:caducidad_clave AND ubicacion_clave=:ubicacion_clave
+            FOR UPDATE");
+        $stmt->execute(array(
+            ":producto" => $id_producto,
+            ":sku" => intval($resultado["id_sku_resultado"]),
+            ":almacen" => intval($apertura["id_almacen"]),
+            ":lote_clave" => $lote_clave,
+            ":caducidad_clave" => $caducidad_clave,
+            ":ubicacion_clave" => $ubicacion_clave
+        ));
+        $existencia = $stmt->fetch(PDO::FETCH_ASSOC);
+        if ($existencia) {
+            $anterior = floatval($existencia["cantidad"]);
+            $nueva = round($anterior + $cantidad, 6);
+            $costo_promedio = $nueva > 0 ? (($anterior * floatval($existencia["costo_promedio"])) + $costo_total_linea) / $nueva : $costo_unitario;
+            $stmt = $db->prepare("UPDATE {$this->tabla_erp_inventario_existencias}
+                SET cantidad=:cantidad, cantidad_disponible=cantidad_disponible + :entrada,
+                    costo_promedio=:costo, estatus_existencia='disponible', fecha_actualizacion=NOW()
+                WHERE id_existencia_inventario=:existencia");
+            $stmt->execute(array(
+                ":cantidad" => $nueva,
+                ":entrada" => $cantidad,
+                ":costo" => round($costo_promedio, 4),
+                ":existencia" => intval($existencia["id_existencia_inventario"])
+            ));
+            $existencia["existencia_anterior"] = round($anterior, 4);
+            $existencia["existencia_nueva"] = round($nueva, 4);
+            $existencia["costo_unitario_apertura"] = $costo_unitario;
+            return $existencia;
+        }
+        $stmt = $db->prepare("INSERT INTO {$this->tabla_erp_inventario_existencias}
+            (id_producto, id_sku_erp, id_almacen, id_almacen_clave, codigo_existencia,
+             lote, lote_clave, fecha_caducidad, fecha_caducidad_clave, ubicacion_id,
+             ubicacion_clave, ubicacion, cantidad, cantidad_apartada, cantidad_disponible,
+             costo_promedio, estatus_existencia)
+            VALUES (:producto, :sku, :almacen, :almacen_clave, NULL, :lote, :lote_clave,
+             :caducidad, :caducidad_clave, :ubicacion_id, :ubicacion_clave, :ubicacion,
+             :cantidad, 0, :disponible, :costo, 'disponible')");
+        $stmt->execute(array(
+            ":producto" => $id_producto,
+            ":sku" => intval($resultado["id_sku_resultado"]),
+            ":almacen" => intval($apertura["id_almacen"]),
+            ":almacen_clave" => intval($apertura["id_almacen"]),
+            ":lote" => $existencia_origen["lote"],
+            ":lote_clave" => $lote_clave,
+            ":caducidad" => $existencia_origen["fecha_caducidad"],
+            ":caducidad_clave" => $caducidad_clave,
+            ":ubicacion_id" => intval($existencia_origen["ubicacion_id"]) ?: null,
+            ":ubicacion_clave" => $ubicacion_clave,
+            ":ubicacion" => $existencia_origen["ubicacion"],
+            ":cantidad" => $cantidad,
+            ":disponible" => $cantidad,
+            ":costo" => $costo_unitario
+        ));
+        $id_existencia = intval($db->lastInsertId());
+        $codigo = "EXI-" . $id_producto . "-" . $id_existencia;
+        $stmt = $db->prepare("UPDATE {$this->tabla_erp_inventario_existencias}
+            SET codigo_existencia=:codigo WHERE id_existencia_inventario=:existencia");
+        $stmt->execute(array(":codigo" => $codigo, ":existencia" => $id_existencia));
+        $stmt = $db->prepare("SELECT * FROM {$this->tabla_erp_inventario_existencias} WHERE id_existencia_inventario=:existencia");
+        $stmt->execute(array(":existencia" => $id_existencia));
+        $existencia = $stmt->fetch(PDO::FETCH_ASSOC);
+        $existencia["existencia_anterior"] = 0;
+        $existencia["existencia_nueva"] = $cantidad;
+        $existencia["costo_unitario_apertura"] = $costo_unitario;
+        return $existencia;
+    }
+
+    /**
+     * IA: Codex GPT-5
+     * Fecha: 2026-07-25
+     * Proposito: registra entrada de SKU interno generado por apertura.
+     * Impacto: Inventario/Kardex; enlaza cada salida de sabor al folio `APE-*`.
+     */
+    private function aplicar_entrada_apertura_empaque($db, $apertura, $existencia_resultado, $resultado, $costo_total_linea) {
+        $cantidad = round(floatval($resultado["cantidad_real"]), 6);
+        $costo = floatval($existencia_resultado["costo_unitario_apertura"]);
+        $stmt = $db->prepare("INSERT INTO {$this->tabla_erp_inventario_movimientos}
+            (id_producto, id_sku_erp, id_almacen, tipo_movimiento, origen_tipo, origen_id,
+             origen_detalle_id, id_recepcion_lote, id_existencia_inventario, codigo_existencia,
+             lote, fecha_caducidad, ubicacion_id, ubicacion, cantidad, costo_unitario,
+             costo_total, existencia_anterior, existencia_nueva, referencia, observaciones)
+            VALUES (:producto, :sku, :almacen, 'entrada', 'apertura_empaque', :origen,
+             :detalle, NULL, :existencia, :codigo, :lote, :caducidad, :ubicacion_id,
+             :ubicacion, :cantidad, :costo, :total, :anterior, :nueva, :referencia, :observaciones)");
+        $stmt->execute(array(
+            ":producto" => intval($existencia_resultado["id_producto"]),
+            ":sku" => intval($resultado["id_sku_resultado"]),
+            ":almacen" => intval($apertura["id_almacen"]),
+            ":origen" => intval($apertura["id_apertura_empaque"]),
+            ":detalle" => intval($resultado["id_apertura_resultado"]),
+            ":existencia" => intval($existencia_resultado["id_existencia_inventario"]),
+            ":codigo" => $existencia_resultado["codigo_existencia"],
+            ":lote" => $existencia_resultado["lote"],
+            ":caducidad" => $existencia_resultado["fecha_caducidad"],
+            ":ubicacion_id" => intval($existencia_resultado["ubicacion_id"]) ?: null,
+            ":ubicacion" => $existencia_resultado["ubicacion"],
+            ":cantidad" => $cantidad,
+            ":costo" => $costo,
+            ":total" => floatval($costo_total_linea),
+            ":anterior" => floatval($existencia_resultado["existencia_anterior"]),
+            ":nueva" => floatval($existencia_resultado["existencia_nueva"]),
+            ":referencia" => $apertura["folio"],
+            ":observaciones" => "Entrada de pieza interna por apertura de empaque"
+        ));
+        return intval($db->lastInsertId());
+    }
+
     private function valor($array, $key, $default = "") {
         return isset($array[$key]) ? $array[$key] : $default;
     }
 }
+

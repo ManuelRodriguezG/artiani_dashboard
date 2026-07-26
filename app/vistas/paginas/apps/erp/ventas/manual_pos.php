@@ -92,11 +92,62 @@
                                                 </div>
                                             </div>
                                         </div>
+                                        <h3 class="fw-bold fs-6 mt-5">Decision rapida en mostrador</h3>
+                                        <div class="table-responsive">
+                                            <table class="table table-row-dashed align-middle text-muted">
+                                                <thead>
+                                                    <tr class="fw-bold text-gray-700">
+                                                        <th>Situacion</th>
+                                                        <th>Que usar</th>
+                                                        <th>Que genera</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    <tr><td>Producto registrado y con existencia</td><td>POS normal</td><td>Venta, pago, ticket, kardex y trazabilidad.</td></tr>
+                                                    <tr><td>Producto registrado pero sin existencia suficiente</td><td>Venta con faltante, solo si hay politica activa</td><td>Venta cobrada, salida parcial si habia stock y pendiente `PINV` para Inventario.</td></tr>
+                                                    <tr><td>Producto no encontrado o aun no capturado</td><td>Venta rapida controlada</td><td>Venta cobrada y pendiente `VRP` para Catalogo; Inventario regulariza despues si aplica.</td></tr>
+                                                    <tr><td>Cliente solo pregunta precio</td><td>Checador de precios</td><td>Consulta sin carrito, sin caja y sin inventario.</td></tr>
+                                                    <tr><td>Cliente aparta o deja anticipo</td><td>Pedidos/Apartados</td><td>Pedido, anticipo/abonos, reserva o seguimiento segun politica.</td></tr>
+                                                    <tr><td>Cliente devuelve un producto</td><td>Devoluciones/Reversas</td><td>Decision de inventario, decision financiera, evidencia si sale dinero.</td></tr>
+                                                </tbody>
+                                            </table>
+                                        </div>
                                     </div>
 
                                     <div class="pos-manual-card p-5 mb-4 pos-manual-section" id="manual-arranque">
                                         <h2 class="fw-bold fs-4 mb-4">Checklist para empezar a usar POS</h2>
                                         <p class="text-muted">Antes de vender de forma real, el POS necesita varias piezas listas. No todas se configuran en Ventas: algunas viven en Catalogo, Comercial/Listas de precios, Inventario, Postventa/Garantias, CRM, Seguridad y Configuracion POS.</p>
+                                        <div class="pos-manual-check p-3 mb-4">
+                                            <div class="fw-bold mb-2">Semaforo diario antes de cobrar</div>
+                                            <div class="text-muted fs-7 mb-3">Este es el resumen que debe revisar el responsable de tienda al iniciar el dia. Si algo sale pendiente, no significa que el POS este roto; significa que falta una condicion operativa antes de cobrar.</div>
+                                            <div class="row g-3">
+                                                <div class="col-md-6">
+                                                    <div class="border rounded p-3 h-100 bg-white">
+                                                        <div class="fw-bold"><i class="bi bi-door-open text-primary me-1"></i> Turno</div>
+                                                        <div class="text-muted fs-8">Debe existir un turno abierto en la caja correcta antes de cobrar.</div>
+                                                    </div>
+                                                </div>
+                                                <div class="col-md-6">
+                                                    <div class="border rounded p-3 h-100 bg-white">
+                                                        <div class="fw-bold"><i class="bi bi-person-badge text-primary me-1"></i> Operadores</div>
+                                                        <div class="text-muted fs-8">Cada persona debe entrar con su usuario; el cobro queda ligado a quien lo hizo.</div>
+                                                    </div>
+                                                </div>
+                                                <div class="col-md-6">
+                                                    <div class="border rounded p-3 h-100 bg-white">
+                                                        <div class="fw-bold"><i class="bi bi-box-seam text-primary me-1"></i> Inventario</div>
+                                                        <div class="text-muted fs-8">Vender con stock disponible o con politica autorizada de inventario pendiente.</div>
+                                                    </div>
+                                                </div>
+                                                <div class="col-md-6">
+                                                    <div class="border rounded p-3 h-100 bg-white">
+                                                        <div class="fw-bold"><i class="bi bi-receipt text-primary me-1"></i> Ticket</div>
+                                                        <div class="text-muted fs-8">El ticket debe tener negocio, contacto, formato y ancho correcto antes de atender clientes.</div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div class="text-muted fs-8 mt-3">Estado vigente de referencia: usuarios `1`, `2` y `3` listos en la misma caja; falta abrir turno y usar stock disponible o flujo autorizado para el SKU piloto.</div>
+                                        </div>
                                         <div class="row g-3">
                                             <div class="col-md-6">
                                                 <div class="pos-manual-check p-3 h-100">
@@ -206,6 +257,10 @@
                                             <div class="fw-bold">Regla para activar venta con existencia negativa</div>
                                             <div class="text-muted fs-7">No se debe activar como interruptor libre para todo sin limites. La configuracion recomendada es una politica general controlada para POS por sucursal/canal, con limites de cantidad e importe, permiso supervisor, motivo obligatorio y alerta a Inventario. Despues se pueden excluir productos delicados o limitar por categoria/SKU.</div>
                                         </div>
+                                        <div class="pos-manual-check p-3 mt-4">
+                                            <div class="fw-bold">Minimo para iniciar en local</div>
+                                            <div class="text-muted fs-7">Para operar sin detener la tienda mientras se termina el catalogo completo: asigna usuarios a su caja/sucursal, configura ticket, abre turno, vende productos existentes con stock, usa venta rapida solo para productos no capturados y usa inventario pendiente solo con politica aprobada. Los pendientes deben revisarse al cierre del dia.</div>
+                                        </div>
                                     </div>
 
                                     <div class="pos-manual-card p-5 mb-4 pos-manual-section" id="manual-pos">
@@ -249,6 +304,10 @@
                                     <div class="pos-manual-card p-5 mb-4 pos-manual-section" id="manual-venta-rapida">
                                         <h2 class="fw-bold fs-4 mb-4">Venta rapida controlada: producto por clasificar</h2>
                                         <p class="text-muted">Venta rapida sirve para no detener la operacion cuando un producto todavia no esta bien dado de alta. No es una venta libre: cobra en caja, deja ticket y crea un pendiente para Catalogo ERP.</p>
+                                        <div class="pos-manual-warning p-3 mb-4">
+                                            <div class="fw-bold">Cuando nace el pendiente</div>
+                                            <div class="text-muted fs-7">Agregar una venta rapida al carrito no genera alerta operativa. El pendiente para Catalogo ERP nace hasta que se cobra la venta, porque antes de cobrar el cliente todavia puede cancelar, cambiar de producto o abandonar la compra.</div>
+                                        </div>
                                         <h3 class="fw-bold fs-6">Cuando usarla</h3>
                                         <ul class="pos-manual-list text-muted">
                                             <li>El producto fisico existe en tienda, pero no aparece en el buscador ni con codigo de barras.</li>
@@ -487,6 +546,10 @@
                                             <li>Inventario recibe la alerta y debe hacer conteo fisico.</li>
                                             <li>Al resolver, el sistema regulariza inventario y reconoce la salida de la venta pendiente.</li>
                                         </ol>
+                                        <div class="pos-manual-warning p-3 mt-4">
+                                            <div class="fw-bold">Por que primero se valida</div>
+                                            <div class="text-muted fs-7">La validacion previa solo revisa si la venta podria hacerse; no vende ni alerta. La alerta real se crea al cobrar, cuando ya existe folio, operador, caja, pago y motivo. Asi Inventario no recibe pendientes de carritos abandonados.</div>
+                                        </div>
                                         <h3 class="fw-bold fs-6 mt-4">Como entender la formula de resolucion</h3>
                                         <p class="text-muted">La cantidad fisica que capturas es lo que contaste ahora, despues de que la venta ya ocurrio. Por eso el sistema suma la cantidad vendida pendiente para reconstruir cuantas piezas debian existir antes de registrar la salida.</p>
                                         <div class="pos-manual-check p-3">

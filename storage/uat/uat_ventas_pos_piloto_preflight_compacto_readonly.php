@@ -31,10 +31,19 @@ foreach (isset($argv) ? $argv : array() as $arg) {
 }
 
 $salida = ejecutar("uat_ventas_pos_salida_operativa_readiness_readonly.php", $args);
+$siguientePiloto = ejecutar("uat_ventas_pos_siguiente_piloto_readonly.php", array(
+    "--id_usuario=" . valorArg($args, "id_usuario", "1"),
+    "--id_almacen=" . valorArg($args, "id_almacen", "5"),
+    "--id_sku=" . valorArg($args, "id_sku", "1760"),
+    "--cantidad=" . valorArg($args, "cantidad", "1"),
+    "--monto_inicial=500",
+    "--usuarios=" . valorArg($args, "usuarios", "1,2,3"),
+));
 $bloqueos = valor($salida, "bloqueos", array());
 $avisos = valor($salida, "avisos", array());
 $condiciones = valor($salida, "condiciones_para_piloto", array());
 $resumen = valor($salida, "resumen", array());
+$skuRecomendado = valor($siguientePiloto, "sku_recomendado", array());
 
 $pasos = array(
     "1. Entrar a http://panel.com.local/ con usuario propio.",
@@ -50,6 +59,16 @@ $evitar = array(
     "No usar apartados nuevos en el primer piloto.",
     "No usar descuentos libres sin politica autorizada.",
     "No usar inventario pendiente como operacion normal de tienda.",
+);
+
+$recomendacionOperativa = array(
+    "decision" => valor($siguientePiloto, "decision", "no_evaluado"),
+    "sku_recomendado" => $skuRecomendado,
+    "bloqueos" => valor($siguientePiloto, "bloqueos", array()),
+    "avisos" => valor($siguientePiloto, "avisos", array()),
+    "paso_practico" => !empty($skuRecomendado)
+        ? "Para piloto limpio: abrir turno y vender SKU " . valor($skuRecomendado, "id_sku", "-") . " con precio " . valor($skuRecomendado, "precio", "-") . "."
+        : "Usar producto con stock disponible o resolver/cargar inventario antes de cobrar.",
 );
 
 $respuesta = array(
@@ -68,6 +87,7 @@ $respuesta = array(
     ),
     "puede_iniciar_piloto_controlado" => empty($bloqueos),
     "condiciones" => $condiciones,
+    "siguiente_piloto_recomendado" => $recomendacionOperativa,
     "pasos_piloto" => $pasos,
     "evitar_en_primer_piloto" => $evitar,
     "siguiente_autorizacion_si_se_desea_cerrar_pendiente" => "AUTORIZO RESOLVER PENDIENTE INVENTARIO POS UAT REAL usando respaldo UAT POS vigente con token INVENTARIO_POS_PENDIENTE_RESOLVER_REAL id_usuario=1 folio=PINV-20260717-000001 cantidad_fisica=CONTEO_REAL decision=ajustar_a_conteo confirmacion=\"RESOLVER PENDIENTE\" motivo=\"Resolver mini inventario POS pendiente\"",
@@ -113,3 +133,12 @@ function valor($datos, $campo, $default = null)
     return is_array($datos) && array_key_exists($campo, $datos) ? $datos[$campo] : $default;
 }
 
+function valorArg($args, $clave, $default)
+{
+    foreach ($args as $arg) {
+        if (strpos($arg, "--" . $clave . "=") === 0) {
+            return substr($arg, strlen("--" . $clave . "="));
+        }
+    }
+    return $default;
+}

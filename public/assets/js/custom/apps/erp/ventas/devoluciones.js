@@ -182,7 +182,7 @@
             html += "<div class=\"fs-8\">Existencia: " + escapeHtml(plan.existencia_anterior) + " -> " + escapeHtml(plan.existencia_nueva) + " | Disponible: " + escapeHtml(plan.disponible_anterior) + " -> " + escapeHtml(plan.disponible_nuevo) + "</div>";
         }
         if (bloqueos.length) {
-            html += "<div class=\"fw-semibold fs-8 mt-2\">Bloqueos</div><ul class=\"mb-0 ps-4\">" + bloqueos.map(function (item) { return "<li>" + escapeHtml(item) + "</li>"; }).join("") + "</ul>";
+            html += "<div class=\"fw-semibold fs-8 mt-2\">Pendientes por resolver</div><ul class=\"mb-0 ps-4\">" + bloqueos.map(function (item) { return "<li>" + escapeHtml(item) + "</li>"; }).join("") + "</ul>";
         }
         if (avisos.length) {
             html += "<div class=\"fw-semibold fs-8 mt-2\">Avisos</div><ul class=\"mb-0 ps-4\">" + avisos.map(function (item) { return "<li>" + escapeHtml(item) + "</li>"; }).join("") + "</ul>";

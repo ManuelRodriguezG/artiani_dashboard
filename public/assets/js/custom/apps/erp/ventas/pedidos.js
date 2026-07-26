@@ -545,7 +545,7 @@
         html += "<div class=\"col-12\">Fecha maxima: <span class=\"fw-semibold\">" + escapeHtml(data.fecha_maxima_compromiso || "-") + "</span></div>";
         html += "</div>";
         if (bloqueos.length) {
-            html += "<div class=\"fw-semibold mt-3 fs-8\">Bloqueos</div><ul class=\"mb-0 ps-4\">" + bloqueos.map(function (item) { return "<li>" + escapeHtml(item) + "</li>"; }).join("") + "</ul>";
+            html += "<div class=\"fw-semibold mt-3 fs-8\">Pendientes por resolver</div><ul class=\"mb-0 ps-4\">" + bloqueos.map(function (item) { return "<li>" + escapeHtml(item) + "</li>"; }).join("") + "</ul>";
         }
         if (avisos.length) {
             html += "<div class=\"fw-semibold mt-3 fs-8\">Avisos</div><ul class=\"mb-0 ps-4\">" + avisos.map(function (item) { return "<li>" + escapeHtml(item) + "</li>"; }).join("") + "</ul>";

@@ -166,9 +166,9 @@ Semaforo consolidado ampliado:
 C:\xampp\php\php.exe storage\uat\uat_ventas_pos_cierre_ampliado_readonly.php --compact=1
 ```
 
-Resultado vigente: `ok=true`, `scripts_total=28`, `bloqueos_total=0`, decision `pos_apto_para_piloto_controlado_con_condiciones`.
+Resultado vigente: `ok=true`, `scripts_total=30`, `bloqueos_total=0`, decision `pos_apto_para_piloto_controlado_con_condiciones`.
 
-Este semaforo incluye MySQL, preflight, salida operativa, operacion basica, postcheck, navegacion, atajos, UX operativa, scanner, impresion, caja/turnos, reportes, productivo, inventario SKU, pendientes piloto, plan de accion piloto, paquete de autorizacion piloto, salida a operacion documentada, pedidos/apartados, reversa saldo favor, ticket venta, ticket devolucion, contrato CRM, listas de precios, encoding/BOM y guardrails.
+Este semaforo incluye MySQL, preflight, salida operativa, operacion basica, postcheck, navegacion, atajos, UX operativa, scanner, impresion, caja/turnos, reportes, productivo, inventario SKU, pendientes piloto, plan de accion piloto, siguiente piloto recomendado, arranque local, paquete de autorizacion piloto, salida a operacion documentada, pedidos/apartados, reversa saldo favor, ticket venta, ticket devolucion, contrato CRM, listas de precios, encoding/BOM y guardrails.
 
 Semaforo de pendientes piloto:
 
@@ -352,7 +352,7 @@ C:\xampp\php\php.exe storage\uat\uat_ventas_pos_cierre_ampliado_readonly.php --c
 
 Resultado vigente:
 
-- Cierre ampliado POS: `ok=true`, `scripts_total=28`, `bloqueos_total=0`.
+- Cierre ampliado POS: `ok=true`, `scripts_total=30`, `bloqueos_total=0`.
 - Nuevo semaforo de lenguaje operativo: `ok=true`, `avisos_total=0`.
 - Decision general: `pos_apto_para_piloto_controlado_con_condiciones`.
 
@@ -379,7 +379,7 @@ Resultado vigente:
 
 - Sintaxis PHP: sin errores.
 - Busqueda acotada en vistas/JS de Ventas: sin textos visibles `read-only`, `dry-run`, `AUTORIZO` o `respaldo`.
-- Cierre ampliado POS: `ok=true`, `scripts_total=28`, `bloqueos_total=0`, decision `pos_apto_para_piloto_controlado_con_condiciones`.
+- Cierre ampliado POS: `ok=true`, `scripts_total=30`, `bloqueos_total=0`, decision `pos_apto_para_piloto_controlado_con_condiciones`.
 
 ## Corte 2026-07-25 - Configuracion POS en semaforo operativo
 
@@ -402,7 +402,7 @@ C:\xampp\php\php.exe storage\uat\uat_ventas_pos_cierre_ampliado_readonly.php --c
 Resultado vigente:
 
 - Lenguaje operativo: `ok=true`, `archivos_revisados=18`, `bloqueos=[]`.
-- Cierre ampliado POS: `ok=true`, `scripts_total=28`, `bloqueos_total=0`, decision `pos_apto_para_piloto_controlado_con_condiciones`.
+- Cierre ampliado POS: `ok=true`, `scripts_total=30`, `bloqueos_total=0`, decision `pos_apto_para_piloto_controlado_con_condiciones`.
 
 ## Corte 2026-07-25 - Manual POS incluido en lenguaje operativo
 
@@ -423,7 +423,7 @@ C:\xampp\php\php.exe storage\uat\uat_ventas_pos_cierre_ampliado_readonly.php --c
 Resultado vigente:
 
 - Lenguaje operativo: `ok=true`, `archivos_revisados=19`, `bloqueos=[]`.
-- Cierre ampliado POS: `ok=true`, `scripts_total=28`, `bloqueos_total=0`, decision `pos_apto_para_piloto_controlado_con_condiciones`.
+- Cierre ampliado POS: `ok=true`, `scripts_total=30`, `bloqueos_total=0`, decision `pos_apto_para_piloto_controlado_con_condiciones`.
 
 ## Corte 2026-07-25 - pendientes piloto actualizados
 
@@ -449,7 +449,7 @@ Resultado vigente:
 - Pendientes piloto: `ok=true`, `pendientes_total=4`.
 - Plan de accion piloto: `ok=true`, `acciones_total=6`.
 - Documentos POS vigentes: `ok=true`, `bloqueos=[]`.
-- Cierre ampliado POS: `ok=true`, `scripts_total=28`, `bloqueos_total=0`, decision `pos_apto_para_piloto_controlado_con_condiciones`.
+- Cierre ampliado POS: `ok=true`, `scripts_total=30`, `bloqueos_total=0`, decision `pos_apto_para_piloto_controlado_con_condiciones`.
 
 ## Corte 2026-07-25 - limpieza de contratos internos de Ventas
 
@@ -469,7 +469,7 @@ C:\xampp\php\php.exe storage\uat\uat_ventas_pos_cierre_ampliado_readonly.php --c
 Resultado vigente:
 
 - Sintaxis controlador Ventas: sin errores.
-- Cierre ampliado POS: `ok=true`, `scripts_total=28`, `bloqueos_total=0`, decision `pos_apto_para_piloto_controlado_con_condiciones`.
+- Cierre ampliado POS: `ok=true`, `scripts_total=30`, `bloqueos_total=0`, decision `pos_apto_para_piloto_controlado_con_condiciones`.
 
 ## Corte 2026-07-25 - lenguaje operativo visible POS/Listas
 
@@ -497,7 +497,7 @@ C:\xampp\php\php.exe storage\uat\uat_ventas_pos_cierre_ampliado_readonly.php --c
 Resultado vigente:
 
 - Lenguaje operativo visible: `ok=true`, `archivos_revisados=19`, `bloqueos=[]`.
-- Cierre ampliado POS: `ok=true`, `scripts_total=28`, `bloqueos_total=0`, decision `pos_apto_para_piloto_controlado_con_condiciones`.
+- Cierre ampliado POS: `ok=true`, `scripts_total=30`, `bloqueos_total=0`, decision `pos_apto_para_piloto_controlado_con_condiciones`.
 
 ## Corte 2026-07-25 - semaforo de operacion basica POS
 
@@ -512,11 +512,354 @@ Validaciones ejecutadas:
 
 ```powershell
 C:\xampp\php\php.exe -l storage\uat\uat_ventas_pos_operacion_basica_readonly.php
-C:\xampp\php\php.exe storage\uat\uat_ventas_pos_operacion_basica_readonly.php --id_usuario=1 --id_almacen=5 --id_sku=1760 --cantidad=1 --compact=1
+C:\xampp\php\php.exe storage\uat\uat_ventas_pos_operacion_basica_readonly.php --id_usuario=1 --id_almacen=5 --id_sku=1760 --cantidad=1 --usuarios=1,2,3 --compact=1
 ```
+
+Ampliacion multiusuario:
+
+- El semaforo acepta `--usuarios=1,2,3`.
+- Reporta si cada operador tiene asignacion POS y si coincide con el almacen, caja y terminal base.
+- No crea usuarios, no cambia permisos y no reasigna cajas; solo consulta.
 
 Resultado vigente:
 
 - Operacion basica: `puede_cobrar_ahora=false` por falta de turno abierto y stock insuficiente para SKU `1760`.
 - Ticket efectivo: configurado para `ARTIANI`, ancho `80`.
 - Avisos administrativos: `PINV-20260717-000001` y `GASTO-UAT-001`.
+
+## Corte 2026-07-25 - cierre ampliado con timeout por semaforo
+
+Se reforzo `storage/uat/uat_ventas_pos_cierre_ampliado_readonly.php` para que cada semaforo interno tenga limite de ejecucion.
+
+Objetivo operativo:
+
+- Evitar que el cierre ampliado se quede esperando indefinidamente si MySQL, un endpoint o una consulta se vuelve lenta.
+- Permitir `--timeout_script=N`; default `8` segundos.
+- Reportar `timeout=true` por script cuando aplique.
+- Si MySQL no responde por puerto local, omitir semaforos dependientes de BD y conservar checks de archivos/UI que no escriben.
+
+Validaciones ejecutadas:
+
+```powershell
+C:\xampp\php\php.exe -l storage\uat\uat_ventas_pos_cierre_ampliado_readonly.php
+C:\xampp\php\php.exe storage\uat\uat_ventas_pos_cierre_ampliado_readonly.php --compact=1 --timeout_script=2
+C:\xampp\php\php.exe storage\uat\uat_ventas_pos_cierre_ampliado_readonly.php --compact=1
+```
+
+Resultado vigente con timeout normal:
+
+- `ok=true`.
+- `scripts_total=30`.
+- `timeout_script_segundos=8`.
+- `mysql_disponible=true`.
+- `bloqueos_total=0`.
+- `decision=pos_apto_para_piloto_controlado_con_condiciones`.
+
+## Corte 2026-07-25 - lenguaje operativo en Caja/Turnos
+
+Se limpio la revision operativa visible en `Ventas > Caja y turnos`.
+
+Cambios:
+
+- `VentasErp::readinessPosReadOnly()` ya no devuelve textos visibles con `dry-run`; usa `revisar`, `validar` y `pendiente de validar`.
+- `public/assets/js/custom/apps/erp/ventas/caja_turnos.js` explica que la revision solo consulta condiciones, sin cerrar turno ni crear movimientos.
+- No se cambiaron endpoints, nombres internos ni contratos de seguridad.
+
+Validaciones ejecutadas:
+
+```powershell
+C:\xampp\php\php.exe -l app\modelos\VentasErp.php
+C:\Users\aleja\AppData\Local\Programs\nodejs-portable-v24.16.0\node.exe --check public\assets\js\custom\apps\erp\ventas\caja_turnos.js
+C:\xampp\php\php.exe storage\uat\uat_ventas_pos_lenguaje_operativo_readonly.php
+```
+
+Resultado:
+
+- Sintaxis PHP y JS sin errores.
+- Semaforo de lenguaje operativo: `ok=true`, `bloqueos=[]`.
+
+## Corte 2026-07-25 - semaforo diario en Manual POS
+
+Se agrego al `Manual POS` un bloque operativo de arranque diario.
+
+Objetivo:
+
+- Que el responsable de tienda pueda revisar condiciones antes de cobrar sin interpretar scripts.
+- Explicar turno, operadores, inventario y ticket como semaforo de uso diario.
+- Aclarar el estado vigente: usuarios `1`, `2` y `3` listos en la misma caja; falta abrir turno y usar stock disponible o flujo autorizado para el SKU piloto.
+
+Validaciones ejecutadas:
+
+```powershell
+C:\xampp\php\php.exe -l app\vistas\paginas\apps\erp\ventas\manual_pos.php
+C:\xampp\php\php.exe storage\uat\uat_ventas_pos_lenguaje_operativo_readonly.php
+C:\xampp\php\php.exe storage\uat\uat_ventas_pos_docs_estado_vigente_readonly.php
+```
+
+Resultado:
+
+- Sintaxis del manual sin errores.
+- Lenguaje operativo visible: `ok=true`.
+- Documentos POS vigentes: `ok=true`.
+
+## Corte 2026-07-25 - atajos visibles POS
+
+Se reforzo la pantalla `/ventas/pos` para que los atajos operativos no dependan solo del manual.
+
+Cambios:
+
+- Junto al buscador se muestra una tira compacta con atajos frecuentes: buscar `F2`, camara `F3`, cliente `F4` y pago `F6`.
+- El boton de camara del POS indica `F3` de forma visible.
+- Se mantiene separado del `Checador de precios`: el checador es consulta read-only; la camara del POS agrega producto a la cuenta actual solo si hay coincidencia unica.
+- En subpantallas administrativas se cambio el encabezado visible `Bloqueos` por `Pendientes por resolver` cuando se muestra el detalle de una validacion.
+- No se cambio backend, no se abrieron turnos, no se cobro y no se movio inventario.
+
+Validaciones previstas/ejecutables:
+
+```powershell
+C:\xampp\php\php.exe -l app\vistas\paginas\apps\erp\ventas\pos.php
+C:\Users\aleja\AppData\Local\Programs\nodejs-portable-v24.16.0\node.exe --check public\assets\js\custom\apps\erp\ventas\devoluciones.js
+C:\Users\aleja\AppData\Local\Programs\nodejs-portable-v24.16.0\node.exe --check public\assets\js\custom\apps\erp\ventas\pedidos.js
+C:\Users\aleja\AppData\Local\Programs\nodejs-portable-v24.16.0\node.exe --check public\assets\js\custom\apps\erp\ventas\listas_precios.js
+C:\Users\aleja\AppData\Local\Programs\nodejs-portable-v24.16.0\node.exe --check public\assets\js\custom\apps\erp\ventas\listas_precios_inicio.js
+C:\xampp\php\php.exe storage\uat\uat_ventas_pos_ux_operativa_readiness_readonly.php
+C:\xampp\php\php.exe storage\uat\uat_ventas_pos_cierre_ampliado_readonly.php --compact=1 --timeout_script=12
+```
+
+## Corte 2026-07-25 - acciones POS abiertas y etiquetas operativas
+
+Se ajusto `/ventas/pos` para que el operador no dependa de un menu escondido al atender.
+
+Cambios:
+
+- Las acciones `Revisar venta`, `Revisar apartado`, `Venta con faltante`, `Pedidos`, `Caja`, `Movimientos`, `Evidencias` y `Reportes` quedan visibles en la barra superior.
+- Se elimino el dropdown `Mas` de esa barra para evitar pasos extra durante mostrador.
+- El pago `Saldo cliente` muestra atajo visible `Alt+4` y el JS lo ejecuta igual que efectivo/tarjeta/transferencia.
+- Los botones de salida de inventario en carrito ahora dicen `Stock general`, `Unidad cerrada` y `Granel`, conservando los valores internos usados por backend.
+- `Stock general` se explica como descuento del stock disponible de la tienda.
+- No se cambio backend, no se abrio turno, no se cobro y no se movio inventario.
+
+Validaciones ejecutadas:
+
+```powershell
+C:\xampp\php\php.exe -l app\vistas\paginas\apps\erp\ventas\pos.php
+C:\Users\aleja\AppData\Local\Programs\nodejs-portable-v24.16.0\node.exe --check public\assets\js\custom\apps\erp\ventas\pos.js
+C:\xampp\php\php.exe storage\uat\uat_ventas_pos_ux_operativa_readiness_readonly.php
+C:\xampp\php\php.exe storage\uat\uat_ventas_pos_lenguaje_operativo_readonly.php
+```
+
+Resultado:
+
+- Sintaxis PHP y JS sin errores.
+- UX operativa: `ok=true`, `bloqueos=[]`.
+- Lenguaje operativo visible: `ok=true`, `bloqueos=[]`.
+
+## Corte 2026-07-25 - traduccion operativa de validaciones POS
+
+Se agrego una capa de lenguaje en `public/assets/js/custom/apps/erp/ventas/pos.js`.
+
+Objetivo:
+
+- Evitar que el operador vea mensajes tecnicos como `BLOQUEO`, `politica POS` o instrucciones internas cuando esta atendiendo.
+- Mantener la regla real en backend, pero mostrar en pantalla una accion clara: abrir turno, usar `Venta con faltante`, cargar inventario autorizado o resolver pendiente.
+- Mostrar los detalles bajo el encabezado `Pendientes por resolver`.
+- No modificar ticket cliente, backend, permisos, caja, inventario ni endpoints.
+
+Validaciones ejecutadas:
+
+```powershell
+C:\Users\aleja\AppData\Local\Programs\nodejs-portable-v24.16.0\node.exe --check public\assets\js\custom\apps\erp\ventas\pos.js
+C:\xampp\php\php.exe storage\uat\uat_ventas_pos_ux_operativa_readiness_readonly.php
+C:\xampp\php\php.exe storage\uat\uat_ventas_pos_lenguaje_operativo_readonly.php
+```
+
+Resultado:
+
+- UX operativa: `ok=true`, `bloqueos=[]`.
+- Lenguaje operativo visible: `ok=true`, `bloqueos=[]`.
+
+## Corte 2026-07-25 - preflight compacto con SKU recomendado
+
+Se amplio `storage/uat/uat_ventas_pos_piloto_preflight_compacto_readonly.php`.
+
+Cambios:
+
+- El preflight compacto ahora integra el resultado de `uat_ventas_pos_siguiente_piloto_readonly.php`.
+- Si el SKU preferido `1760` sigue sin stock, propone el SKU recomendado con stock/precio.
+- Resultado vigente: SKU recomendado `173`, precio `1000`, disponible `1000`, paso practico `abrir turno y vender SKU 173`.
+- No escribe BD, no abre turno, no cobra, no mueve caja y no mueve inventario.
+
+Se agrego `storage/uat/uat_ventas_pos_piloto_paquete_recomendado_readonly.php`.
+
+Objetivo:
+
+- Preparar autorizaciones humanas para una prueba limpia sin cargar stock UAT.
+- Pasos vigentes: abrir turno, vender SKU recomendado `173`, cerrar turno.
+- Monto sugerido: inicial `500` + venta `1000` = contado sugerido `1500`.
+
+Validaciones ejecutadas:
+
+```powershell
+C:\xampp\php\php.exe -l storage\uat\uat_ventas_pos_piloto_preflight_compacto_readonly.php
+C:\xampp\php\php.exe storage\uat\uat_ventas_pos_piloto_preflight_compacto_readonly.php
+C:\xampp\php\php.exe -l storage\uat\uat_ventas_pos_piloto_paquete_recomendado_readonly.php
+C:\xampp\php\php.exe storage\uat\uat_ventas_pos_piloto_paquete_recomendado_readonly.php --id_usuario=1 --id_almacen=5 --id_sku=1760 --cantidad=1 --monto_inicial=500 --usuarios=1,2,3
+C:\xampp\php\php.exe storage\uat\uat_ventas_pos_cierre_ampliado_readonly.php --compact=1 --timeout_script=12
+```
+
+Resultado:
+
+- Preflight compacto: `ok=true`, `puede_iniciar_piloto_controlado=true`.
+- Paquete recomendado: `ok=true`, `decision=paquete_recomendado_preparado`, `pasos_total=3`.
+- Cierre ampliado POS: `ok=true`, `scripts_total=30`, `bloqueos_total=0`.
+
+## Corte 2026-07-25 - SKU alternativo para piloto sin cargar stock
+
+Se busco un SKU con existencia disponible en almacen `5` para evitar depender siempre del SKU piloto `1760`.
+
+Hallazgo:
+
+- SKU ERP `173`, codigo `ALI-GLOGDM`, producto `Alimento vivo grillo por millar`.
+- Disponible en almacen `5`: `1000`.
+- Existencia `EXI-77-38`, estatus `disponible`.
+- Pendientes POS abiertos para ese SKU/almacen: `0`.
+
+Preflight con `id_sku=173`, `cantidad=1`, `precio=1000`, `pago=1000`:
+
+- Inventario cubre la cantidad requerida.
+- Pago cubre el total estimado.
+- El unico bloqueo duro para venta normal es no tener turno abierto.
+- Queda como alternativa para piloto controlado sin cargar stock adicional.
+
+Validaciones ejecutadas:
+
+```powershell
+C:\xampp\php\php.exe storage\uat\uat_ventas_pos_stock_candidatos_readonly.php --id_almacen=5 --limite=10
+C:\xampp\php\php.exe storage\uat\uat_ventas_pos_inventario_sku_readonly.php --id_almacen=5 --id_sku=173 --cantidad=1
+C:\xampp\php\php.exe storage\uat\uat_ventas_pos_venta_preflight_readonly.php --id_usuario=1 --id_almacen=5 --id_sku=173 --cantidad=1 --precio=1000 --pago=1000
+C:\xampp\php\php.exe storage\uat\uat_ventas_pos_operacion_basica_readonly.php --id_usuario=1 --id_almacen=5 --id_sku=173 --usuarios=1,2,3 --compact=1
+C:\xampp\php\php.exe storage\uat\uat_ventas_pos_siguiente_piloto_readonly.php --id_usuario=1 --id_almacen=5 --id_sku=1760 --cantidad=1 --monto_inicial=500 --usuarios=1,2,3
+```
+
+## Corte 2026-07-25 - manual POS con decision rapida
+
+Se reforzo `Ventas > Manual POS` para reducir dudas de mostrador sin tocar BD ni endpoints.
+
+Cambios:
+
+- Se agrego matriz `Decision rapida en mostrador` para distinguir POS normal, venta con faltante, venta rapida controlada, checador de precios, pedidos/apartados y devoluciones.
+- Se agrego bloque `Minimo para iniciar en local` con condiciones basicas: usuarios asignados, ticket configurado, turno abierto, venta normal con stock, venta rapida solo para productos no capturados e inventario pendiente solo con politica aprobada.
+- Venta rapida ahora deja claro que agregar al carrito no genera alerta; el pendiente `VRP` nace hasta cobrar.
+- Inventario pendiente ahora deja claro que la alerta real se crea al cobrar, con folio, operador, caja, pago y motivo.
+
+Validaciones ejecutadas:
+
+```powershell
+C:\xampp\php\php.exe -l app\vistas\paginas\apps\erp\ventas\manual_pos.php
+C:\xampp\php\php.exe -l storage\uat\uat_ventas_pos_ux_operativa_readiness_readonly.php
+C:\xampp\php\php.exe storage\uat\uat_ventas_pos_ux_operativa_readiness_readonly.php
+```
+
+Resultado:
+
+- Manual POS: sintaxis `ok`.
+- UX operativa: `ok=true`, `bloqueos=[]`.
+
+## Corte 2026-07-25 - semaforo de arranque local
+
+Se agrego `storage/uat/uat_ventas_pos_arranque_local_readonly.php`.
+
+Objetivo:
+
+- Dar una salida diaria simple para iniciar POS en local sin leer multiples semaforos tecnicos.
+- Consolidar operacion basica, siguiente SKU recomendado, paquete recomendado, UX/manual, ticket y docs vigentes.
+- Mostrar pasos del operador: abrir turno, vender, prevalidar, cobrar, revisar ticket y cerrar con monto contado real.
+- Mantener contrato read-only: no abre turno, no cobra, no crea pedidos, no resuelve pendientes y no mueve caja/inventario.
+
+Resultado vigente:
+
+- `ok=true`.
+- Decision: `listo_para_arrancar_al_abrir_turno`.
+- Ticket configurado: `true`.
+- SKU preferido `1760` sin stock; SKU recomendado limpio `173`.
+- Cierre ampliado POS: `ok=true`, `scripts_total=30`, `bloqueos_total=0`.
+
+## Corte 2026-07-25 - arranque local visible en Caja/Turnos
+
+Se ajusto `Ventas > Caja y turnos` para que la revision operativa sea entendible como semaforo diario.
+
+Cambios:
+
+- La tarjeta ahora se llama `Arranque local POS`.
+- El boton dice `Validar arranque`.
+- El SKU de referencia carga por defecto `1760` para que la revision no salga vacia.
+- El backend `VentasErp::readinessPosReadOnly()` ahora consulta configuracion efectiva de ticket aunque no exista folio de venta.
+- El readiness agrega `ticket_configurado`, `ticket_nombre_comercial`, `ticket_ancho_mm`, `stock_disponible_sku` y `stock_cubre_cantidad`.
+- La UI muestra KPIs de turno, ticket, stock del SKU y devoluciones fisicas.
+- Todo se mantiene read-only: no abre turno, no cierra turno, no cobra, no reserva y no mueve kardex.
+
+Validaciones ejecutadas:
+
+```powershell
+C:\xampp\php\php.exe -l app\modelos\VentasErp.php
+C:\xampp\php\php.exe -l app\vistas\paginas\apps\erp\ventas\caja_turnos.php
+node --check public\assets\js\custom\apps\erp\ventas\caja_turnos.js
+C:\xampp\php\php.exe storage\uat\uat_ventas_pos_caja_turnos_ui_readiness_readonly.php
+C:\xampp\php\php.exe storage\uat\uat_ventas_pos_arranque_local_readonly.php --id_usuario=1 --id_almacen=5 --id_sku=1760 --cantidad=1 --monto_inicial=500 --usuarios=1,2,3
+C:\xampp\php\php.exe storage\uat\uat_ventas_pos_cierre_ampliado_readonly.php --compact=1 --timeout_script=12
+```
+
+Resultado:
+
+- Caja/Turnos UI readiness: `ok=true`, sin bloqueos.
+- Arranque local: `ok=true`, decision `listo_para_arrancar_al_abrir_turno`.
+- Cierre ampliado POS: `ok=true`, `scripts_total=30`, `bloqueos_total=0`.
+
+## Corte 2026-07-25 - ticket preview sin mensajes internos
+
+Se ajusto `public/assets/js/custom/apps/erp/ventas/pos.js` para separar con claridad el comprobante del cliente de las validaciones operativas.
+
+Cambios:
+
+- `actualizarModalTicket()` aplica `limpiarTicketCliente()` antes de mostrar o imprimir el texto del ticket.
+- La vista previa de ticket mantiene los avisos de turno/inventario/politica fuera del comprobante, como `Avisos para operador`.
+- Se filtran lineas internas como `BLOQUEO`, politica POS de inventario pendiente, tokens o respaldo para evitar que aparezcan en el ticket mostrado al cliente.
+- El ajuste no cambia ventas, pagos, inventario, folios, kardex ni configuracion de ticket en BD.
+
+Validaciones ejecutadas:
+
+```powershell
+node --check public\assets\js\custom\apps\erp\ventas\pos.js
+C:\xampp\php\php.exe -l storage\uat\uat_ventas_pos_ux_operativa_readiness_readonly.php
+C:\xampp\php\php.exe storage\uat\uat_ventas_pos_ux_operativa_readiness_readonly.php
+```
+
+Resultado:
+
+- JS POS: sintaxis `ok`.
+- UX operativa: `ok=true`, sin bloqueos.
+
+## Corte 2026-07-25 - metodos de pago en ticket preview
+
+Se ajusto `VentasErp::ticketPreviewDryRun()` para que la vista previa del ticket muestre el nombre del metodo de pago cuando el navegador envia solo `id_metodo_pago`.
+
+Cambios:
+
+- El preview usa los pagos ya prevalididados cuando existen.
+- Si no vienen pagos prevalididados, `pagosPreviewConEtiqueta()` resuelve el nombre desde `erp_metodos_pago` en modo read-only.
+- Saldo cliente conserva su etiqueta operativa como pago sin caja.
+- No registra pagos, no crea movimientos de caja, no cobra y no modifica ventas.
+
+Validaciones ejecutadas:
+
+```powershell
+C:\xampp\php\php.exe -l app\modelos\VentasErp.php
+C:\xampp\php\php.exe storage\uat\uat_ventas_pos_cierre_ampliado_readonly.php --compact=1 --timeout_script=12
+C:\xampp\php\php.exe storage\uat\uat_ventas_pos_docs_estado_vigente_readonly.php
+```
+
+Resultado:
+
+- Modelo VentasErp: sintaxis `ok`.
+- Cierre ampliado POS: `ok=true`, `scripts_total=30`, `bloqueos_total=0`.
+- Documentos POS vigentes: `ok=true`.

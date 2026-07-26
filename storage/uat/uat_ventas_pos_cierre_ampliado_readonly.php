@@ -12,11 +12,27 @@ $root = dirname(__DIR__, 2);
 $php = "C:\\xampp\\php\\php.exe";
 $args = parseArgs($argv);
 $compacto = !empty($args["compact"]);
+$timeoutScript = isset($args["timeout_script"]) ? max(2, (int) $args["timeout_script"]) : 8;
+$mysqlDisponible = mysqlDisponible();
+$scriptsSinMysql = array(
+    "mysql_health" => true,
+    "operacion_basica" => true,
+    "navegacion" => true,
+    "atajos" => true,
+    "ux_operativa" => true,
+    "escaner" => true,
+    "impresion" => true,
+    "caja_turnos" => true,
+    "salida_operacion_doc" => true,
+    "encoding_bom" => true,
+    "lenguaje_operativo" => true,
+    "guardrails" => true,
+);
 $scripts = array(
     "mysql_health" => "storage\\uat\\uat_ventas_pos_mysql_health_readonly.php",
     "preflight_piloto" => "storage\\uat\\uat_ventas_pos_piloto_preflight_compacto_readonly.php",
     "salida_operativa" => "storage\\uat\\uat_ventas_pos_salida_operativa_readiness_readonly.php --id_usuario=1 --id_almacen=5 --id_caja=2 --id_terminal=2 --id_sku=1760 --id_atencion=2 --cantidad=1 --usuarios=1,2,3 --compact=1",
-    "operacion_basica" => "storage\\uat\\uat_ventas_pos_operacion_basica_readonly.php --id_usuario=1 --id_almacen=5 --id_sku=1760 --cantidad=1",
+    "operacion_basica" => "storage\\uat\\uat_ventas_pos_operacion_basica_readonly.php --id_usuario=1 --id_almacen=5 --id_sku=1760 --cantidad=1 --usuarios=1,2,3 --compact=1",
     "postcheck_piloto" => "storage\\uat\\uat_ventas_pos_piloto_postcheck_compacto_readonly.php --id_usuario=1 --id_almacen=5 --id_sku=1760",
     "navegacion" => "storage\\uat\\uat_ventas_pos_navegacion_readiness_readonly.php",
     "atajos" => "storage\\uat\\uat_ventas_pos_atajos_ui_readiness_readonly.php",
@@ -29,6 +45,8 @@ $scripts = array(
     "inventario_sku" => "storage\\uat\\uat_ventas_pos_inventario_sku_readonly.php --id_almacen=5 --id_sku=1760 --cantidad=1",
     "pendientes_piloto" => "storage\\uat\\uat_ventas_pos_pendientes_piloto_readonly.php --id_almacen=5 --id_sku=1760 --usuarios=1,2,3",
     "plan_accion_piloto" => "storage\\uat\\uat_ventas_pos_piloto_plan_accion_readonly.php --id_usuario=1 --id_almacen=5 --id_sku=1760 --cantidad=1 --precio=295 --monto_inicial=500 --usuarios=1,2,3",
+    "siguiente_piloto" => "storage\\uat\\uat_ventas_pos_siguiente_piloto_readonly.php --id_usuario=1 --id_almacen=5 --id_sku=1760 --cantidad=1 --monto_inicial=500 --usuarios=1,2,3",
+    "arranque_local" => "storage\\uat\\uat_ventas_pos_arranque_local_readonly.php --id_usuario=1 --id_almacen=5 --id_sku=1760 --cantidad=1 --monto_inicial=500 --usuarios=1,2,3",
     "paquete_autorizacion_piloto" => "storage\\uat\\uat_ventas_pos_piloto_paquete_autorizacion_readonly.php --id_usuario=1 --id_almacen=5 --id_sku=1760 --cantidad=1 --precio=295 --monto_inicial=500 --cantidad_fisica=CONTEO_REAL --monto_contado=MONTO_CONTADO_REAL",
     "salida_operacion_doc" => "storage\\uat\\uat_ventas_pos_salida_operacion_doc_readonly.php",
     "pedidos_apartados" => "storage\\uat\\uat_ventas_pos_pedidos_apartados_readonly.php",
@@ -48,7 +66,9 @@ $bloqueos = array();
 $avisos = array();
 
 foreach ($scripts as $clave => $script) {
-    $resultado = ejecutarScript($php, $root, $script);
+    $resultado = (!$mysqlDisponible && empty($scriptsSinMysql[$clave]))
+        ? resultadoOmitidoSinMysql($script)
+        : ejecutarScript($php, $root, $script, $timeoutScript);
     $resultados[$clave] = $resultado;
     if (!$resultado["ok"]) {
         $bloqueos[] = $clave . ": " . $resultado["mensaje"];
@@ -67,6 +87,8 @@ $respuesta = array(
     "host" => "panel.com.local",
     "resumen" => array(
         "scripts_total" => count($scripts),
+        "timeout_script_segundos" => $timeoutScript,
+        "mysql_disponible" => $mysqlDisponible,
         "bloqueos_total" => count($bloqueos),
         "avisos_total" => count($avisos),
         "decision" => empty($bloqueos) ? "pos_apto_para_piloto_controlado_con_condiciones" : "pos_requiere_atencion_previa",
@@ -95,17 +117,71 @@ $respuesta = array(
 echo json_encode($respuesta, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) . PHP_EOL;
 exit(empty($bloqueos) ? 0 : 1);
 
-function ejecutarScript($php, $root, $script)
+function ejecutarScript($php, $root, $script, $timeoutScript)
 {
     $cmd = '"' . $php . '" ' . $script;
-    $cwd = getcwd();
-    chdir($root);
-    $output = array();
-    $exitCode = 1;
-    exec($cmd . " 2>&1", $output, $exitCode);
-    chdir($cwd);
+    $descriptores = array(
+        0 => array("pipe", "r"),
+        1 => array("pipe", "w"),
+        2 => array("pipe", "w"),
+    );
+    $proceso = proc_open($cmd, $descriptores, $pipes, $root);
+    if (!is_resource($proceso)) {
+        return array(
+            "ok" => false,
+            "exit_code" => 1,
+            "script" => $script,
+            "mensaje" => "No se pudo iniciar el semaforo",
+            "avisos" => array(),
+            "json" => null,
+            "salida_no_json" => "",
+            "timeout" => false,
+        );
+    }
 
-    $texto = trim(implode("\n", $output));
+    fclose($pipes[0]);
+    stream_set_blocking($pipes[1], false);
+    stream_set_blocking($pipes[2], false);
+
+    $stdout = "";
+    $stderr = "";
+    $inicio = microtime(true);
+    $timeout = false;
+    while (true) {
+        $estado = proc_get_status($proceso);
+        $stdout .= stream_get_contents($pipes[1]);
+        $stderr .= stream_get_contents($pipes[2]);
+        if (!$estado["running"]) {
+            break;
+        }
+        if ((microtime(true) - $inicio) >= $timeoutScript) {
+            $timeout = true;
+            proc_terminate($proceso);
+            break;
+        }
+        usleep(100000);
+    }
+
+    $stdout .= stream_get_contents($pipes[1]);
+    $stderr .= stream_get_contents($pipes[2]);
+    fclose($pipes[1]);
+    fclose($pipes[2]);
+    $exitCode = proc_close($proceso);
+
+    if ($timeout) {
+        return array(
+            "ok" => false,
+            "exit_code" => -1,
+            "script" => $script,
+            "mensaje" => "Tiempo agotado al consultar semaforo",
+            "avisos" => array("El semaforo supero " . $timeoutScript . " segundos; revisar servicio MySQL o dependencias."),
+            "json" => null,
+            "salida_no_json" => trim($stdout . "\n" . $stderr),
+            "timeout" => true,
+        );
+    }
+
+    $texto = trim($stdout . "\n" . $stderr);
     $json = json_decode($texto, true);
     $okJson = is_array($json);
     $avisos = array();
@@ -121,6 +197,38 @@ function ejecutarScript($php, $root, $script)
         "avisos" => $avisos,
         "json" => $okJson ? resumenJson($json) : null,
         "salida_no_json" => $okJson ? "" : $texto,
+        "timeout" => false,
+    );
+}
+
+function mysqlDisponible()
+{
+    $errno = 0;
+    $errstr = "";
+    $socket = @fsockopen("127.0.0.1", 3306, $errno, $errstr, 1.0);
+    if (is_resource($socket)) {
+        fclose($socket);
+        return true;
+    }
+    return false;
+}
+
+function resultadoOmitidoSinMysql($script)
+{
+    return array(
+        "ok" => false,
+        "exit_code" => 0,
+        "script" => $script,
+        "mensaje" => "Omitido porque MySQL no esta disponible",
+        "avisos" => array("No se ejecuto este semaforo porque depende de base de datos."),
+        "json" => array(
+            "ok" => false,
+            "modo" => "omitido_sin_mysql",
+            "decision" => "levantar_mysql_y_repetir",
+        ),
+        "salida_no_json" => "",
+        "timeout" => false,
+        "omitido_sin_mysql" => true,
     );
 }
 
@@ -192,6 +300,8 @@ function resumenResultados($resultados)
             "ok" => !empty($resultado["ok"]),
             "exit_code" => isset($resultado["exit_code"]) ? (int) $resultado["exit_code"] : null,
             "mensaje" => isset($resultado["mensaje"]) ? $resultado["mensaje"] : "",
+            "timeout" => !empty($resultado["timeout"]),
+            "omitido_sin_mysql" => !empty($resultado["omitido_sin_mysql"]),
             "avisos_total" => !empty($resultado["avisos"]) && is_array($resultado["avisos"]) ? count($resultado["avisos"]) : 0,
         );
     }

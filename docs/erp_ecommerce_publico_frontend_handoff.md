@@ -47,6 +47,8 @@ Notas:
 - `docs/erp_ecommerce_publico_frontend_snapshot_vivo.md`
 - `docs/erp_ecommerce_publico_expansion_catalogo_plan.md`
 - `docs/erp_ecommerce_publico_expansion_6_productos_runbook.md`
+- `docs/erp_ecommerce_publico_api_canales_partners.md`
+- `docs/erp_ecommerce_publico_partner_activacion_checklist.md`
 - `docs/erp_ecommerce_publico_seguridad_api_futura.md`
 - `docs/erp_ecommerce_publico_seo_frontend.md`
 - `docs/erp_ecommerce_publico_frontend_AGENTS_template.md`
@@ -83,6 +85,27 @@ Uso:
 - valida WhatsApp y `cotizacion_dryrun`;
 - valida que el preview de expansion pueda mostrar 6 tarjetas;
 - devuelve `senal_entregable_frontend=verde_entregable_frontend` cuando el frontend puede avanzar.
+
+## Plan API partners
+
+Comando read-only:
+
+```bash
+C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_partner_api_plan_readonly.php --base=http://panel.com.local --origin=http://artiani.com.local --partner_origin=https://partner.example.com
+```
+
+Uso:
+
+- confirma que Artiani sigue verde;
+- muestra tablas faltantes para canales/API keys;
+- propone scopes y guardrails para partner mayorista;
+- no genera secretos ni aplica DDL.
+
+Checklist:
+
+```text
+docs/erp_ecommerce_publico_partner_activacion_checklist.md
+```
 
 ## Snapshot vivo
 

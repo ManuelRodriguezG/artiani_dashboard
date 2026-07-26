@@ -79,13 +79,23 @@ $checks = array(
     "modelo_cierre_real_transaccional" => strpos($model, "public function cerrarTurnoRealPos") !== false
         && strpos($model, "CERRAR TURNO") !== false,
     "vista_caja_turnos_productiva" => strpos($view, "Abrir/cerrar real exige confirmacion") !== false
-        && strpos($view, "20260725-operativo1") !== false,
+        && strpos($view, "20260725-operativo1") !== false
+        && strpos($view, "Arranque local POS") !== false
+        && strpos($view, "Validar arranque") !== false,
     "js_apertura_real_ui" => strpos($js, "/ventas/turno_apertura_real_erp") !== false
         && strpos($js, "function abrirTurnoReal") !== false
         && strpos($js, "ABRIR TURNO") !== false,
     "js_cierre_real_ui" => strpos($js, "/ventas/turno_cierre_real_erp") !== false
         && strpos($js, "function cerrarTurnoReal") !== false
         && strpos($js, "CERRAR TURNO") !== false,
+    "js_arranque_local_ui" => strpos($js, "Arranque local consultado") !== false
+        && strpos($js, "ticket_configurado") !== false
+        && strpos($js, "stock_disponible_sku") !== false
+        && strpos($js, "stock_cubre_cantidad") !== false,
+    "modelo_readiness_arranque_local" => strpos($model, "ticketConfiguracionEfectivaReadOnly") !== false
+        && strpos($model, "stock_disponible_sku") !== false
+        && strpos($model, "stock_cubre_cantidad") !== false
+        && strpos($model, "Ticket POS sin configuracion efectiva") !== false,
     "asignacion_oficial_activa" => !empty($depurarAsignacion["asignacion_activa"]),
     "apertura_dryrun_sin_bloqueos" => empty(valor(valor($aperturaDryRun, "depurar", array()), "bloqueos", array())),
     "apertura_bloquea_sin_confirmacion" => in_array("Escribe ABRIR TURNO para confirmar", valor(valor($aperturaSinConfirmacion, "depurar", array()), "bloqueos", array()), true),

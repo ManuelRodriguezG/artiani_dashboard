@@ -24,9 +24,14 @@ $idUsuario = entero($args, "id_usuario", 1);
 $idAlmacen = entero($args, "id_almacen", 5);
 $idSku = entero($args, "id_sku", 1760);
 $cantidad = decimal($args, "cantidad", 1);
+$usuarios = listaEnteros(valor($args, "usuarios", (string) $idUsuario));
 
 $db = (new UatVentasPosOperacionBasicaDb())->db();
 $ventas = new VentasErp();
+
+if (!$db instanceof PDO) {
+    responderSinConexion($compacto, $idUsuario, $idAlmacen, $idSku, $cantidad, $usuarios);
+}
 
 $tablas = array(
     "erp_pos_cajas",
@@ -61,6 +66,7 @@ $asignacion = $ventas->asignacionActualTerminalPos(array("id_usuario" => $idUsua
 $asignacionDepurar = valor($asignacion, "depurar", array());
 $asignacionActual = valor($asignacionDepurar, "asignacion", null);
 $turnoActual = valor($asignacionDepurar, "turno_abierto", null);
+$operadores = operadoresPos($ventas, $usuarios, $idAlmacen, $asignacionActual);
 
 if (empty($asignacionActual)) {
     $bloqueos[] = "Usuario sin tienda/caja/terminal asignada.";
@@ -166,6 +172,7 @@ $respuesta = array(
     "contexto" => array(
         "asignacion" => $asignacionActual,
         "turno" => $turnoActual,
+        "operadores" => $operadores,
         "schema" => $schema
     ),
     "bloqueos" => $bloqueos,
@@ -189,6 +196,7 @@ if ($compacto) {
         "proyecto_canonico" => "C:\\xampp\\htdocs\\panel_de_control",
         "host" => "panel.com.local",
         "resumen_operativo" => $respuesta["resumen_operativo"],
+        "operadores" => $operadores,
         "bloqueos" => $bloqueos,
         "avisos" => $avisos,
         "acciones_siguientes" => array_values(array_unique($acciones)),
@@ -216,6 +224,17 @@ function entero($args, $key, $default) {
 
 function decimal($args, $key, $default) {
     return isset($args[$key]) ? (float) $args[$key] : $default;
+}
+
+function listaEnteros($valor) {
+    $salida = array();
+    foreach (explode(",", (string) $valor) as $item) {
+        $id = (int) trim($item);
+        if ($id > 0 && !in_array($id, $salida, true)) {
+            $salida[] = $id;
+        }
+    }
+    return $salida;
 }
 
 function enteroValor($valor) {
@@ -254,4 +273,85 @@ function valor($datos, $campo, $default = null) {
 
 function formatoNumero($valor) {
     return number_format((float) $valor, 2, ".", "");
+}
+
+function responderSinConexion($compacto, $idUsuario, $idAlmacen, $idSku, $cantidad, $usuarios) {
+    $respuesta = array(
+        "ok" => false,
+        "modo" => "ventas_pos_operacion_basica_consulta",
+        "consulta" => true,
+        "proyecto_canonico" => "C:\\xampp\\htdocs\\panel_de_control",
+        "host" => "panel.com.local",
+        "parametros" => array(
+            "id_usuario" => $idUsuario,
+            "id_almacen" => $idAlmacen,
+            "id_sku" => $idSku,
+            "cantidad" => $cantidad,
+            "usuarios" => $usuarios
+        ),
+        "resumen_operativo" => array(
+            "puede_cobrar_ahora" => false,
+            "decision" => "sin_conexion_bd",
+            "turno_abierto" => false,
+            "stock_disponible_sku" => null,
+            "ticket_configurado" => false,
+            "pendientes_inventario" => null,
+            "evidencias_caja_pendientes" => null,
+            "ventas_hoy" => null,
+            "total_ventas_hoy" => null
+        ),
+        "operadores" => array(),
+        "bloqueos" => array("No hay conexion disponible con MariaDB/MySQL para consultar el POS."),
+        "avisos" => array("Verifica que MySQL este levantado en XAMPP y que el host panel.com.local apunte a C:\\xampp\\htdocs\\panel_de_control."),
+        "acciones_siguientes" => array("Levantar MySQL en XAMPP y repetir el semaforo operativo."),
+        "contrato" => array(
+            "no_escribe_bd" => true,
+            "no_abre_turno" => true,
+            "no_cobra" => true,
+            "no_carga_stock" => true,
+            "no_resuelve_inventario" => true,
+            "no_mueve_caja" => true
+        )
+    );
+    if (!$compacto) {
+        $respuesta["contexto"] = array("schema" => array());
+    }
+    echo json_encode($respuesta, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) . PHP_EOL;
+    exit($compacto ? 0 : 1);
+}
+
+function operadoresPos($ventas, $usuarios, $idAlmacen, $asignacionBase) {
+    $baseCaja = enteroValor(valor($asignacionBase, "id_caja", 0));
+    $baseTerminal = enteroValor(valor($asignacionBase, "id_terminal_pos", 0));
+    $salida = array();
+    foreach ($usuarios as $idUsuario) {
+        $asignacion = $ventas->asignacionActualTerminalPos(array("id_usuario" => $idUsuario));
+        $depurar = valor($asignacion, "depurar", array());
+        $actual = valor($depurar, "asignacion", array());
+        $problemas = array();
+        if (empty($actual)) {
+            $problemas[] = "sin_asignacion_pos";
+        } else {
+            if (enteroValor(valor($actual, "id_almacen", 0)) !== (int) $idAlmacen) {
+                $problemas[] = "almacen_distinto";
+            }
+            if ($baseCaja > 0 && enteroValor(valor($actual, "id_caja", 0)) !== $baseCaja) {
+                $problemas[] = "caja_distinta";
+            }
+            if ($baseTerminal > 0 && enteroValor(valor($actual, "id_terminal_pos", 0)) !== $baseTerminal) {
+                $problemas[] = "terminal_distinta";
+            }
+        }
+        $salida[] = array(
+            "id_usuario" => $idUsuario,
+            "listo_misma_caja" => empty($problemas),
+            "id_almacen" => enteroValor(valor($actual, "id_almacen", 0)),
+            "id_caja" => enteroValor(valor($actual, "id_caja", 0)),
+            "id_terminal_pos" => enteroValor(valor($actual, "id_terminal_pos", 0)),
+            "caja" => valor($actual, "caja_nombre", ""),
+            "terminal" => valor($actual, "terminal_nombre", ""),
+            "problemas" => $problemas
+        );
+    }
+    return $salida;
 }

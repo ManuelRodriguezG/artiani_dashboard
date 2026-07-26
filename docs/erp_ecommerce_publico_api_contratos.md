@@ -234,6 +234,34 @@ Campos esperados:
 - Captcha o proteccion equivalente antes de formularios POST.
 - Logs de errores sin exponer SQL ni datos internos.
 
+## Canales y partners
+
+La API se debe preparar como multi-canal:
+
+- `frontend_propio` para Artiani;
+- `partner_mayoreo` para aliados autorizados;
+- `integracion_entregas` como futura capa separada.
+
+No entregar secretos para pegarlos en JavaScript publico. Para partners, las acciones sensibles deben firmarse desde backend con API key + HMAC.
+
+Documento vivo:
+
+```text
+docs/erp_ecommerce_publico_api_canales_partners.md
+```
+
+Plan read-only:
+
+```bash
+C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_partner_api_plan_readonly.php --base=http://panel.com.local --origin=http://artiani.com.local --partner_origin=https://partner.example.com
+```
+
+Simulador de firma:
+
+```bash
+C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_hmac_contract_readonly.php
+```
+
 ## UAT read-only
 
 Script:

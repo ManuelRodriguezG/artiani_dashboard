@@ -164,8 +164,8 @@
                                     <div class="pos-admin-card p-4 mb-4">
                                         <div class="d-flex justify-content-between align-items-start gap-3 mb-3">
                                             <div>
-                                                <div class="fw-bold fs-5">Revision operativa POS</div>
-                                                <div class="text-muted fs-7">Revision consolidada sin cerrar turno ni mover inventario</div>
+                                                <div class="fw-bold fs-5">Arranque local POS</div>
+                                                <div class="text-muted fs-7">Semaforo diario sin cerrar turno ni mover inventario</div>
                                             </div>
                                             <span class="badge badge-light-info">Solo lectura</span>
                                         </div>
@@ -176,14 +176,14 @@
                                             </div>
                                             <div class="col-md-3">
                                                 <label class="form-label text-muted fs-8 text-uppercase">SKU ID</label>
-                                                <input class="form-control form-control-solid text-end" id="pos_caja_readiness_sku" inputmode="numeric" placeholder="SKU ID">
+                                                <input class="form-control form-control-solid text-end" id="pos_caja_readiness_sku" inputmode="numeric" value="1760" placeholder="SKU ID">
                                             </div>
                                             <div class="col-md-3">
                                                 <label class="form-label text-muted fs-8 text-uppercase">Contado</label>
                                                 <input class="form-control form-control-solid text-end" id="pos_caja_readiness_contado" inputmode="decimal" placeholder="Monto contado">
                                             </div>
                                             <div class="col-12">
-                                                <button class="btn btn-light-primary w-100" id="pos_caja_readiness_consultar" type="button"><i class="bi bi-clipboard-check"></i> Revisar operacion</button>
+                                                <button class="btn btn-light-primary w-100" id="pos_caja_readiness_consultar" type="button"><i class="bi bi-clipboard-check"></i> Validar arranque</button>
                                             </div>
                                         </div>
                                         <div id="pos_caja_readiness_resultado" class="pos-admin-result mt-4"></div>

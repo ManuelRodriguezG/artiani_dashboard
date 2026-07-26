@@ -348,13 +348,18 @@
         var resumen = data.resumen || {};
         var hallazgos = data.hallazgos || [];
         var contexto = data.contexto || {};
-        var html = "<div class=\"alert alert-info py-3 mb-3\"><div class=\"fw-bold\">Revision operativa consultada</div><div class=\"fs-8 text-muted\">No se cerro turno, no se creo pedido, no se reservo inventario y no se genero kardex.</div></div>";
+        var html = "<div class=\"alert alert-info py-3 mb-3\"><div class=\"fw-bold\">Arranque local consultado</div><div class=\"fs-8 text-muted\">Esta consulta solo revisa condiciones: no abre ni cierra turno, no cobra, no reserva inventario y no genera kardex.</div></div>";
         html += "<div class=\"row g-2 mb-3\">";
         html += readinessKpi("Turno", contexto.turno_abierto ? "Abierto" : "Sin turno", contexto.turno_abierto ? "success" : "warning");
-        html += readinessKpi("Diferencia", dinero(resumen.cierre_diferencia || 0), Number(resumen.cierre_diferencia || 0) === 0 ? "success" : "warning");
-        html += readinessKpi("Ticket", String(resumen.ticket_lineas || 0) + " lineas", Number(resumen.ticket_lineas || 0) > 0 ? "success" : "warning");
+        html += readinessKpi("Ticket", resumen.ticket_configurado ? (resumen.ticket_nombre_comercial || "Configurado") : "Pendiente", resumen.ticket_configurado ? "success" : "warning");
+        html += readinessKpi("Stock SKU", String(Number(resumen.stock_disponible_sku || 0)), resumen.stock_cubre_cantidad ? "success" : "warning");
         html += readinessKpi("Dev. fisicas", String(resumen.devoluciones_fisicas_pendientes || 0), Number(resumen.devoluciones_fisicas_pendientes || 0) > 0 ? "warning" : "success");
         html += "</div>";
+        if (contexto.turno_abierto) {
+            html += "<div class=\"alert alert-light-success py-3\"><div class=\"fw-bold\">Turno listo para operar</div><div class=\"fs-8\">Puedes vender desde POS si el producto tiene stock o si usas un flujo autorizado.</div></div>";
+        } else {
+            html += "<div class=\"alert alert-light-warning py-3\"><div class=\"fw-bold\">Falta abrir turno</div><div class=\"fs-8\">Abre turno con monto inicial real antes de cobrar en POS.</div></div>";
+        }
         if (hallazgos.length) {
             html += "<div class=\"border rounded p-3\"><div class=\"fw-bold fs-7 mb-2\">Hallazgos</div><ul class=\"mb-0 ps-4\">" + hallazgos.map(function (item) {
                 return "<li>" + escapeHtml(item) + "</li>";

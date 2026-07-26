@@ -16,7 +16,25 @@ class EcommerceCatalogoPublico extends CRUD {
         "erp_es_fuente_de_verdad" => true,
         "ecommerce_es_proyecto_externo" => true,
         "erp_no_renderiza_tienda_publica" => true,
-        "ecom_legacy_no_es_fuente" => true
+        "ecom_legacy_no_es_fuente" => true,
+        "api_multi_canal_en_diseno" => true
+      ),
+      "canales_api" => array(
+        "estado" => "diseno_readonly",
+        "frontend_propio" => array(
+          "codigo_sugerido" => "artiani_web",
+          "uso" => "sitio oficial Artiani",
+          "origenes" => array("http://artiani.com.local", "https://artiani.com.mx"),
+          "scopes_fase_1" => array("catalogo:leer", "producto:leer", "filtros:leer", "disponibilidad:leer", "cotizacion:dryrun")
+        ),
+        "partner_mayoreo" => array(
+          "codigo_sugerido" => "partner_mayoreo_001",
+          "uso" => "aliado autorizado que muestra catalogo y genera oportunidades",
+          "requiere_backend_para_secretos" => true,
+          "no_pegar_secret_en_javascript" => true,
+          "scopes_fase_1" => array("catalogo:leer", "producto:leer", "filtros:leer", "disponibilidad:leer", "cotizacion:dryrun")
+        ),
+        "documento" => "docs/erp_ecommerce_publico_api_canales_partners.md"
       ),
       "endpoints_publicos" => array(
         array(
@@ -2042,17 +2060,17 @@ class EcommerceCatalogoPublico extends CRUD {
       "modo_recomendado" => "api_key_hmac_sha256",
       "headers" => array(
         "X-Ecommerce-Api-Key" => "Identificador publico del canal ecommerce. No es secreto.",
-        "X-Ecommerce-Timestamp" => "Unix timestamp en segundos.",
+        "X-Ecommerce-Timestamp" => "Fecha/hora ISO-8601 UTC; ventana recomendada 5 minutos.",
         "X-Ecommerce-Nonce" => "Valor unico por request para reducir replay.",
-        "X-Ecommerce-Signature" => "HMAC-SHA256 en hex/base64 segun se defina al activar."
+        "X-Ecommerce-Signature" => "HMAC-SHA256 en hex sobre la base canonica."
       ),
       "firma_canonica" => array(
         "linea_1" => "HTTP_METHOD",
         "linea_2" => "REQUEST_PATH",
-        "linea_3" => "QUERY_STRING_ORDENADO",
-        "linea_4" => "X_ECOMMERCE_TIMESTAMP",
-        "linea_5" => "X_ECOMMERCE_NONCE",
-        "linea_6" => "SHA256_BODY_HEX"
+        "linea_3" => "QUERY_STRING_NORMALIZADO",
+        "linea_4" => "SHA256_BODY_HEX",
+        "linea_5" => "X_ECOMMERCE_TIMESTAMP",
+        "linea_6" => "X_ECOMMERCE_NONCE"
       ),
       "configuracion_privada_recomendada" => array(
         "api_key_publica" => "Guardar identificador del canal.",

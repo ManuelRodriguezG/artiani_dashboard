@@ -56,7 +56,7 @@
         request("/comercial/listas_precios_fase1_readiness_erp").then(function (response) {
             var data = response.depurar || {};
             var listo = !!data.puede_piloto_pos;
-            document.getElementById("lp_inicio_fase1").textContent = listo ? "Listo piloto POS" : "Con bloqueos";
+            document.getElementById("lp_inicio_fase1").textContent = listo ? "Listo piloto POS" : "Requiere revision";
             document.getElementById("lp_inicio_fase1").className = listo ? "fw-bold text-success" : "fw-bold text-warning";
             document.getElementById("lp_inicio_fase1_detalle").textContent = listo ? "Ecommerce y granel siguen fase posterior" : ((data.bloqueos || [])[0] || "Revisar semaforo");
         }).catch(function () {

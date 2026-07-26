@@ -51,6 +51,8 @@
         .pos-action-strip .pos-module-bar { justify-content: flex-start; }
         .pos-shortcut-hint { margin-left: 2px; padding: 1px 5px; border-radius: 5px; background: rgba(126,130,153,.12); color: #7e8299; font-size: .67rem; font-weight: 800; line-height: 1.25; }
         .pos-pay-quick { min-width: 132px; border-radius: 8px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; gap: 7px; }
+        .pos-shortcut-strip { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+        .pos-shortcut-chip { display: inline-flex; align-items: center; gap: 5px; border: 1px solid #e4e6ef; border-radius: 8px; background: #fff; padding: 4px 7px; color: #5e6278; font-size: .74rem; font-weight: 700; }
         .pos-total-panel { border-left: 1px solid #eef0f6; padding-left: 18px; }
         .pos-badge-row { min-height: 26px; }
         .pos-empty { min-height: 180px; border: 1px dashed #d7dbe4; border-radius: 8px; }
@@ -124,22 +126,16 @@
                                             <button class="pos-module-btn" id="pos_cliente_precio_modal_btn" type="button" title="Buscar o preparar cliente CRM"><i class="bi bi-person-vcard"></i> Cliente</button>
                                             <button class="pos-module-btn" id="pos_excepcion_modal_btn" type="button" title="Precio manual o descuento autorizado"><i class="bi bi-shield-lock"></i> Autorizar</button>
                                             <button class="pos-module-btn" id="pos_atenciones_modal_btn" type="button" title="Cuentas creadas por otros operadores"><i class="bi bi-people"></i> Atenciones</button>
+                                            <button class="pos-module-btn" id="pos_dryrun" type="button" title="Revision interna sin cobrar"><i class="bi bi-clipboard-pulse"></i> Revisar venta</button>
+                                            <button class="pos-module-btn" id="pos_pedido_dryrun" type="button" title="Revision de pedido o apartado antes de reservar"><i class="bi bi-bookmark-check"></i> Revisar apartado</button>
+                                            <button class="pos-module-btn" id="pos_inventario_pendiente_dryrun" type="button" title="Solo supervisor: validar venta con faltante autorizado"><i class="bi bi-exclamation-triangle"></i> Venta con faltante</button>
                                             <a class="pos-module-btn" href="/ventas/manual_pos#manual-arranque"><i class="bi bi-clipboard-check"></i> Arranque</a>
                                             <a class="pos-module-btn" href="/ventas/caja_turnos"><i class="bi bi-calculator"></i> Caja</a>
                                             <a class="pos-module-btn" href="/ventas/mostrar"><i class="bi bi-receipt-cutoff"></i> Ventas</a>
                                             <a class="pos-module-btn" href="/ventas/caja_movimientos"><i class="bi bi-cash-stack"></i> Movimientos</a>
                                             <a class="pos-module-btn" href="/ventas/caja_evidencias"><i class="bi bi-file-earmark-check"></i> Evidencias</a>
                                             <a class="pos-module-btn" href="/ventas/reportes"><i class="bi bi-bar-chart"></i> Reportes</a>
-                                            <div class="dropdown">
-                                                <button class="pos-module-btn dropdown-toggle" type="button" data-bs-toggle="dropdown"><i class="bi bi-three-dots"></i> Mas</button>
-                                                <div class="dropdown-menu dropdown-menu-end">
-                                                    <button class="dropdown-item" id="pos_dryrun" type="button"><i class="bi bi-clipboard-pulse me-2"></i> Revisar venta sin cobrar</button>
-                                                    <button class="dropdown-item" id="pos_pedido_dryrun" type="button"><i class="bi bi-bookmark-check me-2"></i> Revisar pedido/apartado</button>
-                                                    <button class="dropdown-item" id="pos_inventario_pendiente_dryrun" type="button"><i class="bi bi-exclamation-triangle me-2"></i> Inventario pendiente</button>
-                                                    <a class="dropdown-item" href="/ventas/pedidos"><i class="bi bi-journal-bookmark me-2"></i> Pedidos/apartados</a>
-                                                    <a class="dropdown-item" href="/ventas/manual_pos"><i class="bi bi-question-circle me-2"></i> Manual POS</a>
-                                                </div>
-                                            </div>
+                                            <a class="pos-module-btn" href="/ventas/pedidos"><i class="bi bi-journal-bookmark"></i> Pedidos</a>
                                         </div>
                                     </div>
                                 </div>
@@ -188,11 +184,19 @@
                                         <div class="text-muted fs-8 mt-1">Solo pedidos/apartados</div>
                                     </div>
                                     <div class="col-lg-12">
-                                        <label class="form-label text-muted fs-8 text-uppercase">Buscar producto</label>
+                                        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
+                                            <label class="form-label text-muted fs-8 text-uppercase mb-0">Buscar producto</label>
+                                            <div class="pos-shortcut-strip">
+                                                <span class="pos-shortcut-chip"><i class="bi bi-search"></i> Buscar <span class="pos-shortcut-hint">F2</span></span>
+                                                <span class="pos-shortcut-chip"><i class="bi bi-camera"></i> Camara <span class="pos-shortcut-hint">F3</span></span>
+                                                <span class="pos-shortcut-chip"><i class="bi bi-person-vcard"></i> Cliente <span class="pos-shortcut-hint">F4</span></span>
+                                                <span class="pos-shortcut-chip"><i class="bi bi-cash-stack"></i> Pago <span class="pos-shortcut-hint">F6</span></span>
+                                            </div>
+                                        </div>
                                         <div class="input-group input-group-lg">
                                             <span class="input-group-text bg-white"><i class="bi bi-search fs-3"></i></span>
                                             <input class="form-control" id="pos_buscar" autocomplete="off" placeholder="Escanea o busca SKU, producto, codigo o etiqueta">
-                                            <button class="btn btn-light-primary" id="pos_scan_camera_btn" type="button" title="Escanear con camara"><i class="bi bi-camera"></i></button>
+                                            <button class="btn btn-light-primary" id="pos_scan_camera_btn" type="button" title="Escanear con camara (F3)"><i class="bi bi-camera"></i> <span class="d-none d-sm-inline">Camara</span> <span class="pos-shortcut-hint">F3</span></button>
                                         </div>
                                     </div>
                                 </div>
@@ -254,7 +258,7 @@
                                                             <button class="btn btn-sm btn-light-success pos-pay-quick" data-pos-pago-rapido="efectivo" type="button" title="Alt+1"><i class="bi bi-cash"></i> Efectivo <span class="pos-shortcut-hint">Alt+1</span></button>
                                                             <button class="btn btn-sm btn-light-info pos-pay-quick" data-pos-pago-rapido="tarjeta" type="button" title="Alt+2"><i class="bi bi-credit-card"></i> Tarjeta <span class="pos-shortcut-hint">Alt+2</span></button>
                                                             <button class="btn btn-sm btn-light-warning pos-pay-quick" data-pos-pago-rapido="transferencia" type="button" title="Alt+3"><i class="bi bi-bank"></i> Transferencia <span class="pos-shortcut-hint">Alt+3</span></button>
-                                                            <button class="btn btn-sm btn-light-primary pos-pay-quick" data-pos-pago-rapido="saldo_crm" type="button"><i class="bi bi-wallet2"></i> Saldo cliente</button>
+                                                            <button class="btn btn-sm btn-light-primary pos-pay-quick" data-pos-pago-rapido="saldo_crm" type="button" title="Alt+4"><i class="bi bi-wallet2"></i> Saldo cliente <span class="pos-shortcut-hint">Alt+4</span></button>
                                                             <button class="btn btn-sm btn-light pos-pay-quick" id="pos_agregar_pago" type="button"><i class="bi bi-plus-lg"></i> Otro pago</button>
                                                         </div>
                                                         <div id="pos_cliente_saldo_crm" class="mb-2"></div>
@@ -286,6 +290,11 @@
                                                         <strong id="pos_total">$0.00</strong>
                                                     </div>
                                                     <button class="btn btn-success btn-lg w-100" id="pos_cobrar_real" type="button"><i class="bi bi-cash-coin"></i> Cobrar <span class="pos-shortcut-hint">Ctrl+Enter</span></button>
+                                                    <div class="alert alert-light-warning py-3 mt-3 mb-0 d-none" id="pos_turno_cta">
+                                                        <div class="fw-bold fs-8 mb-1"><i class="bi bi-lock me-1"></i> Falta abrir turno</div>
+                                                        <div class="fs-8 text-muted mb-2">Para cobrar, abre turno en la caja asignada. El POS se actualiza al regresar.</div>
+                                                        <a class="btn btn-sm btn-light-warning w-100" href="/ventas/caja_turnos"><i class="bi bi-calculator"></i> Ir a Caja y turnos</a>
+                                                    </div>
                                                     </div>
                                                 </div>
                                             </div>

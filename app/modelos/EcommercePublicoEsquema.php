@@ -158,6 +158,156 @@ class EcommercePublicoEsquema extends DBSchema {
     );
   }
 
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-07-25
+   * Proposito: generar plan DDL para canales/API keys de ecommerce sin ejecutarlo.
+   * Impacto: prepara consumo seguro por frontend propio y partners mayoristas sin romper Fase 1.
+   * Contrato: con $ejecutar=false solo devuelve SQL propuesto; no crea tokens ni modifica permisos.
+   */
+  public function planActualizarCanalesApi($ejecutar = false) {
+    $opciones = "ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci";
+    $plan = array();
+
+    $plan[] = $this->crearTablaSiNoExiste("erp_ecommerce_canales_api", array(
+      "`id_canal_api` BIGINT NOT NULL AUTO_INCREMENT",
+      "`codigo` VARCHAR(80) NOT NULL",
+      "`nombre` VARCHAR(180) NOT NULL",
+      "`tipo_canal` VARCHAR(40) NOT NULL DEFAULT 'frontend_propio'",
+      "`estatus` VARCHAR(30) NOT NULL DEFAULT 'borrador'",
+      "`razon_social` VARCHAR(220) NULL",
+      "`contacto_nombre` VARCHAR(180) NULL",
+      "`contacto_email` VARCHAR(180) NULL",
+      "`contacto_telefono` VARCHAR(80) NULL",
+      "`url_publica` VARCHAR(255) NULL",
+      "`allowed_origins` TEXT NULL",
+      "`allowed_ips` TEXT NULL",
+      "`scopes_json` TEXT NULL",
+      "`politica_precios` VARCHAR(50) NOT NULL DEFAULT 'publico'",
+      "`canal_publicacion` VARCHAR(50) NOT NULL DEFAULT 'catalogo_publico'",
+      "`puede_ver_precio` TINYINT(1) NOT NULL DEFAULT 1",
+      "`puede_ver_disponibilidad` TINYINT(1) NOT NULL DEFAULT 1",
+      "`puede_cotizar` TINYINT(1) NOT NULL DEFAULT 1",
+      "`puede_registrar_cotizacion` TINYINT(1) NOT NULL DEFAULT 0",
+      "`mostrar_stock_exacto` TINYINT(1) NOT NULL DEFAULT 0",
+      "`rate_limit_minuto` INT NOT NULL DEFAULT 60",
+      "`rate_limit_dia` INT NOT NULL DEFAULT 5000",
+      "`observaciones` TEXT NULL",
+      "`fecha_registro` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
+      "`fecha_actualizacion` DATETIME NULL",
+      "`creado_por` INT NULL",
+      "`actualizado_por` INT NULL",
+      "PRIMARY KEY (`id_canal_api`)",
+      "UNIQUE KEY `idx_ecom_canal_api_codigo` (`codigo`)",
+      "KEY `idx_ecom_canal_api_tipo_estado` (`tipo_canal`, `estatus`)"
+    ), $opciones, $ejecutar);
+
+    $plan[] = $this->crearTablaSiNoExiste("erp_ecommerce_api_credenciales", array(
+      "`id_credencial_api` BIGINT NOT NULL AUTO_INCREMENT",
+      "`id_canal_api` BIGINT NOT NULL",
+      "`api_key_prefix` VARCHAR(32) NOT NULL",
+      "`api_key_hash` VARCHAR(255) NOT NULL",
+      "`api_secret_hash` VARCHAR(255) NULL",
+      "`algoritmo_firma` VARCHAR(40) NOT NULL DEFAULT 'hmac_sha256'",
+      "`scopes_json` TEXT NULL",
+      "`estatus` VARCHAR(30) NOT NULL DEFAULT 'activo'",
+      "`fecha_emision` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
+      "`fecha_expiracion` DATETIME NULL",
+      "`fecha_ultimo_uso` DATETIME NULL",
+      "`rotada_por` BIGINT NULL",
+      "`creado_por` INT NULL",
+      "PRIMARY KEY (`id_credencial_api`)",
+      "KEY `idx_ecom_api_cred_canal` (`id_canal_api`, `estatus`)",
+      "KEY `idx_ecom_api_cred_prefix` (`api_key_prefix`, `estatus`)"
+    ), $opciones, $ejecutar);
+
+    $plan[] = $this->crearTablaSiNoExiste("erp_ecommerce_canal_publicaciones", array(
+      "`id_canal_publicacion` BIGINT NOT NULL AUTO_INCREMENT",
+      "`id_canal_api` BIGINT NOT NULL",
+      "`id_publicacion` BIGINT NOT NULL",
+      "`estatus` VARCHAR(30) NOT NULL DEFAULT 'activo'",
+      "`precio_modo` VARCHAR(40) NOT NULL DEFAULT 'publico'",
+      "`id_lista_precio` BIGINT NULL",
+      "`orden` INT NOT NULL DEFAULT 0",
+      "`destacado` TINYINT(1) NOT NULL DEFAULT 0",
+      "`fecha_registro` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
+      "`fecha_actualizacion` DATETIME NULL",
+      "`actualizado_por` INT NULL",
+      "PRIMARY KEY (`id_canal_publicacion`)",
+      "UNIQUE KEY `idx_ecom_canal_pub_unico` (`id_canal_api`, `id_publicacion`)",
+      "KEY `idx_ecom_canal_pub_estado` (`id_canal_api`, `estatus`, `orden`)",
+      "KEY `idx_ecom_canal_pub_publicacion` (`id_publicacion`, `estatus`)"
+    ), $opciones, $ejecutar);
+
+    $plan[] = $this->crearTablaSiNoExiste("erp_ecommerce_api_nonces", array(
+      "`id_nonce_api` BIGINT NOT NULL AUTO_INCREMENT",
+      "`id_canal_api` BIGINT NOT NULL",
+      "`nonce_hash` VARCHAR(255) NOT NULL",
+      "`timestamp_cliente` DATETIME NULL",
+      "`fecha_registro` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
+      "`fecha_expiracion` DATETIME NOT NULL",
+      "PRIMARY KEY (`id_nonce_api`)",
+      "UNIQUE KEY `idx_ecom_api_nonce_unico` (`id_canal_api`, `nonce_hash`)",
+      "KEY `idx_ecom_api_nonce_expira` (`fecha_expiracion`)"
+    ), $opciones, $ejecutar);
+
+    $plan[] = $this->crearTablaSiNoExiste("erp_ecommerce_api_logs", array(
+      "`id_api_log` BIGINT NOT NULL AUTO_INCREMENT",
+      "`id_canal_api` BIGINT NULL",
+      "`api_key_prefix` VARCHAR(32) NULL",
+      "`request_id` VARCHAR(80) NULL",
+      "`metodo` VARCHAR(10) NOT NULL",
+      "`endpoint` VARCHAR(255) NOT NULL",
+      "`http_status` INT NULL",
+      "`resultado` VARCHAR(40) NULL",
+      "`ip_hash` VARCHAR(120) NULL",
+      "`user_agent_hash` VARCHAR(120) NULL",
+      "`detalle_json` TEXT NULL",
+      "`fecha_registro` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
+      "PRIMARY KEY (`id_api_log`)",
+      "KEY `idx_ecom_api_log_canal_fecha` (`id_canal_api`, `fecha_registro`)",
+      "KEY `idx_ecom_api_log_endpoint_fecha` (`endpoint`, `fecha_registro`)",
+      "KEY `idx_ecom_api_log_prefix` (`api_key_prefix`, `fecha_registro`)"
+    ), $opciones, $ejecutar);
+
+    return $this->respuestaPlan($plan, $ejecutar);
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-07-25
+   * Proposito: auditar si existe la capa de canales/API keys ecommerce.
+   * Impacto: permite avanzar partner API sin ejecutar DDL ni exponer tokens.
+   * Contrato: solo lectura.
+   */
+  public function auditarCanalesApi() {
+    $tablas = $this->tablasCanalesApi();
+    $auditoria = array();
+    $faltantes = 0;
+    foreach ($tablas as $tabla) {
+      $existe = $this->tablaExiste($tabla);
+      $auditoria[$tabla] = array(
+        "existe" => $existe,
+        "impacto" => $existe ? "Disponible para seguridad multi-canal ecommerce." : "Falta para tokens, partners, scopes, rate limit o auditoria API."
+      );
+      if (!$existe) {
+        $faltantes++;
+      }
+    }
+
+    return array(
+      "error" => false,
+      "tipo" => $faltantes > 0 ? "warning" : "success",
+      "mensaje" => $faltantes > 0 ? "Capa canales/API ecommerce pendiente" : "Capa canales/API ecommerce disponible",
+      "depurar" => array(
+        "read_only" => true,
+        "tablas_total" => count($tablas),
+        "tablas_faltantes" => $faltantes,
+        "auditoria" => $auditoria,
+        "no_genera_secretos" => true,
+        "no_rompe_frontend_actual" => true
+      )
+    );
+  }
+
   private function tablasEcommercePublico() {
     return array(
       "erp_ecommerce_publicaciones",
@@ -165,6 +315,16 @@ class EcommercePublicoEsquema extends DBSchema {
       "erp_ecommerce_cotizaciones",
       "erp_ecommerce_cotizaciones_detalle",
       "erp_ecommerce_cotizaciones_eventos"
+    );
+  }
+
+  private function tablasCanalesApi() {
+    return array(
+      "erp_ecommerce_canales_api",
+      "erp_ecommerce_api_credenciales",
+      "erp_ecommerce_canal_publicaciones",
+      "erp_ecommerce_api_nonces",
+      "erp_ecommerce_api_logs"
     );
   }
 

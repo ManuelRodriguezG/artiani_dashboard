@@ -17,7 +17,7 @@ C:\xampp\php\php.exe storage\uat\uat_ventas_pos_cierre_ampliado_readonly.php --c
 Debe salir:
 
 - `ok=true`.
-- `scripts_total=28`.
+- `scripts_total=30`.
 - `bloqueos_total=0`.
 - `decision=pos_apto_para_piloto_controlado_con_condiciones`.
 
@@ -51,10 +51,44 @@ Debe salir `ok=true`, `pendientes_total=4` y `acciones_total=6`.
 Ejecutar operacion basica:
 
 ```powershell
-C:\xampp\php\php.exe storage\uat\uat_ventas_pos_operacion_basica_readonly.php --id_usuario=1 --id_almacen=5 --id_sku=1760 --cantidad=1 --compact=1
+C:\xampp\php\php.exe storage\uat\uat_ventas_pos_operacion_basica_readonly.php --id_usuario=1 --id_almacen=5 --id_sku=1760 --cantidad=1 --usuarios=1,2,3 --compact=1
 ```
 
 Debe indicar si se puede cobrar ahora, si hay turno abierto, si hay stock suficiente, si el ticket esta configurado y que acciones faltan antes de vender. Quita `--compact=1` solo si necesitas ver asignacion, turno y esquema completo.
+
+Ejecutar arranque local:
+
+```powershell
+C:\xampp\php\php.exe storage\uat\uat_ventas_pos_arranque_local_readonly.php --id_usuario=1 --id_almacen=5 --id_sku=1760 --cantidad=1 --monto_inicial=500 --usuarios=1,2,3
+```
+
+Debe salir `ok=true`. Si no hay turno abierto pero el resto esta listo, la decision esperada es `listo_para_arrancar_al_abrir_turno`. Este semaforo resume lo necesario para el uso diario: turno, ticket, stock, SKU recomendado, pendientes administrativos y pasos del operador.
+
+Ejecutar siguiente piloto recomendado:
+
+```powershell
+C:\xampp\php\php.exe storage\uat\uat_ventas_pos_siguiente_piloto_readonly.php --id_usuario=1 --id_almacen=5 --id_sku=1760 --cantidad=1 --monto_inicial=500 --usuarios=1,2,3
+```
+
+Debe salir `ok=true`. Si el SKU preferido no tiene stock, puede recomendar un SKU alternativo con existencia y precio vigente para evitar cargar stock UAT innecesario.
+
+Ejecutar paquete recomendado si se quiere hacer piloto limpio sin cargar stock UAT:
+
+```powershell
+C:\xampp\php\php.exe storage\uat\uat_ventas_pos_piloto_paquete_recomendado_readonly.php --id_usuario=1 --id_almacen=5 --id_sku=1760 --cantidad=1 --monto_inicial=500 --usuarios=1,2,3
+```
+
+Resultado vigente esperado:
+
+- `ok=true`.
+- `decision=paquete_recomendado_preparado`.
+- SKU recomendado: `173`.
+- Total venta sugerido: `$1000.00`.
+- Monto contado sugerido si no hubo otros movimientos: `$1500.00`.
+
+Este paquete no resuelve pendientes previos como `PINV-20260717-000001` ni `GASTO-UAT-001`; solo sirve para ejecutar una prueba limpia con un SKU que ya tiene stock disponible.
+
+Revisar tambien en `Ventas > Manual POS > Checklist arranque` el bloque `Semaforo diario antes de cobrar`. Ese bloque resume las cuatro condiciones que debe entender el responsable de tienda: turno abierto, operadores correctos, inventario disponible o autorizado, y ticket configurado.
 
 Ejecutar paquete de autorizacion:
 

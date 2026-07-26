@@ -4,6 +4,14 @@ Documentacion IA: Codex GPT-5
 Fecha base: 2026-07-24  
 Estado: runbook preparado; no ejecutado.
 
+Actualizacion 2026-07-25:
+
+- DDL aplicado con autorizacion `TMS_DELIVERY_DDL_BASE`.
+- Respaldo usado: `C:\xampp\panel_db_backups\artianilocal_panel_20260725_antes_tms_delivery_schema.sql`.
+- Tablas creadas: 5.
+- Verificacion post-DDL: `schema_tms_listo`.
+- No se crearon servicios TMS.
+
 ## Paso 1 - Preflight read-only
 
 Validar sintaxis y plan:

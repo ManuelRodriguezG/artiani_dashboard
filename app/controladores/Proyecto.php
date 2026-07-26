@@ -10,19 +10,32 @@ class Proyecto extends Controlador {
    * IA: Codex GPT-5
    * Fecha: 2026-07-24
    * Proposito: abrir la bandeja operativa de proyectos y tareas.
-   * Impacto: Proyectos ERP; no precarga avances de otros modulos.
+   * Impacto: Proyectos transversal; no precarga avances de otros modulos.
    * Contrato: vista protegida por `proyectos.ver`.
    */
   public function index() {
     $this->requerirPermiso("proyectos.ver");
-    $this->vista("apps/erp/proyectos/listado");
+    $this->vista("apps/proyectos/listado");
+  }
+
+  /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-07-25
+   * Proposito: abrir una vista enfocada en un proyecto y sus tareas.
+   * Impacto: Proyectos transversal; separa bandeja general de trabajo detallado.
+   * Contrato: vista protegida por `proyectos.ver`; no modifica BD.
+   */
+  public function detalle($idProyecto = 0) {
+    $this->requerirPermiso("proyectos.ver");
+    $idProyecto = intval($idProyecto) > 0 ? intval($idProyecto) : (isset($_GET["id_proyecto"]) ? intval($_GET["id_proyecto"]) : 0);
+    $this->vista("apps/proyectos/detalle", array("id_proyecto" => $idProyecto));
   }
 
   /**
    * IA: Codex GPT-5
    * Fecha: 2026-07-24
    * Proposito: auditar el esquema de Proyectos sin aplicar DDL.
-   * Impacto: Proyectos ERP; diagnostico read-only.
+   * Impacto: Proyectos transversal; diagnostico read-only.
    * Contrato: requiere `sistema.soporte`; no modifica BD.
    */
   public function esquema_auditar_proyectos_erp() {
@@ -34,7 +47,7 @@ class Proyecto extends Controlador {
    * IA: Codex GPT-5
    * Fecha: 2026-07-24
    * Proposito: generar o aplicar plan DDL del modulo Proyectos.
-   * Impacto: Proyectos ERP; crea estructura vacia cuando se autorice ejecutar.
+   * Impacto: Proyectos transversal; crea estructura vacia cuando se autorice ejecutar.
    * Contrato: `ejecutar=1` aplica DDL; requiere respaldo externo/autorizacion del dueno.
    */
   public function esquema_actualizar_proyectos_erp() {
@@ -47,7 +60,7 @@ class Proyecto extends Controlador {
    * IA: Codex GPT-5
    * Fecha: 2026-07-24
    * Proposito: consultar catalogos de filtros y formularios de Proyectos.
-   * Impacto: Proyectos ERP; read-only.
+   * Impacto: Proyectos transversal; read-only.
    * Contrato: requiere `proyectos.ver`.
    */
   public function catalogos_erp() {
@@ -57,9 +70,21 @@ class Proyecto extends Controlador {
 
   /**
    * IA: Codex GPT-5
+   * Fecha: 2026-07-25
+   * Proposito: consultar usuarios activos disponibles para asignar proyectos y tareas.
+   * Impacto: Proyectos transversal; no crea usuarios ni asigna roles.
+   * Contrato: requiere `proyectos.ver`; read-only.
+   */
+  public function usuarios_asignables_erp() {
+    $this->requerirPermiso("proyectos.ver");
+    return json_encode($this->modelo("ProyectosErp")->listarUsuariosAsignables());
+  }
+
+  /**
+   * IA: Codex GPT-5
    * Fecha: 2026-07-24
    * Proposito: consultar KPIs operativos del modulo.
-   * Impacto: Proyectos ERP; read-only.
+   * Impacto: Proyectos transversal; read-only.
    * Contrato: requiere `proyectos.ver`.
    */
   public function resumen_erp() {
@@ -71,7 +96,7 @@ class Proyecto extends Controlador {
    * IA: Codex GPT-5
    * Fecha: 2026-07-24
    * Proposito: listar proyectos con filtros basicos.
-   * Impacto: Proyectos ERP; read-only.
+   * Impacto: Proyectos transversal; read-only.
    * Contrato: requiere `proyectos.ver`.
    */
   public function proyectos_listar_erp() {
@@ -83,7 +108,7 @@ class Proyecto extends Controlador {
    * IA: Codex GPT-5
    * Fecha: 2026-07-24
    * Proposito: listar tareas operativas y bandeja personal.
-   * Impacto: Proyectos ERP; read-only.
+   * Impacto: Proyectos transversal; read-only.
    * Contrato: requiere `proyectos.ver`.
    */
   public function tareas_listar_erp() {
@@ -95,7 +120,7 @@ class Proyecto extends Controlador {
    * IA: Codex GPT-5
    * Fecha: 2026-07-24
    * Proposito: consultar detalle de proyecto, tareas y actividad.
-   * Impacto: Proyectos ERP; read-only.
+   * Impacto: Proyectos transversal; read-only.
    * Contrato: requiere `proyectos.ver` e `id_proyecto`.
    */
   public function proyecto_consultar_erp() {
@@ -108,12 +133,15 @@ class Proyecto extends Controlador {
    * IA: Codex GPT-5
    * Fecha: 2026-07-24
    * Proposito: crear o actualizar un proyecto operativo.
-   * Impacto: Proyectos ERP; no modifica otros modulos ni crea tareas automaticas.
+   * Impacto: Proyectos transversal; no modifica otros modulos ni crea tareas automaticas.
    * Contrato: POST protegido por `proyectos.crear` o `proyectos.editar`.
    */
   public function proyecto_guardar_erp() {
     $idProyecto = isset($_POST["id_proyecto"]) ? intval($_POST["id_proyecto"]) : 0;
     $this->requerirPermiso($idProyecto > 0 ? "proyectos.editar" : "proyectos.crear");
+    if (isset($_POST["id_responsable"]) && intval($_POST["id_responsable"]) > 0) {
+      $this->requerirPermiso("proyectos.asignar");
+    }
     $respuesta = $this->modelo("ProyectosErp")->guardarProyecto($_POST, $this->usuarioActualId());
     $this->auditarSiOk("proyectos", $idProyecto > 0 ? "actualizar_proyecto" : "crear_proyecto", "erp_proyectos", $respuesta, "id_proyecto");
     return json_encode($respuesta);
@@ -123,12 +151,15 @@ class Proyecto extends Controlador {
    * IA: Codex GPT-5
    * Fecha: 2026-07-24
    * Proposito: crear o actualizar una tarea accionable.
-   * Impacto: Proyectos ERP y Notificaciones; no modifica el modulo relacionado.
+   * Impacto: Proyectos transversal y Notificaciones; no modifica el modulo relacionado.
    * Contrato: POST protegido por `proyectos.crear` o `proyectos.editar`.
    */
   public function tarea_guardar_erp() {
     $idTarea = isset($_POST["id_tarea"]) ? intval($_POST["id_tarea"]) : 0;
     $this->requerirPermiso($idTarea > 0 ? "proyectos.editar" : "proyectos.crear");
+    if (isset($_POST["id_responsable"]) && intval($_POST["id_responsable"]) > 0) {
+      $this->requerirPermiso("proyectos.asignar");
+    }
     $respuesta = $this->modelo("ProyectosErp")->guardarTarea($_POST, $this->usuarioActualId());
     $this->auditarSiOk("proyectos", $idTarea > 0 ? "actualizar_tarea" : "crear_tarea", "erp_proyecto_tareas", $respuesta, "id_tarea");
     return json_encode($respuesta);
@@ -138,7 +169,7 @@ class Proyecto extends Controlador {
    * IA: Codex GPT-5
    * Fecha: 2026-07-24
    * Proposito: cambiar estado operativo de una tarea.
-   * Impacto: Proyectos ERP y Notificaciones; resuelve pendientes al cerrar tarea.
+   * Impacto: Proyectos transversal y Notificaciones; resuelve pendientes al cerrar tarea.
    * Contrato: POST protegido por `proyectos.cerrar`.
    */
   public function tarea_estatus_erp() {
@@ -152,7 +183,7 @@ class Proyecto extends Controlador {
    * IA: Codex GPT-5
    * Fecha: 2026-07-24
    * Proposito: registrar comentario en proyecto o tarea.
-   * Impacto: Proyectos ERP; no cambia estado ni documentos vivos automaticamente.
+   * Impacto: Proyectos transversal; no cambia estado ni documentos vivos automaticamente.
    * Contrato: POST protegido por `proyectos.editar`.
    */
   public function comentario_guardar_erp() {

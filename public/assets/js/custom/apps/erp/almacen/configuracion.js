@@ -66,6 +66,7 @@
             if (Number(item.permite_recepcion) === 1) { ops.push("Recepcion"); }
             if (Number(item.permite_venta) === 1) { ops.push("Venta"); }
             if (Number(item.permite_preparacion) === 1) { ops.push("Preparacion"); }
+            if (Number(item.permite_apertura_empaque) === 1) { ops.push("Apertura"); }
             if (Number(item.es_tecnico) === 1) { ops.push("Tecnico"); }
             var badge = item.estatus === "activo" ? "badge-light-success" : "badge-light-danger";
             return "<tr><td><span class=\"fw-bold\">" + escapeHtml(item.codigo_almacen || "-") + "</span></td>" +
@@ -94,7 +95,7 @@
         $("alm_cfg_estatus").value = "activo";
         $("alm_cfg_orden").value = "100";
         ["alm_cfg_recepcion", "alm_cfg_ajustes"].forEach(function (id) { $(id).checked = true; });
-        ["alm_cfg_venta", "alm_cfg_preparacion", "alm_cfg_tecnico"].forEach(function (id) { $(id).checked = false; });
+        ["alm_cfg_venta", "alm_cfg_preparacion", "alm_cfg_apertura_empaque", "alm_cfg_tecnico"].forEach(function (id) { $(id).checked = false; });
     }
     function editarAlmacen(index) {
         var item = almacenes[index];
@@ -122,6 +123,7 @@
         setChecked("alm_cfg_recepcion", item.permite_recepcion);
         setChecked("alm_cfg_venta", item.permite_venta);
         setChecked("alm_cfg_preparacion", item.permite_preparacion);
+        setChecked("alm_cfg_apertura_empaque", item.permite_apertura_empaque);
         setChecked("alm_cfg_ajustes", item.permite_ajustes);
         setChecked("alm_cfg_tecnico", item.es_tecnico);
     }
@@ -149,6 +151,7 @@
             permite_recepcion: checked("alm_cfg_recepcion"),
             permite_venta: checked("alm_cfg_venta"),
             permite_preparacion: checked("alm_cfg_preparacion"),
+            permite_apertura_empaque: checked("alm_cfg_apertura_empaque"),
             permite_ajustes: checked("alm_cfg_ajustes"),
             es_tecnico: checked("alm_cfg_tecnico"),
             observaciones: $("alm_cfg_observaciones").value

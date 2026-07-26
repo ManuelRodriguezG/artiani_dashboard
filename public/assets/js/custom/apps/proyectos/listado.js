@@ -1,11 +1,12 @@
 /**
  * IA: Codex GPT-5 | Fecha: 2026-07-24
  * Proposito: operar bandeja inicial de proyectos y tareas.
- * Impacto: UI Proyectos ERP; no precarga avances de otros modulos.
+ * Impacto: UI Proyectos transversal; no precarga avances de otros modulos.
  */
 (function () {
     var endpoints = {
         catalogos: "/proyecto/catalogos_erp",
+        usuarios: "/proyecto/usuarios_asignables_erp",
         resumen: "/proyecto/resumen_erp",
         proyectos: "/proyecto/proyectos_listar_erp",
         tareas: "/proyecto/tareas_listar_erp",
@@ -16,9 +17,11 @@
     };
     var state = {
         catalogos: {},
+        usuarios: [],
         proyectos: [],
         tareas: [],
         proyectoActivo: 0,
+        proyectoContexto: 0,
         modalProyecto: null,
         modalTarea: null
     };
@@ -26,6 +29,8 @@
     document.addEventListener("DOMContentLoaded", function () {
         state.modalProyecto = modal("proyectos_modal_proyecto");
         state.modalTarea = modal("proyectos_modal_tarea");
+        state.proyectoContexto = numero(valor("proyectos_contexto_id"));
+        state.proyectoActivo = state.proyectoContexto;
         enlazarEventos();
         cargarTodo();
     });
@@ -60,6 +65,13 @@
         }
 
         document.addEventListener("click", function (event) {
+            var abrirProyecto = event.target.closest("[data-proyecto-abrir]");
+            if (abrirProyecto) {
+                event.preventDefault();
+                event.stopPropagation();
+                window.open("/proyecto/detalle/" + numero(abrirProyecto.getAttribute("data-proyecto-abrir")), "_blank");
+                return;
+            }
             var proyecto = event.target.closest("[data-proyecto-id]");
             if (proyecto) {
                 event.preventDefault();
@@ -86,9 +98,20 @@
                 state.catalogos = respuesta.depurar || {};
                 llenarCatalogos();
             }
+            return cargarUsuariosAsignables();
+        }).then(function () {
             return Promise.all([cargarResumen(), cargarProyectos(), cargarTareas()]);
         }).catch(function (error) {
             renderError(error.message);
+        });
+    }
+
+    function cargarUsuariosAsignables() {
+        return consultar(endpoints.usuarios).then(function (respuesta) {
+            if (respuesta.error === false) {
+                state.usuarios = respuesta.depurar && Array.isArray(respuesta.depurar.usuarios) ? respuesta.depurar.usuarios : [];
+                llenarUsuariosAsignables();
+            }
         });
     }
 
@@ -101,6 +124,7 @@
                 texto("proyectos_kpi_tareas", numero(kpis.tareas_pendientes));
                 texto("proyectos_kpi_vencidas", numero(kpis.tareas_vencidas));
                 texto("proyectos_kpi_mias", numero(kpis.mis_tareas));
+                renderPanelAvance(kpis, respuesta.depurar || {});
             }
         });
     }
@@ -110,6 +134,9 @@
             if (respuesta.error === false) {
                 renderSchema(respuesta);
                 state.proyectos = respuesta.depurar && Array.isArray(respuesta.depurar.proyectos) ? respuesta.depurar.proyectos : [];
+                if (state.proyectoContexto > 0) {
+                    seleccionarProyecto(state.proyectoContexto, true);
+                }
                 renderProyectos();
                 llenarSelectProyectos();
             }
@@ -165,6 +192,7 @@
                         '<div>' +
                             '<div class="fw-bold text-gray-900">' + escapeHtml(proyecto.nombre || "") + '</div>' +
                             '<div class="text-muted fs-7">' + escapeHtml(proyecto.folio || "") + '</div>' +
+                            (proyecto.responsable_nombre ? '<div class="text-muted fs-8">Responsable: ' + escapeHtml(proyecto.responsable_nombre) + '</div>' : '') +
                         '</div>' +
                         '<span class="' + clasePrioridad(proyecto.prioridad) + '">' + escapeHtml(proyecto.prioridad || "normal") + '</span>' +
                     '</div>' +
@@ -172,7 +200,10 @@
                         '<span class="badge badge-light">' + escapeHtml(proyecto.estatus || "") + '</span>' +
                         '<span class="badge badge-light-info">' + escapeHtml(proyecto.modulo_relacionado || "general") + '</span>' +
                     '</div>' +
-                    '<div class="text-muted fs-7 mt-3">Tareas abiertas: ' + numero(proyecto.tareas_abiertas) + ' / ' + numero(proyecto.total_tareas) + '</div>' +
+                    '<div class="d-flex justify-content-between align-items-center gap-3 mt-3">' +
+                        '<div class="text-muted fs-7">Tareas abiertas: ' + numero(proyecto.tareas_abiertas) + ' / ' + numero(proyecto.total_tareas) + '</div>' +
+                        '<span class="btn btn-sm btn-light-primary" data-proyecto-abrir="' + numero(proyecto.id_proyecto) + '">Abrir</span>' +
+                    '</div>' +
                 '</a>';
         }).join("");
         if (state.proyectoActivo <= 0) {
@@ -197,11 +228,15 @@
             if (puede("cerrar") && tarea.estatus !== "completada") {
                 acciones += '<button class="btn btn-sm btn-light-success" data-tarea-cerrar="' + numero(tarea.id_tarea) + '">Completar</button>';
             }
+            if (tarea.url_contexto) {
+                acciones += '<a class="btn btn-sm btn-light-info ms-2" href="' + escapeHtml(urlContexto(tarea.url_contexto)) + '">Ir</a>';
+            }
             return '' +
                 '<tr>' +
                     '<td>' +
                         '<div class="fw-bold text-gray-900">' + escapeHtml(tarea.titulo || "") + '</div>' +
                         '<div class="text-muted fs-7">' + escapeHtml(tarea.descripcion || "") + '</div>' +
+                        (tarea.responsable_nombre ? '<div class="text-muted fs-8">Responsable: ' + escapeHtml(tarea.responsable_nombre) + '</div>' : '') +
                     '</td>' +
                     '<td>' + escapeHtml(tarea.proyecto_nombre || "") + '</td>' +
                     '<td><span class="' + clasePrioridad(tarea.prioridad) + '">' + escapeHtml(tarea.prioridad || "normal") + '</span></td>' +
@@ -209,6 +244,64 @@
                     '<td>' + escapeHtml(tarea.fecha_vencimiento || "") + '</td>' +
                     '<td class="text-end">' + acciones + '</td>' +
                 '</tr>';
+        }).join("");
+    }
+
+    function renderPanelAvance(kpis, resumen) {
+        var avance = Math.max(0, Math.min(100, Number(kpis.avance_general || 0)));
+        texto("proyectos_avance_general", avance.toFixed(avance % 1 === 0 ? 0 : 1) + "%");
+        texto("proyectos_avance_detalle", numero(kpis.tareas_completadas) + " de " + numero(kpis.tareas_totales) + " tareas completadas");
+        var barra = document.getElementById("proyectos_avance_barra");
+        if (barra) {
+            barra.style.width = avance + "%";
+            barra.setAttribute("aria-valuenow", String(avance));
+        }
+        renderBadgesConteo("proyectos_prioridades_panel", resumen.por_prioridad || [], "Sin tareas activas", true);
+        renderBarrasConteo("proyectos_estatus_panel", resumen.por_estatus || [], "Sin tareas registradas");
+        renderBarrasConteo("proyectos_modulos_panel", resumen.por_modulo || [], "Sin tareas registradas");
+    }
+
+    function renderBadgesConteo(id, items, vacio, usarPrioridad) {
+        var contenedor = document.getElementById(id);
+        if (!contenedor) {
+            return;
+        }
+        if (!Array.isArray(items) || !items.length) {
+            contenedor.innerHTML = '<span class="text-muted">' + escapeHtml(vacio) + '</span>';
+            return;
+        }
+        contenedor.innerHTML = items.map(function (item) {
+            var etiqueta = item.etiqueta || "general";
+            var clase = usarPrioridad ? clasePrioridad(etiqueta) : "badge badge-light";
+            return '<span class="' + clase + '">' + escapeHtml(etiqueta) + ': ' + numero(item.total) + '</span>';
+        }).join("");
+    }
+
+    function renderBarrasConteo(id, items, vacio) {
+        var contenedor = document.getElementById(id);
+        if (!contenedor) {
+            return;
+        }
+        if (!Array.isArray(items) || !items.length) {
+            contenedor.innerHTML = '<div class="text-muted">' + escapeHtml(vacio) + '</div>';
+            return;
+        }
+        var maximo = items.reduce(function (max, item) {
+            return Math.max(max, numero(item.total));
+        }, 1);
+        contenedor.innerHTML = items.map(function (item) {
+            var total = numero(item.total);
+            var porcentaje = Math.max(8, Math.round((total / maximo) * 100));
+            return '' +
+                '<div class="mb-4">' +
+                    '<div class="d-flex justify-content-between mb-1">' +
+                        '<span class="fw-semibold text-gray-800">' + escapeHtml(item.etiqueta || "general") + '</span>' +
+                        '<span class="text-muted">' + total + '</span>' +
+                    '</div>' +
+                    '<div class="progress h-6px bg-light">' +
+                        '<div class="progress-bar bg-primary" style="width: ' + porcentaje + '%"></div>' +
+                    '</div>' +
+                '</div>';
         }).join("");
     }
 
@@ -250,16 +343,28 @@
         setValue("proyecto_prioridad", "normal");
         setValue("proyecto_tipo", "operacion_negocio");
         setValue("proyecto_modulo", "general");
+        setValue("proyecto_id_responsable", "");
         state.modalProyecto.show();
     }
 
     function abrirTareaNueva() {
         resetForm("proyectos_form_tarea");
+        setValue("tarea_id_tarea", "");
         setValue("tarea_id_proyecto", state.proyectoActivo > 0 ? String(state.proyectoActivo) : "");
+        setValue("tarea_titulo", "");
+        setValue("tarea_descripcion", "");
         setValue("tarea_estatus", "pendiente");
         setValue("tarea_prioridad", "normal");
         setValue("tarea_origen", "manual");
         setValue("tarea_modulo", "general");
+        setValue("tarea_id_responsable", "");
+        setValue("tarea_area", "");
+        setValue("tarea_fecha_vencimiento", "");
+        setValue("tarea_url_contexto", "");
+        var requiere = document.getElementById("tarea_requiere_autorizacion");
+        if (requiere) {
+            requiere.checked = false;
+        }
         state.modalTarea.show();
     }
 
@@ -278,6 +383,7 @@
         setValue("tarea_estatus", tarea.estatus);
         setValue("tarea_prioridad", tarea.prioridad);
         setValue("tarea_origen", tarea.origen);
+        setValue("tarea_id_responsable", tarea.id_responsable);
         setValue("tarea_area", tarea.area_responsable);
         setValue("tarea_modulo", tarea.modulo_relacionado || "general");
         setValue("tarea_fecha_vencimiento", tarea.fecha_vencimiento);
@@ -356,6 +462,11 @@
         llenarSelect("tarea_modulo", state.catalogos.modulos || [], "", "general");
     }
 
+    function llenarUsuariosAsignables() {
+        llenarSelectUsuarios("proyecto_id_responsable", "Sin responsable");
+        llenarSelectUsuarios("tarea_id_responsable", "Sin responsable");
+    }
+
     function llenarSelectProyectos() {
         var select = document.getElementById("tarea_id_proyecto");
         if (!select) {
@@ -367,6 +478,20 @@
         if (state.proyectoActivo > 0) {
             select.value = String(state.proyectoActivo);
         }
+    }
+
+    function llenarSelectUsuarios(id, placeholder) {
+        var select = document.getElementById(id);
+        if (!select) {
+            return;
+        }
+        select.innerHTML = '<option value="">' + escapeHtml(placeholder || "Sin responsable") + '</option>' + state.usuarios.map(function (usuario) {
+            var etiqueta = usuario.nombre || ("Usuario " + numero(usuario.id_usuario));
+            if (usuario.area_departamento) {
+                etiqueta += " - " + usuario.area_departamento;
+            }
+            return '<option value="' + numero(usuario.id_usuario) + '">' + escapeHtml(etiqueta) + '</option>';
+        }).join("");
     }
 
     function llenarSelect(id, items, placeholder, seleccionado) {
@@ -494,6 +619,14 @@
         if (el) {
             el.value = value || "";
         }
+    }
+
+    function urlContexto(url) {
+        url = String(url || "").trim();
+        if (url.indexOf("http://") === 0 || url.indexOf("https://") === 0 || url.indexOf("/") === 0) {
+            return url;
+        }
+        return "/" + url;
     }
 
     function texto(id, value) {

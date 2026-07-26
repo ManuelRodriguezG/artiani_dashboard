@@ -59,6 +59,51 @@
             .replace(/\u00c2/g, "").replace(/\ufffd/g, "");
         return texto.replace(/â€“|â€”/g, "-").replace(/â€™/g, "'").replace(/â€œ|â€/g, "\"");
     }
+    /**
+     * IA: Codex GPT-5 | Fecha: 2026-07-25
+     * Proposito: traducir validaciones tecnicas del backend a instrucciones operativas POS.
+     * Impacto: el operador conserva la regla, pero no ve mensajes internos pensados para auditoria.
+     */
+    function mensajeOperativo(value) {
+        var texto = textoLegible(value).replace(/^BLOQUEO:\s*/i, "").trim();
+        var normal = texto.toLowerCase();
+        if (normal.indexOf("politica pos autoriza inventario pendiente") >= 0) {
+            return "Este producto puede venderse con faltante autorizado. Usa Venta con faltante para cobrar y dejar alerta a Inventario.";
+        }
+        if (normal.indexOf("no hay politica pos activa") >= 0) {
+            return "No hay politica activa para vender este producto con faltante en esta sucursal.";
+        }
+        if (normal.indexOf("selecciona turno abierto") >= 0 || normal.indexOf("no hay turno abierto") >= 0) {
+            return "Abre turno en Caja y turnos antes de cobrar.";
+        }
+        if (normal.indexOf("stock piloto insuficiente") >= 0 || normal.indexOf("disponible menor") >= 0) {
+            return "No hay stock suficiente para esta cantidad. Usa otro SKU, carga inventario autorizado o valida Venta con faltante.";
+        }
+        return texto;
+    }
+    function listaMensajesOperativos(items, claseExtra) {
+        return (items || []).map(function (item) {
+            return "<li" + (claseExtra ? " class=\"" + claseExtra + "\"" : "") + ">" + escapeHtml(mensajeOperativo(item)) + "</li>";
+        }).join("");
+    }
+    /**
+     * IA: Codex GPT-5 | Fecha: 2026-07-25
+     * Proposito: evitar que validaciones internas aparezcan en el ticket mostrado o impreso al cliente.
+     * Impacto: los avisos se conservan en pantalla POS como operador, pero no forman parte del comprobante.
+     */
+    function limpiarTicketCliente(texto) {
+        var patronesInternos = [
+            /(^|\s)BLOQUEO:/i,
+            /No hay politica POS activa/i,
+            /politica POS autoriza inventario pendiente/i,
+            /flujo real de inventario pendiente/i,
+            /token/i,
+            /respaldo/i
+        ];
+        return String(texto || "").split(/\r?\n/).filter(function (linea) {
+            return !patronesInternos.some(function (patron) { return patron.test(linea); });
+        }).join("\n").trim();
+    }
     function cantidad(value) {
         var numero = Number(String(value == null ? "" : value).replace(",", "."));
         return Number.isFinite(numero) ? numero : 0;
@@ -1019,9 +1064,9 @@
         var cerradas = item.unidades.some(function (unidad) { return unidad.estado_fisico === "cerrada"; });
         var granel = abiertas && Number(item.permite_venta_fraccionaria || 0) === 1;
         return "<div class=\"pos-mode-group\" role=\"group\" aria-label=\"Modo de salida\">" +
-            "<button class=\"pos-mode-btn" + (item.modo_salida === "existencia_agregada" ? " active" : "") + "\" data-pos-modo-rapido=\"existencia_agregada\" type=\"button\">Stock</button>" +
-            "<button class=\"pos-mode-btn" + (item.modo_salida === "unidad_cerrada" ? " active" : "") + "\" data-pos-modo-rapido=\"unidad_cerrada\" type=\"button\"" + (cerradas ? "" : " disabled") + ">Pieza</button>" +
-            "<button class=\"pos-mode-btn" + (item.modo_salida === "granel_unidad_abierta" ? " active" : "") + "\" data-pos-modo-rapido=\"granel_unidad_abierta\" type=\"button\"" + (granel ? "" : " disabled") + ">Granel</button>" +
+            "<button class=\"pos-mode-btn" + (item.modo_salida === "existencia_agregada" ? " active" : "") + "\" data-pos-modo-rapido=\"existencia_agregada\" type=\"button\" title=\"Descontar de existencia disponible del almacen\">Stock general</button>" +
+            "<button class=\"pos-mode-btn" + (item.modo_salida === "unidad_cerrada" ? " active" : "") + "\" data-pos-modo-rapido=\"unidad_cerrada\" type=\"button\"" + (cerradas ? "" : " disabled") + " title=\"Vender una unidad fisica cerrada disponible\">Unidad cerrada</button>" +
+            "<button class=\"pos-mode-btn" + (item.modo_salida === "granel_unidad_abierta" ? " active" : "") + "\" data-pos-modo-rapido=\"granel_unidad_abierta\" type=\"button\"" + (granel ? "" : " disabled") + " title=\"Vender cantidad/peso desde unidad abierta permitida\">Granel</button>" +
             "</div>";
     }
     function unidadResumen(item) {
@@ -1029,7 +1074,7 @@
             return "Pendiente para Catalogo ERP" + (item.controla_inventario ? " e Inventario" : "");
         }
         if (item.modo_salida === "existencia_agregada") {
-            return "Salida por existencia disponible";
+            return "Descuenta del stock disponible de esta tienda";
         }
         var unidad = item.unidades.find(function (actual) {
             return String(actual.id_inventario_unidad) === String(item.id_inventario_unidad);
@@ -1127,12 +1172,15 @@
     function actualizarEstadoCobro() {
         var boton = document.getElementById("pos_cobrar_real");
         if (!boton || boton.getAttribute("data-cobrando") === "1") { return; }
+        var turnoCta = document.getElementById("pos_turno_cta");
         if (!turnoActual()) {
             boton.disabled = true;
             boton.title = "Abre turno de caja antes de cobrar";
             boton.innerHTML = "<i class=\"bi bi-lock\"></i> Abrir turno para cobrar";
+            if (turnoCta) { turnoCta.classList.remove("d-none"); }
             return;
         }
+        if (turnoCta) { turnoCta.classList.add("d-none"); }
         boton.disabled = false;
         if (carrito.some(function (item) { return item.tipo_partida === "venta_rapida"; })) {
             boton.title = "Confirmar venta rapida controlada POS";
@@ -1756,8 +1804,8 @@
         var depurar = response.depurar || {};
         var bloqueos = depurar.bloqueos || [];
         if (bloqueos.length || response.tipo !== "success") {
-            document.getElementById("pos_validacion").innerHTML = "<div class=\"alert alert-warning py-3 mb-0\"><div class=\"fw-bold mb-1\">" + escapeHtml(response.mensaje || "Cobro bloqueado") + "</div>" +
-                "<ul class=\"mb-0 ps-4\">" + bloqueos.map(function (item) { return "<li>" + escapeHtml(item) + "</li>"; }).join("") + "</ul></div>";
+            document.getElementById("pos_validacion").innerHTML = "<div class=\"alert alert-warning py-3 mb-0\"><div class=\"fw-bold mb-1\">" + escapeHtml(mensajeOperativo(response.mensaje || "Cobro pendiente de resolver")) + "</div>" +
+                "<div class=\"fw-semibold fs-8 text-muted mb-1\">Pendientes por resolver</div><ul class=\"mb-0 ps-4\">" + listaMensajesOperativos(bloqueos) + "</ul></div>";
             return;
         }
         var cliente = depurar.cliente || {};
@@ -1813,9 +1861,9 @@
         var depurar = response.depurar || {};
         var bloqueos = depurar.bloqueos || [];
         var clase = bloqueos.length ? "alert-warning" : "alert-success";
-        var html = "<div class=\"alert " + clase + " py-3 mb-0\"><div class=\"fw-bold mb-1\">" + escapeHtml(response.mensaje || "Prevalidacion") + "</div>";
+        var html = "<div class=\"alert " + clase + " py-3 mb-0\"><div class=\"fw-bold mb-1\">" + escapeHtml(mensajeOperativo(response.mensaje || "Revision")) + "</div>";
         if (bloqueos.length) {
-            html += "<ul class=\"mb-0 ps-4\">" + bloqueos.map(function (item) { return "<li>" + escapeHtml(item) + "</li>"; }).join("") + "</ul>";
+            html += "<div class=\"fw-semibold fs-8 text-muted mb-1\">Pendientes por resolver</div><ul class=\"mb-0 ps-4\">" + listaMensajesOperativos(bloqueos) + "</ul>";
         } else {
             html += "<div class=\"fs-7\">Inventario suficiente. Si el pago cubre el total y el turno sigue abierto, puedes cobrar; el backend registrara caja, kardex, garantia y trazabilidad.</div>";
         }
@@ -1842,17 +1890,17 @@
         var clase = bloqueos.length ? "alert-warning" : (Number(depurar.cantidad_pendiente || 0) > 0 ? "alert-info" : "alert-success");
         var estadoOperativo = String(depurar.estado || "") === "pendiente_autorizable" ? "Autorizable" : (depurar.estado || "-");
         var html = "<div class=\"alert " + clase + " py-3 mb-3\">" +
-            "<div class=\"fw-bold mb-1\">" + escapeHtml(response.mensaje || "Revision de inventario pendiente") + "</div>" +
+            "<div class=\"fw-bold mb-1\">" + escapeHtml(mensajeOperativo(response.mensaje || "Revision de inventario pendiente")) + "</div>" +
             "<div class=\"fs-7\">Resultado: <span class=\"fw-bold\">" + escapeHtml(estadoOperativo) + "</span>" +
             " | Disponible: " + numero(depurar.disponible_actual || 0) +
             " | Cubierto con kardex: " + numero(depurar.cantidad_cubierta || 0) +
             " | Pendiente: " + numero(depurar.cantidad_pendiente || 0) +
             " | Total: " + dinero(depurar.total_estimado || 0) + "</div>";
         if (bloqueos.length) {
-            html += "<ul class=\"mb-0 mt-2 ps-4\">" + bloqueos.map(function (item) { return "<li>" + escapeHtml(item) + "</li>"; }).join("") + "</ul>";
+            html += "<div class=\"fw-semibold fs-8 text-muted mt-2\">Pendientes por resolver</div><ul class=\"mb-0 ps-4\">" + listaMensajesOperativos(bloqueos) + "</ul>";
         }
         if (advertencias.length) {
-            html += "<ul class=\"mb-0 mt-2 ps-4 text-muted\">" + advertencias.map(function (item) { return "<li>" + escapeHtml(item) + "</li>"; }).join("") + "</ul>";
+            html += "<ul class=\"mb-0 mt-2 ps-4 text-muted\">" + listaMensajesOperativos(advertencias) + "</ul>";
         }
         html += "</div>";
         if (pendiente && pendiente.cantidad_pendiente != null) {
@@ -1894,7 +1942,7 @@
         var motivo = motivoNode ? motivoNode.value.trim() : "";
         var confirmacion = confirmacionNode ? confirmacionNode.value.trim() : "";
         if (!motivo || confirmacion.toUpperCase() !== "AUTORIZAR INVENTARIO PENDIENTE") {
-            document.getElementById("pos_validacion").innerHTML += "<div class=\"alert alert-warning py-3 mt-3 mb-0\">Captura motivo y escribe AUTORIZAR INVENTARIO PENDIENTE para continuar.</div>";
+            document.getElementById("pos_validacion").innerHTML += "<div class=\"alert alert-warning py-3 mt-3 mb-0\">Captura motivo y la clave de autorizacion indicada por el supervisor para continuar.</div>";
             return;
         }
         var payload = payloadVentaPos();
@@ -1945,9 +1993,9 @@
         var contrato = depurar.contrato_confirmacion || {};
         var prevalidacion = depurar.prevalidacion || {};
         var totales = (((prevalidacion || {}).depurar || {}).totales) || {};
-        var html = "<div class=\"alert alert-warning py-3 mb-0\"><div class=\"fw-bold mb-1\">" + escapeHtml(response.mensaje || "Revision de venta") + "</div>";
+        var html = "<div class=\"alert alert-warning py-3 mb-0\"><div class=\"fw-bold mb-1\">" + escapeHtml(mensajeOperativo(response.mensaje || "Revision de venta")) + "</div>";
         if (bloqueos.length) {
-            html += "<ul class=\"mb-2 ps-4\">" + bloqueos.map(function (item) { return "<li>" + escapeHtml(item) + "</li>"; }).join("") + "</ul>";
+            html += "<div class=\"fw-semibold fs-8 text-muted mb-1\">Pendientes por resolver</div><ul class=\"mb-2 ps-4\">" + listaMensajesOperativos(bloqueos) + "</ul>";
         }
         html += "<div class=\"fs-8 text-muted\">Validaciones: almacen " + (contrato.requiere_id_almacen ? "OK" : "-") +
             " | caja " + (contrato.requiere_id_caja ? "OK" : "-") +
@@ -1969,10 +2017,10 @@
         var contrato = depurar.contrato_reserva || {};
         var prevalidacion = depurar.prevalidacion || {};
         var partidas = (((prevalidacion || {}).depurar || {}).partidas) || [];
-        var html = "<div class=\"alert alert-warning py-3 mb-0\"><div class=\"fw-bold mb-1\">" + escapeHtml(response.mensaje || "Revision de pedido") + "</div>";
+        var html = "<div class=\"alert alert-warning py-3 mb-0\"><div class=\"fw-bold mb-1\">" + escapeHtml(mensajeOperativo(response.mensaje || "Revision de pedido")) + "</div>";
         html += "<div class=\"fs-8 mb-2\">Tipo: " + escapeHtml(depurar.tipo_documento || "") + " | Cliente: " + escapeHtml(depurar.cliente_nombre_publico || "-") + " | Compromiso: " + escapeHtml(depurar.fecha_entrega_compromiso || "-") + "</div>";
         if (bloqueos.length) {
-            html += "<ul class=\"mb-2 ps-4\">" + bloqueos.map(function (item) { return "<li>" + escapeHtml(item) + "</li>"; }).join("") + "</ul>";
+            html += "<div class=\"fw-semibold fs-8 text-muted mb-1\">Pendientes por resolver</div><ul class=\"mb-2 ps-4\">" + listaMensajesOperativos(bloqueos) + "</ul>";
         }
         html += "<div class=\"fs-8 text-muted\">Reserva: folio " + (contrato.requiere_folio_pedido ? "OK" : "-") +
             " | inventario " + (contrato.requiere_reserva_inventario ? "OK" : "-") +
@@ -1984,8 +2032,17 @@
     }
     function renderTicketPreview(response) {
         var depurar = response.depurar || {};
-        actualizarModalTicket("Vista previa de ticket", "Formato para cliente antes de confirmar cobro", depurar.ticket_texto || "", depurar.ticket_configuracion || {});
-        document.getElementById("pos_validacion").innerHTML = "<div class=\"alert " + ((depurar.bloqueos || []).length ? "alert-warning" : "alert-success") + " py-3 mb-0\"><div class=\"fw-bold\">" + escapeHtml(response.mensaje || "Vista previa de ticket") + "</div><div class=\"fs-7\">Formato de revision antes de confirmar el cobro.</div></div>";
+        var bloqueos = depurar.bloqueos || [];
+        var ticketCliente = limpiarTicketCliente(depurar.ticket_texto || "");
+        actualizarModalTicket("Vista previa de ticket", "Formato para cliente antes de confirmar cobro", ticketCliente, depurar.ticket_configuracion || {});
+        var html = "<div class=\"alert alert-" + (bloqueos.length ? "info" : "success") + " py-3 mb-0\">" +
+            "<div class=\"fw-bold\">Ticket listo para revisar</div>" +
+            "<div class=\"fs-7\">La ventana muestra solamente el comprobante para cliente. Los avisos de operacion no se imprimen.</div>";
+        if (bloqueos.length) {
+            html += "<div class=\"fw-semibold fs-8 text-muted mt-2 mb-1\">Avisos para operador</div><ul class=\"mb-0 ps-4\">" + listaMensajesOperativos(bloqueos) + "</ul>";
+        }
+        html += "</div>";
+        document.getElementById("pos_validacion").innerHTML = html;
         var modal = bootstrap.Modal.getOrCreateInstance(document.getElementById("pos_ticket_modal"));
         modal.show();
     }
@@ -2025,7 +2082,7 @@
         ventana.print();
     }
     function actualizarModalTicket(titulo, subtitulo, texto, config) {
-        ticketPosActual = texto || "";
+        ticketPosActual = limpiarTicketCliente(texto || "");
         ticketConfigActual = config || {};
         document.getElementById("pos_ticket_titulo").textContent = titulo || "Ticket POS";
         document.getElementById("pos_ticket_subtitulo").textContent = subtitulo || "Consulta de ticket";
@@ -2876,6 +2933,11 @@
             if (event.altKey && key === "3") {
                 event.preventDefault();
                 agregarPagoRapido("transferencia");
+                return;
+            }
+            if (event.altKey && key === "4") {
+                event.preventDefault();
+                agregarPagoRapido("saldo_crm");
                 return;
             }
             if ((event.ctrlKey || event.metaKey) && key === "Enter") {

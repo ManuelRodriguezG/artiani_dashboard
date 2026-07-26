@@ -16,6 +16,7 @@ $puede = function ($permiso) use ($permisosSesion) {
 
 $seccionesMenu = array(
     'ERP' => array('icono' => 'bi-diagram-3'),
+    'Proyectos' => array('icono' => 'bi-kanban'),
     'TMS' => array('icono' => 'bi-truck'),
     'CRM' => array('icono' => 'bi-people'),
     'Ecommerce' => array('icono' => 'bi-shop'),
@@ -24,7 +25,7 @@ $seccionesMenu = array(
 
 $gruposMenu = array(
     array(
-        'seccion' => 'ERP',
+        'seccion' => 'Proyectos',
         'titulo' => 'Proyectos',
         'icono' => 'bi-kanban',
         'permiso' => 'proyectos.ver',
@@ -134,6 +135,7 @@ $gruposMenu = array(
             array('titulo' => 'Recepciones', 'ruta' => '/almacen/mostrar_recepciones', 'permiso' => 'almacen.ver'),
             array('titulo' => 'Resurtido', 'ruta' => '/almacen/resurtido', 'permiso' => 'almacen.ver'),
             array('titulo' => 'Preparacion/Empaque', 'ruta' => '/almacen/preparacion_empaque', 'permiso' => 'almacen.ver'),
+            array('titulo' => 'Apertura de empaques', 'ruta' => '/almacen/apertura_empaques', 'permiso' => 'almacen.ver'),
             array('titulo' => 'Etiquetado', 'ruta' => '/almacen/etiquetado', 'permiso' => 'almacen.ver'),
             array('titulo' => 'Configuracion', 'ruta' => '/almacen/configuracion', 'permiso' => 'almacen.ubicaciones')
         )

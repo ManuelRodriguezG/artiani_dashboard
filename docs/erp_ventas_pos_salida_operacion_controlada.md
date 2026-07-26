@@ -46,17 +46,20 @@ Antes de iniciar:
 
 ```powershell
 C:\xampp\php\php.exe storage\uat\uat_ventas_pos_cierre_ampliado_readonly.php --compact=1
-C:\xampp\php\php.exe storage\uat\uat_ventas_pos_operacion_basica_readonly.php --id_usuario=1 --id_almacen=5 --id_sku=1760 --cantidad=1 --compact=1
+C:\xampp\php\php.exe storage\uat\uat_ventas_pos_operacion_basica_readonly.php --id_usuario=1 --id_almacen=5 --id_sku=1760 --cantidad=1 --usuarios=1,2,3 --compact=1
 C:\xampp\php\php.exe storage\uat\uat_ventas_pos_piloto_plan_accion_readonly.php --id_usuario=1 --id_almacen=5 --id_sku=1760 --cantidad=1 --precio=295 --monto_inicial=500 --usuarios=1,2,3
+C:\xampp\php\php.exe storage\uat\uat_ventas_pos_siguiente_piloto_readonly.php --id_usuario=1 --id_almacen=5 --id_sku=1760 --cantidad=1 --monto_inicial=500 --usuarios=1,2,3
 C:\xampp\php\php.exe storage\uat\uat_ventas_pos_piloto_paquete_autorizacion_readonly.php --id_usuario=1 --id_almacen=5 --id_sku=1760 --cantidad=1 --precio=295 --monto_inicial=500 --cantidad_fisica=CONTEO_REAL --monto_contado=MONTO_CONTADO_REAL
 ```
 
 Resultados esperados vigentes:
 
-- `scripts_total=28`.
+- `scripts_total=30`.
+- Semaforo de arranque local: `uat_ventas_pos_arranque_local_readonly.php`, decision vigente `listo_para_arrancar_al_abrir_turno`.
 - `bloqueos_total=0`.
 - `pendientes_total=4`.
 - `acciones_total=6`.
+- `siguiente_piloto`: recomendado si se requiere usar SKU alternativo con stock/precio.
 - `pasos_total=6`.
 
 ## Permitir en primer uso

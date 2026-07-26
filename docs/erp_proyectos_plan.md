@@ -1,15 +1,50 @@
-# ERP - Modulo de proyectos y tareas
+# Panel - Modulo general de proyectos y tareas
 
 Documentacion IA: Codex GPT-5  
 Fecha base: 2026-07-24  
-Estado: Plan inicial pendiente de autorizacion de implementacion  
+Estado: Modulo transversal activado con esquema vacio  
 Relacionados: `AGENTS.md`, `docs/erp_plan_maestro_fundamentos.md`, `docs/erp_notificaciones_alertas_trabajo.md`, `docs/erp_ux_operativa.md`
 
 ## Proposito
 
-Crear un modulo interno para organizar proyectos, objetivos, tareas y pendientes del negocio y de la construccion del ERP/POS.
+Crear un modulo interno transversal para organizar proyectos, objetivos, tareas y pendientes del negocio, CRM, ERP/POS, operacion y cualquier iniciativa interna.
 
-El modulo debe reemplazar el uso de WhatsApp personal, memoria de chat o notas dispersas como fuente principal de pendientes. La informacion debe quedar persistente, asignable, filtrable y trazable dentro del panel.
+El modulo debe reemplazar el uso de WhatsApp personal, memoria de chat o notas dispersas como fuente principal de pendientes. La informacion debe quedar persistente, asignable, filtrable y trazable dentro del panel, sin depender de que el proyecto pertenezca al ERP.
+
+## Decision transversal
+
+Fecha: 2026-07-25
+
+Proyectos no pertenece a ERP como area operativa. Es un modulo general del panel para coordinar trabajo de cualquier dominio: CRM, ERP/POS, catalogo, ventas, almacen, tecnologia, administracion o proyectos propios del negocio.
+
+La ruta funcional queda como `/proyecto` y el menu se muestra como seccion propia `Proyectos`.
+
+Nota tecnica: las tablas ya creadas conservan prefijo `erp_proyecto*` por compatibilidad con las convenciones historicas del sistema y porque aun estan vacias. Ese prefijo no define pertenencia operativa al ERP. Renombrarlas requeriria un cambio de esquema separado y no aporta valor funcional inmediato.
+
+## Responsables y participantes
+
+Fecha: 2026-07-25
+
+Una tarea o proyecto no debe limitarse a un solo responsable real. El campo `id_responsable` puede conservarse como titular principal para filtros rapidos y compatibilidad inicial, pero el modelo objetivo debe permitir varios participantes con rol operativo, por ejemplo:
+
+- `responsable`: persona que coordina o responde por el cierre.
+- `colaborador`: persona que ejecuta una parte.
+- `revisor`: persona que valida o aprueba.
+- `observador`: persona que necesita visibilidad sin ser bloqueante.
+
+La implementacion correcta requiere una tabla puente tipo `erp_proyecto_tarea_responsables` y, si aplica, otra para participantes de proyecto. No se deben guardar varios ids en un campo de texto porque se pierde integridad, filtros, permisos, notificaciones y trazabilidad.
+
+## URL de contexto
+
+La `url_contexto` sirve para llevar al usuario directo al lugar donde debe actuar o revisar informacion: una pantalla del modulo, un detalle de compra, una orden, una recepcion, un cliente CRM, una venta POS, una incidencia, un documento interno o una URL externa.
+
+Ejemplos de uso:
+
+- Tarea: "Revisar XML pendiente de orden de compra" con contexto `/compra/mostrar_compra_ordenes`.
+- Tarea: "Validar producto migrado" con contexto `/catalogo/productos`.
+- Tarea: "Resolver cliente con datos incompletos" con contexto `/crm/clientes`.
+
+La URL no reemplaza la descripcion de la tarea; solo es el acceso rapido al punto de trabajo.
 
 ## Interpretacion de la referencia Metronic
 
@@ -368,8 +403,19 @@ Fecha: 2026-07-24
 
 - Contexto actual: el dueno necesita dejar de depender de WhatsApp personal y memoria de chat para recordar pendientes de construccion del ERP y actividades del negocio.
 - Decision: adaptar el concepto de Projects de Metronic a un modulo operativo de proyectos/tareas, sin centrarlo en presupuesto.
-- Cambios implementados: se preparo esqueleto MVC con controlador `Proyecto`, modelos `ProyectosErp` y `ProyectosEsquema`, vista `apps/erp/proyectos/listado`, JS de bandeja, permisos base y menu lateral.
+- Cambios implementados: se preparo esqueleto MVC con controlador `Proyecto`, modelos `ProyectosErp` y `ProyectosEsquema`, vista `apps/proyectos/listado`, JS de bandeja, permisos base y menu lateral.
+- Preparacion activacion: se agregaron scripts UAT read-only/apply autorizado para esquema y permisos, mas solicitud de autorizacion en `docs/erp_proyectos_schema_solicitud_autorizacion.md`.
 - Regla aplicada: no se precargan tareas ni avances de Compras, POS, Catalogo, TMS ni ningun otro modulo; cada modulo agregara sus tareas cuando el dueno lo indique.
-- Pendientes: aplicar esquema de BD de Proyectos y sincronizar permisos base con respaldo/autorizacion antes de uso real.
+- Activacion BD 2026-07-25: con autorizacion del dueno se sincronizaron permisos `proyectos.*` y se aplico DDL base usando respaldos externos documentados en `docs/erp_respaldo_bd_estandar.md`.
+- Ajuste de dominio 2026-07-25: el modulo se separo visualmente de ERP y quedo como seccion general `Proyectos`.
+- Panel de avance 2026-07-25: se agrego resumen visual con avance general, tareas completadas/totales, prioridades activas, distribucion por estado y distribucion por modulo.
+- Correccion operativa 2026-07-25: el guardado/cambio de estado de tareas confirma primero la transaccion propia de Proyectos y despues sincroniza notificaciones de forma aislada; una falla de notificacion no debe impedir guardar la tarea.
+- Asignacion preparada 2026-07-25: se agrego catalogo read-only de usuarios activos de `sys_usuarios` para poder asignar responsable en proyectos y tareas desde la UI; no crea usuarios, roles ni asignaciones directas de seguridad.
+- URL de contexto 2026-07-25: se mostro como accion `Ir` en tareas para abrir directamente la pantalla relacionada cuando se capture una ruta o enlace valido.
+- Correccion UI tareas 2026-07-25: al abrir `Nueva tarea` se limpia explicitamente `id_tarea` y campos del modal para evitar que una captura nueva actualice la tarea anterior.
+- Separacion visual 2026-07-25: la bandeja general se divide en pestañas internas `Resumen` y `Proyectos y tareas`; cada proyecto puede abrirse en una pestaña de navegador separada con ruta `/proyecto/detalle/{id}` para revisar solo sus tareas.
+- Postcheck 2026-07-25: `permisos_proyectos_pendientes=0`, `schema_proyectos_pendiente=false`, `ddl_pendientes=0`.
+- Validacion de datos iniciales: las tablas `erp_proyectos`, `erp_proyecto_objetivos`, `erp_proyecto_tareas`, `erp_proyecto_comentarios`, `erp_proyecto_adjuntos` y `erp_proyecto_eventos` quedaron con `0` filas.
+- Pendientes: validar UI en navegador con usuario con `proyectos.ver`; capturar primer proyecto manual solo cuando el dueno lo indique.
 - Impacta a: Seguridad, Notificaciones, todos los modulos ERP que generen pendientes, documentacion viva.
 - Siguiente paso recomendado: ejecutar auditoria/dry-run de esquema y luego aplicar DDL con respaldo externo si el dueno autoriza.

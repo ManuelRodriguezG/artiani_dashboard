@@ -780,14 +780,251 @@ Resultado 2026-07-24:
   - crea evidencia TMS;
   - no toca ventas/POS/inventario/garantias.
 
+## TMS-T018 - Preflight read-only de reversa DDL
+
+Estado: completado read-only.
+
+Objetivo:
+
+Tener un diagnostico seguro antes de cualquier reversa futura de DDL TMS, verificando si existen tablas y si tienen filas.
+
+Criterio de cierre:
+
+- [x] Script read-only creado: `storage/uat/uat_tms_delivery_reversa_preflight_readonly.php`.
+- [x] No ejecuta `DROP`.
+- [x] No borra datos.
+- [x] No toca Ventas.
+- [x] No decide garantias.
+- [x] No mueve inventario.
+- [x] Define orden tecnico de borrado solo como informacion.
+- [x] Si MySQL no esta disponible, reporta `sin_conexion_mysql`.
+
+Resultado inicial 2026-07-25:
+
+- `php -l`: sin errores.
+- Ejecucion read-only: `sin_conexion_mysql`.
+- Log local MariaDB reporta `Aria recovery failed` y `Could not open mysql.plugin table`.
+- No se ejecuto reparacion de MariaDB ni cambios sobre BD.
+- No existe token activo para reversa DDL.
+
+Resultado actualizado 2026-07-25:
+
+- MySQL/MariaDB levantado.
+- Ejecucion read-only: `reversa_no_aplica_schema_pendiente`.
+- Conexion MySQL: si.
+- Tablas TMS existentes: 0/5.
+- Total filas TMS: 0.
+- Reversa tecnicamente viable: no aplica porque el esquema TMS aun no existe.
+
+## TMS-T019 - Checklist de activacion
+
+Estado: completado read-only.
+
+Objetivo:
+
+Consolidar el estado de permisos, esquema y UAT manual para definir el siguiente token permitido sin saltarse validaciones.
+
+Criterio de cierre:
+
+- [x] Script read-only creado: `storage/uat/uat_tms_delivery_activacion_checklist_readonly.php`.
+- [x] No crea respaldos.
+- [x] No sincroniza permisos.
+- [x] No ejecuta DDL.
+- [x] No crea servicios.
+- [x] Bloquea saltar a DDL si permisos no estan aplicados.
+- [x] Bloquea UAT manual si permisos y esquema no estan listos.
+
+Resultado 2026-07-25:
+
+- Estado: `listo_para_permisos_tms`.
+- Conexion MySQL: si.
+- Permisos pendientes: 8.
+- Schema pendiente: si.
+- Tablas TMS existentes: 0.
+- Siguiente token permitido: `TMS_PERMISOS_BASE`.
+- DDL y UAT manual quedan bloqueados por dependencias.
+
+## TMS-T020 - Respaldo previo a permisos TMS
+
+Estado: completado; no aplica permisos ni DDL.
+
+Objetivo:
+
+Generar respaldo externo antes de sincronizar permisos `tms.*` en BD.
+
+Resultado 2026-07-25:
+
+- Respaldo creado:
+  - `C:\xampp\panel_db_backups\artianilocal_panel_20260725_antes_tms_permisos.sql`.
+- Tamano: 32809505 bytes.
+- Checklist posterior sigue en `listo_para_permisos_tms`.
+- Siguiente token permitido: `TMS_PERMISOS_BASE`.
+- No se sincronizaron permisos.
+- No se ejecuto DDL.
+- No se crearon servicios TMS.
+
+## TMS-T021 - Aplicacion autorizada de permisos TMS
+
+Estado: completado.
+
+Objetivo:
+
+Sincronizar los permisos `tms.*` y relaciones esperadas sobre roles base, usando respaldo externo y token autorizado.
+
+Autorizacion usada:
+
+```text
+AUTORIZO SINCRONIZAR PERMISOS TMS DELIVERY usando respaldo C:\xampp\panel_db_backups\artianilocal_panel_20260725_antes_tms_permisos.sql con token TMS_PERMISOS_BASE.
+```
+
+Resultado 2026-07-25:
+
+- Script ejecutado: `storage/uat/uat_tms_delivery_permisos_apply_authorized.php`.
+- Permisos sincronizados: 8.
+- Roles detectados: 8.
+- Relaciones intentadas: 23.
+- No asigna usuarios directo.
+- No crea tablas TMS.
+- No crea servicios TMS.
+- No toca Ventas, Inventario ni Garantias.
+
+Verificacion posterior:
+
+- `storage/uat/uat_tms_delivery_permisos_postapply_readonly.php`: `permisos_tms_listos`.
+- Permisos: 8/8.
+- Roles: 8/8.
+- Menu: listo.
+- Checklist de activacion: `listo_para_schema_tms`.
+- Siguiente token permitido: `TMS_DELIVERY_DDL_BASE`.
+
+## TMS-T022 - Respaldo previo a DDL TMS
+
+Estado: completado; no aplica DDL.
+
+Objetivo:
+
+Generar respaldo externo antes de crear tablas `erp_tms_*`.
+
+Resultado 2026-07-25:
+
+- Respaldo creado:
+  - `C:\xampp\panel_db_backups\artianilocal_panel_20260725_antes_tms_delivery_schema.sql`.
+- Tamano: 32811490 bytes.
+- Script DDL probado con respaldo real pero sin token: bloqueado correctamente.
+- Validacion de respaldo en script DDL: `ok=true`.
+- No se ejecuto DDL.
+- No se crearon servicios TMS.
+- No se tocaron Ventas, POS, Inventario ni Garantias.
+
+## TMS-T023 - Aplicacion autorizada DDL TMS
+
+Estado: completado.
+
+Objetivo:
+
+Crear las tablas base `erp_tms_*` para operar servicios logisticos independientes.
+
+Autorizacion usada:
+
+```text
+AUTORIZO CREAR ESQUEMA TMS DELIVERY usando respaldo C:\xampp\panel_db_backups\artianilocal_panel_20260725_antes_tms_delivery_schema.sql con token TMS_DELIVERY_DDL_BASE.
+```
+
+Resultado 2026-07-25:
+
+- Script ejecutado: `storage/uat/uat_tms_delivery_schema_apply_authorized.php`.
+- Tablas creadas: 5.
+- Tablas:
+  - `erp_tms_servicios`;
+  - `erp_tms_servicios_detalle`;
+  - `erp_tms_servicios_costos`;
+  - `erp_tms_eventos`;
+  - `erp_tms_evidencias`.
+- No crea servicios TMS.
+- No toca Ventas.
+- No toca POS.
+- No toca Inventario.
+- No toca Garantias.
+- No sincroniza permisos.
+
+Verificacion posterior:
+
+- `storage/uat/uat_tms_delivery_schema_postapply_readonly.php`: `schema_tms_listo`.
+- Pendientes schema: 0.
+- Listado/reportes ya no indican `schema_pendiente`.
+- Dry-run valido: si.
+- Checklist de activacion: `listo_para_uat_manual_tms`.
+- Siguiente token permitido: `TMS_UAT_SERVICIO_MANUAL`.
+- Preflight reversa: tablas TMS 5/5, filas 0; reversa tecnicamente viable solo con autorizacion futura separada.
+
+## TMS-T024 - Respaldo previo a UAT manual TMS
+
+Estado: completado; no ejecuta UAT.
+
+Objetivo:
+
+Generar respaldo externo antes de crear el primer servicio TMS de prueba.
+
+Resultado 2026-07-25:
+
+- Respaldo creado:
+  - `C:\xampp\panel_db_backups\artianilocal_panel_20260725_antes_tms_uat_manual.sql`.
+- Tamano: 32820083 bytes.
+- Script UAT manual probado con respaldo real pero sin token: bloqueado correctamente.
+- Validacion de respaldo en script UAT: `ok=true`.
+- No se creo servicio TMS.
+- No se tocaron Ventas, POS, Inventario ni Garantias.
+- Siguiente token permitido: `TMS_UAT_SERVICIO_MANUAL`.
+
+## TMS-T025 - Ejecucion autorizada UAT manual TMS
+
+Estado: completado.
+
+Objetivo:
+
+Crear y cerrar un servicio TMS de prueba, validando eventos, costos y evidencia sin integrar POS/Ventas.
+
+Autorizacion usada:
+
+```text
+AUTORIZO EJECUTAR UAT MANUAL TMS DELIVERY usando respaldo C:\xampp\panel_db_backups\artianilocal_panel_20260725_antes_tms_uat_manual.sql con token TMS_UAT_SERVICIO_MANUAL.
+```
+
+Resultado 2026-07-25:
+
+- Script ejecutado: `storage/uat/uat_tms_delivery_servicio_manual_apply_authorized.php`.
+- Servicio creado: `id_tms_servicio=1`.
+- Folio: `TMS-20260725-212914-255`.
+- Pasos ejecutados: 5.
+- Estado final: `entregada`.
+- Resultado logistico final: `completa`.
+- Evidencia registrada: `id_tms_evidencia=1`, tipo `nota`.
+- No toca Ventas.
+- No toca POS.
+- No toca Inventario.
+- No toca Garantias.
+
+Verificacion posterior:
+
+- Checklist de activacion: `activacion_base_completa`.
+- Servicios TMS: 1.
+- Reportes TMS:
+  - total: 1;
+  - completas: 1;
+  - express: 1;
+  - ingresos logisticos: 75.
+- Preflight reversa: `reversa_bloqueada_hay_datos_tms`.
+- Filas TMS totales: 9.
+- Reversa DDL ya no debe ejecutarse porque existen datos TMS.
+
 ## Handoff / continuidad
 
 Fecha: 2026-07-24
 
-- Contexto actual: TMS ya tiene documentos, DDL propuesto, modelo de esquema dry-run, modelo de dominio, controlador base, vistas base, JS, sidebar, reportes y UAT go/no-go; no existe esquema aplicado y el guardado real queda bloqueado hasta crear tablas.
+- Contexto actual: TMS ya tiene documentos, permisos aplicados en BD, esquema TMS aplicado, modelo de dominio, controlador base, vistas base, JS, sidebar, reportes y un servicio TMS de prueba cerrado correctamente.
 - Decision: TMS es modulo independiente, no submodulo de Ventas.
-- Cambios recientes: se creo plan rector, plan de tareas, DDL propuesto inicial, `TmsEsquema.php`, `TmsDelivery.php`, `Tms.php`, UI inicial, proteccion en `Core.php`, modulo padre `TMS` en sidebar con grupo `Delivery`, permisos `tms.*` en `SeguridadEsquema.php`, UAT read-only en `storage/uat`, scripts `apply_authorized` bloqueados por token/respaldo, endpoint de guardado protegido por esquema, endpoint de operacion de estados protegido por esquema, endpoints de evidencias protegidos por esquema, reportes read-only protegidos por esquema y go/no-go consolidado.
-- Validacion reciente: UAT go/no-go confirma 45/45 checks correctos; preactivacion read-only confirma 9/9 checks y propone permisos/schema/UAT manual en autorizaciones separadas; post-permisos detecta menu listo y BD de permisos pendiente; post-DDL detecta cinco tablas pendientes y dry-run valido; UAT manual autorizado queda bloqueado sin token/respaldo; permisos y tablas siguen pendientes en BD; guardado real, acciones operativas y evidencias quedan bloqueadas mientras falta esquema; reportes y pantallas internas devuelven estado controlado mientras falta esquema.
-- Pendiente inmediato: sincronizar permisos `tms.*` en BD con autorizacion o preparar `TMS-T007` solo despues de aplicar DDL TMS.
+- Cambios recientes: se creo plan rector, plan de tareas, DDL propuesto inicial, `TmsEsquema.php`, `TmsDelivery.php`, `Tms.php`, UI inicial, proteccion en `Core.php`, modulo padre `TMS` en sidebar con grupo `Delivery`, permisos `tms.*` en `SeguridadEsquema.php`, permisos TMS aplicados en BD, esquema TMS aplicado en BD, UAT manual ejecutado, UAT read-only en `storage/uat`, endpoint de guardado real, endpoint de operacion de estados, endpoints de evidencias y reportes read-only.
+- Validacion reciente: permisos TMS aplicados con respaldo externo y token `TMS_PERMISOS_BASE`; DDL TMS aplicado con respaldo externo y token `TMS_DELIVERY_DDL_BASE`; UAT manual ejecutado con token `TMS_UAT_SERVICIO_MANUAL`; post-permisos confirma 8/8 permisos, 8/8 roles y menu listo; post-DDL confirma `schema_tms_listo`; UAT go/no-go confirma 47/47 checks correctos; checklist de activacion confirma `activacion_base_completa`; preflight de reversa bloquea reversa porque ya hay datos TMS.
+- Pendiente inmediato: validar UI TMS con el servicio de prueba y preparar integracion POS/Ventas en tarea separada.
 - No tocar todavia: BD, vistas POS o integraciones reales.
-- Siguiente paso recomendado: pedir autorizacion para `TMS_PERMISOS_BASE`; despues probar acceso `/tms/servicios`. El DDL de tablas `erp_tms_*` debe ser otra autorizacion separada.
+- Siguiente paso recomendado: validar UI TMS en navegador y planear integracion POS/Ventas como solicitante, sin mezclar reglas de venta con servicio logistico.

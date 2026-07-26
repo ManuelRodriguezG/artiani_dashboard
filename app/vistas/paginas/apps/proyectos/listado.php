@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="es">
 <head>
     <base href="../../../">
@@ -43,6 +43,17 @@
                     <div class="app-container container-fluid">
                         <div class="alert alert-info d-none" id="proyectos_schema_alerta"></div>
 
+                        <ul class="nav nav-tabs nav-line-tabs mb-7 fs-6">
+                            <li class="nav-item">
+                                <a class="nav-link active" data-bs-toggle="tab" href="#proyectos_tab_resumen">Resumen</a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link" data-bs-toggle="tab" href="#proyectos_tab_trabajo">Proyectos y tareas</a>
+                            </li>
+                        </ul>
+
+                        <div class="tab-content">
+                            <div class="tab-pane fade show active" id="proyectos_tab_resumen">
                         <div class="row g-5 mb-7">
                             <div class="col-md-3">
                                 <div class="border border-gray-300 rounded p-5 h-100">
@@ -70,6 +81,57 @@
                             </div>
                         </div>
 
+                        <div class="row g-6 mb-7">
+                            <div class="col-xl-5">
+                                <div class="card h-100">
+                                    <div class="card-header border-0 pt-6">
+                                        <div class="card-title">
+                                            <h2 class="fw-bold mb-0">Avance general</h2>
+                                        </div>
+                                    </div>
+                                    <div class="card-body pt-0">
+                                        <div class="d-flex align-items-end gap-3 mb-3">
+                                            <div class="fs-1 fw-bold" id="proyectos_avance_general">0%</div>
+                                            <div class="text-muted pb-3" id="proyectos_avance_detalle">0 de 0 tareas completadas</div>
+                                        </div>
+                                        <div class="progress h-8px bg-light">
+                                            <div class="progress-bar bg-primary" id="proyectos_avance_barra" role="progressbar" style="width: 0%"></div>
+                                        </div>
+                                        <div class="separator my-5"></div>
+                                        <div class="d-flex flex-wrap gap-2" id="proyectos_prioridades_panel">
+                                            <span class="text-muted">Sin tareas activas</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-xl-4">
+                                <div class="card h-100">
+                                    <div class="card-header border-0 pt-6">
+                                        <div class="card-title">
+                                            <h2 class="fw-bold mb-0">Trabajo por estado</h2>
+                                        </div>
+                                    </div>
+                                    <div class="card-body pt-0" id="proyectos_estatus_panel">
+                                        <div class="text-muted">Sin tareas registradas</div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-xl-3">
+                                <div class="card h-100">
+                                    <div class="card-header border-0 pt-6">
+                                        <div class="card-title">
+                                            <h2 class="fw-bold mb-0">Modulos</h2>
+                                        </div>
+                                    </div>
+                                    <div class="card-body pt-0" id="proyectos_modulos_panel">
+                                        <div class="text-muted">Sin tareas registradas</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                            </div>
+                            <div class="tab-pane fade" id="proyectos_tab_trabajo">
                         <div class="row g-6">
                             <div class="col-xl-4">
                                 <div class="card h-100">
@@ -158,6 +220,8 @@
                                 </div>
                             </div>
                         </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </main>
@@ -203,6 +267,10 @@
                             <select class="form-select form-select-solid" name="prioridad" id="proyecto_prioridad"></select>
                         </div>
                         <div class="col-md-6">
+                            <label class="form-label">Responsable</label>
+                            <select class="form-select form-select-solid" name="id_responsable" id="proyecto_id_responsable"></select>
+                        </div>
+                        <div class="col-md-6">
                             <label class="form-label">Inicio</label>
                             <input type="date" class="form-control form-control-solid" name="fecha_inicio" id="proyecto_fecha_inicio">
                         </div>
@@ -221,78 +289,11 @@
     </div>
 </div>
 
-<div class="modal fade" id="proyectos_modal_tarea" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered mw-750px">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h2 class="fw-bold">Tarea</h2>
-                <button type="button" class="btn btn-icon btn-sm btn-active-light-primary" data-bs-dismiss="modal">
-                    <i class="bi bi-x fs-2"></i>
-                </button>
-            </div>
-            <form id="proyectos_form_tarea">
-                <div class="modal-body">
-                    <input type="hidden" name="id_tarea" id="tarea_id_tarea">
-                    <div class="row g-4">
-                        <div class="col-md-12">
-                            <label class="form-label">Proyecto</label>
-                            <select class="form-select form-select-solid" name="id_proyecto" id="tarea_id_proyecto" required></select>
-                        </div>
-                        <div class="col-md-12">
-                            <label class="form-label">Titulo</label>
-                            <input type="text" class="form-control form-control-solid" name="titulo" id="tarea_titulo" required>
-                        </div>
-                        <div class="col-md-12">
-                            <label class="form-label">Descripcion</label>
-                            <textarea class="form-control form-control-solid" name="descripcion" id="tarea_descripcion" rows="3"></textarea>
-                        </div>
-                        <div class="col-md-4">
-                            <label class="form-label">Estado</label>
-                            <select class="form-select form-select-solid" name="estatus" id="tarea_estatus"></select>
-                        </div>
-                        <div class="col-md-4">
-                            <label class="form-label">Prioridad</label>
-                            <select class="form-select form-select-solid" name="prioridad" id="tarea_prioridad"></select>
-                        </div>
-                        <div class="col-md-4">
-                            <label class="form-label">Origen</label>
-                            <select class="form-select form-select-solid" name="origen" id="tarea_origen"></select>
-                        </div>
-                        <div class="col-md-4">
-                            <label class="form-label">Area</label>
-                            <input type="text" class="form-control form-control-solid" name="area_responsable" id="tarea_area">
-                        </div>
-                        <div class="col-md-4">
-                            <label class="form-label">Modulo</label>
-                            <select class="form-select form-select-solid" name="modulo_relacionado" id="tarea_modulo"></select>
-                        </div>
-                        <div class="col-md-4">
-                            <label class="form-label">Vencimiento</label>
-                            <input type="date" class="form-control form-control-solid" name="fecha_vencimiento" id="tarea_fecha_vencimiento">
-                        </div>
-                        <div class="col-md-12">
-                            <label class="form-label">URL de contexto</label>
-                            <input type="text" class="form-control form-control-solid" name="url_contexto" id="tarea_url_contexto" placeholder="/modulo/ruta">
-                        </div>
-                        <div class="col-md-12">
-                            <label class="form-check form-check-custom form-check-solid">
-                                <input class="form-check-input" type="checkbox" value="1" name="requiere_autorizacion" id="tarea_requiere_autorizacion">
-                                <span class="form-check-label">Requiere autorizacion antes de cerrar</span>
-                            </label>
-                        </div>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cerrar</button>
-                    <button type="submit" class="btn btn-primary">Guardar</button>
-                </div>
-            </form>
-        </div>
-    </div>
-</div>
+<?php include __DIR__ . '/partials/modal_tarea.php'; ?>
 
 <script src="assets/plugins/global/plugins.bundle.js"></script>
 <script src="assets/js/scripts.bundle.js"></script>
-<script src="/assets/js/custom/apps/erp/proyectos/listado.js?v=20260724-1"></script>
+<script src="/assets/js/custom/apps/proyectos/listado.js?v=20260725-4"></script>
 </body>
 </html>
+

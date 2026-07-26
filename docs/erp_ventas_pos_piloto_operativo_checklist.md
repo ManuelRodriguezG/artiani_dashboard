@@ -330,3 +330,58 @@ Decision operativa vigente:
 - POS base queda listo para piloto controlado con ventas normales, atenciones multiusuario, caja/turnos, ticket, kardex, garantia snapshot, reportes basicos y trazabilidad.
 - Mantener fuera del primer piloto: inventario pendiente productivo, devoluciones reales, descuentos libres, apartados nuevos y reglas avanzadas de precios sin UAT separada.
 - Para operar, abrir turno desde Caja/Turnos antes de cobrar; el cierre puede registrar diferencia si el contado no cuadra, y esa diferencia debe entrar al flujo de revision.
+
+## Corte 2026-07-25 - estado operativo vigente
+
+El estado vigente se debe leer desde los semaforos actuales, no desde cortes historicos del 2026-07-17 o 2026-07-19.
+
+Comandos base:
+
+```powershell
+C:\xampp\php\php.exe storage\uat\uat_ventas_pos_cierre_ampliado_readonly.php --compact=1
+C:\xampp\php\php.exe storage\uat\uat_ventas_pos_pendientes_piloto_readonly.php --id_almacen=5 --id_sku=1760 --usuarios=1,2,3
+C:\xampp\php\php.exe storage\uat\uat_ventas_pos_operacion_basica_readonly.php --id_usuario=1 --id_almacen=5 --id_sku=1760 --cantidad=1 --usuarios=1,2,3 --compact=1
+```
+
+Resultado vigente:
+
+- Cierre ampliado: `ok=true`, `scripts_total=30`, `bloqueos_total=0`, decision `pos_apto_para_piloto_controlado_con_condiciones`.
+- Semaforo arranque local `uat_ventas_pos_arranque_local_readonly.php`: `ok=true`, decision `listo_para_arrancar_al_abrir_turno`.
+- Pendientes piloto: `ok=true`, `pendientes_total=4`.
+- Usuarios `1`, `2` y `3`: activos y sin problemas reportados por el semaforo de pendientes piloto.
+- Pendientes operativos actuales:
+  - abrir turno antes de cobrar;
+  - SKU `1760` sin disponible en almacen `5`;
+  - pendiente de inventario `PINV-20260717-000001`;
+  - evidencia de caja `GASTO-UAT-001`.
+
+Criterio practico:
+
+- Estos pendientes no significan que el POS este roto.
+- Si se quiere vender ahora, primero se abre turno y se usa un SKU con existencia disponible, o se carga stock/usa inventario pendiente con autorizacion.
+- Para ampliar el piloto, resolver o documentar `PINV-20260717-000001` y `GASTO-UAT-001`.
+
+## Corte 2026-07-25 - SKU alternativo con stock para piloto
+
+Se encontro un SKU disponible para hacer una prueba controlada sin cargar stock adicional al SKU `1760`.
+
+- SKU ERP `173`: `ALI-GLOGDM`, `Alimento vivo grillo por millar`.
+- Disponible en almacen `5`: `1000`.
+- Pendientes POS abiertos para ese SKU/almacen: `0`.
+- Precio validado por preflight: `1000`.
+- Pago validado por preflight: `1000`.
+- Bloqueo restante para venta normal: abrir turno de caja.
+
+Uso recomendado:
+
+- Si se quiere probar POS real sin generar otra carga de inventario UAT, abrir turno y vender SKU `173` con cantidad `1`, precio `1000`, pago `1000`.
+- Mantener `PINV-20260717-000001` y `GASTO-UAT-001` identificados hasta resolverlos por sus flujos administrativos.
+
+## Corte 2026-07-25 - UX de mostrador sin menu oculto
+
+La barra superior del POS debe operar como tablero de acciones rapido:
+
+- Acciones visibles: `Prevalidar`, `Venta rapida`, `Ticket`, `Cliente`, `Autorizar`, `Atenciones`, `Revisar venta`, `Revisar apartado`, `Venta con faltante`, `Arranque`, `Caja`, `Ventas`, `Movimientos`, `Evidencias`, `Reportes` y `Pedidos`.
+- Pagos rapidos visibles: efectivo `Alt+1`, tarjeta `Alt+2`, transferencia `Alt+3`, saldo cliente `Alt+4`.
+- El carrito debe explicar salida como `Stock general`, `Unidad cerrada` y `Granel`.
+- Las advertencias de sistema pertenecen a la pantalla operativa; no deben aparecer como texto interno en ticket cliente.

@@ -9,12 +9,13 @@ class ProyectosErp extends CRUD {
   private $tabla_tareas = "erp_proyecto_tareas";
   private $tabla_comentarios = "erp_proyecto_comentarios";
   private $tabla_eventos = "erp_proyecto_eventos";
+  private $columnasCache = array();
 
   /**
    * IA: Codex GPT-5
    * Fecha: 2026-07-24
    * Proposito: exponer catalogos operativos del modulo Proyectos sin escritura.
-   * Impacto: Proyectos ERP; alimenta formularios y filtros.
+   * Impacto: Proyectos transversal; alimenta formularios y filtros.
    * Contrato: read-only; no precarga tareas reales de otros modulos.
    */
   public function catalogosProyectos() {
@@ -38,7 +39,7 @@ class ProyectosErp extends CRUD {
    * IA: Codex GPT-5
    * Fecha: 2026-07-24
    * Proposito: consultar resumen operativo de proyectos y tareas.
-   * Impacto: Proyectos ERP; alimenta KPIs sin crear datos.
+   * Impacto: Proyectos transversal; alimenta KPIs sin crear datos.
    * Contrato: read-only; si falta esquema devuelve resumen vacio controlado.
    */
   public function resumenProyectos($idUsuario = 0) {
@@ -59,10 +60,19 @@ class ProyectosErp extends CRUD {
       if (intval($idUsuario) > 0) {
         $kpis["mis_tareas"] = $this->conteo($db, $this->tabla_tareas, "estatus IN ('pendiente','en_proceso','en_revision','bloqueada') AND id_responsable=" . intval($idUsuario));
       }
+      $totalTareas = $this->conteo($db, $this->tabla_tareas, "1=1");
+      $tareasCompletadas = $this->conteo($db, $this->tabla_tareas, "estatus='completada'");
+      $kpis["tareas_totales"] = $totalTareas;
+      $kpis["tareas_completadas"] = $tareasCompletadas;
+      $kpis["avance_general"] = $totalTareas > 0 ? round(($tareasCompletadas / $totalTareas) * 100, 2) : 0;
 
       return $this->respuesta(false, "success", "Resumen de Proyectos consultado", array(
         "schema_pendiente" => false,
-        "kpis" => $kpis
+        "kpis" => $kpis,
+        "por_estatus" => $this->agregadoSimple($db, $this->tabla_tareas, "estatus", "1=1"),
+        "por_modulo" => $this->agregadoSimple($db, $this->tabla_tareas, "COALESCE(modulo_relacionado,'general')", "1=1"),
+        "por_prioridad" => $this->agregadoSimple($db, $this->tabla_tareas, "prioridad", "estatus IN ('pendiente','en_proceso','en_revision','bloqueada')"),
+        "proyectos_riesgo" => $this->proyectosRiesgo($db)
       ));
     } catch (Exception $e) {
       return $this->respuesta(true, "danger", $e->getMessage());
@@ -73,7 +83,7 @@ class ProyectosErp extends CRUD {
    * IA: Codex GPT-5
    * Fecha: 2026-07-24
    * Proposito: listar proyectos visibles con conteo agregado de tareas.
-   * Impacto: Proyectos ERP; no consulta avances externos por modulo.
+   * Impacto: Proyectos transversal; no consulta avances externos por modulo.
    * Contrato: read-only; filtros simples por estatus, tipo, modulo y texto.
    */
   public function listarProyectos($filtros = array()) {
@@ -93,13 +103,16 @@ class ProyectosErp extends CRUD {
       $this->aplicarFiltroIgual($where, $params, "p.tipo", "tipo", $filtros);
       $this->aplicarFiltroIgual($where, $params, "p.modulo_relacionado", "modulo", $filtros);
 
+      $usuarioNombreExpr = $this->expresionNombreUsuario("u");
       $sql = "SELECT p.*,
+          {$usuarioNombreExpr} responsable_nombre,
           COUNT(t.id_tarea) total_tareas,
           SUM(CASE WHEN t.estatus IN ('pendiente','en_proceso','en_revision','bloqueada') THEN 1 ELSE 0 END) tareas_abiertas,
           SUM(CASE WHEN t.estatus='completada' THEN 1 ELSE 0 END) tareas_completadas,
           SUM(CASE WHEN t.estatus='bloqueada' THEN 1 ELSE 0 END) tareas_bloqueadas
         FROM {$this->tabla_proyectos} p
         LEFT JOIN {$this->tabla_tareas} t ON t.id_proyecto=p.id_proyecto
+        LEFT JOIN sys_usuarios u ON u.id_usuario=p.id_responsable
         WHERE " . implode(" AND ", $where) . "
         GROUP BY p.id_proyecto
         ORDER BY FIELD(p.prioridad,'critica','alta','normal','info'), p.id_proyecto DESC
@@ -120,7 +133,7 @@ class ProyectosErp extends CRUD {
    * IA: Codex GPT-5
    * Fecha: 2026-07-24
    * Proposito: listar tareas por filtros de operacion y bandeja personal.
-   * Impacto: Proyectos ERP; permite seguimiento sin depender de WhatsApp o memoria de chat.
+   * Impacto: Proyectos transversal; permite seguimiento sin depender de WhatsApp o memoria de chat.
    * Contrato: read-only; no crea ni cierra tareas.
    */
   public function listarTareas($filtros = array(), $idUsuario = 0) {
@@ -155,9 +168,12 @@ class ProyectosErp extends CRUD {
         $params[":usuario"] = intval($idUsuario);
       }
 
-      $sql = "SELECT t.*, p.folio proyecto_folio, p.nombre proyecto_nombre
+      $usuarioNombreExpr = $this->expresionNombreUsuario("u");
+      $sql = "SELECT t.*, p.folio proyecto_folio, p.nombre proyecto_nombre,
+          {$usuarioNombreExpr} responsable_nombre
         FROM {$this->tabla_tareas} t
         INNER JOIN {$this->tabla_proyectos} p ON p.id_proyecto=t.id_proyecto
+        LEFT JOIN sys_usuarios u ON u.id_usuario=t.id_responsable
         WHERE " . implode(" AND ", $where) . "
         ORDER BY FIELD(t.prioridad,'critica','alta','normal','info'),
           t.fecha_vencimiento IS NULL ASC, t.fecha_vencimiento ASC, t.id_tarea DESC
@@ -176,9 +192,39 @@ class ProyectosErp extends CRUD {
 
   /**
    * IA: Codex GPT-5
+   * Fecha: 2026-07-25
+   * Proposito: listar usuarios internos activos para asignacion de proyectos y tareas.
+   * Impacto: Proyectos transversal; solo consulta sys_usuarios.
+   * Contrato: read-only; no asigna roles ni crea usuarios.
+   */
+  public function listarUsuariosAsignables() {
+    try {
+      $db = $this->getConexion();
+      if (!$this->tablaExiste($db, "sys_usuarios")) {
+        return $this->respuesta(false, "info", "No hay tabla de usuarios disponible", array("usuarios" => array()));
+      }
+      $nombreExpr = $this->expresionNombreUsuario();
+      $areaExpr = $this->expresionAreaUsuario();
+      $stmt = $db->query("SELECT id_usuario,
+          {$nombreExpr} nombre,
+          {$areaExpr} area_departamento
+        FROM sys_usuarios
+        WHERE COALESCE(estatus,1)=1
+        ORDER BY nombre ASC, id_usuario ASC");
+
+      return $this->respuesta(false, "success", "Usuarios asignables consultados", array(
+        "usuarios" => $stmt->fetchAll(PDO::FETCH_ASSOC)
+      ));
+    } catch (Exception $e) {
+      return $this->respuesta(true, "danger", $e->getMessage());
+    }
+  }
+
+  /**
+   * IA: Codex GPT-5
    * Fecha: 2026-07-24
    * Proposito: crear o editar un proyecto operativo vacio de avances externos.
-   * Impacto: Proyectos ERP; registra evento local y no modifica otros modulos.
+   * Impacto: Proyectos transversal; registra evento local y no modifica otros modulos.
    * Contrato: escritura transaccional; requiere nombre, tipo, estatus y prioridad validos.
    */
   public function guardarProyecto($datos = array(), $idUsuario = 0) {
@@ -241,7 +287,7 @@ class ProyectosErp extends CRUD {
         $accion = "proyecto_creado";
       }
       $this->registrarEvento($db, $idProyecto, null, $accion, $validacion["proyecto"], $idUsuario);
-      $db->commit();
+      $this->confirmarTransaccionSiActiva($db);
 
       return $this->respuesta(false, "success", "Proyecto guardado correctamente", array(
         "id_proyecto" => $idProyecto,
@@ -259,7 +305,7 @@ class ProyectosErp extends CRUD {
    * IA: Codex GPT-5
    * Fecha: 2026-07-24
    * Proposito: crear o editar tareas accionables dentro de un proyecto.
-   * Impacto: Proyectos ERP y Notificaciones; no modifica el modulo relacionado.
+   * Impacto: Proyectos transversal y Notificaciones; no modifica el modulo relacionado.
    * Contrato: escritura transaccional; integra notificacion si hay responsable, area o prioridad alta.
    */
   public function guardarTarea($datos = array(), $idUsuario = 0) {
@@ -302,12 +348,13 @@ class ProyectosErp extends CRUD {
         $accion = "tarea_creada";
       }
       $this->registrarEvento($db, $validacion["tarea"]["id_proyecto"], $idTarea, $accion, $validacion["tarea"], $idUsuario);
-      $this->sincronizarNotificacionTarea($db, $idTarea, $idUsuario);
-      $db->commit();
+      $this->confirmarTransaccionSiActiva($db);
+      $notificacion = $this->sincronizarNotificacionTareaSegura($idTarea, $idUsuario);
 
       return $this->respuesta(false, "success", "Tarea guardada correctamente", array(
         "id_tarea" => $idTarea,
-        "accion" => $accion
+        "accion" => $accion,
+        "notificacion" => $notificacion
       ));
     } catch (Exception $e) {
       if (isset($db) && $db && $db->inTransaction()) {
@@ -321,7 +368,7 @@ class ProyectosErp extends CRUD {
    * IA: Codex GPT-5
    * Fecha: 2026-07-24
    * Proposito: cambiar estado de una tarea con motivo opcional.
-   * Impacto: Proyectos ERP y Notificaciones; resuelve notificacion cuando la tarea cierra.
+   * Impacto: Proyectos transversal y Notificaciones; resuelve notificacion cuando la tarea cierra.
    * Contrato: solo modifica la tarea indicada y registra evento local.
    */
   public function cambiarEstatusTarea($datos = array(), $idUsuario = 0) {
@@ -361,12 +408,13 @@ class ProyectosErp extends CRUD {
         "estatus_nuevo" => $estatus,
         "comentario" => $comentario
       ), $idUsuario);
-      $this->sincronizarNotificacionTarea($db, $idTarea, $idUsuario);
-      $db->commit();
+      $this->confirmarTransaccionSiActiva($db);
+      $notificacion = $this->sincronizarNotificacionTareaSegura($idTarea, $idUsuario);
 
       return $this->respuesta(false, "success", "Estatus de tarea actualizado", array(
         "id_tarea" => $idTarea,
-        "estatus" => $estatus
+        "estatus" => $estatus,
+        "notificacion" => $notificacion
       ));
     } catch (Exception $e) {
       if (isset($db) && $db && $db->inTransaction()) {
@@ -380,7 +428,7 @@ class ProyectosErp extends CRUD {
    * IA: Codex GPT-5
    * Fecha: 2026-07-24
    * Proposito: consultar detalle completo de proyecto con objetivos, tareas y actividad.
-   * Impacto: Proyectos ERP; vista de trabajo sin escribir BD.
+   * Impacto: Proyectos transversal; vista de trabajo sin escribir BD.
    * Contrato: read-only; requiere id_proyecto.
    */
   public function consultarProyecto($idProyecto) {
@@ -414,7 +462,7 @@ class ProyectosErp extends CRUD {
    * IA: Codex GPT-5
    * Fecha: 2026-07-24
    * Proposito: registrar comentario operativo en proyecto o tarea.
-   * Impacto: Proyectos ERP; conserva decisiones cortas sin reemplazar docs vivos.
+   * Impacto: Proyectos transversal; conserva decisiones cortas sin reemplazar docs vivos.
    * Contrato: escritura simple; no modifica estado por si mismo.
    */
   public function registrarComentario($datos = array(), $idUsuario = 0) {
@@ -579,6 +627,27 @@ class ProyectosErp extends CRUD {
     ));
   }
 
+  private function confirmarTransaccionSiActiva($db) {
+    if ($db && $db->inTransaction()) {
+      $db->commit();
+    }
+  }
+
+  private function sincronizarNotificacionTareaSegura($idTarea, $idUsuario) {
+    try {
+      $db = $this->getConexion();
+      if (!$db || $db->inTransaction()) {
+        return array("error" => true, "mensaje" => "Sincronizacion omitida por transaccion activa");
+      }
+      return array(
+        "error" => false,
+        "afectadas" => $this->sincronizarNotificacionTarea($db, $idTarea, $idUsuario)
+      );
+    } catch (Exception $e) {
+      return array("error" => true, "mensaje" => $e->getMessage());
+    }
+  }
+
   private function registrarEvento($db, $idProyecto, $idTarea, $tipo, $datos, $idUsuario) {
     $stmt = $db->prepare("INSERT INTO {$this->tabla_eventos}
       (id_proyecto, id_tarea, tipo, descripcion, datos_json, creado_por)
@@ -647,6 +716,33 @@ class ProyectosErp extends CRUD {
     return intval($stmt->fetchColumn());
   }
 
+  private function agregadoSimple($db, $tabla, $campo, $where) {
+    $stmt = $db->query("SELECT {$campo} etiqueta, COUNT(*) total
+      FROM {$tabla}
+      WHERE {$where}
+      GROUP BY etiqueta
+      ORDER BY total DESC, etiqueta ASC
+      LIMIT 12");
+    return $stmt->fetchAll(PDO::FETCH_ASSOC);
+  }
+
+  private function proyectosRiesgo($db) {
+    $stmt = $db->query("SELECT p.id_proyecto, p.folio, p.nombre, p.prioridad,
+        SUM(CASE WHEN t.estatus='bloqueada' THEN 1 ELSE 0 END) bloqueadas,
+        SUM(CASE WHEN t.estatus IN ('pendiente','en_proceso','en_revision','bloqueada')
+          AND t.fecha_vencimiento IS NOT NULL AND t.fecha_vencimiento < CURDATE() THEN 1 ELSE 0 END) vencidas,
+        COUNT(t.id_tarea) total_tareas,
+        SUM(CASE WHEN t.estatus='completada' THEN 1 ELSE 0 END) completadas
+      FROM {$this->tabla_proyectos} p
+      LEFT JOIN {$this->tabla_tareas} t ON t.id_proyecto=p.id_proyecto
+      WHERE p.estatus IN ('activo','bloqueado','pausado')
+      GROUP BY p.id_proyecto
+      HAVING bloqueadas > 0 OR vencidas > 0
+      ORDER BY vencidas DESC, bloqueadas DESC, FIELD(p.prioridad,'critica','alta','normal','info')
+      LIMIT 8");
+    return $stmt->fetchAll(PDO::FETCH_ASSOC);
+  }
+
   private function aplicarFiltroIgual(&$where, &$params, $columna, $campo, $filtros) {
     $valor = $this->texto($filtros, $campo);
     if ($valor !== "") {
@@ -681,6 +777,60 @@ class ProyectosErp extends CRUD {
     $stmt = $db->prepare("SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA=:base AND TABLE_NAME=:tabla LIMIT 1");
     $stmt->execute(array(":base" => MYSQLBASE, ":tabla" => $tabla));
     return (bool) $stmt->fetch(PDO::FETCH_ASSOC);
+  }
+
+  private function columnaExiste($db, $tabla, $columna) {
+    $clave = $tabla . "." . $columna;
+    if (isset($this->columnasCache[$clave])) {
+      return $this->columnasCache[$clave];
+    }
+    try {
+      $stmt = $db->prepare("SHOW COLUMNS FROM {$tabla} LIKE :columna");
+      $stmt->execute(array(":columna" => $columna));
+      $this->columnasCache[$clave] = (bool) $stmt->fetch(PDO::FETCH_ASSOC);
+    } catch (Exception $e) {
+      $this->columnasCache[$clave] = false;
+    }
+    return $this->columnasCache[$clave];
+  }
+
+  private function prefijoAlias($alias) {
+    $alias = trim((string) $alias);
+    return $alias !== "" ? $alias . "." : "";
+  }
+
+  private function expresionNombreUsuario($alias = "") {
+    $db = $this->getConexion();
+    $prefijo = $this->prefijoAlias($alias);
+    $opciones = array();
+    if ($this->columnaExiste($db, "sys_usuarios", "nombre_mostrar")) {
+      $opciones[] = "NULLIF(TRIM(" . $prefijo . "nombre_mostrar), '')";
+    }
+    if ($this->columnaExiste($db, "sys_usuarios", "nombres")) {
+      $partes = array("COALESCE(" . $prefijo . "nombres,'')");
+      if ($this->columnaExiste($db, "sys_usuarios", "apellido_paterno")) {
+        $partes[] = "COALESCE(" . $prefijo . "apellido_paterno,'')";
+      }
+      if ($this->columnaExiste($db, "sys_usuarios", "apellido_materno")) {
+        $partes[] = "COALESCE(" . $prefijo . "apellido_materno,'')";
+      }
+      $opciones[] = "NULLIF(TRIM(CONCAT(" . implode(", ' ', ", $partes) . ")), '')";
+    }
+    if ($this->columnaExiste($db, "sys_usuarios", "alias")) {
+      $opciones[] = "NULLIF(TRIM(" . $prefijo . "alias), '')";
+    }
+    if ($this->columnaExiste($db, "sys_usuarios", "correo")) {
+      $opciones[] = "NULLIF(TRIM(" . $prefijo . "correo), '')";
+    }
+    $opciones[] = "CONCAT('Usuario ', " . $prefijo . "id_usuario)";
+    return "COALESCE(" . implode(", ", $opciones) . ")";
+  }
+
+  private function expresionAreaUsuario($alias = "") {
+    if ($this->columnaExiste($this->getConexion(), "sys_usuarios", "area_departamento")) {
+      return $this->prefijoAlias($alias) . "area_departamento";
+    }
+    return "NULL";
   }
 
   private function catalogoValores($clave) {
@@ -729,7 +879,10 @@ class ProyectosErp extends CRUD {
       "tareas_pendientes" => 0,
       "tareas_vencidas" => 0,
       "tareas_bloqueadas" => 0,
-      "mis_tareas" => 0
+      "mis_tareas" => 0,
+      "tareas_totales" => 0,
+      "tareas_completadas" => 0,
+      "avance_general" => 0
     );
   }
 

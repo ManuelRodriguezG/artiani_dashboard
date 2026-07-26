@@ -32,9 +32,11 @@ $archivos = array(
   "js_costos" => "public/assets/js/custom/apps/tms/costos.js",
   "js_reportes" => "public/assets/js/custom/apps/tms/reportes.js",
   "js_configuracion" => "public/assets/js/custom/apps/tms/configuracion.js",
+  "activacion_checklist_readonly" => "storage/uat/uat_tms_delivery_activacion_checklist_readonly.php",
   "preactivacion_readonly" => "storage/uat/uat_tms_delivery_preactivacion_readonly.php",
   "permisos_postapply_readonly" => "storage/uat/uat_tms_delivery_permisos_postapply_readonly.php",
   "schema_postapply_readonly" => "storage/uat/uat_tms_delivery_schema_postapply_readonly.php",
+  "reversa_preflight_readonly" => "storage/uat/uat_tms_delivery_reversa_preflight_readonly.php",
   "servicio_manual_apply" => "storage/uat/uat_tms_delivery_servicio_manual_apply_authorized.php",
   "apply_permisos" => "storage/uat/uat_tms_delivery_permisos_apply_authorized.php",
   "apply_schema" => "storage/uat/uat_tms_delivery_schema_apply_authorized.php"
@@ -106,6 +108,12 @@ $estado = empty($fallos) ? "go_preparacion" : "no_go_codigo";
 if (empty($fallos) && (!empty($permisosPendientes) || $schemaPendiente)) {
   $estado = "go_con_activaciones_pendientes";
 }
+$siguientePaso = "Activacion base TMS completa. Validar UI TMS con datos de prueba y planear integracion POS/Ventas en tarea separada.";
+if (!empty($permisosPendientes)) {
+  $siguientePaso = "Generar respaldo externo y aplicar primero permisos TMS; DDL TMS queda en autorizacion separada.";
+} elseif ($schemaPendiente) {
+  $siguientePaso = "Permisos TMS listos. Generar respaldo externo y solicitar autorizacion separada TMS_DELIVERY_DDL_BASE para crear tablas erp_tms_*.";
+}
 
 $respuesta = array(
   "ok" => empty($fallos),
@@ -124,7 +132,7 @@ $respuesta = array(
     "permisos" => "TMS_PERMISOS_BASE",
     "ddl" => "TMS_DELIVERY_DDL_BASE"
   ),
-  "siguiente_paso" => "Generar respaldo externo y aplicar primero permisos TMS; DDL TMS queda en autorizacion separada."
+  "siguiente_paso" => $siguientePaso
 );
 
 if ($detalleCompleto) {

@@ -2094,7 +2094,7 @@
         "</div>";
         html += renderRevisionProductosVisibles(revisionProductos);
         if (bloqueos.length) {
-            html += "<div class=\"fw-semibold fs-8 text-uppercase text-muted mb-1\">Bloqueos</div><ul class=\"fs-8 ps-4 mb-3\">" + bloqueos.map(function (item) { return "<li>" + escapeHtml(item) + "</li>"; }).join("") + "</ul>";
+            html += "<div class=\"fw-semibold fs-8 text-uppercase text-muted mb-1\">Pendientes por resolver</div><ul class=\"fs-8 ps-4 mb-3\">" + bloqueos.map(function (item) { return "<li>" + escapeHtml(item) + "</li>"; }).join("") + "</ul>";
         }
         if (avisos.length) {
             html += "<div class=\"fw-semibold fs-8 text-uppercase text-muted mb-1\">Avisos</div><ul class=\"fs-8 ps-4 mb-0\">" + avisos.map(function (item) { return "<li>" + escapeHtml(item) + "</li>"; }).join("") + "</ul>";

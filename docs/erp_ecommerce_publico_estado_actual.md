@@ -40,6 +40,39 @@ Actualizacion 2026-07-16:
   - Ver `docs/erp_ecommerce_publico_expansion_catalogo_plan.md`.
   - Ver `docs/erp_ecommerce_publico_expansion_6_productos_runbook.md`.
 
+Actualizacion 2026-07-25:
+
+- Se decide evolucionar la API de ecommerce publico a modelo multi-canal sin romper el frontend propio Artiani.
+- Canal principal: `frontend_propio` / `artiani_web`.
+- Canal futuro: `partner_mayoreo` para aliados autorizados que consuman catalogo y generen oportunidades.
+- No se debe entregar `api_secret` para pegarlo en JavaScript publico; las acciones sensibles requieren backend/proxy y firma HMAC.
+- Se documenta la arquitectura en `docs/erp_ecommerce_publico_api_canales_partners.md`.
+- Se agrega plan DDL read-only para:
+  - `erp_ecommerce_canales_api`;
+  - `erp_ecommerce_api_credenciales`;
+  - `erp_ecommerce_canal_publicaciones`;
+  - `erp_ecommerce_api_nonces`;
+  - `erp_ecommerce_api_logs`.
+- Estado del plan partner: `frontend_artiani_verde_partner_en_diseno`.
+- Bloqueo para partner productivo: `ddl_canales_api_pendiente`.
+- Comando read-only:
+
+```bash
+C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_partner_api_plan_readonly.php --base=http://panel.com.local --origin=http://artiani.com.local --partner_origin=https://partner.example.com
+```
+
+- Apply DDL canales API preparado y bloqueado por token/respaldo:
+
+```bash
+C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_canales_api_apply_guard_readonly.php
+```
+
+- Plan de semillas de canales preparado read-only:
+
+```bash
+C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_canales_seed_plan_readonly.php --base=http://panel.com.local --artiani_origin=http://artiani.com.local --artiani_prod=https://artiani.com.mx --partner_codigo=partner_mayoreo_001 --partner_origin=https://partner.example.com
+```
+
 ## Senal actual
 
 ```text
