@@ -67,6 +67,19 @@
         }
         return parseCantidad(item.cantidad);
     }
+    /**
+     * IA: Codex GPT-5 | Fecha: 2026-07-27
+     * Proposito: aclara la captura de lote en inventario inicial y evita confundir cantidad con existencia.
+     * Impacto: UI de Inventario/Operacion; el encabezado distingue entradas nuevas de salidas sobre existencias existentes.
+     * Contrato: no cambia payload ni reglas de BD, solo texto operativo segun modo/tipo/documento.
+     */
+    function actualizarEncabezadoLote() {
+        var columna = document.getElementById("inventario_col_lote");
+        if (!columna) {
+            return;
+        }
+        columna.textContent = esSalidaOperacion() ? "Existencia / lote origen" : "Lote de entrada";
+    }
     function esSalidaOperacion() {
         return modo === "traspaso" || document.getElementById("inventario_tipo").value === "salida";
     }
@@ -259,13 +272,44 @@
             partida.cantidad = Number(partida.disponible || 0);
         }
     }
+    /**
+     * IA: Codex GPT-5 | Fecha: 2026-07-27
+     * Proposito: replica el patron operativo de Recepciones para capturar un mismo SKU en varios lotes/caducidades.
+     * Impacto: Inventario inicial/ajustes de entrada; permite partidas hermanas sin seleccionar de nuevo el SKU.
+     * Contrato: clona datos de catalogo y modo de captura, pero deja cantidad/lote/caducidad como captura independiente.
+     */
+    function agregarLotePartida(indice) {
+        var origen = partidas[Number(indice)];
+        if (!origen || esSalidaOperacion()) {
+            return;
+        }
+        var cantidadDefault = origen.modo_captura === "unidad_fisica_abierta" ? 0 : pasoPartida(origen);
+        var partida = Object.assign({}, origen, {
+            disponible: origen.disponible,
+            cantidad: cantidadDefault,
+            cantidad_compra: 1,
+            cantidad_unidades_fisicas: 1,
+            contenido_base_disponible: origen.modo_captura === "unidad_fisica_abierta" ? 0 : origen.contenido_base_disponible,
+            lote: "",
+            fecha_caducidad: "",
+            id_existencia_inventario: "",
+            codigo_existencia: "",
+            ubicacion: "",
+            almacen: "",
+            existencias: []
+        });
+        partidas.splice(Number(indice) + 1, 0, partida);
+        renderPartidas();
+    }
     function renderPartidas() {
         var esSalida = esSalidaOperacion();
         var inventarioInicial = esInventarioInicial();
+        actualizarEncabezadoLote();
         document.getElementById("inventario_partidas").innerHTML = partidas.map(function (item, index) {
             var loteControl = "";
             var caducidadControl = "";
             var capturaInicial = "";
+            var acciones = "<button type=\"button\" class=\"btn btn-sm btn-icon btn-light-danger\" data-partida-quitar=\"" + index + "\" title=\"Quitar\"><i class=\"bi bi-trash\"></i></button>";
             if (esSalida) {
                 loteControl = (item.existencias || []).length ? "<select class=\"form-select form-select-sm\" data-partida-existencia=\"" + index + "\">" + item.existencias.map(function (existencia) {
                     var texto = (existencia.codigo_existencia || "EXI") + " | " + (existencia.lote || "Sin lote") + " | " + (existencia.ubicacion || "Sin ubicacion") + " | disp " + Number(existencia.cantidad_disponible || 0).toFixed(2);
@@ -283,6 +327,7 @@
                         "<option value=\"unidad_fisica_abierta\"" + (item.modo_captura === "unidad_fisica_abierta" ? " selected" : "") + ">Unidad abierta</option>" +
                         "</select>" + renderCapturaInicial(item, index) + "</div>";
                 }
+                acciones = "<button type=\"button\" class=\"btn btn-sm btn-icon btn-light-primary me-1\" data-partida-agregar-lote=\"" + index + "\" title=\"Agregar otro lote\"><i class=\"bi bi-plus-lg\"></i></button>" + acciones;
             }
             var badges = (item.permite_venta_fraccionaria ? "<span class=\"badge badge-light-info ms-1\">Fraccionario</span>" : "") + (item.generar_etiqueta_interna ? "<span class=\"badge badge-light-warning ms-1\">Etiqueta</span>" : "");
             return "<tr><td><div class=\"fw-bold\">" + escapeHtml(item.sku) + badges + "</div><div class=\"text-muted fs-7\">" + escapeHtml(item.nombre) + "</div>" + (item.codigo_existencia ? "<div class=\"text-muted fs-8\">" + escapeHtml(item.codigo_existencia) + "</div>" : "") + "</td>" +
@@ -290,7 +335,7 @@
                 "<td><div class=\"input-group input-group-sm inventario-cantidad-control\"><button class=\"btn btn-light\" type=\"button\" data-partida-cantidad-ajuste=\"-1\" data-index=\"" + index + "\" title=\"Disminuir cantidad\"><i class=\"bi bi-dash\"></i></button><input class=\"form-control\" inputmode=\"decimal\" value=\"" + escapeHtml(formatoCantidad(item.cantidad)) + "\" data-partida-cantidad=\"" + index + "\"><button class=\"btn btn-light\" type=\"button\" data-partida-cantidad-ajuste=\"1\" data-index=\"" + index + "\" title=\"Aumentar cantidad\"><i class=\"bi bi-plus\"></i></button></div>" + (item.unidad_venta_label ? "<div class=\"text-muted fs-8 mt-1\">" + escapeHtml(item.unidad_venta_label) + "</div>" : "") + capturaInicial + "</td>" +
                 "<td>" + loteControl + "</td>" +
                 "<td>" + caducidadControl + "</td>" +
-                "<td class=\"text-end\"><button type=\"button\" class=\"btn btn-sm btn-icon btn-light-danger\" data-partida-quitar=\"" + index + "\" title=\"Quitar\"><i class=\"bi bi-trash\"></i></button></td></tr>";
+                "<td class=\"text-end\">" + acciones + "</td></tr>";
         }).join("") || "<tr><td colspan=\"6\" class=\"text-center text-muted py-10\">Agrega al menos un SKU</td></tr>";
     }
     function renderCapturaInicial(item, index) {
@@ -479,6 +524,11 @@
             if (button) {
                 partidas.splice(Number(button.getAttribute("data-partida-quitar")), 1);
                 renderPartidas();
+                return;
+            }
+            var agregarLote = event.target.closest("[data-partida-agregar-lote]");
+            if (agregarLote) {
+                agregarLotePartida(agregarLote.getAttribute("data-partida-agregar-lote"));
             }
         });
     });

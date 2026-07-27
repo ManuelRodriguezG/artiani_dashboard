@@ -1115,6 +1115,7 @@
         contenedor.innerHTML = "<div class=\"table-responsive\"><table class=\"table table-row-dashed align-middle pos-cart-table mb-0\"><thead><tr><th>Producto</th><th>Salida</th><th class=\"text-end\">Cantidad</th><th class=\"text-end\">Precio</th><th class=\"text-end\">Importe</th><th></th></tr></thead><tbody>" +
             carrito.map(function (item, index) {
                 var capturaFraccionaria = item.modo_salida === "granel_unidad_abierta" || (item.modo_salida === "existencia_agregada" && Number(item.permite_venta_fraccionaria || 0) === 1);
+                var importePartida = cantidad(item.precio_unitario) * cantidad(item.cantidad);
                 var inputClase = capturaFraccionaria ? "form-control form-control-sm pos-weight-input" : "form-control form-control-sm text-center";
                 var controlCantidad = capturaFraccionaria
                     ? "<input class=\"" + inputClase + "\" data-pos-cantidad inputmode=\"decimal\" value=\"" + escapeHtml(numero(item.cantidad)) + "\">"
@@ -1124,7 +1125,7 @@
                     "<td>" + modosRapidos(item) + "<div class=\"text-muted fs-8 mt-1\">" + escapeHtml(unidadResumen(item)) + "</div></td>" +
                     "<td class=\"text-end\"><div class=\"d-flex flex-column align-items-end gap-1\"><span class=\"text-muted fs-8 pos-qty-label\">" + etiquetaCantidad(item) + " " + escapeHtml(item.unidad_venta_label || "") + "</span>" + controlCantidad + "</div></td>" +
                     "<td class=\"text-end\">" + dinero(item.precio_unitario) + "</td>" +
-                    "<td class=\"text-end fw-bold\">" + dinero(item.precio_unitario * item.cantidad) + "</td>" +
+                    "<td class=\"text-end fw-bold\" data-pos-importe>" + dinero(importePartida) + "</td>" +
                     "<td class=\"text-end\"><button class=\"btn btn-sm btn-icon btn-light-danger\" data-pos-quitar type=\"button\" title=\"Quitar\"><i class=\"bi bi-x-lg\"></i></button></td>" +
                     "</tr>";
             }).join("") + "</tbody></table></div>";
@@ -3232,7 +3233,12 @@
         document.getElementById("pos_carrito").addEventListener("input", function (event) {
             var itemNode = event.target.closest("[data-pos-item]");
             if (!itemNode || !event.target.matches("[data-pos-cantidad]")) { return; }
-            carrito[Number(itemNode.getAttribute("data-pos-item"))].cantidad = cantidad(event.target.value);
+            var item = carrito[Number(itemNode.getAttribute("data-pos-item"))];
+            item.cantidad = cantidad(event.target.value);
+            var importeNode = itemNode.querySelector("[data-pos-importe]");
+            if (importeNode) {
+                importeNode.textContent = dinero(cantidad(item.precio_unitario) * cantidad(item.cantidad));
+            }
             limpiarExcepcionActiva();
             guardarCuentas();
             renderCuentas();

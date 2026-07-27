@@ -2891,6 +2891,50 @@ Criterio de cierre:
 - No se debe agregar logica de venta o ecommerce dentro de Inventario.
 - Cualquier movimiento real futuro de inventario debe conservar respaldo externo, UAT, evidencia antes/despues y folio operativo.
 
+## INV-T032 - Claridad operativa de Inventario Inicial por lote
+
+Fecha: 2026-07-27
+
+Origen operativo:
+
+- Arranque real de tiendas con mercancia existente.
+- Necesidad de capturar el mismo SKU en varios lotes/caducidades sin simular recepcion.
+- Alineacion visual con el patron de Almacen > Recepciones.
+
+Decision ERP:
+
+- En entradas e inventario inicial, la columna debe leerse como `Lote de entrada`.
+- En salidas y traspasos, la columna debe leerse como `Existencia / lote origen`.
+- `Cantidad` es el saldo que entra o sale.
+- `Existencia` no es cantidad: es la ficha trazable que el ERP crea o selecciona para una combinacion de SKU, almacen, ubicacion, lote y caducidad.
+- Inventario inicial permite repetir el mismo SKU como partida hermana para capturar lotes/caducidades/contenidos distintos.
+
+Implementacion:
+
+- `app/vistas/paginas/apps/erp/inventarios/operacion.php`
+  - Encabezado de lote con id `inventario_col_lote`.
+  - Version JS `20260727-1`.
+- `public/assets/js/custom/apps/erp/inventarios/operacion_erp.js`
+  - `actualizarEncabezadoLote()` cambia el texto segun operacion.
+  - `agregarLotePartida()` duplica el SKU en entradas con cantidad/lote/caducidad independientes.
+
+Regla de inventario inicial:
+
+- Si existe empaque cerrado fisicamente, cargarlo como unidad cerrada del SKU correspondiente.
+- Si ya esta abierto antes del ERP, cargar solo las piezas o saldo suelto real por SKU/sabor/presentacion.
+- No cargar simultaneamente el empaque cerrado y sus piezas derivadas, porque duplica stock.
+
+UAT sugerido:
+
+1. Abrir `/inventario/inicial`.
+2. Seleccionar almacen y ubicacion.
+3. Buscar un SKU con lote/caducidad.
+4. Agregarlo como partida.
+5. Usar el boton `Agregar otro lote`.
+6. Capturar cantidad, lote y caducidad distintos en cada renglon.
+7. Validar que el payload conserva partidas separadas del mismo SKU.
+8. Aplicar solo con respaldo externo y folio autorizado.
+
 ## Prompt sugerido para nuevo chat
 
 ```text

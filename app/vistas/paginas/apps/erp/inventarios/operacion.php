@@ -76,7 +76,7 @@
                                     </div>
                                     <div class="table-responsive">
                                         <table class="table align-middle table-row-dashed gy-4 mb-0">
-                                            <thead><tr class="text-muted fw-bold fs-7 text-uppercase"><th>SKU / producto</th><th>Disponible</th><th style="width:150px">Cantidad</th><th style="width:260px">Existencia / lote</th><th style="width:170px">Caducidad</th><th class="text-end" style="width:70px"></th></tr></thead>
+                                            <thead><tr class="text-muted fw-bold fs-7 text-uppercase"><th>SKU / producto</th><th>Disponible</th><th style="width:150px">Cantidad</th><th style="width:260px" id="inventario_col_lote">Lote de entrada</th><th style="width:170px">Caducidad</th><th class="text-end" style="width:110px"></th></tr></thead>
                                             <tbody id="inventario_partidas"></tbody>
                                         </table>
                                     </div>
@@ -91,6 +91,6 @@
 </div>
 <script src="assets/plugins/global/plugins.bundle.js"></script>
 <script src="assets/js/scripts.bundle.js"></script>
-<script src="/assets/js/custom/apps/erp/inventarios/operacion_erp.js?v=20260709-1"></script>
+<script src="/assets/js/custom/apps/erp/inventarios/operacion_erp.js?v=20260727-1"></script>
 </body>
 </html>
