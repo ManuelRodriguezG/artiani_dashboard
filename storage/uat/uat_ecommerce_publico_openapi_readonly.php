@@ -23,6 +23,20 @@ $schema = array(
     "/configuracion" => array("get" => endpointOpenApi("Configuracion publica del canal ecommerce")),
     "/seo" => array("get" => endpointOpenApi("Metadatos SEO, robots, sitemap y JSON-LD sugeridos")),
     "/filtros" => array("get" => endpointOpenApi("Filtros disponibles de publicaciones vigentes")),
+    "/politicas" => array("get" => endpointOpenApi("Politicas publicas para terminos, privacidad, facturacion y tracking")),
+    "/politica/{slug}" => array(
+      "get" => array_merge(endpointOpenApi("Detalle de politica publica"), array(
+        "parameters" => array(
+          array(
+            "name" => "slug",
+            "in" => "path",
+            "required" => true,
+            "schema" => array("type" => "string")
+          )
+        )
+      ))
+    ),
+    "/taxonomia_mascotas" => array("get" => endpointOpenApi("Taxonomia publica para navegacion por mascota y necesidad")),
     "/catalogo" => array(
       "get" => array_merge(endpointOpenApi("Catalogo publico publicado"), array(
         "parameters" => array(
@@ -136,6 +150,31 @@ $schema = array(
           "necesidades" => array("type" => "array", "items" => array("type" => "string")),
           "permite_cotizacion" => array("type" => "boolean"),
           "permite_whatsapp" => array("type" => "boolean")
+        )
+      ),
+      "PoliticaPublica" => array(
+        "type" => "object",
+        "properties" => array(
+          "codigo" => array("type" => "string"),
+          "tipo" => array("type" => "string"),
+          "titulo" => array("type" => "string"),
+          "resumen" => array("type" => "string"),
+          "contenido" => array("type" => "string"),
+          "version" => array("type" => "string"),
+          "requiere_aceptacion" => array("type" => "boolean"),
+          "fecha_vigencia" => array("type" => "string", "nullable" => true)
+        )
+      ),
+      "TaxonomiaMascota" => array(
+        "type" => "object",
+        "properties" => array(
+          "codigo" => array("type" => "string"),
+          "tipo" => array("type" => "string", "enum" => array("especie", "necesidad")),
+          "parent_codigo" => array("type" => "string", "nullable" => true),
+          "nombre" => array("type" => "string"),
+          "descripcion" => array("type" => "string"),
+          "icono" => array("type" => "string"),
+          "orden" => array("type" => "integer")
         )
       )
     )

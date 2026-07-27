@@ -1,6 +1,6 @@
 # ERP Ventas/POS - Guia primer turno piloto
 
-Documento vivo. Ultima actualizacion: 2026-07-25.
+Documento vivo. Ultima actualizacion: 2026-07-26.
 
 Proyecto: `C:\xampp\htdocs\panel_de_control`.
 
@@ -33,11 +33,11 @@ Debe salir:
 - `puede_iniciar_piloto_controlado=true`.
 - `bloqueos=[]`.
 
-Avisos esperados al corte vigente:
+Avisos esperados al corte vigente posterior a limpieza:
 
 - No hay turno abierto antes de iniciar.
-- Existe pendiente `PINV-20260717-000001`.
-- Existe evidencia administrativa `GASTO-UAT-001`.
+- No quedan pendientes historicos de inventario POS abiertos.
+- No quedan evidencias de caja pendientes.
 - Usuarios 1, 2 y 3 no presentan problemas visuales en el preflight vigente.
 
 Ejecutar plan de accion:
@@ -46,7 +46,7 @@ Ejecutar plan de accion:
 C:\xampp\php\php.exe storage\uat\uat_ventas_pos_piloto_plan_accion_readonly.php --id_usuario=1 --id_almacen=5 --id_sku=1760 --cantidad=1 --precio=295 --monto_inicial=500 --usuarios=1,2,3
 ```
 
-Debe salir `ok=true`, `pendientes_total=4` y `acciones_total=6`.
+Para el piloto limpio con SKU `173`, debe salir `ok=true`, `pendientes_total=1` y la accion real esperada debe ser abrir turno antes de cobrar.
 
 Ejecutar operacion basica:
 
@@ -86,7 +86,7 @@ Resultado vigente esperado:
 - Total venta sugerido: `$1000.00`.
 - Monto contado sugerido si no hubo otros movimientos: `$1500.00`.
 
-Este paquete no resuelve pendientes previos como `PINV-20260717-000001` ni `GASTO-UAT-001`; solo sirve para ejecutar una prueba limpia con un SKU que ya tiene stock disponible.
+Los pendientes previos `PINV-20260717-000001` y `GASTO-UAT-001` ya quedaron resueltos/aprobados; este paquete sirve para ejecutar una prueba limpia con un SKU que ya tiene stock disponible.
 
 Revisar tambien en `Ventas > Manual POS > Checklist arranque` el bloque `Semaforo diario antes de cobrar`. Ese bloque resume las cuatro condiciones que debe entender el responsable de tienda: turno abierto, operadores correctos, inventario disponible o autorizado, y ticket configurado.
 
@@ -102,9 +102,9 @@ Debe salir `ok=true`, `decision=paquete_autorizacion_preparado`, `pasos_total=6`
 
 Antes de abrir el turno piloto amplio, conviene atender estos puntos:
 
-1. Resolver o mantener documentado `PINV-20260717-000001`.
-2. Registrar evidencia administrativa de `GASTO-UAT-001`.
-3. Cargar stock suficiente para el SKU que se usara en la prueba.
+1. Confirmar que no haya pendientes nuevos en Inventario/Existencias.
+2. Confirmar que no haya evidencias nuevas pendientes en Caja/Evidencias.
+3. Cargar stock suficiente o elegir un SKU con disponible para la prueba.
 
 Si se hara un piloto muy controlado, los puntos 1 y 2 pueden quedar como pendientes visibles, pero no deben ignorarse ni borrarse.
 

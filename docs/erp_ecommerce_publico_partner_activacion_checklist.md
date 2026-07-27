@@ -33,9 +33,10 @@ Activar un partner/mayorista para consumir catalogo ecommerce sin romper el fron
 6. Crear canal partner en `borrador`.
 7. Asociar productos al canal partner.
 8. Emitir credencial una sola vez.
-9. Probar solo lectura.
-10. Activar logs/rate limit.
-11. Evaluar `cotizacion_registrar`.
+9. Probar modo observacion de autenticacion.
+10. Probar solo lectura.
+11. Activar logs/rate limit.
+12. Evaluar `cotizacion_registrar`.
 
 ## Comandos read-only
 
@@ -45,6 +46,12 @@ C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_partner_api_plan_readonly
 C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_hmac_contract_readonly.php
 C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_canales_api_apply_guard_readonly.php
 C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_canales_seed_plan_readonly.php --base=http://panel.com.local --artiani_origin=http://artiani.com.local --artiani_prod=https://artiani.com.mx --partner_codigo=partner_mayoreo_001 --partner_origin=https://partner.example.com
+C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_canales_seed_apply_guard_readonly.php
+C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_canal_allowlist_plan_readonly.php --canal=partner_mayoreo_001 --publicaciones=1,2 --modo_precio=publico
+C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_canal_allowlist_apply_guard_readonly.php
+C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_credencial_plan_readonly.php --canal=partner_mayoreo_001 --modo=hmac
+C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_credencial_emitir_apply_guard_readonly.php
+C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_auth_observacion_readonly.php --method=GET --path=/ecommercePublico/catalogo --query=limite=2 --origin=http://artiani.com.local
 ```
 
 ## Texto de autorizacion futuro para DDL
@@ -57,6 +64,42 @@ Comando apply autorizado futuro:
 
 ```bash
 C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_canales_api_schema_apply_authorized.php --autorizar=ECOMMERCE_PUBLICO_CANALES_API_DDL --respaldo=C:\xampp\panel_db_backups\[ARCHIVO].sql
+```
+
+## Texto de autorizacion futuro para semillas
+
+```text
+AUTORIZO SEMBRAR CANALES API ECOMMERCE usando respaldo C:\xampp\panel_db_backups\[ARCHIVO].sql con token ECOMMERCE_PUBLICO_CANALES_SEED para artiani_web y partner_mayoreo_001. Entiendo que solo crea/actualiza canales, deja el partner en borrador, no genera credenciales, no asigna productos, no registra cotizaciones, no toca inventario ni legacy ecom_*.
+```
+
+Comando:
+
+```bash
+C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_canales_seed_apply_authorized.php --autorizar=ECOMMERCE_PUBLICO_CANALES_SEED --respaldo=C:\xampp\panel_db_backups\[ARCHIVO].sql --artiani_origin=http://artiani.com.local --artiani_prod=https://artiani.com.mx --partner_codigo=partner_mayoreo_001 --partner_origin=https://partner.example.com
+```
+
+## Texto de autorizacion futuro para allowlist
+
+```text
+AUTORIZO ASIGNAR ALLOWLIST ECOMMERCE PARTNER usando respaldo C:\xampp\panel_db_backups\[ARCHIVO].sql con token ECOMMERCE_PUBLICO_CANAL_ALLOWLIST para canal partner_mayoreo_001 y publicaciones [IDS]. Entiendo que solo asigna publicaciones existentes al canal, no activa el partner, no genera credenciales, no publica productos nuevos, no registra cotizaciones, no toca inventario ni legacy ecom_*.
+```
+
+Comando:
+
+```bash
+C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_canal_allowlist_apply_authorized.php --autorizar=ECOMMERCE_PUBLICO_CANAL_ALLOWLIST --respaldo=C:\xampp\panel_db_backups\[ARCHIVO].sql --canal=partner_mayoreo_001 --publicaciones=1,2 --modo_precio=publico
+```
+
+## Texto de autorizacion futuro para credencial
+
+```text
+AUTORIZO EMITIR CREDENCIAL API ECOMMERCE usando respaldo C:\xampp\panel_db_backups\[ARCHIVO].sql con token ECOMMERCE_PUBLICO_CREDENCIAL_EMITIR para canal partner_mayoreo_001. Entiendo que el secreto se muestra una sola vez, no debe pegarse en JavaScript publico, no activa el partner, no asigna productos, no habilita cotizacion_registrar, no toca inventario ni legacy ecom_*.
+```
+
+Comando:
+
+```bash
+C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_credencial_emitir_apply_authorized.php --autorizar=ECOMMERCE_PUBLICO_CREDENCIAL_EMITIR --respaldo=C:\xampp\panel_db_backups\[ARCHIVO].sql --canal=partner_mayoreo_001 --modo=hmac
 ```
 
 ## Guardrails

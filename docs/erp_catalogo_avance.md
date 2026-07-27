@@ -3046,3 +3046,35 @@ Validacion:
 - Marca ERP `6` (`ECOM-MAR-3`, `LOMAS`): candidata local `/media/apps/ecommerce/marcas/3/1711203697.png`.
 - Categoria ERP `259` (`Acuario`): candidata local `/media/apps/ecommerce/catalogo/acuario.png`.
 - Categoria ERP `24` (`Alimentos para peces`): 0 candidatas porque el archivo legacy `aliemntopeces.png` no existe fisicamente en `panel_de_control`.
+
+## Ajuste 2026-07-27 - Correccion controlada de codigos de barras retenidos
+
+- Hallazgo: `erp_catalogo_sku_codigos` tiene indice unico por `tipo_codigo + codigo`; por eso un codigo de barras historico, inactivo o de un SKU/producto fusionado puede seguir bloqueando el alta de un SKU nuevo.
+- Decision: no borrar registros ni deshacer fusiones automaticamente. Se agrega herramienta operativa para diagnosticar el propietario exacto del codigo y liberar solo codigos retenidos por SKU/producto `inactivo`, `descontinuado` o `fusionado`.
+- Implementacion: nuevos endpoints `catalogoerp/codigo_barras_diagnosticar` (`catalogo.ver`) y `catalogoerp/codigo_barras_liberar` (`catalogo.editar`). La liberacion cambia el `tipo_codigo` del registro anterior a `liberado_{id}` y marca `estatus='liberado'`, conservando el codigo original para auditoria y dejando disponible `codigo_barras + codigo` para capturar el SKU correcto.
+- UI: en la pestana SKUs del producto se agrego la seccion `Correccion de codigo bloqueado` para buscar propietario y liberar con motivo obligatorio.
+- Riesgo controlado: no permite liberar codigos de SKUs/productos operativos; si el propietario sigue activo, primero se debe revisar ese producto.
+- Limite pendiente: esto no reemplaza un flujo formal de reversa de fusion. Si se necesita deshacer fusiones completas, sigue pendiente una estructura de snapshot/detalle de fusion antes de automatizarlo.
+## Auditoria 2026-07-27 - Codificacion Catalogo ERP
+
+- Proyecto auditado: `C:\xampp\htdocs\panel_de_control`.
+- Archivos reparados por mojibake doble: `app/modelos/CatalogoErpDatos.php`, `app/vistas/paginas/apps/erp/catalogo/productos.php` y `public/assets/js/custom/apps/erp/catalogo/productos.js`.
+- Validacion posterior: esos tres archivos quedaron con `mojibake=0`; `php -l` y `node --check` sin errores.
+- `public/assets/js/custom/apps/erp/catalogo/configuracion.js` conserva patrones como `Ãƒ`, `Ã‚`, `â”œ` a proposito porque los usa para detectar categorias dañadas; no debe repararse como texto roto.
+- Documento reparado: `docs/erp_catalogo_catalogos_comerciales_plan.md` tenia un caso aislado `diseÃ±o` y quedo como `diseño`.
+- BD auditada con comparacion por `HEX` para evitar falsos positivos por colacion: `erp_catalogo_categorias` tiene 42 registros sospechosos reales; `erp_catalogo_productos` tiene 2; `erp_catalogo_marcas` no arrojo casos reales.
+- Ejemplos reales de BD pendientes: `Mam├¡feros`, `Filtraci├│n y oxigenaci├│n`, `Transportadoras mascoteras de pl├ístico`.
+- Causa probable separada: los archivos dañados venian de reescrituras con codificacion incorrecta; los registros de BD dañados vienen de migracion/historico y requieren respaldo externo y autorizacion antes de aplicar correccion.
+- Regla operativa: para editar archivos desde PowerShell usar escritura UTF-8 sin BOM (`System.Text.UTF8Encoding(false)`) y no `Set-Content` por defecto en archivos con acentos.
+## Nota 2026-07-27 - SKUs no operativos fuera de selectores
+
+- Se ajusto Catalogo ERP para que los selectores operativos no propongan productos/SKUs inactivos, descontinuados o fusionados.
+- Alcance aplicado:
+  - selectores del modal de producto: proveedor SKU, imagen SKU especifico, presentaciones y paquetes;
+  - busqueda global de SKUs para paquetes/componentes/opciones;
+  - consulta visible de paquetes, componentes y opciones;
+  - guardado de paquetes, componentes, opciones y presentaciones;
+  - candidatos e items vigentes de Catalogos comerciales.
+- Regla: `activo`, `borrador` y `en_revision` pueden aparecer para preparacion; `inactivo`, `descontinuado` y `fusionado` no deben usarse como candidatos operativos.
+- No se aplico DDL ni se modificaron datos existentes.
+- UAT recomendado: inactivar un producto con SKU asociado y confirmar que ya no aparece al buscarlo como componente/opcion de paquete, presentacion o candidato comercial.

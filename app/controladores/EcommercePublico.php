@@ -58,6 +58,39 @@ class EcommercePublico extends Controlador {
   }
 
   /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-07-26
+   * Proposito: exponer politicas publicas base para el frontend ecommerce externo.
+   * Impacto: Ecommerce publico; permite construir paginas legales/operativas sin hardcodear el contrato.
+   * Contrato: GET publico read-only; no registra aceptaciones ni escribe BD.
+   */
+  public function politicas() {
+    if ($this->esOptionsPublicas()) { return $this->responderOpcionesPublicas(); }
+    return $this->responderApiPublica($this->modelo("EcommerceCatalogoPublico")->politicasPublicas());
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-07-26
+   * Proposito: exponer una politica publica por slug/codigo.
+   * Impacto: Ecommerce publico; soporta rutas como /politicas/facturacion en el frontend externo.
+   * Contrato: GET publico read-only; no escribe BD.
+   */
+  public function politica($slug = "") {
+    if ($this->esOptionsPublicas()) { return $this->responderOpcionesPublicas(); }
+    return $this->responderApiPublica($this->modelo("EcommerceCatalogoPublico")->politicaPublica($slug));
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-07-26
+   * Proposito: exponer taxonomia publica de mascotas y necesidades para navegacion guiada.
+   * Impacto: Ecommerce publico; ayuda a construir experiencia especializada para mascotas.
+   * Contrato: GET publico read-only; puede devolver defaults seguros si aun no existe tabla.
+   */
+  public function taxonomia_mascotas() {
+    if ($this->esOptionsPublicas()) { return $this->responderOpcionesPublicas(); }
+    return $this->responderApiPublica($this->modelo("EcommerceCatalogoPublico")->taxonomiaMascotasPublica());
+  }
+
+  /**
    * Documentacion IA: Codex GPT-5 | Fecha: 2026-07-12
    * Proposito: exponer configuracion publica que consumira el frontend ecommerce externo.
    * Impacto: Ecommerce publico; evita hardcodear WhatsApp, moneda y politicas en la web.
@@ -312,5 +345,27 @@ class EcommercePublico extends Controlador {
   public function esquema_plan_canales_api() {
     $this->requerirPermiso("catalogo.ver");
     return json_encode($this->modelo("EcommercePublicoEsquema")->planActualizarCanalesApi(false));
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-07-26
+   * Proposito: auditar capa futura de politicas, facturacion y analitica ecommerce.
+   * Impacto: permite planear experiencia cliente sin activar escrituras publicas.
+   * Contrato: GET protegido por `catalogo.ver`; solo lectura.
+   */
+  public function esquema_auditar_experiencia_cliente() {
+    $this->requerirPermiso("catalogo.ver");
+    return json_encode($this->modelo("EcommercePublicoEsquema")->auditarExperienciaCliente());
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-07-26
+   * Proposito: generar plan DDL read-only para politicas, facturacion, analitica y taxonomia.
+   * Impacto: prepara pantallas frontend y panel ERP sin aplicar DDL.
+   * Contrato: GET protegido por `catalogo.ver`; no ejecuta DDL.
+   */
+  public function esquema_plan_experiencia_cliente() {
+    $this->requerirPermiso("catalogo.ver");
+    return json_encode($this->modelo("EcommercePublicoEsquema")->planActualizarExperienciaCliente(false));
   }
 }

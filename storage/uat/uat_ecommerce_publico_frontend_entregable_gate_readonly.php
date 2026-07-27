@@ -30,6 +30,8 @@ require_once "../app/modelos/EcommerceCatalogoPublico.php";
 $api = new EcommerceCatalogoPublico();
 $estado = $api->estadoApiPublica();
 $configuracion = $api->configuracionPublica();
+$politicas = $api->politicasPublicas();
+$taxonomia = $api->taxonomiaMascotasPublica();
 $catalogo = $api->catalogoPublico(array("limite" => max($minPublicadas, 24)));
 $items = valorEntregableFrontend($catalogo, array("depurar", "items"), array());
 $primerItem = !empty($items) ? $items[0] : array();
@@ -78,6 +80,12 @@ if (trim((string) valorEntregableFrontend($configuracion, array("depurar", "conf
 if (!$api->origenCorsPermitido($origin)) {
   $bloqueos[] = "cors_origin_no_permitido";
 }
+if (!empty($politicas["error"]) || !is_array(valorEntregableFrontend($politicas, array("depurar", "items"), null))) {
+  $bloqueos[] = "politicas_no_ok";
+}
+if (!empty($taxonomia["error"]) || !is_array(valorEntregableFrontend($taxonomia, array("depurar", "mascotas"), null)) || !is_array(valorEntregableFrontend($taxonomia, array("depurar", "necesidades"), null))) {
+  $bloqueos[] = "taxonomia_mascotas_no_ok";
+}
 if (empty($dryrun) || !empty($dryrun["error"]) || empty(valorEntregableFrontend($dryrun, array("depurar", "lineas"), array()))) {
   $bloqueos[] = "cotizacion_dryrun_no_ok";
 }
@@ -103,6 +111,8 @@ echo json_encode(array(
   "integracion" => array(
     "cors_origin_permitido" => $api->origenCorsPermitido($origin),
     "whatsapp_configurado" => trim((string) valorEntregableFrontend($configuracion, array("depurar", "configuracion", "whatsapp_numero_principal"), "")) !== "",
+    "politicas_ok" => empty($politicas["error"]) && is_array(valorEntregableFrontend($politicas, array("depurar", "items"), null)),
+    "taxonomia_mascotas_ok" => empty($taxonomia["error"]) && is_array(valorEntregableFrontend($taxonomia, array("depurar", "mascotas"), null)) && is_array(valorEntregableFrontend($taxonomia, array("depurar", "necesidades"), null)),
     "catalogo_tiene_items" => count($items) > 0,
     "cotizacion_dryrun_ok" => !empty($dryrun) && empty($dryrun["error"])
   ),

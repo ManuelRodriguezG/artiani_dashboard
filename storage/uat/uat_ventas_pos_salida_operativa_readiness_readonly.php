@@ -1,6 +1,6 @@
 <?php
 /**
- * Documentacion IA: Codex GPT-5, 2026-07-19.
+ * Documentacion IA: Codex GPT-5, 2026-07-26.
  * Proposito: consolidar readiness de salida a piloto operativo POS.
  * Impacto: revisa Go/No-Go, productivo read-only, documentos vivos y scripts criticos sin escribir BD.
  * Contrato: read-only; no abre turno, no cobra, no resuelve pendientes, no mueve caja ni inventario.
@@ -12,7 +12,7 @@ $idUsuario = 1;
 $idAlmacen = 5;
 $idCaja = 2;
 $idTerminal = 2;
-$idSku = 1760;
+$idSku = 173;
 $idAtencion = 2;
 $cantidad = 1;
 $usuarios = "1,2,3";
@@ -86,8 +86,8 @@ $docs = array(
             "uat_ventas_pos_piloto_go_nogo_readonly.php" => "go-nogo documentado",
             "uat_ventas_pos_atajos_ui_readiness_readonly.php" => "atajos documentados",
             "uat_ventas_pos_ticket_trazabilidad_readiness_readonly.php" => "ticket/trazabilidad documentado",
-            "PINV-20260717-000001" => "pendiente inventario vigente visible",
-            "GASTO-UAT-001" => "evidencia caja pendiente visible",
+            "PINV-20260717-000001" => "pendiente inventario historico visible",
+            "GASTO-UAT-001" => "evidencia caja historica visible",
         ),
     ),
     "handoff" => array(
@@ -115,8 +115,8 @@ $docs = array(
         "ruta" => "docs/erp_ventas_pos_estado_cierre_modulo.md",
         "tokens" => array(
             "listo_para_piloto_controlado_con_condiciones" => "decision vigente",
-            "PINV-20260717-000001" => "pendiente inventario vigente",
-            "GASTO-UAT-001" => "evidencia caja vigente",
+            "PINV-20260717-000001" => "pendiente inventario historico",
+            "GASTO-UAT-001" => "evidencia caja historica",
             "Scanner POS" => "scanner POS documentado",
             "Siguiente autorizacion fuerte posible" => "siguiente autorizacion documentada",
         ),
@@ -163,8 +163,8 @@ $decision = empty($bloqueos) ? "listo_para_piloto_controlado_con_condiciones" : 
 $condiciones = array_values(array_unique(array_filter(array(
     "Abrir turno antes de vender.",
     "Usar SKU con existencia disponible o resolver/cargar inventario con autorizacion.",
-    "Resolver o mantener identificado el pendiente PINV-20260717-000001.",
-    "Cerrar/documentar evidencia caja GASTO-UAT-001.",
+    "PINV-20260717-000001 ya esta resuelto; no hay pendientes de inventario POS abiertos al corte.",
+    "GASTO-UAT-001 ya tiene evidencia aprobada; no hay evidencias de caja pendientes al corte.",
     "Mantener fuera del primer piloto devoluciones reales, descuentos libres, apartados nuevos e inventario pendiente productivo.",
 ))));
 

@@ -16,6 +16,7 @@ El ecommerce publico se construira como proyecto separado. Este ERP solo expone 
 - Hay 2 publicaciones reales activas.
 - `cotizacion_dryrun` funciona con publicaciones reales y no escribe BD.
 - `cotizacion_registrar` sigue bloqueado por diseno en Fase 1.
+- `politicas`, `politica/{slug}` y `taxonomia_mascotas` ya responden JSON read-only con defaults de Fase 1 si la tabla aun no existe.
 
 ## Variables sugeridas en el proyecto ecommerce
 
@@ -38,6 +39,7 @@ Notas:
 
 - `docs/erp_ecommerce_publico_prompt_inicio_frontend.txt`
 - `docs/erp_ecommerce_publico_instrucciones_frontend_nuevo_proyecto.txt`
+- `docs/erp_ecommerce_publico_frontend_entregable_basico_productivo.md`
 - `docs/erp_ecommerce_publico_cliente_api_frontend.md`
 - `docs/erp_ecommerce_publico_frontend_contract_tests.md`
 - `docs/erp_ecommerce_publico_frontend_estados_ui.md`
@@ -49,6 +51,7 @@ Notas:
 - `docs/erp_ecommerce_publico_expansion_6_productos_runbook.md`
 - `docs/erp_ecommerce_publico_api_canales_partners.md`
 - `docs/erp_ecommerce_publico_partner_activacion_checklist.md`
+- `docs/erp_ecommerce_publico_experiencia_cliente_politicas_facturacion_analytics.md`
 - `docs/erp_ecommerce_publico_seguridad_api_futura.md`
 - `docs/erp_ecommerce_publico_seo_frontend.md`
 - `docs/erp_ecommerce_publico_frontend_AGENTS_template.md`
@@ -70,7 +73,54 @@ Uso:
 - reporta `senal_frontend_actual`;
 - reporta bloqueos para pasar a datos reales.
 
+## Seccion lista: politicas, facturacion UI y navegacion por mascota
+
+Endpoints ya consumibles:
+
+```http
+GET http://panel.com.local/ecommercePublico/politicas
+GET http://panel.com.local/ecommercePublico/politica/facturacion
+GET http://panel.com.local/ecommercePublico/taxonomia_mascotas
+```
+
+Prueba desde ERP:
+
+```bash
+C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_experiencia_cliente_http_readonly.php --base=http://panel.com.local
+```
+
+Senal esperada:
+
+```text
+senal_frontend_experiencia_http=verde_politicas_taxonomia_readonly
+```
+
+El frontend puede avanzar:
+
+- paginas `/politicas` y `/politicas/:slug`;
+- pantalla `/facturacion` con formulario por folio y estado "recepcion en preparacion";
+- selector/navegacion por mascota y necesidad desde API;
+- tracking local/mock de busquedas y navegacion.
+
+No conectar todavia:
+
+- `POST /ecommercePublico/facturacion_solicitar`;
+- `POST /ecommercePublico/evento_navegacion`;
+- `POST /ecommercePublico/busqueda_registrar`.
+
 ## Compuerta de entregable frontend
+
+Antes de hablar de produccion, validar base cimentada:
+
+```bash
+C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_base_cimentada_readonly.php --base=http://panel.com.local --origin=http://artiani.com.local --min_publicadas=2 --min_preview=6 --skus_preview=415,866,386,1138
+```
+
+Senal esperada:
+
+```text
+senal_base_ecommerce=verde_base_cimentada_frontend_basico
+```
 
 Comando:
 
@@ -85,6 +135,27 @@ Uso:
 - valida WhatsApp y `cotizacion_dryrun`;
 - valida que el preview de expansion pueda mostrar 6 tarjetas;
 - devuelve `senal_entregable_frontend=verde_entregable_frontend` cuando el frontend puede avanzar.
+
+## Compuerta productiva futura
+
+Comando:
+
+```bash
+C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_frontend_productivo_gate_readonly.php --base=http://panel.com.local --origin=https://artiani.com.mx --url=https://artiani.com.mx --min_publicadas=6
+```
+
+Uso:
+
+- valida salida productiva futura con dominio HTTPS;
+- exige CORS exacto para `https://artiani.com.mx`;
+- valida WhatsApp, catalogo, politicas, taxonomia y `cotizacion_dryrun`;
+- confirma que `cotizacion_registrar` siga bloqueado en Fase 1.
+
+Senal esperada cuando todo este listo:
+
+```text
+senal_productivo_frontend=verde_productivo_frontend_basico
+```
 
 ## Plan API partners
 

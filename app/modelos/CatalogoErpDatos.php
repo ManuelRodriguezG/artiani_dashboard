@@ -85,7 +85,7 @@ class CatalogoErpDatos extends CRUD {
       $tienePaquetes = $this->tablaExisteCatalogo($db, "erp_catalogo_sku_paquetes");
       $tieneInventario = $this->tablaExisteCatalogo($db, "erp_inventario_existencias");
 
-      $where = array("p.estatus<>'fusionado'", "s.estatus<>'fusionado'");
+      $where = array("p.estatus IN ('activo','borrador','en_revision')", "s.estatus IN ('activo','borrador','en_revision')");
       $params = array();
       if ($q !== "") {
         $where[] = "(p.nombre LIKE :q OR p.codigo_producto LIKE :q OR s.nombre LIKE :q OR s.sku LIKE :q OR m.nombre LIKE :q OR c.nombre LIKE :q OR c.ruta LIKE :q)";
@@ -228,6 +228,215 @@ class CatalogoErpDatos extends CRUD {
       ));
     } catch (Exception $e) {
       return $this->respuesta(true, "danger", $e->getMessage(), array("read_only" => true, "items" => array()));
+    }
+  }
+
+  /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-07-26
+   * Proposito: listar catalogos comerciales persistidos para continuar armados desde BD.
+   * Impacto: Catalogo ERP/Comercial; solo lectura, no publica enlaces ni toca Ventas.
+   * Contrato: devuelve catalogos no archivados con conteo de items activos.
+   */
+  public function listarCatalogosComerciales() {
+    try {
+      $db = $this->getConexion();
+      if (!$this->tablaExisteCatalogo($db, "erp_catalogo_comercial_catalogos")) {
+        return $this->respuesta(true, "warning", "Aplica primero el esquema de catalogos comerciales");
+      }
+      $stmt = $db->query("SELECT c.id_catalogo_comercial, c.codigo, c.nombre, c.titulo, c.subtitulo, c.plantilla,
+          c.estatus, c.fecha_registro, c.fecha_actualizacion,
+          COUNT(i.id_catalogo_item) total_items
+        FROM erp_catalogo_comercial_catalogos c
+        LEFT JOIN erp_catalogo_comercial_items i ON i.id_catalogo_comercial=c.id_catalogo_comercial AND i.estatus=1
+        WHERE c.estatus<>'archivado'
+        GROUP BY c.id_catalogo_comercial, c.codigo, c.nombre, c.titulo, c.subtitulo, c.plantilla, c.estatus, c.fecha_registro, c.fecha_actualizacion
+        ORDER BY c.fecha_actualizacion DESC, c.fecha_registro DESC, c.nombre");
+      return $this->respuesta(false, "success", "Catalogos comerciales consultados", array(
+        "catalogos" => $stmt->fetchAll(PDO::FETCH_ASSOC)
+      ));
+    } catch (Exception $e) {
+      return $this->respuesta(true, "danger", $e->getMessage());
+    }
+  }
+
+  /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-07-26
+   * Proposito: consultar un catalogo comercial persistido y reconstruir sus items con datos vigentes de Catalogo ERP.
+   * Impacto: Catalogo ERP/Comercial; permite cargar borradores reales sin congelar precios, imagenes ni nombres.
+   * Contrato: recibe id_catalogo_comercial y devuelve material, opciones e items visuales en orden.
+   */
+  public function consultarCatalogoComercial($idCatalogo) {
+    $idCatalogo = intval($idCatalogo);
+    if ($idCatalogo <= 0) {
+      return $this->respuesta(true, "warning", "Selecciona un catalogo comercial");
+    }
+    try {
+      $db = $this->getConexion();
+      $stmt = $db->prepare("SELECT * FROM erp_catalogo_comercial_catalogos WHERE id_catalogo_comercial=:id AND estatus<>'archivado' LIMIT 1");
+      $stmt->execute(array(":id" => $idCatalogo));
+      $catalogo = $stmt->fetch(PDO::FETCH_ASSOC);
+      if (!$catalogo) {
+        return $this->respuesta(true, "warning", "Catalogo comercial no encontrado");
+      }
+      $items = $this->itemsCatalogoComercialPersistido($db, $idCatalogo);
+      return $this->respuesta(false, "success", "Catalogo comercial consultado", array(
+        "catalogo" => $catalogo,
+        "material" => $this->materialCatalogoComercialDesdeFila($catalogo),
+        "opciones" => $this->opcionesCatalogoComercialDesdeFila($catalogo),
+        "items" => $items
+      ));
+    } catch (Exception $e) {
+      return $this->respuesta(true, "danger", $e->getMessage());
+    }
+  }
+
+  /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-07-26
+   * Proposito: guardar o actualizar un borrador de catalogo comercial con items ordenados.
+   * Impacto: Catalogo ERP/Comercial; escribe solo tablas erp_catalogo_comercial_* y registra evento interno.
+   * Contrato: acepta material/opciones/items JSON; reemplaza items activos dentro de una transaccion.
+   */
+  public function guardarCatalogoComercial($datos, $idUsuario = null) {
+    $idCatalogo = intval(isset($datos["id_catalogo_comercial"]) ? $datos["id_catalogo_comercial"] : 0);
+    $nombre = $this->texto($datos, "nombre");
+    $material = $this->jsonCatalogoComercial($datos, "material", array());
+    $opciones = $this->jsonCatalogoComercial($datos, "opciones", array());
+    $items = $this->jsonCatalogoComercial($datos, "items", array());
+    if ($nombre === "") {
+      $nombre = trim((string)(isset($material["titulo"]) ? $material["titulo"] : ""));
+    }
+    if ($nombre === "") {
+      return $this->respuesta(true, "warning", "Captura un nombre para guardar el catalogo");
+    }
+    if (!is_array($items) || count($items) === 0) {
+      return $this->respuesta(true, "warning", "Selecciona al menos un producto para guardar el catalogo");
+    }
+
+    try {
+      $db = $this->getConexion();
+      $idsSku = array();
+      foreach ($items as $item) {
+        $idSku = intval(isset($item["id_sku"]) ? $item["id_sku"] : 0);
+        if ($idSku > 0) {
+          $idsSku[] = $idSku;
+        }
+      }
+      $idsSku = array_values(array_unique($idsSku));
+      if (count($idsSku) === 0) {
+        return $this->respuesta(true, "warning", "La seleccion no contiene SKUs validos");
+      }
+      $this->validarSkusCatalogoComercial($db, $idsSku);
+
+      $titulo = trim((string)(isset($material["titulo"]) ? $material["titulo"] : $nombre));
+      if ($titulo === "") { $titulo = $nombre; }
+      $estatusAnterior = null;
+      $db->beginTransaction();
+      if ($idCatalogo > 0) {
+        $stmt = $db->prepare("SELECT estatus FROM erp_catalogo_comercial_catalogos WHERE id_catalogo_comercial=:id FOR UPDATE");
+        $stmt->execute(array(":id" => $idCatalogo));
+        $actual = $stmt->fetch(PDO::FETCH_ASSOC);
+        if (!$actual) {
+          throw new Exception("Catalogo comercial no encontrado");
+        }
+        $estatusAnterior = $actual["estatus"];
+        $stmt = $db->prepare("UPDATE erp_catalogo_comercial_catalogos SET
+            nombre=:nombre, titulo=:titulo, subtitulo=:subtitulo, cta=:cta, plantilla=:plantilla,
+            mostrar_precio=:precio, mostrar_marca=:marca, mostrar_categoria=:categoria,
+            mostrar_presentacion=:presentacion, mostrar_sku=:sku, mostrar_disponibilidad=:disponibilidad,
+            portada_activa=:portada_activa, portada_etiqueta=:portada_etiqueta,
+            portada_descripcion=:portada_descripcion, portada_nota=:portada_nota,
+            id_usuario_actualizacion=:usuario, fecha_actualizacion=CURRENT_TIMESTAMP
+          WHERE id_catalogo_comercial=:id");
+        $stmt->execute($this->paramsCatalogoComercial($idCatalogo, $nombre, $titulo, $material, $opciones, $idUsuario));
+      } else {
+        $codigo = $this->codigoCatalogoComercial($db);
+        $stmt = $db->prepare("INSERT INTO erp_catalogo_comercial_catalogos
+          (codigo, nombre, titulo, subtitulo, cta, plantilla, mostrar_precio, mostrar_marca, mostrar_categoria,
+           mostrar_presentacion, mostrar_sku, mostrar_disponibilidad, portada_activa, portada_etiqueta,
+           portada_descripcion, portada_nota, estatus, id_usuario_creacion, id_usuario_actualizacion)
+          VALUES (:codigo, :nombre, :titulo, :subtitulo, :cta, :plantilla, :precio, :marca, :categoria,
+           :presentacion, :sku, :disponibilidad, :portada_activa, :portada_etiqueta,
+           :portada_descripcion, :portada_nota, 'borrador', :usuario, :usuario)");
+        $params = $this->paramsCatalogoComercial(0, $nombre, $titulo, $material, $opciones, $idUsuario);
+        $params[":codigo"] = $codigo;
+        unset($params[":id"]);
+        $stmt->execute($params);
+        $idCatalogo = intval($db->lastInsertId());
+        $estatusAnterior = null;
+      }
+
+      $db->prepare("UPDATE erp_catalogo_comercial_items SET estatus=0, fecha_actualizacion=CURRENT_TIMESTAMP WHERE id_catalogo_comercial=:id")
+        ->execute(array(":id" => $idCatalogo));
+      $stmtItem = $db->prepare("INSERT INTO erp_catalogo_comercial_items
+          (id_catalogo_comercial, id_sku, tipo_item, posicion, titulo_override, descripcion_override, precio_texto_override, nota_item, estatus)
+        VALUES (:catalogo, :sku, :tipo, :posicion, :titulo, :descripcion, :precio, :nota, 1)
+        ON DUPLICATE KEY UPDATE posicion=VALUES(posicion), titulo_override=VALUES(titulo_override),
+          descripcion_override=VALUES(descripcion_override), precio_texto_override=VALUES(precio_texto_override),
+          nota_item=VALUES(nota_item), estatus=1, fecha_actualizacion=CURRENT_TIMESTAMP");
+      $posicion = 1;
+      foreach ($items as $item) {
+        $idSku = intval(isset($item["id_sku"]) ? $item["id_sku"] : 0);
+        if ($idSku <= 0) { continue; }
+        $stmtItem->execute(array(
+          ":catalogo" => $idCatalogo,
+          ":sku" => $idSku,
+          ":tipo" => $this->opcion($item, "tipo_item", array("sku", "presentacion", "paquete"), "sku"),
+          ":posicion" => $posicion++,
+          ":titulo" => $this->texto($item, "titulo_override") ?: null,
+          ":descripcion" => $this->texto($item, "descripcion_override") ?: null,
+          ":precio" => $this->texto($item, "precio_texto_override") ?: null,
+          ":nota" => $this->texto($item, "nota_item") ?: null
+        ));
+      }
+      $this->registrarEventoCatalogoComercial($db, $idCatalogo, "guardar", $estatusAnterior, "borrador", array("items" => count($idsSku)), $idUsuario);
+      $db->commit();
+
+      return $this->respuesta(false, "success", "Catalogo comercial guardado", array(
+        "id_catalogo_comercial" => $idCatalogo,
+        "items" => count($idsSku)
+      ));
+    } catch (Exception $e) {
+      if (isset($db) && $db->inTransaction()) {
+        $db->rollBack();
+      }
+      return $this->respuesta(true, "danger", $e->getMessage());
+    }
+  }
+
+  /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-07-26
+   * Proposito: archivar catalogos comerciales sin borrado fisico.
+   * Impacto: Catalogo ERP/Comercial; conserva eventos e items para auditoria.
+   * Contrato: recibe id_catalogo_comercial y marca estatus `archivado`.
+   */
+  public function archivarCatalogoComercial($datos, $idUsuario = null) {
+    $idCatalogo = intval(isset($datos["id_catalogo_comercial"]) ? $datos["id_catalogo_comercial"] : 0);
+    if ($idCatalogo <= 0) {
+      return $this->respuesta(true, "warning", "Selecciona un catalogo comercial");
+    }
+    try {
+      $db = $this->getConexion();
+      $db->beginTransaction();
+      $stmt = $db->prepare("SELECT estatus FROM erp_catalogo_comercial_catalogos WHERE id_catalogo_comercial=:id FOR UPDATE");
+      $stmt->execute(array(":id" => $idCatalogo));
+      $actual = $stmt->fetch(PDO::FETCH_ASSOC);
+      if (!$actual) {
+        throw new Exception("Catalogo comercial no encontrado");
+      }
+      $db->prepare("UPDATE erp_catalogo_comercial_catalogos SET estatus='archivado', id_usuario_actualizacion=:usuario, fecha_actualizacion=CURRENT_TIMESTAMP WHERE id_catalogo_comercial=:id")
+        ->execute(array(":usuario" => $idUsuario, ":id" => $idCatalogo));
+      $this->registrarEventoCatalogoComercial($db, $idCatalogo, "archivar", $actual["estatus"], "archivado", array(), $idUsuario);
+      $db->commit();
+      return $this->respuesta(false, "success", "Catalogo comercial archivado", array("id_catalogo_comercial" => $idCatalogo));
+    } catch (Exception $e) {
+      if (isset($db) && $db->inTransaction()) {
+        $db->rollBack();
+      }
+      return $this->respuesta(true, "danger", $e->getMessage());
     }
   }
 
@@ -4475,8 +4684,11 @@ class CatalogoErpDatos extends CRUD {
         p.observaciones, p.estatus, s.sku, s.nombre AS nombre_sku
         FROM erp_catalogo_sku_paquetes p
         INNER JOIN erp_catalogo_skus s ON s.id_sku=p.id_sku_paquete
+        INNER JOIN erp_catalogo_productos prod ON prod.id_producto_erp=s.id_producto_erp
         WHERE s.id_producto_erp=:producto
           AND p.estatus IN ('activo','borrador')
+          AND s.estatus NOT IN ('inactivo','descontinuado','fusionado')
+          AND prod.estatus NOT IN ('inactivo','descontinuado','fusionado')
         ORDER BY p.id_paquete");
       $stmt->execute(array(":producto" => intval($idProducto)));
       $filas = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -4505,8 +4717,11 @@ class CatalogoErpDatos extends CRUD {
         u.abreviatura AS unidad
         FROM erp_catalogo_sku_paquete_componentes c
         INNER JOIN erp_catalogo_skus s ON s.id_sku=c.id_sku_componente
+        INNER JOIN erp_catalogo_productos prod ON prod.id_producto_erp=s.id_producto_erp
         LEFT JOIN erp_catalogo_unidades u ON u.id_unidad=c.id_unidad
         WHERE c.id_paquete IN (" . $listaIds . ") AND c.estatus='activo'
+          AND s.estatus NOT IN ('inactivo','descontinuado','fusionado')
+          AND prod.estatus NOT IN ('inactivo','descontinuado','fusionado')
         ORDER BY c.id_paquete, c.orden, c.id_componente")->fetchAll(PDO::FETCH_ASSOC);
       foreach ($componentes as $componente) {
         $idPaquete = intval($componente["id_paquete"]);
@@ -4537,8 +4752,11 @@ class CatalogoErpDatos extends CRUD {
           u.abreviatura AS unidad
           FROM erp_catalogo_sku_paquete_grupo_opciones o
           INNER JOIN erp_catalogo_skus s ON s.id_sku=o.id_sku_opcion
+          INNER JOIN erp_catalogo_productos prod ON prod.id_producto_erp=s.id_producto_erp
           LEFT JOIN erp_catalogo_unidades u ON u.id_unidad=o.id_unidad
           WHERE o.id_grupo IN (" . $listaGrupos . ") AND o.estatus='activo'
+            AND s.estatus NOT IN ('inactivo','descontinuado','fusionado')
+            AND prod.estatus NOT IN ('inactivo','descontinuado','fusionado')
           ORDER BY o.id_grupo, o.orden, o.id_opcion")->fetchAll(PDO::FETCH_ASSOC);
         foreach ($opciones as $opcion) {
           $idGrupo = intval($opcion["id_grupo"]);
@@ -4607,14 +4825,17 @@ class CatalogoErpDatos extends CRUD {
     }
 
     try {
-      $stmt = $db->prepare("SELECT id_sku, sku, estatus FROM erp_catalogo_skus WHERE id_sku=:sku LIMIT 1");
+      $stmt = $db->prepare("SELECT s.id_sku, s.sku, s.estatus, p.estatus AS estatus_producto
+        FROM erp_catalogo_skus s
+        INNER JOIN erp_catalogo_productos p ON p.id_producto_erp=s.id_producto_erp
+        WHERE s.id_sku=:sku LIMIT 1");
       $stmt->execute(array(":sku" => $idSkuPaquete));
       $skuPaquete = $stmt->fetch(PDO::FETCH_ASSOC);
       if (!$skuPaquete) {
         return $this->respuesta(true, "warning", "El SKU paquete no existe");
       }
-      if (in_array($skuPaquete["estatus"], array("fusionado", "descontinuado", "inactivo"), true)) {
-        return $this->respuesta(true, "warning", "El SKU paquete debe estar operativo para configurar receta");
+      if (in_array($skuPaquete["estatus"], array("fusionado", "descontinuado", "inactivo"), true) || in_array($skuPaquete["estatus_producto"], array("fusionado", "descontinuado", "inactivo"), true)) {
+        return $this->respuesta(true, "warning", "El SKU paquete debe pertenecer a un producto operativo para configurar receta");
       }
       $stmtReceta = $db->prepare("SELECT id_paquete, estatus FROM erp_catalogo_sku_paquetes WHERE id_sku_paquete=:sku LIMIT 1");
       $stmtReceta->execute(array(":sku" => $idSkuPaquete));
@@ -4632,9 +4853,10 @@ class CatalogoErpDatos extends CRUD {
       }
       if (!empty($componentes)) {
         $idsComponentes = array_map("intval", array_column($componentes, "id_sku_componente"));
-        $stmtComponentes = $db->query("SELECT id_sku, sku, estatus
-          FROM erp_catalogo_skus
-          WHERE id_sku IN (" . implode(",", $idsComponentes) . ")");
+        $stmtComponentes = $db->query("SELECT s.id_sku, s.sku, s.estatus, p.estatus AS estatus_producto
+          FROM erp_catalogo_skus s
+          INNER JOIN erp_catalogo_productos p ON p.id_producto_erp=s.id_producto_erp
+          WHERE s.id_sku IN (" . implode(",", $idsComponentes) . ")");
         $componentesEncontrados = array();
         foreach ($stmtComponentes->fetchAll(PDO::FETCH_ASSOC) as $filaComponente) {
           $componentesEncontrados[intval($filaComponente["id_sku"])] = $filaComponente;
@@ -4643,8 +4865,8 @@ class CatalogoErpDatos extends CRUD {
           if (!isset($componentesEncontrados[$idComponente])) {
             return $this->respuesta(true, "warning", "Uno de los componentes seleccionados ya no existe");
           }
-          if (in_array($componentesEncontrados[$idComponente]["estatus"], array("fusionado", "descontinuado", "inactivo"), true)) {
-            return $this->respuesta(true, "warning", "El componente " . $componentesEncontrados[$idComponente]["sku"] . " no esta operativo");
+          if (in_array($componentesEncontrados[$idComponente]["estatus"], array("fusionado", "descontinuado", "inactivo"), true) || in_array($componentesEncontrados[$idComponente]["estatus_producto"], array("fusionado", "descontinuado", "inactivo"), true)) {
+            return $this->respuesta(true, "warning", "El componente " . $componentesEncontrados[$idComponente]["sku"] . " no pertenece a un producto operativo");
           }
         }
       }
@@ -4940,14 +5162,17 @@ class CatalogoErpDatos extends CRUD {
         return $this->respuesta(true, "warning", "La opcion no puede ser el mismo SKU paquete");
       }
 
-      $stmt = $db->prepare("SELECT id_sku, sku, estatus FROM erp_catalogo_skus WHERE id_sku=:sku LIMIT 1");
+      $stmt = $db->prepare("SELECT s.id_sku, s.sku, s.estatus, p.estatus AS estatus_producto
+        FROM erp_catalogo_skus s
+        INNER JOIN erp_catalogo_productos p ON p.id_producto_erp=s.id_producto_erp
+        WHERE s.id_sku=:sku LIMIT 1");
       $stmt->execute(array(":sku" => $idSkuOpcion));
       $sku = $stmt->fetch(PDO::FETCH_ASSOC);
       if (!$sku) {
         return $this->respuesta(true, "warning", "El SKU opcion no existe");
       }
-      if (in_array($sku["estatus"], array("fusionado", "descontinuado", "inactivo"), true)) {
-        return $this->respuesta(true, "warning", "El SKU opcion " . $sku["sku"] . " no esta operativo");
+      if (in_array($sku["estatus"], array("fusionado", "descontinuado", "inactivo"), true) || in_array($sku["estatus_producto"], array("fusionado", "descontinuado", "inactivo"), true)) {
+        return $this->respuesta(true, "warning", "El SKU opcion " . $sku["sku"] . " no pertenece a un producto operativo");
       }
       $stmt = $db->prepare("SELECT id_opcion FROM erp_catalogo_sku_paquete_grupo_opciones
         WHERE id_grupo=:grupo AND id_sku_opcion=:sku AND estatus='activo'
@@ -5183,8 +5408,9 @@ class CatalogoErpDatos extends CRUD {
 
     $db = $this->getConexion();
     try {
-      $stmt = $db->prepare("SELECT s.id_sku, s.id_producto_erp, s.sku, s.nombre, s.tipo_inventario, s.estatus
+      $stmt = $db->prepare("SELECT s.id_sku, s.id_producto_erp, s.sku, s.nombre, s.tipo_inventario, s.estatus, p.estatus AS estatus_producto
         FROM erp_catalogo_skus s
+        INNER JOIN erp_catalogo_productos p ON p.id_producto_erp=s.id_producto_erp
         WHERE s.id_sku IN (:base, :presentacion)");
       $stmt->execute(array(":base" => $idBase, ":presentacion" => $idPresentacion));
       $skus = array();
@@ -5194,8 +5420,9 @@ class CatalogoErpDatos extends CRUD {
       if (!isset($skus[$idBase]) || !isset($skus[$idPresentacion])) {
         return $this->respuesta(true, "warning", "Selecciona SKU existentes para base y presentacion");
       }
-      if ($skus[$idBase]["estatus"] === "fusionado" || $skus[$idPresentacion]["estatus"] === "fusionado") {
-        return $this->respuesta(true, "warning", "No puedes configurar presentaciones con SKU fusionados");
+      if (in_array($skus[$idBase]["estatus"], array("fusionado", "descontinuado", "inactivo"), true) || in_array($skus[$idPresentacion]["estatus"], array("fusionado", "descontinuado", "inactivo"), true)
+        || in_array($skus[$idBase]["estatus_producto"], array("fusionado", "descontinuado", "inactivo"), true) || in_array($skus[$idPresentacion]["estatus_producto"], array("fusionado", "descontinuado", "inactivo"), true)) {
+        return $this->respuesta(true, "warning", "No puedes configurar presentaciones con productos o SKU no operativos");
       }
       if (intval($skus[$idBase]["id_producto_erp"]) !== intval($skus[$idPresentacion]["id_producto_erp"])) {
         return $this->respuesta(true, "warning", "Por ahora la presentacion debe pertenecer al mismo producto maestro que el SKU base");
@@ -5288,9 +5515,15 @@ class CatalogoErpDatos extends CRUD {
       FROM erp_catalogo_sku_presentaciones pr
       INNER JOIN erp_catalogo_skus base ON base.id_sku=pr.id_sku_base
       INNER JOIN erp_catalogo_skus pres ON pres.id_sku=pr.id_sku_presentacion
+      INNER JOIN erp_catalogo_productos prod_base ON prod_base.id_producto_erp=base.id_producto_erp
+      INNER JOIN erp_catalogo_productos prod_pres ON prod_pres.id_producto_erp=pres.id_producto_erp
       INNER JOIN erp_catalogo_unidades ub ON ub.id_unidad=base.id_unidad_base
       INNER JOIN erp_catalogo_unidades up ON up.id_unidad=pres.id_unidad_base
-      WHERE base.id_producto_erp=:producto OR pres.id_producto_erp=:producto
+      WHERE (base.id_producto_erp=:producto OR pres.id_producto_erp=:producto)
+        AND base.estatus NOT IN ('inactivo','descontinuado','fusionado')
+        AND pres.estatus NOT IN ('inactivo','descontinuado','fusionado')
+        AND prod_base.estatus NOT IN ('inactivo','descontinuado','fusionado')
+        AND prod_pres.estatus NOT IN ('inactivo','descontinuado','fusionado')
       ORDER BY FIELD(pr.estatus, 'activa', 'inactiva'), base.sku, pres.sku");
     $stmt->execute(array(":producto" => intval($idProducto)));
     return $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -5683,6 +5916,7 @@ class CatalogoErpDatos extends CRUD {
         INNER JOIN erp_catalogo_productos p ON p.id_producto_erp=s.id_producto_erp
         INNER JOIN erp_catalogo_unidades u ON u.id_unidad=s.id_unidad_base
         WHERE s.estatus IN ('activo','borrador','en_revision')
+          AND p.estatus IN ('activo','borrador','en_revision')
           AND (s.sku LIKE :q_sku OR s.nombre LIKE :q_nombre OR p.nombre LIKE :q_producto OR p.codigo_producto LIKE :q_codigo)
         ORDER BY CASE WHEN s.sku=:exacto THEN 0 WHEN s.sku LIKE :prefijo THEN 1 ELSE 2 END, s.sku
         LIMIT " . intval($limite));
@@ -5786,6 +6020,293 @@ class CatalogoErpDatos extends CRUD {
     );
   }
 
+  /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-07-26
+   * Proposito: reconstruir items persistidos de un catalogo comercial con datos vigentes del SKU.
+   * Impacto: Catalogo ERP/Comercial; evita congelar nombre, imagen, precio o disponibilidad en los items guardados.
+   * Contrato: recibe id_catalogo_comercial y devuelve items en el mismo contrato visual de candidatos.
+   */
+  private function itemsCatalogoComercialPersistido($db, $idCatalogo) {
+    $tienePublicaciones = $this->tablaExisteCatalogo($db, "erp_ecommerce_publicaciones");
+    $tienePresentaciones = $this->tablaExisteCatalogo($db, "erp_catalogo_sku_presentaciones");
+    $tienePaquetes = $this->tablaExisteCatalogo($db, "erp_catalogo_sku_paquetes");
+    $tieneInventario = $this->tablaExisteCatalogo($db, "erp_inventario_existencias");
+
+    $selectPublicacion = $tienePublicaciones
+      ? "pub.id_publicacion, pub.estatus_publicacion, pub.slug, pub.titulo_publico, pub.presentacion_publica, pub.mostrar_precio, pub.mostrar_disponibilidad"
+      : "NULL id_publicacion, NULL estatus_publicacion, NULL slug, NULL titulo_publico, NULL presentacion_publica, NULL mostrar_precio, NULL mostrar_disponibilidad";
+    $joinPublicacion = $tienePublicaciones
+      ? "LEFT JOIN erp_ecommerce_publicaciones pub ON pub.id_sku=s.id_sku AND pub.estatus_publicacion IN ('borrador','publicado','pausado')"
+      : "";
+    $selectPresentacion = $tienePresentaciones
+      ? "pres.id_sku_base, pres.factor_salida_base, pres.modo_disponibilidad AS modo_disponibilidad_presentacion, pres.requiere_empaque"
+      : "NULL id_sku_base, NULL factor_salida_base, NULL modo_disponibilidad_presentacion, NULL requiere_empaque";
+    $joinPresentacion = $tienePresentaciones
+      ? "LEFT JOIN erp_catalogo_sku_presentaciones pres ON pres.id_sku_presentacion=s.id_sku AND pres.estatus='activo'"
+      : "";
+    $selectPaquete = $tienePaquetes
+      ? "paq.id_paquete, paq.tipo_paquete, paq.modo_disponibilidad AS modo_disponibilidad_paquete, paq.permite_configuracion_cliente"
+      : "NULL id_paquete, NULL tipo_paquete, NULL modo_disponibilidad_paquete, NULL permite_configuracion_cliente";
+    $joinPaquete = $tienePaquetes
+      ? "LEFT JOIN erp_catalogo_sku_paquetes paq ON paq.id_sku_paquete=s.id_sku AND paq.estatus='activo'"
+      : "";
+    $selectInventario = $tieneInventario ? "COALESCE(inv.cantidad_disponible, 0) AS existencia_disponible" : "0 AS existencia_disponible";
+    $joinInventario = $tieneInventario
+      ? "LEFT JOIN (
+          SELECT id_sku_erp, SUM(cantidad_disponible) cantidad_disponible
+          FROM erp_inventario_existencias
+          WHERE estatus_existencia IN ('disponible','agotada')
+          GROUP BY id_sku_erp
+        ) inv ON inv.id_sku_erp=s.id_sku"
+      : "";
+
+    $stmt = $db->prepare("SELECT p.id_producto_erp, p.codigo_producto, p.nombre AS producto, p.estatus AS estatus_producto,
+        s.id_sku, s.sku, COALESCE(NULLIF(s.nombre,''), p.nombre) AS nombre_sku, s.estatus AS estatus_sku,
+        s.tipo_inventario, u.codigo AS unidad_codigo, u.abreviatura AS unidad_abreviatura,
+        m.nombre AS marca, pc.id_categoria_erp, COALESCE(c.ruta, c.nombre) AS categoria,
+        img.url_imagen AS imagen_portada,
+        pr.precio, pr.moneda, r.unidad_venta_label, r.permite_venta_fraccionaria, r.controla_inventario,
+        i.titulo_override, i.descripcion_override, i.precio_texto_override, i.nota_item,
+        " . $selectInventario . ",
+        " . $selectPublicacion . ",
+        " . $selectPresentacion . ",
+        " . $selectPaquete . "
+      FROM erp_catalogo_comercial_items i
+      INNER JOIN erp_catalogo_skus s ON s.id_sku=i.id_sku
+      INNER JOIN erp_catalogo_productos p ON p.id_producto_erp=s.id_producto_erp
+      LEFT JOIN erp_catalogo_marcas m ON m.id_marca_erp=p.id_marca_erp
+      LEFT JOIN erp_catalogo_unidades u ON u.id_unidad=s.id_unidad_base
+      LEFT JOIN erp_catalogo_producto_categorias pc ON pc.id_producto_erp=p.id_producto_erp AND pc.es_principal=1
+      LEFT JOIN erp_catalogo_categorias c ON c.id_categoria_erp=pc.id_categoria_erp
+      LEFT JOIN erp_catalogo_sku_reglas_inventario r ON r.id_sku=s.id_sku
+      LEFT JOIN erp_catalogo_sku_precios pr ON pr.id_sku=s.id_sku AND pr.lista_precio='general' AND pr.moneda='MXN' AND pr.estatus='activo' AND pr.precio>0
+      LEFT JOIN (
+        SELECT ii.id_producto_erp, ii.url_imagen
+        FROM erp_catalogo_imagenes ii
+        INNER JOIN (
+          SELECT id_producto_erp, MIN(id_imagen_erp) id_imagen_erp
+          FROM erp_catalogo_imagenes
+          WHERE estatus='activo' AND TRIM(COALESCE(url_imagen,''))<>''
+          GROUP BY id_producto_erp
+        ) x ON x.id_imagen_erp=ii.id_imagen_erp
+      ) img ON img.id_producto_erp=p.id_producto_erp
+      " . $joinPublicacion . "
+      " . $joinPresentacion . "
+      " . $joinPaquete . "
+      " . $joinInventario . "
+      WHERE i.id_catalogo_comercial=:catalogo AND i.estatus=1
+        AND p.estatus IN ('activo','borrador','en_revision')
+        AND s.estatus IN ('activo','borrador','en_revision')
+      ORDER BY i.posicion, i.id_catalogo_item");
+    $stmt->execute(array(":catalogo" => intval($idCatalogo)));
+    $items = array();
+    foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $fila) {
+      $item = $this->formatearCandidatoCatalogoComercial($fila);
+      $item["titulo_override"] = $fila["titulo_override"];
+      $item["descripcion_override"] = $fila["descripcion_override"];
+      $item["precio_texto_override"] = $fila["precio_texto_override"];
+      $item["nota_item"] = $fila["nota_item"];
+      $items[] = $item;
+    }
+    return $items;
+  }
+
+  /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-07-26
+   * Proposito: validar SKUs seleccionados antes de guardar un catalogo comercial.
+   * Impacto: Catalogo ERP/Comercial; evita registros huerfanos y errores de llave foranea.
+   */
+  private function validarSkusCatalogoComercial($db, $idsSku) {
+    $placeholders = array();
+    $params = array();
+    foreach (array_values($idsSku) as $i => $idSku) {
+      $key = ":sku" . $i;
+      $placeholders[] = $key;
+      $params[$key] = intval($idSku);
+    }
+    $stmt = $db->prepare("SELECT COUNT(*) FROM erp_catalogo_skus WHERE id_sku IN (" . implode(",", $placeholders) . ")");
+    $stmt->execute($params);
+    if (intval($stmt->fetchColumn()) !== count($idsSku)) {
+      throw new Exception("Uno o mas SKUs seleccionados ya no existen");
+    }
+  }
+
+  private function materialCatalogoComercialDesdeFila($catalogo) {
+    return array(
+      "titulo" => $catalogo["titulo"],
+      "subtitulo" => $catalogo["subtitulo"],
+      "cta" => $catalogo["cta"],
+      "portadaActiva" => intval($catalogo["portada_activa"]) === 1,
+      "portadaEtiqueta" => $catalogo["portada_etiqueta"],
+      "portadaDescripcion" => $catalogo["portada_descripcion"],
+      "portadaNota" => $catalogo["portada_nota"]
+    );
+  }
+
+  private function opcionesCatalogoComercialDesdeFila($catalogo) {
+    return array(
+      "plantilla" => $catalogo["plantilla"],
+      "mostrarPrecio" => intval($catalogo["mostrar_precio"]) === 1,
+      "mostrarMarca" => intval($catalogo["mostrar_marca"]) === 1,
+      "mostrarCategoria" => intval($catalogo["mostrar_categoria"]) === 1,
+      "mostrarPresentacion" => intval($catalogo["mostrar_presentacion"]) === 1,
+      "mostrarSku" => intval($catalogo["mostrar_sku"]) === 1,
+      "mostrarDisponibilidad" => intval($catalogo["mostrar_disponibilidad"]) === 1
+    );
+  }
+
+  private function jsonCatalogoComercial($datos, $campo, $default) {
+    if (!isset($datos[$campo])) {
+      return $default;
+    }
+    if (is_array($datos[$campo])) {
+      return $datos[$campo];
+    }
+    $json = json_decode((string)$datos[$campo], true);
+    return is_array($json) ? $json : $default;
+  }
+
+  private function paramsCatalogoComercial($idCatalogo, $nombre, $titulo, $material, $opciones, $idUsuario) {
+    return array(
+      ":id" => intval($idCatalogo),
+      ":nombre" => substr($nombre, 0, 120),
+      ":titulo" => substr($titulo, 0, 120),
+      ":subtitulo" => substr(trim((string)(isset($material["subtitulo"]) ? $material["subtitulo"] : "")), 0, 180) ?: null,
+      ":cta" => substr(trim((string)(isset($material["cta"]) ? $material["cta"] : "")), 0, 160) ?: null,
+      ":plantilla" => $this->opcion($opciones, "plantilla", array("square", "story", "compact"), "square"),
+      ":precio" => !empty($opciones["mostrarPrecio"]) ? 1 : 0,
+      ":marca" => array_key_exists("mostrarMarca", $opciones) ? (!empty($opciones["mostrarMarca"]) ? 1 : 0) : 1,
+      ":categoria" => !empty($opciones["mostrarCategoria"]) ? 1 : 0,
+      ":presentacion" => array_key_exists("mostrarPresentacion", $opciones) ? (!empty($opciones["mostrarPresentacion"]) ? 1 : 0) : 1,
+      ":sku" => !empty($opciones["mostrarSku"]) ? 1 : 0,
+      ":disponibilidad" => !empty($opciones["mostrarDisponibilidad"]) ? 1 : 0,
+      ":portada_activa" => array_key_exists("portadaActiva", $material) ? (!empty($material["portadaActiva"]) ? 1 : 0) : 1,
+      ":portada_etiqueta" => substr(trim((string)(isset($material["portadaEtiqueta"]) ? $material["portadaEtiqueta"] : "")), 0, 80) ?: null,
+      ":portada_descripcion" => substr(trim((string)(isset($material["portadaDescripcion"]) ? $material["portadaDescripcion"] : "")), 0, 255) ?: null,
+      ":portada_nota" => substr(trim((string)(isset($material["portadaNota"]) ? $material["portadaNota"] : "")), 0, 180) ?: null,
+      ":usuario" => $idUsuario ? intval($idUsuario) : null
+    );
+  }
+
+  private function codigoCatalogoComercial($db) {
+    $siguiente = intval($db->query("SELECT COALESCE(MAX(id_catalogo_comercial),0)+1 FROM erp_catalogo_comercial_catalogos")->fetchColumn());
+    return "CC-" . str_pad((string)$siguiente, 5, "0", STR_PAD_LEFT);
+  }
+
+  private function registrarEventoCatalogoComercial($db, $idCatalogo, $evento, $estatusAnterior, $estatusNuevo, $detalle, $idUsuario) {
+    $stmt = $db->prepare("INSERT INTO erp_catalogo_comercial_eventos
+      (id_catalogo_comercial, evento, estatus_anterior, estatus_nuevo, detalle_json, id_usuario)
+      VALUES (:catalogo, :evento, :anterior, :nuevo, :detalle, :usuario)");
+    $stmt->execute(array(
+      ":catalogo" => intval($idCatalogo),
+      ":evento" => substr($evento, 0, 40),
+      ":anterior" => $estatusAnterior,
+      ":nuevo" => $estatusNuevo,
+      ":detalle" => json_encode($detalle, JSON_UNESCAPED_UNICODE),
+      ":usuario" => $idUsuario ? intval($idUsuario) : null
+    ));
+  }
+
+  /**
+   * IA: Codex GPT-5 | Fecha: 2026-07-27
+   * Proposito: diagnostica codigos de barras aunque pertenezcan a SKUs/productos archivados o fusionados.
+   * Impacto: Catalogo ERP; permite entender bloqueos de identidad sin reactivar ni deshacer fusiones.
+   * Contrato: recibe `codigo_barras`; devuelve propietarios historicos y estado operativo de cada relacion.
+   */
+  public function diagnosticarCodigoBarras($datos) {
+    $codigo = $this->texto($datos, "codigo_barras");
+    if ($codigo === "") {
+      return $this->respuesta(true, "warning", "Captura el codigo de barras a revisar");
+    }
+
+    try {
+      $db = $this->getConexion();
+      $stmt = $db->prepare("SELECT cod.id_sku_codigo, cod.tipo_codigo, cod.codigo, cod.es_principal, cod.estatus AS estatus_codigo,
+          cod.fecha_registro, cod.fecha_actualizacion,
+          s.id_sku, s.sku, s.nombre AS nombre_sku, s.estatus AS estatus_sku,
+          p.id_producto_erp, p.codigo_producto, p.nombre AS producto, p.estatus AS estatus_producto,
+          CASE
+            WHEN s.estatus IN ('inactivo','descontinuado','fusionado') OR p.estatus IN ('inactivo','descontinuado','fusionado') THEN 1
+            ELSE 0
+          END AS puede_liberar
+        FROM erp_catalogo_sku_codigos cod
+        INNER JOIN erp_catalogo_skus s ON s.id_sku=cod.id_sku
+        INNER JOIN erp_catalogo_productos p ON p.id_producto_erp=s.id_producto_erp
+        WHERE cod.codigo=:codigo
+        ORDER BY cod.estatus='activo' DESC, cod.es_principal DESC, cod.id_sku_codigo DESC");
+      $stmt->execute(array(":codigo" => $codigo));
+      $registros = $stmt->fetchAll(PDO::FETCH_ASSOC);
+      return $this->respuesta(false, "success", "Codigo de barras diagnosticado", array(
+        "codigo_barras" => $codigo,
+        "registros" => $registros,
+        "bloquea_alta" => !empty($registros)
+      ));
+    } catch (Exception $e) {
+      return $this->respuesta(true, "danger", $e->getMessage());
+    }
+  }
+
+  /**
+   * IA: Codex GPT-5 | Fecha: 2026-07-27
+   * Proposito: libera un codigo de barras retenido por un SKU archivado/fusionado sin borrar historial.
+   * Impacto: Catalogo ERP; corrige errores de pruebas o captura conservando trazabilidad y sin tocar inventario/ventas.
+   * Contrato: requiere `id_sku_codigo`, `codigo_barras` y `motivo`; solo opera si producto o SKU no estan operativos.
+   */
+  public function liberarCodigoBarrasArchivado($datos, $idUsuario) {
+    $idCodigo = intval(isset($datos["id_sku_codigo"]) ? $datos["id_sku_codigo"] : 0);
+    $codigo = $this->texto($datos, "codigo_barras");
+    $motivo = $this->texto($datos, "motivo");
+    if ($idCodigo <= 0 || $codigo === "" || $motivo === "") {
+      return $this->respuesta(true, "warning", "Selecciona el codigo bloqueado y captura el motivo de liberacion");
+    }
+
+    $db = $this->getConexion();
+    try {
+      $db->beginTransaction();
+      $stmt = $db->prepare("SELECT cod.id_sku_codigo, cod.id_sku, cod.tipo_codigo, cod.codigo, cod.estatus AS estatus_codigo,
+          s.sku, s.estatus AS estatus_sku,
+          p.id_producto_erp, p.codigo_producto, p.nombre AS producto, p.estatus AS estatus_producto
+        FROM erp_catalogo_sku_codigos cod
+        INNER JOIN erp_catalogo_skus s ON s.id_sku=cod.id_sku
+        INNER JOIN erp_catalogo_productos p ON p.id_producto_erp=s.id_producto_erp
+        WHERE cod.id_sku_codigo=:id AND cod.codigo=:codigo
+        FOR UPDATE");
+      $stmt->execute(array(":id" => $idCodigo, ":codigo" => $codigo));
+      $registro = $stmt->fetch(PDO::FETCH_ASSOC);
+      if (!$registro) {
+        throw new Exception("No se encontro el codigo indicado");
+      }
+      $estatusSku = (string) $registro["estatus_sku"];
+      $estatusProducto = (string) $registro["estatus_producto"];
+      if (!in_array($estatusSku, array("inactivo", "descontinuado", "fusionado"), true) && !in_array($estatusProducto, array("inactivo", "descontinuado", "fusionado"), true)) {
+        throw new Exception("No se puede liberar un codigo de un SKU operativo; primero revisa el producto propietario");
+      }
+
+      $tipoLiberado = substr("liberado_" . $idCodigo, 0, 30);
+      $stmt = $db->prepare("UPDATE erp_catalogo_sku_codigos
+        SET tipo_codigo=:tipo_liberado, es_principal=0, estatus='liberado', fecha_actualizacion=CURRENT_TIMESTAMP
+        WHERE id_sku_codigo=:id");
+      $stmt->execute(array(":tipo_liberado" => $tipoLiberado, ":id" => $idCodigo));
+
+      $db->commit();
+      return $this->respuesta(false, "success", "Codigo de barras liberado para reutilizarse", array(
+        "id_sku_codigo" => $idCodigo,
+        "codigo_barras" => $codigo,
+        "tipo_codigo_anterior" => $registro["tipo_codigo"],
+        "tipo_codigo_liberado" => $tipoLiberado,
+        "propietario_anterior" => $registro,
+        "motivo" => $motivo,
+        "id_usuario" => $idUsuario ? intval($idUsuario) : null
+      ));
+    } catch (Exception $e) {
+      if ($db->inTransaction()) {
+        $db->rollBack();
+      }
+      return $this->respuesta(true, "danger", $e->getMessage());
+    }
+  }
   public function actualizarSku($datos, $idUsuario) {
     $idSku = intval(isset($datos["id_sku"]) ? $datos["id_sku"] : 0);
     $idProducto = intval(isset($datos["id_producto_erp"]) ? $datos["id_producto_erp"] : 0);
@@ -6201,6 +6722,13 @@ class CatalogoErpDatos extends CRUD {
     return $validacionReorden === true ? $this->validarFiscalSku($datos) : $validacionReorden;
   }
 
+  /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-07-27
+   * Proposito: valida reglas de venta fraccionaria sin impedir SKU mixto con trazabilidad fisica.
+   * Impacto: Catalogo ERP; permite unidad cerrada etiquetada y venta granel desde unidad abierta.
+   * Contrato: no exige etiqueta fraccionada salvo cuando se quiera etiquetar fracciones/preparaciones.
+   */
   private function reglasGranelSku($db, $datos, $controlaInventario) {
     if (!$controlaInventario) {
       return $this->reglasGranelDefault();
@@ -6241,12 +6769,6 @@ class CatalogoErpDatos extends CRUD {
     }
 
     $permiteEtiquetaFraccionada = $this->booleano($datos, "permite_etiqueta_fraccionada");
-    if ($this->booleano($datos, "generar_etiqueta_interna") && !$permiteEtiquetaFraccionada) {
-      throw new Exception("No se permite etiqueta individual en venta fraccionaria salvo que actives etiqueta fraccionada");
-    }
-    if (($this->booleano($datos, "requiere_serie") || $this->booleano($datos, "requiere_serie_fabricante")) && !$permiteEtiquetaFraccionada) {
-      throw new Exception("No se permite serie individual en venta fraccionaria salvo que actives etiqueta fraccionada");
-    }
 
     $unidadLabel = $this->texto($datos, "unidad_venta_label");
     if ($unidadLabel === "") {

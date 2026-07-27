@@ -58,6 +58,7 @@
                                     <a class="btn btn-sm btn-light" href="#manual-venta-rapida"><i class="bi bi-lightning-charge"></i> Venta rapida</a>
                                     <a class="btn btn-sm btn-light" href="#manual-tablero"><i class="bi bi-receipt-cutoff"></i> Ventas</a>
                                     <a class="btn btn-sm btn-light" href="#manual-checador"><i class="bi bi-upc-scan"></i> Checador</a>
+                                    <a class="btn btn-sm btn-light" href="#manual-atenciones"><i class="bi bi-people"></i> Atenciones</a>
                                     <a class="btn btn-sm btn-light" href="#manual-pedidos"><i class="bi bi-journal-bookmark"></i> Pedidos</a>
                                     <a class="btn btn-sm btn-light" href="#manual-devoluciones"><i class="bi bi-arrow-counterclockwise"></i> Devoluciones</a>
                                     <a class="btn btn-sm btn-light" href="#manual-caja"><i class="bi bi-calculator"></i> Caja</a>
@@ -104,6 +105,7 @@
                                                 </thead>
                                                 <tbody>
                                                     <tr><td>Producto registrado y con existencia</td><td>POS normal</td><td>Venta, pago, ticket, kardex y trazabilidad.</td></tr>
+                                                    <tr><td>Producto registrado a granel, pero Inventario aun no tiene unidad abierta</td><td>Granel/stock; si no alcanza, Venta con faltante</td><td>Venta cobrada y pendiente `PINV` para que Inventario revise conteo/apertura en tienda.</td></tr>
                                                     <tr><td>Producto registrado pero sin existencia suficiente</td><td>Venta con faltante, solo si hay politica activa</td><td>Venta cobrada, salida parcial si habia stock y pendiente `PINV` para Inventario.</td></tr>
                                                     <tr><td>Producto no encontrado o aun no capturado</td><td>Venta rapida controlada</td><td>Venta cobrada y pendiente `VRP` para Catalogo; Inventario regulariza despues si aplica.</td></tr>
                                                     <tr><td>Cliente solo pregunta precio</td><td>Checador de precios</td><td>Consulta sin carrito, sin caja y sin inventario.</td></tr>
@@ -375,9 +377,39 @@
                                         </div>
                                     </div>
 
+                                    <div class="pos-manual-card p-5 mb-4 pos-manual-section" id="manual-atenciones">
+                                        <h2 class="fw-bold fs-4 mb-4">Atenciones compartidas: cuentas creadas por otro operador</h2>
+                                        <p class="text-muted">Atenciones significa que una persona puede ir armando la cuenta de un cliente y otra persona puede tomarla para cobrarla en el POS. Sirve cuando varios empleados atienden en piso, mostrador o pasillo, pero el cobro se concentra en una caja o turno.</p>
+                                        <div class="pos-manual-check p-3 mb-4">
+                                            <div class="fw-bold">Idea principal</div>
+                                            <div class="text-muted fs-7">Una atencion no es una venta hasta que se cobra. Mientras esta abierta, es una cuenta pendiente. Cuando se toma y se cobra, ya genera folio POS, pago, caja, ticket e inventario.</div>
+                                        </div>
+                                        <h3 class="fw-bold fs-6">Como se usa</h3>
+                                        <ol class="text-muted">
+                                            <li>El operador entra con su usuario y arma una cuenta para el cliente.</li>
+                                            <li>Agrega productos, cantidades y observaciones necesarias.</li>
+                                            <li>Guarda o deja la atencion lista para cobro.</li>
+                                            <li>En caja, el cajero consulta la bandeja de atenciones.</li>
+                                            <li>El cajero toma la atencion, confirma que sea el cliente correcto y cobra.</li>
+                                            <li>El sistema debe conservar quien creo la atencion y quien la cobro.</li>
+                                        </ol>
+                                        <h3 class="fw-bold fs-6 mt-4">Reglas</h3>
+                                        <ul class="pos-manual-list text-muted">
+                                            <li>No debe descontar inventario solo por crear la atencion.</li>
+                                            <li>No debe mover caja hasta cobrar.</li>
+                                            <li>Si otro operador cobra, debe quedar trazado como cobrador real.</li>
+                                            <li>Si el cliente ya no compra, la atencion se cancela o queda expirada sin generar venta.</li>
+                                            <li>Si hay cambio de precio o descuento al cobrar, debe pasar por politica/autorizacion comercial.</li>
+                                        </ul>
+                                    </div>
+
                                     <div class="pos-manual-card p-5 mb-4 pos-manual-section" id="manual-pedidos">
                                         <h2 class="fw-bold fs-4 mb-4">Pedidos y apartados</h2>
                                         <p class="text-muted">Pedidos/apartados se usan cuando el cliente no liquida o no se entrega todo de inmediato. Separan la promesa al cliente de la venta inmediata.</p>
+                                        <div class="pos-manual-warning p-3 mb-4">
+                                            <div class="fw-bold">Diferencia entre pedido y apartado</div>
+                                            <div class="text-muted fs-7">Apartado normalmente significa que el producto existe o se reserva para el cliente y se va pagando. Pedido puede ser encargo o solicitud futura. En ambos casos debe existir cliente/telefono o referencia suficiente para darle seguimiento.</div>
+                                        </div>
                                         <h3 class="fw-bold fs-6">Flujo de apartado</h3>
                                         <ol class="text-muted">
                                             <li>Selecciona cliente o captura datos minimos.</li>
@@ -387,6 +419,28 @@
                                             <li>Cuando quede liquidado y listo, entrega el apartado.</li>
                                             <li>Si se cancela, registra decision financiera: saldo a favor, reembolso o politica definida.</li>
                                         </ol>
+                                        <h3 class="fw-bold fs-6 mt-4">Que pasa si no hay existencias</h3>
+                                        <ul class="pos-manual-list text-muted">
+                                            <li>Si el apartado reserva producto fisico, debe haber existencia disponible o una politica autorizada que permita reservar/vender con faltante.</li>
+                                            <li>Si no hay stock y no hay politica, el sistema debe bloquear la reserva para no prometer algo que no existe.</li>
+                                            <li>Si se permite apartado sin stock, debe quedar como pedido/encargo, no como producto ya separado fisicamente.</li>
+                                            <li>Un anticipo de pedido sin stock mueve caja, pero no debe descontar inventario hasta la entrega real.</li>
+                                            <li>Al entregar, el sistema debe consumir inventario/kardex o exigir regularizacion si sigue faltando.</li>
+                                        </ul>
+                                        <h3 class="fw-bold fs-6 mt-4">Estados que debes revisar</h3>
+                                        <div class="table-responsive">
+                                            <table class="table table-row-dashed align-middle text-muted">
+                                                <thead><tr class="fw-bold text-gray-700"><th>Estado</th><th>Que significa</th><th>Que hacer</th></tr></thead>
+                                                <tbody>
+                                                    <tr><td>Borrador</td><td>Aun no esta formalizado.</td><td>Completar datos o descartarlo.</td></tr>
+                                                    <tr><td>Reservado</td><td>Producto separado o pedido activo.</td><td>Dar seguimiento a pago/entrega.</td></tr>
+                                                    <tr><td>Pendiente pago</td><td>Tiene saldo.</td><td>Registrar abono cuando el cliente pague.</td></tr>
+                                                    <tr><td>Pagado</td><td>Ya esta liquidado.</td><td>Entregar si el producto esta listo.</td></tr>
+                                                    <tr><td>Entregado</td><td>Cerrado por entrega.</td><td>Solo consultar o atender postventa.</td></tr>
+                                                    <tr><td>Cancelado</td><td>No se entregara.</td><td>Definir saldo a favor, reembolso o perdida de anticipo segun politica.</td></tr>
+                                                </tbody>
+                                            </table>
+                                        </div>
                                         <h3 class="fw-bold fs-6 mt-4">Compromiso</h3>
                                         <p class="text-muted">La fecha compromiso solo aplica a pedidos o apartados porque hay una promesa futura: entrega, liquidacion o seguimiento. En venta normal no se usa porque la entrega ocurre al cobrar.</p>
                                     </div>
@@ -403,6 +457,27 @@
                                             <li>Decide dinero: reembolso caja, saldo a favor CRM, mixto o sin devolucion monetaria segun politica.</li>
                                             <li>Si sale dinero de caja, registra evidencia.</li>
                                             <li>Si el producto queda en cuarentena, Inventario/Almacen debe resolver destino final.</li>
+                                        </ol>
+                                        <h3 class="fw-bold fs-6 mt-4">Que hacer segun el caso</h3>
+                                        <div class="table-responsive">
+                                            <table class="table table-row-dashed align-middle text-muted">
+                                                <thead><tr class="fw-bold text-gray-700"><th>Caso</th><th>Decision financiera</th><th>Decision inventario</th><th>Evidencia</th></tr></thead>
+                                                <tbody>
+                                                    <tr><td>Cliente cambia producto cerrado en buen estado</td><td>Saldo a favor o cambio segun politica</td><td>Cuarentena primero; reintegrar solo tras revisar</td><td>Ticket/folio y motivo</td></tr>
+                                                    <tr><td>Producto defectuoso con garantia</td><td>Saldo a favor, reembolso o garantia proveedor</td><td>Cuarentena o garantia proveedor</td><td>Foto, diagnostico, ticket</td></tr>
+                                                    <tr><td>Reembolso en efectivo</td><td>Reembolso de caja</td><td>Cuarentena, merma o sin reingreso</td><td>Ticket firmado o comprobante obligatorio</td></tr>
+                                                    <tr><td>Producto abierto/no vendible</td><td>Segun politica</td><td>Merma o cuarentena</td><td>Motivo y evidencia visual si aplica</td></tr>
+                                                    <tr><td>Error de cobro el mismo turno</td><td>Reversa/cancelacion controlada</td><td>Reintegrar solo si fisicamente aplica</td><td>Nota del supervisor</td></tr>
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                        <h3 class="fw-bold fs-6 mt-4">Pasos posteriores</h3>
+                                        <ol class="text-muted">
+                                            <li>Si hubo reembolso de caja, revisa que aparezca movimiento de caja.</li>
+                                            <li>Registra o solicita evidencia si el movimiento la requiere.</li>
+                                            <li>Consulta Devoluciones fisicas pendientes para confirmar cuarentena.</li>
+                                            <li>Prevalida destino final si se va a reintegrar, mandar a merma, garantia o reparacion.</li>
+                                            <li>No entregues dinero sin folio de devolucion y sin respaldo cuando aplique.</li>
                                         </ol>
                                         <div class="pos-manual-danger p-3 mt-4">
                                             <div class="fw-bold">Regla importante</div>
@@ -437,22 +512,60 @@
                                             <div class="fw-bold">Diferencias de caja</div>
                                             <div class="text-muted fs-7">La caja puede cerrar con sobrante o faltante. Esa diferencia es informacion valiosa para control interno; no se debe manipular el cierre para dejarlo en cero.</div>
                                         </div>
+                                        <h3 class="fw-bold fs-6 mt-4">Durante el turno</h3>
+                                        <ul class="pos-manual-list text-muted">
+                                            <li>Ventas normales aumentan caja si son efectivo; tarjeta/transferencia se reportan como metodo de pago, no siempre como efectivo fisico.</li>
+                                            <li>Anticipos y abonos de apartados entran al turno cuando se cobran.</li>
+                                            <li>Gastos, retiros, reembolsos y vales deben registrarse como movimientos separados, no como ventas negativas.</li>
+                                            <li>Al cerrar, captura el efectivo real contado. Si falta o sobra, se registra la diferencia y se revisa despues.</li>
+                                        </ul>
                                     </div>
 
                                     <div class="pos-manual-card p-5 mb-4 pos-manual-section" id="manual-movimientos">
                                         <h2 class="fw-bold fs-4 mb-4">Movimientos caja</h2>
                                         <p class="text-muted">Muestra entradas y salidas ligadas a caja/turno: ventas, anticipos, abonos, gastos, reembolsos y otros movimientos autorizados.</p>
-                                        <ul class="pos-manual-list text-muted">
-                                            <li>Usalo para explicar por que cambio el efectivo esperado.</li>
-                                            <li>Revisa folio, tipo de movimiento, responsable, monto y referencia.</li>
-                                            <li>Un gasto directo de caja debe tener motivo y responsable.</li>
-                                            <li>Un reembolso debe estar ligado a devolucion o decision financiera.</li>
-                                        </ul>
+                                        <div class="pos-manual-warning p-3 mb-4">
+                                            <div class="fw-bold">Estado actual de la pantalla</div>
+                                            <div class="text-muted fs-7">La pantalla de Movimientos de caja permite validar y consultar. El boton visible <strong>Validar movimiento</strong> no registra dinero. El registro real de gastos/retiros/entradas esta protegido y debe exponerse como accion operativa normal antes de usarlo en tienda sin soporte.</div>
+                                        </div>
+                                        <h3 class="fw-bold fs-6">Tipos de movimiento</h3>
+                                        <div class="table-responsive">
+                                            <table class="table table-row-dashed align-middle text-muted">
+                                                <thead><tr class="fw-bold text-gray-700"><th>Tipo</th><th>Uso</th><th>Impacto esperado</th><th>Evidencia</th></tr></thead>
+                                                <tbody>
+                                                    <tr><td>Gasto de caja</td><td>Compra menor pagada con efectivo del cajon.</td><td>Disminuye efectivo esperado.</td><td>Comprobante, ticket o nota firmada.</td></tr>
+                                                    <tr><td>Retiro de efectivo</td><td>Sacar dinero para resguardo/deposito.</td><td>Disminuye efectivo en caja, pero queda trazado.</td><td>Responsable y referencia.</td></tr>
+                                                    <tr><td>Entrada extraordinaria</td><td>Ingreso de efectivo no ligado a venta.</td><td>Aumenta efectivo esperado.</td><td>Motivo y origen.</td></tr>
+                                                    <tr><td>Vale interno</td><td>Salida temporal asignada a responsable.</td><td>Disminuye efectivo hasta comprobar o resolver.</td><td>Responsable obligatorio.</td></tr>
+                                                    <tr><td>Reembolso cliente</td><td>Dinero devuelto por devolucion autorizada.</td><td>Disminuye efectivo y debe ligar postventa.</td><td>Ticket firmado o comprobante.</td></tr>
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                        <h3 class="fw-bold fs-6 mt-4">Como deberia operarse un gasto de caja</h3>
+                                        <ol class="text-muted">
+                                            <li>Debe existir turno abierto.</li>
+                                            <li>Entra a Ventas y POS &gt; Movimientos.</li>
+                                            <li>Selecciona almacen, caja y turno correctos.</li>
+                                            <li>Tipo: <strong>Gasto de caja</strong>.</li>
+                                            <li>Captura monto exacto, referencia, motivo, responsable y observaciones.</li>
+                                            <li>Valida el movimiento. Si hay bloqueos, corrige antes de seguir.</li>
+                                            <li>Cuando se habilite el registro real desde UI, confirma el movimiento real.</li>
+                                            <li>Sube o registra evidencia en Evidencias caja si el gasto la requiere.</li>
+                                            <li>Al cerrar turno, el efectivo esperado ya debe considerar ese gasto.</li>
+                                        </ol>
+                                        <div class="pos-manual-danger p-3 mt-4">
+                                            <div class="fw-bold">No hacer</div>
+                                            <div class="text-muted fs-7">No registres un gasto como descuento, devolucion falsa o venta negativa. Un gasto de caja debe vivir en caja, con motivo, responsable y evidencia.</div>
+                                        </div>
                                     </div>
 
                                     <div class="pos-manual-card p-5 mb-4 pos-manual-section" id="manual-evidencias">
                                         <h2 class="fw-bold fs-4 mb-4">Evidencias caja</h2>
                                         <p class="text-muted">Evidencias respaldan movimientos sensibles. No sustituyen la venta, devolucion o movimiento de caja; los complementan.</p>
+                                        <div class="pos-manual-check p-3 mb-4">
+                                            <div class="fw-bold">Cuando aparece un gasto en Evidencias caja</div>
+                                            <div class="text-muted fs-7">Caja evidencias muestra movimientos que requieren comprobante o revision. Si un gasto fue registrado como movimiento sensible, debe aparecer para adjuntar/revisar respaldo. Si solo lo validaste en Movimientos, aun no existe gasto real que evidenciar.</div>
+                                        </div>
                                         <h3 class="fw-bold fs-6">Ejemplos de evidencia</h3>
                                         <ul class="pos-manual-list text-muted">
                                             <li>Ticket firmado por cliente para reembolso.</li>
@@ -460,12 +573,28 @@
                                             <li>Comprobante de gasto de caja.</li>
                                             <li>Correccion o reemplazo de evidencia.</li>
                                         </ul>
+                                        <h3 class="fw-bold fs-6 mt-4">Que debe contener una evidencia</h3>
+                                        <ul class="pos-manual-list text-muted">
+                                            <li>Movimiento correcto: gasto, reembolso, retiro, vale o diferencia.</li>
+                                            <li>Importe que coincida con el movimiento.</li>
+                                            <li>Fecha y responsable.</li>
+                                            <li>Referencia externa: folio de ticket, nota, recibo, transferencia o descripcion clara.</li>
+                                            <li>Comentario de revision si se aprueba, rechaza o solicita correccion.</li>
+                                        </ul>
                                         <h3 class="fw-bold fs-6 mt-4">Revision</h3>
                                         <ol class="text-muted">
                                             <li>Consulta evidencias pendientes.</li>
                                             <li>Revisa que correspondan al movimiento correcto.</li>
                                             <li>Aprueba, rechaza o solicita correccion.</li>
                                             <li>Si hay correccion, conserva historial; no se borra la evidencia previa.</li>
+                                        </ol>
+                                        <h3 class="fw-bold fs-6 mt-4">Correcciones</h3>
+                                        <ol class="text-muted">
+                                            <li>Si una evidencia aprobada estaba incompleta, no la borres.</li>
+                                            <li>Solicita correccion formal con motivo.</li>
+                                            <li>Registra evidencia correctiva con nuevo folio/referencia.</li>
+                                            <li>Resuelve la correccion como aprobada o rechazada.</li>
+                                            <li>El historial debe mostrar evidencia original y correctiva.</li>
                                         </ol>
                                     </div>
 
@@ -538,6 +667,10 @@
                                             <li><strong>POS:</strong> al cobrar valida turno, permiso, pago, motivo, limite de cantidad/monto y politica activa.</li>
                                             <li><strong>Inventario:</strong> recibe la alerta solo despues de una venta cobrada, no al agregar el producto al carrito.</li>
                                         </ul>
+                                        <div class="pos-manual-check p-3 mb-4">
+                                            <div class="fw-bold">Granel durante arranque de inventario</div>
+                                            <div class="text-muted fs-7">Si el SKU permite venta fraccionaria pero todavia no existe una unidad abierta registrada, usa <strong>Granel/stock</strong> y captura la cantidad o peso en el carrito. Si el stock no alcanza, usa <strong>Venta con faltante</strong>; al cobrarse, el sistema genera el pendiente `PINV` para que Inventario haga conteo fisico y regularice esa tienda.</div>
+                                        </div>
                                         <h3 class="fw-bold fs-6">Que pasa al vender con pendiente</h3>
                                         <ol class="text-muted">
                                             <li>POS cobra la venta con autorizacion.</li>
@@ -579,7 +712,8 @@
                                             <li><strong>Terminal:</strong> punto/equipo configurado para operar POS.</li>
                                             <li><strong>Stock:</strong> disponibilidad del SKU en la sucursal/almacen.</li>
                                             <li><strong>Pieza:</strong> venta de unidad cerrada completa.</li>
-                                            <li><strong>Granel:</strong> venta por cantidad fraccionaria cuando el SKU lo permite.</li>
+                                            <li><strong>Granel/stock:</strong> venta fraccionaria desde stock agregado de tienda; sirve para arranque operativo y puede generar `PINV` si falta inventario.</li>
+                                            <li><strong>Granel trazable:</strong> venta fraccionaria desde una unidad fisica abierta registrada; conserva trazabilidad de la unidad.</li>
                                             <li><strong>Inventario pendiente:</strong> venta autorizada con faltante controlado que genera tarea para Inventario/Existencias.</li>
                                             <li><strong>Venta rapida:</strong> venta POS de un producto fisico aun no clasificado en Catalogo ERP; debe crear pendiente de clasificacion.</li>
                                             <li><strong>Producto por clasificar:</strong> partida cobrada con descripcion manual mientras Catalogo crea o vincula el SKU definitivo.</li>
@@ -636,7 +770,7 @@
                                     </div>
                                     <div class="alert alert-light-warning border border-warning">
                                         <div class="fw-bold mb-1"><i class="bi bi-exclamation-triangle me-1"></i> Stock / pieza / granel</div>
-                                        <div class="fs-7">Stock es lo disponible en la sucursal. Pieza vende unidades cerradas. Granel solo aparece cuando el SKU permite cantidad fraccionaria.</div>
+                                        <div class="fs-7">Stock es lo disponible en la sucursal. Pieza vende unidades cerradas. Granel/stock permite capturar peso o cantidad fraccionaria desde stock agregado. Granel trazable requiere una unidad abierta registrada.</div>
                                     </div>
                                     <div class="alert alert-light-success border border-success">
                                         <div class="fw-bold mb-1"><i class="bi bi-check-circle me-1"></i> Caja con diferencia</div>

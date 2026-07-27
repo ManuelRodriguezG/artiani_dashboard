@@ -20,7 +20,7 @@ class UatVentasPosProductivoReadinessDb extends CRUD {
 $args = isset($argv) ? $argv : array();
 $idUsuario = intval(argValor($args, "--id_usuario", 1));
 $idAlmacen = intval(argValor($args, "--id_almacen", 5));
-$idSku = intval(argValor($args, "--id_sku", 1760));
+$idSku = intval(argValor($args, "--id_sku", 173));
 $cantidad = floatval(argValor($args, "--cantidad", 1));
 
 $dbHelper = new UatVentasPosProductivoReadinessDb();

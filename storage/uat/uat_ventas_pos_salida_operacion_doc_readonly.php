@@ -1,6 +1,6 @@
 <?php
 /**
- * Documentacion IA: Codex GPT-5, 2026-07-20.
+ * Documentacion IA: Codex GPT-5, 2026-07-26.
  * Proposito: validar que la salida a operacion controlada POS este documentada.
  * Impacto: protege checklist operativo sin consultar ni escribir BD.
  * Contrato: read-only; solo lee docs locales y no ejecuta acciones POS.
@@ -17,11 +17,11 @@ $tokens = array(
     "uat_ventas_pos_siguiente_piloto_readonly.php" => "siguiente piloto recomendado documentado",
     "uat_ventas_pos_arranque_local_readonly.php" => "arranque local documentado",
     "uat_ventas_pos_operacion_basica_readonly.php" => "semaforo operacion basica documentado",
-    "pendientes_total=4" => "pendientes vigentes",
-    "acciones_total=6" => "plan de acciones vigente",
+    "pendientes_total=1" => "pendiente vigente de piloto limpio",
+    "abrir turno" => "plan de acciones vigente",
     "pasos_total=6" => "paquete autorizacion vigente",
-    "PINV-20260717-000001" => "pendiente inventario vigente",
-    "GASTO-UAT-001" => "evidencia caja vigente",
+    "PINV-20260717-000001 resuelto" => "pendiente inventario historico resuelto",
+    "GASTO-UAT-001 con evidencia aprobada" => "evidencia caja historica aprobada",
     "No permitir en primer uso" => "limites del primer uso",
     "Postcheck posterior" => "postcheck documentado",
     "Criterio para ampliar piloto" => "criterio de ampliacion",

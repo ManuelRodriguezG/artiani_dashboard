@@ -27,6 +27,9 @@ $checks = array(
     checkEstructura("editor_tabs_js", contieneEstructura($jsEditor, array("activarTabsEditor", "cambiarTabEditor", "data-lp-editor-panel", "tabDesdePasoFlujo")), "JS muestra una seccion del editor a la vez"),
     checkEstructura("productos_subtabs_vista", contieneEstructura($editor, array("data-lp-product-tab=\"captura\"", "data-lp-product-tab=\"herramientas\"", "data-lp-product-tab=\"importar\"", "data-lp-product-tab=\"prevalidacion\"")), "Productos se divide en captura, herramientas, importar y prevalidacion"),
     checkEstructura("productos_subtabs_js", contieneEstructura($jsEditor, array("activarTabsProductos", "cambiarTabProducto", "data-lp-product-panel", "cambiarTabProducto(\"prevalidacion\")")), "JS controla subpestanas de productos"),
+    checkEstructura("productos_granel_vista", contieneEstructura($editor, array("Para granel", "precio capturado aqui es por unidad base", "SKU/presentacion")), "Editor explica precio por unidad base contra presentacion fisica"),
+    checkEstructura("productos_granel_modelo", contieneEstructura(leerEstructura($raiz, "app/modelos/ListasPreciosErp.php"), array("erp_catalogo_skus_reglas", "permite_venta_fraccionaria", "incremento_minimo_venta", "precision_decimal")), "Listado de productos expone reglas de granel de Catalogo"),
+    checkEstructura("productos_botones_visibles", contieneEstructura($jsEditor, array("Previsualizar precio POS", "cambiarTabEditor(\"revision\")", "enfocarElemento(\"lp_preview_resultado\")", "enfocarElemento(\"lp_auditoria\")")), "Botones de calculadora e historial llevan al resultado visible"),
     checkEstructura("sidebar_apunta_listado", contieneEstructura($sidebar, array("'Listas de precios'", "'/comercial/listas_precios'")), "Sidebar apunta al listado principal"),
     checkEstructura("plan_documenta", contieneEstructura($plan, array("Estructura UI 2026-07-20", "listas_precios_nueva", "listas_precios_editar")), "Plan vivo documenta separacion UI")
 );

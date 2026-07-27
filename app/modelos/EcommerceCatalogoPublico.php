@@ -72,6 +72,24 @@ class EcommerceCatalogoPublico extends CRUD {
         ),
         array(
           "metodo" => "GET",
+          "ruta" => "/ecommercePublico/politicas",
+          "descripcion" => "Politicas publicas base para terminos, privacidad, WhatsApp, disponibilidad, facturacion y tracking.",
+          "respuesta_depurar" => array("configurado", "items", "guardrails")
+        ),
+        array(
+          "metodo" => "GET",
+          "ruta" => "/ecommercePublico/politica/{slug}",
+          "descripcion" => "Detalle de una politica publica por codigo/slug.",
+          "respuesta_depurar" => array("item", "guardrails")
+        ),
+        array(
+          "metodo" => "GET",
+          "ruta" => "/ecommercePublico/taxonomia_mascotas",
+          "descripcion" => "Taxonomia publica para navegar por mascota y necesidad.",
+          "respuesta_depurar" => array("configurado", "mascotas", "necesidades", "guardrails")
+        ),
+        array(
+          "metodo" => "GET",
           "ruta" => "/ecommercePublico/configuracion",
           "descripcion" => "Configuracion publica del canal: moneda, WhatsApp, cotizacion y politicas visibles.",
           "respuesta_depurar" => array("configurado", "configuracion")
@@ -446,6 +464,110 @@ class EcommerceCatalogoPublico extends CRUD {
       ));
     } catch (Exception $e) {
       return $this->respuesta(true, "danger", $e->getMessage());
+    }
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-07-26
+   * Proposito: entregar politicas publicas minimas para el ecommerce de mascotas.
+   * Impacto: Frontend ecommerce; permite construir paginas de confianza y facturacion sin duplicar reglas.
+   * Contrato: solo lectura; si la tabla futura no existe devuelve defaults operativos.
+   */
+  public function politicasPublicas() {
+    try {
+      $db = $this->getConexion();
+      if ($db && $this->tablaExiste($db, "erp_ecommerce_politicas")) {
+        $stmt = $db->query("SELECT codigo, tipo, titulo, resumen_publico resumen, contenido_html contenido, version, requiere_aceptacion, fecha_publicacion fecha_vigencia
+          FROM erp_ecommerce_politicas
+          WHERE estatus='publicado'
+          ORDER BY orden ASC, titulo ASC");
+        $items = array();
+        foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $fila) {
+          $items[] = $this->formatearPoliticaPublica($fila);
+        }
+        return $this->respuesta(false, "success", "Politicas ecommerce consultadas", array(
+          "configurado" => true,
+          "items" => $items,
+          "guardrails" => $this->guardrailsPoliticasPublicas()
+        ));
+      }
+      return $this->respuesta(false, "info", "Politicas ecommerce con defaults de Fase 1", array(
+        "configurado" => false,
+        "items" => $this->politicasPublicasDefault(),
+        "guardrails" => $this->guardrailsPoliticasPublicas()
+      ));
+    } catch (Exception $e) {
+      return $this->respuesta(true, "danger", $e->getMessage(), array("items" => array()));
+    }
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-07-26
+   * Proposito: consultar una politica publica por codigo/slug para rutas del frontend.
+   * Impacto: Frontend ecommerce; soporta paginas especificas como facturacion y aviso de privacidad.
+   * Contrato: solo lectura; no registra aceptaciones ni datos personales.
+   */
+  public function politicaPublica($slug) {
+    $slug = $this->limpiarFiltroPublico($slug);
+    if ($slug === "") {
+      return $this->respuesta(true, "warning", "Politica no especificada", array("item" => null));
+    }
+    $politicas = $this->politicasPublicas();
+    $items = isset($politicas["depurar"]["items"]) && is_array($politicas["depurar"]["items"]) ? $politicas["depurar"]["items"] : array();
+    foreach ($items as $item) {
+      if (isset($item["codigo"]) && $item["codigo"] === $slug) {
+        return $this->respuesta(false, "success", "Politica ecommerce consultada", array(
+          "item" => $item,
+          "guardrails" => $this->guardrailsPoliticasPublicas()
+        ));
+      }
+    }
+    return $this->respuesta(false, "info", "Politica ecommerce no encontrada", array(
+      "item" => null,
+      "codigo" => $slug
+    ));
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-07-26
+   * Proposito: entregar taxonomia publica para navegacion por mascota y necesidad.
+   * Impacto: Ecommerce mascotas; permite que el sitio se sienta especializado desde Fase 1.
+   * Contrato: solo lectura; no depende de clientes registrados ni mascotas guardadas.
+   */
+  public function taxonomiaMascotasPublica() {
+    try {
+      $db = $this->getConexion();
+      if ($db && $this->tablaExiste($db, "erp_ecommerce_taxonomia_mascotas")) {
+        $stmt = $db->query("SELECT codigo, tipo, parent_codigo, nombre, descripcion_publica descripcion, NULL icono, orden
+          FROM erp_ecommerce_taxonomia_mascotas
+          WHERE estatus='activo'
+          ORDER BY tipo ASC, parent_codigo ASC, orden ASC, nombre ASC");
+        $mascotas = array();
+        $necesidades = array();
+        foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $fila) {
+          $item = $this->formatearTaxonomiaMascota($fila);
+          if ($item["tipo"] === "necesidad") {
+            $necesidades[] = $item;
+          } else {
+            $mascotas[] = $item;
+          }
+        }
+        return $this->respuesta(false, "success", "Taxonomia ecommerce consultada", array(
+          "configurado" => true,
+          "mascotas" => $mascotas,
+          "necesidades" => $necesidades,
+          "guardrails" => $this->guardrailsTaxonomiaMascotas()
+        ));
+      }
+      $defaults = $this->taxonomiaMascotasDefault();
+      return $this->respuesta(false, "info", "Taxonomia ecommerce con defaults de Fase 1", array(
+        "configurado" => false,
+        "mascotas" => $defaults["mascotas"],
+        "necesidades" => $defaults["necesidades"],
+        "guardrails" => $this->guardrailsTaxonomiaMascotas()
+      ));
+    } catch (Exception $e) {
+      return $this->respuesta(true, "danger", $e->getMessage(), array("mascotas" => array(), "necesidades" => array()));
     }
   }
 
@@ -1981,6 +2103,143 @@ class EcommerceCatalogoPublico extends CRUD {
     $valor = strtolower(trim((string) $valor));
     $valor = preg_replace('/[^a-z0-9_\-]/', '', $valor);
     return substr($valor, 0, 60);
+  }
+
+  private function politicasPublicasDefault() {
+    return array(
+      array(
+        "codigo" => "terminos-condiciones",
+        "tipo" => "legal",
+        "titulo" => "Terminos y condiciones",
+        "resumen" => "El sitio funciona como catalogo y cotizador. La venta se confirma por WhatsApp, POS o pedidos internos.",
+        "contenido" => "Los productos, precios y disponibilidad se muestran como informacion publica del ERP. En esta fase no hay checkout ni pago online; toda cotizacion queda sujeta a confirmacion operativa.",
+        "version" => "fase1",
+        "requiere_aceptacion" => false
+      ),
+      array(
+        "codigo" => "aviso-privacidad",
+        "tipo" => "legal",
+        "titulo" => "Aviso de privacidad",
+        "resumen" => "Los datos enviados por formularios se usaran para atender cotizaciones, facturacion y seguimiento solicitado por el cliente.",
+        "contenido" => "No se deben guardar datos fiscales, telefono o correo en eventos anonimos de navegacion. Las solicitudes con datos personales requieren uso operativo interno y resguardo conforme a la politica de privacidad vigente.",
+        "version" => "fase1",
+        "requiere_aceptacion" => false
+      ),
+      array(
+        "codigo" => "cotizacion-whatsapp",
+        "tipo" => "operativa",
+        "titulo" => "Cotizacion por WhatsApp",
+        "resumen" => "El carrito genera una cotizacion estimada y abre WhatsApp para seguimiento.",
+        "contenido" => "El carrito web no descuenta inventario ni confirma pedido. Antes de abrir WhatsApp, el ERP recalcula precios y disponibilidad con cotizacion dry-run.",
+        "version" => "fase1",
+        "requiere_aceptacion" => false
+      ),
+      array(
+        "codigo" => "precios-disponibilidad",
+        "tipo" => "operativa",
+        "titulo" => "Precios y disponibilidad",
+        "resumen" => "Los precios y disponibilidad son informativos y pueden requerir confirmacion.",
+        "contenido" => "El sitio no muestra stock exacto. La disponibilidad publica usa estados simples: disponible, pocas piezas, consultar disponibilidad y agotado.",
+        "version" => "fase1",
+        "requiere_aceptacion" => false
+      ),
+      array(
+        "codigo" => "facturacion",
+        "tipo" => "fiscal",
+        "titulo" => "Solicitud de factura",
+        "resumen" => "El cliente podra solicitar factura con su folio de compra para revision interna.",
+        "contenido" => "La web no emite facturas automaticamente. El cliente captura folio y datos fiscales; el ERP registra la solicitud para revision del equipo interno o contador.",
+        "version" => "fase1",
+        "requiere_aceptacion" => true
+      ),
+      array(
+        "codigo" => "cambios-devoluciones",
+        "tipo" => "operativa",
+        "titulo" => "Cambios y devoluciones",
+        "resumen" => "Las solicitudes de cambio o devolucion se revisan segun producto, estado y comprobante.",
+        "contenido" => "La politica final debe ajustarse a las reglas internas del negocio. En Fase 1 la web solo debe mostrar informacion y canal de contacto.",
+        "version" => "fase1",
+        "requiere_aceptacion" => false
+      ),
+      array(
+        "codigo" => "cookies-tracking",
+        "tipo" => "privacidad",
+        "titulo" => "Cookies y mejora de busqueda",
+        "resumen" => "El sitio podra registrar busquedas y navegacion anonima para mejorar catalogo y recomendaciones.",
+        "contenido" => "El tracking debe separar eventos anonimos de datos personales. Busquedas sin resultado, mascotas seleccionadas y productos vistos ayudan a decidir que publicar y recomendar.",
+        "version" => "fase1",
+        "requiere_aceptacion" => false
+      )
+    );
+  }
+
+  private function formatearPoliticaPublica($fila) {
+    return array(
+      "codigo" => $this->limpiarFiltroPublico($this->valor($fila, "codigo", "")),
+      "tipo" => $this->limpiarFiltroPublico($this->valor($fila, "tipo", "")),
+      "titulo" => trim((string) $this->valor($fila, "titulo", "")),
+      "resumen" => trim((string) $this->valor($fila, "resumen", "")),
+      "contenido" => trim((string) $this->valor($fila, "contenido", "")),
+      "version" => trim((string) $this->valor($fila, "version", "")),
+      "requiere_aceptacion" => intval($this->valor($fila, "requiere_aceptacion", 0)) === 1,
+      "fecha_vigencia" => $this->valor($fila, "fecha_vigencia", null)
+    );
+  }
+
+  private function guardrailsPoliticasPublicas() {
+    return array(
+      "no_checkout" => true,
+      "no_factura_automatica" => true,
+      "no_pedido_confirmado" => true,
+      "precios_sujetos_a_confirmacion" => true,
+      "no_stock_exacto" => true,
+      "tracking_anonimo_separado_de_datos_personales" => true
+    );
+  }
+
+  private function taxonomiaMascotasDefault() {
+    return array(
+      "mascotas" => array(
+        array("codigo" => "perro", "tipo" => "especie", "parent_codigo" => null, "nombre" => "Perro", "descripcion" => "Productos para perros.", "icono" => "dog", "orden" => 10),
+        array("codigo" => "gato", "tipo" => "especie", "parent_codigo" => null, "nombre" => "Gato", "descripcion" => "Productos para gatos.", "icono" => "cat", "orden" => 20),
+        array("codigo" => "pez", "tipo" => "especie", "parent_codigo" => null, "nombre" => "Pez", "descripcion" => "Productos para acuario y peces.", "icono" => "fish", "orden" => 30),
+        array("codigo" => "ave", "tipo" => "especie", "parent_codigo" => null, "nombre" => "Ave", "descripcion" => "Productos para aves.", "icono" => "bird", "orden" => 40),
+        array("codigo" => "reptil", "tipo" => "especie", "parent_codigo" => null, "nombre" => "Reptil", "descripcion" => "Productos para reptiles.", "icono" => "shell", "orden" => 50),
+        array("codigo" => "roedor", "tipo" => "especie", "parent_codigo" => null, "nombre" => "Roedor", "descripcion" => "Productos para hamsters, cuyos, conejos y similares.", "icono" => "circle", "orden" => 60),
+        array("codigo" => "otra", "tipo" => "especie", "parent_codigo" => null, "nombre" => "Otra mascota", "descripcion" => "Productos para otras mascotas.", "icono" => "paw-print", "orden" => 90)
+      ),
+      "necesidades" => array(
+        array("codigo" => "alimento", "tipo" => "necesidad", "parent_codigo" => null, "nombre" => "Alimento", "descripcion" => "Alimentos, dietas y comida diaria.", "icono" => "bowl", "orden" => 10),
+        array("codigo" => "premio", "tipo" => "necesidad", "parent_codigo" => null, "nombre" => "Premios", "descripcion" => "Snacks, premios y recompensas.", "icono" => "badge", "orden" => 20),
+        array("codigo" => "higiene", "tipo" => "necesidad", "parent_codigo" => null, "nombre" => "Higiene", "descripcion" => "Limpieza, sanitarios y cuidado.", "icono" => "sparkles", "orden" => 30),
+        array("codigo" => "salud", "tipo" => "necesidad", "parent_codigo" => null, "nombre" => "Salud", "descripcion" => "Suplementos y apoyo al bienestar.", "icono" => "heart-pulse", "orden" => 40),
+        array("codigo" => "paseo", "tipo" => "necesidad", "parent_codigo" => null, "nombre" => "Paseo", "descripcion" => "Correas, collares, pecheras y accesorios.", "icono" => "footprints", "orden" => 50),
+        array("codigo" => "habitat", "tipo" => "necesidad", "parent_codigo" => null, "nombre" => "Habitat", "descripcion" => "Casas, peceras, jaulas, camas y entorno.", "icono" => "home", "orden" => 60),
+        array("codigo" => "juguete", "tipo" => "necesidad", "parent_codigo" => null, "nombre" => "Juguetes", "descripcion" => "Juego, ejercicio y entretenimiento.", "icono" => "toy-brick", "orden" => 70),
+        array("codigo" => "estetica", "tipo" => "necesidad", "parent_codigo" => null, "nombre" => "Estetica", "descripcion" => "Cepillos, shampoos, perfumes y cuidado estetico.", "icono" => "scissors", "orden" => 80)
+      )
+    );
+  }
+
+  private function formatearTaxonomiaMascota($fila) {
+    return array(
+      "codigo" => $this->limpiarFiltroPublico($this->valor($fila, "codigo", "")),
+      "tipo" => $this->limpiarFiltroPublico($this->valor($fila, "tipo", "especie")),
+      "parent_codigo" => $this->valor($fila, "parent_codigo", null),
+      "nombre" => trim((string) $this->valor($fila, "nombre", "")),
+      "descripcion" => trim((string) $this->valor($fila, "descripcion", "")),
+      "icono" => trim((string) $this->valor($fila, "icono", "")),
+      "orden" => intval($this->valor($fila, "orden", 0))
+    );
+  }
+
+  private function guardrailsTaxonomiaMascotas() {
+    return array(
+      "no_requiere_cliente_registrado" => true,
+      "no_requiere_mascotas_guardadas" => true,
+      "compatible_con_filtros_catalogo" => true,
+      "prepara_recomendaciones_futuras" => true
+    );
   }
 
   private function configuracionPublicaDefault() {

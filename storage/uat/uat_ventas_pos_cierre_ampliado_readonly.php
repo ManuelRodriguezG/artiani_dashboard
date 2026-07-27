@@ -1,6 +1,6 @@
 <?php
 /**
- * Documentacion IA: Codex GPT-5, 2026-07-20.
+ * Documentacion IA: Codex GPT-5, 2026-07-26.
  * Proposito: consolidar semaforos read-only del cierre operativo POS.
  * Impacto: permite revisar MySQL, piloto, UI, caja, ticket, reportes, CRM, listas y reversas sin ejecutar acciones reales.
  * Contrato: read-only; no abre turnos, no cobra, no crea devoluciones, no ajusta inventario y no escribe BD.
@@ -31,9 +31,9 @@ $scriptsSinMysql = array(
 $scripts = array(
     "mysql_health" => "storage\\uat\\uat_ventas_pos_mysql_health_readonly.php",
     "preflight_piloto" => "storage\\uat\\uat_ventas_pos_piloto_preflight_compacto_readonly.php",
-    "salida_operativa" => "storage\\uat\\uat_ventas_pos_salida_operativa_readiness_readonly.php --id_usuario=1 --id_almacen=5 --id_caja=2 --id_terminal=2 --id_sku=1760 --id_atencion=2 --cantidad=1 --usuarios=1,2,3 --compact=1",
-    "operacion_basica" => "storage\\uat\\uat_ventas_pos_operacion_basica_readonly.php --id_usuario=1 --id_almacen=5 --id_sku=1760 --cantidad=1 --usuarios=1,2,3 --compact=1",
-    "postcheck_piloto" => "storage\\uat\\uat_ventas_pos_piloto_postcheck_compacto_readonly.php --id_usuario=1 --id_almacen=5 --id_sku=1760",
+    "salida_operativa" => "storage\\uat\\uat_ventas_pos_salida_operativa_readiness_readonly.php --id_usuario=1 --id_almacen=5 --id_caja=2 --id_terminal=2 --id_sku=173 --id_atencion=2 --cantidad=1 --usuarios=1,2,3 --compact=1",
+    "operacion_basica" => "storage\\uat\\uat_ventas_pos_operacion_basica_readonly.php --id_usuario=1 --id_almacen=5 --id_sku=173 --cantidad=1 --usuarios=1,2,3 --compact=1",
+    "postcheck_piloto" => "storage\\uat\\uat_ventas_pos_piloto_postcheck_compacto_readonly.php --id_usuario=1 --id_almacen=5 --id_sku=173",
     "navegacion" => "storage\\uat\\uat_ventas_pos_navegacion_readiness_readonly.php",
     "atajos" => "storage\\uat\\uat_ventas_pos_atajos_ui_readiness_readonly.php",
     "ux_operativa" => "storage\\uat\\uat_ventas_pos_ux_operativa_readiness_readonly.php",
@@ -41,13 +41,13 @@ $scripts = array(
     "impresion" => "storage\\uat\\uat_ventas_pos_impresion_readiness_readonly.php",
     "caja_turnos" => "storage\\uat\\uat_ventas_pos_caja_turnos_ui_readiness_readonly.php",
     "reportes" => "storage\\uat\\uat_ventas_pos_reportes_piloto_readiness_readonly.php",
-    "productivo" => "storage\\uat\\uat_ventas_pos_productivo_readiness_readonly.php --id_usuario=1 --id_almacen=5 --id_caja=2 --id_terminal=2 --id_sku=1760",
-    "inventario_sku" => "storage\\uat\\uat_ventas_pos_inventario_sku_readonly.php --id_almacen=5 --id_sku=1760 --cantidad=1",
-    "pendientes_piloto" => "storage\\uat\\uat_ventas_pos_pendientes_piloto_readonly.php --id_almacen=5 --id_sku=1760 --usuarios=1,2,3",
-    "plan_accion_piloto" => "storage\\uat\\uat_ventas_pos_piloto_plan_accion_readonly.php --id_usuario=1 --id_almacen=5 --id_sku=1760 --cantidad=1 --precio=295 --monto_inicial=500 --usuarios=1,2,3",
-    "siguiente_piloto" => "storage\\uat\\uat_ventas_pos_siguiente_piloto_readonly.php --id_usuario=1 --id_almacen=5 --id_sku=1760 --cantidad=1 --monto_inicial=500 --usuarios=1,2,3",
-    "arranque_local" => "storage\\uat\\uat_ventas_pos_arranque_local_readonly.php --id_usuario=1 --id_almacen=5 --id_sku=1760 --cantidad=1 --monto_inicial=500 --usuarios=1,2,3",
-    "paquete_autorizacion_piloto" => "storage\\uat\\uat_ventas_pos_piloto_paquete_autorizacion_readonly.php --id_usuario=1 --id_almacen=5 --id_sku=1760 --cantidad=1 --precio=295 --monto_inicial=500 --cantidad_fisica=CONTEO_REAL --monto_contado=MONTO_CONTADO_REAL",
+    "productivo" => "storage\\uat\\uat_ventas_pos_productivo_readiness_readonly.php --id_usuario=1 --id_almacen=5 --id_caja=2 --id_terminal=2 --id_sku=173",
+    "inventario_sku" => "storage\\uat\\uat_ventas_pos_inventario_sku_readonly.php --id_almacen=5 --id_sku=173 --cantidad=1",
+    "pendientes_piloto" => "storage\\uat\\uat_ventas_pos_pendientes_piloto_readonly.php --id_almacen=5 --id_sku=173 --usuarios=1,2,3",
+    "plan_accion_piloto" => "storage\\uat\\uat_ventas_pos_piloto_plan_accion_readonly.php --id_usuario=1 --id_almacen=5 --id_sku=173 --cantidad=1 --precio=1000 --monto_inicial=500 --usuarios=1,2,3",
+    "siguiente_piloto" => "storage\\uat\\uat_ventas_pos_siguiente_piloto_readonly.php --id_usuario=1 --id_almacen=5 --id_sku=173 --cantidad=1 --monto_inicial=500 --usuarios=1,2,3",
+    "arranque_local" => "storage\\uat\\uat_ventas_pos_arranque_local_readonly.php --id_usuario=1 --id_almacen=5 --id_sku=173 --cantidad=1 --monto_inicial=500 --usuarios=1,2,3",
+    "paquete_autorizacion_piloto" => "storage\\uat\\uat_ventas_pos_piloto_paquete_autorizacion_readonly.php --id_usuario=1 --id_almacen=5 --id_sku=173 --cantidad=1 --precio=1000 --monto_inicial=500 --cantidad_fisica=CONTEO_REAL --monto_contado=MONTO_CONTADO_REAL",
     "salida_operacion_doc" => "storage\\uat\\uat_ventas_pos_salida_operacion_doc_readonly.php",
     "pedidos_apartados" => "storage\\uat\\uat_ventas_pos_pedidos_apartados_readonly.php",
     "reversa_saldo_favor" => "storage\\uat\\uat_ventas_pos_reversa_readiness_readonly.php --folio=POS-20260717-000001 --id_venta_detalle=26 --cantidad=1 --decision_financiera=saldo_favor --decision_inventario=cuarentena",
@@ -99,8 +99,8 @@ $respuesta = array(
     "condiciones_vigentes" => array(
         "Abrir turno antes de cobrar.",
         "Usar stock disponible o resolver/cargar inventario con autorizacion.",
-        "Mantener identificado o resolver PINV-20260717-000001.",
-        "Cerrar administrativamente GASTO-UAT-001.",
+        "PINV-20260717-000001 ya esta resuelto; no hay pendientes de inventario POS abiertos al corte.",
+        "GASTO-UAT-001 ya tiene evidencia aprobada; no hay evidencias de caja pendientes al corte.",
         "No usar devoluciones reales ni inventario pendiente como operacion cotidiana durante primer piloto."
     ),
     "contrato" => array(

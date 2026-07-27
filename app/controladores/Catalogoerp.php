@@ -442,6 +442,65 @@ class Catalogoerp extends Controlador {
     return json_encode($this->modelo("CatalogoErpDatos")->listarCandidatosCatalogoComercial($_GET));
   }
 
+  /**
+   * IA: Codex GPT-5 | Fecha: 2026-07-26
+   * Proposito: listar catalogos comerciales persistidos para continuar borradores entre sesiones y usuarios.
+   * Impacto: Catalogo ERP/Comercial; solo lectura, no publica enlaces ni toca Ventas.
+   * Contrato: GET protegido por `catalogo.ver`; devuelve catalogos no archivados con conteo de items.
+   */
+  public function catalogos_comerciales_listar() {
+    $this->requerirPermiso("catalogo.ver");
+    return json_encode($this->modelo("CatalogoErpDatos")->listarCatalogosComerciales());
+  }
+
+  /**
+   * IA: Codex GPT-5 | Fecha: 2026-07-26
+   * Proposito: consultar un catalogo comercial persistido con sus items para cargarlo en el editor visual.
+   * Impacto: Catalogo ERP/Comercial; solo lectura, no recalcula precios ni modifica inventario.
+   * Contrato: GET protegido por `catalogo.ver`; acepta `id_catalogo_comercial`.
+   */
+  public function catalogos_comerciales_consultar() {
+    $this->requerirPermiso("catalogo.ver");
+    $id = isset($_GET["id_catalogo_comercial"]) ? intval($_GET["id_catalogo_comercial"]) : 0;
+    return json_encode($this->modelo("CatalogoErpDatos")->consultarCatalogoComercial($id));
+  }
+
+  /**
+   * IA: Codex GPT-5 | Fecha: 2026-07-26
+   * Proposito: guardar borradores reales de catalogos comerciales en BD sin publicar ni exportar.
+   * Impacto: Catalogo ERP/Comercial; persiste seleccion, configuracion visual y eventos de auditoria.
+   * Contrato: POST protegido por `catalogo.editar`; recibe material, opciones visuales e items seleccionados en JSON.
+   */
+  public function catalogos_comerciales_guardar() {
+    $this->requerirPermiso("catalogo.editar");
+    $respuesta = $this->modelo("CatalogoErpDatos")->guardarCatalogoComercial($_POST, $this->usuarioActualId());
+    SesionSeguridad::registrarAuditoria("catalogo", "guardar_catalogo_comercial", array(
+      "entidad" => "erp_catalogo_comercial_catalogos",
+      "entidad_id" => isset($respuesta["depurar"]["id_catalogo_comercial"]) ? intval($respuesta["depurar"]["id_catalogo_comercial"]) : null,
+      "resultado" => $respuesta["error"] ? "error" : "ok",
+      "mensaje" => $respuesta["mensaje"]
+    ));
+    return json_encode($respuesta);
+  }
+
+  /**
+   * IA: Codex GPT-5 | Fecha: 2026-07-26
+   * Proposito: archivar un catalogo comercial sin borrar historial ni items.
+   * Impacto: Catalogo ERP/Comercial; baja logica, no toca productos ni ventas.
+   * Contrato: POST protegido por `catalogo.editar`; acepta `id_catalogo_comercial`.
+   */
+  public function catalogos_comerciales_archivar() {
+    $this->requerirPermiso("catalogo.editar");
+    $respuesta = $this->modelo("CatalogoErpDatos")->archivarCatalogoComercial($_POST, $this->usuarioActualId());
+    SesionSeguridad::registrarAuditoria("catalogo", "archivar_catalogo_comercial", array(
+      "entidad" => "erp_catalogo_comercial_catalogos",
+      "entidad_id" => isset($_POST["id_catalogo_comercial"]) ? intval($_POST["id_catalogo_comercial"]) : null,
+      "resultado" => $respuesta["error"] ? "error" : "ok",
+      "mensaje" => $respuesta["mensaje"]
+    ));
+    return json_encode($respuesta);
+  }
+
   public function catalogos() {
     $this->requerirPermiso("catalogo.ver");
     return json_encode($this->modelo("CatalogoErpDatos")->catalogosFormulario());
@@ -508,6 +567,36 @@ class Catalogoerp extends Controlador {
     return json_encode($respuesta);
   }
 
+  /**
+   * IA: Codex GPT-5 | Fecha: 2026-07-27
+   * Proposito: diagnosticar quien conserva un codigo de barras, incluyendo SKUs archivados o fusionados.
+   * Impacto: Catalogo ERP; da visibilidad a bloqueos de identidad sin modificar datos.
+   * Contrato: GET/POST protegido por `catalogo.ver`; acepta `codigo_barras`.
+   */
+  public function codigo_barras_diagnosticar() {
+    $this->requerirPermiso("catalogo.ver");
+    $datos = !empty($_POST) ? $_POST : $_GET;
+    return json_encode($this->modelo("CatalogoErpDatos")->diagnosticarCodigoBarras($datos));
+  }
+
+  /**
+   * IA: Codex GPT-5 | Fecha: 2026-07-27
+   * Proposito: liberar un codigo de barras retenido por un SKU archivado/fusionado sin borrar historial.
+   * Impacto: Catalogo ERP; permite corregir errores de pruebas/captura y reutilizar el codigo en un SKU vigente.
+   * Contrato: POST protegido por `catalogo.editar`; requiere `id_sku_codigo`, `codigo_barras` y `motivo`.
+   */
+  public function codigo_barras_liberar() {
+    $this->requerirPermiso("catalogo.editar");
+    $respuesta = $this->modelo("CatalogoErpDatos")->liberarCodigoBarrasArchivado($_POST, $this->usuarioActualId());
+    SesionSeguridad::registrarAuditoria("catalogo", "liberar_codigo_barras_archivado", array(
+      "entidad" => "erp_catalogo_sku_codigos",
+      "entidad_id" => isset($_POST["id_sku_codigo"]) ? intval($_POST["id_sku_codigo"]) : null,
+      "resultado" => $respuesta["error"] ? "error" : "ok",
+      "mensaje" => $respuesta["mensaje"],
+      "datos_despues" => isset($respuesta["depurar"]) ? $respuesta["depurar"] : null
+    ));
+    return json_encode($respuesta);
+  }
   public function actualizar_sku() {
     $this->requerirPermiso("catalogo.editar");
     $respuesta = $this->modelo("CatalogoErpDatos")->actualizarSku($_POST, $this->usuarioActualId());

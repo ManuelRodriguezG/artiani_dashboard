@@ -38,6 +38,13 @@
         return n.toFixed(decimales || 2);
     }
 
+    function enfocarElemento(id) {
+        var el = document.getElementById(id);
+        if (el && typeof el.scrollIntoView === "function") {
+            el.scrollIntoView({behavior: "smooth", block: "center"});
+        }
+    }
+
     function fechaInput(value) {
         if (!value) {
             return "";
@@ -575,15 +582,16 @@
             var tipoBadge = riesgo.tipo === "danger" ? "badge-light-danger" : (riesgo.tipo === "warning" ? "badge-light-warning" : (riesgo.tipo === "success" ? "badge-light-success" : "badge-light"));
             var seleccionado = !!estado.seleccionados[String(item.id_sku)];
             var pendiente = motivoPendienteComercial(item);
+            var unidadHtml = unidadVentaHtml(item);
             return "<tr data-lp-producto=\"" + escapeHtml(item.id_sku) + "\"" + (seleccionado ? " class=\"lp-row-selected\"" : "") + ">" +
                 "<td class=\"text-center\"><input class=\"form-check-input\" type=\"checkbox\" data-lp-seleccionar-sku=\"" + escapeHtml(item.id_sku) + "\"" + (seleccionado ? " checked" : "") + "></td>" +
                 "<td><div class=\"fw-bold\">" + escapeHtml(item.sku || "") + "</div><div class=\"text-muted fs-8\">" + escapeHtml(item.sku_nombre || item.producto || "") + "</div><div class=\"text-muted fs-8\">" + escapeHtml([item.marca, item.categoria].filter(Boolean).join(" / ")) + "</div></td>" +
-                "<td><span class=\"badge badge-light\">" + escapeHtml(item.unidad_base || "-") + "</span></td>" +
+                "<td>" + unidadHtml + "</td>" +
                 "<td class=\"text-end\">" + dinero(item.costo_referencia) + "</td>" +
                 "<td class=\"text-end\">" + dinero(item.precio_general) + "</td>" +
                 "<td class=\"text-end\"><input class=\"form-control form-control-sm form-control-solid text-end lp-price-input\" data-lp-precio=\"" + escapeHtml(item.id_sku) + "\" data-lp-original=\"" + escapeHtml(precioLista) + "\" value=\"" + escapeHtml(precioLista) + "\" placeholder=\"0.00\"><div class=\"text-muted fs-9 lp-suggested\" data-lp-sugerido=\"" + escapeHtml(item.id_sku) + "\">" + textoPrecioSugerido(item.id_sku) + "</div></td>" +
                 "<td class=\"text-end\"><div class=\"fw-semibold\" data-lp-margen=\"" + escapeHtml(item.id_sku) + "\">" + escapeHtml(margen) + "</div><div class=\"text-muted fs-8\" data-lp-utilidad=\"" + escapeHtml(item.id_sku) + "\">" + dinero(item.utilidad_estimada || 0) + "</div><span class=\"badge " + tipoBadge + "\" data-lp-riesgo=\"" + escapeHtml(item.id_sku) + "\">" + escapeHtml(riesgo.texto || "-") + "</span><div class=\"text-muted fs-9 mt-1\" data-lp-pendiente-motivo=\"" + escapeHtml(item.id_sku) + "\">" + escapeHtml(pendiente) + "</div></td>" +
-                "<td class=\"text-end\"><div class=\"d-flex justify-content-end gap-1\"><button class=\"btn btn-sm btn-light\" data-lp-preview-sku=\"" + escapeHtml(item.id_sku) + "\" type=\"button\"><i class=\"bi bi-calculator\"></i></button><button class=\"btn btn-sm btn-light-success\" data-lp-usar-sugerido-fila=\"" + escapeHtml(item.id_sku) + "\" type=\"button\" title=\"Aplicar sugerido a este SKU\"><i class=\"bi bi-magic\"></i></button>" + (item.id_lista_precio_detalle ? "<button class=\"btn btn-sm btn-light\" data-lp-historial-sku=\"" + escapeHtml(item.id_sku) + "\" data-lp-historial-detalle=\"" + escapeHtml(item.id_lista_precio_detalle) + "\" type=\"button\"><i class=\"bi bi-clock-history\"></i></button>" : "") + "<button class=\"btn btn-sm btn-light-primary\" data-lp-guardar-precio=\"" + escapeHtml(item.id_sku) + "\" type=\"button\"><i class=\"bi bi-save\"></i></button>" + (item.id_lista_precio_detalle ? "<button class=\"btn btn-sm btn-light-danger\" data-lp-quitar-precio=\"" + escapeHtml(item.id_sku) + "\" type=\"button\"><i class=\"bi bi-x-circle\"></i></button>" : "") + "</div></td>" +
+                "<td class=\"text-end\"><div class=\"d-flex justify-content-end gap-1\"><button class=\"btn btn-sm btn-light\" data-lp-preview-sku=\"" + escapeHtml(item.id_sku) + "\" type=\"button\" title=\"Previsualizar precio POS\"><i class=\"bi bi-calculator\"></i></button><button class=\"btn btn-sm btn-light-success\" data-lp-usar-sugerido-fila=\"" + escapeHtml(item.id_sku) + "\" type=\"button\" title=\"Aplicar sugerido a este SKU\"><i class=\"bi bi-magic\"></i></button>" + (item.id_lista_precio_detalle ? "<button class=\"btn btn-sm btn-light\" data-lp-historial-sku=\"" + escapeHtml(item.id_sku) + "\" data-lp-historial-detalle=\"" + escapeHtml(item.id_lista_precio_detalle) + "\" type=\"button\" title=\"Ver historial de este precio\"><i class=\"bi bi-clock-history\"></i></button>" : "") + "<button class=\"btn btn-sm btn-light-primary\" data-lp-guardar-precio=\"" + escapeHtml(item.id_sku) + "\" type=\"button\" title=\"Guardar precio de este SKU\"><i class=\"bi bi-save\"></i></button>" + (item.id_lista_precio_detalle ? "<button class=\"btn btn-sm btn-light-danger\" data-lp-quitar-precio=\"" + escapeHtml(item.id_sku) + "\" type=\"button\" title=\"Cancelar precio de este SKU\"><i class=\"bi bi-x-circle\"></i></button>" : "") + "</div></td>" +
             "</tr>";
         }).join("") || "<tr><td colspan=\"8\" class=\"text-center text-muted py-8\">Sin productos para los filtros actuales</td></tr>";
 
@@ -607,6 +615,8 @@
         document.querySelectorAll("[data-lp-preview-sku]").forEach(function (boton) {
             boton.addEventListener("click", function () {
                 document.getElementById("lp_preview_sku").value = boton.getAttribute("data-lp-preview-sku") || "";
+                cambiarTabEditor("revision");
+                enfocarElemento("lp_preview_resultado");
                 previsualizarPrecio();
             });
         });
@@ -617,6 +627,8 @@
         });
         document.querySelectorAll("[data-lp-historial-sku]").forEach(function (boton) {
             boton.addEventListener("click", function () {
+                cambiarTabEditor("revision");
+                enfocarElemento("lp_auditoria");
                 cargarAuditoriaSku(
                     boton.getAttribute("data-lp-historial-sku") || "",
                     boton.getAttribute("data-lp-historial-detalle") || ""
@@ -630,6 +642,20 @@
         });
         actualizarCheckboxSeleccionTodos();
         actualizarFlujoOperativo("productos");
+    }
+
+    function unidadVentaHtml(item) {
+        var unidad = item.unidad_base || "-";
+        var html = "<div><span class=\"badge badge-light\">" + escapeHtml(unidad) + "</span></div>";
+        if (Number(item.permite_venta_fraccionaria || 0) === 1) {
+            html += "<div class=\"mt-1\"><span class=\"badge badge-light-success\">Granel</span></div>";
+            html += "<div class=\"text-muted fs-9 mt-1\">min " + escapeHtml(numero(item.incremento_minimo_venta || 1, 3)) + " / dec " + escapeHtml(item.precision_decimal || 0) + "</div>";
+            return html;
+        }
+        if (Number(item.factor_unidad_base || 1) !== 1) {
+            html += "<div class=\"text-muted fs-9 mt-1\">factor " + escapeHtml(numero(item.factor_unidad_base || 1, 3)) + "</div>";
+        }
+        return html;
     }
 
     function productosModificados() {

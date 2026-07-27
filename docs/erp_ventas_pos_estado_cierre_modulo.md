@@ -1,10 +1,103 @@
 # ERP Ventas/POS - Estado de cierre del modulo
 
-Documento vivo. Ultima actualizacion: 2026-07-25.
+Documento vivo. Ultima actualizacion: 2026-07-26.
 
 Proyecto canonico: `C:\xampp\htdocs\panel_de_control`.
 
 Host canonico local: `http://panel.com.local/`.
+
+## Corte 2026-07-26 - granel operativo con inventario pendiente
+
+Se ajusto el POS para diferenciar dos formas de venta fraccionaria:
+
+- `Granel/stock`: captura cantidad o peso desde existencia agregada de tienda. Es el flujo operativo para arranque de inventario cuando el SKU permite venta fraccionaria, aunque todavia no exista una unidad fisica abierta registrada.
+- `Granel trazable`: captura cantidad o peso desde una unidad fisica abierta registrada. Conserva trazabilidad de la unidad abierta y por eso sigue bloqueado cuando no hay unidad abierta disponible.
+
+Decision operativa:
+
+- Para vender productos como croqueta por kilogramo durante arranque, el operador debe usar `Granel/stock`.
+- Si el stock agregado no alcanza, debe usar `Venta con faltante`; al cobrar se genera el pendiente `PINV` para Inventario/Existencias.
+- La alerta de Inventario no nace al agregar al carrito; nace hasta el cobro real con folio, operador, caja, pago y motivo. Asi se evitan alertas por carritos abandonados.
+- Ecommerce no debe usar este flujo como unidad cerrada ni como stock ecommerce disponible.
+
+Archivos ajustados:
+
+- `public/assets/js/custom/apps/erp/ventas/pos.js`
+- `app/vistas/paginas/apps/erp/ventas/manual_pos.php`
+
+Validaciones ejecutadas:
+
+```powershell
+node --check public\assets\js\custom\apps\erp\ventas\pos.js
+C:\xampp\php\php.exe -l app\vistas\paginas\apps\erp\ventas\manual_pos.php
+C:\xampp\php\php.exe storage\uat\uat_ventas_pos_ux_operativa_readiness_readonly.php
+C:\xampp\php\php.exe storage\uat\uat_ventas_pos_lenguaje_operativo_readonly.php
+```
+
+Resultado:
+
+- JS POS: sintaxis `ok`.
+- Manual POS: sintaxis `ok`.
+- UX operativa: `ok=true`, `bloqueos=[]`.
+- Lenguaje operativo visible: `ok=true`, `bloqueos=[]`.
+
+## Corte 2026-07-26 - manual operativo ampliado para gastos, apartados y devoluciones
+
+Se amplio `Ventas > Manual POS` para explicar flujos que no eran evidentes al operador.
+
+Cambios sin escritura de BD:
+
+- Se agrego seccion de `Atenciones compartidas`: cuentas creadas por un operador y cobradas por otro, sin mover caja/inventario hasta el cobro.
+- Se amplio `Pedidos y apartados`: diferencia entre pedido/apartado, estados, abonos, entrega y comportamiento cuando no hay existencia.
+- Se amplio `Devoluciones y reversas`: casos frecuentes, decision financiera, decision inventario, evidencia y pasos posteriores.
+- Se amplio `Caja y turnos`: que entra durante el turno y como cerrar con diferencia real.
+- Se amplio `Movimientos caja`: tipos de movimiento, flujo recomendado para gasto de caja y advertencia de que validar no registra dinero.
+- Se amplio `Evidencias caja`: cuando aparece un gasto, que debe contener una evidencia y como corregir sin borrar historial.
+
+Validaciones ejecutadas:
+
+```powershell
+C:\xampp\php\php.exe -l app\vistas\paginas\apps\erp\ventas\manual_pos.php
+C:\xampp\php\php.exe storage\uat\uat_ventas_pos_ux_operativa_readiness_readonly.php
+C:\xampp\php\php.exe storage\uat\uat_ventas_pos_lenguaje_operativo_readonly.php
+```
+
+Resultado:
+
+- Manual POS: sintaxis `ok`.
+- UX operativa: `ok=true`, `bloqueos=[]`.
+- Lenguaje operativo visible: `ok=true`, `bloqueos=[]`.
+- Pendiente funcional detectado: `Ventas > Movimientos` valida y consulta gastos/retiros/entradas, pero el boton de registro real operativo aun no esta expuesto para uso normal de tienda. Siguiente tarea recomendada: exponer `Registrar movimiento real` con confirmacion, permisos, evidencia requerida y postcheck.
+
+## Corte 2026-07-26 - defaults operativos alineados al piloto limpio
+
+Se alinearon los semaforos y comandos operativos de salida al SKU recomendado `173`, que tiene stock disponible real para el piloto controlado.
+
+Cambios sin escritura de BD:
+
+- `uat_ventas_pos_cierre_ampliado_readonly.php` usa `id_sku=173` en sus checks de salida, operacion basica, inventario, pendientes, plan y arranque.
+- `uat_ventas_pos_piloto_preflight_compacto_readonly.php` usa `id_sku=173` como default.
+- `uat_ventas_pos_salida_operativa_readiness_readonly.php`, `uat_ventas_pos_productivo_readiness_readonly.php`, `uat_ventas_pos_arranque_local_readonly.php` y `uat_ventas_pos_piloto_paquete_recomendado_readonly.php` usan `173` como referencia inicial.
+- `docs/erp_ventas_pos_salida_operacion_controlada.md` quedo con comandos vigentes para `173` y precio `1000`.
+- Los folios `PINV-20260717-000001` y `GASTO-UAT-001` quedan documentados solo como historicos resueltos/aprobados.
+
+Validaciones ejecutadas:
+
+```powershell
+C:\xampp\php\php.exe storage\uat\uat_ventas_pos_piloto_preflight_compacto_readonly.php
+C:\xampp\php\php.exe storage\uat\uat_ventas_pos_salida_operativa_readiness_readonly.php --compact=1
+C:\xampp\php\php.exe storage\uat\uat_ventas_pos_arranque_local_readonly.php --compact=1
+C:\xampp\php\php.exe storage\uat\uat_ventas_pos_piloto_paquete_recomendado_readonly.php --id_usuario=1 --id_almacen=5 --id_sku=173 --cantidad=1 --monto_inicial=500 --usuarios=1,2,3
+C:\xampp\php\php.exe storage\uat\uat_ventas_pos_cierre_ampliado_readonly.php --compact=1 --timeout_script=12
+```
+
+Resultado vigente:
+
+- Preflight: `ok=true`, `puede_iniciar_piloto_controlado=true`.
+- Salida operativa: `ok=true`, `bloqueos_total=0`.
+- Arranque local: `ok=true`, decision `listo_para_arrancar_al_abrir_turno`, stock SKU `173` = `999`.
+- Paquete recomendado: `ok=true`, pasos abrir turno, vender SKU `173`, cerrar turno.
+- Cierre ampliado: `ok=true`, `bloqueos_total=0`, `avisos_total=23`, decision `pos_apto_para_piloto_controlado_con_condiciones`.
 
 ## Corte 2026-07-25 - limpieza operativa POS y semaforo ampliado
 
@@ -41,12 +134,12 @@ Resultado vigente:
 - Scanner POS: validado por semaforo ampliado.
 - Ticket formal read-only para `POS-20260724-000001`: texto/imprimir OK; mantiene hallazgo historico por venta rapida UAT sin snapshot de garantia, esperado en ventas de producto por clasificar hasta completar garantia/catalogo.
 
-Pendientes reales que siguen vivos y no son fallas de codigo:
+Pendientes reales vigentes para el piloto limpio:
 
 - Abrir turno antes de cobrar.
 - Usar stock disponible o resolver/cargar inventario con autorizacion.
-- Mantener identificado o resolver `PINV-20260717-000001`.
-- Cerrar administrativamente `GASTO-UAT-001`.
+- `PINV-20260717-000001` ya fue resuelto el 2026-07-26.
+- `GASTO-UAT-001` ya tiene evidencia `id_evidencia_caja=4` aprobada.
 - No usar devoluciones reales, inventario pendiente o descuentos libres como rutina del primer piloto.
 
 ## Decision vigente
@@ -56,7 +149,7 @@ POS esta listo para piloto controlado con condiciones.
 Semaforo consolidado:
 
 ```powershell
-C:\xampp\php\php.exe storage\uat\uat_ventas_pos_salida_operativa_readiness_readonly.php --id_usuario=1 --id_almacen=5 --id_caja=2 --id_terminal=2 --id_sku=1760 --id_atencion=2 --cantidad=1 --usuarios=1,2,3 --compact=1
+C:\xampp\php\php.exe storage\uat\uat_ventas_pos_salida_operativa_readiness_readonly.php --id_usuario=1 --id_almacen=5 --id_caja=2 --id_terminal=2 --id_sku=173 --id_atencion=2 --cantidad=1 --usuarios=1,2,3 --compact=1
 ```
 
 Preflight compacto recomendado antes de iniciar un turno piloto:
@@ -82,7 +175,7 @@ docs/erp_ventas_pos_salida_operacion_controlada.md
 Postcheck compacto recomendado despues de cerrar el turno piloto:
 
 ```powershell
-C:\xampp\php\php.exe storage\uat\uat_ventas_pos_piloto_postcheck_compacto_readonly.php --id_usuario=1 --id_almacen=5 --id_sku=1760
+C:\xampp\php\php.exe storage\uat\uat_ventas_pos_piloto_postcheck_compacto_readonly.php --id_usuario=1 --id_almacen=5 --id_sku=173
 ```
 
 Este comando confirma si reportes, ticket, trazabilidad, diferencias, evidencias y pendientes quedaron visibles sin mover datos.
@@ -97,9 +190,9 @@ Resultado vigente:
 - `multiusuario_listo=true`.
 - MySQL activo: `mysqladmin ping` responde `mysqld is alive`.
 - Aviso anterior de nombre visual de usuario `3` ya no aparece en el preflight vigente; los usuarios 1, 2 y 3 pasan sin problemas visuales reportados.
-- Postcheck vigente: `postcheck_apto_con_observaciones`, con evidencias de caja e inventario pendiente visibles para administracion.
+- Postcheck vigente: `postcheck_apto_con_observaciones`; los pendientes historicos de caja e inventario quedaron cerrados/aprobados el 2026-07-26.
 - Entorno MySQL recuperado al corte 2026-07-20: MariaDB responde `mysqladmin ping` y las validaciones POS con BD vuelven a ejecutar. El log conserva errores historicos de Aria/`mysql.plugin`, pero ya no bloquean mientras el servicio responda.
-- Cobro UI vigente fuera de turno: bloqueado correctamente porque no hay turno abierto y el SKU piloto `1760` no tiene disponible suficiente. Esto no es falla de POS; es guardrail operativo.
+- Cobro UI vigente fuera de turno: bloqueado correctamente porque no hay turno abierto. Esto no es falla de POS; es guardrail operativo.
 
 Semaforo de salud MySQL:
 
@@ -135,12 +228,11 @@ Valida que `AGENTS.md`, esta hoja de cierre y los scripts Playwright POS usen `C
 - Reportes piloto de turnos, ventas, diferencias, evidencias y pendientes de inventario.
 - Enlaces de navegacion entre POS, Caja/Turnos, Movimientos, Evidencias, Devoluciones, Reportes y Configuracion POS.
 
-## Condiciones antes del primer piloto real
+## Condiciones antes del siguiente piloto real
 
 - Abrir turno desde `Ventas > Caja/Turnos`.
 - Usar productos con existencia disponible o cargar/recibir inventario con autorizacion.
-- Mantener identificado o resolver el pendiente `PINV-20260717-000001`.
-- Cerrar o documentar administrativamente la evidencia historica `GASTO-UAT-001`.
+- Pendientes historicos `PINV-20260717-000001` y `GASTO-UAT-001`: cerrados/aprobados.
 - Iniciar con un turno corto, una sucursal y una caja.
 
 ## Estado operativo probado 2026-07-20
@@ -173,28 +265,28 @@ Este semaforo incluye MySQL, preflight, salida operativa, operacion basica, post
 Semaforo de pendientes piloto:
 
 ```powershell
-C:\xampp\php\php.exe storage\uat\uat_ventas_pos_pendientes_piloto_readonly.php --id_almacen=5 --id_sku=1760 --usuarios=1,2,3
+C:\xampp\php\php.exe storage\uat\uat_ventas_pos_pendientes_piloto_readonly.php --id_almacen=5 --id_sku=173 --usuarios=1,2,3
 ```
 
-Resultado vigente: `ok=true`, `pendientes_total=4`. Pendientes visibles antes de piloto amplio:
+Resultado vigente posterior a limpieza 2026-07-26 para SKU `173`: `ok=true`, `pendientes_total=1`. Pendiente visible antes de vender:
 
 - `TURNO_ABIERTO`: abrir turno antes de cobrar.
-- `STOCK_SKU`: SKU `1760` sin disponible en almacen `5`.
-- `INVENTARIO_PENDIENTE`: resolver o mantener identificado `PINV-20260717-000001`.
-- `EVIDENCIA_CAJA`: cerrar evidencia `GASTO-UAT-001` por `$50.00`.
+- SKU recomendado limpio: `173`, disponible `999` en almacen `5`.
+- `PINV-20260717-000001`: resuelto.
+- `GASTO-UAT-001`: evidencia aprobada.
 
 Plan de accion piloto:
 
 ```powershell
-C:\xampp\php\php.exe storage\uat\uat_ventas_pos_piloto_plan_accion_readonly.php --id_usuario=1 --id_almacen=5 --id_sku=1760 --cantidad=1 --precio=295 --monto_inicial=500 --usuarios=1,2,3
+C:\xampp\php\php.exe storage\uat\uat_ventas_pos_piloto_plan_accion_readonly.php --id_usuario=1 --id_almacen=5 --id_sku=173 --cantidad=1 --precio=1000 --monto_inicial=500 --usuarios=1,2,3
 ```
 
-Resultado vigente: `ok=true`, decision `listo_para_piloto_con_pendientes_accionables`, `pendientes_total=4`, `acciones_total=6`.
+Resultado vigente posterior a limpieza: `ok=true`, decision `listo_para_piloto_al_abrir_turno` cuando se usa SKU `173`; la accion real requerida es abrir turno antes de cobrar.
 
 Paquete de autorizacion piloto:
 
 ```powershell
-C:\xampp\php\php.exe storage\uat\uat_ventas_pos_piloto_paquete_autorizacion_readonly.php --id_usuario=1 --id_almacen=5 --id_sku=1760 --cantidad=1 --precio=295 --monto_inicial=500 --cantidad_fisica=CONTEO_REAL --monto_contado=MONTO_CONTADO_REAL
+C:\xampp\php\php.exe storage\uat\uat_ventas_pos_piloto_paquete_autorizacion_readonly.php --id_usuario=1 --id_almacen=5 --id_sku=173 --cantidad=1 --precio=1000 --monto_inicial=500 --cantidad_fisica=CONTEO_REAL --monto_contado=MONTO_CONTADO_REAL
 ```
 
 Resultado vigente: `ok=true`, decision `paquete_autorizacion_preparado`, `pasos_total=6`, `bloqueos_total=0`.
@@ -301,8 +393,7 @@ Condiciones operativas aun vigentes antes de venta normal:
 
 - Abrir turno antes de cobrar.
 - SKU piloto `1760` sin disponible en almacen `5`; cargar stock o usar flujo autorizado de inventario pendiente.
-- Mantener identificado o resolver `PINV-20260717-000001`.
-- Cerrar administrativamente evidencia de caja `GASTO-UAT-001`.
+- `PINV-20260717-000001` resuelto y `GASTO-UAT-001` aprobado; solo abrir turno para vender.
 ## Corte 2026-07-25 - limpieza operativa de tablero, reportes y cliente/precio
 
 Cambios sin escritura de BD:
@@ -437,8 +528,8 @@ Cambios sin escritura de BD:
 Validaciones ejecutadas:
 
 ```powershell
-C:\xampp\php\php.exe storage\uat\uat_ventas_pos_pendientes_piloto_readonly.php --id_almacen=5 --id_sku=1760 --usuarios=1,2,3
-C:\xampp\php\php.exe storage\uat\uat_ventas_pos_piloto_plan_accion_readonly.php --id_usuario=1 --id_almacen=5 --id_sku=1760 --cantidad=1 --precio=295 --monto_inicial=500 --usuarios=1,2,3
+C:\xampp\php\php.exe storage\uat\uat_ventas_pos_pendientes_piloto_readonly.php --id_almacen=5 --id_sku=173 --usuarios=1,2,3
+C:\xampp\php\php.exe storage\uat\uat_ventas_pos_piloto_plan_accion_readonly.php --id_usuario=1 --id_almacen=5 --id_sku=173 --cantidad=1 --precio=1000 --monto_inicial=500 --usuarios=1,2,3
 C:\xampp\php\php.exe storage\uat\uat_ventas_pos_docs_estado_vigente_readonly.php
 C:\xampp\php\php.exe storage\uat\uat_ventas_pos_salida_operacion_doc_readonly.php
 C:\xampp\php\php.exe storage\uat\uat_ventas_pos_cierre_ampliado_readonly.php --compact=1
@@ -446,8 +537,8 @@ C:\xampp\php\php.exe storage\uat\uat_ventas_pos_cierre_ampliado_readonly.php --c
 
 Resultado vigente:
 
-- Pendientes piloto: `ok=true`, `pendientes_total=4`.
-- Plan de accion piloto: `ok=true`, `acciones_total=6`.
+- Pendientes piloto posterior a limpieza: `ok=true`, `pendientes_total=1` usando SKU `173`; solo falta turno abierto.
+- Plan de accion piloto: abrir turno, vender con stock disponible y cerrar turno.
 - Documentos POS vigentes: `ok=true`, `bloqueos=[]`.
 - Cierre ampliado POS: `ok=true`, `scripts_total=30`, `bloqueos_total=0`, decision `pos_apto_para_piloto_controlado_con_condiciones`.
 
@@ -512,7 +603,7 @@ Validaciones ejecutadas:
 
 ```powershell
 C:\xampp\php\php.exe -l storage\uat\uat_ventas_pos_operacion_basica_readonly.php
-C:\xampp\php\php.exe storage\uat\uat_ventas_pos_operacion_basica_readonly.php --id_usuario=1 --id_almacen=5 --id_sku=1760 --cantidad=1 --usuarios=1,2,3 --compact=1
+C:\xampp\php\php.exe storage\uat\uat_ventas_pos_operacion_basica_readonly.php --id_usuario=1 --id_almacen=5 --id_sku=173 --cantidad=1 --usuarios=1,2,3 --compact=1
 ```
 
 Ampliacion multiusuario:
@@ -703,7 +794,7 @@ Validaciones ejecutadas:
 C:\xampp\php\php.exe -l storage\uat\uat_ventas_pos_piloto_preflight_compacto_readonly.php
 C:\xampp\php\php.exe storage\uat\uat_ventas_pos_piloto_preflight_compacto_readonly.php
 C:\xampp\php\php.exe -l storage\uat\uat_ventas_pos_piloto_paquete_recomendado_readonly.php
-C:\xampp\php\php.exe storage\uat\uat_ventas_pos_piloto_paquete_recomendado_readonly.php --id_usuario=1 --id_almacen=5 --id_sku=1760 --cantidad=1 --monto_inicial=500 --usuarios=1,2,3
+C:\xampp\php\php.exe storage\uat\uat_ventas_pos_piloto_paquete_recomendado_readonly.php --id_usuario=1 --id_almacen=5 --id_sku=173 --cantidad=1 --monto_inicial=500 --usuarios=1,2,3
 C:\xampp\php\php.exe storage\uat\uat_ventas_pos_cierre_ampliado_readonly.php --compact=1 --timeout_script=12
 ```
 
@@ -738,7 +829,7 @@ C:\xampp\php\php.exe storage\uat\uat_ventas_pos_stock_candidatos_readonly.php --
 C:\xampp\php\php.exe storage\uat\uat_ventas_pos_inventario_sku_readonly.php --id_almacen=5 --id_sku=173 --cantidad=1
 C:\xampp\php\php.exe storage\uat\uat_ventas_pos_venta_preflight_readonly.php --id_usuario=1 --id_almacen=5 --id_sku=173 --cantidad=1 --precio=1000 --pago=1000
 C:\xampp\php\php.exe storage\uat\uat_ventas_pos_operacion_basica_readonly.php --id_usuario=1 --id_almacen=5 --id_sku=173 --usuarios=1,2,3 --compact=1
-C:\xampp\php\php.exe storage\uat\uat_ventas_pos_siguiente_piloto_readonly.php --id_usuario=1 --id_almacen=5 --id_sku=1760 --cantidad=1 --monto_inicial=500 --usuarios=1,2,3
+C:\xampp\php\php.exe storage\uat\uat_ventas_pos_siguiente_piloto_readonly.php --id_usuario=1 --id_almacen=5 --id_sku=173 --cantidad=1 --monto_inicial=500 --usuarios=1,2,3
 ```
 
 ## Corte 2026-07-25 - manual POS con decision rapida
@@ -805,7 +896,7 @@ C:\xampp\php\php.exe -l app\modelos\VentasErp.php
 C:\xampp\php\php.exe -l app\vistas\paginas\apps\erp\ventas\caja_turnos.php
 node --check public\assets\js\custom\apps\erp\ventas\caja_turnos.js
 C:\xampp\php\php.exe storage\uat\uat_ventas_pos_caja_turnos_ui_readiness_readonly.php
-C:\xampp\php\php.exe storage\uat\uat_ventas_pos_arranque_local_readonly.php --id_usuario=1 --id_almacen=5 --id_sku=1760 --cantidad=1 --monto_inicial=500 --usuarios=1,2,3
+C:\xampp\php\php.exe storage\uat\uat_ventas_pos_arranque_local_readonly.php --id_usuario=1 --id_almacen=5 --id_sku=173 --cantidad=1 --monto_inicial=500 --usuarios=1,2,3
 C:\xampp\php\php.exe storage\uat\uat_ventas_pos_cierre_ampliado_readonly.php --compact=1 --timeout_script=12
 ```
 
@@ -863,3 +954,69 @@ Resultado:
 - Modelo VentasErp: sintaxis `ok`.
 - Cierre ampliado POS: `ok=true`, `scripts_total=30`, `bloqueos_total=0`.
 - Documentos POS vigentes: `ok=true`.
+
+## Corte 2026-07-26 - piloto POS real limpio con SKU recomendado
+
+Se ejecuto un ciclo POS real controlado en el proyecto canonico `C:\xampp\htdocs\panel_de_control`, usando el host `http://panel.com.local/` y el SKU recomendado con stock disponible.
+
+Evidencia del ciclo:
+
+- Turno abierto: `TUR-20260726-002-001`, `id_turno_caja=28`, caja `2`, almacen `5`, monto inicial `$500`.
+- Venta real: `POS-20260726-000001`, `id_venta=29`, SKU `173`, `ALI-GLOGDM`, cantidad `1`, precio `$1000`, pago efectivo `$1000`.
+- Inventario: existencia `38` bajo de `1000` a `999`, movimiento/kardex `99`, trazabilidad detalle-inventario confirmada.
+- Pago/caja: `id_venta_pago=33`, `id_movimiento_caja=60`.
+- Garantia: snapshot `id_venta_detalle_garantia=17`, resumen `Sin garantia`.
+- Turno cerrado: esperado `$1500`, contado `$1500`, diferencia `$0`.
+- Ticket formal: generado sin hallazgos para `POS-20260726-000001`.
+
+Validaciones ejecutadas:
+
+```powershell
+C:\xampp\php\php.exe storage\uat\uat_ventas_pos_operacion_basica_readonly.php --id_usuario=1 --id_almacen=5 --id_sku=173 --cantidad=1 --usuarios=1,2,3 --compact=1
+C:\xampp\php\php.exe storage\uat\uat_ventas_pos_piloto_postcheck_compacto_readonly.php --id_usuario=1 --id_almacen=5 --id_sku=173
+C:\xampp\php\php.exe storage\uat\uat_ventas_pos_ticket_formal_readonly.php --folio=POS-20260726-000001
+C:\xampp\php\php.exe storage\uat\uat_ventas_pos_turno_post_cierre_readonly.php --id_turno_caja=28
+C:\xampp\php\php.exe storage\uat\uat_ventas_pos_cierre_ampliado_readonly.php --compact=1 --timeout_script=12
+C:\xampp\php\php.exe storage\uat\uat_ventas_pos_pendientes_piloto_readonly.php --id_almacen=5 --id_sku=173 --usuarios=1,2,3
+```
+
+Resultado:
+
+- Ciclo POS normal con stock disponible: `ok`.
+- Ticket, pago, caja, kardex, garantia y trazabilidad: `ok`.
+- SKU `173` queda con disponible `999`.
+- No queda turno abierto.
+- Para SKU `173`, pendiente vigente: abrir turno antes de la siguiente venta.
+- El cierre ampliado general conserva avisos por historicos del SKU `1760`, especialmente `PINV-20260717-000001`; no afecta el ciclo limpio del SKU `173`.
+
+## Corte 2026-07-26 - limpieza de pendientes historicos POS
+
+Se limpiaron los dos pendientes historicos que afectaban el semaforo de piloto operativo.
+
+Acciones autorizadas y ejecutadas:
+
+- Evidencia caja `GASTO-UAT-001`: se registro evidencia administrativa para `id_movimiento_caja=5`.
+- Evidencia generada: `id_evidencia_caja=4`, referencia externa `GASTO-UAT-001`; posteriormente fue revisada y aprobada.
+- Inventario pendiente `PINV-20260717-000001`: se resolvio con `cantidad_fisica=0`, decision `ajustar_a_conteo`.
+- Resultado inventario: pendiente `resuelto`, ajuste `id_movimiento_ajuste=100`, salida pendiente `id_movimiento_salida_pendiente=101`, notificacion POS resuelta.
+
+Validaciones ejecutadas:
+
+```powershell
+C:\xampp\php\php.exe storage\uat\uat_ventas_pos_caja_evidencias_readonly.php
+C:\xampp\php\php.exe storage\uat\uat_ventas_pos_caja_evidencias_detalle_readonly.php --id_evidencia_caja=4
+C:\xampp\php\php.exe storage\uat\uat_pos_inventario_pendiente_notificaciones_readonly.php
+C:\xampp\php\php.exe storage\uat\uat_ventas_pos_pendientes_piloto_readonly.php --id_almacen=5 --id_sku=173 --usuarios=1,2,3
+C:\xampp\php\php.exe storage\uat\uat_ventas_pos_operacion_basica_readonly.php --id_usuario=1 --id_almacen=5 --id_sku=173 --cantidad=1 --usuarios=1,2,3 --compact=1
+C:\xampp\php\php.exe storage\uat\uat_ventas_pos_cierre_ampliado_readonly.php --compact=1 --timeout_script=12
+```
+
+Resultado:
+
+- Pendientes de inventario POS abiertos: `0`.
+- Notificaciones de inventario pendiente abiertas: `0`.
+- Evidencias de caja en estado `pendiente`: `0`.
+- Evidencia caja `id_evidencia_caja=4`: estatus `aprobada`, revisada por usuario `1`.
+- Operacion basica: sin avisos, solo requiere abrir turno antes de cobrar.
+- Cierre ampliado POS: `ok=true`, `bloqueos_total=0`, avisos reducidos a `23`.
+- Pendiente administrativo fino: sin pendientes historicos de caja/inventario para el piloto limpio; solo abrir turno para vender.

@@ -634,12 +634,13 @@
             renderPaquetes(response.depurar.paquetes || {});
             renderVariantes(response.depurar.skus || [], response.depurar.variantes || {});
             precargarSkuBase(response.depurar.skus || []);
-            llenarSelect("catalogo_proveedor_sku", response.depurar.skus || [], "id_sku", etiquetaSku, false);
-            llenarSelect("catalogo_imagen_sku", response.depurar.skus || [], "id_sku", etiquetaSku, true);
-            llenarSelect("catalogo_presentacion_base", response.depurar.skus || [], "id_sku", etiquetaSku, false);
-            llenarSelect("catalogo_presentacion_sku", response.depurar.skus || [], "id_sku", etiquetaSku, false);
-            llenarSelect("catalogo_paquete_sku", response.depurar.skus || [], "id_sku", etiquetaSku, false);
-            actualizarFormularioSkuPaqueteInline(response.depurar.skus || []);
+            var skusOperativosDetalle = skusOperativos(response.depurar.skus || []);
+            llenarSelect("catalogo_proveedor_sku", skusOperativosDetalle, "id_sku", etiquetaSku, false);
+            llenarSelect("catalogo_imagen_sku", skusOperativosDetalle, "id_sku", etiquetaSku, true);
+            llenarSelect("catalogo_presentacion_base", skusOperativosDetalle, "id_sku", etiquetaSku, false);
+            llenarSelect("catalogo_presentacion_sku", skusOperativosDetalle, "id_sku", etiquetaSku, false);
+            llenarSelect("catalogo_paquete_sku", skusOperativosDetalle, "id_sku", etiquetaSku, false);
+            actualizarFormularioSkuPaqueteInline(skusOperativosDetalle);
             llenarSelect("catalogo_paquete_opcion_sku", [], "id_sku", etiquetaSku, true);
             llenarSelect("catalogo_paquete_opcion_unidad", catalogosDisponibles.unidades || [], "id_unidad", etiquetaUnidad, true);
             limpiarFormularioSkuProveedor();
@@ -805,6 +806,17 @@
     }
 
     /**
+     * IA: Codex GPT-5 | Fecha: 2026-07-27
+     * Proposito: filtra SKUs aptos para selectores operativos del modal de Catalogo.
+     * Impacto: Catalogo ERP; evita usar productos/SKUs inactivos en proveedores, imagenes, presentaciones y paquetes.
+     */
+    function skusOperativos(skus) {
+        return (skus || []).filter(function (sku) {
+            return !esEstatusArchivado(sku.estatus);
+        });
+    }
+
+    /**
      * IA: Codex GPT-5 | Fecha: 2026-06-24
      * Proposito: renderiza SKUs del producto ocultando archivados por defecto y permitiendo consultarlos.
      * Impacto: Catalogo ERP; descontinuar un SKU no elimina historial ni contamina la operacion diaria.
@@ -924,6 +936,9 @@
         }
         if (activo && controlaInventario && unidadDecimal && !ventaFraccionaria) {
             indicadores.push({objetivo: "inventario", texto: "Inventario unidad decimal", color: "info", titulo: "La unidad base permite decimales; confirma si se vende a granel o solo se usa para inventario/merma."});
+        }
+        if (activo && controlaInventario && ventaFraccionaria && String(sku.generar_etiqueta_interna) === "1" && String(sku.requiere_unidades_fisicas_recepcion) !== "1") {
+            indicadores.push({objetivo: "inventario", texto: "Mixto sin unidades fisicas", color: "warning", titulo: "SKU con venta fraccionaria y trazabilidad fisica debe capturar unidades fisicas en recepcion para abrir y vender granel con origen."});
         }
         if (activo && !tieneValor(sku.codigo_barras)) {
             indicadores.push({objetivo: "venta", texto: "Venta sin codigo", color: "warning", titulo: "SKU activo sin codigo principal. No bloquea compras por id_sku, pero afecta busqueda, escaneo y venta mostrador."});
@@ -1861,8 +1876,9 @@
                 abreviatura: unidad.abreviatura || ""
             };
             detalleActual.skus = (detalleActual.skus || []).concat([nuevoSku]);
-            llenarSelect("catalogo_paquete_sku", detalleActual.skus || [], "id_sku", etiquetaSku, false);
-            actualizarFormularioSkuPaqueteInline(detalleActual.skus || []);
+            var skusOperativosDetalle = skusOperativos(detalleActual.skus || []);
+            llenarSelect("catalogo_paquete_sku", skusOperativosDetalle, "id_sku", etiquetaSku, false);
+            actualizarFormularioSkuPaqueteInline(skusOperativosDetalle);
             actualizarSelectSkuPaquete(detalleActual.paquetes && detalleActual.paquetes.paquetes ? detalleActual.paquetes.paquetes : [], null);
             var paqueteForm = document.getElementById("catalogo_form_paquete");
             if (paqueteForm) {
@@ -2522,6 +2538,117 @@
         });
     }
 
+    /**
+     * IA: Codex GPT-5 | Fecha: 2026-07-27
+     * Proposito: diagnostica codigos de barras bloqueados por SKUs archivados/fusionados desde la UI de Catalogo.
+     * Impacto: Catalogo ERP; evita consultar BD manualmente cuando un codigo queda retenido por historial.
+     * Contrato: usa `/catalogoerp/codigo_barras_diagnosticar` y renderiza solo resultados exactos.
+     */
+    function diagnosticarCodigoBarrasBloqueado() {
+        var input = document.getElementById("catalogo_codigo_barras_diagnostico");
+        var resultado = document.getElementById("catalogo_codigo_barras_resultado");
+        var errorBox = document.getElementById("catalogo_codigo_barras_error");
+        if (!input || !resultado) {
+            return;
+        }
+        var codigo = input.value.trim();
+        if (!codigo) {
+            mostrarError(errorBox, new Error("Captura el codigo de barras a revisar"));
+            return;
+        }
+        if (errorBox) {
+            errorBox.classList.add("d-none");
+        }
+        resultado.innerHTML = "<div class=\"text-muted fs-7\">Buscando propietario...</div>";
+        request("/catalogoerp/codigo_barras_diagnosticar", {codigo_barras: codigo}).then(function (response) {
+            if (response.error) {
+                throw new Error(response.mensaje);
+            }
+            renderDiagnosticoCodigoBarras(response.depurar || {});
+        }).catch(function (error) {
+            resultado.innerHTML = "";
+            mostrarError(errorBox, error);
+        });
+    }
+
+    /**
+     * IA: Codex GPT-5 | Fecha: 2026-07-27
+     * Proposito: muestra propietarios de un codigo de barras incluyendo estados archivados.
+     * Impacto: Catalogo ERP; da contexto antes de liberar una identidad retenida.
+     */
+    function renderDiagnosticoCodigoBarras(depurar) {
+        var resultado = document.getElementById("catalogo_codigo_barras_resultado");
+        if (!resultado) {
+            return;
+        }
+        var registros = depurar.registros || [];
+        if (!registros.length) {
+            resultado.innerHTML = "<div class=\"alert alert-light-success mb-0\">Ese codigo no esta registrado en Catalogo ERP.</div>";
+            return;
+        }
+        resultado.innerHTML = "<div class=\"table-responsive\"><table class=\"table table-sm align-middle mb-0\"><thead><tr class=\"text-muted fw-bold fs-8 text-uppercase\"><th>Codigo</th><th>SKU propietario</th><th>Producto</th><th>Estados</th><th class=\"text-end\">Accion</th></tr></thead><tbody>" +
+            registros.map(function (item) {
+                var puedeLiberar = Number(item.puede_liberar || 0) === 1;
+                var accion = permisos.editar && puedeLiberar
+                    ? "<button class=\"btn btn-sm btn-light-warning\" type=\"button\" data-liberar-codigo-barras=\"" + escapeAttr(item.id_sku_codigo) + "\" data-codigo-barras=\"" + escapeAttr(item.codigo) + "\"><i class=\"bi bi-unlock\"></i> Liberar</button>"
+                    : "<span class=\"text-muted fs-8\">" + escapeHtml(puedeLiberar ? "Sin permiso" : "SKU operativo") + "</span>";
+                return "<tr><td><div class=\"fw-bold\">" + escapeHtml(item.codigo) + "</div><span class=\"text-muted fs-8\">" + escapeHtml(item.tipo_codigo) + " / " + escapeHtml(item.estatus_codigo) + "</span></td>" +
+                    "<td><div class=\"fw-bold\">" + escapeHtml(item.sku) + "</div><span class=\"text-muted fs-8\">ID " + escapeHtml(item.id_sku) + "</span></td>" +
+                    "<td><div>" + escapeHtml(item.producto) + "</div><span class=\"text-muted fs-8\">" + escapeHtml(item.codigo_producto) + "</span></td>" +
+                    "<td><span class=\"badge badge-light-secondary me-1\">SKU: " + escapeHtml(item.estatus_sku) + "</span><span class=\"badge badge-light-secondary\">Producto: " + escapeHtml(item.estatus_producto) + "</span></td>" +
+                    "<td class=\"text-end\">" + accion + "</td></tr>";
+            }).join("") + "</tbody></table></div>";
+    }
+
+    /**
+     * IA: Codex GPT-5 | Fecha: 2026-07-27
+     * Proposito: libera un codigo de barras retenido por SKU archivado/fusionado con motivo obligatorio.
+     * Impacto: Catalogo ERP; modifica solo `erp_catalogo_sku_codigos` para permitir reutilizar el codigo.
+     * Contrato: requiere confirmacion y motivo; refresca diagnostico y detalle actual al terminar.
+     */
+    function liberarCodigoBarrasBloqueado(idSkuCodigo, codigo) {
+        var errorBox = document.getElementById("catalogo_codigo_barras_error");
+        var motivoInput = document.getElementById("catalogo_codigo_barras_motivo");
+        var motivo = motivoInput ? motivoInput.value.trim() : "";
+        if (!motivo) {
+            mostrarError(errorBox, new Error("Captura el motivo para liberar el codigo"));
+            if (motivoInput) {
+                motivoInput.focus();
+            }
+            return;
+        }
+        Swal.fire({
+            title: "Liberar codigo de barras",
+            text: "El codigo quedara disponible para capturarlo en otro SKU. No se borrara historial.",
+            icon: "warning",
+            showCancelButton: true,
+            confirmButtonText: "Liberar",
+            cancelButtonText: "Cancelar"
+        }).then(function (result) {
+            if (!result.isConfirmed) {
+                return;
+            }
+            return request("/catalogoerp/codigo_barras_liberar", {
+                id_sku_codigo: idSkuCodigo,
+                codigo_barras: codigo,
+                motivo: motivo
+            }).then(function (response) {
+                if (response.error) {
+                    throw new Error(response.mensaje);
+                }
+                if (motivoInput) {
+                    motivoInput.value = "";
+                }
+                Swal.fire("Listo", response.mensaje, "success");
+                diagnosticarCodigoBarrasBloqueado();
+                if (productoActualId) {
+                    abrirDetalle(productoActualId);
+                }
+            });
+        }).catch(function (error) {
+            mostrarError(errorBox, error);
+        });
+    }
     function guardarSku(event) {
         event.preventDefault();
         var currentForm = event.currentTarget;
@@ -3144,6 +3271,11 @@
         return true;
     }
 
+    /**
+     * IA: Codex GPT-5 | Fecha: 2026-07-27
+     * Proposito: valida granel como capacidad adicional, permitiendo trazabilidad de unidad fisica cerrada.
+     * Impacto: Catalogo ERP; un SKU mixto puede venderse cerrado y tambien fraccionado desde unidad abierta.
+     */
     function validarFormularioGranel(currentForm, errorBox) {
         var fraccionaria = currentForm.querySelector("[name='permite_venta_fraccionaria']");
         if (!fraccionaria || !fraccionaria.checked) {
@@ -3181,20 +3313,7 @@
             if (incrementoInput) { incrementoInput.focus(); }
             return false;
         }
-        var etiqueta = currentForm.querySelector("[name='generar_etiqueta_interna']");
-        var serie = currentForm.querySelector("[name='requiere_serie']");
-        var serieFabricante = currentForm.querySelector("[name='requiere_serie_fabricante']");
-        var etiquetaFraccionada = currentForm.querySelector("[name='permite_etiqueta_fraccionada']");
-        if (etiqueta && etiqueta.checked && (!etiquetaFraccionada || !etiquetaFraccionada.checked)) {
-            mostrarError(errorBox, new Error("No se permite etiqueta individual en venta fraccionaria salvo que actives etiqueta fraccionada"));
-            etiqueta.focus();
-            return false;
-        }
-        if (((serie && serie.checked) || (serieFabricante && serieFabricante.checked)) && (!etiquetaFraccionada || !etiquetaFraccionada.checked)) {
-            mostrarError(errorBox, new Error("No se permite serie individual en venta fraccionaria salvo que actives etiqueta fraccionada"));
-            (serie && serie.checked ? serie : serieFabricante).focus();
-            return false;
-        }
+
         return true;
     }
 
@@ -3402,6 +3521,9 @@
         var tamanoPaginaSelect = document.getElementById("catalogo_tamano_pagina");
         var incidenciasBody = document.getElementById("catalogo_incidencias_body");
         var incidenciasRecargar = document.getElementById("catalogo_incidencias_recargar");
+        var codigoBarrasBuscar = document.getElementById("catalogo_codigo_barras_buscar");
+        var codigoBarrasInput = document.getElementById("catalogo_codigo_barras_diagnostico");
+        var codigoBarrasResultado = document.getElementById("catalogo_codigo_barras_resultado");
         if (editar) {
             editar.addEventListener("submit", guardarEdicion);
         }
@@ -3429,6 +3551,26 @@
                 if (event.target.closest("[data-generar-codigo-interno]")) {
                     generarCodigoInternoDesdeSku(skuForm, document.getElementById("catalogo_detalle_error"));
                 }
+            });
+        }
+        if (codigoBarrasBuscar) {
+            codigoBarrasBuscar.addEventListener("click", diagnosticarCodigoBarrasBloqueado);
+        }
+        if (codigoBarrasInput) {
+            codigoBarrasInput.addEventListener("keydown", function (event) {
+                if (event.key === "Enter") {
+                    event.preventDefault();
+                    diagnosticarCodigoBarrasBloqueado();
+                }
+            });
+        }
+        if (codigoBarrasResultado) {
+            codigoBarrasResultado.addEventListener("click", function (event) {
+                var liberar = event.target.closest("[data-liberar-codigo-barras]");
+                if (!liberar) {
+                    return;
+                }
+                liberarCodigoBarrasBloqueado(liberar.getAttribute("data-liberar-codigo-barras"), liberar.getAttribute("data-codigo-barras") || "");
             });
         }
         if (cancelarSku) {

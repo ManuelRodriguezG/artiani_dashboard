@@ -73,6 +73,87 @@ C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_canales_api_apply_guard_r
 C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_canales_seed_plan_readonly.php --base=http://panel.com.local --artiani_origin=http://artiani.com.local --artiani_prod=https://artiani.com.mx --partner_codigo=partner_mayoreo_001 --partner_origin=https://partner.example.com
 ```
 
+- Plan y apply bloqueado de allowlist por canal preparados:
+
+```bash
+C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_canal_allowlist_plan_readonly.php --canal=partner_mayoreo_001 --publicaciones=1,2 --modo_precio=publico
+C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_canal_allowlist_apply_guard_readonly.php
+```
+
+Estado esperado antes de DDL canales:
+
+```text
+allowlist_plan.ok=false
+bloqueos=tabla_pendiente_erp_ecommerce_canales_api, tabla_pendiente_erp_ecommerce_canal_publicaciones
+allowlist_apply_guard.ok=true
+```
+
+- Plan y apply bloqueado de credenciales preparados:
+
+```bash
+C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_credencial_plan_readonly.php --canal=partner_mayoreo_001 --modo=hmac
+C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_credencial_emitir_apply_guard_readonly.php
+```
+
+Estado esperado antes de DDL/canal/llave:
+
+```text
+credencial_plan.ok=false
+bloqueos=tabla_pendiente_erp_ecommerce_canales_api, tabla_pendiente_erp_ecommerce_api_credenciales
+advertencias=hmac_requiere_ECOMMERCE_API_SECRET_ENCRYPTION_KEY_para_apply_real
+credencial_emitir_apply_guard.ok=true
+```
+
+- Modo observacion de autenticacion preparado:
+
+```bash
+C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_auth_observacion_readonly.php --method=GET --path=/ecommercePublico/catalogo --query=limite=2 --origin=http://artiani.com.local
+C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_auth_observacion_readonly.php --method=GET --path=/ecommercePublico/catalogo --query=limite=2 --origin=https://partner.example.com --api_key=ak_demo_partner_mayoreo_001 --timestamp=2026-07-26T12:00:00Z --nonce=demo --signature=demo
+```
+
+Estado esperado actual:
+
+```text
+auth_obligatoria_actual=false
+decision_observada=permitir_por_fase_actual
+no_bloquea_frontend_artiani=true
+bloqueos_para_auth_productiva=tablas_canales_api_pendientes
+```
+
+Actualizacion 2026-07-26:
+
+- Se incorpora alcance de experiencia cliente ecommerce:
+  - politicas publicas;
+  - facturacion por folio;
+  - historial de busqueda;
+  - historial de navegacion;
+  - panel analitico ERP futuro;
+  - taxonomia/navegacion por mascota y necesidad;
+  - registro futuro de clientes/mascotas contemplado, no activo.
+- Documento vivo: `docs/erp_ecommerce_publico_experiencia_cliente_politicas_facturacion_analytics.md`.
+- Plan DDL read-only preparado para:
+  - `erp_ecommerce_politicas`;
+  - `erp_ecommerce_facturacion_solicitudes`;
+  - `erp_ecommerce_eventos_navegacion`;
+  - `erp_ecommerce_busquedas`;
+  - `erp_ecommerce_taxonomia_mascotas`.
+- Frontend puede avanzar ahora con:
+  - paginas de politicas;
+  - pantalla `/facturacion` sin POST real;
+  - navegacion por mascota/necesidad;
+  - tracking local/mock;
+  - panel visual/mock de analytics.
+- Frontend no debe conectar todavia:
+  - `POST /ecommercePublico/facturacion_solicitar`;
+  - `POST /ecommercePublico/evento_navegacion`;
+  - `POST /ecommercePublico/busqueda_registrar`.
+
+Comando:
+
+```bash
+C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_experiencia_cliente_plan_readonly.php
+```
+
 ## Senal actual
 
 ```text
@@ -287,3 +368,61 @@ Ya puedes iniciar/integrar la vista del ecommerce externo con datos reales.
 El ERP tiene DDL aplicado, CORS configurado, WhatsApp configurado y primeras publicaciones activas.
 Usa docs/erp_ecommerce_publico_frontend_handoff.md y docs/erp_ecommerce_publico_instrucciones_frontend_nuevo_proyecto.txt.
 ```
+
+## Actualizacion 2026-07-26 - Experiencia cliente inicial
+
+- Se contempla desde Fase 1 la base de politicas, facturacion por folio, navegacion por mascota/necesidad e inteligencia de busquedas.
+- Se agregan endpoints publicos read-only:
+  - `GET /ecommercePublico/politicas`;
+  - `GET /ecommercePublico/politica/{slug}`;
+  - `GET /ecommercePublico/taxonomia_mascotas`.
+- Estos endpoints responden defaults seguros con `configurado=false` si las tablas futuras aun no existen.
+- Prueba HTTP:
+
+```bash
+C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_experiencia_cliente_http_readonly.php --base=http://panel.com.local
+```
+
+- Senal actual:
+
+```text
+senal_frontend_experiencia_http=verde_politicas_taxonomia_readonly
+```
+
+- El frontend puede avanzar ya:
+  - paginas de politicas desde API;
+  - pantalla `/facturacion` con formulario por folio, sin POST real;
+  - navegacion por mascota/necesidad desde API;
+  - tracking local/mock para busquedas y navegacion.
+- No conectar todavia:
+  - `POST /ecommercePublico/facturacion_solicitar`;
+  - `POST /ecommercePublico/evento_navegacion`;
+  - `POST /ecommercePublico/busqueda_registrar`.
+
+## Actualizacion 2026-07-27 - Base cimentada antes de produccion
+
+- Se separa la compuerta de base local/funcional de la compuerta productiva.
+- Produccion queda como fase posterior; primero se valida que el frontend basico tenga contratos y datos suficientes.
+- Nueva compuerta:
+
+```bash
+C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_base_cimentada_readonly.php --base=http://panel.com.local --origin=http://artiani.com.local --min_publicadas=2 --min_preview=6 --skus_preview=415,866,386,1138
+```
+
+- Resultado actual:
+
+```text
+senal_base_ecommerce=verde_base_cimentada_frontend_basico
+endpoints_total=12
+publicadas=2
+preview_total=6
+cors_local_permitido=true
+whatsapp_configurado=true
+politicas_ok=true
+taxonomia_ok=true
+cotizacion_dryrun_ok=true
+cotizacion_registrar_bloqueado=true
+```
+
+- Esta senal permite que el frontend avance con entregable basico local.
+- No significa salida productiva. Produccion se valida despues con `uat_ecommerce_publico_frontend_productivo_gate_readonly.php`.

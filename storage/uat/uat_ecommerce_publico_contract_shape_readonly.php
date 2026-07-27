@@ -19,6 +19,9 @@ $respuestas = array(
   "configuracion" => $modelo->configuracionPublica(),
   "seo" => $modelo->seoPublico(),
   "filtros" => $modelo->filtrosPublicos(),
+  "politicas" => $modelo->politicasPublicas(),
+  "politica_facturacion" => $modelo->politicaPublica("facturacion"),
+  "taxonomia_mascotas" => $modelo->taxonomiaMascotasPublica(),
   "catalogo" => $modelo->catalogoPublico(array("limite" => 3)),
   "producto" => $modelo->productoPublico("slug-de-prueba-no-publicado"),
   "disponibilidad" => $modelo->disponibilidadPublica(array("slug" => "slug-de-prueba-no-publicado")),
@@ -36,6 +39,9 @@ validarEstado($respuestas["estado"], $bloqueos);
 validarConfiguracion($respuestas["configuracion"], $bloqueos);
 validarSeo($respuestas["seo"], $bloqueos);
 validarFiltros($respuestas["filtros"], $bloqueos);
+validarPoliticas($respuestas["politicas"], $bloqueos);
+validarPolitica($respuestas["politica_facturacion"], $bloqueos);
+validarTaxonomiaMascotas($respuestas["taxonomia_mascotas"], $bloqueos);
 validarCatalogo($respuestas["catalogo"], $bloqueos);
 validarProducto($respuestas["producto"], $bloqueos);
 validarDisponibilidad($respuestas["disponibilidad"], $bloqueos);
@@ -47,7 +53,7 @@ echo json_encode(array(
   "modo" => "read-only",
   "shape" => array(
     "wrappers_validados" => array_keys($respuestas),
-    "endpoints_publicos_esperados" => 9,
+    "endpoints_publicos_esperados" => 12,
     "item_catalogo_keys" => itemCatalogoKeys()
   ),
   "bloqueos" => $bloqueos,
@@ -84,6 +90,9 @@ function validarRutas($respuesta, &$bloqueos) {
     "/ecommercePublico/catalogo",
     "/ecommercePublico/producto/{slug}",
     "/ecommercePublico/filtros",
+    "/ecommercePublico/politicas",
+    "/ecommercePublico/politica/{slug}",
+    "/ecommercePublico/taxonomia_mascotas",
     "/ecommercePublico/configuracion",
     "/ecommercePublico/seo",
     "/ecommercePublico/disponibilidad",
@@ -139,6 +148,42 @@ function validarFiltros($respuesta, &$bloqueos) {
     if (!is_array(valorShape($respuesta, array("depurar", $key), null))) {
       $bloqueos[] = "filtros_falta_array_" . $key;
     }
+  }
+}
+
+function validarPoliticas($respuesta, &$bloqueos) {
+  if (!is_array(valorShape($respuesta, array("depurar", "items"), null))) {
+    $bloqueos[] = "politicas_items_debe_ser_array";
+  }
+  if (valorShape($respuesta, array("depurar", "guardrails", "no_checkout"), false) !== true) {
+    $bloqueos[] = "politicas_debe_indicar_no_checkout";
+  }
+  if (valorShape($respuesta, array("depurar", "guardrails", "no_factura_automatica"), false) !== true) {
+    $bloqueos[] = "politicas_debe_indicar_no_factura_automatica";
+  }
+}
+
+function validarPolitica($respuesta, &$bloqueos) {
+  $item = valorShape($respuesta, array("depurar", "item"), null);
+  if (!is_array($item)) {
+    $bloqueos[] = "politica_facturacion_falta_item";
+    return;
+  }
+  foreach (array("codigo", "tipo", "titulo", "resumen", "contenido", "version", "requiere_aceptacion") as $key) {
+    if (!array_key_exists($key, $item)) {
+      $bloqueos[] = "politica_facturacion_falta_" . $key;
+    }
+  }
+}
+
+function validarTaxonomiaMascotas($respuesta, &$bloqueos) {
+  foreach (array("mascotas", "necesidades") as $key) {
+    if (!is_array(valorShape($respuesta, array("depurar", $key), null))) {
+      $bloqueos[] = "taxonomia_falta_array_" . $key;
+    }
+  }
+  if (valorShape($respuesta, array("depurar", "guardrails", "no_requiere_cliente_registrado"), false) !== true) {
+    $bloqueos[] = "taxonomia_debe_indicar_no_requiere_cliente_registrado";
   }
 }
 

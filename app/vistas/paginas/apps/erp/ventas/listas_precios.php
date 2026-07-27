@@ -266,6 +266,9 @@
                                                 <button class="lp-product-tab" type="button" data-lp-product-tab="importar"><i class="bi bi-file-earmark-arrow-up"></i> Importar CSV</button>
                                                 <button class="lp-product-tab" type="button" data-lp-product-tab="prevalidacion"><i class="bi bi-shield-check"></i> Prevalidacion</button>
                                             </div>
+                                            <div class="alert alert-light-primary py-3 mb-4 fs-8" data-lp-product-panel="captura">
+                                                Para granel, el precio capturado aqui es por unidad base del SKU (kg, m, l). Si existe una presentacion fisica con codigo, stock o etiqueta propia, debe manejarse como SKU/presentacion en Catalogo y aqui se le captura su precio fijo.
+                                            </div>
                                             <div class="d-flex flex-wrap gap-2 mb-4" data-lp-product-panel="captura">
                                                 <span class="badge badge-light">Visibles <span id="lp_res_productos">0</span></span>
                                                 <span class="badge badge-light-info">Seleccionados <span id="lp_res_seleccionados">0</span></span>

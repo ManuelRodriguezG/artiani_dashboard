@@ -207,6 +207,8 @@ class EcommercePublicoEsquema extends DBSchema {
       "`api_key_prefix` VARCHAR(32) NOT NULL",
       "`api_key_hash` VARCHAR(255) NOT NULL",
       "`api_secret_hash` VARCHAR(255) NULL",
+      "`api_secret_encrypted` TEXT NULL",
+      "`api_secret_version` VARCHAR(40) NULL",
       "`algoritmo_firma` VARCHAR(40) NOT NULL DEFAULT 'hmac_sha256'",
       "`scopes_json` TEXT NULL",
       "`estatus` VARCHAR(30) NOT NULL DEFAULT 'activo'",
@@ -308,6 +310,171 @@ class EcommercePublicoEsquema extends DBSchema {
     );
   }
 
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-07-26
+   * Proposito: generar plan DDL para politicas, facturacion, analitica y navegacion guiada ecommerce.
+   * Impacto: prepara experiencia cliente y panel de inteligencia comercial sin activar escrituras publicas.
+   * Contrato: con $ejecutar=false solo devuelve SQL propuesto; no registra eventos ni solicitudes.
+   */
+  public function planActualizarExperienciaCliente($ejecutar = false) {
+    $opciones = "ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci";
+    $plan = array();
+
+    $plan[] = $this->crearTablaSiNoExiste("erp_ecommerce_politicas", array(
+      "`id_politica` BIGINT NOT NULL AUTO_INCREMENT",
+      "`codigo` VARCHAR(80) NOT NULL",
+      "`tipo` VARCHAR(50) NOT NULL",
+      "`titulo` VARCHAR(180) NOT NULL",
+      "`slug` VARCHAR(160) NOT NULL",
+      "`contenido_html` MEDIUMTEXT NULL",
+      "`resumen_publico` TEXT NULL",
+      "`version` VARCHAR(40) NOT NULL DEFAULT '1.0'",
+      "`estatus` VARCHAR(30) NOT NULL DEFAULT 'borrador'",
+      "`requiere_aceptacion` TINYINT(1) NOT NULL DEFAULT 0",
+      "`orden` INT NOT NULL DEFAULT 0",
+      "`fecha_publicacion` DATETIME NULL",
+      "`fecha_registro` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
+      "`fecha_actualizacion` DATETIME NULL",
+      "`actualizado_por` INT NULL",
+      "PRIMARY KEY (`id_politica`)",
+      "UNIQUE KEY `idx_ecom_politica_codigo` (`codigo`)",
+      "UNIQUE KEY `idx_ecom_politica_slug` (`slug`)",
+      "KEY `idx_ecom_politica_tipo_estado` (`tipo`, `estatus`, `orden`)"
+    ), $opciones, $ejecutar);
+
+    $plan[] = $this->crearTablaSiNoExiste("erp_ecommerce_facturacion_solicitudes", array(
+      "`id_facturacion_solicitud` BIGINT NOT NULL AUTO_INCREMENT",
+      "`folio_solicitud` VARCHAR(50) NOT NULL",
+      "`folio_compra` VARCHAR(80) NOT NULL",
+      "`origen` VARCHAR(50) NOT NULL DEFAULT 'web_publica'",
+      "`id_canal_api` BIGINT NULL",
+      "`id_cliente_crm` BIGINT NULL",
+      "`estatus` VARCHAR(30) NOT NULL DEFAULT 'nueva'",
+      "`rfc` VARCHAR(20) NOT NULL",
+      "`razon_social` VARCHAR(255) NOT NULL",
+      "`regimen_fiscal` VARCHAR(20) NULL",
+      "`uso_cfdi` VARCHAR(20) NULL",
+      "`codigo_postal_fiscal` VARCHAR(12) NULL",
+      "`correo_facturacion` VARCHAR(220) NULL",
+      "`telefono_contacto` VARCHAR(80) NULL",
+      "`importe_reportado` DECIMAL(18,6) NULL",
+      "`fecha_compra_reportada` DATE NULL",
+      "`ticket_archivo_url` VARCHAR(255) NULL",
+      "`notas_cliente` TEXT NULL",
+      "`datos_json` TEXT NULL",
+      "`ip_hash` VARCHAR(120) NULL",
+      "`user_agent_hash` VARCHAR(120) NULL",
+      "`fecha_registro` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
+      "`fecha_actualizacion` DATETIME NULL",
+      "`revisado_por` INT NULL",
+      "PRIMARY KEY (`id_facturacion_solicitud`)",
+      "UNIQUE KEY `idx_ecom_fact_folio_solicitud` (`folio_solicitud`)",
+      "KEY `idx_ecom_fact_folio_compra` (`folio_compra`, `estatus`)",
+      "KEY `idx_ecom_fact_rfc_fecha` (`rfc`, `fecha_registro`)",
+      "KEY `idx_ecom_fact_estado_fecha` (`estatus`, `fecha_registro`)"
+    ), $opciones, $ejecutar);
+
+    $plan[] = $this->crearTablaSiNoExiste("erp_ecommerce_eventos_navegacion", array(
+      "`id_evento_navegacion` BIGINT NOT NULL AUTO_INCREMENT",
+      "`session_id_hash` VARCHAR(120) NOT NULL",
+      "`id_canal_api` BIGINT NULL",
+      "`tipo_evento` VARCHAR(60) NOT NULL",
+      "`ruta` VARCHAR(255) NULL",
+      "`referer` VARCHAR(255) NULL",
+      "`id_publicacion` BIGINT NULL",
+      "`id_sku` BIGINT NULL",
+      "`mascota_especie` VARCHAR(80) NULL",
+      "`necesidad` VARCHAR(80) NULL",
+      "`metadata_json` TEXT NULL",
+      "`ip_hash` VARCHAR(120) NULL",
+      "`user_agent_hash` VARCHAR(120) NULL",
+      "`fecha_registro` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
+      "PRIMARY KEY (`id_evento_navegacion`)",
+      "KEY `idx_ecom_nav_session_fecha` (`session_id_hash`, `fecha_registro`)",
+      "KEY `idx_ecom_nav_tipo_fecha` (`tipo_evento`, `fecha_registro`)",
+      "KEY `idx_ecom_nav_mascota_necesidad` (`mascota_especie`, `necesidad`, `fecha_registro`)",
+      "KEY `idx_ecom_nav_publicacion` (`id_publicacion`, `fecha_registro`)"
+    ), $opciones, $ejecutar);
+
+    $plan[] = $this->crearTablaSiNoExiste("erp_ecommerce_busquedas", array(
+      "`id_busqueda` BIGINT NOT NULL AUTO_INCREMENT",
+      "`session_id_hash` VARCHAR(120) NOT NULL",
+      "`id_canal_api` BIGINT NULL",
+      "`termino` VARCHAR(255) NOT NULL",
+      "`termino_normalizado` VARCHAR(255) NOT NULL",
+      "`mascota_especie` VARCHAR(80) NULL",
+      "`necesidad` VARCHAR(80) NULL",
+      "`resultados_total` INT NULL",
+      "`sin_resultados` TINYINT(1) NOT NULL DEFAULT 0",
+      "`filtros_json` TEXT NULL",
+      "`ip_hash` VARCHAR(120) NULL",
+      "`user_agent_hash` VARCHAR(120) NULL",
+      "`fecha_registro` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
+      "PRIMARY KEY (`id_busqueda`)",
+      "KEY `idx_ecom_busq_termino_fecha` (`termino_normalizado`, `fecha_registro`)",
+      "KEY `idx_ecom_busq_mascota_necesidad` (`mascota_especie`, `necesidad`, `fecha_registro`)",
+      "KEY `idx_ecom_busq_sin_resultados` (`sin_resultados`, `fecha_registro`)",
+      "KEY `idx_ecom_busq_session` (`session_id_hash`, `fecha_registro`)"
+    ), $opciones, $ejecutar);
+
+    $plan[] = $this->crearTablaSiNoExiste("erp_ecommerce_taxonomia_mascotas", array(
+      "`id_taxonomia_mascota` BIGINT NOT NULL AUTO_INCREMENT",
+      "`codigo` VARCHAR(80) NOT NULL",
+      "`tipo` VARCHAR(40) NOT NULL DEFAULT 'especie'",
+      "`parent_codigo` VARCHAR(80) NULL",
+      "`nombre` VARCHAR(160) NOT NULL",
+      "`descripcion_publica` TEXT NULL",
+      "`estatus` VARCHAR(30) NOT NULL DEFAULT 'activo'",
+      "`orden` INT NOT NULL DEFAULT 0",
+      "`metadata_json` TEXT NULL",
+      "`fecha_registro` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
+      "`fecha_actualizacion` DATETIME NULL",
+      "`actualizado_por` INT NULL",
+      "PRIMARY KEY (`id_taxonomia_mascota`)",
+      "UNIQUE KEY `idx_ecom_tax_mascota_codigo` (`codigo`)",
+      "KEY `idx_ecom_tax_mascota_tipo_estado` (`tipo`, `estatus`, `orden`)",
+      "KEY `idx_ecom_tax_mascota_parent` (`parent_codigo`, `estatus`)"
+    ), $opciones, $ejecutar);
+
+    return $this->respuestaPlan($plan, $ejecutar);
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-07-26
+   * Proposito: auditar si existen tablas de experiencia cliente ecommerce.
+   * Impacto: permite coordinar frontend, facturacion y panel analitico sin ejecutar DDL.
+   * Contrato: solo lectura.
+   */
+  public function auditarExperienciaCliente() {
+    $tablas = $this->tablasExperienciaCliente();
+    $auditoria = array();
+    $faltantes = 0;
+    foreach ($tablas as $tabla) {
+      $existe = $this->tablaExiste($tabla);
+      $auditoria[$tabla] = array(
+        "existe" => $existe,
+        "impacto" => $existe ? "Disponible para experiencia cliente ecommerce." : "Falta para politicas, facturacion, analitica o navegacion guiada."
+      );
+      if (!$existe) {
+        $faltantes++;
+      }
+    }
+
+    return array(
+      "error" => false,
+      "tipo" => $faltantes > 0 ? "warning" : "success",
+      "mensaje" => $faltantes > 0 ? "Capa experiencia cliente ecommerce pendiente" : "Capa experiencia cliente ecommerce disponible",
+      "depurar" => array(
+        "read_only" => true,
+        "tablas_total" => count($tablas),
+        "tablas_faltantes" => $faltantes,
+        "auditoria" => $auditoria,
+        "no_registra_eventos" => true,
+        "no_recibe_datos_fiscales" => true
+      )
+    );
+  }
+
   private function tablasEcommercePublico() {
     return array(
       "erp_ecommerce_publicaciones",
@@ -325,6 +492,16 @@ class EcommercePublicoEsquema extends DBSchema {
       "erp_ecommerce_canal_publicaciones",
       "erp_ecommerce_api_nonces",
       "erp_ecommerce_api_logs"
+    );
+  }
+
+  private function tablasExperienciaCliente() {
+    return array(
+      "erp_ecommerce_politicas",
+      "erp_ecommerce_facturacion_solicitudes",
+      "erp_ecommerce_eventos_navegacion",
+      "erp_ecommerce_busquedas",
+      "erp_ecommerce_taxonomia_mascotas"
     );
   }
 

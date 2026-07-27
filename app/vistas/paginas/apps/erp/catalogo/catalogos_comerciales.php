@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="es">
 <head>
     <base href="../../../../">
@@ -10,9 +10,9 @@
     <link href="assets/css/style.bundle.css" rel="stylesheet" type="text/css">
     <!--
       IA: Codex GPT-5 | Fecha: 2026-07-23
-      Proposito: MVP visual read-only para validar catalogos comerciales desde Catalogo ERP.
-      Impacto: Catalogo ERP/Comercial; selecciona candidatos en navegador sin guardar BD ni generar archivos.
-      Contrato: consume `/catalogoerp/catalogos_comerciales_candidatos` con permiso `catalogo.ver`.
+      Proposito: editor visual persistente para catalogos comerciales desde Catalogo ERP.
+      Impacto: Catalogo ERP/Comercial; guarda borradores en BD sin publicar enlaces ni generar archivos automaticos.
+      Contrato: consume endpoints `/catalogoerp/catalogos_comerciales_*` con permisos `catalogo.ver`/`catalogo.editar`.
     -->
     <style>
         .cc-panel { border: 1px solid #e7e9ef; border-radius: 8px; background: #fff; }
@@ -25,6 +25,7 @@
         .cc-empty-img { width: 64px; height: 64px; border-radius: 8px; display: grid; place-items: center; background: #f1f3f6; border: 1px dashed #b5b5c3; color: #7e8299; }
         .cc-alerts { display: flex; flex-wrap: wrap; gap: 5px; }
         .cc-preview-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 14px; }
+        .cc-export-surface { background: #fff; color: #181c32; }
         .cc-card { border: 1px solid #dfe3ea; border-radius: 8px; overflow: hidden; background: #fff; min-height: 330px; display: flex; flex-direction: column; }
         .cc-card__media { aspect-ratio: 1 / 1; background: #f5f7fb; display: grid; place-items: center; overflow: hidden; }
         .cc-card__media img { width: 100%; height: 100%; object-fit: cover; }
@@ -54,6 +55,11 @@
         .cc-cover-card__cta { color: #181c32; font-size: .92rem; font-weight: 750; }
         .cc-draft-form { display: grid; grid-template-columns: minmax(180px, 1fr) minmax(180px, 1fr) auto auto auto; gap: 10px; align-items: end; }
         .cc-pager { display: flex; align-items: center; justify-content: flex-end; gap: 8px; flex-wrap: wrap; }
+        .cc-nav { display: flex; gap: 8px; flex-wrap: wrap; }
+        .cc-saved-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; }
+        .cc-saved-card { border: 1px solid #e7e9ef; border-radius: 8px; padding: 14px; background: #fff; min-height: 132px; display: flex; flex-direction: column; gap: 10px; }
+        .cc-saved-card__title { font-weight: 800; color: #181c32; line-height: 1.25; }
+        .cc-saved-card__meta { color: #7e8299; font-size: .82rem; }
         @media print {
             body { background: #fff !important; }
             .app-sidebar, .app-toolbar, .cc-panel:not(.cc-print-area), .cc-summary, #kt_app_header { display: none !important; }
@@ -109,7 +115,28 @@
                     </div>
                     <div class="app-content flex-column-fluid">
                         <div class="app-container container-fluid">
-                            <div class="cc-panel p-4 mb-5">
+                            <div class="cc-panel p-3 mb-5">
+                                <div class="d-flex justify-content-between align-items-center gap-3 flex-wrap">
+                                    <div class="cc-nav">
+                                        <button class="btn btn-sm btn-primary" type="button" data-cc-view-button="editor"><i class="bi bi-pencil-square"></i> Editor</button>
+                                        <button class="btn btn-sm btn-light-primary" type="button" data-cc-view-button="guardados"><i class="bi bi-collection"></i> Guardados</button>
+                                        <button class="btn btn-sm btn-light-primary" type="button" data-cc-view-button="preview"><i class="bi bi-eye"></i> Vista previa</button>
+                                    </div>
+                                    <span class="text-muted fs-8">Trabaja el catalogo por pasos: selecciona, guarda y exporta paginas para redes.</span>
+                                </div>
+                            </div>
+
+                            <div class="cc-panel p-4 mb-5 cc-view-section d-none" data-cc-view="guardados">
+                                <div class="d-flex justify-content-between align-items-center gap-3 mb-3 flex-wrap">
+                                    <div>
+                                        <h2 class="fs-5 fw-bold mb-1">Catalogos guardados</h2>
+                                        <div class="text-muted fs-8">Edita o archiva catalogos comerciales sin entrar al selector del editor.</div>
+                                    </div>
+                                    <button class="btn btn-sm btn-light-primary" type="button" id="cc_guardados_recargar"><i class="bi bi-arrow-clockwise"></i> Recargar</button>
+                                </div>
+                                <div class="cc-saved-grid" id="cc_catalogos_guardados_lista"></div>
+                            </div>
+                            <div class="cc-panel p-4 mb-5 cc-view-section" data-cc-view="editor">
                                 <div class="cc-toolbar">
                                     <div>
                                         <label class="form-label fw-semibold">Buscar</label>
@@ -159,7 +186,7 @@
                                 <div class="cc-metric"><div class="cc-metric__value" id="cc_res_sel">0</div><div class="cc-metric__label">Seleccionados</div></div>
                             </div>
 
-                            <div class="row g-5">
+                            <div class="row g-5 cc-view-section" data-cc-view="editor">
                                 <div class="col-xl-7">
                                     <div class="cc-panel p-4 h-100">
                                         <div class="d-flex justify-content-between align-items-center gap-3 mb-3">
@@ -211,7 +238,7 @@
                                 </div>
                             </div>
 
-                            <div class="cc-panel p-4 mt-5">
+                            <div class="cc-panel p-4 mt-5 cc-view-section" data-cc-view="editor">
                                 <div class="mb-4">
                                     <div class="d-flex justify-content-between align-items-center gap-3 mb-3 flex-wrap">
                                         <h2 class="fs-5 fw-bold mb-0">Datos del material</h2>
@@ -258,22 +285,22 @@
                                             <input class="form-control form-control-solid" id="cc_borrador_nombre" maxlength="80" placeholder="Ej. Promos acuario">
                                         </div>
                                         <div>
-                                            <label class="form-label fw-semibold">Borradores locales</label>
+                                            <label class="form-label fw-semibold">Catalogos guardados</label>
                                             <select class="form-select form-select-solid" id="cc_borradores_guardados">
-                                                <option value="">Sin borradores</option>
+                                                <option value="">Sin catalogos</option>
                                             </select>
                                         </div>
-                                        <button class="btn btn-light-primary" type="button" id="cc_guardar_borrador"><i class="bi bi-save"></i> Guardar local</button>
+                                        <button class="btn btn-light-primary" type="button" id="cc_guardar_borrador"><i class="bi bi-save"></i> Guardar</button>
                                         <button class="btn btn-light-dark" type="button" id="cc_cargar_borrador"><i class="bi bi-folder2-open"></i> Cargar</button>
-                                        <button class="btn btn-light-info" type="button" id="cc_exportar_borrador"><i class="bi bi-download"></i> Exportar</button>
-                                        <button class="btn btn-light-success" type="button" id="cc_importar_borrador"><i class="bi bi-upload"></i> Importar</button>
-                                        <button class="btn btn-light-danger" type="button" id="cc_eliminar_borrador"><i class="bi bi-trash3"></i> Eliminar</button>
+                                        <button class="btn btn-light-info" type="button" id="cc_exportar_borrador"><i class="bi bi-download"></i> Exportar JSON</button>
+                                        <button class="btn btn-light-success" type="button" id="cc_importar_borrador"><i class="bi bi-upload"></i> Importar JSON</button>
+                                        <button class="btn btn-light-danger" type="button" id="cc_eliminar_borrador"><i class="bi bi-archive"></i> Archivar</button>
                                         <input class="d-none" type="file" id="cc_importar_borrador_archivo" accept="application/json,.json">
                                     </div>
                                 </div>
                             </div>
 
-                            <div class="cc-panel cc-print-area p-4 mt-5">
+                            <div class="cc-panel cc-print-area p-4 mt-5 cc-view-section d-none" data-cc-view="preview">
                                 <div class="d-flex justify-content-between align-items-center gap-3 mb-4 flex-wrap">
                                     <h2 class="fs-5 fw-bold mb-0">Vista previa</h2>
                                     <div class="cc-preview-toolbar d-flex align-items-center gap-3 flex-wrap">
@@ -306,6 +333,7 @@
                                             <input class="form-check-input" type="checkbox" id="cc_mostrar_disponibilidad">
                                             <span class="form-check-label">Disponibilidad</span>
                                         </label>
+                                        <button class="btn btn-light-success" type="button" id="cc_exportar_png"><i class="bi bi-file-earmark-image"></i> Exportar paginas PNG</button>
                                         <button class="btn btn-light-primary" type="button" id="cc_modo_captura"><i class="bi bi-aspect-ratio"></i> Modo captura</button>
                                         <button class="btn btn-light-dark" type="button" onclick="window.print()"><i class="bi bi-printer"></i> Imprimir</button>
                                     </div>
@@ -322,6 +350,11 @@
 </div>
 <script src="assets/plugins/global/plugins.bundle.js"></script>
 <script src="assets/js/scripts.bundle.js"></script>
-<script src="/assets/js/custom/apps/erp/catalogo/catalogos_comerciales.js?v=20260724-borrador-json1"></script>
+<script src="/assets/js/custom/apps/erp/catalogo/catalogos_comerciales.js?v=20260727-paginas-2"></script>
 </body>
 </html>
+
+
+
+
+

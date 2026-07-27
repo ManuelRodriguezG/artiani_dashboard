@@ -1,6 +1,6 @@
 <?php
 /**
- * Documentacion IA: Codex GPT-5, 2026-07-25.
+ * Documentacion IA: Codex GPT-5, 2026-07-26.
  * Proposito: preparar paquete operativo de piloto POS con SKU recomendado y stock disponible.
  * Impacto: evita cargar stock UAT innecesario cuando ya existe un SKU vendible para prueba controlada.
  * Contrato: read-only; no abre turno, no cobra, no cierra turno, no mueve caja y no mueve inventario.
@@ -11,7 +11,7 @@ date_default_timezone_set("America/Mexico_City");
 $args = parseArgs($argv);
 $idUsuario = entero($args, "id_usuario", 1);
 $idAlmacen = entero($args, "id_almacen", 5);
-$idSkuPreferido = entero($args, "id_sku", 1760);
+$idSkuPreferido = entero($args, "id_sku", 173);
 $cantidad = decimal($args, "cantidad", 1);
 $montoInicial = decimal($args, "monto_inicial", 500);
 $cliente = texto($args, "cliente", "Cliente piloto POS");
@@ -61,7 +61,7 @@ if (!$bloqueos) {
 
 $avisos = valor($siguiente, "avisos", array());
 $avisos[] = "Si el monto contado real no es {$montoContadoSugerido}, capturar el monto real; la diferencia queda visible para revision.";
-$avisos[] = "Este paquete no resuelve PINV/GASTO previos; solo permite un piloto limpio con SKU disponible.";
+$avisos[] = "Este paquete no crea ni corrige pendientes; solo prepara un piloto limpio con SKU disponible.";
 
 $respuesta = array(
     "ok" => empty($bloqueos),
@@ -94,7 +94,7 @@ $respuesta = array(
         "no_cierra_turno" => true,
         "no_mueve_caja" => true,
         "no_mueve_inventario" => true,
-        "no_resuelve_pendientes_previos" => true,
+        "no_crea_ni_corrige_pendientes" => true,
     ),
 );
 

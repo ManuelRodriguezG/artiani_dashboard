@@ -1063,10 +1063,18 @@
         var abiertas = item.unidades.some(function (unidad) { return unidad.estado_fisico === "abierta"; });
         var cerradas = item.unidades.some(function (unidad) { return unidad.estado_fisico === "cerrada"; });
         var granel = abiertas && Number(item.permite_venta_fraccionaria || 0) === 1;
+        var fraccionario = Number(item.permite_venta_fraccionaria || 0) === 1;
+        var stockLabel = fraccionario && !granel ? "Granel/stock" : "Stock general";
+        var stockTitle = fraccionario && !granel
+            ? "Capturar cantidad fraccionaria desde stock agregado; si falta inventario usa Venta con faltante para generar alerta"
+            : "Descontar de existencia disponible del almacen";
+        var granelTitle = granel
+            ? "Vender cantidad/peso desde unidad abierta permitida"
+            : (fraccionario ? "No hay unidad abierta; usa Granel/stock y Venta con faltante si debe alertar a Inventario" : "El SKU no permite venta fraccionaria");
         return "<div class=\"pos-mode-group\" role=\"group\" aria-label=\"Modo de salida\">" +
-            "<button class=\"pos-mode-btn" + (item.modo_salida === "existencia_agregada" ? " active" : "") + "\" data-pos-modo-rapido=\"existencia_agregada\" type=\"button\" title=\"Descontar de existencia disponible del almacen\">Stock general</button>" +
+            "<button class=\"pos-mode-btn" + (item.modo_salida === "existencia_agregada" ? " active" : "") + "\" data-pos-modo-rapido=\"existencia_agregada\" type=\"button\" title=\"" + escapeHtml(stockTitle) + "\">" + escapeHtml(stockLabel) + "</button>" +
             "<button class=\"pos-mode-btn" + (item.modo_salida === "unidad_cerrada" ? " active" : "") + "\" data-pos-modo-rapido=\"unidad_cerrada\" type=\"button\"" + (cerradas ? "" : " disabled") + " title=\"Vender una unidad fisica cerrada disponible\">Unidad cerrada</button>" +
-            "<button class=\"pos-mode-btn" + (item.modo_salida === "granel_unidad_abierta" ? " active" : "") + "\" data-pos-modo-rapido=\"granel_unidad_abierta\" type=\"button\"" + (granel ? "" : " disabled") + " title=\"Vender cantidad/peso desde unidad abierta permitida\">Granel</button>" +
+            "<button class=\"pos-mode-btn" + (item.modo_salida === "granel_unidad_abierta" ? " active" : "") + "\" data-pos-modo-rapido=\"granel_unidad_abierta\" type=\"button\"" + (granel ? "" : " disabled") + " title=\"" + escapeHtml(granelTitle) + "\">Granel trazable</button>" +
             "</div>";
     }
     function unidadResumen(item) {
@@ -1074,6 +1082,9 @@
             return "Pendiente para Catalogo ERP" + (item.controla_inventario ? " e Inventario" : "");
         }
         if (item.modo_salida === "existencia_agregada") {
+            if (Number(item.permite_venta_fraccionaria || 0) === 1) {
+                return "Granel operativo desde stock de tienda; si falta, usa Venta con faltante para alertar a Inventario";
+            }
             return "Descuenta del stock disponible de esta tienda";
         }
         var unidad = item.unidades.find(function (actual) {
@@ -1087,6 +1098,7 @@
     function etiquetaCantidad(item) {
         if (item.tipo_partida === "venta_rapida") { return "Cant."; }
         if (item.modo_salida === "granel_unidad_abierta") { return "Peso"; }
+        if (item.modo_salida === "existencia_agregada" && Number(item.permite_venta_fraccionaria || 0) === 1) { return "Cant./Peso"; }
         if (item.modo_salida === "unidad_cerrada") { return "Pieza"; }
         return "Cant.";
     }
@@ -1102,8 +1114,9 @@
         }
         contenedor.innerHTML = "<div class=\"table-responsive\"><table class=\"table table-row-dashed align-middle pos-cart-table mb-0\"><thead><tr><th>Producto</th><th>Salida</th><th class=\"text-end\">Cantidad</th><th class=\"text-end\">Precio</th><th class=\"text-end\">Importe</th><th></th></tr></thead><tbody>" +
             carrito.map(function (item, index) {
-                var inputClase = item.modo_salida === "granel_unidad_abierta" ? "form-control form-control-sm pos-weight-input" : "form-control form-control-sm text-center";
-                var controlCantidad = item.modo_salida === "granel_unidad_abierta"
+                var capturaFraccionaria = item.modo_salida === "granel_unidad_abierta" || (item.modo_salida === "existencia_agregada" && Number(item.permite_venta_fraccionaria || 0) === 1);
+                var inputClase = capturaFraccionaria ? "form-control form-control-sm pos-weight-input" : "form-control form-control-sm text-center";
+                var controlCantidad = capturaFraccionaria
                     ? "<input class=\"" + inputClase + "\" data-pos-cantidad inputmode=\"decimal\" value=\"" + escapeHtml(numero(item.cantidad)) + "\">"
                     : "<div class=\"pos-qty ms-auto\"><button class=\"btn btn-light\" data-pos-cantidad-ajuste=\"-1\" type=\"button\" title=\"Disminuir\"><i class=\"bi bi-dash\"></i></button><input class=\"" + inputClase + "\" data-pos-cantidad inputmode=\"decimal\" value=\"" + escapeHtml(numero(item.cantidad)) + "\"><button class=\"btn btn-light\" data-pos-cantidad-ajuste=\"1\" type=\"button\" title=\"Aumentar\"><i class=\"bi bi-plus\"></i></button></div>";
                 return "<tr data-pos-item=\"" + index + "\">" +
@@ -2856,7 +2869,10 @@
         document.getElementById("pos_validacion").innerHTML = "<div class=\"alert alert-warning py-3\">" + escapeHtml(mensaje) + "</div>";
     }
     function ajustarCantidad(item, direccion) {
-        var paso = item.modo_salida === "granel_unidad_abierta" ? (item.incremento_minimo_venta || 1) : 1;
+        var permiteFraccion = Number(item.permite_venta_fraccionaria || 0) === 1;
+        var paso = item.modo_salida === "granel_unidad_abierta" || (item.modo_salida === "existencia_agregada" && permiteFraccion)
+            ? (item.incremento_minimo_venta || 1)
+            : 1;
         item.cantidad = Math.max(paso, cantidad(item.cantidad) + (paso * direccion));
     }
     function cambiarModoSalida(item, modo) {

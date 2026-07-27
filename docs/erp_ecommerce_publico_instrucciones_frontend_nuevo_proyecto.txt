@@ -64,6 +64,7 @@ Contract tests sugeridos para el frontend:
 
 Cliente API y estados UI:
 - docs/erp_ecommerce_publico_cliente_api_frontend.md
+- docs/erp_ecommerce_publico_frontend_entregable_basico_productivo.md
 - docs/erp_ecommerce_publico_frontend_estados_ui.md
 - docs/erp_ecommerce_publico_carrito_whatsapp_frontend.md
 - docs/erp_ecommerce_publico_frontend_herramientas_integracion.md
@@ -193,6 +194,14 @@ C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_frontend_entregable_gate_
 Resultado esperado:
 
 senal_entregable_frontend=verde_entregable_frontend
+
+Compuerta productiva futura:
+
+C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_frontend_productivo_gate_readonly.php --base=http://panel.com.local --origin=https://artiani.com.mx --url=https://artiani.com.mx --min_publicadas=6
+
+Resultado esperado cuando sea momento de publicar:
+
+senal_productivo_frontend=verde_productivo_frontend_basico
 
 Compuerta final antes de integrar datos reales:
 
@@ -350,6 +359,9 @@ GET /estado
 GET /configuracion
 GET /seo
 GET /filtros
+GET /politicas
+GET /politica/{slug}
+GET /taxonomia_mascotas
 GET /catalogo
 GET /producto/{slug}
 GET /disponibilidad?slug={slug}
@@ -412,6 +424,52 @@ GET /filtros
 
 Uso:
 - Obtener mascotas, necesidades, marcas y categorias disponibles.
+
+GET /politicas
+
+Uso:
+- Obtener politicas publicas base para paginas legales/operativas.
+- Evitar hardcodear reglas importantes en el frontend.
+
+Slugs iniciales:
+- terminos-condiciones
+- aviso-privacidad
+- cotizacion-whatsapp
+- precios-disponibilidad
+- facturacion
+- cambios-devoluciones
+- cookies-tracking
+
+GET /politica/{slug}
+
+Uso:
+- Mostrar detalle de una politica publica.
+- Ejemplo: `/politica/facturacion`.
+
+GET /taxonomia_mascotas
+
+Uso:
+- Obtener navegacion guiada por mascota y necesidad.
+- Puede usarse para una pantalla interactiva de seleccion inicial.
+
+Mascotas iniciales:
+- perro
+- gato
+- pez
+- ave
+- reptil
+- roedor
+- otra
+
+Necesidades iniciales:
+- alimento
+- premio
+- higiene
+- salud
+- paseo
+- habitat
+- juguete
+- estetica
 
 GET /catalogo
 
@@ -592,6 +650,9 @@ Metodos:
 - getContratos()
 - getConfiguracion()
 - getFiltros()
+- getPoliticas()
+- getPolitica(slug)
+- getTaxonomiaMascotas()
 - getCatalogo(params)
 - getProducto(slug)
 - getDisponibilidad({ slug, id_sku })
@@ -616,11 +677,14 @@ Debe existir:
 - Buscador visible.
 - Filtros por mascota.
 - Filtros por necesidad.
+- Navegacion interactiva por mascota/necesidad usando `GET /taxonomia_mascotas`.
 - Filtros por marca/categoria cuando existan.
 - Tarjetas de producto con imagen, nombre, marca, precio, presentacion y disponibilidad.
 - Boton para agregar a cotizacion.
 - Carrito/cotizacion persistido localmente.
 - Boton de WhatsApp solo cuando configuracion lo permita.
+- Paginas de politicas usando `GET /politicas` y `GET /politica/{slug}`.
+- Pantalla `/facturacion` con formulario por folio, pero sin POST real todavia.
 
 Estados obligatorios:
 - API no disponible.
@@ -632,6 +696,8 @@ Estados obligatorios:
 - Consultar disponibilidad.
 - Cotizacion dry-run con observaciones.
 - WhatsApp no configurado.
+- Politicas disponibles con defaults Fase 1.
+- Facturacion visible pero recepcion pendiente.
 
 Texto importante:
 - Usar "cotizacion", no "pedido confirmado".
@@ -646,6 +712,71 @@ Disponibilidad publica:
 - Agotado
 
 No mostrar cantidad exacta.
+
+======================================================================
+11.1 POLITICAS, FACTURACION Y ANALYTICS INICIAL
+======================================================================
+
+Senal actual para frontend:
+
+politicas_desde_api=verde
+taxonomia_mascotas_desde_api=verde
+facturacion_ui=puede_avanzar_sin_post_real
+analytics=mock/local_todavia
+
+Endpoints ya consumibles:
+
+GET http://panel.com.local/ecommercePublico/politicas
+GET http://panel.com.local/ecommercePublico/politica/facturacion
+GET http://panel.com.local/ecommercePublico/taxonomia_mascotas
+
+Prueba ERP:
+
+C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_experiencia_cliente_http_readonly.php --base=http://panel.com.local
+
+Resultado esperado:
+
+senal_frontend_experiencia_http=verde_politicas_taxonomia_readonly
+
+Pantallas que frontend ya puede construir:
+- `/politicas`
+- `/politicas/:slug`
+- `/facturacion`
+- selector inicial por mascota/necesidad
+- componentes/panel mock de analitica de busquedas
+
+Pantalla `/facturacion`:
+- Capturar folio de compra/ticket/pedido.
+- Capturar fecha de compra.
+- Capturar importe opcional.
+- Capturar RFC.
+- Capturar razon social.
+- Capturar regimen fiscal.
+- Capturar uso CFDI.
+- Capturar codigo postal fiscal.
+- Capturar correo.
+- Capturar telefono.
+- Capturar notas.
+- Mostrar estado: "Recepcion de solicitudes en preparacion".
+- No enviar POST real todavia.
+- No prometer factura automatica.
+
+Tracking/analytics en frontend:
+- Se puede modelar localmente con session_id anonimo.
+- Eventos futuros: page_view, select_mascota, select_necesidad, search, view_product, add_to_quote, open_whatsapp, facturacion_view, facturacion_submit.
+- No enviar aun POST real de analytics.
+- No guardar datos fiscales/contacto en eventos anonimos.
+- Preparar UI interna/mock para busquedas frecuentes, busquedas sin resultado, mascotas consultadas y conversion a WhatsApp.
+
+No conectar todavia:
+- POST /ecommercePublico/facturacion_solicitar
+- POST /ecommercePublico/evento_navegacion
+- POST /ecommercePublico/busqueda_registrar
+
+Motivo:
+- Requieren tablas aplicadas con respaldo/autorizacion.
+- Requieren consentimiento/politica visible.
+- Requieren rate limit/captcha antes de recibir formularios publicos.
 
 ======================================================================
 12. CARRITO LOCAL
@@ -749,6 +880,9 @@ No construir checkout, pasarela, pagos, pedidos confirmados ni descuento de inve
 - `GET /estado`
 - `GET /configuracion`
 - `GET /filtros`
+- `GET /politicas`
+- `GET /politica/{slug}`
+- `GET /taxonomia_mascotas`
 - `GET /catalogo`
 - `GET /producto/{slug}`
 - `GET /disponibilidad`
@@ -770,6 +904,8 @@ No usar todavia:
 - La primera pantalla debe ser el catalogo usable, no una landing generica.
 - La UI debe sentirse de negocio de mascotas, no tienda generica.
 - Priorizar busqueda rapida, filtros claros y carrito simple.
+- Usar politicas desde API para terminos, privacidad, cotizacion, disponibilidad, facturacion y tracking.
+- Usar taxonomia desde API para navegar por mascota/necesidad.
 - No mostrar stock exacto.
 - Disponibilidad publica: Disponible, Pocas piezas, Consultar disponibilidad, Agotado.
 - Usar "cotizacion" y "total estimado sujeto a confirmacion".

@@ -1,6 +1,6 @@
 <?php
 /**
- * Documentacion IA: Codex GPT-5, 2026-07-19.
+ * Documentacion IA: Codex GPT-5, 2026-07-26.
  * Proposito: entregar un preflight compacto y operable para decidir si iniciar piloto POS.
  * Impacto: resume el semaforo consolidado en pasos accionables para tienda sin escribir BD.
  * Contrato: read-only; no abre turno, no cobra, no resuelve pendientes, no mueve caja ni inventario.
@@ -13,7 +13,7 @@ $args = array(
     "--id_almacen=5",
     "--id_caja=2",
     "--id_terminal=2",
-    "--id_sku=1760",
+    "--id_sku=173",
     "--id_atencion=2",
     "--cantidad=1",
     "--usuarios=1,2,3",
@@ -34,7 +34,7 @@ $salida = ejecutar("uat_ventas_pos_salida_operativa_readiness_readonly.php", $ar
 $siguientePiloto = ejecutar("uat_ventas_pos_siguiente_piloto_readonly.php", array(
     "--id_usuario=" . valorArg($args, "id_usuario", "1"),
     "--id_almacen=" . valorArg($args, "id_almacen", "5"),
-    "--id_sku=" . valorArg($args, "id_sku", "1760"),
+    "--id_sku=" . valorArg($args, "id_sku", "173"),
     "--cantidad=" . valorArg($args, "cantidad", "1"),
     "--monto_inicial=500",
     "--usuarios=" . valorArg($args, "usuarios", "1,2,3"),
@@ -90,7 +90,7 @@ $respuesta = array(
     "siguiente_piloto_recomendado" => $recomendacionOperativa,
     "pasos_piloto" => $pasos,
     "evitar_en_primer_piloto" => $evitar,
-    "siguiente_autorizacion_si_se_desea_cerrar_pendiente" => "AUTORIZO RESOLVER PENDIENTE INVENTARIO POS UAT REAL usando respaldo UAT POS vigente con token INVENTARIO_POS_PENDIENTE_RESOLVER_REAL id_usuario=1 folio=PINV-20260717-000001 cantidad_fisica=CONTEO_REAL decision=ajustar_a_conteo confirmacion=\"RESOLVER PENDIENTE\" motivo=\"Resolver mini inventario POS pendiente\"",
+    "siguiente_autorizacion_si_se_desea_operar" => "AUTORIZO ABRIR TURNO POS UAT usando respaldo UAT POS vigente con id_usuario=1 y monto_inicial=500 observaciones=\"Apertura piloto POS con SKU recomendado\"",
     "bloqueos" => $bloqueos,
     "avisos" => $avisos,
     "contrato" => array(

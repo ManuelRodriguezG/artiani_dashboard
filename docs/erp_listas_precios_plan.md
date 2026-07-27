@@ -177,6 +177,8 @@ Estado 2026-07-16:
 - Estructura UI 2026-07-20: `/comercial/listas_precios` queda como listado/portada read-only con KPIs, semaforo, filtros y acciones claras. Crear usa `/comercial/listas_precios_nueva`; editar usa `/comercial/listas_precios_editar?id_lista_precio=ID`. La mesa grande se mantiene solo como editor de una lista concreta.
 - Editor por secciones 2026-07-20: el editor se dividio en pestanas internas `Encabezado`, `Productos`, `Alcance`, `Clientes/Segmentos` y `Revision`. El flujo guiado cambia a la pestana correspondiente, y solo se muestra una seccion principal a la vez para evitar que el operador pierda contexto.
 - Productos por subpestanas 2026-07-21: dentro de `Productos` se separo `Captura`, `Herramientas`, `Importar CSV` y `Prevalidacion`. Las acciones de importar, comparar y prevalidar cambian a su subpestana correspondiente para que el usuario sepa que esta revisando.
+- Granel visible en mesa 2026-07-26: `Productos` muestra si el SKU permite venta fraccionaria, precision decimal e incremento minimo desde Catalogo. En Listas de precios se captura el precio por unidad base del SKU (`kg`, `m`, `l`, etc.); una presentacion fisica con codigo, etiqueta o stock propio debe existir como SKU/presentacion en Catalogo y recibir precio fijo en la lista.
+- Botones accionables 2026-07-26: la calculadora por fila abre `Revision` y enfoca la vista previa POS; el historial por SKU abre `Revision` y enfoca auditoria. Asi el operador ve inmediatamente el resultado de botones que antes trabajaban contra paneles ocultos.
 
 Reglas del apply:
 

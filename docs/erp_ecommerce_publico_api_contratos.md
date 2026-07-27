@@ -26,7 +26,7 @@ Uso:
 
 La API publica se mantiene en contratos separados. No se agrega endpoint `bootstrap` en esta fase para evitar acoplar el primer render del frontend a un payload combinado.
 
-Total actual: 9 endpoints publicos.
+Total actual: 12 endpoints publicos read-only/dry-run.
 
 ### Estado/readiness
 
@@ -66,6 +66,40 @@ GET /ecommercePublico/filtros
 ```
 
 Devuelve mascotas, necesidades, marcas y categorias derivadas de publicaciones vigentes.
+
+### Politicas publicas
+
+```http
+GET /ecommercePublico/politicas
+GET /ecommercePublico/politica/{slug}
+```
+
+Devuelve politicas publicas minimas para terminos, privacidad, cotizacion por WhatsApp, precios/disponibilidad, facturacion, cambios/devoluciones y cookies/tracking.
+
+Si la tabla `erp_ecommerce_politicas` aun no existe, responde defaults seguros de Fase 1 con `configurado=false`. Esto permite que el frontend avance sin hardcodear reglas operativas. No registra aceptaciones ni escribe BD.
+
+Slugs iniciales:
+
+- `terminos-condiciones`
+- `aviso-privacidad`
+- `cotizacion-whatsapp`
+- `precios-disponibilidad`
+- `facturacion`
+- `cambios-devoluciones`
+- `cookies-tracking`
+
+### Taxonomia mascotas
+
+```http
+GET /ecommercePublico/taxonomia_mascotas
+```
+
+Devuelve mascotas y necesidades para navegacion guiada. Si la tabla `erp_ecommerce_taxonomia_mascotas` aun no existe, responde defaults de Fase 1:
+
+- mascotas: `perro`, `gato`, `pez`, `ave`, `reptil`, `roedor`, `otra`;
+- necesidades: `alimento`, `premio`, `higiene`, `salud`, `paseo`, `habitat`, `juguete`, `estetica`.
+
+No requiere cliente registrado ni mascotas guardadas.
 
 ### Disponibilidad
 
@@ -262,6 +296,34 @@ Simulador de firma:
 C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_hmac_contract_readonly.php
 ```
 
+## Experiencia cliente
+
+La API debe contemplar politicas publicas, solicitud de facturacion por folio, historial de busqueda/navegacion y taxonomia de mascotas.
+
+Documento vivo:
+
+```text
+docs/erp_ecommerce_publico_experiencia_cliente_politicas_facturacion_analytics.md
+```
+
+Plan read-only:
+
+```bash
+C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_experiencia_cliente_plan_readonly.php
+```
+
+Prueba HTTP read-only:
+
+```bash
+C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_experiencia_cliente_http_readonly.php --base=http://panel.com.local
+```
+
+Senal esperada:
+
+```text
+senal_frontend_experiencia_http=verde_politicas_taxonomia_readonly
+```
+
 ## UAT read-only
 
 Script:
@@ -295,7 +357,7 @@ Valida:
 - guardado interno de publicacion bloqueado.
 - preflight CORS abierto solo para origenes exactos configurados; actualmente `http://artiani.com.local`.
 - variables de entorno/proxy para el frontend externo.
-- coleccion Postman/Insomnia para probar los 9 endpoints publicos y el POST bloqueado.
+- coleccion Postman/Insomnia para probar endpoints publicos y el POST bloqueado.
 
 No escribe BD, no ejecuta DDL, no toca inventario y no registra cotizaciones.
 

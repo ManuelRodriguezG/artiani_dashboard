@@ -253,8 +253,8 @@ class ListasPreciosErp extends CRUD {
 
     /**
      * Documentacion IA: Codex GPT-5, 2026-07-15.
-     * Proposito: listar SKUs candidatos para construir una lista de precios con costo, precio base y margen.
-     * Impacto: habilita una mesa comercial editable sin que POS/JS decidan precios finales.
+     * Proposito: listar SKUs candidatos para construir una lista de precios con costo, precio base, margen y contexto de venta fraccionaria.
+     * Impacto: habilita una mesa comercial editable sin que POS/JS decidan precios finales y muestra si el precio aplica por unidad base/granel.
      * Contrato: read-only; el costo usado es `erp_catalogo_skus.costo_referencia` hasta consolidar costo promedio formal.
      */
     public function productosParaListaReadOnly($filtros = array()) {
@@ -307,13 +307,20 @@ class ListasPreciosErp extends CRUD {
             $joinUnidad = $this->tablaExiste($db, "erp_catalogo_unidades")
                 ? "LEFT JOIN erp_catalogo_unidades u ON u.id_unidad=s.id_unidad_base"
                 : "LEFT JOIN (SELECT NULL id_unidad, NULL abreviatura, NULL nombre) u ON 1=0";
+            $joinReglas = $this->tablaExiste($db, "erp_catalogo_skus_reglas")
+                ? "LEFT JOIN erp_catalogo_skus_reglas r ON r.id_sku=s.id_sku"
+                : "LEFT JOIN (SELECT NULL id_sku, NULL permite_venta_fraccionaria, NULL precision_decimal, NULL incremento_minimo_venta, NULL unidad_venta_label) r ON 1=0";
             $categoriaSelect = $this->tablaExiste($db, "erp_catalogo_producto_categorias") && $this->tablaExiste($db, "erp_catalogo_categorias")
                 ? "(SELECT c.nombre FROM erp_catalogo_producto_categorias pc INNER JOIN erp_catalogo_categorias c ON c.id_categoria_erp=pc.id_categoria_erp WHERE pc.id_producto_erp=p.id_producto_erp ORDER BY pc.es_principal DESC, pc.id_producto_categoria ASC LIMIT 1) categoria"
                 : "NULL categoria";
 
             $sql = "SELECT s.id_sku, s.sku, s.nombre sku_nombre, s.tipo_inventario, s.costo_referencia, s.factor_unidad_base,
                     p.id_producto_erp, p.codigo_producto, p.nombre producto, COALESCE(m.nombre, '') marca,
-                    COALESCE(u.abreviatura, u.nombre, '') unidad_base, $categoriaSelect,
+                    COALESCE(NULLIF(r.unidad_venta_label, ''), u.abreviatura, u.nombre, '') unidad_base,
+                    COALESCE(r.permite_venta_fraccionaria, 0) permite_venta_fraccionaria,
+                    COALESCE(r.precision_decimal, 0) precision_decimal,
+                    COALESCE(r.incremento_minimo_venta, 1.000000) incremento_minimo_venta,
+                    $categoriaSelect,
                     COALESCE(pr.precio, 0) precio_general, COALESCE(pr.moneda, 'MXN') moneda_general,
                     d.id_lista_precio_detalle, d.precio precio_lista, COALESCE(d.moneda, 'MXN') moneda_lista, d.estatus estatus_detalle
                 FROM erp_catalogo_skus s
@@ -322,6 +329,7 @@ class ListasPreciosErp extends CRUD {
                 $joinDetalle
                 $joinMarca
                 $joinUnidad
+                $joinReglas
                 WHERE " . implode(" AND ", $where) . "
                 ORDER BY d.precio IS NULL ASC, p.nombre ASC, s.sku ASC
                 LIMIT " . intval($limite);
@@ -350,6 +358,9 @@ class ListasPreciosErp extends CRUD {
                 $fila["utilidad_estimada"] = $precioBase > 0 ? round($precioBase - $costo, 6) : null;
                 $fila["margen_estimado"] = $margen;
                 $fila["riesgo_margen"] = $riesgo;
+                $fila["permite_venta_fraccionaria"] = intval($fila["permite_venta_fraccionaria"]);
+                $fila["precision_decimal"] = intval($fila["precision_decimal"]);
+                $fila["incremento_minimo_venta"] = round(floatval($fila["incremento_minimo_venta"]), 6);
                 $productos[] = $fila;
             }
 

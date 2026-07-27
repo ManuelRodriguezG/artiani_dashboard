@@ -1,4 +1,4 @@
-# ERP Catalogo - Plan de catalogos comerciales
+﻿# ERP Catalogo - Plan de catalogos comerciales
 
 Fecha: 2026-07-23
 Proyecto vigente: `C:\xampp\htdocs\panel_de_control`
@@ -1115,3 +1115,133 @@ Criterio para avanzar a codigo:
 - Crear endpoints para listar, consultar y guardar borradores en BD.
 - Mantener los borradores locales como apoyo, no como fuente oficial.
 - No publicar enlaces ni exportar automaticamente hasta una fase autorizada posterior.
+
+## Avance 2026-07-26 - CRUD base persistente
+
+Estado:
+
+- Tarea 5 iniciada y con base operativa implementada.
+- Las tablas de persistencia ya existian y se confirmaron vacias antes de la prueba read-only:
+  - `erp_catalogo_comercial_catalogos`: 0;
+  - `erp_catalogo_comercial_items`: 0;
+  - `erp_catalogo_comercial_eventos`: 0.
+
+Cambios aplicados:
+
+- `CatalogoErp::catalogos_comerciales_listar()`.
+- `CatalogoErp::catalogos_comerciales_consultar()`.
+- `CatalogoErp::catalogos_comerciales_guardar()`.
+- `CatalogoErp::catalogos_comerciales_archivar()`.
+- `CatalogoErpDatos::listarCatalogosComerciales()`.
+- `CatalogoErpDatos::consultarCatalogoComercial()`.
+- `CatalogoErpDatos::guardarCatalogoComercial()`.
+- `CatalogoErpDatos::archivarCatalogoComercial()`.
+- La UI de `catalogos_comerciales.php/js` ahora usa catalogos guardados en BD como fuente principal.
+- El JSON queda como apoyo portable para exportar/importar el armado actual, no como fuente oficial.
+
+Reglas:
+
+- Guardar no publica enlaces.
+- Guardar no genera archivos automaticos.
+- Guardar no toca Ventas, Inventario ni productos del Catalogo maestro.
+- Archivar es baja logica, no borrado fisico.
+- Al consultar un catalogo guardado, los items se reconstruyen con datos vigentes del SKU para evitar congelar imagen, nombre, precio o disponibilidad en el item.
+
+Validacion:
+
+- `C:\xampp\php\php.exe -l app\controladores\Catalogoerp.php`: sin errores.
+- `C:\xampp\php\php.exe -l app\modelos\CatalogoErpDatos.php`: sin errores.
+- `C:\xampp\php\php.exe -l app\vistas\paginas\apps\erp\catalogo\catalogos_comerciales.php`: sin errores.
+- `node --check public\assets\js\custom\apps\erp\catalogo\catalogos_comerciales.js`: sin errores.
+- `CatalogoErpDatos::listarCatalogosComerciales()`: responde sin error con 0 catalogos.
+- `CatalogoErpDatos::listarCandidatosCatalogoComercial(limite=1)`: responde sin error con 1 candidato.
+
+Prueba manual pendiente:
+
+1. Abrir `Catalogo ERP > Catalogos comerciales`.
+2. Seleccionar 2 o 3 candidatos.
+3. Capturar `Nombre borrador`, titulo y datos del material.
+4. Presionar `Guardar`.
+5. Confirmar que el catalogo aparece en `Catalogos guardados`.
+6. Presionar `Nuevo catalogo`, despues cargar el catalogo guardado.
+7. Confirmar que recupera items, portada, plantilla y checks de visualizacion.
+8. Archivar un catalogo de prueba solo si fue creado para validacion.
+
+## Avance 2026-07-26 - Exportacion PNG para redes
+
+Estado:
+
+- Tarea 6 iniciada con exportacion PNG desde el navegador.
+- Se agrego boton Exportar PNG en la vista previa de Catalogos comerciales.
+- La exportacion toma el area visible de previsualizacion comercial, incluyendo portada y tarjetas seleccionadas.
+- No crea archivos en servidor, no publica enlaces y no toca Ventas.
+
+Reglas:
+
+- El PNG se genera del lado del navegador para evitar carga pesada en PHP.
+- Las imagenes se intentan convertir a data URL solo si pertenecen al mismo sistema/ruta local.
+- Si una imagen no puede prepararse, se omite para no bloquear toda la exportacion.
+
+Prueba manual pendiente:
+
+1. Abrir Catalogo ERP > Catalogos comerciales.
+2. Seleccionar productos con imagen.
+3. Ajustar plantilla, portada y checks visibles.
+4. Presionar Exportar PNG.
+5. Confirmar que descarga un archivo .png legible para compartir por WhatsApp/redes.
+
+
+## Ajuste 2026-07-27 - PNG sin canvas contaminado y vistas internas
+
+Motivo:
+
+- El intento inicial de exportacion con HTML/SVG podia disparar Tainted canvases may not be exported cuando el navegador detectaba imagenes o recursos no seguros para canvas.
+
+Cambios:
+
+- El boton Exportar PNG ahora usa un generador canvas nativo (exportarPreviewPngCanvas).
+- Se dibujan portada, encabezado y tarjetas desde los datos del catalogo, sin capturar HTML con oreignObject.
+- Las imagenes locales y URLs absolutas del mismo host se cargan como blob/data URL antes de dibujar.
+- Las imagenes externas se omiten para evitar contaminar el canvas.
+- Se agregaron vistas internas: Editor, Guardados y Vista previa.
+- Guardados muestra tarjetas de catalogos persistidos con acciones Editar y Archivar con confirmacion.
+
+Validacion pendiente:
+
+1. Cargar o crear un catalogo comercial.
+2. Entrar a Vista previa.
+3. Presionar Exportar PNG.
+4. Confirmar que descarga sin error y que las imagenes locales aparecen.
+5. Entrar a Guardados, editar un catalogo y confirmar que vuelve al editor con sus items.
+
+
+## Ajuste 2026-07-27 - Exportacion por paginas PNG
+
+Decision:
+
+- Se reemplaza la exportacion tipo tira vertical por paginas PNG de altura controlada.
+- El formato operativo queda en 1080 x 1400 px, cercano a una pagina vertical para compartir por WhatsApp/redes sin imagenes excesivamente largas.
+- Si el catalogo tiene mas productos de los que caben, se descargan archivos numerados catalogo-pag-01.png, catalogo-pag-02.png, etc.
+
+Reglas:
+
+- Primera pagina puede incluir portada si esta activa.
+- Cada pagina incluye encabezado y numero de pagina.
+- La cantidad de productos por pagina depende de la plantilla: cuadrada, vertical o compacta.
+- No se genera PDF ni archivos en servidor.
+
+Pendiente futuro:
+
+- Editor manual por pagina para mover productos entre paginas antes de exportar.
+- Exportar todas las paginas en ZIP si se agrega una libreria controlada o endpoint especifico.
+
+
+## Ajuste 2026-07-27 - Guardados y tarjetas mas visuales
+
+Cambios:
+
+- Editar desde la vista Guardados ahora pasa el id_catalogo_comercial directamente al cargador.
+- Se ajusto el layout PNG para tarjetas mas verticales y con imagen de producto mas alta.
+- La primera pagina conserva portada/encabezado principal.
+- Las paginas siguientes conservan solo titulo y numero de pagina para dejar mas espacio a productos.
+

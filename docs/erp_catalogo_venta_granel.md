@@ -1054,3 +1054,102 @@ Alcance de la correccion:
    - precision `7` debe bloquear.
    - incremento `0.0015` con precision `3` debe bloquear.
    - serie/etiqueta individual sin etiqueta fraccionada debe bloquear.
+
+## Auditoria 2026-07-27 - SKU mixto unidad cerrada + venta fraccionaria
+
+Contexto: se revisa Catalogo ERP para productos que se reciben como unidad fisica completa y tambien pueden venderse a granel o fraccionados, sin perder trazabilidad de la unidad fisica original.
+
+### Hallazgos
+
+- CAT-MIX-H001 - Bloqueo actual confirmado en Catalogo.
+  - Backend: `CatalogoErpDatos::reglasGranelSku()` bloquea `generar_etiqueta_interna=1` cuando `permite_venta_fraccionaria=1` si no se activa `permite_etiqueta_fraccionada`.
+  - Frontend: `productos.js::validarFormularioGranel()` repite el mismo bloqueo antes de guardar.
+  - Problema: la regla interpreta la etiqueta como etiqueta individual de fraccion, pero para SKU mixto la etiqueta pertenece a la unidad fisica cerrada recibida.
+
+- CAT-MIX-H002 - Semantica a corregir.
+  - `permite_venta_fraccionaria` debe significar: el SKU tambien permite vender cantidad parcial.
+  - No debe significar: el SKU deja de poder venderse cerrado.
+  - `permite_etiqueta_fraccionada` debe significar: permite generar etiqueta para fracciones o presentaciones preparadas, no permiso para conservar trazabilidad de la unidad fisica original.
+
+- CAT-MIX-H003 - Estructura actual suficiente para habilitar el caso minimo sin DDL.
+  - `erp_catalogo_skus.id_unidad_base` define la unidad base de inventario.
+  - `erp_catalogo_skus.factor_unidad_base` documenta el factor operativo configurable del SKU.
+  - `erp_catalogo_sku_proveedores.id_unidad_compra` y `factor_conversion` definen conversion proveedor -> inventario.
+  - `erp_catalogo_sku_reglas_inventario` ya tiene `generar_etiqueta_interna`, `permite_venta_fraccionaria`, `precision_decimal`, `incremento_minimo_venta`, `unidad_venta_label`, `permite_etiqueta_fraccionada`, `requiere_cantidad_variable_recepcion` y `requiere_unidades_fisicas_recepcion`.
+  - `erp_catalogo_sku_presentaciones` ya permite mapear SKU base -> SKU presentacion.
+
+- CAT-MIX-H004 - Trazabilidad fisica vive fuera de Catalogo.
+  - Catalogo declara la politica del SKU.
+  - Inventario/Almacen guardan la unidad fisica real en `erp_inventario_unidades`, con `estado_fisico` (`cerrada`, `abierta`, `consumida`, `vendida`, etc.), `codigo_etiqueta_interna`, `cantidad_base_original` y `cantidad_base_disponible`.
+  - La venta fraccionaria debe heredar el origen por `id_inventario_unidad`, no crear una trazabilidad desconectada.
+
+- CAT-MIX-H005 - POS ya tiene separacion tecnica util.
+  - `VentasErp::dictamenUnidadPos()` permite vender unidad `cerrada` como `unidad_cerrada`.
+  - Si la unidad esta `abierta` y el SKU permite fraccionaria, POS la trata como `granel_unidad_abierta`.
+  - Si la unidad esta abierta y no permite fraccionaria, POS la bloquea como unidad cerrada.
+
+- CAT-MIX-H006 - Ecommerce requiere guardrail adicional antes de vender mixtos.
+  - `EcommerceCatalogoPublico` calcula disponibilidad con `SUM(cantidad_disponible)` de `erp_inventario_existencias`.
+  - Esa existencia agregada puede incluir saldo de unidades abiertas.
+  - Ademas, la publicacion fase actual bloquea SKUs con `permite_venta_fraccionaria=1` mediante `venta_fraccionaria_bloqueada_fase_1`.
+  - Para futuro ecommerce, un SKU mixto solo debe publicar/vender disponibilidad de unidades cerradas o presentaciones cerradas; nunca unidades abiertas como si fueran cerradas.
+
+### Regla corregida propuesta
+
+- Un SKU mixto puede tener simultaneamente:
+  - trazabilidad fisica: si;
+  - venta completa de unidad cerrada: si;
+  - venta fraccionaria desde unidad abierta: si;
+  - apertura operativa para granel: si;
+  - unidad base de inventario: configurable;
+  - factor de conversion: configurable por SKU/proveedor segun corresponda;
+  - presentaciones comerciales: opcionales.
+
+- La etiqueta interna de trazabilidad pertenece a la unidad fisica recibida o preparada.
+- La etiqueta fraccionada solo aplica cuando se quiera etiquetar una fraccion o presentacion preparada.
+- Una unidad abierta no debe venderse como unidad cerrada.
+- POS puede vender granel desde unidad abierta si el SKU lo permite.
+- Ecommerce debe ignorar unidades abiertas para venta cerrada.
+
+### Cambio minimo recomendado en Catalogo
+
+1. Quitar el bloqueo duro `generar_etiqueta_interna + permite_venta_fraccionaria` en backend y frontend.
+2. Ajustar textos UX:
+   - `Venta fraccionaria` -> `Tambien permite venta fraccionaria`.
+   - `Etiqueta interna` -> `Etiqueta de trazabilidad de unidad fisica`.
+   - `Etiqueta fraccionada` -> `Etiquetas para fracciones o presentaciones preparadas`.
+3. Mantener validaciones de unidad decimal, precision e incremento minimo.
+4. Agregar alerta de calidad si un SKU tiene venta fraccionaria y trazabilidad fisica, pero no tiene `requiere_unidades_fisicas_recepcion=1`.
+5. Revisar con cuidado `requiere_serie` vs `requiere_serie_fabricante`:
+   - serie de fabricante puede pertenecer a la unidad fisica origen;
+   - serie individual por pieza puede requerir regla especial si se quiere fraccionar.
+
+### Impacto por modulo
+
+- Catalogo ERP: corrige significado de reglas y evita bloquear SKU mixto valido.
+- Almacen/Recepcion: debe crear unidades fisicas cerradas con etiqueta y contenido base real.
+- Inventario/Existencias: debe mantener estado `cerrada`/`abierta` y saldo disponible por unidad fisica.
+- POS: debe exigir modo de salida correcto (`unidad_cerrada` o `granel_unidad_abierta`) y descontar contra unidad fisica cuando aplique.
+- Listas de precios: debe permitir precio por SKU/presentacion/modo comercial; no debe tomar costo desde Catalogo como politica comercial.
+- Ecommerce: debe publicar solo unidad cerrada o presentacion cerrada; para SKU mixto no debe usar existencia agregada como disponibilidad vendible cerrada.
+
+### Criterio de cierre antes de implementar
+
+- Confirmar que el primer cambio sera solo Catalogo: validacion backend/frontend y textos UX.
+- No aplicar DDL para el caso minimo.
+- Dejar handoff separado para Ecommerce/Inventario si se decide habilitar venta publica de mixtos.
+- Ejecutar UAT con un SKU de prueba que tenga: unidad base decimal, etiqueta interna, requiere unidades fisicas, venta fraccionaria, precision e incremento minimo.
+### Implementacion aplicada 2026-07-27
+
+- CAT-MIX-I001 - Se quito el bloqueo que impedia guardar `permite_venta_fraccionaria=1` junto con `generar_etiqueta_interna=1` o reglas de serie.
+- CAT-MIX-I002 - El modal de producto/SKU ahora nombra la trazabilidad como `Etiqueta unidad fisica` y aclara que `Etiqueta fraccion/preparacion` solo aplica a fracciones o presentaciones preparadas.
+- CAT-MIX-I003 - Se agrego alerta visual `Mixto sin unidades fisicas` cuando un SKU activo controla inventario, permite venta fraccionaria, usa etiqueta de trazabilidad y no tiene activa la captura de unidades fisicas en recepcion.
+- CAT-MIX-I004 - No se aplico DDL ni se modificaron Almacen, Inventario, POS, Ecommerce o Listas de precios.
+
+UAT recomendado:
+
+1. Editar un SKU inventariable con unidad base decimal.
+2. Activar `Etiqueta unidad fisica`, `Capturar unidades fisicas recibidas` y `Tambien venta fraccionaria`.
+3. Guardar con precision e incremento validos.
+4. Reabrir el SKU y confirmar que conserva la configuracion.
+5. Desactivar temporalmente `Capturar unidades fisicas recibidas` y confirmar que aparece la alerta `Mixto sin unidades fisicas` en la tabla de SKU.

@@ -14,7 +14,7 @@ $args = parseArgs($argv);
 
 $idUsuario = entero($args, "id_usuario", 1);
 $idAlmacen = entero($args, "id_almacen", 5);
-$idSku = entero($args, "id_sku", 1760);
+$idSku = entero($args, "id_sku", 173);
 $cantidad = decimal($args, "cantidad", 1);
 $montoInicial = decimal($args, "monto_inicial", 500);
 $usuarios = isset($args["usuarios"]) ? trim((string) $args["usuarios"]) : "1,2,3";

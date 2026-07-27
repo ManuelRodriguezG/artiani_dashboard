@@ -17,6 +17,8 @@ $estado = $api->estadoApiPublica();
 $configuracion = $api->configuracionPublica();
 $catalogo = $api->catalogoPublico(array("limite" => 1));
 $filtros = $api->filtrosPublicos();
+$politicas = $api->politicasPublicas();
+$taxonomia = $api->taxonomiaMascotasPublica();
 $dryrun = $api->cotizacionDryRun(array("items" => array(array("id_publicacion" => 1, "cantidad" => 1))));
 
 $endpoints = valorFrontendReadiness($contratos, array("depurar", "endpoints_publicos"), array());
@@ -26,7 +28,7 @@ $config = valorFrontendReadiness($configuracion, array("depurar", "configuracion
 $whatsapp = trim((string) valorFrontendReadiness($config, array("whatsapp_numero_principal"), ""));
 $cors = trim((string) valorFrontendReadiness($config, array("cors_origenes_permitidos"), ""));
 
-$puedeMock = count($endpoints) >= 9
+$puedeMock = count($endpoints) >= 12
   && valorFrontendReadiness($dryrun, array("depurar", "dry_run"), false) === true;
 
 $bloqueosDatosReales = array();
@@ -69,7 +71,12 @@ echo json_encode(array(
   ),
   "respuestas_publicas" => array(
     "catalogo_configurado" => valorFrontendReadiness($catalogo, array("depurar", "configurado"), false),
-    "filtros_configurados" => valorFrontendReadiness($filtros, array("depurar", "configurado"), false),
+    "filtros_responden" => is_array(valorFrontendReadiness($filtros, array("depurar", "mascotas"), null))
+      && is_array(valorFrontendReadiness($filtros, array("depurar", "necesidades"), null))
+      && is_array(valorFrontendReadiness($filtros, array("depurar", "marcas"), null))
+      && is_array(valorFrontendReadiness($filtros, array("depurar", "categorias"), null)),
+    "politicas_responden" => is_array(valorFrontendReadiness($politicas, array("depurar", "items"), null)),
+    "taxonomia_responde" => is_array(valorFrontendReadiness($taxonomia, array("depurar", "mascotas"), null)),
     "cotizacion_dryrun_responde" => valorFrontendReadiness($dryrun, array("depurar", "dry_run"), false)
   ),
   "bloqueos_datos_reales" => $bloqueosDatosReales,
@@ -80,6 +87,7 @@ echo json_encode(array(
     "docs/erp_ecommerce_publico_prompt_inicio_frontend.txt",
     "docs/erp_ecommerce_publico_instrucciones_frontend_nuevo_proyecto.txt",
     "docs/erp_ecommerce_publico_frontend_handoff.md",
+    "docs/erp_ecommerce_publico_frontend_entregable_basico_productivo.md",
     "docs/erp_ecommerce_publico_frontend_AGENTS_template.md",
     "docs/erp_ecommerce_publico_frontend_archivos_iniciales.md",
     "docs/erp_ecommerce_publico_api_contratos.md",

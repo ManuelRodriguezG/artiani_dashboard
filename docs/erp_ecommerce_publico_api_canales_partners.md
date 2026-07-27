@@ -145,7 +145,7 @@ WEB-PAR-20260725-000001
 ## Tablas propuestas
 
 - `erp_ecommerce_canales_api`: canal, partner, origenes, scopes, limites y politica.
-- `erp_ecommerce_api_credenciales`: API key/secret hash, estatus, rotacion.
+- `erp_ecommerce_api_credenciales`: API key, hash de control, secreto cifrado si aplica, estatus y rotacion.
 - `erp_ecommerce_canal_publicaciones`: productos permitidos por canal.
 - `erp_ecommerce_api_nonces`: proteccion anti replay.
 - `erp_ecommerce_api_logs`: auditoria tecnica de consumo.
@@ -182,6 +182,46 @@ Plan de semillas de canales:
 C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_canales_seed_plan_readonly.php --base=http://panel.com.local --artiani_origin=http://artiani.com.local --artiani_prod=https://artiani.com.mx --partner_codigo=partner_mayoreo_001 --partner_origin=https://partner.example.com
 ```
 
+Guard de seed:
+
+```bash
+C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_canales_seed_apply_guard_readonly.php
+```
+
+Plan de allowlist por canal:
+
+```bash
+C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_canal_allowlist_plan_readonly.php --canal=partner_mayoreo_001 --publicaciones=1,2 --modo_precio=publico
+```
+
+Guard de apply allowlist:
+
+```bash
+C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_canal_allowlist_apply_guard_readonly.php
+```
+
+Plan de credencial:
+
+```bash
+C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_credencial_plan_readonly.php --canal=partner_mayoreo_001 --modo=hmac
+```
+
+Guard de emision:
+
+```bash
+C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_credencial_emitir_apply_guard_readonly.php
+```
+
+Para emitir HMAC real se requiere `ECOMMERCE_API_SECRET_ENCRYPTION_KEY` en el entorno del ERP. Sin esa llave, la emision queda bloqueada aunque exista respaldo.
+
+Modo observacion de autenticacion:
+
+```bash
+C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_auth_observacion_readonly.php --method=GET --path=/ecommercePublico/catalogo --query=limite=2 --origin=http://artiani.com.local
+```
+
+Este modo analiza headers y tablas de canal sin bloquear requests. Sirve para probar API key/HMAC antes de hacer obligatoria la autenticacion.
+
 Endpoints internos protegidos:
 
 ```http
@@ -197,8 +237,9 @@ GET /ecommercePublico/esquema_plan_canales_api
 4. Crear canal partner en estatus `borrador`.
 5. Asociar productos permitidos al partner.
 6. Emitir credencial una sola vez.
-7. Validar read-only con rate limit/logs.
-8. Despues activar `cotizacion_registrar` con folio y bandeja ERP.
+7. Activar modo observacion de autenticacion.
+8. Validar read-only con rate limit/logs.
+9. Despues activar `cotizacion_registrar` con folio y bandeja ERP.
 
 ## Reglas de implementacion para partner
 

@@ -265,12 +265,12 @@
                                     </div>
                                     <div class="col-12 d-flex flex-wrap gap-8">
                                         <label class="form-check form-switch form-check-custom form-check-solid"><input class="form-check-input" type="checkbox" name="requiere_serie_fabricante" value="1"><span class="form-check-label">Serie fabricante</span></label>
-                                        <label class="form-check form-switch form-check-custom form-check-solid"><input class="form-check-input" type="checkbox" name="generar_etiqueta_interna" value="1"><span class="form-check-label">Etiqueta de trazabilidad</span></label>
+                                        <label class="form-check form-switch form-check-custom form-check-solid"><input class="form-check-input" type="checkbox" name="generar_etiqueta_interna" value="1"><span class="form-check-label" title="Etiqueta para identificar la unidad fisica completa recibida o preparada.">Etiqueta unidad fisica</span></label>
                                         <label class="form-check form-switch form-check-custom form-check-solid"><input class="form-check-input" type="checkbox" name="requiere_escaneo_venta" value="1"><span class="form-check-label">Escanear venta</span></label>
                                     </div>
                                     <div class="col-12 d-flex flex-wrap gap-8">
-                                        <label class="form-check form-switch form-check-custom form-check-solid"><input class="form-check-input" type="checkbox" name="permite_venta_fraccionaria" value="1"><span class="form-check-label">Venta fraccionaria</span></label>
-                                        <label class="form-check form-switch form-check-custom form-check-solid"><input class="form-check-input" type="checkbox" name="permite_etiqueta_fraccionada" value="1"><span class="form-check-label">Etiqueta fraccionada</span></label>
+                                        <label class="form-check form-switch form-check-custom form-check-solid"><input class="form-check-input" type="checkbox" name="permite_venta_fraccionaria" value="1"><span class="form-check-label" title="Permite vender tambien cantidades parciales desde una unidad abierta.">Tambien venta fraccionaria</span></label>
+                                        <label class="form-check form-switch form-check-custom form-check-solid"><input class="form-check-input" type="checkbox" name="permite_etiqueta_fraccionada" value="1"><span class="form-check-label" title="Solo aplica si se generan etiquetas para fracciones o presentaciones preparadas.">Etiqueta fraccion/preparacion</span></label>
                                     </div>
                                     <div class="col-md-3" data-granel-campo><label class="form-label">Precision decimal</label><input class="form-control" type="number" name="precision_decimal" min="0" max="6" step="1" value="0"></div>
                                     <div class="col-md-3" data-granel-campo><label class="form-label">Incremento minimo venta</label><input class="form-control" type="number" name="incremento_minimo_venta" min="0" step="0.000001" value="1"></div>
@@ -412,6 +412,30 @@
                             <h3 class="fs-5 mb-5" id="catalogo_sku_form_titulo">Agregar SKU</h3>
                             <div class="alert alert-light-info d-none mb-5" id="catalogo_sku_plantilla_alerta"></div>
                             <div class="alert alert-light-warning d-none mb-5" id="catalogo_sku_archivado_alerta"></div>
+                            <div class="catalogo-config-section mb-6">
+                                <div class="catalogo-config-section__title"><i class="bi bi-upc-scan"></i> Correccion de codigo bloqueado</div>
+                                <div class="row g-4 align-items-end">
+                                    <div class="col-md-4">
+                                        <label class="form-label">Codigo de barras a revisar</label>
+                                        <input class="form-control" id="catalogo_codigo_barras_diagnostico" maxlength="180" placeholder="Escanea o captura el codigo">
+                                    </div>
+                                    <div class="col-md-3">
+                                        <button class="btn btn-light-primary w-100" type="button" id="catalogo_codigo_barras_buscar"><i class="bi bi-search"></i> Buscar propietario</button>
+                                    </div>
+                                    <div class="col-md-5">
+                                        <div class="form-text">Usalo cuando un codigo quede retenido por un SKU inactivo, descontinuado o fusionado. No deshace fusiones ni toca inventario.</div>
+                                    </div>
+                                </div>
+                                <div class="row g-4 mt-1">
+                                    <div class="col-md-12">
+                                        <label class="form-label">Motivo para liberar</label>
+                                        <input class="form-control" id="catalogo_codigo_barras_motivo" maxlength="255" placeholder="Ej. SKU inactivado por fusion incorrecta en pruebas">
+                                        <div class="form-text">Obligatorio solo si vas a liberar el codigo de un SKU archivado o fusionado.</div>
+                                    </div>
+                                </div>
+                                <div class="mt-4" id="catalogo_codigo_barras_resultado"></div>
+                                <div class="alert alert-danger d-none mt-4 mb-0" id="catalogo_codigo_barras_error"></div>
+                            </div>
                             <form id="catalogo_form_sku" data-erp-ajax="true">
                                 <input type="hidden" name="id_producto_erp">
                                 <input type="hidden" name="id_sku">
@@ -471,12 +495,12 @@
                                     </div>
                                     <div class="col-12 d-flex flex-wrap gap-8">
                                         <label class="form-check form-switch form-check-custom form-check-solid"><input class="form-check-input" type="checkbox" name="requiere_serie_fabricante" value="1"><span class="form-check-label">Serie fabricante</span></label>
-                                        <label class="form-check form-switch form-check-custom form-check-solid"><input class="form-check-input" type="checkbox" name="generar_etiqueta_interna" value="1"><span class="form-check-label">Etiqueta de trazabilidad</span></label>
+                                        <label class="form-check form-switch form-check-custom form-check-solid"><input class="form-check-input" type="checkbox" name="generar_etiqueta_interna" value="1"><span class="form-check-label" title="Etiqueta para identificar la unidad fisica completa recibida o preparada.">Etiqueta unidad fisica</span></label>
                                         <label class="form-check form-switch form-check-custom form-check-solid"><input class="form-check-input" type="checkbox" name="requiere_escaneo_venta" value="1"><span class="form-check-label">Escanear venta</span></label>
                                     </div>
                                     <div class="col-12 d-flex flex-wrap gap-8">
-                                        <label class="form-check form-switch form-check-custom form-check-solid"><input class="form-check-input" type="checkbox" name="permite_venta_fraccionaria" value="1"><span class="form-check-label">Venta fraccionaria</span></label>
-                                        <label class="form-check form-switch form-check-custom form-check-solid"><input class="form-check-input" type="checkbox" name="permite_etiqueta_fraccionada" value="1"><span class="form-check-label">Etiqueta fraccionada</span></label>
+                                        <label class="form-check form-switch form-check-custom form-check-solid"><input class="form-check-input" type="checkbox" name="permite_venta_fraccionaria" value="1"><span class="form-check-label" title="Permite vender tambien cantidades parciales desde una unidad abierta.">Tambien venta fraccionaria</span></label>
+                                        <label class="form-check form-switch form-check-custom form-check-solid"><input class="form-check-input" type="checkbox" name="permite_etiqueta_fraccionada" value="1"><span class="form-check-label" title="Solo aplica si se generan etiquetas para fracciones o presentaciones preparadas.">Etiqueta fraccion/preparacion</span></label>
                                     </div>
                                     <div class="col-md-3" data-granel-campo><label class="form-label">Precision decimal</label><input class="form-control" type="number" name="precision_decimal" min="0" max="6" step="1" value="0"></div>
                                     <div class="col-md-3" data-granel-campo><label class="form-label">Incremento minimo venta</label><input class="form-control" type="number" name="incremento_minimo_venta" min="0" step="0.000001" value="1"></div>

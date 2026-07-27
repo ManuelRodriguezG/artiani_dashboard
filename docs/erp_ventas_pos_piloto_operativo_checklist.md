@@ -195,8 +195,8 @@ Resultado read-only vigente:
 - Apertura real requiere dry-run valido y confirmacion escrita `ABRIR TURNO`.
 - Cierre real requiere dry-run valido y confirmacion escrita `CERRAR TURNO`.
 - No hay turno abierto actualmente, normal fuera de operacion.
-- Existe pendiente de mini inventario abierto: `PINV-20260717-000001`.
-- Existe una evidencia historica de caja pendiente de revision: movimiento `5`, referencia `GASTO-UAT-001`, monto `$50.00`.
+- `PINV-20260717-000001` quedo resuelto el 2026-07-26.
+- `GASTO-UAT-001` quedo con evidencia `id_evidencia_caja=4` aprobada el 2026-07-26.
 - SKU piloto `1760` no tiene disponible ERP al corte revisado.
 
 Comando de verificacion Caja/Turnos UI:
@@ -218,8 +218,8 @@ Condiciones antes de una prueba real nueva:
 
 - Abrir turno desde `Ventas > Caja/Turnos`.
 - Usar un SKU con existencia disponible o cargar stock UAT con autorizacion.
-- Resolver o aceptar conscientemente el pendiente `PINV-20260717-000001`.
-- Revisar posteriormente la evidencia historica `GASTO-UAT-001`.
+- No quedan pendientes historicos de inventario/caja por resolver para el piloto limpio.
+- El siguiente bloqueo esperado es no tener turno abierto fuera de operacion.
 
 ## Corte 2026-07-19 - Go/No-Go piloto
 
@@ -284,8 +284,8 @@ Condiciones:
 
 - No hay turno abierto, esperado fuera de operacion.
 - SKU `1760` no tiene disponible en almacen `5`.
-- Existe pendiente `PINV-20260717-000001`.
-- Existe una evidencia historica de caja pendiente `GASTO-UAT-001`.
+- `PINV-20260717-000001` esta resuelto.
+- `GASTO-UAT-001` esta aprobado.
 
 ## Corte 2026-07-19 - reportes piloto POS
 
@@ -347,7 +347,7 @@ Resultado vigente:
 
 - Cierre ampliado: `ok=true`, `scripts_total=30`, `bloqueos_total=0`, decision `pos_apto_para_piloto_controlado_con_condiciones`.
 - Semaforo arranque local `uat_ventas_pos_arranque_local_readonly.php`: `ok=true`, decision `listo_para_arrancar_al_abrir_turno`.
-- Pendientes piloto: `ok=true`, `pendientes_total=4`.
+- Pendientes piloto posterior a limpieza: `ok=true`, `pendientes_total=1` usando SKU `173`; solo falta abrir turno.
 - Usuarios `1`, `2` y `3`: activos y sin problemas reportados por el semaforo de pendientes piloto.
 - Pendientes operativos actuales:
   - abrir turno antes de cobrar;

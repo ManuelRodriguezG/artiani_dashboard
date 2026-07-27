@@ -1,6 +1,6 @@
 # ERP Ventas/POS - Salida a operacion controlada
 
-Documento vivo. Ultima actualizacion: 2026-07-25.
+Documento vivo. Ultima actualizacion: 2026-07-26.
 
 Proyecto canonico: `C:\xampp\htdocs\panel_de_control`.
 
@@ -46,10 +46,10 @@ Antes de iniciar:
 
 ```powershell
 C:\xampp\php\php.exe storage\uat\uat_ventas_pos_cierre_ampliado_readonly.php --compact=1
-C:\xampp\php\php.exe storage\uat\uat_ventas_pos_operacion_basica_readonly.php --id_usuario=1 --id_almacen=5 --id_sku=1760 --cantidad=1 --usuarios=1,2,3 --compact=1
-C:\xampp\php\php.exe storage\uat\uat_ventas_pos_piloto_plan_accion_readonly.php --id_usuario=1 --id_almacen=5 --id_sku=1760 --cantidad=1 --precio=295 --monto_inicial=500 --usuarios=1,2,3
-C:\xampp\php\php.exe storage\uat\uat_ventas_pos_siguiente_piloto_readonly.php --id_usuario=1 --id_almacen=5 --id_sku=1760 --cantidad=1 --monto_inicial=500 --usuarios=1,2,3
-C:\xampp\php\php.exe storage\uat\uat_ventas_pos_piloto_paquete_autorizacion_readonly.php --id_usuario=1 --id_almacen=5 --id_sku=1760 --cantidad=1 --precio=295 --monto_inicial=500 --cantidad_fisica=CONTEO_REAL --monto_contado=MONTO_CONTADO_REAL
+C:\xampp\php\php.exe storage\uat\uat_ventas_pos_operacion_basica_readonly.php --id_usuario=1 --id_almacen=5 --id_sku=173 --cantidad=1 --usuarios=1,2,3 --compact=1
+C:\xampp\php\php.exe storage\uat\uat_ventas_pos_piloto_plan_accion_readonly.php --id_usuario=1 --id_almacen=5 --id_sku=173 --cantidad=1 --precio=1000 --monto_inicial=500 --usuarios=1,2,3
+C:\xampp\php\php.exe storage\uat\uat_ventas_pos_siguiente_piloto_readonly.php --id_usuario=1 --id_almacen=5 --id_sku=173 --cantidad=1 --monto_inicial=500 --usuarios=1,2,3
+C:\xampp\php\php.exe storage\uat\uat_ventas_pos_piloto_paquete_autorizacion_readonly.php --id_usuario=1 --id_almacen=5 --id_sku=173 --cantidad=1 --precio=1000 --monto_inicial=500 --cantidad_fisica=CONTEO_REAL --monto_contado=MONTO_CONTADO_REAL
 ```
 
 Resultados esperados vigentes:
@@ -57,8 +57,8 @@ Resultados esperados vigentes:
 - `scripts_total=30`.
 - Semaforo de arranque local: `uat_ventas_pos_arranque_local_readonly.php`, decision vigente `listo_para_arrancar_al_abrir_turno`.
 - `bloqueos_total=0`.
-- `pendientes_total=4`.
-- `acciones_total=6`.
+- `pendientes_total=1` usando SKU limpio `173`; solo falta abrir turno.
+- Acciones reales esperadas: abrir turno, vender y cerrar turno.
 - `siguiente_piloto`: recomendado si se requiere usar SKU alternativo con stock/precio.
 - `pasos_total=6`.
 
@@ -87,10 +87,12 @@ Resultados esperados vigentes:
 
 Estos pendientes no indican falla del POS; indican tareas operativas o administrativas antes de ampliar uso:
 
-- `PINV-20260717-000001`: mini inventario pendiente.
-- `GASTO-UAT-001`: evidencia de caja pendiente.
-- SKU `1760` sin disponible en almacen `5`.
-- No hay turno abierto fuera de operacion.
+- No hay mini inventarios POS abiertos al corte 2026-07-26.
+- `PINV-20260717-000001 resuelto` el 2026-07-26; queda solo como evidencia historica.
+- No hay evidencias de caja pendientes al corte 2026-07-26.
+- `GASTO-UAT-001 con evidencia aprobada` el 2026-07-26; queda solo como evidencia historica.
+- SKU `1760` sigue sin disponible en almacen `5`; para piloto limpio usar SKU `173` o cargar stock real/autorizado.
+- No hay turno abierto fuera de operacion; esto es esperado.
 
 ## Ruta humana recomendada
 
@@ -110,8 +112,8 @@ Estos pendientes no indican falla del POS; indican tareas operativas o administr
 Despues del cierre:
 
 ```powershell
-C:\xampp\php\php.exe storage\uat\uat_ventas_pos_piloto_postcheck_compacto_readonly.php --id_usuario=1 --id_almacen=5 --id_sku=1760
-C:\xampp\php\php.exe storage\uat\uat_ventas_pos_pendientes_piloto_readonly.php --id_almacen=5 --id_sku=1760 --usuarios=1,2,3
+C:\xampp\php\php.exe storage\uat\uat_ventas_pos_piloto_postcheck_compacto_readonly.php --id_usuario=1 --id_almacen=5 --id_sku=173
+C:\xampp\php\php.exe storage\uat\uat_ventas_pos_pendientes_piloto_readonly.php --id_almacen=5 --id_sku=173 --usuarios=1,2,3
 C:\xampp\php\php.exe storage\uat\uat_ventas_pos_cierre_ampliado_readonly.php --compact=1
 ```
 
