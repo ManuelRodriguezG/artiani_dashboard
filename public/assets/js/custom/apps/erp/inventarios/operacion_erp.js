@@ -141,6 +141,9 @@
         }
         documento.disabled = false;
         referencia.placeholder = documento.value === "inventario_inicial" ? "INV-INICIAL-YYYYMMDD-0001" : "AJU-YYYYMMDD-0001";
+        if (documento.value === "inventario_inicial" && referencia.value.trim() === "") {
+            referencia.value = "INV-INICIAL-";
+        }
         llenarMotivosAjuste(documento.value === "inventario_inicial" ? "inventario_inicial" : "entrada");
     }
     function llenarMotivosAjuste(grupo) {

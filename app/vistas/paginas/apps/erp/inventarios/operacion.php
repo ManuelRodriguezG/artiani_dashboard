@@ -91,6 +91,6 @@
 </div>
 <script src="assets/plugins/global/plugins.bundle.js"></script>
 <script src="assets/js/scripts.bundle.js"></script>
-<script src="/assets/js/custom/apps/erp/inventarios/operacion_erp.js?v=20260727-1"></script>
+<script src="/assets/js/custom/apps/erp/inventarios/operacion_erp.js?v=20260727-2"></script>
 </body>
 </html>
