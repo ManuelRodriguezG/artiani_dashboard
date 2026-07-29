@@ -6974,3 +6974,71 @@ Recomendacion para archivos de proveedor:
 
 - Si el proveedor manda codigos de barras, pedir que esa columna venga como texto.
 - Si se edita en Excel, revisar que el codigo no pierda ceros a la izquierda antes de guardar.
+
+## Decision 2026-07-28 - Analisis de abastecimiento y comparativo de proveedores por SKU
+
+Contexto:
+
+- En pruebas reales se detecto la necesidad operativa de comparar dos o mas proveedores para un mismo producto antes de decidir a quien comprar.
+- Catalogo ya permite que un SKU tenga varios proveedores activos y un proveedor preferido.
+- Proveedores/Listas ya conserva costo, unidad, factor, minimo, dias de entrega y evidencia de listas/costos.
+- Compras consume relaciones comprables y debe guardar snapshot de la decision tomada.
+
+Nombre recomendado:
+
+- Seccion operativa: `Analisis de abastecimiento`.
+- Pantalla principal: `Comparativo de proveedores por SKU`.
+- Flujo puntual dentro de Compras: `Cuadro comparativo de compra` o `comparativo de cotizaciones`, cuando la decision nace desde una solicitud u orden.
+
+Frontera de modulo:
+
+- Proveedores/Listas administra la informacion base: proveedor, relacion SKU-proveedor, lista vigente, costo, moneda, unidad, factor, minimo, dias de entrega y evidencia.
+- Compras usa esa informacion para decidir una compra especifica y guardar snapshot de proveedor elegido, costo, moneda, condiciones y motivo.
+- Costos/Rentabilidad puede consumir el costo elegido o historico para analizar margen, pero no decide a que proveedor comprar.
+- Catalogo conserva la identidad del SKU y no debe elegir proveedor por precio.
+
+Regla de decision:
+
+- El sistema puede sugerir el proveedor mas conveniente, pero no debe marcarlo automaticamente como preferido solo por tener menor costo.
+- La recomendacion debe considerar costo comparable en unidad base, impuestos, moneda, vigencia, minimo de compra, dias de entrega, disponibilidad reportada, proveedor preferido, confiabilidad historica, ultima compra real e incidencias abiertas.
+- El proveedor mas barato no siempre es el mejor si tarda demasiado, tiene minimo alto, lista vencida, baja confiabilidad, unidad/factor dudoso o costo sin evidencia.
+
+Vista recomendada:
+
+- Busqueda por SKU/producto con indicador de cuantos proveedores activos tiene.
+- Tabla comparativa por proveedor con:
+  - proveedor y estatus operativo;
+  - SKU proveedor;
+  - unidad de compra y factor;
+  - costo proveedor capturado;
+  - costo normalizado por unidad base;
+  - moneda e impuestos incluidos/no incluidos;
+  - vigencia y origen del costo;
+  - minimo de compra;
+  - dias de entrega;
+  - existencia reportada si viene de lista;
+  - ultima compra real y variacion contra costo vigente;
+  - proveedor preferido actual;
+  - alertas de datos incompletos o incidencias.
+- Semaforo o score explicable: precio, rapidez, confiabilidad, calidad de datos y riesgo operativo.
+- Acciones controladas:
+  - usar proveedor en solicitud/orden;
+  - solicitar cotizacion;
+  - marcar proveedor preferido con permiso y motivo;
+  - generar pendiente por costo/unidad/factor dudoso;
+  - abrir ficha del proveedor o detalle de lista.
+
+Prioridad sugerida:
+
+1. Fase read-only: comparativo por SKU usando datos existentes, sin cambiar proveedor preferido ni costos.
+2. Integracion con Compras: al agregar partida, mostrar alternativas y permitir elegir proveedor con snapshot.
+3. Recomendacion explicable: calcular costo comparable y alertas operativas.
+4. Cotizaciones formales: registrar solicitud/respuesta de cotizacion por proveedor cuando no haya lista vigente.
+5. Politica de proveedor preferido: permitir cambio con permiso, motivo, auditoria y evidencia.
+
+Pendientes antes de implementacion completa:
+
+- Confirmar si el score usara solo datos internos al inicio o tambien captura manual de confiabilidad/calidad.
+- Definir si disponibilidad reportada por proveedor se considera informacion vigente o solo referencia.
+- Definir reglas de desempate cuando costo, minimo y dias de entrega compitan entre si.
+- Validar permisos: `proveedores.ver`, `proveedores.costos`, `proveedores.autorizar`, `compras.crear` y `compras.editar`.

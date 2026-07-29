@@ -269,7 +269,7 @@
                                         <label class="form-check form-switch form-check-custom form-check-solid"><input class="form-check-input" type="checkbox" name="requiere_escaneo_venta" value="1"><span class="form-check-label">Escanear venta</span></label>
                                     </div>
                                     <div class="col-12 d-flex flex-wrap gap-8">
-                                        <label class="form-check form-switch form-check-custom form-check-solid"><input class="form-check-input" type="checkbox" name="permite_venta_fraccionaria" value="1"><span class="form-check-label" title="Permite vender tambien cantidades parciales desde una unidad abierta.">Tambien venta fraccionaria</span></label>
+                                        <label class="form-check form-switch form-check-custom form-check-solid"><input class="form-check-input" type="checkbox" name="permite_venta_fraccionaria" value="1"><span class="form-check-label" title="Permite vender cantidades parciales desde una unidad abierta.">Venta fraccionaria</span></label>
                                         <label class="form-check form-switch form-check-custom form-check-solid"><input class="form-check-input" type="checkbox" name="permite_etiqueta_fraccionada" value="1"><span class="form-check-label" title="Solo aplica si se generan etiquetas para fracciones o presentaciones preparadas.">Etiqueta fraccion/preparacion</span></label>
                                     </div>
                                     <div class="col-md-3" data-granel-campo><label class="form-label">Precision decimal</label><input class="form-control" type="number" name="precision_decimal" min="0" max="6" step="1" value="0"></div>
@@ -375,6 +375,7 @@
                         <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#catalogo_detalle_skus">SKU</a></li>
                         <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#catalogo_detalle_variantes">Variantes</a></li>
                         <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#catalogo_detalle_presentaciones">Presentaciones</a></li>
+                        <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#catalogo_detalle_aperturas_empaque">Apertura de empaques</a></li>
                         <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#catalogo_detalle_paquetes">Paquetes</a></li>
                         <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#catalogo_detalle_imagenes">Imagenes</a></li>
                         <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#catalogo_detalle_proveedores">Proveedores</a></li>
@@ -499,7 +500,7 @@
                                         <label class="form-check form-switch form-check-custom form-check-solid"><input class="form-check-input" type="checkbox" name="requiere_escaneo_venta" value="1"><span class="form-check-label">Escanear venta</span></label>
                                     </div>
                                     <div class="col-12 d-flex flex-wrap gap-8">
-                                        <label class="form-check form-switch form-check-custom form-check-solid"><input class="form-check-input" type="checkbox" name="permite_venta_fraccionaria" value="1"><span class="form-check-label" title="Permite vender tambien cantidades parciales desde una unidad abierta.">Tambien venta fraccionaria</span></label>
+                                        <label class="form-check form-switch form-check-custom form-check-solid"><input class="form-check-input" type="checkbox" name="permite_venta_fraccionaria" value="1"><span class="form-check-label" title="Permite vender cantidades parciales desde una unidad abierta.">Venta fraccionaria</span></label>
                                         <label class="form-check form-switch form-check-custom form-check-solid"><input class="form-check-input" type="checkbox" name="permite_etiqueta_fraccionada" value="1"><span class="form-check-label" title="Solo aplica si se generan etiquetas para fracciones o presentaciones preparadas.">Etiqueta fraccion/preparacion</span></label>
                                     </div>
                                     <div class="col-md-3" data-granel-campo><label class="form-label">Precision decimal</label><input class="form-control" type="number" name="precision_decimal" min="0" max="6" step="1" value="0"></div>
@@ -621,6 +622,68 @@
                             </form>
                             <?php endif; ?>
                             <div class="alert alert-danger d-none mt-6" id="catalogo_presentaciones_error"></div>
+                        </div>
+                        <div class="tab-pane fade" id="catalogo_detalle_aperturas_empaque">
+                            <div class="alert alert-light-info mb-6">
+                                Define que SKU cerrado puede abrirse y hacia que SKU granel se libera el contenido. Esto solo configura Catalogo; Almacen ejecutara la apertura y los movimientos de inventario.
+                            </div>
+                            <div id="catalogo_aperturas_empaque_estado" class="mb-6"></div>
+                            <div class="table-responsive">
+                                <table class="table align-middle table-row-dashed gy-4">
+                                    <thead><tr class="text-muted fw-bold fs-7 text-uppercase"><th>SKU cerrado origen</th><th>SKU granel destino</th><th>Factor</th><th>Trazabilidad</th><th>Merma</th><th>Estado</th><?php if (SesionSeguridad::tienePermiso('catalogo.editar')): ?><th class="text-end">Accion</th><?php endif; ?></tr></thead>
+                                    <tbody id="catalogo_aperturas_empaque_lista"></tbody>
+                                </table>
+                            </div>
+                            <?php if (SesionSeguridad::tienePermiso('catalogo.editar')): ?>
+                            <div class="separator my-7"></div>
+                            <h3 class="fs-5 mb-5" id="catalogo_apertura_empaque_form_titulo">Configurar apertura de empaque</h3>
+                            <form id="catalogo_form_apertura_empaque" data-erp-ajax="true">
+                                <input type="hidden" name="id_apertura_empaque">
+                                <div class="row g-5">
+                                    <div class="col-md-3">
+                                        <label class="form-label required">SKU cerrado origen</label>
+                                        <select class="form-select" name="id_sku_origen" id="catalogo_apertura_empaque_origen" required></select>
+                                        <div class="form-text">SKU fisico cerrado que Almacen va a abrir.</div>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <label class="form-label required">SKU granel destino</label>
+                                        <select class="form-select" name="id_sku_destino" id="catalogo_apertura_empaque_destino" required></select>
+                                        <div class="form-text">SKU que recibira el contenido abierto y debe permitir venta fraccionaria.</div>
+                                    </div>
+                                    <div class="col-md-2">
+                                        <label class="form-label required">Factor apertura</label>
+                                        <input class="form-control" type="number" name="factor_conversion" min="0.000001" step="0.000001" value="1" required>
+                                        <div class="form-text">Cantidad destino generada por 1 unidad cerrada origen.</div>
+                                    </div>
+                                    <div class="col-md-2">
+                                        <label class="form-label">Merma default %</label>
+                                        <input class="form-control" type="number" name="merma_porcentaje_default" min="0" max="99.9999" step="0.0001" value="0">
+                                        <div class="form-text">Sugerida para Almacen; puede quedar en 0.</div>
+                                    </div>
+                                    <div class="col-md-2">
+                                        <label class="form-label">Estado</label>
+                                        <select class="form-select" name="estatus"><option value="activo">Activo</option><option value="inactivo">Inactivo</option></select>
+                                        <div class="form-text">Inactivo conserva historial sin usar la regla.</div>
+                                    </div>
+                                    <div class="col-12 d-flex flex-wrap gap-8">
+                                        <label class="form-check form-switch form-check-custom form-check-solid"><input class="form-check-input" type="checkbox" name="requiere_unidad_fisica" value="1" checked><span class="form-check-label">Requiere unidad fisica origen</span></label>
+                                        <label class="form-check form-switch form-check-custom form-check-solid"><input class="form-check-input" type="checkbox" name="conserva_lote" value="1" checked><span class="form-check-label">Conserva lote</span></label>
+                                        <label class="form-check form-switch form-check-custom form-check-solid"><input class="form-check-input" type="checkbox" name="conserva_caducidad" value="1" checked><span class="form-check-label">Conserva caducidad</span></label>
+                                        <label class="form-check form-switch form-check-custom form-check-solid"><input class="form-check-input" type="checkbox" name="permite_merma" value="1" checked><span class="form-check-label">Permite merma</span></label>
+                                    </div>
+                                    <div class="col-12">
+                                        <label class="form-label">Instrucciones operativas</label>
+                                        <textarea class="form-control" name="instrucciones_operativas" rows="2" maxlength="1000" placeholder="Ej. abrir solo en tienda, pesar saldo real, conservar etiqueta origen"></textarea>
+                                        <div class="form-text">Nota visible para Almacen cuando ejecute apertura. No afecta inventario desde Catalogo.</div>
+                                    </div>
+                                </div>
+                                <div class="text-end mt-6">
+                                    <button class="btn btn-light d-none" type="button" id="catalogo_cancelar_edicion_apertura_empaque">Cancelar edicion</button>
+                                    <button class="btn btn-primary" type="submit" id="catalogo_apertura_empaque_guardar"><i class="bi bi-box-arrow-in-down"></i> Guardar apertura</button>
+                                </div>
+                            </form>
+                            <?php endif; ?>
+                            <div class="alert alert-danger d-none mt-6" id="catalogo_aperturas_empaque_error"></div>
                         </div>
                         <div class="tab-pane fade" id="catalogo_detalle_paquetes">
                             <div class="alert alert-light-info mb-6">

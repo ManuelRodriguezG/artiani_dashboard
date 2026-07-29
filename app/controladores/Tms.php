@@ -140,6 +140,18 @@ class Tms extends Controlador {
 
   /**
    * IA: Codex GPT-5
+   * Fecha: 2026-07-28
+   * Proposito: prevalidar una solicitud logistica nacida en POS/Ventas sin crear servicio real.
+   * Impacto: TMS Delivery y POS; formaliza a POS como solicitante logistico, no como dependencia de TMS.
+   * Contrato: dry-run protegido por `tms.crear`; no confirma ventas, no cobra productos, no crea TMS y no mueve inventario.
+   */
+  public function servicio_pos_dryrun_erp() {
+    $this->requerirPermiso("tms.crear");
+    return json_encode($this->modelo("TmsDelivery")->servicioDesdePosDryRun($_POST));
+  }
+
+  /**
+   * IA: Codex GPT-5
    * Fecha: 2026-07-24
    * Proposito: crear servicio logistico TMS cuando el esquema ya exista.
    * Impacto: TMS Delivery; habilita folio independiente sin afectar Ventas, garantias ni inventario.

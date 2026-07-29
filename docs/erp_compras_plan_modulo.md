@@ -43,6 +43,98 @@ La estrategia actual es construir todo en ERP, sin depender de tablas `ecom_*`. 
 - El modulo debe poder consultarse en modo solo lectura sin riesgo de editar.
 - Las ordenes en borrador pueden capturar productos propuestos; al enviar, todo producto fisico inventariable debe tener SKU ERP. Solo cargos/servicios no inventariables pueden avanzar sin SKU ERP.
 
+## Decision operativa: lista del proveedor como origen de captura
+
+Documentacion IA: Codex GPT-5  
+Fecha: 2026-07-28  
+Proposito: ajustar Solicitudes y Ordenes para capturar compras desde el lenguaje del proveedor sin perder control interno de catalogo.  
+Impacto: Solicitudes, Ordenes, XML, autorizacion de costos, pendientes de Catalogo/Proveedores y futura recepcion de Almacen.
+
+Decision:
+
+- Solicitudes y Ordenes deben buscar y mostrar productos desde la lista del proveedor como fuente principal de captura.
+- El capturista debe ver primero `sku_proveedor`, `nombre_proveedor`, `unidad_compra` y costo del proveedor.
+- El SKU ERP del catalogo es una relacion interna obligatoria para productos fisicos inventariables, no el texto principal para pedir al proveedor.
+- No se deben permitir productos fisicos sin SKU ERP relacionado en solicitudes u ordenes. Si un producto del proveedor no esta relacionado, debe generar pendiente para Catalogo/Proveedores, pero no debe agregarse a la solicitud como partida comprable.
+- El costo mostrado puede ser el costo de lista del proveedor si aun no existe historial de compra.
+- Conforme se registren compras reales, el costo debe actualizarse o proponer actualizacion desde los documentos de compra, respetando auditoria y autorizacion.
+- No es necesario que un `sku_proveedor` apunte a varios `sku_erp` en el flujo actual. Si el proveedor usa el mismo SKU para varios colores o variantes, la lista del proveedor debe conservar su SKU y descripcion reales, pero el ERP solo debe permitir seleccionar las relaciones que ya esten definidas de forma operativa.
+- Para evitar confusion, el buscador debe diferenciar coincidencias exactas y parciales, y debe mostrar claramente el producto de proveedor y el SKU ERP relacionado.
+
+Regla para autorizacion:
+
+- La autorizacion de una solicitud debe calcularse con el costo vigente disponible de la relacion proveedor-producto.
+- Si no hay costo de compra historico, se usa el costo de lista como costo estimado inicial.
+- Si no hay costo valido, la partida no debe avanzar a autorizacion sin correccion de la lista o relacion.
+
+Regla para pendientes:
+
+- Producto de proveedor sin relacion SKU ERP: pendiente para Catalogo/Proveedores.
+- Producto de proveedor con relacion pero sin costo valido: pendiente de costo/lista proveedor.
+- Producto solicitado anteriormente pero no seleccionado en nueva captura/XML: pendiente de seguimiento para futura solicitud, no eliminacion silenciosa.
+
+## Decision operativa: plantillas imprimibles de Compras
+
+Documentacion IA: Codex GPT-5  
+Fecha: 2026-07-28  
+Proposito: permitir imprimir o compartir solicitudes/ordenes con distinta informacion segun audiencia.  
+Impacto: Solicitudes, Ordenes, documentos internos, documentos para proveedor, permisos, logo y configuracion futura de formato.
+
+Decision:
+
+- La configuracion debe vivir en el modulo de Compras, porque define como se imprimen documentos propios de Compras.
+- No debe mezclarse con configuracion global hasta que exista una administracion transversal de marca/empresa.
+- Deben existir plantillas por tipo de documento y audiencia:
+  - `solicitud_compra_interna`
+  - `solicitud_compra_proveedor`
+  - `orden_compra_interna`
+  - `orden_compra_proveedor`
+- La version interna puede mostrar costos, totales, impuestos, observaciones internas, usuario solicitante, aprobaciones y evidencia de autorizacion.
+- La version para proveedor debe mostrar por defecto solo datos operativos:
+  - logo de la empresa si esta configurado,
+  - folio,
+  - fecha,
+  - proveedor,
+  - SKU proveedor,
+  - descripcion del proveedor,
+  - unidad,
+  - cantidad,
+  - observacion publica.
+- La version para proveedor no debe mostrar por defecto:
+  - costo estimado,
+  - costo con/sin impuestos,
+  - totales internos,
+  - margen/utilidad,
+  - SKU ERP,
+  - nombre interno ERP,
+  - observaciones internas.
+- Los costos solo se deben mostrar al proveedor si una plantilla autorizada lo habilita explicitamente.
+
+Tablas propuestas:
+
+- `erp_compras_documentos_plantillas`
+  - Identifica la plantilla: codigo, tipo_documento, audiencia, nombre, descripcion, estatus, es_default.
+- `erp_compras_documentos_plantillas_config`
+  - Guarda opciones visibles: mostrar_logo, logo_ruta, mostrar_costos, mostrar_impuestos, mostrar_totales, mostrar_sku_erp, mostrar_sku_proveedor, mostrar_nombre_erp, mostrar_nombre_proveedor, mostrar_observaciones_internas, mostrar_observaciones_publicas, columnas_json, estilos_json, pie_pagina.
+- Futuro opcional: `erp_compras_documentos_generados`
+  - Snapshot del documento emitido/descargado/enviado, con plantilla usada, usuario, fecha y hash del HTML/PDF cuando se requiera trazabilidad.
+
+Regla de permisos:
+
+- Ver/imprimir documentos internos requiere `compras.ver`.
+- Configurar plantillas requiere un permiso puntual futuro, recomendado: `compras.documentos.configurar`.
+- Imprimir documento para proveedor puede requerir `compras.ver`, pero si incluye costos o totales debe validar permiso operativo de aprobacion o configuracion definida.
+
+Primera fase recomendada:
+
+- Crear dry-run de esquema para las dos tablas de plantillas.
+- Crear configuracion semilla en codigo, no en migracion automatica, para las cuatro plantillas base.
+- Agregar boton/modal en solicitud:
+  - plantilla: interna / proveedor,
+  - mostrar logo,
+  - mostrar costos si la plantilla lo permite.
+- Generar primero HTML imprimible; PDF puede quedar como fase posterior.
+
 ## Estado actual implementado
 
 ### Solicitudes de compra

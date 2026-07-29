@@ -1741,6 +1741,82 @@
             folio_excepcion: excepcionActiva && excepcionActiva.folio ? excepcionActiva.folio : ""
         };
     }
+    /**
+     * IA: Codex GPT-5 | Fecha: 2026-07-28
+     * Proposito: armar snapshot logistico POS para prevalidar TMS sin tocar cobro ni venta real.
+     * Impacto: POS puede revisar delivery separado del producto; no se envia a `pos_confirmar_erp`.
+     */
+    function payloadTmsPosDryRun() {
+        var detalle = carrito.map(function (item, index) {
+            return {
+                referencia_item_origen: "pos-renglon-" + (index + 1),
+                id_sku_erp: item.id_sku || "",
+                id_inventario_unidad: item.id_inventario_unidad || "",
+                cantidad: cantidad(item.cantidad),
+                descripcion_snapshot: item.descripcion_manual || item.descripcion || item.sku || ("Partida POS " + (index + 1)),
+                requiere_cuidado_especial: 0
+            };
+        });
+        return {
+            solicitado_por_tipo: tipoDocumentoActual() === "venta" ? "pos_venta" : (tipoDocumentoActual() === "apartado" ? "apartado_pos" : "pedido_pos"),
+            tipo_servicio: document.getElementById("pos_tms_tipo").value || "entrega_programada",
+            prioridad: document.getElementById("pos_tms_prioridad").value || "normal",
+            estatus_cobro: document.getElementById("pos_tms_cobro").value || "por_cobrar",
+            precio_cobrado: document.getElementById("pos_tms_precio").value || "0",
+            cliente_nombre_snapshot: clientePublico(),
+            cliente_contacto_snapshot: identificadorClienteActivo(),
+            direccion_snapshot: document.getElementById("pos_tms_direccion").value.trim(),
+            zona_snapshot: document.getElementById("pos_tms_zona").value.trim(),
+            fecha_programada: document.getElementById("pos_tms_fecha").value,
+            ventana_inicio: document.getElementById("pos_tms_ventana_inicio").value,
+            ventana_fin: document.getElementById("pos_tms_ventana_fin").value,
+            detalle: JSON.stringify(detalle)
+        };
+    }
+    function alternarTmsPos() {
+        var activo = document.getElementById("pos_tms_activo").checked;
+        document.getElementById("pos_tms_campos").classList.toggle("d-none", !activo);
+        if (!activo) {
+            document.getElementById("pos_tms_resultado").innerHTML = "";
+        }
+    }
+    function prevalidarTmsPos() {
+        if (!document.getElementById("pos_tms_activo").checked) {
+            document.getElementById("pos_tms_resultado").innerHTML = "<div class=\"alert alert-warning py-2 mb-0\">Activa Entrega TMS antes de prevalidar.</div>";
+            return;
+        }
+        if (!carrito.length) {
+            document.getElementById("pos_tms_resultado").innerHTML = "<div class=\"alert alert-warning py-2 mb-0\">Agrega partidas antes de prevalidar delivery.</div>";
+            return;
+        }
+        document.getElementById("pos_tms_resultado").innerHTML = "<div class=\"alert alert-info py-2 mb-0\"><span class=\"spinner-border spinner-border-sm me-2\"></span>Prevalidando TMS...</div>";
+        request("/tms/servicio_pos_dryrun_erp", payloadTmsPosDryRun()).then(function (response) {
+            if (response.error) { throw new Error(response.mensaje); }
+            renderTmsPosDryRun(response);
+        }).catch(function (error) {
+            document.getElementById("pos_tms_resultado").innerHTML = "<div class=\"alert alert-warning py-2 mb-0\">" + escapeHtml(error.message || String(error)) + "</div>";
+        });
+    }
+    function renderTmsPosDryRun(response) {
+        var depurar = response.depurar || {};
+        var bloqueos = depurar.bloqueos || [];
+        var advertencias = depurar.advertencias || [];
+        var preview = depurar.servicio_preview || {};
+        var clase = bloqueos.length ? "alert-warning" : "alert-success";
+        var html = "<div class=\"alert " + clase + " py-2 mb-0\">" +
+            "<div class=\"fw-bold mb-1\">" + escapeHtml(response.mensaje || "Prevalidacion TMS") + "</div>" +
+            "<div class=\"fs-8\">Tipo: " + escapeHtml(preview.tipo_servicio || "-") +
+            " | Cobro logistico: " + dinero(preview.precio_cobrado || 0) +
+            " | Resultado inicial: " + escapeHtml(preview.resultado_logistico || "pendiente") + "</div>";
+        if (bloqueos.length) {
+            html += "<ul class=\"mb-0 mt-2 ps-4\">" + bloqueos.map(function (item) { return "<li>" + escapeHtml(item) + "</li>"; }).join("") + "</ul>";
+        }
+        if (advertencias.length) {
+            html += "<ul class=\"mb-0 mt-2 ps-4 text-muted\">" + advertencias.map(function (item) { return "<li>" + escapeHtml(item) + "</li>"; }).join("") + "</ul>";
+        }
+        html += "<div class=\"fs-8 text-muted mt-2\">Vista previa solamente: no crea folio TMS ni modifica la venta.</div></div>";
+        document.getElementById("pos_tms_resultado").innerHTML = html;
+    }
     function enviarValidacion(url, renderer) {
         request(url, payloadVentaPos()).then(function (response) {
             if (response.error) { throw new Error(response.mensaje); }
@@ -3105,6 +3181,8 @@
         document.getElementById("pos_prevalidar").addEventListener("click", prevalidar);
         document.getElementById("pos_dryrun").addEventListener("click", dryRunConfirmacion);
         document.getElementById("pos_inventario_pendiente_dryrun").addEventListener("click", inventarioPendienteDryRun);
+        document.getElementById("pos_tms_activo").addEventListener("change", alternarTmsPos);
+        document.getElementById("pos_tms_dryrun").addEventListener("click", prevalidarTmsPos);
         document.getElementById("pos_cobrar_real").addEventListener("click", cobrarReal);
         document.getElementById("pos_pedido_dryrun").addEventListener("click", dryRunPedidoReserva);
         document.getElementById("pos_ticket_preview").addEventListener("click", ticketPreview);

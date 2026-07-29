@@ -50,12 +50,24 @@ Notas de cierre:
 - [x] Unificar endpoint de consulta de SKUs para que siempre use `erp_catalogo_sku_proveedores` como fuente confiable, y mostrar sugerencias de listas auxiliares con marca clara de no confiable.
 - [x] Cerrar reglas de apertura de edicion para estatus no editables: backend valida y la UI desactiva captura fuera de `borrador`.
 - [x] Asegurar que la solicitud rechazada/cancelada no pueda generar orden por ningun camino del flujo ERP nuevo.
+- [x] Ajustar captura de Solicitudes para que la lista del proveedor sea el origen visual principal: `sku_proveedor`, `nombre_proveedor`, `unidad_compra` y costo de lista/historico.
+- [x] Bloquear partidas fisicas sin SKU ERP relacionado desde Solicitudes. La deteccion debe generar pendiente para Catalogo/Proveedores, pero no agregar la partida a la solicitud.
+- [ ] Diferenciar coincidencias exactas y parciales del buscador del proveedor para evitar seleccionar variantes o productos parecidos por error.
+- [x] Usar costo de lista proveedor cuando no exista compra historica; conforme existan compras, usar/proponer costo actualizado con trazabilidad.
 
 Evidencia 2026-06-15:
 
 - `OrdenesCompraErp::crearDesdeSolicitud` solo genera orden si la solicitud esta `aprobada` y no tiene orden activa.
 - `public/assets/js/custom/apps/erp/compras/solicitudes/formulario.js` solo muestra editar para `borrador` y generar orden para `aprobada` sin orden relacionada.
 - Las rutas legadas `cambio_estatus_solicitud_de_compra` y `generar_orden_de_compra` estan deshabilitadas antes de ejecutar logica antigua.
+
+Decision vigente 2026-07-28:
+
+- Compras/Solicitudes deben hablar el lenguaje del proveedor, pero solo productos fisicos con relacion SKU ERP activa pueden agregarse como partidas comprables.
+- La regla anterior de guardar productos fisicos sin SKU ERP en borrador queda restringida: debe convertirse en pendiente accionable, no en partida operativa de solicitud.
+- Cargos, servicios y no inventariables siguen siendo excepcion solo en Ordenes cuando no afectan inventario.
+- Cierre 2026-07-28: Solicitudes muestra y guarda snapshot de `sku_proveedor`/descripcion de lista como texto principal, conserva SKU ERP como referencia secundaria y oculta captura de producto sugerido.
+- Cierre 2026-07-28: Busqueda comprable exige evidencia en `erp_proveedores_listas_detalle_erp` del mismo proveedor; ya no basta una relacion activa en `erp_catalogo_sku_proveedores` si el producto no esta respaldado por lista del proveedor.
 
 ---
 
@@ -86,6 +98,7 @@ Evidencia 2026-06-15:
   - La logica actual esta en `Proveedores::skusComprablesParaComprasErp()` y puede filtrar solo por catalogo activo del proveedor.
   - Confirmar que `erp_catalogo_sku_proveedores` tenga el mapeo activo de todos los productos esperados del proveedor antes de asumir un problema de UI.
   - Cierre 2026-06-15: Solicitudes y Ordenes consumen `Proveedores::skusComprablesParaComprasErp()`; no se activa fallback legacy en Compras para no mezclar productos no confiables. La UI ya indica cuando falta relacion activa proveedor-SKU.
+- Pendiente 2026-07-28: ajustar Ordenes para conservar el mismo criterio de Solicitudes: origen visual desde lista proveedor, relacion SKU ERP obligatoria para productos fisicos, costo de lista como base cuando no haya compra historica.
 - Revisar y unificar en una sola pantalla de partidas la conciliacion visible: eliminar duplicidad operativa entre tabla principal y tabla auxiliar de XML.
 - Cierre 2026-06-15: Ordenes permite clasificar partidas sin SKU ERP como `servicio`, `cargo`, `adicional` o `no_inventariable`; esas partidas impactan totales pero no bloquean envio ni cuentan como producto pendiente de alta.
 - Cierre 2026-06-17: Ordenes agrega captura directa de cargo/servicio no inventariable dentro del bloque de productos, para no depender de XML ni de trucos de reclasificacion al capturar flete, maniobra, empaque u otros cargos de factura.
@@ -111,7 +124,36 @@ Evidencia 2026-06-15:
 
 ---
 
-## 3) Cross-cutting para modulo Compras (para pruebas reales)
+## 3) Documentos imprimibles de Compras
+
+Documentacion IA: Codex GPT-5  
+Fecha: 2026-07-28  
+Objetivo: permitir imprimir o compartir solicitudes y ordenes con informacion configurable segun audiencia, sin exponer costos internos por accidente.
+
+- [x] Diseñar esquema dry-run para `erp_compras_documentos_plantillas` y `erp_compras_documentos_plantillas_config`.
+- [x] Definir plantillas base:
+  - `solicitud_compra_interna`
+  - `solicitud_compra_proveedor`
+  - `orden_compra_interna`
+  - `orden_compra_proveedor`
+- [x] Crear endpoints de consulta/guardado de configuracion con permiso puntual recomendado `compras.documentos.configurar`.
+- [x] Agregar vista configurable en Compras: `/compra/documentos_configuracion`.
+- [x] Agregar impresion HTML de solicitud con seleccion de plantilla.
+- [x] Agregar impresion HTML de orden con seleccion de plantilla.
+- [x] Validar que la plantilla para proveedor oculte por defecto costos, impuestos internos, margen/utilidad, SKU ERP y observaciones internas.
+- [x] Permitir logo configurable por plantilla en primera fase mediante `logo_ruta`, dejando configuracion global de marca como fase futura.
+- [ ] Definir fase posterior para PDF y snapshot en `erp_compras_documentos_generados` si se requiere trazabilidad de documentos emitidos.
+
+Decision vigente:
+
+- La configuracion vive en Compras porque el documento cambia segun proceso: solicitud u orden, interno o proveedor.
+- El documento para proveedor debe usar el lenguaje del proveedor: SKU proveedor, descripcion proveedor, unidad, cantidad y observacion publica.
+- El documento interno puede mostrar costos, impuestos, totales, aprobaciones, usuario solicitante, SKU ERP y observaciones internas.
+- Mostrar costos al proveedor debe ser una configuracion explicita, no el comportamiento por defecto.
+
+---
+
+## 4) Cross-cutting para modulo Compras (para pruebas reales)
 
 - [x] Verificar permisos finos por accion en rutas clave de `app/controladores/Compra.php`:
   - `compras.ver/compras.crear/compras.editar/compras.aprobar/compras.cancelar/compras.adjuntos`
@@ -175,7 +217,7 @@ Plantilla de evidencia:
 
 ---
 
-## 4) Siguiente autorizacion recomendada
+## 5) Siguiente autorizacion recomendada
 
 La siguiente autorizacion no deberia ser de codigo ni de esquema; deberia ser de prueba operativa controlada.
 
@@ -202,7 +244,7 @@ No cambies codigo salvo que aparezca un error real durante la prueba.
 Primero guiame paso a paso y registra el resultado en la matriz UAT.
 ```
 
-## 5) Tareas de limpieza documental (opcional para ordenar tu repo)
+## 6) Tareas de limpieza documental (opcional para ordenar tu repo)
 
 Se recomienda conservar como vivos:
 

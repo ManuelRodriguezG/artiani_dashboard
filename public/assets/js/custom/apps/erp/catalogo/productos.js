@@ -631,14 +631,19 @@
             renderImagenes(response.depurar.imagenes || []);
             renderProveedores(response.depurar.proveedores || []);
             renderPresentaciones(response.depurar.presentaciones || []);
+            renderAperturasEmpaque(response.depurar.aperturas_empaque || {esquema_disponible: false, items: []});
             renderPaquetes(response.depurar.paquetes || {});
             renderVariantes(response.depurar.skus || [], response.depurar.variantes || {});
             precargarSkuBase(response.depurar.skus || []);
             var skusOperativosDetalle = skusOperativos(response.depurar.skus || []);
+            var skusOrigenApertura = skusCandidatosOrigenApertura(skusOperativosDetalle);
+            var skusDestinoApertura = skusCandidatosDestinoApertura(skusOperativosDetalle);
             llenarSelect("catalogo_proveedor_sku", skusOperativosDetalle, "id_sku", etiquetaSku, false);
             llenarSelect("catalogo_imagen_sku", skusOperativosDetalle, "id_sku", etiquetaSku, true);
             llenarSelect("catalogo_presentacion_base", skusOperativosDetalle, "id_sku", etiquetaSku, false);
             llenarSelect("catalogo_presentacion_sku", skusOperativosDetalle, "id_sku", etiquetaSku, false);
+            llenarSelect("catalogo_apertura_empaque_origen", skusOrigenApertura, "id_sku", etiquetaSku, false);
+            llenarSelect("catalogo_apertura_empaque_destino", skusDestinoApertura, "id_sku", etiquetaSku, false);
             llenarSelect("catalogo_paquete_sku", skusOperativosDetalle, "id_sku", etiquetaSku, false);
             actualizarFormularioSkuPaqueteInline(skusOperativosDetalle);
             llenarSelect("catalogo_paquete_opcion_sku", [], "id_sku", etiquetaSku, true);
@@ -658,6 +663,23 @@
      * Proposito: abre el modal directamente en la pestaña que corresponde al pendiente seleccionado.
      * Impacto: Catalogo ERP; reduce pasos al sanear productos migrados.
      */
+    /**
+     * IA: Codex GPT-5 | Fecha: 2026-07-28
+     * Proposito: separa candidatos de origen cerrado y destino granel en Apertura de empaques.
+     * Impacto: Catalogo ERP; reduce errores al configurar conversion cerrado -> granel sin tocar Inventario.
+     * Contrato: origen excluye SKUs fraccionarios; destino requiere venta fraccionaria activa.
+     */
+    function skusCandidatosOrigenApertura(skus) {
+        return (skus || []).filter(function (sku) {
+            return String(sku.permite_venta_fraccionaria || "0") !== "1";
+        });
+    }
+
+    function skusCandidatosDestinoApertura(skus) {
+        return (skus || []).filter(function (sku) {
+            return String(sku.permite_venta_fraccionaria || "0") === "1";
+        });
+    }
     function activarTabDetalle(tabId) {
         var modal = document.getElementById("catalogo_modal_detalle");
         if (!modal || !tabId) {
@@ -705,6 +727,7 @@
             setValor(variantesForm, "id_producto_erp", producto.id_producto_erp);
         }
         var presentacionForm = document.getElementById("catalogo_form_presentacion");
+        var aperturaEmpaqueForm = document.getElementById("catalogo_form_apertura_empaque");
         if (presentacionForm) {
             limpiarFormularioPresentacion();
         }
@@ -1621,6 +1644,56 @@
      * Proposito: muestra la configuracion de paquetes sin permitir captura antes de aplicar el esquema autorizado.
      * Impacto: Catalogo ERP; separa receta de paquete de Ventas y Almacen/Inventario.
      */
+
+    /**
+     * IA: Codex GPT-5 | Fecha: 2026-07-28
+     * Proposito: muestra reglas de apertura de empaques en una pestana separada de Presentaciones.
+     * Impacto: UI de Catalogo ERP; prepara contrato para Almacen sin ejecutar movimientos.
+     * Contrato: soporta esquema_disponible=false para no romper el modal antes del DDL autorizado.
+     */
+    function renderAperturasEmpaque(aperturasInfo) {
+        var estado = document.getElementById("catalogo_aperturas_empaque_estado");
+        var lista = document.getElementById("catalogo_aperturas_empaque_lista");
+        if (!estado || !lista) {
+            return;
+        }
+        var puedeEditar = !!document.getElementById("catalogo_form_apertura_empaque");
+        var items = Array.isArray(aperturasInfo) ? aperturasInfo : (aperturasInfo.items || []);
+        if (aperturasInfo && aperturasInfo.esquema_disponible === false) {
+            estado.className = "alert alert-light-warning mb-6";
+            estado.innerHTML = "<div class=\"fw-bold mb-1\">" + escapeHtml(aperturasInfo.mensaje || "Apertura de empaques pendiente") + "</div>" +
+                "<div class=\"text-muted fs-8\">Se puede revisar la pantalla, pero el guardado real requiere aplicar DDL con respaldo externo y autorizacion.</div>";
+            lista.innerHTML = "<tr><td colspan=\"" + (puedeEditar ? "7" : "6") + "\" class=\"text-center text-muted py-7\">Sin tabla de apertura de empaques aplicada</td></tr>";
+            return;
+        }
+        estado.className = "d-none";
+        estado.innerHTML = "";
+        lista.innerHTML = items.map(function (item) {
+            var acciones = puedeEditar
+                ? "<div class=\"d-flex justify-content-end gap-2\"><button type=\"button\" class=\"btn btn-sm btn-icon btn-light-primary\" title=\"Editar\" data-editar-apertura-empaque=\"" + escapeAttr(item.id_apertura_empaque) + "\"><i class=\"bi bi-pencil-square\"></i></button>" +
+                  (item.estatus === "activo" ? "<button type=\"button\" class=\"btn btn-sm btn-icon btn-light-danger\" title=\"Desactivar\" data-desactivar-apertura-empaque=\"" + escapeAttr(item.id_apertura_empaque) + "\"><i class=\"bi bi-eye-slash\"></i></button>" : "") + "</div>"
+                : "";
+            var trazabilidad = [];
+            if (String(item.requiere_unidad_fisica) === "1") {
+                trazabilidad.push("Unidad fisica");
+            }
+            if (String(item.conserva_lote) === "1") {
+                trazabilidad.push("Lote");
+            }
+            if (String(item.conserva_caducidad) === "1") {
+                trazabilidad.push("Caducidad");
+            }
+            return "<tr>" +
+                "<td><div class=\"fw-bold\">" + escapeHtml(item.sku_origen || "") + "</div><span class=\"text-muted fs-7\">" + escapeHtml(item.nombre_origen || "") + "</span></td>" +
+                "<td><div class=\"fw-bold\">" + escapeHtml(item.sku_destino || "") + "</div><span class=\"text-muted fs-7\">" + escapeHtml(item.nombre_destino || "") + "</span></td>" +
+                "<td>" + escapeHtml(item.factor_conversion || "") + " " + escapeHtml(item.unidad_destino || "") + "</td>" +
+                "<td>" + (trazabilidad.length ? trazabilidad.map(function (texto) { return "<span class=\"badge badge-light-info me-1\">" + escapeHtml(texto) + "</span>"; }).join("") : "<span class=\"text-muted\">Sin reglas</span>") + "</td>" +
+                "<td>" + (String(item.permite_merma) === "1" ? "Si" : "No") + "<div class=\"text-muted fs-7\">" + escapeHtml(item.merma_porcentaje_default || "0") + "%</div></td>" +
+                "<td><span class=\"badge badge-light-" + (item.estatus === "activo" ? "success" : "secondary") + "\">" + escapeHtml(item.estatus || "") + "</span></td>" +
+                (puedeEditar ? "<td class=\"text-end\">" + acciones + "</td>" : "") +
+                "</tr>";
+        }).join("") || "<tr><td colspan=\"" + (puedeEditar ? "7" : "6") + "\" class=\"text-center text-muted py-7\">Sin aperturas de empaque configuradas</td></tr>";
+    }
     function renderPaquetes(paquetesInfo) {
         var estado = document.getElementById("catalogo_paquetes_estado");
         var lista = document.getElementById("catalogo_paquetes_lista");
@@ -2947,6 +3020,109 @@
         });
     }
 
+
+    /**
+     * IA: Codex GPT-5 | Fecha: 2026-07-28
+     * Proposito: guarda una regla de apertura de empaque desde Catalogo sin mezclarla con presentaciones.
+     * Impacto: UI de Catalogo ERP; Almacen consumira la configuracion despues.
+     */
+    function guardarAperturaEmpaque(event) {
+        event.preventDefault();
+        var currentForm = event.currentTarget;
+        var error = document.getElementById("catalogo_aperturas_empaque_error");
+        var origen = currentForm.querySelector("[name='id_sku_origen']").value;
+        var destino = currentForm.querySelector("[name='id_sku_destino']").value;
+        var factor = Number(currentForm.querySelector("[name='factor_conversion']").value || 0);
+        var merma = Number(currentForm.querySelector("[name='merma_porcentaje_default']").value || 0);
+        if (origen && destino && origen === destino) {
+            mostrarError(error, new Error("El SKU origen y el destino no pueden ser el mismo"));
+            return;
+        }
+        if (factor <= 0) {
+            mostrarError(error, new Error("El factor de apertura debe ser mayor a cero"));
+            return;
+        }
+        if (merma < 0 || merma >= 100) {
+            mostrarError(error, new Error("La merma default debe estar entre 0 y menor a 100"));
+            return;
+        }
+        enviarFormulario(currentForm, "/catalogoerp/guardar_sku_apertura_empaque", error, function () {
+            limpiarFormularioAperturaEmpaque();
+            abrirDetalle(productoActualId, "catalogo_detalle_aperturas_empaque");
+        });
+    }
+
+    function editarAperturaEmpaque(id) {
+        var form = document.getElementById("catalogo_form_apertura_empaque");
+        var info = detalleActual.aperturas_empaque || {};
+        var items = Array.isArray(info) ? info : (info.items || []);
+        var item = items.find(function (apertura) {
+            return String(apertura.id_apertura_empaque) === String(id);
+        });
+        if (!form || !item) {
+            return;
+        }
+        setValor(form, "id_apertura_empaque", item.id_apertura_empaque);
+        setValor(form, "id_sku_origen", item.id_sku_origen);
+        setValor(form, "id_sku_destino", item.id_sku_destino);
+        setValor(form, "factor_conversion", item.factor_conversion || "1");
+        setValor(form, "merma_porcentaje_default", item.merma_porcentaje_default || "0");
+        setValor(form, "instrucciones_operativas", item.instrucciones_operativas || "");
+        setValor(form, "estatus", item.estatus || "activo");
+        setChecked(form, "requiere_unidad_fisica", item.requiere_unidad_fisica);
+        setChecked(form, "conserva_lote", item.conserva_lote);
+        setChecked(form, "conserva_caducidad", item.conserva_caducidad);
+        setChecked(form, "permite_merma", item.permite_merma);
+        actualizarModoAperturaEmpaque(true);
+        form.scrollIntoView({behavior: "smooth", block: "start"});
+    }
+
+    function limpiarFormularioAperturaEmpaque() {
+        var form = document.getElementById("catalogo_form_apertura_empaque");
+        if (!form) {
+            return;
+        }
+        form.reset();
+        setValor(form, "id_apertura_empaque", "");
+        setValor(form, "factor_conversion", "1");
+        setValor(form, "merma_porcentaje_default", "0");
+        setValor(form, "estatus", "activo");
+        ["requiere_unidad_fisica", "conserva_lote", "conserva_caducidad", "permite_merma"].forEach(function (name) {
+            var input = form.querySelector("[name='" + name + "']");
+            if (input) {
+                input.checked = true;
+            }
+        });
+        actualizarModoAperturaEmpaque(false);
+    }
+
+    function actualizarModoAperturaEmpaque(editando) {
+        var titulo = document.getElementById("catalogo_apertura_empaque_form_titulo");
+        var boton = document.getElementById("catalogo_apertura_empaque_guardar");
+        var cancelar = document.getElementById("catalogo_cancelar_edicion_apertura_empaque");
+        if (titulo) {
+            titulo.textContent = editando ? "Editar apertura de empaque" : "Configurar apertura de empaque";
+        }
+        if (boton) {
+            boton.innerHTML = editando ? "<i class=\"bi bi-check-lg\"></i> Guardar cambios" : "<i class=\"bi bi-box-arrow-in-down\"></i> Guardar apertura";
+        }
+        if (cancelar) {
+            cancelar.classList.toggle("d-none", !editando);
+        }
+    }
+
+    function desactivarAperturaEmpaque(id) {
+        request("/catalogoerp/desactivar_sku_apertura_empaque", {
+            id_apertura_empaque: id
+        }).then(function (response) {
+            if (response.error) {
+                throw new Error(response.mensaje);
+            }
+            abrirDetalle(productoActualId, "catalogo_detalle_aperturas_empaque");
+        }).catch(function (error) {
+            mostrarError(document.getElementById("catalogo_aperturas_empaque_error"), error);
+        });
+    }
     function guardarVariantes(event) {
         event.preventDefault();
         var currentForm = event.currentTarget;
@@ -3508,6 +3684,7 @@
         var proveedorUnicoPreferido = document.getElementById("catalogo_proveedor_unico_preferido");
         var variantesForm = document.getElementById("catalogo_form_variantes");
         var presentacionForm = document.getElementById("catalogo_form_presentacion");
+        var aperturaEmpaqueForm = document.getElementById("catalogo_form_apertura_empaque");
         var temporalForm = document.getElementById("catalogo_form_sku_temporal");
         var prepararVariantes = document.getElementById("catalogo_preparar_variante");
         var cancelarSku = document.getElementById("catalogo_cancelar_edicion_sku");
@@ -3516,6 +3693,7 @@
         var auditarImagenesEcom = document.getElementById("catalogo_imagenes_ecommerce_auditar");
         var recuperarImagenesEcom = document.getElementById("catalogo_imagenes_ecommerce_recuperar");
         var cancelarPresentacion = document.getElementById("catalogo_cancelar_edicion_presentacion");
+        var cancelarAperturaEmpaque = document.getElementById("catalogo_cancelar_edicion_apertura_empaque");
         var paginaAnterior = document.getElementById("catalogo_pagina_anterior");
         var paginaSiguiente = document.getElementById("catalogo_pagina_siguiente");
         var tamanoPaginaSelect = document.getElementById("catalogo_tamano_pagina");
@@ -3656,8 +3834,14 @@
         if (presentacionForm) {
             presentacionForm.addEventListener("submit", guardarPresentacion);
         }
+        if (aperturaEmpaqueForm) {
+            aperturaEmpaqueForm.addEventListener("submit", guardarAperturaEmpaque);
+        }
         if (cancelarPresentacion) {
             cancelarPresentacion.addEventListener("click", limpiarFormularioPresentacion);
+        }
+        if (cancelarAperturaEmpaque) {
+            cancelarAperturaEmpaque.addEventListener("click", limpiarFormularioAperturaEmpaque);
         }
         if (temporalForm) {
             temporalForm.addEventListener("submit", guardarSkuTemporal);
@@ -3751,6 +3935,18 @@
                     editarPresentacion(editar.getAttribute("data-editar-presentacion"));
                 } else if (desactivar) {
                     desactivarPresentacion(desactivar.getAttribute("data-desactivar-presentacion"));
+                }
+            });
+        }
+        var aperturasEmpaqueLista = document.getElementById("catalogo_aperturas_empaque_lista");
+        if (aperturasEmpaqueLista) {
+            aperturasEmpaqueLista.addEventListener("click", function (event) {
+                var editar = event.target.closest("[data-editar-apertura-empaque]");
+                var desactivar = event.target.closest("[data-desactivar-apertura-empaque]");
+                if (editar) {
+                    editarAperturaEmpaque(editar.getAttribute("data-editar-apertura-empaque"));
+                } else if (desactivar) {
+                    desactivarAperturaEmpaque(desactivar.getAttribute("data-desactivar-apertura-empaque"));
                 }
             });
         }

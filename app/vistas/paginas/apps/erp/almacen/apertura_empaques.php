@@ -144,6 +144,6 @@
 </div>
 <script src="assets/plugins/global/plugins.bundle.js"></script>
 <script src="assets/js/scripts.bundle.js"></script>
-<script src="/assets/js/custom/apps/erp/almacen/apertura_empaques/apertura_empaques.js?v=20260725-panel-control-1"></script>
+<script src="/assets/js/custom/apps/erp/almacen/apertura_empaques/apertura_empaques.js?v=20260728-catalogo-apertura-2"></script>
 </body>
 </html>

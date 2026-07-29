@@ -212,6 +212,72 @@ class TmsDelivery extends CRUD {
 
   /**
    * IA: Codex GPT-5
+   * Fecha: 2026-07-28
+   * Proposito: adaptar el payload futuro de POS/Ventas al contrato logistico TMS sin escribir BD.
+   * Impacto: TMS Delivery; permite validar entregas POS como solicitud separada de venta, pagos e inventario.
+   * Contrato: dry-run; no crea servicio, no confirma ventas, no cobra productos y no mueve inventario.
+   */
+  public function servicioDesdePosDryRun($datos = array()) {
+    $normalizado = $datos;
+    $normalizado["solicitado_por_modulo"] = "ventas";
+
+    $tipoOrigen = $this->texto($datos, "solicitado_por_tipo", "pos_venta");
+    if ($tipoOrigen === "pos") {
+      $tipoOrigen = "pos_venta";
+    }
+    $normalizado["solicitado_por_tipo"] = $tipoOrigen;
+
+    $referencia = $this->texto($datos, "referencia_externa", $this->texto($datos, "folio_venta"));
+    $normalizado["referencia_externa"] = $referencia;
+
+    if ($this->texto($normalizado, "tipo_servicio") === "") {
+      $normalizado["tipo_servicio"] = "entrega_programada";
+    }
+    if ($this->texto($normalizado, "prioridad") === "") {
+      $normalizado["prioridad"] = "normal";
+    }
+    if ($this->texto($normalizado, "estatus_cobro") === "") {
+      $normalizado["estatus_cobro"] = "por_cobrar";
+    }
+
+    $validacion = $this->servicioDryRun($normalizado);
+    $depurar = isset($validacion["depurar"]) && is_array($validacion["depurar"]) ? $validacion["depurar"] : array();
+    $bloqueos = isset($depurar["bloqueos"]) && is_array($depurar["bloqueos"]) ? $depurar["bloqueos"] : array();
+    $advertencias = isset($depurar["advertencias"]) && is_array($depurar["advertencias"]) ? $depurar["advertencias"] : array();
+
+    if (!in_array($tipoOrigen, array("pos_venta", "pedido_pos", "apartado_pos"), true)) {
+      $bloqueos[] = "Tipo de origen POS no soportado para TMS";
+    }
+    if ($referencia === "" && intval($this->valor($datos, "solicitado_por_id", 0)) <= 0) {
+      $advertencias[] = "Sin folio/id de venta; solo debe usarse antes de confirmar como preview logistico";
+    }
+    if ($this->texto($datos, "venta_estatus") !== "") {
+      $advertencias[] = "TMS ignora estatus de venta; solo conserva referencia logistica";
+    }
+
+    $puedeGuardarFuturo = empty($bloqueos);
+    $depurar["puede_guardar_futuro"] = $puedeGuardarFuturo;
+    $depurar["bloqueos"] = array_values(array_unique($bloqueos));
+    $depurar["advertencias"] = array_values(array_unique($advertencias));
+    $depurar["origen_pos"] = array(
+      "solicitado_por_modulo" => "ventas",
+      "solicitado_por_tipo" => $tipoOrigen,
+      "solicitado_por_id" => intval($this->valor($datos, "solicitado_por_id", 0)),
+      "referencia_externa" => $referencia
+    );
+    $depurar["reglas_pos_tms"] = array(
+      "pos_es_solicitante" => true,
+      "crear_real_solo_despues_de_venta_exitosa" => true,
+      "importe_logistico_separado_del_producto" => true,
+      "fallo_entrega_no_cancela_venta" => true,
+      "no_garantia_automatica" => true
+    );
+
+    return $this->respuesta(false, $puedeGuardarFuturo ? "success" : "warning", $puedeGuardarFuturo ? "Solicitud POS -> TMS valida en dry-run" : "Solicitud POS -> TMS bloqueada en dry-run", $depurar);
+  }
+
+  /**
+   * IA: Codex GPT-5
    * Fecha: 2026-07-24
    * Proposito: crear un folio TMS real cuando el esquema ya este aplicado.
    * Impacto: TMS Delivery; crea solo servicio logistico, costo, detalle y evento inicial.

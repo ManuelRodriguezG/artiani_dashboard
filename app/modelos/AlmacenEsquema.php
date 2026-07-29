@@ -24,6 +24,8 @@ class AlmacenEsquema extends DBSchema {
             "erp_almacen_resurtido_envios",
             "erp_almacen_resurtido_recepciones",
             "erp_almacen_resurtido_diferencias",
+            "erp_almacen_aperturas_empaque",
+            "erp_almacen_apertura_resultados",
             "erp_productos_control_inventario"
         );
     }
@@ -661,6 +663,27 @@ class AlmacenEsquema extends DBSchema {
                 "idx_res_dif_sku",
                 "idx_res_dif_unidad"
             ),
+            "erp_almacen_aperturas_empaque" => array(
+                "uk_almacen_apertura_folio",
+                "idx_almacen_apertura_almacen",
+                "idx_almacen_apertura_sku_origen",
+                "idx_almacen_apertura_existencia",
+                "idx_almacen_apertura_unidad",
+                "idx_almacen_apertura_paquete",
+                "idx_almacen_apertura_catalogo",
+                "idx_almacen_apertura_lote",
+                "idx_almacen_apertura_movimiento",
+                "idx_almacen_apertura_estatus"
+            ),
+            "erp_almacen_apertura_resultados" => array(
+                "idx_apertura_resultado_apertura",
+                "idx_apertura_resultado_sku",
+                "idx_apertura_resultado_componente",
+                "idx_apertura_resultado_existencia",
+                "idx_apertura_resultado_almacen",
+                "idx_apertura_resultado_lote",
+                "idx_apertura_resultado_movimiento"
+            ),
             "erp_productos_control_inventario" => array(
                 "idx_producto_control_producto"
             )
@@ -761,7 +784,21 @@ class AlmacenEsquema extends DBSchema {
                 "fk_res_dif_recepcion",
                 "fk_res_dif_sku",
                 "fk_res_dif_unidad"
-            )
+            ),
+            "erp_almacen_aperturas_empaque" => array(
+                "fk_almacen_apertura_almacen",
+                "fk_almacen_apertura_existencia",
+                "fk_almacen_apertura_paquete",
+                "fk_almacen_apertura_catalogo",
+                "fk_almacen_apertura_sku_origen"
+            ),
+            "erp_almacen_apertura_resultados" => array(
+                "fk_apertura_resultado_almacen",
+                "fk_apertura_resultado_apertura",
+                "fk_apertura_resultado_componente",
+                "fk_apertura_resultado_existencia",
+                "fk_apertura_resultado_sku"
+            ),
         );
     }
 
@@ -1801,6 +1838,89 @@ class AlmacenEsquema extends DBSchema {
             "CONSTRAINT `fk_res_dif_unidad` FOREIGN KEY (`id_inventario_unidad`) REFERENCES `erp_inventario_unidades` (`id_inventario_unidad`)"
         ), "ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci", $ejecutar);
 
+
+        /**
+         * IA: Codex GPT-5
+         * Fecha: 2026-07-28
+         * Proposito: declara el esquema operativo de Apertura de empaques, incluyendo enlace a regla de Catalogo.
+         * Impacto: Almacen/Inventario; permite auditar folios APE, resultados, kardex y trazabilidad por configuracion.
+         */
+        $plan[] = $this->crearTablaSiNoExiste("erp_almacen_aperturas_empaque", array(
+            "`id_apertura_empaque` INT NOT NULL AUTO_INCREMENT",
+            "`folio` VARCHAR(60) NOT NULL",
+            "`id_almacen` INT NOT NULL",
+            "`id_sku_origen` BIGINT NOT NULL",
+            "`id_existencia_origen` INT NOT NULL",
+            "`id_unidad_origen` INT NULL",
+            "`id_paquete` BIGINT NULL",
+            "`id_apertura_catalogo` BIGINT NULL",
+            "`cantidad_origen` DECIMAL(18,6) NOT NULL DEFAULT 1.000000",
+            "`cantidad_resultado_total` DECIMAL(18,6) NOT NULL DEFAULT 0.000000",
+            "`lote` VARCHAR(150) NULL",
+            "`fecha_caducidad` DATE NULL",
+            "`ubicacion_id` INT NULL",
+            "`costo_unitario_origen` DECIMAL(12,4) NOT NULL DEFAULT 0.0000",
+            "`costo_total_origen` DECIMAL(12,4) NOT NULL DEFAULT 0.0000",
+            "`id_movimiento_salida` INT NULL",
+            "`estatus` VARCHAR(30) NOT NULL DEFAULT 'borrador'",
+            "`observaciones` TEXT NULL",
+            "`creado_por` INT NULL",
+            "`confirmado_por` INT NULL",
+            "`fecha_apertura` DATETIME NULL",
+            "`fecha_registro` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
+            "`fecha_actualizacion` DATETIME NULL",
+            "PRIMARY KEY (`id_apertura_empaque`)",
+            "UNIQUE KEY `uk_almacen_apertura_folio` (`folio`)",
+            "KEY `idx_almacen_apertura_almacen` (`id_almacen`)",
+            "KEY `idx_almacen_apertura_sku_origen` (`id_sku_origen`)",
+            "KEY `idx_almacen_apertura_existencia` (`id_existencia_origen`)",
+            "KEY `idx_almacen_apertura_unidad` (`id_unidad_origen`)",
+            "KEY `idx_almacen_apertura_paquete` (`id_paquete`)",
+            "KEY `idx_almacen_apertura_catalogo` (`id_apertura_catalogo`)",
+            "KEY `idx_almacen_apertura_lote` (`lote`, `fecha_caducidad`)",
+            "KEY `idx_almacen_apertura_movimiento` (`id_movimiento_salida`)",
+            "KEY `idx_almacen_apertura_estatus` (`estatus`)",
+            "CONSTRAINT `fk_almacen_apertura_almacen` FOREIGN KEY (`id_almacen`) REFERENCES `erp_almacenes` (`id_almacen`)",
+            "CONSTRAINT `fk_almacen_apertura_existencia` FOREIGN KEY (`id_existencia_origen`) REFERENCES `erp_inventario_existencias` (`id_existencia_inventario`)",
+            "CONSTRAINT `fk_almacen_apertura_paquete` FOREIGN KEY (`id_paquete`) REFERENCES `erp_catalogo_sku_paquetes` (`id_paquete`)",
+            "CONSTRAINT `fk_almacen_apertura_catalogo` FOREIGN KEY (`id_apertura_catalogo`) REFERENCES `erp_catalogo_sku_aperturas_empaque` (`id_apertura_empaque`)",
+            "CONSTRAINT `fk_almacen_apertura_sku_origen` FOREIGN KEY (`id_sku_origen`) REFERENCES `erp_catalogo_skus` (`id_sku`)"
+        ), "ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci", $ejecutar);
+        $plan[] = $this->agregarColumnaSiNoExiste("erp_almacen_aperturas_empaque", "id_apertura_catalogo", "BIGINT NULL", $ejecutar);
+        $plan[] = $this->agregarIndiceSiNoExiste("erp_almacen_aperturas_empaque", "idx_almacen_apertura_catalogo", "KEY `idx_almacen_apertura_catalogo` (`id_apertura_catalogo`)", $ejecutar);
+
+        $plan[] = $this->crearTablaSiNoExiste("erp_almacen_apertura_resultados", array(
+            "`id_apertura_resultado` INT NOT NULL AUTO_INCREMENT",
+            "`id_apertura_empaque` INT NOT NULL",
+            "`orden_resultado` INT NOT NULL DEFAULT 0",
+            "`id_sku_resultado` BIGINT NOT NULL",
+            "`id_componente` BIGINT NULL",
+            "`id_existencia_inventario` INT NULL",
+            "`id_almacen` INT NOT NULL",
+            "`ubicacion_id` INT NULL",
+            "`lote` VARCHAR(150) NULL",
+            "`fecha_caducidad` DATE NULL",
+            "`cantidad_esperada` DECIMAL(18,6) NULL",
+            "`cantidad_real` DECIMAL(18,6) NOT NULL",
+            "`costo_unitario` DECIMAL(12,4) NOT NULL DEFAULT 0.0000",
+            "`costo_total` DECIMAL(12,4) NOT NULL DEFAULT 0.0000",
+            "`id_movimiento_entrada` INT NULL",
+            "`etiquetas_generadas` INT NOT NULL DEFAULT 0",
+            "`fecha_registro` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
+            "PRIMARY KEY (`id_apertura_resultado`)",
+            "KEY `idx_apertura_resultado_apertura` (`id_apertura_empaque`)",
+            "KEY `idx_apertura_resultado_sku` (`id_sku_resultado`)",
+            "KEY `idx_apertura_resultado_componente` (`id_componente`)",
+            "KEY `idx_apertura_resultado_existencia` (`id_existencia_inventario`)",
+            "KEY `idx_apertura_resultado_almacen` (`id_almacen`)",
+            "KEY `idx_apertura_resultado_lote` (`lote`, `fecha_caducidad`)",
+            "KEY `idx_apertura_resultado_movimiento` (`id_movimiento_entrada`)",
+            "CONSTRAINT `fk_apertura_resultado_almacen` FOREIGN KEY (`id_almacen`) REFERENCES `erp_almacenes` (`id_almacen`)",
+            "CONSTRAINT `fk_apertura_resultado_apertura` FOREIGN KEY (`id_apertura_empaque`) REFERENCES `erp_almacen_aperturas_empaque` (`id_apertura_empaque`)",
+            "CONSTRAINT `fk_apertura_resultado_componente` FOREIGN KEY (`id_componente`) REFERENCES `erp_catalogo_sku_paquete_componentes` (`id_componente`)",
+            "CONSTRAINT `fk_apertura_resultado_existencia` FOREIGN KEY (`id_existencia_inventario`) REFERENCES `erp_inventario_existencias` (`id_existencia_inventario`)",
+            "CONSTRAINT `fk_apertura_resultado_sku` FOREIGN KEY (`id_sku_resultado`) REFERENCES `erp_catalogo_skus` (`id_sku`)"
+        ), "ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci", $ejecutar);
         $plan[] = $this->crearTablaSiNoExiste("erp_productos_control_inventario", array(
             "`id_producto_control_inventario` INT NOT NULL AUTO_INCREMENT",
             "`id_producto` INT NOT NULL",

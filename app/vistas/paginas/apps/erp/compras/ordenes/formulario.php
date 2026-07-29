@@ -66,6 +66,9 @@ $puedeGestionarAdjuntos = !empty($datos["puede_gestionar_adjuntos"]);
                         <div><h1 class="page-heading text-dark fw-bold fs-3 mb-1" id="orden_titulo">Nueva orden de compra</h1><span class="text-muted" id="orden_estado_texto">Borrador</span></div>
                         <div class="d-flex gap-2">
                             <a href="/compra/mostrar_compra_ordenes" class="btn btn-light" title="Regresar"><i class="bi bi-arrow-left"></i></a>
+                            <?php if ($idOrden > 0): ?>
+                                <a class="btn btn-light-success" href="/compra/orden_imprimir_erp/<?= $idOrden ?>" target="_blank" rel="noopener"><i class="bi bi-file-earmark-text"></i> Documento</a>
+                            <?php endif; ?>
                             <button class="btn btn-light-primary orden-edicion" id="orden_guardar">Guardar borrador</button>
                             <button class="btn btn-primary orden-edicion" id="orden_enviar">Enviar orden</button>
                             <button class="btn btn-light-info d-none" id="orden_ver_diferencias">Ver diferencias</button>

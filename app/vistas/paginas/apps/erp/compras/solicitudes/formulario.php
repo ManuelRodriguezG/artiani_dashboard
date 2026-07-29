@@ -97,12 +97,13 @@ $usuarioActualNombre = $usuarioActualNombre !== "" ? $usuarioActualNombre : "Usu
                             <label class="form-label">Agregar producto del proveedor</label>
                             <div class="position-relative">
                                 <i class="bi bi-search position-absolute ms-5 mt-3 fs-3"></i>
-                                <input id="solicitud_buscar_sku" class="form-control form-control-solid ps-12" placeholder="Buscar por SKU o nombre" disabled>
+                                <input id="solicitud_buscar_sku" class="form-control form-control-solid ps-12" placeholder="Buscar SKU o nombre de la lista del proveedor" disabled>
                                 <div id="solicitud_resultados" class="position-absolute bg-white border rounded w-100 shadow-sm z-index-3 d-none" style="max-height:320px;overflow:auto"></div>
                             </div>
                         </div>
 
-                        <div class="solicitud-edicion mb-6">
+                        <!-- IA: Codex GPT-5 | Fecha: 2026-07-28 | Proposito: Solicitudes solo permiten productos relacionados proveedor-SKU ERP; los pendientes nacen en Proveedores/Catalogo. -->
+                        <div class="solicitud-edicion mb-6 d-none" aria-hidden="true">
                             <label class="form-label">Agregar producto sugerido (nuevo)</label>
                             <div class="row g-2 align-items-end">
                                 <div class="col-md-3">

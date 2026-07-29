@@ -291,17 +291,18 @@ class Almacen extends Controlador {
         return json_encode($almacen->consultar_skus_apertura_empaque($_GET));
     }
 
+
     /**
      * IA: Codex GPT-5
-     * Fecha: 2026-07-25
-     * Proposito: consulta receta/componentes de un empaque abrible.
-     * Impacto: Almacen/Apertura de empaques; endpoint de lectura para captura multi-salida.
+     * Fecha: 2026-07-28
+     * Proposito: consulta la configuracion de apertura definida en Catalogo para un SKU cerrado.
+     * Impacto: Almacen/Apertura de empaques; acepta `id_apertura_catalogo` y conserva compatibilidad temporal con `id_paquete`.
      */
     public function apertura_receta_erp() {
         $this->requerirPermiso("almacen.ver");
-        $id_paquete = isset($_GET["id_paquete"]) ? $_GET["id_paquete"] : 0;
+        $id_apertura = isset($_GET["id_apertura_catalogo"]) ? $_GET["id_apertura_catalogo"] : (isset($_GET["id_paquete"]) ? $_GET["id_paquete"] : 0);
         $almacen = $this->modelo("Almacenes");
-        return json_encode($almacen->consultar_receta_apertura_empaque($id_paquete));
+        return json_encode($almacen->consultar_receta_apertura_empaque($id_apertura));
     }
 
     /**

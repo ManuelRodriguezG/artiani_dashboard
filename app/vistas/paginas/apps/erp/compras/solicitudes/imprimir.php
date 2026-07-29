@@ -4,6 +4,20 @@ $detalle = isset($datos["detalle"]) && is_array($datos["detalle"]) ? $datos["det
 $ordenRelacionada = isset($datos["orden_relacionada"]) && is_array($datos["orden_relacionada"]) ? $datos["orden_relacionada"] : null;
 $idSolicitud = isset($datos["id_solicitud"]) ? intval($datos["id_solicitud"]) : 0;
 $errorImprimir = isset($datos["error_imprimir"]) ? trim((string)$datos["error_imprimir"]) : "";
+$plantilla = isset($datos["plantilla"]) && is_array($datos["plantilla"]) ? $datos["plantilla"] : array();
+$audienciaPlantilla = isset($plantilla["audiencia"]) ? $plantilla["audiencia"] : "interna";
+$esProveedor = $audienciaPlantilla === "proveedor";
+$mostrarLogo = intval($plantilla["mostrar_logo"] ?? 1) === 1;
+$logoRuta = trim((string)($plantilla["logo_ruta"] ?? ""));
+$mostrarCostos = intval($plantilla["mostrar_costos"] ?? 1) === 1;
+$mostrarTotales = intval($plantilla["mostrar_totales"] ?? 1) === 1;
+$mostrarSkuErp = intval($plantilla["mostrar_sku_erp"] ?? 1) === 1;
+$mostrarSkuProveedor = intval($plantilla["mostrar_sku_proveedor"] ?? 1) === 1;
+$mostrarNombreErp = intval($plantilla["mostrar_nombre_erp"] ?? 1) === 1;
+$mostrarNombreProveedor = intval($plantilla["mostrar_nombre_proveedor"] ?? 1) === 1;
+$mostrarObservacionesInternas = intval($plantilla["mostrar_observaciones_internas"] ?? 1) === 1;
+$mostrarObservacionesPublicas = intval($plantilla["mostrar_observaciones_publicas"] ?? 1) === 1;
+$tituloDocumento = $esProveedor ? "Solicitud para proveedor" : "Solicitud de compra interna";
 
 $folio = isset($solicitud["folio"]) ? $solicitud["folio"] : "";
 $fechaSolicitud = isset($solicitud["fecha_solicitud"]) ? $solicitud["fecha_solicitud"] : "";
@@ -16,13 +30,16 @@ $prioridad = isset($solicitud["prioridad"]) ? $solicitud["prioridad"] : "";
 $fechaRequerida = isset($solicitud["fecha_requerida"]) ? $solicitud["fecha_requerida"] : "";
 $observaciones = isset($solicitud["observaciones"]) ? $solicitud["observaciones"] : "";
 $subtotal = isset($solicitud["subtotal_estimado"]) ? floatval($solicitud["subtotal_estimado"]) : 0;
+$colspanDetalle = 1 + ($mostrarSkuProveedor ? 1 : 0) + ($mostrarSkuErp ? 1 : 0) +
+    ($mostrarNombreProveedor ? 1 : 0) + ($mostrarNombreErp ? 1 : 0) +
+    ($mostrarCostos ? 2 : 0) + (($mostrarObservacionesInternas || $mostrarObservacionesPublicas) ? 1 : 0);
 ?>
 <!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Solicitud de compra <?= htmlspecialchars($folio ?: ("#".$idSolicitud)) ?></title>
+    <title><?= htmlspecialchars($tituloDocumento) ?> <?= htmlspecialchars($folio ?: ("#".$idSolicitud)) ?></title>
     <style>
         body { font-family: Arial, Helvetica, sans-serif; color: #1e293b; margin: 24px; }
         .toolbar { display: flex; justify-content: space-between; gap: 12px; align-items: center; margin-bottom: 20px; }
@@ -59,11 +76,13 @@ $subtotal = isset($solicitud["subtotal_estimado"]) ? floatval($solicitud["subtot
 <body>
     <div class="toolbar">
         <div>
-            <h1>Solicitud de compra</h1>
+            <h1><?= htmlspecialchars($tituloDocumento) ?></h1>
             <div class="subtitle">Formato formal de impresión</div>
         </div>
         <div>
             <a href="/compra/mostrar_solicitud/<?= $idSolicitud ?>">Volver</a>
+            <a href="/compra/solicitud_imprimir_erp/<?= $idSolicitud ?>?plantilla=solicitud_compra_interna">Interna</a>
+            <a href="/compra/solicitud_imprimir_erp/<?= $idSolicitud ?>?plantilla=solicitud_compra_proveedor">Proveedor</a>
             <a class="btn-print" href="#" onclick="window.print(); return false;">Imprimir</a>
         </div>
     </div>
@@ -73,86 +92,132 @@ $subtotal = isset($solicitud["subtotal_estimado"]) ? floatval($solicitud["subtot
     <?php else: ?>
         <div class="document-header">
             <div class="brand">
-                <div class="brand-mark">ERP</div>
+                <?php if ($mostrarLogo && $logoRuta !== ""): ?>
+                    <img class="brand-mark" src="<?= htmlspecialchars($logoRuta) ?>" alt="Logo">
+                <?php elseif ($mostrarLogo): ?>
+                    <div class="brand-mark">ERP</div>
+                <?php endif; ?>
                 <div>
-                    <h1>Solicitud de compra</h1>
-                    <div class="muted">Documento operativo de Compras</div>
+                    <h1><?= htmlspecialchars($tituloDocumento) ?></h1>
+                    <div class="muted"><?= htmlspecialchars($esProveedor ? "Documento operativo para proveedor" : "Documento operativo de Compras") ?></div>
                 </div>
             </div>
             <div class="doc-meta">
                 <div><strong><?= htmlspecialchars($folio ?: "SC-PENDIENTE") ?></strong></div>
                 <div>Generado: <?= htmlspecialchars(date("Y-m-d H:i")) ?></div>
-                <div>Estado: <span class="status"><?= htmlspecialchars(ucfirst((string)$estatus)) ?></span></div>
+                <?php if (!$esProveedor): ?>
+                    <div>Estado: <span class="status"><?= htmlspecialchars(ucfirst((string)$estatus)) ?></span></div>
+                <?php endif; ?>
             </div>
         </div>
 
         <div class="row">
             <div><span class="label">Folio:</span> <strong><?= htmlspecialchars($folio ?: "SC-PENDIENTE") ?></strong></div>
-            <div><span class="label">Estatus:</span> <strong><?= htmlspecialchars(ucfirst((string)$estatus)) ?></strong></div>
-            <div><span class="label">Solicitante:</span> <?= htmlspecialchars($solicitante ?: "-") ?></div>
-            <div><span class="label">Area:</span> <?= htmlspecialchars($solicitanteArea ?: "-") ?></div>
+            <?php if (!$esProveedor): ?>
+                <div><span class="label">Estatus:</span> <strong><?= htmlspecialchars(ucfirst((string)$estatus)) ?></strong></div>
+                <div><span class="label">Solicitante:</span> <?= htmlspecialchars($solicitante ?: "-") ?></div>
+                <div><span class="label">Area:</span> <?= htmlspecialchars($solicitanteArea ?: "-") ?></div>
+            <?php endif; ?>
             <div><span class="label">Proveedor:</span> <?= htmlspecialchars($proveedor) ?></div>
-            <div><span class="label">Almacen destino:</span> <?= htmlspecialchars($almacen ?: "-") ?></div>
+            <?php if (!$esProveedor): ?>
+                <div><span class="label">Almacen destino:</span> <?= htmlspecialchars($almacen ?: "-") ?></div>
+            <?php endif; ?>
             <div><span class="label">Fecha solicitud:</span> <?= htmlspecialchars($fechaSolicitud ?: "-") ?></div>
             <div><span class="label">Fecha requerida:</span> <?= htmlspecialchars($fechaRequerida ?: "-") ?></div>
-            <div><span class="label">Prioridad:</span> <?= htmlspecialchars($prioridad) ?></div>
+            <?php if (!$esProveedor): ?>
+                <div><span class="label">Prioridad:</span> <?= htmlspecialchars($prioridad) ?></div>
+            <?php endif; ?>
         </div>
 
         <table class="grid">
             <thead>
                 <tr>
-                    <th style="width:120px;">SKU</th>
-                    <th>Producto</th>
+                    <?php if ($mostrarSkuProveedor): ?>
+                        <th style="width:120px;">SKU proveedor</th>
+                    <?php endif; ?>
+                    <?php if ($mostrarSkuErp): ?>
+                        <th style="width:120px;">SKU ERP</th>
+                    <?php endif; ?>
+                    <?php if ($mostrarNombreProveedor): ?>
+                        <th>Producto proveedor</th>
+                    <?php endif; ?>
+                    <?php if ($mostrarNombreErp): ?>
+                        <th>Producto ERP</th>
+                    <?php endif; ?>
                     <th class="text-end">Cantidad</th>
-                    <th class="text-end">Costo estimado</th>
-                    <th class="text-end">Subtotal</th>
-                    <th>Observaciones</th>
+                    <?php if ($mostrarCostos): ?>
+                        <th class="text-end">Costo estimado</th>
+                        <th class="text-end">Subtotal</th>
+                    <?php endif; ?>
+                    <?php if ($mostrarObservacionesInternas || $mostrarObservacionesPublicas): ?>
+                        <th>Observaciones</th>
+                    <?php endif; ?>
                 </tr>
             </thead>
             <tbody>
                 <?php if (empty($detalle)): ?>
                     <tr>
-                        <td colspan="6">Sin partidas</td>
+                        <td colspan="<?= intval($colspanDetalle) ?>">Sin partidas</td>
                     </tr>
                 <?php else: ?>
                     <?php foreach ($detalle as $d): ?>
                         <?php
-                        $sku = $d["sku"] ?? ($d["sku_proveedor"] ?? "");
-                        $nombre = $d["nombre"] ?? ($d["nombre_producto"] ?? "");
+                        $skuProveedor = $d["sku"] ?? ($d["sku_proveedor"] ?? "");
+                        $skuErp = $d["sku_erp"] ?? ($d["sku_catalogo"] ?? "");
+                        $nombreProveedor = $d["nombre_producto"] ?? ($d["nombre_proveedor"] ?? ($d["nombre"] ?? ""));
+                        $nombreErp = $d["nombre_erp"] ?? ($d["producto_erp"] ?? "");
                         $esNuevo = intval($d["id_sku_erp"] ?? 0) <= 0;
                         ?>
                         <tr>
-                            <td><?= htmlspecialchars($sku) ?></td>
-                            <td>
-                                <?= htmlspecialchars($nombre) ?>
-                                <?= $esNuevo ? "<br><span class=\"muted\">Producto propuesto / pendiente de catalogo</span>" : "" ?>
-                            </td>
+                            <?php if ($mostrarSkuProveedor): ?>
+                                <td><?= htmlspecialchars($skuProveedor) ?></td>
+                            <?php endif; ?>
+                            <?php if ($mostrarSkuErp): ?>
+                                <td><?= htmlspecialchars($skuErp ?: "-") ?></td>
+                            <?php endif; ?>
+                            <?php if ($mostrarNombreProveedor): ?>
+                                <td>
+                                    <?= htmlspecialchars($nombreProveedor) ?>
+                                    <?= (!$esProveedor && $esNuevo) ? "<br><span class=\"muted\">Producto propuesto / pendiente de catalogo</span>" : "" ?>
+                                </td>
+                            <?php endif; ?>
+                            <?php if ($mostrarNombreErp): ?>
+                                <td><?= htmlspecialchars($nombreErp ?: "-") ?></td>
+                            <?php endif; ?>
                             <td class="text-end"><?= htmlspecialchars(number_format((float)($d["cantidad"] ?? 0), 4, ".", ",")) ?></td>
-                            <td class="text-end">$<?= htmlspecialchars(number_format((float)($d["costo_estimado"] ?? 0), 2, ".", ",")) ?></td>
-                            <td class="text-end">$<?= htmlspecialchars(number_format((float)($d["subtotal"] ?? 0), 2, ".", ",")) ?></td>
-                            <td><?= htmlspecialchars($d["observaciones"] ?? "") ?></td>
+                            <?php if ($mostrarCostos): ?>
+                                <td class="text-end">$<?= htmlspecialchars(number_format((float)($d["costo_estimado"] ?? 0), 2, ".", ",")) ?></td>
+                                <td class="text-end">$<?= htmlspecialchars(number_format((float)($d["subtotal"] ?? 0), 2, ".", ",")) ?></td>
+                            <?php endif; ?>
+                            <?php if ($mostrarObservacionesInternas || $mostrarObservacionesPublicas): ?>
+                                <td><?= htmlspecialchars($d["observaciones"] ?? "") ?></td>
+                            <?php endif; ?>
                         </tr>
                     <?php endforeach; ?>
                 <?php endif; ?>
             </tbody>
         </table>
 
-        <div class="totales">
-            <div class="box">
-                <div class="line">
-                    <span>Partidas</span>
-                    <span><?= count($detalle) ?></span>
-                </div>
-                <div class="line">
-                    <span>Total estimado</span>
-                    <span>$<?= htmlspecialchars(number_format($subtotal, 2, ".", ",")) ?></span>
+        <?php if ($mostrarTotales): ?>
+            <div class="totales">
+                <div class="box">
+                    <div class="line">
+                        <span>Partidas</span>
+                        <span><?= count($detalle) ?></span>
+                    </div>
+                    <div class="line">
+                        <span>Total estimado</span>
+                        <span>$<?= htmlspecialchars(number_format($subtotal, 2, ".", ",")) ?></span>
+                    </div>
                 </div>
             </div>
-        </div>
+        <?php endif; ?>
 
-        <p class="muted">Observaciones: <?= htmlspecialchars($observaciones !== "" ? $observaciones : "Sin observaciones") ?></p>
+        <?php if ($mostrarObservacionesInternas): ?>
+            <p class="muted">Observaciones: <?= htmlspecialchars($observaciones !== "" ? $observaciones : "Sin observaciones") ?></p>
+        <?php endif; ?>
 
-        <?php if ($ordenRelacionada): ?>
+        <?php if (!$esProveedor && $ordenRelacionada): ?>
             <h2>Orden relacionada</h2>
             <table class="grid">
                 <thead>
@@ -176,11 +241,13 @@ $subtotal = isset($solicitud["subtotal_estimado"]) ? floatval($solicitud["subtot
             </table>
         <?php endif; ?>
 
-        <div class="approval">
-            <div class="signature">Solicita</div>
-            <div class="signature">Autoriza</div>
-            <div class="signature">Recibe compras</div>
-        </div>
+        <?php if (!$esProveedor): ?>
+            <div class="approval">
+                <div class="signature">Solicita</div>
+                <div class="signature">Autoriza</div>
+                <div class="signature">Recibe compras</div>
+            </div>
+        <?php endif; ?>
     <?php endif; ?>
 </body>
 </html>

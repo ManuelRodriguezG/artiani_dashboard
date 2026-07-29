@@ -205,17 +205,18 @@ class SolicitudesCompraErp extends CRUD {
                 return $this->respuesta(true, "warning", "Solicitud no encontrada");
             }
             $stmt = $db->prepare("SELECT d.*, 
-                COALESCE(s.sku, d.sku) AS sku, 
-                COALESCE(s.nombre, d.nombre_producto) AS nombre, 
+                COALESCE(NULLIF(TRIM(d.sku), ''), sp.sku_proveedor, s.sku) AS sku, 
+                COALESCE(NULLIF(TRIM(d.nombre_producto), ''), s.nombre) AS nombre, 
+                s.sku AS sku_erp,
+                s.nombre AS nombre_erp,
                 u.abreviatura unidad,
                 sp.sku_proveedor
                 FROM erp_compras_solicitudes_detalle d
                 LEFT JOIN erp_catalogo_skus s ON s.id_sku=d.id_sku_erp
                 LEFT JOIN erp_catalogo_unidades u ON u.id_unidad=s.id_unidad_base
-                LEFT JOIN erp_catalogo_sku_proveedores sp ON sp.id_sku=d.id_sku_erp
-                    AND sp.id_proveedor=:proveedor
+                LEFT JOIN erp_catalogo_sku_proveedores sp ON sp.id_sku_proveedor=d.id_sku_proveedor
                 WHERE d.id_solicitud=:id ORDER BY d.id_detalle");
-            $stmt->execute(array(":id" => intval($idSolicitud), ":proveedor" => intval($solicitud["id_proveedor"])));
+            $stmt->execute(array(":id" => intval($idSolicitud)));
             $detalle = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
             $stmt = $db->prepare("SELECT o.id_orden_compra, o.folio, o.folio_proveedor,
@@ -242,6 +243,13 @@ class SolicitudesCompraErp extends CRUD {
         }
     }
 
+    /**
+     * IA: Codex GPT-5
+     * Fecha: 2026-07-28
+     * Proposito: guardar solicitudes solo con relaciones proveedor-SKU ERP activas y snapshot visual de la lista del proveedor.
+     * Impacto: Compras/Solicitudes; evita partidas fisicas sin SKU ERP y conserva el lenguaje del proveedor para autorizacion.
+     * Contrato: cada item fisico debe enviar id_sku_erp e id_sku_proveedor validos para el proveedor seleccionado.
+     */
     public function guardar($datos, $idUsuario) {
         $idSolicitud = intval(isset($datos["id_solicitud"]) ? $datos["id_solicitud"] : 0);
         $idProveedor = intval(isset($datos["id_proveedor"]) ? $datos["id_proveedor"] : 0);
@@ -292,9 +300,23 @@ class SolicitudesCompraErp extends CRUD {
                 if ($estatusDestino === "pendiente" && $costo <= 0) {
                     throw new Exception("Costo estimado invalido en una partida");
                 }
+                if ($idSku <= 0) {
+                    throw new Exception("Solo puedes agregar productos relacionados con SKU ERP desde la lista del proveedor");
+                }
                 if ($idSku > 0) {
                     $clave = "sku:" . $idSku;
-                    $stmt = $db->prepare("SELECT s.id_sku, s.sku, s.nombre, sp.id_sku_proveedor
+                    $stmt = $db->prepare("SELECT s.id_sku, s.sku sku_erp, s.nombre nombre_erp,
+                            sp.id_sku_proveedor, sp.sku_proveedor,
+                            (
+                                SELECT ld.descripcion_proveedor
+                                FROM erp_proveedores_listas_detalle_erp ld
+                                WHERE ld.id_sku_proveedor = sp.id_sku_proveedor
+                                  AND ld.id_sku = sp.id_sku
+                                ORDER BY
+                                  CASE WHEN ld.estado_match = 'relacion_aplicada' THEN 0 ELSE 1 END,
+                                  ld.id_lista_detalle_erp DESC
+                                LIMIT 1
+                            ) AS nombre_proveedor
                         FROM erp_catalogo_skus s
                         INNER JOIN erp_catalogo_sku_proveedores sp ON sp.id_sku=s.id_sku
                             AND sp.id_proveedor=:proveedor AND sp.estatus='activo'
@@ -304,14 +326,15 @@ class SolicitudesCompraErp extends CRUD {
                     if (!$sku) {
                         throw new Exception("Un SKU no pertenece al proveedor seleccionado");
                     }
-                    $skuText = $sku["sku"];
-                    $nombreText = $sku["nombre"];
-                    $idSkuProveedor = intval($sku["id_sku_proveedor"]);
-                } else {
-                    $clave = "nuevo:" . strtolower(preg_replace("/\s+/", " ", $skuText)) . "|" . strtolower(preg_replace("/\s+/", " ", $nombreText));
-                    if ($skuText === "" || $nombreText === "") {
-                        throw new Exception("Para producto propuesto captura SKU sugerido y nombre");
+                    $skuText = trim((string) $sku["sku_proveedor"]);
+                    if ($skuText === "") {
+                        $skuText = $sku["sku_erp"];
                     }
+                    $nombreText = trim((string) $sku["nombre_proveedor"]);
+                    if ($nombreText === "") {
+                        $nombreText = $sku["nombre_erp"];
+                    }
+                    $idSkuProveedor = intval($sku["id_sku_proveedor"]);
                 }
                 if (isset($ids[$clave])) {
                     throw new Exception("Hay partidas invalidas o producto repetido");

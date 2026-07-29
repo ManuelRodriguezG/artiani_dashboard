@@ -701,6 +701,43 @@ class Catalogoerp extends Controlador {
     return json_encode($respuesta);
   }
 
+
+  /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-07-28
+   * Proposito: guarda reglas de apertura de empaque separadas de presentaciones comerciales.
+   * Impacto: Catalogo ERP; define contrato para Almacen/Inventario sin ejecutar movimientos.
+   */
+  public function guardar_sku_apertura_empaque() {
+    $this->requerirPermiso("catalogo.editar");
+    $respuesta = $this->modelo("CatalogoErpDatos")->guardarSkuAperturaEmpaque($_POST);
+    SesionSeguridad::registrarAuditoria("catalogo", "guardar_sku_apertura_empaque", array(
+      "entidad" => "erp_catalogo_sku_aperturas_empaque",
+      "entidad_id" => isset($_POST["id_apertura_empaque"]) ? intval($_POST["id_apertura_empaque"]) : null,
+      "resultado" => $respuesta["error"] ? "error" : "ok",
+      "mensaje" => $respuesta["mensaje"],
+      "datos_despues" => isset($respuesta["depurar"]) ? $respuesta["depurar"] : null
+    ));
+    return json_encode($respuesta);
+  }
+
+  /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-07-28
+   * Proposito: desactiva una regla de apertura sin borrar historial.
+   * Impacto: Catalogo ERP; Almacen dejara de ofrecer esa conversion.
+   */
+  public function desactivar_sku_apertura_empaque() {
+    $this->requerirPermiso("catalogo.editar");
+    $respuesta = $this->modelo("CatalogoErpDatos")->desactivarSkuAperturaEmpaque($_POST);
+    SesionSeguridad::registrarAuditoria("catalogo", "desactivar_sku_apertura_empaque", array(
+      "entidad" => "erp_catalogo_sku_aperturas_empaque",
+      "entidad_id" => isset($_POST["id_apertura_empaque"]) ? intval($_POST["id_apertura_empaque"]) : null,
+      "resultado" => $respuesta["error"] ? "error" : "ok",
+      "mensaje" => $respuesta["mensaje"]
+    ));
+    return json_encode($respuesta);
+  }
   /**
    * IA: Codex GPT-5 | Fecha: 2026-06-26
    * Proposito: guarda receta simple de paquete cuando el esquema ERP ya fue aplicado.

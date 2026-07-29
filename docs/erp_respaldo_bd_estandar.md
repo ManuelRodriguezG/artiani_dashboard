@@ -190,3 +190,45 @@ archivo_existe=true
 archivo_legible=true
 tamano_bytes=32798256
 ```
+## Catalogo - Apertura de empaques
+
+Fecha: 2026-07-28  
+Ruta estandar usada:
+
+```txt
+C:\xampp\panel_db_backups\artianilocal_panel_20260728_antes_catalogo_apertura_empaques.sql
+```
+
+Regla aplicada:
+
+- Si el usuario autoriza DDL con placeholder de respaldo, el agente debe generar un respaldo externo nuevo en `C:\xampp\panel_db_backups` antes de aplicar.
+- El nombre recomendado para Catálogo es:
+
+```txt
+artianilocal_panel_YYYYMMDD_HHmmss_antes_catalogo_<alcance>.sql
+```
+
+Ejemplo de alcance: `apertura_empaques`, `imagenes_marcas_categorias`, `paquetes_configurables`.
+
+## Compras - documentos imprimibles y plantillas
+
+Fecha: 2026-07-28  
+Ruta estandar usada:
+
+```txt
+C:\xampp\panel_db_backups\artianilocal_panel_de_control_20260728_antes_compras_documentos_plantillas.sql
+```
+
+Validacion:
+
+```text
+archivo_existe=true
+archivo_legible=true
+tamano_bytes=33233779
+```
+
+Alcance:
+
+- Creacion de `erp_compras_documentos_plantillas`.
+- Creacion de `erp_compras_documentos_plantillas_config`.
+- Preparacion futura de documentos imprimibles para solicitudes y ordenes de compra.

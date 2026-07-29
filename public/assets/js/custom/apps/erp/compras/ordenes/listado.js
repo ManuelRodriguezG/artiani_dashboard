@@ -11,7 +11,9 @@
                 var rows = r.depurar || [];
                 document.getElementById("ordenes_body").innerHTML = rows.map(function (x) {
                     var acciones = "<a class=\"btn btn-sm btn-light-primary me-2\" href=\"/compra/ver_orden_compra/" +
-                        esc(x.id_orden_compra) + "\">Ver</a>";
+                        esc(x.id_orden_compra) + "\">Ver</a>" +
+                        "<a class=\"btn btn-sm btn-light-success me-2\" target=\"_blank\" rel=\"noopener\" href=\"/compra/orden_imprimir_erp/" +
+                        esc(x.id_orden_compra) + "\">Documento</a>";
                     if (puedeEditar && x.estatus === "borrador") {
                         acciones += "<a class=\"btn btn-sm btn-light\" href=\"/compra/editar_orden_compra/" +
                             esc(x.id_orden_compra) + "\">Editar</a>";

@@ -3903,6 +3903,7 @@ class CatalogoErpDatos extends CRUD {
         "imagenes" => $this->consultarImagenesProducto($db, intval($idProducto)),
         "proveedores" => $this->consultarSkuProveedores($db, intval($idProducto)),
         "presentaciones" => $this->consultarSkuPresentaciones($db, intval($idProducto)),
+        "aperturas_empaque" => $this->consultarSkuAperturasEmpaque($db, intval($idProducto)),
         "paquetes" => $this->consultarPaquetesProducto($db, intval($idProducto)),
         "variantes" => $this->consultarVariantesProducto($db, intval($idProducto), $skus)
       ));
@@ -5529,13 +5530,219 @@ class CatalogoErpDatos extends CRUD {
     return $stmt->fetchAll(PDO::FETCH_ASSOC);
   }
 
+
+  /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-07-28
+   * Proposito: guarda la regla Catalogo para abrir un SKU cerrado hacia un SKU granel sin mezclarla con presentaciones.
+   * Impacto: Catalogo ERP; Almacen/Inventario consumiran esta relacion cuando exista el flujo de apertura.
+   * Contrato: requiere tabla `erp_catalogo_sku_aperturas_empaque`; no ejecuta movimientos ni afecta existencias.
+   */
+  public function guardarSkuAperturaEmpaque($datos) {
+    $idApertura = intval(isset($datos["id_apertura_empaque"]) ? $datos["id_apertura_empaque"] : 0);
+    $idOrigen = intval(isset($datos["id_sku_origen"]) ? $datos["id_sku_origen"] : 0);
+    $idDestino = intval(isset($datos["id_sku_destino"]) ? $datos["id_sku_destino"] : 0);
+    $factor = $this->decimal($datos, "factor_conversion");
+    $merma = $this->decimal($datos, "merma_porcentaje_default");
+    $estatus = $this->opcion($datos, "estatus", array("activo", "inactivo"), "activo");
+
+    if ($idOrigen <= 0 || $idDestino <= 0) {
+      return $this->respuesta(true, "warning", "Selecciona SKU origen cerrado y SKU destino granel");
+    }
+    if ($idOrigen === $idDestino) {
+      return $this->respuesta(true, "warning", "El SKU origen y el SKU destino no pueden ser el mismo");
+    }
+    if ($factor <= 0) {
+      return $this->respuesta(true, "warning", "El factor de apertura debe ser mayor a cero");
+    }
+    if ($merma < 0 || $merma >= 100) {
+      return $this->respuesta(true, "warning", "La merma default debe estar entre 0 y menor a 100");
+    }
+
+    $db = $this->getConexion();
+    try {
+      if (!$this->tablaExisteCatalogo($db, "erp_catalogo_sku_aperturas_empaque")) {
+        return $this->respuesta(true, "warning", "Falta aplicar el DDL de Apertura de empaques antes de guardar reglas", array(
+          "tabla_faltante" => "erp_catalogo_sku_aperturas_empaque"
+        ));
+      }
+
+      $stmt = $db->prepare("SELECT s.id_sku, s.id_producto_erp, s.sku, s.nombre, s.tipo_inventario, s.estatus,
+          p.estatus AS estatus_producto, u.decimales_permitidos, u.tipo_magnitud,
+          COALESCE(r.controla_inventario, 1) AS controla_inventario,
+          COALESCE(r.permite_venta_fraccionaria, 0) AS permite_venta_fraccionaria,
+          COALESCE(r.precision_decimal, 0) AS precision_decimal,
+          COALESCE(r.incremento_minimo_venta, 1) AS incremento_minimo_venta,
+          COALESCE(r.generar_etiqueta_interna, 0) AS generar_etiqueta_interna,
+          COALESCE(r.requiere_unidades_fisicas_recepcion, 0) AS requiere_unidades_fisicas_recepcion
+        FROM erp_catalogo_skus s
+        INNER JOIN erp_catalogo_productos p ON p.id_producto_erp=s.id_producto_erp
+        INNER JOIN erp_catalogo_unidades u ON u.id_unidad=s.id_unidad_base
+        LEFT JOIN erp_catalogo_sku_reglas_inventario r ON r.id_sku=s.id_sku
+        WHERE s.id_sku=:origen OR s.id_sku=:destino");
+      $stmt->execute(array(":origen" => $idOrigen, ":destino" => $idDestino));
+      $skus = array();
+      foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $sku) {
+        $skus[intval($sku["id_sku"])] = $sku;
+      }
+      if (!isset($skus[$idOrigen]) || !isset($skus[$idDestino])) {
+        return $this->respuesta(true, "warning", "Selecciona SKU existentes para apertura de empaques");
+      }
+      $noOperativos = array("fusionado", "descontinuado", "inactivo");
+      if (in_array($skus[$idOrigen]["estatus"], $noOperativos, true) || in_array($skus[$idDestino]["estatus"], $noOperativos, true)
+        || in_array($skus[$idOrigen]["estatus_producto"], $noOperativos, true) || in_array($skus[$idDestino]["estatus_producto"], $noOperativos, true)) {
+        return $this->respuesta(true, "warning", "No puedes configurar apertura con productos o SKU no operativos");
+      }
+      if (intval($skus[$idOrigen]["id_producto_erp"]) !== intval($skus[$idDestino]["id_producto_erp"])) {
+        return $this->respuesta(true, "warning", "La apertura debe configurarse entre SKUs del mismo producto maestro");
+      }
+      if (!$this->controlaInventario($skus[$idOrigen]["tipo_inventario"]) || intval($skus[$idOrigen]["controla_inventario"]) !== 1) {
+        return $this->respuesta(true, "warning", "El SKU origen debe controlar inventario para poder abrirse");
+      }
+      if (!$this->controlaInventario($skus[$idDestino]["tipo_inventario"]) || intval($skus[$idDestino]["controla_inventario"]) !== 1) {
+        return $this->respuesta(true, "warning", "El SKU destino debe controlar inventario para recibir granel");
+      }
+      if (intval($skus[$idDestino]["permite_venta_fraccionaria"]) !== 1) {
+        return $this->respuesta(true, "warning", "El SKU destino debe tener activa Venta fraccionaria para usarse como granel");
+      }
+      if (intval($skus[$idDestino]["decimales_permitidos"]) !== 1 || intval($skus[$idDestino]["precision_decimal"]) <= 0 || floatval($skus[$idDestino]["incremento_minimo_venta"]) <= 0) {
+        return $this->respuesta(true, "warning", "El SKU destino granel debe tener unidad decimal, precision e incremento configurados");
+      }
+      if ($this->booleano($datos, "requiere_unidad_fisica") && intval($skus[$idOrigen]["requiere_unidades_fisicas_recepcion"]) !== 1 && intval($skus[$idOrigen]["generar_etiqueta_interna"]) !== 1) {
+        return $this->respuesta(true, "warning", "Si requiere unidad fisica, el SKU origen debe tener trazabilidad o captura de unidades fisicas");
+      }
+
+      $params = array(
+        ":origen" => $idOrigen,
+        ":destino" => $idDestino,
+        ":factor" => $factor,
+        ":requiere_unidad" => $this->booleano($datos, "requiere_unidad_fisica"),
+        ":conserva_lote" => $this->booleano($datos, "conserva_lote"),
+        ":conserva_caducidad" => $this->booleano($datos, "conserva_caducidad"),
+        ":permite_merma" => $this->booleano($datos, "permite_merma"),
+        ":merma" => $merma,
+        ":instrucciones" => $this->texto($datos, "instrucciones_operativas"),
+        ":estatus" => $estatus
+      );
+
+      $db->beginTransaction();
+      if ($idApertura > 0) {
+        $stmt = $db->prepare("UPDATE erp_catalogo_sku_aperturas_empaque
+          SET id_sku_origen=:origen, id_sku_destino=:destino, factor_conversion=:factor,
+            requiere_unidad_fisica=:requiere_unidad, conserva_lote=:conserva_lote,
+            conserva_caducidad=:conserva_caducidad, permite_merma=:permite_merma,
+            merma_porcentaje_default=:merma, instrucciones_operativas=:instrucciones,
+            estatus=:estatus, fecha_actualizacion=CURRENT_TIMESTAMP
+          WHERE id_apertura_empaque=:id");
+        $params[":id"] = $idApertura;
+        $stmt->execute($params);
+      } else {
+        $stmt = $db->prepare("INSERT INTO erp_catalogo_sku_aperturas_empaque
+          (id_sku_origen, id_sku_destino, factor_conversion, requiere_unidad_fisica, conserva_lote,
+           conserva_caducidad, permite_merma, merma_porcentaje_default, instrucciones_operativas, estatus)
+          VALUES (:origen, :destino, :factor, :requiere_unidad, :conserva_lote,
+           :conserva_caducidad, :permite_merma, :merma, :instrucciones, :estatus)
+          ON DUPLICATE KEY UPDATE factor_conversion=VALUES(factor_conversion),
+            requiere_unidad_fisica=VALUES(requiere_unidad_fisica), conserva_lote=VALUES(conserva_lote),
+            conserva_caducidad=VALUES(conserva_caducidad), permite_merma=VALUES(permite_merma),
+            merma_porcentaje_default=VALUES(merma_porcentaje_default), instrucciones_operativas=VALUES(instrucciones_operativas),
+            estatus=VALUES(estatus), fecha_actualizacion=CURRENT_TIMESTAMP");
+        $stmt->execute($params);
+      }
+      $db->commit();
+      return $this->respuesta(false, "success", "Apertura de empaque guardada", array(
+        "id_apertura_empaque" => $idApertura,
+        "id_sku_origen" => $idOrigen,
+        "id_sku_destino" => $idDestino
+      ));
+    } catch (Exception $e) {
+      if ($db->inTransaction()) {
+        $db->rollBack();
+      }
+      return $this->respuesta(true, "danger", $e->getCode() === "23000" ? "Ya existe una apertura configurada para ese origen y destino" : $e->getMessage());
+    }
+  }
+
+  /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-07-28
+   * Proposito: desactiva reglas de apertura sin borrar historial ni afectar inventario.
+   * Impacto: Catalogo ERP; Almacen dejara de ofrecer la conversion como opcion operativa.
+   */
+  public function desactivarSkuAperturaEmpaque($datos) {
+    $id = intval(isset($datos["id_apertura_empaque"]) ? $datos["id_apertura_empaque"] : 0);
+    if ($id <= 0) {
+      return $this->respuesta(true, "warning", "Selecciona la apertura que vas a desactivar");
+    }
+    try {
+      $db = $this->getConexion();
+      if (!$this->tablaExisteCatalogo($db, "erp_catalogo_sku_aperturas_empaque")) {
+        return $this->respuesta(true, "warning", "Falta aplicar el DDL de Apertura de empaques", array("tabla_faltante" => "erp_catalogo_sku_aperturas_empaque"));
+      }
+      $stmt = $db->prepare("UPDATE erp_catalogo_sku_aperturas_empaque
+        SET estatus='inactivo', fecha_actualizacion=CURRENT_TIMESTAMP
+        WHERE id_apertura_empaque=:id");
+      $stmt->execute(array(":id" => $id));
+      if ($stmt->rowCount() === 0) {
+        return $this->respuesta(true, "warning", "No se encontro la apertura indicada");
+      }
+      return $this->respuesta(false, "success", "Apertura de empaque desactivada", array("id_apertura_empaque" => $id));
+    } catch (Exception $e) {
+      return $this->respuesta(true, "danger", $e->getMessage());
+    }
+  }
+
+  /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-07-28
+   * Proposito: consulta aperturas de empaque de un producto sin depender de Presentaciones.
+   * Impacto: Catalogo ERP; alimenta la pestana separada y deja visible si falta DDL.
+   * Contrato: si la tabla no existe devuelve esquema_disponible=false sin romper el modal.
+   */
+  private function consultarSkuAperturasEmpaque($db, $idProducto) {
+    if (!$this->tablaExisteCatalogo($db, "erp_catalogo_sku_aperturas_empaque")) {
+      return array(
+        "esquema_disponible" => false,
+        "mensaje" => "Apertura de empaques pendiente de DDL autorizado",
+        "tablas_faltantes" => array("erp_catalogo_sku_aperturas_empaque"),
+        "items" => array()
+      );
+    }
+
+    $stmt = $db->prepare("SELECT ae.id_apertura_empaque, ae.id_sku_origen, ae.id_sku_destino,
+        ae.factor_conversion, ae.requiere_unidad_fisica, ae.conserva_lote, ae.conserva_caducidad,
+        ae.permite_merma, ae.merma_porcentaje_default, ae.instrucciones_operativas, ae.estatus,
+        origen.sku AS sku_origen, origen.nombre AS nombre_origen, uo.abreviatura AS unidad_origen,
+        destino.sku AS sku_destino, destino.nombre AS nombre_destino, ud.abreviatura AS unidad_destino,
+        COALESCE(rd.permite_venta_fraccionaria, 0) AS destino_venta_fraccionaria,
+        COALESCE(rd.precision_decimal, 0) AS destino_precision_decimal,
+        COALESCE(rd.incremento_minimo_venta, 1) AS destino_incremento_minimo_venta
+      FROM erp_catalogo_sku_aperturas_empaque ae
+      INNER JOIN erp_catalogo_skus origen ON origen.id_sku=ae.id_sku_origen
+      INNER JOIN erp_catalogo_skus destino ON destino.id_sku=ae.id_sku_destino
+      INNER JOIN erp_catalogo_productos prod_origen ON prod_origen.id_producto_erp=origen.id_producto_erp
+      INNER JOIN erp_catalogo_productos prod_destino ON prod_destino.id_producto_erp=destino.id_producto_erp
+      INNER JOIN erp_catalogo_unidades uo ON uo.id_unidad=origen.id_unidad_base
+      INNER JOIN erp_catalogo_unidades ud ON ud.id_unidad=destino.id_unidad_base
+      LEFT JOIN erp_catalogo_sku_reglas_inventario rd ON rd.id_sku=destino.id_sku
+      WHERE (origen.id_producto_erp=:producto OR destino.id_producto_erp=:producto)
+        AND origen.estatus NOT IN ('inactivo','descontinuado','fusionado')
+        AND destino.estatus NOT IN ('inactivo','descontinuado','fusionado')
+        AND prod_origen.estatus NOT IN ('inactivo','descontinuado','fusionado')
+        AND prod_destino.estatus NOT IN ('inactivo','descontinuado','fusionado')
+      ORDER BY FIELD(ae.estatus, 'activo', 'inactivo'), origen.sku, destino.sku");
+    $stmt->execute(array(":producto" => intval($idProducto)));
+    return array(
+      "esquema_disponible" => true,
+      "items" => $stmt->fetchAll(PDO::FETCH_ASSOC)
+    );
+  }
   /**
    * IA: Codex GPT-5 | Fecha: 2026-07-19
    * Proposito: crea un producto nuevo desde una plantilla de Catalogo con opciones de copia conservadoras.
    * Impacto: Catalogo ERP; acelera altas similares sin copiar codigos, imagenes, proveedores, precios, costos ni movimientos.
    * Contrato: requiere producto origen, SKU origen, codigo/SKU nuevos y nota; usa transaccion completa.
-   */
-  public function duplicarProducto($datos, $idUsuario) {
+   */  public function duplicarProducto($datos, $idUsuario) {
     $idProductoOrigen = intval(isset($datos["id_producto_origen"]) ? $datos["id_producto_origen"] : 0);
     $idSkuOrigen = intval(isset($datos["id_sku_origen"]) ? $datos["id_sku_origen"] : 0);
     $codigoNuevo = $this->texto($datos, "codigo_producto");

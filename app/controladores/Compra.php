@@ -47,11 +47,20 @@ class Compra extends Controlador {
     public function solicitud_imprimir_erp($id = 0) {
         $this->requerirPermiso("compras.ver");
         $idSolicitud = intval($id);
+        $codigoPlantilla = isset($_GET["plantilla"]) ? trim((string) $_GET["plantilla"]) : "solicitud_compra_interna";
+        if ($codigoPlantilla === "") {
+            $codigoPlantilla = "solicitud_compra_interna";
+        }
+        $plantillaRespuesta = $this->modelo("ComprasDocumentosPlantillas")->obtenerPorCodigo($codigoPlantilla);
+        if ($plantillaRespuesta["error"]) {
+            $plantillaRespuesta = $this->modelo("ComprasDocumentosPlantillas")->obtenerPorCodigo("solicitud_compra_interna");
+        }
         $respuesta = $this->modelo("SolicitudesCompraErp")->consultar($idSolicitud);
         if ($respuesta["error"]) {
             $this->vista("apps/erp/compras/solicitudes/imprimir", array(
                 "error_imprimir" => $respuesta["mensaje"],
-                "id_solicitud" => $idSolicitud
+                "id_solicitud" => $idSolicitud,
+                "plantilla" => isset($plantillaRespuesta["depurar"]) ? $plantillaRespuesta["depurar"] : array()
             ));
             return;
         }
@@ -60,7 +69,8 @@ class Compra extends Controlador {
             "solicitud" => $respuesta["depurar"]["solicitud"],
             "detalle" => $respuesta["depurar"]["detalle"],
             "orden_relacionada" => isset($respuesta["depurar"]["orden_relacionada"])
-                ? $respuesta["depurar"]["orden_relacionada"] : null
+                ? $respuesta["depurar"]["orden_relacionada"] : null,
+            "plantilla" => isset($plantillaRespuesta["depurar"]) ? $plantillaRespuesta["depurar"] : array()
         ));
     }
 
@@ -87,6 +97,13 @@ class Compra extends Controlador {
             "puede_aprobar" => $this->usuarioPuede("compras.aprobar"),
             "puede_cancelar" => $this->usuarioPuede("compras.cancelar"),
             "puede_crear" => $this->usuarioPuede("compras.crear")
+        ));
+    }
+
+    public function documentos_configuracion() {
+        $this->requerirPermiso("compras.editar");
+        $this->vista("apps/erp/compras/documentos/configuracion", array(
+            "puede_configurar" => $this->usuarioPuede("compras.editar")
         ));
     }
 
@@ -184,6 +201,34 @@ class Compra extends Controlador {
             "puede_ver_finanzas" => $this->usuarioPuede("finanzas.ver"),
             "puede_operar_finanzas" => false,
             "puede_gestionar_adjuntos" => false
+        ));
+    }
+
+    public function orden_imprimir_erp($id = 0) {
+        $this->requerirPermiso("compras.ver");
+        $idOrden = intval($id);
+        $codigoPlantilla = isset($_GET["plantilla"]) ? trim((string) $_GET["plantilla"]) : "orden_compra_interna";
+        if ($codigoPlantilla === "") {
+            $codigoPlantilla = "orden_compra_interna";
+        }
+        $plantillaRespuesta = $this->modelo("ComprasDocumentosPlantillas")->obtenerPorCodigo($codigoPlantilla);
+        if ($plantillaRespuesta["error"]) {
+            $plantillaRespuesta = $this->modelo("ComprasDocumentosPlantillas")->obtenerPorCodigo("orden_compra_interna");
+        }
+        $respuesta = $this->modelo("OrdenesCompraErp")->consultar($idOrden);
+        if ($respuesta["error"]) {
+            $this->vista("apps/erp/compras/ordenes/imprimir", array(
+                "error_imprimir" => $respuesta["mensaje"],
+                "id_orden_compra" => $idOrden,
+                "plantilla" => isset($plantillaRespuesta["depurar"]) ? $plantillaRespuesta["depurar"] : array()
+            ));
+            return;
+        }
+        $this->vista("apps/erp/compras/ordenes/imprimir", array(
+            "id_orden_compra" => $idOrden,
+            "orden" => $respuesta["depurar"]["orden"],
+            "detalle" => $respuesta["depurar"]["detalle"],
+            "plantilla" => isset($plantillaRespuesta["depurar"]) ? $plantillaRespuesta["depurar"] : array()
         ));
     }
 
@@ -605,6 +650,43 @@ class Compra extends Controlador {
         $ejecutar = isset($_POST['ejecutar']) && $_POST['ejecutar'] == 1;
         $esquema = $this->modelo("ComprasEsquema");
         return json_encode($esquema->planActualizarOrdenCompra($ejecutar));
+    }
+
+    /**
+     * IA: Codex GPT-5
+     * Fecha: 2026-07-28
+     * Proposito: exponer configuracion de plantillas imprimibles de Compras.
+     * Impacto: Solicitudes/Ordenes; permite separar documentos internos y documentos para proveedor.
+     * Contrato: solo consulta configuracion; no genera documentos ni modifica compras.
+     */
+    public function documentos_plantillas_consultar_erp() {
+        $this->requerirPermiso("compras.ver");
+        return json_encode($this->modelo("ComprasDocumentosPlantillas")->consultar(
+            isset($_GET["tipo_documento"]) ? $_GET["tipo_documento"] : ""
+        ));
+    }
+
+    /**
+     * IA: Codex GPT-5
+     * Fecha: 2026-07-28
+     * Proposito: guardar configuracion de una plantilla imprimible de Compras.
+     * Impacto: Solicitudes/Ordenes; controla visibilidad de costos, SKUs y observaciones.
+     * Contrato: usa `compras.editar` temporalmente hasta activar permiso fino `compras.documentos.configurar`.
+     */
+    public function documentos_plantillas_guardar_erp() {
+        $this->requerirPermiso("compras.editar");
+        $respuesta = $this->modelo("ComprasDocumentosPlantillas")->guardarConfig(
+            $_POST,
+            isset($_SESSION["id_usuario"]) ? $_SESSION["id_usuario"] : 0
+        );
+        SesionSeguridad::registrarAuditoria("compras", "documentos_plantilla_guardar", array(
+            "entidad" => "erp_compras_documentos_plantillas",
+            "entidad_id" => isset($respuesta["depurar"]["id_plantilla_documento"]) ? $respuesta["depurar"]["id_plantilla_documento"] : null,
+            "resultado" => $respuesta["error"] ? "error" : "ok",
+            "mensaje" => $respuesta["mensaje"],
+            "datos_despues" => isset($respuesta["depurar"]) ? $respuesta["depurar"] : null
+        ));
+        return json_encode($respuesta);
     }
 
     public function enriquecer_productos_compra() {

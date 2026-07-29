@@ -712,6 +712,27 @@ Estado:
   - servicio cerrado como `entregada` / `completa`;
   - evidencia tipo `nota` registrada;
   - no toca Ventas/POS/Inventario/Garantias.
+- Validacion UI/datos TMS completada:
+  - `storage/uat/uat_tms_delivery_ui_datos_readonly.php`;
+  - resultado 2026-07-28: `ui_tms_datos_listos`;
+  - checks: 49/49;
+  - valida vistas, JS, folio UAT, KPIs y conteos TMS.
+- Contrato POS -> TMS preparado:
+  - `docs/erp_tms_delivery_integracion_pos_plan.md`;
+  - `storage/uat/uat_tms_delivery_pos_contract_readonly.php`;
+  - resultado 2026-07-28: `pos_tms_integracion_planificada`;
+  - checks iniciales: 31/31;
+  - checks con adapter dry-run: 35/35;
+  - POS queda como solicitante logistico;
+  - adapter creado: `/tms/servicio_pos_dryrun_erp`;
+  - UI POS opt-in agregada en modo dry-run solamente;
+  - UAT UI POS/TMS preparado: `storage/uat/uat_tms_delivery_pos_ui_readonly.php`;
+  - preflight para creacion real futura preparado: `storage/uat/uat_tms_delivery_pos_real_preflight_readonly.php`;
+  - autorizacion futura documentada en `docs/erp_tms_delivery_pos_real_solicitud_autorizacion.md`;
+  - UAT UI POS/TMS: 24/24;
+  - preflight real futuro: 21/21;
+  - la creacion real futura debe ocurrir despues de venta/pedido real exitoso;
+  - no crea servicios y no toca Ventas reales/Inventario/Garantias.
 - Scripts de aplicacion autorizada preparados y validados en modo bloqueado:
   - `storage/uat/uat_tms_delivery_permisos_apply_authorized.php`;
   - `storage/uat/uat_tms_delivery_schema_apply_authorized.php`.
@@ -722,7 +743,11 @@ Estado:
   - guardado real validado con servicio TMS de prueba.
   - acciones operativas y evidencias validadas con servicio TMS de prueba.
   - reportes y pantallas internas ya pueden leer datos TMS reales de prueba.
-  - go/no-go confirma codigo y esquema listos: 47/47 checks correctos con MySQL conectado.
+  - go/no-go confirma codigo, esquema, UI/datos y contrato POS/TMS: 52/52.
+  - UI/datos valida 49/49 checks con folio UAT.
+  - contrato POS -> TMS valida 45/45 con UI POS opt-in.
+  - UI POS/TMS valida 24/24.
+  - preflight real futuro POS/TMS valida 21/21.
   - checklist de activacion confirma `activacion_base_completa`.
   - reversa DDL queda bloqueada por datos TMS existentes.
   - preactivacion confirma orden recomendado: permisos primero, DDL despues.
@@ -733,6 +758,6 @@ Estado:
 
 Pendiente:
 
-- Validar UI TMS con datos de prueba.
-- Planear integracion POS/Ventas como solicitante en tarea separada.
-- No integrar POS/Ventas hasta que TMS tenga permisos, esquema aplicado y guardado real controlado.
+- Validar UI opt-in POS en navegador.
+- Validar UI TMS en navegador con datos de prueba.
+- No crear servicios TMS desde POS hasta tener UAT y autorizacion separada.

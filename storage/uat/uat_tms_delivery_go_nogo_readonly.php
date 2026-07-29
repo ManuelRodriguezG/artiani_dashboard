@@ -37,6 +37,10 @@ $archivos = array(
   "permisos_postapply_readonly" => "storage/uat/uat_tms_delivery_permisos_postapply_readonly.php",
   "schema_postapply_readonly" => "storage/uat/uat_tms_delivery_schema_postapply_readonly.php",
   "reversa_preflight_readonly" => "storage/uat/uat_tms_delivery_reversa_preflight_readonly.php",
+  "ui_datos_readonly" => "storage/uat/uat_tms_delivery_ui_datos_readonly.php",
+  "pos_contract_readonly" => "storage/uat/uat_tms_delivery_pos_contract_readonly.php",
+  "pos_ui_readonly" => "storage/uat/uat_tms_delivery_pos_ui_readonly.php",
+  "pos_real_preflight_readonly" => "storage/uat/uat_tms_delivery_pos_real_preflight_readonly.php",
   "servicio_manual_apply" => "storage/uat/uat_tms_delivery_servicio_manual_apply_authorized.php",
   "apply_permisos" => "storage/uat/uat_tms_delivery_permisos_apply_authorized.php",
   "apply_schema" => "storage/uat/uat_tms_delivery_schema_apply_authorized.php"
@@ -50,7 +54,8 @@ $controlador = contenido($root . "/app/controladores/Tms.php");
 $metodos = array(
   "servicios", "operacion", "costos", "reportes", "configuracion",
   "servicio_guardar_erp", "servicio_accion_erp", "evidencias_listar_erp",
-  "evidencia_registrar_erp", "evidencia_cancelar_erp", "reportes_resumen_erp"
+  "evidencia_registrar_erp", "evidencia_cancelar_erp", "reportes_resumen_erp",
+  "servicio_pos_dryrun_erp"
 );
 foreach ($metodos as $metodo) {
   $checks["controlador_" . $metodo] = check_item(preg_match('/public function\s+' . preg_quote($metodo, '/') . '\s*\(/', $controlador) === 1, $metodo);
@@ -108,7 +113,7 @@ $estado = empty($fallos) ? "go_preparacion" : "no_go_codigo";
 if (empty($fallos) && (!empty($permisosPendientes) || $schemaPendiente)) {
   $estado = "go_con_activaciones_pendientes";
 }
-$siguientePaso = "Activacion base TMS completa. Validar UI TMS con datos de prueba y planear integracion POS/Ventas en tarea separada.";
+$siguientePaso = "Activacion base TMS completa, UI/datos validados, UI POS/TMS dry-run lista y preflight real futuro preparado. Validar en navegador antes de creacion real autorizada.";
 if (!empty($permisosPendientes)) {
   $siguientePaso = "Generar respaldo externo y aplicar primero permisos TMS; DDL TMS queda en autorizacion separada.";
 } elseif ($schemaPendiente) {

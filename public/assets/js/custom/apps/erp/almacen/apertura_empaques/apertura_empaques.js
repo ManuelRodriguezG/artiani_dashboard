@@ -105,9 +105,21 @@
         return !!(option && option.getAttribute("data-apertura") === "1");
     }
 
+    /**
+     * IA: Codex GPT-5 | Fecha: 2026-07-28
+     * Proposito: obtiene el SKU cerrado seleccionado por id real de configuracion, no por indice visual.
+     * Impacto: UI de Almacen/Apertura; evita que Select2 o recargas del arreglo dejen el select sin referencia valida.
+     */
     function skuActual() {
-        var index = parseInt($("alm_ape_sku_origen").value, 10);
-        return skusApertura[index] || null;
+        var id = String($("alm_ape_sku_origen").value || "");
+        if (!id) { return null; }
+        for (var i = 0; i < skusApertura.length; i++) {
+            var item = skusApertura[i] || {};
+            if (String(item.id_apertura_catalogo || item.id_apertura_empaque || "") === id) {
+                return item;
+            }
+        }
+        return null;
     }
 
     function origenSeleccionado() {
@@ -147,8 +159,9 @@
         return request("/almacen/apertura_skus_erp").then(function (response) {
             if (response.error) { throw new Error(response.mensaje); }
             skusApertura = response.depurar || [];
-            $("alm_ape_sku_origen").innerHTML = "<option value=\"\">Selecciona SKU cerrado</option>" + skusApertura.map(function (item, index) {
-                return "<option value=\"" + index + "\">" + escapeHtml(item.sku) + " - " + escapeHtml(item.nombre) + "</option>";
+            $("alm_ape_sku_origen").innerHTML = "<option value=\"\">Selecciona SKU cerrado</option>" + skusApertura.map(function (item) {
+                var id = item.id_apertura_catalogo || item.id_apertura_empaque || "";
+                return "<option value=\"" + escapeHtml(id) + "\">" + escapeHtml(item.sku) + " - " + escapeHtml(item.nombre) + "</option>";
             }).join("");
             if (skusApertura.length === 0) {
                 $("alm_ape_sku_origen").innerHTML = "<option value=\"\">Sin recetas de apertura configuradas</option>";
@@ -168,13 +181,13 @@
         existenciasOrigen = [];
         $("alm_ape_id").value = "";
         $("alm_ape_confirmar").disabled = true;
-        renderComponentes();
+        $("alm_ape_resultados_body").innerHTML = "<tr><td colspan=\"4\" class=\"text-center text-muted py-10\">Cargando configuracion de apertura...</td></tr>";
         renderUnidadesOrigen();
         if (!sku) {
             renderResumen();
             return Promise.resolve();
         }
-        return request("/almacen/apertura_receta_erp?id_paquete=" + encodeURIComponent(sku.id_paquete)).then(function (response) {
+        return request("/almacen/apertura_receta_erp?id_apertura_catalogo=" + encodeURIComponent(sku.id_apertura_catalogo || sku.id_apertura_empaque)).then(function (response) {
             if (response.error) { throw new Error(response.mensaje); }
             recetaActual = response.depurar || null;
             renderComponentes();
@@ -218,7 +231,7 @@
             return "<tr data-ape-componente=\"" + escapeHtml(item.id_componente) + "\">" +
                 "<td><div class=\"fw-bold\">" + escapeHtml(item.sku) + "</div><div class=\"text-muted fs-8\">" + escapeHtml(item.nombre) + "</div></td>" +
                 "<td class=\"text-end\">" + escapeHtml(item.cantidad_esperada) + "</td>" +
-                "<td class=\"text-end\"><input class=\"form-control form-control-sm form-control-solid text-end\" data-ape-cantidad=\"" + escapeHtml(item.id_componente) + "\" value=\"" + escapeHtml(item.cantidad_esperada) + "\" inputmode=\"decimal\"></td>" +
+                "<td class=\"text-end\"><input class=\"form-control form-control-sm form-control-solid text-end\" data-ape-cantidad=\"" + escapeHtml(item.id_componente) + "\" data-ape-sku-resultado=\"" + escapeHtml(item.id_sku_resultado || "") + "\" value=\"" + escapeHtml(item.cantidad_esperada) + "\" inputmode=\"decimal\"></td>" +
                 "<td>" + escapeHtml(item.unidad || "pza") + "</td>" +
                 "</tr>";
         }).join("") || "<tr><td colspan=\"4\" class=\"text-center text-muted py-10\">Selecciona SKU cerrado con receta activa</td></tr>";
@@ -263,6 +276,7 @@
         return Array.prototype.slice.call(document.querySelectorAll("[data-ape-cantidad]")).map(function (input) {
             return {
                 id_componente: input.getAttribute("data-ape-cantidad"),
+                id_sku_resultado: input.getAttribute("data-ape-sku-resultado"),
                 cantidad_real: input.value
             };
         });
@@ -299,7 +313,7 @@
         $("alm_ape_resumen").innerHTML = "<div class=\"fw-bold\">" + escapeHtml(sku.sku) + "</div>" +
             "<div class=\"text-muted fs-7\">" + escapeHtml(sku.nombre || "") + "</div>" +
             "<div class=\"mt-3 d-flex flex-wrap gap-2\">" +
-            "<span class=\"badge badge-light-primary\">Componentes " + escapeHtml(sku.total_componentes || 0) + "</span>" +
+            "<span class=\"badge badge-light-primary\">Destino granel</span>" +
             "<span class=\"badge badge-light-info\">Esperado " + escapeHtml(sku.cantidad_total_esperada || 0) + "</span>" +
             "<span class=\"badge " + (origen.id_existencia_origen ? "badge-light-success" : "badge-light-warning") + "\">" + escapeHtml(textoOrigen) + "</span>" +
             "</div>";
@@ -320,7 +334,7 @@
         post("/almacen/apertura_guardar_borrador_erp", {
             id_apertura_empaque: $("alm_ape_id").value,
             id_almacen: $("alm_ape_almacen").value,
-            id_paquete: sku.id_paquete,
+            id_apertura_catalogo: sku.id_apertura_catalogo || sku.id_apertura_empaque,
             id_existencia_origen: origen.id_existencia_origen,
             id_unidad_origen: origen.id_unidad_origen,
             resultados: JSON.stringify(capturarResultados()),
@@ -386,18 +400,34 @@
         });
     }
 
+    /**
+     * IA: Codex GPT-5 | Fecha: 2026-07-28
+     * Proposito: enlaza cambios nativos y Select2 sin depender de un solo mecanismo de eventos.
+     * Impacto: UI de Almacen/Apertura; asegura que la carga de receta/existencias se dispare al seleccionar opciones.
+     */
+    function vincularCambioSelect(id, handler) {
+        var element = $(id);
+        if (!element) { return; }
+        element.addEventListener("change", handler);
+        if (window.jQuery) {
+            window.jQuery(element).off("change.almApe").on("change.almApe", handler);
+            window.jQuery(element).off("select2:select.almApe").on("select2:select.almApe", handler);
+            window.jQuery(element).off("select2:clear.almApe").on("select2:clear.almApe", handler);
+        }
+    }
+
     document.addEventListener("DOMContentLoaded", function () {
-        $("alm_ape_almacen").addEventListener("change", function () {
+        vincularCambioSelect("alm_ape_almacen", function () {
             $("alm_ape_id").value = "";
             $("alm_ape_confirmar").disabled = true;
             cargarExistenciasOrigen();
         });
-        $("alm_ape_sku_origen").addEventListener("change", function () {
+        vincularCambioSelect("alm_ape_sku_origen", function () {
             cargarReceta().catch(function (error) {
                 $("alm_ape_resumen").innerHTML = "<span class=\"text-danger\">" + escapeHtml(error.message) + "</span>";
             });
         });
-        $("alm_ape_unidad_origen").addEventListener("change", renderResumen);
+        vincularCambioSelect("alm_ape_unidad_origen", renderResumen);
         $("alm_ape_guardar").addEventListener("click", guardar);
         $("alm_ape_confirmar").addEventListener("click", function () {
             if ($("alm_ape_id").value) { confirmarApertura($("alm_ape_id").value); }

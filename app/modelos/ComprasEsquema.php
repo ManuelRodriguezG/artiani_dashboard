@@ -283,6 +283,85 @@ class ComprasEsquema extends DBSchema {
         $plan[] = $this->agregarColumnaSiNoExiste("erp_proveedores_listas_productos_revision", "observaciones", "TEXT NULL", $ejecutar);
         $plan[] = $this->agregarColumnaSiNoExiste("erp_proveedores_listas_productos_revision", "fecha_registro", "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP", $ejecutar);
 
+        /**
+         * IA: Codex GPT-5
+         * Fecha: 2026-07-28
+         * Proposito: preparar configuracion de plantillas imprimibles de Compras por tipo de documento y audiencia.
+         * Impacto: Solicitudes/Ordenes; evita exponer costos internos al imprimir documentos para proveedores.
+         * Contrato: estas tablas solo configuran visibilidad/formato; no reemplazan solicitudes, ordenes ni adjuntos.
+         */
+        $plan[] = $this->crearTablaSiNoExiste("erp_compras_documentos_plantillas", array(
+            "`id_plantilla_documento` INT NOT NULL AUTO_INCREMENT",
+            "`codigo` VARCHAR(80) NOT NULL",
+            "`tipo_documento` VARCHAR(40) NOT NULL",
+            "`audiencia` VARCHAR(40) NOT NULL",
+            "`nombre` VARCHAR(150) NOT NULL",
+            "`descripcion` TEXT NULL",
+            "`estatus` VARCHAR(30) NOT NULL DEFAULT 'activa'",
+            "`es_default` TINYINT(1) NOT NULL DEFAULT 0",
+            "`creado_por` INT NULL",
+            "`actualizado_por` INT NULL",
+            "`fecha_registro` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
+            "`fecha_actualizacion` DATETIME NULL",
+            "PRIMARY KEY (`id_plantilla_documento`)",
+            "UNIQUE KEY `idx_compras_doc_plantilla_codigo` (`codigo`)",
+            "KEY `idx_compras_doc_plantilla_tipo` (`tipo_documento`, `audiencia`, `estatus`)"
+        ), "ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci", $ejecutar);
+        $plan[] = $this->agregarColumnaSiNoExiste("erp_compras_documentos_plantillas", "codigo", "VARCHAR(80) NOT NULL", $ejecutar);
+        $plan[] = $this->agregarColumnaSiNoExiste("erp_compras_documentos_plantillas", "tipo_documento", "VARCHAR(40) NOT NULL", $ejecutar);
+        $plan[] = $this->agregarColumnaSiNoExiste("erp_compras_documentos_plantillas", "audiencia", "VARCHAR(40) NOT NULL", $ejecutar);
+        $plan[] = $this->agregarColumnaSiNoExiste("erp_compras_documentos_plantillas", "nombre", "VARCHAR(150) NOT NULL", $ejecutar);
+        $plan[] = $this->agregarColumnaSiNoExiste("erp_compras_documentos_plantillas", "descripcion", "TEXT NULL", $ejecutar);
+        $plan[] = $this->agregarColumnaSiNoExiste("erp_compras_documentos_plantillas", "estatus", "VARCHAR(30) NOT NULL DEFAULT 'activa'", $ejecutar);
+        $plan[] = $this->agregarColumnaSiNoExiste("erp_compras_documentos_plantillas", "es_default", "TINYINT(1) NOT NULL DEFAULT 0", $ejecutar);
+        $plan[] = $this->agregarColumnaSiNoExiste("erp_compras_documentos_plantillas", "creado_por", "INT NULL", $ejecutar);
+        $plan[] = $this->agregarColumnaSiNoExiste("erp_compras_documentos_plantillas", "actualizado_por", "INT NULL", $ejecutar);
+        $plan[] = $this->agregarColumnaSiNoExiste("erp_compras_documentos_plantillas", "fecha_registro", "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP", $ejecutar);
+        $plan[] = $this->agregarColumnaSiNoExiste("erp_compras_documentos_plantillas", "fecha_actualizacion", "DATETIME NULL", $ejecutar);
+        $plan[] = $this->agregarIndiceSiNoExiste("erp_compras_documentos_plantillas", "idx_compras_doc_plantilla_codigo", "UNIQUE KEY `idx_compras_doc_plantilla_codigo` (`codigo`)", $ejecutar);
+        $plan[] = $this->agregarIndiceSiNoExiste("erp_compras_documentos_plantillas", "idx_compras_doc_plantilla_tipo", "KEY `idx_compras_doc_plantilla_tipo` (`tipo_documento`, `audiencia`, `estatus`)", $ejecutar);
+
+        $plan[] = $this->crearTablaSiNoExiste("erp_compras_documentos_plantillas_config", array(
+            "`id_plantilla_config` INT NOT NULL AUTO_INCREMENT",
+            "`id_plantilla_documento` INT NOT NULL",
+            "`mostrar_logo` TINYINT(1) NOT NULL DEFAULT 1",
+            "`logo_ruta` VARCHAR(255) NULL",
+            "`mostrar_costos` TINYINT(1) NOT NULL DEFAULT 0",
+            "`mostrar_impuestos` TINYINT(1) NOT NULL DEFAULT 0",
+            "`mostrar_totales` TINYINT(1) NOT NULL DEFAULT 0",
+            "`mostrar_sku_erp` TINYINT(1) NOT NULL DEFAULT 0",
+            "`mostrar_sku_proveedor` TINYINT(1) NOT NULL DEFAULT 1",
+            "`mostrar_nombre_erp` TINYINT(1) NOT NULL DEFAULT 0",
+            "`mostrar_nombre_proveedor` TINYINT(1) NOT NULL DEFAULT 1",
+            "`mostrar_observaciones_internas` TINYINT(1) NOT NULL DEFAULT 0",
+            "`mostrar_observaciones_publicas` TINYINT(1) NOT NULL DEFAULT 1",
+            "`columnas_json` TEXT NULL",
+            "`estilos_json` TEXT NULL",
+            "`pie_pagina` TEXT NULL",
+            "`fecha_registro` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
+            "`fecha_actualizacion` DATETIME NULL",
+            "PRIMARY KEY (`id_plantilla_config`)",
+            "UNIQUE KEY `idx_compras_doc_config_plantilla` (`id_plantilla_documento`)"
+        ), "ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci", $ejecutar);
+        $plan[] = $this->agregarColumnaSiNoExiste("erp_compras_documentos_plantillas_config", "id_plantilla_documento", "INT NOT NULL", $ejecutar);
+        $plan[] = $this->agregarColumnaSiNoExiste("erp_compras_documentos_plantillas_config", "mostrar_logo", "TINYINT(1) NOT NULL DEFAULT 1", $ejecutar);
+        $plan[] = $this->agregarColumnaSiNoExiste("erp_compras_documentos_plantillas_config", "logo_ruta", "VARCHAR(255) NULL", $ejecutar);
+        $plan[] = $this->agregarColumnaSiNoExiste("erp_compras_documentos_plantillas_config", "mostrar_costos", "TINYINT(1) NOT NULL DEFAULT 0", $ejecutar);
+        $plan[] = $this->agregarColumnaSiNoExiste("erp_compras_documentos_plantillas_config", "mostrar_impuestos", "TINYINT(1) NOT NULL DEFAULT 0", $ejecutar);
+        $plan[] = $this->agregarColumnaSiNoExiste("erp_compras_documentos_plantillas_config", "mostrar_totales", "TINYINT(1) NOT NULL DEFAULT 0", $ejecutar);
+        $plan[] = $this->agregarColumnaSiNoExiste("erp_compras_documentos_plantillas_config", "mostrar_sku_erp", "TINYINT(1) NOT NULL DEFAULT 0", $ejecutar);
+        $plan[] = $this->agregarColumnaSiNoExiste("erp_compras_documentos_plantillas_config", "mostrar_sku_proveedor", "TINYINT(1) NOT NULL DEFAULT 1", $ejecutar);
+        $plan[] = $this->agregarColumnaSiNoExiste("erp_compras_documentos_plantillas_config", "mostrar_nombre_erp", "TINYINT(1) NOT NULL DEFAULT 0", $ejecutar);
+        $plan[] = $this->agregarColumnaSiNoExiste("erp_compras_documentos_plantillas_config", "mostrar_nombre_proveedor", "TINYINT(1) NOT NULL DEFAULT 1", $ejecutar);
+        $plan[] = $this->agregarColumnaSiNoExiste("erp_compras_documentos_plantillas_config", "mostrar_observaciones_internas", "TINYINT(1) NOT NULL DEFAULT 0", $ejecutar);
+        $plan[] = $this->agregarColumnaSiNoExiste("erp_compras_documentos_plantillas_config", "mostrar_observaciones_publicas", "TINYINT(1) NOT NULL DEFAULT 1", $ejecutar);
+        $plan[] = $this->agregarColumnaSiNoExiste("erp_compras_documentos_plantillas_config", "columnas_json", "TEXT NULL", $ejecutar);
+        $plan[] = $this->agregarColumnaSiNoExiste("erp_compras_documentos_plantillas_config", "estilos_json", "TEXT NULL", $ejecutar);
+        $plan[] = $this->agregarColumnaSiNoExiste("erp_compras_documentos_plantillas_config", "pie_pagina", "TEXT NULL", $ejecutar);
+        $plan[] = $this->agregarColumnaSiNoExiste("erp_compras_documentos_plantillas_config", "fecha_registro", "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP", $ejecutar);
+        $plan[] = $this->agregarColumnaSiNoExiste("erp_compras_documentos_plantillas_config", "fecha_actualizacion", "DATETIME NULL", $ejecutar);
+        $plan[] = $this->agregarIndiceSiNoExiste("erp_compras_documentos_plantillas_config", "idx_compras_doc_config_plantilla", "UNIQUE KEY `idx_compras_doc_config_plantilla` (`id_plantilla_documento`)", $ejecutar);
+
         return array(
             "error" => false,
             "tipo" => "success",

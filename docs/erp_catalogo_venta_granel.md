@@ -1022,7 +1022,7 @@ Alcance de la correccion:
 - Refinamiento de validaciones: implementado para serie individual, decimales de incremento y unidad/SKU proveedor activos.
 - UX de captura: los campos de precision, incremento y etiqueta de unidad se muestran solo cuando `Venta fraccionaria` esta activa; el JS de productos quedo versionado para evitar cache obsoleta.
 - UX de proveedor: el factor de conversion muestra vista previa contra la unidad base del SKU y valida factor/compra minima antes de enviar.
-- UX del modal: la pestaña Inventario organiza los campos en secciones `Reglas de stock`, `Control fisico`, `Venta a granel` y `Etiquetado y trazabilidad`; los campos clave tienen ayuda contextual con icono de pregunta.
+- UX del modal: la pestana Inventario organiza los campos en secciones `Reglas de stock`, `Control fisico`, `Venta a granel` y `Etiquetado y trazabilidad`; los campos clave tienen ayuda contextual con icono de pregunta.
 - Calidad visual: SKU activo con unidad base decimal y sin venta fraccionaria muestra alerta `Unidad decimal`; SKU granel activo sin proveedor muestra `Granel sin proveedor`.
 - Documentacion operativa: se agrego glosario de campos/titulos para granel, etiquetado y conversion proveedor -> inventario.
 - Presentaciones derivadas: documentada propuesta `erp_catalogo_sku_presentaciones`; DDL propuesto no ejecutado.
@@ -1115,7 +1115,7 @@ Contexto: se revisa Catalogo ERP para productos que se reciben como unidad fisic
 
 1. Quitar el bloqueo duro `generar_etiqueta_interna + permite_venta_fraccionaria` en backend y frontend.
 2. Ajustar textos UX:
-   - `Venta fraccionaria` -> `Tambien permite venta fraccionaria`.
+   - `Venta fraccionaria` se mantiene como titulo visible; la ayuda contextual debe aclarar que puede convivir con venta cerrada cuando exista unidad fisica/apertura.
    - `Etiqueta interna` -> `Etiqueta de trazabilidad de unidad fisica`.
    - `Etiqueta fraccionada` -> `Etiquetas para fracciones o presentaciones preparadas`.
 3. Mantener validaciones de unidad decimal, precision e incremento minimo.
@@ -1149,7 +1149,275 @@ Contexto: se revisa Catalogo ERP para productos que se reciben como unidad fisic
 UAT recomendado:
 
 1. Editar un SKU inventariable con unidad base decimal.
-2. Activar `Etiqueta unidad fisica`, `Capturar unidades fisicas recibidas` y `Tambien venta fraccionaria`.
+2. Activar `Etiqueta unidad fisica`, `Capturar unidades fisicas recibidas` y `Venta fraccionaria`.
 3. Guardar con precision e incremento validos.
 4. Reabrir el SKU y confirmar que conserva la configuracion.
 5. Desactivar temporalmente `Capturar unidades fisicas recibidas` y confirmar que aparece la alerta `Mixto sin unidades fisicas` en la tabla de SKU.
+
+## Decision 2026-07-28 - Apertura de empaques separada de Presentaciones
+
+Contexto: se reviso nuevamente el flujo de productos cerrados que pueden abrirse para generar stock granel. El dueno del proyecto aclaro que no se debe reutilizar la pestana `Presentaciones`, porque presentaciones y apertura de empaques son conceptos operativos diferentes y mezclarlos confundiria la captura.
+
+### Decision corregida
+
+- No reutilizar `Presentaciones` para apertura de empaques.
+- Crear una pestana separada en el modal de producto/SKU: `Apertura de empaques`.
+- Mantener `Presentaciones` solo para presentaciones comerciales o preparadas:
+  - bolsas;
+  - paquetes;
+  - presentaciones listas para venta;
+  - preparaciones internas que generan un SKU presentacion.
+- Usar `Apertura de empaques` solo para convertir una unidad cerrada a un SKU granel/fraccionario.
+
+### Diferencia operativa
+
+`Presentaciones` responde:
+
+- Como vendo o preparo una presentacion comercial derivada.
+- Ejemplo: `TP-40372 KG` -> `TP-40372-BOLSA-25G`.
+- Puede tener empaque, capacidad diaria, merma y disponibilidad preparada/bajo demanda.
+
+`Apertura de empaques` responde:
+
+- Que SKU cerrado puedo abrir y hacia que SKU granel se libera el contenido.
+- Ejemplo: `CROQUETA-X-COSTAL-20KG` -> `CROQUETA-X-GRANEL-KG`.
+- No representa una bolsa ni una presentacion comercial; representa una operacion fisica de almacen.
+
+### Tabla nueva recomendada
+
+Para no mezclar contratos, crear una tabla propia cuando se autorice DDL:
+
+```sql
+CREATE TABLE erp_catalogo_sku_aperturas_empaque (
+  id_apertura_empaque BIGINT NOT NULL AUTO_INCREMENT,
+  id_sku_origen BIGINT NOT NULL,
+  id_sku_destino BIGINT NOT NULL,
+  factor_conversion DECIMAL(18,6) NOT NULL,
+  requiere_unidad_fisica TINYINT(1) NOT NULL DEFAULT 1,
+  conserva_lote TINYINT(1) NOT NULL DEFAULT 1,
+  conserva_caducidad TINYINT(1) NOT NULL DEFAULT 1,
+  permite_merma TINYINT(1) NOT NULL DEFAULT 1,
+  merma_porcentaje_default DECIMAL(9,4) NOT NULL DEFAULT 0.0000,
+  instrucciones_operativas TEXT NULL,
+  estatus ENUM('activo','inactivo') NOT NULL DEFAULT 'activo',
+  fecha_registro DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  fecha_actualizacion DATETIME NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (id_apertura_empaque),
+  UNIQUE KEY idx_catalogo_apertura_origen_destino (id_sku_origen, id_sku_destino),
+  KEY idx_catalogo_apertura_destino (id_sku_destino),
+  CONSTRAINT fk_catalogo_apertura_origen FOREIGN KEY (id_sku_origen) REFERENCES erp_catalogo_skus (id_sku),
+  CONSTRAINT fk_catalogo_apertura_destino FOREIGN KEY (id_sku_destino) REFERENCES erp_catalogo_skus (id_sku)
+);
+```
+
+### Significado de campos
+
+- `id_sku_origen`: SKU cerrado que se va a abrir. Debe ser inventariable y operativo.
+- `id_sku_destino`: SKU granel/fraccionario que recibira el contenido abierto. Debe ser inventariable y permitir venta fraccionaria si se vendera a granel.
+- `factor_conversion`: cantidad del SKU destino que se genera al abrir una unidad del SKU origen.
+  - Ejemplo: `1 costal cerrado` -> `20 kg granel`, factor `20.000000`.
+  - Ejemplo: `1 rollo cerrado` -> `100 m granel`, factor `100.000000`.
+- `requiere_unidad_fisica`: obliga a Almacen a seleccionar la etiqueta/unidad cerrada real que se abre.
+- `conserva_lote`: el stock granel hereda el lote del SKU cerrado.
+- `conserva_caducidad`: el stock granel hereda caducidad del SKU cerrado.
+- `permite_merma`: permite capturar perdida al abrir.
+- `merma_porcentaje_default`: merma sugerida, no obligatoria.
+- `instrucciones_operativas`: nota para Almacen, por ejemplo cuidados de apertura o empaque.
+
+### Validaciones de Catalogo
+
+Al guardar una apertura:
+
+- SKU origen y destino son obligatorios.
+- SKU origen y destino no pueden ser el mismo.
+- Ambos SKUs deben estar activos u operativos.
+- SKU origen debe controlar inventario.
+- SKU destino debe controlar inventario.
+- `factor_conversion` debe ser mayor a `0`.
+- Si SKU destino tiene unidad decimal y venta fraccionaria, debe tener precision e incremento configurados.
+- Si `requiere_unidad_fisica=1`, SKU origen debe tener trazabilidad/unidades fisicas configuradas.
+- No permitir dos reglas activas duplicadas para el mismo origen/destino.
+
+### Como debe verse en Catalogo
+
+Nueva pestana: `Apertura de empaques`.
+
+Contenido sugerido:
+
+- Lista de aperturas configuradas:
+  - SKU cerrado origen.
+  - SKU granel destino.
+  - Factor.
+  - Hereda lote/caducidad.
+  - Merma permitida.
+  - Estatus.
+- Formulario:
+  - SKU origen cerrado.
+  - SKU destino granel.
+  - Factor de conversion.
+  - Check: requiere unidad fisica.
+  - Check: conserva lote.
+  - Check: conserva caducidad.
+  - Check: permite merma.
+  - Merma default.
+  - Instrucciones operativas.
+
+### Contrato para Almacen
+
+Almacen/Apertura de empaques debe consultar esta tabla, no `Presentaciones`.
+
+Flujo:
+
+1. Usuario selecciona SKU cerrado o escanea etiqueta de unidad fisica.
+2. Almacen consulta reglas activas en `erp_catalogo_sku_aperturas_empaque` por `id_sku_origen`.
+3. Muestra destinos granel permitidos.
+4. Usuario confirma cantidad/unidad fisica a abrir.
+5. Inventario descuenta SKU origen cerrado.
+6. Inventario genera stock del SKU destino granel.
+7. Se heredan lote/caducidad si la regla lo indica.
+8. Se registra merma si aplica.
+9. Se audita usuario, fecha, almacen, SKU origen, SKU destino y factor usado.
+
+### Impacto para precios y ventas
+
+- Listas de precios sigue asignando precio por SKU:
+  - SKU cerrado: precio por unidad cerrada.
+  - SKU granel: precio por unidad fraccionaria.
+- POS vende el SKU granel solo si hay stock abierto disponible.
+- Ecommerce no debe vender stock abierto como si fuera cerrado.
+- Catalogo no calcula precios ni ejecuta movimientos.
+
+### Orden de implementacion recomendado
+
+1. Catalogo: preparar plan DDL acotado para `erp_catalogo_sku_aperturas_empaque`.
+2. Con respaldo externo y autorizacion, crear la tabla nueva.
+3. Catalogo backend: agregar CRUD de reglas de apertura.
+4. Catalogo UI: agregar pestana `Apertura de empaques` separada de `Presentaciones`.
+5. Catalogo calidad: alertar SKU cerrado con `permite_apertura` o necesidad operativa sin regla activa.
+6. Handoff Almacen: Apertura/Preparacion debe consumir `erp_catalogo_sku_aperturas_empaque`.
+7. Handoff Inventario: movimientos deben distinguir `apertura_empaque` de `preparacion_presentacion`.
+8. Handoff POS/Ecommerce: vender por SKU y respetar stock cerrado/abierto.
+
+### Estado
+
+- Decision corregida por criterio operativo del dueno del proyecto.
+- Presentaciones y aperturas quedan separadas.
+- Sin cambios de BD.
+- Sin cambios de codigo.
+- Para implementar se requiere autorizacion de DDL si se crea la tabla nueva.
+## Implementacion parcial 2026-07-28 - Apertura de empaques en Catalogo
+
+Estado: codigo preparado; DDL real aplicado el 2026-07-28 con respaldo externo.
+
+Cambios realizados:
+
+- `CatalogoErpEsquema` declara `erp_catalogo_sku_aperturas_empaque` para auditoria y plan de actualizacion.
+- `CatalogoErpDatos` consulta aperturas de empaque de forma tolerante: si la tabla no existe, devuelve `esquema_disponible=false` y no rompe el modal.
+- `CatalogoErpDatos` agrega guardado/desactivacion de aperturas con validaciones de SKU origen/destino, inventario, venta fraccionaria destino, factor, merma y trazabilidad.
+- `CatalogoErp` agrega endpoints separados con permiso `catalogo.editar` y auditoria:
+  - `/catalogoerp/guardar_sku_apertura_empaque`
+  - `/catalogoerp/desactivar_sku_apertura_empaque`
+- `productos.php` agrega pestana separada `Apertura de empaques` sin mezclarla con `Presentaciones`.
+- `productos.js` renderiza aperturas, llena selectores, permite preparar edicion/desactivacion y muestra aviso si falta DDL.
+- La etiqueta visible de granel queda como `Venta fraccionaria`, sin la leyenda `tambien`.
+
+Pendiente para guardado real:
+
+- DDL acotado de `erp_catalogo_sku_aperturas_empaque` aplicado el 2026-07-28 con respaldo externo: `C:\xampp\panel_db_backups\artianilocal_panel_20260728_antes_catalogo_apertura_empaques.sql`.
+- Despues del DDL, probar en UI crear una regla: SKU cerrado origen -> SKU granel destino.
+- Preparar handoff para Almacen/Apertura de empaques para que consulte esta tabla, no `Presentaciones`.
+- DDL aplicado desde `docs/erp_catalogo_apertura_empaques_ddl.sql`.
+- Handoff para Almacen preparado en `docs/erp_catalogo_apertura_empaques_handoff_almacen.md`.
+
+Verificaciones:
+
+- `php -l app/modelos/CatalogoErpDatos.php`: sin errores.
+- `php -l app/modelos/CatalogoErpEsquema.php`: sin errores.
+- `php -l app/controladores/CatalogoErp.php`: sin errores.
+- `php -l app/vistas/paginas/apps/erp/catalogo/productos.php`: sin errores.
+- `node --check public/assets/js/custom/apps/erp/catalogo/productos.js`: sin errores.
+## Continuidad 2026-07-28 - DDL revisable y handoff Almacen
+
+Se agregaron archivos de continuidad sin ejecutar base de datos:
+
+- `docs/erp_catalogo_apertura_empaques_ddl.sql`: DDL acotado para crear `erp_catalogo_sku_aperturas_empaque`.
+- `docs/erp_catalogo_apertura_empaques_handoff_almacen.md`: instrucciones para que Almacen/Apertura de empaques consuma la tabla nueva de Catalogo.
+
+Hallazgo adicional:
+
+- Almacen ya tiene flujo `apertura_empaques`, pero actualmente consulta paquetes/desarme (`erp_catalogo_sku_paquetes` y componentes).
+- Ese flujo no debe confundirse con apertura cerrado -> granel.
+- El modulo Almacen debe conservar paquetes/desarme para kits o paquetes, y agregar o separar el modo de apertura cerrado -> granel usando `erp_catalogo_sku_aperturas_empaque`.
+
+Siguiente autorizacion necesaria para Catalogo:
+
+- Respaldo externo real generado: `C:\xampp\panel_db_backups\artianilocal_panel_20260728_antes_catalogo_apertura_empaques.sql`.
+- Token sugerido: `CATALOGO_APERTURA_EMPAQUES_DDL`.
+- Alcance: crear solo `erp_catalogo_sku_aperturas_empaque`; sin migrar datos; sin tocar Almacen, Inventario, POS, Ecommerce ni Listas de precios.
+## Aplicacion DDL 2026-07-28 - Apertura de empaques Catalogo
+
+Autorizacion usada:
+
+- Token: `CATALOGO_APERTURA_EMPAQUES_DDL`.
+- Alcance: crear solo `erp_catalogo_sku_aperturas_empaque`; sin migrar datos; sin tocar Almacen, Inventario, POS, Ecommerce ni Listas de precios.
+
+Respaldo externo generado por el agente antes del DDL:
+
+- `C:\xampp\panel_db_backups\artianilocal_panel_20260728_antes_catalogo_apertura_empaques.sql`
+- Tamano verificado: `33117931` bytes.
+
+Resultado:
+
+- Tabla creada: `erp_catalogo_sku_aperturas_empaque`.
+- Columnas verificadas: `id_apertura_empaque`, `id_sku_origen`, `id_sku_destino`, `factor_conversion`, `requiere_unidad_fisica`, `conserva_lote`, `conserva_caducidad`, `permite_merma`, `merma_porcentaje_default`, `instrucciones_operativas`, `estatus`, `fecha_registro`, `fecha_actualizacion`.
+- Indices verificados: `PRIMARY`, `idx_catalogo_apertura_origen_destino`, `idx_catalogo_apertura_destino`.
+
+Siguiente paso:
+
+- Probar en UI una regla de apertura cerrada -> granel.
+- Despues pasar al modulo Almacen con `docs/erp_catalogo_apertura_empaques_handoff_almacen.md`.
+## Auditoria post-DDL 2026-07-28 - Candidatos Apertura de empaques
+
+Estado: read-only, sin crear reglas.
+
+Resultados:
+
+- `erp_catalogo_sku_aperturas_empaque` existe y tiene `0` registros.
+- Hay `13` SKUs operativos con `Venta fraccionaria` activa que pueden funcionar como posibles destinos granel.
+- Productos con mas de un SKU y al menos un SKU granel detectados:
+
+| Producto | SKUs detectados | Observacion |
+| --- | --- | --- |
+| `ECOM-1560` Nupec Croqueta Costal Cachorro 20 kg | `1205:NUEC-C20K` cerrado, `1786:NUEC-C20K-GRANEL` granel | Mejor candidato para primera prueba; confirmar factor `20` antes de guardar. |
+| `ECOM-5` Alimento churro blanco para peces agranel | `146:TP-40372` granel, presentaciones `25GR`, `50GR`, `100GR`, `500GR` | Parece mas ligado a presentaciones/preparacion que a apertura cerrada -> granel. |
+| `ECOM-1443` Alimento churro rojo para peces agranel | `TP-40352`, `TP-40352-500GR`, ambos marcados fraccionarios | Requiere saneamiento de reglas antes de usar como apertura. |
+
+Criterio:
+
+- No crear reglas reales por inferencia de nombre.
+- Para registrar una apertura debe confirmarse:
+  - SKU origen cerrado;
+  - SKU destino granel;
+  - factor real de apertura;
+  - si requiere unidad fisica;
+  - si conserva lote/caducidad;
+  - si permite merma.
+
+Primer UAT recomendado:
+
+- Origen: `1205:NUEC-C20K`.
+- Destino: `1786:NUEC-C20K-GRANEL`.
+- Factor sugerido por nombre: `20.000000`.
+- Confirmacion operativa requerida antes de guardar.
+
+## Ajuste UX 2026-07-28 - Selectores de Apertura de empaques
+
+Se ajusto la UI de Catalogo para reducir errores de captura:
+
+- El selector `SKU origen cerrado` muestra solo SKUs operativos que no tienen `Venta fraccionaria` activa.
+- El selector `SKU destino granel` muestra solo SKUs operativos con `Venta fraccionaria` activa.
+- Esto no crea reglas automaticamente ni toca Inventario; solo orienta la captura de Catalogo hacia el contrato cerrado -> granel.
+
+Criterio pendiente:
+
+- Confirmar manualmente factor, lote/caducidad, merma y unidad fisica antes de guardar la primera regla real.

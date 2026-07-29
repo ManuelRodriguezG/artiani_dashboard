@@ -25,6 +25,7 @@ class CatalogoErpEsquema extends DBSchema {
       "erp_catalogo_sku_precios",
       "erp_catalogo_sku_reglas_inventario",
       "erp_catalogo_sku_presentaciones",
+      "erp_catalogo_sku_aperturas_empaque",
       "erp_catalogo_sku_paquetes",
       "erp_catalogo_sku_paquete_componentes",
       "erp_catalogo_sku_paquete_grupos",
@@ -298,6 +299,13 @@ class CatalogoErpEsquema extends DBSchema {
         "indices" => array(
           "idx_catalogo_presentacion_sku" => array("columnas" => array("id_sku_presentacion"), "severidad" => "critica", "impacto" => "Evita duplicar la regla de una presentacion vendible y permite resolver que SKU base consume."),
           "idx_catalogo_presentacion_base" => array("columnas" => array("id_sku_base"), "severidad" => "alta", "impacto" => "Permite listar presentaciones derivadas de un SKU base.")
+        )
+      ),
+      "erp_catalogo_sku_aperturas_empaque" => array(
+        "columnas" => array("id_apertura_empaque", "id_sku_origen", "id_sku_destino", "factor_conversion", "requiere_unidad_fisica", "conserva_lote", "conserva_caducidad", "permite_merma", "merma_porcentaje_default", "instrucciones_operativas", "estatus", "fecha_registro", "fecha_actualizacion"),
+        "indices" => array(
+          "idx_catalogo_apertura_origen_destino" => array("columnas" => array("id_sku_origen", "id_sku_destino"), "severidad" => "critica", "impacto" => "Evita duplicar reglas de apertura para el mismo SKU cerrado hacia el mismo SKU granel."),
+          "idx_catalogo_apertura_destino" => array("columnas" => array("id_sku_destino"), "severidad" => "alta", "impacto" => "Permite identificar que SKU cerrados alimentan un SKU granel por apertura de empaque.")
         )
       ),
       "erp_catalogo_sku_paquetes" => array(
@@ -794,6 +802,34 @@ class CatalogoErpEsquema extends DBSchema {
       "CONSTRAINT `fk_catalogo_presentacion_sku` FOREIGN KEY (`id_sku_presentacion`) REFERENCES `erp_catalogo_skus` (`id_sku`)"
     ), $opciones, $ejecutar);
 
+
+    /**
+     * IA: Codex GPT-5
+     * Fecha: 2026-07-28
+     * Proposito: declara la tabla independiente para apertura de empaques sin mezclarla con presentaciones comerciales.
+     * Impacto: Catalogo ERP; Almacen/Inventario consumiran este contrato despues de aplicar DDL autorizado.
+     * Contrato: no ejecuta movimientos; solo define SKU cerrado origen, SKU granel destino y factor de apertura.
+     */
+    $plan[] = $this->crearTablaSiNoExiste("erp_catalogo_sku_aperturas_empaque", array(
+      "`id_apertura_empaque` BIGINT NOT NULL AUTO_INCREMENT",
+      "`id_sku_origen` BIGINT NOT NULL",
+      "`id_sku_destino` BIGINT NOT NULL",
+      "`factor_conversion` DECIMAL(18,6) NOT NULL",
+      "`requiere_unidad_fisica` TINYINT(1) NOT NULL DEFAULT 1",
+      "`conserva_lote` TINYINT(1) NOT NULL DEFAULT 1",
+      "`conserva_caducidad` TINYINT(1) NOT NULL DEFAULT 1",
+      "`permite_merma` TINYINT(1) NOT NULL DEFAULT 1",
+      "`merma_porcentaje_default` DECIMAL(9,4) NOT NULL DEFAULT 0.0000",
+      "`instrucciones_operativas` TEXT NULL",
+      "`estatus` VARCHAR(30) NOT NULL DEFAULT 'activo'",
+      "`fecha_registro` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
+      "`fecha_actualizacion` DATETIME NULL",
+      "PRIMARY KEY (`id_apertura_empaque`)",
+      "UNIQUE KEY `idx_catalogo_apertura_origen_destino` (`id_sku_origen`, `id_sku_destino`)",
+      "KEY `idx_catalogo_apertura_destino` (`id_sku_destino`)",
+      "CONSTRAINT `fk_catalogo_apertura_origen` FOREIGN KEY (`id_sku_origen`) REFERENCES `erp_catalogo_skus` (`id_sku`)",
+      "CONSTRAINT `fk_catalogo_apertura_destino` FOREIGN KEY (`id_sku_destino`) REFERENCES `erp_catalogo_skus` (`id_sku`)"
+    ), $opciones, $ejecutar);
     $plan[] = $this->crearTablaSiNoExiste("erp_catalogo_sku_paquetes", array(
       "`id_paquete` BIGINT NOT NULL AUTO_INCREMENT",
       "`id_sku_paquete` BIGINT NOT NULL",

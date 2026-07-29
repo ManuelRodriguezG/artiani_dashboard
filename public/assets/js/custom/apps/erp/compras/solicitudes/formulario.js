@@ -48,7 +48,15 @@
             });
     }
 
+    /**
+     * IA: Codex GPT-5 | Fecha: 2026-07-28
+     * Proposito: identificar partidas por relacion proveedor-SKU y no solo por SKU ERP.
+     * Impacto: Compras/Solicitudes; evita duplicados ambiguos cuando el proveedor maneja claves propias.
+     */
     function claveItem(item) {
+        if (Number(item.id_sku_proveedor) > 0) {
+            return "relacion:" + Number(item.id_sku_proveedor);
+        }
         if (Number(item.id_sku_erp) > 0) {
             return "sku:" + Number(item.id_sku_erp);
         }
@@ -88,8 +96,8 @@
         var moneda = item.moneda_costo || "MXN";
         var origen = item.origen_costo || "";
         var vigencia = [item.vigencia_desde, item.vigencia_hasta].filter(Boolean).join(" a ");
-        var texto = fuente === "historial_vigente" ? "Costo vigente" : "Costo ultimo";
-        var clase = fuente === "historial_vigente" ? "badge-light-success" : "badge-light-info";
+        var texto = fuente === "historial_vigente" ? "Costo vigente" : (fuente === "lista_proveedor" ? "Costo lista" : "Costo ultimo");
+        var clase = fuente === "historial_vigente" ? "badge-light-success" : (fuente === "lista_proveedor" ? "badge-light-primary" : "badge-light-info");
         var detalle = [moneda, origen, vigencia].filter(Boolean).join(" | ");
         return "<div class=\"mt-1\"><span class=\"badge " + clase + " me-1\">" + esc(texto) + "</span>" +
             (detalle ? "<span class=\"text-muted fs-8\">" + esc(detalle) + "</span>" : "") + "</div>";
@@ -152,8 +160,11 @@
                         id_sku_erp: Number(x.id_sku_erp),
                         sku: x.sku,
                         nombre: x.nombre,
+                        sku_erp: x.sku_erp || "",
+                        nombre_erp: x.nombre_erp || "",
                         unidad: x.unidad,
                         sku_proveedor: x.sku_proveedor,
+                        id_sku_proveedor: Number(x.id_sku_proveedor || 0),
                         cantidad: Number(x.cantidad),
                         costo_estimado: Number(x.costo_estimado),
                         observaciones: x.observaciones || "",
@@ -292,12 +303,18 @@
         fetch("/compra/solicitudes_buscar_skus_erp?" + new URLSearchParams({id_proveedor: proveedor, q: q}), {credentials: "same-origin"})
             .then(function (r) { return r.json(); })
             .then(function (r) {
-                box.innerHTML = (r.depurar || []).map(function (x) {
+                box.innerHTML = (r.depurar || []).filter(function (x) {
+                    return Number(x.id_sku || 0) > 0 && Number(x.id_sku_proveedor || 0) > 0;
+                }).map(function (x) {
+                    var skuProveedor = x.sku_proveedor || x.sku || "";
+                    var nombreProveedor = x.nombre_proveedor || x.nombre || "";
+                    var referenciaErp = [x.sku_erp ? "SKU ERP: " + x.sku_erp : "", x.nombre_erp || ""].filter(Boolean).join(" | ");
                     return "<button type=\"button\" class=\"btn btn-flush text-start w-100 p-4 border-bottom\" data-sku='" +
-                        encodeURIComponent(JSON.stringify(x)) + "'><span class=\"fw-bold\">" + esc(x.sku) +
-                        "</span> " + esc(x.nombre) + "<span class=\"float-end\">$" + Number(x.costo_ultimo || 0).toFixed(2) + "</span>" +
+                        encodeURIComponent(JSON.stringify(x)) + "'><span class=\"fw-bold\">" + esc(skuProveedor) +
+                        "</span> " + esc(nombreProveedor) + "<span class=\"float-end\">$" + Number(x.costo_ultimo || 0).toFixed(2) + "</span>" +
+                        (referenciaErp ? "<div class=\"text-muted fs-8\">" + esc(referenciaErp) + "</div>" : "") +
                         evidenciaCostoHtml(x) + advertenciasOperativasHtml(x) + "</button>";
-                }).join("") || "<div class=\"p-5 text-muted\">Sin relacion activa proveedor-SKU. Revisa Proveedores/Catalogo o captura producto propuesto.</div>";
+                }).join("") || "<div class=\"p-5 text-muted\">Sin relacion activa proveedor-SKU. Revisa Proveedores/Catalogo antes de solicitar este producto.</div>";
                 box.classList.remove("d-none");
             });
     }
@@ -307,8 +324,11 @@
             id_sku_erp: data.id_sku,
             sku: data.sku,
             nombre: data.nombre,
+            sku_erp: data.sku_erp || "",
+            nombre_erp: data.nombre_erp || "",
             unidad: data.unidad,
             sku_proveedor: data.sku_proveedor,
+            id_sku_proveedor: Number(data.id_sku_proveedor || 0),
             cantidad: Math.max(1, Number(data.cantidad_minima || 1)),
             costo_estimado: Number(data.costo_ultimo || 0),
             observaciones: "",
@@ -331,31 +351,7 @@
     }
 
     function agregarSugerido() {
-        var item = {
-            id_sku_erp: 0,
-            sku: document.getElementById("solicitud_sku_nuevo").value,
-            nombre: document.getElementById("solicitud_nombre_nuevo").value,
-            unidad: "",
-            sku_proveedor: "",
-            cantidad: Number(document.getElementById("solicitud_cantidad_nueva").value || 0),
-            costo_estimado: Number(document.getElementById("solicitud_costo_nuevo").value || 0),
-            observaciones: "",
-            es_nuevo: true
-        };
-        if (!item.sku.trim() || !item.nombre.trim() || item.cantidad <= 0) {
-            Swal.fire({text: "Para agregar producto sugerido, captura SKU, nombre y cantidad mayor a 0", icon: "warning", confirmButtonText: "Aceptar"});
-            return;
-        }
-        if (existeItem(item)) {
-            Swal.fire({text: "Este producto sugerido ya fue agregado", icon: "warning", confirmButtonText: "Aceptar"});
-            return;
-        }
-        items.push(item);
-        document.getElementById("solicitud_sku_nuevo").value = "";
-        document.getElementById("solicitud_nombre_nuevo").value = "";
-        document.getElementById("solicitud_cantidad_nueva").value = "1";
-        document.getElementById("solicitud_costo_nuevo").value = "0";
-        render();
+        Swal.fire({text: "Para solicitar un producto primero debe estar relacionado en Proveedores/Catalogo.", icon: "warning", confirmButtonText: "Aceptar"});
     }
 
     function render() {
@@ -367,10 +363,11 @@
             var pasoCantidad = normalizarCantidadPorUnidad(x.unidad);
             var advertencias = advertenciasOperativasHtml(x);
             var evidenciaCosto = evidenciaCostoHtml(x);
+            var referenciaErp = [x.sku_erp ? "SKU ERP: " + x.sku_erp : "", x.nombre_erp || ""].filter(Boolean).join(" | ");
             return "<tr>" +
                 "<td>" +
                 "<div class=\"fw-bold\">" + esc(x.sku) + "</div>" +
-                "<div class=\"text-muted fs-8\">" + tipo + esc(x.sku_proveedor || "") + "</div>" + evidenciaCosto + advertencias +
+                "<div class=\"text-muted fs-8\">" + tipo + (referenciaErp ? esc(referenciaErp) : esc(x.sku_proveedor || "")) + "</div>" + evidenciaCosto + advertencias +
                 "</td>" +
                 "<td>" +
                 esc(x.nombre) +

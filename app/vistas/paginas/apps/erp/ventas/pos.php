@@ -264,6 +264,67 @@
                                                         <div id="pos_cliente_saldo_crm" class="mb-2"></div>
                                                         <div id="pos_pagos"></div>
                                                     </div>
+                                                    <div class="border rounded p-3 mb-4" id="pos_tms_panel">
+                                                        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+                                                            <div>
+                                                                <div class="fw-bold"><i class="bi bi-truck me-1"></i> Entrega TMS</div>
+                                                                <div class="text-muted fs-8">Prevalidacion logistica separada de la venta</div>
+                                                            </div>
+                                                            <div class="form-check form-switch">
+                                                                <input class="form-check-input" type="checkbox" id="pos_tms_activo">
+                                                                <label class="form-check-label fs-8" for="pos_tms_activo">Solicitar</label>
+                                                            </div>
+                                                        </div>
+                                                        <div id="pos_tms_campos" class="d-none">
+                                                            <div class="row g-2">
+                                                                <div class="col-md-6">
+                                                                    <select class="form-select form-select-sm" id="pos_tms_tipo">
+                                                                        <option value="entrega_express">Entrega express</option>
+                                                                        <option value="entrega_programada">Entrega programada</option>
+                                                                        <option value="entrega_local">Entrega local</option>
+                                                                    </select>
+                                                                </div>
+                                                                <div class="col-md-6">
+                                                                    <select class="form-select form-select-sm" id="pos_tms_prioridad">
+                                                                        <option value="normal">Normal</option>
+                                                                        <option value="express">Express</option>
+                                                                        <option value="urgente">Urgente</option>
+                                                                    </select>
+                                                                </div>
+                                                                <div class="col-md-6">
+                                                                    <input class="form-control form-control-sm" id="pos_tms_fecha" type="date">
+                                                                </div>
+                                                                <div class="col-md-3">
+                                                                    <input class="form-control form-control-sm" id="pos_tms_ventana_inicio" type="time">
+                                                                </div>
+                                                                <div class="col-md-3">
+                                                                    <input class="form-control form-control-sm" id="pos_tms_ventana_fin" type="time">
+                                                                </div>
+                                                                <div class="col-md-8">
+                                                                    <input class="form-control form-control-sm" id="pos_tms_direccion" placeholder="Direccion o punto de entrega">
+                                                                </div>
+                                                                <div class="col-md-4">
+                                                                    <input class="form-control form-control-sm" id="pos_tms_zona" placeholder="Zona">
+                                                                </div>
+                                                                <div class="col-md-6">
+                                                                    <select class="form-select form-select-sm" id="pos_tms_cobro">
+                                                                        <option value="por_cobrar">Servicio por cobrar</option>
+                                                                        <option value="cobrada">Servicio cobrado</option>
+                                                                        <option value="pendiente">Cobro pendiente</option>
+                                                                        <option value="bonificada">Bonificado</option>
+                                                                    </select>
+                                                                </div>
+                                                                <div class="col-md-6">
+                                                                    <input class="form-control form-control-sm text-end" id="pos_tms_precio" inputmode="decimal" placeholder="Importe delivery">
+                                                                </div>
+                                                            </div>
+                                                            <div class="d-flex flex-wrap gap-2 mt-3">
+                                                                <button class="btn btn-sm btn-light-primary" id="pos_tms_dryrun" type="button"><i class="bi bi-shield-check"></i> Prevalidar TMS</button>
+                                                                <span class="text-muted fs-8 align-self-center">No crea servicio ni cambia la venta.</span>
+                                                            </div>
+                                                            <div id="pos_tms_resultado" class="mt-3"></div>
+                                                        </div>
+                                                    </div>
                                                     <div id="pos_validacion" class="mb-4"></div>
                                                     <div id="pos_excepcion_activa" class="mb-4"></div>
                                                 </div>

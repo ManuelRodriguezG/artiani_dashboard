@@ -1896,17 +1896,35 @@ class Proveedores extends CRUD {
             $where = array(
                 "sp.id_proveedor = :id_proveedor",
                 "sp.estatus = 'activo'",
-                "s.estatus = 'activo'"
+                "s.estatus = 'activo'",
+                "EXISTS (
+                    SELECT 1
+                    FROM erp_proveedores_listas_detalle_erp ld_base
+                    INNER JOIN erp_proveedores_listas_erp l_base
+                        ON l_base.id_lista_proveedor_erp = ld_base.id_lista_proveedor_erp
+                    WHERE l_base.id_proveedor = sp.id_proveedor
+                      AND ld_base.id_sku_proveedor = sp.id_sku_proveedor
+                      AND ld_base.id_sku = sp.id_sku
+                )"
             );
             $params = array(":id_proveedor" => $idProveedor);
             if ($termino !== "") {
-                $where[] = "(s.sku LIKE :termino OR s.nombre LIKE :termino OR sp.sku_proveedor LIKE :termino
+                $where[] = "(sp.sku_proveedor LIKE :termino
                     OR EXISTS (
                         SELECT 1
-                        FROM erp_catalogo_sku_codigos cod
-                        WHERE cod.id_sku = s.id_sku
-                          AND cod.estatus = 'activo'
-                          AND cod.codigo LIKE :termino
+                        FROM erp_proveedores_listas_detalle_erp ld_busqueda
+                        INNER JOIN erp_proveedores_listas_erp l_busqueda
+                            ON l_busqueda.id_lista_proveedor_erp = ld_busqueda.id_lista_proveedor_erp
+                        WHERE l_busqueda.id_proveedor = sp.id_proveedor
+                          AND ld_busqueda.id_sku_proveedor = sp.id_sku_proveedor
+                          AND ld_busqueda.id_sku = sp.id_sku
+                          AND (
+                            ld_busqueda.sku_proveedor LIKE :termino
+                            OR ld_busqueda.codigo_barras LIKE :termino
+                            OR ld_busqueda.codigo_interno LIKE :termino
+                            OR ld_busqueda.descripcion_proveedor LIKE :termino
+                            OR ld_busqueda.marca_proveedor LIKE :termino
+                          )
                     ))";
                 $params[":termino"] = "%" . $termino . "%";
             }
@@ -1920,6 +1938,33 @@ class Proveedores extends CRUD {
                     uc.abreviatura AS unidad_compra,
                     sp.factor_conversion,
                     sp.costo_ultimo,
+                    (
+                        SELECT ld.descripcion_proveedor
+                        FROM erp_proveedores_listas_detalle_erp ld
+                        INNER JOIN erp_proveedores_listas_erp l
+                            ON l.id_lista_proveedor_erp = ld.id_lista_proveedor_erp
+                        WHERE ld.id_sku_proveedor = sp.id_sku_proveedor
+                          AND ld.id_sku = sp.id_sku
+                          AND l.id_proveedor = sp.id_proveedor
+                        ORDER BY
+                          CASE WHEN ld.estado_match = 'relacion_aplicada' THEN 0 ELSE 1 END,
+                          ld.id_lista_detalle_erp DESC
+                        LIMIT 1
+                    ) AS nombre_proveedor_lista,
+                    (
+                        SELECT ld.costo
+                        FROM erp_proveedores_listas_detalle_erp ld
+                        INNER JOIN erp_proveedores_listas_erp l
+                            ON l.id_lista_proveedor_erp = ld.id_lista_proveedor_erp
+                        WHERE ld.id_sku_proveedor = sp.id_sku_proveedor
+                          AND ld.id_sku = sp.id_sku
+                          AND l.id_proveedor = sp.id_proveedor
+                          AND COALESCE(ld.costo, 0) > 0
+                        ORDER BY
+                          CASE WHEN ld.estado_match = 'relacion_aplicada' THEN 0 ELSE 1 END,
+                          ld.id_lista_detalle_erp DESC
+                        LIMIT 1
+                    ) AS costo_lista_proveedor,
                     sp.cantidad_minima,
                     sp.dias_entrega,
                     sp.es_preferido,
@@ -2023,13 +2068,16 @@ class Proveedores extends CRUD {
      * Funcion: skusComprablesParaComprasErp
      * Documentacion IA: Codex GPT-5
      * Fecha: 2026-06-15
+     * Actualizacion IA: Codex GPT-5 | Fecha: 2026-07-28
      * Descripcion: Consulta catalogo de SKUs comprables del proveedor para compras/solicitudes usando ERP como fuente base.
+     * Proposito actualizacion: devolver la lista del proveedor como texto principal de captura, conservando SKU ERP como referencia interna.
      * Permisos: segun contexto de llamada.
      * Tablas afectadas: erp_catalogo_sku_proveedores, erp_catalogo_skus, erp_catalogo_unidades,
      *                  erp_catalogo_imagenes, erp_catalogo_sku_impuestos, erp_catalogo_sku_impuestos_erp.
      * Reglas:
      * - Prioriza ERP; el fallback legacy se ejecuta solo si se habilita explicitamente.
      * - Mantiene trazabilidad de advertencias operativas sin romper el flujo de captura.
+     * - Compras/Solicitudes solo muestran relaciones activas; no agregan productos fisicos sin SKU ERP relacionado.
      */
     public function skusComprablesParaComprasErp($idProveedor, $termino, $contexto = "solicitudes", $incluirFallbackLegacy = false) {
         try {
@@ -2057,18 +2105,35 @@ class Proveedores extends CRUD {
                 $tieneCostoVigente = $costo !== null && $costo > 0;
                 $fuenteCosto = $tieneCostoVigente ? "historial_vigente" : "respaldo_costo_ultimo";
                 if ($costo === null) {
-                    $costo = $this->decimalComprasProveedorErp(isset($fila["costo_ultimo"]) ? $fila["costo_ultimo"] : null);
+                    $costo = $this->decimalComprasProveedorErp(isset($fila["costo_lista_proveedor"]) ? $fila["costo_lista_proveedor"] : null);
+                    if ($costo !== null && $costo > 0) {
+                        $fuenteCosto = "lista_proveedor";
+                    }
                 }
                 $unidadCompra = $this->unidadComprasProveedorErp($fila);
                 $factor = $this->decimalComprasProveedorErp(isset($fila["factor_conversion"]) ? $fila["factor_conversion"] : null);
                 $fiscalCompleto = intval(isset($fila["fiscal_completo"]) ? $fila["fiscal_completo"] : 0) === 1;
-                $advertencias = $this->advertenciasComprasProveedorErp($fila, $costo, $tieneCostoVigente, $unidadCompra, $factor, $fiscalCompleto);
+                $advertencias = $this->advertenciasComprasProveedorErp($fila, $costo, $tieneCostoVigente, $unidadCompra, $factor, $fiscalCompleto, $fuenteCosto);
+                if ($costo === null) {
+                    $costo = $this->decimalComprasProveedorErp(isset($fila["costo_ultimo"]) ? $fila["costo_ultimo"] : null);
+                }
+
+                $skuProveedor = trim((string) (isset($fila["sku_proveedor"]) ? $fila["sku_proveedor"] : ""));
+                $skuErp = trim((string) (isset($fila["sku_erp"]) ? $fila["sku_erp"] : ""));
+                $nombreProveedor = trim((string) (isset($fila["nombre_proveedor_lista"]) ? $fila["nombre_proveedor_lista"] : ""));
+                $nombreErp = trim((string) (isset($fila["nombre_sku"]) ? $fila["nombre_sku"] : ""));
+                if (intval(isset($fila["id_sku"]) ? $fila["id_sku"] : 0) <= 0 || intval(isset($fila["id_sku_proveedor"]) ? $fila["id_sku_proveedor"] : 0) <= 0) {
+                    continue;
+                }
 
                 $item = array(
                     "id_sku" => intval(isset($fila["id_sku"]) ? $fila["id_sku"] : 0),
                     "id_producto_erp" => intval(isset($fila["id_producto_erp"]) ? $fila["id_producto_erp"] : 0),
-                    "sku" => isset($fila["sku_erp"]) ? $fila["sku_erp"] : "",
-                    "nombre" => isset($fila["nombre_sku"]) ? $fila["nombre_sku"] : "",
+                    "sku" => $skuProveedor !== "" ? $skuProveedor : $skuErp,
+                    "nombre" => $nombreProveedor !== "" ? $nombreProveedor : $nombreErp,
+                    "sku_erp" => $skuErp,
+                    "nombre_erp" => $nombreErp,
+                    "nombre_proveedor" => $nombreProveedor !== "" ? $nombreProveedor : $nombreErp,
                     "url_imagen" => isset($fila["url_imagen"]) ? $fila["url_imagen"] : "",
                     "unidad" => $unidadCompra,
                     "id_sku_proveedor" => intval(isset($fila["id_sku_proveedor"]) ? $fila["id_sku_proveedor"] : 0),
@@ -2390,13 +2455,17 @@ class Proveedores extends CRUD {
         return floatval($valor);
     }
 
-    private function advertenciasComprasProveedorErp($fila, $costo, $tieneCostoVigente, $unidadCompra, $factor, $fiscalCompleto) {
+    private function advertenciasComprasProveedorErp($fila, $costo, $tieneCostoVigente, $unidadCompra, $factor, $fiscalCompleto, $fuenteCosto = "") {
         $advertencias = array();
         if (!$tieneCostoVigente) {
+            $mensajeCosto = $costo !== null && $costo > 0 ? "Sin costo vigente; usando ultimo costo" : "Sin costo vigente";
+            if ($fuenteCosto === "lista_proveedor" && $costo !== null && $costo > 0) {
+                $mensajeCosto = "Sin compra historica; usando costo de lista";
+            }
             $advertencias[] = array(
                 "codigo" => "sin_costo_vigente",
                 "nivel" => "warning",
-                "mensaje" => $costo !== null && $costo > 0 ? "Sin costo vigente; usando ultimo costo" : "Sin costo vigente"
+                "mensaje" => $mensajeCosto
             );
         }
         if ($unidadCompra === "" || $factor === null || $factor <= 0) {

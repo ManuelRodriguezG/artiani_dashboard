@@ -641,3 +641,30 @@ Objetivo: vender solo stock real.
 1. No tocar POS antes de validar inventario.
 2. Una vez confirmada la apertura, POS debe vender los SKUs de sabor como piezas normales.
 3. POS no debe abrir botes automaticamente.
+
+## Cierre tecnico 2026-07-28 - enlace APE con regla de Catalogo
+
+Documentacion IA: Codex GPT-5  
+Fecha: 2026-07-28
+
+Se cerro la brecha detectada entre Catalogo y Almacen para Apertura de empaques:
+
+- Catalogo define la regla en `erp_catalogo_sku_aperturas_empaque`.
+- Almacen persiste la regla usada en cada folio APE mediante `erp_almacen_aperturas_empaque.id_apertura_catalogo`.
+- `id_paquete` queda nullable y reservado para el flujo historico de paquetes/componentes; apertura cerrado -> granel usa `id_apertura_catalogo`.
+- Se agrego FK `fk_almacen_apertura_catalogo` hacia `erp_catalogo_sku_aperturas_empaque(id_apertura_empaque)`.
+- `AlmacenEsquema` ya audita `erp_almacen_aperturas_empaque` y `erp_almacen_apertura_resultados` con columnas, indices y FKs esperadas.
+
+Respaldo externo previo a DDL:
+
+```txt
+C:\xampp\panel_db_backups\artianilocal_panel_20260728_antes_almacen_apertura_catalogo.sql
+```
+
+Validacion:
+
+- `id_apertura_catalogo` existe en `erp_almacen_aperturas_empaque`.
+- Indice `idx_almacen_apertura_catalogo` existe.
+- FK `fk_almacen_apertura_catalogo` existe.
+- Auditoria puntual de Apertura: sin columnas, indices ni FKs faltantes.
+- No se creo folio APE de prueba desde CLI para no dejar escritura operativa artificial.

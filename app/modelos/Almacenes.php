@@ -3100,32 +3100,40 @@ class Almacenes extends CRUD {
 
     /**
      * IA: Codex GPT-5
-     * Fecha: 2026-07-25
-     * Proposito: lista SKUs cerrados con receta de apertura/desarme configurada en Catalogo.
-     * Impacto: Almacen/Apertura de empaques; solo consulta configuracion, no crea existencias ni modifica inventario.
-     * Contrato: requiere `erp_catalogo_sku_paquetes.permite_desarmar=1` y componentes activos para aparecer como abrible.
+     * Fecha: 2026-07-28
+     * Proposito: lista SKUs cerrados configurados en Catalogo para apertura operativa hacia un SKU destino granel.
+     * Impacto: Almacen/Apertura de empaques; consume configuracion directa de SKU y ya no depende de paquetes/desarme.
+     * Contrato: requiere `erp_catalogo_sku_aperturas_empaque` activa; solo consulta configuracion, no modifica inventario.
      */
     public function consultar_skus_apertura_empaque($filtros = array()) {
         try {
             $db = $this->getConexion();
             $termino = trim((string) $this->valor($filtros, "q", ""));
             $params = array();
-            $where = "p.estatus='activo' AND s.estatus='activo' AND COALESCE(p.permite_desarmar,0)=1";
+            $where = "ae.estatus='activo' AND origen.estatus='activo' AND destino.estatus='activo'";
             if ($termino !== "") {
-                $where .= " AND (s.sku LIKE :q OR s.nombre LIKE :q)";
+                $where .= " AND (origen.sku LIKE :q OR origen.nombre LIKE :q OR destino.sku LIKE :q OR destino.nombre LIKE :q)";
                 $params[":q"] = "%" . $termino . "%";
             }
-            $sql = "SELECT p.id_paquete, p.id_sku_paquete AS id_sku_origen, s.sku, s.nombre,
-                    p.tipo_paquete, p.modo_disponibilidad, p.permite_desarmar, p.observaciones,
-                    COUNT(c.id_componente) AS total_componentes,
-                    COALESCE(SUM(CASE WHEN c.estatus='activo' THEN c.cantidad ELSE 0 END), 0) AS cantidad_total_esperada
-                FROM erp_catalogo_sku_paquetes p
-                INNER JOIN erp_catalogo_skus s ON s.id_sku=p.id_sku_paquete
-                INNER JOIN erp_catalogo_sku_paquete_componentes c ON c.id_paquete=p.id_paquete AND c.estatus='activo'
+            $sql = "SELECT ae.id_apertura_empaque, ae.id_apertura_empaque AS id_apertura_catalogo,
+                    ae.id_sku_origen, origen.sku, origen.nombre,
+                    ae.id_sku_destino, destino.sku AS sku_destino, destino.nombre AS nombre_destino,
+                    ae.factor_conversion, ae.requiere_unidad_fisica, ae.conserva_lote,
+                    ae.conserva_caducidad, ae.permite_merma, ae.merma_porcentaje_default,
+                    ae.instrucciones_operativas,
+                    ud.abreviatura AS unidad_destino,
+                    1 AS total_componentes,
+                    ROUND(ae.factor_conversion * (1 - (CASE WHEN ae.permite_merma=1 THEN ae.merma_porcentaje_default ELSE 0 END / 100)), 6) AS cantidad_total_esperada
+                FROM erp_catalogo_sku_aperturas_empaque ae
+                INNER JOIN erp_catalogo_skus origen ON origen.id_sku=ae.id_sku_origen
+                INNER JOIN erp_catalogo_skus destino ON destino.id_sku=ae.id_sku_destino
+                INNER JOIN erp_catalogo_productos prod_origen ON prod_origen.id_producto_erp=origen.id_producto_erp
+                INNER JOIN erp_catalogo_productos prod_destino ON prod_destino.id_producto_erp=destino.id_producto_erp
+                LEFT JOIN erp_catalogo_unidades ud ON ud.id_unidad=destino.id_unidad_base
                 WHERE {$where}
-                GROUP BY p.id_paquete, p.id_sku_paquete, s.sku, s.nombre, p.tipo_paquete,
-                    p.modo_disponibilidad, p.permite_desarmar, p.observaciones
-                ORDER BY s.sku ASC
+                  AND prod_origen.estatus NOT IN ('inactivo','descontinuado','fusionado')
+                  AND prod_destino.estatus NOT IN ('inactivo','descontinuado','fusionado')
+                ORDER BY origen.sku ASC, destino.sku ASC
                 LIMIT 50";
             $stmt = $db->prepare($sql);
             $stmt->execute($params);
@@ -3137,45 +3145,61 @@ class Almacenes extends CRUD {
 
     /**
      * IA: Codex GPT-5
-     * Fecha: 2026-07-25
-     * Proposito: consulta la receta/componentes esperados para abrir un empaque cerrado.
-     * Impacto: Almacen/Apertura de empaques; permite construir captura multi-salida por SKU interno.
-     * Contrato: no valida existencia fisica; solo devuelve configuracion activa de Catalogo.
+     * Fecha: 2026-07-28
+     * Proposito: consulta la configuracion de apertura SKU cerrado -> SKU destino definida en Catalogo.
+     * Impacto: Almacen/Apertura de empaques; arma una salida esperada editable sin usar componentes de paquete.
+     * Contrato: no valida existencia fisica; devuelve una linea destino con factor y reglas de trazabilidad.
      */
-    public function consultar_receta_apertura_empaque($id_paquete) {
-        $id_paquete = intval($id_paquete);
-        if ($id_paquete <= 0) {
-            return $this->crudResponse(true, "warning", "Receta de apertura no valida");
+    public function consultar_receta_apertura_empaque($id_apertura_catalogo) {
+        $id_apertura_catalogo = intval($id_apertura_catalogo);
+        if ($id_apertura_catalogo <= 0) {
+            return $this->crudResponse(true, "warning", "Configuracion de apertura no valida");
         }
         try {
             $db = $this->getConexion();
-            $stmt = $db->prepare("SELECT p.id_paquete, p.id_sku_paquete AS id_sku_origen, s.sku, s.nombre,
-                    p.tipo_paquete, p.modo_disponibilidad, p.permite_desarmar, p.observaciones
-                FROM erp_catalogo_sku_paquetes p
-                INNER JOIN erp_catalogo_skus s ON s.id_sku=p.id_sku_paquete
-                WHERE p.id_paquete=:paquete AND p.estatus='activo' AND s.estatus='activo'
+            $stmt = $db->prepare("SELECT ae.id_apertura_empaque AS id_apertura_catalogo,
+                    ae.id_sku_origen, origen.sku, origen.nombre,
+                    ae.id_sku_destino, destino.sku AS sku_destino, destino.nombre AS nombre_destino,
+                    ae.factor_conversion, ae.requiere_unidad_fisica, ae.conserva_lote,
+                    ae.conserva_caducidad, ae.permite_merma, ae.merma_porcentaje_default,
+                    ae.instrucciones_operativas, ud.abreviatura AS unidad_destino
+                FROM erp_catalogo_sku_aperturas_empaque ae
+                INNER JOIN erp_catalogo_skus origen ON origen.id_sku=ae.id_sku_origen
+                INNER JOIN erp_catalogo_skus destino ON destino.id_sku=ae.id_sku_destino
+                LEFT JOIN erp_catalogo_unidades ud ON ud.id_unidad=destino.id_unidad_base
+                WHERE ae.id_apertura_empaque=:apertura AND ae.estatus='activo'
+                  AND origen.estatus='activo' AND destino.estatus='activo'
                 LIMIT 1");
-            $stmt->execute(array(":paquete" => $id_paquete));
-            $paquete = $stmt->fetch(PDO::FETCH_ASSOC);
-            if (!$paquete) {
-                return $this->crudResponse(true, "warning", "Receta de apertura no encontrada");
+            $stmt->execute(array(":apertura" => $id_apertura_catalogo));
+            $configuracion = $stmt->fetch(PDO::FETCH_ASSOC);
+            if (!$configuracion) {
+                return $this->crudResponse(true, "warning", "Configuracion de apertura no encontrada");
             }
-            if (intval($paquete["permite_desarmar"]) !== 1) {
-                return $this->crudResponse(true, "warning", "El SKU no permite apertura/desarme operativo");
-            }
-            $stmt = $db->prepare("SELECT c.id_componente, c.id_sku_componente AS id_sku_resultado,
-                    sc.sku, sc.nombre, c.cantidad AS cantidad_esperada, c.id_unidad,
-                    u.abreviatura AS unidad, c.factor_conversion, c.orden
-                FROM erp_catalogo_sku_paquete_componentes c
-                INNER JOIN erp_catalogo_skus sc ON sc.id_sku=c.id_sku_componente
-                LEFT JOIN erp_catalogo_unidades u ON u.id_unidad=c.id_unidad
-                WHERE c.id_paquete=:paquete AND c.estatus='activo' AND sc.estatus='activo'
-                ORDER BY c.orden ASC, sc.sku ASC");
-            $stmt->execute(array(":paquete" => $id_paquete));
-            $componentes = $stmt->fetchAll(PDO::FETCH_ASSOC);
-            return $this->crudResponse(false, "success", "Receta de apertura consultada", array(
-                "paquete" => $paquete,
-                "componentes" => $componentes
+            $merma = intval($configuracion["permite_merma"]) === 1 ? floatval($configuracion["merma_porcentaje_default"]) : 0;
+            $cantidadEsperada = round(floatval($configuracion["factor_conversion"]) * (1 - ($merma / 100)), 6);
+            return $this->crudResponse(false, "success", "Configuracion de apertura consultada", array(
+                "paquete" => array(
+                    "id_apertura_catalogo" => intval($configuracion["id_apertura_catalogo"]),
+                    "id_sku_origen" => intval($configuracion["id_sku_origen"]),
+                    "sku" => $configuracion["sku"],
+                    "nombre" => $configuracion["nombre"],
+                    "id_sku_destino" => intval($configuracion["id_sku_destino"]),
+                    "sku_destino" => $configuracion["sku_destino"],
+                    "nombre_destino" => $configuracion["nombre_destino"],
+                    "factor_conversion" => floatval($configuracion["factor_conversion"]),
+                    "instrucciones_operativas" => $configuracion["instrucciones_operativas"]
+                ),
+                "componentes" => array(array(
+                    "id_componente" => intval($configuracion["id_apertura_catalogo"]),
+                    "id_sku_resultado" => intval($configuracion["id_sku_destino"]),
+                    "sku" => $configuracion["sku_destino"],
+                    "nombre" => $configuracion["nombre_destino"],
+                    "cantidad_esperada" => $cantidadEsperada,
+                    "unidad" => $configuracion["unidad_destino"],
+                    "factor_conversion" => floatval($configuracion["factor_conversion"]),
+                    "conserva_lote" => intval($configuracion["conserva_lote"]),
+                    "conserva_caducidad" => intval($configuracion["conserva_caducidad"])
+                ))
             ));
         } catch (Exception $e) {
             return $this->crudResponse(true, "danger", $e->getMessage());
@@ -3185,7 +3209,7 @@ class Almacenes extends CRUD {
     /**
      * IA: Codex GPT-5
      * Fecha: 2026-07-25
-     * Proposito: consulta existencias cerradas disponibles para abrir un empaque en una ubicacion autorizada.
+     * Proposito: consulta existencias fisicas disponibles para apertura en una ubicacion autorizada.
      * Impacto: Almacen/Apertura de empaques; obliga a partir de stock fisico existente, no de SKU teorico.
      * Contrato: el almacen debe tener `permite_apertura_empaque=1`; devuelve unidades fisicas cuando existan.
      */
@@ -3258,7 +3282,7 @@ class Almacenes extends CRUD {
             $sql = "SELECT ape.id_apertura_empaque, ape.folio, ape.estatus, ape.fecha_apertura,
                     ape.id_almacen, alm.almacen, ape.id_sku_origen, sku.sku AS sku_origen,
                     sku.nombre AS nombre_origen, ape.id_existencia_origen, ape.id_unidad_origen,
-                    ape.id_paquete, ape.cantidad_origen, ape.cantidad_resultado_total,
+                    ape.id_paquete, ape.id_apertura_catalogo, ape.cantidad_origen, ape.cantidad_resultado_total,
                     ape.lote, ape.fecha_caducidad, ape.ubicacion_id, ape.costo_total_origen,
                     COUNT(res.id_apertura_resultado) AS total_lineas,
                     COALESCE(SUM(res.cantidad_real), 0) AS total_resultados
@@ -3269,7 +3293,7 @@ class Almacenes extends CRUD {
                 WHERE 1=1 {$where}
                 GROUP BY ape.id_apertura_empaque, ape.folio, ape.estatus, ape.fecha_apertura,
                     ape.id_almacen, alm.almacen, ape.id_sku_origen, sku.sku, sku.nombre,
-                    ape.id_existencia_origen, ape.id_unidad_origen, ape.id_paquete,
+                    ape.id_existencia_origen, ape.id_unidad_origen, ape.id_paquete, ape.id_apertura_catalogo,
                     ape.cantidad_origen, ape.cantidad_resultado_total, ape.lote,
                     ape.fecha_caducidad, ape.ubicacion_id, ape.costo_total_origen
                 ORDER BY ape.id_apertura_empaque DESC
@@ -3292,7 +3316,7 @@ class Almacenes extends CRUD {
     public function guardar_borrador_apertura_empaque($datos = array(), $id_usuario = 0) {
         $id_apertura = intval($this->valor($datos, "id_apertura_empaque", 0));
         $id_almacen = intval($this->valor($datos, "id_almacen", 0));
-        $id_paquete = intval($this->valor($datos, "id_paquete", 0));
+        $id_apertura_catalogo = intval($this->valor($datos, "id_apertura_catalogo", $this->valor($datos, "id_paquete", 0)));
         $id_existencia = intval($this->valor($datos, "id_existencia_origen", 0));
         $id_unidad = intval($this->valor($datos, "id_unidad_origen", 0));
         $observaciones = trim((string) $this->valor($datos, "observaciones", ""));
@@ -3303,16 +3327,16 @@ class Almacenes extends CRUD {
         if (!is_array($resultados)) {
             $resultados = array();
         }
-        if ($id_almacen <= 0 || $id_paquete <= 0 || $id_existencia <= 0) {
-            return $this->crudResponse(true, "warning", "Ubicacion, receta y existencia origen son obligatorias");
+        if ($id_almacen <= 0 || $id_apertura_catalogo <= 0 || $id_existencia <= 0) {
+            return $this->crudResponse(true, "warning", "Ubicacion, configuracion de apertura y existencia origen son obligatorias");
         }
 
         $db = $this->getConexion();
         try {
             $db->beginTransaction();
             $this->validar_almacen_apertura_empaque($db, $id_almacen);
-            $paquete = $this->consultar_paquete_apertura_empaque_transaccion($db, $id_paquete);
-            $lineas = $this->normalizar_resultados_apertura_empaque($db, $id_paquete, $resultados);
+            $paquete = $this->consultar_configuracion_apertura_empaque_transaccion($db, $id_apertura_catalogo);
+            $lineas = $this->normalizar_resultados_apertura_empaque($db, $id_apertura_catalogo, $resultados);
             $total_resultado = 0;
             foreach ($lineas as $linea) {
                 $total_resultado += floatval($linea["cantidad_real"]);
@@ -3345,7 +3369,7 @@ class Almacenes extends CRUD {
                 $stmt->execute(array(":apertura" => $id_apertura));
                 $stmt = $db->prepare("UPDATE {$this->tabla_erp_almacen_aperturas_empaque}
                     SET id_almacen=:almacen, id_sku_origen=:sku, id_existencia_origen=:existencia,
-                        id_unidad_origen=:unidad, id_paquete=:paquete, cantidad_origen=1.000000,
+                        id_unidad_origen=:unidad, id_paquete=:paquete, id_apertura_catalogo=:apertura_catalogo, cantidad_origen=1.000000,
                         cantidad_resultado_total=:total, lote=:lote, fecha_caducidad=:caducidad,
                         ubicacion_id=:ubicacion, observaciones=:observaciones, fecha_actualizacion=NOW()
                     WHERE id_apertura_empaque=:apertura");
@@ -3354,7 +3378,8 @@ class Almacenes extends CRUD {
                     ":sku" => intval($paquete["id_sku_origen"]),
                     ":existencia" => $id_existencia,
                     ":unidad" => $id_unidad > 0 ? $id_unidad : null,
-                    ":paquete" => $id_paquete,
+                    ":paquete" => null,
+                    ":apertura_catalogo" => $id_apertura_catalogo,
                     ":total" => round($total_resultado, 6),
                     ":lote" => $existencia["lote"],
                     ":caducidad" => $existencia["fecha_caducidad"],
@@ -3366,9 +3391,9 @@ class Almacenes extends CRUD {
                 $folio = $this->generar_folio_apertura_empaque($db);
                 $stmt = $db->prepare("INSERT INTO {$this->tabla_erp_almacen_aperturas_empaque}
                     (folio, id_almacen, id_sku_origen, id_existencia_origen, id_unidad_origen,
-                     id_paquete, cantidad_origen, cantidad_resultado_total, lote, fecha_caducidad,
+                     id_paquete, id_apertura_catalogo, cantidad_origen, cantidad_resultado_total, lote, fecha_caducidad,
                      ubicacion_id, estatus, observaciones, creado_por, fecha_registro)
-                    VALUES (:folio, :almacen, :sku, :existencia, :unidad, :paquete, 1.000000,
+                    VALUES (:folio, :almacen, :sku, :existencia, :unidad, :paquete, :apertura_catalogo, 1.000000,
                      :total, :lote, :caducidad, :ubicacion, 'borrador', :observaciones, :usuario, NOW())");
                 $stmt->execute(array(
                     ":folio" => $folio,
@@ -3376,7 +3401,8 @@ class Almacenes extends CRUD {
                     ":sku" => intval($paquete["id_sku_origen"]),
                     ":existencia" => $id_existencia,
                     ":unidad" => $id_unidad > 0 ? $id_unidad : null,
-                    ":paquete" => $id_paquete,
+                    ":paquete" => null,
+                    ":apertura_catalogo" => $id_apertura_catalogo,
                     ":total" => round($total_resultado, 6),
                     ":lote" => $existencia["lote"],
                     ":caducidad" => $existencia["fecha_caducidad"],
@@ -5618,65 +5644,63 @@ class Almacenes extends CRUD {
 
     /**
      * IA: Codex GPT-5
-     * Fecha: 2026-07-25
-     * Proposito: consulta y valida una receta de Catalogo apta para apertura.
-     * Impacto: Almacen/Apertura de empaques; evita abrir SKUs sin relacion de componentes aprobada.
+     * Fecha: 2026-07-28
+     * Proposito: consulta y valida una configuracion Catalogo de apertura SKU cerrado -> SKU destino.
+     * Impacto: Almacen/Apertura de empaques; evita depender de paquetes/desarme para operaciones de granel.
+     * Contrato: devuelve origen, destino, factor y reglas de trazabilidad vigentes para guardar el borrador.
      */
-    private function consultar_paquete_apertura_empaque_transaccion($db, $id_paquete) {
-        $stmt = $db->prepare("SELECT p.id_paquete, p.id_sku_paquete AS id_sku_origen,
-                p.permite_desarmar, p.estatus, s.sku, s.nombre
-            FROM erp_catalogo_sku_paquetes p
-            INNER JOIN erp_catalogo_skus s ON s.id_sku=p.id_sku_paquete
-            WHERE p.id_paquete=:paquete AND p.estatus='activo' AND s.estatus='activo'
+    private function consultar_configuracion_apertura_empaque_transaccion($db, $id_apertura_catalogo) {
+        $stmt = $db->prepare("SELECT ae.id_apertura_empaque AS id_apertura_catalogo,
+                ae.id_sku_origen, ae.id_sku_destino, ae.factor_conversion,
+                ae.requiere_unidad_fisica, ae.conserva_lote, ae.conserva_caducidad,
+                ae.permite_merma, ae.merma_porcentaje_default, ae.instrucciones_operativas,
+                origen.sku, origen.nombre, destino.sku AS sku_destino, destino.nombre AS nombre_destino
+            FROM erp_catalogo_sku_aperturas_empaque ae
+            INNER JOIN erp_catalogo_skus origen ON origen.id_sku=ae.id_sku_origen
+            INNER JOIN erp_catalogo_skus destino ON destino.id_sku=ae.id_sku_destino
+            WHERE ae.id_apertura_empaque=:apertura AND ae.estatus='activo'
+              AND origen.estatus='activo' AND destino.estatus='activo'
             LIMIT 1");
-        $stmt->execute(array(":paquete" => intval($id_paquete)));
-        $paquete = $stmt->fetch(PDO::FETCH_ASSOC);
-        if (!$paquete) {
-            throw new Exception("Receta de apertura no encontrada");
+        $stmt->execute(array(":apertura" => intval($id_apertura_catalogo)));
+        $configuracion = $stmt->fetch(PDO::FETCH_ASSOC);
+        if (!$configuracion) {
+            throw new Exception("Configuracion de apertura no encontrada");
         }
-        if (intval($paquete["permite_desarmar"]) !== 1) {
-            throw new Exception("La receta no permite apertura/desarme operativo");
+        if (floatval($configuracion["factor_conversion"]) <= 0) {
+            throw new Exception("La configuracion de apertura no tiene factor valido");
         }
-        return $paquete;
+        return $configuracion;
     }
 
     /**
      * IA: Codex GPT-5
-     * Fecha: 2026-07-25
-     * Proposito: valida cantidades capturadas contra componentes activos de la receta.
-     * Impacto: Almacen/Apertura de empaques; impide crear resultados hacia SKUs que no pertenecen al empaque.
+     * Fecha: 2026-07-28
+     * Proposito: valida la cantidad real capturada contra el SKU destino permitido por la configuracion de apertura.
+     * Impacto: Almacen/Apertura de empaques; impide crear resultados hacia SKUs ajenos a la regla de Catalogo.
      */
-    private function normalizar_resultados_apertura_empaque($db, $id_paquete, $resultados) {
-        $stmt = $db->prepare("SELECT c.id_componente, c.id_sku_componente AS id_sku_resultado,
-                c.cantidad AS cantidad_esperada, c.orden, sc.sku, sc.nombre
-            FROM erp_catalogo_sku_paquete_componentes c
-            INNER JOIN erp_catalogo_skus sc ON sc.id_sku=c.id_sku_componente
-            WHERE c.id_paquete=:paquete AND c.estatus='activo' AND sc.estatus='activo'");
-        $stmt->execute(array(":paquete" => intval($id_paquete)));
-        $componentes = array();
-        while ($fila = $stmt->fetch(PDO::FETCH_ASSOC)) {
-            $componentes[intval($fila["id_componente"])] = $fila;
-        }
-        if (count($componentes) === 0) {
-            throw new Exception("La receta no tiene componentes activos");
-        }
+    private function normalizar_resultados_apertura_empaque($db, $id_apertura_catalogo, $resultados) {
+        $configuracion = $this->consultar_configuracion_apertura_empaque_transaccion($db, $id_apertura_catalogo);
+        $idDestino = intval($configuracion["id_sku_destino"]);
+        $merma = intval($configuracion["permite_merma"]) === 1 ? floatval($configuracion["merma_porcentaje_default"]) : 0;
+        $cantidadEsperada = round(floatval($configuracion["factor_conversion"]) * (1 - ($merma / 100)), 6);
         $lineas = array();
         foreach ($resultados as $idx => $resultado) {
-            $id_componente = intval($this->valor($resultado, "id_componente", 0));
+            $idResultado = intval($this->valor($resultado, "id_sku_resultado", $idDestino));
             $cantidad = round(floatval($this->valor($resultado, "cantidad_real", $this->valor($resultado, "cantidad", 0))), 6);
             if ($cantidad <= 0) {
                 continue;
             }
-            if (!isset($componentes[$id_componente])) {
-                throw new Exception("Un resultado no pertenece a la receta de apertura");
+            if ($idResultado !== $idDestino) {
+                throw new Exception("El SKU resultado no pertenece a la configuracion de apertura");
             }
-            $comp = $componentes[$id_componente];
             $lineas[] = array(
-                "id_componente" => $id_componente,
-                "id_sku_resultado" => intval($comp["id_sku_resultado"]),
-                "cantidad_esperada" => round(floatval($comp["cantidad_esperada"]), 6),
+                "id_componente" => null,
+                "id_sku_resultado" => $idDestino,
+                "cantidad_esperada" => $cantidadEsperada,
                 "cantidad_real" => $cantidad,
-                "orden_resultado" => intval($this->valor($comp, "orden", $idx))
+                "orden_resultado" => intval($idx),
+                "conserva_lote" => intval($configuracion["conserva_lote"]),
+                "conserva_caducidad" => intval($configuracion["conserva_caducidad"])
             );
         }
         return $lineas;
@@ -5700,11 +5724,11 @@ class Almacenes extends CRUD {
                 ":apertura" => intval($id_apertura),
                 ":orden" => intval($linea["orden_resultado"]),
                 ":sku" => intval($linea["id_sku_resultado"]),
-                ":componente" => intval($linea["id_componente"]),
+                ":componente" => isset($linea["id_componente"]) && intval($linea["id_componente"]) > 0 ? intval($linea["id_componente"]) : null,
                 ":almacen" => intval($id_almacen),
                 ":ubicacion" => intval($existencia_origen["ubicacion_id"]) ?: null,
-                ":lote" => $existencia_origen["lote"],
-                ":caducidad" => $existencia_origen["fecha_caducidad"],
+                ":lote" => isset($linea["conserva_lote"]) && intval($linea["conserva_lote"]) === 0 ? null : $existencia_origen["lote"],
+                ":caducidad" => isset($linea["conserva_caducidad"]) && intval($linea["conserva_caducidad"]) === 0 ? null : $existencia_origen["fecha_caducidad"],
                 ":esperada" => floatval($linea["cantidad_esperada"]),
                 ":real" => floatval($linea["cantidad_real"])
             ));
@@ -5796,8 +5820,10 @@ class Almacenes extends CRUD {
             throw new Exception("SKU resultado no encontrado para apertura");
         }
         $id_producto = intval($sku["id_producto_erp"]);
-        $lote_clave = $this->normalizar_clave($existencia_origen["lote"]);
-        $caducidad_clave = trim((string) $existencia_origen["fecha_caducidad"]) !== "" ? $existencia_origen["fecha_caducidad"] : "1000-01-01";
+        $loteResultado = isset($resultado["lote"]) ? $resultado["lote"] : $existencia_origen["lote"];
+        $caducidadResultado = isset($resultado["fecha_caducidad"]) ? $resultado["fecha_caducidad"] : $existencia_origen["fecha_caducidad"];
+        $lote_clave = $this->normalizar_clave($loteResultado);
+        $caducidad_clave = trim((string) $caducidadResultado) !== "" ? $caducidadResultado : "1000-01-01";
         $ubicacion_clave = intval($existencia_origen["ubicacion_id"]) ?: 0;
         $costo_unitario = $cantidad > 0 ? round($costo_total_linea / $cantidad, 4) : 0;
         $stmt = $db->prepare("SELECT * FROM {$this->tabla_erp_inventario_existencias}
@@ -5845,9 +5871,9 @@ class Almacenes extends CRUD {
             ":sku" => intval($resultado["id_sku_resultado"]),
             ":almacen" => intval($apertura["id_almacen"]),
             ":almacen_clave" => intval($apertura["id_almacen"]),
-            ":lote" => $existencia_origen["lote"],
+            ":lote" => $loteResultado,
             ":lote_clave" => $lote_clave,
-            ":caducidad" => $existencia_origen["fecha_caducidad"],
+            ":caducidad" => $caducidadResultado,
             ":caducidad_clave" => $caducidad_clave,
             ":ubicacion_id" => intval($existencia_origen["ubicacion_id"]) ?: null,
             ":ubicacion_clave" => $ubicacion_clave,
@@ -5914,4 +5940,3 @@ class Almacenes extends CRUD {
         return isset($array[$key]) ? $array[$key] : $default;
     }
 }
-
