@@ -93,7 +93,12 @@ $puedeGestionarAdjuntos = !empty($datos["puede_gestionar_adjuntos"]);
                         </div>
                         <div class="orden-edicion mb-6" id="orden_busqueda_grupo">
                             <!-- [Codex: v2026.06.07] XML de productos se usa como carga masiva dentro de productos; no es el módulo de adjuntos -->
-                            <label class="form-label">Agregar producto del proveedor</label>
+                            <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
+                                <label class="form-label mb-0">Agregar producto del proveedor</label>
+                                <a class="btn btn-sm btn-light-success" id="orden_abastecimiento_link" href="/proveedor/analisis_abastecimiento_erp" target="_blank" rel="noopener">
+                                    <i class="bi bi-diagram-3"></i> Comparar proveedores
+                                </a>
+                            </div>
                             <div class="position-relative"><i class="bi bi-search position-absolute ms-5 mt-3 fs-3"></i><input id="orden_buscar_sku" class="form-control form-control-solid ps-12" placeholder="Buscar por SKU o nombre"><div id="orden_resultados" class="position-absolute bg-white border rounded w-100 shadow-sm z-index-3 d-none" style="max-height:320px;overflow:auto"></div></div>
                             <div class="row g-2 mt-2">
                                 <div class="col-lg-8"><label class="form-label">Importar conceptos desde XML</label><input class="form-control form-control-solid" type="file" id="orden_xml_archivo" accept=".xml"></div>
@@ -436,6 +441,6 @@ $puedeGestionarAdjuntos = !empty($datos["puede_gestionar_adjuntos"]);
 </div>
 <script src="assets/plugins/global/plugins.bundle.js"></script>
 <script src="assets/js/scripts.bundle.js"></script>
-<script src="/assets/js/custom/apps/erp/compras/ordenes/formulario.js?v=20260614-3"></script>
+<script src="/assets/js/custom/apps/erp/compras/ordenes/formulario.js?v=20260729-1"></script>
 </body>
 </html>

@@ -8,6 +8,26 @@ Estado: plan rector inicial; no implica cambios de esquema, codigo ni BD.
 
 Construir un modulo TMS/Delivery para administrar entregas a cliente como una capacidad fuerte del negocio, sin mezclar el valor del producto con el servicio logistico.
 
+## Decision vigente 2026-07-29
+
+TMS queda acotado a compromiso logistico: recoger, preparar, llevar, evidenciar, cerrar y reprogramar. POS, ecommerce, CRM u operacion interna pueden capturar una solicitud, pero TMS no debe guardar ni interpretar estados comerciales.
+
+Quedan deprecados dentro del lenguaje base TMS:
+
+- `entrega_postventa`;
+- `traslado_revision`;
+- `visita_revision`;
+- `pos_venta`;
+- `pedido_pos`;
+- `apartado_pos`;
+- `solicitado_por_modulo=ventas`;
+- `solicitado_por_modulo=postventa`;
+- motivos logisticos ligados a garantia, reclamo o venta.
+
+Si un cliente no estuvo disponible, TMS registra evidencia y deja el servicio como reprogramado, pendiente del cliente o cerrado sin entrega. Cualquier cargo adicional por volver a ir debe ser decision explicita sobre otro servicio logistico o sobre costo/cobro TMS, no una regla automatica.
+
+`entrega_tercero` solo significa que el movimiento fisico se realiza con repartidor, plataforma o paqueteria externa. TMS registra responsable externo, referencia/guia, costo y evidencia; no adopta reglas comerciales del tercero.
+
 El negocio vende productos de acuario y accesorios para mascotas, con una ventaja operativa clara: responder rapido por redes sociales, concretar pedidos en el mismo dia y, en casos express, entregar incluso en menos de una hora. El sistema debe proteger esa ventaja sin convertir el envio en un regalo invisible ni en una obligacion ilimitada de postventa.
 
 ## Decision principal
@@ -155,23 +175,20 @@ No debe:
 
 ## Tipos de servicio logistico
 
-Tipos iniciales recomendados:
+Tipos iniciales vigentes:
 
 - `entrega_local`: entrega programada en zona normal.
 - `entrega_express`: entrega prioritaria, por ejemplo menos de 60 minutos si hay capacidad.
 - `entrega_programada`: entrega en dia/ventana acordada.
 - `recoleccion_cliente`: recoger producto en domicilio del cliente.
-- `entrega_postventa`: traslado posterior a la venta, por ejemplo llevar un cambio, reparacion o producto acordado.
-- `traslado_revision`: mover producto hacia/desde local para revision, si el negocio decide ofrecerlo.
-- `visita_revision`: visita para revisar, medir o diagnosticar, si el negocio decide ofrecerla.
-- `envio_tercero`: plataforma, paqueteria o repartidor externo.
+- `entrega_tercero`: plataforma, paqueteria o repartidor externo como ejecutor logistico.
 
 No todos deben activarse en fase 1. Para arrancar conviene usar:
 
 - entrega local;
 - entrega express;
 - recoleccion cliente;
-- entrega postventa.
+- entrega por tercero, solo cuando realmente se use externo.
 
 ## Estados recomendados
 
@@ -729,8 +746,11 @@ Estado:
   - UAT UI POS/TMS preparado: `storage/uat/uat_tms_delivery_pos_ui_readonly.php`;
   - preflight para creacion real futura preparado: `storage/uat/uat_tms_delivery_pos_real_preflight_readonly.php`;
   - autorizacion futura documentada en `docs/erp_tms_delivery_pos_real_solicitud_autorizacion.md`;
+  - auditoria BD logistica pura preparada: `storage/uat/uat_tms_delivery_logistica_pura_readonly.php`;
+  - script autorizado preparado: `storage/uat/uat_tms_delivery_logistica_pura_apply_authorized.php`;
+  - autorizacion futura de alineacion BD documentada en `docs/erp_tms_delivery_logistica_pura_solicitud_autorizacion.md`;
   - UAT UI POS/TMS: 24/24;
-  - preflight real futuro: 21/21;
+  - preflight real futuro: 22/22;
   - la creacion real futura debe ocurrir despues de venta/pedido real exitoso;
   - no crea servicios y no toca Ventas reales/Inventario/Garantias.
 - Scripts de aplicacion autorizada preparados y validados en modo bloqueado:
@@ -747,7 +767,11 @@ Estado:
   - UI/datos valida 49/49 checks con folio UAT.
   - contrato POS -> TMS valida 45/45 con UI POS opt-in.
   - UI POS/TMS valida 24/24.
-  - preflight real futuro POS/TMS valida 21/21.
+  - preflight real futuro POS/TMS valida 22/22.
+  - auditoria logistica pura detecto BD pendiente: default y 1 fila con `venta_inicial`.
+  - script autorizado de alineacion BD aplicado con token `TMS_LOGISTICA_PURA_BASE`.
+  - respaldo usado: `C:\xampp\panel_db_backups\artianilocal_panel_20260729_antes_tms_logistica_pura.sql`;
+  - postcheck logistica pura: `logistica_pura_completa`.
   - checklist de activacion confirma `activacion_base_completa`.
   - reversa DDL queda bloqueada por datos TMS existentes.
   - preactivacion confirma orden recomendado: permisos primero, DDL despues.

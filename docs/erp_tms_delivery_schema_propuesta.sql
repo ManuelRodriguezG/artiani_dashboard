@@ -7,7 +7,7 @@
 -- Crear tablas propias para servicios logisticos independientes.
 --
 -- Regla:
--- TMS no confirma ventas, no cancela ventas, no mueve inventario y no decide garantias.
+-- TMS solo administra compromiso logistico: recoger, preparar, llevar, evidenciar, cerrar y reprogramar.
 -- Los campos solicitado_por_* son referencia opcional al modulo que pidio el servicio.
 
 CREATE TABLE IF NOT EXISTS `erp_tms_servicios` (
@@ -18,14 +18,14 @@ CREATE TABLE IF NOT EXISTS `erp_tms_servicios` (
   `solicitado_por_id` INT NULL,
   `referencia_externa` VARCHAR(80) NULL,
   `motivo_logistico` ENUM(
-    'venta_inicial',
-    'entrega_adicional',
+    'servicio_inicial',
+    'reintento',
     'recoleccion',
-    'revision',
-    'cambio_acordado',
+    'entrega_tercero',
     'cortesia_autorizada',
+    'cliente_no_disponible',
     'otro'
-  ) NOT NULL DEFAULT 'venta_inicial',
+  ) NOT NULL DEFAULT 'servicio_inicial',
   `id_cliente_crm` INT NULL,
   `id_direccion_crm` INT NULL,
   `cliente_nombre_snapshot` VARCHAR(180) NULL,
@@ -37,10 +37,7 @@ CREATE TABLE IF NOT EXISTS `erp_tms_servicios` (
     'entrega_express',
     'entrega_programada',
     'recoleccion_cliente',
-    'entrega_postventa',
-    'traslado_revision',
-    'visita_revision',
-    'envio_tercero'
+    'entrega_tercero'
   ) NOT NULL DEFAULT 'entrega_local',
   `estatus_servicio` ENUM(
     'cotizada',

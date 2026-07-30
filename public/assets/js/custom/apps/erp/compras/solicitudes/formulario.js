@@ -103,6 +103,37 @@
             (detalle ? "<span class=\"text-muted fs-8\">" + esc(detalle) + "</span>" : "") + "</div>";
     }
 
+    function jsonObjeto(valor) {
+        if (!valor) {
+            return {};
+        }
+        if (typeof valor === "object") {
+            return valor;
+        }
+        try {
+            var data = JSON.parse(valor);
+            return data && typeof data === "object" ? data : {};
+        } catch (e) {
+            return {};
+        }
+    }
+
+    /**
+     * IA: Codex GPT-5 | Fecha: 2026-07-29
+     * Proposito: mostrar que la partida conserva enlace al analisis de abastecimiento usado como evidencia.
+     * Impacto: Compras/Solicitudes; solo trazabilidad visual, sin seleccionar proveedor automaticamente.
+     */
+    function decisionAbastecimientoHtml(item) {
+        if (!item || Number(item.id_sku_proveedor || 0) <= 0) {
+            return "";
+        }
+        var q = item.sku_erp || item.sku || item.sku_proveedor || "";
+        var url = (item.decision_abastecimiento && item.decision_abastecimiento.comparativo_url) ||
+            ("/proveedor/analisis_abastecimiento_erp?q=" + encodeURIComponent(q));
+        return "<div class=\"mt-1\"><a class=\"badge badge-light-success\" target=\"_blank\" href=\"" +
+            esc(url) + "\">Abastecimiento</a></div>";
+    }
+
     function renderizarDiferenciasFila(items, template) {
         if (!Array.isArray(items) || !items.length) {
             return "";
@@ -156,6 +187,7 @@
                 document.getElementById("solicitud_fecha_requerida").value = s.fecha_requerida || "";
                 document.getElementById("solicitud_observaciones").value = s.observaciones || "";
                 items = (r.depurar.detalle || []).map(function (x) {
+                    var evidencia = jsonObjeto(x.evidencia_costo_json);
                     return {
                         id_sku_erp: Number(x.id_sku_erp),
                         sku: x.sku,
@@ -168,6 +200,16 @@
                         cantidad: Number(x.cantidad),
                         costo_estimado: Number(x.costo_estimado),
                         observaciones: x.observaciones || "",
+                        fuente_costo: evidencia.fuente_costo || "",
+                        origen_costo: evidencia.origen_costo || "",
+                        moneda_costo: evidencia.moneda_costo || "",
+                        vigencia_desde: evidencia.vigencia_desde || "",
+                        vigencia_hasta: evidencia.vigencia_hasta || "",
+                        id_costo_proveedor_sku: evidencia.id_costo_proveedor_sku || 0,
+                        id_lista_proveedor_erp: evidencia.id_lista_proveedor_erp || 0,
+                        factor_conversion: evidencia.factor_conversion || null,
+                        cantidad_minima: evidencia.cantidad_minima || null,
+                        decision_abastecimiento: evidencia || {},
                         es_nuevo: Number(x.id_sku_erp) <= 0
                     };
                 });
@@ -296,6 +338,7 @@
         var proveedor = document.getElementById("solicitud_proveedor").value;
         var q = document.getElementById("solicitud_buscar_sku").value.trim();
         var box = document.getElementById("solicitud_resultados");
+        actualizarLinkAbastecimiento(q);
         if (!proveedor || q.length < 2) {
             box.classList.add("d-none");
             return;
@@ -338,6 +381,18 @@
             vigencia_desde: data.vigencia_desde || "",
             vigencia_hasta: data.vigencia_hasta || "",
             id_costo_proveedor_sku: data.id_costo_proveedor_sku || 0,
+            id_lista_proveedor_erp: data.id_lista_proveedor_erp || 0,
+            factor_conversion: data.factor_conversion || null,
+            cantidad_minima: data.cantidad_minima || null,
+            decision_abastecimiento: {
+                origen: "solicitud_busqueda_proveedor_sku",
+                id_sku_proveedor: Number(data.id_sku_proveedor || 0),
+                id_sku_erp: Number(data.id_sku || 0),
+                sku_erp: data.sku_erp || data.sku || "",
+                sku_proveedor: data.sku_proveedor || "",
+                comparativo_url: "/proveedor/analisis_abastecimiento_erp?q=" + encodeURIComponent(data.sku_erp || data.sku || data.sku_proveedor || ""),
+                criterio: "evidencia_inicial_no_comparativo_cerrado"
+            },
             advertencias_operativas: data.advertencias_operativas || [],
             es_nuevo: false
         };
@@ -354,6 +409,20 @@
         Swal.fire({text: "Para solicitar un producto primero debe estar relacionado en Proveedores/Catalogo.", icon: "warning", confirmButtonText: "Aceptar"});
     }
 
+    /**
+     * IA: Codex GPT-5 | Fecha: 2026-07-29
+     * Proposito: abrir el analisis de abastecimiento con el termino que Compras ya esta buscando.
+     * Impacto: Compras/Solicitudes; solo navegacion read-only, sin cambiar partidas.
+     */
+    function actualizarLinkAbastecimiento(q) {
+        var link = document.getElementById("solicitud_abastecimiento_link");
+        if (!link) {
+            return;
+        }
+        q = String(q || document.getElementById("solicitud_buscar_sku").value || "").trim();
+        link.href = "/proveedor/analisis_abastecimiento_erp" + (q ? "?q=" + encodeURIComponent(q) : "");
+    }
+
     function render() {
         var editable = puedeEditar;
         document.getElementById("solicitud_items").innerHTML = items.map(function (x, i) {
@@ -363,11 +432,12 @@
             var pasoCantidad = normalizarCantidadPorUnidad(x.unidad);
             var advertencias = advertenciasOperativasHtml(x);
             var evidenciaCosto = evidenciaCostoHtml(x);
+            var abastecimiento = decisionAbastecimientoHtml(x);
             var referenciaErp = [x.sku_erp ? "SKU ERP: " + x.sku_erp : "", x.nombre_erp || ""].filter(Boolean).join(" | ");
             return "<tr>" +
                 "<td>" +
                 "<div class=\"fw-bold\">" + esc(x.sku) + "</div>" +
-                "<div class=\"text-muted fs-8\">" + tipo + (referenciaErp ? esc(referenciaErp) : esc(x.sku_proveedor || "")) + "</div>" + evidenciaCosto + advertencias +
+                "<div class=\"text-muted fs-8\">" + tipo + (referenciaErp ? esc(referenciaErp) : esc(x.sku_proveedor || "")) + "</div>" + evidenciaCosto + abastecimiento + advertencias +
                 "</td>" +
                 "<td>" +
                 esc(x.nombre) +
@@ -519,9 +589,11 @@
         });
 
         document.getElementById("solicitud_buscar_sku").addEventListener("input", function () {
+            actualizarLinkAbastecimiento(this.value);
             clearTimeout(timer);
             timer = setTimeout(buscar, 250);
         });
+        actualizarLinkAbastecimiento("");
 
         var botonDiferencias = document.getElementById("solicitud_ver_diferencias");
         if (botonDiferencias) {

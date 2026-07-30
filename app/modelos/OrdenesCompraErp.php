@@ -1719,6 +1719,11 @@ class OrdenesCompraErp extends CRUD {
         if (!is_array($valor)) {
             $valor = array();
         }
+        $decisionAbastecimiento = array();
+        if (isset($valor["decision_abastecimiento"]) && is_array($valor["decision_abastecimiento"])) {
+            $decisionAbastecimiento = $valor["decision_abastecimiento"];
+        }
+
         return array(
             "id_costo_proveedor_sku" => intval(isset($valor["id_costo_proveedor_sku"]) ? $valor["id_costo_proveedor_sku"] : 0),
             "id_lista_proveedor_erp" => intval(isset($valor["id_lista_proveedor_erp"]) ? $valor["id_lista_proveedor_erp"] : 0),
@@ -1726,7 +1731,45 @@ class OrdenesCompraErp extends CRUD {
             "origen_costo" => isset($valor["origen_costo"]) ? trim((string) $valor["origen_costo"]) : "",
             "moneda_costo" => isset($valor["moneda_costo"]) ? trim((string) $valor["moneda_costo"]) : "",
             "vigencia_desde" => isset($valor["vigencia_desde"]) ? trim((string) $valor["vigencia_desde"]) : "",
-            "vigencia_hasta" => isset($valor["vigencia_hasta"]) ? trim((string) $valor["vigencia_hasta"]) : ""
+            "vigencia_hasta" => isset($valor["vigencia_hasta"]) ? trim((string) $valor["vigencia_hasta"]) : "",
+            "factor_conversion" => isset($valor["factor_conversion"]) ? $valor["factor_conversion"] : null,
+            "cantidad_minima" => isset($valor["cantidad_minima"]) ? $valor["cantidad_minima"] : null,
+            "decision_abastecimiento" => $this->normalizarDecisionAbastecimientoDetalle($decisionAbastecimiento)
+        );
+    }
+
+    /**
+     * IA: Codex GPT-5
+     * Fecha: 2026-07-29
+     * Proposito: conservar snapshot de decision de abastecimiento dentro de evidencia_costo_json.
+     * Impacto: Ordenes; no altera costos ni proveedor preferido.
+     */
+    private function normalizarDecisionAbastecimientoDetalle($valor) {
+        if (!is_array($valor)) {
+            return array();
+        }
+        return array(
+            "origen" => isset($valor["origen"]) ? trim((string) $valor["origen"]) : "",
+            "fecha_cliente" => isset($valor["fecha_cliente"]) ? trim((string) $valor["fecha_cliente"]) : "",
+            "id_proveedor" => intval(isset($valor["id_proveedor"]) ? $valor["id_proveedor"] : 0),
+            "proveedor" => isset($valor["proveedor"]) ? trim((string) $valor["proveedor"]) : "",
+            "id_sku_erp" => intval(isset($valor["id_sku_erp"]) ? $valor["id_sku_erp"] : 0),
+            "id_sku_proveedor" => intval(isset($valor["id_sku_proveedor"]) ? $valor["id_sku_proveedor"] : 0),
+            "sku_erp" => isset($valor["sku_erp"]) ? trim((string) $valor["sku_erp"]) : "",
+            "sku_proveedor" => isset($valor["sku_proveedor"]) ? trim((string) $valor["sku_proveedor"]) : "",
+            "nombre" => isset($valor["nombre"]) ? trim((string) $valor["nombre"]) : "",
+            "unidad" => isset($valor["unidad"]) ? trim((string) $valor["unidad"]) : "",
+            "factor_conversion" => isset($valor["factor_conversion"]) ? $valor["factor_conversion"] : null,
+            "cantidad_minima" => isset($valor["cantidad_minima"]) ? $valor["cantidad_minima"] : null,
+            "costo_capturado" => isset($valor["costo_capturado"]) ? floatval($valor["costo_capturado"]) : 0,
+            "costo_unitario_incluye_impuesto" => !empty($valor["costo_unitario_incluye_impuesto"]) ? 1 : 0,
+            "moneda_costo" => isset($valor["moneda_costo"]) ? trim((string) $valor["moneda_costo"]) : "",
+            "fuente_costo" => isset($valor["fuente_costo"]) ? trim((string) $valor["fuente_costo"]) : "",
+            "id_costo_proveedor_sku" => intval(isset($valor["id_costo_proveedor_sku"]) ? $valor["id_costo_proveedor_sku"] : 0),
+            "id_lista_proveedor_erp" => intval(isset($valor["id_lista_proveedor_erp"]) ? $valor["id_lista_proveedor_erp"] : 0),
+            "advertencias_operativas" => isset($valor["advertencias_operativas"]) && is_array($valor["advertencias_operativas"]) ? $valor["advertencias_operativas"] : array(),
+            "comparativo_url" => isset($valor["comparativo_url"]) ? trim((string) $valor["comparativo_url"]) : "",
+            "criterio" => isset($valor["criterio"]) ? trim((string) $valor["criterio"]) : ""
         );
     }
 

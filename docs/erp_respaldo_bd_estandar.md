@@ -149,6 +149,20 @@ archivo_legible=true
 tamano_bytes=32811490
 ```
 
+Compras - Abastecimiento en solicitudes:
+
+```text
+C:\xampp\panel_db_backups\artianilocal_panel_20260729_antes_compras_abastecimiento_solicitudes.sql
+```
+
+Validacion:
+
+```text
+archivo_existe=true
+archivo_legible=true
+tamano_bytes=33459643
+```
+
 TMS Delivery UAT manual:
 
 ```text
@@ -232,3 +246,26 @@ Alcance:
 - Creacion de `erp_compras_documentos_plantillas`.
 - Creacion de `erp_compras_documentos_plantillas_config`.
 - Preparacion futura de documentos imprimibles para solicitudes y ordenes de compra.
+
+## TMS Delivery - Logistica pura
+
+Fecha: 2026-07-29  
+Ruta estandar usada:
+
+```txt
+C:\xampp\panel_db_backups\artianilocal_panel_20260729_antes_tms_logistica_pura.sql
+```
+
+Validacion:
+
+```text
+archivo_existe=true
+archivo_legible=true
+tamano_bytes=33459395
+```
+
+Alcance:
+
+- Alineacion de `erp_tms_servicios.motivo_logistico` a `servicio_inicial`.
+- Limpieza de valor historico UAT `venta_inicial`.
+- No toca POS/Ventas, caja, inventario ni postventa.

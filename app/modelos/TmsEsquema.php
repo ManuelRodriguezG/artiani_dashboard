@@ -85,7 +85,7 @@ class TmsEsquema extends DBSchema {
       "`solicitado_por_tipo` VARCHAR(40) NOT NULL DEFAULT 'solicitud_manual'",
       "`solicitado_por_id` INT NULL",
       "`referencia_externa` VARCHAR(80) NULL",
-      "`motivo_logistico` VARCHAR(40) NOT NULL DEFAULT 'venta_inicial'",
+      "`motivo_logistico` VARCHAR(40) NOT NULL DEFAULT 'servicio_inicial'",
       "`id_cliente_crm` INT NULL",
       "`id_direccion_crm` INT NULL",
       "`cliente_nombre_snapshot` VARCHAR(180) NULL",

@@ -2258,6 +2258,375 @@ class Proveedores extends CRUD {
         }
     }
 
+    /**
+     * Modulo: ERP Proveedores
+     * Funcion: compararAbastecimientoSkuErp
+     * Documentacion IA: Codex GPT-5
+     * Fecha: 2026-07-29
+     * Descripcion: compara proveedores activos para un SKU/producto desde el contrato Proveedores/Listas.
+     * Proposito: habilitar analisis de abastecimiento read-only antes de integrar decisiones a Compras.
+     * Impacto: Proveedores, Compras, Costos/Rentabilidad; solo lectura.
+     * Contrato: no modifica proveedor preferido, costos, listas, solicitudes ni ordenes.
+     */
+    public function compararAbastecimientoSkuErp($filtros = array()) {
+        try {
+            $termino = isset($filtros["termino"]) ? trim((string) $filtros["termino"]) : "";
+            $soloMultiples = !empty($filtros["solo_multiples"]);
+            $limite = isset($filtros["limite"]) ? intval($filtros["limite"]) : 80;
+            $limite = max(10, min(200, $limite));
+            if (strlen($termino) < 2) {
+                return array("error" => true, "tipo" => "warning", "mensaje" => "Escribe al menos dos caracteres del SKU, codigo o producto", "depurar" => null);
+            }
+
+            $db = $this->getConexion();
+            $tablas = array("erp_catalogo_sku_proveedores", "erp_catalogo_skus", "erp_proveedores");
+            foreach ($tablas as $tabla) {
+                if (!$this->tablaExisteAuditoriaProveedores($db, $tabla)) {
+                    return array("error" => false, "tipo" => "warning", "mensaje" => "Falta esquema para comparar abastecimiento", "depurar" => array(
+                        "sin_escrituras" => true,
+                        "faltante" => $tabla,
+                        "grupos" => array(),
+                        "resumen" => array("skus" => 0, "opciones" => 0, "multiples_proveedores" => 0)
+                    ));
+                }
+            }
+
+            $sql = "SELECT
+                    sp.id_sku_proveedor,
+                    sp.id_proveedor,
+                    COALESCE(NULLIF(pp.nombre_comercial, ''), p.proveedor) AS proveedor_nombre,
+                    p.estatus_erp AS proveedor_estatus,
+                    sp.id_sku,
+                    s.sku AS sku_erp,
+                    s.nombre AS nombre_sku,
+                    s.id_producto_erp,
+                    s.costo_referencia,
+                    ub.abreviatura AS unidad_base,
+                    sp.sku_proveedor,
+                    sp.id_unidad_compra,
+                    uc.abreviatura AS unidad_compra,
+                    sp.factor_conversion,
+                    sp.costo_ultimo,
+                    sp.cantidad_minima,
+                    sp.dias_entrega,
+                    sp.es_preferido,
+                    cv.id_costo_proveedor_sku,
+                    cv.costo AS costo_vigente,
+                    cv.moneda AS moneda_costo,
+                    cv.costo_incluye_impuestos,
+                    cv.vigencia_desde,
+                    cv.vigencia_hasta,
+                    cv.origen AS origen_costo,
+                    cv.id_lista_proveedor_erp,
+                    cv.id_lista_detalle_erp,
+                    ld.costo AS costo_lista_proveedor,
+                    ld.moneda AS moneda_lista,
+                    ld.existencia_reportada,
+                    ld.descripcion_proveedor,
+                    ld.estado_match,
+                    l.nombre_lista,
+                    l.estatus AS lista_estatus,
+                    l.vigencia_desde AS lista_vigencia_desde,
+                    l.vigencia_hasta AS lista_vigencia_hasta
+                FROM erp_catalogo_sku_proveedores sp
+                INNER JOIN erp_catalogo_skus s ON s.id_sku = sp.id_sku
+                INNER JOIN erp_proveedores p ON p.id_proveedor = sp.id_proveedor
+                LEFT JOIN erp_proveedores_perfil pp ON pp.id_proveedor = p.id_proveedor
+                LEFT JOIN erp_catalogo_unidades uc ON uc.id_unidad = sp.id_unidad_compra
+                LEFT JOIN erp_catalogo_unidades ub ON ub.id_unidad = s.id_unidad_base
+                LEFT JOIN erp_proveedores_sku_costos cv ON cv.id_costo_proveedor_sku = (
+                    SELECT MAX(c2.id_costo_proveedor_sku)
+                    FROM erp_proveedores_sku_costos c2
+                    WHERE c2.id_proveedor = sp.id_proveedor
+                      AND c2.id_sku = sp.id_sku
+                      AND c2.id_sku_proveedor = sp.id_sku_proveedor
+                      AND c2.estatus = 'vigente'
+                )
+                LEFT JOIN erp_proveedores_listas_detalle_erp ld ON ld.id_lista_detalle_erp = (
+                    SELECT MAX(ld2.id_lista_detalle_erp)
+                    FROM erp_proveedores_listas_detalle_erp ld2
+                    INNER JOIN erp_proveedores_listas_erp l2 ON l2.id_lista_proveedor_erp = ld2.id_lista_proveedor_erp
+                    WHERE l2.id_proveedor = sp.id_proveedor
+                      AND ld2.id_sku = sp.id_sku
+                      AND ld2.id_sku_proveedor = sp.id_sku_proveedor
+                      AND COALESCE(ld2.costo, 0) > 0
+                )
+                LEFT JOIN erp_proveedores_listas_erp l ON l.id_lista_proveedor_erp = ld.id_lista_proveedor_erp
+                WHERE sp.estatus = 'activo'
+                  AND s.estatus = 'activo'
+                  AND (
+                    s.sku LIKE :termino
+                    OR s.nombre LIKE :termino
+                    OR sp.sku_proveedor LIKE :termino
+                    OR p.proveedor LIKE :termino
+                    OR COALESCE(pp.nombre_comercial, '') LIKE :termino
+                    OR EXISTS (
+                        SELECT 1
+                        FROM erp_catalogo_sku_codigos cod
+                        WHERE cod.id_sku = s.id_sku
+                          AND cod.estatus = 'activo'
+                          AND cod.codigo LIKE :termino
+                    )
+                  )
+                ORDER BY s.nombre ASC, s.sku ASC, sp.es_preferido DESC, proveedor_nombre ASC
+                LIMIT :limite";
+            $stmt = $db->prepare($sql);
+            $stmt->bindValue(":termino", "%" . $termino . "%");
+            $stmt->bindValue(":limite", $limite, PDO::PARAM_INT);
+            $stmt->execute();
+            $registros = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+            $grupos = $this->agruparComparativoAbastecimientoErp($registros, $soloMultiples);
+            return array(
+                "error" => false,
+                "tipo" => "success",
+                "mensaje" => "Comparativo de abastecimiento consultado",
+                "depurar" => array(
+                    "sin_escrituras" => true,
+                    "termino" => $termino,
+                    "solo_multiples" => $soloMultiples ? 1 : 0,
+                    "limite" => $limite,
+                    "resumen" => array(
+                        "skus" => count($grupos),
+                        "opciones" => count($registros),
+                        "multiples_proveedores" => count(array_filter($grupos, function ($grupo) {
+                            return intval(isset($grupo["resumen"]["proveedores_activos"]) ? $grupo["resumen"]["proveedores_activos"] : 0) > 1;
+                        }))
+                    ),
+                    "grupos" => $grupos,
+                    "contrato" => array(
+                        "fuente_relacion" => "erp_catalogo_sku_proveedores",
+                        "fuente_costo" => "erp_proveedores_sku_costos vigente; lista proveedor y costo_ultimo como respaldo",
+                        "uso_compras" => "analisis previo; Compras debe guardar snapshot cuando seleccione proveedor"
+                    )
+                )
+            );
+        } catch (Exception $e) {
+            return array("error" => true, "tipo" => "danger", "mensaje" => $e->getMessage(), "depurar" => null);
+        }
+    }
+
+    private function agruparComparativoAbastecimientoErp($registros, $soloMultiples) {
+        $grupos = array();
+        foreach ($registros as $fila) {
+            $idSku = intval(isset($fila["id_sku"]) ? $fila["id_sku"] : 0);
+            if ($idSku <= 0) {
+                continue;
+            }
+            if (!isset($grupos[$idSku])) {
+                $grupos[$idSku] = array(
+                    "id_sku" => $idSku,
+                    "sku" => isset($fila["sku_erp"]) ? $fila["sku_erp"] : "",
+                    "nombre" => isset($fila["nombre_sku"]) ? $fila["nombre_sku"] : "",
+                    "unidad_base" => isset($fila["unidad_base"]) ? $fila["unidad_base"] : "",
+                    "costo_referencia" => $this->decimalComprasProveedorErp(isset($fila["costo_referencia"]) ? $fila["costo_referencia"] : null),
+                    "resumen" => array(
+                        "proveedores_activos" => 0,
+                        "mejor_costo_comparable" => null,
+                        "mejor_score" => null,
+                        "recomendado_id_sku_proveedor" => 0
+                    ),
+                    "opciones" => array()
+                );
+            }
+            $grupos[$idSku]["opciones"][] = $this->opcionComparativoAbastecimientoErp($fila);
+        }
+
+        foreach ($grupos as $idSku => $grupo) {
+            usort($grupo["opciones"], function ($a, $b) {
+                $scoreA = intval(isset($a["score"]["total"]) ? $a["score"]["total"] : 0);
+                $scoreB = intval(isset($b["score"]["total"]) ? $b["score"]["total"] : 0);
+                if ($scoreA !== $scoreB) {
+                    return $scoreB - $scoreA;
+                }
+                $costoA = $a["costo_comparable"] === null ? PHP_FLOAT_MAX : floatval($a["costo_comparable"]);
+                $costoB = $b["costo_comparable"] === null ? PHP_FLOAT_MAX : floatval($b["costo_comparable"]);
+                if ($costoA == $costoB) {
+                    return intval($b["es_preferido"]) - intval($a["es_preferido"]);
+                }
+                return $costoA < $costoB ? -1 : 1;
+            });
+
+            $mejorCosto = null;
+            foreach ($grupo["opciones"] as $opcion) {
+                if ($opcion["costo_comparable"] !== null && ($mejorCosto === null || $opcion["costo_comparable"] < $mejorCosto)) {
+                    $mejorCosto = $opcion["costo_comparable"];
+                }
+            }
+            $grupo["resumen"]["proveedores_activos"] = count($grupo["opciones"]);
+            $grupo["resumen"]["mejor_costo_comparable"] = $mejorCosto;
+            $grupo["resumen"]["mejor_score"] = isset($grupo["opciones"][0]["score"]["total"]) ? $grupo["opciones"][0]["score"]["total"] : null;
+            $grupo["resumen"]["recomendado_id_sku_proveedor"] = isset($grupo["opciones"][0]["id_sku_proveedor"]) ? intval($grupo["opciones"][0]["id_sku_proveedor"]) : 0;
+
+            foreach ($grupo["opciones"] as $idx => $opcion) {
+                $grupo["opciones"][$idx]["es_recomendado"] = $idx === 0 ? 1 : 0;
+                $grupo["opciones"][$idx]["diferencia_vs_mejor"] = ($mejorCosto !== null && $opcion["costo_comparable"] !== null)
+                    ? round(floatval($opcion["costo_comparable"]) - floatval($mejorCosto), 6)
+                    : null;
+            }
+
+            if ($soloMultiples && count($grupo["opciones"]) < 2) {
+                unset($grupos[$idSku]);
+                continue;
+            }
+            $grupos[$idSku] = $grupo;
+        }
+
+        return array_values($grupos);
+    }
+
+    private function opcionComparativoAbastecimientoErp($fila) {
+        $costo = $this->decimalComprasProveedorErp(isset($fila["costo_vigente"]) ? $fila["costo_vigente"] : null);
+        $fuenteCosto = "costo_vigente";
+        if ($costo === null || $costo <= 0) {
+            $costo = $this->decimalComprasProveedorErp(isset($fila["costo_lista_proveedor"]) ? $fila["costo_lista_proveedor"] : null);
+            $fuenteCosto = "lista_proveedor";
+        }
+        if ($costo === null || $costo <= 0) {
+            $costo = $this->decimalComprasProveedorErp(isset($fila["costo_ultimo"]) ? $fila["costo_ultimo"] : null);
+            $fuenteCosto = "costo_ultimo";
+        }
+        if ($costo !== null && $costo <= 0) {
+            $costo = null;
+        }
+
+        $factor = $this->decimalComprasProveedorErp(isset($fila["factor_conversion"]) ? $fila["factor_conversion"] : null);
+        $costoComparable = ($costo !== null && $factor !== null && $factor > 0) ? round($costo / $factor, 6) : null;
+        $alertas = $this->alertasComparativoAbastecimientoErp($fila, $costo, $factor, $costoComparable, $fuenteCosto);
+        $score = $this->scoreComparativoAbastecimientoErp($fila, $costo, $factor, $costoComparable, $fuenteCosto, $alertas);
+
+        return array(
+            "id_sku_proveedor" => intval(isset($fila["id_sku_proveedor"]) ? $fila["id_sku_proveedor"] : 0),
+            "id_proveedor" => intval(isset($fila["id_proveedor"]) ? $fila["id_proveedor"] : 0),
+            "proveedor" => isset($fila["proveedor_nombre"]) ? $fila["proveedor_nombre"] : "",
+            "proveedor_estatus" => isset($fila["proveedor_estatus"]) ? $fila["proveedor_estatus"] : "",
+            "sku_proveedor" => isset($fila["sku_proveedor"]) ? $fila["sku_proveedor"] : "",
+            "descripcion_proveedor" => isset($fila["descripcion_proveedor"]) ? $fila["descripcion_proveedor"] : "",
+            "unidad_compra" => $this->unidadComprasProveedorErp($fila),
+            "factor_conversion" => $factor,
+            "costo_origen" => $costo,
+            "costo_comparable" => $costoComparable,
+            "fuente_costo" => $fuenteCosto,
+            "moneda" => $this->monedaComparativoAbastecimientoErp($fila),
+            "costo_incluye_impuestos" => isset($fila["costo_incluye_impuestos"]) ? $fila["costo_incluye_impuestos"] : null,
+            "vigencia_desde" => isset($fila["vigencia_desde"]) ? $fila["vigencia_desde"] : null,
+            "vigencia_hasta" => isset($fila["vigencia_hasta"]) ? $fila["vigencia_hasta"] : null,
+            "lista" => isset($fila["nombre_lista"]) ? $fila["nombre_lista"] : "",
+            "lista_estatus" => isset($fila["lista_estatus"]) ? $fila["lista_estatus"] : "",
+            "lista_vigencia_desde" => isset($fila["lista_vigencia_desde"]) ? $fila["lista_vigencia_desde"] : null,
+            "lista_vigencia_hasta" => isset($fila["lista_vigencia_hasta"]) ? $fila["lista_vigencia_hasta"] : null,
+            "cantidad_minima" => $this->decimalComprasProveedorErp(isset($fila["cantidad_minima"]) ? $fila["cantidad_minima"] : null),
+            "dias_entrega" => intval(isset($fila["dias_entrega"]) ? $fila["dias_entrega"] : 0),
+            "existencia_reportada" => $this->decimalComprasProveedorErp(isset($fila["existencia_reportada"]) ? $fila["existencia_reportada"] : null),
+            "es_preferido" => intval(isset($fila["es_preferido"]) ? $fila["es_preferido"] : 0),
+            "estado_match" => isset($fila["estado_match"]) ? $fila["estado_match"] : "",
+            "score" => $score,
+            "alertas" => $alertas,
+            "es_recomendado" => 0,
+            "diferencia_vs_mejor" => null
+        );
+    }
+
+    private function monedaComparativoAbastecimientoErp($fila) {
+        $moneda = isset($fila["moneda_costo"]) ? trim((string) $fila["moneda_costo"]) : "";
+        if ($moneda === "") {
+            $moneda = isset($fila["moneda_lista"]) ? trim((string) $fila["moneda_lista"]) : "";
+        }
+        return $moneda !== "" ? $moneda : "MXN";
+    }
+
+    private function alertasComparativoAbastecimientoErp($fila, $costo, $factor, $costoComparable, $fuenteCosto) {
+        $alertas = array();
+        if ($costo === null) {
+            $alertas[] = array("nivel" => "danger", "codigo" => "sin_costo", "mensaje" => "Sin costo comparable");
+        } elseif ($fuenteCosto !== "costo_vigente") {
+            $alertas[] = array("nivel" => "warning", "codigo" => "costo_respaldo", "mensaje" => $fuenteCosto === "lista_proveedor" ? "Usa costo de lista" : "Usa costo ultimo");
+        }
+        if ($factor === null || $factor <= 0 || $costoComparable === null) {
+            $alertas[] = array("nivel" => "warning", "codigo" => "factor_incompleto", "mensaje" => "Unidad/factor pendiente");
+        }
+        if ($this->fechaComparativoVencida(isset($fila["vigencia_hasta"]) ? $fila["vigencia_hasta"] : null)
+            || $this->fechaComparativoVencida(isset($fila["lista_vigencia_hasta"]) ? $fila["lista_vigencia_hasta"] : null)) {
+            $alertas[] = array("nivel" => "warning", "codigo" => "vigencia_vencida", "mensaje" => "Costo o lista vencida");
+        }
+        $estatusProveedor = isset($fila["proveedor_estatus"]) ? trim((string) $fila["proveedor_estatus"]) : "";
+        if (in_array($estatusProveedor, array("suspendido", "bloqueado", "inactivo"), true)) {
+            $alertas[] = array("nivel" => "danger", "codigo" => "proveedor_bloqueado", "mensaje" => "Proveedor no operable");
+        }
+        if (intval(isset($fila["dias_entrega"]) ? $fila["dias_entrega"] : 0) <= 0) {
+            $alertas[] = array("nivel" => "info", "codigo" => "sin_dias_entrega", "mensaje" => "Sin dias de entrega");
+        }
+        if (!isset($fila["costo_incluye_impuestos"]) || $fila["costo_incluye_impuestos"] === null || trim((string) $fila["costo_incluye_impuestos"]) === "") {
+            $alertas[] = array("nivel" => "info", "codigo" => "impuestos_indefinidos", "mensaje" => "Impuestos no definidos");
+        }
+        return $alertas;
+    }
+
+    private function scoreComparativoAbastecimientoErp($fila, $costo, $factor, $costoComparable, $fuenteCosto, $alertas) {
+        $total = 0;
+        $detalles = array();
+        if ($costoComparable !== null) {
+            $total += 35;
+            $detalles[] = array("clave" => "costo", "puntos" => 35, "texto" => "Costo comparable disponible");
+        }
+        if ($fuenteCosto === "costo_vigente") {
+            $total += 20;
+            $detalles[] = array("clave" => "vigente", "puntos" => 20, "texto" => "Costo vigente validado");
+        } elseif ($fuenteCosto === "lista_proveedor") {
+            $total += 10;
+            $detalles[] = array("clave" => "lista", "puntos" => 10, "texto" => "Costo desde lista");
+        }
+        if ($factor !== null && $factor > 0) {
+            $total += 15;
+            $detalles[] = array("clave" => "factor", "puntos" => 15, "texto" => "Unidad/factor completo");
+        }
+        if (intval(isset($fila["es_preferido"]) ? $fila["es_preferido"] : 0) === 1) {
+            $total += 10;
+            $detalles[] = array("clave" => "preferido", "puntos" => 10, "texto" => "Proveedor preferido actual");
+        }
+        $dias = intval(isset($fila["dias_entrega"]) ? $fila["dias_entrega"] : 0);
+        if ($dias > 0 && $dias <= 3) {
+            $total += 10;
+            $detalles[] = array("clave" => "entrega", "puntos" => 10, "texto" => "Entrega rapida");
+        } elseif ($dias > 0 && $dias <= 10) {
+            $total += 6;
+            $detalles[] = array("clave" => "entrega", "puntos" => 6, "texto" => "Entrega razonable");
+        } elseif ($dias > 0) {
+            $total += 3;
+            $detalles[] = array("clave" => "entrega", "puntos" => 3, "texto" => "Entrega documentada");
+        }
+        if (!$this->fechaComparativoVencida(isset($fila["vigencia_hasta"]) ? $fila["vigencia_hasta"] : null)
+            && !$this->fechaComparativoVencida(isset($fila["lista_vigencia_hasta"]) ? $fila["lista_vigencia_hasta"] : null)) {
+            $total += 10;
+            $detalles[] = array("clave" => "vigencia", "puntos" => 10, "texto" => "Vigencia sin vencimiento detectado");
+        }
+        foreach ($alertas as $alerta) {
+            if (isset($alerta["nivel"]) && $alerta["nivel"] === "danger") {
+                $total -= 25;
+            } elseif (isset($alerta["nivel"]) && $alerta["nivel"] === "warning") {
+                $total -= 10;
+            }
+        }
+        $total = max(0, min(100, $total));
+        return array(
+            "total" => $total,
+            "dictamen" => $total >= 75 ? "conveniente" : ($total >= 50 ? "revisar" : "riesgo"),
+            "detalles" => $detalles
+        );
+    }
+
+    private function fechaComparativoVencida($fecha) {
+        $fecha = trim((string) $fecha);
+        if ($fecha === "" || $fecha === "0000-00-00" || $fecha === "0000-00-00 00:00:00") {
+            return false;
+        }
+        $ts = strtotime($fecha);
+        if ($ts === false) {
+            return false;
+        }
+        return $ts < strtotime(date("Y-m-d") . " 00:00:00");
+    }
+
     private function buscarSkusContratoActualSolicitudes($db, $idProveedor, $termino) {
         $stmt = $db->prepare("SELECT s.id_sku, s.id_producto_erp, s.sku, s.nombre,
                 u.abreviatura unidad, sp.id_sku_proveedor, sp.sku_proveedor,

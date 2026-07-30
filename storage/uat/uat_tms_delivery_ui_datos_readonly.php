@@ -81,9 +81,9 @@ echo json_encode(array(
   "conteos" => $conteos,
   "reglas" => array(
     "read_only" => true,
-    "no_modifica_ventas" => true,
+    "no_toca_operaciones_comerciales" => true,
     "no_toca_pos" => true,
-    "no_decide_garantias" => true,
+    "sin_garantias_o_postventa" => true,
     "no_mueve_inventario" => true
   ),
   "siguiente_paso" => "Abrir UI TMS y POS en navegador para validar flujo visual; creacion real POS -> TMS requiere UAT/autorizacion separada."

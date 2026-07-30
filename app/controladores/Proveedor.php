@@ -51,6 +51,17 @@ class Proveedor extends Controlador {
         $this->vista("apps/erp/proveedores/manual_erp");
     }
 
+    /**
+     * IA: Codex GPT-5
+     * Fecha: 2026-07-29
+     * Proposito: mostrar el comparativo read-only de proveedores por SKU.
+     * Impacto: Proveedores/Compras; no escribe datos ni modifica proveedor preferido.
+     */
+    public function analisis_abastecimiento_erp() {
+        $this->requerirPermiso("proveedores.ver");
+        $this->vista("apps/erp/proveedores/analisis_abastecimiento");
+    }
+
     private function descargarAuditoriaProveedoresJson($respuesta, $fecha) {
         header("X-Content-Type-Options: nosniff");
         header("Content-Type: application/json; charset=UTF-8");
@@ -132,6 +143,16 @@ class Proveedor extends Controlador {
             "termino" => isset($_REQUEST["termino"]) ? $_REQUEST["termino"] : (isset($_REQUEST["q"]) ? $_REQUEST["q"] : "")
         );
         echo json_encode($this->modelo("Proveedores")->compararContratoComprasErp($filtros));
+    }
+
+    public function abastecimiento_comparar_sku_erp() {
+        $this->requerirPermiso("proveedores.ver");
+        $filtros = array(
+            "termino" => isset($_REQUEST["termino"]) ? $_REQUEST["termino"] : (isset($_REQUEST["q"]) ? $_REQUEST["q"] : ""),
+            "solo_multiples" => isset($_REQUEST["solo_multiples"]) ? $_REQUEST["solo_multiples"] : 0,
+            "limite" => isset($_REQUEST["limite"]) ? $_REQUEST["limite"] : 80
+        );
+        echo json_encode($this->modelo("Proveedores")->compararAbastecimientoSkuErp($filtros));
     }
 
     public function proveedor_generales_guardar_erp() {

@@ -22,17 +22,14 @@ class TmsDelivery extends CRUD {
         array("valor" => "entrega_express", "texto" => "Entrega express"),
         array("valor" => "entrega_programada", "texto" => "Entrega programada"),
         array("valor" => "recoleccion_cliente", "texto" => "Recoleccion con cliente"),
-        array("valor" => "entrega_postventa", "texto" => "Entrega postventa"),
-        array("valor" => "traslado_revision", "texto" => "Traslado para revision"),
-        array("valor" => "visita_revision", "texto" => "Visita de revision"),
-        array("valor" => "envio_tercero", "texto" => "Envio por tercero")
+        array("valor" => "entrega_tercero", "texto" => "Entrega por tercero")
       ),
       "estatus_servicio" => array("cotizada", "solicitada", "programada", "preparando", "lista_para_salida", "en_ruta", "entregada", "no_entregada", "reprogramada", "pendiente_cliente", "cancelada"),
       "estatus_cobro" => array("incluida_cortesia", "cobrada", "por_cobrar", "pendiente", "bonificada"),
       "resultados_logisticos" => array("pendiente", "completa", "parcial", "sin_entrega", "cliente_recogera", "nuevo_intento_requerido", "cerrada_sin_entrega"),
       "prioridades" => array("normal", "express", "urgente"),
-      "motivos_logisticos" => array("venta_inicial", "entrega_adicional", "recoleccion", "revision", "cambio_acordado", "cortesia_autorizada", "otro"),
-      "modulos_solicitantes" => array("ventas", "ecommerce", "postventa", "crm", "manual"),
+      "motivos_logisticos" => array("servicio_inicial", "reintento", "recoleccion", "entrega_tercero", "cortesia_autorizada", "cliente_no_disponible", "otro"),
+      "modulos_solicitantes" => array("manual", "pos", "ecommerce", "crm", "operacion"),
       "contrato" => $this->contratoDominio()
     ));
   }
@@ -213,21 +210,21 @@ class TmsDelivery extends CRUD {
   /**
    * IA: Codex GPT-5
    * Fecha: 2026-07-28
-   * Proposito: adaptar el payload futuro de POS/Ventas al contrato logistico TMS sin escribir BD.
-   * Impacto: TMS Delivery; permite validar entregas POS como solicitud separada de venta, pagos e inventario.
-   * Contrato: dry-run; no crea servicio, no confirma ventas, no cobra productos y no mueve inventario.
+   * Proposito: adaptar una solicitud operativa nacida en POS al contrato logistico TMS sin escribir BD.
+   * Impacto: TMS Delivery; permite validar entregas de mostrador como servicio separado de cualquier operacion comercial.
+   * Contrato: dry-run; no crea servicio, no confirma operaciones comerciales, no cobra productos y no mueve inventario.
    */
   public function servicioDesdePosDryRun($datos = array()) {
     $normalizado = $datos;
-    $normalizado["solicitado_por_modulo"] = "ventas";
+    $normalizado["solicitado_por_modulo"] = "pos";
 
-    $tipoOrigen = $this->texto($datos, "solicitado_por_tipo", "pos_venta");
+    $tipoOrigen = $this->texto($datos, "solicitado_por_tipo", "solicitud_pos");
     if ($tipoOrigen === "pos") {
-      $tipoOrigen = "pos_venta";
+      $tipoOrigen = "solicitud_pos";
     }
     $normalizado["solicitado_por_tipo"] = $tipoOrigen;
 
-    $referencia = $this->texto($datos, "referencia_externa", $this->texto($datos, "folio_venta"));
+    $referencia = $this->texto($datos, "referencia_externa", $this->texto($datos, "referencia_operativa"));
     $normalizado["referencia_externa"] = $referencia;
 
     if ($this->texto($normalizado, "tipo_servicio") === "") {
@@ -245,14 +242,14 @@ class TmsDelivery extends CRUD {
     $bloqueos = isset($depurar["bloqueos"]) && is_array($depurar["bloqueos"]) ? $depurar["bloqueos"] : array();
     $advertencias = isset($depurar["advertencias"]) && is_array($depurar["advertencias"]) ? $depurar["advertencias"] : array();
 
-    if (!in_array($tipoOrigen, array("pos_venta", "pedido_pos", "apartado_pos"), true)) {
-      $bloqueos[] = "Tipo de origen POS no soportado para TMS";
+    if (!in_array($tipoOrigen, array("solicitud_pos", "solicitud_mostrador", "servicio_cliente"), true)) {
+      $bloqueos[] = "Tipo de solicitud POS no soportado para TMS";
     }
     if ($referencia === "" && intval($this->valor($datos, "solicitado_por_id", 0)) <= 0) {
-      $advertencias[] = "Sin folio/id de venta; solo debe usarse antes de confirmar como preview logistico";
+      $advertencias[] = "Sin referencia operativa; TMS puede continuar como servicio logistico independiente";
     }
     if ($this->texto($datos, "venta_estatus") !== "") {
-      $advertencias[] = "TMS ignora estatus de venta; solo conserva referencia logistica";
+      $advertencias[] = "TMS ignora datos comerciales; solo conserva informacion logistica";
     }
 
     $puedeGuardarFuturo = empty($bloqueos);
@@ -260,17 +257,17 @@ class TmsDelivery extends CRUD {
     $depurar["bloqueos"] = array_values(array_unique($bloqueos));
     $depurar["advertencias"] = array_values(array_unique($advertencias));
     $depurar["origen_pos"] = array(
-      "solicitado_por_modulo" => "ventas",
+      "solicitado_por_modulo" => "pos",
       "solicitado_por_tipo" => $tipoOrigen,
       "solicitado_por_id" => intval($this->valor($datos, "solicitado_por_id", 0)),
       "referencia_externa" => $referencia
     );
     $depurar["reglas_pos_tms"] = array(
-      "pos_es_solicitante" => true,
-      "crear_real_solo_despues_de_venta_exitosa" => true,
-      "importe_logistico_separado_del_producto" => true,
-      "fallo_entrega_no_cancela_venta" => true,
-      "no_garantia_automatica" => true
+      "pos_solo_captura_solicitud_logistica" => true,
+      "tms_solo_compromiso_logistico" => true,
+      "importe_logistico_separado" => true,
+      "fallo_entrega_solo_cierra_o_reprograma_servicio" => true,
+      "sin_garantia_o_postventa_en_tms" => true
     );
 
     return $this->respuesta(false, $puedeGuardarFuturo ? "success" : "warning", $puedeGuardarFuturo ? "Solicitud POS -> TMS valida en dry-run" : "Solicitud POS -> TMS bloqueada en dry-run", $depurar);
@@ -281,7 +278,7 @@ class TmsDelivery extends CRUD {
    * Fecha: 2026-07-24
    * Proposito: crear un folio TMS real cuando el esquema ya este aplicado.
    * Impacto: TMS Delivery; crea solo servicio logistico, costo, detalle y evento inicial.
-   * Contrato: escritura transaccional; no confirma ventas, no cancela ventas, no decide garantias y no mueve inventario.
+   * Contrato: escritura transaccional; solo crea/actualiza TMS, no decide operaciones comerciales ni mueve inventario.
    */
   public function guardarServicio($datos = array(), $idUsuario = 0) {
     try {
@@ -331,7 +328,7 @@ class TmsDelivery extends CRUD {
         ":tipo_origen" => $preview["solicitado_por_tipo"],
         ":origen_id" => $idSolicitadoPor,
         ":referencia" => $this->texto($datos, "referencia_externa"),
-        ":motivo" => $this->texto($datos, "motivo_logistico", "venta_inicial"),
+        ":motivo" => $this->texto($datos, "motivo_logistico", "servicio_inicial"),
         ":cliente" => $idCliente,
         ":direccion_id" => $idDireccion,
         ":cliente_nombre" => $preview["cliente_nombre_snapshot"],
@@ -418,7 +415,7 @@ class TmsDelivery extends CRUD {
    * Fecha: 2026-07-24
    * Proposito: operar cambios de estado TMS una vez que exista el esquema.
    * Impacto: TMS Delivery; actualiza solo el servicio logistico y registra evento.
-   * Contrato: escritura transaccional sobre TMS; no cancela ventas, no mueve inventario y no decide garantias.
+   * Contrato: escritura transaccional sobre TMS; no toca operaciones comerciales, inventario ni postventa.
    */
   public function aplicarAccionServicio($datos = array(), $idUsuario = 0) {
     try {
@@ -539,7 +536,7 @@ class TmsDelivery extends CRUD {
    * IA: Codex GPT-5
    * Fecha: 2026-07-24
    * Proposito: consultar indicadores basicos TMS Delivery.
-   * Impacto: TMS Delivery; mide servicio logistico sin recalcular ventas ni productos.
+   * Impacto: TMS Delivery; mide servicio logistico sin recalcular operaciones comerciales.
    * Contrato: read-only; si falta esquema devuelve metricas en cero con schema_pendiente=true.
    */
   public function resumenReportes($filtros = array()) {
@@ -614,7 +611,7 @@ class TmsDelivery extends CRUD {
    * IA: Codex GPT-5
    * Fecha: 2026-07-24
    * Proposito: registrar evidencia operativa para un servicio TMS.
-   * Impacto: TMS Delivery; agrega trazabilidad sin resolver garantias ni modificar ventas.
+   * Impacto: TMS Delivery; agrega trazabilidad sin resolver postventa ni tocar operaciones comerciales.
    * Contrato: escritura transaccional sobre TMS; no sube archivo fisico en esta fase.
    */
   public function registrarEvidencia($datos = array(), $idUsuario = 0) {
@@ -765,7 +762,7 @@ class TmsDelivery extends CRUD {
     }
     return $this->respuesta(false, "success", "Contrato de acciones TMS consultado", array(
       "acciones" => $acciones,
-      "regla" => "Estas acciones modificaran solo TMS cuando se implementen; no cancelan ventas ni deciden garantias."
+      "regla" => "Estas acciones modificaran solo TMS cuando se implementen; no tocan operaciones comerciales ni postventa."
     ));
   }
 
@@ -901,12 +898,12 @@ class TmsDelivery extends CRUD {
 
   private function contratoDominio() {
     return array(
-      "tms_independiente_de_ventas" => true,
-      "no_confirma_ventas" => true,
-      "no_cancela_ventas" => true,
-      "no_decide_garantias" => true,
+      "tms_solo_compromiso_logistico" => true,
+      "acciones_base" => array("recoger", "preparar", "llevar", "evidenciar", "cerrar", "reprogramar"),
+      "sin_estados_comerciales" => true,
+      "sin_garantias_o_postventa" => true,
       "no_mueve_inventario_por_si_mismo" => true,
-      "resultado_no_entregado_no_cambia_venta" => true
+      "resultado_no_entregado_solo_afecta_tms" => true
     );
   }
 

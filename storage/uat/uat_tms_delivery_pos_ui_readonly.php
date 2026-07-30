@@ -3,9 +3,9 @@
 /**
  * IA: Codex GPT-5
  * Fecha: 2026-07-28
- * Proposito: validar la UI POS opt-in de Entrega TMS en modo dry-run.
- * Impacto: POS y TMS Delivery; confirma que la UI solo previsualiza servicio logistico separado.
- * Contrato: read-only; no crea servicios TMS, no confirma ventas, no cobra y no mueve inventario.
+ * Proposito: validar la UI POS opt-in de Entrega TMS con prevalidacion y creacion real separada.
+ * Impacto: POS y TMS Delivery; confirma que la UI opera un servicio logistico separado.
+ * Contrato: read-only; inspecciona codigo, no crea servicios TMS, no toca operaciones comerciales, no cobra y no mueve inventario.
  */
 
 $root = realpath(__DIR__ . "/../..");
@@ -35,19 +35,24 @@ foreach (array(
 
 foreach (array(
   "payloadTmsPosDryRun",
+  "payloadTmsPosReal",
+  "crearTmsDesdePosReal",
   "alternarTmsPos",
   "prevalidarTmsPos",
-  "renderTmsPosDryRun"
+  "renderTmsPosDryRun",
+  "renderTmsPosReal"
 ) as $funcion) {
   $checks["js_funcion_" . $funcion] = check_item(preg_match('/function\s+' . preg_quote($funcion, '/') . '\s*\(/', $js) === 1, "JS " . $funcion);
 }
 
 $checks["js_endpoint_dryrun_tms"] = check_item(strpos($js, "/tms/servicio_pos_dryrun_erp") !== false, "Endpoint dry-run TMS desde POS");
-$checks["js_sin_guardado_tms"] = check_item(strpos($js, "/tms/servicio_guardar_erp") === false, "Sin llamada a guardado TMS desde POS");
+$checks["js_endpoint_guardado_tms"] = check_item(strpos($js, "/tms/servicio_guardar_erp") !== false, "Endpoint guardado TMS desde POS");
 $checks["js_payload_tms_no_cobro"] = check_item(strpos($js, 'request("/ventas/pos_confirmar_erp", payloadVentaPos())') !== false && strpos($js, 'request("/ventas/pos_confirmar_erp", payloadTmsPosDryRun())') === false, "Cobro POS conserva payloadVentaPos");
-$checks["js_resultado_no_folio_real"] = check_item(strpos($js, "no crea folio TMS ni modifica la venta") !== false, "Mensaje de preview sin folio real");
+$checks["js_guardado_tms_post_pos"] = check_item(strpos($js, "renderCobroReal(response);") !== false && strpos($js, "crearTmsDesdePosReal(payloadTmsPendiente)") !== false, "Guardado TMS posterior al POS exitoso");
+$checks["js_resultado_no_folio_real"] = check_item(strpos($js, "no crea folio TMS ni toca la operacion comercial") !== false, "Mensaje de preview sin folio real");
+$checks["js_resultado_folio_real"] = check_item(strpos($js, "Folio logistico") !== false, "Mensaje de folio logistico real");
 $checks["vista_importe_logistico"] = check_item(strpos($vista, "Importe delivery") !== false, "Importe logistico visible separado");
-$checks["vista_mensaje_no_crea"] = check_item(strpos($vista, "No crea servicio ni cambia la venta") !== false, "Mensaje operativo de separacion");
+$checks["vista_mensaje_no_crea"] = check_item(strpos($vista, "Solo previsualiza el servicio logistico") !== false, "Mensaje operativo de separacion");
 
 $fallos = array_values(array_filter($checks, function ($item) {
   return empty($item["ok"]);
@@ -56,20 +61,20 @@ $fallos = array_values(array_filter($checks, function ($item) {
 echo json_encode(array(
   "ok" => empty($fallos),
   "modo" => "read-only",
-  "estado" => empty($fallos) ? "pos_tms_ui_dryrun_lista" : "pos_tms_ui_dryrun_pendiente",
+  "estado" => empty($fallos) ? "pos_tms_ui_real_lista" : "pos_tms_ui_real_pendiente",
   "checks_total" => count($checks),
   "checks_ok" => count($checks) - count($fallos),
   "checks_fallos" => count($fallos),
   "fallos" => $fallos,
   "reglas" => array(
     "read_only" => true,
-    "solo_dryrun" => true,
-    "no_crea_tms" => true,
-    "no_confirma_venta" => true,
+    "dryrun_disponible" => true,
+    "creacion_real_separada_disponible" => true,
+    "no_toca_operaciones_comerciales" => true,
     "no_cobra_productos" => true,
     "no_mueve_inventario" => true
   ),
-  "siguiente_paso" => "Validar visualmente en navegador el panel Entrega TMS dentro de POS."
+  "siguiente_paso" => "Validar visualmente en navegador el panel Entrega TMS dentro de POS y ejecutar UAT real controlado cuando se autorice."
 ), JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE) . PHP_EOL;
 
 function check_item($ok, $detalle) {

@@ -282,6 +282,7 @@
                                                                         <option value="entrega_express">Entrega express</option>
                                                                         <option value="entrega_programada">Entrega programada</option>
                                                                         <option value="entrega_local">Entrega local</option>
+                                                                        <option value="entrega_tercero">Entrega por tercero</option>
                                                                     </select>
                                                                 </div>
                                                                 <div class="col-md-6">
@@ -320,7 +321,7 @@
                                                             </div>
                                                             <div class="d-flex flex-wrap gap-2 mt-3">
                                                                 <button class="btn btn-sm btn-light-primary" id="pos_tms_dryrun" type="button"><i class="bi bi-shield-check"></i> Prevalidar TMS</button>
-                                                                <span class="text-muted fs-8 align-self-center">No crea servicio ni cambia la venta.</span>
+                                                                <span class="text-muted fs-8 align-self-center">Solo previsualiza el servicio logistico.</span>
                                                             </div>
                                                             <div id="pos_tms_resultado" class="mt-3"></div>
                                                         </div>

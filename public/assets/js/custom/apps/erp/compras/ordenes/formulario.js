@@ -181,6 +181,15 @@ function evidenciaCostoHtml(item) {
     return "<div class=\"mt-1\"><span class=\"badge " + clase + " me-1\">" + esc(texto) + "</span>" +
         (detalle ? "<span class=\"text-muted fs-8\">" + esc(detalle) + "</span>" : "") + "</div>";
 }
+function decisionAbastecimientoHtml(item) {
+    var decision = item && item.decision_abastecimiento ? item.decision_abastecimiento : null;
+    if (!decision && Number(item && item.id_sku_proveedor || 0) > 0) {
+        decision = {comparativo_url: "/proveedor/analisis_abastecimiento_erp?q=" + encodeURIComponent(item.sku_proveedor || item.sku || item.nombre || "")};
+    }
+    if (!decision) { return ""; }
+    var url = decision.comparativo_url || ("/proveedor/analisis_abastecimiento_erp?q=" + encodeURIComponent(item.sku_proveedor || item.sku || ""));
+    return "<div class=\"mt-1\"><a class=\"badge badge-light-success\" target=\"_blank\" rel=\"noopener\" href=\"" + esc(url) + "\">Abastecimiento</a></div>";
+}
 function estadoFiscalTexto(item) {
     return fiscalCompleto(item && item.datos_fiscales || {}) ? "fiscal_ok" : "fiscal_pendiente";
 }
@@ -459,6 +468,7 @@ function renderFilaDiferenciaCambio(x) {
         var proveedor = document.getElementById("orden_proveedor_selector").value;
         var q = document.getElementById("orden_buscar_sku").value.trim();
         var box = document.getElementById("orden_resultados");
+        actualizarLinkAbastecimiento(q);
         if (!proveedor || q.length < 2) { box.classList.add("d-none"); return; }
         fetch("/compra/orden_buscar_skus_erp?" + new URLSearchParams({id_proveedor: proveedor, q: q}), {credentials: "same-origin"})
             .then(function (r) { return r.json(); }).then(function (r) {
@@ -472,6 +482,17 @@ function renderFilaDiferenciaCambio(x) {
                 box.classList.remove("d-none");
             }).catch(alertaError);
     }
+/**
+ * IA: Codex GPT-5 | Fecha: 2026-07-29
+ * Proposito: abrir analisis de abastecimiento con el termino buscado en Ordenes.
+ * Impacto: Compras/Ordenes; solo navegacion read-only, sin modificar partidas.
+ */
+function actualizarLinkAbastecimiento(q) {
+    var link = document.getElementById("orden_abastecimiento_link");
+    if (!link) { return; }
+    q = String(q || document.getElementById("orden_buscar_sku").value || "").trim();
+    link.href = "/proveedor/analisis_abastecimiento_erp" + (q ? "?q=" + encodeURIComponent(q) : "");
+}
 function agregarSku(data) {
     if (existeItemDuplicadoCatalogo(data)) { return; }
     var costoIncluyeImpuestos = !estaVacio(data.costo_incluye_impuestos)
@@ -489,6 +510,8 @@ function agregarSku(data) {
         moneda_costo: data.moneda_costo || "",
         vigencia_desde: data.vigencia_desde || "",
         vigencia_hasta: data.vigencia_hasta || "",
+        factor_conversion: data.factor_conversion || null,
+        cantidad_minima: data.cantidad_minima || null,
         id_costo_proveedor_sku: data.id_costo_proveedor_sku || 0,
         id_lista_proveedor_erp: data.id_lista_proveedor_erp || 0,
         id_sku_proveedor: data.id_sku_proveedor || 0,
@@ -695,6 +718,9 @@ function agregarProductoNuevoPendiente() {
                     moneda_costo: parseJsonSeguro(x.evidencia_costo_json || {}).moneda_costo || "",
                     vigencia_desde: parseJsonSeguro(x.evidencia_costo_json || {}).vigencia_desde || "",
                     vigencia_hasta: parseJsonSeguro(x.evidencia_costo_json || {}).vigencia_hasta || "",
+                    factor_conversion: parseJsonSeguro(x.evidencia_costo_json || {}).factor_conversion || null,
+                    cantidad_minima: parseJsonSeguro(x.evidencia_costo_json || {}).cantidad_minima || null,
+                    decision_abastecimiento: parseJsonSeguro(x.evidencia_costo_json || {}).decision_abastecimiento || null,
                     id_costo_proveedor_sku: parseJsonSeguro(x.evidencia_costo_json || {}).id_costo_proveedor_sku || 0,
                     id_lista_proveedor_erp: parseJsonSeguro(x.evidencia_costo_json || {}).id_lista_proveedor_erp || 0,
                     tipo_item: x.tipo_item || "producto",
@@ -1519,12 +1545,13 @@ function render() {
                 : "<span class=\"badge badge-light-warning\">Fiscal pendiente</span>";
             var advertencias = advertenciasOperativasHtml(x);
             var evidenciaCosto = evidenciaCostoHtml(x);
+            var decisionAbastecimiento = decisionAbastecimientoHtml(x);
             return "<tr><td class=\"text-center\"><input type=\"checkbox\" class=\"form-check-input\" data-item-check=\"" + i +
                 "\" data-item-uid=\"" + uiUid + "\" value=\"" + i + "\"" + (puedeEditar ? "" : " disabled") + "></td><td><div class=\"d-flex align-items-start gap-3\">" +
                 imagenSkuHtml(x, "mt-1") + "<div class=\"min-w-0\"><div class=\"fw-bold\">" +
                 esc(x.sku) + "</div><div class=\"text-muted fs-8\">" + esc(x.sku_proveedor || "") +
                 "</div>" + advertencias + "</div></div></td><td>" + esc(x.nombre) + "<div class=\"text-muted fs-8\">" + registroBadge + "</div><div class=\"text-muted fs-8\">" + esc(x.unidad || "") +
-                "</div>" + evidenciaCosto + "</td><td>" + tipoItemControl + "</td><td><div class=\"input-group input-group-sm orden-cantidad-control\"><button class=\"btn btn-light\" type=\"button\" data-cantidad-ajuste=\"-1\" data-item-uid=\"" + uiUid + "\" title=\"Disminuir cantidad\"" + disabled +
+                "</div>" + evidenciaCosto + decisionAbastecimiento + "</td><td>" + tipoItemControl + "</td><td><div class=\"input-group input-group-sm orden-cantidad-control\"><button class=\"btn btn-light\" type=\"button\" data-cantidad-ajuste=\"-1\" data-item-uid=\"" + uiUid + "\" title=\"Disminuir cantidad\"" + disabled +
                 ">-</button><input class=\"form-control text-center\" min=\"0.000001\" step=\"1\" type=\"number\" data-item=\"cantidad\" data-index=\"" + i + "\" value=\"" + x.cantidad + "\"" + disabled +
                 "><button class=\"btn btn-light\" type=\"button\" data-cantidad-ajuste=\"1\" data-item-uid=\"" + uiUid + "\" title=\"Aumentar cantidad\"" + disabled +
                 ">+</button></div></td><td><input class=\"form-control form-control-sm text-end orden-sin-spinner\" type=\"number\" min=\"0\" step=\"0.000001\" data-item=\"costo_sin_impuestos\" data-index=\"" + i + "\" value=\"" + costoNeto.toFixed(6) + "\"" + disabledCostoSin +
@@ -1588,6 +1615,40 @@ function render() {
         render();
         bootstrap.Modal.getInstance(document.getElementById("orden_fiscal_modal")).hide();
     }
+    /**
+     * IA: Codex GPT-5 | Fecha: 2026-07-29
+     * Proposito: congelar la evidencia minima de abastecimiento usada al guardar una orden.
+     * Impacto: Ordenes de compra; no cambia proveedor ni costos, solo conserva snapshot auditable.
+     */
+    function decisionAbastecimientoOrden(item) {
+        var proveedor = document.getElementById("orden_proveedor_selector");
+        var proveedorNombre = proveedor && proveedor.selectedOptions && proveedor.selectedOptions[0]
+            ? proveedor.selectedOptions[0].textContent : "";
+        var q = item.sku_proveedor || item.sku || item.nombre || "";
+        return {
+            origen: "orden_busqueda_proveedor_sku",
+            fecha_cliente: new Date().toISOString(),
+            id_proveedor: Number(proveedor ? proveedor.value || 0 : 0),
+            proveedor: proveedorNombre,
+            id_sku_erp: Number(item.id_sku_erp || 0),
+            id_sku_proveedor: Number(item.id_sku_proveedor || 0),
+            sku_erp: item.sku || "",
+            sku_proveedor: item.sku_proveedor || "",
+            nombre: item.nombre || "",
+            unidad: item.unidad || "",
+            factor_conversion: item.factor_conversion || null,
+            cantidad_minima: item.cantidad_minima || null,
+            costo_capturado: Number(item.costo_unitario || 0),
+            costo_unitario_incluye_impuesto: parseFlag(item.costo_unitario_incluye_impuesto),
+            moneda_costo: item.moneda_costo || document.getElementById("orden_moneda").value || "MXN",
+            fuente_costo: item.fuente_costo || "",
+            id_costo_proveedor_sku: Number(item.id_costo_proveedor_sku || 0),
+            id_lista_proveedor_erp: Number(item.id_lista_proveedor_erp || 0),
+            advertencias_operativas: Array.isArray(item.advertencias_operativas) ? item.advertencias_operativas : [],
+            comparativo_url: "/proveedor/analisis_abastecimiento_erp" + (q ? "?q=" + encodeURIComponent(q) : ""),
+            criterio: "Proveedor actual de la orden; comparativo formal disponible en Analisis de abastecimiento"
+        };
+    }
     function datos(estatus) {
         var itemsPayload = items.map(function (item) {
             var copia = Object.assign({}, item);
@@ -1598,7 +1659,12 @@ function render() {
                 origen_costo: item.origen_costo || "",
                 moneda_costo: item.moneda_costo || "",
                 vigencia_desde: item.vigencia_desde || "",
-                vigencia_hasta: item.vigencia_hasta || ""
+                vigencia_hasta: item.vigencia_hasta || "",
+                factor_conversion: item.factor_conversion || null,
+                cantidad_minima: item.cantidad_minima || null,
+                decision_abastecimiento: Number(item.id_sku_proveedor || 0) > 0
+                    ? (item.decision_abastecimiento || decisionAbastecimientoOrden(item))
+                    : {}
             };
             return copia;
         });
@@ -1715,9 +1781,11 @@ function render() {
             render();
         });
         document.getElementById("orden_buscar_sku").addEventListener("input", function () {
+            actualizarLinkAbastecimiento(this.value);
             clearTimeout(timerBusqueda);
             timerBusqueda = setTimeout(buscarSku, 250);
         });
+        actualizarLinkAbastecimiento("");
         document.getElementById("orden_resultados").addEventListener("click", function (e) {
             var b = e.target.closest("[data-sku]");
             if (b) { agregarSku(JSON.parse(decodeURIComponent(b.getAttribute("data-sku")))); }

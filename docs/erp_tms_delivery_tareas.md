@@ -1166,11 +1166,11 @@ Resultado 2026-07-28:
 
 ## TMS-T030 - Preflight creacion real POS -> TMS
 
-Estado: completado read-only.
+Estado: completado read-only; reemplazado por TMS-T033 para implementacion UI.
 
 Objetivo:
 
-Preparar la autorizacion futura para que POS cree un servicio TMS real despues de venta/pedido exitoso, sin ejecutar todavia escritura real.
+Preparar la autorizacion futura para que POS capture una solicitud logistica y TMS cree un servicio real independiente, sin ejecutar todavia escritura real.
 
 Criterio de cierre:
 
@@ -1178,21 +1178,140 @@ Criterio de cierre:
 - [x] Script read-only creado: `storage/uat/uat_tms_delivery_pos_real_preflight_readonly.php`.
 - [x] Token futuro documentado: `TMS_POS_REAL_BASE`.
 - [x] Respaldo externo requerido documentado.
-- [x] Confirma que no existe endpoint real POS -> TMS todavia.
-- [x] Confirma que Ventas no instancia TMS todavia.
-- [x] Confirma que POS JS solo llama dry-run TMS.
+- [x] Confirma que TMS tiene endpoint real general protegido.
+- [x] Confirma que Ventas no instancia TMS.
+- [x] Confirma que POS JS mantiene TMS fuera de `pos_confirmar_erp`.
 - [x] No crea TMS.
-- [x] No confirma ventas.
+- [x] No toca operaciones comerciales.
 - [x] No toca caja.
 - [x] No mueve inventario.
 
 Resultado 2026-07-28:
 
 - Lint: `storage/uat/uat_tms_delivery_pos_real_preflight_readonly.php` sin errores.
-- Preflight: `pos_tms_real_preflight_listo`.
-- Checks: 21/21.
+- Preflight actualizado: `pos_tms_real_implementacion_lista`.
 - Go/no-go consolidado despues de preflight: 52/52.
 - Navegador integrado no disponible en esta sesion; queda pendiente validacion visual manual/asistida.
+
+## TMS-T033 - Creacion real TMS desde POS sin acoplar Ventas
+
+Estado: implementado; pendiente UAT real con respaldo/autorizacion.
+
+Objetivo:
+
+Permitir que POS capture una solicitud logistica y cree un folio TMS real solo despues de que su flujo normal haya terminado correctamente, sin convertir TMS en parte del modelo de ventas.
+
+Criterio de cierre:
+
+- [x] POS captura snapshot TMS antes de limpiar carrito.
+- [x] POS confirma por `/ventas/pos_confirmar_erp` usando `payloadVentaPos`.
+- [x] POS llama `/tms/servicio_guardar_erp` despues del resultado POS exitoso.
+- [x] Ventas no instancia `TmsDelivery`.
+- [x] Ventas no escribe tablas `erp_tms_*`.
+- [x] TMS usa `solicitado_por_modulo=pos`.
+- [x] TMS usa `solicitado_por_tipo=solicitud_pos`.
+- [x] TMS usa `motivo_logistico=servicio_inicial`.
+- [x] TMS usa referencia operativa propia `POS-SOL-*`, sin exigir folio de venta.
+- [x] Si falla TMS, no revierte ni modifica la operacion POS ya cerrada.
+- [x] Rastreo publico de cliente queda fuera de esta fase.
+- [x] Script UAT real autorizado creado: `storage/uat/uat_tms_delivery_pos_real_apply_authorized.php`.
+- [x] Script bloquea ejecucion sin token `TMS_POS_REAL_BASE` y respaldo externo.
+- [x] Postcheck read-only creado: `storage/uat/uat_tms_delivery_pos_real_postcheck_readonly.php`.
+
+Pendiente:
+
+- [ ] Validacion visual en navegador con servicio local levantado.
+- [ ] UAT real controlado con respaldo externo y token `TMS_POS_REAL_BASE`.
+- [ ] Postcheck posterior al UAT real con referencia `POS-SOL-UAT-*`.
+
+Resultado 2026-07-29:
+
+- Navegador integrado no disponible en esta sesion; no se realizo validacion visual.
+- Lint:
+  - `storage/uat/uat_tms_delivery_pos_real_apply_authorized.php`: sin errores;
+  - `storage/uat/uat_tms_delivery_pos_real_postcheck_readonly.php`: sin errores;
+  - `storage/uat/uat_tms_delivery_pos_real_preflight_readonly.php`: sin errores;
+  - `storage/uat/uat_tms_delivery_go_nogo_readonly.php`: sin errores.
+- Prueba bloqueada del apply sin token/respaldo: `pos_tms_uat_real_bloqueado`.
+- Postcheck previo al UAT real: `pos_tms_postcheck_pendiente_uat_real`.
+- Preflight real POS/TMS actualizado: `pos_tms_real_implementacion_lista`, 28/28.
+- Contrato POS/TMS: 48/48.
+- UI POS/TMS: 29/29.
+- Go/no-go consolidado: 56/56.
+
+## TMS-T031 - Correccion de alcance TMS solo logistico
+
+Estado: completado read-only.
+
+Objetivo:
+
+Retirar del contrato base TMS cualquier lenguaje que relacione el servicio logistico con ventas, postventa, garantia o revision de producto.
+
+Criterio de cierre:
+
+- [x] Decision vigente agregada a `docs/erp_tms_delivery_plan.md`.
+- [x] Tipos de servicio depurados en `TmsDelivery::catalogosTms`.
+- [x] Removidos del catalogo base: `entrega_postventa`, `traslado_revision`, `visita_revision`.
+- [x] Cambiado `envio_tercero` por `entrega_tercero`.
+- [x] Adapter POS normaliza `solicitado_por_modulo=pos`.
+- [x] Adapter POS normaliza `solicitado_por_tipo=solicitud_pos`.
+- [x] UI POS deja de enviar `pos_venta`.
+- [x] Contrato de dominio devuelve compromiso logistico puro.
+- [x] Ejecutar lint y UAT actualizados.
+
+Resultado 2026-07-29:
+
+- Lint:
+  - `app/modelos/TmsDelivery.php`: sin errores;
+  - `app/modelos/TmsEsquema.php`: sin errores;
+  - `public/assets/js/custom/apps/erp/ventas/pos.js`: sin errores.
+- UAT contrato POS/TMS: 45/45.
+- UAT UI POS/TMS: 24/24.
+- Preflight real futuro POS/TMS: 22/22.
+- Origen TMS desde POS: `solicitado_por_modulo=pos`.
+- Tipo TMS desde POS: `solicitado_por_tipo=solicitud_pos`.
+- Contrato devuelto: `tms_solo_compromiso_logistico`.
+
+## TMS-T032 - Auditoria BD logistica pura
+
+Estado: completado con aplicacion autorizada.
+
+Objetivo:
+
+Detectar si la BD aplicada antes de la correccion conserva defaults o datos viejos ligados a venta, postventa o revision.
+
+Criterio de cierre:
+
+- [x] Script read-only creado: `storage/uat/uat_tms_delivery_logistica_pura_readonly.php`.
+- [x] Script autorizado preparado: `storage/uat/uat_tms_delivery_logistica_pura_apply_authorized.php`.
+- [x] Solicitud futura creada: `docs/erp_tms_delivery_logistica_pura_solicitud_autorizacion.md`.
+- [x] Token futuro documentado: `TMS_LOGISTICA_PURA_BASE`.
+- [x] No ejecuta DDL.
+- [x] No ejecuta UPDATE.
+- [x] No toca operaciones comerciales, caja, inventario ni postventa.
+
+Resultado 2026-07-29:
+
+- Auditoria read-only: `logistica_pura_codigo_listo_bd_pendiente`.
+- Checks codigo/contrato: 6/6.
+- Script autorizado probado sin token: bloqueado correctamente con `TMS_LOGISTICA_PURA_BASE`.
+- Pendientes BD:
+  - default `erp_tms_servicios.motivo_logistico` sigue en `venta_inicial`;
+  - existe 1 fila TMS con `motivo_logistico=venta_inicial`.
+- Dry-run acepta `entrega_tercero`.
+- Dry-run bloquea `pos_venta` como origen TMS.
+- Siguiente paso requiere respaldo externo y autorizacion `TMS_LOGISTICA_PURA_BASE`.
+
+Aplicacion autorizada 2026-07-29:
+
+- Respaldo creado: `C:\xampp\panel_db_backups\artianilocal_panel_20260729_antes_tms_logistica_pura.sql`.
+- Tamano respaldo: 33459395 bytes.
+- Token usado: `TMS_LOGISTICA_PURA_BASE`.
+- Estado final apply: `tms_logistica_pura_bd_alineada`.
+- Default final `motivo_logistico`: `servicio_inicial`.
+- Filas `venta_inicial` despues: 0.
+- Postcheck read-only: `logistica_pura_completa`.
+- Go/no-go consolidado antes de cierre: pendiente de ejecucion final.
 
 ## Handoff / continuidad
 
@@ -1201,7 +1320,7 @@ Fecha: 2026-07-24
 - Contexto actual: TMS ya tiene documentos, permisos aplicados en BD, esquema TMS aplicado, modelo de dominio, controlador base, vistas base, JS, sidebar, reportes, un servicio TMS de prueba cerrado correctamente y validacion UI/datos read-only completada.
 - Decision: TMS es modulo independiente, no submodulo de Ventas.
 - Cambios recientes: se creo plan rector, plan de tareas, DDL propuesto inicial, `TmsEsquema.php`, `TmsDelivery.php`, `Tms.php`, UI inicial, proteccion en `Core.php`, modulo padre `TMS` en sidebar con grupo `Delivery`, permisos `tms.*` en `SeguridadEsquema.php`, permisos TMS aplicados en BD, esquema TMS aplicado en BD, UAT manual ejecutado, UAT UI/datos read-only creado, endpoint de guardado real, endpoint de operacion de estados, endpoints de evidencias y reportes read-only.
-- Validacion reciente: permisos TMS aplicados con respaldo externo y token `TMS_PERMISOS_BASE`; DDL TMS aplicado con respaldo externo y token `TMS_DELIVERY_DDL_BASE`; UAT manual ejecutado con token `TMS_UAT_SERVICIO_MANUAL`; post-permisos confirma 8/8 permisos, 8/8 roles y menu listo; post-DDL confirma `schema_tms_listo`; UAT UI/datos confirma 49/49 checks; contrato POS -> TMS confirma 45/45; UI POS/TMS confirma 24/24; preflight real futuro confirma 21/21; go/no-go consolida 52/52; checklist de activacion confirma `activacion_base_completa`; preflight de reversa bloquea reversa porque ya hay datos TMS.
-- Pendiente inmediato: validar UI POS/TMS en navegador y, si se autoriza despues, implementar creacion real POS -> TMS.
-- No tocar todavia: creacion real TMS desde POS sin autorizacion y UAT separado.
-- Siguiente paso recomendado: prueba visual/manual del panel `Entrega TMS` y luego contrato de guardado real posterior a venta exitosa.
+- Validacion reciente: permisos TMS aplicados con respaldo externo y token `TMS_PERMISOS_BASE`; DDL TMS aplicado con respaldo externo y token `TMS_DELIVERY_DDL_BASE`; UAT manual ejecutado con token `TMS_UAT_SERVICIO_MANUAL`; post-permisos confirma 8/8 permisos, 8/8 roles y menu listo; post-DDL confirma `schema_tms_listo`; UAT UI/datos confirma 49/49 checks; contrato POS -> TMS confirma 45/45; UI POS/TMS confirma 24/24; preflight real futuro confirma 22/22; logistica pura queda completa en BD; checklist de activacion confirma `activacion_base_completa`; preflight de reversa bloquea reversa porque ya hay datos TMS.
+- Pendiente inmediato: validar UI en navegador y preparar UAT real controlado POS -> TMS con respaldo externo si el dueno lo autoriza.
+- No tocar todavia: rastreo publico del cliente.
+- Siguiente paso recomendado: ejecutar lint/UAT read-only de esta fase y despues validar visualmente POS.

@@ -26,6 +26,7 @@ class ComprasEsquema extends DBSchema {
         $plan[] = $this->agregarColumnaSiNoExiste("erp_compras_solicitudes_detalle", "id_sku_proveedor", "BIGINT NULL", $ejecutar);
         $plan[] = $this->agregarColumnaSiNoExiste("erp_compras_solicitudes_detalle", "sku", "VARCHAR(150) NULL", $ejecutar);
         $plan[] = $this->agregarColumnaSiNoExiste("erp_compras_solicitudes_detalle", "nombre_producto", "VARCHAR(255) NULL", $ejecutar);
+        $plan[] = $this->agregarColumnaSiNoExiste("erp_compras_solicitudes_detalle", "evidencia_costo_json", "TEXT NULL", $ejecutar);
         $plan[] = $this->modificarColumna("erp_compras_solicitudes_detalle", "cantidad", "DECIMAL(18,6) NOT NULL DEFAULT 0", $ejecutar);
         $plan[] = $this->modificarColumna("erp_compras_solicitudes_detalle", "costo_estimado", "DECIMAL(18,6) NOT NULL DEFAULT 0", $ejecutar);
         $plan[] = $this->modificarColumna("erp_compras_solicitudes_detalle", "subtotal", "DECIMAL(18,6) NOT NULL DEFAULT 0", $ejecutar);

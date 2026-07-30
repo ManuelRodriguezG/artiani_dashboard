@@ -7042,3 +7042,154 @@ Pendientes antes de implementacion completa:
 - Definir si disponibilidad reportada por proveedor se considera informacion vigente o solo referencia.
 - Definir reglas de desempate cuando costo, minimo y dias de entrega compitan entre si.
 - Validar permisos: `proveedores.ver`, `proveedores.costos`, `proveedores.autorizar`, `compras.crear` y `compras.editar`.
+
+## Implementacion 2026-07-29 - Fase 1 read-only de analisis de abastecimiento
+
+Alcance aplicado:
+
+- Ruta nueva: `/proveedor/analisis_abastecimiento_erp`.
+- Endpoint nuevo: `/proveedor/abastecimiento_comparar_sku_erp`.
+- Modelo nuevo: `Proveedores::compararAbastecimientoSkuErp()`.
+- Vista nueva: `app/vistas/paginas/apps/erp/proveedores/analisis_abastecimiento.php`.
+- JS nuevo: `public/assets/js/custom/apps/erp/proveedores/analisis_abastecimiento.js`.
+- UAT read-only: `storage/uat/uat_proveedores_abastecimiento_readonly.php`.
+- Acceso agregado en sidebar de Proveedores y boton desde Maestro proveedores.
+
+Contrato de la fase:
+
+- Solo lectura.
+- No cambia proveedor preferido.
+- No aplica costos.
+- No crea solicitudes ni ordenes.
+- No modifica listas ni relaciones proveedor-SKU.
+
+Datos comparados:
+
+- Relacion activa SKU-proveedor.
+- Proveedor y estatus operativo.
+- SKU proveedor.
+- Unidad de compra y factor.
+- Costo vigente; si no existe, costo de lista o costo ultimo como respaldo.
+- Costo comparable por unidad base.
+- Moneda, bandera de impuestos, vigencias, minimo de compra, dias de entrega y existencia reportada por lista.
+
+Score inicial:
+
+- Suma evidencia por costo comparable, costo vigente, unidad/factor completo, proveedor preferido, dias de entrega y vigencia.
+- Resta por alertas bloqueantes o advertencias.
+- Dictamen visual: `conveniente`, `revisar` o `riesgo`.
+- El score no reemplaza decision humana ni actualiza proveedor preferido.
+
+Validacion tecnica:
+
+- `C:\xampp\php\php.exe -l app\controladores\Proveedor.php`: OK.
+- `C:\xampp\php\php.exe -l app\modelos\Proveedores.php`: OK.
+- `C:\xampp\php\php.exe -l app\vistas\paginas\apps\erp\proveedores\analisis_abastecimiento.php`: OK.
+- `node --check public\assets\js\custom\apps\erp\proveedores\analisis_abastecimiento.js`: OK.
+- `C:\xampp\php\php.exe -l storage\uat\uat_proveedores_abastecimiento_readonly.php`: OK.
+- `C:\xampp\php\php.exe storage\uat\uat_proveedores_abastecimiento_readonly.php TP`: OK, `skus=20`, `opciones=20`, `multiples_proveedores=0`, primer SKU `TP-3510`.
+
+Siguiente paso recomendado:
+
+1. Probar en navegador con SKUs reales que ya se sabe que tienen varios proveedores.
+2. Ajustar score con datos reales de negocio si el orden recomendado no coincide con criterio operativo.
+3. Integrar el comparativo dentro de Solicitudes/Ordenes como selector de proveedor con snapshot, sin automatizar proveedor preferido.
+
+### Integracion ligera con Compras 2026-07-29
+
+Alcance aplicado:
+
+- Solicitudes de compra agrega boton `Comparar proveedores` junto al buscador de producto.
+- Ordenes de compra agrega boton `Comparar proveedores` junto al buscador de producto.
+- Ambos botones abren `/proveedor/analisis_abastecimiento_erp` en pestana nueva.
+- Si el usuario ya escribio un SKU/producto, se envia como `?q=` y la pantalla de abastecimiento ejecuta la busqueda automaticamente.
+
+Regla:
+
+- Es navegacion auxiliar read-only.
+- No selecciona proveedor automaticamente.
+- No cambia la partida actual.
+- No cambia costos ni proveedor preferido.
+- La integracion real posterior debe guardar snapshot de decision en Compras cuando el usuario elija una alternativa.
+
+### Snapshot inicial en Ordenes 2026-07-29
+
+Alcance aplicado:
+
+- Ordenes conserva `decision_abastecimiento` dentro de `erp_compras_ordenes_detalle.evidencia_costo_json`.
+- No requiere DDL nuevo porque reutiliza la evidencia de costo existente.
+- El snapshot se genera al guardar la orden para partidas con `id_sku_proveedor`.
+- La tabla de partidas muestra una liga discreta `Abastecimiento` para abrir el comparativo del SKU/proveedor.
+
+Datos congelados:
+
+- proveedor e id proveedor;
+- SKU ERP y SKU proveedor;
+- relacion proveedor-SKU;
+- unidad, factor y minimo si venian de Proveedores;
+- costo capturado, moneda y bandera de impuestos;
+- fuente de costo, lista/costo vigente si aplica;
+- advertencias operativas;
+- URL del comparativo de abastecimiento;
+- criterio: proveedor actual de la orden, con comparativo formal disponible.
+
+Regla:
+
+- Este snapshot no demuestra que el proveedor fue el mas conveniente; demuestra con que evidencia se capturo la partida.
+- La recomendacion formal por score sigue viviendo en Analisis de abastecimiento.
+- El siguiente nivel debe permitir elegir una alternativa desde el comparativo y pasar un snapshot de decision mas completo hacia la orden.
+- Solicitudes se atiende en el siguiente bloque con soporte opcional de evidencia; requiere aplicar esquema antes de que el snapshot quede persistido en base de datos.
+
+### Snapshot opcional en Solicitudes 2026-07-29
+
+Alcance aplicado:
+
+- `ComprasEsquema` agrega al plan la columna `erp_compras_solicitudes_detalle.evidencia_costo_json`.
+- No se ejecuto DDL ni migracion; el plan queda preparado para auditoria/actualizacion cuando el dueno lo autorice.
+- `SolicitudesCompraErp` consulta la evidencia si la columna existe y devuelve `NULL` si aun no existe, para no romper ambientes sin actualizar.
+- Al guardar una solicitud, si la columna existe, conserva snapshot de abastecimiento/costo por partida con relacion proveedor-SKU.
+- La UI de Solicitudes muestra la liga `Abastecimiento` junto a la evidencia de costo y conserva factor/minimo/lista cuando vienen desde Proveedores.
+
+Regla:
+
+- La solicitud sigue siendo una solicitud al proveedor elegido; no se convierte en decision automatica de mejor proveedor.
+- El snapshot documenta la evidencia usada al capturar o aprobar, no sustituye la comparacion formal.
+- Para activar persistencia en Solicitudes falta ejecutar primero auditoria/actualizacion de esquema de Compras con respaldo conforme al estandar del proyecto.
+
+Validacion tecnica:
+
+- `C:\xampp\php\php.exe -l app\modelos\SolicitudesCompraErp.php`: OK.
+- `C:\xampp\php\php.exe -l app\modelos\ComprasEsquema.php`: OK.
+- `node --check public\assets\js\custom\apps\erp\compras\solicitudes\formulario.js`: OK.
+
+### Activacion DDL puntual Solicitudes 2026-07-29
+
+Alcance aplicado:
+
+- Se genero respaldo externo antes de DDL:
+  `C:\xampp\panel_db_backups\artianilocal_panel_20260729_antes_compras_abastecimiento_solicitudes.sql`.
+- Se creo propuesta SQL puntual en `docs/erp_compras_abastecimiento_solicitudes_schema_propuesta.sql`.
+- Se creo aplicador controlado `storage/uat/uat_compras_abastecimiento_schema_apply_authorized.php`.
+- Se aplico solo:
+  `ALTER TABLE erp_compras_solicitudes_detalle ADD COLUMN evidencia_costo_json TEXT NULL`.
+- El actualizador general de Compras no se ejecuto.
+
+Resultado:
+
+- Antes: `evidencia_costo_json` no existia.
+- Despues: `evidencia_costo_json` existe como `TEXT NULL`.
+- UAT dry-run posterior reporta `La columna ya existe`.
+- UAT transaccional con rollback confirmo que el JSON se puede insertar y leer sin dejar datos residuales.
+
+Validacion tecnica:
+
+- `C:\xampp\php\php.exe -l storage\uat\uat_compras_abastecimiento_schema_readonly.php`: OK.
+- `C:\xampp\php\php.exe storage\uat\uat_compras_abastecimiento_schema_readonly.php`: OK, columna objetivo en plan y despues existente.
+- `C:\xampp\php\php.exe -l storage\uat\uat_compras_abastecimiento_schema_apply_authorized.php`: OK.
+- `C:\xampp\php\php.exe storage\uat\uat_compras_abastecimiento_schema_apply_authorized.php ...`: OK, `ddl_ejecutado=true`.
+- `C:\xampp\php\php.exe -l storage\uat\uat_compras_abastecimiento_solicitudes_persistencia_rollback.php`: OK.
+- `C:\xampp\php\php.exe storage\uat\uat_compras_abastecimiento_solicitudes_persistencia_rollback.php`: OK, `rollback_ejecutado=true`.
+
+Siguiente paso recomendado:
+
+- Hacer UAT real de guardado de Solicitud desde la pantalla con un SKU proveedor y consultar que `evidencia_costo_json` quede poblado por el flujo normal.

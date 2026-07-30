@@ -204,7 +204,10 @@ class SolicitudesCompraErp extends CRUD {
             if (!$solicitud) {
                 return $this->respuesta(true, "warning", "Solicitud no encontrada");
             }
+            $evidenciaDetalleExpr = $this->columnaExiste("erp_compras_solicitudes_detalle", "evidencia_costo_json")
+                ? "d.evidencia_costo_json" : "NULL";
             $stmt = $db->prepare("SELECT d.*, 
+                " . $evidenciaDetalleExpr . " AS evidencia_costo_json,
                 COALESCE(NULLIF(TRIM(d.sku), ''), sp.sku_proveedor, s.sku) AS sku, 
                 COALESCE(NULLIF(TRIM(d.nombre_producto), ''), s.nombre) AS nombre, 
                 s.sku AS sku_erp,
@@ -347,7 +350,8 @@ class SolicitudesCompraErp extends CRUD {
                     "id_sku" => $idSku, "id_sku_proveedor" => $idSkuProveedor,
                     "sku" => $skuText, "nombre" => $nombreText, "cantidad" => $cantidad,
                     "costo" => $costo, "subtotal" => $sub,
-                    "observaciones" => trim(isset($item["observaciones"]) ? $item["observaciones"] : "")
+                    "observaciones" => trim(isset($item["observaciones"]) ? $item["observaciones"] : ""),
+                    "evidencia_costo" => $this->evidenciaCostoSolicitudDetalle($item, $idProveedor, $sku, $cantidad, $costo)
                 );
             }
 
@@ -411,16 +415,28 @@ class SolicitudesCompraErp extends CRUD {
                     ->execute(array(":folio" => $folio, ":id" => $idSolicitud));
             }
 
+            $tieneEvidenciaDetalle = $this->columnaExiste("erp_compras_solicitudes_detalle", "evidencia_costo_json");
+            $columnasDetalle = "id_solicitud, id_sku_erp, id_sku_proveedor, sku, nombre_producto, cantidad,
+                costo_estimado, subtotal, observaciones";
+            $valoresDetalle = ":solicitud, :sku_id, :relacion, :sku, :nombre, :cantidad, :costo, :subtotal, :observaciones";
+            if ($tieneEvidenciaDetalle) {
+                $columnasDetalle .= ", evidencia_costo_json";
+                $valoresDetalle .= ", :evidencia_costo";
+            }
             $stmt = $db->prepare("INSERT INTO erp_compras_solicitudes_detalle
-                (id_solicitud, id_sku_erp, id_sku_proveedor, sku, nombre_producto, cantidad,
-                costo_estimado, subtotal, observaciones)
-                VALUES (:solicitud, :sku_id, :relacion, :sku, :nombre, :cantidad, :costo, :subtotal, :observaciones)");
+                (" . $columnasDetalle . ")
+                VALUES (" . $valoresDetalle . ")");
             foreach ($detalle as $item) {
-                $stmt->execute(array(":solicitud" => $idSolicitud, ":sku_id" => $item["id_sku"],
+                $paramsDetalle = array(":solicitud" => $idSolicitud, ":sku_id" => $item["id_sku"],
                     ":relacion" => $item["id_sku_proveedor"], ":sku" => $item["sku"],
                     ":nombre" => $item["nombre"], ":cantidad" => $item["cantidad"],
                     ":costo" => $item["costo"], ":subtotal" => $item["subtotal"],
-                    ":observaciones" => $item["observaciones"]));
+                    ":observaciones" => $item["observaciones"]);
+                if ($tieneEvidenciaDetalle) {
+                    $paramsDetalle[":evidencia_costo"] = !empty($item["evidencia_costo"])
+                        ? json_encode($item["evidencia_costo"], JSON_UNESCAPED_UNICODE) : null;
+                }
+                $stmt->execute($paramsDetalle);
             }
 
             $this->sincronizarPendientesCatalogo(
@@ -442,6 +458,46 @@ class SolicitudesCompraErp extends CRUD {
             }
             return $this->respuesta(true, "danger", $e->getMessage());
         }
+    }
+
+    /**
+     * IA: Codex GPT-5
+     * Fecha: 2026-07-29
+     * Proposito: preparar snapshot de abastecimiento en solicitudes sin obligar DDL inmediato.
+     * Impacto: Compras/Solicitudes; conserva la evidencia de costo usada al solicitar, sin decidir automaticamente proveedor ganador.
+     * Contrato: solo se persiste si existe erp_compras_solicitudes_detalle.evidencia_costo_json.
+     */
+    private function evidenciaCostoSolicitudDetalle($item, $idProveedor, $sku, $cantidad, $costo) {
+        $idSkuProveedor = intval(isset($sku["id_sku_proveedor"]) ? $sku["id_sku_proveedor"] : (isset($item["id_sku_proveedor"]) ? $item["id_sku_proveedor"] : 0));
+        if (!is_array($item) || $idSkuProveedor <= 0) {
+            return array();
+        }
+        $decision = array(
+            "origen" => "solicitud_busqueda_proveedor_sku",
+            "fecha_cliente" => date("Y-m-d H:i:s"),
+            "id_proveedor" => intval($idProveedor),
+            "id_sku_erp" => intval(isset($sku["id_sku"]) ? $sku["id_sku"] : (isset($item["id_sku_erp"]) ? $item["id_sku_erp"] : 0)),
+            "id_sku_proveedor" => $idSkuProveedor,
+            "sku_erp" => trim((string) (isset($sku["sku_erp"]) ? $sku["sku_erp"] : (isset($item["sku_erp"]) ? $item["sku_erp"] : ""))),
+            "sku_proveedor" => trim((string) (isset($sku["sku_proveedor"]) ? $sku["sku_proveedor"] : (isset($item["sku_proveedor"]) ? $item["sku_proveedor"] : ""))),
+            "nombre" => trim((string) (isset($sku["nombre_erp"]) ? $sku["nombre_erp"] : (isset($item["nombre"]) ? $item["nombre"] : ""))),
+            "cantidad_solicitada" => floatval($cantidad),
+            "costo_capturado" => floatval($costo),
+            "moneda_costo" => trim((string) (isset($item["moneda_costo"]) ? $item["moneda_costo"] : "MXN")),
+            "fuente_costo" => trim((string) (isset($item["fuente_costo"]) ? $item["fuente_costo"] : "")),
+            "origen_costo" => trim((string) (isset($item["origen_costo"]) ? $item["origen_costo"] : "")),
+            "id_costo_proveedor_sku" => intval(isset($item["id_costo_proveedor_sku"]) ? $item["id_costo_proveedor_sku"] : 0),
+            "id_lista_proveedor_erp" => intval(isset($item["id_lista_proveedor_erp"]) ? $item["id_lista_proveedor_erp"] : 0),
+            "factor_conversion" => isset($item["factor_conversion"]) ? floatval($item["factor_conversion"]) : null,
+            "cantidad_minima" => isset($item["cantidad_minima"]) ? floatval($item["cantidad_minima"]) : null,
+            "vigencia_desde" => trim((string) (isset($item["vigencia_desde"]) ? $item["vigencia_desde"] : "")),
+            "vigencia_hasta" => trim((string) (isset($item["vigencia_hasta"]) ? $item["vigencia_hasta"] : "")),
+            "comparativo_url" => "/proveedor/analisis_abastecimiento_erp?q=" . rawurlencode(trim((string) (isset($sku["sku_erp"]) ? $sku["sku_erp"] : (isset($item["sku"]) ? $item["sku"] : "")))),
+            "criterio" => "evidencia_inicial_no_comparativo_cerrado"
+        );
+        return array_filter($decision, function ($valor) {
+            return $valor !== null && $valor !== "";
+        });
     }
 
     private function sincronizarPendientesCatalogo(PDO $db, $idSolicitud, $idProveedor, $detalle, $idUsuario = 0) {

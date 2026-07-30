@@ -1,26 +1,36 @@
-# Solicitud de autorizacion - Creacion real POS -> TMS
+# Solicitud de autorizacion - UAT real POS -> TMS
 
-Fecha: 2026-07-28
+Fecha: 2026-07-29
 
 ## Objetivo
 
-Autorizar, en una fase posterior, que POS pueda crear un servicio TMS real despues de una venta/pedido/apartado confirmado exitosamente.
+Autorizar una prueba real controlada donde POS capture una solicitud logistica y pida a TMS crear un servicio real con folio propio.
 
-Esta autorizacion no esta solicitada para ejecutarse ahora. El estado actual permitido es solo preflight y dry-run.
+La implementacion de UI/JS ya esta preparada. Esta autorizacion se refiere solo a ejecutar una prueba con escritura real en BD.
 
 ## Regla de dominio
 
-La creacion real POS -> TMS debe ocurrir solo despues de que POS haya creado correctamente la venta o el pedido y tenga folio/id real.
+POS es solo canal de captura para la solicitud logistica. TMS no debe requerir folio de venta, estatus de venta ni pago de producto para existir.
+
+TMS debe limitarse a:
+
+- recoger;
+- preparar;
+- llevar;
+- evidenciar;
+- cerrar;
+- reprogramar;
+- dejar pendiente por cliente cuando aplique.
 
 TMS no debe:
 
-- confirmar ventas;
-- cancelar ventas;
+- confirmar operaciones comerciales;
+- cancelar operaciones comerciales;
 - cobrar productos;
 - modificar pagos POS;
 - mover inventario;
 - decidir garantias;
-- crear servicios si la venta fallo.
+- crear obligaciones logisticas automaticas por garantia.
 
 ## Token propuesto
 
@@ -48,22 +58,24 @@ artianilocal_panel_YYYYMMDD_antes_tms_pos_real.sql
 AUTORIZO EJECUTAR UAT REAL POS TMS DELIVERY usando respaldo C:\xampp\panel_db_backups\artianilocal_panel_YYYYMMDD_antes_tms_pos_real.sql con token TMS_POS_REAL_BASE.
 ```
 
-## Alcance autorizado futuro
+## Alcance autorizado del UAT
 
 Cuando se autorice:
 
-- POS podra pasar un snapshot logistico a TMS solo despues de venta/pedido real exitoso.
+- POS podra enviar un snapshot logistico a TMS.
 - TMS podra insertar en `erp_tms_servicios`, `erp_tms_servicios_detalle`, `erp_tms_servicios_costos` y `erp_tms_eventos`.
-- La referencia POS se guardara como `solicitado_por_modulo=ventas`, `solicitado_por_tipo`, `solicitado_por_id` y `referencia_externa`.
+- La referencia POS se guardara como `solicitado_por_modulo=pos`, `solicitado_por_tipo=solicitud_pos` y `referencia_externa` opcional.
+- La prueba no requiere rastreo publico de cliente.
 
 ## Fuera de alcance
 
 - No crear SKU de envio.
-- No sumar delivery al precio del producto como concepto inventariable.
-- No cancelar ventas por falla logistica.
+- No sumar delivery al precio de un producto.
+- No cancelar operaciones comerciales por falla logistica.
 - No crear garantias o devoluciones.
 - No mover kardex desde TMS.
 - No cobrar productos desde TMS.
+- No exigir folio de venta para crear TMS.
 
 ## Precondiciones
 
@@ -71,8 +83,9 @@ Cuando se autorice:
 - Esquema TMS aplicado.
 - Servicio manual UAT existente y cerrado.
 - UI/datos TMS validados.
-- Adapter dry-run POS -> TMS validado.
-- UI POS opt-in validada en navegador o por UAT read-only.
+- Adapter dry-run POS -> TMS validado como solicitud logistica.
+- UI POS opt-in validada por UAT read-only.
+- Rastreo publico pospuesto para fase posterior.
 
 ## Siguiente paso antes de autorizar
 
@@ -82,4 +95,30 @@ Ejecutar:
 C:\xampp\php\php.exe storage\uat\uat_tms_delivery_pos_real_preflight_readonly.php
 ```
 
-Debe responder `pos_tms_real_preflight_listo`.
+Debe responder `pos_tms_real_implementacion_lista`.
+
+## Ejecucion autorizada
+
+Cuando exista respaldo real y autorizacion explicita:
+
+```text
+C:\xampp\php\php.exe storage\uat\uat_tms_delivery_pos_real_apply_authorized.php --autorizar=TMS_POS_REAL_BASE --respaldo=C:\xampp\panel_db_backups\artianilocal_panel_YYYYMMDD_antes_tms_pos_real.sql
+```
+
+El script debe responder `pos_tms_uat_real_completo`.
+
+## Postcheck
+
+Despues del UAT real:
+
+```text
+C:\xampp\php\php.exe storage\uat\uat_tms_delivery_pos_real_postcheck_readonly.php
+```
+
+Tambien se puede validar una referencia puntual:
+
+```text
+C:\xampp\php\php.exe storage\uat\uat_tms_delivery_pos_real_postcheck_readonly.php --referencia=POS-SOL-UAT-YYYYMMDD-HHMMSS
+```
+
+Debe responder `pos_tms_postcheck_completo`.

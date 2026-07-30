@@ -1,76 +1,97 @@
 # Plan de integracion POS -> TMS Delivery
 
-Fecha: 2026-07-28
+Fecha: 2026-07-29
 
 ## Decision de arquitectura
 
-TMS Delivery se mantiene como modulo completo e independiente. POS/Ventas puede solicitar un servicio logistico, pero no convierte el envio en producto, no vuelve la entrega una condicion de la venta y no transfiere a TMS decisiones comerciales.
+TMS Delivery se mantiene como modulo completo e independiente. POS puede abrir una solicitud logistica porque es un punto de captura rapido, pero TMS no debe guardar reglas ni estados de venta.
 
-La relacion correcta es:
+El enfoque de TMS es solamente:
 
-- POS/Ventas: confirma venta, cobra producto, decide si cobra envio en su propio flujo de caja y conserva sus reglas de inventario.
-- TMS: recibe una solicitud logistica con snapshot, genera folio propio, programa, opera, evidencia, cierra o reprograma el servicio.
-- Garantias/Postventa: decide reclamos de producto. Si necesita movimiento fisico, solicita otro servicio logistico visible y separado.
+- recoger;
+- preparar;
+- llevar;
+- evidenciar;
+- cerrar;
+- reprogramar cuando aplique.
+
+TMS no debe responder preguntas comerciales. Si hubo o no venta, si se pago o no se pago un producto, si procede una garantia o si el cliente recibira otro cargo comercial, eso vive fuera de TMS.
 
 ## Contrato inicial
 
-Cuando POS solicite TMS, debe enviar solo contexto logistico:
+Cuando POS abra una solicitud TMS, debe enviar solo contexto logistico:
 
-- `solicitado_por_modulo`: `ventas`
-- `solicitado_por_tipo`: `pos_venta`, `pedido_pos` o `apartado_pos`
-- `solicitado_por_id`: id real de venta/pedido si existe
-- `referencia_externa`: folio de venta/pedido
-- `tipo_servicio`: `entrega_express` o `entrega_programada`
+- `solicitado_por_modulo`: `pos`
+- `solicitado_por_tipo`: `solicitud_pos`
+- `referencia_externa`: referencia operativa opcional, no folio obligatorio de venta
+- `tipo_servicio`: `entrega_express`, `entrega_programada`, `entrega_local`, `recoleccion_cliente` o `entrega_tercero`
 - `prioridad`: `normal`, `express` o `urgente`
-- `estatus_cobro`: estado del cobro logistico, no del producto
-- `precio_cobrado`: importe del servicio logistico, si POS lo capturo
+- `estatus_cobro`: estado del cobro logistico
+- `precio_cobrado`: importe del servicio logistico, si se capturo
 - `cliente_nombre_snapshot`, `cliente_contacto_snapshot`, `direccion_snapshot`, `zona_snapshot`
 - `detalle`: paquetes o referencias fisicas como snapshot
 
 Campos que POS no debe delegar a TMS:
 
-- estatus de venta;
-- cancelacion de venta;
-- aplicacion de garantia;
+- estatus de operacion comercial;
+- cobro de productos;
+- descuentos;
+- garantias;
 - devoluciones;
 - salida de inventario;
-- cobro de productos;
-- descuentos comerciales del producto.
+- decision de cancelar o cerrar una operacion comercial.
 
-## Punto de enganche recomendado
+## Entrega por tercero
 
-El punto seguro para crear un servicio TMS real desde POS es despues de `VentasErp::confirmarVentaPosReal`, cuando ya existe `id_venta` y `folio`.
+`entrega_tercero` significa que el movimiento fisico lo realiza una plataforma, paqueteria o repartidor externo.
 
-Antes de confirmar la venta, POS puede ofrecer una previsualizacion o dry-run logistico, pero no debe insertar `erp_tms_servicios` porque la venta aun podria no existir.
+TMS puede registrar:
 
-Para pedidos/apartados, el punto seguro equivalente es despues de `pedidoGuardarReal`, usando el folio del pedido/apartado como referencia externa. Si el pedido se entrega por mostrador, no se crea TMS.
+- responsable externo;
+- costo logistico;
+- referencia o guia;
+- evidencia de entrega al tercero;
+- evidencia final recibida, si existe;
+- resultado logistico.
+
+TMS no convierte al tercero en responsable del producto ni mezcla politicas de plataforma con reglas internas. Solo documenta que el compromiso logistico se ejecuto usando un tercero.
+
+## Reintento
+
+Si no se concreta la entrega porque el cliente no estaba disponible, TMS debe cerrar o dejar pendiente el servicio logistico con evidencia.
+
+Opciones operativas:
+
+- `reprogramada`: se acuerda nuevo intento.
+- `pendiente_cliente`: el cliente debe confirmar nueva ventana.
+- `cerrada_sin_entrega`: se cierra el servicio sin entrega.
+
+Si el negocio decide cobrar otro intento, eso se registra como otro servicio logistico o como costo/cobro adicional autorizado dentro de TMS. No se asume automatico.
 
 ## UX POS propuesta
 
-Agregar una seccion compacta en POS llamada `Entrega TMS`:
+La seccion `Entrega TMS` en POS solo previsualiza la solicitud logistica:
 
-- control para activar/desactivar solicitud de entrega;
+- activar/desactivar solicitud;
 - tipo de servicio;
 - prioridad;
-- fecha y ventana prometida;
+- fecha y ventana;
 - contacto;
 - direccion;
 - zona;
-- precio logistico cobrado o por cobrar;
+- precio logistico o por cobrar;
 - observaciones logisticas.
 
-El total de producto y el importe logistico deben verse separados. La UI no debe decir ni insinuar que el envio va incluido en el producto.
+No crea folio TMS en el dry-run y no modifica la operacion comercial.
 
 ## Flujo operativo
 
-1. El operador arma carrito en POS.
-2. El operador activa `Entrega TMS` si el cliente requiere delivery.
-3. POS valida productos, pagos, caja e inventario con sus reglas.
-4. Al confirmar venta real, POS crea venta y obtiene folio.
-5. Si `Entrega TMS` estaba activa, POS solicita a TMS crear servicio con snapshot logistico.
-6. TMS devuelve folio propio.
-7. POS muestra folio de venta y folio TMS como referencias separadas.
-8. Si TMS falla, TMS registra incidencia o cierre sin entrega; POS no cambia automaticamente.
+1. El operador captura o recibe una necesidad de entrega.
+2. Si usa POS como punto rapido de captura, activa `Entrega TMS`.
+3. POS envia a TMS un snapshot logistico.
+4. TMS previsualiza bloqueos y advertencias.
+5. Cuando se autorice la fase real, TMS creara un folio logistico propio.
+6. TMS opera ese folio hasta entregarlo, reprogramarlo o cerrarlo sin entrega.
 
 ## Fases
 
@@ -78,44 +99,54 @@ El total de producto y el importe logistico deben verse separados. La UI no debe
 
 Estado: completado.
 
-- Documentar contrato de datos.
-- Validar que POS tiene dry-run y confirmacion real separados.
-- Validar que TMS ya puede crear servicios manuales sin depender de Ventas.
-- Confirmar que no existe integracion POS real activa todavia.
+- Documentar contrato de datos logistico.
+- Validar que POS solo abre solicitud logistica.
+- Validar que TMS ya puede crear servicios manuales sin depender de ventas.
 
 ### POS-TMS-T002 - Adapter dry-run
 
 Estado: completado.
 
-Crear en TMS un metodo de prevalidacion de solicitud desde POS que no escriba BD y devuelva bloqueos logisticos.
-
-Implementado:
-
 - Controlador: `Tms::servicio_pos_dryrun_erp`.
 - Modelo: `TmsDelivery::servicioDesdePosDryRun`.
 - UAT: `storage/uat/uat_tms_delivery_pos_contract_readonly.php`.
-- Resultado 2026-07-28: 35/35 checks.
 
 ### POS-TMS-T003 - UI opt-in POS
 
-Agregar UI compacta `Entrega TMS` en POS sin crear servicios reales. Debe alimentar solo el payload de prevalidacion.
+Estado: completado read-only.
 
-### POS-TMS-T004 - Creacion real autorizada
+Agregar UI compacta `Entrega TMS` en POS sin crear servicios reales. Alimenta solo el payload de prevalidacion.
 
-Con respaldo y autorizacion separada, crear el servicio TMS despues de venta real exitosa. Si la venta falla, no se crea TMS.
+### POS-TMS-T004 - Creacion real desde POS
+
+Estado: implementado en UI/JS; UAT real pendiente de autorizacion separada.
+
+POS captura el snapshot logistico antes de cerrar su flujo normal. Si el cierre POS responde correctamente, el navegador llama a TMS por separado mediante `/tms/servicio_guardar_erp`.
+
+Reglas:
+
+- POS no envia el payload TMS a `/ventas/pos_confirmar_erp`.
+- `Ventas.php` y `VentasErp.php` no instancian ni escriben TMS.
+- TMS crea folio logistico propio.
+- `referencia_externa` es referencia operativa de captura, no folio obligatorio de venta.
+- Si la creacion TMS falla, la operacion POS ya cerrada no se modifica; se muestra el error para reintentar o capturar desde TMS.
+
+La ejecucion real controlada requiere respaldo y autorizacion `TMS_POS_REAL_BASE`.
 
 ### POS-TMS-T005 - Postcheck
 
 Validar:
 
-- venta creada por POS;
 - servicio TMS creado con folio propio;
-- referencia cruzada por snapshot;
-- importes separados;
-- TMS no cambia venta;
-- TMS no mueve inventario;
-- TMS no decide garantia.
+- origen `pos` como canal de captura;
+- importes logisticos separados;
+- TMS solo opera compromiso logistico;
+- falla de entrega no altera otros modulos.
 
 ## Regla de continuidad
 
-La siguiente implementacion debe empezar por el adapter dry-run, no por escribir directo desde POS. Asi se conserva la separacion de dominio y se puede probar la forma del payload antes de autorizar escrituras reales.
+La siguiente implementacion real debe mantener a POS como canal de captura, no como origen comercial obligatorio. TMS debe poder existir igual con solicitudes manuales, ecommerce, CRM u operacion interna.
+
+## Fuera de esta fase
+
+El rastreo publico para cliente queda pospuesto. La fase actual se limita a crear y operar servicios logisticos internos con evidencia y estados TMS.

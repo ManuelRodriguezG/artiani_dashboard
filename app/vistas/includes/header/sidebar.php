@@ -122,6 +122,7 @@ $gruposMenu = array(
         'permiso' => 'proveedores.ver',
         'items' => array(
             array('titulo' => 'Maestro proveedores', 'ruta' => '/proveedor/mostrar_proveedores_erp', 'permiso' => 'proveedores.ver'),
+            array('titulo' => 'Analisis abastecimiento', 'ruta' => '/proveedor/analisis_abastecimiento_erp', 'permiso' => 'proveedores.ver'),
             array('titulo' => 'Manual de uso', 'ruta' => '/proveedor/manual_erp', 'permiso' => 'proveedores.ver'),
             array('titulo' => 'Auditoria proveedores', 'ruta' => '/proveedor/auditoria_erp', 'permiso' => 'proveedores.auditoria'),
             array('titulo' => 'Proveedores legacy', 'ruta' => '/proveedor/listas_mostrar', 'permiso' => 'compras.ver')

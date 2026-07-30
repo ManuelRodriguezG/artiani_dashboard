@@ -3,8 +3,8 @@
 /**
  * IA: Codex GPT-5
  * Fecha: 2026-07-24
- * Proposito: consolidar readiness go/no-go de TMS Delivery antes de permisos/DDL.
- * Impacto: TMS Delivery; resume codigo, sidebar, permisos, esquema y scripts autorizados.
+ * Proposito: consolidar readiness go/no-go de TMS Delivery.
+ * Impacto: TMS Delivery; resume codigo, sidebar, permisos, esquema, POS/TMS y scripts autorizados.
  * Contrato: read-only; no aplica permisos, no ejecuta DDL y no crea servicios.
  */
 
@@ -41,6 +41,10 @@ $archivos = array(
   "pos_contract_readonly" => "storage/uat/uat_tms_delivery_pos_contract_readonly.php",
   "pos_ui_readonly" => "storage/uat/uat_tms_delivery_pos_ui_readonly.php",
   "pos_real_preflight_readonly" => "storage/uat/uat_tms_delivery_pos_real_preflight_readonly.php",
+  "pos_real_apply" => "storage/uat/uat_tms_delivery_pos_real_apply_authorized.php",
+  "pos_real_postcheck_readonly" => "storage/uat/uat_tms_delivery_pos_real_postcheck_readonly.php",
+  "logistica_pura_readonly" => "storage/uat/uat_tms_delivery_logistica_pura_readonly.php",
+  "logistica_pura_apply" => "storage/uat/uat_tms_delivery_logistica_pura_apply_authorized.php",
   "servicio_manual_apply" => "storage/uat/uat_tms_delivery_servicio_manual_apply_authorized.php",
   "apply_permisos" => "storage/uat/uat_tms_delivery_permisos_apply_authorized.php",
   "apply_schema" => "storage/uat/uat_tms_delivery_schema_apply_authorized.php"
@@ -113,7 +117,7 @@ $estado = empty($fallos) ? "go_preparacion" : "no_go_codigo";
 if (empty($fallos) && (!empty($permisosPendientes) || $schemaPendiente)) {
   $estado = "go_con_activaciones_pendientes";
 }
-$siguientePaso = "Activacion base TMS completa, UI/datos validados, UI POS/TMS dry-run lista y preflight real futuro preparado. Validar en navegador antes de creacion real autorizada.";
+$siguientePaso = "Activacion base TMS completa, UI/datos validados y creacion real POS -> TMS implementada como servicio logistico separado. Validar en navegador y ejecutar UAT real controlado con autorizacion TMS_POS_REAL_BASE.";
 if (!empty($permisosPendientes)) {
   $siguientePaso = "Generar respaldo externo y aplicar primero permisos TMS; DDL TMS queda en autorizacion separada.";
 } elseif ($schemaPendiente) {

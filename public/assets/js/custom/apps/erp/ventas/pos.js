@@ -1743,8 +1743,8 @@
     }
     /**
      * IA: Codex GPT-5 | Fecha: 2026-07-28
-     * Proposito: armar snapshot logistico POS para prevalidar TMS sin tocar cobro ni venta real.
-     * Impacto: POS puede revisar delivery separado del producto; no se envia a `pos_confirmar_erp`.
+     * Proposito: armar snapshot logistico POS para prevalidar o crear TMS sin tocar cobro ni operacion comercial.
+     * Impacto: POS puede capturar delivery separado; no se envia a `pos_confirmar_erp`.
      */
     function payloadTmsPosDryRun() {
         var detalle = carrito.map(function (item, index) {
@@ -1758,7 +1758,7 @@
             };
         });
         return {
-            solicitado_por_tipo: tipoDocumentoActual() === "venta" ? "pos_venta" : (tipoDocumentoActual() === "apartado" ? "apartado_pos" : "pedido_pos"),
+            solicitado_por_tipo: "solicitud_pos",
             tipo_servicio: document.getElementById("pos_tms_tipo").value || "entrega_programada",
             prioridad: document.getElementById("pos_tms_prioridad").value || "normal",
             estatus_cobro: document.getElementById("pos_tms_cobro").value || "por_cobrar",
@@ -1773,8 +1773,12 @@
             detalle: JSON.stringify(detalle)
         };
     }
+    function tmsPosActivo() {
+        var nodo = document.getElementById("pos_tms_activo");
+        return !!(nodo && nodo.checked);
+    }
     function alternarTmsPos() {
-        var activo = document.getElementById("pos_tms_activo").checked;
+        var activo = tmsPosActivo();
         document.getElementById("pos_tms_campos").classList.toggle("d-none", !activo);
         if (!activo) {
             document.getElementById("pos_tms_resultado").innerHTML = "";
@@ -1814,8 +1818,60 @@
         if (advertencias.length) {
             html += "<ul class=\"mb-0 mt-2 ps-4 text-muted\">" + advertencias.map(function (item) { return "<li>" + escapeHtml(item) + "</li>"; }).join("") + "</ul>";
         }
-        html += "<div class=\"fs-8 text-muted mt-2\">Vista previa solamente: no crea folio TMS ni modifica la venta.</div></div>";
+        html += "<div class=\"fs-8 text-muted mt-2\">Vista previa solamente: no crea folio TMS ni toca la operacion comercial.</div></div>";
         document.getElementById("pos_tms_resultado").innerHTML = html;
+    }
+    /**
+     * IA: Codex GPT-5 | Fecha: 2026-07-29
+     * Proposito: generar una referencia operativa local para solicitudes logisticas capturadas en POS.
+     * Impacto: permite ubicar la captura en TMS sin usar folios ni estados comerciales.
+     * Contrato: referencia informativa; no representa venta, pago, garantia ni inventario.
+     */
+    function referenciaTmsPos() {
+        var ahora = new Date();
+        var fecha = [
+            ahora.getFullYear(),
+            String(ahora.getMonth() + 1).padStart(2, "0"),
+            String(ahora.getDate()).padStart(2, "0")
+        ].join("");
+        var hora = [
+            String(ahora.getHours()).padStart(2, "0"),
+            String(ahora.getMinutes()).padStart(2, "0"),
+            String(ahora.getSeconds()).padStart(2, "0")
+        ].join("");
+        return "POS-SOL-" + fecha + "-" + hora;
+    }
+    function payloadTmsPosReal(payload) {
+        var datos = Object.assign({}, payload || {});
+        datos.solicitado_por_modulo = "pos";
+        datos.solicitado_por_tipo = "solicitud_pos";
+        datos.referencia_externa = datos.referencia_externa || referenciaTmsPos();
+        datos.motivo_logistico = "servicio_inicial";
+        datos.observaciones = datos.observaciones || "Solicitud logistica capturada desde POS.";
+        return datos;
+    }
+    function renderTmsPosReal(response) {
+        var depurar = response.depurar || {};
+        var folio = depurar.folio || "";
+        var html = "<div class=\"alert alert-success py-2 mb-0\">" +
+            "<div class=\"fw-bold mb-1\">" + escapeHtml(response.mensaje || "Servicio TMS creado") + "</div>" +
+            "<div class=\"fs-8\">Folio logistico: <span class=\"fw-bold\">" + escapeHtml(folio) + "</span>" +
+            " | Cobro logistico: " + dinero((depurar.costo || {}).precio_cobrado || payloadTmsPosDryRun().precio_cobrado || 0) + "</div>" +
+            "<div class=\"fs-8 text-muted mt-1\">TMS queda separado de cobros, garantias e inventario.</div>" +
+            "</div>";
+        document.getElementById("pos_tms_resultado").innerHTML = html;
+    }
+    function crearTmsDesdePosReal(payload) {
+        if (!payload) { return Promise.resolve(null); }
+        document.getElementById("pos_tms_resultado").innerHTML = "<div class=\"alert alert-info py-2 mb-0\"><span class=\"spinner-border spinner-border-sm me-2\"></span>Creando servicio TMS...</div>";
+        return request("/tms/servicio_guardar_erp", payloadTmsPosReal(payload)).then(function (response) {
+            if (response.error) { throw new Error(response.mensaje); }
+            renderTmsPosReal(response);
+            return response;
+        }).catch(function (error) {
+            document.getElementById("pos_tms_resultado").innerHTML = "<div class=\"alert alert-warning py-2 mb-0\"><div class=\"fw-bold mb-1\">No se creo el servicio TMS</div><div class=\"fs-8\">" + escapeHtml(error.message || String(error)) + "</div><div class=\"fs-8 text-muted mt-1\">La operacion POS ya cerrada no se modifica; captura o reintenta el servicio logistico desde TMS.</div></div>";
+            return null;
+        });
     }
     function enviarValidacion(url, renderer) {
         request(url, payloadVentaPos()).then(function (response) {
@@ -1861,6 +1917,9 @@
         if (contieneVentaRapida) {
             mensaje += " Incluye producto por clasificar: se creara pendiente a Catalogo/Inventario y no se movera kardex.";
         }
+        if (tmsPosActivo()) {
+            mensaje += " Se creara un servicio TMS separado despues de confirmar POS.";
+        }
         var confirmar = window.Swal
             ? Swal.fire({text: mensaje, icon: "warning", showCancelButton: true, confirmButtonText: "Cobrar", cancelButtonText: "Cancelar"}).then(function (r) { return !!r.isConfirmed; })
             : Promise.resolve(window.confirm(mensaje));
@@ -1872,6 +1931,14 @@
     function ejecutarCobroReal() {
         var boton = document.getElementById("pos_cobrar_real");
         if (boton && boton.disabled) { return; }
+        var payloadTmsPendiente = null;
+        if (tmsPosActivo()) {
+            if (!carrito.length) {
+                document.getElementById("pos_tms_resultado").innerHTML = "<div class=\"alert alert-warning py-2 mb-0\">Agrega partidas antes de crear TMS.</div>";
+                return;
+            }
+            payloadTmsPendiente = payloadTmsPosDryRun();
+        }
         if (boton) {
             boton.disabled = true;
             boton.setAttribute("data-cobrando", "1");
@@ -1881,6 +1948,9 @@
         request("/ventas/pos_confirmar_erp", payloadVentaPos()).then(function (response) {
             if (response.error) { throw new Error(response.mensaje); }
             renderCobroReal(response);
+            if (response.tipo === "success" && payloadTmsPendiente) {
+                crearTmsDesdePosReal(payloadTmsPendiente);
+            }
         }).catch(mostrarError).finally(function () {
             if (boton) {
                 boton.removeAttribute("data-cobrando");

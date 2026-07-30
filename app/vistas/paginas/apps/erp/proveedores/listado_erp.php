@@ -23,6 +23,9 @@
                             <span class="text-muted">Maestro operativo de proveedores</span>
                         </div>
                         <div class="d-flex gap-3">
+                            <a class="btn btn-light-success" href="/proveedor/analisis_abastecimiento_erp">
+                                <i class="bi bi-diagram-3"></i> Abastecimiento
+                            </a>
                             <a class="btn btn-light-info" href="/proveedor/manual_erp">
                                 <i class="bi bi-question-circle"></i> Manual
                             </a>
