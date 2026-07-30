@@ -24,12 +24,23 @@ $catalogo = $api->catalogoPublico(array("limite" => 1));
 $items = valorFrontendPackage($catalogo, array("depurar", "items"), array());
 $primerItem = !empty($items) ? $items[0] : array();
 $dryrun = array();
+$preflight = array();
 if (!empty($primerItem)) {
   $dryrun = $api->cotizacionDryRun(array(
     "items" => array(array(
       "id_publicacion" => intval(valorFrontendPackage($primerItem, array("id_publicacion"), 0)),
       "cantidad" => 1
     ))
+  ));
+  $preflight = $api->cotizacionPreflight(array(
+    "items" => array(array(
+      "id_publicacion" => intval(valorFrontendPackage($primerItem, array("id_publicacion"), 0)),
+      "cantidad" => 1
+    )),
+    "contacto" => array("nombre" => "Cliente frontend", "telefono" => "3322068429"),
+    "acepta_contacto_whatsapp" => true,
+    "politicas_aceptadas" => array("aviso-privacidad", "cotizacion-whatsapp"),
+    "utm" => array("source" => "frontend_package")
   ));
 }
 
@@ -52,12 +63,32 @@ if (empty($primerItem)) {
 if (empty($dryrun) || !empty($dryrun["error"]) || empty(valorFrontendPackage($dryrun, array("depurar", "lineas"), array()))) {
   $bloqueosVerde[] = "cotizacion_dryrun_sin_item_real";
 }
+if (empty($preflight) || !empty($preflight["error"]) || valorFrontendPackage($preflight, array("depurar", "preflight"), false) !== true || valorFrontendPackage($preflight, array("depurar", "listo_para_whatsapp"), false) !== true) {
+  $bloqueosVerde[] = "cotizacion_preflight_no_ok";
+}
 
 $puedeIntegrarDatosReales = empty($bloqueosVerde);
+$publicadasActuales = intval(valorFrontendPackage($estado, array("depurar", "publicaciones", "total_publicadas"), 0));
 $catalogoTieneItemReal = !empty($primerItem);
 $cotizacionDryrunOk = !empty($dryrun)
   && empty($dryrun["error"])
   && !empty(valorFrontendPackage($dryrun, array("depurar", "lineas"), array()));
+$cotizacionPreflightOk = !empty($preflight)
+  && empty($preflight["error"])
+  && valorFrontendPackage($preflight, array("depurar", "preflight"), false) === true
+  && valorFrontendPackage($preflight, array("depurar", "listo_para_whatsapp"), false) === true;
+$facturacionPreflight = $api->facturacionSolicitudPreflight(array(
+  "folio_compra" => "TICKET-123",
+  "datos_fiscales" => array("rfc" => "XAXX010101000", "razon_social" => "Cliente frontend", "regimen_fiscal" => "616", "uso_cfdi" => "G03", "codigo_postal" => "44100"),
+  "contacto" => array("correo" => "cliente@example.com"),
+  "acepta_aviso_privacidad" => true
+));
+$eventoPreflight = $api->eventoNavegacionPreflight(array("session_id" => "sess_frontend_pkg", "tipo_evento" => "page_view", "ruta" => "/"));
+$busquedaPreflight = $api->busquedaRegistrarPreflight(array("session_id" => "sess_frontend_pkg", "query" => "alimento perro", "mascota" => "perro", "resultados_total" => 1));
+$experienciaPreflightOk = empty($facturacionPreflight["error"]) && empty($eventoPreflight["error"]) && empty($busquedaPreflight["error"])
+  && valorFrontendPackage($facturacionPreflight, array("depurar", "no_escribe_bd"), false) === true
+  && valorFrontendPackage($eventoPreflight, array("depurar", "no_escribe_bd"), false) === true
+  && valorFrontendPackage($busquedaPreflight, array("depurar", "no_escribe_bd"), false) === true;
 
 echo json_encode(array(
   "ok" => true,
@@ -78,7 +109,11 @@ echo json_encode(array(
     "GET /ecommercePublico/catalogo",
     "GET /ecommercePublico/producto/{slug}",
     "GET /ecommercePublico/disponibilidad",
-    "POST /ecommercePublico/cotizacion_dryrun"
+    "POST /ecommercePublico/cotizacion_dryrun",
+    "POST /ecommercePublico/cotizacion_preflight",
+    "POST /ecommercePublico/facturacion_solicitar",
+    "POST /ecommercePublico/evento_navegacion",
+    "POST /ecommercePublico/busqueda_registrar"
   ),
   "endpoint_bloqueado_fase1" => "POST /ecommercePublico/cotizacion_registrar",
   "documentos" => array(
@@ -92,6 +127,7 @@ echo json_encode(array(
     "docs/erp_ecommerce_publico_frontend_snapshot_vivo.md",
     "docs/erp_ecommerce_publico_expansion_catalogo_plan.md",
     "docs/erp_ecommerce_publico_expansion_6_productos_runbook.md",
+    "docs/erp_ecommerce_publico_expansion_revision_calidad_20260729.md",
     "docs/erp_ecommerce_publico_api_canales_partners.md",
     "docs/erp_ecommerce_publico_partner_activacion_checklist.md",
     "docs/erp_ecommerce_publico_experiencia_cliente_politicas_facturacion_analytics.md",
@@ -105,6 +141,7 @@ echo json_encode(array(
     "docs/erp_ecommerce_publico_frontend_contract_tests.md",
     "docs/erp_ecommerce_publico_frontend_estados_ui.md",
     "docs/erp_ecommerce_publico_carrito_whatsapp_frontend.md",
+    "docs/erp_ecommerce_publico_cotizaciones_flujo_registro_futuro.md",
     "docs/erp_ecommerce_publico_fixtures_frontend.md",
     "docs/erp_ecommerce_publico_estado_actual.md",
     "docs/erp_ecommerce_publico_checklist_salida_fase1.md"
@@ -119,8 +156,8 @@ echo json_encode(array(
     "C:\\xampp\\php\\php.exe storage\\uat\\uat_ecommerce_publico_cors_preflight_readonly.php --base=http://panel.com.local --origin=http://artiani.com.local",
     "C:\\xampp\\php\\php.exe storage\\uat\\uat_ecommerce_publico_frontend_fixtures_readonly.php",
     "C:\\xampp\\php\\php.exe storage\\uat\\uat_ecommerce_publico_frontend_env_readonly.php --base=http://panel.com.local --frontend=http://artiani.com.local",
-    "C:\\xampp\\php\\php.exe storage\\uat\\uat_ecommerce_publico_base_cimentada_readonly.php --base=http://panel.com.local --origin=http://artiani.com.local --min_publicadas=2 --min_preview=6 --skus_preview=415,866,386,1138",
-    "C:\\xampp\\php\\php.exe storage\\uat\\uat_ecommerce_publico_frontend_entregable_gate_readonly.php --base=http://panel.com.local --origin=http://artiani.com.local --skus_preview=415,866,386,1138 --min_publicadas=2 --min_preview=6",
+    "C:\\xampp\\php\\php.exe storage\\uat\\uat_ecommerce_publico_base_cimentada_readonly.php --base=http://panel.com.local --origin=http://artiani.com.local --min_publicadas=6 --min_preview=6 --skus_preview=415,866,386,1138",
+    "C:\\xampp\\php\\php.exe storage\\uat\\uat_ecommerce_publico_frontend_entregable_gate_readonly.php --base=http://panel.com.local --origin=http://artiani.com.local --skus_preview=415,866,386,1138 --min_publicadas=6 --min_preview=6",
     "C:\\xampp\\php\\php.exe storage\\uat\\uat_ecommerce_publico_frontend_productivo_gate_readonly.php --base=http://panel.com.local --origin=https://artiani.com.mx --url=https://artiani.com.mx --min_publicadas=6",
     "C:\\xampp\\php\\php.exe storage\\uat\\uat_ecommerce_publico_partner_api_plan_readonly.php --base=http://panel.com.local --origin=http://artiani.com.local --partner_origin=https://partner.example.com",
     "C:\\xampp\\php\\php.exe storage\\uat\\uat_ecommerce_publico_hmac_contract_readonly.php",
@@ -133,6 +170,9 @@ echo json_encode(array(
     "C:\\xampp\\php\\php.exe storage\\uat\\uat_ecommerce_publico_credencial_emitir_apply_guard_readonly.php",
     "C:\\xampp\\php\\php.exe storage\\uat\\uat_ecommerce_publico_auth_observacion_readonly.php --method=GET --path=/ecommercePublico/catalogo --query=limite=2 --origin=http://artiani.com.local",
     "C:\\xampp\\php\\php.exe storage\\uat\\uat_ecommerce_publico_experiencia_cliente_plan_readonly.php",
+    "C:\\xampp\\php\\php.exe storage\\uat\\uat_ecommerce_publico_experiencia_cliente_apply_guard_readonly.php",
+    "C:\\xampp\\php\\php.exe storage\\uat\\uat_ecommerce_publico_experiencia_cliente_postcheck_readonly.php",
+    "C:\\xampp\\php\\php.exe storage\\uat\\uat_ecommerce_publico_inteligencia_cliente_readonly.php",
     "C:\\xampp\\php\\php.exe storage\\uat\\uat_ecommerce_publico_experiencia_cliente_http_readonly.php --base=http://panel.com.local",
     "C:\\xampp\\php\\php.exe storage\\uat\\uat_ecommerce_publico_frontend_snapshot_readonly.php --base=http://panel.com.local --origin=http://artiani.com.local --limite=2",
     "C:\\xampp\\php\\php.exe storage\\uat\\uat_ecommerce_publico_expansion_catalogo_readonly.php --limite=20 --pool=1500 --solo_disponibles=1",
@@ -140,9 +180,13 @@ echo json_encode(array(
     "C:\\xampp\\php\\php.exe storage\\uat\\uat_ecommerce_publico_frontend_preview_expansion_readonly.php --base=http://panel.com.local --origin=http://artiani.com.local --skus=415,866,386,1138 --resumen=1",
     "C:\\xampp\\php\\php.exe storage\\uat\\uat_ecommerce_publico_expansion_publicacion_paquete_readonly.php --skus=415,866,386,1138 --base=http://panel.com.local",
     "C:\\xampp\\php\\php.exe storage\\uat\\uat_ecommerce_publico_expansion_apply_checklist_readonly.php --base=http://panel.com.local --respaldo=C:\\xampp\\panel_db_backups\\artianilocal_panel_20260716_232839_antes_ecommerce_publico_fase1.sql --skus=415,866,386,1138",
+    "C:\\xampp\\php\\php.exe storage\\uat\\uat_ecommerce_publico_publicacion_texto_curado_readonly.php --id_sku=1138 --titulo=\"Jaula para aves maxi tipo cilindro Monte Verde 33 x 56 cm\" --mascota=ave --necesidades=habitat",
+    "C:\\xampp\\php\\php.exe storage\\uat\\uat_ecommerce_publico_expansion_curada_6_readonly.php --base=http://panel.com.local --origin=http://artiani.com.local --respaldo=C:\\xampp\\panel_db_backups\\artianilocal_panel_20260716_232839_antes_ecommerce_publico_fase1.sql",
     "C:\\xampp\\php\\php.exe storage\\uat\\uat_ecommerce_publico_postman_collection_readonly.php --base=http://panel.com.local",
     "C:\\xampp\\php\\php.exe storage\\uat\\uat_ecommerce_publico_carrito_whatsapp_readonly.php",
     "C:\\xampp\\php\\php.exe storage\\uat\\uat_ecommerce_publico_cotizacion_registro_plan_readonly.php --base=http://panel.com.local --origin=http://artiani.com.local",
+    "C:\\xampp\\php\\php.exe storage\\uat\\uat_ecommerce_publico_cotizaciones_bandeja_readonly.php",
+    "C:\\xampp\\php\\php.exe storage\\uat\\uat_ecommerce_publico_panel_publicaciones_readonly.php",
     "C:\\xampp\\php\\php.exe storage\\uat\\uat_ecommerce_publico_openapi_readonly.php",
     "C:\\xampp\\php\\php.exe storage\\uat\\uat_ecommerce_publico_autorizacion_paquete_readonly.php --base=http://panel.com.local --respaldo=RUTA_O_REFERENCIA --whatsapp=NUMERO_WHATSAPP --cors=ORIGEN_FRONTEND --url=URL_FRONTEND --sku1=1759 --sku2=1757",
     "C:\\xampp\\php\\php.exe storage\\uat\\uat_ecommerce_publico_apply_checklist_readonly.php --base=http://panel.com.local --respaldo=RUTA_O_REFERENCIA --whatsapp=NUMERO_WHATSAPP --cors=ORIGEN_FRONTEND --url=URL_FRONTEND --sku1=1759 --sku2=1757",
@@ -164,20 +208,51 @@ echo json_encode(array(
     "green_gate_ok" => $puedeIntegrarDatosReales,
     "catalogo_tiene_item_real" => $catalogoTieneItemReal,
     "cotizacion_dryrun_ok" => $cotizacionDryrunOk,
+    "cotizacion_preflight_ok" => $cotizacionPreflightOk,
+    "experiencia_cliente_preflights_ok" => $experienciaPreflightOk,
     "requiere_entorno_sano" => true,
     "requiere_ddl_configuracion_publicaciones" => true
   ),
   "frontend_puede_avanzar_ahora" => array(
     "politicas_publicas_ui_desde_api" => true,
-    "facturacion_por_folio_ui_sin_post_real" => true,
+    "facturacion_por_folio_ui_con_preflight" => $experienciaPreflightOk,
     "navegacion_por_mascota_necesidad_desde_api" => true,
     "analytics_mock_panel" => true,
-    "tracking_local_mock" => true
+    "tracking_preflight_sin_persistencia" => $experienciaPreflightOk,
+    "erp_inteligencia_cliente_readonly" => "GET http://panel.com.local/ecommercePublico/inteligencia_cliente_erp",
+    "erp_bandeja_cotizaciones_readonly" => "http://panel.com.local/ecommercePublico/cotizaciones"
   ),
-  "frontend_no_conectar_aun" => array(
+  "expansion_catalogo" => array(
+    "estado_actual" => $publicadasActuales >= 6 ? "6_productos_publicados" : "revision_calidad",
+    "publicadas_reales_actuales" => $publicadasActuales,
+    "candidatos_limpios" => array(415, 866, 386),
+    "candidato_con_revision" => array(
+      "id_sku" => 1138,
+      "bloqueo" => "validar_texto_publico",
+      "documento" => "docs/erp_ecommerce_publico_expansion_revision_calidad_20260729.md"
+    ),
+    "ruta_curada_disponible" => array(
+      "senal" => "verde_expansion_curada_6_lista_para_revision",
+      "id_sku_curado" => 1138,
+      "titulo_publico_curado" => "Jaula para aves maxi tipo cilindro Monte Verde 33 x 56 cm",
+      "publicaciones_estimadas_post_expansion" => 6,
+      "requiere_autorizacion_antes_de_escribir_bd" => $publicadasActuales < 6,
+      "frontend_puede_usar_como_preview_de_layout" => $publicadasActuales < 6,
+      "frontend_no_tratar_como_publicado" => $publicadasActuales < 6
+    ),
+    "frontend_puede_usar_preview_para_layout" => $publicadasActuales < 6,
+    "frontend_no_tratar_preview_como_publicado" => $publicadasActuales < 6
+  ),
+  "frontend_conectar_solo_como_preflight" => array(
     "POST /ecommercePublico/facturacion_solicitar",
     "POST /ecommercePublico/evento_navegacion",
     "POST /ecommercePublico/busqueda_registrar"
+  ),
+  "frontend_no_esperar_aun" => array(
+    "facturacion_real_guardada",
+    "tracking_real_guardado",
+    "panel_analytics_con_datos_reales",
+    "cliente_registrado"
   ),
   "bloqueos_para_verde_datos_reales" => $bloqueosVerde
 ), JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) . PHP_EOL;

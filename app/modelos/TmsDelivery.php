@@ -113,6 +113,65 @@ class TmsDelivery extends CRUD {
 
   /**
    * IA: Codex GPT-5
+   * Fecha: 2026-07-30
+   * Proposito: generar comprobante termico read-only para un servicio logistico TMS.
+   * Impacto: TMS Delivery; separa el comprobante logistico del ticket POS y de garantias/productos.
+   * Contrato: read-only; no modifica TMS, Ventas, caja, inventario ni garantias.
+   */
+  public function ticketServicioReadOnly($datos = array()) {
+    try {
+      $db = $this->getConexion();
+      if (!$db) {
+        return $this->respuesta(true, "warning", "No hay conexion MySQL para ticket TMS", array("conexion_mysql" => false));
+      }
+      if (!$this->schemaCompleto($db)) {
+        return $this->respuesta(true, "warning", "Esquema TMS pendiente; no se puede generar ticket", array(
+          "schema_pendiente" => true,
+          "contrato" => $this->contratoDominio()
+        ));
+      }
+
+      $servicio = $this->buscarServicioTicket($db, $datos);
+      if (!$servicio) {
+        return $this->respuesta(true, "warning", "Servicio TMS no encontrado para ticket", array(
+          "filtros" => array(
+            "id_tms_servicio" => intval($this->valor($datos, "id_tms_servicio", 0)),
+            "folio" => $this->texto($datos, "folio"),
+            "referencia_externa" => $this->texto($datos, "referencia_externa")
+          )
+        ));
+      }
+
+      $detalle = $this->detalleServicioTicket($db, intval($servicio["id_tms_servicio"]));
+      $costo = $this->costoServicioTicket($db, intval($servicio["id_tms_servicio"]));
+      $conteos = $this->conteosServicioTicket($db, intval($servicio["id_tms_servicio"]));
+      $ticket = $this->textoTicketServicio($servicio, $detalle, $costo, $conteos);
+
+      return $this->respuesta(false, "success", "Comprobante TMS generado", array(
+        "ticket_texto" => $ticket,
+        "servicio" => $servicio,
+        "detalle" => $detalle,
+        "costo" => $costo,
+        "conteos" => $conteos,
+        "configuracion" => array(
+          "nombre_servicio_cliente" => "ARTIANI Entregas",
+          "titulo" => "Comprobante logistico",
+          "ticket_ancho_mm" => 80,
+          "ticket_columnas" => 42,
+          "impresion_modo" => "navegador",
+          "leyenda_separacion" => "Este comprobante corresponde unicamente al servicio logistico de entrega.",
+          "leyenda_garantia" => "La garantia de producto se atiende conforme a las politicas del local."
+        ),
+        "contrato" => $this->contratoDominio(),
+        "no_escritura_bd" => true
+      ));
+    } catch (Exception $e) {
+      return $this->respuesta(true, "danger", $e->getMessage());
+    }
+  }
+
+  /**
+   * IA: Codex GPT-5
    * Fecha: 2026-07-24
    * Proposito: validar una solicitud TMS antes de permitir guardado real futuro.
    * Impacto: TMS Delivery; fija requisitos minimos del servicio sin vender, cobrar productos ni mover inventario.
@@ -931,6 +990,127 @@ class TmsDelivery extends CRUD {
     return $stmt->fetch(PDO::FETCH_ASSOC);
   }
 
+  private function buscarServicioTicket($db, $datos) {
+    $where = array();
+    $params = array();
+    $idServicio = intval($this->valor($datos, "id_tms_servicio", 0));
+    $folio = $this->texto($datos, "folio");
+    $referencia = $this->texto($datos, "referencia_externa");
+
+    if ($idServicio > 0) {
+      $where[] = "s.id_tms_servicio=:id";
+      $params[":id"] = $idServicio;
+    } elseif ($folio !== "") {
+      $where[] = "s.folio=:folio";
+      $params[":folio"] = $folio;
+    } elseif ($referencia !== "") {
+      $where[] = "s.referencia_externa=:referencia";
+      $params[":referencia"] = $referencia;
+    } else {
+      return null;
+    }
+
+    $stmt = $db->prepare("SELECT s.*
+      FROM {$this->tabla_servicios} s
+      WHERE " . implode(" AND ", $where) . "
+      LIMIT 1");
+    $stmt->execute($params);
+    return $stmt->fetch(PDO::FETCH_ASSOC) ?: null;
+  }
+
+  private function detalleServicioTicket($db, $idServicio) {
+    $stmt = $db->prepare("SELECT referencia_item_origen, cantidad, descripcion_snapshot,
+        requiere_cuidado_especial, observaciones
+      FROM {$this->tabla_detalle}
+      WHERE id_tms_servicio=:id AND estatus='activo'
+      ORDER BY id_tms_servicio_detalle ASC");
+    $stmt->execute(array(":id" => intval($idServicio)));
+    return $stmt->fetchAll(PDO::FETCH_ASSOC);
+  }
+
+  private function costoServicioTicket($db, $idServicio) {
+    $stmt = $db->prepare("SELECT precio_cobrado, costo_estimado, costo_real, metodo_cobro,
+        motivo_bonificacion, estatus
+      FROM {$this->tabla_costos}
+      WHERE id_tms_servicio=:id AND estatus='activo'
+      LIMIT 1");
+    $stmt->execute(array(":id" => intval($idServicio)));
+    $fila = $stmt->fetch(PDO::FETCH_ASSOC);
+    return $fila ?: array("precio_cobrado" => 0, "costo_estimado" => 0, "costo_real" => null, "metodo_cobro" => "no_aplica", "motivo_bonificacion" => "", "estatus" => "sin_costo");
+  }
+
+  private function conteosServicioTicket($db, $idServicio) {
+    $stmtEventos = $db->prepare("SELECT COUNT(*) total FROM {$this->tabla_eventos} WHERE id_tms_servicio=:id");
+    $stmtEventos->execute(array(":id" => intval($idServicio)));
+    $stmtEvidencias = $db->prepare("SELECT COUNT(*) total FROM {$this->tabla_evidencias} WHERE id_tms_servicio=:id AND estatus='activa'");
+    $stmtEvidencias->execute(array(":id" => intval($idServicio)));
+    return array(
+      "eventos" => intval($stmtEventos->fetch(PDO::FETCH_ASSOC)["total"]),
+      "evidencias" => intval($stmtEvidencias->fetch(PDO::FETCH_ASSOC)["total"])
+    );
+  }
+
+  private function textoTicketServicio($servicio, $detalle, $costo, $conteos) {
+    $lineas = array();
+    $lineas[] = $this->centrarTicket("ARTIANI ENTREGAS");
+    $lineas[] = $this->centrarTicket("COMPROBANTE LOGISTICO");
+    $lineas[] = $this->separadorTicket();
+    $lineas[] = "Folio TMS: " . $servicio["folio"];
+    $lineas[] = "Referencia: " . $this->textoTicket($servicio["referencia_externa"]);
+    $lineas[] = "Fecha solicitud: " . $this->fechaTicket($servicio["fecha_solicitud"]);
+    $lineas[] = "Fecha programada: " . $this->fechaTicket($servicio["fecha_programada"], false);
+    $lineas[] = "Ventana: " . $this->horaTicket($servicio["ventana_inicio"]) . " - " . $this->horaTicket($servicio["ventana_fin"]);
+    $lineas[] = $this->separadorTicket();
+    $lineas[] = "CLIENTE";
+    $lineas[] = $this->textoTicket($servicio["cliente_nombre_snapshot"]);
+    $lineas[] = "Contacto: " . $this->textoTicket($servicio["cliente_contacto_snapshot"]);
+    $lineas[] = "Zona: " . $this->textoTicket($servicio["zona_snapshot"]);
+    $lineas[] = "";
+    $lineas[] = "DIRECCION";
+    foreach ($this->envolverTicket($this->textoTicket($servicio["direccion_snapshot"]), 42) as $linea) {
+      $lineas[] = $linea;
+    }
+    $lineas[] = $this->separadorTicket();
+    $lineas[] = "SERVICIO";
+    $lineas[] = "Tipo: " . $this->humanizarTicket($servicio["tipo_servicio"]);
+    $lineas[] = "Prioridad: " . $this->humanizarTicket($servicio["prioridad"]);
+    $lineas[] = "Estado: " . $this->humanizarTicket($servicio["estatus_servicio"]);
+    $lineas[] = "Resultado: " . $this->humanizarTicket($servicio["resultado_logistico"]);
+    $lineas[] = $this->separadorTicket();
+    $lineas[] = "COBRO LOGISTICO";
+    $lineas[] = $this->parTicket("Importe entrega:", "$" . number_format(floatval($costo["precio_cobrado"]), 2));
+    $lineas[] = $this->parTicket("Estatus cobro:", $this->humanizarTicket($servicio["estatus_cobro"]));
+    $lineas[] = $this->parTicket("Metodo:", $this->humanizarTicket($costo["metodo_cobro"]));
+    $lineas[] = $this->separadorTicket();
+    $lineas[] = "PAQUETE / REFERENCIA FISICA";
+    if (empty($detalle)) {
+      $lineas[] = "Sin detalle capturado.";
+    }
+    foreach ($detalle as $item) {
+      $lineas[] = number_format(floatval($item["cantidad"]), 0) . " x " . $this->textoTicket($item["descripcion_snapshot"]);
+      $lineas[] = "Cuidado especial: " . (intval($item["requiere_cuidado_especial"]) === 1 ? "Si" : "No");
+    }
+    $lineas[] = $this->separadorTicket();
+    $lineas[] = "EVIDENCIA";
+    $lineas[] = "Eventos registrados: " . intval($conteos["eventos"]);
+    $lineas[] = "Evidencias registradas: " . intval($conteos["evidencias"]);
+    $lineas[] = $this->separadorTicket();
+    foreach ($this->envolverTicket("Este comprobante corresponde unicamente al servicio logistico de entrega.", 42) as $linea) {
+      $lineas[] = $linea;
+    }
+    $lineas[] = "";
+    foreach ($this->envolverTicket("No modifica garantias, cambios, devoluciones, pagos ni condiciones de los productos.", 42) as $linea) {
+      $lineas[] = $linea;
+    }
+    $lineas[] = "";
+    foreach ($this->envolverTicket("La garantia de producto se atiende conforme a las politicas del local.", 42) as $linea) {
+      $lineas[] = $linea;
+    }
+    $lineas[] = $this->separadorTicket();
+    $lineas[] = $this->centrarTicket("Gracias por confiar en ARTIANI.");
+    return implode("\n", $lineas);
+  }
+
   private function kpisTmsVacios() {
     return array(
       "total" => 0,
@@ -987,6 +1167,66 @@ class TmsDelivery extends CRUD {
   private function nullSiVacio($valor) {
     $valor = trim((string) $valor);
     return $valor === "" ? null : $valor;
+  }
+
+  private function separadorTicket() {
+    return str_repeat("-", 42);
+  }
+
+  private function centrarTicket($texto) {
+    $texto = substr($this->textoTicket($texto), 0, 42);
+    $espacios = max(0, intval(floor((42 - strlen($texto)) / 2)));
+    return str_repeat(" ", $espacios) . $texto;
+  }
+
+  private function parTicket($izquierda, $derecha) {
+    $izquierda = $this->textoTicket($izquierda);
+    $derecha = $this->textoTicket($derecha);
+    $espacios = max(1, 42 - strlen($izquierda) - strlen($derecha));
+    return substr($izquierda . str_repeat(" ", $espacios) . $derecha, 0, 42);
+  }
+
+  private function textoTicket($valor) {
+    $valor = trim((string) $valor);
+    $valor = str_replace(array("\r", "\n", "\t"), " ", $valor);
+    return $valor === "" ? "-" : $valor;
+  }
+
+  private function humanizarTicket($valor) {
+    $valor = str_replace("_", " ", $this->textoTicket($valor));
+    return ucfirst($valor);
+  }
+
+  private function fechaTicket($valor, $conHora = true) {
+    $valor = trim((string) $valor);
+    if ($valor === "" || $valor === "0000-00-00" || $valor === "0000-00-00 00:00:00") {
+      return "-";
+    }
+    $ts = strtotime($valor);
+    if (!$ts) {
+      return $valor;
+    }
+    return $conHora ? date("d/m/Y H:i", $ts) : date("d/m/Y", $ts);
+  }
+
+  private function horaTicket($valor) {
+    $valor = trim((string) $valor);
+    if ($valor === "") {
+      return "-";
+    }
+    $ts = strtotime($valor);
+    return $ts ? date("H:i", $ts) : substr($valor, 0, 5);
+  }
+
+  private function envolverTicket($texto, $ancho = 42) {
+    $texto = $this->textoTicket($texto);
+    if ($texto === "-") {
+      return array("-");
+    }
+    $lineas = explode("\n", wordwrap($texto, $ancho, "\n", true));
+    return array_values(array_filter($lineas, function ($linea) {
+      return trim($linea) !== "";
+    }));
   }
 
   private function respuesta($error, $tipo, $mensaje, $depurar = array()) {

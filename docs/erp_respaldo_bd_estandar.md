@@ -177,6 +177,20 @@ archivo_legible=true
 tamano_bytes=32820083
 ```
 
+TMS Delivery POS real:
+
+```text
+C:\xampp\panel_db_backups\artianilocal_panel_20260729_204819_antes_tms_pos_real.sql
+```
+
+Validacion:
+
+```text
+archivo_existe=true
+archivo_legible=true
+tamano_bytes=33532718
+```
+
 Panel Proyectos - permisos base:
 
 ```text

@@ -24,11 +24,37 @@ $dryrun = $modelo->cotizacionDryRun(array(
     array("id_publicacion" => 1, "cantidad" => 2)
   )
 ));
+$preflight = $modelo->cotizacionPreflight(array(
+  "items" => array(
+    array("id_publicacion" => 1, "cantidad" => 2)
+  ),
+  "contacto" => array("nombre" => "Cliente contrato", "telefono" => "3322068429"),
+  "acepta_contacto_whatsapp" => true,
+  "politicas_aceptadas" => array("aviso-privacidad", "cotizacion-whatsapp")
+));
 $registroBloqueado = $modelo->cotizacionRegistrarBloqueada(array(
   "items" => array(
     array("id_publicacion" => 1, "cantidad" => 2)
   ),
   "contacto" => array("telefono" => "5555555555")
+));
+$facturacionPreflight = $modelo->facturacionSolicitudPreflight(array(
+  "folio_compra" => "TICKET-123",
+  "datos_fiscales" => array("rfc" => "XAXX010101000", "razon_social" => "Cliente Contrato", "regimen_fiscal" => "616", "uso_cfdi" => "G03", "codigo_postal" => "44100"),
+  "contacto" => array("correo" => "cliente@example.com", "telefono" => "3322068429"),
+  "acepta_aviso_privacidad" => true
+));
+$eventoPreflight = $modelo->eventoNavegacionPreflight(array(
+  "session_id" => "sess_api_123",
+  "tipo_evento" => "view_product",
+  "ruta" => "/producto/demo",
+  "id_publicacion" => 1
+));
+$busquedaPreflight = $modelo->busquedaRegistrarPreflight(array(
+  "session_id" => "sess_api_123",
+  "query" => "arena gato",
+  "mascota" => "gato",
+  "resultados_total" => 0
 ));
 $publicacionBloqueada = $modelo->guardarPublicacionBloqueada(array(
   "id_sku" => 1291,
@@ -37,8 +63,8 @@ $publicacionBloqueada = $modelo->guardarPublicacionBloqueada(array(
 
 $bloqueos = array();
 $endpoints = valor($contratos, array("depurar", "endpoints_publicos"), array());
-if (count($endpoints) < 9) {
-  $bloqueos[] = "El manifiesto API debe incluir al menos 9 endpoints documentados";
+if (count($endpoints) < 16) {
+  $bloqueos[] = "El manifiesto API debe incluir al menos 16 endpoints documentados";
 }
 if (!contieneEndpoint($endpoints, "/ecommercePublico/catalogo")) {
   $bloqueos[] = "Falta contrato /ecommercePublico/catalogo";
@@ -46,8 +72,20 @@ if (!contieneEndpoint($endpoints, "/ecommercePublico/catalogo")) {
 if (!contieneEndpoint($endpoints, "/ecommercePublico/cotizacion_dryrun")) {
   $bloqueos[] = "Falta contrato /ecommercePublico/cotizacion_dryrun";
 }
+if (!contieneEndpoint($endpoints, "/ecommercePublico/cotizacion_preflight")) {
+  $bloqueos[] = "Falta contrato /ecommercePublico/cotizacion_preflight";
+}
 if (!contieneEndpoint($endpoints, "/ecommercePublico/cotizacion_registrar")) {
   $bloqueos[] = "Falta contrato /ecommercePublico/cotizacion_registrar";
+}
+if (!contieneEndpoint($endpoints, "/ecommercePublico/facturacion_solicitar")) {
+  $bloqueos[] = "Falta contrato /ecommercePublico/facturacion_solicitar";
+}
+if (!contieneEndpoint($endpoints, "/ecommercePublico/evento_navegacion")) {
+  $bloqueos[] = "Falta contrato /ecommercePublico/evento_navegacion";
+}
+if (!contieneEndpoint($endpoints, "/ecommercePublico/busqueda_registrar")) {
+  $bloqueos[] = "Falta contrato /ecommercePublico/busqueda_registrar";
 }
 if (valor($contratos, array("api", "version"), "") !== "fase1-2026-07-12") {
   $bloqueos[] = "Version API inesperada en contrato";
@@ -67,8 +105,20 @@ if (valor($disponibilidad, array("depurar", "mostrar_cantidad_exacta"), false) =
 if (valor($dryrun, array("depurar", "dry_run"), false) !== true) {
   $bloqueos[] = "Cotizacion dry-run debe identificarse como dry_run";
 }
+if (valor($preflight, array("depurar", "preflight"), false) !== true || valor($preflight, array("depurar", "no_escribe_bd"), false) !== true) {
+  $bloqueos[] = "Cotizacion preflight debe identificarse como preflight sin escritura";
+}
 if (valor($registroBloqueado, array("depurar", "bloqueado"), false) !== true || valor($registroBloqueado, array("depurar", "no_escribe_bd"), false) !== true) {
   $bloqueos[] = "Registro real de cotizacion debe seguir bloqueado y sin escritura";
+}
+if (valor($facturacionPreflight, array("depurar", "preflight"), false) !== true || valor($facturacionPreflight, array("depurar", "no_escribe_bd"), false) !== true) {
+  $bloqueos[] = "Facturacion preflight debe quedar sin escritura";
+}
+if (valor($eventoPreflight, array("depurar", "preflight"), false) !== true || valor($eventoPreflight, array("depurar", "no_escribe_bd"), false) !== true) {
+  $bloqueos[] = "Evento navegacion preflight debe quedar sin escritura";
+}
+if (valor($busquedaPreflight, array("depurar", "preflight"), false) !== true || valor($busquedaPreflight, array("depurar", "no_escribe_bd"), false) !== true) {
+  $bloqueos[] = "Busqueda preflight debe quedar sin escritura";
 }
 if (valor($publicacionBloqueada, array("depurar", "bloqueado"), false) !== true || valor($publicacionBloqueada, array("depurar", "no_escribe_bd"), false) !== true) {
   $bloqueos[] = "Guardado interno de publicacion debe seguir bloqueado y sin escritura";
@@ -92,7 +142,11 @@ echo json_encode(array(
     "catalogo" => contieneEndpoint($endpoints, "/ecommercePublico/catalogo"),
     "configuracion" => contieneEndpoint($endpoints, "/ecommercePublico/configuracion"),
     "cotizacion_dryrun" => contieneEndpoint($endpoints, "/ecommercePublico/cotizacion_dryrun"),
-    "cotizacion_registrar_bloqueado" => contieneEndpoint($endpoints, "/ecommercePublico/cotizacion_registrar")
+    "cotizacion_preflight" => contieneEndpoint($endpoints, "/ecommercePublico/cotizacion_preflight"),
+    "cotizacion_registrar_bloqueado" => contieneEndpoint($endpoints, "/ecommercePublico/cotizacion_registrar"),
+    "facturacion_preflight" => contieneEndpoint($endpoints, "/ecommercePublico/facturacion_solicitar"),
+    "evento_navegacion_preflight" => contieneEndpoint($endpoints, "/ecommercePublico/evento_navegacion"),
+    "busqueda_preflight" => contieneEndpoint($endpoints, "/ecommercePublico/busqueda_registrar")
   ),
   "guardrails" => array(
     "no_escribe_bd" => true,

@@ -188,6 +188,20 @@ Panel interno recomendado:
 Ecommerce > Inteligencia cliente
 ```
 
+Endpoint interno protegido preparado:
+
+```http
+GET /ecommercePublico/inteligencia_cliente_erp
+```
+
+UAT:
+
+```bash
+C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_inteligencia_cliente_readonly.php
+```
+
+Si las tablas aun no existen, responde `configurado=false` con arreglos vacios. Cuando existan y haya persistencia autorizada, el mismo contrato entregara busquedas frecuentes, busquedas sin resultado, mascotas/necesidades consultadas, productos vistos, productos agregados a cotizacion, conversion a WhatsApp y solicitudes de facturacion por estatus.
+
 Vistas:
 
 - busquedas mas frecuentes;
@@ -215,6 +229,21 @@ GET /ecommercePublico/esquema_auditar_experiencia_cliente
 GET /ecommercePublico/esquema_plan_experiencia_cliente
 ```
 
+Comandos de seguridad antes de aplicar DDL:
+
+```bash
+C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_experiencia_cliente_apply_guard_readonly.php
+C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_experiencia_cliente_postcheck_readonly.php
+```
+
+Comando futuro autorizado, no ejecutar sin autorizacion explicita y respaldo externo:
+
+```bash
+C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_experiencia_cliente_schema_apply_authorized.php --autorizar=ECOMMERCE_PUBLICO_EXPERIENCIA_CLIENTE_DDL --respaldo=C:\xampp\panel_db_backups\[ARCHIVO].sql
+```
+
+Aplicar este DDL solo crea las tablas de experiencia cliente. No activa persistencia publica de facturacion, busquedas o navegacion; esos POST seguiran en preflight hasta implementar y autorizar la escritura por separado.
+
 ## Endpoints publicos read-only activos
 
 Activos desde Fase 1 como solo lectura:
@@ -232,9 +261,9 @@ Regla:
 - No registran aceptaciones ni sesiones.
 - Pueden consumirse ya por el frontend.
 
-## Endpoints publicos futuros con escritura
+## Endpoints publicos activos como preflight sin escritura
 
-No activos todavia:
+Activos para que el frontend pueda validar UX y payloads sin persistir:
 
 ```http
 POST /ecommercePublico/facturacion_solicitar
@@ -242,7 +271,16 @@ POST /ecommercePublico/evento_navegacion
 POST /ecommercePublico/busqueda_registrar
 ```
 
-Activacion por etapas:
+Regla actual:
+
+- responden JSON estable con `preflight=true`;
+- devuelven `no_escribe_bd=true`;
+- no registran datos reales;
+- `facturacion_solicitar` valida folio/datos fiscales/contacto/aviso, pero no emite factura ni crea solicitud real;
+- `evento_navegacion` y `busqueda_registrar` rechazan metadata con datos personales detectables;
+- sirven para que frontend construya formularios, consentimiento, errores y analytics local sin inventar contrato.
+
+Activacion futura de persistencia:
 
 - `POST facturacion_solicitar` requiere captcha/rate limit/politica privacidad.
 - `POST evento_navegacion` y `POST busqueda_registrar` requieren consentimiento/cookie policy/rate limit.
@@ -252,13 +290,14 @@ Activacion por etapas:
 Puede avanzar desde ahora:
 
 - paginas visuales de politicas consumiendo `GET /ecommercePublico/politicas`;
-- pagina `/facturacion` con formulario y estado "recepcion pronto";
+- pagina `/facturacion` con formulario validado contra `POST /ecommercePublico/facturacion_solicitar`;
 - UI de seleccion de mascota/necesidad consumiendo `GET /ecommercePublico/taxonomia_mascotas`;
-- tracking local/mock de eventos;
+- tracking local/mock de eventos y preflight contra `POST /ecommercePublico/evento_navegacion`;
+- busquedas con preflight contra `POST /ecommercePublico/busqueda_registrar`;
 - panel visual/mock de analitica si lo desea;
 - textos claros de privacidad y uso de datos.
 
-No debe conectar POST real hasta que el ERP habilite contratos.
+No debe prometer registro real hasta que el ERP active persistencia con autorizacion.
 
 ## Señal para frontend
 
@@ -266,9 +305,9 @@ Estado actual:
 
 ```text
 politicas_ui=puede_avanzar_desde_api
-facturacion_ui=puede_avanzar_sin_post_real
+facturacion_ui=puede_avanzar_con_preflight_sin_persistencia
 navegacion_mascota=puede_avanzar_desde_api
-analytics_ui=puede_avanzar_mock
-tracking_post_real=pendiente
-facturacion_post_real=pendiente
+analytics_ui=puede_avanzar_mock_y_preflight
+tracking_post_real=preflight_sin_persistencia
+facturacion_post_real=preflight_sin_persistencia
 ```

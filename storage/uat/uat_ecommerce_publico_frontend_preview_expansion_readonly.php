@@ -40,6 +40,9 @@ foreach ($skus as $idSku) {
   $producto = valorPreviewExpansion($preparacion, array("depurar", "producto_vivo_erp"), array());
   $sugerida = valorPreviewExpansion($preparacion, array("depurar", "publicacion_sugerida"), array());
   $bloqueosPublicacion = valorPreviewExpansion($preparacion, array("depurar", "bloqueos_publicacion"), array());
+  if (textoSospechosoPreviewExpansion(valorPreviewExpansion($sugerida, array("titulo_publico"), ""))) {
+    $bloqueosPublicacion[] = "validar_texto_publico";
+  }
   if (!empty($bloqueosPublicacion)) {
     $bloqueos[] = "sku_" . $idSku . "_bloqueos_" . implode("_", $bloqueosPublicacion);
   }
@@ -227,4 +230,10 @@ function valorPreviewExpansion($datos, $ruta, $default = null) {
     $actual = $actual[$segmento];
   }
   return $actual;
+}
+
+function textoSospechosoPreviewExpansion($texto) {
+  $texto = (string) $texto;
+  return strpos($texto, chr(239) . chr(191) . chr(189)) !== false
+    || preg_match('/[\x00-\x08\x0B\x0C\x0E-\x1F]/', $texto) === 1;
 }

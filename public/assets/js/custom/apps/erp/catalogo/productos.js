@@ -1608,7 +1608,7 @@
             return "<tr>" +
                 "<td><div class=\"fw-bold\">" + escapeHtml(item.sku_base) + "</div><span class=\"text-muted fs-7\">" + escapeHtml(item.nombre_base || "") + "</span>" + alertas + "</td>" +
                 "<td><div class=\"fw-bold\">" + escapeHtml(item.sku_presentacion) + "</div><span class=\"text-muted fs-7\">" + escapeHtml(item.nombre_presentacion || "") + "</span></td>" +
-                "<td>" + escapeHtml(item.factor_salida_base) + " " + escapeHtml(item.unidad_base || "") + "</td>" +
+                "<td><div class=\"fw-bold\">" + escapeHtml(item.factor_salida_base) + "</div></td>" +
                 "<td><span class=\"badge badge-light-primary\">" + escapeHtml(item.modo_disponibilidad) + "</span></td>" +
                 "<td>" + escapeHtml(item.consume_stock_base_en) + "</td>" +
                 "<td>" + (String(item.requiere_empaque) === "1" ? "Si" : "No") + (item.capacidad_diaria ? "<div class=\"text-muted fs-7\">Cap. " + escapeHtml(item.capacidad_diaria) + "</div>" : "") + "</td>" +
@@ -2919,6 +2919,13 @@
             if (response.error) {
                 throw new Error(response.mensaje);
             }
+            detalleActual.proveedores = (detalleActual.proveedores || []).map(function (item) {
+                if (String(item.id_sku) === String(relacion.id_sku) && item.estatus === "activo") {
+                    item.es_preferido = String(item.id_sku_proveedor) === String(relacion.id_sku_proveedor) ? "1" : "0";
+                }
+                return item;
+            });
+            renderProveedores(detalleActual.proveedores || []);
             Swal.fire({text: response.mensaje, icon: "success", confirmButtonText: "Aceptar"});
             abrirDetalle(productoActualId, "catalogo_detalle_proveedores");
             cargar();

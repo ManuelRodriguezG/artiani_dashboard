@@ -7,6 +7,7 @@
      * Contrato: crear servicio solo afecta TMS cuando el esquema exista; no cambia ventas, inventario ni garantias.
      */
     var catalogos = {};
+    var ticketActual = "";
 
     document.addEventListener("DOMContentLoaded", function () {
         enlazarEventos();
@@ -36,6 +37,16 @@
             guardar.addEventListener("click", function () {
                 guardarServicio(form);
             });
+        }
+        document.addEventListener("click", function (event) {
+            var botonTicket = event.target.closest("[data-tms-ticket]");
+            if (botonTicket) {
+                abrirTicketTms(botonTicket.getAttribute("data-tms-ticket"));
+            }
+        });
+        var imprimir = document.getElementById("tms_ticket_imprimir");
+        if (imprimir) {
+            imprimir.addEventListener("click", imprimirTicketTms);
         }
     }
 
@@ -150,7 +161,7 @@
             return;
         }
         if (!items.length) {
-            body.innerHTML = "<tr><td colspan=\"5\" class=\"text-center text-muted py-8\">Sin servicios TMS para mostrar.</td></tr>";
+            body.innerHTML = "<tr><td colspan=\"6\" class=\"text-center text-muted py-8\">Sin servicios TMS para mostrar.</td></tr>";
             return;
         }
         body.innerHTML = items.map(function (item) {
@@ -162,8 +173,60 @@
                 "<td>" + escapeHtml(formatVentana(item)) + "</td>" +
                 "<td>" + badge(humanize(item.estatus_cobro), "light") + "</td>" +
                 "<td>" + badge(humanize(item.resultado_logistico), badgeResultado(item.resultado_logistico)) + "</td>" +
+                "<td class=\"text-end\"><button class=\"btn btn-sm btn-icon btn-light-primary\" type=\"button\" title=\"Comprobante ARTIANI Entregas\" data-tms-ticket=\"" + escapeHtml(item.id_tms_servicio || "") + "\"><i class=\"bi bi-receipt\"></i></button></td>" +
                 "</tr>";
         }).join("");
+    }
+
+    /**
+     * IA: Codex GPT-5 | Fecha: 2026-07-30
+     * Proposito: consultar y previsualizar comprobante logistico TMS separado del ticket POS.
+     * Impacto: TMS Delivery; imprime ARTIANI Entregas sin tocar cobros, ventas ni garantias.
+     */
+    function abrirTicketTms(idServicio) {
+        if (!idServicio) { return; }
+        ticketActual = "";
+        setText("tms_ticket_subtitulo", "Consultando servicio " + idServicio);
+        setText("tms_ticket_texto", "Consultando comprobante...");
+        document.getElementById("tms_ticket_alerta").innerHTML = "<div class=\"alert alert-info py-2 mb-0\">Generando comprobante logistico...</div>";
+        bootstrap.Modal.getOrCreateInstance(document.getElementById("tms_ticket_modal")).show();
+        getJson("/tms/ticket_readonly_erp?id_tms_servicio=" + encodeURIComponent(idServicio)).then(function (response) {
+            if (response.error) { throw new Error(response.mensaje || "No fue posible generar comprobante TMS"); }
+            var depurar = response.depurar || {};
+            ticketActual = depurar.ticket_texto || "";
+            setText("tms_ticket_subtitulo", ((depurar.servicio || {}).folio || "Comprobante logistico"));
+            setText("tms_ticket_texto", ticketActual || "Sin comprobante.");
+            document.getElementById("tms_ticket_alerta").innerHTML = "<div class=\"alert alert-success py-2 mb-0\">Comprobante ARTIANI Entregas listo para imprimir.</div>";
+        }).catch(function (error) {
+            setText("tms_ticket_texto", "");
+            document.getElementById("tms_ticket_alerta").innerHTML = "<div class=\"alert alert-warning py-2 mb-0\">" + escapeHtml(error.message || String(error)) + "</div>";
+        });
+    }
+
+    function altoTicketMm(texto) {
+        var lineas = String(texto || "").split(/\r?\n/).length;
+        return Math.max(80, Math.min(900, Math.ceil(18 + (lineas * 3.2))));
+    }
+
+    function documentoTicketTermico(texto, titulo, altoMm) {
+        var css = "@page{size:80mm " + altoMm + "mm;margin:0;}" +
+            "html,body{width:80mm;margin:0;padding:0;background:#fff;color:#111;}" +
+            "body{font-family:Consolas,'Liberation Mono','Courier New',monospace;font-size:12px;line-height:1.25;}" +
+            ".ticket{box-sizing:border-box;width:80mm;margin:0;padding:1mm 1.5mm;white-space:pre;overflow:hidden;}" +
+            "@media screen{body{background:#f3f4f6;}.ticket{min-height:" + altoMm + "mm;background:#fff;box-shadow:0 0 0 1px #ddd;margin:8px auto;padding:3mm 2mm;}}" +
+            "@media print{html,body{width:80mm;height:" + altoMm + "mm;}.ticket{box-shadow:none;margin:0;padding:1mm 1.5mm;}}";
+        return "<!doctype html><html><head><meta charset=\"utf-8\"><title>" + escapeHtml(titulo || "ARTIANI Entregas") + "</title><style>" + css + "</style></head><body><pre class=\"ticket\">" + escapeHtml(texto || "") + "</pre></body></html>";
+    }
+
+    function imprimirTicketTms() {
+        if (!ticketActual) { return; }
+        var altoMm = altoTicketMm(ticketActual);
+        var ventana = window.open("", "tms_ticket_artiani_entregas", "width=340,height=720");
+        if (!ventana) { return; }
+        ventana.document.write(documentoTicketTermico(ticketActual, "ARTIANI Entregas", altoMm));
+        ventana.document.close();
+        ventana.focus();
+        ventana.print();
     }
 
     function renderDryRun(response) {

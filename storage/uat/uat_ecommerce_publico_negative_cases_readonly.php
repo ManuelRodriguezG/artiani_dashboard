@@ -14,11 +14,26 @@ $casos = array(
   "dryrun_get_metodo_incorrecto" => requestNegative($base . "/ecommercePublico/cotizacion_dryrun", "GET"),
   "dryrun_post_items_vacios" => requestNegative($base . "/ecommercePublico/cotizacion_dryrun", "POST", array("items" => array())),
   "dryrun_post_json_vacio" => requestNegative($base . "/ecommercePublico/cotizacion_dryrun", "POST", array()),
+  "preflight_get_metodo_incorrecto" => requestNegative($base . "/ecommercePublico/cotizacion_preflight", "GET"),
+  "preflight_post_items_vacios" => requestNegative($base . "/ecommercePublico/cotizacion_preflight", "POST", array("items" => array())),
   "disponibilidad_sin_parametros" => requestNegative($base . "/ecommercePublico/disponibilidad", "GET"),
   "producto_slug_inexistente" => requestNegative($base . "/ecommercePublico/producto/slug-de-prueba-no-publicado", "GET"),
   "catalogo_limite_excesivo" => requestNegative($base . "/ecommercePublico/catalogo?limite=999", "GET"),
   "cotizacion_registrar_bloqueado" => requestNegative($base . "/ecommercePublico/cotizacion_registrar", "POST", array(
     "items" => array(array("id_publicacion" => 1, "cantidad" => 1))
+  )),
+  "facturacion_get_metodo_incorrecto" => requestNegative($base . "/ecommercePublico/facturacion_solicitar", "GET"),
+  "facturacion_post_folio_vacio" => requestNegative($base . "/ecommercePublico/facturacion_solicitar", "POST", array("folio_compra" => "")),
+  "evento_get_metodo_incorrecto" => requestNegative($base . "/ecommercePublico/evento_navegacion", "GET"),
+  "evento_post_metadata_sensible" => requestNegative($base . "/ecommercePublico/evento_navegacion", "POST", array(
+    "session_id" => "sess_neg_123",
+    "tipo_evento" => "page_view",
+    "metadata" => array("correo" => "cliente@example.com")
+  )),
+  "busqueda_get_metodo_incorrecto" => requestNegative($base . "/ecommercePublico/busqueda_registrar", "GET"),
+  "busqueda_post_query_vacia" => requestNegative($base . "/ecommercePublico/busqueda_registrar", "POST", array(
+    "session_id" => "sess_neg_123",
+    "query" => ""
   ))
 );
 
@@ -35,11 +50,31 @@ foreach ($casos as $nombre => $caso) {
 if (empty($casos["dryrun_get_metodo_incorrecto"]["error"])) {
   $bloqueos[] = "dryrun_get_debe_ser_error_funcional";
 }
+if (empty($casos["preflight_get_metodo_incorrecto"]["error"])) {
+  $bloqueos[] = "preflight_get_debe_ser_error_funcional";
+}
+foreach (array("facturacion_get_metodo_incorrecto", "evento_get_metodo_incorrecto", "busqueda_get_metodo_incorrecto") as $casoGet) {
+  if (empty($casos[$casoGet]["error"])) {
+    $bloqueos[] = $casoGet . "_debe_ser_error_funcional";
+  }
+}
 if (valorNegative($casos["dryrun_post_items_vacios"], array("depurar", "configurado"), true) !== false && empty($casos["dryrun_post_items_vacios"]["error"])) {
   $bloqueos[] = "dryrun_items_vacios_debe_ser_error_funcional";
 }
+if (valorNegative($casos["preflight_post_items_vacios"], array("depurar", "preflight"), false) !== true) {
+  $bloqueos[] = "preflight_items_vacios_debe_responder_preflight";
+}
 if (empty($casos["cotizacion_registrar_bloqueado"]["depurar"]["bloqueado"])) {
   $bloqueos[] = "cotizacion_registrar_debe_permanecer_bloqueado";
+}
+if (valorNegative($casos["facturacion_post_folio_vacio"], array("depurar", "preflight"), false) !== true || !in_array("folio_compra_requerido", valorNegative($casos["facturacion_post_folio_vacio"], array("depurar", "bloqueos"), array()), true)) {
+  $bloqueos[] = "facturacion_folio_vacio_debe_bloquear_preflight";
+}
+if (valorNegative($casos["evento_post_metadata_sensible"], array("depurar", "preflight"), false) !== true || !in_array("metadata_no_debe_incluir_datos_personales", valorNegative($casos["evento_post_metadata_sensible"], array("depurar", "bloqueos"), array()), true)) {
+  $bloqueos[] = "evento_metadata_sensible_debe_bloquear_preflight";
+}
+if (valorNegative($casos["busqueda_post_query_vacia"], array("depurar", "preflight"), false) !== true || !in_array("query_requerido", valorNegative($casos["busqueda_post_query_vacia"], array("depurar", "bloqueos"), array()), true)) {
+  $bloqueos[] = "busqueda_query_vacia_debe_bloquear_preflight";
 }
 if (valorNegative($casos["disponibilidad_sin_parametros"], array("depurar", "disponibilidad"), "") !== "consultar_disponibilidad") {
   $bloqueos[] = "disponibilidad_sin_parametros_debe_consultar";

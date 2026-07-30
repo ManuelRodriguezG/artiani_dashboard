@@ -26,7 +26,7 @@ Uso:
 
 La API publica se mantiene en contratos separados. No se agrega endpoint `bootstrap` en esta fase para evitar acoplar el primer render del frontend a un payload combinado.
 
-Total actual: 12 endpoints publicos read-only/dry-run.
+Total actual: 16 endpoints publicos read-only/dry-run/preflight.
 
 ### Estado/readiness
 
@@ -189,6 +189,46 @@ Reglas:
 - Si el esquema aun no existe, responde `configurado=false`.
 - En estado amarillo, puede responder `configurado=false` antes de validar si `items` viene vacio.
 
+### Cotizacion preflight
+
+```http
+POST /ecommercePublico/cotizacion_preflight
+```
+
+Valida carrito, contacto, consentimiento y WhatsApp antes de abrir la conversacion o preparar el registro futuro.
+
+Body sugerido:
+
+```json
+{
+  "items": [
+    {"id_publicacion": 1, "cantidad": 2}
+  ],
+  "contacto": {
+    "nombre": "Cliente",
+    "telefono": "3322068429",
+    "correo": "",
+    "mensaje": "Quiero confirmar disponibilidad"
+  },
+  "acepta_contacto_whatsapp": true,
+  "politicas_aceptadas": ["aviso-privacidad", "cotizacion-whatsapp"],
+  "utm": {
+    "source": "web"
+  }
+}
+```
+
+Reglas:
+
+- Internamente ejecuta `cotizacion_dryrun`.
+- No guarda cotizacion.
+- Devuelve `folio_preliminar`, pero `folio_no_persistido=true`.
+- Devuelve `listo_para_whatsapp`.
+- Devuelve `listo_para_registro_futuro` para indicar si, cuando se active persistencia, el payload ya tiene contacto minimo.
+- Devuelve `whatsapp.url` si el ERP tiene numero configurado.
+- No aparta ni descuenta inventario.
+- No crea pedido, venta ni prospecto real.
+
 ### Registro de cotizacion futuro
 
 ```http
@@ -218,7 +258,56 @@ Plan read-only:
 C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_cotizacion_registro_plan_readonly.php --base=http://panel.com.local --origin=http://artiani.com.local
 ```
 
-Ese plan documenta el payload futuro, tablas destino y bloqueos vigentes sin desbloquear escrituras.
+### Facturacion solicitar preflight
+
+```http
+POST /ecommercePublico/facturacion_solicitar
+```
+
+Estado actual:
+
+- Activo como preflight sin persistencia.
+- Valida folio de compra, datos fiscales basicos, correo y aviso de privacidad.
+- Devuelve `folio_solicitud_preliminar`, pero `folio_no_persistido=true`.
+- No guarda datos fiscales.
+- No emite factura.
+- No crea cliente ni solicitud real.
+- Devuelve `sql_plan` para la futura bandeja interna de facturacion.
+
+### Evento navegacion preflight
+
+```http
+POST /ecommercePublico/evento_navegacion
+```
+
+Estado actual:
+
+- Activo como preflight sin persistencia.
+- Valida eventos anonimos: `page_view`, `select_mascota`, `select_necesidad`, `search`, `view_product`, `add_to_quote`, `open_whatsapp`, `facturacion_view`, `facturacion_submit`.
+- Bloquea metadata con datos personales detectables como correo, telefono, RFC, nombre o razon social.
+- No registra tracking real todavia.
+
+### Busqueda registrar preflight
+
+```http
+POST /ecommercePublico/busqueda_registrar
+```
+
+Estado actual:
+
+- Activo como preflight sin persistencia.
+- Valida `session_id`, `query`, mascota/necesidad opcional y total de resultados.
+- Devuelve `sin_resultados=true` cuando `resultados_total<=0`.
+- Bloquea busquedas o filtros con datos personales detectables.
+- No guarda historial real todavia.
+
+Ese plan documenta el payload futuro, tablas destino, folio planeado, snapshot y bloqueos vigentes sin desbloquear escrituras.
+
+Documento de flujo:
+
+```text
+docs/erp_ecommerce_publico_cotizaciones_flujo_registro_futuro.md
+```
 
 ## Item de catalogo
 
@@ -245,8 +334,9 @@ Campos esperados:
 
 ## Guardrails
 
-- GET publicos read-only y `POST /cotizacion_dryrun` sin persistencia.
+- GET publicos read-only, `POST /cotizacion_dryrun` y `POST /cotizacion_preflight` sin persistencia.
 - `POST /cotizacion_dryrun` existe solo para validacion sin persistencia.
+- `POST /cotizacion_preflight` existe para validar datos antes de WhatsApp y preparar contrato futuro de registro.
 - `POST /cotizacion_registrar` queda bloqueado hasta autorizar persistencia.
 - Todas las respuestas incluyen metadatos `api.version`, `api.modo` y `api.fuente_verdad`.
 - No usar `ecom_*` como fuente.

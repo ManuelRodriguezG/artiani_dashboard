@@ -30,6 +30,21 @@
         });
     }
 
+    function postForm(url, data) {
+        return fetch(url, {
+            method: "POST",
+            credentials: "same-origin",
+            headers: {
+                "Accept": "application/json",
+                "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
+                "X-CSRF-Token": window.ERP_CSRF_TOKEN || ""
+            },
+            body: new URLSearchParams(data || {}).toString()
+        }).then(function (response) {
+            return response.json();
+        });
+    }
+
     function setEstado(texto, tipo) {
         var el = $("ecom_estado");
         if (!el) { return; }
@@ -40,6 +55,8 @@
     function filtrosAuditoria() {
         var modo = $("ecom_filtro_modo").value;
         return {
+            q: $("ecom_filtro_busqueda") ? $("ecom_filtro_busqueda").value : "",
+            estatus_publicacion: $("ecom_filtro_estatus") ? $("ecom_filtro_estatus").value : "",
             limite: $("ecom_filtro_limite").value,
             solo_publicables: modo === "publicables" ? "1" : "0",
             solo_bloqueados: modo === "bloqueados" ? "1" : "0"
@@ -217,20 +234,32 @@
             imagen_faltante: "Sin imagen",
             categoria_principal_faltante: "Sin categoria",
             venta_fraccionaria_bloqueada_fase_1: "Granel bloqueado",
-            publicacion_existente: "Ya tiene publicacion"
+            publicacion_existente: "Ya tiene publicacion",
+            publicacion_existente_no_borrador: "Ya publicado/pausado"
         };
         return mapa[bloqueo] || bloqueo;
     }
 
+    function estadoPublicacionHtml(item) {
+        var estado = String(item.estatus_publicacion || "");
+        if (!estado) {
+            return "";
+        }
+        var clase = estado === "publicado" ? "badge-light-success" : (estado === "borrador" ? "badge-light-warning" : "badge-light-secondary");
+        return "<div class=\"mt-1\"><span class=\"badge " + clase + "\">" + escapeHtml(estado) + "</span></div>";
+    }
+
     function renderCandidatos(items) {
         if (!items.length) {
-            $("ecom_publicaciones_body").innerHTML = "<tr><td colspan=\"8\" class=\"text-center text-muted py-8\">Sin candidatos para los filtros actuales.</td></tr>";
+            $("ecom_publicaciones_body").innerHTML = "<tr><td colspan=\"9\" class=\"text-center text-muted py-8\">Sin candidatos para los filtros actuales.</td></tr>";
+            actualizarSeleccionLote();
             return;
         }
         $("ecom_publicaciones_body").innerHTML = items.map(function (item) {
             return "<tr>" +
+                "<td><input class=\"form-check-input ecom-lote-check\" type=\"checkbox\" value=\"" + escapeHtml(item.id_sku || "") + "\" data-estatus=\"" + escapeHtml(item.estatus_publicacion || "") + "\"></td>" +
                 "<td><img class=\"ecom-product-img\" src=\"" + escapeHtml(imagenUrl(item.url_imagen)) + "\" alt=\"\"></td>" +
-                "<td><div class=\"fw-bold\">" + escapeHtml(item.nombre_publico || "") + "</div><div class=\"text-muted fs-8\">" + escapeHtml(item.sku || "") + " | " + escapeHtml(item.codigo_producto || "") + "</div></td>" +
+                "<td><div class=\"fw-bold\">" + escapeHtml(item.nombre_publico || "") + "</div><div class=\"text-muted fs-8\">" + escapeHtml(item.sku || "") + " | " + escapeHtml(item.codigo_producto || "") + "</div>" + estadoPublicacionHtml(item) + "</td>" +
                 "<td>" + escapeHtml(item.marca || "Sin marca") + "</td>" +
                 "<td>" + escapeHtml(item.categoria || "Sin categoria") + "</td>" +
                 "<td class=\"text-end fw-semibold\">" + dinero(item.precio || 0) + "</td>" +
@@ -239,6 +268,7 @@
                 "<td class=\"text-end\"><button class=\"btn btn-sm btn-light-primary ecom-preparar\" type=\"button\" data-sku=\"" + escapeHtml(item.id_sku || "") + "\">Preparar</button></td>" +
             "</tr>";
         }).join("");
+        actualizarSeleccionLote();
     }
 
     function renderSchema(auditoria, plan) {
@@ -281,6 +311,13 @@
         var pub = data.publicacion_sugerida || {};
         var bloqueos = data.bloqueos_publicacion || [];
         var necesidades = pub.necesidades || [];
+        var idPublicacion = Number(producto.id_publicacion || 0);
+        var estatus = String(producto.estatus_publicacion || "");
+        var bloqueosSinExistente = bloqueos.filter(function (bloqueo) { return bloqueo !== "publicacion_existente"; });
+        var puedeGuardar = bloqueosSinExistente.length === 0 && (!estatus || estatus === "borrador");
+        var puedeGuardarCuraduria = bloqueosSinExistente.length === 0 && idPublicacion > 0 && (estatus === "borrador" || estatus === "publicado" || estatus === "pausado");
+        var puedePublicar = idPublicacion > 0 && estatus === "borrador";
+        var estaPublicado = idPublicacion > 0 && estatus === "publicado";
         $("ecom_preview_publicacion").innerHTML =
             "<div class=\"row g-4 align-items-start\">" +
                 "<div class=\"col-lg-3\">" +
@@ -295,6 +332,7 @@
                     "<div class=\"text-muted mb-3\">" + escapeHtml(producto.sku || "") + " | " + escapeHtml(producto.marca || "Sin marca") + " | " + escapeHtml(producto.categoria || "Sin categoria") + "</div>" +
                     "<div class=\"fs-6 fw-semibold mb-2\">" + dinero(producto.precio || 0) + " " + escapeHtml(producto.moneda || "MXN") + "</div>" +
                     "<div class=\"mb-2\">" + disponibilidadBadge(producto.disponibilidad_publica_sugerida) + "</div>" +
+                    (estatus ? "<div class=\"mb-2\"><span class=\"badge " + (estatus === "publicado" ? "badge-light-success" : "badge-light-warning") + "\">" + escapeHtml(estatus) + "</span></div>" : "") +
                     "<div class=\"text-muted fs-7\">Los precio, imagen, marca y categoria seguiran viniendo vivos desde ERP. La publicacion solo guarda curaduria.</div>" +
                 "</div>" +
                 "<div class=\"col-lg-4\">" +
@@ -304,17 +342,211 @@
                         "<div class=\"fs-7 mb-1\"><span class=\"text-muted\">Presentacion:</span> " + escapeHtml(pub.presentacion_publica || "Sin dato") + "</div>" +
                         "<div class=\"fs-7 mb-1\"><span class=\"text-muted\">Mascota:</span> " + escapeHtml(pub.mascota_especie || "Por definir") + "</div>" +
                         "<div class=\"fs-7 mb-3\"><span class=\"text-muted\">Necesidades:</span> " + escapeHtml(necesidades.length ? necesidades.join(", ") : "Por definir") + "</div>" +
-                        (bloqueos.length ? "<div class=\"ecom-block-list\">" + bloqueos.map(function (b) { return "<span class=\"badge badge-light-warning\">" + escapeHtml(etiquetaBloqueo(b)) + "</span>"; }).join("") + "</div>" : "<span class=\"badge badge-light-success\">Listo para borrador cuando exista esquema</span>") +
+                        (bloqueos.length ? "<div class=\"ecom-block-list\">" + bloqueos.map(function (b) { return "<span class=\"badge badge-light-warning\">" + escapeHtml(etiquetaBloqueo(b)) + "</span>"; }).join("") + "</div>" : "<span class=\"badge badge-light-success\">Listo para guardar borrador</span>") +
+                    "</div>" +
+                "</div>" +
+                "<div class=\"col-12\">" +
+                    "<div class=\"border rounded p-4\">" +
+                        "<div class=\"row g-3\" id=\"ecom_publicacion_form\" data-id-sku=\"" + escapeHtml(producto.id_sku || "") + "\" data-id-publicacion=\"" + escapeHtml(idPublicacion || "") + "\">" +
+                            "<div class=\"col-lg-6\"><label class=\"form-label fw-semibold\">Titulo publico</label><input class=\"form-control form-control-solid\" data-field=\"titulo_publico\" value=\"" + escapeHtml(pub.titulo_publico || producto.nombre || "") + "\"></div>" +
+                            "<div class=\"col-lg-6\"><label class=\"form-label fw-semibold\">Slug</label><input class=\"form-control form-control-solid\" data-field=\"slug\" value=\"" + escapeHtml(pub.slug || "") + "\"></div>" +
+                            "<div class=\"col-lg-4\"><label class=\"form-label fw-semibold\">Presentacion</label><input class=\"form-control form-control-solid\" data-field=\"presentacion_publica\" value=\"" + escapeHtml(pub.presentacion_publica || producto.presentacion_base || "") + "\"></div>" +
+                            "<div class=\"col-lg-4\"><label class=\"form-label fw-semibold\">Mascota</label><input class=\"form-control form-control-solid\" data-field=\"mascota_especie\" value=\"" + escapeHtml(pub.mascota_especie || "") + "\" placeholder=\"perro, gato, pez, ave...\"></div>" +
+                            "<div class=\"col-lg-4\"><label class=\"form-label fw-semibold\">Necesidades</label><input class=\"form-control form-control-solid\" data-field=\"necesidades\" value=\"" + escapeHtml(necesidades.join(",")) + "\" placeholder=\"alimento, habitat, salud\"></div>" +
+                            "<div class=\"col-12\"><label class=\"form-label fw-semibold\">Descripcion publica</label><textarea class=\"form-control form-control-solid\" rows=\"3\" data-field=\"descripcion_publica\">" + escapeHtml(pub.descripcion_publica || "") + "</textarea></div>" +
+                            "<div class=\"col-12 d-flex flex-wrap gap-2 justify-content-end\">" +
+                                (estaPublicado ? "<span class=\"badge badge-light-success align-self-center\">Producto publicado en API publica</span>" : "") +
+                                (puedeGuardar && !idPublicacion ? "<button type=\"button\" class=\"btn btn-light-primary\" id=\"ecom_guardar_borrador\">Guardar borrador</button>" : "") +
+                                (puedeGuardarCuraduria ? "<button type=\"button\" class=\"btn btn-light-primary\" id=\"ecom_guardar_curaduria\">Guardar cambios</button>" : "") +
+                                (puedePublicar ? "<button type=\"button\" class=\"btn btn-success\" id=\"ecom_publicar_borrador\">Publicar en ecommerce</button>" : "") +
+                            "</div>" +
+                        "</div>" +
                     "</div>" +
                 "</div>" +
             "</div>";
+
+        var btnGuardar = $("ecom_guardar_borrador");
+        if (btnGuardar) {
+            btnGuardar.addEventListener("click", guardarBorradorActual);
+        }
+        var btnCuraduria = $("ecom_guardar_curaduria");
+        if (btnCuraduria) {
+            btnCuraduria.addEventListener("click", guardarCuraduriaActual);
+        }
+        var btnPublicar = $("ecom_publicar_borrador");
+        if (btnPublicar) {
+            btnPublicar.addEventListener("click", publicarBorradorActual);
+        }
+    }
+
+    function datosFormularioPublicacion() {
+        var form = $("ecom_publicacion_form");
+        var datos = {
+            id_sku: form ? form.getAttribute("data-id-sku") : "",
+            id_publicacion: form ? form.getAttribute("data-id-publicacion") : ""
+        };
+        if (!form) { return datos; }
+        Array.prototype.forEach.call(form.querySelectorAll("[data-field]"), function (campo) {
+            datos[campo.getAttribute("data-field")] = campo.value || "";
+        });
+        datos.permite_cotizacion = "1";
+        datos.permite_whatsapp = "1";
+        datos.mostrar_precio = "1";
+        datos.mostrar_disponibilidad = "1";
+        return datos;
+    }
+
+    function guardarBorradorActual() {
+        var datos = datosFormularioPublicacion();
+        datos.autorizar = "ECOMMERCE_PUBLICO_PUBLICACION_BORRADOR";
+        setEstado("Guardando borrador...", "badge-light-info");
+        postForm("/ecommercePublico/publicaciones_guardar_borrador_erp", datos).then(function (response) {
+            if (response.error) { throw new Error(response.mensaje || "No se pudo guardar borrador"); }
+            setEstado("Borrador guardado", "badge-light-success");
+            cargarPreparacion(datos.id_sku);
+            cargarAuditoria();
+        }).catch(function (error) {
+            setEstado("Error", "badge-light-danger");
+            $("ecom_preview_publicacion").insertAdjacentHTML("afterbegin", "<div class=\"alert alert-danger\">" + escapeHtml(error.message || String(error)) + "</div>");
+        });
+    }
+
+    function guardarCuraduriaActual() {
+        var datos = datosFormularioPublicacion();
+        datos.autorizar = "ECOMMERCE_PUBLICO_PUBLICACION_CURADURIA";
+        setEstado("Guardando cambios...", "badge-light-info");
+        postForm("/ecommercePublico/publicaciones_guardar_curaduria_erp", datos).then(function (response) {
+            if (response.error) { throw new Error(response.mensaje || "No se pudo guardar curaduria"); }
+            setEstado("Cambios guardados", "badge-light-success");
+            cargarPreparacion(datos.id_sku);
+            cargarAuditoria();
+        }).catch(function (error) {
+            setEstado("Error", "badge-light-danger");
+            $("ecom_preview_publicacion").insertAdjacentHTML("afterbegin", "<div class=\"alert alert-danger\">" + escapeHtml(error.message || String(error)) + "</div>");
+        });
+    }
+
+    function skusSeleccionadosLote(filtroEstatus) {
+        var checks = document.querySelectorAll(".ecom-lote-check:checked");
+        var skus = [];
+        Array.prototype.forEach.call(checks, function (check) {
+            var estatus = check.getAttribute("data-estatus") || "";
+            if (filtroEstatus && estatus !== filtroEstatus) { return; }
+            var id = Number(check.value || 0);
+            if (id > 0 && skus.indexOf(id) === -1) {
+                skus.push(id);
+            }
+        });
+        return skus;
+    }
+
+    function actualizarSeleccionLote() {
+        var checks = document.querySelectorAll(".ecom-lote-check:checked");
+        var total = checks.length;
+        var contador = $("ecom_lote_seleccionados");
+        if (contador) { contador.textContent = total + " seleccionados"; }
+        var all = $("ecom_lote_check_all");
+        if (all) {
+            var disponibles = document.querySelectorAll(".ecom-lote-check").length;
+            all.checked = disponibles > 0 && total === disponibles;
+            all.indeterminate = total > 0 && total < disponibles;
+        }
+    }
+
+    function guardarBorradoresLote() {
+        var skus = skusSeleccionadosLote("");
+        if (!skus.length) {
+            window.alert("Selecciona al menos un producto.");
+            return;
+        }
+        if (!window.confirm("Guardar borradores ecommerce para " + skus.length + " productos seleccionados?")) {
+            return;
+        }
+        setEstado("Guardando lote...", "badge-light-info");
+        postForm("/ecommercePublico/publicaciones_lote_borrador_erp", {
+            autorizar: "ECOMMERCE_PUBLICO_LOTE_BORRADOR",
+            id_skus: skus.join(",")
+        }).then(function (response) {
+            if (response.error) { throw new Error(response.mensaje || "No se pudo guardar lote"); }
+            var depurar = response.depurar || {};
+            setEstado("Lote: " + Number(depurar.total_ok || 0) + " ok", "badge-light-success");
+            cargarTodo();
+        }).catch(function (error) {
+            setEstado("Error", "badge-light-danger");
+            window.alert(error.message || "No se pudo guardar lote.");
+        });
+    }
+
+    function publicarBorradoresLote() {
+        var skus = skusSeleccionadosLote("borrador");
+        if (!skus.length) {
+            window.alert("Selecciona productos en estado borrador.");
+            return;
+        }
+        if (!window.confirm("Publicar " + skus.length + " borradores seleccionados en el API publico?")) {
+            return;
+        }
+        setEstado("Publicando lote...", "badge-light-info");
+        postForm("/ecommercePublico/publicaciones_lote_publicar_erp", {
+            autorizar: "ECOMMERCE_PUBLICO_LOTE_PUBLICAR",
+            id_skus: skus.join(","),
+            confirmar_revision: "1"
+        }).then(function (response) {
+            if (response.error) { throw new Error(response.mensaje || "No se pudo publicar lote"); }
+            var depurar = response.depurar || {};
+            setEstado("Publicados: " + Number(depurar.total_ok || 0), "badge-light-success");
+            cargarTodo();
+        }).catch(function (error) {
+            setEstado("Error", "badge-light-danger");
+            window.alert(error.message || "No se pudo publicar lote.");
+        });
+    }
+
+    function publicarBorradorActual() {
+        var datos = datosFormularioPublicacion();
+        if (!window.confirm("Publicar este producto en el API publico del ecommerce?")) {
+            return;
+        }
+        datos.autorizar = "ECOMMERCE_PUBLICO_PUBLICAR_BORRADOR";
+        datos.confirmar_revision = "1";
+        setEstado("Publicando...", "badge-light-info");
+        postForm("/ecommercePublico/publicaciones_publicar_borrador_erp", datos).then(function (response) {
+            if (response.error) { throw new Error(response.mensaje || "No se pudo publicar"); }
+            setEstado("Publicado", "badge-light-success");
+            cargarPreparacion(datos.id_sku);
+            cargarTodo();
+        }).catch(function (error) {
+            setEstado("Error", "badge-light-danger");
+            $("ecom_preview_publicacion").insertAdjacentHTML("afterbegin", "<div class=\"alert alert-danger\">" + escapeHtml(error.message || String(error)) + "</div>");
+        });
     }
 
     document.addEventListener("DOMContentLoaded", function () {
         $("ecom_recargar").addEventListener("click", cargarTodo);
+        var filtroBusqueda = $("ecom_filtro_busqueda");
+        if (filtroBusqueda) {
+            var timerBusqueda = null;
+            filtroBusqueda.addEventListener("input", function () {
+                clearTimeout(timerBusqueda);
+                timerBusqueda = setTimeout(cargarAuditoria, 300);
+            });
+        }
         $("ecom_filtro_modo").addEventListener("change", cargarTodo);
+        $("ecom_filtro_estatus").addEventListener("change", cargarTodo);
         $("ecom_filtro_limite").addEventListener("change", cargarTodo);
+        $("ecom_lote_borrador").addEventListener("click", guardarBorradoresLote);
+        $("ecom_lote_publicar").addEventListener("click", publicarBorradoresLote);
+        $("ecom_lote_check_all").addEventListener("change", function (event) {
+            Array.prototype.forEach.call(document.querySelectorAll(".ecom-lote-check"), function (check) {
+                check.checked = event.target.checked;
+            });
+            actualizarSeleccionLote();
+        });
         $("ecom_publicaciones_body").addEventListener("click", function (event) {
+            if (event.target.classList.contains("ecom-lote-check")) {
+                actualizarSeleccionLote();
+                return;
+            }
             var boton = event.target.closest(".ecom-preparar");
             if (!boton) { return; }
             cargarPreparacion(boton.getAttribute("data-sku"));

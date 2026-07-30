@@ -22,9 +22,32 @@ $pruebas = array(
   "cotizacion_dryrun" => requestHttp($base . "/ecommercePublico/cotizacion_dryrun", "POST", array(
     "items" => array(array("id_publicacion" => 1, "cantidad" => 1))
   )),
+  "cotizacion_preflight" => requestHttp($base . "/ecommercePublico/cotizacion_preflight", "POST", array(
+    "items" => array(array("id_publicacion" => 1, "cantidad" => 1)),
+    "contacto" => array("nombre" => "Smoke read-only", "telefono" => "3322068429"),
+    "acepta_contacto_whatsapp" => true,
+    "politicas_aceptadas" => array("aviso-privacidad", "cotizacion-whatsapp")
+  )),
   "cotizacion_registrar" => requestHttp($base . "/ecommercePublico/cotizacion_registrar", "POST", array(
     "items" => array(array("id_publicacion" => 1, "cantidad" => 1)),
     "contacto" => array("nombre" => "Smoke read-only", "telefono" => "5555555555")
+  )),
+  "facturacion_solicitar" => requestHttp($base . "/ecommercePublico/facturacion_solicitar", "POST", array(
+    "folio_compra" => "TICKET-123",
+    "datos_fiscales" => array("rfc" => "XAXX010101000", "razon_social" => "Cliente Smoke", "regimen_fiscal" => "616", "uso_cfdi" => "G03", "codigo_postal" => "44100"),
+    "contacto" => array("correo" => "cliente@example.com"),
+    "acepta_aviso_privacidad" => true
+  )),
+  "evento_navegacion" => requestHttp($base . "/ecommercePublico/evento_navegacion", "POST", array(
+    "session_id" => "sess_smoke_123",
+    "tipo_evento" => "page_view",
+    "ruta" => "/"
+  )),
+  "busqueda_registrar" => requestHttp($base . "/ecommercePublico/busqueda_registrar", "POST", array(
+    "session_id" => "sess_smoke_123",
+    "query" => "alimento perro",
+    "mascota" => "perro",
+    "resultados_total" => 1
   ))
 );
 
@@ -36,6 +59,11 @@ foreach ($pruebas as $nombre => $prueba) {
 }
 if (empty($pruebas["cotizacion_registrar"]["depurar_resumen"]["bloqueado"])) {
   $bloqueos[] = "cotizacion_registrar_debe_seguir_bloqueado";
+}
+foreach (array("facturacion_solicitar", "evento_navegacion", "busqueda_registrar") as $endpointPreflight) {
+  if (empty($pruebas[$endpointPreflight]["depurar_resumen"]["preflight"])) {
+    $bloqueos[] = $endpointPreflight . "_debe_responder_preflight";
+  }
 }
 
 echo json_encode(array(
@@ -91,6 +119,8 @@ function resumenDepurarHttpSmoke($depurar) {
     "ready" => valorHttpSmoke($depurar, array("ready"), null),
     "configurado" => valorHttpSmoke($depurar, array("configurado"), null),
     "dry_run" => valorHttpSmoke($depurar, array("dry_run"), null),
+    "preflight" => valorHttpSmoke($depurar, array("preflight"), null),
+    "listo_para_whatsapp" => valorHttpSmoke($depurar, array("listo_para_whatsapp"), null),
     "bloqueado" => valorHttpSmoke($depurar, array("bloqueado"), null),
     "disponibilidad" => valorHttpSmoke($depurar, array("disponibilidad"), null),
     "item_presente" => array_key_exists("item", $depurar) ? ($depurar["item"] !== null) : null,

@@ -105,10 +105,11 @@
                                                         <th>Ventana</th>
                                                         <th>Cobro</th>
                                                         <th>Resultado</th>
+                                                        <th class="text-end">Acciones</th>
                                                     </tr>
                                                 </thead>
                                                 <tbody id="tms_servicios_body">
-                                                    <tr><td colspan="5" class="text-center text-muted py-8">Cargando servicios...</td></tr>
+                                                    <tr><td colspan="6" class="text-center text-muted py-8">Cargando servicios...</td></tr>
                                                 </tbody>
                                             </table>
                                         </div>
@@ -204,8 +205,33 @@
         </div>
     </div>
 </div>
+<div class="modal fade" id="tms_ticket_modal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div>
+                    <h3 class="modal-title">ARTIANI Entregas</h3>
+                    <div class="text-muted fs-7" id="tms_ticket_subtitulo">Comprobante logistico</div>
+                </div>
+                <button type="button" class="btn btn-sm btn-icon btn-light" data-bs-dismiss="modal" aria-label="Cerrar">
+                    <i class="bi bi-x-lg"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div id="tms_ticket_alerta" class="mb-3"></div>
+                <pre class="bg-light p-4 rounded tms-code fs-7 mb-0" id="tms_ticket_texto">Sin comprobante.</pre>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-light" type="button" data-bs-dismiss="modal">Cerrar</button>
+                <button class="btn btn-primary" type="button" id="tms_ticket_imprimir">
+                    <i class="bi bi-printer"></i> Imprimir
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
 <script src="assets/plugins/global/plugins.bundle.js"></script>
 <script src="assets/js/scripts.bundle.js"></script>
-<script src="/assets/js/custom/apps/tms/servicios.js?v=20260724-1"></script>
+<script src="/assets/js/custom/apps/tms/servicios.js?v=20260730-ticket-1"></script>
 </body>
 </html>

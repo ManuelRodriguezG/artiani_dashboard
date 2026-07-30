@@ -74,9 +74,10 @@ foreach ($skus as $idSku) {
   $disponibilidad = (string) valorExpansionBundle($producto, array("disponibilidad_publica_sugerida"), "");
   $metadataOk = trim((string) valorExpansionBundle($sugerida, array("mascota_especie"), "")) !== ""
     && !empty(valorExpansionBundle($sugerida, array("necesidades"), array()));
+  $textoPublicoOk = !textoSospechosoExpansionBundle(valorExpansionBundle($sugerida, array("titulo_publico"), ""));
   $disponibilidadOk = in_array($disponibilidad, array("disponible", "pocas_piezas"), true);
   $yaExiste = in_array("publicacion_existente", $bloqueosPublicacion, true);
-  $listo = empty($bloqueosPlan) && empty($bloqueosPublicacion) && $metadataOk && $disponibilidadOk && !$yaExiste;
+  $listo = empty($bloqueosPlan) && empty($bloqueosPublicacion) && $metadataOk && $textoPublicoOk && $disponibilidadOk && !$yaExiste;
   if (!$listo) {
     $bloqueosExpansion[] = "sku_" . $idSku . "_no_listo";
   }
@@ -89,6 +90,7 @@ foreach ($skus as $idSku) {
     "disponibilidad" => $disponibilidad,
     "mascota" => valorExpansionBundle($sugerida, array("mascota_especie"), ""),
     "necesidades" => valorExpansionBundle($sugerida, array("necesidades"), array()),
+    "texto_publico_ok" => $textoPublicoOk,
     "listo_para_borrador" => $listo,
     "sha256_sql_borrador" => valorExpansionBundle($plan, array("depurar", "sha256_sql"), "")
   );
@@ -190,6 +192,12 @@ function validarRespaldoExpansionBundle($respaldo) {
 
 function argumentoExpansionBundle($valor) {
   return "\"" . str_replace("\"", "\\\"", (string) $valor) . "\"";
+}
+
+function textoSospechosoExpansionBundle($texto) {
+  $texto = (string) $texto;
+  return strpos($texto, chr(239) . chr(191) . chr(189)) !== false
+    || preg_match('/[\x00-\x08\x0B\x0C\x0E-\x1F]/', $texto) === 1;
 }
 
 function valorExpansionBundle($datos, $ruta, $default = null) {

@@ -1195,7 +1195,7 @@ Resultado 2026-07-28:
 
 ## TMS-T033 - Creacion real TMS desde POS sin acoplar Ventas
 
-Estado: implementado; pendiente UAT real con respaldo/autorizacion.
+Estado: completado con UAT real autorizado; pendiente validacion visual en navegador.
 
 Objetivo:
 
@@ -1221,8 +1221,8 @@ Criterio de cierre:
 Pendiente:
 
 - [ ] Validacion visual en navegador con servicio local levantado.
-- [ ] UAT real controlado con respaldo externo y token `TMS_POS_REAL_BASE`.
-- [ ] Postcheck posterior al UAT real con referencia `POS-SOL-UAT-*`.
+- [x] UAT real controlado con respaldo externo y token `TMS_POS_REAL_BASE`.
+- [x] Postcheck posterior al UAT real con referencia `POS-SOL-UAT-*`.
 
 Resultado 2026-07-29:
 
@@ -1234,10 +1234,175 @@ Resultado 2026-07-29:
   - `storage/uat/uat_tms_delivery_go_nogo_readonly.php`: sin errores.
 - Prueba bloqueada del apply sin token/respaldo: `pos_tms_uat_real_bloqueado`.
 - Postcheck previo al UAT real: `pos_tms_postcheck_pendiente_uat_real`.
+- Respaldo externo generado:
+  - `C:\xampp\panel_db_backups\artianilocal_panel_20260729_204819_antes_tms_pos_real.sql`;
+  - tamano: 33532718 bytes.
+- Prueba bloqueada con respaldo real y sin token:
+  - estado: `pos_tms_uat_real_bloqueado`;
+  - `validacion_respaldo.ok=true`;
+  - no ejecuto escritura real.
 - Preflight real POS/TMS actualizado: `pos_tms_real_implementacion_lista`, 28/28.
 - Contrato POS/TMS: 48/48.
 - UI POS/TMS: 29/29.
-- Go/no-go consolidado: 56/56.
+- Go/no-go consolidado actualizado con respaldo POS real: 57/57.
+- Go/no-go reporta token `TMS_POS_REAL_BASE` y respaldo:
+  - `C:\xampp\panel_db_backups\artianilocal_panel_20260729_204819_antes_tms_pos_real.sql`;
+  - `existe=true`, `legible=true`, `tamano_bytes=33532718`.
+
+UAT real autorizado 2026-07-29:
+
+- Autorizacion recibida:
+  - `AUTORIZO EJECUTAR UAT REAL POS TMS DELIVERY usando respaldo C:\xampp\panel_db_backups\artianilocal_panel_20260729_204819_antes_tms_pos_real.sql con token TMS_POS_REAL_BASE.`
+- Primer apply creo el servicio, pero fallo en la verificacion interna por contar `erp_tms_eventos` con columna `estatus` inexistente.
+- Correccion aplicada:
+  - `storage/uat/uat_tms_delivery_pos_real_apply_authorized.php`;
+  - `storage/uat/uat_tms_delivery_pos_real_postcheck_readonly.php`.
+- Servicio creado:
+  - `id_tms_servicio=2`;
+  - `folio=TMS-20260729-210207-625`;
+  - `referencia_externa=POS-SOL-UAT-20260729-210207`;
+  - `solicitado_por_modulo=pos`;
+  - `solicitado_por_tipo=solicitud_pos`;
+  - `motivo_logistico=servicio_inicial`;
+  - `estatus_servicio=solicitada`;
+  - `estatus_cobro=por_cobrar`;
+  - `resultado_logistico=pendiente`.
+- Postcheck:
+  - `pos_tms_postcheck_completo`;
+  - detalle=1;
+  - costos=1;
+  - eventos=1;
+  - fallos=0.
+- Validacion UI/datos posterior:
+  - `ui_tms_datos_listos`;
+  - servicios TMS=2;
+  - ingresos logisticos=150.
+
+## TMS-T034 - Operacion UAT del folio TMS creado desde POS
+
+Estado: completado con operacion autorizada; pendiente validacion visual en navegador.
+
+Objetivo:
+
+Operar el folio TMS creado desde POS hasta entrega completa, registrando eventos y evidencia textual sin tocar Ventas, caja, inventario ni garantias.
+
+Criterio de cierre:
+
+- [x] Preflight read-only creado: `storage/uat/uat_tms_delivery_pos_operacion_preflight_readonly.php`.
+- [x] Script autorizado creado: `storage/uat/uat_tms_delivery_pos_operacion_apply_authorized.php`.
+- [x] Token separado documentado en scripts: `TMS_POS_OPERACION_UAT`.
+- [x] Operacion limitada a TMS: estados, eventos y evidencia.
+- [x] Rastreo publico de cliente queda fuera de esta fase.
+- [x] Generar respaldo externo previo a operacion.
+- [x] Ejecutar operacion autorizada con token `TMS_POS_OPERACION_UAT`.
+- [x] Validar postcheck de folio entregado.
+
+Alcance operativo preparado:
+
+- `marcar_lista_salida`;
+- `iniciar_ruta`;
+- `entregar` con `resultado_logistico=completa`;
+- `registrarEvidencia` tipo `nota`.
+
+Frase de autorizacion futura:
+
+```text
+AUTORIZO OPERAR UAT POS TMS DELIVERY usando respaldo C:\xampp\panel_db_backups\artianilocal_panel_20260729_211742_antes_tms_pos_operacion.sql con token TMS_POS_OPERACION_UAT referencia POS-SOL-UAT-20260729-210207.
+```
+
+Resultado 2026-07-29:
+
+- Preflight operacion POS/TMS: `pos_tms_operacion_preflight_listo`.
+- Folio operable: `TMS-20260729-210207-625`.
+- Referencia: `POS-SOL-UAT-20260729-210207`.
+- Estatus actual: `solicitada`.
+- Respaldo externo generado:
+  - `C:\xampp\panel_db_backups\artianilocal_panel_20260729_211742_antes_tms_pos_operacion.sql`;
+  - tamano: 33534922 bytes.
+- Prueba bloqueada con respaldo real y sin token:
+  - estado: `pos_tms_operacion_bloqueada`;
+  - `validacion_respaldo.ok=true`;
+  - no ejecuto escritura real.
+
+Operacion autorizada 2026-07-29:
+
+- Autorizacion recibida:
+  - `AUTORIZO OPERAR UAT POS TMS DELIVERY usando respaldo C:\xampp\panel_db_backups\artianilocal_panel_20260729_211742_antes_tms_pos_operacion.sql con token TMS_POS_OPERACION_UAT referencia POS-SOL-UAT-20260729-210207.`
+- Acciones aplicadas:
+  - `marcar_lista_salida`: `solicitada` -> `lista_para_salida`;
+  - `iniciar_ruta`: `lista_para_salida` -> `en_ruta`;
+  - `entregar`: `en_ruta` -> `entregada`, `resultado_logistico=completa`.
+- Evidencia:
+  - `id_tms_evidencia=2`;
+  - tipo `nota`;
+  - estatus `activa`.
+- Primer postcheck interno del apply fallo por filtrar evidencias con `estatus='activo'`; la evidencia real usa `estatus='activa'`.
+- Correccion aplicada:
+  - `storage/uat/uat_tms_delivery_pos_operacion_apply_authorized.php`;
+  - `storage/uat/uat_tms_delivery_pos_real_postcheck_readonly.php`.
+- Postcheck posterior:
+  - `pos_tms_postcheck_completo`;
+  - estatus `entregada`;
+  - resultado `completa`;
+  - detalle=1;
+  - costos=1;
+  - eventos=5;
+  - evidencias=1;
+  - fallos=0.
+- UI/datos posterior:
+  - servicios TMS=2;
+  - completas=2;
+  - eventos=10;
+  - evidencias=2;
+  - ingresos logisticos=150.
+
+## TMS-T035 - Comprobante logistico TMS
+
+Estado: implementado read-only; pendiente configuracion editable y cobro en caja.
+
+Objetivo:
+
+Definir como se vera el comprobante logistico para cliente/local sin convertir la entrega en producto ni mezclarla con garantias o ventas.
+
+Criterio de cierre:
+
+- [x] Documento de previsualizacion creado: `docs/erp_tms_delivery_ticket_preview.md`.
+- [x] Nombre recomendado para cliente: `ARTIANI Entregas`.
+- [x] Version 80mm propuesta.
+- [x] Bloque corto para imprimir junto al ticket POS.
+- [x] Leyendas de separacion producto/servicio logistico propuestas.
+- [x] Campos configurables sugeridos.
+- [x] Implementar endpoint read-only `Tms::ticket_readonly_erp`.
+- [x] Implementar `TmsDelivery::ticketServicioReadOnly`.
+- [x] Agregar boton imprimir comprobante en UI TMS.
+- [x] Agregar modal de previsualizacion `ARTIANI Entregas`.
+- [x] Agregar impresion termica 80mm desde navegador.
+- [x] UAT read-only creado: `storage/uat/uat_tms_delivery_ticket_readonly.php`.
+- [ ] Definir movimiento de caja separado para cobro logistico.
+
+Decision recomendada:
+
+Usar `ARTIANI Entregas` como nombre visible al cliente y mantener `TMS Delivery` como nombre interno del modulo.
+
+Resultado 2026-07-30:
+
+- Endpoint: `/tms/ticket_readonly_erp`.
+- Modelo: `TmsDelivery::ticketServicioReadOnly`.
+- UI: boton de comprobante en bandeja de servicios TMS.
+- Modal: `ARTIANI Entregas`.
+- Ticket: 80mm, 42 columnas, read-only.
+- Regla: no escribe BD, no toca POS/Ventas, caja, inventario ni garantias.
+- Lint:
+  - `app/controladores/Tms.php`: sin errores;
+  - `app/modelos/TmsDelivery.php`: sin errores;
+  - `app/vistas/paginas/apps/tms/servicios.php`: sin errores;
+  - `public/assets/js/custom/apps/tms/servicios.js`: sin errores;
+  - `storage/uat/uat_tms_delivery_ticket_readonly.php`: sin errores.
+- UAT ticket read-only:
+  - `tms_ticket_readonly_listo`;
+  - checks 10/10;
+  - referencia `POS-SOL-UAT-20260729-210207`.
+- Go/no-go consolidado: 62/62.
 
 ## TMS-T031 - Correccion de alcance TMS solo logistico
 

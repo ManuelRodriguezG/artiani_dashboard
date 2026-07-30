@@ -9,10 +9,10 @@
     <link href="assets/plugins/global/plugins.bundle.css" rel="stylesheet" type="text/css">
     <link href="assets/css/style.bundle.css" rel="stylesheet" type="text/css">
     <!--
-      Documentacion IA: Codex GPT-5, 2026-07-11.
-      Proposito: consola interna read-only para preparar publicaciones del catalogo vivo ecommerce.
-      Impacto: consume auditorias de Catalogo ERP/Ecommerce sin crear publicaciones ni ejecutar DDL.
-      Contrato: no muestra stock exacto como criterio comercial publico; solo ayuda a decidir preparacion interna.
+      Documentacion IA: Codex GPT-5, 2026-07-30.
+      Proposito: consola interna para preparar, guardar borradores y publicar productos del catalogo vivo ecommerce.
+      Impacto: administra curaduria ecommerce; no modifica precios/imagenes ERP, no descuenta inventario y no usa legacy ecom_*.
+      Contrato: POST protegidos por catalogo.editar, CSRF, token interno y auditoria explicita.
     -->
     <style>
         .ecom-kpi { border: 1px solid #e7e9ef; border-radius: 8px; background: #fff; padding: 16px; min-height: 112px; }
@@ -53,7 +53,7 @@
                                 <i class="bi bi-info-circle fs-2"></i>
                                 <div>
                                     <div class="fw-bold">Fase 1: catalogo vivo, no checkout</div>
-                                    <div>Esta pantalla no publica productos, no ejecuta DDL, no registra cotizaciones y no descuenta inventario.</div>
+                                    <div>Esta pantalla permite guardar borradores y publicar productos revisados. No ejecuta DDL, no registra cotizaciones, no descuenta inventario y no modifica precios ni imagenes del ERP.</div>
                                 </div>
                             </div>
 
@@ -110,10 +110,21 @@
                             <div class="card mb-5">
                                 <div class="card-header border-0 pt-6">
                                     <div class="card-title gap-3 flex-wrap">
+                                        <div class="position-relative w-300px">
+                                            <i class="bi bi-search position-absolute top-50 translate-middle-y ms-4 text-muted"></i>
+                                            <input class="form-control form-control-solid ps-12" id="ecom_filtro_busqueda" type="text" placeholder="Buscar SKU, nombre, marca o categoria">
+                                        </div>
                                         <select class="form-select form-select-solid w-220px" id="ecom_filtro_modo">
                                             <option value="todos">Todos los candidatos</option>
                                             <option value="publicables">Solo publicables</option>
                                             <option value="bloqueados">Solo bloqueados</option>
+                                        </select>
+                                        <select class="form-select form-select-solid w-180px" id="ecom_filtro_estatus">
+                                            <option value="">Todos los estados</option>
+                                            <option value="sin_publicacion">Sin publicacion</option>
+                                            <option value="borrador">Borrador</option>
+                                            <option value="publicado">Publicado</option>
+                                            <option value="pausado">Pausado</option>
                                         </select>
                                         <select class="form-select form-select-solid w-120px" id="ecom_filtro_limite">
                                             <option value="25">25</option>
@@ -123,7 +134,12 @@
                                         </select>
                                     </div>
                                     <div class="card-toolbar">
-                                        <span class="badge badge-light-primary" id="ecom_estado">Listo</span>
+                                        <div class="d-flex flex-wrap align-items-center gap-2">
+                                            <span class="badge badge-light-info" id="ecom_lote_seleccionados">0 seleccionados</span>
+                                            <button class="btn btn-sm btn-light-primary" type="button" id="ecom_lote_borrador">Guardar borradores</button>
+                                            <button class="btn btn-sm btn-success" type="button" id="ecom_lote_publicar">Publicar borradores</button>
+                                            <span class="badge badge-light-primary" id="ecom_estado">Listo</span>
+                                        </div>
                                     </div>
                                 </div>
                                 <div class="card-body pt-0">
@@ -131,6 +147,7 @@
                                         <table class="table align-middle table-row-dashed fs-7 gy-4">
                                             <thead>
                                                 <tr class="text-start text-muted fw-bold text-uppercase">
+                                                    <th class="w-30px"><input class="form-check-input" type="checkbox" id="ecom_lote_check_all"></th>
                                                     <th class="w-70px">Imagen</th>
                                                     <th>Producto / SKU</th>
                                                     <th>Marca</th>
@@ -152,7 +169,7 @@
                                     <div class="card-title">
                                         <div>
                                             <h3 class="fw-bold mb-1">Preparacion de publicacion</h3>
-                                            <span class="text-muted fs-7">Vista previa read-only de slug, datos publicos y metadata de mascota.</span>
+                                            <span class="text-muted fs-7">Edita curaduria ecommerce y aprueba productos para el API publico.</span>
                                         </div>
                                     </div>
                                 </div>
@@ -195,6 +212,6 @@
 </div>
 <script src="assets/plugins/global/plugins.bundle.js"></script>
 <script src="assets/js/scripts.bundle.js"></script>
-<script src="/assets/js/custom/apps/erp/ecommerce/publicaciones.js?v=20260712-preparar1"></script>
+<script src="/assets/js/custom/apps/erp/ecommerce/publicaciones.js?v=20260730-panel-publicar1"></script>
 </body>
 </html>

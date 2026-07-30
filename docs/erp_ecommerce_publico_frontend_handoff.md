@@ -8,15 +8,49 @@ Estado: guia de integracion read-only con datos reales Fase 1 para proyecto ecom
 
 El ecommerce publico se construira como proyecto separado. Este ERP solo expone contratos/API y administra la publicacion de productos, configuracion y futuras cotizaciones.
 
+La administracion de productos publicados vive en el panel ERP:
+
+- `http://panel.com.local/ecommercePublico/publicaciones`
+- permite buscar candidatos, filtrar por estado, guardar borradores, editar curaduria, publicar al API y operar lotes seleccionados;
+- no pertenece al frontend publico.
+
 ## Estado actual
 
 - `senal_frontend_actual=verde_datos_reales`.
 - El frontend local autorizado es `http://artiani.com.local`.
 - La base API verificada es `http://panel.com.local/ecommercePublico`.
-- Hay 2 publicaciones reales activas.
+- Hay 6 publicaciones reales activas.
 - `cotizacion_dryrun` funciona con publicaciones reales y no escribe BD.
+- `cotizacion_preflight` funciona como validacion previa a WhatsApp y no escribe BD.
 - `cotizacion_registrar` sigue bloqueado por diseno en Fase 1.
 - `politicas`, `politica/{slug}` y `taxonomia_mascotas` ya responden JSON read-only con defaults de Fase 1 si la tabla aun no existe.
+
+## Trabajo disponible para frontend ahora
+
+El proyecto frontend ya puede avanzar con:
+
+- 6 productos publicados reales desde `GET http://panel.com.local/ecommercePublico/catalogo?pagina=1&limite=24`;
+- catalogo real;
+- filtros y buscador;
+- ficha de producto;
+- politicas;
+- taxonomia por mascota/necesidad;
+- carrito local;
+- `cotizacion_dryrun`;
+- `cotizacion_preflight`;
+- apertura de WhatsApp con `depurar.whatsapp.url`;
+- pantalla visual de facturacion sin POST real;
+- tracking local/mock sin persistencia.
+
+No conectar todavia:
+
+- `POST /ecommercePublico/cotizacion_registrar`;
+- `POST /ecommercePublico/facturacion_solicitar` como registro real;
+- `POST /ecommercePublico/evento_navegacion` como tracking real;
+- `POST /ecommercePublico/busqueda_registrar` como analytics real.
+
+La bandeja interna ERP de cotizaciones esta preparada en read-only, pero no pertenece al frontend publico.
+- `facturacion_solicitar`, `evento_navegacion` y `busqueda_registrar` ya responden como preflight sin persistencia.
 
 ## Variables sugeridas en el proyecto ecommerce
 
@@ -45,6 +79,7 @@ Notas:
 - `docs/erp_ecommerce_publico_frontend_estados_ui.md`
 - `docs/erp_ecommerce_publico_fixtures_frontend.md`
 - `docs/erp_ecommerce_publico_carrito_whatsapp_frontend.md`
+- `docs/erp_ecommerce_publico_cotizaciones_flujo_registro_futuro.md`
 - `docs/erp_ecommerce_publico_frontend_herramientas_integracion.md`
 - `docs/erp_ecommerce_publico_frontend_snapshot_vivo.md`
 - `docs/erp_ecommerce_publico_expansion_catalogo_plan.md`
@@ -92,21 +127,36 @@ C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_experiencia_cliente_http_
 Senal esperada:
 
 ```text
-senal_frontend_experiencia_http=verde_politicas_taxonomia_readonly
+senal_frontend_experiencia_http=verde_experiencia_cliente_preflights_readonly
 ```
 
 El frontend puede avanzar:
 
 - paginas `/politicas` y `/politicas/:slug`;
-- pantalla `/facturacion` con formulario por folio y estado "recepcion en preparacion";
+- pantalla `/facturacion` con formulario por folio validando `POST /facturacion_solicitar` como preflight;
 - selector/navegacion por mascota y necesidad desde API;
-- tracking local/mock de busquedas y navegacion.
+- tracking de busquedas/navegacion llamando preflights, sin asumir que quedan guardados.
 
-No conectar todavia:
+Conectar solo como preflight sin persistencia:
 
 - `POST /ecommercePublico/facturacion_solicitar`;
 - `POST /ecommercePublico/evento_navegacion`;
 - `POST /ecommercePublico/busqueda_registrar`.
+
+No esperar todavia:
+
+- folio fiscal real guardado;
+- panel analitico con datos reales;
+- factura automatica;
+- registro/vinculacion de cliente.
+
+Nota ERP interna: la bandeja de cotizaciones ecommerce ya tiene endpoints protegidos read-only (`cotizaciones_bandeja_erp` y `cotizacion_detalle_erp`), pero no son endpoints para el frontend publico.
+
+Pantalla ERP interna:
+
+```text
+http://panel.com.local/ecommercePublico/cotizaciones
+```
 
 ## Compuerta de entregable frontend
 
@@ -209,6 +259,20 @@ Uso:
 - no sustituye `GET /ecommercePublico/catalogo`.
 
 Regla: mientras la expansion no este autorizada y publicada, el frontend debe consumir `/catalogo` como fuente real y usar este preview solo como apoyo de diseno/QA.
+
+Ruta curada disponible para preview de 6:
+
+```bash
+C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_expansion_curada_6_readonly.php --base=http://panel.com.local --origin=http://artiani.com.local --respaldo=C:\xampp\panel_db_backups\artianilocal_panel_20260716_232839_antes_ecommerce_publico_fase1.sql
+```
+
+Senal esperada:
+
+```text
+senal_expansion_curada=verde_expansion_curada_6_lista_para_revision
+```
+
+Esta ruta usa titulo publico curado para SKU `1138`: `Jaula para aves maxi tipo cilindro Monte Verde 33 x 56 cm`. Sirve para diseno/QA y para preparar autorizacion posterior; no significa que esos 4 candidatos ya esten publicados.
 
 ## Expansion de catalogo
 
@@ -506,9 +570,9 @@ Resultado esperado actual:
 
 - `ok=true`
 - `modo=read-only`
-- `endpoints_total=9`
-- `ready=false`
-- `ddl_pendiente=true`
+- `endpoints_total=13`
+- `ready=true`
+- `ddl_pendiente=false`
 - `registro_cotizacion_bloqueado=true`
 - `guardado_publicacion_bloqueado=true`
 

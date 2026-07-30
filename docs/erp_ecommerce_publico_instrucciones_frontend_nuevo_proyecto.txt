@@ -26,6 +26,32 @@ Estado actual:
 - puede_iniciar_frontend_mock=true
 - puede_integrar_datos_reales=true
 
+Frontend puede avanzar ya:
+- Catalogo publico real con 6 productos publicados para pruebas de layout, filtros, carrito y WhatsApp.
+- Catalogo real con `GET http://panel.com.local/ecommercePublico/catalogo`.
+- Filtros reales con `GET http://panel.com.local/ecommercePublico/filtros`.
+- Detalle de producto con `GET http://panel.com.local/ecommercePublico/producto/{slug}`.
+- Disponibilidad simple con `GET http://panel.com.local/ecommercePublico/disponibilidad`.
+- Politicas con `GET http://panel.com.local/ecommercePublico/politicas` y `GET /politica/{slug}`.
+- Navegacion por mascota/necesidad con `GET http://panel.com.local/ecommercePublico/taxonomia_mascotas`.
+- Carrito local en frontend, sin persistirlo en ERP.
+- Recalculo de carrito con `POST http://panel.com.local/ecommercePublico/cotizacion_dryrun`.
+- Validacion final antes de WhatsApp con `POST http://panel.com.local/ecommercePublico/cotizacion_preflight`.
+- Abrir WhatsApp usando `depurar.whatsapp.url` devuelto por `cotizacion_preflight`.
+- Pantalla `/facturacion` solo visual/preflight, sin enviar datos reales todavia.
+- Tracking local/mock de busqueda y navegacion, sin POST real todavia.
+
+Frontend NO debe conectar todavia:
+- `POST http://panel.com.local/ecommercePublico/cotizacion_registrar`.
+- `POST http://panel.com.local/ecommercePublico/facturacion_solicitar` como guardado real.
+- `POST http://panel.com.local/ecommercePublico/evento_navegacion` como tracking real.
+- `POST http://panel.com.local/ecommercePublico/busqueda_registrar` como analytics real.
+- Checkout, pagos, pedido confirmado, apartado o descuento de inventario.
+
+Nota:
+- `cotizacion_preflight` devuelve `folio_preliminar`, pero no guarda BD. Es referencia temporal para WhatsApp, no folio real de venta/pedido.
+- La bandeja interna ERP ya esta preparada en modo read-only en `http://panel.com.local/ecommercePublico/cotizaciones`, pero el frontend publico no debe consumirla.
+
 Se puede iniciar:
 - estructura del proyecto;
 - AGENTS.md;
@@ -38,20 +64,24 @@ Se puede iniciar:
 
 Ya se puede iniciar como datos reales porque:
 - `uat_ecommerce_publico_green_gate_readonly.php` devuelve `ok=true`;
-- existen 2 items reales en `/catalogo`;
+- existen 6 items reales en `/catalogo`;
 - `cotizacion_dryrun` funciona con publicacion real.
+- `cotizacion_preflight` valida carrito/contacto antes de WhatsApp sin guardar BD.
+- `facturacion_solicitar`, `evento_navegacion` y `busqueda_registrar` existen como preflight sin persistencia.
 
 Comandos ERP clave:
 - `C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_entorno_readonly.php --base=http://panel.com.local`
 - `C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_frontend_readiness_readonly.php`
 - `C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_frontend_package_readonly.php --base=http://panel.com.local`
-- `C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_frontend_entregable_gate_readonly.php --base=http://panel.com.local --origin=http://artiani.com.local --skus_preview=415,866,386,1138 --min_publicadas=2 --min_preview=6`
-- `C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_frontend_snapshot_readonly.php --base=http://panel.com.local --origin=http://artiani.com.local --limite=2`
+- `C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_frontend_entregable_gate_readonly.php --base=http://panel.com.local --origin=http://artiani.com.local --skus_preview=415,866,386,1138 --min_publicadas=6 --min_preview=6`
+- `C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_frontend_snapshot_readonly.php --base=http://panel.com.local --origin=http://artiani.com.local --limite=6`
 - `C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_green_gate_readonly.php --base=http://panel.com.local`
 - `C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_frontend_fixtures_readonly.php`
 
 Pantalla interna ERP:
 - http://panel.com.local/ecommercePublico/publicaciones
+- Desde esta pantalla ERP se pueden buscar productos, guardar borradores, editar curaduria de publicados y publicar al API. El frontend externo no consume esta pantalla.
+- Tambien permite seleccion multiple para guardar/publicar lotes controlados desde ERP; esto solo cambia que productos aparecen en el API.
 
 Prompt corto para pegar al iniciar el nuevo proyecto:
 - docs/erp_ecommerce_publico_prompt_inicio_frontend.txt
@@ -92,6 +122,19 @@ Prueba carrito/WhatsApp:
 Plan de registro interno futuro:
 - `C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_cotizacion_registro_plan_readonly.php --base=http://panel.com.local --origin=http://artiani.com.local`
 
+Experiencia cliente, facturacion y analytics:
+- `C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_experiencia_cliente_plan_readonly.php`
+- `C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_experiencia_cliente_apply_guard_readonly.php`
+- `C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_experiencia_cliente_postcheck_readonly.php`
+- Frontend puede llamar `POST http://panel.com.local/ecommercePublico/facturacion_solicitar` para validar solicitud fiscal, pero no queda guardada todavia.
+- Frontend puede llamar `POST http://panel.com.local/ecommercePublico/evento_navegacion` para validar tracking anonimo, pero no queda guardado todavia.
+- Frontend puede llamar `POST http://panel.com.local/ecommercePublico/busqueda_registrar` para validar busquedas anonimas, pero no quedan guardadas todavia.
+- Estos tres endpoints devuelven `preflight=true`, `no_escribe_bd=true` y `listo_para_registro_futuro`.
+- No enviar datos personales en `evento_navegacion` ni `busqueda_registrar`; la API bloquea correos, telefonos, RFC, nombre, razon social y direcciones detectables.
+- Comando futuro ERP, no ejecutable sin autorizacion/respaldo: `C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_experiencia_cliente_schema_apply_authorized.php --autorizar=ECOMMERCE_PUBLICO_EXPERIENCIA_CLIENTE_DDL --respaldo=C:\xampp\panel_db_backups\[ARCHIVO].sql`
+- Panel interno ERP preparado por contrato: `GET http://panel.com.local/ecommercePublico/inteligencia_cliente_erp`
+- UAT interno ERP: `C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_inteligencia_cliente_readonly.php`
+
 Prueba de casos negativos:
 - `C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_negative_cases_readonly.php --base=http://panel.com.local`
 
@@ -101,11 +144,14 @@ Expansion read-only de catalogo:
 - `C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_frontend_preview_expansion_readonly.php --base=http://panel.com.local --origin=http://artiani.com.local --skus=415,866,386,1138 --resumen=1`
 - `C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_expansion_publicacion_paquete_readonly.php --skus=415,866,386,1138 --base=http://panel.com.local`
 - `C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_expansion_apply_checklist_readonly.php --base=http://panel.com.local --respaldo=C:\xampp\panel_db_backups\artianilocal_panel_20260716_232839_antes_ecommerce_publico_fase1.sql --skus=415,866,386,1138`
+- `C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_publicacion_texto_curado_readonly.php --id_sku=1138 --titulo="Jaula para aves maxi tipo cilindro Monte Verde 33 x 56 cm" --mascota=ave --necesidades=habitat`
+- `C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_expansion_curada_6_readonly.php --base=http://panel.com.local --origin=http://artiani.com.local --respaldo=C:\xampp\panel_db_backups\artianilocal_panel_20260716_232839_antes_ecommerce_publico_fase1.sql`
 
 Preview de frontend:
 - El API real actual devuelve 2 productos publicados.
 - El preview read-only combina esos 2 productos con 4 candidatos reales para poder disenar una experiencia de catalogo mas completa.
 - Los productos con `preview_no_publicado=true` no deben tratarse como publicados ni persistirse en el frontend.
+- Si el preview normal bloquea por texto del SKU 1138, usar la ruta curada read-only para layout: `senal_expansion_curada=verde_expansion_curada_6_lista_para_revision`.
 - La fuente real sigue siendo `GET http://panel.com.local/ecommercePublico/catalogo`.
 - Cuando el ERP publique la expansion con autorizacion, validar con snapshot `--min_publicaciones=6` y quitar cualquier dependencia del preview.
 
@@ -736,7 +782,7 @@ C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_experiencia_cliente_http_
 
 Resultado esperado:
 
-senal_frontend_experiencia_http=verde_politicas_taxonomia_readonly
+senal_frontend_experiencia_http=verde_experiencia_cliente_preflights_readonly
 
 Pantallas que frontend ya puede construir:
 - `/politicas`
@@ -757,23 +803,24 @@ Pantalla `/facturacion`:
 - Capturar correo.
 - Capturar telefono.
 - Capturar notas.
-- Mostrar estado: "Recepcion de solicitudes en preparacion".
-- No enviar POST real todavia.
+- Enviar `POST /ecommercePublico/facturacion_solicitar` como preflight.
+- Mostrar estado: "Solicitud validada; recepcion real pendiente de activacion" si `preflight=true`.
 - No prometer factura automatica.
+- No prometer que la solicitud quedo guardada si `folio_no_persistido=true`.
 
 Tracking/analytics en frontend:
 - Se puede modelar localmente con session_id anonimo.
 - Eventos futuros: page_view, select_mascota, select_necesidad, search, view_product, add_to_quote, open_whatsapp, facturacion_view, facturacion_submit.
-- No enviar aun POST real de analytics.
+- Enviar `POST /ecommercePublico/evento_navegacion` y `POST /ecommercePublico/busqueda_registrar` solo como preflight sin persistencia.
 - No guardar datos fiscales/contacto en eventos anonimos.
 - Preparar UI interna/mock para busquedas frecuentes, busquedas sin resultado, mascotas consultadas y conversion a WhatsApp.
 
-No conectar todavia:
+Conectar solo como preflight:
 - POST /ecommercePublico/facturacion_solicitar
 - POST /ecommercePublico/evento_navegacion
 - POST /ecommercePublico/busqueda_registrar
 
-Motivo:
+Motivo para no tratarlos como registro real:
 - Requieren tablas aplicadas con respaldo/autorizacion.
 - Requieren consentimiento/politica visible.
 - Requieren rate limit/captcha antes de recibir formularios publicos.

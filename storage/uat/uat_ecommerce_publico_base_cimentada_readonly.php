@@ -44,13 +44,27 @@ $dryrun = !empty($primerItem) ? $api->cotizacionDryRun(array(
   )),
   "contacto" => array("nombre" => "Validacion base", "telefono" => "", "mensaje" => "")
 )) : array();
+$preflight = !empty($primerItem) ? $api->cotizacionPreflight(array(
+  "items" => array(array(
+    "id_publicacion" => intval(valorBaseCimentada($primerItem, array("id_publicacion"), 0)),
+    "cantidad" => 1
+  )),
+  "contacto" => array("nombre" => "Validacion base", "telefono" => "3322068429", "mensaje" => ""),
+  "acepta_contacto_whatsapp" => true,
+  "politicas_aceptadas" => array("aviso-privacidad", "cotizacion-whatsapp")
+)) : array();
 $registroBloqueado = $api->cotizacionRegistrarBloqueada(array("items" => array(array("id_publicacion" => 1, "cantidad" => 1))));
 
 $previewListos = 0;
 $previewBloqueos = array();
+$previewCurado = array("aplicado" => false, "id_sku" => null, "senal" => null);
 foreach ($skusPreview as $idSku) {
   $preparacion = $api->prepararPublicacion(array("id_sku" => $idSku));
   $bloqueosPublicacion = valorBaseCimentada($preparacion, array("depurar", "bloqueos_publicacion"), array());
+  $tituloPublico = valorBaseCimentada($preparacion, array("depurar", "publicacion_sugerida", "titulo_publico"), "");
+  if (textoSospechosoBaseCimentada($tituloPublico)) {
+    $bloqueosPublicacion[] = "validar_texto_publico";
+  }
   if (empty($bloqueosPublicacion)) {
     $previewListos++;
   } else {
@@ -60,11 +74,22 @@ foreach ($skusPreview as $idSku) {
 
 $endpoints = valorBaseCimentada($contratos, array("depurar", "endpoints_publicos"), array());
 $publicadas = intval(valorBaseCimentada($estado, array("depurar", "publicaciones", "total_publicadas"), count($items)));
+$curado1138 = validarSku1138CuradoBaseCimentada($api, $skusPreview, $previewBloqueos);
+if (!empty($curado1138["ok"])) {
+  $previewListos++;
+  $previewBloqueos = quitarSkuBloqueosBaseCimentada($previewBloqueos, 1138);
+  $previewCurado = array(
+    "aplicado" => true,
+    "id_sku" => 1138,
+    "senal" => "verde_titulo_publico_curado",
+    "titulo_publico" => "Jaula para aves maxi tipo cilindro Monte Verde 33 x 56 cm"
+  );
+}
 $previewTotal = $publicadas + $previewListos;
 $config = valorBaseCimentada($configuracion, array("depurar", "configuracion"), array());
 $bloqueos = array();
 
-if (count($endpoints) < 12) { $bloqueos[] = "contratos_menos_de_12_endpoints"; }
+if (count($endpoints) < 16) { $bloqueos[] = "contratos_menos_de_16_endpoints"; }
 if (!valorBaseCimentada($estado, array("depurar", "ready"), false)) { $bloqueos[] = "api_no_ready"; }
 if (valorBaseCimentada($estado, array("depurar", "schema", "ddl_pendiente"), true)) { $bloqueos[] = "ddl_pendiente"; }
 if ($publicadas < $minPublicadas) { $bloqueos[] = "publicadas_menor_a_minimo_" . $minPublicadas; }
@@ -77,6 +102,7 @@ if (!is_array(valorBaseCimentada($politicas, array("depurar", "items"), null))) 
 if (!is_array(valorBaseCimentada($taxonomia, array("depurar", "mascotas"), null)) || !is_array(valorBaseCimentada($taxonomia, array("depurar", "necesidades"), null))) { $bloqueos[] = "taxonomia_no_ok"; }
 if (empty($items)) { $bloqueos[] = "catalogo_sin_items"; }
 if (empty($dryrun) || !empty($dryrun["error"]) || empty(valorBaseCimentada($dryrun, array("depurar", "lineas"), array()))) { $bloqueos[] = "cotizacion_dryrun_no_ok"; }
+if (empty($preflight) || !empty($preflight["error"]) || valorBaseCimentada($preflight, array("depurar", "preflight"), false) !== true || valorBaseCimentada($preflight, array("depurar", "listo_para_whatsapp"), false) !== true) { $bloqueos[] = "cotizacion_preflight_no_ok"; }
 if (valorBaseCimentada($registroBloqueado, array("depurar", "bloqueado"), false) !== true) { $bloqueos[] = "cotizacion_registrar_no_bloqueado"; }
 if ($previewTotal < $minPreview) { $bloqueos[] = "preview_menor_a_minimo_" . $minPreview; }
 if (!empty($previewBloqueos)) { $bloqueos[] = "preview_con_bloqueos"; }
@@ -101,16 +127,19 @@ echo json_encode(array(
     "taxonomia_ok" => is_array(valorBaseCimentada($taxonomia, array("depurar", "mascotas"), null)),
     "catalogo_items" => count($items),
     "cotizacion_dryrun_ok" => !empty($dryrun) && empty($dryrun["error"]),
+    "cotizacion_preflight_ok" => !empty($preflight) && empty($preflight["error"]) && valorBaseCimentada($preflight, array("depurar", "listo_para_whatsapp"), false) === true,
     "cotizacion_registrar_bloqueado" => valorBaseCimentada($registroBloqueado, array("depurar", "bloqueado"), false) === true,
     "preview_total" => $previewTotal,
-    "min_preview" => $minPreview
+    "min_preview" => $minPreview,
+    "preview_curado" => $previewCurado
   ),
   "frontend_puede_trabajar" => array(
     "catalogo_real_basico" => empty($bloqueos),
     "grid_6_tarjetas_con_preview" => $previewTotal >= $minPreview && empty($previewBloqueos),
     "politicas_facturacion_ui" => is_array(valorBaseCimentada($politicas, array("depurar", "items"), null)),
     "navegacion_mascota_necesidad" => is_array(valorBaseCimentada($taxonomia, array("depurar", "mascotas"), null)),
-    "carrito_whatsapp_dryrun" => !empty($dryrun) && empty($dryrun["error"])
+    "carrito_whatsapp_dryrun" => !empty($dryrun) && empty($dryrun["error"]),
+    "carrito_whatsapp_preflight" => !empty($preflight) && empty($preflight["error"]) && valorBaseCimentada($preflight, array("depurar", "listo_para_whatsapp"), false) === true
   ),
   "no_es_productivo" => true,
   "bloqueos" => array_values(array_unique($bloqueos)),
@@ -132,4 +161,49 @@ function valorBaseCimentada($datos, $ruta, $default = null) {
     $actual = $actual[$segmento];
   }
   return $actual;
+}
+
+function textoSospechosoBaseCimentada($texto) {
+  $texto = (string) $texto;
+  return strpos($texto, chr(239) . chr(191) . chr(189)) !== false
+    || preg_match('/[\x00-\x08\x0B\x0C\x0E-\x1F]/', $texto) === 1;
+}
+
+function validarSku1138CuradoBaseCimentada($api, $skusPreview, $previewBloqueos) {
+  if (!in_array(1138, $skusPreview, true) || !skuTieneBloqueoBaseCimentada($previewBloqueos, 1138, "validar_texto_publico")) {
+    return array("ok" => false);
+  }
+  $plan = $api->planGuardarPublicacion(array(
+    "id_sku" => 1138,
+    "titulo_publico" => "Jaula para aves maxi tipo cilindro Monte Verde 33 x 56 cm",
+    "mascota_especie" => "ave",
+    "necesidades" => "habitat",
+    "estatus_publicacion" => "borrador"
+  ));
+  $bloqueos = valorBaseCimentada($plan, array("depurar", "bloqueos_publicacion"), array());
+  $titulo = valorBaseCimentada($plan, array("depurar", "publicacion_normalizada", "titulo_publico"), "");
+  if (textoSospechosoBaseCimentada($titulo)) {
+    $bloqueos[] = "validar_texto_publico";
+  }
+  return array("ok" => empty($plan["error"]) && empty($bloqueos), "bloqueos" => array_values(array_unique($bloqueos)));
+}
+
+function skuTieneBloqueoBaseCimentada($previewBloqueos, $idSku, $bloqueoBuscado) {
+  foreach ($previewBloqueos as $item) {
+    if (intval(valorBaseCimentada($item, array("id_sku"), 0)) === intval($idSku)
+      && in_array($bloqueoBuscado, valorBaseCimentada($item, array("bloqueos"), array()), true)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function quitarSkuBloqueosBaseCimentada($previewBloqueos, $idSku) {
+  $filtrados = array();
+  foreach ($previewBloqueos as $item) {
+    if (intval(valorBaseCimentada($item, array("id_sku"), 0)) !== intval($idSku)) {
+      $filtrados[] = $item;
+    }
+  }
+  return $filtrados;
 }

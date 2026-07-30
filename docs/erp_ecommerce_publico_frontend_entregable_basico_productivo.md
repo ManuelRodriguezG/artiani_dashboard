@@ -16,6 +16,7 @@ El entregable basico no es un ecommerce completo. Es:
 - ficha de producto;
 - carrito local tipo cotizacion;
 - validacion `cotizacion_dryrun`;
+- preflight `cotizacion_preflight` antes de WhatsApp;
 - envio por WhatsApp;
 - politicas publicas;
 - pantalla de facturacion por folio sin POST real todavia;
@@ -54,6 +55,7 @@ GET /ecommercePublico/catalogo
 GET /ecommercePublico/producto/{slug}
 GET /ecommercePublico/disponibilidad
 POST /ecommercePublico/cotizacion_dryrun
+POST /ecommercePublico/cotizacion_preflight
 ```
 
 Bloqueado en Fase 1:
@@ -165,9 +167,18 @@ Debe validar:
 - WhatsApp configurado;
 - catalogo con productos reales;
 - `cotizacion_dryrun` funcional;
+- `cotizacion_preflight` funcional sin persistencia;
 - politicas funcionales;
 - taxonomia mascotas funcional;
 - preview de 6 tarjetas posible.
+
+Nota de expansion: si el preview normal bloquea por texto sospechoso del SKU `1138`, usar la compuerta curada read-only:
+
+```bash
+C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_expansion_curada_6_readonly.php --base=http://panel.com.local --origin=http://artiani.com.local --respaldo=C:\xampp\panel_db_backups\artianilocal_panel_20260716_232839_antes_ecommerce_publico_fase1.sql
+```
+
+Esta compuerta habilita un preview/revision a 6 productos, pero no publica ni cambia BD.
 
 ## Criterio productivo verde
 

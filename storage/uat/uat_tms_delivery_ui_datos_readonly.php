@@ -86,7 +86,7 @@ echo json_encode(array(
     "sin_garantias_o_postventa" => true,
     "no_mueve_inventario" => true
   ),
-  "siguiente_paso" => "Abrir UI TMS y POS en navegador para validar flujo visual; creacion real POS -> TMS requiere UAT/autorizacion separada."
+  "siguiente_paso" => "Abrir UI TMS y POS en navegador para validar visualmente el folio TMS POS ya entregado."
 ), JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE) . PHP_EOL;
 
 function validar_ids($root) {

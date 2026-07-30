@@ -26,6 +26,21 @@ $registroBloqueado = $api->cotizacionRegistrarBloqueada(array(
   "contacto" => array("nombre" => "Cliente ejemplo", "telefono" => "5215555555555"),
   "items" => array(array("id_publicacion" => 1, "cantidad" => 1))
 ));
+$payloadPlan = array(
+  "contacto" => array(
+    "nombre" => "Cliente ejemplo",
+    "telefono" => "3322068429",
+    "correo" => "cliente@example.com",
+    "canal_preferido" => "whatsapp",
+    "mensaje" => "Me interesa confirmar disponibilidad."
+  ),
+  "items" => array(array("id_publicacion" => 1, "cantidad" => 1)),
+  "acepta_contacto_whatsapp" => true,
+  "politicas_aceptadas" => array("aviso-privacidad", "cotizacion-whatsapp"),
+  "utm" => array("source" => "web", "campaign" => "catalogo_publico")
+);
+$preflight = $api->cotizacionPreflight($payloadPlan);
+$planPersistencia = $api->cotizacionRegistroPersistenciaPlan($payloadPlan);
 
 $ddlPendiente = valorRegistroPlan($estado, array("depurar", "schema", "ddl_pendiente"), true);
 $publicadas = intval(valorRegistroPlan($estado, array("depurar", "publicaciones", "total_publicadas"), 0));
@@ -67,23 +82,25 @@ echo json_encode(array(
     "whatsapp_configurado" => $whatsapp !== "",
     "cors_configurado" => $cors !== "",
     "origin_probado" => $origin,
-    "cors_permite_origin" => $corsPermiteOrigin
+    "cors_permite_origin" => $corsPermiteOrigin,
+    "preflight_ok" => empty($preflight["error"]) && valorRegistroPlan($preflight, array("depurar", "preflight"), false) === true,
+    "plan_persistencia_ok" => empty(valorRegistroPlan($planPersistencia, array("depurar", "bloqueos"), array()))
   ),
-  "payload_futuro_sugerido" => array(
-    "contacto" => array(
-      "nombre" => "Cliente",
-      "telefono" => "5215555555555",
-      "correo" => "cliente@example.com",
-      "canal_preferido" => "whatsapp",
-      "mensaje" => "Me interesa confirmar disponibilidad."
-    ),
-    "items" => array(
-      array("id_publicacion" => 1, "cantidad" => 1)
-    ),
-    "utm" => array(
-      "source" => "web",
-      "campaign" => "catalogo_publico"
-    )
+  "payload_futuro_sugerido" => $payloadPlan,
+  "preflight" => array(
+    "tipo" => valorRegistroPlan($preflight, array("tipo"), ""),
+    "listo_para_whatsapp" => valorRegistroPlan($preflight, array("depurar", "listo_para_whatsapp"), false),
+    "listo_para_registro_futuro" => valorRegistroPlan($preflight, array("depurar", "listo_para_registro_futuro"), false),
+    "folio_preliminar" => valorRegistroPlan($preflight, array("depurar", "folio_preliminar"), "")
+  ),
+  "plan_persistencia" => array(
+    "tipo" => valorRegistroPlan($planPersistencia, array("tipo"), ""),
+    "folio_planeado" => valorRegistroPlan($planPersistencia, array("depurar", "folio_planeado"), ""),
+    "folio_planeado_no_reservado" => valorRegistroPlan($planPersistencia, array("depurar", "folio_planeado_no_reservado"), true),
+    "tablas" => valorRegistroPlan($planPersistencia, array("depurar", "tablas"), array()),
+    "snapshot" => valorRegistroPlan($planPersistencia, array("depurar", "snapshot"), array()),
+    "sql_plan" => valorRegistroPlan($planPersistencia, array("depurar", "sql_plan"), array()),
+    "bloqueos" => valorRegistroPlan($planPersistencia, array("depurar", "bloqueos"), array())
   ),
   "persistencia_planeada" => array(
     "encabezado" => "erp_ecommerce_cotizaciones",

@@ -96,7 +96,8 @@ function conteos_tms($db, $idServicio) {
   );
   $conteos = array();
   foreach ($tablas as $clave => $tabla) {
-    $stmt = $db->prepare("SELECT COUNT(*) total FROM {$tabla} WHERE id_tms_servicio=:id AND estatus='activo'");
+    $filtroEstatus = $clave === "eventos" ? "" : ($clave === "evidencias" ? " AND estatus='activa'" : " AND estatus='activo'");
+    $stmt = $db->prepare("SELECT COUNT(*) total FROM {$tabla} WHERE id_tms_servicio=:id{$filtroEstatus}");
     $stmt->execute(array(":id" => $idServicio));
     $conteos[$clave] = intval($stmt->fetch(PDO::FETCH_ASSOC)["total"]);
   }

@@ -26,7 +26,35 @@ $respuestas = array(
   "producto" => $modelo->productoPublico("slug-de-prueba-no-publicado"),
   "disponibilidad" => $modelo->disponibilidadPublica(array("slug" => "slug-de-prueba-no-publicado")),
   "cotizacion_dryrun" => $modelo->cotizacionDryRun(array("items" => array(array("id_publicacion" => 1, "cantidad" => 1)))),
-  "cotizacion_registrar" => $modelo->cotizacionRegistrarBloqueada(array("items" => array(array("id_publicacion" => 1, "cantidad" => 1))))
+  "cotizacion_preflight" => $modelo->cotizacionPreflight(array(
+    "items" => array(array("id_publicacion" => 1, "cantidad" => 1)),
+    "contacto" => array("nombre" => "Cliente prueba", "telefono" => "3322068429"),
+    "acepta_contacto_whatsapp" => true,
+    "politicas_aceptadas" => array("aviso-privacidad", "cotizacion-whatsapp")
+  )),
+  "cotizacion_registrar" => $modelo->cotizacionRegistrarBloqueada(array("items" => array(array("id_publicacion" => 1, "cantidad" => 1)))),
+  "facturacion_preflight" => $modelo->facturacionSolicitudPreflight(array(
+    "folio_compra" => "TICKET-123",
+    "fecha_compra" => "2026-07-29",
+    "importe" => 250,
+    "datos_fiscales" => array("rfc" => "XAXX010101000", "razon_social" => "Cliente Publico", "regimen_fiscal" => "616", "uso_cfdi" => "G03", "codigo_postal" => "44100"),
+    "contacto" => array("correo" => "cliente@example.com", "telefono" => "3322068429"),
+    "acepta_aviso_privacidad" => true
+  )),
+  "evento_navegacion_preflight" => $modelo->eventoNavegacionPreflight(array(
+    "session_id" => "sess_demo_123",
+    "tipo_evento" => "select_mascota",
+    "ruta" => "/catalogo",
+    "mascota" => "perro",
+    "metadata" => array("origen" => "uat")
+  )),
+  "busqueda_preflight" => $modelo->busquedaRegistrarPreflight(array(
+    "session_id" => "sess_demo_123",
+    "query" => "croquetas cachorro",
+    "mascota" => "perro",
+    "necesidad" => "alimento",
+    "resultados_total" => 3
+  ))
 );
 
 $bloqueos = array();
@@ -46,14 +74,18 @@ validarCatalogo($respuestas["catalogo"], $bloqueos);
 validarProducto($respuestas["producto"], $bloqueos);
 validarDisponibilidad($respuestas["disponibilidad"], $bloqueos);
 validarDryRun($respuestas["cotizacion_dryrun"], $bloqueos);
+validarPreflight($respuestas["cotizacion_preflight"], $bloqueos);
 validarRegistroBloqueado($respuestas["cotizacion_registrar"], $bloqueos);
+validarExperienciaPreflight("facturacion_preflight", $respuestas["facturacion_preflight"], $bloqueos);
+validarExperienciaPreflight("evento_navegacion_preflight", $respuestas["evento_navegacion_preflight"], $bloqueos);
+validarExperienciaPreflight("busqueda_preflight", $respuestas["busqueda_preflight"], $bloqueos);
 
 echo json_encode(array(
   "ok" => empty($bloqueos),
   "modo" => "read-only",
   "shape" => array(
     "wrappers_validados" => array_keys($respuestas),
-    "endpoints_publicos_esperados" => 12,
+    "endpoints_publicos_esperados" => 16,
     "item_catalogo_keys" => itemCatalogoKeys()
   ),
   "bloqueos" => $bloqueos,
@@ -97,7 +129,11 @@ function validarRutas($respuesta, &$bloqueos) {
     "/ecommercePublico/seo",
     "/ecommercePublico/disponibilidad",
     "/ecommercePublico/cotizacion_dryrun",
-    "/ecommercePublico/cotizacion_registrar"
+    "/ecommercePublico/cotizacion_preflight",
+    "/ecommercePublico/cotizacion_registrar",
+    "/ecommercePublico/facturacion_solicitar",
+    "/ecommercePublico/evento_navegacion",
+    "/ecommercePublico/busqueda_registrar"
   ) as $ruta) {
     if (!in_array($ruta, $rutas, true)) {
       $bloqueos[] = "contratos_falta_ruta_" . $ruta;
@@ -224,12 +260,45 @@ function validarDryRun($respuesta, &$bloqueos) {
   }
 }
 
+function validarPreflight($respuesta, &$bloqueos) {
+  if (valorShape($respuesta, array("depurar", "preflight"), false) !== true) {
+    $bloqueos[] = "preflight_falta_flag_preflight";
+  }
+  if (valorShape($respuesta, array("depurar", "no_escribe_bd"), false) !== true) {
+    $bloqueos[] = "preflight_debe_indicar_no_escribe_bd";
+  }
+  if (valorShape($respuesta, array("depurar", "no_descuenta_inventario"), false) !== true) {
+    $bloqueos[] = "preflight_debe_indicar_no_descuenta_inventario";
+  }
+  if (valorShape($respuesta, array("depurar", "folio_no_persistido"), false) !== true) {
+    $bloqueos[] = "preflight_debe_indicar_folio_no_persistido";
+  }
+  if (!is_array(valorShape($respuesta, array("depurar", "whatsapp"), null))) {
+    $bloqueos[] = "preflight_falta_whatsapp";
+  }
+}
+
 function validarRegistroBloqueado($respuesta, &$bloqueos) {
   if (valorShape($respuesta, array("depurar", "bloqueado"), false) !== true) {
     $bloqueos[] = "cotizacion_registrar_debe_seguir_bloqueado";
   }
   if (valorShape($respuesta, array("depurar", "no_escribe_bd"), false) !== true) {
     $bloqueos[] = "cotizacion_registrar_debe_indicar_no_escribe_bd";
+  }
+  if (valorShape($respuesta, array("depurar", "preflight_disponible"), false) !== true) {
+    $bloqueos[] = "cotizacion_registrar_debe_indicar_preflight_disponible";
+  }
+}
+
+function validarExperienciaPreflight($nombre, $respuesta, &$bloqueos) {
+  if (valorShape($respuesta, array("depurar", "preflight"), false) !== true) {
+    $bloqueos[] = $nombre . "_falta_preflight";
+  }
+  if (valorShape($respuesta, array("depurar", "no_escribe_bd"), false) !== true) {
+    $bloqueos[] = $nombre . "_debe_indicar_no_escribe_bd";
+  }
+  if (valorShape($respuesta, array("depurar", "listo_para_registro_futuro"), false) !== true) {
+    $bloqueos[] = $nombre . "_debe_quedar_listo_para_registro_futuro_con_payload_valido";
   }
 }
 

@@ -14,7 +14,7 @@ Reglas:
 - El carrito no descuenta inventario.
 - El carrito no crea pedido.
 - El carrito no cobra.
-- Antes de WhatsApp, siempre llamar `POST /cotizacion_dryrun`.
+- Antes de WhatsApp, llamar `POST /cotizacion_dryrun` para recalcular y `POST /cotizacion_preflight` para validar contacto/consentimientos.
 - El mensaje WhatsApp debe usar datos recalculados por ERP.
 
 ## Tipos
@@ -117,9 +117,10 @@ export function cartToDryRunPayload(cart: CartState) {
 1. Leer configuracion: `GET /configuracion`.
 2. Si `whatsapp_numero_principal` viene vacio, no abrir WhatsApp.
 3. Enviar carrito a `POST /cotizacion_dryrun`.
-4. Si `depurar.bloqueos` trae elementos, mostrar observaciones.
-5. Usar `depurar.whatsapp_preview`.
-6. Construir link `wa.me`.
+4. Capturar contacto minimo y aceptacion de contacto por WhatsApp.
+5. Enviar carrito/contacto a `POST /cotizacion_preflight`.
+6. Si `depurar.bloqueos` trae elementos, mostrar observaciones.
+7. Usar `depurar.whatsapp.url` si viene disponible; si no, construir link `wa.me` con `depurar.whatsapp.mensaje`.
 
 ```ts
 export function buildWhatsAppUrl(phone: string, message: string): string | null {
@@ -138,7 +139,11 @@ Antes de mostrar boton WhatsApp activo:
 - `cotizacion_dryrun.depurar.dry_run=true`;
 - `cotizacion_dryrun.depurar.no_escribe_bd=true`;
 - `cotizacion_dryrun.depurar.no_descuenta_inventario=true`;
-- `whatsapp_preview` no vacio.
+- `cotizacion_preflight.depurar.preflight=true`;
+- `cotizacion_preflight.depurar.no_escribe_bd=true`;
+- `cotizacion_preflight.depurar.listo_para_whatsapp=true`;
+- `cotizacion_preflight.depurar.folio_no_persistido=true`;
+- `whatsapp.url` no vacio.
 
 ## Mensajes UI
 

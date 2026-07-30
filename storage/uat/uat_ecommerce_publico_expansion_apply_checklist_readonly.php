@@ -55,9 +55,10 @@ foreach ($skus as $idSku) {
   $bloqueosPlanPublicacion = valorExpansionChecklist($plan, array("depurar", "bloqueos_publicacion"), array());
   $metadataOk = trim((string) valorExpansionChecklist($sugerida, array("mascota_especie"), "")) !== ""
     && !empty(valorExpansionChecklist($sugerida, array("necesidades"), array()));
+  $textoPublicoOk = !textoSospechosoExpansionChecklist(valorExpansionChecklist($sugerida, array("titulo_publico"), ""));
   $disponibilidad = (string) valorExpansionChecklist($producto, array("disponibilidad_publica_sugerida"), "");
   $disponibilidadOk = in_array($disponibilidad, array("disponible", "pocas_piezas"), true);
-  $listo = empty($bloqueosPlan) && empty($bloqueosPlanPublicacion) && $metadataOk && $disponibilidadOk && !$yaPublicado;
+  $listo = empty($bloqueosPlan) && empty($bloqueosPlanPublicacion) && $metadataOk && $textoPublicoOk && $disponibilidadOk && !$yaPublicado;
 
   if (!$listo) {
     $bloqueos[] = "sku_" . $idSku . "_no_listo_para_borrador";
@@ -71,6 +72,7 @@ foreach ($skus as $idSku) {
     "disponibilidad_publica_sugerida" => $disponibilidad,
     "mascota_especie" => valorExpansionChecklist($sugerida, array("mascota_especie"), ""),
     "necesidades" => valorExpansionChecklist($sugerida, array("necesidades"), array()),
+    "texto_publico_ok" => $textoPublicoOk,
     "ya_publicado_o_borrador" => $yaPublicado,
     "plan_borrador_ok" => empty($plan["error"]),
     "bloqueos_plan" => $bloqueosPlan,
@@ -167,11 +169,17 @@ function comandoBorradorExpansionChecklist($idSku, $sugerida, $respaldo) {
 function contarListosExpansionChecklist($items) {
   $total = 0;
   foreach ($items as $item) {
-    if (empty($item["bloqueos_plan"]) && empty($item["bloqueos_publicacion"]) && !$item["ya_publicado_o_borrador"]) {
+    if (empty($item["bloqueos_plan"]) && empty($item["bloqueos_publicacion"]) && !empty($item["texto_publico_ok"]) && !$item["ya_publicado_o_borrador"]) {
       $total++;
     }
   }
   return $total;
+}
+
+function textoSospechosoExpansionChecklist($texto) {
+  $texto = (string) $texto;
+  return strpos($texto, chr(239) . chr(191) . chr(189)) !== false
+    || preg_match('/[\x00-\x08\x0B\x0C\x0E-\x1F]/', $texto) === 1;
 }
 
 function argumentoExpansionChecklist($valor) {

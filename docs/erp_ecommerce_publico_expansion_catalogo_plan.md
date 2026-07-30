@@ -1,7 +1,7 @@
 # ERP Ecommerce publico - Plan de expansion de catalogo
 
 Documentacion IA: Codex GPT-5  
-Fecha: 2026-07-18  
+Fecha: 2026-07-29  
 Estado: auditoria read-only para crecer el catalogo vivo despues del primer lote.
 
 ## Objetivo
@@ -58,12 +58,17 @@ Resultado actual:
 
 ```text
 total_skus=4
-listos_sin_revision=4
-requieren_revision=0
-bloqueos_revision=[]
+listos_sin_revision=3
+requieren_revision=1
+bloqueos_revision=sku_1138_requiere_revision
 ```
 
 El paquete genera comandos `apply_authorized`, pero no los ejecuta. Guardar borradores requiere autorizacion explicita, respaldo externo y token `ECOMMERCE_PUBLICO_PUBLICACION_BORRADOR`.
+
+Nota de calidad:
+
+- `SP-2823` / SKU `1138` es comercialmente util para ave/habitat, pero el titulo actual contiene un caracter de reemplazo en `33 ? 56 cm`.
+- Antes de crear/publicar borrador se debe corregir el texto publico, por ejemplo a `Jaula para aves maxi tipo cilindro Monte Verde 33 x 56 cm`, si el negocio confirma esa medida.
 
 ## Checklist apply read-only
 
@@ -90,10 +95,10 @@ C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_expansion_apply_checklist
 Resultado actual:
 
 ```text
-ok=true
-listos_para_borrador=4
-publicaciones_esperadas_si_se_publican_todos=6
-bloqueos=[]
+ok=false
+listos_para_borrador=3
+publicaciones_esperadas_si_se_publican_todos=5
+bloqueos=sku_1138_no_listo_para_borrador
 ```
 
 Runbook completo:
@@ -108,11 +113,12 @@ No publicar masivamente agotados como si fueran disponibles.
 
 Orden recomendado:
 
-1. Revisar los 4 candidatos con disponibilidad positiva.
-2. Confirmar que la metadata sugerida `pez/habitat` y `ave/habitat` es comercialmente correcta.
-3. Publicarlos como borrador y revisar texto/imagen antes de publicarlos.
-4. Mantener agotados fuera del catalogo salvo que el negocio quiera una seccion de consulta o productos bajo pedido.
-5. Si se decide mostrar agotados, usar badge `Agotado` o `Consultar disponibilidad`, nunca `Disponible`.
+1. Revisar los 3 candidatos limpios con disponibilidad positiva.
+2. Corregir texto publico del SKU `1138` antes de incluirlo en el lote.
+3. Confirmar que la metadata sugerida `pez/habitat` y `ave/habitat` es comercialmente correcta.
+4. Publicarlos como borrador y revisar texto/imagen antes de publicarlos.
+5. Mantener agotados fuera del catalogo salvo que el negocio quiera una seccion de consulta o productos bajo pedido.
+6. Si se decide mostrar agotados, usar badge `Agotado` o `Consultar disponibilidad`, nunca `Disponible`.
 
 ## Implicacion para frontend
 

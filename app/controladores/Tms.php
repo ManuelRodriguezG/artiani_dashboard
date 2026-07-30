@@ -128,6 +128,18 @@ class Tms extends Controlador {
 
   /**
    * IA: Codex GPT-5
+   * Fecha: 2026-07-30
+   * Proposito: generar comprobante logistico TMS read-only para vista/impresion.
+   * Impacto: TMS Delivery; expone ticket separado del POS, productos, garantias e inventario.
+   * Contrato: GET protegido por `tms.ver`; no escribe BD ni registra cobros.
+   */
+  public function ticket_readonly_erp() {
+    $this->requerirPermiso("tms.ver");
+    return json_encode($this->modelo("TmsDelivery")->ticketServicioReadOnly($_GET));
+  }
+
+  /**
+   * IA: Codex GPT-5
    * Fecha: 2026-07-24
    * Proposito: validar solicitud de servicio logistico antes de guardado futuro.
    * Impacto: TMS Delivery; fija contrato sin crear ventas, sin cancelar ventas y sin mover inventario.

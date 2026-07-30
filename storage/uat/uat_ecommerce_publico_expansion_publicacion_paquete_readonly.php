@@ -54,6 +54,9 @@ foreach ($skus as $idSku) {
   if (valorPaqueteExpansion($producto, array("disponibilidad_publica_sugerida"), "") === "agotado") {
     $requiereRevision[] = "no_publicar_como_disponible";
   }
+  if (textoSospechosoExpansion(valorPaqueteExpansion($sugerida, array("titulo_publico"), ""))) {
+    $requiereRevision[] = "validar_texto_publico";
+  }
 
   if (!empty($bloqueos) || !empty($bloqueosPublicacion) || !empty($requiereRevision)) {
     $bloqueosGlobales[] = "sku_" . $idSku . "_requiere_revision";
@@ -140,6 +143,12 @@ function contarListosExpansion($items) {
     }
   }
   return $total;
+}
+
+function textoSospechosoExpansion($texto) {
+  $texto = (string) $texto;
+  return strpos($texto, chr(239) . chr(191) . chr(189)) !== false
+    || preg_match('/[\x00-\x08\x0B\x0C\x0E-\x1F]/', $texto) === 1;
 }
 
 function argumentoExpansion($valor) {

@@ -4,6 +4,22 @@ Documentacion IA: Codex GPT-5
 Fecha: 2026-07-15  
 Estado: verde con datos reales Fase 1; catalogo publico activado sin checkout.
 
+Actualizacion 2026-07-30:
+
+- La consola interna `http://panel.com.local/ecommercePublico/publicaciones` ya permite preparar curaduria, guardar/actualizar borrador y publicar productos ecommerce desde el panel.
+- La consola tambien permite buscar por SKU/nombre/marca/categoria y filtrar por estado: sin publicacion, borrador, publicado o pausado.
+- Si una publicacion ya esta publicada, el boton `Guardar cambios` actualiza curaduria sin regresarla a borrador.
+- La consola permite seleccion multiple para `Guardar borradores` y `Publicar borradores`.
+- Los POST internos quedan protegidos por sesion ERP, permiso `catalogo.editar`, CSRF, token interno de accion y auditoria explicita.
+- Se agrego el endpoint interno `POST /ecommercePublico/publicaciones_publicar_borrador_erp`.
+- Se agrego el endpoint interno `POST /ecommercePublico/publicaciones_guardar_curaduria_erp`.
+- Se agregaron endpoints internos `POST /ecommercePublico/publicaciones_lote_borrador_erp` y `POST /ecommercePublico/publicaciones_lote_publicar_erp`.
+- El flujo no toca inventario, no modifica precios/imagenes del Catalogo ERP y no usa legacy `ecom_*`.
+- Respaldo externo usado antes de publicar lote: `C:\xampp\panel_db_backups\artianilocal_panel_20260729_225744_antes_ecommerce_publicaciones_panel.sql`.
+- Catalogo publico real despues de la activacion: `6` productos publicados en `GET /ecommercePublico/catalogo`.
+- SKUs publicados en esta activacion: `415`, `866`, `386`, `1138`.
+- UAT panel: `C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_panel_publicaciones_readonly.php`; valida publicados, busqueda y bloqueo de acciones sin token.
+
 Actualizacion 2026-07-16:
 
 - Entorno local `http://panel.com.local` responde JSON para `/ecommercePublico/estado`.
@@ -413,7 +429,7 @@ C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_base_cimentada_readonly.p
 
 ```text
 senal_base_ecommerce=verde_base_cimentada_frontend_basico
-endpoints_total=12
+endpoints_total=13
 publicadas=2
 preview_total=6
 cors_local_permitido=true
@@ -421,8 +437,147 @@ whatsapp_configurado=true
 politicas_ok=true
 taxonomia_ok=true
 cotizacion_dryrun_ok=true
+cotizacion_preflight_ok=true
 cotizacion_registrar_bloqueado=true
 ```
 
 - Esta senal permite que el frontend avance con entregable basico local.
 - No significa salida productiva. Produccion se valida despues con `uat_ecommerce_publico_frontend_productivo_gate_readonly.php`.
+
+## Actualizacion 2026-07-29 - Calidad de expansion
+
+- Se detecto que la expansion a 6 productos no debe autorizarse todavia.
+- Motivo: SKU `1138` / `SP-2823` contiene caracter de reemplazo en el titulo publico.
+- Se agregaron candados read-only de texto sospechoso en:
+  - `uat_ecommerce_publico_expansion_publicacion_paquete_readonly.php`;
+  - `uat_ecommerce_publico_expansion_apply_checklist_readonly.php`;
+  - `uat_ecommerce_publico_expansion_bundle_readonly.php`;
+  - `uat_ecommerce_publico_frontend_preview_expansion_readonly.php`;
+  - `uat_ecommerce_publico_frontend_entregable_gate_readonly.php`;
+  - `uat_ecommerce_publico_base_cimentada_readonly.php`.
+- Resultado actual de expansion:
+
+```text
+senal_actual=verde_datos_reales
+senal_expansion=revisar_expansion
+listos_para_borrador=3
+sku_1138=validar_texto_publico
+```
+
+- Documento de revision:
+
+```text
+docs/erp_ecommerce_publico_expansion_revision_calidad_20260729.md
+```
+
+- Frontend puede seguir con catalogo real basico de 2 productos y usar preview solo para layout, sin tratar candidatos como publicados.
+
+## Actualizacion 2026-07-29 - Ruta curada de expansion
+
+- Se agrego validacion read-only para corregir solo el `titulo_publico` ecommerce del SKU `1138`.
+- Titulo publico curado propuesto: `Jaula para aves maxi tipo cilindro Monte Verde 33 x 56 cm`.
+- Compuerta nueva:
+
+```bash
+C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_expansion_curada_6_readonly.php --base=http://panel.com.local --origin=http://artiani.com.local --respaldo=C:\xampp\panel_db_backups\artianilocal_panel_20260716_232839_antes_ecommerce_publico_fase1.sql
+```
+
+- Resultado validado:
+
+```text
+senal_expansion_curada=verde_expansion_curada_6_lista_para_revision
+publicaciones_estimadas_post_expansion=6
+```
+
+- Esto no publica productos ni escribe BD. Solo deja lista una ruta revisable para pasar de 2 a 6 publicaciones cuando exista autorizacion explicita.
+
+## Actualizacion 2026-07-29 - Compuertas frontend con preview curado
+
+- `uat_ecommerce_publico_base_cimentada_readonly.php` reconoce la ruta curada del SKU `1138` como preview valido si el unico bloqueo es `validar_texto_publico`.
+- `uat_ecommerce_publico_frontend_entregable_gate_readonly.php` aplica el mismo criterio.
+- Resultado validado:
+
+```text
+senal_base_ecommerce=verde_base_cimentada_frontend_basico
+senal_entregable_frontend=verde_entregable_frontend
+preview_curado.aplicado=true
+preview_curado.id_sku=1138
+```
+
+- El frontend puede avanzar a entregable local con 2 productos publicados reales y preview curado de 6 tarjetas.
+- Produccion sigue fuera de alcance hasta pasar `uat_ecommerce_publico_frontend_productivo_gate_readonly.php`.
+
+## Actualizacion 2026-07-29 - Cotizacion preflight
+
+- Se agrego `POST /ecommercePublico/cotizacion_preflight`.
+- El endpoint valida carrito, contacto, consentimiento, politicas aceptadas y WhatsApp sin persistir.
+- Devuelve `folio_preliminar` con `folio_no_persistido=true`.
+- Devuelve `listo_para_whatsapp` y `listo_para_registro_futuro`.
+- No registra prospecto, no crea cotizacion real, no descuenta inventario y no crea pedido.
+
+## Actualizacion 2026-07-29 - Plan de registro futuro
+
+- Se agrego plan read-only de persistencia para `cotizacion_registrar`.
+- Endpoint interno protegido: `/ecommercePublico/cotizacion_registro_plan_erp`.
+- Script validado:
+
+```bash
+C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_cotizacion_registro_plan_readonly.php --base=http://panel.com.local --origin=http://artiani.com.local
+```
+
+- Resultado:
+
+```text
+preflight_ok=true
+plan_persistencia_ok=true
+folio_planeado=ECOM-YYYYMMDD-000001
+```
+
+- El registro real sigue bloqueado por politica Fase 1.
+- Documento: `docs/erp_ecommerce_publico_cotizaciones_flujo_registro_futuro.md`.
+
+## Actualizacion 2026-07-29 - Bandeja interna cotizaciones
+
+- Existe pantalla interna read-only: `http://panel.com.local/ecommercePublico/cotizaciones`.
+- Endpoints internos protegidos:
+  - `GET /ecommercePublico/cotizaciones_bandeja_erp`;
+  - `GET /ecommercePublico/cotizacion_detalle_erp/{folio}`;
+  - `POST /ecommercePublico/cotizacion_accion_plan_erp`.
+- UAT validado:
+
+```bash
+C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_cotizaciones_bandeja_readonly.php
+```
+
+- Resultado actual:
+
+```text
+ok=true
+configurado=true
+items_total_pagina=0
+no_crea_pedido=true
+no_descuenta_inventario=true
+```
+
+- La bandeja esta lista como base operativa, pero seguira vacia hasta habilitar `cotizacion_registrar` con autorizacion.
+
+## Actualizacion 2026-07-29 - Bandeja interna read-only
+
+- Se agregaron endpoints internos protegidos:
+  - `/ecommercePublico/cotizaciones_bandeja_erp`;
+  - `/ecommercePublico/cotizacion_detalle_erp/{folio}`.
+- Se agrego pantalla interna read-only:
+  - `http://panel.com.local/ecommercePublico/cotizaciones`.
+- Sirven para seguimiento futuro de cotizaciones recibidas por WhatsApp.
+- No crean pedido, venta, cliente CRM ni movimiento de inventario.
+- UAT:
+
+```bash
+C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_cotizaciones_bandeja_readonly.php
+```
+
+- Tambien se agrego plan read-only de acciones:
+  - `marcar_seguimiento`;
+  - `descartar`;
+  - `preparar_pedido_manual`;
+  - `preparar_venta_pos_manual`.

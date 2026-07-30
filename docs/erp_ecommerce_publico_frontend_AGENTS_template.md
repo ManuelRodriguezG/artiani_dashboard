@@ -14,6 +14,7 @@ Construir una experiencia publica de catalogo para mascotas:
 - ficha de producto;
 - carrito local tipo cotizacion;
 - validacion con `POST /ecommercePublico/cotizacion_dryrun`;
+- preflight con `POST /ecommercePublico/cotizacion_preflight` antes de WhatsApp;
 - envio por WhatsApp;
 - sin checkout, sin pagos online, sin pedido confirmado y sin descuento de inventario.
 
@@ -32,6 +33,7 @@ Usar solo endpoints publicos:
 - `GET /ecommercePublico/producto/{slug}`
 - `GET /ecommercePublico/disponibilidad`
 - `POST /ecommercePublico/cotizacion_dryrun`
+- `POST /ecommercePublico/cotizacion_preflight`
 
 No usar `POST /ecommercePublico/cotizacion_registrar` en Fase 1.
 

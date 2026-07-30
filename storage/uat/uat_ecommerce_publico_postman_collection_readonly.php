@@ -47,6 +47,19 @@ $collection = array(
       ),
       "utm" => array("source" => "postman")
     )),
+    requestPostmanReadonly("Cotizacion preflight sin persistencia", "POST", "{{base_url}}/ecommercePublico/cotizacion_preflight", array(
+      "items" => array(
+        array("id_publicacion" => 1, "cantidad" => 1)
+      ),
+      "contacto" => array(
+        "nombre" => "Cliente prueba",
+        "telefono" => "3322068429",
+        "mensaje" => "Quiero confirmar disponibilidad"
+      ),
+      "acepta_contacto_whatsapp" => true,
+      "politicas_aceptadas" => array("aviso-privacidad", "cotizacion-whatsapp"),
+      "utm" => array("source" => "postman")
+    )),
     requestPostmanReadonly("Cotizacion registrar bloqueada Fase 1", "POST", "{{base_url}}/ecommercePublico/cotizacion_registrar", array(
       "items" => array(
         array("id_publicacion" => 1, "cantidad" => 1)
@@ -55,6 +68,38 @@ $collection = array(
         "nombre" => "Cliente prueba",
         "telefono" => "5555555555"
       )
+    )),
+    requestPostmanReadonly("Facturacion solicitar preflight", "POST", "{{base_url}}/ecommercePublico/facturacion_solicitar", array(
+      "folio_compra" => "TICKET-123",
+      "fecha_compra" => "2026-07-29",
+      "importe" => 250,
+      "datos_fiscales" => array(
+        "rfc" => "XAXX010101000",
+        "razon_social" => "Cliente prueba",
+        "regimen_fiscal" => "616",
+        "uso_cfdi" => "G03",
+        "codigo_postal" => "44100"
+      ),
+      "contacto" => array(
+        "correo" => "cliente@example.com",
+        "telefono" => "3322068429"
+      ),
+      "acepta_aviso_privacidad" => true
+    )),
+    requestPostmanReadonly("Evento navegacion preflight", "POST", "{{base_url}}/ecommercePublico/evento_navegacion", array(
+      "session_id" => "sess_postman_123",
+      "tipo_evento" => "view_product",
+      "ruta" => "/producto/demo",
+      "id_publicacion" => 1,
+      "metadata" => array("origen" => "postman")
+    )),
+    requestPostmanReadonly("Busqueda registrar preflight", "POST", "{{base_url}}/ecommercePublico/busqueda_registrar", array(
+      "session_id" => "sess_postman_123",
+      "query" => "arena para gato",
+      "mascota" => "gato",
+      "necesidad" => "higiene",
+      "resultados_total" => 0,
+      "filtros" => array("marca" => "")
     ))
   )
 );

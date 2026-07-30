@@ -102,8 +102,88 @@ $schema = array(
         )
       ))
     ),
+    "/cotizacion_preflight" => array(
+      "post" => array_merge(endpointOpenApi("Preflight de carrito, contacto y WhatsApp sin persistencia"), array(
+        "requestBody" => array(
+          "required" => true,
+          "content" => array(
+            "application/json" => array(
+              "schema" => array(
+                "type" => "object",
+                "properties" => array(
+                  "items" => array(
+                    "type" => "array",
+                    "items" => array(
+                      "type" => "object",
+                      "properties" => array(
+                        "id_publicacion" => array("type" => "integer"),
+                        "slug" => array("type" => "string"),
+                        "id_sku" => array("type" => "integer"),
+                        "cantidad" => array("type" => "number")
+                      ),
+                      "required" => array("cantidad")
+                    )
+                  ),
+                  "contacto" => array(
+                    "type" => "object",
+                    "properties" => array(
+                      "nombre" => array("type" => "string"),
+                      "telefono" => array("type" => "string"),
+                      "correo" => array("type" => "string"),
+                      "mensaje" => array("type" => "string")
+                    )
+                  ),
+                  "acepta_contacto_whatsapp" => array("type" => "boolean"),
+                  "politicas_aceptadas" => array("type" => "array", "items" => array("type" => "string")),
+                  "utm" => array("type" => "object")
+                ),
+                "required" => array("items")
+              )
+            )
+          )
+        )
+      ))
+    ),
     "/cotizacion_registrar" => array(
       "post" => endpointOpenApi("Reservado futuro; bloqueado en Fase 1")
+    ),
+    "/facturacion_solicitar" => array(
+      "post" => array_merge(endpointOpenApi("Preflight de solicitud de factura por folio sin persistencia"), array(
+        "requestBody" => jsonBodyOpenApi(array(
+          "folio_compra" => array("type" => "string"),
+          "fecha_compra" => array("type" => "string"),
+          "importe" => array("type" => "number"),
+          "datos_fiscales" => array("type" => "object"),
+          "contacto" => array("type" => "object"),
+          "acepta_aviso_privacidad" => array("type" => "boolean")
+        ), array("folio_compra"))
+      ))
+    ),
+    "/evento_navegacion" => array(
+      "post" => array_merge(endpointOpenApi("Preflight de evento anonimo de navegacion sin persistencia"), array(
+        "requestBody" => jsonBodyOpenApi(array(
+          "session_id" => array("type" => "string"),
+          "tipo_evento" => array("type" => "string"),
+          "ruta" => array("type" => "string"),
+          "mascota" => array("type" => "string"),
+          "necesidad" => array("type" => "string"),
+          "id_publicacion" => array("type" => "integer"),
+          "id_sku" => array("type" => "integer"),
+          "metadata" => array("type" => "object")
+        ), array("session_id", "tipo_evento"))
+      ))
+    ),
+    "/busqueda_registrar" => array(
+      "post" => array_merge(endpointOpenApi("Preflight de busqueda anonima sin persistencia"), array(
+        "requestBody" => jsonBodyOpenApi(array(
+          "session_id" => array("type" => "string"),
+          "query" => array("type" => "string"),
+          "mascota" => array("type" => "string"),
+          "necesidad" => array("type" => "string"),
+          "resultados_total" => array("type" => "integer"),
+          "filtros" => array("type" => "object")
+        ), array("session_id", "query"))
+      ))
     )
   ),
   "components" => array(
@@ -213,5 +293,20 @@ function queryParam($name, $description, $type = "string") {
     "required" => false,
     "description" => $description,
     "schema" => array("type" => $type)
+  );
+}
+
+function jsonBodyOpenApi($properties, $required = array()) {
+  return array(
+    "required" => true,
+    "content" => array(
+      "application/json" => array(
+        "schema" => array(
+          "type" => "object",
+          "properties" => $properties,
+          "required" => $required
+        )
+      )
+    )
   );
 }

@@ -981,7 +981,7 @@ Validacion CLI:
   - `ok=true`
   - `modo=read-only`
   - `api.version=fase1-2026-07-12`
-  - `endpoints_total=9`
+  - `endpoints_total=9` en ese corte historico; el contrato vivo actual ya incluye mas endpoints.
   - `ready=false`
   - `ddl_pendiente=true`
   - `publicadas=0`
@@ -1069,7 +1069,7 @@ Validacion CLI:
   - `ddl_total=5`
   - `ddl_pendiente=true`
   - `api.version=fase1-2026-07-12`
-  - `endpoints_total=9`
+  - `endpoints_total=9` en ese corte historico; el contrato vivo actual ya incluye mas endpoints.
   - `ready=false`
   - `whatsapp_configurado=false`
   - `cors_configurado=false`

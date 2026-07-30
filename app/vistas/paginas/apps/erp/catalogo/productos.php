@@ -560,7 +560,7 @@
                             </div>
                             <div class="table-responsive">
                                 <table class="table align-middle table-row-dashed gy-4">
-                                    <thead><tr class="text-muted fw-bold fs-7 text-uppercase"><th>SKU base</th><th>Presentacion</th><th>Factor</th><th>Disponibilidad</th><th>Consumo</th><th>Empaque</th><th>Estado</th><?php if (SesionSeguridad::tienePermiso('catalogo.editar')): ?><th class="text-end">Accion</th><?php endif; ?></tr></thead>
+                                    <thead><tr class="text-muted fw-bold fs-7 text-uppercase"><th>SKU base</th><th>Presentacion</th><th>Factor operativo</th><th>Disponibilidad</th><th>Consumo</th><th>Empaque</th><th>Estado</th><?php if (SesionSeguridad::tienePermiso('catalogo.editar')): ?><th class="text-end">Accion</th><?php endif; ?></tr></thead>
                                     <tbody id="catalogo_presentaciones_lista"></tbody>
                                 </table>
                             </div>
@@ -573,7 +573,7 @@
                                     <div class="col-md-3">
                                         <label class="form-label required">SKU base</label>
                                         <select class="form-select" name="id_sku_base" id="catalogo_presentacion_base" required></select>
-                                        <div class="form-text">SKU que guarda la existencia real. Ejemplo: costal o producto base en KG.</div>
+                                        <div class="form-text">SKU del que saldra la existencia al preparar o vender la presentacion.</div>
                                     </div>
                                     <div class="col-md-3">
                                         <label class="form-label required">SKU presentacion</label>
@@ -581,9 +581,9 @@
                                         <div class="form-text">SKU que vas a vender. Ejemplo: bolsa 25 g, bolsa 50 g o bolsa 500 g.</div>
                                     </div>
                                     <div class="col-md-2">
-                                        <label class="form-label required">Factor salida base</label>
+                                        <label class="form-label required">Factor operativo</label>
                                         <input class="form-control" type="number" name="factor_salida_base" min="0.000001" step="0.000001" value="1" required>
-                                        <div class="form-text">Cantidad del SKU base que consume 1 presentacion. Bolsa 25 g = 0.025 si la base es KG.</div>
+                                        <div class="form-text">Cantidad que debe consumir/generar la regla entre SKU base y SKU presentacion. La unidad se interpreta por la configuracion de esos SKUs.</div>
                                     </div>
                                     <div class="col-md-2">
                                         <label class="form-label">Modo</label>
@@ -978,6 +978,6 @@
             "costos" => SesionSeguridad::tienePermiso("catalogo.costos")
         )); ?>;
     </script>
-    <script src="/assets/js/custom/apps/erp/catalogo/productos.js?v=20260722-permisos-readonly-1"></script>
+    <script src="/assets/js/custom/apps/erp/catalogo/productos.js?v=20260730-presentaciones-factor-operativo-1"></script>
 </body>
 </html>

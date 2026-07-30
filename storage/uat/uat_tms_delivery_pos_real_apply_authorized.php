@@ -114,7 +114,7 @@ function verificar_servicio_pos_tms($idServicio, $referencia) {
   $stmtCosto->execute(array(":id" => $idServicio));
   $costos = intval($stmtCosto->fetch(PDO::FETCH_ASSOC)["total"]);
 
-  $stmtEventos = $db->prepare("SELECT COUNT(*) total FROM erp_tms_eventos WHERE id_tms_servicio=:id AND estatus='activo'");
+  $stmtEventos = $db->prepare("SELECT COUNT(*) total FROM erp_tms_eventos WHERE id_tms_servicio=:id");
   $stmtEventos->execute(array(":id" => $idServicio));
   $eventos = intval($stmtEventos->fetch(PDO::FETCH_ASSOC)["total"]);
 

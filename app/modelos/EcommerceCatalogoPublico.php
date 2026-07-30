@@ -123,6 +123,22 @@ class EcommerceCatalogoPublico extends CRUD {
         ),
         array(
           "metodo" => "POST",
+          "ruta" => "/ecommercePublico/cotizacion_preflight",
+          "descripcion" => "Valida carrito, contacto y consentimiento antes de abrir WhatsApp o preparar registro futuro.",
+          "estado" => "preflight-readonly",
+          "body" => array(
+            "items" => array(
+              array("id_publicacion" => "int opcional", "slug" => "string opcional", "id_sku" => "int opcional", "cantidad" => "decimal > 0")
+            ),
+            "contacto" => array("nombre" => "string recomendado", "telefono" => "string recomendado", "correo" => "string opcional", "mensaje" => "string opcional"),
+            "utm" => "object opcional",
+            "acepta_contacto_whatsapp" => "bool recomendado para seguimiento",
+            "politicas_aceptadas" => "string[] opcional"
+          ),
+          "respuesta_depurar" => array("preflight", "folio_preliminar", "listo_para_whatsapp", "listo_para_registro_futuro", "contacto", "dry_run")
+        ),
+        array(
+          "metodo" => "POST",
           "ruta" => "/ecommercePublico/cotizacion_registrar",
           "descripcion" => "Contrato futuro para registrar cotizacion real; bloqueado en Fase 1 hasta autorizar persistencia.",
           "estado" => "bloqueado",
@@ -135,6 +151,53 @@ class EcommerceCatalogoPublico extends CRUD {
             "acepta_contacto_whatsapp" => "bool requerido al activar"
           ),
           "requisitos_activacion" => array("DDL erp_ecommerce_* aplicado", "API key/firma activa", "rate limit", "politica de seguimiento definida")
+        ),
+        array(
+          "metodo" => "POST",
+          "ruta" => "/ecommercePublico/facturacion_solicitar",
+          "descripcion" => "Preflight de solicitud de factura por folio; valida forma y consentimiento sin guardar datos fiscales.",
+          "estado" => "preflight-readonly",
+          "body" => array(
+            "folio_compra" => "string requerido",
+            "fecha_compra" => "YYYY-MM-DD opcional",
+            "importe" => "decimal opcional",
+            "datos_fiscales" => array("rfc" => "string requerido futuro", "razon_social" => "string requerido futuro", "regimen_fiscal" => "string", "uso_cfdi" => "string", "codigo_postal" => "string"),
+            "contacto" => array("correo" => "string requerido futuro", "telefono" => "string opcional"),
+            "acepta_aviso_privacidad" => "bool requerido para activar persistencia"
+          ),
+          "respuesta_depurar" => array("preflight", "folio_solicitud_preliminar", "listo_para_registro_futuro", "bloqueos", "sql_plan")
+        ),
+        array(
+          "metodo" => "POST",
+          "ruta" => "/ecommercePublico/evento_navegacion",
+          "descripcion" => "Preflight de evento anonimo de navegacion; valida analytics sin guardar datos personales.",
+          "estado" => "preflight-readonly",
+          "body" => array(
+            "session_id" => "string anonimo requerido futuro",
+            "tipo_evento" => "page_view|select_mascota|select_necesidad|view_product|add_to_quote|open_whatsapp|facturacion_view|facturacion_submit",
+            "ruta" => "string opcional",
+            "mascota" => "string opcional",
+            "necesidad" => "string opcional",
+            "id_publicacion" => "int opcional",
+            "id_sku" => "int opcional",
+            "metadata" => "object opcional sin datos personales"
+          ),
+          "respuesta_depurar" => array("preflight", "evento_normalizado", "datos_personales_detectados", "bloqueos", "sql_plan")
+        ),
+        array(
+          "metodo" => "POST",
+          "ruta" => "/ecommercePublico/busqueda_registrar",
+          "descripcion" => "Preflight de busqueda anonima; prepara historial de demanda, sin resultados y mascotas/necesidades.",
+          "estado" => "preflight-readonly",
+          "body" => array(
+            "session_id" => "string anonimo requerido futuro",
+            "query" => "string requerido",
+            "mascota" => "string opcional",
+            "necesidad" => "string opcional",
+            "resultados_total" => "int opcional",
+            "filtros" => "object opcional sin datos personales"
+          ),
+          "respuesta_depurar" => array("preflight", "busqueda_normalizada", "sin_resultados", "bloqueos", "sql_plan")
         )
       ),
       "item_catalogo" => array(
@@ -1012,6 +1075,466 @@ class EcommerceCatalogoPublico extends CRUD {
   }
 
   /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-07-29
+   * Proposito: validar payload completo de cotizacion antes de WhatsApp o registro futuro.
+   * Impacto: Frontend ecommerce; permite UX de confirmacion sin escribir BD ni generar pedido.
+   * Contrato: read-only; usa dry-run interno, no guarda cotizacion, no aparta inventario.
+   */
+  public function cotizacionPreflight($datos = array()) {
+    $dryRun = $this->cotizacionDryRun($datos);
+    $dryDepurar = isset($dryRun["depurar"]) && is_array($dryRun["depurar"]) ? $dryRun["depurar"] : array();
+    $lineas = $this->valor($dryDepurar, "lineas", array());
+    $totales = $this->valor($dryDepurar, "totales", array("total_estimado" => 0, "moneda" => "MXN"));
+    $bloqueos = $this->valor($dryDepurar, "bloqueos", array());
+    if (!is_array($bloqueos)) {
+      $bloqueos = array();
+    }
+
+    $contacto = $this->normalizarContactoCotizacion($this->valor($datos, "contacto", array()));
+    $aceptaWhatsapp = $this->valor($datos, "acepta_contacto_whatsapp", false);
+    $aceptaWhatsapp = $aceptaWhatsapp === true || in_array(strtolower(trim((string) $aceptaWhatsapp)), array("1", "true", "si", "yes", "on"), true);
+    $politicasAceptadas = $this->normalizarListaTextoPublica($this->valor($datos, "politicas_aceptadas", array()));
+    $utm = $this->normalizarUtmCotizacion($this->valor($datos, "utm", array()));
+
+    $advertencias = array();
+    if ($contacto["nombre"] === "") {
+      $advertencias[] = "contacto_nombre_recomendado";
+    }
+    if ($contacto["telefono"] === "") {
+      $advertencias[] = "contacto_telefono_recomendado";
+    }
+    if (!$aceptaWhatsapp) {
+      $advertencias[] = "aceptacion_whatsapp_recomendada";
+    }
+    if (empty($politicasAceptadas)) {
+      $advertencias[] = "politicas_aceptadas_no_informadas";
+    }
+    if (empty($lineas)) {
+      $bloqueos[] = "sin_lineas_validas";
+    }
+
+    $configuracion = $this->configuracionPublica();
+    $config = $this->valor($configuracion, array("depurar", "configuracion"), array());
+    $numeroWhatsapp = preg_replace('/\D+/', '', (string) $this->valor($config, "whatsapp_numero_principal", ""));
+    $mensaje = $this->valor($dryDepurar, "whatsapp_preview", "");
+    $folioPreliminar = $this->folioPreliminarCotizacion($datos, $lineas, $contacto);
+    if ($folioPreliminar !== "" && $mensaje !== "") {
+      $mensaje .= "\n\nReferencia preliminar: " . $folioPreliminar;
+    }
+
+    $listoWhatsapp = empty($dryRun["error"]) && empty($bloqueos) && !empty($lineas) && $numeroWhatsapp !== "";
+    $listoRegistroFuturo = $listoWhatsapp && $contacto["nombre"] !== "" && $contacto["telefono"] !== "" && $aceptaWhatsapp;
+
+    return $this->respuesta(false, empty($bloqueos) ? "success" : "warning", empty($bloqueos) ? "Preflight de cotizacion validado" : "Preflight de cotizacion con observaciones", array(
+      "preflight" => true,
+      "no_escribe_bd" => true,
+      "no_descuenta_inventario" => true,
+      "no_crea_pedido" => true,
+      "folio_preliminar" => $folioPreliminar,
+      "folio_no_persistido" => true,
+      "listo_para_whatsapp" => $listoWhatsapp,
+      "listo_para_registro_futuro" => $listoRegistroFuturo,
+      "contacto" => $contacto,
+      "acepta_contacto_whatsapp" => $aceptaWhatsapp,
+      "politicas_aceptadas" => $politicasAceptadas,
+      "utm" => $utm,
+      "dry_run" => $dryDepurar,
+      "whatsapp" => array(
+        "numero_configurado" => $numeroWhatsapp !== "",
+        "numero" => $numeroWhatsapp,
+        "mensaje" => $mensaje,
+        "url" => $numeroWhatsapp !== "" && $mensaje !== "" ? "https://wa.me/" . $numeroWhatsapp . "?text=" . rawurlencode($mensaje) : ""
+      ),
+      "advertencias" => array_values(array_unique($advertencias)),
+      "bloqueos" => array_values(array_unique($bloqueos)),
+      "persistencia_futura" => array(
+        "endpoint_reservado" => "/ecommercePublico/cotizacion_registrar",
+        "tabla_encabezado" => "erp_ecommerce_cotizaciones",
+        "tabla_detalle" => "erp_ecommerce_cotizaciones_detalle",
+        "tabla_eventos" => "erp_ecommerce_cotizaciones_eventos",
+        "estatus_inicial_sugerido" => "recibida_whatsapp",
+        "no_inventario" => true,
+        "no_pedido_confirmado" => true
+      )
+    ));
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-07-29
+   * Proposito: planear la persistencia futura de una cotizacion ecommerce sin ejecutarla.
+   * Impacto: Ecommerce publico; define folio real, snapshots y eventos para bandeja interna posterior.
+   * Contrato: read-only; no inserta encabezado, detalle ni eventos; no toca inventario ni pedidos.
+   */
+  public function cotizacionRegistroPersistenciaPlan($datos = array()) {
+    try {
+      $db = $this->getConexion();
+      $preflight = $this->cotizacionPreflight($datos);
+      $dep = isset($preflight["depurar"]) && is_array($preflight["depurar"]) ? $preflight["depurar"] : array();
+      $dry = $this->valor($dep, "dry_run", array());
+      $lineas = $this->valor($dry, "lineas", array());
+      $totales = $this->valor($dry, "totales", array());
+      $contacto = $this->valor($dep, "contacto", array());
+      $utm = $this->valor($dep, "utm", array());
+      $bloqueos = $this->valor($dep, "bloqueos", array());
+      if (!is_array($bloqueos)) { $bloqueos = array(); }
+
+      $tablas = array(
+        "erp_ecommerce_cotizaciones",
+        "erp_ecommerce_cotizaciones_detalle",
+        "erp_ecommerce_cotizaciones_eventos"
+      );
+      $tablasEstado = array();
+      foreach ($tablas as $tabla) {
+        $tablasEstado[$tabla] = $db ? $this->tablaExiste($db, $tabla) : false;
+        if (!$tablasEstado[$tabla]) {
+          $bloqueos[] = "tabla_faltante_" . $tabla;
+        }
+      }
+      if (empty($dep["listo_para_registro_futuro"])) {
+        $bloqueos[] = "preflight_no_listo_para_registro_futuro";
+      }
+
+      $folio = $this->folioCotizacionPlaneado($db);
+      $subtotal = floatval($this->valor($totales, "subtotal_estimado", 0));
+      $total = floatval($this->valor($totales, "total_estimado", $subtotal));
+      $eventoDetalle = array(
+        "preflight_folio" => $this->valor($dep, "folio_preliminar", ""),
+        "whatsapp_url_generada" => trim((string) $this->valor($dep, array("whatsapp", "url"), "")) !== "",
+        "politicas_aceptadas" => $this->valor($dep, "politicas_aceptadas", array()),
+        "advertencias" => $this->valor($dep, "advertencias", array())
+      );
+
+      $sqlEncabezado = "INSERT INTO `erp_ecommerce_cotizaciones` " .
+        "(`folio`, `origen`, `estatus`, `nombre_contacto`, `telefono_contacto`, `correo_contacto`, `canal_contacto_preferido`, `mensaje_cliente`, `moneda`, `subtotal_estimado`, `total_estimado`, `utm_json`, `ip_hash`, `user_agent_hash`, `fecha_expiracion`, `fecha_registro`, `fecha_actualizacion`) VALUES (" .
+        $this->sqlQuote($folio) . ", 'web_publica', 'recibida_whatsapp', " .
+        $this->sqlQuote($this->valor($contacto, "nombre", "")) . ", " .
+        $this->sqlQuote($this->valor($contacto, "telefono", "")) . ", " .
+        $this->sqlQuote($this->valor($contacto, "correo", "")) . ", " .
+        $this->sqlQuote($this->valor($contacto, "canal_preferido", "whatsapp")) . ", " .
+        $this->sqlQuote($this->valor($contacto, "mensaje", "")) . ", 'MXN', " .
+        number_format($subtotal, 6, ".", "") . ", " .
+        number_format($total, 6, ".", "") . ", " .
+        $this->sqlQuote(json_encode($utm, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)) . ", " .
+        "'HASH_IP_EN_BACKEND', 'HASH_USER_AGENT_EN_BACKEND', DATE_ADD(NOW(), INTERVAL 7 DAY), NOW(), NOW());";
+
+      $sqlDetalle = array();
+      foreach ($lineas as $linea) {
+        $sqlDetalle[] = "INSERT INTO `erp_ecommerce_cotizaciones_detalle` " .
+          "(`id_cotizacion`, `renglon`, `id_publicacion`, `id_producto_erp`, `id_sku`, `sku_snapshot`, `nombre_snapshot`, `presentacion_snapshot`, `precio_snapshot`, `moneda_snapshot`, `cantidad`, `disponibilidad_snapshot`, `subtotal`, `estatus`, `fecha_registro`) VALUES " .
+          "(@id_cotizacion, " . intval($this->valor($linea, "renglon", 1)) . ", " .
+          intval($this->valor($linea, "id_publicacion", 0)) . ", " .
+          intval($this->valor($linea, "id_producto_erp", 0)) . ", " .
+          intval($this->valor($linea, "id_sku", 0)) . ", " .
+          $this->sqlQuote($this->valor($linea, "sku", "")) . ", " .
+          $this->sqlQuote($this->valor($linea, "nombre", "")) . ", " .
+          $this->sqlQuote($this->valor($linea, "presentacion", "")) . ", " .
+          number_format(floatval($this->valor($linea, "precio_unitario", 0)), 6, ".", "") . ", " .
+          $this->sqlQuote($this->valor($linea, "moneda", "MXN")) . ", " .
+          number_format(floatval($this->valor($linea, "cantidad", 0)), 6, ".", "") . ", " .
+          $this->sqlQuote($this->valor($linea, "disponibilidad", "consultar_disponibilidad")) . ", " .
+          number_format(floatval($this->valor($linea, "subtotal", 0)), 6, ".", "") . ", 'activa', NOW());";
+      }
+
+      $sqlEvento = "INSERT INTO `erp_ecommerce_cotizaciones_eventos` " .
+        "(`id_cotizacion`, `tipo_evento`, `canal`, `resultado`, `detalle_json`, `creado_por`, `fecha_registro`) VALUES " .
+        "(@id_cotizacion, 'recibida_whatsapp', 'web_publica', 'pendiente_seguimiento', " .
+        $this->sqlQuote(json_encode($eventoDetalle, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)) . ", NULL, NOW());";
+
+      return $this->respuesta(false, empty($bloqueos) ? "success" : "warning", empty($bloqueos) ? "Plan de registro de cotizacion listo" : "Plan de registro de cotizacion con bloqueos", array(
+        "read_only" => true,
+        "no_escribe_bd" => true,
+        "no_registra_cotizacion" => true,
+        "no_descuenta_inventario" => true,
+        "no_crea_pedido" => true,
+        "folio_planeado" => $folio,
+        "folio_planeado_no_reservado" => true,
+        "preflight" => $dep,
+        "tablas" => $tablasEstado,
+        "snapshot" => array(
+          "encabezado" => array(
+            "folio" => $folio,
+            "origen" => "web_publica",
+            "estatus" => "recibida_whatsapp",
+            "contacto" => $contacto,
+            "subtotal_estimado" => $subtotal,
+            "total_estimado" => $total,
+            "moneda" => "MXN"
+          ),
+          "detalle" => $lineas,
+          "evento_inicial" => array(
+            "tipo_evento" => "recibida_whatsapp",
+            "resultado" => "pendiente_seguimiento"
+          )
+        ),
+        "sql_plan" => array(
+          "transaccion" => true,
+          "encabezado" => $sqlEncabezado,
+          "capturar_id" => "SET @id_cotizacion = LAST_INSERT_ID();",
+          "detalle" => $sqlDetalle,
+          "evento" => $sqlEvento
+        ),
+        "siguiente_fase" => array(
+          "mantener_cotizacion_registrar_bloqueado_hasta_autorizacion" => true,
+          "crear_bandeja_interna_cotizaciones" => true,
+          "definir_conversion_manual_a_pedido_o_venta" => true,
+          "vincular_crm_por_telefono_sin_crear_cliente_automatico" => true
+        ),
+        "bloqueos" => array_values(array_unique($bloqueos))
+      ));
+    } catch (Exception $e) {
+      return $this->respuesta(true, "danger", $e->getMessage(), array("read_only" => true, "no_escribe_bd" => true));
+    }
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-07-29
+   * Proposito: listar cotizaciones ecommerce para bandeja interna de seguimiento.
+   * Impacto: prepara operacion post-WhatsApp sin crear pedidos, ventas ni movimientos.
+   * Contrato: read-only; si no hay tablas responde lista vacia y bloqueos explicitos.
+   */
+  public function cotizacionesBandejaInterna($filtros = array()) {
+    try {
+      $db = $this->getConexion();
+      $tablas = $this->tablasCotizacionesDisponibles($db);
+      if (!$db || !$tablas["erp_ecommerce_cotizaciones"]) {
+        return $this->respuesta(false, "info", "Bandeja de cotizaciones ecommerce aun sin tabla", array(
+          "configurado" => false,
+          "items" => array(),
+          "resumen" => $this->resumenBandejaCotizaciones(array()),
+          "bloqueos" => array("tabla_erp_ecommerce_cotizaciones_pendiente"),
+          "guardrails" => $this->guardrailsBandejaCotizaciones()
+        ));
+      }
+
+      $pagina = max(1, intval($this->valor($filtros, "pagina", 1)));
+      $limite = max(1, min(100, intval($this->valor($filtros, "limite", 25))));
+      $offset = ($pagina - 1) * $limite;
+      $where = array("1=1");
+      $params = array();
+
+      $estatus = $this->limpiarFiltroPublico($this->valor($filtros, "estatus", ""));
+      if ($estatus !== "") {
+        $where[] = "c.estatus=:estatus";
+        $params[":estatus"] = $estatus;
+      }
+      $q = trim((string) $this->valor($filtros, "q", ""));
+      if ($q !== "") {
+        $where[] = "(c.folio LIKE :q OR c.nombre_contacto LIKE :q OR c.telefono_contacto LIKE :q OR c.correo_contacto LIKE :q)";
+        $params[":q"] = "%" . $q . "%";
+      }
+      $desde = trim((string) $this->valor($filtros, "desde", ""));
+      if ($desde !== "" && preg_match('/^\d{4}-\d{2}-\d{2}$/', $desde)) {
+        $where[] = "DATE(c.fecha_registro) >= :desde";
+        $params[":desde"] = $desde;
+      }
+      $hasta = trim((string) $this->valor($filtros, "hasta", ""));
+      if ($hasta !== "" && preg_match('/^\d{4}-\d{2}-\d{2}$/', $hasta)) {
+        $where[] = "DATE(c.fecha_registro) <= :hasta";
+        $params[":hasta"] = $hasta;
+      }
+
+      $sqlWhere = implode(" AND ", $where);
+      $stmtTotal = $db->prepare("SELECT COUNT(*) FROM erp_ecommerce_cotizaciones c WHERE " . $sqlWhere);
+      $stmtTotal->execute($params);
+      $total = intval($stmtTotal->fetchColumn());
+
+      $sql = "SELECT c.id_cotizacion, c.folio, c.origen, c.estatus, c.id_cliente_crm,
+          c.nombre_contacto, c.telefono_contacto, c.correo_contacto, c.canal_contacto_preferido,
+          c.moneda, c.subtotal_estimado, c.total_estimado, c.fecha_expiracion, c.fecha_registro, c.fecha_actualizacion,
+          COUNT(d.id_cotizacion_detalle) partidas,
+          MAX(e.fecha_registro) fecha_ultimo_evento
+        FROM erp_ecommerce_cotizaciones c
+        LEFT JOIN erp_ecommerce_cotizaciones_detalle d ON d.id_cotizacion=c.id_cotizacion AND d.estatus='activa'
+        LEFT JOIN erp_ecommerce_cotizaciones_eventos e ON e.id_cotizacion=c.id_cotizacion
+        WHERE " . $sqlWhere . "
+        GROUP BY c.id_cotizacion, c.folio, c.origen, c.estatus, c.id_cliente_crm, c.nombre_contacto,
+          c.telefono_contacto, c.correo_contacto, c.canal_contacto_preferido, c.moneda, c.subtotal_estimado,
+          c.total_estimado, c.fecha_expiracion, c.fecha_registro, c.fecha_actualizacion
+        ORDER BY c.fecha_registro DESC, c.id_cotizacion DESC
+        LIMIT " . intval($limite) . " OFFSET " . intval($offset);
+      $stmt = $db->prepare($sql);
+      $stmt->execute($params);
+      $items = array();
+      foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $fila) {
+        $items[] = $this->formatearCotizacionBandeja($fila);
+      }
+
+      return $this->respuesta(false, "success", "Bandeja de cotizaciones ecommerce consultada", array(
+        "configurado" => true,
+        "items" => $items,
+        "resumen" => $this->resumenBandejaCotizaciones($items),
+        "paginacion" => array("pagina" => $pagina, "limite" => $limite, "total" => $total),
+        "filtros" => array("estatus" => $estatus, "q" => $q, "desde" => $desde, "hasta" => $hasta),
+        "tablas" => $tablas,
+        "guardrails" => $this->guardrailsBandejaCotizaciones()
+      ));
+    } catch (Exception $e) {
+      return $this->respuesta(true, "danger", $e->getMessage(), array("items" => array(), "read_only" => true));
+    }
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-07-29
+   * Proposito: consultar detalle read-only de una cotizacion ecommerce.
+   * Impacto: muestra snapshots y eventos para seguimiento sin convertir automaticamente.
+   * Contrato: read-only; no escribe BD, no cambia estatus y no crea pedidos.
+   */
+  public function cotizacionDetalleInterna($filtros = array()) {
+    try {
+      $db = $this->getConexion();
+      $tablas = $this->tablasCotizacionesDisponibles($db);
+      if (!$db || !$tablas["erp_ecommerce_cotizaciones"]) {
+        return $this->respuesta(false, "info", "Detalle de cotizacion ecommerce aun sin tabla", array(
+          "configurado" => false,
+          "item" => null,
+          "detalle" => array(),
+          "eventos" => array(),
+          "bloqueos" => array("tabla_erp_ecommerce_cotizaciones_pendiente"),
+          "guardrails" => $this->guardrailsBandejaCotizaciones()
+        ));
+      }
+      $id = intval($this->valor($filtros, "id_cotizacion", 0));
+      $folio = trim((string) $this->valor($filtros, "folio", ""));
+      if ($id <= 0 && $folio === "") {
+        return $this->respuesta(true, "warning", "Indica folio o id_cotizacion", array(
+          "configurado" => true,
+          "item" => null,
+          "detalle" => array(),
+          "eventos" => array(),
+          "guardrails" => $this->guardrailsBandejaCotizaciones()
+        ));
+      }
+      $where = $id > 0 ? "c.id_cotizacion=:valor" : "c.folio=:valor";
+      $stmt = $db->prepare("SELECT c.* FROM erp_ecommerce_cotizaciones c WHERE " . $where . " LIMIT 1");
+      $stmt->execute(array(":valor" => $id > 0 ? $id : $folio));
+      $cotizacion = $stmt->fetch(PDO::FETCH_ASSOC);
+      if (!$cotizacion) {
+        return $this->respuesta(false, "info", "Cotizacion ecommerce no encontrada", array(
+          "configurado" => true,
+          "item" => null,
+          "detalle" => array(),
+          "eventos" => array(),
+          "guardrails" => $this->guardrailsBandejaCotizaciones()
+        ));
+      }
+      $detalle = array();
+      if ($tablas["erp_ecommerce_cotizaciones_detalle"]) {
+        $stmtDetalle = $db->prepare("SELECT * FROM erp_ecommerce_cotizaciones_detalle WHERE id_cotizacion=:id ORDER BY renglon ASC, id_cotizacion_detalle ASC");
+        $stmtDetalle->execute(array(":id" => intval($cotizacion["id_cotizacion"])));
+        $detalle = $stmtDetalle->fetchAll(PDO::FETCH_ASSOC);
+      }
+      $eventos = array();
+      if ($tablas["erp_ecommerce_cotizaciones_eventos"]) {
+        $stmtEventos = $db->prepare("SELECT * FROM erp_ecommerce_cotizaciones_eventos WHERE id_cotizacion=:id ORDER BY fecha_registro ASC, id_cotizacion_evento ASC");
+        $stmtEventos->execute(array(":id" => intval($cotizacion["id_cotizacion"])));
+        $eventos = $stmtEventos->fetchAll(PDO::FETCH_ASSOC);
+      }
+
+      return $this->respuesta(false, "success", "Detalle de cotizacion ecommerce consultado", array(
+        "configurado" => true,
+        "item" => $this->formatearCotizacionBandeja($cotizacion),
+        "detalle" => $detalle,
+        "eventos" => $eventos,
+        "conversion_manual_futura" => array(
+          "puede_preparar_pedido" => true,
+          "puede_preparar_venta_pos" => true,
+          "requiere_revision_humana" => true,
+          "no_automatizar_checkout" => true
+        ),
+        "guardrails" => $this->guardrailsBandejaCotizaciones()
+      ));
+    } catch (Exception $e) {
+      return $this->respuesta(true, "danger", $e->getMessage(), array("item" => null, "read_only" => true));
+    }
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-07-29
+   * Proposito: planear acciones futuras de seguimiento/conversion para cotizaciones ecommerce.
+   * Impacto: prepara reglas operativas sin cambiar estatus, crear pedidos/ventas ni tocar inventario.
+   * Contrato: read-only; genera plan y SQL ilustrativo, no lo ejecuta.
+   */
+  public function cotizacionAccionPlanInterna($datos = array()) {
+    try {
+      $db = $this->getConexion();
+      $accion = $this->limpiarFiltroPublico($this->valor($datos, "accion", ""));
+      $folio = trim((string) $this->valor($datos, "folio", ""));
+      $idCotizacion = intval($this->valor($datos, "id_cotizacion", 0));
+      $motivo = trim(substr((string) $this->valor($datos, "motivo", ""), 0, 500));
+      $accionesPermitidas = array("marcar_seguimiento", "descartar", "preparar_pedido_manual", "preparar_venta_pos_manual");
+      $bloqueos = array();
+
+      if (!in_array($accion, $accionesPermitidas, true)) {
+        $bloqueos[] = "accion_no_permitida";
+      }
+      if ($idCotizacion <= 0 && $folio === "") {
+        $bloqueos[] = "folio_o_id_cotizacion_requerido";
+      }
+      if (in_array($accion, array("descartar", "preparar_pedido_manual", "preparar_venta_pos_manual"), true) && $motivo === "") {
+        $bloqueos[] = "motivo_requerido";
+      }
+
+      $detalle = null;
+      if ($idCotizacion > 0 || $folio !== "") {
+        $detalle = $this->cotizacionDetalleInterna($idCotizacion > 0 ? array("id_cotizacion" => $idCotizacion) : array("folio" => $folio));
+        if (!is_array($this->valor($detalle, array("depurar", "item"), null))) {
+          $bloqueos[] = "cotizacion_no_encontrada_o_no_disponible";
+        }
+      }
+
+      $item = is_array($detalle) ? $this->valor($detalle, array("depurar", "item"), array()) : array();
+      $idPlaneado = intval($this->valor($item, "id_cotizacion", $idCotizacion));
+      $folioPlaneado = trim((string) $this->valor($item, "folio", $folio));
+      $estatusActual = trim((string) $this->valor($item, "estatus", ""));
+      $estatusDestino = $this->estatusDestinoAccionCotizacion($accion);
+      $evento = $this->eventoAccionCotizacion($accion);
+
+      $sql = array();
+      if (empty($bloqueos)) {
+        $sql[] = "UPDATE `erp_ecommerce_cotizaciones` SET `estatus`=" . $this->sqlQuote($estatusDestino) . ", `fecha_actualizacion`=NOW() WHERE `id_cotizacion`=" . intval($idPlaneado) . " LIMIT 1;";
+        $sql[] = "INSERT INTO `erp_ecommerce_cotizaciones_eventos` (`id_cotizacion`, `tipo_evento`, `canal`, `resultado`, `detalle_json`, `creado_por`, `fecha_registro`) VALUES (" .
+          intval($idPlaneado) . ", " . $this->sqlQuote($evento) . ", 'erp_interno', 'plan_readonly', " .
+          $this->sqlQuote(json_encode(array("motivo" => $motivo, "estatus_anterior" => $estatusActual, "estatus_destino" => $estatusDestino), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)) . ", NULL, NOW());";
+      }
+
+      return $this->respuesta(false, empty($bloqueos) ? "success" : "warning", empty($bloqueos) ? "Plan de accion de cotizacion listo" : "Plan de accion con bloqueos", array(
+        "read_only" => true,
+        "no_escribe_bd" => true,
+        "no_cambia_estatus" => true,
+        "no_crea_pedido" => true,
+        "no_crea_venta" => true,
+        "no_descuenta_inventario" => true,
+        "accion" => $accion,
+        "acciones_permitidas" => $accionesPermitidas,
+        "cotizacion" => array(
+          "id_cotizacion" => $idPlaneado > 0 ? $idPlaneado : null,
+          "folio" => $folioPlaneado,
+          "estatus_actual" => $estatusActual,
+          "estatus_destino_planeado" => $estatusDestino
+        ),
+        "evento_planeado" => array(
+          "tipo_evento" => $evento,
+          "canal" => "erp_interno",
+          "resultado" => "plan_readonly",
+          "motivo" => $motivo
+        ),
+        "conversion_manual" => array(
+          "requiere_revision_humana" => in_array($accion, array("preparar_pedido_manual", "preparar_venta_pos_manual"), true),
+          "pedido_real_no_creado" => true,
+          "venta_real_no_creada" => true,
+          "inventario_no_afectado" => true,
+          "siguiente_modulo" => $accion === "preparar_pedido_manual" ? "Pedidos/Ventas" : ($accion === "preparar_venta_pos_manual" ? "POS/Ventas" : null)
+        ),
+        "sql_plan" => $sql,
+        "bloqueos" => array_values(array_unique($bloqueos)),
+        "guardrails" => $this->guardrailsBandejaCotizaciones()
+      ));
+    } catch (Exception $e) {
+      return $this->respuesta(true, "danger", $e->getMessage(), array("read_only" => true, "no_escribe_bd" => true));
+    }
+  }
+
+  /**
    * Documentacion IA: Codex GPT-5 | Fecha: 2026-07-12
    * Proposito: responder el contrato futuro de registro de cotizacion sin persistir.
    * Impacto: Ecommerce publico; previene escrituras antes de DDL/autenticacion/rate limit.
@@ -1022,6 +1545,9 @@ class EcommerceCatalogoPublico extends CRUD {
       "bloqueado" => true,
       "dry_run_disponible" => true,
       "endpoint_dry_run" => "/ecommercePublico/cotizacion_dryrun",
+      "preflight_disponible" => true,
+      "endpoint_preflight" => "/ecommercePublico/cotizacion_preflight",
+      "endpoint_plan_interno" => "/ecommercePublico/cotizacion_registro_plan_erp",
       "no_escribe_bd" => true,
       "no_descuenta_inventario" => true,
       "no_crea_pedido" => true,
@@ -1037,6 +1563,266 @@ class EcommerceCatalogoPublico extends CRUD {
         "contacto_presente" => isset($datos["contacto"]) && is_array($datos["contacto"])
       )
     ));
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-07-29
+   * Proposito: responder error funcional estandar para endpoints publicos POST.
+   * Impacto: Ecommerce publico; estabiliza respuestas ante integraciones frontend/partner.
+   * Contrato: no escribe BD ni consulta informacion sensible.
+   */
+  public function metodoPostRequerido($flujo = "post_publico") {
+    return $this->respuesta(true, "warning", "Usa POST para este endpoint ecommerce", array(
+      "flujo" => $this->limpiarFiltroPublico($flujo),
+      "metodo_requerido" => "POST",
+      "no_escribe_bd" => true
+    ));
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-07-29
+   * Proposito: validar solicitud publica de factura sin registrar datos fiscales.
+   * Impacto: Ecommerce publico/facturacion futura; prepara bandeja interna para contador sin emitir CFDI.
+   * Contrato: preflight read-only; no escribe BD, no emite factura, no crea cliente.
+   */
+  public function facturacionSolicitudPreflight($datos = array()) {
+    $folioCompra = strtoupper(substr(preg_replace('/[^A-Z0-9\-_]/', '', strtoupper(trim((string) $this->valor($datos, "folio_compra", "")))), 0, 60));
+    $fechaCompra = trim((string) $this->valor($datos, "fecha_compra", ""));
+    $importe = $this->valor($datos, "importe", null);
+    $fiscales = is_array($this->valor($datos, "datos_fiscales", array())) ? $this->valor($datos, "datos_fiscales", array()) : array();
+    $contacto = is_array($this->valor($datos, "contacto", array())) ? $this->valor($datos, "contacto", array()) : array();
+    $rfc = strtoupper(substr(preg_replace('/[^A-Z0-9&Ñ]/u', '', strtoupper(trim((string) $this->valor($fiscales, "rfc", "")))), 0, 13));
+    $razonSocial = substr(trim((string) $this->valor($fiscales, "razon_social", "")), 0, 180);
+    $regimenFiscal = substr(trim((string) $this->valor($fiscales, "regimen_fiscal", "")), 0, 80);
+    $usoCfdi = strtoupper(substr(preg_replace('/[^A-Z0-9]/', '', strtoupper(trim((string) $this->valor($fiscales, "uso_cfdi", "")))), 0, 10));
+    $codigoPostal = substr(preg_replace('/[^0-9]/', '', trim((string) $this->valor($fiscales, "codigo_postal", ""))), 0, 5);
+    $correo = strtolower(substr(trim((string) $this->valor($contacto, "correo", "")), 0, 160));
+    $telefono = substr(preg_replace('/[^0-9]/', '', trim((string) $this->valor($contacto, "telefono", ""))), 0, 20);
+    $notas = substr(trim((string) $this->valor($datos, "notas", "")), 0, 500);
+    $aceptaAviso = $this->valor($datos, "acepta_aviso_privacidad", false) === true || (string) $this->valor($datos, "acepta_aviso_privacidad", "") === "1";
+    $bloqueos = array();
+    $advertencias = array("persistencia_desactivada_en_fase_1");
+
+    if ($folioCompra === "") { $bloqueos[] = "folio_compra_requerido"; }
+    if ($rfc === "") { $bloqueos[] = "rfc_requerido_para_registro_futuro"; }
+    if ($razonSocial === "") { $bloqueos[] = "razon_social_requerida_para_registro_futuro"; }
+    if ($correo === "" || !filter_var($correo, FILTER_VALIDATE_EMAIL)) { $bloqueos[] = "correo_valido_requerido_para_registro_futuro"; }
+    if (!$aceptaAviso) { $bloqueos[] = "acepta_aviso_privacidad_requerido_para_registro_futuro"; }
+    if ($fechaCompra !== "" && !preg_match('/^\d{4}-\d{2}-\d{2}$/', $fechaCompra)) { $advertencias[] = "fecha_compra_formato_recomendado_yyyy_mm_dd"; }
+
+    $folioPreliminar = "FAC-PRE-" . date("Ymd") . "-" . strtoupper(substr(sha1($folioCompra . "|" . $rfc . "|" . $correo), 0, 8));
+    $sql = empty($bloqueos) ? array(
+      "INSERT INTO `erp_ecommerce_facturacion_solicitudes` (`folio_solicitud`, `folio_compra`, `fecha_compra`, `importe`, `rfc`, `razon_social`, `regimen_fiscal`, `uso_cfdi`, `codigo_postal`, `correo`, `telefono`, `notas`, `estatus`, `fecha_registro`) VALUES (...)",
+      "INSERT INTO `erp_ecommerce_eventos_navegacion` (`tipo_evento`, `resultado`, `metadata_json`, `fecha_registro`) VALUES ('facturacion_submit', 'plan_readonly', ..., NOW())"
+    ) : array();
+
+    return $this->respuesta(false, empty($bloqueos) ? "success" : "warning", empty($bloqueos) ? "Solicitud de facturacion validada sin guardar" : "Solicitud de facturacion con datos pendientes", array(
+      "preflight" => true,
+      "read_only" => true,
+      "no_escribe_bd" => true,
+      "no_emite_factura" => true,
+      "no_crea_cliente" => true,
+      "folio_solicitud_preliminar" => $folioPreliminar,
+      "folio_no_persistido" => true,
+      "listo_para_registro_futuro" => empty($bloqueos),
+      "solicitud_normalizada" => array(
+        "folio_compra" => $folioCompra,
+        "fecha_compra" => $fechaCompra,
+        "importe" => $importe === null || $importe === "" ? null : round(floatval($importe), 2),
+        "datos_fiscales" => array(
+          "rfc" => $rfc,
+          "razon_social" => $razonSocial,
+          "regimen_fiscal" => $regimenFiscal,
+          "uso_cfdi" => $usoCfdi,
+          "codigo_postal" => $codigoPostal
+        ),
+        "contacto" => array("correo" => $correo, "telefono" => $telefono),
+        "notas" => $notas
+      ),
+      "estatus_futuro_inicial" => "nueva",
+      "bloqueos" => array_values(array_unique($bloqueos)),
+      "advertencias" => array_values(array_unique($advertencias)),
+      "sql_plan" => $sql,
+      "guardrails" => $this->guardrailsExperienciaClientePreflight()
+    ));
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-07-29
+   * Proposito: validar evento anonimo de navegacion sin persistirlo.
+   * Impacto: Ecommerce publico/analytics; prepara inteligencia cliente sin datos personales.
+   * Contrato: preflight read-only; no escribe BD y bloquea metadata sensible detectable.
+   */
+  public function eventoNavegacionPreflight($datos = array()) {
+    $permitidos = array("page_view", "select_mascota", "select_necesidad", "search", "view_product", "add_to_quote", "open_whatsapp", "facturacion_view", "facturacion_submit");
+    $tipo = $this->limpiarFiltroPublico($this->valor($datos, "tipo_evento", ""));
+    $sessionId = substr(preg_replace('/[^a-zA-Z0-9_\-]/', '', trim((string) $this->valor($datos, "session_id", ""))), 0, 80);
+    $metadata = is_array($this->valor($datos, "metadata", array())) ? $this->valor($datos, "metadata", array()) : array();
+    $bloqueos = array();
+    if (!in_array($tipo, $permitidos, true)) { $bloqueos[] = "tipo_evento_no_permitido"; }
+    if ($sessionId === "") { $bloqueos[] = "session_id_anonimo_requerido_para_registro_futuro"; }
+    $datosPersonales = $this->detectarDatosPersonalesTracking($metadata);
+    if (!empty($datosPersonales)) { $bloqueos[] = "metadata_no_debe_incluir_datos_personales"; }
+
+    $evento = array(
+      "session_id" => $sessionId,
+      "tipo_evento" => $tipo,
+      "canal" => $this->limpiarFiltroPublico($this->valor($datos, "canal", "web")),
+      "ruta" => substr(trim((string) $this->valor($datos, "ruta", "")), 0, 200),
+      "mascota" => $this->limpiarFiltroPublico($this->valor($datos, "mascota", "")),
+      "necesidad" => $this->limpiarFiltroPublico($this->valor($datos, "necesidad", "")),
+      "id_publicacion" => intval($this->valor($datos, "id_publicacion", 0)),
+      "id_sku" => intval($this->valor($datos, "id_sku", 0)),
+      "metadata" => $this->limpiarMetadataTracking($metadata)
+    );
+
+    return $this->respuesta(false, empty($bloqueos) ? "success" : "warning", empty($bloqueos) ? "Evento de navegacion validado sin guardar" : "Evento de navegacion con bloqueos", array(
+      "preflight" => true,
+      "read_only" => true,
+      "no_escribe_bd" => true,
+      "no_registra_tracking" => true,
+      "evento_normalizado" => $evento,
+      "datos_personales_detectados" => $datosPersonales,
+      "listo_para_registro_futuro" => empty($bloqueos),
+      "bloqueos" => array_values(array_unique($bloqueos)),
+      "sql_plan" => empty($bloqueos) ? array("INSERT INTO `erp_ecommerce_eventos_navegacion` (`session_id_hash`, `tipo_evento`, `canal`, `ruta`, `mascota`, `necesidad`, `id_publicacion`, `id_sku`, `metadata_json`, `fecha_registro`) VALUES (...)") : array(),
+      "guardrails" => $this->guardrailsExperienciaClientePreflight()
+    ));
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-07-29
+   * Proposito: validar busqueda ecommerce anonima sin persistirla.
+   * Impacto: Ecommerce publico; prepara analitica de demanda y faltantes por mascota/necesidad.
+   * Contrato: preflight read-only; no escribe BD y no guarda datos personales.
+   */
+  public function busquedaRegistrarPreflight($datos = array()) {
+    $query = substr(trim((string) $this->valor($datos, "query", "")), 0, 120);
+    $sessionId = substr(preg_replace('/[^a-zA-Z0-9_\-]/', '', trim((string) $this->valor($datos, "session_id", ""))), 0, 80);
+    $filtros = is_array($this->valor($datos, "filtros", array())) ? $this->valor($datos, "filtros", array()) : array();
+    $bloqueos = array();
+    if ($query === "") { $bloqueos[] = "query_requerido"; }
+    if ($sessionId === "") { $bloqueos[] = "session_id_anonimo_requerido_para_registro_futuro"; }
+    $datosPersonales = $this->detectarDatosPersonalesTracking(array_merge(array("query" => $query), $filtros));
+    if (!empty($datosPersonales)) { $bloqueos[] = "busqueda_no_debe_incluir_datos_personales"; }
+    $resultadosTotal = max(0, intval($this->valor($datos, "resultados_total", 0)));
+    $busqueda = array(
+      "session_id" => $sessionId,
+      "query" => $query,
+      "query_normalizada" => strtolower($query),
+      "canal" => $this->limpiarFiltroPublico($this->valor($datos, "canal", "web")),
+      "mascota" => $this->limpiarFiltroPublico($this->valor($datos, "mascota", "")),
+      "necesidad" => $this->limpiarFiltroPublico($this->valor($datos, "necesidad", "")),
+      "resultados_total" => $resultadosTotal,
+      "sin_resultados" => $resultadosTotal <= 0,
+      "filtros" => $this->limpiarMetadataTracking($filtros)
+    );
+
+    return $this->respuesta(false, empty($bloqueos) ? "success" : "warning", empty($bloqueos) ? "Busqueda ecommerce validada sin guardar" : "Busqueda ecommerce con bloqueos", array(
+      "preflight" => true,
+      "read_only" => true,
+      "no_escribe_bd" => true,
+      "no_registra_busqueda" => true,
+      "busqueda_normalizada" => $busqueda,
+      "datos_personales_detectados" => $datosPersonales,
+      "listo_para_registro_futuro" => empty($bloqueos),
+      "bloqueos" => array_values(array_unique($bloqueos)),
+      "sql_plan" => empty($bloqueos) ? array("INSERT INTO `erp_ecommerce_busquedas` (`session_id_hash`, `query`, `query_normalizada`, `canal`, `mascota`, `necesidad`, `resultados_total`, `sin_resultados`, `filtros_json`, `fecha_registro`) VALUES (...)") : array(),
+      "guardrails" => $this->guardrailsExperienciaClientePreflight()
+    ));
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-07-29
+   * Proposito: entregar tablero interno read-only de inteligencia cliente ecommerce.
+   * Impacto: permite analizar demanda por busquedas, mascotas, necesidades y facturacion sin exponer datos publicos.
+   * Contrato: solo lectura; no registra eventos, no guarda solicitudes y no toca inventario.
+   */
+  public function inteligenciaClienteInterna($filtros = array()) {
+    try {
+      $db = $this->getConexion();
+      $desde = trim((string) $this->valor($filtros, "desde", date("Y-m-d", strtotime("-30 days"))));
+      $hasta = trim((string) $this->valor($filtros, "hasta", date("Y-m-d")));
+      if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $desde)) { $desde = date("Y-m-d", strtotime("-30 days")); }
+      if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $hasta)) { $hasta = date("Y-m-d"); }
+      $limite = max(5, min(50, intval($this->valor($filtros, "limite", 10))));
+      $tablas = array(
+        "busquedas" => $db ? $this->tablaExiste($db, "erp_ecommerce_busquedas") : false,
+        "eventos" => $db ? $this->tablaExiste($db, "erp_ecommerce_eventos_navegacion") : false,
+        "facturacion" => $db ? $this->tablaExiste($db, "erp_ecommerce_facturacion_solicitudes") : false
+      );
+      $depurar = array(
+        "read_only" => true,
+        "configurado" => in_array(true, $tablas, true),
+        "rango" => array("desde" => $desde, "hasta" => $hasta, "limite" => $limite),
+        "tablas" => $tablas,
+        "resumen" => array(
+          "busquedas_total" => 0,
+          "busquedas_sin_resultado" => 0,
+          "eventos_total" => 0,
+          "solicitudes_facturacion_total" => 0
+        ),
+        "busquedas_frecuentes" => array(),
+        "busquedas_sin_resultado" => array(),
+        "mascotas_consultadas" => array(),
+        "necesidades_consultadas" => array(),
+        "productos_vistos" => array(),
+        "productos_agregados_cotizacion" => array(),
+        "conversion_whatsapp" => array("open_whatsapp" => 0, "add_to_quote" => 0, "ratio_estimado" => null),
+        "facturacion_por_estatus" => array(),
+        "guardrails" => array(
+          "no_escribe_bd" => true,
+          "no_expone_datos_personales" => true,
+          "no_muestra_ip_user_agent" => true,
+          "no_toca_inventario" => true
+        )
+      );
+      if (!$db) {
+        return $this->respuesta(true, "warning", "Conexion MySQL no disponible", $depurar);
+      }
+      $inicio = $desde . " 00:00:00";
+      $fin = $hasta . " 23:59:59";
+
+      if ($tablas["busquedas"]) {
+        $stmt = $db->prepare("SELECT COUNT(*) total, SUM(CASE WHEN sin_resultados=1 THEN 1 ELSE 0 END) sin_resultado
+          FROM erp_ecommerce_busquedas
+          WHERE fecha_registro BETWEEN :inicio AND :fin");
+        $stmt->execute(array(":inicio" => $inicio, ":fin" => $fin));
+        $fila = $stmt->fetch(PDO::FETCH_ASSOC);
+        $depurar["resumen"]["busquedas_total"] = intval($this->valor($fila, "total", 0));
+        $depurar["resumen"]["busquedas_sin_resultado"] = intval($this->valor($fila, "sin_resultado", 0));
+        $depurar["busquedas_frecuentes"] = $this->consultaTopBusquedas($db, $inicio, $fin, $limite, false);
+        $depurar["busquedas_sin_resultado"] = $this->consultaTopBusquedas($db, $inicio, $fin, $limite, true);
+      }
+
+      if ($tablas["eventos"]) {
+        $stmt = $db->prepare("SELECT COUNT(*) total FROM erp_ecommerce_eventos_navegacion WHERE fecha_registro BETWEEN :inicio AND :fin");
+        $stmt->execute(array(":inicio" => $inicio, ":fin" => $fin));
+        $depurar["resumen"]["eventos_total"] = intval($stmt->fetchColumn());
+        $depurar["mascotas_consultadas"] = $this->consultaTopEventosCampo($db, "mascota_especie", $inicio, $fin, $limite);
+        $depurar["necesidades_consultadas"] = $this->consultaTopEventosCampo($db, "necesidad", $inicio, $fin, $limite);
+        $depurar["productos_vistos"] = $this->consultaTopEventosProducto($db, "view_product", $inicio, $fin, $limite);
+        $depurar["productos_agregados_cotizacion"] = $this->consultaTopEventosProducto($db, "add_to_quote", $inicio, $fin, $limite);
+        $depurar["conversion_whatsapp"] = $this->consultaConversionWhatsapp($db, $inicio, $fin);
+      }
+
+      if ($tablas["facturacion"]) {
+        $stmt = $db->prepare("SELECT COUNT(*) total FROM erp_ecommerce_facturacion_solicitudes WHERE fecha_registro BETWEEN :inicio AND :fin");
+        $stmt->execute(array(":inicio" => $inicio, ":fin" => $fin));
+        $depurar["resumen"]["solicitudes_facturacion_total"] = intval($stmt->fetchColumn());
+        $stmt = $db->prepare("SELECT estatus, COUNT(*) total
+          FROM erp_ecommerce_facturacion_solicitudes
+          WHERE fecha_registro BETWEEN :inicio AND :fin
+          GROUP BY estatus
+          ORDER BY total DESC, estatus ASC");
+        $stmt->execute(array(":inicio" => $inicio, ":fin" => $fin));
+        $depurar["facturacion_por_estatus"] = $stmt->fetchAll(PDO::FETCH_ASSOC);
+      }
+
+      return $this->respuesta(false, "success", "Inteligencia cliente ecommerce consultada", $depurar);
+    } catch (Exception $e) {
+      return $this->respuesta(true, "danger", $e->getMessage(), array("read_only" => true, "no_escribe_bd" => true));
+    }
   }
 
   /**
@@ -1068,9 +1854,11 @@ class EcommerceCatalogoPublico extends CRUD {
       $limite = max(10, min(500, intval($this->valor($filtros, "limite", 50))));
       $soloBloqueados = intval($this->valor($filtros, "solo_bloqueados", 0)) === 1;
       $soloPublicables = intval($this->valor($filtros, "solo_publicables", 0)) === 1;
+      $busqueda = trim((string) $this->valor($filtros, "q", ""));
+      $estatusPublicacion = trim((string) $this->valor($filtros, "estatus_publicacion", ""));
 
       $resumen = $this->resumenPublicabilidad($db);
-      $candidatos = $this->listarCandidatosPublicacion($db, $limite, $soloBloqueados, $soloPublicables);
+      $candidatos = $this->listarCandidatosPublicacion($db, $limite, $soloBloqueados, $soloPublicables, $busqueda, $estatusPublicacion);
 
       return $this->respuesta(false, "success", "Auditoria ecommerce publica consultada", array(
         "read_only" => true,
@@ -1262,10 +2050,24 @@ class EcommerceCatalogoPublico extends CRUD {
       }
 
       $bloqueos = $this->bloqueosPublicacion($fila);
+      $publicacionActual = array(
+        "id_publicacion" => isset($fila["id_publicacion"]) ? intval($fila["id_publicacion"]) : 0,
+        "estatus_publicacion" => isset($fila["estatus_publicacion"]) ? (string) $fila["estatus_publicacion"] : "",
+        "slug" => isset($fila["slug_publicacion"]) ? (string) $fila["slug_publicacion"] : "",
+        "titulo_publico" => isset($fila["titulo_publico_publicacion"]) ? (string) $fila["titulo_publico_publicacion"] : "",
+        "descripcion_publica" => isset($fila["descripcion_publica_publicacion"]) ? (string) $fila["descripcion_publica_publicacion"] : "",
+        "presentacion_publica" => isset($fila["presentacion_publica_publicacion"]) ? (string) $fila["presentacion_publica_publicacion"] : "",
+        "mascota_especie" => isset($fila["mascota_especie_publicacion"]) ? (string) $fila["mascota_especie_publicacion"] : "",
+        "necesidades" => isset($fila["necesidades_json_publicacion"]) ? $this->jsonArray($fila["necesidades_json_publicacion"]) : array()
+      );
       $metadata = $this->inferirMetadataMascotas($fila);
       $titulo = trim((string) $fila["nombre_publico"]);
       $presentacion = trim((string) $fila["presentacion_base"]);
       $slugBase = $titulo . " " . $presentacion . " " . $fila["sku"];
+      $necesidadesSugeridas = $metadata["necesidades"];
+      if ($publicacionActual["id_publicacion"] > 0 && !empty($publicacionActual["necesidades"])) {
+        $necesidadesSugeridas = $publicacionActual["necesidades"];
+      }
 
       return $this->respuesta(false, empty($bloqueos) ? "success" : "warning", empty($bloqueos) ? "Propuesta de publicacion preparada" : "Propuesta preparada con bloqueos", array(
         "read_only" => true,
@@ -1283,17 +2085,20 @@ class EcommerceCatalogoPublico extends CRUD {
           "imagen" => $fila["url_imagen"],
           "precio" => floatval($fila["precio"]),
           "moneda" => $fila["moneda"] ?: "MXN",
-          "disponibilidad_publica_sugerida" => $this->disponibilidadPublicaSugerida($fila)
+          "disponibilidad_publica_sugerida" => $this->disponibilidadPublicaSugerida($fila),
+          "id_publicacion" => isset($fila["id_publicacion"]) ? intval($fila["id_publicacion"]) : 0,
+          "estatus_publicacion" => isset($fila["estatus_publicacion"]) ? (string) $fila["estatus_publicacion"] : ""
         ),
+        "publicacion_actual" => $publicacionActual,
         "publicacion_sugerida" => array(
           "canal" => "catalogo_publico",
           "estatus_publicacion" => "borrador",
-          "slug" => $this->slugificar($slugBase),
-          "titulo_publico" => $titulo,
-          "descripcion_publica" => "",
-          "presentacion_publica" => $presentacion,
-          "mascota_especie" => $metadata["mascota_especie"],
-          "necesidades" => $metadata["necesidades"],
+          "slug" => $publicacionActual["slug"] !== "" ? $publicacionActual["slug"] : $this->slugificar($slugBase),
+          "titulo_publico" => $publicacionActual["titulo_publico"] !== "" ? $publicacionActual["titulo_publico"] : $titulo,
+          "descripcion_publica" => $publicacionActual["descripcion_publica"],
+          "presentacion_publica" => $publicacionActual["presentacion_publica"] !== "" ? $publicacionActual["presentacion_publica"] : $presentacion,
+          "mascota_especie" => $publicacionActual["mascota_especie"] !== "" ? $publicacionActual["mascota_especie"] : $metadata["mascota_especie"],
+          "necesidades" => $necesidadesSugeridas,
           "destacado" => 0,
           "orden" => 0,
           "permite_cotizacion" => 1,
@@ -1384,6 +2189,14 @@ class EcommerceCatalogoPublico extends CRUD {
       $preparacion = $this->prepararPublicacion(array("id_sku" => $idSku));
       $sugerida = $this->valor($preparacion, array("depurar", "publicacion_sugerida"), array());
       $bloqueos = $this->bloqueosPublicacion($fila);
+      $estatusActual = isset($fila["estatus_publicacion"]) ? (string) $fila["estatus_publicacion"] : "";
+      if (!empty($fila["id_publicacion"]) && $estatusActual === "borrador") {
+        $bloqueos = array_values(array_filter($bloqueos, function($bloqueo) {
+          return $bloqueo !== "publicacion_existente";
+        }));
+      } elseif (!empty($fila["id_publicacion"])) {
+        $bloqueos[] = "publicacion_existente_no_borrador";
+      }
       $tablaExiste = $this->tablaExiste($db, "erp_ecommerce_publicaciones");
       if (!$tablaExiste) {
         $bloqueos[] = "tabla_erp_ecommerce_publicaciones_pendiente";
@@ -1430,12 +2243,16 @@ class EcommerceCatalogoPublico extends CRUD {
 
       $sql = $this->sqlUpsertPublicacion($publicacion);
 
+      $bloqueosFisicos = array_values(array_filter($this->bloqueosPublicacion($fila), function($bloqueo) {
+        return $bloqueo !== "publicacion_existente";
+      }));
+
       return $this->respuesta(false, empty($bloqueos) ? "success" : "warning", "Plan de publicacion ecommerce generado sin ejecutar", array(
         "read_only" => true,
         "no_escribe_bd" => true,
         "no_publica_automaticamente" => true,
         "tabla_publicaciones_existe" => $tablaExiste,
-        "publicable_fase_1" => empty($this->bloqueosPublicacion($fila)),
+        "publicable_fase_1" => empty($bloqueosFisicos),
         "bloqueos_publicacion" => array_values(array_unique($bloqueos)),
         "producto_vivo_erp" => array(
           "id_producto_erp" => intval($fila["id_producto_erp"]),
@@ -1737,6 +2554,238 @@ class EcommerceCatalogoPublico extends CRUD {
     }
   }
 
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-07-30
+   * Proposito: guardar borradores ecommerce para un lote de SKUs seleccionados en panel.
+   * Impacto: acelera expansion inicial sin publicar automaticamente ni tocar inventario.
+   * Contrato: escribe solo curaduria en `erp_ecommerce_publicaciones`; requiere token de lote.
+   */
+  public function guardarBorradoresLoteAutorizado($datos = array(), $opciones = array()) {
+    $token = trim((string) $this->valor($opciones, "autorizar", $this->valor($datos, "autorizar", "")));
+    if ($token !== "ECOMMERCE_PUBLICO_LOTE_BORRADOR") {
+      return $this->respuesta(true, "warning", "Guardado de lote borrador bloqueado", array(
+        "bloqueado" => true,
+        "no_escribe_bd" => true,
+        "token_requerido" => "ECOMMERCE_PUBLICO_LOTE_BORRADOR"
+      ));
+    }
+    $skus = $this->normalizarIdsSkuLote($this->valor($datos, "id_skus", array()));
+    if (empty($skus)) {
+      return $this->respuesta(true, "warning", "Selecciona al menos un SKU", array("no_escribe_bd" => true));
+    }
+    $resultados = array();
+    $ok = 0;
+    $error = 0;
+    foreach ($skus as $idSku) {
+      $respuesta = $this->guardarPublicacionBorradorAutorizada(array(
+        "id_sku" => $idSku,
+        "estatus_publicacion" => "borrador"
+      ), array("autorizar" => "ECOMMERCE_PUBLICO_PUBLICACION_BORRADOR"));
+      if (empty($respuesta["error"])) {
+        $ok++;
+      } else {
+        $error++;
+      }
+      $resultados[] = array(
+        "id_sku" => $idSku,
+        "ok" => empty($respuesta["error"]),
+        "mensaje" => isset($respuesta["mensaje"]) ? $respuesta["mensaje"] : "",
+        "tipo" => isset($respuesta["tipo"]) ? $respuesta["tipo"] : "",
+        "bloqueos" => $this->valor($respuesta, array("depurar", "bloqueos_publicacion"), array()),
+        "publicacion" => $this->valor($respuesta, array("depurar", "publicacion"), array())
+      );
+    }
+    return $this->respuesta($ok === 0, $ok > 0 ? "success" : "warning", "Lote de borradores procesado", array(
+      "escribe_bd" => $ok > 0,
+      "id_skus" => $skus,
+      "total_ok" => $ok,
+      "total_error" => $error,
+      "resultados" => $resultados,
+      "no_publica_automaticamente" => true,
+      "no_toca_inventario" => true,
+      "no_toca_ecom_legacy" => true
+    ));
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-07-30
+   * Proposito: publicar un lote de borradores ecommerce seleccionados en panel.
+   * Impacto: expone publicaciones aprobadas al API publico manteniendo inventario intacto.
+   * Contrato: escribe solo estatus/fecha de publicacion; requiere token de lote y confirmacion de revision.
+   */
+  public function publicarBorradoresLoteAutorizado($datos = array(), $opciones = array()) {
+    $token = trim((string) $this->valor($opciones, "autorizar", $this->valor($datos, "autorizar", "")));
+    if ($token !== "ECOMMERCE_PUBLICO_LOTE_PUBLICAR") {
+      return $this->respuesta(true, "warning", "Publicacion de lote bloqueada", array(
+        "bloqueado" => true,
+        "no_escribe_bd" => true,
+        "token_requerido" => "ECOMMERCE_PUBLICO_LOTE_PUBLICAR"
+      ));
+    }
+    if (intval($this->valor($datos, "confirmar_revision", 0)) !== 1) {
+      return $this->respuesta(true, "warning", "Confirma revision antes de publicar lote", array(
+        "bloqueado" => true,
+        "no_escribe_bd" => true,
+        "bloqueos_publicacion" => array("confirmar_revision_requerido")
+      ));
+    }
+    $skus = $this->normalizarIdsSkuLote($this->valor($datos, "id_skus", array()));
+    if (empty($skus)) {
+      return $this->respuesta(true, "warning", "Selecciona al menos un SKU", array("no_escribe_bd" => true));
+    }
+    $resultados = array();
+    $ok = 0;
+    $error = 0;
+    foreach ($skus as $idSku) {
+      $respuesta = $this->publicarBorradorAutorizado(array(
+        "id_sku" => $idSku,
+        "confirmar_revision" => 1
+      ), array("autorizar" => "ECOMMERCE_PUBLICO_PUBLICAR_BORRADOR"));
+      if (empty($respuesta["error"])) {
+        $ok++;
+      } else {
+        $error++;
+      }
+      $resultados[] = array(
+        "id_sku" => $idSku,
+        "ok" => empty($respuesta["error"]),
+        "mensaje" => isset($respuesta["mensaje"]) ? $respuesta["mensaje"] : "",
+        "tipo" => isset($respuesta["tipo"]) ? $respuesta["tipo"] : "",
+        "bloqueos" => $this->valor($respuesta, array("depurar", "bloqueos_publicacion"), array()),
+        "publicacion" => $this->valor($respuesta, array("depurar", "publicacion"), array())
+      );
+    }
+    return $this->respuesta($ok === 0, $ok > 0 ? "success" : "warning", "Lote de publicaciones procesado", array(
+      "escribe_bd" => $ok > 0,
+      "id_skus" => $skus,
+      "total_ok" => $ok,
+      "total_error" => $error,
+      "resultados" => $resultados,
+      "no_toca_inventario" => true,
+      "no_toca_ecom_legacy" => true
+    ));
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-07-30
+   * Proposito: actualizar curaduria ecommerce existente sin cambiar su estatus publicado/borrador.
+   * Impacto: permite corregir fichas publicas desde panel manteniendo Catalogo ERP como fuente viva.
+   * Contrato: escribe solo `erp_ecommerce_publicaciones`; no toca precios, imagenes, inventario ni legacy `ecom_*`.
+   */
+  public function guardarCuraduriaPublicacionAutorizada($datos = array(), $opciones = array()) {
+    $token = trim((string) $this->valor($opciones, "autorizar", $this->valor($datos, "autorizar", "")));
+    if ($token !== "ECOMMERCE_PUBLICO_PUBLICACION_CURADURIA") {
+      return $this->respuesta(true, "warning", "Guardado de curaduria bloqueado", array(
+        "bloqueado" => true,
+        "no_escribe_bd" => true,
+        "token_requerido" => "ECOMMERCE_PUBLICO_PUBLICACION_CURADURIA"
+      ));
+    }
+
+    try {
+      $db = $this->getConexion();
+      if (!$db) {
+        return $this->respuesta(true, "warning", "Conexion MySQL no disponible", array("no_escribe_bd" => true));
+      }
+
+      $idPublicacion = intval($this->valor($datos, "id_publicacion", 0));
+      $idSku = intval($this->valor($datos, "id_sku", 0));
+      if ($idPublicacion <= 0 && $idSku <= 0) {
+        return $this->respuesta(true, "warning", "Selecciona una publicacion ecommerce", array("no_escribe_bd" => true));
+      }
+
+      $stmt = $db->prepare("SELECT * FROM erp_ecommerce_publicaciones WHERE " . ($idPublicacion > 0 ? "id_publicacion=:id" : "id_sku=:sku AND canal='catalogo_publico'") . " LIMIT 1");
+      $stmt->execute($idPublicacion > 0 ? array(":id" => $idPublicacion) : array(":sku" => $idSku));
+      $actual = $stmt->fetch(PDO::FETCH_ASSOC);
+      if (!$actual) {
+        return $this->respuesta(true, "warning", "Publicacion ecommerce no encontrada", array("no_escribe_bd" => true));
+      }
+      $idSku = intval($actual["id_sku"]);
+      $estatusActual = (string) $actual["estatus_publicacion"];
+      if (!in_array($estatusActual, array("borrador", "publicado", "pausado"), true)) {
+        return $this->respuesta(true, "warning", "Estatus de publicacion no editable", array(
+          "no_escribe_bd" => true,
+          "estatus_publicacion" => $estatusActual
+        ));
+      }
+
+      $fila = $this->consultarCandidatoPorSku($db, $idSku);
+      if (!$fila) {
+        return $this->respuesta(true, "warning", "SKU no encontrado o inactivo", array("no_escribe_bd" => true));
+      }
+      $bloqueos = array_values(array_filter($this->bloqueosPublicacion($fila), function($bloqueo) {
+        return $bloqueo !== "publicacion_existente";
+      }));
+
+      $slug = $this->slugificar($this->valor($datos, "slug", $actual["slug"]));
+      $titulo = trim((string) $this->valor($datos, "titulo_publico", $actual["titulo_publico"]));
+      $descripcion = trim((string) $this->valor($datos, "descripcion_publica", $actual["descripcion_publica"]));
+      $presentacion = trim((string) $this->valor($datos, "presentacion_publica", $actual["presentacion_publica"]));
+      $mascota = trim((string) $this->valor($datos, "mascota_especie", $actual["mascota_especie"]));
+      $necesidades = $this->normalizarNecesidadesPublicacion($this->valor($datos, "necesidades", $actual["necesidades_json"]));
+
+      if ($slug === "") { $bloqueos[] = "slug_requerido"; }
+      if ($titulo === "") { $bloqueos[] = "titulo_publico_requerido"; }
+      if ($this->conflictoSlugPublicacion($db, $slug, $idSku)) { $bloqueos[] = "slug_ya_usado_por_otro_sku"; }
+      if (!empty($bloqueos)) {
+        return $this->respuesta(true, "warning", "No se guardo curaduria por bloqueos de validacion", array(
+          "no_escribe_bd" => true,
+          "bloqueos_publicacion" => array_values(array_unique($bloqueos))
+        ));
+      }
+
+      $stmtUpdate = $db->prepare("UPDATE erp_ecommerce_publicaciones
+        SET slug=:slug,
+          titulo_publico=:titulo,
+          descripcion_publica=:descripcion,
+          presentacion_publica=:presentacion,
+          mascota_especie=:mascota,
+          necesidades_json=:necesidades,
+          destacado=:destacado,
+          orden=:orden,
+          permite_cotizacion=:permite_cotizacion,
+          permite_whatsapp=:permite_whatsapp,
+          mostrar_precio=:mostrar_precio,
+          mostrar_disponibilidad=:mostrar_disponibilidad,
+          fecha_actualizacion=NOW()
+        WHERE id_publicacion=:id
+        LIMIT 1");
+      $stmtUpdate->execute(array(
+        ":slug" => $slug,
+        ":titulo" => $titulo,
+        ":descripcion" => $descripcion,
+        ":presentacion" => $presentacion,
+        ":mascota" => $mascota,
+        ":necesidades" => json_encode($necesidades, JSON_UNESCAPED_UNICODE),
+        ":destacado" => $this->booleanoPublicacion($this->valor($datos, "destacado", $actual["destacado"])),
+        ":orden" => intval($this->valor($datos, "orden", $actual["orden"])),
+        ":permite_cotizacion" => $this->booleanoPublicacion($this->valor($datos, "permite_cotizacion", $actual["permite_cotizacion"])),
+        ":permite_whatsapp" => $this->booleanoPublicacion($this->valor($datos, "permite_whatsapp", $actual["permite_whatsapp"])),
+        ":mostrar_precio" => $this->booleanoPublicacion($this->valor($datos, "mostrar_precio", $actual["mostrar_precio"])),
+        ":mostrar_disponibilidad" => $this->booleanoPublicacion($this->valor($datos, "mostrar_disponibilidad", $actual["mostrar_disponibilidad"])),
+        ":id" => intval($actual["id_publicacion"])
+      ));
+
+      $consulta = $db->prepare("SELECT id_publicacion, id_producto_erp, id_sku, canal, estatus_publicacion, slug, titulo_publico
+        FROM erp_ecommerce_publicaciones
+        WHERE id_publicacion=:id
+        LIMIT 1");
+      $consulta->execute(array(":id" => intval($actual["id_publicacion"])));
+      $publicacion = $consulta->fetch(PDO::FETCH_ASSOC);
+
+      return $this->respuesta(false, "success", "Curaduria ecommerce guardada", array(
+        "escribe_bd" => true,
+        "estatus_preservado" => $estatusActual,
+        "publicacion" => $publicacion,
+        "no_toca_inventario" => true,
+        "no_toca_ecom_legacy" => true,
+        "precio_imagen_se_leen_vivos_desde_erp" => true
+      ));
+    } catch (Exception $e) {
+      return $this->respuesta(true, "danger", $e->getMessage(), array("escribe_bd" => false));
+    }
+  }
+
   private function resumenPublicabilidad($db) {
     $joinPublicaciones = $this->tablaExiste($db, "erp_ecommerce_publicaciones")
       ? "LEFT JOIN erp_ecommerce_publicaciones pub ON pub.id_sku=s.id_sku AND pub.estatus_publicacion IN ('borrador','publicado','pausado')"
@@ -1773,9 +2822,10 @@ class EcommerceCatalogoPublico extends CRUD {
     return $db->query($sql)->fetch(PDO::FETCH_ASSOC);
   }
 
-  private function listarCandidatosPublicacion($db, $limite, $soloBloqueados, $soloPublicables) {
+  private function listarCandidatosPublicacion($db, $limite, $soloBloqueados, $soloPublicables, $busqueda = "", $estatusPublicacion = "") {
     $tienePublicaciones = $this->tablaExiste($db, "erp_ecommerce_publicaciones");
     $where = array("p.estatus='activo'", "s.estatus='activo'");
+    $params = array();
     if ($soloPublicables) {
       $where[] = "pr.id_sku_precio IS NOT NULL";
       $where[] = "img.url_imagen IS NOT NULL";
@@ -1784,6 +2834,18 @@ class EcommerceCatalogoPublico extends CRUD {
     }
     if ($soloBloqueados) {
       $where[] = "(pr.id_sku_precio IS NULL OR img.url_imagen IS NULL OR pc.id_categoria_erp IS NULL OR COALESCE(r.permite_venta_fraccionaria, 0)=1)";
+    }
+    if ($busqueda !== "") {
+      $where[] = "(p.nombre LIKE :q OR s.nombre LIKE :q OR s.sku LIKE :q OR p.codigo_producto LIKE :q OR m.nombre LIKE :q OR c.nombre LIKE :q OR c.ruta LIKE :q)";
+      $params[":q"] = "%" . $busqueda . "%";
+    }
+    if ($estatusPublicacion !== "" && $tienePublicaciones) {
+      if ($estatusPublicacion === "sin_publicacion") {
+        $where[] = "pub.id_publicacion IS NULL";
+      } elseif (in_array($estatusPublicacion, array("borrador", "publicado", "pausado"), true)) {
+        $where[] = "pub.estatus_publicacion=:estatus_publicacion";
+        $params[":estatus_publicacion"] = $estatusPublicacion;
+      }
     }
 
     $sql = "SELECT p.id_producto_erp, s.id_sku, p.codigo_producto, s.sku,
@@ -1796,7 +2858,7 @@ class EcommerceCatalogoPublico extends CRUD {
         COALESCE(r.controla_inventario, CASE WHEN s.tipo_inventario IN ('servicio','cargo') THEN 0 ELSE 1 END) controla_inventario,
         COALESCE(r.permite_venta_fraccionaria, 0) permite_venta_fraccionaria,
         COALESCE(inv.cantidad_disponible, 0) existencia_disponible,
-        " . ($tienePublicaciones ? "pub.id_publicacion, pub.estatus_publicacion" : "NULL id_publicacion, NULL estatus_publicacion") . "
+        " . ($tienePublicaciones ? "pub.id_publicacion, pub.estatus_publicacion, pub.slug slug_publicacion, pub.titulo_publico titulo_publico_publicacion, pub.descripcion_publica descripcion_publica_publicacion, pub.presentacion_publica presentacion_publica_publicacion, pub.mascota_especie mascota_especie_publicacion, pub.necesidades_json necesidades_json_publicacion" : "NULL id_publicacion, NULL estatus_publicacion, NULL slug_publicacion, NULL titulo_publico_publicacion, NULL descripcion_publica_publicacion, NULL presentacion_publica_publicacion, NULL mascota_especie_publicacion, NULL necesidades_json_publicacion") . "
       FROM erp_catalogo_skus s
       INNER JOIN erp_catalogo_productos p ON p.id_producto_erp=s.id_producto_erp
       LEFT JOIN erp_catalogo_marcas m ON m.id_marca_erp=p.id_marca_erp
@@ -1826,7 +2888,9 @@ class EcommerceCatalogoPublico extends CRUD {
       ORDER BY CASE WHEN pr.id_sku_precio IS NOT NULL AND img.url_imagen IS NOT NULL AND pc.id_categoria_erp IS NOT NULL AND COALESCE(r.permite_venta_fraccionaria,0)=0 THEN 0 ELSE 1 END,
         p.nombre, s.sku
       LIMIT " . intval($limite);
-    $filas = $db->query($sql)->fetchAll(PDO::FETCH_ASSOC);
+    $stmt = $db->prepare($sql);
+    $stmt->execute($params);
+    $filas = $stmt->fetchAll(PDO::FETCH_ASSOC);
     foreach ($filas as &$fila) {
       $bloqueos = $this->bloqueosPublicacion($fila);
       $fila["publicable_fase_1"] = empty($bloqueos) ? 1 : 0;
@@ -1849,7 +2913,7 @@ class EcommerceCatalogoPublico extends CRUD {
         COALESCE(r.controla_inventario, CASE WHEN s.tipo_inventario IN ('servicio','cargo') THEN 0 ELSE 1 END) controla_inventario,
         COALESCE(r.permite_venta_fraccionaria, 0) permite_venta_fraccionaria,
         COALESCE(inv.cantidad_disponible, 0) existencia_disponible,
-        " . ($tienePublicaciones ? "pub.id_publicacion, pub.estatus_publicacion" : "NULL id_publicacion, NULL estatus_publicacion") . "
+        " . ($tienePublicaciones ? "pub.id_publicacion, pub.estatus_publicacion, pub.slug slug_publicacion, pub.titulo_publico titulo_publico_publicacion, pub.descripcion_publica descripcion_publica_publicacion, pub.presentacion_publica presentacion_publica_publicacion, pub.mascota_especie mascota_especie_publicacion, pub.necesidades_json necesidades_json_publicacion" : "NULL id_publicacion, NULL estatus_publicacion, NULL slug_publicacion, NULL titulo_publico_publicacion, NULL descripcion_publica_publicacion, NULL presentacion_publica_publicacion, NULL mascota_especie_publicacion, NULL necesidades_json_publicacion") . "
       FROM erp_catalogo_skus s
       INNER JOIN erp_catalogo_productos p ON p.id_producto_erp=s.id_producto_erp
       LEFT JOIN erp_catalogo_marcas m ON m.id_marca_erp=p.id_marca_erp
@@ -2242,6 +3306,137 @@ class EcommerceCatalogoPublico extends CRUD {
     );
   }
 
+  private function guardrailsExperienciaClientePreflight() {
+    return array(
+      "no_escribe_bd" => true,
+      "no_checkout" => true,
+      "no_factura_automatica" => true,
+      "no_registra_datos_personales_en_tracking" => true,
+      "no_descuenta_inventario" => true,
+      "requiere_autorizacion_para_persistencia" => true,
+      "requiere_rate_limit_para_post_productivo" => true
+    );
+  }
+
+  private function detectarDatosPersonalesTracking($datos) {
+    $detectados = array();
+    $clavesSensibles = array("nombre", "telefono", "celular", "correo", "email", "rfc", "razon_social", "direccion", "codigo_postal", "cp", "calle", "colonia");
+    $this->detectarDatosPersonalesTrackingRec($datos, "", $clavesSensibles, $detectados);
+    return array_values(array_unique($detectados));
+  }
+
+  private function detectarDatosPersonalesTrackingRec($datos, $prefijo, $clavesSensibles, &$detectados) {
+    if (!is_array($datos)) {
+      $valor = trim((string) $datos);
+      if ($valor !== "" && preg_match('/[A-Z0-9._%+\-]+@[A-Z0-9.\-]+\.[A-Z]{2,}/i', $valor)) {
+        $detectados[] = $prefijo !== "" ? $prefijo . ":correo" : "correo";
+      }
+      if ($valor !== "" && preg_match('/(?:\D|^)(\d{10})(?:\D|$)/', $valor)) {
+        $detectados[] = $prefijo !== "" ? $prefijo . ":telefono" : "telefono";
+      }
+      if ($valor !== "" && preg_match('/\b[A-Z&Ñ]{3,4}\d{6}[A-Z0-9]{3}\b/u', strtoupper($valor))) {
+        $detectados[] = $prefijo !== "" ? $prefijo . ":rfc" : "rfc";
+      }
+      return;
+    }
+    foreach ($datos as $clave => $valor) {
+      $claveLimpia = strtolower(trim((string) $clave));
+      $ruta = $prefijo === "" ? $claveLimpia : $prefijo . "." . $claveLimpia;
+      if (in_array($claveLimpia, $clavesSensibles, true)) {
+        $detectados[] = $ruta;
+      }
+      $this->detectarDatosPersonalesTrackingRec($valor, $ruta, $clavesSensibles, $detectados);
+    }
+  }
+
+  private function limpiarMetadataTracking($datos, $nivel = 0) {
+    if (!is_array($datos) || $nivel > 2) {
+      return is_scalar($datos) ? substr(trim((string) $datos), 0, 160) : null;
+    }
+    $salida = array();
+    foreach ($datos as $clave => $valor) {
+      $claveLimpia = $this->limpiarFiltroPublico($clave);
+      if ($claveLimpia === "" || in_array($claveLimpia, array("nombre", "telefono", "celular", "correo", "email", "rfc", "razon_social", "direccion"), true)) {
+        continue;
+      }
+      if (is_array($valor)) {
+        $salida[$claveLimpia] = $this->limpiarMetadataTracking($valor, $nivel + 1);
+      } elseif (is_scalar($valor)) {
+        $salida[$claveLimpia] = substr(trim((string) $valor), 0, 160);
+      }
+      if (count($salida) >= 30) {
+        break;
+      }
+    }
+    return $salida;
+  }
+
+  private function consultaTopBusquedas($db, $inicio, $fin, $limite, $soloSinResultado) {
+    $sql = "SELECT termino_normalizado termino, COUNT(*) total, SUM(CASE WHEN sin_resultados=1 THEN 1 ELSE 0 END) sin_resultados, MAX(fecha_registro) ultima_fecha
+      FROM erp_ecommerce_busquedas
+      WHERE fecha_registro BETWEEN :inicio AND :fin";
+    if ($soloSinResultado) {
+      $sql .= " AND sin_resultados=1";
+    }
+    $sql .= " GROUP BY termino_normalizado ORDER BY total DESC, termino_normalizado ASC LIMIT " . intval($limite);
+    $stmt = $db->prepare($sql);
+    $stmt->execute(array(":inicio" => $inicio, ":fin" => $fin));
+    return $stmt->fetchAll(PDO::FETCH_ASSOC);
+  }
+
+  private function consultaTopEventosCampo($db, $campo, $inicio, $fin, $limite) {
+    $permitidos = array("mascota_especie", "necesidad");
+    if (!in_array($campo, $permitidos, true)) {
+      return array();
+    }
+    $sql = "SELECT " . $campo . " valor, COUNT(*) total, MAX(fecha_registro) ultima_fecha
+      FROM erp_ecommerce_eventos_navegacion
+      WHERE fecha_registro BETWEEN :inicio AND :fin
+        AND TRIM(COALESCE(" . $campo . ",''))<>''
+      GROUP BY " . $campo . "
+      ORDER BY total DESC, valor ASC
+      LIMIT " . intval($limite);
+    $stmt = $db->prepare($sql);
+    $stmt->execute(array(":inicio" => $inicio, ":fin" => $fin));
+    return $stmt->fetchAll(PDO::FETCH_ASSOC);
+  }
+
+  private function consultaTopEventosProducto($db, $tipoEvento, $inicio, $fin, $limite) {
+    $tipoEvento = $this->limpiarFiltroPublico($tipoEvento);
+    $sql = "SELECT id_publicacion, id_sku, COUNT(*) total, MAX(fecha_registro) ultima_fecha
+      FROM erp_ecommerce_eventos_navegacion
+      WHERE fecha_registro BETWEEN :inicio AND :fin
+        AND tipo_evento=:tipo
+        AND (id_publicacion IS NOT NULL OR id_sku IS NOT NULL)
+      GROUP BY id_publicacion, id_sku
+      ORDER BY total DESC, id_publicacion ASC
+      LIMIT " . intval($limite);
+    $stmt = $db->prepare($sql);
+    $stmt->execute(array(":inicio" => $inicio, ":fin" => $fin, ":tipo" => $tipoEvento));
+    return $stmt->fetchAll(PDO::FETCH_ASSOC);
+  }
+
+  private function consultaConversionWhatsapp($db, $inicio, $fin) {
+    $stmt = $db->prepare("SELECT tipo_evento, COUNT(*) total
+      FROM erp_ecommerce_eventos_navegacion
+      WHERE fecha_registro BETWEEN :inicio AND :fin
+        AND tipo_evento IN ('add_to_quote','open_whatsapp')
+      GROUP BY tipo_evento");
+    $stmt->execute(array(":inicio" => $inicio, ":fin" => $fin));
+    $totales = array("add_to_quote" => 0, "open_whatsapp" => 0);
+    foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $fila) {
+      $tipo = (string) $this->valor($fila, "tipo_evento", "");
+      if (array_key_exists($tipo, $totales)) {
+        $totales[$tipo] = intval($this->valor($fila, "total", 0));
+      }
+    }
+    return array(
+      "add_to_quote" => $totales["add_to_quote"],
+      "open_whatsapp" => $totales["open_whatsapp"],
+      "ratio_estimado" => $totales["add_to_quote"] > 0 ? round($totales["open_whatsapp"] / $totales["add_to_quote"], 4) : null
+    );
+  }
+
   private function configuracionPublicaDefault() {
     return array(
       "moneda_default" => "MXN",
@@ -2313,6 +3508,161 @@ class EcommerceCatalogoPublico extends CRUD {
     return implode("\n", $mensaje);
   }
 
+  private function normalizarContactoCotizacion($contacto) {
+    if (!is_array($contacto)) {
+      $contacto = array();
+    }
+    return array(
+      "nombre" => trim(substr((string) $this->valor($contacto, "nombre", ""), 0, 220)),
+      "telefono" => preg_replace('/[^\d+]/', '', substr((string) $this->valor($contacto, "telefono", ""), 0, 60)),
+      "correo" => trim(substr((string) $this->valor($contacto, "correo", ""), 0, 220)),
+      "canal_preferido" => $this->limpiarFiltroPublico($this->valor($contacto, "canal_preferido", "whatsapp")),
+      "mensaje" => trim(substr((string) $this->valor($contacto, "mensaje", ""), 0, 1000))
+    );
+  }
+
+  private function normalizarUtmCotizacion($utm) {
+    if (!is_array($utm)) {
+      return array();
+    }
+    $limpio = array();
+    foreach (array("source", "medium", "campaign", "term", "content", "referrer") as $clave) {
+      $valor = trim(substr((string) $this->valor($utm, $clave, ""), 0, 180));
+      if ($valor !== "") {
+        $limpio[$clave] = $valor;
+      }
+    }
+    return $limpio;
+  }
+
+  private function normalizarListaTextoPublica($valor) {
+    if (is_string($valor)) {
+      $valor = preg_split('/[\r\n,]+/', $valor);
+    }
+    if (!is_array($valor)) {
+      return array();
+    }
+    $limpios = array();
+    foreach ($valor as $item) {
+      $texto = $this->limpiarFiltroPublico($item);
+      if ($texto !== "" && !in_array($texto, $limpios, true)) {
+        $limpios[] = $texto;
+      }
+    }
+    return $limpios;
+  }
+
+  private function folioPreliminarCotizacion($datos, $lineas, $contacto) {
+    if (empty($lineas)) {
+      return "";
+    }
+    $base = json_encode(array(
+      "items" => $this->valor($datos, "items", array()),
+      "contacto" => array("telefono" => $this->valor($contacto, "telefono", "")),
+      "fecha" => date("Y-m-d")
+    ), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+    return "PRE-" . date("Ymd") . "-" . strtoupper(substr(hash("sha256", $base), 0, 8));
+  }
+
+  private function folioCotizacionPlaneado($db) {
+    $fecha = date("Ymd");
+    $siguiente = 1;
+    if ($db && $this->tablaExiste($db, "erp_ecommerce_cotizaciones")) {
+      $stmt = $db->prepare("SELECT COUNT(*) FROM erp_ecommerce_cotizaciones WHERE folio LIKE :folio");
+      $stmt->execute(array(":folio" => "ECOM-" . $fecha . "-%"));
+      $siguiente = intval($stmt->fetchColumn()) + 1;
+    }
+    return "ECOM-" . $fecha . "-" . str_pad((string) $siguiente, 6, "0", STR_PAD_LEFT);
+  }
+
+  private function tablasCotizacionesDisponibles($db) {
+    $tablas = array(
+      "erp_ecommerce_cotizaciones" => false,
+      "erp_ecommerce_cotizaciones_detalle" => false,
+      "erp_ecommerce_cotizaciones_eventos" => false
+    );
+    if (!$db) {
+      return $tablas;
+    }
+    foreach (array_keys($tablas) as $tabla) {
+      $tablas[$tabla] = $this->tablaExiste($db, $tabla);
+    }
+    return $tablas;
+  }
+
+  private function formatearCotizacionBandeja($fila) {
+    return array(
+      "id_cotizacion" => intval($this->valor($fila, "id_cotizacion", 0)),
+      "folio" => trim((string) $this->valor($fila, "folio", "")),
+      "origen" => trim((string) $this->valor($fila, "origen", "")),
+      "estatus" => trim((string) $this->valor($fila, "estatus", "")),
+      "id_cliente_crm" => $this->valor($fila, "id_cliente_crm", null) !== null ? intval($this->valor($fila, "id_cliente_crm", 0)) : null,
+      "nombre_contacto" => trim((string) $this->valor($fila, "nombre_contacto", "")),
+      "telefono_contacto" => trim((string) $this->valor($fila, "telefono_contacto", "")),
+      "correo_contacto" => trim((string) $this->valor($fila, "correo_contacto", "")),
+      "canal_contacto_preferido" => trim((string) $this->valor($fila, "canal_contacto_preferido", "")),
+      "moneda" => trim((string) $this->valor($fila, "moneda", "MXN")),
+      "subtotal_estimado" => round(floatval($this->valor($fila, "subtotal_estimado", 0)), 6),
+      "total_estimado" => round(floatval($this->valor($fila, "total_estimado", 0)), 6),
+      "partidas" => intval($this->valor($fila, "partidas", 0)),
+      "fecha_expiracion" => $this->valor($fila, "fecha_expiracion", null),
+      "fecha_registro" => $this->valor($fila, "fecha_registro", null),
+      "fecha_actualizacion" => $this->valor($fila, "fecha_actualizacion", null),
+      "fecha_ultimo_evento" => $this->valor($fila, "fecha_ultimo_evento", null),
+      "acciones_futuras" => array("ver_detalle", "marcar_en_seguimiento", "preparar_pedido_manual", "descartar")
+    );
+  }
+
+  private function resumenBandejaCotizaciones($items) {
+    $resumen = array(
+      "total_en_pagina" => count($items),
+      "nuevas" => 0,
+      "en_seguimiento" => 0,
+      "convertidas" => 0,
+      "descartadas" => 0
+    );
+    foreach ($items as $item) {
+      $estatus = $this->valor($item, "estatus", "");
+      if (in_array($estatus, array("recibida_whatsapp", "nueva", "borrador"), true)) { $resumen["nuevas"]++; }
+      if (in_array($estatus, array("seguimiento", "en_seguimiento"), true)) { $resumen["en_seguimiento"]++; }
+      if (in_array($estatus, array("convertida_pedido", "convertida_venta"), true)) { $resumen["convertidas"]++; }
+      if (in_array($estatus, array("descartada", "cancelada"), true)) { $resumen["descartadas"]++; }
+    }
+    return $resumen;
+  }
+
+  private function guardrailsBandejaCotizaciones() {
+    return array(
+      "read_only" => true,
+      "no_cambia_estatus" => true,
+      "no_crea_pedido" => true,
+      "no_crea_venta" => true,
+      "no_descuenta_inventario" => true,
+      "conversion_manual_futura" => true,
+      "no_cliente_crm_automatico" => true
+    );
+  }
+
+  private function estatusDestinoAccionCotizacion($accion) {
+    $mapa = array(
+      "marcar_seguimiento" => "en_seguimiento",
+      "descartar" => "descartada",
+      "preparar_pedido_manual" => "preparando_pedido",
+      "preparar_venta_pos_manual" => "preparando_venta_pos"
+    );
+    return isset($mapa[$accion]) ? $mapa[$accion] : "";
+  }
+
+  private function eventoAccionCotizacion($accion) {
+    $mapa = array(
+      "marcar_seguimiento" => "seguimiento_iniciado",
+      "descartar" => "descartada",
+      "preparar_pedido_manual" => "preparacion_pedido_manual",
+      "preparar_venta_pos_manual" => "preparacion_venta_pos_manual"
+    );
+    return isset($mapa[$accion]) ? $mapa[$accion] : "";
+  }
+
   private function contratoAutenticacionFutura() {
     return array(
       "estado_actual" => "no_requerida_en_fase1_readonly",
@@ -2369,12 +3719,41 @@ class EcommerceCatalogoPublico extends CRUD {
     return $limpias;
   }
 
+  private function normalizarIdsSkuLote($valor) {
+    if (is_string($valor)) {
+      $decodificado = json_decode($valor, true);
+      $valor = is_array($decodificado) ? $decodificado : preg_split('/[\r\n,]+/', $valor);
+    }
+    if (!is_array($valor)) {
+      return array();
+    }
+    $ids = array();
+    foreach ($valor as $id) {
+      $idSku = intval($id);
+      if ($idSku > 0 && !in_array($idSku, $ids, true)) {
+        $ids[] = $idSku;
+      }
+      if (count($ids) >= 100) {
+        break;
+      }
+    }
+    return $ids;
+  }
+
   private function booleanoPublicacion($valor) {
     if (is_bool($valor)) {
       return $valor ? 1 : 0;
     }
     $valor = strtolower(trim((string) $valor));
     return in_array($valor, array("1", "true", "si", "on", "yes"), true) ? 1 : 0;
+  }
+
+  private function jsonArray($valor) {
+    if (is_array($valor)) {
+      return $valor;
+    }
+    $decodificado = json_decode((string) $valor, true);
+    return is_array($decodificado) ? $decodificado : array();
   }
 
   private function conflictoSlugPublicacion($db, $slug, $idSku) {

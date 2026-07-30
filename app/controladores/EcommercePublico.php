@@ -150,6 +150,32 @@ class EcommercePublico extends Controlador {
   }
 
   /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-07-29
+   * Proposito: validar carrito/contacto antes de abrir WhatsApp o activar registro futuro.
+   * Impacto: Ecommerce publico; entrega folio preliminar y guardrails sin persistir cotizacion.
+   * Contrato: POST publico preflight; no escribe BD, no aparta inventario y no crea pedido.
+   */
+  public function cotizacion_preflight() {
+    if ($this->esOptionsPublicas()) { return $this->responderOpcionesPublicas(); }
+    if (!isset($_SERVER["REQUEST_METHOD"]) || strtoupper((string) $_SERVER["REQUEST_METHOD"]) !== "POST") {
+      return $this->responderApiPublica(array(
+        "error" => true,
+        "tipo" => "warning",
+        "mensaje" => "Usa POST para preflight de cotizacion",
+        "api" => array(
+          "nombre" => "ERP Ecommerce Publico",
+          "version" => "fase1-2026-07-12",
+          "modo" => "catalogo_vivo_readonly",
+          "fuente_verdad" => "ERP",
+          "moneda_default" => "MXN"
+        ),
+        "depurar" => array("preflight" => true, "no_escribe_bd" => true)
+      ));
+    }
+    return $this->responderApiPublica($this->modelo("EcommerceCatalogoPublico")->cotizacionPreflight($this->entradaJsonPublica()));
+  }
+
+  /**
    * Documentacion IA: Codex GPT-5 | Fecha: 2026-07-12
    * Proposito: reservar contrato futuro para registrar cotizacion ecommerce real.
    * Impacto: Ecommerce publico; evita que el frontend invente un POST distinto cuando se active persistencia.
@@ -158,6 +184,48 @@ class EcommercePublico extends Controlador {
   public function cotizacion_registrar() {
     if ($this->esOptionsPublicas()) { return $this->responderOpcionesPublicas(); }
     return $this->responderApiPublica($this->modelo("EcommerceCatalogoPublico")->cotizacionRegistrarBloqueada($this->entradaJsonPublica()));
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-07-29
+   * Proposito: validar solicitud publica de facturacion por folio sin registrar datos fiscales.
+   * Impacto: Ecommerce publico; permite al frontend construir formulario fiscal con contrato estable.
+   * Contrato: POST publico preflight; no escribe BD, no emite factura y no vincula cliente.
+   */
+  public function facturacion_solicitar() {
+    if ($this->esOptionsPublicas()) { return $this->responderOpcionesPublicas(); }
+    if (!isset($_SERVER["REQUEST_METHOD"]) || strtoupper((string) $_SERVER["REQUEST_METHOD"]) !== "POST") {
+      return $this->responderApiPublica($this->modelo("EcommerceCatalogoPublico")->metodoPostRequerido("facturacion_preflight"));
+    }
+    return $this->responderApiPublica($this->modelo("EcommerceCatalogoPublico")->facturacionSolicitudPreflight($this->entradaJsonPublica()));
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-07-29
+   * Proposito: validar evento anonimo de navegacion sin guardarlo.
+   * Impacto: Ecommerce publico; prepara analitica de mascotas, productos y conversion a WhatsApp.
+   * Contrato: POST publico preflight; no escribe BD y no acepta datos personales en tracking.
+   */
+  public function evento_navegacion() {
+    if ($this->esOptionsPublicas()) { return $this->responderOpcionesPublicas(); }
+    if (!isset($_SERVER["REQUEST_METHOD"]) || strtoupper((string) $_SERVER["REQUEST_METHOD"]) !== "POST") {
+      return $this->responderApiPublica($this->modelo("EcommerceCatalogoPublico")->metodoPostRequerido("evento_navegacion_preflight"));
+    }
+    return $this->responderApiPublica($this->modelo("EcommerceCatalogoPublico")->eventoNavegacionPreflight($this->entradaJsonPublica()));
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-07-29
+   * Proposito: validar busqueda anonima ecommerce sin persistirla.
+   * Impacto: Ecommerce publico; prepara aprendizaje de demanda, faltantes y necesidades por mascota.
+   * Contrato: POST publico preflight; no escribe BD y no guarda datos personales.
+   */
+  public function busqueda_registrar() {
+    if ($this->esOptionsPublicas()) { return $this->responderOpcionesPublicas(); }
+    if (!isset($_SERVER["REQUEST_METHOD"]) || strtoupper((string) $_SERVER["REQUEST_METHOD"]) !== "POST") {
+      return $this->responderApiPublica($this->modelo("EcommerceCatalogoPublico")->metodoPostRequerido("busqueda_preflight"));
+    }
+    return $this->responderApiPublica($this->modelo("EcommerceCatalogoPublico")->busquedaRegistrarPreflight($this->entradaJsonPublica()));
   }
 
   /**
@@ -225,6 +293,17 @@ class EcommercePublico extends Controlador {
   }
 
   /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-07-29
+   * Proposito: abrir bandeja interna read-only de cotizaciones ecommerce.
+   * Impacto: permite revisar seguimiento futuro sin activar registro, pedidos ni ventas.
+   * Contrato: vista protegida por `catalogo.ver`; no escribe BD.
+   */
+  public function cotizaciones() {
+    $this->requerirPermiso("catalogo.ver");
+    $this->vista("apps/erp/ecommerce/cotizaciones");
+  }
+
+  /**
    * Documentacion IA: Codex GPT-5 | Fecha: 2026-07-11
    * Proposito: auditar SKUs candidatos para publicacion ecommerce sin escribir datos.
    * Impacto: Ecommerce publico/Catalogo ERP; prepara decisiones de publicacion con permiso interno.
@@ -270,6 +349,67 @@ class EcommercePublico extends Controlador {
   }
 
   /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-07-29
+   * Proposito: revisar plan interno de persistencia para una cotizacion ecommerce.
+   * Impacto: Ecommerce publico/CRM futuro; prepara folio, snapshots y evento sin escribir BD.
+   * Contrato: POST protegido por `catalogo.ver`; read-only, no registra cotizacion ni mueve inventario.
+   */
+  public function cotizacion_registro_plan_erp() {
+    $this->requerirPermiso("catalogo.ver");
+    $datos = !empty($_POST) ? $_POST : $this->entradaJsonPublica();
+    return json_encode($this->modelo("EcommerceCatalogoPublico")->cotizacionRegistroPersistenciaPlan($datos));
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-07-29
+   * Proposito: listar bandeja interna read-only de cotizaciones ecommerce.
+   * Impacto: seguimiento operativo futuro sin convertir a pedido/venta ni tocar inventario.
+   * Contrato: GET protegido por `catalogo.ver`; solo lectura.
+   */
+  public function cotizaciones_bandeja_erp() {
+    $this->requerirPermiso("catalogo.ver");
+    return json_encode($this->modelo("EcommerceCatalogoPublico")->cotizacionesBandejaInterna($_GET));
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-07-29
+   * Proposito: consultar detalle interno read-only de una cotizacion ecommerce.
+   * Impacto: prepara seguimiento y conversion manual futura sin registrar movimientos.
+   * Contrato: GET protegido por `catalogo.ver`; solo lectura.
+   */
+  public function cotizacion_detalle_erp($folio = "") {
+    $this->requerirPermiso("catalogo.ver");
+    $filtros = $_GET;
+    if ($folio !== "") {
+      $filtros["folio"] = $folio;
+    }
+    return json_encode($this->modelo("EcommerceCatalogoPublico")->cotizacionDetalleInterna($filtros));
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-07-29
+   * Proposito: planear acciones internas futuras sobre una cotizacion ecommerce.
+   * Impacto: define seguimiento, descarte y conversion manual sin ejecutar cambios.
+   * Contrato: POST protegido por `catalogo.ver`; read-only, no cambia estatus ni crea documentos.
+   */
+  public function cotizacion_accion_plan_erp() {
+    $this->requerirPermiso("catalogo.ver");
+    $datos = !empty($_POST) ? $_POST : $this->entradaJsonPublica();
+    return json_encode($this->modelo("EcommerceCatalogoPublico")->cotizacionAccionPlanInterna($datos));
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-07-29
+   * Proposito: consultar inteligencia cliente ecommerce en modo interno read-only.
+   * Impacto: prepara analisis de busquedas, navegacion y solicitudes de facturacion.
+   * Contrato: GET protegido por `catalogo.ver`; no registra eventos, no guarda solicitudes ni toca inventario.
+   */
+  public function inteligencia_cliente_erp() {
+    $this->requerirPermiso("catalogo.ver");
+    return json_encode($this->modelo("EcommerceCatalogoPublico")->inteligenciaClienteInterna($_GET));
+  }
+
+  /**
    * Documentacion IA: Codex GPT-5 | Fecha: 2026-07-13
    * Proposito: guardar una publicacion ecommerce como borrador con autorizacion operativa.
    * Impacto: activa curaduria interna posterior al DDL sin publicar automaticamente ni mover inventario.
@@ -287,6 +427,104 @@ class EcommercePublico extends Controlador {
       "datos_despues" => array(
         "id_publicacion" => isset($respuesta["depurar"]["publicacion"]["id_publicacion"]) ? intval($respuesta["depurar"]["publicacion"]["id_publicacion"]) : null,
         "estatus" => isset($respuesta["depurar"]["publicacion"]["estatus_publicacion"]) ? $respuesta["depurar"]["publicacion"]["estatus_publicacion"] : null
+      )
+    ));
+    return json_encode($respuesta);
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-07-30
+   * Proposito: guardar curaduria de una publicacion ecommerce existente sin cambiar su estatus.
+   * Impacto: permite corregir titulo, slug, mascota, necesidades y descripcion desde panel.
+   * Contrato: POST protegido por `catalogo.editar`; requiere token interno, CSRF y auditoria explicita.
+   */
+  public function publicaciones_guardar_curaduria_erp() {
+    $this->requerirPermiso("catalogo.editar");
+    $respuesta = $this->modelo("EcommerceCatalogoPublico")->guardarCuraduriaPublicacionAutorizada($_POST, array(
+      "autorizar" => isset($_POST["autorizar"]) ? $_POST["autorizar"] : ""
+    ));
+    SesionSeguridad::registrarAuditoria("ecommerce_publico", "publicacion_guardar_curaduria", array(
+      "resultado" => empty($respuesta["error"]) ? "ok" : "error",
+      "mensaje" => isset($respuesta["mensaje"]) ? $respuesta["mensaje"] : "",
+      "datos_antes" => array(
+        "id_publicacion" => isset($_POST["id_publicacion"]) ? intval($_POST["id_publicacion"]) : 0,
+        "id_sku" => isset($_POST["id_sku"]) ? intval($_POST["id_sku"]) : 0
+      ),
+      "datos_despues" => array(
+        "id_publicacion" => isset($respuesta["depurar"]["publicacion"]["id_publicacion"]) ? intval($respuesta["depurar"]["publicacion"]["id_publicacion"]) : null,
+        "estatus" => isset($respuesta["depurar"]["publicacion"]["estatus_publicacion"]) ? $respuesta["depurar"]["publicacion"]["estatus_publicacion"] : null
+      )
+    ));
+    return json_encode($respuesta);
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-07-30
+   * Proposito: publicar desde el panel un borrador ecommerce previamente revisado.
+   * Impacto: expone el SKU en el API publico sin tocar inventario, precios ERP ni legacy `ecom_*`.
+   * Contrato: POST protegido por `catalogo.editar`; requiere token interno, revision confirmada y auditoria explicita.
+   */
+  public function publicaciones_publicar_borrador_erp() {
+    $this->requerirPermiso("catalogo.editar");
+    $respuesta = $this->modelo("EcommerceCatalogoPublico")->publicarBorradorAutorizado($_POST, array(
+      "autorizar" => isset($_POST["autorizar"]) ? $_POST["autorizar"] : ""
+    ));
+    SesionSeguridad::registrarAuditoria("ecommerce_publico", "publicacion_publicar_borrador", array(
+      "resultado" => empty($respuesta["error"]) ? "ok" : "error",
+      "mensaje" => isset($respuesta["mensaje"]) ? $respuesta["mensaje"] : "",
+      "datos_antes" => array(
+        "id_publicacion" => isset($_POST["id_publicacion"]) ? intval($_POST["id_publicacion"]) : 0,
+        "id_sku" => isset($_POST["id_sku"]) ? intval($_POST["id_sku"]) : 0
+      ),
+      "datos_despues" => array(
+        "id_publicacion" => isset($respuesta["depurar"]["publicacion"]["id_publicacion"]) ? intval($respuesta["depurar"]["publicacion"]["id_publicacion"]) : null,
+        "estatus" => isset($respuesta["depurar"]["publicacion"]["estatus_publicacion"]) ? $respuesta["depurar"]["publicacion"]["estatus_publicacion"] : null
+      )
+    ));
+    return json_encode($respuesta);
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-07-30
+   * Proposito: guardar borradores ecommerce por lote desde productos seleccionados en panel.
+   * Impacto: acelera expansion controlada del catalogo sin publicar automaticamente.
+   * Contrato: POST protegido por `catalogo.editar`; requiere token interno y auditoria explicita.
+   */
+  public function publicaciones_lote_borrador_erp() {
+    $this->requerirPermiso("catalogo.editar");
+    $respuesta = $this->modelo("EcommerceCatalogoPublico")->guardarBorradoresLoteAutorizado($_POST, array(
+      "autorizar" => isset($_POST["autorizar"]) ? $_POST["autorizar"] : ""
+    ));
+    SesionSeguridad::registrarAuditoria("ecommerce_publico", "publicacion_lote_borrador", array(
+      "resultado" => empty($respuesta["error"]) ? "ok" : "error",
+      "mensaje" => isset($respuesta["mensaje"]) ? $respuesta["mensaje"] : "",
+      "datos_antes" => array("id_skus" => isset($_POST["id_skus"]) ? (string) $_POST["id_skus"] : ""),
+      "datos_despues" => array(
+        "total_ok" => isset($respuesta["depurar"]["total_ok"]) ? intval($respuesta["depurar"]["total_ok"]) : 0,
+        "total_error" => isset($respuesta["depurar"]["total_error"]) ? intval($respuesta["depurar"]["total_error"]) : 0
+      )
+    ));
+    return json_encode($respuesta);
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-07-30
+   * Proposito: publicar por lote borradores ecommerce seleccionados en panel.
+   * Impacto: expone multiples publicaciones al API publico sin tocar inventario ni Catalogo ERP.
+   * Contrato: POST protegido por `catalogo.editar`; requiere token interno, revision confirmada y auditoria explicita.
+   */
+  public function publicaciones_lote_publicar_erp() {
+    $this->requerirPermiso("catalogo.editar");
+    $respuesta = $this->modelo("EcommerceCatalogoPublico")->publicarBorradoresLoteAutorizado($_POST, array(
+      "autorizar" => isset($_POST["autorizar"]) ? $_POST["autorizar"] : ""
+    ));
+    SesionSeguridad::registrarAuditoria("ecommerce_publico", "publicacion_lote_publicar", array(
+      "resultado" => empty($respuesta["error"]) ? "ok" : "error",
+      "mensaje" => isset($respuesta["mensaje"]) ? $respuesta["mensaje"] : "",
+      "datos_antes" => array("id_skus" => isset($_POST["id_skus"]) ? (string) $_POST["id_skus"] : ""),
+      "datos_despues" => array(
+        "total_ok" => isset($respuesta["depurar"]["total_ok"]) ? intval($respuesta["depurar"]["total_ok"]) : 0,
+        "total_error" => isset($respuesta["depurar"]["total_error"]) ? intval($respuesta["depurar"]["total_error"]) : 0
       )
     ));
     return json_encode($respuesta);

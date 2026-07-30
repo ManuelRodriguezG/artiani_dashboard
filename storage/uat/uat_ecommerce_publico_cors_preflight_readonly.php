@@ -14,7 +14,11 @@ $origin = isset($opciones["origin"]) ? trim((string) $opciones["origin"]) : "htt
 $rutas = array(
   "estado" => "/ecommercePublico/estado",
   "catalogo" => "/ecommercePublico/catalogo",
-  "cotizacion_dryrun" => "/ecommercePublico/cotizacion_dryrun"
+  "cotizacion_dryrun" => "/ecommercePublico/cotizacion_dryrun",
+  "cotizacion_preflight" => "/ecommercePublico/cotizacion_preflight",
+  "facturacion_solicitar" => "/ecommercePublico/facturacion_solicitar",
+  "evento_navegacion" => "/ecommercePublico/evento_navegacion",
+  "busqueda_registrar" => "/ecommercePublico/busqueda_registrar"
 );
 
 $pruebas = array();

@@ -17,6 +17,8 @@ require_once __DIR__ . "/../../app/modelos/TmsDelivery.php";
 $root = realpath(__DIR__ . "/../..");
 $checks = array();
 $detalleCompleto = in_array("--detalle=1", $argv, true);
+$respaldoPosReal = "C:\\xampp\\panel_db_backups\\artianilocal_panel_20260729_204819_antes_tms_pos_real.sql";
+$respaldoPosOperacion = "C:\\xampp\\panel_db_backups\\artianilocal_panel_20260729_211742_antes_tms_pos_operacion.sql";
 
 $archivos = array(
   "controlador" => "app/controladores/Tms.php",
@@ -43,6 +45,9 @@ $archivos = array(
   "pos_real_preflight_readonly" => "storage/uat/uat_tms_delivery_pos_real_preflight_readonly.php",
   "pos_real_apply" => "storage/uat/uat_tms_delivery_pos_real_apply_authorized.php",
   "pos_real_postcheck_readonly" => "storage/uat/uat_tms_delivery_pos_real_postcheck_readonly.php",
+  "pos_operacion_preflight_readonly" => "storage/uat/uat_tms_delivery_pos_operacion_preflight_readonly.php",
+  "pos_operacion_apply" => "storage/uat/uat_tms_delivery_pos_operacion_apply_authorized.php",
+  "ticket_readonly" => "storage/uat/uat_tms_delivery_ticket_readonly.php",
   "logistica_pura_readonly" => "storage/uat/uat_tms_delivery_logistica_pura_readonly.php",
   "logistica_pura_apply" => "storage/uat/uat_tms_delivery_logistica_pura_apply_authorized.php",
   "servicio_manual_apply" => "storage/uat/uat_tms_delivery_servicio_manual_apply_authorized.php",
@@ -53,13 +58,15 @@ $archivos = array(
 foreach ($archivos as $clave => $relativa) {
   $checks["archivo_" . $clave] = check_item(file_exists($root . "/" . $relativa), $relativa);
 }
+$checks["respaldo_pos_real"] = check_item(file_exists($respaldoPosReal) && is_readable($respaldoPosReal) && filesize($respaldoPosReal) > 0, "Respaldo POS/TMS real disponible");
+$checks["respaldo_pos_operacion"] = check_item(file_exists($respaldoPosOperacion) && is_readable($respaldoPosOperacion) && filesize($respaldoPosOperacion) > 0, "Respaldo POS/TMS operacion disponible");
 
 $controlador = contenido($root . "/app/controladores/Tms.php");
 $metodos = array(
   "servicios", "operacion", "costos", "reportes", "configuracion",
   "servicio_guardar_erp", "servicio_accion_erp", "evidencias_listar_erp",
   "evidencia_registrar_erp", "evidencia_cancelar_erp", "reportes_resumen_erp",
-  "servicio_pos_dryrun_erp"
+  "servicio_pos_dryrun_erp", "ticket_readonly_erp"
 );
 foreach ($metodos as $metodo) {
   $checks["controlador_" . $metodo] = check_item(preg_match('/public function\s+' . preg_quote($metodo, '/') . '\s*\(/', $controlador) === 1, $metodo);
@@ -117,7 +124,7 @@ $estado = empty($fallos) ? "go_preparacion" : "no_go_codigo";
 if (empty($fallos) && (!empty($permisosPendientes) || $schemaPendiente)) {
   $estado = "go_con_activaciones_pendientes";
 }
-$siguientePaso = "Activacion base TMS completa, UI/datos validados y creacion real POS -> TMS implementada como servicio logistico separado. Validar en navegador y ejecutar UAT real controlado con autorizacion TMS_POS_REAL_BASE.";
+$siguientePaso = "Activacion base TMS completa, UAT real POS -> TMS entregado y comprobante ARTIANI Entregas implementado read-only. Pendiente validacion visual en navegador y cobro logistico en caja.";
 if (!empty($permisosPendientes)) {
   $siguientePaso = "Generar respaldo externo y aplicar primero permisos TMS; DDL TMS queda en autorizacion separada.";
 } elseif ($schemaPendiente) {
@@ -139,7 +146,21 @@ $respuesta = array(
   ),
   "tokens" => array(
     "permisos" => "TMS_PERMISOS_BASE",
-    "ddl" => "TMS_DELIVERY_DDL_BASE"
+    "ddl" => "TMS_DELIVERY_DDL_BASE",
+    "pos_real" => "TMS_POS_REAL_BASE",
+    "pos_operacion" => "TMS_POS_OPERACION_UAT"
+  ),
+  "respaldo_pos_real" => array(
+    "ruta" => $respaldoPosReal,
+    "existe" => file_exists($respaldoPosReal),
+    "legible" => file_exists($respaldoPosReal) && is_readable($respaldoPosReal),
+    "tamano_bytes" => file_exists($respaldoPosReal) ? filesize($respaldoPosReal) : null
+  ),
+  "respaldo_pos_operacion" => array(
+    "ruta" => $respaldoPosOperacion,
+    "existe" => file_exists($respaldoPosOperacion),
+    "legible" => file_exists($respaldoPosOperacion) && is_readable($respaldoPosOperacion),
+    "tamano_bytes" => file_exists($respaldoPosOperacion) ? filesize($respaldoPosOperacion) : null
   ),
   "siguiente_paso" => $siguientePaso
 );

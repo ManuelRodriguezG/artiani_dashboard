@@ -52,6 +52,20 @@ Nombre sugerido:
 artianilocal_panel_YYYYMMDD_antes_tms_pos_real.sql
 ```
 
+Respaldo ya generado para esta fase:
+
+```text
+C:\xampp\panel_db_backups\artianilocal_panel_20260729_204819_antes_tms_pos_real.sql
+```
+
+Validacion:
+
+```text
+archivo_existe=true
+archivo_legible=true
+tamano_bytes=33532718
+```
+
 ## Frase de autorizacion futura
 
 ```text
@@ -103,6 +117,12 @@ Cuando exista respaldo real y autorizacion explicita:
 
 ```text
 C:\xampp\php\php.exe storage\uat\uat_tms_delivery_pos_real_apply_authorized.php --autorizar=TMS_POS_REAL_BASE --respaldo=C:\xampp\panel_db_backups\artianilocal_panel_YYYYMMDD_antes_tms_pos_real.sql
+```
+
+Con el respaldo generado:
+
+```text
+C:\xampp\php\php.exe storage\uat\uat_tms_delivery_pos_real_apply_authorized.php --autorizar=TMS_POS_REAL_BASE --respaldo=C:\xampp\panel_db_backups\artianilocal_panel_20260729_204819_antes_tms_pos_real.sql
 ```
 
 El script debe responder `pos_tms_uat_real_completo`.
