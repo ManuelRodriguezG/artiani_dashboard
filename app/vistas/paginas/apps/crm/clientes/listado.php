@@ -1,5 +1,12 @@
 <!DOCTYPE html>
 <?php
+if (!empty($_SESSION['id_usuario'])) {
+    require_once '../app/modelos/SeguridadPermisos.php';
+    $crmSeguridadPermisos = new SeguridadPermisos();
+    $crmAutorizacion = $crmSeguridadPermisos->autorizacionUsuario($_SESSION['id_usuario']);
+    $_SESSION['roles'] = $crmAutorizacion['roles'];
+    $_SESSION['permisos'] = $crmAutorizacion['permisos'];
+}
 $crmPermisosSesion = isset($_SESSION['permisos']) && is_array($_SESSION['permisos']) ? $_SESSION['permisos'] : array();
 $crmPuedeEditar = in_array('crm.editar', $crmPermisosSesion, true);
 $crmPuedeAuditar = in_array('crm.auditoria', $crmPermisosSesion, true);

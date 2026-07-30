@@ -26,6 +26,19 @@
         if (node) { node.textContent = value == null || value === "" ? "-" : String(value); }
     }
 
+    var permisosFicha = window.CRM_FICHA_PERMISOS || {};
+    var puedeEditar = permisosFicha.editar === true;
+
+    function setValue(id, value) {
+        var node = document.getElementById(id);
+        if (node) { node.value = value == null ? "" : String(value); }
+    }
+
+    function onClick(id, handler) {
+        var node = document.getElementById(id);
+        if (node) { node.addEventListener("click", handler); }
+    }
+
     function badge(text, type) {
         return "<span class=\"badge badge-light-" + escapeHtml(type || "primary") + "\">" + escapeHtml(text || "-") + "</span>";
     }
@@ -64,10 +77,10 @@
         setText("crm_calidad_header", cliente.calidad_datos);
         setText("crm_origen_header", cliente.origen_alta);
         setText("crm_fecha_header", cliente.fecha_registro);
-        document.getElementById("crm_form_nombre").value = cliente.nombre_publico || "";
-        document.getElementById("crm_form_tipo").value = cliente.tipo_cliente || "persona";
-        document.getElementById("crm_form_estatus").value = cliente.estatus || "activo";
-        document.getElementById("crm_form_observaciones").value = cliente.observaciones_operativas || "";
+        setValue("crm_form_nombre", cliente.nombre_publico || "");
+        setValue("crm_form_tipo", cliente.tipo_cliente || "persona");
+        setValue("crm_form_estatus", cliente.estatus || "activo");
+        setValue("crm_form_observaciones", cliente.observaciones_operativas || "");
         renderCalidadOperativa(data.calidad_operativa || {});
         renderIdentificadores(data.identificadores || []);
         renderSimpleList("crm_contactos_lista", data.contactos || [], function (item) {
@@ -207,6 +220,9 @@
     }
 
     function validarBasico() {
+        if (!puedeEditar) {
+            return;
+        }
         request("/crm/cliente_basico_guardar_dryrun_erp", {
             id_cliente_crm: idCliente(),
             nombre_publico: document.getElementById("crm_form_nombre").value,
@@ -244,6 +260,9 @@
     }
 
     function validarComplemento(tipo, targetId, extra) {
+        if (!puedeEditar) {
+            return;
+        }
         var data = Object.assign({id_cliente_crm: idCliente(), tipo_complemento: tipo}, extra || {});
         request("/crm/cliente_complemento_guardar_dryrun_erp", data).then(function (response) {
             if (response.error) { throw new Error(response.mensaje); }
@@ -254,6 +273,9 @@
     }
 
     function validarInteraccion() {
+        if (!puedeEditar) {
+            return;
+        }
         request("/crm/cliente_interaccion_dryrun_erp", {
             id_cliente_crm: idCliente(),
             tipo: document.getElementById("crm_interaccion_tipo").value,
@@ -272,6 +294,9 @@
     }
 
     function validarPreferencias() {
+        if (!puedeEditar) {
+            return;
+        }
         request("/crm/cliente_preferencias_dryrun_erp", {
             id_cliente_crm: idCliente(),
             canal_preferido: document.getElementById("crm_preferencia_canal").value,
@@ -292,15 +317,18 @@
     document.addEventListener("DOMContentLoaded", function () {
         cargarFicha();
         document.getElementById("crm_ficha_recargar").addEventListener("click", cargarFicha);
-        document.getElementById("crm_validar_basico").addEventListener("click", validarBasico);
-        document.getElementById("crm_contacto_validar").addEventListener("click", function () {
+        if (!puedeEditar) {
+            return;
+        }
+        onClick("crm_validar_basico", validarBasico);
+        onClick("crm_contacto_validar", function () {
             validarComplemento("contacto", "crm_contacto_resultado", {
                 tipo: document.getElementById("crm_contacto_tipo").value,
                 valor: document.getElementById("crm_contacto_valor").value,
                 etiqueta: document.getElementById("crm_contacto_etiqueta").value
             });
         });
-        document.getElementById("crm_direccion_validar").addEventListener("click", function () {
+        onClick("crm_direccion_validar", function () {
             validarComplemento("direccion", "crm_direccion_resultado", {
                 tipo: document.getElementById("crm_direccion_tipo").value,
                 alias: document.getElementById("crm_direccion_alias").value,
@@ -308,7 +336,7 @@
                 codigo_postal: document.getElementById("crm_direccion_cp").value
             });
         });
-        document.getElementById("crm_fiscal_validar").addEventListener("click", function () {
+        onClick("crm_fiscal_validar", function () {
             validarComplemento("fiscal", "crm_fiscal_resultado", {
                 rfc: document.getElementById("crm_fiscal_rfc").value,
                 razon_social: document.getElementById("crm_fiscal_razon").value,
@@ -316,7 +344,7 @@
                 codigo_postal_fiscal: document.getElementById("crm_fiscal_cp").value
             });
         });
-        document.getElementById("crm_consentimiento_validar").addEventListener("click", function () {
+        onClick("crm_consentimiento_validar", function () {
             validarComplemento("consentimiento", "crm_consentimiento_resultado", {
                 tipo: document.getElementById("crm_consentimiento_tipo").value,
                 otorgado: document.getElementById("crm_consentimiento_otorgado").value,
@@ -324,13 +352,13 @@
                 evidencia: document.getElementById("crm_consentimiento_evidencia").value
             });
         });
-        document.getElementById("crm_nota_validar").addEventListener("click", function () {
+        onClick("crm_nota_validar", function () {
             validarComplemento("nota", "crm_nota_resultado", {
                 tipo: document.getElementById("crm_nota_tipo").value,
                 nota: document.getElementById("crm_nota_texto").value
             });
         });
-        document.getElementById("crm_interaccion_validar").addEventListener("click", validarInteraccion);
-        document.getElementById("crm_preferencia_validar").addEventListener("click", validarPreferencias);
+        onClick("crm_interaccion_validar", validarInteraccion);
+        onClick("crm_preferencia_validar", validarPreferencias);
     });
 })();

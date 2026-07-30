@@ -1795,3 +1795,23 @@ Fecha: 2026-06-29
 - El telefono `3312345678` existe en CRM canonico como `CRM-POSUAT-20260628-0001`, `id_cliente_crm=1`.
 - POS/Ventas debe guardar `id_cliente_crm` y snapshot de cliente CRM en ventas, excepciones comerciales, apartados y postventa.
 - `erp_clientes` queda como fuente UAT/legacy; no debe usarse para listas, recompensas, garantias personalizadas ni historiales nuevos sin migracion/vinculo autorizado.
+
+# Nota de avance 2026-07-30 - permisos finos POS/CRM
+
+Se separa el acceso operativo de POS del acceso completo a consola CRM:
+
+- POS debe poder buscar/seleccionar cliente con `crm.pos.buscar`.
+- POS debe poder validar alta express con `crm.pos.alta_express`.
+- `crm.ver` queda reservado para abrir consola/ficha CRM.
+- `crm.crear` queda reservado para crear clientes desde CRM completo o procesos administrativos.
+- La aplicacion queda compatible transicionalmente: endpoints compartidos aceptan permiso fino o permiso CRM completo.
+- La BD no se modifica en esta fase; falta autorizacion `CRM_POS_PERMISOS_FINOS` para sembrar permisos nuevos y retirar `crm.ver`/`crm.crear` del rol `ventas`.
+
+# Nota de avance 2026-07-30 - ficha CRM por permisos
+
+La ficha de cliente queda alineada con permisos de operacion:
+
+- Usuarios con `crm.ver` pueden consultar identidad, calidad, identificadores, contacto, fiscal, recompensas, historial, interacciones y vinculos.
+- Usuarios con `crm.editar` ven formularios de validacion para basico, contactos, direcciones, fiscal, consentimientos, preferencias, notas e interacciones.
+- El backend ya denegaba endpoints de edicion sin `crm.editar`; ahora la UI tambien evita presentar acciones que el usuario no puede ejecutar.
+- No se modifica BD; solo se ajusta render PHP/JS de la ficha.

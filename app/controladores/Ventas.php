@@ -837,7 +837,7 @@ class Ventas extends Controlador {
    */
   public function pos_cliente_alta_rapida_dryrun_erp() {
     $this->requerirPermiso("ventas.operar");
-    $this->requerirPermiso("crm.crear");
+    $this->requerirAlgunPermiso(array("crm.crear", "crm.pos.alta_express"));
     $_POST["id_usuario"] = isset($_SESSION["id_usuario"]) ? intval($_SESSION["id_usuario"]) : 0;
     $_POST["origen_alta"] = "pos";
     return json_encode($this->modelo("ClientesCrm")->altaRapidaDryRun($_POST));

@@ -1,4 +1,15 @@
 <!DOCTYPE html>
+<?php
+if (!empty($_SESSION['id_usuario'])) {
+    require_once '../app/modelos/SeguridadPermisos.php';
+    $crmSeguridadPermisos = new SeguridadPermisos();
+    $crmAutorizacion = $crmSeguridadPermisos->autorizacionUsuario($_SESSION['id_usuario']);
+    $_SESSION['roles'] = $crmAutorizacion['roles'];
+    $_SESSION['permisos'] = $crmAutorizacion['permisos'];
+}
+$crmPermisosSesion = isset($_SESSION['permisos']) && is_array($_SESSION['permisos']) ? $_SESSION['permisos'] : array();
+$crmPuedeEditar = in_array('crm.editar', $crmPermisosSesion, true);
+?>
 <html lang="es">
 <head>
     <base href="../../../../">
@@ -75,35 +86,40 @@
                                     </div>
 
                                     <div class="crm-panel p-4">
-                                        <div class="fw-bold mb-3">Editar basico</div>
-                                        <div class="mb-3">
-                                            <label class="form-label">Nombre publico</label>
-                                            <input class="form-control form-control-solid" id="crm_form_nombre" maxlength="220">
-                                        </div>
-                                        <div class="row g-3">
-                                            <div class="col-md-6">
-                                                <label class="form-label">Tipo</label>
-                                                <select class="form-select form-select-solid" id="crm_form_tipo">
-                                                    <option value="persona">Persona</option>
-                                                    <option value="empresa">Empresa</option>
-                                                    <option value="institucion">Institucion</option>
-                                                </select>
+                                        <?php if ($crmPuedeEditar): ?>
+                                            <div class="fw-bold mb-3">Editar basico</div>
+                                            <div class="mb-3">
+                                                <label class="form-label">Nombre publico</label>
+                                                <input class="form-control form-control-solid" id="crm_form_nombre" maxlength="220">
                                             </div>
-                                            <div class="col-md-6">
-                                                <label class="form-label">Estatus</label>
-                                                <select class="form-select form-select-solid" id="crm_form_estatus">
-                                                    <option value="activo">Activo</option>
-                                                    <option value="inactivo">Inactivo</option>
-                                                    <option value="bloqueado">Bloqueado</option>
-                                                </select>
+                                            <div class="row g-3">
+                                                <div class="col-md-6">
+                                                    <label class="form-label">Tipo</label>
+                                                    <select class="form-select form-select-solid" id="crm_form_tipo">
+                                                        <option value="persona">Persona</option>
+                                                        <option value="empresa">Empresa</option>
+                                                        <option value="institucion">Institucion</option>
+                                                    </select>
+                                                </div>
+                                                <div class="col-md-6">
+                                                    <label class="form-label">Estatus</label>
+                                                    <select class="form-select form-select-solid" id="crm_form_estatus">
+                                                        <option value="activo">Activo</option>
+                                                        <option value="inactivo">Inactivo</option>
+                                                        <option value="bloqueado">Bloqueado</option>
+                                                    </select>
+                                                </div>
                                             </div>
-                                        </div>
-                                        <div class="mt-3">
-                                            <label class="form-label">Observaciones operativas</label>
-                                            <textarea class="form-control form-control-solid" id="crm_form_observaciones" rows="4"></textarea>
-                                        </div>
-                                        <button type="button" class="btn btn-light-primary w-100 mt-4" id="crm_validar_basico"><i class="bi bi-check2-circle"></i> Validar cambios</button>
-                                        <div id="crm_form_resultado" class="mt-3"></div>
+                                            <div class="mt-3">
+                                                <label class="form-label">Observaciones operativas</label>
+                                                <textarea class="form-control form-control-solid" id="crm_form_observaciones" rows="4"></textarea>
+                                            </div>
+                                            <button type="button" class="btn btn-light-primary w-100 mt-4" id="crm_validar_basico"><i class="bi bi-check2-circle"></i> Validar cambios</button>
+                                            <div id="crm_form_resultado" class="mt-3"></div>
+                                        <?php else: ?>
+                                            <div class="fw-bold mb-2">Ficha en consulta</div>
+                                            <div class="text-muted fs-7">Tu rol actual permite consultar esta ficha, no modificarla.</div>
+                                        <?php endif; ?>
                                     </div>
                                 </div>
 
@@ -132,6 +148,7 @@
                                                 <div class="col-lg-6">
                                                     <div class="crm-panel">
                                                         <div class="p-4 border-bottom fw-bold">Contactos</div>
+                                                        <?php if ($crmPuedeEditar): ?>
                                                         <div class="p-4 border-bottom">
                                                             <div class="row g-2">
                                                                 <div class="col-4">
@@ -148,12 +165,14 @@
                                                             </div>
                                                             <div id="crm_contacto_resultado" class="mt-3"></div>
                                                         </div>
+                                                        <?php endif; ?>
                                                         <div class="p-4 crm-scroll" id="crm_contactos_lista"></div>
                                                     </div>
                                                 </div>
                                                 <div class="col-lg-6">
                                                     <div class="crm-panel">
                                                         <div class="p-4 border-bottom fw-bold">Direcciones</div>
+                                                        <?php if ($crmPuedeEditar): ?>
                                                         <div class="p-4 border-bottom">
                                                             <div class="row g-2">
                                                                 <div class="col-5">
@@ -171,6 +190,7 @@
                                                             </div>
                                                             <div id="crm_direccion_resultado" class="mt-3"></div>
                                                         </div>
+                                                        <?php endif; ?>
                                                         <div class="p-4 crm-scroll" id="crm_direcciones_lista"></div>
                                                     </div>
                                                 </div>
@@ -181,6 +201,7 @@
                                                 <div class="col-lg-6">
                                                     <div class="crm-panel">
                                                         <div class="p-4 border-bottom fw-bold">Datos fiscales</div>
+                                                        <?php if ($crmPuedeEditar): ?>
                                                         <div class="p-4 border-bottom">
                                                             <div class="row g-2">
                                                                 <div class="col-5"><input class="form-control form-control-sm form-control-solid" id="crm_fiscal_rfc" placeholder="RFC"></div>
@@ -191,12 +212,14 @@
                                                             </div>
                                                             <div id="crm_fiscal_resultado" class="mt-3"></div>
                                                         </div>
+                                                        <?php endif; ?>
                                                         <div class="p-4 crm-scroll" id="crm_fiscales_lista"></div>
                                                     </div>
                                                 </div>
                                                 <div class="col-lg-6">
                                                     <div class="crm-panel">
                                                         <div class="p-4 border-bottom fw-bold">Consentimientos</div>
+                                                        <?php if ($crmPuedeEditar): ?>
                                                         <div class="p-4 border-bottom">
                                                             <div class="row g-2">
                                                                 <div class="col-6">
@@ -229,12 +252,14 @@
                                                             </div>
                                                             <div id="crm_consentimiento_resultado" class="mt-3"></div>
                                                         </div>
+                                                        <?php endif; ?>
                                                         <div class="p-4 crm-scroll" id="crm_consentimientos_lista"></div>
                                                     </div>
                                                 </div>
                                                 <div class="col-12">
                                                     <div class="crm-panel">
                                                         <div class="p-4 border-bottom fw-bold">Preferencias de contacto</div>
+                                                        <?php if ($crmPuedeEditar): ?>
                                                         <div class="p-4 border-bottom">
                                                             <div class="row g-2">
                                                                 <div class="col-md-3">
@@ -268,6 +293,7 @@
                                                             </div>
                                                             <div id="crm_preferencia_resultado" class="mt-3"></div>
                                                         </div>
+                                                        <?php endif; ?>
                                                         <div class="p-4 crm-scroll" id="crm_preferencias_lista"></div>
                                                     </div>
                                                 </div>
@@ -306,6 +332,7 @@
                                                 <div class="col-lg-6">
                                                     <div class="crm-panel">
                                                         <div class="p-4 border-bottom fw-bold">Notas</div>
+                                                        <?php if ($crmPuedeEditar): ?>
                                                         <div class="p-4 border-bottom">
                                                             <select class="form-select form-select-sm form-select-solid mb-2" id="crm_nota_tipo">
                                                                 <option value="operativa">Operativa</option>
@@ -317,6 +344,7 @@
                                                             <button class="btn btn-sm btn-light-primary w-100 mt-2" id="crm_nota_validar" type="button"><i class="bi bi-check2-circle"></i> Validar nota</button>
                                                             <div id="crm_nota_resultado" class="mt-3"></div>
                                                         </div>
+                                                        <?php endif; ?>
                                                         <div class="p-4 crm-scroll" id="crm_notas_lista"></div>
                                                     </div>
                                                 </div>
@@ -329,6 +357,7 @@
                                                 <div class="col-12">
                                                     <div class="crm-panel">
                                                         <div class="p-4 border-bottom fw-bold">Interacciones</div>
+                                                        <?php if ($crmPuedeEditar): ?>
                                                         <div class="p-4 border-bottom">
                                                             <div class="row g-2">
                                                                 <div class="col-md-3">
@@ -379,6 +408,7 @@
                                                             </div>
                                                             <div id="crm_interaccion_resultado_panel" class="mt-3"></div>
                                                         </div>
+                                                        <?php endif; ?>
                                                         <div class="p-4 crm-scroll" id="crm_interacciones_lista"></div>
                                                     </div>
                                                 </div>
@@ -403,6 +433,11 @@
 </div>
 <script src="assets/plugins/global/plugins.bundle.js"></script>
 <script src="assets/js/scripts.bundle.js"></script>
-<script src="/assets/js/custom/apps/crm/clientes/ficha.js?v=20260630-recompensas-1"></script>
+<script>
+    window.CRM_FICHA_PERMISOS = {
+        editar: <?= $crmPuedeEditar ? 'true' : 'false'; ?>
+    };
+</script>
+<script src="/assets/js/custom/apps/crm/clientes/ficha.js?v=20260730-permisos-ficha1"></script>
 </body>
 </html>

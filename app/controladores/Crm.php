@@ -710,7 +710,7 @@ class Crm extends Controlador {
    * Contrato: read-only; no crea cliente aunque no exista coincidencia.
    */
   public function clientes_buscar_express_dryrun_erp() {
-    $this->requerirPermiso("crm.ver");
+    $this->requerirAlgunPermiso(array("crm.ver", "crm.pos.buscar"));
     return json_encode($this->modelo("ClientesCrm")->buscarExpressDryRun($_GET));
   }
 
@@ -722,7 +722,7 @@ class Crm extends Controlador {
    * Contrato: dry-run; no crea cliente, identificador, consentimiento ni evento.
    */
   public function clientes_alta_rapida_dryrun_erp() {
-    $this->requerirPermiso("crm.crear");
+    $this->requerirAlgunPermiso(array("crm.crear", "crm.pos.alta_express"));
     $_POST["id_usuario"] = isset($_SESSION["id_usuario"]) ? intval($_SESSION["id_usuario"]) : 0;
     return json_encode($this->modelo("ClientesCrm")->altaRapidaDryRun($_POST));
   }
@@ -735,7 +735,7 @@ class Crm extends Controlador {
    * Contrato: escribe BD; requiere token CRM_CLIENTES_ALTA_EXPRESS y respaldo valido.
    */
   public function clientes_alta_rapida_crear_autorizado_erp() {
-    $this->requerirPermiso("crm.crear");
+    $this->requerirAlgunPermiso(array("crm.crear", "crm.pos.alta_express"));
     $autorizar = isset($_POST["autorizar"]) ? trim((string) $_POST["autorizar"]) : "";
     $respaldo = isset($_POST["respaldo"]) ? trim((string) $_POST["respaldo"]) : "";
     $validacionRespaldo = $this->validarRespaldoCrm($respaldo);

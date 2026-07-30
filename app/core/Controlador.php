@@ -63,6 +63,46 @@ class Controlador {
     die('No tienes permiso para realizar esta accion');
   }
 
+  /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-07-30
+   * Proposito: permitir contratos transicionales con permisos finos sin romper permisos existentes.
+   * Impacto: habilita endpoints compartidos por POS/CRM cuando el usuario posee cualquiera de los permisos aceptados.
+   * Contrato: deniega con 403 si no existe sesion o ningun permiso coincide.
+   */
+  protected function requerirAlgunPermiso($permisos) {
+    $this->requerirSesion();
+    $permisos = is_array($permisos) ? $permisos : array($permisos);
+    $seguridad = $this->modelo("SeguridadPermisos");
+    foreach ($permisos as $permiso) {
+      if ($seguridad->usuarioTienePermiso($this->usuarioActualId(), $permiso)) {
+        return true;
+      }
+    }
+
+    if (SesionSeguridad::esPeticionJson()) {
+      SesionSeguridad::registrarAuditoria('seguridad', 'permiso_denegado', array(
+        'resultado' => 'denegado',
+        'mensaje' => implode(',', $permisos)
+      ));
+      http_response_code(403);
+      echo json_encode(array(
+        'error' => true,
+        'tipo' => 'warning',
+        'mensaje' => 'No tienes permiso para realizar esta accion',
+        'depurar' => array('permisos' => $permisos)
+      ));
+      exit;
+    }
+
+    http_response_code(403);
+    SesionSeguridad::registrarAuditoria('seguridad', 'permiso_denegado', array(
+      'resultado' => 'denegado',
+      'mensaje' => implode(',', $permisos)
+    ));
+    die('No tienes permiso para realizar esta accion');
+  }
+
   public function getRealIP() {
     if (!empty($_SERVER['HTTP_CLIENT_IP']))
       return $_SERVER['HTTP_CLIENT_IP'];

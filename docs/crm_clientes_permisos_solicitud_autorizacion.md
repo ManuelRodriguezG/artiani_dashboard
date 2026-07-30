@@ -78,3 +78,45 @@ Resultado esperado:
 - rol `crm` existente;
 - relaciones rol-permiso CRM creadas para roles base;
 - el enlace `CRM > Clientes` visible para usuarios cuyo rol tenga `crm.ver`.
+
+## Fase siguiente - permisos finos POS/CRM
+
+Documentacion IA: Codex GPT-5  
+Fecha: 2026-07-30  
+Estado: preparado en codigo; pendiente de autorizacion para sembrar/ajustar BD.
+
+La operacion de POS no debe requerir acceso completo a la consola CRM. Para separar responsabilidades, se preparan permisos finos:
+
+- `crm.pos.buscar`: buscar y seleccionar clientes CRM desde POS sin abrir `CRM > Clientes`.
+- `crm.pos.alta_express`: validar altas express de clientes desde POS sin editar ficha completa CRM.
+
+Mapa objetivo:
+
+- rol `ventas`: `crm.pos.buscar`, `crm.pos.alta_express`; no debe conservar `crm.ver` ni `crm.crear` salvo que el usuario tambien opere CRM completo;
+- rol `crm`: conserva `crm.ver`, `crm.crear`, `crm.editar`, `crm.fusionar`, `crm.auditoria` y tambien los permisos POS para soporte operativo;
+- rol `administrador_erp`: conserva todos los permisos CRM;
+- rol `direccion`: conserva consulta/auditoria CRM, no operacion POS express por defecto.
+
+Autorizacion futura sugerida:
+
+```text
+AUTORIZO AJUSTAR PERMISOS FINOS CRM POS usando respaldo [RUTA_RESPALDO] con token CRM_POS_PERMISOS_FINOS. Entiendo que crea permisos crm.pos.buscar y crm.pos.alta_express, los vincula a roles base segun SeguridadEsquema.php, retira crm.ver y crm.crear del rol ventas si existen, no modifica clientes, ventas, POS, ecommerce, garantias, apartados, devoluciones ni legacy.
+```
+
+Preflight read-only:
+
+```text
+C:\xampp\php\php.exe storage\uat\uat_crm_pos_permisos_finos_readonly.php
+```
+
+Apply autorizado:
+
+```text
+C:\xampp\php\php.exe storage\uat\uat_crm_pos_permisos_finos_apply_authorized.php --autorizar=CRM_POS_PERMISOS_FINOS --respaldo="[RUTA_RESPALDO]"
+```
+
+Estado observado el 2026-07-30:
+
+- `crm.pos.buscar` no existe aun en BD.
+- `crm.pos.alta_express` no existe aun en BD.
+- rol `ventas` conserva `crm.ver` y `crm.crear`; por eso ve CRM completo.

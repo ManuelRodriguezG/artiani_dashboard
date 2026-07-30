@@ -161,6 +161,8 @@ class SeguridadEsquema extends DBSchema {
       array("modulo" => "crm", "accion" => "editar", "permiso" => "crm.editar", "descripcion" => "Editar ficha, contactos, direcciones y condiciones CRM"),
       array("modulo" => "crm", "accion" => "fusionar", "permiso" => "crm.fusionar", "descripcion" => "Fusionar duplicados de clientes con trazabilidad"),
       array("modulo" => "crm", "accion" => "auditoria", "permiso" => "crm.auditoria", "descripcion" => "Auditar fuentes, migraciones, duplicados y esquema CRM"),
+      array("modulo" => "crm", "accion" => "pos_buscar", "permiso" => "crm.pos.buscar", "descripcion" => "Buscar y seleccionar clientes CRM desde POS sin abrir consola CRM"),
+      array("modulo" => "crm", "accion" => "pos_alta_express", "permiso" => "crm.pos.alta_express", "descripcion" => "Validar altas express de clientes desde POS sin editar ficha completa CRM"),
       array("modulo" => "ventas", "accion" => "ver", "permiso" => "ventas.ver", "descripcion" => "Consultar ventas, clientes y disponibilidad comercial"),
       array("modulo" => "ventas", "accion" => "operar", "permiso" => "ventas.operar", "descripcion" => "Registrar pedidos, ventas o apartados"),
       array("modulo" => "ventas", "accion" => "listas_ver", "permiso" => "ventas.listas.ver", "descripcion" => "Consultar listas de precios, vigencias, alcances y origen de precio"),
@@ -241,7 +243,7 @@ class SeguridadEsquema extends DBSchema {
         "compras.aprobar", "compras.cancelar", "compras.adjuntos", "almacen.ver", "almacen.recibir",
         "almacen.ubicaciones", "inventario.ver",
         "inventario.ajustar", "inventario.traspasar", "inventario.conteo",
-        "crm.ver", "crm.crear", "crm.editar", "crm.fusionar", "crm.auditoria",
+        "crm.ver", "crm.crear", "crm.editar", "crm.fusionar", "crm.auditoria", "crm.pos.buscar", "crm.pos.alta_express",
         "ventas.ver", "ventas.operar", "ventas.precio_manual", "ventas.descuento_partida",
         "ventas.listas.ver", "ventas.listas.crear", "ventas.listas.editar", "ventas.listas.activar", "ventas.listas.pausar",
         "ventas.listas.cancelar", "ventas.listas.asignar_cliente", "ventas.listas.auditoria",
@@ -278,11 +280,11 @@ class SeguridadEsquema extends DBSchema {
         "proveedores.ver", "garantias.ver", "proyectos.ver"
       ),
       "ventas" => array(
-        "inventario.ver", "crm.ver", "crm.crear", "ventas.ver", "ventas.operar", "ventas.listas.ver", "ventas.caja_diferencias.ver", "ecommerce.ver", "notificaciones.ver", "reportes.ver",
+        "inventario.ver", "crm.pos.buscar", "crm.pos.alta_express", "ventas.ver", "ventas.operar", "ventas.listas.ver", "ventas.caja_diferencias.ver", "ecommerce.ver", "notificaciones.ver", "reportes.ver",
         "garantias.ver", "garantias.reclamos.crear", "tms.ver", "tms.crear", "proyectos.ver"
       ),
       "crm" => array(
-        "crm.ver", "crm.crear", "crm.editar", "crm.fusionar", "crm.auditoria",
+        "crm.ver", "crm.crear", "crm.editar", "crm.fusionar", "crm.auditoria", "crm.pos.buscar", "crm.pos.alta_express",
         "ventas.ver", "ventas.listas.ver", "garantias.ver", "garantias.reclamos.crear", "tms.ver", "tms.crear", "notificaciones.ver", "reportes.ver", "proyectos.ver"
       ),
       "ecommerce" => array(

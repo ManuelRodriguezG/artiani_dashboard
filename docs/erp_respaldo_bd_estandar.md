@@ -283,3 +283,18 @@ Alcance:
 - Alineacion de `erp_tms_servicios.motivo_logistico` a `servicio_inicial`.
 - Limpieza de valor historico UAT `venta_inicial`.
 - No toca POS/Ventas, caja, inventario ni postventa.
+
+## CRM/POS - permisos finos clientes
+
+Fecha: 2026-07-30  
+Ruta estandar:
+
+```txt
+C:\xampp\panel_db_backups\panel_de_control_artianilocal_2026-07-30_antes_crm_pos_permisos_finos.sql
+```
+
+Regla aplicada:
+
+- Si el usuario autoriza con placeholder `[RUTA_RESPALDO]`, el agente debe generar este respaldo externo antes del apply.
+- El respaldo se usa para el token `CRM_POS_PERMISOS_FINOS`.
+- El alcance del apply es exclusivamente permisos/roles CRM-POS; no toca clientes, ventas, POS, ecommerce, garantias, apartados, devoluciones ni legacy.
