@@ -352,7 +352,10 @@
                                                         <span>Total estimado</span>
                                                         <strong id="pos_total">$0.00</strong>
                                                     </div>
-                                                    <button class="btn btn-success btn-lg w-100" id="pos_cobrar_real" type="button"><i class="bi bi-cash-coin"></i> Cobrar <span class="pos-shortcut-hint">Ctrl+Enter</span></button>
+                                                    <div class="d-grid gap-2">
+                                                        <button class="btn btn-success btn-lg w-100" id="pos_cobrar_real" type="button"><i class="bi bi-cash-coin"></i> Cobrar <span class="pos-shortcut-hint">Ctrl+Enter</span></button>
+                                                        <button class="btn btn-warning btn-lg w-100" id="pos_cobrar_faltantes_real" type="button"><i class="bi bi-exclamation-triangle"></i> Cobrar con faltantes</button>
+                                                    </div>
                                                     <div class="alert alert-light-warning py-3 mt-3 mb-0 d-none" id="pos_turno_cta">
                                                         <div class="fw-bold fs-8 mb-1"><i class="bi bi-lock me-1"></i> Falta abrir turno</div>
                                                         <div class="fs-8 text-muted mb-2">Para cobrar, abre turno en la caja asignada. El POS se actualiza al regresar.</div>
@@ -659,6 +662,6 @@ window.POS_USUARIO_ACTUAL = <?= json_encode(array(
 </script>
 <script src="assets/plugins/global/plugins.bundle.js"></script>
 <script src="assets/js/scripts.bundle.js"></script>
-<script src="/assets/js/custom/apps/erp/ventas/pos.js?v=20260730-atenciones-venta-rapida-vrp-multiples1"></script>
+<script src="/assets/js/custom/apps/erp/ventas/pos.js?v=20260730-faltantes-multipartida1"></script>
 </body>
 </html>

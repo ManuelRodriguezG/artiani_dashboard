@@ -58,6 +58,17 @@ class EcommercePublico extends Controlador {
   }
 
   /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-07-30
+   * Proposito: exponer secciones de catalogo listas para home y bloques del frontend.
+   * Impacto: Ecommerce publico; permite construir destacados, disponibles y bloques por mascota/necesidad sin hardcodear.
+   * Contrato: GET publico read-only; no escribe BD, no descuenta inventario y solo usa publicaciones activas.
+   */
+  public function secciones() {
+    if ($this->esOptionsPublicas()) { return $this->responderOpcionesPublicas(); }
+    return $this->responderApiPublica($this->modelo("EcommerceCatalogoPublico")->seccionesPublicas($_GET));
+  }
+
+  /**
    * Documentacion IA: Codex GPT-5 | Fecha: 2026-07-26
    * Proposito: exponer politicas publicas base para el frontend ecommerce externo.
    * Impacto: Ecommerce publico; permite construir paginas legales/operativas sin hardcodear el contrato.

@@ -190,6 +190,7 @@ $gruposMenu = array(
         'permiso' => '',
         'items' => array(
             array('titulo' => 'Configuracion del sistema', 'ruta' => '/sistema/configuracion', 'permiso' => 'configuracion.administrar'),
+            array('titulo' => 'Migraciones BD', 'ruta' => '/migracionBd', 'permiso' => array('migraciones.ver', 'sistema.soporte')),
             array('titulo' => 'Usuarios y roles', 'ruta' => '/sistema/seguridad', 'permiso' => 'seguridad.ver'),
             array('titulo' => 'Notificaciones', 'ruta' => '/sistema/notificaciones', 'permiso' => 'notificaciones.ver')
         )

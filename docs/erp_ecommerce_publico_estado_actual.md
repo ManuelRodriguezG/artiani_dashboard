@@ -613,3 +613,89 @@ C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_cotizaciones_bandeja_read
   - iniciar con navegacion por mascota/necesidad;
   - evolucionar hacia perfil temporal, recomendaciones preview, configuracion ERP y mascotas registradas en CRM;
   - no prometer diagnostico medico ni obligar al cliente a registrarse en fases iniciales.
+
+## Actualizacion 2026-07-30 - API catalogo robusta para frontend
+
+- Se fortalece `GET /ecommercePublico/catalogo` para que frontend pueda construir vistas reales del ecommerce sin hardcodear bloques.
+- Nuevos filtros publicos:
+  - `disponibilidad`: `disponible`, `pocas_piezas`, `consultar_disponibilidad`, `agotado`;
+  - `destacado=1`;
+  - `orden`: `relevancia`, `nombre`, `precio_asc`, `precio_desc`, `recientes`.
+- La respuesta de catalogo ahora incluye:
+  - `filtros_aplicados`;
+  - `ordenamientos_disponibles`.
+- `GET /ecommercePublico/filtros` ahora tambien devuelve conteos por disponibilidad publica.
+- Se agrega `GET /ecommercePublico/secciones` para entregar bloques listos para home/frontend:
+  - destacados;
+  - recien agregados;
+  - disponibles;
+  - pocas piezas;
+  - bloques por mascota detectada;
+  - bloques por necesidad detectada.
+- Guardrails conservados:
+  - solo publicaciones activas;
+  - no expone stock exacto;
+  - no usa legacy `ecom_*` como fuente publica;
+  - no descuenta inventario;
+  - no escribe base de datos.
+
+## Actualizacion 2026-07-30 - Detalle publico de producto robusto
+
+- Se fortalece `GET /ecommercePublico/producto/{slug}` manteniendo compatible `depurar.item`.
+- La respuesta ahora agrega contexto para vistas de detalle:
+  - `variantes`: otras publicaciones activas del mismo producto ERP;
+  - `relacionados`: publicaciones activas por categoria, mascota y necesidades;
+  - `breadcrumbs`: ruta simple para navegacion frontend;
+  - `seo`: title, description, canonical path, imagen y JSON-LD basico `Product`;
+  - `acciones`: banderas para cotizacion, WhatsApp, precio y disponibilidad.
+- El endpoint sigue siendo read-only:
+  - solo devuelve publicaciones activas;
+  - solo relacionados publicados;
+  - no expone stock exacto;
+  - no descuenta inventario;
+  - no escribe base de datos.
+- UAT read-only:
+
+```bash
+C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_producto_detalle_readonly.php
+```
+
+- Resultado validado:
+  - `ok=true`;
+  - `senal_frontend=detalle_producto_robusto`;
+  - producto ejemplo: `alimento-churro-blanco-para-peces-100-gr-g-tp-40372-100gr`;
+  - `variantes=1`;
+  - `relacionados=3`;
+  - `breadcrumbs=5`.
+
+## Actualizacion 2026-07-30 - Cotizacion preflight robusta
+
+- Se fortalece `POST /ecommercePublico/cotizacion_dryrun`.
+- La respuesta agrega:
+  - `resumen`: items recibidos, lineas validas, cantidad total y disponibilidad agregada;
+  - `advertencias`: senales de pocas piezas, agotado o disponibilidad por confirmar;
+  - `frontend`: limites y mensajes para que la vista no dependa de reglas hardcodeadas.
+- Se fortalece `POST /ecommercePublico/cotizacion_preflight`.
+- La respuesta agrega:
+  - `validacion_contacto`: campos presentes y validez para registro futuro;
+  - `consentimiento`: WhatsApp, aviso de privacidad y politicas aceptadas;
+  - `cta`: accion lista para frontend, incluyendo URL WhatsApp cuando aplica;
+  - `frontend`: pasos sugeridos del flujo carrito -> contacto -> confirmacion -> WhatsApp.
+- El registro real sigue bloqueado en Fase 1:
+  - no inserta cotizaciones;
+  - no crea pedido;
+  - no descuenta inventario;
+  - no convierte cliente CRM.
+- UAT read-only:
+
+```bash
+C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_cotizacion_preflight_robusto_readonly.php
+```
+
+- Resultado validado:
+  - `ok=true`;
+  - `senal_frontend=cotizacion_preflight_robusto`;
+  - `listo_para_whatsapp=true`;
+  - `listo_para_registro_futuro=true`;
+  - `cta_tipo=whatsapp`;
+  - `cta_url_generada=true`.

@@ -246,6 +246,134 @@ Implementar solo lectura y preparacion:
 6. Generar SQL en dry-run descargable.
 7. No aplicar aun cambios reales.
 
+## Avance implementado - Fase 1 base
+
+Fecha: 2026-07-30
+
+Archivos creados:
+
+- `app/controladores/MigracionBd.php`
+- `app/modelos/MigracionesBd.php`
+- `app/modelos/MigracionesBdEsquema.php`
+- `app/vistas/paginas/apps/erp/sistema/migraciones_bd.php`
+- `public/assets/js/custom/apps/erp/sistema/migraciones_bd.js`
+- `app/config/migraciones_ambientes.example.php`
+
+Archivos actualizados:
+
+- `app/core/Core.php`: protege el controlador `MigracionBd`.
+- `app/modelos/SeguridadEsquema.php`: agrega permisos `migraciones.*`.
+- `app/vistas/includes/header/sidebar.php`: agrega acceso en Administracion.
+
+Capacidades disponibles:
+
+- consola `/migracionBd`;
+- diagnostico de BD local activa;
+- listado saneado de ambientes;
+- clasificacion sugerida por tabla;
+- comparacion local contra destino configurado;
+- SQL dry-run para tablas, columnas, indices no primarios y llaves foraneas faltantes;
+- esquema tecnico `sys_migraciones_*` en dry-run/aplicacion controlada por endpoint de soporte.
+- acceso transicional con `sistema.soporte` mientras los permisos `migraciones.*` no esten sembrados en BD.
+- edicion UI de politicas sugeridas por tabla.
+- guardado de politicas si el esquema tecnico ya existe; si no existe, bloquea con advertencia.
+- creacion de paquete dry-run con codigo y hash de plan; persiste solo si el esquema tecnico ya existe.
+
+Restricciones vigentes:
+
+- no aplica migraciones reales;
+- no genera respaldos todavia;
+- no persiste paquetes mientras no exista `sys_migraciones_*`;
+- no migra datos;
+- no muestra passwords;
+- requiere crear `app/config/migraciones_ambientes.local.php` a partir del ejemplo para comparar contra destino externo.
+
+## Avance implementado - Preparacion de paquetes
+
+Fecha: 2026-07-30
+
+Se agrego:
+
+- tabla tecnica `sys_migraciones_paquete_tablas` al plan de esquema;
+- endpoint `MigracionBd::politicas_guardar`;
+- endpoint `MigracionBd::paquete_dry_run_crear`;
+- auditoria explicita para ambos endpoints;
+- UI editable para politica por tabla;
+- seleccion de tablas para paquete dry-run;
+- generacion de codigo y `hash_plan` para detectar cambios posteriores.
+
+## Avance implementado - Preflight de activacion
+
+Fecha: 2026-07-31
+
+Se agrego:
+
+- `MigracionesBd::validarRespaldo`;
+- `MigracionesBd::preflightActivacion`;
+- endpoints `respaldo_validar` y `activacion_preflight`;
+- pestaña UI `Activacion`;
+- comando sugerido de `mysqldump`;
+- texto de autorizacion para activar `sys_migraciones_*`;
+- runbook `docs/erp_migraciones_bd_runbook_activacion.md`.
+- proteccion de `MigracionBd::esquema_actualizar` para que `ejecutar=1` exija respaldo valido, token `MIGRACIONES_BD_SCHEMA` y confirmacion literal.
+- botones UI de dry-run/aplicacion protegida del esquema tecnico.
+
+Regla vigente para activacion:
+
+- El preflight no crea respaldos.
+- El preflight no ejecuta DDL.
+- El preflight valida que el respaldo no sea placeholder, exista si es ruta local, sea legible, pese mas de `0` y no este dentro del repo.
+- La aplicacion real del esquema tecnico requiere respaldo externo y autorizacion explicita.
+- Aunque la UI envie `ejecutar=1`, el backend bloquea la aplicacion si falta respaldo/token/confirmacion.
+
+Regla vigente para paquetes:
+
+- Sin esquema tecnico aplicado, el paquete dry-run se genera como temporal y no queda persistido.
+- Con esquema tecnico aplicado, se guardan encabezado, tablas incluidas y SQL generado.
+- Ningun endpoint de esta fase ejecuta SQL sobre el destino.
+
+## Avance implementado - Comparacion de indices
+
+Fecha: 2026-07-31
+
+Se agrego:
+
+- lectura de indices desde `INFORMATION_SCHEMA.STATISTICS`;
+- totales de indices en diagnostico local;
+- comparacion de indices no primarios faltantes en destino;
+- SQL dry-run `ALTER TABLE ... ADD KEY/UNIQUE KEY` para indices faltantes;
+- visualizacion de indices faltantes en la pestaña Comparacion.
+
+Restriccion:
+
+- No genera modificaciones para `PRIMARY KEY`.
+- No modifica indices diferentes; solo reporta/genera indices faltantes no primarios.
+- No ejecuta DDL.
+
+## Avance implementado - Comparacion de llaves foraneas
+
+Fecha: 2026-07-31
+
+Se agrego:
+
+- lectura de FKs desde `INFORMATION_SCHEMA.KEY_COLUMN_USAGE` y `REFERENTIAL_CONSTRAINTS`;
+- totales de FKs en diagnostico local;
+- comparacion de FKs faltantes en destino;
+- SQL dry-run `ALTER TABLE ... ADD CONSTRAINT ... FOREIGN KEY`;
+- visualizacion de FKs faltantes en la pestaña Comparacion.
+
+Restriccion:
+
+- Las FKs se marcan con riesgo `alto`, porque pueden fallar si los datos destino no cumplen integridad.
+- No se modifican ni eliminan FKs diferentes.
+- No se ejecuta DDL.
+
+Decision operativa:
+
+- Mientras productivo sea solo copia de revision, local puede ser la base candidata oficial.
+- Antes de activar productivo real, se debe tomar respaldo externo, comparar esquema y clasificar tablas.
+- Despues de que productivo reciba ventas, caja, inventario, clientes o movimientos reales, esas tablas se consideran `production_owned` y no deben reemplazarse desde local.
+
 ## Fase 2 recomendada
 
 Agregar respaldos y aplicacion controlada:
@@ -275,6 +403,7 @@ Fecha: 2026-07-30
 
 - Contexto actual: el dueno quiere construir informacion real en local y despues promoverla a productivo sin recaptura ni copia indiscriminada.
 - Decision: crear modulo SYS de migraciones/promocion con politicas por tabla, dry-run, respaldo y autorizacion.
-- Pendiente: implementar Fase 1 sin tocar productivo ni ejecutar migraciones.
+- Cambios recientes: Fase 1 base implementada en codigo, sin aplicacion real ni migracion de datos.
+- Pendiente: aplicar esquema `sys_migraciones_*` con respaldo externo si se autoriza; configurar destino local no versionado; persistir politicas y paquetes.
 - Impacta a: Catalogo, Proveedores, Compras, Inventario, Seguridad, Sistema y futuras cargas masivas.
-- Siguiente paso recomendado: crear `MigracionesBdEsquema`, permisos base y pantalla de comparacion en modo solo lectura.
+- Siguiente paso recomendado: generar respaldo externo, validar preflight en UI y pedir autorizacion literal antes de aplicar el esquema tecnico.

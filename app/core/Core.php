@@ -48,7 +48,7 @@
 			$nombreControlador = $this->controladorActual;
 			$controladoresProtegidos = array(
 				'Almacen', 'Archivos', 'Busqueda', 'CatalogoErp', 'Categoria', 'Clientes', 'Comercial', 'Crm', 'Compra', 'Compra_venta',
-				'Costo', 'Dashboard', 'Empresa', 'Garantias', 'Inicio', 'Inventario', 'Link', 'Marca', 'Panel',
+				'Costo', 'Dashboard', 'Empresa', 'Garantias', 'Inicio', 'Inventario', 'Link', 'Marca', 'MigracionBd', 'Panel',
 				'Paquetes', 'Producto', 'Proveedor', 'Proyecto', 'Rentabilidad', 'Sistema', 'Sucursal', 'Tms', 'Users', 'Usuario',
 				'Utilidad', 'Ventas'
 			);
@@ -167,7 +167,10 @@
 				'Proyecto.proyecto_guardar_erp',
 				'Proyecto.tarea_guardar_erp',
 				'Proyecto.tarea_estatus_erp',
-				'Proyecto.comentario_guardar_erp'
+				'Proyecto.comentario_guardar_erp',
+				'MigracionBd.politicas_guardar',
+				'MigracionBd.paquete_dry_run_crear',
+				'MigracionBd.esquema_actualizar'
 			);
 			$rutaAccion = $nombreControlador . '.' . $this->metodoActual;
 			if ($esPostAutenticado && !in_array($rutaAccion, $csrfExentos, true)) {

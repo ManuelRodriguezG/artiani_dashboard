@@ -603,6 +603,12 @@ class Ventas extends Controlador {
    */
   public function pos_confirmar_erp() {
     $this->requerirPermiso("ventas.operar");
+    $autorizaInventarioPendiente = isset($_POST["autorizar_inventario_pendiente_pos"])
+      ? strtoupper(trim((string) $_POST["autorizar_inventario_pendiente_pos"]))
+      : "";
+    if ($autorizaInventarioPendiente === "AUTORIZAR INVENTARIO PENDIENTE") {
+      $this->requerirPermiso("ventas.pos.inventario_pendiente.autorizar");
+    }
     $_POST["id_usuario"] = $this->usuarioActualId();
     $this->habilitarVentaRapidaPosUiSiAplica();
     $respuesta = $this->modelo("VentasErp")->confirmarVentaPosReal($_POST);

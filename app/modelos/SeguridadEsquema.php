@@ -224,7 +224,11 @@ class SeguridadEsquema extends DBSchema {
       array("modulo" => "notificaciones", "accion" => "ver", "permiso" => "notificaciones.ver", "descripcion" => "Consultar notificaciones y alertas operativas propias"),
       array("modulo" => "auditoria", "accion" => "ver", "permiso" => "auditoria.ver", "descripcion" => "Consultar bitacoras, trazabilidad y eventos del sistema"),
       array("modulo" => "reportes", "accion" => "ver", "permiso" => "reportes.ver", "descripcion" => "Consultar reportes operativos y administrativos"),
-      array("modulo" => "sistema", "accion" => "soporte", "permiso" => "sistema.soporte", "descripcion" => "Ejecutar herramientas tecnicas de diagnostico y mantenimiento")
+      array("modulo" => "sistema", "accion" => "soporte", "permiso" => "sistema.soporte", "descripcion" => "Ejecutar herramientas tecnicas de diagnostico y mantenimiento"),
+      array("modulo" => "migraciones", "accion" => "ver", "permiso" => "migraciones.ver", "descripcion" => "Consultar consola de migraciones, ambientes, politicas y comparaciones"),
+      array("modulo" => "migraciones", "accion" => "preparar", "permiso" => "migraciones.preparar", "descripcion" => "Preparar comparaciones y SQL dry-run entre ambientes"),
+      array("modulo" => "migraciones", "accion" => "respaldos", "permiso" => "migraciones.respaldos", "descripcion" => "Generar o validar respaldos previos a migraciones autorizadas"),
+      array("modulo" => "migraciones", "accion" => "aplicar", "permiso" => "migraciones.aplicar", "descripcion" => "Aplicar paquetes de migracion autorizados con respaldo verificable")
     );
   }
 
@@ -245,7 +249,8 @@ class SeguridadEsquema extends DBSchema {
         "proveedores.autorizar", "proveedores.auditoria", "rentabilidad.ver", "rentabilidad.snapshot",
         "garantias.ver", "garantias.autorizar", "garantias.reportes",
         "tms.ver", "tms.autorizar", "tms.costos", "tms.reportes",
-        "proyectos.ver", "proyectos.crear", "proyectos.editar", "proyectos.asignar", "proyectos.cerrar", "proyectos.auditoria", "proyectos.configurar"
+        "proyectos.ver", "proyectos.crear", "proyectos.editar", "proyectos.asignar", "proyectos.cerrar", "proyectos.auditoria", "proyectos.configurar",
+        "migraciones.ver", "migraciones.preparar", "migraciones.respaldos", "migraciones.aplicar"
       ),
       "administrador_erp" => array(
         "seguridad.ver", "seguridad.administrar", "configuracion.administrar", "catalogo.ver",
@@ -271,7 +276,8 @@ class SeguridadEsquema extends DBSchema {
         "garantias.ver", "garantias.politicas", "garantias.reclamos.crear", "garantias.reclamos.resolver",
         "garantias.autorizar", "garantias.adjuntos", "garantias.reportes",
         "tms.ver", "tms.crear", "tms.programar", "tms.operar", "tms.evidencias", "tms.costos", "tms.autorizar", "tms.reportes",
-        "proyectos.ver", "proyectos.crear", "proyectos.editar", "proyectos.asignar", "proyectos.cerrar", "proyectos.auditoria", "proyectos.configurar"
+        "proyectos.ver", "proyectos.crear", "proyectos.editar", "proyectos.asignar", "proyectos.cerrar", "proyectos.auditoria", "proyectos.configurar",
+        "migraciones.ver", "migraciones.preparar", "migraciones.respaldos", "migraciones.aplicar"
       ),
       "compras" => array(
         "catalogo.ver", "catalogo.costos", "compras.ver", "compras.crear", "compras.editar",
@@ -334,7 +340,8 @@ class SeguridadEsquema extends DBSchema {
       ),
       "soporte_sistema" => array(
         "seguridad.ver", "notificaciones.ver", "auditoria.ver", "reportes.ver", "sistema.soporte", "proveedores.auditoria", "rentabilidad.configurar",
-        "proyectos.ver", "proyectos.crear", "proyectos.editar", "proyectos.asignar", "proyectos.cerrar", "proyectos.auditoria", "proyectos.configurar"
+        "proyectos.ver", "proyectos.crear", "proyectos.editar", "proyectos.asignar", "proyectos.cerrar", "proyectos.auditoria", "proyectos.configurar",
+        "migraciones.ver", "migraciones.preparar", "migraciones.respaldos"
       )
     );
   }

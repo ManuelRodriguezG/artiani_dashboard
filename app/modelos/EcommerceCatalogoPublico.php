@@ -53,6 +53,9 @@ class EcommerceCatalogoPublico extends CRUD {
             "necesidad" => "alimento|premio|higiene|salud|paseo|habitat|juguete|estetica; opcional.",
             "marca" => "ID marca ERP opcional.",
             "categoria" => "ID categoria ERP opcional.",
+            "disponibilidad" => "disponible|pocas_piezas|consultar_disponibilidad|agotado; opcional.",
+            "destacado" => "1 para solo destacados.",
+            "orden" => "relevancia|nombre|precio_asc|precio_desc|recientes.",
             "pagina" => "Pagina, default 1.",
             "limite" => "1-60, default 24."
           ),
@@ -61,14 +64,24 @@ class EcommerceCatalogoPublico extends CRUD {
         array(
           "metodo" => "GET",
           "ruta" => "/ecommercePublico/producto/{slug}",
-          "descripcion" => "Detalle publico de una publicacion con estatus publicado.",
-          "respuesta_depurar" => array("item", "guardrails")
+          "descripcion" => "Detalle publico de una publicacion con estatus publicado, variantes, relacionados y SEO basico.",
+          "respuesta_depurar" => array("item", "variantes", "relacionados", "breadcrumbs", "seo", "guardrails")
         ),
         array(
           "metodo" => "GET",
           "ruta" => "/ecommercePublico/filtros",
           "descripcion" => "Filtros disponibles derivados de publicaciones vigentes.",
           "respuesta_depurar" => array("mascotas", "necesidades", "marcas", "categorias")
+        ),
+        array(
+          "metodo" => "GET",
+          "ruta" => "/ecommercePublico/secciones",
+          "descripcion" => "Bloques de catalogo listos para home/frontend: destacados, disponibles, mascotas y necesidades.",
+          "parametros" => array(
+            "limite" => "1-12 por seccion, default 6.",
+            "incluir_vacias" => "1 para devolver secciones sin items; default 0."
+          ),
+          "respuesta_depurar" => array("configurado", "secciones", "guardrails")
         ),
         array(
           "metodo" => "GET",
@@ -119,7 +132,7 @@ class EcommerceCatalogoPublico extends CRUD {
             "contacto" => array("nombre" => "string opcional", "telefono" => "string opcional", "mensaje" => "string opcional"),
             "utm" => "object opcional"
           ),
-          "respuesta_depurar" => array("dry_run", "lineas", "totales", "bloqueos", "whatsapp_preview")
+          "respuesta_depurar" => array("dry_run", "lineas", "totales", "resumen", "advertencias", "bloqueos", "whatsapp_preview", "frontend")
         ),
         array(
           "metodo" => "POST",
@@ -135,7 +148,7 @@ class EcommerceCatalogoPublico extends CRUD {
             "acepta_contacto_whatsapp" => "bool recomendado para seguimiento",
             "politicas_aceptadas" => "string[] opcional"
           ),
-          "respuesta_depurar" => array("preflight", "folio_preliminar", "listo_para_whatsapp", "listo_para_registro_futuro", "contacto", "dry_run")
+          "respuesta_depurar" => array("preflight", "folio_preliminar", "listo_para_whatsapp", "listo_para_registro_futuro", "contacto", "validacion_contacto", "consentimiento", "cta", "dry_run")
         ),
         array(
           "metodo" => "POST",
@@ -421,13 +434,20 @@ class EcommerceCatalogoPublico extends CRUD {
         $where[] = "pc.id_categoria_erp = :categoria";
         $params[":categoria"] = $categoria;
       }
+      $disponibilidad = trim((string) $this->valor($filtros, "disponibilidad", ""));
+      $this->agregarFiltroDisponibilidadPublica($where, $disponibilidad);
+      if (intval($this->valor($filtros, "destacado", 0)) === 1) {
+        $where[] = "pub.destacado=1";
+      }
+      $orden = trim((string) $this->valor($filtros, "orden", "relevancia"));
+      $ordenSql = $this->ordenCatalogoPublicoSql($orden);
 
       $sqlBase = $this->sqlPublicacionesBase($where);
       $stmtTotal = $db->prepare("SELECT COUNT(*) FROM (" . $sqlBase . ") t");
       $stmtTotal->execute($params);
       $total = intval($stmtTotal->fetchColumn());
 
-      $sql = $sqlBase . " ORDER BY pub.destacado DESC, pub.orden ASC, pub.titulo_publico ASC LIMIT " . intval($limite) . " OFFSET " . intval($offset);
+      $sql = $sqlBase . " ORDER BY " . $ordenSql . " LIMIT " . intval($limite) . " OFFSET " . intval($offset);
       $stmt = $db->prepare($sql);
       $stmt->execute($params);
       $items = array();
@@ -439,6 +459,17 @@ class EcommerceCatalogoPublico extends CRUD {
         "configurado" => true,
         "items" => $items,
         "paginacion" => array("pagina" => $pagina, "limite" => $limite, "total" => $total),
+        "filtros_aplicados" => array(
+          "q" => $q,
+          "mascota" => $mascota,
+          "necesidad" => $necesidad,
+          "marca" => $marca,
+          "categoria" => $categoria,
+          "disponibilidad" => in_array($disponibilidad, $this->estadosDisponibilidadPublica(), true) ? $disponibilidad : "",
+          "destacado" => intval($this->valor($filtros, "destacado", 0)) === 1,
+          "orden" => $this->ordenCatalogoPublicoNormalizado($orden)
+        ),
+        "ordenamientos_disponibles" => array("relevancia", "nombre", "precio_asc", "precio_desc", "recientes"),
         "guardrails" => array(
           "solo_publicados" => true,
           "no_stock_exacto" => true,
@@ -461,21 +492,53 @@ class EcommerceCatalogoPublico extends CRUD {
       $db = $this->getConexion();
       $slug = trim((string) $slug);
       if (!$db || $slug === "" || !$this->tablaExiste($db, "erp_ecommerce_publicaciones")) {
-        return $this->respuesta(false, "info", "Producto publico no disponible", array("item" => null));
+        return $this->respuesta(false, "info", "Producto publico no disponible", array(
+          "item" => null,
+          "variantes" => array(),
+          "relacionados" => array(),
+          "breadcrumbs" => array(),
+          "seo" => null
+        ));
       }
       $where = array("pub.estatus_publicacion='publicado'", "p.estatus='activo'", "s.estatus='activo'", "pub.slug=:slug");
       $stmt = $db->prepare($this->sqlPublicacionesBase($where) . " LIMIT 1");
       $stmt->execute(array(":slug" => $slug));
       $fila = $stmt->fetch(PDO::FETCH_ASSOC);
       if (!$fila) {
-        return $this->respuesta(false, "info", "Producto publico no encontrado", array("item" => null));
+        return $this->respuesta(false, "info", "Producto publico no encontrado", array(
+          "item" => null,
+          "variantes" => array(),
+          "relacionados" => array(),
+          "breadcrumbs" => array(),
+          "seo" => null
+        ));
       }
+      $item = $this->formatearPublicacion($fila);
       return $this->respuesta(false, "success", "Producto publico consultado", array(
-        "item" => $this->formatearPublicacion($fila),
-        "guardrails" => array("solo_publicado" => true, "no_stock_exacto" => true)
+        "item" => $item,
+        "variantes" => $this->variantesProductoPublico($db, $fila),
+        "relacionados" => $this->relacionadosProductoPublico($db, $fila),
+        "breadcrumbs" => $this->breadcrumbsProductoPublico($item),
+        "seo" => $this->seoProductoPublico($item),
+        "acciones" => array(
+          "puede_cotizar" => !empty($item["permite_cotizacion"]),
+          "puede_whatsapp" => !empty($item["permite_whatsapp"]),
+          "mostrar_precio" => $item["precio"] !== null,
+          "mostrar_disponibilidad" => $item["disponibilidad"] !== "consultar_disponibilidad"
+        ),
+        "guardrails" => array(
+          "solo_publicado" => true,
+          "solo_relacionados_publicados" => true,
+          "no_stock_exacto" => true,
+          "no_descuenta_inventario" => true
+        )
       ));
     } catch (Exception $e) {
-      return $this->respuesta(true, "danger", $e->getMessage(), array("item" => null));
+      return $this->respuesta(true, "danger", $e->getMessage(), array(
+        "item" => null,
+        "variantes" => array(),
+        "relacionados" => array()
+      ));
     }
   }
 
@@ -518,15 +581,99 @@ class EcommerceCatalogoPublico extends CRUD {
         INNER JOIN erp_catalogo_categorias c ON c.id_categoria_erp=pc.id_categoria_erp
         WHERE " . $baseWhere . "
         GROUP BY c.id_categoria_erp, c.ruta, c.nombre ORDER BY etiqueta")->fetchAll(PDO::FETCH_ASSOC);
+      $disponibilidad = array();
+      $where = array("pub.estatus_publicacion='publicado'", "p.estatus='activo'", "s.estatus='activo'");
+      $stmtDisponibilidad = $db->query($this->sqlPublicacionesBase($where));
+      foreach ($stmtDisponibilidad->fetchAll(PDO::FETCH_ASSOC) as $fila) {
+        $estado = $this->disponibilidadPublicaSugerida($fila);
+        if (!isset($disponibilidad[$estado])) {
+          $disponibilidad[$estado] = array("valor" => $estado, "etiqueta" => $this->etiquetaDisponibilidadPublica($estado), "total" => 0);
+        }
+        $disponibilidad[$estado]["total"]++;
+      }
+      $disponibilidadOrdenada = array();
+      foreach ($this->estadosDisponibilidadPublica() as $estado) {
+        if (isset($disponibilidad[$estado])) {
+          $disponibilidadOrdenada[] = $disponibilidad[$estado];
+        }
+      }
 
       return $this->respuesta(false, "success", "Filtros ecommerce consultados", array(
         "mascotas" => $mascotas,
         "necesidades" => $this->necesidadesPublicas($db),
         "marcas" => $marcas,
-        "categorias" => $categorias
+        "categorias" => $categorias,
+        "disponibilidad" => $disponibilidadOrdenada
       ));
     } catch (Exception $e) {
       return $this->respuesta(true, "danger", $e->getMessage());
+    }
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-07-30
+   * Proposito: entregar bloques de catalogo preparados para home y secciones del frontend ecommerce.
+   * Impacto: Frontend publico; reduce hardcodeo de destacados, disponibilidad, mascotas y necesidades.
+   * Contrato: solo lectura; se alimenta de `catalogoPublico` y respeta publicaciones activas.
+   */
+  public function seccionesPublicas($opciones = array()) {
+    try {
+      $db = $this->getConexion();
+      if (!$db || !$this->tablaExiste($db, "erp_ecommerce_publicaciones")) {
+        return $this->respuesta(false, "info", "Secciones ecommerce aun no configuradas", array(
+          "configurado" => false,
+          "secciones" => array(),
+          "guardrails" => array("solo_publicados" => true, "no_stock_exacto" => true)
+        ));
+      }
+      $limite = max(1, min(12, intval($this->valor($opciones, "limite", 6))));
+      $incluirVacias = intval($this->valor($opciones, "incluir_vacias", 0)) === 1;
+      $secciones = array();
+      $definiciones = array(
+        array("codigo" => "destacados", "titulo" => "Destacados", "tipo" => "curaduria", "params" => array("destacado" => 1, "orden" => "relevancia")),
+        array("codigo" => "recientes", "titulo" => "Recien agregados", "tipo" => "catalogo", "params" => array("orden" => "recientes")),
+        array("codigo" => "disponibles", "titulo" => "Disponibles", "tipo" => "disponibilidad", "params" => array("disponibilidad" => "disponible", "orden" => "relevancia")),
+        array("codigo" => "pocas_piezas", "titulo" => "Pocas piezas", "tipo" => "disponibilidad", "params" => array("disponibilidad" => "pocas_piezas", "orden" => "relevancia"))
+      );
+      foreach ($definiciones as $definicion) {
+        $this->agregarSeccionPublica($secciones, $definicion, $limite, $incluirVacias);
+      }
+
+      $filtros = $this->filtrosPublicos();
+      foreach (array_slice($this->valor($filtros, array("depurar", "mascotas"), array()), 0, 6) as $mascota) {
+        $valor = $this->limpiarFiltroPublico($this->valor($mascota, "valor", ""));
+        if ($valor === "") { continue; }
+        $this->agregarSeccionPublica($secciones, array(
+          "codigo" => "mascota_" . $valor,
+          "titulo" => "Para " . $this->etiquetaTaxonomiaPublica($valor),
+          "tipo" => "mascota",
+          "params" => array("mascota" => $valor, "orden" => "relevancia")
+        ), $limite, $incluirVacias);
+      }
+      foreach (array_slice($this->valor($filtros, array("depurar", "necesidades"), array()), 0, 8) as $necesidad) {
+        $valor = $this->limpiarFiltroPublico($this->valor($necesidad, "valor", ""));
+        if ($valor === "") { continue; }
+        $this->agregarSeccionPublica($secciones, array(
+          "codigo" => "necesidad_" . $valor,
+          "titulo" => $this->etiquetaTaxonomiaPublica($valor),
+          "tipo" => "necesidad",
+          "params" => array("necesidad" => $valor, "orden" => "relevancia")
+        ), $limite, $incluirVacias);
+      }
+
+      return $this->respuesta(false, "success", "Secciones ecommerce consultadas", array(
+        "configurado" => true,
+        "secciones" => $secciones,
+        "limite_por_seccion" => $limite,
+        "guardrails" => array(
+          "solo_publicados" => true,
+          "no_stock_exacto" => true,
+          "no_ecom_legacy_fuente" => true,
+          "no_descuenta_inventario" => true
+        )
+      ));
+    } catch (Exception $e) {
+      return $this->respuesta(true, "danger", $e->getMessage(), array("secciones" => array()));
     }
   }
 
@@ -1015,6 +1162,8 @@ class EcommerceCatalogoPublico extends CRUD {
       $items = array_slice($items, 0, 50);
       $lineas = array();
       $bloqueos = array();
+      $advertencias = array();
+      $disponibilidadResumen = array();
       $subtotal = 0.0;
       foreach ($items as $index => $item) {
         $cantidad = max(0, min(999, floatval($this->valor($item, "cantidad", 1))));
@@ -1031,6 +1180,17 @@ class EcommerceCatalogoPublico extends CRUD {
         $subtotalLinea = round($precio * $cantidad, 6);
         $subtotal += $subtotalLinea;
         $disponibilidad = $this->disponibilidadPublicaSugerida($publicacion);
+        if (!isset($disponibilidadResumen[$disponibilidad])) {
+          $disponibilidadResumen[$disponibilidad] = 0;
+        }
+        $disponibilidadResumen[$disponibilidad]++;
+        if ($disponibilidad === "agotado") {
+          $advertencias[] = "linea_" . ($index + 1) . "_agotada_sujeta_a_confirmacion";
+        } elseif ($disponibilidad === "pocas_piezas") {
+          $advertencias[] = "linea_" . ($index + 1) . "_pocas_piezas";
+        } elseif ($disponibilidad === "consultar_disponibilidad") {
+          $advertencias[] = "linea_" . ($index + 1) . "_consultar_disponibilidad";
+        }
         $lineas[] = array(
           "renglon" => count($lineas) + 1,
           "id_publicacion" => intval($publicacion["id_publicacion"]),
@@ -1066,8 +1226,24 @@ class EcommerceCatalogoPublico extends CRUD {
           "moneda" => "MXN",
           "texto" => "Total estimado sujeto a confirmacion"
         ),
+        "resumen" => array(
+          "items_recibidos" => count($items),
+          "lineas_validas" => count($lineas),
+          "cantidad_total" => $this->sumarCantidadLineasCotizacion($lineas),
+          "disponibilidad" => $this->resumenDisponibilidadCotizacion($disponibilidadResumen),
+          "requiere_confirmacion_operativa" => !empty($advertencias) || !empty($bloqueos)
+        ),
+        "advertencias" => array_values(array_unique($advertencias)),
         "bloqueos" => $bloqueos,
-        "whatsapp_preview" => $this->mensajeWhatsAppPreview($lineas, $total)
+        "whatsapp_preview" => $this->mensajeWhatsAppPreview($lineas, $total),
+        "frontend" => array(
+          "max_items" => 50,
+          "max_cantidad_por_linea" => 999,
+          "precio_es_estimado" => true,
+          "permitir_continuar_con_pocas_piezas" => true,
+          "permitir_continuar_con_agotado" => true,
+          "mensaje_confirmacion" => "Disponibilidad y total sujetos a confirmacion por Artiani."
+        )
       ));
     } catch (Exception $e) {
       return $this->respuesta(true, "danger", $e->getMessage(), array("dry_run" => true, "no_escribe_bd" => true));
@@ -1091,9 +1267,11 @@ class EcommerceCatalogoPublico extends CRUD {
     }
 
     $contacto = $this->normalizarContactoCotizacion($this->valor($datos, "contacto", array()));
+    $validacionContacto = $this->validacionContactoCotizacion($contacto);
     $aceptaWhatsapp = $this->valor($datos, "acepta_contacto_whatsapp", false);
     $aceptaWhatsapp = $aceptaWhatsapp === true || in_array(strtolower(trim((string) $aceptaWhatsapp)), array("1", "true", "si", "yes", "on"), true);
     $politicasAceptadas = $this->normalizarListaTextoPublica($this->valor($datos, "politicas_aceptadas", array()));
+    $consentimiento = $this->consentimientoCotizacion($aceptaWhatsapp, $politicasAceptadas);
     $utm = $this->normalizarUtmCotizacion($this->valor($datos, "utm", array()));
 
     $advertencias = array();
@@ -1112,6 +1290,9 @@ class EcommerceCatalogoPublico extends CRUD {
     if (empty($lineas)) {
       $bloqueos[] = "sin_lineas_validas";
     }
+    foreach ($validacionContacto["advertencias"] as $advertenciaContacto) {
+      $advertencias[] = $advertenciaContacto;
+    }
 
     $configuracion = $this->configuracionPublica();
     $config = $this->valor($configuracion, array("depurar", "configuracion"), array());
@@ -1123,7 +1304,10 @@ class EcommerceCatalogoPublico extends CRUD {
     }
 
     $listoWhatsapp = empty($dryRun["error"]) && empty($bloqueos) && !empty($lineas) && $numeroWhatsapp !== "";
-    $listoRegistroFuturo = $listoWhatsapp && $contacto["nombre"] !== "" && $contacto["telefono"] !== "" && $aceptaWhatsapp;
+    $listoRegistroFuturo = $listoWhatsapp
+      && !empty($validacionContacto["valido_para_registro_futuro"])
+      && !empty($consentimiento["listo_para_registro_futuro"]);
+    $whatsappUrl = $numeroWhatsapp !== "" && $mensaje !== "" ? "https://wa.me/" . $numeroWhatsapp . "?text=" . rawurlencode($mensaje) : "";
 
     return $this->respuesta(false, empty($bloqueos) ? "success" : "warning", empty($bloqueos) ? "Preflight de cotizacion validado" : "Preflight de cotizacion con observaciones", array(
       "preflight" => true,
@@ -1135,7 +1319,9 @@ class EcommerceCatalogoPublico extends CRUD {
       "listo_para_whatsapp" => $listoWhatsapp,
       "listo_para_registro_futuro" => $listoRegistroFuturo,
       "contacto" => $contacto,
+      "validacion_contacto" => $validacionContacto,
       "acepta_contacto_whatsapp" => $aceptaWhatsapp,
+      "consentimiento" => $consentimiento,
       "politicas_aceptadas" => $politicasAceptadas,
       "utm" => $utm,
       "dry_run" => $dryDepurar,
@@ -1143,7 +1329,22 @@ class EcommerceCatalogoPublico extends CRUD {
         "numero_configurado" => $numeroWhatsapp !== "",
         "numero" => $numeroWhatsapp,
         "mensaje" => $mensaje,
-        "url" => $numeroWhatsapp !== "" && $mensaje !== "" ? "https://wa.me/" . $numeroWhatsapp . "?text=" . rawurlencode($mensaje) : ""
+        "url" => $whatsappUrl
+      ),
+      "cta" => array(
+        "tipo" => $listoWhatsapp ? "whatsapp" : "corregir_datos",
+        "label" => $listoWhatsapp ? "Enviar por WhatsApp" : "Revisar cotizacion",
+        "url" => $whatsappUrl,
+        "disabled" => !$listoWhatsapp,
+        "motivos_disabled" => $listoWhatsapp ? array() : array_values(array_unique(array_merge($bloqueos, $numeroWhatsapp === "" ? array("whatsapp_no_configurado") : array())))
+      ),
+      "frontend" => array(
+        "pasos_sugeridos" => array("carrito", "datos_contacto", "confirmacion", "whatsapp"),
+        "contacto_es_recomendado_para_whatsapp" => true,
+        "contacto_requerido_para_registro_futuro" => true,
+        "registro_real_bloqueado_fase_1" => true,
+        "mostrar_total_estimado" => true,
+        "mostrar_leyenda_confirmacion" => true
       ),
       "advertencias" => array_values(array_unique($advertencias)),
       "bloqueos" => array_values(array_unique($bloqueos)),
@@ -3356,6 +3557,234 @@ class EcommerceCatalogoPublico extends CRUD {
     return substr($valor, 0, 60);
   }
 
+  private function variantesProductoPublico($db, $fila, $limite = 12) {
+    $where = array(
+      "pub.estatus_publicacion='publicado'",
+      "p.estatus='activo'",
+      "s.estatus='activo'",
+      "pub.id_producto_erp=:producto",
+      "pub.id_publicacion<>:publicacion"
+    );
+    $stmt = $db->prepare($this->sqlPublicacionesBase($where) . " ORDER BY pr.precio ASC, pub.orden ASC, pub.titulo_publico ASC LIMIT " . intval($limite));
+    $stmt->execute(array(
+      ":producto" => intval($this->valor($fila, "id_producto_erp", 0)),
+      ":publicacion" => intval($this->valor($fila, "id_publicacion", 0))
+    ));
+    $items = array();
+    foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $variante) {
+      $items[] = $this->formatearPublicacion($variante);
+    }
+    return $items;
+  }
+
+  private function relacionadosProductoPublico($db, $fila, $limite = 8) {
+    $condiciones = array();
+    $params = array(
+      ":publicacion" => intval($this->valor($fila, "id_publicacion", 0)),
+      ":producto" => intval($this->valor($fila, "id_producto_erp", 0))
+    );
+    $categoria = intval($this->valor($fila, "id_categoria_erp", 0));
+    if ($categoria > 0) {
+      $condiciones[] = "pc.id_categoria_erp=:categoria";
+      $params[":categoria"] = $categoria;
+    }
+    $mascota = $this->limpiarFiltroPublico($this->valor($fila, "mascota_especie", ""));
+    if ($mascota !== "") {
+      $condiciones[] = "pub.mascota_especie=:mascota";
+      $params[":mascota"] = $mascota;
+    }
+    $necesidades = array_slice($this->decodificarJsonLista($this->valor($fila, "necesidades_json", "")), 0, 4);
+    foreach ($necesidades as $i => $necesidad) {
+      $clave = ":necesidad" . $i;
+      $condiciones[] = "pub.necesidades_json LIKE " . $clave;
+      $params[$clave] = "%\"" . $necesidad . "\"%";
+    }
+    if (empty($condiciones)) {
+      return array();
+    }
+
+    $where = array(
+      "pub.estatus_publicacion='publicado'",
+      "p.estatus='activo'",
+      "s.estatus='activo'",
+      "pub.id_publicacion<>:publicacion",
+      "pub.id_producto_erp<>:producto",
+      "(" . implode(" OR ", $condiciones) . ")"
+    );
+    $ordenScore = array();
+    if ($categoria > 0) {
+      $ordenScore[] = "CASE WHEN pc.id_categoria_erp=:categoria THEN 4 ELSE 0 END";
+    }
+    if ($mascota !== "") {
+      $ordenScore[] = "CASE WHEN pub.mascota_especie=:mascota THEN 3 ELSE 0 END";
+    }
+    foreach ($necesidades as $i => $necesidad) {
+      $ordenScore[] = "CASE WHEN pub.necesidades_json LIKE :necesidad" . $i . " THEN 2 ELSE 0 END";
+    }
+    $score = empty($ordenScore) ? "0" : implode(" + ", $ordenScore);
+    $stmt = $db->prepare($this->sqlPublicacionesBase($where) . " ORDER BY (" . $score . ") DESC, pub.destacado DESC, pub.orden ASC, pub.titulo_publico ASC LIMIT " . intval($limite));
+    $stmt->execute($params);
+    $items = array();
+    foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $relacionado) {
+      $items[] = $this->formatearPublicacion($relacionado);
+    }
+    return $items;
+  }
+
+  private function breadcrumbsProductoPublico($item) {
+    $breadcrumbs = array(
+      array("etiqueta" => "Inicio", "path" => "/"),
+      array("etiqueta" => "Catalogo", "path" => "/catalogo")
+    );
+    $categoria = trim((string) $this->valor($item, "categoria", ""));
+    if ($categoria !== "") {
+      $partes = array_values(array_filter(array_map("trim", explode("/", $categoria))));
+      $acumulado = "";
+      foreach ($partes as $parte) {
+        $acumulado = trim($acumulado . "/" . $this->slugificar($parte), "/");
+        $breadcrumbs[] = array("etiqueta" => $parte, "path" => "/catalogo/categoria/" . $acumulado);
+      }
+    }
+    $breadcrumbs[] = array("etiqueta" => $this->valor($item, "nombre", "Producto"), "path" => "/producto/" . $this->valor($item, "slug", ""));
+    return $breadcrumbs;
+  }
+
+  private function seoProductoPublico($item) {
+    $nombre = trim((string) $this->valor($item, "nombre", "Producto Artiani"));
+    $descripcion = trim((string) $this->valor($item, "descripcion", ""));
+    if ($descripcion === "") {
+      $partes = array_filter(array(
+        $nombre,
+        $this->valor($item, "marca", ""),
+        $this->valor($item, "presentacion", ""),
+        $this->valor($item, "categoria", "")
+      ));
+      $descripcion = implode(" | ", $partes);
+    }
+    $precio = $this->valor($item, "precio", null);
+    return array(
+      "title" => substr($nombre . " | Artiani", 0, 90),
+      "description" => substr($descripcion, 0, 160),
+      "canonical_path" => "/producto/" . $this->valor($item, "slug", ""),
+      "image" => $this->valor($item, "imagen", null),
+      "json_ld" => array(
+        "@context" => "https://schema.org",
+        "@type" => "Product",
+        "name" => $nombre,
+        "sku" => $this->valor($item, "sku", ""),
+        "brand" => $this->valor($item, "marca", ""),
+        "image" => $this->valor($item, "imagen", null),
+        "description" => substr($descripcion, 0, 300),
+        "offers" => array(
+          "@type" => "Offer",
+          "priceCurrency" => $this->valor($item, "moneda", "MXN"),
+          "price" => $precio,
+          "availability" => $this->schemaOrgDisponibilidad($this->valor($item, "disponibilidad", "consultar_disponibilidad"))
+        )
+      )
+    );
+  }
+
+  private function schemaOrgDisponibilidad($disponibilidad) {
+    if ($disponibilidad === "disponible") {
+      return "https://schema.org/InStock";
+    }
+    if ($disponibilidad === "pocas_piezas") {
+      return "https://schema.org/LimitedAvailability";
+    }
+    if ($disponibilidad === "agotado") {
+      return "https://schema.org/OutOfStock";
+    }
+    return "https://schema.org/PreOrder";
+  }
+
+  private function agregarSeccionPublica(&$secciones, $definicion, $limite, $incluirVacias) {
+    $params = $this->valor($definicion, "params", array());
+    $params["limite"] = $limite;
+    $catalogo = $this->catalogoPublico($params);
+    $items = $this->valor($catalogo, array("depurar", "items"), array());
+    $total = intval($this->valor($catalogo, array("depurar", "paginacion", "total"), 0));
+    if (!$incluirVacias && empty($items)) {
+      return;
+    }
+    $secciones[] = array(
+      "codigo" => $this->valor($definicion, "codigo", ""),
+      "titulo" => $this->valor($definicion, "titulo", ""),
+      "tipo" => $this->valor($definicion, "tipo", "catalogo"),
+      "total" => $total,
+      "items" => $items,
+      "params_catalogo" => $params
+    );
+  }
+
+  private function agregarFiltroDisponibilidadPublica(&$where, $disponibilidad) {
+    if ($disponibilidad === "disponible") {
+      $where[] = "COALESCE(r.controla_inventario, CASE WHEN s.tipo_inventario IN ('servicio','cargo') THEN 0 ELSE 1 END)=1";
+      $where[] = "COALESCE(inv.cantidad_disponible, 0)>3";
+    } elseif ($disponibilidad === "pocas_piezas") {
+      $where[] = "COALESCE(r.controla_inventario, CASE WHEN s.tipo_inventario IN ('servicio','cargo') THEN 0 ELSE 1 END)=1";
+      $where[] = "COALESCE(inv.cantidad_disponible, 0)>0";
+      $where[] = "COALESCE(inv.cantidad_disponible, 0)<=3";
+    } elseif ($disponibilidad === "agotado") {
+      $where[] = "COALESCE(r.controla_inventario, CASE WHEN s.tipo_inventario IN ('servicio','cargo') THEN 0 ELSE 1 END)=1";
+      $where[] = "COALESCE(inv.cantidad_disponible, 0)<=0";
+    } elseif ($disponibilidad === "consultar_disponibilidad") {
+      $where[] = "COALESCE(r.controla_inventario, CASE WHEN s.tipo_inventario IN ('servicio','cargo') THEN 0 ELSE 1 END)=0";
+    }
+  }
+
+  private function ordenCatalogoPublicoNormalizado($orden) {
+    $orden = trim((string) $orden);
+    return in_array($orden, array("relevancia", "nombre", "precio_asc", "precio_desc", "recientes"), true) ? $orden : "relevancia";
+  }
+
+  private function ordenCatalogoPublicoSql($orden) {
+    $orden = $this->ordenCatalogoPublicoNormalizado($orden);
+    if ($orden === "nombre") {
+      return "pub.titulo_publico ASC, pub.orden ASC";
+    }
+    if ($orden === "precio_asc") {
+      return "pr.precio ASC, pub.titulo_publico ASC";
+    }
+    if ($orden === "precio_desc") {
+      return "pr.precio DESC, pub.titulo_publico ASC";
+    }
+    if ($orden === "recientes") {
+      return "COALESCE(pub.fecha_publicacion, pub.fecha_registro) DESC, pub.titulo_publico ASC";
+    }
+    return "pub.destacado DESC, pub.orden ASC, pub.titulo_publico ASC";
+  }
+
+  private function etiquetaDisponibilidadPublica($estado) {
+    $mapa = array(
+      "disponible" => "Disponible",
+      "pocas_piezas" => "Pocas piezas",
+      "consultar_disponibilidad" => "Consultar disponibilidad",
+      "agotado" => "Agotado"
+    );
+    return isset($mapa[$estado]) ? $mapa[$estado] : $estado;
+  }
+
+  private function etiquetaTaxonomiaPublica($valor) {
+    $mapa = array(
+      "perro" => "perros",
+      "gato" => "gatos",
+      "pez" => "peces",
+      "ave" => "aves",
+      "reptil" => "reptiles",
+      "roedor" => "roedores",
+      "alimento" => "Alimento",
+      "premio" => "Premios",
+      "higiene" => "Higiene",
+      "salud" => "Salud",
+      "paseo" => "Paseo",
+      "habitat" => "Habitat",
+      "juguete" => "Juguetes",
+      "estetica" => "Estetica"
+    );
+    return isset($mapa[$valor]) ? $mapa[$valor] : ucfirst(str_replace("_", " ", $valor));
+  }
+
   private function politicasPublicasDefault() {
     return array(
       array(
@@ -3706,6 +4135,66 @@ class EcommerceCatalogoPublico extends CRUD {
       "canal_preferido" => $this->limpiarFiltroPublico($this->valor($contacto, "canal_preferido", "whatsapp")),
       "mensaje" => trim(substr((string) $this->valor($contacto, "mensaje", ""), 0, 1000))
     );
+  }
+
+  private function validacionContactoCotizacion($contacto) {
+    $advertencias = array();
+    $errores = array();
+    $nombre = trim((string) $this->valor($contacto, "nombre", ""));
+    $telefono = trim((string) $this->valor($contacto, "telefono", ""));
+    $correo = trim((string) $this->valor($contacto, "correo", ""));
+    if ($nombre !== "" && strlen($nombre) < 2) {
+      $advertencias[] = "contacto_nombre_muy_corto";
+    }
+    if ($telefono !== "" && strlen(preg_replace('/\D+/', '', $telefono)) < 10) {
+      $advertencias[] = "contacto_telefono_incompleto";
+    }
+    if ($correo !== "" && !filter_var($correo, FILTER_VALIDATE_EMAIL)) {
+      $advertencias[] = "contacto_correo_invalido";
+    }
+    return array(
+      "valido_para_whatsapp" => empty($errores),
+      "valido_para_registro_futuro" => $nombre !== "" && $telefono !== "" && empty($errores),
+      "campos" => array(
+        "nombre" => array("presente" => $nombre !== "", "requerido_futuro" => true),
+        "telefono" => array("presente" => $telefono !== "", "requerido_futuro" => true),
+        "correo" => array("presente" => $correo !== "", "requerido_futuro" => false)
+      ),
+      "advertencias" => array_values(array_unique($advertencias)),
+      "errores" => array_values(array_unique($errores))
+    );
+  }
+
+  private function consentimientoCotizacion($aceptaWhatsapp, $politicasAceptadas) {
+    $politicas = is_array($politicasAceptadas) ? $politicasAceptadas : array();
+    return array(
+      "acepta_contacto_whatsapp" => !empty($aceptaWhatsapp),
+      "politicas_aceptadas" => $politicas,
+      "aviso_privacidad_aceptado" => in_array("aviso_privacidad", $politicas, true),
+      "terminos_cotizacion_aceptados" => in_array("terminos_cotizacion", $politicas, true) || in_array("terminos", $politicas, true),
+      "requerido_para_registro_futuro" => array("acepta_contacto_whatsapp", "aviso_privacidad"),
+      "listo_para_registro_futuro" => !empty($aceptaWhatsapp) && in_array("aviso_privacidad", $politicas, true)
+    );
+  }
+
+  private function sumarCantidadLineasCotizacion($lineas) {
+    $total = 0.0;
+    foreach ($lineas as $linea) {
+      $total += floatval($this->valor($linea, "cantidad", 0));
+    }
+    return $total;
+  }
+
+  private function resumenDisponibilidadCotizacion($conteo) {
+    $salida = array();
+    foreach ($this->estadosDisponibilidadPublica() as $estado) {
+      $salida[] = array(
+        "valor" => $estado,
+        "etiqueta" => $this->etiquetaDisponibilidadPublica($estado),
+        "total" => intval($this->valor($conteo, $estado, 0))
+      );
+    }
+    return $salida;
   }
 
   private function normalizarUtmCotizacion($utm) {

@@ -1276,10 +1276,15 @@
     }
     function actualizarEstadoCobro() {
         var boton = document.getElementById("pos_cobrar_real");
+        var botonFaltantes = document.getElementById("pos_cobrar_faltantes_real");
         if (!boton || boton.getAttribute("data-cobrando") === "1") { return; }
         var turnoCta = document.getElementById("pos_turno_cta");
         if (!turnoActual()) {
             boton.disabled = true;
+            if (botonFaltantes) {
+                botonFaltantes.disabled = true;
+                botonFaltantes.title = "Abre turno de caja antes de cobrar con faltantes";
+            }
             boton.title = "Abre turno de caja antes de cobrar";
             boton.innerHTML = "<i class=\"bi bi-lock\"></i> Abrir turno para cobrar";
             if (turnoCta) { turnoCta.classList.remove("d-none"); }
@@ -1287,13 +1292,18 @@
         }
         if (turnoCta) { turnoCta.classList.add("d-none"); }
         boton.disabled = false;
+        if (botonFaltantes && botonFaltantes.getAttribute("data-cobrando") !== "1") {
+            botonFaltantes.disabled = false;
+            botonFaltantes.title = "Cobrar y crear alertas por faltantes autorizados";
+            botonFaltantes.innerHTML = "<i class=\"bi bi-exclamation-triangle\"></i> Cobrar con faltantes";
+        }
         if (carrito.some(function (item) { return item.tipo_partida === "venta_rapida"; })) {
             boton.title = "Confirmar venta rapida controlada POS";
             boton.innerHTML = "<i class=\"bi bi-lightning-charge\"></i> Cobrar venta rapida";
             return;
         }
         boton.title = "Confirmar venta POS";
-        boton.innerHTML = "<i class=\"bi bi-cash-coin\"></i> Cobrar";
+        boton.innerHTML = "<i class=\"bi bi-cash-coin\"></i> Cobrar <span class=\"pos-shortcut-hint\">Ctrl+Enter</span>";
     }
     function esPagoSaldoCrmUi(pago) {
         return String((pago || {}).metodo_pago || "").toLowerCase() === "saldo_crm" || String((pago || {}).tipo_pago || "").toLowerCase() === "saldo_cliente";
@@ -2045,6 +2055,58 @@
     }
     function ejecutarCobroReal() {
         var boton = document.getElementById("pos_cobrar_real");
+        return ejecutarCobroRealComun(false, "", boton);
+    }
+    function cobrarConFaltantesReal() {
+        if (!turnoActual()) {
+            document.getElementById("pos_validacion").innerHTML = "<div class=\"alert alert-warning py-3 mb-0\">Abre turno de caja antes de cobrar con faltantes.</div>";
+            return;
+        }
+        if (!carrito.length) {
+            document.getElementById("pos_validacion").innerHTML = "<div class=\"alert alert-warning py-3 mb-0\">Agrega partidas antes de cobrar con faltantes.</div>";
+            return;
+        }
+        if (!pagos.length) {
+            document.getElementById("pos_validacion").innerHTML = "<div class=\"alert alert-warning py-3 mb-0\">Agrega al menos un pago antes de cobrar con faltantes.</div>";
+            return;
+        }
+        var continuar = Promise.resolve(true);
+        if (window.Swal) {
+            continuar = Swal.fire({
+                title: "Cobrar con faltantes",
+                icon: "warning",
+                html: "<div class=\"text-start fs-7 mb-3\">Se cobrara la cuenta y cada SKU sin existencia suficiente generara alerta a Inventario/Existencias.</div>" +
+                    "<label class=\"form-label w-100 text-start fs-8 text-muted\">Motivo</label>" +
+                    "<input id=\"swal_pos_motivo_faltante\" class=\"swal2-input\" placeholder=\"Ej. Venta mientras se regulariza mini inventario\">" +
+                    "<label class=\"form-label w-100 text-start fs-8 text-muted mt-2\">Confirmacion</label>" +
+                    "<input id=\"swal_pos_confirmacion_faltante\" class=\"swal2-input\" placeholder=\"AUTORIZAR INVENTARIO PENDIENTE\">",
+                showCancelButton: true,
+                confirmButtonText: "Cobrar con faltantes",
+                cancelButtonText: "Cancelar",
+                preConfirm: function () {
+                    var motivo = (document.getElementById("swal_pos_motivo_faltante") || {}).value || "";
+                    var confirmacion = (document.getElementById("swal_pos_confirmacion_faltante") || {}).value || "";
+                    if (!motivo.trim() || confirmacion.trim().toUpperCase() !== "AUTORIZAR INVENTARIO PENDIENTE") {
+                        Swal.showValidationMessage("Captura motivo y la confirmacion exacta.");
+                        return false;
+                    }
+                    return {motivo: motivo.trim()};
+                }
+            }).then(function (r) { return r.isConfirmed ? r.value : false; });
+        } else {
+            var motivoPrompt = window.prompt("Motivo para cobrar con faltantes:");
+            if (!motivoPrompt) { continuar = Promise.resolve(false); }
+            else {
+                var confirmacionPrompt = window.prompt("Escribe AUTORIZAR INVENTARIO PENDIENTE:");
+                continuar = Promise.resolve(confirmacionPrompt && confirmacionPrompt.toUpperCase() === "AUTORIZAR INVENTARIO PENDIENTE" ? {motivo: motivoPrompt} : false);
+            }
+        }
+        continuar.then(function (datos) {
+            if (!datos) { return; }
+            ejecutarCobroRealComun(true, datos.motivo || "Venta POS con faltantes autorizados", document.getElementById("pos_cobrar_faltantes_real"));
+        });
+    }
+    function ejecutarCobroRealComun(autorizarFaltantes, motivoFaltantes, boton) {
         if (boton && boton.disabled) { return; }
         var payloadTmsPendiente = null;
         if (tmsPosActivo()) {
@@ -2060,7 +2122,12 @@
             boton.setAttribute("data-original-text", boton.innerHTML);
             boton.innerHTML = "<span class=\"spinner-border spinner-border-sm me-2\"></span>Cobrando...";
         }
-        request("/ventas/pos_confirmar_erp", payloadVentaPos()).then(function (response) {
+        var payload = payloadVentaPos();
+        if (autorizarFaltantes) {
+            payload.autorizar_inventario_pendiente_pos = "AUTORIZAR INVENTARIO PENDIENTE";
+            payload.motivo_inventario_pendiente = motivoFaltantes || "Venta POS con faltantes autorizados";
+        }
+        request("/ventas/pos_confirmar_erp", payload).then(function (response) {
             if (response.error) { throw new Error(response.mensaje); }
             renderCobroReal(response);
             if (response.tipo === "success" && payloadTmsPendiente) {
@@ -2084,9 +2151,12 @@
             return;
         }
         var cliente = depurar.cliente || {};
-        var mensajeOperacion = (depurar.venta_rapida || []).length
-            ? "Caja registrada; venta rapida enviada a Catalogo/Inventario. No se movio kardex ni garantia hasta clasificar el SKU."
-            : "Caja, kardex, garantias y trazabilidad registrados por backend.";
+        var pendientesInventario = depurar.inventario_pendiente || [];
+        var mensajeOperacion = pendientesInventario.length
+            ? "Caja registrada; se generaron " + pendientesInventario.length + " pendiente(s) para Inventario/Existencias con trazabilidad."
+            : ((depurar.venta_rapida || []).length
+                ? "Caja registrada; venta rapida enviada a Catalogo/Inventario. No se movio kardex ni garantia hasta clasificar el SKU."
+                : "Caja, kardex, garantias y trazabilidad registrados por backend.");
         var html = "<div class=\"alert alert-success py-3 mb-0\">" +
             "<div class=\"fw-bold mb-1\">" + escapeHtml(response.mensaje || "Venta POS confirmada") + "</div>" +
             "<div class=\"fs-7\">Folio: <span class=\"fw-bold\">" + escapeHtml(depurar.folio || "") + "</span>" +
@@ -3510,6 +3580,10 @@
         document.getElementById("pos_tms_activo").addEventListener("change", alternarTmsPos);
         document.getElementById("pos_tms_dryrun").addEventListener("click", prevalidarTmsPos);
         document.getElementById("pos_cobrar_real").addEventListener("click", cobrarReal);
+        var botonCobrarFaltantes = document.getElementById("pos_cobrar_faltantes_real");
+        if (botonCobrarFaltantes) {
+            botonCobrarFaltantes.addEventListener("click", cobrarConFaltantesReal);
+        }
         document.getElementById("pos_pedido_dryrun").addEventListener("click", dryRunPedidoReserva);
         document.getElementById("pos_ticket_preview").addEventListener("click", ticketPreview);
         document.getElementById("pos_ticket_imprimir").addEventListener("click", imprimirTicketPos);
