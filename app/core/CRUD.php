@@ -19,7 +19,7 @@ abstract class MySqlDB {
         PDO::ATTR_TIMEOUT => 10
     );
     try {
-      return $this->datahost = new PDO($this->tipo_de_base . ':host=' . MYSQLHOST . ';dbname=' . MYSQLBASE, MYSQLUSER, MYSQLPASS, $options);
+      return $this->datahost = new PDO($this->tipo_de_base . ':host=' . MYSQLHOST . ';port=' . MYSQLPORT . ';dbname=' . MYSQLBASE, MYSQLUSER, MYSQLPASS, $options);
     } catch (PDOException $e) {
       $this->error = $e->getMessage();
       return null;

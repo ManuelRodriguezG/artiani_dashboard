@@ -45,6 +45,13 @@ class EcommerceCatalogoPublico extends CRUD {
         ),
         array(
           "metodo" => "GET",
+          "ruta" => "/ecommercePublico/bootstrap",
+          "descripcion" => "Paquete inicial para frontend: estado, configuracion, filtros, secciones, politicas y canales.",
+          "parametros" => array("limite_secciones" => "1-12, default 6."),
+          "respuesta_depurar" => array("ready", "estado", "configuracion", "filtros", "secciones", "politicas", "canales", "guardrails")
+        ),
+        array(
+          "metodo" => "GET",
           "ruta" => "/ecommercePublico/catalogo",
           "descripcion" => "Lista publicaciones ecommerce aprobadas con datos vivos desde ERP.",
           "parametros" => array(
@@ -72,6 +79,13 @@ class EcommerceCatalogoPublico extends CRUD {
           "ruta" => "/ecommercePublico/filtros",
           "descripcion" => "Filtros disponibles derivados de publicaciones vigentes.",
           "respuesta_depurar" => array("mascotas", "necesidades", "marcas", "categorias")
+        ),
+        array(
+          "metodo" => "GET",
+          "ruta" => "/ecommercePublico/busqueda_sugerencias",
+          "descripcion" => "Sugerencias publicas para buscador: productos, marcas, categorias, mascotas y necesidades.",
+          "parametros" => array("q" => "Texto opcional.", "limite" => "1-12 por grupo, default 6."),
+          "respuesta_depurar" => array("q", "grupos", "resumen", "guardrails")
         ),
         array(
           "metodo" => "GET",
@@ -106,6 +120,12 @@ class EcommerceCatalogoPublico extends CRUD {
           "ruta" => "/ecommercePublico/configuracion",
           "descripcion" => "Configuracion publica del canal: moneda, WhatsApp, cotizacion y politicas visibles.",
           "respuesta_depurar" => array("configurado", "configuracion")
+        ),
+        array(
+          "metodo" => "GET",
+          "ruta" => "/ecommercePublico/canales_estado",
+          "descripcion" => "Estado publico seguro de la capa multi-canal/API para Artiani y partners.",
+          "respuesta_depurar" => array("configurado", "modo", "tablas", "canales", "autenticacion", "activacion", "guardrails")
         ),
         array(
           "metodo" => "GET",
@@ -336,6 +356,58 @@ class EcommerceCatalogoPublico extends CRUD {
       ));
     } catch (Exception $e) {
       return $this->respuesta(true, "danger", $e->getMessage(), array("ready" => false));
+    }
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-07-31
+   * Proposito: entregar un paquete inicial estable para el frontend ecommerce.
+   * Impacto: reduce llamadas iniciales y centraliza readiness, configuracion, filtros, secciones y canales.
+   * Contrato: read-only; no escribe BD, no expone secretos y no muestra stock exacto.
+   */
+  public function bootstrapPublico($opciones = array()) {
+    try {
+      $limiteSecciones = max(1, min(12, intval($this->valor($opciones, "limite_secciones", 6))));
+      $estado = $this->estadoApiPublica();
+      $configuracion = $this->configuracionPublica();
+      $filtros = $this->filtrosPublicos();
+      $secciones = $this->seccionesPublicas(array("limite" => $limiteSecciones));
+      $politicas = $this->politicasPublicas();
+      $canales = $this->canalesApiEstadoPublico();
+      $ready = !empty($this->valor($estado, array("depurar", "ready"), false))
+        && empty($estado["error"])
+        && empty($configuracion["error"])
+        && empty($filtros["error"])
+        && empty($secciones["error"]);
+
+      return $this->respuesta(false, $ready ? "success" : "info", $ready ? "Bootstrap ecommerce listo" : "Bootstrap ecommerce con observaciones", array(
+        "ready" => $ready,
+        "estado" => $this->valor($estado, "depurar", array()),
+        "configuracion" => $this->valor($configuracion, "depurar", array()),
+        "filtros" => $this->valor($filtros, "depurar", array()),
+        "secciones" => $this->valor($secciones, "depurar", array()),
+        "politicas" => $this->valor($politicas, "depurar", array()),
+        "canales" => $this->valor($canales, "depurar", array()),
+        "frontend" => array(
+          "limite_secciones" => $limiteSecciones,
+          "puede_renderizar_catalogo_real" => $ready,
+          "usar_catalogo_para_paginacion" => "/ecommercePublico/catalogo",
+          "usar_producto_para_detalle" => "/ecommercePublico/producto/{slug}",
+          "usar_preflight_para_carrito" => "/ecommercePublico/cotizacion_preflight"
+        ),
+        "guardrails" => array(
+          "read_only" => true,
+          "no_expone_secretos" => true,
+          "no_stock_exacto" => true,
+          "no_descuenta_inventario" => true,
+          "no_registra_cotizacion" => true
+        )
+      ));
+    } catch (Exception $e) {
+      return $this->respuesta(true, "danger", $e->getMessage(), array(
+        "ready" => false,
+        "guardrails" => array("read_only" => true, "no_expone_secretos" => true)
+      ));
     }
   }
 
@@ -611,6 +683,85 @@ class EcommerceCatalogoPublico extends CRUD {
   }
 
   /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-07-31
+   * Proposito: entregar sugerencias publicas para buscador ecommerce.
+   * Impacto: Frontend publico; permite autocompletar productos, marcas, categorias, mascotas y necesidades.
+   * Contrato: solo lectura; no registra busquedas, no expone stock exacto y solo usa publicaciones vigentes.
+   */
+  public function busquedaSugerenciasPublicas($opciones = array()) {
+    try {
+      $q = trim((string) $this->valor($opciones, "q", ""));
+      $limite = max(1, min(12, intval($this->valor($opciones, "limite", 6))));
+      $catalogo = $this->catalogoPublico(array(
+        "q" => $q,
+        "limite" => $limite,
+        "orden" => "relevancia"
+      ));
+      $filtros = $this->filtrosPublicos();
+      $productos = array();
+      foreach ($this->valor($catalogo, array("depurar", "items"), array()) as $item) {
+        $productos[] = array(
+          "tipo" => "producto",
+          "label" => $this->valor($item, "nombre", ""),
+          "subtitulo" => trim((string) $this->valor($item, "marca", "") . " " . (string) $this->valor($item, "presentacion", "")),
+          "valor" => $this->valor($item, "slug", ""),
+          "url" => "/producto/" . $this->valor($item, "slug", ""),
+          "imagen" => $this->valor($item, "imagen", null),
+          "precio" => $this->valor($item, "precio", null),
+          "moneda" => $this->valor($item, "moneda", null),
+          "disponibilidad" => $this->valor($item, "disponibilidad", "consultar_disponibilidad")
+        );
+      }
+
+      $depFiltros = $this->valor($filtros, "depurar", array());
+      $grupos = array(
+        "productos" => $productos,
+        "marcas" => $this->filtrarSugerenciasTaxonomia($this->valor($depFiltros, "marcas", array()), $q, $limite, "marca"),
+        "categorias" => $this->filtrarSugerenciasTaxonomia($this->valor($depFiltros, "categorias", array()), $q, $limite, "categoria"),
+        "mascotas" => $this->filtrarSugerenciasTaxonomia($this->valor($depFiltros, "mascotas", array()), $q, $limite, "mascota"),
+        "necesidades" => $this->filtrarSugerenciasTaxonomia($this->valor($depFiltros, "necesidades", array()), $q, $limite, "necesidad")
+      );
+      $total = 0;
+      foreach ($grupos as $items) {
+        $total += count($items);
+      }
+
+      return $this->respuesta(false, "success", "Sugerencias ecommerce consultadas", array(
+        "q" => $q,
+        "configurado" => !empty($this->valor($catalogo, array("depurar", "configurado"), false)),
+        "grupos" => $grupos,
+        "resumen" => array(
+          "total_sugerencias" => $total,
+          "productos" => count($grupos["productos"]),
+          "marcas" => count($grupos["marcas"]),
+          "categorias" => count($grupos["categorias"]),
+          "mascotas" => count($grupos["mascotas"]),
+          "necesidades" => count($grupos["necesidades"]),
+          "sin_resultados" => $total === 0
+        ),
+        "frontend" => array(
+          "registrar_busqueda_futura" => "/ecommercePublico/busqueda_registrar",
+          "usar_catalogo_para_resultados" => "/ecommercePublico/catalogo?q=" . rawurlencode($q),
+          "min_caracteres_recomendado" => 2
+        ),
+        "guardrails" => array(
+          "read_only" => true,
+          "no_registra_busqueda" => true,
+          "solo_publicados" => true,
+          "no_stock_exacto" => true,
+          "no_expone_costos" => true
+        )
+      ));
+    } catch (Exception $e) {
+      return $this->respuesta(true, "danger", $e->getMessage(), array(
+        "q" => "",
+        "grupos" => array(),
+        "guardrails" => array("read_only" => true, "no_registra_busqueda" => true)
+      ));
+    }
+  }
+
+  /**
    * Documentacion IA: Codex GPT-5 | Fecha: 2026-07-30
    * Proposito: entregar bloques de catalogo preparados para home y secciones del frontend ecommerce.
    * Impacto: Frontend publico; reduce hardcodeo de destacados, disponibilidad, mascotas y necesidades.
@@ -818,6 +969,109 @@ class EcommerceCatalogoPublico extends CRUD {
       ));
     } catch (Exception $e) {
       return $this->respuesta(true, "danger", $e->getMessage(), array("configurado" => false, "configuracion" => $this->configuracionPublicaDefault()));
+    }
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-07-31
+   * Proposito: informar estado seguro de la capa multi-canal/API sin exponer secretos.
+   * Impacto: Frontend/partners; permite planear integraciones sin activar autenticacion obligatoria.
+   * Contrato: read-only; no escribe BD, no genera credenciales y no lista secrets.
+   */
+  public function canalesApiEstadoPublico($filtros = array()) {
+    try {
+      $db = $this->getConexion();
+      $tablas = array(
+        "erp_ecommerce_canales_api",
+        "erp_ecommerce_api_credenciales",
+        "erp_ecommerce_canal_publicaciones",
+        "erp_ecommerce_api_nonces",
+        "erp_ecommerce_api_logs"
+      );
+      $estadoTablas = array();
+      $faltantes = array();
+      foreach ($tablas as $tabla) {
+        $existe = $db ? $this->tablaExiste($db, $tabla) : false;
+        $estadoTablas[$tabla] = array("existe" => $existe);
+        if (!$existe) {
+          $faltantes[] = "tabla_pendiente_" . $tabla;
+        }
+      }
+
+      $canales = array("total" => 0, "activos" => 0, "borrador" => 0, "suspendidos" => 0, "items" => array());
+      $credenciales = array("activas" => 0, "vencidas_o_inactivas" => 0, "secretos_expuestos" => false);
+      $allowlist = array("total_relaciones_activas" => 0);
+      if ($db && empty($faltantes)) {
+        $stmt = $db->query("SELECT id_canal_api, codigo, nombre, tipo_canal, estatus, url_publica, scopes_json, politica_precios,
+            puede_ver_precio, puede_ver_disponibilidad, puede_cotizar, puede_registrar_cotizacion, mostrar_stock_exacto,
+            rate_limit_minuto, rate_limit_dia
+          FROM erp_ecommerce_canales_api
+          ORDER BY tipo_canal ASC, codigo ASC");
+        foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $fila) {
+          $estatus = trim((string) $this->valor($fila, "estatus", ""));
+          $canales["total"]++;
+          if ($estatus === "activo") { $canales["activos"]++; }
+          if ($estatus === "borrador") { $canales["borrador"]++; }
+          if (in_array($estatus, array("suspendido", "inactivo"), true)) { $canales["suspendidos"]++; }
+          $canales["items"][] = array(
+            "codigo" => $this->valor($fila, "codigo", ""),
+            "nombre" => $this->valor($fila, "nombre", ""),
+            "tipo_canal" => $this->valor($fila, "tipo_canal", ""),
+            "estatus" => $estatus,
+            "url_publica" => $this->valor($fila, "url_publica", ""),
+            "scopes" => $this->decodificarJsonLista($this->valor($fila, "scopes_json", "")),
+            "politica_precios" => $this->valor($fila, "politica_precios", "publico"),
+            "permisos_publicos" => array(
+              "puede_ver_precio" => intval($this->valor($fila, "puede_ver_precio", 0)) === 1,
+              "puede_ver_disponibilidad" => intval($this->valor($fila, "puede_ver_disponibilidad", 0)) === 1,
+              "puede_cotizar" => intval($this->valor($fila, "puede_cotizar", 0)) === 1,
+              "puede_registrar_cotizacion" => intval($this->valor($fila, "puede_registrar_cotizacion", 0)) === 1,
+              "mostrar_stock_exacto" => intval($this->valor($fila, "mostrar_stock_exacto", 0)) === 1
+            ),
+            "rate_limit" => array(
+              "minuto" => intval($this->valor($fila, "rate_limit_minuto", 0)),
+              "dia" => intval($this->valor($fila, "rate_limit_dia", 0))
+            )
+          );
+        }
+        $credenciales["activas"] = intval($db->query("SELECT COUNT(*) FROM erp_ecommerce_api_credenciales WHERE estatus='activo'")->fetchColumn());
+        $credenciales["vencidas_o_inactivas"] = intval($db->query("SELECT COUNT(*) FROM erp_ecommerce_api_credenciales WHERE estatus<>'activo'")->fetchColumn());
+        $allowlist["total_relaciones_activas"] = intval($db->query("SELECT COUNT(*) FROM erp_ecommerce_canal_publicaciones WHERE estatus='activo'")->fetchColumn());
+      }
+
+      $configurado = $db && empty($faltantes);
+      return $this->respuesta(false, $configurado ? "success" : "info", $configurado ? "Capa canales/API ecommerce disponible" : "Capa canales/API ecommerce en diseno", array(
+        "configurado" => $configurado,
+        "modo" => $configurado ? "multi_canal_readonly_disponible" : "multi_canal_diseno_readonly",
+        "tablas" => $estadoTablas,
+        "canales" => $canales,
+        "credenciales" => $credenciales,
+        "allowlist" => $allowlist,
+        "scopes_fase_1" => array("catalogo:leer", "producto:leer", "filtros:leer", "disponibilidad:leer", "cotizacion:dryrun"),
+        "autenticacion" => $this->contratoAutenticacionFutura(),
+        "activacion" => array(
+          "estado_actual" => $configurado ? "ddl_canales_disponible_validar_seed" : "ddl_canales_pendiente",
+          "siguientes_pasos" => $configurado
+            ? array("validar_seed_artiani_web", "crear_partner_borrador", "configurar_allowlist", "planear_credencial_sin_exponer_secretos", "mantener_observacion_antes_de_bloqueo")
+            : array("aplicar_ddl_canales_con_respaldo_y_autorizacion", "sembrar_artiani_web", "sembrar_partner_borrador", "definir_allowlist", "emitir_credencial_solo_si_hay_backend"),
+          "registro_cotizacion_real_bloqueado" => true
+        ),
+        "bloqueos" => $faltantes,
+        "guardrails" => array(
+          "read_only" => true,
+          "no_genera_secretos" => true,
+          "no_expone_api_secret" => true,
+          "no_activa_auth_obligatoria" => true,
+          "no_modifica_cors" => true,
+          "no_cambia_publicaciones" => true,
+          "no_registra_cotizaciones" => true
+        )
+      ));
+    } catch (Exception $e) {
+      return $this->respuesta(true, "danger", $e->getMessage(), array(
+        "configurado" => false,
+        "guardrails" => array("read_only" => true, "no_genera_secretos" => true)
+      ));
     }
   }
 
@@ -3783,6 +4037,43 @@ class EcommerceCatalogoPublico extends CRUD {
       "estetica" => "Estetica"
     );
     return isset($mapa[$valor]) ? $mapa[$valor] : ucfirst(str_replace("_", " ", $valor));
+  }
+
+  private function filtrarSugerenciasTaxonomia($items, $q, $limite, $tipo) {
+    $salida = array();
+    $qNormalizado = strtolower($this->normalizarTextoPlano($q));
+    foreach ((array) $items as $item) {
+      $label = trim((string) $this->valor($item, "etiqueta", $this->valor($item, "nombre", $this->valor($item, "valor", ""))));
+      $valor = trim((string) $this->valor($item, "valor", $this->valor($item, "id", $label)));
+      if ($label === "" && $valor === "") {
+        continue;
+      }
+      $texto = strtolower($this->normalizarTextoPlano($label . " " . $valor));
+      if ($qNormalizado !== "" && strpos($texto, $qNormalizado) === false) {
+        continue;
+      }
+      $path = "/catalogo";
+      if ($tipo === "mascota") {
+        $path .= "?mascota=" . rawurlencode($valor);
+      } elseif ($tipo === "necesidad") {
+        $path .= "?necesidad=" . rawurlencode($valor);
+      } elseif ($tipo === "marca") {
+        $path .= "?marca=" . rawurlencode($valor);
+      } elseif ($tipo === "categoria") {
+        $path .= "?categoria=" . rawurlencode($valor);
+      }
+      $salida[] = array(
+        "tipo" => $tipo,
+        "label" => $label,
+        "valor" => $valor,
+        "url" => $path,
+        "total" => intval($this->valor($item, "total", 0))
+      );
+      if (count($salida) >= $limite) {
+        break;
+      }
+    }
+    return $salida;
   }
 
   private function politicasPublicasDefault() {

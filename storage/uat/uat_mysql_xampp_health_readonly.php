@@ -1,10 +1,10 @@
 <?php
 
 /**
- * Documentacion IA: Codex GPT-5, 2026-07-19.
+ * Documentacion IA: Codex GPT-5, 2026-07-19. Actualizado 2026-07-31.
  * Proposito: diagnosticar salud local de MySQL/XAMPP sin reparar ni modificar archivos.
  * Impacto: permite decidir si se pueden ejecutar UAT reales de ERP/Listas de precios.
- * Contrato: read-only; no ejecuta DDL, no corre aria_chk --recover y no borra logs.
+ * Contrato: read-only; no ejecuta DDL, no corre aria_chk --recover, no borra logs y respeta MYSQLPORT.
  */
 
 $raiz = dirname(__DIR__, 2);
@@ -21,7 +21,7 @@ chdir($raiz . DIRECTORY_SEPARATOR . "public");
 require_once "../app/config/mysql.php";
 
 try {
-    $pdo = new PDO("mysql:host=" . MYSQLHOST . ";dbname=" . MYSQLBASE . ";charset=utf8", MYSQLUSER, MYSQLPASS, array(
+    $pdo = new PDO("mysql:host=" . MYSQLHOST . ";port=" . MYSQLPORT . ";dbname=" . MYSQLBASE . ";charset=utf8", MYSQLUSER, MYSQLPASS, array(
         PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
         PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC
     ));
@@ -54,6 +54,9 @@ echo json_encode(array(
     "modo" => "read-only",
     "resultado" => empty($bloqueos) ? "PASS_MYSQL_XAMPP_HEALTH" : "FAIL_MYSQL_XAMPP_HEALTH",
     "conexion" => array(
+        "host" => MYSQLHOST,
+        "puerto" => MYSQLPORT,
+        "base" => MYSQLBASE,
         "mysql_alive" => $mysqlAlive,
         "pdo_ok" => $pdoOk,
         "pdo_error" => $pdoOk ? "" : $pdoError

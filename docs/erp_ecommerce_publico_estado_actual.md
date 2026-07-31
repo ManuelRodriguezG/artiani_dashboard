@@ -699,3 +699,135 @@ C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_cotizacion_preflight_robu
   - `listo_para_registro_futuro=true`;
   - `cta_tipo=whatsapp`;
   - `cta_url_generada=true`.
+
+## Actualizacion 2026-07-31 - Estado publico seguro de canales API
+
+- Se agrega `GET /ecommercePublico/canales_estado`.
+- Objetivo:
+  - informar si la capa multi-canal/API para Artiani y partners esta en diseno, pendiente de DDL o disponible;
+  - exponer scopes, estado de tablas, conteos seguros y pasos de activacion;
+  - no exponer secretos, hashes, tokens, API secrets ni configuracion sensible.
+- Respuesta actual esperada antes de DDL canales:
+  - `tipo=info`;
+  - `configurado=false`;
+  - `modo=multi_canal_diseno_readonly`;
+  - `bloqueos_total=5`.
+- Guardrails:
+  - read-only;
+  - no genera credenciales;
+  - no expone `api_secret`;
+  - no activa autenticacion obligatoria;
+  - no modifica CORS;
+  - no cambia publicaciones;
+  - no registra cotizaciones.
+- UAT read-only:
+
+```bash
+C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_canales_estado_readonly.php --base=http://panel.com.local
+```
+
+- Resultado validado:
+  - `ok=true`;
+  - `senal_frontend=canales_estado_seguro`;
+  - `modo=multi_canal_diseno_readonly`;
+  - `bloqueos_total=5`;
+  - `credenciales_activas=0`.
+
+## Observacion entorno 2026-07-31 - Health MySQL corregido a puerto del proyecto
+
+- El proyecto local usa `MYSQLPORT=3406`.
+- Se detecto que una validacion antigua consultaba MySQL sin respetar `MYSQLPORT`, generando falso negativo contra el puerto por defecto.
+- Se actualiza `storage/uat/uat_mysql_xampp_health_readonly.php` para conectar con `MYSQLHOST`, `MYSQLPORT` y `MYSQLBASE`.
+- Resultado validado:
+  - `PASS_MYSQL_XAMPP_HEALTH`;
+  - `pdo_ok=true`;
+  - `puerto=3406`;
+  - `bloqueos=[]`.
+- El green gate ecommerce vuelve a verde:
+  - `ok=true`;
+  - `senal_frontend=verde_datos_reales`;
+  - `publicadas=6`;
+  - `whatsapp_configurado=true`;
+  - `cors_configurado=true`.
+- Nota:
+  - Windows mantiene excluido el rango `3240-3339`, por lo que no conviene usar `3306` ni `3307` en esta maquina;
+  - `3406` queda como puerto local operativo para este proyecto.
+
+## Actualizacion 2026-07-31 - Bootstrap frontend ecommerce
+
+- Se agrega `GET /ecommercePublico/bootstrap`.
+- Objetivo:
+  - permitir que el frontend arranque con una sola llamada;
+  - agrupar estado, configuracion, filtros, secciones, politicas y estado de canales;
+  - evitar que la primera vista tenga que orquestar multiples requests.
+- Parametro:
+  - `limite_secciones`: 1-12, default 6.
+- Respuesta incluye:
+  - `ready`;
+  - `estado`;
+  - `configuracion`;
+  - `filtros`;
+  - `secciones`;
+  - `politicas`;
+  - `canales`;
+  - `frontend`;
+  - `guardrails`.
+- UAT read-only:
+
+```bash
+C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_bootstrap_readonly.php --base=http://panel.com.local --limite=3
+```
+
+- Resultado validado:
+  - `ok=true`;
+  - `senal_frontend=bootstrap_frontend_listo`;
+  - `ready=true`;
+  - `publicadas=6`;
+  - `secciones=7`;
+  - `mascotas=2`;
+  - `necesidades=2`;
+  - `canales_modo=multi_canal_diseno_readonly`.
+- Guardrails:
+  - no escribe BD;
+  - no expone secretos;
+  - no muestra stock exacto;
+  - no descuenta inventario;
+  - no registra cotizacion.
+
+## Actualizacion 2026-07-31 - Sugerencias publicas de busqueda
+
+- Se agrega `GET /ecommercePublico/busqueda_sugerencias`.
+- Objetivo:
+  - habilitar buscador/autocomplete en frontend;
+  - sugerir productos publicados, marcas, categorias, mascotas y necesidades;
+  - mantener separado buscar/mostrar de registrar analitica futura.
+- Parametros:
+  - `q`: texto opcional;
+  - `limite`: 1-12 por grupo, default 6.
+- Respuesta incluye:
+  - `grupos.productos`;
+  - `grupos.marcas`;
+  - `grupos.categorias`;
+  - `grupos.mascotas`;
+  - `grupos.necesidades`;
+  - `resumen`;
+  - `frontend`;
+  - `guardrails`.
+- UAT read-only:
+
+```bash
+C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_busqueda_sugerencias_readonly.php --base=http://panel.com.local --q=filtro --limite=4
+```
+
+- Resultado validado:
+  - `ok=true`;
+  - `senal_frontend=busqueda_sugerencias_lista`;
+  - `total_sugerencias=2`;
+  - `productos=2`;
+  - primer producto: `Filtro de canastilla presurizado 960 l/hr`.
+- Guardrails:
+  - no escribe BD;
+  - no registra busqueda;
+  - solo publicados;
+  - no expone stock exacto;
+  - no expone costos.

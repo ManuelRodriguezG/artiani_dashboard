@@ -25,6 +25,17 @@ class EcommercePublico extends Controlador {
   }
 
   /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-07-31
+   * Proposito: entregar paquete inicial para que el frontend arranque ecommerce con una sola llamada.
+   * Impacto: Ecommerce publico; agrupa readiness, configuracion, filtros, secciones y canales sin escribir BD.
+   * Contrato: GET publico read-only; no expone secretos ni stock exacto.
+   */
+  public function bootstrap() {
+    if ($this->esOptionsPublicas()) { return $this->responderOpcionesPublicas(); }
+    return $this->responderApiPublica($this->modelo("EcommerceCatalogoPublico")->bootstrapPublico($_GET));
+  }
+
+  /**
    * Documentacion IA: Codex GPT-5 | Fecha: 2026-07-11
    * Proposito: exponer contrato publico read-only del catalogo vivo.
    * Impacto: Ecommerce publico; solo devuelve publicaciones aprobadas si existe esquema ecommerce.
@@ -55,6 +66,17 @@ class EcommercePublico extends Controlador {
   public function filtros() {
     if ($this->esOptionsPublicas()) { return $this->responderOpcionesPublicas(); }
     return $this->responderApiPublica($this->modelo("EcommerceCatalogoPublico")->filtrosPublicos());
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-07-31
+   * Proposito: exponer sugerencias publicas de busqueda para el frontend ecommerce.
+   * Impacto: Ecommerce publico; permite buscador con productos, marcas, categorias, mascotas y necesidades sin leer tablas internas.
+   * Contrato: GET publico read-only; no registra busquedas, no escribe BD y no expone stock exacto.
+   */
+  public function busqueda_sugerencias() {
+    if ($this->esOptionsPublicas()) { return $this->responderOpcionesPublicas(); }
+    return $this->responderApiPublica($this->modelo("EcommerceCatalogoPublico")->busquedaSugerenciasPublicas($_GET));
   }
 
   /**
@@ -110,6 +132,17 @@ class EcommercePublico extends Controlador {
   public function configuracion() {
     if ($this->esOptionsPublicas()) { return $this->responderOpcionesPublicas(); }
     return $this->responderApiPublica($this->modelo("EcommerceCatalogoPublico")->configuracionPublica());
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-07-31
+   * Proposito: exponer estado seguro de la capa multi-canal/API para frontend propio y partners.
+   * Impacto: Ecommerce publico; permite saber si canales, scopes y autenticacion futura estan pendientes o disponibles.
+   * Contrato: GET publico read-only; no expone secretos, no activa autenticacion y no escribe BD.
+   */
+  public function canales_estado() {
+    if ($this->esOptionsPublicas()) { return $this->responderOpcionesPublicas(); }
+    return $this->responderApiPublica($this->modelo("EcommerceCatalogoPublico")->canalesApiEstadoPublico($_GET));
   }
 
   /**

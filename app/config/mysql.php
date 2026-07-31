@@ -4,12 +4,15 @@ if (empty($_SERVER["SERVER_NAME"])) {
     $_SERVER["SERVER_NAME"] = "panel.com.local";
 }
 
+
+$mysqlPort = "3306";
 if ($_SERVER["SERVER_NAME"] == "localhost") {
     /**
      * Base de datos local
      * * */
     $mysqlHost = "localhost";
     $mysqlBase = "artianilocal";
+    $mysqlPort = "3406";
     $mysqlUser = "root";
     $mysqlPass = '';
 } else if ($_SERVER["SERVER_NAME"] == "dashboard.com.local") {
@@ -18,6 +21,7 @@ if ($_SERVER["SERVER_NAME"] == "localhost") {
      * * */
     $mysqlHost = "localhost";
     $mysqlBase = "artianilocal";
+    $mysqlPort = "3406";
     $mysqlUser = "root";
     $mysqlPass = '';
 } else if ($_SERVER["SERVER_NAME"] == "panel.com.local") {
@@ -26,6 +30,7 @@ if ($_SERVER["SERVER_NAME"] == "localhost") {
      * * */
     $mysqlHost = "localhost";
     $mysqlBase = "artianilocal";
+    $mysqlPort = "3406";
     $mysqlUser = "root";
     $mysqlPass = '';
 } else if ($_SERVER["SERVER_NAME"] == "dashboard_mgebike.com.local") {
@@ -34,6 +39,7 @@ if ($_SERVER["SERVER_NAME"] == "localhost") {
      * * */
     $mysqlHost = "localhost";
     $mysqlBase = "db_mgebikes";
+    $mysqlPort = "3406";
     $mysqlUser = "root";
     $mysqlPass = '';
 } else if ($_SERVER["SERVER_NAME"] == "panel.mgebikes.com") {
@@ -64,5 +70,6 @@ if ($_SERVER["SERVER_NAME"] == "localhost") {
 //var_dump($_SERVER["SERVER_NAME"]);
 define("MYSQLHOST", $mysqlHost);
 define("MYSQLBASE", $mysqlBase);
+define("MYSQLPORT", $mysqlPort);
 define("MYSQLUSER", $mysqlUser);
 define("MYSQLPASS", $mysqlPass);
