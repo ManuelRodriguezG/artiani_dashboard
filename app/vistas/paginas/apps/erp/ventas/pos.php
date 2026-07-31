@@ -245,6 +245,7 @@
                                                 <button class="btn btn-sm btn-light-primary" id="pos_cuenta_nueva" type="button"><i class="bi bi-plus-lg"></i> Nueva cuenta</button>
                                             </div>
                                             <div class="pos-cuentas mb-3" id="pos_cuentas"></div>
+                                            <div id="pos_atencion_activa" class="mb-3"></div>
                                             <div class="pos-cart-list" id="pos_carrito"></div>
                                             <div class="separator my-4"></div>
                                             <div class="row g-4">
@@ -440,7 +441,8 @@
             <div class="modal-footer">
                 <button class="btn btn-light" type="button" data-bs-dismiss="modal">Cerrar</button>
                 <button class="btn btn-light-primary" id="pos_vr_validar" type="button"><i class="bi bi-shield-check"></i> Validar</button>
-                <button class="btn btn-primary" id="pos_vr_agregar" type="button" disabled><i class="bi bi-cart-plus"></i> Agregar al carrito</button>
+                <button class="btn btn-primary" id="pos_vr_agregar" type="button" disabled><i class="bi bi-cart-plus"></i> Agregar y seguir</button>
+                <button class="btn btn-light-success" id="pos_vr_agregar_cerrar" type="button" disabled><i class="bi bi-check2-circle"></i> Agregar y cerrar</button>
             </div>
         </div>
     </div>
@@ -617,10 +619,10 @@
                 <button type="button" class="btn btn-icon btn-sm btn-active-light-primary" data-bs-dismiss="modal"><i class="bi bi-x-lg"></i></button>
             </div>
             <div class="modal-body">
-                <div class="alert alert-info py-3">Usa esta bandeja para preparar cuentas de clientes y revisarlas antes de cobrarlas en caja.</div>
+                <div class="alert alert-info py-3">Usa esta bandeja para enviar una cuenta a caja, consultar cuentas creadas por otros usuarios y cargarlas al POS para cobrar.</div>
                 <div class="d-flex flex-wrap gap-2 mb-4">
                     <button class="btn btn-light-primary" id="pos_atenciones_bandeja" type="button"><i class="bi bi-list-check"></i> Consultar bandeja</button>
-                    <button class="btn btn-primary" id="pos_atenciones_simular" type="button"><i class="bi bi-cloud-arrow-up"></i> Preparar cuenta actual</button>
+                    <button class="btn btn-primary" id="pos_atenciones_crear" type="button"><i class="bi bi-cloud-arrow-up"></i> Enviar cuenta a Atenciones</button>
                 </div>
                 <div id="pos_atenciones_resultado" class="pos-atenciones-result"></div>
             </div>
@@ -657,6 +659,6 @@ window.POS_USUARIO_ACTUAL = <?= json_encode(array(
 </script>
 <script src="assets/plugins/global/plugins.bundle.js"></script>
 <script src="assets/js/scripts.bundle.js"></script>
-<script src="/assets/js/custom/apps/erp/ventas/pos.js?v=20260725-operativo1"></script>
+<script src="/assets/js/custom/apps/erp/ventas/pos.js?v=20260730-atenciones-venta-rapida-vrp-multiples1"></script>
 </body>
 </html>

@@ -5,6 +5,8 @@
     var pagos = [];
     var cuentas = [];
     var cuentaActivaId = "";
+    var atencionActiva = null;
+    var atencionDesvinculada = null;
     var excepcionActiva = null;
     var temporizador = null;
     var terminalKey = "erp_pos_terminal_config_v1";
@@ -38,6 +40,17 @@
             method: "GET",
             credentials: "same-origin"
         }).then(function (response) { return response.json(); });
+    }
+    /**
+     * IA: Codex GPT-5 | Fecha: 2026-07-30
+     * Proposito: compatibilizar notificaciones antiguas de venta rapida que apuntaban al POS.
+     * Impacto: abre la bandeja resolutiva de Catalogo en lugar de dejar al usuario en una vista sin accion.
+     */
+    function redirigirPendienteVentaRapidaSiAplica() {
+        var folio = new URLSearchParams(window.location.search || "").get("pendiente_venta_rapida");
+        if (!folio) { return false; }
+        window.location.href = "/ventas/venta_rapida_pendientes?folio=" + encodeURIComponent(folio);
+        return true;
     }
     function escapeHtml(value) {
         var div = document.createElement("div");
@@ -157,6 +170,8 @@
             excepcion_comercial: null,
             cliente_crm: null,
             cliente_saldo_crm: null,
+            atencion_pos: null,
+            atencion_pos_desvinculada: null,
             cliente_nombre: "",
             cliente_telefono: "",
             fecha_creacion: new Date().toISOString(),
@@ -181,6 +196,8 @@
             cuenta.carrito = carrito;
             cuenta.pagos = pagos;
             cuenta.excepcion_comercial = excepcionActiva;
+            cuenta.atencion_pos = atencionActiva;
+            cuenta.atencion_pos_desvinculada = atencionDesvinculada;
             cuenta.cliente_crm = cuenta.cliente_crm || null;
             cuenta.cliente_saldo_crm = cuenta.cliente_saldo_crm || null;
             cuenta.cliente_nombre = document.getElementById("pos_cliente") ? document.getElementById("pos_cliente").value.trim() : cuenta.cliente_nombre;
@@ -199,6 +216,8 @@
         carrito = cuenta.carrito || [];
         pagos = cuenta.pagos || [];
         excepcionActiva = cuenta.excepcion_comercial || null;
+        atencionActiva = cuenta.atencion_pos || null;
+        atencionDesvinculada = cuenta.atencion_pos_desvinculada || null;
         if (document.getElementById("pos_cliente")) {
             document.getElementById("pos_cliente").value = cuenta.cliente_nombre || "";
         }
@@ -274,6 +293,45 @@
             "</div>";
         }).join("");
     }
+    function renderAtencionActiva() {
+        var contenedor = document.getElementById("pos_atencion_activa");
+        if (!contenedor) { return; }
+        if (!atencionActiva || !atencionActiva.id_atencion_pos) {
+            contenedor.innerHTML = "";
+            return;
+        }
+        contenedor.innerHTML = "<div class=\"alert alert-light-primary border border-primary py-3 mb-0\">" +
+            "<div class=\"d-flex flex-wrap align-items-start justify-content-between gap-2\">" +
+                "<div>" +
+                    "<div class=\"fw-bold\"><i class=\"bi bi-people me-1\"></i> Atencion cargada " + escapeHtml(atencionActiva.folio_temporal || atencionActiva.id_atencion_pos) + "</div>" +
+                    "<div class=\"fs-8 text-muted\">Se cobrara como cuenta compartida. Si modificas el carrito, se desvincula y queda como cuenta local.</div>" +
+                "</div>" +
+                "<button class=\"btn btn-sm btn-light-primary\" id=\"pos_atencion_desvincular\" type=\"button\"><i class=\"bi bi-link-45deg\"></i> Desvincular</button>" +
+            "</div>" +
+        "</div>";
+        document.getElementById("pos_atencion_desvincular").addEventListener("click", function () {
+            desvincularAtencionActiva("Atencion desvinculada. Esta cuenta queda local.");
+        });
+    }
+    function desvincularAtencionActiva(mensaje) {
+        if (!atencionActiva) { return; }
+        atencionDesvinculada = atencionActiva;
+        atencionActiva = null;
+        var cuenta = obtenerCuentaActiva();
+        if (cuenta) {
+            cuenta.atencion_pos = null;
+            cuenta.atencion_pos_desvinculada = atencionDesvinculada;
+        }
+        guardarCuentas();
+        renderAtencionActiva();
+        if (mensaje) {
+            document.getElementById("pos_validacion").innerHTML = "<div class=\"alert alert-info py-3 mb-0\">" + escapeHtml(mensaje) + "</div>";
+        }
+    }
+    function desvincularAtencionPorEdicion() {
+        if (!atencionActiva) { return; }
+        desvincularAtencionActiva("Modificaste una atencion cargada; se desvinculo para evitar cobrar una cuenta distinta a la que creo el vendedor.");
+    }
     function seleccionarCuenta(id) {
         guardarCuentas();
         cuentaActivaId = id;
@@ -282,6 +340,7 @@
         renderCarrito();
         renderPagos();
         renderExcepcionActiva();
+        renderAtencionActiva();
         document.getElementById("pos_validacion").innerHTML = "";
     }
     function crearCuentaAtencion() {
@@ -295,6 +354,7 @@
         renderCarrito();
         renderPagos();
         renderExcepcionActiva();
+        renderAtencionActiva();
         document.getElementById("pos_validacion").innerHTML = "";
         document.getElementById("pos_buscar").focus();
     }
@@ -303,6 +363,8 @@
             cuentas[0].carrito = [];
             cuentas[0].pagos = [];
             cuentas[0].cliente_crm = null;
+            cuentas[0].atencion_pos = null;
+            cuentas[0].atencion_pos_desvinculada = null;
             cuentas[0].cliente_nombre = "";
             cuentas[0].cliente_telefono = "";
             cuentaActivaId = cuentas[0].id;
@@ -318,6 +380,7 @@
         renderCarrito();
         renderPagos();
         renderExcepcionActiva();
+        renderAtencionActiva();
         document.getElementById("pos_validacion").innerHTML = "";
     }
     function cajaActual() {
@@ -953,6 +1016,7 @@
             if (response.error) { throw new Error(response.mensaje); }
             var disponibilidad = response.depurar || {};
             var modo = modoInicial(disponibilidad, producto);
+            desvincularAtencionPorEdicion();
             carrito.push({
                 id_sku: producto.id_sku,
                 sku: producto.sku,
@@ -990,9 +1054,30 @@
             controla_inventario: document.getElementById("pos_vr_controla_inventario").checked ? "1" : "0"
         };
     }
+    function ventaRapidaCarritoTotal() {
+        return carrito.filter(function (item) { return item.tipo_partida === "venta_rapida"; }).length;
+    }
+    function invalidarVentaRapidaValidada() {
+        ventaRapidaValidada = null;
+        var agregar = document.getElementById("pos_vr_agregar");
+        var agregarCerrar = document.getElementById("pos_vr_agregar_cerrar");
+        if (agregar) { agregar.disabled = true; }
+        if (agregarCerrar) { agregarCerrar.disabled = true; }
+    }
+    function limpiarCapturaVentaRapidaContinua() {
+        document.getElementById("pos_vr_descripcion").value = "";
+        document.getElementById("pos_vr_cantidad").value = "1";
+        document.getElementById("pos_vr_precio").value = "";
+        document.getElementById("pos_vr_codigo").value = "";
+        document.getElementById("pos_vr_observaciones").value = "";
+        invalidarVentaRapidaValidada();
+        document.getElementById("pos_vr_resultado").innerHTML = "<div class=\"alert alert-light-success py-3 mb-0\"><div class=\"fw-bold\">Producto por clasificar agregado.</div><div class=\"fs-8\">Van " + escapeHtml(ventaRapidaCarritoTotal()) + " venta(s) rapida(s) en esta cuenta. Captura el siguiente producto o cierra el modal para cobrar.</div></div>";
+        setTimeout(function () { document.getElementById("pos_vr_descripcion").focus(); }, 120);
+    }
     function validarVentaRapida() {
         ventaRapidaValidada = null;
         document.getElementById("pos_vr_agregar").disabled = true;
+        document.getElementById("pos_vr_agregar_cerrar").disabled = true;
         document.getElementById("pos_vr_resultado").innerHTML = "<div class=\"alert alert-info py-3\"><span class=\"spinner-border spinner-border-sm me-2\"></span>Validando venta rapida...</div>";
         request("/ventas/pos_venta_rapida_dryrun_erp", datosVentaRapida()).then(function (response) {
             var depurar = response.depurar || {};
@@ -1001,9 +1086,10 @@
             if (response.error) { throw new Error(response.mensaje); }
             ventaRapidaValidada = bloqueos.length ? null : depurar;
             document.getElementById("pos_vr_agregar").disabled = !!bloqueos.length;
+            document.getElementById("pos_vr_agregar_cerrar").disabled = !!bloqueos.length;
             document.getElementById("pos_vr_resultado").innerHTML = "<div class=\"alert alert-" + (bloqueos.length ? "warning" : "success") + " py-3 mb-0\">" +
                 "<div class=\"fw-bold mb-1\">" + escapeHtml(response.mensaje || "Venta rapida validada") + "</div>" +
-                "<div class=\"fs-7\">Importe: <strong>" + dinero(depurar.subtotal || 0) + "</strong></div>" +
+                "<div class=\"fs-7\">Importe: <strong>" + dinero(depurar.subtotal || 0) + "</strong> | En carrito: " + escapeHtml(ventaRapidaCarritoTotal()) + "</div>" +
                 (bloqueos.length ? "<ul class=\"mb-0 ps-4 mt-2\">" + bloqueos.map(function (item) { return "<li>" + escapeHtml(item) + "</li>"; }).join("") + "</ul>" : "") +
                 (avisos.length ? "<div class=\"fs-8 text-muted mt-2\">" + escapeHtml(avisos.join(" | ")) + "</div>" : "") +
             "</div>";
@@ -1011,11 +1097,12 @@
             document.getElementById("pos_vr_resultado").innerHTML = "<div class=\"alert alert-danger py-3 mb-0\">" + escapeHtml(error.message || String(error)) + "</div>";
         });
     }
-    function agregarVentaRapidaAlCarrito() {
+    function agregarVentaRapidaAlCarrito(cerrarModal) {
         if (!ventaRapidaValidada) {
             validarVentaRapida();
             return;
         }
+        desvincularAtencionPorEdicion();
         carrito.push({
             id_sku: 0,
             sku: ventaRapidaValidada.sku_snapshot || "VENTA-RAPIDA",
@@ -1046,7 +1133,11 @@
         renderCarrito();
         renderCuentas();
         document.getElementById("pos_validacion").innerHTML = "<div class=\"alert alert-warning py-3 mb-0\"><div class=\"fw-bold\">Producto por clasificar agregado.</div><div class=\"fs-8\">Puedes cobrarlo con turno abierto y pago completo. El sistema generara pendiente a Catalogo/Inventario y no movera kardex hasta clasificar el SKU.</div></div>";
-        bootstrap.Modal.getOrCreateInstance(document.getElementById("pos_venta_rapida_modal")).hide();
+        if (cerrarModal) {
+            bootstrap.Modal.getOrCreateInstance(document.getElementById("pos_venta_rapida_modal")).hide();
+            return;
+        }
+        limpiarCapturaVentaRapidaContinua();
     }
     function tieneUnidadAbiertaGranel(item) {
         return Number(item.permite_venta_fraccionaria || 0) === 1 && item.unidades.some(function (unidad) {
@@ -1669,43 +1760,8 @@
             document.getElementById("pos_atenciones_resultado").innerHTML = "<div class=\"alert alert-warning py-3\">" + escapeHtml(error.message || String(error)) + "</div>";
         });
     }
-    /**
-     * IA: Codex GPT-5 | Fecha: 2026-06-27
-     * Proposito: prevalidar que la cuenta local actual se comparta con caja/vendedores.
-     * Impacto: prepara atenciones persistentes sin crear registros ni reservar inventario.
-     */
-    function atencionPersistenteDryRun() {
-        if (!carrito.length) {
-            document.getElementById("pos_atenciones_resultado").innerHTML = "<div class=\"alert alert-warning py-3\">Agrega partidas a la cuenta actual antes de prepararla.</div>";
-            return;
-        }
-        var items = carrito.map(function (item) {
-            return {
-                id_sku: item.id_sku,
-                cantidad: cantidad(item.cantidad),
-                precio_unitario: cantidad(item.precio_unitario),
-                modo_salida: item.modo_salida,
-                id_inventario_unidad: item.id_inventario_unidad || ""
-            };
-        });
-        request("/ventas/atencion_persistente_dryrun_erp", {
-            id_almacen: almacenActual(),
-            id_caja: cajaActual(),
-            id_turno_caja: turnoActual(),
-            cliente_nombre_publico: clientePublico(),
-            id_cliente: idClienteCrmActivo(),
-            identificador_cliente: identificadorClienteActivo(),
-            origen: "pos",
-            items: JSON.stringify(items)
-        }).then(function (response) {
-            if (response.error) { throw new Error(response.mensaje); }
-            renderAtencionPersistente(response);
-        }).catch(function (error) {
-            document.getElementById("pos_atenciones_resultado").innerHTML = "<div class=\"alert alert-warning py-3\">" + escapeHtml(error.message || String(error)) + "</div>";
-        });
-    }
-    function payloadVentaPos() {
-        var items = carrito.map(function (item) {
+    function itemsPayloadActual() {
+        return carrito.map(function (item) {
             return {
                 id_sku: item.id_sku,
                 tipo_partida: item.tipo_partida || "sku",
@@ -1713,6 +1769,7 @@
                 descripcion_manual: item.descripcion_manual || "",
                 cantidad: cantidad(item.cantidad),
                 precio_unitario: cantidad(item.precio_unitario),
+                url_imagen: item.imagen || item.url_imagen || "",
                 modo_salida: item.modo_salida,
                 id_inventario_unidad: item.id_inventario_unidad || "",
                 motivo: item.motivo || "",
@@ -1724,7 +1781,65 @@
                 controla_inventario: item.controla_inventario == null ? "" : item.controla_inventario
             };
         });
+    }
+    /**
+     * IA: Codex GPT-5 | Fecha: 2026-06-27
+     * Proposito: crear una atencion compartida desde la cuenta local actual.
+     * Impacto: comparte la cuenta entre usuarios sin crear venta, reserva, caja ni kardex.
+     */
+    function crearAtencionPersistenteReal() {
+        if (atencionActiva && atencionActiva.id_atencion_pos) {
+            document.getElementById("pos_atenciones_resultado").innerHTML = "<div class=\"alert alert-warning py-3\"><div class=\"fw-bold\">Esta cuenta ya viene de Atenciones.</div><div class=\"fs-8\">No se puede enviar otra vez como atencion nueva. Cobrala, desvinculala para trabajarla solo localmente o crea una cuenta limpia.</div></div>";
+            return;
+        }
+        if (atencionDesvinculada && atencionDesvinculada.id_atencion_pos) {
+            document.getElementById("pos_atenciones_resultado").innerHTML = "<div class=\"alert alert-warning py-3\"><div class=\"fw-bold\">Esta cuenta fue cargada desde Atenciones y luego modificada.</div><div class=\"fs-8\">Para no duplicar cuentas compartidas, no se puede reenviar como nueva. Cierra esta cuenta local y crea una atencion nueva solo si realmente sera otro cliente.</div></div>";
+            return;
+        }
+        if (!carrito.length) {
+            document.getElementById("pos_atenciones_resultado").innerHTML = "<div class=\"alert alert-warning py-3\">Agrega partidas a la cuenta actual antes de enviarla a Atenciones.</div>";
+            return;
+        }
+        var confirmar = window.Swal
+            ? Swal.fire({text: "Se enviara esta cuenta a Atenciones para que otro usuario/caja pueda verla. No se cobrara ni descontara inventario todavia.", icon: "warning", showCancelButton: true, confirmButtonText: "Enviar", cancelButtonText: "Cancelar"}).then(function (r) { return !!r.isConfirmed; })
+            : Promise.resolve(window.confirm("Enviar esta cuenta a Atenciones?"));
+        confirmar.then(function (ok) {
+            if (!ok) { return; }
+            enviarAtencionPersistenteReal();
+        });
+    }
+    function payloadAtencionPersistente() {
         return {
+            id_almacen: almacenActual(),
+            id_caja: cajaActual(),
+            id_turno_caja: turnoActual(),
+            id_terminal_pos: terminalActual(),
+            cliente_nombre_publico: clientePublico(),
+            id_cliente: "",
+            id_cliente_crm: idClienteCrmActivo(),
+            identificador_cliente: identificadorClienteActivo(),
+            origen: "pos",
+            estatus: "lista_para_cobro",
+            items: JSON.stringify(itemsPayloadActual())
+        };
+    }
+    function enviarAtencionPersistenteReal() {
+        document.getElementById("pos_atenciones_resultado").innerHTML = "<div class=\"alert alert-info py-3\"><span class=\"spinner-border spinner-border-sm me-2\"></span>Enviando cuenta a Atenciones...</div>";
+        request("/ventas/atencion_persistente_crear_erp", payloadAtencionPersistente()).then(function (response) {
+            if (response.error) { throw new Error(response.mensaje); }
+            renderAtencionPersistente(response);
+            if (response.tipo === "success") {
+                limpiarCuentaDespuesDeEnviarAtencion(response.depurar || {});
+                atencionesBandejaDryRun();
+            }
+        }).catch(function (error) {
+            document.getElementById("pos_atenciones_resultado").innerHTML = "<div class=\"alert alert-warning py-3\">" + escapeHtml(error.message || String(error)) + "</div>";
+        });
+    }
+    function payloadVentaPos() {
+        var items = itemsPayloadActual();
+        return {
+            id_atencion: atencionActiva && atencionActiva.id_atencion_pos ? atencionActiva.id_atencion_pos : "",
             id_almacen: almacenActual(),
             id_caja: cajaActual(),
             id_terminal_pos: terminalActual(),
@@ -1989,17 +2104,22 @@
         carrito = [];
         pagos = [];
         excepcionActiva = null;
+        atencionActiva = null;
+        atencionDesvinculada = null;
         var cuenta = obtenerCuentaActiva();
         if (cuenta) {
             cuenta.carrito = [];
             cuenta.pagos = [];
             cuenta.excepcion_comercial = null;
+            cuenta.atencion_pos = null;
+            cuenta.atencion_pos_desvinculada = null;
         }
         guardarCuentas();
         renderCarrito();
         renderPagos();
         renderCuentas();
         renderExcepcionActiva();
+        renderAtencionActiva();
     }
     function abrirTicketVentaReal(folio) {
         if (!folio) { return; }
@@ -2980,9 +3100,9 @@
         }
         html += "</div>";
         if (atenciones.length) {
-            html += "<div class=\"table-responsive\"><table class=\"table table-sm align-middle\"><thead><tr><th>Folio</th><th>Cliente</th><th>Estatus</th><th class=\"text-end\">Total</th><th class=\"text-end\">Partidas</th></tr></thead><tbody>" +
+            html += "<div class=\"table-responsive\"><table class=\"table table-sm align-middle\"><thead><tr><th>Folio</th><th>Cliente</th><th>Estatus</th><th class=\"text-end\">Total</th><th class=\"text-end\">Partidas</th><th class=\"text-end\">Accion</th></tr></thead><tbody>" +
                 atenciones.map(function (item) {
-                    return "<tr><td>" + escapeHtml(item.folio_temporal || "") + "</td><td>" + escapeHtml(item.cliente_nombre_publico || "Publico general") + "</td><td>" + escapeHtml(item.estatus || "") + "</td><td class=\"text-end fw-bold\">" + dinero(item.total || 0) + "</td><td class=\"text-end\">" + escapeHtml(item.partidas || 0) + "</td></tr>";
+                    return "<tr><td>" + escapeHtml(item.folio_temporal || "") + "</td><td>" + escapeHtml(item.cliente_nombre_publico || "Publico general") + "</td><td>" + escapeHtml(item.estatus || "") + "</td><td class=\"text-end fw-bold\">" + dinero(item.total || 0) + "</td><td class=\"text-end\">" + escapeHtml(item.partidas || 0) + "</td><td class=\"text-end\"><button class=\"btn btn-sm btn-light-primary\" type=\"button\" data-pos-atencion-cargar=\"" + escapeHtml(item.id_atencion_pos || "") + "\"><i class=\"bi bi-box-arrow-in-down\"></i> Cargar</button></td></tr>";
                 }).join("") + "</tbody></table></div>";
         }
         document.getElementById("pos_atenciones_resultado").innerHTML = html;
@@ -2992,10 +3112,12 @@
         var bloqueos = depurar.bloqueos || [];
         var avisos = depurar.avisos || [];
         var totales = depurar.totales || {};
+        var partidasResultado = Array.isArray(depurar.partidas) ? depurar.partidas : [];
+        var partidasTotal = totales.partidas || (Array.isArray(depurar.partidas) ? depurar.partidas.length : (depurar.partidas || 0));
         var html = "<div class=\"alert " + (bloqueos.length ? "alert-warning" : "alert-success") + " py-3 mb-3\">" +
             "<div class=\"fw-bold mb-1\">" + escapeHtml(response.mensaje || "Atencion") + "</div>" +
-            "<div class=\"fs-7\">Folio sugerido: " + escapeHtml(depurar.folio_temporal_sugerido || "-") +
-            " | Partidas: " + escapeHtml(totales.partidas || 0) +
+            "<div class=\"fs-7\">Folio: " + escapeHtml(depurar.folio_temporal || depurar.folio_temporal_sugerido || "-") +
+            " | Partidas: " + escapeHtml(partidasTotal || 0) +
             " | Total: " + dinero(totales.total_estimado || 0) + "</div>";
         if (bloqueos.length) {
             html += "<ul class=\"mb-0 mt-2 ps-4\">" + bloqueos.map(function (item) { return "<li>" + escapeHtml(item) + "</li>"; }).join("") + "</ul>";
@@ -3004,8 +3126,122 @@
             html += "<ul class=\"mb-0 mt-2 ps-4 text-muted\">" + avisos.map(function (item) { return "<li>" + escapeHtml(item) + "</li>"; }).join("") + "</ul>";
         }
         html += "</div>";
-        html += renderPlanSalida(depurar.partidas || []);
+        html += renderPlanSalida(partidasResultado);
         document.getElementById("pos_atenciones_resultado").innerHTML = html;
+    }
+    function limpiarCuentaDespuesDeEnviarAtencion(depurar) {
+        carrito = [];
+        pagos = [];
+        excepcionActiva = null;
+        atencionActiva = null;
+        atencionDesvinculada = null;
+        var cuenta = obtenerCuentaActiva();
+        if (cuenta) {
+            cuenta.carrito = [];
+            cuenta.pagos = [];
+            cuenta.excepcion_comercial = null;
+            cuenta.atencion_pos = null;
+            cuenta.atencion_pos_desvinculada = null;
+            cuenta.nombre = "Cuenta enviada";
+        }
+        guardarCuentas();
+        renderCarrito();
+        renderPagos();
+        renderCuentas();
+        renderExcepcionActiva();
+        renderAtencionActiva();
+        document.getElementById("pos_validacion").innerHTML = "<div class=\"alert alert-success py-3 mb-0\">Cuenta enviada a Atenciones" + (depurar.folio_temporal ? ": " + escapeHtml(depurar.folio_temporal) : "") + ". La cuenta local quedo limpia para evitar doble cobro.</div>";
+    }
+    function cargarAtencionEnPos(idAtencion) {
+        if (!idAtencion) { return; }
+        requestGet("/ventas/atencion_detalle_readonly_erp", {
+            id_atencion: idAtencion,
+            id_almacen: almacenActual()
+        }).then(function (response) {
+            if (response.error) { throw new Error(response.mensaje); }
+            aplicarAtencionEnCuenta(response.depurar || {});
+        }).catch(function (error) {
+            document.getElementById("pos_atenciones_resultado").innerHTML = "<div class=\"alert alert-warning py-3\">" + escapeHtml(error.message || String(error)) + "</div>";
+        });
+    }
+    function aplicarAtencionEnCuenta(depurar) {
+        var atencion = depurar.atencion || {};
+        var partidas = depurar.partidas || [];
+        if (!atencion.id_atencion_pos || !partidas.length) {
+            throw new Error("La atencion no tiene partidas activas para cargar.");
+        }
+        guardarCuentas();
+        var cuentaExistente = cuentas.find(function (cuentaActual) {
+            return cuentaActual.atencion_pos && String(cuentaActual.atencion_pos.id_atencion_pos) === String(atencion.id_atencion_pos);
+        });
+        if (cuentaExistente) {
+            cuentaActivaId = cuentaExistente.id;
+            aplicarCuentaActiva();
+            guardarCuentas();
+            renderCuentas();
+            renderCarrito();
+            renderPagos();
+            renderExcepcionActiva();
+            renderAtencionActiva();
+            document.getElementById("pos_validacion").innerHTML = "<div class=\"alert alert-info py-3 mb-0\">La atencion " + escapeHtml(atencion.folio_temporal || atencion.id_atencion_pos) + " ya estaba cargada. Se selecciono la cuenta existente.</div>";
+            if (window.bootstrap) {
+                bootstrap.Modal.getOrCreateInstance(document.getElementById("pos_atenciones_modal")).hide();
+            }
+            return;
+        }
+        var cuenta = nuevaCuenta("Atencion " + (atencion.folio_temporal || atencion.id_atencion_pos));
+        cuenta.atencion_pos = {
+            id_atencion_pos: atencion.id_atencion_pos,
+            folio_temporal: atencion.folio_temporal || "",
+            estatus: atencion.estatus || "",
+            id_usuario_creador: atencion.id_usuario || "",
+            total: atencion.total || 0
+        };
+        cuenta.cliente_nombre = atencion.cliente_nombre_publico || "";
+        cuenta.cliente_telefono = atencion.cliente_identificador_publico || "";
+        cuenta.carrito = partidas.map(function (partida) {
+            var snapshot = partida.snapshot || {};
+            var pendienteCatalogo = snapshot.pendiente_catalogo || {};
+            return {
+                id_sku: partida.id_sku,
+                sku: partida.sku || snapshot.sku || "",
+                tipo_partida: partida.tipo_partida || snapshot.tipo_partida || "",
+                origen_partida: partida.origen_partida || snapshot.origen_partida || "",
+                descripcion: partida.descripcion || snapshot.descripcion || "",
+                descripcion_manual: snapshot.descripcion_manual || partida.descripcion || snapshot.descripcion || "",
+                imagen: imagen(snapshot),
+                precio_unitario: cantidad(partida.precio_unitario),
+                cantidad: cantidad(partida.cantidad),
+                modo_salida: partida.modo_salida || "existencia_agregada",
+                id_inventario_unidad: snapshot.id_inventario_unidad || "",
+                unidad_venta_label: partida.unidad_venta || snapshot.unidad_venta_label || "",
+                permite_venta_fraccionaria: Number(snapshot.permite_venta_fraccionaria || 0),
+                incremento_minimo_venta: cantidad(snapshot.incremento_minimo_venta || 1),
+                disponibilidad: snapshot.disponibilidad || {},
+                unidades: snapshot.unidades || [],
+                motivo: snapshot.motivo || pendienteCatalogo.motivo || "",
+                categoria_provisional: snapshot.categoria_provisional || pendienteCatalogo.categoria_provisional || "",
+                marca_provisional: snapshot.marca_provisional || pendienteCatalogo.marca_provisional || "",
+                proveedor_provisional: snapshot.proveedor_provisional || pendienteCatalogo.proveedor_provisional || "",
+                codigo_barras: snapshot.codigo_barras || pendienteCatalogo.codigo_barras || "",
+                observaciones: snapshot.observaciones || pendienteCatalogo.observaciones || "",
+                controla_inventario: snapshot.controla_inventario == null ? partida.controla_inventario : snapshot.controla_inventario
+            };
+        });
+        cuenta.pagos = [];
+        cuentas.push(cuenta);
+        cuentaActivaId = cuenta.id;
+        aplicarCuentaActiva();
+        guardarCuentas();
+        renderCuentas();
+        renderCarrito();
+        renderPagos();
+        renderExcepcionActiva();
+        renderAtencionActiva();
+        document.getElementById("pos_validacion").innerHTML = "<div class=\"alert alert-success py-3 mb-0\">Atencion " + escapeHtml(atencion.folio_temporal || atencion.id_atencion_pos) + " cargada. Agrega pagos y cobra para convertirla en venta.</div>";
+        if (window.bootstrap) {
+            bootstrap.Modal.getOrCreateInstance(document.getElementById("pos_atenciones_modal")).hide();
+        }
     }
     function mostrarError(error) {
         var mensaje = error.message || String(error);
@@ -3141,11 +3377,13 @@
         });
     }
     document.addEventListener("DOMContentLoaded", function () {
+        if (redirigirPendienteVentaRapidaSiAplica()) { return; }
         cargarCuentas();
         cargarCatalogos();
         renderCuentas();
         renderCarrito();
         renderPagos();
+        renderAtencionActiva();
         actualizarOperador();
         actualizarVisibilidadDocumento();
         registrarAtajosPos();
@@ -3181,12 +3419,27 @@
         document.getElementById("pos_venta_rapida_btn").addEventListener("click", function () {
             ventaRapidaValidada = null;
             document.getElementById("pos_vr_agregar").disabled = true;
+            document.getElementById("pos_vr_agregar_cerrar").disabled = true;
             document.getElementById("pos_vr_resultado").innerHTML = "";
             bootstrap.Modal.getOrCreateInstance(document.getElementById("pos_venta_rapida_modal")).show();
             setTimeout(function () { document.getElementById("pos_vr_descripcion").focus(); }, 250);
         });
         document.getElementById("pos_vr_validar").addEventListener("click", validarVentaRapida);
-        document.getElementById("pos_vr_agregar").addEventListener("click", agregarVentaRapidaAlCarrito);
+        document.getElementById("pos_vr_agregar").addEventListener("click", function () { agregarVentaRapidaAlCarrito(false); });
+        document.getElementById("pos_vr_agregar_cerrar").addEventListener("click", function () { agregarVentaRapidaAlCarrito(true); });
+        document.getElementById("pos_venta_rapida_modal").addEventListener("input", invalidarVentaRapidaValidada);
+        document.getElementById("pos_venta_rapida_modal").addEventListener("change", invalidarVentaRapidaValidada);
+        document.getElementById("pos_venta_rapida_modal").addEventListener("keydown", function (event) {
+            if (event.key !== "Enter") { return; }
+            if (event.ctrlKey) {
+                event.preventDefault();
+                validarVentaRapida();
+            }
+            if (event.altKey) {
+                event.preventDefault();
+                agregarVentaRapidaAlCarrito(false);
+            }
+        });
         document.getElementById("pos_scan_start").addEventListener("click", iniciarCamaraPos);
         document.getElementById("pos_scan_camera_device").addEventListener("change", reiniciarCamaraConSeleccionPos);
         document.getElementById("pos_scan_focus").addEventListener("click", mejorarEnfoqueCamaraPos);
@@ -3197,10 +3450,13 @@
         document.getElementById("pos_vaciar").addEventListener("click", function () {
             carrito = [];
             pagos = [];
+            atencionActiva = null;
+            atencionDesvinculada = null;
             limpiarExcepcionActiva();
             guardarCuentas();
             renderCarrito();
             renderPagos();
+            renderAtencionActiva();
             document.getElementById("pos_validacion").innerHTML = "";
         });
         document.getElementById("pos_cuenta_nueva").addEventListener("click", crearCuentaAtencion);
@@ -3275,7 +3531,13 @@
             bootstrap.Modal.getOrCreateInstance(document.getElementById("pos_atenciones_modal")).show();
         });
         document.getElementById("pos_atenciones_bandeja").addEventListener("click", atencionesBandejaDryRun);
-        document.getElementById("pos_atenciones_simular").addEventListener("click", atencionPersistenteDryRun);
+        document.getElementById("pos_atenciones_crear").addEventListener("click", crearAtencionPersistenteReal);
+        document.getElementById("pos_atenciones_resultado").addEventListener("click", function (event) {
+            var cargar = event.target.closest("[data-pos-atencion-cargar]");
+            if (cargar) {
+                cargarAtencionEnPos(cargar.getAttribute("data-pos-atencion-cargar"));
+            }
+        });
         var cajaModalBtn = document.getElementById("pos_caja_modal_btn");
         if (cajaModalBtn) {
             cajaModalBtn.addEventListener("click", function () {
@@ -3356,6 +3618,7 @@
             if (!itemNode) { return; }
             var item = carrito[Number(itemNode.getAttribute("data-pos-item"))];
             if (event.target.closest("[data-pos-quitar]")) {
+                desvincularAtencionPorEdicion();
                 carrito.splice(carrito.indexOf(item), 1);
                 limpiarExcepcionActiva();
                 guardarCuentas();
@@ -3364,6 +3627,7 @@
             }
             var ajuste = event.target.closest("[data-pos-cantidad-ajuste]");
             if (ajuste) {
+                desvincularAtencionPorEdicion();
                 ajustarCantidad(item, Number(ajuste.getAttribute("data-pos-cantidad-ajuste")));
                 limpiarExcepcionActiva();
                 guardarCuentas();
@@ -3372,6 +3636,7 @@
             }
             var modoRapido = event.target.closest("[data-pos-modo-rapido]");
             if (modoRapido) {
+                desvincularAtencionPorEdicion();
                 cambiarModoSalida(item, modoRapido.getAttribute("data-pos-modo-rapido"));
                 limpiarExcepcionActiva();
                 guardarCuentas();
@@ -3382,6 +3647,7 @@
             var itemNode = event.target.closest("[data-pos-item]");
             if (!itemNode || !event.target.matches("[data-pos-cantidad]")) { return; }
             var item = carrito[Number(itemNode.getAttribute("data-pos-item"))];
+            desvincularAtencionPorEdicion();
             item.cantidad = cantidad(event.target.value);
             var importeNode = itemNode.querySelector("[data-pos-importe]");
             if (importeNode) {

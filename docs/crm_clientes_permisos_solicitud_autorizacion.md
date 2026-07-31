@@ -117,6 +117,66 @@ C:\xampp\php\php.exe storage\uat\uat_crm_pos_permisos_finos_apply_authorized.php
 
 Estado observado el 2026-07-30:
 
-- `crm.pos.buscar` no existe aun en BD.
-- `crm.pos.alta_express` no existe aun en BD.
-- rol `ventas` conserva `crm.ver` y `crm.crear`; por eso ve CRM completo.
+- `CRM_POS_PERMISOS_FINOS` aplicado con respaldo `C:\xampp\panel_db_backups\panel_de_control_artianilocal_2026-07-30_antes_crm_pos_permisos_finos.sql`.
+- `crm.pos.buscar` y `crm.pos.alta_express` existen en BD.
+- rol `ventas` tiene `crm.pos.buscar` y `crm.pos.alta_express`.
+- rol `ventas` ya no conserva `crm.ver` ni `crm.crear` como permisos base.
+
+## Fase siguiente - permisos por submodulo CRM
+
+Documentacion IA: Codex GPT-5  
+Fecha: 2026-07-30  
+Estado: aplicado en BD con autorizacion `CRM_SUBMODULOS_PERMISOS`.
+
+CRM debe crecer por dominios internos, no como una sola ventana con permisos amplios. Se preparan permisos finos:
+
+- `crm.clientes.ver`
+- `crm.clientes.editar`
+- `crm.seguimiento.ver`
+- `crm.seguimiento.operar`
+- `crm.comercial.ver`
+- `crm.comercial.operar`
+- `crm.recompensas.ver`
+- `crm.recompensas.operar`
+- `crm.reportes.ver`
+
+Mapa objetivo:
+
+- rol `direccion`: lectura de clientes, seguimiento, comercial, recompensas y reportes;
+- rol `crm`: lectura y operacion completa de submodulos CRM;
+- rol `administrador_erp`: lectura y operacion completa de submodulos CRM;
+- rol `ventas`: sin consola CRM por submodulo; solo conserva permisos POS finos.
+
+Compatibilidad:
+
+- el codigo acepta `crm.ver` como respaldo para lectura mientras se migran permisos;
+- el codigo acepta `crm.editar` como respaldo para operacion mientras se migran permisos;
+- el apply no retira permisos amplios existentes.
+
+Preflight read-only:
+
+```text
+C:\xampp\php\php.exe storage\uat\uat_crm_submodulos_permisos_readonly.php
+```
+
+Apply autorizado:
+
+```text
+C:\xampp\php\php.exe storage\uat\uat_crm_submodulos_permisos_apply_authorized.php --autorizar=CRM_SUBMODULOS_PERMISOS --respaldo="[RUTA_RESPALDO]"
+```
+
+Frase sugerida de autorizacion:
+
+```text
+AUTORIZO SEMBRAR PERMISOS POR SUBMODULO CRM usando respaldo [RUTA_RESPALDO] con token CRM_SUBMODULOS_PERMISOS. Entiendo que crea permisos crm.clientes.*, crm.seguimiento.*, crm.comercial.*, crm.recompensas.* y crm.reportes.ver, los vincula a roles base segun SeguridadEsquema.php, no retira permisos amplios existentes, no modifica clientes, ventas, POS, ecommerce, garantias, apartados, devoluciones ni legacy.
+```
+
+Estado observado despues del apply:
+
+- respaldo usado: `C:\xampp\panel_db_backups\panel_de_control_artianilocal_2026-07-30_antes_crm_submodulos_permisos.sql`;
+- permisos creados o actualizados: 9;
+- relaciones intentadas: 23;
+- roles vinculados: `direccion`, `crm`, `administrador_erp`;
+- `crm.clientes.ver`, `crm.clientes.editar`, `crm.seguimiento.ver`, `crm.seguimiento.operar`, `crm.comercial.ver`, `crm.comercial.operar`, `crm.recompensas.ver`, `crm.recompensas.operar` y `crm.reportes.ver` existen con estatus activo;
+- verificacion read-only posterior: permisos faltantes `[]`, relaciones faltantes por rol `[]`;
+- rol `ventas` no recibio permisos de consola CRM por submodulo.

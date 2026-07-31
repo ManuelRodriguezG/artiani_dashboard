@@ -11,6 +11,14 @@ if (!empty($_SESSION['id_usuario'])) {
 }
 
 $puede = function ($permiso) use ($permisosSesion) {
+    if (is_array($permiso)) {
+        foreach ($permiso as $permisoOpcion) {
+            if (in_array($permisoOpcion, $permisosSesion, true)) {
+                return true;
+            }
+        }
+        return false;
+    }
     return in_array($permiso, $permisosSesion, true);
 };
 
@@ -67,6 +75,7 @@ $gruposMenu = array(
             array('titulo' => 'POS', 'ruta' => '/ventas/pos', 'permiso' => 'ventas.operar'),
             array('titulo' => 'Manual POS', 'ruta' => '/ventas/manual_pos', 'permiso' => 'ventas.ver'),
             array('titulo' => 'Checador de precios', 'ruta' => '/ventas/checador_precios', 'permiso' => 'ventas.ver'),
+            array('titulo' => 'Pendientes venta rapida', 'ruta' => '/ventas/venta_rapida_pendientes', 'permiso' => 'ventas.ver'),
             array('titulo' => 'Pedidos', 'ruta' => '/ventas/pedidos', 'permiso' => 'ventas.ver'),
             array('titulo' => 'Devoluciones', 'ruta' => '/ventas/devoluciones', 'permiso' => 'ventas.ver'),
             array('titulo' => 'Caja y turnos', 'ruta' => '/ventas/caja_turnos', 'permiso' => 'ventas.ver'),
@@ -93,12 +102,13 @@ $gruposMenu = array(
         'seccion' => 'CRM',
         'titulo' => 'CRM',
         'icono' => 'bi-person-vcard',
-        'permiso' => 'crm.ver',
+        'permiso' => array('crm.ver', 'crm.clientes.ver', 'crm.seguimiento.ver', 'crm.comercial.ver', 'crm.recompensas.ver', 'crm.reportes.ver'),
         'items' => array(
-            array('titulo' => 'Clientes', 'ruta' => '/crm/clientes#crm_tab_clientes', 'permiso' => 'crm.ver'),
-            array('titulo' => 'Seguimiento', 'ruta' => '/crm/seguimiento', 'permiso' => 'crm.ver'),
-            array('titulo' => 'Condiciones comerciales', 'ruta' => '/crm/clientes#crm_tab_comercial', 'permiso' => 'crm.ver'),
-            array('titulo' => 'Recompensas', 'ruta' => '/crm/recompensas', 'permiso' => 'crm.ver'),
+            array('titulo' => 'Clientes', 'ruta' => '/crm/clientes#crm_tab_clientes', 'permiso' => array('crm.ver', 'crm.clientes.ver')),
+            array('titulo' => 'Seguimiento', 'ruta' => '/crm/seguimiento', 'permiso' => array('crm.ver', 'crm.seguimiento.ver')),
+            array('titulo' => 'Comercial', 'ruta' => '/crm/comercial', 'permiso' => array('crm.ver', 'crm.comercial.ver')),
+            array('titulo' => 'Recompensas', 'ruta' => '/crm/recompensas', 'permiso' => array('crm.ver', 'crm.recompensas.ver')),
+            array('titulo' => 'Reportes', 'ruta' => '/crm/reportes', 'permiso' => array('crm.ver', 'crm.reportes.ver')),
             array('titulo' => 'Auditoria', 'ruta' => '/crm/clientes#crm_tab_auditoria', 'permiso' => 'crm.auditoria')
         )
     ),
@@ -168,6 +178,7 @@ $gruposMenu = array(
         'icono' => 'bi-shop',
         'permiso' => '',
         'items' => array(
+            array('titulo' => 'Control Artiani', 'ruta' => '/ecommercePublico/control', 'permiso' => 'catalogo.ver'),
             array('titulo' => 'Ecommerce publico', 'ruta' => '/ecommercePublico/publicaciones', 'permiso' => 'catalogo.ver'),
             array('titulo' => 'Catalogo ecommerce', 'ruta' => '/producto/catalogo', 'permiso' => 'ecommerce.ver')
         )

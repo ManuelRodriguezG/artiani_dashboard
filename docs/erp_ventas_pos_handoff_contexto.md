@@ -1,7 +1,7 @@
 # ERP Ventas/POS/Pedidos - Handoff de contexto vivo
 
 Documentacion IA: Codex GPT-5  
-Fecha: 2026-06-27  
+Fecha: 2026-07-30  
 Estado: documento de continuidad para evitar perdida de contexto.
 
 ## Proposito
@@ -29,6 +29,47 @@ Mantener en un solo lugar el contexto operativo del modulo Ventas/POS/Pedidos co
 - El cliente rapido en POS es una entrada express, no el modelo final de clientes.
 
 ## Estado actual del modulo
+
+### Corte vigente 2026-07-30 - cuentas multiples y atenciones compartidas
+
+Resumen corto para retomar en otro chat:
+
+- Proyecto correcto: `C:\xampp\htdocs\panel_de_control`.
+- Host correcto: `http://panel.com.local/`.
+- POS ya tiene dos conceptos distintos:
+  - `Cuentas en atencion`: cuentas locales en el navegador/usuario actual.
+  - `Atenciones`: bandeja de cuentas persistentes compartidas entre usuarios/equipos.
+- `Cuentas en atencion` ya sirven para atender varios clientes en una misma pantalla sin mezclar carrito/pagos/cliente.
+- `Cuentas en atencion` NO aparecen en otros usuarios, navegadores o equipos porque viven en `localStorage` por usuario.
+- `Atenciones` persistentes SI son el flujo correcto para que un vendedor cree una cuenta y caja u otro usuario la vea/cobre.
+- La BD y el modelo para atenciones persistentes existen.
+- La UI POS ya expone `Enviar cuenta a Atenciones`, que llama `/ventas/atencion_persistente_crear_erp`.
+- La bandeja `Atenciones` en POS consulta atenciones abiertas y muestra accion `Cargar`.
+- Al cargar una atencion, POS crea una cuenta local vinculada a `id_atencion`.
+- Al cobrar una cuenta cargada, el payload manda `id_atencion` y el backend la convierte a venta real con bloqueo.
+- Si el operador modifica el carrito de una atencion cargada, POS la desvincula para evitar doble cobro incorrecto.
+- Pendiente de UI productiva fina: `Liberar/Cancelar` atencion desde UI con auditoria y mostrar nombres de usuario creador/tomador/cobrador.
+- Regla no negociable: crear atencion no reserva inventario, no mueve caja y no descuenta; el descuento/kardex nace hasta cobrar.
+- Al convertir atencion a venta, el backend bloquea la atencion con `FOR UPDATE`, revalida y la marca `convertida` para evitar doble cobro.
+- Ajuste posterior del mismo dia: Atenciones cargadas ya conservan imagen de SKU mediante snapshot/fallback, no se duplican al cargarlas varias veces, y no pueden reenviarse como nueva atencion si ya vienen de bandeja o fueron desvinculadas por edicion.
+- Venta rapida cargada desde Atenciones conserva `tipo_partida=venta_rapida`, `origen_partida=venta_rapida_controlada` y datos provisionales para que el cobro use el flujo real autorizado de venta rapida.
+- Usuario `1` tiene asignaciones activas a Acuario `4/1` y Mascotas `5/2`; el modelo ahora puede resolver asignacion por `id_almacen/id_caja` para apertura/cierre real sin permitir sucursal libre.
+
+Flujo objetivo:
+
+1. Vendedor inicia sesion con su propio usuario.
+2. Crea una cuenta para el cliente.
+3. Agrega productos y cantidades.
+4. Envia esa cuenta a `Atenciones` persistentes.
+5. Caja consulta la bandeja por almacen/caja/turno.
+6. Caja toma la atencion, revisa cliente/partidas/total.
+7. Caja cobra.
+8. Venta queda con folio POS, usuario cobrador, caja/turno, pagos, ticket, kardex y trazabilidad.
+9. La atencion queda `convertida`.
+
+Siguiente tarea recomendada:
+
+- Ejecutar UAT navegador multiusuario: usuario A envia cuenta a Atenciones, usuario B consulta bandeja, carga la atencion, agrega pago y cobra con turno abierto.
 
 ### Implementado sin escribir BD
 

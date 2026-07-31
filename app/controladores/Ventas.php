@@ -57,6 +57,17 @@ class Ventas extends Controlador {
     $this->vista("apps/erp/ventas/checador_precios");
   }
 
+  /**
+   * Documentacion IA: Codex GPT-5, 2026-07-30.
+   * Proposito: abrir bandeja operativa para clasificar ventas rapidas POS.
+   * Impacto: las alertas de Catalogo aterrizan en una pantalla resolutiva, no en el POS de cobro.
+   * Contrato: consulta y resolucion contra SKU existente; crear SKU nuevo se hace en Catalogo ERP.
+   */
+  public function venta_rapida_pendientes() {
+    $this->requerirAlgunPermiso(array("ventas.ver", "catalogo.ver"));
+    $this->vista("apps/erp/ventas/venta_rapida_pendientes");
+  }
+
   public function editar() {
     $this->requerirPermiso("ventas.ver");
     $this->vista("apps/erp/ventas/listado");
@@ -469,7 +480,7 @@ class Ventas extends Controlador {
   }
 
   public function pos_buscar_skus_erp() {
-    $this->requerirPermiso("ventas.ver");
+    $this->requerirAlgunPermiso(array("ventas.ver", "catalogo.ver"));
     return json_encode($this->modelo("VentasErp")->buscarSkusPos($_GET));
   }
   /**
@@ -518,7 +529,7 @@ class Ventas extends Controlador {
    * Contrato: GET de consulta protegido por `ventas.ver`.
    */
   public function pos_venta_rapida_pendientes_erp() {
-    $this->requerirPermiso("ventas.ver");
+    $this->requerirAlgunPermiso(array("ventas.ver", "catalogo.ver"));
     return json_encode($this->modelo("VentasErp")->ventaRapidaPendientesReadOnly($_GET));
   }
 
@@ -529,7 +540,7 @@ class Ventas extends Controlador {
    * Contrato: GET de consulta protegido por `ventas.ver`.
    */
   public function pos_venta_rapida_pendiente_erp() {
-    $this->requerirPermiso("ventas.ver");
+    $this->requerirAlgunPermiso(array("ventas.ver", "catalogo.ver"));
     return json_encode($this->modelo("VentasErp")->ventaRapidaPendienteConsultarReadOnly($_GET));
   }
 
@@ -540,9 +551,23 @@ class Ventas extends Controlador {
    * Contrato: POST de prevalidacion; requiere `ventas.operar` y CSRF normal del Core.
    */
   public function pos_venta_rapida_resolucion_dryrun_erp() {
-    $this->requerirPermiso("ventas.operar");
+    $this->requerirAlgunPermiso(array("ventas.operar", "catalogo.ver", "catalogo.editar"));
     $_POST["id_usuario"] = $this->usuarioActualId();
     return json_encode($this->modelo("VentasErp")->ventaRapidaResolucionDryRun($_POST));
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5, 2026-07-30.
+   * Proposito: solicitar a Catalogo un borrador/SKU temporal desde un pendiente VRP.
+   * Impacto: convierte la venta rapida en incidencia accionable para Catalogo sin exigir acceso directo al alta de productos.
+   * Contrato: POST real idempotente; no crea producto, no resuelve VRP, no mueve inventario ni cambia ticket.
+   */
+  public function pos_venta_rapida_solicitar_borrador_catalogo_erp() {
+    $this->requerirAlgunPermiso(array("ventas.operar", "catalogo.ver"));
+    $_POST["id_usuario"] = $this->usuarioActualId();
+    $respuesta = $this->modelo("VentasErp")->ventaRapidaSolicitarBorradorCatalogoReal($_POST);
+    $this->auditarCobroPos("solicitar_borrador_catalogo_venta_rapida", $respuesta);
+    return json_encode($respuesta);
   }
 
   /**
@@ -552,7 +577,7 @@ class Ventas extends Controlador {
    * Contrato: POST real; requiere `ventas.operar`, token, confirmacion y respaldo validado por flujo autorizado.
    */
   public function pos_venta_rapida_resolver_erp() {
-    $this->requerirPermiso("ventas.operar");
+    $this->requerirAlgunPermiso(array("ventas.operar", "catalogo.editar"));
     $_POST["id_usuario"] = $this->usuarioActualId();
     $respuesta = $this->modelo("VentasErp")->ventaRapidaResolverReal($_POST);
     $this->auditarCobroPos("resolver_venta_rapida", $respuesta);
@@ -981,6 +1006,16 @@ class Ventas extends Controlador {
     ));
   }
 
+  private function auditarAtencionPos($accion, $respuesta) {
+    SesionSeguridad::registrarAuditoria("ventas", "pos_atencion_" . $accion, array(
+      "entidad" => "erp_pos_atenciones",
+      "entidad_id" => isset($respuesta["depurar"]["id_atencion_pos"]) ? $respuesta["depurar"]["id_atencion_pos"] : null,
+      "resultado" => !empty($respuesta["error"]) ? "error" : (isset($respuesta["tipo"]) && $respuesta["tipo"] === "success" ? "ok" : "warning"),
+      "mensaje" => isset($respuesta["mensaje"]) ? $respuesta["mensaje"] : "",
+      "datos_despues" => isset($respuesta["depurar"]) ? $respuesta["depurar"] : null
+    ));
+  }
+
   private function auditarConfiguracionPos($accion, $respuesta) {
     $depurar = isset($respuesta["depurar"]) && is_array($respuesta["depurar"]) ? $respuesta["depurar"] : array();
     $entidadId = null;
@@ -1177,7 +1212,9 @@ class Ventas extends Controlador {
    */
   public function turno_apertura_dryrun_erp() {
     $this->requerirPermiso("ventas.operar");
-    return json_encode($this->modelo("VentasErp")->aperturaTurnoDryRun($_POST));
+    $datos = $_POST;
+    $datos["id_usuario"] = $this->usuarioActualId();
+    return json_encode($this->modelo("VentasErp")->aperturaTurnoDryRun($datos));
   }
 
   /**
@@ -1331,6 +1368,21 @@ class Ventas extends Controlador {
   }
 
   /**
+   * Documentacion IA: Codex GPT-5, 2026-07-30.
+   * Proposito: crear una atencion compartida POS desde una cuenta local.
+   * Impacto: permite que otra sesion/caja vea la cuenta en bandeja sin crear venta, caja, reserva ni kardex.
+   * Contrato: POST con CSRF, sesion y `ventas.operar`; escribe solo atencion y detalle.
+   */
+  public function atencion_persistente_crear_erp() {
+    $this->requerirPermiso("ventas.operar");
+    $datos = $_POST;
+    $datos["id_usuario"] = $this->usuarioActualId();
+    $respuesta = $this->modelo("VentasErp")->crearAtencionPersistente($datos);
+    $this->auditarAtencionPos("crear", $respuesta);
+    return json_encode($respuesta);
+  }
+
+  /**
    * Documentacion IA: Codex GPT-5, 2026-06-27.
    * Proposito: consultar bandeja de atenciones compartidas.
    * Impacto: prepara caja para tomar/cobrar cuentas levantadas por vendedores.
@@ -1339,6 +1391,17 @@ class Ventas extends Controlador {
   public function atenciones_bandeja_dryrun_erp() {
     $this->requerirPermiso("ventas.operar");
     return json_encode($this->modelo("VentasErp")->atencionesBandejaDryRun($_GET));
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5, 2026-07-30.
+   * Proposito: consultar detalle de una atencion compartida para cargarla en POS.
+   * Impacto: permite revisar/cargar la cuenta antes del cobro sin tomar bloqueo ni mover inventario.
+   * Contrato: GET protegido por `ventas.operar`; read-only.
+   */
+  public function atencion_detalle_readonly_erp() {
+    $this->requerirPermiso("ventas.operar");
+    return json_encode($this->modelo("VentasErp")->atencionDetalleReadOnly($_GET));
   }
 
   /**

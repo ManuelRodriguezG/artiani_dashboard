@@ -293,6 +293,17 @@ class EcommercePublico extends Controlador {
   }
 
   /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-07-30
+   * Proposito: abrir panel operativo para gobernar que se muestra en el ecommerce Artiani.
+   * Impacto: Ecommerce publico; permite administrar visibilidad, estatus y curaduria sin tocar inventario.
+   * Contrato: vista protegida por `catalogo.ver`; las escrituras requieren `catalogo.editar`, CSRF y token interno.
+   */
+  public function control() {
+    $this->requerirPermiso("catalogo.ver");
+    $this->vista("apps/erp/ecommerce/control");
+  }
+
+  /**
    * Documentacion IA: Codex GPT-5 | Fecha: 2026-07-29
    * Proposito: abrir bandeja interna read-only de cotizaciones ecommerce.
    * Impacto: permite revisar seguimiento futuro sin activar registro, pedidos ni ventas.
@@ -479,6 +490,55 @@ class EcommercePublico extends Controlador {
       "datos_despues" => array(
         "id_publicacion" => isset($respuesta["depurar"]["publicacion"]["id_publicacion"]) ? intval($respuesta["depurar"]["publicacion"]["id_publicacion"]) : null,
         "estatus" => isset($respuesta["depurar"]["publicacion"]["estatus_publicacion"]) ? $respuesta["depurar"]["publicacion"]["estatus_publicacion"] : null
+      )
+    ));
+    return json_encode($respuesta);
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-07-30
+   * Proposito: cambiar estatus de una publicacion ecommerce desde gobierno interno.
+   * Impacto: permite pausar/reactivar/publicar productos en Artiani sin tocar Catalogo ERP ni inventario.
+   * Contrato: POST protegido por `catalogo.editar`; requiere token interno, CSRF y auditoria explicita.
+   */
+  public function publicaciones_estatus_erp() {
+    $this->requerirPermiso("catalogo.editar");
+    $respuesta = $this->modelo("EcommerceCatalogoPublico")->cambiarEstatusPublicacionAutorizado($_POST, array(
+      "autorizar" => isset($_POST["autorizar"]) ? $_POST["autorizar"] : ""
+    ));
+    SesionSeguridad::registrarAuditoria("ecommerce_publico", "publicacion_estatus", array(
+      "resultado" => empty($respuesta["error"]) ? "ok" : "error",
+      "mensaje" => isset($respuesta["mensaje"]) ? $respuesta["mensaje"] : "",
+      "datos_antes" => array(
+        "id_publicacion" => isset($_POST["id_publicacion"]) ? intval($_POST["id_publicacion"]) : 0,
+        "id_sku" => isset($_POST["id_sku"]) ? intval($_POST["id_sku"]) : 0
+      ),
+      "datos_despues" => array(
+        "estatus" => isset($respuesta["depurar"]["estatus_publicacion"]) ? $respuesta["depurar"]["estatus_publicacion"] : null
+      )
+    ));
+    return json_encode($respuesta);
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-07-30
+   * Proposito: cambiar estatus de publicaciones ecommerce seleccionadas por lote.
+   * Impacto: facilita deshabilitar/reactivar grupos curados desde panel sin tocar inventario.
+   * Contrato: POST protegido por `catalogo.editar`; requiere token interno, CSRF y auditoria explicita.
+   */
+  public function publicaciones_lote_estatus_erp() {
+    $this->requerirPermiso("catalogo.editar");
+    $respuesta = $this->modelo("EcommerceCatalogoPublico")->cambiarEstatusLoteAutorizado($_POST, array(
+      "autorizar" => isset($_POST["autorizar"]) ? $_POST["autorizar"] : ""
+    ));
+    SesionSeguridad::registrarAuditoria("ecommerce_publico", "publicacion_lote_estatus", array(
+      "resultado" => empty($respuesta["error"]) ? "ok" : "error",
+      "mensaje" => isset($respuesta["mensaje"]) ? $respuesta["mensaje"] : "",
+      "datos_antes" => array("id_skus" => isset($_POST["id_skus"]) ? (string) $_POST["id_skus"] : ""),
+      "datos_despues" => array(
+        "estatus" => isset($_POST["estatus_publicacion"]) ? (string) $_POST["estatus_publicacion"] : "",
+        "total_ok" => isset($respuesta["depurar"]["total_ok"]) ? intval($respuesta["depurar"]["total_ok"]) : 0,
+        "total_error" => isset($respuesta["depurar"]["total_error"]) ? intval($respuesta["depurar"]["total_error"]) : 0
       )
     ));
     return json_encode($respuesta);

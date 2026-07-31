@@ -298,3 +298,27 @@ Regla aplicada:
 - Si el usuario autoriza con placeholder `[RUTA_RESPALDO]`, el agente debe generar este respaldo externo antes del apply.
 - El respaldo se usa para el token `CRM_POS_PERMISOS_FINOS`.
 - El alcance del apply es exclusivamente permisos/roles CRM-POS; no toca clientes, ventas, POS, ecommerce, garantias, apartados, devoluciones ni legacy.
+
+## CRM - permisos por submodulo clientes
+
+Fecha: 2026-07-30  
+Ruta estandar usada:
+
+```txt
+C:\xampp\panel_db_backups\panel_de_control_artianilocal_2026-07-30_antes_crm_submodulos_permisos.sql
+```
+
+Validacion:
+
+```text
+archivo_existe=true
+archivo_legible=true
+tamano_bytes=33654585
+```
+
+Alcance:
+
+- Creacion/actualizacion de permisos `crm.clientes.*`, `crm.seguimiento.*`, `crm.comercial.*`, `crm.recompensas.*` y `crm.reportes.ver`.
+- Vinculacion a roles base `direccion`, `crm` y `administrador_erp`.
+- No retira permisos amplios existentes.
+- No toca clientes, ventas, POS, ecommerce, garantias, apartados, devoluciones ni legacy.

@@ -1856,9 +1856,20 @@ class EcommerceCatalogoPublico extends CRUD {
       $soloPublicables = intval($this->valor($filtros, "solo_publicables", 0)) === 1;
       $busqueda = trim((string) $this->valor($filtros, "q", ""));
       $estatusPublicacion = trim((string) $this->valor($filtros, "estatus_publicacion", ""));
+      $disponibilidad = trim((string) $this->valor($filtros, "disponibilidad", ""));
+      $categoriaTexto = trim((string) $this->valor($filtros, "categoria_texto", ""));
+      $mascota = $this->limpiarFiltroPublico($this->valor($filtros, "mascota", ""));
+      $necesidad = $this->limpiarFiltroPublico($this->valor($filtros, "necesidad", ""));
+      $granel = trim((string) $this->valor($filtros, "granel", ""));
 
       $resumen = $this->resumenPublicabilidad($db);
-      $candidatos = $this->listarCandidatosPublicacion($db, $limite, $soloBloqueados, $soloPublicables, $busqueda, $estatusPublicacion);
+      $candidatos = $this->listarCandidatosPublicacion($db, $limite, $soloBloqueados, $soloPublicables, $busqueda, $estatusPublicacion, array(
+        "disponibilidad" => $disponibilidad,
+        "categoria_texto" => $categoriaTexto,
+        "mascota" => $mascota,
+        "necesidad" => $necesidad,
+        "granel" => $granel
+      ));
 
       return $this->respuesta(false, "success", "Auditoria ecommerce publica consultada", array(
         "read_only" => true,
@@ -2058,7 +2069,13 @@ class EcommerceCatalogoPublico extends CRUD {
         "descripcion_publica" => isset($fila["descripcion_publica_publicacion"]) ? (string) $fila["descripcion_publica_publicacion"] : "",
         "presentacion_publica" => isset($fila["presentacion_publica_publicacion"]) ? (string) $fila["presentacion_publica_publicacion"] : "",
         "mascota_especie" => isset($fila["mascota_especie_publicacion"]) ? (string) $fila["mascota_especie_publicacion"] : "",
-        "necesidades" => isset($fila["necesidades_json_publicacion"]) ? $this->jsonArray($fila["necesidades_json_publicacion"]) : array()
+        "necesidades" => isset($fila["necesidades_json_publicacion"]) ? $this->jsonArray($fila["necesidades_json_publicacion"]) : array(),
+        "destacado" => isset($fila["destacado_publicacion"]) ? intval($fila["destacado_publicacion"]) : 0,
+        "orden" => isset($fila["orden_publicacion"]) ? intval($fila["orden_publicacion"]) : 0,
+        "permite_cotizacion" => isset($fila["permite_cotizacion_publicacion"]) ? intval($fila["permite_cotizacion_publicacion"]) : 1,
+        "permite_whatsapp" => isset($fila["permite_whatsapp_publicacion"]) ? intval($fila["permite_whatsapp_publicacion"]) : 1,
+        "mostrar_precio" => isset($fila["mostrar_precio_publicacion"]) ? intval($fila["mostrar_precio_publicacion"]) : 1,
+        "mostrar_disponibilidad" => isset($fila["mostrar_disponibilidad_publicacion"]) ? intval($fila["mostrar_disponibilidad_publicacion"]) : 1
       );
       $metadata = $this->inferirMetadataMascotas($fila);
       $titulo = trim((string) $fila["nombre_publico"]);
@@ -2099,12 +2116,12 @@ class EcommerceCatalogoPublico extends CRUD {
           "presentacion_publica" => $publicacionActual["presentacion_publica"] !== "" ? $publicacionActual["presentacion_publica"] : $presentacion,
           "mascota_especie" => $publicacionActual["mascota_especie"] !== "" ? $publicacionActual["mascota_especie"] : $metadata["mascota_especie"],
           "necesidades" => $necesidadesSugeridas,
-          "destacado" => 0,
-          "orden" => 0,
-          "permite_cotizacion" => 1,
-          "permite_whatsapp" => 1,
-          "mostrar_precio" => 1,
-          "mostrar_disponibilidad" => 1
+          "destacado" => $publicacionActual["destacado"],
+          "orden" => $publicacionActual["orden"],
+          "permite_cotizacion" => $publicacionActual["permite_cotizacion"],
+          "permite_whatsapp" => $publicacionActual["permite_whatsapp"],
+          "mostrar_precio" => $publicacionActual["mostrar_precio"],
+          "mostrar_disponibilidad" => $publicacionActual["mostrar_disponibilidad"]
         ),
         "flujo" => array(
           "fuente_viva" => "Catalogo ERP/Inventario ERP",
@@ -2786,6 +2803,141 @@ class EcommerceCatalogoPublico extends CRUD {
     }
   }
 
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-07-30
+   * Proposito: cambiar el estatus operativo de una publicacion ecommerce desde el panel de control.
+   * Impacto: permite pausar/reactivar publicaciones de Artiani sin tocar Catalogo ERP, inventario ni legacy `ecom_*`.
+   * Contrato: escribe solo `estatus_publicacion`; requiere token interno y confirmacion para publicar agotados.
+   */
+  public function cambiarEstatusPublicacionAutorizado($datos = array(), $opciones = array()) {
+    $token = trim((string) $this->valor($opciones, "autorizar", $this->valor($datos, "autorizar", "")));
+    if ($token !== "ECOMMERCE_PUBLICO_GOBIERNO_ESTATUS") {
+      return $this->respuesta(true, "warning", "Cambio de estatus ecommerce bloqueado", array(
+        "bloqueado" => true,
+        "no_escribe_bd" => true,
+        "token_requerido" => "ECOMMERCE_PUBLICO_GOBIERNO_ESTATUS"
+      ));
+    }
+    try {
+      $db = $this->getConexion();
+      if (!$db) {
+        return $this->respuesta(true, "warning", "Conexion MySQL no disponible", array("no_escribe_bd" => true));
+      }
+      $idPublicacion = intval($this->valor($datos, "id_publicacion", 0));
+      $idSku = intval($this->valor($datos, "id_sku", 0));
+      $estatus = trim((string) $this->valor($datos, "estatus_publicacion", ""));
+      if (!in_array($estatus, array("borrador", "publicado", "pausado"), true)) {
+        return $this->respuesta(true, "warning", "Estatus ecommerce no permitido", array("no_escribe_bd" => true));
+      }
+      if ($idPublicacion <= 0 && $idSku <= 0) {
+        return $this->respuesta(true, "warning", "Selecciona una publicacion ecommerce", array("no_escribe_bd" => true));
+      }
+
+      $stmt = $db->prepare("SELECT id_publicacion, id_sku, estatus_publicacion FROM erp_ecommerce_publicaciones WHERE " . ($idPublicacion > 0 ? "id_publicacion=:id" : "id_sku=:sku AND canal='catalogo_publico'") . " LIMIT 1");
+      $stmt->execute($idPublicacion > 0 ? array(":id" => $idPublicacion) : array(":sku" => $idSku));
+      $actual = $stmt->fetch(PDO::FETCH_ASSOC);
+      if (!$actual) {
+        return $this->respuesta(true, "warning", "Publicacion ecommerce no encontrada", array("no_escribe_bd" => true));
+      }
+      $idSku = intval($actual["id_sku"]);
+      $candidato = $this->consultarCandidatoPorSku($db, $idSku);
+      $bloqueos = array();
+      if ($estatus === "publicado") {
+        if (!$candidato) {
+          $bloqueos[] = "sku_no_encontrado_o_inactivo";
+        } else {
+          $bloqueos = array_values(array_filter($this->bloqueosPublicacion($candidato), function($bloqueo) {
+            return $bloqueo !== "publicacion_existente";
+          }));
+          if ($this->disponibilidadPublicaSugerida($candidato) === "agotado" && intval($this->valor($datos, "confirmar_agotado", 0)) !== 1) {
+            $bloqueos[] = "sku_agotado_requiere_confirmar_agotado";
+          }
+        }
+      }
+      if (!empty($bloqueos)) {
+        return $this->respuesta(true, "warning", "No se cambio estatus por bloqueos", array(
+          "no_escribe_bd" => true,
+          "bloqueos_publicacion" => array_values(array_unique($bloqueos))
+        ));
+      }
+
+      $stmtUpdate = $db->prepare("UPDATE erp_ecommerce_publicaciones
+        SET estatus_publicacion=:estatus,
+          fecha_publicacion=CASE WHEN :estatus_pub='publicado' THEN COALESCE(fecha_publicacion, NOW()) ELSE fecha_publicacion END,
+          fecha_actualizacion=NOW()
+        WHERE id_publicacion=:id
+        LIMIT 1");
+      $stmtUpdate->execute(array(
+        ":estatus" => $estatus,
+        ":estatus_pub" => $estatus,
+        ":id" => intval($actual["id_publicacion"])
+      ));
+      return $this->respuesta(false, "success", "Estatus ecommerce actualizado", array(
+        "escribe_bd" => true,
+        "id_publicacion" => intval($actual["id_publicacion"]),
+        "id_sku" => $idSku,
+        "estatus_anterior" => (string) $actual["estatus_publicacion"],
+        "estatus_publicacion" => $estatus,
+        "no_toca_inventario" => true,
+        "no_toca_ecom_legacy" => true
+      ));
+    } catch (Exception $e) {
+      return $this->respuesta(true, "danger", $e->getMessage(), array("escribe_bd" => false));
+    }
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-07-30
+   * Proposito: aplicar un estatus ecommerce a varios SKUs seleccionados desde el panel.
+   * Impacto: permite deshabilitar/reactivar grupos por busqueda, categoria o seleccion manual.
+   * Contrato: requiere token; no crea publicaciones nuevas, no toca inventario y no usa legacy `ecom_*`.
+   */
+  public function cambiarEstatusLoteAutorizado($datos = array(), $opciones = array()) {
+    $token = trim((string) $this->valor($opciones, "autorizar", $this->valor($datos, "autorizar", "")));
+    if ($token !== "ECOMMERCE_PUBLICO_LOTE_ESTATUS") {
+      return $this->respuesta(true, "warning", "Cambio de estatus por lote bloqueado", array(
+        "bloqueado" => true,
+        "no_escribe_bd" => true,
+        "token_requerido" => "ECOMMERCE_PUBLICO_LOTE_ESTATUS"
+      ));
+    }
+    $skus = $this->normalizarIdsSkuLote($this->valor($datos, "id_skus", array()));
+    if (empty($skus)) {
+      return $this->respuesta(true, "warning", "Selecciona al menos un SKU", array("no_escribe_bd" => true));
+    }
+    $estatus = trim((string) $this->valor($datos, "estatus_publicacion", ""));
+    $ok = 0;
+    $error = 0;
+    $resultados = array();
+    foreach ($skus as $idSku) {
+      $respuesta = $this->cambiarEstatusPublicacionAutorizado(array(
+        "id_sku" => $idSku,
+        "estatus_publicacion" => $estatus,
+        "confirmar_agotado" => intval($this->valor($datos, "confirmar_agotado", 0))
+      ), array("autorizar" => "ECOMMERCE_PUBLICO_GOBIERNO_ESTATUS"));
+      if (empty($respuesta["error"])) {
+        $ok++;
+      } else {
+        $error++;
+      }
+      $resultados[] = array(
+        "id_sku" => $idSku,
+        "ok" => empty($respuesta["error"]),
+        "mensaje" => isset($respuesta["mensaje"]) ? $respuesta["mensaje"] : "",
+        "bloqueos" => $this->valor($respuesta, array("depurar", "bloqueos_publicacion"), array())
+      );
+    }
+    return $this->respuesta($ok === 0, $ok > 0 ? "success" : "warning", "Lote de estatus ecommerce procesado", array(
+      "escribe_bd" => $ok > 0,
+      "estatus_publicacion" => $estatus,
+      "total_ok" => $ok,
+      "total_error" => $error,
+      "resultados" => $resultados,
+      "no_toca_inventario" => true,
+      "no_toca_ecom_legacy" => true
+    ));
+  }
+
   private function resumenPublicabilidad($db) {
     $joinPublicaciones = $this->tablaExiste($db, "erp_ecommerce_publicaciones")
       ? "LEFT JOIN erp_ecommerce_publicaciones pub ON pub.id_sku=s.id_sku AND pub.estatus_publicacion IN ('borrador','publicado','pausado')"
@@ -2822,7 +2974,7 @@ class EcommerceCatalogoPublico extends CRUD {
     return $db->query($sql)->fetch(PDO::FETCH_ASSOC);
   }
 
-  private function listarCandidatosPublicacion($db, $limite, $soloBloqueados, $soloPublicables, $busqueda = "", $estatusPublicacion = "") {
+  private function listarCandidatosPublicacion($db, $limite, $soloBloqueados, $soloPublicables, $busqueda = "", $estatusPublicacion = "", $filtrosExtra = array()) {
     $tienePublicaciones = $this->tablaExiste($db, "erp_ecommerce_publicaciones");
     $where = array("p.estatus='activo'", "s.estatus='activo'");
     $params = array();
@@ -2838,6 +2990,41 @@ class EcommerceCatalogoPublico extends CRUD {
     if ($busqueda !== "") {
       $where[] = "(p.nombre LIKE :q OR s.nombre LIKE :q OR s.sku LIKE :q OR p.codigo_producto LIKE :q OR m.nombre LIKE :q OR c.nombre LIKE :q OR c.ruta LIKE :q)";
       $params[":q"] = "%" . $busqueda . "%";
+    }
+    $categoriaTexto = trim((string) $this->valor($filtrosExtra, "categoria_texto", ""));
+    if ($categoriaTexto !== "") {
+      $where[] = "(c.nombre LIKE :categoria_texto OR c.ruta LIKE :categoria_texto)";
+      $params[":categoria_texto"] = "%" . $categoriaTexto . "%";
+    }
+    $mascota = $this->limpiarFiltroPublico($this->valor($filtrosExtra, "mascota", ""));
+    if ($mascota !== "" && $tienePublicaciones) {
+      $where[] = "pub.mascota_especie=:mascota";
+      $params[":mascota"] = $mascota;
+    }
+    $necesidad = $this->limpiarFiltroPublico($this->valor($filtrosExtra, "necesidad", ""));
+    if ($necesidad !== "" && $tienePublicaciones) {
+      $where[] = "pub.necesidades_json LIKE :necesidad";
+      $params[":necesidad"] = "%\"" . $necesidad . "\"%";
+    }
+    $granel = trim((string) $this->valor($filtrosExtra, "granel", ""));
+    if ($granel === "1") {
+      $where[] = "COALESCE(r.permite_venta_fraccionaria, 0)=1";
+    } elseif ($granel === "0") {
+      $where[] = "COALESCE(r.permite_venta_fraccionaria, 0)=0";
+    }
+    $disponibilidad = trim((string) $this->valor($filtrosExtra, "disponibilidad", ""));
+    if ($disponibilidad === "disponible") {
+      $where[] = "COALESCE(r.controla_inventario, CASE WHEN s.tipo_inventario IN ('servicio','cargo') THEN 0 ELSE 1 END)=1";
+      $where[] = "COALESCE(inv.cantidad_disponible, 0)>3";
+    } elseif ($disponibilidad === "pocas_piezas") {
+      $where[] = "COALESCE(r.controla_inventario, CASE WHEN s.tipo_inventario IN ('servicio','cargo') THEN 0 ELSE 1 END)=1";
+      $where[] = "COALESCE(inv.cantidad_disponible, 0)>0";
+      $where[] = "COALESCE(inv.cantidad_disponible, 0)<=3";
+    } elseif ($disponibilidad === "agotado") {
+      $where[] = "COALESCE(r.controla_inventario, CASE WHEN s.tipo_inventario IN ('servicio','cargo') THEN 0 ELSE 1 END)=1";
+      $where[] = "COALESCE(inv.cantidad_disponible, 0)<=0";
+    } elseif ($disponibilidad === "consultar_disponibilidad") {
+      $where[] = "COALESCE(r.controla_inventario, CASE WHEN s.tipo_inventario IN ('servicio','cargo') THEN 0 ELSE 1 END)=0";
     }
     if ($estatusPublicacion !== "" && $tienePublicaciones) {
       if ($estatusPublicacion === "sin_publicacion") {
@@ -2858,7 +3045,7 @@ class EcommerceCatalogoPublico extends CRUD {
         COALESCE(r.controla_inventario, CASE WHEN s.tipo_inventario IN ('servicio','cargo') THEN 0 ELSE 1 END) controla_inventario,
         COALESCE(r.permite_venta_fraccionaria, 0) permite_venta_fraccionaria,
         COALESCE(inv.cantidad_disponible, 0) existencia_disponible,
-        " . ($tienePublicaciones ? "pub.id_publicacion, pub.estatus_publicacion, pub.slug slug_publicacion, pub.titulo_publico titulo_publico_publicacion, pub.descripcion_publica descripcion_publica_publicacion, pub.presentacion_publica presentacion_publica_publicacion, pub.mascota_especie mascota_especie_publicacion, pub.necesidades_json necesidades_json_publicacion" : "NULL id_publicacion, NULL estatus_publicacion, NULL slug_publicacion, NULL titulo_publico_publicacion, NULL descripcion_publica_publicacion, NULL presentacion_publica_publicacion, NULL mascota_especie_publicacion, NULL necesidades_json_publicacion") . "
+        " . ($tienePublicaciones ? "pub.id_publicacion, pub.estatus_publicacion, pub.slug slug_publicacion, pub.titulo_publico titulo_publico_publicacion, pub.descripcion_publica descripcion_publica_publicacion, pub.presentacion_publica presentacion_publica_publicacion, pub.mascota_especie mascota_especie_publicacion, pub.necesidades_json necesidades_json_publicacion, pub.destacado destacado_publicacion, pub.orden orden_publicacion, pub.permite_cotizacion permite_cotizacion_publicacion, pub.permite_whatsapp permite_whatsapp_publicacion, pub.mostrar_precio mostrar_precio_publicacion, pub.mostrar_disponibilidad mostrar_disponibilidad_publicacion" : "NULL id_publicacion, NULL estatus_publicacion, NULL slug_publicacion, NULL titulo_publico_publicacion, NULL descripcion_publica_publicacion, NULL presentacion_publica_publicacion, NULL mascota_especie_publicacion, NULL necesidades_json_publicacion, NULL destacado_publicacion, NULL orden_publicacion, NULL permite_cotizacion_publicacion, NULL permite_whatsapp_publicacion, NULL mostrar_precio_publicacion, NULL mostrar_disponibilidad_publicacion") . "
       FROM erp_catalogo_skus s
       INNER JOIN erp_catalogo_productos p ON p.id_producto_erp=s.id_producto_erp
       LEFT JOIN erp_catalogo_marcas m ON m.id_marca_erp=p.id_marca_erp
@@ -2913,7 +3100,7 @@ class EcommerceCatalogoPublico extends CRUD {
         COALESCE(r.controla_inventario, CASE WHEN s.tipo_inventario IN ('servicio','cargo') THEN 0 ELSE 1 END) controla_inventario,
         COALESCE(r.permite_venta_fraccionaria, 0) permite_venta_fraccionaria,
         COALESCE(inv.cantidad_disponible, 0) existencia_disponible,
-        " . ($tienePublicaciones ? "pub.id_publicacion, pub.estatus_publicacion, pub.slug slug_publicacion, pub.titulo_publico titulo_publico_publicacion, pub.descripcion_publica descripcion_publica_publicacion, pub.presentacion_publica presentacion_publica_publicacion, pub.mascota_especie mascota_especie_publicacion, pub.necesidades_json necesidades_json_publicacion" : "NULL id_publicacion, NULL estatus_publicacion, NULL slug_publicacion, NULL titulo_publico_publicacion, NULL descripcion_publica_publicacion, NULL presentacion_publica_publicacion, NULL mascota_especie_publicacion, NULL necesidades_json_publicacion") . "
+        " . ($tienePublicaciones ? "pub.id_publicacion, pub.estatus_publicacion, pub.slug slug_publicacion, pub.titulo_publico titulo_publico_publicacion, pub.descripcion_publica descripcion_publica_publicacion, pub.presentacion_publica presentacion_publica_publicacion, pub.mascota_especie mascota_especie_publicacion, pub.necesidades_json necesidades_json_publicacion, pub.destacado destacado_publicacion, pub.orden orden_publicacion, pub.permite_cotizacion permite_cotizacion_publicacion, pub.permite_whatsapp permite_whatsapp_publicacion, pub.mostrar_precio mostrar_precio_publicacion, pub.mostrar_disponibilidad mostrar_disponibilidad_publicacion" : "NULL id_publicacion, NULL estatus_publicacion, NULL slug_publicacion, NULL titulo_publico_publicacion, NULL descripcion_publica_publicacion, NULL presentacion_publica_publicacion, NULL mascota_especie_publicacion, NULL necesidades_json_publicacion, NULL destacado_publicacion, NULL orden_publicacion, NULL permite_cotizacion_publicacion, NULL permite_whatsapp_publicacion, NULL mostrar_precio_publicacion, NULL mostrar_disponibilidad_publicacion") . "
       FROM erp_catalogo_skus s
       INNER JOIN erp_catalogo_productos p ON p.id_producto_erp=s.id_producto_erp
       LEFT JOIN erp_catalogo_marcas m ON m.id_marca_erp=p.id_marca_erp

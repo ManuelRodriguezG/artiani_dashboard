@@ -32,6 +32,9 @@ $checks = array(
         "pos_inventario_pendiente_dryrun" => "inventario pendiente queda como accion avanzada",
         "pos_venta_rapida_btn" => "boton venta rapida controlada visible",
         "pos_venta_rapida_modal" => "modal de producto por clasificar",
+        "pos_atenciones_crear" => "boton real para enviar cuenta a Atenciones",
+        "Enviar cuenta a Atenciones" => "copy operativo de atenciones compartidas",
+        "pos_atencion_activa" => "indicador de atencion cargada en carrito",
         "/ventas/manual_pos" => "acceso al manual desde POS",
     ),
     "js_pos" => array(
@@ -50,10 +53,18 @@ $checks = array(
         "event.altKey && key === \"4\"" => "atajo pago saldo cliente implementado",
         "agregarPagoRapido(\"efectivo\")" => "atajo/boton pago efectivo conectado",
         "key === \"Enter\"" => "atajo cobrar conectado",
+        "atencion_persistente_crear_erp" => "creacion real de atencion desde UI",
+        "atencion_detalle_readonly_erp" => "carga de atencion desde bandeja",
+        "data-pos-atencion-cargar" => "accion cargar atencion en POS",
+        "id_atencion: atencionActiva" => "cobro de atencion envia id_atencion",
+        "desvincularAtencionPorEdicion" => "proteccion contra editar atencion cargada",
     ),
     "controlador" => array(
         "function manual_pos" => "ruta manual POS",
         "ventas.ver" => "permiso de lectura para manual",
+        "function atencion_persistente_crear_erp" => "endpoint real crear atencion",
+        "function atencion_detalle_readonly_erp" => "endpoint read-only detalle atencion",
+        "auditarAtencionPos" => "auditoria explicita de atencion POS",
     ),
     "sidebar" => array(
         "'Manual POS'" => "manual visible en sidebar",
@@ -84,6 +95,9 @@ $checks = array(
         "Stock es lo disponible" => "explicacion stock/pieza/granel",
         "La fecha compromiso solo aplica a pedidos o apartados" => "explicacion compromiso",
         "Prevalidar no vende ni descuenta inventario" => "diferencia entre prevalidar y cobrar",
+        "Enviar cuenta a Atenciones" => "manual explica envio real de atencion",
+        "Consultar bandeja" => "manual explica consulta de bandeja",
+        "Cargar" => "manual explica carga de atencion",
     ),
 );
 

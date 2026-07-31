@@ -51,15 +51,38 @@ Para piloto multiusuario deben cumplirse estas condiciones:
 
 1. Supervisor abre turno desde Caja/Turnos.
 2. Usuario A entra al POS con su propia sesion.
-3. Usuario A crea una atencion/cuenta con cliente identificable.
+3. Usuario A crea una cuenta local con cliente identificable.
 4. Usuario A agrega una partida por buscador, escaner fisico o boton de camara `F3`.
-5. Usuario B entra al POS con su propia sesion.
-6. Usuario B consulta atenciones.
-7. Usuario B toma la atencion de Usuario A.
-8. Usuario B revisa partidas, cantidades, cliente y total.
-9. Usuario B cobra.
-10. Supervisor revisa ticket, venta, caja, kardex y cierre.
-11. Supervisor cierra turno aunque exista diferencia, dejando observacion.
+5. Usuario A abre `Atenciones` y usa `Enviar cuenta a Atenciones`.
+6. El POS limpia la cuenta local despues de enviarla para evitar doble cobro.
+7. Usuario B entra al POS con su propia sesion.
+8. Usuario B abre `Atenciones`, usa `Consultar bandeja` y despues `Cargar`.
+9. Usuario B revisa partidas, cantidades, cliente y total.
+10. Usuario B registra el pago y cobra.
+11. Supervisor revisa ticket, venta, caja, kardex y cierre.
+12. Supervisor cierra turno aunque exista diferencia, dejando observacion.
+
+## Flujo UI Vigente 2026-07-30
+
+La separacion importante es esta:
+
+- `Cuentas en atencion`: cuentas locales del navegador actual. Sirven para atender a varios clientes en el mismo dispositivo, pero no son compartidas entre usuarios.
+- `Atenciones`: bandeja persistente compartida por tienda/caja. Sirve para que una persona arme la cuenta y otra la cobre.
+
+Operacion recomendada:
+
+1. En POS, elegir o crear una cuenta local.
+2. Agregar productos y confirmar cliente/telefono si aplica.
+3. Abrir `Atenciones`.
+4. Dar clic en `Enviar cuenta a Atenciones`.
+5. Confirmar que el POS muestre que la cuenta fue enviada y que el carrito local quedo limpio.
+6. En otra sesion o equipo, abrir POS con un usuario autorizado.
+7. Abrir `Atenciones`, dar clic en `Consultar bandeja`.
+8. Dar clic en `Cargar` sobre la atencion del cliente.
+9. Revisar el indicador `Atencion cargada` encima del carrito.
+10. Agregar metodo de pago y cobrar.
+
+Regla de seguridad operativa: si una atencion cargada se modifica en el POS antes de cobrar, el sistema la desvincula y la convierte en una cuenta local. Esto evita cobrar una atencion compartida con contenido distinto al que se envio originalmente.
 
 ## Evidencia Minima
 
@@ -67,7 +90,7 @@ Para piloto multiusuario deben cumplirse estas condiciones:
 - Folio de turno.
 - Usuario que crea atencion.
 - Folio/id de atencion.
-- Usuario que toma la atencion.
+- Usuario que carga la atencion.
 - Usuario que cobra.
 - Folio POS.
 - Metodo de pago.

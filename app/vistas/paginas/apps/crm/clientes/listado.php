@@ -126,16 +126,6 @@ $crmPuedeAuditar = in_array('crm.auditoria', $crmPermisosSesion, true);
                                     </a>
                                 </li>
                                 <li class="nav-item" role="presentation">
-                                    <a class="nav-link" data-bs-toggle="tab" href="#crm_tab_comercial" role="tab">
-                                        <i class="bi bi-graph-up-arrow"></i> Comercial
-                                    </a>
-                                </li>
-                                <li class="nav-item" role="presentation">
-                                    <a class="nav-link" data-bs-toggle="tab" href="#crm_tab_recompensas" role="tab">
-                                        <i class="bi bi-award"></i> Recompensas
-                                    </a>
-                                </li>
-                                <li class="nav-item" role="presentation">
                                     <a class="nav-link" data-bs-toggle="tab" href="#crm_tab_clientes" role="tab">
                                         <i class="bi bi-people"></i> Clientes
                                     </a>
@@ -178,6 +168,45 @@ $crmPuedeAuditar = in_array('crm.auditoria', $crmPermisosSesion, true);
                             </div>
 
                             <div class="crm-panel mb-4">
+                                <div class="p-4 border-bottom">
+                                    <div class="fw-bold">Submodulos CRM dedicados</div>
+                                    <div class="text-muted fs-7">Cada intencion de trabajo vive fuera del listado principal de clientes</div>
+                                </div>
+                                <div class="p-4">
+                                    <div class="row g-3">
+                                        <div class="col-md-6 col-xl-3">
+                                            <a href="/crm/seguimiento" class="btn btn-light-primary w-100 text-start h-100 p-4">
+                                                <i class="bi bi-list-task fs-3 d-block mb-2"></i>
+                                                <span class="fw-bold d-block">Seguimiento</span>
+                                                <span class="text-muted fs-8">Tareas e interacciones</span>
+                                            </a>
+                                        </div>
+                                        <div class="col-md-6 col-xl-3">
+                                            <a href="/crm/comercial" class="btn btn-light-primary w-100 text-start h-100 p-4">
+                                                <i class="bi bi-tags fs-3 d-block mb-2"></i>
+                                                <span class="fw-bold d-block">Comercial</span>
+                                                <span class="text-muted fs-8">Segmentos y condiciones</span>
+                                            </a>
+                                        </div>
+                                        <div class="col-md-6 col-xl-3">
+                                            <a href="/crm/recompensas" class="btn btn-light-primary w-100 text-start h-100 p-4">
+                                                <i class="bi bi-stars fs-3 d-block mb-2"></i>
+                                                <span class="fw-bold d-block">Recompensas</span>
+                                                <span class="text-muted fs-8">Programas y saldos</span>
+                                            </a>
+                                        </div>
+                                        <div class="col-md-6 col-xl-3">
+                                            <a href="/crm/reportes" class="btn btn-light-primary w-100 text-start h-100 p-4">
+                                                <i class="bi bi-graph-up-arrow fs-3 d-block mb-2"></i>
+                                                <span class="fw-bold d-block">Reportes</span>
+                                                <span class="text-muted fs-8">Indicadores CRM</span>
+                                            </a>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="crm-panel mb-4 d-none">
                                 <div class="p-4 border-bottom d-flex justify-content-between align-items-center">
                                     <div>
                                         <div class="fw-bold">Tipos de cliente</div>
@@ -252,7 +281,7 @@ $crmPuedeAuditar = in_array('crm.auditoria', $crmPermisosSesion, true);
                                 </div>
                             </div>
 
-                            <div class="crm-panel mb-4">
+                            <div class="crm-panel mb-4 d-none">
                                 <div class="p-4 border-bottom d-flex justify-content-between align-items-center">
                                     <div>
                                         <div class="fw-bold">Tareas de seguimiento</div>
@@ -277,7 +306,7 @@ $crmPuedeAuditar = in_array('crm.auditoria', $crmPermisosSesion, true);
                             </div>
 
                                 </div>
-                                <div class="tab-pane fade" id="crm_tab_comercial" role="tabpanel">
+                                <div class="tab-pane fade d-none" id="crm_tab_comercial" role="tabpanel">
 
                             <div class="crm-panel mb-4">
                                 <div class="p-4 border-bottom d-flex justify-content-between align-items-center">
@@ -294,15 +323,19 @@ $crmPuedeAuditar = in_array('crm.auditoria', $crmPermisosSesion, true);
                                 <div class="p-4 border-bottom d-flex justify-content-between align-items-center">
                                     <div>
                                         <div class="fw-bold">Reportes CRM</div>
-                                        <div class="text-muted fs-7">Contactabilidad, campanas, recompensas y garantias en modo lectura</div>
+                                        <div class="text-muted fs-7">Los indicadores operativos viven ahora en su tablero dedicado</div>
                                     </div>
-                                    <button type="button" class="btn btn-sm btn-light-primary" id="crm_reportes_recargar"><i class="bi bi-arrow-clockwise"></i> Recargar</button>
+                                    <a href="/crm/reportes" class="btn btn-sm btn-light-primary"><i class="bi bi-graph-up-arrow"></i> Abrir reportes</a>
                                 </div>
-                                <div class="p-4" id="crm_reportes_resumen"></div>
+                                <div class="p-4">
+                                    <div class="alert alert-light-primary py-3 mb-0 fs-7">
+                                        Mantener reportes fuera del listado evita mezclar trabajo operativo de clientes con lectura gerencial, calidad de datos y elegibilidad comercial.
+                                    </div>
+                                </div>
                             </div>
 
                                 </div>
-                                <div class="tab-pane fade" id="crm_tab_recompensas" role="tabpanel">
+                                <div class="tab-pane fade d-none" id="crm_tab_recompensas" role="tabpanel">
 
                             <div class="crm-panel mb-4">
                                 <div class="p-4 border-bottom d-flex justify-content-between align-items-center">

@@ -1,6 +1,6 @@
 # ERP Ventas/POS - Venta rapida controlada
 
-Documento vivo. Ultima actualizacion: 2026-07-23.
+Documento vivo. Ultima actualizacion: 2026-07-30.
 
 Proyecto canonico: `C:\xampp\htdocs\panel_de_control`.
 
@@ -250,3 +250,50 @@ C:\xampp\php\php.exe storage\uat\uat_ventas_pos_venta_rapida_resolver_postcheck_
 Resultado: `ok=true`, sin bloqueos.
 
 Siguiente trabajo: resolver la regularizacion desde Inventario/Existencias. POS ya cumplio: cobro, caja, clasificacion catalogo, evento y alerta a Inventario.
+
+## Bandeja operativa UI 2026-07-30
+
+Se agrego la pantalla resolutiva para que las alertas de Catalogo ya no abran el POS sin acciones disponibles.
+
+- Ruta: `/ventas/venta_rapida_pendientes`.
+- Menu: Ventas y POS > Pendientes venta rapida.
+- Alertas futuras: `pendiente_catalogo_pos` apunta a `/ventas/venta_rapida_pendientes?folio=VRP-...`.
+- Alertas historicas: si aun apuntan a `/ventas/pos?pendiente_venta_rapida=VRP-...`, el JS de POS redirige a la bandeja correcta.
+
+Flujo de atencion:
+
+1. La venta rapida se agrega al carrito sin crear alerta.
+2. Al cobrar la venta real, POS crea el detalle `VENTA-RAPIDA`, el pendiente `VRP-*`, evento y notificacion para Catalogo.
+3. Catalogo abre la alerta y entra a la bandeja.
+4. Revisa descripcion capturada, venta, cantidad, precio, proveedor/marca/categoria provisional y eventos.
+5. Si el SKU ya existe, lo busca y simula el vinculo.
+6. Si no hay bloqueos, resuelve el pendiente contra ese SKU.
+7. Si el SKU no existe, usa `Solicitar borrador a Catalogo`; no se manda al usuario a una pantalla sin guia.
+8. Catalogo recibe incidencia `venta_rapida_sku_sin_match` con descripcion, folio, cantidad, precio, codigo, marca/proveedor/categoria provisional y evidencia de venta.
+9. Catalogo puede crear SKU temporal/borrador desde esa incidencia, completar datos maestros y notificar de regreso a Ventas/POS.
+10. Ventas/POS vuelve a la bandeja `VRP` y vincula el pendiente al SKU definitivo.
+
+Contrato:
+
+- La bandeja no crea SKU automaticamente.
+- La consulta requiere `ventas.ver` o `catalogo.ver`.
+- La resolucion real requiere `ventas.operar` o `catalogo.editar`, token backend y confirmacion exacta.
+- Al resolver, se actualiza el pendiente y el detalle historico con SKU real.
+- El ticket y precio historico no se recalculan.
+- No se mueve kardex en Catalogo; si controla inventario, queda alerta separada para Inventario/Existencias.
+- Solicitar borrador a Catalogo no crea SKU ni resuelve el `VRP`; solo crea/actualiza una incidencia y notificacion accionable.
+- La incidencia usa huella unica por folio `VRP` para evitar duplicados si varias personas presionan la accion.
+
+## Captura multipartida en POS 2026-07-30
+
+Se ajusto el modal de `Venta rapida` para operar con fila real:
+
+- Boton `Agregar y seguir`: agrega el producto por clasificar al carrito, conserva el modal abierto y limpia descripcion/cantidad/precio/codigo/observaciones.
+- Boton `Agregar y cerrar`: agrega el producto y cierra el modal.
+- Se conservan campos utiles para captura repetitiva como categoria, marca, proveedor probable, motivo y controla inventario.
+- Si el operador cambia cualquier campo despues de validar, la validacion anterior se invalida para evitar agregar datos viejos.
+- Atajos dentro del modal:
+  - `Ctrl + Enter`: validar.
+  - `Alt + Enter`: agregar y seguir.
+
+Cada partida de venta rapida cobrada genera su propio pendiente `VRP-*`, ligado al detalle de venta correspondiente.

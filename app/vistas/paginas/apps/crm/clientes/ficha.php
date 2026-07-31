@@ -8,7 +8,7 @@ if (!empty($_SESSION['id_usuario'])) {
     $_SESSION['permisos'] = $crmAutorizacion['permisos'];
 }
 $crmPermisosSesion = isset($_SESSION['permisos']) && is_array($_SESSION['permisos']) ? $_SESSION['permisos'] : array();
-$crmPuedeEditar = in_array('crm.editar', $crmPermisosSesion, true);
+$crmPuedeEditar = in_array('crm.editar', $crmPermisosSesion, true) || in_array('crm.clientes.editar', $crmPermisosSesion, true);
 ?>
 <html lang="es">
 <head>

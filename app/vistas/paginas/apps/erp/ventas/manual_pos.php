@@ -331,6 +331,19 @@
                                             <li>Pendiente para Inventario/Existencias si el producto debe controlar stock.</li>
                                             <li>Reporte de ventas rapidas abiertas hasta que Catalogo las cierre.</li>
                                         </ol>
+                                        <h3 class="fw-bold fs-6 mt-4">Como se atiende la alerta</h3>
+                                        <ol class="text-muted">
+                                            <li>La alerta aparece despues de cobrar, no al agregar al carrito.</li>
+                                            <li>Desde Notificaciones, abrir la alerta de Catalogo; debe llevar a <strong>Pendientes venta rapida</strong>.</li>
+                                            <li>Revisar el folio VRP, descripcion, precio, cantidad y datos provisionales.</li>
+                                            <li>Si el SKU ya existe, buscarlo, simular el vinculo y resolver el pendiente.</li>
+                                            <li>Si el SKU no existe, usar <strong>Solicitar borrador a Catalogo</strong>. Esto crea una tarea para Catalogo con los datos capturados en POS.</li>
+                                            <li>Catalogo crea el SKU borrador, completa datos maestros y avisa de regreso para vincular el VRP.</li>
+                                            <li>Si controla inventario, Inventario/Existencias atiende la regularizacion posterior; Catalogo no mueve kardex.</li>
+                                        </ol>
+                                        <div class="mt-3">
+                                            <a class="btn btn-sm btn-light-primary" href="/ventas/venta_rapida_pendientes"><i class="bi bi-list-check"></i> Abrir pendientes venta rapida</a>
+                                        </div>
                                         <div class="pos-manual-warning p-3 mt-4">
                                             <div class="fw-bold">Diferencia contra inventario pendiente</div>
                                             <div class="text-muted fs-7">Inventario pendiente se usa cuando el SKU ya existe pero no hay suficiente existencia. Venta rapida se usa cuando no hay SKU definitivo o el producto no se encuentra en Catalogo. Son flujos distintos.</div>
@@ -388,11 +401,16 @@
                                         <ol class="text-muted">
                                             <li>El operador entra con su usuario y arma una cuenta para el cliente.</li>
                                             <li>Agrega productos, cantidades y observaciones necesarias.</li>
-                                            <li>Guarda o deja la atencion lista para cobro.</li>
-                                            <li>En caja, el cajero consulta la bandeja de atenciones.</li>
-                                            <li>El cajero toma la atencion, confirma que sea el cliente correcto y cobra.</li>
+                                            <li>Abre <strong>Atenciones</strong> y pulsa <strong>Enviar cuenta a Atenciones</strong>.</li>
+                                            <li>El sistema crea un folio temporal de atencion y limpia la cuenta local para evitar doble cobro.</li>
+                                            <li>En caja, el cajero abre <strong>Atenciones</strong> y pulsa <strong>Consultar bandeja</strong>.</li>
+                                            <li>El cajero pulsa <strong>Cargar</strong>, confirma que sea el cliente correcto, agrega pago y cobra.</li>
                                             <li>El sistema debe conservar quien creo la atencion y quien la cobro.</li>
                                         </ol>
+                                        <div class="pos-manual-warning p-3 mb-4">
+                                            <div class="fw-bold">Si se modifica despues de cargar</div>
+                                            <div class="text-muted fs-7">Cuando una atencion se carga desde la bandeja queda vinculada al folio temporal. Si el cajero cambia productos, cantidades o modo de salida, el POS la desvincula y pasa a ser cuenta local para evitar cobrar algo distinto a lo que envio el vendedor.</div>
+                                        </div>
                                         <h3 class="fw-bold fs-6 mt-4">Reglas</h3>
                                         <ul class="pos-manual-list text-muted">
                                             <li>No debe descontar inventario solo por crear la atencion.</li>

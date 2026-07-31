@@ -12,18 +12,45 @@ require_once __DIR__ . "/../../app/iniciador.php";
 require_once __DIR__ . "/../../app/core/CRUD.php";
 require_once __DIR__ . "/../../app/modelos/ClientesCrm.php";
 
-$opciones = getopt("", array("id::", "tipo_complemento::", "tipo::", "valor::", "nombre::", "rfc::", "razon::", "calle::", "cp::", "nota::"));
+$opciones = getopt("", array(
+  "id::",
+  "tipo_complemento::",
+  "tipo::",
+  "valor::",
+  "nombre::",
+  "etiqueta::",
+  "principal::",
+  "permite_contacto::",
+  "rfc::",
+  "razon::",
+  "regimen::",
+  "uso_cfdi::",
+  "calle::",
+  "cp::",
+  "nota::",
+  "otorgado::",
+  "medio::",
+  "evidencia::"
+));
 $tipoComplemento = isset($opciones["tipo_complemento"]) ? $opciones["tipo_complemento"] : "contacto";
 $datos = array(
   "id_cliente_crm" => isset($opciones["id"]) ? intval($opciones["id"]) : 1,
   "tipo" => isset($opciones["tipo"]) ? $opciones["tipo"] : "telefono",
   "valor" => isset($opciones["valor"]) ? $opciones["valor"] : "3312345678",
   "nombre_contacto" => isset($opciones["nombre"]) ? $opciones["nombre"] : "",
+  "etiqueta" => isset($opciones["etiqueta"]) ? $opciones["etiqueta"] : "",
+  "principal" => isset($opciones["principal"]) ? intval($opciones["principal"]) : 0,
+  "permite_contacto" => isset($opciones["permite_contacto"]) ? intval($opciones["permite_contacto"]) : 0,
   "rfc" => isset($opciones["rfc"]) ? $opciones["rfc"] : "XAXX010101000",
   "razon_social" => isset($opciones["razon"]) ? $opciones["razon"] : "Cliente Express UAT",
+  "regimen_fiscal" => isset($opciones["regimen"]) ? $opciones["regimen"] : "",
+  "uso_cfdi_default" => isset($opciones["uso_cfdi"]) ? $opciones["uso_cfdi"] : "",
   "calle" => isset($opciones["calle"]) ? $opciones["calle"] : "Calle UAT",
   "codigo_postal" => isset($opciones["cp"]) ? $opciones["cp"] : "00000",
-  "nota" => isset($opciones["nota"]) ? $opciones["nota"] : "Nota operativa UAT"
+  "nota" => isset($opciones["nota"]) ? $opciones["nota"] : "Nota operativa UAT",
+  "otorgado" => isset($opciones["otorgado"]) ? intval($opciones["otorgado"]) : 1,
+  "medio" => isset($opciones["medio"]) ? $opciones["medio"] : "verbal",
+  "evidencia" => isset($opciones["evidencia"]) ? $opciones["evidencia"] : ""
 );
 
 $modelo = new ClientesCrm();

@@ -978,6 +978,6 @@
             "costos" => SesionSeguridad::tienePermiso("catalogo.costos")
         )); ?>;
     </script>
-    <script src="/assets/js/custom/apps/erp/catalogo/productos.js?v=20260730-presentaciones-factor-operativo-1"></script>
+    <script src="/assets/js/custom/apps/erp/catalogo/productos.js?v=20260730-vrp-sku-temporal1"></script>
 </body>
 </html>

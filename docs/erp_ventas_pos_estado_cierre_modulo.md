@@ -1,10 +1,92 @@
 # ERP Ventas/POS - Estado de cierre del modulo
 
-Documento vivo. Ultima actualizacion: 2026-07-26.
+Documento vivo. Ultima actualizacion: 2026-07-30.
 
 Proyecto canonico: `C:\xampp\htdocs\panel_de_control`.
 
 Host canonico local: `http://panel.com.local/`.
+
+## Corte 2026-07-30 - estado de cuentas multiples y atenciones compartidas
+
+Se reviso el flujo multiusuario para evitar perdida de contexto antes de compactacion de chat.
+
+### Ajuste 2026-07-30 - observaciones de prueba real de Atenciones
+
+Observaciones atendidas:
+
+- Al cargar una atencion creada por otro navegador/equipo, la imagen del producto no aparecia si el snapshot historico no tenia `url_imagen`.
+- Se agrego fallback en `VentasErp::atencionDetalleReadOnly()` para resolver imagen activa del SKU cuando el snapshot no la trae.
+- Nuevas atenciones guardan `url_imagen` desde `prevalidarPartida()` cuando se crean desde POS.
+- Al cargar la misma atencion varias veces, POS ahora selecciona la cuenta local existente en vez de crear otra cuenta local duplicada.
+- Si una cuenta ya viene de `Atenciones`, POS bloquea `Enviar cuenta a Atenciones` para no duplicar registros persistentes.
+- Si una atencion cargada se modifica, queda marcada como desvinculada y no puede reenviarse como atencion nueva desde esa misma cuenta local.
+- Al cargar una partida de `Venta rapida` desde Atenciones, POS conserva `tipo_partida`, `origen_partida`, descripcion manual, datos provisionales, control de inventario y observaciones para que el cobro real use el flujo autorizado de venta rapida.
+- Se actualizo el cache-buster JS de POS a `20260730-atenciones-venta-rapida`.
+
+Diagnostico Acuario/Mascotas:
+
+- Usuario `1` tiene dos asignaciones activas: Acuario `id_almacen=4/id_caja=1` y Mascotas `id_almacen=5/id_caja=2`.
+- Ambas tenian prioridad `1`; la asignacion actual generica podia resolver Mascotas por orden interno.
+- Se ajusto `VentasErp::asignacionActualTerminalPos()` para aceptar filtros `id_almacen`, `id_caja` e `id_terminal_pos`.
+- Apertura/cierre real de turno ahora valida contra la asignacion concreta seleccionada, no solo contra la primera asignacion del usuario.
+- Esto mantiene la regla de seguridad: no hay seleccion libre de sucursal; solo se permite operar cajas donde el usuario tenga asignacion POS activa.
+
+Estado real en UI POS:
+
+- `Cuentas en atencion` en la pantalla principal son cuentas locales del navegador y del usuario ERP.
+- Estas cuentas locales permiten atender varios clientes al mismo tiempo en una misma terminal sin mezclar partidas.
+- Las cuentas locales se guardan en `localStorage` con llave por usuario; no se comparten entre otros navegadores, equipos o usuarios.
+- Al cobrar una cuenta local, el cobro queda ligado al usuario que esta logueado y al turno/caja asignado.
+
+Estado real de `Atenciones` compartidas:
+
+- Existe esquema aplicado para atenciones persistentes: `erp_pos_atenciones`, `erp_pos_atenciones_detalle` y `erp_pos_atenciones_pagos_temporales`.
+- Existe modelo real `VentasErp::crearAtencionPersistente()` para crear una atencion compartida sin reservar, sin cobrar y sin descontar inventario.
+- Existe endpoint web real `/ventas/atencion_persistente_crear_erp` para enviar una cuenta local a `Atenciones`.
+- Existe bandeja read-only `VentasErp::atencionesBandejaDryRun()` consultada desde el modal `Atenciones`, con accion `Cargar`.
+- Existe consulta de detalle read-only `VentasErp::atencionDetalleReadOnly()`.
+- Existe conversion/cobro real por backend cuando se pasa `id_atencion`; al cobrar, la atencion se bloquea con `FOR UPDATE`, se revalidan datos y se marca como `convertida`.
+- En la UI POS actual, el boton `Enviar cuenta a Atenciones` crea la atencion persistente real y limpia la cuenta local para evitar doble cobro.
+- Al cargar una atencion desde bandeja, POS crea una cuenta local vinculada con `id_atencion`; al cobrar, el payload envia ese `id_atencion`.
+- Si el operador modifica una atencion cargada, el POS la desvincula para evitar cobrar una cuenta distinta a la creada por el vendedor.
+
+Como deberia verlo el operador cuando se complete la UI real:
+
+1. Vendedor entra con su usuario y arma cuenta del cliente.
+2. Vendedor envia la cuenta a `Atenciones` como persistente.
+3. Caja abre `Atenciones > Consultar bandeja`.
+4. La bandeja muestra folio temporal, cliente, vendedor, tienda, estatus, total y partidas.
+5. Caja toma la atencion, revisa productos, cantidades, cliente y total.
+6. Caja cobra desde POS; la venta genera folio POS, pago, caja, ticket, kardex e historial.
+7. La atencion queda `convertida` y no debe poder cobrarse dos veces.
+
+Pendiente para considerar el flujo "completo desde UI validada":
+
+- Probar UAT navegador con dos usuarios/sesiones y un turno abierto.
+- Mejorar la bandeja para mostrar nombres de `creado_por`, `tomado_por` y `cobrado_por` en vez de solo datos base.
+- Agregar `Liberar/Cancelar` atencion desde UI con auditoria.
+
+Cambios aplicados:
+
+- `app/controladores/Ventas.php`: endpoints `atencion_persistente_crear_erp` y `atencion_detalle_readonly_erp`.
+- `app/vistas/paginas/apps/erp/ventas/pos.php`: boton `Enviar cuenta a Atenciones`, contenedor de atencion cargada y copy operativo.
+- `public/assets/js/custom/apps/erp/ventas/pos.js`: creacion real, carga de bandeja, estado `atencion_pos`, envio de `id_atencion` al cobro y desvinculacion por edicion.
+
+Validaciones ejecutadas:
+
+```powershell
+node --check public\assets\js\custom\apps\erp\ventas\pos.js
+C:\xampp\php\php.exe -l app\controladores\Ventas.php
+C:\xampp\php\php.exe -l app\vistas\paginas\apps\erp\ventas\pos.php
+C:\xampp\php\php.exe storage\uat\uat_ventas_pos_ux_operativa_readiness_readonly.php
+C:\xampp\php\php.exe storage\uat\uat_ventas_pos_lenguaje_operativo_readonly.php
+```
+
+Resultado:
+
+- Sintaxis JS/PHP: `ok`.
+- UX operativa: `ok=true`, `bloqueos=[]`.
+- Lenguaje operativo: `ok=true`, `bloqueos=[]`.
 
 ## Corte 2026-07-26 - granel operativo con inventario pendiente
 

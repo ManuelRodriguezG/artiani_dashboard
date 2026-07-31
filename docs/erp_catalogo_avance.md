@@ -3078,3 +3078,39 @@ Validacion:
 - Regla: `activo`, `borrador` y `en_revision` pueden aparecer para preparacion; `inactivo`, `descontinuado` y `fusionado` no deben usarse como candidatos operativos.
 - No se aplico DDL ni se modificaron datos existentes.
 - UAT recomendado: inactivar un producto con SKU asociado y confirmar que ya no aparece al buscarlo como componente/opcion de paquete, presentacion o candidato comercial.
+## Actualizacion 2026-07-30 - Estado vivo Catalogo ERP
+
+Contexto: se esta trabajando en el proyecto vigente `C:\xampp\htdocs\panel_de_control`. El proyecto anterior `C:\xampp\htdocs\panel` no debe usarse para nuevos cambios de Catalogo.
+
+Avances recientes:
+
+- Apertura de empaques: existe flujo de Catalogo separado de Presentaciones para configurar SKU cerrado origen -> SKU granel destino. Catalogo solo define la regla; Almacen/Inventario ejecutaran movimientos despues.
+- Presentaciones: la UI ya muestra `Factor operativo` como valor numerico, sin concatenar unidad como `kg`, para no confundir el factor con una unidad fija. La unidad se interpreta por la configuracion de los SKUs relacionados.
+- Proveedor principal: al marcar un proveedor como principal desde el modal, la tabla se actualiza de inmediato sin cerrar y reabrir el modal.
+- Incidencias de calidad: se aclaro que crear/activar SKU no cierra automaticamente la incidencia. El cierre debe ser una decision operativa: `Resolver` si ya se atendio, `Descartar` si no aplica/duplicada/atendida por otro flujo.
+
+Cambio de flujo aplicado:
+
+- En `Incidencias de calidad`, cada incidencia abierta muestra acciones `Resolver` y `Descartar` cuando el usuario tiene `catalogo.editar`.
+- Ambas acciones piden motivo/resolucion y usan el endpoint existente `/catalogoerp/incidencia_calidad_estatus`.
+- Despues de resolver o descartar, la lista recarga solo incidencias abiertas, por lo que la fila debe desaparecer.
+
+Regla operativa:
+
+- `estatus` de producto/SKU (`activo`, `borrador`, `en_revision`, etc.) no equivale al estatus de una incidencia de calidad.
+- Un SKU puede estar activo y todavia tener una incidencia abierta si nadie la cerro como `resuelta` o `descartada`.
+- No cerrar automaticamente incidencias solo por activar el SKU; Catalogo debe conservar decision humana y motivo.
+
+Validacion tecnica esperada:
+
+- `node --check public/assets/js/custom/apps/erp/catalogo/productos.js`.
+- `C:\xampp\php\php.exe -l app/vistas/paginas/apps/erp/catalogo/productos.php`.
+
+UAT sugerido:
+
+1. Abrir Catalogo ERP > Productos.
+2. En `Incidencias de calidad`, ubicar una incidencia ya atendida.
+3. Presionar `Resolver`.
+4. Capturar motivo: `Producto creado y SKU validado en Catalogo`.
+5. Confirmar que desaparece de la lista abierta.
+6. Si era duplicada/no aplica, usar `Descartar` con motivo claro.

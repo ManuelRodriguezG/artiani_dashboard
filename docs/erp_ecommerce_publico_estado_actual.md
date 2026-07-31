@@ -581,3 +581,35 @@ C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_cotizaciones_bandeja_read
   - `descartar`;
   - `preparar_pedido_manual`;
   - `preparar_venta_pos_manual`.
+
+## Actualizacion 2026-07-30 - Gobierno del canal Artiani
+
+- Se agrega panel interno:
+  - `http://panel.com.local/ecommercePublico/control`.
+- Objetivo: controlar que se muestra en el ecommerce Artiani antes de abrir gobierno multi-canal para terceros.
+- El panel permite:
+  - buscar por SKU, nombre, marca y categoria;
+  - filtrar por estatus de publicacion;
+  - filtrar por disponibilidad publica;
+  - excluir o aislar productos de granel;
+  - guardar borradores por seleccion;
+  - publicar/reactivar productos seleccionados;
+  - pausar productos seleccionados para ocultarlos del API publico;
+  - editar curaduria por producto;
+  - controlar banderas por publicacion: destacado, mostrar precio, mostrar disponibilidad, permitir cotizacion y permitir WhatsApp.
+- No requiere DDL nuevo porque usa `erp_ecommerce_publicaciones`.
+- No toca Catalogo ERP, precios, imagenes, inventario ni legacy `ecom_*`.
+- Las escrituras internas requieren `catalogo.editar`, CSRF, token interno y auditoria explicita.
+- Para publicar productos agotados sigue siendo necesaria confirmacion operativa (`confirmar_agotado`).
+- Decision: primero nutrir y gobernar bien el canal propio `catalogo_publico`/Artiani; despues activar la capa de terceros con `erp_ecommerce_canales_api`, credenciales, allowlist y logs.
+
+## Actualizacion 2026-07-30 - Plan mascotas y recomendaciones
+
+- Se documenta el plan para convertir el ecommerce en una experiencia orientada a mascotas, no solo productos/categorias.
+- Documento vivo:
+  - `docs/erp_ecommerce_mascotas_perfilado_recomendaciones_plan.md`.
+- Decision:
+  - usar una taxonomia viva de mascotas: especie, atributos, necesidades, restricciones y reglas de compatibilidad;
+  - iniciar con navegacion por mascota/necesidad;
+  - evolucionar hacia perfil temporal, recomendaciones preview, configuracion ERP y mascotas registradas en CRM;
+  - no prometer diagnostico medico ni obligar al cliente a registrarse en fases iniciales.

@@ -14,7 +14,7 @@ class Crm extends Controlador {
    * Contrato: no escribe BD; la vista consume endpoints dry-run/read-only.
    */
   public function clientes() {
-    $this->requerirPermiso("crm.ver");
+    $this->requerirAlgunPermiso(array("crm.ver", "crm.clientes.ver"));
     $this->vista("apps/crm/clientes/listado");
   }
 
@@ -26,8 +26,20 @@ class Crm extends Controlador {
    * Contrato: no escribe BD; la vista consume endpoints read-only y dry-run.
    */
   public function seguimiento() {
-    $this->requerirPermiso("crm.ver");
+    $this->requerirAlgunPermiso(array("crm.ver", "crm.seguimiento.ver"));
     $this->vista("apps/crm/seguimiento/index");
+  }
+
+  /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-07-30
+   * Proposito: abrir consola CRM Comercial en modo operativo controlado.
+   * Impacto: separa segmentos y condiciones comerciales del listado principal de clientes.
+   * Contrato: la vista no escribe por si sola; acciones sensibles usan endpoints con token/respaldo.
+   */
+  public function comercial() {
+    $this->requerirAlgunPermiso(array("crm.ver", "crm.comercial.ver"));
+    $this->vista("apps/crm/comercial/index");
   }
 
   /**
@@ -38,8 +50,20 @@ class Crm extends Controlador {
    * Contrato: no otorga puntos, no redime puntos y no cambia saldos.
    */
   public function recompensas() {
-    $this->requerirPermiso("crm.ver");
+    $this->requerirAlgunPermiso(array("crm.ver", "crm.recompensas.ver"));
     $this->vista("apps/crm/recompensas/index");
+  }
+
+  /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-07-30
+   * Proposito: abrir tablero CRM Reportes en modo lectura.
+   * Impacto: separa indicadores operativos del listado principal de clientes.
+   * Contrato: no escribe BD; consume endpoints read-only.
+   */
+  public function reportes() {
+    $this->requerirAlgunPermiso(array("crm.ver", "crm.reportes.ver"));
+    $this->vista("apps/crm/reportes/index");
   }
 
   /**
@@ -50,7 +74,7 @@ class Crm extends Controlador {
    * Contrato: vista de trabajo; escrituras reales quedan bloqueadas por endpoints separados.
    */
   public function cliente($idClienteCrm = 0) {
-    $this->requerirPermiso("crm.ver");
+    $this->requerirAlgunPermiso(array("crm.ver", "crm.clientes.ver"));
     $this->vista("apps/crm/clientes/ficha", array("id_cliente_crm" => intval($idClienteCrm)));
   }
 
@@ -62,7 +86,7 @@ class Crm extends Controlador {
    * Contrato: no escribe BD y requiere permiso de consulta CRM.
    */
   public function clientes_diagnostico_erp() {
-    $this->requerirPermiso("crm.ver");
+    $this->requerirAlgunPermiso(array("crm.ver", "crm.clientes.ver"));
     return json_encode($this->modelo("ClientesCrm")->diagnosticoDominioClientes());
   }
 
@@ -74,7 +98,7 @@ class Crm extends Controlador {
    * Contrato: read-only.
    */
   public function clientes_listar_erp() {
-    $this->requerirPermiso("crm.ver");
+    $this->requerirAlgunPermiso(array("crm.ver", "crm.clientes.ver"));
     return json_encode($this->modelo("ClientesCrm")->listarClientesCanonicos($_GET));
   }
 
@@ -86,7 +110,7 @@ class Crm extends Controlador {
    * Contrato: read-only.
    */
   public function clientes_calidad_cola_erp() {
-    $this->requerirPermiso("crm.ver");
+    $this->requerirAlgunPermiso(array("crm.ver", "crm.clientes.ver"));
     return json_encode($this->modelo("ClientesCrm")->colaCalidadOperativa($_GET));
   }
 
@@ -98,7 +122,7 @@ class Crm extends Controlador {
    * Contrato: read-only.
    */
   public function cliente_consultar_erp() {
-    $this->requerirPermiso("crm.ver");
+    $this->requerirAlgunPermiso(array("crm.ver", "crm.clientes.ver"));
     $idClienteCrm = isset($_GET["id_cliente_crm"]) ? intval($_GET["id_cliente_crm"]) : 0;
     return json_encode($this->modelo("ClientesCrm")->consultarFicha($idClienteCrm));
   }
@@ -111,7 +135,7 @@ class Crm extends Controlador {
    * Contrato: dry-run; no actualiza BD.
    */
   public function cliente_basico_guardar_dryrun_erp() {
-    $this->requerirPermiso("crm.editar");
+    $this->requerirAlgunPermiso(array("crm.editar", "crm.clientes.editar"));
     return json_encode($this->modelo("ClientesCrm")->fichaBasicaGuardarDryRun($_POST));
   }
 
@@ -123,7 +147,7 @@ class Crm extends Controlador {
    * Contrato: escribe BD; requiere token CRM_CLIENTES_FICHA_BASICA y respaldo valido.
    */
   public function cliente_basico_guardar_autorizado_erp() {
-    $this->requerirPermiso("crm.editar");
+    $this->requerirAlgunPermiso(array("crm.editar", "crm.clientes.editar"));
     $autorizar = isset($_POST["autorizar"]) ? trim((string) $_POST["autorizar"]) : "";
     $respaldo = isset($_POST["respaldo"]) ? trim((string) $_POST["respaldo"]) : "";
     $validacionRespaldo = $this->validarRespaldoCrm($respaldo);
@@ -159,7 +183,7 @@ class Crm extends Controlador {
    * Contrato: dry-run; no inserta BD.
    */
   public function cliente_complemento_guardar_dryrun_erp() {
-    $this->requerirPermiso("crm.editar");
+    $this->requerirAlgunPermiso(array("crm.editar", "crm.clientes.editar"));
     $tipo = isset($_POST["tipo_complemento"]) ? trim((string) $_POST["tipo_complemento"]) : "";
     return json_encode($this->modelo("ClientesCrm")->complementoGuardarDryRun($tipo, $_POST));
   }
@@ -172,7 +196,7 @@ class Crm extends Controlador {
    * Contrato: escribe BD; requiere token CRM_CLIENTES_COMPLEMENTO y respaldo valido.
    */
   public function cliente_complemento_guardar_autorizado_erp() {
-    $this->requerirPermiso("crm.editar");
+    $this->requerirAlgunPermiso(array("crm.editar", "crm.clientes.editar"));
     $autorizar = isset($_POST["autorizar"]) ? trim((string) $_POST["autorizar"]) : "";
     $respaldo = isset($_POST["respaldo"]) ? trim((string) $_POST["respaldo"]) : "";
     $validacionRespaldo = $this->validarRespaldoCrm($respaldo);
@@ -206,7 +230,7 @@ class Crm extends Controlador {
    * Contrato: dry-run; no inserta tarea ni notificacion.
    */
   public function cliente_tarea_dryrun_erp() {
-    $this->requerirPermiso("crm.editar");
+    $this->requerirAlgunPermiso(array("crm.editar", "crm.seguimiento.operar"));
     $_POST["id_usuario"] = isset($_SESSION["id_usuario"]) ? intval($_SESSION["id_usuario"]) : 0;
     return json_encode($this->modelo("ClientesCrm")->tareaSeguimientoDryRun($_POST));
   }
@@ -219,7 +243,7 @@ class Crm extends Controlador {
    * Contrato: escribe BD; requiere token CRM_CLIENTES_TAREA y DDL seguimiento aplicado.
    */
   public function cliente_tarea_crear_autorizado_erp() {
-    $this->requerirPermiso("crm.editar");
+    $this->requerirAlgunPermiso(array("crm.editar", "crm.seguimiento.operar"));
     $autorizar = isset($_POST["autorizar"]) ? trim((string) $_POST["autorizar"]) : "";
     $respaldo = isset($_POST["respaldo"]) ? trim((string) $_POST["respaldo"]) : "";
     $validacionRespaldo = $this->validarRespaldoCrm($respaldo);
@@ -253,7 +277,7 @@ class Crm extends Controlador {
    * Contrato: read-only.
    */
   public function clientes_tareas_listar_erp() {
-    $this->requerirPermiso("crm.ver");
+    $this->requerirAlgunPermiso(array("crm.ver", "crm.seguimiento.ver"));
     return json_encode($this->modelo("ClientesCrm")->tareasSeguimientoListar($_GET));
   }
 
@@ -265,7 +289,7 @@ class Crm extends Controlador {
    * Contrato: read-only.
    */
   public function clientes_comercial_resumen_erp() {
-    $this->requerirPermiso("crm.ver");
+    $this->requerirAlgunPermiso(array("crm.ver", "crm.comercial.ver"));
     return json_encode($this->modelo("ClientesCrm")->resumenComercialClientes($_GET));
   }
 
@@ -277,7 +301,7 @@ class Crm extends Controlador {
    * Contrato: read-only.
    */
   public function clientes_reportes_operativos_erp() {
-    $this->requerirPermiso("crm.ver");
+    $this->requerirAlgunPermiso(array("crm.ver", "crm.reportes.ver"));
     return json_encode($this->modelo("ClientesCrm")->reportesOperativosClientes($_GET));
   }
 
@@ -289,7 +313,7 @@ class Crm extends Controlador {
    * Contrato: dry-run; no modifica condiciones ni consentimientos.
    */
   public function cliente_preferencias_dryrun_erp() {
-    $this->requerirPermiso("crm.editar");
+    $this->requerirAlgunPermiso(array("crm.editar", "crm.comercial.operar"));
     $_POST["id_usuario"] = isset($_SESSION["id_usuario"]) ? intval($_SESSION["id_usuario"]) : 0;
     return json_encode($this->modelo("ClientesCrm")->preferenciasContactoDryRun($_POST));
   }
@@ -302,7 +326,7 @@ class Crm extends Controlador {
    * Contrato: escribe BD; requiere token CRM_CLIENTES_PREFERENCIAS y DDL comercial aplicado.
    */
   public function cliente_preferencias_guardar_autorizado_erp() {
-    $this->requerirPermiso("crm.editar");
+    $this->requerirAlgunPermiso(array("crm.editar", "crm.comercial.operar"));
     $autorizar = isset($_POST["autorizar"]) ? trim((string) $_POST["autorizar"]) : "";
     $respaldo = isset($_POST["respaldo"]) ? trim((string) $_POST["respaldo"]) : "";
     $validacionRespaldo = $this->validarRespaldoCrm($respaldo);
@@ -335,7 +359,7 @@ class Crm extends Controlador {
    * Contrato: read-only.
    */
   public function clientes_recompensas_resumen_erp() {
-    $this->requerirPermiso("crm.ver");
+    $this->requerirAlgunPermiso(array("crm.ver", "crm.recompensas.ver"));
     return json_encode($this->modelo("ClientesCrm")->resumenRecompensasClientes($_GET));
   }
 
@@ -347,7 +371,7 @@ class Crm extends Controlador {
    * Contrato: read-only; no otorga/redime puntos ni modifica clientes.
    */
   public function clientes_recompensas_detalle_erp() {
-    $this->requerirPermiso("crm.ver");
+    $this->requerirAlgunPermiso(array("crm.ver", "crm.recompensas.ver"));
     return json_encode($this->modelo("ClientesCrm")->detalleRecompensasClientes($_GET));
   }
 
@@ -359,7 +383,7 @@ class Crm extends Controlador {
    * Contrato: dry-run; no modifica saldos ni crea movimientos.
    */
   public function cliente_recompensa_movimiento_dryrun_erp() {
-    $this->requerirPermiso("crm.editar");
+    $this->requerirAlgunPermiso(array("crm.editar", "crm.recompensas.operar"));
     $_POST["id_usuario"] = isset($_SESSION["id_usuario"]) ? intval($_SESSION["id_usuario"]) : 0;
     return json_encode($this->modelo("ClientesCrm")->recompensaMovimientoDryRun($_POST));
   }
@@ -372,7 +396,7 @@ class Crm extends Controlador {
    * Contrato: escribe BD; requiere token CRM_CLIENTES_RECOMPENSAS_MOVIMIENTO y respaldo valido.
    */
   public function cliente_recompensa_movimiento_crear_autorizado_erp() {
-    $this->requerirPermiso("crm.editar");
+    $this->requerirAlgunPermiso(array("crm.editar", "crm.recompensas.operar"));
     $autorizar = isset($_POST["autorizar"]) ? trim((string) $_POST["autorizar"]) : "";
     $respaldo = isset($_POST["respaldo"]) ? trim((string) $_POST["respaldo"]) : "";
     $validacionRespaldo = $this->validarRespaldoCrm($respaldo);
@@ -406,7 +430,7 @@ class Crm extends Controlador {
    * Contrato: dry-run; no crea programa, cuentas ni movimientos.
    */
   public function cliente_recompensa_programa_dryrun_erp() {
-    $this->requerirPermiso("crm.editar");
+    $this->requerirAlgunPermiso(array("crm.editar", "crm.recompensas.operar"));
     $_POST["id_usuario"] = isset($_SESSION["id_usuario"]) ? intval($_SESSION["id_usuario"]) : 0;
     return json_encode($this->modelo("ClientesCrm")->recompensaProgramaDryRun($_POST));
   }
@@ -419,7 +443,7 @@ class Crm extends Controlador {
    * Contrato: escribe BD; requiere token CRM_CLIENTES_RECOMPENSAS_PROGRAMA y respaldo valido.
    */
   public function cliente_recompensa_programa_crear_autorizado_erp() {
-    $this->requerirPermiso("crm.editar");
+    $this->requerirAlgunPermiso(array("crm.editar", "crm.recompensas.operar"));
     $autorizar = isset($_POST["autorizar"]) ? trim((string) $_POST["autorizar"]) : "";
     $respaldo = isset($_POST["respaldo"]) ? trim((string) $_POST["respaldo"]) : "";
     $validacionRespaldo = $this->validarRespaldoCrm($respaldo);
@@ -453,7 +477,7 @@ class Crm extends Controlador {
    * Contrato: dry-run; no crea cuenta, movimientos ni puntos.
    */
   public function cliente_recompensa_cuenta_dryrun_erp() {
-    $this->requerirPermiso("crm.editar");
+    $this->requerirAlgunPermiso(array("crm.editar", "crm.recompensas.operar"));
     $_POST["id_usuario"] = isset($_SESSION["id_usuario"]) ? intval($_SESSION["id_usuario"]) : 0;
     return json_encode($this->modelo("ClientesCrm")->recompensaCuentaDryRun($_POST));
   }
@@ -466,7 +490,7 @@ class Crm extends Controlador {
    * Contrato: escribe BD; requiere token CRM_CLIENTES_RECOMPENSAS_CUENTA y respaldo valido.
    */
   public function cliente_recompensa_cuenta_crear_autorizado_erp() {
-    $this->requerirPermiso("crm.editar");
+    $this->requerirAlgunPermiso(array("crm.editar", "crm.recompensas.operar"));
     $autorizar = isset($_POST["autorizar"]) ? trim((string) $_POST["autorizar"]) : "";
     $respaldo = isset($_POST["respaldo"]) ? trim((string) $_POST["respaldo"]) : "";
     $validacionRespaldo = $this->validarRespaldoCrm($respaldo);
@@ -500,7 +524,7 @@ class Crm extends Controlador {
    * Contrato: dry-run; no inserta relacion ni modifica cliente.
    */
   public function cliente_segmento_dryrun_erp() {
-    $this->requerirPermiso("crm.editar");
+    $this->requerirAlgunPermiso(array("crm.editar", "crm.comercial.operar"));
     $_POST["id_usuario"] = isset($_SESSION["id_usuario"]) ? intval($_SESSION["id_usuario"]) : 0;
     return json_encode($this->modelo("ClientesCrm")->segmentoAsignarDryRun($_POST));
   }
@@ -513,7 +537,7 @@ class Crm extends Controlador {
    * Contrato: read-only; no crea ni modifica segmentos.
    */
   public function segmentos_catalogo_listar_erp() {
-    $this->requerirPermiso("crm.ver");
+    $this->requerirAlgunPermiso(array("crm.ver", "crm.comercial.ver"));
     return json_encode($this->modelo("ClientesCrm")->segmentosCatalogoReadOnly($_GET));
   }
 
@@ -525,7 +549,7 @@ class Crm extends Controlador {
    * Contrato: dry-run; no modifica segmentos ni clientes.
    */
   public function segmento_catalogo_dryrun_erp() {
-    $this->requerirPermiso("crm.editar");
+    $this->requerirAlgunPermiso(array("crm.editar", "crm.comercial.operar"));
     return json_encode($this->modelo("ClientesCrm")->segmentoCatalogoDryRun($_POST));
   }
 
@@ -537,7 +561,7 @@ class Crm extends Controlador {
    * Contrato: escribe BD; requiere token CRM_CLIENTES_SEGMENTO_CATALOGO y respaldo valido.
    */
   public function segmento_catalogo_guardar_autorizado_erp() {
-    $this->requerirPermiso("crm.editar");
+    $this->requerirAlgunPermiso(array("crm.editar", "crm.comercial.operar"));
     $autorizar = isset($_POST["autorizar"]) ? trim((string) $_POST["autorizar"]) : "";
     $respaldo = isset($_POST["respaldo"]) ? trim((string) $_POST["respaldo"]) : "";
     $validacionRespaldo = $this->validarRespaldoCrm($respaldo);
@@ -570,7 +594,7 @@ class Crm extends Controlador {
    * Contrato: escribe BD; requiere token CRM_CLIENTES_SEGMENTO y respaldo valido.
    */
   public function cliente_segmento_asignar_autorizado_erp() {
-    $this->requerirPermiso("crm.editar");
+    $this->requerirAlgunPermiso(array("crm.editar", "crm.comercial.operar"));
     $autorizar = isset($_POST["autorizar"]) ? trim((string) $_POST["autorizar"]) : "";
     $respaldo = isset($_POST["respaldo"]) ? trim((string) $_POST["respaldo"]) : "";
     $validacionRespaldo = $this->validarRespaldoCrm($respaldo);
@@ -604,7 +628,7 @@ class Crm extends Controlador {
    * Contrato: dry-run; no modifica tarea ni cliente.
    */
   public function cliente_tarea_estatus_dryrun_erp() {
-    $this->requerirPermiso("crm.editar");
+    $this->requerirAlgunPermiso(array("crm.editar", "crm.seguimiento.operar"));
     $_POST["id_usuario"] = isset($_SESSION["id_usuario"]) ? intval($_SESSION["id_usuario"]) : 0;
     return json_encode($this->modelo("ClientesCrm")->tareaEstatusDryRun($_POST));
   }
@@ -617,7 +641,7 @@ class Crm extends Controlador {
    * Contrato: escribe BD; requiere token CRM_CLIENTES_TAREA_ESTATUS y respaldo valido.
    */
   public function cliente_tarea_estatus_autorizado_erp() {
-    $this->requerirPermiso("crm.editar");
+    $this->requerirAlgunPermiso(array("crm.editar", "crm.seguimiento.operar"));
     $autorizar = isset($_POST["autorizar"]) ? trim((string) $_POST["autorizar"]) : "";
     $respaldo = isset($_POST["respaldo"]) ? trim((string) $_POST["respaldo"]) : "";
     $validacionRespaldo = $this->validarRespaldoCrm($respaldo);
@@ -651,7 +675,7 @@ class Crm extends Controlador {
    * Contrato: dry-run; no inserta interaccion ni modifica tareas/clientes.
    */
   public function cliente_interaccion_dryrun_erp() {
-    $this->requerirPermiso("crm.editar");
+    $this->requerirAlgunPermiso(array("crm.editar", "crm.seguimiento.operar"));
     $_POST["id_usuario"] = isset($_SESSION["id_usuario"]) ? intval($_SESSION["id_usuario"]) : 0;
     return json_encode($this->modelo("ClientesCrm")->interaccionDryRun($_POST));
   }
@@ -664,7 +688,7 @@ class Crm extends Controlador {
    * Contrato: escribe BD; requiere token CRM_CLIENTES_INTERACCION y DDL seguimiento aplicado.
    */
   public function cliente_interaccion_crear_autorizado_erp() {
-    $this->requerirPermiso("crm.editar");
+    $this->requerirAlgunPermiso(array("crm.editar", "crm.seguimiento.operar"));
     $autorizar = isset($_POST["autorizar"]) ? trim((string) $_POST["autorizar"]) : "";
     $respaldo = isset($_POST["respaldo"]) ? trim((string) $_POST["respaldo"]) : "";
     $validacionRespaldo = $this->validarRespaldoCrm($respaldo);
@@ -698,7 +722,7 @@ class Crm extends Controlador {
    * Contrato: read-only.
    */
   public function clientes_interacciones_listar_erp() {
-    $this->requerirPermiso("crm.ver");
+    $this->requerirAlgunPermiso(array("crm.ver", "crm.seguimiento.ver"));
     return json_encode($this->modelo("ClientesCrm")->interaccionesListar($_GET));
   }
 

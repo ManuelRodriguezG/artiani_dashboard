@@ -927,6 +927,9 @@ class VentasErp extends CRUD {
         try {
             $db = $this->getConexion();
             $idUsuario = intval($this->valor($datos, "id_usuario", 0));
+            $idAlmacenFiltro = intval($this->valor($datos, "id_almacen", 0));
+            $idCajaFiltro = intval($this->valor($datos, "id_caja", 0));
+            $idTerminalFiltro = intval($this->valor($datos, "id_terminal_pos", 0));
             $schemaPendiente = !$this->tablaExiste($db, "erp_pos_usuarios_cajas")
                 || !$this->tablaExiste($db, "erp_pos_terminales")
                 || !$this->tablaExiste($db, "erp_pos_cajas");
@@ -950,6 +953,25 @@ class VentasErp extends CRUD {
                 ));
             }
 
+            $where = array(
+                "uc.id_usuario=:usuario",
+                "uc.estatus='activo'",
+                "(uc.fecha_fin IS NULL OR uc.fecha_fin >= NOW())"
+            );
+            $params = array(":usuario" => $idUsuario);
+            if ($idAlmacenFiltro > 0) {
+                $where[] = "uc.id_almacen=:almacen";
+                $params[":almacen"] = $idAlmacenFiltro;
+            }
+            if ($idCajaFiltro > 0) {
+                $where[] = "uc.id_caja=:caja";
+                $params[":caja"] = $idCajaFiltro;
+            }
+            if ($idTerminalFiltro > 0) {
+                $where[] = "uc.id_terminal_pos=:terminal";
+                $params[":terminal"] = $idTerminalFiltro;
+            }
+
             $sql = "SELECT uc.id_usuario_caja, uc.id_usuario, uc.id_almacen, uc.id_caja,
                     uc.id_terminal_pos, uc.estatus, uc.prioridad,
                     c.codigo caja_codigo, c.nombre caja_nombre,
@@ -962,13 +984,11 @@ class VentasErp extends CRUD {
                 LEFT JOIN erp_pos_terminales t ON t.id_terminal_pos=uc.id_terminal_pos
                     AND COALESCE(t.estatus, 'activa')='activa'
                 LEFT JOIN erp_almacenes a ON a.id_almacen=uc.id_almacen
-                WHERE uc.id_usuario=:usuario
-                  AND uc.estatus='activo'
-                  AND (uc.fecha_fin IS NULL OR uc.fecha_fin >= NOW())
+                WHERE " . implode(" AND ", $where) . "
                 ORDER BY uc.prioridad ASC, uc.fecha_inicio DESC, uc.id_usuario_caja DESC
                 LIMIT 1";
             $stmt = $db->prepare($sql);
-            $stmt->execute(array(":usuario" => $idUsuario));
+            $stmt->execute($params);
             $asignacion = $stmt->fetch(PDO::FETCH_ASSOC);
             if (!$asignacion) {
                 return $this->respuesta(false, "warning", "Usuario sin asignacion POS activa", array(
@@ -1018,6 +1038,7 @@ class VentasErp extends CRUD {
             $db = $this->getConexion();
             $idAlmacen = intval($this->valor($datos, "id_almacen", 0));
             $idCaja = intval($this->valor($datos, "id_caja", 0));
+            $idUsuario = intval($this->valor($datos, "id_usuario", 0));
             $montoInicial = round(floatval($this->valor($datos, "monto_inicial", 0)), 6);
             $bloqueos = array();
             if ($idAlmacen <= 0) {
@@ -1043,6 +1064,17 @@ class VentasErp extends CRUD {
                 $turnoAbierto = $stmt->fetch(PDO::FETCH_ASSOC);
                 if ($turnoAbierto) {
                     $bloqueos[] = "Ya existe turno abierto para esta caja: " . $this->valor($turnoAbierto, "folio", "");
+                }
+            }
+            if ($idUsuario > 0 && $idAlmacen > 0 && $idCaja > 0) {
+                $asignacionRespuesta = $this->asignacionActualTerminalPos(array(
+                    "id_usuario" => $idUsuario,
+                    "id_almacen" => $idAlmacen,
+                    "id_caja" => $idCaja
+                ));
+                $depurarAsignacion = $this->valor($asignacionRespuesta, "depurar", array());
+                if (empty($depurarAsignacion["asignacion_activa"]) || empty($depurarAsignacion["asignacion"])) {
+                    $bloqueos[] = "Tu usuario no tiene asignacion activa para esta tienda/caja";
                 }
             }
             if ($montoInicial < 0) {
@@ -1110,7 +1142,11 @@ class VentasErp extends CRUD {
                 }
             }
 
-            $asignacionRespuesta = $idUsuario > 0 ? $this->asignacionActualTerminalPos(array("id_usuario" => $idUsuario)) : array();
+            $asignacionRespuesta = $idUsuario > 0 ? $this->asignacionActualTerminalPos(array(
+                "id_usuario" => $idUsuario,
+                "id_almacen" => $idAlmacen,
+                "id_caja" => $idCaja
+            )) : array();
             $depurarAsignacion = $this->valor($asignacionRespuesta, "depurar", array());
             $asignacion = $this->valor($depurarAsignacion, "asignacion", array());
             if (empty($depurarAsignacion["asignacion_activa"]) || empty($asignacion)) {
@@ -1434,7 +1470,11 @@ class VentasErp extends CRUD {
                 }
             }
 
-            $asignacionRespuesta = $idUsuario > 0 ? $this->asignacionActualTerminalPos(array("id_usuario" => $idUsuario)) : array();
+            $asignacionRespuesta = $idUsuario > 0 ? $this->asignacionActualTerminalPos(array(
+                "id_usuario" => $idUsuario,
+                "id_almacen" => $idAlmacen,
+                "id_caja" => $idCaja
+            )) : array();
             $depurarAsignacion = $this->valor($asignacionRespuesta, "depurar", array());
             $asignacion = $this->valor($depurarAsignacion, "asignacion", array());
             $turnoAsignado = $this->valor($depurarAsignacion, "turno_abierto", array());
@@ -1974,6 +2014,12 @@ class VentasErp extends CRUD {
                 $snapshot = json_decode((string) $this->valor($detalle, "datos_snapshot", ""), true);
                 if (!is_array($snapshot)) {
                     $snapshot = array();
+                }
+                if (intval($detalle["id_sku_erp"]) > 0 && trim((string) $this->valor($snapshot, "url_imagen", "")) === "") {
+                    $visual = $this->consultarVisualSkuChecador($db, intval($detalle["id_sku_erp"]));
+                    if (trim((string) $this->valor($visual, "url_imagen", "")) !== "") {
+                        $snapshot["url_imagen"] = $visual["url_imagen"];
+                    }
                 }
                 $partidas[] = array(
                     "id_atencion_detalle" => intval($detalle["id_atencion_detalle"]),
@@ -5732,6 +5778,130 @@ class VentasErp extends CRUD {
             ));
         } catch (Exception $e) {
             if ($db->inTransaction()) { $db->rollBack(); }
+            return $this->respuesta(true, "danger", $e->getMessage(), array("rollback" => true));
+        }
+    }
+
+    /**
+     * Documentacion IA: Codex GPT-5, 2026-07-30.
+     * Proposito: crear una incidencia accionable de Catalogo desde un pendiente de venta rapida POS.
+     * Impacto: el operador puede pedir alta/borrador sin acceso directo al CRUD de Catalogo; no crea SKU automaticamente.
+     * Contrato: escritura idempotente en `erp_catalogo_incidencias_calidad` y notificacion; no resuelve VRP ni mueve inventario.
+     */
+    public function ventaRapidaSolicitarBorradorCatalogoReal($datos = array()) {
+        $db = $this->getConexion();
+        $idUsuario = intval($this->valor($datos, "id_usuario", 0));
+        $motivo = trim((string) $this->valor($datos, "motivo", ""));
+        if ($motivo === "") {
+            $motivo = "Solicitar borrador de Catalogo desde venta rapida POS";
+        }
+        try {
+            if (!$this->schemaVentaRapidaControladaCompleto($db)) {
+                return $this->respuesta(true, "warning", "Esquema venta rapida controlada incompleto", array("bloqueos" => array("schema_venta_rapida_pendiente")));
+            }
+            if (!$this->tablaExiste($db, "erp_catalogo_incidencias_calidad")) {
+                return $this->respuesta(true, "warning", "Catalogo no tiene tabla de incidencias disponible", array("bloqueos" => array("schema_catalogo_incidencias")));
+            }
+            $pendiente = $this->cargarPendienteVentaRapidaPos($db, $datos);
+            if (!$pendiente) {
+                return $this->respuesta(true, "warning", "Pendiente venta rapida no encontrado", array("bloqueos" => array("vrp_no_encontrado")));
+            }
+            if (!in_array((string) $pendiente["estatus"], array("pendiente_catalogo", "en_revision"), true)) {
+                return $this->respuesta(true, "warning", "El pendiente VRP no esta abierto para solicitar borrador", array("estatus" => $pendiente["estatus"]));
+            }
+
+            $folio = trim((string) $pendiente["folio"]);
+            $huellaBase = "ventas_pos|venta_rapida_sku_sin_match|" . $folio;
+            $huella = hash("sha256", $huellaBase);
+            $detalle = array(
+                "origen" => "ventas_pos",
+                "folio_pendiente" => $folio,
+                "folio_venta" => $pendiente["folio_venta"],
+                "id_venta_rapida_pendiente" => intval($pendiente["id_venta_rapida_pendiente"]),
+                "id_venta" => intval($pendiente["id_venta"]),
+                "id_venta_detalle" => intval($pendiente["id_venta_detalle"]),
+                "id_almacen" => intval($pendiente["id_almacen"]),
+                "id_caja" => intval($pendiente["id_caja"]),
+                "id_turno_caja" => intval($pendiente["id_turno_caja"]),
+                "descripcion_manual" => $pendiente["descripcion_manual"],
+                "cantidad" => $pendiente["cantidad"],
+                "precio_unitario" => $pendiente["precio_unitario"],
+                "total" => $pendiente["total"],
+                "codigo_barras" => $pendiente["codigo_barras"],
+                "categoria_provisional" => $pendiente["categoria_provisional"],
+                "marca_provisional" => $pendiente["marca_provisional"],
+                "proveedor_provisional" => $pendiente["proveedor_provisional"],
+                "controla_inventario" => intval($pendiente["controla_inventario"]),
+                "motivo_solicitud" => $motivo,
+                "huella_base" => $huellaBase
+            );
+            $evidencia = array(
+                "pendiente" => $pendiente,
+                "snapshot_pos" => json_decode((string) $this->valor($pendiente, "datos_snapshot", ""), true),
+                "contrato" => array(
+                    "no_crea_sku_desde_pos" => true,
+                    "no_mueve_kardex" => true,
+                    "catalogo_crea_borrador_si_corresponde" => true
+                )
+            );
+            $propuesta = array(
+                "accion_sugerida" => "crear_borrador_sku_desde_venta_rapida",
+                "nombre_producto_sugerido" => $pendiente["descripcion_manual"],
+                "sku_sugerido" => trim((string) $pendiente["codigo_barras"]) !== "" ? $pendiente["codigo_barras"] : "VRP-" . preg_replace('/[^0-9A-Z]/', '', strtoupper($folio)),
+                "codigo_barras_sugerido" => $pendiente["codigo_barras"],
+                "requiere_completar" => array("categoria", "marca", "unidad_base", "proveedor", "reglas_inventario", "precio_lista", "garantia")
+            );
+
+            $db->beginTransaction();
+            $antes = $this->consultarIncidenciaCatalogoVentaRapidaPorHuella($db, $huella);
+            $stmt = $db->prepare("INSERT INTO erp_catalogo_incidencias_calidad
+                (huella, tipo_incidencia, entidad_tipo, id_producto_erp, id_sku, id_referencia, referencia_tipo,
+                 origen, severidad, titulo, descripcion, detalle_json, evidencia_json, propuesta_json, estatus, creado_por)
+                VALUES
+                (:huella, 'venta_rapida_sku_sin_match', 'sku', NULL, NULL, :referencia, 'erp_pos_venta_rapida_pendientes',
+                 'ventas_pos', 'alta', :titulo, :descripcion, :detalle, :evidencia, :propuesta, 'pendiente', :usuario)
+                ON DUPLICATE KEY UPDATE
+                    severidad=VALUES(severidad),
+                    titulo=VALUES(titulo),
+                    descripcion=VALUES(descripcion),
+                    detalle_json=VALUES(detalle_json),
+                    evidencia_json=VALUES(evidencia_json),
+                    propuesta_json=VALUES(propuesta_json),
+                    estatus=IF(estatus IN ('resuelta','descartada'), estatus, 'pendiente'),
+                    fecha_actualizacion=CURRENT_TIMESTAMP");
+            $stmt->execute(array(
+                ":huella" => $huella,
+                ":referencia" => intval($pendiente["id_venta_rapida_pendiente"]),
+                ":titulo" => "Crear o clasificar producto POS " . $folio,
+                ":descripcion" => "Venta rapida POS " . $pendiente["folio_venta"] . " requiere alta o clasificacion en Catalogo: " . substr((string) $pendiente["descripcion_manual"], 0, 240),
+                ":detalle" => json_encode($detalle, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+                ":evidencia" => json_encode($evidencia, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+                ":propuesta" => json_encode($propuesta, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+                ":usuario" => $idUsuario ?: null
+            ));
+            $incidencia = $this->consultarIncidenciaCatalogoVentaRapidaPorHuella($db, $huella);
+            if (!$incidencia) {
+                throw new Exception("No se pudo confirmar la incidencia de Catalogo para " . $folio);
+            }
+            $this->registrarEventoVentaRapidaPosReal($db, intval($pendiente["id_venta_rapida_pendiente"]), $folio, "borrador_catalogo_solicitado", $pendiente["estatus"], $pendiente["estatus"], null, $motivo, array(
+                "id_incidencia_calidad" => intval($incidencia["id_incidencia_calidad"]),
+                "huella" => $huella,
+                "propuesta" => $propuesta
+            ), $idUsuario);
+            $idNotificacion = $this->registrarNotificacionBorradorCatalogoVentaRapida($db, $pendiente, $incidencia, $huella, $motivo, $idUsuario);
+            $db->commit();
+
+            return $this->respuesta(false, "success", $antes ? "Solicitud de borrador actualizada para Catalogo" : "Solicitud de borrador enviada a Catalogo", array(
+                "folio_pendiente" => $folio,
+                "id_venta_rapida_pendiente" => intval($pendiente["id_venta_rapida_pendiente"]),
+                "id_incidencia_calidad" => intval($incidencia["id_incidencia_calidad"]),
+                "id_notificacion" => $idNotificacion,
+                "huella" => $huella,
+                "url_catalogo" => "/catalogoerp?incidencia_calidad=" . intval($incidencia["id_incidencia_calidad"]),
+                "contrato" => array("no_crea_sku" => true, "no_resuelve_vrp" => true, "idempotente" => true)
+            ));
+        } catch (Exception $e) {
+            if ($db instanceof PDO && $db->inTransaction()) { $db->rollBack(); }
             return $this->respuesta(true, "danger", $e->getMessage(), array("rollback" => true));
         }
     }
@@ -10475,12 +10645,15 @@ class VentasErp extends CRUD {
         }
         $precio = $precioBackend;
         $subtotal = round(max(0, $cantidad) * max(0, $precio), 6);
+        $visual = $this->consultarVisualSkuChecador($db, $idSku);
+        $urlImagen = trim((string) $this->valor($item, "url_imagen", $this->valor($item, "imagen", $this->valor($visual, "url_imagen", ""))));
 
         return array(
             "renglon" => $renglon,
             "id_sku" => $idSku,
             "sku" => $sku["sku"],
             "descripcion" => $sku["nombre_sku"],
+            "url_imagen" => $urlImagen,
             "cantidad" => $cantidad,
             "precio_unitario" => $precio,
             "precio_enviado_pos" => $precioEnviado,
@@ -12192,11 +12365,45 @@ class VentasErp extends CRUD {
             ":pendiente" => intval($idPendiente),
             ":titulo" => "Clasificar producto POS " . $folioPendiente,
             ":descripcion" => "Clasificar producto vendido en POS " . $folioVenta . ": " . substr($descripcion, 0, 240),
-            ":url" => "/ventas/pos?pendiente_venta_rapida=" . urlencode($folioPendiente),
+            ":url" => "/ventas/venta_rapida_pendientes?folio=" . urlencode($folioPendiente),
             ":payload" => json_encode($payload, JSON_UNESCAPED_UNICODE),
             ":usuario" => intval($idUsuario) ?: null
         ));
         return intval($db->lastInsertId());
+    }
+
+    private function consultarIncidenciaCatalogoVentaRapidaPorHuella($db, $huella) {
+        $stmt = $db->prepare("SELECT * FROM erp_catalogo_incidencias_calidad WHERE huella=:huella LIMIT 1");
+        $stmt->execute(array(":huella" => trim((string) $huella)));
+        $fila = $stmt->fetch(PDO::FETCH_ASSOC);
+        return $fila ?: null;
+    }
+
+    private function registrarNotificacionBorradorCatalogoVentaRapida($db, $pendiente, $incidencia, $huella, $motivo, $idUsuario) {
+        if (!$this->tablaExiste($db, "erp_notificaciones")) { return 0; }
+        require_once __DIR__ . "/NotificacionesErp.php";
+        $notificaciones = new NotificacionesErp();
+        return $notificaciones->guardarOperativaEnConexion($db, array(
+            "tipo" => "venta_rapida_borrador_catalogo_solicitado",
+            "modulo_origen" => "ventas_pos",
+            "entidad_origen" => "erp_catalogo_incidencias_calidad",
+            "id_entidad_origen" => intval($incidencia["id_incidencia_calidad"]),
+            "area_responsable" => "catalogo",
+            "permiso_requerido" => "catalogo.editar",
+            "titulo" => "Crear borrador desde POS " . $pendiente["folio"],
+            "descripcion" => "POS solicito alta/borrador de producto vendido como venta rapida: " . substr((string) $pendiente["descripcion_manual"], 0, 240),
+            "prioridad" => "alta",
+            "url_accion" => "/catalogoerp?incidencia_calidad=" . intval($incidencia["id_incidencia_calidad"]),
+            "payload_json" => array(
+                "huella" => $huella,
+                "folio_pendiente" => $pendiente["folio"],
+                "folio_venta" => $pendiente["folio_venta"],
+                "id_venta_rapida_pendiente" => intval($pendiente["id_venta_rapida_pendiente"]),
+                "id_incidencia_calidad" => intval($incidencia["id_incidencia_calidad"]),
+                "motivo" => $motivo
+            ),
+            "creado_por" => intval($idUsuario) ?: null
+        ));
     }
 
     /**

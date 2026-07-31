@@ -2716,8 +2716,10 @@ class CatalogoErpDatos extends CRUD {
       if (!$incidencia) {
         throw new Exception("Incidencia de Catalogo no encontrada");
       }
-      if ($incidencia["origen"] !== "proveedores" || $incidencia["tipo_incidencia"] !== "proveedor_sku_sin_match") {
-        throw new Exception("Solo se permite crear SKU temporal desde pendientes de proveedor sin SKU ERP");
+      $esProveedorSinMatch = $incidencia["origen"] === "proveedores" && $incidencia["tipo_incidencia"] === "proveedor_sku_sin_match";
+      $esVentaRapidaSinMatch = $incidencia["origen"] === "ventas_pos" && $incidencia["tipo_incidencia"] === "venta_rapida_sku_sin_match";
+      if (!$esProveedorSinMatch && !$esVentaRapidaSinMatch) {
+        throw new Exception("Solo se permite crear SKU temporal desde pendientes de proveedor o venta rapida POS sin SKU ERP");
       }
       if (in_array($incidencia["estatus"], array("resuelta", "descartada"), true)) {
         throw new Exception("La incidencia ya esta cerrada");
@@ -2733,26 +2735,34 @@ class CatalogoErpDatos extends CRUD {
       $detalle = $this->jsonArrayCatalogo(isset($incidencia["detalle_json"]) ? $incidencia["detalle_json"] : "");
       $renglon = isset($evidencia["renglon"]) && is_array($evidencia["renglon"]) ? $evidencia["renglon"] : array();
       $idReferencia = intval(isset($incidencia["id_referencia"]) ? $incidencia["id_referencia"] : 0);
-      $codigoProducto = $this->codigoTemporalCatalogo($this->texto($datos, "codigo_producto", "TMP-PROV-" . $idReferencia), "TMP-PROV-" . $idReferencia, 80);
+      $prefijoTemporal = $esVentaRapidaSinMatch ? "TMP-VRP-" : "TMP-PROV-";
+      $codigoProducto = $this->codigoTemporalCatalogo($this->texto($datos, "codigo_producto", $prefijoTemporal . $idReferencia), $prefijoTemporal . $idReferencia, 80);
       $nombreProducto = $this->texto($datos, "nombre_producto", "");
       if ($nombreProducto === "") {
-        $nombreProducto = $this->textoArrayCatalogo($renglon, "descripcion_proveedor", "Producto proveedor pendiente");
+        $nombreProducto = $esVentaRapidaSinMatch
+          ? $this->textoArrayCatalogo($detalle, "descripcion_manual", "Producto POS pendiente")
+          : $this->textoArrayCatalogo($renglon, "descripcion_proveedor", "Producto proveedor pendiente");
       }
       $sku = $this->codigoTemporalCatalogo($this->texto($datos, "sku", ""), "", 150);
-      if ($sku === "") {
+      if ($sku === "" && !$esVentaRapidaSinMatch) {
         $sku = $this->codigoTemporalCatalogo($this->textoArrayCatalogo($renglon, "sku_proveedor", ""), "", 150);
       }
-      if ($sku === "") {
+      if ($sku === "" && $esVentaRapidaSinMatch) {
+        $sku = $this->codigoTemporalCatalogo($this->textoArrayCatalogo($detalle, "codigo_barras", ""), "", 150);
+      }
+      if ($sku === "" && !$esVentaRapidaSinMatch) {
         $sku = $this->codigoTemporalCatalogo($this->textoArrayCatalogo($renglon, "codigo_barras", ""), "", 150);
       }
-      if ($sku === "") {
+      if ($sku === "" && !$esVentaRapidaSinMatch) {
         $sku = $this->codigoTemporalCatalogo($this->textoArrayCatalogo($renglon, "codigo_interno", ""), "", 150);
       }
       if ($sku === "") {
-        $sku = "TMP-PROV-" . $idReferencia;
+        $sku = $prefijoTemporal . $idReferencia;
       }
       $nombreSku = $this->texto($datos, "nombre_sku", $nombreProducto);
-      $codigoPrincipal = $this->codigoPrincipalDesdeRenglonProveedor($renglon);
+      $codigoPrincipal = $esVentaRapidaSinMatch
+        ? $this->codigoTemporalCatalogo($this->textoArrayCatalogo($detalle, "codigo_barras", ""), "", 150)
+        : $this->codigoPrincipalDesdeRenglonProveedor($renglon);
 
       $existente = $this->buscarSkuExistentePorIdentidad($db, $sku, $codigoPrincipal);
       if ($existente) {
@@ -2813,7 +2823,9 @@ class CatalogoErpDatos extends CRUD {
         "estatus_sku" => "borrador",
         "usuario_id" => intval($idUsuario) ?: null,
         "fecha" => date("c"),
-        "nota" => "Creado desde incidencia de Proveedores; requiere completar Catalogo y hacer matching desde Proveedores."
+        "nota" => $esVentaRapidaSinMatch
+          ? "Creado desde incidencia de venta rapida POS; requiere completar Catalogo y volver a vincular el pendiente VRP."
+          : "Creado desde incidencia de Proveedores; requiere completar Catalogo y hacer matching desde Proveedores."
       );
       $stmt->execute(array(
         ":producto" => $idProducto,
@@ -2824,7 +2836,9 @@ class CatalogoErpDatos extends CRUD {
       ));
 
       $this->confirmarSkuTemporalProveedor($db, $idIncidencia, $idProducto, $idSku);
-      $idNotificacionSeguimiento = $this->registrarNotificacionesSkuTemporalProveedor($db, $incidencia, $detalle, $renglon, $idProducto, $idSku, $sku, $idUsuario);
+      $idNotificacionSeguimiento = $esVentaRapidaSinMatch
+        ? $this->registrarNotificacionesSkuTemporalVentaRapida($db, $incidencia, $detalle, $idProducto, $idSku, $sku, $idUsuario)
+        : $this->registrarNotificacionesSkuTemporalProveedor($db, $incidencia, $detalle, $renglon, $idProducto, $idSku, $sku, $idUsuario);
 
       return $this->respuesta(false, "success", "SKU temporal creado en Catalogo", array(
         "id_incidencia_calidad" => $idIncidencia,
@@ -2834,7 +2848,7 @@ class CatalogoErpDatos extends CRUD {
         "sku" => $sku,
         "codigo_producto" => $codigoProducto,
         "estatus" => "borrador",
-        "siguiente_paso" => "Completar Catalogo y hacer matching desde Proveedores"
+        "siguiente_paso" => $esVentaRapidaSinMatch ? "Completar Catalogo y vincular el VRP desde Ventas/POS" : "Completar Catalogo y hacer matching desde Proveedores"
       ));
     } catch (Exception $e) {
       $mensaje = $e->getCode() === "23000" ? "El codigo de producto, SKU o codigo ya existe; revisa matching antes de crear temporal" : $e->getMessage();
@@ -2913,6 +2927,51 @@ class CatalogoErpDatos extends CRUD {
           "sku_proveedor" => $skuProveedor,
           "descripcion_proveedor" => $descripcion,
           "siguiente_paso" => "hacer_matching_desde_proveedores"
+        ),
+        "creado_por" => intval($idUsuario) ?: null
+      ));
+    } catch (Exception $e) {
+      return 0;
+    }
+  }
+
+  private function registrarNotificacionesSkuTemporalVentaRapida($db, $incidencia, $detalle, $idProducto, $idSku, $sku, $idUsuario) {
+    try {
+      require_once __DIR__ . "/NotificacionesErp.php";
+      $notificaciones = new NotificacionesErp();
+      $huellaIncidencia = trim((string) (isset($incidencia["huella"]) ? $incidencia["huella"] : ""));
+      if ($huellaIncidencia !== "") {
+        $notificaciones->resolverOperativaPorHuellaEnConexion($db, "venta_rapida_borrador_catalogo_solicitado", $huellaIncidencia);
+      }
+
+      $idIncidencia = intval(isset($incidencia["id_incidencia_calidad"]) ? $incidencia["id_incidencia_calidad"] : 0);
+      $folioPendiente = $this->textoArrayCatalogo($detalle, "folio_pendiente", "");
+      $folioVenta = $this->textoArrayCatalogo($detalle, "folio_venta", "");
+      $idPendiente = intval($this->textoArrayCatalogo($detalle, "id_venta_rapida_pendiente", 0));
+      $huellaSeguimiento = hash("sha256", "notificacion|catalogo|sku_temporal_venta_rapida|incidencia:" . $idIncidencia . "|sku:" . intval($idSku));
+
+      return $notificaciones->guardarOperativaEnConexion($db, array(
+        "tipo" => "catalogo_sku_temporal_creado_venta_rapida",
+        "modulo_origen" => "catalogo",
+        "entidad_origen" => "erp_catalogo_incidencias_calidad",
+        "id_entidad_origen" => $idIncidencia,
+        "area_responsable" => "ventas_pos",
+        "permiso_requerido" => "ventas.operar",
+        "titulo" => "SKU borrador creado para " . ($folioPendiente !== "" ? $folioPendiente : "venta rapida POS"),
+        "descripcion" => "Catalogo creo el SKU borrador " . $sku . ". Ventas/POS debe vincular el pendiente de venta rapida" . ($folioVenta !== "" ? " de " . $folioVenta : "") . ".",
+        "prioridad" => "normal",
+        "url_accion" => $folioPendiente !== "" ? "/ventas/venta_rapida_pendientes?folio=" . urlencode($folioPendiente) : "/ventas/venta_rapida_pendientes",
+        "payload_json" => array(
+          "huella" => $huellaSeguimiento,
+          "huella_incidencia" => $huellaIncidencia,
+          "id_incidencia_calidad" => $idIncidencia,
+          "id_producto_erp" => intval($idProducto),
+          "id_sku" => intval($idSku),
+          "sku" => $sku,
+          "folio_pendiente" => $folioPendiente,
+          "folio_venta" => $folioVenta,
+          "id_venta_rapida_pendiente" => $idPendiente,
+          "siguiente_paso" => "vincular_vrp_desde_ventas_pos"
         ),
         "creado_por" => intval($idUsuario) ?: null
       ));

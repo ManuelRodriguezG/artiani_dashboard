@@ -48,7 +48,7 @@ $checks = array(
         "no se movera kardex" => "confirmacion explica inventario",
     ),
     "vista_pos" => array(
-        "20260723-venta-rapida-ui-real" => "asset JS versionado para UI real",
+        "20260730-atenciones-venta-rapida" => "asset JS versionado para atenciones y venta rapida",
     ),
     "plan" => array(
         "VENTAS_POS_VENTA_RAPIDA_REAL_MODELO" => "siguiente paso documentado",

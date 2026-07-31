@@ -1805,7 +1805,8 @@ Se separa el acceso operativo de POS del acceso completo a consola CRM:
 - `crm.ver` queda reservado para abrir consola/ficha CRM.
 - `crm.crear` queda reservado para crear clientes desde CRM completo o procesos administrativos.
 - La aplicacion queda compatible transicionalmente: endpoints compartidos aceptan permiso fino o permiso CRM completo.
-- La BD no se modifica en esta fase; falta autorizacion `CRM_POS_PERMISOS_FINOS` para sembrar permisos nuevos y retirar `crm.ver`/`crm.crear` del rol `ventas`.
+- Estado aplicado en BD: `CRM_POS_PERMISOS_FINOS` sembrado el 2026-07-30 con respaldo externo `C:\xampp\panel_db_backups\panel_de_control_artianilocal_2026-07-30_antes_crm_pos_permisos_finos.sql`.
+- Rol `ventas` queda con `crm.pos.buscar` y `crm.pos.alta_express`; se retiraron `crm.ver` y `crm.crear` de ese rol base.
 
 # Nota de avance 2026-07-30 - ficha CRM por permisos
 
@@ -1815,3 +1816,301 @@ La ficha de cliente queda alineada con permisos de operacion:
 - Usuarios con `crm.editar` ven formularios de validacion para basico, contactos, direcciones, fiscal, consentimientos, preferencias, notas e interacciones.
 - El backend ya denegaba endpoints de edicion sin `crm.editar`; ahora la UI tambien evita presentar acciones que el usuario no puede ejecutar.
 - No se modifica BD; solo se ajusta render PHP/JS de la ficha.
+
+# Nota de avance 2026-07-30 - permisos por submodulo CRM
+
+CRM deja de depender solamente de permisos amplios y queda preparado por dominios internos:
+
+- `crm.clientes.ver` / `crm.clientes.editar`
+- `crm.seguimiento.ver` / `crm.seguimiento.operar`
+- `crm.comercial.ver` / `crm.comercial.operar`
+- `crm.recompensas.ver` / `crm.recompensas.operar`
+- `crm.reportes.ver`
+
+Compatibilidad transicional:
+
+- los endpoints aceptan `crm.ver` junto al permiso fino de lectura correspondiente;
+- los endpoints de operacion aceptan `crm.editar` junto al permiso fino operativo correspondiente;
+- esto evita romper usuarios actuales mientras se siembran los permisos nuevos en BD.
+
+Estado:
+
+- `CRM_SUBMODULOS_PERMISOS` aplicado el 2026-07-30 con respaldo externo `C:\xampp\panel_db_backups\panel_de_control_artianilocal_2026-07-30_antes_crm_submodulos_permisos.sql`;
+- permisos creados o actualizados: 9;
+- relaciones intentadas: 23;
+- roles vinculados: `direccion`, `crm`, `administrador_erp`;
+- verificacion posterior read-only: sin permisos faltantes y sin relaciones faltantes;
+- rol `ventas` no recibio consola CRM por submodulo; conserva solo permisos POS finos para clientes;
+- el apply no retiro permisos amplios existentes, no toco clientes, POS, ventas, ecommerce, garantias, apartados, devoluciones ni legacy.
+
+Documento corto para continuidad de chats nuevos:
+
+- `docs/crm_clientes_estado_actual.md`
+
+# Nota de avance 2026-07-30 - CRM Reportes dedicado
+
+Se separa `CRM > Reportes` como tablero propio read-only:
+
+- nueva ruta: `/crm/reportes`;
+- nuevo permiso de acceso: `crm.reportes.ver` con respaldo transicional `crm.ver`;
+- nueva vista: `app/vistas/paginas/apps/crm/reportes/index.php`;
+- nuevo JS: `public/assets/js/custom/apps/crm/reportes/index.js`;
+- endpoint consumido: `/crm/clientes_reportes_operativos_erp`;
+- el sidebar muestra `CRM > Reportes` si el usuario tiene `crm.ver` o `crm.reportes.ver`;
+- `CRM > Clientes` deja de cargar reportes automaticamente y muestra un acceso al tablero dedicado.
+
+Impacto UX:
+
+- Clientes vuelve a concentrarse en listado canonico, calidad operativa y ficha;
+- Reportes queda separado para direccion/CRM sin mezclar auditoria, comercial ni operacion de clientes;
+- no se escribe BD y no se modifican clientes, POS, ventas, ecommerce, garantias, apartados, devoluciones ni legacy.
+
+Siguiente paso recomendado:
+
+- separar `CRM > Comercial` como pantalla propia, usando `crm.comercial.ver` y `crm.comercial.operar`.
+
+# Nota de avance 2026-07-30 - CRM Comercial dedicado
+
+Se separa `CRM > Comercial` como pantalla propia:
+
+- nueva ruta: `/crm/comercial`;
+- permiso de acceso: `crm.comercial.ver` con respaldo transicional `crm.ver`;
+- permiso operativo UI: `crm.comercial.operar` con respaldo transicional `crm.editar`;
+- nueva vista: `app/vistas/paginas/apps/crm/comercial/index.php`;
+- nuevo JS: `public/assets/js/custom/apps/crm/comercial/index.js`;
+- endpoints consumidos:
+  - `/crm/clientes_comercial_resumen_erp`;
+  - `/crm/segmentos_catalogo_listar_erp`;
+  - `/crm/segmento_catalogo_dryrun_erp`;
+  - `/crm/segmento_catalogo_guardar_autorizado_erp`.
+
+Contrato:
+
+- la pantalla puede validar segmentos con dry-run;
+- el guardado sigue bloqueado por token `CRM_CLIENTES_SEGMENTO_CATALOGO` y respaldo;
+- no se escribio BD durante esta fase;
+- no se modifican clientes, POS, ventas, ecommerce, garantias, apartados, devoluciones ni legacy.
+
+Impacto UX:
+
+- el menu CRM ya no manda Comercial a una pestana dentro de Clientes;
+- Comercial queda como zona propia para segmentos, condiciones y preparacion de listas;
+- el siguiente ajuste natural es adelgazar `CRM > Clientes` y dejarlo concentrado en busqueda/listado/ficha/calidad.
+
+# Nota de avance 2026-07-30 - CRM Clientes adelgazado
+
+Se reduce la carga visual y operativa de `CRM > Clientes`:
+
+- se retiran del navegador de pestanas `Comercial` y `Recompensas`;
+- se agrega un panel de accesos a submodulos dedicados:
+  - `/crm/seguimiento`;
+  - `/crm/comercial`;
+  - `/crm/recompensas`;
+  - `/crm/reportes`;
+- los paneles antiguos de tipos de cliente, tareas, comercial y recompensas quedan ocultos como transicion visual;
+- el JS de Clientes deja de llamar automaticamente endpoints de Seguimiento, Comercial, Recompensas y Reportes;
+- se retira el codigo JS heredado no invocado de Comercial, Seguimiento y Recompensas dentro de Clientes;
+- Clientes queda enfocado en busqueda express, listado canonico, cola de calidad operativa, ficha y auditoria si el usuario tiene permiso.
+
+Contrato:
+
+- no hubo escritura de BD;
+- no se modifican clientes, POS, ventas, ecommerce, garantias, apartados, devoluciones ni legacy;
+- queda pendiente retirar HTML oculto de transicion despues de validar UAT visual.
+
+# Nota de avance 2026-07-30 - UAT modular CRM read-only
+
+Se agrega verificacion read-only para confirmar que la separacion modular CRM quedo coherente:
+
+- script: `storage/uat/uat_crm_modulos_readonly.php`;
+- resultado: `ok=true`;
+- valida archivos de Clientes, Seguimiento, Comercial, Recompensas y Reportes;
+- valida metodos publicos del controlador `Crm`;
+- valida permisos finos CRM/POS sembrados;
+- valida matriz minima por rol:
+  - `ventas`: solo permisos POS finos de clientes;
+  - `direccion`: lectura de submodulos CRM;
+  - `crm`: lectura y operacion de submodulos CRM;
+  - `administrador_erp`: lectura y operacion de submodulos CRM.
+
+Validaciones tecnicas realizadas:
+
+- `C:\xampp\php\php.exe -l storage\uat\uat_crm_modulos_readonly.php`: OK;
+- `C:\xampp\php\php.exe -l app\controladores\Crm.php`: OK;
+- `C:\xampp\php\php.exe -l app\vistas\paginas\apps\crm\comercial\index.php`: OK;
+- `C:\xampp\php\php.exe -l app\vistas\paginas\apps\crm\reportes\index.php`: OK;
+- `node --check public\assets\js\custom\apps\crm\comercial\index.js`: OK;
+- `node --check public\assets\js\custom\apps\crm\reportes\index.js`: OK.
+
+Contrato:
+
+- no hubo escritura de BD;
+- no se modifican clientes, POS, ventas, ecommerce, garantias, apartados, devoluciones ni legacy;
+- el siguiente paso funcional debe concentrarse en CRM operativo, especialmente seguimiento/tareas y calidad de ficha, antes de conectar recompensas o listas con POS.
+
+# Nota de avance 2026-07-30 - CRM Seguimiento operativo dry-run
+
+Se mejora `CRM > Seguimiento` para dejar de ser solo una bandeja de lectura y convertirse en consola operativa preparada:
+
+- la vista refresca permisos de sesion antes de renderizar;
+- usuarios con `crm.seguimiento.operar` o `crm.editar` ven paneles de preflight;
+- panel `Registrar interaccion` valida:
+  - cliente CRM;
+  - tipo;
+  - canal;
+  - direccion;
+  - resultado;
+  - fecha;
+  - resumen y detalle;
+- panel `Cambiar estatus de tarea` valida:
+  - tarea CRM;
+  - estatus destino;
+  - resultado;
+  - nota;
+- la tabla de tareas agrega accion rapida para copiar el ID de tarea al panel de cambio de estatus;
+- ambos paneles llaman solo endpoints dry-run:
+  - `/crm/cliente_interaccion_dryrun_erp`;
+  - `/crm/cliente_tarea_estatus_dryrun_erp`.
+
+Contrato:
+
+- no crea interacciones;
+- no cierra, cancela ni modifica tareas;
+- no crea notificaciones SYS;
+- no toca clientes, POS, ventas, ecommerce, garantias, apartados, devoluciones ni legacy;
+- los apply reales siguen bloqueados por token/respaldo.
+
+Validaciones:
+
+- `C:\xampp\php\php.exe -l app\vistas\paginas\apps\crm\seguimiento\index.php`: OK;
+- `node --check public\assets\js\custom\apps\crm\seguimiento\index.js`: OK;
+- `storage/uat/uat_crm_modulos_readonly.php`: `ok=true`.
+
+Siguiente paso con autorizacion fuerte futura:
+
+- crear una interaccion UAT real con token `CRM_CLIENTES_INTERACCION`;
+- crear o cerrar una tarea UAT real con token `CRM_CLIENTES_TAREA` o `CRM_CLIENTES_TAREA_ESTATUS`;
+- mantener cada escritura separada, respaldada y sin tocar POS/Ventas.
+
+# Nota de avance 2026-07-30 - ficha CRM alineada con permisos finos
+
+Se corrige la ficha CRM para que funcione con la nueva matriz fina de permisos:
+
+- `app/vistas/paginas/apps/crm/clientes/ficha.php` ahora considera edicion permitida si el usuario tiene `crm.editar` o `crm.clientes.editar`;
+- `public/assets/js/custom/apps/crm/clientes/ficha.js` envia `X-CSRF-Token` en POST dry-run;
+- esto permite que usuarios con permiso fino de Clientes operen validaciones de ficha sin depender del permiso amplio transicional.
+
+Contrato:
+
+- no hubo escritura de BD;
+- no se guardaron cambios de cliente;
+- no se modifican POS, ventas, ecommerce, garantias, apartados, devoluciones ni legacy;
+- los apply reales de ficha siguen requiriendo token/respaldo.
+
+Validaciones:
+
+- `C:\xampp\php\php.exe -l app\vistas\paginas\apps\crm\clientes\ficha.php`: OK;
+- `node --check public\assets\js\custom\apps\crm\clientes\ficha.js`: OK;
+- `storage/uat/uat_crm_modulos_readonly.php`: `ok=true`.
+
+# Nota de avance 2026-07-30 - readiness operativo CRM consolidado
+
+Se crea verificador consolidado:
+
+- `storage/uat/uat_crm_operativo_readiness_readonly.php`;
+- modo: read-only/dry-run;
+- valida ficha CRM;
+- valida dry-run de ficha basica;
+- valida dry-run de interaccion;
+- valida dry-run de tarea;
+- valida cambio de estatus solo si ya existe tarea abierta;
+- compara conteos antes/despues para confirmar que no hubo escritura.
+
+Resultado con cliente CRM `1`:
+
+- `ok=true`;
+- conteos antes/despues iguales;
+- `crm_clientes_interacciones=0`;
+- `crm_clientes_tareas=0`;
+- ficha consultable;
+- dry-run basico listo;
+- dry-run interaccion listo;
+- dry-run tarea listo;
+- cambio de estatus omitido correctamente porque no existe tarea abierta.
+
+Lectura operativa:
+
+- el cliente UAT `CRM-POSUAT-20260628-0001` esta listo para POS;
+- no esta listo para seguimiento comercial porque no es contactable;
+- calidad operativa: `45/100`, nivel `basica_pos`;
+- pendientes reales antes de campanas/recompensas:
+  - agregar contacto util;
+  - registrar consentimiento operativo cuando el cliente lo autorice.
+
+Contrato:
+
+- no hubo escritura de BD;
+- no se crearon tareas;
+- no se crearon interacciones;
+- no se modificaron clientes;
+- no se toca POS, ventas, ecommerce, garantias, apartados, devoluciones ni legacy.
+
+# Nota de avance 2026-07-30 - acciones de calidad en ficha CRM
+
+Se mejora la ficha para convertir pendientes de calidad operativa en acciones navegables:
+
+- si falta contacto util, aparece acceso a `Contacto`;
+- si falta permiso/consentimiento, aparece acceso a `Consentimiento`;
+- si falta informacion fiscal, aparece acceso a `Fiscal`;
+- la accion solo cambia de pestana dentro de la ficha;
+- no dispara guardados ni endpoints.
+
+Contrato:
+
+- no hubo escritura de BD;
+- no se modifican clientes;
+- no se crean contactos, consentimientos ni fiscales;
+- todos los guardados reales siguen usando dry-run primero y apply con token/respaldo.
+
+Validaciones:
+
+- `node --check public\assets\js\custom\apps\crm\clientes\ficha.js`: OK;
+- `storage/uat/uat_crm_operativo_readiness_readonly.php --cliente=1`: `ok=true`;
+- `storage/uat/uat_crm_modulos_readonly.php`: `ok=true`.
+
+# Nota de avance 2026-07-30 - UAT complementos listo para contacto y consentimiento
+
+Se ajustan scripts UAT de complementos para soportar los campos que el modelo CRM ya validaba:
+
+- contacto:
+  - `etiqueta`;
+  - `principal`;
+  - `permite_contacto`;
+- consentimiento:
+  - `otorgado`;
+  - `medio`;
+  - `evidencia`.
+
+Scripts actualizados:
+
+- `storage/uat/uat_crm_clientes_complemento_dryrun_readonly.php`;
+- `storage/uat/uat_crm_clientes_complemento_apply_authorized.php`.
+
+Dry-runs ejecutados con cliente CRM `1`:
+
+- contacto WhatsApp `3312345678`, principal y permitido: `puede_guardar=true`;
+- consentimiento `contacto_operativo`, otorgado por WhatsApp: `puede_guardar=true`.
+
+Contrato:
+
+- no hubo escritura de BD;
+- no se crearon contactos;
+- no se crearon consentimientos;
+- no se modifico calidad del cliente;
+- el apply real sigue requiriendo token `CRM_CLIENTES_COMPLEMENTO` y respaldo valido.
+
+Siguiente autorizacion fuerte recomendada:
+
+- crear primero el contacto operativo;
+- crear despues el consentimiento operativo;
+- ejecutar readiness nuevamente para confirmar que el cliente pase de `basica_pos` a una calidad superior.

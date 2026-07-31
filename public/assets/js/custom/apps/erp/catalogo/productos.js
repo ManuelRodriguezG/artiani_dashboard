@@ -457,8 +457,8 @@
             var renglon = evidencia.renglon || {};
             var referencia = [item.sku, item.nombre_sku, renglon.sku_proveedor, renglon.codigo_barras, renglon.descripcion_proveedor].filter(Boolean).join(" | ") || ("Incidencia " + item.id_incidencia_calidad);
             var puedeTemporal = permisos.editar &&
-                item.origen === "proveedores" &&
-                item.tipo_incidencia === "proveedor_sku_sin_match" &&
+                ((item.origen === "proveedores" && item.tipo_incidencia === "proveedor_sku_sin_match") ||
+                 (item.origen === "ventas_pos" && item.tipo_incidencia === "venta_rapida_sku_sin_match")) &&
                 !item.id_sku &&
                 ["pendiente", "en_revision", "bloqueada"].indexOf(String(item.estatus || "")) >= 0;
             var acciones = puedeTemporal
@@ -466,6 +466,10 @@
                 : "";
             if (item.id_sku) {
                 acciones = "<button class=\"btn btn-sm btn-light\" type=\"button\" data-producto=\"" + escapeAttr(item.id_producto_erp || "") + "\"><i class=\"bi bi-eye\"></i> Ver SKU</button>";
+            }
+            if (permisos.editar && ["pendiente", "en_revision", "bloqueada"].indexOf(String(item.estatus || "")) >= 0) {
+                acciones += " <button class=\"btn btn-sm btn-light-success\" type=\"button\" data-incidencia-estatus=\"" + escapeAttr(item.id_incidencia_calidad) + "\" data-estatus=\"resuelta\"><i class=\"bi bi-check2-circle\"></i> Resolver</button>" +
+                    " <button class=\"btn btn-sm btn-light-secondary\" type=\"button\" data-incidencia-estatus=\"" + escapeAttr(item.id_incidencia_calidad) + "\" data-estatus=\"descartada\"><i class=\"bi bi-x-circle\"></i> Descartar</button>";
             }
             return "<tr>" +
                 "<td><div class=\"fw-bold\">" + escapeHtml(item.tipo_incidencia || "-") + "</div><span class=\"text-muted\">" + escapeHtml(item.titulo || "") + "</span></td>" +
@@ -535,6 +539,63 @@
         });
     }
 
+    /**
+     * IA: Codex GPT-5 | Fecha: 2026-07-30
+     * Proposito: permite cerrar manualmente incidencias de calidad ya atendidas sin confundir estatus maestro con resolucion operativa.
+     * Impacto: Catalogo ERP; limpia la cola de Incidencias calidad mediante el endpoint auditado existente.
+     * Contrato: `resuelta` y `descartada` requieren motivo/resolucion; despues recarga solo incidencias abiertas.
+     */
+    function cambiarEstatusIncidenciaCalidad(idIncidencia, estatus) {
+        var incidencia = incidenciasCalidad.find(function (item) {
+            return String(item.id_incidencia_calidad) === String(idIncidencia);
+        });
+        if (!incidencia) {
+            return;
+        }
+        var accion = estatus === "resuelta" ? "Resolver" : "Descartar";
+        Swal.fire({
+            title: accion + " incidencia",
+            text: estatus === "resuelta"
+                ? "Usa esta accion cuando ya atendiste el producto/SKU y la incidencia ya no debe aparecer como pendiente."
+                : "Usa esta accion si la incidencia no aplica, era duplicada o se atendera por otro flujo.",
+            input: "textarea",
+            inputLabel: "Motivo o resolucion",
+            inputPlaceholder: estatus === "resuelta" ? "Ej. Producto creado y SKU validado en Catalogo." : "Ej. Duplicada / no aplica / se relaciono desde Proveedores.",
+            inputAttributes: {maxlength: 1000},
+            icon: estatus === "resuelta" ? "question" : "warning",
+            showCancelButton: true,
+            confirmButtonText: accion,
+            cancelButtonText: "Cancelar",
+            preConfirm: function (valor) {
+                if (!String(valor || "").trim()) {
+                    Swal.showValidationMessage("Captura el motivo o resolucion");
+                    return false;
+                }
+                return String(valor).trim();
+            }
+        }).then(function (result) {
+            if (!result.isConfirmed) {
+                return;
+            }
+            request("/catalogoerp/incidencia_calidad_estatus", {
+                id_incidencia_calidad: idIncidencia,
+                estatus: estatus,
+                resolucion: result.value || "",
+                id_referencia: incidencia.id_referencia || "",
+                referencia_tipo: incidencia.referencia_tipo || ""
+            }).then(function (response) {
+                if (response.error) {
+                    throw new Error(response.mensaje);
+                }
+                Swal.fire({text: response.mensaje, icon: "success", confirmButtonText: "Aceptar"});
+                recargarIncidenciasCalidad();
+                cargar();
+            }).catch(function (error) {
+                Swal.fire({text: error.message || String(error), icon: "error", confirmButtonText: "Aceptar"});
+            });
+        });
+    }
+
     function abrirSkuTemporal(idIncidencia) {
         var incidencia = incidenciasCalidad.find(function (item) {
             return String(item.id_incidencia_calidad) === String(idIncidencia);
@@ -548,12 +609,24 @@
         }
         form.reset();
         var evidencia = incidencia.evidencia_json || {};
+        var detalle = incidencia.detalle_json || {};
         var renglon = evidencia.renglon || {};
+        var esVentaRapida = incidencia.origen === "ventas_pos" && incidencia.tipo_incidencia === "venta_rapida_sku_sin_match";
         setValor(form, "id_incidencia_calidad", incidencia.id_incidencia_calidad);
-        setValor(form, "codigo_producto", "TMP-PROV-" + (incidencia.id_referencia || incidencia.id_incidencia_calidad));
-        setValor(form, "nombre_producto", renglon.descripcion_proveedor || incidencia.titulo || "");
-        setValor(form, "sku", renglon.sku_proveedor || renglon.codigo_barras || renglon.codigo_interno || ("TMP-PROV-" + (incidencia.id_referencia || incidencia.id_incidencia_calidad)));
-        setValor(form, "nombre_sku", renglon.descripcion_proveedor || incidencia.titulo || "");
+        if (esVentaRapida) {
+            var folio = detalle.folio_pendiente || incidencia.id_referencia || incidencia.id_incidencia_calidad;
+            var descripcion = detalle.descripcion_manual || incidencia.titulo || "";
+            var codigo = detalle.codigo_barras || "";
+            setValor(form, "codigo_producto", "TMP-VRP-" + String(folio).replace(/[^A-Za-z0-9]/g, ""));
+            setValor(form, "nombre_producto", descripcion);
+            setValor(form, "sku", codigo || ("TMP-VRP-" + String(folio).replace(/[^A-Za-z0-9]/g, "")));
+            setValor(form, "nombre_sku", descripcion);
+        } else {
+            setValor(form, "codigo_producto", "TMP-PROV-" + (incidencia.id_referencia || incidencia.id_incidencia_calidad));
+            setValor(form, "nombre_producto", renglon.descripcion_proveedor || incidencia.titulo || "");
+            setValor(form, "sku", renglon.sku_proveedor || renglon.codigo_barras || renglon.codigo_interno || ("TMP-PROV-" + (incidencia.id_referencia || incidencia.id_incidencia_calidad)));
+            setValor(form, "nombre_sku", renglon.descripcion_proveedor || incidencia.titulo || "");
+        }
         document.getElementById("catalogo_sku_temporal_error").classList.add("d-none");
         bootstrap.Modal.getOrCreateInstance(document.getElementById("catalogo_modal_sku_temporal")).show();
     }
@@ -3858,6 +3931,11 @@
         }
         if (incidenciasBody) {
             incidenciasBody.addEventListener("click", function (event) {
+                var estatus = event.target.closest("[data-incidencia-estatus]");
+                if (estatus) {
+                    cambiarEstatusIncidenciaCalidad(estatus.getAttribute("data-incidencia-estatus"), estatus.getAttribute("data-estatus"));
+                    return;
+                }
                 var temporal = event.target.closest("[data-sku-temporal]");
                 if (temporal) {
                     abrirSkuTemporal(temporal.getAttribute("data-sku-temporal"));

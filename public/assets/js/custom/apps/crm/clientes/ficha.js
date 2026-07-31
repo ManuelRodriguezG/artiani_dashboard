@@ -9,7 +9,7 @@
         var options = {credentials: "same-origin"};
         if (data) {
             options.method = "POST";
-            options.headers = {"Content-Type": "application/x-www-form-urlencoded; charset=UTF-8"};
+            options.headers = {"Content-Type": "application/x-www-form-urlencoded; charset=UTF-8", "X-CSRF-Token": window.ERP_CSRF_TOKEN || ""};
             options.body = new URLSearchParams(data).toString();
         }
         return fetch(url, options).then(function (response) { return response.json(); });
@@ -131,6 +131,9 @@
             html += "<div class=\"fs-8 text-muted mb-1\">Pendientes</div><ul class=\"mb-3 ps-4 fs-8\">" +
                 pendientes.slice(0, 4).map(function (item) { return "<li>" + escapeHtml(item) + "</li>"; }).join("") +
                 "</ul>";
+            if (puedeEditar) {
+                html += renderAccionesCalidad(pendientes);
+            }
         }
         if (avisos.length) {
             html += "<div class=\"alert alert-warning py-2 px-3 fs-8 mb-3\">" + avisos.map(escapeHtml).join("<br>") + "</div>";
@@ -139,6 +142,34 @@
             html += "<div class=\"fs-8 text-muted\">" + escapeHtml(fortalezas.slice(0, 3).join(" | ")) + "</div>";
         }
         document.getElementById("crm_calidad_operativa").innerHTML = html;
+    }
+
+    function renderAccionesCalidad(pendientes) {
+        var acciones = [];
+        pendientes.forEach(function (pendiente) {
+            var texto = String(pendiente || "").toLowerCase();
+            if ((texto.indexOf("contacto") >= 0 || texto.indexOf("whatsapp") >= 0 || texto.indexOf("correo") >= 0) && acciones.indexOf("contacto") < 0) {
+                acciones.push("contacto");
+            }
+            if ((texto.indexOf("consentimiento") >= 0 || texto.indexOf("permiso") >= 0) && acciones.indexOf("consentimiento") < 0) {
+                acciones.push("consentimiento");
+            }
+            if ((texto.indexOf("fiscal") >= 0 || texto.indexOf("rfc") >= 0) && acciones.indexOf("fiscal") < 0) {
+                acciones.push("fiscal");
+            }
+        });
+        if (!acciones.length) {
+            return "";
+        }
+        return "<div class=\"d-flex flex-wrap gap-2 mb-3\">" + acciones.map(function (accion) {
+            if (accion === "contacto") {
+                return "<button class=\"btn btn-sm btn-light-primary\" type=\"button\" data-crm-ficha-tab=\"#crm_tab_contacto\"><i class=\"bi bi-person-lines-fill\"></i> Contacto</button>";
+            }
+            if (accion === "consentimiento") {
+                return "<button class=\"btn btn-sm btn-light-primary\" type=\"button\" data-crm-ficha-tab=\"#crm_tab_fiscal\"><i class=\"bi bi-check2-circle\"></i> Consentimiento</button>";
+            }
+            return "<button class=\"btn btn-sm btn-light-primary\" type=\"button\" data-crm-ficha-tab=\"#crm_tab_fiscal\"><i class=\"bi bi-receipt\"></i> Fiscal</button>";
+        }).join("") + "</div>";
     }
 
     function renderIdentificadores(items) {
@@ -317,6 +348,17 @@
     document.addEventListener("DOMContentLoaded", function () {
         cargarFicha();
         document.getElementById("crm_ficha_recargar").addEventListener("click", cargarFicha);
+        document.addEventListener("click", function (event) {
+            var button = event.target.closest("[data-crm-ficha-tab]");
+            if (!button) {
+                return;
+            }
+            var selector = button.getAttribute("data-crm-ficha-tab");
+            var tab = selector ? document.querySelector("a[href=\"" + selector + "\"]") : null;
+            if (tab && window.bootstrap && window.bootstrap.Tab) {
+                window.bootstrap.Tab.getOrCreateInstance(tab).show();
+            }
+        });
         if (!puedeEditar) {
             return;
         }

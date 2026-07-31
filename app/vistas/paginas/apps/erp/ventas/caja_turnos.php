@@ -70,18 +70,18 @@
                                         <div class="d-flex justify-content-between align-items-center mb-4">
                                             <div>
                                                 <div class="fw-bold fs-5">Apertura de turno</div>
-                                                <div class="text-muted fs-7">Valida y abre turno para la caja asignada</div>
+                                                <div class="text-muted fs-7">Valida y abre turno para una caja asignada a tu usuario</div>
                                             </div>
                                             <span class="badge badge-light-danger">Confirmacion</span>
                                         </div>
                                         <div class="row g-3 align-items-end">
                                             <div class="col-md-6">
                                                 <label class="form-label text-muted fs-8 text-uppercase">Almacen</label>
-                                                <select class="form-select form-select-solid" id="pos_caja_apertura_almacen" disabled></select>
+                                                <select class="form-select form-select-solid" id="pos_caja_apertura_almacen"></select>
                                             </div>
                                             <div class="col-md-6">
                                                 <label class="form-label text-muted fs-8 text-uppercase">Caja</label>
-                                                <select class="form-select form-select-solid" id="pos_caja_apertura_caja" disabled></select>
+                                                <select class="form-select form-select-solid" id="pos_caja_apertura_caja"></select>
                                             </div>
                                             <div class="col-md-6">
                                                 <label class="form-label text-muted fs-8 text-uppercase">Monto inicial</label>
@@ -93,7 +93,7 @@
                                             </div>
                                             <div class="col-12">
                                                 <button class="btn btn-primary w-100" id="pos_caja_apertura_dryrun" type="button"><i class="bi bi-door-open"></i> Validar apertura</button>
-                                                <div class="text-muted fs-8 mt-2 text-center">Usa la caja asignada al usuario actual. Si valida, podras confirmar apertura real.</div>
+                                                <div class="text-muted fs-8 mt-2 text-center">Solo podras abrir cajas donde tu usuario tenga asignacion POS activa.</div>
                                             </div>
                                         </div>
                                         <div id="pos_caja_apertura_resultado" class="pos-admin-result mt-4"></div>
@@ -245,7 +245,7 @@ window.POS_USUARIO_ACTUAL = <?= json_encode(array(
     "id_usuario" => isset($_SESSION["id_usuario"]) ? intval($_SESSION["id_usuario"]) : 0
 ), JSON_UNESCAPED_UNICODE); ?>;
 </script>
-<script src="/assets/js/custom/apps/erp/ventas/caja_turnos.js?v=20260725-operativo1"></script>
+<script src="/assets/js/custom/apps/erp/ventas/caja_turnos.js?v=20260730-multi-caja"></script>
 </body>
 </html>
 

@@ -1,0 +1,280 @@
+# ERP - Modulo de migraciones y promocion de base de datos
+
+Documentacion IA: Codex GPT-5  
+Fecha: 2026-07-30  
+Estado: diseno inicial; no implementado; no ejecuta cambios en BD
+
+## Proposito
+
+Definir un modulo tecnico para preparar, comparar, respaldar y aplicar cambios entre ambientes de base de datos, especialmente de local hacia productivo.
+
+El objetivo no es copiar una base completa sin criterio, sino construir una promocion controlada por tabla, con respaldo previo, dry-run, autorizacion explicita, bitacora y plan de reversa.
+
+## Problema operativo
+
+Durante la construccion del ERP se esta capturando informacion real y decisiva en local: catalogo, proveedores, costos, relaciones SKU proveedor, reglas de inventario, configuraciones y otros cimientos.
+
+Esa informacion no debe perderse ni recapturarse cuando llegue el momento de llevar el sistema a productivo. Tampoco debe subirse todo sin control, porque productivo puede tener ventas, usuarios, clientes, movimientos o historial que no deben sobrescribirse.
+
+## Decision recomendada
+
+Crear un modulo tecnico `Migraciones BD` dentro de Administracion/SYS con tres capacidades separadas:
+
+1. Inventario y comparacion de ambientes.
+2. Generacion de paquetes de migracion.
+3. Aplicacion autorizada con respaldo y bitacora.
+
+La aplicacion real debe exigir:
+
+- permiso fino;
+- entorno destino configurado;
+- respaldo externo verificable;
+- dry-run previo;
+- token o frase de autorizacion;
+- ventana operativa documentada;
+- bitacora de cada tabla, sentencia y resultado.
+
+## Alcance funcional
+
+### Comparacion
+
+- Comparar esquema local vs destino.
+- Detectar tablas faltantes.
+- Detectar columnas faltantes o diferentes.
+- Detectar indices faltantes o diferentes.
+- Detectar conteos por tabla.
+- Detectar maximos de claves primarias y posibles colisiones.
+- Detectar tablas con columnas sensibles o historicas.
+
+### Clasificacion de tablas
+
+Cada tabla debe tener una politica de migracion:
+
+- `schema_only`: solo estructura.
+- `data_seed`: datos catalogo/semilla versionables.
+- `data_merge`: insertar/actualizar registros con llave natural o identificador estable.
+- `data_snapshot`: reemplazo completo permitido solo en tablas tecnicas o temporales.
+- `local_only`: nunca migrar a productivo.
+- `production_owned`: productivo manda; local no debe sobrescribir.
+- `blocked`: requiere decision manual.
+
+### Paquetes de migracion
+
+Un paquete debe guardar:
+
+- ambiente origen;
+- ambiente destino;
+- tablas incluidas;
+- politica por tabla;
+- SQL generado;
+- resumen de riesgo;
+- hash o firma del plan;
+- usuario creador;
+- estatus: borrador, revisado, autorizado, aplicado, fallido, cancelado;
+- ruta de respaldo usada al aplicar.
+
+### Aplicacion
+
+La aplicacion real debe:
+
+- bloquearse si no existe respaldo externo;
+- bloquearse si el dry-run cambio despues de autorizar;
+- ejecutar primero DDL seguro;
+- ejecutar despues datos segun politica;
+- registrar antes/despues en auditoria SYS;
+- detenerse ante errores de integridad;
+- conservar evidencia suficiente para reversa.
+
+## Que si migrar desde local a productivo
+
+Normalmente si conviene migrar:
+
+- catalogos base del ERP;
+- productos y SKUs maestros cuando productivo todavia no opera sobre ellos;
+- marcas, categorias, unidades, claves fiscales y reglas de inventario;
+- proveedores maestros ya depurados;
+- relaciones SKU proveedor;
+- listas/costos de proveedor si ya estan validados;
+- parametros SYS no secretos;
+- roles/permisos base;
+- plantillas, configuraciones operativas y reglas de negocio versionadas;
+- tablas staging solo si se usan como evidencia temporal autorizada.
+
+## Que no migrar sin plan especifico
+
+No conviene migrar de forma generica:
+
+- sesiones;
+- tokens;
+- passwords o hashes si productivo ya tiene usuarios reales;
+- auditoria como si fuera operacion productiva;
+- ventas, caja, pagos, inventario real, movimientos, recepciones y documentos fiscales si productivo ya opera;
+- clientes reales de productivo;
+- archivos adjuntos sin reconciliar rutas fisicas;
+- tablas legacy completas sin staging;
+- cualquier tabla con claves autoincrementales que puedan colisionar sin llave natural.
+
+## Arquitectura propuesta
+
+### Controlador
+
+`app/controladores/MigracionBd.php`
+
+Endpoints sugeridos:
+
+- `index`
+- `ambientes_listar`
+- `ambiente_probar`
+- `tablas_clasificar`
+- `comparar_ambientes`
+- `paquete_crear`
+- `paquete_consultar`
+- `paquete_sql_descargar`
+- `paquete_autorizar`
+- `paquete_aplicar`
+- `respaldo_generar`
+- `respaldo_validar`
+- `historial_listar`
+
+### Modelos
+
+`app/modelos/MigracionesBd.php`
+
+Responsable de:
+
+- conexiones a ambientes;
+- lectura de INFORMATION_SCHEMA;
+- comparacion;
+- generacion de SQL;
+- validaciones de riesgo;
+- aplicacion transaccional cuando sea posible;
+- bitacora.
+
+`app/modelos/MigracionesBdEsquema.php`
+
+Responsable de crear:
+
+- `sys_migraciones_ambientes`;
+- `sys_migraciones_tablas_politicas`;
+- `sys_migraciones_paquetes`;
+- `sys_migraciones_paquete_tablas`;
+- `sys_migraciones_paquete_sql`;
+- `sys_migraciones_ejecuciones`;
+- `sys_migraciones_ejecucion_detalle`.
+
+### Vista y JS
+
+Vista:
+
+- `app/vistas/paginas/apps/erp/sistema/migraciones_bd.php`
+
+JS:
+
+- `public/assets/js/custom/apps/erp/sistema/migraciones_bd.js`
+
+La UI debe ser una consola tecnica sobria con tabs:
+
+- Ambientes.
+- Politicas por tabla.
+- Comparacion.
+- Paquetes.
+- Ejecuciones y respaldos.
+
+## Configuracion de credenciales
+
+No guardar credenciales productivas en vistas, JS ni documentacion.
+
+Opciones recomendadas:
+
+1. Archivo PHP fuera de `public` y no versionado, por ejemplo `app/config/migraciones_ambientes.local.php`.
+2. Variables de entorno del servidor.
+3. Tabla cifrada solo si se define antes una estrategia de llave fuera de la BD.
+
+Para este proyecto, la primera fase debe usar archivo local no versionado con alias de ambiente y nunca devolver password al navegador.
+
+## Permisos sugeridos
+
+Agregar permisos finos:
+
+- `migraciones.ver`: consultar ambientes, politicas, comparaciones e historial.
+- `migraciones.preparar`: crear paquetes y dry-runs.
+- `migraciones.aplicar`: aplicar paquetes autorizados.
+- `migraciones.respaldos`: generar y validar respaldos.
+
+El rol `administrador_erp` puede tener todos. El rol `soporte_sistema` puede tener ver/preparar/respaldos y aplicar solo si el dueno lo autoriza.
+
+## Respaldo
+
+Usar el estandar del proyecto:
+
+```text
+C:\xampp\panel_db_backups
+```
+
+Convencion:
+
+```text
+{base}_{proyecto}_{yyyymmdd_HHmmss}_antes_migracion_bd_{paquete}.sql
+```
+
+Ningun paquete debe aplicarse si:
+
+- el respaldo no existe;
+- el respaldo esta dentro del repo;
+- el respaldo pesa `0`;
+- el respaldo no corresponde al ambiente destino;
+- el respaldo fue generado antes de que cambiara el plan autorizado.
+
+## Riesgos principales
+
+- Sobrescribir informacion productiva real con datos locales incompletos.
+- Colisionar IDs autoincrementales.
+- Romper foreign keys por migrar tablas fuera de orden.
+- Migrar passwords, sesiones o datos sensibles accidentalmente.
+- Generar una falsa sensacion de reversa si no se prueba restauracion.
+- Copiar datos legacy que deberian pasar por staging y depuracion.
+
+## Fase 1 recomendada
+
+Implementar solo lectura y preparacion:
+
+1. Crear esquema de tablas SYS para ambientes, politicas y paquetes.
+2. Crear permisos `migraciones.*`.
+3. Crear UI de consulta.
+4. Comparar esquema local vs destino configurado.
+5. Clasificar tablas con politica manual.
+6. Generar SQL en dry-run descargable.
+7. No aplicar aun cambios reales.
+
+## Fase 2 recomendada
+
+Agregar respaldos y aplicacion controlada:
+
+1. Generar respaldo destino con `mysqldump`.
+2. Validar respaldo.
+3. Autorizar paquete con token.
+4. Aplicar solo paquetes cuyo hash no cambio.
+5. Registrar ejecucion y detalle.
+6. Auditar post-aplicacion.
+
+## Fase 3 recomendada
+
+Agregar reglas avanzadas:
+
+- llaves naturales por tabla;
+- merge por columnas especificas;
+- mascaramiento de datos sensibles;
+- deteccion de dependencias por foreign keys;
+- simulacion de conteos antes/despues;
+- plan de reversa asistido;
+- exportacion de paquetes versionables.
+
+## Handoff / continuidad
+
+Fecha: 2026-07-30
+
+- Contexto actual: el dueno quiere construir informacion real en local y despues promoverla a productivo sin recaptura ni copia indiscriminada.
+- Decision: crear modulo SYS de migraciones/promocion con politicas por tabla, dry-run, respaldo y autorizacion.
+- Pendiente: implementar Fase 1 sin tocar productivo ni ejecutar migraciones.
+- Impacta a: Catalogo, Proveedores, Compras, Inventario, Seguridad, Sistema y futuras cargas masivas.
+- Siguiente paso recomendado: crear `MigracionesBdEsquema`, permisos base y pantalla de comparacion en modo solo lectura.

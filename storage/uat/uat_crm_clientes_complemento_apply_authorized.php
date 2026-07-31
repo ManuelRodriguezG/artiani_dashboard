@@ -27,7 +27,28 @@ function validar_respaldo_crm_complemento($respaldo) {
   return array("ok" => $okReferencia && $okRuta, "referencia_presente" => $okReferencia, "parece_ruta_local" => $esRutaLocal, "archivo_existe" => $esRutaLocal ? $existe : null, "archivo_legible" => $esRutaLocal ? $legible : null, "tamano_bytes" => $tamano);
 }
 
-$opciones = getopt("", array("autorizar::", "respaldo::", "id::", "tipo_complemento::", "tipo::", "valor::", "nombre::", "rfc::", "razon::", "calle::", "cp::", "nota::"));
+$opciones = getopt("", array(
+  "autorizar::",
+  "respaldo::",
+  "id::",
+  "tipo_complemento::",
+  "tipo::",
+  "valor::",
+  "nombre::",
+  "etiqueta::",
+  "principal::",
+  "permite_contacto::",
+  "rfc::",
+  "razon::",
+  "regimen::",
+  "uso_cfdi::",
+  "calle::",
+  "cp::",
+  "nota::",
+  "otorgado::",
+  "medio::",
+  "evidencia::"
+));
 $autorizar = isset($opciones["autorizar"]) ? trim((string) $opciones["autorizar"]) : "";
 $respaldo = isset($opciones["respaldo"]) ? trim((string) $opciones["respaldo"]) : "";
 $validacion = validar_respaldo_crm_complemento($respaldo);
@@ -49,11 +70,19 @@ $datos = array(
   "tipo" => isset($opciones["tipo"]) ? $opciones["tipo"] : "",
   "valor" => isset($opciones["valor"]) ? $opciones["valor"] : "",
   "nombre_contacto" => isset($opciones["nombre"]) ? $opciones["nombre"] : "",
+  "etiqueta" => isset($opciones["etiqueta"]) ? $opciones["etiqueta"] : "",
+  "principal" => isset($opciones["principal"]) ? intval($opciones["principal"]) : 0,
+  "permite_contacto" => isset($opciones["permite_contacto"]) ? intval($opciones["permite_contacto"]) : 0,
   "rfc" => isset($opciones["rfc"]) ? $opciones["rfc"] : "",
   "razon_social" => isset($opciones["razon"]) ? $opciones["razon"] : "",
+  "regimen_fiscal" => isset($opciones["regimen"]) ? $opciones["regimen"] : "",
+  "uso_cfdi_default" => isset($opciones["uso_cfdi"]) ? $opciones["uso_cfdi"] : "",
   "calle" => isset($opciones["calle"]) ? $opciones["calle"] : "",
   "codigo_postal" => isset($opciones["cp"]) ? $opciones["cp"] : "",
-  "nota" => isset($opciones["nota"]) ? $opciones["nota"] : ""
+  "nota" => isset($opciones["nota"]) ? $opciones["nota"] : "",
+  "otorgado" => isset($opciones["otorgado"]) ? intval($opciones["otorgado"]) : 1,
+  "medio" => isset($opciones["medio"]) ? $opciones["medio"] : "",
+  "evidencia" => isset($opciones["evidencia"]) ? $opciones["evidencia"] : ""
 );
 $modelo = new ClientesCrm();
 $respuesta = $modelo->complementoGuardarAutorizado($tipoComplemento, $datos);
