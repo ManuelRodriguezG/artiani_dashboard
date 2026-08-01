@@ -1,8 +1,8 @@
 # ERP Ecommerce publico - Contratos API Fase 1
 
 Documentacion IA: Codex GPT-5  
-Fecha: 2026-07-15  
-Estado: contrato read-only para frontend ecommerce externo; API publica Fase 1 cubierta por smoke HTTP.
+Fecha: 2026-07-31  
+Estado: contrato read-only para frontend ecommerce externo; API publica Fase 1 cubierta por smoke HTTP y handoff tecnico.
 
 ## Decision
 
@@ -24,9 +24,9 @@ Uso:
 
 ## Endpoints publicos Fase 1
 
-La API publica se mantiene en contratos separados. No se agrega endpoint `bootstrap` en esta fase para evitar acoplar el primer render del frontend a un payload combinado.
+La API publica se mantiene en contratos separados, con `bootstrap` como agregador inicial recomendado para evitar muchas llamadas en el primer render.
 
-Total actual: 16 endpoints publicos read-only/dry-run/preflight.
+Total actual: 21 endpoints publicos read-only/dry-run/preflight.
 
 ### Estado/readiness
 
@@ -43,13 +43,38 @@ Devuelve readiness del API para el proyecto ecommerce:
 - guardrails activos;
 - pendientes de seguridad antes de produccion.
 
+### Bootstrap frontend
+
+```http
+GET /ecommercePublico/bootstrap?limite_secciones=6
+```
+
+Uso recomendado para el primer render del frontend publico. Devuelve en un solo payload:
+
+- `estado`;
+- `configuracion`;
+- `filtros`;
+- `navegacion`;
+- `secciones`;
+- `politicas`;
+- `canales`;
+- `guardrails`.
+
+No reemplaza los endpoints separados; los agrupa para home/layout inicial. Mantiene modo read-only, no expone secretos, no muestra stock exacto y no registra cotizaciones.
+
 ### Catalogo
 
 ```http
-GET /ecommercePublico/catalogo?q=&mascota=&necesidad=&marca=&categoria=&pagina=1&limite=24
+GET /ecommercePublico/catalogo?q=&mascota=&necesidad=&marca=&categoria=&disponibilidad=&destacado=&orden=relevancia&pagina=1&limite=24
 ```
 
 Devuelve solo publicaciones con `estatus_publicacion='publicado'`. Si el esquema aun no existe, responde `configurado=false` e `items=[]`.
+
+Parametros adicionales vigentes:
+
+- `disponibilidad`: `disponible`, `pocas_piezas`, `consultar_disponibilidad` o `agotado`;
+- `destacado`: `1` para mostrar solo destacados;
+- `orden`: `relevancia`, `nombre`, `precio_asc`, `precio_desc` o `recientes`.
 
 ### Producto
 
@@ -66,6 +91,56 @@ GET /ecommercePublico/filtros
 ```
 
 Devuelve mascotas, necesidades, marcas y categorias derivadas de publicaciones vigentes.
+
+Tambien devuelve `disponibilidad` para construir filtros publicos sin mostrar cantidades exactas.
+
+### Busqueda sugerencias
+
+```http
+GET /ecommercePublico/busqueda_sugerencias?q=filtro&limite=4
+```
+
+Devuelve sugerencias para autocomplete/buscador:
+
+- productos publicados;
+- marcas;
+- categorias;
+- mascotas;
+- necesidades.
+
+No registra busquedas ni escribe BD. Para analytics futuro existe `POST /busqueda_registrar` como preflight separado.
+
+### Navegacion publica
+
+```http
+GET /ecommercePublico/navegacion?limite=8
+```
+
+Devuelve estructura lista para menus, chips y rutas:
+
+- `primaria`;
+- `mascotas`;
+- `necesidades`;
+- `categorias`;
+- `marcas`;
+- `disponibilidad`.
+
+La navegacion se deriva de publicaciones vigentes y se incluye tambien dentro de `bootstrap`.
+
+### Secciones home/catalogo
+
+```http
+GET /ecommercePublico/secciones?limite=4
+```
+
+Devuelve bloques de productos listos para home o secciones editoriales basicas:
+
+- destacados;
+- disponibles;
+- grupos por mascota;
+- grupos por necesidad.
+
+No crea contenido ni guarda preferencias. Solo organiza publicaciones publicas existentes.
 
 ### Politicas publicas
 
@@ -137,6 +212,22 @@ Devuelve solo claves publicables para el frontend:
 
 Si `erp_ecommerce_configuracion` aun no existe, responde `configurado=false` con defaults seguros y sin numero WhatsApp hardcodeado.
 
+### Canales/API estado
+
+```http
+GET /ecommercePublico/canales_estado
+```
+
+Devuelve el estado seguro de la futura capa multi-canal/API para Artiani y partners:
+
+- tablas requeridas;
+- canales configurados;
+- credenciales activas como conteo, sin secretos;
+- bloqueos de activacion;
+- guardrails.
+
+En Fase 1 puede responder `tipo=info` y `modo=multi_canal_diseno_readonly`. No genera credenciales, no activa autenticacion obligatoria y no expone secrets.
+
 ### SEO/descubrimiento
 
 ```http
@@ -149,6 +240,8 @@ Devuelve metadatos para que el frontend externo genere:
 - robots sugerido;
 - rutas para sitemap;
 - rutas de productos publicados cuando existan;
+- rutas navegables por filtros;
+- `sitemap_xml_sugerido`;
 - contrato JSON-LD base para `PetStore` y `Product`.
 
 El ERP no renderiza `robots.txt` ni `sitemap.xml` en Fase 1; el frontend los genera usando este contrato.

@@ -1,7 +1,7 @@
 <?php
 
 /**
- * Documentacion IA: Codex GPT-5, 2026-07-15.
+ * Documentacion IA: Codex GPT-5, 2026-07-31.
  * Proposito: validar llaves minimas de contratos ecommerce publico para frontend externo.
  * Impacto: detecta cambios de shape antes de romper catalogo, filtros, ficha o carrito.
  * Contrato: read-only; no ejecuta DDL, no escribe BD, no registra cotizaciones y no toca inventario.
@@ -16,15 +16,20 @@ $modelo = new EcommerceCatalogoPublico();
 $respuestas = array(
   "contratos" => $modelo->contratosApiPublicos(),
   "estado" => $modelo->estadoApiPublica(),
+  "bootstrap" => $modelo->bootstrapPublico(array("limite_secciones" => 3)),
   "configuracion" => $modelo->configuracionPublica(),
   "seo" => $modelo->seoPublico(),
   "filtros" => $modelo->filtrosPublicos(),
+  "busqueda_sugerencias" => $modelo->busquedaSugerenciasPublicas(array("q" => "filtro", "limite" => 4)),
+  "navegacion" => $modelo->navegacionPublica(array("limite" => 5)),
+  "secciones" => $modelo->seccionesPublicas(array("limite" => 3)),
   "politicas" => $modelo->politicasPublicas(),
   "politica_facturacion" => $modelo->politicaPublica("facturacion"),
   "taxonomia_mascotas" => $modelo->taxonomiaMascotasPublica(),
   "catalogo" => $modelo->catalogoPublico(array("limite" => 3)),
   "producto" => $modelo->productoPublico("slug-de-prueba-no-publicado"),
   "disponibilidad" => $modelo->disponibilidadPublica(array("slug" => "slug-de-prueba-no-publicado")),
+  "canales_estado" => $modelo->canalesApiEstadoPublico(),
   "cotizacion_dryrun" => $modelo->cotizacionDryRun(array("items" => array(array("id_publicacion" => 1, "cantidad" => 1)))),
   "cotizacion_preflight" => $modelo->cotizacionPreflight(array(
     "items" => array(array("id_publicacion" => 1, "cantidad" => 1)),
@@ -64,15 +69,20 @@ foreach ($respuestas as $nombre => $respuesta) {
 
 validarRutas($respuestas["contratos"], $bloqueos);
 validarEstado($respuestas["estado"], $bloqueos);
+validarBootstrap($respuestas["bootstrap"], $bloqueos);
 validarConfiguracion($respuestas["configuracion"], $bloqueos);
 validarSeo($respuestas["seo"], $bloqueos);
 validarFiltros($respuestas["filtros"], $bloqueos);
+validarBusquedaSugerencias($respuestas["busqueda_sugerencias"], $bloqueos);
+validarNavegacion($respuestas["navegacion"], $bloqueos);
+validarSecciones($respuestas["secciones"], $bloqueos);
 validarPoliticas($respuestas["politicas"], $bloqueos);
 validarPolitica($respuestas["politica_facturacion"], $bloqueos);
 validarTaxonomiaMascotas($respuestas["taxonomia_mascotas"], $bloqueos);
 validarCatalogo($respuestas["catalogo"], $bloqueos);
 validarProducto($respuestas["producto"], $bloqueos);
 validarDisponibilidad($respuestas["disponibilidad"], $bloqueos);
+validarCanalesEstado($respuestas["canales_estado"], $bloqueos);
 validarDryRun($respuestas["cotizacion_dryrun"], $bloqueos);
 validarPreflight($respuestas["cotizacion_preflight"], $bloqueos);
 validarRegistroBloqueado($respuestas["cotizacion_registrar"], $bloqueos);
@@ -85,7 +95,7 @@ echo json_encode(array(
   "modo" => "read-only",
   "shape" => array(
     "wrappers_validados" => array_keys($respuestas),
-    "endpoints_publicos_esperados" => 16,
+    "endpoints_publicos_esperados" => 21,
     "item_catalogo_keys" => itemCatalogoKeys()
   ),
   "bloqueos" => $bloqueos,
@@ -119,13 +129,18 @@ function validarRutas($respuesta, &$bloqueos) {
   }
   foreach (array(
     "/ecommercePublico/estado",
+    "/ecommercePublico/bootstrap",
     "/ecommercePublico/catalogo",
     "/ecommercePublico/producto/{slug}",
     "/ecommercePublico/filtros",
+    "/ecommercePublico/busqueda_sugerencias",
+    "/ecommercePublico/navegacion",
+    "/ecommercePublico/secciones",
     "/ecommercePublico/politicas",
     "/ecommercePublico/politica/{slug}",
     "/ecommercePublico/taxonomia_mascotas",
     "/ecommercePublico/configuracion",
+    "/ecommercePublico/canales_estado",
     "/ecommercePublico/seo",
     "/ecommercePublico/disponibilidad",
     "/ecommercePublico/cotizacion_dryrun",
@@ -138,6 +153,17 @@ function validarRutas($respuesta, &$bloqueos) {
     if (!in_array($ruta, $rutas, true)) {
       $bloqueos[] = "contratos_falta_ruta_" . $ruta;
     }
+  }
+}
+
+function validarBootstrap($respuesta, &$bloqueos) {
+  foreach (array("estado", "configuracion", "filtros", "navegacion", "secciones", "politicas", "canales", "guardrails") as $key) {
+    if (!is_array(valorShape($respuesta, array("depurar", $key), null))) {
+      $bloqueos[] = "bootstrap_falta_array_" . $key;
+    }
+  }
+  if (valorShape($respuesta, array("depurar", "guardrails", "no_expone_secretos"), false) !== true) {
+    $bloqueos[] = "bootstrap_debe_indicar_no_expone_secretos";
   }
 }
 
@@ -169,10 +195,13 @@ function validarConfiguracion($respuesta, &$bloqueos) {
 }
 
 function validarSeo($respuesta, &$bloqueos) {
-  foreach (array("meta", "robots", "sitemap", "json_ld") as $key) {
+  foreach (array("meta", "robots", "sitemap", "rutas", "json_ld", "resumen") as $key) {
     if (!is_array(valorShape($respuesta, array("depurar", $key), null))) {
       $bloqueos[] = "seo_falta_array_" . $key;
     }
+  }
+  if (!is_string(valorShape($respuesta, array("depurar", "sitemap_xml_sugerido"), null))) {
+    $bloqueos[] = "seo_sitemap_xml_sugerido_debe_ser_string";
   }
   if (valorShape($respuesta, array("depurar", "guardrails", "no_muestra_stock_exacto"), false) !== true) {
     $bloqueos[] = "seo_debe_indicar_no_stock_exacto";
@@ -180,10 +209,40 @@ function validarSeo($respuesta, &$bloqueos) {
 }
 
 function validarFiltros($respuesta, &$bloqueos) {
-  foreach (array("mascotas", "necesidades", "marcas", "categorias") as $key) {
+  foreach (array("mascotas", "necesidades", "marcas", "categorias", "disponibilidad") as $key) {
     if (!is_array(valorShape($respuesta, array("depurar", $key), null))) {
       $bloqueos[] = "filtros_falta_array_" . $key;
     }
+  }
+}
+
+function validarBusquedaSugerencias($respuesta, &$bloqueos) {
+  foreach (array("grupos", "resumen", "guardrails") as $key) {
+    if (!is_array(valorShape($respuesta, array("depurar", $key), null))) {
+      $bloqueos[] = "busqueda_sugerencias_falta_array_" . $key;
+    }
+  }
+  foreach (array("productos", "marcas", "categorias", "mascotas", "necesidades") as $grupo) {
+    if (!is_array(valorShape($respuesta, array("depurar", "grupos", $grupo), null))) {
+      $bloqueos[] = "busqueda_sugerencias_falta_grupo_" . $grupo;
+    }
+  }
+}
+
+function validarNavegacion($respuesta, &$bloqueos) {
+  foreach (array("primaria", "mascotas", "necesidades", "categorias", "marcas", "disponibilidad", "resumen", "guardrails") as $key) {
+    if (!is_array(valorShape($respuesta, array("depurar", $key), null))) {
+      $bloqueos[] = "navegacion_falta_array_" . $key;
+    }
+  }
+}
+
+function validarSecciones($respuesta, &$bloqueos) {
+  if (!is_array(valorShape($respuesta, array("depurar", "secciones"), null))) {
+    $bloqueos[] = "secciones_lista_debe_ser_array";
+  }
+  if (valorShape($respuesta, array("depurar", "guardrails", "no_stock_exacto"), false) !== true) {
+    $bloqueos[] = "secciones_debe_indicar_no_stock_exacto";
   }
 }
 
@@ -245,6 +304,17 @@ function validarDisponibilidad($respuesta, &$bloqueos) {
   }
   if (valorShape($respuesta, array("depurar", "mostrar_cantidad_exacta"), false) === true) {
     $bloqueos[] = "disponibilidad_no_debe_mostrar_cantidad_exacta";
+  }
+}
+
+function validarCanalesEstado($respuesta, &$bloqueos) {
+  foreach (array("tablas", "canales", "autenticacion", "activacion", "guardrails") as $key) {
+    if (!is_array(valorShape($respuesta, array("depurar", $key), null))) {
+      $bloqueos[] = "canales_estado_falta_array_" . $key;
+    }
+  }
+  if (valorShape($respuesta, array("depurar", "guardrails", "no_expone_api_secret"), false) !== true) {
+    $bloqueos[] = "canales_estado_debe_ocultar_api_secret";
   }
 }
 

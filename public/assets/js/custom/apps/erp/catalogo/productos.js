@@ -2106,6 +2106,7 @@
             form.reset();
             setValor(form, "id_paquete", "");
         }
+        actualizarModoFormularioPaquete(false);
         componentesPaqueteForm = [];
         renderComponentesPaqueteForm();
         var paquetes = detalleActual.paquetes && detalleActual.paquetes.paquetes ? detalleActual.paquetes.paquetes : [];
@@ -2194,6 +2195,10 @@
     function prepararOpcionPaquete(idGrupo, opcion) {
         var form = document.getElementById("catalogo_form_paquete_opcion");
         if (!form) { return; }
+        var panel = document.getElementById("catalogo_paquete_opcion_panel");
+        if (panel) {
+            panel.classList.remove("d-none");
+        }
         paqueteGrupoActualId = Number(idGrupo || 0);
         form.reset();
         reiniciarSelectOpcionPaquete();
@@ -2224,6 +2229,10 @@
             setValor(form, "id_opcion", "");
             setValor(form, "id_grupo", "");
             reiniciarSelectOpcionPaquete();
+        }
+        var panel = document.getElementById("catalogo_paquete_opcion_panel");
+        if (panel) {
+            panel.classList.add("d-none");
         }
         var input = document.getElementById("catalogo_paquete_opcion_buscar_sku");
         var resultados = document.getElementById("catalogo_paquete_opcion_resultados_sku");
@@ -2314,7 +2323,24 @@
         if (errorBox) {
             errorBox.classList.add("d-none");
         }
+        actualizarModoFormularioPaquete(true);
         form.scrollIntoView({behavior: "smooth", block: "start"});
+    }
+
+    /**
+     * IA: Codex GPT-5 | Fecha: 2026-07-31
+     * Proposito: distingue visualmente crear receta y editar receta en la pestana Paquetes.
+     * Impacto: Catalogo ERP; reduce confusion al modificar paquetes existentes sin tocar BD ni otros modulos.
+     */
+    function actualizarModoFormularioPaquete(editando) {
+        var titulo = document.getElementById("catalogo_paquete_form_titulo");
+        var boton = document.getElementById("catalogo_paquete_guardar");
+        if (titulo) {
+            titulo.textContent = editando ? "Paso 2 - Editar receta del paquete" : "Paso 2 - Crear receta del paquete";
+        }
+        if (boton) {
+            boton.innerHTML = editando ? "<i class=\"bi bi-check-lg\"></i> Guardar cambios de receta" : "<i class=\"bi bi-box-seam\"></i> Guardar receta del SKU paquete";
+        }
     }
 
     /**

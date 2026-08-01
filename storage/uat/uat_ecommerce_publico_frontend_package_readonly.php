@@ -1,7 +1,7 @@
 <?php
 
 /**
- * Documentacion IA: Codex GPT-5, 2026-07-15.
+ * Documentacion IA: Codex GPT-5, 2026-07-31.
  * Proposito: generar paquete de entrega para iniciar el proyecto frontend ecommerce externo.
  * Impacto: concentra documentos, scripts, endpoints y semaforo actual sin escribir BD.
  * Contrato: read-only; no ejecuta DDL, no crea publicaciones y no toca inventario.
@@ -19,8 +19,12 @@ require_once "../app/modelos/EcommerceCatalogoPublico.php";
 
 $api = new EcommerceCatalogoPublico();
 $estado = $api->estadoApiPublica();
+$bootstrap = $api->bootstrapPublico(array("limite_secciones" => 4));
 $configuracion = $api->configuracionPublica();
 $catalogo = $api->catalogoPublico(array("limite" => 1));
+$navegacion = $api->navegacionPublica(array("limite" => 8));
+$sugerencias = $api->busquedaSugerenciasPublicas(array("q" => "filtro", "limite" => 4));
+$canalesEstado = $api->canalesApiEstadoPublico();
 $items = valorFrontendPackage($catalogo, array("depurar", "items"), array());
 $primerItem = !empty($items) ? $items[0] : array();
 $dryrun = array();
@@ -100,15 +104,20 @@ echo json_encode(array(
   "endpoints_publicos" => array(
     "GET /ecommercePublico/contratos",
     "GET /ecommercePublico/estado",
+    "GET /ecommercePublico/bootstrap",
     "GET /ecommercePublico/configuracion",
     "GET /ecommercePublico/seo",
     "GET /ecommercePublico/filtros",
+    "GET /ecommercePublico/busqueda_sugerencias",
+    "GET /ecommercePublico/navegacion",
+    "GET /ecommercePublico/secciones",
     "GET /ecommercePublico/politicas",
     "GET /ecommercePublico/politica/{slug}",
     "GET /ecommercePublico/taxonomia_mascotas",
     "GET /ecommercePublico/catalogo",
     "GET /ecommercePublico/producto/{slug}",
     "GET /ecommercePublico/disponibilidad",
+    "GET /ecommercePublico/canales_estado",
     "POST /ecommercePublico/cotizacion_dryrun",
     "POST /ecommercePublico/cotizacion_preflight",
     "POST /ecommercePublico/facturacion_solicitar",
@@ -152,6 +161,11 @@ echo json_encode(array(
     "C:\\xampp\\php\\php.exe storage\\uat\\uat_ecommerce_publico_frontend_readiness_readonly.php",
     "C:\\xampp\\php\\php.exe storage\\uat\\uat_ecommerce_publico_http_smoke_readonly.php --base=http://panel.com.local",
     "C:\\xampp\\php\\php.exe storage\\uat\\uat_ecommerce_publico_contract_shape_readonly.php",
+    "C:\\xampp\\php\\php.exe storage\\uat\\uat_ecommerce_publico_bootstrap_readonly.php --base=http://panel.com.local --limite=3",
+    "C:\\xampp\\php\\php.exe storage\\uat\\uat_ecommerce_publico_navegacion_readonly.php --base=http://panel.com.local --limite=5",
+    "C:\\xampp\\php\\php.exe storage\\uat\\uat_ecommerce_publico_busqueda_sugerencias_readonly.php --base=http://panel.com.local --q=filtro --limite=4",
+    "C:\\xampp\\php\\php.exe storage\\uat\\uat_ecommerce_publico_seo_robusto_readonly.php --base=http://panel.com.local --limite=20",
+    "C:\\xampp\\php\\php.exe storage\\uat\\uat_ecommerce_publico_canales_estado_readonly.php --base=http://panel.com.local",
     "C:\\xampp\\php\\php.exe storage\\uat\\uat_ecommerce_publico_negative_cases_readonly.php --base=http://panel.com.local",
     "C:\\xampp\\php\\php.exe storage\\uat\\uat_ecommerce_publico_cors_preflight_readonly.php --base=http://panel.com.local --origin=http://artiani.com.local",
     "C:\\xampp\\php\\php.exe storage\\uat\\uat_ecommerce_publico_frontend_fixtures_readonly.php",
@@ -195,7 +209,6 @@ echo json_encode(array(
     "C:\\xampp\\php\\php.exe storage\\uat\\uat_ecommerce_publico_green_gate_readonly.php --base=http://panel.com.local"
   ),
   "no_usar" => array(
-    "endpoint /bootstrap",
     "tablas internas ERP",
     "legacy ecom_*",
     "checkout",
@@ -214,9 +227,14 @@ echo json_encode(array(
     "requiere_ddl_configuracion_publicaciones" => true
   ),
   "frontend_puede_avanzar_ahora" => array(
+    "bootstrap_inicial_desde_api" => empty($bootstrap["error"]),
     "politicas_publicas_ui_desde_api" => true,
     "facturacion_por_folio_ui_con_preflight" => $experienciaPreflightOk,
     "navegacion_por_mascota_necesidad_desde_api" => true,
+    "navegacion_publica_desde_api" => empty($navegacion["error"]),
+    "buscador_con_sugerencias_desde_api" => empty($sugerencias["error"]),
+    "seo_rutas_y_sitemap_desde_api" => true,
+    "canales_api_en_modo_readonly" => valorFrontendPackage($canalesEstado, array("depurar", "modo"), "") === "multi_canal_diseno_readonly",
     "analytics_mock_panel" => true,
     "tracking_preflight_sin_persistencia" => $experienciaPreflightOk,
     "erp_inteligencia_cliente_readonly" => "GET http://panel.com.local/ecommercePublico/inteligencia_cliente_erp",

@@ -1,7 +1,7 @@
 <?php
 
 /**
- * Documentacion IA: Codex GPT-5, 2026-07-13.
+ * Documentacion IA: Codex GPT-5, 2026-07-31.
  * Proposito: probar por HTTP los endpoints publicos ecommerce usando el host real configurado.
  * Impacto: valida que el frontend externo use base URL correcta y no rutas de filesystem.
  * Contrato: read-only; no escribe BD, no registra cotizaciones y no mueve inventario.
@@ -13,10 +13,16 @@ $base = isset($opciones["base"]) ? rtrim(trim((string) $opciones["base"]), "/") 
 $pruebas = array(
   "estado" => requestHttp($base . "/ecommercePublico/estado"),
   "contratos" => requestHttp($base . "/ecommercePublico/contratos"),
+  "bootstrap" => requestHttp($base . "/ecommercePublico/bootstrap?limite_secciones=3"),
   "configuracion" => requestHttp($base . "/ecommercePublico/configuracion"),
-  "seo" => requestHttp($base . "/ecommercePublico/seo"),
+  "seo" => requestHttp($base . "/ecommercePublico/seo?limite=20"),
   "filtros" => requestHttp($base . "/ecommercePublico/filtros"),
-  "catalogo" => requestHttp($base . "/ecommercePublico/catalogo"),
+  "busqueda_sugerencias" => requestHttp($base . "/ecommercePublico/busqueda_sugerencias?q=filtro&limite=4"),
+  "navegacion" => requestHttp($base . "/ecommercePublico/navegacion?limite=5"),
+  "secciones" => requestHttp($base . "/ecommercePublico/secciones?limite=3"),
+  "catalogo" => requestHttp($base . "/ecommercePublico/catalogo?limite=3"),
+  "catalogo_disponible_ordenado" => requestHttp($base . "/ecommercePublico/catalogo?disponibilidad=disponible&orden=precio_asc&limite=3"),
+  "canales_estado" => requestHttp($base . "/ecommercePublico/canales_estado"),
   "producto" => requestHttp($base . "/ecommercePublico/producto/slug-de-prueba-no-publicado"),
   "disponibilidad" => requestHttp($base . "/ecommercePublico/disponibilidad?slug=slug-de-prueba-no-publicado"),
   "cotizacion_dryrun" => requestHttp($base . "/ecommercePublico/cotizacion_dryrun", "POST", array(
@@ -56,6 +62,23 @@ foreach ($pruebas as $nombre => $prueba) {
   if (!$prueba["json_valido"]) {
     $bloqueos[] = $nombre . "_no_responde_json";
   }
+}
+foreach (array("bootstrap", "seo", "filtros", "busqueda_sugerencias", "navegacion", "secciones", "catalogo_disponible_ordenado", "canales_estado") as $endpointNuevo) {
+  if (!$pruebas[$endpointNuevo]["json_valido"] || !in_array($pruebas[$endpointNuevo]["tipo"], array("success", "info"), true)) {
+    $bloqueos[] = $endpointNuevo . "_no_responde_success_o_info";
+  }
+}
+if (empty($pruebas["bootstrap"]["depurar_resumen"]["bootstrap_guardrails"])) {
+  $bloqueos[] = "bootstrap_debe_exponer_guardrails";
+}
+if ($pruebas["seo"]["depurar_resumen"]["rutas_total"] === null) {
+  $bloqueos[] = "seo_debe_exponer_rutas";
+}
+if ($pruebas["navegacion"]["depurar_resumen"]["navegacion_total"] === null) {
+  $bloqueos[] = "navegacion_debe_exponer_resumen";
+}
+if ($pruebas["busqueda_sugerencias"]["depurar_resumen"]["sugerencias_total"] === null) {
+  $bloqueos[] = "busqueda_sugerencias_debe_exponer_resumen";
 }
 if (empty($pruebas["cotizacion_registrar"]["depurar_resumen"]["bloqueado"])) {
   $bloqueos[] = "cotizacion_registrar_debe_seguir_bloqueado";
@@ -123,6 +146,11 @@ function resumenDepurarHttpSmoke($depurar) {
     "listo_para_whatsapp" => valorHttpSmoke($depurar, array("listo_para_whatsapp"), null),
     "bloqueado" => valorHttpSmoke($depurar, array("bloqueado"), null),
     "disponibilidad" => valorHttpSmoke($depurar, array("disponibilidad"), null),
+    "bootstrap_guardrails" => is_array(valorHttpSmoke($depurar, array("guardrails"), null)),
+    "rutas_total" => is_array(valorHttpSmoke($depurar, array("rutas"), null)) ? count($depurar["rutas"]) : null,
+    "navegacion_total" => valorHttpSmoke($depurar, array("resumen", "total_items"), null),
+    "sugerencias_total" => valorHttpSmoke($depurar, array("resumen", "total_sugerencias"), null),
+    "secciones_total" => is_array(valorHttpSmoke($depurar, array("secciones"), null)) ? count($depurar["secciones"]) : null,
     "item_presente" => array_key_exists("item", $depurar) ? ($depurar["item"] !== null) : null,
     "items_total" => is_array(valorHttpSmoke($depurar, array("items"), null)) ? count($depurar["items"]) : null,
     "bloqueos" => valorHttpSmoke($depurar, array("bloqueos"), array())

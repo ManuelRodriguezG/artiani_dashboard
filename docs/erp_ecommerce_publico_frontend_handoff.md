@@ -1,7 +1,7 @@
 # ERP Ecommerce publico - Handoff para frontend externo
 
 Documentacion IA: Codex GPT-5  
-Fecha: 2026-07-15  
+Fecha: 2026-07-31  
 Estado: guia de integracion read-only con datos reales Fase 1 para proyecto ecommerce separado.
 
 ## Decision
@@ -20,6 +20,8 @@ La administracion de productos publicados vive en el panel ERP:
 - El frontend local autorizado es `http://artiani.com.local`.
 - La base API verificada es `http://panel.com.local/ecommercePublico`.
 - Hay 6 publicaciones reales activas.
+- `GET /bootstrap` esta disponible como carga inicial recomendada.
+- `GET /navegacion`, `GET /secciones`, `GET /busqueda_sugerencias`, `GET /canales_estado` y SEO robusto estan disponibles.
 - `cotizacion_dryrun` funciona con publicaciones reales y no escribe BD.
 - `cotizacion_preflight` funciona como validacion previa a WhatsApp y no escribe BD.
 - `cotizacion_registrar` sigue bloqueado por diseno en Fase 1.
@@ -29,10 +31,11 @@ La administracion de productos publicados vive en el panel ERP:
 
 El proyecto frontend ya puede avanzar con:
 
+- carga inicial desde `GET http://panel.com.local/ecommercePublico/bootstrap?limite_secciones=6`;
 - 6 productos publicados reales desde `GET http://panel.com.local/ecommercePublico/catalogo?pagina=1&limite=24`;
-- catalogo real;
-- filtros y buscador;
-- ficha de producto;
+- catalogo real con filtros `disponibilidad`, `destacado` y `orden`;
+- filtros, navegacion publica, secciones y buscador con sugerencias;
+- ficha de producto con variantes, relacionados, breadcrumbs y SEO;
 - politicas;
 - taxonomia por mascota/necesidad;
 - carrito local;
@@ -41,6 +44,47 @@ El proyecto frontend ya puede avanzar con:
 - apertura de WhatsApp con `depurar.whatsapp.url`;
 - pantalla visual de facturacion sin POST real;
 - tracking local/mock sin persistencia.
+
+## Mapa de consumo por pantalla
+
+Home/layout inicial:
+
+```http
+GET http://panel.com.local/ecommercePublico/bootstrap?limite_secciones=6
+```
+
+Catalogo/listado:
+
+```http
+GET http://panel.com.local/ecommercePublico/catalogo?pagina=1&limite=24&orden=relevancia
+GET http://panel.com.local/ecommercePublico/filtros
+GET http://panel.com.local/ecommercePublico/navegacion?limite=8
+```
+
+Buscador/autocomplete:
+
+```http
+GET http://panel.com.local/ecommercePublico/busqueda_sugerencias?q=filtro&limite=4
+```
+
+Ficha de producto:
+
+```http
+GET http://panel.com.local/ecommercePublico/producto/{slug}
+GET http://panel.com.local/ecommercePublico/disponibilidad?slug={slug}
+```
+
+SEO/descubrimiento:
+
+```http
+GET http://panel.com.local/ecommercePublico/seo?limite=20
+```
+
+Estado multi-canal/API futura:
+
+```http
+GET http://panel.com.local/ecommercePublico/canales_estado
+```
 
 No conectar todavia:
 

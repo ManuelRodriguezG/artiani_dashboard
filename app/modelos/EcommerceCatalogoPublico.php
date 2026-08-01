@@ -46,9 +46,9 @@ class EcommerceCatalogoPublico extends CRUD {
         array(
           "metodo" => "GET",
           "ruta" => "/ecommercePublico/bootstrap",
-          "descripcion" => "Paquete inicial para frontend: estado, configuracion, filtros, secciones, politicas y canales.",
+          "descripcion" => "Paquete inicial para frontend: estado, configuracion, filtros, navegacion, secciones, politicas y canales.",
           "parametros" => array("limite_secciones" => "1-12, default 6."),
-          "respuesta_depurar" => array("ready", "estado", "configuracion", "filtros", "secciones", "politicas", "canales", "guardrails")
+          "respuesta_depurar" => array("ready", "estado", "configuracion", "filtros", "navegacion", "secciones", "politicas", "canales", "guardrails")
         ),
         array(
           "metodo" => "GET",
@@ -86,6 +86,13 @@ class EcommerceCatalogoPublico extends CRUD {
           "descripcion" => "Sugerencias publicas para buscador: productos, marcas, categorias, mascotas y necesidades.",
           "parametros" => array("q" => "Texto opcional.", "limite" => "1-12 por grupo, default 6."),
           "respuesta_depurar" => array("q", "grupos", "resumen", "guardrails")
+        ),
+        array(
+          "metodo" => "GET",
+          "ruta" => "/ecommercePublico/navegacion",
+          "descripcion" => "Navegacion publica lista para menus, chips y rutas por mascota, necesidad, categoria, marca y disponibilidad.",
+          "parametros" => array("limite" => "1-30 por grupo, default 12."),
+          "respuesta_depurar" => array("primaria", "mascotas", "necesidades", "categorias", "marcas", "disponibilidad", "guardrails")
         ),
         array(
           "metodo" => "GET",
@@ -130,8 +137,9 @@ class EcommerceCatalogoPublico extends CRUD {
         array(
           "metodo" => "GET",
           "ruta" => "/ecommercePublico/seo",
-          "descripcion" => "Metadatos SEO/descubrimiento para que el frontend genere title, description, sitemap, robots y JSON-LD.",
-          "respuesta_depurar" => array("configurado", "meta", "robots", "sitemap", "json_ld")
+          "descripcion" => "Metadatos SEO/descubrimiento para que el frontend genere title, description, sitemap, robots, rutas y JSON-LD.",
+          "parametros" => array("limite" => "1-200 productos, default 100."),
+          "respuesta_depurar" => array("configurado", "meta", "robots", "sitemap", "sitemap_xml_sugerido", "rutas", "json_ld", "resumen")
         ),
         array(
           "metodo" => "GET",
@@ -371,6 +379,7 @@ class EcommerceCatalogoPublico extends CRUD {
       $estado = $this->estadoApiPublica();
       $configuracion = $this->configuracionPublica();
       $filtros = $this->filtrosPublicos();
+      $navegacion = $this->navegacionPublica(array("limite" => 12));
       $secciones = $this->seccionesPublicas(array("limite" => $limiteSecciones));
       $politicas = $this->politicasPublicas();
       $canales = $this->canalesApiEstadoPublico();
@@ -385,6 +394,7 @@ class EcommerceCatalogoPublico extends CRUD {
         "estado" => $this->valor($estado, "depurar", array()),
         "configuracion" => $this->valor($configuracion, "depurar", array()),
         "filtros" => $this->valor($filtros, "depurar", array()),
+        "navegacion" => $this->valor($navegacion, "depurar", array()),
         "secciones" => $this->valor($secciones, "depurar", array()),
         "politicas" => $this->valor($politicas, "depurar", array()),
         "canales" => $this->valor($canales, "depurar", array()),
@@ -762,6 +772,66 @@ class EcommerceCatalogoPublico extends CRUD {
   }
 
   /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-07-31
+   * Proposito: entregar navegacion publica para menus y chips del ecommerce.
+   * Impacto: Frontend; centraliza rutas por mascota, necesidad, categoria, marca y disponibilidad.
+   * Contrato: read-only; no escribe BD y solo se deriva de filtros publicados.
+   */
+  public function navegacionPublica($opciones = array()) {
+    try {
+      $limite = max(1, min(30, intval($this->valor($opciones, "limite", 12))));
+      $filtros = $this->filtrosPublicos();
+      $dep = $this->valor($filtros, "depurar", array());
+      $navegacion = array(
+        "primaria" => array(
+          array("codigo" => "inicio", "label" => "Inicio", "url" => "/", "tipo" => "ruta"),
+          array("codigo" => "catalogo", "label" => "Catalogo", "url" => "/catalogo", "tipo" => "ruta"),
+          array("codigo" => "cotizacion", "label" => "Cotizacion", "url" => "/cotizacion", "tipo" => "ruta"),
+          array("codigo" => "politicas", "label" => "Politicas", "url" => "/politicas", "tipo" => "ruta")
+        ),
+        "mascotas" => $this->itemsNavegacionDesdeFiltros($this->valor($dep, "mascotas", array()), "mascota", "mascota", $limite),
+        "necesidades" => $this->itemsNavegacionDesdeFiltros($this->valor($dep, "necesidades", array()), "necesidad", "necesidad", $limite),
+        "categorias" => $this->itemsNavegacionDesdeFiltros($this->valor($dep, "categorias", array()), "categoria", "categoria", $limite),
+        "marcas" => $this->itemsNavegacionDesdeFiltros($this->valor($dep, "marcas", array()), "marca", "marca", $limite),
+        "disponibilidad" => $this->itemsNavegacionDesdeFiltros($this->valor($dep, "disponibilidad", array()), "disponibilidad", "disponibilidad", $limite)
+      );
+      $total = 0;
+      foreach ($navegacion as $grupo => $items) {
+        $total += count($items);
+      }
+      return $this->respuesta(false, "success", "Navegacion ecommerce consultada", array(
+        "configurado" => !empty($this->valor($filtros, array("depurar", "mascotas"), array())) || !empty($this->valor($filtros, array("depurar", "categorias"), array())),
+        "limite" => $limite,
+        "primaria" => $navegacion["primaria"],
+        "mascotas" => $navegacion["mascotas"],
+        "necesidades" => $navegacion["necesidades"],
+        "categorias" => $navegacion["categorias"],
+        "marcas" => $navegacion["marcas"],
+        "disponibilidad" => $navegacion["disponibilidad"],
+        "resumen" => array(
+          "total_items" => $total,
+          "mascotas" => count($navegacion["mascotas"]),
+          "necesidades" => count($navegacion["necesidades"]),
+          "categorias" => count($navegacion["categorias"]),
+          "marcas" => count($navegacion["marcas"]),
+          "disponibilidad" => count($navegacion["disponibilidad"])
+        ),
+        "guardrails" => array(
+          "read_only" => true,
+          "solo_derivado_de_publicaciones" => true,
+          "no_escribe_bd" => true,
+          "no_expone_secretos" => true
+        )
+      ));
+    } catch (Exception $e) {
+      return $this->respuesta(true, "danger", $e->getMessage(), array(
+        "configurado" => false,
+        "guardrails" => array("read_only" => true)
+      ));
+    }
+  }
+
+  /**
    * Documentacion IA: Codex GPT-5 | Fecha: 2026-07-30
    * Proposito: entregar bloques de catalogo preparados para home y secciones del frontend ecommerce.
    * Impacto: Frontend publico; reduce hardcodeo de destacados, disponibilidad, mascotas y necesidades.
@@ -1103,10 +1173,11 @@ class EcommerceCatalogoPublico extends CRUD {
         "base_url_configurada" => $urlSitio,
         "rutas_estaticas" => array(
           array("path" => "/", "priority" => "1.0", "changefreq" => "daily"),
+          array("path" => "/catalogo", "priority" => "0.9", "changefreq" => "daily"),
           array("path" => "/cotizacion", "priority" => "0.3", "changefreq" => "weekly")
         ),
         "productos" => array(),
-        "filtros" => array("mascotas" => array(), "necesidades" => array())
+        "filtros" => array("mascotas" => array(), "necesidades" => array(), "categorias" => array(), "marcas" => array(), "disponibilidad" => array())
       );
 
       if ($db && $this->tablaExiste($db, "erp_ecommerce_publicaciones")) {
@@ -1126,16 +1197,36 @@ class EcommerceCatalogoPublico extends CRUD {
         foreach ($this->valor($filtros, array("depurar", "mascotas"), array()) as $fila) {
           $valor = $this->valor($fila, "valor", "");
           if ($valor !== "") {
-            $sitemap["filtros"]["mascotas"][] = array("valor" => $valor, "path" => "/?mascota=" . rawurlencode($valor));
+            $sitemap["filtros"]["mascotas"][] = array("valor" => $valor, "path" => "/catalogo?mascota=" . rawurlencode($valor), "title" => "Productos para " . $this->etiquetaTaxonomiaPublica($valor), "priority" => "0.6", "changefreq" => "weekly");
           }
         }
         foreach ($this->valor($filtros, array("depurar", "necesidades"), array()) as $fila) {
           $valor = $this->valor($fila, "valor", "");
           if ($valor !== "") {
-            $sitemap["filtros"]["necesidades"][] = array("valor" => $valor, "path" => "/?necesidad=" . rawurlencode($valor));
+            $sitemap["filtros"]["necesidades"][] = array("valor" => $valor, "path" => "/catalogo?necesidad=" . rawurlencode($valor), "title" => $this->etiquetaTaxonomiaPublica($valor), "priority" => "0.6", "changefreq" => "weekly");
+          }
+        }
+        foreach ($this->valor($filtros, array("depurar", "categorias"), array()) as $fila) {
+          $valor = $this->valor($fila, "id", "");
+          if ($valor !== "") {
+            $sitemap["filtros"]["categorias"][] = array("valor" => $valor, "path" => "/catalogo?categoria=" . rawurlencode($valor), "title" => $this->valor($fila, "etiqueta", "Categoria"), "priority" => "0.6", "changefreq" => "weekly");
+          }
+        }
+        foreach ($this->valor($filtros, array("depurar", "marcas"), array()) as $fila) {
+          $valor = $this->valor($fila, "id", "");
+          if ($valor !== "") {
+            $sitemap["filtros"]["marcas"][] = array("valor" => $valor, "path" => "/catalogo?marca=" . rawurlencode($valor), "title" => $this->valor($fila, "etiqueta", "Marca"), "priority" => "0.5", "changefreq" => "weekly");
+          }
+        }
+        foreach ($this->valor($filtros, array("depurar", "disponibilidad"), array()) as $fila) {
+          $valor = $this->valor($fila, "valor", "");
+          if ($valor !== "") {
+            $sitemap["filtros"]["disponibilidad"][] = array("valor" => $valor, "path" => "/catalogo?disponibilidad=" . rawurlencode($valor), "title" => $this->valor($fila, "etiqueta", $valor), "priority" => "0.4", "changefreq" => "daily");
           }
         }
       }
+
+      $rutas = $this->rutasSeoPublicas($sitemap);
 
       return $this->respuesta(false, "success", "SEO ecommerce publico consultado", array(
         "configurado" => $db && $this->tablaExiste($db, "erp_ecommerce_publicaciones"),
@@ -1148,6 +1239,8 @@ class EcommerceCatalogoPublico extends CRUD {
           "noindex_si_catalogo_vacio" => true
         ),
         "sitemap" => $sitemap,
+        "sitemap_xml_sugerido" => $this->sitemapXmlSugerido($rutas, $urlSitio),
+        "rutas" => $rutas,
         "json_ld" => array(
           "organization" => array(
             "@context" => "https://schema.org",
@@ -1170,6 +1263,15 @@ class EcommerceCatalogoPublico extends CRUD {
               "availability" => "mapear item.disponibilidad"
             )
           )
+        ),
+        "resumen" => array(
+          "rutas_total" => count($rutas),
+          "productos" => count($sitemap["productos"]),
+          "mascotas" => count($sitemap["filtros"]["mascotas"]),
+          "necesidades" => count($sitemap["filtros"]["necesidades"]),
+          "categorias" => count($sitemap["filtros"]["categorias"]),
+          "marcas" => count($sitemap["filtros"]["marcas"]),
+          "disponibilidad" => count($sitemap["filtros"]["disponibilidad"])
         ),
         "guardrails" => array(
           "frontend_genera_archivos_seo" => true,
@@ -3952,6 +4054,71 @@ class EcommerceCatalogoPublico extends CRUD {
     return "https://schema.org/PreOrder";
   }
 
+  private function rutasSeoPublicas($sitemap) {
+    $rutas = array();
+    foreach ($this->valor($sitemap, "rutas_estaticas", array()) as $ruta) {
+      $rutas[] = array(
+        "tipo" => "estatica",
+        "path" => $this->valor($ruta, "path", "/"),
+        "title" => $this->valor($ruta, "title", ""),
+        "priority" => $this->valor($ruta, "priority", "0.5"),
+        "changefreq" => $this->valor($ruta, "changefreq", "weekly")
+      );
+    }
+    foreach ($this->valor($sitemap, "productos", array()) as $producto) {
+      $rutas[] = array(
+        "tipo" => "producto",
+        "path" => $this->valor($producto, "path", ""),
+        "title" => $this->valor($producto, "title", ""),
+        "priority" => $this->valor($producto, "priority", "0.8"),
+        "changefreq" => $this->valor($producto, "changefreq", "daily")
+      );
+    }
+    foreach ($this->valor($sitemap, "filtros", array()) as $grupo => $items) {
+      foreach ((array) $items as $item) {
+        $rutas[] = array(
+          "tipo" => "filtro_" . $grupo,
+          "path" => $this->valor($item, "path", ""),
+          "title" => $this->valor($item, "title", $this->valor($item, "valor", "")),
+          "priority" => $this->valor($item, "priority", "0.5"),
+          "changefreq" => $this->valor($item, "changefreq", "weekly")
+        );
+      }
+    }
+    $limpias = array();
+    $vistos = array();
+    foreach ($rutas as $ruta) {
+      $path = trim((string) $this->valor($ruta, "path", ""));
+      if ($path === "" || isset($vistos[$path])) {
+        continue;
+      }
+      $vistos[$path] = true;
+      $limpias[] = $ruta;
+    }
+    return $limpias;
+  }
+
+  private function sitemapXmlSugerido($rutas, $urlSitio) {
+    $urlSitio = rtrim(trim((string) $urlSitio), "/");
+    if ($urlSitio === "" || empty($rutas)) {
+      return "";
+    }
+    $lineas = array('<?xml version="1.0" encoding="UTF-8"?>', '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">');
+    foreach ($rutas as $ruta) {
+      $path = trim((string) $this->valor($ruta, "path", ""));
+      if ($path === "") {
+        continue;
+      }
+      $lineas[] = "  <url>";
+      $lineas[] = "    <loc>" . htmlspecialchars($urlSitio . $path, ENT_XML1, "UTF-8") . "</loc>";
+      $lineas[] = "    <changefreq>" . htmlspecialchars($this->valor($ruta, "changefreq", "weekly"), ENT_XML1, "UTF-8") . "</changefreq>";
+      $lineas[] = "    <priority>" . htmlspecialchars($this->valor($ruta, "priority", "0.5"), ENT_XML1, "UTF-8") . "</priority>";
+      $lineas[] = "  </url>";
+    }
+    $lineas[] = "</urlset>";
+    return implode("\n", $lineas);
+  }
+
   private function agregarSeccionPublica(&$secciones, $definicion, $limite, $incluirVacias) {
     $params = $this->valor($definicion, "params", array());
     $params["limite"] = $limite;
@@ -4067,6 +4234,29 @@ class EcommerceCatalogoPublico extends CRUD {
         "label" => $label,
         "valor" => $valor,
         "url" => $path,
+        "total" => intval($this->valor($item, "total", 0))
+      );
+      if (count($salida) >= $limite) {
+        break;
+      }
+    }
+    return $salida;
+  }
+
+  private function itemsNavegacionDesdeFiltros($items, $tipo, $parametro, $limite) {
+    $salida = array();
+    foreach ((array) $items as $item) {
+      $label = trim((string) $this->valor($item, "etiqueta", $this->valor($item, "nombre", $this->valor($item, "valor", ""))));
+      $valor = trim((string) $this->valor($item, "valor", $this->valor($item, "id", $label)));
+      if ($label === "" && $valor === "") {
+        continue;
+      }
+      $salida[] = array(
+        "codigo" => $this->slugificar($tipo . "-" . $valor),
+        "tipo" => $tipo,
+        "label" => $label,
+        "valor" => $valor,
+        "url" => "/catalogo?" . rawurlencode($parametro) . "=" . rawurlencode($valor),
         "total" => intval($this->valor($item, "total", 0))
       );
       if (count($salida) >= $limite) {

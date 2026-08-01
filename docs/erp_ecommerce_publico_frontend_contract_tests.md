@@ -1,8 +1,8 @@
 # ERP Ecommerce publico - Contract tests para frontend
 
 Documentacion IA: Codex GPT-5  
-Fecha: 2026-07-15  
-Estado: guia para pruebas del proyecto ecommerce externo.
+Fecha: 2026-07-31  
+Estado: guia para pruebas del proyecto ecommerce externo con contrato robusto Fase 1.
 
 ## Objetivo
 
@@ -42,6 +42,21 @@ Validar:
 - `depurar.seguridad.post_dryrun_disponible=true`;
 - `depurar.seguridad.post_registro_bloqueado=true`.
 
+### Bootstrap
+
+Validar:
+
+- `depurar.estado` existe;
+- `depurar.configuracion` existe;
+- `depurar.filtros` existe;
+- `depurar.navegacion` existe;
+- `depurar.secciones` existe;
+- `depurar.politicas` existe;
+- `depurar.canales` existe;
+- `depurar.guardrails.no_expone_secretos=true`.
+
+El frontend puede usar `bootstrap` para la carga inicial, pero debe poder refrescar catalogo, filtros, navegacion y secciones desde endpoints separados.
+
 ### Configuracion
 
 Validar:
@@ -61,6 +76,9 @@ Validar:
 - `depurar.meta.description_default`;
 - `depurar.robots.robots_txt_sugerido`;
 - `depurar.sitemap.rutas_estaticas` es array;
+- `depurar.rutas` es array;
+- `depurar.sitemap_xml_sugerido` es string;
+- `depurar.resumen` existe;
 - `depurar.json_ld` existe.
 
 El frontend genera `robots.txt`, `sitemap.xml`, meta tags y JSON-LD usando este contrato. Si `url_sitio_publico`/`canonical_base` viene vacio, no inventar canonical definitivo.
@@ -71,7 +89,41 @@ Validar:
 
 - `depurar.items` es array;
 - `depurar.paginacion` existe cuando `configurado=true`;
+- `depurar.filtros_aplicados` existe;
+- `depurar.ordenamientos_disponibles` es array;
 - si `configurado=false`, UI muestra catalogo en preparacion.
+
+Probar al menos:
+
+- `GET /catalogo?limite=3`;
+- `GET /catalogo?disponibilidad=disponible&orden=precio_asc&limite=3`;
+- `GET /catalogo?destacado=1&limite=3`.
+
+### Filtros, navegacion y secciones
+
+Validar:
+
+- `GET /filtros` devuelve `mascotas`, `necesidades`, `marcas`, `categorias` y `disponibilidad`;
+- `GET /navegacion` devuelve `primaria`, `mascotas`, `necesidades`, `categorias`, `marcas` y `disponibilidad`;
+- `GET /secciones` devuelve `secciones` como array;
+- ninguna respuesta muestra stock exacto.
+
+### Busqueda sugerencias
+
+Validar:
+
+- `GET /busqueda_sugerencias?q=filtro&limite=4` devuelve `depurar.grupos`;
+- existen grupos `productos`, `marcas`, `categorias`, `mascotas` y `necesidades`;
+- no asumir que la busqueda queda registrada.
+
+### Canales/API
+
+Validar:
+
+- `GET /canales_estado` devuelve `modo`;
+- devuelve `tablas`, `canales`, `autenticacion`, `activacion` y `guardrails`;
+- `depurar.guardrails.no_expone_api_secret=true`;
+- no intentar autenticar con API key/HMAC en Fase 1 read-only.
 
 ### Item
 
@@ -134,6 +186,11 @@ Desde el ERP:
 
 ```bash
 C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_contract_shape_readonly.php
+C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_bootstrap_readonly.php --base=http://panel.com.local --limite=3
+C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_navegacion_readonly.php --base=http://panel.com.local --limite=5
+C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_busqueda_sugerencias_readonly.php --base=http://panel.com.local --q=filtro --limite=4
+C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_seo_robusto_readonly.php --base=http://panel.com.local --limite=20
+C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_canales_estado_readonly.php --base=http://panel.com.local
 C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_http_smoke_readonly.php --base=http://panel.com.local
 C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_cors_preflight_readonly.php --base=http://panel.com.local --origin=http://artiani.com.local
 ```

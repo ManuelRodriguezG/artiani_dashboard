@@ -33,6 +33,9 @@ if (intval(valorBootstrap($dep, array("estado", "publicaciones", "total_publicad
 if (count(valorBootstrap($dep, array("secciones", "secciones"), array())) <= 0) {
   $bloqueos[] = "bootstrap_sin_secciones";
 }
+if (intval(valorBootstrap($dep, array("navegacion", "resumen", "total_items"), 0)) <= 0) {
+  $bloqueos[] = "bootstrap_sin_navegacion";
+}
 if (empty(valorBootstrap($dep, array("frontend", "puede_renderizar_catalogo_real"), false))) {
   $bloqueos[] = "frontend_no_puede_renderizar_catalogo_real";
 }
@@ -54,6 +57,7 @@ echo json_encode(array(
     "ready" => valorBootstrap($dep, array("ready"), false),
     "publicadas" => intval(valorBootstrap($dep, array("estado", "publicaciones", "total_publicadas"), 0)),
     "secciones" => count(valorBootstrap($dep, array("secciones", "secciones"), array())),
+    "navegacion" => intval(valorBootstrap($dep, array("navegacion", "resumen", "total_items"), 0)),
     "mascotas" => count(valorBootstrap($dep, array("filtros", "mascotas"), array())),
     "necesidades" => count(valorBootstrap($dep, array("filtros", "necesidades"), array())),
     "canales_modo" => valorBootstrap($dep, array("canales", "modo"), "")

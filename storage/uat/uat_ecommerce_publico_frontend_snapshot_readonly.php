@@ -1,9 +1,9 @@
 <?php
 
 /**
- * Documentacion IA: Codex GPT-5, 2026-07-18.
+ * Documentacion IA: Codex GPT-5, 2026-07-31.
  * Proposito: generar un snapshot vivo de integracion para el frontend ecommerce externo.
- * Impacto: entrega ejemplos reales y normalizados de catalogo, producto, disponibilidad y dry-run sin escribir BD.
+ * Impacto: entrega ejemplos reales y normalizados de bootstrap, catalogo, navegacion, SEO, producto, disponibilidad y dry-run sin escribir BD.
  * Contrato: read-only; no ejecuta DDL, no registra cotizaciones, no descuenta inventario y no toca legacy ecom_*.
  */
 
@@ -20,9 +20,15 @@ require_once "../app/modelos/EcommerceCatalogoPublico.php";
 $api = new EcommerceCatalogoPublico();
 
 $estado = $api->estadoApiPublica();
+$bootstrap = $api->bootstrapPublico(array("limite_secciones" => min(6, $limite)));
 $configuracion = $api->configuracionPublica();
 $filtros = $api->filtrosPublicos();
+$navegacion = $api->navegacionPublica(array("limite" => 8));
+$secciones = $api->seccionesPublicas(array("limite" => min(4, $limite)));
+$sugerencias = $api->busquedaSugerenciasPublicas(array("q" => "filtro", "limite" => 4));
+$seo = $api->seoPublico(array("limite" => 20));
 $catalogo = $api->catalogoPublico(array("limite" => $limite));
+$catalogoDisponibleOrdenado = $api->catalogoPublico(array("limite" => $limite, "disponibilidad" => "disponible", "orden" => "precio_asc"));
 $items = valorSnapshot($catalogo, array("depurar", "items"), array());
 $primerItem = !empty($items) ? $items[0] : array();
 $producto = !empty($primerItem) ? $api->productoPublico((string) valorSnapshot($primerItem, array("slug"), "")) : array();
@@ -62,6 +68,21 @@ if (valorSnapshot($estado, array("depurar", "schema", "ddl_pendiente"), true) !=
 if (empty($items)) {
   $bloqueos[] = "catalogo_sin_items_reales";
 }
+if (!empty($bootstrap["error"])) {
+  $bloqueos[] = "bootstrap_no_validado";
+}
+if (!empty($navegacion["error"])) {
+  $bloqueos[] = "navegacion_no_validada";
+}
+if (!empty($secciones["error"])) {
+  $bloqueos[] = "secciones_no_validadas";
+}
+if (!empty($sugerencias["error"])) {
+  $bloqueos[] = "busqueda_sugerencias_no_validada";
+}
+if (!empty($seo["error"])) {
+  $bloqueos[] = "seo_no_validado";
+}
 $publicadas = intval(valorSnapshot($estado, array("depurar", "publicaciones", "total_publicadas"), 0));
 if ($publicadas < $minPublicaciones) {
   $bloqueos[] = "publicaciones_menor_a_minimo_" . $minPublicaciones;
@@ -95,16 +116,24 @@ echo json_encode(array(
     "VITE_ERP_ECOMMERCE_API_VERSION" => "fase1-2026-07-12"
   ),
   "endpoints_para_consumir" => array(
+    "bootstrap" => "GET " . $baseApi . "/bootstrap?limite_secciones=6",
     "estado" => "GET " . $baseApi . "/estado",
     "configuracion" => "GET " . $baseApi . "/configuracion",
     "filtros" => "GET " . $baseApi . "/filtros",
-    "catalogo" => "GET " . $baseApi . "/catalogo?pagina=1&limite=24",
+    "navegacion" => "GET " . $baseApi . "/navegacion?limite=8",
+    "secciones" => "GET " . $baseApi . "/secciones?limite=4",
+    "busqueda_sugerencias" => "GET " . $baseApi . "/busqueda_sugerencias?q=filtro&limite=4",
+    "seo" => "GET " . $baseApi . "/seo?limite=20",
+    "catalogo" => "GET " . $baseApi . "/catalogo?pagina=1&limite=24&orden=relevancia",
+    "catalogo_disponible_ordenado" => "GET " . $baseApi . "/catalogo?disponibilidad=disponible&orden=precio_asc&limite=24",
     "producto" => "GET " . $baseApi . "/producto/" . $primerSlug,
     "disponibilidad" => "GET " . $baseApi . "/disponibilidad?id_sku=" . $primerSku,
     "cotizacion_dryrun" => "POST " . $baseApi . "/cotizacion_dryrun"
   ),
   "fetch_minimo" => array(
+    "bootstrap" => "fetch(\"" . $baseApi . "/bootstrap?limite_secciones=6\")",
     "catalogo" => "fetch(\"" . $baseApi . "/catalogo?pagina=1&limite=24\")",
+    "busqueda_sugerencias" => "fetch(\"" . $baseApi . "/busqueda_sugerencias?q=filtro&limite=4\")",
     "cotizacion_dryrun" => "fetch(\"" . $baseApi . "/cotizacion_dryrun\", {method:\"POST\", headers:{\"Content-Type\":\"application/json\"}, body: JSON.stringify(payload)})"
   ),
   "resumen" => array(
@@ -114,17 +143,48 @@ echo json_encode(array(
     "min_publicaciones_esperadas" => $minPublicaciones,
     "min_publicaciones_ok" => $publicadas >= $minPublicaciones,
     "catalogo_items_snapshot" => count($items),
+    "catalogo_disponible_ordenado_items" => count(valorSnapshot($catalogoDisponibleOrdenado, array("depurar", "items"), array())),
+    "secciones_total" => count(valorSnapshot($secciones, array("depurar", "secciones"), array())),
+    "navegacion_total" => intval(valorSnapshot($navegacion, array("depurar", "resumen", "total_items"), 0)),
+    "sugerencias_total" => intval(valorSnapshot($sugerencias, array("depurar", "resumen", "total_sugerencias"), 0)),
+    "seo_rutas_total" => count(valorSnapshot($seo, array("depurar", "rutas"), array())),
     "whatsapp_configurado" => trim((string) valorSnapshot($configuracion, array("depurar", "configuracion", "whatsapp_numero_principal"), "")) !== "",
     "dryrun_ok" => !empty($dryrun) && empty($dryrun["error"]),
     "registro_real_bloqueado_fase1" => true
   ),
+  "bootstrap_resumen" => array(
+    "ready" => valorSnapshot($bootstrap, array("depurar", "ready"), false),
+    "secciones_total" => count(valorSnapshot($bootstrap, array("depurar", "secciones", "secciones"), array())),
+    "navegacion_total" => intval(valorSnapshot($bootstrap, array("depurar", "navegacion", "resumen", "total_items"), 0)),
+    "canales_modo" => valorSnapshot($bootstrap, array("depurar", "canales", "modo"), "")
+  ),
+  "navegacion_resumen" => array(
+    "primaria" => count(valorSnapshot($navegacion, array("depurar", "primaria"), array())),
+    "mascotas" => count(valorSnapshot($navegacion, array("depurar", "mascotas"), array())),
+    "necesidades" => count(valorSnapshot($navegacion, array("depurar", "necesidades"), array())),
+    "categorias" => count(valorSnapshot($navegacion, array("depurar", "categorias"), array())),
+    "marcas" => count(valorSnapshot($navegacion, array("depurar", "marcas"), array())),
+    "disponibilidad" => count(valorSnapshot($navegacion, array("depurar", "disponibilidad"), array()))
+  ),
+  "secciones_resumen" => array(
+    "total" => count(valorSnapshot($secciones, array("depurar", "secciones"), array())),
+    "codigos" => codigosSnapshot(valorSnapshot($secciones, array("depurar", "secciones"), array()))
+  ),
+  "busqueda_sugerencias_resumen" => valorSnapshot($sugerencias, array("depurar", "resumen"), array()),
+  "seo_resumen" => valorSnapshot($seo, array("depurar", "resumen"), array()),
+  "seo_sitemap_xml_preview" => substr((string) valorSnapshot($seo, array("depurar", "sitemap_xml_sugerido"), ""), 0, 300),
   "catalogo_items" => $items,
+  "catalogo_disponible_ordenado_items" => valorSnapshot($catalogoDisponibleOrdenado, array("depurar", "items"), array()),
   "producto_detalle_ejemplo" => valorSnapshot($producto, array("depurar", "item"), null),
+  "producto_variantes_ejemplo" => valorSnapshot($producto, array("depurar", "variantes"), array()),
+  "producto_relacionados_ejemplo" => valorSnapshot($producto, array("depurar", "relacionados"), array()),
+  "producto_breadcrumbs_ejemplo" => valorSnapshot($producto, array("depurar", "breadcrumbs"), array()),
   "filtros_disponibles" => array(
     "mascotas" => valorSnapshot($filtros, array("depurar", "mascotas"), array()),
     "necesidades" => valorSnapshot($filtros, array("depurar", "necesidades"), array()),
     "marcas_total" => count(valorSnapshot($filtros, array("depurar", "marcas"), array())),
-    "categorias_total" => count(valorSnapshot($filtros, array("depurar", "categorias"), array()))
+    "categorias_total" => count(valorSnapshot($filtros, array("depurar", "categorias"), array())),
+    "disponibilidad" => valorSnapshot($filtros, array("depurar", "disponibilidad"), array())
   ),
   "disponibilidad_ejemplo" => valorSnapshot($disponibilidad, array("depurar"), array()),
   "dryrun_payload_ejemplo" => $dryrunPayload,
@@ -156,4 +216,17 @@ function valorSnapshot($datos, $ruta, $default = null) {
     $actual = $actual[$segmento];
   }
   return $actual;
+}
+
+function codigosSnapshot($items) {
+  $codigos = array();
+  if (!is_array($items)) {
+    return $codigos;
+  }
+  foreach ($items as $item) {
+    if (is_array($item) && isset($item["codigo"])) {
+      $codigos[] = (string) $item["codigo"];
+    }
+  }
+  return $codigos;
 }

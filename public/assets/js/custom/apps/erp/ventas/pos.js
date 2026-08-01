@@ -81,7 +81,7 @@
         var texto = textoLegible(value).replace(/^BLOQUEO:\s*/i, "").trim();
         var normal = texto.toLowerCase();
         if (normal.indexOf("politica pos autoriza inventario pendiente") >= 0) {
-            return "Este producto puede venderse con faltante autorizado. Usa Venta con faltante para cobrar y dejar alerta a Inventario.";
+            return "Este producto puede venderse con faltante autorizado. Al cobrar, confirma la autorizacion para dejar alerta a Inventario.";
         }
         if (normal.indexOf("no hay politica pos activa") >= 0) {
             return "No hay politica activa para vender este producto con faltante en esta sucursal.";
@@ -1294,16 +1294,41 @@
         boton.disabled = false;
         if (botonFaltantes && botonFaltantes.getAttribute("data-cobrando") !== "1") {
             botonFaltantes.disabled = false;
+            botonFaltantes.classList.add("d-none");
             botonFaltantes.title = "Cobrar y crear alertas por faltantes autorizados";
             botonFaltantes.innerHTML = "<i class=\"bi bi-exclamation-triangle\"></i> Cobrar con faltantes";
         }
-        if (carrito.some(function (item) { return item.tipo_partida === "venta_rapida"; })) {
-            boton.title = "Confirmar venta rapida controlada POS";
-            boton.innerHTML = "<i class=\"bi bi-lightning-charge\"></i> Cobrar venta rapida";
-            return;
-        }
-        boton.title = "Confirmar venta POS";
+        boton.title = carritoRequiereFaltantesAutorizados()
+            ? "Cobrar venta POS con autorizacion de faltantes"
+            : "Confirmar venta POS";
         boton.innerHTML = "<i class=\"bi bi-cash-coin\"></i> Cobrar <span class=\"pos-shortcut-hint\">Ctrl+Enter</span>";
+    }
+    function carritoRequiereFaltantesAutorizados() {
+        return carrito.some(function (item) {
+            var plan = item.plan_salida_inventario || {};
+            var faltantePlan = cantidad(plan.faltante || plan.cantidad_pendiente || 0);
+            if (faltantePlan > 0) { return true; }
+            var disponibilidad = item.disponibilidad || {};
+            if (Number(item.controla_inventario || 0) === 1 && item.modo_salida === "existencia_agregada") {
+                return cantidad(item.cantidad) > cantidad(disponibilidad.disponible || disponibilidad.cantidad || 0) + 0.0001;
+            }
+            var bloqueos = item.bloqueos || [];
+            return bloqueos.some(function (bloqueo) {
+                return String(bloqueo || "").toLowerCase().indexOf("inventario pendiente") !== -1;
+            });
+        });
+    }
+    function respuestaRequiereAutorizacionFaltantes(response) {
+        var depurar = (response || {}).depurar || {};
+        var textos = [];
+        if (response && response.mensaje) { textos.push(response.mensaje); }
+        (depurar.bloqueos || []).forEach(function (item) { textos.push(item); });
+        return textos.some(function (item) {
+            var normal = textoLegible(item).toLowerCase();
+            return normal.indexOf("politica pos autoriza inventario pendiente") >= 0
+                || normal.indexOf("flujo real de inventario pendiente") >= 0
+                || normal.indexOf("inventario pendiente") >= 0 && normal.indexOf("autoriz") >= 0;
+        });
     }
     function esPagoSaldoCrmUi(pago) {
         return String((pago || {}).metodo_pago || "").toLowerCase() === "saldo_crm" || String((pago || {}).tipo_pago || "").toLowerCase() === "saldo_cliente";
@@ -2042,6 +2067,10 @@
         if (contieneVentaRapida) {
             mensaje += " Incluye producto por clasificar: se creara pendiente a Catalogo/Inventario y no se movera kardex.";
         }
+        var requiereFaltantes = carritoRequiereFaltantesAutorizados();
+        if (requiereFaltantes) {
+            mensaje += " Incluye faltantes autorizables: se pedira motivo y se generaran alertas a Inventario/Existencias por SKU.";
+        }
         if (tmsPosActivo()) {
             mensaje += " Se creara un servicio TMS separado despues de confirmar POS.";
         }
@@ -2050,6 +2079,13 @@
             : Promise.resolve(window.confirm(mensaje));
         confirmar.then(function (ok) {
             if (!ok) { return; }
+            if (requiereFaltantes) {
+                solicitarAutorizacionFaltantes().then(function (datos) {
+                    if (!datos) { return; }
+                    ejecutarCobroRealComun(true, datos.motivo || "Venta POS con faltantes autorizados", document.getElementById("pos_cobrar_real"));
+                });
+                return;
+            }
             ejecutarCobroReal();
         });
     }
@@ -2057,23 +2093,11 @@
         var boton = document.getElementById("pos_cobrar_real");
         return ejecutarCobroRealComun(false, "", boton);
     }
-    function cobrarConFaltantesReal() {
-        if (!turnoActual()) {
-            document.getElementById("pos_validacion").innerHTML = "<div class=\"alert alert-warning py-3 mb-0\">Abre turno de caja antes de cobrar con faltantes.</div>";
-            return;
-        }
-        if (!carrito.length) {
-            document.getElementById("pos_validacion").innerHTML = "<div class=\"alert alert-warning py-3 mb-0\">Agrega partidas antes de cobrar con faltantes.</div>";
-            return;
-        }
-        if (!pagos.length) {
-            document.getElementById("pos_validacion").innerHTML = "<div class=\"alert alert-warning py-3 mb-0\">Agrega al menos un pago antes de cobrar con faltantes.</div>";
-            return;
-        }
+    function solicitarAutorizacionFaltantes() {
         var continuar = Promise.resolve(true);
         if (window.Swal) {
             continuar = Swal.fire({
-                title: "Cobrar con faltantes",
+                title: "Autorizar faltantes",
                 icon: "warning",
                 html: "<div class=\"text-start fs-7 mb-3\">Se cobrara la cuenta y cada SKU sin existencia suficiente generara alerta a Inventario/Existencias.</div>" +
                     "<label class=\"form-label w-100 text-start fs-8 text-muted\">Motivo</label>" +
@@ -2081,7 +2105,7 @@
                     "<label class=\"form-label w-100 text-start fs-8 text-muted mt-2\">Confirmacion</label>" +
                     "<input id=\"swal_pos_confirmacion_faltante\" class=\"swal2-input\" placeholder=\"AUTORIZAR INVENTARIO PENDIENTE\">",
                 showCancelButton: true,
-                confirmButtonText: "Cobrar con faltantes",
+                confirmButtonText: "Autorizar y cobrar",
                 cancelButtonText: "Cancelar",
                 preConfirm: function () {
                     var motivo = (document.getElementById("swal_pos_motivo_faltante") || {}).value || "";
@@ -2101,7 +2125,22 @@
                 continuar = Promise.resolve(confirmacionPrompt && confirmacionPrompt.toUpperCase() === "AUTORIZAR INVENTARIO PENDIENTE" ? {motivo: motivoPrompt} : false);
             }
         }
-        continuar.then(function (datos) {
+        return continuar;
+    }
+    function cobrarConFaltantesReal() {
+        if (!turnoActual()) {
+            document.getElementById("pos_validacion").innerHTML = "<div class=\"alert alert-warning py-3 mb-0\">Abre turno de caja antes de cobrar con faltantes.</div>";
+            return;
+        }
+        if (!carrito.length) {
+            document.getElementById("pos_validacion").innerHTML = "<div class=\"alert alert-warning py-3 mb-0\">Agrega partidas antes de cobrar con faltantes.</div>";
+            return;
+        }
+        if (!pagos.length) {
+            document.getElementById("pos_validacion").innerHTML = "<div class=\"alert alert-warning py-3 mb-0\">Agrega al menos un pago antes de cobrar con faltantes.</div>";
+            return;
+        }
+        solicitarAutorizacionFaltantes().then(function (datos) {
             if (!datos) { return; }
             ejecutarCobroRealComun(true, datos.motivo || "Venta POS con faltantes autorizados", document.getElementById("pos_cobrar_faltantes_real"));
         });
@@ -2129,6 +2168,16 @@
         }
         request("/ventas/pos_confirmar_erp", payload).then(function (response) {
             if (response.error) { throw new Error(response.mensaje); }
+            if (!autorizarFaltantes && response.tipo !== "success" && respuestaRequiereAutorizacionFaltantes(response)) {
+                solicitarAutorizacionFaltantes().then(function (datos) {
+                    if (!datos) {
+                        renderCobroReal(response);
+                        return;
+                    }
+                    ejecutarCobroRealComun(true, datos.motivo || "Venta POS con faltantes autorizados", document.getElementById("pos_cobrar_real"));
+                });
+                return;
+            }
             renderCobroReal(response);
             if (response.tipo === "success" && payloadTmsPendiente) {
                 crearTmsDesdePosReal(payloadTmsPendiente);

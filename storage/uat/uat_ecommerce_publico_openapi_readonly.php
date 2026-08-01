@@ -1,7 +1,7 @@
 <?php
 
 /**
- * Documentacion IA: Codex GPT-5, 2026-07-15.
+ * Documentacion IA: Codex GPT-5, 2026-07-31.
  * Proposito: emitir una especificacion OpenAPI basica para el frontend ecommerce externo.
  * Impacto: facilita generar clientes, docs o mocks sin crear endpoints nuevos.
  * Contrato: read-only; no consulta BD, no escribe datos y no toca inventario.
@@ -20,9 +20,45 @@ $schema = array(
   "paths" => array(
     "/contratos" => array("get" => endpointOpenApi("Contratos API ecommerce publico")),
     "/estado" => array("get" => endpointOpenApi("Readiness del API ecommerce publico")),
+    "/bootstrap" => array(
+      "get" => array_merge(endpointOpenApi("Paquete inicial para frontend ecommerce"), array(
+        "parameters" => array(
+          queryParam("limite_secciones", "Limite 1-12 por seccion", "integer")
+        )
+      ))
+    ),
     "/configuracion" => array("get" => endpointOpenApi("Configuracion publica del canal ecommerce")),
-    "/seo" => array("get" => endpointOpenApi("Metadatos SEO, robots, sitemap y JSON-LD sugeridos")),
+    "/seo" => array(
+      "get" => array_merge(endpointOpenApi("Metadatos SEO, robots, sitemap, rutas y JSON-LD sugeridos"), array(
+        "parameters" => array(
+          queryParam("limite", "Limite 1-200 productos", "integer")
+        )
+      ))
+    ),
     "/filtros" => array("get" => endpointOpenApi("Filtros disponibles de publicaciones vigentes")),
+    "/busqueda_sugerencias" => array(
+      "get" => array_merge(endpointOpenApi("Sugerencias para buscador publico"), array(
+        "parameters" => array(
+          queryParam("q", "Texto libre opcional"),
+          queryParam("limite", "Limite 1-12 por grupo", "integer")
+        )
+      ))
+    ),
+    "/navegacion" => array(
+      "get" => array_merge(endpointOpenApi("Navegacion publica para menus, chips y rutas"), array(
+        "parameters" => array(
+          queryParam("limite", "Limite 1-30 por grupo", "integer")
+        )
+      ))
+    ),
+    "/secciones" => array(
+      "get" => array_merge(endpointOpenApi("Secciones de catalogo listas para home/frontend"), array(
+        "parameters" => array(
+          queryParam("limite", "Limite 1-12 por seccion", "integer"),
+          queryParam("incluir_vacias", "1 para devolver secciones vacias")
+        )
+      ))
+    ),
     "/politicas" => array("get" => endpointOpenApi("Politicas publicas para terminos, privacidad, facturacion y tracking")),
     "/politica/{slug}" => array(
       "get" => array_merge(endpointOpenApi("Detalle de politica publica"), array(
@@ -45,11 +81,15 @@ $schema = array(
           queryParam("necesidad", "alimento|premio|higiene|salud|paseo|habitat|juguete|estetica"),
           queryParam("marca", "ID marca ERP"),
           queryParam("categoria", "ID categoria ERP"),
+          queryParam("disponibilidad", "disponible|pocas_piezas|consultar_disponibilidad|agotado"),
+          queryParam("destacado", "1 para solo destacados"),
+          queryParam("orden", "relevancia|nombre|precio_asc|precio_desc|recientes"),
           queryParam("pagina", "Pagina", "integer"),
           queryParam("limite", "Limite 1-60", "integer")
         )
       ))
     ),
+    "/canales_estado" => array("get" => endpointOpenApi("Estado publico seguro de canales/API para Artiani y partners")),
     "/producto/{slug}" => array(
       "get" => array_merge(endpointOpenApi("Detalle publico de producto publicado"), array(
         "parameters" => array(

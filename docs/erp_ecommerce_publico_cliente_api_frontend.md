@@ -1,8 +1,8 @@
 # ERP Ecommerce publico - Cliente API frontend
 
 Documentacion IA: Codex GPT-5  
-Fecha: 2026-07-15  
-Estado: referencia para implementar cliente API en el proyecto ecommerce externo.
+Fecha: 2026-07-31  
+Estado: referencia para implementar cliente API en el proyecto ecommerce externo con contrato robusto Fase 1.
 
 ## Objetivo
 
@@ -14,7 +14,7 @@ Reglas:
 - No consumir tablas ni endpoints internos.
 - No usar `ecom_*`.
 - No enviar precios como fuente de verdad.
-- No usar `/bootstrap`.
+- Usar `/bootstrap` para primer render cuando convenga reducir llamadas iniciales.
 - No usar `cotizacion_registrar` en Fase 1.
 
 ## Tipos base
@@ -69,6 +69,9 @@ export type CatalogoParams = {
   necesidad?: string;
   marca?: number | string;
   categoria?: number | string;
+  disponibilidad?: DisponibilidadPublica;
+  destacado?: 1 | "1" | boolean;
+  orden?: "relevancia" | "nombre" | "precio_asc" | "precio_desc" | "recientes";
   pagina?: number;
   limite?: number;
 };
@@ -93,7 +96,62 @@ export type SeoPublico = {
     productos: Array<{ slug: string; path: string; title: string; description: string; image: string | null }>;
     filtros: Record<string, unknown[]>;
   };
+  rutas: Array<{ path: string; tipo: string; priority: string; changefreq: string }>;
+  sitemap_xml_sugerido: string;
+  resumen: Record<string, number>;
   json_ld: Record<string, unknown>;
+};
+
+export type FiltrosPublicos = {
+  mascotas: unknown[];
+  necesidades: unknown[];
+  marcas: unknown[];
+  categorias: unknown[];
+  disponibilidad: unknown[];
+};
+
+export type NavegacionPublica = {
+  primaria: unknown[];
+  mascotas: unknown[];
+  necesidades: unknown[];
+  categorias: unknown[];
+  marcas: unknown[];
+  disponibilidad: unknown[];
+  resumen: Record<string, number>;
+};
+
+export type SeccionesPublicas = {
+  configurado: boolean;
+  secciones: Array<{
+    codigo: string;
+    titulo: string;
+    tipo: string;
+    items: ProductoCatalogo[];
+  }>;
+};
+
+export type BusquedaSugerencias = {
+  q: string;
+  grupos: {
+    productos: unknown[];
+    marcas: unknown[];
+    categorias: unknown[];
+    mascotas: unknown[];
+    necesidades: unknown[];
+  };
+  resumen: Record<string, number>;
+};
+
+export type BootstrapEcommerce = {
+  ready: boolean;
+  estado: unknown;
+  configuracion: { configurado: boolean; configuracion: Record<string, string> };
+  filtros: FiltrosPublicos;
+  navegacion: NavegacionPublica;
+  secciones: SeccionesPublicas;
+  politicas: unknown;
+  canales: unknown;
+  guardrails: Record<string, boolean>;
 };
 
 export type CotizacionDryRunPayload = {
@@ -180,6 +238,11 @@ export function createErpEcommerceApi(config: { baseUrl: string; basePath?: stri
 
   return {
     getContratos: () => request<unknown>("/contratos"),
+    getBootstrap: (params: { limite_secciones?: number } = {}) => {
+      const query = new URLSearchParams();
+      if (params.limite_secciones) query.set("limite_secciones", String(params.limite_secciones));
+      return request<BootstrapEcommerce>(`/bootstrap${query.toString() ? `?${query.toString()}` : ""}`);
+    },
     getEstado: () => request<{
       ready: boolean;
       schema: { ddl_pendiente: boolean };
@@ -188,7 +251,24 @@ export function createErpEcommerceApi(config: { baseUrl: string; basePath?: stri
     }>("/estado"),
     getConfiguracion: () => request<{ configurado: boolean; configuracion: Record<string, string> }>("/configuracion"),
     getSeo: () => request<SeoPublico>("/seo"),
-    getFiltros: () => request<{ mascotas: unknown[]; necesidades: unknown[]; marcas: unknown[]; categorias: unknown[] }>("/filtros"),
+    getFiltros: () => request<FiltrosPublicos>("/filtros"),
+    getBusquedaSugerencias: (params: { q?: string; limite?: number } = {}) => {
+      const query = new URLSearchParams();
+      if (params.q) query.set("q", params.q);
+      if (params.limite) query.set("limite", String(params.limite));
+      return request<BusquedaSugerencias>(`/busqueda_sugerencias${query.toString() ? `?${query.toString()}` : ""}`);
+    },
+    getNavegacion: (params: { limite?: number } = {}) => {
+      const query = new URLSearchParams();
+      if (params.limite) query.set("limite", String(params.limite));
+      return request<NavegacionPublica>(`/navegacion${query.toString() ? `?${query.toString()}` : ""}`);
+    },
+    getSecciones: (params: { limite?: number; incluir_vacias?: boolean } = {}) => {
+      const query = new URLSearchParams();
+      if (params.limite) query.set("limite", String(params.limite));
+      if (params.incluir_vacias) query.set("incluir_vacias", "1");
+      return request<SeccionesPublicas>(`/secciones${query.toString() ? `?${query.toString()}` : ""}`);
+    },
     getCatalogo: (params: CatalogoParams = {}) => {
       const query = new URLSearchParams();
       Object.entries(params).forEach(([key, value]) => {

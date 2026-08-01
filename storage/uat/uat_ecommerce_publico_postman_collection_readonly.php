@@ -1,7 +1,7 @@
 <?php
 
 /**
- * Documentacion IA: Codex GPT-5, 2026-07-15.
+ * Documentacion IA: Codex GPT-5, 2026-07-31.
  * Proposito: generar una coleccion Postman/Insomnia para probar la API ecommerce publica desde el frontend externo.
  * Impacto: facilita QA de contratos sin leer BD, sin ejecutar DDL y sin tocar inventario.
  * Contrato: read-only; no registra cotizaciones reales y mantiene `cotizacion_registrar` como prueba bloqueada.
@@ -27,15 +27,20 @@ $collection = array(
   "item" => array(
     requestPostmanReadonly("Contratos", "GET", "{{base_url}}/ecommercePublico/contratos"),
     requestPostmanReadonly("Estado readiness", "GET", "{{base_url}}/ecommercePublico/estado"),
+    requestPostmanReadonly("Bootstrap frontend", "GET", "{{base_url}}/ecommercePublico/bootstrap?limite_secciones=6"),
     requestPostmanReadonly("Configuracion publica", "GET", "{{base_url}}/ecommercePublico/configuracion"),
-    requestPostmanReadonly("SEO publico", "GET", "{{base_url}}/ecommercePublico/seo"),
+    requestPostmanReadonly("SEO publico robusto", "GET", "{{base_url}}/ecommercePublico/seo?limite=20"),
     requestPostmanReadonly("Filtros publicos", "GET", "{{base_url}}/ecommercePublico/filtros"),
+    requestPostmanReadonly("Busqueda sugerencias", "GET", "{{base_url}}/ecommercePublico/busqueda_sugerencias?q=filtro&limite=4"),
+    requestPostmanReadonly("Navegacion publica", "GET", "{{base_url}}/ecommercePublico/navegacion?limite=8"),
+    requestPostmanReadonly("Secciones home", "GET", "{{base_url}}/ecommercePublico/secciones?limite=4"),
     requestPostmanReadonly("Politicas publicas", "GET", "{{base_url}}/ecommercePublico/politicas"),
     requestPostmanReadonly("Politica facturacion", "GET", "{{base_url}}/ecommercePublico/politica/facturacion"),
     requestPostmanReadonly("Taxonomia mascotas", "GET", "{{base_url}}/ecommercePublico/taxonomia_mascotas"),
-    requestPostmanReadonly("Catalogo", "GET", "{{base_url}}/ecommercePublico/catalogo?q=&mascota=&necesidad=&pagina=1&limite=24"),
+    requestPostmanReadonly("Catalogo robusto", "GET", "{{base_url}}/ecommercePublico/catalogo?q=&mascota=&necesidad=&disponibilidad=disponible&destacado=&orden=relevancia&pagina=1&limite=24"),
     requestPostmanReadonly("Producto por slug", "GET", "{{base_url}}/ecommercePublico/producto/{{producto_slug}}"),
     requestPostmanReadonly("Disponibilidad por slug", "GET", "{{base_url}}/ecommercePublico/disponibilidad?slug={{producto_slug}}"),
+    requestPostmanReadonly("Canales/API estado", "GET", "{{base_url}}/ecommercePublico/canales_estado"),
     requestPostmanReadonly("Cotizacion dry-run", "POST", "{{base_url}}/ecommercePublico/cotizacion_dryrun", array(
       "items" => array(
         array("id_publicacion" => 1, "cantidad" => 1)

@@ -3114,3 +3114,27 @@ UAT sugerido:
 4. Capturar motivo: `Producto creado y SKU validado en Catalogo`.
 5. Confirmar que desaparece de la lista abierta.
 6. Si era duplicada/no aplica, usar `Descartar` con motivo claro.
+## Actualizacion 2026-07-31 - UX guiada de Paquetes
+
+Contexto: el usuario reporto que el flujo de creacion de paquetes era confuso porque la pestana mostraba al mismo tiempo alta de SKU paquete, receta, grupo configurable y opcion de grupo.
+
+Decision UX aplicada sin DDL:
+
+- La pestana `Paquetes` se reorganiza mentalmente en pasos:
+  - Paso 1: crear SKU vendible del paquete si aun no existe.
+  - Paso 2: crear/editar receta del paquete con componentes fijos.
+  - Paso 3: crear grupos configurables solo si el paquete permite alternativas.
+  - Paso 4: agregar opciones al grupo solo despues de seleccionar `Nueva opcion` o `Editar opcion` desde un grupo.
+- Se renombraron textos para evitar confundir producto fisico, SKU paquete y componente:
+  - `Componente fisico base` pasa a `Primer componente fijo`.
+  - `Cantidad base` pasa a `Cantidad componente`.
+  - `Buscar componente` pasa a `Buscar componente fijo`.
+- El formulario de opcion de grupo queda oculto hasta que se seleccione un grupo/opcion desde la receta.
+- El formulario de receta distingue visualmente entre `Crear receta` y `Editar receta`.
+- No se modifico BD, no se tocaron Ventas, Almacen ni Inventario.
+
+Regla de negocio reafirmada:
+
+- Un paquete vendible debe tener su propio SKU paquete.
+- Componentes fijos siempre se incluyen.
+- Grupos configurables solo definen opciones permitidas; la seleccion final corresponde a Ventas/POS/Ecommerce en su flujo futuro.

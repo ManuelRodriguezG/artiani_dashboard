@@ -80,6 +80,17 @@ class EcommercePublico extends Controlador {
   }
 
   /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-07-31
+   * Proposito: exponer navegacion publica lista para menus, chips y rutas del ecommerce.
+   * Impacto: Frontend ecommerce; evita hardcodear rutas por mascota, necesidad, categoria, marca o disponibilidad.
+   * Contrato: GET publico read-only; no escribe BD ni expone informacion sensible.
+   */
+  public function navegacion() {
+    if ($this->esOptionsPublicas()) { return $this->responderOpcionesPublicas(); }
+    return $this->responderApiPublica($this->modelo("EcommerceCatalogoPublico")->navegacionPublica($_GET));
+  }
+
+  /**
    * Documentacion IA: Codex GPT-5 | Fecha: 2026-07-30
    * Proposito: exponer secciones de catalogo listas para home y bloques del frontend.
    * Impacto: Ecommerce publico; permite construir destacados, disponibles y bloques por mascota/necesidad sin hardcodear.

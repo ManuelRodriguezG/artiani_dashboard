@@ -831,3 +831,199 @@ C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_busqueda_sugerencias_read
   - solo publicados;
   - no expone stock exacto;
   - no expone costos.
+
+## Actualizacion 2026-07-31 - Navegacion publica ecommerce
+
+- Se agrega `GET /ecommercePublico/navegacion`.
+- Objetivo:
+  - entregar menus/chips/rutas listas para frontend;
+  - evitar hardcodear navegacion por mascota, necesidad, categoria, marca o disponibilidad;
+  - mantener filtros y navegacion como contratos distintos.
+- Tambien se integra `navegacion` dentro de `GET /ecommercePublico/bootstrap`.
+- Parametro:
+  - `limite`: 1-30 por grupo, default 12.
+- Respuesta incluye:
+  - `primaria`;
+  - `mascotas`;
+  - `necesidades`;
+  - `categorias`;
+  - `marcas`;
+  - `disponibilidad`;
+  - `resumen`;
+  - `guardrails`.
+- UAT read-only:
+
+```bash
+C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_navegacion_readonly.php --base=http://panel.com.local --limite=5
+```
+
+- Resultado validado:
+  - `ok=true`;
+  - `senal_frontend=navegacion_publica_lista`;
+  - `total_items=16`;
+  - `primaria=4`;
+  - `mascotas=2`;
+  - `necesidades=2`;
+  - `categorias=4`;
+  - `marcas=2`;
+  - `disponibilidad=2`;
+  - `bootstrap_incluye_navegacion=true`.
+- `uat_ecommerce_publico_bootstrap_readonly.php` ahora reporta `navegacion=16`.
+- Guardrails:
+  - no escribe BD;
+  - solo derivado de publicaciones;
+  - no expone secretos.
+
+## Actualizacion 2026-07-31 - SEO publico robusto
+
+- Se fortalece `GET /ecommercePublico/seo`.
+- Objetivo:
+  - entregar a frontend insumos listos para `robots.txt`, `sitemap.xml`, rutas SEO y JSON-LD;
+  - incluir productos publicados y rutas por filtros navegables;
+  - mantener al ERP como fuente de verdad sin generar archivos fisicos.
+- La respuesta ahora incluye:
+  - `sitemap_xml_sugerido`;
+  - `rutas`;
+  - `resumen`;
+  - filtros SEO para mascotas, necesidades, categorias, marcas y disponibilidad.
+- UAT read-only:
+
+```bash
+C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_seo_robusto_readonly.php --base=http://panel.com.local --limite=20
+```
+
+- Resultado validado:
+  - `ok=true`;
+  - `senal_frontend=seo_robusto_listo`;
+  - `rutas_total=21`;
+  - `productos=6`;
+  - `mascotas=2`;
+  - `necesidades=2`;
+  - `categorias=4`;
+  - `marcas=2`;
+  - `disponibilidad=2`;
+  - `sitemap_xml_generado=true`;
+  - `robots_txt_generado=true`.
+- Guardrails:
+  - no escribe BD;
+  - no genera archivos reales;
+  - no muestra stock exacto;
+  - no usa legacy `ecom_*`.
+
+## Actualizacion 2026-07-31 - Handoff tecnico frontend actualizado
+
+- Se actualizan entregables read-only para que frontend consuma la API ecommerce sin leer backend ni tablas internas.
+- Scripts actualizados:
+  - `storage/uat/uat_ecommerce_publico_openapi_readonly.php`;
+  - `storage/uat/uat_ecommerce_publico_postman_collection_readonly.php`;
+  - `storage/uat/uat_ecommerce_publico_frontend_package_readonly.php`;
+  - `storage/uat/uat_ecommerce_publico_contract_shape_readonly.php`.
+- El handoff ahora incluye estos endpoints nuevos/fortalecidos:
+  - `GET /ecommercePublico/bootstrap`;
+  - `GET /ecommercePublico/secciones`;
+  - `GET /ecommercePublico/busqueda_sugerencias`;
+  - `GET /ecommercePublico/navegacion`;
+  - `GET /ecommercePublico/canales_estado`;
+  - `GET /ecommercePublico/seo` con rutas y sitemap XML sugerido;
+  - `GET /ecommercePublico/catalogo` con `disponibilidad`, `destacado` y `orden`.
+- Se elimina de `no_usar` la indicacion obsoleta de evitar `/bootstrap`; ahora es el endpoint recomendado para cargar la vista inicial.
+- El contract-shape valida 21 endpoints publicos esperados y los wrappers principales:
+  - bootstrap;
+  - filtros con disponibilidad;
+  - navegacion;
+  - secciones;
+  - sugerencias de busqueda;
+  - canales/API en modo seguro read-only.
+- UAT read-only:
+
+```bash
+C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_contract_shape_readonly.php
+C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_frontend_package_readonly.php --base=http://panel.com.local
+C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_green_gate_readonly.php --base=http://panel.com.local
+```
+
+- Resultado validado:
+  - `contract_shape.ok=true`;
+  - `endpoints_publicos_esperados=21`;
+  - `frontend_package.senal_frontend_actual=verde_datos_reales`;
+  - `frontend_package.puede_integrar_datos_reales=true`;
+  - `green_gate.ok=true`;
+  - publicaciones reales publicadas: `6`.
+
+## Actualizacion 2026-07-31 - Documentos frontend alineados al contrato robusto
+
+- Se actualizan documentos de consumo frontend:
+  - `docs/erp_ecommerce_publico_frontend_handoff.md`;
+  - `docs/erp_ecommerce_publico_api_contratos.md`;
+  - `docs/erp_ecommerce_publico_cliente_api_frontend.md`;
+  - `docs/erp_ecommerce_publico_frontend_contract_tests.md`.
+- Cambios clave:
+  - `/bootstrap` queda como carga inicial recomendada;
+  - se documenta total actual de 21 endpoints publicos;
+  - se agregan `busqueda_sugerencias`, `navegacion`, `secciones` y `canales_estado`;
+  - se documentan `disponibilidad`, `destacado` y `orden` en catalogo;
+  - el cliente TypeScript de referencia incluye metodos y tipos para las rutas nuevas;
+  - contract tests frontend incluyen SEO robusto, filtros con disponibilidad, navegacion, secciones, sugerencias y canales.
+- No se modifica BD ni reglas operativas; es alineacion documental y de integracion.
+
+## Actualizacion 2026-07-31 - Smoke HTTP ampliado para frontend robusto
+
+- Se actualiza `storage/uat/uat_ecommerce_publico_http_smoke_readonly.php`.
+- Ahora prueba por HTTP:
+  - `GET /ecommercePublico/bootstrap?limite_secciones=3`;
+  - `GET /ecommercePublico/seo?limite=20`;
+  - `GET /ecommercePublico/busqueda_sugerencias?q=filtro&limite=4`;
+  - `GET /ecommercePublico/navegacion?limite=5`;
+  - `GET /ecommercePublico/secciones?limite=3`;
+  - `GET /ecommercePublico/catalogo?disponibilidad=disponible&orden=precio_asc&limite=3`;
+  - `GET /ecommercePublico/canales_estado`.
+- Tambien conserva pruebas previas de estado, contratos, configuracion, filtros, catalogo, producto no publicado, disponibilidad, dry-run, preflight y endpoints POST bloqueados/preflight.
+- Resultado validado:
+  - `ok=true`;
+  - `seo.rutas_total=21`;
+  - `navegacion.navegacion_total=16`;
+  - `busqueda_sugerencias.sugerencias_total=2`;
+  - `secciones.secciones_total=7`;
+  - `catalogo_disponible_ordenado.items_total=3`;
+  - `canales_estado.tipo=info`.
+- Guardrails:
+  - no escribe BD;
+  - no registra cotizacion;
+  - no mueve inventario.
+
+## Actualizacion 2026-07-31 - Snapshot vivo frontend robusto
+
+- Se actualiza `storage/uat/uat_ecommerce_publico_frontend_snapshot_readonly.php`.
+- El snapshot ahora incluye ejemplos reales/resumidos de:
+  - `bootstrap`;
+  - navegacion publica;
+  - secciones;
+  - busqueda_sugerencias;
+  - SEO/rutas/sitemap XML sugerido;
+  - catalogo normal;
+  - catalogo filtrado por `disponibilidad=disponible` y `orden=precio_asc`;
+  - producto detalle con variantes, relacionados y breadcrumbs;
+  - disponibilidad publica;
+  - dry-run de cotizacion.
+- Se actualiza `docs/erp_ecommerce_publico_frontend_snapshot_vivo.md`.
+- UAT read-only:
+
+```bash
+C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_frontend_snapshot_readonly.php --base=http://panel.com.local --origin=http://artiani.com.local --limite=3 --min_publicaciones=6
+```
+
+- Resultado validado:
+  - `ok=true`;
+  - `senal_frontend=verde_datos_reales`;
+  - `publicadas=6`;
+  - `catalogo_items_snapshot=3`;
+  - `catalogo_disponible_ordenado_items=3`;
+  - `secciones_total=7`;
+  - `navegacion_total=16`;
+  - `sugerencias_total=2`;
+  - `seo_rutas_total=21`.
+- Guardrails:
+  - no escribe BD;
+  - no registra cotizacion;
+  - no descuenta inventario;
+  - no expone stock exacto.
