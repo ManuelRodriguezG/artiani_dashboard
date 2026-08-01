@@ -1,7 +1,7 @@
 <?php
 
 /**
- * Documentacion IA: Codex GPT-5, 2026-07-31.
+ * Documentacion IA: Codex GPT-5, 2026-08-01.
  * Proposito: generar una coleccion Postman/Insomnia para probar la API ecommerce publica desde el frontend externo.
  * Impacto: facilita QA de contratos sin leer BD, sin ejecutar DDL y sin tocar inventario.
  * Contrato: read-only; no registra cotizaciones reales y mantiene `cotizacion_registrar` como prueba bloqueada.
@@ -21,7 +21,7 @@ $collection = array(
   ),
   "variable" => array(
     array("key" => "base_url", "value" => $base),
-    array("key" => "producto_slug", "value" => "slug-de-prueba-no-publicado"),
+    array("key" => "producto_slug", "value" => "alimento-churro-blanco-para-peces-100-gr-g-tp-40372-100gr"),
     array("key" => "id_publicacion", "value" => "1")
   ),
   "item" => array(
@@ -38,7 +38,9 @@ $collection = array(
     requestPostmanReadonly("Politica facturacion", "GET", "{{base_url}}/ecommercePublico/politica/facturacion"),
     requestPostmanReadonly("Taxonomia mascotas", "GET", "{{base_url}}/ecommercePublico/taxonomia_mascotas"),
     requestPostmanReadonly("Catalogo robusto", "GET", "{{base_url}}/ecommercePublico/catalogo?q=&mascota=&necesidad=&disponibilidad=disponible&destacado=&orden=relevancia&pagina=1&limite=24"),
-    requestPostmanReadonly("Producto por slug", "GET", "{{base_url}}/ecommercePublico/producto/{{producto_slug}}"),
+    requestPostmanReadonly("Catalogo sin resultados", "GET", "{{base_url}}/ecommercePublico/catalogo?q=__sin_resultados_catalogo_frontend__&limite=3"),
+    requestPostmanReadonly("Producto real por slug", "GET", "{{base_url}}/ecommercePublico/producto/{{producto_slug}}"),
+    requestPostmanReadonly("Producto no publicado", "GET", "{{base_url}}/ecommercePublico/producto/slug-de-prueba-no-publicado"),
     requestPostmanReadonly("Disponibilidad por slug", "GET", "{{base_url}}/ecommercePublico/disponibilidad?slug={{producto_slug}}"),
     requestPostmanReadonly("Canales/API estado", "GET", "{{base_url}}/ecommercePublico/canales_estado"),
     requestPostmanReadonly("Cotizacion dry-run", "POST", "{{base_url}}/ecommercePublico/cotizacion_dryrun", array(

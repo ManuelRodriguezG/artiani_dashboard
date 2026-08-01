@@ -1,9 +1,9 @@
 <?php
 
 /**
- * Documentacion IA: Codex GPT-5, 2026-07-15.
- * Proposito: entregar fixtures JSON para iniciar el frontend ecommerce mientras el catalogo real sigue en amarillo.
- * Impacto: permite construir UI, filtros, ficha y carrito sin inventar contratos ni leer BD.
+ * Documentacion IA: Codex GPT-5, 2026-08-01.
+ * Proposito: entregar fixtures JSON para iniciar o probar UI del frontend ecommerce.
+ * Impacto: permite construir UI, bootstrap, navegacion, catalogo, ficha y carrito sin inventar contratos ni leer BD.
  * Contrato: read-only; no consulta BD, no ejecuta DDL, no registra cotizaciones y no toca inventario.
  */
 
@@ -78,10 +78,141 @@ $items = array(
   )
 );
 
+$filtrosDepurar = array(
+  "mascotas" => array(
+    array("valor" => "perro", "etiqueta" => "perro", "total" => 2),
+    array("valor" => "gato", "etiqueta" => "gato", "total" => 1)
+  ),
+  "necesidades" => array(
+    array("valor" => "alimento", "etiqueta" => "alimento", "total" => 1),
+    array("valor" => "higiene", "etiqueta" => "higiene", "total" => 1),
+    array("valor" => "premio", "etiqueta" => "premio", "total" => 1),
+    array("valor" => "salud", "etiqueta" => "salud", "total" => 1)
+  ),
+  "marcas" => array(
+    array("id" => 1, "etiqueta" => "Marca Demo", "total" => 1),
+    array("id" => 2, "etiqueta" => "Hogar Felino", "total" => 1),
+    array("id" => 3, "etiqueta" => "Sonrisa Canina", "total" => 1)
+  ),
+  "categorias" => array(
+    array("id" => 10, "etiqueta" => "Perros / Alimento seco", "total" => 1),
+    array("id" => 11, "etiqueta" => "Gatos / Higiene", "total" => 1),
+    array("id" => 12, "etiqueta" => "Perros / Premios", "total" => 1)
+  ),
+  "disponibilidad" => array(
+    array("valor" => "disponible", "etiqueta" => "Disponible", "total" => 1),
+    array("valor" => "pocas_piezas", "etiqueta" => "Pocas piezas", "total" => 1),
+    array("valor" => "consultar_disponibilidad", "etiqueta" => "Consultar disponibilidad", "total" => 1)
+  )
+);
+
+$catalogoFrontend = array(
+  "hay_resultados" => true,
+  "items_en_pagina" => count($items),
+  "total_paginas" => 1,
+  "pagina_anterior" => null,
+  "pagina_siguiente" => null,
+  "rango_visible" => array(
+    "desde" => 1,
+    "hasta" => count($items),
+    "total" => count($items),
+    "texto" => "Mostrando 1-" . count($items) . " de " . count($items)
+  ),
+  "filtros_activos" => array(),
+  "filtros_activos_total" => 0,
+  "estado_vacio" => array(
+    "mostrar" => false,
+    "titulo" => "No encontramos productos con esos filtros",
+    "accion_principal" => array("label" => "Limpiar filtros", "url" => "/catalogo")
+  ),
+  "guardrails_ui" => array(
+    "no_mostrar_stock_exacto" => true,
+    "precio_es_estimado" => true,
+    "cotizacion_requiere_dryrun" => true
+  )
+);
+
+$navegacionDepurar = array(
+  "configurado" => true,
+  "limite" => 8,
+  "primaria" => array(
+    array("codigo" => "inicio", "label" => "Inicio", "url" => "/", "tipo" => "ruta"),
+    array("codigo" => "catalogo", "label" => "Catalogo", "url" => "/catalogo", "tipo" => "ruta"),
+    array("codigo" => "cotizacion", "label" => "Cotizacion", "url" => "/cotizacion", "tipo" => "ruta"),
+    array("codigo" => "politicas", "label" => "Politicas", "url" => "/politicas", "tipo" => "ruta")
+  ),
+  "mascotas" => array(
+    array("codigo" => "mascota-perro", "tipo" => "mascota", "label" => "perro", "valor" => "perro", "url" => "/catalogo?mascota=perro", "total" => 2),
+    array("codigo" => "mascota-gato", "tipo" => "mascota", "label" => "gato", "valor" => "gato", "url" => "/catalogo?mascota=gato", "total" => 1)
+  ),
+  "necesidades" => array(
+    array("codigo" => "necesidad-alimento", "tipo" => "necesidad", "label" => "alimento", "valor" => "alimento", "url" => "/catalogo?necesidad=alimento", "total" => 1),
+    array("codigo" => "necesidad-higiene", "tipo" => "necesidad", "label" => "higiene", "valor" => "higiene", "url" => "/catalogo?necesidad=higiene", "total" => 1)
+  ),
+  "categorias" => array(
+    array("codigo" => "categoria-10", "tipo" => "categoria", "label" => "Perros / Alimento seco", "valor" => 10, "url" => "/catalogo?categoria=10", "total" => 1)
+  ),
+  "marcas" => array(
+    array("codigo" => "marca-1", "tipo" => "marca", "label" => "Marca Demo", "valor" => 1, "url" => "/catalogo?marca=1", "total" => 1)
+  ),
+  "disponibilidad" => array(
+    array("codigo" => "disponibilidad-disponible", "tipo" => "disponibilidad", "label" => "Disponible", "valor" => "disponible", "url" => "/catalogo?disponibilidad=disponible", "total" => 1),
+    array("codigo" => "disponibilidad-pocas-piezas", "tipo" => "disponibilidad", "label" => "Pocas piezas", "valor" => "pocas_piezas", "url" => "/catalogo?disponibilidad=pocas_piezas", "total" => 1)
+  ),
+  "resumen" => array("total_items" => 12, "mascotas" => 2, "necesidades" => 2, "categorias" => 1, "marcas" => 1, "disponibilidad" => 2),
+  "guardrails" => array("read_only" => true, "solo_derivado_de_publicaciones" => true, "no_expone_secretos" => true)
+);
+
+$seccionesDepurar = array(
+  "configurado" => true,
+  "limite" => 3,
+  "secciones" => array(
+    array("codigo" => "recientes", "titulo" => "Recientes", "tipo" => "catalogo", "total" => count($items), "items" => $items, "params_catalogo" => array("orden" => "recientes")),
+    array("codigo" => "disponibles", "titulo" => "Disponibles", "tipo" => "catalogo", "total" => 1, "items" => array($items[0]), "params_catalogo" => array("disponibilidad" => "disponible")),
+    array("codigo" => "mascota_perro", "titulo" => "Para perro", "tipo" => "mascota", "total" => 2, "items" => array($items[0], $items[2]), "params_catalogo" => array("mascota" => "perro"))
+  ),
+  "guardrails" => array("read_only" => true, "solo_publicados" => true, "no_stock_exacto" => true)
+);
+
+$busquedaSugerenciasDepurar = array(
+  "q" => "perro",
+  "configurado" => true,
+  "grupos" => array(
+    "productos" => array(
+      array("tipo" => "producto", "label" => $items[0]["nombre"], "subtitulo" => $items[0]["marca"] . " " . $items[0]["presentacion"], "valor" => $items[0]["slug"], "url" => "/producto/" . $items[0]["slug"], "imagen" => $items[0]["imagen"], "precio" => $items[0]["precio"], "moneda" => "MXN", "disponibilidad" => $items[0]["disponibilidad"])
+    ),
+    "marcas" => array(),
+    "categorias" => array(),
+    "mascotas" => array(array("tipo" => "mascota", "label" => "perro", "valor" => "perro", "url" => "/catalogo?mascota=perro", "total" => 2)),
+    "necesidades" => array()
+  ),
+  "resumen" => array("total_sugerencias" => 2, "productos" => 1, "marcas" => 0, "categorias" => 0, "mascotas" => 1, "necesidades" => 0, "sin_resultados" => false),
+  "frontend" => array("registrar_busqueda_futura" => "/ecommercePublico/busqueda_registrar", "usar_catalogo_para_resultados" => "/ecommercePublico/catalogo?q=perro", "min_caracteres_recomendado" => 2),
+  "guardrails" => array("read_only" => true, "no_registra_busqueda" => true, "solo_publicados" => true, "no_stock_exacto" => true)
+);
+
 $salida = array(
   "modo" => "fixtures_frontend_readonly",
   "advertencia" => "Fixtures para UI. No son productos reales ni deben mezclarse con ventas.",
   "base_api" => "http://panel.com.local/ecommercePublico",
+  "bootstrap" => array(
+    "error" => false,
+    "tipo" => "success",
+    "mensaje" => "Bootstrap ecommerce listo",
+    "api" => $api,
+    "depurar" => array(
+      "ready" => true,
+      "estado" => array("ready" => true, "publicaciones" => array("total_publicadas" => count($items))),
+      "configuracion" => array("configurado" => true, "configuracion" => array("moneda_default" => "MXN", "mostrar_stock_exacto" => "0")),
+      "filtros" => $filtrosDepurar,
+      "navegacion" => $navegacionDepurar,
+      "secciones" => $seccionesDepurar,
+      "politicas" => array("items" => array()),
+      "canales" => array("modo" => "multi_canal_diseno_readonly", "configurado" => false),
+      "guardrails" => array("read_only" => true, "no_expone_secretos" => true, "no_stock_exacto" => true, "no_checkout" => true),
+      "frontend" => array("usar_catalogo_para_paginacion" => "/ecommercePublico/catalogo", "usar_dryrun_antes_de_whatsapp" => true)
+    )
+  ),
   "estado" => array(
     "error" => false,
     "tipo" => "success",
@@ -178,6 +309,22 @@ $salida = array(
           )
         )
       ),
+      "rutas" => array(
+        array("path" => "/", "tipo" => "estatica", "priority" => "1.0", "changefreq" => "daily"),
+        array("path" => "/catalogo", "tipo" => "estatica", "priority" => "0.9", "changefreq" => "daily"),
+        array("path" => "/catalogo?mascota=perro", "tipo" => "mascota", "priority" => "0.7", "changefreq" => "daily"),
+        array("path" => "/producto/" . $items[0]["slug"], "tipo" => "producto", "priority" => "0.8", "changefreq" => "daily")
+      ),
+      "sitemap_xml_sugerido" => "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<urlset xmlns=\"http://www.sitemaps.org/schemas/sitemap/0.9\">\n  <url><loc>http://localhost:5173/</loc></url>\n  <url><loc>http://localhost:5173/catalogo</loc></url>\n</urlset>",
+      "resumen" => array(
+        "rutas_total" => 4,
+        "productos" => count($items),
+        "mascotas" => 2,
+        "necesidades" => 4,
+        "categorias" => 3,
+        "marcas" => 3,
+        "disponibilidad" => 3
+      ),
       "json_ld" => array(
         "organization" => array(
           "@context" => "https://schema.org",
@@ -203,27 +350,42 @@ $salida = array(
     "tipo" => "success",
     "mensaje" => "Filtros ecommerce consultados",
     "api" => $api,
+    "depurar" => $filtrosDepurar
+  ),
+  "busqueda_sugerencias" => array(
+    "error" => false,
+    "tipo" => "success",
+    "mensaje" => "Sugerencias ecommerce consultadas",
+    "api" => $api,
+    "depurar" => $busquedaSugerenciasDepurar
+  ),
+  "navegacion" => array(
+    "error" => false,
+    "tipo" => "success",
+    "mensaje" => "Navegacion ecommerce consultada",
+    "api" => $api,
+    "depurar" => $navegacionDepurar
+  ),
+  "secciones" => array(
+    "error" => false,
+    "tipo" => "success",
+    "mensaje" => "Secciones ecommerce consultadas",
+    "api" => $api,
+    "depurar" => $seccionesDepurar
+  ),
+  "canales_estado" => array(
+    "error" => false,
+    "tipo" => "info",
+    "mensaje" => "Capa canales/API ecommerce en diseno",
+    "api" => $api,
     "depurar" => array(
-      "mascotas" => array(
-        array("valor" => "perro", "etiqueta" => "perro", "total" => 2),
-        array("valor" => "gato", "etiqueta" => "gato", "total" => 1)
-      ),
-      "necesidades" => array(
-        array("valor" => "alimento", "etiqueta" => "alimento", "total" => 1),
-        array("valor" => "higiene", "etiqueta" => "higiene", "total" => 1),
-        array("valor" => "premio", "etiqueta" => "premio", "total" => 1),
-        array("valor" => "salud", "etiqueta" => "salud", "total" => 1)
-      ),
-      "marcas" => array(
-        array("id" => 1, "etiqueta" => "Marca Demo", "total" => 1),
-        array("id" => 2, "etiqueta" => "Hogar Felino", "total" => 1),
-        array("id" => 3, "etiqueta" => "Sonrisa Canina", "total" => 1)
-      ),
-      "categorias" => array(
-        array("id" => 10, "etiqueta" => "Perros / Alimento seco", "total" => 1),
-        array("id" => 11, "etiqueta" => "Gatos / Higiene", "total" => 1),
-        array("id" => 12, "etiqueta" => "Perros / Premios", "total" => 1)
-      )
+      "configurado" => false,
+      "modo" => "multi_canal_diseno_readonly",
+      "tablas" => array(),
+      "canales" => array("total" => 0, "items" => array()),
+      "autenticacion" => array("credenciales" => array("activas" => 0, "secretos_expuestos" => false)),
+      "activacion" => array("bloqueos" => array("tablas_canales_pendientes")),
+      "guardrails" => array("read_only" => true, "no_genera_credenciales" => true, "no_expone_api_secret" => true, "no_activa_auth_obligatoria" => true)
     )
   ),
   "catalogo" => array(
@@ -235,6 +397,32 @@ $salida = array(
       "configurado" => true,
       "items" => $items,
       "paginacion" => array("pagina" => 1, "limite" => 24, "total" => count($items)),
+      "filtros_aplicados" => array("q" => "", "mascota" => "", "necesidad" => "", "marca" => 0, "categoria" => 0, "disponibilidad" => "", "destacado" => false, "orden" => "relevancia"),
+      "ordenamientos_disponibles" => array("relevancia", "nombre", "precio_asc", "precio_desc", "recientes"),
+      "frontend" => $catalogoFrontend,
+      "guardrails" => array("solo_publicados" => true, "no_stock_exacto" => true, "no_ecom_legacy_fuente" => true)
+    )
+  ),
+  "catalogo_sin_resultados" => array(
+    "error" => false,
+    "tipo" => "success",
+    "mensaje" => "Catalogo publico consultado",
+    "api" => $api,
+    "depurar" => array(
+      "configurado" => true,
+      "items" => array(),
+      "paginacion" => array("pagina" => 1, "limite" => 24, "total" => 0),
+      "filtros_aplicados" => array("q" => "__sin_resultados__", "mascota" => "", "necesidad" => "", "marca" => 0, "categoria" => 0, "disponibilidad" => "", "destacado" => false, "orden" => "relevancia"),
+      "ordenamientos_disponibles" => array("relevancia", "nombre", "precio_asc", "precio_desc", "recientes"),
+      "frontend" => array_merge($catalogoFrontend, array(
+        "hay_resultados" => false,
+        "items_en_pagina" => 0,
+        "total_paginas" => 0,
+        "rango_visible" => array("desde" => 0, "hasta" => 0, "total" => 0, "texto" => "Sin productos publicados para estos filtros"),
+        "filtros_activos" => array("q"),
+        "filtros_activos_total" => 1,
+        "estado_vacio" => array("mostrar" => true, "titulo" => "No encontramos productos con esos filtros", "accion_principal" => array("label" => "Limpiar filtros", "url" => "/catalogo"))
+      )),
       "guardrails" => array("solo_publicados" => true, "no_stock_exacto" => true, "no_ecom_legacy_fuente" => true)
     )
   ),
@@ -245,7 +433,17 @@ $salida = array(
     "api" => $api,
     "depurar" => array(
       "item" => $items[0],
-      "guardrails" => array("solo_publicado" => true, "no_stock_exacto" => true)
+      "variantes" => array(),
+      "relacionados" => array($items[1], $items[2]),
+      "breadcrumbs" => array(
+        array("etiqueta" => "Inicio", "path" => "/"),
+        array("etiqueta" => "Catalogo", "path" => "/catalogo"),
+        array("etiqueta" => "Perros", "path" => "/catalogo?mascota=perro"),
+        array("etiqueta" => $items[0]["nombre"], "path" => "/producto/" . $items[0]["slug"])
+      ),
+      "seo" => array("title" => $items[0]["nombre"] . " | Catalogo mascotas", "description" => $items[0]["descripcion"], "canonical" => "http://localhost:5173/producto/" . $items[0]["slug"]),
+      "acciones" => array("puede_cotizar" => true, "puede_whatsapp" => true, "mostrar_precio" => true, "mostrar_disponibilidad" => true),
+      "guardrails" => array("solo_publicado" => true, "solo_relacionados_publicados" => true, "no_stock_exacto" => true)
     )
   ),
   "disponibilidad" => array(

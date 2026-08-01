@@ -537,21 +537,24 @@ class EcommerceCatalogoPublico extends CRUD {
         $items[] = $this->formatearPublicacion($fila);
       }
 
+      $filtrosAplicados = array(
+        "q" => $q,
+        "mascota" => $mascota,
+        "necesidad" => $necesidad,
+        "marca" => $marca,
+        "categoria" => $categoria,
+        "disponibilidad" => in_array($disponibilidad, $this->estadosDisponibilidadPublica(), true) ? $disponibilidad : "",
+        "destacado" => intval($this->valor($filtros, "destacado", 0)) === 1,
+        "orden" => $this->ordenCatalogoPublicoNormalizado($orden)
+      );
+
       return $this->respuesta(false, "success", "Catalogo publico consultado", array(
         "configurado" => true,
         "items" => $items,
         "paginacion" => array("pagina" => $pagina, "limite" => $limite, "total" => $total),
-        "filtros_aplicados" => array(
-          "q" => $q,
-          "mascota" => $mascota,
-          "necesidad" => $necesidad,
-          "marca" => $marca,
-          "categoria" => $categoria,
-          "disponibilidad" => in_array($disponibilidad, $this->estadosDisponibilidadPublica(), true) ? $disponibilidad : "",
-          "destacado" => intval($this->valor($filtros, "destacado", 0)) === 1,
-          "orden" => $this->ordenCatalogoPublicoNormalizado($orden)
-        ),
+        "filtros_aplicados" => $filtrosAplicados,
         "ordenamientos_disponibles" => array("relevancia", "nombre", "precio_asc", "precio_desc", "recientes"),
+        "frontend" => $this->frontendCatalogoPublico($pagina, $limite, $total, count($items), $filtrosAplicados),
         "guardrails" => array(
           "solo_publicados" => true,
           "no_stock_exacto" => true,
@@ -4152,6 +4155,56 @@ class EcommerceCatalogoPublico extends CRUD {
     } elseif ($disponibilidad === "consultar_disponibilidad") {
       $where[] = "COALESCE(r.controla_inventario, CASE WHEN s.tipo_inventario IN ('servicio','cargo') THEN 0 ELSE 1 END)=0";
     }
+  }
+
+  private function frontendCatalogoPublico($pagina, $limite, $total, $itemsPagina, $filtrosAplicados) {
+    $pagina = max(1, intval($pagina));
+    $limite = max(1, intval($limite));
+    $total = max(0, intval($total));
+    $itemsPagina = max(0, intval($itemsPagina));
+    $totalPaginas = $total > 0 ? intval(ceil($total / $limite)) : 0;
+    $desde = $itemsPagina > 0 ? (($pagina - 1) * $limite) + 1 : 0;
+    $hasta = $itemsPagina > 0 ? min($total, $desde + $itemsPagina - 1) : 0;
+    $filtrosActivos = array();
+    foreach ($filtrosAplicados as $clave => $valor) {
+      if ($clave === "orden") {
+        continue;
+      }
+      if (is_bool($valor) && $valor) {
+        $filtrosActivos[] = $clave;
+      } elseif (!is_bool($valor) && trim((string) $valor) !== "" && (string) $valor !== "0") {
+        $filtrosActivos[] = $clave;
+      }
+    }
+
+    return array(
+      "hay_resultados" => $total > 0,
+      "items_en_pagina" => $itemsPagina,
+      "total_paginas" => $totalPaginas,
+      "pagina_anterior" => $pagina > 1 ? $pagina - 1 : null,
+      "pagina_siguiente" => ($totalPaginas > 0 && $pagina < $totalPaginas) ? $pagina + 1 : null,
+      "rango_visible" => array(
+        "desde" => $desde,
+        "hasta" => $hasta,
+        "total" => $total,
+        "texto" => $total > 0 ? "Mostrando " . $desde . "-" . $hasta . " de " . $total : "Sin productos publicados para estos filtros"
+      ),
+      "filtros_activos" => $filtrosActivos,
+      "filtros_activos_total" => count($filtrosActivos),
+      "estado_vacio" => array(
+        "mostrar" => $total <= 0,
+        "titulo" => "No encontramos productos con esos filtros",
+        "accion_principal" => array(
+          "label" => "Limpiar filtros",
+          "url" => "/catalogo"
+        )
+      ),
+      "guardrails_ui" => array(
+        "no_mostrar_stock_exacto" => true,
+        "precio_es_estimado" => true,
+        "cotizacion_requiere_dryrun" => true
+      )
+    );
   }
 
   private function ordenCatalogoPublicoNormalizado($orden) {

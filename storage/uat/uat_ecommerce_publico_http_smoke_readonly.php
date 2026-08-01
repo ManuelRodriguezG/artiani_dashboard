@@ -1,7 +1,7 @@
 <?php
 
 /**
- * Documentacion IA: Codex GPT-5, 2026-07-31.
+ * Documentacion IA: Codex GPT-5, 2026-08-01.
  * Proposito: probar por HTTP los endpoints publicos ecommerce usando el host real configurado.
  * Impacto: valida que el frontend externo use base URL correcta y no rutas de filesystem.
  * Contrato: read-only; no escribe BD, no registra cotizaciones y no mueve inventario.
@@ -22,6 +22,7 @@ $pruebas = array(
   "secciones" => requestHttp($base . "/ecommercePublico/secciones?limite=3"),
   "catalogo" => requestHttp($base . "/ecommercePublico/catalogo?limite=3"),
   "catalogo_disponible_ordenado" => requestHttp($base . "/ecommercePublico/catalogo?disponibilidad=disponible&orden=precio_asc&limite=3"),
+  "catalogo_sin_resultados" => requestHttp($base . "/ecommercePublico/catalogo?q=__sin_resultados_catalogo_frontend__&limite=3"),
   "canales_estado" => requestHttp($base . "/ecommercePublico/canales_estado"),
   "producto" => requestHttp($base . "/ecommercePublico/producto/slug-de-prueba-no-publicado"),
   "disponibilidad" => requestHttp($base . "/ecommercePublico/disponibilidad?slug=slug-de-prueba-no-publicado"),
@@ -57,6 +58,11 @@ $pruebas = array(
   ))
 );
 
+$primerSlugCatalogo = (string) valorHttpSmoke($pruebas, array("catalogo", "depurar_resumen", "primer_slug"), "");
+if ($primerSlugCatalogo !== "") {
+  $pruebas["producto_real"] = requestHttp($base . "/ecommercePublico/producto/" . rawurlencode($primerSlugCatalogo));
+}
+
 $bloqueos = array();
 foreach ($pruebas as $nombre => $prueba) {
   if (!$prueba["json_valido"]) {
@@ -79,6 +85,36 @@ if ($pruebas["navegacion"]["depurar_resumen"]["navegacion_total"] === null) {
 }
 if ($pruebas["busqueda_sugerencias"]["depurar_resumen"]["sugerencias_total"] === null) {
   $bloqueos[] = "busqueda_sugerencias_debe_exponer_resumen";
+}
+if ($pruebas["catalogo"]["depurar_resumen"]["catalogo_frontend_hay_resultados"] !== true) {
+  $bloqueos[] = "catalogo_debe_exponer_frontend_hay_resultados";
+}
+if ($pruebas["catalogo"]["depurar_resumen"]["catalogo_frontend_rango_texto"] === "") {
+  $bloqueos[] = "catalogo_debe_exponer_rango_visible";
+}
+if ($pruebas["catalogo"]["depurar_resumen"]["catalogo_frontend_requiere_dryrun"] !== true) {
+  $bloqueos[] = "catalogo_debe_indicar_cotizacion_requiere_dryrun";
+}
+if ($pruebas["catalogo_sin_resultados"]["depurar_resumen"]["catalogo_frontend_estado_vacio"] !== true) {
+  $bloqueos[] = "catalogo_sin_resultados_debe_exponer_estado_vacio";
+}
+if ($primerSlugCatalogo === "") {
+  $bloqueos[] = "catalogo_debe_exponer_primer_slug_para_smoke";
+} elseif (empty($pruebas["producto_real"]["depurar_resumen"]["item_presente"])) {
+  $bloqueos[] = "producto_real_debe_responder_item";
+} else {
+  if ($pruebas["producto_real"]["depurar_resumen"]["producto_breadcrumbs_total"] < 2) {
+    $bloqueos[] = "producto_real_debe_exponer_breadcrumbs";
+  }
+  if ($pruebas["producto_real"]["depurar_resumen"]["producto_relacionados_total"] === null) {
+    $bloqueos[] = "producto_real_debe_exponer_relacionados";
+  }
+  if ($pruebas["producto_real"]["depurar_resumen"]["producto_acciones_puede_cotizar"] !== true) {
+    $bloqueos[] = "producto_real_debe_exponer_acciones";
+  }
+  if ($pruebas["producto_real"]["depurar_resumen"]["producto_seo_title"] === "") {
+    $bloqueos[] = "producto_real_debe_exponer_seo";
+  }
 }
 if (empty($pruebas["cotizacion_registrar"]["depurar_resumen"]["bloqueado"])) {
   $bloqueos[] = "cotizacion_registrar_debe_seguir_bloqueado";
@@ -151,8 +187,18 @@ function resumenDepurarHttpSmoke($depurar) {
     "navegacion_total" => valorHttpSmoke($depurar, array("resumen", "total_items"), null),
     "sugerencias_total" => valorHttpSmoke($depurar, array("resumen", "total_sugerencias"), null),
     "secciones_total" => is_array(valorHttpSmoke($depurar, array("secciones"), null)) ? count($depurar["secciones"]) : null,
+    "catalogo_frontend_hay_resultados" => valorHttpSmoke($depurar, array("frontend", "hay_resultados"), null),
+    "catalogo_frontend_estado_vacio" => valorHttpSmoke($depurar, array("frontend", "estado_vacio", "mostrar"), null),
+    "catalogo_frontend_rango_texto" => valorHttpSmoke($depurar, array("frontend", "rango_visible", "texto"), ""),
+    "catalogo_frontend_requiere_dryrun" => valorHttpSmoke($depurar, array("frontend", "guardrails_ui", "cotizacion_requiere_dryrun"), null),
     "item_presente" => array_key_exists("item", $depurar) ? ($depurar["item"] !== null) : null,
     "items_total" => is_array(valorHttpSmoke($depurar, array("items"), null)) ? count($depurar["items"]) : null,
+    "primer_slug" => valorHttpSmoke($depurar, array("items", 0, "slug"), ""),
+    "producto_variantes_total" => is_array(valorHttpSmoke($depurar, array("variantes"), null)) ? count($depurar["variantes"]) : null,
+    "producto_relacionados_total" => is_array(valorHttpSmoke($depurar, array("relacionados"), null)) ? count($depurar["relacionados"]) : null,
+    "producto_breadcrumbs_total" => is_array(valorHttpSmoke($depurar, array("breadcrumbs"), null)) ? count($depurar["breadcrumbs"]) : null,
+    "producto_seo_title" => valorHttpSmoke($depurar, array("seo", "title"), ""),
+    "producto_acciones_puede_cotizar" => valorHttpSmoke($depurar, array("acciones", "puede_cotizar"), null),
     "bloqueos" => valorHttpSmoke($depurar, array("bloqueos"), array())
   );
 }

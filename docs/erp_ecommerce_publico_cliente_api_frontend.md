@@ -142,6 +142,35 @@ export type BusquedaSugerencias = {
   resumen: Record<string, number>;
 };
 
+export type CatalogoFrontend = {
+  hay_resultados: boolean;
+  items_en_pagina: number;
+  total_paginas: number;
+  pagina_anterior: number | null;
+  pagina_siguiente: number | null;
+  rango_visible: {
+    desde: number;
+    hasta: number;
+    total: number;
+    texto: string;
+  };
+  filtros_activos: string[];
+  filtros_activos_total: number;
+  estado_vacio: {
+    mostrar: boolean;
+    titulo: string;
+    accion_principal: {
+      label: string;
+      url: string;
+    };
+  };
+  guardrails_ui: {
+    no_mostrar_stock_exacto: true;
+    precio_es_estimado: true;
+    cotizacion_requiere_dryrun: true;
+  };
+};
+
 export type BootstrapEcommerce = {
   ready: boolean;
   estado: unknown;
@@ -274,7 +303,7 @@ export function createErpEcommerceApi(config: { baseUrl: string; basePath?: stri
       Object.entries(params).forEach(([key, value]) => {
         if (value !== undefined && value !== null && String(value).trim() !== "") query.set(key, String(value));
       });
-      return request<{ configurado: boolean; items: ProductoCatalogo[]; paginacion: { pagina: number; limite: number; total: number } }>(
+      return request<{ configurado: boolean; items: ProductoCatalogo[]; paginacion: { pagina: number; limite: number; total: number }; frontend: CatalogoFrontend }>(
         `/catalogo${query.toString() ? `?${query.toString()}` : ""}`,
       );
     },

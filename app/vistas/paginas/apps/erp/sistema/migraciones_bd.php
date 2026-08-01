@@ -127,6 +127,18 @@ $esquemaTecnico = isset($configuracion["esquema_tecnico"]) ? $configuracion["esq
                                             <i class="bi bi-save"></i>
                                             Guardar politicas
                                         </button>
+                                        <button type="button" class="btn btn-light-info" id="migbd_btn_perfil_datos">
+                                            <i class="bi bi-table"></i>
+                                            Perfil datos
+                                        </button>
+                                        <button type="button" class="btn btn-light-info" id="migbd_btn_orden">
+                                            <i class="bi bi-diagram-3"></i>
+                                            Orden
+                                        </button>
+                                        <button type="button" class="btn btn-light-dark" id="migbd_btn_resumen_decision">
+                                            <i class="bi bi-clipboard-data"></i>
+                                            Resumen
+                                        </button>
                                         <button type="button" class="btn btn-primary" id="migbd_btn_comparar">
                                             <i class="bi bi-arrow-left-right"></i>
                                             Comparar
@@ -148,6 +160,15 @@ $esquemaTecnico = isset($configuracion["esquema_tecnico"]) ? $configuracion["esq
                                         </li>
                                         <li class="nav-item">
                                             <a class="nav-link" data-bs-toggle="tab" href="#migbd_tab_politicas">Politicas</a>
+                                        </li>
+                                        <li class="nav-item">
+                                            <a class="nav-link" data-bs-toggle="tab" href="#migbd_tab_perfil_datos">Perfil datos</a>
+                                        </li>
+                                        <li class="nav-item">
+                                            <a class="nav-link" data-bs-toggle="tab" href="#migbd_tab_orden">Orden</a>
+                                        </li>
+                                        <li class="nav-item">
+                                            <a class="nav-link" data-bs-toggle="tab" href="#migbd_tab_resumen_decision">Resumen</a>
                                         </li>
                                         <li class="nav-item">
                                             <a class="nav-link" data-bs-toggle="tab" href="#migbd_tab_comparacion">Comparacion</a>
@@ -196,6 +217,15 @@ $esquemaTecnico = isset($configuracion["esquema_tecnico"]) ? $configuracion["esq
                                         </div>
                                         <div class="tab-pane fade" id="migbd_tab_politicas">
                                             <div id="migbd_politicas_resultado" class="text-muted py-8 text-center">Genera las politicas sugeridas para revisar tabla por tabla.</div>
+                                        </div>
+                                        <div class="tab-pane fade" id="migbd_tab_perfil_datos">
+                                            <div id="migbd_perfil_datos_resultado" class="text-muted py-8 text-center">Genera el perfil de datos para detectar llaves, columnas sensibles y riesgos por tabla.</div>
+                                        </div>
+                                        <div class="tab-pane fade" id="migbd_tab_orden">
+                                            <div id="migbd_orden_resultado" class="text-muted py-8 text-center">Genera el orden sugerido de migracion segun llaves foraneas.</div>
+                                        </div>
+                                        <div class="tab-pane fade" id="migbd_tab_resumen_decision">
+                                            <div id="migbd_resumen_decision_resultado" class="text-muted py-8 text-center">Genera el resumen ejecutivo de politicas, riesgos y candidatas para datos.</div>
                                         </div>
                                         <div class="tab-pane fade" id="migbd_tab_comparacion">
                                             <div id="migbd_comparacion_resultado" class="text-muted py-8 text-center">Selecciona un destino y ejecuta la comparacion.</div>

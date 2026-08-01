@@ -1,7 +1,7 @@
 # ERP Ecommerce publico - Contratos API Fase 1
 
 Documentacion IA: Codex GPT-5  
-Fecha: 2026-07-31  
+Fecha: 2026-08-01  
 Estado: contrato read-only para frontend ecommerce externo; API publica Fase 1 cubierta por smoke HTTP y handoff tecnico.
 
 ## Decision
@@ -76,6 +76,22 @@ Parametros adicionales vigentes:
 - `destacado`: `1` para mostrar solo destacados;
 - `orden`: `relevancia`, `nombre`, `precio_asc`, `precio_desc` o `recientes`.
 
+La respuesta incluye `depurar.frontend` con:
+
+- `hay_resultados`;
+- `items_en_pagina`;
+- `total_paginas`;
+- `pagina_anterior`;
+- `pagina_siguiente`;
+- `rango_visible`;
+- `filtros_activos`;
+- `estado_vacio`;
+- `guardrails_ui`.
+
+Esto permite construir paginacion, contador de resultados, chips de filtros y estado vacio sin duplicar reglas en el frontend.
+
+La especificacion OpenAPI expone `CatalogoResponse`, `CatalogoDepurar` y `CatalogoFrontend` para generar tipos o mocks sin leer codigo PHP.
+
 ### Producto
 
 ```http
@@ -83,6 +99,8 @@ GET /ecommercePublico/producto/{slug}
 ```
 
 Devuelve una sola publicacion publicada. No muestra productos pausados, borradores ni SKUs inactivos.
+
+La especificacion OpenAPI expone `ProductoDetalleResponse` y `ProductoDetalleDepurar`. El contrato esperado incluye `item`, `variantes`, `relacionados`, `breadcrumbs`, `seo`, `acciones` y `guardrails`.
 
 ### Filtros
 

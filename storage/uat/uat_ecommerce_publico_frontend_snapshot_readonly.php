@@ -173,6 +173,7 @@ echo json_encode(array(
   "busqueda_sugerencias_resumen" => valorSnapshot($sugerencias, array("depurar", "resumen"), array()),
   "seo_resumen" => valorSnapshot($seo, array("depurar", "resumen"), array()),
   "seo_sitemap_xml_preview" => substr((string) valorSnapshot($seo, array("depurar", "sitemap_xml_sugerido"), ""), 0, 300),
+  "catalogo_frontend_resumen" => valorSnapshot($catalogo, array("depurar", "frontend"), array()),
   "catalogo_items" => $items,
   "catalogo_disponible_ordenado_items" => valorSnapshot($catalogoDisponibleOrdenado, array("depurar", "items"), array()),
   "producto_detalle_ejemplo" => valorSnapshot($producto, array("depurar", "item"), null),

@@ -1,7 +1,7 @@
 # ERP Ecommerce publico - Estados UI Fase 1
 
 Documentacion IA: Codex GPT-5  
-Fecha: 2026-07-15  
+Fecha: 2026-08-01  
 Estado: matriz de estados para frontend externo.
 
 ## Objetivo
@@ -17,8 +17,14 @@ Evitar que el frontend trate estados operativos como errores fatales.
 | API viva, sin DDL | `/estado depurar.schema.ddl_pendiente=true` | Catalogo en preparacion | Ver informacion general sin productos |
 | Catalogo no configurado | `/catalogo depurar.configurado=false` | Catalogo en preparacion | Sin accion de compra |
 | Catalogo vacio | `items=[]` con `configurado=true` | Sin resultados | Cambiar filtros o consultar WhatsApp |
+| Catalogo sin resultados por filtros | `catalogo.depurar.frontend.estado_vacio.mostrar=true` | Estado vacio con accion limpiar filtros | Limpiar filtros o buscar otro termino |
 | Catalogo inicial pequeno | `total_publicadas>0` y pocos productos | Catalogo usable en crecimiento | Comprar/cotizar disponibles y permitir busqueda |
+| Catalogo con resultados | `catalogo.depurar.frontend.hay_resultados=true` | Renderizar contador/rango y paginacion | Explorar productos |
+| Catalogo paginado | `pagina_siguiente` o `pagina_anterior` en `depurar.frontend` | Controles de paginacion | Cambiar pagina |
+| Filtros activos | `depurar.frontend.filtros_activos_total>0` | Chips de filtros activos | Quitar filtros individuales o limpiar todos |
 | Filtros vacios | arrays vacios | Ocultar filtros no disponibles | Usar buscador |
+| Buscador con sugerencias | `/busqueda_sugerencias depurar.resumen.total_sugerencias>0` | Autocomplete agrupado | Elegir sugerencia o ver resultados |
+| Buscador sin sugerencias | `/busqueda_sugerencias depurar.resumen.sin_resultados=true` | Sugerir buscar en catalogo o WhatsApp | Probar otro termino |
 | Producto no encontrado | `producto.depurar.item=null` | Producto no disponible | Volver al catalogo |
 | Disponibilidad consultar | `consultar_disponibilidad` | Badge "Consultar disponibilidad" | Permitir cotizacion si producto lo permite |
 | Agotado | `agotado` | Badge "Agotado" | No prometer entrega inmediata |
@@ -31,6 +37,8 @@ Evitar que el frontend trate estados operativos como errores fatales.
 
 - Catalogo en preparacion: `Estamos preparando el catalogo en linea. Puedes consultarnos por WhatsApp.`
 - Catalogo en crecimiento: `Estamos agregando productos al catalogo. Si no encuentras algo, escribenos por WhatsApp.`
+- Estado vacio por filtros: usar `catalogo.depurar.frontend.estado_vacio.titulo`.
+- Rango de resultados: usar `catalogo.depurar.frontend.rango_visible.texto`.
 - Total estimado: `Total estimado sujeto a confirmacion.`
 - Disponibilidad consultar: `Consultar disponibilidad`
 - Agotado: `Agotado`
@@ -64,3 +72,19 @@ Estado actual:
 senal_frontend=verde_datos_reales
 catalogo inicial real pequeno
 ```
+
+## Campos UI desde API
+
+El frontend debe preferir los campos ya calculados por el API:
+
+- `catalogo.depurar.frontend.hay_resultados`
+- `catalogo.depurar.frontend.items_en_pagina`
+- `catalogo.depurar.frontend.total_paginas`
+- `catalogo.depurar.frontend.pagina_anterior`
+- `catalogo.depurar.frontend.pagina_siguiente`
+- `catalogo.depurar.frontend.rango_visible`
+- `catalogo.depurar.frontend.filtros_activos`
+- `catalogo.depurar.frontend.estado_vacio`
+- `catalogo.depurar.frontend.guardrails_ui`
+
+Regla: aunque el frontend pueda calcular estos valores, debe tratarlos como contrato del ERP para mantener consistencia con filtros, disponibilidad y paginacion.

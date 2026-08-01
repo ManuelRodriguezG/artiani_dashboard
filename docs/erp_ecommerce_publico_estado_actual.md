@@ -1027,3 +1027,162 @@ C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_frontend_snapshot_readonl
   - no registra cotizacion;
   - no descuenta inventario;
   - no expone stock exacto.
+
+## Actualizacion 2026-08-01 - Catalogo publico con metadatos UI
+
+- Se fortalece `GET /ecommercePublico/catalogo`.
+- La respuesta ahora incluye `depurar.frontend` con:
+  - `hay_resultados`;
+  - `items_en_pagina`;
+  - `total_paginas`;
+  - `pagina_anterior`;
+  - `pagina_siguiente`;
+  - `rango_visible`;
+  - `filtros_activos`;
+  - `filtros_activos_total`;
+  - `estado_vacio`;
+  - `guardrails_ui`.
+- Objetivo:
+  - facilitar paginacion y contador de resultados;
+  - permitir chips de filtros activos;
+  - entregar estado vacio consistente cuando no hay resultados;
+  - recordar al frontend que precio es estimado y cotizacion requiere dry-run.
+- Se agrega UAT read-only:
+
+```bash
+C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_catalogo_robusto_readonly.php --base=http://panel.com.local --limite=3
+```
+
+- Resultado validado:
+  - `ok=true`;
+  - `senal_frontend=catalogo_robusto_listo`;
+  - `base_items=3`;
+  - `base_total=6`;
+  - `disponibles_items=3`;
+  - `pocas_piezas_items=3`;
+  - `sin_resultados_estado_vacio=true`;
+  - ordenamientos: `relevancia`, `nombre`, `precio_asc`, `precio_desc`, `recientes`.
+- Se actualizan:
+  - `storage/uat/uat_ecommerce_publico_contract_shape_readonly.php`;
+  - `storage/uat/uat_ecommerce_publico_frontend_package_readonly.php`;
+  - `storage/uat/uat_ecommerce_publico_frontend_snapshot_readonly.php`;
+  - `docs/erp_ecommerce_publico_api_contratos.md`;
+  - `docs/erp_ecommerce_publico_cliente_api_frontend.md`;
+  - `docs/erp_ecommerce_publico_frontend_contract_tests.md`.
+- Guardrails:
+  - no escribe BD;
+  - no ejecuta DDL;
+  - no mueve inventario;
+  - no expone stock exacto.
+
+## Actualizacion 2026-08-01 - Fixtures frontend alineados al contrato robusto
+
+- Se actualiza `storage/uat/uat_ecommerce_publico_frontend_fixtures_readonly.php`.
+- Los fixtures ahora incluyen:
+  - `bootstrap`;
+  - `navegacion`;
+  - `secciones`;
+  - `busqueda_sugerencias`;
+  - `canales_estado`;
+  - `catalogo` con `filtros_aplicados`, `ordenamientos_disponibles` y `frontend`;
+  - `catalogo_sin_resultados` con estado vacio;
+  - `producto` con relacionados, breadcrumbs, SEO y acciones;
+  - `seo` con `rutas`, `sitemap_xml_sugerido` y `resumen`;
+  - filtros con `disponibilidad`.
+- Se actualiza `docs/erp_ecommerce_publico_fixtures_frontend.md`.
+- Nota operativa:
+  - el flujo principal ya debe usar API real porque `green_gate.ok=true`;
+  - fixtures quedan para UI, pruebas unitarias y fallback local;
+  - no deben mezclarse con ventas ni cotizaciones reales.
+- UAT read-only:
+
+```bash
+C:\xampp\php\php.exe -l storage\uat\uat_ecommerce_publico_frontend_fixtures_readonly.php
+C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_frontend_fixtures_readonly.php
+```
+
+- Resultado validado:
+  - sintaxis PHP OK;
+  - salida JSON valida;
+  - incluye wrapper `error/tipo/mensaje/api/depurar` en secciones principales;
+  - no consulta BD;
+  - no escribe BD.
+
+## Actualizacion 2026-08-01 - Smoke HTTP valida metadatos UI de catalogo
+
+- Se actualiza `storage/uat/uat_ecommerce_publico_http_smoke_readonly.php`.
+- Ahora prueba tambien:
+  - `GET /ecommercePublico/catalogo?q=__sin_resultados_catalogo_frontend__&limite=3`;
+  - `catalogo.depurar.frontend.hay_resultados`;
+  - `catalogo.depurar.frontend.rango_visible.texto`;
+  - `catalogo.depurar.frontend.guardrails_ui.cotizacion_requiere_dryrun`;
+  - `catalogo_sin_resultados.depurar.frontend.estado_vacio.mostrar`.
+- Se actualiza `docs/erp_ecommerce_publico_frontend_estados_ui.md` para usar los campos `depurar.frontend` del API.
+- Se limpia en `docs/erp_ecommerce_publico_fixtures_frontend.md` la referencia antigua a catalogo real vacio como estado principal.
+- UAT read-only:
+
+```bash
+C:\xampp\php\php.exe -l storage\uat\uat_ecommerce_publico_http_smoke_readonly.php
+C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_http_smoke_readonly.php --base=http://panel.com.local
+```
+
+- Resultado validado:
+  - `ok=true`;
+  - `catalogo_frontend_hay_resultados=true`;
+  - `catalogo_frontend_rango_texto=Mostrando 1-3 de 6`;
+  - `catalogo_frontend_requiere_dryrun=true`;
+  - `catalogo_sin_resultados.catalogo_frontend_estado_vacio=true`.
+
+## Actualizacion 2026-08-01 - Smoke HTTP valida detalle real de producto
+
+- Se refuerza `storage/uat/uat_ecommerce_publico_http_smoke_readonly.php`.
+- El smoke ahora toma el primer `slug` real desde `GET /ecommercePublico/catalogo?limite=3` y consulta `GET /ecommercePublico/producto/{slug}`.
+- La validacion evita que frontend avance con una ficha de producto incompleta:
+  - `depurar.item` presente;
+  - breadcrumbs disponibles;
+  - relacionados disponibles como array;
+  - SEO de producto con `title`;
+  - `acciones.puede_cotizar=true`.
+- UAT read-only validado:
+
+```bash
+C:\xampp\php\php.exe -l storage\uat\uat_ecommerce_publico_http_smoke_readonly.php
+C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_http_smoke_readonly.php --base=http://panel.com.local
+```
+
+- Resultado validado:
+  - `ok=true`;
+  - producto ejemplo: `alimento-churro-blanco-para-peces-100-gr-g-tp-40372-100gr`;
+  - `producto_variantes_total=1`;
+  - `producto_relacionados_total=3`;
+  - `producto_breadcrumbs_total=5`;
+  - `producto_seo_title=Alimento churro blanco para peces 100 gr | Artiani`;
+  - `producto_acciones_puede_cotizar=true`.
+
+## Actualizacion 2026-08-01 - OpenAPI/Postman alineados a catalogo y producto robustos
+
+- Se actualiza `storage/uat/uat_ecommerce_publico_openapi_readonly.php`.
+- OpenAPI ahora expone schemas especificos:
+  - `CatalogoResponse`;
+  - `CatalogoDepurar`;
+  - `CatalogoFrontend`;
+  - `ProductoDetalleResponse`;
+  - `ProductoDetalleDepurar`.
+- Se actualiza `storage/uat/uat_ecommerce_publico_postman_collection_readonly.php`.
+- La coleccion ahora usa un slug real publicado por defecto y conserva prueba separada para producto no publicado.
+- Tambien agrega request de catalogo sin resultados para validar estado vacio frontend.
+- UAT read-only validado:
+
+```bash
+C:\xampp\php\php.exe -l storage\uat\uat_ecommerce_publico_openapi_readonly.php
+C:\xampp\php\php.exe -l storage\uat\uat_ecommerce_publico_postman_collection_readonly.php
+C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_openapi_readonly.php
+C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_postman_collection_readonly.php --base=http://panel.com.local
+```
+
+- Resultado validado:
+  - sintaxis PHP OK;
+  - salida JSON valida;
+  - `/catalogo` referencia `CatalogoResponse`;
+  - `/producto/{slug}` referencia `ProductoDetalleResponse`;
+  - variable Postman `producto_slug=alimento-churro-blanco-para-peces-100-gr-g-tp-40372-100gr`.

@@ -1,7 +1,7 @@
 # ERP Ecommerce publico - Contract tests para frontend
 
 Documentacion IA: Codex GPT-5  
-Fecha: 2026-07-31  
+Fecha: 2026-08-01  
 Estado: guia para pruebas del proyecto ecommerce externo con contrato robusto Fase 1.
 
 ## Objetivo
@@ -91,6 +91,9 @@ Validar:
 - `depurar.paginacion` existe cuando `configurado=true`;
 - `depurar.filtros_aplicados` existe;
 - `depurar.ordenamientos_disponibles` es array;
+- `depurar.frontend.hay_resultados` existe;
+- `depurar.frontend.rango_visible.texto` existe;
+- `depurar.frontend.guardrails_ui.cotizacion_requiere_dryrun=true`;
 - si `configurado=false`, UI muestra catalogo en preparacion.
 
 Probar al menos:
@@ -98,6 +101,20 @@ Probar al menos:
 - `GET /catalogo?limite=3`;
 - `GET /catalogo?disponibilidad=disponible&orden=precio_asc&limite=3`;
 - `GET /catalogo?destacado=1&limite=3`.
+- `GET /catalogo?q=__sin_resultados_catalogo_frontend__&limite=3` debe activar `depurar.frontend.estado_vacio.mostrar=true`.
+
+### Detalle de producto
+
+El frontend debe probar un producto real usando un slug obtenido desde `GET /catalogo?limite=3`.
+
+Validar en `GET /producto/{slug}`:
+
+- `depurar.item` existe;
+- `depurar.breadcrumbs` tiene al menos 2 elementos;
+- `depurar.relacionados` existe como array;
+- `depurar.seo.title` no viene vacio;
+- `depurar.acciones.puede_cotizar=true`;
+- `depurar.guardrails.no_mostrar_stock_exacto=true`.
 
 ### Filtros, navegacion y secciones
 
@@ -191,6 +208,7 @@ C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_navegacion_readonly.php -
 C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_busqueda_sugerencias_readonly.php --base=http://panel.com.local --q=filtro --limite=4
 C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_seo_robusto_readonly.php --base=http://panel.com.local --limite=20
 C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_canales_estado_readonly.php --base=http://panel.com.local
+C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_catalogo_robusto_readonly.php --base=http://panel.com.local --limite=3
 C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_http_smoke_readonly.php --base=http://panel.com.local
 C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_cors_preflight_readonly.php --base=http://panel.com.local --origin=http://artiani.com.local
 ```

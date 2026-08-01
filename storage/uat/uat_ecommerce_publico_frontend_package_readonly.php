@@ -164,6 +164,7 @@ echo json_encode(array(
     "C:\\xampp\\php\\php.exe storage\\uat\\uat_ecommerce_publico_bootstrap_readonly.php --base=http://panel.com.local --limite=3",
     "C:\\xampp\\php\\php.exe storage\\uat\\uat_ecommerce_publico_navegacion_readonly.php --base=http://panel.com.local --limite=5",
     "C:\\xampp\\php\\php.exe storage\\uat\\uat_ecommerce_publico_busqueda_sugerencias_readonly.php --base=http://panel.com.local --q=filtro --limite=4",
+    "C:\\xampp\\php\\php.exe storage\\uat\\uat_ecommerce_publico_catalogo_robusto_readonly.php --base=http://panel.com.local --limite=3",
     "C:\\xampp\\php\\php.exe storage\\uat\\uat_ecommerce_publico_seo_robusto_readonly.php --base=http://panel.com.local --limite=20",
     "C:\\xampp\\php\\php.exe storage\\uat\\uat_ecommerce_publico_canales_estado_readonly.php --base=http://panel.com.local",
     "C:\\xampp\\php\\php.exe storage\\uat\\uat_ecommerce_publico_negative_cases_readonly.php --base=http://panel.com.local",

@@ -59,6 +59,42 @@ class MigracionBd extends Controlador {
 
   /**
    * IA: Codex GPT-5
+   * Fecha: 2026-08-01
+   * Proposito: perfilar tablas locales para decidir politica de datos.
+   * Impacto: Migraciones BD; no lee filas de negocio ni modifica BD.
+   */
+  public function tablas_perfil_datos() {
+    $this->requerirAlgunPermiso(array("migraciones.ver", "migraciones.preparar", "sistema.soporte"));
+    $modelo = $this->modelo("MigracionesBd");
+    echo json_encode($modelo->perfilarTablasDatos());
+  }
+
+  /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-08-01
+   * Proposito: sugerir orden de migracion por dependencias de llaves foraneas.
+   * Impacto: Migraciones BD; no lee datos ni ejecuta cambios.
+   */
+  public function tablas_orden_migracion() {
+    $this->requerirAlgunPermiso(array("migraciones.ver", "migraciones.preparar", "sistema.soporte"));
+    $modelo = $this->modelo("MigracionesBd");
+    echo json_encode($modelo->ordenarTablasPorDependencias());
+  }
+
+  /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-08-01
+   * Proposito: resumir politicas, riesgos y candidatas de datos para decision ejecutiva.
+   * Impacto: Migraciones BD; solo lectura sobre metadatos.
+   */
+  public function resumen_decision() {
+    $this->requerirAlgunPermiso(array("migraciones.ver", "migraciones.preparar", "sistema.soporte"));
+    $modelo = $this->modelo("MigracionesBd");
+    echo json_encode($modelo->resumenDecisionMigracion());
+  }
+
+  /**
+   * IA: Codex GPT-5
    * Fecha: 2026-07-30
    * Proposito: comparar esquema local contra ambiente destino.
    * Impacto: Migraciones BD; solo lectura.

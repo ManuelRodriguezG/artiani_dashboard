@@ -65,6 +65,177 @@ class MigracionesBd extends CRUD {
 
   /**
    * IA: Codex GPT-5
+   * Fecha: 2026-08-01
+   * Proposito: perfilar tablas locales para decidir si migran datos, esquema o quedan bloqueadas.
+   * Impacto: Migraciones BD; ayuda a preparar primera base productiva sin consultar datos sensibles.
+   * Contrato: usa metadatos de INFORMATION_SCHEMA; no lee filas reales de negocio.
+   */
+  public function perfilarTablasDatos() {
+    $snapshot = $this->snapshotTablas($this->db, defined("MYSQLBASE") ? MYSQLBASE : "");
+    if ($snapshot["error"]) {
+      return $snapshot;
+    }
+    $perfiles = array();
+    foreach ($snapshot["depurar"]["tablas"] as $tabla) {
+      $perfiles[] = $this->perfilTablaDatos($tabla);
+    }
+    return $this->respuesta(false, "success", "Perfil de tablas generado", array(
+      "total" => count($perfiles),
+      "perfiles" => $perfiles
+    ));
+  }
+
+  /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-08-01
+   * Proposito: sugerir orden de migracion de datos respetando dependencias por FK.
+   * Impacto: Migraciones BD; prepara cargas futuras sin leer datos ni ejecutar DDL.
+   * Contrato: usa metadatos de llaves foraneas; reporta ciclos o tablas no ordenables.
+   */
+  public function ordenarTablasPorDependencias() {
+    $snapshot = $this->snapshotTablas($this->db, defined("MYSQLBASE") ? MYSQLBASE : "");
+    if ($snapshot["error"]) {
+      return $snapshot;
+    }
+
+    $mapa = $snapshot["depurar"]["mapa"];
+    $dependencias = array();
+    $dependientes = array();
+    foreach ($mapa as $tabla => $info) {
+      $dependencias[$tabla] = array();
+      $dependientes[$tabla] = array();
+    }
+
+    foreach ($mapa as $tabla => $info) {
+      foreach ($info["foraneas"] as $foranea) {
+        $referencia = $foranea["tabla_referencia"];
+        if ($referencia === $tabla || !isset($mapa[$referencia])) {
+          continue;
+        }
+        $dependencias[$tabla][$referencia] = true;
+        $dependientes[$referencia][$tabla] = true;
+      }
+    }
+
+    $pendientes = array();
+    foreach ($dependencias as $tabla => $deps) {
+      $pendientes[$tabla] = $deps;
+    }
+
+    $orden = array();
+    $nivel = 0;
+    while (!empty($pendientes)) {
+      $libres = array();
+      foreach ($pendientes as $tabla => $deps) {
+        if (empty($deps)) {
+          $libres[] = $tabla;
+        }
+      }
+      if (empty($libres)) {
+        break;
+      }
+      sort($libres);
+      foreach ($libres as $tabla) {
+        $orden[] = array(
+          "orden" => count($orden) + 1,
+          "nivel" => $nivel,
+          "tabla" => $tabla,
+          "depende_de" => array_keys($dependencias[$tabla]),
+          "dependientes" => array_keys($dependientes[$tabla]),
+          "politica" => $this->politicaSugerida($tabla, intval($mapa[$tabla]["filas_estimadas"]))
+        );
+        unset($pendientes[$tabla]);
+      }
+      foreach ($pendientes as $tabla => $deps) {
+        foreach ($libres as $libre) {
+          unset($pendientes[$tabla][$libre]);
+        }
+      }
+      $nivel++;
+    }
+
+    $ciclos = array();
+    foreach ($pendientes as $tabla => $deps) {
+      $ciclos[] = array(
+        "tabla" => $tabla,
+        "dependencias_pendientes" => array_keys($deps)
+      );
+    }
+
+    return $this->respuesta(false, "success", "Orden de migracion sugerido", array(
+      "total_tablas" => count($mapa),
+      "ordenadas" => count($orden),
+      "pendientes" => count($ciclos),
+      "orden" => $orden,
+      "ciclos_o_dependencias_pendientes" => $ciclos
+    ));
+  }
+
+  /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-08-01
+   * Proposito: resumir decision de migracion por politica, riesgos y candidatos de datos.
+   * Impacto: Migraciones BD; ayuda a priorizar primera base productiva sin tocar datos reales.
+   * Contrato: usa perfiles read-only de metadatos y devuelve agregados por politica/riesgo.
+   */
+  public function resumenDecisionMigracion() {
+    $perfil = $this->perfilarTablasDatos();
+    if ($perfil["error"]) {
+      return $perfil;
+    }
+
+    $resumenPoliticas = array();
+    $resumenRiesgos = array();
+    $candidatasDatos = array();
+    $bloqueadas = array();
+    $sensibles = array();
+    $sinLlave = array();
+
+    foreach ($perfil["depurar"]["perfiles"] as $tabla) {
+      $politica = $tabla["politica_sugerida"];
+      if (!isset($resumenPoliticas[$politica])) {
+        $resumenPoliticas[$politica] = 0;
+      }
+      $resumenPoliticas[$politica]++;
+
+      foreach ($tabla["riesgos"] as $riesgo) {
+        if (!isset($resumenRiesgos[$riesgo])) {
+          $resumenRiesgos[$riesgo] = 0;
+        }
+        $resumenRiesgos[$riesgo]++;
+      }
+
+      if (!empty($tabla["incluye_datos_sugerido"]) && empty($tabla["columnas_sensibles"])) {
+        $candidatasDatos[] = $tabla;
+      }
+      if ($politica === "blocked" || $politica === "production_owned") {
+        $bloqueadas[] = $tabla;
+      }
+      if (!empty($tabla["columnas_sensibles"])) {
+        $sensibles[] = $tabla;
+      }
+      if (in_array("sin_llave_natural_clara", $tabla["riesgos"], true) || in_array("sin_pk", $tabla["riesgos"], true)) {
+        $sinLlave[] = $tabla;
+      }
+    }
+
+    ksort($resumenPoliticas);
+    ksort($resumenRiesgos);
+
+    return $this->respuesta(false, "success", "Resumen de decision de migracion generado", array(
+      "total_tablas" => $perfil["depurar"]["total"],
+      "politicas" => $resumenPoliticas,
+      "riesgos" => $resumenRiesgos,
+      "candidatas_datos" => $this->resumenTablasCorto($candidatasDatos),
+      "bloqueadas_o_productivo" => $this->resumenTablasCorto($bloqueadas),
+      "sensibles" => $this->resumenTablasCorto($sensibles),
+      "sin_llave_clara" => $this->resumenTablasCorto($sinLlave),
+      "recomendacion" => "Primero revisar candidatas data_merge/data_seed sin columnas sensibles; despues resolver tablas sin llave clara; dejar production_owned para cuando productivo tenga operacion real."
+    ));
+  }
+
+  /**
+   * IA: Codex GPT-5
    * Fecha: 2026-07-30
    * Proposito: comparar esquema de la BD activa contra un destino configurado.
    * Impacto: Migraciones BD; permite preparar plan sin ejecutar DDL ni datos.
@@ -476,6 +647,12 @@ class MigracionesBd extends CRUD {
     if ($host === "" || $base === "" || $usuario === "") {
       return $this->respuesta(true, "warning", "El ambiente destino no tiene host/base/usuario completos", $this->sanearAmbiente($ambiente));
     }
+    $hostActivo = defined("MYSQLHOST") ? MYSQLHOST : "";
+    $baseActiva = defined("MYSQLBASE") ? MYSQLBASE : "";
+    $usuarioActivo = defined("MYSQLUSER") ? MYSQLUSER : "";
+    if ($this->db && $base === $baseActiva && $usuario === $usuarioActivo && in_array($host, array($hostActivo, "localhost", "127.0.0.1"), true)) {
+      return $this->respuesta(false, "success", "Conexion destino reutiliza la conexion local activa", array("conexion" => $this->db));
+    }
 
     try {
       $pdo = new PDO("mysql:host=" . $host . ";dbname=" . $base, $usuario, $password, array(
@@ -715,6 +892,83 @@ class MigracionesBd extends CRUD {
       "requiere_revision" => true,
       "motivo" => $motivo
     );
+  }
+
+  private function perfilTablaDatos($tabla) {
+    $nombre = $tabla["tabla"];
+    $columnas = isset($tabla["columnas"]) ? $tabla["columnas"] : array();
+    $indices = isset($tabla["indices"]) ? $tabla["indices"] : array();
+    $pk = isset($indices["PRIMARY"]["columnas"]) ? $indices["PRIMARY"]["columnas"] : array();
+    $unicos = array();
+    foreach ($indices as $indice) {
+      if ($indice["indice"] !== "PRIMARY" && intval($indice["no_unico"]) === 0) {
+        $unicos[] = array("indice" => $indice["indice"], "columnas" => $indice["columnas"]);
+      }
+    }
+
+    $candidatos = array();
+    $fechas = array();
+    $sensibles = array();
+    foreach ($columnas as $columna) {
+      $nombreColumna = strtolower($columna["columna"]);
+      if (in_array($nombreColumna, array("codigo", "sku", "slug", "uuid", "rfc", "curp", "folio", "clave", "alias", "correo", "email"), true)
+        || strpos($nombreColumna, "codigo") !== false
+        || strpos($nombreColumna, "sku") !== false
+        || strpos($nombreColumna, "uuid") !== false) {
+        $candidatos[] = $columna["columna"];
+      }
+      if (strpos($nombreColumna, "fecha") !== false || strpos($nombreColumna, "_at") !== false || strpos($nombreColumna, "created") !== false || strpos($nombreColumna, "updated") !== false) {
+        $fechas[] = $columna["columna"];
+      }
+      if (strpos($nombreColumna, "password") !== false || strpos($nombreColumna, "contras") !== false || strpos($nombreColumna, "token") !== false || strpos($nombreColumna, "session") !== false || strpos($nombreColumna, "hash") !== false || strpos($nombreColumna, "secret") !== false) {
+        $sensibles[] = $columna["columna"];
+      }
+    }
+
+    $politica = $this->politicaSugerida($nombre, intval($tabla["filas_estimadas"]));
+    $riesgos = array();
+    if (empty($pk)) {
+      $riesgos[] = "sin_pk";
+    }
+    if ($politica["incluye_datos"] && empty($unicos) && empty($candidatos)) {
+      $riesgos[] = "sin_llave_natural_clara";
+    }
+    if (!empty($sensibles)) {
+      $riesgos[] = "columnas_sensibles";
+    }
+    if ($politica["politica"] === "production_owned") {
+      $riesgos[] = "propiedad_productivo";
+    }
+
+    return array(
+      "tabla" => $nombre,
+      "filas_estimadas" => intval($tabla["filas_estimadas"]),
+      "politica_sugerida" => $politica["politica"],
+      "incluye_datos_sugerido" => $politica["incluye_datos"],
+      "pk" => $pk,
+      "unicos" => $unicos,
+      "candidatos_llave_natural" => array_values(array_unique($candidatos)),
+      "columnas_fecha" => array_slice(array_values(array_unique($fechas)), 0, 8),
+      "columnas_sensibles" => array_values(array_unique($sensibles)),
+      "riesgos" => $riesgos,
+      "motivo" => $politica["motivo"]
+    );
+  }
+
+  private function resumenTablasCorto($tablas) {
+    $salida = array();
+    foreach ($tablas as $tabla) {
+      $salida[] = array(
+        "tabla" => $tabla["tabla"],
+        "filas_estimadas" => $tabla["filas_estimadas"],
+        "politica" => $tabla["politica_sugerida"],
+        "riesgos" => $tabla["riesgos"],
+        "pk" => $tabla["pk"],
+        "candidatos_llave_natural" => $tabla["candidatos_llave_natural"],
+        "columnas_sensibles" => $tabla["columnas_sensibles"]
+      );
+    }
+    return $salida;
   }
 
   private function politicaPersistida($tabla) {

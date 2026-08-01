@@ -1,7 +1,7 @@
 <?php
 
 /**
- * Documentacion IA: Codex GPT-5, 2026-07-31.
+ * Documentacion IA: Codex GPT-5, 2026-08-01.
  * Proposito: emitir una especificacion OpenAPI basica para el frontend ecommerce externo.
  * Impacto: facilita generar clientes, docs o mocks sin crear endpoints nuevos.
  * Contrato: read-only; no consulta BD, no escribe datos y no toca inventario.
@@ -74,7 +74,7 @@ $schema = array(
     ),
     "/taxonomia_mascotas" => array("get" => endpointOpenApi("Taxonomia publica para navegacion por mascota y necesidad")),
     "/catalogo" => array(
-      "get" => array_merge(endpointOpenApi("Catalogo publico publicado"), array(
+      "get" => array_merge(endpointOpenApi("Catalogo publico publicado", "#/components/schemas/CatalogoResponse"), array(
         "parameters" => array(
           queryParam("q", "Texto libre"),
           queryParam("mascota", "perro|gato|ave|pez|reptil|roedor|otra"),
@@ -91,7 +91,7 @@ $schema = array(
     ),
     "/canales_estado" => array("get" => endpointOpenApi("Estado publico seguro de canales/API para Artiani y partners")),
     "/producto/{slug}" => array(
-      "get" => array_merge(endpointOpenApi("Detalle publico de producto publicado"), array(
+      "get" => array_merge(endpointOpenApi("Detalle publico de producto publicado", "#/components/schemas/ProductoDetalleResponse"), array(
         "parameters" => array(
           array(
             "name" => "slug",
@@ -272,6 +272,69 @@ $schema = array(
           "permite_whatsapp" => array("type" => "boolean")
         )
       ),
+      "CatalogoFrontend" => array(
+        "type" => "object",
+        "properties" => array(
+          "hay_resultados" => array("type" => "boolean"),
+          "items_en_pagina" => array("type" => "integer"),
+          "total_paginas" => array("type" => "integer"),
+          "pagina_anterior" => array("type" => "integer", "nullable" => true),
+          "pagina_siguiente" => array("type" => "integer", "nullable" => true),
+          "rango_visible" => array(
+            "type" => "object",
+            "properties" => array(
+              "desde" => array("type" => "integer"),
+              "hasta" => array("type" => "integer"),
+              "total" => array("type" => "integer"),
+              "texto" => array("type" => "string", "example" => "Mostrando 1-3 de 6")
+            )
+          ),
+          "filtros_activos" => array("type" => "array", "items" => array("type" => "string")),
+          "filtros_activos_total" => array("type" => "integer"),
+          "estado_vacio" => array(
+            "type" => "object",
+            "properties" => array(
+              "mostrar" => array("type" => "boolean"),
+              "titulo" => array("type" => "string"),
+              "accion_principal" => array("type" => "object")
+            )
+          ),
+          "guardrails_ui" => array(
+            "type" => "object",
+            "properties" => array(
+              "no_mostrar_stock_exacto" => array("type" => "boolean", "example" => true),
+              "precio_es_estimado" => array("type" => "boolean", "example" => true),
+              "cotizacion_requiere_dryrun" => array("type" => "boolean", "example" => true)
+            )
+          )
+        )
+      ),
+      "CatalogoDepurar" => array(
+        "type" => "object",
+        "properties" => array(
+          "configurado" => array("type" => "boolean"),
+          "items" => array("type" => "array", "items" => array('$ref' => "#/components/schemas/ProductoCatalogo")),
+          "paginacion" => array("type" => "object"),
+          "filtros_aplicados" => array("type" => "object"),
+          "ordenamientos_disponibles" => array("type" => "array", "items" => array("type" => "object")),
+          "frontend" => array('$ref' => "#/components/schemas/CatalogoFrontend"),
+          "guardrails" => array("type" => "object")
+        )
+      ),
+      "CatalogoResponse" => erpResponseSchema("#/components/schemas/CatalogoDepurar"),
+      "ProductoDetalleDepurar" => array(
+        "type" => "object",
+        "properties" => array(
+          "item" => array('$ref' => "#/components/schemas/ProductoCatalogo", "nullable" => true),
+          "variantes" => array("type" => "array", "items" => array('$ref' => "#/components/schemas/ProductoCatalogo")),
+          "relacionados" => array("type" => "array", "items" => array('$ref' => "#/components/schemas/ProductoCatalogo")),
+          "breadcrumbs" => array("type" => "array", "items" => array("type" => "object")),
+          "seo" => array("type" => "object"),
+          "acciones" => array("type" => "object"),
+          "guardrails" => array("type" => "object")
+        )
+      ),
+      "ProductoDetalleResponse" => erpResponseSchema("#/components/schemas/ProductoDetalleDepurar"),
       "PoliticaPublica" => array(
         "type" => "object",
         "properties" => array(
@@ -310,7 +373,11 @@ $schema = array(
 
 echo json_encode($schema, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) . PHP_EOL;
 
-function endpointOpenApi($summary) {
+function endpointOpenApi($summary, $schemaRef = null) {
+  $schema = $schemaRef === null
+    ? array('$ref' => "#/components/schemas/ErpResponse")
+    : array('$ref' => $schemaRef);
+
   return array(
     "summary" => $summary,
     "responses" => array(
@@ -318,11 +385,25 @@ function endpointOpenApi($summary) {
         "description" => "Respuesta ERP ecommerce",
         "content" => array(
           "application/json" => array(
-            "schema" => array('$ref' => "#/components/schemas/ErpResponse")
+            "schema" => $schema
           )
         )
       )
     )
+  );
+}
+
+function erpResponseSchema($depurarRef) {
+  return array(
+    "type" => "object",
+    "properties" => array(
+      "error" => array("type" => "boolean"),
+      "tipo" => array("type" => "string"),
+      "mensaje" => array("type" => "string"),
+      "api" => array('$ref' => "#/components/schemas/ErpApiMeta"),
+      "depurar" => array('$ref' => $depurarRef)
+    ),
+    "required" => array("error", "tipo", "mensaje", "api", "depurar")
   );
 }
 

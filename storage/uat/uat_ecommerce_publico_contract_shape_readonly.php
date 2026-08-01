@@ -289,6 +289,12 @@ function validarCatalogo($respuesta, &$bloqueos) {
   if (!is_array(valorShape($respuesta, array("depurar", "paginacion"), null))) {
     $bloqueos[] = "catalogo_paginacion_debe_ser_array";
   }
+  if (!is_array(valorShape($respuesta, array("depurar", "frontend"), null))) {
+    $bloqueos[] = "catalogo_frontend_debe_ser_array";
+  }
+  if (valorShape($respuesta, array("depurar", "frontend", "guardrails_ui", "cotizacion_requiere_dryrun"), false) !== true) {
+    $bloqueos[] = "catalogo_frontend_debe_requerir_dryrun";
+  }
 }
 
 function validarProducto($respuesta, &$bloqueos) {

@@ -276,6 +276,9 @@ Capacidades disponibles:
 - esquema tecnico `sys_migraciones_*` en dry-run/aplicacion controlada por endpoint de soporte.
 - acceso transicional con `sistema.soporte` mientras los permisos `migraciones.*` no esten sembrados en BD.
 - edicion UI de politicas sugeridas por tabla.
+- perfil read-only de datos por tabla para decidir migracion de informacion.
+- orden sugerido de migracion por dependencias de llaves foraneas.
+- resumen ejecutivo de decision por politica, riesgo y candidatas de datos.
 - guardado de politicas si el esquema tecnico ya existe; si no existe, bloquea con advertencia.
 - creacion de paquete dry-run con codigo y hash de plan; persiste solo si el esquema tecnico ya existe.
 
@@ -367,6 +370,70 @@ Restriccion:
 - Las FKs se marcan con riesgo `alto`, porque pueden fallar si los datos destino no cumplen integridad.
 - No se modifican ni eliminan FKs diferentes.
 - No se ejecuta DDL.
+
+## Avance implementado - Perfil de datos por tabla
+
+Fecha: 2026-08-01
+
+Se agrego:
+
+- `MigracionesBd::perfilarTablasDatos`;
+- endpoint `MigracionBd::tablas_perfil_datos`;
+- pestaña UI `Perfil datos`;
+- deteccion de PK por tabla;
+- deteccion de indices unicos;
+- candidatos de llave natural por nombres como `sku`, `codigo`, `uuid`, `rfc`, `folio`, `clave`, `correo`;
+- columnas de fecha;
+- columnas sensibles por nombres como password, token, session, hash o secret;
+- riesgos `sin_pk`, `sin_llave_natural_clara`, `columnas_sensibles` y `propiedad_productivo`.
+
+Uso operativo:
+
+- Tablas con `data_merge` necesitan PK o llave natural clara antes de migrar datos.
+- Tablas con columnas sensibles no deben migrarse sin revision puntual.
+- Tablas `production_owned` deben respetarse cuando productivo empiece a operar ventas, inventario, caja, clientes o auditoria real.
+
+## Avance implementado - Orden de migracion por dependencias
+
+Fecha: 2026-08-01
+
+Se agrego:
+
+- `MigracionesBd::ordenarTablasPorDependencias`;
+- endpoint `MigracionBd::tablas_orden_migracion`;
+- pestaña UI `Orden`;
+- orden topologico de tablas segun llaves foraneas;
+- reporte de tablas pendientes si existen ciclos o dependencias no resolubles;
+- visualizacion de nivel, dependencias y dependientes.
+
+Uso operativo:
+
+- El orden sugerido sirve para cargas futuras de datos, no para decidir por si solo que tablas migran.
+- Las tablas referenciadas por FK deben cargarse antes que sus dependientes.
+- Si existen ciclos, la migracion de datos requerira estrategia especial: desactivar FKs temporalmente, carga en dos fases o normalizacion previa, siempre con respaldo y autorizacion.
+
+## Avance implementado - Resumen de decision
+
+Fecha: 2026-08-01
+
+Se agrego:
+
+- `MigracionesBd::resumenDecisionMigracion`;
+- endpoint `MigracionBd::resumen_decision`;
+- pestaña UI `Resumen`;
+- conteos por politica;
+- conteos por riesgo;
+- listado corto de candidatas para datos;
+- listado corto de tablas bloqueadas/productivo;
+- listado corto de tablas sensibles;
+- listado corto de tablas sin llave clara.
+
+Uso operativo:
+
+- Usar este resumen antes de preparar un paquete real.
+- Priorizar `data_seed` y `data_merge` sin columnas sensibles y con PK/llave natural clara.
+- Resolver o excluir tablas con `sin_llave_natural_clara` antes de intentar merge.
+- Revisar manualmente cualquier tabla con columnas sensibles aunque tenga politica sugerida migrable.
 
 Decision operativa:
 

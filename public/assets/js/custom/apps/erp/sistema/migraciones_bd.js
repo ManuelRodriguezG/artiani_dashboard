@@ -136,6 +136,152 @@
         });
     }
 
+    /**
+     * IA: Codex GPT-5 | Fecha: 2026-08-01
+     * Proposito: renderizar perfil read-only de tablas para decidir migracion de datos.
+     * Impacto: UI Migraciones BD; no consulta filas reales de negocio.
+     */
+    function cargarPerfilDatos() {
+        var contenedor = document.getElementById("migbd_perfil_datos_resultado");
+        contenedor.innerHTML = '<div class="py-8 text-center text-muted">Perfilando tablas...</div>';
+        activarTab("#migbd_tab_perfil_datos");
+        request("/migracionBd/tablas_perfil_datos").then(function (response) {
+            if (response.error) {
+                throw new Error(response.mensaje || "No fue posible perfilar tablas");
+            }
+            var perfiles = (response.depurar && response.depurar.perfiles) ? response.depurar.perfiles : [];
+            var filas = perfiles.map(function (item) {
+                return "<tr>" +
+                    "<td class=\"fw-semibold\">" + escapeHtml(item.tabla) + "</td>" +
+                    "<td>" + badgePolitica(item.politica_sugerida) + "</td>" +
+                    "<td>" + escapeHtml(item.filas_estimadas) + "</td>" +
+                    "<td>" + escapeHtml((item.pk || []).join(", ")) + "</td>" +
+                    "<td>" + escapeHtml((item.candidatos_llave_natural || []).slice(0, 4).join(", ")) + "</td>" +
+                    "<td>" + renderRiesgos(item.riesgos || []) + "</td>" +
+                    "</tr>";
+            }).join("");
+            contenedor.innerHTML = '<div class="table-responsive"><table class="table table-row-dashed align-middle">' +
+                '<thead><tr class="text-muted text-uppercase fs-8"><th>Tabla</th><th>Politica</th><th>Filas</th><th>PK</th><th>Llave candidata</th><th>Riesgos</th></tr></thead>' +
+                "<tbody>" + filas + "</tbody></table></div>";
+        }).catch(function (error) {
+            contenedor.innerHTML = '<div class="alert alert-danger">' + escapeHtml(error.message || String(error)) + "</div>";
+        });
+    }
+
+    function renderRiesgos(riesgos) {
+        if (!riesgos.length) {
+            return '<span class="badge badge-light-success">sin alertas</span>';
+        }
+        return riesgos.map(function (riesgo) {
+            var clase = riesgo === "columnas_sensibles" || riesgo === "propiedad_productivo" ? "badge-light-danger" : "badge-light-warning";
+            return '<span class="badge ' + clase + ' me-1 mb-1">' + escapeHtml(riesgo) + "</span>";
+        }).join("");
+    }
+
+    /**
+     * IA: Codex GPT-5 | Fecha: 2026-08-01
+     * Proposito: renderizar orden sugerido de migracion por dependencias FK.
+     * Impacto: UI Migraciones BD; ayuda a planear carga de datos sin ejecutar cambios.
+     */
+    function cargarOrdenMigracion() {
+        var contenedor = document.getElementById("migbd_orden_resultado");
+        contenedor.innerHTML = '<div class="py-8 text-center text-muted">Calculando dependencias...</div>';
+        activarTab("#migbd_tab_orden");
+        request("/migracionBd/tablas_orden_migracion").then(function (response) {
+            if (response.error) {
+                throw new Error(response.mensaje || "No fue posible calcular orden");
+            }
+            var d = response.depurar || {};
+            var orden = d.orden || [];
+            var ciclos = d.ciclos_o_dependencias_pendientes || [];
+            var resumen = '<div class="row g-4 mb-5">' +
+                resumenBox("Tablas", d.total_tablas || 0, "primary") +
+                resumenBox("Ordenadas", d.ordenadas || 0, "success") +
+                resumenBox("Pendientes", d.pendientes || 0, ciclos.length ? "danger" : "info") +
+                "</div>";
+            var filas = orden.map(function (item) {
+                return "<tr>" +
+                    "<td>" + escapeHtml(item.orden) + "</td>" +
+                    "<td>" + escapeHtml(item.nivel) + "</td>" +
+                    "<td class=\"fw-semibold\">" + escapeHtml(item.tabla) + "</td>" +
+                    "<td>" + badgePolitica(item.politica ? item.politica.politica : "blocked") + "</td>" +
+                    "<td>" + escapeHtml((item.depende_de || []).join(", ")) + "</td>" +
+                    "<td>" + escapeHtml((item.dependientes || []).slice(0, 6).join(", ")) + "</td>" +
+                    "</tr>";
+            }).join("");
+            var html = resumen + '<div class="table-responsive"><table class="table table-row-dashed align-middle">' +
+                '<thead><tr class="text-muted text-uppercase fs-8"><th>Orden</th><th>Nivel</th><th>Tabla</th><th>Politica</th><th>Depende de</th><th>Dependientes</th></tr></thead>' +
+                "<tbody>" + filas + "</tbody></table></div>";
+            if (ciclos.length) {
+                html += '<div class="alert alert-warning mt-5"><div class="fw-bold mb-2">Dependencias pendientes</div>' +
+                    escapeHtml(ciclos.map(function (item) {
+                        return item.tabla + " -> " + (item.dependencias_pendientes || []).join(",");
+                    }).join(" | ")) + "</div>";
+            }
+            contenedor.innerHTML = html;
+        }).catch(function (error) {
+            contenedor.innerHTML = '<div class="alert alert-danger">' + escapeHtml(error.message || String(error)) + "</div>";
+        });
+    }
+
+    /**
+     * IA: Codex GPT-5 | Fecha: 2026-08-01
+     * Proposito: renderizar resumen ejecutivo de decision de migracion.
+     * Impacto: UI Migraciones BD; muestra agregados de metadatos sin leer datos reales.
+     */
+    function cargarResumenDecision() {
+        var contenedor = document.getElementById("migbd_resumen_decision_resultado");
+        contenedor.innerHTML = '<div class="py-8 text-center text-muted">Generando resumen...</div>';
+        activarTab("#migbd_tab_resumen_decision");
+        request("/migracionBd/resumen_decision").then(function (response) {
+            if (response.error) {
+                throw new Error(response.mensaje || "No fue posible generar resumen");
+            }
+            var d = response.depurar || {};
+            var html = '<div class="row g-4 mb-5">' +
+                resumenBox("Tablas", d.total_tablas || 0, "primary") +
+                resumenBox("Candidatas datos", (d.candidatas_datos || []).length, "success") +
+                resumenBox("Bloqueadas/prod", (d.bloqueadas_o_productivo || []).length, "warning") +
+                resumenBox("Sensibles", (d.sensibles || []).length, "danger") +
+                "</div>";
+            html += '<div class="row g-5 mb-6"><div class="col-xl-6">' + renderMapaResumen("Politicas", d.politicas || {}) + '</div><div class="col-xl-6">' + renderMapaResumen("Riesgos", d.riesgos || {}) + "</div></div>";
+            html += '<div class="alert alert-primary">' + escapeHtml(d.recomendacion || "") + "</div>";
+            html += renderTablaResumenDecision("Candidatas para datos", d.candidatas_datos || []);
+            html += renderTablaResumenDecision("Sin llave clara", d.sin_llave_clara || []);
+            html += renderTablaResumenDecision("Columnas sensibles", d.sensibles || []);
+            contenedor.innerHTML = html;
+        }).catch(function (error) {
+            contenedor.innerHTML = '<div class="alert alert-danger">' + escapeHtml(error.message || String(error)) + "</div>";
+        });
+    }
+
+    function renderMapaResumen(titulo, mapa) {
+        var filas = Object.keys(mapa).map(function (clave) {
+            return '<div class="d-flex justify-content-between border-bottom py-2"><span>' + escapeHtml(clave) + '</span><span class="fw-bold">' + escapeHtml(mapa[clave]) + "</span></div>";
+        }).join("");
+        return '<div class="border rounded p-5 h-100"><div class="fw-bold mb-3">' + escapeHtml(titulo) + "</div>" + (filas || '<div class="text-muted">Sin datos.</div>') + "</div>";
+    }
+
+    function renderTablaResumenDecision(titulo, items) {
+        if (!items.length) {
+            return '<div class="mb-5"><div class="fw-bold mb-2">' + escapeHtml(titulo) + '</div><div class="text-muted">Sin tablas.</div></div>';
+        }
+        var filas = items.slice(0, 60).map(function (item) {
+            return "<tr>" +
+                "<td class=\"fw-semibold\">" + escapeHtml(item.tabla) + "</td>" +
+                "<td>" + badgePolitica(item.politica) + "</td>" +
+                "<td>" + escapeHtml(item.filas_estimadas) + "</td>" +
+                "<td>" + escapeHtml((item.pk || []).join(", ")) + "</td>" +
+                "<td>" + escapeHtml((item.candidatos_llave_natural || []).slice(0, 4).join(", ")) + "</td>" +
+                "<td>" + renderRiesgos(item.riesgos || []) + "</td>" +
+                "</tr>";
+        }).join("");
+        var nota = items.length > 60 ? '<div class="text-muted fs-8 mt-2">Mostrando 60 de ' + items.length + " tablas.</div>" : "";
+        return '<div class="mb-6"><div class="fw-bold mb-2">' + escapeHtml(titulo) + '</div><div class="table-responsive">' +
+            '<table class="table table-sm table-row-dashed align-middle"><thead><tr class="text-muted text-uppercase fs-8"><th>Tabla</th><th>Politica</th><th>Filas</th><th>PK</th><th>Llave candidata</th><th>Riesgos</th></tr></thead><tbody>' +
+            filas + "</tbody></table></div>" + nota + "</div>";
+    }
+
     function tablasSeleccionadas() {
         return Array.prototype.slice.call(document.querySelectorAll(".migbd-tabla-check:checked")).map(function (input) {
             return input.value;
@@ -407,6 +553,9 @@
 
     document.addEventListener("DOMContentLoaded", function () {
         var btnPoliticas = document.getElementById("migbd_btn_clasificar");
+        var btnPerfilDatos = document.getElementById("migbd_btn_perfil_datos");
+        var btnOrden = document.getElementById("migbd_btn_orden");
+        var btnResumenDecision = document.getElementById("migbd_btn_resumen_decision");
         var btnComparar = document.getElementById("migbd_btn_comparar");
         var btnSql = document.getElementById("migbd_btn_sql");
         var btnGuardarPoliticas = document.getElementById("migbd_btn_guardar_politicas");
@@ -417,6 +566,15 @@
         var btnSchemaAplicar = document.getElementById("migbd_btn_schema_aplicar");
         if (btnPoliticas) {
             btnPoliticas.addEventListener("click", cargarPoliticas);
+        }
+        if (btnPerfilDatos) {
+            btnPerfilDatos.addEventListener("click", cargarPerfilDatos);
+        }
+        if (btnOrden) {
+            btnOrden.addEventListener("click", cargarOrdenMigracion);
+        }
+        if (btnResumenDecision) {
+            btnResumenDecision.addEventListener("click", cargarResumenDecision);
         }
         if (btnComparar) {
             btnComparar.addEventListener("click", comparar);
