@@ -123,6 +123,14 @@ $esquemaTecnico = isset($configuracion["esquema_tecnico"]) ? $configuracion["esq
                                             <i class="bi bi-list-check"></i>
                                             Politicas
                                         </button>
+                                        <button type="button" class="btn btn-light-primary" id="migbd_btn_selfcheck">
+                                            <i class="bi bi-activity"></i>
+                                            Selfcheck
+                                        </button>
+                                        <button type="button" class="btn btn-light-primary" id="migbd_btn_checklist">
+                                            <i class="bi bi-ui-checks"></i>
+                                            Checklist
+                                        </button>
                                         <button type="button" class="btn btn-light-success" id="migbd_btn_guardar_politicas">
                                             <i class="bi bi-save"></i>
                                             Guardar politicas
@@ -155,6 +163,14 @@ $esquemaTecnico = isset($configuracion["esquema_tecnico"]) ? $configuracion["esq
                                             <i class="bi bi-filetype-sql"></i>
                                             SQL dry-run
                                         </button>
+                                        <button type="button" class="btn btn-light" id="migbd_btn_paquetes_listar">
+                                            <i class="bi bi-archive"></i>
+                                            Paquetes
+                                        </button>
+                                        <button type="button" class="btn btn-light" id="migbd_btn_ejecuciones_listar">
+                                            <i class="bi bi-clock-history"></i>
+                                            Ejecuciones
+                                        </button>
                                     </div>
                                 </div>
                                 <div class="card-body pt-0">
@@ -164,6 +180,12 @@ $esquemaTecnico = isset($configuracion["esquema_tecnico"]) ? $configuracion["esq
                                         </li>
                                         <li class="nav-item">
                                             <a class="nav-link" data-bs-toggle="tab" href="#migbd_tab_politicas">Politicas</a>
+                                        </li>
+                                        <li class="nav-item">
+                                            <a class="nav-link" data-bs-toggle="tab" href="#migbd_tab_selfcheck">Selfcheck</a>
+                                        </li>
+                                        <li class="nav-item">
+                                            <a class="nav-link" data-bs-toggle="tab" href="#migbd_tab_checklist">Checklist</a>
                                         </li>
                                         <li class="nav-item">
                                             <a class="nav-link" data-bs-toggle="tab" href="#migbd_tab_perfil_datos">Perfil datos</a>
@@ -182,6 +204,12 @@ $esquemaTecnico = isset($configuracion["esquema_tecnico"]) ? $configuracion["esq
                                         </li>
                                         <li class="nav-item">
                                             <a class="nav-link" data-bs-toggle="tab" href="#migbd_tab_sql">SQL</a>
+                                        </li>
+                                        <li class="nav-item">
+                                            <a class="nav-link" data-bs-toggle="tab" href="#migbd_tab_paquetes">Paquetes</a>
+                                        </li>
+                                        <li class="nav-item">
+                                            <a class="nav-link" data-bs-toggle="tab" href="#migbd_tab_ejecuciones">Ejecuciones</a>
                                         </li>
                                         <li class="nav-item">
                                             <a class="nav-link" data-bs-toggle="tab" href="#migbd_tab_activacion">Activacion</a>
@@ -224,6 +252,12 @@ $esquemaTecnico = isset($configuracion["esquema_tecnico"]) ? $configuracion["esq
                                         </div>
                                         <div class="tab-pane fade" id="migbd_tab_politicas">
                                             <div id="migbd_politicas_resultado" class="text-muted py-8 text-center">Genera las politicas sugeridas para revisar tabla por tabla.</div>
+                                        </div>
+                                        <div class="tab-pane fade" id="migbd_tab_selfcheck">
+                                            <div id="migbd_selfcheck_resultado" class="text-muted py-8 text-center">Ejecuta el selfcheck para revisar prerequisitos de respaldo, esquema tecnico y paquetes.</div>
+                                        </div>
+                                        <div class="tab-pane fade" id="migbd_tab_checklist">
+                                            <div id="migbd_checklist_resultado" class="text-muted py-8 text-center">Ejecuta el checklist para revisar el orden operativo completo antes de activar o aplicar.</div>
                                         </div>
                                         <div class="tab-pane fade" id="migbd_tab_perfil_datos">
                                             <div id="migbd_perfil_datos_resultado" class="text-muted py-8 text-center">Genera el perfil de datos para detectar llaves, columnas sensibles y riesgos por tabla.</div>
@@ -269,6 +303,14 @@ $esquemaTecnico = isset($configuracion["esquema_tecnico"]) ? $configuracion["esq
                                             </div>
                                             <pre class="bg-light rounded p-5 mh-500px overflow-auto"><code id="migbd_sql_resultado">Sin SQL generado.</code></pre>
                                         </div>
+                                        <div class="tab-pane fade" id="migbd_tab_paquetes">
+                                            <div id="migbd_paquetes_resultado" class="text-muted py-8 text-center">Consulta paquetes persistidos cuando el esquema tecnico este aplicado.</div>
+                                            <div id="migbd_paquete_detalle" class="mt-5"></div>
+                                        </div>
+                                        <div class="tab-pane fade" id="migbd_tab_ejecuciones">
+                                            <div id="migbd_ejecuciones_resultado" class="text-muted py-8 text-center">Consulta ejecuciones registradas cuando existan aplicaciones de paquetes.</div>
+                                            <div id="migbd_ejecucion_detalle" class="mt-5"></div>
+                                        </div>
                                         <div class="tab-pane fade" id="migbd_tab_activacion">
                                             <div class="row g-5">
                                                 <div class="col-xl-5">
@@ -299,11 +341,22 @@ $esquemaTecnico = isset($configuracion["esquema_tecnico"]) ? $configuracion["esq
                                                             <label class="form-label">Confirmacion respaldo</label>
                                                             <input class="form-control form-control-solid" id="migbd_respaldo_confirmacion" placeholder="AUTORIZO GENERAR RESPALDO MIGRACIONES BD ...">
                                                         </div>
-                                                        <div class="col-xl-2 d-flex align-items-end justify-content-end">
+                                                        <div class="col-xl-2 d-flex align-items-end justify-content-end gap-2">
                                                             <button type="button" class="btn btn-light-primary" id="migbd_btn_respaldo_generar">
                                                                 <i class="bi bi-database-down"></i>
                                                                 Generar respaldo
                                                             </button>
+                                                            <button type="button" class="btn btn-light" id="migbd_btn_restore_preflight">
+                                                                <i class="bi bi-arrow-counterclockwise"></i>
+                                                                Plan restore
+                                                            </button>
+                                                            <button type="button" class="btn btn-light" id="migbd_btn_respaldos_listar">
+                                                                <i class="bi bi-list-ul"></i>
+                                                                Ver respaldos
+                                                            </button>
+                                                        </div>
+                                                        <div class="col-12">
+                                                            <div id="migbd_respaldos_resultado" class="text-muted"></div>
                                                         </div>
                                                     </div>
                                                 </div>
@@ -340,12 +393,16 @@ $esquemaTecnico = isset($configuracion["esquema_tecnico"]) ? $configuracion["esq
                                                         </div>
                                                         <div class="col-xl-4">
                                                             <label class="form-label">Token paquete</label>
-                                                            <input class="form-control form-control-solid" id="migbd_paquete_token" placeholder="MIGRACIONES_BD_APLICAR">
+                                                            <input class="form-control form-control-solid" id="migbd_paquete_token" placeholder="MIGRACIONES_BD_AUTORIZAR o MIGRACIONES_BD_APLICAR">
                                                         </div>
                                                         <div class="col-xl-4 d-flex align-items-end gap-3">
                                                             <button type="button" class="btn btn-light-primary" id="migbd_btn_paquete_preflight">
                                                                 <i class="bi bi-shield-check"></i>
                                                                 Preflight paquete
+                                                            </button>
+                                                            <button type="button" class="btn btn-light-success" id="migbd_btn_paquete_autorizar">
+                                                                <i class="bi bi-check2-square"></i>
+                                                                Autorizar
                                                             </button>
                                                             <button type="button" class="btn btn-light" id="migbd_btn_paquete_simular">
                                                                 <i class="bi bi-play-circle"></i>

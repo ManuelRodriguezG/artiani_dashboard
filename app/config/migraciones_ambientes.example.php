@@ -4,7 +4,8 @@ return array(
   "_opciones" => array(
     "aplicacion_real_habilitada" => false,
     "directorio_respaldos" => "C:\\xampp\\panel_db_backups",
-    "mysqldump_path" => "C:\\xampp\\mysql\\bin\\mysqldump.exe"
+    "mysqldump_path" => "C:\\xampp\\mysql\\bin\\mysqldump.exe",
+    "mysql_path" => "C:\\xampp\\mysql\\bin\\mysql.exe"
   ),
   "productivo" => array(
     "tipo" => "productivo",

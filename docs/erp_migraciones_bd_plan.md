@@ -528,6 +528,128 @@ Restriccion:
 - La respuesta nunca debe devolver password.
 - El respaldo debe validarse antes de activar esquema tecnico o aplicar paquetes.
 
+## Avance implementado - Historial read-only de paquetes y ejecuciones
+
+Fecha: 2026-08-01
+
+Se agrego:
+
+- `MigracionesBd::listarPaquetes`;
+- `MigracionesBd::listarEjecuciones`;
+- endpoints `MigracionBd::paquetes_listar` y `MigracionBd::ejecuciones_listar`;
+- endpoints `MigracionBd::paquete_consultar` y `MigracionBd::ejecucion_consultar`;
+- pestañas UI `Paquetes` y `Ejecuciones`;
+- botones de consulta en la barra de la consola;
+- accion `Usar` para copiar el codigo de paquete al bloque de aplicacion controlada;
+- detalle read-only de paquete con SQL persistido;
+- detalle read-only de ejecucion con resultado por sentencia.
+
+Restriccion:
+
+- Los listados son solo lectura.
+- Si el esquema tecnico no existe, responden con advertencia controlada.
+- No consultan ni exponen passwords ni datos de negocio.
+
+## Avance implementado - Selfcheck operativo
+
+Fecha: 2026-08-01
+
+Se agrego:
+
+- `MigracionesBd::selfcheckOperativo`;
+- endpoint `MigracionBd::selfcheck`;
+- boton UI `Selfcheck`;
+- pestaña UI `Selfcheck`;
+- revision read-only de base local, archivo de ambientes, destinos, `mysqldump`, ruta de respaldos, esquema tecnico y bandera de aplicacion real.
+
+Restriccion:
+
+- No crea directorios.
+- No ejecuta `mysqldump`.
+- No conecta a productivo.
+- No modifica BD.
+
+## Avance implementado - Preflight de restauracion
+
+Fecha: 2026-08-01
+
+Se agrego:
+
+- `MigracionesBd::preflightRestauracion`;
+- endpoint `MigracionBd::restauracion_preflight`;
+- boton UI `Plan restore`;
+- validacion del respaldo seleccionado;
+- ruta configurable de `mysql.exe`;
+- comando saneado de restauracion;
+- texto de autorizacion `MIGRACIONES_BD_RESTORE`.
+
+Restriccion:
+
+- No ejecuta restauracion.
+- No invoca `mysql.exe`.
+- No modifica BD.
+- La restauracion real debe hacerse solo en ventana de recuperacion autorizada.
+
+## Avance implementado - Autorizacion formal de paquetes
+
+Fecha: 2026-08-02
+
+Se agrego:
+
+- `MigracionesBd::autorizarPaquete`;
+- endpoint `MigracionBd::paquete_autorizar`;
+- boton UI `Autorizar`;
+- token `MIGRACIONES_BD_AUTORIZAR`;
+- confirmacion literal `AUTORIZO PAQUETE MIGRACIONES BD`;
+- estatus `autorizado` antes de permitir aplicacion real.
+- validacion de vigencia por hash contra el dry-run actual.
+
+Regla vigente:
+
+- Un paquete puede existir como `borrador` y simularse.
+- Para aplicacion real debe tener respaldo valido y estatus `autorizado`.
+- Para autorizar, el hash guardado debe coincidir con el dry-run actual.
+- La autorizacion no ejecuta SQL.
+- La aplicacion real sigue bloqueada tambien por `MIGRACIONES_BD_APLICAR`, confirmacion literal y bandera local `aplicacion_real_habilitada=true`.
+
+## Avance implementado - Inventario de respaldos
+
+Fecha: 2026-08-02
+
+Se agrego:
+
+- `MigracionesBd::listarRespaldos`;
+- endpoint `MigracionBd::respaldos_listar`;
+- boton UI `Ver respaldos`;
+- listado de archivos `.sql` en la carpeta configurada;
+- accion `Usar` para copiar la ruta al campo de respaldo.
+
+Restriccion:
+
+- Solo lee archivos `.sql`.
+- No crea carpetas.
+- No calcula hash por defecto.
+- No restaura ni modifica BD.
+
+## Avance implementado - Checklist operativo consolidado
+
+Fecha: 2026-08-02
+
+Se agrego:
+
+- `MigracionesBd::checklistOperativo`;
+- endpoint `MigracionBd::checklist_operativo`;
+- boton UI `Checklist`;
+- pestaña UI `Checklist`;
+- pasos consolidados para selfcheck, respaldo, plan restore, esquema tecnico, vigencia/autorizacion/aplicacion de paquete.
+
+Restriccion:
+
+- Solo lectura.
+- No crea respaldo.
+- No aplica esquema.
+- No autoriza ni aplica paquetes.
+
 Decision operativa:
 
 - Mientras productivo sea solo copia de revision, local puede ser la base candidata oficial.

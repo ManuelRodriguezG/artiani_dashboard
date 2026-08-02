@@ -47,6 +47,32 @@ class MigracionBd extends Controlador {
 
   /**
    * IA: Codex GPT-5
+   * Fecha: 2026-08-01
+   * Proposito: revisar prerequisitos operativos del modulo sin ejecutar cambios.
+   * Impacto: Migraciones BD; solo lectura.
+   */
+  public function selfcheck() {
+    $this->requerirAlgunPermiso(array("migraciones.ver", "migraciones.preparar", "sistema.soporte"));
+    $modelo = $this->modelo("MigracionesBd");
+    echo json_encode($modelo->selfcheckOperativo());
+  }
+
+  /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-08-02
+   * Proposito: generar checklist operativo consolidado sin ejecutar cambios.
+   * Impacto: Migraciones BD; solo lectura.
+   */
+  public function checklist_operativo() {
+    $this->requerirAlgunPermiso(array("migraciones.ver", "migraciones.preparar", "sistema.soporte"));
+    $respaldo = isset($_GET["respaldo"]) ? trim($_GET["respaldo"]) : "";
+    $paquete = isset($_GET["paquete"]) ? trim($_GET["paquete"]) : "";
+    $modelo = $this->modelo("MigracionesBd");
+    echo json_encode($modelo->checklistOperativo($respaldo, $paquete));
+  }
+
+  /**
+   * IA: Codex GPT-5
    * Fecha: 2026-07-30
    * Proposito: generar politicas sugeridas por tabla.
    * Impacto: Migraciones BD; no persiste decisiones.
@@ -198,6 +224,58 @@ class MigracionBd extends Controlador {
   /**
    * IA: Codex GPT-5
    * Fecha: 2026-08-01
+   * Proposito: listar paquetes persistidos de migracion.
+   * Impacto: Migraciones BD; solo lectura.
+   */
+  public function paquetes_listar() {
+    $this->requerirAlgunPermiso(array("migraciones.ver", "migraciones.preparar", "sistema.soporte"));
+    $limite = isset($_GET["limite"]) ? intval($_GET["limite"]) : 50;
+    $modelo = $this->modelo("MigracionesBd");
+    echo json_encode($modelo->listarPaquetes($limite));
+  }
+
+  /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-08-01
+   * Proposito: consultar detalle read-only de un paquete persistido.
+   * Impacto: Migraciones BD; no ejecuta SQL.
+   */
+  public function paquete_consultar() {
+    $this->requerirAlgunPermiso(array("migraciones.ver", "migraciones.preparar", "sistema.soporte"));
+    $codigo = isset($_GET["codigo"]) ? trim($_GET["codigo"]) : "";
+    $modelo = $this->modelo("MigracionesBd");
+    echo json_encode($modelo->consultarPaquete($codigo));
+  }
+
+  /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-08-01
+   * Proposito: listar ejecuciones de paquetes de migracion.
+   * Impacto: Migraciones BD; solo lectura.
+   */
+  public function ejecuciones_listar() {
+    $this->requerirAlgunPermiso(array("migraciones.ver", "migraciones.aplicar", "sistema.soporte"));
+    $limite = isset($_GET["limite"]) ? intval($_GET["limite"]) : 50;
+    $modelo = $this->modelo("MigracionesBd");
+    echo json_encode($modelo->listarEjecuciones($limite));
+  }
+
+  /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-08-01
+   * Proposito: consultar detalle read-only de una ejecucion registrada.
+   * Impacto: Migraciones BD; no ejecuta SQL.
+   */
+  public function ejecucion_consultar() {
+    $this->requerirAlgunPermiso(array("migraciones.ver", "migraciones.aplicar", "sistema.soporte"));
+    $id = isset($_GET["id"]) ? intval($_GET["id"]) : 0;
+    $modelo = $this->modelo("MigracionesBd");
+    echo json_encode($modelo->consultarEjecucion($id));
+  }
+
+  /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-08-01
    * Proposito: simular o solicitar aplicacion controlada de un paquete persistido.
    * Impacto: Migraciones BD; ejecucion real exige respaldo, token, confirmacion literal y bandera local.
    */
@@ -227,6 +305,30 @@ class MigracionBd extends Controlador {
 
   /**
    * IA: Codex GPT-5
+   * Fecha: 2026-08-02
+   * Proposito: autorizar un paquete persistido antes de permitir aplicacion real.
+   * Impacto: Migraciones BD; no ejecuta SQL, solo cambia estatus tecnico con respaldo validado.
+   */
+  public function paquete_autorizar() {
+    $this->requerirPermiso("migraciones.aplicar");
+    $codigo = isset($_POST["codigo"]) ? trim($_POST["codigo"]) : "";
+    $respaldo = isset($_POST["respaldo"]) ? trim($_POST["respaldo"]) : "";
+    $autorizar = isset($_POST["autorizar"]) ? trim($_POST["autorizar"]) : "";
+    $confirmacion = isset($_POST["confirmacion"]) ? trim($_POST["confirmacion"]) : "";
+    $modelo = $this->modelo("MigracionesBd");
+    $respuesta = $modelo->autorizarPaquete($codigo, $respaldo, $autorizar, $confirmacion, $this->usuarioActualId());
+    SesionSeguridad::registrarAuditoria("migraciones", "paquete_autorizar", array(
+      "entidad" => "sys_migraciones_paquetes",
+      "entidad_id" => $codigo,
+      "resultado" => $respuesta["error"] ? "error" : "ok",
+      "datos_despues" => isset($respuesta["depurar"]) ? $respuesta["depurar"] : null,
+      "mensaje" => $respuesta["mensaje"]
+    ));
+    echo json_encode($respuesta);
+  }
+
+  /**
+   * IA: Codex GPT-5
    * Fecha: 2026-07-31
    * Proposito: validar respaldo externo antes de DDL o migraciones autorizadas.
    * Impacto: Migraciones BD; no crea archivos ni modifica BD.
@@ -237,6 +339,20 @@ class MigracionBd extends Controlador {
     $respaldo = isset($_GET["respaldo"]) ? trim($_GET["respaldo"]) : "";
     $modelo = $this->modelo("MigracionesBd");
     echo json_encode($modelo->validarRespaldo($respaldo));
+  }
+
+  /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-08-02
+   * Proposito: listar respaldos SQL disponibles en la carpeta estandar.
+   * Impacto: Migraciones BD; solo lectura de archivos externos al repo.
+   */
+  public function respaldos_listar() {
+    $this->requerirAlgunPermiso(array("migraciones.respaldos", "sistema.soporte"));
+    $limite = isset($_GET["limite"]) ? intval($_GET["limite"]) : 50;
+    $hash = isset($_GET["hash"]) && $_GET["hash"] == 1;
+    $modelo = $this->modelo("MigracionesBd");
+    echo json_encode($modelo->listarRespaldos($limite, $hash));
   }
 
   /**
@@ -279,6 +395,19 @@ class MigracionBd extends Controlador {
     $respaldo = isset($_GET["respaldo"]) ? trim($_GET["respaldo"]) : "";
     $modelo = $this->modelo("MigracionesBd");
     echo json_encode($modelo->preflightActivacion($respaldo));
+  }
+
+  /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-08-01
+   * Proposito: preparar plan read-only de restauracion desde respaldo.
+   * Impacto: Migraciones BD; no ejecuta restauracion.
+   */
+  public function restauracion_preflight() {
+    $this->requerirAlgunPermiso(array("migraciones.respaldos", "sistema.soporte"));
+    $respaldo = isset($_GET["respaldo"]) ? trim($_GET["respaldo"]) : "";
+    $modelo = $this->modelo("MigracionesBd");
+    echo json_encode($modelo->preflightRestauracion($respaldo));
   }
 
   /**

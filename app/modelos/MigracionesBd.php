@@ -46,6 +46,107 @@ class MigracionesBd extends CRUD {
 
   /**
    * IA: Codex GPT-5
+   * Fecha: 2026-08-01
+   * Proposito: revisar prerequisitos operativos del modulo sin modificar archivos ni BD.
+   * Impacto: Migraciones BD; ayuda a decidir si ya puede activarse esquema tecnico o paquetes.
+   * Contrato: solo lectura; no crea directorios, no conecta productivo y no ejecuta mysqldump.
+   */
+  public function selfcheckOperativo() {
+    $ambientes = $this->ambientesDisponibles();
+    $destinos = array();
+    foreach ($ambientes as $ambiente) {
+      if (isset($ambiente["alias"]) && $ambiente["alias"] !== "local") {
+        $destinos[] = $ambiente;
+      }
+    }
+
+    $directorioRespaldos = $this->directorioRespaldos();
+    $parentRespaldos = dirname($directorioRespaldos);
+    $directorioExiste = is_dir($directorioRespaldos);
+    $directorioEscribible = $directorioExiste && is_writable($directorioRespaldos);
+    $parentEscribible = !$directorioExiste && is_dir($parentRespaldos) && is_writable($parentRespaldos);
+    $mysqldump = $this->rutaMysqldump();
+    $esquema = $this->estadoEsquemaTecnico();
+
+    $checks = array(
+      $this->checkItem("base_local", defined("MYSQLBASE") && MYSQLBASE !== "", "Base local activa detectada", "No se detecto MYSQLBASE"),
+      $this->checkItem("config_ambientes", file_exists($this->rutaConfigAmbientes()), "Archivo local de ambientes existe", "Falta app/config/migraciones_ambientes.local.php", "warning"),
+      $this->checkItem("destinos", count($destinos) > 0, "Hay al menos un destino configurado", "No hay destino externo configurado", "warning"),
+      $this->checkItem("mysqldump", file_exists($mysqldump) && is_readable($mysqldump), "mysqldump disponible", "No se encontro mysqldump legible", "danger", array("ruta" => $mysqldump)),
+      $this->checkItem("directorio_respaldos", $directorioEscribible || $parentEscribible, "Ruta de respaldos disponible o creable", "Ruta de respaldos no escribible", "danger", array("ruta" => $directorioRespaldos)),
+      $this->checkItem("esquema_tecnico", !empty($esquema["listo"]), "Esquema tecnico listo", "Esquema tecnico pendiente", "warning", $esquema),
+      $this->checkItem("aplicacion_real", $this->aplicacionRealHabilitada(), "Aplicacion real habilitada por configuracion local", "Aplicacion real apagada por seguridad", "info")
+    );
+
+    $bloqueantes = array();
+    $advertencias = array();
+    foreach ($checks as $check) {
+      if (!$check["ok"] && $check["nivel"] === "danger") {
+        $bloqueantes[] = $check["codigo"];
+      } elseif (!$check["ok"]) {
+        $advertencias[] = $check["codigo"];
+      }
+    }
+
+    return $this->respuesta(false, empty($bloqueantes) ? "success" : "warning", "Selfcheck de migraciones generado", array(
+      "checks" => $checks,
+      "bloqueantes" => $bloqueantes,
+      "advertencias" => $advertencias,
+      "ambientes" => $ambientes,
+      "siguiente_paso" => empty($bloqueantes)
+        ? "Generar respaldo real, validarlo y activar esquema tecnico en local si se autoriza."
+        : "Resolver bloqueantes antes de intentar respaldos o activaciones."
+    ));
+  }
+
+  /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-08-02
+   * Proposito: generar checklist operativo consolidado antes de activar esquema o aplicar paquetes.
+   * Impacto: Migraciones BD; solo lectura, resume compuertas y siguiente accion.
+   * Contrato: recibe respaldo y codigo de paquete opcionales.
+   */
+  public function checklistOperativo($respaldo = "", $codigoPaquete = "") {
+    $selfcheck = $this->selfcheckOperativo();
+    $validacionRespaldo = $this->validarRespaldo($respaldo);
+    $restore = $this->preflightRestauracion($respaldo);
+    $activacion = $this->preflightActivacion($respaldo);
+    $esquema = $this->estadoEsquemaTecnico();
+
+    $pasos = array();
+    $pasos[] = $this->checklistPaso("selfcheck", "Selfcheck operativo", empty($selfcheck["depurar"]["bloqueantes"]), "Resolver bloqueantes de entorno antes de continuar.", $selfcheck["depurar"]);
+    $pasos[] = $this->checklistPaso("respaldo", "Respaldo valido", !empty($validacionRespaldo["depurar"]["ok"]), "Generar o seleccionar un respaldo .sql externo al repo.", $validacionRespaldo["depurar"]);
+    $pasos[] = $this->checklistPaso("restore", "Plan de restauracion revisado", !empty($restore["depurar"]["mysql_disponible"]) && !empty($validacionRespaldo["depurar"]["ok"]), "Revisar el plan restore antes de cualquier cambio irreversible.", $restore["depurar"]);
+    $pasos[] = $this->checklistPaso("esquema_tecnico", "Esquema tecnico sys_migraciones_*", !empty($esquema["listo"]), "Aplicar esquema tecnico en local con respaldo validado.", $esquema);
+
+    $paqueteInfo = null;
+    if (trim((string) $codigoPaquete) !== "") {
+      $paquetePreflight = $this->preflightPaqueteAplicacion($codigoPaquete, $respaldo);
+      $paqueteInfo = $paquetePreflight;
+      $pasos[] = $this->checklistPaso("paquete_vigente", "Paquete vigente", !$paquetePreflight["error"] && !empty($paquetePreflight["depurar"]["vigencia"]["ok"]), "Crear nuevo paquete dry-run si el hash ya no coincide.", $paquetePreflight["depurar"]);
+      $pasos[] = $this->checklistPaso("paquete_autorizado", "Paquete autorizado", !$paquetePreflight["error"] && !empty($paquetePreflight["depurar"]["estatus_autorizado"]), "Autorizar paquete con respaldo valido antes de aplicar.", $paquetePreflight["depurar"]);
+      $pasos[] = $this->checklistPaso("aplicacion_real", "Aplicacion real habilitada", !$paquetePreflight["error"] && !empty($paquetePreflight["depurar"]["puede_aplicar"]), "Mantener apagado hasta ventana de migracion autorizada.", $paquetePreflight["depurar"]);
+    }
+
+    $pendientes = array();
+    foreach ($pasos as $paso) {
+      if (empty($paso["ok"])) {
+        $pendientes[] = $paso["codigo"];
+      }
+    }
+
+    return $this->respuesta(false, "success", "Checklist operativo generado", array(
+      "pasos" => $pasos,
+      "pendientes" => $pendientes,
+      "listo" => empty($pendientes),
+      "respaldo" => $validacionRespaldo["depurar"],
+      "paquete" => $paqueteInfo,
+      "siguiente_paso" => empty($pendientes) ? "Puede continuar segun ventana autorizada." : "Atender el primer pendiente: " . $pendientes[0]
+    ));
+  }
+
+  /**
+   * IA: Codex GPT-5
    * Fecha: 2026-07-30
    * Proposito: clasificar tablas locales con politica inicial sugerida.
    * Impacto: Migraciones BD; ayuda a separar catalogos migrables de operacion sensible.
@@ -487,7 +588,7 @@ class MigracionesBd extends CRUD {
       "incluye_datos" => false,
       "fase" => "dry_run_esquema"
     );
-    $hash = hash("sha256", json_encode(array("resumen" => $resumen, "sentencias" => $sentencias)));
+    $hash = $this->hashPlanPaquete($resumen, $sentencias);
     $codigo = "MIGBD_" . date("Ymd_His") . "_" . substr($hash, 0, 8);
 
     if (!$this->tablaTecnicaExiste("sys_migraciones_paquetes") || !$this->tablaTecnicaExiste("sys_migraciones_paquete_sql")) {
@@ -707,6 +808,65 @@ class MigracionesBd extends CRUD {
 
   /**
    * IA: Codex GPT-5
+   * Fecha: 2026-08-02
+   * Proposito: listar respaldos SQL disponibles en la ruta estandar.
+   * Impacto: Migraciones BD; solo lectura de archivos .sql fuera del repo.
+   * Contrato: no crea directorios ni calcula hash salvo solicitud explicita.
+   */
+  public function listarRespaldos($limite = 50, $incluirHash = false) {
+    $directorio = $this->directorioRespaldos();
+    $repo = realpath(__DIR__ . "/../..");
+    $realDirectorio = is_dir($directorio) ? realpath($directorio) : false;
+    if (!$realDirectorio) {
+      return $this->respuesta(true, "warning", "La carpeta de respaldos no existe", array(
+        "directorio" => $directorio,
+        "respaldos" => array()
+      ));
+    }
+    if ($repo && stripos($realDirectorio, $repo) === 0) {
+      return $this->respuesta(true, "danger", "La carpeta de respaldos no puede estar dentro del proyecto", array(
+        "directorio" => $realDirectorio,
+        "respaldos" => array()
+      ));
+    }
+
+    $limite = max(1, min(200, intval($limite)));
+    $archivos = glob(rtrim($realDirectorio, "\\/") . DIRECTORY_SEPARATOR . "*.sql");
+    if (!is_array($archivos)) {
+      $archivos = array();
+    }
+    usort($archivos, function ($a, $b) {
+      return filemtime($b) <=> filemtime($a);
+    });
+
+    $respaldos = array();
+    foreach (array_slice($archivos, 0, $limite) as $archivo) {
+      $real = realpath($archivo);
+      if (!$real || !is_file($real)) {
+        continue;
+      }
+      $tamano = filesize($real);
+      $respaldos[] = array(
+        "archivo" => $real,
+        "nombre" => basename($real),
+        "tamano_bytes" => $tamano,
+        "tamano_mb" => round($tamano / 1048576, 3),
+        "fecha_modificacion" => date("Y-m-d H:i:s", filemtime($real)),
+        "legible" => is_readable($real),
+        "sha256" => $incluirHash && is_readable($real) ? hash_file("sha256", $real) : null
+      );
+    }
+
+    return $this->respuesta(false, "success", "Respaldos consultados", array(
+      "directorio" => $realDirectorio,
+      "total" => count($respaldos),
+      "hash_incluido" => (bool) $incluirHash,
+      "respaldos" => $respaldos
+    ));
+  }
+
+  /**
+   * IA: Codex GPT-5
    * Fecha: 2026-07-31
    * Proposito: preparar checklist y comandos sugeridos para activar esquema tecnico del modulo.
    * Impacto: Migraciones BD; no ejecuta DDL ni crea respaldos.
@@ -736,6 +896,33 @@ class MigracionesBd extends CRUD {
   /**
    * IA: Codex GPT-5
    * Fecha: 2026-08-01
+   * Proposito: preparar plan de restauracion desde respaldo sin ejecutarlo.
+   * Impacto: Migraciones BD; solo lectura, no invoca mysql ni modifica BD.
+   * Contrato: valida respaldo y devuelve comando saneado para ventana de recuperacion.
+   */
+  public function preflightRestauracion($respaldo = "") {
+    $validacionRespaldo = $this->validarRespaldo($respaldo);
+    $mysql = $this->rutaMysqlCliente();
+    $base = defined("MYSQLBASE") ? MYSQLBASE : "";
+    $comando = $this->comandoRestoreSaneado($respaldo);
+    $textoAutorizacion = "AUTORIZO RESTAURAR RESPALDO MIGRACIONES BD sobre base " . $base . " usando respaldo [RUTA_RESPALDO]. Entiendo que esto reemplaza/afecta datos y esquema de la base destino y solo debe ejecutarse en una ventana de recuperacion autorizada.";
+
+    return $this->respuesta(false, "success", "Preflight de restauracion generado", array(
+      "respaldo" => $validacionRespaldo["depurar"],
+      "puede_restaurar" => !empty($validacionRespaldo["depurar"]["ok"]) && file_exists($mysql),
+      "mysql_cliente" => $mysql,
+      "mysql_disponible" => file_exists($mysql) && is_readable($mysql),
+      "base_destino" => $base,
+      "comando_restore_saneado" => $comando,
+      "token" => "MIGRACIONES_BD_RESTORE",
+      "texto_autorizacion" => $textoAutorizacion,
+      "nota" => "Este modulo solo prepara el plan de restauracion. La restauracion real debe hacerse fuera del flujo normal, con autorizacion explicita y el sistema en ventana de recuperacion."
+    ));
+  }
+
+  /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-08-01
    * Proposito: validar si un paquete persistido esta listo para aplicacion controlada.
    * Impacto: Migraciones BD; no ejecuta SQL, solo revisa paquete, respaldo y compuertas.
    * Contrato: requiere esquema tecnico existente y codigo/id de paquete persistido.
@@ -757,8 +944,10 @@ class MigracionesBd extends CRUD {
 
     $depurarPaquete = $paquete["depurar"];
     $riesgos = $this->riesgosPaquete($depurarPaquete);
-    $puedePreparar = !empty($esquema["listo"]) && !empty($validacionRespaldo["depurar"]["ok"]) && empty($riesgos["bloqueantes"]);
-    $puedeAplicar = $puedePreparar && $aplicacionHabilitada;
+    $vigencia = $this->validarVigenciaPaquete($depurarPaquete);
+    $estatusAutorizado = isset($depurarPaquete["paquete"]["estatus"]) && $depurarPaquete["paquete"]["estatus"] === "autorizado";
+    $puedePreparar = !empty($esquema["listo"]) && !empty($validacionRespaldo["depurar"]["ok"]) && empty($riesgos["bloqueantes"]) && !empty($vigencia["ok"]);
+    $puedeAplicar = $puedePreparar && $aplicacionHabilitada && $estatusAutorizado;
 
     return $this->respuesta(false, "success", "Preflight de paquete generado", array(
       "paquete" => $depurarPaquete["paquete"],
@@ -767,10 +956,14 @@ class MigracionesBd extends CRUD {
       "respaldo" => $validacionRespaldo["depurar"],
       "esquema_tecnico" => $esquema,
       "riesgos" => $riesgos,
+      "vigencia" => $vigencia,
       "aplicacion_real_habilitada" => $aplicacionHabilitada,
       "puede_preparar" => $puedePreparar,
       "puede_aplicar" => $puedeAplicar,
-      "token" => "MIGRACIONES_BD_APLICAR",
+      "estatus_autorizado" => $estatusAutorizado,
+      "token_autorizacion" => "MIGRACIONES_BD_AUTORIZAR",
+      "token_aplicacion" => "MIGRACIONES_BD_APLICAR",
+      "texto_autorizacion_paquete" => "AUTORIZO PAQUETE MIGRACIONES BD " . $depurarPaquete["paquete"]["codigo"] . " hacia " . $depurarPaquete["paquete"]["ambiente_destino"] . " usando respaldo [RUTA_RESPALDO]. Entiendo que este paso solo autoriza el paquete y no ejecuta SQL.",
       "texto_autorizacion" => "AUTORIZO APLICAR PAQUETE MIGRACIONES BD " . $depurarPaquete["paquete"]["codigo"] . " hacia " . $depurarPaquete["paquete"]["ambiente_destino"] . " usando respaldo [RUTA_RESPALDO]. Entiendo que ejecuta el SQL persistido del paquete y registra bitacora."
     ));
   }
@@ -826,6 +1019,257 @@ class MigracionesBd extends CRUD {
     }
 
     return $this->ejecutarSqlPaquete($conexionDestino["depurar"]["conexion"], $d, $respaldo, $idUsuario);
+  }
+
+  /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-08-02
+   * Proposito: autorizar un paquete persistido despues de revisar SQL y validar respaldo.
+   * Impacto: Migraciones BD; cambia solo estatus del paquete tecnico, no ejecuta SQL del paquete.
+   * Contrato: requiere token, confirmacion literal, respaldo valido y hash estable.
+   */
+  public function autorizarPaquete($codigo, $respaldo, $autorizar, $confirmacion, $idUsuario = 0) {
+    $paquete = $this->consultarPaquetePersistido($codigo);
+    $validacionRespaldo = $this->validarRespaldo($respaldo);
+    if ($paquete["error"]) {
+      return $paquete;
+    }
+
+    $d = $paquete["depurar"];
+    $cabecera = $d["paquete"];
+    $codigoPaquete = $cabecera["codigo"];
+    $destinoAlias = $cabecera["ambiente_destino"];
+    $tokenOk = trim((string) $autorizar) === "MIGRACIONES_BD_AUTORIZAR";
+    $confirmacionOk = stripos($confirmacion, "AUTORIZO PAQUETE MIGRACIONES BD") !== false
+      && stripos($confirmacion, $codigoPaquete) !== false
+      && stripos($confirmacion, $destinoAlias) !== false;
+    $estatusPermitido = in_array($cabecera["estatus"], array("borrador", "revisado", "autorizado"), true);
+
+    $vigencia = $this->validarVigenciaPaquete($d);
+
+    if (!$tokenOk || !$confirmacionOk || $validacionRespaldo["error"] || !$estatusPermitido || empty($vigencia["ok"])) {
+      return $this->respuesta(true, "warning", "No se puede autorizar el paquete sin token, respaldo valido, confirmacion y estatus permitido", array(
+        "token_ok" => $tokenOk,
+        "confirmacion_ok" => $confirmacionOk,
+        "respaldo" => $validacionRespaldo["depurar"],
+        "estatus_permitido" => $estatusPermitido,
+        "estatus_actual" => $cabecera["estatus"],
+        "vigencia" => $vigencia
+      ));
+    }
+
+    try {
+      $stmt = $this->db->prepare("UPDATE sys_migraciones_paquetes
+                                  SET estatus='autorizado', ruta_respaldo=:respaldo,
+                                      id_usuario_autorizacion=:usuario, fecha_autorizacion=CURRENT_TIMESTAMP
+                                  WHERE id_migracion_paquete=:paquete");
+      $stmt->execute(array(
+        ":respaldo" => $respaldo,
+        ":usuario" => $idUsuario > 0 ? $idUsuario : null,
+        ":paquete" => $cabecera["id_migracion_paquete"]
+      ));
+      return $this->respuesta(false, "success", "Paquete autorizado para aplicacion controlada", array(
+        "codigo" => $codigoPaquete,
+        "id_migracion_paquete" => $cabecera["id_migracion_paquete"],
+        "estatus" => "autorizado",
+        "respaldo" => $validacionRespaldo["depurar"],
+        "id_usuario" => $idUsuario
+      ));
+    } catch (Exception $e) {
+      return $this->respuesta(true, "danger", $e->getMessage());
+    }
+  }
+
+  /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-08-01
+   * Proposito: listar paquetes persistidos de migracion.
+   * Impacto: Migraciones BD; solo lectura sobre tablas tecnicas.
+   * Contrato: devuelve advertencia si el esquema tecnico aun no existe.
+   */
+  public function listarPaquetes($limite = 50) {
+    if (!$this->tablaTecnicaExiste("sys_migraciones_paquetes") || !$this->tablaTecnicaExiste("sys_migraciones_paquete_sql")) {
+      return $this->respuesta(true, "warning", "Falta aplicar el esquema tecnico para listar paquetes", array(
+        "esquema_tecnico" => $this->estadoEsquemaTecnico(),
+        "paquetes" => array()
+      ));
+    }
+
+    $limite = max(1, min(200, intval($limite)));
+    try {
+      $stmt = $this->db->query("SELECT p.id_migracion_paquete, p.codigo, p.ambiente_origen, p.ambiente_destino,
+                                       p.estatus, p.hash_plan, p.ruta_respaldo, p.fecha_registro,
+                                       p.fecha_autorizacion, p.fecha_aplicacion,
+                                       COUNT(s.id_migracion_paquete_sql) AS total_sentencias,
+                                       SUM(CASE WHEN s.riesgo='alto' THEN 1 ELSE 0 END) AS sentencias_riesgo_alto
+                                FROM sys_migraciones_paquetes p
+                                LEFT JOIN sys_migraciones_paquete_sql s ON s.id_migracion_paquete = p.id_migracion_paquete
+                                GROUP BY p.id_migracion_paquete
+                                ORDER BY p.id_migracion_paquete DESC
+                                LIMIT " . $limite);
+      $paquetes = $stmt->fetchAll(PDO::FETCH_ASSOC);
+      return $this->respuesta(false, "success", "Paquetes consultados", array(
+        "total" => count($paquetes),
+        "paquetes" => $paquetes
+      ));
+    } catch (Exception $e) {
+      return $this->respuesta(true, "danger", $e->getMessage());
+    }
+  }
+
+  /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-08-01
+   * Proposito: listar ejecuciones registradas de migracion.
+   * Impacto: Migraciones BD; solo lectura para seguimiento y auditoria operativa.
+   * Contrato: devuelve advertencia si el esquema tecnico aun no existe.
+   */
+  public function listarEjecuciones($limite = 50) {
+    if (!$this->tablaTecnicaExiste("sys_migraciones_ejecuciones") || !$this->tablaTecnicaExiste("sys_migraciones_ejecucion_detalle")) {
+      return $this->respuesta(true, "warning", "Falta aplicar el esquema tecnico para listar ejecuciones", array(
+        "esquema_tecnico" => $this->estadoEsquemaTecnico(),
+        "ejecuciones" => array()
+      ));
+    }
+
+    $limite = max(1, min(200, intval($limite)));
+    try {
+      $stmt = $this->db->query("SELECT e.id_migracion_ejecucion, e.id_migracion_paquete, p.codigo,
+                                       e.ambiente_destino, e.estatus, e.ruta_respaldo, e.mensaje,
+                                       e.id_usuario, e.fecha_inicio, e.fecha_fin,
+                                       COUNT(d.id_migracion_ejecucion_detalle) AS total_detalles,
+                                       SUM(CASE WHEN d.resultado='error' THEN 1 ELSE 0 END) AS detalles_error
+                                FROM sys_migraciones_ejecuciones e
+                                LEFT JOIN sys_migraciones_paquetes p ON p.id_migracion_paquete = e.id_migracion_paquete
+                                LEFT JOIN sys_migraciones_ejecucion_detalle d ON d.id_migracion_ejecucion = e.id_migracion_ejecucion
+                                GROUP BY e.id_migracion_ejecucion
+                                ORDER BY e.id_migracion_ejecucion DESC
+                                LIMIT " . $limite);
+      $ejecuciones = $stmt->fetchAll(PDO::FETCH_ASSOC);
+      return $this->respuesta(false, "success", "Ejecuciones consultadas", array(
+        "total" => count($ejecuciones),
+        "ejecuciones" => $ejecuciones
+      ));
+    } catch (Exception $e) {
+      return $this->respuesta(true, "danger", $e->getMessage());
+    }
+  }
+
+  /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-08-01
+   * Proposito: consultar detalle completo de un paquete persistido.
+   * Impacto: Migraciones BD; solo lectura de tablas, SQL y resumen tecnico.
+   * Contrato: acepta codigo o ID del paquete.
+   */
+  public function consultarPaquete($codigo) {
+    return $this->consultarPaquetePersistido($codigo);
+  }
+
+  /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-08-01
+   * Proposito: consultar detalle de una ejecucion registrada.
+   * Impacto: Migraciones BD; solo lectura para auditoria operativa.
+   * Contrato: acepta ID numerico de ejecucion.
+   */
+  public function consultarEjecucion($idEjecucion) {
+    if (!$this->tablaTecnicaExiste("sys_migraciones_ejecuciones") || !$this->tablaTecnicaExiste("sys_migraciones_ejecucion_detalle")) {
+      return $this->respuesta(true, "warning", "Falta aplicar el esquema tecnico para consultar ejecuciones", array(
+        "esquema_tecnico" => $this->estadoEsquemaTecnico()
+      ));
+    }
+
+    $idEjecucion = intval($idEjecucion);
+    if ($idEjecucion <= 0) {
+      return $this->respuesta(true, "warning", "Indica el ID de ejecucion");
+    }
+
+    try {
+      $stmt = $this->db->prepare("SELECT e.id_migracion_ejecucion, e.id_migracion_paquete, p.codigo,
+                                         e.ambiente_destino, e.estatus, e.ruta_respaldo, e.mensaje,
+                                         e.id_usuario, e.fecha_inicio, e.fecha_fin
+                                  FROM sys_migraciones_ejecuciones e
+                                  LEFT JOIN sys_migraciones_paquetes p ON p.id_migracion_paquete = e.id_migracion_paquete
+                                  WHERE e.id_migracion_ejecucion=:id
+                                  LIMIT 1");
+      $stmt->execute(array(":id" => $idEjecucion));
+      $ejecucion = $stmt->fetch(PDO::FETCH_ASSOC);
+      if (!$ejecucion) {
+        return $this->respuesta(true, "warning", "Ejecucion no encontrada", array("id_migracion_ejecucion" => $idEjecucion));
+      }
+
+      $stmtDetalle = $this->db->prepare("SELECT id_migracion_ejecucion_detalle, orden, tabla, sql_texto, resultado, mensaje, fecha_registro
+                                         FROM sys_migraciones_ejecucion_detalle
+                                         WHERE id_migracion_ejecucion=:id
+                                         ORDER BY orden ASC, id_migracion_ejecucion_detalle ASC");
+      $stmtDetalle->execute(array(":id" => $idEjecucion));
+      $detalles = $stmtDetalle->fetchAll(PDO::FETCH_ASSOC);
+
+      return $this->respuesta(false, "success", "Ejecucion consultada", array(
+        "ejecucion" => $ejecucion,
+        "detalles" => $detalles
+      ));
+    } catch (Exception $e) {
+      return $this->respuesta(true, "danger", $e->getMessage());
+    }
+  }
+
+  private function validarVigenciaPaquete($paquete) {
+    $cabecera = isset($paquete["paquete"]) ? $paquete["paquete"] : array();
+    $resumenGuardado = isset($cabecera["resumen"]) && is_array($cabecera["resumen"]) ? $cabecera["resumen"] : array();
+    $destino = isset($resumenGuardado["destino"]) ? $resumenGuardado["destino"] : (isset($cabecera["ambiente_destino"]) ? $cabecera["ambiente_destino"] : "");
+    $tablas = isset($resumenGuardado["tablas_solicitadas"]) && is_array($resumenGuardado["tablas_solicitadas"]) ? $resumenGuardado["tablas_solicitadas"] : array();
+    $hashGuardado = isset($cabecera["hash_plan"]) ? $cabecera["hash_plan"] : "";
+
+    if ($destino === "" || $hashGuardado === "") {
+      return array(
+        "ok" => false,
+        "mensaje" => "Paquete sin destino o hash guardado",
+        "hash_guardado" => $hashGuardado,
+        "hash_actual" => null
+      );
+    }
+
+    $sqlDryRun = $this->generarSqlDryRun($destino);
+    if ($sqlDryRun["error"]) {
+      return array(
+        "ok" => false,
+        "mensaje" => "No fue posible recalcular dry-run actual: " . $sqlDryRun["mensaje"],
+        "hash_guardado" => $hashGuardado,
+        "hash_actual" => null,
+        "error" => $sqlDryRun["depurar"]
+      );
+    }
+
+    $sentencias = array();
+    foreach ($sqlDryRun["depurar"]["sentencias"] as $sentencia) {
+      if (empty($tablas) || in_array($sentencia["tabla"], $tablas, true)) {
+        $sentencias[] = $sentencia;
+      }
+    }
+
+    $resumenActual = array(
+      "origen" => "local",
+      "destino" => $destino,
+      "tablas_solicitadas" => $tablas,
+      "sentencias" => count($sentencias),
+      "incluye_datos" => false,
+      "fase" => "dry_run_esquema"
+    );
+    $hashActual = $this->hashPlanPaquete($resumenActual, $sentencias);
+    return array(
+      "ok" => hash_equals((string) $hashGuardado, (string) $hashActual),
+      "mensaje" => hash_equals((string) $hashGuardado, (string) $hashActual) ? "Paquete vigente" : "El dry-run actual ya no coincide con el paquete guardado",
+      "hash_guardado" => $hashGuardado,
+      "hash_actual" => $hashActual,
+      "sentencias_guardadas" => isset($paquete["sentencias"]) ? count($paquete["sentencias"]) : null,
+      "sentencias_actuales" => count($sentencias)
+    );
+  }
+
+  private function hashPlanPaquete($resumen, $sentencias) {
+    return hash("sha256", json_encode(array("resumen" => $resumen, "sentencias" => $sentencias)));
   }
 
   private function consultarPaquetePersistido($codigo) {
@@ -1543,6 +1987,14 @@ class MigracionesBd extends CRUD {
     return "C:\\xampp\\mysql\\bin\\mysqldump.exe";
   }
 
+  private function rutaMysqlCliente() {
+    $config = $this->leerConfigAmbientes();
+    if (!empty($config["_opciones"]["mysql_path"])) {
+      return (string) $config["_opciones"]["mysql_path"];
+    }
+    return "C:\\xampp\\mysql\\bin\\mysql.exe";
+  }
+
   private function comandoMysqldumpSaneado($archivo) {
     return $this->rutaMysqldump()
       . " --host=" . MYSQLHOST
@@ -1551,6 +2003,37 @@ class MigracionesBd extends CRUD {
       . " --single-transaction --routines --events --triggers --default-character-set=utf8mb4"
       . " --result-file=\"" . $archivo . "\" "
       . MYSQLBASE;
+  }
+
+  private function comandoRestoreSaneado($archivo) {
+    return $this->rutaMysqlCliente()
+      . " --host=" . MYSQLHOST
+      . " --port=" . MYSQLPORT
+      . " --user=" . MYSQLUSER
+      . " --default-character-set=utf8mb4 "
+      . MYSQLBASE
+      . " < \"" . trim((string) $archivo) . "\"";
+  }
+
+  private function checkItem($codigo, $ok, $mensajeOk, $mensajeError, $nivel = "warning", $depurar = array()) {
+    return array(
+      "codigo" => $codigo,
+      "ok" => (bool) $ok,
+      "nivel" => $ok ? "success" : $nivel,
+      "mensaje" => $ok ? $mensajeOk : $mensajeError,
+      "depurar" => $depurar
+    );
+  }
+
+  private function checklistPaso($codigo, $titulo, $ok, $accionPendiente, $depurar = array()) {
+    return array(
+      "codigo" => $codigo,
+      "titulo" => $titulo,
+      "ok" => (bool) $ok,
+      "estatus" => $ok ? "completo" : "pendiente",
+      "accion_pendiente" => $ok ? "" : $accionPendiente,
+      "depurar" => $depurar
+    );
   }
 
   private function respuesta($error, $tipo, $mensaje, $depurar = null) {
