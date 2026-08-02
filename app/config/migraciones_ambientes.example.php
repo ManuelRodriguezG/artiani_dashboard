@@ -1,6 +1,11 @@
 <?php
 
 return array(
+  "_opciones" => array(
+    "aplicacion_real_habilitada" => false,
+    "directorio_respaldos" => "C:\\xampp\\panel_db_backups",
+    "mysqldump_path" => "C:\\xampp\\mysql\\bin\\mysqldump.exe"
+  ),
   "productivo" => array(
     "tipo" => "productivo",
     "descripcion" => "Servidor productivo para comparacion controlada",

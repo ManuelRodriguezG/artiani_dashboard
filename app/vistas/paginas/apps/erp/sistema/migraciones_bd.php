@@ -139,6 +139,10 @@ $esquemaTecnico = isset($configuracion["esquema_tecnico"]) ? $configuracion["esq
                                             <i class="bi bi-clipboard-data"></i>
                                             Resumen
                                         </button>
+                                        <button type="button" class="btn btn-light-dark" id="migbd_btn_manifiesto">
+                                            <i class="bi bi-braces"></i>
+                                            Manifiesto
+                                        </button>
                                         <button type="button" class="btn btn-primary" id="migbd_btn_comparar">
                                             <i class="bi bi-arrow-left-right"></i>
                                             Comparar
@@ -169,6 +173,9 @@ $esquemaTecnico = isset($configuracion["esquema_tecnico"]) ? $configuracion["esq
                                         </li>
                                         <li class="nav-item">
                                             <a class="nav-link" data-bs-toggle="tab" href="#migbd_tab_resumen_decision">Resumen</a>
+                                        </li>
+                                        <li class="nav-item">
+                                            <a class="nav-link" data-bs-toggle="tab" href="#migbd_tab_manifiesto">Manifiesto</a>
                                         </li>
                                         <li class="nav-item">
                                             <a class="nav-link" data-bs-toggle="tab" href="#migbd_tab_comparacion">Comparacion</a>
@@ -227,16 +234,38 @@ $esquemaTecnico = isset($configuracion["esquema_tecnico"]) ? $configuracion["esq
                                         <div class="tab-pane fade" id="migbd_tab_resumen_decision">
                                             <div id="migbd_resumen_decision_resultado" class="text-muted py-8 text-center">Genera el resumen ejecutivo de politicas, riesgos y candidatas para datos.</div>
                                         </div>
+                                        <div class="tab-pane fade" id="migbd_tab_manifiesto">
+                                            <div class="d-flex justify-content-between align-items-center mb-4">
+                                                <div class="text-muted">Manifiesto JSON portable de preparacion. No ejecuta cambios ni guarda en BD.</div>
+                                                <div class="d-flex gap-2">
+                                                    <button type="button" class="btn btn-sm btn-light" id="migbd_btn_copiar_manifiesto">
+                                                        <i class="bi bi-clipboard"></i>
+                                                        Copiar manifiesto
+                                                    </button>
+                                                    <button type="button" class="btn btn-sm btn-light" id="migbd_btn_descargar_manifiesto">
+                                                        <i class="bi bi-download"></i>
+                                                        Descargar JSON
+                                                    </button>
+                                                </div>
+                                            </div>
+                                            <pre class="bg-light rounded p-5 mh-500px overflow-auto"><code id="migbd_manifiesto_resultado">Sin manifiesto generado.</code></pre>
+                                        </div>
                                         <div class="tab-pane fade" id="migbd_tab_comparacion">
                                             <div id="migbd_comparacion_resultado" class="text-muted py-8 text-center">Selecciona un destino y ejecuta la comparacion.</div>
                                         </div>
                                         <div class="tab-pane fade" id="migbd_tab_sql">
                                             <div class="d-flex justify-content-between align-items-center mb-4">
                                                 <div class="text-muted">SQL generado solo para revision. No se ejecuta desde esta fase.</div>
-                                                <button type="button" class="btn btn-sm btn-light" id="migbd_btn_copiar_sql">
-                                                    <i class="bi bi-clipboard"></i>
-                                                    Copiar SQL
-                                                </button>
+                                                <div class="d-flex gap-2">
+                                                    <button type="button" class="btn btn-sm btn-light" id="migbd_btn_copiar_sql">
+                                                        <i class="bi bi-clipboard"></i>
+                                                        Copiar SQL
+                                                    </button>
+                                                    <button type="button" class="btn btn-sm btn-light" id="migbd_btn_descargar_sql">
+                                                        <i class="bi bi-download"></i>
+                                                        Descargar SQL
+                                                    </button>
+                                                </div>
                                             </div>
                                             <pre class="bg-light rounded p-5 mh-500px overflow-auto"><code id="migbd_sql_resultado">Sin SQL generado.</code></pre>
                                         </div>
@@ -260,6 +289,26 @@ $esquemaTecnico = isset($configuracion["esquema_tecnico"]) ? $configuracion["esq
                                                 </div>
                                                 <div class="col-12">
                                                     <div class="separator my-5"></div>
+                                                    <div class="fw-bold mb-3">Respaldo local</div>
+                                                    <div class="row g-5">
+                                                        <div class="col-xl-4">
+                                                            <label class="form-label">Token respaldo</label>
+                                                            <input class="form-control form-control-solid" id="migbd_respaldo_token" placeholder="MIGRACIONES_BD_RESPALDO">
+                                                        </div>
+                                                        <div class="col-xl-6">
+                                                            <label class="form-label">Confirmacion respaldo</label>
+                                                            <input class="form-control form-control-solid" id="migbd_respaldo_confirmacion" placeholder="AUTORIZO GENERAR RESPALDO MIGRACIONES BD ...">
+                                                        </div>
+                                                        <div class="col-xl-2 d-flex align-items-end justify-content-end">
+                                                            <button type="button" class="btn btn-light-primary" id="migbd_btn_respaldo_generar">
+                                                                <i class="bi bi-database-down"></i>
+                                                                Generar respaldo
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <div class="col-12">
+                                                    <div class="separator my-5"></div>
                                                     <div class="row g-5">
                                                         <div class="col-xl-4">
                                                             <label class="form-label">Token</label>
@@ -278,6 +327,45 @@ $esquemaTecnico = isset($configuracion["esquema_tecnico"]) ? $configuracion["esq
                                                                 <i class="bi bi-database-add"></i>
                                                                 Aplicar esquema tecnico
                                                             </button>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <div class="col-12">
+                                                    <div class="separator my-5"></div>
+                                                    <div class="fw-bold mb-3">Aplicacion controlada de paquete</div>
+                                                    <div class="row g-5">
+                                                        <div class="col-xl-4">
+                                                            <label class="form-label">Codigo o ID de paquete</label>
+                                                            <input class="form-control form-control-solid" id="migbd_paquete_codigo" placeholder="MIGBD_YYYYMMDD_HHMMSS_xxxxxxxx">
+                                                        </div>
+                                                        <div class="col-xl-4">
+                                                            <label class="form-label">Token paquete</label>
+                                                            <input class="form-control form-control-solid" id="migbd_paquete_token" placeholder="MIGRACIONES_BD_APLICAR">
+                                                        </div>
+                                                        <div class="col-xl-4 d-flex align-items-end gap-3">
+                                                            <button type="button" class="btn btn-light-primary" id="migbd_btn_paquete_preflight">
+                                                                <i class="bi bi-shield-check"></i>
+                                                                Preflight paquete
+                                                            </button>
+                                                            <button type="button" class="btn btn-light" id="migbd_btn_paquete_simular">
+                                                                <i class="bi bi-play-circle"></i>
+                                                                Simular
+                                                            </button>
+                                                        </div>
+                                                        <div class="col-xl-9">
+                                                            <label class="form-label">Confirmacion paquete</label>
+                                                            <textarea class="form-control form-control-solid" id="migbd_paquete_confirmacion" rows="3" placeholder="AUTORIZO APLICAR PAQUETE MIGRACIONES BD ... hacia ... usando respaldo ..."></textarea>
+                                                        </div>
+                                                        <div class="col-xl-3 d-flex align-items-end justify-content-end">
+                                                            <button type="button" class="btn btn-danger" id="migbd_btn_paquete_aplicar">
+                                                                <i class="bi bi-database-up"></i>
+                                                                Aplicar paquete
+                                                            </button>
+                                                        </div>
+                                                        <div class="col-12">
+                                                            <div id="migbd_paquete_aplicacion_resultado" class="border rounded p-5 text-muted">
+                                                                La aplicacion real exige paquete persistido, respaldo valido, permiso, token, confirmacion literal y bandera local de habilitacion.
+                                                            </div>
                                                         </div>
                                                     </div>
                                                 </div>

@@ -1186,3 +1186,138 @@ C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_postman_collection_readon
   - `/catalogo` referencia `CatalogoResponse`;
   - `/producto/{slug}` referencia `ProductoDetalleResponse`;
   - variable Postman `producto_slug=alimento-churro-blanco-para-peces-100-gr-g-tp-40372-100gr`.
+
+## Actualizacion 2026-08-01 - Disponibilidad con metadatos UI
+
+- Se fortalece `GET /ecommercePublico/disponibilidad`.
+- La respuesta ahora agrega `depurar.frontend` para que frontend pinte ficha/tarjeta sin duplicar reglas:
+  - `estado`;
+  - `badge.label`;
+  - `badge.tono`;
+  - `mensaje`;
+  - `cta.label`;
+  - `cta.habilitado`;
+  - `cta.accion=cotizacion_dryrun`;
+  - `mostrar_stock_exacto=false`;
+  - `precio_es_estimado=true`;
+  - `requiere_dryrun_antes_de_whatsapp=true`.
+- Se actualizan:
+  - `storage/uat/uat_ecommerce_publico_contract_shape_readonly.php`;
+  - `storage/uat/uat_ecommerce_publico_http_smoke_readonly.php`;
+  - `storage/uat/uat_ecommerce_publico_openapi_readonly.php`;
+  - `storage/uat/uat_ecommerce_publico_frontend_fixtures_readonly.php`;
+  - `docs/erp_ecommerce_publico_api_contratos.md`;
+  - `docs/erp_ecommerce_publico_frontend_contract_tests.md`;
+  - `docs/erp_ecommerce_publico_fixtures_frontend.md`.
+- UAT read-only validado:
+
+```bash
+C:\xampp\php\php.exe -l app\modelos\EcommerceCatalogoPublico.php
+C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_contract_shape_readonly.php
+C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_http_smoke_readonly.php --base=http://panel.com.local
+C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_green_gate_readonly.php --base=http://panel.com.local
+C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_frontend_snapshot_readonly.php --base=http://panel.com.local --origin=http://artiani.com.local --limite=2
+```
+
+- Resultado validado:
+  - `ok=true`;
+  - disponibilidad real ejemplo: `disponible`;
+  - badge: `Disponible`;
+  - CTA: `Agregar a cotizacion`;
+  - `mostrar_stock_exacto=false`;
+  - `requiere_dryrun_antes_de_whatsapp=true`.
+
+## Actualizacion 2026-08-01 - Cotizacion dry-run con estado UI de carrito
+
+- Se fortalece `POST /ecommercePublico/cotizacion_dryrun`.
+- La respuesta ahora agrega `depurar.frontend` para que frontend controle el carrito sin duplicar reglas:
+  - `estado`: `vacio`, `listo`, `observaciones` o `bloqueado`;
+  - `mensaje`;
+  - `lineas_total`;
+  - `bloqueos_total`;
+  - `advertencias_total`;
+  - `puede_continuar_preflight`;
+  - `mostrar_total_estimado`;
+  - `mostrar_whatsapp_preview`;
+  - `total_estimado_texto`;
+  - `cta_principal.endpoint_siguiente=/ecommercePublico/cotizacion_preflight`;
+  - `guardrails_ui.no_usar_precio_local_como_total=true`.
+- Se actualizan:
+  - `app/modelos/EcommerceCatalogoPublico.php`;
+  - `storage/uat/uat_ecommerce_publico_contract_shape_readonly.php`;
+  - `storage/uat/uat_ecommerce_publico_http_smoke_readonly.php`;
+  - `storage/uat/uat_ecommerce_publico_openapi_readonly.php`;
+  - `storage/uat/uat_ecommerce_publico_frontend_fixtures_readonly.php`;
+  - `storage/uat/uat_ecommerce_publico_frontend_snapshot_readonly.php`;
+  - `docs/erp_ecommerce_publico_api_contratos.md`;
+  - `docs/erp_ecommerce_publico_carrito_whatsapp_frontend.md`;
+  - `docs/erp_ecommerce_publico_frontend_contract_tests.md`.
+- UAT read-only validado:
+
+```bash
+C:\xampp\php\php.exe -l app\modelos\EcommerceCatalogoPublico.php
+C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_contract_shape_readonly.php
+C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_http_smoke_readonly.php --base=http://panel.com.local
+C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_openapi_readonly.php
+C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_frontend_fixtures_readonly.php
+C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_frontend_snapshot_readonly.php --base=http://panel.com.local --origin=http://artiani.com.local --limite=2
+```
+
+- Resultado validado:
+  - `ok=true`;
+  - `dryrun.frontend.estado=listo`;
+  - `puede_continuar_preflight=true`;
+  - CTA siguiente: `/ecommercePublico/cotizacion_preflight`;
+  - `guardrails_ui.no_usar_precio_local_como_total=true`;
+  - no escribe BD, no registra cotizacion, no descuenta inventario.
+
+## Actualizacion 2026-08-01 - Handoff frontend consumible por API
+
+- Se agrega `GET /ecommercePublico/frontend_handoff?limite=2`.
+- Objetivo: que el proyecto frontend externo no tenga que abrir rutas fisicas ni documentos dentro de `panel_de_control`.
+- El endpoint entrega:
+  - `estado_actual.senal_frontend`;
+  - `variables_env_frontend`;
+  - `endpoints_para_consumir`;
+  - `orden_recomendado_integracion`;
+  - `pruebas_con_api`;
+  - `contratos_ui`;
+  - `ejemplos`;
+  - `no_usar`;
+  - `guardrails.no_requiere_filesystem=true`.
+- Se actualizan:
+  - `app/controladores/EcommercePublico.php`;
+  - `app/modelos/EcommerceCatalogoPublico.php`;
+  - `storage/uat/uat_ecommerce_publico_contract_shape_readonly.php`;
+  - `storage/uat/uat_ecommerce_publico_http_smoke_readonly.php`;
+  - `storage/uat/uat_ecommerce_publico_openapi_readonly.php`;
+  - `storage/uat/uat_ecommerce_publico_frontend_package_readonly.php`;
+  - `docs/erp_ecommerce_publico_api_contratos.md`;
+  - `docs/erp_ecommerce_publico_frontend_contract_tests.md`.
+
+Contrato operativo:
+
+```http
+GET http://panel.com.local/ecommercePublico/frontend_handoff?limite=2
+```
+
+Regla: los documentos `docs/*.md` quedan como memoria interna del ERP; frontend debe descubrir contratos, ejemplos y readiness por HTTP.
+
+UAT read-only validado:
+
+```bash
+C:\xampp\php\php.exe -l app\controladores\EcommercePublico.php
+C:\xampp\php\php.exe -l app\modelos\EcommerceCatalogoPublico.php
+C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_contract_shape_readonly.php
+C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_http_smoke_readonly.php --base=http://panel.com.local
+C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_green_gate_readonly.php --base=http://panel.com.local
+```
+
+Resultado validado:
+
+- `frontend_handoff` responde por HTTP;
+- `handoff_senal_frontend=verde_datos_reales`;
+- `handoff_endpoints_total=22`;
+- `handoff_pruebas_total=9`;
+- `guardrails.no_requiere_filesystem=true`;
+- `green_gate.ok=true`.

@@ -18,6 +18,7 @@ require_once "../app/iniciador.php";
 require_once "../app/modelos/EcommerceCatalogoPublico.php";
 
 $api = new EcommerceCatalogoPublico();
+$handoff = $api->frontendHandoffPublico(array("limite" => 2, "base_url" => $base));
 $estado = $api->estadoApiPublica();
 $bootstrap = $api->bootstrapPublico(array("limite_secciones" => 4));
 $configuracion = $api->configuracionPublica();
@@ -101,7 +102,14 @@ echo json_encode(array(
   "puede_iniciar_frontend_mock" => true,
   "puede_integrar_datos_reales" => $puedeIntegrarDatosReales,
   "base_api" => $base . "/ecommercePublico",
+  "fuente_recomendada_frontend" => array(
+    "tipo" => "api_http",
+    "endpoint" => $base . "/ecommercePublico/frontend_handoff?limite=2",
+    "no_requiere_entrar_a_panel_de_control" => true,
+    "senal_frontend" => valorFrontendPackage($handoff, array("depurar", "estado_actual", "senal_frontend"), "")
+  ),
   "endpoints_publicos" => array(
+    "GET /ecommercePublico/frontend_handoff",
     "GET /ecommercePublico/contratos",
     "GET /ecommercePublico/estado",
     "GET /ecommercePublico/bootstrap",
@@ -125,6 +133,7 @@ echo json_encode(array(
     "POST /ecommercePublico/busqueda_registrar"
   ),
   "endpoint_bloqueado_fase1" => "POST /ecommercePublico/cotizacion_registrar",
+  "documentos_nota" => "Estos documentos son referencia interna del ERP. El proyecto frontend externo debe consumir contratos por API, empezando por /ecommercePublico/frontend_handoff.",
   "documentos" => array(
     "docs/erp_ecommerce_publico_prompt_inicio_frontend.txt",
     "docs/erp_ecommerce_publico_instrucciones_frontend_nuevo_proyecto.txt",

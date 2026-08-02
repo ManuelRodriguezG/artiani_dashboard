@@ -95,6 +95,19 @@ class MigracionBd extends Controlador {
 
   /**
    * IA: Codex GPT-5
+   * Fecha: 2026-08-01
+   * Proposito: generar manifiesto JSON portable de preparacion de migracion.
+   * Impacto: Migraciones BD; no persiste ni ejecuta cambios.
+   */
+  public function manifiesto_preparacion() {
+    $this->requerirAlgunPermiso(array("migraciones.ver", "migraciones.preparar", "sistema.soporte"));
+    $destino = isset($_GET["destino"]) ? trim($_GET["destino"]) : "";
+    $modelo = $this->modelo("MigracionesBd");
+    echo json_encode($modelo->generarManifiestoPreparacion($destino));
+  }
+
+  /**
+   * IA: Codex GPT-5
    * Fecha: 2026-07-30
    * Proposito: comparar esquema local contra ambiente destino.
    * Impacto: Migraciones BD; solo lectura.
@@ -170,6 +183,50 @@ class MigracionBd extends Controlador {
 
   /**
    * IA: Codex GPT-5
+   * Fecha: 2026-08-01
+   * Proposito: validar compuertas antes de aplicar un paquete persistido.
+   * Impacto: Migraciones BD; no ejecuta SQL.
+   */
+  public function paquete_preflight() {
+    $this->requerirAlgunPermiso(array("migraciones.aplicar", "sistema.soporte"));
+    $codigo = isset($_GET["codigo"]) ? trim($_GET["codigo"]) : "";
+    $respaldo = isset($_GET["respaldo"]) ? trim($_GET["respaldo"]) : "";
+    $modelo = $this->modelo("MigracionesBd");
+    echo json_encode($modelo->preflightPaqueteAplicacion($codigo, $respaldo));
+  }
+
+  /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-08-01
+   * Proposito: simular o solicitar aplicacion controlada de un paquete persistido.
+   * Impacto: Migraciones BD; ejecucion real exige respaldo, token, confirmacion literal y bandera local.
+   */
+  public function paquete_aplicar() {
+    $this->requerirPermiso("migraciones.aplicar");
+    $codigo = isset($_POST["codigo"]) ? trim($_POST["codigo"]) : "";
+    $respaldo = isset($_POST["respaldo"]) ? trim($_POST["respaldo"]) : "";
+    $autorizar = isset($_POST["autorizar"]) ? trim($_POST["autorizar"]) : "";
+    $confirmacion = isset($_POST["confirmacion"]) ? trim($_POST["confirmacion"]) : "";
+    $ejecutar = isset($_POST["ejecutar"]) && $_POST["ejecutar"] == 1;
+    $modelo = $this->modelo("MigracionesBd");
+    $respuesta = $modelo->aplicarPaqueteControlado($codigo, $respaldo, $autorizar, $confirmacion, $this->usuarioActualId(), $ejecutar);
+    SesionSeguridad::registrarAuditoria("migraciones", $ejecutar ? "paquete_aplicar" : "paquete_aplicar_simular", array(
+      "entidad" => "sys_migraciones_paquetes",
+      "entidad_id" => $codigo,
+      "resultado" => $respuesta["error"] ? "error" : "ok",
+      "datos_despues" => array(
+        "ejecutar" => $ejecutar,
+        "respaldo" => $respaldo,
+        "mensaje" => $respuesta["mensaje"],
+        "depurar" => isset($respuesta["depurar"]) ? $respuesta["depurar"] : null
+      ),
+      "mensaje" => $respuesta["mensaje"]
+    ));
+    echo json_encode($respuesta);
+  }
+
+  /**
+   * IA: Codex GPT-5
    * Fecha: 2026-07-31
    * Proposito: validar respaldo externo antes de DDL o migraciones autorizadas.
    * Impacto: Migraciones BD; no crea archivos ni modifica BD.
@@ -180,6 +237,34 @@ class MigracionBd extends Controlador {
     $respaldo = isset($_GET["respaldo"]) ? trim($_GET["respaldo"]) : "";
     $modelo = $this->modelo("MigracionesBd");
     echo json_encode($modelo->validarRespaldo($respaldo));
+  }
+
+  /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-08-01
+   * Proposito: generar respaldo SQL local antes de DDL o paquetes.
+   * Impacto: Migraciones BD; escribe archivo externo al repo y no modifica BD.
+   */
+  public function respaldo_generar() {
+    $this->requerirAlgunPermiso(array("migraciones.respaldos", "sistema.soporte"));
+    $alcance = isset($_POST["alcance"]) ? trim($_POST["alcance"]) : "migracion_bd";
+    $autorizar = isset($_POST["autorizar"]) ? trim($_POST["autorizar"]) : "";
+    $confirmacion = isset($_POST["confirmacion"]) ? trim($_POST["confirmacion"]) : "";
+    $modelo = $this->modelo("MigracionesBd");
+    $respuesta = $modelo->generarRespaldoLocal($alcance, $autorizar, $confirmacion, $this->usuarioActualId());
+    SesionSeguridad::registrarAuditoria("migraciones", "respaldo_generar", array(
+      "entidad" => "backup_sql",
+      "resultado" => $respuesta["error"] ? "error" : "ok",
+      "datos_despues" => isset($respuesta["depurar"]) ? array(
+        "ok" => isset($respuesta["depurar"]["ok"]) ? $respuesta["depurar"]["ok"] : false,
+        "archivo" => isset($respuesta["depurar"]["archivo"]) ? $respuesta["depurar"]["archivo"] : null,
+        "tamano_bytes" => isset($respuesta["depurar"]["tamano_bytes"]) ? $respuesta["depurar"]["tamano_bytes"] : 0,
+        "sha256" => isset($respuesta["depurar"]["sha256"]) ? $respuesta["depurar"]["sha256"] : null,
+        "codigo_salida" => isset($respuesta["depurar"]["codigo_salida"]) ? $respuesta["depurar"]["codigo_salida"] : null
+      ) : null,
+      "mensaje" => $respuesta["mensaje"]
+    ));
+    echo json_encode($respuesta);
   }
 
   /**

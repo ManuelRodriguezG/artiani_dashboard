@@ -194,6 +194,7 @@ echo json_encode(array(
     "mensaje" => valorSnapshot($dryrun, array("mensaje"), ""),
     "lineas" => valorSnapshot($dryrun, array("depurar", "lineas"), array()),
     "totales" => valorSnapshot($dryrun, array("depurar", "totales"), array()),
+    "frontend" => valorSnapshot($dryrun, array("depurar", "frontend"), array()),
     "bloqueos" => valorSnapshot($dryrun, array("depurar", "bloqueos"), array()),
     "whatsapp_preview" => valorSnapshot($dryrun, array("depurar", "whatsapp_preview"), "")
   ),

@@ -13,6 +13,7 @@ $base = isset($opciones["base"]) ? rtrim(trim((string) $opciones["base"]), "/") 
 $pruebas = array(
   "estado" => requestHttp($base . "/ecommercePublico/estado"),
   "contratos" => requestHttp($base . "/ecommercePublico/contratos"),
+  "frontend_handoff" => requestHttp($base . "/ecommercePublico/frontend_handoff?limite=2"),
   "bootstrap" => requestHttp($base . "/ecommercePublico/bootstrap?limite_secciones=3"),
   "configuracion" => requestHttp($base . "/ecommercePublico/configuracion"),
   "seo" => requestHttp($base . "/ecommercePublico/seo?limite=20"),
@@ -61,6 +62,7 @@ $pruebas = array(
 $primerSlugCatalogo = (string) valorHttpSmoke($pruebas, array("catalogo", "depurar_resumen", "primer_slug"), "");
 if ($primerSlugCatalogo !== "") {
   $pruebas["producto_real"] = requestHttp($base . "/ecommercePublico/producto/" . rawurlencode($primerSlugCatalogo));
+  $pruebas["disponibilidad_real"] = requestHttp($base . "/ecommercePublico/disponibilidad?slug=" . rawurlencode($primerSlugCatalogo));
 }
 
 $bloqueos = array();
@@ -69,10 +71,22 @@ foreach ($pruebas as $nombre => $prueba) {
     $bloqueos[] = $nombre . "_no_responde_json";
   }
 }
-foreach (array("bootstrap", "seo", "filtros", "busqueda_sugerencias", "navegacion", "secciones", "catalogo_disponible_ordenado", "canales_estado") as $endpointNuevo) {
+foreach (array("frontend_handoff", "bootstrap", "seo", "filtros", "busqueda_sugerencias", "navegacion", "secciones", "catalogo_disponible_ordenado", "canales_estado") as $endpointNuevo) {
   if (!$pruebas[$endpointNuevo]["json_valido"] || !in_array($pruebas[$endpointNuevo]["tipo"], array("success", "info"), true)) {
     $bloqueos[] = $endpointNuevo . "_no_responde_success_o_info";
   }
+}
+if ($pruebas["frontend_handoff"]["depurar_resumen"]["handoff_senal_frontend"] === "") {
+  $bloqueos[] = "frontend_handoff_debe_exponer_senal_frontend";
+}
+if ($pruebas["frontend_handoff"]["depurar_resumen"]["handoff_endpoints_total"] < 20) {
+  $bloqueos[] = "frontend_handoff_debe_exponer_endpoints";
+}
+if ($pruebas["frontend_handoff"]["depurar_resumen"]["handoff_pruebas_total"] < 7) {
+  $bloqueos[] = "frontend_handoff_debe_exponer_pruebas_api";
+}
+if ($pruebas["frontend_handoff"]["depurar_resumen"]["handoff_no_filesystem"] !== true) {
+  $bloqueos[] = "frontend_handoff_no_debe_requerir_filesystem";
 }
 if (empty($pruebas["bootstrap"]["depurar_resumen"]["bootstrap_guardrails"])) {
   $bloqueos[] = "bootstrap_debe_exponer_guardrails";
@@ -115,9 +129,27 @@ if ($primerSlugCatalogo === "") {
   if ($pruebas["producto_real"]["depurar_resumen"]["producto_seo_title"] === "") {
     $bloqueos[] = "producto_real_debe_exponer_seo";
   }
+  if (empty($pruebas["disponibilidad_real"]["depurar_resumen"]["disponibilidad_frontend_cta_label"])) {
+    $bloqueos[] = "disponibilidad_real_debe_exponer_cta_frontend";
+  }
+  if ($pruebas["disponibilidad_real"]["depurar_resumen"]["disponibilidad_frontend_stock_exacto"] !== false) {
+    $bloqueos[] = "disponibilidad_real_no_debe_mostrar_stock_exacto";
+  }
+  if ($pruebas["disponibilidad_real"]["depurar_resumen"]["disponibilidad_frontend_requiere_dryrun"] !== true) {
+    $bloqueos[] = "disponibilidad_real_debe_requerir_dryrun";
+  }
 }
 if (empty($pruebas["cotizacion_registrar"]["depurar_resumen"]["bloqueado"])) {
   $bloqueos[] = "cotizacion_registrar_debe_seguir_bloqueado";
+}
+if ($pruebas["cotizacion_dryrun"]["depurar_resumen"]["dryrun_frontend_puede_preflight"] !== true) {
+  $bloqueos[] = "dryrun_frontend_debe_permitir_preflight";
+}
+if ($pruebas["cotizacion_dryrun"]["depurar_resumen"]["dryrun_frontend_cta_endpoint"] !== "/ecommercePublico/cotizacion_preflight") {
+  $bloqueos[] = "dryrun_frontend_debe_indicar_endpoint_preflight";
+}
+if ($pruebas["cotizacion_dryrun"]["depurar_resumen"]["dryrun_frontend_no_precio_local"] !== true) {
+  $bloqueos[] = "dryrun_frontend_debe_bloquear_precio_local";
 }
 foreach (array("facturacion_solicitar", "evento_navegacion", "busqueda_registrar") as $endpointPreflight) {
   if (empty($pruebas[$endpointPreflight]["depurar_resumen"]["preflight"])) {
@@ -177,11 +209,26 @@ function resumenDepurarHttpSmoke($depurar) {
   return array(
     "ready" => valorHttpSmoke($depurar, array("ready"), null),
     "configurado" => valorHttpSmoke($depurar, array("configurado"), null),
+    "handoff_senal_frontend" => valorHttpSmoke($depurar, array("estado_actual", "senal_frontend"), ""),
+    "handoff_endpoints_total" => is_array(valorHttpSmoke($depurar, array("endpoints_para_consumir"), null)) ? count($depurar["endpoints_para_consumir"]) : null,
+    "handoff_pruebas_total" => is_array(valorHttpSmoke($depurar, array("pruebas_con_api"), null)) ? count($depurar["pruebas_con_api"]) : null,
+    "handoff_no_usar_total" => is_array(valorHttpSmoke($depurar, array("no_usar"), null)) ? count($depurar["no_usar"]) : null,
+    "handoff_no_filesystem" => valorHttpSmoke($depurar, array("guardrails", "no_requiere_filesystem"), null),
     "dry_run" => valorHttpSmoke($depurar, array("dry_run"), null),
+    "dryrun_frontend_estado" => valorHttpSmoke($depurar, array("frontend", "estado"), ""),
+    "dryrun_frontend_puede_preflight" => valorHttpSmoke($depurar, array("frontend", "puede_continuar_preflight"), null),
+    "dryrun_frontend_cta_label" => valorHttpSmoke($depurar, array("frontend", "cta_principal", "label"), ""),
+    "dryrun_frontend_cta_endpoint" => valorHttpSmoke($depurar, array("frontend", "cta_principal", "endpoint_siguiente"), ""),
+    "dryrun_frontend_no_precio_local" => valorHttpSmoke($depurar, array("frontend", "guardrails_ui", "no_usar_precio_local_como_total"), null),
     "preflight" => valorHttpSmoke($depurar, array("preflight"), null),
     "listo_para_whatsapp" => valorHttpSmoke($depurar, array("listo_para_whatsapp"), null),
     "bloqueado" => valorHttpSmoke($depurar, array("bloqueado"), null),
     "disponibilidad" => valorHttpSmoke($depurar, array("disponibilidad"), null),
+    "disponibilidad_frontend_estado" => valorHttpSmoke($depurar, array("frontend", "estado"), null),
+    "disponibilidad_frontend_badge" => valorHttpSmoke($depurar, array("frontend", "badge", "label"), ""),
+    "disponibilidad_frontend_cta_label" => valorHttpSmoke($depurar, array("frontend", "cta", "label"), ""),
+    "disponibilidad_frontend_stock_exacto" => valorHttpSmoke($depurar, array("frontend", "mostrar_stock_exacto"), null),
+    "disponibilidad_frontend_requiere_dryrun" => valorHttpSmoke($depurar, array("frontend", "requiere_dryrun_antes_de_whatsapp"), null),
     "bootstrap_guardrails" => is_array(valorHttpSmoke($depurar, array("guardrails"), null)),
     "rutas_total" => is_array(valorHttpSmoke($depurar, array("rutas"), null)) ? count($depurar["rutas"]) : null,
     "navegacion_total" => valorHttpSmoke($depurar, array("resumen", "total_items"), null),

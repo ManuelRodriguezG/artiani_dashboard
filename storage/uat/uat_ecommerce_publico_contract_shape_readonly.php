@@ -16,6 +16,7 @@ $modelo = new EcommerceCatalogoPublico();
 $respuestas = array(
   "contratos" => $modelo->contratosApiPublicos(),
   "estado" => $modelo->estadoApiPublica(),
+  "frontend_handoff" => $modelo->frontendHandoffPublico(array("limite" => 2)),
   "bootstrap" => $modelo->bootstrapPublico(array("limite_secciones" => 3)),
   "configuracion" => $modelo->configuracionPublica(),
   "seo" => $modelo->seoPublico(),
@@ -69,6 +70,7 @@ foreach ($respuestas as $nombre => $respuesta) {
 
 validarRutas($respuestas["contratos"], $bloqueos);
 validarEstado($respuestas["estado"], $bloqueos);
+validarFrontendHandoff($respuestas["frontend_handoff"], $bloqueos);
 validarBootstrap($respuestas["bootstrap"], $bloqueos);
 validarConfiguracion($respuestas["configuracion"], $bloqueos);
 validarSeo($respuestas["seo"], $bloqueos);
@@ -95,7 +97,7 @@ echo json_encode(array(
   "modo" => "read-only",
   "shape" => array(
     "wrappers_validados" => array_keys($respuestas),
-    "endpoints_publicos_esperados" => 21,
+    "endpoints_publicos_esperados" => 22,
     "item_catalogo_keys" => itemCatalogoKeys()
   ),
   "bloqueos" => $bloqueos,
@@ -129,6 +131,7 @@ function validarRutas($respuesta, &$bloqueos) {
   }
   foreach (array(
     "/ecommercePublico/estado",
+    "/ecommercePublico/frontend_handoff",
     "/ecommercePublico/bootstrap",
     "/ecommercePublico/catalogo",
     "/ecommercePublico/producto/{slug}",
@@ -153,6 +156,42 @@ function validarRutas($respuesta, &$bloqueos) {
     if (!in_array($ruta, $rutas, true)) {
       $bloqueos[] = "contratos_falta_ruta_" . $ruta;
     }
+  }
+}
+
+function validarFrontendHandoff($respuesta, &$bloqueos) {
+  foreach (array(
+    "estado_actual",
+    "variables_env_frontend",
+    "endpoints_para_consumir",
+    "orden_recomendado_integracion",
+    "pruebas_con_api",
+    "contratos_ui",
+    "ejemplos",
+    "no_usar",
+    "guardrails"
+  ) as $key) {
+    if (!is_array(valorShape($respuesta, array("depurar", $key), null))) {
+      $bloqueos[] = "frontend_handoff_falta_array_" . $key;
+    }
+  }
+  if (valorShape($respuesta, array("depurar", "variables_env_frontend", "VITE_ERP_API_BASE_URL"), "") === "") {
+    $bloqueos[] = "frontend_handoff_falta_base_url";
+  }
+  if (valorShape($respuesta, array("depurar", "variables_env_frontend", "VITE_ERP_ECOMMERCE_BASE_PATH"), "") !== "/ecommercePublico") {
+    $bloqueos[] = "frontend_handoff_base_path_invalido";
+  }
+  if (valorShape($respuesta, array("depurar", "estado_actual", "senal_frontend"), "") === "") {
+    $bloqueos[] = "frontend_handoff_falta_senal_frontend";
+  }
+  if (count(valorShape($respuesta, array("depurar", "endpoints_para_consumir"), array())) < 20) {
+    $bloqueos[] = "frontend_handoff_debe_exponer_endpoints";
+  }
+  if (count(valorShape($respuesta, array("depurar", "pruebas_con_api"), array())) < 7) {
+    $bloqueos[] = "frontend_handoff_debe_exponer_pruebas_http";
+  }
+  if (valorShape($respuesta, array("depurar", "guardrails", "no_requiere_filesystem"), false) !== true) {
+    $bloqueos[] = "frontend_handoff_no_debe_requerir_filesystem";
   }
 }
 
@@ -311,6 +350,15 @@ function validarDisponibilidad($respuesta, &$bloqueos) {
   if (valorShape($respuesta, array("depurar", "mostrar_cantidad_exacta"), false) === true) {
     $bloqueos[] = "disponibilidad_no_debe_mostrar_cantidad_exacta";
   }
+  if (!is_array(valorShape($respuesta, array("depurar", "frontend"), null))) {
+    $bloqueos[] = "disponibilidad_frontend_debe_ser_array";
+  }
+  if (valorShape($respuesta, array("depurar", "frontend", "mostrar_stock_exacto"), true) !== false) {
+    $bloqueos[] = "disponibilidad_frontend_no_debe_mostrar_stock_exacto";
+  }
+  if (valorShape($respuesta, array("depurar", "frontend", "requiere_dryrun_antes_de_whatsapp"), false) !== true) {
+    $bloqueos[] = "disponibilidad_frontend_debe_requerir_dryrun";
+  }
 }
 
 function validarCanalesEstado($respuesta, &$bloqueos) {
@@ -333,6 +381,18 @@ function validarDryRun($respuesta, &$bloqueos) {
   }
   if (!is_array(valorShape($respuesta, array("depurar", "lineas"), null))) {
     $bloqueos[] = "dryrun_lineas_debe_ser_array";
+  }
+  if (!is_array(valorShape($respuesta, array("depurar", "frontend"), null))) {
+    $bloqueos[] = "dryrun_frontend_debe_ser_array";
+  }
+  if (valorShape($respuesta, array("depurar", "frontend", "puede_continuar_preflight"), null) !== true) {
+    $bloqueos[] = "dryrun_frontend_debe_permitir_preflight_con_payload_valido";
+  }
+  if (valorShape($respuesta, array("depurar", "frontend", "cta_principal", "endpoint_siguiente"), "") !== "/ecommercePublico/cotizacion_preflight") {
+    $bloqueos[] = "dryrun_frontend_debe_indicar_endpoint_preflight";
+  }
+  if (valorShape($respuesta, array("depurar", "frontend", "guardrails_ui", "no_usar_precio_local_como_total"), false) !== true) {
+    $bloqueos[] = "dryrun_frontend_debe_bloquear_precio_local_como_total";
   }
 }
 

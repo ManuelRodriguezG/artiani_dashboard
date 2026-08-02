@@ -25,6 +25,17 @@ class EcommercePublico extends Controlador {
   }
 
   /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-08-01
+   * Proposito: entregar handoff consumible por el frontend externo sin acceder al filesystem del ERP.
+   * Impacto: Frontend ecommerce; centraliza estado, endpoints, ejemplos, pruebas recomendadas y no-go.
+   * Contrato: GET publico read-only; no expone secretos, no escribe BD y no requiere leer docs locales.
+   */
+  public function frontend_handoff() {
+    if ($this->esOptionsPublicas()) { return $this->responderOpcionesPublicas(); }
+    return $this->responderApiPublica($this->modelo("EcommerceCatalogoPublico")->frontendHandoffPublico($_GET));
+  }
+
+  /**
    * Documentacion IA: Codex GPT-5 | Fecha: 2026-07-31
    * Proposito: entregar paquete inicial para que el frontend arranque ecommerce con una sola llamada.
    * Impacto: Ecommerce publico; agrupa readiness, configuracion, filtros, secciones y canales sin escribir BD.

@@ -170,6 +170,8 @@
 				'Proyecto.comentario_guardar_erp',
 				'MigracionBd.politicas_guardar',
 				'MigracionBd.paquete_dry_run_crear',
+				'MigracionBd.paquete_aplicar',
+				'MigracionBd.respaldo_generar',
 				'MigracionBd.esquema_actualizar'
 			);
 			$rutaAccion = $nombreControlador . '.' . $this->metodoActual;

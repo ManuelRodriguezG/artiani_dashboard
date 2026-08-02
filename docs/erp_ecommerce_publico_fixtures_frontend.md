@@ -108,6 +108,10 @@ El frontend debe preferir API real cuando `green_gate.ok=true`. Si usa fixtures,
 - `GET /catalogo`
 - `GET /producto/{slug}`
 - `GET /disponibilidad`
+
+La fixture `disponibilidad.depurar.frontend` incluye badge, mensaje, CTA y guardrails UI para pintar tarjetas/ficha sin exponer stock exacto.
+
+La fixture `cotizacion_dryrun.depurar.frontend` incluye estado de carrito, CTA hacia `cotizacion_preflight`, total estimado para UI y guardrails para no usar precios locales como verdad.
 - `POST /cotizacion_dryrun`
 
 Reglas:

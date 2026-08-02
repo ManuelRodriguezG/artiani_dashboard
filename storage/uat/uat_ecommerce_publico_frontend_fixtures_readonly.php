@@ -455,7 +455,17 @@ $salida = array(
       "id_sku" => $items[0]["id_sku"],
       "slug" => $items[0]["slug"],
       "disponibilidad" => $items[0]["disponibilidad"],
-      "mostrar_cantidad_exacta" => false
+      "mostrar_cantidad_exacta" => false,
+      "permite_cotizacion" => true,
+      "frontend" => array(
+        "estado" => "disponible",
+        "badge" => array("label" => "Disponible", "tono" => "success"),
+        "mensaje" => "Disponible para cotizacion.",
+        "cta" => array("label" => "Agregar a cotizacion", "habilitado" => true, "accion" => "cotizacion_dryrun"),
+        "mostrar_stock_exacto" => false,
+        "precio_es_estimado" => true,
+        "requiere_dryrun_antes_de_whatsapp" => true
+      )
     )
   ),
   "cotizacion_dryrun" => array(
@@ -494,7 +504,36 @@ $salida = array(
         "texto" => "Total estimado sujeto a confirmacion"
       ),
       "bloqueos" => array(),
-      "whatsapp_preview" => "Hola, quiero cotizar estos productos:\n\n1. Croqueta perro adulto pollo 2 kg - Cant. 2 - $578.00 MXN\n\nTotal estimado: $578.00 MXN\nSujeto a confirmacion de disponibilidad."
+      "whatsapp_preview" => "Hola, quiero cotizar estos productos:\n\n1. Croqueta perro adulto pollo 2 kg - Cant. 2 - $578.00 MXN\n\nTotal estimado: $578.00 MXN\nSujeto a confirmacion de disponibilidad.",
+      "frontend" => array(
+        "estado" => "listo",
+        "mensaje" => "Carrito validado. Continua con tus datos para WhatsApp.",
+        "lineas_total" => 1,
+        "bloqueos_total" => 0,
+        "advertencias_total" => 0,
+        "puede_continuar_preflight" => true,
+        "mostrar_total_estimado" => true,
+        "mostrar_whatsapp_preview" => true,
+        "max_items" => 50,
+        "max_cantidad_por_linea" => 999,
+        "precio_es_estimado" => true,
+        "permitir_continuar_con_pocas_piezas" => true,
+        "permitir_continuar_con_agotado" => true,
+        "mensaje_confirmacion" => "Disponibilidad y total sujetos a confirmacion por Artiani.",
+        "total_estimado_texto" => "$578.00 MXN",
+        "cta_principal" => array(
+          "label" => "Continuar a WhatsApp",
+          "endpoint_siguiente" => "/ecommercePublico/cotizacion_preflight",
+          "habilitado" => true,
+          "motivos_disabled" => array()
+        ),
+        "guardrails_ui" => array(
+          "no_registra_cotizacion" => true,
+          "no_descuenta_inventario" => true,
+          "no_crea_pedido" => true,
+          "no_usar_precio_local_como_total" => true
+        )
+      )
     )
   )
 );

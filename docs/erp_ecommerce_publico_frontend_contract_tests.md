@@ -42,6 +42,21 @@ Validar:
 - `depurar.seguridad.post_dryrun_disponible=true`;
 - `depurar.seguridad.post_registro_bloqueado=true`.
 
+### Frontend handoff
+
+Validar:
+
+- `GET /ecommercePublico/frontend_handoff?limite=2` responde wrapper comun;
+- `depurar.estado_actual.senal_frontend` existe;
+- `depurar.variables_env_frontend.VITE_ERP_API_BASE_URL` existe;
+- `depurar.variables_env_frontend.VITE_ERP_ECOMMERCE_BASE_PATH === "/ecommercePublico"`;
+- `depurar.endpoints_para_consumir` tiene al menos 20 entradas;
+- `depurar.pruebas_con_api` tiene ejemplos HTTP;
+- `depurar.contratos_ui` existe;
+- `depurar.guardrails.no_requiere_filesystem === true`.
+
+El proyecto frontend externo no debe abrir `docs/*.md` ni navegar archivos de `panel_de_control` para conocer el estado de la API.
+
 ### Bootstrap
 
 Validar:
@@ -176,6 +191,14 @@ Solo permitir:
 
 Nunca renderizar cantidad exacta.
 
+Validar tambien:
+
+- `depurar.frontend.estado` existe;
+- `depurar.frontend.badge.label` existe;
+- `depurar.frontend.cta.label` existe;
+- `depurar.frontend.mostrar_stock_exacto=false`;
+- `depurar.frontend.requiere_dryrun_antes_de_whatsapp=true`.
+
 ### Cotizacion dry-run
 
 Validar:
@@ -186,6 +209,10 @@ Validar:
 - `depurar.lineas` es array;
 - `depurar.totales.moneda` existe;
 - `depurar.whatsapp_preview` existe cuando hay lineas.
+- `depurar.frontend.estado` existe;
+- `depurar.frontend.puede_continuar_preflight=true` con payload valido;
+- `depurar.frontend.cta_principal.endpoint_siguiente="/ecommercePublico/cotizacion_preflight"`;
+- `depurar.frontend.guardrails_ui.no_usar_precio_local_como_total=true`.
 
 ### Registro real
 

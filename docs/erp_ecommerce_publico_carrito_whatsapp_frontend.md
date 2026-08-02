@@ -139,6 +139,9 @@ Antes de mostrar boton WhatsApp activo:
 - `cotizacion_dryrun.depurar.dry_run=true`;
 - `cotizacion_dryrun.depurar.no_escribe_bd=true`;
 - `cotizacion_dryrun.depurar.no_descuenta_inventario=true`;
+- `cotizacion_dryrun.depurar.frontend.puede_continuar_preflight=true`;
+- `cotizacion_dryrun.depurar.frontend.cta_principal.endpoint_siguiente="/ecommercePublico/cotizacion_preflight"`;
+- `cotizacion_dryrun.depurar.frontend.guardrails_ui.no_usar_precio_local_como_total=true`;
 - `cotizacion_preflight.depurar.preflight=true`;
 - `cotizacion_preflight.depurar.no_escribe_bd=true`;
 - `cotizacion_preflight.depurar.listo_para_whatsapp=true`;

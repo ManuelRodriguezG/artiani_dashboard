@@ -34,7 +34,7 @@ class EcommerceCatalogoPublico extends CRUD {
           "no_pegar_secret_en_javascript" => true,
           "scopes_fase_1" => array("catalogo:leer", "producto:leer", "filtros:leer", "disponibilidad:leer", "cotizacion:dryrun")
         ),
-        "documento" => "docs/erp_ecommerce_publico_api_canales_partners.md"
+        "documento" => "Referencia interna ERP; el frontend externo debe consumir /ecommercePublico/frontend_handoff y /ecommercePublico/contratos."
       ),
       "endpoints_publicos" => array(
         array(
@@ -42,6 +42,13 @@ class EcommerceCatalogoPublico extends CRUD {
           "ruta" => "/ecommercePublico/estado",
           "descripcion" => "Readiness del API ecommerce: esquema, publicaciones, configuracion y guardrails.",
           "respuesta_depurar" => array("ready", "schema", "publicaciones", "configuracion", "seguridad")
+        ),
+        array(
+          "metodo" => "GET",
+          "ruta" => "/ecommercePublico/frontend_handoff",
+          "descripcion" => "Handoff vivo para frontend externo: base URL, endpoints, orden de integracion, ejemplos HTTP, contratos UI y reglas no-go sin leer archivos del ERP.",
+          "parametros" => array("limite" => "1-6 productos ejemplo, default 2."),
+          "respuesta_depurar" => array("estado_actual", "variables_env_frontend", "endpoints_para_consumir", "orden_recomendado_integracion", "pruebas_con_api", "contratos_ui", "ejemplos", "no_usar")
         ),
         array(
           "metodo" => "GET",
@@ -281,6 +288,111 @@ class EcommerceCatalogoPublico extends CRUD {
         "captcha" => "Recomendado para formularios publicos de cotizacion."
       )
     ));
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-08-01
+   * Proposito: entregar al proyecto frontend externo un paquete de integracion consumible por API.
+   * Impacto: Ecommerce publico; evita que frontend lea documentos o archivos internos de panel_de_control.
+   * Contrato: solo lectura; compone estado, contratos, ejemplos y guardrails sin escribir BD ni exponer secretos.
+   */
+  public function frontendHandoffPublico($opciones = array()) {
+    try {
+      $limite = max(1, min(6, intval($this->valor($opciones, "limite", 2))));
+      $baseUrl = trim((string) $this->valor($opciones, "base_url", "http://panel.com.local"));
+      $baseUrl = rtrim($baseUrl === "" ? "http://panel.com.local" : $baseUrl, "/");
+      $basePath = "/ecommercePublico";
+      $baseApi = $baseUrl . $basePath;
+
+      $readiness = $this->readinessFrontendInterna(array("base_url" => $baseUrl));
+      $contratos = $this->contratosApiPublicos();
+      $bootstrap = $this->bootstrapPublico(array("limite_secciones" => min(6, $limite)));
+      $catalogo = $this->catalogoPublico(array("limite" => $limite));
+      $items = $this->valor($catalogo, array("depurar", "items"), array());
+      $primerItem = !empty($items) && is_array($items[0]) ? $items[0] : null;
+      $slugEjemplo = is_array($primerItem) ? (string) $this->valor($primerItem, "slug", "") : "";
+      $idPublicacionEjemplo = is_array($primerItem) ? intval($this->valor($primerItem, "id_publicacion", 0)) : 0;
+      $idSkuEjemplo = is_array($primerItem) ? intval($this->valor($primerItem, "id_sku", 0)) : 0;
+
+      $producto = $slugEjemplo !== "" ? $this->productoPublico($slugEjemplo) : null;
+      $disponibilidad = $slugEjemplo !== "" ? $this->disponibilidadPublica(array("slug" => $slugEjemplo)) : null;
+      $payloadCotizacion = array(
+        "items" => array(array(
+          "slug" => $slugEjemplo !== "" ? $slugEjemplo : "slug-producto-publicado",
+          "id_publicacion" => $idPublicacionEjemplo > 0 ? $idPublicacionEjemplo : null,
+          "id_sku" => $idSkuEjemplo > 0 ? $idSkuEjemplo : null,
+          "cantidad" => 1
+        )),
+        "contacto" => array("nombre" => "Cliente demo", "telefono" => "3322068429"),
+        "acepta_contacto_whatsapp" => true,
+        "politicas_aceptadas" => array("aviso-privacidad", "cotizacion-whatsapp")
+      );
+      $dryrun = $this->cotizacionDryRun($payloadCotizacion);
+
+      return $this->respuesta(false, "success", "Handoff frontend ecommerce disponible por API", array(
+        "estado_actual" => array(
+          "senal_frontend" => $this->valor($readiness, array("depurar", "senal_frontend"), "amarillo_mock_contratos"),
+          "puede_iniciar_frontend_mock" => (bool) $this->valor($readiness, array("depurar", "puede_iniciar_frontend_mock"), true),
+          "puede_integrar_datos_reales" => (bool) $this->valor($readiness, array("depurar", "puede_integrar_datos_reales"), false),
+          "bloqueos_datos_reales" => $this->valor($readiness, array("depurar", "bloqueos_datos_reales"), array()),
+          "publicaciones" => $this->valor($readiness, array("depurar", "publicaciones"), array())
+        ),
+        "variables_env_frontend" => array(
+          "VITE_ERP_API_BASE_URL" => $baseUrl,
+          "VITE_ERP_ECOMMERCE_BASE_PATH" => $basePath,
+          "VITE_ERP_ECOMMERCE_API_VERSION" => "fase1-2026-07-12"
+        ),
+        "endpoints_para_consumir" => $this->endpointsFrontendHandoff(),
+        "orden_recomendado_integracion" => array(
+          "GET /ecommercePublico/frontend_handoff",
+          "GET /ecommercePublico/bootstrap",
+          "GET /ecommercePublico/catalogo?limite=24",
+          "GET /ecommercePublico/producto/{slug}",
+          "GET /ecommercePublico/disponibilidad?slug={slug}",
+          "POST /ecommercePublico/cotizacion_dryrun",
+          "POST /ecommercePublico/cotizacion_preflight"
+        ),
+        "pruebas_con_api" => $this->pruebasFrontendHandoff($baseApi, $slugEjemplo, $payloadCotizacion),
+        "contratos_ui" => array(
+          "catalogo" => array("depurar.items", "depurar.paginacion", "depurar.frontend", "depurar.guardrails"),
+          "producto" => array("depurar.item", "depurar.variantes", "depurar.relacionados", "depurar.breadcrumbs", "depurar.seo", "depurar.acciones"),
+          "disponibilidad" => array("depurar.disponibilidad", "depurar.frontend.badge", "depurar.frontend.cta", "depurar.frontend.mostrar_stock_exacto=false"),
+          "cotizacion_dryrun" => array("depurar.lineas", "depurar.totales", "depurar.bloqueos", "depurar.advertencias", "depurar.frontend"),
+          "cotizacion_preflight" => array("depurar.cta", "depurar.whatsapp", "depurar.frontend", "depurar.listo_para_whatsapp")
+        ),
+        "ejemplos" => array(
+          "catalogo" => $this->resumenRespuestaFrontendHandoff($catalogo, array("items", "paginacion", "frontend")),
+          "producto" => $this->resumenRespuestaFrontendHandoff($producto, array("item", "variantes", "relacionados", "breadcrumbs", "seo", "acciones")),
+          "disponibilidad" => $this->resumenRespuestaFrontendHandoff($disponibilidad, array("disponibilidad", "frontend")),
+          "cotizacion_dryrun" => $this->resumenRespuestaFrontendHandoff($dryrun, array("lineas", "totales", "bloqueos", "advertencias", "frontend"))
+        ),
+        "no_usar" => array(
+          "No leer docs/*.md ni archivos de panel_de_control desde el proyecto frontend.",
+          "No consultar tablas internas del ERP ni legacy ecom_*.",
+          "No usar costos, proveedores, lotes, ubicaciones ni stock exacto.",
+          "No calcular precios finales en frontend; usar cotizacion_dryrun antes de WhatsApp.",
+          "No usar /ecommercePublico/cotizacion_registrar en Fase 1; sigue bloqueado.",
+          "No crear checkout, pagos o apartado de inventario desde frontend."
+        ),
+        "guardrails" => array(
+          "read_only" => true,
+          "no_expone_secretos" => true,
+          "no_requiere_filesystem" => true,
+          "frontend_es_proyecto_externo" => true,
+          "erp_es_fuente_de_verdad" => true
+        ),
+        "contratos_fuente" => array(
+          "contratos_api" => $this->valor($contratos, array("depurar", "base_path"), $basePath),
+          "bootstrap_disponible" => !empty($bootstrap) && empty($bootstrap["error"]),
+          "slug_ejemplo" => $slugEjemplo
+        )
+      ));
+    } catch (Exception $e) {
+      return $this->respuesta(true, "danger", $e->getMessage(), array(
+        "estado_actual" => array("senal_frontend" => "rojo_error_handoff"),
+        "guardrails" => array("read_only" => true, "no_requiere_filesystem" => true)
+      ));
+    }
   }
 
   /**
@@ -1455,12 +1567,20 @@ class EcommerceCatalogoPublico extends CRUD {
     try {
       $db = $this->getConexion();
       if (!$db || !$this->tablaExiste($db, "erp_ecommerce_publicaciones")) {
-        return $this->respuesta(false, "info", "Disponibilidad ecommerce aun no configurada", array("disponibilidad" => "consultar_disponibilidad"));
+        return $this->respuesta(false, "info", "Disponibilidad ecommerce aun no configurada", array(
+          "disponibilidad" => "consultar_disponibilidad",
+          "mostrar_cantidad_exacta" => false,
+          "frontend" => $this->frontendDisponibilidadPublica("consultar_disponibilidad", false)
+        ));
       }
       $idSku = intval($this->valor($filtros, "id_sku", 0));
       $slug = trim((string) $this->valor($filtros, "slug", ""));
       if ($idSku <= 0 && $slug === "") {
-        return $this->respuesta(true, "warning", "Indica SKU o slug publicado", array("disponibilidad" => "consultar_disponibilidad"));
+        return $this->respuesta(true, "warning", "Indica SKU o slug publicado", array(
+          "disponibilidad" => "consultar_disponibilidad",
+          "mostrar_cantidad_exacta" => false,
+          "frontend" => $this->frontendDisponibilidadPublica("consultar_disponibilidad", false)
+        ));
       }
       $where = array("pub.estatus_publicacion='publicado'", "p.estatus='activo'", "s.estatus='activo'");
       $params = array();
@@ -1475,13 +1595,21 @@ class EcommerceCatalogoPublico extends CRUD {
       $stmt->execute($params);
       $fila = $stmt->fetch(PDO::FETCH_ASSOC);
       if (!$fila) {
-        return $this->respuesta(false, "info", "SKU no publicado", array("disponibilidad" => "consultar_disponibilidad"));
+        return $this->respuesta(false, "info", "SKU no publicado", array(
+          "disponibilidad" => "consultar_disponibilidad",
+          "mostrar_cantidad_exacta" => false,
+          "frontend" => $this->frontendDisponibilidadPublica("consultar_disponibilidad", false)
+        ));
       }
+      $disponibilidad = $this->disponibilidadPublicaSugerida($fila);
+      $permiteCotizacion = intval($fila["permite_cotizacion"]) === 1;
       return $this->respuesta(false, "success", "Disponibilidad publica consultada", array(
         "id_sku" => intval($fila["id_sku"]),
         "slug" => $fila["slug"],
-        "disponibilidad" => $this->disponibilidadPublicaSugerida($fila),
-        "mostrar_cantidad_exacta" => false
+        "disponibilidad" => $disponibilidad,
+        "mostrar_cantidad_exacta" => false,
+        "permite_cotizacion" => $permiteCotizacion,
+        "frontend" => $this->frontendDisponibilidadPublica($disponibilidad, $permiteCotizacion)
       ));
     } catch (Exception $e) {
       return $this->respuesta(true, "danger", $e->getMessage(), array("disponibilidad" => "consultar_disponibilidad"));
@@ -1504,7 +1632,8 @@ class EcommerceCatalogoPublico extends CRUD {
           "no_escribe_bd" => true,
           "lineas" => array(),
           "totales" => array("subtotal_estimado" => 0, "total_estimado" => 0, "moneda" => "MXN"),
-          "bloqueos" => array("esquema_publicaciones_pendiente")
+          "bloqueos" => array("esquema_publicaciones_pendiente"),
+          "frontend" => $this->frontendCotizacionDryRun(array(), array("total_estimado" => 0, "moneda" => "MXN"), array("esquema_publicaciones_pendiente"), array())
         ));
       }
 
@@ -1514,7 +1643,8 @@ class EcommerceCatalogoPublico extends CRUD {
           "dry_run" => true,
           "no_escribe_bd" => true,
           "lineas" => array(),
-          "bloqueos" => array("items_vacios")
+          "bloqueos" => array("items_vacios"),
+          "frontend" => $this->frontendCotizacionDryRun(array(), array("total_estimado" => 0, "moneda" => "MXN"), array("items_vacios"), array())
         ));
       }
 
@@ -1572,37 +1702,33 @@ class EcommerceCatalogoPublico extends CRUD {
       }
 
       $total = round($subtotal, 6);
-      return $this->respuesta(false, empty($bloqueos) ? "success" : "warning", empty($bloqueos) ? "Cotizacion dry-run validada" : "Cotizacion dry-run con observaciones", array(
+      $bloqueosFinal = array_values(array_unique($bloqueos));
+      $advertenciasFinal = array_values(array_unique($advertencias));
+      $totales = array(
+        "subtotal_estimado" => $total,
+        "total_estimado" => $total,
+        "moneda" => "MXN",
+        "texto" => "Total estimado sujeto a confirmacion"
+      );
+      return $this->respuesta(false, empty($bloqueosFinal) ? "success" : "warning", empty($bloqueosFinal) ? "Cotizacion dry-run validada" : "Cotizacion dry-run con observaciones", array(
         "configurado" => true,
         "dry_run" => true,
         "no_escribe_bd" => true,
         "no_descuenta_inventario" => true,
         "no_crea_pedido" => true,
         "lineas" => $lineas,
-        "totales" => array(
-          "subtotal_estimado" => $total,
-          "total_estimado" => $total,
-          "moneda" => "MXN",
-          "texto" => "Total estimado sujeto a confirmacion"
-        ),
+        "totales" => $totales,
         "resumen" => array(
           "items_recibidos" => count($items),
           "lineas_validas" => count($lineas),
           "cantidad_total" => $this->sumarCantidadLineasCotizacion($lineas),
           "disponibilidad" => $this->resumenDisponibilidadCotizacion($disponibilidadResumen),
-          "requiere_confirmacion_operativa" => !empty($advertencias) || !empty($bloqueos)
+          "requiere_confirmacion_operativa" => !empty($advertenciasFinal) || !empty($bloqueosFinal)
         ),
-        "advertencias" => array_values(array_unique($advertencias)),
-        "bloqueos" => $bloqueos,
+        "advertencias" => $advertenciasFinal,
+        "bloqueos" => $bloqueosFinal,
         "whatsapp_preview" => $this->mensajeWhatsAppPreview($lineas, $total),
-        "frontend" => array(
-          "max_items" => 50,
-          "max_cantidad_por_linea" => 999,
-          "precio_es_estimado" => true,
-          "permitir_continuar_con_pocas_piezas" => true,
-          "permitir_continuar_con_agotado" => true,
-          "mensaje_confirmacion" => "Disponibilidad y total sujetos a confirmacion por Artiani."
-        )
+        "frontend" => $this->frontendCotizacionDryRun($lineas, $totales, $bloqueosFinal, $advertenciasFinal)
       ));
     } catch (Exception $e) {
       return $this->respuesta(true, "danger", $e->getMessage(), array("dry_run" => true, "no_escribe_bd" => true));
@@ -4207,6 +4333,105 @@ class EcommerceCatalogoPublico extends CRUD {
     );
   }
 
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-08-01
+   * Proposito: traducir disponibilidad publica a decisiones UI sin exponer stock exacto.
+   * Impacto: Frontend ecommerce; estabiliza badges, CTA y copy operativo en tarjetas y ficha.
+   * Contrato: no consulta BD, no descuenta inventario y no revela cantidades internas.
+   */
+  private function frontendDisponibilidadPublica($disponibilidad, $permiteCotizacion) {
+    $disponibilidad = trim((string) $disponibilidad);
+    $permitirCta = !empty($permiteCotizacion);
+    $mapa = array(
+      "disponible" => array(
+        "badge" => array("label" => "Disponible", "tono" => "success"),
+        "mensaje" => "Disponible para cotizacion.",
+        "cta" => array("label" => "Agregar a cotizacion", "habilitado" => $permitirCta)
+      ),
+      "pocas_piezas" => array(
+        "badge" => array("label" => "Pocas piezas", "tono" => "warning"),
+        "mensaje" => "Pocas piezas, sujeto a confirmacion.",
+        "cta" => array("label" => "Consultar disponibilidad", "habilitado" => $permitirCta)
+      ),
+      "agotado" => array(
+        "badge" => array("label" => "Agotado", "tono" => "muted"),
+        "mensaje" => "Agotado, podemos revisar alternativa o proxima llegada.",
+        "cta" => array("label" => "Consultar alternativa", "habilitado" => $permitirCta)
+      ),
+      "consultar_disponibilidad" => array(
+        "badge" => array("label" => "Consultar", "tono" => "info"),
+        "mensaje" => "Disponibilidad sujeta a confirmacion.",
+        "cta" => array("label" => "Consultar disponibilidad", "habilitado" => $permitirCta)
+      )
+    );
+    $ui = isset($mapa[$disponibilidad]) ? $mapa[$disponibilidad] : $mapa["consultar_disponibilidad"];
+    $ui["estado"] = isset($mapa[$disponibilidad]) ? $disponibilidad : "consultar_disponibilidad";
+    $ui["mostrar_stock_exacto"] = false;
+    $ui["precio_es_estimado"] = true;
+    $ui["requiere_dryrun_antes_de_whatsapp"] = true;
+    $ui["cta"]["accion"] = "cotizacion_dryrun";
+    if (!$permitirCta) {
+      $ui["cta"]["motivo_disabled"] = "cotizacion_no_permitida";
+    }
+    return $ui;
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-08-01
+   * Proposito: resumir el resultado de cotizacion dry-run en decisiones listas para UI.
+   * Impacto: Frontend ecommerce; evita que carrito, totales y CTA de WhatsApp dupliquen reglas del ERP.
+   * Contrato: no escribe BD, no crea pedido, no descuenta inventario y no acepta precios del frontend.
+   */
+  private function frontendCotizacionDryRun($lineas, $totales, $bloqueos, $advertencias) {
+    $lineas = is_array($lineas) ? $lineas : array();
+    $bloqueos = is_array($bloqueos) ? array_values(array_unique($bloqueos)) : array();
+    $advertencias = is_array($advertencias) ? array_values(array_unique($advertencias)) : array();
+    $lineasTotal = count($lineas);
+    $puedeContinuar = $lineasTotal > 0 && empty($bloqueos);
+    $estado = "listo";
+    $mensaje = "Carrito validado. Continua con tus datos para WhatsApp.";
+    if ($lineasTotal <= 0) {
+      $estado = "vacio";
+      $mensaje = "Agrega productos para validar la cotizacion.";
+    } elseif (!empty($bloqueos)) {
+      $estado = "bloqueado";
+      $mensaje = "Revisa las observaciones antes de continuar.";
+    } elseif (!empty($advertencias)) {
+      $estado = "observaciones";
+      $mensaje = "Hay disponibilidad sujeta a confirmacion.";
+    }
+
+    return array(
+      "estado" => $estado,
+      "mensaje" => $mensaje,
+      "lineas_total" => $lineasTotal,
+      "bloqueos_total" => count($bloqueos),
+      "advertencias_total" => count($advertencias),
+      "puede_continuar_preflight" => $puedeContinuar,
+      "mostrar_total_estimado" => true,
+      "mostrar_whatsapp_preview" => $lineasTotal > 0,
+      "max_items" => 50,
+      "max_cantidad_por_linea" => 999,
+      "precio_es_estimado" => true,
+      "permitir_continuar_con_pocas_piezas" => true,
+      "permitir_continuar_con_agotado" => true,
+      "mensaje_confirmacion" => "Disponibilidad y total sujetos a confirmacion por Artiani.",
+      "total_estimado_texto" => "$" . number_format(floatval($this->valor($totales, "total_estimado", 0)), 2) . " " . ((string) $this->valor($totales, "moneda", "MXN")),
+      "cta_principal" => array(
+        "label" => $puedeContinuar ? "Continuar a WhatsApp" : "Revisar carrito",
+        "endpoint_siguiente" => "/ecommercePublico/cotizacion_preflight",
+        "habilitado" => $puedeContinuar,
+        "motivos_disabled" => $puedeContinuar ? array() : $bloqueos
+      ),
+      "guardrails_ui" => array(
+        "no_registra_cotizacion" => true,
+        "no_descuenta_inventario" => true,
+        "no_crea_pedido" => true,
+        "no_usar_precio_local_como_total" => true
+      )
+    );
+  }
+
   private function ordenCatalogoPublicoNormalizado($orden) {
     $orden = trim((string) $orden);
     return in_array($orden, array("relevancia", "nombre", "precio_asc", "precio_desc", "recientes"), true) ? $orden : "relevancia";
@@ -5051,5 +5276,62 @@ class EcommerceCatalogoPublico extends CRUD {
 
   private function estadosDisponibilidadPublica() {
     return array("disponible", "pocas_piezas", "consultar_disponibilidad", "agotado");
+  }
+
+  private function endpointsFrontendHandoff() {
+    return array(
+      array("metodo" => "GET", "ruta" => "/ecommercePublico/frontend_handoff", "uso_frontend" => "Punto de partida para descubrir estado, ejemplos y pruebas HTTP."),
+      array("metodo" => "GET", "ruta" => "/ecommercePublico/contratos", "uso_frontend" => "Manifest completo de endpoints y guardrails."),
+      array("metodo" => "GET", "ruta" => "/ecommercePublico/estado", "uso_frontend" => "Readiness para datos reales o mocks."),
+      array("metodo" => "GET", "ruta" => "/ecommercePublico/bootstrap", "uso_frontend" => "Primer render: configuracion, filtros, navegacion, secciones y politicas."),
+      array("metodo" => "GET", "ruta" => "/ecommercePublico/configuracion", "uso_frontend" => "Moneda, WhatsApp y banderas publicas."),
+      array("metodo" => "GET", "ruta" => "/ecommercePublico/seo", "uso_frontend" => "Rutas, sitemap, robots y JSON-LD sugerido."),
+      array("metodo" => "GET", "ruta" => "/ecommercePublico/filtros", "uso_frontend" => "Filtros de catalogo vigentes."),
+      array("metodo" => "GET", "ruta" => "/ecommercePublico/busqueda_sugerencias", "uso_frontend" => "Autocompletado de busqueda."),
+      array("metodo" => "GET", "ruta" => "/ecommercePublico/navegacion", "uso_frontend" => "Menus y chips por mascota, necesidad, categoria, marca y disponibilidad."),
+      array("metodo" => "GET", "ruta" => "/ecommercePublico/secciones", "uso_frontend" => "Bloques para home y carruseles."),
+      array("metodo" => "GET", "ruta" => "/ecommercePublico/politicas", "uso_frontend" => "Textos publicos legales/operativos."),
+      array("metodo" => "GET", "ruta" => "/ecommercePublico/politica/{slug}", "uso_frontend" => "Detalle de politica."),
+      array("metodo" => "GET", "ruta" => "/ecommercePublico/taxonomia_mascotas", "uso_frontend" => "Navegacion especializada por mascotas y necesidades."),
+      array("metodo" => "GET", "ruta" => "/ecommercePublico/catalogo", "uso_frontend" => "Listado paginado de productos publicados."),
+      array("metodo" => "GET", "ruta" => "/ecommercePublico/producto/{slug}", "uso_frontend" => "Ficha publica de producto."),
+      array("metodo" => "GET", "ruta" => "/ecommercePublico/disponibilidad", "uso_frontend" => "Estado publico sin stock exacto."),
+      array("metodo" => "GET", "ruta" => "/ecommercePublico/canales_estado", "uso_frontend" => "Estado de canal propio y partners."),
+      array("metodo" => "POST", "ruta" => "/ecommercePublico/cotizacion_dryrun", "uso_frontend" => "Validar carrito sin persistir."),
+      array("metodo" => "POST", "ruta" => "/ecommercePublico/cotizacion_preflight", "uso_frontend" => "Validar contacto/WhatsApp antes de abrir CTA."),
+      array("metodo" => "POST", "ruta" => "/ecommercePublico/facturacion_solicitar", "uso_frontend" => "Preflight de factura sin persistir."),
+      array("metodo" => "POST", "ruta" => "/ecommercePublico/evento_navegacion", "uso_frontend" => "Preflight analytics anonimo sin persistir."),
+      array("metodo" => "POST", "ruta" => "/ecommercePublico/busqueda_registrar", "uso_frontend" => "Preflight busqueda anonima sin persistir.")
+    );
+  }
+
+  private function pruebasFrontendHandoff($baseApi, $slugEjemplo, $payloadCotizacion) {
+    $slug = $slugEjemplo !== "" ? $slugEjemplo : "{slug-publicado}";
+    return array(
+      array("nombre" => "estado", "metodo" => "GET", "url" => $baseApi . "/estado"),
+      array("nombre" => "contratos", "metodo" => "GET", "url" => $baseApi . "/contratos"),
+      array("nombre" => "bootstrap", "metodo" => "GET", "url" => $baseApi . "/bootstrap?limite_secciones=6"),
+      array("nombre" => "catalogo", "metodo" => "GET", "url" => $baseApi . "/catalogo?limite=3"),
+      array("nombre" => "catalogo_sin_resultados", "metodo" => "GET", "url" => $baseApi . "/catalogo?q=__sin_resultados_catalogo_frontend__&limite=3"),
+      array("nombre" => "producto", "metodo" => "GET", "url" => $baseApi . "/producto/" . rawurlencode($slug)),
+      array("nombre" => "disponibilidad", "metodo" => "GET", "url" => $baseApi . "/disponibilidad?slug=" . rawurlencode($slug)),
+      array("nombre" => "cotizacion_dryrun", "metodo" => "POST", "url" => $baseApi . "/cotizacion_dryrun", "body" => array("items" => $payloadCotizacion["items"])),
+      array("nombre" => "cotizacion_preflight", "metodo" => "POST", "url" => $baseApi . "/cotizacion_preflight", "body" => $payloadCotizacion)
+    );
+  }
+
+  private function resumenRespuestaFrontendHandoff($respuesta, $keys) {
+    if (!is_array($respuesta)) {
+      return null;
+    }
+    $depurar = $this->valor($respuesta, "depurar", array());
+    $salida = array(
+      "tipo" => $this->valor($respuesta, "tipo", ""),
+      "mensaje" => $this->valor($respuesta, "mensaje", "")
+    );
+    foreach ($keys as $key) {
+      $salida[$key] = $this->valor($depurar, $key, null);
+    }
+    return $salida;
   }
 }

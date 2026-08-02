@@ -24,9 +24,29 @@ Uso:
 
 ## Endpoints publicos Fase 1
 
-La API publica se mantiene en contratos separados, con `bootstrap` como agregador inicial recomendado para evitar muchas llamadas en el primer render.
+La API publica se mantiene en contratos separados, con `frontend_handoff` como punto de entrada para proyectos externos y `bootstrap` como agregador inicial recomendado para evitar muchas llamadas en el primer render.
 
-Total actual: 21 endpoints publicos read-only/dry-run/preflight.
+Total actual: 22 endpoints publicos read-only/dry-run/preflight.
+
+### Frontend handoff
+
+```http
+GET /ecommercePublico/frontend_handoff?limite=2
+```
+
+Uso recomendado para cualquier frontend que viva fuera de `panel_de_control`. Devuelve todo lo necesario para integrarse sin abrir archivos del ERP:
+
+- `estado_actual.senal_frontend`;
+- `variables_env_frontend`;
+- `endpoints_para_consumir`;
+- `orden_recomendado_integracion`;
+- `pruebas_con_api`;
+- `contratos_ui`;
+- `ejemplos`;
+- `no_usar`;
+- `guardrails.no_requiere_filesystem=true`.
+
+El frontend no debe consultar `docs/*.md`, tablas internas ni rutas fisicas del ERP. Si necesita descubrir estado o contrato, debe usar este endpoint, `/contratos`, `/estado` y `/bootstrap`.
 
 ### Estado/readiness
 
@@ -210,6 +230,18 @@ Estados publicos permitidos:
 
 Nunca devuelve cantidad exacta.
 
+La respuesta incluye `depurar.frontend` con:
+
+- `estado`;
+- `badge.label` y `badge.tono`;
+- `mensaje`;
+- `cta.label`, `cta.habilitado` y `cta.accion`;
+- `mostrar_stock_exacto=false`;
+- `precio_es_estimado=true`;
+- `requiere_dryrun_antes_de_whatsapp=true`.
+
+El frontend debe usar este bloque para pintar badges, botones y mensajes de ficha/tarjeta sin duplicar reglas operativas.
+
 ### Configuracion publica
 
 ```http
@@ -299,6 +331,18 @@ Reglas:
 - No crea pedido, venta ni atencion POS.
 - Si el esquema aun no existe, responde `configurado=false`.
 - En estado amarillo, puede responder `configurado=false` antes de validar si `items` viene vacio.
+
+`depurar.frontend` incluye:
+
+- `estado`: `vacio`, `listo`, `observaciones` o `bloqueado`;
+- `mensaje`;
+- `puede_continuar_preflight`;
+- `mostrar_total_estimado`;
+- `mostrar_whatsapp_preview`;
+- `total_estimado_texto`;
+- `cta_principal.label`;
+- `cta_principal.endpoint_siguiente=/ecommercePublico/cotizacion_preflight`;
+- `guardrails_ui.no_usar_precio_local_como_total=true`.
 
 ### Cotizacion preflight
 

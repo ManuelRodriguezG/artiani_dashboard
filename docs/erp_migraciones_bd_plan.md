@@ -279,6 +279,7 @@ Capacidades disponibles:
 - perfil read-only de datos por tabla para decidir migracion de informacion.
 - orden sugerido de migracion por dependencias de llaves foraneas.
 - resumen ejecutivo de decision por politica, riesgo y candidatas de datos.
+- manifiesto JSON portable de preparacion.
 - guardado de politicas si el esquema tecnico ya existe; si no existe, bloquea con advertencia.
 - creacion de paquete dry-run con codigo y hash de plan; persiste solo si el esquema tecnico ya existe.
 
@@ -434,6 +435,98 @@ Uso operativo:
 - Priorizar `data_seed` y `data_merge` sin columnas sensibles y con PK/llave natural clara.
 - Resolver o excluir tablas con `sin_llave_natural_clara` antes de intentar merge.
 - Revisar manualmente cualquier tabla con columnas sensibles aunque tenga politica sugerida migrable.
+
+## Avance implementado - Manifiesto de preparacion
+
+Fecha: 2026-08-01
+
+Se agrego:
+
+- `MigracionesBd::generarManifiestoPreparacion`;
+- endpoint `MigracionBd::manifiesto_preparacion`;
+- pestaña UI `Manifiesto`;
+- JSON portable con origen, destino opcional, estado de esquema tecnico, resumen de decision, perfil de datos y orden de migracion;
+- hash SHA-256 del manifiesto;
+- nombre sugerido para archivo JSON;
+- boton para copiar manifiesto;
+- boton para descargar el manifiesto como archivo `.json` local.
+
+Uso operativo:
+
+- Generar manifiesto antes de aplicar esquema tecnico o preparar paquetes persistidos.
+- Usarlo como evidencia de revision en cambios de ambiente.
+- Si se selecciona destino, el manifiesto intenta incluir comparacion; si el destino no conecta, registra el error en el JSON sin aplicar cambios.
+- La descarga desde navegador es solo evidencia operativa; no persiste ni aplica nada en la base de datos.
+
+## Avance implementado - Descarga local de artefactos dry-run
+
+Fecha: 2026-08-01
+
+Se agrego:
+
+- boton para descargar el manifiesto JSON generado;
+- boton para descargar el SQL dry-run o paquete dry-run generado;
+- nombres de archivo con timestamp para facilitar resguardo y comparacion;
+- generacion de archivos en el navegador usando el contenido visible de la pestaña.
+
+Restriccion:
+
+- La descarga no crea registros nuevos en BD.
+- La descarga no ejecuta SQL.
+- El SQL descargado sigue siendo material de revision y debe pasar por respaldo, autorizacion y aplicacion controlada antes de usarse.
+
+## Avance implementado - Flujo de aplicacion controlada de paquetes
+
+Fecha: 2026-08-01
+
+Se agrego:
+
+- `MigracionesBd::preflightPaqueteAplicacion`;
+- `MigracionesBd::aplicarPaqueteControlado`;
+- endpoints `MigracionBd::paquete_preflight` y `MigracionBd::paquete_aplicar`;
+- seccion UI para codigo de paquete, token, confirmacion y simulacion/aplicacion;
+- bitacora preparada en `sys_migraciones_ejecuciones` y `sys_migraciones_ejecucion_detalle`;
+- bandera local `_opciones.aplicacion_real_habilitada` en `app/config/migraciones_ambientes.local.php`, documentada en el archivo ejemplo.
+
+Compuertas vigentes para ejecutar realmente un paquete:
+
+- esquema tecnico `sys_migraciones_*` aplicado;
+- paquete persistido;
+- destino configurado;
+- respaldo valido;
+- permiso `migraciones.aplicar`;
+- token `MIGRACIONES_BD_APLICAR`;
+- confirmacion literal con codigo de paquete y destino;
+- bandera local `aplicacion_real_habilitada=true`.
+
+Restriccion:
+
+- Por defecto la bandera local queda en `false`.
+- La simulacion no ejecuta SQL.
+- La aplicacion real debe mantenerse apagada hasta que exista respaldo probado y se haya revisado el paquete.
+
+## Avance implementado - Generacion controlada de respaldo local
+
+Fecha: 2026-08-01
+
+Se agrego:
+
+- `MigracionesBd::generarRespaldoLocal`;
+- endpoint `MigracionBd::respaldo_generar`;
+- boton UI `Generar respaldo`;
+- token `MIGRACIONES_BD_RESPALDO`;
+- confirmacion literal `AUTORIZO GENERAR RESPALDO MIGRACIONES BD`;
+- uso de `mysqldump` con ruta configurable;
+- escritura en la ruta estandar `C:\xampp\panel_db_backups`;
+- hash SHA-256 y tamaño del archivo generado;
+- auditoria explicita de intentos de respaldo.
+
+Restriccion:
+
+- El respaldo no modifica la base de datos.
+- La ruta de respaldo no puede estar dentro del repo.
+- La respuesta nunca debe devolver password.
+- El respaldo debe validarse antes de activar esquema tecnico o aplicar paquetes.
 
 Decision operativa:
 

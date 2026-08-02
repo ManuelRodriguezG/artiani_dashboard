@@ -20,6 +20,13 @@ $schema = array(
   "paths" => array(
     "/contratos" => array("get" => endpointOpenApi("Contratos API ecommerce publico")),
     "/estado" => array("get" => endpointOpenApi("Readiness del API ecommerce publico")),
+    "/frontend_handoff" => array(
+      "get" => array_merge(endpointOpenApi("Handoff vivo para frontend externo", "#/components/schemas/FrontendHandoffResponse"), array(
+        "parameters" => array(
+          queryParam("limite", "Limite 1-6 productos ejemplo", "integer")
+        )
+      ))
+    ),
     "/bootstrap" => array(
       "get" => array_merge(endpointOpenApi("Paquete inicial para frontend ecommerce"), array(
         "parameters" => array(
@@ -103,7 +110,7 @@ $schema = array(
       ))
     ),
     "/disponibilidad" => array(
-      "get" => array_merge(endpointOpenApi("Disponibilidad publica simple"), array(
+      "get" => array_merge(endpointOpenApi("Disponibilidad publica simple", "#/components/schemas/DisponibilidadResponse"), array(
         "parameters" => array(
           queryParam("slug", "Slug publico"),
           queryParam("id_sku", "ID SKU ERP", "integer")
@@ -111,7 +118,7 @@ $schema = array(
       ))
     ),
     "/cotizacion_dryrun" => array(
-      "post" => array_merge(endpointOpenApi("Validacion de carrito sin persistencia"), array(
+      "post" => array_merge(endpointOpenApi("Validacion de carrito sin persistencia", "#/components/schemas/CotizacionDryRunResponse"), array(
         "requestBody" => array(
           "required" => true,
           "content" => array(
@@ -335,6 +342,79 @@ $schema = array(
         )
       ),
       "ProductoDetalleResponse" => erpResponseSchema("#/components/schemas/ProductoDetalleDepurar"),
+      "DisponibilidadFrontend" => array(
+        "type" => "object",
+        "properties" => array(
+          "estado" => array("type" => "string", "enum" => array("disponible", "pocas_piezas", "consultar_disponibilidad", "agotado")),
+          "badge" => array("type" => "object"),
+          "mensaje" => array("type" => "string"),
+          "cta" => array("type" => "object"),
+          "mostrar_stock_exacto" => array("type" => "boolean", "example" => false),
+          "precio_es_estimado" => array("type" => "boolean", "example" => true),
+          "requiere_dryrun_antes_de_whatsapp" => array("type" => "boolean", "example" => true)
+        )
+      ),
+      "DisponibilidadDepurar" => array(
+        "type" => "object",
+        "properties" => array(
+          "id_sku" => array("type" => "integer"),
+          "slug" => array("type" => "string"),
+          "disponibilidad" => array("type" => "string", "enum" => array("disponible", "pocas_piezas", "consultar_disponibilidad", "agotado")),
+          "mostrar_cantidad_exacta" => array("type" => "boolean", "example" => false),
+          "permite_cotizacion" => array("type" => "boolean"),
+          "frontend" => array('$ref' => "#/components/schemas/DisponibilidadFrontend")
+        )
+      ),
+      "DisponibilidadResponse" => erpResponseSchema("#/components/schemas/DisponibilidadDepurar"),
+      "CotizacionDryRunFrontend" => array(
+        "type" => "object",
+        "properties" => array(
+          "estado" => array("type" => "string", "enum" => array("vacio", "listo", "observaciones", "bloqueado")),
+          "mensaje" => array("type" => "string"),
+          "lineas_total" => array("type" => "integer"),
+          "bloqueos_total" => array("type" => "integer"),
+          "advertencias_total" => array("type" => "integer"),
+          "puede_continuar_preflight" => array("type" => "boolean"),
+          "mostrar_total_estimado" => array("type" => "boolean"),
+          "mostrar_whatsapp_preview" => array("type" => "boolean"),
+          "total_estimado_texto" => array("type" => "string", "example" => "$85.00 MXN"),
+          "cta_principal" => array("type" => "object"),
+          "guardrails_ui" => array("type" => "object")
+        )
+      ),
+      "CotizacionDryRunDepurar" => array(
+        "type" => "object",
+        "properties" => array(
+          "configurado" => array("type" => "boolean"),
+          "dry_run" => array("type" => "boolean", "example" => true),
+          "no_escribe_bd" => array("type" => "boolean", "example" => true),
+          "no_descuenta_inventario" => array("type" => "boolean", "example" => true),
+          "no_crea_pedido" => array("type" => "boolean", "example" => true),
+          "lineas" => array("type" => "array", "items" => array("type" => "object")),
+          "totales" => array("type" => "object"),
+          "resumen" => array("type" => "object"),
+          "advertencias" => array("type" => "array", "items" => array("type" => "string")),
+          "bloqueos" => array("type" => "array", "items" => array("type" => "string")),
+          "whatsapp_preview" => array("type" => "string"),
+          "frontend" => array('$ref' => "#/components/schemas/CotizacionDryRunFrontend")
+        )
+      ),
+      "CotizacionDryRunResponse" => erpResponseSchema("#/components/schemas/CotizacionDryRunDepurar"),
+      "FrontendHandoffDepurar" => array(
+        "type" => "object",
+        "properties" => array(
+          "estado_actual" => array("type" => "object"),
+          "variables_env_frontend" => array("type" => "object"),
+          "endpoints_para_consumir" => array("type" => "array", "items" => array("type" => "object")),
+          "orden_recomendado_integracion" => array("type" => "array", "items" => array("type" => "string")),
+          "pruebas_con_api" => array("type" => "array", "items" => array("type" => "object")),
+          "contratos_ui" => array("type" => "object"),
+          "ejemplos" => array("type" => "object"),
+          "no_usar" => array("type" => "array", "items" => array("type" => "string")),
+          "guardrails" => array("type" => "object")
+        )
+      ),
+      "FrontendHandoffResponse" => erpResponseSchema("#/components/schemas/FrontendHandoffDepurar"),
       "PoliticaPublica" => array(
         "type" => "object",
         "properties" => array(
