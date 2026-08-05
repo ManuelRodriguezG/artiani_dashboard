@@ -61,8 +61,22 @@ $gruposMenu = array(
         'items' => array(
             array('titulo' => 'Catalogos comerciales', 'ruta' => '/catalogoerp/catalogos_comerciales', 'permiso' => 'catalogo.ver'),
             array('titulo' => 'Listas de precios', 'ruta' => '/comercial/listas_precios', 'permiso' => 'ventas.listas.ver'),
-            array('titulo' => 'Manual listas de precios', 'ruta' => '/comercial/listas_precios_manual', 'permiso' => 'ventas.listas.ver'),
-            array('titulo' => 'Analisis comercial', 'ruta' => '/rentabilidad/analisis', 'permiso' => 'rentabilidad.ver')
+            array('titulo' => 'Manual listas de precios', 'ruta' => '/comercial/listas_precios_manual', 'permiso' => 'ventas.listas.ver')
+        )
+    ),
+    array(
+        'seccion' => 'ERP',
+        'titulo' => 'Rentabilidad',
+        'icono' => 'bi-graph-up-arrow',
+        'permiso' => 'rentabilidad.ver',
+        'items' => array(
+            array('titulo' => 'Resumen ejecutivo', 'ruta' => '/rentabilidad/analisis', 'permiso' => 'rentabilidad.ver'),
+            array('titulo' => 'SKU y escenarios', 'ruta' => '/rentabilidad/skus', 'permiso' => 'rentabilidad.ver'),
+            array('titulo' => 'Cierre comercial', 'ruta' => '/rentabilidad/cierre', 'permiso' => 'rentabilidad.ver'),
+            array('titulo' => 'Aprobaciones', 'ruta' => '/rentabilidad/aprobaciones', 'permiso' => 'rentabilidad.ver'),
+            array('titulo' => 'Calidad de datos', 'ruta' => '/rentabilidad/calidad', 'permiso' => 'rentabilidad.ver'),
+            array('titulo' => 'Historial', 'ruta' => '/rentabilidad/historial', 'permiso' => 'rentabilidad.ver'),
+            array('titulo' => 'Manual de uso', 'ruta' => '/rentabilidad/manual', 'permiso' => 'rentabilidad.ver')
         )
     ),
     array(
@@ -140,6 +154,17 @@ $gruposMenu = array(
     ),
     array(
         'seccion' => 'ERP',
+        'titulo' => 'Produccion',
+        'icono' => 'bi-tools',
+        'permiso' => array('compras.ver', 'catalogo.ver', 'inventario.ver'),
+        'items' => array(
+            array('titulo' => 'Peceras y vidrio', 'ruta' => '/produccion/peceras', 'permiso' => array('compras.ver', 'catalogo.ver', 'inventario.ver')),
+            array('titulo' => 'Perfiles de peceras', 'ruta' => '/produccion/peceras_perfiles', 'permiso' => array('compras.ver', 'catalogo.ver', 'inventario.ver')),
+            array('titulo' => 'Pedido multiple vidrio', 'ruta' => '/produccion/peceras_pedido_vidrio', 'permiso' => array('compras.ver', 'catalogo.ver', 'inventario.ver'))
+        )
+    ),
+    array(
+        'seccion' => 'ERP',
         'titulo' => 'Almacen',
         'icono' => 'bi-building',
         'permiso' => 'almacen.ver',
@@ -180,6 +205,7 @@ $gruposMenu = array(
         'items' => array(
             array('titulo' => 'Control Artiani', 'ruta' => '/ecommercePublico/control', 'permiso' => 'catalogo.ver'),
             array('titulo' => 'Ecommerce publico', 'ruta' => '/ecommercePublico/publicaciones', 'permiso' => 'catalogo.ver'),
+            array('titulo' => 'Analytics', 'ruta' => '/ecommercePublico/analytics', 'permiso' => 'catalogo.ver'),
             array('titulo' => 'Catalogo ecommerce', 'ruta' => '/producto/catalogo', 'permiso' => 'ecommerce.ver')
         )
     ),
@@ -333,3 +359,4 @@ window.ERP_CSRF_TOKEN = <?= json_encode(SesionSeguridad::csrfToken()) ?>;
 </script>
 <script src="/assets/js/custom/security/session-guard.js"></script>
 <script src="/assets/js/custom/apps/erp/notificaciones/notificaciones.js?v=20260616-1"></script>
+

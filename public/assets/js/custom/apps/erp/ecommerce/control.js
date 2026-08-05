@@ -68,12 +68,32 @@
 
     function cargarTodo() {
         setEstado("Cargando...", "badge-light-info");
-        return Promise.all([cargarReadiness(), cargarLista()]).then(function () {
+        return Promise.all([cargarFase(), cargarReadiness(), cargarLista()]).then(function () {
             setEstado("Listo", "badge-light-success");
         }).catch(function (error) {
             setEstado("Error", "badge-light-danger");
             $("ecom_ctl_body").innerHTML = "<tr><td colspan=\"7\"><div class=\"alert alert-danger mb-0\">" + escapeHtml(error.message || String(error)) + "</div></td></tr>";
         });
+    }
+
+    function cargarFase() {
+        return getJson("/ecommercePublico/publicaciones_fase_estado_erp", {base_url: "http://panel.com.local"}).then(function (response) {
+            if (response.error) { throw new Error(response.mensaje || "No se pudo cargar fase ecommerce"); }
+            renderFase(response.depurar || {}, response.mensaje || "");
+        });
+    }
+
+    function renderFase(data, mensaje) {
+        var lista = data.pendientes_para_cierre || [];
+        var listo = data.puede_pasar_a_fase_2 === true;
+        $("ecom_ctl_fase_box").className = "alert " + (listo ? "alert-success" : "alert-primary") + " d-flex align-items-start justify-content-between gap-4";
+        $("ecom_ctl_fase_titulo").textContent = listo ? "Fase 1 lista para cierre operativo" : "Fase 1: publicaciones y control en progreso";
+        $("ecom_ctl_fase_detalle").textContent = listo
+            ? "El panel ya cumple criterios mínimos; el siguiente bloque es API de catálogo robusta."
+            : "Pendientes para cierre: " + (lista.length ? lista.join(", ") : "validacion operativa");
+        $("ecom_ctl_fase_estado").className = "badge " + (listo ? "badge-light-success" : "badge-light-primary");
+        $("ecom_ctl_fase_estado").textContent = data.estado || (mensaje || "En progreso");
+        $("ecom_ctl_fase_siguiente").textContent = "Siguiente: " + (data.fase_2_siguiente || "api_catalogo_robusta");
     }
 
     function cargarReadiness() {

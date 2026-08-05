@@ -218,6 +218,22 @@ archivo_existe=true
 archivo_legible=true
 tamano_bytes=32798256
 ```
+
+Migraciones BD - esquema tecnico:
+
+```text
+C:\xampp\panel_db_backups\artianilocal_panel_20260804_131239_antes_migracion_bd_schema.sql
+```
+
+Validacion:
+
+```text
+archivo_existe=true
+archivo_legible=true
+tamano_bytes=34020111
+sha256=1b61571123a04d75fa4adad2d027daca0e2a5413ba27f2066ec5a97c79912625
+preflight_esquema=puede_aplicar
+```
 ## Catalogo - Apertura de empaques
 
 Fecha: 2026-07-28  

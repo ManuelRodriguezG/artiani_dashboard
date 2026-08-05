@@ -1321,3 +1321,37 @@ Resultado validado:
 - `handoff_pruebas_total=9`;
 - `guardrails.no_requiere_filesystem=true`;
 - `green_gate.ok=true`.
+## Actualizacion 2026-08-04 - Ecommerce / Analytics Fase 1
+
+- Se abre modulo dedicado `Ecommerce / Analytics` separado de ventas, checkout, inventario y legacy `ecom_*`.
+- Nuevo documento vivo: `docs/erp_ecommerce_analytics_fase1.md`.
+- Nuevos modelos:
+  - `app/modelos/EcommerceAnalyticsErp.php`;
+  - `app/modelos/EcommerceAnalyticsEsquema.php`.
+- Nueva vista interna read-only:
+  - `GET /ecommercePublico/analytics`;
+  - asset `public/assets/js/custom/apps/erp/ecommerce/analytics.js`.
+- Nuevos endpoints publicos/preflight:
+  - `GET /ecommercePublico/analytics_contrato`;
+  - `POST /ecommercePublico/analytics_sesion`;
+  - `POST /ecommercePublico/analytics_conversion`.
+- Los endpoints existentes `POST /ecommercePublico/evento_navegacion` y `POST /ecommercePublico/busqueda_registrar` ahora validan contra el contrato dedicado de analytics y siguen sin escribir BD.
+- Nuevos endpoints internos read-only:
+  - `GET /ecommercePublico/analytics_dashboard_erp`;
+  - `GET /ecommercePublico/analytics_persistencia_plan_erp`;
+  - `GET /ecommercePublico/esquema_auditar_analytics`;
+  - `GET /ecommercePublico/esquema_plan_analytics`.
+- Nuevos UATs:
+  - `storage/uat/uat_ecommerce_analytics_plan_readonly.php`;
+  - `storage/uat/uat_ecommerce_analytics_http_readonly.php`;
+  - `storage/uat/uat_ecommerce_analytics_persistencia_guard_readonly.php`;
+  - `storage/uat/uat_ecommerce_analytics_schema_apply_authorized.php`.
+- Tablas propuestas sin aplicar:
+  - `erp_ecommerce_analytics_sesiones`;
+  - `erp_ecommerce_analytics_eventos`;
+  - `erp_ecommerce_analytics_busquedas`;
+  - `erp_ecommerce_analytics_conversiones`;
+  - `erp_ecommerce_analytics_resumen_diario`.
+- Guardrails activos: no datos personales, no stock exacto, no checkout/pagos, no ventas, no descuento de inventario, no `ecom_*` como fuente.
+- El modelo tiene persistencia write-ready bloqueada por token `ECOMMERCE_ANALYTICS_TRACKING`, no conectada a POST publicos en Fase 1.
+- Persistencia real queda pendiente de autorizacion explicita, respaldo externo, rate limit, cookie/consent y UAT `apply_authorized`.

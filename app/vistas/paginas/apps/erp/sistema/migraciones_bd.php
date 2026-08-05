@@ -217,6 +217,12 @@ $esquemaTecnico = isset($configuracion["esquema_tecnico"]) ? $configuracion["esq
                                     </ul>
                                     <div class="tab-content">
                                         <div class="tab-pane fade show active" id="migbd_tab_ambientes">
+                                            <div class="d-flex flex-wrap gap-3 mb-5">
+                                                <button type="button" class="btn btn-sm btn-light-primary" id="migbd_btn_preflight_destino">
+                                                    <i class="bi bi-hdd-network"></i>
+                                                    Preflight destino
+                                                </button>
+                                            </div>
                                             <div class="table-responsive">
                                                 <table class="table table-row-dashed align-middle">
                                                     <thead>
@@ -227,6 +233,7 @@ $esquemaTecnico = isset($configuracion["esquema_tecnico"]) ? $configuracion["esq
                                                         <th>Base</th>
                                                         <th>Usuario</th>
                                                         <th>Estado</th>
+                                                        <th>Acciones</th>
                                                     </tr>
                                                     </thead>
                                                     <tbody>
@@ -244,11 +251,22 @@ $esquemaTecnico = isset($configuracion["esquema_tecnico"]) ? $configuracion["esq
                                                                     <span class="badge badge-light-warning">Incompleto</span>
                                                                 <?php endif; ?>
                                                             </td>
+                                                            <td>
+                                                                <?php if (!empty($ambiente["configurado"])): ?>
+                                                                    <button type="button" class="btn btn-sm btn-light-primary migbd-probar-ambiente" data-alias="<?= htmlspecialchars($ambiente["alias"]) ?>">
+                                                                        <i class="bi bi-plug"></i>
+                                                                        Probar
+                                                                    </button>
+                                                                <?php else: ?>
+                                                                    <span class="text-muted fs-8">Pendiente</span>
+                                                                <?php endif; ?>
+                                                            </td>
                                                         </tr>
                                                     <?php endforeach; ?>
                                                     </tbody>
                                                 </table>
                                             </div>
+                                            <div id="migbd_ambiente_prueba_resultado" class="mt-5 text-muted">Selecciona Probar para validar conexion y metadatos del ambiente.</div>
                                         </div>
                                         <div class="tab-pane fade" id="migbd_tab_politicas">
                                             <div id="migbd_politicas_resultado" class="text-muted py-8 text-center">Genera las politicas sugeridas para revisar tabla por tabla.</div>
@@ -321,6 +339,9 @@ $esquemaTecnico = isset($configuracion["esquema_tecnico"]) ? $configuracion["esq
                                                             <i class="bi bi-shield-check"></i>
                                                             Validar
                                                         </button>
+                                                        <button type="button" class="btn btn-light-primary" id="migbd_btn_respaldo_validar" title="Validar respaldo">
+                                                            <i class="bi bi-check-circle"></i>
+                                                        </button>
                                                     </div>
                                                     <div class="text-muted fs-8 mt-2">Para DDL se recomienda ruta .sql externa al proyecto.</div>
                                                 </div>
@@ -339,7 +360,7 @@ $esquemaTecnico = isset($configuracion["esquema_tecnico"]) ? $configuracion["esq
                                                         </div>
                                                         <div class="col-xl-6">
                                                             <label class="form-label">Confirmacion respaldo</label>
-                                                            <input class="form-control form-control-solid" id="migbd_respaldo_confirmacion" placeholder="AUTORIZO GENERAR RESPALDO MIGRACIONES BD ...">
+                                                            <textarea class="form-control form-control-solid" id="migbd_respaldo_confirmacion" rows="2" placeholder="AUTORIZO GENERAR RESPALDO MIGRACIONES BD ..."></textarea>
                                                         </div>
                                                         <div class="col-xl-2 d-flex align-items-end justify-content-end gap-2">
                                                             <button type="button" class="btn btn-light-primary" id="migbd_btn_respaldo_generar">
@@ -372,6 +393,14 @@ $esquemaTecnico = isset($configuracion["esquema_tecnico"]) ? $configuracion["esq
                                                             <textarea class="form-control form-control-solid" id="migbd_schema_confirmacion" rows="3" placeholder="AUTORIZO CREAR ESQUEMA TECNICO MIGRACIONES BD ... sys_migraciones_*"></textarea>
                                                         </div>
                                                         <div class="col-12 d-flex justify-content-end gap-3">
+                                                            <button type="button" class="btn btn-light-success" id="migbd_btn_schema_verificar">
+                                                                <i class="bi bi-patch-check"></i>
+                                                                Verificar esquema
+                                                            </button>
+                                                            <button type="button" class="btn btn-light-info" id="migbd_btn_schema_preflight_final">
+                                                                <i class="bi bi-shield-lock"></i>
+                                                                Preflight esquema
+                                                            </button>
                                                             <button type="button" class="btn btn-light" id="migbd_btn_schema_dryrun">
                                                                 <i class="bi bi-file-earmark-text"></i>
                                                                 Dry-run esquema
@@ -399,6 +428,10 @@ $esquemaTecnico = isset($configuracion["esquema_tecnico"]) ? $configuracion["esq
                                                             <button type="button" class="btn btn-light-primary" id="migbd_btn_paquete_preflight">
                                                                 <i class="bi bi-shield-check"></i>
                                                                 Preflight paquete
+                                                            </button>
+                                                            <button type="button" class="btn btn-light-info" id="migbd_btn_preflight_final">
+                                                                <i class="bi bi-traffic-light"></i>
+                                                                Semaforo final
                                                             </button>
                                                             <button type="button" class="btn btn-light-success" id="migbd_btn_paquete_autorizar">
                                                                 <i class="bi bi-check2-square"></i>

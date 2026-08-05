@@ -87,7 +87,7 @@ function validarWrapperCatalogoRobusto($nombre, $respuesta, &$bloqueos) {
 }
 
 function validarCatalogoRobusto($nombre, $respuesta, &$bloqueos) {
-  foreach (array("items", "paginacion", "filtros_aplicados", "ordenamientos_disponibles", "frontend", "guardrails") as $key) {
+  foreach (array("items", "paginacion", "filtros_aplicados", "ordenamientos_disponibles", "frontend", "fase_2", "guardrails") as $key) {
     if (!is_array(valorCatalogoRobusto($respuesta, array("depurar", $key), null))) {
       $bloqueos[] = $nombre . "_falta_array_" . $key;
     }
@@ -95,8 +95,20 @@ function validarCatalogoRobusto($nombre, $respuesta, &$bloqueos) {
   if (valorCatalogoRobusto($respuesta, array("depurar", "guardrails", "no_stock_exacto"), false) !== true) {
     $bloqueos[] = $nombre . "_debe_indicar_no_stock_exacto";
   }
+  if (valorCatalogoRobusto($respuesta, array("depurar", "guardrails", "no_granel"), false) !== true) {
+    $bloqueos[] = $nombre . "_debe_indicar_no_granel";
+  }
   if (valorCatalogoRobusto($respuesta, array("depurar", "frontend", "guardrails_ui", "cotizacion_requiere_dryrun"), false) !== true) {
     $bloqueos[] = $nombre . "_frontend_debe_requerir_dryrun";
+  }
+  if (in_array("limite", valorCatalogoRobusto($respuesta, array("depurar", "frontend", "filtros_activos"), array()), true)) {
+    $bloqueos[] = $nombre . "_frontend_no_debe_contar_limite_como_filtro";
+  }
+  if (valorCatalogoRobusto($respuesta, array("depurar", "fase_2", "fase"), "") !== "fase_2_api_catalogo_robusta") {
+    $bloqueos[] = $nombre . "_fase_2_invalida";
+  }
+  if (valorCatalogoRobusto($respuesta, array("depurar", "fase_2", "guardrails", "no_granel"), false) !== true) {
+    $bloqueos[] = $nombre . "_fase_2_debe_indicar_no_granel";
   }
 }
 

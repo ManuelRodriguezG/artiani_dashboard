@@ -21,6 +21,75 @@ Casos reales del negocio:
 - Sustratos para reptiles comprados por presentacion/proveedor en litros, pero controlados y empacados por peso.
 - Peceras fabricadas internamente con vidrio cortado, silicon, accesorios, mano de obra y posibles cargos de corte.
 
+## Decision operativa: peceras y pedidos de vidrio
+
+Documentacion IA: Codex GPT-5  
+Fecha: 2026-08-03  
+Proposito: definir donde debe vivir el flujo para disenar una pecera, calcular piezas de vidrio y generar pedido al proveedor sin contaminar Compras ni Catalogo.  
+Impacto: Produccion, Catalogo, Proveedores, Compras, Almacen, Inventario y Costos.
+
+Decision:
+
+- El flujo de peceras debe vivir en un modulo separado de `Produccion / Fabricacion`, no dentro de Compras como captura libre.
+- Compras solo debe recibir el resultado formal: solicitud u orden de compra al proveedor de vidrio con piezas, medidas, cantidades, costos esperados y adjuntos.
+- Catalogo debe conservar la identidad de materiales y productos: vidrio, silicon, perfiles, accesorios y peceras terminadas vendibles.
+- Proveedores debe conservar la relacion con el proveedor de vidrio, unidad de compra, precio por m2, cargos de corte, espesores disponibles, minimos, condiciones y tiempos.
+- Produccion debe calcular la lista de piezas necesarias segun medidas de la pecera, guardar la receta/proyecto y generar el requerimiento de compra.
+
+Primera version recomendada:
+
+- Crear una pantalla `Produccion > Peceras` o `Fabricacion > Peceras`.
+- Capturar medidas generales: largo, ancho/fondo, alto, espesor de vidrio, cantidad de peceras y observaciones.
+- Permitir definir el tipo de armado: base interior/exterior, tapa abierta/cerrada, refuerzos, divisiones u otras variantes futuras.
+- Generar automaticamente piezas sugeridas: frente, fondo, laterales, base y refuerzos si aplica.
+- Permitir editar cada pieza antes de mandar a pedir: nombre, largo, ancho, espesor, cantidad, canto/pulido, observaciones para proveedor.
+- Calcular area por pieza y area total en m2 para estimar costo.
+- Adjuntar o imprimir una hoja de cortes para proveedor.
+- Generar una solicitud de compra hacia Compras con las piezas como partidas o como detalle tecnico adjunto, segun el nivel que soporte Compras en la fase inicial.
+
+Regla importante:
+
+- Una pecera personalizada o fabricada no debe nacer como compra directa de producto terminado si el negocio la fabrica internamente.
+- La compra al proveedor es de vidrio cortado, materia prima, componentes o servicio de corte.
+- La pecera terminada debe nacer despues por una orden de produccion o fabricacion, consumiendo vidrio/insumos y sumando costos.
+
+Fases sugeridas:
+
+1. Calculadora operativa de cortes sin afectar inventario.
+2. Generacion de solicitud/orden de compra para proveedor de vidrio.
+3. Recepcion de vidrio cortado en Almacen.
+4. Orden de fabricacion que consume piezas, silicon y accesorios.
+5. Alta de pecera terminada como producto vendible o pedido especial.
+
+Pendientes de negocio antes de implementar:
+
+- Confirmar si el proveedor cobra por m2, por pieza, por corte, por espesor o una combinacion.
+- Confirmar si las medidas capturadas son exteriores o interiores.
+- Confirmar regla de descuentos por espesor del vidrio y holguras por silicon.
+- Confirmar si el vidrio cortado se quiere inventariar por pieza individual o solo como material consumido para una fabricacion especifica.
+- Confirmar si las peceras se fabrican bajo pedido, para stock, o ambas.
+
+### Handoff / continuidad - Peceras
+
+Fecha: 2026-08-03
+
+- Contexto actual: ya existe MVP operativo en `Produccion > Peceras y vidrio`.
+- Cambios recientes: se creo controlador `Produccion`, vista `apps/erp/produccion/peceras.php`, JS `public/assets/js/custom/apps/erp/produccion/peceras.js`, ruta protegida en `Core.php` y entrada de sidebar.
+- Actualizacion 2026-08-04: la calculadora ya agrega refuerzos superiores opcionales, tapa de vidrio en piezas divididas e importacion de paquetes JSON exportados.
+- Actualizacion 2026-08-04 adicional: se agrego descuento de corte por defecto de 2 mm por medida generada, porque la maquina del proveedor puede variar aproximadamente +/- 2 mm y el negocio prefiere pedir cada pieza 2 mm menor.
+- Actualizacion 2026-08-04 adicional: `filo_muerto` queda como acabado equivalente a vidrio entregado tal como sale del corte, segun definicion operativa del dueno.
+- Actualizacion 2026-08-04 adicional: se agregaron vistas locales `Perfiles de peceras` y `Pedido multiple vidrio` para editar perfiles guardados, combinar varios perfiles en un pedido y estimar hojas por espesor usando area total mas merma.
+- Actualizacion 2026-08-04 adicional: `Pedido multiple vidrio` ya permite elegir tipo de acomodo: `Filas con rotacion` o `Solo area + merma`.
+- Actualizacion 2026-08-04 adicional: el acomodo por filas ya muestra una vista visual proporcional por hoja con piezas posicionadas.
+- Actualizacion 2026-08-04 adicional: se ajusto el acomodo default a `Bandas corte ancho`, porque el proveedor alinea piezas hacia lo largo para que cada linea de corte cruce recta el lado angosto de la hoja.
+- Actualizacion 2026-08-04 adicional: el pedido multiple detecta tipos de hoja por espesor y permite ajustar largo, ancho, merma y separacion por cada espesor detectado.
+- Funciona hoy: captura medidas, calcula piezas de vidrio, permite editar cortes, calcula m2/costo estimado, imprime hoja de pedido, copia texto, importa/exporta JSON, exporta CSV, guarda borradores locales en navegador, lista perfiles locales y arma pedidos multiples locales con estimacion por hojas.
+- Limitacion actual: el acomodo por filas es una heuristica first-fit con rotacion; no hace optimizacion CAD/CAM ni nesting industrial exacto.
+- Decision: no crea solicitud de compra real todavia porque Compras exige partidas fisicas con SKU ERP y relacion proveedor-SKU activa.
+- Contrato con Compras: usar el boton `Texto para solicitud` o exportar CSV/JSON como paquete tecnico mientras no exista SKU/servicio formal de vidrio/corte configurado en Catalogo/Proveedores.
+- Pendientes: definir SKU materia prima/servicio para vidrio, proveedor de vidrio, unidad/costo por m2 o corte, permisos `produccion.ver`/`produccion.operar`, persistencia en BD y generacion formal de solicitud.
+- Siguiente paso recomendado: crear esquema `erp_produccion_peceras_*` en dry-run y sembrar permisos de Produccion con autorizacion explicita antes de migrar.
+
 ## Diagnostico de fondo
 
 El modulo de Compras no debe limitarse a comprar productos terminados vendibles.

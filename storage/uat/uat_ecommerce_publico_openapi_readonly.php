@@ -96,6 +96,13 @@ $schema = array(
         )
       ))
     ),
+    "/catalogo_manifest" => array(
+      "get" => array_merge(endpointOpenApi("Manifiesto robusto de catalogo para frontend", "#/components/schemas/CatalogoManifestResponse"), array(
+        "parameters" => array(
+          queryParam("limite_preview", "Limite 1-6 productos ejemplo", "integer")
+        )
+      ))
+    ),
     "/canales_estado" => array("get" => endpointOpenApi("Estado publico seguro de canales/API para Artiani y partners")),
     "/producto/{slug}" => array(
       "get" => array_merge(endpointOpenApi("Detalle publico de producto publicado", "#/components/schemas/ProductoDetalleResponse"), array(
@@ -325,10 +332,25 @@ $schema = array(
           "filtros_aplicados" => array("type" => "object"),
           "ordenamientos_disponibles" => array("type" => "array", "items" => array("type" => "object")),
           "frontend" => array('$ref' => "#/components/schemas/CatalogoFrontend"),
+          "fase_2" => array("type" => "object"),
           "guardrails" => array("type" => "object")
         )
       ),
       "CatalogoResponse" => erpResponseSchema("#/components/schemas/CatalogoDepurar"),
+      "CatalogoManifestDepurar" => array(
+        "type" => "object",
+        "properties" => array(
+          "fase" => array("type" => "string", "example" => "fase_2_api_catalogo_robusta"),
+          "estado_catalogo" => array("type" => "object"),
+          "parametros_soportados" => array("type" => "object"),
+          "ordenamientos" => array("type" => "array", "items" => array("type" => "object")),
+          "endpoints_relacionados" => array("type" => "object"),
+          "ejemplos" => array("type" => "object"),
+          "preview" => array("type" => "object"),
+          "guardrails" => array("type" => "object")
+        )
+      ),
+      "CatalogoManifestResponse" => erpResponseSchema("#/components/schemas/CatalogoManifestDepurar"),
       "ProductoDetalleDepurar" => array(
         "type" => "object",
         "properties" => array(
@@ -338,6 +360,7 @@ $schema = array(
           "breadcrumbs" => array("type" => "array", "items" => array("type" => "object")),
           "seo" => array("type" => "object"),
           "acciones" => array("type" => "object"),
+          "fase_2" => array("type" => "object"),
           "guardrails" => array("type" => "object")
         )
       ),

@@ -123,11 +123,55 @@ class MigracionesBdEsquema extends DBSchema {
       "KEY `idx_sys_migraciones_det_tabla` (`tabla`)"
     ), "ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci", $ejecutar);
 
+    $resumen = $this->resumirPlan($plan);
+
     return array(
       "error" => false,
       "tipo" => "success",
       "mensaje" => $ejecutar ? "Esquema de migraciones BD ejecutado" : "Esquema de migraciones BD generado en dry-run",
-      "depurar" => $plan
+      "depurar" => array(
+        "resumen" => $resumen,
+        "plan" => $plan
+      )
     );
+  }
+
+  private function resumirPlan($plan) {
+    $resumen = array(
+      "total" => count($plan),
+      "pendientes" => 0,
+      "existentes" => 0,
+      "ejecutadas" => 0,
+      "errores" => 0,
+      "tablas" => array(),
+      "sql" => array()
+    );
+    foreach ($plan as $item) {
+      if (!empty($item["error"])) {
+        $resumen["errores"]++;
+      }
+      $depurar = isset($item["depurar"]) && is_array($item["depurar"]) ? $item["depurar"] : array();
+      $tabla = isset($depurar["tabla"]) ? $depurar["tabla"] : $this->tablaDesdeSql(isset($depurar["sql"]) ? $depurar["sql"] : "");
+      if ($tabla !== "") {
+        $resumen["tablas"][] = $tabla;
+      }
+      if (isset($depurar["ejecutado"]) && !empty($depurar["ejecutado"])) {
+        $resumen["ejecutadas"]++;
+      } elseif (isset($depurar["sql"]) && $depurar["sql"] !== "") {
+        $resumen["pendientes"]++;
+        $resumen["sql"][] = $depurar["sql"];
+      } else {
+        $resumen["existentes"]++;
+      }
+    }
+    $resumen["tablas"] = array_values(array_unique($resumen["tablas"]));
+    return $resumen;
+  }
+
+  private function tablaDesdeSql($sql) {
+    if (preg_match('/CREATE\s+TABLE\s+`([^`]+)`/i', (string) $sql, $m)) {
+      return $m[1];
+    }
+    return "";
   }
 }

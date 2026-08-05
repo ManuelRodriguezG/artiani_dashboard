@@ -26,7 +26,7 @@ Uso:
 
 La API publica se mantiene en contratos separados, con `frontend_handoff` como punto de entrada para proyectos externos y `bootstrap` como agregador inicial recomendado para evitar muchas llamadas en el primer render.
 
-Total actual: 22 endpoints publicos read-only/dry-run/preflight.
+Total actual: 23 endpoints publicos read-only/dry-run/preflight.
 
 ### Frontend handoff
 
@@ -107,6 +107,23 @@ La respuesta incluye `depurar.frontend` con:
 - `filtros_activos`;
 - `estado_vacio`;
 - `guardrails_ui`.
+
+### Catalogo manifest
+
+```http
+GET /ecommercePublico/catalogo_manifest?limite_preview=3
+```
+
+Inicia Fase 2 de API de catalogo robusta. Permite que frontend descubra:
+
+- parametros soportados;
+- ordenamientos;
+- endpoints relacionados;
+- ejemplos de consumo;
+- preview de catalogo, filtros, navegacion y estado vacio;
+- guardrails de UI.
+
+Regla confirmada: `guardrails.no_granel=true`. Los productos a granel/fraccionarios no deben publicarse ni exponerse en ecommerce.
 
 Esto permite construir paginacion, contador de resultados, chips de filtros y estado vacio sin duplicar reglas en el frontend.
 
@@ -431,6 +448,13 @@ Estado actual:
 
 ### Evento navegacion preflight
 
+Contrato especifico:
+
+```http
+GET /ecommercePublico/analytics_contrato
+POST /ecommercePublico/analytics_sesion
+```
+
 ```http
 POST /ecommercePublico/evento_navegacion
 ```
@@ -438,9 +462,21 @@ POST /ecommercePublico/evento_navegacion
 Estado actual:
 
 - Activo como preflight sin persistencia.
-- Valida eventos anonimos: `page_view`, `select_mascota`, `select_necesidad`, `search`, `view_product`, `add_to_quote`, `open_whatsapp`, `facturacion_view`, `facturacion_submit`.
+- Valida eventos anonimos: `page_view`, `view_product`, `search`, `select_mascota`, `select_necesidad`, `add_to_quote`, `remove_from_quote`, `quote_dryrun`, `quote_preflight`, `open_whatsapp`, `facturacion_view`, `facturacion_submit`.
 - Bloquea metadata con datos personales detectables como correo, telefono, RFC, nombre o razon social.
 - No registra tracking real todavia.
+- Devuelve `session_id_hash`; no guarda `session_id` en claro.
+- No acepta ni muestra stock exacto.
+
+Conversiones anonimas:
+
+```http
+POST /ecommercePublico/analytics_conversion
+```
+
+Eventos de conversion permitidos: `add_to_quote`, `remove_from_quote`, `quote_dryrun`, `quote_preflight`, `open_whatsapp`, `facturacion_submit`.
+
+No crea checkout, pago, cotizacion real, pedido, venta ni movimiento de inventario.
 
 ### Busqueda registrar preflight
 
@@ -455,6 +491,7 @@ Estado actual:
 - Devuelve `sin_resultados=true` cuando `resultados_total<=0`.
 - Bloquea busquedas o filtros con datos personales detectables.
 - No guarda historial real todavia.
+- La tabla futura dedicada es `erp_ecommerce_analytics_busquedas`.
 
 Ese plan documenta el payload futuro, tablas destino, folio planeado, snapshot y bloqueos vigentes sin desbloquear escrituras.
 

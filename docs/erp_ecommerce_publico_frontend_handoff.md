@@ -94,7 +94,9 @@ No conectar todavia:
 - `POST /ecommercePublico/busqueda_registrar` como analytics real.
 
 La bandeja interna ERP de cotizaciones esta preparada en read-only, pero no pertenece al frontend publico.
-- `facturacion_solicitar`, `evento_navegacion` y `busqueda_registrar` ya responden como preflight sin persistencia.
+- `facturacion_solicitar`, `analytics_sesion`, `evento_navegacion`, `busqueda_registrar` y `analytics_conversion` ya responden como preflight sin persistencia.
+- Para analytics, el frontend debe leer `GET /ecommercePublico/analytics_contrato` y enviar solo `session_id` anonimo, eventos permitidos y metadata limpia.
+- No enviar nombre, telefono, correo, RFC, razon social, direccion, datos fiscales ni stock exacto en analytics.
 
 ## Variables sugeridas en el proyecto ecommerce
 

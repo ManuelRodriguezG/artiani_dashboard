@@ -1221,3 +1221,61 @@ Resultado observado:
 | `alianza_base` | `activo` | `0` |
 
 Resumen: `3` escenarios semilla, `3` persistidos, `3` activos, `0` faltantes y `0` diferencias contra defaults. No se requiere autorizacion para sembrar escenarios en este momento.
+
+## Separacion de navegacion y manual operativo
+
+Fecha: 2026-08-04  
+IA: Codex GPT-5
+
+Se separo Rentabilidad como grupo propio del sidebar para que no quede confundido dentro de Comercial. La decision conserva el criterio ERP: Costos/Rentabilidad es un modulo comercial-financiero de analisis y cierre de precios, no una seccion de Catalogo ni Inventario.
+
+Rutas de usuario:
+
+- `/rentabilidad/analisis`: resumen ejecutivo.
+- `/rentabilidad/skus`: SKU y escenarios comerciales.
+- `/rentabilidad/cierre`: cierre comercial, prioridades y recomendaciones.
+- `/rentabilidad/aprobaciones`: preflight y aprobaciones internas.
+- `/rentabilidad/calidad`: datos base, fiscal/XML, variaciones y presentaciones.
+- `/rentabilidad/historial`: snapshots y vigencia.
+- `/rentabilidad/manual`: manual operativo.
+
+Contrato: se reutilizan endpoints existentes y permisos actuales. No se escribio BD, no se toca Inventario salvo consultas read-only, no se conecta con Ventas/ecommerce y no se mezclan pantallas legacy de Costos/Utilidad.
+
+## Optimizacion de carga por vista
+
+Fecha: 2026-08-04  
+IA: Codex GPT-5
+
+Se ajusto el JS de Rentabilidad para que cada vista cargue solo sus endpoints operativos:
+
+- Resumen: tablero, estado, uso comercial, desbloqueo, auditoria final, tabla y recomendaciones.
+- SKU y escenarios: escenarios, matriz, canal recomendado, precios objetivo, sensibilidad y tabla.
+- Cierre: plan, impacto, hallazgos, prioridades, responsables, checklist, autorizaciones y recomendaciones persistentes.
+- Aprobaciones: aprobacion de precios, aprobacion interna, paquete de autorizacion y aprobaciones guardadas.
+- Calidad: cierre, semaforo, variaciones, datos base, fiscal/XML, preflight fiscal, workflow y presentaciones.
+- Historial: snapshots y vigencia.
+
+Contrato: no cambia calculos ni permisos; solo reduce llamadas innecesarias por vista.
+
+## UAT navegacion Rentabilidad
+
+Fecha: 2026-08-04  
+IA: Codex GPT-5
+
+Se agrego UAT read-only `storage/uat/uat_rentabilidad_navegacion_readonly.php` para validar la separacion del modulo sin conectar BD ni ejecutar endpoints.
+
+Resultado:
+
+- `ok=true`.
+- `total_checks=47`.
+- `fallas=0`.
+- Contrato validado: solo lectura, sin BD, sin endpoints, sin Inventario y sin Ventas/ecommerce.
+
+Cobertura:
+
+- Sidebar con grupo `ERP > Rentabilidad`.
+- Rutas de resumen, SKU/escenarios, cierre, aprobaciones, calidad, historial y manual.
+- Metodos del controlador para vistas nuevas.
+- Titulos y modo `window.RENTABILIDAD_VISTA` por vista.
+- Asset JS versionado `20260804-2`.
+- Secciones basicas del manual operativo.

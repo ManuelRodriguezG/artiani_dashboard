@@ -1,4 +1,4 @@
-﻿# ERP Catalogo - Plan de catalogos comerciales
+# ERP Catalogo - Plan de catalogos comerciales
 
 Fecha: 2026-07-23
 Proyecto vigente: `C:\xampp\htdocs\panel_de_control`
@@ -1245,3 +1245,159 @@ Cambios:
 - La primera pagina conserva portada/encabezado principal.
 - Las paginas siguientes conservan solo titulo y numero de pagina para dejar mas espacio a productos.
 
+
+## Ajuste 2026-08-02 - Tres productos por renglon
+
+Solicitud: en Catalogos comerciales, mostrar 3 tarjetas de producto por renglon en lugar de 2.
+
+Cambios aplicados:
+
+- Vista previa HTML: plantillas `Cuadrada redes` y `Vertical redes` usan 3 columnas en escritorio.
+- Responsive: en pantallas medianas baja a 2 columnas y en movil a 1 columna.
+- Exportacion PNG: `layoutPaginaCatalogo()` ahora dibuja 3 columnas para plantillas `square` y `story`.
+- La plantilla `compact` se mantiene como lista de una columna.
+- No se modificaron datos, precios, catalogos guardados ni endpoints.
+
+UAT recomendado:
+
+1. Abrir Catalogo ERP > Catalogos comerciales.
+2. Seleccionar al menos 6 productos.
+3. Entrar a Vista previa con plantilla `Cuadrada redes` y confirmar 3 tarjetas por renglon.
+4. Probar `Vertical redes` y confirmar 3 tarjetas por renglon.
+5. Exportar PNG y confirmar que cada pagina tambien dibuja 3 tarjetas por renglon.
+
+
+## Ajuste 2026-08-02 - Nueve productos por pagina PNG
+
+Solicitud: reducir el tamano visual porque 6 productos por imagen seguia siendo muy grande.
+
+Decision:
+
+- Mantener 1080 x 1400 px como formato base para compartir por redes/WhatsApp.
+- Usar 3 columnas por 3 filas como objetivo operativo: 9 productos por pagina PNG.
+- No pasar todavia a 4 columnas/12 productos porque comprime demasiado imagen y titulo en 1080 px.
+
+Cambios aplicados:
+
+- Exportacion PNG: se redujeron margen, separacion, encabezado y portada.
+- Tarjetas PNG: imagen, titulo, metadatos y precio usan proporciones mas compactas.
+- Vista previa HTML: tarjetas mas bajas, tipografia menor y titulos con ajuste de palabras largas.
+- Cache-buster actualizado a `20260802-grid-9-productos-1`.
+
+UAT recomendado:
+
+1. Abrir Catalogo ERP > Catalogos comerciales.
+2. Seleccionar al menos 9 productos con imagen.
+3. Entrar a Vista previa con plantilla `Cuadrada redes`.
+4. Exportar PNG y confirmar que la primera pagina muestra 9 productos cuando la portada esta activa.
+5. Probar con mas de 9 productos y confirmar que genera paginas numeradas sin tira vertical.
+
+
+## Ajuste 2026-08-03 - Tarjeta vertical con imagen completa
+
+Solicitud: los productos seguian viendose muy grandes o con imagen poco apreciable; se requiere tarjeta mas vertical para redes.
+
+Decision:
+
+- Mantener 9 productos por pagina como objetivo principal.
+- Subir el lienzo PNG a 1080 x 1600 px para dar mas alto util sin volver a una tira vertical excesiva.
+- Dibujar la imagen del producto en modo contenido (`contain`) y no como recorte completo (`cover`), para evitar cortes visuales.
+- Usar tarjetas mas verticales: mas espacio para imagen y texto compacto debajo.
+
+Cambios aplicados:
+
+- Exportacion PNG: tarjetas de 360 px de alto, imagen al 68% de la tarjeta y lienzo 1080 x 1600.
+- Vista previa HTML: imagen en proporcion vertical 4:5, `object-fit: contain` y padding controlado.
+- Cache-buster actualizado a `20260803-tarjeta-vertical-1`.
+
+UAT recomendado:
+
+1. Recargar con `Ctrl + F5`.
+2. Abrir Catalogo ERP > Catalogos comerciales > Vista previa.
+3. Confirmar que la imagen se ve completa y no recortada.
+4. Exportar PNG con al menos 9 productos y validar que mantiene 3 x 3 con tarjetas mas verticales.
+
+
+## Ajuste 2026-08-03 - Aprovechamiento de pagina a 12 productos
+
+Solicitud: habia demasiado espacio en blanco despues de la portada; se requiere aprovechar mejor cada imagen exportada.
+
+Decision:
+
+- Mantener formato vertical 1080 x 1600 px.
+- Ajustar margen, separacion, encabezado y portada para permitir 4 filas por pagina.
+- Objetivo visual: 3 columnas x 4 filas = 12 productos por PNG cuando la cantidad de items lo permita.
+- La portada se conserva como senal comercial breve, pero ya no ocupa una franja grande.
+
+Cambios aplicados:
+
+- Exportacion PNG: tarjetas de 290 px, margen 36 px y portada de 120 px.
+- Encabezado principal y encabezado de paginas siguientes mas compactos.
+- Imagen de producto sigue en modo `contain` para verse completa.
+- Vista previa HTML: tarjetas y portada mas compactas.
+- Cache-buster actualizado a `20260803-12-productos-pagina-1`.
+
+UAT recomendado:
+
+1. Recargar con `Ctrl + F5`.
+2. Seleccionar 12 o mas productos en Catalogos comerciales.
+3. Exportar PNG con portada activa.
+4. Confirmar que la primera pagina puede mostrar hasta 12 productos sin espacio blanco excesivo.
+5. Confirmar que las paginas siguientes tambien aprovechan 4 filas.
+
+
+## Ajuste 2026-08-04 - Prueba de cuadricula 4x4 y 4x5
+
+Solicitud: probar una conformacion mas densa para que las tarjetas se acomoden mejor.
+
+Decision:
+
+- Primera pagina con portada: 4 columnas x 4 filas, maximo 16 productos.
+- Paginas siguientes: 4 columnas x 5 filas, maximo 20 productos.
+- Mantener imagen completa con `contain`.
+- Reducir tipografia y altura de tarjeta para que el titulo siga entrando lo mejor posible.
+- La plantilla compacta queda fuera de esta regla porque funciona como lista.
+
+Cambios aplicados:
+
+- Exportacion PNG: columnas visuales pasan de 3 a 4.
+- `itemsPorPaginaCatalogo()` limita filas a 4 con portada y 5 sin portada.
+- Tarjeta PNG pasa a 270 px de alto.
+- Vista previa HTML usa 4 columnas en escritorio y tipografia mas compacta.
+- Cache-buster actualizado a `20260804-grid-4x4-4x5-1`.
+
+UAT recomendado:
+
+1. Recargar con `Ctrl + F5`.
+2. Exportar un catalogo con portada y al menos 36 productos.
+3. Confirmar pagina 1 con hasta 16 productos.
+4. Confirmar paginas 2+ con hasta 20 productos.
+5. Revisar si las imagenes siguen siendo suficientemente legibles para WhatsApp/redes.
+
+
+## Ajuste 2026-08-04 - Prueba de cuadricula 5x4 y 5x5
+
+Solicitud: probar si caben 5 columnas manteniendo las filas actuales.
+
+Decision:
+
+- Primera pagina con portada: 5 columnas x 4 filas, maximo 20 productos.
+- Paginas siguientes: 5 columnas x 5 filas, maximo 25 productos.
+- Mantener imagen completa con `contain`.
+- Reducir tipografia y padding para compensar el menor ancho por tarjeta.
+- Considerar esta configuracion como prueba visual; si el titulo o imagen queda demasiado pequeno, volver a 4 columnas.
+
+Cambios aplicados:
+
+- Exportacion PNG: columnas visuales pasan de 4 a 5.
+- La regla de filas se mantiene: 4 con portada, 5 sin portada.
+- Vista previa HTML usa 5 columnas en escritorio.
+- Cache-buster actualizado a `20260804-grid-5x4-5x5-1`.
+
+UAT recomendado:
+
+1. Recargar con `Ctrl + F5`.
+2. Exportar un catalogo con portada y al menos 45 productos.
+3. Confirmar pagina 1 con hasta 20 productos.
+4. Confirmar paginas 2+ con hasta 25 productos.
+5. Revisar en telefono si imagen y titulo siguen siendo legibles.

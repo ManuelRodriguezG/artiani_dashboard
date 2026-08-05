@@ -1,7 +1,26 @@
 "use strict";
 (function () {
     var defaults = {};
-    function $(id) { return document.getElementById(id); }
+    var rentabilidadFallbacks = {};
+    /**
+     * IA: Codex GPT-5 | Fecha: 2026-08-04
+     * Proposito: permitir vistas separadas de Rentabilidad sin fallar cuando una seccion no se renderiza.
+     * Impacto: UI del modulo Rentabilidad; conserva endpoints y calculos existentes.
+     * Contrato: devuelve nodo real o un nodo oculto estable para listeners/renderizadores.
+     */
+    function $(id) {
+        var el = document.getElementById(id);
+        if (el) { return el; }
+        if (!rentabilidadFallbacks[id]) {
+            el = document.createElement("div");
+            el.id = id;
+            el.style.display = "none";
+            el.value = "";
+            document.body.appendChild(el);
+            rentabilidadFallbacks[id] = el;
+        }
+        return rentabilidadFallbacks[id];
+    }
     function request(url) { return fetch(url, {credentials: "same-origin"}).then(function (response) { return response.json(); }); }
     function post(url, data) {
         return fetch(url, {
@@ -43,87 +62,48 @@
         $("rentabilidad_comision").value = item.comision_pct == null ? 0 : item.comision_pct;
         $("rentabilidad_objetivo").value = item.margen_objetivo_pct == null ? 0 : item.margen_objetivo_pct;
     }
+    /**
+     * IA: Codex GPT-5 | Fecha: 2026-08-04
+     * Proposito: cargar solo los endpoints necesarios de la vista activa de Rentabilidad.
+     * Impacto: reduce carga de red y evita que cada pantalla consulte todo el modulo.
+     * Contrato: no cambia calculos ni permisos; solo organiza llamadas read-only por window.RENTABILIDAD_VISTA.
+     */
+    function ejecutarCargaVista() {
+        var vista = window.RENTABILIDAD_VISTA || "analisis";
+        var tareas = [];
+        if (vista === "analisis") {
+            tareas = [cargarTablero, cargarEstadoModulo, cargarUsoComercial, cargarDesbloqueo, cargarAuditoriaFinal, function () {
+                return request("/rentabilidad/analizar_erp?" + filtros()).then(function (response) {
+                    if (response.error) { throw new Error(response.mensaje); }
+                    render(response.depurar || {});
+                });
+            }, function () {
+                return request("/rentabilidad/recomendaciones_erp?" + filtros() + "&limite=120").then(function (response) {
+                    if (response.error) { throw new Error(response.mensaje); }
+                    renderRecomendaciones(response.depurar || {});
+                });
+            }];
+        } else if (vista === "skus") {
+            tareas = [cargarEscenariosAuditoria, cargarMatriz, cargarCanales, cargarPreciosObjetivo, cargarSensibilidad, function () {
+                return request("/rentabilidad/analizar_erp?" + filtros()).then(function (response) {
+                    if (response.error) { throw new Error(response.mensaje); }
+                    render(response.depurar || {});
+                });
+            }];
+        } else if (vista === "cierre") {
+            tareas = [cargarPlanCierre, cargarImpactoCierre, cargarHallazgosCierre, cargarPrioridadesCierre, cargarResponsablesCierre, cargarChecklistCierre, cargarAutorizacionesCierre, cargarPreflightRecomendaciones, cargarRecomendacionesPersistentes];
+        } else if (vista === "aprobaciones") {
+            tareas = [cargarPreciosAprobacion, cargarAprobacionesInternas, cargarAprobacionesAutorizacion, cargarAprobacionesInternasPersistentes];
+        } else if (vista === "calidad") {
+            tareas = [cargarCierre, cargarSemaforo, cargarVariaciones, cargarDatosBase, cargarFiscalXml, cargarFiscalPreflight, cargarWorkflowComercial, cargarPresentaciones];
+        } else if (vista === "historial") {
+            tareas = [cargarSnapshots, cargarVigenciaSnapshots];
+        }
+        return Promise.all(tareas.map(function (tarea) { return tarea(); }));
+    }
+
     function cargar() {
-        Promise.all([
-            request("/rentabilidad/analizar_erp?" + filtros()),
-            request("/rentabilidad/tablero_ejecutivo_erp?" + filtros()),
-            request("/rentabilidad/revision_operativa_erp?" + filtros()),
-            request("/rentabilidad/recomendaciones_erp?" + filtros() + "&limite=120"),
-            request("/rentabilidad/matriz_escenarios_erp?" + filtros() + "&limite=120"),
-            request("/rentabilidad/canales_recomendados_erp?" + filtros() + "&limite=120"),
-            request("/rentabilidad/plan_cierre_erp?" + filtros() + "&limite=120"),
-            request("/rentabilidad/impacto_cierre_erp?" + filtros() + "&limite=120"),
-            request("/rentabilidad/hallazgos_cierre_erp?" + filtros() + "&limite=120"),
-            request("/rentabilidad/prioridades_cierre_erp?" + filtros() + "&limite=120"),
-            request("/rentabilidad/responsables_cierre_erp?" + filtros() + "&limite=120"),
-            request("/rentabilidad/checklist_cierre_erp?" + filtros() + "&limite=120"),
-            request("/rentabilidad/autorizaciones_cierre_erp?" + filtros() + "&limite=120"),
-            request("/rentabilidad/precios_objetivo_erp?" + filtros() + "&limite=120"),
-            request("/rentabilidad/sensibilidad_erp?" + filtros() + "&limite=120"),
-            request("/rentabilidad/cierre_precios_auditar_erp?" + filtros()),
-            request("/rentabilidad/semaforo_cierre_erp?" + filtros() + "&limite=120"),
-            request("/rentabilidad/variaciones_costos_erp?" + filtros() + "&limite=120"),
-            request("/rentabilidad/datos_base_auditar_erp?" + filtros() + "&limite=120"),
-            request("/rentabilidad/fiscal_xml_auditar_erp?" + filtros() + "&limite=120")
-        ]).then(function (responses) {
-            var response = responses[0];
-            if (response.error) { throw new Error(response.mensaje); }
-            render(response.depurar || {});
-            if (responses[1].error) { throw new Error(responses[1].mensaje); }
-            renderTablero(responses[1].depurar || {});
-            if (responses[2].error) { throw new Error(responses[2].mensaje); }
-            renderRevision(responses[2].depurar || {});
-            if (responses[3].error) { throw new Error(responses[3].mensaje); }
-            renderRecomendaciones(responses[3].depurar || {});
-            if (responses[4].error) { throw new Error(responses[4].mensaje); }
-            renderMatriz(responses[4].depurar || {});
-            if (responses[5].error) { throw new Error(responses[5].mensaje); }
-            renderCanales(responses[5].depurar || {});
-            if (responses[6].error) { throw new Error(responses[6].mensaje); }
-            renderPlanCierre(responses[6].depurar || {});
-            if (responses[7].error) { throw new Error(responses[7].mensaje); }
-            renderImpactoCierre(responses[7].depurar || {});
-            if (responses[8].error) { throw new Error(responses[8].mensaje); }
-            renderHallazgosCierre(responses[8].depurar || {});
-            if (responses[9].error) { throw new Error(responses[9].mensaje); }
-            renderPrioridadesCierre(responses[9].depurar || {});
-            if (responses[10].error) { throw new Error(responses[10].mensaje); }
-            renderResponsablesCierre(responses[10].depurar || {});
-            if (responses[11].error) { throw new Error(responses[11].mensaje); }
-            renderChecklistCierre(responses[11].depurar || {});
-            if (responses[12].error) { throw new Error(responses[12].mensaje); }
-            renderAutorizacionesCierre(responses[12].depurar || {});
-            if (responses[13].error) { throw new Error(responses[13].mensaje); }
-            renderPreciosObjetivo(responses[13].depurar || {});
-            if (responses[14].error) { throw new Error(responses[14].mensaje); }
-            renderSensibilidad(responses[14].depurar || {});
-            if (responses[15].error) { throw new Error(responses[15].mensaje); }
-            renderCierre(responses[15].depurar || {});
-            if (responses[16].error) { throw new Error(responses[16].mensaje); }
-            renderSemaforo(responses[16].depurar || {});
-            if (responses[17].error) { throw new Error(responses[17].mensaje); }
-            renderVariaciones(responses[17].depurar || {});
-            if (responses[18].error) { throw new Error(responses[18].mensaje); }
-            renderDatosBase(responses[18].depurar || {});
-            if (responses[19].error) { throw new Error(responses[19].mensaje); }
-            renderFiscalXml(responses[19].depurar || {});
-            cargarEscenariosAuditoria();
-            cargarSnapshots();
-            cargarVigenciaSnapshots();
-            cargarPresentaciones();
-            cargarPreciosAprobacion();
-            cargarAprobacionesInternas();
-            cargarAprobacionesAutorizacion();
-            cargarAprobacionesInternasPersistentes();
-            cargarFiscalPreflight();
-            cargarWorkflowComercial();
-            cargarEstadoModulo();
-            cargarUsoComercial();
-            cargarDesbloqueo();
-            cargarAuditoriaFinal();
-            cargarPreflightRecomendaciones();
-            cargarRecomendacionesPersistentes();
-        }).catch(function (error) {
+        ejecutarCargaVista().catch(function (error) {
             Swal.fire({text: error.message, icon: "error", confirmButtonText: "Aceptar"});
         });
     }
@@ -1454,7 +1434,39 @@
             "<span class=\"badge badge-light-secondary\">Snapshots desfasados " + Number(snapshots.desfasados || 0) + "</span>" +
             "</div>";
     }
+    /**
+     * IA: Codex GPT-5 | Fecha: 2026-08-04
+     * Proposito: mostrar solo las tarjetas relevantes segun la vista navegada del modulo.
+     * Impacto: organizacion visual de Rentabilidad sin duplicar reglas de negocio.
+     * Contrato: usa window.RENTABILIDAD_VISTA; no altera calculos ni datos.
+     */
+    function aplicarVistaRentabilidad() {
+        var vista = window.RENTABILIDAD_VISTA || "analisis";
+        var visibles = {
+            analisis: ["Tablero ejecutivo", "Estado del modulo", "Preflight uso comercial", "Plan de desbloqueo", "Auditoria final", "Recomendaciones operativas"],
+            skus: ["Escenarios comerciales", "Matriz de escenarios", "Canal recomendado", "Precios objetivo", "Sensibilidad"],
+            cierre: ["Plan de cierre", "Impacto de cierre", "Hallazgos de cierre", "Prioridad de cierre", "Responsables de cierre", "Checklist de cierre", "Paquete de autorizacion", "Recomendaciones persistentes"],
+            aprobaciones: ["Aprobacion de precios", "Aprobacion interna", "Paquete autorizacion aprobaciones", "Aprobaciones internas guardadas"],
+            calidad: ["Cierre comercial", "Semaforo de cierre", "Variacion de costos", "Datos base para cierre", "Evidencia fiscal XML", "Preflight fiscal", "Workflow comercial", "Costos de presentaciones"],
+            historial: ["Snapshots recientes", "Vigencia de snapshots"]
+        };
+        var lista = visibles[vista];
+        if (!lista) { return; }
+        document.querySelectorAll("#kt_app_main .card").forEach(function (card) {
+            var titulo = card.querySelector("h3");
+            if (!titulo) { return; }
+            if (lista.indexOf(titulo.textContent.trim()) === -1) { card.classList.add("d-none"); }
+        });
+        var mostrarTabla = vista === "analisis" || vista === "skus";
+        var resumen = document.getElementById("rentabilidad_resumen");
+        if (resumen && !mostrarTabla) {
+            resumen.classList.add("d-none");
+            var tabla = resumen.nextElementSibling;
+            if (tabla && tabla.classList.contains("card")) { tabla.classList.add("d-none"); }
+        }
+    }
     document.addEventListener("DOMContentLoaded", function () {
+        aplicarVistaRentabilidad();
         $("rentabilidad_canal").addEventListener("change", function () { aplicarDefaults(); cargar(); });
         $("rentabilidad_recargar").addEventListener("click", cargar);
         if ($("rentabilidad_snapshot_guardar")) {
@@ -1520,3 +1532,4 @@
         });
     });
 })();
+

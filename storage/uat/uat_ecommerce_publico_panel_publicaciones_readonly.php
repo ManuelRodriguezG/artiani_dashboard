@@ -13,6 +13,7 @@ require_once "../app/modelos/EcommerceCatalogoPublico.php";
 
 $api = new EcommerceCatalogoPublico();
 
+$fase = $api->fasePublicacionesEstadoInterna(array("base_url" => "http://panel.com.local"));
 $publicados = $api->auditarPublicabilidad(array(
   "limite" => 25,
   "estatus_publicacion" => "publicado"
@@ -40,10 +41,23 @@ $busquedaOk = empty($busqueda["error"]) && count($itemsBusqueda) > 0;
 $bloqueoOk = !empty($bloqueoCuraduria["error"]) && valorPanelPublicaciones($bloqueoCuraduria, array("depurar", "bloqueado"), false) === true;
 $loteBorradorBloqueadoOk = !empty($bloqueoLoteBorrador["error"]) && valorPanelPublicaciones($bloqueoLoteBorrador, array("depurar", "bloqueado"), false) === true;
 $lotePublicarBloqueadoOk = !empty($bloqueoLotePublicar["error"]) && valorPanelPublicaciones($bloqueoLotePublicar, array("depurar", "bloqueado"), false) === true;
+$faseOk = empty($fase["error"])
+  && valorPanelPublicaciones($fase, array("depurar", "fase"), "") === "fase_1_publicaciones_control"
+  && is_array(valorPanelPublicaciones($fase, array("depurar", "criterios_salida"), null))
+  && valorPanelPublicaciones($fase, array("depurar", "guardrails", "no_toca_inventario"), false) === true
+  && valorPanelPublicaciones($fase, array("depurar", "guardrails", "no_publicar_granel"), false) === true
+  && intval(valorPanelPublicaciones($fase, array("depurar", "metricas", "publicaciones_granel_activas"), 1)) === 0;
 
 echo json_encode(array(
-  "ok" => $publicadosOk && $busquedaOk && $bloqueoOk && $loteBorradorBloqueadoOk && $lotePublicarBloqueadoOk,
+  "ok" => $faseOk && $publicadosOk && $busquedaOk && $bloqueoOk && $loteBorradorBloqueadoOk && $lotePublicarBloqueadoOk,
   "modo" => "read-only",
+  "fase_1" => array(
+    "estado" => valorPanelPublicaciones($fase, array("depurar", "estado"), ""),
+    "puede_pasar_a_fase_2" => valorPanelPublicaciones($fase, array("depurar", "puede_pasar_a_fase_2"), false),
+    "endpoint_estado_ok" => $faseOk,
+    "pendientes_para_cierre" => valorPanelPublicaciones($fase, array("depurar", "pendientes_para_cierre"), array()),
+    "publicaciones_granel_activas" => intval(valorPanelPublicaciones($fase, array("depurar", "metricas", "publicaciones_granel_activas"), 0))
+  ),
   "panel_publicaciones" => array(
     "filtro_publicados_ok" => $publicadosOk,
     "publicados_encontrados" => count($itemsPublicados),

@@ -56,6 +56,17 @@
                                 </div>
                             </div>
 
+                            <div class="alert alert-primary d-flex align-items-start justify-content-between gap-4" id="ecom_ctl_fase_box">
+                                <div>
+                                    <div class="fw-bold" id="ecom_ctl_fase_titulo">Fase 1: validando publicaciones y control</div>
+                                    <div class="fs-7" id="ecom_ctl_fase_detalle">Revisando criterios de salida para pasar a API de catalogo robusta.</div>
+                                </div>
+                                <div class="text-end">
+                                    <span class="badge badge-light-primary" id="ecom_ctl_fase_estado">En progreso</span>
+                                    <div class="fs-8 text-muted mt-1" id="ecom_ctl_fase_siguiente">Siguiente: Fase 2</div>
+                                </div>
+                            </div>
+
                             <div class="row g-4 mb-5">
                                 <div class="col-md-3"><div class="ecom-control-kpi"><div class="ecom-control-kpi__label">Publicados</div><div class="ecom-control-kpi__value" id="ecom_ctl_publicados">0</div><div class="text-muted fs-7 mt-2">Visibles en API publica.</div></div></div>
                                 <div class="col-md-3"><div class="ecom-control-kpi"><div class="ecom-control-kpi__label">Borradores</div><div class="ecom-control-kpi__value" id="ecom_ctl_borradores">0</div><div class="text-muted fs-7 mt-2">Listos para revisar/publicar.</div></div></div>

@@ -90,6 +90,10 @@
             "</select>";
     }
 
+    function inputDecision(clase, tabla, valor, placeholder) {
+        return '<input type="text" class="form-control form-control-sm form-control-solid ' + clase + '" data-tabla="' + escapeHtml(tabla) + '" value="' + escapeHtml(valor || "") + '" placeholder="' + escapeHtml(placeholder || "") + '">';
+    }
+
     function escapeHtml(value) {
         return String(value === null || value === undefined ? "" : value)
             .replace(/&/g, "&amp;")
@@ -113,25 +117,57 @@
                 throw new Error(response.mensaje || "No fue posible clasificar");
             }
             politicasActuales = response.depurar || [];
+            var resumen = resumenPoliticas(politicasActuales);
             var filas = politicasActuales.map(function (item) {
                 return "<tr>" +
                     '<td><div class="form-check form-check-sm form-check-custom form-check-solid">' +
                     '<input class="form-check-input migbd-tabla-check" type="checkbox" value="' + escapeHtml(item.tabla) + '">' +
                     "</div></td>" +
                     "<td class=\"fw-semibold\">" + escapeHtml(item.tabla) + "</td>" +
+                    '<td>' + (item.persistida ? '<span class="badge badge-light-success">guardada</span>' : '<span class="badge badge-light-info">sugerida</span>') + "</td>" +
                     "<td>" + selectPolitica(item.politica, item.tabla) + "</td>" +
                     '<td><div class="form-check form-switch form-check-custom form-check-solid">' +
                     '<input class="form-check-input migbd-incluye-datos" type="checkbox" data-tabla="' + escapeHtml(item.tabla) + '"' + (item.incluye_datos ? " checked" : "") + ">" +
                     "</div></td>" +
+                    "<td>" + inputDecision("migbd-llave-natural", item.tabla, item.llave_natural || "", "sku,codigo,uuid") + "</td>" +
+                    "<td>" + inputDecision("migbd-descripcion-politica", item.tabla, item.descripcion || item.motivo || "", "Decision o motivo") + "</td>" +
                     "<td class=\"text-gray-700\">" + escapeHtml(item.motivo) + "</td>" +
                     "</tr>";
             }).join("");
-            contenedor.innerHTML = '<div class="table-responsive"><table class="table table-row-dashed align-middle">' +
-                '<thead><tr class="text-muted text-uppercase fs-8"><th></th><th>Tabla</th><th>Politica</th><th>Datos</th><th>Motivo</th></tr></thead>' +
+            contenedor.innerHTML = '<div class="row g-4 mb-5">' +
+                resumenBox("Schema only", resumen.schema_only || 0, "info") +
+                resumenBox("Data seed", resumen.data_seed || 0, "success") +
+                resumenBox("Data merge", resumen.data_merge || 0, "primary") +
+                resumenBox("Prod owned", resumen.production_owned || 0, "warning") +
+                resumenBox("Blocked", resumen.blocked || 0, "danger") +
+                "</div>" +
+                '<div class="d-flex flex-wrap gap-3 mb-5">' +
+                '<button type="button" class="btn btn-sm btn-light-primary" id="migbd_btn_seleccionar_datos"><i class="bi bi-check2-square"></i> Seleccionar con datos</button>' +
+                '<button type="button" class="btn btn-sm btn-light" id="migbd_btn_limpiar_seleccion"><i class="bi bi-square"></i> Limpiar seleccion</button>' +
+                '<select class="form-select form-select-sm form-select-solid w-200px" id="migbd_bulk_politica">' +
+                '<option value="">Politica masiva</option>' +
+                '<option value="schema_only">schema_only</option>' +
+                '<option value="data_seed">data_seed</option>' +
+                '<option value="data_merge">data_merge</option>' +
+                '<option value="production_owned">production_owned</option>' +
+                '<option value="blocked">blocked</option>' +
+                "</select>" +
+                '<button type="button" class="btn btn-sm btn-light-warning" id="migbd_btn_aplicar_bulk"><i class="bi bi-layers"></i> Aplicar a seleccion</button>' +
+                "</div>" +
+                '<div class="table-responsive"><table class="table table-row-dashed align-middle">' +
+                '<thead><tr class="text-muted text-uppercase fs-8"><th></th><th>Tabla</th><th>Origen</th><th>Politica</th><th>Datos</th><th>Llave natural</th><th>Descripcion</th><th>Motivo sugerido</th></tr></thead>' +
                 "<tbody>" + filas + "</tbody></table></div>";
         }).catch(function (error) {
             contenedor.innerHTML = '<div class="alert alert-danger">' + escapeHtml(error.message || String(error)) + "</div>";
         });
+    }
+
+    function resumenPoliticas(politicas) {
+        return (politicas || []).reduce(function (mapa, item) {
+            var politica = item.politica || "blocked";
+            mapa[politica] = (mapa[politica] || 0) + 1;
+            return mapa;
+        }, {});
     }
 
     function leerPoliticasEditadas() {
@@ -157,9 +193,57 @@
                 mapa[tabla].incluye_datos = input.checked;
             }
         });
+        document.querySelectorAll(".migbd-llave-natural").forEach(function (input) {
+            var tabla = input.getAttribute("data-tabla");
+            if (mapa[tabla]) {
+                mapa[tabla].llave_natural = input.value.trim();
+            }
+        });
+        document.querySelectorAll(".migbd-descripcion-politica").forEach(function (input) {
+            var tabla = input.getAttribute("data-tabla");
+            if (mapa[tabla]) {
+                mapa[tabla].descripcion = input.value.trim();
+            }
+        });
         return Object.keys(mapa).map(function (tabla) {
             return mapa[tabla];
         });
+    }
+
+    function seleccionarPoliticasConDatos() {
+        document.querySelectorAll(".migbd-tabla-check").forEach(function (check) {
+            var tabla = check.value;
+            var datos = document.querySelector('.migbd-incluye-datos[data-tabla="' + cssEscape(tabla) + '"]');
+            check.checked = !!(datos && datos.checked);
+        });
+    }
+
+    function limpiarSeleccionPoliticas() {
+        document.querySelectorAll(".migbd-tabla-check").forEach(function (check) {
+            check.checked = false;
+        });
+    }
+
+    function aplicarPoliticaMasiva() {
+        var select = document.getElementById("migbd_bulk_politica");
+        var politica = select ? select.value : "";
+        if (!politica) {
+            return;
+        }
+        document.querySelectorAll(".migbd-tabla-check:checked").forEach(function (check) {
+            var tabla = check.value;
+            var destino = document.querySelector('.migbd-politica[data-tabla="' + cssEscape(tabla) + '"]');
+            if (destino) {
+                destino.value = politica;
+            }
+        });
+    }
+
+    function cssEscape(value) {
+        if (window.CSS && window.CSS.escape) {
+            return CSS.escape(value);
+        }
+        return String(value).replace(/"/g, '\\"');
     }
 
     /**
@@ -497,6 +581,7 @@
             }
             var comp = response.depurar.comparacion;
             var resumen = comp.resumen || {};
+            var riesgos = comp.riesgos || resumen.riesgos || {};
             var html = '<div class="row g-4 mb-5">' +
                 resumenBox("Tablas solo local", resumen.tablas_solo_origen || 0, "primary") +
                 resumenBox("Tablas solo destino", resumen.tablas_solo_destino || 0, "warning") +
@@ -504,11 +589,19 @@
                 resumenBox("Indices faltantes", resumen.indices_faltantes_destino || 0, "success") +
                 resumenBox("FKs faltantes", resumen.foraneas_faltantes_destino || 0, "danger") +
                 "</div>";
-            html += renderLista("Tablas solo en local", comp.tablas_solo_origen, ["tabla", "filas_estimadas"]);
-            html += renderLista("Columnas faltantes en destino", comp.columnas_faltantes_destino, ["tabla", "columna", "definicion"]);
-            html += renderLista("Indices faltantes en destino", comp.indices_faltantes_destino, ["tabla", "indice", "definicion"]);
-            html += renderLista("Llaves foraneas faltantes en destino", comp.foraneas_faltantes_destino, ["tabla", "restriccion", "tabla_referencia", "definicion"]);
-            html += renderLista("Columnas diferentes", comp.columnas_diferentes, ["tabla", "columna"]);
+            html += '<div class="row g-4 mb-6">' +
+                resumenBox("Riesgo bajo", riesgos.bajo || 0, "success") +
+                resumenBox("Riesgo medio", riesgos.medio || 0, "warning") +
+                resumenBox("Riesgo alto", riesgos.alto || 0, "danger") +
+                resumenBox("Bloqueantes", riesgos.bloqueante || 0, "danger") +
+                resumenBox("Revision", riesgos.revision || 0, "dark") +
+                "</div>";
+            html += renderLista("Tablas solo en local", comp.tablas_solo_origen, ["tabla", "filas_estimadas", "riesgo", "recomendacion"]);
+            html += renderLista("Columnas faltantes en destino", comp.columnas_faltantes_destino, ["tabla", "columna", "riesgo", "recomendacion", "definicion"]);
+            html += renderLista("Indices faltantes en destino", comp.indices_faltantes_destino, ["tabla", "indice", "riesgo", "recomendacion", "definicion"]);
+            html += renderLista("Llaves foraneas faltantes en destino", comp.foraneas_faltantes_destino, ["tabla", "restriccion", "tabla_referencia", "riesgo", "recomendacion", "definicion"]);
+            html += renderLista("Columnas diferentes", comp.columnas_diferentes, ["tabla", "columna", "riesgo", "recomendacion"]);
+            html += renderLista("Tablas solo en destino", comp.tablas_solo_destino, ["tabla", "filas_estimadas", "riesgo", "recomendacion"]);
             contenedor.innerHTML = html;
         }).catch(function (error) {
             contenedor.innerHTML = '<div class="alert alert-warning">' + escapeHtml(error.message || String(error)) + "</div>";
@@ -531,6 +624,9 @@
         }).join("");
         var filas = items.slice(0, 80).map(function (item) {
             return "<tr>" + campos.map(function (campo) {
+                if (campo === "riesgo") {
+                    return "<td>" + badgeRiesgo(item[campo]) + "</td>";
+                }
                 return "<td>" + escapeHtml(item[campo]) + "</td>";
             }).join("") + "</tr>";
         }).join("");
@@ -538,6 +634,98 @@
         return '<div class="mb-6"><div class="fw-bold mb-2">' + escapeHtml(titulo) + '</div>' +
             '<div class="table-responsive"><table class="table table-sm table-row-dashed align-middle">' +
             '<thead><tr class="text-muted text-uppercase fs-8">' + header + '</tr></thead><tbody>' + filas + "</tbody></table></div>" + nota + "</div>";
+    }
+
+    function badgeRiesgo(riesgo) {
+        var clase = "badge-light-secondary";
+        if (riesgo === "bajo") {
+            clase = "badge-light-success";
+        } else if (riesgo === "medio") {
+            clase = "badge-light-warning";
+        } else if (riesgo === "alto" || riesgo === "bloqueante") {
+            clase = "badge-light-danger";
+        } else if (riesgo === "revision") {
+            clase = "badge-light-dark";
+        }
+        return '<span class="badge ' + clase + '">' + escapeHtml(riesgo || "revision") + "</span>";
+    }
+
+    /**
+     * IA: Codex GPT-5 | Fecha: 2026-08-02
+     * Proposito: probar conexion de un ambiente desde UI sin exponer secretos.
+     * Impacto: UI Migraciones BD; muestra solo metadatos read-only.
+     */
+    function probarAmbiente(alias) {
+        var contenedor = document.getElementById("migbd_ambiente_prueba_resultado");
+        if (!contenedor) {
+            return;
+        }
+        contenedor.innerHTML = '<div class="py-4 text-muted">Probando ambiente...</div>';
+        request("/migracionBd/ambiente_probar?alias=" + encodeURIComponent(alias)).then(function (response) {
+            if (response.error) {
+                throw new Error(response.mensaje || "No fue posible probar el ambiente");
+            }
+            var d = response.depurar || {};
+            var ambiente = d.ambiente || {};
+            var servidor = d.servidor || {};
+            var totales = d.totales || {};
+            contenedor.innerHTML = '<div class="alert alert-success mb-4">' + escapeHtml(response.mensaje || "") + "</div>" +
+                '<div class="row g-4">' +
+                resumenBox("Ambiente", ambiente.alias || alias, "primary") +
+                resumenBox("Base", servidor.base_actual || ambiente.base || "", "info") +
+                resumenBox("Tablas", totales.tablas || 0, "success") +
+                resumenBox("Columnas", totales.columnas || 0, "dark") +
+                resumenBox("Indices", totales.indices || 0, "warning") +
+                resumenBox("FKs", totales.foraneas || 0, "danger") +
+                "</div>" +
+                '<div class="table-responsive mt-5"><table class="table table-sm table-row-dashed align-middle">' +
+                '<tbody>' +
+                '<tr><th class="text-muted w-175px">Host</th><td>' + escapeHtml(ambiente.host || "") + "</td></tr>" +
+                '<tr><th class="text-muted">Usuario</th><td>' + escapeHtml(ambiente.usuario || "") + "</td></tr>" +
+                '<tr><th class="text-muted">Version MySQL</th><td>' + escapeHtml(servidor.version_mysql || "") + "</td></tr>" +
+                '<tr><th class="text-muted">Nota</th><td>' + escapeHtml(d.nota || "") + "</td></tr>" +
+                "</tbody></table></div>";
+        }).catch(function (error) {
+            contenedor.innerHTML = '<div class="alert alert-warning mb-0">' + escapeHtml(error.message || String(error)) + "</div>";
+        });
+    }
+
+    /**
+     * IA: Codex GPT-5 | Fecha: 2026-08-04
+     * Proposito: validar si el destino esta listo para comparar o crear paquetes.
+     * Impacto: UI Migraciones BD; no expone secretos ni ejecuta cambios.
+     */
+    function preflightDestino() {
+        var alias = destinoSeleccionado() || "productivo";
+        var contenedor = document.getElementById("migbd_ambiente_prueba_resultado");
+        if (!contenedor) {
+            return;
+        }
+        contenedor.innerHTML = '<div class="py-4 text-muted">Validando destino...</div>';
+        request("/migracionBd/destino_preflight?alias=" + encodeURIComponent(alias)).then(function (response) {
+            var d = response.depurar || {};
+            var ambiente = d.ambiente || {};
+            var conexion = d.conexion || {};
+            contenedor.innerHTML = '<div class="alert alert-' + (d.puede_comparar ? "success" : "warning") + ' mb-5">' +
+                '<div class="fw-bold fs-5 mb-1">' + escapeHtml(response.mensaje || "") + "</div>" +
+                '<div>' + escapeHtml(d.siguiente_paso || "") + "</div>" +
+                "</div>" +
+                '<div class="row g-4 mb-5">' +
+                resumenBox("Alias", d.alias || alias, "primary") +
+                resumenBox("Configurado", d.configurado ? "si" : "no", d.configurado ? "success" : "warning") +
+                resumenBox("Completo", d.completo ? "si" : "no", d.completo ? "success" : "warning") +
+                resumenBox("Conexion", conexion.ok ? "ok" : "pendiente", conexion.ok ? "success" : "warning") +
+                "</div>" +
+                renderListaSimple("Bloqueos destino", (d.bloqueos || []).map(function (item) { return {bloqueo: item}; }), ["bloqueo"]) +
+                '<div class="table-responsive mt-5"><table class="table table-sm table-row-dashed align-middle"><tbody>' +
+                '<tr><th class="text-muted w-175px">Host</th><td>' + escapeHtml(ambiente.host || "") + "</td></tr>" +
+                '<tr><th class="text-muted">Base</th><td>' + escapeHtml(ambiente.base || "") + "</td></tr>" +
+                '<tr><th class="text-muted">Usuario</th><td>' + escapeHtml(ambiente.usuario || "") + "</td></tr>" +
+                '<tr><th class="text-muted">Mensaje conexion</th><td>' + escapeHtml(conexion.mensaje || "") + "</td></tr>" +
+                "</tbody></table></div>";
+        }).catch(function (error) {
+            contenedor.innerHTML = '<div class="alert alert-warning mb-0">' + escapeHtml(error.message || String(error)) + "</div>";
+        });
     }
 
     /**
@@ -586,12 +774,15 @@
             }
             var depurar = response.depurar || {};
             var sentencias = depurar.sentencias || [];
+            var resumen = depurar.resumen || {};
             var encabezado = [
                 "-- " + response.mensaje,
                 "-- codigo: " + (depurar.codigo || "temporal"),
                 "-- persistido: " + (depurar.persistido ? "si" : "no"),
                 "-- hash_plan: " + (depurar.hash_plan || ""),
-                "-- sentencias: " + sentencias.length
+                "-- sentencias: " + sentencias.length,
+                "-- incluye_datos_solicitados: " + (resumen.incluye_datos ? "si" : "no"),
+                "-- bloqueos: " + ((resumen.bloqueos || []).length)
             ].join("\n");
             salida.textContent = encabezado + "\n\n" + sentencias.map(function (item) {
                 return "-- " + item.orden + " | " + item.tipo + " | " + item.tabla + " | riesgo " + item.riesgo + "\n" + item.sql;
@@ -728,6 +919,7 @@
         var paquete = d.paquete || {};
         var sentencias = d.sentencias || [];
         var tablas = d.tablas || [];
+        var resumen = paquete.resumen || {};
         return '<div class="border rounded p-5">' +
             '<div class="d-flex justify-content-between align-items-center mb-4">' +
             '<div><div class="fw-bold fs-5">' + escapeHtml(paquete.codigo || "") + '</div><div class="text-muted">' + escapeHtml(paquete.ambiente_origen || "") + " -> " + escapeHtml(paquete.ambiente_destino || "") + "</div></div>" +
@@ -739,11 +931,55 @@
             resumenBox("Hash", (paquete.hash_plan || "").slice(0, 12), "info") +
             resumenBox("Aplicado", paquete.fecha_aplicacion || "", "success") +
             "</div>" +
+            renderResumenPaquete(resumen) +
+            renderTablaPaquete(tablas) +
             '<div class="fw-bold mb-2">SQL persistido</div>' +
             "<pre class=\"bg-light rounded p-3 mh-500px overflow-auto\"><code>" + escapeHtml(sentencias.map(function (item) {
                 return "-- " + item.orden + " | " + item.tipo + " | " + item.tabla + " | " + item.riesgo + "\n" + item.sql_texto;
             }).join("\n\n") || "Sin SQL.") + "</code></pre>" +
             "</div>";
+    }
+
+    function renderResumenPaquete(resumen) {
+        if (!resumen || !Object.keys(resumen).length) {
+            return "";
+        }
+        return '<div class="row g-4 mb-5">' +
+            resumenBox("Datos solicitados", (resumen.tablas_con_datos || []).length, (resumen.tablas_con_datos || []).length ? "warning" : "success") +
+            resumenBox("Bloqueos", (resumen.bloqueos || []).length, (resumen.bloqueos || []).length ? "danger" : "success") +
+            resumenBox("Riesgo alto", ((resumen.riesgos || {}).alto || 0), "danger") +
+            resumenBox("Riesgo bloq.", ((resumen.riesgos || {}).bloqueante || 0), "danger") +
+            "</div>" +
+            '<div class="row g-5 mb-5">' +
+            '<div class="col-xl-6">' + renderMapaResumen("Politicas del paquete", resumen.politicas || {}) + "</div>" +
+            '<div class="col-xl-6">' + renderMapaResumen("Riesgos del paquete", resumen.riesgos || {}) + "</div>" +
+            "</div>" +
+            renderListaSimple("Tablas con datos solicitados", resumen.tablas_con_datos || [], ["tabla", "politica", "llave_natural"]) +
+            renderListaSimple("Bloqueos del paquete", (resumen.bloqueos || []).map(function (item) { return {bloqueo: item}; }), ["bloqueo"]);
+    }
+
+    function renderTablaPaquete(tablas) {
+        if (!tablas || !tablas.length) {
+            return "";
+        }
+        return renderListaSimple("Tablas registradas en paquete", tablas, ["tabla", "politica", "incluye_datos", "llave_natural"]);
+    }
+
+    function renderListaSimple(titulo, items, campos) {
+        if (!items || !items.length) {
+            return '<div class="mb-5"><div class="fw-bold mb-2">' + escapeHtml(titulo) + '</div><div class="text-muted">Sin registros.</div></div>';
+        }
+        var header = campos.map(function (campo) {
+            return "<th>" + escapeHtml(campo) + "</th>";
+        }).join("");
+        var filas = items.slice(0, 60).map(function (item) {
+            return "<tr>" + campos.map(function (campo) {
+                return "<td>" + escapeHtml(item[campo]) + "</td>";
+            }).join("") + "</tr>";
+        }).join("");
+        return '<div class="mb-5"><div class="fw-bold mb-2">' + escapeHtml(titulo) + '</div>' +
+            '<div class="table-responsive"><table class="table table-sm table-row-dashed align-middle">' +
+            '<thead><tr class="text-muted text-uppercase fs-8">' + header + '</tr></thead><tbody>' + filas + "</tbody></table></div></div>";
     }
 
     function consultarDetalleEjecucion(id) {
@@ -809,13 +1045,23 @@
             var estadoEsquema = esquema.listo
                 ? '<span class="badge badge-light-success">Esquema listo</span>'
                 : '<span class="badge badge-light-info">Faltan ' + faltantes.length + " tablas</span>";
+            var acciones = '<div class="d-flex flex-wrap gap-3 mb-5">' +
+                '<button type="button" class="btn btn-sm btn-light-primary migbd-preparar-respaldo" data-ruta="' + escapeHtml(d.ruta_respaldo_sugerida || "") + '" data-token="' + escapeHtml(d.token_respaldo || "") + '" data-confirmacion="' + escapeHtml(d.texto_autorizacion_respaldo || "") + '">' +
+                '<i class="bi bi-magic"></i> Preparar respaldo</button>' +
+                '<button type="button" class="btn btn-sm btn-light-info migbd-preparar-schema" data-token="' + escapeHtml(d.token || "") + '" data-confirmacion="' + escapeHtml(d.texto_autorizacion || "") + '">' +
+                '<i class="bi bi-magic"></i> Preparar esquema</button>' +
+                "</div>";
 
             contenedor.innerHTML = '<div class="d-flex gap-3 mb-4">' + estadoRespaldo + estadoEsquema + "</div>" +
+                acciones +
+                renderPlanEsquema(d.plan_esquema || {}) +
                 '<div class="fw-bold mb-2">Ruta sugerida</div>' +
                 '<pre class="bg-light rounded p-3 mb-4"><code>' + escapeHtml(d.ruta_respaldo_sugerida || "") + "</code></pre>" +
                 '<div class="fw-bold mb-2">Comando sugerido para respaldo</div>' +
                 '<pre class="bg-light rounded p-3 mb-4"><code>' + escapeHtml(d.comando_respaldo_sugerido || "") + "</code></pre>" +
-                '<div class="fw-bold mb-2">Texto de autorizacion</div>' +
+                '<div class="fw-bold mb-2">Texto de autorizacion respaldo</div>' +
+                '<pre class="bg-light rounded p-3 mb-4"><code>' + escapeHtml(d.texto_autorizacion_respaldo || "") + "</code></pre>" +
+                '<div class="fw-bold mb-2">Texto de autorizacion esquema</div>' +
                 '<pre class="bg-light rounded p-3 mb-4"><code>' + escapeHtml(d.texto_autorizacion || "") + "</code></pre>" +
                 '<div class="fw-bold mb-2">Validacion respaldo</div>' +
                 renderValidacionRespaldo(respaldoInfo) +
@@ -838,6 +1084,113 @@
             return '<div class="col-md-4"><div class="border rounded p-3"><div class="text-muted fs-8 text-uppercase">' +
                 escapeHtml(item[0]) + '</div><div class="fw-semibold">' + escapeHtml(item[1]) + "</div></div></div>";
         }).join("") + "</div>";
+    }
+
+    function renderPlanEsquema(depurar) {
+        var plan = Array.isArray(depurar) ? depurar : (depurar.plan || []);
+        var resumen = Array.isArray(depurar) ? resumenPlanEsquema(plan) : (depurar.resumen || resumenPlanEsquema(plan));
+        return '<div class="row g-4 mb-5">' +
+            resumenBox("Tablas plan", resumen.total || 0, "primary") +
+            resumenBox("Pendientes", resumen.pendientes || 0, (resumen.pendientes || 0) ? "warning" : "success") +
+            resumenBox("Existentes", resumen.existentes || 0, "info") +
+            resumenBox("Errores", resumen.errores || 0, (resumen.errores || 0) ? "danger" : "success") +
+            "</div>" +
+            renderListaSimple("Tablas tecnicas del plan", (resumen.tablas || []).map(function (tabla) { return {tabla: tabla}; }), ["tabla"]) +
+            renderListaSimple("Acciones del dry-run", plan.map(function (item) {
+                var dep = item.depurar || {};
+                return {
+                    tipo: item.tipo || "",
+                    mensaje: item.mensaje || "",
+                    tabla: dep.tabla || tablaDesdeSql(dep.sql || ""),
+                    ejecutado: dep.ejecutado ? "si" : "no"
+                };
+            }), ["tipo", "mensaje", "tabla", "ejecutado"]);
+    }
+
+    function resumenPlanEsquema(plan) {
+        var resumen = {total: (plan || []).length, pendientes: 0, existentes: 0, ejecutadas: 0, errores: 0, tablas: [], sql: []};
+        (plan || []).forEach(function (item) {
+            var dep = item.depurar || {};
+            if (item.error) {
+                resumen.errores += 1;
+            }
+            var tabla = dep.tabla || tablaDesdeSql(dep.sql || "");
+            if (tabla) {
+                resumen.tablas.push(tabla);
+            }
+            if (dep.sql) {
+                resumen.pendientes += 1;
+                resumen.sql.push(dep.sql);
+            } else if (dep.ejecutado) {
+                resumen.ejecutadas += 1;
+            } else {
+                resumen.existentes += 1;
+            }
+        });
+        resumen.tablas = resumen.tablas.filter(function (tabla, index, arr) {
+            return arr.indexOf(tabla) === index;
+        });
+        return resumen;
+    }
+
+    function tablaDesdeSql(sql) {
+        var match = String(sql || "").match(/CREATE\s+TABLE\s+`([^`]+)`/i);
+        return match ? match[1] : "";
+    }
+
+    function prepararCamposRespaldo(boton) {
+        var ruta = boton.getAttribute("data-ruta") || "";
+        var token = boton.getAttribute("data-token") || "";
+        var confirmacion = boton.getAttribute("data-confirmacion") || "";
+        var inputRuta = document.getElementById("migbd_respaldo_ruta");
+        var inputToken = document.getElementById("migbd_respaldo_token");
+        var inputConfirmacion = document.getElementById("migbd_respaldo_confirmacion");
+        if (inputRuta && ruta) {
+            inputRuta.value = ruta;
+        }
+        if (inputToken && token) {
+            inputToken.value = token;
+        }
+        if (inputConfirmacion && confirmacion) {
+            inputConfirmacion.value = confirmacion;
+        }
+    }
+
+    function prepararCamposSchema(boton) {
+        var token = boton.getAttribute("data-token") || "";
+        var confirmacion = boton.getAttribute("data-confirmacion") || "";
+        var inputToken = document.getElementById("migbd_schema_token");
+        var inputConfirmacion = document.getElementById("migbd_schema_confirmacion");
+        if (inputToken && token) {
+            inputToken.value = token;
+        }
+        if (inputConfirmacion && confirmacion) {
+            inputConfirmacion.value = confirmacion;
+        }
+    }
+
+    /**
+     * IA: Codex GPT-5 | Fecha: 2026-08-03
+     * Proposito: validar respaldo seleccionado sin ejecutar respaldo ni DDL.
+     * Impacto: UI Migraciones BD; permite confirmar si el archivo sirve como compuerta.
+     */
+    function validarRespaldoSeleccionado() {
+        var input = document.getElementById("migbd_respaldo_ruta");
+        var contenedor = document.getElementById("migbd_respaldos_resultado");
+        var respaldo = input ? input.value : "";
+        if (!contenedor) {
+            return Promise.resolve();
+        }
+        contenedor.innerHTML = '<div class="text-muted">Validando respaldo seleccionado...</div>';
+        return request("/migracionBd/respaldo_validar?respaldo=" + encodeURIComponent(respaldo)).then(function (response) {
+            var d = response.depurar || {};
+            contenedor.innerHTML = '<div class="alert alert-' + (d.ok ? "success" : "warning") + ' mb-4">' + escapeHtml(response.mensaje || "") + "</div>" +
+                renderValidacionRespaldo(d) +
+                '<div class="alert alert-info mt-4 mb-0">' + escapeHtml(d.ok ? "Respaldo listo para usar como compuerta de esquema/paquete." : "Selecciona un .sql legible, externo al repo y con tamano mayor a cero.") + "</div>";
+            return response;
+        }).catch(function (error) {
+            contenedor.innerHTML = '<div class="alert alert-danger mb-0">' + escapeHtml(error.message || String(error)) + "</div>";
+        });
     }
 
     /**
@@ -863,7 +1216,11 @@
                 }
                 contenedor.innerHTML = '<div class="alert alert-' + (response.error ? "warning" : "success") + ' mb-4">' + escapeHtml(response.mensaje || "") + "</div>" +
                     '<div class="fw-bold mb-2">Resultado respaldo</div>' +
-                    "<pre class=\"bg-light rounded p-3 mh-400px overflow-auto\"><code>" + escapeHtml(JSON.stringify(d, null, 2)) + "</code></pre>";
+                    "<pre class=\"bg-light rounded p-3 mh-400px overflow-auto\"><code>" + escapeHtml(JSON.stringify(d, null, 2)) + "</code></pre>" +
+                    (!response.error && d.archivo ? '<div class="alert alert-info mt-4 mb-0">Respaldo generado. Validalo y despues ejecuta Semaforo final o Dry-run esquema.</div>' : "");
+                if (!response.error && d.archivo) {
+                    validarRespaldoSeleccionado();
+                }
             }).catch(function (error) {
                 contenedor.innerHTML = '<div class="alert alert-danger mb-0">' + escapeHtml(error.message || String(error)) + "</div>";
             });
@@ -884,6 +1241,85 @@
                 enviar();
             }
         });
+    }
+
+    /**
+     * IA: Codex GPT-5 | Fecha: 2026-08-03
+     * Proposito: validar compuertas finales del esquema tecnico sin ejecutar DDL.
+     * Impacto: UI Migraciones BD; prepara la decision antes de aplicar sys_migraciones_*.
+     */
+    function preflightFinalEsquemaTecnico() {
+        var respaldo = (document.getElementById("migbd_respaldo_ruta") || {}).value || "";
+        var token = (document.getElementById("migbd_schema_token") || {}).value || "";
+        var confirmacion = (document.getElementById("migbd_schema_confirmacion") || {}).value || "";
+        var contenedor = document.getElementById("migbd_activacion_resultado");
+        contenedor.innerHTML = '<div class="text-muted">Validando compuertas del esquema...</div>';
+        postRequest("/migracionBd/esquema_preflight_final", {
+            respaldo: respaldo,
+            autorizar: token,
+            confirmacion: confirmacion
+        }).then(function (response) {
+            if (response.error) {
+                throw new Error(response.mensaje || "No fue posible validar esquema");
+            }
+            contenedor.innerHTML = renderPreflightFinalEsquema(response.depurar || {});
+        }).catch(function (error) {
+            contenedor.innerHTML = '<div class="alert alert-warning mb-0">' + escapeHtml(error.message || String(error)) + "</div>";
+        });
+    }
+
+    /**
+     * IA: Codex GPT-5 | Fecha: 2026-08-04
+     * Proposito: verificar estado del esquema tecnico sin ejecutar DDL.
+     * Impacto: UI Migraciones BD; confirma si sys_migraciones_* ya quedo listo.
+     */
+    function verificarEsquemaTecnico() {
+        var contenedor = document.getElementById("migbd_activacion_resultado");
+        contenedor.innerHTML = '<div class="text-muted">Verificando esquema tecnico...</div>';
+        request("/migracionBd/esquema_verificar").then(function (response) {
+            if (response.error) {
+                throw new Error(response.mensaje || "No fue posible verificar esquema");
+            }
+            var d = response.depurar || {};
+            var esquema = d.esquema_tecnico || {};
+            var faltantes = esquema.faltantes || [];
+            contenedor.innerHTML = '<div class="alert alert-' + (d.listo ? "success" : "warning") + ' mb-5">' +
+                '<div class="fw-bold fs-5 mb-1">' + escapeHtml(response.mensaje || "") + "</div>" +
+                '<div>' + escapeHtml(d.siguiente_paso || "") + "</div>" +
+                "</div>" +
+                '<div class="row g-4 mb-5">' +
+                resumenBox("Listo", d.listo ? "si" : "no", d.listo ? "success" : "warning") +
+                resumenBox("Faltantes", faltantes.length, faltantes.length ? "danger" : "success") +
+                resumenBox("Tablas", Object.keys(esquema.tablas || {}).length, "info") +
+                resumenBox("Pendientes", (((d.plan_esquema || {}).resumen || {}).pendientes || 0), ((((d.plan_esquema || {}).resumen || {}).pendientes || 0) ? "warning" : "success")) +
+                "</div>" +
+                renderPlanEsquema(d.plan_esquema || {}) +
+                renderListaSimple("Tablas faltantes", faltantes.map(function (tabla) { return {tabla: tabla}; }), ["tabla"]);
+        }).catch(function (error) {
+            contenedor.innerHTML = '<div class="alert alert-warning mb-0">' + escapeHtml(error.message || String(error)) + "</div>";
+        });
+    }
+
+    function renderPreflightFinalEsquema(d) {
+        var activacion = d.activacion || {};
+        var color = d.puede_aplicar ? "success" : ((d.bloqueos || []).length ? "danger" : "info");
+        var chips = [
+            d.respaldo_ok ? '<span class="badge badge-light-success">Respaldo valido</span>' : '<span class="badge badge-light-warning">Respaldo pendiente</span>',
+            d.token_ok ? '<span class="badge badge-light-success">Token ok</span>' : '<span class="badge badge-light-danger">Token pendiente</span>',
+            d.confirmacion_ok ? '<span class="badge badge-light-success">Confirmacion ok</span>' : '<span class="badge badge-light-danger">Confirmacion pendiente</span>',
+            d.plan_sin_errores ? '<span class="badge badge-light-success">Plan sin errores</span>' : '<span class="badge badge-light-danger">Plan con errores</span>',
+            d.hay_pendientes ? '<span class="badge badge-light-warning">Hay DDL pendiente</span>' : '<span class="badge badge-light-info">Sin DDL pendiente</span>'
+        ].join(" ");
+        return '<div class="alert alert-' + color + ' mb-5">' +
+            '<div class="fw-bold fs-5 mb-1">' + escapeHtml(d.puede_aplicar ? "Puede aplicar esquema tecnico" : "Esquema tecnico no listo para aplicar") + "</div>" +
+            '<div>' + escapeHtml(d.siguiente_paso || "") + "</div>" +
+            "</div>" +
+            '<div class="d-flex gap-2 flex-wrap mb-5">' + chips + "</div>" +
+            renderListaSimple("Bloqueos", (d.bloqueos || []).map(function (item) { return {bloqueo: item}; }), ["bloqueo"]) +
+            renderListaSimple("Advertencias", (d.advertencias || []).map(function (item) { return {advertencia: item}; }), ["advertencia"]) +
+            renderPlanEsquema(activacion.plan_esquema || {}) +
+            '<div class="fw-bold mb-2">Validacion respaldo</div>' +
+            renderValidacionRespaldo(activacion.respaldo || {});
     }
 
     /**
@@ -969,15 +1405,18 @@
                 autorizar: token,
                 confirmacion: confirmacion
             }).then(function (response) {
-                var plan = response.depurar || [];
+                var depurar = response.depurar || {};
+                var plan = Array.isArray(depurar) ? depurar : (depurar.plan || []);
+                var resumen = Array.isArray(depurar) ? resumenPlanEsquema(plan) : (depurar.resumen || resumenPlanEsquema(plan));
                 if (response.error) {
                     contenedor.innerHTML = '<div class="alert alert-warning mb-4">' + escapeHtml(response.mensaje || "Operacion bloqueada") + "</div>" +
                         "<pre class=\"bg-light rounded p-3\"><code>" + escapeHtml(JSON.stringify(response.depurar || {}, null, 2)) + "</code></pre>";
                     return;
                 }
                 contenedor.innerHTML = '<div class="alert alert-' + (ejecutar ? "success" : "info") + ' mb-4">' + escapeHtml(response.mensaje) + "</div>" +
-                    '<div class="fw-bold mb-2">Plan</div>' +
-                    "<pre class=\"bg-light rounded p-3 mh-400px overflow-auto\"><code>" + escapeHtml(JSON.stringify(plan, null, 2)) + "</code></pre>";
+                    renderPlanEsquema(depurar) +
+                    '<div class="fw-bold mb-2">SQL generado</div>' +
+                    "<pre class=\"bg-light rounded p-3 mh-400px overflow-auto\"><code>" + escapeHtml((resumen.sql || []).join("\n\n") || "-- Sin SQL pendiente.") + "</code></pre>";
             }).catch(function (error) {
                 contenedor.innerHTML = '<div class="alert alert-danger mb-0">' + escapeHtml(error.message || String(error)) + "</div>";
             });
@@ -1020,12 +1459,77 @@
         });
     }
 
+    /**
+     * IA: Codex GPT-5 | Fecha: 2026-08-03
+     * Proposito: mostrar semaforo final de compuertas antes de autorizar o aplicar.
+     * Impacto: UI Migraciones BD; solo lectura.
+     */
+    function preflightFinalSemaforo() {
+        var codigo = (document.getElementById("migbd_paquete_codigo") || {}).value || "";
+        var respaldo = (document.getElementById("migbd_respaldo_ruta") || {}).value || "";
+        var contenedor = document.getElementById("migbd_paquete_aplicacion_resultado");
+        contenedor.innerHTML = '<div class="text-muted">Generando semaforo final...</div>';
+        request("/migracionBd/preflight_final?codigo=" + encodeURIComponent(codigo) + "&respaldo=" + encodeURIComponent(respaldo)).then(function (response) {
+            if (response.error) {
+                throw new Error(response.mensaje || "No fue posible generar semaforo");
+            }
+            contenedor.innerHTML = renderPreflightFinal(response.depurar || {});
+        }).catch(function (error) {
+            contenedor.innerHTML = '<div class="alert alert-warning mb-0">' + escapeHtml(error.message || String(error)) + "</div>";
+        });
+    }
+
+    function renderPreflightFinal(d) {
+        var estado = d.estado || "pendiente";
+        var color = estado === "puede_aplicar" ? "success" : (estado === "puede_autorizar" ? "primary" : (estado === "puede_preparar" ? "info" : (estado === "bloqueado" ? "danger" : "warning")));
+        var pasos = d.pasos || [];
+        var htmlPasos = pasos.map(function (paso) {
+            return '<div class="d-flex align-items-start gap-4 border rounded p-4 mb-3">' +
+                '<div class="badge badge-light-' + colorNivel(paso.nivel || "warning") + '">' + escapeHtml(paso.ok ? "ok" : "rev") + "</div>" +
+                '<div class="flex-grow-1">' +
+                '<div class="fw-bold">' + escapeHtml(paso.titulo || paso.codigo || "") + "</div>" +
+                '<div class="text-gray-700">' + escapeHtml(paso.mensaje || "") + "</div>" +
+                "</div>" +
+                "</div>";
+        }).join("");
+        return '<div class="alert alert-' + color + ' mb-5">' +
+            '<div class="fw-bold fs-5 mb-1">' + escapeHtml(etiquetaEstadoFinal(estado)) + "</div>" +
+            '<div>' + escapeHtml(d.siguiente_paso || "") + "</div>" +
+            "</div>" +
+            '<div class="row g-4 mb-5">' +
+            resumenBox("Preparar", d.puede_preparar ? "si" : "no", d.puede_preparar ? "success" : "warning") +
+            resumenBox("Autorizar", d.puede_autorizar ? "si" : "no", d.puede_autorizar ? "success" : "warning") +
+            resumenBox("Aplicar", d.puede_aplicar ? "si" : "no", d.puede_aplicar ? "success" : "danger") +
+            resumenBox("App real", d.aplicacion_real_habilitada ? "on" : "off", d.aplicacion_real_habilitada ? "success" : "info") +
+            "</div>" +
+            renderListaSimple("Bloqueos", (d.bloqueos || []).map(function (item) { return {bloqueo: item}; }), ["bloqueo"]) +
+            renderListaSimple("Advertencias", (d.advertencias || []).map(function (item) { return {advertencia: item}; }), ["advertencia"]) +
+            '<div class="fw-bold mb-2">Pasos</div>' + htmlPasos;
+    }
+
+    function etiquetaEstadoFinal(estado) {
+        if (estado === "puede_aplicar") {
+            return "Puede aplicar";
+        }
+        if (estado === "puede_autorizar") {
+            return "Puede autorizar";
+        }
+        if (estado === "puede_preparar") {
+            return "Puede preparar";
+        }
+        if (estado === "bloqueado") {
+            return "Bloqueado";
+        }
+        return "Pendiente";
+    }
+
     function renderPreflightPaquete(d) {
         var paquete = d.paquete || {};
         var riesgos = d.riesgos || {};
         var respaldo = d.respaldo || {};
         var vigencia = d.vigencia || {};
         var sentencias = d.sentencias || [];
+        var resumen = paquete.resumen || {};
         var chips = [
             respaldo.ok ? '<span class="badge badge-light-success">Respaldo valido</span>' : '<span class="badge badge-light-warning">Respaldo pendiente</span>',
             vigencia.ok ? '<span class="badge badge-light-success">Hash vigente</span>' : '<span class="badge badge-light-danger">Hash no vigente</span>',
@@ -1040,6 +1544,7 @@
             resumenBox("Estatus", paquete.estatus || "", "warning") +
             resumenBox("Sentencias", sentencias.length, "dark") +
             "</div>" +
+            renderResumenPaquete(resumen) +
             '<div class="fw-bold mb-2">Riesgos</div>' +
             "<pre class=\"bg-light rounded p-3 mb-4\"><code>" + escapeHtml(JSON.stringify(riesgos, null, 2)) + "</code></pre>" +
             '<div class="fw-bold mb-2">Vigencia del paquete</div>' +
@@ -1153,16 +1658,23 @@
         var contenedorPaquetes = document.getElementById("migbd_paquetes_resultado");
         var contenedorEjecuciones = document.getElementById("migbd_ejecuciones_resultado");
         var btnPreflight = document.getElementById("migbd_btn_preflight");
+        var btnRespaldoValidar = document.getElementById("migbd_btn_respaldo_validar");
         var btnRespaldoGenerar = document.getElementById("migbd_btn_respaldo_generar");
         var btnRestorePreflight = document.getElementById("migbd_btn_restore_preflight");
         var btnRespaldosListar = document.getElementById("migbd_btn_respaldos_listar");
         var contenedorRespaldos = document.getElementById("migbd_respaldos_resultado");
+        var contenedorActivacion = document.getElementById("migbd_activacion_resultado");
+        var btnSchemaVerificar = document.getElementById("migbd_btn_schema_verificar");
+        var btnSchemaPreflightFinal = document.getElementById("migbd_btn_schema_preflight_final");
         var btnSchemaDryRun = document.getElementById("migbd_btn_schema_dryrun");
         var btnSchemaAplicar = document.getElementById("migbd_btn_schema_aplicar");
         var btnPaquetePreflight = document.getElementById("migbd_btn_paquete_preflight");
+        var btnPreflightFinal = document.getElementById("migbd_btn_preflight_final");
         var btnPaqueteAutorizar = document.getElementById("migbd_btn_paquete_autorizar");
         var btnPaqueteSimular = document.getElementById("migbd_btn_paquete_simular");
         var btnPaqueteAplicar = document.getElementById("migbd_btn_paquete_aplicar");
+        var contenedorAmbientes = document.getElementById("migbd_tab_ambientes");
+        var btnPreflightDestino = document.getElementById("migbd_btn_preflight_destino");
         if (btnPoliticas) {
             btnPoliticas.addEventListener("click", cargarPoliticas);
         }
@@ -1243,6 +1755,9 @@
         if (btnPreflight) {
             btnPreflight.addEventListener("click", cargarPreflightActivacion);
         }
+        if (btnRespaldoValidar) {
+            btnRespaldoValidar.addEventListener("click", validarRespaldoSeleccionado);
+        }
         if (btnRespaldoGenerar) {
             btnRespaldoGenerar.addEventListener("click", generarRespaldoLocal);
         }
@@ -1262,7 +1777,27 @@
                 if (input) {
                     input.value = boton.getAttribute("data-archivo") || "";
                 }
+                validarRespaldoSeleccionado();
             });
+        }
+        if (contenedorActivacion) {
+            contenedorActivacion.addEventListener("click", function (event) {
+                var botonRespaldo = event.target.closest(".migbd-preparar-respaldo");
+                if (botonRespaldo) {
+                    prepararCamposRespaldo(botonRespaldo);
+                    return;
+                }
+                var botonSchema = event.target.closest(".migbd-preparar-schema");
+                if (botonSchema) {
+                    prepararCamposSchema(botonSchema);
+                }
+            });
+        }
+        if (btnSchemaVerificar) {
+            btnSchemaVerificar.addEventListener("click", verificarEsquemaTecnico);
+        }
+        if (btnSchemaPreflightFinal) {
+            btnSchemaPreflightFinal.addEventListener("click", preflightFinalEsquemaTecnico);
         }
         if (btnSchemaDryRun) {
             btnSchemaDryRun.addEventListener("click", function () {
@@ -1277,6 +1812,9 @@
         if (btnPaquetePreflight) {
             btnPaquetePreflight.addEventListener("click", preflightPaquete);
         }
+        if (btnPreflightFinal) {
+            btnPreflightFinal.addEventListener("click", preflightFinalSemaforo);
+        }
         if (btnPaqueteAutorizar) {
             btnPaqueteAutorizar.addEventListener("click", autorizarPaquete);
         }
@@ -1289,6 +1827,33 @@
             btnPaqueteAplicar.addEventListener("click", function () {
                 aplicarPaquete(true);
             });
+        }
+        var contenedorPoliticas = document.getElementById("migbd_politicas_resultado");
+        if (contenedorPoliticas) {
+            contenedorPoliticas.addEventListener("click", function (event) {
+                if (event.target.closest("#migbd_btn_seleccionar_datos")) {
+                    seleccionarPoliticasConDatos();
+                    return;
+                }
+                if (event.target.closest("#migbd_btn_limpiar_seleccion")) {
+                    limpiarSeleccionPoliticas();
+                    return;
+                }
+                if (event.target.closest("#migbd_btn_aplicar_bulk")) {
+                    aplicarPoliticaMasiva();
+                }
+            });
+        }
+        if (contenedorAmbientes) {
+            contenedorAmbientes.addEventListener("click", function (event) {
+                var boton = event.target.closest(".migbd-probar-ambiente");
+                if (boton) {
+                    probarAmbiente(boton.getAttribute("data-alias") || "");
+                }
+            });
+        }
+        if (btnPreflightDestino) {
+            btnPreflightDestino.addEventListener("click", preflightDestino);
         }
     });
 })();

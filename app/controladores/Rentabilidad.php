@@ -16,6 +16,77 @@ class Rentabilidad extends Controlador {
         $this->vista("apps/erp/rentabilidad/analisis");
     }
 
+    /**
+     * IA: Codex GPT-5
+     * Fecha: 2026-08-04
+     * Proposito: abrir vista enfocada de SKU y escenarios de Rentabilidad.
+     * Impacto: navegacion del modulo; reutiliza endpoints existentes sin escribir datos.
+     * Contrato: requiere rentabilidad.ver.
+     */
+    public function skus() {
+        $this->requerirPermiso("rentabilidad.ver");
+        $this->vista("apps/erp/rentabilidad/skus");
+    }
+
+    /**
+     * IA: Codex GPT-5
+     * Fecha: 2026-08-04
+     * Proposito: abrir vista enfocada de cierre comercial de Rentabilidad.
+     * Impacto: navegacion del modulo; mantiene cierre separado de Catalogo y Ventas.
+     * Contrato: requiere rentabilidad.ver.
+     */
+    public function cierre() {
+        $this->requerirPermiso("rentabilidad.ver");
+        $this->vista("apps/erp/rentabilidad/cierre");
+    }
+
+    /**
+     * IA: Codex GPT-5
+     * Fecha: 2026-08-04
+     * Proposito: abrir vista enfocada de aprobaciones internas de Rentabilidad.
+     * Impacto: navegacion del modulo; acciones persistentes siguen protegidas por rentabilidad.snapshot.
+     * Contrato: requiere rentabilidad.ver.
+     */
+    public function aprobaciones() {
+        $this->requerirPermiso("rentabilidad.ver");
+        $this->vista("apps/erp/rentabilidad/aprobaciones");
+    }
+
+    /**
+     * IA: Codex GPT-5
+     * Fecha: 2026-08-04
+     * Proposito: abrir vista enfocada de calidad de datos para Rentabilidad.
+     * Impacto: auditoria de fiscal/XML, datos base, variaciones y presentaciones.
+     * Contrato: requiere rentabilidad.ver y consulta read-only.
+     */
+    public function calidad() {
+        $this->requerirPermiso("rentabilidad.ver");
+        $this->vista("apps/erp/rentabilidad/calidad");
+    }
+
+    /**
+     * IA: Codex GPT-5
+     * Fecha: 2026-08-04
+     * Proposito: abrir vista enfocada de historial y vigencia de snapshots.
+     * Impacto: trazabilidad de Rentabilidad sin aplicar precios.
+     * Contrato: requiere rentabilidad.ver.
+     */
+    public function historial() {
+        $this->requerirPermiso("rentabilidad.ver");
+        $this->vista("apps/erp/rentabilidad/historial");
+    }
+
+    /**
+     * IA: Codex GPT-5
+     * Fecha: 2026-08-04
+     * Proposito: abrir manual operativo del modulo Rentabilidad.
+     * Impacto: capacitacion y UAT del modulo.
+     * Contrato: requiere rentabilidad.ver y no ejecuta escrituras.
+     */
+    public function manual() {
+        $this->requerirPermiso("rentabilidad.ver");
+        $this->vista("apps/erp/rentabilidad/manual");
+    }
     public function escenarios_erp() {
         $this->requerirPermiso("rentabilidad.ver");
         return json_encode($this->modelo("RentabilidadErp")->escenariosBase());
@@ -286,3 +357,4 @@ class Rentabilidad extends Controlador {
         exit;
     }
 }
+

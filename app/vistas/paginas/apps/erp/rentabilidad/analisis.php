@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
     <base href="../../../">
-    <title>Costos y rentabilidad ERP</title>
+    <title>Rentabilidad - resumen ejecutivo</title>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <link rel="shortcut icon" href="assets/media/logos/favicon.ico">
@@ -20,8 +20,8 @@
                     <div class="app-toolbar py-3 py-lg-6">
                         <div class="app-container container-fluid d-flex flex-stack">
                             <div>
-                                <h1 class="page-heading text-dark fw-bold fs-3 mb-1">Costos y rentabilidad</h1>
-                                <span class="text-muted">Analisis read-only por SKU, canal y escenario comercial</span>
+                                <h1 class="page-heading text-dark fw-bold fs-3 mb-1">Rentabilidad - resumen ejecutivo</h1>
+                                <span class="text-muted">Indicadores principales para decidir que SKU revisar primero</span>
                             </div>
                             <div class="d-flex gap-2">
                                 <?php if (SesionSeguridad::tienePermiso("rentabilidad.snapshot")): ?>
@@ -185,7 +185,7 @@
                             <div class="card mb-6">
                                 <div class="card-header border-0 pt-5">
                                     <div class="card-title">
-                                        <h3 class="fw-bold fs-5 mb-0">Modo revisión</h3>
+                                        <h3 class="fw-bold fs-5 mb-0">Modo revisiÃ³n</h3>
                                     </div>
                                     <div class="card-toolbar">
                                         <button class="btn btn-sm btn-light" id="rentabilidad_revision_recargar" type="button"><i class="bi bi-kanban"></i> Revisar</button>
@@ -544,10 +544,14 @@
 <script src="assets/plugins/global/plugins.bundle.js"></script>
 <script src="assets/js/scripts.bundle.js"></script>
 <script>
+window.RENTABILIDAD_VISTA = "analisis";
 window.RENTABILIDAD_PERMISOS = <?= json_encode(array(
     "snapshot" => SesionSeguridad::tienePermiso("rentabilidad.snapshot")
 )) ?>;
 </script>
-<script src="/assets/js/custom/apps/erp/rentabilidad/analisis.js?v=20260623-2"></script>
+<script src="/assets/js/custom/apps/erp/rentabilidad/analisis.js?v=20260804-2"></script>
 </body>
 </html>
+
+
+

@@ -28,6 +28,7 @@ $respuestas = array(
   "politica_facturacion" => $modelo->politicaPublica("facturacion"),
   "taxonomia_mascotas" => $modelo->taxonomiaMascotasPublica(),
   "catalogo" => $modelo->catalogoPublico(array("limite" => 3)),
+  "catalogo_manifest" => $modelo->catalogoManifestPublico(array("limite_preview" => 2)),
   "producto" => $modelo->productoPublico("slug-de-prueba-no-publicado"),
   "disponibilidad" => $modelo->disponibilidadPublica(array("slug" => "slug-de-prueba-no-publicado")),
   "canales_estado" => $modelo->canalesApiEstadoPublico(),
@@ -82,6 +83,7 @@ validarPoliticas($respuestas["politicas"], $bloqueos);
 validarPolitica($respuestas["politica_facturacion"], $bloqueos);
 validarTaxonomiaMascotas($respuestas["taxonomia_mascotas"], $bloqueos);
 validarCatalogo($respuestas["catalogo"], $bloqueos);
+validarCatalogoManifest($respuestas["catalogo_manifest"], $bloqueos);
 validarProducto($respuestas["producto"], $bloqueos);
 validarDisponibilidad($respuestas["disponibilidad"], $bloqueos);
 validarCanalesEstado($respuestas["canales_estado"], $bloqueos);
@@ -97,7 +99,7 @@ echo json_encode(array(
   "modo" => "read-only",
   "shape" => array(
     "wrappers_validados" => array_keys($respuestas),
-    "endpoints_publicos_esperados" => 22,
+    "endpoints_publicos_esperados" => 23,
     "item_catalogo_keys" => itemCatalogoKeys()
   ),
   "bloqueos" => $bloqueos,
@@ -145,6 +147,7 @@ function validarRutas($respuesta, &$bloqueos) {
     "/ecommercePublico/configuracion",
     "/ecommercePublico/canales_estado",
     "/ecommercePublico/seo",
+    "/ecommercePublico/catalogo_manifest",
     "/ecommercePublico/disponibilidad",
     "/ecommercePublico/cotizacion_dryrun",
     "/ecommercePublico/cotizacion_preflight",
@@ -333,6 +336,38 @@ function validarCatalogo($respuesta, &$bloqueos) {
   }
   if (valorShape($respuesta, array("depurar", "frontend", "guardrails_ui", "cotizacion_requiere_dryrun"), false) !== true) {
     $bloqueos[] = "catalogo_frontend_debe_requerir_dryrun";
+  }
+  if (valorShape($respuesta, array("depurar", "guardrails", "no_granel"), false) !== true) {
+    $bloqueos[] = "catalogo_debe_bloquear_granel";
+  }
+  if (valorShape($respuesta, array("depurar", "fase_2", "fase"), "") !== "fase_2_api_catalogo_robusta") {
+    $bloqueos[] = "catalogo_debe_exponer_fase_2";
+  }
+  if (valorShape($respuesta, array("depurar", "fase_2", "guardrails", "no_granel"), false) !== true) {
+    $bloqueos[] = "catalogo_fase_2_debe_bloquear_granel";
+  }
+  if (!is_array(valorShape($respuesta, array("depurar", "fase_2", "links"), null))) {
+    $bloqueos[] = "catalogo_fase_2_debe_exponer_links";
+  }
+}
+
+function validarCatalogoManifest($respuesta, &$bloqueos) {
+  foreach (array("fase", "estado_catalogo", "parametros_soportados", "ordenamientos", "endpoints_relacionados", "ejemplos", "preview", "guardrails") as $key) {
+    if (!is_array(valorShape($respuesta, array("depurar", $key), null)) && $key !== "fase") {
+      $bloqueos[] = "catalogo_manifest_falta_array_" . $key;
+    }
+  }
+  if (valorShape($respuesta, array("depurar", "fase"), "") !== "fase_2_api_catalogo_robusta") {
+    $bloqueos[] = "catalogo_manifest_fase_invalida";
+  }
+  if (valorShape($respuesta, array("depurar", "guardrails", "no_granel"), false) !== true) {
+    $bloqueos[] = "catalogo_manifest_debe_bloquear_granel";
+  }
+  if (!array_key_exists("limite", valorShape($respuesta, array("depurar", "parametros_soportados"), array()))) {
+    $bloqueos[] = "catalogo_manifest_falta_parametro_limite";
+  }
+  if (count(valorShape($respuesta, array("depurar", "ordenamientos"), array())) < 5) {
+    $bloqueos[] = "catalogo_manifest_faltan_ordenamientos";
   }
 }
 

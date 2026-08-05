@@ -46,6 +46,141 @@ class MigracionesBd extends CRUD {
 
   /**
    * IA: Codex GPT-5
+   * Fecha: 2026-08-04
+   * Proposito: validar si un destino esta listo para comparacion y paquetes.
+   * Impacto: Migraciones BD; solo lectura y sin exponer password.
+   * Contrato: valida configuracion, detecta placeholders y prueba conexion si esta completo.
+   */
+  public function preflightDestino($alias = "productivo") {
+    $alias = trim((string) $alias);
+    if ($alias === "" || $alias === "local") {
+      return $this->respuesta(true, "warning", "Indica un destino distinto a local", array(
+        "alias" => $alias
+      ));
+    }
+
+    $ambiente = $this->ambientePorAlias($alias);
+    if (!$ambiente) {
+      return $this->respuesta(false, "warning", "Destino no configurado", array(
+        "alias" => $alias,
+        "configurado" => false,
+        "archivo_esperado" => "app/config/migraciones_ambientes.local.php",
+        "ejemplo" => "app/config/migraciones_ambientes.example.php",
+        "campos_requeridos" => array("tipo", "descripcion", "host", "base", "usuario", "password"),
+        "siguiente_paso" => "Agregar el destino `" . $alias . "` en el archivo local no versionado."
+      ));
+    }
+
+    $host = isset($ambiente["host"]) ? trim((string) $ambiente["host"]) : "";
+    $base = isset($ambiente["base"]) ? trim((string) $ambiente["base"]) : "";
+    $usuario = isset($ambiente["usuario"]) ? trim((string) $ambiente["usuario"]) : "";
+    $password = isset($ambiente["password"]) ? (string) $ambiente["password"] : "";
+    $placeholder = $this->valorConfigPlaceholder($host) || $this->valorConfigPlaceholder($base) || $this->valorConfigPlaceholder($usuario)
+      || ($password !== "" && $this->valorConfigPlaceholder($password));
+    $completo = $host !== "" && $base !== "" && $usuario !== "" && !$placeholder;
+
+    $mismaBaseLocal = defined("MYSQLBASE") && $base === MYSQLBASE
+      && defined("MYSQLUSER") && $usuario === MYSQLUSER
+      && defined("MYSQLHOST") && in_array($host, array(MYSQLHOST, "localhost", "127.0.0.1"), true);
+
+    $conexion = null;
+    if ($completo) {
+      $prueba = $this->probarAmbiente($alias);
+      $conexion = array(
+        "ok" => !$prueba["error"],
+        "mensaje" => $prueba["mensaje"],
+        "depurar" => isset($prueba["depurar"]) ? $prueba["depurar"] : null
+      );
+    }
+
+    $bloqueos = array();
+    if (!$completo) {
+      $bloqueos[] = "configuracion_incompleta_o_placeholder";
+    }
+    if ($mismaBaseLocal && $alias !== "local_selfcheck") {
+      $bloqueos[] = "destino_apunta_a_base_local";
+    }
+    if ($conexion && empty($conexion["ok"])) {
+      $bloqueos[] = "conexion_destino_fallida";
+    }
+
+    return $this->respuesta(false, empty($bloqueos) ? "success" : "warning", empty($bloqueos) ? "Destino listo para comparar" : "Destino no listo para paquetes", array(
+      "alias" => $alias,
+      "configurado" => true,
+      "completo" => $completo,
+      "placeholder" => $placeholder,
+      "misma_base_local" => $mismaBaseLocal,
+      "ambiente" => $this->sanearAmbiente(array_merge($ambiente, array("alias" => $alias))),
+      "conexion" => $conexion,
+      "bloqueos" => $bloqueos,
+      "puede_comparar" => empty($bloqueos),
+      "siguiente_paso" => empty($bloqueos)
+        ? "Seleccionar este destino, comparar ambientes y crear paquete dry-run persistido."
+        : "Completar credenciales reales del destino en app/config/migraciones_ambientes.local.php."
+    ));
+  }
+
+  /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-08-02
+   * Proposito: probar conexion de un ambiente configurado sin exponer secretos.
+   * Impacto: Migraciones BD; solo consulta metadatos y no lee datos de negocio.
+   * Contrato: devuelve version/base/totales de esquema; nunca devuelve password ni PDO.
+   */
+  public function probarAmbiente($alias) {
+    $alias = trim((string) $alias);
+    if ($alias === "") {
+      return $this->respuesta(true, "warning", "Indica el ambiente a probar");
+    }
+
+    if ($alias === "local") {
+      $ambiente = $this->ambienteLocalSaneado();
+      $conexion = $this->db;
+    } else {
+      $ambiente = $this->ambientePorAlias($alias);
+      if (!$ambiente) {
+        return $this->respuesta(true, "warning", "El ambiente no esta configurado", array(
+          "alias" => $alias,
+          "ambientes" => $this->ambientesDisponibles()
+        ));
+      }
+
+      $conexionDestino = $this->conectarAmbiente($ambiente);
+      if ($conexionDestino["error"]) {
+        return $conexionDestino;
+      }
+      $conexion = $conexionDestino["depurar"]["conexion"];
+      $ambiente["alias"] = $alias;
+    }
+
+    try {
+      $stmt = $conexion->query("SELECT DATABASE() AS base_actual, VERSION() AS version_mysql");
+      $servidor = $stmt ? $stmt->fetch(PDO::FETCH_ASSOC) : array();
+      $base = isset($ambiente["base"]) ? $ambiente["base"] : (defined("MYSQLBASE") ? MYSQLBASE : "");
+      $snapshot = $this->snapshotTablas($conexion, $base);
+      if ($snapshot["error"]) {
+        return $snapshot;
+      }
+
+      return $this->respuesta(false, "success", "Conexion de ambiente probada correctamente", array(
+        "ambiente" => $this->sanearAmbiente($ambiente),
+        "servidor" => array(
+          "base_actual" => isset($servidor["base_actual"]) ? $servidor["base_actual"] : "",
+          "version_mysql" => isset($servidor["version_mysql"]) ? $servidor["version_mysql"] : ""
+        ),
+        "totales" => $snapshot["depurar"]["totales"],
+        "nota" => "Prueba read-only: no lee filas de negocio ni ejecuta cambios."
+      ));
+    } catch (Exception $e) {
+      return $this->respuesta(true, "danger", "No fue posible completar la prueba del ambiente", array(
+        "ambiente" => $this->sanearAmbiente($ambiente),
+        "mensaje" => $e->getMessage()
+      ));
+    }
+  }
+
+  /**
+   * IA: Codex GPT-5
    * Fecha: 2026-08-01
    * Proposito: revisar prerequisitos operativos del modulo sin modificar archivos ni BD.
    * Impacto: Migraciones BD; ayuda a decidir si ya puede activarse esquema tecnico o paquetes.
@@ -159,7 +294,20 @@ class MigracionesBd extends CRUD {
     }
     $politicas = array();
     foreach ($snapshot["depurar"]["tablas"] as $tabla) {
-      $politicas[] = $this->politicaSugerida($tabla["tabla"], intval($tabla["filas_estimadas"]));
+      $sugerida = $this->politicaSugerida($tabla["tabla"], intval($tabla["filas_estimadas"]));
+      $persistida = $this->politicaPersistida($tabla["tabla"], null);
+      if ($persistida) {
+        $sugerida["politica"] = $persistida["politica"];
+        $sugerida["incluye_datos"] = !empty($persistida["incluye_datos"]);
+        $sugerida["llave_natural"] = isset($persistida["llave_natural"]) ? $persistida["llave_natural"] : "";
+        $sugerida["descripcion"] = isset($persistida["descripcion"]) ? $persistida["descripcion"] : "";
+        $sugerida["persistida"] = true;
+      } else {
+        $sugerida["llave_natural"] = "";
+        $sugerida["descripcion"] = "";
+        $sugerida["persistida"] = false;
+      }
+      $politicas[] = $sugerida;
     }
     return $this->respuesta(false, "success", "Politicas sugeridas generadas", $politicas);
   }
@@ -446,7 +594,7 @@ class MigracionesBd extends CRUD {
           "orden" => $orden++,
           "tipo" => "create_table",
           "tabla" => $tabla["tabla"],
-          "riesgo" => "medio",
+          "riesgo" => isset($tabla["riesgo"]) ? $tabla["riesgo"] : "medio",
           "sql" => $create . ";"
         );
       }
@@ -457,7 +605,7 @@ class MigracionesBd extends CRUD {
         "orden" => $orden++,
         "tipo" => "add_column",
         "tabla" => $columna["tabla"],
-        "riesgo" => "medio",
+        "riesgo" => isset($columna["riesgo"]) ? $columna["riesgo"] : "medio",
         "sql" => "ALTER TABLE `" . $columna["tabla"] . "` ADD COLUMN `" . $columna["columna"] . "` " . $columna["definicion"] . ";"
       );
     }
@@ -467,7 +615,7 @@ class MigracionesBd extends CRUD {
         "orden" => $orden++,
         "tipo" => "add_index",
         "tabla" => $indice["tabla"],
-        "riesgo" => "bajo",
+        "riesgo" => isset($indice["riesgo"]) ? $indice["riesgo"] : "bajo",
         "sql" => "ALTER TABLE `" . $indice["tabla"] . "` ADD " . $indice["definicion"] . ";"
       );
     }
@@ -477,7 +625,7 @@ class MigracionesBd extends CRUD {
         "orden" => $orden++,
         "tipo" => "add_foreign_key",
         "tabla" => $foranea["tabla"],
-        "riesgo" => "alto",
+        "riesgo" => isset($foranea["riesgo"]) ? $foranea["riesgo"] : "alto",
         "sql" => "ALTER TABLE `" . $foranea["tabla"] . "` ADD " . $foranea["definicion"] . ";"
       );
     }
@@ -580,14 +728,7 @@ class MigracionesBd extends CRUD {
       }
     }
 
-    $resumen = array(
-      "origen" => "local",
-      "destino" => $aliasDestino,
-      "tablas_solicitadas" => $tablasNormalizadas,
-      "sentencias" => count($sentencias),
-      "incluye_datos" => false,
-      "fase" => "dry_run_esquema"
-    );
+    $resumen = $this->resumenPaqueteDryRun($aliasDestino, $tablasNormalizadas, $sentencias);
     $hash = $this->hashPlanPaquete($resumen, $sentencias);
     $codigo = "MIGBD_" . date("Ymd_His") . "_" . substr($hash, 0, 8);
 
@@ -620,7 +761,8 @@ class MigracionesBd extends CRUD {
           (id_migracion_paquete, tabla, politica, incluye_datos, resumen_json)
           VALUES (:paquete, :tabla, :politica, :incluye, :resumen)
           ON DUPLICATE KEY UPDATE politica=VALUES(politica), incluye_datos=VALUES(incluye_datos), resumen_json=VALUES(resumen_json)");
-        foreach ($tablasNormalizadas as $tabla) {
+        foreach ($resumen["tablas_incluidas"] as $tablaInfo) {
+          $tabla = $tablaInfo["tabla"];
           $politica = $this->politicaPersistida($tabla);
           $stmtTabla->execute(array(
             ":paquete" => $idPaquete,
@@ -875,21 +1017,138 @@ class MigracionesBd extends CRUD {
   public function preflightActivacion($respaldo = "") {
     $esquema = $this->estadoEsquemaTecnico();
     $validacionRespaldo = $this->validarRespaldo($respaldo);
+    $planEsquema = null;
+    if (!class_exists("DBSchema") && file_exists(__DIR__ . "/../core/DBSchema.php")) {
+      require_once __DIR__ . "/../core/DBSchema.php";
+    }
+    if (!class_exists("MigracionesBdEsquema") && file_exists(__DIR__ . "/MigracionesBdEsquema.php")) {
+      require_once __DIR__ . "/MigracionesBdEsquema.php";
+    }
+    if (class_exists("MigracionesBdEsquema")) {
+      try {
+        $modeloEsquema = new MigracionesBdEsquema();
+        $planEsquema = $modeloEsquema->planActualizarMigracionesBd(false);
+      } catch (Exception $e) {
+        $planEsquema = $this->respuesta(true, "warning", $e->getMessage());
+      }
+    }
     $nombreSugerido = $this->nombreRespaldoSugerido("migracion_bd_schema");
     $rutaSugerida = $this->directorioRespaldos() . "\\" . $nombreSugerido;
     $comandoRespaldo = $this->comandoMysqldumpSaneado($rutaSugerida);
     $comandoAplicacion = "POST /migracionBd/esquema_actualizar con ejecutar=1";
+    $textoAutorizacionRespaldo = "AUTORIZO GENERAR RESPALDO MIGRACIONES BD de base " . (defined("MYSQLBASE") ? MYSQLBASE : "") . " para activar esquema tecnico sys_migraciones_*. Entiendo que genera un archivo SQL externo al proyecto y no modifica la base.";
     $textoAutorizacion = "AUTORIZO CREAR ESQUEMA TECNICO MIGRACIONES BD usando respaldo [RUTA_RESPALDO] con alcance exclusivo sys_migraciones_*. Entiendo que solo crea tablas tecnicas de preparacion, politicas, paquetes y ejecuciones; no migra catalogo, proveedores, compras, ventas, inventario, clientes, usuarios operativos ni productivo.";
 
     return $this->respuesta(false, "success", "Preflight de activacion generado", array(
       "esquema_tecnico" => $esquema,
+      "plan_esquema" => $planEsquema ? $planEsquema["depurar"] : null,
       "respaldo" => $validacionRespaldo["depurar"],
       "puede_aplicar" => !empty($validacionRespaldo["depurar"]["ok"]),
       "ruta_respaldo_sugerida" => $rutaSugerida,
       "comando_respaldo_sugerido" => $comandoRespaldo,
       "comando_aplicacion" => $comandoAplicacion,
+      "token_respaldo" => "MIGRACIONES_BD_RESPALDO",
+      "texto_autorizacion_respaldo" => $textoAutorizacionRespaldo,
       "token" => "MIGRACIONES_BD_SCHEMA",
       "texto_autorizacion" => $textoAutorizacion
+    ));
+  }
+
+  /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-08-04
+   * Proposito: verificar estado post-aplicacion del esquema tecnico sys_migraciones_*.
+   * Impacto: Migraciones BD; solo lectura, no ejecuta DDL.
+   * Contrato: devuelve tablas existentes/faltantes y plan dry-run restante.
+   */
+  public function verificarEsquemaTecnicoMigraciones() {
+    $esquema = $this->estadoEsquemaTecnico();
+    $planEsquema = null;
+    if (!class_exists("DBSchema") && file_exists(__DIR__ . "/../core/DBSchema.php")) {
+      require_once __DIR__ . "/../core/DBSchema.php";
+    }
+    if (!class_exists("MigracionesBdEsquema") && file_exists(__DIR__ . "/MigracionesBdEsquema.php")) {
+      require_once __DIR__ . "/MigracionesBdEsquema.php";
+    }
+    if (class_exists("MigracionesBdEsquema")) {
+      try {
+        $modeloEsquema = new MigracionesBdEsquema();
+        $plan = $modeloEsquema->planActualizarMigracionesBd(false);
+        $planEsquema = $plan["depurar"];
+      } catch (Exception $e) {
+        $planEsquema = array(
+          "resumen" => array("errores" => 1),
+          "error" => $e->getMessage()
+        );
+      }
+    }
+
+    $resumen = isset($planEsquema["resumen"]) ? $planEsquema["resumen"] : array();
+    $listo = !empty($esquema["listo"]) && empty($resumen["pendientes"]) && empty($resumen["errores"]);
+
+    return $this->respuesta(false, $listo ? "success" : "warning", $listo ? "Esquema tecnico listo" : "Esquema tecnico pendiente", array(
+      "listo" => $listo,
+      "esquema_tecnico" => $esquema,
+      "plan_esquema" => $planEsquema,
+      "siguiente_paso" => $listo
+        ? "Ya puedes guardar politicas y persistir paquetes dry-run."
+        : "Aplicar esquema tecnico desde la UI con respaldo valido, token y confirmacion literal."
+    ));
+  }
+
+  /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-08-03
+   * Proposito: validar compuertas finales para aplicar esquema tecnico sin ejecutar DDL.
+   * Impacto: Migraciones BD; solo lectura, prepara decision antes de `esquema_actualizar`.
+   * Contrato: valida respaldo, token, confirmacion literal y plan sys_migraciones_*.
+   */
+  public function preflightEsquemaTecnicoFinal($respaldo, $autorizar, $confirmacion) {
+    $activacion = $this->preflightActivacion($respaldo);
+    $d = $activacion["depurar"];
+    $plan = isset($d["plan_esquema"]) && is_array($d["plan_esquema"]) ? $d["plan_esquema"] : array();
+    $resumen = isset($plan["resumen"]) && is_array($plan["resumen"]) ? $plan["resumen"] : array();
+    $respaldoOk = !empty($d["respaldo"]["ok"]);
+    $tokenOk = trim((string) $autorizar) === "MIGRACIONES_BD_SCHEMA";
+    $confirmacionOk = stripos((string) $confirmacion, "AUTORIZO CREAR ESQUEMA TECNICO MIGRACIONES BD") !== false
+      && stripos((string) $confirmacion, "sys_migraciones_") !== false;
+    $planSinErrores = empty($resumen["errores"]);
+    $hayPendientes = !empty($resumen["pendientes"]);
+    $esquemaListo = !empty($d["esquema_tecnico"]["listo"]);
+
+    $bloqueos = array();
+    if (!$respaldoOk) {
+      $bloqueos[] = "respaldo_no_valido";
+    }
+    if (!$tokenOk) {
+      $bloqueos[] = "token_schema_invalido";
+    }
+    if (!$confirmacionOk) {
+      $bloqueos[] = "confirmacion_schema_invalida";
+    }
+    if (!$planSinErrores) {
+      $bloqueos[] = "plan_schema_con_errores";
+    }
+
+    $advertencias = array();
+    if (!$hayPendientes && $esquemaListo) {
+      $advertencias[] = "esquema_tecnico_ya_listo";
+    }
+
+    return $this->respuesta(false, empty($bloqueos) ? "success" : "warning", "Preflight final de esquema tecnico generado", array(
+      "puede_aplicar" => empty($bloqueos) && $hayPendientes,
+      "bloqueos" => $bloqueos,
+      "advertencias" => $advertencias,
+      "token_ok" => $tokenOk,
+      "confirmacion_ok" => $confirmacionOk,
+      "respaldo_ok" => $respaldoOk,
+      "plan_sin_errores" => $planSinErrores,
+      "hay_pendientes" => $hayPendientes,
+      "esquema_listo" => $esquemaListo,
+      "activacion" => $d,
+      "siguiente_paso" => empty($bloqueos)
+        ? ($hayPendientes ? "Puede solicitar Aplicar esquema tecnico con la misma ruta, token y confirmacion." : "El esquema tecnico ya no tiene acciones pendientes.")
+        : "Resolver bloqueos antes de solicitar Aplicar esquema tecnico."
     ));
   }
 
@@ -965,6 +1224,108 @@ class MigracionesBd extends CRUD {
       "token_aplicacion" => "MIGRACIONES_BD_APLICAR",
       "texto_autorizacion_paquete" => "AUTORIZO PAQUETE MIGRACIONES BD " . $depurarPaquete["paquete"]["codigo"] . " hacia " . $depurarPaquete["paquete"]["ambiente_destino"] . " usando respaldo [RUTA_RESPALDO]. Entiendo que este paso solo autoriza el paquete y no ejecuta SQL.",
       "texto_autorizacion" => "AUTORIZO APLICAR PAQUETE MIGRACIONES BD " . $depurarPaquete["paquete"]["codigo"] . " hacia " . $depurarPaquete["paquete"]["ambiente_destino"] . " usando respaldo [RUTA_RESPALDO]. Entiendo que ejecuta el SQL persistido del paquete y registra bitacora."
+    ));
+  }
+
+  /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-08-03
+   * Proposito: consolidar semaforo final antes de preparar, autorizar o aplicar.
+   * Impacto: Migraciones BD; solo lectura, no ejecuta SQL ni cambia estatus.
+   * Contrato: evalua respaldo, selfcheck, esquema tecnico y paquete opcional.
+   */
+  public function preflightFinalSemaforo($codigo = "", $respaldo = "") {
+    $codigo = trim((string) $codigo);
+    $selfcheck = $this->selfcheckOperativo();
+    $validacionRespaldo = $this->validarRespaldo($respaldo);
+    $esquema = $this->estadoEsquemaTecnico();
+    $aplicacionHabilitada = $this->aplicacionRealHabilitada();
+
+    $bloqueos = array();
+    $advertencias = array();
+    $pasos = array();
+
+    $selfBloqueantes = isset($selfcheck["depurar"]["bloqueantes"]) ? $selfcheck["depurar"]["bloqueantes"] : array();
+    $selfAdvertencias = isset($selfcheck["depurar"]["advertencias"]) ? $selfcheck["depurar"]["advertencias"] : array();
+    foreach ($selfBloqueantes as $bloqueo) {
+      $bloqueos[] = "selfcheck_" . $bloqueo;
+    }
+    foreach ($selfAdvertencias as $advertencia) {
+      $advertencias[] = "selfcheck_" . $advertencia;
+    }
+
+    $pasos[] = $this->semaforoPaso("selfcheck", "Selfcheck operativo", empty($selfBloqueantes), empty($selfBloqueantes) ? "Entorno base sin bloqueantes." : "Resolver bloqueantes del selfcheck.", empty($selfBloqueantes) ? "success" : "danger");
+    $pasos[] = $this->semaforoPaso("respaldo", "Respaldo valido", !empty($validacionRespaldo["depurar"]["ok"]), !empty($validacionRespaldo["depurar"]["ok"]) ? "Respaldo externo valido." : "Seleccionar o generar respaldo .sql valido.", !empty($validacionRespaldo["depurar"]["ok"]) ? "success" : "warning");
+    $pasos[] = $this->semaforoPaso("esquema_tecnico", "Esquema tecnico", !empty($esquema["listo"]), !empty($esquema["listo"]) ? "Tablas sys_migraciones_* listas." : "Activar esquema tecnico antes de persistir politicas o paquetes.", !empty($esquema["listo"]) ? "success" : "warning");
+
+    if (empty($validacionRespaldo["depurar"]["ok"])) {
+      $advertencias[] = "respaldo_pendiente";
+    }
+    if (empty($esquema["listo"])) {
+      $advertencias[] = "esquema_tecnico_pendiente";
+    }
+
+    $paquetePreflight = null;
+    if ($codigo !== "") {
+      $paquetePreflight = $this->preflightPaqueteAplicacion($codigo, $respaldo);
+      if ($paquetePreflight["error"]) {
+        $bloqueos[] = "paquete_no_consultable";
+        $pasos[] = $this->semaforoPaso("paquete", "Paquete", false, $paquetePreflight["mensaje"], "danger");
+      } else {
+        $p = $paquetePreflight["depurar"];
+        foreach ($p["riesgos"]["bloqueantes"] as $bloqueo) {
+          $bloqueos[] = $bloqueo;
+        }
+        foreach ($p["riesgos"]["advertencias"] as $advertencia) {
+          $advertencias[] = $advertencia;
+        }
+        $pasos[] = $this->semaforoPaso("paquete_vigente", "Paquete vigente", !empty($p["vigencia"]["ok"]), $p["vigencia"]["mensaje"], !empty($p["vigencia"]["ok"]) ? "success" : "danger");
+        $pasos[] = $this->semaforoPaso("paquete_autorizado", "Paquete autorizado", !empty($p["estatus_autorizado"]), !empty($p["estatus_autorizado"]) ? "Listo para aplicacion si las demas compuertas pasan." : "Falta autorizacion de paquete.", !empty($p["estatus_autorizado"]) ? "success" : "warning");
+        $pasos[] = $this->semaforoPaso("aplicacion_real", "Aplicacion real", !empty($p["aplicacion_real_habilitada"]), !empty($p["aplicacion_real_habilitada"]) ? "Bandera local habilitada." : "Bandera local apagada por seguridad.", !empty($p["aplicacion_real_habilitada"]) ? "success" : "info");
+      }
+    } else {
+      $advertencias[] = "paquete_no_indicado";
+      $pasos[] = $this->semaforoPaso("paquete", "Paquete", false, "Indicar paquete para evaluar autorizacion o aplicacion.", "warning");
+    }
+
+    $bloqueos = array_values(array_unique($bloqueos));
+    $advertencias = array_values(array_unique($advertencias));
+    $puedePreparar = empty($selfBloqueantes) && !empty($validacionRespaldo["depurar"]["ok"]) && !empty($esquema["listo"]);
+    $puedeAutorizar = $puedePreparar && $paquetePreflight && !$paquetePreflight["error"] && empty($paquetePreflight["depurar"]["riesgos"]["bloqueantes"]) && !empty($paquetePreflight["depurar"]["vigencia"]["ok"]);
+    $puedeAplicar = $puedeAutorizar && !empty($paquetePreflight["depurar"]["estatus_autorizado"]) && !empty($aplicacionHabilitada);
+
+    $estado = "bloqueado";
+    $siguiente = "Resolver bloqueos antes de continuar.";
+    if (empty($bloqueos)) {
+      if ($puedeAplicar) {
+        $estado = "puede_aplicar";
+        $siguiente = "Solo continuar dentro de ventana autorizada, con token y confirmacion literal.";
+      } elseif ($puedeAutorizar) {
+        $estado = "puede_autorizar";
+        $siguiente = "Autorizar paquete con respaldo valido; aun no ejecuta SQL.";
+      } elseif ($puedePreparar) {
+        $estado = "puede_preparar";
+        $siguiente = "Crear o revisar paquete dry-run persistido.";
+      } else {
+        $estado = "pendiente";
+        $siguiente = "Completar respaldo, esquema tecnico o paquete.";
+      }
+    }
+
+    return $this->respuesta(false, empty($bloqueos) ? "success" : "warning", "Semaforo final generado", array(
+      "estado" => $estado,
+      "puede_preparar" => $puedePreparar,
+      "puede_autorizar" => $puedeAutorizar,
+      "puede_aplicar" => $puedeAplicar,
+      "bloqueos" => $bloqueos,
+      "advertencias" => $advertencias,
+      "pasos" => $pasos,
+      "selfcheck" => $selfcheck["depurar"],
+      "respaldo" => $validacionRespaldo["depurar"],
+      "esquema_tecnico" => $esquema,
+      "paquete" => $paquetePreflight ? $paquetePreflight["depurar"] : null,
+      "aplicacion_real_habilitada" => $aplicacionHabilitada,
+      "siguiente_paso" => $siguiente
     ));
   }
 
@@ -1249,14 +1610,7 @@ class MigracionesBd extends CRUD {
       }
     }
 
-    $resumenActual = array(
-      "origen" => "local",
-      "destino" => $destino,
-      "tablas_solicitadas" => $tablas,
-      "sentencias" => count($sentencias),
-      "incluye_datos" => false,
-      "fase" => "dry_run_esquema"
-    );
+    $resumenActual = $this->resumenPaqueteDryRun($destino, $tablas, $sentencias);
     $hashActual = $this->hashPlanPaquete($resumenActual, $sentencias);
     return array(
       "ok" => hash_equals((string) $hashGuardado, (string) $hashActual),
@@ -1265,6 +1619,87 @@ class MigracionesBd extends CRUD {
       "hash_actual" => $hashActual,
       "sentencias_guardadas" => isset($paquete["sentencias"]) ? count($paquete["sentencias"]) : null,
       "sentencias_actuales" => count($sentencias)
+    );
+  }
+
+  private function resumenPaqueteDryRun($aliasDestino, $tablasSolicitadas, $sentencias) {
+    $tablasSolicitadas = is_array($tablasSolicitadas) ? array_values($tablasSolicitadas) : array();
+    $sentencias = is_array($sentencias) ? $sentencias : array();
+    $tablasMapa = array();
+    foreach ($sentencias as $sentencia) {
+      if (isset($sentencia["tabla"]) && $sentencia["tabla"] !== "") {
+        $tablasMapa[$sentencia["tabla"]] = true;
+      }
+    }
+    foreach ($tablasSolicitadas as $tabla) {
+      if ($tabla !== "") {
+        $tablasMapa[$tabla] = true;
+      }
+    }
+
+    $politicas = array();
+    $riesgos = array("bajo" => 0, "medio" => 0, "alto" => 0, "bloqueante" => 0, "revision" => 0);
+    $tablasIncluidas = array();
+    $tablasConDatos = array();
+    $bloqueos = array();
+
+    foreach (array_keys($tablasMapa) as $tabla) {
+      $politica = $this->politicaPersistida($tabla);
+      $valorPolitica = isset($politica["politica"]) ? $politica["politica"] : "blocked";
+      if (!isset($politicas[$valorPolitica])) {
+        $politicas[$valorPolitica] = 0;
+      }
+      $politicas[$valorPolitica]++;
+      if (!empty($politica["incluye_datos"])) {
+        $llaveNatural = isset($politica["llave_natural"]) ? trim((string) $politica["llave_natural"]) : "";
+        $tablasConDatos[] = array(
+          "tabla" => $tabla,
+          "politica" => $valorPolitica,
+          "llave_natural" => $llaveNatural
+        );
+        if ($valorPolitica === "data_merge" && $llaveNatural === "") {
+          $bloqueos[] = "tabla_" . $tabla . "_data_merge_sin_llave_natural";
+        }
+      }
+      if (in_array($valorPolitica, array("blocked", "production_owned"), true)) {
+        $bloqueos[] = "tabla_" . $tabla . "_" . $valorPolitica;
+      }
+      $tablasIncluidas[] = array(
+        "tabla" => $tabla,
+        "politica" => $valorPolitica,
+        "incluye_datos" => !empty($politica["incluye_datos"]),
+        "llave_natural" => isset($politica["llave_natural"]) ? $politica["llave_natural"] : "",
+        "descripcion" => isset($politica["descripcion"]) ? $politica["descripcion"] : ""
+      );
+    }
+
+    foreach ($sentencias as $sentencia) {
+      $riesgo = isset($sentencia["riesgo"]) ? $sentencia["riesgo"] : "revision";
+      if (!isset($riesgos[$riesgo])) {
+        $riesgos[$riesgo] = 0;
+      }
+      $riesgos[$riesgo]++;
+      if ($riesgo === "bloqueante") {
+        $bloqueos[] = "sentencia_bloqueante_" . (isset($sentencia["tabla"]) ? $sentencia["tabla"] : "sin_tabla");
+      }
+    }
+
+    usort($tablasIncluidas, function ($a, $b) {
+      return strcmp($a["tabla"], $b["tabla"]);
+    });
+
+    return array(
+      "origen" => "local",
+      "destino" => $aliasDestino,
+      "tablas_solicitadas" => $tablasSolicitadas,
+      "tablas_incluidas" => $tablasIncluidas,
+      "sentencias" => count($sentencias),
+      "incluye_datos" => !empty($tablasConDatos),
+      "tablas_con_datos" => $tablasConDatos,
+      "politicas" => $politicas,
+      "riesgos" => $riesgos,
+      "bloqueos" => array_values(array_unique($bloqueos)),
+      "fase" => "dry_run_esquema"
     );
   }
 
@@ -1332,17 +1767,28 @@ class MigracionesBd extends CRUD {
     $advertencias = array();
     $sentencias = isset($paquete["sentencias"]) ? $paquete["sentencias"] : array();
     $cabecera = isset($paquete["paquete"]) ? $paquete["paquete"] : array();
+    $resumen = isset($cabecera["resumen"]) && is_array($cabecera["resumen"]) ? $cabecera["resumen"] : array();
 
     if (empty($sentencias)) {
       $bloqueantes[] = "paquete_sin_sql";
+    }
+    if (!empty($resumen["bloqueos"]) && is_array($resumen["bloqueos"])) {
+      foreach ($resumen["bloqueos"] as $bloqueo) {
+        $bloqueantes[] = $bloqueo;
+      }
+    }
+    if (!empty($resumen["tablas_con_datos"])) {
+      $advertencias[] = "incluye_tablas_con_datos_solicitados";
     }
     if (!isset($cabecera["estatus"]) || !in_array($cabecera["estatus"], array("borrador", "revisado", "autorizado"), true)) {
       $bloqueantes[] = "estatus_no_aplicable";
     }
     foreach ($sentencias as $sentencia) {
+      if (isset($sentencia["riesgo"]) && $sentencia["riesgo"] === "bloqueante") {
+        $bloqueantes[] = "incluye_sentencias_bloqueantes";
+      }
       if (isset($sentencia["riesgo"]) && $sentencia["riesgo"] === "alto") {
         $advertencias[] = "incluye_sentencias_riesgo_alto";
-        break;
       }
     }
     if (!isset($cabecera["ambiente_destino"]) || !$this->ambientePorAlias($cabecera["ambiente_destino"])) {
@@ -1494,6 +1940,20 @@ class MigracionesBd extends CRUD {
     return isset($ambientes[$alias]) && is_array($ambientes[$alias]) ? $ambientes[$alias] : null;
   }
 
+  private function valorConfigPlaceholder($valor) {
+    $valor = trim((string) $valor);
+    if ($valor === "") {
+      return true;
+    }
+    $marcas = array("CAMBIAR", "base_productiva", "usuario_lectura", "usuario_migracion", "password", "contraseña", "placeholder");
+    foreach ($marcas as $marca) {
+      if (stripos($valor, $marca) !== false) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   private function conectarAmbiente($ambiente) {
     $host = isset($ambiente["host"]) ? $ambiente["host"] : "";
     $base = isset($ambiente["base"]) ? $ambiente["base"] : "";
@@ -1640,25 +2100,43 @@ class MigracionesBd extends CRUD {
 
     foreach ($tablasOrigen as $nombre => $tabla) {
       if (!isset($tablasDestino[$nombre])) {
-        $soloOrigen[] = array("tabla" => $nombre, "filas_estimadas" => $tabla["filas_estimadas"], "politica" => $this->politicaSugerida($nombre, $tabla["filas_estimadas"]));
+        $politica = $this->politicaSugerida($nombre, $tabla["filas_estimadas"]);
+        $riesgo = $this->riesgoDiferenciaEsquema("create_table", $nombre, $politica);
+        $soloOrigen[] = array(
+          "tabla" => $nombre,
+          "filas_estimadas" => $tabla["filas_estimadas"],
+          "politica" => $politica,
+          "riesgo" => $riesgo["riesgo"],
+          "recomendacion" => $riesgo["recomendacion"]
+        );
         continue;
       }
       foreach ($tabla["columnas"] as $nombreColumna => $columna) {
         if (!isset($tablasDestino[$nombre]["columnas"][$nombreColumna])) {
+          $politica = $this->politicaSugerida($nombre, $tabla["filas_estimadas"]);
+          $riesgo = $this->riesgoDiferenciaEsquema("add_column", $nombre, $politica);
           $columnasFaltantes[] = array(
             "tabla" => $nombre,
             "columna" => $nombreColumna,
-            "definicion" => $this->definicionColumna($columna)
+            "definicion" => $this->definicionColumna($columna),
+            "politica" => $politica["politica"],
+            "riesgo" => $riesgo["riesgo"],
+            "recomendacion" => $riesgo["recomendacion"]
           );
           continue;
         }
         $columnaDestino = $tablasDestino[$nombre]["columnas"][$nombreColumna];
         if ($this->firmaColumna($columna) !== $this->firmaColumna($columnaDestino)) {
+          $politica = $this->politicaSugerida($nombre, $tabla["filas_estimadas"]);
+          $riesgo = $this->riesgoDiferenciaEsquema("change_column", $nombre, $politica);
           $columnasDiferentes[] = array(
             "tabla" => $nombre,
             "columna" => $nombreColumna,
             "origen" => $this->firmaColumna($columna),
-            "destino" => $this->firmaColumna($columnaDestino)
+            "destino" => $this->firmaColumna($columnaDestino),
+            "politica" => $politica["politica"],
+            "riesgo" => $riesgo["riesgo"],
+            "recomendacion" => $riesgo["recomendacion"]
           );
         }
       }
@@ -1667,17 +2145,24 @@ class MigracionesBd extends CRUD {
           continue;
         }
         if (!isset($tablasDestino[$nombre]["indices"][$nombreIndice])) {
+          $politica = $this->politicaSugerida($nombre, $tabla["filas_estimadas"]);
+          $riesgo = $this->riesgoDiferenciaEsquema("add_index", $nombre, $politica);
           $indicesFaltantes[] = array(
             "tabla" => $nombre,
             "indice" => $nombreIndice,
             "unico" => intval($indice["no_unico"]) === 0,
             "columnas" => $indice["columnas"],
-            "definicion" => $this->definicionIndice($indice)
+            "definicion" => $this->definicionIndice($indice),
+            "politica" => $politica["politica"],
+            "riesgo" => $riesgo["riesgo"],
+            "recomendacion" => $riesgo["recomendacion"]
           );
         }
       }
       foreach ($tabla["foraneas"] as $nombreForanea => $foranea) {
         if (!isset($tablasDestino[$nombre]["foraneas"][$nombreForanea])) {
+          $politica = $this->politicaSugerida($nombre, $tabla["filas_estimadas"]);
+          $riesgo = $this->riesgoDiferenciaEsquema("add_foreign_key", $nombre, $politica);
           $foraneasFaltantes[] = array(
             "tabla" => $nombre,
             "restriccion" => $nombreForanea,
@@ -1686,7 +2171,10 @@ class MigracionesBd extends CRUD {
             "columnas_referencia" => $foranea["columnas_referencia"],
             "regla_update" => $foranea["regla_update"],
             "regla_delete" => $foranea["regla_delete"],
-            "definicion" => $this->definicionForanea($foranea)
+            "definicion" => $this->definicionForanea($foranea),
+            "politica" => $politica["politica"],
+            "riesgo" => $riesgo["riesgo"],
+            "recomendacion" => $riesgo["recomendacion"]
           );
         }
       }
@@ -1694,9 +2182,16 @@ class MigracionesBd extends CRUD {
 
     foreach ($tablasDestino as $nombre => $tabla) {
       if (!isset($tablasOrigen[$nombre])) {
-        $soloDestino[] = array("tabla" => $nombre, "filas_estimadas" => $tabla["filas_estimadas"]);
+        $soloDestino[] = array(
+          "tabla" => $nombre,
+          "filas_estimadas" => $tabla["filas_estimadas"],
+          "riesgo" => "revision",
+          "recomendacion" => "No eliminar ni reemplazar tablas que existen solo en destino sin revision manual."
+        );
       }
     }
+
+    $riesgos = $this->resumenRiesgosComparacion(array_merge($soloOrigen, $soloDestino, $columnasFaltantes, $columnasDiferentes, $indicesFaltantes, $foraneasFaltantes));
 
     return array(
       "resumen" => array(
@@ -1705,8 +2200,10 @@ class MigracionesBd extends CRUD {
         "columnas_faltantes_destino" => count($columnasFaltantes),
         "columnas_diferentes" => count($columnasDiferentes),
         "indices_faltantes_destino" => count($indicesFaltantes),
-        "foraneas_faltantes_destino" => count($foraneasFaltantes)
+        "foraneas_faltantes_destino" => count($foraneasFaltantes),
+        "riesgos" => $riesgos
       ),
+      "riesgos" => $riesgos,
       "tablas_solo_origen" => $soloOrigen,
       "tablas_solo_destino" => $soloDestino,
       "columnas_faltantes_destino" => $columnasFaltantes,
@@ -1714,6 +2211,50 @@ class MigracionesBd extends CRUD {
       "indices_faltantes_destino" => $indicesFaltantes,
       "foraneas_faltantes_destino" => $foraneasFaltantes
     );
+  }
+
+  private function riesgoDiferenciaEsquema($tipo, $tabla, $politica) {
+    $politicaValor = isset($politica["politica"]) ? $politica["politica"] : "blocked";
+    $riesgo = "medio";
+    $recomendacion = "Revisar en dry-run antes de incluir en paquete.";
+
+    if ($politicaValor === "blocked" || $politicaValor === "production_owned") {
+      return array(
+        "riesgo" => "bloqueante",
+        "recomendacion" => "No aplicar automaticamente; tabla marcada como " . $politicaValor . "."
+      );
+    }
+
+    if ($tipo === "add_index") {
+      $riesgo = "bajo";
+      $recomendacion = "Candidato a aplicar despues de validar respaldo y ventana.";
+    } elseif ($tipo === "add_foreign_key" || $tipo === "change_column") {
+      $riesgo = "alto";
+      $recomendacion = "Requiere revision manual por posible impacto en datos existentes.";
+    } elseif ($tipo === "create_table" && $politicaValor === "schema_only") {
+      $riesgo = "medio";
+      $recomendacion = "Candidato a crear estructura sin datos si el paquete queda vigente.";
+    } elseif ($tipo === "add_column" && $politicaValor === "schema_only") {
+      $riesgo = "medio";
+      $recomendacion = "Candidato a agregar columna tras validar defaults, nullabilidad y respaldo.";
+    } elseif ($tipo === "add_column") {
+      $riesgo = "medio";
+      $recomendacion = "Validar compatibilidad con datos antes de aplicar.";
+    }
+
+    return array("riesgo" => $riesgo, "recomendacion" => $recomendacion);
+  }
+
+  private function resumenRiesgosComparacion($items) {
+    $resumen = array("bajo" => 0, "medio" => 0, "alto" => 0, "bloqueante" => 0, "revision" => 0);
+    foreach ($items as $item) {
+      $riesgo = isset($item["riesgo"]) ? $item["riesgo"] : "revision";
+      if (!isset($resumen[$riesgo])) {
+        $resumen[$riesgo] = 0;
+      }
+      $resumen[$riesgo]++;
+    }
+    return $resumen;
   }
 
   private function politicaSugerida($tabla, $filasEstimadas) {
@@ -1826,7 +2367,7 @@ class MigracionesBd extends CRUD {
     return $salida;
   }
 
-  private function politicaPersistida($tabla) {
+  private function politicaPersistida($tabla, $fallbackFilas = 0) {
     if ($this->tablaTecnicaExiste("sys_migraciones_tablas_politicas")) {
       try {
         $stmt = $this->db->prepare("SELECT tabla, politica, incluye_datos, llave_natural, descripcion
@@ -1842,7 +2383,10 @@ class MigracionesBd extends CRUD {
       } catch (Exception $e) {
       }
     }
-    return $this->politicaSugerida($tabla, 0);
+    if ($fallbackFilas === null) {
+      return null;
+    }
+    return $this->politicaSugerida($tabla, intval($fallbackFilas));
   }
 
   private function firmaColumna($columna) {
@@ -2033,6 +2577,16 @@ class MigracionesBd extends CRUD {
       "estatus" => $ok ? "completo" : "pendiente",
       "accion_pendiente" => $ok ? "" : $accionPendiente,
       "depurar" => $depurar
+    );
+  }
+
+  private function semaforoPaso($codigo, $titulo, $ok, $mensaje, $nivel) {
+    return array(
+      "codigo" => $codigo,
+      "titulo" => $titulo,
+      "ok" => (bool) $ok,
+      "nivel" => $nivel,
+      "mensaje" => $mensaje
     );
   }
 

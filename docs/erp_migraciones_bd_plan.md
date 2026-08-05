@@ -650,6 +650,380 @@ Restriccion:
 - No aplica esquema.
 - No autoriza ni aplica paquetes.
 
+## Avance implementado - Prueba de conexion de ambientes
+
+Fecha: 2026-08-02
+
+Se agrego:
+
+- `MigracionesBd::probarAmbiente`;
+- endpoint `MigracionBd::ambiente_probar`;
+- boton UI `Probar` en la pestaña `Ambientes`;
+- resultado con base activa, version MySQL y totales de tablas, columnas, indices y FKs.
+
+Restriccion:
+
+- Solo lectura.
+- No devuelve password ni objeto de conexion.
+- No consulta filas de negocio.
+- No ejecuta DDL, DML, respaldo ni restore.
+
+## Avance implementado - Riesgo operativo en comparacion
+
+Fecha: 2026-08-02
+
+Se agrego:
+
+- riesgo por diferencia de esquema en `MigracionesBd::compararSnapshots`;
+- resumen por `bajo`, `medio`, `alto`, `bloqueante` y `revision`;
+- recomendacion operativa por diferencia;
+- visualizacion de riesgos en la pestaña `Comparacion`;
+- propagacion del riesgo calculado al SQL dry-run;
+- bloqueo de preflight cuando un paquete contiene sentencias `bloqueante`.
+
+Restriccion:
+
+- Solo clasifica diferencias.
+- No autoriza ni aplica cambios.
+- No sustituye revision humana cuando hay cambios de columnas, FKs o tablas productivo-owned.
+
+## Avance implementado - Matriz de decision por tabla
+
+Fecha: 2026-08-02
+
+Se agrego:
+
+- resumen visual por politica en la pestaña `Politicas`;
+- columna de origen `sugerida` o `guardada`;
+- captura de `llave_natural` por tabla;
+- captura de descripcion/decision humana por tabla;
+- seleccion rapida de tablas que incluyen datos;
+- aplicacion masiva de politica a tablas seleccionadas;
+- carga de politicas persistidas cuando existe `sys_migraciones_tablas_politicas`.
+
+Restriccion:
+
+- La matriz no aplica migraciones.
+- Guardar politicas sigue requiriendo esquema tecnico `sys_migraciones_*`.
+- Las decisiones guardadas solo preparan paquetes y revision; no autorizan aplicacion real.
+
+## Avance implementado - Paquetes conscientes de matriz
+
+Fecha: 2026-08-02
+
+Se agrego:
+
+- resumen de paquete construido desde sentencias y politicas vigentes;
+- conteo por politica y riesgo dentro del paquete;
+- lista de tablas incluidas en paquete;
+- lista de tablas con datos solicitados;
+- bloqueos por tablas `blocked`, `production_owned` o sentencias `bloqueante`;
+- detalle UI de paquete con resumen, tablas, datos solicitados y bloqueos;
+- preflight UI con el resumen del paquete antes de autorizar/aplicar;
+- hash de vigencia recalculado con el mismo resumen enriquecido.
+
+Restriccion:
+
+- El paquete sigue siendo dry-run de esquema.
+- `incluye_datos` solo evidencia la intencion de datos; aun no copia informacion.
+- Los bloqueos impiden preparar/aplicar aunque exista respaldo, salvo que se cambie la matriz de forma explicita y segura.
+
+## Avance implementado - Semaforo final de preflight
+
+Fecha: 2026-08-03
+
+Se agrego:
+
+- `MigracionesBd::preflightFinalSemaforo`;
+- endpoint `MigracionBd::preflight_final`;
+- boton UI `Semaforo final` en `Activacion`;
+- evaluacion consolidada de selfcheck, respaldo, esquema tecnico, paquete, hash, autorizacion y bandera de aplicacion real;
+- estados `puede_preparar`, `puede_autorizar`, `puede_aplicar`, `pendiente` y `bloqueado`;
+- lista visible de bloqueos, advertencias y pasos.
+
+Restriccion:
+
+- Solo lectura.
+- No cambia estatus de paquete.
+- No ejecuta SQL, respaldo ni restore.
+- `puede_aplicar` no reemplaza token, confirmacion literal, permiso ni ventana operativa.
+
+## Avance implementado - Dry-run legible del esquema tecnico
+
+Fecha: 2026-08-03
+
+Se agrego:
+
+- resumen del plan `sys_migraciones_*` en `MigracionesBdEsquema`;
+- conteo de tablas del plan, pendientes, existentes, ejecutadas y errores;
+- lista de tablas tecnicas consideradas por el plan;
+- SQL generado separado para revision;
+- inclusion del plan dry-run dentro del preflight de activacion;
+- UI de dry-run con tarjetas y tabla de acciones en lugar de JSON crudo.
+
+Restriccion:
+
+- El dry-run no ejecuta DDL.
+- La aplicacion real sigue protegida por respaldo valido, token `MIGRACIONES_BD_SCHEMA`, confirmacion literal y permiso `sistema.soporte`.
+- El esquema tecnico solo crea tablas `sys_migraciones_*`; no migra catalogo, proveedores ni operacion.
+
+## Avance implementado - Preparacion asistida de respaldo y esquema
+
+Fecha: 2026-08-03
+
+Se agrego:
+
+- texto literal de autorizacion para respaldo en el preflight de activacion;
+- token de respaldo visible como dato tecnico (`MIGRACIONES_BD_RESPALDO`);
+- botones UI `Preparar respaldo` y `Preparar esquema`;
+- autollenado de ruta sugerida, token y confirmacion correspondiente;
+- textarea para confirmacion de respaldo.
+
+Restriccion:
+
+- Preparar campos no genera respaldo.
+- Preparar campos no aplica esquema.
+- La generacion real de respaldo sigue pasando por el endpoint protegido y requiere confirmar explicitamente.
+
+## Avance implementado - Validacion directa de respaldo
+
+Fecha: 2026-08-03
+
+Se agrego:
+
+- boton iconico para validar solo la ruta/referencia de respaldo;
+- validacion automatica al seleccionar un respaldo desde `Ver respaldos`;
+- validacion automatica posterior a respaldo generado correctamente;
+- mensaje de siguiente paso cuando el respaldo ya sirve como compuerta.
+
+Restriccion:
+
+- Validar respaldo solo lee metadatos del archivo.
+- No calcula hash pesado desde UI en este flujo.
+- No ejecuta DDL ni restore.
+
+## Avance implementado - Preflight final del esquema tecnico
+
+Fecha: 2026-08-03
+
+Se agrego:
+
+- `MigracionesBd::preflightEsquemaTecnicoFinal`;
+- endpoint `MigracionBd::esquema_preflight_final`;
+- boton UI `Preflight esquema`;
+- validacion conjunta de respaldo, token `MIGRACIONES_BD_SCHEMA`, confirmacion literal, plan sin errores y DDL pendiente;
+- resumen visual de bloqueos, advertencias, plan y respaldo.
+
+Restriccion:
+
+- Solo lectura.
+- No crea tablas.
+- No cambia estatus ni persiste decisiones.
+- `puede_aplicar` solo indica que el backend aceptaria solicitar `Aplicar esquema tecnico`; la ejecucion real sigue protegida por el endpoint `esquema_actualizar`.
+
+## Avance implementado - Verificacion post-aplicacion del esquema tecnico
+
+Fecha: 2026-08-04
+
+Se agrego:
+
+- `MigracionesBd::verificarEsquemaTecnicoMigraciones`;
+- endpoint `MigracionBd::esquema_verificar`;
+- boton UI `Verificar esquema`;
+- validacion read-only de tablas `sys_migraciones_*`;
+- confirmacion de SQL pendiente restante despues del dry-run.
+
+Restriccion:
+
+- Solo lectura.
+- No crea tablas.
+- No reemplaza el flujo auditado de `Aplicar esquema tecnico`.
+
+## Avance ejecutado - Esquema tecnico local activado
+
+Fecha: 2026-08-04
+
+Se ejecuto:
+
+- respaldo previo validado:
+  `C:\xampp\panel_db_backups\artianilocal_panel_20260804_131239_antes_migracion_bd_schema.sql`;
+- creacion local de las 7 tablas `sys_migraciones_*`;
+- verificacion read-only posterior;
+- guardado inicial de politicas sugeridas en `sys_migraciones_tablas_politicas`.
+
+Resultado verificado:
+
+```text
+esquema_listo=si
+faltantes=0
+pendientes=0
+tablas_tecnicas=7
+politicas_guardadas=252
+```
+
+Resumen inicial de politicas:
+
+```text
+blocked=100
+data_merge=51
+data_seed=3
+production_owned=7
+schema_only=91
+```
+
+Pendiente operativo:
+
+- crear el primer paquete dry-run persistido contra el destino real;
+- revisar bloqueos antes de autorizar cualquier paquete.
+
+## Avance implementado - Preflight de destino productivo
+
+Fecha: 2026-08-04
+
+Se agrego:
+
+- `MigracionesBd::preflightDestino`;
+- endpoint `MigracionBd::destino_preflight`;
+- boton UI `Preflight destino`;
+- deteccion de destino no configurado;
+- deteccion de campos incompletos o placeholders;
+- deteccion de destino apuntando accidentalmente a la base local;
+- prueba read-only de conexion cuando la configuracion esta completa.
+
+Restriccion:
+
+- No expone passwords.
+- No crea ni modifica configuracion.
+- No crea paquetes si no existe un destino real listo.
+
+## Avance implementado - Ambiente productivo local privado
+
+Fecha: 2026-08-04
+
+Se reviso `app/config/mysql.php` y se copio la rama productiva del panel a `app/config/migraciones_ambientes.local.php`.
+
+Decision operativa:
+
+- `mysql.php` conserva intacta la conexion activa de la aplicacion.
+- `migraciones_ambientes.local.php` es el unico lugar donde el modulo debe guardar credenciales de ambientes para comparacion/promocion.
+- El alias `productivo` queda disponible para preflight y comparacion read-only.
+- No se debe cambiar local a productivo ni aplicar paquetes contra productivo sin autorizacion explicita del dueno.
+- No documentar ni responder credenciales reales.
+
+Resultado verificado:
+
+```text
+productivo=configurado
+preflight_destino=success
+mensaje=Destino listo para comparar
+```
+
+## Avance ejecutado - Primer paquete dry-run contra productivo
+
+Fecha: 2026-08-04
+
+Se ejecuto en modo seguro:
+
+- comparacion local vs `productivo`;
+- generacion de SQL dry-run sin ejecutar;
+- persistencia local del paquete borrador en `sys_migraciones_paquetes`;
+- semaforo final sin respaldo para confirmar que no puede aplicarse.
+
+Resultado de comparacion:
+
+```text
+tablas_solo_origen=44
+tablas_solo_destino=0
+columnas_faltantes_destino=20
+columnas_faltantes_origen=0
+columnas_diferentes=1
+indices_faltantes_destino=12
+foraneas_faltantes_destino=0
+```
+
+Paquete generado:
+
+```text
+codigo=MIGBD_20260804_204804_687afc7c
+estatus=borrador
+sentencias=76
+tablas=52
+bloqueos=36
+riesgo_bajo=9
+riesgo_medio=44
+riesgo_bloqueante=23
+```
+
+Politicas incluidas:
+
+```text
+schema_only=30
+data_merge=4
+blocked=16
+production_owned=2
+```
+
+Semaforo final:
+
+```text
+puede_preparar=no
+puede_autorizar=no
+puede_aplicar=no
+bloqueos=37
+advertencias=3
+```
+
+Decision operativa:
+
+- Este paquete es evidencia tecnica de revision, no un plan listo para aplicar.
+- Los bloqueos principales son tablas `blocked`, tablas `production_owned` y sentencias con riesgo `bloqueante`.
+- Antes de crear un paquete aplicable se deben separar cambios de esquema seguros, cambios operativos y tablas que requieren decision humana.
+
+## Avance ejecutado - Primer candidato limpio de esquema
+
+Fecha: 2026-08-04
+
+Se refino el primer paquete aplicable candidato:
+
+- se excluyeron tablas tecnicas `sys_migraciones_*`;
+- se excluyeron sentencias con riesgo `bloqueante`;
+- se excluyeron tablas con politica `blocked` o `production_owned`;
+- se corrigieron politicas de catalogos comerciales/apertura para que el primer paquete sea `schema_only`;
+- se agrego bloqueo automatico para `data_merge` sin `llave_natural`.
+
+Paquete candidato:
+
+```text
+codigo=MIGBD_20260804_205049_ad66ae4e
+estatus=borrador
+sentencias=44
+tablas=25
+bloqueos=0
+incluye_datos=no
+riesgo_bajo=9
+riesgo_medio=35
+riesgo_bloqueante=0
+politica_schema_only=25
+```
+
+Semaforo final:
+
+```text
+puede_preparar=no
+puede_autorizar=no
+puede_aplicar=no
+bloqueos=0
+advertencias=2
+advertencias_detalle=selfcheck_aplicacion_real,respaldo_pendiente
+```
+
+Decision operativa:
+
+- Este paquete es el primer candidato razonable para revisar como promocion de esquema.
+- Aun no debe autorizarse porque falta respaldo externo vigente.
+- La bandera `_opciones.aplicacion_real_habilitada` debe seguir en `false` hasta que el dueno autorice una ventana real.
+- Los datos de catalogos comerciales y aperturas de empaque quedan para una fase posterior con llaves naturales validadas.
+
 Decision operativa:
 
 - Mientras productivo sea solo copia de revision, local puede ser la base candidata oficial.
@@ -686,6 +1060,6 @@ Fecha: 2026-07-30
 - Contexto actual: el dueno quiere construir informacion real en local y despues promoverla a productivo sin recaptura ni copia indiscriminada.
 - Decision: crear modulo SYS de migraciones/promocion con politicas por tabla, dry-run, respaldo y autorizacion.
 - Cambios recientes: Fase 1 base implementada en codigo, sin aplicacion real ni migracion de datos.
-- Pendiente: aplicar esquema `sys_migraciones_*` con respaldo externo si se autoriza; configurar destino local no versionado; persistir politicas y paquetes.
+- Pendiente: comparar contra `productivo`, crear paquete dry-run persistido y revisar bloqueos antes de cualquier autorizacion real.
 - Impacta a: Catalogo, Proveedores, Compras, Inventario, Seguridad, Sistema y futuras cargas masivas.
-- Siguiente paso recomendado: generar respaldo externo, validar preflight en UI y pedir autorizacion literal antes de aplicar el esquema tecnico.
+- Siguiente paso recomendado: correr comparacion local vs productivo, revisar diferencias y generar paquete dry-run sin aplicar cambios.

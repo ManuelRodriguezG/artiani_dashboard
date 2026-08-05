@@ -22,6 +22,7 @@ $pruebas = array(
   "navegacion" => requestHttp($base . "/ecommercePublico/navegacion?limite=5"),
   "secciones" => requestHttp($base . "/ecommercePublico/secciones?limite=3"),
   "catalogo" => requestHttp($base . "/ecommercePublico/catalogo?limite=3"),
+  "catalogo_manifest" => requestHttp($base . "/ecommercePublico/catalogo_manifest?limite_preview=2"),
   "catalogo_disponible_ordenado" => requestHttp($base . "/ecommercePublico/catalogo?disponibilidad=disponible&orden=precio_asc&limite=3"),
   "catalogo_sin_resultados" => requestHttp($base . "/ecommercePublico/catalogo?q=__sin_resultados_catalogo_frontend__&limite=3"),
   "canales_estado" => requestHttp($base . "/ecommercePublico/canales_estado"),
@@ -71,7 +72,7 @@ foreach ($pruebas as $nombre => $prueba) {
     $bloqueos[] = $nombre . "_no_responde_json";
   }
 }
-foreach (array("frontend_handoff", "bootstrap", "seo", "filtros", "busqueda_sugerencias", "navegacion", "secciones", "catalogo_disponible_ordenado", "canales_estado") as $endpointNuevo) {
+foreach (array("frontend_handoff", "bootstrap", "seo", "filtros", "busqueda_sugerencias", "navegacion", "secciones", "catalogo_manifest", "catalogo_disponible_ordenado", "canales_estado") as $endpointNuevo) {
   if (!$pruebas[$endpointNuevo]["json_valido"] || !in_array($pruebas[$endpointNuevo]["tipo"], array("success", "info"), true)) {
     $bloqueos[] = $endpointNuevo . "_no_responde_success_o_info";
   }
@@ -109,8 +110,23 @@ if ($pruebas["catalogo"]["depurar_resumen"]["catalogo_frontend_rango_texto"] ===
 if ($pruebas["catalogo"]["depurar_resumen"]["catalogo_frontend_requiere_dryrun"] !== true) {
   $bloqueos[] = "catalogo_debe_indicar_cotizacion_requiere_dryrun";
 }
+if ($pruebas["catalogo"]["depurar_resumen"]["catalogo_fase_2_no_granel"] !== true) {
+  $bloqueos[] = "catalogo_fase_2_debe_bloquear_granel";
+}
+if ($pruebas["catalogo"]["depurar_resumen"]["catalogo_fase_2_links"] !== true) {
+  $bloqueos[] = "catalogo_fase_2_debe_exponer_links";
+}
 if ($pruebas["catalogo_sin_resultados"]["depurar_resumen"]["catalogo_frontend_estado_vacio"] !== true) {
   $bloqueos[] = "catalogo_sin_resultados_debe_exponer_estado_vacio";
+}
+if ($pruebas["catalogo_manifest"]["depurar_resumen"]["catalogo_manifest_fase"] !== "fase_2_api_catalogo_robusta") {
+  $bloqueos[] = "catalogo_manifest_debe_exponer_fase_2";
+}
+if ($pruebas["catalogo_manifest"]["depurar_resumen"]["catalogo_manifest_no_granel"] !== true) {
+  $bloqueos[] = "catalogo_manifest_debe_bloquear_granel";
+}
+if ($pruebas["catalogo_manifest"]["depurar_resumen"]["catalogo_manifest_ordenamientos_total"] < 5) {
+  $bloqueos[] = "catalogo_manifest_debe_exponer_ordenamientos";
 }
 if ($primerSlugCatalogo === "") {
   $bloqueos[] = "catalogo_debe_exponer_primer_slug_para_smoke";
@@ -125,6 +141,15 @@ if ($primerSlugCatalogo === "") {
   }
   if ($pruebas["producto_real"]["depurar_resumen"]["producto_acciones_puede_cotizar"] !== true) {
     $bloqueos[] = "producto_real_debe_exponer_acciones";
+  }
+  if ($pruebas["producto_real"]["depurar_resumen"]["producto_fase_2_no_granel"] !== true) {
+    $bloqueos[] = "producto_real_fase_2_debe_bloquear_granel";
+  }
+  if ($pruebas["producto_real"]["depurar_resumen"]["producto_fase_2_links"] !== true) {
+    $bloqueos[] = "producto_real_fase_2_debe_exponer_links";
+  }
+  if ($pruebas["producto_real"]["depurar_resumen"]["producto_fase_2_cta"] !== true) {
+    $bloqueos[] = "producto_real_fase_2_debe_exponer_cta";
   }
   if ($pruebas["producto_real"]["depurar_resumen"]["producto_seo_title"] === "") {
     $bloqueos[] = "producto_real_debe_exponer_seo";
@@ -238,6 +263,11 @@ function resumenDepurarHttpSmoke($depurar) {
     "catalogo_frontend_estado_vacio" => valorHttpSmoke($depurar, array("frontend", "estado_vacio", "mostrar"), null),
     "catalogo_frontend_rango_texto" => valorHttpSmoke($depurar, array("frontend", "rango_visible", "texto"), ""),
     "catalogo_frontend_requiere_dryrun" => valorHttpSmoke($depurar, array("frontend", "guardrails_ui", "cotizacion_requiere_dryrun"), null),
+    "catalogo_fase_2_no_granel" => valorHttpSmoke($depurar, array("fase_2", "guardrails", "no_granel"), null),
+    "catalogo_fase_2_links" => is_array(valorHttpSmoke($depurar, array("fase_2", "links"), null)),
+    "catalogo_manifest_fase" => valorHttpSmoke($depurar, array("fase"), ""),
+    "catalogo_manifest_no_granel" => valorHttpSmoke($depurar, array("guardrails", "no_granel"), null),
+    "catalogo_manifest_ordenamientos_total" => is_array(valorHttpSmoke($depurar, array("ordenamientos"), null)) ? count($depurar["ordenamientos"]) : null,
     "item_presente" => array_key_exists("item", $depurar) ? ($depurar["item"] !== null) : null,
     "items_total" => is_array(valorHttpSmoke($depurar, array("items"), null)) ? count($depurar["items"]) : null,
     "primer_slug" => valorHttpSmoke($depurar, array("items", 0, "slug"), ""),
@@ -246,6 +276,9 @@ function resumenDepurarHttpSmoke($depurar) {
     "producto_breadcrumbs_total" => is_array(valorHttpSmoke($depurar, array("breadcrumbs"), null)) ? count($depurar["breadcrumbs"]) : null,
     "producto_seo_title" => valorHttpSmoke($depurar, array("seo", "title"), ""),
     "producto_acciones_puede_cotizar" => valorHttpSmoke($depurar, array("acciones", "puede_cotizar"), null),
+    "producto_fase_2_no_granel" => valorHttpSmoke($depurar, array("fase_2", "guardrails", "no_granel"), null),
+    "producto_fase_2_links" => is_array(valorHttpSmoke($depurar, array("fase_2", "links"), null)),
+    "producto_fase_2_cta" => is_array(valorHttpSmoke($depurar, array("fase_2", "cta"), null)),
     "bloqueos" => valorHttpSmoke($depurar, array("bloqueos"), array())
   );
 }

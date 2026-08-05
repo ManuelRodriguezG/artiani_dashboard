@@ -47,6 +47,32 @@ class MigracionBd extends Controlador {
 
   /**
    * IA: Codex GPT-5
+   * Fecha: 2026-08-02
+   * Proposito: probar conexion read-only de un ambiente configurado.
+   * Impacto: Migraciones BD; no expone passwords ni consulta datos de negocio.
+   */
+  public function ambiente_probar() {
+    $this->requerirAlgunPermiso(array("migraciones.ver", "migraciones.preparar", "sistema.soporte"));
+    $alias = isset($_GET["alias"]) ? trim($_GET["alias"]) : "";
+    $modelo = $this->modelo("MigracionesBd");
+    echo json_encode($modelo->probarAmbiente($alias));
+  }
+
+  /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-08-04
+   * Proposito: validar configuracion de destino antes de comparar o crear paquetes.
+   * Impacto: Migraciones BD; solo lectura y sin exponer secretos.
+   */
+  public function destino_preflight() {
+    $this->requerirAlgunPermiso(array("migraciones.ver", "migraciones.preparar", "sistema.soporte"));
+    $alias = isset($_GET["alias"]) ? trim($_GET["alias"]) : "productivo";
+    $modelo = $this->modelo("MigracionesBd");
+    echo json_encode($modelo->preflightDestino($alias));
+  }
+
+  /**
+   * IA: Codex GPT-5
    * Fecha: 2026-08-01
    * Proposito: revisar prerequisitos operativos del modulo sin ejecutar cambios.
    * Impacto: Migraciones BD; solo lectura.
@@ -219,6 +245,20 @@ class MigracionBd extends Controlador {
     $respaldo = isset($_GET["respaldo"]) ? trim($_GET["respaldo"]) : "";
     $modelo = $this->modelo("MigracionesBd");
     echo json_encode($modelo->preflightPaqueteAplicacion($codigo, $respaldo));
+  }
+
+  /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-08-03
+   * Proposito: mostrar semaforo final de preparacion, autorizacion y aplicacion.
+   * Impacto: Migraciones BD; solo lectura.
+   */
+  public function preflight_final() {
+    $this->requerirAlgunPermiso(array("migraciones.ver", "migraciones.preparar", "migraciones.aplicar", "sistema.soporte"));
+    $codigo = isset($_GET["codigo"]) ? trim($_GET["codigo"]) : "";
+    $respaldo = isset($_GET["respaldo"]) ? trim($_GET["respaldo"]) : "";
+    $modelo = $this->modelo("MigracionesBd");
+    echo json_encode($modelo->preflightFinalSemaforo($codigo, $respaldo));
   }
 
   /**
@@ -399,6 +439,18 @@ class MigracionBd extends Controlador {
 
   /**
    * IA: Codex GPT-5
+   * Fecha: 2026-08-04
+   * Proposito: verificar estado del esquema tecnico sin ejecutar DDL.
+   * Impacto: Migraciones BD; solo lectura.
+   */
+  public function esquema_verificar() {
+    $this->requerirAlgunPermiso(array("migraciones.ver", "migraciones.preparar", "sistema.soporte"));
+    $modelo = $this->modelo("MigracionesBd");
+    echo json_encode($modelo->verificarEsquemaTecnicoMigraciones());
+  }
+
+  /**
+   * IA: Codex GPT-5
    * Fecha: 2026-08-01
    * Proposito: preparar plan read-only de restauracion desde respaldo.
    * Impacto: Migraciones BD; no ejecuta restauracion.
@@ -408,6 +460,21 @@ class MigracionBd extends Controlador {
     $respaldo = isset($_GET["respaldo"]) ? trim($_GET["respaldo"]) : "";
     $modelo = $this->modelo("MigracionesBd");
     echo json_encode($modelo->preflightRestauracion($respaldo));
+  }
+
+  /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-08-03
+   * Proposito: validar compuertas finales del esquema tecnico sin ejecutar DDL.
+   * Impacto: Migraciones BD; solo lectura.
+   */
+  public function esquema_preflight_final() {
+    $this->requerirPermiso("sistema.soporte");
+    $respaldo = isset($_POST["respaldo"]) ? trim($_POST["respaldo"]) : "";
+    $autorizar = isset($_POST["autorizar"]) ? trim($_POST["autorizar"]) : "";
+    $confirmacion = isset($_POST["confirmacion"]) ? trim($_POST["confirmacion"]) : "";
+    $modelo = $this->modelo("MigracionesBd");
+    echo json_encode($modelo->preflightEsquemaTecnicoFinal($respaldo, $autorizar, $confirmacion));
   }
 
   /**
@@ -458,7 +525,8 @@ class MigracionBd extends Controlador {
       "resultado" => $respuesta["error"] ? "error" : "ok",
       "datos_despues" => array(
         "ejecutar" => $ejecutar,
-        "total_plan" => isset($respuesta["depurar"]) && is_array($respuesta["depurar"]) ? count($respuesta["depurar"]) : 0,
+        "total_plan" => isset($respuesta["depurar"]["plan"]) && is_array($respuesta["depurar"]["plan"]) ? count($respuesta["depurar"]["plan"]) : (isset($respuesta["depurar"]) && is_array($respuesta["depurar"]) ? count($respuesta["depurar"]) : 0),
+        "resumen" => isset($respuesta["depurar"]["resumen"]) ? $respuesta["depurar"]["resumen"] : null,
         "respaldo" => $ejecutar && isset($_POST["respaldo"]) ? $_POST["respaldo"] : null
       ),
       "mensaje" => $respuesta["mensaje"]

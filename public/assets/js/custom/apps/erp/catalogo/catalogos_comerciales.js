@@ -1148,6 +1148,19 @@
         ctx.drawImage(img, sx, sy, sw, sh, x, y, w, h);
     }
 
+    function dibujarImagenContain(ctx, img, x, y, w, h) {
+        if (!img) {
+            dibujarImagenCover(ctx, img, x, y, w, h);
+            return;
+        }
+        const escala = Math.min(w / img.width, h / img.height);
+        const dw = img.width * escala;
+        const dh = img.height * escala;
+        const dx = x + (w - dw) / 2;
+        const dy = y + (h - dh) / 2;
+        ctx.drawImage(img, dx, dy, dw, dh);
+    }
+
     async function dibujarTarjetaCanvas(ctx, item, x, y, w, h, opciones) {
         ctx.save();
         ctx.fillStyle = "#ffffff";
@@ -1156,56 +1169,71 @@
         ctx.strokeStyle = "#dfe3ea";
         ctx.lineWidth = 2;
         ctx.stroke();
-        const altoImagen = Math.min(h * 0.68, Math.max(w * 0.86, h * 0.58));
+        const altoImagen = Math.round(h * 0.67);
+        ctx.fillStyle = "#f8fafc";
+        redondearRect(ctx, x, y, w, altoImagen, 18);
+        ctx.fill();
         redondearRect(ctx, x, y, w, altoImagen, 18);
         ctx.clip();
         const img = await cargarImagenCanvas(item.imagen_portada);
-        dibujarImagenCover(ctx, img, x, y, w, altoImagen);
+        dibujarImagenContain(ctx, img, x + 8, y + 8, w - 16, altoImagen - 16);
         ctx.restore();
 
-        const bodyY = y + altoImagen + 24;
+        const bodyY = y + altoImagen + 12;
         ctx.fillStyle = "#181c32";
-        ctx.font = "800 24px Arial, sans-serif";
-        let cursor = canvasTexto(ctx, item.nombre || "Producto", x + 22, bodyY, w - 44, 29, 2) + 4;
+        ctx.font = "800 12px Arial, sans-serif";
+        let cursor = canvasTexto(ctx, item.nombre || "Producto", x + 10, bodyY, w - 20, 15, 3) + 1;
         ctx.fillStyle = "#5e6278";
-        ctx.font = "500 18px Arial, sans-serif";
+        ctx.font = "500 9px Arial, sans-serif";
         const metas = [];
         if (opciones.mostrarMarca && item.marca) metas.push(item.marca);
         if (opciones.mostrarCategoria) metas.push(item.categoria || "Sin categoria");
         if (opciones.mostrarPresentacion) metas.push(item.presentacion_comercial || item.sku || "");
         if (opciones.mostrarSku) metas.push(item.sku || "");
         if (opciones.mostrarDisponibilidad) metas.push(item.disponibilidad_simple || "consultar disponibilidad");
-        metas.slice(0, 4).forEach((meta) => {
-            cursor = canvasTexto(ctx, meta, x + 22, cursor, w - 44, 23, 1);
+        const precioY = y + h - 18;
+        metas.slice(0, 3).forEach((meta) => {
+            if (cursor > precioY - 26) return;
+            cursor = canvasTexto(ctx, meta, x + 10, cursor, w - 20, 11, 1);
         });
         if (opciones.mostrarPrecio) {
             ctx.fillStyle = "#0f7a5f";
-            ctx.font = "800 28px Arial, sans-serif";
-            ctx.fillText(dinero(item.precio, item.moneda), x + 22, y + h - 28);
+            ctx.font = "800 13px Arial, sans-serif";
+            ctx.fillText(dinero(item.precio, item.moneda), x + 10, precioY);
         }
     }
 
+    /*
+     * IA: Codex GPT-5 | Fecha: 2026-08-02
+     * Proposito: definir paginas PNG densas para catalogos comerciales compartibles por redes.
+     * Impacto: solo cambia distribucion visual de exportacion; no modifica datos, precios ni persistencia.
+     * Contrato: mantiene lienzo vertical 1080x1600; prueba visual con 5 columnas, 4 filas con portada y 5 filas despues.
+     */
     function layoutPaginaCatalogo(plantilla) {
         const width = 1080;
-        const height = 1400;
-        const margen = 54;
-        const gap = 24;
+        const height = 1600;
+        const margen = 36;
+        const gap = 12;
         if (plantilla === "compact") {
-            return { width, height, margen, gap, columnas: 1, cardW: width - margen * 2, cardH: 190, headerH: 128, tituloH: 70, portadaH: 300 };
+            return { width, height, margen, gap, columnas: 1, cardW: width - margen * 2, cardH: 155, headerH: 76, tituloH: 52, portadaH: 120 };
         }
         if (plantilla === "story") {
-            const cardW = Math.floor((width - margen * 2 - gap) / 2);
-            return { width, height, margen, gap, columnas: 2, cardW, cardH: 560, headerH: 128, tituloH: 70, portadaH: 300 };
+            const columnas = 5;
+            const cardW = Math.floor((width - margen * 2 - gap * (columnas - 1)) / columnas);
+            return { width, height, margen, gap, columnas, cardW, cardH: 270, headerH: 76, tituloH: 52, portadaH: 120 };
         }
-        const cardW = Math.floor((width - margen * 2 - gap) / 2);
-        return { width, height, margen, gap, columnas: 2, cardW, cardH: 520, headerH: 128, tituloH: 70, portadaH: 300 };
+        const columnas = 5;
+        const cardW = Math.floor((width - margen * 2 - gap * (columnas - 1)) / columnas);
+        return { width, height, margen, gap, columnas, cardW, cardH: 270, headerH: 76, tituloH: 52, portadaH: 120 };
     }
 
     function itemsPorPaginaCatalogo(layout, incluirPortada) {
         const encabezado = incluirPortada ? layout.headerH : layout.tituloH;
-        const altoInicial = layout.margen + encabezado + (incluirPortada ? layout.portadaH + layout.gap : 0) + layout.gap + 44;
+        const altoInicial = layout.margen + encabezado + (incluirPortada ? layout.portadaH + layout.gap : 0) + layout.gap + 30;
         const disponible = layout.height - altoInicial - layout.margen;
-        const filas = Math.max(1, Math.floor((disponible + layout.gap) / (layout.cardH + layout.gap)));
+        const filasCalculadas = Math.max(1, Math.floor((disponible + layout.gap) / (layout.cardH + layout.gap)));
+        const limiteFilas = layout.columnas > 1 ? (incluirPortada ? 4 : 5) : filasCalculadas;
+        const filas = Math.min(limiteFilas, filasCalculadas);
         return Math.max(1, filas * layout.columnas);
     }
 
@@ -1229,19 +1257,19 @@
         ctx.lineWidth = 2;
         ctx.stroke();
         ctx.fillStyle = "#0f7a5f";
-        ctx.font = "800 20px Arial, sans-serif";
-        ctx.fillText((material.portadaEtiqueta || "Catalogo recomendado").toUpperCase(), layout.margen + 34, y + 54);
-        ctx.fillStyle = "#181c32";
-        ctx.font = "900 50px Arial, sans-serif";
-        canvasTexto(ctx, material.titulo || "Catalogo de productos", layout.margen + 34, y + 116, layout.width - layout.margen * 2 - 68, 56, 2);
-        ctx.fillStyle = "#5e6278";
-        ctx.font = "500 24px Arial, sans-serif";
-        canvasTexto(ctx, material.portadaDescripcion || material.subtitulo || "", layout.margen + 34, y + 210, layout.width - layout.margen * 2 - 68, 30, 2);
+        ctx.font = "800 14px Arial, sans-serif";
+        ctx.fillText((material.portadaEtiqueta || "Catalogo recomendado").toUpperCase(), layout.margen + 22, y + 28);
         if (material.portadaNota || material.cta) {
-            ctx.fillStyle = "#181c32";
-            ctx.font = "800 21px Arial, sans-serif";
-            ctx.fillText(material.portadaNota || material.cta, layout.margen + 34, y + layout.portadaH - 30);
+            ctx.textAlign = "right";
+            ctx.fillText(material.portadaNota || material.cta, layout.width - layout.margen - 22, y + 28);
+            ctx.textAlign = "left";
         }
+        ctx.fillStyle = "#181c32";
+        ctx.font = "900 30px Arial, sans-serif";
+        canvasTexto(ctx, material.titulo || "Catalogo de productos", layout.margen + 22, y + 62, layout.width - layout.margen * 2 - 44, 34, 1);
+        ctx.fillStyle = "#5e6278";
+        ctx.font = "500 16px Arial, sans-serif";
+        canvasTexto(ctx, material.portadaDescripcion || material.subtitulo || "", layout.margen + 22, y + 92, layout.width - layout.margen * 2 - 44, 20, 1);
         return y + layout.portadaH + layout.gap;
     }
 
@@ -1254,20 +1282,20 @@
         ctx.lineWidth = 2;
         ctx.stroke();
         ctx.fillStyle = "#181c32";
-        ctx.font = compacto ? "900 30px Arial, sans-serif" : "900 34px Arial, sans-serif";
-        canvasTexto(ctx, material.titulo || "Catalogo de productos", layout.margen + 28, y + (compacto ? 44 : 46), layout.width - layout.margen * 2 - 180, 40, 1);
+        ctx.font = compacto ? "900 22px Arial, sans-serif" : "900 24px Arial, sans-serif";
+        canvasTexto(ctx, material.titulo || "Catalogo de productos", layout.margen + 22, y + (compacto ? 34 : 32), layout.width - layout.margen * 2 - 145, 28, 1);
         if (!compacto) {
             ctx.fillStyle = "#5e6278";
-            ctx.font = "500 21px Arial, sans-serif";
-            canvasTexto(ctx, material.subtitulo || "", layout.margen + 28, y + 84, layout.width - layout.margen * 2 - 56, 26, 1);
+            ctx.font = "500 15px Arial, sans-serif";
+            canvasTexto(ctx, material.subtitulo || "", layout.margen + 22, y + 52, layout.width - layout.margen * 2 - 44, 19, 1);
             ctx.fillStyle = "#0f7a5f";
-            ctx.font = "800 20px Arial, sans-serif";
-            canvasTexto(ctx, material.cta || "", layout.margen + 28, y + 116, layout.width - layout.margen * 2 - 56, 25, 1);
+            ctx.font = "800 14px Arial, sans-serif";
+            canvasTexto(ctx, material.cta || "", layout.margen + 22, y + 70, layout.width - layout.margen * 2 - 44, 18, 1);
         }
         ctx.fillStyle = "#7e8299";
-        ctx.font = "800 19px Arial, sans-serif";
+        ctx.font = "800 14px Arial, sans-serif";
         ctx.textAlign = "right";
-        ctx.fillText(`Pagina ${pagina} de ${totalPaginas}`, layout.width - layout.margen - 28, y + 46);
+        ctx.fillText(`Pagina ${pagina} de ${totalPaginas}`, layout.width - layout.margen - 22, y + 32);
         ctx.textAlign = "left";
         return y + alto + layout.gap;
     }
