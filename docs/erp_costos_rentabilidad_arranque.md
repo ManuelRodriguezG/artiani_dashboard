@@ -1279,3 +1279,54 @@ Cobertura:
 - Titulos y modo `window.RENTABILIDAD_VISTA` por vista.
 - Asset JS versionado `20260804-2`.
 - Secciones basicas del manual operativo.
+
+## UAT endpoints por vista - bloqueado por MySQL local
+
+Fecha: 2026-08-05  
+IA: Codex GPT-5
+
+Se agrego `storage/uat/uat_rentabilidad_endpoints_vistas_readonly.php` para validar endpoints/model methods por vista usando SKU `TP-40372`.
+
+Resultado inicial:
+
+- El script pasa lint PHP.
+- El UAT no pudo validar endpoints porque la conexion del modelo queda `null` al no estar MariaDB disponible.
+- Confirmacion externa: `mysqladmin --port=3406 ping` no conecta.
+- Diagnostico de arranque MariaDB en consola: `Aria recovery failed`, pide ejecutar `aria_chk -r` en tablas Aria y borrar `aria_log.########`; tambien reporta `Could not open mysql.plugin table`.
+
+Contrato del UAT:
+
+- Solo lectura.
+- No aplica precios.
+- No escribe BD.
+- No toca Inventario.
+- No conecta Ventas/ecommerce.
+
+Siguiente paso requiere autorizacion explicita porque ya no es Rentabilidad sino mantenimiento de motor MySQL local: respaldar carpeta de datos o confirmar respaldo reciente, reparar Aria y limpiar logs Aria segun diagnostico.
+
+## UAT endpoints por vista - validado
+
+Fecha: 2026-08-05  
+IA: Codex GPT-5
+
+Con MariaDB local levantado, se ejecuto `storage/uat/uat_rentabilidad_endpoints_vistas_readonly.php TP-40372`.
+
+Resultado:
+
+- `ok=true`.
+- `total_endpoints=36`.
+- `fallas=0`.
+- SKU prueba: `TP-40372`.
+
+Cobertura por vista:
+
+- `analisis`: 7 endpoints OK.
+- `skus`: 6 endpoints OK.
+- `cierre`: 9 endpoints OK.
+- `aprobaciones`: 4 endpoints OK.
+- `calidad`: 8 endpoints OK.
+- `historial`: 2 endpoints OK.
+
+Contrato confirmado: solo lectura, no escribe BD, no aplica precios, no toca Inventario y no conecta Ventas/ecommerce.
+
+Observacion tecnica: `mysqladmin ping` sin credenciales devuelve `Access denied`, pero confirma servidor activo; la aplicacion conecta correctamente con su configuracion local.

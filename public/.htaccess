@@ -2,6 +2,8 @@
 Options -Multiviews
 RewriteEngine On
 RewriteBase /
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteRule \.(?:css|js|map|jpg|jpeg|png|gif|webp|svg|ico|woff|woff2|ttf|eot|otf|pdf)$ - [R=404,L,NC]
 RewriteCond %{REQUEST_FILENAME} !-d
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteRule ^(.+)$ index.php?url=$1 [QSA,L]

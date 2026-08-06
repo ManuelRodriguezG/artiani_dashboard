@@ -55,7 +55,7 @@ class EcommerceCatalogoPublico extends CRUD {
           "ruta" => "/ecommercePublico/bootstrap",
           "descripcion" => "Paquete inicial para frontend: estado, configuracion, filtros, navegacion, secciones, politicas y canales.",
           "parametros" => array("limite_secciones" => "1-12, default 6."),
-          "respuesta_depurar" => array("ready", "estado", "configuracion", "filtros", "navegacion", "secciones", "politicas", "canales", "guardrails")
+          "respuesta_depurar" => array("ready", "estado", "configuracion", "filtros", "navegacion", "secciones", "politicas", "canales", "fase_2", "guardrails")
         ),
         array(
           "metodo" => "GET",
@@ -73,40 +73,40 @@ class EcommerceCatalogoPublico extends CRUD {
             "pagina" => "Pagina, default 1.",
             "limite" => "1-60, default 24."
           ),
-          "respuesta_depurar" => array("configurado", "items", "paginacion", "guardrails")
+          "respuesta_depurar" => array("configurado", "items", "paginacion", "frontend", "fase_2", "guardrails")
         ),
         array(
           "metodo" => "GET",
           "ruta" => "/ecommercePublico/catalogo_manifest",
           "descripcion" => "Manifiesto robusto de catalogo para frontend: filtros, ordenamientos, limites, ejemplos, endpoints relacionados y guardrails.",
           "parametros" => array("limite_preview" => "1-6 productos ejemplo, default 3."),
-          "respuesta_depurar" => array("fase", "estado_catalogo", "parametros_soportados", "ordenamientos", "endpoints_relacionados", "ejemplos", "guardrails")
+          "respuesta_depurar" => array("fase", "estado_catalogo", "parametros_soportados", "ordenamientos", "endpoints_relacionados", "ejemplos", "preview", "guardrails")
         ),
         array(
           "metodo" => "GET",
           "ruta" => "/ecommercePublico/producto/{slug}",
           "descripcion" => "Detalle publico de una publicacion con estatus publicado, variantes, relacionados y SEO basico.",
-          "respuesta_depurar" => array("item", "variantes", "relacionados", "breadcrumbs", "seo", "guardrails")
+          "respuesta_depurar" => array("item", "variantes", "relacionados", "breadcrumbs", "seo", "acciones", "fase_2", "guardrails")
         ),
         array(
           "metodo" => "GET",
           "ruta" => "/ecommercePublico/filtros",
           "descripcion" => "Filtros disponibles derivados de publicaciones vigentes.",
-          "respuesta_depurar" => array("mascotas", "necesidades", "marcas", "categorias")
+          "respuesta_depurar" => array("mascotas", "necesidades", "marcas", "categorias", "disponibilidad", "fase_2")
         ),
         array(
           "metodo" => "GET",
           "ruta" => "/ecommercePublico/busqueda_sugerencias",
           "descripcion" => "Sugerencias publicas para buscador: productos, marcas, categorias, mascotas y necesidades.",
           "parametros" => array("q" => "Texto opcional.", "limite" => "1-12 por grupo, default 6."),
-          "respuesta_depurar" => array("q", "grupos", "resumen", "guardrails")
+          "respuesta_depurar" => array("q", "grupos", "resumen", "fase_2", "guardrails")
         ),
         array(
           "metodo" => "GET",
           "ruta" => "/ecommercePublico/navegacion",
           "descripcion" => "Navegacion publica lista para menus, chips y rutas por mascota, necesidad, categoria, marca y disponibilidad.",
           "parametros" => array("limite" => "1-30 por grupo, default 12."),
-          "respuesta_depurar" => array("primaria", "mascotas", "necesidades", "categorias", "marcas", "disponibilidad", "guardrails")
+          "respuesta_depurar" => array("primaria", "mascotas", "necesidades", "categorias", "marcas", "disponibilidad", "fase_2", "guardrails")
         ),
         array(
           "metodo" => "GET",
@@ -116,7 +116,7 @@ class EcommerceCatalogoPublico extends CRUD {
             "limite" => "1-12 por seccion, default 6.",
             "incluir_vacias" => "1 para devolver secciones sin items; default 0."
           ),
-          "respuesta_depurar" => array("configurado", "secciones", "guardrails")
+          "respuesta_depurar" => array("configurado", "secciones", "fase_2", "guardrails")
         ),
         array(
           "metodo" => "GET",
@@ -153,7 +153,7 @@ class EcommerceCatalogoPublico extends CRUD {
           "ruta" => "/ecommercePublico/seo",
           "descripcion" => "Metadatos SEO/descubrimiento para que el frontend genere title, description, sitemap, robots, rutas y JSON-LD.",
           "parametros" => array("limite" => "1-200 productos, default 100."),
-          "respuesta_depurar" => array("configurado", "meta", "robots", "sitemap", "sitemap_xml_sugerido", "rutas", "json_ld", "resumen")
+          "respuesta_depurar" => array("configurado", "meta", "robots", "sitemap", "sitemap_xml_sugerido", "rutas", "json_ld", "fase_2", "resumen")
         ),
         array(
           "metodo" => "GET",
@@ -324,6 +324,7 @@ class EcommerceCatalogoPublico extends CRUD {
         "no_lotes_ubicaciones" => true,
         "no_checkout" => true,
         "no_descuenta_inventario" => true,
+        "no_granel" => true,
         "no_usa_ecom_legacy_como_fuente" => true
       ),
       "autenticacion_futura" => $this->contratoAutenticacionFutura(),
@@ -353,7 +354,9 @@ class EcommerceCatalogoPublico extends CRUD {
       $readiness = $this->readinessFrontendInterna(array("base_url" => $baseUrl));
       $contratos = $this->contratosApiPublicos();
       $bootstrap = $this->bootstrapPublico(array("limite_secciones" => min(6, $limite)));
+      $manifest = $this->catalogoManifestPublico(array("limite_preview" => min(3, $limite)));
       $catalogo = $this->catalogoPublico(array("limite" => $limite));
+      $seo = $this->seoPublico(array("limite" => min(20, max(6, $limite))));
       $items = $this->valor($catalogo, array("depurar", "items"), array());
       $primerItem = !empty($items) && is_array($items[0]) ? $items[0] : null;
       $slugEjemplo = is_array($primerItem) ? (string) $this->valor($primerItem, "slug", "") : "";
@@ -392,25 +395,49 @@ class EcommerceCatalogoPublico extends CRUD {
         "orden_recomendado_integracion" => array(
           "GET /ecommercePublico/frontend_handoff",
           "GET /ecommercePublico/bootstrap",
+          "GET /ecommercePublico/catalogo_manifest",
+          "GET /ecommercePublico/filtros",
+          "GET /ecommercePublico/navegacion",
           "GET /ecommercePublico/catalogo?limite=24",
           "GET /ecommercePublico/producto/{slug}",
           "GET /ecommercePublico/disponibilidad?slug={slug}",
+          "GET /ecommercePublico/seo",
           "POST /ecommercePublico/cotizacion_dryrun",
           "POST /ecommercePublico/cotizacion_preflight"
         ),
         "pruebas_con_api" => $this->pruebasFrontendHandoff($baseApi, $slugEjemplo, $payloadCotizacion),
         "contratos_ui" => array(
-          "catalogo" => array("depurar.items", "depurar.paginacion", "depurar.frontend", "depurar.guardrails"),
-          "producto" => array("depurar.item", "depurar.variantes", "depurar.relacionados", "depurar.breadcrumbs", "depurar.seo", "depurar.acciones"),
+          "bootstrap" => array("depurar.ready", "depurar.fase_2.primer_render", "depurar.guardrails"),
+          "catalogo_manifest" => array("depurar.parametros_soportados", "depurar.ordenamientos", "depurar.endpoints_relacionados", "depurar.guardrails"),
+          "catalogo" => array("depurar.items", "depurar.paginacion", "depurar.frontend", "depurar.fase_2", "depurar.guardrails"),
+          "filtros" => array("depurar.fase_2.facetados", "depurar.fase_2.totales", "depurar.fase_2.guardrails"),
+          "navegacion" => array("depurar.fase_2.chips_home", "depurar.fase_2.links", "depurar.fase_2.guardrails"),
+          "secciones" => array("depurar.secciones[].frontend", "depurar.secciones[].url_catalogo", "depurar.fase_2"),
+          "producto" => array("depurar.item", "depurar.variantes", "depurar.relacionados", "depurar.breadcrumbs", "depurar.seo", "depurar.acciones", "depurar.fase_2"),
+          "seo" => array("depurar.rutas", "depurar.sitemap_xml_sugerido", "depurar.fase_2.canonical", "depurar.fase_2.json_ld"),
           "disponibilidad" => array("depurar.disponibilidad", "depurar.frontend.badge", "depurar.frontend.cta", "depurar.frontend.mostrar_stock_exacto=false"),
           "cotizacion_dryrun" => array("depurar.lineas", "depurar.totales", "depurar.bloqueos", "depurar.advertencias", "depurar.frontend"),
           "cotizacion_preflight" => array("depurar.cta", "depurar.whatsapp", "depurar.frontend", "depurar.listo_para_whatsapp")
         ),
         "ejemplos" => array(
+          "catalogo_manifest" => $this->resumenRespuestaFrontendHandoff($manifest, array("fase", "estado_catalogo", "ordenamientos", "endpoints_relacionados", "guardrails")),
           "catalogo" => $this->resumenRespuestaFrontendHandoff($catalogo, array("items", "paginacion", "frontend")),
           "producto" => $this->resumenRespuestaFrontendHandoff($producto, array("item", "variantes", "relacionados", "breadcrumbs", "seo", "acciones")),
+          "seo" => $this->resumenRespuestaFrontendHandoff($seo, array("meta", "rutas", "fase_2", "resumen")),
           "disponibilidad" => $this->resumenRespuestaFrontendHandoff($disponibilidad, array("disponibilidad", "frontend")),
           "cotizacion_dryrun" => $this->resumenRespuestaFrontendHandoff($dryrun, array("lineas", "totales", "bloqueos", "advertencias", "frontend"))
+        ),
+        "fase_2" => array(
+          "fase" => "fase_2_api_catalogo_robusta",
+          "estado" => "handoff_consolidado",
+          "frontend_puede_consumir_sin_docs" => true,
+          "bloques_listos" => array("bootstrap", "catalogo_manifest", "catalogo", "producto", "filtros", "navegacion", "secciones", "busqueda_sugerencias", "seo"),
+          "guardrails" => array(
+            "no_requiere_filesystem" => true,
+            "no_granel" => true,
+            "no_stock_exacto" => true,
+            "no_ecom_legacy_fuente" => true
+          )
         ),
         "no_usar" => array(
           "No leer docs/*.md ni archivos de panel_de_control desde el proyecto frontend.",
@@ -424,12 +451,16 @@ class EcommerceCatalogoPublico extends CRUD {
           "read_only" => true,
           "no_expone_secretos" => true,
           "no_requiere_filesystem" => true,
+          "no_granel" => true,
+          "no_stock_exacto" => true,
           "frontend_es_proyecto_externo" => true,
           "erp_es_fuente_de_verdad" => true
         ),
         "contratos_fuente" => array(
           "contratos_api" => $this->valor($contratos, array("depurar", "base_path"), $basePath),
           "bootstrap_disponible" => !empty($bootstrap) && empty($bootstrap["error"]),
+          "catalogo_manifest_disponible" => !empty($manifest) && empty($manifest["error"]),
+          "seo_disponible" => !empty($seo) && empty($seo["error"]),
           "slug_ejemplo" => $slugEjemplo
         )
       ));
@@ -563,9 +594,11 @@ class EcommerceCatalogoPublico extends CRUD {
           "usar_producto_para_detalle" => "/ecommercePublico/producto/{slug}",
           "usar_preflight_para_carrito" => "/ecommercePublico/cotizacion_preflight"
         ),
+        "fase_2" => $this->fase2BootstrapPublico($ready, $limiteSecciones, $estado, $filtros, $navegacion, $secciones),
         "guardrails" => array(
           "read_only" => true,
           "no_expone_secretos" => true,
+          "no_granel" => true,
           "no_stock_exacto" => true,
           "no_descuenta_inventario" => true,
           "no_registra_cotizacion" => true
@@ -623,22 +656,54 @@ class EcommerceCatalogoPublico extends CRUD {
     try {
       $db = $this->getConexion();
       if (!$db) {
+        $filtrosAplicadosFallback = array(
+          "q" => "",
+          "mascota" => "",
+          "necesidad" => "",
+          "marca" => 0,
+          "categoria" => 0,
+          "disponibilidad" => "",
+          "destacado" => false,
+          "orden" => "relevancia",
+          "limite" => 24
+        );
         return $this->respuesta(true, "warning", "Conexion MySQL no disponible", array(
           "configurado" => false,
           "items" => array(),
           "paginacion" => array("pagina" => 1, "limite" => 24, "total" => 0),
+          "filtros_aplicados" => $filtrosAplicadosFallback,
+          "ordenamientos_disponibles" => array("relevancia", "nombre", "precio_asc", "precio_desc", "recientes"),
+          "frontend" => $this->frontendCatalogoPublico(1, 24, 0, 0, $filtrosAplicadosFallback),
+          "fase_2" => $this->fase2CatalogoPublico(1, 24, 0, $filtrosAplicadosFallback),
           "guardrails" => array(
             "no_usa_ecom_legacy_como_fuente" => true,
             "no_muestra_stock_exacto" => true,
+            "no_granel" => true,
             "no_descuenta_inventario" => true
           )
         ));
       }
       if (!$this->tablaExiste($db, "erp_ecommerce_publicaciones")) {
+        $filtrosAplicadosFallback = array(
+          "q" => "",
+          "mascota" => "",
+          "necesidad" => "",
+          "marca" => 0,
+          "categoria" => 0,
+          "disponibilidad" => "",
+          "destacado" => false,
+          "orden" => "relevancia",
+          "limite" => 24
+        );
         return $this->respuesta(false, "info", "Catalogo publico ecommerce aun no configurado", array(
           "configurado" => false,
           "items" => array(),
           "paginacion" => array("pagina" => 1, "limite" => 24, "total" => 0),
+          "filtros_aplicados" => $filtrosAplicadosFallback,
+          "ordenamientos_disponibles" => array("relevancia", "nombre", "precio_asc", "precio_desc", "recientes"),
+          "frontend" => $this->frontendCatalogoPublico(1, 24, 0, 0, $filtrosAplicadosFallback),
+          "fase_2" => $this->fase2CatalogoPublico(1, 24, 0, $filtrosAplicadosFallback),
+          "guardrails" => array("no_ecom_legacy_fuente" => true, "no_granel" => true, "no_stock_exacto" => true),
           "guardrail" => "No se leen tablas legacy ecom_* como fuente publica."
         ));
       }
@@ -891,11 +956,20 @@ class EcommerceCatalogoPublico extends CRUD {
     try {
       $db = $this->getConexion();
       if (!$db || !$this->tablaExiste($db, "erp_ecommerce_publicaciones")) {
+        $gruposVacios = array(
+          "mascotas" => array(),
+          "necesidades" => array(),
+          "marcas" => array(),
+          "categorias" => array(),
+          "disponibilidad" => array()
+        );
         return $this->respuesta(false, "info", "Filtros ecommerce aun no configurados", array(
           "mascotas" => array(),
           "necesidades" => array(),
           "marcas" => array(),
-          "categorias" => array()
+          "categorias" => array(),
+          "disponibilidad" => array(),
+          "fase_2" => $this->fase2FiltrosPublicos($gruposVacios)
         ));
       }
       $baseWhere = "pub.estatus_publicacion='publicado' AND p.estatus='activo' AND s.estatus='activo'";
@@ -936,13 +1010,22 @@ class EcommerceCatalogoPublico extends CRUD {
           $disponibilidadOrdenada[] = $disponibilidad[$estado];
         }
       }
-
-      return $this->respuesta(false, "success", "Filtros ecommerce consultados", array(
+      $necesidades = $this->necesidadesPublicas($db);
+      $gruposFiltros = array(
         "mascotas" => $mascotas,
-        "necesidades" => $this->necesidadesPublicas($db),
+        "necesidades" => $necesidades,
         "marcas" => $marcas,
         "categorias" => $categorias,
         "disponibilidad" => $disponibilidadOrdenada
+      );
+
+      return $this->respuesta(false, "success", "Filtros ecommerce consultados", array(
+        "mascotas" => $mascotas,
+        "necesidades" => $necesidades,
+        "marcas" => $marcas,
+        "categorias" => $categorias,
+        "disponibilidad" => $disponibilidadOrdenada,
+        "fase_2" => $this->fase2FiltrosPublicos($gruposFiltros)
       ));
     } catch (Exception $e) {
       return $this->respuesta(true, "danger", $e->getMessage());
@@ -972,7 +1055,7 @@ class EcommerceCatalogoPublico extends CRUD {
           "label" => $this->valor($item, "nombre", ""),
           "subtitulo" => trim((string) $this->valor($item, "marca", "") . " " . (string) $this->valor($item, "presentacion", "")),
           "valor" => $this->valor($item, "slug", ""),
-          "url" => "/producto/" . $this->valor($item, "slug", ""),
+          "url" => "/ecommercePublico/producto/" . $this->valor($item, "slug", ""),
           "imagen" => $this->valor($item, "imagen", null),
           "precio" => $this->valor($item, "precio", null),
           "moneda" => $this->valor($item, "moneda", null),
@@ -1011,10 +1094,12 @@ class EcommerceCatalogoPublico extends CRUD {
           "usar_catalogo_para_resultados" => "/ecommercePublico/catalogo?q=" . rawurlencode($q),
           "min_caracteres_recomendado" => 2
         ),
+        "fase_2" => $this->fase2BusquedaSugerenciasPublicas($q, $limite, $grupos, $total),
         "guardrails" => array(
           "read_only" => true,
           "no_registra_busqueda" => true,
           "solo_publicados" => true,
+          "no_granel" => true,
           "no_stock_exacto" => true,
           "no_expone_costos" => true
         )
@@ -1023,6 +1108,7 @@ class EcommerceCatalogoPublico extends CRUD {
       return $this->respuesta(true, "danger", $e->getMessage(), array(
         "q" => "",
         "grupos" => array(),
+        "fase_2" => $this->fase2BusquedaSugerenciasPublicas("", 6, array(), 0),
         "guardrails" => array("read_only" => true, "no_registra_busqueda" => true)
       ));
     }
@@ -1073,9 +1159,11 @@ class EcommerceCatalogoPublico extends CRUD {
           "marcas" => count($navegacion["marcas"]),
           "disponibilidad" => count($navegacion["disponibilidad"])
         ),
+        "fase_2" => $this->fase2NavegacionPublica($navegacion, $limite),
         "guardrails" => array(
           "read_only" => true,
           "solo_derivado_de_publicaciones" => true,
+          "no_granel" => true,
           "no_escribe_bd" => true,
           "no_expone_secretos" => true
         )
@@ -1101,7 +1189,9 @@ class EcommerceCatalogoPublico extends CRUD {
         return $this->respuesta(false, "info", "Secciones ecommerce aun no configuradas", array(
           "configurado" => false,
           "secciones" => array(),
-          "guardrails" => array("solo_publicados" => true, "no_stock_exacto" => true)
+          "limite_por_seccion" => 6,
+          "fase_2" => $this->fase2SeccionesPublicas(array(), 6),
+          "guardrails" => array("solo_publicados" => true, "no_stock_exacto" => true, "no_granel" => true)
         ));
       }
       $limite = max(1, min(12, intval($this->valor($opciones, "limite", 6))));
@@ -1143,8 +1233,10 @@ class EcommerceCatalogoPublico extends CRUD {
         "configurado" => true,
         "secciones" => $secciones,
         "limite_por_seccion" => $limite,
+        "fase_2" => $this->fase2SeccionesPublicas($secciones, $limite),
         "guardrails" => array(
           "solo_publicados" => true,
+          "no_granel" => true,
           "no_stock_exacto" => true,
           "no_ecom_legacy_fuente" => true,
           "no_descuenta_inventario" => true
@@ -1442,7 +1534,7 @@ class EcommerceCatalogoPublico extends CRUD {
         foreach ($this->valor($catalogo, array("depurar", "items"), array()) as $item) {
           $sitemap["productos"][] = array(
             "slug" => $this->valor($item, "slug", ""),
-            "path" => "/producto/" . $this->valor($item, "slug", ""),
+            "path" => "/ecommercePublico/producto/" . $this->valor($item, "slug", ""),
             "title" => $this->valor($item, "nombre", ""),
             "description" => trim((string) $this->valor($item, "descripcion", "")),
             "image" => $this->valor($item, "imagen", ""),
@@ -1454,31 +1546,31 @@ class EcommerceCatalogoPublico extends CRUD {
         foreach ($this->valor($filtros, array("depurar", "mascotas"), array()) as $fila) {
           $valor = $this->valor($fila, "valor", "");
           if ($valor !== "") {
-            $sitemap["filtros"]["mascotas"][] = array("valor" => $valor, "path" => "/catalogo?mascota=" . rawurlencode($valor), "title" => "Productos para " . $this->etiquetaTaxonomiaPublica($valor), "priority" => "0.6", "changefreq" => "weekly");
+            $sitemap["filtros"]["mascotas"][] = array("valor" => $valor, "path" => "/ecommercePublico/catalogo?mascota=" . rawurlencode($valor), "title" => "Productos para " . $this->etiquetaTaxonomiaPublica($valor), "priority" => "0.6", "changefreq" => "weekly");
           }
         }
         foreach ($this->valor($filtros, array("depurar", "necesidades"), array()) as $fila) {
           $valor = $this->valor($fila, "valor", "");
           if ($valor !== "") {
-            $sitemap["filtros"]["necesidades"][] = array("valor" => $valor, "path" => "/catalogo?necesidad=" . rawurlencode($valor), "title" => $this->etiquetaTaxonomiaPublica($valor), "priority" => "0.6", "changefreq" => "weekly");
+            $sitemap["filtros"]["necesidades"][] = array("valor" => $valor, "path" => "/ecommercePublico/catalogo?necesidad=" . rawurlencode($valor), "title" => $this->etiquetaTaxonomiaPublica($valor), "priority" => "0.6", "changefreq" => "weekly");
           }
         }
         foreach ($this->valor($filtros, array("depurar", "categorias"), array()) as $fila) {
           $valor = $this->valor($fila, "id", "");
           if ($valor !== "") {
-            $sitemap["filtros"]["categorias"][] = array("valor" => $valor, "path" => "/catalogo?categoria=" . rawurlencode($valor), "title" => $this->valor($fila, "etiqueta", "Categoria"), "priority" => "0.6", "changefreq" => "weekly");
+            $sitemap["filtros"]["categorias"][] = array("valor" => $valor, "path" => "/ecommercePublico/catalogo?categoria=" . rawurlencode($valor), "title" => $this->valor($fila, "etiqueta", "Categoria"), "priority" => "0.6", "changefreq" => "weekly");
           }
         }
         foreach ($this->valor($filtros, array("depurar", "marcas"), array()) as $fila) {
           $valor = $this->valor($fila, "id", "");
           if ($valor !== "") {
-            $sitemap["filtros"]["marcas"][] = array("valor" => $valor, "path" => "/catalogo?marca=" . rawurlencode($valor), "title" => $this->valor($fila, "etiqueta", "Marca"), "priority" => "0.5", "changefreq" => "weekly");
+            $sitemap["filtros"]["marcas"][] = array("valor" => $valor, "path" => "/ecommercePublico/catalogo?marca=" . rawurlencode($valor), "title" => $this->valor($fila, "etiqueta", "Marca"), "priority" => "0.5", "changefreq" => "weekly");
           }
         }
         foreach ($this->valor($filtros, array("depurar", "disponibilidad"), array()) as $fila) {
           $valor = $this->valor($fila, "valor", "");
           if ($valor !== "") {
-            $sitemap["filtros"]["disponibilidad"][] = array("valor" => $valor, "path" => "/catalogo?disponibilidad=" . rawurlencode($valor), "title" => $this->valor($fila, "etiqueta", $valor), "priority" => "0.4", "changefreq" => "daily");
+            $sitemap["filtros"]["disponibilidad"][] = array("valor" => $valor, "path" => "/ecommercePublico/catalogo?disponibilidad=" . rawurlencode($valor), "title" => $this->valor($fila, "etiqueta", $valor), "priority" => "0.4", "changefreq" => "daily");
           }
         }
       }
@@ -1530,10 +1622,12 @@ class EcommerceCatalogoPublico extends CRUD {
           "marcas" => count($sitemap["filtros"]["marcas"]),
           "disponibilidad" => count($sitemap["filtros"]["disponibilidad"])
         ),
+        "fase_2" => $this->fase2SeoPublico($meta, $sitemap, $rutas, $urlSitio),
         "guardrails" => array(
           "frontend_genera_archivos_seo" => true,
           "no_escribe_bd" => true,
           "no_usa_ecom_legacy" => true,
+          "no_granel" => true,
           "no_muestra_stock_exacto" => true
         )
       ));
@@ -4554,6 +4648,77 @@ class EcommerceCatalogoPublico extends CRUD {
     return $limpias;
   }
 
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-08-05
+   * Proposito: entregar metadatos de Fase 2 para sitemap, robots, canonical y rutas SEO guiadas por API.
+   * Impacto: Frontend ecommerce; evita hardcodear generacion SEO y conserva rutas derivadas del catalogo ERP.
+   * Contrato: no consulta BD, no escribe archivos y mantiene guardrail no_granel.
+   */
+  private function fase2SeoPublico($meta, $sitemap, $rutas, $urlSitio) {
+    $conteosPorTipo = array();
+    foreach ((array) $rutas as $ruta) {
+      $tipo = (string) $this->valor($ruta, "tipo", "otro");
+      if (!isset($conteosPorTipo[$tipo])) {
+        $conteosPorTipo[$tipo] = 0;
+      }
+      $conteosPorTipo[$tipo]++;
+    }
+
+    return array(
+      "fase" => "fase_2_api_catalogo_robusta",
+      "base_url" => $urlSitio,
+      "archivos_sugeridos" => array(
+        "sitemap_xml" => "/sitemap.xml",
+        "robots_txt" => "/robots.txt",
+        "metadata_runtime" => "/ecommercePublico/seo"
+      ),
+      "rutas" => array(
+        "total" => count($rutas),
+        "por_tipo" => $conteosPorTipo,
+        "primeras" => array_slice($rutas, 0, 12)
+      ),
+      "canonical" => array(
+        "base" => $this->valor($meta, "canonical_base", ""),
+        "catalogo" => $this->canonicalSeoPublico($urlSitio, "/ecommercePublico/catalogo"),
+        "producto_pattern" => $this->canonicalSeoPublico($urlSitio, "/ecommercePublico/producto/{slug}"),
+        "filtro_pattern" => $this->canonicalSeoPublico($urlSitio, "/ecommercePublico/catalogo?{parametro}={valor}")
+      ),
+      "json_ld" => array(
+        "organization_type" => "PetStore",
+        "product_type" => "Product",
+        "usar_item_producto_para_json_ld" => true,
+        "mapear_disponibilidad_schema_org" => true
+      ),
+      "ui" => array(
+        "frontend_genera_title_description" => true,
+        "frontend_genera_canonical" => true,
+        "frontend_genera_open_graph" => true,
+        "frontend_genera_json_ld" => true,
+        "noindex_si_catalogo_vacio" => true
+      ),
+      "guardrails" => array(
+        "frontend_genera_archivos_seo" => true,
+        "no_escribe_archivos" => true,
+        "solo_publicados" => true,
+        "no_granel" => true,
+        "no_stock_exacto" => true,
+        "no_ecom_legacy_fuente" => true
+      )
+    );
+  }
+
+  private function canonicalSeoPublico($urlSitio, $path) {
+    $urlSitio = rtrim(trim((string) $urlSitio), "/");
+    $path = trim((string) $path);
+    if ($path === "") {
+      return $urlSitio;
+    }
+    if ($urlSitio === "") {
+      return $path;
+    }
+    return $urlSitio . (strpos($path, "/") === 0 ? $path : "/" . $path);
+  }
+
   private function sitemapXmlSugerido($rutas, $urlSitio) {
     $urlSitio = rtrim(trim((string) $urlSitio), "/");
     if ($urlSitio === "" || empty($rutas)) {
@@ -4590,7 +4755,117 @@ class EcommerceCatalogoPublico extends CRUD {
       "tipo" => $this->valor($definicion, "tipo", "catalogo"),
       "total" => $total,
       "items" => $items,
-      "params_catalogo" => $params
+      "params_catalogo" => $params,
+      "url_catalogo" => "/ecommercePublico/catalogo?" . $this->queryCatalogoPublico($params, 1, $limite),
+      "frontend" => $this->frontendSeccionPublica($definicion, $items, $total, $limite),
+      "guardrails" => array(
+        "solo_publicados" => true,
+        "no_granel" => true,
+        "no_stock_exacto" => true,
+        "precio_es_estimado" => true
+      )
+    );
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-08-05
+   * Proposito: entregar metadatos de Fase 2 para secciones de home y colecciones sin hardcodear layout.
+   * Impacto: Ecommerce publico; estabiliza bloques de descubrimiento, links, vacios y CTA por seccion.
+   * Contrato: no consulta BD, no escribe datos y mantiene guardrail no_granel.
+   */
+  private function fase2SeccionesPublicas($secciones, $limite) {
+    $orden = array();
+    $links = array();
+    foreach ((array) $secciones as $seccion) {
+      $codigo = (string) $this->valor($seccion, "codigo", "");
+      if ($codigo === "") {
+        continue;
+      }
+      $orden[] = $codigo;
+      $links[$codigo] = $this->valor($seccion, "url_catalogo", "/ecommercePublico/catalogo");
+    }
+
+    return array(
+      "fase" => "fase_2_api_catalogo_robusta",
+      "limite_por_seccion" => intval($limite),
+      "secciones_total" => count($secciones),
+      "orden_render" => $orden,
+      "links_catalogo" => $links,
+      "ui" => array(
+        "mostrar_titulo_seccion" => true,
+        "mostrar_ver_todo" => true,
+        "mostrar_estado_vacio_por_seccion" => true,
+        "usar_items_como_cards_producto" => true,
+        "max_items_mobile" => min(6, intval($limite)),
+        "max_items_desktop" => intval($limite)
+      ),
+      "guardrails" => array(
+        "solo_publicados" => true,
+        "no_granel" => true,
+        "no_stock_exacto" => true,
+        "no_ecom_legacy_fuente" => true,
+        "no_descuenta_inventario" => true
+      )
+    );
+  }
+
+  private function fase2BootstrapPublico($ready, $limiteSecciones, $estado, $filtros, $navegacion, $secciones) {
+    return array(
+      "fase" => "fase_2_api_catalogo_robusta",
+      "ready_frontend" => (bool) $ready,
+      "primer_render" => array(
+        "estado" => "/ecommercePublico/estado",
+        "configuracion" => "/ecommercePublico/configuracion",
+        "catalogo_manifest" => "/ecommercePublico/catalogo_manifest",
+        "filtros" => "/ecommercePublico/filtros",
+        "navegacion" => "/ecommercePublico/navegacion",
+        "secciones" => "/ecommercePublico/secciones",
+        "catalogo" => "/ecommercePublico/catalogo",
+        "producto" => "/ecommercePublico/producto/{slug}"
+      ),
+      "resumen" => array(
+        "api_ready" => (bool) $this->valor($estado, array("depurar", "ready"), false),
+        "filtros_fase_2" => $this->valor($filtros, array("depurar", "fase_2", "fase"), "") === "fase_2_api_catalogo_robusta",
+        "navegacion_fase_2" => $this->valor($navegacion, array("depurar", "fase_2", "fase"), "") === "fase_2_api_catalogo_robusta",
+        "secciones_fase_2" => $this->valor($secciones, array("depurar", "fase_2", "fase"), "") === "fase_2_api_catalogo_robusta",
+        "secciones_total" => count($this->valor($secciones, array("depurar", "secciones"), array())),
+        "limite_secciones" => intval($limiteSecciones)
+      ),
+      "ui" => array(
+        "puede_renderizar_home" => (bool) $ready,
+        "usar_bootstrap_para_home" => true,
+        "usar_catalogo_para_paginacion" => true,
+        "usar_manifest_para_descubrir_contrato" => true,
+        "mostrar_estado_carga_si_ready_false" => true
+      ),
+      "guardrails" => array(
+        "read_only" => true,
+        "no_granel" => true,
+        "no_stock_exacto" => true,
+        "no_checkout" => true,
+        "no_registra_cotizacion" => true
+      )
+    );
+  }
+
+  private function frontendSeccionPublica($definicion, $items, $total, $limite) {
+    $codigo = (string) $this->valor($definicion, "codigo", "");
+    $titulo = (string) $this->valor($definicion, "titulo", "");
+    return array(
+      "codigo" => $codigo,
+      "titulo" => $titulo,
+      "hay_resultados" => intval($total) > 0,
+      "items_en_bloque" => count($items),
+      "mostrar_ver_todo" => intval($total) > intval($limite),
+      "cta_ver_todo" => array(
+        "label" => "Ver todo",
+        "url" => "/ecommercePublico/catalogo?" . $this->queryCatalogoPublico($this->valor($definicion, "params", array()), 1, $limite)
+      ),
+      "estado_vacio" => array(
+        "mostrar" => intval($total) <= 0,
+        "titulo" => "Sin productos para " . strtolower($titulo),
+        "accion_principal" => array("label" => "Ver catalogo", "url" => "/ecommercePublico/catalogo")
+      )
     );
   }
 
@@ -4928,7 +5203,7 @@ class EcommerceCatalogoPublico extends CRUD {
       if ($qNormalizado !== "" && strpos($texto, $qNormalizado) === false) {
         continue;
       }
-      $path = "/catalogo";
+      $path = "/ecommercePublico/catalogo";
       if ($tipo === "mascota") {
         $path .= "?mascota=" . rawurlencode($valor);
       } elseif ($tipo === "necesidad") {
@@ -4952,6 +5227,60 @@ class EcommerceCatalogoPublico extends CRUD {
     return $salida;
   }
 
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-08-05
+   * Proposito: entregar metadatos de Fase 2 para autocompletado y estado vacio del buscador.
+   * Impacto: Frontend ecommerce; evita hardcodear grupos, rutas, minimos y CTAs de busqueda.
+   * Contrato: no registra busquedas, no consulta BD y mantiene resultados derivados de publicaciones no granel.
+   */
+  private function fase2BusquedaSugerenciasPublicas($q, $limite, $grupos, $total) {
+    $q = trim((string) $q);
+    $orden = array("productos", "marcas", "categorias", "mascotas", "necesidades");
+    $totales = array();
+    foreach ($orden as $grupo) {
+      $totales[$grupo] = count($this->valor($grupos, $grupo, array()));
+    }
+    $sinResultados = intval($total) <= 0;
+
+    return array(
+      "fase" => "fase_2_api_catalogo_robusta",
+      "q" => $q,
+      "limite_por_grupo" => intval($limite),
+      "orden_grupos" => $orden,
+      "totales_grupo" => $totales,
+      "links" => array(
+        "catalogo_resultados" => "/ecommercePublico/catalogo?q=" . rawurlencode($q),
+        "registrar_busqueda_preflight" => "/ecommercePublico/busqueda_registrar",
+        "filtros" => "/ecommercePublico/filtros",
+        "catalogo_manifest" => "/ecommercePublico/catalogo_manifest"
+      ),
+      "ui" => array(
+        "mostrar_autocomplete" => strlen($q) >= 2,
+        "min_caracteres_recomendado" => 2,
+        "mostrar_grupos_vacios" => false,
+        "mostrar_contadores" => true,
+        "mostrar_precio_en_producto" => true,
+        "mostrar_disponibilidad_en_producto" => true,
+        "max_items_mobile_por_grupo" => min(4, intval($limite)),
+        "max_items_desktop_por_grupo" => intval($limite)
+      ),
+      "estado_vacio" => array(
+        "mostrar" => $sinResultados,
+        "titulo" => $q === "" ? "Empieza a buscar productos" : "No encontramos sugerencias",
+        "mensaje" => $q === "" ? "Escribe al menos 2 caracteres para ver sugerencias." : "Prueba con otro nombre, marca, categoria o necesidad.",
+        "cta" => array("label" => "Ver catalogo", "url" => "/ecommercePublico/catalogo")
+      ),
+      "guardrails" => array(
+        "read_only" => true,
+        "no_registra_busqueda" => true,
+        "solo_publicados" => true,
+        "no_granel" => true,
+        "no_stock_exacto" => true,
+        "precio_es_estimado" => true
+      )
+    );
+  }
+
   private function itemsNavegacionDesdeFiltros($items, $tipo, $parametro, $limite) {
     $salida = array();
     foreach ((array) $items as $item) {
@@ -4973,6 +5302,123 @@ class EcommerceCatalogoPublico extends CRUD {
       }
     }
     return $salida;
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-08-05
+   * Proposito: entregar metadatos de Fase 2 para filtros facetados sin hardcodear rutas en frontend.
+   * Impacto: Ecommerce publico; estabiliza chips, contadores, urls y reglas visuales de filtros.
+   * Contrato: no consulta BD, no escribe datos y mantiene catalogo publico sin granel.
+   */
+  private function fase2FiltrosPublicos($grupos) {
+    $facetados = array();
+    $totales = array();
+    foreach (array("mascotas", "necesidades", "marcas", "categorias", "disponibilidad") as $grupo) {
+      $parametro = $this->parametroFiltroPublico($grupo);
+      $facetados[$grupo] = $this->facetasFiltroPublico($this->valor($grupos, $grupo, array()), $grupo, $parametro);
+      $totales[$grupo] = count($facetados[$grupo]);
+    }
+
+    return array(
+      "fase" => "fase_2_api_catalogo_robusta",
+      "url_catalogo_base" => "/ecommercePublico/catalogo",
+      "facetados" => $facetados,
+      "totales" => $totales,
+      "ui" => array(
+        "mostrar_contadores" => true,
+        "mostrar_chips_removibles" => true,
+        "mostrar_limpiar_filtros" => true,
+        "max_grupos_visibles_desktop" => 5,
+        "max_grupos_visibles_mobile" => 3
+      ),
+      "guardrails" => array(
+        "solo_publicados" => true,
+        "no_granel" => true,
+        "no_stock_exacto" => true,
+        "no_ecom_legacy_fuente" => true
+      )
+    );
+  }
+
+  private function fase2NavegacionPublica($navegacion, $limite) {
+    $grupos = array("mascotas", "necesidades", "categorias", "marcas", "disponibilidad");
+    $resumen = array();
+    $chipsHome = array();
+    foreach ($grupos as $grupo) {
+      $items = $this->valor($navegacion, $grupo, array());
+      $resumen[$grupo] = count($items);
+      foreach (array_slice($items, 0, 4) as $item) {
+        $chipsHome[] = array(
+          "grupo" => $grupo,
+          "label" => $this->valor($item, "label", ""),
+          "url" => $this->valor($item, "url", ""),
+          "total" => intval($this->valor($item, "total", 0))
+        );
+      }
+    }
+
+    return array(
+      "fase" => "fase_2_api_catalogo_robusta",
+      "limite_por_grupo" => intval($limite),
+      "resumen_grupos" => $resumen,
+      "chips_home" => array_slice($chipsHome, 0, 12),
+      "links" => array(
+        "catalogo" => "/ecommercePublico/catalogo",
+        "filtros" => "/ecommercePublico/filtros",
+        "secciones" => "/ecommercePublico/secciones",
+        "manifest" => "/ecommercePublico/catalogo_manifest"
+      ),
+      "ui" => array(
+        "usar_primaria_para_header" => true,
+        "usar_chips_home_para_exploracion" => true,
+        "mostrar_contadores" => true,
+        "colapsar_grupos_largos" => true
+      ),
+      "guardrails" => array(
+        "solo_derivado_de_publicaciones" => true,
+        "no_granel" => true,
+        "no_stock_exacto" => true,
+        "no_expone_secretos" => true
+      )
+    );
+  }
+
+  private function facetasFiltroPublico($items, $grupo, $parametro) {
+    $salida = array();
+    foreach ((array) $items as $item) {
+      $label = trim((string) $this->valor($item, "etiqueta", $this->valor($item, "nombre", $this->valor($item, "valor", ""))));
+      $valor = trim((string) $this->valor($item, "valor", $this->valor($item, "id", $label)));
+      if ($label === "" && $valor === "") {
+        continue;
+      }
+      $url = "/ecommercePublico/catalogo?" . rawurlencode($parametro) . "=" . rawurlencode($valor);
+      $salida[] = array(
+        "grupo" => $grupo,
+        "parametro" => $parametro,
+        "label" => $label,
+        "valor" => $valor,
+        "total" => intval($this->valor($item, "total", 0)),
+        "url" => $url,
+        "chip" => array(
+          "texto" => $label,
+          "url_aplicar" => $url,
+          "url_remover" => "/ecommercePublico/catalogo",
+          "contador" => intval($this->valor($item, "total", 0))
+        )
+      );
+    }
+    return $salida;
+  }
+
+  private function parametroFiltroPublico($grupo) {
+    $mapa = array(
+      "mascotas" => "mascota",
+      "necesidades" => "necesidad",
+      "marcas" => "marca",
+      "categorias" => "categoria",
+      "disponibilidad" => "disponibilidad"
+    );
+    return $this->valor($mapa, $grupo, $grupo);
   }
 
   private function politicasPublicasDefault() {

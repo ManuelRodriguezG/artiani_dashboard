@@ -89,17 +89,62 @@ if ($pruebas["frontend_handoff"]["depurar_resumen"]["handoff_pruebas_total"] < 7
 if ($pruebas["frontend_handoff"]["depurar_resumen"]["handoff_no_filesystem"] !== true) {
   $bloqueos[] = "frontend_handoff_no_debe_requerir_filesystem";
 }
+if ($pruebas["frontend_handoff"]["depurar_resumen"]["handoff_fase_2_no_granel"] !== true) {
+  $bloqueos[] = "frontend_handoff_fase_2_debe_bloquear_granel";
+}
+if ($pruebas["frontend_handoff"]["depurar_resumen"]["handoff_ejemplo_manifest"] !== true) {
+  $bloqueos[] = "frontend_handoff_debe_exponer_ejemplo_manifest";
+}
+if ($pruebas["frontend_handoff"]["depurar_resumen"]["handoff_ejemplo_seo"] !== true) {
+  $bloqueos[] = "frontend_handoff_debe_exponer_ejemplo_seo";
+}
 if (empty($pruebas["bootstrap"]["depurar_resumen"]["bootstrap_guardrails"])) {
   $bloqueos[] = "bootstrap_debe_exponer_guardrails";
+}
+if ($pruebas["bootstrap"]["depurar_resumen"]["bootstrap_fase_2_no_granel"] !== true) {
+  $bloqueos[] = "bootstrap_fase_2_debe_bloquear_granel";
+}
+if ($pruebas["bootstrap"]["depurar_resumen"]["bootstrap_fase_2_primer_render"] !== true) {
+  $bloqueos[] = "bootstrap_fase_2_debe_exponer_primer_render";
 }
 if ($pruebas["seo"]["depurar_resumen"]["rutas_total"] === null) {
   $bloqueos[] = "seo_debe_exponer_rutas";
 }
+if ($pruebas["seo"]["depurar_resumen"]["seo_fase_2_no_granel"] !== true) {
+  $bloqueos[] = "seo_fase_2_debe_bloquear_granel";
+}
+if ($pruebas["seo"]["depurar_resumen"]["seo_fase_2_canonical"] !== true) {
+  $bloqueos[] = "seo_fase_2_debe_exponer_canonical";
+}
 if ($pruebas["navegacion"]["depurar_resumen"]["navegacion_total"] === null) {
   $bloqueos[] = "navegacion_debe_exponer_resumen";
 }
+if ($pruebas["filtros"]["depurar_resumen"]["filtros_fase_2_no_granel"] !== true) {
+  $bloqueos[] = "filtros_fase_2_debe_bloquear_granel";
+}
+if ($pruebas["filtros"]["depurar_resumen"]["filtros_fase_2_facetados"] !== true) {
+  $bloqueos[] = "filtros_fase_2_debe_exponer_facetados";
+}
+if ($pruebas["navegacion"]["depurar_resumen"]["navegacion_fase_2_no_granel"] !== true) {
+  $bloqueos[] = "navegacion_fase_2_debe_bloquear_granel";
+}
+if ($pruebas["navegacion"]["depurar_resumen"]["navegacion_fase_2_chips"] !== true) {
+  $bloqueos[] = "navegacion_fase_2_debe_exponer_chips";
+}
 if ($pruebas["busqueda_sugerencias"]["depurar_resumen"]["sugerencias_total"] === null) {
   $bloqueos[] = "busqueda_sugerencias_debe_exponer_resumen";
+}
+if ($pruebas["busqueda_sugerencias"]["depurar_resumen"]["busqueda_fase_2_no_granel"] !== true) {
+  $bloqueos[] = "busqueda_sugerencias_fase_2_debe_bloquear_granel";
+}
+if ($pruebas["busqueda_sugerencias"]["depurar_resumen"]["busqueda_fase_2_links"] !== true) {
+  $bloqueos[] = "busqueda_sugerencias_fase_2_debe_exponer_links";
+}
+if ($pruebas["secciones"]["depurar_resumen"]["secciones_fase_2_no_granel"] !== true) {
+  $bloqueos[] = "secciones_fase_2_debe_bloquear_granel";
+}
+if ($pruebas["secciones"]["depurar_resumen"]["secciones_primer_frontend"] !== true) {
+  $bloqueos[] = "secciones_debe_exponer_frontend_en_primer_bloque";
 }
 if ($pruebas["catalogo"]["depurar_resumen"]["catalogo_frontend_hay_resultados"] !== true) {
   $bloqueos[] = "catalogo_debe_exponer_frontend_hay_resultados";
@@ -239,6 +284,9 @@ function resumenDepurarHttpSmoke($depurar) {
     "handoff_pruebas_total" => is_array(valorHttpSmoke($depurar, array("pruebas_con_api"), null)) ? count($depurar["pruebas_con_api"]) : null,
     "handoff_no_usar_total" => is_array(valorHttpSmoke($depurar, array("no_usar"), null)) ? count($depurar["no_usar"]) : null,
     "handoff_no_filesystem" => valorHttpSmoke($depurar, array("guardrails", "no_requiere_filesystem"), null),
+    "handoff_fase_2_no_granel" => valorHttpSmoke($depurar, array("fase_2", "guardrails", "no_granel"), null),
+    "handoff_ejemplo_manifest" => is_array(valorHttpSmoke($depurar, array("ejemplos", "catalogo_manifest"), null)),
+    "handoff_ejemplo_seo" => is_array(valorHttpSmoke($depurar, array("ejemplos", "seo"), null)),
     "dry_run" => valorHttpSmoke($depurar, array("dry_run"), null),
     "dryrun_frontend_estado" => valorHttpSmoke($depurar, array("frontend", "estado"), ""),
     "dryrun_frontend_puede_preflight" => valorHttpSmoke($depurar, array("frontend", "puede_continuar_preflight"), null),
@@ -255,10 +303,22 @@ function resumenDepurarHttpSmoke($depurar) {
     "disponibilidad_frontend_stock_exacto" => valorHttpSmoke($depurar, array("frontend", "mostrar_stock_exacto"), null),
     "disponibilidad_frontend_requiere_dryrun" => valorHttpSmoke($depurar, array("frontend", "requiere_dryrun_antes_de_whatsapp"), null),
     "bootstrap_guardrails" => is_array(valorHttpSmoke($depurar, array("guardrails"), null)),
+    "bootstrap_fase_2_no_granel" => valorHttpSmoke($depurar, array("fase_2", "guardrails", "no_granel"), null),
+    "bootstrap_fase_2_primer_render" => is_array(valorHttpSmoke($depurar, array("fase_2", "primer_render"), null)),
     "rutas_total" => is_array(valorHttpSmoke($depurar, array("rutas"), null)) ? count($depurar["rutas"]) : null,
+    "seo_fase_2_no_granel" => valorHttpSmoke($depurar, array("fase_2", "guardrails", "no_granel"), null),
+    "seo_fase_2_canonical" => is_array(valorHttpSmoke($depurar, array("fase_2", "canonical"), null)),
     "navegacion_total" => valorHttpSmoke($depurar, array("resumen", "total_items"), null),
+    "navegacion_fase_2_no_granel" => valorHttpSmoke($depurar, array("fase_2", "guardrails", "no_granel"), null),
+    "navegacion_fase_2_chips" => is_array(valorHttpSmoke($depurar, array("fase_2", "chips_home"), null)),
     "sugerencias_total" => valorHttpSmoke($depurar, array("resumen", "total_sugerencias"), null),
+    "busqueda_fase_2_no_granel" => valorHttpSmoke($depurar, array("fase_2", "guardrails", "no_granel"), null),
+    "busqueda_fase_2_links" => is_array(valorHttpSmoke($depurar, array("fase_2", "links"), null)),
     "secciones_total" => is_array(valorHttpSmoke($depurar, array("secciones"), null)) ? count($depurar["secciones"]) : null,
+    "secciones_fase_2_no_granel" => valorHttpSmoke($depurar, array("fase_2", "guardrails", "no_granel"), null),
+    "secciones_primer_frontend" => is_array(valorHttpSmoke($depurar, array("secciones", 0, "frontend"), null)),
+    "filtros_fase_2_no_granel" => valorHttpSmoke($depurar, array("fase_2", "guardrails", "no_granel"), null),
+    "filtros_fase_2_facetados" => is_array(valorHttpSmoke($depurar, array("fase_2", "facetados"), null)),
     "catalogo_frontend_hay_resultados" => valorHttpSmoke($depurar, array("frontend", "hay_resultados"), null),
     "catalogo_frontend_estado_vacio" => valorHttpSmoke($depurar, array("frontend", "estado_vacio", "mostrar"), null),
     "catalogo_frontend_rango_texto" => valorHttpSmoke($depurar, array("frontend", "rango_visible", "texto"), ""),

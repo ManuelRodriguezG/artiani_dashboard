@@ -171,6 +171,7 @@ function validarFrontendHandoff($respuesta, &$bloqueos) {
     "pruebas_con_api",
     "contratos_ui",
     "ejemplos",
+    "fase_2",
     "no_usar",
     "guardrails"
   ) as $key) {
@@ -196,16 +197,34 @@ function validarFrontendHandoff($respuesta, &$bloqueos) {
   if (valorShape($respuesta, array("depurar", "guardrails", "no_requiere_filesystem"), false) !== true) {
     $bloqueos[] = "frontend_handoff_no_debe_requerir_filesystem";
   }
+  if (valorShape($respuesta, array("depurar", "fase_2", "fase"), "") !== "fase_2_api_catalogo_robusta") {
+    $bloqueos[] = "frontend_handoff_fase_2_invalida";
+  }
+  if (valorShape($respuesta, array("depurar", "fase_2", "guardrails", "no_granel"), false) !== true) {
+    $bloqueos[] = "frontend_handoff_fase_2_debe_bloquear_granel";
+  }
+  if (!is_array(valorShape($respuesta, array("depurar", "ejemplos", "catalogo_manifest"), null))) {
+    $bloqueos[] = "frontend_handoff_debe_exponer_ejemplo_manifest";
+  }
+  if (!is_array(valorShape($respuesta, array("depurar", "ejemplos", "seo"), null))) {
+    $bloqueos[] = "frontend_handoff_debe_exponer_ejemplo_seo";
+  }
 }
 
 function validarBootstrap($respuesta, &$bloqueos) {
-  foreach (array("estado", "configuracion", "filtros", "navegacion", "secciones", "politicas", "canales", "guardrails") as $key) {
+  foreach (array("estado", "configuracion", "filtros", "navegacion", "secciones", "politicas", "canales", "fase_2", "guardrails") as $key) {
     if (!is_array(valorShape($respuesta, array("depurar", $key), null))) {
       $bloqueos[] = "bootstrap_falta_array_" . $key;
     }
   }
   if (valorShape($respuesta, array("depurar", "guardrails", "no_expone_secretos"), false) !== true) {
     $bloqueos[] = "bootstrap_debe_indicar_no_expone_secretos";
+  }
+  if (valorShape($respuesta, array("depurar", "fase_2", "fase"), "") !== "fase_2_api_catalogo_robusta") {
+    $bloqueos[] = "bootstrap_fase_2_invalida";
+  }
+  if (valorShape($respuesta, array("depurar", "fase_2", "guardrails", "no_granel"), false) !== true) {
+    $bloqueos[] = "bootstrap_fase_2_debe_bloquear_granel";
   }
 }
 
@@ -237,7 +256,7 @@ function validarConfiguracion($respuesta, &$bloqueos) {
 }
 
 function validarSeo($respuesta, &$bloqueos) {
-  foreach (array("meta", "robots", "sitemap", "rutas", "json_ld", "resumen") as $key) {
+  foreach (array("meta", "robots", "sitemap", "rutas", "json_ld", "resumen", "fase_2") as $key) {
     if (!is_array(valorShape($respuesta, array("depurar", $key), null))) {
       $bloqueos[] = "seo_falta_array_" . $key;
     }
@@ -248,6 +267,17 @@ function validarSeo($respuesta, &$bloqueos) {
   if (valorShape($respuesta, array("depurar", "guardrails", "no_muestra_stock_exacto"), false) !== true) {
     $bloqueos[] = "seo_debe_indicar_no_stock_exacto";
   }
+  foreach (array("archivos_sugeridos", "rutas", "canonical", "json_ld", "ui", "guardrails") as $key) {
+    if (!is_array(valorShape($respuesta, array("depurar", "fase_2", $key), null))) {
+      $bloqueos[] = "seo_fase_2_falta_array_" . $key;
+    }
+  }
+  if (valorShape($respuesta, array("depurar", "fase_2", "fase"), "") !== "fase_2_api_catalogo_robusta") {
+    $bloqueos[] = "seo_fase_2_invalida";
+  }
+  if (valorShape($respuesta, array("depurar", "fase_2", "guardrails", "no_granel"), false) !== true) {
+    $bloqueos[] = "seo_fase_2_debe_bloquear_granel";
+  }
 }
 
 function validarFiltros($respuesta, &$bloqueos) {
@@ -256,10 +286,21 @@ function validarFiltros($respuesta, &$bloqueos) {
       $bloqueos[] = "filtros_falta_array_" . $key;
     }
   }
+  foreach (array("facetados", "totales", "ui", "guardrails") as $key) {
+    if (!is_array(valorShape($respuesta, array("depurar", "fase_2", $key), null))) {
+      $bloqueos[] = "filtros_fase_2_falta_array_" . $key;
+    }
+  }
+  if (valorShape($respuesta, array("depurar", "fase_2", "fase"), "") !== "fase_2_api_catalogo_robusta") {
+    $bloqueos[] = "filtros_fase_2_invalida";
+  }
+  if (valorShape($respuesta, array("depurar", "fase_2", "guardrails", "no_granel"), false) !== true) {
+    $bloqueos[] = "filtros_fase_2_debe_bloquear_granel";
+  }
 }
 
 function validarBusquedaSugerencias($respuesta, &$bloqueos) {
-  foreach (array("grupos", "resumen", "guardrails") as $key) {
+  foreach (array("grupos", "resumen", "fase_2", "guardrails") as $key) {
     if (!is_array(valorShape($respuesta, array("depurar", $key), null))) {
       $bloqueos[] = "busqueda_sugerencias_falta_array_" . $key;
     }
@@ -269,6 +310,17 @@ function validarBusquedaSugerencias($respuesta, &$bloqueos) {
       $bloqueos[] = "busqueda_sugerencias_falta_grupo_" . $grupo;
     }
   }
+  foreach (array("links", "ui", "estado_vacio", "guardrails") as $key) {
+    if (!is_array(valorShape($respuesta, array("depurar", "fase_2", $key), null))) {
+      $bloqueos[] = "busqueda_sugerencias_fase_2_falta_array_" . $key;
+    }
+  }
+  if (valorShape($respuesta, array("depurar", "fase_2", "fase"), "") !== "fase_2_api_catalogo_robusta") {
+    $bloqueos[] = "busqueda_sugerencias_fase_2_invalida";
+  }
+  if (valorShape($respuesta, array("depurar", "fase_2", "guardrails", "no_granel"), false) !== true) {
+    $bloqueos[] = "busqueda_sugerencias_fase_2_debe_bloquear_granel";
+  }
 }
 
 function validarNavegacion($respuesta, &$bloqueos) {
@@ -277,11 +329,40 @@ function validarNavegacion($respuesta, &$bloqueos) {
       $bloqueos[] = "navegacion_falta_array_" . $key;
     }
   }
+  foreach (array("resumen_grupos", "chips_home", "links", "ui", "guardrails") as $key) {
+    if (!is_array(valorShape($respuesta, array("depurar", "fase_2", $key), null))) {
+      $bloqueos[] = "navegacion_fase_2_falta_array_" . $key;
+    }
+  }
+  if (valorShape($respuesta, array("depurar", "fase_2", "fase"), "") !== "fase_2_api_catalogo_robusta") {
+    $bloqueos[] = "navegacion_fase_2_invalida";
+  }
+  if (valorShape($respuesta, array("depurar", "fase_2", "guardrails", "no_granel"), false) !== true) {
+    $bloqueos[] = "navegacion_fase_2_debe_bloquear_granel";
+  }
 }
 
 function validarSecciones($respuesta, &$bloqueos) {
-  if (!is_array(valorShape($respuesta, array("depurar", "secciones"), null))) {
+  $secciones = valorShape($respuesta, array("depurar", "secciones"), null);
+  if (!is_array($secciones)) {
     $bloqueos[] = "secciones_lista_debe_ser_array";
+  }
+  if (!is_array(valorShape($respuesta, array("depurar", "fase_2"), null))) {
+    $bloqueos[] = "secciones_fase_2_debe_ser_array";
+  }
+  if (valorShape($respuesta, array("depurar", "fase_2", "fase"), "") !== "fase_2_api_catalogo_robusta") {
+    $bloqueos[] = "secciones_fase_2_invalida";
+  }
+  if (valorShape($respuesta, array("depurar", "fase_2", "guardrails", "no_granel"), false) !== true) {
+    $bloqueos[] = "secciones_fase_2_debe_bloquear_granel";
+  }
+  if (is_array($secciones) && count($secciones) > 0) {
+    if (!is_array(valorShape($respuesta, array("depurar", "secciones", 0, "frontend"), null))) {
+      $bloqueos[] = "secciones_primer_item_debe_exponer_frontend";
+    }
+    if (valorShape($respuesta, array("depurar", "secciones", 0, "url_catalogo"), "") === "") {
+      $bloqueos[] = "secciones_primer_item_debe_exponer_url_catalogo";
+    }
   }
   if (valorShape($respuesta, array("depurar", "guardrails", "no_stock_exacto"), false) !== true) {
     $bloqueos[] = "secciones_debe_indicar_no_stock_exacto";

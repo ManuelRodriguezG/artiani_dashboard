@@ -13,7 +13,7 @@ abstract class MySqlDB {
   protected function conectar() {
     $options = array(
         PDO::MYSQL_ATTR_INIT_COMMAND => "SET NAMES utf8",
-        PDO::ATTR_PERSISTENT => true,
+        PDO::ATTR_PERSISTENT => false,
         PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
         PDO::ATTR_TIMEOUT => 10
     );

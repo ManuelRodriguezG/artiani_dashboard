@@ -1339,12 +1339,18 @@ Resultado validado:
 - Nuevos endpoints internos read-only:
   - `GET /ecommercePublico/analytics_dashboard_erp`;
   - `GET /ecommercePublico/analytics_persistencia_plan_erp`;
+  - `GET /ecommercePublico/analytics_resumen_plan_erp`;
+  - `GET /ecommercePublico/analytics_retencion_plan_erp`;
   - `GET /ecommercePublico/esquema_auditar_analytics`;
   - `GET /ecommercePublico/esquema_plan_analytics`.
 - Nuevos UATs:
   - `storage/uat/uat_ecommerce_analytics_plan_readonly.php`;
   - `storage/uat/uat_ecommerce_analytics_http_readonly.php`;
+  - `storage/uat/uat_ecommerce_analytics_dashboard_readonly.php`;
   - `storage/uat/uat_ecommerce_analytics_persistencia_guard_readonly.php`;
+  - `storage/uat/uat_ecommerce_analytics_resumen_guard_readonly.php`;
+  - `storage/uat/uat_ecommerce_analytics_retencion_guard_readonly.php`;
+  - `storage/uat/uat_ecommerce_analytics_schema_postcheck_readonly.php`;
   - `storage/uat/uat_ecommerce_analytics_schema_apply_authorized.php`.
 - Tablas propuestas sin aplicar:
   - `erp_ecommerce_analytics_sesiones`;
@@ -1354,4 +1360,8 @@ Resultado validado:
   - `erp_ecommerce_analytics_resumen_diario`.
 - Guardrails activos: no datos personales, no stock exacto, no checkout/pagos, no ventas, no descuento de inventario, no `ecom_*` como fuente.
 - El modelo tiene persistencia write-ready bloqueada por token `ECOMMERCE_ANALYTICS_TRACKING`, no conectada a POST publicos en Fase 1.
+- El resumen diario queda write-ready bloqueado por token `ECOMMERCE_ANALYTICS_RESUMEN_DIARIO`, sin jobs activos ni endpoint publico.
+- El dashboard ya soporta `fuente_metricas=resumen_diario` cuando existan agregados; si no, cae a `eventos_crudos`.
+- La retencion queda write-ready bloqueada por token `ECOMMERCE_ANALYTICS_RETENCION`; conserva resumen diario y no ejecuta purgas en Fase 1.
+- La auditoria de esquema analytics ahora valida columnas e indices criticos, no solo existencia de tablas.
 - Persistencia real queda pendiente de autorizacion explicita, respaldo externo, rate limit, cookie/consent y UAT `apply_authorized`.

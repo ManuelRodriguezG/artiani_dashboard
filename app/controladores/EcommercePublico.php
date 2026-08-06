@@ -581,6 +581,28 @@ class EcommercePublico extends Controlador {
   }
 
   /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-08-05
+   * Proposito: planear recalc de resumen diario Ecommerce / Analytics sin ejecutarlo.
+   * Impacto: prepara performance del dashboard sin activar jobs ni escrituras.
+   * Contrato: GET protegido por `catalogo.ver`; no escribe BD.
+   */
+  public function analytics_resumen_plan_erp() {
+    $this->requerirPermiso("catalogo.ver");
+    return json_encode($this->modelo("EcommerceAnalyticsErp")->resumenDiarioPlanInterno($_GET));
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-08-05
+   * Proposito: planear retencion de datos crudos Ecommerce / Analytics sin borrar registros.
+   * Impacto: prepara politica de privacidad y purga futura conservando resumen diario.
+   * Contrato: GET protegido por `catalogo.ver`; no escribe BD.
+   */
+  public function analytics_retencion_plan_erp() {
+    $this->requerirPermiso("catalogo.ver");
+    return json_encode($this->modelo("EcommerceAnalyticsErp")->retencionPlanInterno($_GET));
+  }
+
+  /**
    * Documentacion IA: Codex GPT-5 | Fecha: 2026-07-13
    * Proposito: guardar una publicacion ecommerce como borrador con autorizacion operativa.
    * Impacto: activa curaduria interna posterior al DDL sin publicar automaticamente ni mover inventario.

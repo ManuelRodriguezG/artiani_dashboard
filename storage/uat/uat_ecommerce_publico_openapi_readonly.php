@@ -12,7 +12,7 @@ $schema = array(
   "info" => array(
     "title" => "ERP Ecommerce Publico API",
     "version" => "fase1-2026-07-12",
-    "description" => "Catalogo vivo read-only conectado al ERP. Fase 1 sin checkout ni registro real de cotizacion."
+    "description" => "Catalogo vivo read-only conectado al ERP. Fase 2 de catalogo robusto activa; sin checkout ni registro real de cotizacion."
   ),
   "servers" => array(
     array("url" => "http://panel.com.local/ecommercePublico")
@@ -433,6 +433,7 @@ $schema = array(
           "pruebas_con_api" => array("type" => "array", "items" => array("type" => "object")),
           "contratos_ui" => array("type" => "object"),
           "ejemplos" => array("type" => "object"),
+          "fase_2" => array("type" => "object"),
           "no_usar" => array("type" => "array", "items" => array("type" => "string")),
           "guardrails" => array("type" => "object")
         )
@@ -468,8 +469,10 @@ $schema = array(
   "x-guardrails" => array(
     "no_checkout" => true,
     "no_descuenta_inventario" => true,
+    "no_granel" => true,
     "no_stock_exacto" => true,
     "no_ecom_legacy_fuente" => true,
+    "fase_2_catalogo_robusto" => true,
     "cotizacion_registrar_bloqueado_fase1" => true
   )
 );
