@@ -84,6 +84,12 @@ class EcommerceCatalogoPublico extends CRUD {
         ),
         array(
           "metodo" => "GET",
+          "ruta" => "/ecommercePublico/fase_2_checklist",
+          "descripcion" => "Checklist de cierre de Fase 2 para frontend externo: endpoints obligatorios, orden de integracion, escenarios y criterios para pasar a Fase 3.",
+          "respuesta_depurar" => array("fase", "estado", "endpoints_obligatorios", "orden_integracion", "escenarios_prueba", "criterios_pase_fase_3", "guardrails")
+        ),
+        array(
+          "metodo" => "GET",
           "ruta" => "/ecommercePublico/producto/{slug}",
           "descripcion" => "Detalle publico de una publicacion con estatus publicado, variantes, relacionados y SEO basico.",
           "respuesta_depurar" => array("item", "variantes", "relacionados", "breadcrumbs", "seo", "acciones", "fase_2", "guardrails")
@@ -160,7 +166,8 @@ class EcommerceCatalogoPublico extends CRUD {
           "ruta" => "/ecommercePublico/disponibilidad",
           "descripcion" => "Disponibilidad publica simple por id_sku o slug.",
           "parametros" => array("id_sku" => "Opcional si se envia slug.", "slug" => "Opcional si se envia id_sku."),
-          "estados" => $this->estadosDisponibilidadPublica()
+          "estados" => $this->estadosDisponibilidadPublica(),
+          "respuesta_depurar" => array("disponibilidad", "mostrar_cantidad_exacta=false", "frontend", "fase_2")
         ),
         array(
           "metodo" => "POST",
@@ -174,7 +181,7 @@ class EcommerceCatalogoPublico extends CRUD {
             "contacto" => array("nombre" => "string opcional", "telefono" => "string opcional", "mensaje" => "string opcional"),
             "utm" => "object opcional"
           ),
-          "respuesta_depurar" => array("dry_run", "lineas", "totales", "resumen", "advertencias", "bloqueos", "whatsapp_preview", "frontend")
+          "respuesta_depurar" => array("dry_run", "lineas", "totales", "resumen", "advertencias", "bloqueos", "whatsapp_preview", "frontend", "fase_2")
         ),
         array(
           "metodo" => "POST",
@@ -190,7 +197,7 @@ class EcommerceCatalogoPublico extends CRUD {
             "acepta_contacto_whatsapp" => "bool recomendado para seguimiento",
             "politicas_aceptadas" => "string[] opcional"
           ),
-          "respuesta_depurar" => array("preflight", "folio_preliminar", "listo_para_whatsapp", "listo_para_registro_futuro", "contacto", "validacion_contacto", "consentimiento", "cta", "dry_run")
+          "respuesta_depurar" => array("preflight", "folio_preliminar", "listo_para_whatsapp", "listo_para_registro_futuro", "contacto", "validacion_contacto", "consentimiento", "cta", "dry_run", "fase_2")
         ),
         array(
           "metodo" => "POST",
@@ -355,6 +362,7 @@ class EcommerceCatalogoPublico extends CRUD {
       $contratos = $this->contratosApiPublicos();
       $bootstrap = $this->bootstrapPublico(array("limite_secciones" => min(6, $limite)));
       $manifest = $this->catalogoManifestPublico(array("limite_preview" => min(3, $limite)));
+      $checklist = $this->fase2ChecklistPublico();
       $catalogo = $this->catalogoPublico(array("limite" => $limite));
       $seo = $this->seoPublico(array("limite" => min(20, max(6, $limite))));
       $items = $this->valor($catalogo, array("depurar", "items"), array());
@@ -377,6 +385,7 @@ class EcommerceCatalogoPublico extends CRUD {
         "politicas_aceptadas" => array("aviso-privacidad", "cotizacion-whatsapp")
       );
       $dryrun = $this->cotizacionDryRun($payloadCotizacion);
+      $preflight = $this->cotizacionPreflight($payloadCotizacion);
 
       return $this->respuesta(false, "success", "Handoff frontend ecommerce disponible por API", array(
         "estado_actual" => array(
@@ -396,6 +405,7 @@ class EcommerceCatalogoPublico extends CRUD {
           "GET /ecommercePublico/frontend_handoff",
           "GET /ecommercePublico/bootstrap",
           "GET /ecommercePublico/catalogo_manifest",
+          "GET /ecommercePublico/fase_2_checklist",
           "GET /ecommercePublico/filtros",
           "GET /ecommercePublico/navegacion",
           "GET /ecommercePublico/catalogo?limite=24",
@@ -409,29 +419,32 @@ class EcommerceCatalogoPublico extends CRUD {
         "contratos_ui" => array(
           "bootstrap" => array("depurar.ready", "depurar.fase_2.primer_render", "depurar.guardrails"),
           "catalogo_manifest" => array("depurar.parametros_soportados", "depurar.ordenamientos", "depurar.endpoints_relacionados", "depurar.guardrails"),
+          "fase_2_checklist" => array("depurar.endpoints_obligatorios", "depurar.orden_integracion", "depurar.escenarios_prueba", "depurar.criterios_pase_fase_3"),
           "catalogo" => array("depurar.items", "depurar.paginacion", "depurar.frontend", "depurar.fase_2", "depurar.guardrails"),
           "filtros" => array("depurar.fase_2.facetados", "depurar.fase_2.totales", "depurar.fase_2.guardrails"),
           "navegacion" => array("depurar.fase_2.chips_home", "depurar.fase_2.links", "depurar.fase_2.guardrails"),
           "secciones" => array("depurar.secciones[].frontend", "depurar.secciones[].url_catalogo", "depurar.fase_2"),
           "producto" => array("depurar.item", "depurar.variantes", "depurar.relacionados", "depurar.breadcrumbs", "depurar.seo", "depurar.acciones", "depurar.fase_2"),
           "seo" => array("depurar.rutas", "depurar.sitemap_xml_sugerido", "depurar.fase_2.canonical", "depurar.fase_2.json_ld"),
-          "disponibilidad" => array("depurar.disponibilidad", "depurar.frontend.badge", "depurar.frontend.cta", "depurar.frontend.mostrar_stock_exacto=false"),
-          "cotizacion_dryrun" => array("depurar.lineas", "depurar.totales", "depurar.bloqueos", "depurar.advertencias", "depurar.frontend"),
-          "cotizacion_preflight" => array("depurar.cta", "depurar.whatsapp", "depurar.frontend", "depurar.listo_para_whatsapp")
+          "disponibilidad" => array("depurar.disponibilidad", "depurar.frontend.badge", "depurar.frontend.cta", "depurar.frontend.mostrar_stock_exacto=false", "depurar.fase_2"),
+          "cotizacion_dryrun" => array("depurar.lineas", "depurar.totales", "depurar.bloqueos", "depurar.advertencias", "depurar.frontend", "depurar.fase_2"),
+          "cotizacion_preflight" => array("depurar.cta", "depurar.whatsapp", "depurar.frontend", "depurar.listo_para_whatsapp", "depurar.fase_2")
         ),
         "ejemplos" => array(
           "catalogo_manifest" => $this->resumenRespuestaFrontendHandoff($manifest, array("fase", "estado_catalogo", "ordenamientos", "endpoints_relacionados", "guardrails")),
+          "fase_2_checklist" => $this->resumenRespuestaFrontendHandoff($checklist, array("estado", "resumen", "endpoints_obligatorios", "criterios_pase_fase_3")),
           "catalogo" => $this->resumenRespuestaFrontendHandoff($catalogo, array("items", "paginacion", "frontend")),
           "producto" => $this->resumenRespuestaFrontendHandoff($producto, array("item", "variantes", "relacionados", "breadcrumbs", "seo", "acciones")),
           "seo" => $this->resumenRespuestaFrontendHandoff($seo, array("meta", "rutas", "fase_2", "resumen")),
-          "disponibilidad" => $this->resumenRespuestaFrontendHandoff($disponibilidad, array("disponibilidad", "frontend")),
-          "cotizacion_dryrun" => $this->resumenRespuestaFrontendHandoff($dryrun, array("lineas", "totales", "bloqueos", "advertencias", "frontend"))
+          "disponibilidad" => $this->resumenRespuestaFrontendHandoff($disponibilidad, array("disponibilidad", "frontend", "fase_2")),
+          "cotizacion_dryrun" => $this->resumenRespuestaFrontendHandoff($dryrun, array("lineas", "totales", "bloqueos", "advertencias", "frontend", "fase_2")),
+          "cotizacion_preflight" => $this->resumenRespuestaFrontendHandoff($preflight, array("listo_para_whatsapp", "cta", "frontend", "fase_2"))
         ),
         "fase_2" => array(
           "fase" => "fase_2_api_catalogo_robusta",
           "estado" => "handoff_consolidado",
           "frontend_puede_consumir_sin_docs" => true,
-          "bloques_listos" => array("bootstrap", "catalogo_manifest", "catalogo", "producto", "filtros", "navegacion", "secciones", "busqueda_sugerencias", "seo"),
+          "bloques_listos" => array("bootstrap", "catalogo_manifest", "fase_2_checklist", "catalogo", "producto", "filtros", "navegacion", "secciones", "busqueda_sugerencias", "seo"),
           "guardrails" => array(
             "no_requiere_filesystem" => true,
             "no_granel" => true,
@@ -460,6 +473,7 @@ class EcommerceCatalogoPublico extends CRUD {
           "contratos_api" => $this->valor($contratos, array("depurar", "base_path"), $basePath),
           "bootstrap_disponible" => !empty($bootstrap) && empty($bootstrap["error"]),
           "catalogo_manifest_disponible" => !empty($manifest) && empty($manifest["error"]),
+          "fase_2_checklist_disponible" => !empty($checklist) && empty($checklist["error"]),
           "seo_disponible" => !empty($seo) && empty($seo["error"]),
           "slug_ejemplo" => $slugEjemplo
         )
@@ -839,6 +853,7 @@ class EcommerceCatalogoPublico extends CRUD {
         "endpoints_relacionados" => array(
           "handoff" => "/ecommercePublico/frontend_handoff",
           "bootstrap" => "/ecommercePublico/bootstrap",
+          "fase_2_checklist" => "/ecommercePublico/fase_2_checklist",
           "catalogo" => "/ecommercePublico/catalogo",
           "producto" => "/ecommercePublico/producto/{slug}",
           "disponibilidad" => "/ecommercePublico/disponibilidad?slug={slug}",
@@ -852,6 +867,7 @@ class EcommerceCatalogoPublico extends CRUD {
           "buscar" => "/ecommercePublico/catalogo?q=alimento&limite=24",
           "filtrar_disponibles" => "/ecommercePublico/catalogo?disponibilidad=disponible&orden=precio_asc&limite=24",
           "estado_vacio" => "/ecommercePublico/catalogo?q=__sin_resultados_catalogo_frontend__&limite=3",
+          "checklist_fase_2" => "/ecommercePublico/fase_2_checklist",
           "producto_detalle" => $slugEjemplo !== "" ? "/ecommercePublico/producto/" . $slugEjemplo : "/ecommercePublico/producto/{slug}"
         ),
         "preview" => array(
@@ -874,6 +890,107 @@ class EcommerceCatalogoPublico extends CRUD {
       return $this->respuesta(true, "danger", $e->getMessage(), array(
         "fase" => "fase_2_api_catalogo_robusta",
         "guardrails" => array("read_only" => true, "no_granel" => true)
+      ));
+    }
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-08-06
+   * Proposito: entregar checklist de cierre de Fase 2 para que frontend externo integre sin leer docs internas.
+   * Impacto: Ecommerce publico; define endpoints obligatorios, escenarios, guardrails y criterios para pasar a Fase 3.
+   * Contrato: solo lectura; no escribe BD, no ejecuta DDL, no registra cotizaciones y no toca inventario.
+   */
+  public function fase2ChecklistPublico($opciones = array()) {
+    try {
+      $estado = $this->estadoApiPublica();
+      $publicadas = intval($this->valor($estado, array("depurar", "publicaciones", "total_publicadas"), 0));
+      $ready = !empty($estado["depurar"]["ready"]);
+      $endpoints = array(
+        array("grupo" => "arranque", "metodo" => "GET", "ruta" => "/ecommercePublico/frontend_handoff", "obligatorio" => true, "uso_frontend" => "Punto de entrada para descubrir estado, ejemplos y pruebas."),
+        array("grupo" => "arranque", "metodo" => "GET", "ruta" => "/ecommercePublico/bootstrap", "obligatorio" => true, "uso_frontend" => "Primer render de home/catalogo."),
+        array("grupo" => "catalogo", "metodo" => "GET", "ruta" => "/ecommercePublico/catalogo_manifest", "obligatorio" => true, "uso_frontend" => "Parametros, ordenamientos, previews y reglas."),
+        array("grupo" => "catalogo", "metodo" => "GET", "ruta" => "/ecommercePublico/catalogo", "obligatorio" => true, "uso_frontend" => "Listado paginado y filtros activos."),
+        array("grupo" => "catalogo", "metodo" => "GET", "ruta" => "/ecommercePublico/filtros", "obligatorio" => true, "uso_frontend" => "Facetas para filtros UI."),
+        array("grupo" => "catalogo", "metodo" => "GET", "ruta" => "/ecommercePublico/navegacion", "obligatorio" => true, "uso_frontend" => "Menus, chips y rutas explorables."),
+        array("grupo" => "catalogo", "metodo" => "GET", "ruta" => "/ecommercePublico/secciones", "obligatorio" => true, "uso_frontend" => "Bloques de home y colecciones."),
+        array("grupo" => "busqueda", "metodo" => "GET", "ruta" => "/ecommercePublico/busqueda_sugerencias", "obligatorio" => true, "uso_frontend" => "Autocomplete y busqueda guiada."),
+        array("grupo" => "producto", "metodo" => "GET", "ruta" => "/ecommercePublico/producto/{slug}", "obligatorio" => true, "uso_frontend" => "Ficha publica con relacionados, breadcrumbs, acciones y SEO."),
+        array("grupo" => "producto", "metodo" => "GET", "ruta" => "/ecommercePublico/disponibilidad", "obligatorio" => true, "uso_frontend" => "Estado publico sin stock exacto."),
+        array("grupo" => "carrito", "metodo" => "POST", "ruta" => "/ecommercePublico/cotizacion_dryrun", "obligatorio" => true, "uso_frontend" => "Validar carrito antes de contacto."),
+        array("grupo" => "carrito", "metodo" => "POST", "ruta" => "/ecommercePublico/cotizacion_preflight", "obligatorio" => true, "uso_frontend" => "Confirmar datos y generar CTA WhatsApp."),
+        array("grupo" => "seo", "metodo" => "GET", "ruta" => "/ecommercePublico/seo", "obligatorio" => true, "uso_frontend" => "Sitemap, canonical, robots y JSON-LD."),
+        array("grupo" => "legal", "metodo" => "GET", "ruta" => "/ecommercePublico/politicas", "obligatorio" => true, "uso_frontend" => "Politicas visibles y textos operativos."),
+        array("grupo" => "futuro", "metodo" => "GET", "ruta" => "/ecommercePublico/canales_estado", "obligatorio" => false, "uso_frontend" => "Estado de canales y partners futuros.")
+      );
+      $escenarios = array(
+        array("codigo" => "home_bootstrap", "endpoint" => "GET /ecommercePublico/bootstrap?limite_secciones=3", "esperado" => "ready=true, depurar.fase_2.primer_render y guardrails."),
+        array("codigo" => "catalogo_base", "endpoint" => "GET /ecommercePublico/catalogo?limite=3", "esperado" => "items, paginacion, frontend y fase_2."),
+        array("codigo" => "catalogo_filtro_disponible", "endpoint" => "GET /ecommercePublico/catalogo?disponibilidad=disponible&orden=precio_asc&limite=3", "esperado" => "filtro activo disponibilidad y precio estimado."),
+        array("codigo" => "catalogo_sin_resultados", "endpoint" => "GET /ecommercePublico/catalogo?q=__sin_resultados_catalogo_frontend__&limite=3", "esperado" => "frontend.estado_vacio.mostrar=true."),
+        array("codigo" => "producto_real", "endpoint" => "GET /ecommercePublico/producto/{slug_publicado}", "esperado" => "item, breadcrumbs, relacionados, acciones y fase_2."),
+        array("codigo" => "disponibilidad_real", "endpoint" => "GET /ecommercePublico/disponibilidad?slug={slug_publicado}", "esperado" => "mostrar_cantidad_exacta=false y fase_2.guardrails.no_stock_exacto=true."),
+        array("codigo" => "carrito_dryrun", "endpoint" => "POST /ecommercePublico/cotizacion_dryrun", "esperado" => "no_escribe_bd=true, no_descuenta_inventario=true y fase_2.flujo.endpoint_siguiente."),
+        array("codigo" => "cotizacion_preflight", "endpoint" => "POST /ecommercePublico/cotizacion_preflight", "esperado" => "folio_no_persistido=true, CTA WhatsApp si aplica y fase_2.embudo."),
+        array("codigo" => "seo_runtime", "endpoint" => "GET /ecommercePublico/seo?limite=20", "esperado" => "rutas, sitemap_xml_sugerido, canonical y no_granel=true.")
+      );
+      $criterios = array(
+        "green_gate_ok" => $ready && $publicadas > 0,
+        "publicaciones_reales_minimas" => $publicadas >= 6,
+        "frontend_no_lee_filesystem" => true,
+        "catalogo_fase_2_expuesto" => true,
+        "seo_fase_2_expuesto" => true,
+        "carrito_preflight_sin_persistencia" => true,
+        "cotizacion_registrar_sigue_bloqueado" => true,
+        "no_granel" => true,
+        "no_stock_exacto" => true,
+        "sin_checkout_pago_online" => true
+      );
+      $puedeCerrar = !in_array(false, $criterios, true);
+
+      return $this->respuesta(false, $puedeCerrar ? "success" : "warning", $puedeCerrar ? "Checklist Fase 2 listo para revision frontend" : "Checklist Fase 2 con pendientes", array(
+        "fase" => "fase_2_api_catalogo_robusta",
+        "estado" => $puedeCerrar ? "lista_para_revision_frontend" : "en_progreso",
+        "puede_pasar_a_fase_3" => $puedeCerrar,
+        "fase_3_siguiente" => "carrito_cotizacion_avanzada",
+        "resumen" => array(
+          "endpoints_obligatorios_total" => count(array_filter($endpoints, function($endpoint) { return !empty($endpoint["obligatorio"]); })),
+          "escenarios_prueba_total" => count($escenarios),
+          "publicaciones_reales" => $publicadas,
+          "senal_frontend" => $this->valor($estado, array("depurar", "senal_frontend"), "")
+        ),
+        "endpoints_obligatorios" => $endpoints,
+        "orden_integracion" => array(
+          "frontend_handoff",
+          "bootstrap",
+          "catalogo_manifest",
+          "filtros_navegacion_secciones",
+          "catalogo_listado",
+          "producto_detalle",
+          "disponibilidad",
+          "cotizacion_dryrun",
+          "cotizacion_preflight",
+          "seo"
+        ),
+        "escenarios_prueba" => $escenarios,
+        "criterios_pase_fase_3" => $criterios,
+        "pendientes" => $puedeCerrar ? array("revision_operativa_frontend_externo") : array("resolver_criterios_falsos"),
+        "guardrails" => array(
+          "read_only" => true,
+          "no_requiere_filesystem" => true,
+          "no_escribe_bd" => true,
+          "no_ejecuta_ddl" => true,
+          "no_registra_cotizacion" => true,
+          "no_descuenta_inventario" => true,
+          "no_stock_exacto" => true,
+          "no_granel" => true,
+          "no_ecom_legacy_fuente" => true
+        )
+      ));
+    } catch (Exception $e) {
+      return $this->respuesta(true, "danger", $e->getMessage(), array(
+        "fase" => "fase_2_api_catalogo_robusta",
+        "estado" => "error_checklist",
+        "guardrails" => array("read_only" => true, "no_escribe_bd" => true)
       ));
     }
   }
@@ -1806,7 +1923,8 @@ class EcommerceCatalogoPublico extends CRUD {
         return $this->respuesta(false, "info", "Disponibilidad ecommerce aun no configurada", array(
           "disponibilidad" => "consultar_disponibilidad",
           "mostrar_cantidad_exacta" => false,
-          "frontend" => $this->frontendDisponibilidadPublica("consultar_disponibilidad", false)
+          "frontend" => $this->frontendDisponibilidadPublica("consultar_disponibilidad", false),
+          "fase_2" => $this->fase2DisponibilidadPublica("consultar_disponibilidad", false, $this->frontendDisponibilidadPublica("consultar_disponibilidad", false))
         ));
       }
       $idSku = intval($this->valor($filtros, "id_sku", 0));
@@ -1815,7 +1933,8 @@ class EcommerceCatalogoPublico extends CRUD {
         return $this->respuesta(true, "warning", "Indica SKU o slug publicado", array(
           "disponibilidad" => "consultar_disponibilidad",
           "mostrar_cantidad_exacta" => false,
-          "frontend" => $this->frontendDisponibilidadPublica("consultar_disponibilidad", false)
+          "frontend" => $this->frontendDisponibilidadPublica("consultar_disponibilidad", false),
+          "fase_2" => $this->fase2DisponibilidadPublica("consultar_disponibilidad", false, $this->frontendDisponibilidadPublica("consultar_disponibilidad", false))
         ));
       }
       $where = array("pub.estatus_publicacion='publicado'", "p.estatus='activo'", "s.estatus='activo'");
@@ -1834,21 +1953,29 @@ class EcommerceCatalogoPublico extends CRUD {
         return $this->respuesta(false, "info", "SKU no publicado", array(
           "disponibilidad" => "consultar_disponibilidad",
           "mostrar_cantidad_exacta" => false,
-          "frontend" => $this->frontendDisponibilidadPublica("consultar_disponibilidad", false)
+          "frontend" => $this->frontendDisponibilidadPublica("consultar_disponibilidad", false),
+          "fase_2" => $this->fase2DisponibilidadPublica("consultar_disponibilidad", false, $this->frontendDisponibilidadPublica("consultar_disponibilidad", false))
         ));
       }
       $disponibilidad = $this->disponibilidadPublicaSugerida($fila);
       $permiteCotizacion = intval($fila["permite_cotizacion"]) === 1;
+      $frontend = $this->frontendDisponibilidadPublica($disponibilidad, $permiteCotizacion);
       return $this->respuesta(false, "success", "Disponibilidad publica consultada", array(
         "id_sku" => intval($fila["id_sku"]),
         "slug" => $fila["slug"],
         "disponibilidad" => $disponibilidad,
         "mostrar_cantidad_exacta" => false,
         "permite_cotizacion" => $permiteCotizacion,
-        "frontend" => $this->frontendDisponibilidadPublica($disponibilidad, $permiteCotizacion)
+        "frontend" => $frontend,
+        "fase_2" => $this->fase2DisponibilidadPublica($disponibilidad, $permiteCotizacion, $frontend, $fila)
       ));
     } catch (Exception $e) {
-      return $this->respuesta(true, "danger", $e->getMessage(), array("disponibilidad" => "consultar_disponibilidad"));
+      $frontend = $this->frontendDisponibilidadPublica("consultar_disponibilidad", false);
+      return $this->respuesta(true, "danger", $e->getMessage(), array(
+        "disponibilidad" => "consultar_disponibilidad",
+        "frontend" => $frontend,
+        "fase_2" => $this->fase2DisponibilidadPublica("consultar_disponibilidad", false, $frontend)
+      ));
     }
   }
 
@@ -1869,7 +1996,8 @@ class EcommerceCatalogoPublico extends CRUD {
           "lineas" => array(),
           "totales" => array("subtotal_estimado" => 0, "total_estimado" => 0, "moneda" => "MXN"),
           "bloqueos" => array("esquema_publicaciones_pendiente"),
-          "frontend" => $this->frontendCotizacionDryRun(array(), array("total_estimado" => 0, "moneda" => "MXN"), array("esquema_publicaciones_pendiente"), array())
+          "frontend" => $this->frontendCotizacionDryRun(array(), array("total_estimado" => 0, "moneda" => "MXN"), array("esquema_publicaciones_pendiente"), array()),
+          "fase_2" => $this->fase2CotizacionDryRunPublica(array(), array("total_estimado" => 0, "moneda" => "MXN"), array("esquema_publicaciones_pendiente"), array(), array())
         ));
       }
 
@@ -1880,7 +2008,8 @@ class EcommerceCatalogoPublico extends CRUD {
           "no_escribe_bd" => true,
           "lineas" => array(),
           "bloqueos" => array("items_vacios"),
-          "frontend" => $this->frontendCotizacionDryRun(array(), array("total_estimado" => 0, "moneda" => "MXN"), array("items_vacios"), array())
+          "frontend" => $this->frontendCotizacionDryRun(array(), array("total_estimado" => 0, "moneda" => "MXN"), array("items_vacios"), array()),
+          "fase_2" => $this->fase2CotizacionDryRunPublica(array(), array("total_estimado" => 0, "moneda" => "MXN"), array("items_vacios"), array(), array())
         ));
       }
 
@@ -1964,10 +2093,15 @@ class EcommerceCatalogoPublico extends CRUD {
         "advertencias" => $advertenciasFinal,
         "bloqueos" => $bloqueosFinal,
         "whatsapp_preview" => $this->mensajeWhatsAppPreview($lineas, $total),
-        "frontend" => $this->frontendCotizacionDryRun($lineas, $totales, $bloqueosFinal, $advertenciasFinal)
+        "frontend" => $this->frontendCotizacionDryRun($lineas, $totales, $bloqueosFinal, $advertenciasFinal),
+        "fase_2" => $this->fase2CotizacionDryRunPublica($lineas, $totales, $bloqueosFinal, $advertenciasFinal, $disponibilidadResumen)
       ));
     } catch (Exception $e) {
-      return $this->respuesta(true, "danger", $e->getMessage(), array("dry_run" => true, "no_escribe_bd" => true));
+      return $this->respuesta(true, "danger", $e->getMessage(), array(
+        "dry_run" => true,
+        "no_escribe_bd" => true,
+        "fase_2" => $this->fase2CotizacionDryRunPublica(array(), array("total_estimado" => 0, "moneda" => "MXN"), array("error_dryrun"), array(), array())
+      ));
     }
   }
 
@@ -2067,6 +2201,7 @@ class EcommerceCatalogoPublico extends CRUD {
         "mostrar_total_estimado" => true,
         "mostrar_leyenda_confirmacion" => true
       ),
+      "fase_2" => $this->fase2CotizacionPreflightPublica($listoWhatsapp, $listoRegistroFuturo, $lineas, $totales, $bloqueos, $advertencias, $validacionContacto, $consentimiento, $whatsappUrl),
       "advertencias" => array_values(array_unique($advertencias)),
       "bloqueos" => array_values(array_unique($bloqueos)),
       "persistencia_futura" => array(
@@ -5138,6 +5273,150 @@ class EcommerceCatalogoPublico extends CRUD {
     );
   }
 
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-08-06
+   * Proposito: entregar metadatos de Fase 2 para disponibilidad publica y CTA de cotizacion.
+   * Impacto: Frontend ecommerce; evita interpretar stock interno y centraliza decisiones de carrito.
+   * Contrato: no consulta BD, no revela cantidades exactas, no aparta ni descuenta inventario.
+   */
+  private function fase2DisponibilidadPublica($disponibilidad, $permiteCotizacion, $frontend, $fila = null) {
+    $disponibilidad = in_array($disponibilidad, $this->estadosDisponibilidadPublica(), true) ? $disponibilidad : "consultar_disponibilidad";
+    $requiereConfirmacion = $disponibilidad !== "disponible";
+    $slug = is_array($fila) ? (string) $this->valor($fila, "slug", "") : "";
+    return array(
+      "fase" => "fase_2_api_catalogo_robusta",
+      "estado" => $disponibilidad,
+      "puede_agregar_cotizacion" => !empty($permiteCotizacion),
+      "requiere_confirmacion_operativa" => $requiereConfirmacion,
+      "nivel_confianza" => $disponibilidad === "disponible" ? "alta" : ($disponibilidad === "agotado" ? "baja" : "media"),
+      "links" => array(
+        "producto" => $slug !== "" ? "/ecommercePublico/producto/" . rawurlencode($slug) : "/ecommercePublico/producto/{slug}",
+        "disponibilidad" => $slug !== "" ? "/ecommercePublico/disponibilidad?slug=" . rawurlencode($slug) : "/ecommercePublico/disponibilidad?slug={slug}",
+        "dryrun" => "/ecommercePublico/cotizacion_dryrun",
+        "preflight" => "/ecommercePublico/cotizacion_preflight"
+      ),
+      "ui" => array(
+        "badge" => $this->valor($frontend, "badge", array()),
+        "mensaje" => $this->valor($frontend, "mensaje", ""),
+        "cta" => $this->valor($frontend, "cta", array()),
+        "mostrar_alerta_confirmacion" => $requiereConfirmacion,
+        "permitir_en_carrito" => !empty($permiteCotizacion),
+        "siguiente_accion" => "cotizacion_dryrun"
+      ),
+      "guardrails" => array(
+        "no_stock_exacto" => true,
+        "no_reserva_inventario" => true,
+        "no_descuenta_inventario" => true,
+        "precio_es_estimado" => true,
+        "no_granel" => true
+      )
+    );
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-08-06
+   * Proposito: resumir la Fase 2 del carrito dry-run con pasos, CTA y limites para frontend.
+   * Impacto: Ecommerce publico; prepara UI de carrito sin persistencia real ni calculos locales de precio.
+   * Contrato: no escribe BD, no crea pedido, no descuenta inventario y mantiene no_granel.
+   */
+  private function fase2CotizacionDryRunPublica($lineas, $totales, $bloqueos, $advertencias, $disponibilidadResumen) {
+    $lineas = is_array($lineas) ? $lineas : array();
+    $bloqueos = is_array($bloqueos) ? array_values(array_unique($bloqueos)) : array();
+    $advertencias = is_array($advertencias) ? array_values(array_unique($advertencias)) : array();
+    $lineasTotal = count($lineas);
+    $estado = $lineasTotal <= 0 ? "vacio" : (empty($bloqueos) ? (empty($advertencias) ? "listo" : "observaciones") : "bloqueado");
+    return array(
+      "fase" => "fase_2_api_catalogo_robusta",
+      "estado" => $estado,
+      "resumen_carrito" => array(
+        "lineas_total" => $lineasTotal,
+        "cantidad_total" => $this->sumarCantidadLineasCotizacion($lineas),
+        "bloqueos_total" => count($bloqueos),
+        "advertencias_total" => count($advertencias),
+        "disponibilidad" => $this->resumenDisponibilidadCotizacion($disponibilidadResumen),
+        "total_estimado" => floatval($this->valor($totales, "total_estimado", 0)),
+        "moneda" => (string) $this->valor($totales, "moneda", "MXN")
+      ),
+      "flujo" => array(
+        "paso_actual" => "carrito",
+        "siguiente_paso" => empty($bloqueos) && $lineasTotal > 0 ? "cotizacion_preflight" : "corregir_carrito",
+        "endpoint_siguiente" => "/ecommercePublico/cotizacion_preflight",
+        "puede_continuar" => empty($bloqueos) && $lineasTotal > 0
+      ),
+      "ui" => array(
+        "mostrar_lineas" => true,
+        "mostrar_total_estimado" => true,
+        "mostrar_whatsapp_preview" => $lineasTotal > 0,
+        "mostrar_observaciones" => !empty($bloqueos) || !empty($advertencias),
+        "permitir_eliminar_lineas" => true,
+        "permitir_editar_cantidad" => true
+      ),
+      "limites" => array(
+        "max_items" => 50,
+        "max_cantidad_por_linea" => 999,
+        "min_cantidad_por_linea" => 0.000001
+      ),
+      "guardrails" => array(
+        "read_only" => true,
+        "no_escribe_bd" => true,
+        "no_descuenta_inventario" => true,
+        "no_crea_pedido" => true,
+        "no_usar_precio_local_como_total" => true,
+        "no_granel" => true
+      )
+    );
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-08-06
+   * Proposito: entregar metadatos de Fase 2 para confirmar cotizacion antes de WhatsApp/persistencia futura.
+   * Impacto: Frontend ecommerce; estabiliza embudo carrito-contacto-confirmacion-WhatsApp.
+   * Contrato: no escribe BD, no envia WhatsApp, no registra cotizacion y no aparta inventario.
+   */
+  private function fase2CotizacionPreflightPublica($listoWhatsapp, $listoRegistroFuturo, $lineas, $totales, $bloqueos, $advertencias, $validacionContacto, $consentimiento, $whatsappUrl) {
+    $lineas = is_array($lineas) ? $lineas : array();
+    $bloqueos = is_array($bloqueos) ? array_values(array_unique($bloqueos)) : array();
+    $advertencias = is_array($advertencias) ? array_values(array_unique($advertencias)) : array();
+    return array(
+      "fase" => "fase_2_api_catalogo_robusta",
+      "estado" => !empty($listoWhatsapp) ? "listo_para_whatsapp" : "requiere_revision",
+      "embudo" => array(
+        "paso_actual" => "confirmacion",
+        "pasos" => array("carrito", "datos_contacto", "confirmacion", "whatsapp"),
+        "siguiente_accion" => !empty($listoWhatsapp) ? "abrir_whatsapp" : "corregir_datos",
+        "puede_abrir_whatsapp" => !empty($listoWhatsapp),
+        "puede_registro_futuro" => !empty($listoRegistroFuturo)
+      ),
+      "resumen" => array(
+        "lineas_total" => count($lineas),
+        "total_estimado" => floatval($this->valor($totales, "total_estimado", 0)),
+        "moneda" => (string) $this->valor($totales, "moneda", "MXN"),
+        "bloqueos_total" => count($bloqueos),
+        "advertencias_total" => count($advertencias)
+      ),
+      "contacto" => array(
+        "valido_para_whatsapp" => !empty($validacionContacto["valido_para_whatsapp"]),
+        "valido_para_registro_futuro" => !empty($validacionContacto["valido_para_registro_futuro"]),
+        "consentimiento_registro_futuro" => !empty($consentimiento["listo_para_registro_futuro"])
+      ),
+      "cta" => array(
+        "tipo" => !empty($listoWhatsapp) ? "whatsapp" : "corregir_datos",
+        "label" => !empty($listoWhatsapp) ? "Enviar por WhatsApp" : "Revisar cotizacion",
+        "url" => (string) $whatsappUrl,
+        "disabled" => empty($listoWhatsapp)
+      ),
+      "guardrails" => array(
+        "preflight" => true,
+        "no_escribe_bd" => true,
+        "no_envia_whatsapp_servidor" => true,
+        "no_registra_cotizacion" => true,
+        "no_descuenta_inventario" => true,
+        "no_crea_pedido" => true,
+        "no_granel" => true
+      )
+    );
+  }
+
   private function ordenCatalogoPublicoNormalizado($orden) {
     $orden = trim((string) $orden);
     return in_array($orden, array("relevancia", "nombre", "precio_asc", "precio_desc", "recientes"), true) ? $orden : "relevancia";
@@ -6172,6 +6451,7 @@ class EcommerceCatalogoPublico extends CRUD {
       array("metodo" => "GET", "ruta" => "/ecommercePublico/taxonomia_mascotas", "uso_frontend" => "Navegacion especializada por mascotas y necesidades."),
       array("metodo" => "GET", "ruta" => "/ecommercePublico/catalogo", "uso_frontend" => "Listado paginado de productos publicados."),
       array("metodo" => "GET", "ruta" => "/ecommercePublico/catalogo_manifest", "uso_frontend" => "Descubrir filtros, ordenamientos, limites y reglas de catalogo robusto."),
+      array("metodo" => "GET", "ruta" => "/ecommercePublico/fase_2_checklist", "uso_frontend" => "Checklist de cierre Fase 2, escenarios y criterios para pasar a Fase 3."),
       array("metodo" => "GET", "ruta" => "/ecommercePublico/producto/{slug}", "uso_frontend" => "Ficha publica de producto."),
       array("metodo" => "GET", "ruta" => "/ecommercePublico/disponibilidad", "uso_frontend" => "Estado publico sin stock exacto."),
       array("metodo" => "GET", "ruta" => "/ecommercePublico/canales_estado", "uso_frontend" => "Estado de canal propio y partners."),
@@ -6189,6 +6469,7 @@ class EcommerceCatalogoPublico extends CRUD {
       array("nombre" => "estado", "metodo" => "GET", "url" => $baseApi . "/estado"),
       array("nombre" => "contratos", "metodo" => "GET", "url" => $baseApi . "/contratos"),
       array("nombre" => "bootstrap", "metodo" => "GET", "url" => $baseApi . "/bootstrap?limite_secciones=6"),
+      array("nombre" => "fase_2_checklist", "metodo" => "GET", "url" => $baseApi . "/fase_2_checklist"),
       array("nombre" => "catalogo", "metodo" => "GET", "url" => $baseApi . "/catalogo?limite=3"),
       array("nombre" => "catalogo_sin_resultados", "metodo" => "GET", "url" => $baseApi . "/catalogo?q=__sin_resultados_catalogo_frontend__&limite=3"),
       array("nombre" => "producto", "metodo" => "GET", "url" => $baseApi . "/producto/" . rawurlencode($slug)),

@@ -156,6 +156,10 @@ Contrato:
 - en `busqueda_sugerencias`, expone `depurar.fase_2` con orden de grupos, links, estado vacio, UI y guardrails;
 - en `seo`, expone `depurar.fase_2` con archivos sugeridos, canonical, rutas por tipo, JSON-LD y guardrails;
 - en `frontend_handoff`, expone `depurar.fase_2`, ejemplos de `catalogo_manifest` y `seo`, y contratos UI consolidados para que frontend no lea archivos internos;
+- en `disponibilidad`, expone `depurar.fase_2` con estado, CTA, links de dry-run/preflight, confirmacion operativa y guardrails;
+- en `cotizacion_dryrun`, expone `depurar.fase_2` con resumen de carrito, flujo, limites, UI y guardrails;
+- en `cotizacion_preflight`, expone `depurar.fase_2` con embudo carrito-contacto-confirmacion-WhatsApp, CTA y guardrails;
+- `GET /ecommercePublico/fase_2_checklist` expone cierre de Fase 2 con endpoints obligatorios, orden de integracion, escenarios de prueba y criterios de pase a Fase 3;
 - OpenAPI read-only declara Fase 2 de catalogo robusto, `no_granel=true` y bloque `depurar.fase_2` en handoff;
 - mantiene guardrail `no_granel=true`.
 
@@ -187,8 +191,10 @@ Resultado:
 - `busqueda_sugerencias` por HTTP expone `fase_2`, links de resultados y guardrail `no_granel=true`.
 - `seo` por HTTP expone `fase_2`, canonical y guardrail `no_granel=true`.
 - `frontend_handoff` por HTTP expone `fase_2`, ejemplos de manifest/SEO y `no_requiere_filesystem=true`.
+- `disponibilidad`, `cotizacion_dryrun` y `cotizacion_preflight` exponen `fase_2` para UI de carrito/cotizacion sin persistencia real.
+- `fase_2_checklist` por HTTP expone endpoints obligatorios, escenarios de prueba, criterios de pase y guardrail `no_granel=true`.
 - OpenAPI read-only genera especificacion con Fase 2 y guardrail `no_granel=true`.
 
 Siguiente tarea recomendada en Fase 2:
 
-- Revisar disponibilidad/preflight de carrito para dejar la experiencia de "agregar a cotizacion" mas completa antes de pasar a persistencia real.
+- Esperar revision de frontend externo contra `GET /ecommercePublico/fase_2_checklist`; si no hay bloqueos de integracion, pasar a Fase 3: carrito/cotizacion avanzada y persistencia autorizada.

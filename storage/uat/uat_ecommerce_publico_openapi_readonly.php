@@ -103,6 +103,7 @@ $schema = array(
         )
       ))
     ),
+    "/fase_2_checklist" => array("get" => endpointOpenApi("Checklist de cierre Fase 2 para frontend externo")),
     "/canales_estado" => array("get" => endpointOpenApi("Estado publico seguro de canales/API para Artiani y partners")),
     "/producto/{slug}" => array(
       "get" => array_merge(endpointOpenApi("Detalle publico de producto publicado", "#/components/schemas/ProductoDetalleResponse"), array(
@@ -385,7 +386,8 @@ $schema = array(
           "disponibilidad" => array("type" => "string", "enum" => array("disponible", "pocas_piezas", "consultar_disponibilidad", "agotado")),
           "mostrar_cantidad_exacta" => array("type" => "boolean", "example" => false),
           "permite_cotizacion" => array("type" => "boolean"),
-          "frontend" => array('$ref' => "#/components/schemas/DisponibilidadFrontend")
+          "frontend" => array('$ref' => "#/components/schemas/DisponibilidadFrontend"),
+          "fase_2" => array("type" => "object")
         )
       ),
       "DisponibilidadResponse" => erpResponseSchema("#/components/schemas/DisponibilidadDepurar"),
@@ -419,7 +421,8 @@ $schema = array(
           "advertencias" => array("type" => "array", "items" => array("type" => "string")),
           "bloqueos" => array("type" => "array", "items" => array("type" => "string")),
           "whatsapp_preview" => array("type" => "string"),
-          "frontend" => array('$ref' => "#/components/schemas/CotizacionDryRunFrontend")
+          "frontend" => array('$ref' => "#/components/schemas/CotizacionDryRunFrontend"),
+          "fase_2" => array("type" => "object")
         )
       ),
       "CotizacionDryRunResponse" => erpResponseSchema("#/components/schemas/CotizacionDryRunDepurar"),

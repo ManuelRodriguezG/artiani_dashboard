@@ -41,6 +41,12 @@
             border-right: 2px dashed rgba(0, 0, 0, .35);
             background: rgba(255, 255, 255, .32);
         }
+        .vidrio-waste {
+            background: var(--bs-light-warning);
+            border: 1px solid var(--bs-warning);
+            border-radius: 6px;
+            padding: .5rem .75rem;
+        }
     </style>
 </head>
 <body id="kt_app_body" data-kt-app-layout="dark-sidebar" data-kt-app-header-fixed="true" data-kt-app-sidebar-enabled="true" data-kt-app-sidebar-fixed="true" class="app-default">
@@ -117,6 +123,24 @@
 
                         <div class="card mb-6">
                             <div class="card-header border-0 pt-5">
+                                <h2 class="fw-bold fs-4 mb-0">Guardar y comparar pedidos</h2>
+                            </div>
+                            <div class="card-body pt-3">
+                                <div class="row g-4 align-items-end mb-5">
+                                    <div class="col-lg-8">
+                                        <label class="form-label fw-semibold">Nombre del pedido</label>
+                                        <input class="form-control" id="peceras_pedido_nombre" maxlength="140" placeholder="Pedido vidrio peceras agosto">
+                                    </div>
+                                    <div class="col-lg-4 d-grid">
+                                        <button class="btn btn-light-primary" type="button" id="peceras_pedido_guardar"><i class="bi bi-save"></i> Guardar pedido</button>
+                                    </div>
+                                </div>
+                                <div id="peceras_pedido_guardados"></div>
+                            </div>
+                        </div>
+
+                        <div class="card mb-6">
+                            <div class="card-header border-0 pt-5">
                                 <h2 class="fw-bold fs-4 mb-0">Tipos de hoja detectados</h2>
                             </div>
                             <div class="card-body pt-3">
@@ -130,11 +154,46 @@
                             </div>
                         </div>
 
+                        <div class="card mb-6">
+                            <div class="card-header border-0 pt-5">
+                                <h2 class="fw-bold fs-4 mb-0">Piezas extra para sobrante</h2>
+                            </div>
+                            <div class="card-body pt-3">
+                                <div class="row g-4 align-items-end">
+                                    <div class="col-lg-3">
+                                        <label class="form-label fw-semibold">Nombre</label>
+                                        <input class="form-control" id="peceras_extra_nombre" maxlength="120" placeholder="Tapa extra, refuerzo, repuesto">
+                                    </div>
+                                    <div class="col-lg-2">
+                                        <label class="form-label fw-semibold">Largo cm</label>
+                                        <input class="form-control" id="peceras_extra_largo" inputmode="decimal">
+                                    </div>
+                                    <div class="col-lg-2">
+                                        <label class="form-label fw-semibold">Ancho cm</label>
+                                        <input class="form-control" id="peceras_extra_ancho" inputmode="decimal">
+                                    </div>
+                                    <div class="col-lg-2">
+                                        <label class="form-label fw-semibold">Espesor mm</label>
+                                        <input class="form-control" id="peceras_extra_espesor" inputmode="decimal" value="5">
+                                    </div>
+                                    <div class="col-lg-2">
+                                        <label class="form-label fw-semibold">Cantidad</label>
+                                        <input class="form-control text-center" id="peceras_extra_cantidad" inputmode="numeric" value="1">
+                                    </div>
+                                    <div class="col-lg-1 d-grid">
+                                        <button class="btn btn-primary" type="button" id="peceras_extra_agregar"><i class="bi bi-plus-lg"></i></button>
+                                    </div>
+                                </div>
+                                <div class="mt-4" id="peceras_extra_lista"></div>
+                            </div>
+                        </div>
+
                         <div class="row g-4 mb-6">
                             <div class="col-md-3"><div class="card"><div class="card-body"><div class="text-muted">Perfiles</div><div class="fs-2 fw-bold" id="peceras_pedido_kpi_perfiles">0</div></div></div></div>
                             <div class="col-md-3"><div class="card"><div class="card-body"><div class="text-muted">Piezas</div><div class="fs-2 fw-bold" id="peceras_pedido_kpi_piezas">0</div></div></div></div>
                             <div class="col-md-3"><div class="card"><div class="card-body"><div class="text-muted">Area vidrio</div><div class="fs-2 fw-bold" id="peceras_pedido_kpi_area">0 m2</div></div></div></div>
                             <div class="col-md-3"><div class="card"><div class="card-body"><div class="text-muted">Hojas estimadas</div><div class="fs-2 fw-bold" id="peceras_pedido_kpi_hojas">0</div></div></div></div>
+                            <div class="col-md-3"><div class="card"><div class="card-body"><div class="text-muted">Desperdicio promedio</div><div class="fs-2 fw-bold" id="peceras_pedido_kpi_desperdicio">0%</div></div></div></div>
                         </div>
 
                         <div class="row g-6">
@@ -164,7 +223,7 @@
                                         <div class="separator my-5"></div>
                                         <div class="table-responsive">
                                             <table class="table table-row-dashed align-middle gy-3">
-                                                <thead><tr class="text-muted fw-bold fs-7 text-uppercase"><th>Perfil</th><th>Pieza</th><th>Medida</th><th>Espesor</th><th>Total</th></tr></thead>
+                                                <thead><tr class="text-muted fw-bold fs-7 text-uppercase"><th>Perfil</th><th>Pieza</th><th>Medida</th><th>Espesor</th><th>Total</th><th></th></tr></thead>
                                                 <tbody id="peceras_pedido_piezas"></tbody>
                                             </table>
                                         </div>
@@ -180,6 +239,6 @@
 </div>
 <script src="assets/plugins/global/plugins.bundle.js"></script>
 <script src="assets/js/scripts.bundle.js"></script>
-<script src="/assets/js/custom/apps/erp/produccion/peceras_pedido_vidrio.js?v=20260804-6"></script>
+<script src="/assets/js/custom/apps/erp/produccion/peceras_pedido_vidrio.js?v=20260806-3"></script>
 </body>
 </html>

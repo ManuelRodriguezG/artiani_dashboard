@@ -83,6 +83,8 @@ Fecha: 2026-08-03
 - Actualizacion 2026-08-04 adicional: el acomodo por filas ya muestra una vista visual proporcional por hoja con piezas posicionadas.
 - Actualizacion 2026-08-04 adicional: se ajusto el acomodo default a `Bandas corte ancho`, porque el proveedor alinea piezas hacia lo largo para que cada linea de corte cruce recta el lado angosto de la hoja.
 - Actualizacion 2026-08-04 adicional: el pedido multiple detecta tipos de hoja por espesor y permite ajustar largo, ancho, merma y separacion por cada espesor detectado.
+- Actualizacion 2026-08-06: el pedido multiple permite agregar piezas extra manuales o duplicar piezas calculadas como extra para aprovechar sobrantes de hoja; entran al mismo acomodo visual por espesor.
+- Actualizacion 2026-08-06: el acomodo visual muestra desperdicio y aprovechamiento por hoja; el pedido multiple puede guardarse localmente con desperdicio promedio para comparar pedidos historicos y cargar el mejor acomodo.
 - Funciona hoy: captura medidas, calcula piezas de vidrio, permite editar cortes, calcula m2/costo estimado, imprime hoja de pedido, copia texto, importa/exporta JSON, exporta CSV, guarda borradores locales en navegador, lista perfiles locales y arma pedidos multiples locales con estimacion por hojas.
 - Limitacion actual: el acomodo por filas es una heuristica first-fit con rotacion; no hace optimizacion CAD/CAM ni nesting industrial exacto.
 - Decision: no crea solicitud de compra real todavia porque Compras exige partidas fisicas con SKU ERP y relacion proveedor-SKU activa.

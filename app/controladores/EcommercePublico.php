@@ -69,6 +69,17 @@ class EcommercePublico extends Controlador {
   }
 
   /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-08-06
+   * Proposito: exponer checklist de cierre de Fase 2 para el frontend ecommerce externo.
+   * Impacto: Frontend ecommerce; centraliza endpoints obligatorios, orden de integracion y criterios para pasar a Fase 3.
+   * Contrato: GET publico read-only; no escribe BD, no ejecuta DDL y no toca inventario.
+   */
+  public function fase_2_checklist() {
+    if ($this->esOptionsPublicas()) { return $this->responderOpcionesPublicas(); }
+    return $this->responderApiPublica($this->modelo("EcommerceCatalogoPublico")->fase2ChecklistPublico($_GET));
+  }
+
+  /**
    * Documentacion IA: Codex GPT-5 | Fecha: 2026-07-11
    * Proposito: exponer detalle publico por slug de una publicacion ecommerce.
    * Impacto: Ecommerce publico; prepara ficha de producto sin usar `ecom_*` como fuente.

@@ -23,6 +23,7 @@ $pruebas = array(
   "secciones" => requestHttp($base . "/ecommercePublico/secciones?limite=3"),
   "catalogo" => requestHttp($base . "/ecommercePublico/catalogo?limite=3"),
   "catalogo_manifest" => requestHttp($base . "/ecommercePublico/catalogo_manifest?limite_preview=2"),
+  "fase_2_checklist" => requestHttp($base . "/ecommercePublico/fase_2_checklist"),
   "catalogo_disponible_ordenado" => requestHttp($base . "/ecommercePublico/catalogo?disponibilidad=disponible&orden=precio_asc&limite=3"),
   "catalogo_sin_resultados" => requestHttp($base . "/ecommercePublico/catalogo?q=__sin_resultados_catalogo_frontend__&limite=3"),
   "canales_estado" => requestHttp($base . "/ecommercePublico/canales_estado"),
@@ -72,7 +73,7 @@ foreach ($pruebas as $nombre => $prueba) {
     $bloqueos[] = $nombre . "_no_responde_json";
   }
 }
-foreach (array("frontend_handoff", "bootstrap", "seo", "filtros", "busqueda_sugerencias", "navegacion", "secciones", "catalogo_manifest", "catalogo_disponible_ordenado", "canales_estado") as $endpointNuevo) {
+foreach (array("frontend_handoff", "bootstrap", "seo", "filtros", "busqueda_sugerencias", "navegacion", "secciones", "catalogo_manifest", "fase_2_checklist", "catalogo_disponible_ordenado", "canales_estado") as $endpointNuevo) {
   if (!$pruebas[$endpointNuevo]["json_valido"] || !in_array($pruebas[$endpointNuevo]["tipo"], array("success", "info"), true)) {
     $bloqueos[] = $endpointNuevo . "_no_responde_success_o_info";
   }
@@ -82,6 +83,9 @@ if ($pruebas["frontend_handoff"]["depurar_resumen"]["handoff_senal_frontend"] ==
 }
 if ($pruebas["frontend_handoff"]["depurar_resumen"]["handoff_endpoints_total"] < 20) {
   $bloqueos[] = "frontend_handoff_debe_exponer_endpoints";
+}
+if ($pruebas["frontend_handoff"]["depurar_resumen"]["handoff_endpoints_total"] < 24) {
+  $bloqueos[] = "frontend_handoff_debe_incluir_checklist_fase_2";
 }
 if ($pruebas["frontend_handoff"]["depurar_resumen"]["handoff_pruebas_total"] < 7) {
   $bloqueos[] = "frontend_handoff_debe_exponer_pruebas_api";
@@ -173,6 +177,15 @@ if ($pruebas["catalogo_manifest"]["depurar_resumen"]["catalogo_manifest_no_grane
 if ($pruebas["catalogo_manifest"]["depurar_resumen"]["catalogo_manifest_ordenamientos_total"] < 5) {
   $bloqueos[] = "catalogo_manifest_debe_exponer_ordenamientos";
 }
+if ($pruebas["fase_2_checklist"]["depurar_resumen"]["fase_2_checklist_no_granel"] !== true) {
+  $bloqueos[] = "fase_2_checklist_debe_bloquear_granel";
+}
+if ($pruebas["fase_2_checklist"]["depurar_resumen"]["fase_2_checklist_endpoints_total"] < 12) {
+  $bloqueos[] = "fase_2_checklist_debe_exponer_endpoints";
+}
+if ($pruebas["fase_2_checklist"]["depurar_resumen"]["fase_2_checklist_escenarios_total"] < 8) {
+  $bloqueos[] = "fase_2_checklist_debe_exponer_escenarios";
+}
 if ($primerSlugCatalogo === "") {
   $bloqueos[] = "catalogo_debe_exponer_primer_slug_para_smoke";
 } elseif (empty($pruebas["producto_real"]["depurar_resumen"]["item_presente"])) {
@@ -208,6 +221,12 @@ if ($primerSlugCatalogo === "") {
   if ($pruebas["disponibilidad_real"]["depurar_resumen"]["disponibilidad_frontend_requiere_dryrun"] !== true) {
     $bloqueos[] = "disponibilidad_real_debe_requerir_dryrun";
   }
+  if ($pruebas["disponibilidad_real"]["depurar_resumen"]["disponibilidad_fase_2_no_granel"] !== true) {
+    $bloqueos[] = "disponibilidad_real_fase_2_debe_bloquear_granel";
+  }
+  if ($pruebas["disponibilidad_real"]["depurar_resumen"]["disponibilidad_fase_2_puede_carrito"] !== true) {
+    $bloqueos[] = "disponibilidad_real_fase_2_debe_permitir_carrito";
+  }
 }
 if (empty($pruebas["cotizacion_registrar"]["depurar_resumen"]["bloqueado"])) {
   $bloqueos[] = "cotizacion_registrar_debe_seguir_bloqueado";
@@ -220,6 +239,18 @@ if ($pruebas["cotizacion_dryrun"]["depurar_resumen"]["dryrun_frontend_cta_endpoi
 }
 if ($pruebas["cotizacion_dryrun"]["depurar_resumen"]["dryrun_frontend_no_precio_local"] !== true) {
   $bloqueos[] = "dryrun_frontend_debe_bloquear_precio_local";
+}
+if ($pruebas["cotizacion_dryrun"]["depurar_resumen"]["dryrun_fase_2_no_granel"] !== true) {
+  $bloqueos[] = "dryrun_fase_2_debe_bloquear_granel";
+}
+if ($pruebas["cotizacion_dryrun"]["depurar_resumen"]["dryrun_fase_2_endpoint"] !== "/ecommercePublico/cotizacion_preflight") {
+  $bloqueos[] = "dryrun_fase_2_debe_indicar_preflight";
+}
+if ($pruebas["cotizacion_preflight"]["depurar_resumen"]["preflight_fase_2_no_granel"] !== true) {
+  $bloqueos[] = "preflight_fase_2_debe_bloquear_granel";
+}
+if ($pruebas["cotizacion_preflight"]["depurar_resumen"]["preflight_fase_2_embudo"] !== true) {
+  $bloqueos[] = "preflight_fase_2_debe_exponer_embudo";
 }
 foreach (array("facturacion_solicitar", "evento_navegacion", "busqueda_registrar") as $endpointPreflight) {
   if (empty($pruebas[$endpointPreflight]["depurar_resumen"]["preflight"])) {
@@ -293,8 +324,12 @@ function resumenDepurarHttpSmoke($depurar) {
     "dryrun_frontend_cta_label" => valorHttpSmoke($depurar, array("frontend", "cta_principal", "label"), ""),
     "dryrun_frontend_cta_endpoint" => valorHttpSmoke($depurar, array("frontend", "cta_principal", "endpoint_siguiente"), ""),
     "dryrun_frontend_no_precio_local" => valorHttpSmoke($depurar, array("frontend", "guardrails_ui", "no_usar_precio_local_como_total"), null),
+    "dryrun_fase_2_no_granel" => valorHttpSmoke($depurar, array("fase_2", "guardrails", "no_granel"), null),
+    "dryrun_fase_2_endpoint" => valorHttpSmoke($depurar, array("fase_2", "flujo", "endpoint_siguiente"), ""),
     "preflight" => valorHttpSmoke($depurar, array("preflight"), null),
     "listo_para_whatsapp" => valorHttpSmoke($depurar, array("listo_para_whatsapp"), null),
+    "preflight_fase_2_no_granel" => valorHttpSmoke($depurar, array("fase_2", "guardrails", "no_granel"), null),
+    "preflight_fase_2_embudo" => is_array(valorHttpSmoke($depurar, array("fase_2", "embudo"), null)),
     "bloqueado" => valorHttpSmoke($depurar, array("bloqueado"), null),
     "disponibilidad" => valorHttpSmoke($depurar, array("disponibilidad"), null),
     "disponibilidad_frontend_estado" => valorHttpSmoke($depurar, array("frontend", "estado"), null),
@@ -302,6 +337,8 @@ function resumenDepurarHttpSmoke($depurar) {
     "disponibilidad_frontend_cta_label" => valorHttpSmoke($depurar, array("frontend", "cta", "label"), ""),
     "disponibilidad_frontend_stock_exacto" => valorHttpSmoke($depurar, array("frontend", "mostrar_stock_exacto"), null),
     "disponibilidad_frontend_requiere_dryrun" => valorHttpSmoke($depurar, array("frontend", "requiere_dryrun_antes_de_whatsapp"), null),
+    "disponibilidad_fase_2_no_granel" => valorHttpSmoke($depurar, array("fase_2", "guardrails", "no_granel"), null),
+    "disponibilidad_fase_2_puede_carrito" => valorHttpSmoke($depurar, array("fase_2", "puede_agregar_cotizacion"), null),
     "bootstrap_guardrails" => is_array(valorHttpSmoke($depurar, array("guardrails"), null)),
     "bootstrap_fase_2_no_granel" => valorHttpSmoke($depurar, array("fase_2", "guardrails", "no_granel"), null),
     "bootstrap_fase_2_primer_render" => is_array(valorHttpSmoke($depurar, array("fase_2", "primer_render"), null)),
@@ -328,6 +365,10 @@ function resumenDepurarHttpSmoke($depurar) {
     "catalogo_manifest_fase" => valorHttpSmoke($depurar, array("fase"), ""),
     "catalogo_manifest_no_granel" => valorHttpSmoke($depurar, array("guardrails", "no_granel"), null),
     "catalogo_manifest_ordenamientos_total" => is_array(valorHttpSmoke($depurar, array("ordenamientos"), null)) ? count($depurar["ordenamientos"]) : null,
+    "fase_2_checklist_no_granel" => valorHttpSmoke($depurar, array("criterios_pase_fase_3", "no_granel"), null),
+    "fase_2_checklist_endpoints_total" => is_array(valorHttpSmoke($depurar, array("endpoints_obligatorios"), null)) ? count($depurar["endpoints_obligatorios"]) : null,
+    "fase_2_checklist_escenarios_total" => is_array(valorHttpSmoke($depurar, array("escenarios_prueba"), null)) ? count($depurar["escenarios_prueba"]) : null,
+    "fase_2_checklist_pasa_fase_3" => valorHttpSmoke($depurar, array("puede_pasar_a_fase_3"), null),
     "item_presente" => array_key_exists("item", $depurar) ? ($depurar["item"] !== null) : null,
     "items_total" => is_array(valorHttpSmoke($depurar, array("items"), null)) ? count($depurar["items"]) : null,
     "primer_slug" => valorHttpSmoke($depurar, array("items", 0, "slug"), ""),

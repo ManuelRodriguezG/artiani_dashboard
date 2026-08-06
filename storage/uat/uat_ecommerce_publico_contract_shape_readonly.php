@@ -29,6 +29,7 @@ $respuestas = array(
   "taxonomia_mascotas" => $modelo->taxonomiaMascotasPublica(),
   "catalogo" => $modelo->catalogoPublico(array("limite" => 3)),
   "catalogo_manifest" => $modelo->catalogoManifestPublico(array("limite_preview" => 2)),
+  "fase_2_checklist" => $modelo->fase2ChecklistPublico(),
   "producto" => $modelo->productoPublico("slug-de-prueba-no-publicado"),
   "disponibilidad" => $modelo->disponibilidadPublica(array("slug" => "slug-de-prueba-no-publicado")),
   "canales_estado" => $modelo->canalesApiEstadoPublico(),
@@ -84,6 +85,7 @@ validarPolitica($respuestas["politica_facturacion"], $bloqueos);
 validarTaxonomiaMascotas($respuestas["taxonomia_mascotas"], $bloqueos);
 validarCatalogo($respuestas["catalogo"], $bloqueos);
 validarCatalogoManifest($respuestas["catalogo_manifest"], $bloqueos);
+validarFase2Checklist($respuestas["fase_2_checklist"], $bloqueos);
 validarProducto($respuestas["producto"], $bloqueos);
 validarDisponibilidad($respuestas["disponibilidad"], $bloqueos);
 validarCanalesEstado($respuestas["canales_estado"], $bloqueos);
@@ -99,7 +101,7 @@ echo json_encode(array(
   "modo" => "read-only",
   "shape" => array(
     "wrappers_validados" => array_keys($respuestas),
-    "endpoints_publicos_esperados" => 23,
+    "endpoints_publicos_esperados" => 24,
     "item_catalogo_keys" => itemCatalogoKeys()
   ),
   "bloqueos" => $bloqueos,
@@ -148,6 +150,7 @@ function validarRutas($respuesta, &$bloqueos) {
     "/ecommercePublico/canales_estado",
     "/ecommercePublico/seo",
     "/ecommercePublico/catalogo_manifest",
+    "/ecommercePublico/fase_2_checklist",
     "/ecommercePublico/disponibilidad",
     "/ecommercePublico/cotizacion_dryrun",
     "/ecommercePublico/cotizacion_preflight",
@@ -452,6 +455,29 @@ function validarCatalogoManifest($respuesta, &$bloqueos) {
   }
 }
 
+function validarFase2Checklist($respuesta, &$bloqueos) {
+  foreach (array("endpoints_obligatorios", "orden_integracion", "escenarios_prueba", "criterios_pase_fase_3", "guardrails") as $key) {
+    if (!is_array(valorShape($respuesta, array("depurar", $key), null))) {
+      $bloqueos[] = "fase_2_checklist_falta_array_" . $key;
+    }
+  }
+  if (valorShape($respuesta, array("depurar", "fase"), "") !== "fase_2_api_catalogo_robusta") {
+    $bloqueos[] = "fase_2_checklist_fase_invalida";
+  }
+  if (count(valorShape($respuesta, array("depurar", "endpoints_obligatorios"), array())) < 12) {
+    $bloqueos[] = "fase_2_checklist_faltan_endpoints";
+  }
+  if (count(valorShape($respuesta, array("depurar", "escenarios_prueba"), array())) < 8) {
+    $bloqueos[] = "fase_2_checklist_faltan_escenarios";
+  }
+  if (valorShape($respuesta, array("depurar", "criterios_pase_fase_3", "no_granel"), false) !== true) {
+    $bloqueos[] = "fase_2_checklist_debe_bloquear_granel";
+  }
+  if (valorShape($respuesta, array("depurar", "guardrails", "no_requiere_filesystem"), false) !== true) {
+    $bloqueos[] = "fase_2_checklist_no_debe_requerir_filesystem";
+  }
+}
+
 function validarProducto($respuesta, &$bloqueos) {
   if (valorShape($respuesta, array("depurar", "item"), "__missing__") === "__missing__") {
     $bloqueos[] = "producto_falta_item";
@@ -474,6 +500,15 @@ function validarDisponibilidad($respuesta, &$bloqueos) {
   }
   if (valorShape($respuesta, array("depurar", "frontend", "requiere_dryrun_antes_de_whatsapp"), false) !== true) {
     $bloqueos[] = "disponibilidad_frontend_debe_requerir_dryrun";
+  }
+  if (!is_array(valorShape($respuesta, array("depurar", "fase_2"), null))) {
+    $bloqueos[] = "disponibilidad_fase_2_debe_ser_array";
+  }
+  if (valorShape($respuesta, array("depurar", "fase_2", "guardrails", "no_granel"), false) !== true) {
+    $bloqueos[] = "disponibilidad_fase_2_debe_bloquear_granel";
+  }
+  if (valorShape($respuesta, array("depurar", "fase_2", "guardrails", "no_stock_exacto"), false) !== true) {
+    $bloqueos[] = "disponibilidad_fase_2_no_debe_exponer_stock";
   }
 }
 
@@ -510,6 +545,15 @@ function validarDryRun($respuesta, &$bloqueos) {
   if (valorShape($respuesta, array("depurar", "frontend", "guardrails_ui", "no_usar_precio_local_como_total"), false) !== true) {
     $bloqueos[] = "dryrun_frontend_debe_bloquear_precio_local_como_total";
   }
+  if (!is_array(valorShape($respuesta, array("depurar", "fase_2"), null))) {
+    $bloqueos[] = "dryrun_fase_2_debe_ser_array";
+  }
+  if (valorShape($respuesta, array("depurar", "fase_2", "flujo", "endpoint_siguiente"), "") !== "/ecommercePublico/cotizacion_preflight") {
+    $bloqueos[] = "dryrun_fase_2_debe_indicar_preflight";
+  }
+  if (valorShape($respuesta, array("depurar", "fase_2", "guardrails", "no_granel"), false) !== true) {
+    $bloqueos[] = "dryrun_fase_2_debe_bloquear_granel";
+  }
 }
 
 function validarPreflight($respuesta, &$bloqueos) {
@@ -527,6 +571,15 @@ function validarPreflight($respuesta, &$bloqueos) {
   }
   if (!is_array(valorShape($respuesta, array("depurar", "whatsapp"), null))) {
     $bloqueos[] = "preflight_falta_whatsapp";
+  }
+  if (!is_array(valorShape($respuesta, array("depurar", "fase_2"), null))) {
+    $bloqueos[] = "preflight_fase_2_debe_ser_array";
+  }
+  if (valorShape($respuesta, array("depurar", "fase_2", "guardrails", "no_granel"), false) !== true) {
+    $bloqueos[] = "preflight_fase_2_debe_bloquear_granel";
+  }
+  if (valorShape($respuesta, array("depurar", "fase_2", "embudo", "puede_abrir_whatsapp"), null) !== valorShape($respuesta, array("depurar", "listo_para_whatsapp"), null)) {
+    $bloqueos[] = "preflight_fase_2_debe_reflejar_whatsapp";
   }
 }
 
