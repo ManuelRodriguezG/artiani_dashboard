@@ -8,6 +8,19 @@ $parametros = isset($diagnostico["parametros"]) ? $diagnostico["parametros"] : a
 $requiereEsquema = !empty($diagnostico["requiere_esquema"]);
 $tipoAmbiente = isset($ambiente["tipo"]) ? $ambiente["tipo"] : "";
 $badgeAmbiente = $tipoAmbiente === "local" ? "badge-light-primary" : "badge-light-warning";
+$parametrosPorClave = array();
+foreach ($parametros as $parametroConfig) {
+    $parametrosPorClave[$parametroConfig["clave"]] = $parametroConfig;
+}
+$brandingNombre = isset($parametrosPorClave["branding.nombre_sistema"]["valor"]) && trim($parametrosPorClave["branding.nombre_sistema"]["valor"]) !== ""
+    ? trim($parametrosPorClave["branding.nombre_sistema"]["valor"])
+    : "ERP Artiani";
+$brandingLogoPrincipal = isset($parametrosPorClave["branding.logo_principal"]["valor"]) && trim($parametrosPorClave["branding.logo_principal"]["valor"]) !== ""
+    ? trim($parametrosPorClave["branding.logo_principal"]["valor"])
+    : "/assets/media/logos/default-dark.svg";
+$brandingLogoCompacto = isset($parametrosPorClave["branding.logo_compacto"]["valor"]) && trim($parametrosPorClave["branding.logo_compacto"]["valor"]) !== ""
+    ? trim($parametrosPorClave["branding.logo_compacto"]["valor"])
+    : "/assets/media/logos/default-small.svg";
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -185,6 +198,52 @@ $badgeAmbiente = $tipoAmbiente === "local" ? "badge-light-primary" : "badge-ligh
                                     <div class="mt-5">
                                         <label class="form-label">Motivo del cambio</label>
                                         <input class="form-control form-control-solid" id="sys_config_motivo" placeholder="Ej. Preparacion de pruebas en tienda / ajuste de impresora POS">
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="card mt-6">
+                                <div class="card-header border-0 pt-6">
+                                    <div class="card-title">
+                                        <h2 class="fw-bold mb-0">Marca del panel</h2>
+                                    </div>
+                                </div>
+                                <div class="card-body pt-0">
+                                    <div class="row g-5 align-items-stretch">
+                                        <div class="col-lg-5">
+                                            <div class="border rounded p-5 h-100">
+                                                <div class="text-muted fs-8 mb-2">Vista previa principal</div>
+                                                <div class="bg-dark rounded d-flex align-items-center justify-content-center p-6 mb-5" style="min-height: 92px;">
+                                                    <img src="<?= htmlspecialchars($brandingLogoPrincipal) ?>" alt="<?= htmlspecialchars($brandingNombre) ?>" class="mw-100 mh-60px" id="sys_config_logo_principal_preview">
+                                                </div>
+                                                <div class="d-flex align-items-center gap-4">
+                                                    <span class="symbol symbol-45px">
+                                                        <span class="symbol-label bg-light">
+                                                            <img src="<?= htmlspecialchars($brandingLogoCompacto) ?>" alt="<?= htmlspecialchars($brandingNombre) ?>" class="mw-30px mh-30px" id="sys_config_logo_compacto_preview">
+                                                        </span>
+                                                    </span>
+                                                    <div>
+                                                        <div class="fw-bold"><?= htmlspecialchars($brandingNombre) ?></div>
+                                                        <div class="text-muted fs-8">Logo compacto para menu minimizado y movil</div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="col-lg-7">
+                                            <div class="border rounded p-5 h-100">
+                                                <label class="form-label fw-bold">Tipo de logo</label>
+                                                <select class="form-select form-select-solid mb-4" id="sys_config_logo_tipo"<?= $requiereEsquema ? ' disabled' : '' ?>>
+                                                    <option value="principal">Logo principal</option>
+                                                    <option value="compacto">Logo compacto</option>
+                                                </select>
+                                                <label class="form-label fw-bold">Archivo</label>
+                                                <input class="form-control form-control-solid mb-3" type="file" id="sys_config_logo_archivo" accept=".png,.jpg,.jpeg,.webp,image/png,image/jpeg,image/webp"<?= $requiereEsquema ? ' disabled' : '' ?>>
+                                                <div class="text-muted fs-8 mb-5">Usa PNG, JPG o WEBP de maximo 2 MB. Para el logo compacto conviene una imagen cuadrada.</div>
+                                                <button type="button" class="btn btn-light-primary" id="sys_config_logo_subir"<?= $requiereEsquema ? ' disabled' : '' ?>>
+                                                    <i class="bi bi-upload"></i>
+                                                    Subir logo
+                                                </button>
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
                             </div>

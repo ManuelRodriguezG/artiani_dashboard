@@ -198,3 +198,31 @@ Resultado:
 Siguiente tarea recomendada en Fase 2:
 
 - Esperar revision de frontend externo contra `GET /ecommercePublico/fase_2_checklist`; si no hay bloqueos de integracion, pasar a Fase 3: carrito/cotizacion avanzada y persistencia autorizada.
+
+## Ajuste operativo 2026-08-06 - Diagnostico de publicacion
+
+Motivo:
+
+- El boton Publicar podia parecer que no hacia nada cuando el backend bloqueaba la accion por reglas de publicabilidad.
+- El usuario necesita ver por que un producto no aparece en ecommerce sin revisar archivos ni respuestas tecnicas.
+
+Cambios:
+
+- Panel `/ecommercePublico/control` agrega franja visible `ecom_ctl_diagnostico`.
+- Al seleccionar un producto, el editor muestra diagnostico previo:
+  - listo para publicar;
+  - sin precio;
+  - sin imagen;
+  - sin categoria;
+  - granel bloqueado;
+  - SKU inactivo/no encontrado;
+  - requiere confirmar agotado;
+  - slug/titulo requerido;
+  - no hay borrador o solo se publica desde borrador.
+- Al publicar, pausar, reactivar o guardar, el panel traduce `depurar.bloqueos_publicacion` en mensajes legibles.
+- En acciones por lote, el panel resume cuantos SKUs se procesaron y lista los no procesados con sus bloqueos.
+- Se mantiene la regla operativa: productos a granel/fraccionarios no deben publicarse ni aparecer en API publica.
+
+Verificacion pendiente:
+
+- Confirmar visualmente en navegador que la franja de diagnostico se vea bien en desktop y que el mensaje permanezca despues de publicar.

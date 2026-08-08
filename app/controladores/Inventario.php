@@ -51,6 +51,18 @@ class Inventario extends Controlador {
         $this->vista("apps/erp/inventarios/reservas");
     }
 
+    /**
+     * IA: Codex GPT-5
+     * Fecha: 2026-08-08
+     * Proposito: mostrar el flujo de reclasificacion de inventario sin mezclarlo con ajustes libres.
+     * Impacto: Inventario/Reclasificacion; permite preparar salida/entrada entre SKUs autorizados por Catalogo.
+     * Contrato: permiso fino `inventario.reclasificar`; transicion permite `inventario.ajustar` hasta sembrar seguridad.
+     */
+    public function reclasificacion() {
+        $this->requerirAlgunPermiso(array("inventario.reclasificar", "inventario.ajustar"));
+        $this->vista("apps/erp/inventarios/reclasificacion");
+    }
+
     public function editar() {
         $this->requerirPermiso("inventario.ajustar");
         $this->redirigir("/inventario/inicial");
@@ -102,6 +114,44 @@ class Inventario extends Controlador {
     public function valuacion_erp() {
         $this->requerirPermiso("inventario.ver");
         return json_encode($this->modelo("InventarioErp")->valuacionInventario($_GET));
+    }
+
+    public function reclasificacion_catalogos_erp() {
+        $this->requerirAlgunPermiso(array("inventario.reclasificar", "inventario.ajustar"));
+        return json_encode($this->modelo("InventarioErp")->reclasificacionCatalogos());
+    }
+
+    public function reclasificacion_existencias_origen_erp() {
+        $this->requerirAlgunPermiso(array("inventario.reclasificar", "inventario.ajustar"));
+        return json_encode($this->modelo("InventarioErp")->reclasificacionExistenciasOrigen($_GET));
+    }
+
+    public function reclasificacion_destinos_erp() {
+        $this->requerirAlgunPermiso(array("inventario.reclasificar", "inventario.ajustar"));
+        return json_encode($this->modelo("InventarioErp")->reclasificacionDestinos($_GET));
+    }
+
+    public function reclasificacion_previsualizar_erp() {
+        $this->requerirAlgunPermiso(array("inventario.reclasificar", "inventario.ajustar"));
+        return json_encode($this->modelo("InventarioErp")->previsualizarReclasificacion($_POST, $this->usuarioActualId()));
+    }
+
+    public function reclasificacion_guardar_erp() {
+        $this->requerirAlgunPermiso(array("inventario.reclasificar", "inventario.ajustar"));
+        $respuesta = $this->modelo("InventarioErp")->guardarReclasificacion($_POST, $this->usuarioActualId());
+        $this->auditarMovimiento("reclasificacion_guardar_erp", $respuesta);
+        return json_encode($respuesta);
+    }
+
+    public function esquema_auditar_reclasificacion_erp() {
+        $this->requerirPermiso("sistema.soporte");
+        return json_encode($this->modelo("InventarioReclasificacionEsquema")->auditarInventarioReclasificacion());
+    }
+
+    public function esquema_actualizar_reclasificacion_erp() {
+        $this->requerirPermiso("sistema.soporte");
+        $ejecutar = isset($_POST["ejecutar"]) && $_POST["ejecutar"] == 1;
+        return json_encode($this->modelo("InventarioReclasificacionEsquema")->planActualizarInventarioReclasificacion($ejecutar));
     }
 
     public function conteos_listar_erp() {

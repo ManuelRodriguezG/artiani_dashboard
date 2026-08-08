@@ -4,6 +4,53 @@ class SistemaConfiguracion extends CRUD {
 
   private $tabla_parametros = "sys_configuracion_parametros";
   private $tabla_historial = "sys_configuracion_historial";
+  private $logoFallbackPrincipal = "/assets/media/logos/default-dark.svg";
+  private $logoFallbackCompacto = "/assets/media/logos/default-small.svg";
+
+  /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-08-08
+   * Proposito: obtener branding visual no sensible para header/sidebar.
+   * Impacto: Layout ERP; centraliza nombre y logos configurables con fallback local.
+   * Contrato: si el esquema no existe o el archivo configurado falta, devuelve assets por defecto.
+   */
+  public function obtenerBranding() {
+    $branding = array(
+      "nombre_sistema" => "ERP Artiani",
+      "logo_principal" => $this->logoFallbackPrincipal,
+      "logo_compacto" => $this->logoFallbackCompacto
+    );
+
+    if (!$this->tablaParametrosExiste()) {
+      return $branding;
+    }
+
+    try {
+      $db = $this->getConexion();
+      $stmt = $db->prepare("SELECT clave, valor
+                            FROM {$this->tabla_parametros}
+                            WHERE clave IN ('branding.nombre_sistema', 'branding.logo_principal', 'branding.logo_compacto')
+                              AND estatus=1");
+      $stmt->execute();
+      foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $fila) {
+        $clave = $fila["clave"];
+        $valor = trim((string) $fila["valor"]);
+        if ($clave === "branding.nombre_sistema" && $valor !== "") {
+          $branding["nombre_sistema"] = mb_substr($valor, 0, 80, "UTF-8");
+        }
+        if ($clave === "branding.logo_principal" && $this->assetPublicoExiste($valor)) {
+          $branding["logo_principal"] = $valor;
+        }
+        if ($clave === "branding.logo_compacto" && $this->assetPublicoExiste($valor)) {
+          $branding["logo_compacto"] = $valor;
+        }
+      }
+    } catch (Exception $e) {
+      return $branding;
+    }
+
+    return $branding;
+  }
 
   /**
    * IA: Codex GPT-5
@@ -164,6 +211,52 @@ class SistemaConfiguracion extends CRUD {
     }
   }
 
+  /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-08-08
+   * Proposito: guardar un archivo de logo validado y enlazarlo a un parametro SYS de branding.
+   * Impacto: Administracion/SYS y layout global; reemplaza logos rotos sin tocar credenciales.
+   * Contrato: solo acepta `principal` o `compacto`, imagenes raster publicas de maximo 2 MB.
+   */
+  public function guardarLogo($tipoLogo, $archivo, $idUsuario, $motivo = "") {
+    if (!$this->tablaParametrosExiste()) {
+      return $this->crudResponse(true, "warning", "Primero aplica el esquema de configuracion SYS");
+    }
+
+    $tipoLogo = trim((string) $tipoLogo);
+    $clave = $tipoLogo === "compacto" ? "branding.logo_compacto" : "branding.logo_principal";
+
+    try {
+      $this->asegurarParametroBrandingLogo($clave);
+      $this->validarArchivoLogo($archivo);
+      $mime = $this->detectarMimeLogo($archivo["tmp_name"]);
+      $extension = $this->extensionLogo($mime);
+      $directorio = $this->directorioLogos();
+      if (!is_dir($directorio) && !mkdir($directorio, 0775, true)) {
+        throw new Exception("No fue posible crear el directorio de logos");
+      }
+
+      $nombre = "erp-" . ($clave === "branding.logo_compacto" ? "compacto" : "principal") . "-" . date("YmdHis") . "." . $extension;
+      $rutaAbsoluta = $directorio . DIRECTORY_SEPARATOR . $nombre;
+      if (!move_uploaded_file($archivo["tmp_name"], $rutaAbsoluta)) {
+        throw new Exception("No fue posible guardar el archivo de logo");
+      }
+
+      $rutaPublica = "/assets/media/logos/" . $nombre;
+      $respuesta = $this->guardarConfiguracion(array($clave => $rutaPublica), $idUsuario, $motivo);
+      if ($respuesta["error"]) {
+        @unlink($rutaAbsoluta);
+        return $respuesta;
+      }
+
+      $depurar = isset($respuesta["depurar"]) && is_array($respuesta["depurar"]) ? $respuesta["depurar"] : array();
+      $depurar["logo"] = array("clave" => $clave, "ruta" => $rutaPublica, "mime" => $mime);
+      return $this->crudResponse(false, "success", "Logo guardado correctamente", $depurar);
+    } catch (Exception $e) {
+      return $this->crudResponse(true, "danger", $e->getMessage());
+    }
+  }
+
   private function clasificarAmbiente($serverName) {
     $serverName = strtolower(trim($serverName));
     if ($serverName === "localhost" || substr($serverName, -6) === ".local") {
@@ -210,6 +303,12 @@ class SistemaConfiguracion extends CRUD {
     if ($tipo === "numero") {
       return (string) max(0, intval($valor));
     }
+    if ($tipo === "ruta") {
+      if ($valor !== "" && !preg_match('/^\/assets\/media\/logos\/[a-zA-Z0-9_.-]+\.(png|jpg|jpeg|webp|svg)$/i', $valor)) {
+        throw new Exception("La ruta del logo no es valida");
+      }
+      return $valor;
+    }
     if ($tipo === "url" && $valor !== "" && !preg_match('/^https?:\/\//i', $valor)) {
       throw new Exception("La URL debe iniciar con http:// o https://");
     }
@@ -228,5 +327,67 @@ class SistemaConfiguracion extends CRUD {
       return str_repeat("*", strlen($usuario));
     }
     return substr($usuario, 0, 2) . str_repeat("*", max(2, strlen($usuario) - 2));
+  }
+
+  private function validarArchivoLogo($archivo) {
+    if (!is_array($archivo) || !isset($archivo["error"]) || intval($archivo["error"]) !== UPLOAD_ERR_OK) {
+      throw new Exception("Selecciona un archivo de logo valido");
+    }
+    if (empty($archivo["tmp_name"]) || !is_uploaded_file($archivo["tmp_name"])) {
+      throw new Exception("La carga del logo no es valida");
+    }
+    $tamano = intval(isset($archivo["size"]) ? $archivo["size"] : 0);
+    if ($tamano <= 0 || $tamano > 2 * 1024 * 1024) {
+      throw new Exception("El logo debe pesar entre 1 byte y 2 MB");
+    }
+  }
+
+  private function asegurarParametroBrandingLogo($clave) {
+    $db = $this->getConexion();
+    $valor = $clave === "branding.logo_compacto" ? $this->logoFallbackCompacto : $this->logoFallbackPrincipal;
+    $descripcion = $clave === "branding.logo_compacto"
+      ? "Logo compacto para sidebar minimizado y vista movil"
+      : "Logo principal del sidebar en modo expandido";
+    $stmt = $db->prepare("INSERT INTO {$this->tabla_parametros}
+      (grupo, clave, tipo_dato, valor, descripcion, editable_ui, sensible, estatus)
+      VALUES ('branding', :clave, 'ruta', :valor, :descripcion, 1, 0, 1)
+      ON DUPLICATE KEY UPDATE grupo=VALUES(grupo), tipo_dato=VALUES(tipo_dato), descripcion=VALUES(descripcion), editable_ui=1, sensible=0, estatus=1");
+    $stmt->execute(array(
+      ":clave" => $clave,
+      ":valor" => $valor,
+      ":descripcion" => $descripcion
+    ));
+  }
+
+  private function detectarMimeLogo($rutaTemporal) {
+    $mime = function_exists("mime_content_type") ? mime_content_type($rutaTemporal) : "";
+    $permitidos = array("image/png", "image/jpeg", "image/webp");
+    if (!in_array($mime, $permitidos, true)) {
+      throw new Exception("Tipo de logo no permitido. Usa PNG, JPG o WEBP");
+    }
+    return $mime;
+  }
+
+  private function extensionLogo($mime) {
+    if ($mime === "image/png") {
+      return "png";
+    }
+    if ($mime === "image/webp") {
+      return "webp";
+    }
+    return "jpg";
+  }
+
+  private function directorioLogos() {
+    return dirname(__DIR__, 2) . DIRECTORY_SEPARATOR . "public" . DIRECTORY_SEPARATOR . "assets" . DIRECTORY_SEPARATOR . "media" . DIRECTORY_SEPARATOR . "logos";
+  }
+
+  private function assetPublicoExiste($rutaPublica) {
+    $rutaPublica = trim((string) $rutaPublica);
+    if ($rutaPublica === "" || !preg_match('/^\/assets\/media\/logos\/[a-zA-Z0-9_.-]+\.(png|jpg|jpeg|webp|svg)$/i', $rutaPublica)) {
+      return false;
+    }
+    $rutaRelativa = ltrim(str_replace("/", DIRECTORY_SEPARATOR, $rutaPublica), DIRECTORY_SEPARATOR);
+    return is_file(dirname(__DIR__, 2) . DIRECTORY_SEPARATOR . "public" . DIRECTORY_SEPARATOR . $rutaRelativa);
   }
 }

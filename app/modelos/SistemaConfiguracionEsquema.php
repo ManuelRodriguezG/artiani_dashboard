@@ -6,7 +6,7 @@ class SistemaConfiguracionEsquema extends DBSchema {
    * IA: Codex GPT-5
    * Fecha: 2026-07-23
    * Proposito: crear tablas SYS para parametros configurables e historial de cambios.
-   * Impacto: Administracion/SYS; habilita configuracion persistente sin guardar secretos de conexion.
+   * Impacto: Administracion/SYS; habilita configuracion persistente, branding y parametros operativos sin guardar secretos.
    * Contrato: dry-run por defecto; con `$ejecutar=true` solo crea tablas acotadas e idempotentes.
    */
   public function planActualizarSistemaConfiguracion($ejecutar = false) {
@@ -60,6 +60,9 @@ class SistemaConfiguracionEsquema extends DBSchema {
       array("grupo" => "entorno", "clave" => "sistema.url_local", "tipo_dato" => "url", "valor" => "http://panel.com.local/", "descripcion" => "URL local canonica para pruebas y terminales internas"),
       array("grupo" => "entorno", "clave" => "sistema.url_productiva", "tipo_dato" => "url", "valor" => "", "descripcion" => "URL productiva esperada cuando el sistema salga a operacion formal"),
       array("grupo" => "entorno", "clave" => "sistema.base_datos_objetivo", "tipo_dato" => "texto", "valor" => defined("MYSQLBASE") ? MYSQLBASE : "", "descripcion" => "Base de datos objetivo documentada; no cambia la conexion activa por si sola"),
+      array("grupo" => "branding", "clave" => "branding.nombre_sistema", "tipo_dato" => "texto", "valor" => "ERP Artiani", "descripcion" => "Nombre visible en header, sidebar y vistas generales del panel"),
+      array("grupo" => "branding", "clave" => "branding.logo_principal", "tipo_dato" => "ruta", "valor" => "/assets/media/logos/default-dark.svg", "descripcion" => "Logo principal del sidebar en modo expandido"),
+      array("grupo" => "branding", "clave" => "branding.logo_compacto", "tipo_dato" => "ruta", "valor" => "/assets/media/logos/default-small.svg", "descripcion" => "Logo compacto para sidebar minimizado y vista movil"),
       array("grupo" => "impresion", "clave" => "pos.impresion.modo", "tipo_dato" => "opcion", "valor" => "puente_local", "descripcion" => "Modo de impresion de tickets POS"),
       array("grupo" => "impresion", "clave" => "pos.impresion.nombre_impresora", "tipo_dato" => "texto", "valor" => "", "descripcion" => "Nombre de la impresora instalada en Windows o terminal POS"),
       array("grupo" => "impresion", "clave" => "pos.impresion.puente_url", "tipo_dato" => "url", "valor" => "http://127.0.0.1:9123", "descripcion" => "URL local sugerida para el puente/agente de impresion"),

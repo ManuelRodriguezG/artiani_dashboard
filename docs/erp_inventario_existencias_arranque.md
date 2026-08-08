@@ -2935,6 +2935,81 @@ UAT sugerido:
 7. Validar que el payload conserva partidas separadas del mismo SKU.
 8. Aplicar solo con respaldo externo y folio autorizado.
 
+## INV-RECLAS-001 - Reclasificacion de inventario
+
+Fecha: 2026-08-08
+
+Origen operativo:
+
+- Recepcion debe seguir recibiendo el SKU entregado por proveedor sin decidir reclasificaciones internas.
+- Cuando despues se detecta que una pieza puede venderse como otra clasificacion interna, la operacion debe ocurrir en Inventario.
+- El flujo debe ser generico para cualquier SKU reclasificable, no especifico para troncos.
+
+Decision ERP:
+
+- Crear flujo `Inventario > Reclasificacion`.
+- Catalogo debe definir que SKU origen permite reclasificacion y que SKU destino son validos.
+- Inventario debe registrar kardex doble con el mismo folio:
+  - salida del SKU origen;
+  - entrada del SKU destino.
+- La reclasificacion no es venta, merma ni ajuste libre.
+- Debe conservar almacen, lote, caducidad, ubicacion, costo y trazabilidad cuando aplique.
+- Si cambia costo, debe documentarse y no inventarse automaticamente.
+
+Documentos creados:
+
+- `docs/erp_inventario_reclasificacion_diseno.md`
+- `docs/erp_inventario_reclasificacion_schema_propuesta.sql`
+
+Estado:
+
+- Diseno y auditoria read-only preparados.
+- No se aplicaron migraciones.
+- Auditoria SQL read-only corregida contra MySQL local en puerto `3406`.
+- No existen tablas `LIKE '%reclas%'`.
+- No existe `origen_tipo='reclasificacion_inventario'` en movimientos actuales.
+- `erp_catalogo_sku_transformaciones` existe, pero hoy solo contiene tipos `empaque_desde_granel` y `reempaque`; no modela reclasificacion.
+
+Siguiente paso recomendado:
+
+1. Revisar y aprobar el diseno.
+2. Decidir si Catalogo usara tabla especifica `erp_catalogo_sku_reclasificaciones` o extension controlada de `erp_catalogo_sku_transformaciones`.
+3. Con respaldo externo y autorizacion, integrar DDL en esquema ERP correspondiente.
+4. Implementar primero endpoints read-only y previsualizacion antes de permitir escritura real.
+
+Avance tecnico 2026-08-08:
+
+- Implementado modelo de esquema `InventarioReclasificacionEsquema` con auditoria y plan dry-run.
+- Agregado permiso semilla `inventario.reclasificar` en `SeguridadEsquema`; no aplicado a BD.
+- Agregada ruta `/inventario/reclasificacion` con permiso fino y fallback transicional a `inventario.ajustar`.
+- Agregados endpoints:
+  - `/inventario/reclasificacion_catalogos_erp`
+  - `/inventario/reclasificacion_existencias_origen_erp`
+  - `/inventario/reclasificacion_destinos_erp`
+  - `/inventario/reclasificacion_previsualizar_erp`
+  - `/inventario/reclasificacion_guardar_erp`
+  - `/inventario/esquema_auditar_reclasificacion_erp`
+  - `/inventario/esquema_actualizar_reclasificacion_erp`
+- Agregada pantalla `app/vistas/paginas/apps/erp/inventarios/reclasificacion.php`.
+- Agregado JS `public/assets/js/custom/apps/erp/inventarios/reclasificacion_erp.js`.
+- Agregada navegacion en sidebar y boton desde Existencias.
+- Primera version operativa: una partida por folio `RECLAS-*`.
+- Regla de trazabilidad: si la existencia origen tiene unidades fisicas disponibles, el usuario debe seleccionar una unidad exacta; la primera version solo permite reclasificar la unidad fisica completa.
+- Prueba negativa read-only: previsualizacion devuelve advertencia controlada si falta aplicar DDL.
+- Validaciones tecnicas:
+  - `C:\xampp\php\php.exe -l app\modelos\InventarioErp.php`: OK.
+  - `C:\xampp\php\php.exe -l app\modelos\InventarioReclasificacionEsquema.php`: OK.
+  - `C:\xampp\php\php.exe -l app\controladores\Inventario.php`: OK.
+  - `C:\xampp\php\php.exe -l app\vistas\paginas\apps\erp\inventarios\reclasificacion.php`: OK.
+  - `node --check public\assets\js\custom\apps\erp\inventarios\reclasificacion_erp.js`: OK.
+
+Pendiente de autorizacion:
+
+- Respaldo externo en `C:\xampp\panel_db_backups`.
+- Aplicar DDL de reclasificacion.
+- Aplicar/sembrar permiso `inventario.reclasificar`.
+- Crear reglas de Catalogo origen-destino para probar UAT real.
+
 ## Prompt sugerido para nuevo chat
 
 ```text

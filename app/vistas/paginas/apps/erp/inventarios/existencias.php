@@ -28,6 +28,9 @@
                                 <a class="btn btn-light-warning" href="/inventario/reservas"><i class="bi bi-bookmark-check"></i> Reservas</a>
                                 <a class="btn btn-light-primary" href="/inventario/inicial"><i class="bi bi-plus-slash-minus"></i> Ajuste</a>
                                 <?php endif; ?>
+                                <?php if (SesionSeguridad::tienePermiso("inventario.reclasificar") || SesionSeguridad::tienePermiso("inventario.ajustar")): ?>
+                                <a class="btn btn-light-success" href="/inventario/reclasificacion"><i class="bi bi-shuffle"></i> Reclasificacion</a>
+                                <?php endif; ?>
                                 <?php if (SesionSeguridad::tienePermiso("inventario.traspasar")): ?>
                                 <a class="btn btn-primary" href="/inventario/transpaso"><i class="bi bi-arrow-left-right"></i> Traspaso</a>
                                 <?php endif; ?>

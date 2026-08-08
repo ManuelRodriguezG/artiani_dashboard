@@ -1,4 +1,15 @@
 <?php
+/**
+ * IA: Codex GPT-5
+ * Fecha: 2026-08-08
+ * Proposito: cargar branding configurable para el logo global del ERP.
+ * Impacto: Layout global; evita depender de assets demo inexistentes y conserva fallback local.
+ * Contrato: solo lee parametros SYS no sensibles; no modifica configuracion.
+ */
+require_once '../app/modelos/SistemaConfiguracion.php';
+$configuracionSidebar = new SistemaConfiguracion();
+$brandingSidebar = $configuracionSidebar->obtenerBranding();
+
 $permisosSesion = isset($_SESSION['permisos']) && is_array($_SESSION['permisos']) ? $_SESSION['permisos'] : array();
 
 if (!empty($_SESSION['id_usuario'])) {
@@ -185,6 +196,7 @@ $gruposMenu = array(
         'items' => array(
             array('titulo' => 'Existencias', 'ruta' => '/inventario/productos_existencias', 'permiso' => 'inventario.ver'),
             array('titulo' => 'Ajuste de inventario', 'ruta' => '/inventario/inicial', 'permiso' => 'inventario.ajustar'),
+            array('titulo' => 'Reclasificacion', 'ruta' => '/inventario/reclasificacion', 'permiso' => array('inventario.reclasificar', 'inventario.ajustar')),
             array('titulo' => 'Traspaso entre almacenes', 'ruta' => '/inventario/transpaso', 'permiso' => 'inventario.traspasar')
         )
     ),
@@ -227,8 +239,8 @@ $gruposMenu = array(
 <div id="kt_app_sidebar" class="app-sidebar flex-column" data-kt-drawer="true" data-kt-drawer-name="app-sidebar" data-kt-drawer-activate="{default: true, lg: false}" data-kt-drawer-overlay="true" data-kt-drawer-width="225px" data-kt-drawer-direction="start" data-kt-drawer-toggle="#kt_app_sidebar_mobile_toggle">
     <div class="app-sidebar-logo px-6" id="kt_app_sidebar_logo">
         <a href="/">
-            <img alt="ERP" src="assets/media/logos/default-dark.svg" class="h-25px app-sidebar-logo-default" />
-            <img alt="ERP" src="assets/media/logos/default-small.svg" class="h-20px app-sidebar-logo-minimize" />
+            <img alt="<?= htmlspecialchars($brandingSidebar["nombre_sistema"], ENT_QUOTES, "UTF-8") ?>" src="<?= htmlspecialchars($brandingSidebar["logo_principal"], ENT_QUOTES, "UTF-8") ?>" class="h-25px app-sidebar-logo-default" />
+            <img alt="<?= htmlspecialchars($brandingSidebar["nombre_sistema"], ENT_QUOTES, "UTF-8") ?>" src="<?= htmlspecialchars($brandingSidebar["logo_compacto"], ENT_QUOTES, "UTF-8") ?>" class="h-20px app-sidebar-logo-minimize" />
         </a>
         <div id="kt_app_sidebar_toggle" class="app-sidebar-toggle btn btn-icon btn-shadow btn-sm btn-color-muted btn-active-color-primary body-bg h-30px w-30px position-absolute top-50 start-100 translate-middle rotate" data-kt-toggle="true" data-kt-toggle-state="active" data-kt-toggle-target="body" data-kt-toggle-name="app-sidebar-minimize">
             <i class="bi bi-chevron-double-left fs-4"></i>

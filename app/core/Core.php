@@ -25,26 +25,19 @@
 			//buscar en controladores si el controlador existe
 			
 			if(count($url) != 0){
-			    
-				//var_dump(file_exists('../app/controladores/'.ucwords($url[0].".php")));
-    			if(file_exists('../app/controladores/'.ucwords($url[0]).'.php')){
-    				//si existe se setea como controlador por defecto
-    				$this->controladorActual = ucwords($url[0]);
-    				
-    
-    				//unset indice
-    				unset($url[0]);
-    			}else{
-    			    
-    			  
-    			    
-    			    
-    			}
+				$controlador = $this->resolverControlador($url[0]);
+				if($controlador !== null){
+					//si existe se setea como controlador por defecto
+					$this->controladorActual = $controlador;
+
+					//unset indice
+					unset($url[0]);
+				}
             }
             //var_dump($url);
 			///requerir el controlador
 			
-			require_once '../app/controladores/'.$this->controladorActual.'.php';
+			require_once RUTA_APP.'/controladores/'.$this->controladorActual.'.php';
 			$nombreControlador = $this->controladorActual;
 			$controladoresProtegidos = array(
 				'Almacen', 'Archivos', 'Busqueda', 'CatalogoErp', 'Categoria', 'Clientes', 'Comercial', 'Crm', 'Compra', 'Compra_venta',
@@ -52,7 +45,7 @@
 				'Paquetes', 'Producto', 'Produccion', 'Proveedor', 'Proyecto', 'Rentabilidad', 'Sistema', 'Sucursal', 'Tms', 'Users', 'Usuario',
 				'Utilidad', 'Ventas'
 			);
-			if (in_array($this->controladorActual, $controladoresProtegidos, true)) {
+			if ($this->controladorProtegido($this->controladorActual, $controladoresProtegidos)) {
 				SesionSeguridad::requerirSesion();
 			}
 			//var_dump(new $this->controladorActual);
@@ -204,5 +197,36 @@
 			}
 			return $url;
 			
+		}
+
+		private function resolverControlador($segmento){
+			$segmento = is_string($segmento) ? trim($segmento) : '';
+			if($segmento === ''){
+				return null;
+			}
+
+			$directorio = RUTA_APP.'/controladores/';
+			$candidato = ucwords($segmento);
+			if(file_exists($directorio.$candidato.'.php')){
+				return $candidato;
+			}
+
+			foreach(glob($directorio.'*.php') as $archivo){
+				$nombre = pathinfo($archivo, PATHINFO_FILENAME);
+				if(strtolower($nombre) === strtolower($segmento)){
+					return $nombre;
+				}
+			}
+
+			return null;
+		}
+
+		private function controladorProtegido($controlador, $controladoresProtegidos){
+			foreach($controladoresProtegidos as $protegido){
+				if(strtolower($protegido) === strtolower($controlador)){
+					return true;
+				}
+			}
+			return false;
 		}
 	}

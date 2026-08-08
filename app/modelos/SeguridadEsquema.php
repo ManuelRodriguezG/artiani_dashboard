@@ -152,6 +152,7 @@ class SeguridadEsquema extends DBSchema {
       array("modulo" => "inventario", "accion" => "ver", "permiso" => "inventario.ver", "descripcion" => "Consultar existencias y movimientos"),
       array("modulo" => "inventario", "accion" => "ajustar", "permiso" => "inventario.ajustar", "descripcion" => "Registrar ajustes de inventario"),
       array("modulo" => "inventario", "accion" => "traspasar", "permiso" => "inventario.traspasar", "descripcion" => "Registrar traspasos entre almacenes o ubicaciones"),
+      array("modulo" => "inventario", "accion" => "reclasificar", "permiso" => "inventario.reclasificar", "descripcion" => "Reclasificar existencia real entre SKUs permitidos por Catalogo"),
       array("modulo" => "inventario", "accion" => "conteo", "permiso" => "inventario.conteo", "descripcion" => "Levantar conteos fisicos y conciliaciones"),
       array("modulo" => "rentabilidad", "accion" => "ver", "permiso" => "rentabilidad.ver", "descripcion" => "Consultar costos, utilidad estimada, escenarios y recomendaciones de rentabilidad"),
       array("modulo" => "rentabilidad", "accion" => "snapshot", "permiso" => "rentabilidad.snapshot", "descripcion" => "Guardar snapshots de analisis de rentabilidad"),
@@ -257,7 +258,7 @@ class SeguridadEsquema extends DBSchema {
         "catalogo.editar", "catalogo.costos", "compras.ver", "compras.crear", "compras.editar",
         "compras.aprobar", "compras.cancelar", "compras.adjuntos", "almacen.ver", "almacen.recibir",
         "almacen.ubicaciones", "inventario.ver",
-        "inventario.ajustar", "inventario.traspasar", "inventario.conteo",
+        "inventario.ajustar", "inventario.traspasar", "inventario.reclasificar", "inventario.conteo",
         "crm.ver", "crm.crear", "crm.editar", "crm.fusionar", "crm.auditoria", "crm.pos.buscar", "crm.pos.alta_express",
         "crm.clientes.ver", "crm.clientes.editar", "crm.seguimiento.ver", "crm.seguimiento.operar",
         "crm.comercial.ver", "crm.comercial.operar", "crm.recompensas.ver", "crm.recompensas.operar", "crm.reportes.ver",
@@ -294,7 +295,7 @@ class SeguridadEsquema extends DBSchema {
       ),
       "inventario" => array(
         "catalogo.ver", "almacen.ver", "almacen.ubicaciones", "inventario.ver", "inventario.ajustar",
-        "inventario.traspasar", "inventario.conteo", "notificaciones.ver", "auditoria.ver", "reportes.ver",
+        "inventario.traspasar", "inventario.reclasificar", "inventario.conteo", "notificaciones.ver", "auditoria.ver", "reportes.ver",
         "proveedores.ver", "garantias.ver", "proyectos.ver"
       ),
       "ventas" => array(

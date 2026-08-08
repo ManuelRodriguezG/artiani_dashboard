@@ -8,7 +8,7 @@ class Controlador {
   //Cargar modelo
   public function modelo($modelo) {
     //carga
-    require_once '../app/modelos/' . $modelo . '.php';
+    require_once RUTA_APP . '/modelos/' . $modelo . '.php';
     //instanciar el modelo
     return new $modelo();
   }
@@ -17,8 +17,8 @@ class Controlador {
   public function vista($vista, $datos = []) {
     //checar si el archivo vista existe
     
-    if (file_exists('../app/vistas/paginas/' . $vista . '.php')) {
-      require_once '../app/vistas/paginas/' . $vista . '.php';
+    if (file_exists(RUTA_APP . '/vistas/paginas/' . $vista . '.php')) {
+      require_once RUTA_APP . '/vistas/paginas/' . $vista . '.php';
     } else {
       //si el archivo de la vista no existe
       die('la vista no existe');
@@ -177,5 +177,3 @@ class Controlador {
   }
 
 }
-
-?>	

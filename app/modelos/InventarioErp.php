@@ -1822,6 +1822,241 @@ class InventarioErp extends CRUD {
         return (bool) $stmt->fetchColumn();
     }
 
+    /**
+     * IA: Codex GPT-5
+     * Fecha: 2026-08-08
+     * Proposito: entregar catalogos base para Inventario > Reclasificacion.
+     * Impacto: UI de reclasificacion; expone si el esquema requerido ya existe sin aplicar DDL.
+     * Contrato: read-only.
+     */
+    public function reclasificacionCatalogos() {
+        $catalogos = $this->catalogos();
+        if ($catalogos["error"]) {
+            return $catalogos;
+        }
+        $db = $this->getConexion();
+        $catalogos["depurar"]["esquema_reclasificacion"] = array(
+            "disponible" => $this->esquemaReclasificacionDisponible($db),
+            "tablas" => array(
+                "erp_catalogo_sku_reclasificaciones",
+                "erp_inventario_reclasificaciones",
+                "erp_inventario_reclasificaciones_detalle"
+            )
+        );
+        return $catalogos;
+    }
+
+    public function reclasificacionExistenciasOrigen($filtros = array()) {
+        try {
+            $db = $this->getConexion();
+            $idAlmacen = intval(isset($filtros["id_almacen"]) ? $filtros["id_almacen"] : 0);
+            $termino = trim(isset($filtros["q"]) ? $filtros["q"] : "");
+            if ($idAlmacen <= 0) {
+                return $this->respuesta(true, "warning", "Selecciona almacen");
+            }
+            if (strlen($termino) < 2) {
+                return $this->respuesta(false, "success", "Existencias origen consultadas", array());
+            }
+            $sql = "SELECT e.id_existencia_inventario, e.codigo_existencia, e.id_almacen_clave id_almacen,
+                    a.almacen, e.id_sku_erp id_sku, s.sku, s.nombre nombre_sku, p.nombre producto,
+                    e.lote, e.fecha_caducidad, e.ubicacion_id, e.ubicacion, e.cantidad, e.cantidad_disponible,
+                    e.costo_promedio, e.estatus_existencia,
+                    COALESCE(uf.unidades_total, 0) unidades_total,
+                    COALESCE(uf.unidades_disponibles, 0) unidades_disponibles,
+                    COALESCE(ub.abreviatura, ub.codigo, '') unidad_base_label
+                FROM erp_inventario_existencias e
+                INNER JOIN erp_catalogo_skus s ON s.id_sku=e.id_sku_erp
+                INNER JOIN erp_catalogo_productos p ON p.id_producto_erp=s.id_producto_erp
+                LEFT JOIN erp_catalogo_unidades ub ON ub.id_unidad=s.id_unidad_base
+                LEFT JOIN erp_almacenes a ON a.id_almacen=e.id_almacen_clave
+                LEFT JOIN (
+                    SELECT id_existencia_inventario,
+                        COUNT(*) unidades_total,
+                        SUM(CASE WHEN estatus='disponible' THEN 1 ELSE 0 END) unidades_disponibles
+                    FROM erp_inventario_unidades
+                    WHERE id_existencia_inventario IS NOT NULL
+                    GROUP BY id_existencia_inventario
+                ) uf ON uf.id_existencia_inventario=e.id_existencia_inventario
+                WHERE e.id_almacen_clave=:almacen
+                  AND e.cantidad_disponible > 0
+                  AND s.estatus='activo'
+                  AND p.estatus='activo'
+                  AND (s.sku LIKE :buscar OR s.nombre LIKE :buscar OR p.nombre LIKE :buscar OR e.codigo_existencia LIKE :buscar OR e.lote LIKE :buscar)
+                ORDER BY p.nombre, s.sku, e.fecha_caducidad, e.fecha_registro
+                LIMIT 50";
+            $stmt = $db->prepare($sql);
+            $stmt->execute(array(":almacen" => $idAlmacen, ":buscar" => "%" . $termino . "%"));
+            $items = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            foreach ($items as &$item) {
+                $item["unidades"] = $this->unidadesDisponiblesExistencia($db, intval($item["id_existencia_inventario"]));
+            }
+            return $this->respuesta(false, "success", "Existencias origen consultadas", $items);
+        } catch (Exception $e) {
+            return $this->respuesta(true, "danger", $e->getMessage());
+        }
+    }
+
+    public function reclasificacionDestinos($filtros = array()) {
+        try {
+            $db = $this->getConexion();
+            if (!$this->tablaExiste($db, "erp_catalogo_sku_reclasificaciones")) {
+                return $this->respuesta(true, "warning", "Falta aplicar esquema de reglas de reclasificacion", array("esquema_disponible" => false));
+            }
+            $idSkuOrigen = intval(isset($filtros["id_sku_origen"]) ? $filtros["id_sku_origen"] : 0);
+            if ($idSkuOrigen <= 0) {
+                return $this->respuesta(true, "warning", "SKU origen obligatorio");
+            }
+            $sql = "SELECT r.id_sku_reclasificacion, r.id_sku_origen, r.id_sku_destino,
+                    r.tipo_reclasificacion, r.conserva_lote, r.conserva_caducidad, r.conserva_costo,
+                    r.permite_unidad_fisica, r.requiere_autorizacion, r.observaciones,
+                    s.sku, s.nombre nombre_sku, p.nombre producto,
+                    COALESCE(ub.abreviatura, ub.codigo, '') unidad_base_label,
+                    COALESCE(ri.requiere_lote, 0) requiere_lote,
+                    COALESCE(ri.requiere_caducidad, 0) requiere_caducidad,
+                    COALESCE(ri.generar_etiqueta_interna, 0) generar_etiqueta_interna
+                FROM erp_catalogo_sku_reclasificaciones r
+                INNER JOIN erp_catalogo_skus s ON s.id_sku=r.id_sku_destino
+                INNER JOIN erp_catalogo_productos p ON p.id_producto_erp=s.id_producto_erp
+                LEFT JOIN erp_catalogo_unidades ub ON ub.id_unidad=s.id_unidad_base
+                LEFT JOIN erp_catalogo_sku_reglas_inventario ri ON ri.id_sku=s.id_sku
+                WHERE r.id_sku_origen=:sku
+                  AND r.estatus='activa'
+                  AND s.estatus='activo'
+                  AND p.estatus='activo'
+                ORDER BY s.sku";
+            $stmt = $db->prepare($sql);
+            $stmt->execute(array(":sku" => $idSkuOrigen));
+            return $this->respuesta(false, "success", "Destinos de reclasificacion consultados", $stmt->fetchAll(PDO::FETCH_ASSOC));
+        } catch (Exception $e) {
+            return $this->respuesta(true, "danger", $e->getMessage());
+        }
+    }
+
+    public function previsualizarReclasificacion($datos, $idUsuario = 0) {
+        try {
+            $db = $this->getConexion();
+            $validacion = $this->validarPayloadReclasificacion($db, $datos, false);
+            return $this->respuesta(false, "success", "Previsualizacion de reclasificacion preparada", array(
+                "folio" => $this->folioReclasificacion($db),
+                "salida" => $validacion["salida"],
+                "entrada" => $validacion["entrada"],
+                "regla" => $validacion["regla"],
+                "motivo" => trim($datos["motivo"])
+            ));
+        } catch (Exception $e) {
+            return $this->respuesta(true, "warning", $e->getMessage());
+        }
+    }
+
+    public function guardarReclasificacion($datos, $idUsuario = 0) {
+        $db = $this->getConexion();
+        try {
+            $db->beginTransaction();
+            $validacion = $this->validarPayloadReclasificacion($db, $datos, true);
+            $existenciaOrigen = $validacion["existencia_origen"];
+            $skuDestino = $validacion["sku_destino"];
+            $cantidad = floatval($validacion["cantidad"]);
+            $regla = $validacion["regla"];
+            $unidadOrigen = $validacion["unidad_origen"];
+            $motivo = trim($datos["motivo"]);
+            $folio = trim(isset($datos["referencia"]) ? $datos["referencia"] : "");
+            $folio = $folio !== "" ? strtoupper(preg_replace('/[^A-Z0-9_-]+/', '-', $folio)) : $this->folioReclasificacion($db);
+
+            $stmt = $db->prepare("INSERT INTO erp_inventario_reclasificaciones
+                (folio, id_almacen, estatus, motivo, costo_politica, requiere_autorizacion, creado_por, confirmado_por, fecha_reclasificacion, fecha_actualizacion)
+                VALUES (:folio, :almacen, 'confirmada', :motivo, 'conservar_origen', :autoriza, :usuario, :usuario, NOW(), NOW())");
+            $stmt->execute(array(
+                ":folio" => $folio,
+                ":almacen" => intval($existenciaOrigen["id_almacen_clave"]),
+                ":motivo" => $motivo,
+                ":autoriza" => intval($regla["requiere_autorizacion"]),
+                ":usuario" => intval($idUsuario) ?: null
+            ));
+            $idReclasificacion = intval($db->lastInsertId());
+
+            $itemDestino = array(
+                "lote" => intval($regla["conserva_lote"]) === 1 ? $existenciaOrigen["lote"] : "",
+                "fecha_caducidad" => intval($regla["conserva_caducidad"]) === 1 ? $existenciaOrigen["fecha_caducidad"] : "",
+                "ubicacion_id" => intval($existenciaOrigen["ubicacion_id"])
+            );
+            $existenciaDestino = $this->obtenerOCrearExistencia($db, $skuDestino, intval($existenciaOrigen["id_almacen_clave"]), $itemDestino, floatval($existenciaOrigen["costo_promedio"]));
+
+            $stmt = $db->prepare("INSERT INTO erp_inventario_reclasificaciones_detalle
+                (id_reclasificacion_inventario, id_sku_reclasificacion, id_sku_origen, id_sku_destino,
+                 id_existencia_origen, id_existencia_destino, id_unidad_origen, id_almacen, ubicacion_id,
+                 lote, fecha_caducidad, cantidad, costo_unitario_origen, costo_unitario_destino,
+                 costo_total_origen, costo_total_destino, costo_diferencia, observaciones)
+                VALUES (:reclas, :regla, :sku_origen, :sku_destino, :exist_origen, :exist_destino, :unidad_origen,
+                 :almacen, :ubicacion, :lote, :caducidad, :cantidad, :costo_origen, :costo_destino,
+                 :total_origen, :total_destino, 0, :observaciones)");
+            $costo = round(floatval($existenciaOrigen["costo_promedio"]), 4);
+            $stmt->execute(array(
+                ":reclas" => $idReclasificacion,
+                ":regla" => intval($regla["id_sku_reclasificacion"]),
+                ":sku_origen" => intval($existenciaOrigen["id_sku_erp"]),
+                ":sku_destino" => intval($skuDestino["id_sku"]),
+                ":exist_origen" => intval($existenciaOrigen["id_existencia_inventario"]),
+                ":exist_destino" => intval($existenciaDestino["id_existencia_inventario"]),
+                ":unidad_origen" => $unidadOrigen ? intval($unidadOrigen["id_inventario_unidad"]) : null,
+                ":almacen" => intval($existenciaOrigen["id_almacen_clave"]),
+                ":ubicacion" => intval($existenciaOrigen["ubicacion_id"]) ?: null,
+                ":lote" => $existenciaOrigen["lote"],
+                ":caducidad" => $existenciaOrigen["fecha_caducidad"],
+                ":cantidad" => $cantidad,
+                ":costo_origen" => $costo,
+                ":costo_destino" => $costo,
+                ":total_origen" => round($cantidad * $costo, 4),
+                ":total_destino" => round($cantidad * $costo, 4),
+                ":observaciones" => trim(isset($datos["observaciones"]) ? $datos["observaciones"] : "")
+            ));
+            $idDetalle = intval($db->lastInsertId());
+
+            $datosMovimiento = array("motivo_ajuste" => "reclasificacion", "observaciones" => $motivo);
+            $movSalida = $this->aplicarCambio($db, $existenciaOrigen, $cantidad, "salida", "reclasificacion_inventario", $idReclasificacion, $folio, $datosMovimiento, $idUsuario);
+            $existenciaDestino = $this->recargarExistencia($db, intval($existenciaDestino["id_existencia_inventario"]));
+            $movEntrada = $this->aplicarCambio($db, $existenciaDestino, $cantidad, "entrada", "reclasificacion_inventario", $idReclasificacion, $folio, $datosMovimiento, $idUsuario);
+            $stmt = $db->prepare("UPDATE erp_inventario_movimientos
+                SET origen_detalle_id=:detalle
+                WHERE id_movimiento_inventario IN (:salida, :entrada)");
+            $stmt->execute(array(":detalle" => $idDetalle, ":salida" => $movSalida, ":entrada" => $movEntrada));
+
+            $idUnidadDestino = null;
+            $estadoUnidadOrigen = null;
+            if ($unidadOrigen) {
+                $estadoUnidadOrigen = "consumida";
+                $this->actualizarUnidadOrigenReclasificacion($db, $unidadOrigen, $idDetalle, $movSalida);
+                $idUnidadDestino = $this->crearUnidadDestinoReclasificacion($db, $skuDestino, $this->recargarExistencia($db, intval($existenciaDestino["id_existencia_inventario"])), $unidadOrigen, $idReclasificacion, $idDetalle, $folio);
+            }
+
+            $stmt = $db->prepare("UPDATE erp_inventario_reclasificaciones_detalle
+                SET id_movimiento_salida=:salida, id_movimiento_entrada=:entrada,
+                    id_unidad_destino=:unidad_destino, estado_unidad_origen_despues=:estado
+                WHERE id_reclasificacion_detalle=:detalle");
+            $stmt->execute(array(
+                ":salida" => $movSalida,
+                ":entrada" => $movEntrada,
+                ":unidad_destino" => $idUnidadDestino,
+                ":estado" => $estadoUnidadOrigen,
+                ":detalle" => $idDetalle
+            ));
+
+            $db->commit();
+            return $this->respuesta(false, "success", "Reclasificacion aplicada", array(
+                "id_reclasificacion_inventario" => $idReclasificacion,
+                "id_reclasificacion_detalle" => $idDetalle,
+                "folio" => $folio,
+                "movimiento_salida" => $movSalida,
+                "movimiento_entrada" => $movEntrada,
+                "id_unidad_destino" => $idUnidadDestino
+            ));
+        } catch (Exception $e) {
+            if ($db->inTransaction()) {
+                $db->rollBack();
+            }
+            return $this->respuesta(true, "danger", $e->getMessage());
+        }
+    }
+
     public function aplicarAjuste($datos, $idUsuario = 0) {
         $idAlmacen = intval(isset($datos["id_almacen"]) ? $datos["id_almacen"] : 0);
         $tipo = isset($datos["tipo_ajuste"]) ? trim($datos["tipo_ajuste"]) : "";
@@ -1935,6 +2170,240 @@ class InventarioErp extends CRUD {
             }
             return $this->respuesta(true, "danger", $e->getMessage());
         }
+    }
+
+    private function esquemaReclasificacionDisponible($db) {
+        return $this->tablaExiste($db, "erp_catalogo_sku_reclasificaciones")
+            && $this->tablaExiste($db, "erp_inventario_reclasificaciones")
+            && $this->tablaExiste($db, "erp_inventario_reclasificaciones_detalle");
+    }
+
+    private function validarPayloadReclasificacion($db, $datos, $bloquear) {
+        if (!$this->esquemaReclasificacionDisponible($db)) {
+            throw new Exception("Falta aplicar el esquema de reclasificacion. Genera dry-run y aplica DDL solo con respaldo/autorizacion.");
+        }
+        $idAlmacen = intval(isset($datos["id_almacen"]) ? $datos["id_almacen"] : 0);
+        $idExistencia = intval(isset($datos["id_existencia_origen"]) ? $datos["id_existencia_origen"] : 0);
+        $idSkuDestino = intval(isset($datos["id_sku_destino"]) ? $datos["id_sku_destino"] : 0);
+        $idRegla = intval(isset($datos["id_sku_reclasificacion"]) ? $datos["id_sku_reclasificacion"] : 0);
+        $idUnidad = intval(isset($datos["id_unidad_origen"]) ? $datos["id_unidad_origen"] : 0);
+        $cantidad = round(floatval(isset($datos["cantidad"]) ? $datos["cantidad"] : 0), 6);
+        $motivo = trim(isset($datos["motivo"]) ? $datos["motivo"] : "");
+        if ($idAlmacen <= 0 || $idExistencia <= 0 || $idSkuDestino <= 0 || $idRegla <= 0) {
+            throw new Exception("Almacen, existencia origen, regla y SKU destino son obligatorios");
+        }
+        if ($cantidad <= 0) {
+            throw new Exception("La cantidad debe ser mayor a cero");
+        }
+        if ($motivo === "") {
+            throw new Exception("Captura motivo obligatorio");
+        }
+
+        $this->validarAlmacen($db, $idAlmacen);
+        $existencia = $this->consultarExistenciaReclasificacion($db, $idExistencia, $idAlmacen, $bloquear);
+        if ($cantidad > round(floatval($existencia["cantidad_disponible"]), 6) + 0.000001) {
+            throw new Exception("No hay suficiente existencia disponible del SKU origen");
+        }
+        if (intval($existencia["id_sku_erp"]) === $idSkuDestino) {
+            throw new Exception("El SKU origen y destino deben ser diferentes");
+        }
+        $regla = $this->consultarReglaReclasificacion($db, $idRegla, intval($existencia["id_sku_erp"]), $idSkuDestino);
+        if (intval($regla["conserva_costo"]) !== 1) {
+            throw new Exception("La primera version solo permite reclasificar conservando costo origen");
+        }
+        $skuDestino = $this->consultarSku($db, $idSkuDestino);
+        $unidadOrigen = null;
+        $totalUnidades = $this->totalUnidadesDisponiblesExistencia($db, $idExistencia);
+        if ($totalUnidades > 0 && $idUnidad <= 0) {
+            throw new Exception("La existencia origen tiene unidades fisicas; selecciona la unidad exacta");
+        }
+        if ($idUnidad > 0) {
+            if (intval($regla["permite_unidad_fisica"]) !== 1) {
+                throw new Exception("La regla de catalogo no permite reclasificar unidades fisicas");
+            }
+            $unidadOrigen = $this->consultarUnidadReclasificacion($db, $idUnidad, $idExistencia, intval($existencia["id_sku_erp"]), $idAlmacen, $bloquear);
+            $contenido = round(floatval($unidadOrigen["cantidad_base_disponible"]), 6);
+            if ($cantidad > $contenido + 0.000001) {
+                throw new Exception("La unidad fisica no tiene contenido suficiente");
+            }
+            if (abs($cantidad - $contenido) > 0.000001) {
+                throw new Exception("La primera version solo permite reclasificar completa una unidad fisica");
+            }
+        }
+        if (intval($skuDestino["requiere_lote"]) === 1 && intval($regla["conserva_lote"]) === 1 && trim((string) $existencia["lote"]) === "") {
+            throw new Exception("El SKU destino requiere lote y la existencia origen no tiene lote");
+        }
+        if (intval($skuDestino["requiere_caducidad"]) === 1 && intval($regla["conserva_caducidad"]) === 1 && trim((string) $existencia["fecha_caducidad"]) === "") {
+            throw new Exception("El SKU destino requiere caducidad y la existencia origen no tiene caducidad");
+        }
+        return array(
+            "existencia_origen" => $existencia,
+            "sku_destino" => $skuDestino,
+            "regla" => $regla,
+            "unidad_origen" => $unidadOrigen,
+            "cantidad" => $cantidad,
+            "salida" => array(
+                "id_sku" => intval($existencia["id_sku_erp"]),
+                "sku" => $existencia["sku"],
+                "producto" => $existencia["producto"],
+                "codigo_existencia" => $existencia["codigo_existencia"],
+                "cantidad" => $cantidad,
+                "costo_unitario" => round(floatval($existencia["costo_promedio"]), 4),
+                "costo_total" => round($cantidad * floatval($existencia["costo_promedio"]), 4),
+                "lote" => $existencia["lote"],
+                "fecha_caducidad" => $existencia["fecha_caducidad"],
+                "ubicacion" => $existencia["ubicacion"]
+            ),
+            "entrada" => array(
+                "id_sku" => intval($skuDestino["id_sku"]),
+                "sku" => $skuDestino["sku"],
+                "cantidad" => $cantidad,
+                "costo_unitario" => round(floatval($existencia["costo_promedio"]), 4),
+                "costo_total" => round($cantidad * floatval($existencia["costo_promedio"]), 4),
+                "lote" => intval($regla["conserva_lote"]) === 1 ? $existencia["lote"] : null,
+                "fecha_caducidad" => intval($regla["conserva_caducidad"]) === 1 ? $existencia["fecha_caducidad"] : null,
+                "ubicacion" => $existencia["ubicacion"]
+            )
+        );
+    }
+
+    private function consultarExistenciaReclasificacion($db, $idExistencia, $idAlmacen, $bloquear) {
+        $sql = "SELECT e.*, s.sku, COALESCE(s.nombre, p.nombre) producto
+            FROM erp_inventario_existencias e
+            INNER JOIN erp_catalogo_skus s ON s.id_sku=e.id_sku_erp
+            INNER JOIN erp_catalogo_productos p ON p.id_producto_erp=s.id_producto_erp
+            WHERE e.id_existencia_inventario=:existencia
+              AND e.id_almacen_clave=:almacen
+              AND e.cantidad_disponible>0
+              AND s.estatus='activo'
+              AND p.estatus='activo'";
+        $sql .= $bloquear ? " FOR UPDATE" : "";
+        $stmt = $db->prepare($sql);
+        $stmt->execute(array(":existencia" => $idExistencia, ":almacen" => $idAlmacen));
+        $existencia = $stmt->fetch(PDO::FETCH_ASSOC);
+        if (!$existencia) {
+            throw new Exception("Existencia origen no encontrada o sin disponible");
+        }
+        return $existencia;
+    }
+
+    private function consultarReglaReclasificacion($db, $idRegla, $idSkuOrigen, $idSkuDestino) {
+        $stmt = $db->prepare("SELECT * FROM erp_catalogo_sku_reclasificaciones
+            WHERE id_sku_reclasificacion=:regla
+              AND id_sku_origen=:origen
+              AND id_sku_destino=:destino
+              AND estatus='activa'");
+        $stmt->execute(array(":regla" => $idRegla, ":origen" => $idSkuOrigen, ":destino" => $idSkuDestino));
+        $regla = $stmt->fetch(PDO::FETCH_ASSOC);
+        if (!$regla) {
+            throw new Exception("SKU destino no permitido para reclasificacion");
+        }
+        return $regla;
+    }
+
+    private function consultarUnidadReclasificacion($db, $idUnidad, $idExistencia, $idSku, $idAlmacen, $bloquear) {
+        $sql = "SELECT * FROM erp_inventario_unidades
+            WHERE id_inventario_unidad=:unidad
+              AND id_existencia_inventario=:existencia
+              AND id_sku_erp=:sku
+              AND id_almacen=:almacen
+              AND estatus='disponible'
+              AND cantidad_base_disponible>0";
+        $sql .= $bloquear ? " FOR UPDATE" : "";
+        $stmt = $db->prepare($sql);
+        $stmt->execute(array(":unidad" => $idUnidad, ":existencia" => $idExistencia, ":sku" => $idSku, ":almacen" => $idAlmacen));
+        $unidad = $stmt->fetch(PDO::FETCH_ASSOC);
+        if (!$unidad) {
+            throw new Exception("Unidad fisica origen no encontrada o no disponible");
+        }
+        return $unidad;
+    }
+
+    private function unidadesDisponiblesExistencia($db, $idExistencia) {
+        $stmt = $db->prepare("SELECT id_inventario_unidad, codigo_unico, codigo_etiqueta_interna, serie_fabricante,
+                cantidad_base_original, cantidad_base_disponible, unidad_base, estado_fisico, estado_etiqueta, estatus
+            FROM erp_inventario_unidades
+            WHERE id_existencia_inventario=:existencia AND estatus='disponible'
+            ORDER BY id_inventario_unidad");
+        $stmt->execute(array(":existencia" => $idExistencia));
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    private function totalUnidadesDisponiblesExistencia($db, $idExistencia) {
+        $stmt = $db->prepare("SELECT COUNT(*) FROM erp_inventario_unidades
+            WHERE id_existencia_inventario=:existencia AND estatus='disponible'");
+        $stmt->execute(array(":existencia" => $idExistencia));
+        return intval($stmt->fetchColumn());
+    }
+
+    private function recargarExistencia($db, $idExistencia) {
+        $stmt = $db->prepare("SELECT * FROM erp_inventario_existencias WHERE id_existencia_inventario=:existencia FOR UPDATE");
+        $stmt->execute(array(":existencia" => $idExistencia));
+        $existencia = $stmt->fetch(PDO::FETCH_ASSOC);
+        if (!$existencia) {
+            throw new Exception("No fue posible recargar existencia");
+        }
+        return $existencia;
+    }
+
+    private function actualizarUnidadOrigenReclasificacion($db, $unidad, $idDetalle, $idMovimientoSalida) {
+        $stmt = $db->prepare("UPDATE erp_inventario_unidades
+            SET cantidad_base_disponible=0,
+                estado_fisico='consumida',
+                estatus='consumida',
+                id_movimiento_consumo=:movimiento,
+                fecha_consumo=NOW(),
+                observaciones=CONCAT(COALESCE(observaciones,''), :obs),
+                fecha_actualizacion=NOW()
+            WHERE id_inventario_unidad=:unidad");
+        $stmt->execute(array(
+            ":movimiento" => intval($idMovimientoSalida),
+            ":obs" => " | Reclasificada detalle " . intval($idDetalle),
+            ":unidad" => intval($unidad["id_inventario_unidad"])
+        ));
+    }
+
+    private function crearUnidadDestinoReclasificacion($db, $skuDestino, $existenciaDestino, $unidadOrigen, $idReclasificacion, $idDetalle, $folio) {
+        $prefijo = $this->clave(isset($skuDestino["prefijo_etiqueta_interna"]) ? $skuDestino["prefijo_etiqueta_interna"] : "");
+        if ($prefijo === "") {
+            $prefijo = "RECLAS";
+        }
+        $codigo = $prefijo . "-R" . str_pad((string) intval($idReclasificacion), 6, "0", STR_PAD_LEFT) . "-" . str_pad((string) intval($idDetalle), 4, "0", STR_PAD_LEFT);
+        $stmt = $db->prepare("INSERT INTO erp_inventario_unidades
+            (codigo_unico, tipo_identidad, codigo_etiqueta_interna, id_producto, id_sku_erp,
+             id_recepcion_almacen, id_recepcion_lote, id_existencia_inventario, id_almacen, ubicacion_id,
+             lote, fecha_caducidad, cantidad_base_original, cantidad_base_disponible, unidad_base,
+             estatus, estado_etiqueta, estado_fisico, origen_tipo, origen_id, origen_detalle_id, observaciones)
+            VALUES (:codigo, 'etiqueta_interna', :codigo, :producto, :sku, NULL, NULL, :existencia,
+             :almacen, :ubicacion, :lote, :caducidad, :original, :disponible, :unidad_base,
+             'disponible', 'pendiente_impresion', 'cerrada', 'reclasificacion_inventario', :origen, :detalle, :observaciones)");
+        $stmt->execute(array(
+            ":codigo" => $codigo,
+            ":producto" => intval($skuDestino["id_producto_erp"]),
+            ":sku" => intval($skuDestino["id_sku"]),
+            ":existencia" => intval($existenciaDestino["id_existencia_inventario"]),
+            ":almacen" => intval($existenciaDestino["id_almacen_clave"]),
+            ":ubicacion" => intval($existenciaDestino["ubicacion_id"]) ?: null,
+            ":lote" => $existenciaDestino["lote"],
+            ":caducidad" => $existenciaDestino["fecha_caducidad"],
+            ":original" => floatval($unidadOrigen["cantidad_base_original"]),
+            ":disponible" => floatval($unidadOrigen["cantidad_base_original"]),
+            ":unidad_base" => trim(isset($skuDestino["unidad_base_label"]) ? $skuDestino["unidad_base_label"] : "") ?: $unidadOrigen["unidad_base"],
+            ":origen" => intval($idReclasificacion),
+            ":detalle" => intval($idDetalle),
+            ":observaciones" => "Unidad destino por reclasificacion " . $folio . " desde " . ($unidadOrigen["codigo_etiqueta_interna"] ?: $unidadOrigen["codigo_unico"])
+        ));
+        return intval($db->lastInsertId());
+    }
+
+    private function folioReclasificacion($db) {
+        $prefijo = "RECLAS-" . date("Ymd");
+        if (!$this->tablaExiste($db, "erp_inventario_reclasificaciones")) {
+            return $prefijo . "-0001";
+        }
+        $stmt = $db->prepare("SELECT COUNT(*) FROM erp_inventario_reclasificaciones WHERE folio LIKE :prefijo");
+        $stmt->execute(array(":prefijo" => $prefijo . "-%"));
+        return $prefijo . "-" . str_pad((string) (intval($stmt->fetchColumn()) + 1), 4, "0", STR_PAD_LEFT);
     }
 
     private function validarAlmacen($db, $idAlmacen) {

@@ -173,6 +173,33 @@ class Sistema extends Controlador {
 
   /**
    * IA: Codex GPT-5
+   * Fecha: 2026-08-08
+   * Proposito: subir y enlazar logo principal/compacto desde la configuracion SYS.
+   * Impacto: Branding global del panel; corrige logos rotos sin exponer rutas inseguras.
+   * Contrato: requiere `configuracion.administrar`, CSRF global y archivo `logo`.
+   */
+  public function configuracion_logo_subir() {
+    $this->requerirPermiso("configuracion.administrar");
+    $tipoLogo = isset($_POST["tipo_logo"]) ? trim($_POST["tipo_logo"]) : "principal";
+    $motivo = isset($_POST["motivo"]) ? trim($_POST["motivo"]) : "";
+    $configuracion = $this->modelo("SistemaConfiguracion");
+    $respuesta = $configuracion->guardarLogo(
+      $tipoLogo,
+      isset($_FILES["logo"]) ? $_FILES["logo"] : null,
+      $this->usuarioActualId(),
+      $motivo
+    );
+    SesionSeguridad::registrarAuditoria("configuracion", "subir_logo", array(
+      "entidad" => "sys_configuracion_parametros",
+      "resultado" => $respuesta["error"] ? "error" : "ok",
+      "datos_despues" => isset($respuesta["depurar"]["logo"]) ? $respuesta["depurar"]["logo"] : null,
+      "mensaje" => $respuesta["mensaje"]
+    ));
+    echo json_encode($respuesta);
+  }
+
+  /**
+   * IA: Codex GPT-5
    * Fecha: 2026-07-23
    * Proposito: auditar o aplicar tablas SYS de configuracion persistente.
    * Impacto: Esquema SYS; crea parametros e historial cuando se ejecuta con respaldo previo.

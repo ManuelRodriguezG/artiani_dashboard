@@ -2,7 +2,8 @@
 
 RewriteEngine On
 RewriteRule ^$ public/ [L]
-RewriteRule (.*) public/$1 [L]
+RewriteCond %{REQUEST_URI} !^/public/
+RewriteRule ^(.*)$ public/$1 [L]
 </IfModule>
 
 # php -- BEGIN cPanel-generated handler, do not edit

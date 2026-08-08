@@ -124,6 +124,7 @@
                                         </div>
                                         <span class="badge badge-light-primary ms-auto" id="ecom_ctl_estado">Listo</span>
                                     </div>
+                                    <div id="ecom_ctl_diagnostico" class="alert alert-light border d-none mb-4"></div>
                                     <div class="row g-4">
                                         <div class="col-xl-8">
                                             <div class="table-responsive ecom-table-scroll">
@@ -165,6 +166,6 @@
 </div>
 <script src="assets/plugins/global/plugins.bundle.js"></script>
 <script src="assets/js/scripts.bundle.js"></script>
-<script src="/assets/js/custom/apps/erp/ecommerce/control.js?v=20260730-control1"></script>
+<script src="/assets/js/custom/apps/erp/ecommerce/control.js?v=20260806-diagnostico1"></script>
 </body>
 </html>
