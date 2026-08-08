@@ -376,6 +376,7 @@
                         <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#catalogo_detalle_variantes">Variantes</a></li>
                         <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#catalogo_detalle_presentaciones">Presentaciones</a></li>
                         <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#catalogo_detalle_aperturas_empaque">Apertura de empaques</a></li>
+                        <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#catalogo_detalle_reclasificaciones">Reclasificacion</a></li>
                         <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#catalogo_detalle_paquetes">Paquetes</a></li>
                         <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#catalogo_detalle_imagenes">Imagenes</a></li>
                         <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#catalogo_detalle_proveedores">Proveedores</a></li>
@@ -684,6 +685,66 @@
                             </form>
                             <?php endif; ?>
                             <div class="alert alert-danger d-none mt-6" id="catalogo_aperturas_empaque_error"></div>
+                        </div>
+                        <div class="tab-pane fade" id="catalogo_detalle_reclasificaciones">
+                            <div class="alert alert-light-info mb-6">
+                                Define que SKU puede reclasificarse hacia otro SKU interno permitido. Esto solo configura Catalogo; Inventario ejecuta la salida y entrada con trazabilidad.
+                            </div>
+                            <div id="catalogo_reclasificaciones_estado" class="mb-6"></div>
+                            <div class="table-responsive">
+                                <table class="table align-middle table-row-dashed gy-4">
+                                    <thead><tr class="text-muted fw-bold fs-7 text-uppercase"><th>SKU origen</th><th>SKU destino</th><th>Tipo</th><th>Trazabilidad</th><th>Autorizacion</th><th>Estado</th><?php if (SesionSeguridad::tienePermiso('catalogo.editar')): ?><th class="text-end">Accion</th><?php endif; ?></tr></thead>
+                                    <tbody id="catalogo_reclasificaciones_lista"></tbody>
+                                </table>
+                            </div>
+                            <?php if (SesionSeguridad::tienePermiso('catalogo.editar')): ?>
+                            <div class="separator my-7"></div>
+                            <h3 class="fs-5 mb-5" id="catalogo_reclasificacion_form_titulo">Configurar reclasificacion</h3>
+                            <form id="catalogo_form_reclasificacion" data-erp-ajax="true">
+                                <input type="hidden" name="id_sku_reclasificacion">
+                                <div class="row g-5">
+                                    <div class="col-md-3">
+                                        <label class="form-label required">SKU origen</label>
+                                        <select class="form-select" name="id_sku_origen" id="catalogo_reclasificacion_origen" required></select>
+                                        <div class="form-text">SKU recibido o existente que Inventario dara de baja.</div>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <label class="form-label required">SKU destino</label>
+                                        <select class="form-select" name="id_sku_destino" id="catalogo_reclasificacion_destino" required></select>
+                                        <div class="form-text">SKU interno permitido que recibira la entrada.</div>
+                                    </div>
+                                    <div class="col-md-2">
+                                        <label class="form-label">Tipo</label>
+                                        <select class="form-select" name="tipo_reclasificacion">
+                                            <option value="clasificacion_interna">Clasificacion interna</option>
+                                            <option value="calidad">Calidad</option>
+                                            <option value="presentacion_equivalente">Presentacion equivalente</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-2">
+                                        <label class="form-label">Estado</label>
+                                        <select class="form-select" name="estatus"><option value="activa">Activa</option><option value="inactiva">Inactiva</option></select>
+                                    </div>
+                                    <div class="col-12 d-flex flex-wrap gap-8">
+                                        <label class="form-check form-switch form-check-custom form-check-solid"><input class="form-check-input" type="checkbox" name="conserva_lote" value="1" checked><span class="form-check-label">Conserva lote</span></label>
+                                        <label class="form-check form-switch form-check-custom form-check-solid"><input class="form-check-input" type="checkbox" name="conserva_caducidad" value="1" checked><span class="form-check-label">Conserva caducidad</span></label>
+                                        <label class="form-check form-switch form-check-custom form-check-solid"><input class="form-check-input" type="checkbox" name="conserva_costo" value="1" checked><span class="form-check-label">Conserva costo</span></label>
+                                        <label class="form-check form-switch form-check-custom form-check-solid"><input class="form-check-input" type="checkbox" name="permite_unidad_fisica" value="1" checked><span class="form-check-label">Permite unidad fisica</span></label>
+                                        <label class="form-check form-switch form-check-custom form-check-solid"><input class="form-check-input" type="checkbox" name="requiere_autorizacion" value="1"><span class="form-check-label">Requiere autorizacion</span></label>
+                                    </div>
+                                    <div class="col-12">
+                                        <label class="form-label">Observaciones</label>
+                                        <textarea class="form-control" name="observaciones" rows="2" maxlength="1000" placeholder="Criterio operativo para usar esta relacion"></textarea>
+                                        <div class="form-text">La reclasificacion real siempre pedira motivo en Inventario.</div>
+                                    </div>
+                                </div>
+                                <div class="text-end mt-6">
+                                    <button class="btn btn-light d-none" type="button" id="catalogo_cancelar_edicion_reclasificacion">Cancelar edicion</button>
+                                    <button class="btn btn-primary" type="submit" id="catalogo_reclasificacion_guardar"><i class="bi bi-arrow-left-right"></i> Guardar reclasificacion</button>
+                                </div>
+                            </form>
+                            <?php endif; ?>
+                            <div class="alert alert-danger d-none mt-6" id="catalogo_reclasificaciones_error"></div>
                         </div>
                         <div class="tab-pane fade" id="catalogo_detalle_paquetes">
                             <div class="alert alert-light-info mb-6">

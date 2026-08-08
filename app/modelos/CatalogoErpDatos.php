@@ -3963,6 +3963,7 @@ class CatalogoErpDatos extends CRUD {
         "proveedores" => $this->consultarSkuProveedores($db, intval($idProducto)),
         "presentaciones" => $this->consultarSkuPresentaciones($db, intval($idProducto)),
         "aperturas_empaque" => $this->consultarSkuAperturasEmpaque($db, intval($idProducto)),
+        "reclasificaciones" => $this->consultarSkuReclasificaciones($db, intval($idProducto)),
         "paquetes" => $this->consultarPaquetesProducto($db, intval($idProducto)),
         "variantes" => $this->consultarVariantesProducto($db, intval($idProducto), $skus)
       ));
@@ -5749,6 +5750,179 @@ class CatalogoErpDatos extends CRUD {
     } catch (Exception $e) {
       return $this->respuesta(true, "danger", $e->getMessage());
     }
+  }
+
+  /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-08-08
+   * Proposito: guarda reglas origen-destino para Inventario > Reclasificacion.
+   * Impacto: Catalogo ERP; no mueve inventario ni genera kardex.
+   * Contrato: requiere `erp_catalogo_sku_reclasificaciones`; DDL separado con respaldo/autorizacion.
+   */
+  public function guardarSkuReclasificacion($datos, $idUsuario = 0) {
+    $idRegla = intval(isset($datos["id_sku_reclasificacion"]) ? $datos["id_sku_reclasificacion"] : 0);
+    $idOrigen = intval(isset($datos["id_sku_origen"]) ? $datos["id_sku_origen"] : 0);
+    $idDestino = intval(isset($datos["id_sku_destino"]) ? $datos["id_sku_destino"] : 0);
+    $tipo = $this->opcion($datos, "tipo_reclasificacion", array("clasificacion_interna", "calidad", "presentacion_equivalente"), "clasificacion_interna");
+    $estatus = $this->opcion($datos, "estatus", array("activa", "inactiva"), "activa");
+    if ($idOrigen <= 0 || $idDestino <= 0) {
+      return $this->respuesta(true, "warning", "Selecciona SKU origen y SKU destino");
+    }
+    if ($idOrigen === $idDestino) {
+      return $this->respuesta(true, "warning", "El SKU origen y destino deben ser diferentes");
+    }
+    $db = $this->getConexion();
+    try {
+      if (!$this->tablaExisteCatalogo($db, "erp_catalogo_sku_reclasificaciones")) {
+        return $this->respuesta(true, "warning", "Falta aplicar el DDL de Reclasificacion antes de guardar reglas", array(
+          "tabla_faltante" => "erp_catalogo_sku_reclasificaciones"
+        ));
+      }
+      $skus = $this->consultarSkusReclasificacion($db, $idOrigen, $idDestino);
+      if (!isset($skus[$idOrigen]) || !isset($skus[$idDestino])) {
+        return $this->respuesta(true, "warning", "Selecciona SKUs existentes");
+      }
+      $noOperativos = array("fusionado", "descontinuado", "inactivo");
+      if (in_array($skus[$idOrigen]["estatus"], $noOperativos, true) || in_array($skus[$idDestino]["estatus"], $noOperativos, true)
+        || in_array($skus[$idOrigen]["estatus_producto"], $noOperativos, true) || in_array($skus[$idDestino]["estatus_producto"], $noOperativos, true)) {
+        return $this->respuesta(true, "warning", "No puedes configurar reclasificacion con productos o SKU no operativos");
+      }
+      if (!$this->controlaInventario($skus[$idOrigen]["tipo_inventario"]) || intval($skus[$idOrigen]["controla_inventario"]) !== 1) {
+        return $this->respuesta(true, "warning", "El SKU origen debe controlar inventario");
+      }
+      if (!$this->controlaInventario($skus[$idDestino]["tipo_inventario"]) || intval($skus[$idDestino]["controla_inventario"]) !== 1) {
+        return $this->respuesta(true, "warning", "El SKU destino debe controlar inventario");
+      }
+      $params = array(
+        ":origen" => $idOrigen,
+        ":destino" => $idDestino,
+        ":tipo" => $tipo,
+        ":conserva_lote" => $this->booleano($datos, "conserva_lote"),
+        ":conserva_caducidad" => $this->booleano($datos, "conserva_caducidad"),
+        ":conserva_costo" => $this->booleano($datos, "conserva_costo"),
+        ":permite_unidad" => $this->booleano($datos, "permite_unidad_fisica"),
+        ":requiere_autorizacion" => $this->booleano($datos, "requiere_autorizacion"),
+        ":estatus" => $estatus,
+        ":observaciones" => $this->texto($datos, "observaciones"),
+        ":usuario" => intval($idUsuario) ?: null
+      );
+      $db->beginTransaction();
+      if ($idRegla > 0) {
+        $params[":id"] = $idRegla;
+        $stmt = $db->prepare("UPDATE erp_catalogo_sku_reclasificaciones
+          SET id_sku_origen=:origen, id_sku_destino=:destino, tipo_reclasificacion=:tipo,
+            conserva_lote=:conserva_lote, conserva_caducidad=:conserva_caducidad,
+            conserva_costo=:conserva_costo, permite_unidad_fisica=:permite_unidad,
+            requiere_autorizacion=:requiere_autorizacion, estatus=:estatus,
+            observaciones=:observaciones, actualizado_por=:usuario, fecha_actualizacion=CURRENT_TIMESTAMP
+          WHERE id_sku_reclasificacion=:id");
+        $stmt->execute($params);
+      } else {
+        $stmt = $db->prepare("INSERT INTO erp_catalogo_sku_reclasificaciones
+          (id_sku_origen, id_sku_destino, tipo_reclasificacion, conserva_lote, conserva_caducidad,
+           conserva_costo, permite_unidad_fisica, requiere_autorizacion, estatus, observaciones, creado_por, actualizado_por)
+          VALUES (:origen, :destino, :tipo, :conserva_lote, :conserva_caducidad,
+           :conserva_costo, :permite_unidad, :requiere_autorizacion, :estatus, :observaciones, :usuario, :usuario)
+          ON DUPLICATE KEY UPDATE tipo_reclasificacion=VALUES(tipo_reclasificacion),
+            conserva_lote=VALUES(conserva_lote), conserva_caducidad=VALUES(conserva_caducidad),
+            conserva_costo=VALUES(conserva_costo), permite_unidad_fisica=VALUES(permite_unidad_fisica),
+            requiere_autorizacion=VALUES(requiere_autorizacion), estatus=VALUES(estatus),
+            observaciones=VALUES(observaciones), actualizado_por=VALUES(actualizado_por),
+            fecha_actualizacion=CURRENT_TIMESTAMP");
+        $stmt->execute($params);
+        $idRegla = intval($db->lastInsertId());
+        if ($idRegla <= 0) {
+          $stmt = $db->prepare("SELECT id_sku_reclasificacion
+            FROM erp_catalogo_sku_reclasificaciones
+            WHERE id_sku_origen=:origen AND id_sku_destino=:destino
+            LIMIT 1");
+          $stmt->execute(array(":origen" => $idOrigen, ":destino" => $idDestino));
+          $idRegla = intval($stmt->fetchColumn());
+        }
+      }
+      $db->commit();
+      return $this->respuesta(false, "success", "Regla de reclasificacion guardada", array(
+        "id_sku_reclasificacion" => $idRegla,
+        "id_sku_origen" => $idOrigen,
+        "id_sku_destino" => $idDestino
+      ));
+    } catch (Exception $e) {
+      if ($db->inTransaction()) {
+        $db->rollBack();
+      }
+      return $this->respuesta(true, "danger", $e->getCode() === "23000" ? "Ya existe una regla para ese origen y destino" : $e->getMessage());
+    }
+  }
+
+  public function desactivarSkuReclasificacion($datos) {
+    $id = intval(isset($datos["id_sku_reclasificacion"]) ? $datos["id_sku_reclasificacion"] : 0);
+    if ($id <= 0) {
+      return $this->respuesta(true, "warning", "Selecciona la regla que vas a desactivar");
+    }
+    try {
+      $db = $this->getConexion();
+      if (!$this->tablaExisteCatalogo($db, "erp_catalogo_sku_reclasificaciones")) {
+        return $this->respuesta(true, "warning", "Falta aplicar el DDL de Reclasificacion", array("tabla_faltante" => "erp_catalogo_sku_reclasificaciones"));
+      }
+      $stmt = $db->prepare("UPDATE erp_catalogo_sku_reclasificaciones
+        SET estatus='inactiva', fecha_actualizacion=CURRENT_TIMESTAMP
+        WHERE id_sku_reclasificacion=:id");
+      $stmt->execute(array(":id" => $id));
+      if ($stmt->rowCount() === 0) {
+        return $this->respuesta(true, "warning", "No se encontro la regla indicada");
+      }
+      return $this->respuesta(false, "success", "Regla de reclasificacion desactivada", array("id_sku_reclasificacion" => $id));
+    } catch (Exception $e) {
+      return $this->respuesta(true, "danger", $e->getMessage());
+    }
+  }
+
+  private function consultarSkusReclasificacion($db, $idOrigen, $idDestino) {
+    $stmt = $db->prepare("SELECT s.id_sku, s.id_producto_erp, s.sku, s.nombre, s.tipo_inventario, s.estatus,
+        p.estatus AS estatus_producto,
+        COALESCE(r.controla_inventario, 1) AS controla_inventario
+      FROM erp_catalogo_skus s
+      INNER JOIN erp_catalogo_productos p ON p.id_producto_erp=s.id_producto_erp
+      LEFT JOIN erp_catalogo_sku_reglas_inventario r ON r.id_sku=s.id_sku
+      WHERE s.id_sku=:origen OR s.id_sku=:destino");
+    $stmt->execute(array(":origen" => $idOrigen, ":destino" => $idDestino));
+    $skus = array();
+    foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $sku) {
+      $skus[intval($sku["id_sku"])] = $sku;
+    }
+    return $skus;
+  }
+
+  private function consultarSkuReclasificaciones($db, $idProducto) {
+    if (!$this->tablaExisteCatalogo($db, "erp_catalogo_sku_reclasificaciones")) {
+      return array(
+        "esquema_disponible" => false,
+        "mensaje" => "Reclasificacion pendiente de DDL autorizado",
+        "tablas_faltantes" => array("erp_catalogo_sku_reclasificaciones"),
+        "items" => array()
+      );
+    }
+    $stmt = $db->prepare("SELECT r.id_sku_reclasificacion, r.id_sku_origen, r.id_sku_destino,
+        r.tipo_reclasificacion, r.conserva_lote, r.conserva_caducidad, r.conserva_costo,
+        r.permite_unidad_fisica, r.requiere_autorizacion, r.estatus, r.observaciones,
+        origen.sku AS sku_origen, origen.nombre AS nombre_origen,
+        destino.sku AS sku_destino, destino.nombre AS nombre_destino,
+        COALESCE(uo.abreviatura, uo.codigo, '') AS unidad_origen,
+        COALESCE(ud.abreviatura, ud.codigo, '') AS unidad_destino
+      FROM erp_catalogo_sku_reclasificaciones r
+      INNER JOIN erp_catalogo_skus origen ON origen.id_sku=r.id_sku_origen
+      INNER JOIN erp_catalogo_skus destino ON destino.id_sku=r.id_sku_destino
+      INNER JOIN erp_catalogo_productos prod_origen ON prod_origen.id_producto_erp=origen.id_producto_erp
+      INNER JOIN erp_catalogo_productos prod_destino ON prod_destino.id_producto_erp=destino.id_producto_erp
+      LEFT JOIN erp_catalogo_unidades uo ON uo.id_unidad=origen.id_unidad_base
+      LEFT JOIN erp_catalogo_unidades ud ON ud.id_unidad=destino.id_unidad_base
+      WHERE origen.id_producto_erp=:producto OR destino.id_producto_erp=:producto
+      ORDER BY FIELD(r.estatus, 'activa', 'inactiva'), origen.sku, destino.sku");
+    $stmt->execute(array(":producto" => intval($idProducto)));
+    return array(
+      "esquema_disponible" => true,
+      "items" => $stmt->fetchAll(PDO::FETCH_ASSOC)
+    );
   }
 
   /**

@@ -67,7 +67,7 @@
 
     /**
      * IA: Codex GPT-5 | Fecha: 2026-08-08
-     * Proposito: subir logo principal o compacto desde la consola SYS.
+     * Proposito: subir logo principal, logo compacto o favicon desde la consola SYS.
      * Impacto: Branding global; refresca layout para usar el nuevo archivo publico.
      */
     function subirLogo() {
@@ -75,7 +75,7 @@
         var tipoLogo = document.getElementById("sys_config_logo_tipo");
         if (!inputArchivo || !inputArchivo.files || !inputArchivo.files.length) {
             Swal.fire({
-                text: "Selecciona un archivo de logo",
+                text: "Selecciona un archivo de marca",
                 icon: "warning",
                 confirmButtonText: "Aceptar"
             });
@@ -85,11 +85,11 @@
         var formData = new FormData();
         formData.append("logo", inputArchivo.files[0]);
         formData.append("tipo_logo", tipoLogo ? tipoLogo.value : "principal");
-        formData.append("motivo", document.getElementById("sys_config_motivo").value || "Actualizacion de logo del panel");
+        formData.append("motivo", document.getElementById("sys_config_motivo").value || "Actualizacion de marca del panel");
 
         requestArchivo("/sistema/configuracion_logo_subir", formData).then(function (response) {
             if (response.error) {
-                throw new Error(response.mensaje || "No fue posible subir el logo");
+                throw new Error(response.mensaje || "No fue posible subir el archivo");
             }
             return Swal.fire({
                 text: response.mensaje,

@@ -236,11 +236,47 @@ $gruposMenu = array(
 );
 ?>
 
+<style>
+    #kt_app_sidebar_logo {
+        min-height: 82px;
+        padding-left: 12px !important;
+        padding-right: 34px !important;
+    }
+    .erp-sidebar-brand-link {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 0;
+        width: 100%;
+        max-width: 182px;
+    }
+    .erp-sidebar-logo-main {
+        width: 100%;
+        max-width: 182px;
+        max-height: 68px;
+        object-fit: contain;
+    }
+    .erp-sidebar-logo-compact {
+        width: 34px;
+        height: 34px;
+        object-fit: contain;
+    }
+    body[data-kt-app-sidebar-minimize="on"] .erp-sidebar-brand-link {
+        justify-content: center;
+        max-width: 44px;
+    }
+    body[data-kt-app-sidebar-minimize="on"] #kt_app_sidebar_logo {
+        min-height: 74px;
+        padding-left: 16px !important;
+        padding-right: 16px !important;
+    }
+</style>
+
 <div id="kt_app_sidebar" class="app-sidebar flex-column" data-kt-drawer="true" data-kt-drawer-name="app-sidebar" data-kt-drawer-activate="{default: true, lg: false}" data-kt-drawer-overlay="true" data-kt-drawer-width="225px" data-kt-drawer-direction="start" data-kt-drawer-toggle="#kt_app_sidebar_mobile_toggle">
     <div class="app-sidebar-logo px-6" id="kt_app_sidebar_logo">
-        <a href="/">
-            <img alt="<?= htmlspecialchars($brandingSidebar["nombre_sistema"], ENT_QUOTES, "UTF-8") ?>" src="<?= htmlspecialchars($brandingSidebar["logo_principal"], ENT_QUOTES, "UTF-8") ?>" class="h-25px app-sidebar-logo-default" />
-            <img alt="<?= htmlspecialchars($brandingSidebar["nombre_sistema"], ENT_QUOTES, "UTF-8") ?>" src="<?= htmlspecialchars($brandingSidebar["logo_compacto"], ENT_QUOTES, "UTF-8") ?>" class="h-20px app-sidebar-logo-minimize" />
+        <a href="/" class="erp-sidebar-brand-link">
+            <img alt="<?= htmlspecialchars($brandingSidebar["nombre_sistema"], ENT_QUOTES, "UTF-8") ?>" src="<?= htmlspecialchars($brandingSidebar["logo_principal"], ENT_QUOTES, "UTF-8") ?>" class="app-sidebar-logo-default erp-sidebar-logo-main" />
+            <img alt="<?= htmlspecialchars($brandingSidebar["nombre_sistema"], ENT_QUOTES, "UTF-8") ?>" src="<?= htmlspecialchars($brandingSidebar["logo_compacto"], ENT_QUOTES, "UTF-8") ?>" class="app-sidebar-logo-minimize erp-sidebar-logo-compact" />
         </a>
         <div id="kt_app_sidebar_toggle" class="app-sidebar-toggle btn btn-icon btn-shadow btn-sm btn-color-muted btn-active-color-primary body-bg h-30px w-30px position-absolute top-50 start-100 translate-middle rotate" data-kt-toggle="true" data-kt-toggle-state="active" data-kt-toggle-target="body" data-kt-toggle-name="app-sidebar-minimize">
             <i class="bi bi-chevron-double-left fs-4"></i>

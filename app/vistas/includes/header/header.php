@@ -48,7 +48,7 @@ $headerAccesosVisibles = array_values(array_filter($headerAccesos, function ($ac
 
         <div class="d-flex align-items-center flex-grow-1 flex-lg-grow-0">
             <a href="/" class="d-lg-none">
-                <img alt="<?= htmlspecialchars($headerBranding["nombre_sistema"], ENT_QUOTES, "UTF-8") ?>" src="<?= htmlspecialchars($headerBranding["logo_compacto"], ENT_QUOTES, "UTF-8") ?>" class="h-30px">
+                <img alt="<?= htmlspecialchars($headerBranding["nombre_sistema"], ENT_QUOTES, "UTF-8") ?>" src="<?= htmlspecialchars($headerBranding["logo_compacto"], ENT_QUOTES, "UTF-8") ?>" style="width: 38px; height: 38px; object-fit: contain;">
             </a>
         </div>
 
@@ -143,6 +143,17 @@ $headerAccesosVisibles = array_values(array_filter($headerAccesos, function ($ac
 </div>
 <script>
 document.addEventListener("DOMContentLoaded", function () {
+    var faviconHref = <?= json_encode($headerBranding["favicon"]) ?>;
+    if (faviconHref) {
+        var favicon = document.querySelector("link[rel='icon'], link[rel='shortcut icon']");
+        if (!favicon) {
+            favicon = document.createElement("link");
+            favicon.rel = "icon";
+            document.head.appendChild(favicon);
+        }
+        favicon.href = faviconHref;
+    }
+
     var input = document.getElementById("erp_header_search_input");
     if (!input) {
         return;

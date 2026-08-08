@@ -705,6 +705,7 @@
             renderProveedores(response.depurar.proveedores || []);
             renderPresentaciones(response.depurar.presentaciones || []);
             renderAperturasEmpaque(response.depurar.aperturas_empaque || {esquema_disponible: false, items: []});
+            renderReclasificaciones(response.depurar.reclasificaciones || {esquema_disponible: false, items: []});
             renderPaquetes(response.depurar.paquetes || {});
             renderVariantes(response.depurar.skus || [], response.depurar.variantes || {});
             precargarSkuBase(response.depurar.skus || []);
@@ -717,6 +718,8 @@
             llenarSelect("catalogo_presentacion_sku", skusOperativosDetalle, "id_sku", etiquetaSku, false);
             llenarSelect("catalogo_apertura_empaque_origen", skusOrigenApertura, "id_sku", etiquetaSku, false);
             llenarSelect("catalogo_apertura_empaque_destino", skusDestinoApertura, "id_sku", etiquetaSku, false);
+            llenarSelect("catalogo_reclasificacion_origen", skusOperativosDetalle, "id_sku", etiquetaSku, false);
+            llenarSelect("catalogo_reclasificacion_destino", skusOperativosDetalle, "id_sku", etiquetaSku, false);
             llenarSelect("catalogo_paquete_sku", skusOperativosDetalle, "id_sku", etiquetaSku, false);
             actualizarFormularioSkuPaqueteInline(skusOperativosDetalle);
             llenarSelect("catalogo_paquete_opcion_sku", [], "id_sku", etiquetaSku, true);
@@ -804,6 +807,10 @@
         if (presentacionForm) {
             limpiarFormularioPresentacion();
         }
+        if (aperturaEmpaqueForm) {
+            limpiarFormularioAperturaEmpaque();
+        }
+        limpiarFormularioReclasificacion();
         limpiarFormularioPaquete();
     }
 
@@ -1766,6 +1773,59 @@
                 (puedeEditar ? "<td class=\"text-end\">" + acciones + "</td>" : "") +
                 "</tr>";
         }).join("") || "<tr><td colspan=\"" + (puedeEditar ? "7" : "6") + "\" class=\"text-center text-muted py-7\">Sin aperturas de empaque configuradas</td></tr>";
+    }
+
+    /**
+     * IA: Codex GPT-5 | Fecha: 2026-08-08
+     * Proposito: muestra relaciones SKU origen -> SKU destino permitidas para Reclasificacion de inventario.
+     * Impacto: UI de Catalogo ERP; Inventario usa esta configuracion sin reglas especificas por producto.
+     * Contrato: soporta esquema_disponible=false hasta que el DDL sea aplicado con respaldo y autorizacion.
+     */
+    function renderReclasificaciones(reclasificacionesInfo) {
+        var estado = document.getElementById("catalogo_reclasificaciones_estado");
+        var lista = document.getElementById("catalogo_reclasificaciones_lista");
+        if (!estado || !lista) {
+            return;
+        }
+        var puedeEditar = !!document.getElementById("catalogo_form_reclasificacion");
+        var items = Array.isArray(reclasificacionesInfo) ? reclasificacionesInfo : (reclasificacionesInfo.items || []);
+        if (reclasificacionesInfo && reclasificacionesInfo.esquema_disponible === false) {
+            estado.className = "alert alert-light-warning mb-6";
+            estado.innerHTML = "<div class=\"fw-bold mb-1\">" + escapeHtml(reclasificacionesInfo.mensaje || "Reclasificacion pendiente") + "</div>" +
+                "<div class=\"text-muted fs-8\">Se puede revisar la pantalla, pero el guardado real requiere aplicar DDL con respaldo externo y autorizacion.</div>";
+            lista.innerHTML = "<tr><td colspan=\"" + (puedeEditar ? "7" : "6") + "\" class=\"text-center text-muted py-7\">Sin tabla de reclasificaciones aplicada</td></tr>";
+            return;
+        }
+        estado.className = "d-none";
+        estado.innerHTML = "";
+        lista.innerHTML = items.map(function (item) {
+            var acciones = puedeEditar
+                ? "<div class=\"d-flex justify-content-end gap-2\"><button type=\"button\" class=\"btn btn-sm btn-icon btn-light-primary\" title=\"Editar\" data-editar-reclasificacion=\"" + escapeAttr(item.id_sku_reclasificacion) + "\"><i class=\"bi bi-pencil-square\"></i></button>" +
+                  (item.estatus === "activa" ? "<button type=\"button\" class=\"btn btn-sm btn-icon btn-light-danger\" title=\"Desactivar\" data-desactivar-reclasificacion=\"" + escapeAttr(item.id_sku_reclasificacion) + "\"><i class=\"bi bi-eye-slash\"></i></button>" : "") + "</div>"
+                : "";
+            var trazabilidad = [];
+            if (String(item.conserva_lote) === "1") {
+                trazabilidad.push("Lote");
+            }
+            if (String(item.conserva_caducidad) === "1") {
+                trazabilidad.push("Caducidad");
+            }
+            if (String(item.conserva_costo) === "1") {
+                trazabilidad.push("Costo");
+            }
+            if (String(item.permite_unidad_fisica) === "1") {
+                trazabilidad.push("Unidad fisica");
+            }
+            return "<tr>" +
+                "<td><div class=\"fw-bold\">" + escapeHtml(item.sku_origen || "") + "</div><span class=\"text-muted fs-7\">" + escapeHtml(item.nombre_origen || "") + "</span></td>" +
+                "<td><div class=\"fw-bold\">" + escapeHtml(item.sku_destino || "") + "</div><span class=\"text-muted fs-7\">" + escapeHtml(item.nombre_destino || "") + "</span></td>" +
+                "<td><span class=\"badge badge-light-primary\">" + escapeHtml(item.tipo_reclasificacion || "") + "</span></td>" +
+                "<td>" + (trazabilidad.length ? trazabilidad.map(function (texto) { return "<span class=\"badge badge-light-info me-1\">" + escapeHtml(texto) + "</span>"; }).join("") : "<span class=\"text-muted\">Sin reglas</span>") + "</td>" +
+                "<td>" + (String(item.requiere_autorizacion) === "1" ? "<span class=\"badge badge-light-warning\">Si</span>" : "<span class=\"badge badge-light-success\">No</span>") + "</td>" +
+                "<td><span class=\"badge badge-light-" + (item.estatus === "activa" ? "success" : "secondary") + "\">" + escapeHtml(item.estatus || "") + "</span></td>" +
+                (puedeEditar ? "<td class=\"text-end\">" + acciones + "</td>" : "") +
+                "</tr>";
+        }).join("") || "<tr><td colspan=\"" + (puedeEditar ? "7" : "6") + "\" class=\"text-center text-muted py-7\">Sin reglas de reclasificacion configuradas</td></tr>";
     }
     function renderPaquetes(paquetesInfo) {
         var estado = document.getElementById("catalogo_paquetes_estado");
@@ -3229,6 +3289,106 @@
             mostrarError(document.getElementById("catalogo_aperturas_empaque_error"), error);
         });
     }
+
+    /**
+     * IA: Codex GPT-5 | Fecha: 2026-08-08
+     * Proposito: guarda reglas genericas de reclasificacion de SKU desde Catalogo.
+     * Impacto: Catalogo ERP; Inventario valida destinos permitidos sin reglas por producto duro en codigo.
+     */
+    function guardarReclasificacion(event) {
+        event.preventDefault();
+        var currentForm = event.currentTarget;
+        var error = document.getElementById("catalogo_reclasificaciones_error");
+        var origen = currentForm.querySelector("[name='id_sku_origen']").value;
+        var destino = currentForm.querySelector("[name='id_sku_destino']").value;
+        if (origen && destino && origen === destino) {
+            mostrarError(error, new Error("El SKU origen y el destino no pueden ser el mismo"));
+            return;
+        }
+        if (!currentForm.querySelector("[name='conserva_costo']").checked) {
+            mostrarError(error, new Error("La primera version de reclasificacion debe conservar costo. Si cambia costo, requiere flujo documentado aparte."));
+            return;
+        }
+        enviarFormulario(currentForm, "/catalogoerp/guardar_sku_reclasificacion", error, function () {
+            limpiarFormularioReclasificacion();
+            abrirDetalle(productoActualId, "catalogo_detalle_reclasificaciones");
+        });
+    }
+
+    function editarReclasificacion(id) {
+        var form = document.getElementById("catalogo_form_reclasificacion");
+        var info = detalleActual.reclasificaciones || {};
+        var items = Array.isArray(info) ? info : (info.items || []);
+        var item = items.find(function (reclasificacion) {
+            return String(reclasificacion.id_sku_reclasificacion) === String(id);
+        });
+        if (!form || !item) {
+            return;
+        }
+        setValor(form, "id_sku_reclasificacion", item.id_sku_reclasificacion);
+        setValor(form, "id_sku_origen", item.id_sku_origen);
+        setValor(form, "id_sku_destino", item.id_sku_destino);
+        setValor(form, "tipo_reclasificacion", item.tipo_reclasificacion || "clasificacion_interna");
+        setValor(form, "estatus", item.estatus || "activa");
+        setValor(form, "observaciones", item.observaciones || "");
+        setChecked(form, "conserva_lote", item.conserva_lote);
+        setChecked(form, "conserva_caducidad", item.conserva_caducidad);
+        setChecked(form, "conserva_costo", item.conserva_costo);
+        setChecked(form, "permite_unidad_fisica", item.permite_unidad_fisica);
+        setChecked(form, "requiere_autorizacion", item.requiere_autorizacion);
+        actualizarModoReclasificacion(true);
+        form.scrollIntoView({behavior: "smooth", block: "start"});
+    }
+
+    function limpiarFormularioReclasificacion() {
+        var form = document.getElementById("catalogo_form_reclasificacion");
+        if (!form) {
+            return;
+        }
+        form.reset();
+        setValor(form, "id_sku_reclasificacion", "");
+        setValor(form, "tipo_reclasificacion", "clasificacion_interna");
+        setValor(form, "estatus", "activa");
+        ["conserva_lote", "conserva_caducidad", "conserva_costo", "permite_unidad_fisica"].forEach(function (name) {
+            var input = form.querySelector("[name='" + name + "']");
+            if (input) {
+                input.checked = true;
+            }
+        });
+        var autorizacion = form.querySelector("[name='requiere_autorizacion']");
+        if (autorizacion) {
+            autorizacion.checked = false;
+        }
+        actualizarModoReclasificacion(false);
+    }
+
+    function actualizarModoReclasificacion(editando) {
+        var titulo = document.getElementById("catalogo_reclasificacion_form_titulo");
+        var boton = document.getElementById("catalogo_reclasificacion_guardar");
+        var cancelar = document.getElementById("catalogo_cancelar_edicion_reclasificacion");
+        if (titulo) {
+            titulo.textContent = editando ? "Editar reclasificacion" : "Configurar reclasificacion";
+        }
+        if (boton) {
+            boton.innerHTML = editando ? "<i class=\"bi bi-check-lg\"></i> Guardar cambios" : "<i class=\"bi bi-arrow-left-right\"></i> Guardar reclasificacion";
+        }
+        if (cancelar) {
+            cancelar.classList.toggle("d-none", !editando);
+        }
+    }
+
+    function desactivarReclasificacion(id) {
+        request("/catalogoerp/desactivar_sku_reclasificacion", {
+            id_sku_reclasificacion: id
+        }).then(function (response) {
+            if (response.error) {
+                throw new Error(response.mensaje);
+            }
+            abrirDetalle(productoActualId, "catalogo_detalle_reclasificaciones");
+        }).catch(function (error) {
+            mostrarError(document.getElementById("catalogo_reclasificaciones_error"), error);
+        });
+    }
     function guardarVariantes(event) {
         event.preventDefault();
         var currentForm = event.currentTarget;
@@ -3791,6 +3951,7 @@
         var variantesForm = document.getElementById("catalogo_form_variantes");
         var presentacionForm = document.getElementById("catalogo_form_presentacion");
         var aperturaEmpaqueForm = document.getElementById("catalogo_form_apertura_empaque");
+        var reclasificacionForm = document.getElementById("catalogo_form_reclasificacion");
         var temporalForm = document.getElementById("catalogo_form_sku_temporal");
         var prepararVariantes = document.getElementById("catalogo_preparar_variante");
         var cancelarSku = document.getElementById("catalogo_cancelar_edicion_sku");
@@ -3800,6 +3961,7 @@
         var recuperarImagenesEcom = document.getElementById("catalogo_imagenes_ecommerce_recuperar");
         var cancelarPresentacion = document.getElementById("catalogo_cancelar_edicion_presentacion");
         var cancelarAperturaEmpaque = document.getElementById("catalogo_cancelar_edicion_apertura_empaque");
+        var cancelarReclasificacion = document.getElementById("catalogo_cancelar_edicion_reclasificacion");
         var paginaAnterior = document.getElementById("catalogo_pagina_anterior");
         var paginaSiguiente = document.getElementById("catalogo_pagina_siguiente");
         var tamanoPaginaSelect = document.getElementById("catalogo_tamano_pagina");
@@ -3943,11 +4105,17 @@
         if (aperturaEmpaqueForm) {
             aperturaEmpaqueForm.addEventListener("submit", guardarAperturaEmpaque);
         }
+        if (reclasificacionForm) {
+            reclasificacionForm.addEventListener("submit", guardarReclasificacion);
+        }
         if (cancelarPresentacion) {
             cancelarPresentacion.addEventListener("click", limpiarFormularioPresentacion);
         }
         if (cancelarAperturaEmpaque) {
             cancelarAperturaEmpaque.addEventListener("click", limpiarFormularioAperturaEmpaque);
+        }
+        if (cancelarReclasificacion) {
+            cancelarReclasificacion.addEventListener("click", limpiarFormularioReclasificacion);
         }
         if (temporalForm) {
             temporalForm.addEventListener("submit", guardarSkuTemporal);
@@ -4058,6 +4226,18 @@
                     editarAperturaEmpaque(editar.getAttribute("data-editar-apertura-empaque"));
                 } else if (desactivar) {
                     desactivarAperturaEmpaque(desactivar.getAttribute("data-desactivar-apertura-empaque"));
+                }
+            });
+        }
+        var reclasificacionesLista = document.getElementById("catalogo_reclasificaciones_lista");
+        if (reclasificacionesLista) {
+            reclasificacionesLista.addEventListener("click", function (event) {
+                var editar = event.target.closest("[data-editar-reclasificacion]");
+                var desactivar = event.target.closest("[data-desactivar-reclasificacion]");
+                if (editar) {
+                    editarReclasificacion(editar.getAttribute("data-editar-reclasificacion"));
+                } else if (desactivar) {
+                    desactivarReclasificacion(desactivar.getAttribute("data-desactivar-reclasificacion"));
                 }
             });
         }

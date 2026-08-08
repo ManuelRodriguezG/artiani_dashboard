@@ -6,6 +6,7 @@ class SistemaConfiguracion extends CRUD {
   private $tabla_historial = "sys_configuracion_historial";
   private $logoFallbackPrincipal = "/assets/media/logos/default-dark.svg";
   private $logoFallbackCompacto = "/assets/media/logos/default-small.svg";
+  private $faviconFallback = "/assets/media/logos/favicon.svg";
 
   /**
    * IA: Codex GPT-5
@@ -18,7 +19,8 @@ class SistemaConfiguracion extends CRUD {
     $branding = array(
       "nombre_sistema" => "ERP Artiani",
       "logo_principal" => $this->logoFallbackPrincipal,
-      "logo_compacto" => $this->logoFallbackCompacto
+      "logo_compacto" => $this->logoFallbackCompacto,
+      "favicon" => $this->faviconFallback
     );
 
     if (!$this->tablaParametrosExiste()) {
@@ -29,7 +31,7 @@ class SistemaConfiguracion extends CRUD {
       $db = $this->getConexion();
       $stmt = $db->prepare("SELECT clave, valor
                             FROM {$this->tabla_parametros}
-                            WHERE clave IN ('branding.nombre_sistema', 'branding.logo_principal', 'branding.logo_compacto')
+                            WHERE clave IN ('branding.nombre_sistema', 'branding.logo_principal', 'branding.logo_compacto', 'branding.favicon')
                               AND estatus=1");
       $stmt->execute();
       foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $fila) {
@@ -43,6 +45,9 @@ class SistemaConfiguracion extends CRUD {
         }
         if ($clave === "branding.logo_compacto" && $this->assetPublicoExiste($valor)) {
           $branding["logo_compacto"] = $valor;
+        }
+        if ($clave === "branding.favicon" && $this->assetPublicoExiste($valor)) {
+          $branding["favicon"] = $valor;
         }
       }
     } catch (Exception $e) {
@@ -214,9 +219,9 @@ class SistemaConfiguracion extends CRUD {
   /**
    * IA: Codex GPT-5
    * Fecha: 2026-08-08
-   * Proposito: guardar un archivo de logo validado y enlazarlo a un parametro SYS de branding.
-   * Impacto: Administracion/SYS y layout global; reemplaza logos rotos sin tocar credenciales.
-   * Contrato: solo acepta `principal` o `compacto`, imagenes raster publicas de maximo 2 MB.
+   * Proposito: guardar un archivo de marca validado y enlazarlo a un parametro SYS de branding.
+   * Impacto: Administracion/SYS y layout global; reemplaza logos/favicon rotos sin tocar credenciales.
+   * Contrato: acepta `principal`, `compacto` o `favicon`; imagenes publicas de maximo 2 MB.
    */
   public function guardarLogo($tipoLogo, $archivo, $idUsuario, $motivo = "") {
     if (!$this->tablaParametrosExiste()) {
@@ -224,7 +229,11 @@ class SistemaConfiguracion extends CRUD {
     }
 
     $tipoLogo = trim((string) $tipoLogo);
-    $clave = $tipoLogo === "compacto" ? "branding.logo_compacto" : "branding.logo_principal";
+    if ($tipoLogo === "favicon") {
+      $clave = "branding.favicon";
+    } else {
+      $clave = $tipoLogo === "compacto" ? "branding.logo_compacto" : "branding.logo_principal";
+    }
 
     try {
       $this->asegurarParametroBrandingLogo($clave);
@@ -236,7 +245,14 @@ class SistemaConfiguracion extends CRUD {
         throw new Exception("No fue posible crear el directorio de logos");
       }
 
-      $nombre = "erp-" . ($clave === "branding.logo_compacto" ? "compacto" : "principal") . "-" . date("YmdHis") . "." . $extension;
+      $prefijo = "principal";
+      if ($clave === "branding.logo_compacto") {
+        $prefijo = "compacto";
+      }
+      if ($clave === "branding.favicon") {
+        $prefijo = "favicon";
+      }
+      $nombre = "erp-" . $prefijo . "-" . date("YmdHis") . "." . $extension;
       $rutaAbsoluta = $directorio . DIRECTORY_SEPARATOR . $nombre;
       if (!move_uploaded_file($archivo["tmp_name"], $rutaAbsoluta)) {
         throw new Exception("No fue posible guardar el archivo de logo");
@@ -251,7 +267,7 @@ class SistemaConfiguracion extends CRUD {
 
       $depurar = isset($respuesta["depurar"]) && is_array($respuesta["depurar"]) ? $respuesta["depurar"] : array();
       $depurar["logo"] = array("clave" => $clave, "ruta" => $rutaPublica, "mime" => $mime);
-      return $this->crudResponse(false, "success", "Logo guardado correctamente", $depurar);
+      return $this->crudResponse(false, "success", $clave === "branding.favicon" ? "Favicon guardado correctamente" : "Logo guardado correctamente", $depurar);
     } catch (Exception $e) {
       return $this->crudResponse(true, "danger", $e->getMessage());
     }
@@ -304,8 +320,8 @@ class SistemaConfiguracion extends CRUD {
       return (string) max(0, intval($valor));
     }
     if ($tipo === "ruta") {
-      if ($valor !== "" && !preg_match('/^\/assets\/media\/logos\/[a-zA-Z0-9_.-]+\.(png|jpg|jpeg|webp|svg)$/i', $valor)) {
-        throw new Exception("La ruta del logo no es valida");
+      if ($valor !== "" && !preg_match('/^\/assets\/media\/logos\/[a-zA-Z0-9_.-]+\.(png|jpg|jpeg|webp|svg|ico)$/i', $valor)) {
+        throw new Exception("La ruta del archivo de marca no es valida");
       }
       return $valor;
     }
@@ -344,10 +360,16 @@ class SistemaConfiguracion extends CRUD {
 
   private function asegurarParametroBrandingLogo($clave) {
     $db = $this->getConexion();
-    $valor = $clave === "branding.logo_compacto" ? $this->logoFallbackCompacto : $this->logoFallbackPrincipal;
-    $descripcion = $clave === "branding.logo_compacto"
-      ? "Logo compacto para sidebar minimizado y vista movil"
-      : "Logo principal del sidebar en modo expandido";
+    $valor = $this->logoFallbackPrincipal;
+    $descripcion = "Logo principal del sidebar en modo expandido";
+    if ($clave === "branding.logo_compacto") {
+      $valor = $this->logoFallbackCompacto;
+      $descripcion = "Logo compacto para sidebar minimizado y vista movil";
+    }
+    if ($clave === "branding.favicon") {
+      $valor = $this->faviconFallback;
+      $descripcion = "Icono del navegador para identificar el sistema";
+    }
     $stmt = $db->prepare("INSERT INTO {$this->tabla_parametros}
       (grupo, clave, tipo_dato, valor, descripcion, editable_ui, sensible, estatus)
       VALUES ('branding', :clave, 'ruta', :valor, :descripcion, 1, 0, 1)
@@ -361,9 +383,9 @@ class SistemaConfiguracion extends CRUD {
 
   private function detectarMimeLogo($rutaTemporal) {
     $mime = function_exists("mime_content_type") ? mime_content_type($rutaTemporal) : "";
-    $permitidos = array("image/png", "image/jpeg", "image/webp");
+    $permitidos = array("image/png", "image/jpeg", "image/webp", "image/vnd.microsoft.icon", "image/x-icon");
     if (!in_array($mime, $permitidos, true)) {
-      throw new Exception("Tipo de logo no permitido. Usa PNG, JPG o WEBP");
+      throw new Exception("Tipo de archivo no permitido. Usa PNG, JPG, WEBP o ICO");
     }
     return $mime;
   }
@@ -375,6 +397,9 @@ class SistemaConfiguracion extends CRUD {
     if ($mime === "image/webp") {
       return "webp";
     }
+    if ($mime === "image/vnd.microsoft.icon" || $mime === "image/x-icon") {
+      return "ico";
+    }
     return "jpg";
   }
 
@@ -384,7 +409,7 @@ class SistemaConfiguracion extends CRUD {
 
   private function assetPublicoExiste($rutaPublica) {
     $rutaPublica = trim((string) $rutaPublica);
-    if ($rutaPublica === "" || !preg_match('/^\/assets\/media\/logos\/[a-zA-Z0-9_.-]+\.(png|jpg|jpeg|webp|svg)$/i', $rutaPublica)) {
+    if ($rutaPublica === "" || !preg_match('/^\/assets\/media\/logos\/[a-zA-Z0-9_.-]+\.(png|jpg|jpeg|webp|svg|ico)$/i', $rutaPublica)) {
       return false;
     }
     $rutaRelativa = ltrim(str_replace("/", DIRECTORY_SEPARATOR, $rutaPublica), DIRECTORY_SEPARATOR);

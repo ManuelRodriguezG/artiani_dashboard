@@ -2993,15 +2993,25 @@ Avance tecnico 2026-08-08:
 - Agregada pantalla `app/vistas/paginas/apps/erp/inventarios/reclasificacion.php`.
 - Agregado JS `public/assets/js/custom/apps/erp/inventarios/reclasificacion_erp.js`.
 - Agregada navegacion en sidebar y boton desde Existencias.
+- Agregados endpoints de Catalogo para reglas origen-destino:
+  - `/catalogoerp/guardar_sku_reclasificacion`
+  - `/catalogoerp/desactivar_sku_reclasificacion`
+- Agregada pestaña `Reclasificacion` en el detalle de producto de Catalogo ERP.
+- Agregado render/listeners de reglas en `public/assets/js/custom/apps/erp/catalogo/productos.js`.
 - Primera version operativa: una partida por folio `RECLAS-*`.
 - Regla de trazabilidad: si la existencia origen tiene unidades fisicas disponibles, el usuario debe seleccionar una unidad exacta; la primera version solo permite reclasificar la unidad fisica completa.
 - Prueba negativa read-only: previsualizacion devuelve advertencia controlada si falta aplicar DDL.
+- Prueba negativa Catalogo: consulta de producto devuelve `reclasificaciones.esquema_disponible=false` si falta la tabla; guardado devuelve warning controlado sin escribir.
 - Validaciones tecnicas:
   - `C:\xampp\php\php.exe -l app\modelos\InventarioErp.php`: OK.
   - `C:\xampp\php\php.exe -l app\modelos\InventarioReclasificacionEsquema.php`: OK.
   - `C:\xampp\php\php.exe -l app\controladores\Inventario.php`: OK.
   - `C:\xampp\php\php.exe -l app\vistas\paginas\apps\erp\inventarios\reclasificacion.php`: OK.
   - `node --check public\assets\js\custom\apps\erp\inventarios\reclasificacion_erp.js`: OK.
+  - `C:\xampp\php\php.exe -l app\controladores\Catalogoerp.php`: OK.
+  - `C:\xampp\php\php.exe -l app\modelos\CatalogoErpDatos.php`: OK.
+  - `C:\xampp\php\php.exe -l app\vistas\paginas\apps\erp\catalogo\productos.php`: OK.
+  - `node --check public\assets\js\custom\apps\erp\catalogo\productos.js`: OK.
 
 Pendiente de autorizacion:
 

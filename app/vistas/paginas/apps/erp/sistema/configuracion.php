@@ -21,6 +21,9 @@ $brandingLogoPrincipal = isset($parametrosPorClave["branding.logo_principal"]["v
 $brandingLogoCompacto = isset($parametrosPorClave["branding.logo_compacto"]["valor"]) && trim($parametrosPorClave["branding.logo_compacto"]["valor"]) !== ""
     ? trim($parametrosPorClave["branding.logo_compacto"]["valor"])
     : "/assets/media/logos/default-small.svg";
+$brandingFavicon = isset($parametrosPorClave["branding.favicon"]["valor"]) && trim($parametrosPorClave["branding.favicon"]["valor"]) !== ""
+    ? trim($parametrosPorClave["branding.favicon"]["valor"])
+    : "/assets/media/logos/favicon.svg";
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -29,7 +32,8 @@ $brandingLogoCompacto = isset($parametrosPorClave["branding.logo_compacto"]["val
     <title>Configuracion del sistema</title>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <link rel="shortcut icon" href="assets/media/logos/favicon.ico">
+    <link rel="icon" href="<?= htmlspecialchars($brandingFavicon) ?>">
+    <link rel="shortcut icon" href="<?= htmlspecialchars($brandingFavicon) ?>">
     <link href="assets/plugins/global/plugins.bundle.css" rel="stylesheet" type="text/css">
     <link href="assets/css/style.bundle.css" rel="stylesheet" type="text/css">
 </head>
@@ -212,13 +216,13 @@ $brandingLogoCompacto = isset($parametrosPorClave["branding.logo_compacto"]["val
                                         <div class="col-lg-5">
                                             <div class="border rounded p-5 h-100">
                                                 <div class="text-muted fs-8 mb-2">Vista previa principal</div>
-                                                <div class="bg-dark rounded d-flex align-items-center justify-content-center p-6 mb-5" style="min-height: 92px;">
-                                                    <img src="<?= htmlspecialchars($brandingLogoPrincipal) ?>" alt="<?= htmlspecialchars($brandingNombre) ?>" class="mw-100 mh-60px" id="sys_config_logo_principal_preview">
+                                                <div class="bg-dark rounded d-flex align-items-center justify-content-center p-6 mb-5" style="min-height: 120px;">
+                                                    <img src="<?= htmlspecialchars($brandingLogoPrincipal) ?>" alt="<?= htmlspecialchars($brandingNombre) ?>" class="mw-100" style="max-height: 92px; object-fit: contain;" id="sys_config_logo_principal_preview">
                                                 </div>
                                                 <div class="d-flex align-items-center gap-4">
                                                     <span class="symbol symbol-45px">
                                                         <span class="symbol-label bg-light">
-                                                            <img src="<?= htmlspecialchars($brandingLogoCompacto) ?>" alt="<?= htmlspecialchars($brandingNombre) ?>" class="mw-30px mh-30px" id="sys_config_logo_compacto_preview">
+                                                            <img src="<?= htmlspecialchars($brandingLogoCompacto) ?>" alt="<?= htmlspecialchars($brandingNombre) ?>" style="width: 34px; height: 34px; object-fit: contain;" id="sys_config_logo_compacto_preview">
                                                         </span>
                                                     </span>
                                                     <div>
@@ -226,21 +230,33 @@ $brandingLogoCompacto = isset($parametrosPorClave["branding.logo_compacto"]["val
                                                         <div class="text-muted fs-8">Logo compacto para menu minimizado y movil</div>
                                                     </div>
                                                 </div>
+                                                <div class="d-flex align-items-center gap-4 mt-5 pt-5 border-top">
+                                                    <span class="symbol symbol-45px">
+                                                        <span class="symbol-label bg-light">
+                                                            <img src="<?= htmlspecialchars($brandingFavicon) ?>" alt="Favicon" style="width: 28px; height: 28px; object-fit: contain;" id="sys_config_favicon_preview">
+                                                        </span>
+                                                    </span>
+                                                    <div>
+                                                        <div class="fw-bold">Favicon</div>
+                                                        <div class="text-muted fs-8">Icono visible en la pestana del navegador</div>
+                                                    </div>
+                                                </div>
                                             </div>
                                         </div>
                                         <div class="col-lg-7">
                                             <div class="border rounded p-5 h-100">
-                                                <label class="form-label fw-bold">Tipo de logo</label>
+                                                <label class="form-label fw-bold">Tipo de archivo de marca</label>
                                                 <select class="form-select form-select-solid mb-4" id="sys_config_logo_tipo"<?= $requiereEsquema ? ' disabled' : '' ?>>
                                                     <option value="principal">Logo principal</option>
                                                     <option value="compacto">Logo compacto</option>
+                                                    <option value="favicon">Favicon</option>
                                                 </select>
                                                 <label class="form-label fw-bold">Archivo</label>
-                                                <input class="form-control form-control-solid mb-3" type="file" id="sys_config_logo_archivo" accept=".png,.jpg,.jpeg,.webp,image/png,image/jpeg,image/webp"<?= $requiereEsquema ? ' disabled' : '' ?>>
-                                                <div class="text-muted fs-8 mb-5">Usa PNG, JPG o WEBP de maximo 2 MB. Para el logo compacto conviene una imagen cuadrada.</div>
+                                                <input class="form-control form-control-solid mb-3" type="file" id="sys_config_logo_archivo" accept=".png,.jpg,.jpeg,.webp,.ico,image/png,image/jpeg,image/webp,image/x-icon,image/vnd.microsoft.icon"<?= $requiereEsquema ? ' disabled' : '' ?>>
+                                                <div class="text-muted fs-8 mb-5">Usa PNG, JPG, WEBP o ICO de maximo 2 MB. Para favicon conviene una imagen cuadrada de 32x32 o 64x64.</div>
                                                 <button type="button" class="btn btn-light-primary" id="sys_config_logo_subir"<?= $requiereEsquema ? ' disabled' : '' ?>>
                                                     <i class="bi bi-upload"></i>
-                                                    Subir logo
+                                                    Subir archivo
                                                 </button>
                                             </div>
                                         </div>

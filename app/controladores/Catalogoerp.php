@@ -738,6 +738,43 @@ class Catalogoerp extends Controlador {
     ));
     return json_encode($respuesta);
   }
+
+  /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-08-08
+   * Proposito: guarda reglas de reclasificacion de inventario entre SKUs permitidos.
+   * Impacto: Catalogo ERP; define contrato que Inventario ejecutara con kardex doble.
+   */
+  public function guardar_sku_reclasificacion() {
+    $this->requerirPermiso("catalogo.editar");
+    $respuesta = $this->modelo("CatalogoErpDatos")->guardarSkuReclasificacion($_POST, $this->usuarioActualId());
+    SesionSeguridad::registrarAuditoria("catalogo", "guardar_sku_reclasificacion", array(
+      "entidad" => "erp_catalogo_sku_reclasificaciones",
+      "entidad_id" => isset($respuesta["depurar"]["id_sku_reclasificacion"]) ? intval($respuesta["depurar"]["id_sku_reclasificacion"]) : (isset($_POST["id_sku_reclasificacion"]) ? intval($_POST["id_sku_reclasificacion"]) : null),
+      "resultado" => $respuesta["error"] ? "error" : "ok",
+      "mensaje" => $respuesta["mensaje"],
+      "datos_despues" => isset($respuesta["depurar"]) ? $respuesta["depurar"] : null
+    ));
+    return json_encode($respuesta);
+  }
+
+  /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-08-08
+   * Proposito: desactiva una regla de reclasificacion sin borrar historial.
+   * Impacto: Catalogo ERP; Inventario dejara de ofrecer ese destino para nuevas reclasificaciones.
+   */
+  public function desactivar_sku_reclasificacion() {
+    $this->requerirPermiso("catalogo.editar");
+    $respuesta = $this->modelo("CatalogoErpDatos")->desactivarSkuReclasificacion($_POST);
+    SesionSeguridad::registrarAuditoria("catalogo", "desactivar_sku_reclasificacion", array(
+      "entidad" => "erp_catalogo_sku_reclasificaciones",
+      "entidad_id" => isset($_POST["id_sku_reclasificacion"]) ? intval($_POST["id_sku_reclasificacion"]) : null,
+      "resultado" => $respuesta["error"] ? "error" : "ok",
+      "mensaje" => $respuesta["mensaje"]
+    ));
+    return json_encode($respuesta);
+  }
   /**
    * IA: Codex GPT-5 | Fecha: 2026-06-26
    * Proposito: guarda receta simple de paquete cuando el esquema ERP ya fue aplicado.
