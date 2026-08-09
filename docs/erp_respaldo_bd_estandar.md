@@ -219,6 +219,20 @@ archivo_legible=true
 tamano_bytes=32798256
 ```
 
+Inventario - Reclasificacion schema:
+
+```text
+C:\xampp\panel_db_backups\artianilocal_panel_20260808_204014_antes_inv_reclasificacion_schema.sql
+```
+
+Validacion:
+
+```text
+archivo_existe=true
+archivo_legible=true
+tamano_bytes=34624244
+```
+
 Migraciones BD - esquema tecnico:
 
 ```text

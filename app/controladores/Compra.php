@@ -330,7 +330,7 @@ class Compra extends Controlador {
     public function orden_guardar_erp() {
         $idOrden = isset($_POST["id_orden_compra"]) ? intval($_POST["id_orden_compra"]) : 0;
         $this->requerirPermiso($idOrden > 0 ? "compras.editar" : "compras.crear");
-        if (isset($_POST["estatus"]) && $_POST["estatus"] === "enviada") {
+        if (isset($_POST["estatus"]) && in_array($_POST["estatus"], array("enviada", "cerrada_sin_recepcion"), true)) {
             $this->requerirPermiso("compras.aprobar");
         }
         $respuesta = $this->modelo("OrdenesCompraErp")->guardar(

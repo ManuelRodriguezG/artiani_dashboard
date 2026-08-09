@@ -1,6 +1,16 @@
 "use strict";
 (function () {
     function esc(value) { var d = document.createElement("div"); d.textContent = value == null ? "" : value; return d.innerHTML; }
+    function etiquetaEstatus(value) {
+        return {
+            borrador: "Borrador",
+            enviada: "Enviada a almacen",
+            parcial: "Recepcion parcial",
+            recibida: "Recibida",
+            cerrada_sin_recepcion: "Finalizada sin almacen",
+            cancelada: "Cancelada"
+        }[value] || value || "";
+    }
     function cargar() {
         var puedeEditar = document.getElementById("ordenes_puede_editar").value === "1";
         var puedeSeguimiento = document.getElementById("ordenes_puede_seguimiento").value === "1";
@@ -17,14 +27,14 @@
                     if (puedeEditar && x.estatus === "borrador") {
                         acciones += "<a class=\"btn btn-sm btn-light\" href=\"/compra/editar_orden_compra/" +
                             esc(x.id_orden_compra) + "\">Editar</a>";
-                    } else if (puedeSeguimiento && x.estatus !== "cancelada") {
+                    } else if (puedeSeguimiento && x.estatus !== "cancelada" && x.estatus !== "cerrada_sin_recepcion") {
                         acciones += "<a class=\"btn btn-sm btn-light\" href=\"/compra/seguimiento_orden_compra/" +
                             esc(x.id_orden_compra) + "\">Seguimiento</a>";
                     }
                     return "<tr><td class=\"fw-bold\">" + esc(x.folio) + "</td><td>" + esc(x.folio_solicitud || "-") +
                         "</td><td>" + esc(x.proveedor) + "</td><td>" + esc(x.almacen || "-") + "</td><td>" + esc((x.fecha_entrega_estimada || "").slice(0, 10) || "-") +
                         "</td><td>" + esc(x.total_partidas) + "</td><td class=\"text-end fw-bold\">$" + Number(x.total || 0).toFixed(2) +
-                        "</td><td><span class=\"badge badge-light-primary\">" + esc(x.estatus) +
+                        "</td><td><span class=\"badge badge-light-primary\">" + esc(etiquetaEstatus(x.estatus)) +
                         "</span></td><td class=\"text-end text-nowrap\">" + acciones + "</td></tr>";
                 }).join("") || "<tr><td colspan=\"9\" class=\"text-center text-muted py-8\">Sin ordenes de compra</td></tr>";
             });

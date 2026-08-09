@@ -188,11 +188,22 @@ Reglas actuales importantes:
 - `borrador` permite edicion.
 - `enviada` prepara recepcion de almacen.
 - `parcial` y `recibida` deben venir de almacen, no de compras.
+- `cerrada_sin_recepcion` finaliza la orden dentro de Compras sin preparar recepcion ni afectar inventario. Se usa para compras documentales, pruebas operativas, compras preoperativas o compras que sirven para alimentar catalogo/costos/proveedores sin pasar a almacen.
 - `cancelada` no debe permitir cambios operativos.
 - Enviar requiere permiso `compras.aprobar`.
+- Finalizar sin almacen requiere permiso `compras.aprobar`.
 - Cancelar requiere permiso `compras.cancelar`.
 - Guardar orden existente requiere `compras.editar`.
 - Crear orden nueva requiere `compras.crear`.
+
+Politica recomendada de estatus de orden:
+
+- `borrador`: captura editable, sin efecto operacional.
+- `enviada`: compras aprueba y manda a almacen; desde aqui se prepara recepcion.
+- `parcial`: almacen recibio parte de la mercancia; compras no debe establecerlo manualmente.
+- `recibida`: almacen confirmo recepcion completa; compras no debe establecerlo manualmente.
+- `cerrada_sin_recepcion`: compras cierra la orden sin almacen; conserva costos, pagos, adjuntos, XML e incidencias de catalogo/proveedor, pero no crea recepcion ni inventario.
+- `cancelada`: anula la orden cuando no hay recepcion, pagos o notas aplicadas.
 
 Pendiente de mejorar:
 

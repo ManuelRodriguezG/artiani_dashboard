@@ -333,6 +333,42 @@ class Proveedor extends Controlador {
         echo json_encode($this->modelo("Proveedores")->buscarSkusErpParaLista($termino));
     }
 
+    /**
+     * IA: Codex GPT-5
+     * Fecha: 2026-08-08
+     * Proposito: consultar relaciones de Catalogo ERP asignadas al proveedor para sugerirlas dentro de una lista.
+     * Impacto: Proveedores/Catalogo; solo lectura, Catalogo no formaliza renglones de lista.
+     * Contrato: requiere proveedores.listas y devuelve candidatos accionables para la lista abierta.
+     */
+    public function proveedor_lista_catalogo_sugeridos_erp() {
+        $this->requerirPermiso("proveedores.listas");
+        $id_proveedor = isset($_REQUEST["id_proveedor"]) ? $_REQUEST["id_proveedor"] : 0;
+        $id_lista = isset($_REQUEST["id_lista_proveedor_erp"]) ? $_REQUEST["id_lista_proveedor_erp"] : 0;
+        $termino = isset($_REQUEST["q"]) ? $_REQUEST["q"] : "";
+        echo json_encode($this->modelo("Proveedores")->catalogoSugeridosParaListaProveedorErp($id_proveedor, $id_lista, $termino));
+    }
+
+    /**
+     * IA: Codex GPT-5
+     * Fecha: 2026-08-08
+     * Proposito: traer una relacion ya registrada en Catalogo hacia el flujo operativo de una lista proveedor.
+     * Impacto: Proveedores; crea o vincula un renglon puntual, sin aplicar costo vigente ni costo referencia.
+     * Contrato: requiere proveedores.listas; la relacion debe pertenecer al proveedor y el SKU debe estar activo.
+     */
+    public function proveedor_lista_catalogo_sugerido_aplicar_erp() {
+        $this->requerirPermiso("proveedores.listas");
+        $respuesta = $this->modelo("Proveedores")->aplicarCatalogoSugeridoListaProveedorErp($_POST, $this->usuarioActualId());
+        SesionSeguridad::registrarAuditoria("proveedores", "proveedor_lista_catalogo_sugerido_aplicar", array(
+            "entidad" => "erp_proveedores_listas_detalle_erp",
+            "entidad_id" => isset($respuesta["depurar"]["id_lista_detalle_erp"]) ? intval($respuesta["depurar"]["id_lista_detalle_erp"]) : null,
+            "resultado" => $respuesta["error"] ? "error" : "ok",
+            "mensaje" => $respuesta["mensaje"],
+            "datos_antes" => isset($respuesta["depurar"]["antes"]) ? $respuesta["depurar"]["antes"] : null,
+            "datos_despues" => isset($respuesta["depurar"]["despues"]) ? $respuesta["depurar"]["despues"] : null
+        ));
+        echo json_encode($respuesta);
+    }
+
     public function proveedor_lista_detalle_guardar_erp() {
         $this->requerirPermiso("proveedores.listas");
         $respuesta = $this->modelo("Proveedores")->guardarListaDetalleErp($_POST, $this->usuarioActualId());

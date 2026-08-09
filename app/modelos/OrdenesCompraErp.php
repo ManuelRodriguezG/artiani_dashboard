@@ -5,6 +5,7 @@ class OrdenesCompraErp extends CRUD {
     private $detalleIncluyeIvaColumnaExiste = null;
     private $detalleDatosFiscalesColumnaExiste = null;
     private $detalleEvidenciaCostoColumnaExiste = null;
+    private $ordenCierreSinRecepcionColumnasExisten = null;
 
     public function generarDesdeSolicitud($idSolicitud, $idUsuario) {
         $db = $this->getConexion();
@@ -465,7 +466,11 @@ class OrdenesCompraErp extends CRUD {
         $idOrden = intval(isset($datos["id_orden_compra"]) ? $datos["id_orden_compra"] : 0);
         $idSolicitud = intval(isset($datos["id_solicitud"]) ? $datos["id_solicitud"] : 0);
         $idProveedor = intval(isset($datos["id_proveedor"]) ? $datos["id_proveedor"] : 0);
-        $estatusDestino = isset($datos["estatus"]) && $datos["estatus"] === "enviada" ? "enviada" : "borrador";
+        // [Codex: GPT-5 2026-08-08] Estatus de orden: permite cerrar compras documentales sin crear recepcion de almacen.
+        $estatusSolicitado = isset($datos["estatus"]) ? trim((string) $datos["estatus"]) : "borrador";
+        $estatusDestino = in_array($estatusSolicitado, array("borrador", "enviada", "cerrada_sin_recepcion"), true)
+            ? $estatusSolicitado
+            : "borrador";
         $items = isset($datos["items"]) ? $datos["items"] : array();
         if (is_string($items)) {
             $items = json_decode($items, true);
@@ -560,17 +565,24 @@ class OrdenesCompraErp extends CRUD {
                 }
             }
 
-            $stmt = $db->prepare("UPDATE erp_compras_ordenes SET folio_proveedor=:folio_proveedor,
-                id_almacen_destino=:almacen, fecha_entrega_estimada=:entrega,
-                observaciones=:observaciones, contacto_recepcion=:contacto,
-                telefono_recepcion=:telefono, direccion_entrega=:direccion,
-                moneda=:moneda, tipo_cambio=:tipo_cambio, subtotal=:subtotal,
-                impuestos=:impuestos, total=:total,
-                estatus=:estatus, enviado_por=CASE WHEN :enviada='enviada' THEN :usuario ELSE enviado_por END,
-                fecha_envio=CASE WHEN :enviada2='enviada' THEN NOW() ELSE fecha_envio END,
-                fecha_actualizacion=NOW()
-                WHERE id_orden_compra=:id");
-            $stmt->execute(array(
+            $camposOrden = array(
+                "folio_proveedor=:folio_proveedor",
+                "id_almacen_destino=:almacen",
+                "fecha_entrega_estimada=:entrega",
+                "observaciones=:observaciones",
+                "contacto_recepcion=:contacto",
+                "telefono_recepcion=:telefono",
+                "direccion_entrega=:direccion",
+                "moneda=:moneda",
+                "tipo_cambio=:tipo_cambio",
+                "subtotal=:subtotal",
+                "impuestos=:impuestos",
+                "total=:total",
+                "estatus=:estatus",
+                "enviado_por=CASE WHEN :enviada='enviada' THEN :usuario ELSE enviado_por END",
+                "fecha_envio=CASE WHEN :enviada2='enviada' THEN NOW() ELSE fecha_envio END"
+            );
+            $paramsOrden = array(
                 ":folio_proveedor" => trim(isset($datos["folio_proveedor"]) ? $datos["folio_proveedor"] : ""),
                 ":almacen" => $idAlmacen ?: null,
                 ":entrega" => !empty($datos["fecha_entrega_estimada"]) ? $datos["fecha_entrega_estimada"] : null,
@@ -585,13 +597,29 @@ class OrdenesCompraErp extends CRUD {
                 ":estatus" => $estatusDestino, ":enviada" => $estatusDestino,
                 ":enviada2" => $estatusDestino, ":usuario" => intval($idUsuario) ?: null,
                 ":id" => $idOrden
-            ));
+            );
+            if ($this->ordenCierreSinRecepcionColumnasExisten($db)) {
+                $camposOrden[] = "cerrada_sin_recepcion_por=CASE WHEN :cerrada='cerrada_sin_recepcion' THEN :usuario_cierre ELSE cerrada_sin_recepcion_por END";
+                $camposOrden[] = "fecha_cierre_sin_recepcion=CASE WHEN :cerrada2='cerrada_sin_recepcion' THEN NOW() ELSE fecha_cierre_sin_recepcion END";
+                $paramsOrden[":cerrada"] = $estatusDestino;
+                $paramsOrden[":cerrada2"] = $estatusDestino;
+                $paramsOrden[":usuario_cierre"] = intval($idUsuario) ?: null;
+            }
+            $camposOrden[] = "fecha_actualizacion=NOW()";
+            $stmt = $db->prepare("UPDATE erp_compras_ordenes SET " . implode(", ", $camposOrden) . "
+                WHERE id_orden_compra=:id");
+            $stmt->execute($paramsOrden);
             $this->sincronizarDetalle($db, $idOrden, $detalle);
             $this->registrarIncidenciasCatalogoDesdeOrden($db, $idOrden, intval($orden["id_proveedor"]), $detalle, $idUsuario);
             $this->registrarNotificacionesOperativasDesdeOrden($db, $orden, $idOrden, intval($orden["id_proveedor"]), $detalle, $idUsuario, $estatusDestino);
             $db->commit();
-            return $this->respuesta(false, "success", $estatusDestino === "enviada"
-                ? "Orden enviada y lista para recepcion" : "Borrador de orden guardado", array(
+            $mensaje = "Borrador de orden guardado";
+            if ($estatusDestino === "enviada") {
+                $mensaje = "Orden enviada y lista para recepcion";
+            } elseif ($estatusDestino === "cerrada_sin_recepcion") {
+                $mensaje = "Orden cerrada sin recepcion de almacen";
+            }
+            return $this->respuesta(false, "success", $mensaje, array(
                     "id_orden_compra" => $idOrden,
                     "estatus" => $estatusDestino,
                     "total" => round($total, 6),
@@ -1235,6 +1263,23 @@ class OrdenesCompraErp extends CRUD {
             }
         }
         return $this->detalleIncluyeIvaColumnaExiste;
+    }
+
+    private function ordenCierreSinRecepcionColumnasExisten($db) {
+        if ($this->ordenCierreSinRecepcionColumnasExisten === null) {
+            try {
+                $stmt = $db->prepare("SHOW COLUMNS FROM erp_compras_ordenes LIKE 'cerrada_sin_recepcion_por'");
+                $stmt->execute();
+                $columnaUsuario = $stmt->fetch(PDO::FETCH_ASSOC) !== false;
+                $stmt = $db->prepare("SHOW COLUMNS FROM erp_compras_ordenes LIKE 'fecha_cierre_sin_recepcion'");
+                $stmt->execute();
+                $columnaFecha = $stmt->fetch(PDO::FETCH_ASSOC) !== false;
+                $this->ordenCierreSinRecepcionColumnasExisten = $columnaUsuario && $columnaFecha;
+            } catch (Exception $e) {
+                $this->ordenCierreSinRecepcionColumnasExisten = false;
+            }
+        }
+        return $this->ordenCierreSinRecepcionColumnasExisten;
     }
 
     private function costoBaseMxnDetalleOrden($detalle) {

@@ -2964,9 +2964,13 @@ Documentos creados:
 Estado:
 
 - Diseno y auditoria read-only preparados.
-- No se aplicaron migraciones.
+- Migracion de esquema de reclasificacion aplicada el 2026-08-08 con respaldo externo previo.
 - Auditoria SQL read-only corregida contra MySQL local en puerto `3406`.
-- No existen tablas `LIKE '%reclas%'`.
+- Tablas `LIKE '%reclas%'` creadas:
+  - `erp_catalogo_sku_reclasificaciones`
+  - `erp_inventario_reclasificacion_adjuntos`
+  - `erp_inventario_reclasificaciones`
+  - `erp_inventario_reclasificaciones_detalle`
 - No existe `origen_tipo='reclasificacion_inventario'` en movimientos actuales.
 - `erp_catalogo_sku_transformaciones` existe, pero hoy solo contiene tipos `empaque_desde_granel` y `reempaque`; no modela reclasificacion.
 
@@ -2974,8 +2978,8 @@ Siguiente paso recomendado:
 
 1. Revisar y aprobar el diseno.
 2. Decidir si Catalogo usara tabla especifica `erp_catalogo_sku_reclasificaciones` o extension controlada de `erp_catalogo_sku_transformaciones`.
-3. Con respaldo externo y autorizacion, integrar DDL en esquema ERP correspondiente.
-4. Implementar primero endpoints read-only y previsualizacion antes de permitir escritura real.
+3. Crear reglas de Catalogo origen-destino reales para UAT.
+4. Ejecutar una reclasificacion controlada y validar kardex doble.
 
 Avance tecnico 2026-08-08:
 
@@ -2998,6 +3002,22 @@ Avance tecnico 2026-08-08:
   - `/catalogoerp/desactivar_sku_reclasificacion`
 - Agregada pestaña `Reclasificacion` en el detalle de producto de Catalogo ERP.
 - Agregado render/listeners de reglas en `public/assets/js/custom/apps/erp/catalogo/productos.js`.
+- `InventarioErp::aplicarCambio()` ahora acepta `origen_detalle_id` opcional para que movimientos nuevos puedan nacer ligados a su detalle operativo; los flujos existentes conservan `NULL` si no lo envian.
+- Respaldo externo aplicado antes del DDL:
+  - `C:\xampp\panel_db_backups\artianilocal_panel_20260808_204014_antes_inv_reclasificacion_schema.sql`
+  - Tamano validado: `34624244` bytes.
+- DDL de reclasificacion aplicado con `InventarioReclasificacionEsquema::planActualizarInventarioReclasificacion(true)`.
+- Auditoria posterior: `Esquema de reclasificacion completo`, sin pendientes.
+- Permiso `inventario.reclasificar` sembrado en `sys_permisos` y asignado a roles `administrador_erp` e `inventario`.
+- Verificacion posterior:
+  - Inventario `reclasificacionCatalogos()` devuelve `esquema_reclasificacion.disponible=true`.
+  - Catalogo `consultarProducto()` devuelve `reclasificaciones.esquema_disponible=true`.
+  - Tablas nuevas quedan en cero registros operativos hasta capturar reglas reales.
+- Agregado historial read-only de reclasificaciones en Inventario:
+  - Endpoint `/inventario/reclasificacion_listar_erp`.
+  - Metodo `InventarioErp::listarReclasificaciones()`.
+  - Tabla `Historial reciente` en la pantalla de Reclasificacion.
+  - Prueba posterior: consulta devuelve `items=0` sin error con esquema aplicado.
 - Primera version operativa: una partida por folio `RECLAS-*`.
 - Regla de trazabilidad: si la existencia origen tiene unidades fisicas disponibles, el usuario debe seleccionar una unidad exacta; la primera version solo permite reclasificar la unidad fisica completa.
 - Prueba negativa read-only: previsualizacion devuelve advertencia controlada si falta aplicar DDL.
@@ -3012,13 +3032,13 @@ Avance tecnico 2026-08-08:
   - `C:\xampp\php\php.exe -l app\modelos\CatalogoErpDatos.php`: OK.
   - `C:\xampp\php\php.exe -l app\vistas\paginas\apps\erp\catalogo\productos.php`: OK.
   - `node --check public\assets\js\custom\apps\erp\catalogo\productos.js`: OK.
+  - `InventarioErp::listarReclasificaciones(['limite' => 10])`: OK, `items=0`.
 
 Pendiente de autorizacion:
 
-- Respaldo externo en `C:\xampp\panel_db_backups`.
-- Aplicar DDL de reclasificacion.
-- Aplicar/sembrar permiso `inventario.reclasificar`.
 - Crear reglas de Catalogo origen-destino para probar UAT real.
+- Ejecutar reclasificacion UAT con SKU/lote/cantidad definidos por el dueno.
+- Validar movimientos `origen_tipo='reclasificacion_inventario'`, folio unico y detalle ligado a salida/entrada.
 
 ## Prompt sugerido para nuevo chat
 

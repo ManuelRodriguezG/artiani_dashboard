@@ -670,6 +670,9 @@
                     </button>
                     <?php endif; ?>
                     <?php if (SesionSeguridad::tienePermiso('proveedores.listas')): ?>
+                    <button class="btn btn-sm btn-light-secondary" type="button" id="proveedores_erp_catalogo_sugeridos_abrir">
+                        <i class="bi bi-stars"></i> Sugeridos Catalogo
+                    </button>
                     <button class="btn btn-sm btn-light-info" type="button" id="proveedores_erp_compra_lote_abrir">
                         <i class="bi bi-ui-checks-grid"></i> Completar compra
                     </button>
@@ -720,6 +723,50 @@
                     </table>
                 </div>
                 <div class="alert alert-danger d-none mt-6" id="proveedores_erp_lista_detalle_error"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="proveedores_erp_catalogo_sugeridos_modal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div>
+                    <h2 class="mb-1">Sugeridos desde Catalogo</h2>
+                    <span class="text-muted" id="proveedores_erp_catalogo_sugeridos_subtitulo">Relaciones SKU-proveedor ya capturadas en Catalogo ERP</span>
+                </div>
+                <button type="button" class="btn btn-sm btn-icon btn-light" data-bs-dismiss="modal" title="Cerrar"><i class="bi bi-x-lg"></i></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-info">
+                    Catalogo solo aporta candidatos que ya tienen este proveedor asignado. Proveedores decide si los trae a esta lista como renglon operativo.
+                </div>
+                <div class="d-flex flex-wrap gap-2 mb-4" id="proveedores_erp_catalogo_sugeridos_resumen"></div>
+                <div class="d-flex flex-wrap align-items-center gap-2 mb-4">
+                    <div class="position-relative flex-grow-1 min-w-250px">
+                        <i class="bi bi-search position-absolute top-50 translate-middle-y ms-4 text-muted"></i>
+                        <input class="form-control form-control-sm ps-10" id="proveedores_erp_catalogo_sugeridos_buscar" placeholder="Buscar SKU ERP, SKU proveedor, codigo o producto">
+                    </div>
+                    <button class="btn btn-sm btn-light-primary" type="button" id="proveedores_erp_catalogo_sugeridos_recargar">
+                        <i class="bi bi-arrow-clockwise"></i> Buscar
+                    </button>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-row-dashed gy-3 align-middle">
+                        <thead>
+                            <tr class="text-muted fw-bold fs-7 text-uppercase">
+                                <th>Catalogo ERP</th>
+                                <th>Proveedor</th>
+                                <th>Compra/costo</th>
+                                <th>Estado en lista</th>
+                                <th class="text-end">Accion</th>
+                            </tr>
+                        </thead>
+                        <tbody id="proveedores_erp_catalogo_sugeridos_body"></tbody>
+                    </table>
+                </div>
+                <div class="alert alert-danger d-none mt-6" id="proveedores_erp_catalogo_sugeridos_error"></div>
             </div>
         </div>
     </div>

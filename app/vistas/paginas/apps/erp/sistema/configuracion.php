@@ -21,6 +21,9 @@ $brandingLogoPrincipal = isset($parametrosPorClave["branding.logo_principal"]["v
 $brandingLogoCompacto = isset($parametrosPorClave["branding.logo_compacto"]["valor"]) && trim($parametrosPorClave["branding.logo_compacto"]["valor"]) !== ""
     ? trim($parametrosPorClave["branding.logo_compacto"]["valor"])
     : "/assets/media/logos/default-small.svg";
+$brandingLogoLogin = isset($parametrosPorClave["branding.logo_login"]["valor"]) && trim($parametrosPorClave["branding.logo_login"]["valor"]) !== ""
+    ? trim($parametrosPorClave["branding.logo_login"]["valor"])
+    : "/assets/media/logos/default-dark.svg";
 $brandingFavicon = isset($parametrosPorClave["branding.favicon"]["valor"]) && trim($parametrosPorClave["branding.favicon"]["valor"]) !== ""
     ? trim($parametrosPorClave["branding.favicon"]["valor"])
     : "/assets/media/logos/favicon.svg";
@@ -232,6 +235,17 @@ $brandingFavicon = isset($parametrosPorClave["branding.favicon"]["valor"]) && tr
                                                 </div>
                                                 <div class="d-flex align-items-center gap-4 mt-5 pt-5 border-top">
                                                     <span class="symbol symbol-45px">
+                                                        <span class="symbol-label bg-white border">
+                                                            <img src="<?= htmlspecialchars($brandingLogoLogin) ?>" alt="Logo login" style="width: 34px; height: 34px; object-fit: contain;" id="sys_config_logo_login_preview">
+                                                        </span>
+                                                    </span>
+                                                    <div>
+                                                        <div class="fw-bold">Logo login</div>
+                                                        <div class="text-muted fs-8">Version para fondo claro en inicio de sesion</div>
+                                                    </div>
+                                                </div>
+                                                <div class="d-flex align-items-center gap-4 mt-5 pt-5 border-top">
+                                                    <span class="symbol symbol-45px">
                                                         <span class="symbol-label bg-light">
                                                             <img src="<?= htmlspecialchars($brandingFavicon) ?>" alt="Favicon" style="width: 28px; height: 28px; object-fit: contain;" id="sys_config_favicon_preview">
                                                         </span>
@@ -249,6 +263,7 @@ $brandingFavicon = isset($parametrosPorClave["branding.favicon"]["valor"]) && tr
                                                 <select class="form-select form-select-solid mb-4" id="sys_config_logo_tipo"<?= $requiereEsquema ? ' disabled' : '' ?>>
                                                     <option value="principal">Logo principal</option>
                                                     <option value="compacto">Logo compacto</option>
+                                                    <option value="login">Logo login</option>
                                                     <option value="favicon">Favicon</option>
                                                 </select>
                                                 <label class="form-label fw-bold">Archivo</label>

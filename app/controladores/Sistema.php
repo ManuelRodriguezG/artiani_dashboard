@@ -174,7 +174,7 @@ class Sistema extends Controlador {
   /**
    * IA: Codex GPT-5
    * Fecha: 2026-08-08
-   * Proposito: subir y enlazar logo principal/compacto/favicon desde la configuracion SYS.
+   * Proposito: subir y enlazar logo principal/compacto/login/favicon desde la configuracion SYS.
    * Impacto: Branding global del panel; corrige imagenes de marca rotas sin exponer rutas inseguras.
    * Contrato: requiere `configuracion.administrar`, CSRF global y archivo `logo`.
    */

@@ -18,6 +18,16 @@ var eventosDescuentoMasivo = [];
 var modoCostoCaptura = "sin_impuestos";
 
 function esc(value) { var d = document.createElement("div"); d.textContent = value == null ? "" : value; return d.innerHTML; }
+function etiquetaEstatusOrden(value) {
+    return {
+        borrador: "Borrador",
+        enviada: "Enviada a almacen",
+        parcial: "Recepcion parcial",
+        recibida: "Recibida",
+        cerrada_sin_recepcion: "Finalizada sin almacen",
+        cancelada: "Cancelada"
+    }[value] || value || "Borrador";
+}
 function parseDecimal(value) { return Number(String(value == null ? "" : value).replace(/,/g, "")) || 0; }
 function parseFlag(value) { return value === true || value === "1" || value === 1 || value === "true" || value === "TRUE"; }
 function parseFlagSeguro(value) { return parseFlag(value); }
@@ -678,7 +688,7 @@ function agregarProductoNuevoPendiente() {
             var o = r.depurar.orden;
             estatusOrden = o.estatus;
             document.getElementById("orden_titulo").textContent = o.folio;
-            document.getElementById("orden_estado_texto").textContent = o.estatus;
+            document.getElementById("orden_estado_texto").textContent = etiquetaEstatusOrden(o.estatus);
             var botonVerDiferencias = document.getElementById("orden_ver_diferencias");
             if (botonVerDiferencias) {
                 botonVerDiferencias.classList.toggle("d-none", !(Number(o.id_solicitud || 0) > 0));
@@ -1766,6 +1776,7 @@ function render() {
         puedeGestionarAdjuntos = document.getElementById("orden_puede_gestionar_adjuntos").value === "1";
         if (!puedeAprobar) {
             document.getElementById("orden_enviar").classList.add("d-none");
+            document.getElementById("orden_cerrar_sin_recepcion").classList.add("d-none");
         }
         var fechaLocal = new Date();
         var hoy = fechaLocal.getFullYear() + "-" +
@@ -1913,6 +1924,17 @@ function render() {
         document.getElementById("orden_conciliacion_descartar").addEventListener("click", descartarConceptosSeleccionados);
         document.getElementById("orden_guardar").addEventListener("click", function () { guardar("borrador"); });
         document.getElementById("orden_enviar").addEventListener("click", function () { guardar("enviada"); });
+        document.getElementById("orden_cerrar_sin_recepcion").addEventListener("click", function () {
+            Swal.fire({
+                text: "La orden quedara finalizada para compras, no se enviara a almacen y no afectara inventario.",
+                icon: "warning",
+                showCancelButton: true,
+                confirmButtonText: "Finalizar sin almacen",
+                cancelButtonText: "Conservar borrador"
+            }).then(function (x) {
+                if (x.isConfirmed) { guardar("cerrada_sin_recepcion"); }
+            });
+        });
         document.getElementById("orden_cancelar").addEventListener("click", function () {
             Swal.fire({text: "La orden quedara cancelada y la solicitud podra generar un reemplazo.", icon: "warning", showCancelButton: true, confirmButtonText: "Cancelar orden", cancelButtonText: "Conservar"}).then(function (x) {
                 if (!x.isConfirmed) { return; }

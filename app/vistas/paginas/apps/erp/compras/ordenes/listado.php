@@ -33,7 +33,7 @@ $puedeSeguimiento = !empty($datos["puede_seguimiento"]);
                         <div class="d-flex flex-column flex-md-row gap-3 mb-6">
                             <div class="position-relative flex-grow-1"><i class="bi bi-search position-absolute ms-5 mt-3 fs-3"></i><input id="ordenes_buscar" class="form-control form-control-solid ps-12" placeholder="Buscar folio, solicitud o proveedor"></div>
                             <select id="ordenes_estatus" class="form-select form-select-solid w-md-225px">
-                                <option value="">Todos los estados</option><option value="borrador">Borrador</option><option value="enviada">Enviada</option><option value="parcial">Recepcion parcial</option><option value="recibida">Recibida</option><option value="cancelada">Cancelada</option>
+                                <option value="">Todos los estados</option><option value="borrador">Borrador</option><option value="enviada">Enviada</option><option value="parcial">Recepcion parcial</option><option value="recibida">Recibida</option><option value="cerrada_sin_recepcion">Finalizada sin almacen</option><option value="cancelada">Cancelada</option>
                             </select>
                         </div>
                         <div class="table-responsive">

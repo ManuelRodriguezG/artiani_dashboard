@@ -6,6 +6,7 @@ class SistemaConfiguracion extends CRUD {
   private $tabla_historial = "sys_configuracion_historial";
   private $logoFallbackPrincipal = "/assets/media/logos/default-dark.svg";
   private $logoFallbackCompacto = "/assets/media/logos/default-small.svg";
+  private $logoFallbackLogin = "/assets/media/logos/default-dark.svg";
   private $faviconFallback = "/assets/media/logos/favicon.svg";
 
   /**
@@ -20,7 +21,10 @@ class SistemaConfiguracion extends CRUD {
       "nombre_sistema" => "ERP Artiani",
       "logo_principal" => $this->logoFallbackPrincipal,
       "logo_compacto" => $this->logoFallbackCompacto,
-      "favicon" => $this->faviconFallback
+      "logo_login" => $this->logoFallbackLogin,
+      "favicon" => $this->faviconFallback,
+      "login_titulo" => "Iniciar sesion",
+      "login_subtitulo" => "Acceso al panel operativo"
     );
 
     if (!$this->tablaParametrosExiste()) {
@@ -31,7 +35,7 @@ class SistemaConfiguracion extends CRUD {
       $db = $this->getConexion();
       $stmt = $db->prepare("SELECT clave, valor
                             FROM {$this->tabla_parametros}
-                            WHERE clave IN ('branding.nombre_sistema', 'branding.logo_principal', 'branding.logo_compacto', 'branding.favicon')
+                            WHERE clave IN ('branding.nombre_sistema', 'branding.logo_principal', 'branding.logo_compacto', 'branding.logo_login', 'branding.favicon', 'branding.login_titulo', 'branding.login_subtitulo')
                               AND estatus=1");
       $stmt->execute();
       foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $fila) {
@@ -46,8 +50,17 @@ class SistemaConfiguracion extends CRUD {
         if ($clave === "branding.logo_compacto" && $this->assetPublicoExiste($valor)) {
           $branding["logo_compacto"] = $valor;
         }
+        if ($clave === "branding.logo_login" && $this->assetPublicoExiste($valor)) {
+          $branding["logo_login"] = $valor;
+        }
         if ($clave === "branding.favicon" && $this->assetPublicoExiste($valor)) {
           $branding["favicon"] = $valor;
+        }
+        if ($clave === "branding.login_titulo" && $valor !== "") {
+          $branding["login_titulo"] = mb_substr($valor, 0, 100, "UTF-8");
+        }
+        if ($clave === "branding.login_subtitulo" && $valor !== "") {
+          $branding["login_subtitulo"] = mb_substr($valor, 0, 180, "UTF-8");
         }
       }
     } catch (Exception $e) {
@@ -118,6 +131,7 @@ class SistemaConfiguracion extends CRUD {
     }
 
     try {
+      $this->asegurarParametrosBrandingBase();
       $db = $this->getConexion();
       $stmt = $db->prepare("SELECT id_configuracion_parametro, grupo, clave, tipo_dato, valor, descripcion, editable_ui, sensible, estatus
                             FROM {$this->tabla_parametros}
@@ -221,7 +235,7 @@ class SistemaConfiguracion extends CRUD {
    * Fecha: 2026-08-08
    * Proposito: guardar un archivo de marca validado y enlazarlo a un parametro SYS de branding.
    * Impacto: Administracion/SYS y layout global; reemplaza logos/favicon rotos sin tocar credenciales.
-   * Contrato: acepta `principal`, `compacto` o `favicon`; imagenes publicas de maximo 2 MB.
+   * Contrato: acepta `principal`, `compacto`, `login` o `favicon`; imagenes publicas de maximo 2 MB.
    */
   public function guardarLogo($tipoLogo, $archivo, $idUsuario, $motivo = "") {
     if (!$this->tablaParametrosExiste()) {
@@ -231,6 +245,8 @@ class SistemaConfiguracion extends CRUD {
     $tipoLogo = trim((string) $tipoLogo);
     if ($tipoLogo === "favicon") {
       $clave = "branding.favicon";
+    } elseif ($tipoLogo === "login") {
+      $clave = "branding.logo_login";
     } else {
       $clave = $tipoLogo === "compacto" ? "branding.logo_compacto" : "branding.logo_principal";
     }
@@ -251,6 +267,9 @@ class SistemaConfiguracion extends CRUD {
       }
       if ($clave === "branding.favicon") {
         $prefijo = "favicon";
+      }
+      if ($clave === "branding.logo_login") {
+        $prefijo = "login";
       }
       $nombre = "erp-" . $prefijo . "-" . date("YmdHis") . "." . $extension;
       $rutaAbsoluta = $directorio . DIRECTORY_SEPARATOR . $nombre;
@@ -370,6 +389,10 @@ class SistemaConfiguracion extends CRUD {
       $valor = $this->faviconFallback;
       $descripcion = "Icono del navegador para identificar el sistema";
     }
+    if ($clave === "branding.logo_login") {
+      $valor = $this->logoFallbackLogin;
+      $descripcion = "Logo para la pantalla de inicio de sesion sobre fondo claro";
+    }
     $stmt = $db->prepare("INSERT INTO {$this->tabla_parametros}
       (grupo, clave, tipo_dato, valor, descripcion, editable_ui, sensible, estatus)
       VALUES ('branding', :clave, 'ruta', :valor, :descripcion, 1, 0, 1)
@@ -379,6 +402,31 @@ class SistemaConfiguracion extends CRUD {
       ":valor" => $valor,
       ":descripcion" => $descripcion
     ));
+  }
+
+  private function asegurarParametrosBrandingBase() {
+    $semillas = array(
+      array("clave" => "branding.nombre_sistema", "tipo" => "texto", "valor" => "ERP Artiani", "descripcion" => "Nombre visible en header, sidebar, login y vistas generales del panel"),
+      array("clave" => "branding.logo_principal", "tipo" => "ruta", "valor" => $this->logoFallbackPrincipal, "descripcion" => "Logo principal del sidebar en modo expandido"),
+      array("clave" => "branding.logo_compacto", "tipo" => "ruta", "valor" => $this->logoFallbackCompacto, "descripcion" => "Logo compacto para sidebar minimizado y vista movil"),
+      array("clave" => "branding.logo_login", "tipo" => "ruta", "valor" => $this->logoFallbackLogin, "descripcion" => "Logo para pantalla de inicio de sesion sobre fondo claro"),
+      array("clave" => "branding.favicon", "tipo" => "ruta", "valor" => $this->faviconFallback, "descripcion" => "Icono del navegador para identificar el sistema"),
+      array("clave" => "branding.login_titulo", "tipo" => "texto", "valor" => "Iniciar sesion", "descripcion" => "Titulo principal mostrado en la pantalla de login"),
+      array("clave" => "branding.login_subtitulo", "tipo" => "texto", "valor" => "Acceso al panel operativo", "descripcion" => "Texto de apoyo mostrado bajo el titulo de login")
+    );
+    $db = $this->getConexion();
+    $stmt = $db->prepare("INSERT INTO {$this->tabla_parametros}
+      (grupo, clave, tipo_dato, valor, descripcion, editable_ui, sensible, estatus)
+      VALUES ('branding', :clave, :tipo, :valor, :descripcion, 1, 0, 1)
+      ON DUPLICATE KEY UPDATE grupo=VALUES(grupo), tipo_dato=VALUES(tipo_dato), descripcion=VALUES(descripcion), editable_ui=1, sensible=0, estatus=1");
+    foreach ($semillas as $semilla) {
+      $stmt->execute(array(
+        ":clave" => $semilla["clave"],
+        ":tipo" => $semilla["tipo"],
+        ":valor" => $semilla["valor"],
+        ":descripcion" => $semilla["descripcion"]
+      ));
+    }
   }
 
   private function detectarMimeLogo($rutaTemporal) {

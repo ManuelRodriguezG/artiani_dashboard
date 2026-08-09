@@ -25,6 +25,8 @@
     var incidenciasPropuestasActuales = [];
     var incidenciasRealesActuales = [];
     var incidenciasResumenActual = {};
+    var catalogoSugeridosActuales = [];
+    var catalogoSugeridosResumenActual = {};
     var catalogosListaDetalle = {unidades: []};
     var permisos = window.PROVEEDORES_ERP_PERMISOS || {};
 
@@ -1240,6 +1242,133 @@
                 "<td class=\"text-end\">" + aplicar + aplicarCosto + enviarCatalogo + eliminar + "<button class=\"btn btn-sm btn-icon btn-light-primary\" type=\"button\" title=\"Editar renglon\" data-lista-renglon=\"" + esc(x.id_lista_detalle_erp) + "\"><i class=\"bi bi-pencil-square\"></i></button></td>" +
                 "</tr>";
         }).join("") || "<tr><td colspan=\"5\" class=\"text-center text-muted py-6\">Sin renglones capturados</td></tr>";
+    }
+
+    function abrirCatalogoSugeridos() {
+        if (!proveedorActual || !proveedorActual.id_proveedor || !listaDetalleActual || !listaDetalleActual.id_lista_proveedor_erp) {
+            return;
+        }
+        document.getElementById("proveedores_erp_catalogo_sugeridos_subtitulo").textContent =
+            (listaDetalleActual.nombre_lista || "Lista") + " | Proveedor " + proveedorActual.id_proveedor;
+        document.getElementById("proveedores_erp_catalogo_sugeridos_body").innerHTML =
+            "<tr><td colspan=\"5\" class=\"text-center text-muted py-6\">Cargando sugeridos...</td></tr>";
+        document.getElementById("proveedores_erp_catalogo_sugeridos_error").classList.add("d-none");
+        bootstrap.Modal.getOrCreateInstance(document.getElementById("proveedores_erp_catalogo_sugeridos_modal")).show();
+        cargarCatalogoSugeridos();
+    }
+
+    function cargarCatalogoSugeridos() {
+        if (!proveedorActual || !listaDetalleActual) {
+            return;
+        }
+        get("/proveedor/proveedor_lista_catalogo_sugeridos_erp", {
+            id_proveedor: proveedorActual.id_proveedor,
+            id_lista_proveedor_erp: listaDetalleActual.id_lista_proveedor_erp,
+            q: valor("proveedores_erp_catalogo_sugeridos_buscar")
+        }).then(function (response) {
+            if (response.error) {
+                throw new Error(response.mensaje || "No fue posible consultar sugeridos de Catalogo.");
+            }
+            var data = response.depurar || {};
+            catalogoSugeridosActuales = data.registros || [];
+            catalogoSugeridosResumenActual = data.resumen || {};
+            renderCatalogoSugeridos();
+        }).catch(function (err) {
+            var error = document.getElementById("proveedores_erp_catalogo_sugeridos_error");
+            error.textContent = err.message;
+            error.classList.remove("d-none");
+            document.getElementById("proveedores_erp_catalogo_sugeridos_body").innerHTML = "";
+        });
+    }
+
+    function renderCatalogoSugeridos() {
+        var resumen = catalogoSugeridosResumenActual || {};
+        var resumenEl = document.getElementById("proveedores_erp_catalogo_sugeridos_resumen");
+        if (resumenEl) {
+            resumenEl.innerHTML =
+                badge("Sugeridos: " + (resumen.total || 0), "primary") +
+                badge("Ya en lista: " + (resumen.ya_en_lista || 0), Number(resumen.ya_en_lista || 0) > 0 ? "success" : "secondary") +
+                badge("Para vincular: " + (resumen.para_vincular || 0), Number(resumen.para_vincular || 0) > 0 ? "warning" : "secondary") +
+                badge("Para crear: " + (resumen.para_crear || 0), Number(resumen.para_crear || 0) > 0 ? "info" : "secondary");
+        }
+
+        var body = document.getElementById("proveedores_erp_catalogo_sugeridos_body");
+        body.innerHTML = catalogoSugeridosActuales.map(function (x) {
+            var costo = Number(x.costo_vigente || 0) > 0
+                ? x.costo_vigente + " " + (x.moneda_costo || "")
+                : (Number(x.costo_ultimo || 0) > 0 ? x.costo_ultimo + " sin moneda" : "-");
+            var compra = [
+                x.unidad_compra || x.unidad_compra_nombre,
+                x.factor_conversion ? "Factor " + x.factor_conversion : "",
+                x.cantidad_minima ? "Min " + x.cantidad_minima : ""
+            ].filter(Boolean).join(" | ") || "-";
+            var estado = x.estado_sugerencia === "ya_en_lista"
+                ? "<span class=\"badge badge-light-success\">Ya en lista</span>"
+                : (x.estado_sugerencia === "renglon_posible"
+                    ? "<span class=\"badge badge-light-warning\">Renglon posible</span>"
+                    : "<span class=\"badge badge-light-info\">No esta en lista</span>");
+            var renglon = x.renglon_lista
+                ? "<div class=\"text-muted fs-8 mt-1\">Renglon #" + esc(x.renglon_lista.id_lista_detalle_erp) + ": " + esc(x.renglon_lista.sku_proveedor || x.renglon_lista.codigo_barras || x.renglon_lista.codigo_interno || x.renglon_lista.descripcion_proveedor || "") + "</div>"
+                : "";
+            var accion = "";
+            if (x.accion === "crear") {
+                accion = "<button class=\"btn btn-sm btn-light-primary\" type=\"button\" data-catalogo-sugerido-aplicar=\"crear\" data-sku-proveedor=\"" + esc(x.id_sku_proveedor) + "\"><i class=\"bi bi-plus-lg\"></i> Crear renglon</button>";
+            } else if (x.accion === "vincular") {
+                accion = "<button class=\"btn btn-sm btn-light-success\" type=\"button\" data-catalogo-sugerido-aplicar=\"vincular\" data-sku-proveedor=\"" + esc(x.id_sku_proveedor) + "\" data-detalle=\"" + esc(x.id_lista_detalle_erp) + "\"><i class=\"bi bi-link-45deg\"></i> Vincular</button>";
+            } else {
+                accion = "<span class=\"text-muted fs-8\">Sin accion</span>";
+            }
+
+            return "<tr>" +
+                "<td><div class=\"fw-bold\">" + esc(x.sku_erp || "-") + "</div><div>" + esc(x.nombre_sku || x.producto_nombre || "-") + "</div><span class=\"text-muted fs-8\">Codigo: " + esc(x.codigo_principal || "-") + "</span></td>" +
+                "<td><div class=\"fw-bold\">" + esc(x.sku_proveedor || "-") + "</div>" + (String(x.es_preferido) === "1" ? "<span class=\"badge badge-light-primary\">Principal</span>" : "") + "</td>" +
+                "<td><div>" + esc(compra) + "</div><span class=\"text-muted fs-8\">Costo referencia proveedor: " + esc(costo) + "</span></td>" +
+                "<td>" + estado + renglon + "<div class=\"text-muted fs-8 mt-1\">" + esc(x.detalle_accion || "") + "</div></td>" +
+                "<td class=\"text-end\">" + accion + "</td>" +
+                "</tr>";
+        }).join("") || "<tr><td colspan=\"5\" class=\"text-center text-muted py-6\">Sin sugeridos de Catalogo para esta busqueda</td></tr>";
+    }
+
+    function aplicarCatalogoSugerido(boton) {
+        if (!boton || !proveedorActual || !listaDetalleActual) {
+            return;
+        }
+        var accion = boton.getAttribute("data-catalogo-sugerido-aplicar") || "";
+        var idSkuProveedor = boton.getAttribute("data-sku-proveedor") || "";
+        var idDetalle = boton.getAttribute("data-detalle") || "";
+        boton.disabled = true;
+        post("/proveedor/proveedor_lista_catalogo_sugerido_aplicar_erp", {
+            id_proveedor: proveedorActual.id_proveedor,
+            id_lista_proveedor_erp: listaDetalleActual.id_lista_proveedor_erp,
+            id_sku_proveedor: idSkuProveedor,
+            id_lista_detalle_erp: idDetalle,
+            accion: accion
+        }).then(function (response) {
+            if (response.error) {
+                throw new Error(response.mensaje || "No fue posible aplicar sugerido de Catalogo.");
+            }
+            Swal.fire({text: response.mensaje, icon: response.tipo === "info" ? "info" : "success", confirmButtonText: "Aceptar"});
+            return get("/proveedor/proveedor_lista_detalle_erp", {
+                id_proveedor: proveedorActual.id_proveedor,
+                id_lista_proveedor_erp: listaDetalleActual.id_lista_proveedor_erp
+            });
+        }).then(function (response) {
+            if (response && response.error) {
+                throw new Error(response.mensaje || "No fue posible refrescar detalle de lista.");
+            }
+            if (response && response.depurar) {
+                var data = response.depurar || {};
+                listaDetalleActual = data.lista || listaDetalleActual;
+                listaDetalleRenglones = data.detalle || [];
+                renderRevisionListaDetalle(data.revision || {});
+                renderListaDetalle();
+            }
+            cargarCatalogoSugeridos();
+        }).catch(function (err) {
+            Swal.fire({text: err.message, icon: "error", confirmButtonText: "Aceptar"});
+        }).finally(function () {
+            boton.disabled = false;
+        });
     }
 
     function filtrarListaDetalleRenglones() {
@@ -2980,6 +3109,32 @@
         if (agregarListaDetalle && permisos.listas) {
             agregarListaDetalle.addEventListener("click", function () {
                 abrirFormularioListaDetalle({});
+            });
+        }
+        var catalogoSugeridosAbrir = document.getElementById("proveedores_erp_catalogo_sugeridos_abrir");
+        if (catalogoSugeridosAbrir && permisos.listas) {
+            catalogoSugeridosAbrir.addEventListener("click", abrirCatalogoSugeridos);
+        }
+        var catalogoSugeridosRecargar = document.getElementById("proveedores_erp_catalogo_sugeridos_recargar");
+        if (catalogoSugeridosRecargar && permisos.listas) {
+            catalogoSugeridosRecargar.addEventListener("click", cargarCatalogoSugeridos);
+        }
+        var catalogoSugeridosBuscar = document.getElementById("proveedores_erp_catalogo_sugeridos_buscar");
+        if (catalogoSugeridosBuscar && permisos.listas) {
+            catalogoSugeridosBuscar.addEventListener("keydown", function (event) {
+                if (event.key === "Enter") {
+                    event.preventDefault();
+                    cargarCatalogoSugeridos();
+                }
+            });
+        }
+        var catalogoSugeridosBody = document.getElementById("proveedores_erp_catalogo_sugeridos_body");
+        if (catalogoSugeridosBody && permisos.listas) {
+            catalogoSugeridosBody.addEventListener("click", function (event) {
+                var boton = event.target.closest("[data-catalogo-sugerido-aplicar]");
+                if (boton) {
+                    aplicarCatalogoSugerido(boton);
+                }
             });
         }
         var matchingDryRun = document.getElementById("proveedores_erp_lista_matching_dry_run");

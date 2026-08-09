@@ -1932,6 +1932,75 @@ class InventarioErp extends CRUD {
         }
     }
 
+    /**
+     * IA: Codex GPT-5
+     * Fecha: 2026-08-08
+     * Proposito: listar folios de Inventario > Reclasificacion con salida, entrada y movimientos ligados.
+     * Impacto: consulta operativa/auditoria de reclasificaciones; no modifica inventario.
+     * Contrato: read-only; soporta filtro por almacen y busqueda por folio/SKU/lote/motivo.
+     */
+    public function listarReclasificaciones($filtros = array()) {
+        try {
+            $db = $this->getConexion();
+            if (!$this->tablaExiste($db, "erp_inventario_reclasificaciones")
+                || !$this->tablaExiste($db, "erp_inventario_reclasificaciones_detalle")) {
+                return $this->respuesta(true, "warning", "Falta aplicar esquema de reclasificacion", array("esquema_disponible" => false));
+            }
+            $idAlmacen = intval(isset($filtros["id_almacen"]) ? $filtros["id_almacen"] : 0);
+            $termino = trim(isset($filtros["q"]) ? $filtros["q"] : "");
+            $limite = intval(isset($filtros["limite"]) ? $filtros["limite"] : 50);
+            if ($limite <= 0 || $limite > 200) {
+                $limite = 50;
+            }
+            $sql = "SELECT r.id_reclasificacion_inventario, r.folio, r.id_almacen, a.almacen,
+                    r.estatus, r.motivo, r.costo_politica, r.requiere_autorizacion,
+                    r.creado_por, r.confirmado_por, r.fecha_reclasificacion, r.fecha_registro,
+                    d.id_reclasificacion_detalle, d.id_sku_origen, so.sku AS sku_origen,
+                    COALESCE(so.nombre, po.nombre) AS producto_origen,
+                    d.id_sku_destino, sd.sku AS sku_destino,
+                    COALESCE(sd.nombre, pd.nombre) AS producto_destino,
+                    d.id_existencia_origen, d.id_existencia_destino,
+                    d.id_unidad_origen, d.id_unidad_destino,
+                    uo.codigo_etiqueta_interna AS unidad_origen_codigo,
+                    ud.codigo_etiqueta_interna AS unidad_destino_codigo,
+                    d.lote, d.fecha_caducidad, d.cantidad,
+                    d.costo_unitario_origen, d.costo_unitario_destino,
+                    d.costo_total_origen, d.costo_total_destino, d.costo_diferencia,
+                    d.id_movimiento_salida, d.id_movimiento_entrada,
+                    ms.referencia AS referencia_salida, me.referencia AS referencia_entrada
+                FROM erp_inventario_reclasificaciones r
+                INNER JOIN erp_inventario_reclasificaciones_detalle d ON d.id_reclasificacion_inventario=r.id_reclasificacion_inventario
+                LEFT JOIN erp_almacenes a ON a.id_almacen=r.id_almacen
+                LEFT JOIN erp_catalogo_skus so ON so.id_sku=d.id_sku_origen
+                LEFT JOIN erp_catalogo_productos po ON po.id_producto_erp=so.id_producto_erp
+                LEFT JOIN erp_catalogo_skus sd ON sd.id_sku=d.id_sku_destino
+                LEFT JOIN erp_catalogo_productos pd ON pd.id_producto_erp=sd.id_producto_erp
+                LEFT JOIN erp_inventario_unidades uo ON uo.id_inventario_unidad=d.id_unidad_origen
+                LEFT JOIN erp_inventario_unidades ud ON ud.id_inventario_unidad=d.id_unidad_destino
+                LEFT JOIN erp_inventario_movimientos ms ON ms.id_movimiento_inventario=d.id_movimiento_salida
+                LEFT JOIN erp_inventario_movimientos me ON me.id_movimiento_inventario=d.id_movimiento_entrada
+                WHERE (:almacen=0 OR r.id_almacen=:almacen_filtro)
+                  AND (
+                    :termino='' OR r.folio LIKE :buscar OR r.motivo LIKE :buscar
+                    OR so.sku LIKE :buscar OR so.nombre LIKE :buscar OR po.nombre LIKE :buscar
+                    OR sd.sku LIKE :buscar OR sd.nombre LIKE :buscar OR pd.nombre LIKE :buscar
+                    OR d.lote LIKE :buscar OR uo.codigo_etiqueta_interna LIKE :buscar OR ud.codigo_etiqueta_interna LIKE :buscar
+                  )
+                ORDER BY r.id_reclasificacion_inventario DESC, d.id_reclasificacion_detalle DESC
+                LIMIT " . intval($limite);
+            $stmt = $db->prepare($sql);
+            $stmt->execute(array(
+                ":almacen" => $idAlmacen,
+                ":almacen_filtro" => $idAlmacen,
+                ":termino" => $termino,
+                ":buscar" => "%" . $termino . "%"
+            ));
+            return $this->respuesta(false, "success", "Reclasificaciones consultadas", $stmt->fetchAll(PDO::FETCH_ASSOC));
+        } catch (Exception $e) {
+            return $this->respuesta(true, "danger", $e->getMessage());
+        }
+    }
+
     public function previsualizarReclasificacion($datos, $idUsuario = 0) {
         try {
             $db = $this->getConexion();
@@ -2011,7 +2080,7 @@ class InventarioErp extends CRUD {
             ));
             $idDetalle = intval($db->lastInsertId());
 
-            $datosMovimiento = array("motivo_ajuste" => "reclasificacion", "observaciones" => $motivo);
+            $datosMovimiento = array("motivo_ajuste" => "reclasificacion", "observaciones" => $motivo, "origen_detalle_id" => $idDetalle);
             $movSalida = $this->aplicarCambio($db, $existenciaOrigen, $cantidad, "salida", "reclasificacion_inventario", $idReclasificacion, $folio, $datosMovimiento, $idUsuario);
             $existenciaDestino = $this->recargarExistencia($db, intval($existenciaDestino["id_existencia_inventario"]));
             $movEntrada = $this->aplicarCambio($db, $existenciaDestino, $cantidad, "entrada", "reclasificacion_inventario", $idReclasificacion, $folio, $datosMovimiento, $idUsuario);
@@ -2726,15 +2795,16 @@ class InventarioErp extends CRUD {
         ));
         $costo = floatval($existencia["costo_promedio"]);
         $stmt = $db->prepare("INSERT INTO erp_inventario_movimientos
-            (id_producto,id_sku_erp,id_almacen,tipo_movimiento,origen_tipo,origen_id,id_existencia_inventario,
+            (id_producto,id_sku_erp,id_almacen,tipo_movimiento,origen_tipo,origen_id,origen_detalle_id,id_existencia_inventario,
              codigo_existencia,lote,fecha_caducidad,ubicacion_id,ubicacion,cantidad,costo_unitario,costo_total,
              existencia_anterior,existencia_nueva,referencia,observaciones)
-            VALUES (:producto,:sku,:almacen,:tipo,:origen_tipo,:origen_id,:existencia,:codigo,:lote,:caducidad,
+            VALUES (:producto,:sku,:almacen,:tipo,:origen_tipo,:origen_id,:origen_detalle_id,:existencia,:codigo,:lote,:caducidad,
              :ubicacion_id,:ubicacion,:cantidad,:costo,:total,:anterior,:nueva,:referencia,:observaciones)");
         $stmt->execute(array(
             ":producto" => intval($existencia["id_producto"]), ":sku" => intval($existencia["id_sku_erp"]),
             ":almacen" => intval($existencia["id_almacen_clave"]), ":tipo" => $tipo, ":origen_tipo" => $origenTipo,
             ":origen_id" => intval($origenId), ":existencia" => intval($existencia["id_existencia_inventario"]),
+            ":origen_detalle_id" => intval(isset($datos["origen_detalle_id"]) ? $datos["origen_detalle_id"] : 0) ?: null,
             ":codigo" => $existencia["codigo_existencia"], ":lote" => $existencia["lote"],
             ":caducidad" => $existencia["fecha_caducidad"], ":ubicacion_id" => $existencia["ubicacion_id"],
             ":ubicacion" => $existencia["ubicacion"], ":cantidad" => $cantidad, ":costo" => $costo,

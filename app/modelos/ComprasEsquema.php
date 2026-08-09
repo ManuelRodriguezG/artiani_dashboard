@@ -34,6 +34,7 @@ class ComprasEsquema extends DBSchema {
         $plan[] = $this->agregarIndiceSiNoExiste("erp_compras_solicitudes_detalle", "idx_solicitud_detalle_solicitud", "KEY `idx_solicitud_detalle_solicitud` (`id_solicitud`)", $ejecutar);
 
         $plan[] = $this->agregarColumnaSiNoExiste("erp_compras_ordenes", "folio_proveedor", "VARCHAR(150) NULL", $ejecutar);
+        $plan[] = $this->modificarColumna("erp_compras_ordenes", "estatus", "ENUM('borrador','enviada','parcial','recibida','cerrada_sin_recepcion','cancelada') NOT NULL DEFAULT 'borrador'", $ejecutar);
         $plan[] = $this->agregarColumnaSiNoExiste("erp_compras_ordenes", "id_almacen_destino", "INT NULL", $ejecutar);
         $plan[] = $this->agregarColumnaSiNoExiste("erp_compras_ordenes", "solicitante", "VARCHAR(150) NULL", $ejecutar);
         $plan[] = $this->agregarColumnaSiNoExiste("erp_compras_ordenes", "contacto_recepcion", "VARCHAR(150) NULL", $ejecutar);
@@ -46,6 +47,8 @@ class ComprasEsquema extends DBSchema {
         $plan[] = $this->agregarColumnaSiNoExiste("erp_compras_ordenes", "creado_por", "INT NULL", $ejecutar);
         $plan[] = $this->agregarColumnaSiNoExiste("erp_compras_ordenes", "enviado_por", "INT NULL", $ejecutar);
         $plan[] = $this->agregarColumnaSiNoExiste("erp_compras_ordenes", "fecha_envio", "DATETIME NULL", $ejecutar);
+        $plan[] = $this->agregarColumnaSiNoExiste("erp_compras_ordenes", "cerrada_sin_recepcion_por", "INT NULL", $ejecutar);
+        $plan[] = $this->agregarColumnaSiNoExiste("erp_compras_ordenes", "fecha_cierre_sin_recepcion", "DATETIME NULL", $ejecutar);
         $plan[] = $this->agregarColumnaSiNoExiste("erp_compras_ordenes", "fecha_actualizacion", "DATETIME NULL", $ejecutar);
         $plan[] = $this->agregarColumnaSiNoExiste("erp_compras_ordenes", "origen", "VARCHAR(30) NOT NULL DEFAULT 'solicitud'", $ejecutar);
         $plan[] = $this->agregarIndiceSiNoExiste("erp_compras_ordenes", "idx_orden_solicitud", "KEY `idx_orden_solicitud` (`id_solicitud`)", $ejecutar);

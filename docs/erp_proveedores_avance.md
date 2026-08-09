@@ -7193,3 +7193,51 @@ Validacion tecnica:
 Siguiente paso recomendado:
 
 - Hacer UAT real de guardado de Solicitud desde la pantalla con un SKU proveedor y consultar que `evidencia_costo_json` quede poblado por el flujo normal.
+
+## Proveedores - Sugeridos desde Catalogo 2026-08-08
+
+Objetivo operativo:
+
+- Aprovechar las relaciones de proveedor capturadas en Catalogo ERP sin dar a Catalogo el control de crear/asignar la relacion operativa de una lista proveedor.
+- Desde el detalle de una lista de proveedor se agrega la accion `Sugeridos Catalogo`.
+- La vista muestra SKUs de Catalogo que ya tienen asignado el proveedor actual en `erp_catalogo_sku_proveedores`.
+
+Regla acordada:
+
+- Catalogo puede capturar que un SKU tiene proveedor asignado.
+- Proveedores decide si esa informacion se formaliza dentro de una lista concreta.
+- Las acciones nuevas no aplican costo vigente, no actualizan `costo_referencia` y no modifican relaciones de Catalogo.
+- Si ya existe un renglon compatible en la lista, se puede vincular.
+- Si no existe renglon, se puede crear uno desde la sugerencia para continuar con validacion/compras.
+
+Alcance aplicado:
+
+- `Proveedor.php` agrega endpoints:
+  - `proveedor_lista_catalogo_sugeridos_erp`: lectura de sugeridos para lista/proveedor.
+  - `proveedor_lista_catalogo_sugerido_aplicar_erp`: crea o vincula un renglon puntual en la lista.
+- `Proveedores.php` agrega:
+  - consulta read-only de sugeridos desde `erp_catalogo_sku_proveedores`;
+  - deteccion de si el SKU ya esta en la lista, si hay renglon posible o si falta crear renglon;
+  - accion puntual para vincular/crear renglon en `erp_proveedores_listas_detalle_erp`.
+- `listado_erp.php` agrega modal `Sugeridos desde Catalogo`.
+- `listado_erp.js` agrega carga, buscador, render de estados y acciones puntuales.
+
+Pruebas reales sugeridas:
+
+- Abrir Proveedores > detalle de lista > `Sugeridos Catalogo`.
+- Buscar un SKU que ya tenga ese proveedor asignado en Catalogo.
+- Validar los tres estados:
+  - `Ya en lista`: no debe ofrecer accion.
+  - `Renglon posible`: debe permitir vincular el renglon existente.
+  - `No esta en lista`: debe permitir crear renglon nuevo.
+- Despues de vincular/crear, confirmar que el detalle de lista se refresca y el renglon queda con `id_sku`, `id_sku_proveedor` y `estado_match=relacion_aplicada`.
+- Confirmar que no se aplica costo vigente automaticamente; si corresponde, usar despues `Preview costos`.
+
+Validacion tecnica:
+
+- `C:\xampp\php\php.exe -l app\controladores\Proveedor.php`: OK.
+- `C:\xampp\php\php.exe -l app\modelos\Proveedores.php`: OK.
+- `node --check public\assets\js\custom\apps\erp\proveedores\listado_erp.js`: OK.
+- Base local confirmada en puerto `3406`.
+- Prueba read-only con `catalogoSugeridosParaListaProveedorErp(25, 42, '')`: OK.
+- Resultado de muestra: `60` sugeridos, `5` ya en lista, `55` para crear, `0` para vincular.

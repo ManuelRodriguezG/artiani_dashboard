@@ -1,30 +1,29 @@
+<?php
+/**
+ * IA: Codex GPT-5
+ * Fecha: 2026-08-08
+ * Proposito: renderizar login con branding configurable independiente del panel interno.
+ * Impacto: Autenticacion; sustituye textos/logos demo por configuracion SYS no sensible.
+ * Contrato: solo consulta branding; el flujo de autenticacion JS/backend no cambia.
+ */
+require_once '../app/modelos/SistemaConfiguracion.php';
+$loginConfiguracion = new SistemaConfiguracion();
+$loginBranding = $loginConfiguracion->obtenerBranding();
+?>
 <!DOCTYPE html>
-<!--
-Author: Keenthemes
-Product Name: Metronic | Bootstrap HTML, VueJS, React, Angular, Asp.Net Core, Blazor, Django, Flask & Laravel Admin Dashboard Theme
-Purchase: https://1.envato.market/EA4JP
-Website: http://www.keenthemes.com
-Contact: support@keenthemes.com
-Follow: www.twitter.com/keenthemes
-Dribbble: www.dribbble.com/keenthemes
-Like: www.facebook.com/keenthemes
-License: For each use you must have a valid license purchased only from above link in order to legally use the theme for your project.
--->
-<html lang="en">
+<html lang="es">
     <!--begin::Head-->
     <head><base href="../../../"/>
-        <title>Metronic - the world's #1 selling Bootstrap Admin Theme Ecosystem for HTML, Vue, React, Angular & Laravel by Keenthemes</title>
+        <title><?= htmlspecialchars($loginBranding["nombre_sistema"], ENT_QUOTES, "UTF-8") ?> | Login</title>
         <meta charset="utf-8" />
-        <meta name="description" content="The most advanced Bootstrap Admin Theme on Themeforest trusted by 100,000 beginners and professionals. Multi-demo, Dark Mode, RTL support and complete React, Angular, Vue, Asp.Net Core, Blazor, Django, Flask & Laravel versions. Grab your copy now and get life-time updates for free." />
-        <meta name="keywords" content="metronic, bootstrap, bootstrap 5, angular, VueJs, React, Asp.Net Core, Blazor, Django, Flask & Laravel starter kits, admin themes, web design, figma, web development, free templates, free admin themes, bootstrap theme, bootstrap template, bootstrap dashboard, bootstrap dak mode, bootstrap button, bootstrap datepicker, bootstrap timepicker, fullcalendar, datatables, flaticon" />
+        <meta name="description" content="<?= htmlspecialchars($loginBranding["login_subtitulo"], ENT_QUOTES, "UTF-8") ?>" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <meta property="og:locale" content="en_US" />
-        <meta property="og:type" content="article" />
-        <meta property="og:title" content="Metronic | Bootstrap HTML, VueJS, React, Angular, Asp.Net Core, Blazor, Django, Flask & Laravel Admin Dashboard Theme" />
-        <meta property="og:url" content="https://keenthemes.com/metronic" />
-        <meta property="og:site_name" content="Keenthemes | Metronic" />
-        <link rel="canonical" href="https://preview.keenthemes.com/metronic8" />
-        <link rel="shortcut icon" href="assets/media/logos/favicon.ico" />
+        <meta property="og:locale" content="es_MX" />
+        <meta property="og:type" content="website" />
+        <meta property="og:title" content="<?= htmlspecialchars($loginBranding["nombre_sistema"], ENT_QUOTES, "UTF-8") ?>" />
+        <meta property="og:site_name" content="<?= htmlspecialchars($loginBranding["nombre_sistema"], ENT_QUOTES, "UTF-8") ?>" />
+        <link rel="icon" href="<?= htmlspecialchars($loginBranding["favicon"], ENT_QUOTES, "UTF-8") ?>" />
+        <link rel="shortcut icon" href="<?= htmlspecialchars($loginBranding["favicon"], ENT_QUOTES, "UTF-8") ?>" />
         <!--begin::Fonts-->
         <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Inter:300,400,500,600,700" />
         <!--end::Fonts-->
@@ -60,9 +59,8 @@ License: For each use you must have a valid license purchased only from above li
             <!--begin::Authentication - Sign-in -->
             <div class="d-flex flex-column flex-lg-row flex-column-fluid">
                 <!--begin::Logo-->
-                <a href="../../demo1/dist/index.html" class="d-block d-lg-none mx-auto py-20">
-                    <img alt="Logo" src="assets/media/logos/default.svg" class="theme-light-show h-25px" />
-                    <img alt="Logo" src="assets/media/logos/default-dark.svg" class="theme-dark-show h-25px" />
+                <a href="/autenticacion/login" class="d-block d-lg-none mx-auto py-12">
+                    <img alt="<?= htmlspecialchars($loginBranding["nombre_sistema"], ENT_QUOTES, "UTF-8") ?>" src="<?= htmlspecialchars($loginBranding["logo_login"], ENT_QUOTES, "UTF-8") ?>" style="width: 210px; max-height: 110px; object-fit: contain;" />
                 </a>
                 <!--end::Logo-->
                 <!--begin::Aside-->
@@ -90,11 +88,14 @@ License: For each use you must have a valid license purchased only from above li
                                 <div class="card-body">
                                     <!--begin::Heading-->
                                     <div class="text-start mb-10">
+                                        <div class="mb-10">
+                                            <img alt="<?= htmlspecialchars($loginBranding["nombre_sistema"], ENT_QUOTES, "UTF-8") ?>" src="<?= htmlspecialchars($loginBranding["logo_login"], ENT_QUOTES, "UTF-8") ?>" style="width: 260px; max-width: 100%; max-height: 130px; object-fit: contain;" />
+                                        </div>
                                         <!--begin::Title-->
-                                        <h1 class="text-dark mb-3 fs-3x" data-kt-translate="sign-in-title">Sign In</h1>
+                                        <h1 class="text-dark mb-3 fs-2x" data-kt-translate="sign-in-title"><?= htmlspecialchars($loginBranding["login_titulo"], ENT_QUOTES, "UTF-8") ?></h1>
                                         <!--end::Title-->
                                         <!--begin::Text-->
-                                        <div class="text-gray-400 fw-semibold fs-6" data-kt-translate="general-desc">Get unlimited access & earn money</div>
+                                        <div class="text-gray-500 fw-semibold fs-6" data-kt-translate="general-desc"><?= htmlspecialchars($loginBranding["login_subtitulo"], ENT_QUOTES, "UTF-8") ?></div>
                                         <!--end::Link-->
                                     </div>
                                     <!--begin::Heading-->
@@ -161,7 +162,6 @@ License: For each use you must have a valid license purchased only from above li
         <!--end::Global Javascript Bundle-->
         <!--begin::Custom Javascript(used by this page)-->
         <script src="assets/js/custom/authentication/sign-in/general.js"></script>
-        <script src="assets/js/custom/authentication/sign-in/i18n.js"></script>
         <!--end::Custom Javascript-->
         <!--end::Javascript-->
     </body>

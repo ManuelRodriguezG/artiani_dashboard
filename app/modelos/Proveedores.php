@@ -5444,6 +5444,396 @@ class Proveedores extends CRUD {
         }
     }
 
+    /**
+     * IA: Codex GPT-5
+     * Fecha: 2026-08-08
+     * Proposito: mostrar en Proveedores las relaciones SKU-proveedor ya capturadas desde Catalogo para reutilizarlas en una lista.
+     * Impacto: Proveedores/Catalogo; consulta read-only y separa sugerencia de formalizacion operativa.
+     * Contrato: no crea relaciones en Catalogo, no aplica costos y no modifica costo_referencia.
+     */
+    public function catalogoSugeridosParaListaProveedorErp($id_proveedor, $id_lista_proveedor_erp, $termino = "") {
+        try {
+            $idProveedor = intval($id_proveedor);
+            $idLista = intval($id_lista_proveedor_erp);
+            $termino = trim((string) $termino);
+            if ($idProveedor <= 0 || $idLista <= 0) {
+                return array("error" => true, "tipo" => "warning", "mensaje" => "Lista invalida", "depurar" => null);
+            }
+
+            $db = $this->getConexion();
+            $lista = $this->consultarListaProveedorErp($db, $idLista, $idProveedor);
+            if (!$lista) {
+                return array("error" => true, "tipo" => "warning", "mensaje" => "Lista ERP no encontrada", "depurar" => null);
+            }
+
+            $where = array("sp.id_proveedor = :id_proveedor", "sp.estatus = 'activo'", "s.estatus <> 'fusionado'");
+            $params = array(":id_proveedor" => $idProveedor);
+            if ($termino !== "") {
+                $where[] = "(s.sku LIKE :termino OR s.nombre LIKE :termino OR sp.sku_proveedor LIKE :termino OR p.nombre LIKE :termino OR cod.codigo LIKE :termino)";
+                $params[":termino"] = "%" . $termino . "%";
+            }
+
+            $stmt = $db->prepare("SELECT
+                    sp.id_sku_proveedor,
+                    sp.id_proveedor,
+                    sp.id_sku,
+                    sp.sku_proveedor,
+                    sp.id_unidad_compra,
+                    uc.abreviatura AS unidad_compra,
+                    uc.nombre AS unidad_compra_nombre,
+                    sp.factor_conversion,
+                    sp.costo_ultimo,
+                    sp.cantidad_minima,
+                    sp.dias_entrega,
+                    sp.es_preferido,
+                    sp.estatus AS estatus_relacion,
+                    s.id_producto_erp,
+                    s.sku AS sku_erp,
+                    s.nombre AS nombre_sku,
+                    p.nombre AS producto_nombre,
+                    cod.codigo AS codigo_principal,
+                    cv.id_costo_proveedor_sku,
+                    cv.costo AS costo_vigente,
+                    cv.moneda AS moneda_costo,
+                    cv.costo_incluye_impuestos
+                FROM erp_catalogo_sku_proveedores sp
+                INNER JOIN erp_catalogo_skus s ON s.id_sku = sp.id_sku
+                LEFT JOIN erp_catalogo_productos p ON p.id_producto_erp = s.id_producto_erp
+                LEFT JOIN erp_catalogo_unidades uc ON uc.id_unidad = sp.id_unidad_compra
+                LEFT JOIN erp_catalogo_sku_codigos cod ON cod.id_sku = s.id_sku
+                    AND cod.es_principal = 1
+                    AND cod.estatus = 'activo'
+                LEFT JOIN erp_proveedores_sku_costos cv ON cv.id_costo_proveedor_sku = (
+                    SELECT MAX(c2.id_costo_proveedor_sku)
+                    FROM erp_proveedores_sku_costos c2
+                    WHERE c2.id_proveedor = sp.id_proveedor
+                      AND c2.id_sku = sp.id_sku
+                      AND c2.id_sku_proveedor = sp.id_sku_proveedor
+                      AND c2.estatus = 'vigente'
+                )
+                WHERE " . implode(" AND ", $where) . "
+                ORDER BY sp.es_preferido DESC, s.nombre ASC, sp.id_sku_proveedor DESC
+                LIMIT 500");
+            $stmt->execute($params);
+            $sugeridos = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+            $stmtDetalle = $db->prepare("SELECT *
+                FROM erp_proveedores_listas_detalle_erp
+                WHERE id_lista_proveedor_erp = :id_lista
+                ORDER BY id_lista_detalle_erp ASC
+                LIMIT 5000");
+            $stmtDetalle->execute(array(":id_lista" => $idLista));
+            $detalle = $stmtDetalle->fetchAll(PDO::FETCH_ASSOC);
+            $indices = $this->indicesDetalleCatalogoSugeridoProveedorErp($detalle);
+
+            $registros = array();
+            $resumen = array("total" => 0, "ya_en_lista" => 0, "para_vincular" => 0, "para_crear" => 0);
+            foreach ($sugeridos as $fila) {
+                $estado = $this->estadoCatalogoSugeridoEnListaProveedorErp($fila, $indices);
+                $resumen["total"]++;
+                if ($estado["accion"] === "sin_accion") {
+                    $resumen["ya_en_lista"]++;
+                } elseif ($estado["accion"] === "vincular") {
+                    $resumen["para_vincular"]++;
+                } else {
+                    $resumen["para_crear"]++;
+                }
+                $registros[] = $fila + $estado;
+            }
+
+            return array(
+                "error" => false,
+                "tipo" => "success",
+                "mensaje" => "Sugeridos desde Catalogo consultados",
+                "depurar" => array(
+                    "sin_escrituras" => true,
+                    "id_proveedor" => $idProveedor,
+                    "id_lista_proveedor_erp" => $idLista,
+                    "termino" => $termino,
+                    "resumen" => $resumen,
+                    "registros" => $registros,
+                    "contrato" => array(
+                        "fuente" => "erp_catalogo_sku_proveedores",
+                        "dueno_operativo" => "Proveedores/lista proveedor",
+                        "alcance" => "Sugerir, crear renglon o vincular renglon; no aplica costo vigente ni costo referencia."
+                    )
+                )
+            );
+        } catch (Exception $e) {
+            return array("error" => true, "tipo" => "danger", "mensaje" => $e->getMessage(), "depurar" => null);
+        }
+    }
+
+    private function indicesDetalleCatalogoSugeridoProveedorErp($detalle) {
+        $indices = array("id_sku_proveedor" => array(), "id_sku" => array(), "identificador" => array());
+        foreach ($detalle as $fila) {
+            $idDetalle = intval(isset($fila["id_lista_detalle_erp"]) ? $fila["id_lista_detalle_erp"] : 0);
+            if ($idDetalle <= 0) {
+                continue;
+            }
+            $idSkuProveedor = intval(isset($fila["id_sku_proveedor"]) ? $fila["id_sku_proveedor"] : 0);
+            $idSku = intval(isset($fila["id_sku"]) ? $fila["id_sku"] : 0);
+            if ($idSkuProveedor > 0 && !isset($indices["id_sku_proveedor"][$idSkuProveedor])) {
+                $indices["id_sku_proveedor"][$idSkuProveedor] = $fila;
+            }
+            if ($idSku > 0 && !isset($indices["id_sku"][$idSku])) {
+                $indices["id_sku"][$idSku] = $fila;
+            }
+            foreach (array("sku_proveedor", "codigo_barras", "codigo_interno") as $campo) {
+                $clave = $this->normalizarClaveComparacionProveedorErp(isset($fila[$campo]) ? $fila[$campo] : "");
+                if ($clave !== "" && !isset($indices["identificador"][$clave])) {
+                    $indices["identificador"][$clave] = $fila;
+                }
+            }
+        }
+        return $indices;
+    }
+
+    private function estadoCatalogoSugeridoEnListaProveedorErp($sugerido, $indices) {
+        $candidato = null;
+        $motivo = "";
+        $idSkuProveedor = intval(isset($sugerido["id_sku_proveedor"]) ? $sugerido["id_sku_proveedor"] : 0);
+        $idSku = intval(isset($sugerido["id_sku"]) ? $sugerido["id_sku"] : 0);
+        if ($idSkuProveedor > 0 && isset($indices["id_sku_proveedor"][$idSkuProveedor])) {
+            $candidato = $indices["id_sku_proveedor"][$idSkuProveedor];
+            $motivo = "misma_relacion";
+        } elseif ($idSku > 0 && isset($indices["id_sku"][$idSku])) {
+            $candidato = $indices["id_sku"][$idSku];
+            $motivo = "mismo_sku_erp";
+        } else {
+            foreach (array("sku_proveedor", "sku_erp", "codigo_principal") as $campo) {
+                $clave = $this->normalizarClaveComparacionProveedorErp(isset($sugerido[$campo]) ? $sugerido[$campo] : "");
+                if ($clave !== "" && isset($indices["identificador"][$clave])) {
+                    $candidato = $indices["identificador"][$clave];
+                    $motivo = "mismo_identificador";
+                    break;
+                }
+            }
+        }
+
+        if (!$candidato) {
+            return array(
+                "accion" => "crear",
+                "estado_sugerencia" => "no_esta_en_lista",
+                "detalle_accion" => "Puede crear un renglon en esta lista con la relacion ya registrada en Catalogo.",
+                "id_lista_detalle_erp" => 0,
+                "motivo_lista" => ""
+            );
+        }
+
+        $yaRelacionado = intval(isset($candidato["id_sku_proveedor"]) ? $candidato["id_sku_proveedor"] : 0) === $idSkuProveedor
+            || (intval(isset($candidato["id_sku"]) ? $candidato["id_sku"] : 0) === $idSku && intval(isset($candidato["id_sku_proveedor"]) ? $candidato["id_sku_proveedor"] : 0) > 0);
+
+        return array(
+            "accion" => $yaRelacionado ? "sin_accion" : "vincular",
+            "estado_sugerencia" => $yaRelacionado ? "ya_en_lista" : "renglon_posible",
+            "detalle_accion" => $yaRelacionado ? "La lista ya tiene este SKU proveedor vinculado." : "Hay un renglon parecido en la lista que puede vincularse a esta relacion.",
+            "id_lista_detalle_erp" => intval($candidato["id_lista_detalle_erp"]),
+            "motivo_lista" => $motivo,
+            "renglon_lista" => array(
+                "id_lista_detalle_erp" => intval($candidato["id_lista_detalle_erp"]),
+                "sku_proveedor" => isset($candidato["sku_proveedor"]) ? $candidato["sku_proveedor"] : "",
+                "codigo_barras" => isset($candidato["codigo_barras"]) ? $candidato["codigo_barras"] : "",
+                "codigo_interno" => isset($candidato["codigo_interno"]) ? $candidato["codigo_interno"] : "",
+                "descripcion_proveedor" => isset($candidato["descripcion_proveedor"]) ? $candidato["descripcion_proveedor"] : "",
+                "estado_match" => isset($candidato["estado_match"]) ? $candidato["estado_match"] : ""
+            )
+        );
+    }
+
+    private function consultarCatalogoSugeridoProveedorErp($db, $idProveedor, $idSkuProveedor) {
+        $stmt = $db->prepare("SELECT
+                sp.*,
+                s.id_producto_erp,
+                s.sku AS sku_erp,
+                s.nombre AS nombre_sku,
+                p.nombre AS producto_nombre,
+                cod.codigo AS codigo_principal,
+                cv.costo AS costo_vigente,
+                cv.moneda AS moneda_costo,
+                cv.costo_incluye_impuestos
+            FROM erp_catalogo_sku_proveedores sp
+            INNER JOIN erp_catalogo_skus s ON s.id_sku = sp.id_sku AND s.estatus <> 'fusionado'
+            LEFT JOIN erp_catalogo_productos p ON p.id_producto_erp = s.id_producto_erp
+            LEFT JOIN erp_catalogo_sku_codigos cod ON cod.id_sku = s.id_sku
+                AND cod.es_principal = 1
+                AND cod.estatus = 'activo'
+            LEFT JOIN erp_proveedores_sku_costos cv ON cv.id_costo_proveedor_sku = (
+                SELECT MAX(c2.id_costo_proveedor_sku)
+                FROM erp_proveedores_sku_costos c2
+                WHERE c2.id_proveedor = sp.id_proveedor
+                  AND c2.id_sku = sp.id_sku
+                  AND c2.id_sku_proveedor = sp.id_sku_proveedor
+                  AND c2.estatus = 'vigente'
+            )
+            WHERE sp.id_proveedor = :id_proveedor
+              AND sp.id_sku_proveedor = :id_sku_proveedor
+              AND sp.estatus = 'activo'
+            LIMIT 1");
+        $stmt->execute(array(
+            ":id_proveedor" => intval($idProveedor),
+            ":id_sku_proveedor" => intval($idSkuProveedor)
+        ));
+        $fila = $stmt->fetch(PDO::FETCH_ASSOC);
+        return $fila ? $fila : null;
+    }
+
+    /**
+     * IA: Codex GPT-5
+     * Fecha: 2026-08-08
+     * Proposito: formalizar en una lista de proveedor una relacion sugerida desde Catalogo.
+     * Impacto: Proveedores; crea o vincula un renglon puntual y conserva costos como dato capturado, no como vigente aplicado.
+     * Contrato: no modifica erp_catalogo_sku_proveedores, erp_proveedores_sku_costos ni erp_catalogo_skus.costo_referencia.
+     */
+    public function aplicarCatalogoSugeridoListaProveedorErp($datos, $id_usuario) {
+        $db = $this->getConexion();
+        try {
+            $idProveedor = isset($datos["id_proveedor"]) ? intval($datos["id_proveedor"]) : 0;
+            $idLista = isset($datos["id_lista_proveedor_erp"]) ? intval($datos["id_lista_proveedor_erp"]) : 0;
+            $idSkuProveedor = isset($datos["id_sku_proveedor"]) ? intval($datos["id_sku_proveedor"]) : 0;
+            $idDetalle = isset($datos["id_lista_detalle_erp"]) ? intval($datos["id_lista_detalle_erp"]) : 0;
+            $accion = isset($datos["accion"]) ? trim((string) $datos["accion"]) : "";
+            if ($idProveedor <= 0 || $idLista <= 0 || $idSkuProveedor <= 0 || !in_array($accion, array("crear", "vincular"), true)) {
+                return array("error" => true, "tipo" => "warning", "mensaje" => "Sugerencia invalida", "depurar" => null);
+            }
+
+            $lista = $this->consultarListaProveedorErp($db, $idLista, $idProveedor);
+            if (!$lista) {
+                return array("error" => true, "tipo" => "warning", "mensaje" => "Lista ERP no encontrada", "depurar" => null);
+            }
+            $sugerido = $this->consultarCatalogoSugeridoProveedorErp($db, $idProveedor, $idSkuProveedor);
+            if (!$sugerido) {
+                return array("error" => true, "tipo" => "warning", "mensaje" => "La relacion de Catalogo no existe o no pertenece al proveedor", "depurar" => null);
+            }
+
+            $antes = null;
+            if ($accion === "vincular") {
+                $antes = $this->consultarListaDetalleProveedorErp($db, $idDetalle, $idLista, $idProveedor);
+                if (!$antes) {
+                    return array("error" => true, "tipo" => "warning", "mensaje" => "Renglon de lista no encontrado para vincular", "depurar" => null);
+                }
+            } else {
+                $stmtExiste = $db->prepare("SELECT id_lista_detalle_erp
+                    FROM erp_proveedores_listas_detalle_erp
+                    WHERE id_lista_proveedor_erp = :id_lista
+                      AND (id_sku_proveedor = :id_sku_proveedor OR id_sku = :id_sku)
+                    ORDER BY id_lista_detalle_erp DESC
+                    LIMIT 1");
+                $stmtExiste->execute(array(
+                    ":id_lista" => $idLista,
+                    ":id_sku_proveedor" => $idSkuProveedor,
+                    ":id_sku" => intval($sugerido["id_sku"])
+                ));
+                $existente = $stmtExiste->fetch(PDO::FETCH_ASSOC);
+                if ($existente) {
+                    return array("error" => false, "tipo" => "info", "mensaje" => "La lista ya tiene un renglon para esta relacion", "depurar" => array(
+                        "id_proveedor" => $idProveedor,
+                        "id_lista_proveedor_erp" => $idLista,
+                        "id_lista_detalle_erp" => intval($existente["id_lista_detalle_erp"]),
+                        "sin_cambios" => true
+                    ));
+                }
+            }
+
+            $skuProveedor = $this->valorNuloProveedorErp($this->normalizarIdentificadorProveedorErp(isset($sugerido["sku_proveedor"]) ? $sugerido["sku_proveedor"] : ""));
+            $descripcion = $this->valorNuloProveedorErp(isset($sugerido["nombre_sku"]) ? $this->textoProveedorErp($sugerido, "nombre_sku", 5000) : "");
+            $costo = null;
+            $moneda = null;
+            $incluyeImpuestos = null;
+            if (floatval(isset($sugerido["costo_vigente"]) ? $sugerido["costo_vigente"] : 0) > 0) {
+                $costo = floatval($sugerido["costo_vigente"]);
+                $moneda = $this->valorNuloProveedorErp(strtoupper($this->textoProveedorErp($sugerido, "moneda_costo", 10)));
+                $incluyeImpuestos = isset($sugerido["costo_incluye_impuestos"]) && $sugerido["costo_incluye_impuestos"] !== null ? intval($sugerido["costo_incluye_impuestos"]) : null;
+            } elseif (floatval(isset($sugerido["costo_ultimo"]) ? $sugerido["costo_ultimo"] : 0) > 0) {
+                $costo = floatval($sugerido["costo_ultimo"]);
+            }
+            $unidadTexto = "";
+            if (isset($sugerido["unidad_compra"]) && trim((string) $sugerido["unidad_compra"]) !== "") {
+                $unidadTexto = $this->textoProveedorErp($sugerido, "unidad_compra", 80);
+            } elseif (isset($sugerido["unidad_compra_nombre"]) && trim((string) $sugerido["unidad_compra_nombre"]) !== "") {
+                $unidadTexto = $this->textoProveedorErp($sugerido, "unidad_compra_nombre", 80);
+            }
+
+            $db->beginTransaction();
+            if ($accion === "vincular") {
+                $stmt = $db->prepare("UPDATE erp_proveedores_listas_detalle_erp SET
+                    id_sku = :id_sku,
+                    id_sku_proveedor = :id_sku_proveedor,
+                    sku_proveedor = CASE WHEN sku_proveedor IS NULL OR TRIM(sku_proveedor) = '' THEN :sku_proveedor ELSE sku_proveedor END,
+                    codigo_barras = CASE WHEN codigo_barras IS NULL OR TRIM(codigo_barras) = '' THEN :codigo_barras ELSE codigo_barras END,
+                    descripcion_proveedor = CASE WHEN descripcion_proveedor IS NULL OR TRIM(descripcion_proveedor) = '' THEN :descripcion ELSE descripcion_proveedor END,
+                    unidad_compra_texto = CASE WHEN unidad_compra_texto IS NULL OR TRIM(unidad_compra_texto) = '' THEN :unidad_texto ELSE unidad_compra_texto END,
+                    id_unidad_compra = CASE WHEN id_unidad_compra IS NULL OR id_unidad_compra <= 0 THEN :id_unidad_compra ELSE id_unidad_compra END,
+                    factor_conversion = CASE WHEN factor_conversion IS NULL OR factor_conversion <= 0 THEN :factor_conversion ELSE factor_conversion END,
+                    cantidad_minima = CASE WHEN cantidad_minima IS NULL OR cantidad_minima <= 0 THEN :cantidad_minima ELSE cantidad_minima END,
+                    estado_match = 'relacion_aplicada',
+                    criterio_match = 'catalogo_sugerido_proveedor_vinculado',
+                    fecha_actualizacion = NOW()
+                    WHERE id_lista_detalle_erp = :id_detalle AND id_lista_proveedor_erp = :id_lista");
+                $stmt->execute(array(
+                    ":id_sku" => intval($sugerido["id_sku"]),
+                    ":id_sku_proveedor" => $idSkuProveedor,
+                    ":sku_proveedor" => $skuProveedor,
+                    ":codigo_barras" => $this->valorNuloProveedorErp($this->textoProveedorErp($sugerido, "codigo_principal", 120)),
+                    ":descripcion" => $descripcion,
+                    ":unidad_texto" => $this->valorNuloProveedorErp($unidadTexto),
+                    ":id_unidad_compra" => intval($sugerido["id_unidad_compra"]),
+                    ":factor_conversion" => floatval($sugerido["factor_conversion"]),
+                    ":cantidad_minima" => floatval($sugerido["cantidad_minima"]),
+                    ":id_detalle" => $idDetalle,
+                    ":id_lista" => $idLista
+                ));
+            } else {
+                $stmt = $db->prepare("INSERT INTO erp_proveedores_listas_detalle_erp
+                    (id_lista_proveedor_erp, id_producto_legacy, id_sku, id_sku_proveedor, sku_proveedor, codigo_barras, codigo_interno, marca_proveedor, descripcion_proveedor, unidad_compra_texto, id_unidad_compra, factor_conversion, cantidad_minima, costo, moneda, costo_incluye_impuestos, existencia_reportada, estado_match, criterio_match, observaciones, fecha_registro, fecha_actualizacion)
+                    VALUES
+                    (:id_lista, NULL, :id_sku, :id_sku_proveedor, :sku_proveedor, :codigo_barras, NULL, NULL, :descripcion, :unidad_texto, :id_unidad_compra, :factor_conversion, :cantidad_minima, :costo, :moneda, :incluye_impuestos, NULL, 'relacion_aplicada', 'catalogo_sugerido_proveedor_creado', :observaciones, NOW(), NOW())");
+                $stmt->execute(array(
+                    ":id_lista" => $idLista,
+                    ":id_sku" => intval($sugerido["id_sku"]),
+                    ":id_sku_proveedor" => $idSkuProveedor,
+                    ":sku_proveedor" => $skuProveedor,
+                    ":codigo_barras" => $this->valorNuloProveedorErp($this->textoProveedorErp($sugerido, "codigo_principal", 120)),
+                    ":descripcion" => $descripcion,
+                    ":unidad_texto" => $this->valorNuloProveedorErp($unidadTexto),
+                    ":id_unidad_compra" => intval($sugerido["id_unidad_compra"]),
+                    ":factor_conversion" => floatval($sugerido["factor_conversion"]),
+                    ":cantidad_minima" => floatval($sugerido["cantidad_minima"]),
+                    ":costo" => $costo,
+                    ":moneda" => $moneda,
+                    ":incluye_impuestos" => $incluyeImpuestos,
+                    ":observaciones" => "Renglon creado desde sugerencia de Catalogo ERP; pendiente validar datos comerciales si aplica."
+                ));
+                $idDetalle = intval($db->lastInsertId());
+            }
+
+            $despues = $this->consultarListaDetalleProveedorErp($db, $idDetalle, $idLista, $idProveedor);
+            $db->commit();
+
+            return array(
+                "error" => false,
+                "tipo" => "success",
+                "mensaje" => $accion === "vincular" ? "Renglon vinculado desde sugerencia de Catalogo" : "Renglon creado desde sugerencia de Catalogo",
+                "depurar" => array(
+                    "id_proveedor" => $idProveedor,
+                    "id_lista_proveedor_erp" => $idLista,
+                    "id_lista_detalle_erp" => $idDetalle,
+                    "id_sku" => intval($sugerido["id_sku"]),
+                    "id_sku_proveedor" => $idSkuProveedor,
+                    "accion" => $accion,
+                    "sin_costo_vigente_aplicado" => true,
+                    "antes" => $antes,
+                    "despues" => $despues
+                )
+            );
+        } catch (Exception $e) {
+            if ($db->inTransaction()) {
+                $db->rollBack();
+            }
+            return array("error" => true, "tipo" => "danger", "mensaje" => $e->getMessage(), "depurar" => null);
+        }
+    }
+
     public function guardarListaDetalleErp($datos, $id_usuario) {
         $db = $this->getConexion();
         try {

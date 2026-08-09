@@ -71,6 +71,7 @@ $puedeGestionarAdjuntos = !empty($datos["puede_gestionar_adjuntos"]);
                             <?php endif; ?>
                             <button class="btn btn-light-primary orden-edicion" id="orden_guardar">Guardar borrador</button>
                             <button class="btn btn-primary orden-edicion" id="orden_enviar">Enviar orden</button>
+                            <button class="btn btn-light-success orden-edicion" id="orden_cerrar_sin_recepcion">Finalizar sin almacen</button>
                             <button class="btn btn-light-info d-none" id="orden_ver_diferencias">Ver diferencias</button>
                             <button class="btn btn-light-danger d-none" id="orden_cancelar">Cancelar orden</button>
                         </div>

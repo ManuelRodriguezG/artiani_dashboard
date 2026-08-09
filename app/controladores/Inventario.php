@@ -131,6 +131,11 @@ class Inventario extends Controlador {
         return json_encode($this->modelo("InventarioErp")->reclasificacionDestinos($_GET));
     }
 
+    public function reclasificacion_listar_erp() {
+        $this->requerirAlgunPermiso(array("inventario.reclasificar", "inventario.ajustar", "inventario.ver"));
+        return json_encode($this->modelo("InventarioErp")->listarReclasificaciones($_GET));
+    }
+
     public function reclasificacion_previsualizar_erp() {
         $this->requerirAlgunPermiso(array("inventario.reclasificar", "inventario.ajustar"));
         return json_encode($this->modelo("InventarioErp")->previsualizarReclasificacion($_POST, $this->usuarioActualId()));
