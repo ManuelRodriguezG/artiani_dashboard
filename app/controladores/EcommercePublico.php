@@ -36,10 +36,43 @@ class EcommercePublico extends Controlador {
   }
 
   /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-08-10
+   * Proposito: entregar configuracion inicial para que frontend arranque ecommerce con una sola llamada clara.
+   * Impacto: Ecommerce publico; alias recomendado de bootstrap para evitar confusion con Bootstrap CSS.
+   * Contrato: GET publico read-only; no expone secretos ni stock exacto.
+   */
+  public function configuracion_inicial() {
+    if ($this->esOptionsPublicas()) { return $this->responderOpcionesPublicas(); }
+    return $this->responderApiPublica($this->modelo("EcommerceCatalogoPublico")->configuracionInicialPublica($_GET));
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-08-10
+   * Proposito: exponer contrato publico del CMS ligero para plantillas, slots y bloques ecommerce.
+   * Impacto: Frontend ecommerce; permite renderizar contenido editable futuro sin leer archivos del ERP.
+   * Contrato: GET publico read-only; no escribe BD, no expone secretos ni toca catalogo/inventario.
+   */
+  public function contenido_manifest() {
+    if ($this->esOptionsPublicas()) { return $this->responderOpcionesPublicas(); }
+    return $this->responderApiPublica($this->modelo("EcommerceCatalogoPublico")->contenidoManifestPublico($_GET));
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-08-10
+   * Proposito: entregar estructura editorial de una pagina para que frontend pinte la plantilla seleccionada.
+   * Impacto: Frontend ecommerce; habilita home/categorias con banners y colecciones controlables por API.
+   * Contrato: GET publico read-only; en esta fase usa contenido default y no persiste cambios.
+   */
+  public function contenido_pagina() {
+    if ($this->esOptionsPublicas()) { return $this->responderOpcionesPublicas(); }
+    return $this->responderApiPublica($this->modelo("EcommerceCatalogoPublico")->contenidoPaginaPublica($_GET));
+  }
+
+  /**
    * Documentacion IA: Codex GPT-5 | Fecha: 2026-07-31
    * Proposito: entregar paquete inicial para que el frontend arranque ecommerce con una sola llamada.
    * Impacto: Ecommerce publico; agrupa readiness, configuracion, filtros, secciones y canales sin escribir BD.
-   * Contrato: GET publico read-only; no expone secretos ni stock exacto.
+   * Contrato: GET publico read-only; alias legacy de configuracion_inicial.
    */
   public function bootstrap() {
     if ($this->esOptionsPublicas()) { return $this->responderOpcionesPublicas(); }

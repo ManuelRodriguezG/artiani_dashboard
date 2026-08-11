@@ -1,6 +1,7 @@
 "use strict";
 (function () {
     var placeholderImagen = "data:image/svg+xml;charset=UTF-8,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2052%2052'%3E%3Crect%20width='52'%20height='52'%20rx='8'%20fill='%23f1f3f6'/%3E%3Cpath%20d='M10%2039h32L31%2027l-7%208-5-7z'%20fill='%23c8ced8'/%3E%3Ccircle%20cx='19'%20cy='18'%20r='5'%20fill='%23d7dce5'/%3E%3C/svg%3E";
+    var skuSeleccionado = "";
 
     function $(id) { return document.getElementById(id); }
 
@@ -85,6 +86,41 @@
         if (!el) { return; }
         el.className = "alert alert-light border d-none mb-4";
         el.innerHTML = "";
+    }
+
+    /**
+     * IA: Codex GPT-5 | Fecha: 2026-08-11
+     * Proposito: hacer evidente que un producto fue enviado a preparacion desde una lista grande.
+     * Impacto: resalta fila activa y actualiza el editor sin forzar al usuario a bajar por toda la tabla.
+     */
+    function enfocarEditor() {
+        var panel = $("ecom_ctl_editor_col") || $("ecom_ctl_editor");
+        if (!panel) { return; }
+        panel.classList.add("ecom-editor-focus");
+        window.setTimeout(function () {
+            panel.classList.remove("ecom-editor-focus");
+        }, 1600);
+    }
+
+    function actualizarBadgeEditor(texto, clase) {
+        var badge = $("ecom_ctl_editor_badge");
+        if (!badge) { return; }
+        badge.className = "badge " + (clase || "badge-light");
+        badge.textContent = texto || "Sin seleccion";
+    }
+
+    function resaltarSeleccion(idSku) {
+        skuSeleccionado = String(idSku || "");
+        Array.prototype.forEach.call(document.querySelectorAll("[data-sku-row]"), function (row) {
+            row.classList.toggle("ecom-ctl-row-active", row.getAttribute("data-sku-row") === skuSeleccionado);
+        });
+    }
+
+    function confirmarAgotadoActivo() {
+        var local = $("ecom_ctl_editor_confirmar_agotado");
+        if (local) { return local.checked; }
+        var global = $("ecom_ctl_confirmar_agotados");
+        return global ? global.checked : false;
     }
 
     /**
@@ -235,14 +271,15 @@
         }
         $("ecom_ctl_body").innerHTML = items.map(function (item) {
             var estatus = item.estatus_publicacion || "";
-            return "<tr>" +
+            var activo = String(item.id_sku || "") === skuSeleccionado;
+            return "<tr data-sku-row=\"" + escapeHtml(item.id_sku || "") + "\"" + (activo ? " class=\"ecom-ctl-row-active\"" : "") + ">" +
                 "<td><input class=\"form-check-input ecom-ctl-check\" type=\"checkbox\" value=\"" + escapeHtml(item.id_sku || "") + "\" data-estatus=\"" + escapeHtml(estatus) + "\"></td>" +
                 "<td><img class=\"ecom-control-img\" src=\"" + escapeHtml(imagenUrl(item.url_imagen)) + "\" alt=\"\"></td>" +
                 "<td><div class=\"fw-bold\">" + escapeHtml(item.nombre_publico || "") + "</div><div class=\"text-muted fs-8\">" + escapeHtml(item.sku || "") + " | " + escapeHtml(item.marca || "Sin marca") + " | " + dinero(item.precio || 0) + "</div>" + bloqueosHtml(item) + "</td>" +
                 "<td>" + escapeHtml(item.categoria || "Sin categoria") + "</td>" +
                 "<td>" + disponibilidadBadge(item.disponibilidad_publica_sugerida) + "</td>" +
                 "<td>" + estadoBadge(estatus) + "</td>" +
-                "<td class=\"text-end\"><button class=\"btn btn-sm btn-light-primary ecom-ctl-editar\" type=\"button\" data-sku=\"" + escapeHtml(item.id_sku || "") + "\">Controlar</button></td>" +
+                "<td class=\"text-end\"><button class=\"btn btn-sm btn-light-primary ecom-ctl-editar\" type=\"button\" data-sku=\"" + escapeHtml(item.id_sku || "") + "\">Preparar</button></td>" +
             "</tr>";
         }).join("");
         actualizarSeleccion();
@@ -270,11 +307,16 @@
 
     function cargarEditor(idSku, mantenerDiagnostico) {
         if (!mantenerDiagnostico) { ocultarDiagnostico(); }
-        $("ecom_ctl_editor").innerHTML = "<div class=\"text-muted py-5 text-center\">Cargando control...</div>";
+        resaltarSeleccion(idSku);
+        actualizarBadgeEditor("Preparando", "badge-light-info");
+        setEstado("Preparando producto...", "badge-light-info");
+        $("ecom_ctl_editor").innerHTML = "<div class=\"text-muted py-5 text-center\">Cargando preparacion...</div>";
+        enfocarEditor();
         return getJson("/ecommercePublico/publicaciones_preparar_erp", {id_sku: idSku}).then(function (response) {
             if (response.error) { throw new Error(response.mensaje || "No se pudo preparar control"); }
             renderEditor(response.depurar || {});
         }).catch(function (error) {
+            actualizarBadgeEditor("Error", "badge-light-danger");
             $("ecom_ctl_editor").innerHTML = "<div class=\"alert alert-danger mb-0\">" + escapeHtml(error.message || String(error)) + "</div>";
         });
     }
@@ -291,6 +333,10 @@
         var estatus = String(actual.estatus_publicacion || producto.estatus_publicacion || "");
         var necesidades = pub.necesidades || [];
         var bloqueos = data.bloqueos_publicacion || producto.bloqueos_publicacion || [];
+        var disponibilidad = String(producto.disponibilidad_publica_sugerida || "");
+        var agotado = disponibilidad === "agotado";
+        actualizarBadgeEditor(producto.sku || ("SKU ID " + (producto.id_sku || "")), agotado ? "badge-light-warning" : "badge-light-primary");
+        setEstado("Producto preparado", "badge-light-success");
         $("ecom_ctl_editor").innerHTML =
             "<div id=\"ecom_ctl_form\" data-id-sku=\"" + escapeHtml(producto.id_sku || "") + "\" data-id-publicacion=\"" + escapeHtml(idPublicacion || "") + "\">" +
                 "<div class=\"d-flex gap-3 mb-4\">" +
@@ -301,6 +347,7 @@
                     "<div class=\"fw-bold fs-7 mb-1\">" + (bloqueos.length ? "Diagnostico antes de publicar" : "Listo para publicar") + "</div>" +
                     (bloqueos.length ? "<div class=\"ecom-chip-list\">" + bloqueos.map(function (b) { return "<span class=\"badge badge-light-warning\">" + escapeHtml(etiquetaBloqueo(b)) + "</span>"; }).join("") + "</div>" : "<div class=\"fs-8\">La ficha cumple precio, imagen, categoria y regla no granel.</div>") +
                 "</div>" +
+                avisoAgotadoHtml(agotado) +
                 "<div class=\"mb-3\"><label class=\"form-label fw-semibold\">Titulo publico</label><input class=\"form-control form-control-solid\" data-field=\"titulo_publico\" value=\"" + escapeHtml(pub.titulo_publico || "") + "\"></div>" +
                 "<div class=\"mb-3\"><label class=\"form-label fw-semibold\">Slug</label><input class=\"form-control form-control-solid\" data-field=\"slug\" value=\"" + escapeHtml(pub.slug || "") + "\"></div>" +
                 "<div class=\"row g-3 mb-3\">" +
@@ -325,6 +372,18 @@
                 "</div>" +
             "</div>";
         enlazarEditor();
+    }
+
+    function avisoAgotadoHtml(agotado) {
+        if (!agotado) { return ""; }
+        return "<div class=\"alert alert-warning py-3 mb-4\">" +
+            "<div class=\"fw-bold fs-7 mb-1\">Producto sin stock</div>" +
+            "<div class=\"fs-8 mb-3\">Puedes publicarlo si quieres que el cliente lo vea como agotado o para consultar disponibilidad. Esto no descuenta inventario ni crea pedidos.</div>" +
+            "<div class=\"form-check form-check-custom form-check-solid\">" +
+                "<input class=\"form-check-input\" type=\"checkbox\" id=\"ecom_ctl_editor_confirmar_agotado\">" +
+                "<label class=\"form-check-label fs-7\" for=\"ecom_ctl_editor_confirmar_agotado\">Publicar aunque no haya stock</label>" +
+            "</div>" +
+        "</div>";
     }
 
     function toggle(campo, label, valor) {
@@ -368,7 +427,15 @@
         var datos = datosEditor();
         datos.autorizar = "ECOMMERCE_PUBLICO_GOBIERNO_ESTATUS";
         datos.estatus_publicacion = estatus;
-        datos.confirmar_agotado = $("ecom_ctl_confirmar_agotados").checked ? "1" : "0";
+        datos.confirmar_agotado = confirmarAgotadoActivo() ? "1" : "0";
+        if (estatus === "publicado" && $("ecom_ctl_editor_confirmar_agotado") && !confirmarAgotadoActivo()) {
+            setEstado("Falta confirmar agotado", "badge-light-warning");
+            mostrarDiagnostico("Confirma publicacion sin stock", "warning", {
+                mensaje: "Este producto esta agotado. Marca Publicar aunque no haya stock para publicarlo de forma intencional.",
+                bloqueos: ["sku_agotado_requiere_confirmar_agotado"]
+            });
+            return Promise.resolve();
+        }
         setEstado("Aplicando...", "badge-light-info");
         ocultarDiagnostico();
         return postForm("/ecommercePublico/publicaciones_estatus_erp", datos).then(procesarCambio);

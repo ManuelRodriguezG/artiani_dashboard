@@ -41,7 +41,7 @@
 			$nombreControlador = $this->controladorActual;
 			$controladoresProtegidos = array(
 				'Almacen', 'Archivos', 'Busqueda', 'CatalogoErp', 'Categoria', 'Clientes', 'Comercial', 'Crm', 'Compra', 'Compra_venta',
-				'Costo', 'Dashboard', 'Empresa', 'Garantias', 'Inicio', 'Inventario', 'Link', 'Marca', 'MigracionBd', 'Panel',
+				'Cms', 'Costo', 'Dashboard', 'Empresa', 'Garantias', 'Inicio', 'Inventario', 'Link', 'Marca', 'MigracionBd', 'Panel',
 				'Paquetes', 'Producto', 'Produccion', 'Proveedor', 'Proyecto', 'Rentabilidad', 'Sistema', 'Sucursal', 'Tms', 'Users', 'Usuario',
 				'Utilidad', 'Ventas'
 			);

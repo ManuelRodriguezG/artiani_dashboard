@@ -3138,3 +3138,67 @@ Regla de negocio reafirmada:
 - Un paquete vendible debe tener su propio SKU paquete.
 - Componentes fijos siempre se incluyen.
 - Grupos configurables solo definen opciones permitidas; la seleccion final corresponde a Ventas/POS/Ecommerce en su flujo futuro.
+
+## Actualizacion 2026-08-10 - Atributos base, categorias sugeridas y agente futuro
+
+Contexto: se continua trabajando en el proyecto vigente `C:\xampp\htdocs\panel_de_control`. No usar `C:\xampp\htdocs\panel` para nuevos cambios de Catalogo.
+
+Objetivo:
+
+- Preparar Catalogo ERP para limpiar descripciones heredadas con HTML/texto dañado.
+- Crear un vocabulario controlado de atributos y unidades de medida de atributos antes de proponer extracciones.
+- Evitar que el futuro analizador/IA cree atributos duplicados como `litros/hora`, `L/H`, `l x hora` o variantes parecidas.
+- Usar categorias y atributos estructurados como base futura para un agente asesor de productos.
+
+Documentos creados/actualizados:
+
+- `docs/erp_catalogo_descripciones_atributos_agente_plan.md`
+- `docs/erp_catalogo_atributos_base_auditoria.md`
+- `docs/erp_catalogo_categorias_sugeridas_auditoria.md`
+- `docs/erp_catalogo_atributos_equipo_filtracion_auditoria.md`
+
+Scripts read-only:
+
+- `storage/uat/uat_catalogo_atributos_base_readonly.php`
+- `storage/uat/uat_catalogo_categorias_sugeridas_readonly.php`
+- `storage/uat/uat_catalogo_atributos_equipo_filtracion_readonly.php`
+- `storage/uat/uat_catalogo_atributos_canonicos_readonly.php`
+
+Hallazgos base:
+
+- `Medidas` es el atributo heredado mas usado y requiere extractor cuidadoso antes de migrar a `largo`, `ancho`, `alto`, `diametro` u otros.
+- `Contenido` mezcla gramos, kilogramos, litros, mililitros y piezas; no se debe migrar sin familia/categoria.
+- `Potencia` es candidato fuerte a `consumo_electrico` con unidad de atributo `w`.
+- `Subida` es candidato fuerte a `altura_maxima` para bombas/filtros.
+- `Capacidad` es ambigua y debe mapearse por familia: pecera, filtro, bebedero, recipiente, etc.
+- Las categorias sugeridas deben pasar por cola de revision; no deben asignarse automaticamente.
+
+Decision:
+
+- Las unidades tratadas en este plan son unidades de medida de atributos, no unidades de compra, venta ni inventario.
+- Catalogo debe permitir sugerencias con evidencia y confianza, pero la aceptacion debe ser humana.
+- El boton futuro `Analizar descripcion` no debe guardar cambios automaticamente.
+
+Nota tecnica:
+
+- El extractor `uat_catalogo_atributos_equipo_filtracion_readonly.php` fue validado con `php -l` sin errores.
+- La ejecucion completa se realizo cuando MariaDB local quedo disponible.
+- Resultado: 1825 SKUs revisados, 72 candidatos tecnicos, 61 sugerencias de `consumo_electrico` y 10 de `altura_maxima`.
+- No se detecto `caudal` con evidencia fuerte.
+- Se verifico que faltan los atributos canonicos `consumo_electrico`, `caudal`, `altura_maxima`, `capacidad_acuario_min` y `capacidad_acuario_max`.
+- Se creo propuesta no aplicada: `docs/erp_catalogo_atributos_canonicos_equipo_propuesta.sql`.
+- Se aplico alta idempotente de atributos canonicos con `storage/uat/uat_catalogo_atributos_canonicos_equipo_apply.php`.
+- Se aplico migracion no destructiva con `storage/uat/uat_catalogo_atributos_equipo_migracion_apply.php`.
+- Resultado migracion: `consumo_electrico` 61 valores; `altura_maxima` 10 valores; 0 omitidos; 0 conflictos.
+- No se borraron atributos heredados `Potencia` ni `Subida`.
+- Se creo extractor especifico de `caudal`: `storage/uat/uat_catalogo_atributos_caudal_readonly.php`.
+- Se aplico `caudal` solo con evidencia explicita usando `storage/uat/uat_catalogo_atributos_caudal_apply.php`.
+- Resultado caudal: 3 valores aplicados (`450`, `720`, `800 l/h`); 42 omitidos por falta de evidencia explicita; 0 conflictos.
+- Se audito retiro operativo de atributos heredados con `storage/uat/uat_catalogo_atributos_heredados_equipo_retiro_readonly.php`.
+- Se inactivaron `Potencia` y `Subida` con `storage/uat/uat_catalogo_atributos_heredados_equipo_retiro_apply.php`.
+- No se borraron valores historicos; quedaron cubiertos por `consumo_electrico` y `altura_maxima`.
+
+Siguiente paso recomendado:
+
+1. Capturar/revisar caudal faltante desde fichas tecnicas/proveedores para filtros con modelo pero sin `l/h` explicito.
+2. Avanzar por grupos: medidas, contenido, peceras/vidrio, alimentos/consumibles y habitat/accesorios.

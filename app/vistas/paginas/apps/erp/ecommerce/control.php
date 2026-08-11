@@ -9,9 +9,9 @@
     <link href="assets/plugins/global/plugins.bundle.css" rel="stylesheet" type="text/css">
     <link href="assets/css/style.bundle.css" rel="stylesheet" type="text/css">
     <!--
-      Documentacion IA: Codex GPT-5, 2026-07-30.
+      Documentacion IA: Codex GPT-5, 2026-07-30; actualizado 2026-08-11.
       Proposito: panel operativo para controlar que productos se muestran en el ecommerce Artiani.
-      Impacto: administra publicaciones, visibilidad y curaduria sin modificar catalogo ERP, inventario ni legacy ecom_*.
+      Impacto: administra publicaciones, visibilidad y curaduria sin modificar catalogo ERP, inventario ni legacy ecom_*; mejora preparacion visible, confirmacion local para publicar agotados y tabla compacta.
       Contrato: vista protegida; escrituras via endpoints con catalogo.editar, CSRF, token interno y auditoria.
     -->
     <style>
@@ -21,8 +21,16 @@
         .ecom-control-img { width: 52px; height: 52px; border-radius: 8px; object-fit: cover; background: #f1f3f6; border: 1px solid #e7e9ef; }
         .ecom-chip-list { display: flex; flex-wrap: wrap; gap: 6px; }
         .ecom-drawer { border: 1px solid #e7e9ef; border-radius: 8px; background: #fff; }
-        .ecom-table-scroll { max-height: 62vh; overflow: auto; }
+        .ecom-editor-panel { position: sticky; top: 88px; }
+        .ecom-editor-panel.ecom-editor-focus { box-shadow: 0 0 0 3px rgba(0, 158, 247, .16); border-radius: 8px; }
+        .ecom-ctl-row-active { background: #f8fbff; box-shadow: inset 3px 0 0 #009ef7; }
+        .ecom-ctl-row-active td { background: #f8fbff; }
+        .ecom-table-scroll { max-height: 42vh; overflow: auto; border: 1px solid #eef0f5; border-radius: 8px; }
         .ecom-sticky-head th { position: sticky; top: 0; background: #fff; z-index: 1; }
+        @media (max-width: 1199.98px) {
+            .ecom-editor-panel { position: static; }
+            .ecom-table-scroll { max-height: 38vh; }
+        }
     </style>
 </head>
 <body id="kt_app_body" data-kt-app-layout="dark-sidebar" data-kt-app-header-fixed="true" data-kt-app-sidebar-enabled="true" data-kt-app-sidebar-fixed="true" class="app-default">
@@ -120,13 +128,19 @@
                                         <button class="btn btn-sm btn-light-success" type="button" id="ecom_ctl_lote_reactivar"><i class="bi bi-arrow-repeat"></i> Reactivar</button>
                                         <div class="form-check form-check-custom form-check-solid ms-lg-4">
                                             <input class="form-check-input" type="checkbox" id="ecom_ctl_confirmar_agotados">
-                                            <label class="form-check-label fs-7" for="ecom_ctl_confirmar_agotados">Permitir publicar agotados revisados</label>
+                                            <label class="form-check-label fs-7" for="ecom_ctl_confirmar_agotados">Permitir agotados en lote</label>
                                         </div>
                                         <span class="badge badge-light-primary ms-auto" id="ecom_ctl_estado">Listo</span>
                                     </div>
                                     <div id="ecom_ctl_diagnostico" class="alert alert-light border d-none mb-4"></div>
                                     <div class="row g-4">
-                                        <div class="col-xl-8">
+                                        <div class="col-xl-8 order-2 order-xl-1" id="ecom_ctl_lista_col">
+                                            <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+                                                <div>
+                                                    <div class="fw-bold">Productos del catalogo</div>
+                                                    <div class="text-muted fs-8">Usa Preparar para abrir el control del producto seleccionado.</div>
+                                                </div>
+                                            </div>
                                             <div class="table-responsive ecom-table-scroll">
                                                 <table class="table align-middle table-row-dashed fs-7 gy-3">
                                                     <thead class="ecom-sticky-head">
@@ -144,7 +158,14 @@
                                                 </table>
                                             </div>
                                         </div>
-                                        <div class="col-xl-4">
+                                        <div class="col-xl-4 ecom-editor-panel order-1 order-xl-2" id="ecom_ctl_editor_col">
+                                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                                <div>
+                                                    <div class="fw-bold">Preparacion ecommerce</div>
+                                                    <div class="text-muted fs-8">Aqui se guarda, publica, pausa o reactiva el producto seleccionado.</div>
+                                                </div>
+                                                <span class="badge badge-light" id="ecom_ctl_editor_badge">Sin seleccion</span>
+                                            </div>
                                             <div class="ecom-drawer p-5" id="ecom_ctl_editor">
                                                 <div class="text-muted py-5 text-center">Selecciona un producto para editar su control ecommerce.</div>
                                             </div>
@@ -166,6 +187,6 @@
 </div>
 <script src="assets/plugins/global/plugins.bundle.js"></script>
 <script src="assets/js/scripts.bundle.js"></script>
-<script src="/assets/js/custom/apps/erp/ecommerce/control.js?v=20260806-diagnostico1"></script>
+<script src="/assets/js/custom/apps/erp/ecommerce/control.js?v=20260811-preparacion2"></script>
 </body>
 </html>

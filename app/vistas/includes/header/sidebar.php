@@ -38,6 +38,7 @@ $seccionesMenu = array(
     'Proyectos' => array('icono' => 'bi-kanban'),
     'TMS' => array('icono' => 'bi-truck'),
     'CRM' => array('icono' => 'bi-people'),
+    'CMS' => array('icono' => 'bi-layout-text-window-reverse'),
     'Ecommerce' => array('icono' => 'bi-shop'),
     'Administracion' => array('icono' => 'bi-shield-lock')
 );
@@ -207,6 +208,30 @@ $gruposMenu = array(
         'permiso' => 'garantias.ver',
         'items' => array(
             array('titulo' => 'Politicas y reglas', 'ruta' => '/garantias/politicas', 'permiso' => 'garantias.ver')
+        )
+    ),
+    array(
+        'seccion' => 'CMS',
+        'titulo' => 'Contenido',
+        'icono' => 'bi-layout-text-window-reverse',
+        'permiso' => array('cms.ver', 'catalogo.ver'),
+        'items' => array(
+            array('titulo' => 'Contenido ecommerce', 'ruta' => '/cms/contenido', 'permiso' => array('cms.ver', 'catalogo.ver')),
+            array('titulo' => 'Plantillas contenido', 'ruta' => '/cms/plantillas', 'permiso' => array('cms.ver', 'catalogo.ver')),
+            array('titulo' => 'Persistencia', 'ruta' => '/cms/persistencia', 'permiso' => array('cms.ver', 'catalogo.ver')),
+            array('titulo' => 'Slots', 'ruta' => '/cms/slots', 'permiso' => array('cms.ver', 'catalogo.ver')),
+            array('titulo' => 'Media', 'ruta' => '/cms/media', 'permiso' => array('cms.ver', 'catalogo.ver')),
+            array('titulo' => 'Preview JSON', 'ruta' => '/cms/json', 'permiso' => array('cms.ver', 'catalogo.ver'))
+        )
+    ),
+    array(
+        'seccion' => 'CMS',
+        'titulo' => 'Frontend',
+        'icono' => 'bi-window-sidebar',
+        'permiso' => array('cms.ver', 'catalogo.ver'),
+        'items' => array(
+            array('titulo' => 'Plantillas de vista', 'ruta' => '/cms/frontend_plantillas', 'permiso' => array('cms.ver', 'catalogo.ver')),
+            array('titulo' => 'Componentes', 'ruta' => '/cms/frontend_componentes', 'permiso' => array('cms.ver', 'catalogo.ver'))
         )
     ),
     array(

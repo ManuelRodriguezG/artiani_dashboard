@@ -35,6 +35,13 @@ $dryRun = $api->cotizacionDryRun($payload);
 $preflight = $api->cotizacionPreflight($payload);
 $dep = valorPreflightRobusto($preflight, array("depurar"), array());
 $dryDep = valorPreflightRobusto($dryRun, array("depurar"), array());
+$payloadFrontend = $payload;
+$payloadFrontend["contacto"]["acepta_whatsapp"] = true;
+$payloadFrontend["contacto"]["acepta_politicas"] = true;
+unset($payloadFrontend["acepta_contacto_whatsapp"], $payloadFrontend["politicas_aceptadas"]);
+$preflightFrontend = $api->cotizacionPreflight($payloadFrontend);
+$depFrontend = valorPreflightRobusto($preflightFrontend, array("depurar"), array());
+$advertenciasFrontend = valorPreflightRobusto($depFrontend, array("advertencias"), array());
 
 $bloqueos = array();
 if (empty($primerItem)) {
@@ -67,6 +74,17 @@ if (empty(valorPreflightRobusto($dep, array("consentimiento", "aviso_privacidad_
 if (empty(valorPreflightRobusto($dep, array("no_escribe_bd"), false)) || empty(valorPreflightRobusto($dep, array("no_descuenta_inventario"), false))) {
   $bloqueos[] = "guardrails_preflight_incompletos";
 }
+foreach (array("contacto_telefono_recomendado", "aceptacion_whatsapp_recomendada", "politicas_aceptadas_no_informadas") as $advertenciaNoEsperada) {
+  if (in_array($advertenciaNoEsperada, $advertenciasFrontend, true)) {
+    $bloqueos[] = "frontend_payload_con_advertencia_" . $advertenciaNoEsperada;
+  }
+}
+if (empty(valorPreflightRobusto($depFrontend, array("acepta_contacto_whatsapp"), false))) {
+  $bloqueos[] = "frontend_payload_no_reconoce_acepta_whatsapp";
+}
+if (empty(valorPreflightRobusto($depFrontend, array("consentimiento", "aviso_privacidad_aceptado"), false))) {
+  $bloqueos[] = "frontend_payload_no_reconoce_acepta_politicas";
+}
 
 $ok = empty($bloqueos);
 echo json_encode(array(
@@ -91,6 +109,11 @@ echo json_encode(array(
     "cta_url_generada" => trim((string) valorPreflightRobusto($dep, array("cta", "url"), "")) !== "",
     "contacto_valido" => valorPreflightRobusto($dep, array("validacion_contacto", "valido_para_registro_futuro"), false),
     "aviso_privacidad_aceptado" => valorPreflightRobusto($dep, array("consentimiento", "aviso_privacidad_aceptado"), false)
+  ),
+  "preflight_payload_frontend" => array(
+    "acepta_contacto_whatsapp" => valorPreflightRobusto($depFrontend, array("acepta_contacto_whatsapp"), false),
+    "politicas_aceptadas" => valorPreflightRobusto($depFrontend, array("politicas_aceptadas"), array()),
+    "advertencias" => $advertenciasFrontend
   ),
   "guardrails" => array(
     "no_escribe_bd" => true,

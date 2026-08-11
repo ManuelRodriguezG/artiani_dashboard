@@ -127,6 +127,9 @@ class SeguridadEsquema extends DBSchema {
       array("modulo" => "catalogo", "accion" => "ver", "permiso" => "catalogo.ver", "descripcion" => "Consultar catalogo de productos"),
       array("modulo" => "catalogo", "accion" => "editar", "permiso" => "catalogo.editar", "descripcion" => "Crear y modificar productos, SKUs y variantes"),
       array("modulo" => "catalogo", "accion" => "costos", "permiso" => "catalogo.costos", "descripcion" => "Consultar y modificar costos, margenes e impuestos"),
+      array("modulo" => "cms", "accion" => "ver", "permiso" => "cms.ver", "descripcion" => "Consultar contenido, plantillas, slots y preview JSON del CMS"),
+      array("modulo" => "cms", "accion" => "editar", "permiso" => "cms.editar", "descripcion" => "Crear y modificar bloques, media y publicaciones CMS"),
+      array("modulo" => "cms", "accion" => "publicar", "permiso" => "cms.publicar", "descripcion" => "Publicar, pausar y programar contenido CMS"),
       array("modulo" => "compras", "accion" => "ver", "permiso" => "compras.ver", "descripcion" => "Consultar solicitudes y ordenes de compra"),
       array("modulo" => "compras", "accion" => "crear", "permiso" => "compras.crear", "descripcion" => "Crear solicitudes y ordenes de compra"),
       array("modulo" => "compras", "accion" => "editar", "permiso" => "compras.editar", "descripcion" => "Modificar solicitudes y ordenes de compra existentes"),
@@ -244,7 +247,7 @@ class SeguridadEsquema extends DBSchema {
         "ventas.precio_manual", "ventas.descuento_partida", "ventas.descuento_general", "ventas.autorizar_excepcion_comercial",
         "ventas.caja_evidencias.revisar", "ventas.caja_diferencias.ver", "ventas.caja_diferencias.revisar", "ventas.caja_diferencias.resolver",
         "ventas.pos_config.ver", "ventas.pos_config.crear", "ventas.pos_config.editar", "ventas.pos_config.desactivar", "ventas.pos_config.asignar_usuario",
-        "ecommerce.ver", "finanzas.ver", "notificaciones.ver", "auditoria.ver", "reportes.ver",
+        "cms.ver", "cms.editar", "cms.publicar", "ecommerce.ver", "finanzas.ver", "notificaciones.ver", "auditoria.ver", "reportes.ver",
         "proveedores.ver", "proveedores.fiscales", "proveedores.condiciones", "proveedores.documentos",
         "proveedores.documentos_sensibles", "proveedores.listas", "proveedores.costos",
         "proveedores.autorizar", "proveedores.auditoria", "rentabilidad.ver", "rentabilidad.snapshot",
@@ -267,7 +270,8 @@ class SeguridadEsquema extends DBSchema {
         "ventas.listas.cancelar", "ventas.listas.asignar_cliente", "ventas.listas.auditoria",
         "ventas.descuento_general", "ventas.autorizar_excepcion_comercial", "ventas.caja_evidencias.revisar",
         "ventas.caja_diferencias.ver", "ventas.caja_diferencias.revisar", "ventas.caja_diferencias.resolver",
-        "ventas.pos_config.ver", "ventas.pos_config.crear", "ventas.pos_config.editar", "ventas.pos_config.desactivar", "ventas.pos_config.asignar_usuario", "ecommerce.ver",
+        "ventas.pos_config.ver", "ventas.pos_config.crear", "ventas.pos_config.editar", "ventas.pos_config.desactivar", "ventas.pos_config.asignar_usuario",
+        "cms.ver", "cms.editar", "cms.publicar", "ecommerce.ver",
         "ecommerce.sincronizar", "finanzas.ver", "finanzas.operar", "notificaciones.ver", "auditoria.ver", "reportes.ver",
         "proveedores.ver", "proveedores.crear", "proveedores.editar", "proveedores.fiscales",
         "proveedores.contactos", "proveedores.condiciones", "proveedores.documentos",
@@ -309,11 +313,11 @@ class SeguridadEsquema extends DBSchema {
         "ventas.ver", "ventas.listas.ver", "garantias.ver", "garantias.reclamos.crear", "tms.ver", "tms.crear", "notificaciones.ver", "reportes.ver", "proyectos.ver"
       ),
       "ecommerce" => array(
-        "catalogo.ver", "catalogo.editar", "inventario.ver", "ventas.ver", "ventas.listas.ver", "ecommerce.ver",
+        "cms.ver", "cms.editar", "cms.publicar", "catalogo.ver", "catalogo.editar", "inventario.ver", "ventas.ver", "ventas.listas.ver", "ecommerce.ver",
         "ecommerce.sincronizar", "notificaciones.ver", "reportes.ver", "proyectos.ver"
       ),
       "catalogo_productos" => array(
-        "catalogo.ver", "catalogo.editar", "catalogo.costos", "compras.ver", "inventario.ver", "ecommerce.ver",
+        "cms.ver", "cms.editar", "catalogo.ver", "catalogo.editar", "catalogo.costos", "compras.ver", "inventario.ver", "ecommerce.ver",
         "proveedores.ver", "proveedores.listas", "proveedores.matching", "proveedores.costos",
         "proveedores.auditoria", "notificaciones.ver", "rentabilidad.ver", "rentabilidad.snapshot",
         "garantias.ver", "garantias.politicas", "proyectos.ver"
@@ -330,13 +334,13 @@ class SeguridadEsquema extends DBSchema {
       ),
       "auditor" => array(
         "catalogo.ver", "compras.ver", "almacen.ver", "inventario.ver", "ventas.ver",
-        "ventas.listas.ver", "ventas.listas.auditoria", "ventas.pos_config.ver", "ecommerce.ver", "finanzas.ver", "notificaciones.ver", "auditoria.ver", "reportes.ver",
+        "ventas.listas.ver", "ventas.listas.auditoria", "ventas.pos_config.ver", "cms.ver", "ecommerce.ver", "finanzas.ver", "notificaciones.ver", "auditoria.ver", "reportes.ver",
         "proveedores.ver", "proveedores.auditoria", "rentabilidad.ver", "garantias.ver", "garantias.reportes", "tms.ver", "tms.reportes", "proyectos.ver", "proyectos.auditoria"
       ),
       "solo_lectura" => array(
         "catalogo.ver", "compras.ver", "almacen.ver", "inventario.ver", "ventas.ver",
         "ventas.listas.ver",
-        "ecommerce.ver", "finanzas.ver", "notificaciones.ver", "reportes.ver", "proveedores.ver", "rentabilidad.ver",
+        "cms.ver", "ecommerce.ver", "finanzas.ver", "notificaciones.ver", "reportes.ver", "proveedores.ver", "rentabilidad.ver",
         "garantias.ver", "tms.ver", "proyectos.ver"
       ),
       "soporte_sistema" => array(

@@ -235,7 +235,9 @@
             categoria_principal_faltante: "Sin categoria",
             venta_fraccionaria_bloqueada_fase_1: "Granel bloqueado",
             publicacion_existente: "Ya tiene publicacion",
-            publicacion_existente_no_borrador: "Ya publicado/pausado"
+            publicacion_existente_no_borrador: "Ya publicado/pausado",
+            sku_agotado_requiere_confirmar_agotado: "Confirma agotado",
+            confirmar_revision_requerido: "Confirma revision"
         };
         return mapa[bloqueo] || bloqueo;
     }
@@ -318,6 +320,7 @@
         var puedeGuardarCuraduria = bloqueosSinExistente.length === 0 && idPublicacion > 0 && (estatus === "borrador" || estatus === "publicado" || estatus === "pausado");
         var puedePublicar = idPublicacion > 0 && estatus === "borrador";
         var estaPublicado = idPublicacion > 0 && estatus === "publicado";
+        var agotado = String(producto.disponibilidad_publica_sugerida || "") === "agotado";
         $("ecom_preview_publicacion").innerHTML =
             "<div class=\"row g-4 align-items-start\">" +
                 "<div class=\"col-lg-3\">" +
@@ -354,6 +357,7 @@
                             "<div class=\"col-lg-4\"><label class=\"form-label fw-semibold\">Mascota</label><input class=\"form-control form-control-solid\" data-field=\"mascota_especie\" value=\"" + escapeHtml(pub.mascota_especie || "") + "\" placeholder=\"perro, gato, pez, ave...\"></div>" +
                             "<div class=\"col-lg-4\"><label class=\"form-label fw-semibold\">Necesidades</label><input class=\"form-control form-control-solid\" data-field=\"necesidades\" value=\"" + escapeHtml(necesidades.join(",")) + "\" placeholder=\"alimento, habitat, salud\"></div>" +
                             "<div class=\"col-12\"><label class=\"form-label fw-semibold\">Descripcion publica</label><textarea class=\"form-control form-control-solid\" rows=\"3\" data-field=\"descripcion_publica\">" + escapeHtml(pub.descripcion_publica || "") + "</textarea></div>" +
+                            avisoAgotadoHtml(agotado) +
                             "<div class=\"col-12 d-flex flex-wrap gap-2 justify-content-end\">" +
                                 (estaPublicado ? "<span class=\"badge badge-light-success align-self-center\">Producto publicado en API publica</span>" : "") +
                                 (puedeGuardar && !idPublicacion ? "<button type=\"button\" class=\"btn btn-light-primary\" id=\"ecom_guardar_borrador\">Guardar borrador</button>" : "") +
@@ -377,6 +381,25 @@
         if (btnPublicar) {
             btnPublicar.addEventListener("click", publicarBorradorActual);
         }
+    }
+
+    function avisoAgotadoHtml(agotado) {
+        if (!agotado) { return ""; }
+        return "<div class=\"col-12\">" +
+            "<div class=\"alert alert-warning py-3 mb-0\">" +
+                "<div class=\"fw-bold fs-7 mb-1\">Producto sin stock</div>" +
+                "<div class=\"fs-8 mb-3\">Puedes publicarlo para que el cliente lo vea como agotado o lo consulte por WhatsApp. No genera pedido, no descuenta inventario y no aparta producto.</div>" +
+                "<div class=\"form-check form-check-custom form-check-solid\">" +
+                    "<input class=\"form-check-input\" type=\"checkbox\" id=\"ecom_confirmar_agotado_publicacion\">" +
+                    "<label class=\"form-check-label fs-7\" for=\"ecom_confirmar_agotado_publicacion\">Publicar aunque no haya stock</label>" +
+                "</div>" +
+            "</div>" +
+        "</div>";
+    }
+
+    function confirmarAgotadoPublicacion() {
+        var check = $("ecom_confirmar_agotado_publicacion");
+        return check ? check.checked : false;
     }
 
     function datosFormularioPublicacion() {
@@ -490,7 +513,8 @@
         postForm("/ecommercePublico/publicaciones_lote_publicar_erp", {
             autorizar: "ECOMMERCE_PUBLICO_LOTE_PUBLICAR",
             id_skus: skus.join(","),
-            confirmar_revision: "1"
+            confirmar_revision: "1",
+            confirmar_agotado: $("ecom_lote_confirmar_agotados") && $("ecom_lote_confirmar_agotados").checked ? "1" : "0"
         }).then(function (response) {
             if (response.error) { throw new Error(response.mensaje || "No se pudo publicar lote"); }
             var depurar = response.depurar || {};
@@ -507,8 +531,14 @@
         if (!window.confirm("Publicar este producto en el API publico del ecommerce?")) {
             return;
         }
+        if ($("ecom_confirmar_agotado_publicacion") && !confirmarAgotadoPublicacion()) {
+            setEstado("Falta confirmar agotado", "badge-light-warning");
+            $("ecom_preview_publicacion").insertAdjacentHTML("afterbegin", "<div class=\"alert alert-warning\">Este producto esta agotado. Marca Publicar aunque no haya stock para publicarlo y permitir consulta por WhatsApp sin generar pedido.</div>");
+            return;
+        }
         datos.autorizar = "ECOMMERCE_PUBLICO_PUBLICAR_BORRADOR";
         datos.confirmar_revision = "1";
+        datos.confirmar_agotado = confirmarAgotadoPublicacion() ? "1" : "0";
         setEstado("Publicando...", "badge-light-info");
         postForm("/ecommercePublico/publicaciones_publicar_borrador_erp", datos).then(function (response) {
             if (response.error) { throw new Error(response.mensaje || "No se pudo publicar"); }

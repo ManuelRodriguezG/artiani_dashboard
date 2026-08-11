@@ -27,10 +27,33 @@ $schema = array(
         )
       ))
     ),
+    "/configuracion_inicial" => array(
+      "get" => array_merge(endpointOpenApi("Configuracion inicial recomendada para primer render ecommerce"), array(
+        "parameters" => array(
+          queryParam("limite_secciones", "Limite 1-12 por seccion", "integer")
+        )
+      ))
+    ),
     "/bootstrap" => array(
       "get" => array_merge(endpointOpenApi("Paquete inicial para frontend ecommerce"), array(
         "parameters" => array(
           queryParam("limite_secciones", "Limite 1-12 por seccion", "integer")
+        )
+      ))
+    ),
+    "/contenido_manifest" => array(
+      "get" => array_merge(endpointOpenApi("Manifest del CMS ligero: plantillas, slots y tipos de bloque"), array(
+        "parameters" => array(
+          queryParam("plantilla", "Codigo de plantilla; default artiani_default")
+        )
+      ))
+    ),
+    "/contenido_pagina" => array(
+      "get" => array_merge(endpointOpenApi("Contenido editorial por pagina para banners, colecciones y bloques"), array(
+        "parameters" => array(
+          queryParam("pagina", "home|categoria|catalogo"),
+          queryParam("plantilla", "Codigo de plantilla; default artiani_default"),
+          queryParam("categoria", "Slug/codigo de categoria cuando pagina=categoria")
         )
       ))
     ),

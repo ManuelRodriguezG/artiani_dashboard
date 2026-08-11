@@ -3,6 +3,145 @@
 class EcommercePublicoEsquema extends DBSchema {
 
   /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-08-10
+   * Proposito: generar el plan DDL del CMS ecommerce de contenido sin ejecutarlo por defecto.
+   * Impacto: Ecommerce CMS; prepara plantillas, slots, bloques, publicaciones y media sin tocar catalogo, precios ni inventario.
+   * Contrato: con $ejecutar=false solo devuelve SQL propuesto; no crea tablas ni modifica datos.
+   */
+  public function planActualizarCmsContenido($ejecutar = false) {
+    $opciones = "ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci";
+    $plan = array();
+
+    $plan[] = $this->crearTablaSiNoExiste("erp_ecommerce_plantillas", array(
+      "`id_plantilla` BIGINT NOT NULL AUTO_INCREMENT",
+      "`codigo` VARCHAR(80) NOT NULL",
+      "`nombre` VARCHAR(180) NOT NULL",
+      "`descripcion` VARCHAR(255) NULL",
+      "`version_plantilla` VARCHAR(40) NOT NULL DEFAULT '1.0.0'",
+      "`estatus` VARCHAR(30) NOT NULL DEFAULT 'borrador'",
+      "`activa` TINYINT(1) NOT NULL DEFAULT 0",
+      "`config_json` TEXT NULL",
+      "`fecha_registro` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
+      "`fecha_actualizacion` DATETIME NULL",
+      "`creado_por` INT NULL",
+      "`actualizado_por` INT NULL",
+      "PRIMARY KEY (`id_plantilla`)",
+      "UNIQUE KEY `idx_ecom_cms_plantilla_codigo` (`codigo`)",
+      "KEY `idx_ecom_cms_plantilla_estado` (`estatus`, `activa`)"
+    ), $opciones, $ejecutar);
+
+    $plan[] = $this->crearTablaSiNoExiste("erp_ecommerce_plantilla_slots", array(
+      "`id_slot` BIGINT NOT NULL AUTO_INCREMENT",
+      "`id_plantilla` BIGINT NOT NULL",
+      "`codigo` VARCHAR(120) NOT NULL",
+      "`nombre` VARCHAR(180) NOT NULL",
+      "`pagina` VARCHAR(60) NOT NULL",
+      "`tipos_bloque_json` TEXT NOT NULL",
+      "`max_bloques` INT NOT NULL DEFAULT 1",
+      "`requerido` TINYINT(1) NOT NULL DEFAULT 0",
+      "`orden` INT NOT NULL DEFAULT 0",
+      "`estatus` VARCHAR(30) NOT NULL DEFAULT 'activo'",
+      "`config_json` TEXT NULL",
+      "`fecha_registro` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
+      "`fecha_actualizacion` DATETIME NULL",
+      "PRIMARY KEY (`id_slot`)",
+      "UNIQUE KEY `idx_ecom_cms_slot_unico` (`id_plantilla`, `codigo`)",
+      "KEY `idx_ecom_cms_slot_pagina` (`pagina`, `estatus`, `orden`)"
+    ), $opciones, $ejecutar);
+
+    $plan[] = $this->crearTablaSiNoExiste("erp_ecommerce_contenido_bloques", array(
+      "`id_bloque` BIGINT NOT NULL AUTO_INCREMENT",
+      "`tipo_bloque` VARCHAR(60) NOT NULL",
+      "`codigo` VARCHAR(120) NULL",
+      "`nombre_interno` VARCHAR(180) NOT NULL",
+      "`titulo` VARCHAR(255) NULL",
+      "`payload_json` LONGTEXT NULL",
+      "`estatus` VARCHAR(30) NOT NULL DEFAULT 'borrador'",
+      "`fecha_registro` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
+      "`fecha_actualizacion` DATETIME NULL",
+      "`creado_por` INT NULL",
+      "`actualizado_por` INT NULL",
+      "PRIMARY KEY (`id_bloque`)",
+      "UNIQUE KEY `idx_ecom_cms_bloque_codigo` (`codigo`)",
+      "KEY `idx_ecom_cms_bloque_tipo_estado` (`tipo_bloque`, `estatus`)"
+    ), $opciones, $ejecutar);
+
+    $plan[] = $this->crearTablaSiNoExiste("erp_ecommerce_contenido_publicaciones", array(
+      "`id_publicacion_contenido` BIGINT NOT NULL AUTO_INCREMENT",
+      "`id_plantilla` BIGINT NOT NULL",
+      "`id_slot` BIGINT NOT NULL",
+      "`id_bloque` BIGINT NOT NULL",
+      "`pagina` VARCHAR(60) NOT NULL",
+      "`contexto_clave` VARCHAR(120) NULL",
+      "`orden` INT NOT NULL DEFAULT 0",
+      "`estatus` VARCHAR(30) NOT NULL DEFAULT 'borrador'",
+      "`vigente_desde` DATETIME NULL",
+      "`vigente_hasta` DATETIME NULL",
+      "`canal` VARCHAR(50) NOT NULL DEFAULT 'catalogo_publico'",
+      "`fecha_registro` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
+      "`fecha_actualizacion` DATETIME NULL",
+      "`publicado_por` INT NULL",
+      "`actualizado_por` INT NULL",
+      "PRIMARY KEY (`id_publicacion_contenido`)",
+      "KEY `idx_ecom_cms_pub_render` (`id_plantilla`, `pagina`, `contexto_clave`, `estatus`, `orden`)",
+      "KEY `idx_ecom_cms_pub_slot` (`id_slot`, `estatus`, `orden`)",
+      "KEY `idx_ecom_cms_pub_bloque` (`id_bloque`, `estatus`)",
+      "KEY `idx_ecom_cms_pub_vigencia` (`estatus`, `vigente_desde`, `vigente_hasta`)"
+    ), $opciones, $ejecutar);
+
+    $plan[] = $this->crearTablaSiNoExiste("erp_ecommerce_contenido_media", array(
+      "`id_media` BIGINT NOT NULL AUTO_INCREMENT",
+      "`id_bloque` BIGINT NOT NULL",
+      "`rol` VARCHAR(40) NOT NULL DEFAULT 'principal'",
+      "`url_desktop` VARCHAR(500) NULL",
+      "`url_mobile` VARCHAR(500) NULL",
+      "`alt_text` VARCHAR(255) NOT NULL",
+      "`metadata_json` TEXT NULL",
+      "`estatus` VARCHAR(30) NOT NULL DEFAULT 'activo'",
+      "`fecha_registro` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
+      "`fecha_actualizacion` DATETIME NULL",
+      "`creado_por` INT NULL",
+      "PRIMARY KEY (`id_media`)",
+      "KEY `idx_ecom_cms_media_bloque` (`id_bloque`, `estatus`, `rol`)"
+    ), $opciones, $ejecutar);
+
+    return $this->respuestaPlan($plan, $ejecutar);
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-08-10
+   * Proposito: auditar existencia de tablas CMS ecommerce de contenido sin ejecutar DDL.
+   * Impacto: panel CMS ecommerce; permite ver faltantes antes de autorizar persistencia real.
+   * Contrato: solo lectura.
+   */
+  public function auditarCmsContenido() {
+    $tablas = $this->tablasCmsContenido();
+    $auditoria = array();
+    $faltantes = 0;
+    foreach ($tablas as $tabla) {
+      $existe = $this->tablaExiste($tabla);
+      $auditoria[$tabla] = array(
+        "existe" => $existe,
+        "impacto" => $existe ? "Disponible para CMS ecommerce." : "Pendiente para persistencia real de contenido ecommerce."
+      );
+      if (!$existe) { $faltantes++; }
+    }
+    return array(
+      "error" => false,
+      "tipo" => $faltantes > 0 ? "warning" : "success",
+      "mensaje" => $faltantes > 0 ? "Esquema CMS ecommerce pendiente" : "Esquema CMS ecommerce disponible",
+      "depurar" => array(
+        "read_only" => true,
+        "tablas_total" => count($tablas),
+        "tablas_faltantes" => $faltantes,
+        "auditoria" => $auditoria,
+        "no_toca_catalogo" => true,
+        "no_toca_inventario" => true
+      )
+    );
+  }
+
+  /**
    * Documentacion IA: Codex GPT-5 | Fecha: 2026-07-11
    * Proposito: generar el plan DDL del catalogo publico ecommerce sin ejecutarlo por defecto.
    * Impacto: Ecommerce publico; prepara publicaciones, cotizaciones, eventos y configuracion sin tocar `ecom_*`.
@@ -502,6 +641,16 @@ class EcommercePublicoEsquema extends DBSchema {
       "erp_ecommerce_eventos_navegacion",
       "erp_ecommerce_busquedas",
       "erp_ecommerce_taxonomia_mascotas"
+    );
+  }
+
+  private function tablasCmsContenido() {
+    return array(
+      "erp_ecommerce_plantillas",
+      "erp_ecommerce_plantilla_slots",
+      "erp_ecommerce_contenido_bloques",
+      "erp_ecommerce_contenido_publicaciones",
+      "erp_ecommerce_contenido_media"
     );
   }
 

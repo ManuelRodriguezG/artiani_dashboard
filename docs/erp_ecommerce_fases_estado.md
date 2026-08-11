@@ -226,3 +226,247 @@ Cambios:
 Verificacion pendiente:
 
 - Confirmar visualmente en navegador que la franja de diagnostico se vea bien en desktop y que el mensaje permanezca despues de publicar.
+
+## Ajuste UX 2026-08-11 - Preparacion y publicacion sin stock
+
+Motivo:
+
+- En una lista grande, el boton para preparar/controlar un producto podia parecer que no hacia nada porque el editor quedaba fuera de foco.
+- La decision de publicar un producto agotado existia, pero estaba como control global de lote y no era clara al revisar un producto individual.
+
+Cambios:
+
+- Panel `/ecommercePublico/control` separa visualmente la zona de lista y la zona `Preparacion ecommerce`.
+- Al presionar `Preparar`, el panel:
+  - resalta la fila activa;
+  - actualiza el estado a `Preparando producto`;
+  - desplaza la vista al editor;
+  - muestra badge del SKU seleccionado.
+- Si el SKU esta agotado, el editor muestra una confirmacion local:
+  - `Publicar aunque no haya stock`.
+- Si el usuario intenta publicar un agotado sin marcar esa confirmacion, el panel muestra diagnostico legible antes de enviar el cambio.
+- El checkbox superior queda reservado para acciones por lote: `Permitir agotados en lote`.
+
+Reglas conservadas:
+
+- Publicar sin stock no descuenta inventario, no crea pedido y no modifica existencias.
+- Los productos publicados sin stock pueden habilitar cotizacion/WhatsApp si la publicacion tiene `permite_cotizacion` y `permite_whatsapp`.
+- WhatsApp trabaja como pre-cotizacion: abre mensaje con referencia preliminar, pero no genera pedido real ni aparta inventario.
+- Productos a granel/fraccionarios siguen bloqueados para ecommerce.
+- El backend sigue siendo la autoridad final de publicabilidad.
+
+Ajuste complementario:
+
+- La vista tecnica `/ecommercePublico/publicaciones` tambien permite confirmar agotados:
+  - por producto: `Publicar aunque no haya stock`;
+  - por lote: `Permitir agotados en lote`.
+- El lote de `publicaciones_lote_publicar_erp` ya reenvia `confirmar_agotado` al publicar cada borrador.
+
+## Ajuste UX 2026-08-11 - Lista compacta y preparacion visible
+
+Motivo:
+
+- En listas grandes, preparar un producto no debe obligar al usuario a desplazarse hasta abajo para encontrar el editor.
+- La tabla debe ser una zona acotada de trabajo, no una pagina interminable.
+
+Cambios:
+
+- `/ecommercePublico/control`:
+  - reduce la altura de la tabla a una zona con scroll interno;
+  - mantiene encabezados visibles;
+  - deja la preparacion antes de la lista en pantallas medianas/chicas;
+  - deja de forzar `scrollIntoView` al dar clic en `Preparar`.
+- `/ecommercePublico/publicaciones`:
+  - mueve `Preparacion de publicacion` arriba de la tabla;
+  - convierte la tabla en scroll interno de altura reducida;
+  - mantiene encabezados fijos;
+  - mantiene la preparacion como panel sticky en escritorio.
+
+Resultado esperado:
+
+- Al dar `Preparar`, el producto se carga en el panel visible cercano sin recorrer toda la lista.
+- Para navegar muchos SKUs, se usan filtros, limite de resultados y scroll interno de tabla.
+
+## Ajuste operativo 2026-08-11 - Descripcion ERP como fallback ecommerce
+
+Motivo:
+
+- Si un producto del Catalogo ERP ya tiene descripcion, ecommerce debe reutilizarla temporalmente para no mostrar fichas vacias.
+- La descripcion ecommerce curada sigue teniendo prioridad cuando exista.
+
+Regla:
+
+- Al preparar una publicacion, `descripcion_publica` se sugiere desde:
+  - publicacion ecommerce existente, si ya tiene `descripcion_publica`;
+  - si no, `erp_catalogo_productos.descripcion`.
+- Al guardar borrador o curaduria, si `descripcion_publica` llega vacia, se rellena con la descripcion del Catalogo ERP cuando exista.
+- En API publica, `item.descripcion` sale de:
+  - `erp_ecommerce_publicaciones.descripcion_publica`;
+  - si esta vacia, `erp_catalogo_productos.descripcion`.
+
+Guardrail:
+
+- Esto no modifica la descripcion del Catalogo ERP.
+- Solo evita que ecommerce nazca vacio mientras se redacta copy especifico.
+
+## Ajuste API 2026-08-10 - Consentimientos preflight carrito
+
+Motivo:
+
+- Frontend publico envia aceptaciones dentro de `contacto`:
+  - `contacto.acepta_whatsapp`;
+  - `contacto.acepta_politicas`.
+- La API solo leia los nombres legacy en raiz:
+  - `acepta_contacto_whatsapp`;
+  - `politicas_aceptadas`.
+
+Decision:
+
+- `POST /ecommercePublico/cotizacion_preflight` acepta ambos contratos.
+- Contrato recomendado para frontend nuevo:
+
+```json
+{
+  "contacto": {
+    "nombre": "Cliente",
+    "telefono": "3322068429",
+    "mensaje": "",
+    "acepta_whatsapp": true,
+    "acepta_politicas": true
+  }
+}
+```
+
+- Si `contacto.acepta_politicas=true`, la API lo normaliza como `["aviso_privacidad", "terminos_cotizacion"]`.
+- Si viene telefono valido, `acepta_whatsapp=true` y `acepta_politicas=true`, `cotizacion_preflight` no debe devolver:
+  - `contacto_telefono_recomendado`;
+  - `aceptacion_whatsapp_recomendada`;
+  - `politicas_aceptadas_no_informadas`.
+- Se conserva el modo preflight: no registra cotizacion, no crea pedido y no descuenta inventario.
+
+## Propuesta 2026-08-10 - CMS ligero para contenido frontend
+
+Motivo:
+
+- Frontend necesita contenido editable desde panel ERP: banner principal, banners de categoria, bloques de home, textos promocionales, colecciones destacadas y contenido por plantilla.
+- Hoy `/ecommercePublico/bootstrap` y `/ecommercePublico/secciones` entregan bloques generados desde catalogo, pero no existe un sistema editorial para gobernar layout/contenido desde el panel.
+- Conviene resolverlo antes de que frontend deje banners, textos y estructura quemados en codigo.
+
+Decision recomendada:
+
+- Crear un CMS ecommerce ligero y headless: el ERP administra contenido y frontend solo consume JSON.
+- No convertir el ERP en constructor visual completo tipo page builder pesado en la primera etapa.
+- Separar tres conceptos:
+  - `plantilla`: define slots disponibles, por ejemplo `home.hero`, `home.destacados`, `categoria.banner`;
+  - `bloque`: contenido editable, por ejemplo banner, carrusel, coleccion, texto, CTA, imagen;
+  - `publicacion`: instancia de un bloque colocada en un slot, con orden, vigencia, canal y estatus.
+
+Contrato propuesto para frontend:
+
+- `GET /ecommercePublico/contenido_manifest`
+  - Plantillas disponibles, slots soportados, tipos de bloque y reglas visuales.
+- `GET /ecommercePublico/contenido_pagina?pagina=home&plantilla=artiani_default`
+  - Devuelve estructura editorial lista para renderizar por frontend.
+- `GET /ecommercePublico/contenido_pagina?pagina=categoria&categoria=peces`
+  - Devuelve banner/copy/bloques especificos de categoria.
+- El contenido debe integrarse tambien en `/ecommercePublico/bootstrap` para primer render.
+- Nombre recomendado para el primer render:
+  - usar `GET /ecommercePublico/configuracion_inicial`;
+  - mantener `GET /ecommercePublico/bootstrap` solo como alias legacy, porque el nombre puede confundirse con Bootstrap CSS.
+
+Tipos de bloque iniciales:
+
+- `hero_banner`: imagen desktop/mobile, titulo, subtitulo, CTA, url destino.
+- `category_banner`: banner por categoria, descripcion corta y CTA.
+- `product_collection`: coleccion manual o dinamica por categoria, mascota, necesidad, marca o etiqueta.
+- `promo_strip`: franja simple de promocion/aviso.
+- `content_html_safe`: texto editorial sanitizado para politicas o bloques informativos.
+- `image_card_grid`: cuadricula de tarjetas con imagen, titulo y enlace.
+
+Panel interno recomendado:
+
+- Vista interna separada: `/cms/contenido`.
+- Funciones:
+  - elegir plantilla activa;
+  - ver slots disponibles;
+  - crear/editar banners;
+  - subir/seleccionar imagen desktop y mobile;
+  - ordenar bloques;
+  - programar vigencia;
+  - pausar/publicar contenido;
+  - previsualizar JSON consumido por frontend.
+
+Sobre escanear la plantilla:
+
+- Se puede hacer, pero no conviene intentar clonar todo el HTML/CSS desde backend.
+- Lo recomendable es que frontend entregue un mapa de slots de la plantilla:
+
+```json
+{
+  "plantilla": "artiani_default",
+  "slots": [
+    {"codigo": "home.hero", "tipos": ["hero_banner"], "max_bloques": 1},
+    {"codigo": "home.destacados", "tipos": ["product_collection"], "max_bloques": 3},
+    {"codigo": "categoria.banner", "tipos": ["category_banner"], "max_bloques": 1}
+  ]
+}
+```
+
+- El ERP guarda contenido para esos slots; frontend decide como renderizarlos respetando su plantilla.
+
+Guardrails:
+
+- Frontend no debe leer archivos internos del ERP.
+- El CMS no debe modificar catalogo, precios, inventario ni publicaciones de producto.
+- Banners/contenido publicados deben salir solo por API publica.
+- Imagenes deben tener version desktop/mobile y texto alternativo.
+- El primer entregable puede ser read-only/manifest antes de habilitar escrituras reales.
+
+Fase sugerida:
+
+- Tratarlo como Fase 7 adelantada: `SEO y contenido / CMS ecommerce`.
+- Primer paso: disenar esquema y contrato read-only.
+- Segundo paso: endpoint publico de contenido con datos mock/default.
+- Tercer paso: panel interno para capturar contenido.
+- Cuarto paso: escrituras autorizadas, subida de imagenes y publicacion real.
+
+## Avance CMS ligero 2026-08-10
+
+Estado:
+
+- Iniciada Fase 7 adelantada en modo seguro/read-only.
+- No se crearon tablas ni se habilitaron escrituras.
+- No se toca catalogo, precios, inventario ni publicaciones de producto.
+
+Endpoints publicos agregados:
+
+- `GET /ecommercePublico/contenido_manifest`
+  - expone plantilla `artiani_default`;
+  - slots soportados: `home.hero`, `home.promo`, `home.categorias`, `home.destacados`, `categoria.banner`, `categoria.productos`, `catalogo.encabezado`;
+  - tipos de bloque: `hero_banner`, `category_banner`, `product_collection`, `promo_strip`, `image_card_grid`, `content_html_safe`.
+- `GET /ecommercePublico/contenido_pagina?pagina=home`
+  - devuelve estructura default para home con hero, promo, categorias y colecciones dinamicas.
+- `GET /ecommercePublico/contenido_pagina?pagina=categoria&categoria=peces`
+  - devuelve banner default de categoria y coleccion dinamica por categoria.
+
+Integracion:
+
+- `GET /ecommercePublico/configuracion_inicial` ahora incluye links a:
+  - `contenido_manifest`;
+  - `contenido_pagina?pagina=home`;
+  - `contenido_pagina?pagina=categoria&categoria={slug_categoria}`.
+- `frontend_handoff`, `contratos`, `catalogo_manifest` y `fase_2_checklist` ya exponen los endpoints de contenido.
+
+UAT:
+
+- `storage/uat/uat_ecommerce_publico_contenido_readonly.php`
+  - valida manifest;
+  - valida home con slots principales;
+  - valida categoria con banner;
+  - valida guardrails read-only.
+
+Siguiente paso recomendado:
+
+1. Frontend integra `contenido_manifest` y `contenido_pagina` con la plantilla actual.
+2. Si el contrato funciona visualmente, crear diseno de esquema para guardar contenido real.
+3. Despues evolucionar el panel interno separado `/cms/contenido` con alta/edicion/publicacion de banners y bloques.

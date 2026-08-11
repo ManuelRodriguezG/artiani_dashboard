@@ -52,10 +52,31 @@ class EcommerceCatalogoPublico extends CRUD {
         ),
         array(
           "metodo" => "GET",
-          "ruta" => "/ecommercePublico/bootstrap",
-          "descripcion" => "Paquete inicial para frontend: estado, configuracion, filtros, navegacion, secciones, politicas y canales.",
+          "ruta" => "/ecommercePublico/configuracion_inicial",
+          "descripcion" => "Endpoint recomendado de arranque: estado, configuracion, filtros, navegacion, secciones, politicas y canales.",
           "parametros" => array("limite_secciones" => "1-12, default 6."),
           "respuesta_depurar" => array("ready", "estado", "configuracion", "filtros", "navegacion", "secciones", "politicas", "canales", "fase_2", "guardrails")
+        ),
+        array(
+          "metodo" => "GET",
+          "ruta" => "/ecommercePublico/bootstrap",
+          "descripcion" => "Alias legacy de configuracion_inicial; se mantiene por compatibilidad, pero frontend nuevo debe usar configuracion_inicial.",
+          "parametros" => array("limite_secciones" => "1-12, default 6."),
+          "respuesta_depurar" => array("ready", "estado", "configuracion", "filtros", "navegacion", "secciones", "politicas", "canales", "fase_2", "guardrails")
+        ),
+        array(
+          "metodo" => "GET",
+          "ruta" => "/ecommercePublico/contenido_manifest",
+          "descripcion" => "Manifest del CMS ligero: plantillas, slots, tipos de bloque y paginas soportadas.",
+          "parametros" => array("plantilla" => "artiani_default por defecto."),
+          "respuesta_depurar" => array("cms", "plantilla_activa", "plantillas", "tipos_bloque", "paginas_soportadas", "guardrails")
+        ),
+        array(
+          "metodo" => "GET",
+          "ruta" => "/ecommercePublico/contenido_pagina",
+          "descripcion" => "Estructura editorial de una pagina para renderizar banners, colecciones y bloques desde frontend.",
+          "parametros" => array("pagina" => "home|categoria|catalogo.", "plantilla" => "artiani_default por defecto.", "categoria" => "slug/codigo cuando pagina=categoria."),
+          "respuesta_depurar" => array("pagina", "plantilla", "fuente", "slots", "resumen", "links", "guardrails")
         ),
         array(
           "metodo" => "GET",
@@ -192,10 +213,10 @@ class EcommerceCatalogoPublico extends CRUD {
             "items" => array(
               array("id_publicacion" => "int opcional", "slug" => "string opcional", "id_sku" => "int opcional", "cantidad" => "decimal > 0")
             ),
-            "contacto" => array("nombre" => "string recomendado", "telefono" => "string recomendado", "correo" => "string opcional", "mensaje" => "string opcional"),
+            "contacto" => array("nombre" => "string recomendado", "telefono" => "string recomendado", "correo" => "string opcional", "mensaje" => "string opcional", "acepta_whatsapp" => "bool recomendado", "acepta_politicas" => "bool|string[] recomendado"),
             "utm" => "object opcional",
-            "acepta_contacto_whatsapp" => "bool recomendado para seguimiento",
-            "politicas_aceptadas" => "string[] opcional"
+            "acepta_contacto_whatsapp" => "bool legacy compatible en raiz",
+            "politicas_aceptadas" => "string[] legacy compatible en raiz"
           ),
           "respuesta_depurar" => array("preflight", "folio_preliminar", "listo_para_whatsapp", "listo_para_registro_futuro", "contacto", "validacion_contacto", "consentimiento", "cta", "dry_run", "fase_2")
         ),
@@ -403,7 +424,9 @@ class EcommerceCatalogoPublico extends CRUD {
         "endpoints_para_consumir" => $this->endpointsFrontendHandoff(),
         "orden_recomendado_integracion" => array(
           "GET /ecommercePublico/frontend_handoff",
-          "GET /ecommercePublico/bootstrap",
+          "GET /ecommercePublico/configuracion_inicial",
+          "GET /ecommercePublico/contenido_manifest",
+          "GET /ecommercePublico/contenido_pagina?pagina=home",
           "GET /ecommercePublico/catalogo_manifest",
           "GET /ecommercePublico/fase_2_checklist",
           "GET /ecommercePublico/filtros",
@@ -417,7 +440,9 @@ class EcommerceCatalogoPublico extends CRUD {
         ),
         "pruebas_con_api" => $this->pruebasFrontendHandoff($baseApi, $slugEjemplo, $payloadCotizacion),
         "contratos_ui" => array(
-          "bootstrap" => array("depurar.ready", "depurar.fase_2.primer_render", "depurar.guardrails"),
+          "configuracion_inicial" => array("depurar.ready", "depurar.fase_2.primer_render", "depurar.guardrails"),
+          "contenido_manifest" => array("depurar.plantillas", "depurar.tipos_bloque", "depurar.guardrails"),
+          "contenido_pagina" => array("depurar.slots", "depurar.resumen", "depurar.guardrails"),
           "catalogo_manifest" => array("depurar.parametros_soportados", "depurar.ordenamientos", "depurar.endpoints_relacionados", "depurar.guardrails"),
           "fase_2_checklist" => array("depurar.endpoints_obligatorios", "depurar.orden_integracion", "depurar.escenarios_prueba", "depurar.criterios_pase_fase_3"),
           "catalogo" => array("depurar.items", "depurar.paginacion", "depurar.frontend", "depurar.fase_2", "depurar.guardrails"),
@@ -432,6 +457,8 @@ class EcommerceCatalogoPublico extends CRUD {
         ),
         "ejemplos" => array(
           "catalogo_manifest" => $this->resumenRespuestaFrontendHandoff($manifest, array("fase", "estado_catalogo", "ordenamientos", "endpoints_relacionados", "guardrails")),
+          "contenido_manifest" => $this->resumenRespuestaFrontendHandoff($this->contenidoManifestPublico(), array("cms", "plantilla_activa", "plantillas", "tipos_bloque", "guardrails")),
+          "contenido_pagina_home" => $this->resumenRespuestaFrontendHandoff($this->contenidoPaginaPublica(array("pagina" => "home")), array("pagina", "plantilla", "slots", "resumen", "guardrails")),
           "fase_2_checklist" => $this->resumenRespuestaFrontendHandoff($checklist, array("estado", "resumen", "endpoints_obligatorios", "criterios_pase_fase_3")),
           "catalogo" => $this->resumenRespuestaFrontendHandoff($catalogo, array("items", "paginacion", "frontend")),
           "producto" => $this->resumenRespuestaFrontendHandoff($producto, array("item", "variantes", "relacionados", "breadcrumbs", "seo", "acciones")),
@@ -444,7 +471,7 @@ class EcommerceCatalogoPublico extends CRUD {
           "fase" => "fase_2_api_catalogo_robusta",
           "estado" => "handoff_consolidado",
           "frontend_puede_consumir_sin_docs" => true,
-          "bloques_listos" => array("bootstrap", "catalogo_manifest", "fase_2_checklist", "catalogo", "producto", "filtros", "navegacion", "secciones", "busqueda_sugerencias", "seo"),
+          "bloques_listos" => array("configuracion_inicial", "contenido_manifest", "contenido_pagina", "catalogo_manifest", "fase_2_checklist", "catalogo", "producto", "filtros", "navegacion", "secciones", "busqueda_sugerencias", "seo"),
           "guardrails" => array(
             "no_requiere_filesystem" => true,
             "no_granel" => true,
@@ -471,7 +498,8 @@ class EcommerceCatalogoPublico extends CRUD {
         ),
         "contratos_fuente" => array(
           "contratos_api" => $this->valor($contratos, array("depurar", "base_path"), $basePath),
-          "bootstrap_disponible" => !empty($bootstrap) && empty($bootstrap["error"]),
+          "configuracion_inicial_disponible" => !empty($bootstrap) && empty($bootstrap["error"]),
+          "bootstrap_alias_legacy_disponible" => true,
           "catalogo_manifest_disponible" => !empty($manifest) && empty($manifest["error"]),
           "fase_2_checklist_disponible" => !empty($checklist) && empty($checklist["error"]),
           "seo_disponible" => !empty($seo) && empty($seo["error"]),
@@ -568,6 +596,320 @@ class EcommerceCatalogoPublico extends CRUD {
     } catch (Exception $e) {
       return $this->respuesta(true, "danger", $e->getMessage(), array("ready" => false));
     }
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-08-10
+   * Proposito: entregar la configuracion inicial con nombre claro para frontend ecommerce.
+   * Impacto: evita confundir el endpoint de arranque con Bootstrap CSS; conserva bootstrap como alias legacy.
+   * Contrato: read-only; no escribe BD, no expone secretos y no muestra stock exacto.
+   */
+  public function configuracionInicialPublica($opciones = array()) {
+    $respuesta = $this->bootstrapPublico($opciones);
+    $respuesta["mensaje"] = !empty($respuesta["error"])
+      ? (isset($respuesta["mensaje"]) ? $respuesta["mensaje"] : "Configuracion inicial ecommerce con observaciones")
+      : "Configuracion inicial ecommerce lista";
+    if (!isset($respuesta["depurar"]) || !is_array($respuesta["depurar"])) {
+      $respuesta["depurar"] = array();
+    }
+    $respuesta["depurar"]["endpoint_principal"] = "/ecommercePublico/configuracion_inicial";
+    $respuesta["depurar"]["alias_legacy"] = "/ecommercePublico/bootstrap";
+    $respuesta["depurar"]["contenido"] = array(
+      "manifest" => "/ecommercePublico/contenido_manifest",
+      "home" => "/ecommercePublico/contenido_pagina?pagina=home&plantilla=artiani_default",
+      "categoria" => "/ecommercePublico/contenido_pagina?pagina=categoria&categoria={slug_categoria}",
+      "estado" => "default_readonly",
+      "panel_pendiente" => true
+    );
+    return $respuesta;
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-08-10
+   * Proposito: publicar el manifiesto del CMS ligero para plantillas, slots y bloques.
+   * Impacto: Frontend ecommerce; permite implementar plantillas sin hardcodear estructura editorial.
+   * Contrato: read-only; no escribe BD ni lee archivos de plantilla del proyecto frontend.
+   */
+  public function contenidoManifestPublico($opciones = array()) {
+    $plantilla = $this->limpiarFiltroPublico($this->valor($opciones, "plantilla", "artiani_default"));
+    if ($plantilla === "") { $plantilla = "artiani_default"; }
+    return $this->respuesta(false, "success", "Manifest de contenido ecommerce disponible", array(
+      "cms" => array(
+        "fase" => "fase_7_contenido_cms_ligero_readonly",
+        "estado" => "contrato_default_sin_persistencia",
+        "headless" => true,
+        "panel_pendiente" => true,
+        "endpoint_principal" => "/ecommercePublico/contenido_pagina"
+      ),
+      "plantilla_activa" => $plantilla,
+      "plantillas" => array(
+        array(
+          "codigo" => "artiani_default",
+          "nombre" => "Artiani default",
+          "descripcion" => "Plantilla base para home, catalogo y categorias del ecommerce Artiani.",
+          "slots" => $this->contenidoSlotsDefault()
+        )
+      ),
+      "tipos_bloque" => $this->contenidoTiposBloqueDefault(),
+      "paginas_soportadas" => array(
+        array("codigo" => "home", "endpoint" => "/ecommercePublico/contenido_pagina?pagina=home&plantilla=" . $plantilla),
+        array("codigo" => "categoria", "endpoint" => "/ecommercePublico/contenido_pagina?pagina=categoria&categoria={slug_categoria}&plantilla=" . $plantilla),
+        array("codigo" => "catalogo", "endpoint" => "/ecommercePublico/contenido_pagina?pagina=catalogo&plantilla=" . $plantilla)
+      ),
+      "parametros" => array(
+        "pagina" => "home|categoria|catalogo",
+        "plantilla" => "artiani_default por defecto",
+        "categoria" => "slug/codigo de categoria cuando pagina=categoria"
+      ),
+      "guardrails" => array(
+        "read_only" => true,
+        "no_escribe_bd" => true,
+        "no_modifica_catalogo" => true,
+        "no_modifica_inventario" => true,
+        "frontend_renderiza_plantilla" => true,
+        "erp_entrega_contenido_json" => true
+      )
+    ));
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-08-10
+   * Proposito: entregar bloques editoriales de una pagina ecommerce para render headless.
+   * Impacto: Frontend ecommerce; habilita home/categorias con banners, colecciones y CTAs por API.
+   * Contrato: read-only; devuelve contenido default hasta activar tablas/panel de captura.
+   */
+  public function contenidoPaginaPublica($opciones = array()) {
+    $pagina = $this->limpiarFiltroPublico($this->valor($opciones, "pagina", "home"));
+    $plantilla = $this->limpiarFiltroPublico($this->valor($opciones, "plantilla", "artiani_default"));
+    $categoria = $this->limpiarFiltroPublico($this->valor($opciones, "categoria", ""));
+    if ($pagina === "") { $pagina = "home"; }
+    if ($plantilla === "") { $plantilla = "artiani_default"; }
+    $permitidas = array("home", "categoria", "catalogo");
+    if (!in_array($pagina, $permitidas, true)) {
+      $pagina = "home";
+    }
+    $slots = $this->contenidoSlotsPaginaDefault($pagina, $categoria);
+    return $this->respuesta(false, "success", "Contenido de pagina ecommerce disponible", array(
+      "pagina" => $pagina,
+      "plantilla" => $plantilla,
+      "categoria" => $categoria,
+      "fuente" => "default_readonly",
+      "editable_desde_panel" => false,
+      "panel_pendiente" => true,
+      "version_contenido" => "default-2026-08-10",
+      "slots" => $slots,
+      "resumen" => array(
+        "slots_total" => count($slots),
+        "bloques_total" => $this->contarBloquesContenido($slots),
+        "tiene_hero" => $this->contenidoTieneSlot($slots, "home.hero") || $this->contenidoTieneSlot($slots, "categoria.banner"),
+        "requiere_imagenes_reales_panel" => true
+      ),
+      "links" => array(
+        "manifest" => "/ecommercePublico/contenido_manifest?plantilla=" . $plantilla,
+        "configuracion_inicial" => "/ecommercePublico/configuracion_inicial",
+        "catalogo" => "/ecommercePublico/catalogo",
+        "secciones" => "/ecommercePublico/secciones"
+      ),
+      "guardrails" => array(
+        "read_only" => true,
+        "no_escribe_bd" => true,
+        "no_modifica_catalogo" => true,
+        "no_modifica_inventario" => true,
+        "no_checkout" => true,
+        "imagenes_reales_pendientes_panel" => true
+      )
+    ));
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-08-10
+   * Proposito: resumir estado interno del CMS ecommerce para el panel ERP.
+   * Impacto: Ecommerce CMS; combina auditoria y plan DDL sin ejecutar cambios ni tocar catalogo/inventario.
+   * Contrato: read-only; recibe respuestas de esquema y devuelve payload operativo para UI.
+   */
+  public function contenidoAdminEstadoInterno($auditoriaEsquema, $planEsquema) {
+    $manifest = $this->contenidoManifestPublico();
+    $home = $this->contenidoPaginaPublica(array("pagina" => "home"));
+    return $this->respuesta(false, "info", "CMS ecommerce en modo read-only", array(
+      "modo" => "admin_readonly",
+      "fase" => "cms_contenido_diseno_y_panel_inicial",
+      "persistencia_real" => false,
+      "pantalla" => "/cms/contenido",
+      "endpoints_admin" => array(
+        "estado" => "/cms/contenido_admin_estado_erp",
+        "manifest" => "/cms/contenido_admin_manifest_erp",
+        "pagina" => "/cms/contenido_admin_pagina_erp"
+      ),
+      "endpoints_publicos" => array(
+        "manifest" => "/ecommercePublico/contenido_manifest",
+        "pagina_home" => "/ecommercePublico/contenido_pagina?pagina=home",
+        "configuracion_inicial" => "/ecommercePublico/configuracion_inicial",
+        "bootstrap_alias_legacy" => "/ecommercePublico/bootstrap"
+      ),
+      "resumen" => array(
+        "plantilla_activa" => $this->valor($manifest, array("depurar", "plantilla_activa"), "artiani_default"),
+        "slots_total" => count($this->valor($manifest, array("depurar", "plantillas", 0, "slots"), array())),
+        "tipos_bloque_total" => count($this->valor($manifest, array("depurar", "tipos_bloque"), array())),
+        "bloques_default_home" => $this->valor($home, array("depurar", "resumen", "bloques_total"), 0)
+      ),
+      "esquema" => array(
+        "auditoria" => $this->valor($auditoriaEsquema, "depurar", array()),
+        "plan" => $this->valor($planEsquema, "depurar", array())
+      ),
+      "guardrails" => $this->contenidoGuardrailsAdmin()
+    ));
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-08-10
+   * Proposito: entregar manifest interno del CMS con metadatos de administracion.
+   * Impacto: Ecommerce CMS; alimenta la vista interna sin activar escrituras.
+   * Contrato: read-only; no consulta archivos de plantilla ni modifica BD.
+   */
+  public function contenidoAdminManifestInterno($opciones = array()) {
+    $manifest = $this->contenidoManifestPublico($opciones);
+    $depurar = $this->valor($manifest, "depurar", array());
+    $depurar["admin"] = array(
+      "modo" => "readonly",
+      "puede_guardar" => false,
+      "puede_publicar" => false,
+      "vista" => "/cms/contenido",
+      "pendiente_persistencia" => true
+    );
+    $depurar["guardrails"] = array_merge($this->valor($depurar, "guardrails", array()), $this->contenidoGuardrailsAdmin());
+    return $this->respuesta(false, "success", "Manifest interno CMS ecommerce disponible", $depurar);
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-08-10
+   * Proposito: entregar previsualizacion admin de una pagina CMS ecommerce.
+   * Impacto: Ecommerce CMS; muestra el mismo contrato que consumira frontend con avisos de modo read-only.
+   * Contrato: read-only; usa contenido default hasta que se autorice persistencia real.
+   */
+  public function contenidoAdminPaginaInterna($opciones = array()) {
+    $pagina = $this->contenidoPaginaPublica($opciones);
+    $depurar = $this->valor($pagina, "depurar", array());
+    $depurar["admin"] = array(
+      "modo" => "readonly",
+      "previsualizacion_json" => true,
+      "fuente_actual" => $this->valor($depurar, "fuente", "default_readonly"),
+      "pendiente_persistencia" => true
+    );
+    $depurar["guardrails"] = array_merge($this->valor($depurar, "guardrails", array()), $this->contenidoGuardrailsAdmin());
+    return $this->respuesta(false, "success", "Previsualizacion CMS ecommerce disponible", $depurar);
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-08-10
+   * Proposito: entregar manifest interno de plantillas de vista frontend para CMS.
+   * Impacto: CMS frontend; define layouts, componentes, variantes y mapeos slot->componente sin editar archivos.
+   * Contrato: read-only; el frontend debe renderizar solo componentes predefinidos.
+   */
+  public function frontendPlantillasAdminManifestInterno($opciones = array()) {
+    $componentes = array(
+      array(
+        "codigo" => "HeroSlider",
+        "nombre" => "Hero slider",
+        "bloques_permitidos" => array("hero_banner"),
+        "variantes" => array("full_width", "boxed", "split"),
+        "slots_compatibles" => array("home.hero", "categoria.banner")
+      ),
+      array(
+        "codigo" => "PromoStrip",
+        "nombre" => "Tira promocional",
+        "bloques_permitidos" => array("promo_strip"),
+        "variantes" => array("single", "stacked", "compact"),
+        "slots_compatibles" => array("home.promo", "catalogo.encabezado")
+      ),
+      array(
+        "codigo" => "CategoryGrid",
+        "nombre" => "Grid de categorias",
+        "bloques_permitidos" => array("image_card_grid"),
+        "variantes" => array("cards_3", "cards_4", "mosaic"),
+        "slots_compatibles" => array("home.categorias")
+      ),
+      array(
+        "codigo" => "ProductCarousel",
+        "nombre" => "Carrusel de productos",
+        "bloques_permitidos" => array("product_collection"),
+        "variantes" => array("compact_cards", "wide_cards", "simple_row"),
+        "slots_compatibles" => array("home.destacados", "categoria.productos")
+      ),
+      array(
+        "codigo" => "ImageCardGrid",
+        "nombre" => "Cards con imagen",
+        "bloques_permitidos" => array("image_card_grid"),
+        "variantes" => array("two_columns", "three_columns", "editorial"),
+        "slots_compatibles" => array("home.categorias", "home.promo")
+      ),
+      array(
+        "codigo" => "SafeHtmlBlock",
+        "nombre" => "Contenido HTML seguro",
+        "bloques_permitidos" => array("content_html_safe"),
+        "variantes" => array("narrow", "wide", "accordion"),
+        "slots_compatibles" => array("catalogo.encabezado", "home.promo")
+      )
+    );
+
+    $plantillas = array(
+      array(
+        "codigo" => "wokiee_home_default",
+        "nombre" => "Wokiee home default",
+        "pagina" => "home",
+        "layout" => "storefront_wokiee_v1",
+        "estatus" => "borrador_readonly",
+        "secciones" => array(
+          array("slot" => "home.hero", "componente" => "HeroSlider", "variante" => "full_width", "orden" => 1),
+          array("slot" => "home.promo", "componente" => "PromoStrip", "variante" => "compact", "orden" => 2),
+          array("slot" => "home.categorias", "componente" => "CategoryGrid", "variante" => "cards_4", "orden" => 3),
+          array("slot" => "home.destacados", "componente" => "ProductCarousel", "variante" => "compact_cards", "orden" => 4)
+        )
+      ),
+      array(
+        "codigo" => "wokiee_categoria_default",
+        "nombre" => "Wokiee categoria default",
+        "pagina" => "categoria",
+        "layout" => "category_wokiee_v1",
+        "estatus" => "borrador_readonly",
+        "secciones" => array(
+          array("slot" => "categoria.banner", "componente" => "HeroSlider", "variante" => "boxed", "orden" => 1),
+          array("slot" => "categoria.productos", "componente" => "ProductCarousel", "variante" => "wide_cards", "orden" => 2)
+        )
+      ),
+      array(
+        "codigo" => "wokiee_catalogo_default",
+        "nombre" => "Wokiee catalogo default",
+        "pagina" => "catalogo",
+        "layout" => "catalog_wokiee_v1",
+        "estatus" => "borrador_readonly",
+        "secciones" => array(
+          array("slot" => "catalogo.encabezado", "componente" => "SafeHtmlBlock", "variante" => "wide", "orden" => 1)
+        )
+      )
+    );
+
+    return $this->respuesta(false, "success", "Manifest frontend CMS disponible", array(
+      "modo" => "readonly",
+      "fase" => "cms_frontend_plantillas_diseno_inicial",
+      "plantilla_activa_home" => "wokiee_home_default",
+      "layouts" => array("storefront_wokiee_v1", "category_wokiee_v1", "catalog_wokiee_v1"),
+      "componentes" => $componentes,
+      "plantillas_vista" => $plantillas,
+      "renderer_frontend" => array(
+        "consume_desde" => "/ecommercePublico/configuracion_inicial",
+        "pagina" => "/ecommercePublico/contenido_pagina?pagina=home",
+        "contrato" => "plantilla_vista + contenido.slots",
+        "mapa_componentes_requerido" => true
+      ),
+      "guardrails" => array(
+        "read_only" => true,
+        "no_edita_archivos_frontend" => true,
+        "no_html_libre" => true,
+        "no_css_libre" => true,
+        "no_js_libre" => true,
+        "frontend_renderiza_componentes_predefinidos" => true
+      )
+    ));
   }
 
   /**
@@ -852,7 +1194,10 @@ class EcommerceCatalogoPublico extends CRUD {
         ),
         "endpoints_relacionados" => array(
           "handoff" => "/ecommercePublico/frontend_handoff",
-          "bootstrap" => "/ecommercePublico/bootstrap",
+          "configuracion_inicial" => "/ecommercePublico/configuracion_inicial",
+          "contenido_manifest" => "/ecommercePublico/contenido_manifest",
+          "contenido_pagina_home" => "/ecommercePublico/contenido_pagina?pagina=home",
+          "bootstrap_alias_legacy" => "/ecommercePublico/bootstrap",
           "fase_2_checklist" => "/ecommercePublico/fase_2_checklist",
           "catalogo" => "/ecommercePublico/catalogo",
           "producto" => "/ecommercePublico/producto/{slug}",
@@ -907,7 +1252,10 @@ class EcommerceCatalogoPublico extends CRUD {
       $ready = !empty($estado["depurar"]["ready"]);
       $endpoints = array(
         array("grupo" => "arranque", "metodo" => "GET", "ruta" => "/ecommercePublico/frontend_handoff", "obligatorio" => true, "uso_frontend" => "Punto de entrada para descubrir estado, ejemplos y pruebas."),
-        array("grupo" => "arranque", "metodo" => "GET", "ruta" => "/ecommercePublico/bootstrap", "obligatorio" => true, "uso_frontend" => "Primer render de home/catalogo."),
+        array("grupo" => "arranque", "metodo" => "GET", "ruta" => "/ecommercePublico/configuracion_inicial", "obligatorio" => true, "uso_frontend" => "Primer render de home/catalogo con nombre claro."),
+        array("grupo" => "arranque", "metodo" => "GET", "ruta" => "/ecommercePublico/bootstrap", "obligatorio" => false, "uso_frontend" => "Alias legacy de configuracion_inicial."),
+        array("grupo" => "contenido", "metodo" => "GET", "ruta" => "/ecommercePublico/contenido_manifest", "obligatorio" => true, "uso_frontend" => "Plantillas, slots y tipos de bloque del CMS ligero."),
+        array("grupo" => "contenido", "metodo" => "GET", "ruta" => "/ecommercePublico/contenido_pagina", "obligatorio" => true, "uso_frontend" => "Banners, colecciones y estructura editorial por pagina."),
         array("grupo" => "catalogo", "metodo" => "GET", "ruta" => "/ecommercePublico/catalogo_manifest", "obligatorio" => true, "uso_frontend" => "Parametros, ordenamientos, previews y reglas."),
         array("grupo" => "catalogo", "metodo" => "GET", "ruta" => "/ecommercePublico/catalogo", "obligatorio" => true, "uso_frontend" => "Listado paginado y filtros activos."),
         array("grupo" => "catalogo", "metodo" => "GET", "ruta" => "/ecommercePublico/filtros", "obligatorio" => true, "uso_frontend" => "Facetas para filtros UI."),
@@ -923,7 +1271,9 @@ class EcommerceCatalogoPublico extends CRUD {
         array("grupo" => "futuro", "metodo" => "GET", "ruta" => "/ecommercePublico/canales_estado", "obligatorio" => false, "uso_frontend" => "Estado de canales y partners futuros.")
       );
       $escenarios = array(
-        array("codigo" => "home_bootstrap", "endpoint" => "GET /ecommercePublico/bootstrap?limite_secciones=3", "esperado" => "ready=true, depurar.fase_2.primer_render y guardrails."),
+        array("codigo" => "configuracion_inicial_home", "endpoint" => "GET /ecommercePublico/configuracion_inicial?limite_secciones=3", "esperado" => "ready=true, depurar.fase_2.primer_render y guardrails."),
+        array("codigo" => "contenido_manifest", "endpoint" => "GET /ecommercePublico/contenido_manifest", "esperado" => "plantillas, slots, tipos_bloque y read_only=true."),
+        array("codigo" => "contenido_home", "endpoint" => "GET /ecommercePublico/contenido_pagina?pagina=home", "esperado" => "slots home.hero, home.categorias, home.destacados y fuentes dinamicas de catalogo."),
         array("codigo" => "catalogo_base", "endpoint" => "GET /ecommercePublico/catalogo?limite=3", "esperado" => "items, paginacion, frontend y fase_2."),
         array("codigo" => "catalogo_filtro_disponible", "endpoint" => "GET /ecommercePublico/catalogo?disponibilidad=disponible&orden=precio_asc&limite=3", "esperado" => "filtro activo disponibilidad y precio estimado."),
         array("codigo" => "catalogo_sin_resultados", "endpoint" => "GET /ecommercePublico/catalogo?q=__sin_resultados_catalogo_frontend__&limite=3", "esperado" => "frontend.estado_vacio.mostrar=true."),
@@ -2121,11 +2471,11 @@ class EcommerceCatalogoPublico extends CRUD {
       $bloqueos = array();
     }
 
-    $contacto = $this->normalizarContactoCotizacion($this->valor($datos, "contacto", array()));
+    $contactoRaw = $this->valor($datos, "contacto", array());
+    $contacto = $this->normalizarContactoCotizacion($contactoRaw);
     $validacionContacto = $this->validacionContactoCotizacion($contacto);
-    $aceptaWhatsapp = $this->valor($datos, "acepta_contacto_whatsapp", false);
-    $aceptaWhatsapp = $aceptaWhatsapp === true || in_array(strtolower(trim((string) $aceptaWhatsapp)), array("1", "true", "si", "yes", "on"), true);
-    $politicasAceptadas = $this->normalizarListaTextoPublica($this->valor($datos, "politicas_aceptadas", array()));
+    $aceptaWhatsapp = $this->booleanoCotizacion($this->valor($contactoRaw, "acepta_whatsapp", $this->valor($datos, "acepta_contacto_whatsapp", false)));
+    $politicasAceptadas = $this->politicasAceptadasCotizacion($datos, $contactoRaw);
     $consentimiento = $this->consentimientoCotizacion($aceptaWhatsapp, $politicasAceptadas);
     $utm = $this->normalizarUtmCotizacion($this->valor($datos, "utm", array()));
 
@@ -3236,6 +3586,7 @@ class EcommerceCatalogoPublico extends CRUD {
       );
       $metadata = $this->inferirMetadataMascotas($fila);
       $titulo = trim((string) $fila["nombre_publico"]);
+      $descripcionCatalogo = $this->descripcionCatalogoParaEcommerce($fila);
       $presentacion = trim((string) $fila["presentacion_base"]);
       $slugBase = $titulo . " " . $presentacion . " " . $fila["sku"];
       $necesidadesSugeridas = $metadata["necesidades"];
@@ -3269,7 +3620,7 @@ class EcommerceCatalogoPublico extends CRUD {
           "estatus_publicacion" => "borrador",
           "slug" => $publicacionActual["slug"] !== "" ? $publicacionActual["slug"] : $this->slugificar($slugBase),
           "titulo_publico" => $publicacionActual["titulo_publico"] !== "" ? $publicacionActual["titulo_publico"] : $titulo,
-          "descripcion_publica" => $publicacionActual["descripcion_publica"],
+          "descripcion_publica" => $publicacionActual["descripcion_publica"] !== "" ? $publicacionActual["descripcion_publica"] : $descripcionCatalogo,
           "presentacion_publica" => $publicacionActual["presentacion_publica"] !== "" ? $publicacionActual["presentacion_publica"] : $presentacion,
           "mascota_especie" => $publicacionActual["mascota_especie"] !== "" ? $publicacionActual["mascota_especie"] : $metadata["mascota_especie"],
           "necesidades" => $necesidadesSugeridas,
@@ -3383,6 +3734,10 @@ class EcommerceCatalogoPublico extends CRUD {
       }
 
       $necesidades = $this->normalizarNecesidadesPublicacion($this->valor($datos, "necesidades", $this->valor($sugerida, "necesidades", array())));
+      $descripcionPublica = trim((string) $this->valor($datos, "descripcion_publica", $this->valor($sugerida, "descripcion_publica", "")));
+      if ($descripcionPublica === "") {
+        $descripcionPublica = $this->descripcionCatalogoParaEcommerce($fila);
+      }
       $publicacion = array(
         "id_producto_erp" => intval($fila["id_producto_erp"]),
         "id_sku" => intval($fila["id_sku"]),
@@ -3390,7 +3745,7 @@ class EcommerceCatalogoPublico extends CRUD {
         "estatus_publicacion" => $estatus,
         "slug" => $this->slugificar($this->valor($datos, "slug", $this->valor($sugerida, "slug", ""))),
         "titulo_publico" => trim((string) $this->valor($datos, "titulo_publico", $this->valor($sugerida, "titulo_publico", $fila["nombre_publico"]))),
-        "descripcion_publica" => trim((string) $this->valor($datos, "descripcion_publica", $this->valor($sugerida, "descripcion_publica", ""))),
+        "descripcion_publica" => $descripcionPublica,
         "presentacion_publica" => trim((string) $this->valor($datos, "presentacion_publica", $this->valor($sugerida, "presentacion_publica", $fila["presentacion_base"]))),
         "mascota_especie" => trim((string) $this->valor($datos, "mascota_especie", $this->valor($sugerida, "mascota_especie", ""))),
         "necesidades" => $necesidades,
@@ -3782,10 +4137,10 @@ class EcommerceCatalogoPublico extends CRUD {
   }
 
   /**
-   * Documentacion IA: Codex GPT-5 | Fecha: 2026-07-30
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-07-30; actualizado 2026-08-11
    * Proposito: publicar un lote de borradores ecommerce seleccionados en panel.
    * Impacto: expone publicaciones aprobadas al API publico manteniendo inventario intacto.
-   * Contrato: escribe solo estatus/fecha de publicacion; requiere token de lote y confirmacion de revision.
+   * Contrato: escribe solo estatus/fecha de publicacion; requiere token de lote, confirmacion de revision y confirmacion explicita si hay agotados.
    */
   public function publicarBorradoresLoteAutorizado($datos = array(), $opciones = array()) {
     $token = trim((string) $this->valor($opciones, "autorizar", $this->valor($datos, "autorizar", "")));
@@ -3813,7 +4168,8 @@ class EcommerceCatalogoPublico extends CRUD {
     foreach ($skus as $idSku) {
       $respuesta = $this->publicarBorradorAutorizado(array(
         "id_sku" => $idSku,
-        "confirmar_revision" => 1
+        "confirmar_revision" => 1,
+        "confirmar_agotado" => intval($this->valor($datos, "confirmar_agotado", 0))
       ), array("autorizar" => "ECOMMERCE_PUBLICO_PUBLICAR_BORRADOR"));
       if (empty($respuesta["error"])) {
         $ok++;
@@ -3894,6 +4250,9 @@ class EcommerceCatalogoPublico extends CRUD {
       $slug = $this->slugificar($this->valor($datos, "slug", $actual["slug"]));
       $titulo = trim((string) $this->valor($datos, "titulo_publico", $actual["titulo_publico"]));
       $descripcion = trim((string) $this->valor($datos, "descripcion_publica", $actual["descripcion_publica"]));
+      if ($descripcion === "") {
+        $descripcion = $this->descripcionCatalogoParaEcommerce($fila);
+      }
       $presentacion = trim((string) $this->valor($datos, "presentacion_publica", $actual["presentacion_publica"]));
       $mascota = trim((string) $this->valor($datos, "mascota_especie", $actual["mascota_especie"]));
       $necesidades = $this->normalizarNecesidadesPublicacion($this->valor($datos, "necesidades", $actual["necesidades_json"]));
@@ -4215,6 +4574,7 @@ class EcommerceCatalogoPublico extends CRUD {
         m.nombre marca,
         COALESCE(c.ruta, c.nombre) categoria,
         COALESCE(NULLIF(r.unidad_venta_label, ''), u.abreviatura, u.codigo, '') presentacion_base,
+        p.descripcion descripcion_catalogo,
         pr.precio, pr.moneda,
         img.url_imagen,
         COALESCE(r.controla_inventario, CASE WHEN s.tipo_inventario IN ('servicio','cargo') THEN 0 ELSE 1 END) controla_inventario,
@@ -4270,6 +4630,7 @@ class EcommerceCatalogoPublico extends CRUD {
         m.nombre marca,
         COALESCE(c.ruta, c.nombre) categoria,
         COALESCE(NULLIF(r.unidad_venta_label, ''), u.abreviatura, u.codigo, '') presentacion_base,
+        p.descripcion descripcion_catalogo,
         pr.precio, pr.moneda,
         img.url_imagen,
         COALESCE(r.controla_inventario, CASE WHEN s.tipo_inventario IN ('servicio','cargo') THEN 0 ELSE 1 END) controla_inventario,
@@ -4326,6 +4687,15 @@ class EcommerceCatalogoPublico extends CRUD {
       $bloqueos[] = "publicacion_existente";
     }
     return $bloqueos;
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-08-11
+   * Proposito: reutilizar la descripcion existente del Catalogo ERP como texto temporal de ecommerce.
+   * Impacto: evita fichas publicas vacias mientras se redacta curaduria especifica para ecommerce.
+   */
+  private function descripcionCatalogoParaEcommerce($fila) {
+    return trim((string) $this->valor($fila, "descripcion_catalogo", $this->valor($fila, "descripcion", "")));
   }
 
   private function disponibilidadPublicaSugerida($fila) {
@@ -4406,7 +4776,7 @@ class EcommerceCatalogoPublico extends CRUD {
         pub.titulo_publico, pub.descripcion_publica, pub.presentacion_publica,
         pub.mascota_especie, pub.necesidades_json, pub.destacado,
         pub.permite_cotizacion, pub.permite_whatsapp, pub.mostrar_precio, pub.mostrar_disponibilidad,
-        s.sku, COALESCE(s.nombre, p.nombre) nombre_sku, p.nombre nombre_producto,
+        s.sku, COALESCE(s.nombre, p.nombre) nombre_sku, p.nombre nombre_producto, p.descripcion descripcion_catalogo,
         m.nombre marca, pc.id_categoria_erp, COALESCE(c.ruta, c.nombre) categoria,
         pr.precio, pr.moneda,
         img.url_imagen,
@@ -4454,7 +4824,7 @@ class EcommerceCatalogoPublico extends CRUD {
       "marca" => $fila["marca"],
       "categoria" => $fila["categoria"],
       "presentacion" => $this->presentacionPublicaSalida($fila),
-      "descripcion" => $fila["descripcion_publica"],
+      "descripcion" => trim((string) $fila["descripcion_publica"]) !== "" ? $fila["descripcion_publica"] : $this->descripcionCatalogoParaEcommerce($fila),
       "imagen" => $fila["url_imagen"],
       "precio" => $mostrarPrecio ? floatval($fila["precio"]) : null,
       "moneda" => $mostrarPrecio ? ($fila["moneda"] ?: "MXN") : null,
@@ -4949,6 +5319,7 @@ class EcommerceCatalogoPublico extends CRUD {
       "fase" => "fase_2_api_catalogo_robusta",
       "ready_frontend" => (bool) $ready,
       "primer_render" => array(
+        "configuracion_inicial" => "/ecommercePublico/configuracion_inicial",
         "estado" => "/ecommercePublico/estado",
         "configuracion" => "/ecommercePublico/configuracion",
         "catalogo_manifest" => "/ecommercePublico/catalogo_manifest",
@@ -4968,7 +5339,8 @@ class EcommerceCatalogoPublico extends CRUD {
       ),
       "ui" => array(
         "puede_renderizar_home" => (bool) $ready,
-        "usar_bootstrap_para_home" => true,
+        "usar_configuracion_inicial_para_home" => true,
+        "bootstrap_es_alias_legacy" => true,
         "usar_catalogo_para_paginacion" => true,
         "usar_manifest_para_descubrir_contrato" => true,
         "mostrar_estado_carga_si_ready_false" => true
@@ -6080,6 +6452,32 @@ class EcommerceCatalogoPublico extends CRUD {
     );
   }
 
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-08-10
+   * Proposito: aceptar consentimientos enviados por frontend dentro de contacto o en raiz legacy.
+   * Impacto: Ecommerce publico; elimina advertencias falsas de preflight sin habilitar persistencia real.
+   */
+  private function booleanoCotizacion($valor) {
+    if (is_array($valor)) {
+      return false;
+    }
+    if ($valor === true || $valor === 1) {
+      return true;
+    }
+    if ($valor === false || $valor === null || $valor === 0) {
+      return false;
+    }
+    return in_array(strtolower(trim((string) $valor)), array("1", "true", "si", "yes", "on", "acepto", "aceptado"), true);
+  }
+
+  private function politicasAceptadasCotizacion($datos, $contactoRaw) {
+    $valor = $this->valor($contactoRaw, "acepta_politicas", $this->valor($contactoRaw, "politicas_aceptadas", $this->valor($datos, "politicas_aceptadas", array())));
+    if ($this->booleanoCotizacion($valor)) {
+      return array("aviso_privacidad", "terminos_cotizacion");
+    }
+    return $this->normalizarListaTextoPublica($valor);
+  }
+
   private function consentimientoCotizacion($aceptaWhatsapp, $politicasAceptadas) {
     $politicas = is_array($politicasAceptadas) ? $politicasAceptadas : array();
     return array(
@@ -6402,6 +6800,240 @@ class EcommerceCatalogoPublico extends CRUD {
     return (bool) $stmt->fetchColumn();
   }
 
+  private function contenidoTiposBloqueDefault() {
+    return array(
+      array(
+        "tipo" => "hero_banner",
+        "nombre" => "Banner principal",
+        "uso" => "Hero de home o landing.",
+        "campos" => array("titulo", "subtitulo", "imagen_desktop", "imagen_mobile", "alt", "cta_label", "cta_url")
+      ),
+      array(
+        "tipo" => "category_banner",
+        "nombre" => "Banner de categoria",
+        "uso" => "Encabezado de una categoria o coleccion.",
+        "campos" => array("titulo", "subtitulo", "categoria", "imagen_desktop", "imagen_mobile", "cta_label", "cta_url")
+      ),
+      array(
+        "tipo" => "product_collection",
+        "nombre" => "Coleccion de productos",
+        "uso" => "Carrusel/listado dinamico desde catalogo publico.",
+        "campos" => array("titulo", "source.tipo", "source.endpoint", "limite", "cta_label", "cta_url")
+      ),
+      array(
+        "tipo" => "promo_strip",
+        "nombre" => "Franja promocional",
+        "uso" => "Aviso corto de servicio, promocion o informacion operativa.",
+        "campos" => array("texto", "icono", "cta_label", "cta_url")
+      ),
+      array(
+        "tipo" => "image_card_grid",
+        "nombre" => "Cuadricula de tarjetas",
+        "uso" => "Tarjetas con imagen para categorias, mascotas o necesidades.",
+        "campos" => array("titulo", "items[].titulo", "items[].imagen", "items[].url")
+      ),
+      array(
+        "tipo" => "content_html_safe",
+        "nombre" => "Contenido editorial seguro",
+        "uso" => "Texto informativo sanitizado; no ejecutar scripts.",
+        "campos" => array("titulo", "contenido_html", "cta_label", "cta_url")
+      )
+    );
+  }
+
+  private function contenidoSlotsDefault() {
+    return array(
+      array("codigo" => "home.hero", "nombre" => "Hero principal home", "pagina" => "home", "tipos" => array("hero_banner"), "max_bloques" => 1, "requerido" => true),
+      array("codigo" => "home.promo", "nombre" => "Franja informativa home", "pagina" => "home", "tipos" => array("promo_strip"), "max_bloques" => 2, "requerido" => false),
+      array("codigo" => "home.categorias", "nombre" => "Categorias destacadas", "pagina" => "home", "tipos" => array("image_card_grid"), "max_bloques" => 1, "requerido" => false),
+      array("codigo" => "home.destacados", "nombre" => "Productos destacados", "pagina" => "home", "tipos" => array("product_collection"), "max_bloques" => 3, "requerido" => false),
+      array("codigo" => "categoria.banner", "nombre" => "Banner de categoria", "pagina" => "categoria", "tipos" => array("category_banner"), "max_bloques" => 1, "requerido" => false),
+      array("codigo" => "categoria.productos", "nombre" => "Productos por categoria", "pagina" => "categoria", "tipos" => array("product_collection"), "max_bloques" => 2, "requerido" => true),
+      array("codigo" => "catalogo.encabezado", "nombre" => "Encabezado de catalogo", "pagina" => "catalogo", "tipos" => array("content_html_safe", "promo_strip"), "max_bloques" => 2, "requerido" => false)
+    );
+  }
+
+  private function contenidoGuardrailsAdmin() {
+    return array(
+      "read_only" => true,
+      "no_escribe_bd" => true,
+      "no_ejecuta_ddl" => true,
+      "no_modifica_catalogo" => true,
+      "no_modifica_precios" => true,
+      "no_modifica_inventario" => true,
+      "no_modifica_publicaciones_producto" => true,
+      "frontend_no_lee_archivos_erp" => true,
+      "configuracion_inicial_endpoint_recomendado" => true,
+      "bootstrap_alias_legacy" => true
+    );
+  }
+
+  private function contenidoSlotsPaginaDefault($pagina, $categoria) {
+    if ($pagina === "categoria") {
+      $categoriaLabel = $categoria !== "" ? ucwords(str_replace(array("-", "_"), " ", $categoria)) : "Categoria";
+      $endpointCategoria = ctype_digit((string) $categoria)
+        ? "/ecommercePublico/catalogo?categoria=" . rawurlencode($categoria) . "&limite=12"
+        : "/ecommercePublico/catalogo?q=" . rawurlencode($categoriaLabel) . "&limite=12";
+      return array(
+        array(
+          "slot" => "categoria.banner",
+          "nombre" => "Banner de categoria",
+          "bloques" => array($this->bloqueCategoryBannerDefault($categoria, $categoriaLabel))
+        ),
+        array(
+          "slot" => "categoria.productos",
+          "nombre" => "Productos por categoria",
+          "bloques" => array($this->bloqueProductCollectionDefault(
+            "categoria-productos",
+            "Productos para " . $categoriaLabel,
+            $endpointCategoria,
+            "/catalogo?categoria=" . rawurlencode($categoria)
+          ))
+        )
+      );
+    }
+    if ($pagina === "catalogo") {
+      return array(
+        array(
+          "slot" => "catalogo.encabezado",
+          "nombre" => "Encabezado de catalogo",
+          "bloques" => array(
+            array(
+              "id" => "catalogo-intro-default",
+              "tipo" => "content_html_safe",
+              "estatus" => "publicado_default",
+              "titulo" => "Catalogo Artiani",
+              "contenido_html" => "<p>Explora productos publicados desde el ERP. Precios y disponibilidad se confirman antes de enviar por WhatsApp.</p>",
+              "cta" => array("label" => "Ver productos", "url" => "/catalogo")
+            )
+          )
+        )
+      );
+    }
+    return array(
+      array(
+        "slot" => "home.hero",
+        "nombre" => "Hero principal home",
+        "bloques" => array($this->bloqueHeroDefault())
+      ),
+      array(
+        "slot" => "home.promo",
+        "nombre" => "Franja informativa home",
+        "bloques" => array(
+          array(
+            "id" => "home-promo-whatsapp-default",
+            "tipo" => "promo_strip",
+            "estatus" => "publicado_default",
+            "texto" => "Cotiza por WhatsApp con precios y disponibilidad validados desde el ERP.",
+            "icono" => "message-circle",
+            "cta" => array("label" => "Ir al catalogo", "url" => "/catalogo")
+          )
+        )
+      ),
+      array(
+        "slot" => "home.categorias",
+        "nombre" => "Categorias destacadas",
+        "bloques" => array($this->bloqueCategoriasDefault())
+      ),
+      array(
+        "slot" => "home.destacados",
+        "nombre" => "Productos destacados",
+        "bloques" => array(
+          $this->bloqueProductCollectionDefault("home-destacados", "Destacados", "/ecommercePublico/catalogo?destacado=1&limite=8", "/catalogo?destacado=1"),
+          $this->bloqueProductCollectionDefault("home-disponibles", "Disponibles ahora", "/ecommercePublico/catalogo?disponibilidad=disponible&limite=8", "/catalogo?disponibilidad=disponible")
+        )
+      )
+    );
+  }
+
+  private function bloqueHeroDefault() {
+    return array(
+      "id" => "home-hero-default",
+      "tipo" => "hero_banner",
+      "estatus" => "publicado_default",
+      "titulo" => "Todo para tus mascotas",
+      "subtitulo" => "Alimento, habitats, accesorios y cuidado especializado con catalogo vivo desde Artiani.",
+      "media" => array(
+        "imagen_desktop" => "",
+        "imagen_mobile" => "",
+        "alt" => "Productos para mascotas Artiani",
+        "estado" => "pendiente_panel"
+      ),
+      "cta" => array("label" => "Ver catalogo", "url" => "/catalogo"),
+      "guardrails" => array("requiere_imagen_real_panel" => true)
+    );
+  }
+
+  private function bloqueCategoryBannerDefault($categoria, $categoriaLabel) {
+    return array(
+      "id" => "categoria-banner-" . ($categoria !== "" ? $categoria : "default"),
+      "tipo" => "category_banner",
+      "estatus" => "publicado_default",
+      "categoria" => $categoria,
+      "titulo" => $categoriaLabel,
+      "subtitulo" => "Productos publicados y validados desde el catalogo Artiani.",
+      "media" => array(
+        "imagen_desktop" => "",
+        "imagen_mobile" => "",
+        "alt" => "Categoria " . $categoriaLabel,
+        "estado" => "pendiente_panel"
+      ),
+      "cta" => array("label" => "Ver productos", "url" => "/catalogo" . ($categoria !== "" ? "?categoria=" . rawurlencode($categoria) : "")),
+      "guardrails" => array("requiere_imagen_real_panel" => true)
+    );
+  }
+
+  private function bloqueProductCollectionDefault($id, $titulo, $endpoint, $url) {
+    return array(
+      "id" => $id,
+      "tipo" => "product_collection",
+      "estatus" => "publicado_default",
+      "titulo" => $titulo,
+      "source" => array(
+        "tipo" => "catalogo_dinamico",
+        "endpoint" => $endpoint,
+        "metodo" => "GET"
+      ),
+      "limite" => 8,
+      "cta" => array("label" => "Ver todo", "url" => $url),
+      "frontend" => array("render" => "product_carousel", "usar_items_desde_source" => true)
+    );
+  }
+
+  private function bloqueCategoriasDefault() {
+    return array(
+      "id" => "home-categorias-default",
+      "tipo" => "image_card_grid",
+      "estatus" => "publicado_default",
+      "titulo" => "Compra por categoria",
+      "items" => array(
+        array("titulo" => "Peces", "url" => "/catalogo?mascota=pez", "imagen" => "", "alt" => "Productos para peces"),
+        array("titulo" => "Perros", "url" => "/catalogo?mascota=perro", "imagen" => "", "alt" => "Productos para perros"),
+        array("titulo" => "Gatos", "url" => "/catalogo?mascota=gato", "imagen" => "", "alt" => "Productos para gatos"),
+        array("titulo" => "Habitat", "url" => "/catalogo?necesidad=habitat", "imagen" => "", "alt" => "Habitats y accesorios")
+      ),
+      "frontend" => array("render" => "image_card_grid", "columnas_desktop" => 4, "columnas_mobile" => 2),
+      "guardrails" => array("imagenes_reales_pendientes_panel" => true)
+    );
+  }
+
+  private function contarBloquesContenido($slots) {
+    $total = 0;
+    foreach ((array) $slots as $slot) {
+      $total += count($this->valor($slot, "bloques", array()));
+    }
+    return $total;
+  }
+
+  private function contenidoTieneSlot($slots, $codigo) {
+    foreach ((array) $slots as $slot) {
+      if ((string) $this->valor($slot, "slot", "") === $codigo) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   private function valor($datos, $clave, $default = null) {
     if (is_array($clave)) {
       $actual = $datos;
@@ -6439,7 +7071,10 @@ class EcommerceCatalogoPublico extends CRUD {
       array("metodo" => "GET", "ruta" => "/ecommercePublico/frontend_handoff", "uso_frontend" => "Punto de partida para descubrir estado, ejemplos y pruebas HTTP."),
       array("metodo" => "GET", "ruta" => "/ecommercePublico/contratos", "uso_frontend" => "Manifest completo de endpoints y guardrails."),
       array("metodo" => "GET", "ruta" => "/ecommercePublico/estado", "uso_frontend" => "Readiness para datos reales o mocks."),
-      array("metodo" => "GET", "ruta" => "/ecommercePublico/bootstrap", "uso_frontend" => "Primer render: configuracion, filtros, navegacion, secciones y politicas."),
+      array("metodo" => "GET", "ruta" => "/ecommercePublico/configuracion_inicial", "uso_frontend" => "Primer render: configuracion, filtros, navegacion, secciones y politicas."),
+      array("metodo" => "GET", "ruta" => "/ecommercePublico/bootstrap", "uso_frontend" => "Alias legacy de configuracion_inicial."),
+      array("metodo" => "GET", "ruta" => "/ecommercePublico/contenido_manifest", "uso_frontend" => "Plantillas, slots y tipos de bloque para CMS ligero."),
+      array("metodo" => "GET", "ruta" => "/ecommercePublico/contenido_pagina", "uso_frontend" => "Banners, colecciones y bloques editoriales por pagina."),
       array("metodo" => "GET", "ruta" => "/ecommercePublico/configuracion", "uso_frontend" => "Moneda, WhatsApp y banderas publicas."),
       array("metodo" => "GET", "ruta" => "/ecommercePublico/seo", "uso_frontend" => "Rutas, sitemap, robots y JSON-LD sugerido."),
       array("metodo" => "GET", "ruta" => "/ecommercePublico/filtros", "uso_frontend" => "Filtros de catalogo vigentes."),
@@ -6468,7 +7103,9 @@ class EcommerceCatalogoPublico extends CRUD {
     return array(
       array("nombre" => "estado", "metodo" => "GET", "url" => $baseApi . "/estado"),
       array("nombre" => "contratos", "metodo" => "GET", "url" => $baseApi . "/contratos"),
-      array("nombre" => "bootstrap", "metodo" => "GET", "url" => $baseApi . "/bootstrap?limite_secciones=6"),
+      array("nombre" => "configuracion_inicial", "metodo" => "GET", "url" => $baseApi . "/configuracion_inicial?limite_secciones=6"),
+      array("nombre" => "contenido_manifest", "metodo" => "GET", "url" => $baseApi . "/contenido_manifest"),
+      array("nombre" => "contenido_pagina_home", "metodo" => "GET", "url" => $baseApi . "/contenido_pagina?pagina=home"),
       array("nombre" => "fase_2_checklist", "metodo" => "GET", "url" => $baseApi . "/fase_2_checklist"),
       array("nombre" => "catalogo", "metodo" => "GET", "url" => $baseApi . "/catalogo?limite=3"),
       array("nombre" => "catalogo_sin_resultados", "metodo" => "GET", "url" => $baseApi . "/catalogo?q=__sin_resultados_catalogo_frontend__&limite=3"),
