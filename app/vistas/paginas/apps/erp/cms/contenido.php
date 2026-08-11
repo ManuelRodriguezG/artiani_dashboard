@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <base href="../../../../">
+    <title>CMS - Contenido ecommerce</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="shortcut icon" href="assets/media/logos/favicon.ico">
+    <link href="assets/plugins/global/plugins.bundle.css" rel="stylesheet" type="text/css">
+    <link href="assets/css/style.bundle.css" rel="stylesheet" type="text/css">
+    <!--
+      Documentacion IA: Codex GPT-5, 2026-08-10.
+      Proposito: vista editorial principal del modulo CMS ecommerce.
+      Impacto: CMS; permite armar contenido local por slot sin mezclar plantillas, media ni JSON/API como tabs.
+      Contrato: vista protegida; consume endpoints GET internos read-only y no escribe BD.
+    -->
+    <style>
+        .ecom-cms-kpi { border: 1px solid #e7e9ef; border-radius: 8px; background: #fff; padding: 16px; min-height: 104px; }
+        .ecom-cms-kpi__value { font-size: 1.8rem; line-height: 1; font-weight: 800; color: #181c32; letter-spacing: 0; }
+        .ecom-cms-kpi__label { color: #7e8299; font-size: .78rem; text-transform: uppercase; font-weight: 700; }
+        .ecom-cms-panel { border: 1px solid #e7e9ef; border-radius: 8px; background: #fff; }
+        .ecom-cms-slot { border: 1px solid #e7e9ef; border-radius: 8px; padding: 14px; background: #fbfcfe; }
+        .ecom-cms-slot + .ecom-cms-slot { margin-top: 10px; }
+        .ecom-cms-slot.is-active { border-color: #3e97ff; background: #f1f8ff; }
+        .ecom-cms-chip-list { display: flex; flex-wrap: wrap; gap: 6px; }
+        .ecom-cms-block { border: 1px solid #e7e9ef; border-radius: 8px; padding: 14px; background: #fff; }
+        .ecom-cms-block + .ecom-cms-block { margin-top: 10px; }
+        .ecom-cms-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+        .ecom-cms-form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+        .ecom-cms-validation { border: 1px dashed #d8dce6; border-radius: 8px; background: #fbfcfe; padding: 14px; }
+        .ecom-cms-validation__item + .ecom-cms-validation__item { margin-top: 8px; }
+        .ecom-cms-slot-status { border: 1px solid #e7e9ef; border-radius: 8px; padding: 14px; background: #fbfcfe; }
+        .ecom-cms-slot-status + .ecom-cms-slot-status { margin-top: 10px; }
+        @media (max-width: 767px) { .ecom-cms-form-grid { grid-template-columns: 1fr; } }
+    </style>
+</head>
+<body id="kt_app_body" data-kt-app-layout="dark-sidebar" data-kt-app-header-fixed="true" data-kt-app-sidebar-enabled="true" data-kt-app-sidebar-fixed="true" class="app-default">
+<div class="d-flex flex-column flex-root app-root" id="kt_app_root">
+    <div class="app-page flex-column flex-column-fluid" id="kt_app_page">
+        <?= include_once '../app/vistas/includes/header/header.php'; ?>
+        <div class="app-wrapper flex-column flex-row-fluid" id="kt_app_wrapper">
+            <?= include_once '../app/vistas/includes/header/sidebar.php'; ?>
+            <div class="app-main flex-column flex-row-fluid" id="kt_app_main">
+                <div class="d-flex flex-column flex-column-fluid">
+                    <div class="app-toolbar py-3 py-lg-5">
+                        <div class="app-container container-fluid d-flex flex-stack flex-wrap gap-3">
+                            <div>
+                                <h1 class="page-heading text-dark fw-bold fs-3 mb-1">Contenido ecommerce</h1>
+                                <span class="text-muted">Editor local de bloques por slot para el CMS headless</span>
+                            </div>
+                            <div class="d-flex gap-2">
+                                <a class="btn btn-light" href="/cms/plantillas"><i class="bi bi-columns-gap"></i> Plantillas</a>
+                                <a class="btn btn-light" href="/cms/json"><i class="bi bi-braces"></i> JSON</a>
+                                <button class="btn btn-primary" type="button" id="ecom_cms_recargar"><i class="bi bi-arrow-clockwise"></i> Recargar</button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="app-content flex-column-fluid">
+                        <div class="app-container container-fluid">
+                            <div class="alert alert-info d-flex align-items-start gap-3">
+                                <i class="bi bi-shield-check fs-2"></i>
+                                <div>
+                                    <div class="fw-bold">Fase inicial read-only</div>
+                                    <div>Esta vista permite disenar contenido y validar el preview local. No guarda en BD, no sube imagenes y no toca catalogo, precios ni inventario.</div>
+                                </div>
+                            </div>
+
+                            <div class="row g-4 mb-5">
+                                <div class="col-md-3"><div class="ecom-cms-kpi"><div class="ecom-cms-kpi__label">Plantilla</div><div class="ecom-cms-kpi__value fs-3" id="ecom_cms_plantilla">-</div><div class="text-muted fs-7 mt-2">Activa para preview.</div></div></div>
+                                <div class="col-md-3"><div class="ecom-cms-kpi"><div class="ecom-cms-kpi__label">Slots</div><div class="ecom-cms-kpi__value" id="ecom_cms_slots_total">0</div><div class="text-muted fs-7 mt-2">Espacios disponibles.</div></div></div>
+                                <div class="col-md-3"><div class="ecom-cms-kpi"><div class="ecom-cms-kpi__label">Bloques</div><div class="ecom-cms-kpi__value" id="ecom_cms_tipos_total">0</div><div class="text-muted fs-7 mt-2">Tipos permitidos.</div></div></div>
+                                <div class="col-md-3"><div class="ecom-cms-kpi"><div class="ecom-cms-kpi__label">Persistencia</div><div class="ecom-cms-kpi__value fs-3" id="ecom_cms_persistencia">Read-only</div><div class="text-muted fs-7 mt-2">Pendiente de respaldo.</div></div></div>
+                            </div>
+
+                            <div class="ecom-cms-panel p-4 mb-5">
+                                <div class="row g-3 align-items-end">
+                                    <div class="col-md-3">
+                                        <label class="form-label">Pagina</label>
+                                        <select class="form-select form-select-solid" id="ecom_cms_pagina">
+                                            <option value="home">Home</option>
+                                            <option value="categoria">Categoria</option>
+                                            <option value="catalogo">Catalogo</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <label class="form-label">Categoria</label>
+                                        <input class="form-control form-control-solid" id="ecom_cms_categoria" type="text" value="peces">
+                                    </div>
+                                    <div class="col-md-3">
+                                        <label class="form-label">Plantilla</label>
+                                        <input class="form-control form-control-solid" id="ecom_cms_template" type="text" value="artiani_default">
+                                    </div>
+                                    <div class="col-md-3 text-md-end">
+                                        <button class="btn btn-light-primary" type="button" id="ecom_cms_preview"><i class="bi bi-eye"></i> Previsualizar</button>
+                                        <button class="btn btn-light-success" type="button" id="ecom_cms_validar"><i class="bi bi-check2-circle"></i> Validar</button>
+                                        <span class="badge badge-light-primary ms-2" id="ecom_cms_estado">Listo</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="ecom-cms-panel p-5 mb-5">
+                                <div class="d-flex justify-content-between align-items-center flex-wrap gap-3 mb-4">
+                                    <div>
+                                        <h3 class="fw-bold mb-1">Resumen editorial</h3>
+                                        <span class="text-muted fs-7">Estatus, vigencia y volumen de bloques del preview local.</span>
+                                    </div>
+                                    <span class="badge badge-light-warning">Sin persistencia real</span>
+                                </div>
+                                <div id="ecom_cms_resumen_editorial"></div>
+                            </div>
+
+                            <div class="ecom-cms-panel p-5 mb-5">
+                                <div class="d-flex justify-content-between align-items-center flex-wrap gap-3 mb-4">
+                                    <div>
+                                        <h3 class="fw-bold mb-1">Cierre read-only de contenido</h3>
+                                        <span class="text-muted fs-7">Estado de la seccion antes de activar persistencia real.</span>
+                                    </div>
+                                    <span class="badge badge-light-success">Contenido preparado</span>
+                                </div>
+                                <div class="row g-3">
+                                    <div class="col-md-4">
+                                        <div class="border rounded p-4 h-100">
+                                            <div class="fw-bold mb-2"><i class="bi bi-check2-circle text-success"></i> Listo</div>
+                                            <div class="text-muted fs-7">Slots, bloques, editor local, orden, estatus, vigencia, validacion, publicabilidad y preview JSON.</div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div class="border rounded p-4 h-100">
+                                            <div class="fw-bold mb-2"><i class="bi bi-lock text-warning"></i> Bloqueado</div>
+                                            <div class="text-muted fs-7">Guardado real, publicacion, DDL, carga de media y lectura publica desde BD.</div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div class="border rounded p-4 h-100">
+                                            <div class="fw-bold mb-2"><i class="bi bi-arrow-right-circle text-primary"></i> Siguiente</div>
+                                            <div class="text-muted fs-7">Respaldar BD, autorizar esquema, activar POST con CSRF/auditoria y conectar endpoints publicos a contenido publicado.</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="row g-5">
+                                <div class="col-xl-4">
+                                    <div class="ecom-cms-panel p-5 mb-5">
+                                        <div class="d-flex justify-content-between align-items-center mb-4">
+                                            <h3 class="fw-bold mb-0">Slots</h3>
+                                            <a class="btn btn-sm btn-light" href="/cms/slots">Ver detalle</a>
+                                        </div>
+                                        <div id="ecom_cms_slots"></div>
+                                    </div>
+                                    <div class="ecom-cms-panel p-5 mb-5">
+                                        <div class="d-flex justify-content-between align-items-center flex-wrap gap-3 mb-4">
+                                            <div>
+                                                <h3 class="fw-bold mb-1">Publicabilidad por slot</h3>
+                                                <span class="text-muted fs-7">Semaforo local antes de publicar contenido real.</span>
+                                            </div>
+                                            <span class="badge badge-light-info">Preview</span>
+                                        </div>
+                                        <div id="ecom_cms_publicabilidad_slots"></div>
+                                    </div>
+                                    <div class="ecom-cms-panel p-5">
+                                        <div class="d-flex justify-content-between align-items-center flex-wrap gap-3 mb-4">
+                                            <div>
+                                                <h3 class="fw-bold mb-1">Validacion</h3>
+                                                <span class="text-muted fs-7">Revision local antes de persistir o publicar.</span>
+                                            </div>
+                                            <span class="badge badge-light-secondary" id="ecom_cms_validacion_resumen">Sin validar</span>
+                                        </div>
+                                        <div class="ecom-cms-validation" id="ecom_cms_validacion"></div>
+                                    </div>
+                                </div>
+
+                                <div class="col-xl-8">
+                                    <div class="ecom-cms-panel p-5 mb-5">
+                                        <div class="d-flex justify-content-between align-items-center flex-wrap gap-3 mb-4">
+                                            <div>
+                                                <h3 class="fw-bold mb-1">Bloques del slot</h3>
+                                                <span class="text-muted fs-7" id="ecom_cms_slot_activo_label">Selecciona un slot</span>
+                                            </div>
+                                            <div class="ecom-cms-actions">
+                                                <select class="form-select form-select-sm form-select-solid w-150px" id="ecom_cms_filtro_estatus">
+                                                    <option value="">Todos</option>
+                                                    <option value="borrador">Borrador</option>
+                                                    <option value="publicado">Publicado</option>
+                                                    <option value="pausado">Pausado</option>
+                                                </select>
+                                                <button class="btn btn-sm btn-light-primary" type="button" id="ecom_cms_nuevo"><i class="bi bi-plus-circle"></i> Nuevo bloque</button>
+                                                <button class="btn btn-sm btn-light" type="button" id="ecom_cms_cargar_defaults"><i class="bi bi-arrow-repeat"></i> Restaurar defaults</button>
+                                                <button class="btn btn-sm btn-light-success" type="button" id="ecom_cms_guardar_local"><i class="bi bi-save"></i> Borrador local</button>
+                                                <button class="btn btn-sm btn-light" type="button" id="ecom_cms_cargar_local"><i class="bi bi-folder2-open"></i> Cargar local</button>
+                                                <button class="btn btn-sm btn-light-danger" type="button" id="ecom_cms_descartar_local"><i class="bi bi-x-circle"></i> Descartar local</button>
+                                            </div>
+                                        </div>
+                                        <div id="ecom_cms_bloques"></div>
+                                    </div>
+
+                                    <div class="ecom-cms-panel p-5 mb-5">
+                                        <div class="d-flex justify-content-between align-items-center flex-wrap gap-3 mb-4">
+                                            <div>
+                                                <h3 class="fw-bold mb-1">Editor</h3>
+                                                <span class="text-muted fs-7" id="ecom_cms_editor_modo">Bloque local sin guardar en BD</span>
+                                            </div>
+                                            <span class="badge badge-light-info" id="ecom_cms_editor_tipo">-</span>
+                                        </div>
+                                        <form id="ecom_cms_form">
+                                            <input type="hidden" id="ecom_cms_block_id">
+                                            <div class="ecom-cms-form-grid mb-4">
+                                                <div><label class="form-label">Tipo</label><select class="form-select form-select-solid" id="ecom_cms_block_tipo"></select></div>
+                                                <div><label class="form-label">Estatus</label><select class="form-select form-select-solid" id="ecom_cms_block_estatus"><option value="borrador">Borrador</option><option value="publicado">Publicado</option><option value="pausado">Pausado</option></select></div>
+                                                <div><label class="form-label">Titulo</label><input class="form-control form-control-solid" id="ecom_cms_block_titulo" type="text"></div>
+                                                <div><label class="form-label">Subtitulo / texto</label><input class="form-control form-control-solid" id="ecom_cms_block_subtitulo" type="text"></div>
+                                                <div><label class="form-label">CTA texto</label><input class="form-control form-control-solid" id="ecom_cms_block_cta_label" type="text"></div>
+                                                <div><label class="form-label">CTA URL</label><input class="form-control form-control-solid" id="ecom_cms_block_cta_url" type="text"></div>
+                                                <div><label class="form-label">Imagen desktop</label><input class="form-control form-control-solid" id="ecom_cms_block_img_desktop" type="text"></div>
+                                                <div><label class="form-label">Imagen mobile</label><input class="form-control form-control-solid" id="ecom_cms_block_img_mobile" type="text"></div>
+                                                <div><label class="form-label">Alt text</label><input class="form-control form-control-solid" id="ecom_cms_block_alt" type="text"></div>
+                                                <div><label class="form-label">Source endpoint</label><input class="form-control form-control-solid" id="ecom_cms_block_source" type="text"></div>
+                                                <div><label class="form-label">Vigente desde</label><input class="form-control form-control-solid" id="ecom_cms_block_desde" type="datetime-local"></div>
+                                                <div><label class="form-label">Vigente hasta</label><input class="form-control form-control-solid" id="ecom_cms_block_hasta" type="datetime-local"></div>
+                                            </div>
+                                            <div class="mb-4">
+                                                <label class="form-label">Contenido HTML seguro / items JSON</label>
+                                                <textarea class="form-control form-control-solid" id="ecom_cms_block_payload" rows="5"></textarea>
+                                            </div>
+                                            <div class="d-flex flex-wrap gap-2 justify-content-between">
+                                                <div class="ecom-cms-actions">
+                                                    <button class="btn btn-primary" type="submit"><i class="bi bi-check2"></i> Aplicar a preview</button>
+                                                    <button class="btn btn-light" type="button" id="ecom_cms_limpiar_form"><i class="bi bi-eraser"></i> Limpiar</button>
+                                                </div>
+                                                <span class="badge badge-light-warning align-self-center">Local</span>
+                                            </div>
+                                        </form>
+                                    </div>
+
+                                    <div class="alert alert-warning mb-0">
+                                        <div class="fw-bold">Pendiente para escritura real</div>
+                                        <div class="fs-7">Faltan respaldo, DDL autorizado, endpoints POST con CSRF/auditoria, sanitizacion HTML y politica de media.</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<script src="assets/plugins/global/plugins.bundle.js"></script>
+<script src="assets/js/scripts.bundle.js"></script>
+<script src="/assets/js/custom/apps/erp/cms/contenido.js?v=20260810-vistas1"></script>
+</body>
+</html>
