@@ -13,6 +13,7 @@ Este manual explica como usar el modulo CMS del ERP para administrar contenido e
 - El modulo CMS vive en el menu lateral `CMS`.
 - La seccion `Contenido` administra bloques, slots, media, JSON y persistencia de contenido.
 - La seccion `Frontend` prepara plantillas de vista, layouts, componentes y variantes.
+- Wokiee es el primer tema visual activo, pero el CMS debe permitir registrar otros temas visuales futuros.
 - En la fase actual todo lo editable es preview local/read-only: no escribe BD y no publica contenido real.
 - El endpoint recomendado de arranque para el frontend es `/ecommercePublico/configuracion_inicial`.
 - `/ecommercePublico/bootstrap` existe solo como alias legacy.
@@ -57,25 +58,36 @@ Esta pantalla es la mesa principal de trabajo editorial. Permite armar y revisar
    - `Vencidos`: bloques que requieren revision.
    - `Sin vigencia`: bloques sin fecha inicial/final.
 
-5. Selecciona un slot en el panel izquierdo.
+5. Revisa `Plantilla visual de la pagina`.
+   - `Plantilla de vista`: plantilla visual que el frontend renderizara, por ejemplo `wokiee_home_default`.
+   - `Layout`: base visual, por ejemplo `storefront_wokiee_v1`.
+   - `Secciones visuales`: relacion `slot -> componente -> variante -> orden`.
+   - Usa `Ver plantillas de vista` para abrir `/cms/frontend_plantillas`.
 
-6. Revisa `Publicabilidad por slot`.
+6. Revisa `Preview visual frontend`.
+   - Muestra una simulacion local de tienda con hero, promociones, cards y carruseles segun el JSON actual.
+   - No es el HTML final del frontend.
+   - El frontend ecommerce debe implementar sus propios componentes y consumir `/ecommercePublico/configuracion_inicial` o `/ecommercePublico/contenido_pagina`.
+
+7. Selecciona un slot en el panel izquierdo.
+
+8. Revisa `Publicabilidad por slot`.
    - `Publicable`: el slot cumple reglas locales.
    - `Con alertas`: puede revisarse, pero tiene advertencias.
    - `No publicable`: tiene errores que deben corregirse.
    - `Vacio opcional`: el slot puede quedarse sin bloques.
    - `Incompleto`: falta contenido requerido.
 
-7. En `Bloques del slot`, revisa los bloques existentes.
+9. En `Bloques del slot`, revisa los bloques existentes.
 
-8. Usa las acciones locales:
+10. Usa las acciones locales:
    - editar
    - duplicar
    - subir/bajar orden
    - pausar
    - quitar
 
-9. En el editor, ajusta:
+11. En el editor, ajusta:
    - tipo de bloque
    - estatus
    - titulo
@@ -87,17 +99,18 @@ Esta pantalla es la mesa principal de trabajo editorial. Permite armar y revisar
    - vigencia desde/hasta
    - payload HTML seguro/items JSON
 
-10. Pulsa `Aplicar a preview`.
+12. Pulsa `Aplicar a preview`.
 
-11. Pulsa `Validar`.
+13. Pulsa `Validar`.
 
-12. Guarda borrador local si quieres conservar el preview en el navegador.
+14. Guarda borrador local si quieres conservar el preview en el navegador.
 
 ### Importante
 
 - `Aplicar a preview` no guarda en BD.
 - `Borrador local` usa el navegador, no la base de datos.
 - `Restaurar defaults` vuelve al contenido default read-only.
+- `Preview visual frontend` es una simulacion del panel; no genera archivos ni HTML productivo para el frontend.
 - Los endpoints POST reales siguen bloqueados hasta autorizar respaldo y persistencia.
 
 ### Errores comunes
@@ -518,6 +531,9 @@ Rutas:
 - `/cms/frontend_plantillas`
 - `/cms/frontend_componentes`
 
+Documento tecnico de implementacion frontend: `docs/erp_cms_frontend_renderer_contrato.md`
+Plan builder visual Wokiee/Artiani: `docs/erp_cms_visual_builder_wokiee_plan.md`
+
 ## CMS > Frontend > Plantillas de vista
 
 Ruta: `/cms/frontend_plantillas`
@@ -550,17 +566,49 @@ Ejemplo conceptual:
    - layouts
    - componentes
    - plantillas
-   - home activa
+   - tema activo
 
-3. Revisa `Contrato renderer`.
+3. En `Builder visual read-only`, revisa `Tema visual`.
+   - Por ahora aparece `wokiee_artiani`.
+   - El selector esta deshabilitado porque todavia no hay persistencia real.
+   - La arquitectura permite registrar otros temas despues.
+
+4. En la columna `Plantillas`, selecciona la pagina que quieres revisar.
+   - `wokiee_home_default`
+   - `wokiee_categoria_default`
+   - `wokiee_catalogo_default`
+
+5. Revisa el canvas central.
+   - Muestra una simulacion local de header, secciones y footer.
+   - Cada seccion representa un slot conectado a un componente frontend.
+   - Esta vista no genera archivos ni HTML productivo; solo ayuda a negocio a entender la composicion.
+
+6. Haz clic en una seccion del canvas.
+
+7. Revisa `Inspector`.
+   - plantilla
+   - pagina
+   - layout
+   - slot
+   - componente
+   - variante
+   - orden
+   - bloques permitidos
+
+8. Revisa `Paleta de componentes`.
+   - Muestra componentes disponibles dentro del tema activo.
+   - Cada componente tiene variantes permitidas.
+   - En modo futuro, de aqui saldran las secciones que se podran agregar a una plantilla.
+
+9. Revisa `Contrato renderer`.
    - endpoint de arranque
    - endpoint de pagina
    - contrato `plantilla_vista + contenido.slots`
    - guardrails contra HTML/CSS/JS libre
 
-4. Revisa `Plantillas declaradas`.
+10. Revisa `Plantillas declaradas`.
 
-5. Para cada plantilla, revisa:
+11. Para cada plantilla, revisa:
    - codigo
    - layout
    - pagina
@@ -571,9 +619,9 @@ Ejemplo conceptual:
    - componente
    - variante
 
-6. Si necesitas revisar componentes permitidos, ve a `/cms/frontend_componentes`.
+12. Si necesitas revisar componentes permitidos, ve a `/cms/frontend_componentes`.
 
-7. Si necesitas editar contenido de un slot, ve a `/cms/contenido`.
+13. Si necesitas editar contenido de un slot, ve a `/cms/contenido`.
 
 ### Como se consume en frontend
 
@@ -582,8 +630,8 @@ El frontend debe llamar endpoints publicos, no rutas internas `/cms/*`.
 Flujo esperado:
 
 1. `GET /ecommercePublico/configuracion_inicial`
-2. `GET /ecommercePublico/contenido_pagina?pagina=home`
-3. La API debera entregar `plantilla_vista` y `contenido.slots`.
+2. La respuesta trae `contenido_inicial.home` con `plantilla_vista` y `slots` en modo default/read-only.
+3. Para refrescar o navegar paginas especificas, usar `GET /ecommercePublico/contenido_pagina?pagina=home`.
 4. El frontend usa un mapa de componentes permitidos.
 
 Ejemplo de renderer frontend:
@@ -605,7 +653,22 @@ El CMS solo manda nombres de componentes y variantes permitidas. El frontend dec
 - No edita archivos `.vue`, `.jsx`, `.php`, `.css` ni `.js` del frontend.
 - No permite HTML/CSS/JS libre.
 - No sustituye al frontend; solo prepara el contrato de render.
+- El builder visual es una previsualizacion administrativa, no el render final del ecommerce.
 - Una plantilla tipo Wokiee debe desarmarse en componentes seguros antes de administrarse desde CMS.
+- La persistencia futura de plantillas frontend usara tablas separadas para layouts, componentes, plantillas, secciones y activaciones.
+- La tabla de temas visuales permite que hoy se use `wokiee_artiani` y despues se active otra plantilla sin rehacer el CMS.
+- Los endpoints POST de plantillas y secciones frontend existen solo como contratos bloqueados hasta autorizar persistencia real.
+
+### Endpoints POST futuros
+
+Actualmente existen como contratos bloqueados:
+
+- `/cms/frontend_plantilla_guardar_erp`
+- `/cms/frontend_plantilla_estatus_erp`
+- `/cms/frontend_seccion_guardar_erp`
+- `/cms/frontend_seccion_estatus_erp`
+
+Cuando se activen deberan validar permisos, CSRF, compatibilidad slot/componente/variante, auditoria explicita y que el componente exista en el frontend.
 
 ### Errores comunes
 
@@ -698,6 +761,7 @@ La compatibilidad debe cumplirse en los tres niveles:
 - No debe apuntar a archivos internos del ERP.
 - Cualquier componente nuevo debe existir primero en el frontend.
 - Las variantes deben estar programadas en el frontend antes de usarse en CMS.
+- El esquema propuesto mantiene estos componentes como catalogo seguro, no como codigo ejecutable.
 
 ### Errores comunes
 

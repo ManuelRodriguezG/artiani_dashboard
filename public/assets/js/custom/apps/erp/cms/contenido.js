@@ -118,6 +118,7 @@
     renderSlotDetalle();
     renderBloques();
     renderResumenEditorial();
+    renderPlantillaVisual();
     renderPublicabilidadSlots();
     renderValidacion(validarContenido());
     renderJson();
@@ -278,6 +279,37 @@
       resumenCaja("Futuros", conteo.futuro, "Programados") +
       resumenCaja("Vencidos", conteo.vencido, "Revisar antes de publicar") +
       resumenCaja("Sin vigencia", conteo.sin_vigencia, "Siempre visibles si se publican") +
+    '</div>';
+  }
+
+  function renderPlantillaVisual() {
+    var node = $("ecom_cms_plantilla_visual");
+    if (!node) return;
+    var plantilla = estado.pagina && estado.pagina.plantilla_vista ? estado.pagina.plantilla_vista : {};
+    var secciones = Array.isArray(plantilla.secciones) ? plantilla.secciones.slice() : [];
+    if (!plantilla.codigo) {
+      node.innerHTML = '<div class="text-muted">Sin plantilla visual declarada para esta pagina.</div>';
+      return;
+    }
+    secciones.sort(function (a, b) { return Number(a.orden || 0) - Number(b.orden || 0); });
+    node.innerHTML = '<div class="row g-4">' +
+      '<div class="col-lg-4"><div class="border rounded p-4 h-100">' +
+        '<div class="text-muted fs-8 text-uppercase fw-bold mb-1">Plantilla de vista</div>' +
+        '<div class="fw-bold fs-4 mb-1">' + escapeHtml(plantilla.codigo || "-") + '</div>' +
+        '<div class="text-muted fs-7 mb-3">' + escapeHtml(plantilla.nombre || "") + '</div>' +
+        contratoFila("Layout", plantilla.layout || "-") +
+        contratoFila("Pagina", plantilla.pagina || estado.pagina.pagina || "-") +
+        contratoFila("Version", plantilla.version || "-") +
+      '</div></div>' +
+      '<div class="col-lg-8"><div class="border rounded p-4 h-100">' +
+        '<div class="fw-bold mb-3">Secciones visuales</div>' +
+        (secciones.length ? secciones.map(function (seccion) {
+          return '<div class="d-flex justify-content-between align-items-start gap-3 flex-wrap border-bottom py-2">' +
+            '<div><code>' + escapeHtml(seccion.slot || "") + '</code><div class="text-muted fs-8">Orden ' + escapeHtml(seccion.orden || 0) + '</div></div>' +
+            '<div class="text-end"><span class="badge badge-light-primary">' + escapeHtml(seccion.componente || "") + '</span><span class="badge badge-light-info ms-2">' + escapeHtml(seccion.variante || "") + '</span></div>' +
+          '</div>';
+        }).join("") : '<div class="text-muted fs-7">Sin secciones visuales.</div>') +
+      '</div></div>' +
     '</div>';
   }
 
@@ -505,6 +537,14 @@
   function renderVisual() {
     var node = $("ecom_cms_visual");
     if (!node) return;
+    if (!document.body || document.body.getAttribute("data-cms-bloques-mode") !== "seleccion") {
+      renderStorefrontPreview(node);
+      return;
+    }
+    renderBloqueVisual(node);
+  }
+
+  function renderBloqueVisual(node) {
     var bloque = buscarBloque(estado.bloqueActivo) || bloquesDeSlot(estado.slotActivo)[0];
     if (!bloque) {
       node.innerHTML = '<div class="text-muted py-4">Sin bloque seleccionado.</div>';
@@ -524,6 +564,88 @@
     }
     node.innerHTML = media + '<h4 class="fw-bold mb-2">' + escapeHtml(bloque.titulo || bloque.texto || bloque.id) + '</h4>' +
       '<div class="text-muted mb-3">' + escapeHtml(bloque.subtitulo || bloque.contenido_html || bloque.texto || "") + '</div>' + cta + extra;
+  }
+
+  function renderStorefrontPreview(node) {
+    var plantilla = estado.pagina && estado.pagina.plantilla_vista ? estado.pagina.plantilla_vista : {};
+    var secciones = Array.isArray(plantilla.secciones) ? plantilla.secciones.slice() : [];
+    if (!secciones.length) {
+      node.innerHTML = '<div class="text-muted py-4">Sin secciones visuales para previsualizar.</div>';
+      return;
+    }
+    secciones.sort(function (a, b) { return Number(a.orden || 0) - Number(b.orden || 0); });
+    node.innerHTML = '<div class="ecom-cms-storefront">' +
+      '<div class="ecom-cms-storefront__bar"><div class="ecom-cms-storefront__brand">Artiani</div><div class="ecom-cms-storefront__nav"><span>Inicio</span><span>Catalogo</span><span>Categorias</span><span>Contacto</span></div></div>' +
+      secciones.map(renderStorefrontSeccion).join("") +
+    '</div>';
+  }
+
+  function renderStorefrontSeccion(seccion) {
+    var slot = estado.slots.filter(function (item) { return item.slot === seccion.slot; })[0] || { bloques: [] };
+    var bloques = Array.isArray(slot.bloques) ? slot.bloques : [];
+    var componente = seccion.componente || "";
+    if (componente === "HeroSlider") return renderStorefrontHero(seccion, bloques);
+    if (componente === "PromoStrip") return renderStorefrontPromo(seccion, bloques);
+    if (componente === "CategoryGrid" || componente === "ImageCardGrid") return renderStorefrontCards(seccion, bloques);
+    if (componente === "ProductCarousel") return renderStorefrontProductos(seccion, bloques);
+    if (componente === "SafeHtmlBlock") return renderStorefrontHtml(seccion, bloques);
+    return '<section class="ecom-cms-storefront__section"><div class="text-muted fs-7">Componente no simulado: ' + escapeHtml(componente) + '</div></section>';
+  }
+
+  function renderStorefrontHero(seccion, bloques) {
+    var bloque = bloques[0] || {};
+    var img = valorBloqueMedia(bloque, "imagen_desktop");
+    var titulo = bloque.titulo || bloque.texto || seccion.slot;
+    var subtitulo = bloque.subtitulo || "";
+    var cta = bloque.cta && bloque.cta.label ? '<span class="btn btn-sm btn-primary">' + escapeHtml(bloque.cta.label) + '</span>' : "";
+    return '<section class="ecom-cms-storefront__section">' +
+      '<div class="ecom-cms-storefront__hero">' +
+        '<div><div class="text-muted fs-8 text-uppercase fw-bold mb-2">' + escapeHtml(seccion.variante || "hero") + '</div><h2 class="fw-bold mb-3">' + escapeHtml(titulo) + '</h2><div class="text-muted mb-4">' + escapeHtml(subtitulo) + '</div>' + cta + '</div>' +
+        (img ? '<img class="ecom-cms-storefront__hero-img" src="' + escapeAttr(img) + '" alt="' + escapeAttr(valorBloqueMedia(bloque, "alt")) + '">' : '<div class="ecom-cms-storefront__placeholder">Imagen hero pendiente</div>') +
+      '</div>' +
+    '</section>';
+  }
+
+  function renderStorefrontPromo(seccion, bloques) {
+    var items = bloques.length ? bloques : [{ texto: "Franja promocional pendiente" }];
+    return '<section class="ecom-cms-storefront__section">' + items.map(function (bloque) {
+      return '<div class="ecom-cms-storefront__promo">' + escapeHtml(bloque.texto || bloque.titulo || seccion.slot) + '</div>';
+    }).join("") + '</section>';
+  }
+
+  function renderStorefrontCards(seccion, bloques) {
+    var bloque = bloques[0] || {};
+    var items = Array.isArray(bloque.items) && bloque.items.length ? bloque.items : [{ titulo: "Card 1" }, { titulo: "Card 2" }, { titulo: "Card 3" }, { titulo: "Card 4" }];
+    return '<section class="ecom-cms-storefront__section"><div class="d-flex justify-content-between align-items-center mb-3"><h3 class="fw-bold mb-0">' + escapeHtml(bloque.titulo || "Cards") + '</h3><span class="badge badge-light-info">' + escapeHtml(seccion.variante || "") + '</span></div>' +
+      '<div class="ecom-cms-storefront__grid">' + items.slice(0, 8).map(function (item) {
+        return '<div class="ecom-cms-storefront__card">' + renderThumb(item.imagen, item.alt || item.titulo || "Card") + '<div class="fw-bold">' + escapeHtml(item.titulo || "Card") + '</div></div>';
+      }).join("") + '</div></section>';
+  }
+
+  function renderStorefrontProductos(seccion, bloques) {
+    var bloque = bloques[0] || {};
+    var titulo = bloque.titulo || "Productos";
+    var endpoint = bloque.source && bloque.source.endpoint ? bloque.source.endpoint : "";
+    var productos = ["Producto ERP", "Producto destacado", "Producto disponible", "Producto nuevo"];
+    return '<section class="ecom-cms-storefront__section"><div class="d-flex justify-content-between align-items-center mb-3"><div><h3 class="fw-bold mb-1">' + escapeHtml(titulo) + '</h3><div class="text-muted fs-8">' + escapeHtml(endpoint || "La lista real vendra de /ecommercePublico/catalogo") + '</div></div><span class="badge badge-light-info">' + escapeHtml(seccion.variante || "") + '</span></div>' +
+      '<div class="ecom-cms-storefront__products">' + productos.map(function (producto) {
+        return '<div class="ecom-cms-storefront__product"><div class="ecom-cms-storefront__thumb">Imagen producto</div><div class="fw-bold fs-7">' + escapeHtml(producto) + '</div><div class="text-muted fs-8">Precio desde API</div></div>';
+      }).join("") + '</div></section>';
+  }
+
+  function renderStorefrontHtml(seccion, bloques) {
+    var bloque = bloques[0] || {};
+    return '<section class="ecom-cms-storefront__section"><div class="border rounded p-4"><h3 class="fw-bold mb-2">' + escapeHtml(bloque.titulo || seccion.slot) + '</h3><div class="text-muted">' + escapeHtml(stripTags(bloque.contenido_html || bloque.texto || "Contenido editorial pendiente")) + '</div></div></section>';
+  }
+
+  function renderThumb(src, alt) {
+    return src ? '<img class="ecom-cms-storefront__thumb" src="' + escapeAttr(src) + '" alt="' + escapeAttr(alt) + '">' : '<div class="ecom-cms-storefront__thumb">Imagen pendiente</div>';
+  }
+
+  function stripTags(value) {
+    var div = document.createElement("div");
+    div.innerHTML = String(value || "");
+    return div.textContent || div.innerText || "";
   }
 
   function construirManifestPreview() {

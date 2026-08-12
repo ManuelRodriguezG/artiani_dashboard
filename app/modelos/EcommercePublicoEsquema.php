@@ -142,6 +142,167 @@ class EcommercePublicoEsquema extends DBSchema {
   }
 
   /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-08-11
+   * Proposito: generar el plan DDL de plantillas frontend administrables por CMS sin ejecutarlo por defecto.
+   * Impacto: CMS frontend; prepara layouts, componentes, plantillas de vista, secciones y activaciones sin editar archivos del ecommerce.
+   * Contrato: con $ejecutar=false solo devuelve SQL propuesto; no crea tablas ni modifica datos.
+   */
+  public function planActualizarCmsFrontend($ejecutar = false) {
+    $opciones = "ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci";
+    $plan = array();
+
+    $plan[] = $this->crearTablaSiNoExiste("erp_ecommerce_frontend_temas", array(
+      "`id_tema` BIGINT NOT NULL AUTO_INCREMENT",
+      "`codigo` VARCHAR(100) NOT NULL",
+      "`nombre` VARCHAR(180) NOT NULL",
+      "`proveedor` VARCHAR(120) NULL",
+      "`descripcion` VARCHAR(255) NULL",
+      "`version_tema` VARCHAR(40) NOT NULL DEFAULT '1.0.0'",
+      "`estatus` VARCHAR(30) NOT NULL DEFAULT 'borrador'",
+      "`activo` TINYINT(1) NOT NULL DEFAULT 0",
+      "`config_json` TEXT NULL",
+      "`fecha_registro` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
+      "`fecha_actualizacion` DATETIME NULL",
+      "`creado_por` INT NULL",
+      "`actualizado_por` INT NULL",
+      "PRIMARY KEY (`id_tema`)",
+      "UNIQUE KEY `idx_ecom_front_tema_codigo` (`codigo`)",
+      "KEY `idx_ecom_front_tema_estado` (`estatus`, `activo`)"
+    ), $opciones, $ejecutar);
+
+    $plan[] = $this->crearTablaSiNoExiste("erp_ecommerce_frontend_layouts", array(
+      "`id_layout` BIGINT NOT NULL AUTO_INCREMENT",
+      "`id_tema` BIGINT NOT NULL",
+      "`codigo` VARCHAR(100) NOT NULL",
+      "`nombre` VARCHAR(180) NOT NULL",
+      "`descripcion` VARCHAR(255) NULL",
+      "`version_layout` VARCHAR(40) NOT NULL DEFAULT '1.0.0'",
+      "`estatus` VARCHAR(30) NOT NULL DEFAULT 'borrador'",
+      "`config_json` TEXT NULL",
+      "`fecha_registro` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
+      "`fecha_actualizacion` DATETIME NULL",
+      "`creado_por` INT NULL",
+      "`actualizado_por` INT NULL",
+      "PRIMARY KEY (`id_layout`)",
+      "UNIQUE KEY `idx_ecom_front_layout_codigo` (`codigo`)",
+      "KEY `idx_ecom_front_layout_tema` (`id_tema`, `estatus`)",
+      "KEY `idx_ecom_front_layout_estado` (`estatus`)"
+    ), $opciones, $ejecutar);
+
+    $plan[] = $this->crearTablaSiNoExiste("erp_ecommerce_frontend_componentes", array(
+      "`id_componente` BIGINT NOT NULL AUTO_INCREMENT",
+      "`id_tema` BIGINT NOT NULL",
+      "`codigo` VARCHAR(100) NOT NULL",
+      "`nombre` VARCHAR(180) NOT NULL",
+      "`descripcion` VARCHAR(255) NULL",
+      "`bloques_permitidos_json` TEXT NOT NULL",
+      "`variantes_json` TEXT NOT NULL",
+      "`slots_compatibles_json` TEXT NOT NULL",
+      "`estatus` VARCHAR(30) NOT NULL DEFAULT 'activo'",
+      "`config_json` TEXT NULL",
+      "`fecha_registro` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
+      "`fecha_actualizacion` DATETIME NULL",
+      "`creado_por` INT NULL",
+      "`actualizado_por` INT NULL",
+      "PRIMARY KEY (`id_componente`)",
+      "UNIQUE KEY `idx_ecom_front_componente_codigo` (`codigo`)",
+      "KEY `idx_ecom_front_componente_tema` (`id_tema`, `estatus`)",
+      "KEY `idx_ecom_front_componente_estado` (`estatus`)"
+    ), $opciones, $ejecutar);
+
+    $plan[] = $this->crearTablaSiNoExiste("erp_ecommerce_frontend_plantillas", array(
+      "`id_plantilla_vista` BIGINT NOT NULL AUTO_INCREMENT",
+      "`id_tema` BIGINT NOT NULL",
+      "`id_layout` BIGINT NOT NULL",
+      "`codigo` VARCHAR(100) NOT NULL",
+      "`nombre` VARCHAR(180) NOT NULL",
+      "`pagina` VARCHAR(60) NOT NULL",
+      "`version_plantilla` VARCHAR(40) NOT NULL DEFAULT '1.0.0'",
+      "`estatus` VARCHAR(30) NOT NULL DEFAULT 'borrador'",
+      "`config_json` TEXT NULL",
+      "`fecha_registro` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
+      "`fecha_actualizacion` DATETIME NULL",
+      "`creado_por` INT NULL",
+      "`actualizado_por` INT NULL",
+      "PRIMARY KEY (`id_plantilla_vista`)",
+      "UNIQUE KEY `idx_ecom_front_plantilla_codigo` (`codigo`)",
+      "KEY `idx_ecom_front_plantilla_tema` (`id_tema`, `estatus`)",
+      "KEY `idx_ecom_front_plantilla_pagina` (`pagina`, `estatus`)",
+      "KEY `idx_ecom_front_plantilla_layout` (`id_layout`, `estatus`)"
+    ), $opciones, $ejecutar);
+
+    $plan[] = $this->crearTablaSiNoExiste("erp_ecommerce_frontend_plantilla_secciones", array(
+      "`id_seccion` BIGINT NOT NULL AUTO_INCREMENT",
+      "`id_plantilla_vista` BIGINT NOT NULL",
+      "`id_componente` BIGINT NOT NULL",
+      "`slot_codigo` VARCHAR(120) NOT NULL",
+      "`variante` VARCHAR(80) NOT NULL",
+      "`orden` INT NOT NULL DEFAULT 0",
+      "`estatus` VARCHAR(30) NOT NULL DEFAULT 'activo'",
+      "`config_json` TEXT NULL",
+      "`fecha_registro` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
+      "`fecha_actualizacion` DATETIME NULL",
+      "PRIMARY KEY (`id_seccion`)",
+      "KEY `idx_ecom_front_seccion_plantilla` (`id_plantilla_vista`, `estatus`, `orden`)",
+      "KEY `idx_ecom_front_seccion_componente` (`id_componente`, `estatus`)",
+      "KEY `idx_ecom_front_seccion_slot` (`slot_codigo`, `estatus`)"
+    ), $opciones, $ejecutar);
+
+    $plan[] = $this->crearTablaSiNoExiste("erp_ecommerce_frontend_plantilla_activas", array(
+      "`id_plantilla_activa` BIGINT NOT NULL AUTO_INCREMENT",
+      "`id_plantilla_vista` BIGINT NOT NULL",
+      "`pagina` VARCHAR(60) NOT NULL",
+      "`canal` VARCHAR(50) NOT NULL DEFAULT 'catalogo_publico'",
+      "`contexto_clave` VARCHAR(120) NULL",
+      "`estatus` VARCHAR(30) NOT NULL DEFAULT 'activa'",
+      "`vigente_desde` DATETIME NULL",
+      "`vigente_hasta` DATETIME NULL",
+      "`fecha_registro` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
+      "`fecha_actualizacion` DATETIME NULL",
+      "`activado_por` INT NULL",
+      "PRIMARY KEY (`id_plantilla_activa`)",
+      "KEY `idx_ecom_front_activa_render` (`pagina`, `canal`, `contexto_clave`, `estatus`)",
+      "KEY `idx_ecom_front_activa_plantilla` (`id_plantilla_vista`, `estatus`)",
+      "KEY `idx_ecom_front_activa_vigencia` (`estatus`, `vigente_desde`, `vigente_hasta`)"
+    ), $opciones, $ejecutar);
+
+    return $this->respuestaPlan($plan, $ejecutar);
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-08-11
+   * Proposito: auditar existencia de tablas CMS frontend sin ejecutar DDL.
+   * Impacto: permite preparar persistencia de plantillas visuales antes de conectar el renderer publico.
+   * Contrato: solo lectura.
+   */
+  public function auditarCmsFrontend() {
+    $tablas = $this->tablasCmsFrontend();
+    $auditoria = array();
+    $faltantes = 0;
+    foreach ($tablas as $tabla) {
+      $existe = $this->tablaExiste($tabla);
+      $auditoria[$tabla] = array(
+        "existe" => $existe,
+        "impacto" => $existe ? "Disponible para CMS frontend." : "Pendiente para persistencia real de plantillas frontend."
+      );
+      if (!$existe) { $faltantes++; }
+    }
+    return array(
+      "error" => false,
+      "tipo" => $faltantes > 0 ? "warning" : "success",
+      "mensaje" => $faltantes > 0 ? "Esquema CMS frontend pendiente" : "Esquema CMS frontend disponible",
+      "depurar" => array(
+        "read_only" => true,
+        "tablas_total" => count($tablas),
+        "tablas_faltantes" => $faltantes,
+        "auditoria" => $auditoria,
+        "no_edita_archivos_frontend" => true,
+        "no_habilita_codigo_libre" => true
+      )
+    );
+  }
+
+  /**
    * Documentacion IA: Codex GPT-5 | Fecha: 2026-07-11
    * Proposito: generar el plan DDL del catalogo publico ecommerce sin ejecutarlo por defecto.
    * Impacto: Ecommerce publico; prepara publicaciones, cotizaciones, eventos y configuracion sin tocar `ecom_*`.
@@ -651,6 +812,17 @@ class EcommercePublicoEsquema extends DBSchema {
       "erp_ecommerce_contenido_bloques",
       "erp_ecommerce_contenido_publicaciones",
       "erp_ecommerce_contenido_media"
+    );
+  }
+
+  private function tablasCmsFrontend() {
+    return array(
+      "erp_ecommerce_frontend_temas",
+      "erp_ecommerce_frontend_layouts",
+      "erp_ecommerce_frontend_componentes",
+      "erp_ecommerce_frontend_plantillas",
+      "erp_ecommerce_frontend_plantilla_secciones",
+      "erp_ecommerce_frontend_plantilla_activas"
     );
   }
 

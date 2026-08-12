@@ -337,7 +337,8 @@ class EcommerceCatalogoPublico extends CRUD {
         "precio" => "decimal|null",
         "moneda" => "MXN|null",
         "disponibilidad" => implode("|", $this->estadosDisponibilidadPublica()),
-        "mascota_especie" => "string|null",
+        "mascota_especie" => "string|null legacy principal",
+        "mascotas" => "string[]",
         "necesidades" => "string[]",
         "permite_cotizacion" => "bool",
         "permite_whatsapp" => "bool"
@@ -606,6 +607,8 @@ class EcommerceCatalogoPublico extends CRUD {
    */
   public function configuracionInicialPublica($opciones = array()) {
     $respuesta = $this->bootstrapPublico($opciones);
+    $contenidoHome = $this->contenidoPaginaPublica(array("pagina" => "home", "plantilla" => "artiani_default"));
+    $depurarHome = $this->valor($contenidoHome, "depurar", array());
     $respuesta["mensaje"] = !empty($respuesta["error"])
       ? (isset($respuesta["mensaje"]) ? $respuesta["mensaje"] : "Configuracion inicial ecommerce con observaciones")
       : "Configuracion inicial ecommerce lista";
@@ -620,6 +623,21 @@ class EcommerceCatalogoPublico extends CRUD {
       "categoria" => "/ecommercePublico/contenido_pagina?pagina=categoria&categoria={slug_categoria}",
       "estado" => "default_readonly",
       "panel_pendiente" => true
+    );
+    $respuesta["depurar"]["contenido_inicial"] = array(
+      "home" => array(
+        "pagina" => $this->valor($depurarHome, "pagina", "home"),
+        "plantilla" => $this->valor($depurarHome, "plantilla", "artiani_default"),
+        "plantilla_vista" => $this->valor($depurarHome, "plantilla_vista", array()),
+        "slots" => $this->valor($depurarHome, "slots", array()),
+        "resumen" => $this->valor($depurarHome, "resumen", array()),
+        "fuente" => $this->valor($depurarHome, "fuente", "default_readonly")
+      ),
+      "guardrails" => array(
+        "read_only" => true,
+        "default_hasta_persistencia" => true,
+        "frontend_renderiza_plantilla_vista" => true
+      )
     );
     return $respuesta;
   }
@@ -642,6 +660,13 @@ class EcommerceCatalogoPublico extends CRUD {
         "endpoint_principal" => "/ecommercePublico/contenido_pagina"
       ),
       "plantilla_activa" => $plantilla,
+      "tema_visual_activo" => array(
+        "codigo" => "wokiee_artiani",
+        "nombre" => "Wokiee Artiani",
+        "proveedor" => "ThemeForest/Wokiee",
+        "estado" => "readonly_inicial",
+        "puede_cambiar_en_futuro" => true
+      ),
       "plantillas" => array(
         array(
           "codigo" => "artiani_default",
@@ -651,6 +676,12 @@ class EcommerceCatalogoPublico extends CRUD {
         )
       ),
       "tipos_bloque" => $this->contenidoTiposBloqueDefault(),
+      "plantillas_vista" => array(
+        $this->plantillaVistaPaginaDefault("home"),
+        $this->plantillaVistaPaginaDefault("categoria"),
+        $this->plantillaVistaPaginaDefault("catalogo")
+      ),
+      "componentes_frontend" => $this->componentesFrontendDefault(),
       "paginas_soportadas" => array(
         array("codigo" => "home", "endpoint" => "/ecommercePublico/contenido_pagina?pagina=home&plantilla=" . $plantilla),
         array("codigo" => "categoria", "endpoint" => "/ecommercePublico/contenido_pagina?pagina=categoria&categoria={slug_categoria}&plantilla=" . $plantilla),
@@ -667,6 +698,7 @@ class EcommerceCatalogoPublico extends CRUD {
         "no_modifica_catalogo" => true,
         "no_modifica_inventario" => true,
         "frontend_renderiza_plantilla" => true,
+        "frontend_renderiza_plantilla_vista" => true,
         "erp_entrega_contenido_json" => true
       )
     ));
@@ -697,6 +729,7 @@ class EcommerceCatalogoPublico extends CRUD {
       "editable_desde_panel" => false,
       "panel_pendiente" => true,
       "version_contenido" => "default-2026-08-10",
+      "plantilla_vista" => $this->plantillaVistaPaginaDefault($pagina),
       "slots" => $slots,
       "resumen" => array(
         "slots_total" => count($slots),
@@ -716,6 +749,7 @@ class EcommerceCatalogoPublico extends CRUD {
         "no_modifica_catalogo" => true,
         "no_modifica_inventario" => true,
         "no_checkout" => true,
+        "plantilla_vista_readonly" => true,
         "imagenes_reales_pendientes_panel" => true
       )
     ));
@@ -806,11 +840,18 @@ class EcommerceCatalogoPublico extends CRUD {
    * Contrato: read-only; el frontend debe renderizar solo componentes predefinidos.
    */
   public function frontendPlantillasAdminManifestInterno($opciones = array()) {
+    $temaActivo = array(
+      "codigo" => "wokiee_artiani",
+      "nombre" => "Wokiee Artiani",
+      "proveedor" => "ThemeForest/Wokiee",
+      "estatus" => "activo_readonly",
+      "descripcion" => "Primer tema visual conectado al CMS. No limita el sistema a Wokiee; otros temas podran registrarse con sus propios layouts y componentes."
+    );
     $componentes = array(
       array(
         "codigo" => "HeroSlider",
         "nombre" => "Hero slider",
-        "bloques_permitidos" => array("hero_banner"),
+        "bloques_permitidos" => array("hero_banner", "category_banner"),
         "variantes" => array("full_width", "boxed", "split"),
         "slots_compatibles" => array("home.hero", "categoria.banner")
       ),
@@ -891,6 +932,8 @@ class EcommerceCatalogoPublico extends CRUD {
     return $this->respuesta(false, "success", "Manifest frontend CMS disponible", array(
       "modo" => "readonly",
       "fase" => "cms_frontend_plantillas_diseno_inicial",
+      "tema_activo" => $temaActivo,
+      "temas_disponibles" => array($temaActivo),
       "plantilla_activa_home" => "wokiee_home_default",
       "layouts" => array("storefront_wokiee_v1", "category_wokiee_v1", "catalog_wokiee_v1"),
       "componentes" => $componentes,
@@ -1077,8 +1120,9 @@ class EcommerceCatalogoPublico extends CRUD {
       }
       $mascota = $this->limpiarFiltroPublico($this->valor($filtros, "mascota", ""));
       if ($mascota !== "") {
-        $where[] = "pub.mascota_especie = :mascota";
+        $where[] = "(pub.mascota_especie=:mascota OR FIND_IN_SET(:mascota_set, REPLACE(pub.mascota_especie, ' ', ''))>0)";
         $params[":mascota"] = $mascota;
+        $params[":mascota_set"] = $mascota;
       }
       $necesidad = $this->limpiarFiltroPublico($this->valor($filtros, "necesidad", ""));
       if ($necesidad !== "") {
@@ -1440,12 +1484,13 @@ class EcommerceCatalogoPublico extends CRUD {
         ));
       }
       $baseWhere = "pub.estatus_publicacion='publicado' AND p.estatus='activo' AND s.estatus='activo'";
-      $mascotas = $db->query("SELECT pub.mascota_especie valor, pub.mascota_especie etiqueta, COUNT(*) total
+      $mascotasFilas = $db->query("SELECT pub.mascota_especie valor
         FROM erp_ecommerce_publicaciones pub
         INNER JOIN erp_catalogo_skus s ON s.id_sku=pub.id_sku
         INNER JOIN erp_catalogo_productos p ON p.id_producto_erp=pub.id_producto_erp
         WHERE " . $baseWhere . " AND TRIM(COALESCE(pub.mascota_especie,''))<>''
-        GROUP BY pub.mascota_especie ORDER BY pub.mascota_especie")->fetchAll(PDO::FETCH_ASSOC);
+        ORDER BY pub.mascota_especie")->fetchAll(PDO::FETCH_ASSOC);
+      $mascotas = $this->agruparMascotasFiltro($mascotasFilas);
       $marcas = $db->query("SELECT m.id_marca_erp id, m.nombre etiqueta, COUNT(*) total
         FROM erp_ecommerce_publicaciones pub
         INNER JOIN erp_catalogo_skus s ON s.id_sku=pub.id_sku
@@ -3575,8 +3620,8 @@ class EcommerceCatalogoPublico extends CRUD {
         "titulo_publico" => isset($fila["titulo_publico_publicacion"]) ? (string) $fila["titulo_publico_publicacion"] : "",
         "descripcion_publica" => isset($fila["descripcion_publica_publicacion"]) ? (string) $fila["descripcion_publica_publicacion"] : "",
         "presentacion_publica" => isset($fila["presentacion_publica_publicacion"]) ? (string) $fila["presentacion_publica_publicacion"] : "",
-        "mascota_especie" => isset($fila["mascota_especie_publicacion"]) ? (string) $fila["mascota_especie_publicacion"] : "",
-        "necesidades" => isset($fila["necesidades_json_publicacion"]) ? $this->jsonArray($fila["necesidades_json_publicacion"]) : array(),
+        "mascota_especie" => isset($fila["mascota_especie_publicacion"]) ? $this->normalizarMascotasPublicacion($fila["mascota_especie_publicacion"]) : "",
+        "necesidades" => isset($fila["necesidades_json_publicacion"]) ? $this->normalizarNecesidadesPublicacion($fila["necesidades_json_publicacion"]) : array(),
         "destacado" => isset($fila["destacado_publicacion"]) ? intval($fila["destacado_publicacion"]) : 0,
         "orden" => isset($fila["orden_publicacion"]) ? intval($fila["orden_publicacion"]) : 0,
         "permite_cotizacion" => isset($fila["permite_cotizacion_publicacion"]) ? intval($fila["permite_cotizacion_publicacion"]) : 1,
@@ -3585,6 +3630,7 @@ class EcommerceCatalogoPublico extends CRUD {
         "mostrar_disponibilidad" => isset($fila["mostrar_disponibilidad_publicacion"]) ? intval($fila["mostrar_disponibilidad_publicacion"]) : 1
       );
       $metadata = $this->inferirMetadataMascotas($fila);
+      $taxonomiaPublicacion = $this->taxonomiaPublicacionControlada();
       $titulo = trim((string) $fila["nombre_publico"]);
       $descripcionCatalogo = $this->descripcionCatalogoParaEcommerce($fila);
       $presentacion = trim((string) $fila["presentacion_base"]);
@@ -3593,6 +3639,7 @@ class EcommerceCatalogoPublico extends CRUD {
       if ($publicacionActual["id_publicacion"] > 0 && !empty($publicacionActual["necesidades"])) {
         $necesidadesSugeridas = $publicacionActual["necesidades"];
       }
+      $necesidadesSugeridas = $this->normalizarNecesidadesPublicacion($necesidadesSugeridas);
 
       return $this->respuesta(false, empty($bloqueos) ? "success" : "warning", empty($bloqueos) ? "Propuesta de publicacion preparada" : "Propuesta preparada con bloqueos", array(
         "read_only" => true,
@@ -3631,6 +3678,7 @@ class EcommerceCatalogoPublico extends CRUD {
           "mostrar_precio" => $publicacionActual["mostrar_precio"],
           "mostrar_disponibilidad" => $publicacionActual["mostrar_disponibilidad"]
         ),
+        "taxonomia_publicacion" => $taxonomiaPublicacion,
         "flujo" => array(
           "fuente_viva" => "Catalogo ERP/Inventario ERP",
           "publicacion_es_curaduria" => true,
@@ -3734,6 +3782,7 @@ class EcommerceCatalogoPublico extends CRUD {
       }
 
       $necesidades = $this->normalizarNecesidadesPublicacion($this->valor($datos, "necesidades", $this->valor($sugerida, "necesidades", array())));
+      $mascota = $this->normalizarMascotasPublicacion($this->valor($datos, "mascota_especie", $this->valor($sugerida, "mascota_especie", "")));
       $descripcionPublica = trim((string) $this->valor($datos, "descripcion_publica", $this->valor($sugerida, "descripcion_publica", "")));
       if ($descripcionPublica === "") {
         $descripcionPublica = $this->descripcionCatalogoParaEcommerce($fila);
@@ -3747,7 +3796,7 @@ class EcommerceCatalogoPublico extends CRUD {
         "titulo_publico" => trim((string) $this->valor($datos, "titulo_publico", $this->valor($sugerida, "titulo_publico", $fila["nombre_publico"]))),
         "descripcion_publica" => $descripcionPublica,
         "presentacion_publica" => trim((string) $this->valor($datos, "presentacion_publica", $this->valor($sugerida, "presentacion_publica", $fila["presentacion_base"]))),
-        "mascota_especie" => trim((string) $this->valor($datos, "mascota_especie", $this->valor($sugerida, "mascota_especie", ""))),
+        "mascota_especie" => $mascota,
         "necesidades" => $necesidades,
         "orden" => intval($this->valor($datos, "orden", $this->valor($sugerida, "orden", 0))),
         "destacado" => $this->booleanoPublicacion($this->valor($datos, "destacado", $this->valor($sugerida, "destacado", 0))),
@@ -4254,7 +4303,7 @@ class EcommerceCatalogoPublico extends CRUD {
         $descripcion = $this->descripcionCatalogoParaEcommerce($fila);
       }
       $presentacion = trim((string) $this->valor($datos, "presentacion_publica", $actual["presentacion_publica"]));
-      $mascota = trim((string) $this->valor($datos, "mascota_especie", $actual["mascota_especie"]));
+      $mascota = $this->normalizarMascotasPublicacion($this->valor($datos, "mascota_especie", $actual["mascota_especie"]));
       $necesidades = $this->normalizarNecesidadesPublicacion($this->valor($datos, "necesidades", $actual["necesidades_json"]));
 
       if ($slug === "") { $bloqueos[] = "slug_requerido"; }
@@ -4532,8 +4581,9 @@ class EcommerceCatalogoPublico extends CRUD {
     }
     $mascota = $this->limpiarFiltroPublico($this->valor($filtrosExtra, "mascota", ""));
     if ($mascota !== "" && $tienePublicaciones) {
-      $where[] = "pub.mascota_especie=:mascota";
+      $where[] = "(pub.mascota_especie=:mascota OR FIND_IN_SET(:mascota_set, REPLACE(pub.mascota_especie, ' ', ''))>0)";
       $params[":mascota"] = $mascota;
+      $params[":mascota_set"] = $mascota;
     }
     $necesidad = $this->limpiarFiltroPublico($this->valor($filtrosExtra, "necesidad", ""));
     if ($necesidad !== "" && $tienePublicaciones) {
@@ -4829,7 +4879,8 @@ class EcommerceCatalogoPublico extends CRUD {
       "precio" => $mostrarPrecio ? floatval($fila["precio"]) : null,
       "moneda" => $mostrarPrecio ? ($fila["moneda"] ?: "MXN") : null,
       "disponibilidad" => $mostrarDisponibilidad ? $this->disponibilidadPublicaSugerida($fila) : "consultar_disponibilidad",
-      "mascota_especie" => $fila["mascota_especie"],
+      "mascota_especie" => $this->mascotaPrincipalPublicacion($fila["mascota_especie"]),
+      "mascotas" => $this->decodificarMascotasPublicacion($fila["mascota_especie"]),
       "necesidades" => $this->decodificarJsonLista($fila["necesidades_json"]),
       "permite_cotizacion" => intval($fila["permite_cotizacion"]) === 1,
       "permite_whatsapp" => intval($fila["permite_whatsapp"]) === 1
@@ -4933,10 +4984,13 @@ class EcommerceCatalogoPublico extends CRUD {
       $condiciones[] = "pc.id_categoria_erp=:categoria";
       $params[":categoria"] = $categoria;
     }
-    $mascota = $this->limpiarFiltroPublico($this->valor($fila, "mascota_especie", ""));
-    if ($mascota !== "") {
-      $condiciones[] = "pub.mascota_especie=:mascota";
-      $params[":mascota"] = $mascota;
+    $mascotas = $this->decodificarMascotasPublicacion($this->valor($fila, "mascota_especie", ""));
+    foreach (array_slice($mascotas, 0, 4) as $i => $mascota) {
+      $claveMascota = ":mascota" . $i;
+      $claveMascotaSet = ":mascota_set" . $i;
+      $condiciones[] = "(pub.mascota_especie=" . $claveMascota . " OR FIND_IN_SET(" . $claveMascotaSet . ", REPLACE(pub.mascota_especie, ' ', ''))>0)";
+      $params[$claveMascota] = $mascota;
+      $params[$claveMascotaSet] = $mascota;
     }
     $necesidades = array_slice($this->decodificarJsonLista($this->valor($fila, "necesidades_json", "")), 0, 4);
     foreach ($necesidades as $i => $necesidad) {
@@ -4960,8 +5014,8 @@ class EcommerceCatalogoPublico extends CRUD {
     if ($categoria > 0) {
       $ordenScore[] = "CASE WHEN pc.id_categoria_erp=:categoria THEN 4 ELSE 0 END";
     }
-    if ($mascota !== "") {
-      $ordenScore[] = "CASE WHEN pub.mascota_especie=:mascota THEN 3 ELSE 0 END";
+    foreach (array_slice($mascotas, 0, 4) as $i => $mascota) {
+      $ordenScore[] = "CASE WHEN pub.mascota_especie=:mascota" . $i . " OR FIND_IN_SET(:mascota_set" . $i . ", REPLACE(pub.mascota_especie, ' ', ''))>0 THEN 3 ELSE 0 END";
     }
     foreach ($necesidades as $i => $necesidad) {
       $ordenScore[] = "CASE WHEN pub.necesidades_json LIKE :necesidad" . $i . " THEN 2 ELSE 0 END";
@@ -6708,6 +6762,103 @@ class EcommerceCatalogoPublico extends CRUD {
     return $limpias;
   }
 
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-08-11
+   * Proposito: permitir una o varias mascotas controladas en una publicacion ecommerce.
+   * Impacto: conserva filtros publicos estables sin requerir DDL inmediato para tabla relacional.
+   */
+  private function normalizarMascotasPublicacion($valor) {
+    $mascotas = $this->decodificarMascotasPublicacion($valor);
+    return implode(",", $mascotas);
+  }
+
+  private function decodificarMascotasPublicacion($valor) {
+    if (is_string($valor)) {
+      $decodificado = json_decode($valor, true);
+      if (is_array($decodificado)) {
+        $valor = $decodificado;
+      } else {
+        $valor = preg_split('/[\r\n,]+/', $valor);
+      }
+    }
+    if (!is_array($valor)) {
+      $valor = array($valor);
+    }
+    $permitidas = array("perro", "gato", "pez", "ave", "reptil", "roedor", "otra");
+    $limpias = array();
+    foreach ($valor as $mascota) {
+      $m = $this->limpiarFiltroPublico($mascota);
+      if ($m === "") { continue; }
+      if (!in_array($m, $permitidas, true)) {
+        $m = "otra";
+      }
+      if (!in_array($m, $limpias, true)) {
+        $limpias[] = $m;
+      }
+      if (count($limpias) >= 4) {
+        break;
+      }
+    }
+    return $limpias;
+  }
+
+  private function agruparMascotasFiltro($filas) {
+    $defaults = $this->taxonomiaMascotasDefault();
+    $etiquetas = array();
+    foreach ($defaults["mascotas"] as $mascota) {
+      $etiquetas[$mascota["codigo"]] = $mascota["nombre"];
+    }
+    $conteo = array();
+    foreach ((array) $filas as $fila) {
+      foreach ($this->decodificarMascotasPublicacion($this->valor($fila, "valor", "")) as $mascota) {
+        if (!isset($conteo[$mascota])) {
+          $conteo[$mascota] = 0;
+        }
+        $conteo[$mascota]++;
+      }
+    }
+    $salida = array();
+    foreach ($conteo as $valor => $total) {
+      $salida[] = array(
+        "valor" => $valor,
+        "etiqueta" => isset($etiquetas[$valor]) ? $etiquetas[$valor] : $valor,
+        "total" => $total
+      );
+    }
+    usort($salida, function($a, $b) {
+      return strcmp($a["etiqueta"], $b["etiqueta"]);
+    });
+    return $salida;
+  }
+
+  private function mascotaPrincipalPublicacion($valor) {
+    $mascotas = $this->decodificarMascotasPublicacion($valor);
+    if (empty($mascotas)) {
+      return "";
+    }
+    return $mascotas[0];
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-08-11
+   * Proposito: exponer al panel interno listas controladas para clasificar publicaciones ecommerce.
+   * Impacto: reemplaza inputs abiertos por select/checkboxes sin crear tablas nuevas.
+   */
+  private function taxonomiaPublicacionControlada() {
+    $defaults = $this->taxonomiaMascotasDefault();
+    return array(
+      "mascotas" => $defaults["mascotas"],
+      "necesidades" => $defaults["necesidades"],
+      "guardrails" => array(
+        "mascota_no_es_texto_libre" => true,
+        "mascota_permite_multiple" => true,
+        "necesidades_no_son_texto_libre" => true,
+        "categorias_vienen_del_catalogo_erp" => true,
+        "presentacion_publica_es_texto_comercial_opcional" => true
+      )
+    );
+  }
+
   private function normalizarIdsSkuLote($valor) {
     if (is_string($valor)) {
       $decodificado = json_decode($valor, true);
@@ -6943,6 +7094,60 @@ class EcommerceCatalogoPublico extends CRUD {
           $this->bloqueProductCollectionDefault("home-disponibles", "Disponibles ahora", "/ecommercePublico/catalogo?disponibilidad=disponible&limite=8", "/catalogo?disponibilidad=disponible")
         )
       )
+    );
+  }
+
+  private function plantillaVistaPaginaDefault($pagina) {
+    $plantillas = array(
+      "home" => array(
+        "codigo" => "wokiee_home_default",
+        "nombre" => "Wokiee home default",
+        "pagina" => "home",
+        "layout" => "storefront_wokiee_v1",
+        "version" => "readonly-2026-08-11",
+        "fuente" => "default_readonly",
+        "secciones" => array(
+          array("slot" => "home.hero", "componente" => "HeroSlider", "variante" => "full_width", "orden" => 1),
+          array("slot" => "home.promo", "componente" => "PromoStrip", "variante" => "compact", "orden" => 2),
+          array("slot" => "home.categorias", "componente" => "CategoryGrid", "variante" => "cards_4", "orden" => 3),
+          array("slot" => "home.destacados", "componente" => "ProductCarousel", "variante" => "compact_cards", "orden" => 4)
+        )
+      ),
+      "categoria" => array(
+        "codigo" => "wokiee_categoria_default",
+        "nombre" => "Wokiee categoria default",
+        "pagina" => "categoria",
+        "layout" => "category_wokiee_v1",
+        "version" => "readonly-2026-08-11",
+        "fuente" => "default_readonly",
+        "secciones" => array(
+          array("slot" => "categoria.banner", "componente" => "HeroSlider", "variante" => "boxed", "orden" => 1),
+          array("slot" => "categoria.productos", "componente" => "ProductCarousel", "variante" => "wide_cards", "orden" => 2)
+        )
+      ),
+      "catalogo" => array(
+        "codigo" => "wokiee_catalogo_default",
+        "nombre" => "Wokiee catalogo default",
+        "pagina" => "catalogo",
+        "layout" => "catalog_wokiee_v1",
+        "version" => "readonly-2026-08-11",
+        "fuente" => "default_readonly",
+        "secciones" => array(
+          array("slot" => "catalogo.encabezado", "componente" => "SafeHtmlBlock", "variante" => "wide", "orden" => 1)
+        )
+      )
+    );
+    return isset($plantillas[$pagina]) ? $plantillas[$pagina] : $plantillas["home"];
+  }
+
+  private function componentesFrontendDefault() {
+    return array(
+      array("codigo" => "HeroSlider", "bloques_permitidos" => array("hero_banner", "category_banner"), "variantes" => array("full_width", "boxed", "split")),
+      array("codigo" => "PromoStrip", "bloques_permitidos" => array("promo_strip"), "variantes" => array("single", "stacked", "compact")),
+      array("codigo" => "CategoryGrid", "bloques_permitidos" => array("image_card_grid"), "variantes" => array("cards_3", "cards_4", "mosaic")),
+      array("codigo" => "ProductCarousel", "bloques_permitidos" => array("product_collection"), "variantes" => array("compact_cards", "wide_cards", "simple_row")),
+      array("codigo" => "ImageCardGrid", "bloques_permitidos" => array("image_card_grid"), "variantes" => array("two_columns", "three_columns", "editorial")),
+      array("codigo" => "SafeHtmlBlock", "bloques_permitidos" => array("content_html_safe"), "variantes" => array("narrow", "wide", "accordion"))
     );
   }
 

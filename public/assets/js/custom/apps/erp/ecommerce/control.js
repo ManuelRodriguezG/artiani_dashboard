@@ -325,6 +325,32 @@
         return Number(valor || 0) === 1 ? " checked" : "";
     }
 
+    function mascotasCheckboxesHtml(taxonomia, valorActual) {
+        var mascotas = (taxonomia && Array.isArray(taxonomia.mascotas)) ? taxonomia.mascotas : [];
+        var seleccionadas = String(valorActual || "").split(",").map(function (valor) { return valor.trim(); }).filter(function (valor) { return valor !== ""; });
+        if (!mascotas.length) { return "<div class=\"text-muted fs-8\">Sin mascotas configuradas.</div>"; }
+        return "<div class=\"row g-2\">" + mascotas.map(function (item) {
+            var codigo = String(item.codigo || "");
+            return "<div class=\"col-6\"><label class=\"form-check form-check-custom form-check-solid fs-7\">" +
+                "<input class=\"form-check-input ecom-mascota-check\" type=\"checkbox\" value=\"" + escapeHtml(codigo) + "\"" + (seleccionadas.indexOf(codigo) !== -1 ? " checked" : "") + ">" +
+                "<span class=\"form-check-label\">" + escapeHtml(item.nombre || codigo) + "</span>" +
+            "</label></div>";
+        }).join("") + "</div>";
+    }
+
+    function necesidadesCheckboxesHtml(taxonomia, actuales) {
+        var necesidades = (taxonomia && Array.isArray(taxonomia.necesidades)) ? taxonomia.necesidades : [];
+        var seleccionadas = Array.isArray(actuales) ? actuales.map(String) : [];
+        if (!necesidades.length) { return "<div class=\"text-muted fs-8\">Sin necesidades configuradas.</div>"; }
+        return "<div class=\"row g-2\">" + necesidades.map(function (item) {
+            var codigo = String(item.codigo || "");
+            return "<div class=\"col-6\"><label class=\"form-check form-check-custom form-check-solid fs-7\">" +
+                "<input class=\"form-check-input ecom-necesidad-check\" type=\"checkbox\" value=\"" + escapeHtml(codigo) + "\"" + (seleccionadas.indexOf(codigo) !== -1 ? " checked" : "") + ">" +
+                "<span class=\"form-check-label\">" + escapeHtml(item.nombre || codigo) + "</span>" +
+            "</label></div>";
+        }).join("") + "</div>";
+    }
+
     function renderEditor(data) {
         var producto = data.producto_vivo_erp || {};
         var pub = data.publicacion_sugerida || {};
@@ -335,6 +361,7 @@
         var bloqueos = data.bloqueos_publicacion || producto.bloqueos_publicacion || [];
         var disponibilidad = String(producto.disponibilidad_publica_sugerida || "");
         var agotado = disponibilidad === "agotado";
+        var taxonomia = data.taxonomia_publicacion || {};
         actualizarBadgeEditor(producto.sku || ("SKU ID " + (producto.id_sku || "")), agotado ? "badge-light-warning" : "badge-light-primary");
         setEstado("Producto preparado", "badge-light-success");
         $("ecom_ctl_editor").innerHTML =
@@ -351,11 +378,11 @@
                 "<div class=\"mb-3\"><label class=\"form-label fw-semibold\">Titulo publico</label><input class=\"form-control form-control-solid\" data-field=\"titulo_publico\" value=\"" + escapeHtml(pub.titulo_publico || "") + "\"></div>" +
                 "<div class=\"mb-3\"><label class=\"form-label fw-semibold\">Slug</label><input class=\"form-control form-control-solid\" data-field=\"slug\" value=\"" + escapeHtml(pub.slug || "") + "\"></div>" +
                 "<div class=\"row g-3 mb-3\">" +
-                    "<div class=\"col-6\"><label class=\"form-label fw-semibold\">Mascota</label><input class=\"form-control form-control-solid\" data-field=\"mascota_especie\" value=\"" + escapeHtml(pub.mascota_especie || "") + "\"></div>" +
+                    "<div class=\"col-6\"><label class=\"form-label fw-semibold\">Mascotas</label>" + mascotasCheckboxesHtml(taxonomia, pub.mascota_especie || "") + "</div>" +
                     "<div class=\"col-6\"><label class=\"form-label fw-semibold\">Orden</label><input class=\"form-control form-control-solid\" data-field=\"orden\" value=\"" + escapeHtml(pub.orden || 0) + "\"></div>" +
                 "</div>" +
-                "<div class=\"mb-3\"><label class=\"form-label fw-semibold\">Necesidades</label><input class=\"form-control form-control-solid\" data-field=\"necesidades\" value=\"" + escapeHtml(necesidades.join(",")) + "\"></div>" +
-                "<div class=\"mb-3\"><label class=\"form-label fw-semibold\">Presentacion</label><input class=\"form-control form-control-solid\" data-field=\"presentacion_publica\" value=\"" + escapeHtml(pub.presentacion_publica || "") + "\"></div>" +
+                "<div class=\"mb-3\"><label class=\"form-label fw-semibold\">Necesidades</label>" + necesidadesCheckboxesHtml(taxonomia, necesidades) + "</div>" +
+                "<div class=\"mb-3\"><label class=\"form-label fw-semibold\">Presentacion comercial opcional</label><input class=\"form-control form-control-solid\" data-field=\"presentacion_publica\" value=\"" + escapeHtml(pub.presentacion_publica || "") + "\"><div class=\"text-muted fs-8 mt-1\">Solo texto visible como 2 kg, 12 pzas o paquete. Las caracteristicas reales siguen viniendo del catalogo ERP.</div></div>" +
                 "<div class=\"mb-3\"><label class=\"form-label fw-semibold\">Descripcion publica</label><textarea class=\"form-control form-control-solid\" rows=\"3\" data-field=\"descripcion_publica\">" + escapeHtml(pub.descripcion_publica || "") + "</textarea></div>" +
                 "<div class=\"row g-2 mb-4\">" +
                     toggle("destacado", "Destacado", pub.destacado) +
@@ -404,6 +431,12 @@
                 datos[campo.getAttribute("data-field")] = campo.value || "";
             }
         });
+        datos.necesidades = Array.prototype.map.call(form.querySelectorAll(".ecom-necesidad-check:checked"), function (check) {
+            return check.value || "";
+        }).filter(function (valor) { return valor !== ""; }).join(",");
+        datos.mascota_especie = Array.prototype.map.call(form.querySelectorAll(".ecom-mascota-check:checked"), function (check) {
+            return check.value || "";
+        }).filter(function (valor) { return valor !== ""; }).join(",");
         return datos;
     }
 

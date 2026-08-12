@@ -31,6 +31,24 @@
         .ecom-cms-validation__item + .ecom-cms-validation__item { margin-top: 8px; }
         .ecom-cms-slot-status { border: 1px solid #e7e9ef; border-radius: 8px; padding: 14px; background: #fbfcfe; }
         .ecom-cms-slot-status + .ecom-cms-slot-status { margin-top: 10px; }
+        .ecom-cms-storefront { border: 1px solid #dfe3ea; border-radius: 8px; background: #fff; overflow: hidden; }
+        .ecom-cms-storefront__bar { height: 46px; border-bottom: 1px solid #e7e9ef; background: #f8fafc; display: flex; align-items: center; justify-content: space-between; padding: 0 18px; }
+        .ecom-cms-storefront__brand { font-weight: 800; color: #181c32; letter-spacing: 0; }
+        .ecom-cms-storefront__nav { display: flex; gap: 14px; color: #7e8299; font-size: .78rem; font-weight: 700; text-transform: uppercase; }
+        .ecom-cms-storefront__section { padding: 22px; border-bottom: 1px solid #eef1f6; }
+        .ecom-cms-storefront__section:last-child { border-bottom: 0; }
+        .ecom-cms-storefront__hero { min-height: 220px; border-radius: 8px; background: #eef4ff; display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(180px, .9fr); gap: 18px; align-items: center; padding: 26px; overflow: hidden; }
+        .ecom-cms-storefront__hero-img, .ecom-cms-storefront__placeholder { width: 100%; aspect-ratio: 16 / 9; border-radius: 8px; object-fit: cover; background: #dce7f8; border: 1px solid #d7dfed; display: flex; align-items: center; justify-content: center; color: #7e8299; font-size: .82rem; }
+        .ecom-cms-storefront__promo { border: 1px solid #d7eadf; background: #f2fbf5; border-radius: 8px; padding: 12px 14px; color: #246b3d; font-weight: 700; }
+        .ecom-cms-storefront__grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+        .ecom-cms-storefront__card, .ecom-cms-storefront__product { border: 1px solid #e7e9ef; border-radius: 8px; padding: 12px; background: #fff; min-height: 120px; }
+        .ecom-cms-storefront__thumb { width: 100%; aspect-ratio: 4 / 3; border-radius: 6px; background: #f3f6f9; border: 1px solid #e7e9ef; object-fit: cover; display: flex; align-items: center; justify-content: center; color: #a1a5b7; font-size: .75rem; margin-bottom: 10px; }
+        .ecom-cms-storefront__products { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+        @media (max-width: 991px) {
+            .ecom-cms-storefront__hero { grid-template-columns: 1fr; }
+            .ecom-cms-storefront__grid, .ecom-cms-storefront__products { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+            .ecom-cms-storefront__nav { display: none; }
+        }
         @media (max-width: 767px) { .ecom-cms-form-grid { grid-template-columns: 1fr; } }
     </style>
 </head>
@@ -107,6 +125,28 @@
                                     <span class="badge badge-light-warning">Sin persistencia real</span>
                                 </div>
                                 <div id="ecom_cms_resumen_editorial"></div>
+                            </div>
+
+                            <div class="ecom-cms-panel p-5 mb-5">
+                                <div class="d-flex justify-content-between align-items-center flex-wrap gap-3 mb-4">
+                                    <div>
+                                        <h3 class="fw-bold mb-1">Plantilla visual de la pagina</h3>
+                                        <span class="text-muted fs-7">Layout frontend que renderizara estos slots y bloques.</span>
+                                    </div>
+                                    <a class="btn btn-sm btn-light-primary" href="/cms/frontend_plantillas"><i class="bi bi-window-sidebar"></i> Ver plantillas de vista</a>
+                                </div>
+                                <div id="ecom_cms_plantilla_visual"></div>
+                            </div>
+
+                            <div class="ecom-cms-panel p-5 mb-5">
+                                <div class="d-flex justify-content-between align-items-center flex-wrap gap-3 mb-4">
+                                    <div>
+                                        <h3 class="fw-bold mb-1">Preview visual frontend</h3>
+                                        <span class="text-muted fs-7">Simulacion local basada en el JSON actual; el HTML final lo implementa el frontend ecommerce.</span>
+                                    </div>
+                                    <span class="badge badge-light-info">Renderer simulado</span>
+                                </div>
+                                <div id="ecom_cms_visual"></div>
                             </div>
 
                             <div class="ecom-cms-panel p-5 mb-5">

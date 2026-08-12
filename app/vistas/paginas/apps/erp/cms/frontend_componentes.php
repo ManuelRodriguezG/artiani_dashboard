@@ -58,12 +58,43 @@
                                 <div class="col-md-3"><div class="cms-front-kpi"><div class="cms-front-kpi__label">Layouts</div><div class="cms-front-kpi__value" id="cms_frontend_layouts_total">0</div><div class="text-muted fs-7 mt-2">Bases visuales.</div></div></div>
                                 <div class="col-md-3"><div class="cms-front-kpi"><div class="cms-front-kpi__label">Componentes</div><div class="cms-front-kpi__value" id="cms_frontend_componentes_total">0</div><div class="text-muted fs-7 mt-2">Disponibles.</div></div></div>
                                 <div class="col-md-3"><div class="cms-front-kpi"><div class="cms-front-kpi__label">Plantillas</div><div class="cms-front-kpi__value" id="cms_frontend_plantillas_total">0</div><div class="text-muted fs-7 mt-2">Usan estos componentes.</div></div></div>
-                                <div class="col-md-3"><div class="cms-front-kpi"><div class="cms-front-kpi__label">Home activa</div><div class="cms-front-kpi__value fs-3" id="cms_frontend_activa">-</div><div class="text-muted fs-7 mt-2">Preview.</div></div></div>
+                                <div class="col-md-3"><div class="cms-front-kpi"><div class="cms-front-kpi__label">Tema activo</div><div class="cms-front-kpi__value fs-3" id="cms_frontend_activa">-</div><div class="text-muted fs-7 mt-2">Base visual.</div></div></div>
                             </div>
 
                             <div class="cms-front-panel p-5 mb-5">
                                 <h3 class="fw-bold mb-4">Contrato renderer</h3>
                                 <div id="cms_frontend_renderer"></div>
+                            </div>
+
+                            <div class="cms-front-panel p-5 mb-5">
+                                <div class="d-flex justify-content-between align-items-center flex-wrap gap-3 mb-4">
+                                    <div>
+                                        <h3 class="fw-bold mb-1">Persistencia frontend propuesta</h3>
+                                        <span class="text-muted fs-7">Catalogo seguro persistible cuando se autorice respaldo y DDL.</span>
+                                    </div>
+                                    <span class="badge badge-light-warning">Read-only</span>
+                                </div>
+                                <div id="cms_frontend_esquema"></div>
+                            </div>
+
+                            <div class="cms-front-panel p-5 mb-5">
+                                <div class="d-flex justify-content-between align-items-center flex-wrap gap-3 mb-4">
+                                    <div>
+                                        <h3 class="fw-bold mb-1">Contratos frontend bloqueados</h3>
+                                        <span class="text-muted fs-7">Los componentes se validaran contra estos contratos cuando se active persistencia.</span>
+                                    </div>
+                                    <span class="badge badge-light-danger">No ejecuta codigo</span>
+                                </div>
+                                <div class="table-responsive">
+                                    <table class="table table-row-dashed fs-7 gy-3 mb-0">
+                                        <tbody>
+                                            <tr><td class="fw-semibold">Guardar plantilla</td><td><code>/cms/frontend_plantilla_guardar_erp</code></td><td class="text-end"><span class="badge badge-light-warning">Bloqueado</span></td></tr>
+                                            <tr><td class="fw-semibold">Estatus plantilla</td><td><code>/cms/frontend_plantilla_estatus_erp</code></td><td class="text-end"><span class="badge badge-light-warning">Bloqueado</span></td></tr>
+                                            <tr><td class="fw-semibold">Guardar seccion</td><td><code>/cms/frontend_seccion_guardar_erp</code></td><td class="text-end"><span class="badge badge-light-warning">Bloqueado</span></td></tr>
+                                            <tr><td class="fw-semibold">Estatus seccion</td><td><code>/cms/frontend_seccion_estatus_erp</code></td><td class="text-end"><span class="badge badge-light-warning">Bloqueado</span></td></tr>
+                                        </tbody>
+                                    </table>
+                                </div>
                             </div>
 
                             <div class="cms-front-panel p-5">

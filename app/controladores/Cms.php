@@ -147,6 +147,53 @@ class Cms extends Controlador {
   }
 
   /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-08-11
+   * Proposito: entregar estado read-only del esquema CMS frontend.
+   * Impacto: CMS frontend; muestra tablas propuestas para layouts, componentes, plantillas, secciones y activaciones sin ejecutar DDL.
+   * Contrato: GET protegido; no edita archivos frontend ni escribe BD.
+   */
+  public function frontend_admin_estado_erp() {
+    $this->requerirAlgunPermiso(array("cms.ver", "catalogo.ver"));
+    $esquema = $this->modelo("EcommercePublicoEsquema");
+    $auditoria = $esquema->auditarCmsFrontend();
+    $plan = $esquema->planActualizarCmsFrontend(false);
+    return json_encode(array(
+      "error" => false,
+      "tipo" => "info",
+      "mensaje" => "CMS frontend en modo read-only",
+      "depurar" => array(
+        "modo" => "readonly",
+        "fase" => "cms_frontend_persistencia_diseno",
+        "persistencia_real" => false,
+        "pantalla" => "/cms/frontend_plantillas",
+        "endpoints_admin" => array(
+          "estado" => "/cms/frontend_admin_estado_erp",
+          "manifest" => "/cms/frontend_admin_manifest_erp"
+        ),
+        "post_bloqueados" => array(
+          array("metodo" => "POST", "ruta" => "/cms/frontend_plantilla_guardar_erp", "estado" => "bloqueado_readonly"),
+          array("metodo" => "POST", "ruta" => "/cms/frontend_plantilla_estatus_erp", "estado" => "bloqueado_readonly"),
+          array("metodo" => "POST", "ruta" => "/cms/frontend_seccion_guardar_erp", "estado" => "bloqueado_readonly"),
+          array("metodo" => "POST", "ruta" => "/cms/frontend_seccion_estatus_erp", "estado" => "bloqueado_readonly")
+        ),
+        "esquema" => array(
+          "auditoria" => isset($auditoria["depurar"]) ? $auditoria["depurar"] : array(),
+          "plan" => isset($plan["depurar"]) ? $plan["depurar"] : array()
+        ),
+        "guardrails" => array(
+          "read_only" => true,
+          "no_escribe_bd" => true,
+          "no_ejecuta_ddl" => true,
+          "no_edita_archivos_frontend" => true,
+          "no_html_libre" => true,
+          "no_css_libre" => true,
+          "no_js_libre" => true
+        )
+      )
+    ));
+  }
+
+  /**
    * Documentacion IA: Codex GPT-5 | Fecha: 2026-08-10
    * Proposito: declarar contrato futuro para guardar bloques CMS sin activar escritura real.
    * Impacto: CMS; protege la fase read-only ante llamadas anticipadas desde UI o integraciones.
@@ -186,6 +233,46 @@ class Cms extends Controlador {
     return json_encode($this->respuestaEscrituraCmsBloqueada("contenido_publicacion_estatus_erp"));
   }
 
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-08-11
+   * Proposito: declarar contrato futuro para guardar plantillas de vista frontend.
+   * Impacto: CMS frontend; reserva el endpoint sin activar persistencia ni editar archivos del ecommerce.
+   * Contrato: POST protegido; siempre bloqueado hasta respaldo, DDL y auditoria autorizados.
+   */
+  public function frontend_plantilla_guardar_erp() {
+    return json_encode($this->respuestaEscrituraCmsFrontendBloqueada("frontend_plantilla_guardar_erp"));
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-08-11
+   * Proposito: declarar contrato futuro para cambiar estatus o activar plantillas de vista.
+   * Impacto: CMS frontend; evita activar layouts reales antes de persistencia autorizada.
+   * Contrato: POST protegido; siempre bloqueado en fase read-only.
+   */
+  public function frontend_plantilla_estatus_erp() {
+    return json_encode($this->respuestaEscrituraCmsFrontendBloqueada("frontend_plantilla_estatus_erp"));
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-08-11
+   * Proposito: declarar contrato futuro para guardar secciones de una plantilla frontend.
+   * Impacto: CMS frontend; prepara mapeos slot-componente-variante sin ejecutar cambios.
+   * Contrato: POST protegido; siempre bloqueado en fase read-only.
+   */
+  public function frontend_seccion_guardar_erp() {
+    return json_encode($this->respuestaEscrituraCmsFrontendBloqueada("frontend_seccion_guardar_erp"));
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-08-11
+   * Proposito: declarar contrato futuro para cambiar estatus u orden de secciones frontend.
+   * Impacto: CMS frontend; protege el renderer publico hasta contar con persistencia real.
+   * Contrato: POST protegido; siempre bloqueado en fase read-only.
+   */
+  public function frontend_seccion_estatus_erp() {
+    return json_encode($this->respuestaEscrituraCmsFrontendBloqueada("frontend_seccion_estatus_erp"));
+  }
+
   private function respuestaEscrituraCmsBloqueada($endpoint) {
     $this->requerirAlgunPermiso(array("cms.editar", "catalogo.editar"));
     return array(
@@ -209,6 +296,36 @@ class Cms extends Controlador {
           "no_modifica_catalogo" => true,
           "no_modifica_inventario" => true,
           "no_publica_contenido_real" => true
+        )
+      )
+    );
+  }
+
+  private function respuestaEscrituraCmsFrontendBloqueada($endpoint) {
+    $this->requerirAlgunPermiso(array("cms.editar", "catalogo.editar"));
+    return array(
+      "error" => true,
+      "tipo" => "warning",
+      "mensaje" => "La persistencia real de plantillas frontend aun no esta autorizada. Esta accion queda bloqueada en modo read-only.",
+      "depurar" => array(
+        "endpoint" => $endpoint,
+        "fase" => "cms_frontend_readonly",
+        "persistencia_real" => false,
+        "requiere" => array(
+          "respaldo_bd",
+          "ddl_frontend_autorizado",
+          "csrf_activo",
+          "auditoria_explicita",
+          "validacion_componentes",
+          "renderer_frontend_implementado"
+        ),
+        "guardrails" => array(
+          "no_escribe_bd" => true,
+          "no_edita_archivos_frontend" => true,
+          "no_html_libre" => true,
+          "no_css_libre" => true,
+          "no_js_libre" => true,
+          "no_publica_layout_real" => true
         )
       )
     );

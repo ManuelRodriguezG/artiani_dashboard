@@ -31,6 +31,18 @@ if (!empty($categoria["error"])) {
 if (empty(valorContenidoReadonly($manifest, array("depurar", "guardrails", "read_only"), false))) {
   $bloqueos[] = "manifest_no_readonly";
 }
+if (empty(valorContenidoReadonly($manifest, array("depurar", "guardrails", "frontend_renderiza_plantilla_vista"), false))) {
+  $bloqueos[] = "manifest_no_declara_renderer_plantilla_vista";
+}
+if (trim((string) valorContenidoReadonly($manifest, array("depurar", "tema_visual_activo", "codigo"), "")) !== "wokiee_artiani") {
+  $bloqueos[] = "manifest_sin_tema_visual_activo";
+}
+if (!plantillaVistaExisteContenidoReadonly(valorContenidoReadonly($manifest, array("depurar", "plantillas_vista"), array()), "wokiee_home_default")) {
+  $bloqueos[] = "manifest_sin_wokiee_home_default";
+}
+if (count(valorContenidoReadonly($manifest, array("depurar", "componentes_frontend"), array())) < 6) {
+  $bloqueos[] = "manifest_componentes_frontend_insuficientes";
+}
 if (empty(valorContenidoReadonly($home, array("depurar", "guardrails", "no_escribe_bd"), false))) {
   $bloqueos[] = "home_no_declara_no_escribe_bd";
 }
@@ -46,11 +58,26 @@ if (!slotExisteContenidoReadonly(valorContenidoReadonly($home, array("depurar", 
 if (!slotExisteContenidoReadonly(valorContenidoReadonly($home, array("depurar", "slots"), array()), "home.destacados")) {
   $bloqueos[] = "home_sin_destacados";
 }
+if (trim((string) valorContenidoReadonly($home, array("depurar", "plantilla_vista", "codigo"), "")) !== "wokiee_home_default") {
+  $bloqueos[] = "home_sin_plantilla_vista";
+}
+if (count(valorContenidoReadonly($home, array("depurar", "plantilla_vista", "secciones"), array())) < 4) {
+  $bloqueos[] = "home_plantilla_vista_sin_secciones";
+}
 if (!slotExisteContenidoReadonly(valorContenidoReadonly($categoria, array("depurar", "slots"), array()), "categoria.banner")) {
   $bloqueos[] = "categoria_sin_banner";
 }
+if (trim((string) valorContenidoReadonly($categoria, array("depurar", "plantilla_vista", "codigo"), "")) !== "wokiee_categoria_default") {
+  $bloqueos[] = "categoria_sin_plantilla_vista";
+}
 if (trim((string) valorContenidoReadonly($configuracionInicial, array("depurar", "contenido", "manifest"), "")) !== "/ecommercePublico/contenido_manifest") {
   $bloqueos[] = "configuracion_inicial_sin_link_manifest";
+}
+if (trim((string) valorContenidoReadonly($configuracionInicial, array("depurar", "contenido_inicial", "home", "plantilla_vista", "codigo"), "")) !== "wokiee_home_default") {
+  $bloqueos[] = "configuracion_inicial_sin_plantilla_vista_home";
+}
+if (!slotExisteContenidoReadonly(valorContenidoReadonly($configuracionInicial, array("depurar", "contenido_inicial", "home", "slots"), array()), "home.hero")) {
+  $bloqueos[] = "configuracion_inicial_sin_home_hero";
 }
 
 $ok = empty($bloqueos);
@@ -61,14 +88,22 @@ echo json_encode(array(
   "bloqueos" => array_values(array_unique($bloqueos)),
   "manifest" => array(
     "plantilla_activa" => valorContenidoReadonly($manifest, array("depurar", "plantilla_activa"), ""),
+    "tema_visual_activo" => valorContenidoReadonly($manifest, array("depurar", "tema_visual_activo", "codigo"), ""),
     "tipos_bloque_total" => count(valorContenidoReadonly($manifest, array("depurar", "tipos_bloque"), array())),
-    "plantillas_total" => count(valorContenidoReadonly($manifest, array("depurar", "plantillas"), array()))
+    "plantillas_total" => count(valorContenidoReadonly($manifest, array("depurar", "plantillas"), array())),
+    "plantillas_vista_total" => count(valorContenidoReadonly($manifest, array("depurar", "plantillas_vista"), array())),
+    "componentes_frontend_total" => count(valorContenidoReadonly($manifest, array("depurar", "componentes_frontend"), array()))
   ),
   "home" => array(
     "pagina" => valorContenidoReadonly($home, array("depurar", "pagina"), ""),
+    "plantilla_vista" => valorContenidoReadonly($home, array("depurar", "plantilla_vista", "codigo"), ""),
     "slots_total" => valorContenidoReadonly($home, array("depurar", "resumen", "slots_total"), 0),
     "bloques_total" => valorContenidoReadonly($home, array("depurar", "resumen", "bloques_total"), 0),
     "fuente" => valorContenidoReadonly($home, array("depurar", "fuente"), "")
+  ),
+  "configuracion_inicial" => array(
+    "contenido_home" => valorContenidoReadonly($configuracionInicial, array("depurar", "contenido_inicial", "home", "pagina"), ""),
+    "plantilla_vista_home" => valorContenidoReadonly($configuracionInicial, array("depurar", "contenido_inicial", "home", "plantilla_vista", "codigo"), "")
   ),
   "guardrails" => array(
     "no_escribe_bd" => true,
@@ -92,6 +127,15 @@ function valorContenidoReadonly($datos, $ruta, $default = null) {
 function slotExisteContenidoReadonly($slots, $codigo) {
   foreach ((array) $slots as $slot) {
     if (isset($slot["slot"]) && $slot["slot"] === $codigo) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function plantillaVistaExisteContenidoReadonly($plantillas, $codigo) {
+  foreach ((array) $plantillas as $plantilla) {
+    if (isset($plantilla["codigo"]) && $plantilla["codigo"] === $codigo) {
       return true;
     }
   }

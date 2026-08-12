@@ -5,6 +5,8 @@ Fecha: 2026-08-10
 Estado: Diseno vivo inicial, vistas separadas, UI funcional en memoria y fase read-only
 
 Manual operativo: `docs/erp_cms_manual_uso.md`
+Contrato frontend renderer: `docs/erp_cms_frontend_renderer_contrato.md`
+Plan builder visual Wokiee: `docs/erp_cms_visual_builder_wokiee_plan.md`
 
 Estado de cierre contenido: preparado en modo read-only; persistencia real pendiente de respaldo, DDL autorizado y activacion de endpoints POST.
 
@@ -85,6 +87,17 @@ Ejemplo:
 }
 ```
 
+Esquema frontend propuesto:
+
+- `erp_ecommerce_frontend_temas`: temas visuales disponibles, tema activo y proveedor/base visual.
+- `erp_ecommerce_frontend_layouts`: layouts base versionados, por ejemplo `storefront_wokiee_v1`.
+- `erp_ecommerce_frontend_componentes`: componentes permitidos, variantes, slots compatibles y tipos de bloque aceptados.
+- `erp_ecommerce_frontend_plantillas`: plantillas de vista por pagina, por ejemplo `wokiee_home_default`.
+- `erp_ecommerce_frontend_plantilla_secciones`: orden visual de secciones y mapeo `slot -> componente -> variante`.
+- `erp_ecommerce_frontend_plantilla_activas`: seleccion activa por pagina/canal/contexto y vigencia.
+
+El plan DDL read-only se consulta desde `EcommercePublicoEsquema::planActualizarCmsFrontend(false)` y no ejecuta cambios. Wokiee queda registrado como primer tema visual (`wokiee_artiani`), no como unica plantilla permanente.
+
 ## Esquema propuesto
 
 Tablas:
@@ -144,7 +157,11 @@ Estos contratos existen para que la UI y las integraciones internas tengan nombr
 Decision UX: el CMS no usa pestanas internas para secciones principales. Cada seccion abre una vista/ruta propia para evitar mezclar captura editorial, estructura, media y contrato API.
 El sidebar del modulo CMS se divide en grupos internos: `Contenido` y `Frontend`.
 
-La pantalla principal es operativa y read-only: muestra readiness, selector de pagina/contexto, resumen editorial, slots, publicabilidad por slot, bloques del slot, editor y validacion local. Las acciones de bloques completas viven en esta pantalla; vistas como `Media` reducen sus acciones a seleccion/revision para evitar operaciones fuera de contexto.
+La pantalla principal es operativa y read-only: muestra readiness, selector de pagina/contexto, resumen editorial, plantilla visual de la pagina, slots, publicabilidad por slot, bloques del slot, editor y validacion local. Las acciones de bloques completas viven en esta pantalla; vistas como `Media` reducen sus acciones a seleccion/revision para evitar operaciones fuera de contexto.
+
+La seccion `Plantilla visual de la pagina` dentro de `/cms/contenido` toma el payload `plantilla_vista` y muestra layout, codigo de plantilla y secciones visuales con mapeo `slot -> componente -> variante`. Desde ahi se puede abrir `/cms/frontend_plantillas` para ver el detalle completo.
+
+La seccion `Preview visual frontend` dentro de `/cms/contenido` renderiza una simulacion local tipo storefront usando el JSON actual. Este preview ayuda a revisar intencion visual, pero no genera el HTML final del frontend ni reemplaza el renderer del proyecto ecommerce externo.
 
 El resumen editorial de `/cms/contenido` consolida cantidad de bloques, estatus (`publicado`, `borrador`, `pausado`) y vigencia (`vigente`, `futuro`, `vencido`, `sin vigencia`) del preview local. Esto ayuda a revisar contenido antes de habilitar persistencia real.
 
@@ -159,6 +176,16 @@ La vista `Persistencia` concentra el plan de tablas, checklist de autorizacion y
 La vista `Slots` muestra un detalle contextual del slot seleccionado: pagina, maximo de bloques, cantidad de bloques del preview, contexto, obligatoriedad y tipos permitidos. No edita contenido; sirve para entender la estructura antes de usar `/cms/contenido`.
 
 Las vistas `Frontend` preparan el contrato de render: plantillas de vista, layouts, componentes, variantes, slots compatibles y guardrails. Son read-only hasta definir persistencia real y hasta que el frontend implemente su mapa de componentes.
+
+El endpoint publico `/ecommercePublico/contenido_pagina` ya entrega `plantilla_vista` en modo default/read-only junto con `slots`. Esto permite que el frontend pruebe el renderer con el contrato `plantilla_vista + contenido.slots` antes de activar persistencia real.
+
+El endpoint publico `/ecommercePublico/configuracion_inicial` ya incluye `contenido_inicial.home` con `plantilla_vista`, `slots`, `resumen` y fuente default/read-only para que el frontend pueda hacer un primer render sin llamadas adicionales obligatorias.
+
+El endpoint publico `/ecommercePublico/contenido_manifest` ya expone `plantillas_vista` y `componentes_frontend` en modo default/read-only para que el frontend pueda descubrir layouts/componentes permitidos sin llamar rutas internas `/cms/*`.
+
+El contrato operativo para implementar el renderer del frontend queda documentado en `docs/erp_cms_frontend_renderer_contrato.md`. Ese documento define endpoints publicos permitidos, forma de usar `plantilla_vista.secciones`, compatibilidad componente/bloque/slot y guardrails para no consumir rutas internas `/cms/*`.
+
+El plan para evolucionar de CMS de contenido a builder visual controlado por componentes Wokiee/Artiani queda documentado en `docs/erp_cms_visual_builder_wokiee_plan.md`. La decision central es que el CMS no guardara HTML/CSS/JS libre; administrara componentes, variantes, media, orden y vigencia para que el frontend construya el HTML final.
 
 Flujo funcional actual:
 
@@ -187,6 +214,8 @@ Flujo funcional actual:
 8. Integrar `contenido_pagina` publicado dentro de `/ecommercePublico/configuracion_inicial`; `/bootstrap` queda alias legacy.
 9. Sustituir el borrador en memoria del panel por persistencia real y validaciones backend.
 10. Ejecutar semilla de seguridad autorizada para activar `cms.ver`, `cms.editar` y `cms.publicar`; despues retirar el puente `catalogo.ver`.
+11. Autorizar y aplicar, en una fase separada, el esquema CMS frontend para persistir temas, layouts, componentes, plantillas de vista, secciones y activaciones.
+12. Activar endpoints POST frontend bloqueados: `/cms/frontend_plantilla_guardar_erp`, `/cms/frontend_plantilla_estatus_erp`, `/cms/frontend_seccion_guardar_erp` y `/cms/frontend_seccion_estatus_erp`.
 
 ## UAT read-only
 
@@ -198,6 +227,7 @@ Criterios:
 - Pagina home expone slots principales.
 - Pagina categoria expone `categoria.banner`.
 - Estado interno declara modo read-only y plan de tablas propuesto.
+- Esquema CMS frontend declara 5 tablas propuestas y permanece read-only.
 - Vista de contenido contiene editor, listado de contenido por slot y validacion local.
 - Vista de contenido contiene resumen editorial de estatus y vigencia.
 - Vista de contenido contiene publicabilidad por slot.

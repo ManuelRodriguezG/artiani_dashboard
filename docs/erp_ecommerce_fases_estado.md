@@ -287,6 +287,45 @@ Resultado esperado:
 - Al dar `Preparar`, el producto se carga en el panel visible cercano sin recorrer toda la lista.
 - Para navegar muchos SKUs, se usan filtros, limite de resultados y scroll interno de tabla.
 
+## Ajuste operativo 2026-08-11 - Taxonomia controlada en publicaciones
+
+Motivo:
+
+- `mascota` y `necesidades` no deben capturarse como texto libre porque errores de escritura rompen filtros, rutas y recomendaciones.
+- Las categorias ecommerce deben venir de la categoria principal del Catalogo ERP, no capturarse manualmente en publicaciones.
+- `presentacion_publica` podia confundirse con pieza/caracteristica estructural.
+
+Regla:
+
+- Categorias:
+  - se leen desde `erp_catalogo_categorias` por la relacion principal del producto;
+  - el panel ecommerce solo las muestra como dato vivo del Catalogo ERP;
+  - si una categoria esta mal, se corrige en Catalogo ERP, no en ecommerce.
+- Mascota:
+  - se captura con checkboxes controlados y puede tener mas de una opcion;
+  - valores permitidos: `perro`, `gato`, `pez`, `ave`, `reptil`, `roedor`, `otra`;
+  - valores no reconocidos enviados por POST se normalizan a `otra`;
+  - sin DDL nuevo, se guarda temporalmente en `mascota_especie` como lista separada por coma;
+  - API publica entrega `mascotas` como arreglo y conserva `mascota_especie` como valor principal legacy.
+- Necesidades:
+  - se capturan con checkboxes controlados: `alimento`, `premio`, `higiene`, `salud`, `paseo`, `habitat`, `juguete`, `estetica`;
+  - el backend descarta necesidades fuera de esa lista.
+- Presentacion comercial opcional:
+  - sirve solo como texto visible tipo `2 kg`, `12 pzas`, `paquete`, etc.;
+  - no reemplaza caracteristicas, inventario, unidad base ni atributos del Catalogo ERP.
+
+Cambios:
+
+- `/ecommercePublico/control` reemplaza inputs abiertos de mascota/necesidades por checkboxes.
+- `/ecommercePublico/publicaciones` queda alineado con los mismos controles.
+- `publicaciones_preparar_erp` expone `taxonomia_publicacion` para alimentar la UI.
+- Guardado de borrador y curaduria normaliza mascota/necesidades antes de persistir.
+- Filtros publicos por `mascota` buscan dentro de publicaciones con una o varias mascotas.
+
+Pendiente recomendado:
+
+- En una fase posterior, migrar de `mascota_especie` CSV temporal a `mascotas_json` o tabla relacional `erp_ecommerce_publicacion_mascotas`.
+
 ## Ajuste operativo 2026-08-11 - Descripcion ERP como fallback ecommerce
 
 Motivo:
