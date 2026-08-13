@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <base href="../../../../">
+    <title>CMS - Activaciones frontend</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="shortcut icon" href="assets/media/logos/favicon.ico">
+    <link href="assets/plugins/global/plugins.bundle.css" rel="stylesheet" type="text/css">
+    <link href="assets/css/style.bundle.css" rel="stylesheet" type="text/css">
+    <!--
+      Documentacion IA: Codex GPT-5, 2026-08-12.
+      Proposito: vista read-only para revisar activaciones futuras de tema y plantillas frontend.
+      Impacto: CMS frontend; prepara cambio controlado de plantilla por pagina/canal/contexto sin escribir BD.
+      Contrato: no activa temas reales, no modifica archivos del ecommerce y no ejecuta DDL.
+    -->
+    <style>
+        .cms-front-kpi { border: 1px solid #e7e9ef; border-radius: 8px; background: #fff; padding: 16px; min-height: 104px; }
+        .cms-front-kpi__value { font-size: 1.8rem; line-height: 1; font-weight: 800; color: #181c32; letter-spacing: 0; }
+        .cms-front-kpi__label { color: #7e8299; font-size: .78rem; text-transform: uppercase; font-weight: 700; }
+        .cms-front-panel, .cms-front-card { border: 1px solid #e7e9ef; border-radius: 8px; background: #fff; }
+        .cms-front-card { padding: 16px; }
+        .cms-front-subnav { display: flex; flex-wrap: wrap; gap: 8px; border: 1px solid #e7e9ef; border-radius: 8px; background: #fff; padding: 10px; margin-bottom: 20px; }
+        .cms-front-subnav .btn { border-radius: 8px; }
+        .cms-front-activation-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+        .cms-front-activation-card { border: 1px solid #e7e9ef; border-radius: 8px; background: #fff; padding: 16px; min-height: 220px; }
+        .cms-front-flow { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; }
+        .cms-front-flow__step { border: 1px solid #e7e9ef; border-radius: 8px; background: #fbfdff; padding: 14px; min-height: 120px; }
+        .cms-front-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+        @media (max-width: 1199.98px) { .cms-front-activation-grid, .cms-front-flow { grid-template-columns: 1fr; } }
+    </style>
+</head>
+<body id="kt_app_body" data-kt-app-layout="dark-sidebar" data-kt-app-header-fixed="true" data-kt-app-sidebar-enabled="true" data-kt-app-sidebar-fixed="true" class="app-default">
+<div class="d-flex flex-column flex-root app-root" id="kt_app_root">
+    <div class="app-page flex-column flex-column-fluid" id="kt_app_page">
+        <?= include_once '../app/vistas/includes/header/header.php'; ?>
+        <div class="app-wrapper flex-column flex-row-fluid" id="kt_app_wrapper">
+            <?= include_once '../app/vistas/includes/header/sidebar.php'; ?>
+            <div class="app-main flex-column flex-row-fluid" id="kt_app_main">
+                <div class="d-flex flex-column flex-column-fluid">
+                    <div class="app-toolbar py-3 py-lg-5">
+                        <div class="app-container container-fluid d-flex flex-stack flex-wrap gap-3">
+                            <div>
+                                <h1 class="page-heading text-dark fw-bold fs-3 mb-1">Activaciones frontend</h1>
+                                <span class="text-muted">Tema y plantilla activa por pagina, canal y contexto</span>
+                            </div>
+                            <div class="d-flex gap-2">
+                                <a class="btn btn-light" href="/cms/frontend_plantillas"><i class="bi bi-window-sidebar"></i> Plantillas</a>
+                                <a class="btn btn-light" href="/cms/frontend_componentes"><i class="bi bi-puzzle"></i> Componentes</a>
+                                <a class="btn btn-light" href="/docs/erp_cms_manual_uso.md" target="_blank" rel="noopener"><i class="bi bi-journal-text"></i> Manual</a>
+                                <span class="badge badge-light-primary align-self-center" id="cms_frontend_estado">Listo</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="app-content flex-column-fluid">
+                        <div class="app-container container-fluid">
+                            <div class="cms-front-subnav" data-cms-frontend-nav="true">
+                                <a class="btn btn-sm btn-light" href="/cms/frontend_constructor"><i class="bi bi-display"></i> Constructor</a>
+                                <a class="btn btn-sm btn-light" href="/cms/frontend_plantillas"><i class="bi bi-window-sidebar"></i> Plantillas</a>
+                                <a class="btn btn-sm btn-light" href="/cms/frontend_componentes"><i class="bi bi-puzzle"></i> Componentes</a>
+                                <a class="btn btn-sm btn-primary" href="/cms/frontend_activaciones"><i class="bi bi-toggle-on"></i> Activaciones</a>
+                            </div>
+                            <div class="alert alert-info d-flex align-items-start gap-3">
+                                <i class="bi bi-toggle-on fs-2"></i>
+                                <div>
+                                    <div class="fw-bold">Activaciones read-only</div>
+                                    <div>Esta pantalla muestra que tema y plantilla de vista aplicarian por pagina. No cambia el frontend real ni publica plantillas.</div>
+                                </div>
+                            </div>
+
+                            <div class="row g-4 mb-5">
+                                <div class="col-md-3"><div class="cms-front-kpi"><div class="cms-front-kpi__label">Layouts</div><div class="cms-front-kpi__value" id="cms_frontend_layouts_total">0</div><div class="text-muted fs-7 mt-2">Bases visuales.</div></div></div>
+                                <div class="col-md-3"><div class="cms-front-kpi"><div class="cms-front-kpi__label">Componentes</div><div class="cms-front-kpi__value" id="cms_frontend_componentes_total">0</div><div class="text-muted fs-7 mt-2">Render seguros.</div></div></div>
+                                <div class="col-md-3"><div class="cms-front-kpi"><div class="cms-front-kpi__label">Activaciones</div><div class="cms-front-kpi__value" id="cms_frontend_plantillas_total">0</div><div class="text-muted fs-7 mt-2">Reglas declaradas.</div></div></div>
+                                <div class="col-md-3"><div class="cms-front-kpi"><div class="cms-front-kpi__label">Tema activo</div><div class="cms-front-kpi__value fs-3" id="cms_frontend_activa">-</div><div class="text-muted fs-7 mt-2">Base visual.</div></div></div>
+                            </div>
+
+                            <div class="cms-front-panel p-5 mb-5">
+                                <div class="d-flex justify-content-between align-items-center flex-wrap gap-3 mb-4">
+                                    <div>
+                                        <h3 class="fw-bold mb-1">Matriz de activacion</h3>
+                                        <span class="text-muted fs-7">Relacion pagina/canal/contexto con tema y plantilla de vista activa.</span>
+                                    </div>
+                                    <span class="badge badge-light-warning">No publica cambios</span>
+                                </div>
+                                <div id="cms_frontend_activaciones"></div>
+                            </div>
+
+                            <div class="cms-front-panel p-5 mb-5">
+                                <h3 class="fw-bold mb-4">Flujo futuro para cambiar plantilla</h3>
+                                <div class="cms-front-flow">
+                                    <div class="cms-front-flow__step"><div class="fw-bold mb-2">1. Duplicar</div><div class="text-muted fs-7">Crear nueva plantilla desde una existente.</div></div>
+                                    <div class="cms-front-flow__step"><div class="fw-bold mb-2">2. Editar</div><div class="text-muted fs-7">Ajustar secciones, componentes y variantes.</div></div>
+                                    <div class="cms-front-flow__step"><div class="fw-bold mb-2">3. Validar</div><div class="text-muted fs-7">Revisar compatibilidad slot/bloque/componente.</div></div>
+                                    <div class="cms-front-flow__step"><div class="fw-bold mb-2">4. Programar</div><div class="text-muted fs-7">Definir vigencia, canal y contexto.</div></div>
+                                    <div class="cms-front-flow__step"><div class="fw-bold mb-2">5. Activar</div><div class="text-muted fs-7">Publicar solo con permisos, CSRF, auditoria y respaldo.</div></div>
+                                </div>
+                            </div>
+
+                            <div class="cms-front-panel p-5 mb-5">
+                                <h3 class="fw-bold mb-4">Contrato renderer</h3>
+                                <div id="cms_frontend_renderer"></div>
+                            </div>
+
+                            <div class="cms-front-panel p-5 mb-5">
+                                <h3 class="fw-bold mb-4">Persistencia frontend propuesta</h3>
+                                <div id="cms_frontend_esquema"></div>
+                            </div>
+
+                            <pre class="d-none" id="cms_frontend_json">{}</pre>
+                            <div class="d-none" id="cms_frontend_plantillas"></div>
+                            <div class="d-none" id="cms_frontend_componentes"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<script src="assets/plugins/global/plugins.bundle.js"></script>
+<script src="assets/js/scripts.bundle.js"></script>
+<script src="/assets/js/custom/apps/erp/cms/frontend.js?v=20260812-activaciones1"></script>
+</body>
+</html>

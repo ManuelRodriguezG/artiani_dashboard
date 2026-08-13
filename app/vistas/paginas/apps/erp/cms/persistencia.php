@@ -22,6 +22,8 @@
         .ecom-cms-actions { display: flex; flex-wrap: wrap; gap: 8px; }
         .ecom-cms-check { display: grid; gap: 10px; }
         .ecom-cms-check__item { border: 1px solid #e7e9ef; border-radius: 8px; padding: 12px 14px; background: #fbfcfe; }
+        .ecom-cms-persistence-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
+        @media (max-width: 991.98px) { .ecom-cms-persistence-grid { grid-template-columns: 1fr; } }
     </style>
 </head>
 <body id="kt_app_body" data-kt-app-layout="dark-sidebar" data-kt-app-header-fixed="true" data-kt-app-sidebar-enabled="true" data-kt-app-sidebar-fixed="true" class="app-default">
@@ -63,13 +65,27 @@
                                 <div class="col-md-3"><div class="ecom-cms-kpi"><div class="ecom-cms-kpi__label">Persistencia</div><div class="ecom-cms-kpi__value fs-3" id="ecom_cms_persistencia">Read-only</div><div class="text-muted fs-7 mt-2">DDL pendiente.</div></div></div>
                             </div>
 
-                            <div class="row g-5">
-                                <div class="col-xl-5">
-                                    <div class="ecom-cms-panel p-5 mb-5">
-                                        <h3 class="fw-bold mb-4">Esquema propuesto</h3>
+                            <div class="ecom-cms-panel p-5 mb-5">
+                                <div class="d-flex justify-content-between align-items-center flex-wrap gap-3 mb-4">
+                                    <div>
+                                        <h3 class="fw-bold mb-1">Planes DDL read-only</h3>
+                                        <span class="text-muted fs-7">Contenido editorial y frontend visual se revisan por separado antes de autorizar cualquier cambio.</span>
+                                    </div>
+                                    <span class="badge badge-light-warning">No ejecuta DDL</span>
+                                </div>
+                                <div class="ecom-cms-persistence-grid">
+                                    <div>
+                                        <h4 class="fw-bold mb-3">CMS Contenido</h4>
                                         <div id="ecom_cms_esquema"></div>
                                     </div>
+                                    <div>
+                                        <h4 class="fw-bold mb-3">CMS Frontend</h4>
+                                        <div id="ecom_cms_esquema_frontend"></div>
+                                    </div>
                                 </div>
+                            </div>
+
+                            <div class="row g-5">
                                 <div class="col-xl-7">
                                     <div class="ecom-cms-panel p-5 mb-5">
                                         <div class="d-flex justify-content-between align-items-center flex-wrap gap-3 mb-4">
@@ -86,6 +102,17 @@
                                             <div class="ecom-cms-check__item"><span class="badge badge-light-warning me-2">4</span> Definir sanitizacion para <code>content_html_safe</code>.</div>
                                             <div class="ecom-cms-check__item"><span class="badge badge-light-warning me-2">5</span> Definir politica de media, nombres, tamanos y rutas publicas.</div>
                                             <div class="ecom-cms-check__item"><span class="badge badge-light-warning me-2">6</span> Cambiar endpoints publicos para leer BD publicada con fallback default.</div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-xl-5">
+                                    <div class="ecom-cms-panel p-5 mb-5">
+                                        <h3 class="fw-bold mb-4">Alcance de persistencia</h3>
+                                        <div class="ecom-cms-check">
+                                            <div class="ecom-cms-check__item"><span class="badge badge-light-primary me-2">Contenido</span> Guarda plantillas editoriales, slots, bloques, publicaciones y media.</div>
+                                            <div class="ecom-cms-check__item"><span class="badge badge-light-primary me-2">Frontend</span> Guarda temas visuales, layouts, componentes, plantillas, secciones y activaciones.</div>
+                                            <div class="ecom-cms-check__item"><span class="badge badge-light-success me-2">API</span> Publicara solo contenido publicado/vigente desde BD, con fallback default.</div>
+                                            <div class="ecom-cms-check__item"><span class="badge badge-light-danger me-2">Guardrail</span> No toca catalogo, precios, inventario ni publicaciones de producto.</div>
                                         </div>
                                     </div>
                                 </div>
@@ -106,6 +133,10 @@
                                             <tr><td class="fw-semibold">Estatus bloque</td><td><code>/cms/contenido_bloque_estatus_erp</code></td><td class="text-end"><span class="badge badge-light-warning">Bloqueado</span></td></tr>
                                             <tr><td class="fw-semibold">Guardar publicacion</td><td><code>/cms/contenido_publicacion_guardar_erp</code></td><td class="text-end"><span class="badge badge-light-warning">Bloqueado</span></td></tr>
                                             <tr><td class="fw-semibold">Estatus publicacion</td><td><code>/cms/contenido_publicacion_estatus_erp</code></td><td class="text-end"><span class="badge badge-light-warning">Bloqueado</span></td></tr>
+                                            <tr><td class="fw-semibold">Guardar plantilla frontend</td><td><code>/cms/frontend_plantilla_guardar_erp</code></td><td class="text-end"><span class="badge badge-light-warning">Bloqueado</span></td></tr>
+                                            <tr><td class="fw-semibold">Estatus plantilla frontend</td><td><code>/cms/frontend_plantilla_estatus_erp</code></td><td class="text-end"><span class="badge badge-light-warning">Bloqueado</span></td></tr>
+                                            <tr><td class="fw-semibold">Guardar seccion frontend</td><td><code>/cms/frontend_seccion_guardar_erp</code></td><td class="text-end"><span class="badge badge-light-warning">Bloqueado</span></td></tr>
+                                            <tr><td class="fw-semibold">Estatus seccion frontend</td><td><code>/cms/frontend_seccion_estatus_erp</code></td><td class="text-end"><span class="badge badge-light-warning">Bloqueado</span></td></tr>
                                         </tbody>
                                     </table>
                                 </div>

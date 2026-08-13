@@ -73,10 +73,12 @@
     setEstado("Cargando", "badge-light-info");
     return Promise.all([
       getJson("/cms/contenido_admin_estado_erp"),
-      getJson("/cms/contenido_admin_manifest_erp")
+      getJson("/cms/contenido_admin_manifest_erp"),
+      getJson("/cms/frontend_admin_estado_erp")
     ]).then(function (respuestas) {
       renderEstado(respuestas[0]);
       renderContratos(respuestas[0]);
+      renderEstadoFrontend(respuestas[2]);
       estado.manifest = respuestas[1].depurar || {};
       estado.tipos = estado.manifest.tipos_bloque || [];
       renderTipos(estado.tipos);
@@ -442,6 +444,22 @@
       return '<tr><td class="fw-semibold">' + escapeHtml(tabla) + '</td><td class="text-end"><span class="badge ' + (existe ? "badge-light-success" : "badge-light-warning") + '">' + (existe ? "Existe" : "Pendiente") + '</span></td></tr>';
     }).join("");
     node.innerHTML = '<div class="mb-3"><span class="badge badge-light-info">DDL propuesto: ' + escapeHtml(plan.ddl_total || 0) + '</span> <span class="badge badge-light-warning">No ejecutado</span></div>' +
+      '<div class="table-responsive"><table class="table table-row-dashed fs-8 gy-2 mb-0"><tbody>' + rows + '</tbody></table></div>';
+  }
+
+  function renderEstadoFrontend(response) {
+    var node = $("ecom_cms_esquema_frontend");
+    if (!node) return;
+    var depurar = response && response.depurar ? response.depurar : {};
+    var esquema = depurar.esquema || {};
+    var auditoria = esquema.auditoria || {};
+    var plan = esquema.plan || {};
+    var tablas = auditoria.auditoria || {};
+    var rows = Object.keys(tablas).map(function (tabla) {
+      var existe = tablas[tabla] && tablas[tabla].existe;
+      return '<tr><td class="fw-semibold">' + escapeHtml(tabla) + '</td><td class="text-end"><span class="badge ' + (existe ? "badge-light-success" : "badge-light-warning") + '">' + (existe ? "Existe" : "Pendiente") + '</span></td></tr>';
+    }).join("");
+    node.innerHTML = '<div class="mb-3"><span class="badge badge-light-info">DDL propuesto: ' + escapeHtml(plan.ddl_total || 0) + '</span> <span class="badge badge-light-warning">No ejecutado</span> <span class="badge badge-light-danger">No edita archivos frontend</span></div>' +
       '<div class="table-responsive"><table class="table table-row-dashed fs-8 gy-2 mb-0"><tbody>' + rows + '</tbody></table></div>';
   }
 

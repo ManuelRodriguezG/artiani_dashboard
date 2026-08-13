@@ -12,7 +12,7 @@ Este manual explica como usar el modulo CMS del ERP para administrar contenido e
 
 - El modulo CMS vive en el menu lateral `CMS`.
 - La seccion `Contenido` administra bloques, slots, media, JSON y persistencia de contenido.
-- La seccion `Frontend` prepara plantillas de vista, layouts, componentes y variantes.
+- La seccion `Frontend` prepara constructor visual, plantillas de vista, layouts, componentes, variantes y activaciones.
 - Wokiee es el primer tema visual activo, pero el CMS debe permitir registrar otros temas visuales futuros.
 - En la fase actual todo lo editable es preview local/read-only: no escribe BD y no publica contenido real.
 - El endpoint recomendado de arranque para el frontend es `/ecommercePublico/configuracion_inicial`.
@@ -58,36 +58,30 @@ Esta pantalla es la mesa principal de trabajo editorial. Permite armar y revisar
    - `Vencidos`: bloques que requieren revision.
    - `Sin vigencia`: bloques sin fecha inicial/final.
 
-5. Revisa `Plantilla visual de la pagina`.
-   - `Plantilla de vista`: plantilla visual que el frontend renderizara, por ejemplo `wokiee_home_default`.
-   - `Layout`: base visual, por ejemplo `storefront_wokiee_v1`.
-   - `Secciones visuales`: relacion `slot -> componente -> variante -> orden`.
-   - Usa `Ver plantillas de vista` para abrir `/cms/frontend_plantillas`.
+5. Si quieres ver como se acomodaria visualmente, abre `/cms/frontend_constructor`.
+   - Contenido no es la tienda final.
+   - Contenido solo administra datos editoriales.
+   - El constructor visual muestra plantilla, secciones, componentes y slots.
 
-6. Revisa `Preview visual frontend`.
-   - Muestra una simulacion local de tienda con hero, promociones, cards y carruseles segun el JSON actual.
-   - No es el HTML final del frontend.
-   - El frontend ecommerce debe implementar sus propios componentes y consumir `/ecommercePublico/configuracion_inicial` o `/ecommercePublico/contenido_pagina`.
+6. Selecciona un slot en el panel izquierdo.
 
-7. Selecciona un slot en el panel izquierdo.
-
-8. Revisa `Publicabilidad por slot`.
+7. Revisa `Publicabilidad por slot`.
    - `Publicable`: el slot cumple reglas locales.
    - `Con alertas`: puede revisarse, pero tiene advertencias.
    - `No publicable`: tiene errores que deben corregirse.
    - `Vacio opcional`: el slot puede quedarse sin bloques.
    - `Incompleto`: falta contenido requerido.
 
-9. En `Bloques del slot`, revisa los bloques existentes.
+8. En `Bloques del slot`, revisa los bloques existentes.
 
-10. Usa las acciones locales:
+9. Usa las acciones locales:
    - editar
    - duplicar
    - subir/bajar orden
    - pausar
    - quitar
 
-11. En el editor, ajusta:
+10. En el editor, ajusta:
    - tipo de bloque
    - estatus
    - titulo
@@ -99,18 +93,19 @@ Esta pantalla es la mesa principal de trabajo editorial. Permite armar y revisar
    - vigencia desde/hasta
    - payload HTML seguro/items JSON
 
-12. Pulsa `Aplicar a preview`.
+11. Pulsa `Aplicar a preview`.
 
-13. Pulsa `Validar`.
+12. Pulsa `Validar`.
 
-14. Guarda borrador local si quieres conservar el preview en el navegador.
+13. Guarda borrador local si quieres conservar el preview en el navegador.
 
 ### Importante
 
 - `Aplicar a preview` no guarda en BD.
 - `Borrador local` usa el navegador, no la base de datos.
 - `Restaurar defaults` vuelve al contenido default read-only.
-- `Preview visual frontend` es una simulacion del panel; no genera archivos ni HTML productivo para el frontend.
+- La vista visual esta separada en `/cms/frontend_constructor`.
+- El constructor visual no genera archivos ni HTML productivo para el frontend.
 - Los endpoints POST reales siguen bloqueados hasta autorizar respaldo y persistencia.
 
 ### Errores comunes
@@ -445,48 +440,99 @@ Esta pantalla prepara la activacion real de la persistencia del CMS. Muestra el 
 
 En la fase actual es una vista read-only: no ejecuta DDL, no guarda bloques, no publica contenido y no sube media.
 
+Estado actual posterior a autorizacion del 2026-08-12:
+
+- Respaldo generado: `C:\xampp\panel_db_backups\artianilocal_panel_20260812_094259_antes_cms_ecommerce_persistencia.sql`.
+- DDL base aplicado: 11 tablas CMS.
+- Semilla estructural aplicada:
+  - `artiani_default`
+  - `wokiee_artiani`
+  - 7 slots de contenido
+  - 3 layouts frontend
+  - 6 componentes frontend
+  - 3 plantillas de vista
+  - 7 secciones frontend
+  - 3 activaciones frontend
+- Lectura interna activa:
+  - `/cms/contenido_admin_manifest_erp` lee estructura de contenido desde BD semilla.
+  - `/cms/frontend_admin_manifest_erp` lee tema, layouts, componentes, plantillas y activaciones desde BD semilla.
+- Endpoints POST siguen bloqueados.
+- No hay bloques comerciales, publicaciones de contenido ni media guardada.
+- API publica sigue en fallback default/read-only.
+
 ### Flujo recomendado
 
 1. Abre `/cms/persistencia`.
 
 2. Revisa el aviso `Persistencia real bloqueada`.
 
-3. Revisa `Esquema propuesto`.
+3. Revisa `Planes DDL read-only`.
+   - `CMS Contenido`: plantillas editoriales, slots, bloques, publicaciones y media.
+   - `CMS Frontend`: temas visuales, layouts, componentes, plantillas de vista, secciones y activaciones.
    - tablas existentes
    - tablas pendientes
    - total de DDL propuesto
 
 4. Revisa el `Checklist de autorizacion`.
 
-5. Confirma que los contratos POST aparecen como `Bloqueado`.
+5. Revisa `Alcance de persistencia`.
+   - contenido editorial
+   - frontend visual
+   - API publica
+   - guardrail contra catalogo/precios/inventario
 
-6. Revisa `Contratos del CMS` para confirmar endpoints internos y publicos futuros.
+6. Confirma que los contratos POST aparecen como `Bloqueado`.
 
-7. No intentes activar persistencia sin respaldo y autorizacion explicita.
+7. Revisa `Contratos del CMS` para confirmar endpoints internos y publicos futuros.
+
+8. No intentes activar escrituras sin implementar validaciones, permisos, CSRF y auditoria.
 
 ### Checklist antes de activar escrituras
 
-1. Generar respaldo externo en `C:\xampp\panel_db_backups`.
-2. Documentar el respaldo en `docs/erp_respaldo_bd_estandar.md`.
-3. Autorizar DDL de tablas CMS.
-4. Aplicar tablas:
-   - `erp_ecommerce_plantillas`
-   - `erp_ecommerce_plantilla_slots`
-   - `erp_ecommerce_contenido_bloques`
-   - `erp_ecommerce_contenido_publicaciones`
-   - `erp_ecommerce_contenido_media`
-5. Activar endpoints POST con CSRF.
-6. Agregar auditoria explicita.
-7. Validar permisos `cms.editar` y `cms.publicar`.
-8. Implementar sanitizacion para `content_html_safe`.
-9. Definir politica de media:
+Completado para DDL base:
+
+- Preflight read-only ejecutado.
+- Respaldo externo generado y documentado.
+- DDL de 11 tablas aplicado.
+- Auditoria posterior: tablas faltantes `0`.
+- Semilla estructural base aplicada y validada con:
+  - `php storage/uat/uat_cms_seed_readonly.php`
+
+Tablas CMS Contenido aplicadas:
+
+- `erp_ecommerce_plantillas`
+- `erp_ecommerce_plantilla_slots`
+- `erp_ecommerce_contenido_bloques`
+- `erp_ecommerce_contenido_publicaciones`
+- `erp_ecommerce_contenido_media`
+
+Tablas CMS Frontend aplicadas:
+
+- `erp_ecommerce_frontend_temas`
+- `erp_ecommerce_frontend_layouts`
+- `erp_ecommerce_frontend_componentes`
+- `erp_ecommerce_frontend_plantillas`
+- `erp_ecommerce_frontend_plantilla_secciones`
+- `erp_ecommerce_frontend_plantilla_activas`
+
+Pendiente para escrituras reales:
+
+1. Ejecutar el preflight read-only:
+   - `php storage/uat/uat_cms_persistencia_preflight.php`
+2. Ejecutar validacion de semilla:
+   - `php storage/uat/uat_cms_seed_readonly.php`
+3. Activar endpoints POST con CSRF para guardar bloques y publicaciones de contenido.
+4. Agregar auditoria explicita.
+5. Validar permisos `cms.editar` y `cms.publicar`.
+6. Implementar sanitizacion para `content_html_safe`.
+7. Definir politica de media:
    - rutas publicas
    - formatos permitidos
    - tamanos
    - nombres de archivo
    - alt text obligatorio
-10. Hacer que endpoints publicos lean contenido publicado desde BD.
-11. Mantener fallback default si no existe contenido publicado.
+8. Hacer que endpoints publicos lean contenido publicado desde BD.
+9. Mantener fallback default si no existe contenido publicado.
 
 ### Endpoints POST futuros
 
@@ -496,6 +542,10 @@ Actualmente existen como contratos bloqueados:
 - `/cms/contenido_bloque_estatus_erp`
 - `/cms/contenido_publicacion_guardar_erp`
 - `/cms/contenido_publicacion_estatus_erp`
+- `/cms/frontend_plantilla_guardar_erp`
+- `/cms/frontend_plantilla_estatus_erp`
+- `/cms/frontend_seccion_guardar_erp`
+- `/cms/frontend_seccion_estatus_erp`
 
 Cuando se active persistencia, estos endpoints deberan:
 
@@ -515,6 +565,7 @@ Cuando se active persistencia, estos endpoints deberan:
 - No guardar rutas internas del ERP como media publica.
 - No mezclar CMS con catalogo, precios, inventario o publicaciones de producto.
 - No publicar contenido vencido o con errores de publicabilidad.
+- No activar tema o plantilla frontend sin comprobar que sus componentes existen en el frontend ecommerce.
 
 ### Errores comunes
 
@@ -528,11 +579,98 @@ Cuando se active persistencia, estos endpoints deberan:
 
 Rutas:
 
+- `/cms/frontend_constructor`
 - `/cms/frontend_plantillas`
 - `/cms/frontend_componentes`
+- `/cms/frontend_activaciones`
 
 Documento tecnico de implementacion frontend: `docs/erp_cms_frontend_renderer_contrato.md`
 Plan builder visual Wokiee/Artiani: `docs/erp_cms_visual_builder_wokiee_plan.md`
+
+### Navegacion del submodulo
+
+Las tres pantallas de CMS Frontend tienen una subnavegacion visible:
+
+- `Plantillas`
+- `Constructor`
+- `Componentes`
+- `Activaciones`
+
+Usala para revisar el flujo completo sin volver al menu lateral:
+
+1. `Constructor`: muestra la pagina armada con plantilla, secciones, componentes y slots.
+2. `Plantillas`: define la composicion visual por pagina.
+3. `Componentes`: valida que puede renderizar cada seccion.
+4. `Activaciones`: confirma que plantilla aplica por pagina/canal/contexto.
+
+## CMS > Frontend > Constructor visual
+
+Ruta: `/cms/frontend_constructor`
+
+### Para que sirve
+
+Esta es la pantalla donde debe vivir la parte visual del CMS.
+
+Muestra como se ensamblara una pagina del ecommerce usando:
+
+- tema visual, por ejemplo `wokiee_artiani`;
+- plantilla de vista, por ejemplo `wokiee_home_default`;
+- secciones de la pagina;
+- slots como `home.hero` o `home.destacados`;
+- componentes como `HeroSlider`, `PromoStrip` o `ProductCarousel`;
+- variantes visuales permitidas.
+
+No es el frontend real y no genera HTML productivo. Es una previsualizacion administrativa para entender la estructura antes de que el frontend renderice con sus propios componentes.
+
+### Flujo recomendado
+
+1. Primero crea o revisa contenido en `/cms/contenido`.
+   - banners
+   - imagenes
+   - textos
+   - CTAs
+   - colecciones
+
+2. Abre `/cms/frontend_constructor`.
+
+3. Elige la pagina o plantilla:
+   - Home
+   - Categoria
+   - Catalogo
+
+4. Revisa el canvas central.
+   - Cada seccion representa un slot de la pagina.
+   - Cada slot muestra el componente frontend que lo renderizara.
+   - Cuando el indicador dice `Contenido conectado`, el preview ya cruzo plantilla frontend con contenido read-only de `/cms/contenido_admin_pagina_erp`.
+
+5. Da clic en una seccion.
+   - El inspector muestra plantilla, slot, componente, variante y bloques permitidos.
+   - Tambien muestra cuantos bloques estan conectados a ese slot.
+
+6. Revisa `Componentes disponibles`.
+   - Confirma que el componente exista y tenga variantes compatibles.
+
+7. Revisa `Como lo consumira frontend`.
+   - El arranque recomendado sigue siendo `/ecommercePublico/configuracion_inicial`.
+   - La pagina especifica usara `/ecommercePublico/contenido_pagina`.
+
+### Diferencia contra CMS Contenido
+
+- `CMS > Contenido` administra datos editoriales.
+- `CMS > Frontend > Constructor visual` muestra como se acomodarian esos datos en una plantilla.
+- `CMS > Frontend > Plantillas de vista` lista y audita la estructura declarada.
+- `CMS > Frontend > Componentes` audita los componentes permitidos.
+- `CMS > Frontend > Activaciones` define que plantilla aplica por pagina/canal/contexto.
+
+### Importante
+
+- Esta pantalla es read-only.
+- No cambia la tienda real.
+- No guarda contenido.
+- No edita archivos del frontend.
+- No permite HTML/CSS/JS libre.
+- El render final lo hace el proyecto frontend ecommerce.
+- El CMS solo entrega JSON estructurado.
 
 ## CMS > Frontend > Plantillas de vista
 
@@ -711,23 +849,41 @@ El ERP/CMS no crea el componente visual; solo registra que el frontend lo puede 
    - layouts
    - componentes
    - plantillas
-   - home activa
+   - tema activo
 
-3. Revisa `Contrato renderer`.
+3. En `Explorador visual de componentes`, revisa el `Tema visual`.
+   - Por ahora aparece `wokiee_artiani`.
+   - El selector esta deshabilitado hasta activar persistencia real.
+
+4. En `Componentes del tema`, selecciona un componente.
+   - El preview cambia segun el componente seleccionado.
+   - La vista es una representacion administrativa; no ejecuta codigo frontend.
+
+5. Revisa `Compatibilidad`.
+   - `Bloques permitidos`: tipos de bloque de CMS Contenido que puede recibir.
+   - `Variantes`: estilos programados que el frontend debera reconocer.
+   - `Slots compatibles`: espacios donde se puede usar.
+
+6. Revisa `Uso en plantillas`.
+   - Muestra en que plantilla aparece el componente.
+   - Muestra pagina, slot, variante y orden.
+   - Si no aparece, significa que esta disponible pero aun no se usa en una plantilla declarada.
+
+7. Revisa `Contrato renderer`.
    - arranque recomendado
    - endpoint de pagina
    - guardrails contra codigo libre
 
-4. Revisa `Componentes permitidos`.
+8. Revisa `Componentes permitidos`.
 
-5. Para cada componente, valida:
+9. Para cada componente, valida:
    - bloques permitidos
    - variantes disponibles
    - slots compatibles
 
-6. Si una plantilla necesita una seccion nueva, primero confirma si ya existe un componente compatible.
+10. Si una plantilla necesita una seccion nueva, primero confirma si ya existe un componente compatible.
 
-7. Si el componente no existe, debe implementarse en el frontend antes de permitirlo en CMS.
+11. Si el componente no existe, debe implementarse en el frontend antes de permitirlo en CMS.
 
 ### Como interpretar componentes
 
@@ -762,6 +918,7 @@ La compatibilidad debe cumplirse en los tres niveles:
 - Cualquier componente nuevo debe existir primero en el frontend.
 - Las variantes deben estar programadas en el frontend antes de usarse en CMS.
 - El esquema propuesto mantiene estos componentes como catalogo seguro, no como codigo ejecutable.
+- El preview del explorador es administrativo; el render final pertenece al frontend ecommerce.
 
 ### Errores comunes
 
@@ -770,3 +927,71 @@ La compatibilidad debe cumplirse en los tres niveles:
 - Usar un componente con un tipo de bloque no permitido.
 - Pensar que registrar un componente en CMS lo crea automaticamente en el frontend.
 - Permitir HTML libre para resolver un componente faltante.
+
+## CMS > Frontend > Activaciones
+
+Ruta: `/cms/frontend_activaciones`
+
+### Para que sirve
+
+Esta pantalla muestra que tema visual y plantilla de vista aplicarian para cada pagina/canal/contexto cuando se active la persistencia real.
+
+Actualmente es read-only y sirve para entender la matriz de activacion sin publicar cambios.
+
+Ejemplos iniciales:
+
+- `home` usa tema `wokiee_artiani` y plantilla `wokiee_home_default`.
+- `categoria` usa tema `wokiee_artiani` y plantilla `wokiee_categoria_default`.
+- `catalogo` usa tema `wokiee_artiani` y plantilla `wokiee_catalogo_default`.
+
+### Flujo recomendado
+
+1. Abre `/cms/frontend_activaciones`.
+
+2. Revisa los KPIs:
+   - layouts
+   - componentes
+   - activaciones
+   - tema activo
+
+3. Revisa `Matriz de activacion`.
+   - pagina
+   - canal
+   - contexto
+   - tema
+   - plantilla
+   - layout
+   - vigencia
+   - endpoint publico
+   - secciones incluidas
+
+4. Revisa `Flujo futuro para cambiar plantilla`.
+   - duplicar
+   - editar
+   - validar
+   - programar
+   - activar
+
+5. Revisa `Contrato renderer`.
+   - el frontend debe consumir `/ecommercePublico/configuracion_inicial`
+   - para paginas especificas debe consumir `/ecommercePublico/contenido_pagina`
+   - nunca debe llamar rutas internas `/cms/*`
+
+6. Revisa `Persistencia frontend propuesta`.
+   - la tabla clave para esta pantalla sera `erp_ecommerce_frontend_plantilla_activas`
+   - no se ejecuta DDL en esta fase
+
+### Importante
+
+- Esta pantalla no publica cambios.
+- Esta pantalla no cambia el tema activo.
+- Esta pantalla no cambia plantillas en BD.
+- Esta pantalla no edita archivos del frontend.
+- Cuando se active persistencia real, cada activacion debera validar permisos, CSRF, auditoria, vigencia y compatibilidad de plantilla.
+
+### Errores comunes
+
+- Pensar que cambiar una tarjeta read-only ya cambia el ecommerce.
+- Activar una plantilla sin verificar que todos sus componentes existan en frontend.
+- Usar una plantilla de categoria para home sin validar slots.
+- Conectar el frontend a rutas internas del CMS.

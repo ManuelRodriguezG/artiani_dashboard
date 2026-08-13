@@ -2,17 +2,17 @@
 <html lang="es">
 <head>
     <base href="../../../../">
-    <title>CMS - Plantillas frontend</title>
+    <title>CMS - Constructor visual frontend</title>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <link rel="shortcut icon" href="assets/media/logos/favicon.ico">
     <link href="assets/plugins/global/plugins.bundle.css" rel="stylesheet" type="text/css">
     <link href="assets/css/style.bundle.css" rel="stylesheet" type="text/css">
     <!--
-      Documentacion IA: Codex GPT-5, 2026-08-10.
-      Proposito: vista read-only de plantillas de vista frontend administrables desde CMS.
-      Impacto: CMS frontend; prepara layouts tipo Wokiee y mapeos slot->componente para consumo por API.
-      Contrato: no edita archivos del frontend, no permite HTML/CSS/JS libre.
+      Documentacion IA: Codex GPT-5, 2026-08-12.
+      Proposito: constructor visual administrativo para entender como se arma una pagina frontend desde CMS.
+      Impacto: CMS frontend; separa previsualizacion visual de la captura editorial.
+      Contrato: read-only; no genera HTML productivo, no edita archivos frontend y no escribe BD.
     -->
     <style>
         .cms-front-kpi { border: 1px solid #e7e9ef; border-radius: 8px; background: #fff; padding: 16px; min-height: 104px; }
@@ -22,7 +22,7 @@
         .cms-front-card { padding: 16px; }
         .cms-front-subnav { display: flex; flex-wrap: wrap; gap: 8px; border: 1px solid #e7e9ef; border-radius: 8px; background: #fff; padding: 10px; margin-bottom: 20px; }
         .cms-front-subnav .btn { border-radius: 8px; }
-        .cms-front-builder { display: grid; grid-template-columns: minmax(240px, 300px) minmax(0, 1fr) minmax(280px, 360px); gap: 20px; align-items: start; }
+        .cms-front-builder { display: grid; grid-template-columns: minmax(240px, 310px) minmax(0, 1fr) minmax(280px, 370px); gap: 20px; align-items: start; }
         .cms-front-builder__rail, .cms-front-builder__canvas, .cms-front-builder__inspect { border: 1px solid #e7e9ef; border-radius: 8px; background: #fff; padding: 16px; }
         .cms-front-template-btn, .cms-front-section-btn { width: 100%; text-align: left; border: 1px solid #e7e9ef; border-radius: 8px; background: #fff; padding: 12px; transition: border-color .15s ease, background-color .15s ease; }
         .cms-front-template-btn:hover, .cms-front-section-btn:hover, .cms-front-template-btn.is-active, .cms-front-section-btn.is-active { border-color: #009ef7; background: #f1faff; }
@@ -38,9 +38,10 @@
         .cms-front-products-preview { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
         .cms-front-component-item { border: 1px dashed #cbd5e1; border-radius: 8px; padding: 12px; background: #fbfdff; }
         .cms-front-chips { display: flex; flex-wrap: wrap; gap: 6px; }
-        .cms-front-code { min-height: 420px; max-height: 680px; overflow: auto; background: #111827; color: #e5e7eb; border-radius: 8px; padding: 16px; font-size: .78rem; line-height: 1.5; white-space: pre-wrap; }
-        @media (max-width: 1199.98px) { .cms-front-builder { grid-template-columns: 1fr; } }
-        @media (max-width: 767.98px) { .cms-front-promo-preview, .cms-front-grid-preview, .cms-front-products-preview { grid-template-columns: 1fr 1fr; } }
+        .cms-front-flow { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+        .cms-front-flow__step { border: 1px solid #e7e9ef; border-radius: 8px; background: #fff; padding: 16px; min-height: 126px; }
+        @media (max-width: 1199.98px) { .cms-front-builder { grid-template-columns: 1fr; } .cms-front-flow { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+        @media (max-width: 767.98px) { .cms-front-promo-preview, .cms-front-grid-preview, .cms-front-products-preview, .cms-front-flow { grid-template-columns: 1fr; } }
     </style>
 </head>
 <body id="kt_app_body" data-kt-app-layout="dark-sidebar" data-kt-app-header-fixed="true" data-kt-app-sidebar-enabled="true" data-kt-app-sidebar-fixed="true" class="app-default">
@@ -54,13 +55,12 @@
                     <div class="app-toolbar py-3 py-lg-5">
                         <div class="app-container container-fluid d-flex flex-stack flex-wrap gap-3">
                             <div>
-                                <h1 class="page-heading text-dark fw-bold fs-3 mb-1">Plantillas de vista</h1>
-                                <span class="text-muted">Layouts frontend administrables por JSON, sin editar archivos del ecommerce</span>
+                                <h1 class="page-heading text-dark fw-bold fs-3 mb-1">Constructor visual</h1>
+                                <span class="text-muted">Vista administrativa para entender como se armara el frontend con plantillas, componentes y slots</span>
                             </div>
                             <div class="d-flex gap-2">
                                 <a class="btn btn-light" href="/cms/contenido"><i class="bi bi-layout-text-window-reverse"></i> Contenido</a>
-                                <a class="btn btn-light" href="/cms/frontend_componentes"><i class="bi bi-puzzle"></i> Componentes</a>
-                                <a class="btn btn-light" href="/cms/frontend_activaciones"><i class="bi bi-toggle-on"></i> Activaciones</a>
+                                <a class="btn btn-light" href="/cms/frontend_plantillas"><i class="bi bi-window-sidebar"></i> Plantillas</a>
                                 <a class="btn btn-light" href="/docs/erp_cms_manual_uso.md" target="_blank" rel="noopener"><i class="bi bi-journal-text"></i> Manual</a>
                                 <span class="badge badge-light-primary align-self-center" id="cms_frontend_estado">Listo</span>
                             </div>
@@ -69,16 +69,36 @@
                     <div class="app-content flex-column-fluid">
                         <div class="app-container container-fluid">
                             <div class="cms-front-subnav" data-cms-frontend-nav="true">
-                                <a class="btn btn-sm btn-light" href="/cms/frontend_constructor"><i class="bi bi-display"></i> Constructor</a>
-                                <a class="btn btn-sm btn-primary" href="/cms/frontend_plantillas"><i class="bi bi-window-sidebar"></i> Plantillas</a>
+                                <a class="btn btn-sm btn-primary" href="/cms/frontend_constructor"><i class="bi bi-display"></i> Constructor</a>
+                                <a class="btn btn-sm btn-light" href="/cms/frontend_plantillas"><i class="bi bi-window-sidebar"></i> Plantillas</a>
                                 <a class="btn btn-sm btn-light" href="/cms/frontend_componentes"><i class="bi bi-puzzle"></i> Componentes</a>
                                 <a class="btn btn-sm btn-light" href="/cms/frontend_activaciones"><i class="bi bi-toggle-on"></i> Activaciones</a>
                             </div>
+
                             <div class="alert alert-info d-flex align-items-start gap-3">
-                                <i class="bi bi-window-sidebar fs-2"></i>
+                                <i class="bi bi-display fs-2"></i>
                                 <div>
-                                    <div class="fw-bold">Plantillas frontend read-only</div>
-                                    <div>Esta fase define layouts, componentes y variantes por JSON seguro. No edita archivos del ecommerce y no envia JS, CSS ni HTML libre.</div>
+                                    <div class="fw-bold">Aqui vive la parte visual</div>
+                                    <div>Contenido crea los datos editables. Este constructor muestra que plantilla, secciones, componentes y variantes usaria el frontend para pintar la pagina.</div>
+                                </div>
+                            </div>
+
+                            <div class="cms-front-flow mb-5">
+                                <div class="cms-front-flow__step">
+                                    <div class="fw-bold mb-2"><span class="badge badge-light-primary me-2">1</span>Contenido</div>
+                                    <div class="text-muted fs-7">Se crean banners, textos, imagenes, CTAs y colecciones.</div>
+                                </div>
+                                <div class="cms-front-flow__step">
+                                    <div class="fw-bold mb-2"><span class="badge badge-light-primary me-2">2</span>Slot</div>
+                                    <div class="text-muted fs-7">Cada bloque se coloca en un espacio como <code>home.hero</code>.</div>
+                                </div>
+                                <div class="cms-front-flow__step">
+                                    <div class="fw-bold mb-2"><span class="badge badge-light-primary me-2">3</span>Componente</div>
+                                    <div class="text-muted fs-7">El slot usa un componente frontend seguro como <code>HeroSlider</code>.</div>
+                                </div>
+                                <div class="cms-front-flow__step">
+                                    <div class="fw-bold mb-2"><span class="badge badge-light-primary me-2">4</span>Frontend</div>
+                                    <div class="text-muted fs-7">La tienda real consume JSON y renderiza con sus componentes programados.</div>
                                 </div>
                             </div>
 
@@ -92,10 +112,13 @@
                             <div class="cms-front-panel p-5 mb-5">
                                 <div class="d-flex justify-content-between align-items-center flex-wrap gap-3 mb-4">
                                     <div>
-                                        <h3 class="fw-bold mb-1">Builder visual read-only</h3>
-                                        <span class="text-muted fs-7">Tema, plantilla de pagina, secciones, componentes permitidos e inspector estructural.</span>
+                                        <h3 class="fw-bold mb-1">Pagina armada por plantilla</h3>
+                                        <span class="text-muted fs-7">Selecciona Home, Categoria o Catalogo para ver sus secciones y el componente que renderizaria cada slot.</span>
                                     </div>
-                                    <span class="badge badge-light-info">No genera HTML productivo</span>
+                                    <div class="d-flex flex-wrap gap-2">
+                                        <span class="badge badge-light-success" id="cms_frontend_contenido_estado">Cargando contenido</span>
+                                        <span class="badge badge-light-warning">Preview administrativo</span>
+                                    </div>
                                 </div>
                                 <div class="cms-front-builder">
                                     <aside class="cms-front-builder__rail">
@@ -104,7 +127,7 @@
                                             <select class="form-select form-select-sm" id="cms_frontend_tema_selector"></select>
                                         </div>
                                         <div>
-                                            <div class="fw-bold mb-3">Plantillas</div>
+                                            <div class="fw-bold mb-3">Paginas / plantillas</div>
                                             <div id="cms_frontend_builder_plantillas"></div>
                                         </div>
                                     </aside>
@@ -114,69 +137,23 @@
                                                 <h3 class="fw-bold mb-1" id="cms_frontend_builder_titulo">Plantilla</h3>
                                                 <div class="text-muted fs-7" id="cms_frontend_builder_subtitulo">Selecciona una plantilla declarada.</div>
                                             </div>
-                                            <span class="badge badge-light-warning">Preview local</span>
+                                            <span class="badge badge-light-info">No es el HTML final</span>
                                         </div>
                                         <div id="cms_frontend_preview"></div>
                                     </section>
                                     <aside class="cms-front-builder__inspect">
-                                        <div class="fw-bold mb-3">Inspector</div>
+                                        <div class="fw-bold mb-3">Inspector de seccion</div>
                                         <div id="cms_frontend_inspector"></div>
                                         <div class="separator my-5"></div>
-                                        <div class="fw-bold mb-3">Paleta de componentes</div>
+                                        <div class="fw-bold mb-3">Componentes disponibles</div>
                                         <div id="cms_frontend_paleta"></div>
                                     </aside>
                                 </div>
                             </div>
 
-                            <div class="cms-front-panel p-5 mb-5">
-                                <h3 class="fw-bold mb-4">Contrato renderer</h3>
+                            <div class="cms-front-panel p-5">
+                                <h3 class="fw-bold mb-4">Como lo consumira frontend</h3>
                                 <div id="cms_frontend_renderer"></div>
-                            </div>
-
-                            <div class="cms-front-panel p-5 mb-5">
-                                <div class="d-flex justify-content-between align-items-center flex-wrap gap-3 mb-4">
-                                    <div>
-                                        <h3 class="fw-bold mb-1">Persistencia frontend propuesta</h3>
-                                        <span class="text-muted fs-7">Layouts, componentes, plantillas, secciones y activaciones siguen en modo read-only.</span>
-                                    </div>
-                                    <span class="badge badge-light-warning">No ejecuta DDL</span>
-                                </div>
-                                <div id="cms_frontend_esquema"></div>
-                            </div>
-
-                            <div class="cms-front-panel p-5 mb-5">
-                                <div class="d-flex justify-content-between align-items-center flex-wrap gap-3 mb-4">
-                                    <div>
-                                        <h3 class="fw-bold mb-1">Contratos frontend bloqueados</h3>
-                                        <span class="text-muted fs-7">Endpoints POST futuros para administrar plantillas visuales cuando exista persistencia real.</span>
-                                    </div>
-                                    <span class="badge badge-light-danger">No escribe BD</span>
-                                </div>
-                                <div class="table-responsive">
-                                    <table class="table table-row-dashed fs-7 gy-3 mb-0">
-                                        <tbody>
-                                            <tr><td class="fw-semibold">Guardar plantilla</td><td><code>/cms/frontend_plantilla_guardar_erp</code></td><td class="text-end"><span class="badge badge-light-warning">Bloqueado</span></td></tr>
-                                            <tr><td class="fw-semibold">Estatus plantilla</td><td><code>/cms/frontend_plantilla_estatus_erp</code></td><td class="text-end"><span class="badge badge-light-warning">Bloqueado</span></td></tr>
-                                            <tr><td class="fw-semibold">Guardar seccion</td><td><code>/cms/frontend_seccion_guardar_erp</code></td><td class="text-end"><span class="badge badge-light-warning">Bloqueado</span></td></tr>
-                                            <tr><td class="fw-semibold">Estatus seccion</td><td><code>/cms/frontend_seccion_estatus_erp</code></td><td class="text-end"><span class="badge badge-light-warning">Bloqueado</span></td></tr>
-                                        </tbody>
-                                    </table>
-                                </div>
-                            </div>
-
-                            <div class="row g-5">
-                                <div class="col-xl-7">
-                                    <div class="cms-front-panel p-5">
-                                        <h3 class="fw-bold mb-4">Plantillas declaradas</h3>
-                                        <div id="cms_frontend_plantillas"></div>
-                                    </div>
-                                </div>
-                                <div class="col-xl-5">
-                                    <div class="cms-front-panel p-5">
-                                        <h3 class="fw-bold mb-4">Manifest frontend</h3>
-                                        <pre class="cms-front-code" id="cms_frontend_json">{}</pre>
-                                    </div>
-                                </div>
                             </div>
                         </div>
                     </div>
@@ -187,6 +164,6 @@
 </div>
 <script src="assets/plugins/global/plugins.bundle.js"></script>
 <script src="assets/js/scripts.bundle.js"></script>
-<script src="/assets/js/custom/apps/erp/cms/frontend.js?v=20260810-frontend1"></script>
+<script src="/assets/js/custom/apps/erp/cms/frontend.js?v=20260812-constructor1"></script>
 </body>
 </html>

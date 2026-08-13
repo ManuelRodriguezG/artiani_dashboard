@@ -2,13 +2,47 @@
 
 Documentacion IA: Codex GPT-5  
 Fecha: 2026-08-10  
-Estado: Diseno vivo inicial, vistas separadas, UI funcional en memoria y fase read-only
+Estado: Diseno vivo inicial, vistas separadas, UI funcional, DDL base aplicado, semilla estructural leida desde BD en endpoints internos y endpoints POST aun bloqueados
 
 Manual operativo: `docs/erp_cms_manual_uso.md`
 Contrato frontend renderer: `docs/erp_cms_frontend_renderer_contrato.md`
 Plan builder visual Wokiee: `docs/erp_cms_visual_builder_wokiee_plan.md`
 
-Estado de cierre contenido: preparado en modo read-only; persistencia real pendiente de respaldo, DDL autorizado y activacion de endpoints POST.
+Estado de cierre contenido: respaldo externo generado, DDL de tablas CMS aplicado y semilla estructural base cargada el 2026-08-12. Los endpoints internos de manifest ya leen estructura desde BD semilla (`bd_seed`) para contenido y plantillas frontend. La persistencia editorial desde panel sigue pendiente: endpoints POST continuan bloqueados y la API publica conserva fallback default/read-only hasta que existan bloques publicados reales.
+
+Respaldo usado antes de DDL:
+
+```text
+C:\xampp\panel_db_backups\artianilocal_panel_20260812_094259_antes_cms_ecommerce_persistencia.sql
+```
+
+DDL aplicado:
+
+- CMS Contenido: 5 tablas.
+- CMS Frontend: 6 tablas.
+- Total: 11 tablas.
+
+Semilla base aplicada:
+
+- Plantilla contenido: `artiani_default`.
+- Slots contenido: 7.
+- Tema frontend: `wokiee_artiani`.
+- Layouts frontend: 3.
+- Componentes frontend: 6.
+- Plantillas de vista: 3.
+- Secciones frontend: 7.
+- Activaciones frontend: 3.
+
+La semilla no creo bloques comerciales, publicaciones de contenido ni media.
+
+Guardrails vigentes despues del DDL:
+
+- Solo se inserto semilla estructural base, sin contenido comercial.
+- Los manifests internos pueden leer `artiani_default`, `wokiee_artiani`, slots, layouts, componentes, plantillas de vista y activaciones desde BD.
+- No se activaron endpoints POST.
+- No se cambio la API publica para contenido publicado; conserva fallback default/read-only.
+- No se modifico catalogo, precios, inventario ni publicaciones de producto.
+- El frontend ecommerce sigue consumiendo contenido default/read-only hasta conectar lectura de BD publicada.
 
 ## Proposito
 
@@ -138,8 +172,10 @@ Estos contratos existen para que la UI y las integraciones internas tengan nombr
   - `/cms/slots`: mapa de slots por pagina, contexto, plantilla y detalle del slot seleccionado.
   - `/cms/media`: revision visual de imagenes y alt text; solo selecciona bloques para inspeccion.
   - `/cms/json`: contratos API, endpoint de arranque recomendado, preview, copia, importacion y exportacion del JSON.
+  - `/cms/frontend_constructor`: constructor visual administrativo de pagina, plantilla, secciones, componentes y slots.
   - `/cms/frontend_plantillas`: plantillas de vista frontend, layouts y mapeo slot-componente-variante.
   - `/cms/frontend_componentes`: catalogo de componentes frontend permitidos, variantes y slots compatibles.
+  - `/cms/frontend_activaciones`: matriz de activacion por pagina, canal y contexto.
 - Vistas:
   - `app/vistas/paginas/apps/erp/cms/contenido.php`
   - `app/vistas/paginas/apps/erp/cms/plantillas.php`
@@ -147,8 +183,10 @@ Estos contratos existen para que la UI y las integraciones internas tengan nombr
   - `app/vistas/paginas/apps/erp/cms/slots.php`
   - `app/vistas/paginas/apps/erp/cms/media.php`
   - `app/vistas/paginas/apps/erp/cms/json.php`
+  - `app/vistas/paginas/apps/erp/cms/frontend_constructor.php`
   - `app/vistas/paginas/apps/erp/cms/frontend_plantillas.php`
   - `app/vistas/paginas/apps/erp/cms/frontend_componentes.php`
+  - `app/vistas/paginas/apps/erp/cms/frontend_activaciones.php`
 - JS: `public/assets/js/custom/apps/erp/cms/contenido.js`
 - JS frontend CMS: `public/assets/js/custom/apps/erp/cms/frontend.js`
 - Sidebar: seccion separada `CMS` con accesos a cada vista del modulo.
@@ -157,11 +195,11 @@ Estos contratos existen para que la UI y las integraciones internas tengan nombr
 Decision UX: el CMS no usa pestanas internas para secciones principales. Cada seccion abre una vista/ruta propia para evitar mezclar captura editorial, estructura, media y contrato API.
 El sidebar del modulo CMS se divide en grupos internos: `Contenido` y `Frontend`.
 
-La pantalla principal es operativa y read-only: muestra readiness, selector de pagina/contexto, resumen editorial, plantilla visual de la pagina, slots, publicabilidad por slot, bloques del slot, editor y validacion local. Las acciones de bloques completas viven en esta pantalla; vistas como `Media` reducen sus acciones a seleccion/revision para evitar operaciones fuera de contexto.
+La pantalla principal es operativa y read-only: muestra readiness, selector de pagina/contexto, resumen editorial, slots, publicabilidad por slot, bloques del slot, editor y validacion local. Las acciones de bloques completas viven en esta pantalla; vistas como `Media` reducen sus acciones a seleccion/revision para evitar operaciones fuera de contexto.
 
-La seccion `Plantilla visual de la pagina` dentro de `/cms/contenido` toma el payload `plantilla_vista` y muestra layout, codigo de plantilla y secciones visuales con mapeo `slot -> componente -> variante`. Desde ahi se puede abrir `/cms/frontend_plantillas` para ver el detalle completo.
+Decision UX 2026-08-12: la parte visual no vive dentro de `/cms/contenido`. Contenido queda como captura editorial de datos editables. La previsualizacion visual de pagina vive en `/cms/frontend_constructor`, donde se puede revisar la relacion `pagina -> plantilla -> secciones -> slot -> componente -> variante`.
 
-La seccion `Preview visual frontend` dentro de `/cms/contenido` renderiza una simulacion local tipo storefront usando el JSON actual. Este preview ayuda a revisar intencion visual, pero no genera el HTML final del frontend ni reemplaza el renderer del proyecto ecommerce externo.
+`/cms/frontend_constructor` no genera HTML productivo ni reemplaza al frontend ecommerce. Es una vista administrativa para entender como el frontend renderizaria el JSON con sus componentes programados. En esta etapa ya cruza la plantilla frontend con el contenido read-only de `/cms/contenido_admin_pagina_erp`, mostrando cuantos bloques llegan a cada slot y usando textos/CTAs/colecciones del contrato de contenido cuando existen.
 
 El resumen editorial de `/cms/contenido` consolida cantidad de bloques, estatus (`publicado`, `borrador`, `pausado`) y vigencia (`vigente`, `futuro`, `vencido`, `sin vigencia`) del preview local. Esto ayuda a revisar contenido antes de habilitar persistencia real.
 
@@ -175,7 +213,7 @@ La vista `Persistencia` concentra el plan de tablas, checklist de autorizacion y
 
 La vista `Slots` muestra un detalle contextual del slot seleccionado: pagina, maximo de bloques, cantidad de bloques del preview, contexto, obligatoriedad y tipos permitidos. No edita contenido; sirve para entender la estructura antes de usar `/cms/contenido`.
 
-Las vistas `Frontend` preparan el contrato de render: plantillas de vista, layouts, componentes, variantes, slots compatibles y guardrails. Son read-only hasta definir persistencia real y hasta que el frontend implemente su mapa de componentes.
+Las vistas `Frontend` preparan el contrato de render: constructor visual, plantillas de vista, layouts, componentes, variantes, slots compatibles, activaciones y guardrails. Son read-only hasta definir persistencia real y hasta que el frontend implemente su mapa de componentes.
 
 El endpoint publico `/ecommercePublico/contenido_pagina` ya entrega `plantilla_vista` en modo default/read-only junto con `slots`. Esto permite que el frontend pruebe el renderer con el contrato `plantilla_vista + contenido.slots` antes de activar persistencia real.
 

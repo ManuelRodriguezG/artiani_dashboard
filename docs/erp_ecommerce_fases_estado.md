@@ -22,6 +22,35 @@ Estado: documento vivo para continuar este chat por fases sin revolver modulos.
 7. SEO y contenido.
 8. Panel de operacion ecommerce.
 
+## CMS ecommerce - estado paralelo
+
+Avance 2026-08-12:
+
+- Modulo `CMS` separado del modulo Ecommerce.
+- CMS Contenido en UI funcional local/read-only.
+- CMS Frontend con pantallas `Plantillas`, `Componentes` y `Activaciones`.
+- Respaldo externo generado:
+  - `C:\xampp\panel_db_backups\artianilocal_panel_20260812_094259_antes_cms_ecommerce_persistencia.sql`.
+- DDL base aplicado:
+  - 5 tablas CMS Contenido.
+  - 6 tablas CMS Frontend.
+  - 11 tablas totales.
+- Semilla estructural aplicada:
+  - plantilla `artiani_default`;
+  - tema `wokiee_artiani`;
+  - slots, layouts, componentes, plantillas de vista, secciones y activaciones base.
+- Endpoints internos de manifest ya leen estructura desde BD semilla:
+  - `/cms/contenido_admin_manifest_erp`;
+  - `/cms/frontend_admin_manifest_erp`.
+- Endpoints POST del CMS siguen bloqueados.
+- Endpoints publicos de contenido siguen con fallback default/read-only.
+
+Siguiente paso CMS:
+
+1. Activar modelos de persistencia real con permisos, CSRF y auditoria.
+2. Guardar/editar bloques y publicaciones reales desde `/cms/contenido`.
+3. Hacer que endpoints publicos lean contenido publicado desde BD con fallback default.
+
 ## Fase actual
 
 Fase 1: Panel Ecommerce / Publicaciones.
@@ -509,3 +538,78 @@ Siguiente paso recomendado:
 1. Frontend integra `contenido_manifest` y `contenido_pagina` con la plantilla actual.
 2. Si el contrato funciona visualmente, crear diseno de esquema para guardar contenido real.
 3. Despues evolucionar el panel interno separado `/cms/contenido` con alta/edicion/publicacion de banners y bloques.
+
+## Ajuste UX publicaciones 2026-08-12
+
+Problema detectado:
+
+- La tabla de `/ecommercePublico/publicaciones` solo usaba `limite`; no tenia `pagina`.
+- Al cambiar el selector de cantidad se recargaba la tabla completa y se perdian los productos seleccionados porque la seleccion vivia solo en los checkboxes visibles.
+
+Cambios aplicados:
+
+- `GET /ecommercePublico/publicaciones_auditar_erp` ahora acepta `pagina` y devuelve `paginacion` con `pagina`, `limite`, `offset`, `total`, `total_paginas`, `tiene_anterior` y `tiene_siguiente`.
+- La tabla interna de publicaciones ya muestra resumen `Mostrando X-Y de Z productos`.
+- Se agregaron botones `Anterior` y `Siguiente`.
+- La seleccion de productos para lote queda persistente en JS aunque se cambie de pagina o de limite.
+- Se agrego boton `Limpiar seleccion`.
+
+Guardrails:
+
+- El cambio no publica productos por si solo.
+- El endpoint sigue siendo de auditoria interna protegida y read-only.
+- No se modifica inventario, precios, catalogo base ni publicaciones durante la paginacion.
+
+## Ajuste visibilidad publicaciones 2026-08-12
+
+Necesidad:
+
+- Desde el panel se debe poder decidir si un producto publicado muestra o no disponibilidad publica, precio y acciones.
+- La decision no debe quedar fija en frontend ni forzada por JS.
+
+Cambios aplicados:
+
+- En `/ecommercePublico/publicaciones`, la ficha de preparacion ahora incluye controles de visibilidad:
+  - `mostrar_precio`;
+  - `mostrar_disponibilidad`;
+  - `permite_cotizacion`;
+  - `permite_whatsapp`;
+  - `destacado`.
+- El JS ya envia esos valores reales al guardar borrador o curaduria.
+- Si `mostrar_disponibilidad=0`, la API publica no muestra el tipo real de disponibilidad del producto y responde `consultar_disponibilidad`.
+
+Guardrails:
+
+- Ocultar disponibilidad no modifica inventario.
+- Ocultar precio no modifica listas de precio ERP.
+- Estos campos pertenecen a la curaduria de publicacion ecommerce, no al catalogo base.
+
+## Configuracion masiva publicaciones 2026-08-12
+
+Necesidad:
+
+- Acelerar la curaduria inicial del ecommerce aplicando reglas de visibilidad a muchos productos seleccionados.
+- Evitar editar producto por producto cuando la politica es comun por grupo, busqueda, categoria o seleccion manual.
+
+Cambios aplicados:
+
+- Se agrego endpoint interno `POST /ecommercePublico/publicaciones_lote_configuracion_erp`.
+- Requiere permiso `catalogo.editar`, CSRF y token `ECOMMERCE_PUBLICO_LOTE_CONFIGURACION`.
+- La pantalla `/ecommercePublico/publicaciones` ahora tiene panel `Configuracion masiva`.
+- Campos masivos soportados:
+  - `mostrar_precio`;
+  - `mostrar_disponibilidad`;
+  - `permite_cotizacion`;
+  - `permite_whatsapp`;
+  - `destacado`.
+- Cada campo permite tres estados: sin cambio, si, no.
+- Puede crear borrador si el SKU seleccionado todavia no tiene publicacion.
+- Si ya existe publicacion, actualiza curaduria sin cambiar estatus publicado/borrador/pausado.
+
+Guardrails:
+
+- No publica automaticamente.
+- No toca inventario.
+- No toca precios ERP.
+- No toca imagenes, marca ni categoria del catalogo base.
+- No usa ni modifica legacy `ecom_*`.

@@ -90,6 +90,17 @@ class Cms extends Controlador {
   }
 
   /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-08-12
+   * Proposito: abrir el constructor visual administrativo de paginas frontend.
+   * Impacto: CMS frontend; muestra como se ensamblan plantilla, secciones, componentes y slots sin mezclarlo con captura editorial.
+   * Contrato: vista protegida; read-only, no guarda HTML y no edita archivos del frontend.
+   */
+  public function frontend_constructor() {
+    $this->requerirAlgunPermiso(array("cms.ver", "catalogo.ver"));
+    $this->vista("apps/erp/cms/frontend_constructor");
+  }
+
+  /**
    * Documentacion IA: Codex GPT-5 | Fecha: 2026-08-10
    * Proposito: abrir la vista de componentes frontend permitidos.
    * Impacto: CMS frontend; define catalogo seguro de componentes, variantes y slots compatibles.
@@ -98,6 +109,17 @@ class Cms extends Controlador {
   public function frontend_componentes() {
     $this->requerirAlgunPermiso(array("cms.ver", "catalogo.ver"));
     $this->vista("apps/erp/cms/frontend_componentes");
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-08-12
+   * Proposito: abrir la vista de activaciones futuras de temas y plantillas frontend.
+   * Impacto: CMS frontend; permite revisar que plantilla aplicara por pagina/canal/contexto antes de persistencia real.
+   * Contrato: vista protegida; read-only, sin cambiar tema activo ni editar archivos del frontend.
+   */
+  public function frontend_activaciones() {
+    $this->requerirAlgunPermiso(array("cms.ver", "catalogo.ver"));
+    $this->vista("apps/erp/cms/frontend_activaciones");
   }
 
   /**

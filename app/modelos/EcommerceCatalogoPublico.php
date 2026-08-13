@@ -801,6 +801,11 @@ class EcommerceCatalogoPublico extends CRUD {
    * Contrato: read-only; no consulta archivos de plantilla ni modifica BD.
    */
   public function contenidoAdminManifestInterno($opciones = array()) {
+    $manifestBd = $this->contenidoAdminManifestDesdeBd($opciones);
+    if ($manifestBd !== null) {
+      return $this->respuesta(false, "success", "Manifest interno CMS ecommerce disponible desde BD", $manifestBd);
+    }
+
     $manifest = $this->contenidoManifestPublico($opciones);
     $depurar = $this->valor($manifest, "depurar", array());
     $depurar["admin"] = array(
@@ -840,6 +845,11 @@ class EcommerceCatalogoPublico extends CRUD {
    * Contrato: read-only; el frontend debe renderizar solo componentes predefinidos.
    */
   public function frontendPlantillasAdminManifestInterno($opciones = array()) {
+    $manifestBd = $this->frontendPlantillasAdminManifestDesdeBd();
+    if ($manifestBd !== null) {
+      return $this->respuesta(false, "success", "Manifest frontend CMS disponible desde BD", $manifestBd);
+    }
+
     $temaActivo = array(
       "codigo" => "wokiee_artiani",
       "nombre" => "Wokiee Artiani",
@@ -935,6 +945,38 @@ class EcommerceCatalogoPublico extends CRUD {
       "tema_activo" => $temaActivo,
       "temas_disponibles" => array($temaActivo),
       "plantilla_activa_home" => "wokiee_home_default",
+      "activaciones" => array(
+        array(
+          "pagina" => "home",
+          "canal" => "catalogo_publico",
+          "contexto_clave" => "*",
+          "tema" => "wokiee_artiani",
+          "plantilla_vista" => "wokiee_home_default",
+          "estatus" => "activa_readonly",
+          "vigencia" => "sin_vigencia",
+          "endpoint_publico" => "/ecommercePublico/contenido_pagina?pagina=home"
+        ),
+        array(
+          "pagina" => "categoria",
+          "canal" => "catalogo_publico",
+          "contexto_clave" => "{slug_categoria}",
+          "tema" => "wokiee_artiani",
+          "plantilla_vista" => "wokiee_categoria_default",
+          "estatus" => "activa_readonly",
+          "vigencia" => "sin_vigencia",
+          "endpoint_publico" => "/ecommercePublico/contenido_pagina?pagina=categoria&categoria={slug_categoria}"
+        ),
+        array(
+          "pagina" => "catalogo",
+          "canal" => "catalogo_publico",
+          "contexto_clave" => "*",
+          "tema" => "wokiee_artiani",
+          "plantilla_vista" => "wokiee_catalogo_default",
+          "estatus" => "activa_readonly",
+          "vigencia" => "sin_vigencia",
+          "endpoint_publico" => "/ecommercePublico/contenido_pagina?pagina=catalogo"
+        )
+      ),
       "layouts" => array("storefront_wokiee_v1", "category_wokiee_v1", "catalog_wokiee_v1"),
       "componentes" => $componentes,
       "plantillas_vista" => $plantillas,
@@ -3304,6 +3346,8 @@ class EcommerceCatalogoPublico extends CRUD {
       }
 
       $limite = max(10, min(500, intval($this->valor($filtros, "limite", 50))));
+      $pagina = max(1, intval($this->valor($filtros, "pagina", 1)));
+      $offset = ($pagina - 1) * $limite;
       $soloBloqueados = intval($this->valor($filtros, "solo_bloqueados", 0)) === 1;
       $soloPublicables = intval($this->valor($filtros, "solo_publicables", 0)) === 1;
       $busqueda = trim((string) $this->valor($filtros, "q", ""));
@@ -3315,19 +3359,31 @@ class EcommerceCatalogoPublico extends CRUD {
       $granel = trim((string) $this->valor($filtros, "granel", ""));
 
       $resumen = $this->resumenPublicabilidad($db);
+      $paginacion = array();
       $candidatos = $this->listarCandidatosPublicacion($db, $limite, $soloBloqueados, $soloPublicables, $busqueda, $estatusPublicacion, array(
         "disponibilidad" => $disponibilidad,
         "categoria_texto" => $categoriaTexto,
         "mascota" => $mascota,
         "necesidad" => $necesidad,
         "granel" => $granel
-      ));
+      ), $offset, $paginacion);
+      $total = intval($this->valor($paginacion, "total", 0));
+      $totalPaginas = max(1, intval(ceil($total / max(1, $limite))));
 
       return $this->respuesta(false, "success", "Auditoria ecommerce publica consultada", array(
         "read_only" => true,
         "no_escribe_bd" => true,
         "no_usa_ecom_como_fuente" => true,
         "resumen" => $resumen,
+        "paginacion" => array(
+          "pagina" => $pagina,
+          "limite" => $limite,
+          "offset" => $offset,
+          "total" => $total,
+          "total_paginas" => $totalPaginas,
+          "tiene_anterior" => $pagina > 1,
+          "tiene_siguiente" => $pagina < $totalPaginas
+        ),
         "candidatos" => $candidatos,
         "criterios_fase_1" => array(
           "producto_activo" => true,
@@ -4186,6 +4242,101 @@ class EcommerceCatalogoPublico extends CRUD {
   }
 
   /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-08-12
+   * Proposito: aplicar campos de configuracion/visibilidad ecommerce a un lote de SKUs.
+   * Impacto: acelera configuracion masiva de publicaciones sin cambiar inventario, precios ERP ni estatus publicado.
+   * Contrato: requiere token; solo aplica campos explicitamente enviados y puede crear borrador si no existe publicacion.
+   */
+  public function aplicarConfiguracionLoteAutorizada($datos = array(), $opciones = array()) {
+    $token = trim((string) $this->valor($opciones, "autorizar", $this->valor($datos, "autorizar", "")));
+    if ($token !== "ECOMMERCE_PUBLICO_LOTE_CONFIGURACION") {
+      return $this->respuesta(true, "warning", "Configuracion masiva bloqueada", array(
+        "bloqueado" => true,
+        "no_escribe_bd" => true,
+        "token_requerido" => "ECOMMERCE_PUBLICO_LOTE_CONFIGURACION"
+      ));
+    }
+
+    $skus = $this->normalizarIdsSkuLote($this->valor($datos, "id_skus", array()));
+    if (empty($skus)) {
+      return $this->respuesta(true, "warning", "Selecciona al menos un SKU", array("no_escribe_bd" => true));
+    }
+
+    $camposPermitidos = array("mostrar_precio", "mostrar_disponibilidad", "permite_cotizacion", "permite_whatsapp", "destacado");
+    $configuracion = array();
+    foreach ($camposPermitidos as $campo) {
+      if (array_key_exists($campo, $datos) && trim((string) $datos[$campo]) !== "") {
+        $configuracion[$campo] = $this->booleanoPublicacion($datos[$campo]);
+      }
+    }
+    $crearBorrador = intval($this->valor($datos, "crear_borrador_si_no_existe", 1)) === 1;
+    if (empty($configuracion) && !$crearBorrador) {
+      return $this->respuesta(true, "warning", "Selecciona al menos una configuracion para aplicar", array("no_escribe_bd" => true));
+    }
+
+    $ok = 0;
+    $error = 0;
+    $resultados = array();
+    foreach ($skus as $idSku) {
+      $preparacion = $this->prepararPublicacion(array("id_sku" => $idSku));
+      if (!empty($preparacion["error"])) {
+        $error++;
+        $resultados[] = array(
+          "id_sku" => $idSku,
+          "ok" => false,
+          "mensaje" => isset($preparacion["mensaje"]) ? $preparacion["mensaje"] : "",
+          "bloqueos" => $this->valor($preparacion, array("depurar", "bloqueos_publicacion"), array())
+        );
+        continue;
+      }
+
+      $actual = $this->valor($preparacion, array("depurar", "publicacion_actual"), array());
+      $idPublicacion = intval($this->valor($actual, "id_publicacion", 0));
+      $payload = array_merge(array("id_sku" => $idSku), $configuracion);
+      if ($idPublicacion > 0) {
+        $payload["id_publicacion"] = $idPublicacion;
+        $respuesta = $this->guardarCuraduriaPublicacionAutorizada($payload, array("autorizar" => "ECOMMERCE_PUBLICO_PUBLICACION_CURADURIA"));
+      } elseif ($crearBorrador) {
+        $respuesta = $this->guardarPublicacionBorradorAutorizada($payload, array("autorizar" => "ECOMMERCE_PUBLICO_PUBLICACION_BORRADOR"));
+      } else {
+        $respuesta = $this->respuesta(true, "warning", "Publicacion no existe para aplicar configuracion", array(
+          "no_escribe_bd" => true,
+          "bloqueos_publicacion" => array("publicacion_no_existe")
+        ));
+      }
+
+      if (empty($respuesta["error"])) {
+        $ok++;
+      } else {
+        $error++;
+      }
+      $resultados[] = array(
+        "id_sku" => $idSku,
+        "ok" => empty($respuesta["error"]),
+        "mensaje" => isset($respuesta["mensaje"]) ? $respuesta["mensaje"] : "",
+        "tipo" => isset($respuesta["tipo"]) ? $respuesta["tipo"] : "",
+        "id_publicacion" => $idPublicacion,
+        "bloqueos" => $this->valor($respuesta, array("depurar", "bloqueos_publicacion"), array()),
+        "publicacion" => $this->valor($respuesta, array("depurar", "publicacion"), array())
+      );
+    }
+
+    return $this->respuesta($ok === 0, $ok > 0 ? "success" : "warning", "Configuracion masiva ecommerce procesada", array(
+      "escribe_bd" => $ok > 0,
+      "id_skus" => $skus,
+      "campos_aplicados" => $configuracion,
+      "crear_borrador_si_no_existe" => $crearBorrador,
+      "total_ok" => $ok,
+      "total_error" => $error,
+      "resultados" => $resultados,
+      "no_publica_automaticamente" => true,
+      "no_toca_inventario" => true,
+      "no_toca_catalogo_erp" => true,
+      "no_toca_ecom_legacy" => true
+    ));
+  }
+
+  /**
    * Documentacion IA: Codex GPT-5 | Fecha: 2026-07-30; actualizado 2026-08-11
    * Proposito: publicar un lote de borradores ecommerce seleccionados en panel.
    * Impacto: expone publicaciones aprobadas al API publico manteniendo inventario intacto.
@@ -4557,7 +4708,13 @@ class EcommerceCatalogoPublico extends CRUD {
     }
   }
 
-  private function listarCandidatosPublicacion($db, $limite, $soloBloqueados, $soloPublicables, $busqueda = "", $estatusPublicacion = "", $filtrosExtra = array()) {
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-08-12
+   * Proposito: listar candidatos de publicaciones con paginacion real y total filtrado para UX de lotes.
+   * Impacto: Ecommerce publico/publicaciones; no escribe BD ni altera criterios de publicabilidad.
+   * Contrato: respeta filtros existentes y devuelve metadata por referencia cuando se solicita.
+   */
+  private function listarCandidatosPublicacion($db, $limite, $soloBloqueados, $soloPublicables, $busqueda = "", $estatusPublicacion = "", $filtrosExtra = array(), $offset = 0, &$paginacion = null) {
     $tienePublicaciones = $this->tablaExiste($db, "erp_ecommerce_publicaciones");
     $where = array("p.estatus='activo'", "s.estatus='activo'");
     $params = array();
@@ -4619,19 +4776,7 @@ class EcommerceCatalogoPublico extends CRUD {
       }
     }
 
-    $sql = "SELECT p.id_producto_erp, s.id_sku, p.codigo_producto, s.sku,
-        COALESCE(s.nombre, p.nombre) nombre_publico,
-        m.nombre marca,
-        COALESCE(c.ruta, c.nombre) categoria,
-        COALESCE(NULLIF(r.unidad_venta_label, ''), u.abreviatura, u.codigo, '') presentacion_base,
-        p.descripcion descripcion_catalogo,
-        pr.precio, pr.moneda,
-        img.url_imagen,
-        COALESCE(r.controla_inventario, CASE WHEN s.tipo_inventario IN ('servicio','cargo') THEN 0 ELSE 1 END) controla_inventario,
-        COALESCE(r.permite_venta_fraccionaria, 0) permite_venta_fraccionaria,
-        COALESCE(inv.cantidad_disponible, 0) existencia_disponible,
-        " . ($tienePublicaciones ? "pub.id_publicacion, pub.estatus_publicacion, pub.slug slug_publicacion, pub.titulo_publico titulo_publico_publicacion, pub.descripcion_publica descripcion_publica_publicacion, pub.presentacion_publica presentacion_publica_publicacion, pub.mascota_especie mascota_especie_publicacion, pub.necesidades_json necesidades_json_publicacion, pub.destacado destacado_publicacion, pub.orden orden_publicacion, pub.permite_cotizacion permite_cotizacion_publicacion, pub.permite_whatsapp permite_whatsapp_publicacion, pub.mostrar_precio mostrar_precio_publicacion, pub.mostrar_disponibilidad mostrar_disponibilidad_publicacion" : "NULL id_publicacion, NULL estatus_publicacion, NULL slug_publicacion, NULL titulo_publico_publicacion, NULL descripcion_publica_publicacion, NULL presentacion_publica_publicacion, NULL mascota_especie_publicacion, NULL necesidades_json_publicacion, NULL destacado_publicacion, NULL orden_publicacion, NULL permite_cotizacion_publicacion, NULL permite_whatsapp_publicacion, NULL mostrar_precio_publicacion, NULL mostrar_disponibilidad_publicacion") . "
-      FROM erp_catalogo_skus s
+    $joins = "FROM erp_catalogo_skus s
       INNER JOIN erp_catalogo_productos p ON p.id_producto_erp=s.id_producto_erp
       LEFT JOIN erp_catalogo_marcas m ON m.id_marca_erp=p.id_marca_erp
       LEFT JOIN erp_catalogo_unidades u ON u.id_unidad=s.id_unidad_base
@@ -4655,11 +4800,34 @@ class EcommerceCatalogoPublico extends CRUD {
         WHERE estatus_existencia IN ('disponible','agotada')
         GROUP BY id_sku_erp
       ) inv ON inv.id_sku_erp=s.id_sku
-      " . ($tienePublicaciones ? "LEFT JOIN erp_ecommerce_publicaciones pub ON pub.id_sku=s.id_sku AND pub.estatus_publicacion IN ('borrador','publicado','pausado')" : "") . "
+      " . ($tienePublicaciones ? "LEFT JOIN erp_ecommerce_publicaciones pub ON pub.id_sku=s.id_sku AND pub.estatus_publicacion IN ('borrador','publicado','pausado')" : "");
+
+    $countSql = "SELECT COUNT(DISTINCT s.id_sku) " . $joins . "
+      WHERE " . implode(" AND ", $where);
+    $countStmt = $db->prepare($countSql);
+    $countStmt->execute($params);
+    if (is_array($paginacion)) {
+      $paginacion["total"] = intval($countStmt->fetchColumn());
+      $paginacion["offset"] = max(0, intval($offset));
+    }
+
+    $sql = "SELECT p.id_producto_erp, s.id_sku, p.codigo_producto, s.sku,
+        COALESCE(s.nombre, p.nombre) nombre_publico,
+        m.nombre marca,
+        COALESCE(c.ruta, c.nombre) categoria,
+        COALESCE(NULLIF(r.unidad_venta_label, ''), u.abreviatura, u.codigo, '') presentacion_base,
+        p.descripcion descripcion_catalogo,
+        pr.precio, pr.moneda,
+        img.url_imagen,
+        COALESCE(r.controla_inventario, CASE WHEN s.tipo_inventario IN ('servicio','cargo') THEN 0 ELSE 1 END) controla_inventario,
+        COALESCE(r.permite_venta_fraccionaria, 0) permite_venta_fraccionaria,
+        COALESCE(inv.cantidad_disponible, 0) existencia_disponible,
+        " . ($tienePublicaciones ? "pub.id_publicacion, pub.estatus_publicacion, pub.slug slug_publicacion, pub.titulo_publico titulo_publico_publicacion, pub.descripcion_publica descripcion_publica_publicacion, pub.presentacion_publica presentacion_publica_publicacion, pub.mascota_especie mascota_especie_publicacion, pub.necesidades_json necesidades_json_publicacion, pub.destacado destacado_publicacion, pub.orden orden_publicacion, pub.permite_cotizacion permite_cotizacion_publicacion, pub.permite_whatsapp permite_whatsapp_publicacion, pub.mostrar_precio mostrar_precio_publicacion, pub.mostrar_disponibilidad mostrar_disponibilidad_publicacion" : "NULL id_publicacion, NULL estatus_publicacion, NULL slug_publicacion, NULL titulo_publico_publicacion, NULL descripcion_publica_publicacion, NULL presentacion_publica_publicacion, NULL mascota_especie_publicacion, NULL necesidades_json_publicacion, NULL destacado_publicacion, NULL orden_publicacion, NULL permite_cotizacion_publicacion, NULL permite_whatsapp_publicacion, NULL mostrar_precio_publicacion, NULL mostrar_disponibilidad_publicacion") . "
+      " . $joins . "
       WHERE " . implode(" AND ", $where) . "
       ORDER BY CASE WHEN pr.id_sku_precio IS NOT NULL AND img.url_imagen IS NOT NULL AND pc.id_categoria_erp IS NOT NULL AND COALESCE(r.permite_venta_fraccionaria,0)=0 THEN 0 ELSE 1 END,
         p.nombre, s.sku
-      LIMIT " . intval($limite);
+      LIMIT " . intval($limite) . " OFFSET " . max(0, intval($offset));
     $stmt = $db->prepare($sql);
     $stmt->execute($params);
     $filas = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -6949,6 +7117,364 @@ class EcommerceCatalogoPublico extends CRUD {
     $stmt = $db->prepare("SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA=:base AND TABLE_NAME=:tabla LIMIT 1");
     $stmt->execute(array(":base" => MYSQLBASE, ":tabla" => $tabla));
     return (bool) $stmt->fetchColumn();
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-08-12
+   * Proposito: leer la estructura CMS de contenido desde BD para el panel interno.
+   * Impacto: habilita transicion a persistencia real sin cambiar todavia la API publica ni activar POST.
+   * Contrato: read-only; si la semilla no existe devuelve null para usar fallback default.
+   */
+  private function contenidoAdminManifestDesdeBd($opciones = array()) {
+    try {
+      $db = $this->getConexion();
+      if (!$db || !$this->tablasCmsContenidoDisponibles($db)) {
+        return null;
+      }
+
+      $plantillaCodigo = $this->limpiarFiltroPublico($this->valor($opciones, "plantilla", "artiani_default"));
+      if ($plantillaCodigo === "") { $plantillaCodigo = "artiani_default"; }
+
+      $stmtPlantilla = $db->prepare("SELECT * FROM erp_ecommerce_plantillas WHERE codigo=:codigo AND activa=1 LIMIT 1");
+      $stmtPlantilla->execute(array(":codigo" => $plantillaCodigo));
+      $plantilla = $stmtPlantilla->fetch(PDO::FETCH_ASSOC);
+      if (!$plantilla) {
+        return null;
+      }
+
+      $slots = $this->cmsContenidoSlotsDesdeBd($db, (int) $plantilla["id_plantilla"]);
+      if (empty($slots)) {
+        return null;
+      }
+
+      $frontend = $this->frontendPlantillasAdminManifestDesdeBd();
+      $plantillasVista = $frontend !== null ? $this->valor($frontend, "plantillas_vista", array()) : array(
+        $this->plantillaVistaPaginaDefault("home"),
+        $this->plantillaVistaPaginaDefault("categoria"),
+        $this->plantillaVistaPaginaDefault("catalogo")
+      );
+      $componentesFrontend = $frontend !== null ? $this->valor($frontend, "componentes", array()) : $this->componentesFrontendDefault();
+      $temaActivo = $frontend !== null ? $this->valor($frontend, "tema_activo", array()) : array(
+        "codigo" => "wokiee_artiani",
+        "nombre" => "Wokiee Artiani",
+        "proveedor" => "ThemeForest/Wokiee",
+        "estado" => "fallback_default"
+      );
+
+      $depurar = array(
+        "cms" => array(
+          "fase" => "fase_8_cms_estructura_bd_readonly",
+          "estado" => "estructura_bd_seed_sin_contenido_comercial",
+          "headless" => true,
+          "panel_pendiente" => false,
+          "endpoint_principal" => "/ecommercePublico/contenido_pagina"
+        ),
+        "plantilla_activa" => $plantillaCodigo,
+        "tema_visual_activo" => $temaActivo,
+        "plantillas" => array(
+          array(
+            "codigo" => (string) $plantilla["codigo"],
+            "nombre" => (string) $plantilla["nombre"],
+            "descripcion" => (string) $plantilla["descripcion"],
+            "version" => (string) $plantilla["version_plantilla"],
+            "estatus" => (string) $plantilla["estatus"],
+            "fuente" => "bd_seed",
+            "slots" => $slots
+          )
+        ),
+        "tipos_bloque" => $this->contenidoTiposBloqueDefault(),
+        "plantillas_vista" => $plantillasVista,
+        "componentes_frontend" => $componentesFrontend,
+        "paginas_soportadas" => array(
+          array("codigo" => "home", "endpoint" => "/ecommercePublico/contenido_pagina?pagina=home&plantilla=" . $plantillaCodigo),
+          array("codigo" => "categoria", "endpoint" => "/ecommercePublico/contenido_pagina?pagina=categoria&categoria={slug_categoria}&plantilla=" . $plantillaCodigo),
+          array("codigo" => "catalogo", "endpoint" => "/ecommercePublico/contenido_pagina?pagina=catalogo&plantilla=" . $plantillaCodigo)
+        ),
+        "parametros" => array(
+          "pagina" => "home|categoria|catalogo",
+          "plantilla" => "artiani_default por defecto",
+          "categoria" => "slug/codigo de categoria cuando pagina=categoria"
+        ),
+        "admin" => array(
+          "modo" => "estructura_bd_readonly",
+          "fuente_estructura" => "bd_seed",
+          "puede_guardar" => false,
+          "puede_publicar" => false,
+          "vista" => "/cms/contenido",
+          "pendiente_persistencia" => false,
+          "pendiente_endpoints_post" => true
+        ),
+        "guardrails" => array_merge(array(
+          "read_only" => true,
+          "no_escribe_bd" => true,
+          "no_modifica_catalogo" => true,
+          "no_modifica_inventario" => true,
+          "frontend_renderiza_plantilla" => true,
+          "frontend_renderiza_plantilla_vista" => true,
+          "erp_entrega_contenido_json" => true,
+          "api_publica_sigue_fallback_hasta_contenido_publicado" => true
+        ), $this->contenidoGuardrailsAdmin())
+      );
+
+      return $depurar;
+    } catch (Exception $e) {
+      return null;
+    }
+  }
+
+  private function cmsContenidoSlotsDesdeBd($db, $idPlantilla) {
+    $stmt = $db->prepare("SELECT codigo, nombre, pagina, tipos_bloque_json, max_bloques, requerido, orden, estatus FROM erp_ecommerce_plantilla_slots WHERE id_plantilla=:id AND estatus='activo' ORDER BY pagina ASC, orden ASC, id_slot ASC");
+    $stmt->execute(array(":id" => (int) $idPlantilla));
+    $slots = array();
+    while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+      $slots[] = array(
+        "codigo" => (string) $row["codigo"],
+        "nombre" => (string) $row["nombre"],
+        "pagina" => (string) $row["pagina"],
+        "tipos" => $this->jsonArray($row["tipos_bloque_json"]),
+        "max_bloques" => (int) $row["max_bloques"],
+        "requerido" => ((int) $row["requerido"]) === 1,
+        "orden" => (int) $row["orden"],
+        "estatus" => (string) $row["estatus"],
+        "fuente" => "bd_seed"
+      );
+    }
+    return $slots;
+  }
+
+  private function tablasCmsContenidoDisponibles($db) {
+    $tablas = array(
+      "erp_ecommerce_plantillas",
+      "erp_ecommerce_plantilla_slots",
+      "erp_ecommerce_contenido_bloques",
+      "erp_ecommerce_contenido_publicaciones",
+      "erp_ecommerce_contenido_media"
+    );
+    foreach ($tablas as $tabla) {
+      if (!$this->tablaExiste($db, $tabla)) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-08-12
+   * Proposito: leer plantillas visuales CMS frontend desde BD para el builder administrativo.
+   * Impacto: permite administrar temas/plantillas como datos sin editar archivos del frontend.
+   * Contrato: read-only; si la estructura no esta disponible devuelve null para fallback default.
+   */
+  private function frontendPlantillasAdminManifestDesdeBd() {
+    try {
+      $db = $this->getConexion();
+      if (!$db || !$this->tablasCmsFrontendDisponibles($db)) {
+        return null;
+      }
+
+      $stmtTema = $db->query("SELECT * FROM erp_ecommerce_frontend_temas WHERE activo=1 AND estatus IN ('publicado','activo') ORDER BY id_tema ASC LIMIT 1");
+      $tema = $stmtTema ? $stmtTema->fetch(PDO::FETCH_ASSOC) : false;
+      if (!$tema) {
+        return null;
+      }
+
+      $temaActivo = $this->cmsFrontendTemaPayload($tema, "activo_bd");
+      $temasDisponibles = $this->cmsFrontendTemasDesdeBd($db);
+      $layouts = $this->cmsFrontendLayoutsDesdeBd($db, (int) $tema["id_tema"]);
+      $componentes = $this->cmsFrontendComponentesDesdeBd($db, (int) $tema["id_tema"]);
+      $plantillas = $this->cmsFrontendPlantillasDesdeBd($db, (int) $tema["id_tema"]);
+      $activaciones = $this->cmsFrontendActivacionesDesdeBd($db);
+
+      if (empty($layouts) || empty($componentes) || empty($plantillas) || empty($activaciones)) {
+        return null;
+      }
+
+      return array(
+        "modo" => "readonly",
+        "fase" => "cms_frontend_plantillas_bd_seed",
+        "fuente_estructura" => "bd_seed",
+        "tema_activo" => $temaActivo,
+        "temas_disponibles" => $temasDisponibles,
+        "plantilla_activa_home" => $this->cmsFrontendPlantillaActivaPorPagina($activaciones, "home", "wokiee_home_default"),
+        "activaciones" => $activaciones,
+        "layouts" => $layouts,
+        "componentes" => $componentes,
+        "plantillas_vista" => $plantillas,
+        "renderer_frontend" => array(
+          "consume_desde" => "/ecommercePublico/configuracion_inicial",
+          "pagina" => "/ecommercePublico/contenido_pagina?pagina=home",
+          "contrato" => "plantilla_vista + contenido.slots",
+          "mapa_componentes_requerido" => true,
+          "estructura_administrable_desde_bd" => true
+        ),
+        "guardrails" => array(
+          "read_only" => true,
+          "no_edita_archivos_frontend" => true,
+          "no_html_libre" => true,
+          "no_css_libre" => true,
+          "no_js_libre" => true,
+          "frontend_renderiza_componentes_predefinidos" => true,
+          "api_publica_sigue_fallback_hasta_contenido_publicado" => true
+        )
+      );
+    } catch (Exception $e) {
+      return null;
+    }
+  }
+
+  private function cmsFrontendTemaPayload($tema, $estatusAdmin) {
+    return array(
+      "codigo" => (string) $tema["codigo"],
+      "nombre" => (string) $tema["nombre"],
+      "proveedor" => (string) $tema["proveedor"],
+      "estatus" => $estatusAdmin,
+      "descripcion" => (string) $tema["descripcion"],
+      "version" => (string) $tema["version_tema"],
+      "config" => $this->jsonArray($tema["config_json"])
+    );
+  }
+
+  private function cmsFrontendTemasDesdeBd($db) {
+    $stmt = $db->query("SELECT * FROM erp_ecommerce_frontend_temas WHERE estatus IN ('publicado','activo') ORDER BY activo DESC, nombre ASC");
+    $temas = array();
+    while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+      $temas[] = $this->cmsFrontendTemaPayload($row, ((int) $row["activo"] === 1 ? "activo_bd" : "disponible_bd"));
+    }
+    return $temas;
+  }
+
+  private function cmsFrontendLayoutsDesdeBd($db, $idTema) {
+    $stmt = $db->prepare("SELECT codigo FROM erp_ecommerce_frontend_layouts WHERE id_tema=:id_tema AND estatus IN ('publicado','activo') ORDER BY codigo ASC");
+    $stmt->execute(array(":id_tema" => (int) $idTema));
+    $layouts = array();
+    while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+      $layouts[] = (string) $row["codigo"];
+    }
+    return $layouts;
+  }
+
+  private function cmsFrontendComponentesDesdeBd($db, $idTema) {
+    $stmt = $db->prepare("SELECT codigo, nombre, bloques_permitidos_json, variantes_json, slots_compatibles_json FROM erp_ecommerce_frontend_componentes WHERE id_tema=:id_tema AND estatus='activo' ORDER BY codigo ASC");
+    $stmt->execute(array(":id_tema" => (int) $idTema));
+    $componentes = array();
+    while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+      $componentes[] = array(
+        "codigo" => (string) $row["codigo"],
+        "nombre" => (string) $row["nombre"],
+        "bloques_permitidos" => $this->jsonArray($row["bloques_permitidos_json"]),
+        "variantes" => $this->jsonArray($row["variantes_json"]),
+        "slots_compatibles" => $this->jsonArray($row["slots_compatibles_json"]),
+        "fuente" => "bd_seed"
+      );
+    }
+    return $componentes;
+  }
+
+  private function cmsFrontendPlantillasDesdeBd($db, $idTema) {
+    $stmt = $db->prepare(
+      "SELECT p.id_plantilla_vista, p.codigo, p.nombre, p.pagina, p.version_plantilla, p.estatus, l.codigo AS layout_codigo " .
+      "FROM erp_ecommerce_frontend_plantillas p " .
+      "INNER JOIN erp_ecommerce_frontend_layouts l ON l.id_layout=p.id_layout " .
+      "WHERE p.id_tema=:id_tema AND p.estatus IN ('publicado','activo') " .
+      "ORDER BY p.pagina ASC, p.codigo ASC"
+    );
+    $stmt->execute(array(":id_tema" => (int) $idTema));
+    $plantillas = array();
+    while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+      $plantillas[] = array(
+        "codigo" => (string) $row["codigo"],
+        "nombre" => (string) $row["nombre"],
+        "pagina" => (string) $row["pagina"],
+        "layout" => (string) $row["layout_codigo"],
+        "estatus" => "publicado_bd_readonly",
+        "version" => (string) $row["version_plantilla"],
+        "fuente" => "bd_seed",
+        "secciones" => $this->cmsFrontendSeccionesDesdeBd($db, (int) $row["id_plantilla_vista"])
+      );
+    }
+    return $plantillas;
+  }
+
+  private function cmsFrontendSeccionesDesdeBd($db, $idPlantillaVista) {
+    $stmt = $db->prepare(
+      "SELECT s.slot_codigo, s.variante, s.orden, c.codigo AS componente_codigo " .
+      "FROM erp_ecommerce_frontend_plantilla_secciones s " .
+      "INNER JOIN erp_ecommerce_frontend_componentes c ON c.id_componente=s.id_componente " .
+      "WHERE s.id_plantilla_vista=:id_plantilla_vista AND s.estatus='activo' " .
+      "ORDER BY s.orden ASC, s.id_seccion ASC"
+    );
+    $stmt->execute(array(":id_plantilla_vista" => (int) $idPlantillaVista));
+    $secciones = array();
+    while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+      $secciones[] = array(
+        "slot" => (string) $row["slot_codigo"],
+        "componente" => (string) $row["componente_codigo"],
+        "variante" => (string) $row["variante"],
+        "orden" => (int) $row["orden"],
+        "fuente" => "bd_seed"
+      );
+    }
+    return $secciones;
+  }
+
+  private function cmsFrontendActivacionesDesdeBd($db) {
+    $stmt = $db->query(
+      "SELECT a.pagina, a.canal, a.contexto_clave, a.estatus, a.vigente_desde, a.vigente_hasta, p.codigo AS plantilla_codigo, t.codigo AS tema_codigo " .
+      "FROM erp_ecommerce_frontend_plantilla_activas a " .
+      "INNER JOIN erp_ecommerce_frontend_plantillas p ON p.id_plantilla_vista=a.id_plantilla_vista " .
+      "INNER JOIN erp_ecommerce_frontend_temas t ON t.id_tema=p.id_tema " .
+      "WHERE a.estatus='activa' " .
+      "ORDER BY a.pagina ASC, a.contexto_clave ASC"
+    );
+    $activaciones = array();
+    while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+      $pagina = (string) $row["pagina"];
+      $contexto = trim((string) $row["contexto_clave"]);
+      $activaciones[] = array(
+        "pagina" => $pagina,
+        "canal" => (string) $row["canal"],
+        "contexto_clave" => $contexto !== "" ? $contexto : "*",
+        "tema" => (string) $row["tema_codigo"],
+        "plantilla_vista" => (string) $row["plantilla_codigo"],
+        "estatus" => "activa_bd_readonly",
+        "vigencia" => ($row["vigente_desde"] || $row["vigente_hasta"]) ? array("desde" => $row["vigente_desde"], "hasta" => $row["vigente_hasta"]) : "sin_vigencia",
+        "endpoint_publico" => $this->cmsFrontendEndpointPublico($pagina, $contexto)
+      );
+    }
+    return $activaciones;
+  }
+
+  private function cmsFrontendPlantillaActivaPorPagina($activaciones, $pagina, $default) {
+    foreach ((array) $activaciones as $activacion) {
+      if ($this->valor($activacion, "pagina", "") === $pagina) {
+        return $this->valor($activacion, "plantilla_vista", $default);
+      }
+    }
+    return $default;
+  }
+
+  private function cmsFrontendEndpointPublico($pagina, $contexto) {
+    if ($pagina === "categoria") {
+      $categoria = trim((string) $contexto) !== "" && $contexto !== "*" ? rawurlencode((string) $contexto) : "{slug_categoria}";
+      return "/ecommercePublico/contenido_pagina?pagina=categoria&categoria=" . $categoria;
+    }
+    return "/ecommercePublico/contenido_pagina?pagina=" . rawurlencode((string) $pagina);
+  }
+
+  private function tablasCmsFrontendDisponibles($db) {
+    $tablas = array(
+      "erp_ecommerce_frontend_temas",
+      "erp_ecommerce_frontend_layouts",
+      "erp_ecommerce_frontend_componentes",
+      "erp_ecommerce_frontend_plantillas",
+      "erp_ecommerce_frontend_plantilla_secciones",
+      "erp_ecommerce_frontend_plantilla_activas"
+    );
+    foreach ($tablas as $tabla) {
+      if (!$this->tablaExiste($db, $tabla)) {
+        return false;
+      }
+    }
+    return true;
   }
 
   private function contenidoTiposBloqueDefault() {

@@ -794,6 +794,30 @@ class EcommercePublico extends Controlador {
   }
 
   /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-08-12
+   * Proposito: aplicar configuracion de visibilidad ecommerce a SKUs seleccionados por lote.
+   * Impacto: acelera curaduria masiva sin tocar Catalogo ERP, inventario, precios base ni legacy ecom_*.
+   * Contrato: POST protegido por `catalogo.editar`; requiere token interno, CSRF y auditoria explicita.
+   */
+  public function publicaciones_lote_configuracion_erp() {
+    $this->requerirPermiso("catalogo.editar");
+    $respuesta = $this->modelo("EcommerceCatalogoPublico")->aplicarConfiguracionLoteAutorizada($_POST, array(
+      "autorizar" => isset($_POST["autorizar"]) ? $_POST["autorizar"] : ""
+    ));
+    SesionSeguridad::registrarAuditoria("ecommerce_publico", "publicacion_lote_configuracion", array(
+      "resultado" => empty($respuesta["error"]) ? "ok" : "error",
+      "mensaje" => isset($respuesta["mensaje"]) ? $respuesta["mensaje"] : "",
+      "datos_antes" => array("id_skus" => isset($_POST["id_skus"]) ? (string) $_POST["id_skus"] : ""),
+      "datos_despues" => array(
+        "campos" => isset($respuesta["depurar"]["campos_aplicados"]) ? $respuesta["depurar"]["campos_aplicados"] : array(),
+        "total_ok" => isset($respuesta["depurar"]["total_ok"]) ? intval($respuesta["depurar"]["total_ok"]) : 0,
+        "total_error" => isset($respuesta["depurar"]["total_error"]) ? intval($respuesta["depurar"]["total_error"]) : 0
+      )
+    ));
+    return json_encode($respuesta);
+  }
+
+  /**
    * Documentacion IA: Codex GPT-5 | Fecha: 2026-07-30
    * Proposito: publicar por lote borradores ecommerce seleccionados en panel.
    * Impacto: expone multiples publicaciones al API publico sin tocar inventario ni Catalogo ERP.

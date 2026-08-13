@@ -143,6 +143,7 @@
                                     <div class="card-toolbar">
                                         <div class="d-flex flex-wrap align-items-center gap-2">
                                             <span class="badge badge-light-info" id="ecom_lote_seleccionados">0 seleccionados</span>
+                                            <button class="btn btn-sm btn-light" type="button" id="ecom_lote_limpiar">Limpiar seleccion</button>
                                             <button class="btn btn-sm btn-light-primary" type="button" id="ecom_lote_borrador">Guardar borradores</button>
                                             <button class="btn btn-sm btn-success" type="button" id="ecom_lote_publicar">Publicar borradores</button>
                                             <label class="form-check form-check-custom form-check-solid fs-7">
@@ -156,6 +157,63 @@
                                 <div class="card-body pt-0">
                                     <div class="border rounded p-4 mb-4 bg-light ecom-preview-sticky" id="ecom_preview_publicacion">
                                         <div class="text-muted py-2">Selecciona un SKU publicable para preparar su ficha ecommerce sin guardar cambios.</div>
+                                    </div>
+                                    <div class="border rounded p-4 mb-4">
+                                        <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-3">
+                                            <div>
+                                                <div class="fw-bold">Configuracion masiva</div>
+                                                <div class="text-muted fs-8">Aplica visibilidad a los productos seleccionados sin tocar inventario ni catalogo ERP.</div>
+                                            </div>
+                                            <button class="btn btn-sm btn-light-primary" type="button" id="ecom_lote_config_aplicar">Aplicar configuracion</button>
+                                        </div>
+                                        <div class="row g-3 align-items-end">
+                                            <div class="col-md-4 col-xl-2">
+                                                <label class="form-label fs-8 fw-semibold">Precio</label>
+                                                <select class="form-select form-select-solid form-select-sm" data-lote-config="mostrar_precio">
+                                                    <option value="">Sin cambio</option>
+                                                    <option value="1">Mostrar</option>
+                                                    <option value="0">Ocultar</option>
+                                                </select>
+                                            </div>
+                                            <div class="col-md-4 col-xl-2">
+                                                <label class="form-label fs-8 fw-semibold">Disponibilidad</label>
+                                                <select class="form-select form-select-solid form-select-sm" data-lote-config="mostrar_disponibilidad">
+                                                    <option value="">Sin cambio</option>
+                                                    <option value="1">Mostrar</option>
+                                                    <option value="0">Ocultar</option>
+                                                </select>
+                                            </div>
+                                            <div class="col-md-4 col-xl-2">
+                                                <label class="form-label fs-8 fw-semibold">Cotizacion</label>
+                                                <select class="form-select form-select-solid form-select-sm" data-lote-config="permite_cotizacion">
+                                                    <option value="">Sin cambio</option>
+                                                    <option value="1">Permitir</option>
+                                                    <option value="0">No permitir</option>
+                                                </select>
+                                            </div>
+                                            <div class="col-md-4 col-xl-2">
+                                                <label class="form-label fs-8 fw-semibold">WhatsApp</label>
+                                                <select class="form-select form-select-solid form-select-sm" data-lote-config="permite_whatsapp">
+                                                    <option value="">Sin cambio</option>
+                                                    <option value="1">Permitir</option>
+                                                    <option value="0">No permitir</option>
+                                                </select>
+                                            </div>
+                                            <div class="col-md-4 col-xl-2">
+                                                <label class="form-label fs-8 fw-semibold">Destacado</label>
+                                                <select class="form-select form-select-solid form-select-sm" data-lote-config="destacado">
+                                                    <option value="">Sin cambio</option>
+                                                    <option value="1">Destacar</option>
+                                                    <option value="0">No destacar</option>
+                                                </select>
+                                            </div>
+                                            <div class="col-md-4 col-xl-2">
+                                                <label class="form-check form-check-custom form-check-solid fs-8 mb-2">
+                                                    <input class="form-check-input" type="checkbox" id="ecom_lote_config_crear_borrador" checked>
+                                                    <span class="form-check-label">Crear borrador si falta</span>
+                                                </label>
+                                            </div>
+                                        </div>
                                     </div>
                                     <div class="table-responsive ecom-table-scroll">
                                         <table class="table align-middle table-row-dashed fs-7 gy-4">
@@ -174,6 +232,14 @@
                                             </thead>
                                             <tbody id="ecom_publicaciones_body"></tbody>
                                         </table>
+                                    </div>
+                                    <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mt-4">
+                                        <div class="text-muted fs-7" id="ecom_paginacion_resumen">Mostrando 0 productos</div>
+                                        <div class="d-flex align-items-center gap-2">
+                                            <button class="btn btn-sm btn-light" type="button" id="ecom_pagina_anterior">Anterior</button>
+                                            <span class="badge badge-light-primary" id="ecom_pagina_actual">Pagina 1</span>
+                                            <button class="btn btn-sm btn-light" type="button" id="ecom_pagina_siguiente">Siguiente</button>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -212,6 +278,6 @@
 </div>
 <script src="assets/plugins/global/plugins.bundle.js"></script>
 <script src="assets/js/scripts.bundle.js"></script>
-<script src="/assets/js/custom/apps/erp/ecommerce/publicaciones.js?v=20260811-uxlista1"></script>
+<script src="/assets/js/custom/apps/erp/ecommerce/publicaciones.js?v=20260812-loteconfig1"></script>
 </body>
 </html>

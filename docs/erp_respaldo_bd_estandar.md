@@ -121,6 +121,20 @@ archivo_legible=true
 tamano_bytes=30669797
 ```
 
+CMS ecommerce persistencia:
+
+```text
+C:\xampp\panel_db_backups\artianilocal_panel_20260812_094259_antes_cms_ecommerce_persistencia.sql
+```
+
+Validacion:
+
+```text
+archivo_existe=true
+archivo_legible=true
+tamano_bytes=34843878
+```
+
 TMS Delivery permisos base:
 
 ```text

@@ -230,8 +230,10 @@ $gruposMenu = array(
         'icono' => 'bi-window-sidebar',
         'permiso' => array('cms.ver', 'catalogo.ver'),
         'items' => array(
+            array('titulo' => 'Constructor visual', 'ruta' => '/cms/frontend_constructor', 'permiso' => array('cms.ver', 'catalogo.ver')),
             array('titulo' => 'Plantillas de vista', 'ruta' => '/cms/frontend_plantillas', 'permiso' => array('cms.ver', 'catalogo.ver')),
-            array('titulo' => 'Componentes', 'ruta' => '/cms/frontend_componentes', 'permiso' => array('cms.ver', 'catalogo.ver'))
+            array('titulo' => 'Componentes', 'ruta' => '/cms/frontend_componentes', 'permiso' => array('cms.ver', 'catalogo.ver')),
+            array('titulo' => 'Activaciones', 'ruta' => '/cms/frontend_activaciones', 'permiso' => array('cms.ver', 'catalogo.ver'))
         )
     ),
     array(

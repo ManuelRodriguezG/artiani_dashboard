@@ -68,6 +68,7 @@
                             </div>
                             <div class="d-flex gap-2">
                                 <a class="btn btn-light" href="/cms/plantillas"><i class="bi bi-columns-gap"></i> Plantillas</a>
+                                <a class="btn btn-light-primary" href="/cms/frontend_constructor"><i class="bi bi-display"></i> Constructor visual</a>
                                 <a class="btn btn-light" href="/cms/json"><i class="bi bi-braces"></i> JSON</a>
                                 <button class="btn btn-primary" type="button" id="ecom_cms_recargar"><i class="bi bi-arrow-clockwise"></i> Recargar</button>
                             </div>
@@ -79,7 +80,7 @@
                                 <i class="bi bi-shield-check fs-2"></i>
                                 <div>
                                     <div class="fw-bold">Fase inicial read-only</div>
-                                    <div>Esta vista permite disenar contenido y validar el preview local. No guarda en BD, no sube imagenes y no toca catalogo, precios ni inventario.</div>
+                                    <div>Esta vista administra datos editoriales: banners, textos, imagenes, CTAs, orden, vigencia y estatus. La vista visual de la tienda esta en <a href="/cms/frontend_constructor" class="fw-bold">CMS &gt; Frontend &gt; Constructor visual</a>.</div>
                                 </div>
                             </div>
 
@@ -109,7 +110,7 @@
                                         <input class="form-control form-control-solid" id="ecom_cms_template" type="text" value="artiani_default">
                                     </div>
                                     <div class="col-md-3 text-md-end">
-                                        <button class="btn btn-light-primary" type="button" id="ecom_cms_preview"><i class="bi bi-eye"></i> Previsualizar</button>
+                                        <button class="btn btn-light-primary" type="button" id="ecom_cms_preview"><i class="bi bi-arrow-repeat"></i> Actualizar JSON</button>
                                         <button class="btn btn-light-success" type="button" id="ecom_cms_validar"><i class="bi bi-check2-circle"></i> Validar</button>
                                         <span class="badge badge-light-primary ms-2" id="ecom_cms_estado">Listo</span>
                                     </div>
@@ -128,25 +129,13 @@
                             </div>
 
                             <div class="ecom-cms-panel p-5 mb-5">
-                                <div class="d-flex justify-content-between align-items-center flex-wrap gap-3 mb-4">
+                                <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
                                     <div>
-                                        <h3 class="fw-bold mb-1">Plantilla visual de la pagina</h3>
-                                        <span class="text-muted fs-7">Layout frontend que renderizara estos slots y bloques.</span>
+                                        <h3 class="fw-bold mb-1">Vista visual separada</h3>
+                                        <span class="text-muted fs-7">Contenido solo administra datos. Para ver como se armaria la pagina con plantilla, secciones y componentes, usa el constructor visual.</span>
                                     </div>
-                                    <a class="btn btn-sm btn-light-primary" href="/cms/frontend_plantillas"><i class="bi bi-window-sidebar"></i> Ver plantillas de vista</a>
+                                    <a class="btn btn-light-primary" href="/cms/frontend_constructor"><i class="bi bi-display"></i> Abrir constructor visual</a>
                                 </div>
-                                <div id="ecom_cms_plantilla_visual"></div>
-                            </div>
-
-                            <div class="ecom-cms-panel p-5 mb-5">
-                                <div class="d-flex justify-content-between align-items-center flex-wrap gap-3 mb-4">
-                                    <div>
-                                        <h3 class="fw-bold mb-1">Preview visual frontend</h3>
-                                        <span class="text-muted fs-7">Simulacion local basada en el JSON actual; el HTML final lo implementa el frontend ecommerce.</span>
-                                    </div>
-                                    <span class="badge badge-light-info">Renderer simulado</span>
-                                </div>
-                                <div id="ecom_cms_visual"></div>
                             </div>
 
                             <div class="ecom-cms-panel p-5 mb-5">
