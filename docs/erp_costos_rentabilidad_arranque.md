@@ -168,9 +168,9 @@ Estado: esquema aplicado y primer snapshot persistente guardado.
 
 ## Reglas de calculo inicial
 
-- Costo preferido: costo promedio de inventario si existe stock valuado.
-- Si el SKU tiene `factor_unidad_base > 1`, Rentabilidad evalua el costo comercial como `costo_promedio_unitario_inventario * factor_unidad_base`.
-- Costo alterno: `erp_catalogo_skus.costo_referencia`.
+- Costo vigente: se toma la primera evidencia disponible en esta prioridad: `compras_promedio`, `compra_ultima`, `xml_ultimo`, `proveedor_relacion`, `inventario_promedio`, `catalogo_referencia`, `sin_costo`.
+- Si el costo viene de inventario y el SKU tiene `factor_unidad_base > 1`, Rentabilidad evalua el costo comercial como `costo_promedio_unitario_inventario * factor_unidad_base`.
+- Costo de referencia queda como ultimo respaldo operativo, no como fuente preferente.
 - Precio base: precio general activo de `erp_catalogo_sku_precios`.
 - Precio sin impuestos: si el SKU marca `incluye_impuestos=1`, se divide entre `1 + iva + ieps`.
 - Margen bruto: `(precio_escenario_sin_impuestos - costo_real_sin_impuesto) / precio_escenario_sin_impuestos`.
@@ -181,8 +181,8 @@ Estado: esquema aplicado y primer snapshot persistente guardado.
 
 | ID | Caso | Evidencia |
 | --- | --- | --- |
-| UAT-COST-001 | SKU con precio, impuesto y costo promedio de inventario | Debe mostrar costo de origen `inventario_promedio`. |
-| UAT-COST-002 | SKU sin stock pero con costo referencia | Debe usar `catalogo_referencia`. |
+| UAT-COST-001 | SKU con evidencia de compras | Debe mostrar costo de origen `compras_promedio` o `compra_ultima` segun disponibilidad. |
+| UAT-COST-002 | SKU sin compras/XML pero con relacion proveedor | Debe usar `proveedor_relacion`. |
 | UAT-COST-003 | SKU sin precio | Debe quedar en riesgo `Datos incompletos`. |
 | UAT-COST-004 | SKU con descuento de mayoreo que deja utilidad negativa | Debe quedar en `Riesgo de perdida`. |
 | UAT-COST-005 | SKU con fiscal incompleto | Debe mostrar hallazgo `fiscal_incompleto`. |
@@ -1330,3 +1330,82 @@ Cobertura por vista:
 Contrato confirmado: solo lectura, no escribe BD, no aplica precios, no toca Inventario y no conecta Ventas/ecommerce.
 
 Observacion tecnica: `mysqladmin ping` sin credenciales devuelve `Access denied`, pero confirma servidor activo; la aplicacion conecta correctamente con su configuracion local.
+
+## Reorden UX consulta por SKU
+
+Fecha: 2026-08-13
+IA: Codex GPT-5
+
+Se ajusto la navegacion para que Rentabilidad abra primero la consulta operativa por SKU. El sidebar ahora muestra `Consulta por SKU` como primera opcion de `ERP > Rentabilidad` y el index del modulo redirige a `/rentabilidad/skus`.
+
+Cambio UX:
+
+- La tabla de costo, precio sin impuestos, margen, utilidad estimada, minimo rentable, inventario y evidencia Compras/XML se mueve arriba, justo despues de filtros.
+- Escenarios, comparaciones y auditorias quedan debajo como soporte.
+- Se agregan accesos rapidos a escenarios, comparar canales y calidad de datos.
+
+Contrato: solo cambia orden visual y navegacion. No modifica calculos, endpoints, BD, Inventario ni Ventas/ecommerce.
+
+## UAT reorden Consulta por SKU
+
+Fecha: 2026-08-13
+IA: Codex GPT-5
+
+Se corrigio el orden operativo del modulo para que el usuario no tenga que bajar hasta el final para ver costo, precio, margen y utilidad.
+
+Resultado:
+
+- `ERP > Rentabilidad` muestra primero `Consulta por SKU`.
+- `/rentabilidad` redirige a `/rentabilidad/skus`.
+- La tabla de consulta de producto se mueve visualmente arriba, justo despues de filtros.
+- Escenarios y comparaciones quedan debajo como apoyo, no como primer bloqueo visual.
+- Cache-buster JS actualizado a `20260813-1`.
+- UAT navegacion read-only: `ok=true`, `total_checks=47`, `fallas=0`.
+- UAT endpoints por vista con `TP-40372`: `ok=true`, `total_endpoints=36`, `fallas=0`.
+
+Contrato: cambio visual/navegacion solamente; no modifica calculos, BD, Inventario ni Ventas/ecommerce.
+
+## Correccion runtime Consulta por SKU
+
+Fecha: 2026-08-13
+IA: Codex GPT-5
+Alcance: frontend de Rentabilidad, vista Consulta por SKU.
+
+Hallazgo:
+- CR-UX-RT-001: La pantalla llamaba `moverConsultaSkuArriba()` durante `DOMContentLoaded`, pero la funcion no existia en el JS real. Ese `ReferenceError` detenia la inicializacion completa y por eso, al escribir un codigo, la vista no mostraba resultados ni parecia responder.
+
+Correccion aplicada:
+- Se agrego `moverConsultaSkuArriba()` con contrato defensivo: si faltan nodos esperados, no interrumpe la carga del modulo.
+- Se dejo la consulta operativa arriba de la vista para SKU/analisis: filtros, resumen y tabla principal quedan juntos.
+- El buscador `rentabilidad_buscar` ahora dispara consulta con escritura (`input`) y tambien con Enter.
+- Se actualizo cache-buster del asset a `analisis.js?v=20260813-2` para evitar que el navegador use el JS anterior roto.
+
+Contrato protegido:
+- No cambia calculos de costo, precio, margen, utilidad, escenarios ni presentaciones.
+- No escribe BD.
+- No toca Inventario salvo consultas read-only existentes.
+- No toca Ventas/ecommerce.
+
+## Costo vigente por evidencia comercial
+
+Fecha: 2026-08-13
+IA: Codex GPT-5
+Alcance: calculo read-only de Rentabilidad.
+
+Decision:
+- El costo usado para margen, utilidad y precio minimo rentable debe ser el costo vigente mas confiable disponible al consultar.
+- Prioridad aplicada: `compras_promedio`, `compra_ultima`, `xml_ultimo`, `proveedor_relacion`, `inventario_promedio`, `catalogo_referencia`, `sin_costo`.
+- Compras tiene prioridad porque refleja mejor el costo comercial reciente para decidir precios.
+- Si una compra fue capturada con costo unitario con impuesto incluido, Rentabilidad descuenta IVA/IEPS del SKU para usar costo base sin impuesto.
+- Proveedor se usa como respaldo cuando no hay compra/XML relacionada, siempre como evidencia de relacion, no como actualizacion automatica.
+- La auditoria de presentaciones usa la misma prioridad; para transformaciones calcula el costo unitario del SKU origen como `costo_vigente / factor_unidad_base` y de ahi deriva el costo esperado por presentacion.
+
+Contrato protegido:
+- No escribe ni corrige costo en Catalogo.
+- No recalcula ni actualiza Inventario.
+- No aplica precios ni toca Ventas/ecommerce.
+- El origen del costo queda visible y filtrable para auditoria.
+
+UAT agregado:
+- `storage/uat/uat_rentabilidad_costo_vigente_readonly.php TP-40372`
+- Valida por SKU que el origen elegido respete la prioridad de evidencia disponible y que el costo vigente coincida con la fuente prioritaria.

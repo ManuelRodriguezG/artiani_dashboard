@@ -48,6 +48,17 @@
             margen_objetivo_pct: $("rentabilidad_objetivo").value
         }).toString();
     }
+    /**
+     * IA: Codex GPT-5 | Fecha: 2026-08-13
+     * Proposito: hacer que el buscador de SKU responda al escribir y al presionar Enter.
+     * Impacto: UX de Consulta por SKU en Rentabilidad.
+     * Contrato: solo agenda la misma carga read-only existente.
+     */
+    var rentabilidadTimerBusqueda = null;
+    function programarCarga() {
+        clearTimeout(rentabilidadTimerBusqueda);
+        rentabilidadTimerBusqueda = setTimeout(cargar, 450);
+    }
     function cargarEscenarios() {
         return request("/rentabilidad/escenarios_erp").then(function (response) {
             if (response.error) { throw new Error(response.mensaje); }
@@ -1435,6 +1446,38 @@
             "</div>";
     }
     /**
+     * IA: Codex GPT-5 | Fecha: 2026-08-13
+     * Proposito: priorizar la consulta operativa por SKU en las vistas de analisis y SKUs.
+     * Impacto: reubica el resumen y tabla principal debajo de filtros sin cambiar calculos ni datos.
+     * Contrato: frontend only; si faltan nodos esperados, no interrumpe la carga del modulo.
+     */
+    function moverConsultaSkuArriba() {
+        var vista = window.RENTABILIDAD_VISTA || "analisis";
+        if (vista !== "skus" && vista !== "analisis") { return; }
+
+        var resumen = document.getElementById("rentabilidad_resumen");
+        if (!resumen) { return; }
+
+        var tabla = resumen.nextElementSibling;
+        if (!tabla || !tabla.classList || !tabla.classList.contains("card")) { tabla = null; }
+
+        var origenCosto = document.getElementById("rentabilidad_origen_costo");
+        var filtros = origenCosto ? origenCosto.closest(".card") : null;
+        if (!filtros || !filtros.parentNode) { return; }
+
+        var bloque = document.getElementById("rentabilidad_consulta_sku_bloque");
+        if (!bloque) {
+            bloque = document.createElement("div");
+            bloque.id = "rentabilidad_consulta_sku_bloque";
+            bloque.className = "mb-6";
+            bloque.innerHTML = "<div class=\"d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4\"><div><h3 class=\"fw-bold text-dark mb-1\">Consulta del producto</h3><div class=\"text-muted fs-8\">Costo, precio, margen, utilidad y escenarios para el SKU filtrado.</div></div><div class=\"d-flex flex-wrap gap-2\"><span class=\"badge badge-light-primary\">1. Escribe SKU</span><span class=\"badge badge-light-success\">2. Revisa margen</span><span class=\"badge badge-light-warning\">3. Evalua escenarios</span></div></div>";
+            filtros.parentNode.insertBefore(bloque, filtros.nextSibling);
+        }
+
+        bloque.appendChild(resumen);
+        if (tabla) { bloque.appendChild(tabla); }
+    }
+    /**
      * IA: Codex GPT-5 | Fecha: 2026-08-04
      * Proposito: mostrar solo las tarjetas relevantes segun la vista navegada del modulo.
      * Impacto: organizacion visual de Rentabilidad sin duplicar reglas de negocio.
@@ -1467,6 +1510,7 @@
     }
     document.addEventListener("DOMContentLoaded", function () {
         aplicarVistaRentabilidad();
+        moverConsultaSkuArriba();
         $("rentabilidad_canal").addEventListener("change", function () { aplicarDefaults(); cargar(); });
         $("rentabilidad_recargar").addEventListener("click", cargar);
         if ($("rentabilidad_snapshot_guardar")) {
@@ -1515,8 +1559,12 @@
         $("rentabilidad_fiscal_preflight_recargar").addEventListener("click", cargarFiscalPreflight);
         $("rentabilidad_recomendaciones_recargar").addEventListener("click", cargar);
         $("rentabilidad_riesgo").addEventListener("change", cargar);
-        ["rentabilidad_buscar", "rentabilidad_descuento", "rentabilidad_gasto", "rentabilidad_comision", "rentabilidad_objetivo", "rentabilidad_proveedor"].forEach(function (id) {
+        ["rentabilidad_descuento", "rentabilidad_gasto", "rentabilidad_comision", "rentabilidad_objetivo", "rentabilidad_proveedor"].forEach(function (id) {
             $(id).addEventListener("change", cargar);
+        });
+        $("rentabilidad_buscar").addEventListener("input", programarCarga);
+        $("rentabilidad_buscar").addEventListener("keydown", function (event) {
+            if (event.key === "Enter") { event.preventDefault(); cargar(); }
         });
         ["rentabilidad_accion", "rentabilidad_stock", "rentabilidad_origen_costo"].forEach(function (id) {
             $(id).addEventListener("change", cargar);
@@ -1532,4 +1580,5 @@
         });
     });
 })();
+
 

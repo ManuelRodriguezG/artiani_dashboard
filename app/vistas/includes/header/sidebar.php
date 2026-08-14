@@ -82,8 +82,8 @@ $gruposMenu = array(
         'icono' => 'bi-graph-up-arrow',
         'permiso' => 'rentabilidad.ver',
         'items' => array(
+            array('titulo' => 'Consulta por SKU', 'ruta' => '/rentabilidad/skus', 'permiso' => 'rentabilidad.ver'),
             array('titulo' => 'Resumen ejecutivo', 'ruta' => '/rentabilidad/analisis', 'permiso' => 'rentabilidad.ver'),
-            array('titulo' => 'SKU y escenarios', 'ruta' => '/rentabilidad/skus', 'permiso' => 'rentabilidad.ver'),
             array('titulo' => 'Cierre comercial', 'ruta' => '/rentabilidad/cierre', 'permiso' => 'rentabilidad.ver'),
             array('titulo' => 'Aprobaciones', 'ruta' => '/rentabilidad/aprobaciones', 'permiso' => 'rentabilidad.ver'),
             array('titulo' => 'Calidad de datos', 'ruta' => '/rentabilidad/calidad', 'permiso' => 'rentabilidad.ver'),
@@ -212,11 +212,11 @@ $gruposMenu = array(
     ),
     array(
         'seccion' => 'CMS',
-        'titulo' => 'Contenido',
+        'titulo' => 'Avanzado contenido',
         'icono' => 'bi-layout-text-window-reverse',
         'permiso' => array('cms.ver', 'catalogo.ver'),
         'items' => array(
-            array('titulo' => 'Contenido ecommerce', 'ruta' => '/cms/contenido', 'permiso' => array('cms.ver', 'catalogo.ver')),
+            array('titulo' => 'Editor de bloques', 'ruta' => '/cms/contenido', 'permiso' => array('cms.ver', 'catalogo.ver')),
             array('titulo' => 'Plantillas contenido', 'ruta' => '/cms/plantillas', 'permiso' => array('cms.ver', 'catalogo.ver')),
             array('titulo' => 'Persistencia', 'ruta' => '/cms/persistencia', 'permiso' => array('cms.ver', 'catalogo.ver')),
             array('titulo' => 'Slots', 'ruta' => '/cms/slots', 'permiso' => array('cms.ver', 'catalogo.ver')),
@@ -230,7 +230,12 @@ $gruposMenu = array(
         'icono' => 'bi-window-sidebar',
         'permiso' => array('cms.ver', 'catalogo.ver'),
         'items' => array(
-            array('titulo' => 'Constructor visual', 'ruta' => '/cms/frontend_constructor', 'permiso' => array('cms.ver', 'catalogo.ver')),
+            array('titulo' => 'Home', 'ruta' => '/cms/frontend/home', 'permiso' => array('cms.ver', 'catalogo.ver')),
+            array('titulo' => 'Categorias', 'ruta' => '/cms/frontend/categorias', 'permiso' => array('cms.ver', 'catalogo.ver')),
+            array('titulo' => 'Producto', 'ruta' => '/cms/frontend/producto', 'permiso' => array('cms.ver', 'catalogo.ver')),
+            array('titulo' => 'Carrito', 'ruta' => '/cms/frontend/carrito', 'permiso' => array('cms.ver', 'catalogo.ver')),
+            array('titulo' => 'Global', 'ruta' => '/cms/frontend/global', 'permiso' => array('cms.ver', 'catalogo.ver')),
+            array('titulo' => 'Media / Archivos', 'ruta' => '/cms/media', 'permiso' => array('cms.ver', 'catalogo.ver')),
             array('titulo' => 'Plantillas de vista', 'ruta' => '/cms/frontend_plantillas', 'permiso' => array('cms.ver', 'catalogo.ver')),
             array('titulo' => 'Componentes', 'ruta' => '/cms/frontend_componentes', 'permiso' => array('cms.ver', 'catalogo.ver')),
             array('titulo' => 'Activaciones', 'ruta' => '/cms/frontend_activaciones', 'permiso' => array('cms.ver', 'catalogo.ver'))

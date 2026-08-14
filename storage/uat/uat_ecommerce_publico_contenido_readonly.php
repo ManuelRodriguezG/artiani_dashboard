@@ -16,6 +16,8 @@ $manifest = $api->contenidoManifestPublico();
 $home = $api->contenidoPaginaPublica(array("pagina" => "home"));
 $categoria = $api->contenidoPaginaPublica(array("pagina" => "categoria", "categoria" => "peces"));
 $configuracionInicial = $api->configuracionInicialPublica(array("limite_secciones" => 2));
+$modeloPublico = file_get_contents("../app/modelos/EcommerceCatalogoPublico.php");
+$uatRollback = file_get_contents("../storage/uat/uat_cms_publico_bd_temporal_rollback.php");
 
 $bloqueos = array();
 
@@ -46,8 +48,9 @@ if (count(valorContenidoReadonly($manifest, array("depurar", "componentes_fronte
 if (empty(valorContenidoReadonly($home, array("depurar", "guardrails", "no_escribe_bd"), false))) {
   $bloqueos[] = "home_no_declara_no_escribe_bd";
 }
-if (valorContenidoReadonly($home, array("depurar", "fuente"), "") !== "default_readonly") {
-  $bloqueos[] = "home_fuente_no_default_readonly";
+$fuenteHome = valorContenidoReadonly($home, array("depurar", "fuente"), "");
+if (!in_array($fuenteHome, array("default_readonly", "bd_publicada"), true)) {
+  $bloqueos[] = "home_fuente_no_permitida";
 }
 if (!slotExisteContenidoReadonly(valorContenidoReadonly($home, array("depurar", "slots"), array()), "home.hero")) {
   $bloqueos[] = "home_sin_hero";
@@ -79,12 +82,27 @@ if (trim((string) valorContenidoReadonly($configuracionInicial, array("depurar",
 if (!slotExisteContenidoReadonly(valorContenidoReadonly($configuracionInicial, array("depurar", "contenido_inicial", "home", "slots"), array()), "home.hero")) {
   $bloqueos[] = "configuracion_inicial_sin_home_hero";
 }
+if (strpos((string) $modeloPublico, "contenidoPaginaPublicaDesdeBd") === false) {
+  $bloqueos[] = "modelo_sin_lector_publico_bd";
+}
+if (strpos((string) $modeloPublico, "cmsBloquesPublicosSlot") === false) {
+  $bloqueos[] = "modelo_sin_bloques_publicos_slot";
+}
+if (strpos((string) $modeloPublico, "pub.estatus='publicado'") === false) {
+  $bloqueos[] = "modelo_publico_no_filtra_publicado";
+}
+if (strpos((string) $modeloPublico, "pub.vigente_desde IS NULL OR pub.vigente_desde<=NOW()") === false) {
+  $bloqueos[] = "modelo_publico_no_filtra_vigencia";
+}
+if (strpos((string) $uatRollback, "cms_publico_bd_publicada_validado") === false) {
+  $bloqueos[] = "uat_rollback_publico_no_disponible";
+}
 
 $ok = empty($bloqueos);
 echo json_encode(array(
   "ok" => $ok,
   "modo" => "read-only",
-  "senal_frontend" => $ok ? "cms_contenido_ligero_readonly" : "cms_contenido_incompleto",
+  "senal_frontend" => $ok ? "cms_contenido_publico_con_fallback_listo" : "cms_contenido_incompleto",
   "bloqueos" => array_values(array_unique($bloqueos)),
   "manifest" => array(
     "plantilla_activa" => valorContenidoReadonly($manifest, array("depurar", "plantilla_activa"), ""),
@@ -99,7 +117,7 @@ echo json_encode(array(
     "plantilla_vista" => valorContenidoReadonly($home, array("depurar", "plantilla_vista", "codigo"), ""),
     "slots_total" => valorContenidoReadonly($home, array("depurar", "resumen", "slots_total"), 0),
     "bloques_total" => valorContenidoReadonly($home, array("depurar", "resumen", "bloques_total"), 0),
-    "fuente" => valorContenidoReadonly($home, array("depurar", "fuente"), "")
+    "fuente" => $fuenteHome
   ),
   "configuracion_inicial" => array(
     "contenido_home" => valorContenidoReadonly($configuracionInicial, array("depurar", "contenido_inicial", "home", "pagina"), ""),
@@ -109,7 +127,7 @@ echo json_encode(array(
     "no_escribe_bd" => true,
     "no_modifica_catalogo" => true,
     "no_modifica_inventario" => true,
-    "panel_pendiente" => true
+    "fallback_default_si_no_hay_publicado" => true
   )
 ), JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) . PHP_EOL;
 

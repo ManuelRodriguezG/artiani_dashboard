@@ -141,7 +141,7 @@ Objetivo: permitir imprimir o compartir solicitudes y ordenes con informacion co
 - [x] Agregar impresion HTML de solicitud con seleccion de plantilla.
 - [x] Agregar impresion HTML de orden con seleccion de plantilla.
 - [x] Validar que la plantilla para proveedor oculte por defecto costos, impuestos internos, margen/utilidad, SKU ERP y observaciones internas.
-- [x] Permitir logo configurable por plantilla en primera fase mediante `logo_ruta`, dejando configuracion global de marca como fase futura.
+- [x] Reemplazar ruta manual de logo por datos compartidos del negocio en `sys_configuracion_parametros`, con carga de logo desde `/compra/documentos_configuracion`.
 - [ ] Definir fase posterior para PDF y snapshot en `erp_compras_documentos_generados` si se requiere trazabilidad de documentos emitidos.
 
 Decision vigente:
@@ -150,6 +150,7 @@ Decision vigente:
 - El documento para proveedor debe usar el lenguaje del proveedor: SKU proveedor, descripcion proveedor, unidad, cantidad y observacion publica.
 - El documento interno puede mostrar costos, impuestos, totales, aprobaciones, usuario solicitante, SKU ERP y observaciones internas.
 - Mostrar costos al proveedor debe ser una configuracion explicita, no el comportamiento por defecto.
+- Logo, nombre comercial, razon social, RFC, contacto, email, telefono y direccion son datos compartidos del negocio. Las plantillas solo controlan titulo, subtitulo, visibilidad de campos y pie de pagina.
 
 ---
 

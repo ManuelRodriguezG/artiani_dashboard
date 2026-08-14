@@ -179,6 +179,8 @@ Estado 2026-07-16:
 - Productos por subpestanas 2026-07-21: dentro de `Productos` se separo `Captura`, `Herramientas`, `Importar CSV` y `Prevalidacion`. Las acciones de importar, comparar y prevalidar cambian a su subpestana correspondiente para que el usuario sepa que esta revisando.
 - Granel visible en mesa 2026-07-26: `Productos` muestra si el SKU permite venta fraccionaria, precision decimal e incremento minimo desde Catalogo. En Listas de precios se captura el precio por unidad base del SKU (`kg`, `m`, `l`, etc.); una presentacion fisica con codigo, etiqueta o stock propio debe existir como SKU/presentacion en Catalogo y recibir precio fijo en la lista.
 - Botones accionables 2026-07-26: la calculadora por fila abre `Revision` y enfoca la vista previa POS; el historial por SKU abre `Revision` y enfoca auditoria. Asi el operador ve inmediatamente el resultado de botones que antes trabajaban contra paneles ocultos.
+- Costo comercial fallback 2026-08-13: la mesa de productos ya no depende solo de `erp_catalogo_skus.costo_referencia`. Para margen usa prioridad read-only: costo referencia de catalogo, costo promedio ponderado de inventario, costo ultimo de proveedor activo/preferido y ultima compra no cancelada. La UI muestra la fuente del costo para evitar margenes opacos; no actualiza costos contables ni escribe BD.
+- Captura incremental 2026-08-13: guardar un precio por fila solo elimina el pendiente de ese SKU y conserva los demas renglones capturados en pantalla. `Guardar cambios` toma unicamente los SKUs modificados; si el lote guarda con errores, conserva pendientes no guardados para correccion.
 
 Reglas del apply:
 

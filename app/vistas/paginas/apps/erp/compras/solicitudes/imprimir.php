@@ -17,7 +17,21 @@ $mostrarNombreErp = intval($plantilla["mostrar_nombre_erp"] ?? 1) === 1;
 $mostrarNombreProveedor = intval($plantilla["mostrar_nombre_proveedor"] ?? 1) === 1;
 $mostrarObservacionesInternas = intval($plantilla["mostrar_observaciones_internas"] ?? 1) === 1;
 $mostrarObservacionesPublicas = intval($plantilla["mostrar_observaciones_publicas"] ?? 1) === 1;
-$tituloDocumento = $esProveedor ? "Solicitud para proveedor" : "Solicitud de compra interna";
+$tituloConfigurado = trim((string)($plantilla["titulo_documento"] ?? ""));
+$subtituloConfigurado = array_key_exists("subtitulo_documento", $plantilla) && $plantilla["subtitulo_documento"] !== null
+    ? trim((string)$plantilla["subtitulo_documento"])
+    : null;
+$tituloDocumento = $tituloConfigurado !== "" ? $tituloConfigurado : ($esProveedor ? "Solicitud de cotizacion" : "Solicitud de compra interna");
+$subtituloDocumento = $subtituloConfigurado !== null ? $subtituloConfigurado : ($esProveedor
+    ? "Favor de confirmar disponibilidad, precio vigente y tiempo estimado de entrega."
+    : "Documento interno de Compras");
+$empresaNombre = trim((string)($plantilla["empresa_nombre"] ?? ""));
+$empresaRfc = trim((string)($plantilla["empresa_rfc"] ?? ""));
+$empresaContacto = trim((string)($plantilla["empresa_contacto"] ?? ""));
+$empresaEmail = trim((string)($plantilla["empresa_email"] ?? ""));
+$empresaTelefono = trim((string)($plantilla["empresa_telefono"] ?? ""));
+$empresaDireccion = trim((string)($plantilla["empresa_direccion"] ?? ""));
+$empresaLineas = array_filter(array($empresaRfc !== "" ? "RFC: " . $empresaRfc : "", $empresaContacto, $empresaEmail, $empresaTelefono, $empresaDireccion));
 
 $folio = isset($solicitud["folio"]) ? $solicitud["folio"] : "";
 $fechaSolicitud = isset($solicitud["fecha_solicitud"]) ? $solicitud["fecha_solicitud"] : "";
@@ -47,7 +61,9 @@ $colspanDetalle = 1 + ($mostrarSkuProveedor ? 1 : 0) + ($mostrarSkuErp ? 1 : 0) 
         .toolbar a.btn-print { background: #0d6efd; color: white; border-color: #0d6efd; }
         .document-header { display: flex; justify-content: space-between; gap: 20px; border-bottom: 2px solid #334155; padding-bottom: 14px; margin-bottom: 18px; }
         .brand { display: flex; gap: 12px; align-items: center; }
-        .brand-mark { width: 48px; height: 48px; border: 1px solid #cbd5e1; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-weight: 700; color: #334155; }
+        .brand-mark { width: 48px; height: 48px; border: 1px solid #cbd5e1; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-weight: 700; color: #334155; object-fit: contain; }
+        .brand-name { font-weight: 700; color: #334155; margin-bottom: 2px; }
+        .brand-contact { color: #64748b; font-size: 0.82rem; margin-top: 4px; line-height: 1.35; }
         .doc-meta { text-align: right; font-size: 0.9rem; color: #475569; }
         h1 { font-size: 1.4rem; margin: 0 0 4px 0; }
         h2 { font-size: 1rem; margin: 20px 0 8px 0; }
@@ -77,7 +93,9 @@ $colspanDetalle = 1 + ($mostrarSkuProveedor ? 1 : 0) + ($mostrarSkuErp ? 1 : 0) 
     <div class="toolbar">
         <div>
             <h1><?= htmlspecialchars($tituloDocumento) ?></h1>
-            <div class="subtitle">Formato formal de impresión</div>
+            <?php if ($subtituloDocumento !== ""): ?>
+                <div class="subtitle"><?= htmlspecialchars($subtituloDocumento) ?></div>
+            <?php endif; ?>
         </div>
         <div>
             <a href="/compra/mostrar_solicitud/<?= $idSolicitud ?>">Volver</a>
@@ -94,12 +112,20 @@ $colspanDetalle = 1 + ($mostrarSkuProveedor ? 1 : 0) + ($mostrarSkuErp ? 1 : 0) 
             <div class="brand">
                 <?php if ($mostrarLogo && $logoRuta !== ""): ?>
                     <img class="brand-mark" src="<?= htmlspecialchars($logoRuta) ?>" alt="Logo">
-                <?php elseif ($mostrarLogo): ?>
+                <?php elseif ($mostrarLogo && !$esProveedor): ?>
                     <div class="brand-mark">ERP</div>
                 <?php endif; ?>
                 <div>
+                    <?php if ($empresaNombre !== ""): ?>
+                        <div class="brand-name"><?= htmlspecialchars($empresaNombre) ?></div>
+                    <?php endif; ?>
                     <h1><?= htmlspecialchars($tituloDocumento) ?></h1>
-                    <div class="muted"><?= htmlspecialchars($esProveedor ? "Documento operativo para proveedor" : "Documento operativo de Compras") ?></div>
+                    <?php if ($subtituloDocumento !== ""): ?>
+                        <div class="muted"><?= htmlspecialchars($subtituloDocumento) ?></div>
+                    <?php endif; ?>
+                    <?php if (!empty($empresaLineas)): ?>
+                        <div class="brand-contact"><?= htmlspecialchars(implode(" | ", $empresaLineas)) ?></div>
+                    <?php endif; ?>
                 </div>
             </div>
             <div class="doc-meta">

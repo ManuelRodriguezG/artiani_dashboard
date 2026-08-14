@@ -30,6 +30,9 @@ $checks = array(
     checkEstructura("productos_granel_vista", contieneEstructura($editor, array("Para granel", "precio capturado aqui es por unidad base", "SKU/presentacion")), "Editor explica precio por unidad base contra presentacion fisica"),
     checkEstructura("productos_granel_modelo", contieneEstructura(leerEstructura($raiz, "app/modelos/ListasPreciosErp.php"), array("erp_catalogo_skus_reglas", "permite_venta_fraccionaria", "incremento_minimo_venta", "precision_decimal")), "Listado de productos expone reglas de granel de Catalogo"),
     checkEstructura("productos_botones_visibles", contieneEstructura($jsEditor, array("Previsualizar precio POS", "cambiarTabEditor(\"revision\")", "enfocarElemento(\"lp_preview_resultado\")", "enfocarElemento(\"lp_auditoria\")")), "Botones de calculadora e historial llevan al resultado visible"),
+    checkEstructura("productos_costo_fallback", contieneEstructura(leerEstructura($raiz, "app/modelos/ListasPreciosErp.php"), array("resolverCostoComercialFila", "costo_promedio_inventario", "costo_proveedor", "costo_ultima_compra")), "Productos resuelve costo por catalogo, inventario, proveedor o ultima compra"),
+    checkEstructura("productos_costo_fuente_ui", contieneEstructura($jsEditor, array("costoComercialHtml", "costo_fuente_label", "costo_fuente")), "UI muestra fuente del costo usado para margen"),
+    checkEstructura("productos_preserva_cambios", contieneEstructura($jsEditor, array("cargarProductos(opciones)", "cambioPendiente", "precioOriginal", "limpiarCambiosGuardados")), "Guardar fila/lote conserva cambios pendientes no guardados"),
     checkEstructura("sidebar_apunta_listado", contieneEstructura($sidebar, array("'Listas de precios'", "'/comercial/listas_precios'")), "Sidebar apunta al listado principal"),
     checkEstructura("plan_documenta", contieneEstructura($plan, array("Estructura UI 2026-07-20", "listas_precios_nueva", "listas_precios_editar")), "Plan vivo documenta separacion UI")
 );

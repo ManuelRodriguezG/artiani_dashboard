@@ -364,7 +364,7 @@
                                                         </th>
                                                         <th>Producto</th>
                                                         <th>Unidad</th>
-                                                        <th class="text-end">Costo</th>
+                                                        <th class="text-end">Costo / fuente</th>
                                                         <th class="text-end">General</th>
                                                         <th class="text-end">Lista</th>
                                                         <th class="text-end">Margen / utilidad</th>

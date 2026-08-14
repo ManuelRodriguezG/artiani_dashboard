@@ -689,6 +689,64 @@ class Compra extends Controlador {
         return json_encode($respuesta);
     }
 
+    /**
+     * IA: Codex GPT-5
+     * Fecha: 2026-08-13
+     * Proposito: consultar datos compartidos de negocio para documentos imprimibles de Compras.
+     * Impacto: Solicitudes/Ordenes; permite reutilizar logo, RFC, contacto y direccion en todas las plantillas.
+     * Contrato: solo consulta configuracion no sensible; requiere permiso de lectura de Compras.
+     */
+    public function documentos_datos_negocio_consultar_erp() {
+        $this->requerirPermiso("compras.ver");
+        return json_encode($this->modelo("ComprasDocumentosPlantillas")->consultarDatosNegocio());
+    }
+
+    /**
+     * IA: Codex GPT-5
+     * Fecha: 2026-08-13
+     * Proposito: guardar datos compartidos de negocio visibles en documentos imprimibles de Compras.
+     * Impacto: Plantillas para proveedor; evita capturar nombre/logo/contacto por plantilla.
+     * Contrato: usa permiso temporal `compras.editar` hasta activar permiso fino de documentos.
+     */
+    public function documentos_datos_negocio_guardar_erp() {
+        $this->requerirPermiso("compras.editar");
+        $respuesta = $this->modelo("ComprasDocumentosPlantillas")->guardarDatosNegocio(
+            $_POST,
+            isset($_SESSION["id_usuario"]) ? $_SESSION["id_usuario"] : 0
+        );
+        SesionSeguridad::registrarAuditoria("compras", "documentos_datos_negocio_guardar", array(
+            "entidad" => "sys_configuracion_parametros",
+            "resultado" => $respuesta["error"] ? "error" : "ok",
+            "mensaje" => $respuesta["mensaje"],
+            "datos_despues" => isset($respuesta["depurar"]) ? $respuesta["depurar"] : null
+        ));
+        return json_encode($respuesta);
+    }
+
+    /**
+     * IA: Codex GPT-5
+     * Fecha: 2026-08-13
+     * Proposito: subir logo compartido para documentos imprimibles desde Compras.
+     * Impacto: Branding global; actualiza `branding.logo_principal` para que lo reutilicen documentos y layout.
+     * Contrato: valida archivo mediante SistemaConfiguracion; requiere permiso temporal `compras.editar`.
+     */
+    public function documentos_logo_subir_erp() {
+        $this->requerirPermiso("compras.editar");
+        $respuesta = $this->modelo("SistemaConfiguracion")->guardarLogo(
+            "principal",
+            isset($_FILES["logo"]) ? $_FILES["logo"] : null,
+            $this->usuarioActualId(),
+            isset($_POST["motivo"]) ? trim($_POST["motivo"]) : "Logo compartido para documentos de Compras"
+        );
+        SesionSeguridad::registrarAuditoria("compras", "documentos_logo_subir", array(
+            "entidad" => "sys_configuracion_parametros",
+            "resultado" => $respuesta["error"] ? "error" : "ok",
+            "datos_despues" => isset($respuesta["depurar"]["logo"]) ? $respuesta["depurar"]["logo"] : null,
+            "mensaje" => $respuesta["mensaje"]
+        ));
+        return json_encode($respuesta);
+    }
+
     public function enriquecer_productos_compra() {
         $this->requerirPermiso("compras.ver");
         $skus = isset($_POST['skus']) ? $_POST['skus'] : array();

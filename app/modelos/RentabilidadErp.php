@@ -131,7 +131,7 @@ class RentabilidadErp extends CRUD {
                 "items" => $items,
                 "reglas" => array(
                     "Consulta read-only: no modifica Inventario, Catalogo, Compras ni Ventas.",
-                    "El costo preferido es costo promedio de inventario; si no existe, usa costo de referencia del SKU.",
+                    "El costo vigente prioriza evidencia comercial: promedio de compras, ultima compra, XML, relacion proveedor, inventario promedio y costo referencia.",
                     "El precio sin impuestos se calcula desde el precio general y la configuracion fiscal del SKU.",
                     "Los escenarios son simulaciones; no crean listas ni actualizan precios."
                 )
@@ -3536,8 +3536,13 @@ class RentabilidadErp extends CRUD {
 
             $items = array();
             $alertas = 0;
+            $cacheCostos = array();
             foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $fila) {
-                $item = $this->calcularConsistenciaPresentacion($fila);
+                $costosPresentacion = array(
+                    "origen" => $this->costoVigenteSkuPresentacion($fila["sku_origen"], $cacheCostos),
+                    "resultado" => $this->costoVigenteSkuPresentacion($fila["sku_resultado"], $cacheCostos)
+                );
+                $item = $this->calcularConsistenciaPresentacion($fila, $costosPresentacion);
                 if ($item["estatus_consistencia"] !== "ok") {
                     $alertas++;
                 }
@@ -3550,7 +3555,7 @@ class RentabilidadErp extends CRUD {
                 "reglas" => array(
                     "Auditoria read-only: no modifica Catalogo, Inventario ni Almacen.",
                     "Costo esperado = costo unitario origen * cantidad origen / unidades resultado, incluyendo merma si aplica.",
-                    "Costo unitario origen usa inventario promedio si existe; si no, costo referencia dividido entre factor_unidad_base."
+                    "Costo unitario origen usa el mismo costo vigente de Rentabilidad: compras, XML, proveedor, inventario o catalogo segun evidencia disponible."
                 )
             ));
         } catch (Exception $e) {
@@ -3823,9 +3828,17 @@ class RentabilidadErp extends CRUD {
             LEFT JOIN erp_catalogo_sku_impuestos imp ON imp.id_sku=s.id_sku
             LEFT JOIN (
                 SELECT d.id_sku_erp id_sku,
-                    SUBSTRING_INDEX(GROUP_CONCAT(ROUND(d.costo_unitario * CASE WHEN COALESCE(o.moneda,'MXN')<>'MXN' THEN COALESCE(NULLIF(o.tipo_cambio,0),1) ELSE 1 END, 6) ORDER BY o.fecha_orden DESC, d.id_detalle DESC), ',', 1) ultimo_costo_compra
+                    SUBSTRING_INDEX(GROUP_CONCAT(ROUND(
+                        (d.costo_unitario / CASE
+                            WHEN COALESCE(d.costo_unitario_incluye_impuesto,0)=1
+                            THEN 1 + ((COALESCE(imp_compra.iva_porcentaje,0) + COALESCE(imp_compra.ieps_porcentaje,0)) / 100)
+                            ELSE 1
+                        END)
+                        * CASE WHEN COALESCE(o.moneda,'MXN')<>'MXN' THEN COALESCE(NULLIF(o.tipo_cambio,0),1) ELSE 1 END, 6
+                    ) ORDER BY o.fecha_orden DESC, d.id_detalle DESC), ',', 1) ultimo_costo_compra
                 FROM erp_compras_ordenes_detalle d
                 INNER JOIN erp_compras_ordenes o ON o.id_orden_compra=d.id_orden_compra
+                LEFT JOIN erp_catalogo_sku_impuestos imp_compra ON imp_compra.id_sku=d.id_sku_erp
                 WHERE COALESCE(o.estatus,'') <> 'cancelada' AND COALESCE(d.costo_unitario,0) > 0
                 GROUP BY d.id_sku_erp
             ) compra ON compra.id_sku=s.id_sku
@@ -4513,14 +4526,28 @@ class RentabilidadErp extends CRUD {
             ) inv ON inv.id_sku=s.id_sku
             LEFT JOIN (
                 SELECT d.id_sku_erp id_sku,
-                    SUBSTRING_INDEX(GROUP_CONCAT(ROUND(d.costo_unitario * CASE WHEN COALESCE(o.moneda,'MXN')<>'MXN' THEN COALESCE(NULLIF(o.tipo_cambio,0),1) ELSE 1 END, 6) ORDER BY o.fecha_orden DESC, d.id_detalle DESC), ',', 1) ultimo_costo_compra,
+                    SUBSTRING_INDEX(GROUP_CONCAT(ROUND(
+                        (d.costo_unitario / CASE
+                            WHEN COALESCE(d.costo_unitario_incluye_impuesto,0)=1
+                            THEN 1 + ((COALESCE(imp_compra.iva_porcentaje,0) + COALESCE(imp_compra.ieps_porcentaje,0)) / 100)
+                            ELSE 1
+                        END)
+                        * CASE WHEN COALESCE(o.moneda,'MXN')<>'MXN' THEN COALESCE(NULLIF(o.tipo_cambio,0),1) ELSE 1 END, 6
+                    ) ORDER BY o.fecha_orden DESC, d.id_detalle DESC), ',', 1) ultimo_costo_compra,
                     MAX(o.fecha_orden) fecha_ultima_compra,
                     CASE WHEN SUM(COALESCE(d.cantidad_recibida, d.cantidad, 0)) > 0 THEN
-                        SUM(COALESCE(d.cantidad_recibida, d.cantidad, 0) * d.costo_unitario * CASE WHEN COALESCE(o.moneda,'MXN')<>'MXN' THEN COALESCE(NULLIF(o.tipo_cambio,0),1) ELSE 1 END)
+                        SUM(COALESCE(d.cantidad_recibida, d.cantidad, 0)
+                            * (d.costo_unitario / CASE
+                                WHEN COALESCE(d.costo_unitario_incluye_impuesto,0)=1
+                                THEN 1 + ((COALESCE(imp_compra.iva_porcentaje,0) + COALESCE(imp_compra.ieps_porcentaje,0)) / 100)
+                                ELSE 1
+                            END)
+                            * CASE WHEN COALESCE(o.moneda,'MXN')<>'MXN' THEN COALESCE(NULLIF(o.tipo_cambio,0),1) ELSE 1 END)
                         / SUM(COALESCE(d.cantidad_recibida, d.cantidad, 0))
                     ELSE NULL END costo_promedio_compras
                 FROM erp_compras_ordenes_detalle d
                 INNER JOIN erp_compras_ordenes o ON o.id_orden_compra=d.id_orden_compra
+                LEFT JOIN erp_catalogo_sku_impuestos imp_compra ON imp_compra.id_sku=d.id_sku_erp
                 WHERE COALESCE(o.estatus,'') <> 'cancelada' AND COALESCE(d.costo_unitario,0) > 0
                 GROUP BY d.id_sku_erp
             ) compra ON compra.id_sku=s.id_sku
@@ -4566,15 +4593,39 @@ class RentabilidadErp extends CRUD {
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
-    private function calcularConsistenciaPresentacion($fila) {
+    private function costoVigenteSkuPresentacion($sku, &$cache) {
+        $clave = strtoupper(trim(strval($sku)));
+        if (isset($cache[$clave])) {
+            return $cache[$clave];
+        }
+        $filas = $this->consultarFilasSku($sku, 1, true);
+        if (empty($filas)) {
+            $cache[$clave] = array("costo" => 0, "costo_unitario" => 0, "origen" => "sin_costo", "factor_unidad_base" => 1);
+            return $cache[$clave];
+        }
+        $fila = $filas[0];
+        $factor = max(1, floatval(isset($fila["factor_unidad_base"]) ? $fila["factor_unidad_base"] : 1));
+        $costo = $this->seleccionarCostoVigente($fila, $factor);
+        $cache[$clave] = array(
+            "costo" => round(floatval($costo["costo"]), 6),
+            "costo_unitario" => round(floatval($costo["costo"]) / $factor, 6),
+            "origen" => $costo["origen"],
+            "factor_unidad_base" => round($factor, 6)
+        );
+        return $cache[$clave];
+    }
+
+    private function calcularConsistenciaPresentacion($fila, $costosPresentacion = array()) {
         $factorOrigen = max(1, floatval($fila["factor_origen"]));
         $factorResultado = max(1, floatval($fila["factor_resultado"]));
-        $costoOrigenUnitario = $fila["costo_inv_origen"] === null
-            ? (floatval($fila["costo_referencia_origen"]) / $factorOrigen)
-            : floatval($fila["costo_inv_origen"]);
-        $costoResultadoActual = $fila["costo_inv_resultado"] === null
-            ? floatval($fila["costo_referencia_resultado"])
-            : (floatval($fila["costo_inv_resultado"]) * $factorResultado);
+        $costoOrigenDato = isset($costosPresentacion["origen"]) ? $costosPresentacion["origen"] : null;
+        $costoResultadoDato = isset($costosPresentacion["resultado"]) ? $costosPresentacion["resultado"] : null;
+        $costoOrigenUnitario = $costoOrigenDato && floatval($costoOrigenDato["costo_unitario"]) > 0
+            ? floatval($costoOrigenDato["costo_unitario"])
+            : ($fila["costo_inv_origen"] === null ? (floatval($fila["costo_referencia_origen"]) / $factorOrigen) : floatval($fila["costo_inv_origen"]));
+        $costoResultadoActual = $costoResultadoDato && floatval($costoResultadoDato["costo"]) > 0
+            ? floatval($costoResultadoDato["costo"])
+            : ($fila["costo_inv_resultado"] === null ? floatval($fila["costo_referencia_resultado"]) : (floatval($fila["costo_inv_resultado"]) * $factorResultado));
         $cantidadOrigen = floatval($fila["cantidad_origen"]);
         $unidadesResultado = max(1, floatval($fila["unidades_resultado"]));
         $merma = max(0, floatval($fila["merma_porcentaje"]));
@@ -4606,8 +4657,8 @@ class RentabilidadErp extends CRUD {
             "diferencia_pct" => $diferenciaPct === null ? null : round($diferenciaPct, 2),
             "cantidad_resultado" => round(floatval($fila["cantidad_resultado"]), 4),
             "estatus_consistencia" => $estatus,
-            "origen_costo_base" => $fila["costo_inv_origen"] === null ? "catalogo_referencia" : "inventario_promedio",
-            "origen_costo_resultado" => $fila["costo_inv_resultado"] === null ? "catalogo_referencia" : "inventario_promedio"
+            "origen_costo_base" => $costoOrigenDato && isset($costoOrigenDato["origen"]) ? $costoOrigenDato["origen"] : ($fila["costo_inv_origen"] === null ? "catalogo_referencia" : "inventario_promedio"),
+            "origen_costo_resultado" => $costoResultadoDato && isset($costoResultadoDato["origen"]) ? $costoResultadoDato["origen"] : ($fila["costo_inv_resultado"] === null ? "catalogo_referencia" : "inventario_promedio")
         );
     }
 
@@ -4665,6 +4716,41 @@ class RentabilidadErp extends CRUD {
         return $diff;
     }
 
+    /**
+     * IA: Codex GPT-5 | Fecha: 2026-08-13
+     * Proposito: elegir el costo vigente mas confiable disponible para rentabilidad comercial.
+     * Impacto: calculos read-only de costo, margen, utilidad y precio minimo rentable.
+     * Contrato: no persiste costos; solo prioriza evidencia consultada de Compras/XML/proveedor/inventario/catalogo.
+     */
+    private function seleccionarCostoVigente($fila, $factorUnidad) {
+        $costoInventarioUnitario = $fila["costo_promedio_inventario"] === null ? 0 : floatval($fila["costo_promedio_inventario"]);
+        $costoInventario = $costoInventarioUnitario > 0 ? $costoInventarioUnitario * $factorUnidad : 0;
+        $candidatos = array(
+            array("origen" => "compras_promedio", "costo" => $fila["costo_promedio_compras"] === null ? 0 : floatval($fila["costo_promedio_compras"])),
+            array("origen" => "compra_ultima", "costo" => $fila["ultimo_costo_compra"] === null ? 0 : floatval($fila["ultimo_costo_compra"])),
+            array("origen" => "xml_ultimo", "costo" => $fila["ultimo_costo_xml"] === null ? 0 : floatval($fila["ultimo_costo_xml"])),
+            array("origen" => "proveedor_relacion", "costo" => $fila["costo_ultimo_proveedor"] === null ? 0 : floatval($fila["costo_ultimo_proveedor"])),
+            array("origen" => "inventario_promedio", "costo" => $costoInventario),
+            array("origen" => "catalogo_referencia", "costo" => floatval($fila["costo_referencia"]))
+        );
+        foreach ($candidatos as $candidato) {
+            if (floatval($candidato["costo"]) > 0) {
+                return array(
+                    "costo" => floatval($candidato["costo"]),
+                    "origen" => $candidato["origen"],
+                    "costo_inventario" => $costoInventario,
+                    "costo_inventario_unitario" => $costoInventarioUnitario
+                );
+            }
+        }
+        return array(
+            "costo" => 0,
+            "origen" => "sin_costo",
+            "costo_inventario" => $costoInventario,
+            "costo_inventario_unitario" => $costoInventarioUnitario
+        );
+    }
+
     private function calcularItem($fila, $canal, $descuentoPct, $gastoPct, $comisionPct, $margenObjetivoPct) {
         $precioVenta = floatval($fila["precio_venta"]);
         $iva = $fila["iva_porcentaje"] === null ? null : floatval($fila["iva_porcentaje"]);
@@ -4675,11 +4761,11 @@ class RentabilidadErp extends CRUD {
         $precioEscenario = $precioSinImpuesto * (1 - ($descuentoPct / 100));
 
         $factorUnidad = max(1, floatval(isset($fila["factor_unidad_base"]) ? $fila["factor_unidad_base"] : 1));
-        $costoInventarioUnitario = $fila["costo_promedio_inventario"] === null ? 0 : floatval($fila["costo_promedio_inventario"]);
-        $costoInventario = $costoInventarioUnitario > 0 ? $costoInventarioUnitario * $factorUnidad : 0;
-        $costoReferencia = floatval($fila["costo_referencia"]);
-        $costoReal = $costoInventario > 0 ? $costoInventario : $costoReferencia;
-        $origenCosto = $costoInventario > 0 ? "inventario_promedio" : ($costoReferencia > 0 ? "catalogo_referencia" : "sin_costo");
+        $costoVigente = $this->seleccionarCostoVigente($fila, $factorUnidad);
+        $costoInventario = $costoVigente["costo_inventario"];
+        $costoInventarioUnitario = $costoVigente["costo_inventario_unitario"];
+        $costoReal = $costoVigente["costo"];
+        $origenCosto = $costoVigente["origen"];
 
         $margenBrutoPct = $precioEscenario > 0 ? (($precioEscenario - $costoReal) / $precioEscenario) * 100 : null;
         $utilidadBruta = $precioEscenario - $costoReal;
@@ -4695,7 +4781,7 @@ class RentabilidadErp extends CRUD {
         if ($iva === null || $ieps === null || $incluye === null) { $hallazgosDetalle[] = $this->hallazgo("COST-H103", "fiscal_incompleto", "warning", "Impuestos incompletos para calcular precio sin impuestos"); }
         if ($precioEscenario > 0 && $utilidadEstimada < 0) { $hallazgosDetalle[] = $this->hallazgo("COST-H104", "perdida_estimada", "danger", "El escenario deja utilidad estimada negativa"); }
         if ($margenBrutoPct !== null && $margenBrutoPct < 15) { $hallazgosDetalle[] = $this->hallazgo("COST-H105", "margen_bajo", "warning", "Margen bruto menor a 15%"); }
-        if (floatval($fila["cantidad_total"]) > 0 && $costoInventario <= 0) { $hallazgosDetalle[] = $this->hallazgo("COST-H106", "stock_sin_costo_promedio", "warning", "Hay stock con costo promedio de inventario en cero"); }
+        if (floatval($fila["cantidad_total"]) > 0 && $costoInventario <= 0 && $costoReal <= 0) { $hallazgosDetalle[] = $this->hallazgo("COST-H106", "stock_sin_costo_promedio", "warning", "Hay stock con costo promedio de inventario en cero y sin evidencia alterna de costo"); }
         $hallazgos = array_map(function ($item) { return $item["clave"]; }, $hallazgosDetalle);
         $riesgo = $this->riesgo($hallazgos, $margenBrutoPct, $utilidadEstimada);
 

@@ -255,7 +255,7 @@ class ListasPreciosErp extends CRUD {
      * Documentacion IA: Codex GPT-5, 2026-07-15.
      * Proposito: listar SKUs candidatos para construir una lista de precios con costo, precio base, margen y contexto de venta fraccionaria.
      * Impacto: habilita una mesa comercial editable sin que POS/JS decidan precios finales y muestra si el precio aplica por unidad base/granel.
-     * Contrato: read-only; el costo usado es `erp_catalogo_skus.costo_referencia` hasta consolidar costo promedio formal.
+     * Contrato: read-only; el costo se resuelve por prioridad: referencia SKU, promedio inventario, proveedor preferido y ultima compra.
      */
     public function productosParaListaReadOnly($filtros = array()) {
         try {
@@ -310,11 +310,48 @@ class ListasPreciosErp extends CRUD {
             $joinReglas = $this->tablaExiste($db, "erp_catalogo_skus_reglas")
                 ? "LEFT JOIN erp_catalogo_skus_reglas r ON r.id_sku=s.id_sku"
                 : "LEFT JOIN (SELECT NULL id_sku, NULL permite_venta_fraccionaria, NULL precision_decimal, NULL incremento_minimo_venta, NULL unidad_venta_label) r ON 1=0";
+            $joinCostoInventario = $this->tablaExiste($db, "erp_inventario_existencias")
+                ? "LEFT JOIN (
+                    SELECT ex.id_sku_erp id_sku,
+                        CASE
+                            WHEN SUM(CASE WHEN ex.cantidad_disponible > 0 THEN ex.cantidad_disponible ELSE 0 END) > 0
+                            THEN SUM(CASE WHEN ex.cantidad_disponible > 0 THEN ex.cantidad_disponible * ex.costo_promedio ELSE 0 END)
+                                / SUM(CASE WHEN ex.cantidad_disponible > 0 THEN ex.cantidad_disponible ELSE 0 END)
+                            ELSE MAX(NULLIF(ex.costo_promedio, 0))
+                        END costo_promedio_inventario
+                    FROM erp_inventario_existencias ex
+                    WHERE ex.id_sku_erp IS NOT NULL AND ex.estatus_existencia<>'cancelado' AND ex.costo_promedio > 0
+                    GROUP BY ex.id_sku_erp
+                ) ci ON ci.id_sku=s.id_sku"
+                : "LEFT JOIN (SELECT NULL id_sku, NULL costo_promedio_inventario) ci ON 1=0";
+            $joinCostoProveedor = $this->tablaExiste($db, "erp_catalogo_sku_proveedores")
+                ? "LEFT JOIN (
+                    SELECT sp.id_sku, SUBSTRING_INDEX(GROUP_CONCAT(sp.costo_ultimo ORDER BY sp.es_preferido DESC, sp.id_sku_proveedor DESC), ',', 1) costo_proveedor,
+                        SUBSTRING_INDEX(GROUP_CONCAT(sp.id_proveedor ORDER BY sp.es_preferido DESC, sp.id_sku_proveedor DESC), ',', 1) id_proveedor_costo
+                    FROM erp_catalogo_sku_proveedores sp
+                    WHERE sp.estatus='activo' AND sp.costo_ultimo > 0
+                    GROUP BY sp.id_sku
+                ) cp ON cp.id_sku=s.id_sku"
+                : "LEFT JOIN (SELECT NULL id_sku, NULL costo_proveedor, NULL id_proveedor_costo) cp ON 1=0";
+            $joinCostoCompra = $this->tablaExiste($db, "erp_compras_ordenes_detalle") && $this->tablaExiste($db, "erp_compras_ordenes")
+                ? "LEFT JOIN (
+                    SELECT od.id_sku_erp id_sku,
+                        SUBSTRING_INDEX(GROUP_CONCAT(od.costo_unitario ORDER BY o.id_orden_compra DESC, od.id_detalle DESC), ',', 1) costo_ultima_compra
+                    FROM erp_compras_ordenes_detalle od
+                    INNER JOIN erp_compras_ordenes o ON o.id_orden_compra=od.id_orden_compra
+                    WHERE od.id_sku_erp IS NOT NULL AND od.costo_unitario > 0 AND o.estatus NOT IN ('borrador','cancelada')
+                    GROUP BY od.id_sku_erp
+                ) cc ON cc.id_sku=s.id_sku"
+                : "LEFT JOIN (SELECT NULL id_sku, NULL costo_ultima_compra) cc ON 1=0";
             $categoriaSelect = $this->tablaExiste($db, "erp_catalogo_producto_categorias") && $this->tablaExiste($db, "erp_catalogo_categorias")
                 ? "(SELECT c.nombre FROM erp_catalogo_producto_categorias pc INNER JOIN erp_catalogo_categorias c ON c.id_categoria_erp=pc.id_categoria_erp WHERE pc.id_producto_erp=p.id_producto_erp ORDER BY pc.es_principal DESC, pc.id_producto_categoria ASC LIMIT 1) categoria"
                 : "NULL categoria";
 
             $sql = "SELECT s.id_sku, s.sku, s.nombre sku_nombre, s.tipo_inventario, s.costo_referencia, s.factor_unidad_base,
+                    COALESCE(ci.costo_promedio_inventario, 0) costo_promedio_inventario,
+                    COALESCE(cp.costo_proveedor, 0) costo_proveedor,
+                    COALESCE(cp.id_proveedor_costo, 0) id_proveedor_costo,
+                    COALESCE(cc.costo_ultima_compra, 0) costo_ultima_compra,
                     p.id_producto_erp, p.codigo_producto, p.nombre producto, COALESCE(m.nombre, '') marca,
                     COALESCE(NULLIF(r.unidad_venta_label, ''), u.abreviatura, u.nombre, '') unidad_base,
                     COALESCE(r.permite_venta_fraccionaria, 0) permite_venta_fraccionaria,
@@ -330,6 +367,9 @@ class ListasPreciosErp extends CRUD {
                 $joinMarca
                 $joinUnidad
                 $joinReglas
+                $joinCostoInventario
+                $joinCostoProveedor
+                $joinCostoCompra
                 WHERE " . implode(" AND ", $where) . "
                 ORDER BY d.precio IS NULL ASC, p.nombre ASC, s.sku ASC
                 LIMIT " . intval($limite);
@@ -339,7 +379,9 @@ class ListasPreciosErp extends CRUD {
             foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $fila) {
                 $precioLista = $fila["precio_lista"] === null ? null : floatval($fila["precio_lista"]);
                 $precioBase = $precioLista !== null ? $precioLista : floatval($fila["precio_general"]);
-                $costo = floatval($fila["costo_referencia"]);
+                $costoReferenciaOriginal = floatval($fila["costo_referencia"]);
+                $costoResuelto = $this->resolverCostoComercialFila($fila);
+                $costo = $costoResuelto["costo"];
                 $margen = $this->calcularMargenPrecio($precioBase, $costo);
                 $riesgo = $this->riesgoMargen($precioBase, $costo, $margen, $umbralMargen);
                 if ($solo === "margen_bajo" && !($riesgo["clave"] === "margen_bajo" || $riesgo["clave"] === "perdida")) {
@@ -352,6 +394,12 @@ class ListasPreciosErp extends CRUD {
                     continue;
                 }
                 $fila["costo_referencia"] = round($costo, 6);
+                $fila["costo_referencia_original"] = round($costoReferenciaOriginal, 6);
+                $fila["costo_fuente"] = $costoResuelto["fuente"];
+                $fila["costo_fuente_label"] = $costoResuelto["label"];
+                $fila["costo_promedio_inventario"] = round(floatval($fila["costo_promedio_inventario"]), 6);
+                $fila["costo_proveedor"] = round(floatval($fila["costo_proveedor"]), 6);
+                $fila["costo_ultima_compra"] = round(floatval($fila["costo_ultima_compra"]), 6);
                 $fila["precio_general"] = round(floatval($fila["precio_general"]), 6);
                 $fila["precio_lista"] = $precioLista === null ? null : round($precioLista, 6);
                 $fila["precio_calculo"] = round($precioBase, 6);
@@ -368,11 +416,37 @@ class ListasPreciosErp extends CRUD {
                 "productos" => $productos,
                 "total" => count($productos),
                 "filtros" => array("id_lista_precio" => $idLista, "q" => $q, "solo" => $solo, "limite" => $limite, "margen_minimo" => $umbralMargen),
-                "fuente_costo" => "erp_catalogo_skus.costo_referencia"
+                "fuente_costo" => "prioridad: erp_catalogo_skus.costo_referencia, erp_inventario_existencias.costo_promedio, erp_catalogo_sku_proveedores.costo_ultimo, erp_compras_ordenes_detalle.costo_unitario"
             ));
         } catch (Exception $e) {
             return $this->respuesta(true, "danger", $e->getMessage());
         }
+    }
+
+    /**
+     * Documentacion IA: Codex GPT-5, 2026-08-13.
+     * Proposito: elegir el mejor costo disponible para margen comercial sin escribir catalogo ni inventario.
+     * Impacto: Listas de precios deja de marcar sin costo a SKUs que si tienen costo por inventario, proveedor o compras.
+     * Contrato: prioridad read-only; no actualiza `costo_referencia` ni decide costo contable definitivo.
+     */
+    private function resolverCostoComercialFila($fila) {
+        $candidatos = array(
+            array("campo" => "costo_referencia", "fuente" => "catalogo", "label" => "Catalogo"),
+            array("campo" => "costo_promedio_inventario", "fuente" => "inventario_promedio", "label" => "Prom. inventario"),
+            array("campo" => "costo_proveedor", "fuente" => "proveedor", "label" => "Proveedor"),
+            array("campo" => "costo_ultima_compra", "fuente" => "ultima_compra", "label" => "Ultima compra")
+        );
+        foreach ($candidatos as $candidato) {
+            $costo = floatval($this->valor($fila, $candidato["campo"], 0));
+            if ($costo > 0) {
+                return array(
+                    "costo" => round($costo, 6),
+                    "fuente" => $candidato["fuente"],
+                    "label" => $candidato["label"]
+                );
+            }
+        }
+        return array("costo" => 0, "fuente" => "sin_costo", "label" => "Sin costo");
     }
 
     /**

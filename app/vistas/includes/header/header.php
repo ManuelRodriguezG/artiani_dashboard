@@ -8,6 +8,7 @@
  */
 
 require_once '../app/modelos/SistemaConfiguracion.php';
+require_once '../app/vistas/includes/header/menu_busqueda.php';
 $headerConfiguracion = new SistemaConfiguracion();
 $headerBranding = $headerConfiguracion->obtenerBranding();
 
@@ -24,16 +25,7 @@ $headerPuede = function ($permiso) use ($headerPermisos) {
     return $permiso === "" || in_array($permiso, $headerPermisos, true);
 };
 
-$headerAccesos = array(
-    array("titulo" => "Resumen", "ruta" => "/", "permiso" => "", "icono" => "bi-speedometer2", "detalle" => "Tablero principal"),
-    array("titulo" => "Productos ERP", "ruta" => "/catalogoerp", "permiso" => "catalogo.ver", "icono" => "bi-box-seam", "detalle" => "Catalogo y SKUs"),
-    array("titulo" => "Ordenes de compra", "ruta" => "/compra/mostrar_compra_ordenes", "permiso" => "compras.ver", "icono" => "bi-cart-check", "detalle" => "Compras"),
-    array("titulo" => "Recepciones", "ruta" => "/almacen/mostrar_recepciones", "permiso" => "almacen.ver", "icono" => "bi-building", "detalle" => "Almacen"),
-    array("titulo" => "Existencias", "ruta" => "/inventario/productos_existencias", "permiso" => "inventario.ver", "icono" => "bi-clipboard-data", "detalle" => "Inventario"),
-    array("titulo" => "POS", "ruta" => "/ventas/pos", "permiso" => "ventas.operar", "icono" => "bi-receipt", "detalle" => "Ventas"),
-    array("titulo" => "Clientes CRM", "ruta" => "/crm/clientes", "permiso" => array("crm.ver", "crm.clientes.ver"), "icono" => "bi-people", "detalle" => "CRM"),
-    array("titulo" => "Configuracion", "ruta" => "/sistema/configuracion", "permiso" => "configuracion.administrar", "icono" => "bi-sliders", "detalle" => "Sistema")
-);
+$headerAccesos = erpHeaderCatalogoBusqueda();
 $headerAccesosVisibles = array_values(array_filter($headerAccesos, function ($acceso) use ($headerPuede) {
     return $headerPuede($acceso["permiso"]);
 }));
@@ -62,26 +54,41 @@ $headerAccesosVisibles = array_values(array_filter($headerAccesos, function ($ac
 
             <div class="app-navbar flex-shrink-0">
                 <div class="app-navbar-item align-items-stretch ms-1 ms-lg-3">
-                    <div class="btn btn-icon btn-custom btn-icon-muted btn-active-light btn-active-color-primary w-35px h-35px w-md-40px h-md-40px" data-kt-menu-trigger="click" data-kt-menu-attach="parent" data-kt-menu-placement="bottom-end" id="erp_header_search_toggle" title="Buscar modulo">
-                        <i class="bi bi-search fs-3"></i>
+                    <div class="d-flex align-items-center" data-kt-menu-trigger="click" data-kt-menu-attach="parent" data-kt-menu-placement="bottom-end" id="erp_header_search_toggle" title="Buscar modulo">
+                        <button type="button" class="btn btn-icon btn-custom btn-icon-muted btn-active-light btn-active-color-primary w-35px h-35px w-md-40px h-md-40px" aria-label="Buscar modulo">
+                            <i class="bi bi-search fs-3"></i>
+                        </button>
                     </div>
                     <div class="menu menu-sub menu-sub-dropdown menu-column p-5 w-325px w-md-425px" data-kt-menu="true">
                         <div class="position-relative mb-4">
                             <i class="bi bi-search position-absolute top-50 translate-middle-y ms-4 text-muted"></i>
-                            <input type="text" class="form-control form-control-solid ps-12" id="erp_header_search_input" placeholder="Buscar modulo o pantalla">
+                            <input type="text" class="form-control form-control-solid ps-12" id="erp_header_search_input" placeholder="Buscar pantalla, modulo o accion" autocomplete="off">
                         </div>
+                        <div class="text-muted fs-8 mb-3">Busca dentro de las pantallas disponibles para tu usuario.</div>
                         <div class="scroll-y mh-300px" id="erp_header_search_results">
                             <?php foreach ($headerAccesosVisibles as $acceso): ?>
-                                <a href="<?= htmlspecialchars($acceso["ruta"], ENT_QUOTES, "UTF-8") ?>" class="d-flex align-items-center rounded px-3 py-3 bg-hover-light erp-header-search-item" data-search="<?= htmlspecialchars(mb_strtolower($acceso["titulo"] . " " . $acceso["detalle"], "UTF-8"), ENT_QUOTES, "UTF-8") ?>">
+                                <?php
+                                $textoBusqueda = implode(' ', array(
+                                    $acceso["titulo"],
+                                    $acceso["detalle"],
+                                    isset($acceso["grupo"]) ? $acceso["grupo"] : '',
+                                    isset($acceso["seccion"]) ? $acceso["seccion"] : '',
+                                    $acceso["ruta"]
+                                ));
+                                ?>
+                                <a href="<?= htmlspecialchars($acceso["ruta"], ENT_QUOTES, "UTF-8") ?>" class="d-flex align-items-center rounded px-3 py-3 bg-hover-light erp-header-search-item" data-search="<?= htmlspecialchars($textoBusqueda, ENT_QUOTES, "UTF-8") ?>">
                                     <span class="symbol symbol-35px me-3">
                                         <span class="symbol-label bg-light-primary"><i class="bi <?= htmlspecialchars($acceso["icono"], ENT_QUOTES, "UTF-8") ?> text-primary"></i></span>
                                     </span>
                                     <span class="d-flex flex-column">
                                         <span class="fw-semibold text-gray-800"><?= htmlspecialchars($acceso["titulo"], ENT_QUOTES, "UTF-8") ?></span>
-                                        <span class="text-muted fs-8"><?= htmlspecialchars($acceso["detalle"], ENT_QUOTES, "UTF-8") ?></span>
+                                        <span class="text-muted fs-8"><?= htmlspecialchars((isset($acceso["seccion"]) ? $acceso["seccion"] . " / " : "") . (isset($acceso["grupo"]) ? $acceso["grupo"] . " - " : "") . $acceso["detalle"], ENT_QUOTES, "UTF-8") ?></span>
                                     </span>
                                 </a>
                             <?php endforeach; ?>
+                            <div class="text-center text-muted py-8 d-none" id="erp_header_search_empty">
+                                No encontre pantallas con esa busqueda.
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -158,12 +165,52 @@ document.addEventListener("DOMContentLoaded", function () {
     if (!input) {
         return;
     }
-    input.addEventListener("input", function () {
-        var filtro = input.value.toLowerCase().trim();
-        document.querySelectorAll(".erp-header-search-item").forEach(function (item) {
-            var visible = filtro === "" || (item.getAttribute("data-search") || "").indexOf(filtro) !== -1;
+    var toggle = document.getElementById("erp_header_search_toggle");
+    var empty = document.getElementById("erp_header_search_empty");
+    var items = Array.prototype.slice.call(document.querySelectorAll(".erp-header-search-item"));
+    var normalizar = function (valor) {
+        return (valor || "").toString().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+    };
+    var aplicarFiltro = function () {
+        var filtro = normalizar(input.value);
+        var visibles = 0;
+        items.forEach(function (item) {
+            var visible = filtro === "" || normalizar(item.getAttribute("data-search")).indexOf(filtro) !== -1;
             item.classList.toggle("d-none", !visible);
+            if (visible) {
+                visibles++;
+            }
         });
+        if (empty) {
+            empty.classList.toggle("d-none", visibles > 0);
+        }
+    };
+
+    if (toggle) {
+        toggle.addEventListener("click", function () {
+            window.setTimeout(function () {
+                input.focus();
+                input.select();
+            }, 120);
+        });
+    }
+
+    input.addEventListener("input", aplicarFiltro);
+    input.addEventListener("keydown", function (evento) {
+        if (evento.key === "Enter") {
+            var primeroVisible = items.find(function (item) {
+                return !item.classList.contains("d-none");
+            });
+            if (primeroVisible) {
+                evento.preventDefault();
+                window.location.href = primeroVisible.getAttribute("href");
+            }
+        }
+        if (evento.key === "Escape") {
+            input.value = "";
+            aplicarFiltro();
+            input.blur();
+        }
     });
 });
 </script>

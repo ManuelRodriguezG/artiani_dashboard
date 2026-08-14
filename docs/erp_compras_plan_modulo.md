@@ -73,6 +73,46 @@ Regla para pendientes:
 - Producto de proveedor con relacion pero sin costo valido: pendiente de costo/lista proveedor.
 - Producto solicitado anteriormente pero no seleccionado en nueva captura/XML: pendiente de seguimiento para futura solicitud, no eliminacion silenciosa.
 
+## Decision operativa: compras para mercancia, insumos y materia prima
+
+Documentacion IA: Codex GPT-5  
+Fecha: 2026-08-13  
+Proposito: preparar Compras para abastecer venta directa y futura Fabricacion sin crear catalogos paralelos.  
+Impacto: Solicitudes, Ordenes, Catalogo ERP, Proveedores, Almacen, Inventario y futuro modulo de Fabricacion.
+
+Decision:
+
+- Solicitudes y Ordenes de Compra deben servir para comprar cualquier SKU abastecible: mercancia revendible, insumo operativo, materia prima, material de empaque, refaccion o servicio/cargo no inventariable.
+- No se debe crear un modulo separado de "compras de fabricacion" para comprar materia prima. El proceso de compra es el mismo: proveedor, lista, costo, solicitud, orden, XML, adjuntos, pagos, recepcion si aplica.
+- La diferencia no pertenece a Compras como tabla paralela; pertenece al Catalogo ERP como clasificacion operativa del SKU.
+- Catalogo debe poder clasificar cada SKU por tipo operativo recomendado:
+  - `mercancia`: producto comprado para venderse directamente.
+  - `materia_prima`: componente que se consume en fabricacion o preparacion.
+  - `insumo`: material usado por la operacion, puede o no formar parte del producto final.
+  - `empaque`: material de empaque o presentacion.
+  - `refaccion`: pieza para mantenimiento o reparacion interna.
+  - `servicio`: servicio comprado, no inventariable.
+  - `cargo`: gasto/cargo de compra como envio, maniobra u otros conceptos no inventariables.
+- Compras debe filtrar/mostrar estos tipos segun el contexto de la solicitud:
+  - compra general: mercancia, materia prima, insumo, empaque, refaccion;
+  - compra para fabricacion: materia prima, insumo, empaque y refaccion;
+  - compra para venta directa: mercancia y, si se autoriza, empaque asociado;
+  - cargos/servicios: permitidos en orden para cuadrar documentos, no en solicitud inventariable salvo regla explicita.
+- Almacen recibe fisicamente lo inventariable y conserva lote, caducidad, ubicacion y cantidad; no recibe cargos/servicios como inventario.
+- Fabricacion consumira materia prima/insumos desde Inventario por orden de produccion o receta/BOM, no directamente desde Compras.
+
+Regla para Catalogo:
+
+- No abrir una seccion completamente separada que duplique productos. Debe existir una seccion o campo dentro de Catalogo ERP para clasificar el tipo operativo del SKU.
+- En una fase futura puede existir una vista filtrada llamada "Materia prima e insumos", pero usando las mismas tablas maestras de producto/SKU.
+- Todo SKU inventariable debe mantener unidad base, unidad de compra, factor de conversion, reglas de lote/caducidad y relacion proveedor cuando vaya a comprarse.
+
+Regla para Fabricacion futura:
+
+- Fabricacion no compra directo; solicita o dispara necesidades de compra.
+- La receta/BOM debe apuntar a `id_sku_erp` de materia prima/insumo.
+- Una orden de produccion debe consumir inventario y generar producto terminado o semiterminado, con trazabilidad de lotes cuando aplique.
+
 ## Decision operativa: plantillas imprimibles de Compras
 
 Documentacion IA: Codex GPT-5  
@@ -92,6 +132,8 @@ Decision:
 - La version interna puede mostrar costos, totales, impuestos, observaciones internas, usuario solicitante, aprobaciones y evidencia de autorizacion.
 - La version para proveedor debe mostrar por defecto solo datos operativos:
   - logo de la empresa si esta configurado,
+  - nombre/datos visibles de la empresa si estan configurados,
+  - titulo externo entendible para el proveedor, por ejemplo `Solicitud de cotizacion` u `Orden de compra`,
   - folio,
   - fecha,
   - proveedor,
@@ -109,13 +151,14 @@ Decision:
   - nombre interno ERP,
   - observaciones internas.
 - Los costos solo se deben mostrar al proveedor si una plantilla autorizada lo habilita explicitamente.
+- Los documentos para proveedor no deben usar etiquetas internas como `ERP`, `documento operativo` o textos pensados para explicar el sistema al capturista. El encabezado externo debe comunicar quien solicita, que documento es, folio, fecha y datos de contacto.
 
 Tablas propuestas:
 
 - `erp_compras_documentos_plantillas`
   - Identifica la plantilla: codigo, tipo_documento, audiencia, nombre, descripcion, estatus, es_default.
 - `erp_compras_documentos_plantillas_config`
-  - Guarda opciones visibles: mostrar_logo, logo_ruta, mostrar_costos, mostrar_impuestos, mostrar_totales, mostrar_sku_erp, mostrar_sku_proveedor, mostrar_nombre_erp, mostrar_nombre_proveedor, mostrar_observaciones_internas, mostrar_observaciones_publicas, columnas_json, estilos_json, pie_pagina.
+  - Guarda opciones visibles: mostrar_logo, logo_ruta, mostrar_costos, mostrar_impuestos, mostrar_totales, mostrar_sku_erp, mostrar_sku_proveedor, mostrar_nombre_erp, mostrar_nombre_proveedor, mostrar_observaciones_internas, mostrar_observaciones_publicas, titulo_documento, subtitulo_documento, empresa_nombre, empresa_rfc, empresa_contacto, empresa_email, empresa_telefono, empresa_direccion, columnas_json, estilos_json, pie_pagina.
 - Futuro opcional: `erp_compras_documentos_generados`
   - Snapshot del documento emitido/descargado/enviado, con plantilla usada, usuario, fecha y hash del HTML/PDF cuando se requiera trazabilidad.
 
@@ -134,6 +177,15 @@ Primera fase recomendada:
   - mostrar logo,
   - mostrar costos si la plantilla lo permite.
 - Generar primero HTML imprimible; PDF puede quedar como fase posterior.
+
+Actualizacion 2026-08-13:
+
+- Se agrego configuracion de encabezado externo por plantilla: titulo, subtitulo y datos visibles de empresa.
+- `solicitud_compra_proveedor` queda por defecto como `Solicitud de cotizacion`.
+- `orden_compra_proveedor` queda por defecto como `Orden de compra`.
+- Si una plantilla para proveedor no tiene logo configurado, no se muestra marcador interno `ERP`.
+- Se centralizaron logo y datos del negocio en `sys_configuracion_parametros` para reutilizarlos en todas las plantillas; las plantillas quedan como configuracion de audiencia/formato, no como maestro repetido de empresa.
+- La vista `/compra/documentos_configuracion` permite cargar el logo compartido y capturar nombre comercial, razon social, RFC, contacto, email, telefono y direccion.
 
 ## Estado actual implementado
 

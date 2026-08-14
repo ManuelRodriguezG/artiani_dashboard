@@ -141,8 +141,8 @@
                             <div class="ecom-cms-panel p-5 mb-5">
                                 <div class="d-flex justify-content-between align-items-center flex-wrap gap-3 mb-4">
                                     <div>
-                                        <h3 class="fw-bold mb-1">Cierre read-only de contenido</h3>
-                                        <span class="text-muted fs-7">Estado de la seccion antes de activar persistencia real.</span>
+                                        <h3 class="fw-bold mb-1">Cierre de contenido</h3>
+                                        <span class="text-muted fs-7">Estado de la seccion antes de conectar la API publica a contenido publicado.</span>
                                     </div>
                                     <span class="badge badge-light-success">Contenido preparado</span>
                                 </div>
@@ -156,13 +156,13 @@
                                     <div class="col-md-4">
                                         <div class="border rounded p-4 h-100">
                                             <div class="fw-bold mb-2"><i class="bi bi-lock text-warning"></i> Bloqueado</div>
-                                            <div class="text-muted fs-7">Guardado real, publicacion, DDL, carga de media y lectura publica desde BD.</div>
+                                            <div class="text-muted fs-7">Carga de media estructurada, lectura publica desde BD y renderer final del frontend.</div>
                                         </div>
                                     </div>
                                     <div class="col-md-4">
                                         <div class="border rounded p-4 h-100">
                                             <div class="fw-bold mb-2"><i class="bi bi-arrow-right-circle text-primary"></i> Siguiente</div>
-                                            <div class="text-muted fs-7">Respaldar BD, autorizar esquema, activar POST con CSRF/auditoria y conectar endpoints publicos a contenido publicado.</div>
+                                            <div class="text-muted fs-7">Conectar endpoints publicos a contenido publicado, vigente y autorizado.</div>
                                         </div>
                                     </div>
                                 </div>
@@ -221,6 +221,16 @@
                                             </div>
                                         </div>
                                         <div id="ecom_cms_bloques"></div>
+                                        <div class="border-top pt-5 mt-5">
+                                            <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+                                                <div>
+                                                    <div class="fw-bold">Biblioteca BD</div>
+                                                    <div class="text-muted fs-8">Bloques borrador/pausados guardados para reutilizar en el slot activo.</div>
+                                                </div>
+                                                <button class="btn btn-sm btn-light-primary" type="button" id="ecom_cms_recargar_bloques_bd"><i class="bi bi-arrow-clockwise"></i> Recargar BD</button>
+                                            </div>
+                                            <div id="ecom_cms_bloques_bd"></div>
+                                        </div>
                                     </div>
 
                                     <div class="ecom-cms-panel p-5 mb-5">
@@ -254,16 +264,20 @@
                                             <div class="d-flex flex-wrap gap-2 justify-content-between">
                                                 <div class="ecom-cms-actions">
                                                     <button class="btn btn-primary" type="submit"><i class="bi bi-check2"></i> Aplicar a preview</button>
+                                                    <button class="btn btn-light-primary" type="button" id="ecom_cms_guardar_bd"><i class="bi bi-database-check"></i> Guardar borrador en BD</button>
+                                                    <button class="btn btn-light-success" type="button" id="ecom_cms_publicar_slot_bd"><i class="bi bi-layout-three-columns"></i> Colocar en slot BD</button>
+                                                    <button class="btn btn-success" type="button" id="ecom_cms_publicar_publicacion_bd"><i class="bi bi-megaphone"></i> Publicar slot</button>
+                                                    <button class="btn btn-light-warning" type="button" id="ecom_cms_pausar_publicacion_bd"><i class="bi bi-pause-circle"></i> Pausar slot</button>
                                                     <button class="btn btn-light" type="button" id="ecom_cms_limpiar_form"><i class="bi bi-eraser"></i> Limpiar</button>
                                                 </div>
-                                                <span class="badge badge-light-warning align-self-center">Local</span>
+                                                <span class="badge badge-light-primary align-self-center">BD: borrador</span>
                                             </div>
                                         </form>
                                     </div>
 
                                     <div class="alert alert-warning mb-0">
-                                        <div class="fw-bold">Pendiente para escritura real</div>
-                                        <div class="fs-7">Faltan respaldo, DDL autorizado, endpoints POST con CSRF/auditoria, sanitizacion HTML y politica de media.</div>
+                                        <div class="fw-bold">Guardado controlado</div>
+                                        <div class="fs-7">El guardado actual crea bloques y publicaciones internas. Publicar slot marca la colocacion como publicada, pero la API publica seguira en fallback hasta conectar la lectura publica desde BD.</div>
                                     </div>
                                 </div>
                             </div>

@@ -3202,3 +3202,139 @@ Siguiente paso recomendado:
 
 1. Capturar/revisar caudal faltante desde fichas tecnicas/proveedores para filtros con modelo pero sin `l/h` explicito.
 2. Avanzar por grupos: medidas, contenido, peceras/vidrio, alimentos/consumibles y habitat/accesorios.
+
+## Actualizacion 2026-08-13 - Reparacion de texto en categorias
+
+Contexto: se confirma trabajo sobre el proyecto vigente `C:\xampp\htdocs\panel_de_control`.
+
+Objetivo:
+
+- Corregir texto danado por codificacion en categorias de Catalogo ERP.
+- Mantener intactas relaciones de productos, jerarquia y codigos de categoria.
+- Evitar correcciones manuales repetidas en UI cuando el problema viene de datos persistidos.
+
+Auditoria previa:
+
+- Script read-only: `storage/uat/uat_catalogo_categorias_maestro_readonly.php`.
+- Total categorias: 246.
+- Categorias con texto danado: 42.
+- Padres inexistentes: 0.
+- Codigos duplicados: 0.
+- Nombres duplicados bajo el mismo padre: 0.
+- Rutas inconsistentes: 0.
+
+Respaldo externo:
+
+- Se genero respaldo JSON solo de las categorias afectadas antes de aplicar cambios:
+  `C:\xampp\panel_db_backups\catalogo_categorias_texto_20260813_221922_pre.json`.
+- Script de respaldo: `storage/uat/uat_catalogo_categorias_texto_backup_readonly.php`.
+
+Ejecucion:
+
+- Se aplico reparacion deterministica con `storage/uat/uat_catalogo_categorias_texto_reparar_apply.php`.
+- Token usado: `CATALOGO_CATEGORIAS_TEXTO_REPARAR`.
+- Campos afectados: `nombre`, `descripcion`, `ruta`, `fecha_actualizacion`.
+- No se modificaron productos, SKUs, jerarquias, permisos ni otros modulos.
+
+Validacion posterior:
+
+- `texto_danado`: 0.
+- `cambios_detectados` en preview de reparacion: 0.
+- Sin padres inexistentes, codigos duplicados, nombres duplicados ni rutas inconsistentes.
+
+Ejemplos corregidos:
+
+- `Mam├¡feros` -> `Mamiferos`.
+- `H├ímster` -> `Hamster`.
+- `Filtraci├│n y oxigenaci├│n` -> `Filtracion y oxigenacion`.
+- `Transportadoras mascoteras de pl├ístico` -> `Transportadoras mascoteras de plastico`.
+
+## Actualizacion 2026-08-13 - Propuesta de arbol maestro de categorias
+
+Contexto: se continua en `C:\xampp\htdocs\panel_de_control`.
+
+Objetivo:
+
+- Ordenar categorias principales y subcategorias antes de mover datos.
+- Separar categorias por especie/familia de categorias por uso.
+- Evitar que sigan conviviendo como raices `Perro`, `Gato`, `Perros y gatos`, `Mamiferos roedores`, `Alimentacion`, `Salud e higiene` y categorias heredadas de ecommerce.
+
+Documento creado:
+
+- `docs/erp_catalogo_categorias_arbol_propuesto.md`.
+
+Scripts read-only creados/usados:
+
+- `storage/uat/uat_catalogo_categorias_arbol_readonly.php`.
+- `storage/uat/uat_catalogo_categorias_resumen_markdown_readonly.php`.
+
+Hallazgo:
+
+- Existen 246 categorias, de las cuales 171 son maestras y 75 son heredadas/ecommerce.
+- Hay 96 raices actuales, demasiadas para una captura operativa limpia.
+- El problema ya no es texto danado ni inconsistencia tecnica; el problema es taxonomia mezclada.
+
+Decision propuesta:
+
+- Usar como eje principal la familia o tipo de mascota.
+- Usar el uso del producto como segundo nivel: alimentacion, habitat, salud, transporte, juego, equipamiento, repuestos.
+- Dejar categorias multi-especie solo para productos realmente compartidos o como categoria secundaria.
+
+Pendiente:
+
+- Aprobar nombres de raices principales.
+- Preparar mapa de equivalencias `categoria actual -> categoria destino propuesta`.
+- No aplicar DML/DDL sin autorizacion.
+
+## Actualizacion 2026-08-13 - Refinamiento de categorias principales 1-6
+
+Contexto: el dueno del proyecto pidio concentrar el ordenamiento en las seis raices principales antes de resolver categorias multi-especie.
+
+Documento actualizado:
+
+- `docs/erp_catalogo_categorias_arbol_propuesto.md`.
+
+Decision refinada:
+
+- Trabajar primero con:
+  - `Perros`.
+  - `Gatos`.
+  - `Acuario y peces`.
+  - `Reptiles y tortugas`.
+  - `Aves`.
+  - `Pequenos mamiferos`.
+- Dejar `General multi-especie` como pendiente futuro, no como salida rapida para productos dificiles.
+- Usar nombres repetibles bajo cada raiz: `Alimentacion`, `Salud e higiene`, `Habitat y descanso`, `Juego y enriquecimiento`, `Transporte, paseo y entrenamiento`, `Accesorios generales`.
+- La UI debe mostrar ruta completa porque habra nombres repetidos como `Alimentos`, `Juguetes`, `Transportadoras` y `Salud e higiene`.
+
+Pendiente inmediato:
+
+- Preparar mapa de equivalencias entre categorias actuales y la version refinada 1-6.
+- Revisar con el dueno si `Acuario` se renombra visualmente a `Acuario y peces` y si `Mamiferos roedores` se reemplaza por `Pequenos mamiferos`.
+
+## Actualizacion 2026-08-14 - Documento separado de arbol 1-6 refinado
+
+Contexto: el documento largo de propuesta tenia comentarios operativos mezclados dentro del arbol y era dificil ubicar la version refinada.
+
+Documento creado:
+
+- `docs/erp_catalogo_categorias_arbol_1_6_refinado.md`.
+
+Contenido:
+
+- Version limpia de las seis raices principales:
+  - `Perros`.
+  - `Gatos`.
+  - `Acuario y peces`.
+  - `Reptiles y tortugas`.
+  - `Aves`.
+  - `Pequenos mamiferos`.
+- Respuestas incorporadas a dudas operativas:
+  - Que significa `Juego y enriquecimiento`.
+  - Cuando usar `Accesorios generales`.
+  - Uso de `Contencion` para jaulas, corrales y vallas.
+  - Ubicacion de suplementos de aves, acaros, sustratos, plantas naturales y tortugueros.
+
+Siguiente paso:
+
+- Preparar mapa de equivalencias read-only antes de cualquier cambio en BD.

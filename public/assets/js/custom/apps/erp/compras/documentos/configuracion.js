@@ -20,6 +20,19 @@
         "mostrar_observaciones_publicas",
         "mostrar_observaciones_internas"
     ];
+    var camposPlantillaTexto = [
+        "titulo_documento",
+        "subtitulo_documento"
+    ];
+    var camposNegocio = [
+        "empresa_nombre",
+        "empresa_razon_social",
+        "empresa_rfc",
+        "empresa_contacto",
+        "empresa_email",
+        "empresa_telefono",
+        "empresa_direccion"
+    ];
 
     function esc(value) {
         var d = document.createElement("div");
@@ -27,9 +40,80 @@
         return d.innerHTML;
     }
 
+    function request(url, data) {
+        var headers = {};
+        var body = null;
+        if (data) {
+            headers["Content-Type"] = "application/x-www-form-urlencoded; charset=UTF-8";
+            body = new URLSearchParams(data).toString();
+        }
+        if (window.ERP_CSRF_TOKEN) {
+            headers["X-CSRF-Token"] = window.ERP_CSRF_TOKEN;
+        }
+        return fetch(url, {
+            method: data ? "POST" : "GET",
+            headers: headers,
+            body: body,
+            credentials: "same-origin"
+        }).then(function (r) { return r.json(); });
+    }
+
+    function requestArchivo(url, formData) {
+        var headers = {};
+        if (window.ERP_CSRF_TOKEN) {
+            headers["X-CSRF-Token"] = window.ERP_CSRF_TOKEN;
+        }
+        return fetch(url, {
+            method: "POST",
+            headers: headers,
+            body: formData,
+            credentials: "same-origin"
+        }).then(function (r) { return r.json(); });
+    }
+
+    function cargarDatosNegocio() {
+        request("/compra/documentos_datos_negocio_consultar_erp")
+            .then(function (r) {
+                if (r.error) {
+                    mostrarMensaje(r.mensaje || "No fue posible consultar datos del negocio", "warning");
+                    return;
+                }
+                renderDatosNegocio(r.depurar || {});
+            })
+            .catch(function () {
+                mostrarMensaje("Error al consultar datos del negocio", "danger");
+            });
+    }
+
+    function renderDatosNegocio(datos) {
+        camposNegocio.forEach(function (campo) {
+            var input = document.getElementById("negocio_" + campo);
+            if (input) {
+                input.value = datos[campo] || "";
+            }
+        });
+        renderLogo(datos.logo_ruta || "");
+    }
+
+    function renderLogo(ruta) {
+        var img = document.getElementById("documentos_logo_preview");
+        var empty = document.getElementById("documentos_logo_empty");
+        if (!img || !empty) {
+            return;
+        }
+        if (ruta) {
+            img.src = ruta;
+            img.classList.remove("d-none");
+            empty.classList.add("d-none");
+        } else {
+            img.removeAttribute("src");
+            img.classList.add("d-none");
+            empty.classList.remove("d-none");
+        }
+    }
+
     function cargarPlantillas() {
-        fetch("/compra/documentos_plantillas_consultar_erp", {credentials: "same-origin"})
-            .then(function (r) { return r.json(); })
+        request("/compra/documentos_plantillas_consultar_erp")
             .then(function (r) {
                 if (r.error) {
                     mostrarMensaje(r.mensaje || "No fue posible consultar plantillas", "warning");
@@ -77,8 +161,13 @@
         document.getElementById("plantilla_codigo").value = plantillaActual.codigo || "";
         document.getElementById("plantilla_nombre").value = plantillaActual.nombre || "";
         document.getElementById("plantilla_descripcion").value = plantillaActual.descripcion || "";
-        document.getElementById("plantilla_logo_ruta").value = plantillaActual.logo_ruta || "";
         document.getElementById("plantilla_pie_pagina").value = plantillaActual.pie_pagina || "";
+        camposPlantillaTexto.forEach(function (campo) {
+            var input = document.getElementById("plantilla_" + campo);
+            if (input) {
+                input.value = plantillaActual[campo] || "";
+            }
+        });
         camposBool.forEach(function (campo) {
             document.getElementById(campo).checked = Number(plantillaActual[campo] || 0) === 1;
         });
@@ -95,18 +184,17 @@
         fd.append("codigo", document.getElementById("plantilla_codigo").value);
         fd.append("nombre", document.getElementById("plantilla_nombre").value);
         fd.append("descripcion", document.getElementById("plantilla_descripcion").value);
-        fd.append("logo_ruta", document.getElementById("plantilla_logo_ruta").value);
+        fd.append("logo_ruta", "");
         fd.append("pie_pagina", document.getElementById("plantilla_pie_pagina").value);
+        camposPlantillaTexto.forEach(function (campo) {
+            var input = document.getElementById("plantilla_" + campo);
+            fd.append(campo, input ? input.value : "");
+        });
         camposBool.forEach(function (campo) {
             fd.append(campo, document.getElementById(campo).checked ? "1" : "0");
         });
 
-        fetch("/compra/documentos_plantillas_guardar_erp", {
-            method: "POST",
-            credentials: "same-origin",
-            body: fd
-        })
-            .then(function (r) { return r.json(); })
+        requestArchivo("/compra/documentos_plantillas_guardar_erp", fd)
             .then(function (r) {
                 mostrarMensaje(r.mensaje || "Configuracion guardada", r.error ? "warning" : "success");
                 if (!r.error) {
@@ -115,6 +203,48 @@
             })
             .catch(function () {
                 mostrarMensaje("Error al guardar la configuracion", "danger");
+            });
+    }
+
+    function guardarDatosNegocio() {
+        var datos = {};
+        camposNegocio.forEach(function (campo) {
+            var input = document.getElementById("negocio_" + campo);
+            datos[campo] = input ? input.value : "";
+        });
+        request("/compra/documentos_datos_negocio_guardar_erp", datos)
+            .then(function (r) {
+                mostrarMensaje(r.mensaje || "Datos guardados", r.error ? "warning" : "success");
+                if (!r.error) {
+                    renderDatosNegocio((r.depurar && r.depurar.datos_negocio) || {});
+                    cargarPlantillas();
+                }
+            })
+            .catch(function () {
+                mostrarMensaje("Error al guardar datos del negocio", "danger");
+            });
+    }
+
+    function subirLogo() {
+        var input = document.getElementById("documentos_logo_archivo");
+        if (!input || !input.files || !input.files.length) {
+            mostrarMensaje("Selecciona un archivo de logo", "warning");
+            return;
+        }
+        var fd = new FormData();
+        fd.append("logo", input.files[0]);
+        fd.append("motivo", "Logo compartido para documentos de Compras");
+        requestArchivo("/compra/documentos_logo_subir_erp", fd)
+            .then(function (r) {
+                mostrarMensaje(r.mensaje || "Logo guardado", r.error ? "warning" : "success");
+                if (!r.error) {
+                    input.value = "";
+                    cargarDatosNegocio();
+                    cargarPlantillas();
+                }
+            })
+            .catch(function () {
+                mostrarMensaje("Error al subir logo", "danger");
             });
     }
 
@@ -134,6 +264,9 @@
 
     document.addEventListener("DOMContentLoaded", function () {
         document.getElementById("compras_documentos_guardar").addEventListener("click", guardarPlantilla);
+        document.getElementById("compras_documentos_negocio_guardar").addEventListener("click", guardarDatosNegocio);
+        document.getElementById("documentos_logo_subir").addEventListener("click", subirLogo);
+        cargarDatosNegocio();
         cargarPlantillas();
     });
 })();

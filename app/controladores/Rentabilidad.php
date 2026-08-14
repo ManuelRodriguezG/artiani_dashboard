@@ -8,7 +8,7 @@ class Rentabilidad extends Controlador {
 
     public function index() {
         $this->requerirPermiso("rentabilidad.ver");
-        $this->redirigir("/rentabilidad/analisis");
+        $this->redirigir("/rentabilidad/skus");
     }
 
     public function analisis() {

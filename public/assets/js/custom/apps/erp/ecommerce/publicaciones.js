@@ -343,6 +343,12 @@
         $("ecom_publicaciones_body").innerHTML = "<tr><td colspan=\"8\"><div class=\"alert alert-danger mb-0\">" + escapeHtml(mensaje) + "</div></td></tr>";
     }
 
+    function renderPreviewInicial() {
+        $("ecom_preview_publicacion").innerHTML = "<div class=\"d-flex flex-wrap justify-content-between align-items-center gap-2\">" +
+            "<div class=\"text-muted py-2\">Selecciona un SKU publicable para preparar su ficha ecommerce sin guardar cambios.</div>" +
+        "</div>";
+    }
+
     function cargarPreparacion(idSku) {
         var preview = $("ecom_preview_publicacion");
         preview.innerHTML = "<div class=\"text-muted py-4\">Preparando ficha...</div>";
@@ -369,6 +375,13 @@
         var estaPublicado = idPublicacion > 0 && estatus === "publicado";
         var agotado = String(producto.disponibilidad_publica_sugerida || "") === "agotado";
         $("ecom_preview_publicacion").innerHTML =
+            "<div class=\"d-flex flex-wrap justify-content-between align-items-start gap-3 mb-4\">" +
+                "<div>" +
+                    "<div class=\"fw-bold\">Editando publicacion ecommerce</div>" +
+                    "<div class=\"text-muted fs-8\">Puedes cerrar este panel para seguir revisando la tabla sin perder la seleccion del lote.</div>" +
+                "</div>" +
+                "<button class=\"btn btn-sm btn-light\" type=\"button\" id=\"ecom_cerrar_preparacion\">Cerrar edicion</button>" +
+            "</div>" +
             "<div class=\"row g-4 align-items-start\">" +
                 "<div class=\"col-lg-3\">" +
                     "<img class=\"w-100 rounded border\" style=\"max-height:220px;object-fit:cover;background:#f1f3f6\" src=\"" + escapeHtml(imagenUrl(producto.imagen)) + "\" alt=\"\">" +
@@ -434,6 +447,10 @@
         var btnPublicar = $("ecom_publicar_borrador");
         if (btnPublicar) {
             btnPublicar.addEventListener("click", publicarBorradorActual);
+        }
+        var btnCerrar = $("ecom_cerrar_preparacion");
+        if (btnCerrar) {
+            btnCerrar.addEventListener("click", renderPreviewInicial);
         }
     }
 

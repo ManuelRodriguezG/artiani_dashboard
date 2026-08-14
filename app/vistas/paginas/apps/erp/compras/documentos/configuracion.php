@@ -43,6 +43,70 @@ $puedeConfigurar = !empty($datos["puede_configurar"]);
                                 </div>
                             </div>
                             <div class="col-xl-8">
+                                <div class="card mb-6">
+                                    <div class="card-header">
+                                        <h3 class="card-title">Datos del negocio para documentos</h3>
+                                    </div>
+                                    <div class="card-body">
+                                        <div class="row g-5 align-items-end">
+                                            <div class="col-lg-4">
+                                                <label class="form-label">Logo compartido</label>
+                                                <div class="border rounded p-4 d-flex align-items-center justify-content-center" style="min-height: 92px;">
+                                                    <img id="documentos_logo_preview" src="" alt="Logo" class="mw-100 mh-75px d-none">
+                                                    <span id="documentos_logo_empty" class="text-muted fs-7">Sin logo cargado</span>
+                                                </div>
+                                            </div>
+                                            <div class="col-lg-5">
+                                                <label class="form-label">Cargar logo</label>
+                                                <input type="file" class="form-control form-control-solid" id="documentos_logo_archivo" accept=".png,.jpg,.jpeg,.webp,.ico,image/png,image/jpeg,image/webp,image/x-icon">
+                                                <div class="text-muted fs-8 mt-1">PNG, JPG, WEBP o ICO. Maximo 2 MB.</div>
+                                            </div>
+                                            <div class="col-lg-3">
+                                                <button type="button" class="btn btn-light-primary w-100" id="documentos_logo_subir">
+                                                    <i class="bi bi-upload"></i> Subir logo
+                                                </button>
+                                            </div>
+                                        </div>
+
+                                        <div class="separator my-8"></div>
+
+                                        <form id="compras_documentos_negocio_form">
+                                            <div class="row g-5">
+                                                <div class="col-lg-6">
+                                                    <label class="form-label">Nombre comercial</label>
+                                                    <input class="form-control form-control-solid" id="negocio_empresa_nombre" name="empresa_nombre" maxlength="180">
+                                                </div>
+                                                <div class="col-lg-6">
+                                                    <label class="form-label">Razon social</label>
+                                                    <input class="form-control form-control-solid" id="negocio_empresa_razon_social" name="empresa_razon_social" maxlength="180">
+                                                </div>
+                                                <div class="col-lg-3">
+                                                    <label class="form-label">RFC</label>
+                                                    <input class="form-control form-control-solid" id="negocio_empresa_rfc" name="empresa_rfc" maxlength="20">
+                                                </div>
+                                                <div class="col-lg-3">
+                                                    <label class="form-label">Contacto compras</label>
+                                                    <input class="form-control form-control-solid" id="negocio_empresa_contacto" name="empresa_contacto" maxlength="120">
+                                                </div>
+                                                <div class="col-lg-3">
+                                                    <label class="form-label">Email</label>
+                                                    <input class="form-control form-control-solid" id="negocio_empresa_email" name="empresa_email" maxlength="120">
+                                                </div>
+                                                <div class="col-lg-3">
+                                                    <label class="form-label">Telefono</label>
+                                                    <input class="form-control form-control-solid" id="negocio_empresa_telefono" name="empresa_telefono" maxlength="60">
+                                                </div>
+                                                <div class="col-12">
+                                                    <label class="form-label">Direccion visible</label>
+                                                    <input class="form-control form-control-solid" id="negocio_empresa_direccion" name="empresa_direccion">
+                                                </div>
+                                            </div>
+                                            <div class="d-flex justify-content-end mt-6">
+                                                <button type="button" class="btn btn-primary" id="compras_documentos_negocio_guardar">Guardar datos del negocio</button>
+                                            </div>
+                                        </form>
+                                    </div>
+                                </div>
                                 <div class="card">
                                     <div class="card-header">
                                         <h3 class="card-title" id="compras_documentos_titulo">Configuracion</h3>
@@ -57,8 +121,12 @@ $puedeConfigurar = !empty($datos["puede_configurar"]);
                                                     <input class="form-control form-control-solid" id="plantilla_nombre" name="nombre" maxlength="150">
                                                 </div>
                                                 <div class="col-lg-6">
-                                                    <label class="form-label">Ruta de logo</label>
-                                                    <input class="form-control form-control-solid" id="plantilla_logo_ruta" name="logo_ruta" maxlength="255" placeholder="/assets/media/logos/logo.png">
+                                                    <label class="form-label">Titulo del documento</label>
+                                                    <input class="form-control form-control-solid" id="plantilla_titulo_documento" name="titulo_documento" maxlength="150" placeholder="Solicitud de cotizacion">
+                                                </div>
+                                                <div class="col-lg-6">
+                                                    <label class="form-label">Subtitulo para impresion</label>
+                                                    <input class="form-control form-control-solid" id="plantilla_subtitulo_documento" name="subtitulo_documento" maxlength="255">
                                                 </div>
                                                 <div class="col-12">
                                                     <label class="form-label">Descripcion</label>
@@ -107,6 +175,6 @@ $puedeConfigurar = !empty($datos["puede_configurar"]);
 </div>
 <script src="assets/plugins/global/plugins.bundle.js"></script>
 <script src="assets/js/scripts.bundle.js"></script>
-<script src="/assets/js/custom/apps/erp/compras/documentos/configuracion.js?v=20260728-1"></script>
+<script src="/assets/js/custom/apps/erp/compras/documentos/configuracion.js?v=20260813-1"></script>
 </body>
 </html>

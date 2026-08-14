@@ -3,13 +3,51 @@
 class Cms extends Controlador {
 
   /**
-   * Documentacion IA: Codex GPT-5 | Fecha: 2026-08-10
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-08-13
    * Proposito: entrada directa al modulo CMS.
-   * Impacto: CMS; evita una ruta raiz ambigua y dirige al editor principal.
-   * Contrato: vista protegida via `contenido`; no escribe BD.
+   * Impacto: CMS; abre el editor Home del frontend ecommerce actual.
+   * Contrato: vista protegida via `frontend_home`; no edita archivos del frontend.
    */
   public function index() {
-    $this->contenido();
+    $this->frontend_home();
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-08-14
+   * Proposito: enrutar paginas editoriales del frontend CMS como /cms/frontend/home.
+   * Impacto: CMS frontend; ordena el modulo por pagina real del ecommerce.
+   * Contrato: vista protegida; no guarda HTML ni edita archivos del frontend.
+   */
+  public function frontend($pagina = "home") {
+    $pagina = strtolower(trim((string) $pagina));
+    if ($pagina === "" || $pagina === "home") {
+      $this->frontend_home();
+      return;
+    }
+    $this->requerirAlgunPermiso(array("cms.ver", "catalogo.ver"));
+    $this->vista("apps/erp/cms/frontend_placeholder", array("pagina" => $pagina));
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-08-14
+   * Proposito: abrir CMS > Frontend > Home como pantalla operativa principal.
+   * Impacto: CMS frontend Home; separa la captura editorial por pagina.
+   * Contrato: vista protegida; editor local, sin persistencia real del contrato frontend.
+   */
+  public function frontend_home() {
+    $this->requerirAlgunPermiso(array("cms.ver", "catalogo.ver"));
+    $this->vista("apps/erp/cms/frontend_home");
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-08-13
+   * Proposito: abrir la vista CMS enfocada en el contrato real del frontend actual.
+   * Impacto: CMS frontend actual; reemplaza el enfoque generico tipo builder por secciones concretas consumibles por API.
+   * Contrato: vista protegida; primera fase read-only/planeacion operativa, no escribe archivos fuera del ERP.
+   */
+  public function frontend_actual() {
+    $this->requerirAlgunPermiso(array("cms.ver", "catalogo.ver"));
+    $this->vista("apps/erp/cms/frontend_home");
   }
 
   /**
@@ -158,6 +196,17 @@ class Cms extends Controlador {
   }
 
   /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-08-12
+   * Proposito: listar bloques CMS guardados en BD para reutilizarlos en el editor interno.
+   * Impacto: CMS contenido; permite recuperar borradores sin publicarlos ni exponerlos a la API publica.
+   * Contrato: GET protegido por cms.ver/catalogo.ver; solo lectura.
+   */
+  public function contenido_admin_bloques_erp() {
+    $this->requerirAlgunPermiso(array("cms.ver", "catalogo.ver"));
+    return json_encode($this->modelo("EcommerceCatalogoPublico")->contenidoBloquesAdminInterno($_GET), JSON_UNESCAPED_UNICODE);
+  }
+
+  /**
    * Documentacion IA: Codex GPT-5 | Fecha: 2026-08-10
    * Proposito: entregar manifest read-only de plantillas de vista frontend.
    * Impacto: CMS frontend; prepara el contrato que consumira el renderer del ecommerce.
@@ -216,43 +265,107 @@ class Cms extends Controlador {
   }
 
   /**
-   * Documentacion IA: Codex GPT-5 | Fecha: 2026-08-10
-   * Proposito: declarar contrato futuro para guardar bloques CMS sin activar escritura real.
-   * Impacto: CMS; protege la fase read-only ante llamadas anticipadas desde UI o integraciones.
-   * Contrato: POST protegido; siempre responde bloqueado hasta respaldo, DDL y auditoria autorizados.
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-08-12
+   * Proposito: guardar bloques editoriales CMS como borrador real en BD.
+   * Impacto: CMS contenido; habilita persistencia controlada sin publicar slots ni tocar catalogo, precios o inventario.
+   * Contrato: POST protegido por cms.editar/catalogo.editar, CSRF global y auditoria explicita.
    */
   public function contenido_bloque_guardar_erp() {
-    return json_encode($this->respuestaEscrituraCmsBloqueada("contenido_bloque_guardar_erp"));
+    $this->requerirAlgunPermiso(array("cms.editar", "catalogo.editar"));
+    $respuesta = $this->modelo("EcommerceCatalogoPublico")->contenidoBloqueGuardarInterno($_POST, $this->usuarioActualId());
+    $depurar = isset($respuesta["depurar"]) && is_array($respuesta["depurar"]) ? $respuesta["depurar"] : array();
+    SesionSeguridad::registrarAuditoria("cms", "contenido_bloque_guardar_erp", array(
+      "resultado" => empty($respuesta["error"]) ? "ok" : "error",
+      "mensaje" => isset($respuesta["mensaje"]) ? $respuesta["mensaje"] : "",
+      "datos_despues" => array(
+        "id_bloque" => isset($depurar["id_bloque"]) ? $depurar["id_bloque"] : null,
+        "codigo" => isset($depurar["codigo"]) ? $depurar["codigo"] : null,
+        "tipo_bloque" => isset($depurar["tipo_bloque"]) ? $depurar["tipo_bloque"] : null,
+        "estatus" => isset($depurar["estatus"]) ? $depurar["estatus"] : null,
+        "publica_contenido" => false
+      )
+    ));
+    return json_encode($respuesta, JSON_UNESCAPED_UNICODE);
   }
 
   /**
-   * Documentacion IA: Codex GPT-5 | Fecha: 2026-08-10
-   * Proposito: declarar contrato futuro para cambiar estatus de bloques CMS.
-   * Impacto: CMS; evita escrituras reales antes de persistencia autorizada.
-   * Contrato: POST protegido; siempre bloqueado en fase read-only.
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-08-12
+   * Proposito: cambiar estatus de bloques CMS guardados entre borrador y pausado.
+   * Impacto: CMS contenido; permite pausar/reactivar borradores sin publicar contenido real.
+   * Contrato: POST protegido por cms.editar/catalogo.editar, CSRF global y auditoria explicita.
    */
   public function contenido_bloque_estatus_erp() {
-    return json_encode($this->respuestaEscrituraCmsBloqueada("contenido_bloque_estatus_erp"));
+    $this->requerirAlgunPermiso(array("cms.editar", "catalogo.editar"));
+    $respuesta = $this->modelo("EcommerceCatalogoPublico")->contenidoBloqueEstatusInterno($_POST, $this->usuarioActualId());
+    $depurar = isset($respuesta["depurar"]) && is_array($respuesta["depurar"]) ? $respuesta["depurar"] : array();
+    SesionSeguridad::registrarAuditoria("cms", "contenido_bloque_estatus_erp", array(
+      "resultado" => empty($respuesta["error"]) ? "ok" : "error",
+      "mensaje" => isset($respuesta["mensaje"]) ? $respuesta["mensaje"] : "",
+      "datos_antes" => array(
+        "id_bloque" => isset($depurar["id_bloque"]) ? $depurar["id_bloque"] : null,
+        "estatus_anterior" => isset($depurar["estatus_anterior"]) ? $depurar["estatus_anterior"] : null
+      ),
+      "datos_despues" => array(
+        "id_bloque" => isset($depurar["id_bloque"]) ? $depurar["id_bloque"] : null,
+        "estatus" => isset($depurar["estatus"]) ? $depurar["estatus"] : null,
+        "publica_contenido" => false
+      )
+    ));
+    return json_encode($respuesta, JSON_UNESCAPED_UNICODE);
   }
 
   /**
-   * Documentacion IA: Codex GPT-5 | Fecha: 2026-08-10
-   * Proposito: declarar contrato futuro para guardar publicaciones CMS en slots.
-   * Impacto: CMS; preserva el contrato de API interna sin escribir BD.
-   * Contrato: POST protegido; siempre bloqueado en fase read-only.
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-08-13
+   * Proposito: guardar publicacion interna de un bloque CMS en un slot/pagina/contexto.
+   * Impacto: CMS contenido; arma paginas para preview administrativo sin exponerlas aun en API publica.
+   * Contrato: POST protegido por cms.editar/catalogo.editar, CSRF y auditoria explicita; no publica en ecommerce.
    */
   public function contenido_publicacion_guardar_erp() {
-    return json_encode($this->respuestaEscrituraCmsBloqueada("contenido_publicacion_guardar_erp"));
+    $this->requerirAlgunPermiso(array("cms.editar", "catalogo.editar"));
+    $respuesta = $this->modelo("EcommerceCatalogoPublico")->contenidoPublicacionGuardarInterna($_POST, $this->usuarioActualId());
+    $depurar = isset($respuesta["depurar"]) && is_array($respuesta["depurar"]) ? $respuesta["depurar"] : array();
+    SesionSeguridad::registrarAuditoria("cms", "contenido_publicacion_guardar_erp", array(
+      "resultado" => empty($respuesta["error"]) ? "ok" : "error",
+      "mensaje" => isset($respuesta["mensaje"]) ? $respuesta["mensaje"] : "",
+      "datos_despues" => array(
+        "id_publicacion_contenido" => isset($depurar["id_publicacion_contenido"]) ? $depurar["id_publicacion_contenido"] : null,
+        "id_bloque" => isset($depurar["id_bloque"]) ? $depurar["id_bloque"] : null,
+        "slot" => isset($depurar["slot"]) ? $depurar["slot"] : null,
+        "pagina" => isset($depurar["pagina"]) ? $depurar["pagina"] : null,
+        "estatus" => isset($depurar["estatus"]) ? $depurar["estatus"] : null,
+        "publicado_api" => false
+      )
+    ));
+    return json_encode($respuesta, JSON_UNESCAPED_UNICODE);
   }
 
   /**
-   * Documentacion IA: Codex GPT-5 | Fecha: 2026-08-10
-   * Proposito: declarar contrato futuro para cambiar estatus de publicaciones CMS.
-   * Impacto: CMS; impide publicar o pausar contenido real antes de autorizacion.
-   * Contrato: POST protegido; siempre bloqueado en fase read-only.
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-08-13
+   * Proposito: cambiar estatus de publicaciones CMS colocadas en slots.
+   * Impacto: CMS contenido; permite publicar, pausar o devolver a borrador una colocacion interna sin modificar el bloque base.
+   * Contrato: POST protegido por cms.publicar/catalogo.editar, CSRF global y auditoria explicita.
    */
   public function contenido_publicacion_estatus_erp() {
-    return json_encode($this->respuestaEscrituraCmsBloqueada("contenido_publicacion_estatus_erp"));
+    $this->requerirAlgunPermiso(array("cms.publicar", "catalogo.editar"));
+    $respuesta = $this->modelo("EcommerceCatalogoPublico")->contenidoPublicacionEstatusInterna($_POST, $this->usuarioActualId());
+    $depurar = isset($respuesta["depurar"]) && is_array($respuesta["depurar"]) ? $respuesta["depurar"] : array();
+    SesionSeguridad::registrarAuditoria("cms", "contenido_publicacion_estatus_erp", array(
+      "resultado" => empty($respuesta["error"]) ? "ok" : "error",
+      "mensaje" => isset($respuesta["mensaje"]) ? $respuesta["mensaje"] : "",
+      "datos_antes" => array(
+        "id_publicacion_contenido" => isset($depurar["id_publicacion_contenido"]) ? $depurar["id_publicacion_contenido"] : null,
+        "estatus_anterior" => isset($depurar["estatus_anterior"]) ? $depurar["estatus_anterior"] : null
+      ),
+      "datos_despues" => array(
+        "id_publicacion_contenido" => isset($depurar["id_publicacion_contenido"]) ? $depurar["id_publicacion_contenido"] : null,
+        "id_bloque" => isset($depurar["id_bloque"]) ? $depurar["id_bloque"] : null,
+        "slot" => isset($depurar["slot"]) ? $depurar["slot"] : null,
+        "pagina" => isset($depurar["pagina"]) ? $depurar["pagina"] : null,
+        "estatus" => isset($depurar["estatus"]) ? $depurar["estatus"] : null,
+        "publicado_api" => false
+      )
+    ));
+    return json_encode($respuesta, JSON_UNESCAPED_UNICODE);
   }
 
   /**

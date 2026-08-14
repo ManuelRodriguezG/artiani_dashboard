@@ -21,7 +21,7 @@ $js = leer($jsPath);
 
 $rutas = array(
     "analisis" => array("label" => "Resumen ejecutivo", "ruta" => "/rentabilidad/analisis", "titulo" => "Rentabilidad - resumen ejecutivo"),
-    "skus" => array("label" => "SKU y escenarios", "ruta" => "/rentabilidad/skus", "titulo" => "Rentabilidad - SKU y escenarios"),
+    "skus" => array("label" => "Consulta por SKU", "ruta" => "/rentabilidad/skus", "titulo" => "Rentabilidad - consulta por SKU"),
     "cierre" => array("label" => "Cierre comercial", "ruta" => "/rentabilidad/cierre", "titulo" => "Rentabilidad - cierre comercial"),
     "aprobaciones" => array("label" => "Aprobaciones", "ruta" => "/rentabilidad/aprobaciones", "titulo" => "Rentabilidad - aprobaciones"),
     "calidad" => array("label" => "Calidad de datos", "ruta" => "/rentabilidad/calidad", "titulo" => "Rentabilidad - calidad de datos"),
@@ -41,7 +41,14 @@ foreach ($rutas as $vista => $def) {
     $checks[] = check("NAV-RENT-TITLE-" . strtoupper($vista), "Titulo correcto " . $vista, strpos($view, "<title>" . $def["titulo"] . "</title>") !== false);
     if ($vista !== "manual") {
         $checks[] = check("NAV-RENT-MODE-" . strtoupper($vista), "Modo JS " . $vista, strpos($view, 'window.RENTABILIDAD_VISTA = "' . $vista . '";') !== false);
-        $checks[] = check("NAV-RENT-JS-" . strtoupper($vista), "Asset versionado " . $vista, strpos($view, "analisis.js?v=20260804-2") !== false);
+        $checks[] = check("NAV-RENT-JS-" . strtoupper($vista), "Asset versionado " . $vista, strpos($view, "analisis.js?v=20260813-2") !== false);
+        foreach (array("compras_promedio", "compra_ultima", "xml_ultimo", "proveedor_relacion", "inventario_promedio", "catalogo_referencia", "sin_costo") as $origenCosto) {
+            $checks[] = check(
+                "NAV-RENT-ORIGEN-" . strtoupper($vista) . "-" . slug($origenCosto),
+                "Filtro origen costo " . $origenCosto . " en " . $vista,
+                strpos($view, 'value="' . $origenCosto . '"') !== false
+            );
+        }
     }
     if ($vista !== "analisis" && $vista !== "manual") {
         $checks[] = check("NAV-RENT-CTRL-" . strtoupper($vista), "Controlador tiene metodo " . $vista, strpos($controller, "public function " . $vista . "()") !== false);

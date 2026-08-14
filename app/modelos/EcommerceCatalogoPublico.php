@@ -621,8 +621,9 @@ class EcommerceCatalogoPublico extends CRUD {
       "manifest" => "/ecommercePublico/contenido_manifest",
       "home" => "/ecommercePublico/contenido_pagina?pagina=home&plantilla=artiani_default",
       "categoria" => "/ecommercePublico/contenido_pagina?pagina=categoria&categoria={slug_categoria}",
-      "estado" => "default_readonly",
-      "panel_pendiente" => true
+      "estado" => $this->valor($depurarHome, "fuente", "default_readonly"),
+      "panel_pendiente" => $this->valor($depurarHome, "fuente", "default_readonly") !== "bd_publicada",
+      "fallback_default_si_no_hay_publicado" => true
     );
     $respuesta["depurar"]["contenido_inicial"] = array(
       "home" => array(
@@ -635,7 +636,7 @@ class EcommerceCatalogoPublico extends CRUD {
       ),
       "guardrails" => array(
         "read_only" => true,
-        "default_hasta_persistencia" => true,
+        "default_hasta_contenido_publicado" => $this->valor($depurarHome, "fuente", "default_readonly") !== "bd_publicada",
         "frontend_renderiza_plantilla_vista" => true
       )
     );
@@ -649,6 +650,11 @@ class EcommerceCatalogoPublico extends CRUD {
    * Contrato: read-only; no escribe BD ni lee archivos de plantilla del proyecto frontend.
    */
   public function contenidoManifestPublico($opciones = array()) {
+    $manifestBd = $this->contenidoManifestPublicoDesdeBd($opciones);
+    if ($manifestBd !== null) {
+      return $this->respuesta(false, "success", "Manifest de contenido ecommerce disponible desde BD publicada", $manifestBd);
+    }
+
     $plantilla = $this->limpiarFiltroPublico($this->valor($opciones, "plantilla", "artiani_default"));
     if ($plantilla === "") { $plantilla = "artiani_default"; }
     return $this->respuesta(false, "success", "Manifest de contenido ecommerce disponible", array(
@@ -711,6 +717,11 @@ class EcommerceCatalogoPublico extends CRUD {
    * Contrato: read-only; devuelve contenido default hasta activar tablas/panel de captura.
    */
   public function contenidoPaginaPublica($opciones = array()) {
+    $paginaBd = $this->contenidoPaginaPublicaDesdeBd($opciones);
+    if ($paginaBd !== null) {
+      return $this->respuesta(false, "success", "Contenido de pagina ecommerce disponible desde BD publicada", $paginaBd);
+    }
+
     $pagina = $this->limpiarFiltroPublico($this->valor($opciones, "pagina", "home"));
     $plantilla = $this->limpiarFiltroPublico($this->valor($opciones, "plantilla", "artiani_default"));
     $categoria = $this->limpiarFiltroPublico($this->valor($opciones, "categoria", ""));
@@ -764,15 +775,26 @@ class EcommerceCatalogoPublico extends CRUD {
   public function contenidoAdminEstadoInterno($auditoriaEsquema, $planEsquema) {
     $manifest = $this->contenidoManifestPublico();
     $home = $this->contenidoPaginaPublica(array("pagina" => "home"));
-    return $this->respuesta(false, "info", "CMS ecommerce en modo read-only", array(
-      "modo" => "admin_readonly",
-      "fase" => "cms_contenido_diseno_y_panel_inicial",
-      "persistencia_real" => false,
+    $guardrails = $this->contenidoGuardrailsAdmin();
+    $guardrails["read_only"] = false;
+    $guardrails["no_escribe_bd"] = false;
+    $guardrails["persistencia_contenido_interna"] = true;
+    $guardrails["publicaciones_slot_publicables"] = true;
+    $guardrails["api_publica_sigue_fallback_hasta_conectar_bd"] = true;
+
+    return $this->respuesta(false, "info", "CMS ecommerce con persistencia interna de contenido", array(
+      "modo" => "admin_contenido_interno",
+      "fase" => "cms_contenido_publicaciones_internas_bd",
+      "persistencia_real" => true,
+      "persistencia_alcance" => "bloques_y_publicaciones_internas",
       "pantalla" => "/cms/contenido",
       "endpoints_admin" => array(
         "estado" => "/cms/contenido_admin_estado_erp",
         "manifest" => "/cms/contenido_admin_manifest_erp",
-        "pagina" => "/cms/contenido_admin_pagina_erp"
+        "pagina" => "/cms/contenido_admin_pagina_erp",
+        "guardar_bloque" => "/cms/contenido_bloque_guardar_erp",
+        "guardar_publicacion" => "/cms/contenido_publicacion_guardar_erp",
+        "estatus_publicacion" => "/cms/contenido_publicacion_estatus_erp"
       ),
       "endpoints_publicos" => array(
         "manifest" => "/ecommercePublico/contenido_manifest",
@@ -790,7 +812,7 @@ class EcommerceCatalogoPublico extends CRUD {
         "auditoria" => $this->valor($auditoriaEsquema, "depurar", array()),
         "plan" => $this->valor($planEsquema, "depurar", array())
       ),
-      "guardrails" => $this->contenidoGuardrailsAdmin()
+      "guardrails" => $guardrails
     ));
   }
 
@@ -826,6 +848,11 @@ class EcommerceCatalogoPublico extends CRUD {
    * Contrato: read-only; usa contenido default hasta que se autorice persistencia real.
    */
   public function contenidoAdminPaginaInterna($opciones = array()) {
+    $paginaBd = $this->contenidoAdminPaginaDesdeBd($opciones);
+    if ($paginaBd !== null) {
+      return $this->respuesta(false, "success", "Previsualizacion CMS ecommerce disponible desde publicaciones BD internas", $paginaBd);
+    }
+
     $pagina = $this->contenidoPaginaPublica($opciones);
     $depurar = $this->valor($pagina, "depurar", array());
     $depurar["admin"] = array(
@@ -836,6 +863,525 @@ class EcommerceCatalogoPublico extends CRUD {
     );
     $depurar["guardrails"] = array_merge($this->valor($depurar, "guardrails", array()), $this->contenidoGuardrailsAdmin());
     return $this->respuesta(false, "success", "Previsualizacion CMS ecommerce disponible", $depurar);
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-08-12
+   * Proposito: listar bloques CMS editoriales guardados en BD para el panel interno.
+   * Impacto: CMS contenido; habilita reutilizar borradores sin crear publicaciones ni cambiar API publica.
+   * Contrato: read-only; filtra por tipo/estatus y devuelve payload seguro para editor.
+   */
+  public function contenidoBloquesAdminInterno($opciones = array()) {
+    try {
+      $db = $this->getConexion();
+      if (!$db || !$this->tablasCmsContenidoDisponibles($db)) {
+        return $this->respuesta(true, "warning", "El esquema CMS contenido no esta disponible para listar bloques.", array(
+          "items" => array(),
+          "persistencia_real" => false
+        ));
+      }
+
+      $tipo = $this->limpiarCodigoCms($this->valor($opciones, "tipo_bloque", $this->valor($opciones, "tipo", "")), 60);
+      $estatus = $this->limpiarCodigoCms($this->valor($opciones, "estatus", ""), 30);
+      $limite = max(1, min(100, intval($this->valor($opciones, "limite", 50))));
+
+      $where = array("estatus IN ('borrador','pausado')");
+      $params = array();
+      if ($tipo !== "") {
+        $where[] = "tipo_bloque=:tipo";
+        $params[":tipo"] = $tipo;
+      }
+      if (in_array($estatus, array("borrador", "pausado"), true)) {
+        $where[] = "estatus=:estatus";
+        $params[":estatus"] = $estatus;
+      }
+
+      $stmt = $db->prepare(
+        "SELECT id_bloque, tipo_bloque, codigo, nombre_interno, titulo, payload_json, estatus, fecha_registro, fecha_actualizacion " .
+        "FROM erp_ecommerce_contenido_bloques WHERE " . implode(" AND ", $where) . " ORDER BY COALESCE(fecha_actualizacion, fecha_registro) DESC, id_bloque DESC LIMIT " . $limite
+      );
+      $stmt->execute($params);
+
+      $items = array();
+      while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+        $payload = $this->jsonArray($row["payload_json"]);
+        unset($payload["_cms_guardrails"]);
+        $payload["id"] = "bd-" . (int) $row["id_bloque"];
+        $payload["id_bloque"] = (int) $row["id_bloque"];
+        $payload["codigo"] = (string) $row["codigo"];
+        $payload["tipo"] = (string) $row["tipo_bloque"];
+        $payload["estatus"] = (string) $row["estatus"];
+        if (!isset($payload["titulo"]) || trim((string) $payload["titulo"]) === "") {
+          $payload["titulo"] = (string) $row["titulo"];
+        }
+        $items[] = array(
+          "id_bloque" => (int) $row["id_bloque"],
+          "codigo" => (string) $row["codigo"],
+          "tipo_bloque" => (string) $row["tipo_bloque"],
+          "nombre_interno" => (string) $row["nombre_interno"],
+          "titulo" => (string) $row["titulo"],
+          "estatus" => (string) $row["estatus"],
+          "fecha_registro" => (string) $row["fecha_registro"],
+          "fecha_actualizacion" => (string) $row["fecha_actualizacion"],
+          "payload" => $payload
+        );
+      }
+
+      return $this->respuesta(false, "success", "Bloques CMS guardados disponibles.", array(
+        "items" => $items,
+        "total" => count($items),
+        "filtros" => array("tipo_bloque" => $tipo, "estatus" => $estatus, "limite" => $limite),
+        "persistencia_real" => true,
+        "publica_contenido" => false,
+        "guardrails" => array(
+          "solo_lectura" => true,
+          "solo_borrador_pausado" => true,
+          "no_crea_publicacion" => true,
+          "no_modifica_catalogo" => true,
+          "no_modifica_inventario" => true,
+          "api_publica_sigue_fallback" => true
+        )
+      ));
+    } catch (Exception $e) {
+      return $this->respuesta(true, "danger", "No se pudieron listar los bloques CMS.", array(
+        "error_tecnico" => $e->getMessage(),
+        "items" => array()
+      ));
+    }
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-08-12
+   * Proposito: guardar bloques editoriales CMS en BD como borrador o pausado.
+   * Impacto: CMS contenido; habilita primera escritura real sin publicar slots ni modificar catalogo, precios, inventario o publicaciones de producto.
+   * Contrato: requiere tablas CMS creadas; valida tipo, payload JSON y HTML basico; no publica contenido real.
+   */
+  public function contenidoBloqueGuardarInterno($datos, $idUsuario = 0) {
+    try {
+      $db = $this->getConexion();
+      if (!$db || !$this->tablasCmsContenidoDisponibles($db)) {
+        return $this->respuesta(true, "warning", "El esquema CMS contenido no esta disponible para guardar bloques.", array(
+          "persistencia_real" => false,
+          "requiere" => array("respaldo_bd", "ddl_cms_contenido_autorizado")
+        ));
+      }
+
+      $idBloque = intval($this->valor($datos, "id_bloque", 0));
+      $tipo = $this->limpiarCodigoCms($this->valor($datos, "tipo_bloque", $this->valor($datos, "tipo", "")), 60);
+      $tiposPermitidos = $this->contenidoTiposBloqueCodigos();
+      if ($tipo === "" || !in_array($tipo, $tiposPermitidos, true)) {
+        return $this->respuesta(true, "warning", "Tipo de bloque CMS no permitido.", array(
+          "tipo_bloque" => $tipo,
+          "tipos_permitidos" => $tiposPermitidos
+        ));
+      }
+
+      $nombreInterno = trim((string) $this->valor($datos, "nombre_interno", ""));
+      $titulo = trim((string) $this->valor($datos, "titulo", ""));
+      if ($nombreInterno === "") {
+        $nombreInterno = $titulo !== "" ? $titulo : $tipo . " CMS";
+      }
+      $nombreInterno = substr($nombreInterno, 0, 180);
+      $titulo = substr($titulo, 0, 255);
+
+      $estatusSolicitado = $this->limpiarCodigoCms($this->valor($datos, "estatus", "borrador"), 30);
+      $estatus = in_array($estatusSolicitado, array("borrador", "pausado"), true) ? $estatusSolicitado : "borrador";
+
+      $payloadRaw = (string) $this->valor($datos, "payload_json", $this->valor($datos, "payload", "{}"));
+      if (strlen($payloadRaw) > 1024 * 1024) {
+        return $this->respuesta(true, "warning", "El payload del bloque CMS es demasiado grande.", array("limite_bytes" => 1024 * 1024));
+      }
+      $payload = json_decode($payloadRaw, true);
+      if (!is_array($payload)) {
+        return $this->respuesta(true, "warning", "El payload_json del bloque CMS no es JSON valido.", array("json_error" => json_last_error_msg()));
+      }
+      if (!$this->cmsPayloadSeguroParaGuardar($tipo, $payload)) {
+        return $this->respuesta(true, "warning", "El contenido HTML no cumple las reglas de seguridad del CMS.", array(
+          "tipo_bloque" => $tipo,
+          "bloqueado" => array("script", "event_handlers_inline", "javascript_url")
+        ));
+      }
+
+      $payload["_cms_guardrails"] = array(
+        "guardado_desde" => "erp_cms_contenido",
+        "estatus_solicitado" => $estatusSolicitado,
+        "estatus_guardado" => $estatus,
+        "no_publica_contenido" => true,
+        "no_modifica_catalogo" => true,
+        "no_modifica_precios" => true,
+        "no_modifica_inventario" => true
+      );
+      $payloadJson = json_encode($payload, JSON_UNESCAPED_UNICODE);
+      if ($payloadJson === false) {
+        return $this->respuesta(true, "warning", "No se pudo serializar el payload CMS.", array("json_error" => json_last_error_msg()));
+      }
+
+      $codigo = $this->limpiarCodigoCms($this->valor($datos, "codigo", ""), 120);
+      if ($codigo === "") {
+        $codigo = $this->codigoBloqueCmsUnico($db, $tipo, $titulo !== "" ? $titulo : $nombreInterno, $idBloque);
+      } elseif ($this->cmsCodigoBloqueExiste($db, $codigo, $idBloque)) {
+        return $this->respuesta(true, "warning", "Ya existe un bloque CMS con ese codigo.", array("codigo" => $codigo));
+      }
+
+      $db->beginTransaction();
+      if ($idBloque > 0) {
+        $stmtExiste = $db->prepare("SELECT id_bloque FROM erp_ecommerce_contenido_bloques WHERE id_bloque=:id LIMIT 1");
+        $stmtExiste->execute(array(":id" => $idBloque));
+        if (!$stmtExiste->fetchColumn()) {
+          $db->rollBack();
+          return $this->respuesta(true, "warning", "No existe el bloque CMS que intentas actualizar.", array("id_bloque" => $idBloque));
+        }
+
+        $stmt = $db->prepare(
+          "UPDATE erp_ecommerce_contenido_bloques SET tipo_bloque=:tipo, codigo=:codigo, nombre_interno=:nombre, titulo=:titulo, payload_json=:payload, estatus=:estatus, fecha_actualizacion=NOW(), actualizado_por=:usuario WHERE id_bloque=:id"
+        );
+        $stmt->execute(array(
+          ":tipo" => $tipo,
+          ":codigo" => $codigo,
+          ":nombre" => $nombreInterno,
+          ":titulo" => $titulo,
+          ":payload" => $payloadJson,
+          ":estatus" => $estatus,
+          ":usuario" => intval($idUsuario) ?: null,
+          ":id" => $idBloque
+        ));
+      } else {
+        $stmt = $db->prepare(
+          "INSERT INTO erp_ecommerce_contenido_bloques (tipo_bloque, codigo, nombre_interno, titulo, payload_json, estatus, creado_por, actualizado_por) VALUES (:tipo, :codigo, :nombre, :titulo, :payload, :estatus, :creado_por, :actualizado_por)"
+        );
+        $stmt->execute(array(
+          ":tipo" => $tipo,
+          ":codigo" => $codigo,
+          ":nombre" => $nombreInterno,
+          ":titulo" => $titulo,
+          ":payload" => $payloadJson,
+          ":estatus" => $estatus,
+          ":creado_por" => intval($idUsuario) ?: null,
+          ":actualizado_por" => intval($idUsuario) ?: null
+        ));
+        $idBloque = (int) $db->lastInsertId();
+      }
+      $db->commit();
+
+      return $this->respuesta(false, "success", "Bloque CMS guardado como borrador controlado.", array(
+        "id_bloque" => $idBloque,
+        "codigo" => $codigo,
+        "tipo_bloque" => $tipo,
+        "estatus" => $estatus,
+        "estatus_solicitado" => $estatusSolicitado,
+        "persistencia_real" => true,
+        "publicado" => false,
+        "siguiente_paso" => "crear_publicacion_slot_con_vigencia",
+        "guardrails" => array(
+          "solo_tabla_bloques" => true,
+          "no_crea_publicacion" => true,
+          "no_modifica_catalogo" => true,
+          "no_modifica_precios" => true,
+          "no_modifica_inventario" => true,
+          "api_publica_sigue_sin_leer_bloques_borrador" => true
+        )
+      ));
+    } catch (Exception $e) {
+      if (isset($db) && $db instanceof PDO && $db->inTransaction()) {
+        $db->rollBack();
+      }
+      return $this->respuesta(true, "danger", "No se pudo guardar el bloque CMS.", array(
+        "error_tecnico" => $e->getMessage(),
+        "no_modifica_catalogo" => true,
+        "no_modifica_inventario" => true
+      ));
+    }
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-08-12
+   * Proposito: actualizar estatus operativo de un bloque CMS sin publicarlo.
+   * Impacto: CMS contenido; permite pausar/reactivar bloques guardados sin tocar publicaciones, catalogo, precios ni inventario.
+   * Contrato: solo acepta `borrador` o `pausado`; `publicado` queda reservado para publicaciones por slot.
+   */
+  public function contenidoBloqueEstatusInterno($datos, $idUsuario = 0) {
+    try {
+      $db = $this->getConexion();
+      if (!$db || !$this->tablasCmsContenidoDisponibles($db)) {
+        return $this->respuesta(true, "warning", "El esquema CMS contenido no esta disponible para cambiar estatus.", array(
+          "persistencia_real" => false
+        ));
+      }
+
+      $idBloque = intval($this->valor($datos, "id_bloque", 0));
+      $estatus = $this->limpiarCodigoCms($this->valor($datos, "estatus", ""), 30);
+      if ($idBloque <= 0) {
+        return $this->respuesta(true, "warning", "Indica el bloque CMS que quieres actualizar.", array("id_bloque" => $idBloque));
+      }
+      if (!in_array($estatus, array("borrador", "pausado"), true)) {
+        return $this->respuesta(true, "warning", "El estatus de bloque permitido es borrador o pausado.", array(
+          "estatus_solicitado" => $estatus,
+          "publicado_requiere" => "contenido_publicacion_guardar_erp"
+        ));
+      }
+
+      $stmt = $db->prepare("SELECT id_bloque, tipo_bloque, codigo, estatus FROM erp_ecommerce_contenido_bloques WHERE id_bloque=:id LIMIT 1");
+      $stmt->execute(array(":id" => $idBloque));
+      $bloque = $stmt->fetch(PDO::FETCH_ASSOC);
+      if (!$bloque) {
+        return $this->respuesta(true, "warning", "No existe el bloque CMS solicitado.", array("id_bloque" => $idBloque));
+      }
+
+      $estatusAnterior = (string) $bloque["estatus"];
+      $stmtUpdate = $db->prepare("UPDATE erp_ecommerce_contenido_bloques SET estatus=:estatus, fecha_actualizacion=NOW(), actualizado_por=:usuario WHERE id_bloque=:id");
+      $stmtUpdate->execute(array(
+        ":estatus" => $estatus,
+        ":usuario" => intval($idUsuario) ?: null,
+        ":id" => $idBloque
+      ));
+
+      return $this->respuesta(false, "success", "Estatus de bloque CMS actualizado.", array(
+        "id_bloque" => $idBloque,
+        "codigo" => (string) $bloque["codigo"],
+        "tipo_bloque" => (string) $bloque["tipo_bloque"],
+        "estatus_anterior" => $estatusAnterior,
+        "estatus" => $estatus,
+        "persistencia_real" => true,
+        "publicado" => false,
+        "guardrails" => array(
+          "solo_borrador_pausado" => true,
+          "no_crea_publicacion" => true,
+          "no_modifica_catalogo" => true,
+          "no_modifica_precios" => true,
+          "no_modifica_inventario" => true,
+          "api_publica_sigue_sin_leer_bloques_borrador" => true
+        )
+      ));
+    } catch (Exception $e) {
+      return $this->respuesta(true, "danger", "No se pudo actualizar el estatus del bloque CMS.", array(
+        "error_tecnico" => $e->getMessage(),
+        "no_modifica_catalogo" => true,
+        "no_modifica_inventario" => true
+      ));
+    }
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-08-13
+   * Proposito: colocar un bloque CMS guardado en un slot/pagina como publicacion interna borrador.
+   * Impacto: CMS contenido; permite armar paginas desde BD para preview administrativo sin cambiar la API publica.
+   * Contrato: solo guarda publicaciones `borrador` o `pausado`; publicar real queda reservado para fase posterior.
+   */
+  public function contenidoPublicacionGuardarInterna($datos, $idUsuario = 0) {
+    try {
+      $db = $this->getConexion();
+      if (!$db || !$this->tablasCmsContenidoDisponibles($db)) {
+        return $this->respuesta(true, "warning", "El esquema CMS contenido no esta disponible para guardar publicaciones.", array("persistencia_real" => false));
+      }
+
+      $idBloque = intval($this->valor($datos, "id_bloque", 0));
+      $idPublicacion = intval($this->valor($datos, "id_publicacion_contenido", $this->valor($datos, "id_publicacion", 0)));
+      $plantillaCodigo = $this->limpiarCodigoCms($this->valor($datos, "plantilla", "artiani_default"), 80);
+      if ($plantillaCodigo === "") { $plantillaCodigo = "artiani_default"; }
+      $slotCodigo = $this->limpiarCodigoCms($this->valor($datos, "slot", $this->valor($datos, "slot_codigo", "")), 120);
+      $pagina = $this->limpiarCodigoCms($this->valor($datos, "pagina", "home"), 60);
+      if ($pagina === "") { $pagina = "home"; }
+      $contexto = $this->cmsContextoContenido($pagina, $this->valor($datos, "contexto_clave", $this->valor($datos, "categoria", "")));
+      $estatusSolicitado = $this->limpiarCodigoCms($this->valor($datos, "estatus", "borrador"), 30);
+      $estatus = in_array($estatusSolicitado, array("borrador", "pausado"), true) ? $estatusSolicitado : "borrador";
+      $orden = intval($this->valor($datos, "orden", 0));
+      $canal = "catalogo_publico";
+      $desde = $this->cmsFechaSql($this->valor($datos, "vigente_desde", $this->valor($datos, "desde", "")));
+      $hasta = $this->cmsFechaSql($this->valor($datos, "vigente_hasta", $this->valor($datos, "hasta", "")));
+
+      if ($idBloque <= 0 || $slotCodigo === "") {
+        return $this->respuesta(true, "warning", "Indica bloque y slot para guardar la publicacion CMS.", array("id_bloque" => $idBloque, "slot" => $slotCodigo));
+      }
+
+      $stmtPlantilla = $db->prepare("SELECT id_plantilla, codigo FROM erp_ecommerce_plantillas WHERE codigo=:codigo AND activa=1 LIMIT 1");
+      $stmtPlantilla->execute(array(":codigo" => $plantillaCodigo));
+      $plantilla = $stmtPlantilla->fetch(PDO::FETCH_ASSOC);
+      if (!$plantilla) {
+        return $this->respuesta(true, "warning", "No existe plantilla CMS activa para publicar contenido.", array("plantilla" => $plantillaCodigo));
+      }
+
+      $stmtSlot = $db->prepare("SELECT * FROM erp_ecommerce_plantilla_slots WHERE id_plantilla=:plantilla AND codigo=:codigo AND estatus='activo' LIMIT 1");
+      $stmtSlot->execute(array(":plantilla" => (int) $plantilla["id_plantilla"], ":codigo" => $slotCodigo));
+      $slot = $stmtSlot->fetch(PDO::FETCH_ASSOC);
+      if (!$slot) {
+        return $this->respuesta(true, "warning", "El slot CMS no existe en la plantilla activa.", array("slot" => $slotCodigo));
+      }
+      if ((string) $slot["pagina"] !== $pagina) {
+        return $this->respuesta(true, "warning", "El slot no pertenece a la pagina indicada.", array("slot_pagina" => $slot["pagina"], "pagina" => $pagina));
+      }
+
+      $stmtBloque = $db->prepare("SELECT id_bloque, tipo_bloque, codigo, estatus FROM erp_ecommerce_contenido_bloques WHERE id_bloque=:id LIMIT 1");
+      $stmtBloque->execute(array(":id" => $idBloque));
+      $bloque = $stmtBloque->fetch(PDO::FETCH_ASSOC);
+      if (!$bloque) {
+        return $this->respuesta(true, "warning", "No existe el bloque CMS para publicar.", array("id_bloque" => $idBloque));
+      }
+      $tiposSlot = $this->jsonArray($slot["tipos_bloque_json"]);
+      if (!in_array((string) $bloque["tipo_bloque"], $tiposSlot, true)) {
+        return $this->respuesta(true, "warning", "El tipo de bloque no es compatible con el slot.", array(
+          "tipo_bloque" => (string) $bloque["tipo_bloque"],
+          "slot" => $slotCodigo,
+          "tipos_permitidos" => $tiposSlot
+        ));
+      }
+
+      if ($orden <= 0) {
+        $orden = $this->cmsSiguienteOrdenPublicacion($db, (int) $plantilla["id_plantilla"], (int) $slot["id_slot"], $pagina, $contexto, $canal);
+      }
+
+      $max = intval($slot["max_bloques"]);
+      if ($max > 0 && $this->cmsConteoPublicacionesSlot($db, (int) $plantilla["id_plantilla"], (int) $slot["id_slot"], $pagina, $contexto, $canal, $idPublicacion) >= $max) {
+        return $this->respuesta(true, "warning", "El slot ya alcanzo el maximo de bloques permitidos.", array("slot" => $slotCodigo, "max_bloques" => $max));
+      }
+
+      if ($idPublicacion <= 0) {
+        $idPublicacion = $this->cmsPublicacionExistente($db, (int) $plantilla["id_plantilla"], (int) $slot["id_slot"], $idBloque, $pagina, $contexto, $canal);
+      }
+
+      if ($idPublicacion > 0) {
+        $stmt = $db->prepare(
+          "UPDATE erp_ecommerce_contenido_publicaciones SET orden=:orden, estatus=:estatus, vigente_desde=:desde, vigente_hasta=:hasta, fecha_actualizacion=NOW(), actualizado_por=:usuario WHERE id_publicacion_contenido=:id"
+        );
+        $stmt->execute(array(":orden" => $orden, ":estatus" => $estatus, ":desde" => $desde, ":hasta" => $hasta, ":usuario" => intval($idUsuario) ?: null, ":id" => $idPublicacion));
+      } else {
+        $stmt = $db->prepare(
+          "INSERT INTO erp_ecommerce_contenido_publicaciones (id_plantilla, id_slot, id_bloque, pagina, contexto_clave, orden, estatus, vigente_desde, vigente_hasta, canal, actualizado_por) VALUES (:plantilla, :slot, :bloque, :pagina, :contexto, :orden, :estatus, :desde, :hasta, :canal, :usuario)"
+        );
+        $stmt->execute(array(
+          ":plantilla" => (int) $plantilla["id_plantilla"],
+          ":slot" => (int) $slot["id_slot"],
+          ":bloque" => $idBloque,
+          ":pagina" => $pagina,
+          ":contexto" => $contexto,
+          ":orden" => $orden,
+          ":estatus" => $estatus,
+          ":desde" => $desde,
+          ":hasta" => $hasta,
+          ":canal" => $canal,
+          ":usuario" => intval($idUsuario) ?: null
+        ));
+        $idPublicacion = (int) $db->lastInsertId();
+      }
+
+      return $this->respuesta(false, "success", "Publicacion CMS interna guardada como borrador.", array(
+        "id_publicacion_contenido" => $idPublicacion,
+        "id_bloque" => $idBloque,
+        "slot" => $slotCodigo,
+        "pagina" => $pagina,
+        "contexto_clave" => $contexto,
+        "orden" => $orden,
+        "estatus" => $estatus,
+        "estatus_solicitado" => $estatusSolicitado,
+        "publicado_api" => false,
+        "guardrails" => array(
+          "preview_admin_bd" => true,
+          "no_api_publica" => true,
+          "no_modifica_catalogo" => true,
+          "no_modifica_inventario" => true
+        )
+      ));
+    } catch (Exception $e) {
+      return $this->respuesta(true, "danger", "No se pudo guardar la publicacion CMS.", array("error_tecnico" => $e->getMessage()));
+    }
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-08-13
+   * Proposito: cambiar estatus de una publicacion CMS interna colocada en slot.
+   * Impacto: CMS contenido; permite flujo editorial revisar -> publicar/pausar sin tocar catalogo, precios, inventario ni bloque base.
+   * Contrato: acepta borrador, pausado o publicado; solo marca la publicacion, la API publica se conecta en una fase separada.
+   */
+  public function contenidoPublicacionEstatusInterna($datos, $idUsuario = 0) {
+    try {
+      $db = $this->getConexion();
+      if (!$db || !$this->tablasCmsContenidoDisponibles($db)) {
+        return $this->respuesta(true, "warning", "El esquema CMS contenido no esta disponible para cambiar publicaciones.", array("persistencia_real" => false));
+      }
+
+      $idPublicacion = intval($this->valor($datos, "id_publicacion_contenido", $this->valor($datos, "id_publicacion", 0)));
+      $estatus = $this->limpiarCodigoCms($this->valor($datos, "estatus", ""), 30);
+      if ($idPublicacion <= 0 || !in_array($estatus, array("borrador", "pausado", "publicado"), true)) {
+        return $this->respuesta(true, "warning", "Indica publicacion y estatus valido.", array(
+          "id_publicacion_contenido" => $idPublicacion,
+          "estatus" => $estatus,
+          "estatus_permitidos" => array("borrador", "pausado", "publicado")
+        ));
+      }
+
+      $stmt = $db->prepare(
+        "SELECT pub.id_publicacion_contenido, pub.id_bloque, pub.pagina, pub.contexto_clave, pub.orden, pub.estatus, pub.vigente_desde, pub.vigente_hasta, s.codigo AS slot_codigo, s.tipos_bloque_json, b.estatus AS estatus_bloque, b.tipo_bloque, b.titulo, b.payload_json " .
+        "FROM erp_ecommerce_contenido_publicaciones pub " .
+        "INNER JOIN erp_ecommerce_plantilla_slots s ON s.id_slot=pub.id_slot " .
+        "INNER JOIN erp_ecommerce_contenido_bloques b ON b.id_bloque=pub.id_bloque " .
+        "WHERE pub.id_publicacion_contenido=:id LIMIT 1"
+      );
+      $stmt->execute(array(":id" => $idPublicacion));
+      $publicacion = $stmt->fetch(PDO::FETCH_ASSOC);
+      if (!$publicacion) {
+        return $this->respuesta(true, "warning", "No existe la publicacion CMS indicada.", array("id_publicacion_contenido" => $idPublicacion));
+      }
+
+      if ($estatus === "publicado" && (string) $publicacion["estatus_bloque"] === "pausado") {
+        return $this->respuesta(true, "warning", "No puedes publicar una colocacion cuyo bloque base esta pausado.", array(
+          "id_publicacion_contenido" => $idPublicacion,
+          "id_bloque" => (int) $publicacion["id_bloque"],
+          "estatus_bloque" => (string) $publicacion["estatus_bloque"]
+        ));
+      }
+
+      if ($estatus === "publicado") {
+        $validacion = $this->cmsValidarPublicacionAntesDePublicar($publicacion);
+        if (!empty($validacion["errores"])) {
+          return $this->respuesta(true, "warning", "La publicacion CMS no cumple las reglas para publicarse.", array(
+            "id_publicacion_contenido" => $idPublicacion,
+            "id_bloque" => (int) $publicacion["id_bloque"],
+            "slot" => (string) $publicacion["slot_codigo"],
+            "tipo_bloque" => (string) $publicacion["tipo_bloque"],
+            "bloqueos_publicacion" => $validacion["errores"],
+            "alertas_publicacion" => $validacion["alertas"],
+            "guardrails" => array(
+              "validacion_server_side" => true,
+              "no_publica_con_errores" => true,
+              "no_modifica_bloque_base" => true
+            )
+          ));
+        }
+      }
+
+      $estatusAnterior = (string) $publicacion["estatus"];
+      $stmtActualizar = $db->prepare(
+        "UPDATE erp_ecommerce_contenido_publicaciones SET estatus=:estatus, fecha_actualizacion=NOW(), actualizado_por=:usuario, publicado_por=CASE WHEN :estatus_publicado='publicado' THEN :usuario_publica ELSE publicado_por END WHERE id_publicacion_contenido=:id"
+      );
+      $stmtActualizar->execute(array(
+        ":estatus" => $estatus,
+        ":usuario" => intval($idUsuario) ?: null,
+        ":estatus_publicado" => $estatus,
+        ":usuario_publica" => intval($idUsuario) ?: null,
+        ":id" => $idPublicacion
+      ));
+
+      return $this->respuesta(false, "success", "Estatus de publicacion CMS actualizado.", array(
+        "id_publicacion_contenido" => $idPublicacion,
+        "id_bloque" => (int) $publicacion["id_bloque"],
+        "slot" => (string) $publicacion["slot_codigo"],
+        "pagina" => (string) $publicacion["pagina"],
+        "contexto_clave" => (string) $publicacion["contexto_clave"],
+        "orden" => (int) $publicacion["orden"],
+        "estatus_anterior" => $estatusAnterior,
+        "estatus" => $estatus,
+        "publicado_api" => false,
+        "guardrails" => array(
+          "solo_publicacion_slot" => true,
+          "no_modifica_bloque_base" => true,
+          "no_modifica_catalogo" => true,
+          "no_modifica_precios" => true,
+          "no_modifica_inventario" => true,
+          "api_publica_pendiente_de_conexion_bd" => true
+        )
+      ));
+    } catch (Exception $e) {
+      return $this->respuesta(true, "danger", "No se pudo actualizar la publicacion CMS.", array("error_tecnico" => $e->getMessage()));
+    }
   }
 
   /**
@@ -7119,6 +7665,355 @@ class EcommerceCatalogoPublico extends CRUD {
     return (bool) $stmt->fetchColumn();
   }
 
+  private function contenidoAdminPaginaDesdeBd($opciones = array()) {
+    try {
+      $db = $this->getConexion();
+      if (!$db || !$this->tablasCmsContenidoDisponibles($db)) {
+        return null;
+      }
+
+      $pagina = $this->limpiarCodigoCms($this->valor($opciones, "pagina", "home"), 60);
+      if ($pagina === "") { $pagina = "home"; }
+      $plantillaCodigo = $this->limpiarCodigoCms($this->valor($opciones, "plantilla", "artiani_default"), 80);
+      if ($plantillaCodigo === "") { $plantillaCodigo = "artiani_default"; }
+      $contexto = $this->cmsContextoContenido($pagina, $this->valor($opciones, "contexto_clave", $this->valor($opciones, "categoria", "")));
+
+      $stmtPlantilla = $db->prepare("SELECT id_plantilla, codigo FROM erp_ecommerce_plantillas WHERE codigo=:codigo AND activa=1 LIMIT 1");
+      $stmtPlantilla->execute(array(":codigo" => $plantillaCodigo));
+      $plantilla = $stmtPlantilla->fetch(PDO::FETCH_ASSOC);
+      if (!$plantilla) {
+        return null;
+      }
+
+      $slotsDef = $this->cmsContenidoSlotsDesdeBd($db, (int) $plantilla["id_plantilla"]);
+      $slots = array();
+      $bloquesTotal = 0;
+      foreach ($slotsDef as $slotDef) {
+        if ((string) $slotDef["pagina"] !== $pagina) {
+          continue;
+        }
+        $bloques = $this->cmsBloquesPublicadosAdminSlot($db, (int) $plantilla["id_plantilla"], (string) $slotDef["codigo"], $pagina, $contexto);
+        $bloquesTotal += count($bloques);
+        $slots[] = array(
+          "slot" => (string) $slotDef["codigo"],
+          "nombre" => (string) $slotDef["nombre"],
+          "contexto" => $contexto,
+          "bloques" => $bloques
+        );
+      }
+
+      if ($bloquesTotal <= 0) {
+        return null;
+      }
+
+      $publicaDefault = $this->contenidoPaginaPublica($opciones);
+      $defaultDepurar = $this->valor($publicaDefault, "depurar", array());
+      $plantillaVista = $this->valor($defaultDepurar, "plantilla_vista", $this->plantillaVistaPaginaDefault($pagina));
+
+      return array(
+        "pagina" => $pagina,
+        "plantilla" => $plantillaCodigo,
+        "contexto" => $contexto,
+        "fuente" => "bd_admin_publicaciones",
+        "version_contenido" => "admin-bd-" . date("Ymd"),
+        "plantilla_vista" => $plantillaVista,
+        "slots" => $slots,
+        "resumen" => array(
+          "slots_total" => count($slots),
+          "bloques_total" => $bloquesTotal,
+          "tiene_hero" => $this->contenidoTieneSlot($slots, "home.hero") || $this->contenidoTieneSlot($slots, "categoria.banner"),
+          "api_publica_conectada" => false
+        ),
+        "links" => $this->valor($defaultDepurar, "links", array()),
+        "admin" => array(
+          "modo" => "preview_bd_interno",
+          "previsualizacion_json" => true,
+          "fuente_actual" => "bd_admin_publicaciones",
+          "publica_api" => false
+        ),
+        "guardrails" => array_merge($this->contenidoGuardrailsAdmin(), array(
+          "read_only" => false,
+          "no_escribe_bd" => false,
+          "solo_preview_admin" => true,
+          "api_publica_sigue_fallback_hasta_publicar" => true,
+          "no_modifica_catalogo" => true,
+          "no_modifica_inventario" => true
+        ))
+      );
+    } catch (Exception $e) {
+      return null;
+    }
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-08-13
+   * Proposito: leer pagina CMS publicada desde BD para la API publica ecommerce.
+   * Impacto: Frontend ecommerce; permite renderizar home/categorias/catalogo con contenido publicado sin leer archivos ERP.
+   * Contrato: solo lectura; devuelve null para fallback default si no hay publicaciones publicadas/vigentes.
+   */
+  private function contenidoPaginaPublicaDesdeBd($opciones = array()) {
+    try {
+      $db = $this->getConexion();
+      if (!$db || !$this->tablasCmsContenidoDisponibles($db)) {
+        return null;
+      }
+
+      $pagina = $this->limpiarCodigoCms($this->valor($opciones, "pagina", "home"), 60);
+      if ($pagina === "") { $pagina = "home"; }
+      if (!in_array($pagina, array("home", "categoria", "catalogo"), true)) {
+        $pagina = "home";
+      }
+      $plantillaCodigo = $this->limpiarCodigoCms($this->valor($opciones, "plantilla", "artiani_default"), 80);
+      if ($plantillaCodigo === "") { $plantillaCodigo = "artiani_default"; }
+      $categoria = $this->limpiarFiltroPublico($this->valor($opciones, "categoria", ""));
+      $contexto = $this->cmsContextoContenido($pagina, $this->valor($opciones, "contexto_clave", $categoria));
+
+      $stmtPlantilla = $db->prepare("SELECT id_plantilla, codigo FROM erp_ecommerce_plantillas WHERE codigo=:codigo AND activa=1 LIMIT 1");
+      $stmtPlantilla->execute(array(":codigo" => $plantillaCodigo));
+      $plantilla = $stmtPlantilla->fetch(PDO::FETCH_ASSOC);
+      if (!$plantilla) {
+        return null;
+      }
+
+      $slotsDef = $this->cmsContenidoSlotsDesdeBd($db, (int) $plantilla["id_plantilla"]);
+      $slots = array();
+      $bloquesTotal = 0;
+      foreach ($slotsDef as $slotDef) {
+        if ((string) $slotDef["pagina"] !== $pagina) {
+          continue;
+        }
+        $bloques = $this->cmsBloquesPublicosSlot($db, (int) $plantilla["id_plantilla"], (string) $slotDef["codigo"], $pagina, $contexto);
+        $bloquesTotal += count($bloques);
+        $slots[] = array(
+          "slot" => (string) $slotDef["codigo"],
+          "nombre" => (string) $slotDef["nombre"],
+          "contexto" => $contexto,
+          "bloques" => $bloques
+        );
+      }
+
+      if ($bloquesTotal <= 0) {
+        return null;
+      }
+
+      return array(
+        "pagina" => $pagina,
+        "plantilla" => $plantillaCodigo,
+        "categoria" => $categoria,
+        "contexto" => $contexto,
+        "fuente" => "bd_publicada",
+        "editable_desde_panel" => true,
+        "panel_pendiente" => false,
+        "version_contenido" => "bd-publicada-" . date("Ymd"),
+        "plantilla_vista" => $this->plantillaVistaPublicaDesdeBd($pagina, $contexto),
+        "slots" => $slots,
+        "resumen" => array(
+          "slots_total" => count($slots),
+          "bloques_total" => $bloquesTotal,
+          "tiene_hero" => $this->contenidoTieneSlot($slots, "home.hero") || $this->contenidoTieneSlot($slots, "categoria.banner"),
+          "contenido_publicado_bd" => true
+        ),
+        "links" => array(
+          "manifest" => "/ecommercePublico/contenido_manifest?plantilla=" . $plantillaCodigo,
+          "configuracion_inicial" => "/ecommercePublico/configuracion_inicial",
+          "catalogo" => "/ecommercePublico/catalogo",
+          "secciones" => "/ecommercePublico/secciones"
+        ),
+        "guardrails" => array(
+          "read_only" => true,
+          "no_escribe_bd" => true,
+          "no_modifica_catalogo" => true,
+          "no_modifica_inventario" => true,
+          "no_checkout" => true,
+          "solo_publicado" => true,
+          "solo_vigente" => true,
+          "fallback_default_si_no_hay_publicado" => true,
+          "frontend_renderiza_plantilla_vista" => true
+        )
+      );
+    } catch (Exception $e) {
+      return null;
+    }
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-08-13
+   * Proposito: leer manifest publico CMS desde estructura BD cuando existe semilla valida.
+   * Impacto: Frontend ecommerce; publica slots, tipos y componentes permitidos sin metadatos internos de administracion.
+   * Contrato: solo lectura; no revela borradores ni endpoints internos `/cms/*`.
+   */
+  private function contenidoManifestPublicoDesdeBd($opciones = array()) {
+    try {
+      $db = $this->getConexion();
+      if (!$db || !$this->tablasCmsContenidoDisponibles($db)) {
+        return null;
+      }
+
+      $plantillaCodigo = $this->limpiarCodigoCms($this->valor($opciones, "plantilla", "artiani_default"), 80);
+      if ($plantillaCodigo === "") { $plantillaCodigo = "artiani_default"; }
+      $stmtPlantilla = $db->prepare("SELECT * FROM erp_ecommerce_plantillas WHERE codigo=:codigo AND activa=1 LIMIT 1");
+      $stmtPlantilla->execute(array(":codigo" => $plantillaCodigo));
+      $plantilla = $stmtPlantilla->fetch(PDO::FETCH_ASSOC);
+      if (!$plantilla) {
+        return null;
+      }
+
+      $slots = $this->cmsContenidoSlotsDesdeBd($db, (int) $plantilla["id_plantilla"]);
+      if (empty($slots)) {
+        return null;
+      }
+      $frontend = $this->frontendPlantillasAdminManifestDesdeBd();
+      $plantillasVista = $frontend !== null ? $this->valor($frontend, "plantillas_vista", array()) : array(
+        $this->plantillaVistaPaginaDefault("home"),
+        $this->plantillaVistaPaginaDefault("categoria"),
+        $this->plantillaVistaPaginaDefault("catalogo")
+      );
+      $componentesFrontend = $frontend !== null ? $this->valor($frontend, "componentes", array()) : $this->componentesFrontendDefault();
+      $temaActivo = $frontend !== null ? $this->valor($frontend, "tema_activo", array()) : array(
+        "codigo" => "wokiee_artiani",
+        "nombre" => "Wokiee Artiani",
+        "proveedor" => "ThemeForest/Wokiee",
+        "estado" => "fallback_default"
+      );
+
+      return array(
+        "cms" => array(
+          "fase" => "fase_10_cms_contenido_publicado_bd",
+          "estado" => "estructura_bd_con_lectura_publica",
+          "headless" => true,
+          "panel_pendiente" => false,
+          "endpoint_principal" => "/ecommercePublico/contenido_pagina"
+        ),
+        "plantilla_activa" => $plantillaCodigo,
+        "tema_visual_activo" => $temaActivo,
+        "plantillas" => array(
+          array(
+            "codigo" => (string) $plantilla["codigo"],
+            "nombre" => (string) $plantilla["nombre"],
+            "descripcion" => (string) $plantilla["descripcion"],
+            "version" => (string) $plantilla["version_plantilla"],
+            "estatus" => (string) $plantilla["estatus"],
+            "fuente" => "bd_publicada",
+            "slots" => $slots
+          )
+        ),
+        "tipos_bloque" => $this->contenidoTiposBloqueDefault(),
+        "plantillas_vista" => $plantillasVista,
+        "componentes_frontend" => $componentesFrontend,
+        "paginas_soportadas" => array(
+          array("codigo" => "home", "endpoint" => "/ecommercePublico/contenido_pagina?pagina=home&plantilla=" . $plantillaCodigo),
+          array("codigo" => "categoria", "endpoint" => "/ecommercePublico/contenido_pagina?pagina=categoria&categoria={slug_categoria}&plantilla=" . $plantillaCodigo),
+          array("codigo" => "catalogo", "endpoint" => "/ecommercePublico/contenido_pagina?pagina=catalogo&plantilla=" . $plantillaCodigo)
+        ),
+        "parametros" => array(
+          "pagina" => "home|categoria|catalogo",
+          "plantilla" => "artiani_default por defecto",
+          "categoria" => "slug/codigo de categoria cuando pagina=categoria"
+        ),
+        "guardrails" => array(
+          "read_only" => true,
+          "no_escribe_bd" => true,
+          "no_modifica_catalogo" => true,
+          "no_modifica_inventario" => true,
+          "frontend_renderiza_plantilla" => true,
+          "frontend_renderiza_plantilla_vista" => true,
+          "erp_entrega_contenido_json" => true,
+          "solo_publicado_vigente_en_pagina" => true,
+          "no_expone_endpoints_admin" => true
+        )
+      );
+    } catch (Exception $e) {
+      return null;
+    }
+  }
+
+  private function cmsBloquesPublicadosAdminSlot($db, $idPlantilla, $slotCodigo, $pagina, $contexto) {
+    $stmt = $db->prepare(
+      "SELECT pub.id_publicacion_contenido, pub.orden, pub.estatus AS estatus_publicacion, pub.vigente_desde, pub.vigente_hasta, pub.contexto_clave, b.id_bloque, b.tipo_bloque, b.codigo, b.titulo, b.payload_json, b.estatus AS estatus_bloque " .
+      "FROM erp_ecommerce_contenido_publicaciones pub " .
+      "INNER JOIN erp_ecommerce_plantilla_slots s ON s.id_slot=pub.id_slot " .
+      "INNER JOIN erp_ecommerce_contenido_bloques b ON b.id_bloque=pub.id_bloque " .
+      "WHERE pub.id_plantilla=:plantilla AND s.codigo=:slot AND pub.pagina=:pagina AND pub.contexto_clave=:contexto AND pub.estatus IN ('borrador','pausado','publicado') " .
+      "ORDER BY pub.orden ASC, pub.id_publicacion_contenido ASC"
+    );
+    $stmt->execute(array(":plantilla" => (int) $idPlantilla, ":slot" => $slotCodigo, ":pagina" => $pagina, ":contexto" => $contexto));
+    $bloques = array();
+    while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+      $payload = $this->jsonArray($row["payload_json"]);
+      unset($payload["_cms_guardrails"]);
+      $payload["id"] = "bd-" . (int) $row["id_bloque"];
+      $payload["id_bloque"] = (int) $row["id_bloque"];
+      $payload["id_publicacion_contenido"] = (int) $row["id_publicacion_contenido"];
+      $payload["codigo"] = (string) $row["codigo"];
+      $payload["tipo"] = (string) $row["tipo_bloque"];
+      $payload["estatus"] = (string) $row["estatus_publicacion"];
+      if (!isset($payload["titulo"]) || trim((string) $payload["titulo"]) === "") {
+        $payload["titulo"] = (string) $row["titulo"];
+      }
+      $payload["vigencia"] = array("desde" => (string) $row["vigente_desde"], "hasta" => (string) $row["vigente_hasta"]);
+      $payload["publicacion"] = array(
+        "id_publicacion_contenido" => (int) $row["id_publicacion_contenido"],
+        "orden" => (int) $row["orden"],
+        "estatus" => (string) $row["estatus_publicacion"],
+        "contexto_clave" => (string) $row["contexto_clave"],
+        "fuente" => "bd_admin_publicaciones",
+        "publica_api" => false
+      );
+      $bloques[] = $payload;
+    }
+    return $bloques;
+  }
+
+  private function cmsBloquesPublicosSlot($db, $idPlantilla, $slotCodigo, $pagina, $contexto) {
+    $stmt = $db->prepare(
+      "SELECT pub.id_publicacion_contenido, pub.orden, pub.estatus AS estatus_publicacion, pub.vigente_desde, pub.vigente_hasta, pub.contexto_clave, b.id_bloque, b.tipo_bloque, b.codigo, b.titulo, b.payload_json, b.estatus AS estatus_bloque " .
+      "FROM erp_ecommerce_contenido_publicaciones pub " .
+      "INNER JOIN erp_ecommerce_plantilla_slots s ON s.id_slot=pub.id_slot " .
+      "INNER JOIN erp_ecommerce_contenido_bloques b ON b.id_bloque=pub.id_bloque " .
+      "WHERE pub.id_plantilla=:plantilla AND s.codigo=:slot AND pub.pagina=:pagina AND pub.contexto_clave=:contexto AND pub.estatus='publicado' AND b.estatus<>'pausado' " .
+      "AND (pub.vigente_desde IS NULL OR pub.vigente_desde<=NOW()) AND (pub.vigente_hasta IS NULL OR pub.vigente_hasta>=NOW()) " .
+      "ORDER BY pub.orden ASC, pub.id_publicacion_contenido ASC"
+    );
+    $stmt->execute(array(":plantilla" => (int) $idPlantilla, ":slot" => $slotCodigo, ":pagina" => $pagina, ":contexto" => $contexto));
+    $bloques = array();
+    while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+      $payload = $this->jsonArray($row["payload_json"]);
+      unset($payload["_cms_guardrails"]);
+      $payload["id"] = "cms-" . (int) $row["id_publicacion_contenido"];
+      $payload["codigo"] = (string) $row["codigo"];
+      $payload["tipo"] = (string) $row["tipo_bloque"];
+      $payload["estatus"] = "publicado";
+      if (!isset($payload["titulo"]) || trim((string) $payload["titulo"]) === "") {
+        $payload["titulo"] = (string) $row["titulo"];
+      }
+      $payload["vigencia"] = array("desde" => (string) $row["vigente_desde"], "hasta" => (string) $row["vigente_hasta"]);
+      $payload["publicacion"] = array(
+        "orden" => (int) $row["orden"],
+        "estatus" => "publicado",
+        "contexto_clave" => (string) $row["contexto_clave"],
+        "fuente" => "bd_publicada",
+        "publica_api" => true
+      );
+      $bloques[] = $payload;
+    }
+    return $bloques;
+  }
+
+  private function plantillaVistaPublicaDesdeBd($pagina, $contexto) {
+    $frontend = $this->frontendPlantillasAdminManifestDesdeBd();
+    if ($frontend === null) {
+      return $this->plantillaVistaPaginaDefault($pagina);
+    }
+    $activaciones = $this->valor($frontend, "activaciones", array());
+    $codigo = $this->cmsFrontendPlantillaActivaPorPagina($activaciones, $pagina, $this->valor($this->plantillaVistaPaginaDefault($pagina), "codigo", ""));
+    foreach ((array) $this->valor($frontend, "plantillas_vista", array()) as $plantilla) {
+      if ((string) $this->valor($plantilla, "codigo", "") === (string) $codigo) {
+        return $plantilla;
+      }
+    }
+    return $this->plantillaVistaPaginaDefault($pagina);
+  }
+
   /**
    * Documentacion IA: Codex GPT-5 | Fecha: 2026-08-12
    * Proposito: leer la estructura CMS de contenido desde BD para el panel interno.
@@ -7163,8 +8058,8 @@ class EcommerceCatalogoPublico extends CRUD {
 
       $depurar = array(
         "cms" => array(
-          "fase" => "fase_8_cms_estructura_bd_readonly",
-          "estado" => "estructura_bd_seed_sin_contenido_comercial",
+          "fase" => "fase_9_cms_contenido_bd_interno",
+          "estado" => "estructura_bd_seed_con_bloques_y_publicaciones_internas",
           "headless" => true,
           "panel_pendiente" => false,
           "endpoint_principal" => "/ecommercePublico/contenido_pagina"
@@ -7196,24 +8091,28 @@ class EcommerceCatalogoPublico extends CRUD {
           "categoria" => "slug/codigo de categoria cuando pagina=categoria"
         ),
         "admin" => array(
-          "modo" => "estructura_bd_readonly",
+          "modo" => "persistencia_contenido_interna",
           "fuente_estructura" => "bd_seed",
-          "puede_guardar" => false,
-          "puede_publicar" => false,
+          "puede_guardar" => true,
+          "puede_guardar_bloques" => true,
+          "puede_colocar_slots" => true,
+          "puede_publicar" => true,
           "vista" => "/cms/contenido",
           "pendiente_persistencia" => false,
-          "pendiente_endpoints_post" => true
+          "pendiente_endpoints_post" => array("media", "frontend")
         ),
-        "guardrails" => array_merge(array(
-          "read_only" => true,
-          "no_escribe_bd" => true,
+        "guardrails" => array_merge($this->contenidoGuardrailsAdmin(), array(
+          "read_only" => false,
+          "no_escribe_bd" => false,
+          "persistencia_contenido_interna" => true,
           "no_modifica_catalogo" => true,
           "no_modifica_inventario" => true,
+          "publicaciones_internas_controladas" => true,
           "frontend_renderiza_plantilla" => true,
           "frontend_renderiza_plantilla_vista" => true,
           "erp_entrega_contenido_json" => true,
           "api_publica_sigue_fallback_hasta_contenido_publicado" => true
-        ), $this->contenidoGuardrailsAdmin())
+        ))
       );
 
       return $depurar;
@@ -7256,6 +8155,182 @@ class EcommerceCatalogoPublico extends CRUD {
       }
     }
     return true;
+  }
+
+  private function contenidoTiposBloqueCodigos() {
+    $codigos = array();
+    foreach ($this->contenidoTiposBloqueDefault() as $tipo) {
+      $codigo = isset($tipo["tipo"]) ? (string) $tipo["tipo"] : "";
+      if ($codigo !== "") {
+        $codigos[] = $codigo;
+      }
+    }
+    return $codigos;
+  }
+
+  private function limpiarCodigoCms($valor, $limite = 120) {
+    $valor = strtolower(trim((string) $valor));
+    $valor = preg_replace('/[^a-z0-9_\.\-]/', '_', $valor);
+    $valor = preg_replace('/_+/', '_', $valor);
+    $valor = trim($valor, '_.-');
+    return substr($valor, 0, (int) $limite);
+  }
+
+  private function cmsPayloadSeguroParaGuardar($tipo, $payload) {
+    if ($tipo !== "content_html_safe") {
+      return true;
+    }
+    $html = (string) $this->valor($payload, "contenido_html", $this->valor($payload, "payload_local", ""));
+    return !$this->cmsTextoTieneHtmlPeligroso($html);
+  }
+
+  private function cmsTextoTieneHtmlPeligroso($texto) {
+    $texto = strtolower((string) $texto);
+    if (strpos($texto, "<script") !== false || strpos($texto, "</script") !== false) {
+      return true;
+    }
+    if (preg_match('/\son[a-z0-9_-]+\s*=/i', $texto)) {
+      return true;
+    }
+    if (strpos($texto, "javascript:") !== false) {
+      return true;
+    }
+    return false;
+  }
+
+  private function cmsValidarPublicacionAntesDePublicar($publicacion) {
+    $errores = array();
+    $alertas = array();
+    $tipo = (string) $this->valor($publicacion, "tipo_bloque", "");
+    $slot = (string) $this->valor($publicacion, "slot_codigo", "");
+    $payload = $this->jsonArray($this->valor($publicacion, "payload_json", "{}"));
+    $tiposSlot = $this->jsonArray($this->valor($publicacion, "tipos_bloque_json", "[]"));
+    $prefijo = $slot . " (" . ($tipo !== "" ? $tipo : "sin_tipo") . ")";
+
+    if ($tipo === "" || !in_array($tipo, $this->contenidoTiposBloqueCodigos(), true)) {
+      $errores[] = $prefijo . ": tipo de bloque no permitido.";
+    }
+    if (!empty($tiposSlot) && !in_array($tipo, $tiposSlot, true)) {
+      $errores[] = $prefijo . ": tipo no compatible con el slot.";
+    }
+
+    $titulo = trim((string) $this->valor($payload, "titulo", $this->valor($publicacion, "titulo", "")));
+    $texto = trim((string) $this->valor($payload, "texto", $this->valor($payload, "subtitulo", "")));
+    if ($titulo === "" && $texto === "") {
+      $errores[] = $prefijo . ": falta titulo o texto principal.";
+    }
+
+    $desde = $this->valor($publicacion, "vigente_desde", null);
+    $hasta = $this->valor($publicacion, "vigente_hasta", null);
+    if ($desde && $hasta && strtotime((string) $desde) > strtotime((string) $hasta)) {
+      $errores[] = $prefijo . ": vigencia hasta es menor que vigencia desde.";
+    }
+
+    if (in_array($tipo, array("hero_banner", "category_banner"), true)) {
+      $alt = trim((string) $this->valor($payload, array("media", "alt"), ""));
+      $desktop = trim((string) $this->valor($payload, array("media", "imagen_desktop"), ""));
+      $mobile = trim((string) $this->valor($payload, array("media", "imagen_mobile"), ""));
+      if ($alt === "") {
+        $errores[] = $prefijo . ": falta alt text de imagen.";
+      }
+      if ($desktop === "") {
+        $alertas[] = $prefijo . ": falta imagen desktop real.";
+      }
+      if ($mobile === "") {
+        $alertas[] = $prefijo . ": falta imagen mobile.";
+      }
+    }
+
+    if ($tipo === "product_collection") {
+      $endpoint = trim((string) $this->valor($payload, array("source", "endpoint"), ""));
+      if ($endpoint === "") {
+        $errores[] = $prefijo . ": falta endpoint source.";
+      }
+      if ($endpoint !== "" && strpos($endpoint, "/ecommercePublico/") !== 0) {
+        $alertas[] = $prefijo . ": el endpoint source no inicia con /ecommercePublico/.";
+      }
+    }
+
+    if ($tipo === "content_html_safe") {
+      $html = (string) $this->valor($payload, "contenido_html", $this->valor($payload, "payload_local", ""));
+      if ($this->cmsTextoTieneHtmlPeligroso($html)) {
+        $errores[] = $prefijo . ": contiene HTML no permitido.";
+      }
+    }
+
+    if ($tipo === "image_card_grid") {
+      $items = $this->valor($payload, "items", array());
+      if (!is_array($items) || count($items) <= 0) {
+        $errores[] = $prefijo . ": falta al menos una card.";
+      }
+    }
+
+    return array("errores" => array_values(array_unique($errores)), "alertas" => array_values(array_unique($alertas)));
+  }
+
+  private function codigoBloqueCmsUnico($db, $tipo, $textoBase, $idBloque = 0) {
+    $base = $this->limpiarCodigoCms($tipo . "_" . $textoBase, 90);
+    if ($base === "") {
+      $base = "bloque_cms";
+    }
+    $codigo = $base;
+    $contador = 1;
+    while ($this->cmsCodigoBloqueExiste($db, $codigo, $idBloque)) {
+      $contador++;
+      $codigo = substr($base, 0, 90) . "_" . date("YmdHis") . "_" . $contador;
+      if ($contador > 20) {
+        $codigo = substr($base, 0, 80) . "_" . uniqid();
+        break;
+      }
+    }
+    return substr($codigo, 0, 120);
+  }
+
+  private function cmsCodigoBloqueExiste($db, $codigo, $idBloque = 0) {
+    if ($codigo === "") {
+      return false;
+    }
+    $stmt = $db->prepare("SELECT id_bloque FROM erp_ecommerce_contenido_bloques WHERE codigo=:codigo AND id_bloque<>:id LIMIT 1");
+    $stmt->execute(array(":codigo" => $codigo, ":id" => intval($idBloque)));
+    return (bool) $stmt->fetchColumn();
+  }
+
+  private function cmsContextoContenido($pagina, $contexto) {
+    $contexto = $this->limpiarCodigoCms($contexto, 120);
+    if ($pagina === "categoria") {
+      return $contexto !== "" ? $contexto : "peces";
+    }
+    return "*";
+  }
+
+  private function cmsFechaSql($valor) {
+    $valor = trim((string) $valor);
+    if ($valor === "") {
+      return null;
+    }
+    $valor = str_replace("T", " ", $valor);
+    if (preg_match('/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/', $valor)) {
+      $valor .= ":00";
+    }
+    return preg_match('/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/', $valor) ? $valor : null;
+  }
+
+  private function cmsSiguienteOrdenPublicacion($db, $idPlantilla, $idSlot, $pagina, $contexto, $canal) {
+    $stmt = $db->prepare("SELECT COALESCE(MAX(orden), 0) + 1 FROM erp_ecommerce_contenido_publicaciones WHERE id_plantilla=:plantilla AND id_slot=:slot AND pagina=:pagina AND contexto_clave=:contexto AND canal=:canal");
+    $stmt->execute(array(":plantilla" => (int) $idPlantilla, ":slot" => (int) $idSlot, ":pagina" => $pagina, ":contexto" => $contexto, ":canal" => $canal));
+    return max(1, (int) $stmt->fetchColumn());
+  }
+
+  private function cmsConteoPublicacionesSlot($db, $idPlantilla, $idSlot, $pagina, $contexto, $canal, $exceptoId = 0) {
+    $stmt = $db->prepare("SELECT COUNT(*) FROM erp_ecommerce_contenido_publicaciones WHERE id_plantilla=:plantilla AND id_slot=:slot AND pagina=:pagina AND contexto_clave=:contexto AND canal=:canal AND estatus IN ('borrador','pausado','publicado') AND id_publicacion_contenido<>:excepto");
+    $stmt->execute(array(":plantilla" => (int) $idPlantilla, ":slot" => (int) $idSlot, ":pagina" => $pagina, ":contexto" => $contexto, ":canal" => $canal, ":excepto" => (int) $exceptoId));
+    return (int) $stmt->fetchColumn();
+  }
+
+  private function cmsPublicacionExistente($db, $idPlantilla, $idSlot, $idBloque, $pagina, $contexto, $canal) {
+    $stmt = $db->prepare("SELECT id_publicacion_contenido FROM erp_ecommerce_contenido_publicaciones WHERE id_plantilla=:plantilla AND id_slot=:slot AND id_bloque=:bloque AND pagina=:pagina AND contexto_clave=:contexto AND canal=:canal LIMIT 1");
+    $stmt->execute(array(":plantilla" => (int) $idPlantilla, ":slot" => (int) $idSlot, ":bloque" => (int) $idBloque, ":pagina" => $pagina, ":contexto" => $contexto, ":canal" => $canal));
+    return (int) $stmt->fetchColumn();
   }
 
   /**

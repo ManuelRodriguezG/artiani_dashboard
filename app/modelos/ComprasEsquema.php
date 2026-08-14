@@ -339,6 +339,14 @@ class ComprasEsquema extends DBSchema {
             "`mostrar_nombre_proveedor` TINYINT(1) NOT NULL DEFAULT 1",
             "`mostrar_observaciones_internas` TINYINT(1) NOT NULL DEFAULT 0",
             "`mostrar_observaciones_publicas` TINYINT(1) NOT NULL DEFAULT 1",
+            "`titulo_documento` VARCHAR(150) NULL",
+            "`subtitulo_documento` VARCHAR(255) NULL",
+            "`empresa_nombre` VARCHAR(180) NULL",
+            "`empresa_rfc` VARCHAR(20) NULL",
+            "`empresa_contacto` VARCHAR(120) NULL",
+            "`empresa_email` VARCHAR(120) NULL",
+            "`empresa_telefono` VARCHAR(60) NULL",
+            "`empresa_direccion` TEXT NULL",
             "`columnas_json` TEXT NULL",
             "`estilos_json` TEXT NULL",
             "`pie_pagina` TEXT NULL",
@@ -359,6 +367,14 @@ class ComprasEsquema extends DBSchema {
         $plan[] = $this->agregarColumnaSiNoExiste("erp_compras_documentos_plantillas_config", "mostrar_nombre_proveedor", "TINYINT(1) NOT NULL DEFAULT 1", $ejecutar);
         $plan[] = $this->agregarColumnaSiNoExiste("erp_compras_documentos_plantillas_config", "mostrar_observaciones_internas", "TINYINT(1) NOT NULL DEFAULT 0", $ejecutar);
         $plan[] = $this->agregarColumnaSiNoExiste("erp_compras_documentos_plantillas_config", "mostrar_observaciones_publicas", "TINYINT(1) NOT NULL DEFAULT 1", $ejecutar);
+        $plan[] = $this->agregarColumnaSiNoExiste("erp_compras_documentos_plantillas_config", "titulo_documento", "VARCHAR(150) NULL", $ejecutar);
+        $plan[] = $this->agregarColumnaSiNoExiste("erp_compras_documentos_plantillas_config", "subtitulo_documento", "VARCHAR(255) NULL", $ejecutar);
+        $plan[] = $this->agregarColumnaSiNoExiste("erp_compras_documentos_plantillas_config", "empresa_nombre", "VARCHAR(180) NULL", $ejecutar);
+        $plan[] = $this->agregarColumnaSiNoExiste("erp_compras_documentos_plantillas_config", "empresa_rfc", "VARCHAR(20) NULL", $ejecutar);
+        $plan[] = $this->agregarColumnaSiNoExiste("erp_compras_documentos_plantillas_config", "empresa_contacto", "VARCHAR(120) NULL", $ejecutar);
+        $plan[] = $this->agregarColumnaSiNoExiste("erp_compras_documentos_plantillas_config", "empresa_email", "VARCHAR(120) NULL", $ejecutar);
+        $plan[] = $this->agregarColumnaSiNoExiste("erp_compras_documentos_plantillas_config", "empresa_telefono", "VARCHAR(60) NULL", $ejecutar);
+        $plan[] = $this->agregarColumnaSiNoExiste("erp_compras_documentos_plantillas_config", "empresa_direccion", "TEXT NULL", $ejecutar);
         $plan[] = $this->agregarColumnaSiNoExiste("erp_compras_documentos_plantillas_config", "columnas_json", "TEXT NULL", $ejecutar);
         $plan[] = $this->agregarColumnaSiNoExiste("erp_compras_documentos_plantillas_config", "estilos_json", "TEXT NULL", $ejecutar);
         $plan[] = $this->agregarColumnaSiNoExiste("erp_compras_documentos_plantillas_config", "pie_pagina", "TEXT NULL", $ejecutar);

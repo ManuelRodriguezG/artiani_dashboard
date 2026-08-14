@@ -24,10 +24,10 @@ Estado: documento vivo para continuar este chat por fases sin revolver modulos.
 
 ## CMS ecommerce - estado paralelo
 
-Avance 2026-08-12:
+Avance 2026-08-13:
 
 - Modulo `CMS` separado del modulo Ecommerce.
-- CMS Contenido en UI funcional local/read-only.
+- CMS Contenido en UI funcional con persistencia interna de bloques y publicaciones por slot.
 - CMS Frontend con pantallas `Plantillas`, `Componentes` y `Activaciones`.
 - Respaldo externo generado:
   - `C:\xampp\panel_db_backups\artianilocal_panel_20260812_094259_antes_cms_ecommerce_persistencia.sql`.
@@ -42,14 +42,21 @@ Avance 2026-08-12:
 - Endpoints internos de manifest ya leen estructura desde BD semilla:
   - `/cms/contenido_admin_manifest_erp`;
   - `/cms/frontend_admin_manifest_erp`.
-- Endpoints POST del CMS siguen bloqueados.
-- Endpoints publicos de contenido siguen con fallback default/read-only.
+- Endpoints POST de contenido activos con CSRF, permisos y auditoria:
+  - `/cms/contenido_bloque_guardar_erp`;
+  - `/cms/contenido_bloque_estatus_erp`;
+  - `/cms/contenido_publicacion_guardar_erp`;
+  - `/cms/contenido_publicacion_estatus_erp`.
+- Endpoints publicos de contenido leen BD publicada/vigente y usan fallback default/read-only si no hay publicaciones.
+- UAT transaccional disponible:
+  - `storage/uat/uat_cms_publico_bd_temporal_rollback.php`;
+  - inserta contenido temporal publicado, valida `fuente=bd_publicada`, confirma bloqueo server-side de un hero sin alt text y ejecuta rollback.
 
 Siguiente paso CMS:
 
-1. Activar modelos de persistencia real con permisos, CSRF y auditoria.
-2. Guardar/editar bloques y publicaciones reales desde `/cms/contenido`.
-3. Hacer que endpoints publicos lean contenido publicado desde BD con fallback default.
+1. Definir media estructurada y rutas publicas de imagenes.
+2. Ampliar sanitizacion HTML y reglas de media.
+3. Completar renderer frontend para `plantilla_vista + contenido.slots`.
 
 ## Fase actual
 
@@ -535,9 +542,10 @@ UAT:
 
 Siguiente paso recomendado:
 
-1. Frontend integra `contenido_manifest` y `contenido_pagina` con la plantilla actual.
-2. Si el contrato funciona visualmente, crear diseno de esquema para guardar contenido real.
-3. Despues evolucionar el panel interno separado `/cms/contenido` con alta/edicion/publicacion de banners y bloques.
+1. Convertir `/cms` en flujo operativo de constructor de paginas ecommerce: Home primero, despues Categoria, Producto, Carrito, Header y Footer.
+2. Agregar edicion directa de secciones Home desde el constructor: imagen, titulo, texto, CTA, visibilidad, orden y vigencia.
+3. Mantener `/cms/contenido`, `/cms/json`, `/cms/slots` y plantillas tecnicas como vistas avanzadas.
+4. Cuando Home sea operable desde CMS, conectar el frontend externo a `contenido_manifest`, `contenido_pagina` y `configuracion_inicial`.
 
 ## Ajuste UX publicaciones 2026-08-12
 
@@ -613,3 +621,23 @@ Guardrails:
 - No toca precios ERP.
 - No toca imagenes, marca ni categoria del catalogo base.
 - No usa ni modifica legacy `ecom_*`.
+
+## Ajuste UX editor publicaciones 2026-08-12
+
+Problema detectado:
+
+- El panel de preparacion de producto estaba fijo con `position: sticky`.
+- Al editar/preparar un producto, el panel quedaba encima del flujo y dificultaba seguir usando la tabla.
+- No existia accion clara para cerrar la edicion y volver al trabajo masivo.
+
+Cambios aplicados:
+
+- Se removio el comportamiento sticky del panel `ecom_preview_publicacion`.
+- El editor ahora muestra boton `Cerrar edicion`.
+- Al cerrar, vuelve el mensaje inicial sin limpiar la seleccion masiva de productos.
+
+Guardrails:
+
+- Cerrar el editor no guarda cambios.
+- Cerrar el editor no limpia productos seleccionados.
+- No modifica publicaciones, inventario ni catalogo base.

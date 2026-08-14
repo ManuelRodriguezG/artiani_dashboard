@@ -16,6 +16,7 @@ Catalogo ERP define el maestro del producto y sus datos estructurales. Otros mod
 Debe consumir:
 
 - SKU ERP activo.
+- Tipo operativo del SKU: mercancia, materia prima, insumo, empaque, refaccion, servicio o cargo.
 - Relacion SKU-proveedor cuando aplique.
 - Unidad y factor de compra definidos para el proveedor/SKU.
 - Alertas de producto incompleto cuando falte proveedor o configuracion de compra.
@@ -26,6 +27,13 @@ No debe decidir:
 - Marca maestra.
 - Atributos de variante.
 - Imagenes de marca o categoria.
+
+Regla para insumos y materia prima:
+
+- Compras puede solicitar y ordenar materia prima, insumos, empaques y refacciones usando el mismo flujo de solicitudes/ordenes.
+- Catalogo no debe crear un catalogo paralelo para "fabricacion"; debe clasificar el SKU maestro con un tipo operativo.
+- Si se necesita una pantalla especial de "Materia prima e insumos", debe ser una vista filtrada sobre los mismos productos/SKUs ERP.
+- Fabricacion futura debe consumir esos SKUs desde Inventario mediante receta/BOM y orden de produccion; no debe comprar directo ni duplicar proveedores/listas.
 
 ## Almacen y recepciones
 

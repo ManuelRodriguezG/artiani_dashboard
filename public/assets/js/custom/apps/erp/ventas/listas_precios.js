@@ -332,7 +332,7 @@
             marcarLista(idLista);
             cargarSegmentosCrm();
             cargarRevision();
-            cargarProductos();
+            cargarProductos({reiniciar: true});
         }).catch(mostrarError);
     }
 
@@ -538,7 +538,8 @@
         return valor;
     }
 
-    function cargarProductos() {
+    function cargarProductos(opciones) {
+        opciones = opciones || {};
         var idLista = document.getElementById("lp_lista_id").value;
         var solo = document.getElementById("lp_producto_solo").value;
         if (!idLista) {
@@ -556,19 +557,43 @@
             if (response.error) {
                 throw new Error(response.mensaje);
             }
-            estado.productos = (response.depurar || {}).productos || [];
-            estado.cambios = {};
-            estado.seleccionados = {};
-            estado.sugeridos = {};
-            estado.importacion = null;
-            estado.comparacion = null;
-            document.getElementById("lp_importar_resultado").innerHTML = "CSV esperado: id_sku o sku, y precio_lista.";
-            renderComparacionListas();
-            renderPrevalidacionLote(null);
+            if (opciones.reiniciar) {
+                estado.cambios = {};
+                estado.seleccionados = {};
+                estado.sugeridos = {};
+                estado.importacion = null;
+                estado.comparacion = null;
+                document.getElementById("lp_importar_resultado").innerHTML = "CSV esperado: id_sku o sku, y precio_lista.";
+                renderComparacionListas();
+                renderPrevalidacionLote(null);
+            }
+            estado.productos = aplicarCambiosPendientesAProductos((response.depurar || {}).productos || []);
             actualizarContadorCambios();
             renderProductos(estado.productos);
             actualizarFlujoOperativo("productos");
         }).catch(mostrarError);
+    }
+
+    function aplicarCambiosPendientesAProductos(productos) {
+        return productos || [];
+    }
+
+    function riesgoMargenLocal(precio, costo) {
+        var margenMinimo = margenMinimoOperativo();
+        if (precio <= 0) {
+            return {tipo: "muted", texto: "Sin precio"};
+        }
+        if (costo <= 0) {
+            return {tipo: "warning", texto: "Sin costo"};
+        }
+        if (precio < costo) {
+            return {tipo: "danger", texto: "Perdida"};
+        }
+        var margen = ((precio - costo) / precio) * 100;
+        if (margen < margenMinimo) {
+            return {tipo: "warning", texto: "Margen < " + numero(margenMinimo, 2) + "%"};
+        }
+        return {tipo: "success", texto: "Margen OK"};
     }
 
     function renderProductos(productos) {
@@ -576,21 +601,28 @@
         estado.productosVisibles = productos;
         actualizarResumenProductos(productos);
         document.getElementById("lp_productos").innerHTML = (productos || []).map(function (item) {
-            var precioLista = item.precio_lista == null ? "" : numero(item.precio_lista, 2);
-            var margen = item.margen_estimado == null ? "-" : numero(item.margen_estimado, 2) + "%";
-            var riesgo = item.riesgo_margen || {};
+            var cambioPendiente = (estado.cambios || {})[String(item.id_sku)] || null;
+            var precioOriginal = item.precio_lista == null ? "" : numero(item.precio_lista, 2);
+            var precioLista = cambioPendiente ? numero(cambioPendiente.precio, 2) : precioOriginal;
+            var costoFila = Number(item.costo_referencia || 0);
+            var precioFila = Number(precioLista || 0);
+            var margenValor = precioFila > 0 && costoFila > 0 ? ((precioFila - costoFila) / precioFila) * 100 : item.margen_estimado;
+            var margen = margenValor == null ? "-" : numero(margenValor, 2) + "%";
+            var riesgo = cambioPendiente ? riesgoMargenLocal(precioFila, costoFila) : (item.riesgo_margen || {});
             var tipoBadge = riesgo.tipo === "danger" ? "badge-light-danger" : (riesgo.tipo === "warning" ? "badge-light-warning" : (riesgo.tipo === "success" ? "badge-light-success" : "badge-light"));
             var seleccionado = !!estado.seleccionados[String(item.id_sku)];
             var pendiente = motivoPendienteComercial(item);
             var unidadHtml = unidadVentaHtml(item);
-            return "<tr data-lp-producto=\"" + escapeHtml(item.id_sku) + "\"" + (seleccionado ? " class=\"lp-row-selected\"" : "") + ">" +
+            var costoHtml = costoComercialHtml(item);
+            var clases = [seleccionado ? "lp-row-selected" : "", cambioPendiente ? "lp-row-dirty" : ""].filter(Boolean).join(" ");
+            return "<tr data-lp-producto=\"" + escapeHtml(item.id_sku) + "\"" + (clases ? " class=\"" + escapeHtml(clases) + "\"" : "") + ">" +
                 "<td class=\"text-center\"><input class=\"form-check-input\" type=\"checkbox\" data-lp-seleccionar-sku=\"" + escapeHtml(item.id_sku) + "\"" + (seleccionado ? " checked" : "") + "></td>" +
                 "<td><div class=\"fw-bold\">" + escapeHtml(item.sku || "") + "</div><div class=\"text-muted fs-8\">" + escapeHtml(item.sku_nombre || item.producto || "") + "</div><div class=\"text-muted fs-8\">" + escapeHtml([item.marca, item.categoria].filter(Boolean).join(" / ")) + "</div></td>" +
                 "<td>" + unidadHtml + "</td>" +
-                "<td class=\"text-end\">" + dinero(item.costo_referencia) + "</td>" +
+                "<td class=\"text-end\">" + costoHtml + "</td>" +
                 "<td class=\"text-end\">" + dinero(item.precio_general) + "</td>" +
-                "<td class=\"text-end\"><input class=\"form-control form-control-sm form-control-solid text-end lp-price-input\" data-lp-precio=\"" + escapeHtml(item.id_sku) + "\" data-lp-original=\"" + escapeHtml(precioLista) + "\" value=\"" + escapeHtml(precioLista) + "\" placeholder=\"0.00\"><div class=\"text-muted fs-9 lp-suggested\" data-lp-sugerido=\"" + escapeHtml(item.id_sku) + "\">" + textoPrecioSugerido(item.id_sku) + "</div></td>" +
-                "<td class=\"text-end\"><div class=\"fw-semibold\" data-lp-margen=\"" + escapeHtml(item.id_sku) + "\">" + escapeHtml(margen) + "</div><div class=\"text-muted fs-8\" data-lp-utilidad=\"" + escapeHtml(item.id_sku) + "\">" + dinero(item.utilidad_estimada || 0) + "</div><span class=\"badge " + tipoBadge + "\" data-lp-riesgo=\"" + escapeHtml(item.id_sku) + "\">" + escapeHtml(riesgo.texto || "-") + "</span><div class=\"text-muted fs-9 mt-1\" data-lp-pendiente-motivo=\"" + escapeHtml(item.id_sku) + "\">" + escapeHtml(pendiente) + "</div></td>" +
+                "<td class=\"text-end\"><input class=\"form-control form-control-sm form-control-solid text-end lp-price-input\" data-lp-precio=\"" + escapeHtml(item.id_sku) + "\" data-lp-original=\"" + escapeHtml(precioOriginal) + "\" value=\"" + escapeHtml(precioLista) + "\" placeholder=\"0.00\"><div class=\"text-muted fs-9 lp-suggested\" data-lp-sugerido=\"" + escapeHtml(item.id_sku) + "\">" + textoPrecioSugerido(item.id_sku) + "</div></td>" +
+                "<td class=\"text-end\"><div class=\"fw-semibold\" data-lp-margen=\"" + escapeHtml(item.id_sku) + "\">" + escapeHtml(margen) + "</div><div class=\"text-muted fs-8\" data-lp-utilidad=\"" + escapeHtml(item.id_sku) + "\">" + dinero(precioFila - costoFila) + "</div><span class=\"badge " + tipoBadge + "\" data-lp-riesgo=\"" + escapeHtml(item.id_sku) + "\">" + escapeHtml(riesgo.texto || "-") + "</span><div class=\"text-muted fs-9 mt-1\" data-lp-pendiente-motivo=\"" + escapeHtml(item.id_sku) + "\">" + escapeHtml(pendiente) + "</div></td>" +
                 "<td class=\"text-end\"><div class=\"d-flex justify-content-end gap-1\"><button class=\"btn btn-sm btn-light\" data-lp-preview-sku=\"" + escapeHtml(item.id_sku) + "\" type=\"button\" title=\"Previsualizar precio POS\"><i class=\"bi bi-calculator\"></i></button><button class=\"btn btn-sm btn-light-success\" data-lp-usar-sugerido-fila=\"" + escapeHtml(item.id_sku) + "\" type=\"button\" title=\"Aplicar sugerido a este SKU\"><i class=\"bi bi-magic\"></i></button>" + (item.id_lista_precio_detalle ? "<button class=\"btn btn-sm btn-light\" data-lp-historial-sku=\"" + escapeHtml(item.id_sku) + "\" data-lp-historial-detalle=\"" + escapeHtml(item.id_lista_precio_detalle) + "\" type=\"button\" title=\"Ver historial de este precio\"><i class=\"bi bi-clock-history\"></i></button>" : "") + "<button class=\"btn btn-sm btn-light-primary\" data-lp-guardar-precio=\"" + escapeHtml(item.id_sku) + "\" type=\"button\" title=\"Guardar precio de este SKU\"><i class=\"bi bi-save\"></i></button>" + (item.id_lista_precio_detalle ? "<button class=\"btn btn-sm btn-light-danger\" data-lp-quitar-precio=\"" + escapeHtml(item.id_sku) + "\" type=\"button\" title=\"Cancelar precio de este SKU\"><i class=\"bi bi-x-circle\"></i></button>" : "") + "</div></td>" +
             "</tr>";
         }).join("") || "<tr><td colspan=\"8\" class=\"text-center text-muted py-8\">Sin productos para los filtros actuales</td></tr>";
@@ -654,6 +686,16 @@
         }
         if (Number(item.factor_unidad_base || 1) !== 1) {
             html += "<div class=\"text-muted fs-9 mt-1\">factor " + escapeHtml(numero(item.factor_unidad_base || 1, 3)) + "</div>";
+        }
+        return html;
+    }
+
+    function costoComercialHtml(item) {
+        var fuente = item.costo_fuente_label || "";
+        var tipo = item.costo_fuente === "sin_costo" ? "text-danger" : "text-muted";
+        var html = "<div>" + dinero(item.costo_referencia) + "</div>";
+        if (fuente) {
+            html += "<div class=\"" + tipo + " fs-9\">" + escapeHtml(fuente) + "</div>";
         }
         return html;
     }
@@ -1110,7 +1152,7 @@
             mostrarAlerta("warning", "No hay productos visibles para exportar.");
             return;
         }
-        var encabezados = ["id_sku", "sku", "producto", "unidad", "costo_referencia", "precio_general", "precio_lista", "precio_sugerido", "margen_estimado"];
+        var encabezados = ["id_sku", "sku", "producto", "unidad", "costo_referencia", "costo_fuente", "precio_general", "precio_lista", "precio_sugerido", "margen_estimado"];
         var filas = productos.map(function (item) {
             var input = document.querySelector("[data-lp-precio='" + item.id_sku + "']");
             var precioLista = input ? input.value : (item.precio_lista == null ? "" : item.precio_lista);
@@ -1120,6 +1162,7 @@
                 item.sku_nombre || item.producto || "",
                 item.unidad_base || "",
                 numero(item.costo_referencia || 0, 2),
+                item.costo_fuente || "",
                 numero(item.precio_general || 0, 2),
                 precioLista,
                 estado.sugeridos[String(item.id_sku)] || "",
@@ -1585,6 +1628,7 @@
             if (response.error) {
                 throw new Error(response.mensaje);
             }
+            delete estado.cambios[String(idSku)];
             mostrarAlerta("success", response.mensaje || "Precio guardado");
             cargarProductos();
             cargarRevision();
@@ -1748,10 +1792,27 @@
             var data = response.depurar || {};
             renderResultadoGuardadoLote(data, response);
             mostrarAlerta(response.tipo === "warning" ? "warning" : "success", (response.mensaje || "Cambios guardados") + " (" + (data.guardados || 0) + "/" + (data.total || cambios.length) + ")");
+            limpiarCambiosGuardados(data);
             cargarProductos();
             cargarRevision();
             cargarResumen();
         }).catch(mostrarError);
+    }
+
+    function limpiarCambiosGuardados(data) {
+        data = data || {};
+        var errores = data.errores || [];
+        if (!errores.length) {
+            estado.cambios = {};
+            actualizarContadorCambios();
+            return;
+        }
+        (data.guardados_detalle || []).forEach(function (item) {
+            if (item && item.id_sku != null) {
+                delete estado.cambios[String(item.id_sku)];
+            }
+        });
+        actualizarContadorCambios();
     }
 
     function renderResultadoGuardadoLote(data, response) {

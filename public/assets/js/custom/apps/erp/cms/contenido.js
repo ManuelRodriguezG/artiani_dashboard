@@ -14,15 +14,32 @@
     pagina: null,
     slots: [],
     tipos: [],
+    bloquesBd: [],
     slotActivo: "",
     bloqueActivo: "",
-    contadorLocal: 1
+    contadorLocal: 1,
+    entradaUrl: {}
   };
 
   document.addEventListener("DOMContentLoaded", function () {
+    aplicarEntradaUrl();
     bindEvents();
     cargarTodo();
   });
+
+  function aplicarEntradaUrl() {
+    var params = new URLSearchParams(window.location.search || "");
+    estado.entradaUrl = {
+      pagina: params.get("pagina") || "",
+      categoria: params.get("categoria") || "",
+      plantilla: params.get("plantilla") || "",
+      slot: params.get("slot") || "",
+      bloque: params.get("bloque") || ""
+    };
+    if (estado.entradaUrl.pagina) setValue("ecom_cms_pagina", estado.entradaUrl.pagina);
+    if (estado.entradaUrl.categoria) setValue("ecom_cms_categoria", estado.entradaUrl.categoria);
+    if (estado.entradaUrl.plantilla) setValue("ecom_cms_template", estado.entradaUrl.plantilla);
+  }
 
   function bindEvents() {
     on("ecom_cms_recargar", "click", cargarTodo);
@@ -39,6 +56,11 @@
     on("ecom_cms_guardar_local", "click", guardarBorradorLocal);
     on("ecom_cms_cargar_local", "click", cargarBorradorLocal);
     on("ecom_cms_descartar_local", "click", descartarBorradorLocal);
+    on("ecom_cms_guardar_bd", "click", guardarBloqueBd);
+    on("ecom_cms_publicar_slot_bd", "click", guardarPublicacionBd);
+    on("ecom_cms_publicar_publicacion_bd", "click", function () { cambiarEstatusPublicacionBd("publicado"); });
+    on("ecom_cms_pausar_publicacion_bd", "click", function () { cambiarEstatusPublicacionBd("pausado"); });
+    on("ecom_cms_recargar_bloques_bd", "click", cargarBloquesBd);
 
     var form = $("ecom_cms_form");
     if (form) {
@@ -67,6 +89,15 @@
         ejecutarAccionBloque(action.getAttribute("data-cms-action"), action.getAttribute("data-cms-id"));
       });
     }
+
+    var bloquesBd = $("ecom_cms_bloques_bd");
+    if (bloquesBd) {
+      bloquesBd.addEventListener("click", function (event) {
+        var button = event.target.closest("[data-cms-bd-id]");
+        if (!button) return;
+        insertarBloqueBd(button.getAttribute("data-cms-bd-id"));
+      });
+    }
   }
 
   function cargarTodo() {
@@ -83,12 +114,23 @@
       estado.tipos = estado.manifest.tipos_bloque || [];
       renderTipos(estado.tipos);
       llenarSelectTipos();
-      return cargarPagina();
+      return cargarBloquesBd().then(cargarPagina);
     }).then(function () {
       setEstado("Listo", "badge-light-success");
     }).catch(function (error) {
       setEstado("Error", "badge-light-danger");
       setText("ecom_cms_json", JSON.stringify({ error: true, mensaje: error.message || String(error) }, null, 2));
+    });
+  }
+
+  function cargarBloquesBd() {
+    return getJson("/cms/contenido_admin_bloques_erp?limite=50").then(function (response) {
+      estado.bloquesBd = response && response.depurar && Array.isArray(response.depurar.items) ? response.depurar.items : [];
+      renderBloquesBd();
+      return response;
+    }).catch(function () {
+      estado.bloquesBd = [];
+      renderBloquesBd();
     });
   }
 
@@ -103,12 +145,29 @@
     return getJson("/cms/contenido_admin_pagina_erp?" + params.toString()).then(function (response) {
       estado.pagina = response.depurar || {};
       estado.slots = normalizarSlots(estado.pagina.slots || []);
-      estado.slotActivo = estado.slots[0] ? estado.slots[0].slot : "";
-      estado.bloqueActivo = primerBloqueId(estado.slotActivo);
+      estado.slotActivo = slotInicialUrlValido() || (estado.slots[0] ? estado.slots[0].slot : "");
+      estado.bloqueActivo = bloqueInicialUrlValido() || primerBloqueId(estado.slotActivo);
       limpiarForm();
       renderTodoLocal();
+      limpiarEntradaUrlAplicada();
       setEstado("Listo", "badge-light-success");
     });
+  }
+
+  function slotInicialUrlValido() {
+    var slot = estado.entradaUrl && estado.entradaUrl.slot ? estado.entradaUrl.slot : "";
+    if (!slot) return "";
+    return estado.slots.some(function (item) { return item.slot === slot; }) ? slot : "";
+  }
+
+  function bloqueInicialUrlValido() {
+    var bloque = estado.entradaUrl && estado.entradaUrl.bloque ? estado.entradaUrl.bloque : "";
+    if (!bloque) return "";
+    return buscarBloque(bloque) ? bloque : "";
+  }
+
+  function limpiarEntradaUrlAplicada() {
+    estado.entradaUrl = {};
   }
 
   function renderTodoLocal() {
@@ -119,6 +178,7 @@
     renderSlots(slotsManifest());
     renderSlotDetalle();
     renderBloques();
+    renderBloquesBd();
     renderResumenEditorial();
     renderPlantillaVisual();
     renderPublicabilidadSlots();
@@ -234,6 +294,32 @@
           '<div class="ecom-cms-actions">' + acciones + '</div>' +
         '</div>' +
         '<div class="ecom-cms-chip-list mt-3"><span class="badge ' + claseEstatus(bloque.estatus) + '">' + escapeHtml(bloque.estatus || "borrador") + '</span>' + vigenciaBadge(bloque) + '</div>' +
+      '</div>';
+    }).join("");
+  }
+
+  function renderBloquesBd() {
+    var node = $("ecom_cms_bloques_bd");
+    if (!node) return;
+    if (!estado.bloquesBd.length) {
+      node.innerHTML = '<div class="text-muted py-3">Aun no hay bloques guardados en BD.</div>';
+      return;
+    }
+    var slotDef = getSlotDef(estado.slotActivo);
+    var permitidos = slotDef && Array.isArray(slotDef.tipos) ? slotDef.tipos : [];
+    node.innerHTML = estado.bloquesBd.map(function (item) {
+      var tipo = item.tipo_bloque || "";
+      var compatible = !permitidos.length || permitidos.indexOf(tipo) >= 0;
+      return '<div class="border rounded p-3 mb-2">' +
+        '<div class="d-flex justify-content-between gap-3 flex-wrap align-items-start">' +
+          '<div><div class="fw-bold">' + escapeHtml(item.titulo || item.nombre_interno || item.codigo || ("Bloque #" + item.id_bloque)) + '</div>' +
+          '<div class="text-muted fs-8">' + escapeHtml(tipo) + ' / #' + escapeHtml(item.id_bloque) + (item.codigo ? ' / ' + escapeHtml(item.codigo) : '') + '</div></div>' +
+          '<div class="d-flex gap-2 align-items-center">' +
+            '<span class="badge ' + claseEstatus(item.estatus) + '">' + escapeHtml(item.estatus || "borrador") + '</span>' +
+            '<button class="btn btn-sm ' + (compatible ? "btn-light-primary" : "btn-light") + '" type="button" data-cms-bd-id="' + escapeAttr(item.id_bloque) + '"' + (compatible ? "" : " disabled") + '>Cargar</button>' +
+          '</div>' +
+        '</div>' +
+        (!compatible ? '<div class="text-muted fs-8 mt-2">No compatible con el slot activo.</div>' : '') +
       '</div>';
     }).join("");
   }
@@ -744,9 +830,17 @@
   }
 
   function aplicarForm() {
+    var bloque = bloqueDesdeForm(true);
+    if (!bloque) return;
+    renderTodoLocal();
+    setEstado("Preview actualizado", "badge-light-success");
+  }
+
+  function bloqueDesdeForm(crearSiFalta) {
     var id = valor("ecom_cms_block_id");
     var bloque = id ? buscarBloque(id) : null;
     if (!bloque) {
+      if (!crearSiFalta) return null;
       bloque = crearBloqueBase(valor("ecom_cms_block_tipo") || "promo_strip");
       bloquesDeSlot(estado.slotActivo).push(bloque);
     }
@@ -770,8 +864,7 @@
     };
     aplicarPayloadPorTipo(bloque);
     estado.bloqueActivo = bloque.id;
-    renderTodoLocal();
-    setEstado("Preview actualizado", "badge-light-success");
+    return bloque;
   }
 
   function aplicarPayloadPorTipo(bloque) {
@@ -810,7 +903,7 @@
     setValue("ecom_cms_block_hasta", bloque.vigencia && bloque.vigencia.hasta ? bloque.vigencia.hasta : "");
     setValue("ecom_cms_block_payload", payloadParaForm(bloque));
     setText("ecom_cms_editor_tipo", bloque.tipo || "-");
-    setText("ecom_cms_editor_modo", bloque.id.indexOf("local-") === 0 ? "Bloque local nuevo" : "Bloque default editable en preview");
+    setText("ecom_cms_editor_modo", bloque.id_bloque ? "Bloque guardado en BD #" + bloque.id_bloque : (bloque.id.indexOf("local-") === 0 ? "Bloque local nuevo" : "Bloque default editable en preview"));
   }
 
   function limpiarForm() {
@@ -847,7 +940,11 @@
       estado.bloqueActivo = duplicado.id;
     }
     if (accion === "pausar") {
-      bloques[index].estatus = normalizarEstatusForm(bloques[index].estatus) === "pausado" ? "borrador" : "pausado";
+      var estatusNuevo = normalizarEstatusForm(bloques[index].estatus) === "pausado" ? "borrador" : "pausado";
+      bloques[index].estatus = estatusNuevo;
+      if (idBloquePersistido(bloques[index])) {
+        cambiarEstatusBloqueBd(bloques[index], estatusNuevo);
+      }
     }
     if (accion === "quitar") {
       bloques.splice(index, 1);
@@ -967,6 +1064,7 @@
       localStorage.setItem(STORAGE_KEY, JSON.stringify({
         pagina: estado.pagina,
         slots: estado.slots,
+        preview: construirPreview(),
         slotActivo: estado.slotActivo,
         bloqueActivo: estado.bloqueActivo,
         contadorLocal: estado.contadorLocal,
@@ -976,6 +1074,256 @@
     } catch (error) {
       setEstado("No se pudo guardar local", "badge-light-danger");
     }
+  }
+
+  function guardarBloqueBd() {
+    var bloque = bloqueDesdeForm(true);
+    if (!bloque) return;
+    var errores = validarBloqueParaGuardar(bloque);
+    if (errores.length) {
+      setEstado(errores[0], "badge-light-danger");
+      renderTodoLocal();
+      return;
+    }
+
+    var data = new URLSearchParams();
+    data.set("_csrf", window.ERP_CSRF_TOKEN || "");
+    data.set("id_bloque", idBloquePersistido(bloque));
+    data.set("tipo_bloque", bloque.tipo || "");
+    data.set("codigo", bloque.codigo || "");
+    data.set("nombre_interno", bloque.nombre_interno || bloque.titulo || etiquetaTipo(bloque.tipo || ""));
+    data.set("titulo", bloque.titulo || "");
+    data.set("estatus", normalizarEstatusGuardado(bloque.estatus));
+    data.set("payload_json", JSON.stringify(bloque));
+
+    setEstado("Guardando bloque", "badge-light-info");
+    fetch("/cms/contenido_bloque_guardar_erp", {
+      method: "POST",
+      credentials: "same-origin",
+      headers: {
+        "Accept": "application/json",
+        "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
+        "X-CSRF-Token": window.ERP_CSRF_TOKEN || ""
+      },
+      body: data.toString()
+    }).then(function (response) {
+      return response.json();
+    }).then(function (response) {
+      var depurar = response.depurar || {};
+      if (response.error) {
+        setEstado(response.mensaje || "No se pudo guardar", "badge-light-danger");
+        setText("ecom_cms_json", JSON.stringify(response, null, 2));
+        return;
+      }
+      bloque.id_bloque = depurar.id_bloque || bloque.id_bloque;
+      bloque.codigo = depurar.codigo || bloque.codigo;
+      bloque.estatus = depurar.estatus || bloque.estatus || "borrador";
+      bloque.guardrails = Object.assign({}, bloque.guardrails || {}, { bd_borrador: true, no_publicado: true });
+      renderTodoLocal();
+      guardarBorradorLocal();
+      cargarBloquesBd();
+      setEstado("Bloque guardado en BD", "badge-light-success");
+    }).catch(function () {
+      setEstado("Error al guardar BD", "badge-light-danger");
+    });
+  }
+
+  function cambiarEstatusBloqueBd(bloque, estatus) {
+    var data = new URLSearchParams();
+    data.set("_csrf", window.ERP_CSRF_TOKEN || "");
+    data.set("id_bloque", idBloquePersistido(bloque));
+    data.set("estatus", estatus);
+
+    setEstado("Actualizando estatus", "badge-light-info");
+    fetch("/cms/contenido_bloque_estatus_erp", {
+      method: "POST",
+      credentials: "same-origin",
+      headers: {
+        "Accept": "application/json",
+        "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
+        "X-CSRF-Token": window.ERP_CSRF_TOKEN || ""
+      },
+      body: data.toString()
+    }).then(function (response) {
+      return response.json();
+    }).then(function (response) {
+      var depurar = response.depurar || {};
+      if (response.error) {
+        setEstado(response.mensaje || "No se pudo cambiar estatus", "badge-light-danger");
+        setText("ecom_cms_json", JSON.stringify(response, null, 2));
+        return;
+      }
+      bloque.estatus = depurar.estatus || estatus;
+      renderTodoLocal();
+      cargarBloquesBd();
+      setEstado("Estatus guardado en BD", "badge-light-success");
+    }).catch(function () {
+      setEstado("Error al cambiar estatus", "badge-light-danger");
+    });
+  }
+
+  function guardarPublicacionBd() {
+    var bloque = bloqueDesdeForm(false) || buscarBloque(estado.bloqueActivo);
+    if (!bloque || !idBloquePersistido(bloque)) {
+      setEstado("Guarda el bloque en BD primero", "badge-light-warning");
+      return;
+    }
+    if (!estado.slotActivo) {
+      setEstado("Selecciona un slot", "badge-light-warning");
+      return;
+    }
+
+    var data = new URLSearchParams();
+    data.set("_csrf", window.ERP_CSRF_TOKEN || "");
+    data.set("id_publicacion_contenido", idPublicacionPersistida(bloque));
+    data.set("id_bloque", idBloquePersistido(bloque));
+    data.set("plantilla", valor("ecom_cms_template") || "artiani_default");
+    data.set("pagina", valor("ecom_cms_pagina") || "home");
+    data.set("categoria", valor("ecom_cms_categoria") || "peces");
+    data.set("slot", estado.slotActivo);
+    data.set("orden", ordenBloqueEnSlot(bloque));
+    data.set("estatus", normalizarEstatusGuardado(bloque.estatus));
+    data.set("vigente_desde", bloque.vigencia && bloque.vigencia.desde ? bloque.vigencia.desde : "");
+    data.set("vigente_hasta", bloque.vigencia && bloque.vigencia.hasta ? bloque.vigencia.hasta : "");
+
+    setEstado("Colocando en slot", "badge-light-info");
+    fetch("/cms/contenido_publicacion_guardar_erp", {
+      method: "POST",
+      credentials: "same-origin",
+      headers: {
+        "Accept": "application/json",
+        "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
+        "X-CSRF-Token": window.ERP_CSRF_TOKEN || ""
+      },
+      body: data.toString()
+    }).then(function (response) {
+      return response.json();
+    }).then(function (response) {
+      var depurar = response.depurar || {};
+      if (response.error) {
+        setEstado(response.mensaje || "No se pudo colocar en slot", "badge-light-danger");
+        setText("ecom_cms_json", JSON.stringify(response, null, 2));
+        return;
+      }
+      bloque.id_publicacion_contenido = depurar.id_publicacion_contenido || bloque.id_publicacion_contenido;
+      bloque.publicacion = Object.assign({}, bloque.publicacion || {}, {
+        id_publicacion_contenido: bloque.id_publicacion_contenido,
+        slot: depurar.slot || estado.slotActivo,
+        pagina: depurar.pagina || valor("ecom_cms_pagina") || "home",
+        estatus: depurar.estatus || "borrador",
+        publica_api: false
+      });
+      renderTodoLocal();
+      cargarPagina();
+      setEstado("Slot guardado en BD", "badge-light-success");
+    }).catch(function () {
+      setEstado("Error al colocar en slot", "badge-light-danger");
+    });
+  }
+
+  function cambiarEstatusPublicacionBd(estatus) {
+    var bloque = bloqueDesdeForm(false) || buscarBloque(estado.bloqueActivo);
+    var idPublicacion = idPublicacionPersistida(bloque);
+    if (!bloque || !idPublicacion) {
+      setEstado("Coloca el bloque en slot BD primero", "badge-light-warning");
+      return;
+    }
+
+    var data = new URLSearchParams();
+    data.set("_csrf", window.ERP_CSRF_TOKEN || "");
+    data.set("id_publicacion_contenido", idPublicacion);
+    data.set("estatus", estatus);
+
+    setEstado(estatus === "publicado" ? "Publicando slot" : "Pausando slot", "badge-light-info");
+    fetch("/cms/contenido_publicacion_estatus_erp", {
+      method: "POST",
+      credentials: "same-origin",
+      headers: {
+        "Accept": "application/json",
+        "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
+        "X-CSRF-Token": window.ERP_CSRF_TOKEN || ""
+      },
+      body: data.toString()
+    }).then(function (response) {
+      return response.json();
+    }).then(function (response) {
+      var depurar = response.depurar || {};
+      if (response.error) {
+        setEstado(response.mensaje || "No se pudo cambiar publicacion", "badge-light-danger");
+        setText("ecom_cms_json", JSON.stringify(response, null, 2));
+        return;
+      }
+      bloque.estatus = depurar.estatus || estatus;
+      bloque.publicacion = Object.assign({}, bloque.publicacion || {}, {
+        id_publicacion_contenido: depurar.id_publicacion_contenido || idPublicacion,
+        slot: depurar.slot || estado.slotActivo,
+        pagina: depurar.pagina || valor("ecom_cms_pagina") || "home",
+        estatus: depurar.estatus || estatus,
+        publica_api: false
+      });
+      renderTodoLocal();
+      cargarPagina();
+      setEstado(estatus === "publicado" ? "Slot publicado en CMS" : "Slot pausado en CMS", "badge-light-success");
+    }).catch(function () {
+      setEstado("Error al cambiar publicacion", "badge-light-danger");
+    });
+  }
+
+  function insertarBloqueBd(idBloque) {
+    var item = estado.bloquesBd.filter(function (bloque) { return String(bloque.id_bloque) === String(idBloque); })[0];
+    if (!item || !item.payload) {
+      setEstado("Bloque BD no disponible", "badge-light-warning");
+      return;
+    }
+    var bloque = clone(item.payload);
+    bloque.id = "bd-" + item.id_bloque;
+    bloque.id_bloque = item.id_bloque;
+    bloque.codigo = item.codigo || bloque.codigo || "";
+    bloque.tipo = item.tipo_bloque || bloque.tipo || "";
+    bloque.estatus = item.estatus || bloque.estatus || "borrador";
+    bloque.titulo = bloque.titulo || item.titulo || item.nombre_interno || "";
+    bloque.guardrails = Object.assign({}, bloque.guardrails || {}, { bd_borrador: true, no_publicado: true });
+    var slot = bloquesDeSlot(estado.slotActivo);
+    var existente = slot.some(function (actual) { return String(actual.id_bloque || "") === String(item.id_bloque); });
+    if (!existente) {
+      slot.push(bloque);
+    }
+    estado.bloqueActivo = bloque.id;
+    renderTodoLocal();
+    setEstado(existente ? "Bloque BD ya estaba en el slot" : "Bloque BD cargado al slot", "badge-light-success");
+  }
+
+  function validarBloqueParaGuardar(bloque) {
+    var errores = [];
+    if (!bloque.tipo) errores.push("Selecciona tipo");
+    if (!bloque.titulo && !bloque.nombre_interno) errores.push("Captura titulo");
+    if (bloque.tipo === "content_html_safe" && /<script|onerror\s*=|javascript:/i.test(String(bloque.contenido_html || ""))) {
+      errores.push("HTML no permitido");
+    }
+    return errores;
+  }
+
+  function idBloquePersistido(bloque) {
+    if (bloque && bloque.id_bloque) return String(bloque.id_bloque);
+    var id = bloque && bloque.id ? String(bloque.id) : "";
+    return id.indexOf("bd-") === 0 ? id.replace("bd-", "") : "";
+  }
+
+  function idPublicacionPersistida(bloque) {
+    if (bloque && bloque.id_publicacion_contenido) return String(bloque.id_publicacion_contenido);
+    if (bloque && bloque.publicacion && bloque.publicacion.id_publicacion_contenido) return String(bloque.publicacion.id_publicacion_contenido);
+    return "";
+  }
+
+  function ordenBloqueEnSlot(bloque) {
+    var bloques = bloquesDeSlot(estado.slotActivo);
+    var index = bloques.findIndex(function (item) { return item.id === bloque.id; });
+    return index >= 0 ? index + 1 : bloques.length + 1;
+  }
+
+  function normalizarEstatusGuardado(estatus) {
+    estatus = normalizarEstatusForm(estatus);
+    return estatus === "publicado" ? "borrador" : estatus;
   }
 
   function cargarBorradorLocal() {

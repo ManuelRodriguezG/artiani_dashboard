@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
     <base href="../../../">
-    <title>Rentabilidad - SKU y escenarios</title>
+    <title>Rentabilidad - consulta por SKU</title>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <link rel="shortcut icon" href="assets/media/logos/favicon.ico">
@@ -20,8 +20,8 @@
                     <div class="app-toolbar py-3 py-lg-6">
                         <div class="app-container container-fluid d-flex flex-stack">
                             <div>
-                                <h1 class="page-heading text-dark fw-bold fs-3 mb-1">Rentabilidad - SKU y escenarios</h1>
-                                <span class="text-muted">Costo, precio, margen y escenarios por canal</span>
+                                <h1 class="page-heading text-dark fw-bold fs-3 mb-1">Rentabilidad - consulta por SKU</h1>
+                                <span class="text-muted">Costo, precio, margen, utilidad y escenarios del producto seleccionado</span>
                             </div>
                             <div class="d-flex gap-2">
                                 <?php if (SesionSeguridad::tienePermiso("rentabilidad.snapshot")): ?>
@@ -104,6 +104,10 @@
                                             <label class="form-label">Origen costo</label>
                                             <select class="form-select form-select-solid" id="rentabilidad_origen_costo">
                                                 <option value="">Todos</option>
+                                                <option value="compras_promedio">Compras promedio</option>
+                                                <option value="compra_ultima">Ultima compra</option>
+                                                <option value="xml_ultimo">XML ultimo</option>
+                                                <option value="proveedor_relacion">Relacion proveedor</option>
                                                 <option value="inventario_promedio">Inventario promedio</option>
                                                 <option value="catalogo_referencia">Catalogo referencia</option>
                                                 <option value="sin_costo">Sin costo</option>
@@ -549,7 +553,7 @@ window.RENTABILIDAD_PERMISOS = <?= json_encode(array(
     "snapshot" => SesionSeguridad::tienePermiso("rentabilidad.snapshot")
 )) ?>;
 </script>
-<script src="/assets/js/custom/apps/erp/rentabilidad/analisis.js?v=20260804-2"></script>
+<script src="/assets/js/custom/apps/erp/rentabilidad/analisis.js?v=20260813-2"></script>
 </body>
 </html>
 

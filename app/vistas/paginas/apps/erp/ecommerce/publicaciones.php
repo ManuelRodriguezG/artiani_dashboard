@@ -27,9 +27,7 @@
         .ecom-readiness__signal--rojo { background: #f1416c; }
         .ecom-table-scroll { max-height: 42vh; overflow: auto; border: 1px solid #eef0f5; border-radius: 8px; }
         .ecom-sticky-head th { position: sticky; top: 0; background: #fff; z-index: 1; }
-        .ecom-preview-sticky { position: sticky; top: 82px; z-index: 2; }
         @media (max-width: 991.98px) {
-            .ecom-preview-sticky { position: static; }
             .ecom-table-scroll { max-height: 38vh; }
         }
     </style>
@@ -155,7 +153,7 @@
                                     </div>
                                 </div>
                                 <div class="card-body pt-0">
-                                    <div class="border rounded p-4 mb-4 bg-light ecom-preview-sticky" id="ecom_preview_publicacion">
+                                    <div class="border rounded p-4 mb-4 bg-light" id="ecom_preview_publicacion">
                                         <div class="text-muted py-2">Selecciona un SKU publicable para preparar su ficha ecommerce sin guardar cambios.</div>
                                     </div>
                                     <div class="border rounded p-4 mb-4">
@@ -278,6 +276,6 @@
 </div>
 <script src="assets/plugins/global/plugins.bundle.js"></script>
 <script src="assets/js/scripts.bundle.js"></script>
-<script src="/assets/js/custom/apps/erp/ecommerce/publicaciones.js?v=20260812-loteconfig1"></script>
+<script src="/assets/js/custom/apps/erp/ecommerce/publicaciones.js?v=20260812-cerrar-editor1"></script>
 </body>
 </html>
