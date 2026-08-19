@@ -12,7 +12,7 @@
       Documentacion IA: Codex GPT-5, 2026-08-14.
       Proposito: iniciar biblioteca media del CMS para seleccionar imagenes de frontend.
       Impacto: CMS media; reemplaza captura manual de URLs por flujo local preparado.
-      Contrato: biblioteca local/read-only servidor; no sube archivos, no borra fisicos y no escribe BD.
+      Contrato: biblioteca local y preflight read-only servidor; no sube archivos, no borra fisicos y no escribe BD.
     -->
     <style>
         .cms-media-panel { border: 1px solid #e7e9ef; border-radius: 8px; background: #fff; }
@@ -53,8 +53,8 @@
                             <div class="alert alert-info d-flex align-items-start gap-3">
                                 <i class="bi bi-images fs-2"></i>
                                 <div>
-                                    <div class="fw-bold">Biblioteca local preparada</div>
-                                    <div>Selecciona imagenes, revisa miniaturas, asigna alt text y clasifica su uso. En esta fase no sube archivos al servidor ni borra fisicos; prepara el flujo profesional antes de activar persistencia real.</div>
+                                    <div class="fw-bold">Biblioteca local con preflight de persistencia</div>
+                                    <div>Selecciona imagenes, revisa miniaturas, asigna alt text y clasifica su uso. El servidor expone un preflight read-only para preparar subida real, sin mover archivos ni escribir BD todavia.</div>
                                 </div>
                             </div>
 
@@ -107,10 +107,22 @@
                                         <h3 class="fw-bold mb-4">Politica inicial</h3>
                                         <div class="d-flex flex-column gap-3 fs-7">
                                             <div><span class="badge badge-light-success me-2">OK</span>Validar extension, peso y alt text antes de usar.</div>
+                                            <div><span class="badge badge-light-info me-2">Preflight</span><code>/cms/media_admin_preflight_erp</code></div>
                                             <div><span class="badge badge-light-warning me-2">Pendiente</span>Subida real a carpeta publica controlada.</div>
-                                            <div><span class="badge badge-light-warning me-2">Pendiente</span>BD para uso, referencias y limpieza segura.</div>
+                                            <div><span class="badge badge-light-warning me-2">Pendiente</span>BD para archivo, usos, referencias y limpieza segura.</div>
                                             <div><span class="badge badge-light-danger me-2">No</span>No guardar rutas internas del ERP como URL publica.</div>
                                         </div>
+                                    </div>
+
+                                    <div class="cms-media-panel p-5">
+                                        <div class="d-flex justify-content-between align-items-start gap-3 mb-4">
+                                            <div>
+                                                <h3 class="fw-bold mb-1">Preflight servidor</h3>
+                                                <span class="text-muted fs-7">Contrato de persistencia real antes de autorizar upload.</span>
+                                            </div>
+                                            <span class="badge badge-light-info" id="cms_media_preflight_estado">Read-only</span>
+                                        </div>
+                                        <div id="cms_media_preflight"></div>
                                     </div>
                                 </div>
 

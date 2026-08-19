@@ -24,6 +24,7 @@
         .lp-lista-item.active { border-color: #3e97ff; background: #f1f7ff; }
         .lp-price-input { min-width: 120px; }
         .lp-suggested { min-height: 18px; }
+        .lp-product-img { width: 52px; height: 52px; border-radius: 8px; border: 1px solid #e4e6ef; background: #f5f8fa; background-size: cover; background-position: center; flex: 0 0 52px; }
         .lp-row-dirty { background: #fff8dd; }
         .lp-row-selected { background: #f1f7ff; }
         .lp-side { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 16px; }
@@ -379,6 +380,7 @@
                                                         <th class="w-40px text-center">
                                                             <input class="form-check-input" type="checkbox" id="lp_productos_select_all" title="Seleccionar visibles">
                                                         </th>
+                                                        <th class="w-70px">Foto</th>
                                                         <th>Producto</th>
                                                         <th>Unidad</th>
                                                         <th class="text-end">Costo / fuente</th>

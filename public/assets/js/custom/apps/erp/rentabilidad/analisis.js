@@ -106,7 +106,7 @@
         } else if (vista === "aprobaciones") {
             tareas = [cargarPreciosAprobacion, cargarAprobacionesInternas, cargarAprobacionesAutorizacion, cargarAprobacionesInternasPersistentes];
         } else if (vista === "calidad") {
-            tareas = [cargarCierre, cargarSemaforo, cargarVariaciones, cargarDatosBase, cargarFiscalXml, cargarFiscalPreflight, cargarWorkflowComercial, cargarPresentaciones];
+            tareas = [cargarCierre, cargarSemaforo, cargarVariaciones, cargarDatosBase, cargarFiscalXml, cargarFiscalPreflight, cargarWorkflowComercial, cargarPresentaciones, cargarCostosDerivados];
         } else if (vista === "historial") {
             tareas = [cargarSnapshots, cargarVigenciaSnapshots];
         }
@@ -422,6 +422,14 @@
             renderPresentaciones(response.depurar || {});
         }).catch(function (error) {
             $("rentabilidad_presentaciones").innerHTML = "<div class=\"alert alert-danger mb-0\">" + escapeHtml(error.message) + "</div>";
+        });
+    }
+    function cargarCostosDerivados() {
+        return request("/rentabilidad/costos_derivados_pendientes_erp?" + new URLSearchParams({q: $("rentabilidad_buscar").value.trim(), limite: "120"}).toString()).then(function (response) {
+            if (response.error) { throw new Error(response.mensaje); }
+            renderCostosDerivados(response.depurar || {});
+        }).catch(function (error) {
+            $("rentabilidad_costos_derivados").innerHTML = "<div class=\"alert alert-danger mb-0\">" + escapeHtml(error.message) + "</div>";
         });
     }
     function guardarRecomendacionesPersistentes() {
@@ -1284,6 +1292,51 @@
                     "<td><span class=\"badge " + badge + "\">" + escapeHtml(item.estatus_consistencia || "") + "</span></td></tr>";
             }).join("") + "</tbody></table></div>";
     }
+    function renderCostosDerivados(data) {
+        var resumen = data.resumen || {};
+        var items = data.items || [];
+        var badges = "<div class=\"d-flex flex-wrap gap-2 mb-3\">" +
+            "<span class=\"badge badge-light-primary\">Alertas " + Number(resumen.total_alertas || 0) + "</span>" +
+            "<span class=\"badge badge-light-danger\">Bloqueantes " + Number(resumen.bloqueantes || 0) + "</span>" +
+            "<span class=\"badge badge-light-warning\">Advertencias " + Number(resumen.advertencias || 0) + "</span>" +
+            "<span class=\"badge badge-light-info\">Presentaciones " + Number(resumen.presentacion || 0) + "</span>" +
+            "<span class=\"badge badge-light-info\">Aperturas " + Number(resumen.apertura_empaque || 0) + "</span>" +
+            "<span class=\"badge badge-light-info\">Paquetes " + Number(resumen.paquete_combo || 0) + "</span>" +
+            "</div>";
+        if (!items.length) {
+            $("rentabilidad_costos_derivados").innerHTML = badges + "<div class=\"text-muted fs-8\">Sin pendientes de costo derivado con el filtro actual</div>";
+            return;
+        }
+        $("rentabilidad_costos_derivados").innerHTML = badges +
+            "<div class=\"table-responsive\"><table class=\"table align-middle table-row-dashed gy-3 mb-0\"><thead><tr class=\"text-muted fw-bold fs-8 text-uppercase\"><th>SKU</th><th>Tipo</th><th>Hallazgo</th><th>Accion sugerida</th><th>Estado</th></tr></thead><tbody>" +
+            items.slice(0, 40).map(function (item) {
+                var evidencia = item.evidencia || {};
+                var badge = item.severidad === "bloqueante" ? "badge-light-danger" : "badge-light-warning";
+                var origenInfo = evidencia.sku_origen ? "Origen " + evidencia.sku_origen : "";
+                return "<tr>" +
+                    "<td><div class=\"fw-bold\">" + escapeHtml(item.sku || "") + "</div><div class=\"text-muted fs-8\">" + escapeHtml(origenInfo) + "</div></td>" +
+                    "<td><span class=\"badge badge-light-primary\">" + escapeHtml(item.tipo_costo || "") + "</span></td>" +
+                    "<td><div class=\"fw-bold\">" + escapeHtml(item.id || "") + "</div><div class=\"text-muted fs-8\">" + escapeHtml(item.mensaje || "") + "</div></td>" +
+                    "<td><div class=\"text-muted fs-8\">" + accionCostoDerivado(item) + "</div></td>" +
+                    "<td><span class=\"badge " + badge + "\">" + escapeHtml(item.severidad || "") + "</span></td>" +
+                    "</tr>";
+            }).join("") + "</tbody></table></div>";
+    }
+    function accionCostoDerivado(item) {
+        if (item.id === "COST-DER-008") {
+            return "Revisar apertura en Almacen/Inventario; existe folio confirmado sin costo real.";
+        }
+        if (item.id === "COST-DER-005") {
+            return "Resolver costo del componente u opcion antes de cerrar margen del paquete.";
+        }
+        if (item.id === "COST-DER-006") {
+            return "Sustituir fallback de Catalogo por evidencia de compra, proveedor, inventario o derivacion.";
+        }
+        if (item.id === "COST-DER-003") {
+            return "Completar evidencia de costo del SKU origen; no capturar costo derivado en Catalogo.";
+        }
+        return "Revisar contrato tecnico y evidencia de costo en el modulo responsable.";
+    }
     function renderRecomendacionesPersistentes(data) {
         var items = data.items || [];
         if (!items.length) {
@@ -1490,7 +1543,7 @@
             skus: ["Escenarios comerciales", "Matriz de escenarios", "Canal recomendado", "Precios objetivo", "Sensibilidad"],
             cierre: ["Plan de cierre", "Impacto de cierre", "Hallazgos de cierre", "Prioridad de cierre", "Responsables de cierre", "Checklist de cierre", "Paquete de autorizacion", "Recomendaciones persistentes"],
             aprobaciones: ["Aprobacion de precios", "Aprobacion interna", "Paquete autorizacion aprobaciones", "Aprobaciones internas guardadas"],
-            calidad: ["Cierre comercial", "Semaforo de cierre", "Variacion de costos", "Datos base para cierre", "Evidencia fiscal XML", "Preflight fiscal", "Workflow comercial", "Costos de presentaciones"],
+            calidad: ["Cierre comercial", "Semaforo de cierre", "Variacion de costos", "Datos base para cierre", "Evidencia fiscal XML", "Preflight fiscal", "Workflow comercial", "Costos de presentaciones", "Costos derivados pendientes"],
             historial: ["Snapshots recientes", "Vigencia de snapshots"]
         };
         var lista = visibles[vista];
@@ -1536,6 +1589,7 @@
         $("rentabilidad_snapshots_recargar").addEventListener("click", cargarSnapshots);
         $("rentabilidad_snapshots_vigencia_recargar").addEventListener("click", cargarVigenciaSnapshots);
         $("rentabilidad_presentaciones_recargar").addEventListener("click", cargarPresentaciones);
+        $("rentabilidad_costos_derivados_recargar").addEventListener("click", cargarCostosDerivados);
         $("rentabilidad_matriz_recargar").addEventListener("click", cargarMatriz);
         $("rentabilidad_canales_recargar").addEventListener("click", cargarCanales);
         $("rentabilidad_plan_recargar").addEventListener("click", cargarPlanCierre);

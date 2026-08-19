@@ -501,6 +501,17 @@
                                 </div>
                                 <div class="card-body pt-3" id="rentabilidad_presentaciones"></div>
                             </div>
+                            <div class="card mb-6">
+                                <div class="card-header border-0 pt-5">
+                                    <div class="card-title">
+                                        <h3 class="fw-bold fs-5 mb-0">Costos derivados pendientes</h3>
+                                    </div>
+                                    <div class="card-toolbar">
+                                        <button class="btn btn-sm btn-light" id="rentabilidad_costos_derivados_recargar" type="button"><i class="bi bi-diagram-2"></i> Auditar</button>
+                                    </div>
+                                </div>
+                                <div class="card-body pt-3" id="rentabilidad_costos_derivados"></div>
+                            </div>
                             <div class="d-flex flex-wrap gap-3 mb-5" id="rentabilidad_resumen"></div>
                             <div class="card">
                                 <div class="card-body">
@@ -553,7 +564,7 @@ window.RENTABILIDAD_PERMISOS = <?= json_encode(array(
     "snapshot" => SesionSeguridad::tienePermiso("rentabilidad.snapshot")
 )) ?>;
 </script>
-<script src="/assets/js/custom/apps/erp/rentabilidad/analisis.js?v=20260813-2"></script>
+<script src="/assets/js/custom/apps/erp/rentabilidad/analisis.js?v=20260819-1"></script>
 </body>
 </html>
 

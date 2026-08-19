@@ -242,6 +242,31 @@ class Rentabilidad extends Controlador {
         return json_encode($this->modelo("RentabilidadErp")->variacionesCostos($_GET));
     }
 
+    /**
+     * IA: Codex GPT-5
+     * Fecha: 2026-08-19
+     * Proposito: exponer resolucion read-only de costo vigente por SKU.
+     * Impacto: Rentabilidad/Listas pueden consumir costo trazable sin guardar costos en Catalogo.
+     * Contrato: requiere rentabilidad.ver; no escribe BD, no toca precios, Inventario ni Ventas.
+     */
+    public function costo_vigente_sku_erp() {
+        $this->requerirPermiso("rentabilidad.ver");
+        $idSku = intval(isset($_GET["id_sku"]) ? $_GET["id_sku"] : 0);
+        return json_encode($this->modelo("RentabilidadErp")->resolverCostoVigenteSku($idSku, $_GET));
+    }
+
+    /**
+     * IA: Codex GPT-5
+     * Fecha: 2026-08-19
+     * Proposito: auditar pendientes de costo derivado para presentaciones, aperturas y paquetes.
+     * Impacto: muestra alertas operativas sin pedir captura de costos en Catalogo.
+     * Contrato: requiere rentabilidad.ver; auditoria read-only.
+     */
+    public function costos_derivados_pendientes_erp() {
+        $this->requerirPermiso("rentabilidad.ver");
+        return json_encode($this->modelo("RentabilidadErp")->auditarPendientesCostoDerivado($_GET));
+    }
+
     public function datos_base_auditar_erp() {
         $this->requerirPermiso("rentabilidad.ver");
         return json_encode($this->modelo("RentabilidadErp")->auditarDatosBaseCierre($_GET));
@@ -357,4 +382,3 @@ class Rentabilidad extends Controlador {
         exit;
     }
 }
-

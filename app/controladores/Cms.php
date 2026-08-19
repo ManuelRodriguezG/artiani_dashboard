@@ -24,6 +24,30 @@ class Cms extends Controlador {
       $this->frontend_home();
       return;
     }
+    if ($pagina === "global") {
+      $this->frontend_global();
+      return;
+    }
+    if ($pagina === "navegacion") {
+      $this->frontend_navegacion();
+      return;
+    }
+    if ($pagina === "categorias") {
+      $this->frontend_categorias();
+      return;
+    }
+    if ($pagina === "marcas") {
+      $this->frontend_marcas();
+      return;
+    }
+    if ($pagina === "paginas") {
+      $this->frontend_paginas();
+      return;
+    }
+    if ($pagina === "politicas") {
+      $this->frontend_politicas();
+      return;
+    }
     $this->requerirAlgunPermiso(array("cms.ver", "catalogo.ver"));
     $this->vista("apps/erp/cms/frontend_placeholder", array("pagina" => $pagina));
   }
@@ -37,6 +61,72 @@ class Cms extends Controlador {
   public function frontend_home() {
     $this->requerirAlgunPermiso(array("cms.ver", "catalogo.ver"));
     $this->vista("apps/erp/cms/frontend_home");
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-08-19
+   * Proposito: abrir CMS > Frontend > Global como pantalla operativa.
+   * Impacto: CMS frontend global; prepara datos de negocio, contacto, SEO y navegacion.
+   * Contrato: vista protegida; editor local, sin exponer secretos ni escribir BD.
+   */
+  public function frontend_global() {
+    $this->requerirAlgunPermiso(array("cms.ver", "catalogo.ver"));
+    $this->vista("apps/erp/cms/frontend_global");
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-08-19
+   * Proposito: abrir CMS > Frontend > Navegacion como pantalla operativa.
+   * Impacto: CMS frontend navegacion; prepara menu, topbar, footer y CTAs globales.
+   * Contrato: vista protegida; editor local, sin editar archivos frontend ni escribir BD.
+   */
+  public function frontend_navegacion() {
+    $this->requerirAlgunPermiso(array("cms.ver", "catalogo.ver"));
+    $this->vista("apps/erp/cms/frontend_navegacion");
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-08-19
+   * Proposito: abrir CMS > Frontend > Categorias como pantalla operativa.
+   * Impacto: CMS frontend categorias; prepara imagenes, SEO, orden y destacados sin modificar catalogo ERP.
+   * Contrato: vista protegida; editor local, sin escribir BD ni tocar catalogo/precios/inventario.
+   */
+  public function frontend_categorias() {
+    $this->requerirAlgunPermiso(array("cms.ver", "catalogo.ver"));
+    $this->vista("apps/erp/cms/frontend_categorias");
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-08-19
+   * Proposito: abrir CMS > Frontend > Marcas como pantalla operativa.
+   * Impacto: CMS frontend marcas; prepara logos, banners, SEO, orden y destacados sin modificar catalogo ERP.
+   * Contrato: vista protegida; editor local, sin escribir BD ni tocar precios/inventario.
+   */
+  public function frontend_marcas() {
+    $this->requerirAlgunPermiso(array("cms.ver", "catalogo.ver"));
+    $this->vista("apps/erp/cms/frontend_marcas");
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-08-19
+   * Proposito: abrir CMS > Frontend > Paginas como pantalla operativa.
+   * Impacto: CMS frontend paginas; prepara paginas estaticas publicas sin editar archivos frontend.
+   * Contrato: vista protegida; editor local, HTML restringido conceptual, sin escribir BD.
+   */
+  public function frontend_paginas() {
+    $this->requerirAlgunPermiso(array("cms.ver", "catalogo.ver"));
+    $this->vista("apps/erp/cms/frontend_paginas");
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-08-19
+   * Proposito: abrir CMS > Frontend > Politicas como pantalla operativa.
+   * Impacto: CMS frontend politicas; prepara textos legales/operativos sin editar archivos frontend.
+   * Contrato: vista protegida; editor local, sin escribir BD ni publicar cambios reales.
+   */
+  public function frontend_politicas() {
+    $this->requerirAlgunPermiso(array("cms.ver", "catalogo.ver"));
+    $this->vista("apps/erp/cms/frontend_politicas");
   }
 
   /**
@@ -103,6 +193,18 @@ class Cms extends Controlador {
   public function media() {
     $this->requerirAlgunPermiso(array("cms.ver", "catalogo.ver"));
     $this->vista("apps/erp/cms/media");
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-08-19
+   * Proposito: entregar preflight read-only para persistencia real de Media CMS.
+   * Impacto: CMS media; define carpeta publica, limites, MIME y DDL futuro sin subir archivos.
+   * Contrato: GET protegido; no escribe BD, no mueve archivos y no borra fisicos.
+   */
+  public function media_admin_preflight_erp() {
+    $this->requerirAlgunPermiso(array("cms.ver", "catalogo.ver"));
+    $plan = $this->modelo("EcommercePublicoEsquema")->planActualizarCmsMediaBiblioteca(false);
+    return json_encode($this->modelo("EcommerceCatalogoPublico")->mediaAdminPreflightInterno($plan), JSON_UNESCAPED_UNICODE);
   }
 
   /**

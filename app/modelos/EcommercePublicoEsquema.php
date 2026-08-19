@@ -142,6 +142,63 @@ class EcommercePublicoEsquema extends DBSchema {
   }
 
   /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-08-19
+   * Proposito: proponer persistencia de biblioteca media CMS sin ejecutarla por defecto.
+   * Impacto: CMS media; separa archivos reutilizables de bloques/contenido.
+   * Contrato: con $ejecutar=false solo devuelve SQL propuesto; no crea carpetas ni tablas.
+   */
+  public function planActualizarCmsMediaBiblioteca($ejecutar = false) {
+    $opciones = "ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci";
+    $plan = array();
+
+    $plan[] = $this->crearTablaSiNoExiste("erp_ecommerce_media_archivos", array(
+      "`id_media_archivo` BIGINT NOT NULL AUTO_INCREMENT",
+      "`codigo` VARCHAR(120) NOT NULL",
+      "`nombre_original` VARCHAR(255) NOT NULL",
+      "`nombre_archivo` VARCHAR(255) NOT NULL",
+      "`ruta_publica` VARCHAR(500) NOT NULL",
+      "`mime` VARCHAR(120) NOT NULL",
+      "`extension` VARCHAR(20) NOT NULL",
+      "`bytes` BIGINT NOT NULL DEFAULT 0",
+      "`ancho` INT NULL",
+      "`alto` INT NULL",
+      "`hash_sha256` CHAR(64) NOT NULL",
+      "`alt_text` VARCHAR(255) NOT NULL",
+      "`uso_sugerido` VARCHAR(60) NOT NULL DEFAULT 'general'",
+      "`tipo_sugerido` VARCHAR(60) NOT NULL DEFAULT 'editorial'",
+      "`estatus` VARCHAR(30) NOT NULL DEFAULT 'activo'",
+      "`metadata_json` TEXT NULL",
+      "`fecha_registro` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
+      "`fecha_actualizacion` DATETIME NULL",
+      "`creado_por` INT NULL",
+      "`actualizado_por` INT NULL",
+      "PRIMARY KEY (`id_media_archivo`)",
+      "UNIQUE KEY `idx_ecom_media_archivo_codigo` (`codigo`)",
+      "UNIQUE KEY `idx_ecom_media_archivo_hash` (`hash_sha256`)",
+      "KEY `idx_ecom_media_archivo_uso` (`uso_sugerido`, `tipo_sugerido`, `estatus`)",
+      "KEY `idx_ecom_media_archivo_estado` (`estatus`, `fecha_registro`)"
+    ), $opciones, $ejecutar);
+
+    $plan[] = $this->crearTablaSiNoExiste("erp_ecommerce_media_usos", array(
+      "`id_media_uso` BIGINT NOT NULL AUTO_INCREMENT",
+      "`id_media_archivo` BIGINT NOT NULL",
+      "`entidad_tipo` VARCHAR(60) NOT NULL",
+      "`entidad_clave` VARCHAR(120) NOT NULL",
+      "`campo` VARCHAR(80) NOT NULL",
+      "`rol` VARCHAR(60) NOT NULL DEFAULT 'principal'",
+      "`estatus` VARCHAR(30) NOT NULL DEFAULT 'activo'",
+      "`fecha_registro` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
+      "`fecha_actualizacion` DATETIME NULL",
+      "`creado_por` INT NULL",
+      "PRIMARY KEY (`id_media_uso`)",
+      "KEY `idx_ecom_media_uso_archivo` (`id_media_archivo`, `estatus`)",
+      "KEY `idx_ecom_media_uso_entidad` (`entidad_tipo`, `entidad_clave`, `campo`, `estatus`)"
+    ), $opciones, $ejecutar);
+
+    return $this->respuestaPlan($plan, $ejecutar);
+  }
+
+  /**
    * Documentacion IA: Codex GPT-5 | Fecha: 2026-08-11
    * Proposito: generar el plan DDL de plantillas frontend administrables por CMS sin ejecutarlo por defecto.
    * Impacto: CMS frontend; prepara layouts, componentes, plantillas de vista, secciones y activaciones sin editar archivos del ecommerce.

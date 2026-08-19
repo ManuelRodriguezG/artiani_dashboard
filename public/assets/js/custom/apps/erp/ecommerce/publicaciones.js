@@ -261,12 +261,39 @@
 
     function bloqueosHtml(item) {
         var bloqueos = item.bloqueos_publicacion || [];
+        var auditoria = item.auditoria_editorial || {};
+        var alertas = auditoria.alertas || item.alertas_editoriales || [];
+        var html = [];
         if (!bloqueos.length) {
+            html.push("<span class=\"badge badge-light-success\">Publicable</span>");
+        } else {
+            html.push.apply(html, bloqueos.map(function (bloqueo) {
+                return "<span class=\"badge badge-light-warning\">" + escapeHtml(etiquetaBloqueo(bloqueo)) + "</span>";
+            }));
+        }
+        if (alertas.length) {
+            html.push.apply(html, alertas.slice(0, 3).map(function (alerta) {
+                return "<span class=\"badge badge-light-info\">" + escapeHtml(etiquetaAlertaEditorial(alerta)) + "</span>";
+            }));
+        }
+        return "<div class=\"ecom-block-list\">" + html.join("") + "</div>";
+    }
+
+    function alertasEditorialesHtml(auditoria) {
+        auditoria = auditoria || {};
+        var bloqueos = auditoria.bloqueos_criticos || [];
+        var alertas = auditoria.alertas || [];
+        var sugerencias = auditoria.sugerencias || [];
+        if (!bloqueos.length && !alertas.length) {
             return "<span class=\"badge badge-light-success\">Publicable</span>";
         }
-        return "<div class=\"ecom-block-list\">" + bloqueos.map(function (bloqueo) {
-            return "<span class=\"badge badge-light-warning\">" + escapeHtml(etiquetaBloqueo(bloqueo)) + "</span>";
-        }).join("") + "</div>";
+        return "<div>" +
+            "<div class=\"ecom-block-list mb-2\">" +
+                bloqueos.map(function (b) { return "<span class=\"badge badge-light-danger\">" + escapeHtml(etiquetaBloqueo(b)) + "</span>"; }).join("") +
+                alertas.map(function (a) { return "<span class=\"badge badge-light-info\">" + escapeHtml(etiquetaAlertaEditorial(a)) + "</span>"; }).join("") +
+            "</div>" +
+            (sugerencias.length ? "<div class=\"fs-8 text-muted\">" + sugerencias.map(escapeHtml).join("<br>") + "</div>" : "") +
+        "</div>";
     }
 
     function etiquetaBloqueo(bloqueo) {
@@ -278,9 +305,25 @@
             publicacion_existente: "Ya tiene publicacion",
             publicacion_existente_no_borrador: "Ya publicado/pausado",
             sku_agotado_requiere_confirmar_agotado: "Confirma agotado",
-            confirmar_revision_requerido: "Confirma revision"
+            confirmar_revision_requerido: "Confirma revision",
+            posible_granel_textual: "Posible granel",
+            html_no_permitido: "HTML no permitido"
         };
         return mapa[bloqueo] || bloqueo;
+    }
+
+    function etiquetaAlertaEditorial(alerta) {
+        var mapa = {
+            titulo_publico_vacio: "Titulo vacio",
+            titulo_publico_largo: "Titulo largo",
+            caracteres_danados: "Caracteres raros",
+            descripcion_publica_vacia: "Sin descripcion",
+            descripcion_publica_muy_corta: "Descripcion corta",
+            presentacion_generica: "Presentacion generica",
+            titulo_con_espacios_extra: "Espacios extra",
+            titulo_en_mayusculas: "Mayusculas"
+        };
+        return mapa[alerta] || alerta;
     }
 
     function estadoPublicacionHtml(item) {
@@ -366,6 +409,7 @@
         var bloqueos = data.bloqueos_publicacion || [];
         var necesidades = pub.necesidades || [];
         var taxonomia = data.taxonomia_publicacion || {};
+        var auditoriaEditorial = data.auditoria_editorial || {};
         var idPublicacion = Number(producto.id_publicacion || 0);
         var estatus = String(producto.estatus_publicacion || "");
         var bloqueosSinExistente = bloqueos.filter(function (bloqueo) { return bloqueo !== "publicacion_existente"; });
@@ -406,6 +450,9 @@
                         "<div class=\"fs-7 mb-1\"><span class=\"text-muted\">Mascotas:</span> " + escapeHtml(pub.mascota_especie || "Por definir") + "</div>" +
                         "<div class=\"fs-7 mb-3\"><span class=\"text-muted\">Necesidades:</span> " + escapeHtml(necesidades.length ? necesidades.join(", ") : "Por definir") + "</div>" +
                         (bloqueos.length ? "<div class=\"ecom-block-list\">" + bloqueos.map(function (b) { return "<span class=\"badge badge-light-warning\">" + escapeHtml(etiquetaBloqueo(b)) + "</span>"; }).join("") + "</div>" : "<span class=\"badge badge-light-success\">Listo para guardar borrador</span>") +
+                        "<div class=\"separator my-3\"></div>" +
+                        "<div class=\"fw-bold mb-2\">Calidad editorial</div>" +
+                        alertasEditorialesHtml(auditoriaEditorial) +
                     "</div>" +
                 "</div>" +
                 "<div class=\"col-12\">" +

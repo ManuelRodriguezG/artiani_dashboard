@@ -57,11 +57,17 @@ $prioridad = array(
 $origenEsperado = "sin_costo";
 $costoEsperado = 0;
 if ($item) {
-    foreach ($prioridad as $origen => $costo) {
-        if ($costo !== null && floatval($costo) > 0) {
-            $origenEsperado = $origen;
-            $costoEsperado = floatval($costo);
-            break;
+    $resolucion = isset($item["costo_resolucion"]) && is_array($item["costo_resolucion"]) ? $item["costo_resolucion"] : array();
+    if (isset($resolucion["fuente"]) && in_array($resolucion["fuente"], array("derivado_presentacion", "apertura_confirmada", "paquete_componentes", "paquete_rango"), true)) {
+        $origenEsperado = $resolucion["fuente"];
+        $costoEsperado = floatval(isset($resolucion["costo"]) ? $resolucion["costo"] : 0);
+    } else {
+        foreach ($prioridad as $origen => $costo) {
+            if ($costo !== null && floatval($costo) > 0) {
+                $origenEsperado = $origen;
+                $costoEsperado = floatval($costo);
+                break;
+            }
         }
     }
     if ($origenEsperado === "sin_costo" && floatval($item["costo_real_sin_impuesto"]) > 0) {

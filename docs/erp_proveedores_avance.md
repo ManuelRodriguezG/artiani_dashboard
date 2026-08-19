@@ -7304,3 +7304,42 @@ Siguiente paso real para Sunny lista `4`:
 - Aplicar relaciones incluidas.
 - Ejecutar `Preview costos`.
 - Aplicar costos incluidos.
+
+## Proveedores - Matching exacto con variantes proveedor 2026-08-19
+
+Caso detectado:
+
+- Proveedor Aquakrill: `id_proveedor=7`.
+- Lista `22`, renglon `13491`.
+- Codigo del proveedor: `11302`.
+- Catalogo ERP tiene SKU exacto `11302` (`id_sku=1591`).
+- El proveedor tenia tres relaciones activas con `sku_proveedor=11302`:
+  - `11302`;
+  - `11302-RA`;
+  - `11302-CE`.
+
+Problema:
+
+- El matching veia varias relaciones por el mismo `sku_proveedor=11302` y no priorizaba que el SKU ERP exacto tambien era `11302`.
+- Para el usuario se veia como relacionado, pero no quedaba claro cual variante seleccionar ni podia avanzar de forma confiable.
+
+Regla aplicada:
+
+- Si el identificador del renglon coincide exactamente con `erp_catalogo_skus.sku`, esa relacion se prioriza antes que coincidencias por `sku_proveedor`.
+- Las variantes siguen existiendo, pero no deben ganarle al SKU ERP exacto cuando el codigo del renglon apunta directamente al SKU base.
+
+Validacion:
+
+- `C:\xampp\php\php.exe -l app\modelos\Proveedores.php`: OK.
+- Matching read-only de Aquakrill lista `22`, renglon `13491`:
+  - antes: multiples relaciones por `sku_proveedor=11302`;
+  - despues: candidato unico `id_sku=1591`, `id_sku_proveedor=2357`, criterio `relacion_activa_sku_erp_exacto`.
+- Matching masivo read-only de lista `22` detecta `1` elegible nuevo y `173` ya seleccionados/aplicados.
+
+Siguiente prueba real:
+
+- Abrir Aquakrill > lista `JULIO 2026` > `Matching`.
+- Buscar `11302`.
+- Confirmar que aparece candidato unico para SKU ERP `11302`.
+- Seleccionar/aplicar matching o usar matching masivo.
+- Despues completar/aplicar relacion y costo si el renglon queda listo.

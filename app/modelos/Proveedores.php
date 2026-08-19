@@ -8432,6 +8432,43 @@ class Proveedores extends CRUD {
     }
 
     private function candidatosRelacionProveedorSkuErp($db, $idProveedor, $renglon) {
+        $stmtExactoSku = $db->prepare("SELECT
+                s.id_sku,
+                s.sku,
+                s.nombre,
+                sp.id_sku_proveedor,
+                sp.sku_proveedor,
+                sp.estatus,
+                'relacion_activa_sku_erp_exacto' AS criterio
+            FROM erp_catalogo_sku_proveedores sp
+            INNER JOIN erp_catalogo_skus s ON s.id_sku = sp.id_sku AND s.estatus <> 'fusionado'
+            WHERE sp.id_proveedor = :id_proveedor
+              AND sp.estatus = 'activo'
+              AND (
+                (:id_sku_cmp > 0 AND sp.id_sku = :id_sku_val)
+                OR (:sku_proveedor_cmp <> '' AND LOWER(TRIM(s.sku)) = LOWER(TRIM(:sku_proveedor_val)))
+                OR (:codigo_barras_cmp <> '' AND LOWER(TRIM(s.sku)) = LOWER(TRIM(:codigo_barras_val)))
+                OR (:codigo_interno_cmp <> '' AND LOWER(TRIM(s.sku)) = LOWER(TRIM(:codigo_interno_val)))
+              )
+            ORDER BY sp.es_preferido DESC, sp.id_sku_proveedor DESC
+            LIMIT 5");
+        $paramsExactos = array(
+            ":id_proveedor" => intval($idProveedor),
+            ":id_sku_cmp" => intval(isset($renglon["id_sku"]) ? $renglon["id_sku"] : 0),
+            ":id_sku_val" => intval(isset($renglon["id_sku"]) ? $renglon["id_sku"] : 0),
+            ":sku_proveedor_cmp" => $this->normalizarIdentificadorProveedorErp(isset($renglon["sku_proveedor"]) ? $renglon["sku_proveedor"] : ""),
+            ":sku_proveedor_val" => $this->normalizarIdentificadorProveedorErp(isset($renglon["sku_proveedor"]) ? $renglon["sku_proveedor"] : ""),
+            ":codigo_barras_cmp" => $this->normalizarIdentificadorProveedorErp(isset($renglon["codigo_barras"]) ? $renglon["codigo_barras"] : ""),
+            ":codigo_barras_val" => $this->normalizarIdentificadorProveedorErp(isset($renglon["codigo_barras"]) ? $renglon["codigo_barras"] : ""),
+            ":codigo_interno_cmp" => $this->normalizarIdentificadorProveedorErp(isset($renglon["codigo_interno"]) ? $renglon["codigo_interno"] : ""),
+            ":codigo_interno_val" => $this->normalizarIdentificadorProveedorErp(isset($renglon["codigo_interno"]) ? $renglon["codigo_interno"] : "")
+        );
+        $stmtExactoSku->execute($paramsExactos);
+        $exactosSku = $stmtExactoSku->fetchAll(PDO::FETCH_ASSOC);
+        if (count($exactosSku) > 0) {
+            return $exactosSku;
+        }
+
         $stmt = $db->prepare("SELECT
                 s.id_sku,
                 s.sku,

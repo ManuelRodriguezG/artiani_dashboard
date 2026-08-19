@@ -48,6 +48,13 @@ Avance 2026-08-13:
 - `home.productos_destacados` ya tiene editor local operativo para titulo, subtitulo, limite, CTA, variante visual, fuente por criterio y lista manual de referencias por producto/SKU/slug.
 - `home.coleccion_productos` ya tiene editor local operativo para colecciones repetibles con titulo, subtitulo, criterio, categoria/marca, limite, CTA, variante visual y referencias manuales por CSV.
 - `home.banner` ya tiene editor local operativo para el banner de Home actual: imagen desktop/mobile, alt text, titulo, subtitulo, CTA y estructura `items` preparada para slides futuros.
+- `/cms/frontend/global` ya tiene editor local inicial para negocio, ubicacion, horarios, redes, SEO global, navegacion y footer.
+- `/cms/frontend/navegacion` ya tiene editor local inicial para topbar, menu principal, columnas de footer y CTA global, sin obligar al usuario a editar JSON crudo.
+- `/cms/frontend/categorias` ya tiene editor local inicial para imagen card, banner, alt text, SEO, destacado, visibilidad y orden editorial de categorias publicas, sin crear ni modificar categorias ERP.
+- `/cms/frontend/marcas` ya tiene editor local inicial para logo, banner, alt text, SEO, destacado, visibilidad y orden editorial de marcas publicas, sin crear ni modificar marcas ERP.
+- `/cms/frontend/paginas` ya tiene editor local inicial para paginas informativas con slug, URL publica, contenido, imagen principal, alt text y SEO, sin editar archivos frontend.
+- `/cms/frontend/politicas` ya tiene editor local inicial para privacidad, envios, devoluciones y terminos con version, estatus, vigencia, contenido y SEO, sujeto a revision legal antes de publicar.
+- `/cms/media` ya consulta `/cms/media_admin_preflight_erp`, endpoint read-only que prepara carpeta publica, limites, MIME permitidos, tablas `erp_ecommerce_media_archivos`/`erp_ecommerce_media_usos` y endpoints POST futuros bloqueados.
 - El editor produce `Preview JSON esperado` con el formato del contrato frontend.
 - Aun no guarda este contrato en BD ni publica `/ecommercePublico/cms_frontend`; primero se cerrara el shape exacto con el frontend actual.
 
@@ -56,6 +63,7 @@ Fecha: 2026-08-10
 Estado: Diseno vivo, vistas separadas, UI funcional, DDL base aplicado, semilla estructural desde BD y primer POST activo para guardar bloques borrador
 
 Manual operativo: `docs/erp_cms_manual_uso.md`
+Plan CMS/API ecommerce publico: `docs/erp_cms_api_ecommerce_publico_artiani_plan.md`
 Contrato frontend renderer: `docs/erp_cms_frontend_renderer_contrato.md`
 Plan builder visual Wokiee: `docs/erp_cms_visual_builder_wokiee_plan.md`
 

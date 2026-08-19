@@ -950,6 +950,108 @@ class MigracionesBd extends CRUD {
 
   /**
    * IA: Codex GPT-5
+   * Fecha: 2026-08-19
+   * Proposito: generar respaldo completo de un ambiente configurado para activacion inicial.
+   * Impacto: Migraciones BD; ejecuta mysqldump sobre local o destino, no modifica ninguna BD.
+   * Contrato: exige token y confirmacion literal; no devuelve passwords.
+   */
+  public function generarRespaldoAmbienteCompleto($alias, $autorizar, $confirmacion, $idUsuario = 0) {
+    $alias = trim((string) $alias);
+    $autorizar = trim((string) $autorizar);
+    $confirmacion = trim((string) $confirmacion);
+    $ambiente = $this->ambienteConexionConfig($alias);
+    if (!$ambiente) {
+      return $this->respuesta(true, "warning", "Ambiente no configurado para respaldo", array("alias" => $alias));
+    }
+
+    $tokenOk = $autorizar === "MIGRACIONES_BD_RESPALDO_COMPLETO";
+    $confirmacionOk = stripos($confirmacion, "AUTORIZO GENERAR RESPALDO COMPLETO MIGRACIONES BD") !== false
+      && stripos($confirmacion, "ambiente " . $alias) !== false;
+    if (!$tokenOk || !$confirmacionOk) {
+      return $this->respuesta(true, "warning", "No se puede generar respaldo completo sin token y confirmacion literal", array(
+        "alias" => $alias,
+        "token_ok" => $tokenOk,
+        "confirmacion_ok" => $confirmacionOk,
+        "ambiente" => $this->sanearAmbiente($ambiente)
+      ));
+    }
+
+    $directorio = $this->directorioRespaldos();
+    $repo = realpath(__DIR__ . "/../..");
+    $realDirectorio = file_exists($directorio) ? realpath($directorio) : false;
+    if ($realDirectorio && $repo && stripos($realDirectorio, $repo) === 0) {
+      return $this->respuesta(true, "danger", "La ruta de respaldo no puede estar dentro del proyecto", array("directorio" => $realDirectorio));
+    }
+    if (!$realDirectorio && !mkdir($directorio, 0775, true)) {
+      return $this->respuesta(true, "danger", "No fue posible crear el directorio de respaldos", array("directorio" => $directorio));
+    }
+
+    $mysqldump = $this->rutaMysqldump();
+    if (!file_exists($mysqldump)) {
+      return $this->respuesta(true, "warning", "No se encontro mysqldump en la ruta configurada", array("mysqldump" => $mysqldump));
+    }
+
+    $archivo = rtrim($directorio, "\\/") . DIRECTORY_SEPARATOR . $this->nombreRespaldoAmbiente($alias, $ambiente["base"], "promocion_completa");
+    $args = array(
+      $mysqldump,
+      "--host=" . $ambiente["host"],
+      "--port=" . $ambiente["port"],
+      "--user=" . $ambiente["usuario"],
+      "--single-transaction",
+      "--routines",
+      "--events",
+      "--triggers",
+      "--add-drop-table",
+      "--default-character-set=utf8mb4",
+      "--result-file=" . $archivo,
+      $ambiente["base"]
+    );
+    if ($ambiente["password"] !== "") {
+      array_splice($args, 4, 0, array("--password=" . $ambiente["password"]));
+    }
+
+    $inicio = microtime(true);
+    $descriptor = array(
+      0 => array("pipe", "r"),
+      1 => array("pipe", "w"),
+      2 => array("pipe", "w")
+    );
+    $proceso = proc_open($args, $descriptor, $pipes);
+    if (!is_resource($proceso)) {
+      return $this->respuesta(true, "danger", "No fue posible iniciar mysqldump");
+    }
+    fclose($pipes[0]);
+    $stdout = stream_get_contents($pipes[1]);
+    $stderr = stream_get_contents($pipes[2]);
+    fclose($pipes[1]);
+    fclose($pipes[2]);
+    $codigo = proc_close($proceso);
+
+    $existe = file_exists($archivo);
+    $tamano = $existe ? filesize($archivo) : 0;
+    $ok = $codigo === 0 && $existe && $tamano > 0;
+    if (!$ok && $existe && $tamano === 0) {
+      @unlink($archivo);
+    }
+
+    return $this->respuesta(!$ok, $ok ? "success" : "danger", $ok ? "Respaldo completo generado" : "No fue posible generar respaldo completo", array(
+      "ok" => $ok,
+      "alias" => $alias,
+      "ambiente" => $this->sanearAmbiente($ambiente),
+      "archivo" => $archivo,
+      "tamano_bytes" => $tamano,
+      "sha256" => $ok ? hash_file("sha256", $archivo) : null,
+      "duracion_segundos" => round(microtime(true) - $inicio, 3),
+      "codigo_salida" => $codigo,
+      "stdout" => trim((string) $stdout),
+      "stderr" => trim((string) $stderr),
+      "id_usuario" => $idUsuario,
+      "comando_saneado" => $this->comandoMysqldumpAmbienteSaneado($ambiente, $archivo)
+    ));
+  }
+
+  /**
+   * IA: Codex GPT-5
    * Fecha: 2026-08-02
    * Proposito: listar respaldos SQL disponibles en la ruta estandar.
    * Impacto: Migraciones BD; solo lectura de archivos .sql fuera del repo.
@@ -1176,6 +1278,98 @@ class MigracionesBd extends CRUD {
       "token" => "MIGRACIONES_BD_RESTORE",
       "texto_autorizacion" => $textoAutorizacion,
       "nota" => "Este modulo solo prepara el plan de restauracion. La restauracion real debe hacerse fuera del flujo normal, con autorizacion explicita y el sistema en ventana de recuperacion."
+    ));
+  }
+
+  /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-08-19
+   * Proposito: preparar la activacion inicial donde local reemplaza por completo a productivo.
+   * Impacto: Migraciones BD; solo lectura, no genera respaldos ni restaura.
+   * Contrato: devuelve runbook, compuertas, respaldos requeridos y diferencias actuales.
+   */
+  public function preflightPromocionCompleta($aliasDestino = "productivo", $respaldoLocal = "", $respaldoDestino = "") {
+    $aliasDestino = trim((string) $aliasDestino);
+    if ($aliasDestino === "" || $aliasDestino === "local") {
+      return $this->respuesta(true, "warning", "Indica un destino productivo distinto a local", array("destino" => $aliasDestino));
+    }
+
+    $local = $this->probarAmbiente("local");
+    $destino = $this->probarAmbiente($aliasDestino);
+    $comparacion = (!$local["error"] && !$destino["error"]) ? $this->compararAmbientes($aliasDestino) : null;
+    $validacionLocal = $this->validarRespaldo($respaldoLocal);
+    $validacionDestino = $this->validarRespaldo($respaldoDestino);
+    $ambienteLocal = $this->ambienteConexionConfig("local");
+    $ambienteDestino = $this->ambienteConexionConfig($aliasDestino);
+
+    $bloqueos = array();
+    $advertencias = array();
+    if ($local["error"]) {
+      $bloqueos[] = "local_no_conecta";
+    }
+    if ($destino["error"]) {
+      $bloqueos[] = "destino_no_conecta";
+    }
+    if (empty($validacionLocal["depurar"]["ok"])) {
+      $advertencias[] = "respaldo_local_pendiente";
+    }
+    if (empty($validacionDestino["depurar"]["ok"])) {
+      $advertencias[] = "respaldo_productivo_pendiente";
+    }
+    if (!$this->promocionCompletaHabilitada()) {
+      $advertencias[] = "promocion_completa_deshabilitada";
+    }
+
+    $tablasSoloDestino = array();
+    $resumenComparacion = array();
+    if ($comparacion && !$comparacion["error"]) {
+      $c = $comparacion["depurar"]["comparacion"];
+      $resumenComparacion = isset($c["resumen"]) ? $c["resumen"] : array();
+      foreach ($c["tablas_solo_destino"] as $tabla) {
+        $tablasSoloDestino[] = $tabla["tabla"];
+      }
+      if (!empty($tablasSoloDestino)) {
+        $advertencias[] = "productivo_tiene_tablas_no_presentes_en_local";
+      }
+    } elseif ($comparacion && $comparacion["error"]) {
+      $bloqueos[] = "comparacion_no_disponible";
+    }
+
+    $rutaLocalSugerida = $ambienteLocal ? $this->directorioRespaldos() . "\\" . $this->nombreRespaldoAmbiente("local", $ambienteLocal["base"], "promocion_completa") : "";
+    $rutaDestinoSugerida = $ambienteDestino ? $this->directorioRespaldos() . "\\" . $this->nombreRespaldoAmbiente($aliasDestino, $ambienteDestino["base"], "antes_reemplazo") : "";
+
+    return $this->respuesta(false, empty($bloqueos) ? "success" : "warning", "Preflight de promocion completa generado", array(
+      "modo" => "reemplazo_completo_local_a_productivo",
+      "destino" => $aliasDestino,
+      "local" => $local["error"] ? $local : $local["depurar"],
+      "productivo" => $destino["error"] ? $destino : $destino["depurar"],
+      "comparacion_resumen" => $resumenComparacion,
+      "tablas_solo_productivo" => $tablasSoloDestino,
+      "respaldo_local" => $validacionLocal["depurar"],
+      "respaldo_productivo" => $validacionDestino["depurar"],
+      "ruta_respaldo_local_sugerida" => $rutaLocalSugerida,
+      "ruta_respaldo_productivo_sugerida" => $rutaDestinoSugerida,
+      "token_respaldo" => "MIGRACIONES_BD_RESPALDO_COMPLETO",
+      "confirmacion_respaldo_local" => "AUTORIZO GENERAR RESPALDO COMPLETO MIGRACIONES BD del ambiente local para promocion completa. Entiendo que no modifica ninguna base.",
+      "confirmacion_respaldo_productivo" => "AUTORIZO GENERAR RESPALDO COMPLETO MIGRACIONES BD del ambiente " . $aliasDestino . " antes de reemplazo. Entiendo que no modifica ninguna base.",
+      "token_reemplazo" => "MIGRACIONES_BD_REEMPLAZO_COMPLETO",
+      "confirmacion_reemplazo" => "AUTORIZO REEMPLAZAR PRODUCTIVO CON BASE LOCAL usando respaldo local [RESPALDO_LOCAL] y respaldo productivo [RESPALDO_PRODUCTIVO]. Entiendo que productivo quedara con esquema y datos de local.",
+      "promocion_completa_habilitada" => $this->promocionCompletaHabilitada(),
+      "bloqueos" => $bloqueos,
+      "advertencias" => array_values(array_unique($advertencias)),
+      "puede_generar_respaldos" => empty($bloqueos),
+      "puede_reemplazar" => false,
+      "runbook" => array(
+        "1. Confirmar que productivo aun no tiene operacion real que conservar.",
+        "2. Generar respaldo completo de productivo.",
+        "3. Generar respaldo completo de local.",
+        "4. Validar ambos respaldos por tamano, lectura y hash.",
+        "5. Activar ventana de mantenimiento en productivo.",
+        "6. Restaurar el dump local sobre productivo con autorizacion literal.",
+        "7. Verificar tablas, usuarios, permisos, catalogo, proveedores y configuraciones.",
+        "8. Conservar el respaldo productivo para rollback."
+      ),
+      "nota" => "Este preflight no ejecuta restauracion. El reemplazo completo se mantiene bloqueado hasta una autorizacion final separada."
     ));
   }
 
@@ -1806,6 +2000,11 @@ class MigracionesBd extends CRUD {
     return !empty($config["_opciones"]["aplicacion_real_habilitada"]);
   }
 
+  private function promocionCompletaHabilitada() {
+    $config = $this->leerConfigAmbientes();
+    return !empty($config["_opciones"]["promocion_completa_habilitada"]);
+  }
+
   private function ejecutarSqlPaquete($conexionDestino, $preflight, $respaldo, $idUsuario) {
     if (!$this->tablaTecnicaExiste("sys_migraciones_ejecuciones") || !$this->tablaTecnicaExiste("sys_migraciones_ejecucion_detalle")) {
       return $this->respuesta(true, "warning", "Falta esquema tecnico de bitacora de ejecuciones");
@@ -1938,6 +2137,31 @@ class MigracionesBd extends CRUD {
       return null;
     }
     return isset($ambientes[$alias]) && is_array($ambientes[$alias]) ? $ambientes[$alias] : null;
+  }
+
+  private function ambienteConexionConfig($alias) {
+    $alias = trim((string) $alias);
+    if ($alias === "local") {
+      return array(
+        "alias" => "local",
+        "tipo" => "local",
+        "descripcion" => "Base activa por mysql.php",
+        "host" => defined("MYSQLHOST") ? MYSQLHOST : "",
+        "port" => defined("MYSQLPORT") ? MYSQLPORT : "3306",
+        "base" => defined("MYSQLBASE") ? MYSQLBASE : "",
+        "usuario" => defined("MYSQLUSER") ? MYSQLUSER : "",
+        "password" => defined("MYSQLPASS") ? MYSQLPASS : ""
+      );
+    }
+
+    $ambiente = $this->ambientePorAlias($alias);
+    if (!$ambiente) {
+      return null;
+    }
+    $ambiente["alias"] = $alias;
+    $ambiente["port"] = !empty($ambiente["port"]) ? $ambiente["port"] : "3306";
+    $ambiente["password"] = isset($ambiente["password"]) ? $ambiente["password"] : "";
+    return $ambiente;
   }
 
   private function valorConfigPlaceholder($valor) {
@@ -2515,6 +2739,14 @@ class MigracionesBd extends CRUD {
     return $base . "_panel_" . date("Ymd_His") . "_antes_" . preg_replace('/[^a-zA-Z0-9_]+/', "_", $alcance) . ".sql";
   }
 
+  private function nombreRespaldoAmbiente($alias, $base, $alcance) {
+    return preg_replace('/[^a-zA-Z0-9_]+/', "_", $alias)
+      . "_" . preg_replace('/[^a-zA-Z0-9_]+/', "_", $base)
+      . "_panel_" . date("Ymd_His")
+      . "_antes_" . preg_replace('/[^a-zA-Z0-9_]+/', "_", $alcance)
+      . ".sql";
+  }
+
   private function directorioRespaldos() {
     $config = $this->leerConfigAmbientes();
     if (!empty($config["_opciones"]["directorio_respaldos"])) {
@@ -2547,6 +2779,16 @@ class MigracionesBd extends CRUD {
       . " --single-transaction --routines --events --triggers --default-character-set=utf8mb4"
       . " --result-file=\"" . $archivo . "\" "
       . MYSQLBASE;
+  }
+
+  private function comandoMysqldumpAmbienteSaneado($ambiente, $archivo) {
+    return $this->rutaMysqldump()
+      . " --host=" . (isset($ambiente["host"]) ? $ambiente["host"] : "")
+      . " --port=" . (isset($ambiente["port"]) ? $ambiente["port"] : "3306")
+      . " --user=" . (isset($ambiente["usuario"]) ? $ambiente["usuario"] : "")
+      . " --single-transaction --routines --events --triggers --add-drop-table --default-character-set=utf8mb4"
+      . " --result-file=\"" . $archivo . "\" "
+      . (isset($ambiente["base"]) ? $ambiente["base"] : "");
   }
 
   private function comandoRestoreSaneado($archivo) {

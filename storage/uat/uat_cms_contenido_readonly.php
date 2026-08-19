@@ -19,7 +19,9 @@ $auditoria = $esquema->auditarCmsContenido();
 $plan = $esquema->planActualizarCmsContenido(false);
 $auditoriaFrontend = $esquema->auditarCmsFrontend();
 $planFrontend = $esquema->planActualizarCmsFrontend(false);
+$planMedia = $esquema->planActualizarCmsMediaBiblioteca(false);
 $estado = $cms->contenidoAdminEstadoInterno($auditoria, $plan);
+$mediaPreflight = $cms->mediaAdminPreflightInterno($planMedia);
 $manifest = $cms->contenidoAdminManifestInterno();
 $frontendManifest = $cms->frontendPlantillasAdminManifestInterno();
 $home = $cms->contenidoAdminPaginaInterna(array("pagina" => "home"));
@@ -35,6 +37,12 @@ $vistaFrontendPlantillas = file_get_contents("../app/vistas/paginas/apps/erp/cms
 $vistaFrontendConstructor = file_get_contents("../app/vistas/paginas/apps/erp/cms/frontend_constructor.php");
 $vistaFrontendActual = file_get_contents("../app/vistas/paginas/apps/erp/cms/frontend_actual.php");
 $vistaFrontendHome = file_get_contents("../app/vistas/paginas/apps/erp/cms/frontend_home.php");
+$vistaFrontendGlobal = file_get_contents("../app/vistas/paginas/apps/erp/cms/frontend_global.php");
+$vistaFrontendNavegacion = file_get_contents("../app/vistas/paginas/apps/erp/cms/frontend_navegacion.php");
+$vistaFrontendCategorias = file_get_contents("../app/vistas/paginas/apps/erp/cms/frontend_categorias.php");
+$vistaFrontendMarcas = file_get_contents("../app/vistas/paginas/apps/erp/cms/frontend_marcas.php");
+$vistaFrontendPaginas = file_get_contents("../app/vistas/paginas/apps/erp/cms/frontend_paginas.php");
+$vistaFrontendPoliticas = file_get_contents("../app/vistas/paginas/apps/erp/cms/frontend_politicas.php");
 $vistaFrontendPlaceholder = file_get_contents("../app/vistas/paginas/apps/erp/cms/frontend_placeholder.php");
 $vistaFrontendComponentes = file_get_contents("../app/vistas/paginas/apps/erp/cms/frontend_componentes.php");
 $vistaFrontendActivaciones = file_get_contents("../app/vistas/paginas/apps/erp/cms/frontend_activaciones.php");
@@ -45,8 +53,10 @@ $jsMedia = file_get_contents("../public/assets/js/custom/apps/erp/cms/media.js")
 $sidebar = file_get_contents("../app/vistas/includes/header/sidebar.php");
 $controladorCms = file_get_contents("../app/controladores/Cms.php");
 $modeloPublico = file_get_contents("../app/modelos/EcommerceCatalogoPublico.php");
+$modeloEsquema = file_get_contents("../app/modelos/EcommercePublicoEsquema.php");
 $seguridadEsquema = file_get_contents("../app/modelos/SeguridadEsquema.php");
 $manualCms = file_get_contents("../docs/erp_cms_manual_uso.md");
+$planCmsApi = file_get_contents("../docs/erp_cms_api_ecommerce_publico_artiani_plan.md");
 $contratoRenderer = file_get_contents("../docs/erp_cms_frontend_renderer_contrato.md");
 $planBuilderWokiee = file_get_contents("../docs/erp_cms_visual_builder_wokiee_plan.md");
 $uatPersistenciaPreflight = file_get_contents("../storage/uat/uat_cms_persistencia_preflight.php");
@@ -57,6 +67,12 @@ $bloqueos = array();
 if (!empty($estado["error"])) { $bloqueos[] = "estado_error"; }
 if (!empty($manifest["error"])) { $bloqueos[] = "manifest_error"; }
 if (!empty($frontendManifest["error"])) { $bloqueos[] = "frontend_manifest_error"; }
+if (!empty($mediaPreflight["error"])) { $bloqueos[] = "media_preflight_error"; }
+if (valorCmsAdmin($mediaPreflight, array("depurar", "carpeta_publica_propuesta"), "") !== "/assets/media/cms/ecommerce") { $bloqueos[] = "media_preflight_carpeta_incorrecta"; }
+if (valorCmsAdmin($mediaPreflight, array("depurar", "tabla_archivos"), "") !== "erp_ecommerce_media_archivos") { $bloqueos[] = "media_preflight_sin_tabla_archivos"; }
+if (valorCmsAdmin($mediaPreflight, array("depurar", "tabla_usos"), "") !== "erp_ecommerce_media_usos") { $bloqueos[] = "media_preflight_sin_tabla_usos"; }
+if (empty(valorCmsAdmin($mediaPreflight, array("depurar", "guardrails", "no_mueve_archivos"), false))) { $bloqueos[] = "media_preflight_no_declara_no_mueve_archivos"; }
+if (empty(valorCmsAdmin($mediaPreflight, array("depurar", "guardrails", "requiere_respaldo_antes_ddl"), false))) { $bloqueos[] = "media_preflight_sin_respaldo"; }
 if (!empty($home["error"])) { $bloqueos[] = "home_error"; }
 if (!empty($categoria["error"])) { $bloqueos[] = "categoria_error"; }
 if (empty(valorCmsAdmin($estado, array("depurar", "guardrails", "persistencia_contenido_interna"), false))) { $bloqueos[] = "estado_sin_persistencia_contenido_interna"; }
@@ -120,7 +136,9 @@ if (strpos((string) $vistaSlots, "Vista estructural read-only") === false) { $bl
 if (strpos((string) $vistaSlots, "erp_cms_manual_uso.md") === false) { $bloqueos[] = "vista_slots_sin_link_manual"; }
 if (strpos((string) $vistaMedia, "ecom_cms_visual") === false) { $bloqueos[] = "vista_media_sin_preview_visual"; }
 if (strpos((string) $vistaMedia, "data-cms-bloques-mode=\"seleccion\"") === false) { $bloqueos[] = "vista_media_no_es_solo_seleccion"; }
-if (strpos((string) $vistaMedia, "Biblioteca local preparada") === false) { $bloqueos[] = "vista_media_sin_biblioteca_local"; }
+if (strpos((string) $vistaMedia, "Biblioteca local con preflight de persistencia") === false) { $bloqueos[] = "vista_media_sin_biblioteca_preflight"; }
+if (strpos((string) $vistaMedia, "cms_media_preflight") === false) { $bloqueos[] = "vista_media_sin_preflight"; }
+if (strpos((string) $vistaMedia, "/cms/media_admin_preflight_erp") === false) { $bloqueos[] = "vista_media_sin_endpoint_preflight"; }
 if (strpos((string) $vistaMedia, "cms_media_biblioteca") === false) { $bloqueos[] = "vista_media_sin_grid_biblioteca"; }
 if (strpos((string) $vistaMedia, "cms_media_archivo") === false) { $bloqueos[] = "vista_media_sin_selector_archivo"; }
 if (strpos((string) $vistaMedia, "cms_media_limpiar_archivados") === false) { $bloqueos[] = "vista_media_sin_limpiar_archivados"; }
@@ -306,6 +324,18 @@ if (strpos((string) $vistaFrontendActual, "cms_actual_json") === false) { $bloqu
 if (strpos((string) $vistaFrontendActual, "frontend_actual.js") === false) { $bloqueos[] = "vista_frontend_actual_sin_js"; }
 if (strpos((string) $vistaFrontendHome, "CMS / Frontend / Home") === false) { $bloqueos[] = "vista_frontend_home_sin_titulo_operativo"; }
 if (strpos((string) $vistaFrontendHome, "\$cmsFrontendGrupoInicial = \"home\"") === false) { $bloqueos[] = "vista_frontend_home_no_abre_home"; }
+if (strpos((string) $vistaFrontendGlobal, "CMS / Frontend / Global") === false) { $bloqueos[] = "vista_frontend_global_sin_titulo_operativo"; }
+if (strpos((string) $vistaFrontendGlobal, "\$cmsFrontendGrupoInicial = \"global\"") === false) { $bloqueos[] = "vista_frontend_global_no_abre_global"; }
+if (strpos((string) $vistaFrontendNavegacion, "CMS / Frontend / Navegacion") === false) { $bloqueos[] = "vista_frontend_navegacion_sin_titulo_operativo"; }
+if (strpos((string) $vistaFrontendNavegacion, "\$cmsFrontendGrupoInicial = \"navegacion\"") === false) { $bloqueos[] = "vista_frontend_navegacion_no_abre_navegacion"; }
+if (strpos((string) $vistaFrontendCategorias, "CMS / Frontend / Categorias") === false) { $bloqueos[] = "vista_frontend_categorias_sin_titulo_operativo"; }
+if (strpos((string) $vistaFrontendCategorias, "\$cmsFrontendGrupoInicial = \"categorias\"") === false) { $bloqueos[] = "vista_frontend_categorias_no_abre_categorias"; }
+if (strpos((string) $vistaFrontendMarcas, "CMS / Frontend / Marcas") === false) { $bloqueos[] = "vista_frontend_marcas_sin_titulo_operativo"; }
+if (strpos((string) $vistaFrontendMarcas, "\$cmsFrontendGrupoInicial = \"marcas\"") === false) { $bloqueos[] = "vista_frontend_marcas_no_abre_marcas"; }
+if (strpos((string) $vistaFrontendPaginas, "CMS / Frontend / Paginas") === false) { $bloqueos[] = "vista_frontend_paginas_sin_titulo_operativo"; }
+if (strpos((string) $vistaFrontendPaginas, "\$cmsFrontendGrupoInicial = \"paginas\"") === false) { $bloqueos[] = "vista_frontend_paginas_no_abre_paginas"; }
+if (strpos((string) $vistaFrontendPoliticas, "CMS / Frontend / Politicas") === false) { $bloqueos[] = "vista_frontend_politicas_sin_titulo_operativo"; }
+if (strpos((string) $vistaFrontendPoliticas, "\$cmsFrontendGrupoInicial = \"politicas\"") === false) { $bloqueos[] = "vista_frontend_politicas_no_abre_politicas"; }
 if (strpos((string) $vistaFrontendPlaceholder, "Seccion reservada") === false) { $bloqueos[] = "vista_frontend_placeholder_sin_estado"; }
 if (strpos((string) $jsFrontendActual, "data-cms-actual-grupo") === false) { $bloqueos[] = "js_frontend_actual_no_lee_grupo_inicial"; }
 if (strpos((string) $jsFrontendActual, "erp_cms_media_biblioteca_local_v1") === false) { $bloqueos[] = "js_frontend_actual_no_lee_biblioteca_media"; }
@@ -326,6 +356,8 @@ if (strpos((string) $jsMedia, "function renderBibliotecaMedia") === false) { $bl
 if (strpos((string) $jsMedia, "function agregarArchivoLocal") === false) { $bloqueos[] = "js_media_sin_agregar_local"; }
 if (strpos((string) $jsMedia, "function limpiarArchivados") === false) { $bloqueos[] = "js_media_sin_limpiar_archivados"; }
 if (strpos((string) $jsMedia, "no sube archivos") === false) { $bloqueos[] = "js_media_no_declara_sin_upload"; }
+if (strpos((string) $jsMedia, "function cargarPreflightServidor") === false) { $bloqueos[] = "js_media_sin_preflight_servidor"; }
+if (strpos((string) $jsMedia, "/cms/media_admin_preflight_erp") === false) { $bloqueos[] = "js_media_sin_endpoint_preflight"; }
 if (strpos((string) $jsFrontendActual, "hero_carrusel") === false) { $bloqueos[] = "js_frontend_actual_sin_hero_carrusel"; }
 if (strpos((string) $jsFrontendActual, "function renderHeroCarrusel") === false) { $bloqueos[] = "js_frontend_actual_sin_editor_hero"; }
 if (strpos((string) $jsFrontendActual, "cms_actual_hero_agregar") === false) { $bloqueos[] = "js_frontend_actual_sin_agregar_slide_hero"; }
@@ -359,6 +391,33 @@ if (strpos((string) $jsFrontendActual, "cms_actual_banner_agregar") === false) {
 if (strpos((string) $jsFrontendActual, "home_banner_temporada") !== false) { $bloqueos[] = "js_frontend_actual_usa_banner_temporada"; }
 if (strpos((string) $jsFrontendActual, "GET /ecommercePublico/cms_frontend?pagina=home") === false) { $bloqueos[] = "js_frontend_actual_sin_endpoint_home"; }
 if (strpos((string) $jsFrontendActual, "No mostrar disponibilidad") === false) { $bloqueos[] = "js_frontend_actual_sin_reglas_publicas"; }
+if (strpos((string) $jsFrontendActual, "global_negocio") === false) { $bloqueos[] = "js_frontend_actual_sin_global_negocio"; }
+if (strpos((string) $jsFrontendActual, "global_ubicacion") === false) { $bloqueos[] = "js_frontend_actual_sin_global_ubicacion"; }
+if (strpos((string) $jsFrontendActual, "global_horarios") === false) { $bloqueos[] = "js_frontend_actual_sin_global_horarios"; }
+if (strpos((string) $jsFrontendActual, "global_redes") === false) { $bloqueos[] = "js_frontend_actual_sin_global_redes"; }
+if (strpos((string) $jsFrontendActual, "global_navegacion") === false) { $bloqueos[] = "js_frontend_actual_sin_global_navegacion"; }
+if (strpos((string) $jsFrontendActual, "function renderGlobalSeccion") === false) { $bloqueos[] = "js_frontend_actual_sin_editor_global"; }
+if (strpos((string) $jsFrontendActual, "function previewGlobalJson") === false) { $bloqueos[] = "js_frontend_actual_sin_preview_global"; }
+if (strpos((string) $jsFrontendActual, "nav_menu_principal") === false) { $bloqueos[] = "js_frontend_actual_sin_nav_menu_principal"; }
+if (strpos((string) $jsFrontendActual, "nav_footer_columnas") === false) { $bloqueos[] = "js_frontend_actual_sin_nav_footer_columnas"; }
+if (strpos((string) $jsFrontendActual, "function renderNavegacionSeccion") === false) { $bloqueos[] = "js_frontend_actual_sin_editor_navegacion"; }
+if (strpos((string) $jsFrontendActual, "function previewNavegacionJson") === false) { $bloqueos[] = "js_frontend_actual_sin_preview_navegacion"; }
+if (strpos((string) $jsFrontendActual, "categorias_items") === false) { $bloqueos[] = "js_frontend_actual_sin_categorias_items"; }
+if (strpos((string) $jsFrontendActual, "function renderCategoriasCmsSeccion") === false) { $bloqueos[] = "js_frontend_actual_sin_editor_categorias"; }
+if (strpos((string) $jsFrontendActual, "function previewCategoriasCmsJson") === false) { $bloqueos[] = "js_frontend_actual_sin_preview_categorias"; }
+if (strpos((string) $jsFrontendActual, "cms_categoria") === false) { $bloqueos[] = "js_frontend_actual_sin_media_categorias"; }
+if (strpos((string) $jsFrontendActual, "marcas_items") === false) { $bloqueos[] = "js_frontend_actual_sin_marcas_items"; }
+if (strpos((string) $jsFrontendActual, "function renderMarcasCmsSeccion") === false) { $bloqueos[] = "js_frontend_actual_sin_editor_marcas"; }
+if (strpos((string) $jsFrontendActual, "function previewMarcasCmsJson") === false) { $bloqueos[] = "js_frontend_actual_sin_preview_marcas"; }
+if (strpos((string) $jsFrontendActual, "cms_marca") === false) { $bloqueos[] = "js_frontend_actual_sin_media_marcas"; }
+if (strpos((string) $jsFrontendActual, "paginas_items") === false) { $bloqueos[] = "js_frontend_actual_sin_paginas_items"; }
+if (strpos((string) $jsFrontendActual, "function renderPaginasCmsSeccion") === false) { $bloqueos[] = "js_frontend_actual_sin_editor_paginas"; }
+if (strpos((string) $jsFrontendActual, "function previewPaginasCmsJson") === false) { $bloqueos[] = "js_frontend_actual_sin_preview_paginas"; }
+if (strpos((string) $jsFrontendActual, "cms_pagina") === false) { $bloqueos[] = "js_frontend_actual_sin_media_paginas"; }
+if (strpos((string) $jsFrontendActual, "politicas_items") === false) { $bloqueos[] = "js_frontend_actual_sin_politicas_items"; }
+if (strpos((string) $jsFrontendActual, "function renderPoliticasCmsSeccion") === false) { $bloqueos[] = "js_frontend_actual_sin_editor_politicas"; }
+if (strpos((string) $jsFrontendActual, "function previewPoliticasCmsJson") === false) { $bloqueos[] = "js_frontend_actual_sin_preview_politicas"; }
+if (strpos((string) $jsFrontendActual, "requiere_revision_legal") === false) { $bloqueos[] = "js_frontend_actual_sin_guardrail_legal"; }
 if (strpos((string) $vistaContenido, "ecom_cms_validacion") === false) { $bloqueos[] = "vista_contenido_sin_panel_validacion"; }
 if (strpos((string) $vistaContenido, "ecom_cms_guardar_local") === false) { $bloqueos[] = "vista_contenido_sin_borrador_local"; }
 if (strpos((string) $vistaContenido, "ecom_cms_guardar_bd") === false) { $bloqueos[] = "vista_contenido_sin_guardar_bd"; }
@@ -383,6 +442,10 @@ if (strpos((string) $sidebar, "/cms/frontend/categorias") === false) { $bloqueos
 if (strpos((string) $sidebar, "/cms/frontend/producto") === false) { $bloqueos[] = "sidebar_sin_cms_frontend_producto"; }
 if (strpos((string) $sidebar, "/cms/frontend/carrito") === false) { $bloqueos[] = "sidebar_sin_cms_frontend_carrito"; }
 if (strpos((string) $sidebar, "/cms/frontend/global") === false) { $bloqueos[] = "sidebar_sin_cms_frontend_global"; }
+if (strpos((string) $sidebar, "/cms/frontend/navegacion") === false) { $bloqueos[] = "sidebar_sin_cms_frontend_navegacion"; }
+if (strpos((string) $sidebar, "/cms/frontend/marcas") === false) { $bloqueos[] = "sidebar_sin_cms_frontend_marcas"; }
+if (strpos((string) $sidebar, "/cms/frontend/paginas") === false) { $bloqueos[] = "sidebar_sin_cms_frontend_paginas"; }
+if (strpos((string) $sidebar, "/cms/frontend/politicas") === false) { $bloqueos[] = "sidebar_sin_cms_frontend_politicas"; }
 if (strpos((string) $sidebar, "/cms/frontend_componentes") === false) { $bloqueos[] = "sidebar_sin_cms_frontend_componentes"; }
 if (strpos((string) $sidebar, "/cms/frontend_activaciones") === false) { $bloqueos[] = "sidebar_sin_cms_frontend_activaciones"; }
 if (strpos((string) $sidebar, "'titulo' => 'Frontend'") === false) { $bloqueos[] = "sidebar_sin_grupo_cms_frontend"; }
@@ -396,11 +459,18 @@ if (strpos((string) $controladorCms, "public function plantillas") === false) { 
 if (strpos((string) $controladorCms, "public function persistencia") === false) { $bloqueos[] = "controlador_sin_ruta_persistencia"; }
 if (strpos((string) $controladorCms, "public function slots") === false) { $bloqueos[] = "controlador_sin_ruta_slots"; }
 if (strpos((string) $controladorCms, "public function media") === false) { $bloqueos[] = "controlador_sin_ruta_media"; }
+if (strpos((string) $controladorCms, "public function media_admin_preflight_erp") === false) { $bloqueos[] = "controlador_sin_media_preflight"; }
 if (strpos((string) $controladorCms, "public function json") === false) { $bloqueos[] = "controlador_sin_ruta_json"; }
 if (strpos((string) $controladorCms, "public function frontend_plantillas") === false) { $bloqueos[] = "controlador_sin_ruta_frontend_plantillas"; }
 if (strpos((string) $controladorCms, "public function frontend_constructor") === false) { $bloqueos[] = "controlador_sin_ruta_frontend_constructor"; }
 if (strpos((string) $controladorCms, "public function frontend(") === false) { $bloqueos[] = "controlador_sin_ruta_frontend_pagina"; }
 if (strpos((string) $controladorCms, "public function frontend_home") === false) { $bloqueos[] = "controlador_sin_ruta_frontend_home"; }
+if (strpos((string) $controladorCms, "public function frontend_global") === false) { $bloqueos[] = "controlador_sin_ruta_frontend_global"; }
+if (strpos((string) $controladorCms, "public function frontend_navegacion") === false) { $bloqueos[] = "controlador_sin_ruta_frontend_navegacion"; }
+if (strpos((string) $controladorCms, "public function frontend_categorias") === false) { $bloqueos[] = "controlador_sin_ruta_frontend_categorias"; }
+if (strpos((string) $controladorCms, "public function frontend_marcas") === false) { $bloqueos[] = "controlador_sin_ruta_frontend_marcas"; }
+if (strpos((string) $controladorCms, "public function frontend_paginas") === false) { $bloqueos[] = "controlador_sin_ruta_frontend_paginas"; }
+if (strpos((string) $controladorCms, "public function frontend_politicas") === false) { $bloqueos[] = "controlador_sin_ruta_frontend_politicas"; }
 if (strpos((string) $controladorCms, "public function frontend_actual") === false) { $bloqueos[] = "controlador_sin_ruta_frontend_actual"; }
 if (strpos((string) $controladorCms, "public function frontend_componentes") === false) { $bloqueos[] = "controlador_sin_ruta_frontend_componentes"; }
 if (strpos((string) $controladorCms, "public function frontend_activaciones") === false) { $bloqueos[] = "controlador_sin_ruta_frontend_activaciones"; }
@@ -427,6 +497,10 @@ if (strpos((string) $modeloPublico, "cmsValidarPublicacionAntesDePublicar") === 
 if (strpos((string) $modeloPublico, "bloqueos_publicacion") === false) { $bloqueos[] = "modelo_publicacion_sin_bloqueos_legibles"; }
 if (strpos((string) $modeloPublico, "falta alt text de imagen") === false) { $bloqueos[] = "modelo_publicacion_no_valida_alt"; }
 if (strpos((string) $modeloPublico, "falta endpoint source") === false) { $bloqueos[] = "modelo_publicacion_no_valida_source"; }
+if (strpos((string) $modeloPublico, "function mediaAdminPreflightInterno") === false) { $bloqueos[] = "modelo_sin_media_preflight"; }
+if (strpos((string) $modeloEsquema, "function planActualizarCmsMediaBiblioteca") === false) { $bloqueos[] = "esquema_sin_plan_media_biblioteca"; }
+if (strpos((string) $modeloEsquema, "erp_ecommerce_media_archivos") === false) { $bloqueos[] = "esquema_media_sin_tabla_archivos"; }
+if (strpos((string) $modeloEsquema, "erp_ecommerce_media_usos") === false) { $bloqueos[] = "esquema_media_sin_tabla_usos"; }
 if (strpos((string) $controladorCms, "public function frontend_plantilla_guardar_erp") === false) { $bloqueos[] = "controlador_sin_post_frontend_plantilla_guardar"; }
 if (strpos((string) $controladorCms, "public function frontend_plantilla_estatus_erp") === false) { $bloqueos[] = "controlador_sin_post_frontend_plantilla_estatus"; }
 if (strpos((string) $controladorCms, "public function frontend_seccion_guardar_erp") === false) { $bloqueos[] = "controlador_sin_post_frontend_seccion_guardar"; }
@@ -453,6 +527,8 @@ if (strpos((string) $manualCms, "Vista estructural read-only") === false) { $blo
 if (strpos((string) $manualCms, "CMS > Media") === false) { $bloqueos[] = "manual_sin_media"; }
 if (strpos((string) $manualCms, "biblioteca local") === false) { $bloqueos[] = "manual_media_sin_biblioteca_local"; }
 if (strpos((string) $manualCms, "alt text") === false) { $bloqueos[] = "manual_media_sin_alt_text"; }
+if (strpos((string) $manualCms, "/cms/media_admin_preflight_erp") === false) { $bloqueos[] = "manual_media_sin_preflight"; }
+if (strpos((string) $manualCms, "erp_ecommerce_media_archivos") === false) { $bloqueos[] = "manual_media_sin_tabla_archivos"; }
 if (strpos((string) $manualCms, "CMS > Preview JSON") === false) { $bloqueos[] = "manual_sin_preview_json"; }
 if (strpos((string) $manualCms, "Contrato API") === false) { $bloqueos[] = "manual_json_sin_contrato_api"; }
 if (strpos((string) $manualCms, "/ecommercePublico/configuracion_inicial") === false) { $bloqueos[] = "manual_json_sin_configuracion_inicial"; }
@@ -466,6 +542,11 @@ if (strpos((string) $manualCms, "Completado para primera escritura controlada") 
 if (strpos((string) $manualCms, "uat_cms_seed_readonly.php") === false) { $bloqueos[] = "manual_persistencia_sin_uat_seed"; }
 if (strpos((string) $manualCms, "Activar endpoints POST con CSRF") === false) { $bloqueos[] = "manual_persistencia_sin_post_csrf"; }
 if (strpos((string) $manualCms, "CMS > Frontend > Plantillas de vista") === false) { $bloqueos[] = "manual_sin_frontend_plantillas"; }
+if (strpos((string) $manualCms, "CMS > Frontend > Navegacion") === false) { $bloqueos[] = "manual_sin_frontend_navegacion"; }
+if (strpos((string) $manualCms, "CMS > Frontend > Categorias") === false) { $bloqueos[] = "manual_sin_frontend_categorias"; }
+if (strpos((string) $manualCms, "CMS > Frontend > Marcas") === false) { $bloqueos[] = "manual_sin_frontend_marcas"; }
+if (strpos((string) $manualCms, "CMS > Frontend > Paginas") === false) { $bloqueos[] = "manual_sin_frontend_paginas"; }
+if (strpos((string) $manualCms, "CMS > Frontend > Politicas") === false) { $bloqueos[] = "manual_sin_frontend_politicas"; }
 if (strpos((string) $manualCms, "CMS > Frontend > Constructor visual") === false) { $bloqueos[] = "manual_sin_frontend_constructor"; }
 if (strpos((string) $manualCms, "Navegacion del submodulo") === false) { $bloqueos[] = "manual_frontend_sin_subnav"; }
 if (strpos((string) $manualCms, "Builder visual read-only") === false) { $bloqueos[] = "manual_frontend_sin_builder_visual"; }
@@ -508,6 +589,15 @@ if (strpos((string) $contratoRenderer, "No llamar endpoints internos `/cms/*`") 
 if (strpos((string) $planBuilderWokiee, "CMS - Builder visual Wokiee ecommerce") === false) { $bloqueos[] = "plan_builder_wokiee_sin_titulo"; }
 if (strpos((string) $planBuilderWokiee, "WokieeHeroRevolution") === false) { $bloqueos[] = "plan_builder_wokiee_sin_hero"; }
 if (strpos((string) $planBuilderWokiee, "No conviene que el CMS guarde HTML libre") === false) { $bloqueos[] = "plan_builder_wokiee_sin_guardrail_html"; }
+if (strpos((string) $planCmsApi, "CMS / API ecommerce publico Artiani") === false) { $bloqueos[] = "plan_cms_api_sin_titulo"; }
+if (strpos((string) $planCmsApi, "/ecommercePublico/configuracion_inicial") === false) { $bloqueos[] = "plan_cms_api_sin_configuracion_inicial"; }
+if (strpos((string) $planCmsApi, "/cms/frontend/global") === false) { $bloqueos[] = "plan_cms_api_sin_frontend_global"; }
+if (strpos((string) $planCmsApi, "/cms/frontend/navegacion") === false) { $bloqueos[] = "plan_cms_api_sin_frontend_navegacion"; }
+if (strpos((string) $planCmsApi, "/cms/frontend/marcas") === false) { $bloqueos[] = "plan_cms_api_sin_frontend_marcas"; }
+if (strpos((string) $planCmsApi, "/cms/frontend/paginas") === false) { $bloqueos[] = "plan_cms_api_sin_frontend_paginas"; }
+if (strpos((string) $planCmsApi, "/cms/frontend/politicas") === false) { $bloqueos[] = "plan_cms_api_sin_frontend_politicas"; }
+if (strpos((string) $planCmsApi, "/cms/media_admin_preflight_erp") === false) { $bloqueos[] = "plan_cms_api_sin_media_preflight"; }
+if (strpos((string) $planCmsApi, "filtros invalidos devuelven vacio") === false) { $bloqueos[] = "plan_cms_api_sin_guardrail_filtros"; }
 if (strpos((string) $planBuilderWokiee, "app/Pages/catalog.php") === false) { $bloqueos[] = "plan_builder_wokiee_sin_catalog_php"; }
 if (strpos((string) $planBuilderWokiee, "erp_ecommerce_frontend_temas") === false) { $bloqueos[] = "plan_builder_wokiee_sin_tabla_temas"; }
 if (strpos((string) $uatPersistenciaPreflight, "cms_persistencia_lista_para_respaldo_y_autorizacion") === false) { $bloqueos[] = "uat_preflight_persistencia_sin_senal"; }
@@ -551,13 +641,21 @@ echo json_encode(array(
     "ddl_total" => valorCmsAdmin($planFrontend, array("depurar", "ddl_total"), 0),
     "tablas_faltantes" => valorCmsAdmin($auditoriaFrontend, array("depurar", "tablas_faltantes"), 0)
   ),
+  "media_preflight" => array(
+    "modo" => valorCmsAdmin($mediaPreflight, array("depurar", "modo"), ""),
+    "carpeta_publica" => valorCmsAdmin($mediaPreflight, array("depurar", "carpeta_publica_propuesta"), ""),
+    "tabla_archivos" => valorCmsAdmin($mediaPreflight, array("depurar", "tabla_archivos"), ""),
+    "tabla_usos" => valorCmsAdmin($mediaPreflight, array("depurar", "tabla_usos"), ""),
+    "no_mueve_archivos" => valorCmsAdmin($mediaPreflight, array("depurar", "guardrails", "no_mueve_archivos"), false)
+  ),
   "ui" => array(
     "editor_local" => true,
     "preview_json" => "/cms/json",
     "validacion_local" => true,
     "borrador_local" => true,
     "intercambio_json" => true,
-    "sidebar" => array("/cms/contenido", "/cms/plantillas", "/cms/persistencia", "/cms/slots", "/cms/media", "/cms/json", "/cms/frontend_constructor", "/cms/frontend_plantillas", "/cms/frontend_componentes", "/cms/frontend_activaciones"),
+    "sidebar" => array("/cms/contenido", "/cms/plantillas", "/cms/persistencia", "/cms/slots", "/cms/media", "/cms/json", "/cms/frontend/home", "/cms/frontend/global", "/cms/frontend/navegacion", "/cms/frontend/categorias", "/cms/frontend/marcas", "/cms/frontend/paginas", "/cms/frontend/politicas", "/cms/frontend_constructor", "/cms/frontend_plantillas", "/cms/frontend_componentes", "/cms/frontend_activaciones"),
+    "frontend_operativo" => array("/cms/frontend/home", "/cms/frontend/global", "/cms/frontend/navegacion", "/cms/frontend/categorias", "/cms/frontend/marcas", "/cms/frontend/paginas", "/cms/frontend/politicas"),
     "navegacion" => "vistas_separadas_sin_tabs",
     "entrada_directa" => "/cms",
     "modulo_separado" => "CMS",
@@ -589,6 +687,7 @@ echo json_encode(array(
     "no_modifica_inventario" => true
   ),
   "manual" => "docs/erp_cms_manual_uso.md",
+  "plan_cms_api" => "docs/erp_cms_api_ecommerce_publico_artiani_plan.md",
   "contrato_renderer" => "docs/erp_cms_frontend_renderer_contrato.md",
   "plan_builder_wokiee" => "docs/erp_cms_visual_builder_wokiee_plan.md"
 ), JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) . PHP_EOL;

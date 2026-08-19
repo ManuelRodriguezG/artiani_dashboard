@@ -13,8 +13,351 @@
 
   var estado = {
     grupo: "global",
-    mediaPicker: { contexto: "", index: 0, campo: "", archivo: null, dataUrl: "" },
+    mediaPicker: { contexto: "", index: 0, campo: "", archivo: null, dataUrl: "", seleccion: "" },
     datos: {
+      global: {
+        global_negocio: {
+          codigo: "global_negocio",
+          tipo: "negocio",
+          visible: true,
+          orden: 10,
+          nombre_comercial: "Artiani",
+          razon_social: "",
+          slogan: "",
+          descripcion_corta: "Tienda especializada en productos para acuario y mascotas.",
+          logo_principal: "",
+          logo_blanco: "",
+          favicon: "",
+          whatsapp: "",
+          telefono: "",
+          email_contacto: "",
+          email_facturacion: ""
+        },
+        global_ubicacion: {
+          codigo: "global_ubicacion",
+          tipo: "direccion_mapa",
+          visible: true,
+          orden: 20,
+          direccion: {
+            calle: "",
+            colonia: "",
+            ciudad: "",
+            estado: "",
+            codigo_postal: "",
+            pais: "Mexico",
+            texto_publico: ""
+          },
+          mapa: {
+            google_maps_url: "",
+            embed_url: "",
+            lat: "",
+            lng: ""
+          }
+        },
+        global_horarios: {
+          codigo: "global_horarios",
+          tipo: "horarios",
+          visible: true,
+          orden: 30,
+          items: [
+            { dias: "Lunes a viernes", horario: "10:00 a 19:00", visible: true, orden: 10 },
+            { dias: "Sabado", horario: "10:00 a 15:00", visible: true, orden: 20 }
+          ]
+        },
+        global_redes: {
+          codigo: "global_redes",
+          tipo: "redes_sociales",
+          visible: true,
+          orden: 40,
+          facebook: "",
+          instagram: "",
+          tiktok: "",
+          youtube: ""
+        },
+        global_seo: {
+          codigo: "global_seo",
+          tipo: "seo_defaults",
+          visible: true,
+          orden: 50,
+          site_name: "Artiani",
+          title_default: "Artiani",
+          description_default: "Productos para acuario y mascotas.",
+          og_image_default: "",
+          robots_default: "index,follow"
+        },
+        global_navegacion: {
+          codigo: "global_navegacion",
+          tipo: "navegacion",
+          visible: true,
+          orden: 60,
+          menu_principal: [
+            { label: "Inicio", tipo: "ruta", url: "/", orden: 10, visible: true },
+            { label: "Categorias", tipo: "categorias", url: "", orden: 20, visible: true },
+            { label: "Contacto", tipo: "ruta", url: "/contacto", orden: 30, visible: true }
+          ],
+          footer_columnas: [
+            { titulo: "Ayuda", links: "Como comprar|/como-comprar\nFacturacion|/facturacion", orden: 10, visible: true }
+          ]
+        }
+      },
+      navegacion: {
+        nav_topbar: {
+          codigo: "nav_topbar",
+          tipo: "topbar",
+          visible: true,
+          orden: 10,
+          texto: "Atencion personalizada por WhatsApp",
+          telefono_label: "",
+          whatsapp_label: "WhatsApp",
+          whatsapp_url: "",
+          mostrar_redes: true
+        },
+        nav_menu_principal: {
+          codigo: "nav_menu_principal",
+          tipo: "menu_principal",
+          visible: true,
+          orden: 20,
+          items: [
+            { label: "Inicio", tipo: "ruta", url: "/", orden: 10, visible: true },
+            { label: "Categorias", tipo: "categorias", url: "", orden: 20, visible: true },
+            { label: "Productos", tipo: "ruta", url: "/#productos", orden: 30, visible: true },
+            { label: "Contacto", tipo: "ruta", url: "/contacto", orden: 40, visible: true }
+          ]
+        },
+        nav_footer_columnas: {
+          codigo: "nav_footer_columnas",
+          tipo: "footer_columnas",
+          visible: true,
+          orden: 30,
+          items: [
+            {
+              titulo: "Ayuda",
+              links: [
+                { label: "Como comprar", url: "/como-comprar", visible: true, orden: 10 },
+                { label: "Facturacion", url: "/facturacion", visible: true, orden: 20 }
+              ],
+              orden: 10,
+              visible: true
+            },
+            {
+              titulo: "Tienda",
+              links: [
+                { label: "Categorias", url: "/categorias", visible: true, orden: 10 },
+                { label: "Politicas", url: "/politicas", visible: true, orden: 20 }
+              ],
+              orden: 20,
+              visible: true
+            }
+          ]
+        },
+        nav_footer_cta: {
+          codigo: "nav_footer_cta",
+          tipo: "footer_cta",
+          visible: true,
+          orden: 40,
+          titulo: "Necesitas ayuda para elegir?",
+          texto: "Te orientamos por WhatsApp para encontrar el producto correcto.",
+          cta: { label: "Escribir por WhatsApp", url: "" }
+        }
+      },
+      categorias: {
+        categorias_config: {
+          codigo: "categorias_config",
+          tipo: "categorias_config",
+          visible: true,
+          orden: 10,
+          titulo_listado: "Categorias",
+          subtitulo_listado: "Explora productos por mascota o necesidad.",
+          mostrar_en_home: true,
+          mostrar_en_menu: true,
+          fuente: "/ecommercePublico/categorias"
+        },
+        categorias_items: {
+          codigo: "categorias_items",
+          tipo: "categoria_editorial",
+          visible: true,
+          orden: 20,
+          items: [
+            {
+              categoria_id: 0,
+              slug: "peces",
+              titulo: "Peces",
+              subtitulo: "Acuarios, alimento y mantenimiento",
+              descripcion_seo: "",
+              imagen_card: "",
+              imagen_banner: "",
+              alt_card: "Categoria de peces",
+              alt_banner: "Banner de categoria peces",
+              destacado: true,
+              visible: true,
+              orden: 10,
+              url: "/categoria/peces"
+            },
+            {
+              categoria_id: 0,
+              slug: "perros",
+              titulo: "Perros",
+              subtitulo: "Alimento, accesorios y cuidado diario",
+              descripcion_seo: "",
+              imagen_card: "",
+              imagen_banner: "",
+              alt_card: "Categoria de perros",
+              alt_banner: "Banner de categoria perros",
+              destacado: true,
+              visible: true,
+              orden: 20,
+              url: "/categoria/perros"
+            }
+          ]
+        }
+      },
+      marcas: {
+        marcas_config: {
+          codigo: "marcas_config",
+          tipo: "marcas_config",
+          visible: true,
+          orden: 10,
+          titulo_listado: "Marcas",
+          subtitulo_listado: "Explora productos por marca.",
+          mostrar_en_home: false,
+          mostrar_en_menu: true,
+          fuente: "/ecommercePublico/marcas"
+        },
+        marcas_items: {
+          codigo: "marcas_items",
+          tipo: "marca_editorial",
+          visible: true,
+          orden: 20,
+          items: [
+            {
+              marca_id: 0,
+              slug: "marca-destacada",
+              titulo: "Marca destacada",
+              subtitulo: "Productos seleccionados de esta marca.",
+              descripcion_seo: "",
+              logo: "",
+              imagen_banner: "",
+              alt_logo: "Logo de marca destacada",
+              alt_banner: "Banner de marca destacada",
+              destacado: true,
+              visible: true,
+              orden: 10,
+              url: "/marca/marca-destacada"
+            }
+          ]
+        }
+      },
+      paginas: {
+        paginas_config: {
+          codigo: "paginas_config",
+          tipo: "paginas_config",
+          visible: true,
+          orden: 10,
+          titulo_listado: "Ayuda",
+          subtitulo_listado: "Informacion util para comprar en Artiani.",
+          fuente: "/ecommercePublico/paginas"
+        },
+        paginas_items: {
+          codigo: "paginas_items",
+          tipo: "pagina_estatica",
+          visible: true,
+          orden: 20,
+          items: [
+            {
+              slug: "como-comprar",
+              titulo: "Como comprar",
+              subtitulo: "Guia rapida para encontrar productos y solicitar atencion.",
+              resumen: "Conoce el proceso para buscar productos, agregarlos al carrito y enviar tu solicitud.",
+              contenido: "Busca tus productos, agregalos al carrito y envia tu solicitud por WhatsApp para confirmar disponibilidad y entrega.",
+              imagen_principal: "",
+              alt_imagen: "Pagina de ayuda para comprar en Artiani",
+              seo_title: "Como comprar en Artiani",
+              seo_description: "Guia para comprar productos de acuario y mascotas en Artiani.",
+              visible: true,
+              orden: 10,
+              url: "/como-comprar"
+            },
+            {
+              slug: "facturacion",
+              titulo: "Facturacion",
+              subtitulo: "Informacion para solicitar factura.",
+              resumen: "Prepara tus datos fiscales y solicita apoyo al equipo Artiani.",
+              contenido: "Para facturar tu compra, comparte tus datos fiscales y comprobante dentro del periodo correspondiente.",
+              imagen_principal: "",
+              alt_imagen: "Pagina de facturacion Artiani",
+              seo_title: "Facturacion Artiani",
+              seo_description: "Informacion para solicitar facturacion de compras en Artiani.",
+              visible: true,
+              orden: 20,
+              url: "/facturacion"
+            }
+          ]
+        }
+      },
+      politicas: {
+        politicas_config: {
+          codigo: "politicas_config",
+          tipo: "politicas_config",
+          visible: true,
+          orden: 10,
+          titulo_listado: "Politicas",
+          subtitulo_listado: "Consulta las politicas de compra, envio, devoluciones y privacidad.",
+          fuente: "/ecommercePublico/politicas"
+        },
+        politicas_items: {
+          codigo: "politicas_items",
+          tipo: "politica_publica",
+          visible: true,
+          orden: 20,
+          items: [
+            {
+              slug: "privacidad",
+              titulo: "Aviso de privacidad",
+              resumen: "Como tratamos tus datos personales.",
+              contenido: "Texto pendiente de revision legal.",
+              version: "1.0",
+              estatus: "borrador",
+              vigente_desde: "",
+              vigente_hasta: "",
+              seo_title: "Aviso de privacidad Artiani",
+              seo_description: "Aviso de privacidad para clientes de Artiani.",
+              visible: true,
+              orden: 10,
+              url: "/politicas/privacidad"
+            },
+            {
+              slug: "envios",
+              titulo: "Politica de envios",
+              resumen: "Condiciones generales de envio y entrega.",
+              contenido: "Texto pendiente de definicion operativa.",
+              version: "1.0",
+              estatus: "borrador",
+              vigente_desde: "",
+              vigente_hasta: "",
+              seo_title: "Politica de envios Artiani",
+              seo_description: "Informacion sobre envios y entregas de Artiani.",
+              visible: true,
+              orden: 20,
+              url: "/politicas/envios"
+            },
+            {
+              slug: "devoluciones",
+              titulo: "Politica de devoluciones",
+              resumen: "Condiciones para cambios y devoluciones.",
+              contenido: "Texto pendiente de definicion operativa.",
+              version: "1.0",
+              estatus: "borrador",
+              vigente_desde: "",
+              vigente_hasta: "",
+              seo_title: "Politica de devoluciones Artiani",
+              seo_description: "Informacion sobre cambios y devoluciones en Artiani.",
+              visible: true,
+              orden: 30,
+              url: "/politicas/devoluciones"
+            }
+          ]
+        }
+      },
       home: {
         home_hero_carrusel: {
           codigo: "home_hero_carrusel",
@@ -172,10 +515,69 @@
       endpoint: "GET /ecommercePublico/cms_frontend?pagina=global",
       prioridad: 1,
       secciones: [
-        seccion("global_header", "header", "Topbar y menu principal", ["topbar_texto", "menu_principal"]),
-        seccion("global_footer", "footer", "Descripcion, links y visibilidad de marcas/categorias", ["descripcion", "links", "mostrar_marcas", "mostrar_categorias"]),
-        seccion("global_whatsapp", "whatsapp", "Mensaje base y CTA del carrito", ["mensaje_base", "cta_carrito"]),
-        seccion("global_seo", "seo_defaults", "SEO default del sitio", ["site_name", "title_default", "description_default"])
+        seccion("global_negocio", "negocio", "Marca, logos y datos de contacto.", ["nombre_comercial", "logo_principal", "whatsapp", "email_contacto"]),
+        seccion("global_ubicacion", "direccion_mapa", "Direccion publica y mapa.", ["direccion", "google_maps_url", "embed_url"]),
+        seccion("global_horarios", "horarios", "Horarios visibles por dia o grupo de dias.", ["dias", "horario", "visible"]),
+        seccion("global_redes", "redes_sociales", "Redes sociales publicas.", ["facebook", "instagram", "tiktok", "youtube"]),
+        seccion("global_seo", "seo_defaults", "SEO global del sitio.", ["site_name", "title_default", "description_default", "og_image_default"]),
+        seccion("global_navegacion", "navegacion", "Menu principal y columnas de footer.", ["menu_principal", "footer_columnas"])
+      ]
+    },
+    {
+      codigo: "navegacion",
+      titulo: "Navegacion",
+      subtitulo: "Topbar, menu principal, footer y CTAs globales.",
+      endpoint: "GET /ecommercePublico/configuracion_inicial",
+      prioridad: 2,
+      secciones: [
+        seccion("nav_topbar", "topbar", "Franja superior del sitio.", ["texto", "whatsapp", "redes"]),
+        seccion("nav_menu_principal", "menu_principal", "Enlaces principales del header.", ["label", "tipo", "url", "visible"]),
+        seccion("nav_footer_columnas", "footer_columnas", "Columnas y links visibles en footer.", ["titulo", "links"]),
+        seccion("nav_footer_cta", "footer_cta", "Llamado a la accion del footer.", ["titulo", "texto", "cta"])
+      ]
+    },
+    {
+      codigo: "categorias",
+      titulo: "Categorias",
+      subtitulo: "Imagenes, banners, SEO, orden y destacados de categorias publicas.",
+      endpoint: "GET /ecommercePublico/categorias",
+      prioridad: 3,
+      secciones: [
+        seccion("categorias_config", "categorias_config", "Configuracion general de categorias.", ["titulo", "subtitulo", "fuente"]),
+        seccion("categorias_items", "categoria_editorial", "Capa editorial por categoria.", ["slug", "imagen_card", "imagen_banner", "seo", "destacado"])
+      ]
+    },
+    {
+      codigo: "marcas",
+      titulo: "Marcas",
+      subtitulo: "Logos, banners, SEO, orden y destacados de marcas publicas.",
+      endpoint: "GET /ecommercePublico/marcas",
+      prioridad: 4,
+      secciones: [
+        seccion("marcas_config", "marcas_config", "Configuracion general de marcas.", ["titulo", "subtitulo", "fuente"]),
+        seccion("marcas_items", "marca_editorial", "Capa editorial por marca.", ["slug", "logo", "imagen_banner", "seo", "destacado"])
+      ]
+    },
+    {
+      codigo: "paginas",
+      titulo: "Paginas",
+      subtitulo: "Paginas informativas del ecommerce: ayuda, contacto, facturacion y contenido editorial.",
+      endpoint: "GET /ecommercePublico/paginas",
+      prioridad: 5,
+      secciones: [
+        seccion("paginas_config", "paginas_config", "Configuracion general de paginas.", ["titulo", "subtitulo", "fuente"]),
+        seccion("paginas_items", "pagina_estatica", "Paginas publicas editables.", ["slug", "titulo", "contenido", "seo", "imagen"])
+      ]
+    },
+    {
+      codigo: "politicas",
+      titulo: "Politicas",
+      subtitulo: "Privacidad, envios, devoluciones, terminos y avisos publicos.",
+      endpoint: "GET /ecommercePublico/politicas",
+      prioridad: 6,
+      secciones: [
+        seccion("politicas_config", "politicas_config", "Configuracion general de politicas.", ["titulo", "subtitulo", "fuente"]),
+        seccion("politicas_items", "politica_publica", "Politicas publicas editables.", ["slug", "titulo", "contenido", "estatus", "vigencia"])
       ]
     },
     {
@@ -183,7 +585,7 @@
       titulo: "Home",
       subtitulo: "Secciones principales de la portada publica.",
       endpoint: "GET /ecommercePublico/cms_frontend?pagina=home",
-      prioridad: 2,
+      prioridad: 7,
       secciones: [
         seccion("home_hero_carrusel", "hero_carrusel", "Banner principal con imagen desktop/mobile y slides.", ["items", "autoplay", "intervalo_ms", "cta"]),
         seccion("home_categorias_destacadas", "categorias_destacadas", "Categorias reales publicadas con imagen card/banner.", ["categoria_id", "slug", "imagen_card", "imagen_banner"]),
@@ -310,6 +712,24 @@
   }
 
   function renderSeccion(item) {
+    if (item.codigo.indexOf("politicas_") === 0) {
+      return renderPoliticasCmsSeccion(item);
+    }
+    if (item.codigo.indexOf("paginas_") === 0) {
+      return renderPaginasCmsSeccion(item);
+    }
+    if (item.codigo.indexOf("marcas_") === 0) {
+      return renderMarcasCmsSeccion(item);
+    }
+    if (item.codigo.indexOf("categorias_") === 0) {
+      return renderCategoriasCmsSeccion(item);
+    }
+    if (item.codigo.indexOf("nav_") === 0) {
+      return renderNavegacionSeccion(item);
+    }
+    if (item.codigo.indexOf("global_") === 0) {
+      return renderGlobalSeccion(item);
+    }
     if (item.codigo === "home_hero_carrusel") {
       return renderHeroCarrusel(item);
     }
@@ -494,15 +914,850 @@
       });
     });
     on("cms_actual_banner_agregar", "click", agregarBannerItem);
+    Array.prototype.forEach.call(document.querySelectorAll("[data-global-field]"), function (node) {
+      node.addEventListener("input", function () {
+        actualizarGlobalField(node.getAttribute("data-global-section"), node.getAttribute("data-global-field"), node.value);
+      });
+      node.addEventListener("change", function () {
+        actualizarGlobalField(node.getAttribute("data-global-section"), node.getAttribute("data-global-field"), node.value);
+      });
+    });
+    Array.prototype.forEach.call(document.querySelectorAll("[data-nav-field]"), function (node) {
+      node.addEventListener("input", function () {
+        actualizarNavegacionField(node.getAttribute("data-nav-section"), node.getAttribute("data-nav-field"), node.value);
+      });
+      node.addEventListener("change", function () {
+        actualizarNavegacionField(node.getAttribute("data-nav-section"), node.getAttribute("data-nav-field"), node.value);
+      });
+    });
+    Array.prototype.forEach.call(document.querySelectorAll("[data-nav-action]"), function (button) {
+      button.addEventListener("click", function () {
+        ejecutarNavegacionAccion(
+          button.getAttribute("data-nav-section") || "",
+          button.getAttribute("data-nav-action") || "",
+          parseInt(button.getAttribute("data-index") || "0", 10),
+          parseInt(button.getAttribute("data-link-index") || "-1", 10)
+        );
+      });
+    });
+    on("cms_actual_nav_menu_agregar", "click", agregarMenuPrincipalItem);
+    on("cms_actual_nav_footer_columna_agregar", "click", agregarFooterColumna);
+    Array.prototype.forEach.call(document.querySelectorAll("[data-cms-cat-field]"), function (node) {
+      node.addEventListener("input", function () {
+        actualizarCategoriaCmsField(node.getAttribute("data-cms-cat-section"), node.getAttribute("data-cms-cat-field"), node.value);
+      });
+      node.addEventListener("change", function () {
+        actualizarCategoriaCmsField(node.getAttribute("data-cms-cat-section"), node.getAttribute("data-cms-cat-field"), node.value);
+      });
+    });
+    Array.prototype.forEach.call(document.querySelectorAll("[data-cms-cat-action]"), function (button) {
+      button.addEventListener("click", function () {
+        ejecutarCategoriaCmsAccion(button.getAttribute("data-cms-cat-action") || "", parseInt(button.getAttribute("data-index") || "0", 10));
+      });
+    });
+    on("cms_actual_categoria_agregar", "click", agregarCategoriaCmsItem);
+    Array.prototype.forEach.call(document.querySelectorAll("[data-cms-marca-field]"), function (node) {
+      node.addEventListener("input", function () {
+        actualizarMarcaCmsField(node.getAttribute("data-cms-marca-section"), node.getAttribute("data-cms-marca-field"), node.value);
+      });
+      node.addEventListener("change", function () {
+        actualizarMarcaCmsField(node.getAttribute("data-cms-marca-section"), node.getAttribute("data-cms-marca-field"), node.value);
+      });
+    });
+    Array.prototype.forEach.call(document.querySelectorAll("[data-cms-marca-action]"), function (button) {
+      button.addEventListener("click", function () {
+        ejecutarMarcaCmsAccion(button.getAttribute("data-cms-marca-action") || "", parseInt(button.getAttribute("data-index") || "0", 10));
+      });
+    });
+    on("cms_actual_marca_agregar", "click", agregarMarcaCmsItem);
+    Array.prototype.forEach.call(document.querySelectorAll("[data-cms-pagina-field]"), function (node) {
+      node.addEventListener("input", function () {
+        actualizarPaginaCmsField(node.getAttribute("data-cms-pagina-section"), node.getAttribute("data-cms-pagina-field"), node.value);
+      });
+      node.addEventListener("change", function () {
+        actualizarPaginaCmsField(node.getAttribute("data-cms-pagina-section"), node.getAttribute("data-cms-pagina-field"), node.value);
+      });
+    });
+    Array.prototype.forEach.call(document.querySelectorAll("[data-cms-pagina-action]"), function (button) {
+      button.addEventListener("click", function () {
+        ejecutarPaginaCmsAccion(button.getAttribute("data-cms-pagina-action") || "", parseInt(button.getAttribute("data-index") || "0", 10));
+      });
+    });
+    on("cms_actual_pagina_agregar", "click", agregarPaginaCmsItem);
+    Array.prototype.forEach.call(document.querySelectorAll("[data-cms-politica-field]"), function (node) {
+      node.addEventListener("input", function () {
+        actualizarPoliticaCmsField(node.getAttribute("data-cms-politica-section"), node.getAttribute("data-cms-politica-field"), node.value);
+      });
+      node.addEventListener("change", function () {
+        actualizarPoliticaCmsField(node.getAttribute("data-cms-politica-section"), node.getAttribute("data-cms-politica-field"), node.value);
+      });
+    });
+    Array.prototype.forEach.call(document.querySelectorAll("[data-cms-politica-action]"), function (button) {
+      button.addEventListener("click", function () {
+        ejecutarPoliticaCmsAccion(button.getAttribute("data-cms-politica-action") || "", parseInt(button.getAttribute("data-index") || "0", 10));
+      });
+    });
+    on("cms_actual_politica_agregar", "click", agregarPoliticaCmsItem);
     Array.prototype.forEach.call(document.querySelectorAll("[data-media-picker]"), function (button) {
       button.addEventListener("click", function () {
+        var rawIndex = button.getAttribute("data-index") || "0";
         abrirSelectorMedia(
           button.getAttribute("data-media-picker"),
-          parseInt(button.getAttribute("data-index") || "0", 10),
+          /^[0-9]+$/.test(rawIndex) ? parseInt(rawIndex, 10) : rawIndex,
           button.getAttribute("data-field") || ""
         );
       });
     });
+  }
+
+  function renderCategoriasCmsSeccion(item) {
+    var data = categoriasCmsData(item.codigo);
+    if (!data) return "";
+    var contenido = item.codigo === "categorias_config" ? renderCategoriasCmsConfig(data) : renderCategoriasCmsItems(data);
+    return '<div class="cms-actual-card mb-4">' +
+      '<div class="d-flex justify-content-between align-items-start gap-3 flex-wrap mb-4">' +
+        '<div><div class="fw-bold">' + escapeHtml(item.descripcion) + '</div><div class="text-muted fs-8">' + escapeHtml(item.codigo) + '</div></div>' +
+        '<span class="badge badge-light-success">Editor activo</span>' +
+      '</div>' +
+      contenido +
+    '</div>';
+  }
+
+  function renderCategoriasCmsConfig(data) {
+    return '<div class="row g-3">' +
+      inputCategoriaCms("categorias_config", "titulo_listado", "Titulo listado", data.titulo_listado, "col-md-4") +
+      inputCategoriaCms("categorias_config", "subtitulo_listado", "Subtitulo listado", data.subtitulo_listado, "col-md-5") +
+      inputCategoriaCms("categorias_config", "fuente", "Fuente API", data.fuente, "col-md-3") +
+      '<div class="col-md-3"><label class="form-label fs-8 fw-bold">Mostrar en Home</label><select class="form-select form-select-sm" data-cms-cat-section="categorias_config" data-cms-cat-field="mostrar_en_home"><option value="1"' + (data.mostrar_en_home ? ' selected' : '') + '>Si</option><option value="0"' + (!data.mostrar_en_home ? ' selected' : '') + '>No</option></select></div>' +
+      '<div class="col-md-3"><label class="form-label fs-8 fw-bold">Mostrar en menu</label><select class="form-select form-select-sm" data-cms-cat-section="categorias_config" data-cms-cat-field="mostrar_en_menu"><option value="1"' + (data.mostrar_en_menu ? ' selected' : '') + '>Si</option><option value="0"' + (!data.mostrar_en_menu ? ' selected' : '') + '>No</option></select></div>' +
+    '</div>';
+  }
+
+  function renderCategoriasCmsItems(data) {
+    var items = data.items || [];
+    return '<div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">' +
+      '<div class="fw-bold">Categorias editoriales</div><button class="btn btn-sm btn-light-primary" type="button" id="cms_actual_categoria_agregar"><i class="bi bi-plus-circle"></i> Agregar categoria</button>' +
+    '</div>' +
+    items.map(renderCategoriaCmsCard).join("") +
+    '<div class="alert alert-light-info fs-7 mb-0">La categoria real debe existir en ERP/API. Aqui solo se prepara imagen, texto publico, SEO, destacado, visible y orden.</div>';
+  }
+
+  function renderCategoriaCmsCard(item, index) {
+    var bg = item.imagen_banner || item.imagen_card;
+    return '<div class="cms-actual-slide mb-4">' +
+      '<div class="d-flex justify-content-between align-items-center gap-2 mb-3">' +
+        '<div><div class="fw-semibold">' + escapeHtml(item.titulo || ("Categoria " + (index + 1))) + '</div><div class="text-muted fs-8">' + escapeHtml(item.slug || "sin-slug") + '</div></div>' +
+        '<div class="d-flex gap-2">' +
+          '<button class="btn btn-sm btn-light" type="button" data-cms-cat-action="subir" data-index="' + escapeAttr(index) + '"><i class="bi bi-arrow-up"></i></button>' +
+          '<button class="btn btn-sm btn-light" type="button" data-cms-cat-action="bajar" data-index="' + escapeAttr(index) + '"><i class="bi bi-arrow-down"></i></button>' +
+          '<button class="btn btn-sm btn-light-warning" type="button" data-cms-cat-action="toggle" data-index="' + escapeAttr(index) + '"><i class="bi bi-eye"></i></button>' +
+          '<button class="btn btn-sm btn-light-danger" type="button" data-cms-cat-action="eliminar" data-index="' + escapeAttr(index) + '"><i class="bi bi-trash"></i></button>' +
+        '</div>' +
+      '</div>' +
+      '<div class="row g-4">' +
+        '<div class="col-lg-4">' +
+          '<div class="cms-actual-slide-preview"' + (bg ? ' style="background-image:url(' + escapeAttr(urlPreviewSeguro(bg)) + ')"' : '') + '><div><div class="text-uppercase fs-8 fw-bold">Preview categoria</div><h4 class="text-white fw-bold mt-2">' + escapeHtml(item.titulo || "") + '</h4><div class="fs-7">' + escapeHtml(item.subtitulo || "") + '</div></div></div>' +
+        '</div>' +
+        '<div class="col-lg-8"><div class="row g-3">' +
+          inputCategoriaItem(index, "categoria_id", "ID ERP", item.categoria_id, "col-md-2") +
+          inputCategoriaItem(index, "slug", "Slug", item.slug, "col-md-3") +
+          inputCategoriaItem(index, "titulo", "Titulo", item.titulo, "col-md-3") +
+          inputCategoriaItem(index, "url", "URL publica", item.url, "col-md-4") +
+          inputCategoriaItem(index, "subtitulo", "Subtitulo", item.subtitulo, "col-md-6") +
+          inputCategoriaItem(index, "descripcion_seo", "Descripcion SEO", item.descripcion_seo, "col-md-6") +
+          inputCategoriaItem(index, "imagen_card", "Imagen card", item.imagen_card, "col-md-6", true) +
+          inputCategoriaItem(index, "imagen_banner", "Imagen banner", item.imagen_banner, "col-md-6", true) +
+          inputCategoriaItem(index, "alt_card", "Alt card", item.alt_card, "col-md-6") +
+          inputCategoriaItem(index, "alt_banner", "Alt banner", item.alt_banner, "col-md-6") +
+          '<div class="col-md-3"><label class="form-label fs-8 fw-bold">Destacado</label><select class="form-select form-select-sm" data-cms-cat-section="categorias_items" data-cms-cat-field="items.' + escapeAttr(index) + '.destacado"><option value="1"' + (item.destacado ? ' selected' : '') + '>Si</option><option value="0"' + (!item.destacado ? ' selected' : '') + '>No</option></select></div>' +
+          '<div class="col-md-3"><label class="form-label fs-8 fw-bold">Visible</label><select class="form-select form-select-sm" data-cms-cat-section="categorias_items" data-cms-cat-field="items.' + escapeAttr(index) + '.visible"><option value="1"' + (item.visible ? ' selected' : '') + '>Si</option><option value="0"' + (!item.visible ? ' selected' : '') + '>No</option></select></div>' +
+        '</div></div>' +
+      '</div>' +
+    '</div>';
+  }
+
+  function inputCategoriaCms(seccionCodigo, campo, label, value, col) {
+    return '<div class="' + escapeAttr(col || "col-md-6") + '"><label class="form-label fs-8 fw-bold">' + escapeHtml(label) + '</label><input class="form-control form-control-sm" data-cms-cat-section="' + escapeAttr(seccionCodigo) + '" data-cms-cat-field="' + escapeAttr(campo) + '" value="' + escapeAttr(value == null ? "" : value) + '"></div>';
+  }
+
+  function inputCategoriaItem(index, campo, label, value, col, media) {
+    var input = '<input class="form-control form-control-sm" data-cms-cat-section="categorias_items" data-cms-cat-field="items.' + escapeAttr(index) + '.' + escapeAttr(campo) + '" value="' + escapeAttr(value == null ? "" : value) + '">';
+    if (media) {
+      input = '<div class="input-group input-group-sm">' + input + '<button class="btn btn-light-primary" type="button" data-media-picker="cms_categoria" data-index="' + escapeAttr(index) + '" data-field="' + escapeAttr(campo) + '"><i class="bi bi-images"></i> Media</button></div>';
+    }
+    return '<div class="' + escapeAttr(col || "col-md-4") + '"><label class="form-label fs-8 fw-bold">' + escapeHtml(label) + '</label>' + input + '</div>';
+  }
+
+  function renderMarcasCmsSeccion(item) {
+    var data = marcasCmsData(item.codigo);
+    if (!data) return "";
+    var contenido = item.codigo === "marcas_config" ? renderMarcasCmsConfig(data) : renderMarcasCmsItems(data);
+    return '<div class="cms-actual-card mb-4">' +
+      '<div class="d-flex justify-content-between align-items-start gap-3 flex-wrap mb-4">' +
+        '<div><div class="fw-bold">' + escapeHtml(item.descripcion) + '</div><div class="text-muted fs-8">' + escapeHtml(item.codigo) + '</div></div>' +
+        '<span class="badge badge-light-success">Editor activo</span>' +
+      '</div>' +
+      contenido +
+    '</div>';
+  }
+
+  function renderMarcasCmsConfig(data) {
+    return '<div class="row g-3">' +
+      inputMarcaCms("marcas_config", "titulo_listado", "Titulo listado", data.titulo_listado, "col-md-4") +
+      inputMarcaCms("marcas_config", "subtitulo_listado", "Subtitulo listado", data.subtitulo_listado, "col-md-5") +
+      inputMarcaCms("marcas_config", "fuente", "Fuente API", data.fuente, "col-md-3") +
+      '<div class="col-md-3"><label class="form-label fs-8 fw-bold">Mostrar en Home</label><select class="form-select form-select-sm" data-cms-marca-section="marcas_config" data-cms-marca-field="mostrar_en_home"><option value="1"' + (data.mostrar_en_home ? ' selected' : '') + '>Si</option><option value="0"' + (!data.mostrar_en_home ? ' selected' : '') + '>No</option></select></div>' +
+      '<div class="col-md-3"><label class="form-label fs-8 fw-bold">Mostrar en menu</label><select class="form-select form-select-sm" data-cms-marca-section="marcas_config" data-cms-marca-field="mostrar_en_menu"><option value="1"' + (data.mostrar_en_menu ? ' selected' : '') + '>Si</option><option value="0"' + (!data.mostrar_en_menu ? ' selected' : '') + '>No</option></select></div>' +
+    '</div>';
+  }
+
+  function renderMarcasCmsItems(data) {
+    var items = data.items || [];
+    return '<div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">' +
+      '<div class="fw-bold">Marcas editoriales</div><button class="btn btn-sm btn-light-primary" type="button" id="cms_actual_marca_agregar"><i class="bi bi-plus-circle"></i> Agregar marca</button>' +
+    '</div>' +
+    items.map(renderMarcaCmsCard).join("") +
+    '<div class="alert alert-light-info fs-7 mb-0">La marca real debe existir en ERP/API. Aqui solo se prepara logo, banner, texto publico, SEO, destacado, visible y orden.</div>';
+  }
+
+  function renderMarcaCmsCard(item, index) {
+    var bg = item.imagen_banner || item.logo;
+    return '<div class="cms-actual-slide mb-4">' +
+      '<div class="d-flex justify-content-between align-items-center gap-2 mb-3">' +
+        '<div><div class="fw-semibold">' + escapeHtml(item.titulo || ("Marca " + (index + 1))) + '</div><div class="text-muted fs-8">' + escapeHtml(item.slug || "sin-slug") + '</div></div>' +
+        '<div class="d-flex gap-2">' +
+          '<button class="btn btn-sm btn-light" type="button" data-cms-marca-action="subir" data-index="' + escapeAttr(index) + '"><i class="bi bi-arrow-up"></i></button>' +
+          '<button class="btn btn-sm btn-light" type="button" data-cms-marca-action="bajar" data-index="' + escapeAttr(index) + '"><i class="bi bi-arrow-down"></i></button>' +
+          '<button class="btn btn-sm btn-light-warning" type="button" data-cms-marca-action="toggle" data-index="' + escapeAttr(index) + '"><i class="bi bi-eye"></i></button>' +
+          '<button class="btn btn-sm btn-light-danger" type="button" data-cms-marca-action="eliminar" data-index="' + escapeAttr(index) + '"><i class="bi bi-trash"></i></button>' +
+        '</div>' +
+      '</div>' +
+      '<div class="row g-4">' +
+        '<div class="col-lg-4">' +
+          '<div class="cms-actual-slide-preview"' + (bg ? ' style="background-image:url(' + escapeAttr(urlPreviewSeguro(bg)) + ')"' : '') + '><div><div class="text-uppercase fs-8 fw-bold">Preview marca</div><h4 class="text-white fw-bold mt-2">' + escapeHtml(item.titulo || "") + '</h4><div class="fs-7">' + escapeHtml(item.subtitulo || "") + '</div></div></div>' +
+        '</div>' +
+        '<div class="col-lg-8"><div class="row g-3">' +
+          inputMarcaItem(index, "marca_id", "ID ERP", item.marca_id, "col-md-2") +
+          inputMarcaItem(index, "slug", "Slug", item.slug, "col-md-3") +
+          inputMarcaItem(index, "titulo", "Titulo", item.titulo, "col-md-3") +
+          inputMarcaItem(index, "url", "URL publica", item.url, "col-md-4") +
+          inputMarcaItem(index, "subtitulo", "Subtitulo", item.subtitulo, "col-md-6") +
+          inputMarcaItem(index, "descripcion_seo", "Descripcion SEO", item.descripcion_seo, "col-md-6") +
+          inputMarcaItem(index, "logo", "Logo", item.logo, "col-md-6", true) +
+          inputMarcaItem(index, "imagen_banner", "Imagen banner", item.imagen_banner, "col-md-6", true) +
+          inputMarcaItem(index, "alt_logo", "Alt logo", item.alt_logo, "col-md-6") +
+          inputMarcaItem(index, "alt_banner", "Alt banner", item.alt_banner, "col-md-6") +
+          '<div class="col-md-3"><label class="form-label fs-8 fw-bold">Destacado</label><select class="form-select form-select-sm" data-cms-marca-section="marcas_items" data-cms-marca-field="items.' + escapeAttr(index) + '.destacado"><option value="1"' + (item.destacado ? ' selected' : '') + '>Si</option><option value="0"' + (!item.destacado ? ' selected' : '') + '>No</option></select></div>' +
+          '<div class="col-md-3"><label class="form-label fs-8 fw-bold">Visible</label><select class="form-select form-select-sm" data-cms-marca-section="marcas_items" data-cms-marca-field="items.' + escapeAttr(index) + '.visible"><option value="1"' + (item.visible ? ' selected' : '') + '>Si</option><option value="0"' + (!item.visible ? ' selected' : '') + '>No</option></select></div>' +
+        '</div></div>' +
+      '</div>' +
+    '</div>';
+  }
+
+  function inputMarcaCms(seccionCodigo, campo, label, value, col) {
+    return '<div class="' + escapeAttr(col || "col-md-6") + '"><label class="form-label fs-8 fw-bold">' + escapeHtml(label) + '</label><input class="form-control form-control-sm" data-cms-marca-section="' + escapeAttr(seccionCodigo) + '" data-cms-marca-field="' + escapeAttr(campo) + '" value="' + escapeAttr(value == null ? "" : value) + '"></div>';
+  }
+
+  function inputMarcaItem(index, campo, label, value, col, media) {
+    var input = '<input class="form-control form-control-sm" data-cms-marca-section="marcas_items" data-cms-marca-field="items.' + escapeAttr(index) + '.' + escapeAttr(campo) + '" value="' + escapeAttr(value == null ? "" : value) + '">';
+    if (media) {
+      input = '<div class="input-group input-group-sm">' + input + '<button class="btn btn-light-primary" type="button" data-media-picker="cms_marca" data-index="' + escapeAttr(index) + '" data-field="' + escapeAttr(campo) + '"><i class="bi bi-images"></i> Media</button></div>';
+    }
+    return '<div class="' + escapeAttr(col || "col-md-4") + '"><label class="form-label fs-8 fw-bold">' + escapeHtml(label) + '</label>' + input + '</div>';
+  }
+
+  function renderPaginasCmsSeccion(item) {
+    var data = paginasCmsData(item.codigo);
+    if (!data) return "";
+    var contenido = item.codigo === "paginas_config" ? renderPaginasCmsConfig(data) : renderPaginasCmsItems(data);
+    return '<div class="cms-actual-card mb-4">' +
+      '<div class="d-flex justify-content-between align-items-start gap-3 flex-wrap mb-4">' +
+        '<div><div class="fw-bold">' + escapeHtml(item.descripcion) + '</div><div class="text-muted fs-8">' + escapeHtml(item.codigo) + '</div></div>' +
+        '<span class="badge badge-light-success">Editor activo</span>' +
+      '</div>' +
+      contenido +
+    '</div>';
+  }
+
+  function renderPaginasCmsConfig(data) {
+    return '<div class="row g-3">' +
+      inputPaginaCms("paginas_config", "titulo_listado", "Titulo listado", data.titulo_listado, "col-md-4") +
+      inputPaginaCms("paginas_config", "subtitulo_listado", "Subtitulo listado", data.subtitulo_listado, "col-md-5") +
+      inputPaginaCms("paginas_config", "fuente", "Fuente API", data.fuente, "col-md-3") +
+    '</div>';
+  }
+
+  function renderPaginasCmsItems(data) {
+    var items = data.items || [];
+    return '<div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">' +
+      '<div class="fw-bold">Paginas editoriales</div><button class="btn btn-sm btn-light-primary" type="button" id="cms_actual_pagina_agregar"><i class="bi bi-plus-circle"></i> Agregar pagina</button>' +
+    '</div>' +
+    items.map(renderPaginaCmsCard).join("") +
+    '<div class="alert alert-light-info fs-7 mb-0">Usa contenido limpio y rutas publicas. La sanitizacion estricta final se hara en backend antes de publicar.</div>';
+  }
+
+  function renderPaginaCmsCard(item, index) {
+    return '<div class="cms-actual-slide mb-4">' +
+      '<div class="d-flex justify-content-between align-items-center gap-2 mb-3">' +
+        '<div><div class="fw-semibold">' + escapeHtml(item.titulo || ("Pagina " + (index + 1))) + '</div><div class="text-muted fs-8">' + escapeHtml(item.url || "sin-url") + '</div></div>' +
+        '<div class="d-flex gap-2">' +
+          '<button class="btn btn-sm btn-light" type="button" data-cms-pagina-action="subir" data-index="' + escapeAttr(index) + '"><i class="bi bi-arrow-up"></i></button>' +
+          '<button class="btn btn-sm btn-light" type="button" data-cms-pagina-action="bajar" data-index="' + escapeAttr(index) + '"><i class="bi bi-arrow-down"></i></button>' +
+          '<button class="btn btn-sm btn-light-warning" type="button" data-cms-pagina-action="toggle" data-index="' + escapeAttr(index) + '"><i class="bi bi-eye"></i></button>' +
+          '<button class="btn btn-sm btn-light-danger" type="button" data-cms-pagina-action="eliminar" data-index="' + escapeAttr(index) + '"><i class="bi bi-trash"></i></button>' +
+        '</div>' +
+      '</div>' +
+      '<div class="row g-4">' +
+        '<div class="col-lg-4">' +
+          '<div class="cms-actual-slide-preview"' + (item.imagen_principal ? ' style="background-image:url(' + escapeAttr(urlPreviewSeguro(item.imagen_principal)) + ')"' : '') + '><div><div class="text-uppercase fs-8 fw-bold">Preview pagina</div><h4 class="text-white fw-bold mt-2">' + escapeHtml(item.titulo || "") + '</h4><div class="fs-7">' + escapeHtml(item.subtitulo || "") + '</div></div></div>' +
+        '</div>' +
+        '<div class="col-lg-8"><div class="row g-3">' +
+          inputPaginaItem(index, "slug", "Slug", item.slug, "col-md-3") +
+          inputPaginaItem(index, "titulo", "Titulo", item.titulo, "col-md-4") +
+          inputPaginaItem(index, "url", "URL publica", item.url, "col-md-5") +
+          inputPaginaItem(index, "subtitulo", "Subtitulo", item.subtitulo, "col-md-6") +
+          inputPaginaItem(index, "resumen", "Resumen", item.resumen, "col-md-6") +
+          inputPaginaItem(index, "imagen_principal", "Imagen principal", item.imagen_principal, "col-md-6", true) +
+          inputPaginaItem(index, "alt_imagen", "Alt imagen", item.alt_imagen, "col-md-6") +
+          inputPaginaItem(index, "seo_title", "SEO title", item.seo_title, "col-md-6") +
+          inputPaginaItem(index, "seo_description", "SEO description", item.seo_description, "col-md-6") +
+          '<div class="col-12"><label class="form-label fs-8 fw-bold">Contenido</label><textarea class="form-control form-control-sm" rows="4" data-cms-pagina-section="paginas_items" data-cms-pagina-field="items.' + escapeAttr(index) + '.contenido">' + escapeHtml(item.contenido || "") + '</textarea></div>' +
+          '<div class="col-md-3"><label class="form-label fs-8 fw-bold">Visible</label><select class="form-select form-select-sm" data-cms-pagina-section="paginas_items" data-cms-pagina-field="items.' + escapeAttr(index) + '.visible"><option value="1"' + (item.visible ? ' selected' : '') + '>Si</option><option value="0"' + (!item.visible ? ' selected' : '') + '>No</option></select></div>' +
+        '</div></div>' +
+      '</div>' +
+    '</div>';
+  }
+
+  function inputPaginaCms(seccionCodigo, campo, label, value, col) {
+    return '<div class="' + escapeAttr(col || "col-md-6") + '"><label class="form-label fs-8 fw-bold">' + escapeHtml(label) + '</label><input class="form-control form-control-sm" data-cms-pagina-section="' + escapeAttr(seccionCodigo) + '" data-cms-pagina-field="' + escapeAttr(campo) + '" value="' + escapeAttr(value == null ? "" : value) + '"></div>';
+  }
+
+  function inputPaginaItem(index, campo, label, value, col, media) {
+    var input = '<input class="form-control form-control-sm" data-cms-pagina-section="paginas_items" data-cms-pagina-field="items.' + escapeAttr(index) + '.' + escapeAttr(campo) + '" value="' + escapeAttr(value == null ? "" : value) + '">';
+    if (media) {
+      input = '<div class="input-group input-group-sm">' + input + '<button class="btn btn-light-primary" type="button" data-media-picker="cms_pagina" data-index="' + escapeAttr(index) + '" data-field="' + escapeAttr(campo) + '"><i class="bi bi-images"></i> Media</button></div>';
+    }
+    return '<div class="' + escapeAttr(col || "col-md-4") + '"><label class="form-label fs-8 fw-bold">' + escapeHtml(label) + '</label>' + input + '</div>';
+  }
+
+  function renderPoliticasCmsSeccion(item) {
+    var data = politicasCmsData(item.codigo);
+    if (!data) return "";
+    var contenido = item.codigo === "politicas_config" ? renderPoliticasCmsConfig(data) : renderPoliticasCmsItems(data);
+    return '<div class="cms-actual-card mb-4">' +
+      '<div class="d-flex justify-content-between align-items-start gap-3 flex-wrap mb-4">' +
+        '<div><div class="fw-bold">' + escapeHtml(item.descripcion) + '</div><div class="text-muted fs-8">' + escapeHtml(item.codigo) + '</div></div>' +
+        '<span class="badge badge-light-success">Editor activo</span>' +
+      '</div>' +
+      contenido +
+    '</div>';
+  }
+
+  function renderPoliticasCmsConfig(data) {
+    return '<div class="row g-3">' +
+      inputPoliticaCms("politicas_config", "titulo_listado", "Titulo listado", data.titulo_listado, "col-md-4") +
+      inputPoliticaCms("politicas_config", "subtitulo_listado", "Subtitulo listado", data.subtitulo_listado, "col-md-5") +
+      inputPoliticaCms("politicas_config", "fuente", "Fuente API", data.fuente, "col-md-3") +
+    '</div>';
+  }
+
+  function renderPoliticasCmsItems(data) {
+    var items = data.items || [];
+    return '<div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">' +
+      '<div class="fw-bold">Politicas publicas</div><button class="btn btn-sm btn-light-primary" type="button" id="cms_actual_politica_agregar"><i class="bi bi-plus-circle"></i> Agregar politica</button>' +
+    '</div>' +
+    items.map(renderPoliticaCmsCard).join("") +
+    '<div class="alert alert-light-warning fs-7 mb-0">Estos textos requieren revision legal/operativa antes de publicarse. El estado inicial recomendado es borrador.</div>';
+  }
+
+  function renderPoliticaCmsCard(item, index) {
+    return '<div class="cms-actual-slide mb-4">' +
+      '<div class="d-flex justify-content-between align-items-center gap-2 mb-3">' +
+        '<div><div class="fw-semibold">' + escapeHtml(item.titulo || ("Politica " + (index + 1))) + '</div><div class="text-muted fs-8">' + escapeHtml(item.url || "sin-url") + '</div></div>' +
+        '<div class="d-flex gap-2">' +
+          '<button class="btn btn-sm btn-light" type="button" data-cms-politica-action="subir" data-index="' + escapeAttr(index) + '"><i class="bi bi-arrow-up"></i></button>' +
+          '<button class="btn btn-sm btn-light" type="button" data-cms-politica-action="bajar" data-index="' + escapeAttr(index) + '"><i class="bi bi-arrow-down"></i></button>' +
+          '<button class="btn btn-sm btn-light-warning" type="button" data-cms-politica-action="toggle" data-index="' + escapeAttr(index) + '"><i class="bi bi-eye"></i></button>' +
+          '<button class="btn btn-sm btn-light-danger" type="button" data-cms-politica-action="eliminar" data-index="' + escapeAttr(index) + '"><i class="bi bi-trash"></i></button>' +
+        '</div>' +
+      '</div>' +
+      '<div class="row g-3">' +
+        inputPoliticaItem(index, "slug", "Slug", item.slug, "col-md-3") +
+        inputPoliticaItem(index, "titulo", "Titulo", item.titulo, "col-md-4") +
+        inputPoliticaItem(index, "url", "URL publica", item.url, "col-md-5") +
+        inputPoliticaItem(index, "resumen", "Resumen", item.resumen, "col-md-6") +
+        inputPoliticaItem(index, "version", "Version", item.version, "col-md-2") +
+        '<div class="col-md-2"><label class="form-label fs-8 fw-bold">Estatus</label><select class="form-select form-select-sm" data-cms-politica-section="politicas_items" data-cms-politica-field="items.' + escapeAttr(index) + '.estatus"><option value="borrador"' + (item.estatus === "borrador" ? ' selected' : '') + '>Borrador</option><option value="publicado"' + (item.estatus === "publicado" ? ' selected' : '') + '>Publicado</option><option value="pausado"' + (item.estatus === "pausado" ? ' selected' : '') + '>Pausado</option></select></div>' +
+        '<div class="col-md-2"><label class="form-label fs-8 fw-bold">Visible</label><select class="form-select form-select-sm" data-cms-politica-section="politicas_items" data-cms-politica-field="items.' + escapeAttr(index) + '.visible"><option value="1"' + (item.visible ? ' selected' : '') + '>Si</option><option value="0"' + (!item.visible ? ' selected' : '') + '>No</option></select></div>' +
+        inputPoliticaItem(index, "vigente_desde", "Vigente desde", item.vigente_desde, "col-md-3") +
+        inputPoliticaItem(index, "vigente_hasta", "Vigente hasta", item.vigente_hasta, "col-md-3") +
+        inputPoliticaItem(index, "seo_title", "SEO title", item.seo_title, "col-md-3") +
+        inputPoliticaItem(index, "seo_description", "SEO description", item.seo_description, "col-md-3") +
+        '<div class="col-12"><label class="form-label fs-8 fw-bold">Contenido</label><textarea class="form-control form-control-sm" rows="5" data-cms-politica-section="politicas_items" data-cms-politica-field="items.' + escapeAttr(index) + '.contenido">' + escapeHtml(item.contenido || "") + '</textarea></div>' +
+      '</div>' +
+    '</div>';
+  }
+
+  function inputPoliticaCms(seccionCodigo, campo, label, value, col) {
+    return '<div class="' + escapeAttr(col || "col-md-6") + '"><label class="form-label fs-8 fw-bold">' + escapeHtml(label) + '</label><input class="form-control form-control-sm" data-cms-politica-section="' + escapeAttr(seccionCodigo) + '" data-cms-politica-field="' + escapeAttr(campo) + '" value="' + escapeAttr(value == null ? "" : value) + '"></div>';
+  }
+
+  function inputPoliticaItem(index, campo, label, value, col) {
+    return '<div class="' + escapeAttr(col || "col-md-4") + '"><label class="form-label fs-8 fw-bold">' + escapeHtml(label) + '</label><input class="form-control form-control-sm" data-cms-politica-section="politicas_items" data-cms-politica-field="items.' + escapeAttr(index) + '.' + escapeAttr(campo) + '" value="' + escapeAttr(value == null ? "" : value) + '"></div>';
+  }
+
+  function renderNavegacionSeccion(item) {
+    var data = navegacionData(item.codigo);
+    if (!data) return "";
+    var contenido = "";
+    if (item.codigo === "nav_topbar") contenido = renderNavTopbar(data);
+    if (item.codigo === "nav_menu_principal") contenido = renderNavMenuPrincipal(data);
+    if (item.codigo === "nav_footer_columnas") contenido = renderNavFooterColumnas(data);
+    if (item.codigo === "nav_footer_cta") contenido = renderNavFooterCta(data);
+    return '<div class="cms-actual-card mb-4">' +
+      '<div class="d-flex justify-content-between align-items-start gap-3 flex-wrap mb-4">' +
+        '<div><div class="fw-bold">' + escapeHtml(item.descripcion) + '</div><div class="text-muted fs-8">' + escapeHtml(item.codigo) + '</div></div>' +
+        '<span class="badge badge-light-success">Editor activo</span>' +
+      '</div>' +
+      contenido +
+    '</div>';
+  }
+
+  function renderNavTopbar(data) {
+    return '<div class="row g-3">' +
+      inputNav("nav_topbar", "texto", "Texto topbar", data.texto, "col-md-5") +
+      inputNav("nav_topbar", "telefono_label", "Texto telefono", data.telefono_label, "col-md-3") +
+      inputNav("nav_topbar", "whatsapp_label", "Texto WhatsApp", data.whatsapp_label, "col-md-2") +
+      inputNav("nav_topbar", "whatsapp_url", "URL WhatsApp", data.whatsapp_url, "col-md-2") +
+      '<div class="col-md-3"><label class="form-label fs-8 fw-bold">Mostrar redes</label><select class="form-select form-select-sm" data-nav-section="nav_topbar" data-nav-field="mostrar_redes"><option value="1"' + (data.mostrar_redes ? ' selected' : '') + '>Si</option><option value="0"' + (!data.mostrar_redes ? ' selected' : '') + '>No</option></select></div>' +
+      '<div class="col-md-3"><label class="form-label fs-8 fw-bold">Visible</label><select class="form-select form-select-sm" data-nav-section="nav_topbar" data-nav-field="visible"><option value="1"' + (data.visible ? ' selected' : '') + '>Si</option><option value="0"' + (!data.visible ? ' selected' : '') + '>No</option></select></div>' +
+    '</div>';
+  }
+
+  function renderNavMenuPrincipal(data) {
+    return '<div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">' +
+      '<div class="fw-bold">Enlaces del header</div><button class="btn btn-sm btn-light-primary" type="button" id="cms_actual_nav_menu_agregar"><i class="bi bi-plus-circle"></i> Agregar enlace</button>' +
+    '</div>' +
+    (data.items || []).map(function (item, index) {
+      return '<div class="cms-actual-slide mb-3">' +
+        '<div class="d-flex justify-content-between align-items-center gap-2 mb-3">' +
+          '<div class="fw-semibold">Enlace ' + escapeHtml(index + 1) + '</div>' +
+          accionesNav("nav_menu_principal", index, -1) +
+        '</div>' +
+        '<div class="row g-3">' +
+          inputNavItem("nav_menu_principal", index, "label", "Etiqueta", item.label, "col-md-3") +
+          inputNavItem("nav_menu_principal", index, "tipo", "Tipo", item.tipo, "col-md-2") +
+          inputNavItem("nav_menu_principal", index, "url", "URL", item.url, "col-md-4") +
+          '<div class="col-md-2"><label class="form-label fs-8 fw-bold">Visible</label><select class="form-select form-select-sm" data-nav-section="nav_menu_principal" data-nav-field="items.' + escapeAttr(index) + '.visible"><option value="1"' + (item.visible ? ' selected' : '') + '>Si</option><option value="0"' + (!item.visible ? ' selected' : '') + '>No</option></select></div>' +
+        '</div>' +
+      '</div>';
+    }).join("");
+  }
+
+  function renderNavFooterColumnas(data) {
+    return '<div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">' +
+      '<div class="fw-bold">Columnas del footer</div><button class="btn btn-sm btn-light-primary" type="button" id="cms_actual_nav_footer_columna_agregar"><i class="bi bi-plus-circle"></i> Agregar columna</button>' +
+    '</div>' +
+    (data.items || []).map(function (columna, index) {
+      return '<div class="cms-actual-slide mb-3">' +
+        '<div class="d-flex justify-content-between align-items-center gap-2 mb-3">' +
+          '<div class="fw-semibold">Columna ' + escapeHtml(index + 1) + '</div>' +
+          accionesNav("nav_footer_columnas", index, -1) +
+        '</div>' +
+        '<div class="row g-3">' +
+          inputNavItem("nav_footer_columnas", index, "titulo", "Titulo", columna.titulo, "col-md-5") +
+          '<div class="col-md-2"><label class="form-label fs-8 fw-bold">Visible</label><select class="form-select form-select-sm" data-nav-section="nav_footer_columnas" data-nav-field="items.' + escapeAttr(index) + '.visible"><option value="1"' + (columna.visible ? ' selected' : '') + '>Si</option><option value="0"' + (!columna.visible ? ' selected' : '') + '>No</option></select></div>' +
+          '<div class="col-12"><label class="form-label fs-8 fw-bold">Links de la columna</label><textarea class="form-control form-control-sm" rows="4" data-nav-section="nav_footer_columnas" data-nav-field="items.' + escapeAttr(index) + '.links_text">' + escapeHtml(linksToText(columna.links || [])) + '</textarea><div class="text-muted fs-8 mt-1">Un link por linea: Etiqueta|/ruta-publica</div></div>' +
+        '</div>' +
+      '</div>';
+    }).join("");
+  }
+
+  function renderNavFooterCta(data) {
+    return '<div class="row g-3">' +
+      inputNav("nav_footer_cta", "titulo", "Titulo", data.titulo, "col-md-4") +
+      inputNav("nav_footer_cta", "texto", "Texto", data.texto, "col-md-8") +
+      inputNav("nav_footer_cta", "cta.label", "CTA etiqueta", data.cta ? data.cta.label : "", "col-md-4") +
+      inputNav("nav_footer_cta", "cta.url", "CTA URL", data.cta ? data.cta.url : "", "col-md-5") +
+      '<div class="col-md-3"><label class="form-label fs-8 fw-bold">Visible</label><select class="form-select form-select-sm" data-nav-section="nav_footer_cta" data-nav-field="visible"><option value="1"' + (data.visible ? ' selected' : '') + '>Si</option><option value="0"' + (!data.visible ? ' selected' : '') + '>No</option></select></div>' +
+    '</div>';
+  }
+
+  function inputNav(seccionCodigo, campo, label, value, col) {
+    return '<div class="' + escapeAttr(col || "col-md-6") + '"><label class="form-label fs-8 fw-bold">' + escapeHtml(label) + '</label><input class="form-control form-control-sm" data-nav-section="' + escapeAttr(seccionCodigo) + '" data-nav-field="' + escapeAttr(campo) + '" value="' + escapeAttr(value == null ? "" : value) + '"></div>';
+  }
+
+  function inputNavItem(seccionCodigo, index, campo, label, value, col) {
+    return '<div class="' + escapeAttr(col || "col-md-4") + '"><label class="form-label fs-8 fw-bold">' + escapeHtml(label) + '</label><input class="form-control form-control-sm" data-nav-section="' + escapeAttr(seccionCodigo) + '" data-nav-field="items.' + escapeAttr(index) + '.' + escapeAttr(campo) + '" value="' + escapeAttr(value == null ? "" : value) + '"></div>';
+  }
+
+  function accionesNav(seccionCodigo, index, linkIndex) {
+    return '<div class="d-flex gap-2">' +
+      '<button class="btn btn-sm btn-light" type="button" data-nav-section="' + escapeAttr(seccionCodigo) + '" data-nav-action="subir" data-index="' + escapeAttr(index) + '" data-link-index="' + escapeAttr(linkIndex) + '"><i class="bi bi-arrow-up"></i></button>' +
+      '<button class="btn btn-sm btn-light" type="button" data-nav-section="' + escapeAttr(seccionCodigo) + '" data-nav-action="bajar" data-index="' + escapeAttr(index) + '" data-link-index="' + escapeAttr(linkIndex) + '"><i class="bi bi-arrow-down"></i></button>' +
+      '<button class="btn btn-sm btn-light-warning" type="button" data-nav-section="' + escapeAttr(seccionCodigo) + '" data-nav-action="toggle" data-index="' + escapeAttr(index) + '" data-link-index="' + escapeAttr(linkIndex) + '"><i class="bi bi-eye"></i></button>' +
+      '<button class="btn btn-sm btn-light-danger" type="button" data-nav-section="' + escapeAttr(seccionCodigo) + '" data-nav-action="eliminar" data-index="' + escapeAttr(index) + '" data-link-index="' + escapeAttr(linkIndex) + '"><i class="bi bi-trash"></i></button>' +
+    '</div>';
+  }
+
+  function renderGlobalSeccion(item) {
+    var data = globalData(item.codigo);
+    if (!data) return "";
+    var campos = camposGlobal(item.codigo, data);
+    return '<div class="cms-actual-card mb-4">' +
+      '<div class="d-flex justify-content-between align-items-start gap-3 flex-wrap mb-4">' +
+        '<div><div class="fw-bold">' + escapeHtml(item.codigo) + '</div><div class="text-muted fs-8">' + escapeHtml(item.descripcion) + '</div></div>' +
+        '<span class="badge badge-light-success">Editor activo</span>' +
+      '</div>' +
+      '<div class="row g-3">' + campos.join("") + '</div>' +
+    '</div>';
+  }
+
+  function camposGlobal(codigo, data) {
+    if (codigo === "global_negocio") {
+      return [
+        inputGlobal(codigo, "nombre_comercial", "Nombre comercial", data.nombre_comercial, "col-md-4"),
+        inputGlobal(codigo, "razon_social", "Razon social", data.razon_social, "col-md-4"),
+        inputGlobal(codigo, "slogan", "Slogan", data.slogan, "col-md-4"),
+        inputGlobal(codigo, "descripcion_corta", "Descripcion corta", data.descripcion_corta, "col-md-12"),
+        inputGlobal(codigo, "logo_principal", "Logo principal", data.logo_principal, "col-md-4"),
+        inputGlobal(codigo, "logo_blanco", "Logo blanco", data.logo_blanco, "col-md-4"),
+        inputGlobal(codigo, "favicon", "Favicon", data.favicon, "col-md-4"),
+        inputGlobal(codigo, "whatsapp", "WhatsApp", data.whatsapp, "col-md-3"),
+        inputGlobal(codigo, "telefono", "Telefono", data.telefono, "col-md-3"),
+        inputGlobal(codigo, "email_contacto", "Email contacto", data.email_contacto, "col-md-3"),
+        inputGlobal(codigo, "email_facturacion", "Email facturacion", data.email_facturacion, "col-md-3")
+      ];
+    }
+    if (codigo === "global_ubicacion") {
+      return [
+        inputGlobal(codigo, "direccion.calle", "Calle", data.direccion.calle, "col-md-4"),
+        inputGlobal(codigo, "direccion.colonia", "Colonia", data.direccion.colonia, "col-md-4"),
+        inputGlobal(codigo, "direccion.ciudad", "Ciudad", data.direccion.ciudad, "col-md-4"),
+        inputGlobal(codigo, "direccion.estado", "Estado", data.direccion.estado, "col-md-3"),
+        inputGlobal(codigo, "direccion.codigo_postal", "Codigo postal", data.direccion.codigo_postal, "col-md-3"),
+        inputGlobal(codigo, "direccion.pais", "Pais", data.direccion.pais, "col-md-3"),
+        inputGlobal(codigo, "direccion.texto_publico", "Texto publico", data.direccion.texto_publico, "col-md-3"),
+        inputGlobal(codigo, "mapa.google_maps_url", "Google Maps URL", data.mapa.google_maps_url, "col-md-6"),
+        inputGlobal(codigo, "mapa.embed_url", "Embed URL", data.mapa.embed_url, "col-md-6"),
+        inputGlobal(codigo, "mapa.lat", "Lat", data.mapa.lat, "col-md-3"),
+        inputGlobal(codigo, "mapa.lng", "Lng", data.mapa.lng, "col-md-3")
+      ];
+    }
+    if (codigo === "global_horarios") {
+      return [
+        '<div class="col-12"><div class="alert alert-light-info fs-7 mb-0">Edicion repetible fina pendiente. Por ahora edita el JSON generado o usa defaults locales.</div></div>'
+      ].concat((data.items || []).map(function (item, index) {
+        return inputGlobalHorario(index, "dias", "Dias", item.dias, "col-md-4") +
+          inputGlobalHorario(index, "horario", "Horario", item.horario, "col-md-4") +
+          inputGlobalHorario(index, "visible", "Visible 1/0", item.visible ? "1" : "0", "col-md-2");
+      }));
+    }
+    if (codigo === "global_redes") {
+      return [
+        inputGlobal(codigo, "facebook", "Facebook", data.facebook, "col-md-6"),
+        inputGlobal(codigo, "instagram", "Instagram", data.instagram, "col-md-6"),
+        inputGlobal(codigo, "tiktok", "TikTok", data.tiktok, "col-md-6"),
+        inputGlobal(codigo, "youtube", "YouTube", data.youtube, "col-md-6")
+      ];
+    }
+    if (codigo === "global_seo") {
+      return [
+        inputGlobal(codigo, "site_name", "Site name", data.site_name, "col-md-4"),
+        inputGlobal(codigo, "title_default", "Title default", data.title_default, "col-md-4"),
+        inputGlobal(codigo, "robots_default", "Robots", data.robots_default, "col-md-4"),
+        inputGlobal(codigo, "description_default", "Description default", data.description_default, "col-md-8"),
+        inputGlobal(codigo, "og_image_default", "OG image default", data.og_image_default, "col-md-4")
+      ];
+    }
+    return [
+      '<div class="col-md-6"><label class="form-label fs-8 fw-bold">Menu principal</label><textarea class="form-control form-control-sm" rows="5" data-global-section="' + escapeAttr(codigo) + '" data-global-field="menu_principal_json">' + escapeHtml(JSON.stringify(data.menu_principal || [], null, 2)) + '</textarea></div>',
+      '<div class="col-md-6"><label class="form-label fs-8 fw-bold">Footer columnas</label><textarea class="form-control form-control-sm" rows="5" data-global-section="' + escapeAttr(codigo) + '" data-global-field="footer_columnas_json">' + escapeHtml(JSON.stringify(data.footer_columnas || [], null, 2)) + '</textarea></div>'
+    ];
+  }
+
+  function inputGlobal(seccionCodigo, campo, label, value, col) {
+    var esImagen = campo === "logo_principal" || campo === "logo_blanco" || campo === "favicon" || campo === "og_image_default";
+    var input = '<input class="form-control form-control-sm" data-global-section="' + escapeAttr(seccionCodigo) + '" data-global-field="' + escapeAttr(campo) + '" value="' + escapeAttr(value == null ? "" : value) + '">';
+    if (esImagen) {
+      input = '<div class="input-group input-group-sm">' + input + '<button class="btn btn-light-primary" type="button" data-media-picker="global" data-index="' + escapeAttr(seccionCodigo) + '" data-field="' + escapeAttr(campo) + '"><i class="bi bi-images"></i> Media</button></div>';
+    }
+    return '<div class="' + escapeAttr(col || "col-md-6") + '"><label class="form-label fs-8 fw-bold">' + escapeHtml(label) + '</label>' + input + '</div>';
+  }
+
+  function inputGlobalHorario(index, campo, label, value, col) {
+    return '<div class="' + escapeAttr(col || "col-md-4") + '"><label class="form-label fs-8 fw-bold">' + escapeHtml(label) + '</label><input class="form-control form-control-sm" data-global-section="global_horarios" data-global-field="items.' + escapeAttr(index) + '.' + escapeAttr(campo) + '" value="' + escapeAttr(value == null ? "" : value) + '"></div>';
+  }
+
+  function actualizarGlobalField(seccionCodigo, campo, valor) {
+    var data = globalData(seccionCodigo);
+    if (!data) return;
+    if (campo === "menu_principal_json" || campo === "footer_columnas_json") {
+      try {
+        data[campo.replace("_json", "")] = JSON.parse(valor || "[]");
+      } catch (error) {
+        setText("cms_actual_estado", "JSON invalido en navegacion");
+        return;
+      }
+    } else if (campo.indexOf(".visible") !== -1) {
+      setPath(data, campo, valor === "1");
+    } else {
+      setPath(data, campo, valor);
+    }
+    refrescarJson();
+  }
+
+  function actualizarNavegacionField(seccionCodigo, campo, valor) {
+    var data = navegacionData(seccionCodigo);
+    if (!data) return;
+    if (campo === "visible" || campo === "mostrar_redes" || campo.indexOf(".visible") !== -1) {
+      setPath(data, campo, valor === "1");
+    } else if (campo.indexOf(".links_text") !== -1) {
+      setPath(data, campo.replace(".links_text", ".links"), textToLinks(valor));
+    } else {
+      setPath(data, campo, valor);
+    }
+    refrescarJson();
+  }
+
+  function ejecutarNavegacionAccion(seccionCodigo, accion, index) {
+    var data = navegacionData(seccionCodigo);
+    var items = data && data.items ? data.items : [];
+    if (!items[index]) return;
+    if (accion === "subir" && index > 0) {
+      items.splice(index - 1, 0, items.splice(index, 1)[0]);
+    }
+    if (accion === "bajar" && index < items.length - 1) {
+      items.splice(index + 1, 0, items.splice(index, 1)[0]);
+    }
+    if (accion === "toggle") {
+      items[index].visible = !items[index].visible;
+    }
+    if (accion === "eliminar" && items.length > 1) {
+      items.splice(index, 1);
+    }
+    normalizarOrden(items);
+    renderGrupo();
+  }
+
+  function agregarMenuPrincipalItem() {
+    var items = navegacionData("nav_menu_principal").items;
+    items.push({ label: "Nuevo enlace", tipo: "ruta", url: "/", orden: (items.length + 1) * 10, visible: true });
+    renderGrupo();
+  }
+
+  function agregarFooterColumna() {
+    var items = navegacionData("nav_footer_columnas").items;
+    items.push({
+      titulo: "Nueva columna",
+      links: [{ label: "Nuevo link", url: "/", visible: true, orden: 10 }],
+      orden: (items.length + 1) * 10,
+      visible: true
+    });
+    renderGrupo();
+  }
+
+  function actualizarCategoriaCmsField(seccionCodigo, campo, valor) {
+    var data = categoriasCmsData(seccionCodigo);
+    if (!data) return;
+    if (campo === "mostrar_en_home" || campo === "mostrar_en_menu" || campo.indexOf(".visible") !== -1 || campo.indexOf(".destacado") !== -1) {
+      setPath(data, campo, valor === "1");
+    } else if (campo.indexOf(".categoria_id") !== -1) {
+      setPath(data, campo, parseInt(valor || "0", 10) || 0);
+    } else {
+      setPath(data, campo, valor);
+    }
+    refrescarJson();
+  }
+
+  function ejecutarCategoriaCmsAccion(accion, index) {
+    var items = categoriasCmsData("categorias_items").items;
+    if (!items[index]) return;
+    if (accion === "subir" && index > 0) {
+      items.splice(index - 1, 0, items.splice(index, 1)[0]);
+    }
+    if (accion === "bajar" && index < items.length - 1) {
+      items.splice(index + 1, 0, items.splice(index, 1)[0]);
+    }
+    if (accion === "toggle") {
+      items[index].visible = !items[index].visible;
+    }
+    if (accion === "eliminar" && items.length > 1) {
+      items.splice(index, 1);
+    }
+    normalizarOrden(items);
+    renderGrupo();
+  }
+
+  function agregarCategoriaCmsItem() {
+    var items = categoriasCmsData("categorias_items").items;
+    items.push({
+      categoria_id: 0,
+      slug: "nueva-categoria",
+      titulo: "Nueva categoria",
+      subtitulo: "",
+      descripcion_seo: "",
+      imagen_card: "",
+      imagen_banner: "",
+      alt_card: "",
+      alt_banner: "",
+      destacado: false,
+      visible: true,
+      orden: (items.length + 1) * 10,
+      url: "/categoria/nueva-categoria"
+    });
+    renderGrupo();
+  }
+
+  function actualizarMarcaCmsField(seccionCodigo, campo, valor) {
+    var data = marcasCmsData(seccionCodigo);
+    if (!data) return;
+    if (campo === "mostrar_en_home" || campo === "mostrar_en_menu" || campo.indexOf(".visible") !== -1 || campo.indexOf(".destacado") !== -1) {
+      setPath(data, campo, valor === "1");
+    } else if (campo.indexOf(".marca_id") !== -1) {
+      setPath(data, campo, parseInt(valor || "0", 10) || 0);
+    } else {
+      setPath(data, campo, valor);
+    }
+    refrescarJson();
+  }
+
+  function ejecutarMarcaCmsAccion(accion, index) {
+    var items = marcasCmsData("marcas_items").items;
+    if (!items[index]) return;
+    if (accion === "subir" && index > 0) {
+      items.splice(index - 1, 0, items.splice(index, 1)[0]);
+    }
+    if (accion === "bajar" && index < items.length - 1) {
+      items.splice(index + 1, 0, items.splice(index, 1)[0]);
+    }
+    if (accion === "toggle") {
+      items[index].visible = !items[index].visible;
+    }
+    if (accion === "eliminar" && items.length > 1) {
+      items.splice(index, 1);
+    }
+    normalizarOrden(items);
+    renderGrupo();
+  }
+
+  function agregarMarcaCmsItem() {
+    var items = marcasCmsData("marcas_items").items;
+    items.push({
+      marca_id: 0,
+      slug: "nueva-marca",
+      titulo: "Nueva marca",
+      subtitulo: "",
+      descripcion_seo: "",
+      logo: "",
+      imagen_banner: "",
+      alt_logo: "",
+      alt_banner: "",
+      destacado: false,
+      visible: true,
+      orden: (items.length + 1) * 10,
+      url: "/marca/nueva-marca"
+    });
+    renderGrupo();
+  }
+
+  function actualizarPaginaCmsField(seccionCodigo, campo, valor) {
+    var data = paginasCmsData(seccionCodigo);
+    if (!data) return;
+    if (campo.indexOf(".visible") !== -1) {
+      setPath(data, campo, valor === "1");
+    } else {
+      setPath(data, campo, valor);
+    }
+    refrescarJson();
+  }
+
+  function ejecutarPaginaCmsAccion(accion, index) {
+    var items = paginasCmsData("paginas_items").items;
+    if (!items[index]) return;
+    if (accion === "subir" && index > 0) {
+      items.splice(index - 1, 0, items.splice(index, 1)[0]);
+    }
+    if (accion === "bajar" && index < items.length - 1) {
+      items.splice(index + 1, 0, items.splice(index, 1)[0]);
+    }
+    if (accion === "toggle") {
+      items[index].visible = !items[index].visible;
+    }
+    if (accion === "eliminar" && items.length > 1) {
+      items.splice(index, 1);
+    }
+    normalizarOrden(items);
+    renderGrupo();
+  }
+
+  function agregarPaginaCmsItem() {
+    var items = paginasCmsData("paginas_items").items;
+    items.push({
+      slug: "nueva-pagina",
+      titulo: "Nueva pagina",
+      subtitulo: "",
+      resumen: "",
+      contenido: "",
+      imagen_principal: "",
+      alt_imagen: "",
+      seo_title: "",
+      seo_description: "",
+      visible: true,
+      orden: (items.length + 1) * 10,
+      url: "/nueva-pagina"
+    });
+    renderGrupo();
+  }
+
+  function actualizarPoliticaCmsField(seccionCodigo, campo, valor) {
+    var data = politicasCmsData(seccionCodigo);
+    if (!data) return;
+    if (campo.indexOf(".visible") !== -1) {
+      setPath(data, campo, valor === "1");
+    } else {
+      setPath(data, campo, valor);
+    }
+    refrescarJson();
+  }
+
+  function ejecutarPoliticaCmsAccion(accion, index) {
+    var items = politicasCmsData("politicas_items").items;
+    if (!items[index]) return;
+    if (accion === "subir" && index > 0) {
+      items.splice(index - 1, 0, items.splice(index, 1)[0]);
+    }
+    if (accion === "bajar" && index < items.length - 1) {
+      items.splice(index + 1, 0, items.splice(index, 1)[0]);
+    }
+    if (accion === "toggle") {
+      items[index].visible = !items[index].visible;
+    }
+    if (accion === "eliminar" && items.length > 1) {
+      items.splice(index, 1);
+    }
+    normalizarOrden(items);
+    renderGrupo();
+  }
+
+  function agregarPoliticaCmsItem() {
+    var items = politicasCmsData("politicas_items").items;
+    items.push({
+      slug: "nueva-politica",
+      titulo: "Nueva politica",
+      resumen: "",
+      contenido: "",
+      version: "1.0",
+      estatus: "borrador",
+      vigente_desde: "",
+      vigente_hasta: "",
+      seo_title: "",
+      seo_description: "",
+      visible: true,
+      orden: (items.length + 1) * 10,
+      url: "/politicas/nueva-politica"
+    });
+    renderGrupo();
   }
 
   function actualizarHeroConfig(campo, valor) {
@@ -964,6 +2219,24 @@
   }
 
   function previewJson(grupo) {
+    if (grupo.codigo === "politicas") {
+      return previewPoliticasCmsJson();
+    }
+    if (grupo.codigo === "paginas") {
+      return previewPaginasCmsJson();
+    }
+    if (grupo.codigo === "marcas") {
+      return previewMarcasCmsJson();
+    }
+    if (grupo.codigo === "categorias") {
+      return previewCategoriasCmsJson();
+    }
+    if (grupo.codigo === "navegacion") {
+      return previewNavegacionJson();
+    }
+    if (grupo.codigo === "global") {
+      return previewGlobalJson();
+    }
     if (grupo.codigo === "home") {
       return previewHomeJson();
     }
@@ -989,6 +2262,219 @@
             config: {}
           };
         })
+      }
+    };
+  }
+
+  function previewGlobalJson() {
+    var global = estado.datos.global || {};
+    return {
+      tipo: "success",
+      mensaje: "CMS frontend global consultado",
+      depurar: {
+        version: "cms_frontend_2026_08_19",
+        pagina: "global",
+        actualizado_en: "pendiente",
+        negocio: global.global_negocio,
+        direccion: global.global_ubicacion ? global.global_ubicacion.direccion : {},
+        mapa: global.global_ubicacion ? global.global_ubicacion.mapa : {},
+        horarios: global.global_horarios ? global.global_horarios.items : [],
+        redes_sociales: global.global_redes,
+        seo_global: global.global_seo,
+        navegacion: global.global_navegacion,
+        guardrails: {
+          no_archivos_erp: true,
+          no_secretos: true,
+          fuente: "preview_local_panel"
+        }
+      }
+    };
+  }
+
+  function previewNavegacionJson() {
+    var nav = estado.datos.navegacion || {};
+    return {
+      tipo: "success",
+      mensaje: "CMS frontend navegacion consultado",
+      depurar: {
+        version: "cms_frontend_2026_08_19",
+        pagina: "navegacion",
+        endpoint_destino: "/ecommercePublico/configuracion_inicial",
+        actualizado_en: "pendiente",
+        header: {
+          topbar: nav.nav_topbar || {},
+          menu_principal: nav.nav_menu_principal ? nav.nav_menu_principal.items : []
+        },
+        footer: {
+          columnas: nav.nav_footer_columnas ? nav.nav_footer_columnas.items : [],
+          cta: nav.nav_footer_cta || {}
+        },
+        guardrails: {
+          solo_rutas_publicas: true,
+          no_rutas_erp: true,
+          no_html_libre: true,
+          fuente: "preview_local_panel"
+        }
+      }
+    };
+  }
+
+  function previewCategoriasCmsJson() {
+    var config = categoriasCmsData("categorias_config") || {};
+    var items = categoriasCmsData("categorias_items") ? categoriasCmsData("categorias_items").items : [];
+    return {
+      tipo: "success",
+      mensaje: "CMS frontend categorias consultado",
+      depurar: {
+        version: "cms_frontend_2026_08_19",
+        pagina: "categorias",
+        endpoint_destino: "/ecommercePublico/categorias",
+        actualizado_en: "pendiente",
+        config: config,
+        categorias: (items || []).map(function (item) {
+          return {
+            categoria_id: item.categoria_id,
+            slug: item.slug,
+            titulo: item.titulo,
+            subtitulo: item.subtitulo,
+            descripcion_seo: item.descripcion_seo,
+            imagen_card: item.imagen_card,
+            imagen_banner: item.imagen_banner,
+            alt_card: item.alt_card,
+            alt_banner: item.alt_banner,
+            destacado: item.destacado,
+            visible: item.visible,
+            orden: item.orden,
+            url: item.url
+          };
+        }),
+        guardrails: {
+          no_modifica_catalogo: true,
+          no_modifica_precios: true,
+          no_modifica_inventario: true,
+          fuente: "preview_local_panel"
+        }
+      }
+    };
+  }
+
+  function previewMarcasCmsJson() {
+    var config = marcasCmsData("marcas_config") || {};
+    var items = marcasCmsData("marcas_items") ? marcasCmsData("marcas_items").items : [];
+    return {
+      tipo: "success",
+      mensaje: "CMS frontend marcas consultado",
+      depurar: {
+        version: "cms_frontend_2026_08_19",
+        pagina: "marcas",
+        endpoint_destino: "/ecommercePublico/marcas",
+        actualizado_en: "pendiente",
+        config: config,
+        marcas: (items || []).map(function (item) {
+          return {
+            marca_id: item.marca_id,
+            slug: item.slug,
+            titulo: item.titulo,
+            subtitulo: item.subtitulo,
+            descripcion_seo: item.descripcion_seo,
+            logo: item.logo,
+            imagen_banner: item.imagen_banner,
+            alt_logo: item.alt_logo,
+            alt_banner: item.alt_banner,
+            destacado: item.destacado,
+            visible: item.visible,
+            orden: item.orden,
+            url: item.url
+          };
+        }),
+        guardrails: {
+          no_modifica_catalogo: true,
+          no_modifica_precios: true,
+          no_modifica_inventario: true,
+          fuente: "preview_local_panel"
+        }
+      }
+    };
+  }
+
+  function previewPaginasCmsJson() {
+    var config = paginasCmsData("paginas_config") || {};
+    var items = paginasCmsData("paginas_items") ? paginasCmsData("paginas_items").items : [];
+    return {
+      tipo: "success",
+      mensaje: "CMS frontend paginas consultado",
+      depurar: {
+        version: "cms_frontend_2026_08_19",
+        pagina: "paginas",
+        endpoint_destino: "/ecommercePublico/paginas",
+        actualizado_en: "pendiente",
+        config: config,
+        paginas: (items || []).map(function (item) {
+          return {
+            slug: item.slug,
+            titulo: item.titulo,
+            subtitulo: item.subtitulo,
+            resumen: item.resumen,
+            contenido: item.contenido,
+            imagen_principal: item.imagen_principal,
+            alt_imagen: item.alt_imagen,
+            seo: {
+              title: item.seo_title,
+              description: item.seo_description
+            },
+            visible: item.visible,
+            orden: item.orden,
+            url: item.url
+          };
+        }),
+        guardrails: {
+          no_js_libre: true,
+          no_rutas_erp: true,
+          sanitizacion_backend_pendiente: true,
+          fuente: "preview_local_panel"
+        }
+      }
+    };
+  }
+
+  function previewPoliticasCmsJson() {
+    var config = politicasCmsData("politicas_config") || {};
+    var items = politicasCmsData("politicas_items") ? politicasCmsData("politicas_items").items : [];
+    return {
+      tipo: "success",
+      mensaje: "CMS frontend politicas consultado",
+      depurar: {
+        version: "cms_frontend_2026_08_19",
+        pagina: "politicas",
+        endpoint_destino: "/ecommercePublico/politicas",
+        endpoint_detalle: "/ecommercePublico/politica/{slug}",
+        actualizado_en: "pendiente",
+        config: config,
+        politicas: (items || []).map(function (item) {
+          return {
+            slug: item.slug,
+            titulo: item.titulo,
+            resumen: item.resumen,
+            contenido: item.contenido,
+            version: item.version,
+            estatus: item.estatus,
+            vigente_desde: item.vigente_desde,
+            vigente_hasta: item.vigente_hasta,
+            seo: {
+              title: item.seo_title,
+              description: item.seo_description
+            },
+            visible: item.visible,
+            orden: item.orden,
+            url: item.url
+          };
+        }),
+        guardrails: {
+          requiere_revision_legal: true,
+          no_js_libre: true,
+          sanitizacion_backend_pendiente: true,
+          fuente: "preview_local_panel"
+        }
       }
     };
   }
@@ -1045,6 +2531,46 @@
 
   function bannerData() {
     return estado.datos.home.home_banner;
+  }
+
+  function globalData(codigo) {
+    return estado.datos.global ? estado.datos.global[codigo] : null;
+  }
+
+  function navegacionData(codigo) {
+    return estado.datos.navegacion ? estado.datos.navegacion[codigo] : null;
+  }
+
+  function categoriasCmsData(codigo) {
+    return estado.datos.categorias ? estado.datos.categorias[codigo] : null;
+  }
+
+  function marcasCmsData(codigo) {
+    return estado.datos.marcas ? estado.datos.marcas[codigo] : null;
+  }
+
+  function paginasCmsData(codigo) {
+    return estado.datos.paginas ? estado.datos.paginas[codigo] : null;
+  }
+
+  function politicasCmsData(codigo) {
+    return estado.datos.politicas ? estado.datos.politicas[codigo] : null;
+  }
+
+  function linksToText(items) {
+    return (items || []).map(function (item) {
+      return (item.label || "") + "|" + (item.url || "");
+    }).join("\n");
+  }
+
+  function textToLinks(value) {
+    return String(value || "").split("\n").map(function (line, index) {
+      var partes = line.split("|");
+      var label = (partes[0] || "").trim();
+      var url = (partes.slice(1).join("|") || "").trim();
+      if (!label && !url) return null;
+      return { label: label || url, url: url || "/", visible: true, orden: (index + 1) * 10 };
+    }).filter(Boolean);
   }
 
   function abrirSelectorMedia(contexto, index, campo) {
@@ -1235,8 +2761,17 @@
     if (picker.contexto === "hero") target = heroData().items[picker.index];
     if (picker.contexto === "categoria") target = categoriasData().items[picker.index];
     if (picker.contexto === "banner") target = bannerData().items[picker.index];
+    if (picker.contexto === "global") target = globalData(picker.index);
+    if (picker.contexto === "cms_categoria") target = categoriasCmsData("categorias_items").items[picker.index];
+    if (picker.contexto === "cms_marca") target = marcasCmsData("marcas_items").items[picker.index];
+    if (picker.contexto === "cms_pagina") target = paginasCmsData("paginas_items").items[picker.index];
     if (!target) return;
     setPath(target, picker.campo, media.url);
+    if (picker.contexto === "cms_categoria" && picker.campo === "imagen_card" && !target.alt_card && media.alt) target.alt_card = media.alt;
+    if (picker.contexto === "cms_categoria" && picker.campo === "imagen_banner" && !target.alt_banner && media.alt) target.alt_banner = media.alt;
+    if (picker.contexto === "cms_marca" && picker.campo === "logo" && !target.alt_logo && media.alt) target.alt_logo = media.alt;
+    if (picker.contexto === "cms_marca" && picker.campo === "imagen_banner" && !target.alt_banner && media.alt) target.alt_banner = media.alt;
+    if (picker.contexto === "cms_pagina" && picker.campo === "imagen_principal" && !target.alt_imagen && media.alt) target.alt_imagen = media.alt;
     if (!target.alt && media.alt) target.alt = media.alt;
     renderGrupo();
     setText("cms_actual_estado", "Media aplicada");

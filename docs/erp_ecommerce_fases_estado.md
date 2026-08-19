@@ -729,3 +729,109 @@ Pendiente CMS:
   - `seo_description`;
   - `orden`;
   - destacado en home.
+
+## Catalogo publico robusto por slugs y facets 2026-08-19
+
+Necesidad frontend:
+
+- Evitar que una categoria o marca invalida regrese todo el catalogo.
+- Soportar URLs SEO limpias como `/categoria/jaulas` y `/marca/tropical`.
+- Entregar mapeo publico de `id`, `slug` y `nombre` sin que frontend lea tablas internas.
+- Entregar filtros contextuales con conteos reales para no mostrar opciones que mezclen productos.
+
+Cambios aplicados:
+
+- Nuevo endpoint publico `GET /ecommercePublico/marcas`.
+- Nuevo endpoint publico `GET /ecommercePublico/catalogo_filtros`.
+- `GET /ecommercePublico/catalogo` ahora acepta:
+  - `marca_id`;
+  - `marca_slug`;
+  - `marca` numerico o texto compatible;
+  - `categoria_id`;
+  - `categoria_slug`;
+  - `categoria` numerico o texto compatible;
+  - `incluir_hijos=1`.
+- `GET /ecommercePublico/catalogo_manifest` anuncia `marcas`, `catalogo_filtros`, `marca_slug`, `marca_id`, `categoria_id` y aliases compatibles.
+- `GET /ecommercePublico/frontend_handoff` incluye `marcas` y `catalogo_filtros` en orden de integracion, contratos UI, ejemplos y bloques listos.
+- `GET /ecommercePublico/navegacion` incluye `marcas_destacadas` con `id`, `label`, `slug`, `url` y `total`.
+- Las categorias publicas incluyen `path_slug`.
+- Los productos agregan objetos auxiliares `marca_obj` y `categoria_obj` para que frontend no tenga que parsear texto plano.
+
+Reglas:
+
+- Si `marca_slug`, `marca`, `categoria_slug` o `categoria` no se reconocen, el catalogo responde `items=[]` y `total=0`.
+- No se devuelve catalogo completo ante filtros invalidos.
+- Solo se consideran publicaciones ecommerce `publicado`.
+- Se excluyen SKUs marcados como venta fraccionaria/granel desde reglas de inventario.
+- No se muestra stock exacto.
+- No se exponen costos, proveedores, ubicaciones, lotes ni datos internos ERP.
+
+Pendiente CMS:
+
+- Persistir datos editoriales por marca:
+  - `logo`;
+  - `imagen_banner`;
+  - `descripcion_corta`;
+  - `seo_title`;
+  - `seo_description`;
+  - `orden`;
+  - `destacada_home`.
+- Persistir datos editoriales por categoria:
+  - `imagen_menu`;
+  - `imagen_card`;
+  - `imagen_banner`;
+  - `descripcion_corta`;
+  - `seo_title`;
+  - `seo_description`;
+  - `orden`;
+  - `destacada_home`;
+  - visibilidad forzada cuando no tenga productos.
+
+## Calidad editorial de publicaciones 2026-08-19
+
+Problema detectado:
+
+- Algunos productos publicados o preparados tienen textos heredados con errores de escritura, caracteres dañados o menciones de venta a granel.
+- En algunos casos el SKU no esta marcado tecnicamente como fraccionario, pero el titulo o descripcion publica contiene textos como `agranel`, `a granel`, `por kilo`, `medios` o `cuartos`.
+- Esto puede exponer productos que el negocio no quiere vender en ecommerce y afecta la calidad visual del frontend.
+
+Cambios aplicados:
+
+- Se agrega auditoria editorial en candidatos de publicaciones.
+- Se agrega auditoria editorial en `publicaciones_preparar_erp`.
+- La auditoria revisa:
+  - titulo publico;
+  - descripcion publica;
+  - presentacion publica;
+  - descripcion heredada del Catalogo ERP cuando aplica.
+- Se detectan alertas corregibles:
+  - titulo vacio;
+  - titulo largo;
+  - caracteres dañados;
+  - descripcion vacia;
+  - descripcion muy corta;
+  - presentacion generica;
+  - espacios extra;
+  - titulo en mayusculas.
+- Se detectan bloqueos criticos:
+  - `posible_granel_textual`;
+  - `html_no_permitido`.
+- La tabla interna de publicaciones muestra badges de calidad editorial.
+- El panel de preparación muestra sección `Calidad editorial` con alertas, bloqueos y sugerencias.
+
+Reglas:
+
+- Un bloqueo editorial permite guardar borrador para trabajar la curaduria.
+- Un bloqueo editorial no debe permitir publicar hasta resolverlo.
+- La auditoria no corrige textos automaticamente.
+- La auditoria no modifica Catalogo ERP, precios, imagenes, inventario ni publicaciones por si sola.
+
+Pendiente:
+
+- Agregar filtros UI especificos:
+  - con alerta editorial;
+  - posible granel textual;
+  - caracteres dañados;
+  - descripcion pendiente.
+- Agregar accion masiva para pausar publicaciones con posible granel textual.
+- Conectar estos conteos al resumen/KPIs de la pantalla.

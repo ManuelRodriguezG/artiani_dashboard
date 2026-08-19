@@ -4293,6 +4293,696 @@ class RentabilidadErp extends CRUD {
         }
     }
 
+    /**
+     * IA: Codex GPT-5
+     * Fecha: 2026-08-19
+     * Proposito: resolver costo vigente por SKU desde Rentabilidad, sin guardar costos en Catalogo.
+     * Impacto: centraliza el costo consumible por Rentabilidad y Listas de precios en modo read-only.
+     * Contrato: devuelve costo, fuente, confianza, formula, origen, factor y advertencias; no escribe BD.
+     */
+    public function resolverCostoVigenteSku($idSku, $contexto = array()) {
+        try {
+            $db = $this->getConexion();
+            $idSku = intval($idSku);
+            if ($idSku <= 0) {
+                return $this->respuesta(true, "warning", "Indica id_sku para resolver costo vigente");
+            }
+            $visitados = isset($contexto["_visitados"]) && is_array($contexto["_visitados"]) ? $contexto["_visitados"] : array();
+            $resolucion = $this->resolverCostoVigenteSkuInterno($db, $idSku, $contexto, $visitados);
+            return $this->respuesta(false, "success", "Costo vigente consultado", $resolucion);
+        } catch (Exception $e) {
+            return $this->respuesta(true, "danger", $e->getMessage());
+        }
+    }
+
+    /**
+     * IA: Codex GPT-5
+     * Fecha: 2026-08-19
+     * Proposito: auditar SKUs cuyo costo depende de una receta, apertura o evidencia pendiente.
+     * Impacto: genera alertas operativas en Costos/Rentabilidad sin capturar costos en Catalogo.
+     * Contrato: read-only; no corrige recetas, no actualiza precios y no crea pendientes persistentes.
+     */
+    public function auditarPendientesCostoDerivado($filtros = array()) {
+        try {
+            $db = $this->getConexion();
+            $limite = max(10, min(200, intval(isset($filtros["limite"]) ? $filtros["limite"] : 120)));
+            $q = trim(isset($filtros["q"]) ? strval($filtros["q"]) : "");
+            $alertas = array();
+
+            $this->auditarPendientesPresentaciones($db, $alertas, $q, $limite);
+            $this->auditarPendientesTransformaciones($db, $alertas, $q, $limite);
+            $this->auditarPendientesAperturas($db, $alertas, $q, $limite);
+            $this->auditarPendientesPaquetes($db, $alertas, $q, $limite);
+
+            $resumen = array(
+                "total_alertas" => count($alertas),
+                "presentacion" => 0,
+                "transformacion" => 0,
+                "apertura_empaque" => 0,
+                "paquete_combo" => 0,
+                "bloqueantes" => 0,
+                "advertencias" => 0
+            );
+            foreach ($alertas as $alerta) {
+                $tipo = isset($alerta["tipo_costo"]) ? $alerta["tipo_costo"] : "";
+                if (isset($resumen[$tipo])) {
+                    $resumen[$tipo]++;
+                }
+                if (isset($alerta["severidad"]) && $alerta["severidad"] === "bloqueante") {
+                    $resumen["bloqueantes"]++;
+                } else {
+                    $resumen["advertencias"]++;
+                }
+            }
+
+            return $this->respuesta(false, "success", "Pendientes de costo derivado auditados", array(
+                "resumen" => $resumen,
+                "items" => array_slice($alertas, 0, $limite),
+                "reglas" => array(
+                    "Auditoria read-only: no guarda costos en Catalogo.",
+                    "Catalogo aporta receta/factor; Rentabilidad calcula costo y confianza.",
+                    "Aperturas confirmadas sin costo deben revisarse en Almacen/Inventario antes de cierre comercial.",
+                    "Listas de precios debe consumir el costo resuelto, no calcularlo por su cuenta."
+                )
+            ));
+        } catch (Exception $e) {
+            return $this->respuesta(true, "danger", $e->getMessage());
+        }
+    }
+
+    private function resolverCostoVigenteSkuInterno($db, $idSku, $contexto, &$visitados) {
+        if (in_array($idSku, $visitados, true)) {
+            return $this->respuestaCostoSinEvidencia($idSku, "Ciclo de costo derivado detectado");
+        }
+        $visitados[] = $idSku;
+        $sku = $this->consultarSkuBasicoCosto($db, $idSku);
+        if (!$sku) {
+            return $this->respuestaCostoSinEvidencia($idSku, "SKU no encontrado");
+        }
+
+        $tipo = isset($contexto["tipo"]) ? strval($contexto["tipo"]) : "auto";
+        $directoSinCatalogo = $this->resolverCostoDirectoSku($db, $sku, false);
+        if ($tipo === "sku_normal" || ($tipo === "auto" && floatval($directoSinCatalogo["costo"]) > 0)) {
+            return $directoSinCatalogo;
+        }
+
+        $paquete = $this->resolverCostoPaqueteSku($db, $sku, $contexto, $visitados);
+        if (($tipo === "paquete_combo" || $tipo === "auto") && $paquete !== null) {
+            return $paquete;
+        }
+
+        $apertura = $this->resolverCostoAperturaSku($db, $sku);
+        if (($tipo === "apertura_empaque" || $tipo === "auto") && $apertura !== null && floatval($apertura["costo"]) > 0) {
+            return $apertura;
+        }
+
+        $presentacion = $this->resolverCostoPresentacionSku($db, $sku, $contexto, $visitados);
+        if (($tipo === "presentacion" || $tipo === "auto") && $presentacion !== null && floatval($presentacion["costo"]) > 0) {
+            return $presentacion;
+        }
+
+        if (($tipo === "apertura_empaque" || $tipo === "auto") && $apertura !== null) {
+            return $apertura;
+        }
+        if (($tipo === "presentacion" || $tipo === "auto") && $presentacion !== null) {
+            return $presentacion;
+        }
+
+        return $this->resolverCostoDirectoSku($db, $sku, !isset($contexto["incluir_fallback_catalogo"]) || intval($contexto["incluir_fallback_catalogo"]) === 1);
+    }
+
+    private function consultarSkuBasicoCosto($db, $idSku) {
+        $stmt = $db->prepare("SELECT s.id_sku, s.sku, COALESCE(s.nombre, p.nombre) producto,
+                COALESCE(s.costo_referencia,0) costo_referencia,
+                CASE WHEN COALESCE(s.factor_unidad_base,0) > 0 THEN s.factor_unidad_base ELSE 1 END factor_unidad_base
+            FROM erp_catalogo_skus s
+            INNER JOIN erp_catalogo_productos p ON p.id_producto_erp=s.id_producto_erp
+            WHERE s.id_sku=:sku AND s.estatus<>'fusionado'
+            LIMIT 1");
+        $stmt->execute(array(":sku" => intval($idSku)));
+        return $stmt->fetch(PDO::FETCH_ASSOC);
+    }
+
+    private function resolverCostoDirectoSku($db, $sku, $incluirCatalogo) {
+        $idSku = intval($sku["id_sku"]);
+        $factor = max(1, floatval($sku["factor_unidad_base"]));
+        $fuentes = array(
+            "compras_promedio" => $this->costoComprasPromedioSku($db, $idSku),
+            "compra_ultima" => $this->costoCompraUltimaSku($db, $idSku),
+            "xml_ultimo" => $this->costoXmlUltimoSku($db, $idSku),
+            "proveedor_relacion" => $this->costoProveedorSku($db, $idSku),
+            "inventario_promedio" => $this->costoInventarioPromedioSku($db, $idSku, $factor)
+        );
+        if ($incluirCatalogo) {
+            $fuentes["catalogo_referencia"] = array("costo" => floatval($sku["costo_referencia"]), "fecha" => null, "detalle" => null);
+        }
+
+        foreach ($fuentes as $fuente => $dato) {
+            $costo = isset($dato["costo"]) ? floatval($dato["costo"]) : 0;
+            if ($costo > 0) {
+                $advertencias = array();
+                if ($fuente === "catalogo_referencia") {
+                    $advertencias[] = $this->advertenciaCosto("COST-DER-006", "costo_fallback_catalogo", "Costo resuelto con fallback temporal de Catalogo");
+                }
+                return array(
+                    "id_sku" => $idSku,
+                    "sku" => $sku["sku"],
+                    "producto" => $sku["producto"],
+                    "tipo_resolucion" => "sku_normal",
+                    "costo" => round($costo, 6),
+                    "moneda" => "MXN",
+                    "fuente" => $fuente,
+                    "confianza" => $this->confianzaCostoFuente($fuente),
+                    "formula" => $fuente === "inventario_promedio" ? "costo_promedio_inventario * factor_unidad_base" : "costo directo desde " . $fuente,
+                    "id_sku_origen" => null,
+                    "sku_origen" => null,
+                    "factor_usado" => round($factor, 6),
+                    "cantidad_util" => null,
+                    "merma_porcentaje" => 0,
+                    "componentes" => array(),
+                    "rango" => null,
+                    "advertencias" => $advertencias,
+                    "fuentes_consultadas" => $this->resumenFuentesCosto($fuentes)
+                );
+            }
+        }
+
+        $resp = $this->respuestaCostoSinEvidencia($idSku, "SKU sin evidencia de costo vigente");
+        $resp["sku"] = $sku["sku"];
+        $resp["producto"] = $sku["producto"];
+        $resp["factor_usado"] = round($factor, 6);
+        $resp["fuentes_consultadas"] = $this->resumenFuentesCosto($fuentes);
+        return $resp;
+    }
+
+    private function resolverCostoPresentacionSku($db, $sku, $contexto, &$visitados) {
+        if ($this->tablaExisteSimple("erp_catalogo_sku_presentaciones")) {
+            $stmt = $db->prepare("SELECT pr.*, base.sku sku_origen, base.factor_unidad_base factor_origen
+                FROM erp_catalogo_sku_presentaciones pr
+                INNER JOIN erp_catalogo_skus base ON base.id_sku=pr.id_sku_base
+                WHERE pr.id_sku_presentacion=:sku AND pr.estatus='activa'
+                ORDER BY pr.id_sku_presentacion_regla DESC LIMIT 1");
+            $stmt->execute(array(":sku" => intval($sku["id_sku"])));
+            $regla = $stmt->fetch(PDO::FETCH_ASSOC);
+            if ($regla) {
+                $factor = floatval($regla["factor_salida_base"]);
+                if ($factor <= 0) {
+                    return $this->respuestaCostoDerivadoBloqueado($sku, "presentacion", "COST-DER-002", "Presentacion sin factor valido");
+                }
+                $origen = $this->resolverCostoVigenteSkuInterno($db, intval($regla["id_sku_base"]), $contexto, $visitados);
+                if (floatval($origen["costo"]) <= 0) {
+                    return $this->respuestaCostoDerivadoBloqueado($sku, "presentacion", "COST-DER-003", "SKU origen sin costo vigente", $origen);
+                }
+                $factorOrigen = max(1, floatval($regla["factor_origen"]));
+                $merma = max(0, floatval($regla["merma_porcentaje"]));
+                $costo = (floatval($origen["costo"]) / $factorOrigen) * $factor * (1 + ($merma / 100));
+                return $this->respuestaCostoDerivado($sku, "presentacion", "derivado_presentacion", $costo, $origen, intval($regla["id_sku_base"]), $regla["sku_origen"], $factor, $merma, "costo_origen / factor_origen * factor_salida_base * (1 + merma)");
+            }
+        }
+
+        if ($this->tablaExisteSimple("erp_catalogo_sku_transformaciones")) {
+            $stmt = $db->prepare("SELECT tr.*, base.sku sku_origen, base.factor_unidad_base factor_origen
+                FROM erp_catalogo_sku_transformaciones tr
+                INNER JOIN erp_catalogo_skus base ON base.id_sku=tr.id_sku_origen
+                WHERE tr.id_sku_resultado=:sku AND tr.estatus='activa'
+                ORDER BY tr.id_sku_transformacion DESC LIMIT 1");
+            $stmt->execute(array(":sku" => intval($sku["id_sku"])));
+            $regla = $stmt->fetch(PDO::FETCH_ASSOC);
+            if ($regla) {
+                if (floatval($regla["cantidad_origen"]) <= 0 || floatval($regla["unidades_resultado"]) <= 0) {
+                    return $this->respuestaCostoDerivadoBloqueado($sku, "transformacion", "COST-DER-002", "Transformacion sin cantidad/factor valido");
+                }
+                $origen = $this->resolverCostoVigenteSkuInterno($db, intval($regla["id_sku_origen"]), $contexto, $visitados);
+                if (floatval($origen["costo"]) <= 0) {
+                    return $this->respuestaCostoDerivadoBloqueado($sku, "transformacion", "COST-DER-003", "SKU origen sin costo vigente", $origen);
+                }
+                $factorOrigen = max(1, floatval($regla["factor_origen"]));
+                $merma = max(0, floatval($regla["merma_porcentaje"]));
+                $costo = (floatval($origen["costo"]) / $factorOrigen) * floatval($regla["cantidad_origen"]) * (1 + ($merma / 100)) / max(1, floatval($regla["unidades_resultado"]));
+                $resp = $this->respuestaCostoDerivado($sku, "transformacion", "derivado_presentacion", $costo, $origen, intval($regla["id_sku_origen"]), $regla["sku_origen"], floatval($regla["cantidad_origen"]), $merma, "costo_origen / factor_origen * cantidad_origen / unidades_resultado * (1 + merma)");
+                $resp["advertencias"][] = $this->advertenciaCosto("COST-DER-010", "transformacion_legacy", "Costo derivado desde transformacion/reempaque");
+                return $resp;
+            }
+        }
+        return null;
+    }
+
+    private function resolverCostoAperturaSku($db, $sku) {
+        if (!$this->tablaExisteSimple("erp_almacen_aperturas_empaque") || !$this->tablaExisteSimple("erp_almacen_apertura_resultados")) {
+            return null;
+        }
+        $stmt = $db->prepare("SELECT a.folio, a.id_sku_origen, ori.sku sku_origen, a.costo_total_origen,
+                r.cantidad_real, r.costo_unitario, r.costo_total
+            FROM erp_almacen_apertura_resultados r
+            INNER JOIN erp_almacen_aperturas_empaque a ON a.id_apertura_empaque=r.id_apertura_empaque
+            INNER JOIN erp_catalogo_skus ori ON ori.id_sku=a.id_sku_origen
+            WHERE r.id_sku_resultado=:sku AND a.estatus='confirmada'
+            ORDER BY a.fecha_apertura DESC, a.id_apertura_empaque DESC
+            LIMIT 1");
+        $stmt->execute(array(":sku" => intval($sku["id_sku"])));
+        $fila = $stmt->fetch(PDO::FETCH_ASSOC);
+        if (!$fila) {
+            return null;
+        }
+        if (floatval($fila["costo_unitario"]) <= 0 || floatval($fila["costo_total"]) <= 0) {
+            return $this->respuestaCostoDerivadoBloqueado($sku, "apertura_empaque", "COST-DER-008", "Apertura confirmada sin costo real");
+        }
+        return array(
+            "id_sku" => intval($sku["id_sku"]),
+            "sku" => $sku["sku"],
+            "producto" => $sku["producto"],
+            "tipo_resolucion" => "apertura_empaque",
+            "costo" => round(floatval($fila["costo_unitario"]), 6),
+            "moneda" => "MXN",
+            "fuente" => "apertura_confirmada",
+            "confianza" => "alta",
+            "formula" => "costo_total_apertura / cantidad_real_resultado",
+            "id_sku_origen" => intval($fila["id_sku_origen"]),
+            "sku_origen" => $fila["sku_origen"],
+            "factor_usado" => round(floatval($fila["cantidad_real"]), 6),
+            "cantidad_util" => round(floatval($fila["cantidad_real"]), 6),
+            "merma_porcentaje" => 0,
+            "componentes" => array(),
+            "rango" => null,
+            "advertencias" => array(),
+            "fuentes_consultadas" => array("apertura" => array("folio" => $fila["folio"], "costo_total" => round(floatval($fila["costo_total"]), 6)))
+        );
+    }
+
+    private function resolverCostoPaqueteSku($db, $sku, $contexto, &$visitados) {
+        if (!$this->tablaExisteSimple("erp_catalogo_sku_paquetes")) {
+            return null;
+        }
+        $stmt = $db->prepare("SELECT * FROM erp_catalogo_sku_paquetes WHERE id_sku_paquete=:sku AND estatus='activo' LIMIT 1");
+        $stmt->execute(array(":sku" => intval($sku["id_sku"])));
+        $paquete = $stmt->fetch(PDO::FETCH_ASSOC);
+        if (!$paquete) {
+            return null;
+        }
+
+        $componentes = array();
+        $advertencias = array();
+        $costoFijo = 0;
+        if ($this->tablaExisteSimple("erp_catalogo_sku_paquete_componentes")) {
+            $st = $db->prepare("SELECT c.*, s.sku FROM erp_catalogo_sku_paquete_componentes c INNER JOIN erp_catalogo_skus s ON s.id_sku=c.id_sku_componente WHERE c.id_paquete=:p AND c.estatus='activo' ORDER BY c.orden, c.id_componente");
+            $st->execute(array(":p" => intval($paquete["id_paquete"])));
+            foreach ($st->fetchAll(PDO::FETCH_ASSOC) as $comp) {
+                $visitadosComponente = $visitados;
+                $res = $this->resolverCostoVigenteSkuInterno($db, intval($comp["id_sku_componente"]), $contexto, $visitadosComponente);
+                $cantidad = floatval($comp["cantidad"]) * max(1, floatval($comp["factor_conversion"]));
+                $subtotal = floatval($res["costo"]) * $cantidad;
+                if (floatval($res["costo"]) <= 0) {
+                    $advertencias[] = $this->advertenciaCosto("COST-DER-005", "componente_sin_costo", "Componente sin costo vigente: " . $comp["sku"]);
+                }
+                $costoFijo += $subtotal;
+                $componentes[] = array("sku" => $comp["sku"], "cantidad" => round($cantidad, 6), "costo" => round(floatval($res["costo"]), 6), "subtotal" => round($subtotal, 6), "fuente" => $res["fuente"]);
+            }
+        }
+
+        $rango = $this->calcularRangoPaqueteConfigurable($db, intval($paquete["id_paquete"]), $contexto, $visitados);
+        $costoMin = $costoFijo + floatval($rango["minimo"]);
+        $costoMax = $costoFijo + floatval($rango["maximo"]);
+        $advertencias = array_merge($advertencias, $rango["advertencias"]);
+        return array(
+            "id_sku" => intval($sku["id_sku"]),
+            "sku" => $sku["sku"],
+            "producto" => $sku["producto"],
+            "tipo_resolucion" => "paquete_combo",
+            "costo" => round($costoMin, 6),
+            "moneda" => "MXN",
+            "fuente" => empty($rango["componentes"]) ? "paquete_componentes" : "paquete_rango",
+            "confianza" => empty($advertencias) ? "media" : "baja",
+            "formula" => empty($rango["componentes"]) ? "suma(costo_componente * cantidad)" : "componentes fijos + rango de opciones configurables",
+            "id_sku_origen" => null,
+            "sku_origen" => null,
+            "factor_usado" => 1,
+            "cantidad_util" => null,
+            "merma_porcentaje" => 0,
+            "componentes" => array_merge($componentes, $rango["componentes"]),
+            "rango" => array("minimo" => round($costoMin, 6), "maximo" => round($costoMax, 6)),
+            "advertencias" => $advertencias,
+            "fuentes_consultadas" => array("paquete" => array("id_paquete" => intval($paquete["id_paquete"]), "tipo_paquete" => $paquete["tipo_paquete"]))
+        );
+    }
+
+    private function calcularRangoPaqueteConfigurable($db, $idPaquete, $contexto, &$visitados) {
+        $res = array("minimo" => 0, "maximo" => 0, "componentes" => array(), "advertencias" => array());
+        if (!$this->tablaExisteSimple("erp_catalogo_sku_paquete_grupos") || !$this->tablaExisteSimple("erp_catalogo_sku_paquete_grupo_opciones")) {
+            return $res;
+        }
+        $grupos = $db->prepare("SELECT * FROM erp_catalogo_sku_paquete_grupos WHERE id_paquete=:p AND estatus='activo' ORDER BY orden, id_grupo");
+        $grupos->execute(array(":p" => $idPaquete));
+        foreach ($grupos->fetchAll(PDO::FETCH_ASSOC) as $grupo) {
+            $op = $db->prepare("SELECT o.*, s.sku FROM erp_catalogo_sku_paquete_grupo_opciones o INNER JOIN erp_catalogo_skus s ON s.id_sku=o.id_sku_opcion WHERE o.id_grupo=:g AND o.estatus='activo'");
+            $op->execute(array(":g" => intval($grupo["id_grupo"])));
+            $costos = array();
+            foreach ($op->fetchAll(PDO::FETCH_ASSOC) as $fila) {
+                $visitadosOpcion = $visitados;
+                $costo = $this->resolverCostoVigenteSkuInterno($db, intval($fila["id_sku_opcion"]), $contexto, $visitadosOpcion);
+                $cantidad = floatval($fila["cantidad_default"]) * max(1, floatval($fila["factor_conversion"]));
+                $subtotal = floatval($costo["costo"]) * $cantidad;
+                if (floatval($costo["costo"]) <= 0) {
+                    $res["advertencias"][] = $this->advertenciaCosto("COST-DER-005", "opcion_sin_costo", "Opcion sin costo vigente: " . $fila["sku"]);
+                }
+                $costos[] = array("sku" => $fila["sku"], "cantidad" => $cantidad, "subtotal" => $subtotal, "fuente" => $costo["fuente"]);
+            }
+            usort($costos, function ($a, $b) { return $a["subtotal"] < $b["subtotal"] ? -1 : 1; });
+            $minSel = max(0, intval($grupo["min_selecciones"]));
+            $maxSel = max($minSel, intval($grupo["max_selecciones"]));
+            for ($i = 0; $i < min($minSel, count($costos)); $i++) {
+                $res["minimo"] += floatval($costos[$i]["subtotal"]);
+            }
+            $desc = array_reverse($costos);
+            for ($i = 0; $i < min($maxSel, count($desc)); $i++) {
+                $res["maximo"] += floatval($desc[$i]["subtotal"]);
+            }
+            foreach ($costos as $costo) {
+                $res["componentes"][] = array("grupo" => $grupo["codigo"], "sku" => $costo["sku"], "cantidad" => round($costo["cantidad"], 6), "subtotal" => round($costo["subtotal"], 6), "fuente" => $costo["fuente"]);
+            }
+        }
+        return $res;
+    }
+
+    private function costoComprasPromedioSku($db, $idSku) {
+        if (!$this->tablaExisteSimple("erp_compras_ordenes_detalle") || !$this->tablaExisteSimple("erp_compras_ordenes")) {
+            return array("costo" => 0, "fecha" => null, "detalle" => null);
+        }
+        $stmt = $db->prepare("SELECT
+                CASE WHEN SUM(COALESCE(d.cantidad_recibida, d.cantidad, 0)) > 0 THEN
+                    SUM(COALESCE(d.cantidad_recibida, d.cantidad, 0)
+                        * (d.costo_unitario / CASE
+                            WHEN COALESCE(d.costo_unitario_incluye_impuesto,0)=1
+                            THEN 1 + ((COALESCE(imp.iva_porcentaje,0) + COALESCE(imp.ieps_porcentaje,0)) / 100)
+                            ELSE 1
+                        END)
+                        * CASE WHEN COALESCE(o.moneda,'MXN')<>'MXN' THEN COALESCE(NULLIF(o.tipo_cambio,0),1) ELSE 1 END)
+                    / SUM(COALESCE(d.cantidad_recibida, d.cantidad, 0))
+                ELSE 0 END costo,
+                MAX(o.fecha_orden) fecha
+            FROM erp_compras_ordenes_detalle d
+            INNER JOIN erp_compras_ordenes o ON o.id_orden_compra=d.id_orden_compra
+            LEFT JOIN erp_catalogo_sku_impuestos imp ON imp.id_sku=d.id_sku_erp
+            WHERE d.id_sku_erp=:sku AND COALESCE(o.estatus,'') <> 'cancelada' AND COALESCE(d.costo_unitario,0)>0");
+        $stmt->execute(array(":sku" => intval($idSku)));
+        $fila = $stmt->fetch(PDO::FETCH_ASSOC);
+        return array("costo" => $fila ? floatval($fila["costo"]) : 0, "fecha" => $fila ? $fila["fecha"] : null, "detalle" => null);
+    }
+
+    private function costoCompraUltimaSku($db, $idSku) {
+        if (!$this->tablaExisteSimple("erp_compras_ordenes_detalle") || !$this->tablaExisteSimple("erp_compras_ordenes")) {
+            return array("costo" => 0, "fecha" => null, "detalle" => null);
+        }
+        $stmt = $db->prepare("SELECT ROUND((d.costo_unitario / CASE
+                    WHEN COALESCE(d.costo_unitario_incluye_impuesto,0)=1
+                    THEN 1 + ((COALESCE(imp.iva_porcentaje,0) + COALESCE(imp.ieps_porcentaje,0)) / 100)
+                    ELSE 1
+                END) * CASE WHEN COALESCE(o.moneda,'MXN')<>'MXN' THEN COALESCE(NULLIF(o.tipo_cambio,0),1) ELSE 1 END, 6) costo,
+                o.fecha_orden fecha, o.id_orden_compra
+            FROM erp_compras_ordenes_detalle d
+            INNER JOIN erp_compras_ordenes o ON o.id_orden_compra=d.id_orden_compra
+            LEFT JOIN erp_catalogo_sku_impuestos imp ON imp.id_sku=d.id_sku_erp
+            WHERE d.id_sku_erp=:sku AND COALESCE(o.estatus,'') <> 'cancelada' AND COALESCE(d.costo_unitario,0)>0
+            ORDER BY o.fecha_orden DESC, d.id_detalle DESC
+            LIMIT 1");
+        $stmt->execute(array(":sku" => intval($idSku)));
+        $fila = $stmt->fetch(PDO::FETCH_ASSOC);
+        return array("costo" => $fila ? floatval($fila["costo"]) : 0, "fecha" => $fila ? $fila["fecha"] : null, "detalle" => $fila ? array("id_orden_compra" => intval($fila["id_orden_compra"])) : null);
+    }
+
+    private function costoXmlUltimoSku($db, $idSku) {
+        if (!$this->tablaExisteSimple("erp_compras_documentos_fiscales_conceptos") || !$this->tablaExisteSimple("erp_compras_documentos_fiscales")) {
+            return array("costo" => 0, "fecha" => null, "detalle" => null);
+        }
+        $stmt = $db->prepare("SELECT c.valor_unitario costo, f.fecha_emision fecha, f.id_documento_fiscal
+            FROM erp_compras_documentos_fiscales_conceptos c
+            INNER JOIN erp_compras_documentos_fiscales f ON f.id_documento_fiscal=c.id_documento_fiscal
+            WHERE c.id_sku_erp=:sku AND COALESCE(c.valor_unitario,0)>0
+            ORDER BY f.fecha_emision DESC, c.id_documento_concepto DESC
+            LIMIT 1");
+        $stmt->execute(array(":sku" => intval($idSku)));
+        $fila = $stmt->fetch(PDO::FETCH_ASSOC);
+        return array("costo" => $fila ? floatval($fila["costo"]) : 0, "fecha" => $fila ? $fila["fecha"] : null, "detalle" => $fila ? array("id_documento_fiscal" => intval($fila["id_documento_fiscal"])) : null);
+    }
+
+    private function costoProveedorSku($db, $idSku) {
+        if ($this->tablaExisteSimple("erp_proveedores_sku_costos")) {
+            $stmt = $db->prepare("SELECT c.costo, c.fecha_actualizacion fecha, c.id_proveedor, prv.proveedor,
+                    c.id_costo_proveedor_sku, c.id_sku_proveedor, c.id_lista_proveedor_erp, c.id_lista_detalle_erp
+                FROM erp_proveedores_sku_costos c
+                LEFT JOIN erp_proveedores prv ON prv.id_proveedor=c.id_proveedor
+                WHERE c.id_sku=:sku AND c.estatus='vigente' AND COALESCE(c.costo,0)>0
+                    AND (c.vigencia_hasta IS NULL OR c.vigencia_hasta='' OR c.vigencia_hasta>=CURRENT_DATE)
+                ORDER BY
+                    CASE WHEN c.vigencia_desde IS NULL OR c.vigencia_desde='' THEN 1 ELSE 0 END,
+                    c.vigencia_desde DESC,
+                    c.fecha_actualizacion DESC,
+                    c.id_costo_proveedor_sku DESC
+                LIMIT 1");
+            $stmt->execute(array(":sku" => intval($idSku)));
+            $fila = $stmt->fetch(PDO::FETCH_ASSOC);
+            if ($fila) {
+                return array(
+                    "costo" => floatval($fila["costo"]),
+                    "fecha" => $fila["fecha"],
+                    "detalle" => array(
+                        "id_proveedor" => intval($fila["id_proveedor"]),
+                        "proveedor" => $fila["proveedor"],
+                        "id_costo_proveedor_sku" => intval($fila["id_costo_proveedor_sku"]),
+                        "id_sku_proveedor" => intval($fila["id_sku_proveedor"]),
+                        "id_lista_proveedor_erp" => intval($fila["id_lista_proveedor_erp"]),
+                        "id_lista_detalle_erp" => intval($fila["id_lista_detalle_erp"])
+                    )
+                );
+            }
+        }
+
+        if (!$this->tablaExisteSimple("erp_catalogo_sku_proveedores")) {
+            return array("costo" => 0, "fecha" => null, "detalle" => null);
+        }
+        $stmt = $db->prepare("SELECT sp.costo_ultimo costo, sp.fecha_actualizacion fecha, sp.id_proveedor, prv.proveedor
+            FROM erp_catalogo_sku_proveedores sp
+            LEFT JOIN erp_proveedores prv ON prv.id_proveedor=sp.id_proveedor
+            WHERE sp.id_sku=:sku AND sp.estatus='activo' AND COALESCE(sp.costo_ultimo,0)>0
+            ORDER BY sp.es_preferido DESC, sp.fecha_actualizacion DESC, sp.id_sku_proveedor DESC
+            LIMIT 1");
+        $stmt->execute(array(":sku" => intval($idSku)));
+        $fila = $stmt->fetch(PDO::FETCH_ASSOC);
+        return array("costo" => $fila ? floatval($fila["costo"]) : 0, "fecha" => $fila ? $fila["fecha"] : null, "detalle" => $fila ? array("id_proveedor" => intval($fila["id_proveedor"]), "proveedor" => $fila["proveedor"]) : null);
+    }
+
+    private function costoInventarioPromedioSku($db, $idSku, $factorUnidad) {
+        if (!$this->tablaExisteSimple("erp_inventario_existencias")) {
+            return array("costo" => 0, "fecha" => null, "detalle" => null);
+        }
+        $stmt = $db->prepare("SELECT SUM(cantidad) cantidad_total,
+                CASE WHEN SUM(cantidad) > 0 THEN SUM(cantidad * costo_promedio) / SUM(cantidad) ELSE 0 END costo_unitario
+            FROM erp_inventario_existencias
+            WHERE id_sku_erp=:sku AND COALESCE(estatus_existencia,'')<>'cancelado'");
+        $stmt->execute(array(":sku" => intval($idSku)));
+        $fila = $stmt->fetch(PDO::FETCH_ASSOC);
+        $unitario = $fila ? floatval($fila["costo_unitario"]) : 0;
+        return array(
+            "costo" => $unitario > 0 ? $unitario * max(1, floatval($factorUnidad)) : 0,
+            "fecha" => null,
+            "detalle" => array("cantidad_total" => $fila ? round(floatval($fila["cantidad_total"]), 6) : 0, "costo_unitario" => round($unitario, 6))
+        );
+    }
+
+    private function respuestaCostoDerivado($sku, $tipo, $fuente, $costo, $origen, $idOrigen, $skuOrigen, $factor, $merma, $formula) {
+        $advertencias = array();
+        if (isset($origen["fuente"]) && $origen["fuente"] === "catalogo_referencia") {
+            $advertencias[] = $this->advertenciaCosto("COST-DER-006", "origen_fallback_catalogo", "El origen usa fallback temporal de Catalogo");
+        }
+        return array(
+            "id_sku" => intval($sku["id_sku"]),
+            "sku" => $sku["sku"],
+            "producto" => $sku["producto"],
+            "tipo_resolucion" => $tipo,
+            "costo" => round(floatval($costo), 6),
+            "moneda" => "MXN",
+            "fuente" => $fuente,
+            "confianza" => isset($origen["confianza"]) ? $origen["confianza"] : "media",
+            "formula" => $formula,
+            "id_sku_origen" => intval($idOrigen),
+            "sku_origen" => $skuOrigen,
+            "factor_usado" => round(floatval($factor), 6),
+            "cantidad_util" => null,
+            "merma_porcentaje" => round(floatval($merma), 4),
+            "componentes" => array(),
+            "rango" => null,
+            "advertencias" => $advertencias,
+            "fuentes_consultadas" => array("origen" => $origen)
+        );
+    }
+
+    private function respuestaCostoDerivadoBloqueado($sku, $tipo, $id, $mensaje, $origen = null) {
+        $resp = $this->respuestaCostoSinEvidencia(intval($sku["id_sku"]), $mensaje);
+        $resp["sku"] = $sku["sku"];
+        $resp["producto"] = $sku["producto"];
+        $resp["tipo_resolucion"] = $tipo;
+        $resp["advertencias"][] = $this->advertenciaCosto($id, "costo_derivado_bloqueado", $mensaje);
+        if ($origen !== null) {
+            $resp["fuentes_consultadas"] = array("origen" => $origen);
+        }
+        return $resp;
+    }
+
+    private function respuestaCostoSinEvidencia($idSku, $mensaje) {
+        return array(
+            "id_sku" => intval($idSku),
+            "sku" => null,
+            "producto" => null,
+            "tipo_resolucion" => "sin_costo",
+            "costo" => 0,
+            "moneda" => "MXN",
+            "fuente" => "sin_costo",
+            "confianza" => "sin_evidencia",
+            "formula" => "sin evidencia de costo vigente",
+            "id_sku_origen" => null,
+            "sku_origen" => null,
+            "factor_usado" => null,
+            "cantidad_util" => null,
+            "merma_porcentaje" => 0,
+            "componentes" => array(),
+            "rango" => null,
+            "advertencias" => array($this->advertenciaCosto("COST-DER-000", "sin_costo", $mensaje)),
+            "fuentes_consultadas" => array()
+        );
+    }
+
+    private function advertenciaCosto($id, $clave, $mensaje) {
+        return array("id" => $id, "clave" => $clave, "mensaje" => $mensaje);
+    }
+
+    private function confianzaCostoFuente($fuente) {
+        if (in_array($fuente, array("compras_promedio", "compra_ultima", "xml_ultimo", "inventario_promedio"), true)) {
+            return "alta";
+        }
+        if ($fuente === "proveedor_relacion") {
+            return "media";
+        }
+        if ($fuente === "catalogo_referencia") {
+            return "baja";
+        }
+        return "sin_evidencia";
+    }
+
+    private function resumenFuentesCosto($fuentes) {
+        $res = array();
+        foreach ($fuentes as $fuente => $dato) {
+            $res[$fuente] = array(
+                "costo" => isset($dato["costo"]) ? round(floatval($dato["costo"]), 6) : 0,
+                "fecha" => isset($dato["fecha"]) ? $dato["fecha"] : null,
+                "detalle" => isset($dato["detalle"]) ? $dato["detalle"] : null
+            );
+        }
+        return $res;
+    }
+
+    private function auditarPendientesPresentaciones($db, &$alertas, $q, $limite) {
+        if (!$this->tablaExisteSimple("erp_catalogo_sku_presentaciones")) {
+            return;
+        }
+        $sql = "SELECT pr.*, base.sku sku_origen, dest.sku sku_destino
+            FROM erp_catalogo_sku_presentaciones pr
+            INNER JOIN erp_catalogo_skus base ON base.id_sku=pr.id_sku_base
+            INNER JOIN erp_catalogo_skus dest ON dest.id_sku=pr.id_sku_presentacion
+            WHERE pr.estatus='activa' AND (:q='' OR base.sku LIKE :b OR dest.sku LIKE :b)
+            ORDER BY base.sku, dest.sku LIMIT " . intval($limite);
+        $stmt = $db->prepare($sql);
+        $stmt->execute(array(":q" => $q, ":b" => "%" . $q . "%"));
+        foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $fila) {
+            if (floatval($fila["factor_salida_base"]) <= 0) {
+                $alertas[] = $this->alertaCostoDerivado("COST-DER-002", "bloqueante", "presentacion", $fila["sku_destino"], "Presentacion sin factor valido", $fila);
+                continue;
+            }
+            $visitadosCosto = array();
+            $destino = $this->resolverCostoVigenteSkuInterno($db, intval($fila["id_sku_presentacion"]), array("tipo" => "presentacion"), $visitadosCosto);
+            if ($destino["fuente"] === "catalogo_referencia") {
+                $alertas[] = $this->alertaCostoDerivado("COST-DER-006", "advertencia", "presentacion", $fila["sku_destino"], "Destino sigue usando fallback de Catalogo", $destino);
+            }
+            if (floatval($destino["costo"]) <= 0) {
+                $alertas[] = $this->alertaCostoDerivado("COST-DER-003", "bloqueante", "presentacion", $fila["sku_destino"], "No se pudo derivar costo desde SKU origen", $destino);
+            }
+        }
+    }
+
+    private function auditarPendientesTransformaciones($db, &$alertas, $q, $limite) {
+        if (!$this->tablaExisteSimple("erp_catalogo_sku_transformaciones")) {
+            return;
+        }
+        $sql = "SELECT tr.*, ori.sku sku_origen, res.sku sku_destino
+            FROM erp_catalogo_sku_transformaciones tr
+            INNER JOIN erp_catalogo_skus ori ON ori.id_sku=tr.id_sku_origen
+            INNER JOIN erp_catalogo_skus res ON res.id_sku=tr.id_sku_resultado
+            WHERE tr.estatus='activa' AND (:q='' OR ori.sku LIKE :b OR res.sku LIKE :b)
+            ORDER BY ori.sku, res.sku LIMIT " . intval($limite);
+        $stmt = $db->prepare($sql);
+        $stmt->execute(array(":q" => $q, ":b" => "%" . $q . "%"));
+        foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $fila) {
+            if (floatval($fila["cantidad_origen"]) <= 0 || floatval($fila["unidades_resultado"]) <= 0) {
+                $alertas[] = $this->alertaCostoDerivado("COST-DER-002", "bloqueante", "transformacion", $fila["sku_destino"], "Transformacion sin cantidad/factor valido", $fila);
+            }
+            $visitadosCosto = array();
+            $destino = $this->resolverCostoVigenteSkuInterno($db, intval($fila["id_sku_resultado"]), array("tipo" => "presentacion"), $visitadosCosto);
+            if (floatval($destino["costo"]) <= 0) {
+                $alertas[] = $this->alertaCostoDerivado("COST-DER-003", "bloqueante", "transformacion", $fila["sku_destino"], "No se pudo derivar costo desde transformacion", $destino);
+            }
+        }
+    }
+
+    private function auditarPendientesAperturas($db, &$alertas, $q, $limite) {
+        if (!$this->tablaExisteSimple("erp_almacen_aperturas_empaque") || !$this->tablaExisteSimple("erp_almacen_apertura_resultados")) {
+            return;
+        }
+        $sql = "SELECT a.folio, a.estatus, ori.sku sku_origen, res.sku sku_destino, r.cantidad_real, r.costo_unitario, r.costo_total
+            FROM erp_almacen_apertura_resultados r
+            INNER JOIN erp_almacen_aperturas_empaque a ON a.id_apertura_empaque=r.id_apertura_empaque
+            INNER JOIN erp_catalogo_skus ori ON ori.id_sku=a.id_sku_origen
+            INNER JOIN erp_catalogo_skus res ON res.id_sku=r.id_sku_resultado
+            WHERE a.estatus='confirmada' AND (COALESCE(r.costo_unitario,0)<=0 OR COALESCE(r.costo_total,0)<=0)
+              AND (:q='' OR ori.sku LIKE :b OR res.sku LIKE :b OR a.folio LIKE :b)
+            ORDER BY a.id_apertura_empaque DESC LIMIT " . intval($limite);
+        $stmt = $db->prepare($sql);
+        $stmt->execute(array(":q" => $q, ":b" => "%" . $q . "%"));
+        foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $fila) {
+            $alertas[] = $this->alertaCostoDerivado("COST-DER-008", "bloqueante", "apertura_empaque", $fila["sku_destino"], "Apertura confirmada sin costo real", $fila);
+        }
+    }
+
+    private function auditarPendientesPaquetes($db, &$alertas, $q, $limite) {
+        if (!$this->tablaExisteSimple("erp_catalogo_sku_paquetes")) {
+            return;
+        }
+        $sql = "SELECT p.id_paquete, s.id_sku, s.sku
+            FROM erp_catalogo_sku_paquetes p
+            INNER JOIN erp_catalogo_skus s ON s.id_sku=p.id_sku_paquete
+            WHERE p.estatus='activo' AND (:q='' OR s.sku LIKE :b)
+            ORDER BY s.sku LIMIT " . intval($limite);
+        $stmt = $db->prepare($sql);
+        $stmt->execute(array(":q" => $q, ":b" => "%" . $q . "%"));
+        foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $fila) {
+            $visitadosCosto = array();
+            $costo = $this->resolverCostoVigenteSkuInterno($db, intval($fila["id_sku"]), array("tipo" => "paquete_combo"), $visitadosCosto);
+            foreach ($costo["advertencias"] as $advertencia) {
+                if ($advertencia["id"] === "COST-DER-005") {
+                    $alertas[] = $this->alertaCostoDerivado("COST-DER-005", "bloqueante", "paquete_combo", $fila["sku"], $advertencia["mensaje"], $costo);
+                }
+            }
+        }
+    }
+
+    private function alertaCostoDerivado($id, $severidad, $tipoCosto, $sku, $mensaje, $evidencia) {
+        return array(
+            "id" => $id,
+            "severidad" => $severidad,
+            "tipo_costo" => $tipoCosto,
+            "sku" => $sku,
+            "mensaje" => $mensaje,
+            "evidencia" => $evidencia
+        );
+    }
+
     private function schemaAprobacionesInternasDisponible() {
         return $this->tablaExisteSimple("erp_rentabilidad_aprobaciones_comerciales")
             && $this->tablaExisteSimple("erp_rentabilidad_aprobaciones_bitacora");
@@ -4605,11 +5295,12 @@ class RentabilidadErp extends CRUD {
         }
         $fila = $filas[0];
         $factor = max(1, floatval(isset($fila["factor_unidad_base"]) ? $fila["factor_unidad_base"] : 1));
-        $costo = $this->seleccionarCostoVigente($fila, $factor);
+        $visitadosCosto = array();
+        $costo = $this->resolverCostoVigenteSkuInterno($this->getConexion(), intval($fila["id_sku"]), array("tipo" => "auto"), $visitadosCosto);
         $cache[$clave] = array(
             "costo" => round(floatval($costo["costo"]), 6),
             "costo_unitario" => round(floatval($costo["costo"]) / $factor, 6),
-            "origen" => $costo["origen"],
+            "origen" => isset($costo["fuente"]) ? $costo["fuente"] : "sin_costo",
             "factor_unidad_base" => round($factor, 6)
         );
         return $cache[$clave];
@@ -4761,11 +5452,12 @@ class RentabilidadErp extends CRUD {
         $precioEscenario = $precioSinImpuesto * (1 - ($descuentoPct / 100));
 
         $factorUnidad = max(1, floatval(isset($fila["factor_unidad_base"]) ? $fila["factor_unidad_base"] : 1));
-        $costoVigente = $this->seleccionarCostoVigente($fila, $factorUnidad);
-        $costoInventario = $costoVigente["costo_inventario"];
-        $costoInventarioUnitario = $costoVigente["costo_inventario_unitario"];
-        $costoReal = $costoVigente["costo"];
-        $origenCosto = $costoVigente["origen"];
+        $costoInventarioUnitario = $fila["costo_promedio_inventario"] === null ? 0 : floatval($fila["costo_promedio_inventario"]);
+        $costoInventario = $costoInventarioUnitario > 0 ? $costoInventarioUnitario * $factorUnidad : 0;
+        $visitadosCosto = array();
+        $costoResolucion = $this->resolverCostoVigenteSkuInterno($this->getConexion(), intval($fila["id_sku"]), array("tipo" => "auto"), $visitadosCosto);
+        $costoReal = floatval(isset($costoResolucion["costo"]) ? $costoResolucion["costo"] : 0);
+        $origenCosto = isset($costoResolucion["fuente"]) ? $costoResolucion["fuente"] : "sin_costo";
 
         $margenBrutoPct = $precioEscenario > 0 ? (($precioEscenario - $costoReal) / $precioEscenario) * 100 : null;
         $utilidadBruta = $precioEscenario - $costoReal;
@@ -4782,6 +5474,7 @@ class RentabilidadErp extends CRUD {
         if ($precioEscenario > 0 && $utilidadEstimada < 0) { $hallazgosDetalle[] = $this->hallazgo("COST-H104", "perdida_estimada", "danger", "El escenario deja utilidad estimada negativa"); }
         if ($margenBrutoPct !== null && $margenBrutoPct < 15) { $hallazgosDetalle[] = $this->hallazgo("COST-H105", "margen_bajo", "warning", "Margen bruto menor a 15%"); }
         if (floatval($fila["cantidad_total"]) > 0 && $costoInventario <= 0 && $costoReal <= 0) { $hallazgosDetalle[] = $this->hallazgo("COST-H106", "stock_sin_costo_promedio", "warning", "Hay stock con costo promedio de inventario en cero y sin evidencia alterna de costo"); }
+        if (!empty($costoResolucion["advertencias"])) { $hallazgosDetalle[] = $this->hallazgo("COST-H109", "costo_derivado_con_alerta", "warning", "El costo resuelto tiene advertencias de derivacion o evidencia"); }
         $hallazgos = array_map(function ($item) { return $item["clave"]; }, $hallazgosDetalle);
         $riesgo = $this->riesgo($hallazgos, $margenBrutoPct, $utilidadEstimada);
 
@@ -4792,6 +5485,7 @@ class RentabilidadErp extends CRUD {
             "canal" => $canal,
             "costo_real_sin_impuesto" => round($costoReal, 6),
             "origen_costo" => $origenCosto,
+            "costo_resolucion" => $costoResolucion,
             "precio_venta_sin_impuesto" => round($precioSinImpuesto, 6),
             "precio_escenario_sin_impuesto" => round($precioEscenario, 6),
             "margen_bruto_pct" => $margenBrutoPct === null ? null : round($margenBrutoPct, 2),

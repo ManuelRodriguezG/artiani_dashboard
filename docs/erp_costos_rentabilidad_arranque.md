@@ -1409,3 +1409,61 @@ Contrato protegido:
 UAT agregado:
 - `storage/uat/uat_rentabilidad_costo_vigente_readonly.php TP-40372`
 - Valida por SKU que el origen elegido respete la prioridad de evidencia disponible y que el costo vigente coincida con la fuente prioritaria.
+
+## Resolutor central de costos derivados
+
+Fecha: 2026-08-19
+IA: Codex GPT-5
+Proyecto activo: `C:\xampp\htdocs\panel_de_control`
+
+Decision:
+- Rentabilidad/Costos es el dueno del costo resuelto para margen y utilidad.
+- Catalogo ERP conserva solo contratos tecnicos: SKU origen/destino, unidad base, factor, presentaciones, apertura de empaques, paquetes y granel.
+- Listas de precios debe consumir el costo resuelto en modo read-only; no debe calcular costos con reglas propias.
+- No se debe guardar costo vigente ni costo derivado en Catalogo.
+
+Implementacion inicial:
+- Metodo read-only: `RentabilidadErp::resolverCostoVigenteSku($idSku, $contexto = array())`.
+- Endpoint read-only: `/rentabilidad/costo_vigente_sku_erp`, permiso `rentabilidad.ver`.
+- Auditoria read-only: `RentabilidadErp::auditarPendientesCostoDerivado($filtros = array())`.
+- Endpoint read-only: `/rentabilidad/costos_derivados_pendientes_erp`, permiso `rentabilidad.ver`.
+
+Contrato de respuesta:
+- `costo`, `moneda`, `fuente`, `confianza`, `formula`.
+- `id_sku_origen`, `sku_origen`, `factor_usado`, `cantidad_util`, `merma_porcentaje`.
+- `componentes`, `rango`, `advertencias`, `fuentes_consultadas`.
+
+Fuentes soportadas:
+- Directas: `compras_promedio`, `compra_ultima`, `xml_ultimo`, `proveedor_relacion`, `inventario_promedio`, `catalogo_referencia`, `sin_costo`.
+- Derivadas: `derivado_presentacion`, `apertura_confirmada`, `paquete_componentes`, `paquete_rango`.
+
+Alertas de costo derivado:
+- `COST-DER-002`: presentacion/transformacion sin factor valido.
+- `COST-DER-003`: SKU origen sin costo vigente.
+- `COST-DER-005`: componente u opcion de paquete sin costo.
+- `COST-DER-006`: costo usando fallback temporal de Catalogo.
+- `COST-DER-008`: apertura confirmada sin costo real.
+- `COST-DER-010`: costo derivado desde transformacion/reempaque.
+
+Evidencia UAT:
+- `TP-40372`: costo `737.068966`, fuente `compras_promedio`.
+- `TP-40372-500GR`: costo `92.133621`, fuente `derivado_presentacion`, origen `TP-40372`.
+- `TP-40372-100GR`: costo `18.4267`, fuente `inventario_promedio`.
+- `NUEC-C20K-GRANEL`: bloqueado como `sin_costo` por apertura confirmada sin costo real.
+- `PER-05-01`: paquete con rango de costo, pero con componente sin costo.
+
+UAT agregado:
+- `storage/uat/uat_rentabilidad_resolutor_costos_derivados_readonly.php`.
+- `storage/uat/uat_listas_precios_costos_rentabilidad_readonly.php`.
+
+UI agregada:
+- Vista: `/rentabilidad/calidad`.
+- Seccion: `Costos derivados pendientes`.
+- Carga endpoint `/rentabilidad/costos_derivados_pendientes_erp`.
+- Muestra alertas por tipo: presentacion, transformacion, apertura de empaque y paquete/combo.
+- Cache-buster de Rentabilidad actualizado a `analisis.js?v=20260819-1`.
+
+Pendiente siguiente:
+- `analizarSkus` ya consume `resolverCostoVigenteSku` para exponer `costo_resolucion` en la consulta de SKUs.
+- Listas de precios ya consume `RentabilidadErp::resolverCostoVigenteSku` en modo read-only para margen, conservando `costo_referencia_original` solo como dato historico.
+- Revisar con Almacen la apertura `APE-20260728-0001`, porque esta confirmada pero sus costos quedaron en cero.

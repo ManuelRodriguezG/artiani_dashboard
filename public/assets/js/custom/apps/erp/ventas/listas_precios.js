@@ -26,6 +26,21 @@
         return div.innerHTML;
     }
 
+    function escapeAttr(value) {
+        return escapeHtml(value).replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+    }
+
+    function normalizarImagenUrl(url) {
+        url = String(url || "").trim();
+        if (!url) {
+            return "";
+        }
+        if (/^https?:\/\//i.test(url) || url.indexOf("/") === 0) {
+            return url;
+        }
+        return "/" + url;
+    }
+
     function dinero(value) {
         return new Intl.NumberFormat("es-MX", {style: "currency", currency: "MXN"}).format(Number(value || 0));
     }
@@ -671,9 +686,11 @@
             var unidadHtml = unidadVentaHtml(item);
             var costoHtml = costoComercialHtml(item);
             var estadoCatalogoHtml = estadoCatalogoHtmlProducto(item);
+            var imagenHtml = imagenProductoHtml(item);
             var clases = [seleccionado ? "lp-row-selected" : "", cambioPendiente ? "lp-row-dirty" : ""].filter(Boolean).join(" ");
             return "<tr data-lp-producto=\"" + escapeHtml(item.id_sku) + "\"" + (clases ? " class=\"" + escapeHtml(clases) + "\"" : "") + ">" +
                 "<td class=\"text-center\"><input class=\"form-check-input\" type=\"checkbox\" data-lp-seleccionar-sku=\"" + escapeHtml(item.id_sku) + "\"" + (seleccionado ? " checked" : "") + "></td>" +
+                "<td>" + imagenHtml + "</td>" +
                 "<td><div class=\"fw-bold\">" + escapeHtml(item.sku || "") + "</div><div class=\"text-muted fs-8\">" + escapeHtml(item.sku_nombre || item.producto || "") + "</div><div class=\"text-muted fs-8\">" + escapeHtml([item.marca, item.categoria].filter(Boolean).join(" / ")) + "</div>" + estadoCatalogoHtml + "</td>" +
                 "<td>" + unidadHtml + "</td>" +
                 "<td class=\"text-end\">" + costoHtml + "</td>" +
@@ -682,7 +699,7 @@
                 "<td class=\"text-end\"><div class=\"fw-semibold\" data-lp-margen=\"" + escapeHtml(item.id_sku) + "\">" + escapeHtml(margen) + "</div><div class=\"text-muted fs-8\" data-lp-utilidad=\"" + escapeHtml(item.id_sku) + "\">" + dinero(precioFila - costoFila) + "</div><span class=\"badge " + tipoBadge + "\" data-lp-riesgo=\"" + escapeHtml(item.id_sku) + "\">" + escapeHtml(riesgo.texto || "-") + "</span><div class=\"text-muted fs-9 mt-1\" data-lp-pendiente-motivo=\"" + escapeHtml(item.id_sku) + "\">" + escapeHtml(pendiente) + "</div></td>" +
                 "<td class=\"text-end\"><div class=\"d-flex justify-content-end gap-1\"><button class=\"btn btn-sm btn-light\" data-lp-preview-sku=\"" + escapeHtml(item.id_sku) + "\" type=\"button\" title=\"Previsualizar precio POS\"><i class=\"bi bi-calculator\"></i></button><button class=\"btn btn-sm btn-light-success\" data-lp-usar-sugerido-fila=\"" + escapeHtml(item.id_sku) + "\" type=\"button\" title=\"Aplicar sugerido a este SKU\"><i class=\"bi bi-magic\"></i></button>" + (item.id_lista_precio_detalle ? "<button class=\"btn btn-sm btn-light\" data-lp-historial-sku=\"" + escapeHtml(item.id_sku) + "\" data-lp-historial-detalle=\"" + escapeHtml(item.id_lista_precio_detalle) + "\" type=\"button\" title=\"Ver historial de este precio\"><i class=\"bi bi-clock-history\"></i></button>" : "") + "<button class=\"btn btn-sm btn-light-primary\" data-lp-guardar-precio=\"" + escapeHtml(item.id_sku) + "\" type=\"button\" title=\"Guardar precio de este SKU\"><i class=\"bi bi-save\"></i></button>" + (item.id_lista_precio_detalle ? "<button class=\"btn btn-sm btn-light-danger\" data-lp-quitar-precio=\"" + escapeHtml(item.id_sku) + "\" type=\"button\" title=\"Cancelar precio de este SKU\"><i class=\"bi bi-x-circle\"></i></button>" : "") + "</div></td>" +
             "</tr>";
-        }).join("") || "<tr><td colspan=\"8\" class=\"text-center text-muted py-8\">Sin productos para los filtros actuales</td></tr>";
+        }).join("") || "<tr><td colspan=\"9\" class=\"text-center text-muted py-8\">Sin productos para los filtros actuales</td></tr>";
 
         document.querySelectorAll("[data-lp-seleccionar-sku]").forEach(function (input) {
             input.addEventListener("change", function () {
@@ -747,12 +764,31 @@
         return html;
     }
 
+    function imagenProductoHtml(item) {
+        var src = normalizarImagenUrl(item && item.url_imagen);
+        if (!src) {
+            return "<div class=\"lp-product-img d-flex align-items-center justify-content-center\" title=\"Sin imagen\"><i class=\"bi bi-image text-muted fs-2\"></i></div>";
+        }
+        return "<div class=\"lp-product-img\" title=\"" + escapeAttr(item.sku_nombre || item.producto || item.sku || "Producto") + "\" style=\"background-image:url('" + escapeAttr(src) + "');\"></div>";
+    }
+
     function costoComercialHtml(item) {
         var fuente = item.costo_fuente_label || "";
         var tipo = item.costo_fuente === "sin_costo" ? "text-danger" : "text-muted";
-        var html = "<div>" + dinero(item.costo_referencia) + "</div>";
+        var confianza = item.costo_confianza || "";
+        var formula = item.costo_formula || "";
+        var advertencias = Array.isArray(item.costo_advertencias) ? item.costo_advertencias : [];
+        var titulo = formula ? " title=\"" + escapeAttr(formula) + "\"" : "";
+        var html = "<div" + titulo + ">" + dinero(item.costo_referencia) + "</div>";
         if (fuente) {
             html += "<div class=\"" + tipo + " fs-9\">" + escapeHtml(fuente) + "</div>";
+        }
+        if (confianza) {
+            var badge = confianza === "alta" ? "badge-light-success" : (confianza === "sin_evidencia" ? "badge-light-danger" : "badge-light-warning");
+            html += "<div class=\"mt-1\"><span class=\"badge " + badge + "\">" + escapeHtml(confianza) + "</span></div>";
+        }
+        if (advertencias.length) {
+            html += "<div class=\"text-warning fs-9 mt-1\">" + escapeHtml(advertencias.length) + " alerta(s)</div>";
         }
         return html;
     }
@@ -1224,7 +1260,7 @@
             mostrarAlerta("warning", "No hay productos visibles para exportar.");
             return;
         }
-        var encabezados = ["id_sku", "sku", "producto", "unidad", "costo_referencia", "costo_fuente", "precio_general", "precio_lista", "precio_sugerido", "margen_estimado"];
+        var encabezados = ["id_sku", "sku", "producto", "unidad", "costo_vigente", "costo_fuente", "costo_confianza", "costo_formula", "precio_general", "precio_lista", "precio_sugerido", "margen_estimado"];
         var filas = productos.map(function (item) {
             var input = document.querySelector("[data-lp-precio='" + item.id_sku + "']");
             var precioLista = input ? input.value : (item.precio_lista == null ? "" : item.precio_lista);
@@ -1235,6 +1271,8 @@
                 item.unidad_base || "",
                 numero(item.costo_referencia || 0, 2),
                 item.costo_fuente || "",
+                item.costo_confianza || "",
+                item.costo_formula || "",
                 numero(item.precio_general || 0, 2),
                 precioLista,
                 estado.sugeridos[String(item.id_sku)] || "",

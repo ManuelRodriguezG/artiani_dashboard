@@ -73,6 +73,21 @@ class MigracionBd extends Controlador {
 
   /**
    * IA: Codex GPT-5
+   * Fecha: 2026-08-19
+   * Proposito: preparar runbook de activacion inicial donde local reemplaza productivo.
+   * Impacto: Migraciones BD; solo lectura, no respalda ni restaura.
+   */
+  public function promocion_completa_preflight() {
+    $this->requerirAlgunPermiso(array("migraciones.ver", "migraciones.preparar", "migraciones.respaldos", "sistema.soporte"));
+    $destino = isset($_GET["destino"]) ? trim($_GET["destino"]) : "productivo";
+    $respaldoLocal = isset($_GET["respaldo_local"]) ? trim($_GET["respaldo_local"]) : "";
+    $respaldoDestino = isset($_GET["respaldo_productivo"]) ? trim($_GET["respaldo_productivo"]) : "";
+    $modelo = $this->modelo("MigracionesBd");
+    echo json_encode($modelo->preflightPromocionCompleta($destino, $respaldoLocal, $respaldoDestino));
+  }
+
+  /**
+   * IA: Codex GPT-5
    * Fecha: 2026-08-01
    * Proposito: revisar prerequisitos operativos del modulo sin ejecutar cambios.
    * Impacto: Migraciones BD; solo lectura.
@@ -413,6 +428,35 @@ class MigracionBd extends Controlador {
       "resultado" => $respuesta["error"] ? "error" : "ok",
       "datos_despues" => isset($respuesta["depurar"]) ? array(
         "ok" => isset($respuesta["depurar"]["ok"]) ? $respuesta["depurar"]["ok"] : false,
+        "archivo" => isset($respuesta["depurar"]["archivo"]) ? $respuesta["depurar"]["archivo"] : null,
+        "tamano_bytes" => isset($respuesta["depurar"]["tamano_bytes"]) ? $respuesta["depurar"]["tamano_bytes"] : 0,
+        "sha256" => isset($respuesta["depurar"]["sha256"]) ? $respuesta["depurar"]["sha256"] : null,
+        "codigo_salida" => isset($respuesta["depurar"]["codigo_salida"]) ? $respuesta["depurar"]["codigo_salida"] : null
+      ) : null,
+      "mensaje" => $respuesta["mensaje"]
+    ));
+    echo json_encode($respuesta);
+  }
+
+  /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-08-19
+   * Proposito: generar respaldo completo de local o productivo antes de reemplazo inicial.
+   * Impacto: Migraciones BD; ejecuta mysqldump, no modifica ninguna BD.
+   */
+  public function respaldo_completo_generar() {
+    $this->requerirAlgunPermiso(array("migraciones.respaldos", "sistema.soporte"));
+    $alias = isset($_POST["alias"]) ? trim($_POST["alias"]) : "local";
+    $autorizar = isset($_POST["autorizar"]) ? trim($_POST["autorizar"]) : "";
+    $confirmacion = isset($_POST["confirmacion"]) ? trim($_POST["confirmacion"]) : "";
+    $modelo = $this->modelo("MigracionesBd");
+    $respuesta = $modelo->generarRespaldoAmbienteCompleto($alias, $autorizar, $confirmacion, $this->usuarioActualId());
+    SesionSeguridad::registrarAuditoria("migraciones", "respaldo_completo_generar", array(
+      "entidad" => "backup_sql",
+      "resultado" => $respuesta["error"] ? "error" : "ok",
+      "datos_despues" => isset($respuesta["depurar"]) ? array(
+        "ok" => isset($respuesta["depurar"]["ok"]) ? $respuesta["depurar"]["ok"] : false,
+        "alias" => isset($respuesta["depurar"]["alias"]) ? $respuesta["depurar"]["alias"] : $alias,
         "archivo" => isset($respuesta["depurar"]["archivo"]) ? $respuesta["depurar"]["archivo"] : null,
         "tamano_bytes" => isset($respuesta["depurar"]["tamano_bytes"]) ? $respuesta["depurar"]["tamano_bytes"] : 0,
         "sha256" => isset($respuesta["depurar"]["sha256"]) ? $respuesta["depurar"]["sha256"] : null,

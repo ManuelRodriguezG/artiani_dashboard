@@ -1024,6 +1024,65 @@ Decision operativa:
 - La bandera `_opciones.aplicacion_real_habilitada` debe seguir en `false` hasta que el dueno autorice una ventana real.
 - Los datos de catalogos comerciales y aperturas de empaque quedan para una fase posterior con llaves naturales validadas.
 
+## Avance implementado - Preflight de promocion completa local a productivo
+
+Fecha: 2026-08-19
+
+Contexto actualizado:
+
+- El dueno decide preparar una activacion inicial completa porque local ya es la base mas avanzada.
+- Productivo aun no es la base definitiva y puede reemplazarse cuando se autorice la ventana final.
+- Este flujo es distinto a paquetes incrementales: copia esquema y datos completos de local hacia productivo.
+
+Se agrego:
+
+- `MigracionesBd::preflightPromocionCompleta`;
+- `MigracionesBd::generarRespaldoAmbienteCompleto`;
+- endpoints `MigracionBd::promocion_completa_preflight` y `MigracionBd::respaldo_completo_generar`;
+- bandera local `_opciones.promocion_completa_habilitada`;
+- token `MIGRACIONES_BD_RESPALDO_COMPLETO` para respaldos completos por ambiente;
+- runbook tecnico para reemplazo completo local -> productivo.
+
+Estado verificado:
+
+```text
+local=conecta
+productivo=conecta
+local_tablas=267
+productivo_tablas=210
+puede_generar_respaldos=si
+puede_reemplazar=no
+promocion_completa_habilitada=no
+bloqueos=0
+advertencias=4
+```
+
+Comparacion actual:
+
+```text
+tablas_solo_origen=59
+tablas_solo_destino=2
+columnas_faltantes_destino=25
+columnas_faltantes_origen=0
+columnas_diferentes=2
+indices_faltantes_destino=13
+foraneas_faltantes_destino=0
+```
+
+Tablas solo en productivo:
+
+```text
+verp_establecimientos_productos_existencias
+vista_mdb_productos
+```
+
+Restriccion:
+
+- El preflight no genera respaldos ni restaura productivo.
+- Los respaldos completos no modifican ninguna base.
+- El reemplazo real sigue bloqueado: se requiere respaldo local, respaldo productivo, bandera habilitada y autorizacion literal separada.
+- No ejecutar reemplazo completo si productivo ya recibio operacion real que deba conservarse.
+
 Decision operativa:
 
 - Mientras productivo sea solo copia de revision, local puede ser la base candidata oficial.

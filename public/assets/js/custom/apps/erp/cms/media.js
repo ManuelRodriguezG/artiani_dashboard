@@ -2,7 +2,7 @@
  * Documentacion IA: Codex GPT-5, 2026-08-14.
  * Proposito: biblioteca local inicial para media CMS frontend.
  * Impacto: permite seleccionar, validar, previsualizar, archivar y limpiar imagenes locales antes de persistencia real.
- * Contrato: no sube archivos, no borra fisicos, no escribe BD; usa localStorage como maqueta operativa.
+ * Contrato: no sube archivos, no borra fisicos, no escribe BD; consulta preflight read-only y usa localStorage como maqueta operativa.
  */
 (function () {
   "use strict";
@@ -22,6 +22,7 @@
     cargarLocal();
     bindEventos();
     renderTodo();
+    cargarPreflightServidor();
   });
 
   function bindEventos() {
@@ -191,6 +192,36 @@
     visual.innerHTML = '<div class="text-muted fs-8 text-uppercase fw-bold mb-2">Preview antes de agregar</div><img class="ecom-cms-preview-img" src="' + escapeAttr(dataUrl) + '" alt="' + escapeAttr(file.name) + '">';
   }
 
+  function cargarPreflightServidor() {
+    var node = $("cms_media_preflight");
+    if (!node || !window.fetch) return;
+    node.innerHTML = '<div class="text-muted fs-7">Consultando preflight...</div>';
+    fetch("/cms/media_admin_preflight_erp", { credentials: "same-origin" })
+      .then(function (response) { return response.json(); })
+      .then(function (json) {
+        renderPreflightServidor(json && json.depurar ? json.depurar : {});
+      })
+      .catch(function () {
+        setText("cms_media_preflight_estado", "No disponible");
+        node.innerHTML = '<div class="alert alert-light-warning fs-7 mb-0">No se pudo consultar el preflight. La biblioteca local sigue disponible.</div>';
+      });
+  }
+
+  function renderPreflightServidor(data) {
+    var node = $("cms_media_preflight");
+    if (!node) return;
+    var limites = data.limites || {};
+    var endpoints = data.endpoints_admin_futuros || {};
+    setText("cms_media_preflight_estado", data.modo || "Read-only");
+    node.innerHTML = '<div class="d-flex flex-column gap-3 fs-7">' +
+      '<div><span class="badge badge-light-primary me-2">Carpeta</span><code>' + escapeHtml(data.carpeta_publica_propuesta || "") + '</code></div>' +
+      '<div><span class="badge badge-light-primary me-2">Tablas</span><code>' + escapeHtml(data.tabla_archivos || "") + '</code> / <code>' + escapeHtml(data.tabla_usos || "") + '</code></div>' +
+      '<div><span class="badge badge-light-primary me-2">Limite</span>' + escapeHtml(limites.max_mb || "") + ' MB, ' + escapeHtml((limites.extensiones || []).join(", ")) + '</div>' +
+      '<div><span class="badge badge-light-warning me-2">POST futuro</span><code>' + escapeHtml(endpoints.subir || "") + '</code></div>' +
+      '<div><span class="badge badge-light-success me-2">Estado</span>No mueve archivos ni escribe BD.</div>' +
+    '</div>';
+  }
+
   function ejecutarAccionMedia(accion, id) {
     var item = buscarMedia(id);
     if (!item) return;
@@ -277,6 +308,11 @@
     if (!node) return;
     node.className = "badge " + (clase || "badge-light-primary");
     node.textContent = texto;
+  }
+
+  function setText(id, value) {
+    var node = $(id);
+    if (node) node.textContent = String(value == null ? "" : value);
   }
 
   function valor(id) {

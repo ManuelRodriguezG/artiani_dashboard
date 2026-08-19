@@ -66,6 +66,132 @@ Reglas para usarlo:
 - Hero mobile recomendado: 768x980 px.
 - URLs de botones deben ser rutas publicas del frontend, por ejemplo `/#productos`, `/buscar`, `/categoria/{slug}`.
 
+## CMS > Frontend > Global
+
+Ruta: `/cms/frontend/global`.
+
+Estado actual:
+
+- Pantalla operativa inicial para configuracion global del ecommerce.
+- Permite editar datos del negocio: nombre comercial, razon social, slogan, descripcion, WhatsApp, telefono y emails.
+- Permite preparar logos e imagen OG usando campos con boton `Media`.
+- Permite capturar direccion publica, URL de Google Maps, embed, latitud y longitud.
+- Permite editar horarios visibles de forma inicial.
+- Permite capturar redes sociales.
+- Permite editar SEO global: `site_name`, `title_default`, `description_default`, `og_image_default` y `robots_default`.
+- Permite preparar menu principal y columnas de footer como JSON controlado.
+- Genera `Preview JSON esperado` para alimentar despues `/ecommercePublico/configuracion_inicial`.
+
+Reglas para usarlo:
+
+- No guardar secretos, tokens ni llaves privadas.
+- No guardar rutas internas del ERP como imagen publica.
+- `/ecommercePublico/configuracion_inicial` sigue siendo el endpoint principal de arranque del frontend.
+- La captura actual es local; la persistencia real se activara despues de cerrar estructura y respaldo.
+
+## CMS > Frontend > Navegacion
+
+Ruta: `/cms/frontend/navegacion`.
+
+Estado actual:
+
+- Pantalla operativa inicial para header y footer del ecommerce.
+- Permite editar la franja superior o topbar.
+- Permite administrar enlaces del menu principal: etiqueta, tipo, URL, visible, subir, bajar y eliminar.
+- Permite administrar columnas del footer y sus links.
+- Permite preparar un CTA global del footer.
+- Genera `Preview JSON esperado` orientado a `/ecommercePublico/configuracion_inicial`.
+
+Reglas para usarlo:
+
+- Usar solo rutas publicas del frontend, por ejemplo `/`, `/categorias`, `/contacto` o `/categoria/peces`.
+- No usar rutas internas `/cms/*`, `/app/*`, `/public/assets/*` ni rutas fisicas del ERP.
+- `Categorias` puede quedar como tipo especial para que despues el frontend lo alimente desde `/ecommercePublico/categorias`.
+- La captura actual es local; persistencia real de navegacion queda pendiente.
+
+## CMS > Frontend > Categorias
+
+Ruta: `/cms/frontend/categorias`.
+
+Estado actual:
+
+- Pantalla operativa inicial para enriquecer categorias publicas.
+- Permite preparar titulo y subtitulo del listado de categorias.
+- Permite controlar si las categorias se muestran en Home y en menu.
+- Permite administrar por categoria: ID ERP, slug, titulo, subtitulo, descripcion SEO, URL publica, visible, destacado y orden.
+- Permite seleccionar imagen card y banner desde `Media`.
+- Genera `Preview JSON esperado` orientado a `/ecommercePublico/categorias`.
+
+Reglas para usarlo:
+
+- La categoria real debe existir en ERP/API; el CMS no crea categorias de catalogo.
+- No modificar precios, inventario ni publicacion de producto desde esta pantalla.
+- Cada imagen publica debe tener alt text.
+- Los slugs y URLs deben corresponder a rutas publicas del frontend, por ejemplo `/categoria/peces`.
+- La captura actual es local; persistencia real queda pendiente.
+
+## CMS > Frontend > Marcas
+
+Ruta: `/cms/frontend/marcas`.
+
+Estado actual:
+
+- Pantalla operativa inicial para enriquecer marcas publicas.
+- Permite preparar titulo y subtitulo del listado de marcas.
+- Permite controlar si las marcas se muestran en Home y en menu.
+- Permite administrar por marca: ID ERP, slug, titulo, subtitulo, descripcion SEO, URL publica, visible, destacado y orden.
+- Permite seleccionar logo y banner desde `Media`.
+- Genera `Preview JSON esperado` orientado a `/ecommercePublico/marcas`.
+
+Reglas para usarlo:
+
+- La marca real debe existir en ERP/API; el CMS no crea marcas de catalogo.
+- No modificar precios, inventario ni publicacion de producto desde esta pantalla.
+- Cada logo o banner publico debe tener alt text.
+- Los slugs y URLs deben corresponder a rutas publicas del frontend, por ejemplo `/marca/eheim`.
+- La captura actual es local; persistencia real queda pendiente.
+
+## CMS > Frontend > Paginas
+
+Ruta: `/cms/frontend/paginas`.
+
+Estado actual:
+
+- Pantalla operativa inicial para paginas informativas del ecommerce.
+- Permite preparar titulo y subtitulo del listado de paginas.
+- Permite administrar paginas como `como-comprar`, `facturacion` o `contacto`.
+- Permite editar por pagina: slug, titulo, subtitulo, resumen, contenido, imagen principal, alt text, SEO title, SEO description, visible, orden y URL publica.
+- Permite seleccionar imagen principal desde `Media`.
+- Genera `Preview JSON esperado` orientado a `/ecommercePublico/paginas`.
+
+Reglas para usarlo:
+
+- Usar rutas publicas del frontend, por ejemplo `/como-comprar`.
+- No pegar scripts, iframes no autorizados ni codigo externo.
+- La sanitizacion estricta final se hara en backend antes de publicar.
+- No usar rutas internas del ERP.
+- La captura actual es local; persistencia real queda pendiente.
+
+## CMS > Frontend > Politicas
+
+Ruta: `/cms/frontend/politicas`.
+
+Estado actual:
+
+- Pantalla operativa inicial para politicas publicas del ecommerce.
+- Permite preparar titulo y subtitulo del listado de politicas.
+- Permite administrar avisos como privacidad, envios, devoluciones y terminos.
+- Permite editar por politica: slug, titulo, resumen, contenido, version, estatus, vigencia, SEO title, SEO description, visible, orden y URL publica.
+- Genera `Preview JSON esperado` orientado a `/ecommercePublico/politicas` y `/ecommercePublico/politica/{slug}`.
+
+Reglas para usarlo:
+
+- Mantener textos legales en `borrador` hasta revision.
+- No pegar scripts, iframes no autorizados ni codigo externo.
+- La sanitizacion estricta final se hara en backend antes de publicar.
+- No usar rutas internas del ERP.
+- La captura actual es local; persistencia real queda pendiente.
+
 ## CMS > Frontend actual > Home categorias destacadas
 
 Ruta: `/cms/frontend_actual`, grupo `Home`.
@@ -598,6 +724,8 @@ En la fase actual funciona como biblioteca local:
 - permite copiar una referencia estructurada
 - permite archivar/quitar imagenes de la biblioteca local
 
+Tambien consulta el preflight read-only `/cms/media_admin_preflight_erp`, que muestra la carpeta publica propuesta, tablas futuras, limites de archivo y endpoints POST que siguen bloqueados.
+
 Importante: todavia no sube archivos al servidor, no borra archivos fisicos y no guarda rutas en BD.
 
 ### Flujo recomendado
@@ -677,6 +805,9 @@ La galeria del modal muestra previsualizaciones. El campo de texto es solo `Filt
 - Esta pantalla todavia no sube archivos al servidor.
 - Esta pantalla todavia no borra archivos fisicos.
 - Esta pantalla todavia no guarda media en BD.
+- La carpeta publica propuesta es `/assets/media/cms/ecommerce`.
+- Las tablas propuestas para persistencia real son `erp_ecommerce_media_archivos` y `erp_ecommerce_media_usos`.
+- El endpoint `/cms/media_admin_preflight_erp` solo lee contrato; no crea carpetas, no ejecuta DDL y no mueve archivos.
 - La carga real de imagenes requiere definir ruta publica, tamanos, formatos, nombres seguros, respaldo y limpieza segura.
 - No se deben guardar rutas internas del ERP para que el frontend las lea directamente.
 
