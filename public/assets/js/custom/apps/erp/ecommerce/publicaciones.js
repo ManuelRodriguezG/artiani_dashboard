@@ -610,6 +610,21 @@
         return datos;
     }
 
+    function resumenResultadoLote(depurar) {
+        var errores = (depurar.resultados || []).filter(function (resultado) {
+            return resultado && resultado.ok !== true;
+        }).slice(0, 5).map(function (resultado) {
+            var bloqueos = (resultado.bloqueos || resultado.bloqueos_publicabilidad || []).join(", ");
+            return "SKU " + (resultado.id_sku || "") + ": " + (bloqueos || resultado.mensaje || "sin detalle");
+        });
+        var advertencias = (depurar.resultados || []).filter(function (resultado) {
+            return resultado && resultado.ok === true && (resultado.bloqueos_publicabilidad || []).length;
+        }).slice(0, 5).map(function (resultado) {
+            return "SKU " + (resultado.id_sku || "") + ": borrador creado, pendiente " + resultado.bloqueos_publicabilidad.join(", ");
+        });
+        return errores.concat(advertencias).join("\n");
+    }
+
     function actualizarSeleccionLote() {
         var total = Object.keys(seleccionLote).length;
         var contador = $("ecom_lote_seleccionados");
@@ -686,6 +701,9 @@
                 }
             });
             setEstado("Config: " + Number(depurar.total_ok || 0) + " ok", "badge-light-success");
+            if (Number(depurar.total_error || 0) > 0 || resumenResultadoLote(depurar) !== "") {
+                window.alert("Configuracion masiva procesada.\nOK: " + Number(depurar.total_ok || 0) + "\nErrores: " + Number(depurar.total_error || 0) + "\n\n" + resumenResultadoLote(depurar));
+            }
             cargarTodo();
         }).catch(function (error) {
             setEstado("Error", "badge-light-danger");

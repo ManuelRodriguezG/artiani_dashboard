@@ -2047,9 +2047,10 @@ class CatalogoErpDatos extends CRUD {
   }
 
   /**
-   * IA: Codex GPT-5 | Fecha: 2026-06-25
+   * IA: Codex GPT-5 | Fecha: 2026-08-14
    * Proposito: aplica marca/categoria por lote; permite forzar categoria principal cuando la UI masiva lo solicita.
    * Impacto: Catalogo ERP; acelera saneamiento post-migracion sin alterar productos fusionados.
+   * Contrato: `categoria_secundaria=1` agrega clasificacion alterna sin reemplazar ni crear categoria principal.
    */
   public function aplicarRevisionMetadatosCatalogo($datos) {
     $asignaciones = json_decode(isset($datos["asignaciones"]) ? $datos["asignaciones"] : "[]", true);
@@ -2070,6 +2071,7 @@ class CatalogoErpDatos extends CRUD {
         $idCategoria = intval(isset($asignacion["id_categoria_erp"]) ? $asignacion["id_categoria_erp"] : 0);
         $idMarca = intval(isset($asignacion["id_marca_erp"]) ? $asignacion["id_marca_erp"] : 0);
         $forzarPrincipal = intval(isset($asignacion["forzar_categoria_principal"]) ? $asignacion["forzar_categoria_principal"] : 0) === 1;
+        $categoriaSecundaria = intval(isset($asignacion["categoria_secundaria"]) ? $asignacion["categoria_secundaria"] : 0) === 1;
         if ($idProducto <= 0 || ($idCategoria <= 0 && $idMarca <= 0)) {
           throw new Exception("Una asignacion contiene datos invalidos");
         }
@@ -2085,13 +2087,13 @@ class CatalogoErpDatos extends CRUD {
           if (!$stmt->fetchColumn()) {
             throw new Exception("Una categoria seleccionada no esta activa o no permite productos");
           }
-          if ($forzarPrincipal) {
+          if ($forzarPrincipal && !$categoriaSecundaria) {
             $stmt = $db->prepare("UPDATE erp_catalogo_producto_categorias SET es_principal=0 WHERE id_producto_erp=:producto");
             $stmt->execute(array(":producto" => $idProducto));
           }
           $stmt = $db->prepare("SELECT COUNT(*) FROM erp_catalogo_producto_categorias WHERE id_producto_erp=:producto");
           $stmt->execute(array(":producto" => $idProducto));
-          $esPrincipal = ($forzarPrincipal || intval($stmt->fetchColumn()) === 0) ? 1 : 0;
+          $esPrincipal = $categoriaSecundaria ? 0 : (($forzarPrincipal || intval($stmt->fetchColumn()) === 0) ? 1 : 0);
           $stmt = $db->prepare("INSERT INTO erp_catalogo_producto_categorias (id_producto_erp, id_categoria_erp, es_principal)
             VALUES (:producto, :categoria, :principal)
             ON DUPLICATE KEY UPDATE es_principal=GREATEST(es_principal, VALUES(es_principal))");

@@ -4276,7 +4276,7 @@ class VentasErp extends CRUD {
                     COALESCE(r.requiere_lote, 0) requiere_lote,
                     COALESCE(r.requiere_caducidad, 0) requiere_caducidad,
                     COALESCE(r.requiere_escaneo_venta, 0) requiere_escaneo_venta,
-                    COALESCE(img.url_imagen, img_producto.url_imagen, '') url_imagen,
+                    COALESCE(img_sku.url_imagen, img_producto.url_imagen, '') url_imagen,
                     COALESCE(inv.existencia_disponible, 0) existencia_disponible,
                     COALESCE(inv.cantidad_apartada, 0) cantidad_apartada,
                     COALESCE(inv.unidades_cerradas, 0) unidades_cerradas,
@@ -4289,23 +4289,22 @@ class VentasErp extends CRUD {
                     AND pr.lista_precio='general' AND pr.moneda='MXN' AND pr.estatus='activo'
                 LEFT JOIN erp_catalogo_sku_impuestos imp ON imp.id_sku=s.id_sku
                 LEFT JOIN (
-                    SELECT i.id_producto_erp, i.id_sku, i.url_imagen
+                    SELECT i.id_sku, i.url_imagen
                     FROM erp_catalogo_imagenes i
                     INNER JOIN (
-                        SELECT COALESCE(id_sku, 0) id_sku_clave, id_producto_erp,
-                               MIN(id_imagen_erp) id_imagen_erp
+                        SELECT id_sku, MIN(id_imagen_erp) id_imagen_erp
                         FROM erp_catalogo_imagenes
-                        WHERE estatus='activo'
-                        GROUP BY COALESCE(id_sku, 0), id_producto_erp
+                        WHERE estatus='activo' AND id_sku IS NOT NULL AND TRIM(COALESCE(url_imagen,''))<>''
+                        GROUP BY id_sku
                     ) x ON x.id_imagen_erp=i.id_imagen_erp
-                ) img ON (img.id_sku=s.id_sku OR (img.id_sku IS NULL AND img.id_producto_erp=s.id_producto_erp))
+                ) img_sku ON img_sku.id_sku=s.id_sku
                 LEFT JOIN (
                     SELECT i.id_producto_erp, i.url_imagen
                     FROM erp_catalogo_imagenes i
                     INNER JOIN (
                         SELECT id_producto_erp, MIN(id_imagen_erp) id_imagen_erp
                         FROM erp_catalogo_imagenes
-                        WHERE estatus='activo' AND TRIM(COALESCE(url_imagen,''))<>''
+                        WHERE estatus='activo' AND (id_sku IS NULL OR id_sku=0) AND TRIM(COALESCE(url_imagen,''))<>''
                         GROUP BY id_producto_erp
                     ) x ON x.id_imagen_erp=i.id_imagen_erp
                 ) img_producto ON img_producto.id_producto_erp=s.id_producto_erp
@@ -5453,6 +5452,8 @@ class VentasErp extends CRUD {
             $pagos = $this->decodificarItems($this->valor($datos, "pagos", array()));
             $exigirPagoCompleto = intval($this->valor($datos, "exigir_pago_completo", 1)) === 1;
             $autorizarInventarioPendiente = strtoupper(trim((string) $this->valor($datos, "autorizar_inventario_pendiente_pos", ""))) === "AUTORIZAR INVENTARIO PENDIENTE";
+            $modoInventarioPos = $this->resolverModoInventarioCajaPos($db, $idCaja);
+            $omitirAfectacionInventario = intval($this->valor($modoInventarioPos, "afectar_inventario", 1)) !== 1;
             if ($idAlmacen <= 0) {
                 return $this->respuesta(true, "warning", "Selecciona almacen/punto de venta");
             }
@@ -5472,7 +5473,7 @@ class VentasErp extends CRUD {
             $cliente = $this->resolverClienteDryRun($db, $idCliente, $identificadorCliente, $schemaClientesPendiente);
             $subtotal = 0;
             foreach ($items as $indice => $item) {
-                $validacion = $this->prevalidarPartida($db, $item, $idAlmacen, $indice + 1, $cliente, $canal, $schemaListasPendiente, $autorizarInventarioPendiente);
+                $validacion = $this->prevalidarPartida($db, $item, $idAlmacen, $indice + 1, $cliente, $canal, $schemaListasPendiente, $autorizarInventarioPendiente, $omitirAfectacionInventario);
                 $partidas[] = $validacion;
                 if (!empty($validacion["bloqueos"])) {
                     $bloqueos = array_merge($bloqueos, $validacion["bloqueos"]);
@@ -5499,6 +5500,7 @@ class VentasErp extends CRUD {
                 "bloqueos" => $bloqueos,
                 "bloqueos_operativos" => $bloqueosOperativos,
                 "inventario_pendiente_autorizado" => $autorizarInventarioPendiente,
+                "modo_inventario_pos" => $modoInventarioPos,
                 "totales" => array(
                     "subtotal" => round($subtotal, 6),
                     "total_estimado" => round($subtotal, 6),
@@ -6184,6 +6186,8 @@ class VentasErp extends CRUD {
             "autorizar_inventario_pendiente_pos" => $autorizarInventarioPendiente ? "AUTORIZAR INVENTARIO PENDIENTE" : "",
             "motivo_inventario_pendiente" => $motivoInventarioPendiente
         );
+        $modoInventarioVenta = $this->resolverModoInventarioCajaPos($db, $datosVenta["id_caja"]);
+        $afectarInventarioVenta = intval($this->valor($modoInventarioVenta, "afectar_inventario", 1)) === 1;
 
         $atencionOrigen = null;
         if ($idAtencion > 0) {
@@ -6387,6 +6391,13 @@ class VentasErp extends CRUD {
                 ":fecha_autorizacion_comercial" => $excepcionBloqueada ? $this->valor($excepcionBloqueada, "fecha_autorizacion", null) : null
             ), $paramsClienteCrm));
             $idVenta = intval($db->lastInsertId());
+            if (!$afectarInventarioVenta && $this->columnaExiste($db, "erp_ventas", "inventario_validacion_estado")) {
+                $db->prepare("UPDATE erp_ventas SET inventario_validacion_estado=:estado WHERE id_venta=:venta")
+                    ->execute(array(
+                        ":estado" => $this->valor($modoInventarioVenta, "estado_venta", "registrada_sin_afectar_inventario"),
+                        ":venta" => $idVenta
+                    ));
+            }
 
             $evidenciaInventario = array();
             $detallesGarantia = array();
@@ -6515,9 +6526,24 @@ class VentasErp extends CRUD {
                     ":fecha_autorizacion_comercial" => $aplicaExcepcion && $excepcionBloqueada ? $this->valor($excepcionBloqueada, "fecha_autorizacion", null) : null
                 ));
                 $idDetalle = intval($db->lastInsertId());
+                if (!$afectarInventarioVenta && $this->columnaExiste($db, "erp_ventas_detalle", "inventario_estado")) {
+                    $setsDetallePiloto = array("inventario_estado=:estado");
+                    $paramsDetallePiloto = array(
+                        ":estado" => $this->valor($modoInventarioVenta, "estado_detalle", "sin_afectacion_piloto"),
+                        ":detalle" => $idDetalle
+                    );
+                    if ($this->columnaExiste($db, "erp_ventas_detalle", "permite_inventario_pendiente")) {
+                        $setsDetallePiloto[] = "permite_inventario_pendiente=0";
+                    }
+                    if ($this->columnaExiste($db, "erp_ventas_detalle", "cantidad_inventario_pendiente")) {
+                        $setsDetallePiloto[] = "cantidad_inventario_pendiente=0";
+                    }
+                    $db->prepare("UPDATE erp_ventas_detalle SET " . implode(", ", $setsDetallePiloto) . " WHERE id_venta_detalle=:detalle")
+                        ->execute($paramsDetallePiloto);
+                }
                 $planSalidaPartida = $this->valor($partida, "plan_salida_inventario", array());
                 $cantidadPendientePartida = round(floatval($this->valor($planSalidaPartida, "faltante", $this->valor($planSalidaPartida, "cantidad_pendiente", 0))), 6);
-                if ($cantidadPendientePartida > 0) {
+                if ($afectarInventarioVenta && $cantidadPendientePartida > 0) {
                     if (!$autorizarInventarioPendiente) {
                         throw new Exception("Inventario pendiente detectado sin autorizacion supervisada");
                     }
@@ -6558,7 +6584,7 @@ class VentasErp extends CRUD {
                     "id_producto_erp" => intval($sku["id_producto_erp"]),
                     "id_sku_erp" => intval($sku["id_sku"])
                 );
-                if (intval($this->valor($partida, "controla_inventario", 0)) === 1) {
+                if ($afectarInventarioVenta && intval($this->valor($partida, "controla_inventario", 0)) === 1) {
                     foreach ($this->valorRutaPosReal($partida, array("plan_salida_inventario", "asignaciones"), array()) as $asignacionInv) {
                         $evidenciaInventario[] = $this->aplicarSalidaInventarioPosReal($db, $idVenta, $idDetalle, $folio, $sku, $asignacionInv, $datosVenta["id_almacen"], $idUsuario);
                     }
@@ -6640,6 +6666,7 @@ class VentasErp extends CRUD {
                 ),
                 "inventario" => $evidenciaInventario,
                 "inventario_pendiente" => $pendientesInventario,
+                "modo_inventario_pos" => $modoInventarioVenta,
                 "venta_rapida" => $pendientesVentaRapida,
                 "garantias" => $this->valorRutaPosReal($snapshotsGarantia, array("depurar", "guardados"), array()),
                 "pagos" => $evidenciaPagos,
@@ -7317,6 +7344,7 @@ class VentasErp extends CRUD {
             }
 
             $db->beginTransaction();
+            $columnasModoInventarioCaja = $this->columnaExiste($db, "erp_pos_cajas", "afectar_inventario");
             if ($idCaja > 0) {
                 $cajaActual = $this->cajaPosPorId($db, $idCaja);
                 if (!$cajaActual) {
@@ -7326,13 +7354,16 @@ class VentasErp extends CRUD {
                     && $this->cajaTieneDependenciasOperativas($db, $idCaja)) {
                     throw new Exception("No se puede cambiar la tienda de una caja con turnos, ventas o movimientos");
                 }
+                $setModoInventario = $columnasModoInventarioCaja
+                    ? ", afectar_inventario=:afectar_inventario, modo_operacion_inventario=:modo_operacion_inventario, generar_alertas_inventario=:generar_alertas_inventario"
+                    : "";
                 $stmt = $db->prepare("UPDATE erp_pos_cajas
                     SET codigo=:codigo, nombre=:nombre, id_almacen=:almacen,
                         permite_efectivo=:efectivo, permite_tarjeta=:tarjeta,
-                        permite_transferencia=:transferencia, observaciones=:observaciones,
+                        permite_transferencia=:transferencia$setModoInventario, observaciones=:observaciones,
                         fecha_actualizacion=NOW()
                     WHERE id_caja=:id");
-                $stmt->execute(array(
+                $paramsCaja = array(
                     ":codigo" => $validacion["propuesta"]["codigo"],
                     ":nombre" => $validacion["propuesta"]["nombre"],
                     ":almacen" => $validacion["propuesta"]["id_almacen"],
@@ -7341,13 +7372,21 @@ class VentasErp extends CRUD {
                     ":transferencia" => $validacion["propuesta"]["permite_transferencia"],
                     ":observaciones" => trim((string) $this->valor($datos, "observaciones", "")),
                     ":id" => $idCaja
-                ));
+                );
+                if ($columnasModoInventarioCaja) {
+                    $paramsCaja[":afectar_inventario"] = $validacion["propuesta"]["afectar_inventario"];
+                    $paramsCaja[":modo_operacion_inventario"] = $validacion["propuesta"]["modo_operacion_inventario"];
+                    $paramsCaja[":generar_alertas_inventario"] = $validacion["propuesta"]["generar_alertas_inventario"];
+                }
+                $stmt->execute($paramsCaja);
                 $accion = "actualizada";
             } else {
+                $columnasModoInsert = $columnasModoInventarioCaja ? ", afectar_inventario, modo_operacion_inventario, generar_alertas_inventario" : "";
+                $valoresModoInsert = $columnasModoInventarioCaja ? ", :afectar_inventario, :modo_operacion_inventario, :generar_alertas_inventario" : "";
                 $stmt = $db->prepare("INSERT INTO erp_pos_cajas
-                    (codigo, nombre, id_almacen, estatus, permite_efectivo, permite_tarjeta, permite_transferencia, observaciones, fecha_registro, fecha_actualizacion)
-                    VALUES (:codigo, :nombre, :almacen, 'activa', :efectivo, :tarjeta, :transferencia, :observaciones, NOW(), NOW())");
-                $stmt->execute(array(
+                    (codigo, nombre, id_almacen, estatus, permite_efectivo, permite_tarjeta, permite_transferencia$columnasModoInsert, observaciones, fecha_registro, fecha_actualizacion)
+                    VALUES (:codigo, :nombre, :almacen, 'activa', :efectivo, :tarjeta, :transferencia$valoresModoInsert, :observaciones, NOW(), NOW())");
+                $paramsCaja = array(
                     ":codigo" => $validacion["propuesta"]["codigo"],
                     ":nombre" => $validacion["propuesta"]["nombre"],
                     ":almacen" => $validacion["propuesta"]["id_almacen"],
@@ -7355,7 +7394,13 @@ class VentasErp extends CRUD {
                     ":tarjeta" => $validacion["propuesta"]["permite_tarjeta"],
                     ":transferencia" => $validacion["propuesta"]["permite_transferencia"],
                     ":observaciones" => trim((string) $this->valor($datos, "observaciones", ""))
-                ));
+                );
+                if ($columnasModoInventarioCaja) {
+                    $paramsCaja[":afectar_inventario"] = $validacion["propuesta"]["afectar_inventario"];
+                    $paramsCaja[":modo_operacion_inventario"] = $validacion["propuesta"]["modo_operacion_inventario"];
+                    $paramsCaja[":generar_alertas_inventario"] = $validacion["propuesta"]["generar_alertas_inventario"];
+                }
+                $stmt->execute($paramsCaja);
                 $idCaja = intval($db->lastInsertId());
                 $accion = "creada";
             }
@@ -9392,8 +9437,12 @@ class VentasErp extends CRUD {
         if (!$this->tablaExiste($db, "erp_pos_cajas")) {
             return array();
         }
+        $selectModoInventario = $this->columnaExiste($db, "erp_pos_cajas", "afectar_inventario")
+            ? "c.afectar_inventario, c.modo_operacion_inventario, c.generar_alertas_inventario"
+            : "1 AS afectar_inventario, 'normal' AS modo_operacion_inventario, 1 AS generar_alertas_inventario";
         $sql = "SELECT c.id_caja, c.codigo, c.nombre, c.id_almacen, a.almacen,
-                c.estatus, c.permite_efectivo, c.permite_tarjeta, c.permite_transferencia
+                c.estatus, c.permite_efectivo, c.permite_tarjeta, c.permite_transferencia,
+                $selectModoInventario
             FROM erp_pos_cajas c
             LEFT JOIN erp_almacenes a ON a.id_almacen=c.id_almacen
             WHERE COALESCE(c.estatus, 'activa')='activa'
@@ -9596,14 +9645,58 @@ class VentasErp extends CRUD {
         if (!$db || $idCaja <= 0 || !$this->tablaExiste($db, "erp_pos_cajas")) {
             return null;
         }
+        $selectModoInventario = $this->columnaExiste($db, "erp_pos_cajas", "afectar_inventario")
+            ? "afectar_inventario, modo_operacion_inventario, generar_alertas_inventario"
+            : "1 AS afectar_inventario, 'normal' AS modo_operacion_inventario, 1 AS generar_alertas_inventario";
         $stmt = $db->prepare("SELECT id_caja, codigo, nombre, id_almacen, estatus,
-                permite_efectivo, permite_tarjeta, permite_transferencia
+                permite_efectivo, permite_tarjeta, permite_transferencia,
+                $selectModoInventario
             FROM erp_pos_cajas
             WHERE id_caja=:id AND COALESCE(estatus, 'activa')='activa'
             LIMIT 1");
         $stmt->execute(array(":id" => intval($idCaja)));
         $fila = $stmt->fetch(PDO::FETCH_ASSOC);
         return $fila ?: null;
+    }
+
+    /**
+     * Documentacion IA: Codex GPT-5, 2026-08-18.
+     * Proposito: resolver en backend si la caja POS debe afectar inventario.
+     * Impacto: evita que el navegador decida si se omite kardex; el switch vive en configuracion oficial de caja.
+     * Contrato: si faltan columnas nuevas, asume modo normal con afectacion de inventario.
+     */
+    private function resolverModoInventarioCajaPos($db, $idCaja) {
+        $modo = array(
+            "afectar_inventario" => 1,
+            "modo_operacion_inventario" => "normal",
+            "generar_alertas_inventario" => 1,
+            "estado_venta" => "normal",
+            "estado_detalle" => "normal"
+        );
+        if (!$db || intval($idCaja) <= 0 || !$this->tablaExiste($db, "erp_pos_cajas") || !$this->columnaExiste($db, "erp_pos_cajas", "afectar_inventario")) {
+            return $modo;
+        }
+        $stmt = $db->prepare("SELECT afectar_inventario, modo_operacion_inventario, generar_alertas_inventario
+            FROM erp_pos_cajas
+            WHERE id_caja=:caja AND COALESCE(estatus, 'activa')='activa'
+            LIMIT 1");
+        $stmt->execute(array(":caja" => intval($idCaja)));
+        $fila = $stmt->fetch(PDO::FETCH_ASSOC);
+        if (!$fila) {
+            return $modo;
+        }
+        $afectar = intval($this->valor($fila, "afectar_inventario", 1)) === 1;
+        $modoOperacion = trim((string) $this->valor($fila, "modo_operacion_inventario", "normal"));
+        if (!$afectar || $modoOperacion === "piloto_sin_inventario") {
+            return array(
+                "afectar_inventario" => 0,
+                "modo_operacion_inventario" => "piloto_sin_inventario",
+                "generar_alertas_inventario" => intval($this->valor($fila, "generar_alertas_inventario", 1)) ? 1 : 0,
+                "estado_venta" => "registrada_sin_afectar_inventario",
+                "estado_detalle" => "sin_afectacion_piloto"
+            );
+        }
+        return $modo;
     }
 
     private function configuracionCajaValidarParaGuardar($db, $datos, $idCaja = 0) {
@@ -9617,6 +9710,19 @@ class VentasErp extends CRUD {
             "tarjeta" => intval($this->valor($datos, "permite_tarjeta", 1)) ? 1 : 0,
             "transferencia" => intval($this->valor($datos, "permite_transferencia", 1)) ? 1 : 0
         );
+        $modoInventario = trim((string) $this->valor($datos, "modo_operacion_inventario", "normal"));
+        $afectarInventario = intval($this->valor($datos, "afectar_inventario", $modoInventario === "piloto_sin_inventario" ? 0 : 1)) ? 1 : 0;
+        $generarAlertasInventario = intval($this->valor($datos, "generar_alertas_inventario", 1)) ? 1 : 0;
+        if (!in_array($modoInventario, array("normal", "piloto_sin_inventario"), true)) {
+            $bloqueos[] = "Modo de inventario de caja invalido";
+        }
+        if ($modoInventario === "piloto_sin_inventario") {
+            $afectarInventario = 0;
+            $avisos[] = "Modo piloto: las ventas se registran para caja/reportes, pero no descuentan inventario ni generan kardex.";
+        } elseif (!$afectarInventario) {
+            $modoInventario = "piloto_sin_inventario";
+            $avisos[] = "Se ajusto el modo a piloto porque afectar inventario esta apagado.";
+        }
         $almacen = $this->almacenVentaPorId($db, $idAlmacen);
         if (!$almacen) {
             $bloqueos[] = "Selecciona una tienda/almacen vendible activo";
@@ -9652,6 +9758,9 @@ class VentasErp extends CRUD {
                 "permite_efectivo" => $metodos["efectivo"],
                 "permite_tarjeta" => $metodos["tarjeta"],
                 "permite_transferencia" => $metodos["transferencia"],
+                "afectar_inventario" => $afectarInventario,
+                "modo_operacion_inventario" => $modoInventario,
+                "generar_alertas_inventario" => $generarAlertasInventario,
                 "estatus" => "activa"
             )
         );
@@ -10614,7 +10723,7 @@ class VentasErp extends CRUD {
             LEFT JOIN erp_catalogo_imagenes img_producto ON img_producto.id_producto_erp=s.id_producto_erp AND img_producto.estatus='activo'
                 AND img_producto.id_imagen_erp = (
                     SELECT i3.id_imagen_erp FROM erp_catalogo_imagenes i3
-                    WHERE i3.id_producto_erp=s.id_producto_erp AND i3.estatus='activo'
+                    WHERE i3.id_producto_erp=s.id_producto_erp AND i3.estatus='activo' AND (i3.id_sku IS NULL OR i3.id_sku=0)
                     ORDER BY i3.tipo_imagen='portada' DESC, i3.id_imagen_erp ASC
                     LIMIT 1
                 )
@@ -10757,7 +10866,7 @@ class VentasErp extends CRUD {
         return array("vendible" => false, "modo" => "bloqueada", "mensaje" => "Estado fisico no vendible en POS");
     }
 
-    private function prevalidarPartida($db, $item, $idAlmacen, $renglon, $cliente = array(), $canal = "pos", $schemaListasPendiente = true, $autorizarInventarioPendiente = false) {
+    private function prevalidarPartida($db, $item, $idAlmacen, $renglon, $cliente = array(), $canal = "pos", $schemaListasPendiente = true, $autorizarInventarioPendiente = false, $omitirAfectacionInventario = false) {
         if ($this->esPartidaVentaRapidaControlada($item)) {
             return $this->prevalidarPartidaVentaRapidaControlada($item, $idAlmacen, $renglon);
         }
@@ -10805,8 +10914,16 @@ class VentasErp extends CRUD {
             $this->unidadesDisponiblesVenta($db, $idSku, $idAlmacen)
         );
         $planSalida = $this->planSalidaInventario($db, $idSku, $idAlmacen, $cantidad, $modo, $idUnidad);
+        if ($omitirAfectacionInventario) {
+            $planSalida = array(
+                "modo" => "sin_afectacion_piloto",
+                "asignaciones" => array(),
+                "faltante" => 0,
+                "sin_afectacion_inventario" => true
+            );
+        }
 
-        if (intval($sku["controla_inventario"]) === 1 && $cantidad > floatval($disponibilidad["disponible"]) + 0.0001) {
+        if (!$omitirAfectacionInventario && intval($sku["controla_inventario"]) === 1 && $cantidad > floatval($disponibilidad["disponible"]) + 0.0001) {
             $cantidadPendiente = round(max(0, $cantidad - floatval($disponibilidad["disponible"])), 6);
             $precioReferencia = round(floatval($this->valor($item, "precio_unitario", $this->valor($sku, "precio", 0))), 6);
             $politicaPendiente = $this->consultarPoliticaInventarioPendientePos($db, $idSku, $idAlmacen, $canal, $cantidadPendiente, round($cantidadPendiente * $precioReferencia, 6));
@@ -10824,7 +10941,7 @@ class VentasErp extends CRUD {
             }
         }
 
-        if ($idUnidad > 0 || $modo === "unidad_cerrada" || $modo === "granel_unidad_abierta") {
+        if (!$omitirAfectacionInventario && ($idUnidad > 0 || $modo === "unidad_cerrada" || $modo === "granel_unidad_abierta")) {
             $unidad = $idUnidad > 0 ? $this->consultarUnidadPorId($db, $idUnidad, $idAlmacen) : null;
             if (!$unidad) {
                 $bloqueos[] = "Selecciona una unidad fisica valida";
@@ -10873,6 +10990,7 @@ class VentasErp extends CRUD {
             "permite_venta_fraccionaria" => intval($sku["permite_venta_fraccionaria"]),
             "disponibilidad" => $disponibilidad,
             "plan_salida_inventario" => $planSalida,
+            "sin_afectacion_inventario" => $omitirAfectacionInventario ? 1 : 0,
             "bloqueos" => $bloqueos
         );
     }

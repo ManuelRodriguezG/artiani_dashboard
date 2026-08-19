@@ -18,6 +18,7 @@
     var mostrarSkusArchivados = false;
     var permisos = window.CATALOGO_PERMISOS || {};
     var productosPaginaActual = [];
+    var productosFiltradosActual = [];
     var productosSeleccionados = {};
     var componentesPaqueteForm = [];
     var paqueteGrupoActualId = 0;
@@ -159,6 +160,7 @@
             return cumpleEstatus && cumpleSaneamiento && [producto.codigo_producto, producto.nombre, producto.marca, producto.categoria, producto.tipo_producto, skusTexto]
                 .join(" ").toLowerCase().indexOf(filtro) !== -1;
         });
+        productosFiltradosActual = visibles.map(function (producto) { return String(producto.id_producto_erp); });
         var totalPaginas = Math.max(1, Math.ceil(visibles.length / tamanoPagina));
         if (paginaActual > totalPaginas) {
             paginaActual = totalPaginas;
@@ -175,15 +177,19 @@
             var alertasSaneamiento = renderAlertasSaneamientoProducto(producto);
             var tabSaneamiento = tabDetallePorFiltroSaneamiento(modoSaneamiento);
             var seleccion = permisos.editar ? "<td><input class=\"form-check-input\" type=\"checkbox\" data-seleccionar-producto=\"" + escapeAttr(producto.id_producto_erp) + "\"" + (productosSeleccionados[String(producto.id_producto_erp)] ? " checked" : "") + "></td>" : "";
+            var categoria = producto.categoria
+                ? "<span class=\"badge badge-light-success text-start text-wrap\">" + escapeHtml(producto.categoria) + "</span>"
+                : "<span class=\"badge badge-light-warning\">Sin categoria</span>";
             return "<tr>" + seleccion + "<td class=\"fw-bold text-nowrap\">" + escapeHtml(producto.codigo_producto) + "</td>" +
                 "<td>" + imagenPortadaProductoHtml(producto) + "</td>" +
                 "<td><div class=\"fw-bold\">" + escapeHtml(producto.nombre) + "</div><span class=\"text-muted fs-7\">" + escapeHtml(totalSkus || 0) + " SKU</span>" + notaArchivados + alertasSaneamiento + "</td>" +
                 "<td>" + escapeHtml(producto.marca || "Sin marca") + "</td>" +
+                "<td style=\"min-width:180px;max-width:260px;\">" + categoria + "</td>" +
                 "<td><span class=\"badge badge-light-primary\">" + escapeHtml(producto.tipo_producto) + "</span></td>" +
                 "<td>" + escapeHtml(skusTexto || (modoEstatus === "vigentes" ? "Sin SKU vigente" : "Sin SKU")) + "</td>" +
                 "<td><span class=\"badge badge-light-" + claseEstatusMaestro(producto.estatus) + "\">" + escapeHtml(producto.estatus) + "</span></td>" +
                 "<td class=\"text-end\"><button class=\"btn btn-sm btn-icon btn-light-primary\" title=\"" + (permisos.editar ? "Administrar producto" : "Ver producto") + "\" data-producto=\"" + producto.id_producto_erp + "\" data-detalle-tab=\"" + escapeAttr(tabSaneamiento) + "\"><i class=\"bi " + (permisos.editar ? "bi-pencil-square" : "bi-eye") + "\"></i></button></td></tr>";
-        }).join("") || "<tr><td colspan=\"" + (permisos.editar ? "9" : "8") + "\" class=\"text-center text-muted py-10\">Aún no hay productos en el catálogo ERP</td></tr>";
+        }).join("") || "<tr><td colspan=\"" + (permisos.editar ? "10" : "9") + "\" class=\"text-center text-muted py-10\">Aún no hay productos en el catálogo ERP</td></tr>";
         document.getElementById("catalogo_total").textContent = visibles.length + " productos";
         actualizarPaginacion(visibles.length, totalPaginas, inicio, pagina.length);
         actualizarEstadoSeleccionMasiva();
@@ -308,7 +314,7 @@
         var seleccionarPagina = document.getElementById("catalogo_seleccionar_pagina");
         var total = productosSeleccionadosIds().length;
         if (info) {
-            info.textContent = total ? total + " producto(s) seleccionados para actualizacion masiva." : "Selecciona productos visibles para aplicar marca, categoria, estado maestro o proveedor por bloque.";
+            info.textContent = total ? total + " producto(s) seleccionados para actualizacion masiva." : "Selecciona productos visibles o hasta 250 filtrados para aplicar marca, categoria, estado maestro o proveedor por bloque.";
         }
         if (seleccionarPagina) {
             seleccionarPagina.checked = productosPaginaActual.length > 0 && productosPaginaActual.every(function (id) {
@@ -321,6 +327,38 @@
     }
 
     /**
+     * IA: Codex GPT-5 | Fecha: 2026-08-14
+     * Proposito: selecciona por lote los productos que cumplen los filtros activos sin limitarse a la pagina visible.
+     * Impacto: Catalogo ERP; acelera reclasificacion post-limpieza manteniendo un limite seguro para endpoints masivos.
+     */
+    function seleccionarProductosFiltrados() {
+        var limite = 250;
+        var ids = productosFiltradosActual.slice(0, limite);
+        productosSeleccionados = {};
+        ids.forEach(function (id) {
+            productosSeleccionados[id] = true;
+        });
+        render();
+        if (productosFiltradosActual.length > limite && window.Swal) {
+            Swal.fire({
+                text: "Se seleccionaron los primeros " + limite + " productos filtrados. Aplica el cambio y continua con el siguiente bloque.",
+                icon: "info",
+                confirmButtonText: "Entendido"
+            });
+        }
+    }
+
+    /**
+     * IA: Codex GPT-5 | Fecha: 2026-08-14
+     * Proposito: limpia la seleccion temporal de productos sin modificar datos.
+     * Impacto: Catalogo ERP; evita aplicar acciones masivas sobre selecciones viejas.
+     */
+    function limpiarSeleccionProductos() {
+        productosSeleccionados = {};
+        render();
+    }
+
+    /**
      * IA: Codex GPT-5 | Fecha: 2026-06-25
      * Proposito: aplica marca, categoria y estado maestro a productos seleccionados desde la bandeja de saneamiento.
      * Impacto: Catalogo ERP; acelera limpieza de migracion usando contratos auditados sin abrir cada producto.
@@ -329,6 +367,7 @@
         var errorBox = document.getElementById("catalogo_masivo_error");
         var marca = document.getElementById("catalogo_masivo_marca");
         var categoria = document.getElementById("catalogo_masivo_categoria");
+        var categoriaModo = document.getElementById("catalogo_masivo_categoria_modo");
         var estatus = document.getElementById("catalogo_masivo_estatus");
         var proveedor = document.getElementById("catalogo_masivo_proveedor");
         var unidadCompra = document.getElementById("catalogo_masivo_unidad_compra");
@@ -337,6 +376,7 @@
         var ids = productosSeleccionadosIds();
         var idMarca = marca ? marca.value : "";
         var idCategoria = categoria ? categoria.value : "";
+        var modoCategoria = categoriaModo ? categoriaModo.value : "principal";
         var estatusMaestro = estatus ? estatus.value : "";
         var idProveedor = proveedor ? proveedor.value : "";
         var idUnidadCompra = unidadCompra ? unidadCompra.value : "";
@@ -372,12 +412,13 @@
             }
             var detalleProveedor = "";
             var detalleEstatus = estatusMaestro ? " El estado maestro cambiara a " + estatusMaestro + "." : "";
+            var detalleCategoria = idCategoria ? " La categoria se aplicara como " + (modoCategoria === "secundaria" ? "secundaria" : "principal") + "." : "";
             if (simulacion && simulacion.depurar) {
                 detalleProveedor = " Se relacionaran " + Number(simulacion.depurar.skus_relacionables || 0) +
                     " SKU(s) sin proveedor de " + Number(simulacion.depurar.productos_afectados || 0) + " producto(s).";
             }
             return Swal.fire({
-                text: "Se actualizaran " + ids.length + " producto(s) seleccionados." + detalleEstatus + detalleProveedor,
+                text: "Se actualizaran " + ids.length + " producto(s) seleccionados." + detalleCategoria + detalleEstatus + detalleProveedor,
                 icon: "warning",
                 showCancelButton: true,
                 confirmButtonText: "Aplicar",
@@ -397,7 +438,8 @@
                         id_producto_erp: id,
                         id_marca_erp: idMarca,
                         id_categoria_erp: idCategoria,
-                        forzar_categoria_principal: 1
+                        forzar_categoria_principal: modoCategoria === "secundaria" ? 0 : 1,
+                        categoria_secundaria: modoCategoria === "secundaria" ? 1 : 0
                     };
                 });
                 tareas.push(request("/catalogoerp/metadatos_revision_aplicar", {
@@ -428,6 +470,7 @@
                 productosSeleccionados = {};
                 if (marca) { marca.value = ""; }
                 if (categoria) { categoria.value = ""; }
+                if (categoriaModo) { categoriaModo.value = "principal"; }
                 if (estatus) { estatus.value = ""; }
                 if (proveedor) { proveedor.value = ""; }
                 if (unidadCompra) { unidadCompra.value = ""; }
@@ -3914,6 +3957,14 @@
                 });
                 render();
             });
+        }
+        var seleccionarFiltrados = document.getElementById("catalogo_seleccionar_filtrados");
+        if (seleccionarFiltrados) {
+            seleccionarFiltrados.addEventListener("click", seleccionarProductosFiltrados);
+        }
+        var limpiarSeleccion = document.getElementById("catalogo_limpiar_seleccion");
+        if (limpiarSeleccion) {
+            limpiarSeleccion.addEventListener("click", limpiarSeleccionProductos);
         }
         var aplicarMasivo = document.getElementById("catalogo_masivo_aplicar");
         if (aplicarMasivo) {

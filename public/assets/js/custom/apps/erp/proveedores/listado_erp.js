@@ -99,6 +99,28 @@
         }
     }
 
+    function normalizarImagenUrlProveedor(url) {
+        url = String(url || "").trim();
+        if (!url) {
+            return "";
+        }
+        if (/^https?:\/\//i.test(url) || url.indexOf("/") === 0) {
+            return url;
+        }
+        return "/" + url;
+    }
+
+    function imagenListaDetalleHtml(renglon) {
+        var src = normalizarImagenUrlProveedor(renglon && renglon.url_imagen);
+        var titulo = (renglon && (renglon.sku_nombre || renglon.descripcion_proveedor || renglon.sku_erp)) || "Producto";
+        if (!src) {
+            return "<div class=\"rounded border bg-light d-flex align-items-center justify-content-center flex-shrink-0\" title=\"Sin imagen en Catalogo\" style=\"width:46px;height:46px;\">" +
+                "<i class=\"bi bi-image text-muted fs-3\"></i></div>";
+        }
+        return "<div class=\"rounded border bg-light flex-shrink-0\" title=\"" + esc(titulo) + "\" style=\"width:46px;height:46px;background-image:url('" +
+            esc(src) + "');background-size:cover;background-position:center;\"></div>";
+    }
+
     function cargar() {
         var body = document.getElementById("proveedores_erp_body");
         body.innerHTML = "<tr><td colspan=\"7\" class=\"text-center text-muted py-8\">Cargando proveedores...</td></tr>";
@@ -1234,8 +1256,9 @@
             var eliminar = permisos.listas && !x.id_sku_proveedor && ["relacion_aplicada", "costo_aplicado"].indexOf(String(x.estado_match || "")) < 0
                 ? "<button class=\"btn btn-sm btn-icon btn-light-danger me-2\" type=\"button\" title=\"Eliminar renglon\" data-eliminar-renglon=\"" + esc(x.id_lista_detalle_erp) + "\"><i class=\"bi bi-trash\"></i></button>"
                 : "";
+            var skuCatalogo = x.sku_erp ? "<div class=\"text-muted fs-8\">ERP: " + esc(x.sku_erp) + (x.sku_nombre ? " | " + esc(x.sku_nombre) : "") + "</div>" : "";
             return "<tr>" +
-                "<td><div class=\"fw-bold\">" + esc(sku) + "</div><span class=\"text-muted fs-8\">" + esc(x.marca_proveedor || "") + "</span></td>" +
+                "<td><div class=\"d-flex align-items-center gap-3\">" + imagenListaDetalleHtml(x) + "<div class=\"min-w-0\"><div class=\"fw-bold\">" + esc(sku) + "</div><span class=\"text-muted fs-8\">" + esc(x.marca_proveedor || "") + "</span>" + skuCatalogo + "</div></div></td>" +
                 "<td>" + esc(x.descripcion_proveedor || "-") + "</td>" +
                 "<td>" + esc(unidad) + estadoCompra + "</td>" +
                 "<td class=\"text-end\">" + esc(costo) + "</td>" +
@@ -1438,10 +1461,10 @@
         var cantidadMinima = Number(x.cantidad_minima || 0);
         var moneda = String(x.moneda || "").trim();
         var compraCompleta = idUnidad > 0 && factor > 0 && cantidadMinima > 0;
-        var requiereCompra = idSku > 0 && ["match_seleccionado", "relacion_aplicada", "costo_aplicado"].indexOf(estado) >= 0;
+        var requiereCompra = idSku > 0 && ["match_exacto_pendiente", "match_seleccionado", "relacion_aplicada", "costo_aplicado"].indexOf(estado) >= 0;
 
         return {
-            listoRelacion: idSku > 0 && idSkuProveedor <= 0 && estado === "match_seleccionado" && compraCompleta,
+            listoRelacion: idSku > 0 && idSkuProveedor <= 0 && ["match_exacto_pendiente", "match_seleccionado"].indexOf(estado) >= 0 && compraCompleta,
             listoCosto: idSku > 0 && idSkuProveedor > 0 && ["match_seleccionado", "relacion_aplicada", "costo_aplicado"].indexOf(estado) >= 0 && costo > 0 && moneda !== "" && idUnidad > 0 && factor > 0,
             compraPendiente: requiereCompra && !compraCompleta
         };
@@ -1461,7 +1484,7 @@
         var estado = String(x.estado_match || "");
         return Number(x.id_sku || 0) > 0 ||
             Number(x.id_sku_proveedor || 0) > 0 ||
-            ["match_seleccionado", "relacionado", "relacion_aplicada", "costo_aplicado"].indexOf(estado) >= 0;
+            ["match_exacto_pendiente", "match_seleccionado", "relacionado", "relacion_aplicada", "costo_aplicado"].indexOf(estado) >= 0;
     }
 
     function actualizarBotonesFiltroDetalle() {

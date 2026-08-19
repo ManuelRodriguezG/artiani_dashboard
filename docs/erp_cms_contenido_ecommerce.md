@@ -22,6 +22,7 @@ Avance Media 2026-08-14:
 - Permite seleccionar imagenes JPG/PNG/WebP desde el equipo, validar peso/tipo, capturar alt text, clasificar uso/tipo, previsualizar, copiar referencia, archivar y limpiar archivados.
 - `/cms/frontend/home` ya puede abrir un selector `Media` en campos de imagen de Hero, Categorias y Banner; toma imagen y alt text desde la biblioteca local.
 - El modal `Media` de Home tambien permite cargar una imagen nueva y usarla en el momento, sin obligar a ir primero a `/cms/media`; la galeria queda visible con filtro opcional.
+- La galeria del modal ya muestra `Preview seleccionado` antes de aplicar una imagen existente; el usuario confirma con `Usar imagen seleccionada`.
 - No sube archivos al servidor, no borra archivos fisicos y no guarda BD; prepara el flujo antes de activar persistencia real de media.
 
 Prioridad nueva:

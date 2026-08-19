@@ -641,3 +641,91 @@ Guardrails:
 - Cerrar el editor no guarda cambios.
 - Cerrar el editor no limpia productos seleccionados.
 - No modifica publicaciones, inventario ni catalogo base.
+
+## Ajuste borradores incompletos 2026-08-15
+
+Problema detectado:
+
+- La configuracion masiva podia reportar lote procesado, pero no dejaba productos en `borrador` si el SKU aun tenia bloqueos de publicabilidad.
+- Bloqueos como precio faltante, imagen faltante o categoria principal faltante estaban impidiendo crear borrador.
+- Operativamente eso frenaba la preparacion, porque el borrador debe servir para curar/configurar antes de publicar.
+
+Decision:
+
+- Crear borrador y publicar son etapas separadas.
+- Un producto puede quedar en `borrador` aunque no sea publicable todavia.
+- La publicacion real sigue bloqueada hasta resolver requisitos de Fase 1.
+
+Cambios aplicados:
+
+- `planGuardarPublicacion` ahora separa:
+  - `bloqueos_validacion_borrador`;
+  - `bloqueos_publicabilidad`.
+- `guardarPublicacionBorradorAutorizada` solo bloquea por errores de validacion de borrador.
+- Faltantes de precio, imagen, categoria o regla de granel quedan como pendientes de publicabilidad.
+- La configuracion masiva muestra resumen de `OK`, errores y advertencias de pendientes.
+
+Guardrails:
+
+- Un borrador incompleto no se publica automaticamente.
+- Publicar sigue validando precio, imagen, categoria y reglas de no granel.
+- No se toca inventario, precios ERP, imagenes ni categoria base.
+
+## Categorias publicas jerarquicas 2026-08-15
+
+Necesidad frontend:
+
+- Construir mega menu de categorias, home "Comprar por categoria" y landings SEO `/categoria/{slug}` sin leer archivos internos ni tablas ERP.
+- Dejar de depender de fallbacks locales para `/categoria/aves`, `/marca/{slug}` y rutas limpias.
+
+Cambios aplicados:
+
+- Nuevo endpoint publico `GET /ecommercePublico/categorias`.
+- `GET /ecommercePublico/navegacion` ahora incluye `categorias_arbol` para mega menu.
+- `GET /ecommercePublico/catalogo` acepta:
+  - `categoria=526`;
+  - `categoria_slug=jaulas`;
+  - `incluir_hijos=1`.
+- `GET /ecommercePublico/catalogo_manifest` anuncia `categoria_slug`, `incluir_hijos` y endpoint `/categorias`.
+
+Contrato categoria:
+
+- `id`
+- `parent_id`
+- `nombre`
+- `nombre_completo`
+- `slug_publico`
+- `nivel`
+- `orden`
+- `total_productos`
+- `visible_frontend`
+- `imagen_menu`
+- `imagen_card`
+- `imagen_banner`
+- `descripcion_corta`
+- `seo_title`
+- `seo_description`
+- `url`
+- `api_catalogo`
+- `children` en arbol
+
+Reglas:
+
+- Solo deriva de publicaciones ecommerce `publicado`.
+- Excluye granel/fraccionario bloqueado.
+- No muestra stock exacto.
+- Incluye categorias padre cuando tienen hijos con productos publicados.
+- Si no existe columna padre real, reconstruye jerarquia por `ruta`.
+- Slug publico se genera estable desde nombre; si hay duplicado se agrega el id.
+
+Pendiente CMS:
+
+- Persistir por categoria imagenes y textos reales:
+  - `imagen_menu`;
+  - `imagen_card`;
+  - `imagen_banner`;
+  - `descripcion_corta`;
+  - `seo_title`;
+  - `seo_description`;
+  - `orden`;
+  - destacado en home.

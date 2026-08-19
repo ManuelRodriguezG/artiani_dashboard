@@ -180,11 +180,17 @@
         document.getElementById("pos_config_cajas").innerHTML = filas.map(function (item) {
             var metodos = [];
             var activo = String(item.estatus || "activa") === "activa";
+            var afectaInventario = numeroConDefault(item.afectar_inventario, 1);
+            var modoInventario = String(item.modo_operacion_inventario || (afectaInventario === 1 ? "normal" : "piloto_sin_inventario"));
+            var inventarioNormal = afectaInventario === 1 && modoInventario !== "piloto_sin_inventario";
+            var badgeInventario = inventarioNormal
+                ? "<span class=\"badge badge-light-success me-1\">Inventario normal</span>"
+                : "<span class=\"badge badge-light-warning me-1\">Piloto sin inventario</span>";
             if (Number(item.permite_efectivo || 0)) { metodos.push("Efectivo"); }
             if (Number(item.permite_tarjeta || 0)) { metodos.push("Tarjeta"); }
             if (Number(item.permite_transferencia || 0)) { metodos.push("Transferencia"); }
             return "<tr><td><div class=\"fw-bold\">" + escapeHtml(item.codigo || "-") + "</div><div class=\"text-muted fs-8\">" + escapeHtml(item.nombre || "") + "</div></td>" +
-                "<td>" + escapeHtml(item.almacen || item.id_almacen || "-") + "</td><td>" + metodos.map(function (metodo) { return "<span class=\"badge badge-light me-1\">" + escapeHtml(metodo) + "</span>"; }).join("") + "</td>" +
+                "<td>" + escapeHtml(item.almacen || item.id_almacen || "-") + "</td><td>" + metodos.map(function (metodo) { return "<span class=\"badge badge-light me-1\">" + escapeHtml(metodo) + "</span>"; }).join("") + "<div class=\"mt-1\">" + badgeInventario + "</div></td>" +
                 "<td><span class=\"badge " + (activo ? "badge-light-success" : "badge-light") + "\">" + escapeHtml(item.estatus || "activa") + "</span></td>" +
                 "<td class=\"text-end\"><button class=\"btn btn-sm btn-light-primary me-2\" type=\"button\" data-pos-config-editar=\"caja\" data-id=\"" + escapeHtml(item.id_caja || "") + "\"><i class=\"bi bi-pencil\"></i></button>" +
                 (activo ? "<button class=\"btn btn-sm btn-light-danger\" type=\"button\" data-pos-config-desactivar=\"caja\" data-id=\"" + escapeHtml(item.id_caja || "") + "\"><i class=\"bi bi-slash-circle\"></i></button>" : "<span class=\"badge badge-light\">Historico</span>") + "</td></tr>";
@@ -258,7 +264,12 @@
         return document.getElementById(id).checked ? "1" : "0";
     }
 
+    function numeroConDefault(value, defaultValue) {
+        return value === undefined || value === null || value === "" ? Number(defaultValue) : Number(value);
+    }
+
     function datosCaja() {
+        var modoInventario = document.getElementById("pos_cfg_caja_modo_inventario").value;
         return {
             id_caja: document.getElementById("pos_cfg_caja_id").value,
             id_almacen: document.getElementById("pos_cfg_caja_almacen").value,
@@ -266,7 +277,10 @@
             nombre: document.getElementById("pos_cfg_caja_nombre").value.trim(),
             permite_efectivo: bool("pos_cfg_caja_efectivo"),
             permite_tarjeta: bool("pos_cfg_caja_tarjeta"),
-            permite_transferencia: bool("pos_cfg_caja_transferencia")
+            permite_transferencia: bool("pos_cfg_caja_transferencia"),
+            modo_operacion_inventario: modoInventario,
+            afectar_inventario: modoInventario === "piloto_sin_inventario" ? "0" : "1",
+            generar_alertas_inventario: bool("pos_cfg_caja_alertas_inventario")
         };
     }
 
@@ -412,6 +426,8 @@
             document.getElementById("pos_cfg_caja_efectivo").checked = Number(item.permite_efectivo || 0) === 1;
             document.getElementById("pos_cfg_caja_tarjeta").checked = Number(item.permite_tarjeta || 0) === 1;
             document.getElementById("pos_cfg_caja_transferencia").checked = Number(item.permite_transferencia || 0) === 1;
+            document.getElementById("pos_cfg_caja_modo_inventario").value = item.modo_operacion_inventario || (numeroConDefault(item.afectar_inventario, 1) === 1 ? "normal" : "piloto_sin_inventario");
+            document.getElementById("pos_cfg_caja_alertas_inventario").checked = numeroConDefault(item.generar_alertas_inventario, 1) === 1;
         } else if (tipo === "terminal") {
             item = buscarPorId(estado.terminales, "id_terminal_pos", id);
             if (!item) { return; }
@@ -481,6 +497,8 @@
             if (element) { element.value = ""; }
         });
         document.getElementById("pos_cfg_asig_prioridad").value = "1";
+        document.getElementById("pos_cfg_caja_modo_inventario").value = "normal";
+        document.getElementById("pos_cfg_caja_alertas_inventario").checked = true;
         document.getElementById("pos_config_validacion_resultado").innerHTML = "";
     }
 

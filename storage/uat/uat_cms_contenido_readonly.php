@@ -318,6 +318,10 @@ if (strpos((string) $jsFrontendActual, "function prepararMediaDesdeModal") === f
 if (strpos((string) $jsFrontendActual, "function agregarYUsarMediaDesdeModal") === false) { $bloqueos[] = "js_frontend_actual_sin_agregar_y_usar_media"; }
 if (strpos((string) $jsFrontendActual, "Galeria disponible") === false) { $bloqueos[] = "js_frontend_actual_modal_sin_galeria"; }
 if (strpos((string) $jsFrontendActual, "Filtro opcional") === false) { $bloqueos[] = "js_frontend_actual_modal_sin_filtro_opcional"; }
+if (strpos((string) $jsFrontendActual, "cms_actual_media_preview_seleccion") === false) { $bloqueos[] = "js_frontend_actual_modal_sin_preview_seleccion"; }
+if (strpos((string) $jsFrontendActual, "function seleccionarMediaPreview") === false) { $bloqueos[] = "js_frontend_actual_sin_seleccion_preview_media"; }
+if (strpos((string) $jsFrontendActual, "function renderMediaPickerPreview") === false) { $bloqueos[] = "js_frontend_actual_sin_render_preview_media"; }
+if (strpos((string) $jsFrontendActual, "Usar imagen seleccionada") === false) { $bloqueos[] = "js_frontend_actual_sin_boton_usar_media_preview"; }
 if (strpos((string) $jsMedia, "function renderBibliotecaMedia") === false) { $bloqueos[] = "js_media_sin_render_biblioteca"; }
 if (strpos((string) $jsMedia, "function agregarArchivoLocal") === false) { $bloqueos[] = "js_media_sin_agregar_local"; }
 if (strpos((string) $jsMedia, "function limpiarArchivados") === false) { $bloqueos[] = "js_media_sin_limpiar_archivados"; }

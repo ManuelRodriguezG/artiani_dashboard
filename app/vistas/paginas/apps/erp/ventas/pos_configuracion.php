@@ -90,6 +90,20 @@
                                                 <label class="form-check form-check-custom form-check-solid"><input class="form-check-input" id="pos_cfg_caja_tarjeta" type="checkbox" checked><span class="form-check-label">Tarjeta</span></label>
                                                 <label class="form-check form-check-custom form-check-solid"><input class="form-check-input" id="pos_cfg_caja_transferencia" type="checkbox" checked><span class="form-check-label">Transferencia</span></label>
                                             </div>
+                                            <div class="col-md-5">
+                                                <label class="form-label text-muted fs-8 text-uppercase">Inventario en ventas</label>
+                                                <select class="form-select form-select-solid" id="pos_cfg_caja_modo_inventario">
+                                                    <option value="normal">Normal: descuenta inventario y kardex</option>
+                                                    <option value="piloto_sin_inventario">Piloto: registra venta sin afectar inventario</option>
+                                                </select>
+                                            </div>
+                                            <div class="col-md-3">
+                                                <label class="form-label text-muted fs-8 text-uppercase">Alertas inventario</label>
+                                                <label class="form-check form-check-custom form-check-solid mt-3"><input class="form-check-input" id="pos_cfg_caja_alertas_inventario" type="checkbox" checked><span class="form-check-label">Generar alertas si aplica</span></label>
+                                            </div>
+                                            <div class="col-md-4">
+                                                <div class="alert alert-light-warning py-3 mb-0 fs-7">Piloto conserva venta, caja, ticket y reportes; no descuenta stock ni crea kardex.</div>
+                                            </div>
                                         </div>
                                     </div>
                                     <div class="tab-pane fade" id="pos_config_tab_terminal" role="tabpanel">
@@ -277,6 +291,6 @@
 </div>
 <script src="assets/plugins/global/plugins.bundle.js"></script>
 <script src="assets/js/scripts.bundle.js"></script>
-<script src="/assets/js/custom/apps/erp/ventas/pos_configuracion.js?v=20260725-operativo1"></script>
+<script src="/assets/js/custom/apps/erp/ventas/pos_configuracion.js?v=20260818-modo-inventario-pos1"></script>
 </body>
 </html>

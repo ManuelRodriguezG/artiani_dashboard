@@ -943,12 +943,12 @@
 
     /**
      * IA: Codex GPT-5 | Fecha: 2026-07-11
-     * Proposito: separa el arbol principal ERP de categorias heredadas de ecommerce sin borrar datos.
-     * Impacto: Configuracion de Catalogo ERP; muestra raices como Acuario primero y deja ECOM-CAT como legado filtrable.
+     * Proposito: separa el arbol operativo vigente de categorias historicas/ecommerce sin borrar datos.
+     * Impacto: Configuracion de Catalogo ERP; muestra por defecto solo categorias activas y evita mezclar CLAS-HIST/ECOM en el arbol de trabajo.
      */
     function categoriaCumpleFiltroTipo(categoria, filtro) {
         if (filtro === "principal") {
-            return categoria.tipo_categoria === "maestra" && !categoriaEsLegadoEcommerce(categoria);
+            return categoria.estatus === "activa" && categoria.tipo_categoria === "maestra" && !categoriaEsLegadoEcommerce(categoria);
         }
         if (filtro === "ecommerce") {
             return categoriaEsLegadoEcommerce(categoria);
@@ -960,7 +960,13 @@
     }
 
     function categoriaEsLegadoEcommerce(categoria) {
-        return categoria.tipo_categoria === "legado_canal" || /^ECOM-CAT-/i.test(String(categoria.codigo || ""));
+        var codigo = String(categoria.codigo || "");
+        var origen = String(categoria.origen || "");
+        return categoria.tipo_categoria === "legado_canal" ||
+            origen === "ecommerce" ||
+            /^ECOM-CAT-/i.test(codigo) ||
+            /^CLAS-HIST-/i.test(codigo) ||
+            /^CAT-HIST-/i.test(codigo);
     }
 
     /**
@@ -1383,7 +1389,7 @@
     function llenarPadres(idCategoriaActual) {
         idCategoriaActual = Number(idCategoriaActual || 0);
         document.getElementById("aux_categoria_padre").innerHTML = "<option value=\"\">Nivel raíz</option>" + datos.categorias.filter(function (x) {
-            return x.tipo_categoria === "maestra" && !categoriaEsLegadoEcommerce(x) && Number(x.id_categoria_erp) !== idCategoriaActual && !categoriaEsDescendienteFrontend(Number(x.id_categoria_erp), idCategoriaActual);
+            return x.estatus === "activa" && x.tipo_categoria === "maestra" && !categoriaEsLegadoEcommerce(x) && Number(x.id_categoria_erp) !== idCategoriaActual && !categoriaEsDescendienteFrontend(Number(x.id_categoria_erp), idCategoriaActual);
         }).map(function (x) {
             return "<option value=\"" + x.id_categoria_erp + "\">" + escapeHtml(x.ruta || x.nombre) + "</option>";
         }).join("");

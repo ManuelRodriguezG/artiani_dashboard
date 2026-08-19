@@ -3338,3 +3338,731 @@ Contenido:
 Siguiente paso:
 
 - Preparar mapa de equivalencias read-only antes de cualquier cambio en BD.
+
+## Actualizacion 2026-08-14 - Plan de migracion de relaciones de categorias
+
+Contexto: el dueno del proyecto confirmo que el arbol 1-6 ya puede considerarse base para comenzar a reemplazar categorias existentes.
+
+Documento creado:
+
+- `docs/erp_catalogo_categorias_migracion_relaciones_plan.md`.
+
+Auditoria read-only:
+
+- Script: `storage/uat/uat_catalogo_categorias_relaciones_readonly.php`.
+
+Resultado:
+
+- Productos totales: 1610.
+- Productos activos: 1416.
+- Relaciones producto-categoria actuales: 6979.
+- Relaciones principales: 1377.
+- Productos con al menos una categoria: 1380.
+- Productos sin categoria: 230.
+- Productos sin categoria principal: 233.
+- Relaciones hacia categorias maestras ERP: 5162.
+- Relaciones hacia categorias heredadas/ecommerce: 1817.
+
+Decision:
+
+- Es posible eliminar todas las relaciones de productos con categorias, pero no se recomienda como primer paso.
+- Recomendacion: crear/ajustar arbol nuevo 1-6, generar mapa de equivalencias y migrar categorias principales por grupos.
+- Solo considerar limpieza total si se acepta dejar temporalmente productos sin categoria y existe respaldo externo completo.
+
+Siguiente paso:
+
+- Crear mapa read-only de equivalencias `categoria actual -> categoria destino propuesta`.
+
+## Actualizacion 2026-08-14 - Ruta acelerada para reclasificar categorias
+
+Contexto: el dueno del proyecto aclaro que las categorias aun no afectan operacion real ni pagina publica productiva. Por eso se acepta considerar limpieza total de relaciones para reclasificar desde cero.
+
+Preparacion realizada:
+
+- Script de respaldo:
+  `storage/uat/uat_catalogo_categorias_relaciones_backup_readonly.php`.
+- Script de limpieza:
+  `storage/uat/uat_catalogo_categorias_relaciones_limpiar_apply.php`.
+- Respaldo externo generado:
+  `C:\xampp\panel_db_backups\catalogo_producto_categorias_20260814_092436_pre_limpieza.json`.
+
+Preview:
+
+- Productos totales: 1610.
+- Relaciones actuales a eliminar: 6979.
+- Productos que quedarian sin categoria: 1610.
+
+Token requerido:
+
+- `CATALOGO_CATEGORIAS_RELACIONES_LIMPIAR`.
+
+Pendiente:
+
+- Autorizacion explicita para aplicar limpieza total de `erp_catalogo_producto_categorias`.
+
+## Actualizacion 2026-08-14 - Limpieza aplicada de relaciones producto-categoria
+
+Autorizacion recibida:
+
+- Token: `CATALOGO_CATEGORIAS_RELACIONES_LIMPIAR`.
+- Respaldo externo: `C:\xampp\panel_db_backups\catalogo_producto_categorias_20260814_092436_pre_limpieza.json`.
+
+Resultado:
+
+- Se eliminaron 6979 relaciones de `erp_catalogo_producto_categorias`.
+- Productos totales: 1610.
+- Relaciones actuales despues de aplicar: 0.
+- Productos con categoria despues de aplicar: 0.
+- Productos sin categoria despues de aplicar: 1610.
+
+Validacion:
+
+- `erp_catalogo_categorias` no fue modificada.
+- La auditoria de categorias conserva:
+  - texto danado: 0;
+  - padres inexistentes: 0;
+  - codigos duplicados: 0;
+  - nombres duplicados bajo mismo padre: 0;
+  - rutas inconsistentes: 0.
+
+Siguiente paso recomendado:
+
+- Crear/aplicar arbol operativo 1-6 y despues comenzar reclasificacion por grupos.
+
+## Actualizacion 2026-08-14 - Preparacion de arbol operativo 1-6
+
+Scripts preparados:
+
+- `storage/uat/uat_catalogo_categorias_arbol_1_6_backup_readonly.php`.
+- `storage/uat/uat_catalogo_categorias_arbol_1_6_apply.php`.
+
+Respaldo externo generado:
+
+- `C:\xampp\panel_db_backups\catalogo_categorias_arbol_1_6_20260814_121617_pre.json`.
+
+Preview:
+
+- Categorias definidas: 192.
+- Categorias a crear: 192.
+- Categorias a actualizar: 0.
+- No asigna productos.
+- No elimina categorias heredadas.
+- No modifica relaciones producto-categoria.
+
+Token requerido para aplicar:
+
+- `CATALOGO_CATEGORIAS_ARBOL_1_6_APLICAR`.
+
+## Actualizacion 2026-08-14 - Arbol operativo 1-6 aplicado
+
+Autorizacion recibida:
+
+- Token: `CATALOGO_CATEGORIAS_ARBOL_1_6_APLICAR`.
+- Respaldo externo: `C:\xampp\panel_db_backups\catalogo_categorias_arbol_1_6_20260814_121617_pre.json`.
+
+Resultado:
+
+- Categorias definidas por el arbol 1-6: 192.
+- Categorias creadas: 192.
+- Categorias actualizadas: 0.
+- No se asignaron productos.
+- No se modifico `erp_catalogo_producto_categorias`.
+
+Validacion posterior:
+
+- Total categorias: 438.
+- Categorias maestras: 363.
+- Categorias heredadas/ecommerce: 75.
+- Relaciones producto-categoria: 0.
+- Productos sin categoria: 1610.
+- Texto danado: 0.
+- Padres inexistentes: 0.
+- Codigos duplicados: 0.
+- Rutas inconsistentes: 0.
+
+Pendiente detectado:
+
+- Hay un duplicado de nombre bajo raiz: `Aves`.
+  - Historico: `CLAS-HIST-5`.
+  - Nuevo arbol operativo: `CAT16-AVES`.
+- Esto ocurre porque el arbol nuevo coexiste con categorias historicas activas.
+- Siguiente paso recomendado: preparar limpieza/ocultamiento de categorias anteriores para que la UI solo muestre el arbol operativo `CAT16-*` durante la reclasificacion.
+
+## Actualizacion 2026-08-14 - Preparacion para ocultar categorias historicas
+
+Script preparado:
+
+- `storage/uat/uat_catalogo_categorias_historicas_ocultar_apply.php`.
+
+Preview:
+
+- Categorias totales: 438.
+- Categorias activas: 438.
+- Categorias activas del arbol `CAT16-*`: 192.
+- Categorias historicas activas a ocultar: 246.
+
+Respaldo externo generado antes de ocultar:
+
+- `C:\xampp\panel_db_backups\catalogo_categorias_arbol_1_6_20260814_125607_pre.json`.
+
+Token requerido:
+
+- `CATALOGO_CATEGORIAS_HISTORICAS_OCULTAR`.
+
+Nota:
+
+- Este paso no borra categorias; solo cambia `estatus='inactiva'` en categorias activas cuyo codigo no empieza con `CAT16-`.
+- No toca productos ni relaciones producto-categoria.
+
+## Actualizacion 2026-08-14 - Categorias historicas ocultas
+
+Autorizacion recibida:
+
+- Token: `CATALOGO_CATEGORIAS_HISTORICAS_OCULTAR`.
+- Respaldo externo: `C:\xampp\panel_db_backups\catalogo_categorias_arbol_1_6_20260814_125607_pre.json`.
+- Proyecto aplicado: `C:\xampp\htdocs\panel_de_control`.
+
+Resultado aplicado:
+
+- Categorias totales: 438.
+- Categorias activas: 192.
+- Categorias activas del arbol operativo `CAT16-*`: 192.
+- Categorias historicas activas: 0.
+- Categorias historicas inactivadas: 246.
+- Relaciones producto-categoria: 0.
+- Productos sin categoria: 1607.
+- Duplicados activos por nombre y mismo padre: 0.
+
+Decision operativa:
+
+- No se eliminaron categorias historicas; quedaron inactivas para conservar trazabilidad y posibilidad de auditoria.
+- La UI de producto y asignacion masiva debe usar solo categorias activas, maestras y con `permite_productos=1`.
+- La reclasificacion de productos queda lista para hacerse manualmente desde el arbol operativo 1-6.
+
+Siguiente paso recomendado:
+
+- Probar en UI que los selectores de categoria solo muestren el arbol operativo `CAT16-*`.
+- Comenzar reclasificacion por bloques: primero especies principales, despues alimento/accesorios/equipo, y al final casos ambiguos.
+
+## Actualizacion 2026-08-14 - UX de categorias operativas en Configuracion
+
+Contexto:
+
+- El arbol operativo `CAT16-*` ya estaba creado y las categorias historicas estaban inactivas.
+- En `Configuracion > Categorias` seguian apareciendo categorias anteriores porque el listado administrativo consulta todas las categorias para auditoria y el filtro de estado estaba en `Todo estado`.
+
+Ajuste aplicado en `C:\xampp\htdocs\panel_de_control`:
+
+- `app/vistas/paginas/apps/erp/catalogo/configuracion.php`: el filtro de estado de categorias inicia en `Activas`.
+- `public/assets/js/custom/apps/erp/catalogo/configuracion.js`: el filtro `Arbol principal ERP` ahora exige categoria activa, maestra y no historica/ecommerce.
+- El selector de categoria padre al crear/editar categoria solo ofrece categorias activas del arbol operativo.
+
+Validacion:
+
+- `node --check public/assets/js/custom/apps/erp/catalogo/configuracion.js`: OK.
+- `C:\xampp\php\php.exe -l app/vistas/paginas/apps/erp/catalogo/configuracion.php`: OK.
+- Categorias que deberia mostrar el filtro principal: 192.
+- Raices activas visibles: Perros, Gatos, Acuario y peces, Reptiles y tortugas, Aves, Pequenos mamiferos.
+
+Nota operativa:
+
+- Las categorias historicas siguen guardadas como `inactiva` para auditoria; si se selecciona `Todo estado` o `Inactivas`, pueden consultarse, pero ya no deben mezclarse con el arbol de trabajo diario.
+
+## Actualizacion 2026-08-14 - Reclasificacion masiva por categoria principal/secundaria
+
+Contexto:
+
+- El arbol operativo `CAT16-*` ya esta activo y las relaciones producto-categoria fueron limpiadas para reclasificar desde cero.
+- La lista de productos ya tenia accion masiva de marca, categoria, estado y proveedor, pero no distinguia si la categoria se aplicaba como principal o secundaria.
+
+Ajuste aplicado en `C:\xampp\htdocs\panel_de_control`:
+
+- `app/vistas/paginas/apps/erp/catalogo/productos.php`: se agrego selector `Modo categoria` en la barra masiva.
+- `public/assets/js/custom/apps/erp/catalogo/productos.js`: la confirmacion indica si la categoria se aplicara como principal o secundaria.
+- `app/modelos/CatalogoErpDatos.php`: `categoria_secundaria=1` agrega categoria alterna sin reemplazar ni crear categoria principal.
+
+Regla operativa:
+
+- Para la reclasificacion inicial usar `Modo categoria = Principal`.
+- Usar `Secundaria` solo para navegacion/venta alterna cuando el producto ya tiene o tendra una categoria principal clara.
+
+Validacion:
+
+- `C:\xampp\php\php.exe -l app/vistas/paginas/apps/erp/catalogo/productos.php`: OK.
+- `C:\xampp\php\php.exe -l app/modelos/CatalogoErpDatos.php`: OK.
+- `node --check public/assets/js/custom/apps/erp/catalogo/productos.js`: OK.
+
+Siguiente paso recomendado:
+
+- En Productos, filtrar `Sin categoria`, seleccionar pagina y aplicar una categoria principal por bloques usando el arbol operativo.
+
+## Actualizacion 2026-08-14 - Seleccion masiva de productos filtrados
+
+Contexto:
+
+- Para reclasificar 1600+ productos, seleccionar solo la pagina actual de 25 productos era lento.
+- La lista de productos ya tiene filtros por saneamiento, busqueda y estado; faltaba seleccionar el bloque filtrado sin recorrer pagina por pagina.
+
+Ajuste aplicado en `C:\xampp\htdocs\panel_de_control`:
+
+- `app/vistas/paginas/apps/erp/catalogo/productos.php`: se agregaron botones `Seleccionar filtrados` y `Limpiar seleccion` en la barra masiva.
+- `public/assets/js/custom/apps/erp/catalogo/productos.js`: se guardan los IDs filtrados actuales y se seleccionan hasta 250 productos por operacion.
+
+Regla operativa:
+
+- `Seleccionar filtrados` respeta busqueda, estado y filtro de saneamiento activos.
+- El limite de 250 evita fallas con endpoints masivos que no aceptan lotes mayores.
+- La seleccion no modifica datos; solo prepara el bloque. El cambio ocurre hasta presionar `Aplicar a seleccionados` y confirmar.
+
+Validacion:
+
+- `C:\xampp\php\php.exe -l app/vistas/paginas/apps/erp/catalogo/productos.php`: OK.
+- `C:\xampp\php\php.exe -l app/modelos/CatalogoErpDatos.php`: OK.
+- `node --check public/assets/js/custom/apps/erp/catalogo/productos.js`: OK.
+
+Uso recomendado:
+
+1. Filtrar `Sin categoria`.
+2. Buscar por familia, marca o texto si quieres acotar el bloque.
+3. Presionar `Seleccionar filtrados`.
+4. Elegir categoria y `Modo categoria = Principal`.
+5. Aplicar y repetir con el siguiente bloque.
+
+## Actualizacion 2026-08-14 - Categoria visible en lista de productos
+
+Contexto:
+
+- Durante la reclasificacion era necesario saber desde la lista si un producto ya tenia categoria principal asignada.
+- El backend ya entregaba `categoria`, por lo que no se requirio cambiar consulta ni esquema.
+
+Ajuste aplicado en `C:\xampp\htdocs\panel_de_control`:
+
+- `app/vistas/paginas/apps/erp/catalogo/productos.php`: se agrego columna `Categoria` en la tabla principal.
+- `public/assets/js/custom/apps/erp/catalogo/productos.js`: se muestra la ruta de categoria como badge verde o `Sin categoria` como badge de advertencia.
+
+Validacion:
+
+- `C:\xampp\php\php.exe -l app/vistas/paginas/apps/erp/catalogo/productos.php`: OK.
+- `node --check public/assets/js/custom/apps/erp/catalogo/productos.js`: OK.
+
+Uso operativo:
+
+- Despues de aplicar categorias por bloque, la lista permite confirmar avance sin abrir el modal de cada producto.
+
+## Actualizacion 2026-08-15 - Clasificacion asistida lote 01 read-only
+
+Contexto:
+
+- El dueno del proyecto solicito ayuda para que IA proponga categorias y detecte categorias faltantes, sin hacer clasificacion manual producto por producto.
+- Se mantiene la regla de no escribir BD sin autorizacion.
+
+Entregables:
+
+- Script read-only: `storage/uat/uat_catalogo_clasificacion_sugerida_readonly.php`.
+- Documento de lote: `docs/erp_catalogo_clasificacion_asistida_lote_01.md`.
+
+Resultado lote 01 (`--limite=200`):
+
+- Alta confianza: 52.
+- Media: 51.
+- Baja: 19.
+- Sin sugerencia: 78.
+
+Categorias faltantes detectadas:
+
+- `Reptiles y tortugas / Reptiles generales / Terrarios generales`.
+- `Pequenos mamiferos / Animales vivos`.
+- `Acuario y peces / Decoracion y ambientacion / Raices y troncos`.
+- `Reptiles y tortugas / Reptiles generales / Sustratos`.
+- `Pequenos mamiferos / Habitat y jaulas generales`.
+
+Decision recomendada:
+
+- Aplicar solo sugerencias de confianza alta con token explicito.
+- Revisar medias/bajas antes de aplicar.
+- Decidir categorias faltantes antes de clasificar productos de esos grupos.
+
+Token sugerido para aplicar altas lote 01:
+
+- `CATALOGO_CLASIFICACION_ASISTIDA_ALTAS_LOTE_01`.
+
+## Actualizacion 2026-08-15 - Apply preparado para altas lote 01
+
+Contexto:
+
+- El lote 01 read-only encontro 52 sugerencias de confianza alta.
+- Se preparo aplicacion controlada para escribir solo esas relaciones como categoria principal.
+
+Script preparado:
+
+- `storage/uat/uat_catalogo_clasificacion_asistida_altas_lote_01_apply.php`.
+
+Preview validado:
+
+- Candidatos alta confianza: 52.
+- Aplicables: 52.
+- Omitidos por categoria previa: 0.
+- Insertados en preview: 0.
+
+Validacion:
+
+- `C:\xampp\php\php.exe -l storage\uat\uat_catalogo_clasificacion_sugerida_readonly.php`: OK.
+- `C:\xampp\php\php.exe -l storage\uat\uat_catalogo_clasificacion_asistida_altas_lote_01_apply.php`: OK.
+- Ejecucion sin `--execute`: preview OK, sin cambios en BD.
+
+Token requerido para aplicar:
+
+- `CATALOGO_CLASIFICACION_ASISTIDA_ALTAS_LOTE_01`.
+
+Comando de aplicacion, solo despues de respaldo externo y autorizacion:
+
+```powershell
+C:\xampp\php\php.exe storage\uat\uat_catalogo_clasificacion_asistida_altas_lote_01_apply.php --execute --token=CATALOGO_CLASIFICACION_ASISTIDA_ALTAS_LOTE_01 --respaldo=RUTA_RESPALDO_EXTERNO
+```
+
+Alcance:
+
+- Inserta en `erp_catalogo_producto_categorias` solo productos de alta confianza del lote 01.
+- Solo si el producto sigue sin categoria principal.
+- No crea categorias.
+- No modifica productos.
+- No toca SKU, proveedores, inventario, ventas ni ecommerce.
+
+## Actualizacion 2026-08-15 - Clasificacion asistida altas lote 01 aplicada
+
+Contexto:
+
+- Se autorizo aplicar el lote de alta confianza con token `CATALOGO_CLASIFICACION_ASISTIDA_ALTAS_LOTE_01`.
+- La ejecucion se realizo en el proyecto correcto: `C:\xampp\htdocs\panel_de_control`.
+
+Respaldo externo:
+
+- `C:\xampp\panel_db_backups\catalogo_producto_categorias_20260815_132438_pre_clasificacion_asistida_lote_01.sql`.
+
+Resultado:
+
+- Relaciones insertadas: 52.
+- Productos con categoria principal despues de aplicar: 53.
+- Productos activos/no fusionados sin categoria principal despues de aplicar: 1554.
+
+Nota tecnica:
+
+- El primer intento no escribio cambios porque el script esperaba columnas documentales (`origen`, `observaciones`) que no existen en `erp_catalogo_producto_categorias`.
+- Se ajusto el apply al esquema real de la tabla y se aplico dentro de transaccion.
+
+Siguiente paso recomendado:
+
+- Generar lote 02 read-only con los productos restantes sin categoria principal.
+- Mantener aplicacion automatica solo para alta confianza.
+- Revisar categorias faltantes antes de aplicar medias/bajas.
+
+## Actualizacion 2026-08-15 - Clasificacion asistida lote 02 preparado
+
+Contexto:
+
+- Despues de aplicar el lote 01 se ejecuto una nueva lectura read-only sobre los siguientes 200 productos sin categoria principal.
+- El lote 01 quedo cerrado para evitar reutilizar accidentalmente el mismo token sobre otro bloque dinamico.
+
+Entregables:
+
+- Documento de lote: `docs/erp_catalogo_clasificacion_asistida_lote_02.md`.
+- Script apply fijo: `storage/uat/uat_catalogo_clasificacion_asistida_altas_lote_02_apply.php`.
+
+Resultado read-only lote 02:
+
+- Alta confianza: 3.
+- Media: 55.
+- Baja: 21.
+- Sin sugerencia: 121.
+
+Candidatos alta:
+
+- `ECOM-1876 Alimento mix frutal para hamster`.
+- `ECOM-1875 Alimento pet food para hamster`.
+- `ECOM-1874 Alimento mix zanahorita para hamster`.
+
+Categoria destino:
+
+- `CAT16-MAMIFEROS-HAMSTER-ALIM-ALIMENTOS`.
+
+Validacion:
+
+- `C:\xampp\php\php.exe -l storage\uat\uat_catalogo_clasificacion_asistida_altas_lote_01_apply.php`: OK.
+- `C:\xampp\php\php.exe -l storage\uat\uat_catalogo_clasificacion_asistida_altas_lote_02_apply.php`: OK.
+- Preview lote 02: 3 aplicables, 0 insertados, sin cambios en BD.
+
+Token requerido para aplicar lote 02:
+
+- `CATALOGO_CLASIFICACION_ASISTIDA_ALTAS_LOTE_02`.
+
+Siguiente paso recomendado:
+
+- Aplicar lote 02 solo con autorizacion y respaldo externo.
+- En paralelo, decidir si se crean categorias faltantes antes de seguir con productos de confianza media/baja.
+
+## Actualizacion 2026-08-15 - Clasificacion asistida altas lote 02 aplicada
+
+Autorizacion recibida:
+
+- Token: `CATALOGO_CLASIFICACION_ASISTIDA_ALTAS_LOTE_02`.
+- Respaldo externo: `C:\xampp\panel_db_backups\catalogo_producto_categorias_20260815_antes_clasificacion_asistida_lote_02.sql`.
+- Proyecto aplicado: `C:\xampp\htdocs\panel_de_control`.
+
+Resultado:
+
+- Relaciones insertadas: 3.
+- Productos con categoria principal despues de aplicar: 56.
+- Productos clasificados: `ECOM-1874`, `ECOM-1875`, `ECOM-1876`.
+- Categoria asignada: `CAT16-MAMIFEROS-HAMSTER-ALIM-ALIMENTOS`.
+
+Validacion:
+
+- Los productos `1393`, `1394` y `1395` quedaron con `es_principal=1`.
+- El preview posterior del lote 02 quedo con 0 aplicables y 3 omitidos por categoria previa.
+- El script del lote 02 quedo cerrado para evitar reutilizacion accidental.
+
+Siguiente paso recomendado:
+
+- Antes de crear lote 03, revisar categorias faltantes recurrentes o enriquecer reglas para reducir productos `sin_sugerencia`.
+
+## Actualizacion 2026-08-15 - Clasificacion asistida lote 03 preparado
+
+Contexto:
+
+- Se ejecuto lectura read-only del siguiente bloque de 200 productos sin categoria principal.
+- El primer resultado no tenia altas automaticas: 0 alta, 55 media, 21 baja y 124 sin sugerencia.
+- Se enriquecieron reglas read-only para casos claros: peceras, peceras equipadas, alimentos de aves, nidos/accesorios de jaula y comederos/alimentadores de aves.
+
+Entregables:
+
+- Documento: `docs/erp_catalogo_clasificacion_asistida_lote_03.md`.
+- Script apply fijo: `storage/uat/uat_catalogo_clasificacion_asistida_altas_lote_03_apply.php`.
+
+Resultado final read-only lote 03:
+
+- Alta confianza: 19.
+- Media: 55.
+- Baja: 21.
+- Sin sugerencia: 105.
+
+Preview apply lote 03:
+
+- Candidatos alta confianza: 19.
+- Aplicables: 19.
+- Omitidos por categoria previa: 0.
+- Insertados en preview: 0.
+
+Validacion:
+
+- `C:\xampp\php\php.exe -l storage\uat\uat_catalogo_clasificacion_sugerida_readonly.php`: OK.
+- `C:\xampp\php\php.exe -l storage\uat\uat_catalogo_clasificacion_asistida_altas_lote_03_apply.php`: OK.
+
+Token requerido para aplicar:
+
+- `CATALOGO_CLASIFICACION_ASISTIDA_ALTAS_LOTE_03`.
+
+Siguiente paso recomendado:
+
+- Aplicar lote 03 solo con autorizacion y respaldo externo.
+- Despues de lote 03, pausar clasificacion automatica y resolver categorias faltantes recurrentes.
+
+## Actualizacion 2026-08-15 - Clasificacion asistida altas lote 03 aplicada
+
+Autorizacion recibida:
+
+- Token: `CATALOGO_CLASIFICACION_ASISTIDA_ALTAS_LOTE_03`.
+- Respaldo externo: `C:\xampp\panel_db_backups\catalogo_producto_categorias_20260815_antes_clasificacion_asistida_lote_03.sql`.
+- Proyecto aplicado: `C:\xampp\htdocs\panel_de_control`.
+
+Resultado:
+
+- Relaciones insertadas: 19.
+- Productos con categoria principal despues de aplicar: 75.
+- Relaciones del lote 03 verificadas: 19.
+
+Validacion:
+
+- Preview posterior del lote 03: 0 aplicables y 19 omitidos por categoria previa.
+- El script del lote 03 quedo cerrado para evitar reutilizacion accidental.
+
+Siguiente paso recomendado:
+
+- Pausar la aplicacion automatica de lotes y resolver categorias faltantes recurrentes.
+- Categorias a decidir: terrarios generales, animales vivos de pequenos mamiferos, raices/troncos de acuario, sustratos de reptiles y habitat/jaulas generales de pequenos mamiferos.
+
+## Actualizacion 2026-08-17 - Categorias faltantes recurrentes preparadas
+
+Contexto:
+
+- Despues de aplicar los lotes 01, 02 y 03, se pauso la clasificacion automatica para resolver huecos del arbol `CAT16-*`.
+- La auditoria confirmo que no hace falta cambiar estructura; faltan categorias maestras asignables dentro del arbol actual.
+
+Entregables:
+
+- Documento: `docs/erp_catalogo_categorias_faltantes_recurrentes.md`.
+- Script apply controlado: `storage/uat/uat_catalogo_categorias_faltantes_recurrentes_apply.php`.
+
+Categorias propuestas:
+
+- `CAT16-REPTILES-GRAL-TERR-GENERALES`: `Reptiles y tortugas / Reptiles generales / Terrarios / Terrarios generales`.
+- `CAT16-MAMIFEROS-VIVOS`: `Pequenos mamiferos / Animales vivos`.
+- `CAT16-ACUARIO-DECO-RAICES-TRONCOS`: `Acuario y peces / Decoracion y ambientacion / Raices y troncos`.
+- `CAT16-REPTILES-GRAL-SUSTRATOS`: `Reptiles y tortugas / Reptiles generales / Sustratos`.
+- `CAT16-MAMIFEROS-HAB-GENERAL`: `Pequenos mamiferos / Habitat y jaulas generales`.
+
+Preview:
+
+- Definidas: 5.
+- A crear: 5.
+- Existentes: 0.
+- Errores: 0.
+- Creadas en preview: 0.
+
+Validacion:
+
+- `C:\xampp\php\php.exe -l storage\uat\uat_catalogo_categorias_faltantes_recurrentes_apply.php`: OK.
+- Ejecucion sin `--execute`: preview OK, sin cambios en BD.
+
+Token requerido para aplicar:
+
+- `CATALOGO_CATEGORIAS_FALTANTES_RECURRENTES`.
+
+Siguiente paso recomendado:
+
+- Aplicar estas 5 categorias con autorizacion y respaldo externo.
+- Despues actualizar reglas del sugeridor para que apunten a las nuevas categorias y generar lote 04 read-only.
+
+## Actualizacion 2026-08-17 - Categorias faltantes recurrentes aplicadas
+
+Autorizacion recibida:
+
+- Token: `CATALOGO_CATEGORIAS_FALTANTES_RECURRENTES`.
+- Respaldo externo: `C:\xampp\panel_db_backups\catalogo_categorias_20260817_antes_categorias_faltantes_recurrentes.sql`.
+- Proyecto aplicado: `C:\xampp\htdocs\panel_de_control`.
+
+Resultado:
+
+- Categorias creadas: 5.
+- Todas activas y con `permite_productos=1`.
+- No se modificaron productos.
+- No se modificaron relaciones producto-categoria.
+
+Categorias creadas:
+
+- `CAT16-REPTILES-GRAL-TERR-GENERALES`.
+- `CAT16-MAMIFEROS-VIVOS`.
+- `CAT16-ACUARIO-DECO-RAICES-TRONCOS`.
+- `CAT16-REPTILES-GRAL-SUSTRATOS`.
+- `CAT16-MAMIFEROS-HAB-GENERAL`.
+
+Reglas del sugeridor actualizadas:
+
+- Terrarios generales, raices/troncos, sustratos de reptiles y jaulas generales ya apuntan a categorias nuevas.
+- Animales vivos de pequenos mamiferos se mantienen en confianza media para evitar confundir ejemplares vivos con alimentos por especie.
+
+Siguiente paso recomendado:
+
+- Generar lote 04 read-only con las reglas enriquecidas.
+
+## Actualizacion 2026-08-17 - Clasificacion asistida lote 04 preparado
+
+Contexto:
+
+- Se crearon categorias faltantes recurrentes y se actualizaron las reglas read-only del sugeridor.
+- Se ejecuto lote 04 sin escritura en BD.
+
+Entregables:
+
+- Documento: `docs/erp_catalogo_clasificacion_asistida_lote_04.md`.
+- Script apply fijo: `storage/uat/uat_catalogo_clasificacion_asistida_altas_lote_04_apply.php`.
+
+Resultado read-only lote 04:
+
+- Alta confianza: 29.
+- Media: 58.
+- Baja: 0.
+- Sin sugerencia: 113.
+- Categorias faltantes detectadas: 0.
+
+Preview apply lote 04:
+
+- Candidatos alta confianza: 29.
+- Aplicables: 29.
+- Omitidos por categoria previa: 0.
+- Insertados en preview: 0.
+
+Validacion:
+
+- `C:\xampp\php\php.exe -l storage\uat\uat_catalogo_clasificacion_asistida_altas_lote_04_apply.php`: OK.
+- Ejecucion sin `--execute`: preview OK, sin cambios en BD.
+
+Token requerido para aplicar:
+
+- `CATALOGO_CLASIFICACION_ASISTIDA_ALTAS_LOTE_04`.
+
+## Actualizacion 2026-08-18 - Clasificacion asistida altas lote 04 aplicada
+
+Autorizacion recibida:
+
+- Token: `CATALOGO_CLASIFICACION_ASISTIDA_ALTAS_LOTE_04`.
+- Respaldo externo: `C:\xampp\panel_db_backups\catalogo_producto_categorias_20260818_antes_clasificacion_asistida_lote_04.sql`.
+- Proyecto aplicado: `C:\xampp\htdocs\panel_de_control`.
+
+Resultado:
+
+- Candidatos alta confianza: 29.
+- Aplicables al ejecutar: 25.
+- Omitidos por categoria previa: 4.
+- Relaciones insertadas: 25.
+
+Validacion:
+
+- Los 29 productos del lote 04 tienen categoria principal.
+- Total de relaciones producto-categoria: 221.
+- Productos con categoria principal: 155.
+- Productos activos/no fusionados sin categoria principal: 1452.
+- Preview posterior: 0 aplicables y 29 omitidos por categoria previa.
+- El script del lote 04 quedo cerrado para evitar reutilizacion accidental.
+
+Nota:
+
+- Hay evidencia de clasificacion manual o por otra via desde el ultimo cierre: el total de productos con categoria principal es mayor que solo los lotes asistidos. El apply respeto esos cambios y omitio 4 productos ya categorizados.
+
+Siguiente paso recomendado:
+
+- Generar lote 05 read-only, revisar si las nuevas categorias redujeron ambiguedad y preparar solo altas fijas si aparecen casos claros.
+
+## Actualizacion 2026-08-18 - Plan para retirar costos de Catalogo
+
+Contexto:
+
+- El dueno del proyecto planteo retirar de Catalogo todo lo relacionado con costos.
+- La duda principal fue como calcular costos de presentaciones y apertura de empaques sin guardar costos en Catalogo.
+
+Documento creado:
+
+- `docs/erp_catalogo_costos_separacion_plan.md`.
+
+Decision:
+
+- Catalogo conserva relaciones, factores, presentaciones y apertura de empaques.
+- Rentabilidad/Costos calcula costos derivados.
+- Listas de precios consume costos en modo read-only para margen y alertas.
+- Compras/Proveedores/XML/Inventario aportan evidencia de costo.
+- Catalogo no debe pedir al operador capturar costos como parte del alta/edicion de producto.
+
+Regla para presentaciones:
+
+- El costo se deriva desde el SKU origen y el factor de conversion.
+- No se persiste como costo propio en Catalogo.
+
+Regla para apertura de empaques:
+
+- Catalogo define SKU origen, SKU destino y factor.
+- Almacen/Inventario ejecuta la apertura.
+- Rentabilidad calcula costo unitario abierto desde la evidencia de costo y cantidad util generada.
+
+Siguiente paso recomendado:
+
+- Auditar read-only todos los campos/endpoints/vistas de Catalogo que muestren o guarden costos.
+- Preparar plan para ocultar o mover esos campos sin romper Listas de precios ni Rentabilidad.

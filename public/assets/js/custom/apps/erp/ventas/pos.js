@@ -2201,11 +2201,16 @@
         }
         var cliente = depurar.cliente || {};
         var pendientesInventario = depurar.inventario_pendiente || [];
-        var mensajeOperacion = pendientesInventario.length
-            ? "Caja registrada; se generaron " + pendientesInventario.length + " pendiente(s) para Inventario/Existencias con trazabilidad."
-            : ((depurar.venta_rapida || []).length
+        var modoInventarioPos = depurar.modo_inventario_pos || {};
+        var afectaInventarioVenta = modoInventarioPos.afectar_inventario === undefined || modoInventarioPos.afectar_inventario === null || modoInventarioPos.afectar_inventario === "" ? 1 : Number(modoInventarioPos.afectar_inventario);
+        var ventaSinInventario = afectaInventarioVenta !== 1;
+        var mensajeOperacion = ventaSinInventario
+            ? "Caja registrada en modo piloto; no se desconto inventario ni se genero kardex."
+            : (pendientesInventario.length
+                ? "Caja registrada; se generaron " + pendientesInventario.length + " pendiente(s) para Inventario/Existencias con trazabilidad."
+                : ((depurar.venta_rapida || []).length
                 ? "Caja registrada; venta rapida enviada a Catalogo/Inventario. No se movio kardex ni garantia hasta clasificar el SKU."
-                : "Caja, kardex, garantias y trazabilidad registrados por backend.");
+                : "Caja, kardex, garantias y trazabilidad registrados por backend."));
         var html = "<div class=\"alert alert-success py-3 mb-0\">" +
             "<div class=\"fw-bold mb-1\">" + escapeHtml(response.mensaje || "Venta POS confirmada") + "</div>" +
             "<div class=\"fs-7\">Folio: <span class=\"fw-bold\">" + escapeHtml(depurar.folio || "") + "</span>" +

@@ -23,6 +23,9 @@ class VentasErpEsquema extends DBSchema {
             "`permite_efectivo` TINYINT(1) NOT NULL DEFAULT 1",
             "`permite_tarjeta` TINYINT(1) NOT NULL DEFAULT 1",
             "`permite_transferencia` TINYINT(1) NOT NULL DEFAULT 1",
+            "`afectar_inventario` TINYINT(1) NOT NULL DEFAULT 1",
+            "`modo_operacion_inventario` VARCHAR(40) NOT NULL DEFAULT 'normal'",
+            "`generar_alertas_inventario` TINYINT(1) NOT NULL DEFAULT 1",
             "`observaciones` TEXT NULL",
             "`fecha_registro` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
             "`fecha_actualizacion` DATETIME NULL",
@@ -30,6 +33,10 @@ class VentasErpEsquema extends DBSchema {
             "UNIQUE KEY `idx_pos_caja_codigo` (`codigo`)",
             "KEY `idx_pos_caja_almacen` (`id_almacen`, `estatus`)"
         ), $opciones, $ejecutar);
+        $plan[] = $this->agregarColumnaSiNoExiste("erp_pos_cajas", "afectar_inventario", "TINYINT(1) NOT NULL DEFAULT 1 AFTER `permite_transferencia`", $ejecutar);
+        $plan[] = $this->agregarColumnaSiNoExiste("erp_pos_cajas", "modo_operacion_inventario", "VARCHAR(40) NOT NULL DEFAULT 'normal' AFTER `afectar_inventario`", $ejecutar);
+        $plan[] = $this->agregarColumnaSiNoExiste("erp_pos_cajas", "generar_alertas_inventario", "TINYINT(1) NOT NULL DEFAULT 1 AFTER `modo_operacion_inventario`", $ejecutar);
+        $plan[] = $this->agregarIndiceSiNoExiste("erp_pos_cajas", "idx_pos_caja_modo_inv", "KEY `idx_pos_caja_modo_inv` (`afectar_inventario`, `modo_operacion_inventario`, `estatus`)", $ejecutar);
 
         $plan[] = $this->crearTablaSiNoExiste("erp_pos_terminales", array(
             "`id_terminal_pos` INT NOT NULL AUTO_INCREMENT",

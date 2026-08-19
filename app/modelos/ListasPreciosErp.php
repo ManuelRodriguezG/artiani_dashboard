@@ -271,8 +271,10 @@ class ListasPreciosErp extends CRUD {
             if ($umbralMargen <= 0 || $umbralMargen > 95) {
                 $umbralMargen = 15;
             }
-            $limite = max(20, min(300, intval($this->valor($filtros, "limite", 120))));
-            $where = array("s.estatus='activo'", "p.estatus<>'fusionado'");
+            $pagina = max(1, intval($this->valor($filtros, "pagina", 1)));
+            $porPagina = max(20, min(200, intval($this->valor($filtros, "por_pagina", $this->valor($filtros, "limite", 80)))));
+            $offset = ($pagina - 1) * $porPagina;
+            $where = array("s.estatus='activo'", "p.estatus='activo'");
             $params = array();
 
             if ($q !== "") {
@@ -348,11 +350,12 @@ class ListasPreciosErp extends CRUD {
                 : "NULL categoria";
 
             $sql = "SELECT s.id_sku, s.sku, s.nombre sku_nombre, s.tipo_inventario, s.costo_referencia, s.factor_unidad_base,
+                    s.estatus estatus_sku,
                     COALESCE(ci.costo_promedio_inventario, 0) costo_promedio_inventario,
                     COALESCE(cp.costo_proveedor, 0) costo_proveedor,
                     COALESCE(cp.id_proveedor_costo, 0) id_proveedor_costo,
                     COALESCE(cc.costo_ultima_compra, 0) costo_ultima_compra,
-                    p.id_producto_erp, p.codigo_producto, p.nombre producto, COALESCE(m.nombre, '') marca,
+                    p.id_producto_erp, p.codigo_producto, p.nombre producto, p.estatus estatus_producto, COALESCE(m.nombre, '') marca,
                     COALESCE(NULLIF(r.unidad_venta_label, ''), u.abreviatura, u.nombre, '') unidad_base,
                     COALESCE(r.permite_venta_fraccionaria, 0) permite_venta_fraccionaria,
                     COALESCE(r.precision_decimal, 0) precision_decimal,
@@ -372,7 +375,16 @@ class ListasPreciosErp extends CRUD {
                 $joinCostoCompra
                 WHERE " . implode(" AND ", $where) . "
                 ORDER BY d.precio IS NULL ASC, p.nombre ASC, s.sku ASC
-                LIMIT " . intval($limite);
+                LIMIT " . intval($offset) . ", " . intval($porPagina);
+            $sqlTotal = "SELECT COUNT(*) total
+                FROM erp_catalogo_skus s
+                INNER JOIN erp_catalogo_productos p ON p.id_producto_erp=s.id_producto_erp
+                $joinDetalle
+                WHERE " . implode(" AND ", $where);
+            $stmtTotal = $db->prepare($sqlTotal);
+            $stmtTotal->execute($params);
+            $totalDisponible = intval($stmtTotal->fetchColumn());
+            $totalPaginas = max(1, intval(ceil($totalDisponible / max(1, $porPagina))));
             $stmt = $db->prepare($sql);
             $stmt->execute($params);
             $productos = array();
@@ -415,8 +427,12 @@ class ListasPreciosErp extends CRUD {
             return $this->respuesta(false, "success", "Productos para lista consultados", array(
                 "productos" => $productos,
                 "total" => count($productos),
-                "filtros" => array("id_lista_precio" => $idLista, "q" => $q, "solo" => $solo, "limite" => $limite, "margen_minimo" => $umbralMargen),
-                "fuente_costo" => "prioridad: erp_catalogo_skus.costo_referencia, erp_inventario_existencias.costo_promedio, erp_catalogo_sku_proveedores.costo_ultimo, erp_compras_ordenes_detalle.costo_unitario"
+                "total_disponible" => $totalDisponible,
+                "pagina" => $pagina,
+                "por_pagina" => $porPagina,
+                "total_paginas" => $totalPaginas,
+                "filtros" => array("id_lista_precio" => $idLista, "q" => $q, "solo" => $solo, "pagina" => $pagina, "por_pagina" => $porPagina, "margen_minimo" => $umbralMargen),
+                "fuente_costo" => "prioridad: erp_inventario_existencias.costo_promedio, erp_catalogo_sku_proveedores.costo_ultimo, erp_compras_ordenes_detalle.costo_unitario, erp_catalogo_skus.costo_referencia"
             ));
         } catch (Exception $e) {
             return $this->respuesta(true, "danger", $e->getMessage());
@@ -431,10 +447,10 @@ class ListasPreciosErp extends CRUD {
      */
     private function resolverCostoComercialFila($fila) {
         $candidatos = array(
-            array("campo" => "costo_referencia", "fuente" => "catalogo", "label" => "Catalogo"),
             array("campo" => "costo_promedio_inventario", "fuente" => "inventario_promedio", "label" => "Prom. inventario"),
             array("campo" => "costo_proveedor", "fuente" => "proveedor", "label" => "Proveedor"),
-            array("campo" => "costo_ultima_compra", "fuente" => "ultima_compra", "label" => "Ultima compra")
+            array("campo" => "costo_ultima_compra", "fuente" => "ultima_compra", "label" => "Ultima compra"),
+            array("campo" => "costo_referencia", "fuente" => "catalogo", "label" => "Catalogo")
         );
         foreach ($candidatos as $candidato) {
             $costo = floatval($this->valor($fila, $candidato["campo"], 0));
@@ -656,8 +672,9 @@ class ListasPreciosErp extends CRUD {
             if ($idSku > 0 && !$this->existeSku($db, $idSku)) {
                 $bloqueos[] = "SKU no existe o no esta activo";
             }
-            if ($idProducto > 0 && !$this->existeProducto($db, $idProducto)) {
-                $bloqueos[] = "Producto ERP no existe o no esta activo";
+            $productoValidado = $idProducto > 0 ? $this->productoPrecioOperativo($db, $idProducto) : null;
+            if ($idProducto > 0 && !$productoValidado) {
+                $bloqueos[] = "Producto ERP no existe o no esta activo para listas de precios";
             }
             if ($idSku <= 0 && $idProducto > 0) {
                 $avisos[] = "Precio por producto aplicara a variantes si el resolutor no encuentra precio por SKU";
@@ -1067,8 +1084,8 @@ class ListasPreciosErp extends CRUD {
             if ($idLista <= 0) {
                 return $this->respuesta(true, "warning", "Lista obligatoria para guardar lote");
             }
-            if (count($items) > 200) {
-                return $this->respuesta(true, "warning", "El lote no puede exceder 200 precios por guardado");
+            if (count($items) > 1000) {
+                return $this->respuesta(true, "warning", "El lote no puede exceder 1000 precios por guardado");
             }
 
             $guardados = array();
@@ -1139,8 +1156,8 @@ class ListasPreciosErp extends CRUD {
             if ($idLista <= 0) {
                 return $this->respuesta(true, "warning", "Lista obligatoria para prevalidar lote");
             }
-            if (count($items) > 200) {
-                return $this->respuesta(true, "warning", "El lote no puede exceder 200 precios por prevalidacion");
+            if (count($items) > 1000) {
+                return $this->respuesta(true, "warning", "El lote no puede exceder 1000 precios por prevalidacion");
             }
 
             $validos = array();
@@ -1189,7 +1206,7 @@ class ListasPreciosErp extends CRUD {
                     continue;
                 }
                 $detalle = $respuesta["depurar"]["detalle_normalizado"];
-                $costo = $this->costoReferenciaDetalle($db, intval($this->valor($detalle, "id_sku", 0)), intval($this->valor($detalle, "id_producto_erp", 0)));
+                $costo = $this->costoComercialDetalle($db, intval($this->valor($detalle, "id_sku", 0)), intval($this->valor($detalle, "id_producto_erp", 0)));
                 $margen = $this->calcularMargenPrecio($detalle["precio"], $costo);
                 $riesgo = $this->riesgoMargen($detalle["precio"], $costo, $margen);
                 if ($riesgo["clave"] === "perdida") {
@@ -1204,7 +1221,7 @@ class ListasPreciosErp extends CRUD {
                 $validos[] = array(
                     "fila" => $idx + 1,
                     "detalle" => $detalle,
-                    "costo_referencia" => round(floatval($costo), 6),
+                    "costo_comercial" => round(floatval($costo), 6),
                     "margen_estimado" => $margen,
                     "riesgo_margen" => $riesgo
                 );
@@ -1220,7 +1237,7 @@ class ListasPreciosErp extends CRUD {
                 $avisos[] = "El lote contiene precios con margen bajo";
             }
             if ($resumen["sin_costo"] > 0) {
-                $avisos[] = "El lote contiene SKUs sin costo de referencia";
+                $avisos[] = "El lote contiene SKUs sin costo comercial";
             }
 
             return $this->respuesta(false, empty($errores) ? "success" : "warning", empty($errores) ? "Lote valido en dry-run" : "Lote con errores", array(
@@ -1563,15 +1580,14 @@ class ListasPreciosErp extends CRUD {
                 $bloqueos[] = "La lista no tiene productos con precio activo";
             }
 
-            $stmt = $db->prepare("SELECT d.id_lista_precio_detalle, d.precio, COALESCE(s.costo_referencia, 0) costo_referencia
+            $stmt = $db->prepare("SELECT d.id_lista_precio_detalle, d.precio, d.id_sku, d.id_producto_erp
                 FROM erp_listas_precios_detalle d
-                LEFT JOIN erp_catalogo_skus s ON s.id_sku=d.id_sku
                 WHERE d.id_lista_precio=:lista AND d.estatus='activo'
                 LIMIT 500");
             $stmt->execute(array(":lista" => $idLista));
             foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $fila) {
                 $precio = floatval($fila["precio"]);
-                $costo = floatval($fila["costo_referencia"]);
+                $costo = $this->costoComercialDetalle($db, intval($this->valor($fila, "id_sku", 0)), intval($this->valor($fila, "id_producto_erp", 0)));
                 $margenPct = $this->calcularMargenPrecio($precio, $costo);
                 if ($costo <= 0) {
                     $margen["sin_costo"]++;
@@ -1642,7 +1658,7 @@ class ListasPreciosErp extends CRUD {
             $avisos[] = "Hay " . $margen["margen_bajo"] . " producto(s) con margen menor a 15%";
         }
         if ($margen["sin_costo"] > 0) {
-            $avisos[] = "Hay " . $margen["sin_costo"] . " producto(s) sin costo de referencia";
+            $avisos[] = "Hay " . $margen["sin_costo"] . " producto(s) sin costo comercial";
         }
 
         $bloqueos = array_values(array_unique($bloqueos));
@@ -1759,13 +1775,14 @@ class ListasPreciosErp extends CRUD {
         return (bool) $stmt->fetch(PDO::FETCH_ASSOC);
     }
 
-    private function existeProducto($db, $idProducto) {
+    private function productoPrecioOperativo($db, $idProducto) {
         if (!$this->tablaExiste($db, "erp_catalogo_productos") || intval($idProducto) <= 0) {
             return false;
         }
-        $stmt = $db->prepare("SELECT id_producto_erp FROM erp_catalogo_productos WHERE id_producto_erp=:id AND estatus='activo' LIMIT 1");
+        $stmt = $db->prepare("SELECT id_producto_erp, estatus FROM erp_catalogo_productos WHERE id_producto_erp=:id AND estatus='activo' LIMIT 1");
         $stmt->execute(array(":id" => intval($idProducto)));
-        return (bool) $stmt->fetch(PDO::FETCH_ASSOC);
+        $fila = $stmt->fetch(PDO::FETCH_ASSOC);
+        return $fila ? $fila : false;
     }
 
     private function existeClienteCrm($db, $idClienteCrm) {
@@ -2105,20 +2122,70 @@ class ListasPreciosErp extends CRUD {
         return array("clave" => "ok", "texto" => "Margen OK", "tipo" => "success");
     }
 
-    private function costoReferenciaDetalle($db, $idSku, $idProducto) {
-        if ($idSku > 0 && $this->tablaExiste($db, "erp_catalogo_skus")) {
-            $stmt = $db->prepare("SELECT COALESCE(costo_referencia, 0) costo FROM erp_catalogo_skus WHERE id_sku=:sku LIMIT 1");
-            $stmt->execute(array(":sku" => intval($idSku)));
-            $fila = $stmt->fetch(PDO::FETCH_ASSOC);
-            return $fila ? floatval($fila["costo"]) : 0;
+    private function costoComercialDetalle($db, $idSku, $idProducto) {
+        if (intval($idSku) > 0) {
+            $fila = $this->costosComercialesPorSku($db, intval($idSku));
+            return $this->resolverCostoComercialFila($fila)["costo"];
         }
-        if ($idProducto > 0 && $this->tablaExiste($db, "erp_catalogo_skus")) {
-            $stmt = $db->prepare("SELECT COALESCE(MIN(NULLIF(costo_referencia, 0)), 0) costo FROM erp_catalogo_skus WHERE id_producto_erp=:producto AND estatus='activo'");
+        if (intval($idProducto) > 0 && $this->tablaExiste($db, "erp_catalogo_skus")) {
+            $stmt = $db->prepare("SELECT id_sku FROM erp_catalogo_skus WHERE id_producto_erp=:producto AND estatus='activo' ORDER BY id_sku ASC LIMIT 1");
             $stmt->execute(array(":producto" => intval($idProducto)));
-            $fila = $stmt->fetch(PDO::FETCH_ASSOC);
-            return $fila ? floatval($fila["costo"]) : 0;
+            $idSkuProducto = intval($stmt->fetchColumn());
+            if ($idSkuProducto > 0) {
+                $fila = $this->costosComercialesPorSku($db, $idSkuProducto);
+                return $this->resolverCostoComercialFila($fila)["costo"];
+            }
         }
         return 0;
+    }
+
+    private function costosComercialesPorSku($db, $idSku) {
+        $costos = array(
+            "costo_referencia" => 0,
+            "costo_promedio_inventario" => 0,
+            "costo_proveedor" => 0,
+            "costo_ultima_compra" => 0
+        );
+        if (intval($idSku) <= 0) {
+            return $costos;
+        }
+        if ($this->tablaExiste($db, "erp_catalogo_skus")) {
+            $stmt = $db->prepare("SELECT COALESCE(costo_referencia, 0) costo FROM erp_catalogo_skus WHERE id_sku=:sku LIMIT 1");
+            $stmt->execute(array(":sku" => intval($idSku)));
+            $costos["costo_referencia"] = floatval($stmt->fetchColumn());
+        }
+        if ($this->tablaExiste($db, "erp_inventario_existencias")) {
+            $stmt = $db->prepare("SELECT CASE
+                    WHEN SUM(CASE WHEN cantidad_disponible > 0 THEN cantidad_disponible ELSE 0 END) > 0
+                    THEN SUM(CASE WHEN cantidad_disponible > 0 THEN cantidad_disponible * costo_promedio ELSE 0 END)
+                        / SUM(CASE WHEN cantidad_disponible > 0 THEN cantidad_disponible ELSE 0 END)
+                    ELSE MAX(NULLIF(costo_promedio, 0))
+                END costo
+                FROM erp_inventario_existencias
+                WHERE id_sku_erp=:sku AND estatus_existencia<>'cancelado' AND costo_promedio > 0");
+            $stmt->execute(array(":sku" => intval($idSku)));
+            $costos["costo_promedio_inventario"] = floatval($stmt->fetchColumn());
+        }
+        if ($this->tablaExiste($db, "erp_catalogo_sku_proveedores")) {
+            $stmt = $db->prepare("SELECT costo_ultimo
+                FROM erp_catalogo_sku_proveedores
+                WHERE id_sku=:sku AND estatus='activo' AND costo_ultimo > 0
+                ORDER BY es_preferido DESC, id_sku_proveedor DESC
+                LIMIT 1");
+            $stmt->execute(array(":sku" => intval($idSku)));
+            $costos["costo_proveedor"] = floatval($stmt->fetchColumn());
+        }
+        if ($this->tablaExiste($db, "erp_compras_ordenes_detalle") && $this->tablaExiste($db, "erp_compras_ordenes")) {
+            $stmt = $db->prepare("SELECT od.costo_unitario
+                FROM erp_compras_ordenes_detalle od
+                INNER JOIN erp_compras_ordenes o ON o.id_orden_compra=od.id_orden_compra
+                WHERE od.id_sku_erp=:sku AND od.costo_unitario > 0 AND o.estatus NOT IN ('borrador','cancelada')
+                ORDER BY o.id_orden_compra DESC, od.id_detalle DESC
+                LIMIT 1");
+            $stmt->execute(array(":sku" => intval($idSku)));
+            $costos["costo_ultima_compra"] = floatval($stmt->fetchColumn());
+        }
+        return $costos;
     }
 
     private function valor($datos, $clave, $default = null) {

@@ -252,6 +252,12 @@
                                                         <option value="sin_costo">Sin costo</option>
                                                         <option value="modificados">Modificados</option>
                                                     </select>
+                                                    <select class="form-select form-select-solid w-125px" id="lp_producto_por_pagina" title="Productos por pagina">
+                                                        <option value="50">50/pag</option>
+                                                        <option value="80" selected>80/pag</option>
+                                                        <option value="100">100/pag</option>
+                                                        <option value="200">200/pag</option>
+                                                    </select>
                                                     <div class="input-group input-group-solid w-125px">
                                                         <input class="form-control" id="lp_margen_minimo" inputmode="decimal" value="15" title="Margen minimo para filtro y alertas">
                                                         <span class="input-group-text">%</span>
@@ -270,7 +276,7 @@
                                                 Para granel, el precio capturado aqui es por unidad base del SKU (kg, m, l). Si existe una presentacion fisica con codigo, stock o etiqueta propia, debe manejarse como SKU/presentacion en Catalogo y aqui se le captura su precio fijo.
                                             </div>
                                             <div class="d-flex flex-wrap gap-2 mb-4" data-lp-product-panel="captura">
-                                                <span class="badge badge-light">Visibles <span id="lp_res_productos">0</span></span>
+                                                <span class="badge badge-light">Visibles <span id="lp_res_productos">0</span><span id="lp_res_total_wrap"> de <span id="lp_res_total">0</span></span></span>
                                                 <span class="badge badge-light-info">Seleccionados <span id="lp_res_seleccionados">0</span></span>
                                                 <span class="badge badge-light-warning">Margen bajo <span id="lp_res_margen_bajo">0</span></span>
                                                 <span class="badge badge-light-danger">Perdida <span id="lp_res_perdida">0</span></span>
@@ -287,8 +293,19 @@
                                                     <div class="d-flex flex-wrap gap-2">
                                                         <button class="btn btn-sm btn-light-primary" id="lp_ver_modificados" type="button"><i class="bi bi-list-check"></i> Ver modificados</button>
                                                         <button class="btn btn-sm btn-light-primary" id="lp_prevalidar_cambios_top" type="button"><i class="bi bi-shield-check"></i> Prevalidar</button>
+                                                        <button class="btn btn-sm btn-primary" id="lp_guardar_cambios_top" type="button"><i class="bi bi-save2"></i> Guardar cambios</button>
                                                         <button class="btn btn-sm btn-light-danger" id="lp_limpiar_cambios_top" type="button"><i class="bi bi-arrow-counterclockwise"></i> Limpiar</button>
                                                     </div>
+                                                </div>
+                                            </div>
+                                            <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-4" id="lp_productos_paginacion" data-lp-product-panel="captura">
+                                                <div class="text-muted fs-8" id="lp_productos_pagina_info">Pagina 1 de 1</div>
+                                                <div class="d-flex flex-wrap align-items-center gap-2">
+                                                    <button class="btn btn-sm btn-light" id="lp_productos_primera" type="button"><i class="bi bi-chevron-double-left"></i></button>
+                                                    <button class="btn btn-sm btn-light" id="lp_productos_anterior" type="button"><i class="bi bi-chevron-left"></i></button>
+                                                    <input class="form-control form-control-sm form-control-solid text-center w-75px" id="lp_productos_pagina" inputmode="numeric" value="1">
+                                                    <button class="btn btn-sm btn-light" id="lp_productos_siguiente" type="button"><i class="bi bi-chevron-right"></i></button>
+                                                    <button class="btn btn-sm btn-light" id="lp_productos_ultima" type="button"><i class="bi bi-chevron-double-right"></i></button>
                                                 </div>
                                             </div>
                                             <div class="d-flex flex-wrap justify-content-between align-items-end gap-3 mb-4" data-lp-product-panel="herramientas">

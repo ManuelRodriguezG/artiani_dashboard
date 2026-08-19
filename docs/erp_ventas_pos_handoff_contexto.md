@@ -5309,3 +5309,89 @@ Siguiente autorizacion fuerte sugerida si se desea cerrar el pendiente de mini i
 ```text
 AUTORIZO RESOLVER PENDIENTE INVENTARIO POS UAT REAL usando respaldo UAT POS vigente con token INVENTARIO_POS_PENDIENTE_RESOLVER_REAL id_usuario=1 folio=PINV-20260717-000001 cantidad_fisica=CONTEO_REAL decision=ajustar_a_conteo confirmacion="RESOLVER PENDIENTE" motivo="Resolver mini inventario POS pendiente"
 ```
+
+Modo piloto sin afectar inventario:
+
+- Decision operativa 2026-08-18: no se separan "ventas" de "ventas con inventario descontado". Toda venta POS sigue siendo venta normal para caja, ticket, cliente, pagos y reportes.
+- El diferenciador correcto es un estado interno de inventario:
+  - venta normal: descuenta inventario, genera kardex y trazabilidad;
+  - venta piloto sin inventario: registra venta y caja, pero no descuenta stock ni genera kardex.
+- La regla no debe venir como bandera libre del navegador. Debe resolverse en backend desde la configuracion oficial de la caja POS.
+- Se preparo DDL para `erp_pos_cajas`:
+  - `afectar_inventario`;
+  - `modo_operacion_inventario`;
+  - `generar_alertas_inventario`.
+- Se preparo backend para que `VentasErp` lea el modo de la caja y, cuando este en piloto:
+  - omita prevalidacion bloqueante por stock;
+  - omita salida de kardex;
+  - no cree inventario pendiente;
+  - marque la venta con `inventario_validacion_estado=registrada_sin_afectar_inventario` si la columna existe;
+  - marque el detalle con `inventario_estado=sin_afectacion_piloto` si la columna existe.
+- La configuracion queda visible en `Ventas > Configuracion POS > Caja`, campo `Inventario en ventas`.
+- Pendiente: aplicar DDL en BD, configurar caja(s) piloto desde UI y ejecutar UAT real de venta con caja en modo piloto.
+
+Autorizacion fuerte sugerida para aplicar el DDL del modo piloto:
+
+```text
+AUTORIZO APLICAR DDL MODO INVENTARIO POS PILOTO usando respaldo UAT POS vigente con token VENTAS_POS_MODO_INVENTARIO_PILOTO_DDL para UAT POS
+```
+
+Ejecucion DDL 2026-08-18:
+
+- Script acotado creado: `storage/uat/uat_ventas_pos_modo_inventario_piloto_schema_apply_authorized.php`.
+- Autorizacion usada: `VENTAS_POS_MODO_INVENTARIO_PILOTO_DDL`.
+- Respaldo de referencia: `UAT POS vigente`.
+- Resultado: `ok=true`, modo `ddl_modo_inventario_pos_aplicado`.
+- Antes:
+  - `afectar_inventario=false`;
+  - `modo_operacion_inventario=false`;
+  - `generar_alertas_inventario=false`;
+  - `idx_pos_caja_modo_inv=false`.
+- Despues:
+  - `afectar_inventario=true`;
+  - `modo_operacion_inventario=true`;
+  - `generar_alertas_inventario=true`;
+  - `idx_pos_caja_modo_inv=true`.
+- DDL ejecutado:
+  - `ALTER TABLE erp_pos_cajas ADD COLUMN afectar_inventario ...`;
+  - `ALTER TABLE erp_pos_cajas ADD COLUMN modo_operacion_inventario ...`;
+  - `ALTER TABLE erp_pos_cajas ADD COLUMN generar_alertas_inventario ...`;
+  - `ALTER TABLE erp_pos_cajas ADD KEY idx_pos_caja_modo_inv ...`.
+- Pendiente siguiente: configurar caja piloto desde UI o con autorizacion puntual, y ejecutar venta UAT real confirmando que se registra venta/caja/ticket sin kardex ni descuento de stock.
+
+Preparacion configuracion caja modo piloto 2026-08-18:
+
+- Auditoria read-only creada: `storage/uat/uat_ventas_pos_modo_inventario_cajas_readonly.php`.
+- Resultado vigente:
+  - caja `1`, `CJ-ACUARIO967-01`, almacen `4`, modo `normal`, afecta inventario `1`;
+  - caja `2`, `CJ-MASCOTAS971-01`, almacen `5`, modo `normal`, afecta inventario `1`.
+- Script autorizado preparado: `storage/uat/uat_ventas_pos_modo_inventario_caja_apply_authorized.php`.
+- El script queda bloqueado sin `--autorizar=VENTAS_POS_MODO_INVENTARIO_CAJA_REAL`.
+- Alternativa sin script: editar la caja desde `Ventas > Configuracion POS > Caja` y guardar `Inventario en ventas = Piloto: registra venta sin afectar inventario`.
+
+Autorizacion sugerida para poner la caja de Mascotas en piloto:
+
+```text
+AUTORIZO CONFIGURAR CAJA POS EN MODO PILOTO SIN INVENTARIO usando respaldo UAT POS vigente con token VENTAS_POS_MODO_INVENTARIO_CAJA_REAL id_caja=2 modo=piloto_sin_inventario motivo="Piloto operativo: registrar ventas y reportes sin afectar inventario mientras se regulariza catalogo/existencias"
+```
+
+Ejecucion modo piloto caja Mascotas 2026-08-18:
+
+- Autorizacion usada: `VENTAS_POS_MODO_INVENTARIO_CAJA_REAL`.
+- Script ejecutado: `storage/uat/uat_ventas_pos_modo_inventario_caja_apply_authorized.php`.
+- Caja afectada: `id_caja=2`, `CJ-MASCOTAS971-01`, almacen `5`.
+- Antes: `afectar_inventario=1`, `modo_operacion_inventario=normal`, `generar_alertas_inventario=1`.
+- Despues: `afectar_inventario=0`, `modo_operacion_inventario=piloto_sin_inventario`, `generar_alertas_inventario=1`.
+- Auditoria read-only final:
+  - caja `1` Acuario queda `normal`;
+  - caja `2` Mascotas queda `piloto_sin_inventario`.
+- Pendiente de prueba: abrir turno en caja Mascotas, cobrar venta POS y confirmar que hay venta/caja/ticket/reporte sin movimiento de inventario ni kardex.
+
+Imagenes POS:
+
+- Observacion recibida: si un producto tiene una imagen sin SKU especifico y varios SKUs relacionados, el POS podia duplicar tarjetas/resultados.
+- Correccion aplicada en `VentasErp::buscarSkusPos`: se separo la imagen especifica de SKU (`img_sku`) de la imagen generica de producto (`img_producto`), eliminando el `JOIN` con `OR`.
+- Regla actual: POS usa imagen del SKU si existe; si no existe, usa solo imagen de producto sin SKU asignado (`id_sku IS NULL OR id_sku=0`).
+- Tambien se ajusto `consultarVisualSkuChecador` para no tomar imagen especifica de otro SKU como imagen generica.
+- UAT read-only creada: `storage/uat/uat_ventas_pos_busqueda_imagenes_readonly.php`.
+- Resultado con `--q=spf --id_almacen=5 --limite=20`: `ok=true`, `total_filas=10`, `duplicados_por_id_sku=[]`.

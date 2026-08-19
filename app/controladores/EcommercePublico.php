@@ -135,6 +135,39 @@ class EcommercePublico extends Controlador {
   }
 
   /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-08-15
+   * Proposito: exponer arbol publico de categorias para menu, home y landings SEO.
+   * Impacto: Frontend ecommerce; evita fallbacks locales y permite rutas limpias /categoria/{slug}.
+   * Contrato: GET publico read-only; solo deriva de publicaciones activas, no expone stock exacto ni datos internos.
+   */
+  public function categorias() {
+    if ($this->esOptionsPublicas()) { return $this->responderOpcionesPublicas(); }
+    return $this->responderApiPublica($this->modelo("EcommerceCatalogoPublico")->categoriasPublicas($_GET));
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-08-19
+   * Proposito: exponer marcas publicas con slug estable para landings SEO /marca/{slug}.
+   * Impacto: Frontend ecommerce; evita filtrar marcas por texto libre y previene catalogo mezclado.
+   * Contrato: GET publico read-only; solo deriva de publicaciones activas, sin costos ni stock exacto.
+   */
+  public function marcas() {
+    if ($this->esOptionsPublicas()) { return $this->responderOpcionesPublicas(); }
+    return $this->responderApiPublica($this->modelo("EcommerceCatalogoPublico")->marcasPublicas($_GET));
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-08-19
+   * Proposito: entregar filtros contextuales con conteos reales para listados publicos.
+   * Impacto: Frontend ecommerce; permite facets sin seleccionar filtros que mezclen catalogo completo.
+   * Contrato: GET publico read-only; respeta publicaciones, no granel y filtros invalidos vacios.
+   */
+  public function catalogo_filtros() {
+    if ($this->esOptionsPublicas()) { return $this->responderOpcionesPublicas(); }
+    return $this->responderApiPublica($this->modelo("EcommerceCatalogoPublico")->catalogoFiltrosPublicos($_GET));
+  }
+
+  /**
    * Documentacion IA: Codex GPT-5 | Fecha: 2026-07-31
    * Proposito: exponer sugerencias publicas de busqueda para el frontend ecommerce.
    * Impacto: Ecommerce publico; permite buscador con productos, marcas, categorias, mascotas y necesidades sin leer tablas internas.

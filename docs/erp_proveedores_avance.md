@@ -7241,3 +7241,66 @@ Validacion tecnica:
 - Base local confirmada en puerto `3406`.
 - Prueba read-only con `catalogoSugeridosParaListaProveedorErp(25, 42, '')`: OK.
 - Resultado de muestra: `60` sugeridos, `5` ya en lista, `55` para crear, `0` para vincular.
+
+## Proveedores - Imagen de Catalogo en renglones relacionados 2026-08-18
+
+Objetivo:
+
+- Hacer mas visual la revision de listas de proveedor sin duplicar imagenes ni permitir editar imagenes desde Proveedores.
+- Si un renglon de lista ya tiene `id_sku`, Proveedores consulta la imagen activa de Catalogo ERP y la muestra como miniatura en el detalle de lista.
+
+Regla:
+
+- La imagen sigue perteneciendo a Catalogo ERP (`erp_catalogo_imagenes`).
+- Proveedores solo la muestra como referencia visual.
+- No se crean, editan ni relacionan imagenes desde esta vista.
+
+Alcance aplicado:
+
+- `consultarListaDetalleErp` ahora devuelve `sku_erp`, `sku_nombre` y `url_imagen` cuando el renglon esta relacionado con un SKU ERP.
+- `listado_erp.js` muestra miniatura de Catalogo en la primera columna del detalle de lista.
+- Si no hay imagen, muestra placeholder `Sin imagen en Catalogo`.
+
+Validacion tecnica:
+
+- `C:\xampp\php\php.exe -l app\modelos\Proveedores.php`: OK.
+- `node --check public\assets\js\custom\apps\erp\proveedores\listado_erp.js`: OK.
+- Prueba read-only Sunny lista `13`: `720` renglones, `60` con imagen disponible desde Catalogo.
+
+## Proveedores - Revision flujo masivo Sunny 2026-08-18
+
+Hallazgo:
+
+- Proveedor Sunny: `id_proveedor=1`.
+- Lista `12` Sunny Veterinaria:
+  - `745` renglones;
+  - `126` con SKU ERP, relacion proveedor-SKU y costo vigente;
+  - `619` sin relacion, por no tener SKU ERP.
+- Lista `13` Sunny acuario:
+  - `720` renglones;
+  - `60` con SKU ERP y relacion proveedor-SKU;
+  - `46` costos vigentes existentes al revisar resumen inicial;
+  - preview actual de costos incluye `60` renglones aplicables cuando se vuelva a ejecutar.
+- Lista `4` Sunny General:
+  - `1753` renglones;
+  - `1581` sin SKU ERP;
+  - `172` con `match_exacto_pendiente`, costo capturado, pero sin moneda/unidad/factor/minimo.
+
+Causa operativa:
+
+- El flujo masivo no puede aplicar relacion/costo si falta compra completa: unidad ERP, factor, cantidad minima, moneda y bandera de impuestos cuando corresponda.
+- El sistema mostraba esos renglones como `estado_no_seleccionado`; se ajusto para que los `match_exacto_pendiente` entren al carril de preparacion y el preview indique `compra_incompleta`.
+
+Alcance aplicado:
+
+- `previewRelacionesSkuProveedorLoteErp` acepta `match_exacto_pendiente` como candidato de relacion si ya tiene SKU ERP, pero sigue bloqueando si falta compra.
+- `Completar compra` en UI ahora considera `match_exacto_pendiente` como renglon preparable.
+
+Siguiente paso real para Sunny lista `4`:
+
+- Filtrar `Unidad/factor pendiente` o usar `Completar compra`.
+- Completar unidad, factor, compra minima, moneda e impuestos segun corresponda.
+- Ejecutar `Preview relaciones`.
+- Aplicar relaciones incluidas.
+- Ejecutar `Preview costos`.
+- Aplicar costos incluidos.

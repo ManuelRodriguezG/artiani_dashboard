@@ -654,9 +654,13 @@ Flujo rapido desde Home:
    - agregarla y usarla inmediatamente
    - seleccionar una imagen ya existente desde la galeria disponible
 
-4. El CMS rellena la imagen y, si el campo `alt` esta vacio, usa el `alt text` capturado.
+4. Si eliges una imagen existente, primero se muestra en `Preview seleccionado`.
 
-5. Revisa el `Preview JSON esperado`.
+5. Pulsa `Usar imagen seleccionada` para aplicarla al campo.
+
+6. El CMS rellena la imagen y, si el campo `alt` esta vacio, usa el `alt text` capturado.
+
+7. Revisa el `Preview JSON esperado`.
 
 La galeria del modal muestra previsualizaciones. El campo de texto es solo `Filtro opcional`; no necesitas depender del nombre del archivo si la imagen se reconoce visualmente.
 

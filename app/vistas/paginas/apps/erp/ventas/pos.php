@@ -662,6 +662,6 @@ window.POS_USUARIO_ACTUAL = <?= json_encode(array(
 </script>
 <script src="assets/plugins/global/plugins.bundle.js"></script>
 <script src="assets/js/scripts.bundle.js"></script>
-<script src="/assets/js/custom/apps/erp/ventas/pos.js?v=20260731-cobro-unico-faltantes2"></script>
+<script src="/assets/js/custom/apps/erp/ventas/pos.js?v=20260818-modo-inventario-pos1"></script>
 </body>
 </html>

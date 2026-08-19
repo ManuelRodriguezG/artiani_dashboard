@@ -72,13 +72,22 @@
                                                     <input class="form-check-input" type="checkbox" id="catalogo_seleccionar_pagina">
                                                     <label class="form-check-label" for="catalogo_seleccionar_pagina">Seleccionar pagina</label>
                                                 </div>
+                                                <button class="btn btn-sm btn-light-primary" type="button" id="catalogo_seleccionar_filtrados"><i class="bi bi-ui-checks"></i> Seleccionar filtrados</button>
+                                                <button class="btn btn-sm btn-light" type="button" id="catalogo_limpiar_seleccion"><i class="bi bi-x-circle"></i> Limpiar seleccion</button>
                                                 <div class="flex-grow-1">
                                                     <label class="form-label fs-8 text-muted">Marca para seleccionados</label>
                                                     <select class="form-select form-select-sm" id="catalogo_masivo_marca"><option value="">No cambiar marca</option></select>
                                                 </div>
                                                 <div class="flex-grow-1">
-                                                    <label class="form-label fs-8 text-muted">Categoria principal para seleccionados</label>
+                                                    <label class="form-label fs-8 text-muted">Categoria para seleccionados</label>
                                                     <select class="form-select form-select-sm" id="catalogo_masivo_categoria"><option value="">No cambiar categoria</option></select>
+                                                </div>
+                                                <div style="width:190px">
+                                                    <label class="form-label fs-8 text-muted">Modo categoria</label>
+                                                    <select class="form-select form-select-sm" id="catalogo_masivo_categoria_modo">
+                                                        <option value="principal">Principal</option>
+                                                        <option value="secundaria">Secundaria</option>
+                                                    </select>
                                                 </div>
                                                 <div style="width:210px">
                                                     <label class="form-label fs-8 text-muted">Estado maestro</label>
@@ -111,7 +120,7 @@
                                                 <?php endif; ?>
                                                 <button class="btn btn-sm btn-primary" type="button" id="catalogo_masivo_aplicar"><i class="bi bi-check2-square"></i> Aplicar a seleccionados</button>
                                             </div>
-                                            <div class="form-text mt-2" id="catalogo_masivo_info">Selecciona productos visibles para aplicar marca, categoria, estado maestro o proveedor por bloque.</div>
+                                            <div class="form-text mt-2" id="catalogo_masivo_info">Selecciona productos visibles o hasta 250 filtrados para aplicar marca, categoria, estado maestro o proveedor por bloque.</div>
                                             <div class="alert alert-danger d-none mt-3 mb-0" id="catalogo_masivo_error"></div>
                                         </div>
                                         <?php endif; ?>
@@ -124,6 +133,7 @@
                                                         <th class="w-70px">Imagen</th>
                                                         <th>Producto</th>
                                                         <th>Marca</th>
+                                                        <th>Categoria</th>
                                                         <th>Tipo</th>
                                                         <th>SKU</th>
                                                         <th>Estado</th>

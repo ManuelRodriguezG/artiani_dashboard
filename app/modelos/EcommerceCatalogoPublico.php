@@ -123,6 +123,24 @@ class EcommerceCatalogoPublico extends CRUD {
         ),
         array(
           "metodo" => "GET",
+          "ruta" => "/ecommercePublico/categorias",
+          "descripcion" => "Arbol publico de categorias para mega menu, home y landings SEO con rutas /categoria/{slug}.",
+          "respuesta_depurar" => array("items", "arbol", "resumen", "frontend", "cms_pendiente", "guardrails")
+        ),
+        array(
+          "metodo" => "GET",
+          "ruta" => "/ecommercePublico/marcas",
+          "descripcion" => "Marcas publicas con slug estable para landings SEO /marca/{slug}.",
+          "respuesta_depurar" => array("items", "resumen", "frontend", "cms_pendiente", "guardrails")
+        ),
+        array(
+          "metodo" => "GET",
+          "ruta" => "/ecommercePublico/catalogo_filtros",
+          "descripcion" => "Facets contextuales de catalogo con conteos reales segun filtros activos.",
+          "respuesta_depurar" => array("aplicados", "resultado_actual", "categorias", "marcas", "precios", "ordenamientos", "guardrails")
+        ),
+        array(
+          "metodo" => "GET",
           "ruta" => "/ecommercePublico/busqueda_sugerencias",
           "descripcion" => "Sugerencias publicas para buscador: productos, marcas, categorias, mascotas y necesidades.",
           "parametros" => array("q" => "Texto opcional.", "limite" => "1-12 por grupo, default 6."),
@@ -133,7 +151,7 @@ class EcommerceCatalogoPublico extends CRUD {
           "ruta" => "/ecommercePublico/navegacion",
           "descripcion" => "Navegacion publica lista para menus, chips y rutas por mascota, necesidad, categoria, marca y disponibilidad.",
           "parametros" => array("limite" => "1-30 por grupo, default 12."),
-          "respuesta_depurar" => array("primaria", "mascotas", "necesidades", "categorias", "marcas", "disponibilidad", "fase_2", "guardrails")
+          "respuesta_depurar" => array("primaria", "mascotas", "necesidades", "categorias", "categorias_arbol", "marcas", "disponibilidad", "fase_2", "guardrails")
         ),
         array(
           "metodo" => "GET",
@@ -386,6 +404,7 @@ class EcommerceCatalogoPublico extends CRUD {
       $manifest = $this->catalogoManifestPublico(array("limite_preview" => min(3, $limite)));
       $checklist = $this->fase2ChecklistPublico();
       $catalogo = $this->catalogoPublico(array("limite" => $limite));
+      $categorias = $this->categoriasPublicas(array("limite" => 200));
       $seo = $this->seoPublico(array("limite" => min(20, max(6, $limite))));
       $items = $this->valor($catalogo, array("depurar", "items"), array());
       $primerItem = !empty($items) && is_array($items[0]) ? $items[0] : null;
@@ -431,6 +450,7 @@ class EcommerceCatalogoPublico extends CRUD {
           "GET /ecommercePublico/catalogo_manifest",
           "GET /ecommercePublico/fase_2_checklist",
           "GET /ecommercePublico/filtros",
+          "GET /ecommercePublico/categorias",
           "GET /ecommercePublico/navegacion",
           "GET /ecommercePublico/catalogo?limite=24",
           "GET /ecommercePublico/producto/{slug}",
@@ -447,6 +467,7 @@ class EcommerceCatalogoPublico extends CRUD {
           "catalogo_manifest" => array("depurar.parametros_soportados", "depurar.ordenamientos", "depurar.endpoints_relacionados", "depurar.guardrails"),
           "fase_2_checklist" => array("depurar.endpoints_obligatorios", "depurar.orden_integracion", "depurar.escenarios_prueba", "depurar.criterios_pase_fase_3"),
           "catalogo" => array("depurar.items", "depurar.paginacion", "depurar.frontend", "depurar.fase_2", "depurar.guardrails"),
+          "categorias" => array("depurar.items", "depurar.arbol", "depurar.resumen", "depurar.frontend", "depurar.guardrails"),
           "filtros" => array("depurar.fase_2.facetados", "depurar.fase_2.totales", "depurar.fase_2.guardrails"),
           "navegacion" => array("depurar.fase_2.chips_home", "depurar.fase_2.links", "depurar.fase_2.guardrails"),
           "secciones" => array("depurar.secciones[].frontend", "depurar.secciones[].url_catalogo", "depurar.fase_2"),
@@ -462,6 +483,7 @@ class EcommerceCatalogoPublico extends CRUD {
           "contenido_pagina_home" => $this->resumenRespuestaFrontendHandoff($this->contenidoPaginaPublica(array("pagina" => "home")), array("pagina", "plantilla", "slots", "resumen", "guardrails")),
           "fase_2_checklist" => $this->resumenRespuestaFrontendHandoff($checklist, array("estado", "resumen", "endpoints_obligatorios", "criterios_pase_fase_3")),
           "catalogo" => $this->resumenRespuestaFrontendHandoff($catalogo, array("items", "paginacion", "frontend")),
+          "categorias" => $this->resumenRespuestaFrontendHandoff($categorias, array("items", "arbol", "resumen", "frontend")),
           "producto" => $this->resumenRespuestaFrontendHandoff($producto, array("item", "variantes", "relacionados", "breadcrumbs", "seo", "acciones")),
           "seo" => $this->resumenRespuestaFrontendHandoff($seo, array("meta", "rutas", "fase_2", "resumen")),
           "disponibilidad" => $this->resumenRespuestaFrontendHandoff($disponibilidad, array("disponibilidad", "frontend", "fase_2")),
@@ -472,7 +494,7 @@ class EcommerceCatalogoPublico extends CRUD {
           "fase" => "fase_2_api_catalogo_robusta",
           "estado" => "handoff_consolidado",
           "frontend_puede_consumir_sin_docs" => true,
-          "bloques_listos" => array("configuracion_inicial", "contenido_manifest", "contenido_pagina", "catalogo_manifest", "fase_2_checklist", "catalogo", "producto", "filtros", "navegacion", "secciones", "busqueda_sugerencias", "seo"),
+          "bloques_listos" => array("configuracion_inicial", "contenido_manifest", "contenido_pagina", "catalogo_manifest", "fase_2_checklist", "catalogo", "producto", "filtros", "categorias", "navegacion", "secciones", "busqueda_sugerencias", "seo"),
           "guardrails" => array(
             "no_requiere_filesystem" => true,
             "no_granel" => true,
@@ -1717,15 +1739,25 @@ class EcommerceCatalogoPublico extends CRUD {
         $where[] = "pub.necesidades_json LIKE :necesidad";
         $params[":necesidad"] = "%\"" . $necesidad . "\"%";
       }
-      $marca = intval($this->valor($filtros, "marca", 0));
-      if ($marca > 0) {
+      $marcaRaw = $this->valor($filtros, "marca_id", $this->valor($filtros, "marca", 0));
+      $marca = intval($marcaRaw);
+      $marcaSlug = $this->limpiarFiltroPublico($this->valor($filtros, "marca_slug", is_numeric($marcaRaw) ? "" : $marcaRaw));
+      $marcaIdFiltro = $this->marcaIdFiltroPublico($db, $marca, $marcaSlug);
+      if ($marcaIdFiltro > 0) {
         $where[] = "p.id_marca_erp = :marca";
-        $params[":marca"] = $marca;
+        $params[":marca"] = $marcaIdFiltro;
+      } elseif ($marca > 0 || $marcaSlug !== "") {
+        $where[] = "p.id_marca_erp = -1";
       }
-      $categoria = intval($this->valor($filtros, "categoria", 0));
-      if ($categoria > 0) {
-        $where[] = "pc.id_categoria_erp = :categoria";
-        $params[":categoria"] = $categoria;
+      $categoriaRaw = $this->valor($filtros, "categoria_id", $this->valor($filtros, "categoria", 0));
+      $categoria = intval($categoriaRaw);
+      $categoriaSlug = $this->limpiarFiltroPublico($this->valor($filtros, "categoria_slug", is_numeric($categoriaRaw) ? "" : $categoriaRaw));
+      $incluirHijos = intval($this->valor($filtros, "incluir_hijos", 0)) === 1;
+      $categoriaIds = $this->categoriaIdsFiltroPublico($db, $categoria, $categoriaSlug, $incluirHijos);
+      if (!empty($categoriaIds)) {
+        $where[] = "pc.id_categoria_erp IN (" . implode(",", array_map("intval", $categoriaIds)) . ")";
+      } elseif ($categoria > 0 || $categoriaSlug !== "") {
+        $where[] = "pc.id_categoria_erp = -1";
       }
       $disponibilidad = trim((string) $this->valor($filtros, "disponibilidad", ""));
       $this->agregarFiltroDisponibilidadPublica($where, $disponibilidad);
@@ -1752,8 +1784,13 @@ class EcommerceCatalogoPublico extends CRUD {
         "q" => $q,
         "mascota" => $mascota,
         "necesidad" => $necesidad,
-        "marca" => $marca,
+        "marca" => $marcaIdFiltro,
+        "marca_id" => $marcaIdFiltro,
+        "marca_slug" => $marcaSlug,
         "categoria" => $categoria,
+        "categoria_id" => $categoria,
+        "categoria_slug" => $categoriaSlug,
+        "incluir_hijos" => $incluirHijos,
         "disponibilidad" => in_array($disponibilidad, $this->estadosDisponibilidadPublica(), true) ? $disponibilidad : "",
         "destacado" => intval($this->valor($filtros, "destacado", 0)) === 1,
         "orden" => $this->ordenCatalogoPublicoNormalizado($orden),
@@ -1809,8 +1846,13 @@ class EcommerceCatalogoPublico extends CRUD {
           "q" => array("tipo" => "string", "uso" => "Busqueda por texto libre."),
           "mascota" => array("tipo" => "string", "fuente" => "/ecommercePublico/filtros depurar.mascotas"),
           "necesidad" => array("tipo" => "string", "fuente" => "/ecommercePublico/filtros depurar.necesidades"),
-          "marca" => array("tipo" => "int", "fuente" => "/ecommercePublico/filtros depurar.marcas"),
-          "categoria" => array("tipo" => "int", "fuente" => "/ecommercePublico/filtros depurar.categorias"),
+          "marca" => array("tipo" => "int|string compatible", "fuente" => "/ecommercePublico/marcas depurar.items"),
+          "marca_id" => array("tipo" => "int", "fuente" => "/ecommercePublico/marcas depurar.items.id"),
+          "marca_slug" => array("tipo" => "string", "fuente" => "/ecommercePublico/marcas depurar.items.slug_publico"),
+          "categoria" => array("tipo" => "int|string compatible", "fuente" => "/ecommercePublico/categorias depurar.items"),
+          "categoria_id" => array("tipo" => "int", "fuente" => "/ecommercePublico/categorias depurar.items.id"),
+          "categoria_slug" => array("tipo" => "string", "fuente" => "/ecommercePublico/categorias depurar.items.slug_publico"),
+          "incluir_hijos" => array("tipo" => "bool", "valores" => array("1"), "uso" => "Incluye productos de subcategorias para landings madre."),
           "disponibilidad" => array("tipo" => "enum", "valores" => $this->estadosDisponibilidadPublica()),
           "destacado" => array("tipo" => "bool", "valores" => array("1")),
           "orden" => array("tipo" => "enum", "valores" => array("relevancia", "nombre", "precio_asc", "precio_desc", "recientes")),
@@ -1835,6 +1877,9 @@ class EcommerceCatalogoPublico extends CRUD {
           "producto" => "/ecommercePublico/producto/{slug}",
           "disponibilidad" => "/ecommercePublico/disponibilidad?slug={slug}",
           "filtros" => "/ecommercePublico/filtros",
+          "categorias" => "/ecommercePublico/categorias",
+          "marcas" => "/ecommercePublico/marcas",
+          "catalogo_filtros" => "/ecommercePublico/catalogo_filtros",
           "navegacion" => "/ecommercePublico/navegacion",
           "secciones" => "/ecommercePublico/secciones",
           "busqueda_sugerencias" => "/ecommercePublico/busqueda_sugerencias"
@@ -1842,6 +1887,9 @@ class EcommerceCatalogoPublico extends CRUD {
         "ejemplos" => array(
           "primeros_productos" => "/ecommercePublico/catalogo?limite=24",
           "buscar" => "/ecommercePublico/catalogo?q=alimento&limite=24",
+          "categoria_slug" => "/ecommercePublico/catalogo?categoria_slug=aves&incluir_hijos=1&limite=24",
+          "marca_slug" => "/ecommercePublico/catalogo?marca_slug=tropical&limite=24",
+          "facets_contextuales" => "/ecommercePublico/catalogo_filtros?categoria_slug=aves&incluir_hijos=1",
           "filtrar_disponibles" => "/ecommercePublico/catalogo?disponibilidad=disponible&orden=precio_asc&limite=24",
           "estado_vacio" => "/ecommercePublico/catalogo?q=__sin_resultados_catalogo_frontend__&limite=3",
           "checklist_fase_2" => "/ecommercePublico/fase_2_checklist",
@@ -1851,7 +1899,8 @@ class EcommerceCatalogoPublico extends CRUD {
           "catalogo" => $this->resumenRespuestaFrontendHandoff($catalogo, array("items", "paginacion", "frontend")),
           "estado_vacio" => $this->resumenRespuestaFrontendHandoff($catalogoVacio, array("items", "paginacion", "frontend")),
           "filtros" => $this->resumenRespuestaFrontendHandoff($filtros, array("mascotas", "necesidades", "marcas", "categorias", "disponibilidad")),
-          "navegacion" => $this->resumenRespuestaFrontendHandoff($navegacion, array("primaria", "mascotas", "necesidades", "categorias", "marcas", "disponibilidad"))
+          "navegacion" => $this->resumenRespuestaFrontendHandoff($navegacion, array("primaria", "mascotas", "necesidades", "categorias", "categorias_arbol", "marcas", "disponibilidad")),
+          "categorias" => $this->resumenRespuestaFrontendHandoff($this->categoriasPublicas(array()), array("items", "arbol", "resumen"))
         ),
         "guardrails" => array(
           "solo_publicados" => true,
@@ -2133,6 +2182,199 @@ class EcommerceCatalogoPublico extends CRUD {
   }
 
   /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-08-15
+   * Proposito: publicar categorias jerarquicas para navegacion, mega menu y landings SEO.
+   * Impacto: Frontend Artiani; habilita /categoria/{slug} sin leer tablas internas ni depender de fallbacks.
+   * Contrato: read-only; deriva totales de publicaciones activas, excluye granel y no muestra stock exacto.
+   */
+  public function categoriasPublicas($opciones = array()) {
+    try {
+      $db = $this->getConexion();
+      if (!$db || !$this->tablaExiste($db, "erp_ecommerce_publicaciones") || !$this->tablaExiste($db, "erp_catalogo_categorias")) {
+        return $this->respuesta(false, "info", "Categorias ecommerce aun no configuradas", array(
+          "configurado" => false,
+          "items" => array(),
+          "arbol" => array(),
+          "resumen" => array("total_categorias" => 0, "total_raices" => 0),
+          "guardrails" => array("read_only" => true, "solo_publicados" => true, "no_granel" => true)
+        ));
+      }
+
+      $items = $this->categoriasPublicasItems($db);
+      $arbol = $this->categoriasPublicasArbol($items);
+      return $this->respuesta(false, "success", "Categorias ecommerce consultadas", array(
+        "configurado" => true,
+        "items" => array_values($items),
+        "arbol" => $arbol,
+        "resumen" => array(
+          "total_categorias" => count($items),
+          "total_raices" => count($arbol),
+          "solo_con_productos_publicables" => true
+        ),
+        "frontend" => array(
+          "ruta_categoria" => "/categoria/{slug_publico}",
+          "catalogo_por_slug" => "/ecommercePublico/catalogo?categoria_slug={slug_publico}&incluir_hijos=1&limite=24",
+          "usar_arbol_para_mega_menu" => true,
+          "usar_items_para_busqueda_y_sitemap" => true
+        ),
+        "cms_pendiente" => array(
+          "imagenes_y_textos_editables" => true,
+          "campos" => array("imagen_menu", "imagen_card", "imagen_banner", "descripcion_corta", "seo_title", "seo_description", "orden", "destacado_home")
+        ),
+        "guardrails" => array(
+          "read_only" => true,
+          "solo_publicados" => true,
+          "no_granel" => true,
+          "no_stock_exacto" => true,
+          "no_expone_costos" => true,
+          "no_lee_ecom_legacy" => true
+        )
+      ));
+    } catch (Exception $e) {
+      return $this->respuesta(true, "danger", $e->getMessage(), array(
+        "items" => array(),
+        "arbol" => array(),
+        "guardrails" => array("read_only" => true)
+      ));
+    }
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-08-19
+   * Proposito: publicar marcas con slug estable para landings SEO y filtros seguros.
+   * Impacto: Frontend Artiani; habilita /marca/{slug} sin usar texto libre como filtro.
+   * Contrato: read-only; deriva totales de publicaciones activas, excluye granel y no muestra stock exacto.
+   */
+  public function marcasPublicas($opciones = array()) {
+    try {
+      $db = $this->getConexion();
+      if (!$db || !$this->tablaExiste($db, "erp_ecommerce_publicaciones") || !$this->tablaExiste($db, "erp_catalogo_marcas")) {
+        return $this->respuesta(false, "info", "Marcas ecommerce aun no configuradas", array(
+          "configurado" => false,
+          "items" => array(),
+          "resumen" => array("total_marcas" => 0),
+          "guardrails" => array("read_only" => true, "solo_publicados" => true, "no_granel" => true)
+        ));
+      }
+      $items = $this->marcasPublicasItems($db);
+      return $this->respuesta(false, "success", "Marcas ecommerce consultadas", array(
+        "configurado" => true,
+        "items" => array_values($items),
+        "resumen" => array(
+          "total_marcas" => count($items),
+          "solo_con_productos_publicables" => true
+        ),
+        "frontend" => array(
+          "ruta_marca" => "/marca/{slug_publico}",
+          "catalogo_por_slug" => "/ecommercePublico/catalogo?marca_slug={slug_publico}&limite=24",
+          "usar_items_para_landings_y_sitemap" => true
+        ),
+        "cms_pendiente" => array(
+          "imagenes_y_textos_editables" => true,
+          "campos" => array("logo", "imagen_banner", "descripcion_corta", "seo_title", "seo_description", "orden", "destacada_home")
+        ),
+        "guardrails" => array(
+          "read_only" => true,
+          "solo_publicados" => true,
+          "no_granel" => true,
+          "no_stock_exacto" => true,
+          "no_expone_costos" => true
+        )
+      ));
+    } catch (Exception $e) {
+      return $this->respuesta(true, "danger", $e->getMessage(), array("items" => array()));
+    }
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-08-19
+   * Proposito: entregar facets contextuales con conteos reales para el catalogo publico.
+   * Impacto: Frontend ecommerce; evita filtros que regresen catalogo completo o productos mezclados.
+   * Contrato: read-only; usa el mismo resolver que catalogoPublico y respeta filtros invalidos como vacios.
+   */
+  public function catalogoFiltrosPublicos($opciones = array()) {
+    try {
+      $db = $this->getConexion();
+      if (!$db || !$this->tablaExiste($db, "erp_ecommerce_publicaciones")) {
+        return $this->respuesta(false, "info", "Filtros inteligentes ecommerce aun no configurados", array(
+          "configurado" => false,
+          "aplicados" => array(),
+          "categorias" => array(),
+          "marcas" => array(),
+          "precios" => array("min" => null, "max" => null),
+          "ordenamientos" => $this->ordenamientosCatalogoPublico()
+        ));
+      }
+      $base = $this->normalizarFiltrosCatalogoPublico($db, $opciones);
+      $catalogoBase = $this->catalogoPublico(array_merge($base, array("limite" => 1)));
+      $categorias = array();
+      foreach ($this->categoriasPublicasItems($db) as $cat) {
+        $f = $base;
+        $f["categoria_id"] = intval($cat["id"]);
+        $f["categoria_slug"] = "";
+        $f["incluir_hijos"] = intval($this->valor($base, "incluir_hijos", 0));
+        $total = intval($this->valor($this->catalogoPublico(array_merge($f, array("limite" => 1))), array("depurar", "paginacion", "total"), 0));
+        $activo = intval($this->valor($base, "categoria_id", 0)) === intval($cat["id"]) || $this->valor($base, "categoria_slug", "") === $cat["slug_publico"];
+        $categorias[] = array(
+          "id" => intval($cat["id"]),
+          "nombre" => $cat["nombre"],
+          "nombre_completo" => $cat["nombre_completo"],
+          "slug" => $cat["slug_publico"],
+          "path_slug" => $this->valor($cat, "path_slug", $cat["slug_publico"]),
+          "total" => $total,
+          "activo" => $activo,
+          "disabled" => $total <= 0 && !$activo
+        );
+      }
+      $marcas = array();
+      foreach ($this->marcasPublicasItems($db) as $marca) {
+        $f = $base;
+        $f["marca_id"] = intval($marca["id"]);
+        $f["marca_slug"] = "";
+        $total = intval($this->valor($this->catalogoPublico(array_merge($f, array("limite" => 1))), array("depurar", "paginacion", "total"), 0));
+        $activo = intval($this->valor($base, "marca_id", 0)) === intval($marca["id"]) || $this->valor($base, "marca_slug", "") === $marca["slug_publico"];
+        $marcas[] = array(
+          "id" => intval($marca["id"]),
+          "nombre" => $marca["nombre"],
+          "slug" => $marca["slug_publico"],
+          "total" => $total,
+          "activo" => $activo,
+          "disabled" => $total <= 0 && !$activo
+        );
+      }
+      $precios = $this->rangoPreciosCatalogoPublico($catalogoBase);
+      return $this->respuesta(false, "success", "Filtros inteligentes ecommerce consultados", array(
+        "configurado" => true,
+        "aplicados" => array(
+          "q" => $this->valor($base, "q", ""),
+          "categoria_id" => intval($this->valor($base, "categoria_id", 0)) ?: null,
+          "categoria_slug" => $this->valor($base, "categoria_slug", ""),
+          "marca_id" => intval($this->valor($base, "marca_id", 0)) ?: null,
+          "marca_slug" => $this->valor($base, "marca_slug", ""),
+          "mascota" => $this->valor($base, "mascota", ""),
+          "necesidad" => $this->valor($base, "necesidad", "")
+        ),
+        "resultado_actual" => array(
+          "total" => intval($this->valor($catalogoBase, array("depurar", "paginacion", "total"), 0)),
+          "hay_resultados" => intval($this->valor($catalogoBase, array("depurar", "paginacion", "total"), 0)) > 0
+        ),
+        "categorias" => $categorias,
+        "marcas" => $marcas,
+        "precios" => $precios,
+        "ordenamientos" => $this->ordenamientosCatalogoPublico(),
+        "guardrails" => array(
+          "read_only" => true,
+          "solo_publicados" => true,
+          "no_granel" => true,
+          "filtro_invalido_devuelve_vacio" => true
+        )
+      ));
+    } catch (Exception $e) {
+      return $this->respuesta(true, "danger", $e->getMessage(), array("categorias" => array(), "marcas" => array()));
+    }
+  }
+
+  /**
    * Documentacion IA: Codex GPT-5 | Fecha: 2026-07-31
    * Proposito: entregar sugerencias publicas para buscador ecommerce.
    * Impacto: Frontend publico; permite autocompletar productos, marcas, categorias, mascotas y necesidades.
@@ -2225,6 +2467,8 @@ class EcommerceCatalogoPublico extends CRUD {
       $limite = max(1, min(30, intval($this->valor($opciones, "limite", 12))));
       $filtros = $this->filtrosPublicos();
       $dep = $this->valor($filtros, "depurar", array());
+      $categorias = $this->categoriasPublicas(array("limite" => 200));
+      $depCategorias = $this->valor($categorias, "depurar", array());
       $navegacion = array(
         "primaria" => array(
           array("codigo" => "inicio", "label" => "Inicio", "url" => "/", "tipo" => "ruta"),
@@ -2235,6 +2479,7 @@ class EcommerceCatalogoPublico extends CRUD {
         "mascotas" => $this->itemsNavegacionDesdeFiltros($this->valor($dep, "mascotas", array()), "mascota", "mascota", $limite),
         "necesidades" => $this->itemsNavegacionDesdeFiltros($this->valor($dep, "necesidades", array()), "necesidad", "necesidad", $limite),
         "categorias" => $this->itemsNavegacionDesdeFiltros($this->valor($dep, "categorias", array()), "categoria", "categoria", $limite),
+        "categorias_arbol" => $this->valor($depCategorias, "arbol", array()),
         "marcas" => $this->itemsNavegacionDesdeFiltros($this->valor($dep, "marcas", array()), "marca", "marca", $limite),
         "disponibilidad" => $this->itemsNavegacionDesdeFiltros($this->valor($dep, "disponibilidad", array()), "disponibilidad", "disponibilidad", $limite)
       );
@@ -2249,6 +2494,7 @@ class EcommerceCatalogoPublico extends CRUD {
         "mascotas" => $navegacion["mascotas"],
         "necesidades" => $navegacion["necesidades"],
         "categorias" => $navegacion["categorias"],
+        "categorias_arbol" => $navegacion["categorias_arbol"],
         "marcas" => $navegacion["marcas"],
         "disponibilidad" => $navegacion["disponibilidad"],
         "resumen" => array(
@@ -2256,6 +2502,7 @@ class EcommerceCatalogoPublico extends CRUD {
           "mascotas" => count($navegacion["mascotas"]),
           "necesidades" => count($navegacion["necesidades"]),
           "categorias" => count($navegacion["categorias"]),
+          "categorias_arbol_raices" => count($navegacion["categorias_arbol"]),
           "marcas" => count($navegacion["marcas"]),
           "disponibilidad" => count($navegacion["disponibilidad"])
         ),
@@ -4426,14 +4673,27 @@ class EcommerceCatalogoPublico extends CRUD {
       $bloqueosFisicos = array_values(array_filter($this->bloqueosPublicacion($fila), function($bloqueo) {
         return $bloqueo !== "publicacion_existente";
       }));
+      $bloqueosPublicacion = array_values(array_unique($bloqueos));
+      $bloqueosQuePermitenBorrador = array(
+        "precio_general_faltante",
+        "imagen_faltante",
+        "categoria_principal_faltante",
+        "venta_fraccionaria_bloqueada_fase_1"
+      );
+      $bloqueosValidacion = array_values(array_filter($bloqueosPublicacion, function($bloqueo) use ($bloqueosQuePermitenBorrador) {
+        return !in_array($bloqueo, $bloqueosQuePermitenBorrador, true);
+      }));
 
-      return $this->respuesta(false, empty($bloqueos) ? "success" : "warning", "Plan de publicacion ecommerce generado sin ejecutar", array(
+      return $this->respuesta(false, empty($bloqueosValidacion) && empty($bloqueosFisicos) ? "success" : "warning", "Plan de publicacion ecommerce generado sin ejecutar", array(
         "read_only" => true,
         "no_escribe_bd" => true,
         "no_publica_automaticamente" => true,
         "tabla_publicaciones_existe" => $tablaExiste,
         "publicable_fase_1" => empty($bloqueosFisicos),
-        "bloqueos_publicacion" => array_values(array_unique($bloqueos)),
+        "borrador_permitido" => empty($bloqueosValidacion),
+        "bloqueos_publicacion" => $bloqueosPublicacion,
+        "bloqueos_validacion_borrador" => $bloqueosValidacion,
+        "bloqueos_publicabilidad" => $bloqueosFisicos,
         "producto_vivo_erp" => array(
           "id_producto_erp" => intval($fila["id_producto_erp"]),
           "id_sku" => intval($fila["id_sku"]),
@@ -4486,13 +4746,14 @@ class EcommerceCatalogoPublico extends CRUD {
 
       $plan = $this->planGuardarPublicacion($datos);
       $depurarPlan = $this->valor($plan, array("depurar"), array());
-      $bloqueos = $this->valor($depurarPlan, array("bloqueos_publicacion"), array());
+      $bloqueos = $this->valor($depurarPlan, array("bloqueos_validacion_borrador"), $this->valor($depurarPlan, array("bloqueos_publicacion"), array()));
       $publicacion = $this->valor($depurarPlan, array("publicacion_normalizada"), array());
 
       if (!empty($bloqueos) || empty($publicacion)) {
         return $this->respuesta(true, "warning", "No se guardo publicacion por bloqueos de validacion", array(
           "no_escribe_bd" => true,
           "bloqueos_publicacion" => $bloqueos,
+          "bloqueos_publicabilidad" => $this->valor($depurarPlan, array("bloqueos_publicabilidad"), array()),
           "plan" => $plan
         ));
       }
@@ -4550,6 +4811,8 @@ class EcommerceCatalogoPublico extends CRUD {
         "no_toca_inventario" => true,
         "no_toca_ecom_legacy" => true,
         "publicacion" => $guardada,
+        "publicable_fase_1" => (bool) $this->valor($depurarPlan, "publicable_fase_1", false),
+        "bloqueos_publicabilidad" => $this->valor($depurarPlan, array("bloqueos_publicabilidad"), array()),
         "plan_sha256_sql" => $this->valor($depurarPlan, "sha256_sql", "")
       ));
     } catch (Exception $e) {
@@ -4772,6 +5035,7 @@ class EcommerceCatalogoPublico extends CRUD {
         "mensaje" => isset($respuesta["mensaje"]) ? $respuesta["mensaje"] : "",
         "tipo" => isset($respuesta["tipo"]) ? $respuesta["tipo"] : "",
         "bloqueos" => $this->valor($respuesta, array("depurar", "bloqueos_publicacion"), array()),
+        "bloqueos_publicabilidad" => $this->valor($respuesta, array("depurar", "bloqueos_publicabilidad"), array()),
         "publicacion" => $this->valor($respuesta, array("depurar", "publicacion"), array())
       );
     }
@@ -4863,6 +5127,7 @@ class EcommerceCatalogoPublico extends CRUD {
         "tipo" => isset($respuesta["tipo"]) ? $respuesta["tipo"] : "",
         "id_publicacion" => $idPublicacion,
         "bloqueos" => $this->valor($respuesta, array("depurar", "bloqueos_publicacion"), array()),
+        "bloqueos_publicabilidad" => $this->valor($respuesta, array("depurar", "bloqueos_publicabilidad"), array()),
         "publicacion" => $this->valor($respuesta, array("depurar", "publicacion"), array())
       );
     }
@@ -5541,7 +5806,7 @@ class EcommerceCatalogoPublico extends CRUD {
         pub.mascota_especie, pub.necesidades_json, pub.destacado,
         pub.permite_cotizacion, pub.permite_whatsapp, pub.mostrar_precio, pub.mostrar_disponibilidad,
         s.sku, COALESCE(s.nombre, p.nombre) nombre_sku, p.nombre nombre_producto, p.descripcion descripcion_catalogo,
-        m.nombre marca, pc.id_categoria_erp, COALESCE(c.ruta, c.nombre) categoria,
+        m.id_marca_erp, m.nombre marca, pc.id_categoria_erp, c.nombre categoria_nombre, COALESCE(c.ruta, c.nombre) categoria,
         pr.precio, pr.moneda,
         img.url_imagen,
         COALESCE(r.controla_inventario, CASE WHEN s.tipo_inventario IN ('servicio','cargo') THEN 0 ELSE 1 END) controla_inventario,
@@ -5587,6 +5852,18 @@ class EcommerceCatalogoPublico extends CRUD {
       "nombre" => $fila["titulo_publico"] ?: $fila["nombre_sku"],
       "marca" => $fila["marca"],
       "categoria" => $fila["categoria"],
+      "marca_obj" => array(
+        "id" => intval($this->valor($fila, "id_marca_erp", 0)),
+        "nombre" => $this->valor($fila, "marca", ""),
+        "slug" => $this->slugificar($this->valor($fila, "marca", ""))
+      ),
+      "categoria_obj" => array(
+        "id" => intval($this->valor($fila, "id_categoria_erp", 0)),
+        "nombre" => $this->valor($fila, "categoria_nombre", ""),
+        "nombre_completo" => $this->valor($fila, "categoria", ""),
+        "slug" => $this->slugificar($this->valor($fila, "categoria_nombre", $this->valor($fila, "categoria", ""))),
+        "path_slug" => implode("/", array_map(array($this, "slugificar"), $this->partesRutaCategoriaPublica($this->valor($fila, "categoria", ""))))
+      ),
       "presentacion" => $this->presentacionPublicaSalida($fila),
       "descripcion" => trim((string) $fila["descripcion_publica"]) !== "" ? $fila["descripcion_publica"] : $this->descripcionCatalogoParaEcommerce($fila),
       "imagen" => $fila["url_imagen"],
@@ -6158,6 +6435,364 @@ class EcommerceCatalogoPublico extends CRUD {
     } elseif ($disponibilidad === "consultar_disponibilidad") {
       $where[] = "COALESCE(r.controla_inventario, CASE WHEN s.tipo_inventario IN ('servicio','cargo') THEN 0 ELSE 1 END)=0";
     }
+  }
+
+  private function categoriaIdsFiltroPublico($db, $categoriaId, $categoriaSlug, $incluirHijos) {
+    $categoriaId = intval($categoriaId);
+    $categoriaSlug = $this->limpiarFiltroPublico($categoriaSlug);
+    if ($categoriaId <= 0 && $categoriaSlug === "") {
+      return array();
+    }
+    $items = $this->categoriasPublicasItems($db);
+    $objetivo = null;
+    foreach ($items as $item) {
+      if ($categoriaId > 0 && intval($item["id"]) === $categoriaId) {
+        $objetivo = $item;
+        break;
+      }
+      if ($categoriaSlug !== "" && $item["slug_publico"] === $categoriaSlug) {
+        $objetivo = $item;
+        break;
+      }
+    }
+    if (!$objetivo) {
+      return array();
+    }
+    $ids = array(intval($objetivo["id"]));
+    if ($incluirHijos) {
+      $ids = array_merge($ids, $this->categoriaDescendientesPublicos($items, intval($objetivo["id"])));
+    }
+    return array_values(array_unique(array_filter(array_map("intval", $ids))));
+  }
+
+  private function marcaIdFiltroPublico($db, $marcaId, $marcaSlug) {
+    $marcaId = intval($marcaId);
+    $marcaSlug = $this->limpiarFiltroPublico($marcaSlug);
+    if ($marcaId <= 0 && $marcaSlug === "") {
+      return 0;
+    }
+    foreach ($this->marcasPublicasItems($db) as $item) {
+      if ($marcaId > 0 && intval($item["id"]) === $marcaId) {
+        return intval($item["id"]);
+      }
+      if ($marcaSlug !== "" && $item["slug_publico"] === $marcaSlug) {
+        return intval($item["id"]);
+      }
+    }
+    return 0;
+  }
+
+  private function normalizarFiltrosCatalogoPublico($db, $opciones) {
+    $marcaRaw = $this->valor($opciones, "marca_id", $this->valor($opciones, "marca", 0));
+    $marcaId = intval($marcaRaw);
+    $marcaSlug = $this->limpiarFiltroPublico($this->valor($opciones, "marca_slug", is_numeric($marcaRaw) ? "" : $marcaRaw));
+    $marcaFiltro = $this->marcaIdFiltroPublico($db, $marcaId, $marcaSlug);
+    $categoriaId = intval($this->valor($opciones, "categoria_id", $this->valor($opciones, "categoria", 0)));
+    $categoriaSlug = $this->limpiarFiltroPublico($this->valor($opciones, "categoria_slug", ""));
+    return array(
+      "q" => trim((string) $this->valor($opciones, "q", "")),
+      "mascota" => $this->limpiarFiltroPublico($this->valor($opciones, "mascota", "")),
+      "necesidad" => $this->limpiarFiltroPublico($this->valor($opciones, "necesidad", "")),
+      "marca_id" => $marcaFiltro > 0 ? $marcaFiltro : $marcaId,
+      "marca_slug" => $marcaSlug,
+      "categoria_id" => $categoriaId,
+      "categoria_slug" => $categoriaSlug,
+      "incluir_hijos" => intval($this->valor($opciones, "incluir_hijos", 0)) === 1 ? 1 : 0,
+      "disponibilidad" => trim((string) $this->valor($opciones, "disponibilidad", "")),
+      "destacado" => intval($this->valor($opciones, "destacado", 0)) === 1 ? 1 : 0,
+      "orden" => $this->ordenCatalogoPublicoNormalizado($this->valor($opciones, "orden", "relevancia"))
+    );
+  }
+
+  private function marcasPublicasItems($db) {
+    $items = array();
+    $stmt = $db->query("SELECT m.id_marca_erp id, m.nombre nombre, COUNT(DISTINCT pub.id_publicacion) total
+      FROM erp_ecommerce_publicaciones pub
+      INNER JOIN erp_catalogo_skus s ON s.id_sku=pub.id_sku
+      INNER JOIN erp_catalogo_productos p ON p.id_producto_erp=pub.id_producto_erp AND p.id_producto_erp=s.id_producto_erp
+      INNER JOIN erp_catalogo_marcas m ON m.id_marca_erp=p.id_marca_erp
+      LEFT JOIN erp_catalogo_sku_reglas_inventario r ON r.id_sku=s.id_sku
+      WHERE pub.estatus_publicacion='publicado'
+        AND p.estatus='activo'
+        AND s.estatus='activo'
+        AND TRIM(COALESCE(m.nombre,''))<>''
+        AND COALESCE(r.permite_venta_fraccionaria, 0)=0
+      GROUP BY m.id_marca_erp, m.nombre
+      ORDER BY m.nombre");
+    foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $fila) {
+      $nombre = trim((string) $this->valor($fila, "nombre", ""));
+      $slug = $this->slugPublicoUnico($this->slugificar($nombre), intval($fila["id"]), $items);
+      $items[intval($fila["id"])] = array(
+        "id" => intval($fila["id"]),
+        "nombre" => $nombre,
+        "slug_publico" => $slug,
+        "total_productos" => intval($fila["total"]),
+        "logo" => null,
+        "imagen_banner" => null,
+        "visible_frontend" => true,
+        "orden" => 100,
+        "descripcion_corta" => "",
+        "seo_title" => $nombre . " | Artiani",
+        "seo_description" => "Encuentra productos " . strtolower($nombre) . " en Artiani.",
+        "url" => "/marca/" . $slug,
+        "api_catalogo" => "/ecommercePublico/catalogo?marca_slug=" . rawurlencode($slug) . "&limite=24"
+      );
+    }
+    return $items;
+  }
+
+  private function rangoPreciosCatalogoPublico($catalogo) {
+    $items = $this->valor($catalogo, array("depurar", "items"), array());
+    $min = null;
+    $max = null;
+    foreach ($items as $item) {
+      if ($this->valor($item, "precio", null) === null) {
+        continue;
+      }
+      $precio = floatval($item["precio"]);
+      $min = $min === null ? $precio : min($min, $precio);
+      $max = $max === null ? $precio : max($max, $precio);
+    }
+    return array("min" => $min, "max" => $max);
+  }
+
+  private function ordenamientosCatalogoPublico() {
+    return array(
+      array("value" => "relevancia", "label" => "Relevancia"),
+      array("value" => "nombre", "label" => "Nombre"),
+      array("value" => "precio_asc", "label" => "Precio menor a mayor"),
+      array("value" => "precio_desc", "label" => "Precio mayor a menor"),
+      array("value" => "recientes", "label" => "Recientes")
+    );
+  }
+
+  private function categoriasPublicasItems($db) {
+    $parentCol = $this->primeraColumnaExistente($db, "erp_catalogo_categorias", array("parent_id", "id_categoria_padre", "id_padre", "categoria_padre_id"));
+    $nivelCol = $this->primeraColumnaExistente($db, "erp_catalogo_categorias", array("nivel", "profundidad"));
+    $ordenCol = $this->primeraColumnaExistente($db, "erp_catalogo_categorias", array("orden", "orden_visual", "posicion"));
+    $descripcionCol = $this->primeraColumnaExistente($db, "erp_catalogo_categorias", array("descripcion", "descripcion_corta"));
+    $select = array(
+      "c.id_categoria_erp id",
+      "c.nombre nombre",
+      "COALESCE(c.ruta, c.nombre) ruta",
+      ($parentCol ? "c.`" . $parentCol . "` parent_id_real" : "NULL parent_id_real"),
+      ($nivelCol ? "c.`" . $nivelCol . "` nivel_real" : "NULL nivel_real"),
+      ($ordenCol ? "c.`" . $ordenCol . "` orden_real" : "NULL orden_real"),
+      ($descripcionCol ? "c.`" . $descripcionCol . "` descripcion_real" : "NULL descripcion_real"),
+      "COUNT(DISTINCT pub.id_publicacion) total_directo"
+    );
+    $sql = "SELECT " . implode(", ", $select) . "
+      FROM erp_ecommerce_publicaciones pub
+      INNER JOIN erp_catalogo_skus s ON s.id_sku=pub.id_sku
+      INNER JOIN erp_catalogo_productos p ON p.id_producto_erp=pub.id_producto_erp
+      INNER JOIN erp_catalogo_producto_categorias pc ON pc.id_producto_erp=p.id_producto_erp AND pc.es_principal=1
+      INNER JOIN erp_catalogo_categorias c ON c.id_categoria_erp=pc.id_categoria_erp
+      LEFT JOIN erp_catalogo_sku_reglas_inventario r ON r.id_sku=s.id_sku
+      WHERE pub.estatus_publicacion='publicado'
+        AND p.estatus='activo'
+        AND s.estatus='activo'
+        AND COALESCE(r.permite_venta_fraccionaria, 0)=0
+      GROUP BY c.id_categoria_erp, c.nombre, c.ruta" .
+        ($parentCol ? ", c.`" . $parentCol . "`" : "") .
+        ($nivelCol ? ", c.`" . $nivelCol . "`" : "") .
+        ($ordenCol ? ", c.`" . $ordenCol . "`" : "") .
+        ($descripcionCol ? ", c.`" . $descripcionCol . "`" : "") . "
+      ORDER BY COALESCE(c.ruta, c.nombre), c.nombre";
+    $filasDirectas = $db->query($sql)->fetchAll(PDO::FETCH_ASSOC);
+    $totalesDirectos = array();
+    $rutasConProductos = array();
+    foreach ($filasDirectas as $filaDirecta) {
+      $totalesDirectos[intval($filaDirecta["id"])] = intval($filaDirecta["total_directo"]);
+      $rutasConProductos[] = implode(" / ", $this->partesRutaCategoriaPublica($this->valor($filaDirecta, "ruta", $this->valor($filaDirecta, "nombre", ""))));
+    }
+
+    $selectCategorias = array(
+      "c.id_categoria_erp id",
+      "c.nombre nombre",
+      "COALESCE(c.ruta, c.nombre) ruta",
+      ($parentCol ? "c.`" . $parentCol . "` parent_id_real" : "NULL parent_id_real"),
+      ($nivelCol ? "c.`" . $nivelCol . "` nivel_real" : "NULL nivel_real"),
+      ($ordenCol ? "c.`" . $ordenCol . "` orden_real" : "NULL orden_real"),
+      ($descripcionCol ? "c.`" . $descripcionCol . "` descripcion_real" : "NULL descripcion_real"),
+      "0 total_directo"
+    );
+    $whereCategorias = $this->columnaExisteLocal($db, "erp_catalogo_categorias", "estatus")
+      ? "WHERE COALESCE(c.estatus, '') NOT IN ('inactivo','inactiva','eliminado','eliminada','oculto','oculta')"
+      : "";
+    $filas = $db->query("SELECT " . implode(", ", $selectCategorias) . "
+      FROM erp_catalogo_categorias c
+      " . $whereCategorias . "
+      ORDER BY COALESCE(c.ruta, c.nombre), c.nombre")->fetchAll(PDO::FETCH_ASSOC);
+    $items = array();
+    $porRutaSlug = array();
+    foreach ($filas as $fila) {
+      $ruta = trim((string) $this->valor($fila, "ruta", $this->valor($fila, "nombre", "")));
+      $partes = $this->partesRutaCategoriaPublica($ruta);
+      $nombre = trim((string) $this->valor($fila, "nombre", ""));
+      if ($nombre === "" && !empty($partes)) {
+        $nombre = end($partes);
+      }
+      $rutaNormalizada = implode(" / ", $partes ?: array($nombre));
+      $totalDirecto = isset($totalesDirectos[intval($fila["id"])]) ? intval($totalesDirectos[intval($fila["id"])]) : 0;
+      if ($totalDirecto <= 0 && !$this->categoriaEsAncestroRutaPublica($rutaNormalizada, $rutasConProductos)) {
+        continue;
+      }
+      $slugBase = $this->slugificar($nombre);
+      $slug = $this->slugPublicoUnico($slugBase, intval($fila["id"]), $items);
+      $pathSlug = implode("/", array_map(array($this, "slugificar"), $partes ?: array($nombre)));
+      $nivel = $this->valor($fila, "nivel_real", null);
+      $nivel = $nivel !== null && $nivel !== "" ? intval($nivel) : max(0, count($partes) - 1);
+      $item = array(
+        "id" => intval($fila["id"]),
+        "parent_id" => $this->valor($fila, "parent_id_real", null) !== null && $this->valor($fila, "parent_id_real", "") !== "" ? intval($fila["parent_id_real"]) : null,
+        "nombre" => $nombre,
+        "nombre_completo" => $rutaNormalizada,
+        "slug_publico" => $slug,
+        "path_slug" => $pathSlug,
+        "nivel" => $nivel,
+        "orden" => $this->valor($fila, "orden_real", null) !== null && $this->valor($fila, "orden_real", "") !== "" ? intval($fila["orden_real"]) : 100,
+        "total_productos" => $totalDirecto,
+        "total_productos_directos" => $totalDirecto,
+        "visible_frontend" => true,
+        "imagen_menu" => null,
+        "imagen_card" => null,
+        "imagen_banner" => null,
+        "descripcion_corta" => trim((string) $this->valor($fila, "descripcion_real", "")),
+        "seo_title" => $nombre . " | Artiani",
+        "seo_description" => "Encuentra " . strtolower($nombre) . " en Artiani.",
+        "url" => "/categoria/" . $slug,
+        "api_catalogo" => "/ecommercePublico/catalogo?categoria_slug=" . rawurlencode($slug) . "&incluir_hijos=1&limite=24",
+        "_ruta_slug" => $this->slugificar(implode(" ", $partes ?: array($nombre))),
+        "_parent_resuelto" => false
+      );
+      $items[$item["id"]] = $item;
+      $porRutaSlug[$item["_ruta_slug"]] = $item["id"];
+    }
+
+    foreach ($items as $id => $item) {
+      if ($item["parent_id"] !== null && isset($items[$item["parent_id"]])) {
+        $items[$id]["_parent_resuelto"] = true;
+        continue;
+      }
+      $partes = explode(" / ", $item["nombre_completo"]);
+      array_pop($partes);
+      if (!empty($partes)) {
+        $parentKey = $this->slugificar(implode(" ", $partes));
+        if (isset($porRutaSlug[$parentKey])) {
+          $items[$id]["parent_id"] = $porRutaSlug[$parentKey];
+          $items[$id]["_parent_resuelto"] = true;
+        }
+      }
+    }
+
+    foreach (array_keys($items) as $id) {
+      $items[$id]["total_productos"] = $items[$id]["total_productos_directos"] + count($this->categoriaDescendientesPublicos($items, $id, true));
+      unset($items[$id]["_ruta_slug"], $items[$id]["_parent_resuelto"]);
+    }
+    return $items;
+  }
+
+  private function categoriasPublicasArbol($items) {
+    $nodos = array();
+    foreach ($items as $id => $item) {
+      $item["children"] = array();
+      $nodos[$id] = $item;
+    }
+    $raices = array();
+    foreach ($nodos as $id => &$nodo) {
+      $parent = $nodo["parent_id"];
+      if ($parent !== null && isset($nodos[$parent])) {
+        $nodos[$parent]["children"][] = &$nodo;
+      } else {
+        $raices[] = &$nodo;
+      }
+    }
+    unset($nodo);
+    $ordenar = function (&$lista) use (&$ordenar) {
+      usort($lista, function ($a, $b) {
+        if (intval($a["orden"]) === intval($b["orden"])) {
+          return strcmp((string) $a["nombre"], (string) $b["nombre"]);
+        }
+        return intval($a["orden"]) - intval($b["orden"]);
+      });
+      foreach ($lista as &$item) {
+        if (!empty($item["children"])) {
+          $ordenar($item["children"]);
+        }
+      }
+      unset($item);
+    };
+    $ordenar($raices);
+    return $raices;
+  }
+
+  private function categoriaDescendientesPublicos($items, $idCategoria, $contarProductos = false) {
+    $salida = array();
+    foreach ($items as $id => $item) {
+      if (intval($item["parent_id"]) === intval($idCategoria)) {
+        if ($contarProductos) {
+          for ($i = 0; $i < intval($item["total_productos_directos"]); $i++) { $salida[] = intval($id); }
+        } else {
+          $salida[] = intval($id);
+        }
+        $salida = array_merge($salida, $this->categoriaDescendientesPublicos($items, $id, $contarProductos));
+      }
+    }
+    return $salida;
+  }
+
+  private function partesRutaCategoriaPublica($ruta) {
+    $partes = preg_split('/[\/>]+/', (string) $ruta);
+    $limpias = array();
+    foreach ($partes as $parte) {
+      $parte = trim($parte);
+      if ($parte !== "") { $limpias[] = $parte; }
+    }
+    return $limpias;
+  }
+
+  private function categoriaEsAncestroRutaPublica($ruta, $rutasConProductos) {
+    $ruta = trim((string) $ruta);
+    if ($ruta === "") {
+      return false;
+    }
+    foreach ((array) $rutasConProductos as $rutaProducto) {
+      $rutaProducto = trim((string) $rutaProducto);
+      if ($rutaProducto === $ruta || strpos($rutaProducto, $ruta . " / ") === 0) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  private function slugPublicoUnico($slugBase, $id, $items) {
+    $slugBase = $slugBase !== "" ? $slugBase : "categoria-" . intval($id);
+    $slug = $slugBase;
+    foreach ($items as $item) {
+      if ($item["slug_publico"] === $slug) {
+        $slug = $slugBase . "-" . intval($id);
+        break;
+      }
+    }
+    return $slug;
+  }
+
+  private function primeraColumnaExistente($db, $tabla, $columnas) {
+    foreach ((array) $columnas as $columna) {
+      if ($this->columnaExisteLocal($db, $tabla, $columna)) {
+        return $columna;
+      }
+    }
+    return null;
+  }
+
+  private function columnaExisteLocal($db, $tabla, $columna) {
+    if (!preg_match('/^[a-zA-Z0-9_]+$/', (string) $tabla) || !preg_match('/^[a-zA-Z0-9_]+$/', (string) $columna)) {
+      return false;
+    }
+    $stmt = $db->prepare("SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=:base AND TABLE_NAME=:tabla AND COLUMN_NAME=:columna LIMIT 1");
+    $stmt->execute(array(":base" => MYSQLBASE, ":tabla" => $tabla, ":columna" => $columna));
+    return (bool) $stmt->fetchColumn();
   }
 
   private function frontendCatalogoPublico($pagina, $limite, $total, $itemsPagina, $filtrosAplicados) {

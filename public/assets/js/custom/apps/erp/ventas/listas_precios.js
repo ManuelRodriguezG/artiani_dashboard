@@ -1,6 +1,6 @@
 "use strict";
 (function () {
-    var estado = {listas: [], lista: null, productos: [], productosVisibles: [], cambios: {}, seleccionados: {}, sugeridos: {}, importacion: null, comparacion: null, revision: null, asignacionesClientes: [], asignacionesSegmentos: [], segmentosListasDisponible: false, segmentosPorId: {}};
+    var estado = {listas: [], lista: null, productos: [], productosVisibles: [], productosPorSku: {}, productosTotalDisponible: 0, productosPagina: 1, productosPorPagina: 80, productosTotalPaginas: 1, cambios: {}, seleccionados: {}, sugeridos: {}, importacion: null, comparacion: null, revision: null, asignacionesClientes: [], asignacionesSegmentos: [], segmentosListasDisponible: false, segmentosPorId: {}};
 
     /**
      * IA: Codex GPT-5 | Fecha: 2026-07-15
@@ -364,6 +364,7 @@
         estado.lista = null;
         estado.productos = [];
         estado.productosVisibles = [];
+        estado.productosPorSku = {};
         estado.cambios = {};
         estado.seleccionados = {};
         estado.sugeridos = {};
@@ -526,8 +527,19 @@
             q: document.getElementById("lp_producto_q").value.trim(),
             solo: solo === "modificados" ? "todos" : solo,
             margen_minimo: margenMinimoOperativo(),
-            limite: "160"
+            pagina: String(estado.productosPagina || 1),
+            por_pagina: productosPorPaginaOperativo()
         };
+    }
+
+    function productosPorPaginaOperativo() {
+        var select = document.getElementById("lp_producto_por_pagina");
+        var valor = Number(select ? select.value : estado.productosPorPagina || 80);
+        if (!isFinite(valor) || valor < 20) {
+            return "80";
+        }
+        estado.productosPorPagina = Math.min(200, Math.round(valor));
+        return String(estado.productosPorPagina);
     }
 
     function margenMinimoOperativo() {
@@ -561,21 +573,65 @@
                 estado.cambios = {};
                 estado.seleccionados = {};
                 estado.sugeridos = {};
+                estado.productosPorSku = {};
                 estado.importacion = null;
                 estado.comparacion = null;
                 document.getElementById("lp_importar_resultado").innerHTML = "CSV esperado: id_sku o sku, y precio_lista.";
                 renderComparacionListas();
                 renderPrevalidacionLote(null);
             }
-            estado.productos = aplicarCambiosPendientesAProductos((response.depurar || {}).productos || []);
+            var data = response.depurar || {};
+            estado.productosTotalDisponible = Number(data.total_disponible || data.total || 0);
+            estado.productosPagina = Number(data.pagina || estado.productosPagina || 1);
+            estado.productosPorPagina = Number(data.por_pagina || estado.productosPorPagina || 80);
+            estado.productosTotalPaginas = Number(data.total_paginas || 1);
+            estado.productos = aplicarCambiosPendientesAProductos(data.productos || []);
             actualizarContadorCambios();
             renderProductos(estado.productos);
+            renderPaginacionProductos();
             actualizarFlujoOperativo("productos");
         }).catch(mostrarError);
     }
 
+    function cargarProductosPagina(pagina) {
+        var total = Math.max(1, Number(estado.productosTotalPaginas || 1));
+        estado.productosPagina = Math.max(1, Math.min(total, Number(pagina || 1)));
+        cargarProductos();
+    }
+
+    function resetearPaginaProductos() {
+        estado.productosPagina = 1;
+        cargarProductos();
+    }
+
+    function renderPaginacionProductos() {
+        var pagina = Number(estado.productosPagina || 1);
+        var totalPaginas = Math.max(1, Number(estado.productosTotalPaginas || 1));
+        var total = Number(estado.productosTotalDisponible || 0);
+        var info = document.getElementById("lp_productos_pagina_info");
+        var input = document.getElementById("lp_productos_pagina");
+        if (info) {
+            info.textContent = "Pagina " + pagina + " de " + totalPaginas + " | Total " + total;
+        }
+        if (input) {
+            input.value = pagina;
+        }
+        [["lp_productos_primera", pagina <= 1], ["lp_productos_anterior", pagina <= 1], ["lp_productos_siguiente", pagina >= totalPaginas], ["lp_productos_ultima", pagina >= totalPaginas]].forEach(function (item) {
+            var boton = document.getElementById(item[0]);
+            if (boton) {
+                boton.disabled = !!item[1];
+            }
+        });
+    }
+
     function aplicarCambiosPendientesAProductos(productos) {
-        return productos || [];
+        return (productos || []).map(function (item) {
+            var idSku = String(item.id_sku || "");
+            if (idSku) {
+                estado.productosPorSku[idSku] = item;
+            }
+            return item;
+        });
     }
 
     function riesgoMargenLocal(precio, costo) {
@@ -614,10 +670,11 @@
             var pendiente = motivoPendienteComercial(item);
             var unidadHtml = unidadVentaHtml(item);
             var costoHtml = costoComercialHtml(item);
+            var estadoCatalogoHtml = estadoCatalogoHtmlProducto(item);
             var clases = [seleccionado ? "lp-row-selected" : "", cambioPendiente ? "lp-row-dirty" : ""].filter(Boolean).join(" ");
             return "<tr data-lp-producto=\"" + escapeHtml(item.id_sku) + "\"" + (clases ? " class=\"" + escapeHtml(clases) + "\"" : "") + ">" +
                 "<td class=\"text-center\"><input class=\"form-check-input\" type=\"checkbox\" data-lp-seleccionar-sku=\"" + escapeHtml(item.id_sku) + "\"" + (seleccionado ? " checked" : "") + "></td>" +
-                "<td><div class=\"fw-bold\">" + escapeHtml(item.sku || "") + "</div><div class=\"text-muted fs-8\">" + escapeHtml(item.sku_nombre || item.producto || "") + "</div><div class=\"text-muted fs-8\">" + escapeHtml([item.marca, item.categoria].filter(Boolean).join(" / ")) + "</div></td>" +
+                "<td><div class=\"fw-bold\">" + escapeHtml(item.sku || "") + "</div><div class=\"text-muted fs-8\">" + escapeHtml(item.sku_nombre || item.producto || "") + "</div><div class=\"text-muted fs-8\">" + escapeHtml([item.marca, item.categoria].filter(Boolean).join(" / ")) + "</div>" + estadoCatalogoHtml + "</td>" +
                 "<td>" + unidadHtml + "</td>" +
                 "<td class=\"text-end\">" + costoHtml + "</td>" +
                 "<td class=\"text-end\">" + dinero(item.precio_general) + "</td>" +
@@ -700,10 +757,20 @@
         return html;
     }
 
+    function estadoCatalogoHtmlProducto(item) {
+        var estatusProducto = String(item.estatus_producto || "activo").toLowerCase();
+        if (estatusProducto === "activo" || !estatusProducto) {
+            return "";
+        }
+        return "<div class=\"mt-1\"><span class=\"badge badge-light-warning\">Producto " + escapeHtml(estatusProducto) + "</span><span class=\"text-muted fs-9 ms-1\">SKU activo</span></div>";
+    }
+
     function productosModificados() {
         var cambios = estado.cambios || {};
-        return (estado.productos || []).filter(function (item) {
-            return cambios[String(item.id_sku)] != null;
+        return Object.keys(cambios).map(function (idSku) {
+            return (estado.productosPorSku || {})[String(idSku)] || null;
+        }).filter(function (item) {
+            return !!item;
         });
     }
 
@@ -738,6 +805,7 @@
         });
         var nodos = {
             lp_res_productos: productos.length,
+            lp_res_total: estado.productosTotalDisponible || productos.length,
             lp_tab_productos_count: productos.length,
             lp_res_seleccionados: Object.keys(estado.seleccionados || {}).length,
             lp_res_margen_bajo: margenBajo,
@@ -752,6 +820,10 @@
                 nodo.textContent = nodos[id];
             }
         });
+        var totalWrap = document.getElementById("lp_res_total_wrap");
+        if (totalWrap) {
+            totalWrap.style.display = (estado.productosTotalDisponible && estado.productosTotalDisponible !== productos.length) ? "" : "none";
+        }
         renderBarraCambios(productos.length, cambios, perdida, margenBajo, sinCosto);
     }
 
@@ -787,7 +859,7 @@
     }
 
     function productoPorSku(idSku) {
-        return (estado.productos || []).find(function (item) { return String(item.id_sku) === String(idSku); }) || null;
+        return (estado.productos || []).find(function (item) { return String(item.id_sku) === String(idSku); }) || (estado.productosPorSku || {})[String(idSku)] || null;
     }
 
     function cambiarSeleccionSku(idSku, seleccionado) {
@@ -1697,6 +1769,19 @@
         }).catch(mostrarError);
     }
 
+    function aplicarLotePrevalidado() {
+        var idLista = document.getElementById("lp_lista_id").value;
+        var cambios = Object.keys(estado.cambios || {}).map(function (idSku) { return estado.cambios[idSku]; });
+        if (!validarCambiosPendientes(idLista, cambios)) {
+            return;
+        }
+        prevalidarCambiosLoteBackend(idLista, cambios, true).then(function (ok) {
+            if (ok) {
+                guardarCambiosLoteConfirmado(idLista, cambios);
+            }
+        }).catch(mostrarError);
+    }
+
     function validarCambiosPendientes(idLista, cambios) {
         if (!idLista) {
             mostrarAlerta("warning", "Selecciona y guarda una lista antes de guardar cambios.");
@@ -1736,7 +1821,7 @@
                 if (!confirmarAvisos) {
                     return true;
                 }
-                return window.confirm("El lote tiene avisos comerciales. ¿Deseas guardar de todas formas?");
+                return window.confirm("El lote tiene avisos comerciales. Deseas guardar de todas formas?");
             }
             return true;
         });
@@ -1777,7 +1862,14 @@
                 return "<li>" + escapeHtml(item) + "</li>";
             }).join("") + "</ul>";
         }
+        if (data.puede_guardar !== false && !errores.length && perdida <= 0) {
+            html += "<div class=\"mt-3\"><button class=\"btn btn-sm btn-primary\" id=\"lp_lote_guardar_validado\" type=\"button\"><i class=\"bi bi-save2\"></i> Aplicar lote validado</button></div>";
+        }
         nodo.innerHTML = html;
+        var botonGuardar = document.getElementById("lp_lote_guardar_validado");
+        if (botonGuardar) {
+            botonGuardar.addEventListener("click", aplicarLotePrevalidado);
+        }
     }
 
     function guardarCambiosLoteConfirmado(idLista, cambios) {
@@ -2215,7 +2307,7 @@
             avisos.push("La vista actual tiene " + productos.margen_bajo + " producto(s) bajo el margen minimo");
         }
         if (productos.sin_costo > 0) {
-            avisos.push("La vista actual tiene " + productos.sin_costo + " producto(s) sin costo de referencia");
+            avisos.push("La vista actual tiene " + productos.sin_costo + " producto(s) sin costo comercial");
         }
         if (productos.sin_precio > 0) {
             avisos.push("La vista actual tiene " + productos.sin_precio + " producto(s) sin precio de lista capturado");
@@ -2603,7 +2695,7 @@
         document.getElementById("lp_guardar_lista").addEventListener("click", guardarLista);
         document.getElementById("lp_activar").addEventListener("click", function () { cambiarEstatusLista("activa"); });
         document.getElementById("lp_pausar").addEventListener("click", function () { cambiarEstatusLista("pausada"); });
-        document.getElementById("lp_productos_buscar").addEventListener("click", cargarProductos);
+        document.getElementById("lp_productos_buscar").addEventListener("click", resetearPaginaProductos);
         document.getElementById("lp_exportar_csv").addEventListener("click", exportarProductosCsv);
         document.getElementById("lp_importar_prevalidar").addEventListener("click", prevalidarImportacionCsv);
         document.getElementById("lp_importar_aplicar").addEventListener("click", aplicarImportacionCsv);
@@ -2622,6 +2714,7 @@
         document.getElementById("lp_guardar_cambios").addEventListener("click", guardarCambiosLote);
         document.getElementById("lp_ver_modificados").addEventListener("click", verProductosModificados);
         document.getElementById("lp_prevalidar_cambios_top").addEventListener("click", prevalidarCambiosPendientes);
+        document.getElementById("lp_guardar_cambios_top").addEventListener("click", guardarCambiosLote);
         document.getElementById("lp_limpiar_cambios_top").addEventListener("click", limpiarCambiosPendientes);
         document.getElementById("lp_cliente_buscar").addEventListener("click", buscarClientesCrm);
         document.getElementById("lp_segmentos_recargar").addEventListener("click", cargarSegmentosCrm);
@@ -2653,9 +2746,10 @@
             if (event.key === "Enter") { cargarResumen(); }
         });
         document.getElementById("lp_producto_q").addEventListener("keyup", function (event) {
-            if (event.key === "Enter") { cargarProductos(); }
+            if (event.key === "Enter") { resetearPaginaProductos(); }
         });
-        document.getElementById("lp_producto_solo").addEventListener("change", cargarProductos);
+        document.getElementById("lp_producto_solo").addEventListener("change", resetearPaginaProductos);
+        document.getElementById("lp_producto_por_pagina").addEventListener("change", resetearPaginaProductos);
         document.getElementById("lp_margen_minimo").addEventListener("input", function () {
             actualizarResumenProductos(estado.productosVisibles || []);
             (estado.productosVisibles || []).forEach(function (item) {
@@ -2663,7 +2757,14 @@
             });
         });
         document.getElementById("lp_margen_minimo").addEventListener("keyup", function (event) {
-            if (event.key === "Enter") { cargarProductos(); }
+            if (event.key === "Enter") { resetearPaginaProductos(); }
+        });
+        document.getElementById("lp_productos_primera").addEventListener("click", function () { cargarProductosPagina(1); });
+        document.getElementById("lp_productos_anterior").addEventListener("click", function () { cargarProductosPagina(Number(estado.productosPagina || 1) - 1); });
+        document.getElementById("lp_productos_siguiente").addEventListener("click", function () { cargarProductosPagina(Number(estado.productosPagina || 1) + 1); });
+        document.getElementById("lp_productos_ultima").addEventListener("click", function () { cargarProductosPagina(estado.productosTotalPaginas || 1); });
+        document.getElementById("lp_productos_pagina").addEventListener("keyup", function (event) {
+            if (event.key === "Enter") { cargarProductosPagina(document.getElementById("lp_productos_pagina").value); }
         });
         document.getElementById("lp_cliente_q").addEventListener("keyup", function (event) {
             if (event.key === "Enter") { buscarClientesCrm(); }

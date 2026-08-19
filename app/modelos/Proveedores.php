@@ -5351,6 +5351,24 @@ class Proveedores extends CRUD {
 
             $stmt = $db->prepare("SELECT
                     d.*,
+                    s.sku AS sku_erp,
+                    s.nombre AS sku_nombre,
+                    (
+                        SELECT img.url_imagen
+                        FROM erp_catalogo_imagenes img
+                        WHERE img.estatus = 'activo'
+                          AND TRIM(COALESCE(img.url_imagen, '')) <> ''
+                          AND (
+                            img.id_sku = d.id_sku
+                            OR (img.id_sku IS NULL AND img.id_producto_erp = s.id_producto_erp)
+                          )
+                        ORDER BY
+                          CASE WHEN img.id_sku = d.id_sku THEN 0 ELSE 1 END,
+                          FIELD(img.tipo_imagen, 'portada', 'empaque', 'detalle', 'galeria', 'referencia'),
+                          img.orden ASC,
+                          img.id_imagen_erp ASC
+                        LIMIT 1
+                    ) AS url_imagen,
                     EXISTS (
                         SELECT 1
                         FROM erp_proveedores_sku_costos c
@@ -5359,6 +5377,7 @@ class Proveedores extends CRUD {
                           AND c.estatus = 'vigente'
                     ) AS tiene_costo_vigente
                 FROM erp_proveedores_listas_detalle_erp d
+                LEFT JOIN erp_catalogo_skus s ON s.id_sku = d.id_sku
                 WHERE d.id_lista_proveedor_erp = :id_lista
                 ORDER BY d.id_lista_detalle_erp ASC
                 LIMIT 5000");
@@ -6636,8 +6655,8 @@ class Proveedores extends CRUD {
         if ($idSkuProveedor > 0 || in_array($estado, array("relacion_aplicada", "costo_aplicado"), true)) {
             return array("aplicable" => false, "motivo" => "ya_relacionado", "item" => $base + array("motivo" => "ya_relacionado", "detalle" => "El renglon ya tiene relacion aplicada."));
         }
-        if ($estado !== "match_seleccionado") {
-            return array("aplicable" => false, "motivo" => "estado_no_seleccionado", "item" => $base + array("motivo" => "estado_no_seleccionado", "detalle" => "Primero debe elegirse un candidato de matching."));
+        if (!in_array($estado, array("match_seleccionado", "match_exacto_pendiente"), true)) {
+            return array("aplicable" => false, "motivo" => "estado_no_seleccionado", "item" => $base + array("motivo" => "estado_no_seleccionado", "detalle" => "Primero debe elegirse un candidato de matching o tener match exacto pendiente."));
         }
         if ($idUnidad <= 0 || $factor <= 0 || $cantidadMinima <= 0) {
             return array("aplicable" => false, "motivo" => "compra_incompleta", "item" => $base + array("motivo" => "compra_incompleta", "detalle" => "Falta unidad, factor o cantidad minima."));
