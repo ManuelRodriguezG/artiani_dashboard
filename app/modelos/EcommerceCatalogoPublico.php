@@ -921,6 +921,90 @@ class EcommerceCatalogoPublico extends CRUD {
   }
 
   /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-08-20
+   * Proposito: listar biblioteca Media CMS desde BD cuando este autorizada.
+   * Impacto: CMS media; permite que la UI migre de localStorage a servidor sin activar escrituras.
+   * Contrato: solo lectura; si la tabla no existe devuelve lista vacia y preflight pendiente.
+   */
+  public function mediaAdminListarInterno($opciones = array()) {
+    $db = $this->getConexion();
+    if (!$this->tablaExiste($db, "erp_ecommerce_media_archivos")) {
+      return $this->respuesta(false, "info", "Media CMS en modo local; persistencia pendiente", array(
+        "modo" => "local_preflight",
+        "persistencia_real" => false,
+        "items" => array(),
+        "resumen" => array("total" => 0, "activos" => 0, "archivados" => 0),
+        "preflight" => "/cms/media_admin_preflight_erp",
+        "guardrails" => array(
+          "read_only" => true,
+          "no_escribe_bd" => true,
+          "no_mueve_archivos" => true,
+          "no_borra_fisicos" => true
+        )
+      ));
+    }
+
+    $uso = trim((string) $this->valor($opciones, "uso", ""));
+    $estatus = trim((string) $this->valor($opciones, "estatus", "activo"));
+    $q = trim((string) $this->valor($opciones, "q", ""));
+    $limite = (int) $this->valor($opciones, "limite", 60);
+    if ($limite < 1) { $limite = 60; }
+    if ($limite > 120) { $limite = 120; }
+
+    $where = array("1=1");
+    $params = array();
+    if ($estatus !== "") {
+      $where[] = "estatus = :estatus";
+      $params[":estatus"] = $estatus;
+    }
+    if ($uso !== "") {
+      $where[] = "uso_sugerido = :uso";
+      $params[":uso"] = $uso;
+    }
+    if ($q !== "") {
+      $where[] = "(nombre_original LIKE :q OR alt_text LIKE :q OR codigo LIKE :q)";
+      $params[":q"] = "%" . $q . "%";
+    }
+
+    $sql = "SELECT id_media_archivo, codigo, nombre_original, nombre_archivo, ruta_publica, mime, extension, bytes, ancho, alto, alt_text, uso_sugerido, tipo_sugerido, estatus, fecha_registro FROM erp_ecommerce_media_archivos WHERE " . implode(" AND ", $where) . " ORDER BY fecha_registro DESC, id_media_archivo DESC LIMIT " . $limite;
+    $stmt = $db->prepare($sql);
+    $stmt->execute($params);
+    $items = array();
+    while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+      $items[] = array(
+        "id_media_archivo" => (int) $row["id_media_archivo"],
+        "codigo" => (string) $row["codigo"],
+        "nombre_original" => (string) $row["nombre_original"],
+        "nombre_archivo" => (string) $row["nombre_archivo"],
+        "url" => (string) $row["ruta_publica"],
+        "mime" => (string) $row["mime"],
+        "extension" => (string) $row["extension"],
+        "bytes" => (int) $row["bytes"],
+        "ancho" => $row["ancho"] !== null ? (int) $row["ancho"] : null,
+        "alto" => $row["alto"] !== null ? (int) $row["alto"] : null,
+        "alt" => (string) $row["alt_text"],
+        "uso" => (string) $row["uso_sugerido"],
+        "tipo" => (string) $row["tipo_sugerido"],
+        "estatus" => (string) $row["estatus"],
+        "creado_en" => (string) $row["fecha_registro"]
+      );
+    }
+
+    return $this->respuesta(false, "success", "Media CMS consultada", array(
+      "modo" => "bd_readonly",
+      "persistencia_real" => true,
+      "items" => $items,
+      "resumen" => array("total" => count($items)),
+      "guardrails" => array(
+        "read_only" => true,
+        "no_escribe_bd" => true,
+        "no_mueve_archivos" => true,
+        "no_borra_fisicos" => true
+      )
+    ));
+  }
+
+  /**
    * Documentacion IA: Codex GPT-5 | Fecha: 2026-08-10
    * Proposito: entregar previsualizacion admin de una pagina CMS ecommerce.
    * Impacto: Ecommerce CMS; muestra el mismo contrato que consumira frontend con avisos de modo read-only.

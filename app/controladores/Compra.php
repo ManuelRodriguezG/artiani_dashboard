@@ -107,6 +107,102 @@ class Compra extends Controlador {
         ));
     }
 
+    /**
+     * IA: Codex GPT-5
+     * Fecha: 2026-08-20
+     * Proposito: abrir Sugerido de compra por proveedor como flujo independiente de solicitud/orden.
+     * Impacto: Compras/Sugerido; no afecta inventario ni reutiliza vistas legacy.
+     */
+    public function mostrar_sugeridos_compra() {
+        $this->requerirPermiso("compras.ver");
+        $this->vista("apps/erp/compras/sugeridos/listado", array(
+            "puede_crear" => $this->usuarioPuede("compras.crear"),
+            "puede_editar" => $this->usuarioPuede("compras.editar")
+        ));
+    }
+
+    public function sugerido_compra($id = 0) {
+        $this->requerirPermiso("compras.crear");
+        $this->vista("apps/erp/compras/sugeridos/formulario", array(
+            "id_sugerido_compra" => intval($id),
+            "modo" => "editar",
+            "puede_crear" => $this->usuarioPuede("compras.crear"),
+            "puede_editar" => $this->usuarioPuede("compras.editar")
+        ));
+    }
+
+    public function ver_sugerido_compra($id = 0) {
+        $this->requerirPermiso("compras.ver");
+        $this->vista("apps/erp/compras/sugeridos/formulario", array(
+            "id_sugerido_compra" => intval($id),
+            "modo" => "ver",
+            "puede_crear" => $this->usuarioPuede("compras.crear"),
+            "puede_editar" => false
+        ));
+    }
+
+    public function sugeridos_catalogos_erp() {
+        $this->requerirPermiso("compras.ver");
+        return json_encode($this->modelo("ComprasSugeridosCompraErp")->catalogos());
+    }
+
+    public function sugeridos_listar_erp() {
+        $this->requerirPermiso("compras.ver");
+        return json_encode($this->modelo("ComprasSugeridosCompraErp")->listar($_GET));
+    }
+
+    public function sugeridos_productos_proveedor_erp() {
+        $this->requerirPermiso("compras.ver");
+        return json_encode($this->modelo("ComprasSugeridosCompraErp")->productosProveedor($_GET));
+    }
+
+    public function sugerido_consultar_erp() {
+        $this->requerirPermiso("compras.ver");
+        return json_encode($this->modelo("ComprasSugeridosCompraErp")->consultar(
+            isset($_GET["id_sugerido_compra"]) ? $_GET["id_sugerido_compra"] : 0
+        ));
+    }
+
+    public function sugerido_guardar_erp() {
+        $idSugerido = isset($_POST["id_sugerido_compra"]) ? intval($_POST["id_sugerido_compra"]) : 0;
+        $this->requerirPermiso($idSugerido > 0 ? "compras.editar" : "compras.crear");
+        $respuesta = $this->modelo("ComprasSugeridosCompraErp")->guardar(
+            $_POST,
+            isset($_SESSION["id_usuario"]) ? $_SESSION["id_usuario"] : 0
+        );
+        $this->auditarSugeridoCompraErp("guardar", $respuesta);
+        return json_encode($respuesta);
+    }
+
+    public function sugerido_generar_solicitud_erp() {
+        $this->requerirPermiso("compras.crear");
+        $respuesta = $this->modelo("ComprasSugeridosCompraErp")->generarSolicitud(
+            isset($_POST["id_sugerido_compra"]) ? $_POST["id_sugerido_compra"] : 0,
+            isset($_SESSION["id_usuario"]) ? $_SESSION["id_usuario"] : 0
+        );
+        $this->auditarSugeridoCompraErp("generar_solicitud", $respuesta);
+        return json_encode($respuesta);
+    }
+
+    public function sugerido_duplicar_erp() {
+        $this->requerirPermiso("compras.crear");
+        $respuesta = $this->modelo("ComprasSugeridosCompraErp")->duplicarComoNuevo(
+            isset($_POST["id_sugerido_compra"]) ? $_POST["id_sugerido_compra"] : 0,
+            isset($_SESSION["id_usuario"]) ? $_SESSION["id_usuario"] : 0
+        );
+        $this->auditarSugeridoCompraErp("duplicar", $respuesta);
+        return json_encode($respuesta);
+    }
+
+    private function auditarSugeridoCompraErp($accion, $respuesta) {
+        SesionSeguridad::registrarAuditoria("compras", "sugerido_compra_" . $accion, array(
+            "entidad" => "erp_compras_sugeridos_compra",
+            "entidad_id" => isset($respuesta["depurar"]["id_sugerido_compra"]) ? $respuesta["depurar"]["id_sugerido_compra"] : null,
+            "resultado" => $respuesta["error"] ? "error" : "ok",
+            "mensaje" => $respuesta["mensaje"],
+            "datos_despues" => isset($respuesta["depurar"]) ? $respuesta["depurar"] : null
+        ));
+    }
     public function solicitudes_catalogos_erp() {
         $this->requerirPermiso("compras.ver");
         return json_encode($this->modelo("SolicitudesCompraErp")->catalogos());
@@ -530,7 +626,7 @@ class Compra extends Controlador {
     }
 
     public function orden_xml_parse_erp() {
-        // [Codex: v2026.06.08] Parseo de XML para carga masiva en órdenes nuevas (sin persistir documento).
+        // [Codex: v2026.06.08] Parseo de XML para carga masiva en ÃƒÂ³rdenes nuevas (sin persistir documento).
         $this->requerirPermiso("compras.crear");
         $respuesta = $this->modelo("ComprasXmlErp")->parsear(
             isset($_FILES["archivo_xml"]) ? $_FILES["archivo_xml"] : array(),
@@ -650,6 +746,18 @@ class Compra extends Controlador {
         $ejecutar = isset($_POST['ejecutar']) && $_POST['ejecutar'] == 1;
         $esquema = $this->modelo("ComprasEsquema");
         return json_encode($esquema->planActualizarOrdenCompra($ejecutar));
+    }
+    /**
+     * IA: Codex GPT-5
+     * Fecha: 2026-08-20
+     * Proposito: ejecutar/auditar solo el esquema de Sugerido de compra.
+     * Impacto: Compras/Sugerido; evita aplicar el plan completo de Compras cuando solo se requieren estas tablas.
+     */
+    public function esquema_actualizar_sugeridos_compra() {
+        $this->requerirPermiso("sistema.soporte");
+        $ejecutar = isset($_POST['ejecutar']) && $_POST['ejecutar'] == 1;
+        $esquema = $this->modelo("ComprasEsquema");
+        return json_encode($esquema->planActualizarSugeridosCompra($ejecutar));
     }
 
     /**
@@ -1280,7 +1388,7 @@ class Compra extends Controlador {
             $respuesta = array(
                 "error" => false,
                 "tipo" => "success",
-                "mensaje" => "Consulta orden de compra con éxito",
+                "mensaje" => "Consulta orden de compra con ÃƒÂ©xito",
                 "depurar" => array(
                     "orden_compra" => $respuesta_solicitud['depurar']
                 )
@@ -1318,7 +1426,7 @@ class Compra extends Controlador {
             //PRECIO ACTUAL EL REGISTRADO EN LA PAGINA
             //PORCENTAJE ANTERIOR (CALCULAR CON EL COSTO PROVEEDOR Y EL PRECIO ACTUAL
             //GANANCIA ANTERIOR CALCULAR CON EL COSTO ACTUAL Y EL PRECIO ACTUAL
-            //COSTO DE COMPRA SERÁ EL NUEVO PRECIO FACTURA, MIENTRAS COLOCAR EL ACTUAL
+            //COSTO DE COMPRA SERÃƒÂ EL NUEVO PRECIO FACTURA, MIENTRAS COLOCAR EL ACTUAL
             //PRECIO SUGERIDO VACIO O CALCULAR CON EL MISMO PORCENTAJE ANTERIOR
             //PORCENTAJE SUGERIDO EL MISMO ANTERIOR
             //GANANCIA NUEVA CON EL NUEVO PRECIO SUGERIDO
@@ -1378,7 +1486,7 @@ class Compra extends Controlador {
                 $respuesta['depurar']['orden_compra_detalle'] = $respuesta_solicitud_detalle['depurar'];
             } else {
                 $respuesta['tipo'] = "warning";
-                $respuesta['mensaje'] = "Consulta solicitud de compra con éxito, falto detalle de solicitud";
+                $respuesta['mensaje'] = "Consulta solicitud de compra con ÃƒÂ©xito, falto detalle de solicitud";
             }
         }
         return json_encode($respuesta);
@@ -1447,7 +1555,7 @@ class Compra extends Controlador {
             $respuesta = array(
                 "error" => false,
                 "tipo" => "success",
-                "mensaje" => "Consulta solicitud de compra con éxito",
+                "mensaje" => "Consulta solicitud de compra con ÃƒÂ©xito",
                 "depurar" => array(
                     "solicitud_compra" => $respuesta_solicitud['depurar']
                 )
@@ -1459,7 +1567,7 @@ class Compra extends Controlador {
                 $respuesta['depurar']['solicitud_detalle'] = $respuesta_solicitud_detalle['depurar'];
             } else {
                 $respuesta['tipo'] = "warning";
-                $respuesta['mensaje'] = "Consulta solicitud de compra con éxito, falto detalle de solicitud";
+                $respuesta['mensaje'] = "Consulta solicitud de compra con ÃƒÂ©xito, falto detalle de solicitud";
             }
         }
         return json_encode($respuesta);
@@ -1549,7 +1657,7 @@ class Compra extends Controlador {
             $respuesta = array(
                 "error" => false,
                 "tipo" => "success",
-                "mensaje" => "solicitud compra consultada con éxito",
+                "mensaje" => "solicitud compra consultada con ÃƒÂ©xito",
                 "depurar"
             );
             //consultar solicitud detalle
@@ -1568,7 +1676,7 @@ class Compra extends Controlador {
                     $respuesta = array(
                         "error" => false,
                         "tipo" => "success",
-                        "mensaje" => "solicitud compra creada con éxito",
+                        "mensaje" => "solicitud compra creada con ÃƒÂ©xito",
                         "depurar"
                     );
                     $id_orden_compra = $respuesta_orden_compra['depurar'];
@@ -1740,7 +1848,7 @@ class Compra extends Controlador {
             $respuesta_final = array(
                 "error" => false,
                 "tipo" => "success",
-                "mensaje" => "Solicitud actualizada con éxito",
+                "mensaje" => "Solicitud actualizada con ÃƒÂ©xito",
                 "depurar"
             );
             //eliminar productos solicitud detalle
@@ -1823,7 +1931,7 @@ class Compra extends Controlador {
             $respuesta_final = array(
                 "error" => false,
                 "tipo" => "success",
-                "mensaje" => "Solicitud registrada con éxito",
+                "mensaje" => "Solicitud registrada con ÃƒÂ©xito",
                 "depurar"
             );
 

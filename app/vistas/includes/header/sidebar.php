@@ -147,6 +147,7 @@ $gruposMenu = array(
             array('titulo' => 'Ordenes de compra', 'ruta' => '/compra/mostrar_compra_ordenes', 'permiso' => 'compras.ver'),
             array('titulo' => 'Nueva orden', 'ruta' => '/compra/crear_orden_compra', 'permiso' => 'compras.crear'),
             array('titulo' => 'Solicitudes', 'ruta' => '/compra/mostrar_solicitudes', 'permiso' => 'compras.ver'),
+            array('titulo' => 'Sugerido de compra', 'ruta' => '/compra/mostrar_sugeridos_compra', 'permiso' => 'compras.ver'),
             array('titulo' => 'Nueva solicitud', 'ruta' => '/compra/solicitud_compra_nueva', 'permiso' => 'compras.crear'),
             array('titulo' => 'Documentos', 'ruta' => '/compra/documentos_configuracion', 'permiso' => 'compras.editar')
         )
@@ -443,4 +444,3 @@ window.ERP_CSRF_TOKEN = <?= json_encode(SesionSeguridad::csrfToken()) ?>;
 </script>
 <script src="/assets/js/custom/security/session-guard.js"></script>
 <script src="/assets/js/custom/apps/erp/notificaciones/notificaciones.js?v=20260616-1"></script>
-

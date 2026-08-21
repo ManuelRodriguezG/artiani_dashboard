@@ -725,6 +725,7 @@ En la fase actual funciona como biblioteca local:
 - permite archivar/quitar imagenes de la biblioteca local
 
 Tambien consulta el preflight read-only `/cms/media_admin_preflight_erp`, que muestra la carpeta publica propuesta, tablas futuras, limites de archivo y endpoints POST que siguen bloqueados.
+Tambien existe `/cms/media_admin_listar_erp`, que intenta listar desde BD cuando las tablas existan; si no existen, devuelve lista vacia y mantiene la biblioteca local como fuente operativa.
 
 Importante: todavia no sube archivos al servidor, no borra archivos fisicos y no guarda rutas en BD.
 
@@ -808,6 +809,8 @@ La galeria del modal muestra previsualizaciones. El campo de texto es solo `Filt
 - La carpeta publica propuesta es `/assets/media/cms/ecommerce`.
 - Las tablas propuestas para persistencia real son `erp_ecommerce_media_archivos` y `erp_ecommerce_media_usos`.
 - El endpoint `/cms/media_admin_preflight_erp` solo lee contrato; no crea carpetas, no ejecuta DDL y no mueve archivos.
+- El endpoint `/cms/media_admin_listar_erp` es solo lectura; no sube ni modifica imagenes.
+- Los endpoints `/cms/media_admin_subir_erp`, `/cms/media_admin_actualizar_erp`, `/cms/media_admin_archivar_erp` y `/cms/media_admin_usos_erp` siguen bloqueados.
 - La carga real de imagenes requiere definir ruta publica, tamanos, formatos, nombres seguros, respaldo y limpieza segura.
 - No se deben guardar rutas internas del ERP para que el frontend las lea directamente.
 

@@ -23,6 +23,7 @@
     bindEventos();
     renderTodo();
     cargarPreflightServidor();
+    cargarListadoServidor();
   });
 
   function bindEventos() {
@@ -207,6 +208,21 @@
       });
   }
 
+  function cargarListadoServidor() {
+    if (!window.fetch) return;
+    fetch("/cms/media_admin_listar_erp", { credentials: "same-origin" })
+      .then(function (response) { return response.json(); })
+      .then(function (json) {
+        var data = json && json.depurar ? json.depurar : {};
+        if (data.persistencia_real && Array.isArray(data.items) && data.items.length) {
+          setEstado("BD read-only disponible", "badge-light-info");
+        }
+      })
+      .catch(function () {
+        // La biblioteca local sigue siendo la fuente operativa en esta fase.
+      });
+  }
+
   function renderPreflightServidor(data) {
     var node = $("cms_media_preflight");
     if (!node) return;
@@ -217,6 +233,7 @@
       '<div><span class="badge badge-light-primary me-2">Carpeta</span><code>' + escapeHtml(data.carpeta_publica_propuesta || "") + '</code></div>' +
       '<div><span class="badge badge-light-primary me-2">Tablas</span><code>' + escapeHtml(data.tabla_archivos || "") + '</code> / <code>' + escapeHtml(data.tabla_usos || "") + '</code></div>' +
       '<div><span class="badge badge-light-primary me-2">Limite</span>' + escapeHtml(limites.max_mb || "") + ' MB, ' + escapeHtml((limites.extensiones || []).join(", ")) + '</div>' +
+      '<div><span class="badge badge-light-info me-2">GET</span><code>/cms/media_admin_listar_erp</code></div>' +
       '<div><span class="badge badge-light-warning me-2">POST futuro</span><code>' + escapeHtml(endpoints.subir || "") + '</code></div>' +
       '<div><span class="badge badge-light-success me-2">Estado</span>No mueve archivos ni escribe BD.</div>' +
     '</div>';

@@ -138,6 +138,9 @@ Mandar a Fiscal/Contabilidad cuando:
 - Fusionar productos es accion de alto impacto.
 - Siempre debe tener motivo claro.
 - No usar fusion como limpieza rapida sin revisar SKUs, imagenes, categorias y uso operativo.
+- Las imagenes ya relacionadas a un SKU conservan esa relacion cuando el SKU se mueve al producto destino.
+- Si el producto origen tiene un solo SKU, las imagenes generales del origen pueden ligarse automaticamente a ese SKU antes de fusionar.
+- Si el producto origen tiene varios SKUs, no se debe inferir imagen-SKU automaticamente; se revisa manualmente despues de fusionar.
 - La reversa automatica no debe habilitarse hasta tener snapshot y detalle de entidades movidas.
 
 ## Criterio de cierre de captura

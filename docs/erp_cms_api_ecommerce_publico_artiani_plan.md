@@ -139,6 +139,7 @@ La biblioteca real de media debe separarse del contenido para poder reutilizar a
 Preflight actual:
 
 - `GET /cms/media_admin_preflight_erp`
+- `GET /cms/media_admin_listar_erp`
 - carpeta publica propuesta: `/assets/media/cms/ecommerce`
 - tabla archivos propuesta: `erp_ecommerce_media_archivos`
 - tabla usos propuesta: `erp_ecommerce_media_usos`
@@ -151,5 +152,6 @@ Endpoints POST futuros bloqueados hasta respaldo/autorizacion:
 - `POST /cms/media_admin_subir_erp`
 - `POST /cms/media_admin_actualizar_erp`
 - `POST /cms/media_admin_archivar_erp`
+- `POST /cms/media_admin_usos_erp`
 
 Guardrail: el preflight no crea carpetas, no ejecuta DDL, no mueve archivos y no borra fisicos.

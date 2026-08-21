@@ -123,7 +123,8 @@ class CatalogoErpOrganizacion extends CRUD {
         "skus_origen" => $this->skusProducto($db, $idOrigen),
         "skus_destino" => $this->skusProducto($db, $idDestino),
         "imagenes_origen" => $this->imagenesProducto($db, $idOrigen),
-        "imagenes_destino" => $this->imagenesProducto($db, $idDestino)
+        "imagenes_destino" => $this->imagenesProducto($db, $idDestino),
+        "imagenes_fusion_resumen" => $this->resumenImagenesFusion($db, $idOrigen)
       ));
     } catch (Exception $e) {
       return array("error" => true, "tipo" => "warning", "mensaje" => $e->getMessage(), "depurar" => null);
@@ -134,6 +135,7 @@ class CatalogoErpOrganizacion extends CRUD {
    * IA: Codex GPT-5 | Fecha: 2026-06-24
    * Proposito: fusiona productos maestros solo con motivo explicito y trazabilidad minima.
    * Impacto: Catalogo ERP; accion irreversible automaticamente sin snapshot, por eso exige motivo operativo.
+   * Actualizacion 2026-08-20: conserva el alcance de imagenes por SKU cuando la inferencia es segura.
    */
   public function fusionarProductos($datos, $usuarioId = null) {
     $idOrigen = intval(isset($datos["id_producto_origen"]) ? $datos["id_producto_origen"] : 0);
@@ -157,6 +159,7 @@ class CatalogoErpOrganizacion extends CRUD {
       if (empty($skusOrigen)) {
         throw new Exception("El producto origen no tiene SKU para mover");
       }
+      $imagenesFusion = $this->prepararImagenesFusion($db, $idOrigen, $skusOrigen);
 
       $db->prepare("UPDATE erp_catalogo_skus SET id_producto_erp=:destino, fecha_actualizacion=CURRENT_TIMESTAMP WHERE id_producto_erp=:origen")
         ->execute(array(":destino" => $idDestino, ":origen" => $idOrigen));
@@ -187,7 +190,7 @@ class CatalogoErpOrganizacion extends CRUD {
         VALUES (:origen, :destino, :motivo, :skus, :usuario)")
         ->execute(array(":origen" => $idOrigen, ":destino" => $idDestino, ":motivo" => $motivo ?: null, ":skus" => count($skusOrigen), ":usuario" => $usuarioId));
       $db->commit();
-      return array("error" => false, "tipo" => "success", "mensaje" => "Productos maestros fusionados", "depurar" => array("skus_movidos" => count($skusOrigen)));
+      return array("error" => false, "tipo" => "success", "mensaje" => "Productos maestros fusionados", "depurar" => array("skus_movidos" => count($skusOrigen), "imagenes_fusion" => $imagenesFusion));
     } catch (Exception $e) {
       if ($db->inTransaction()) {
         $db->rollBack();
@@ -266,6 +269,82 @@ class CatalogoErpOrganizacion extends CRUD {
     return mb_strtolower(preg_replace('/[^[:alnum:]]+/u', '', (string) $nombre), "UTF-8");
   }
 
+  /**
+   * IA: Codex GPT-5 | Fecha: 2026-08-20
+   * Proposito: resume si una fusion puede preservar el alcance de imagenes por SKU sin escribir datos.
+   * Impacto: Catalogo ERP; ayuda a previsualizar fusiones y evita asociaciones ambiguas de imagenes.
+   * Contrato: solo las imagenes sin SKU de un producto origen con exactamente un SKU son autoasignables.
+   */
+  private function resumenImagenesFusion($db, $idOrigen) {
+    $resumen = array(
+      "imagenes_origen" => 0,
+      "imagenes_con_sku" => 0,
+      "imagenes_sin_sku" => 0,
+      "imagenes_sin_sku_autoasignables" => 0,
+      "imagenes_sin_sku_no_asignables" => 0,
+      "criterio" => "id_sku_no_disponible"
+    );
+    if (!$this->columnaExiste($db, "erp_catalogo_imagenes", "id_sku")) {
+      return $resumen;
+    }
+    $skus = $this->skusProducto($db, $idOrigen);
+    $conteo = $this->contarImagenesPorAlcanceSku($db, $idOrigen);
+    $resumen["imagenes_origen"] = intval($conteo["total"]);
+    $resumen["imagenes_con_sku"] = intval($conteo["con_sku"]);
+    $resumen["imagenes_sin_sku"] = intval($conteo["sin_sku"]);
+    if (count($skus) === 1) {
+      $resumen["imagenes_sin_sku_autoasignables"] = intval($conteo["sin_sku"]);
+      $resumen["criterio"] = "origen_con_sku_unico";
+    } else {
+      $resumen["imagenes_sin_sku_no_asignables"] = intval($conteo["sin_sku"]);
+      $resumen["criterio"] = "origen_con_multiples_skus_sin_inferencia";
+    }
+    return $resumen;
+  }
+
+  /**
+   * IA: Codex GPT-5 | Fecha: 2026-08-20
+   * Proposito: conserva la relacion imagen-SKU al fusionar productos cuando la inferencia es segura.
+   * Impacto: Catalogo ERP; reduce retrabajo visual despues de fusionar sin asignar imagenes a SKUs incorrectos.
+   * Contrato: respeta imagenes con `id_sku`; solo asigna imagenes generales al SKU origen si existe un unico SKU origen.
+   */
+  private function prepararImagenesFusion($db, $idOrigen, $skusOrigen) {
+    $resumen = $this->resumenImagenesFusion($db, $idOrigen);
+    $resumen["imagenes_sin_sku_asignadas"] = 0;
+    if ($resumen["imagenes_sin_sku"] <= 0 || count($skusOrigen) !== 1) {
+      return $resumen;
+    }
+    $idSkuOrigen = intval($skusOrigen[0]["id_sku"]);
+    if ($idSkuOrigen <= 0) {
+      return $resumen;
+    }
+    $stmt = $db->prepare("UPDATE erp_catalogo_imagenes
+      SET id_sku=:sku, fecha_actualizacion=CURRENT_TIMESTAMP
+      WHERE id_producto_erp=:producto AND id_sku IS NULL");
+    $stmt->execute(array(":sku" => $idSkuOrigen, ":producto" => intval($idOrigen)));
+    $resumen["imagenes_sin_sku_asignadas"] = intval($stmt->rowCount());
+    return $resumen;
+  }
+
+  /**
+   * IA: Codex GPT-5 | Fecha: 2026-08-20
+   * Proposito: centraliza el conteo de imagenes generales y ligadas a SKU para decisiones de fusion.
+   * Impacto: Catalogo ERP; solo lectura sobre `erp_catalogo_imagenes`.
+   */
+  private function contarImagenesPorAlcanceSku($db, $idProducto) {
+    $stmt = $db->prepare("SELECT COUNT(*) total,
+      SUM(CASE WHEN id_sku IS NULL THEN 1 ELSE 0 END) sin_sku,
+      SUM(CASE WHEN id_sku IS NULL THEN 0 ELSE 1 END) con_sku
+      FROM erp_catalogo_imagenes
+      WHERE id_producto_erp=:producto");
+    $stmt->execute(array(":producto" => intval($idProducto)));
+    $fila = $stmt->fetch(PDO::FETCH_ASSOC);
+    return array(
+      "total" => intval(isset($fila["total"]) ? $fila["total"] : 0),
+      "sin_sku" => intval(isset($fila["sin_sku"]) ? $fila["sin_sku"] : 0),
+      "con_sku" => intval(isset($fila["con_sku"]) ? $fila["con_sku"] : 0)
+    );
+  }
   private function productoResumen($db, $idProducto, $bloquear = false) {
     $stmt = $db->prepare("SELECT p.id_producto_erp, p.codigo_producto, p.nombre, p.estatus,
       COUNT(DISTINCT s.id_sku) total_skus,
@@ -285,11 +364,17 @@ class CatalogoErpOrganizacion extends CRUD {
     return $stmt->fetchAll(PDO::FETCH_ASSOC);
   }
 
+  /**
+   * IA: Codex GPT-5 | Fecha: 2026-08-20
+   * Proposito: lista imagenes de un producto incluyendo el SKU asociado para previsualizar fusiones.
+   * Impacto: Catalogo ERP; solo lectura, mantiene visible el alcance producto/SKU de cada imagen.
+   */
   private function imagenesProducto($db, $idProducto) {
-    $stmt = $db->prepare("SELECT id_imagen_erp, tipo_imagen, url_imagen, fuente, estatus
-      FROM erp_catalogo_imagenes
-      WHERE id_producto_erp=:producto
-      ORDER BY FIELD(estatus, 'activo', 'inactivo'), FIELD(tipo_imagen, 'portada', 'galeria', 'detalle', 'empaque', 'referencia'), orden, id_imagen_erp
+    $stmt = $db->prepare("SELECT i.id_imagen_erp, i.id_sku, s.sku, i.tipo_imagen, i.url_imagen, i.fuente, i.estatus
+      FROM erp_catalogo_imagenes i
+      LEFT JOIN erp_catalogo_skus s ON s.id_sku=i.id_sku
+      WHERE i.id_producto_erp=:producto
+      ORDER BY FIELD(i.estatus, 'activo', 'inactivo'), FIELD(i.tipo_imagen, 'portada', 'galeria', 'detalle', 'empaque', 'referencia'), i.orden, i.id_imagen_erp
       LIMIT 8");
     $stmt->execute(array(":producto" => intval($idProducto)));
     return $stmt->fetchAll(PDO::FETCH_ASSOC);

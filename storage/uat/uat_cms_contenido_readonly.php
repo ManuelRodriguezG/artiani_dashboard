@@ -22,6 +22,7 @@ $planFrontend = $esquema->planActualizarCmsFrontend(false);
 $planMedia = $esquema->planActualizarCmsMediaBiblioteca(false);
 $estado = $cms->contenidoAdminEstadoInterno($auditoria, $plan);
 $mediaPreflight = $cms->mediaAdminPreflightInterno($planMedia);
+$mediaListado = $cms->mediaAdminListarInterno(array("limite" => 5));
 $manifest = $cms->contenidoAdminManifestInterno();
 $frontendManifest = $cms->frontendPlantillasAdminManifestInterno();
 $home = $cms->contenidoAdminPaginaInterna(array("pagina" => "home"));
@@ -61,6 +62,7 @@ $contratoRenderer = file_get_contents("../docs/erp_cms_frontend_renderer_contrat
 $planBuilderWokiee = file_get_contents("../docs/erp_cms_visual_builder_wokiee_plan.md");
 $uatPersistenciaPreflight = file_get_contents("../storage/uat/uat_cms_persistencia_preflight.php");
 $uatSeedReadonly = file_get_contents("../storage/uat/uat_cms_seed_readonly.php");
+$uatMediaPreflight = file_get_contents("../storage/uat/uat_cms_media_persistencia_preflight.php");
 
 $bloqueos = array();
 
@@ -68,11 +70,13 @@ if (!empty($estado["error"])) { $bloqueos[] = "estado_error"; }
 if (!empty($manifest["error"])) { $bloqueos[] = "manifest_error"; }
 if (!empty($frontendManifest["error"])) { $bloqueos[] = "frontend_manifest_error"; }
 if (!empty($mediaPreflight["error"])) { $bloqueos[] = "media_preflight_error"; }
+if (!empty($mediaListado["error"])) { $bloqueos[] = "media_listado_error"; }
 if (valorCmsAdmin($mediaPreflight, array("depurar", "carpeta_publica_propuesta"), "") !== "/assets/media/cms/ecommerce") { $bloqueos[] = "media_preflight_carpeta_incorrecta"; }
 if (valorCmsAdmin($mediaPreflight, array("depurar", "tabla_archivos"), "") !== "erp_ecommerce_media_archivos") { $bloqueos[] = "media_preflight_sin_tabla_archivos"; }
 if (valorCmsAdmin($mediaPreflight, array("depurar", "tabla_usos"), "") !== "erp_ecommerce_media_usos") { $bloqueos[] = "media_preflight_sin_tabla_usos"; }
 if (empty(valorCmsAdmin($mediaPreflight, array("depurar", "guardrails", "no_mueve_archivos"), false))) { $bloqueos[] = "media_preflight_no_declara_no_mueve_archivos"; }
 if (empty(valorCmsAdmin($mediaPreflight, array("depurar", "guardrails", "requiere_respaldo_antes_ddl"), false))) { $bloqueos[] = "media_preflight_sin_respaldo"; }
+if (empty(valorCmsAdmin($mediaListado, array("depurar", "guardrails", "no_mueve_archivos"), false))) { $bloqueos[] = "media_listado_no_declara_no_mueve_archivos"; }
 if (!empty($home["error"])) { $bloqueos[] = "home_error"; }
 if (!empty($categoria["error"])) { $bloqueos[] = "categoria_error"; }
 if (empty(valorCmsAdmin($estado, array("depurar", "guardrails", "persistencia_contenido_interna"), false))) { $bloqueos[] = "estado_sin_persistencia_contenido_interna"; }
@@ -358,6 +362,8 @@ if (strpos((string) $jsMedia, "function limpiarArchivados") === false) { $bloque
 if (strpos((string) $jsMedia, "no sube archivos") === false) { $bloqueos[] = "js_media_no_declara_sin_upload"; }
 if (strpos((string) $jsMedia, "function cargarPreflightServidor") === false) { $bloqueos[] = "js_media_sin_preflight_servidor"; }
 if (strpos((string) $jsMedia, "/cms/media_admin_preflight_erp") === false) { $bloqueos[] = "js_media_sin_endpoint_preflight"; }
+if (strpos((string) $jsMedia, "function cargarListadoServidor") === false) { $bloqueos[] = "js_media_sin_listado_servidor"; }
+if (strpos((string) $jsMedia, "/cms/media_admin_listar_erp") === false) { $bloqueos[] = "js_media_sin_endpoint_listar"; }
 if (strpos((string) $jsFrontendActual, "hero_carrusel") === false) { $bloqueos[] = "js_frontend_actual_sin_hero_carrusel"; }
 if (strpos((string) $jsFrontendActual, "function renderHeroCarrusel") === false) { $bloqueos[] = "js_frontend_actual_sin_editor_hero"; }
 if (strpos((string) $jsFrontendActual, "cms_actual_hero_agregar") === false) { $bloqueos[] = "js_frontend_actual_sin_agregar_slide_hero"; }
@@ -460,6 +466,12 @@ if (strpos((string) $controladorCms, "public function persistencia") === false) 
 if (strpos((string) $controladorCms, "public function slots") === false) { $bloqueos[] = "controlador_sin_ruta_slots"; }
 if (strpos((string) $controladorCms, "public function media") === false) { $bloqueos[] = "controlador_sin_ruta_media"; }
 if (strpos((string) $controladorCms, "public function media_admin_preflight_erp") === false) { $bloqueos[] = "controlador_sin_media_preflight"; }
+if (strpos((string) $controladorCms, "public function media_admin_listar_erp") === false) { $bloqueos[] = "controlador_sin_media_listar"; }
+if (strpos((string) $controladorCms, "public function media_admin_subir_erp") === false) { $bloqueos[] = "controlador_sin_media_subir_bloqueado"; }
+if (strpos((string) $controladorCms, "public function media_admin_actualizar_erp") === false) { $bloqueos[] = "controlador_sin_media_actualizar_bloqueado"; }
+if (strpos((string) $controladorCms, "public function media_admin_archivar_erp") === false) { $bloqueos[] = "controlador_sin_media_archivar_bloqueado"; }
+if (strpos((string) $controladorCms, "public function media_admin_usos_erp") === false) { $bloqueos[] = "controlador_sin_media_usos_bloqueado"; }
+if (strpos((string) $controladorCms, "respuestaEscrituraCmsMediaBloqueada") === false) { $bloqueos[] = "controlador_media_post_no_bloquea"; }
 if (strpos((string) $controladorCms, "public function json") === false) { $bloqueos[] = "controlador_sin_ruta_json"; }
 if (strpos((string) $controladorCms, "public function frontend_plantillas") === false) { $bloqueos[] = "controlador_sin_ruta_frontend_plantillas"; }
 if (strpos((string) $controladorCms, "public function frontend_constructor") === false) { $bloqueos[] = "controlador_sin_ruta_frontend_constructor"; }
@@ -498,6 +510,7 @@ if (strpos((string) $modeloPublico, "bloqueos_publicacion") === false) { $bloque
 if (strpos((string) $modeloPublico, "falta alt text de imagen") === false) { $bloqueos[] = "modelo_publicacion_no_valida_alt"; }
 if (strpos((string) $modeloPublico, "falta endpoint source") === false) { $bloqueos[] = "modelo_publicacion_no_valida_source"; }
 if (strpos((string) $modeloPublico, "function mediaAdminPreflightInterno") === false) { $bloqueos[] = "modelo_sin_media_preflight"; }
+if (strpos((string) $modeloPublico, "function mediaAdminListarInterno") === false) { $bloqueos[] = "modelo_sin_media_listar"; }
 if (strpos((string) $modeloEsquema, "function planActualizarCmsMediaBiblioteca") === false) { $bloqueos[] = "esquema_sin_plan_media_biblioteca"; }
 if (strpos((string) $modeloEsquema, "erp_ecommerce_media_archivos") === false) { $bloqueos[] = "esquema_media_sin_tabla_archivos"; }
 if (strpos((string) $modeloEsquema, "erp_ecommerce_media_usos") === false) { $bloqueos[] = "esquema_media_sin_tabla_usos"; }
@@ -528,6 +541,7 @@ if (strpos((string) $manualCms, "CMS > Media") === false) { $bloqueos[] = "manua
 if (strpos((string) $manualCms, "biblioteca local") === false) { $bloqueos[] = "manual_media_sin_biblioteca_local"; }
 if (strpos((string) $manualCms, "alt text") === false) { $bloqueos[] = "manual_media_sin_alt_text"; }
 if (strpos((string) $manualCms, "/cms/media_admin_preflight_erp") === false) { $bloqueos[] = "manual_media_sin_preflight"; }
+if (strpos((string) $manualCms, "/cms/media_admin_listar_erp") === false) { $bloqueos[] = "manual_media_sin_listar"; }
 if (strpos((string) $manualCms, "erp_ecommerce_media_archivos") === false) { $bloqueos[] = "manual_media_sin_tabla_archivos"; }
 if (strpos((string) $manualCms, "CMS > Preview JSON") === false) { $bloqueos[] = "manual_sin_preview_json"; }
 if (strpos((string) $manualCms, "Contrato API") === false) { $bloqueos[] = "manual_json_sin_contrato_api"; }
@@ -597,11 +611,15 @@ if (strpos((string) $planCmsApi, "/cms/frontend/marcas") === false) { $bloqueos[
 if (strpos((string) $planCmsApi, "/cms/frontend/paginas") === false) { $bloqueos[] = "plan_cms_api_sin_frontend_paginas"; }
 if (strpos((string) $planCmsApi, "/cms/frontend/politicas") === false) { $bloqueos[] = "plan_cms_api_sin_frontend_politicas"; }
 if (strpos((string) $planCmsApi, "/cms/media_admin_preflight_erp") === false) { $bloqueos[] = "plan_cms_api_sin_media_preflight"; }
+if (strpos((string) $planCmsApi, "/cms/media_admin_listar_erp") === false) { $bloqueos[] = "plan_cms_api_sin_media_listar"; }
+if (strpos((string) $planCmsApi, "/cms/media_admin_subir_erp") === false) { $bloqueos[] = "plan_cms_api_sin_media_subir"; }
 if (strpos((string) $planCmsApi, "filtros invalidos devuelven vacio") === false) { $bloqueos[] = "plan_cms_api_sin_guardrail_filtros"; }
 if (strpos((string) $planBuilderWokiee, "app/Pages/catalog.php") === false) { $bloqueos[] = "plan_builder_wokiee_sin_catalog_php"; }
 if (strpos((string) $planBuilderWokiee, "erp_ecommerce_frontend_temas") === false) { $bloqueos[] = "plan_builder_wokiee_sin_tabla_temas"; }
 if (strpos((string) $uatPersistenciaPreflight, "cms_persistencia_lista_para_respaldo_y_autorizacion") === false) { $bloqueos[] = "uat_preflight_persistencia_sin_senal"; }
 if (strpos((string) $uatPersistenciaPreflight, '"total" => $ddlContenido + $ddlFrontend') === false) { $bloqueos[] = "uat_preflight_persistencia_sin_total_ddl"; }
+if (strpos((string) $uatMediaPreflight, "cms_media_preflight_readonly") === false) { $bloqueos[] = "uat_media_preflight_sin_senal"; }
+if (strpos((string) $uatMediaPreflight, "no ejecuta DDL") === false) { $bloqueos[] = "uat_media_preflight_no_declara_readonly"; }
 if (strpos((string) $uatSeedReadonly, "cms_seed_base_verificado") === false) { $bloqueos[] = "uat_seed_readonly_sin_senal"; }
 if (strpos((string) $uatSeedReadonly, "bloques_publicados_sin_flujo_publicacion") === false) { $bloqueos[] = "uat_seed_readonly_no_protege_publicados"; }
 
@@ -643,6 +661,7 @@ echo json_encode(array(
   ),
   "media_preflight" => array(
     "modo" => valorCmsAdmin($mediaPreflight, array("depurar", "modo"), ""),
+    "listado_modo" => valorCmsAdmin($mediaListado, array("depurar", "modo"), ""),
     "carpeta_publica" => valorCmsAdmin($mediaPreflight, array("depurar", "carpeta_publica_propuesta"), ""),
     "tabla_archivos" => valorCmsAdmin($mediaPreflight, array("depurar", "tabla_archivos"), ""),
     "tabla_usos" => valorCmsAdmin($mediaPreflight, array("depurar", "tabla_usos"), ""),

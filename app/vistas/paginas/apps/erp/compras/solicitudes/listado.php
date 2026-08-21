@@ -30,7 +30,7 @@ $puedeCrear = !empty($datos["puede_crear"]);
                         <div class="app-container container-fluid d-flex flex-stack">
                             <div><h1 class="page-heading text-dark fw-bold fs-3 mb-1">Solicitudes de compra</h1><span class="text-muted">Requisiciones internas basadas en SKU ERP</span></div>
                         <?php if ($puedeCrear): ?>
-                            <a class="btn btn-primary" href="/compra/solicitud_compra_nueva"><i class="bi bi-plus-lg"></i> Nueva solicitud</a>
+                            <div class="d-flex gap-2"><a class="btn btn-light-primary" href="/compra/mostrar_sugeridos_compra"><i class="bi bi-lightbulb"></i> Sugerido de compra</a><a class="btn btn-primary" href="/compra/solicitud_compra_nueva"><i class="bi bi-plus-lg"></i> Nueva solicitud</a></div>
                         <?php endif; ?>
                         </div>
                     </div>

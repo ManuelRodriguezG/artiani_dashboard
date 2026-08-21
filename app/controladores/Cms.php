@@ -208,6 +208,57 @@ class Cms extends Controlador {
   }
 
   /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-08-20
+   * Proposito: listar Media CMS real cuando exista persistencia autorizada.
+   * Impacto: CMS media; prepara migracion desde localStorage a BD sin escribir datos.
+   * Contrato: GET protegido; si no hay tabla devuelve lista vacia y estado pendiente.
+   */
+  public function media_admin_listar_erp() {
+    $this->requerirAlgunPermiso(array("cms.ver", "catalogo.ver"));
+    return json_encode($this->modelo("EcommerceCatalogoPublico")->mediaAdminListarInterno($_GET), JSON_UNESCAPED_UNICODE);
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-08-20
+   * Proposito: reservar endpoint futuro para subir Media CMS.
+   * Impacto: CMS media; evita activar upload real antes de respaldo, DDL y auditoria.
+   * Contrato: POST protegido; siempre bloqueado en fase actual.
+   */
+  public function media_admin_subir_erp() {
+    return json_encode($this->respuestaEscrituraCmsMediaBloqueada("media_admin_subir_erp"), JSON_UNESCAPED_UNICODE);
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-08-20
+   * Proposito: reservar endpoint futuro para actualizar metadatos Media CMS.
+   * Impacto: CMS media; protege alt text, uso y metadatos hasta persistencia autorizada.
+   * Contrato: POST protegido; siempre bloqueado en fase actual.
+   */
+  public function media_admin_actualizar_erp() {
+    return json_encode($this->respuestaEscrituraCmsMediaBloqueada("media_admin_actualizar_erp"), JSON_UNESCAPED_UNICODE);
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-08-20
+   * Proposito: reservar endpoint futuro para archivar Media CMS.
+   * Impacto: CMS media; evita borrado fisico o logico sin referencias y auditoria.
+   * Contrato: POST protegido; siempre bloqueado en fase actual.
+   */
+  public function media_admin_archivar_erp() {
+    return json_encode($this->respuestaEscrituraCmsMediaBloqueada("media_admin_archivar_erp"), JSON_UNESCAPED_UNICODE);
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-08-20
+   * Proposito: reservar endpoint futuro para registrar usos de Media CMS.
+   * Impacto: CMS media; prepara trazabilidad de imagenes usadas por Home/categorias/marcas/paginas.
+   * Contrato: POST protegido; siempre bloqueado en fase actual.
+   */
+  public function media_admin_usos_erp() {
+    return json_encode($this->respuestaEscrituraCmsMediaBloqueada("media_admin_usos_erp"), JSON_UNESCAPED_UNICODE);
+  }
+
+  /**
    * Documentacion IA: Codex GPT-5 | Fecha: 2026-08-10
    * Proposito: abrir la vista dedicada de preview JSON/API CMS.
    * Impacto: CMS; separa la revision del contrato API de la captura editorial.
@@ -563,6 +614,38 @@ class Cms extends Controlador {
           "no_css_libre" => true,
           "no_js_libre" => true,
           "no_publica_layout_real" => true
+        )
+      )
+    );
+  }
+
+  private function respuestaEscrituraCmsMediaBloqueada($endpoint) {
+    $this->requerirAlgunPermiso(array("cms.editar", "catalogo.editar"));
+    return array(
+      "error" => true,
+      "tipo" => "warning",
+      "mensaje" => "La persistencia real de Media CMS aun no esta autorizada. Esta accion queda bloqueada.",
+      "depurar" => array(
+        "endpoint" => $endpoint,
+        "fase" => "cms_media_readonly_preflight",
+        "persistencia_real" => false,
+        "requiere" => array(
+          "respaldo_bd",
+          "ddl_media_autorizado",
+          "carpeta_publica_creada",
+          "csrf_activo",
+          "auditoria_explicita",
+          "validacion_mime_extension_peso",
+          "hash_sha256",
+          "alt_text_obligatorio"
+        ),
+        "guardrails" => array(
+          "no_escribe_bd" => true,
+          "no_mueve_archivos" => true,
+          "no_borra_fisicos" => true,
+          "no_expone_rutas_internas" => true,
+          "no_modifica_catalogo" => true,
+          "no_modifica_inventario" => true
         )
       )
     );

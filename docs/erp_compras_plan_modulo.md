@@ -1,4 +1,4 @@
-# ERP Compras y Solicitudes - Plan vivo del modulo
+﻿# ERP Compras y Solicitudes - Plan vivo del modulo
 
 Documentacion IA: Codex GPT-5  
 Fecha base: 2026-06-07  
@@ -186,6 +186,80 @@ Actualizacion 2026-08-13:
 - Si una plantilla para proveedor no tiene logo configurado, no se muestra marcador interno `ERP`.
 - Se centralizaron logo y datos del negocio en `sys_configuracion_parametros` para reutilizarlos en todas las plantillas; las plantillas quedan como configuracion de audiencia/formato, no como maestro repetido de empresa.
 - La vista `/compra/documentos_configuracion` permite cargar el logo compartido y capturar nombre comercial, razon social, RFC, contacto, email, telefono y direccion.
+
+## Decision operativa: Sugerido de compra por proveedor
+
+Documentacion IA: Codex GPT-5  
+Fecha: 2026-08-20  
+Proposito: crear una herramienta de planeacion de compra por proveedor sin afectar inventario ni kardex.  
+Impacto: Compras/Solicitudes, Catalogo ERP, Proveedores, UX operativa y futuras pruebas UAT.
+
+Decision:
+
+- La seccion se llamara `Sugerido de compra`.
+- El objetivo es ayudar a decidir que pedir por proveedor cuando el inventario del sistema aun no es perfecto.
+- No debe modificar existencias, no debe crear movimientos de kardex y no debe afectar inventario.
+- Debe listar solo SKUs comprables vinculados al proveedor mediante el contrato ERP vigente (`erp_catalogo_sku_proveedores`).
+- Actualizacion 2026-08-21: Sugerido de compra no debe cargar todo el catalogo del proveedor al seleccionarlo; el usuario agrega partidas buscando codigos o descripciones del proveedor.
+- Actualizacion 2026-08-21: Sugerido debe usar renglones reales de lista del proveedor como origen de captura y no expandir variantes/presentaciones internas del ERP cuando comparten el mismo SKU proveedor.
+- Actualizacion 2026-08-21: La busqueda de Sugerido no debe usar nombre/SKU interno ERP como criterio principal; el SKU ERP se muestra solo como referencia secundaria para trazabilidad.
+- Debe mostrar el lenguaje del proveedor como primera referencia: SKU proveedor, nombre proveedor, unidad de compra, factor y costo disponible.
+- Debe consultar reglas de Catalogo ERP: `stock_minimo`, `stock_maximo` y `punto_reorden` desde `erp_catalogo_sku_reglas_inventario`.
+- La existencia del sistema no sera obligatoria en la primera version; el calculo debe partir de la existencia fisica revisada o estimada capturada por el usuario.
+- La pantalla no debe tener tres campos editables por partida. La UX recomendada es:
+  - `Existencia revisada`: editable, captura rapida fisica o estimada.
+  - `Cantidad sugerida`: calculada y visible.
+  - `Cantidad a solicitar`: editable, precargada con la sugerida.
+- Si se requiere una version aun mas simple para operacion rapida, `Cantidad sugerida` puede mostrarse como texto auxiliar dentro de la misma celda de `Cantidad a solicitar`.
+- La cantidad sugerida se calcula asi:
+  - Si hay maximo: pedir hasta llegar a maximo.
+  - Si no hay maximo pero hay punto de reorden: pedir diferencia contra punto de reorden.
+  - Si no hay punto de reorden pero hay minimo: pedir diferencia contra minimo.
+  - Si el resultado es negativo, sugerir cero.
+  - Si la relacion proveedor tiene `cantidad_minima` o `factor_conversion`, redondear hacia arriba de forma operativa para compra.
+- La cantidad final siempre debe poder editarse antes de generar solicitud.
+- Al generar la solicitud, debe crearse una Solicitud de Compra normal, con sus partidas, costos estimados y trazabilidad de origen `sugerido_compra`.
+- El flujo debe permitir guardar una revision como borrador, editarla despues, verla en solo lectura y duplicarla como nueva.
+- Al duplicar una revision, no debe copiar ciegamente minimos/maximos antiguos; debe volver a consultar las reglas actuales de Catalogo ERP y recalcular sugeridos.
+- Si durante una revision se detecta que un SKU no tiene minimos/maximos/punto de reorden, la pantalla debe permitir capturarlos como propuesta para futuras revisiones, pero su guardado en Catalogo debe ser una accion controlada y auditada.
+- Registrar o actualizar minimos/maximos desde este flujo requiere permiso puntual y autorizacion, porque modifica reglas maestras de Catalogo, aunque no afecte inventario.
+
+Estados recomendados de una revision:
+
+- `borrador`: editable; aun no genera solicitud.
+- `lista`: revision terminada y lista para generar solicitud.
+- `solicitud_generada`: ya genero una solicitud normal; queda como evidencia.
+- `cancelada`: descartada con motivo; no se borra fisicamente.
+
+Tablas candidatas, pendientes de autorizacion y respaldo antes de cualquier DDL:
+
+- `erp_compras_sugeridos_compra`
+  - cabecera de revision: proveedor, usuario, fecha, estatus, observaciones, id_solicitud_generada.
+- `erp_compras_sugeridos_compra_detalle`
+  - snapshot por SKU: id_sku, id_sku_proveedor, sku_proveedor, nombre_proveedor, minimo, maximo, punto_reorden, existencia_revisada, cantidad_sugerida, cantidad_solicitar, costo_estimado, unidad_compra, factor_conversion.
+
+UAT minimo sugerido:
+
+- `UAT-COM-SUG-001`: seleccionar proveedor y listar solo SKUs relacionados activos.
+- `UAT-COM-SUG-002`: capturar existencia revisada y calcular cantidad sugerida con minimo/maximo.
+- `UAT-COM-SUG-003`: editar cantidad final y guardar revision en borrador.
+- `UAT-COM-SUG-004`: duplicar revision y recalcular con minimos/maximos actuales.
+- `UAT-COM-SUG-005`: generar solicitud normal desde revision sin afectar inventario.
+- `UAT-COM-SUG-006`: proponer minimos/maximos faltantes sin escribir Catalogo sin permiso/autorizacion.
+Implementacion preparada 2026-08-20:
+
+- Se agrego listado operativo `/compra/mostrar_sugeridos_compra`.
+- Se agrego formulario `/compra/sugerido_compra` para nueva revision o edicion.
+- Se agrego vista de solo lectura `/compra/ver_sugerido_compra/{id}`.
+- Se agregaron endpoints ERP nuevos: `sugeridos_listar_erp`, `sugeridos_productos_proveedor_erp`, `sugerido_consultar_erp`, `sugerido_guardar_erp`, `sugerido_duplicar_erp`, `sugerido_generar_solicitud_erp`.
+- El listado permite filtrar por proveedor, estatus y busqueda libre.
+- El formulario calcula sugerido desde existencia revisada, minimo, maximo, punto de reorden, factor y cantidad minima.
+- Minimo, maximo y punto de reorden pueden capturarse como propuesta dentro de la revision, pero no actualizan Catalogo ERP todavia.
+- Duplicar como nueva revision vuelve a consultar relaciones activas proveedor-SKU y reglas actuales antes de recalcular cantidades.
+- Generar solicitud crea una Solicitud de Compra normal en borrador y conserva la relacion `id_sku_proveedor` exacta.
+- Respaldo externo creado antes de DDL: `C:\xampp\db_backups\panel_de_control\artianilocal_antes_sugerido_compra_20260820-235644.sql`.
+- Esquema puntual ejecutado con autorizacion explicita del dueno: `erp_compras_sugeridos_compra` y `erp_compras_sugeridos_compra_detalle`.
+- Verificacion posterior: ambas tablas existen, `ComprasSugeridosCompraErp::listar()` responde `schema_pendiente=0` y sin errores.
 
 ## Estado actual implementado
 
@@ -833,3 +907,4 @@ Decision:
 Motivo:
 
 - Seguridad, trazabilidad y control de almacenamiento.
+

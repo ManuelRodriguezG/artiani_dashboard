@@ -289,6 +289,86 @@ class ComprasEsquema extends DBSchema {
 
         /**
          * IA: Codex GPT-5
+         * Fecha: 2026-08-20
+         * Proposito: preparar tablas de Sugerido de compra por proveedor sin afectar inventario.
+         * Impacto: Compras/Sugerido; guarda revisiones, snapshots de minimo/maximo y liga futura con solicitud normal.
+         * Contrato: estas tablas no crean kardex, no modifican existencias y no reemplazan solicitudes.
+         */
+        $plan[] = $this->crearTablaSiNoExiste("erp_compras_sugeridos_compra", array(
+            "`id_sugerido_compra` BIGINT NOT NULL AUTO_INCREMENT",
+            "`folio` VARCHAR(40) NULL",
+            "`id_proveedor` INT NOT NULL",
+            "`estatus` VARCHAR(30) NOT NULL DEFAULT 'borrador'",
+            "`observaciones` TEXT NULL",
+            "`id_solicitud_generada` INT NULL",
+            "`creado_por` INT NULL",
+            "`fecha_registro` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
+            "`fecha_actualizacion` DATETIME NULL",
+            "PRIMARY KEY (`id_sugerido_compra`)",
+            "UNIQUE KEY `idx_sugerido_compra_folio` (`folio`)",
+            "KEY `idx_sugerido_compra_proveedor` (`id_proveedor`)",
+            "KEY `idx_sugerido_compra_estatus` (`estatus`)",
+            "KEY `idx_sugerido_compra_solicitud` (`id_solicitud_generada`)"
+        ), "ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci", $ejecutar);
+        $plan[] = $this->agregarColumnaSiNoExiste("erp_compras_sugeridos_compra", "folio", "VARCHAR(40) NULL", $ejecutar);
+        $plan[] = $this->agregarColumnaSiNoExiste("erp_compras_sugeridos_compra", "id_proveedor", "INT NOT NULL", $ejecutar);
+        $plan[] = $this->agregarColumnaSiNoExiste("erp_compras_sugeridos_compra", "estatus", "VARCHAR(30) NOT NULL DEFAULT 'borrador'", $ejecutar);
+        $plan[] = $this->agregarColumnaSiNoExiste("erp_compras_sugeridos_compra", "observaciones", "TEXT NULL", $ejecutar);
+        $plan[] = $this->agregarColumnaSiNoExiste("erp_compras_sugeridos_compra", "id_solicitud_generada", "INT NULL", $ejecutar);
+        $plan[] = $this->agregarColumnaSiNoExiste("erp_compras_sugeridos_compra", "creado_por", "INT NULL", $ejecutar);
+        $plan[] = $this->agregarColumnaSiNoExiste("erp_compras_sugeridos_compra", "fecha_actualizacion", "DATETIME NULL", $ejecutar);
+        $plan[] = $this->agregarIndiceSiNoExiste("erp_compras_sugeridos_compra", "idx_sugerido_compra_folio", "UNIQUE KEY `idx_sugerido_compra_folio` (`folio`)", $ejecutar);
+        $plan[] = $this->agregarIndiceSiNoExiste("erp_compras_sugeridos_compra", "idx_sugerido_compra_proveedor", "KEY `idx_sugerido_compra_proveedor` (`id_proveedor`)", $ejecutar);
+        $plan[] = $this->agregarIndiceSiNoExiste("erp_compras_sugeridos_compra", "idx_sugerido_compra_estatus", "KEY `idx_sugerido_compra_estatus` (`estatus`)", $ejecutar);
+
+        $plan[] = $this->crearTablaSiNoExiste("erp_compras_sugeridos_compra_detalle", array(
+            "`id_detalle` BIGINT NOT NULL AUTO_INCREMENT",
+            "`id_sugerido_compra` BIGINT NOT NULL",
+            "`id_sku_erp` BIGINT NOT NULL",
+            "`id_sku_proveedor` BIGINT NOT NULL",
+            "`sku_erp` VARCHAR(150) NULL",
+            "`sku_proveedor` VARCHAR(150) NULL",
+            "`nombre_erp` VARCHAR(255) NULL",
+            "`nombre_proveedor` VARCHAR(500) NULL",
+            "`unidad_compra` VARCHAR(40) NULL",
+            "`factor_conversion` DECIMAL(18,6) NOT NULL DEFAULT 1.000000",
+            "`cantidad_minima` DECIMAL(18,6) NOT NULL DEFAULT 1.000000",
+            "`stock_minimo` DECIMAL(18,6) NOT NULL DEFAULT 0.000000",
+            "`stock_maximo` DECIMAL(18,6) NULL",
+            "`punto_reorden` DECIMAL(18,6) NOT NULL DEFAULT 0.000000",
+            "`existencia_revisada` DECIMAL(18,6) NOT NULL DEFAULT 0.000000",
+            "`cantidad_sugerida` DECIMAL(18,6) NOT NULL DEFAULT 0.000000",
+            "`cantidad_solicitar` DECIMAL(18,6) NOT NULL DEFAULT 0.000000",
+            "`costo_estimado` DECIMAL(18,6) NOT NULL DEFAULT 0.000000",
+            "`observaciones` TEXT NULL",
+            "`fecha_registro` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
+            "PRIMARY KEY (`id_detalle`)",
+            "UNIQUE KEY `idx_sugerido_detalle_relacion` (`id_sugerido_compra`, `id_sku_proveedor`)",
+            "KEY `idx_sugerido_detalle_sku` (`id_sku_erp`)",
+            "KEY `idx_sugerido_detalle_sku_proveedor` (`id_sku_proveedor`)"
+        ), "ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci", $ejecutar);
+        $plan[] = $this->agregarColumnaSiNoExiste("erp_compras_sugeridos_compra_detalle", "id_sugerido_compra", "BIGINT NOT NULL", $ejecutar);
+        $plan[] = $this->agregarColumnaSiNoExiste("erp_compras_sugeridos_compra_detalle", "id_sku_erp", "BIGINT NOT NULL", $ejecutar);
+        $plan[] = $this->agregarColumnaSiNoExiste("erp_compras_sugeridos_compra_detalle", "id_sku_proveedor", "BIGINT NOT NULL", $ejecutar);
+        $plan[] = $this->agregarColumnaSiNoExiste("erp_compras_sugeridos_compra_detalle", "sku_erp", "VARCHAR(150) NULL", $ejecutar);
+        $plan[] = $this->agregarColumnaSiNoExiste("erp_compras_sugeridos_compra_detalle", "sku_proveedor", "VARCHAR(150) NULL", $ejecutar);
+        $plan[] = $this->agregarColumnaSiNoExiste("erp_compras_sugeridos_compra_detalle", "nombre_erp", "VARCHAR(255) NULL", $ejecutar);
+        $plan[] = $this->agregarColumnaSiNoExiste("erp_compras_sugeridos_compra_detalle", "nombre_proveedor", "VARCHAR(500) NULL", $ejecutar);
+        $plan[] = $this->agregarColumnaSiNoExiste("erp_compras_sugeridos_compra_detalle", "unidad_compra", "VARCHAR(40) NULL", $ejecutar);
+        $plan[] = $this->agregarColumnaSiNoExiste("erp_compras_sugeridos_compra_detalle", "factor_conversion", "DECIMAL(18,6) NOT NULL DEFAULT 1.000000", $ejecutar);
+        $plan[] = $this->agregarColumnaSiNoExiste("erp_compras_sugeridos_compra_detalle", "cantidad_minima", "DECIMAL(18,6) NOT NULL DEFAULT 1.000000", $ejecutar);
+        $plan[] = $this->agregarColumnaSiNoExiste("erp_compras_sugeridos_compra_detalle", "stock_minimo", "DECIMAL(18,6) NOT NULL DEFAULT 0.000000", $ejecutar);
+        $plan[] = $this->agregarColumnaSiNoExiste("erp_compras_sugeridos_compra_detalle", "stock_maximo", "DECIMAL(18,6) NULL", $ejecutar);
+        $plan[] = $this->agregarColumnaSiNoExiste("erp_compras_sugeridos_compra_detalle", "punto_reorden", "DECIMAL(18,6) NOT NULL DEFAULT 0.000000", $ejecutar);
+        $plan[] = $this->agregarColumnaSiNoExiste("erp_compras_sugeridos_compra_detalle", "existencia_revisada", "DECIMAL(18,6) NOT NULL DEFAULT 0.000000", $ejecutar);
+        $plan[] = $this->agregarColumnaSiNoExiste("erp_compras_sugeridos_compra_detalle", "cantidad_sugerida", "DECIMAL(18,6) NOT NULL DEFAULT 0.000000", $ejecutar);
+        $plan[] = $this->agregarColumnaSiNoExiste("erp_compras_sugeridos_compra_detalle", "cantidad_solicitar", "DECIMAL(18,6) NOT NULL DEFAULT 0.000000", $ejecutar);
+        $plan[] = $this->agregarColumnaSiNoExiste("erp_compras_sugeridos_compra_detalle", "costo_estimado", "DECIMAL(18,6) NOT NULL DEFAULT 0.000000", $ejecutar);
+        $plan[] = $this->agregarColumnaSiNoExiste("erp_compras_sugeridos_compra_detalle", "observaciones", "TEXT NULL", $ejecutar);
+        $plan[] = $this->agregarIndiceSiNoExiste("erp_compras_sugeridos_compra_detalle", "idx_sugerido_detalle_relacion", "UNIQUE KEY `idx_sugerido_detalle_relacion` (`id_sugerido_compra`, `id_sku_proveedor`)", $ejecutar);
+        $plan[] = $this->agregarIndiceSiNoExiste("erp_compras_sugeridos_compra_detalle", "idx_sugerido_detalle_sku", "KEY `idx_sugerido_detalle_sku` (`id_sku_erp`)", $ejecutar);
+        /**
+         * IA: Codex GPT-5
          * Fecha: 2026-07-28
          * Proposito: preparar configuracion de plantillas imprimibles de Compras por tipo de documento y audiencia.
          * Impacto: Solicitudes/Ordenes; evita exponer costos internos al imprimir documentos para proveedores.
@@ -388,5 +468,89 @@ class ComprasEsquema extends DBSchema {
             "mensaje" => $ejecutar ? "Plan de compras ejecutado" : "Plan de compras generado en dry-run",
             "depurar" => $plan
         );
+    }
+    /**
+     * IA: Codex GPT-5
+     * Fecha: 2026-08-20
+     * Proposito: preparar solo las tablas de Sugerido de compra por proveedor.
+     * Impacto: Compras/Sugerido; DDL acotado para evitar ejecutar el plan completo de Compras.
+     * Contrato: no crea kardex, no modifica existencias y requiere respaldo externo antes de ejecutar.
+     */
+    public function planActualizarSugeridosCompra($ejecutar = false) {
+        $plan = array();
+        $plan[] = $this->crearTablaSiNoExiste("erp_compras_sugeridos_compra", array(
+            "`id_sugerido_compra` BIGINT NOT NULL AUTO_INCREMENT",
+            "`folio` VARCHAR(40) NULL",
+            "`id_proveedor` INT NOT NULL",
+            "`estatus` VARCHAR(30) NOT NULL DEFAULT 'borrador'",
+            "`observaciones` TEXT NULL",
+            "`id_solicitud_generada` INT NULL",
+            "`creado_por` INT NULL",
+            "`fecha_registro` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
+            "`fecha_actualizacion` DATETIME NULL",
+            "PRIMARY KEY (`id_sugerido_compra`)",
+            "UNIQUE KEY `idx_sugerido_compra_folio` (`folio`)",
+            "KEY `idx_sugerido_compra_proveedor` (`id_proveedor`)",
+            "KEY `idx_sugerido_compra_estatus` (`estatus`)",
+            "KEY `idx_sugerido_compra_solicitud` (`id_solicitud_generada`)"
+        ), "ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci", $ejecutar);
+        $plan[] = $this->agregarColumnaSiNoExiste("erp_compras_sugeridos_compra", "folio", "VARCHAR(40) NULL", $ejecutar);
+        $plan[] = $this->agregarColumnaSiNoExiste("erp_compras_sugeridos_compra", "id_proveedor", "INT NOT NULL", $ejecutar);
+        $plan[] = $this->agregarColumnaSiNoExiste("erp_compras_sugeridos_compra", "estatus", "VARCHAR(30) NOT NULL DEFAULT 'borrador'", $ejecutar);
+        $plan[] = $this->agregarColumnaSiNoExiste("erp_compras_sugeridos_compra", "observaciones", "TEXT NULL", $ejecutar);
+        $plan[] = $this->agregarColumnaSiNoExiste("erp_compras_sugeridos_compra", "id_solicitud_generada", "INT NULL", $ejecutar);
+        $plan[] = $this->agregarColumnaSiNoExiste("erp_compras_sugeridos_compra", "creado_por", "INT NULL", $ejecutar);
+        $plan[] = $this->agregarColumnaSiNoExiste("erp_compras_sugeridos_compra", "fecha_actualizacion", "DATETIME NULL", $ejecutar);
+        $plan[] = $this->agregarIndiceSiNoExiste("erp_compras_sugeridos_compra", "idx_sugerido_compra_folio", "UNIQUE KEY `idx_sugerido_compra_folio` (`folio`)", $ejecutar);
+        $plan[] = $this->agregarIndiceSiNoExiste("erp_compras_sugeridos_compra", "idx_sugerido_compra_proveedor", "KEY `idx_sugerido_compra_proveedor` (`id_proveedor`)", $ejecutar);
+        $plan[] = $this->agregarIndiceSiNoExiste("erp_compras_sugeridos_compra", "idx_sugerido_compra_estatus", "KEY `idx_sugerido_compra_estatus` (`estatus`)", $ejecutar);
+
+        $plan[] = $this->crearTablaSiNoExiste("erp_compras_sugeridos_compra_detalle", array(
+            "`id_detalle` BIGINT NOT NULL AUTO_INCREMENT",
+            "`id_sugerido_compra` BIGINT NOT NULL",
+            "`id_sku_erp` BIGINT NOT NULL",
+            "`id_sku_proveedor` BIGINT NOT NULL",
+            "`sku_erp` VARCHAR(150) NULL",
+            "`sku_proveedor` VARCHAR(150) NULL",
+            "`nombre_erp` VARCHAR(255) NULL",
+            "`nombre_proveedor` VARCHAR(500) NULL",
+            "`unidad_compra` VARCHAR(40) NULL",
+            "`factor_conversion` DECIMAL(18,6) NOT NULL DEFAULT 1.000000",
+            "`cantidad_minima` DECIMAL(18,6) NOT NULL DEFAULT 1.000000",
+            "`stock_minimo` DECIMAL(18,6) NOT NULL DEFAULT 0.000000",
+            "`stock_maximo` DECIMAL(18,6) NULL",
+            "`punto_reorden` DECIMAL(18,6) NOT NULL DEFAULT 0.000000",
+            "`existencia_revisada` DECIMAL(18,6) NOT NULL DEFAULT 0.000000",
+            "`cantidad_sugerida` DECIMAL(18,6) NOT NULL DEFAULT 0.000000",
+            "`cantidad_solicitar` DECIMAL(18,6) NOT NULL DEFAULT 0.000000",
+            "`costo_estimado` DECIMAL(18,6) NOT NULL DEFAULT 0.000000",
+            "`observaciones` TEXT NULL",
+            "`fecha_registro` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
+            "PRIMARY KEY (`id_detalle`)",
+            "UNIQUE KEY `idx_sugerido_detalle_relacion` (`id_sugerido_compra`, `id_sku_proveedor`)",
+            "KEY `idx_sugerido_detalle_sku` (`id_sku_erp`)",
+            "KEY `idx_sugerido_detalle_sku_proveedor` (`id_sku_proveedor`)"
+        ), "ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci", $ejecutar);
+        $plan[] = $this->agregarColumnaSiNoExiste("erp_compras_sugeridos_compra_detalle", "id_sugerido_compra", "BIGINT NOT NULL", $ejecutar);
+        $plan[] = $this->agregarColumnaSiNoExiste("erp_compras_sugeridos_compra_detalle", "id_sku_erp", "BIGINT NOT NULL", $ejecutar);
+        $plan[] = $this->agregarColumnaSiNoExiste("erp_compras_sugeridos_compra_detalle", "id_sku_proveedor", "BIGINT NOT NULL", $ejecutar);
+        $plan[] = $this->agregarColumnaSiNoExiste("erp_compras_sugeridos_compra_detalle", "sku_erp", "VARCHAR(150) NULL", $ejecutar);
+        $plan[] = $this->agregarColumnaSiNoExiste("erp_compras_sugeridos_compra_detalle", "sku_proveedor", "VARCHAR(150) NULL", $ejecutar);
+        $plan[] = $this->agregarColumnaSiNoExiste("erp_compras_sugeridos_compra_detalle", "nombre_erp", "VARCHAR(255) NULL", $ejecutar);
+        $plan[] = $this->agregarColumnaSiNoExiste("erp_compras_sugeridos_compra_detalle", "nombre_proveedor", "VARCHAR(500) NULL", $ejecutar);
+        $plan[] = $this->agregarColumnaSiNoExiste("erp_compras_sugeridos_compra_detalle", "unidad_compra", "VARCHAR(40) NULL", $ejecutar);
+        $plan[] = $this->agregarColumnaSiNoExiste("erp_compras_sugeridos_compra_detalle", "factor_conversion", "DECIMAL(18,6) NOT NULL DEFAULT 1.000000", $ejecutar);
+        $plan[] = $this->agregarColumnaSiNoExiste("erp_compras_sugeridos_compra_detalle", "cantidad_minima", "DECIMAL(18,6) NOT NULL DEFAULT 1.000000", $ejecutar);
+        $plan[] = $this->agregarColumnaSiNoExiste("erp_compras_sugeridos_compra_detalle", "stock_minimo", "DECIMAL(18,6) NOT NULL DEFAULT 0.000000", $ejecutar);
+        $plan[] = $this->agregarColumnaSiNoExiste("erp_compras_sugeridos_compra_detalle", "stock_maximo", "DECIMAL(18,6) NULL", $ejecutar);
+        $plan[] = $this->agregarColumnaSiNoExiste("erp_compras_sugeridos_compra_detalle", "punto_reorden", "DECIMAL(18,6) NOT NULL DEFAULT 0.000000", $ejecutar);
+        $plan[] = $this->agregarColumnaSiNoExiste("erp_compras_sugeridos_compra_detalle", "existencia_revisada", "DECIMAL(18,6) NOT NULL DEFAULT 0.000000", $ejecutar);
+        $plan[] = $this->agregarColumnaSiNoExiste("erp_compras_sugeridos_compra_detalle", "cantidad_sugerida", "DECIMAL(18,6) NOT NULL DEFAULT 0.000000", $ejecutar);
+        $plan[] = $this->agregarColumnaSiNoExiste("erp_compras_sugeridos_compra_detalle", "cantidad_solicitar", "DECIMAL(18,6) NOT NULL DEFAULT 0.000000", $ejecutar);
+        $plan[] = $this->agregarColumnaSiNoExiste("erp_compras_sugeridos_compra_detalle", "costo_estimado", "DECIMAL(18,6) NOT NULL DEFAULT 0.000000", $ejecutar);
+        $plan[] = $this->agregarColumnaSiNoExiste("erp_compras_sugeridos_compra_detalle", "observaciones", "TEXT NULL", $ejecutar);
+        $plan[] = $this->agregarIndiceSiNoExiste("erp_compras_sugeridos_compra_detalle", "idx_sugerido_detalle_relacion", "UNIQUE KEY `idx_sugerido_detalle_relacion` (`id_sugerido_compra`, `id_sku_proveedor`)", $ejecutar);
+        $plan[] = $this->agregarIndiceSiNoExiste("erp_compras_sugeridos_compra_detalle", "idx_sugerido_detalle_sku", "KEY `idx_sugerido_detalle_sku` (`id_sku_erp`)", $ejecutar);
+        return $plan;
     }
 }

@@ -55,6 +55,8 @@ Avance 2026-08-13:
 - `/cms/frontend/paginas` ya tiene editor local inicial para paginas informativas con slug, URL publica, contenido, imagen principal, alt text y SEO, sin editar archivos frontend.
 - `/cms/frontend/politicas` ya tiene editor local inicial para privacidad, envios, devoluciones y terminos con version, estatus, vigencia, contenido y SEO, sujeto a revision legal antes de publicar.
 - `/cms/media` ya consulta `/cms/media_admin_preflight_erp`, endpoint read-only que prepara carpeta publica, limites, MIME permitidos, tablas `erp_ecommerce_media_archivos`/`erp_ecommerce_media_usos` y endpoints POST futuros bloqueados.
+- `/cms/media_admin_listar_erp` ya existe como GET read-only: si las tablas media no existen devuelve lista vacia y mantiene `localStorage` como fuente operativa; si existen, puede listar archivos sin moverlos ni modificarlos.
+- `storage/uat/uat_cms_media_persistencia_preflight.php` valida que Media siga read-only y listo para pedir autorizacion de respaldo/DDL/upload real.
 - El editor produce `Preview JSON esperado` con el formato del contrato frontend.
 - Aun no guarda este contrato en BD ni publica `/ecommercePublico/cms_frontend`; primero se cerrara el shape exacto con el frontend actual.
 

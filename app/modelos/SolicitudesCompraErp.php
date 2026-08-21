@@ -251,7 +251,7 @@ class SolicitudesCompraErp extends CRUD {
      * Fecha: 2026-07-28
      * Proposito: guardar solicitudes solo con relaciones proveedor-SKU ERP activas y snapshot visual de la lista del proveedor.
      * Impacto: Compras/Solicitudes; evita partidas fisicas sin SKU ERP y conserva el lenguaje del proveedor para autorizacion.
-     * Contrato: cada item fisico debe enviar id_sku_erp e id_sku_proveedor validos para el proveedor seleccionado.
+     * Contrato: cada item fisico debe enviar id_sku_erp e id_sku_proveedor validos; si se envia relacion, se respeta exactamente esa relacion proveedor-SKU.
      */
     public function guardar($datos, $idUsuario) {
         $idSolicitud = intval(isset($datos["id_solicitud"]) ? $datos["id_solicitud"] : 0);
@@ -297,6 +297,7 @@ class SolicitudesCompraErp extends CRUD {
                 $skuText = trim(isset($item["sku"]) ? $item["sku"] : (isset($item["sku_producto"]) ? $item["sku_producto"] : ""));
                 $nombreText = trim(isset($item["nombre"]) ? $item["nombre"] : (isset($item["nombre_producto"]) ? $item["nombre_producto"] : ""));
                 $idSkuProveedor = 0;
+                $idSkuProveedorSolicitado = intval(isset($item["id_sku_proveedor"]) ? $item["id_sku_proveedor"] : 0);
                 if ($cantidad <= 0) {
                     throw new Exception("Hay partidas invalidas o vacias");
                 }
@@ -323,8 +324,9 @@ class SolicitudesCompraErp extends CRUD {
                         FROM erp_catalogo_skus s
                         INNER JOIN erp_catalogo_sku_proveedores sp ON sp.id_sku=s.id_sku
                             AND sp.id_proveedor=:proveedor AND sp.estatus='activo'
+                            AND (:relacion_solicitada=0 OR sp.id_sku_proveedor=:relacion_solicitada)
                         WHERE s.id_sku=:sku AND s.estatus='activo'");
-                    $stmt->execute(array(":proveedor" => $idProveedor, ":sku" => $idSku));
+                    $stmt->execute(array(":proveedor" => $idProveedor, ":sku" => $idSku, ":relacion_solicitada" => $idSkuProveedorSolicitado));
                     $sku = $stmt->fetch(PDO::FETCH_ASSOC);
                     if (!$sku) {
                         throw new Exception("Un SKU no pertenece al proveedor seleccionado");

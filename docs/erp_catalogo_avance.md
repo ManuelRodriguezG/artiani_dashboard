@@ -4066,3 +4066,35 @@ Siguiente paso recomendado:
 
 - Auditar read-only todos los campos/endpoints/vistas de Catalogo que muestren o guarden costos.
 - Preparar plan para ocultar o mover esos campos sin romper Listas de precios ni Rentabilidad.
+
+## Actualizacion 2026-08-20 - Fusion conserva imagenes por SKU
+
+Proyecto aplicado: `C:\xampp\htdocs\panel_de_control`.
+
+Contexto:
+
+- Al fusionar productos maestros, las imagenes se movian al producto destino, pero una imagen general del producto origen podia quedar sin alcance de SKU.
+- Esto generaba retrabajo cuando el producto origen realmente tenia un solo SKU y la imagen correspondia a ese SKU.
+
+Cambio aplicado sin DDL:
+
+- `CatalogoErpOrganizacion::fusionarProductos()` conserva las imagenes que ya tienen `id_sku`.
+- Antes de mover imagenes al producto destino, si el producto origen tiene exactamente un SKU, las imagenes del origen sin `id_sku` se asignan a ese SKU.
+- Si el producto origen tiene multiples SKUs, no se infiere automaticamente ninguna relacion imagen-SKU para evitar asociaciones incorrectas.
+- `previsualizarFusion()` ahora devuelve `imagenes_fusion_resumen` con conteos de imagenes con SKU, sin SKU, autoasignables y no asignables.
+- `imagenesProducto()` incluye `id_sku` y `sku` para que la previsualizacion pueda mostrar alcance producto/SKU cuando se necesite mejorar la UI.
+
+Regla operativa:
+
+- Fusionar conserva relaciones SKU-imagen existentes.
+- La autoasignacion solo es segura cuando el origen tiene un unico SKU.
+- Si el origen tiene varios SKUs, el operador debe revisar manualmente que imagen corresponde a cada SKU despues de fusionar.
+
+Validacion:
+
+- `C:\xampp\php\php.exe -l app\modelos\CatalogoErpOrganizacion.php`: OK.
+- No se aplicaron migraciones ni escrituras directas en BD durante esta tarea.
+
+Siguiente paso recomendado:
+
+- Probar una fusion controlada con un producto origen de un solo SKU y una imagen general; confirmar que al abrir el destino la imagen aparece asociada al SKU movido.
