@@ -1,8 +1,8 @@
 /*
  * Documentacion IA: Codex GPT-5, 2026-08-14.
- * Proposito: biblioteca local inicial para media CMS frontend.
- * Impacto: permite seleccionar, validar, previsualizar, archivar y limpiar imagenes locales antes de persistencia real.
- * Contrato: no sube archivos, no borra fisicos, no escribe BD; consulta preflight read-only y usa localStorage como maqueta operativa.
+ * Proposito: biblioteca media CMS frontend con subida real autorizada.
+ * Impacto: permite subir, listar, seleccionar y previsualizar imagenes publicas reutilizables por el frontend.
+ * Contrato: alta real con CSRF y validacion servidor; archivar/editar usos en BD queda pendiente.
  */
 (function () {
   "use strict";
@@ -28,7 +28,7 @@
 
   function bindEventos() {
     on("cms_media_archivo", "change", prepararArchivo);
-    on("cms_media_agregar", "click", agregarArchivoLocal);
+    on("cms_media_agregar", "click", subirArchivoServidor);
     on("cms_media_buscar", "input", renderBibliotecaMedia);
     on("cms_media_filtro_uso", "change", renderBibliotecaMedia);
     on("cms_media_limpiar_archivados", "click", limpiarArchivados);
@@ -73,7 +73,7 @@
     reader.readAsDataURL(file);
   }
 
-  function agregarArchivoLocal() {
+  function subirArchivoServidor() {
     var file = estado.archivoPendiente;
     if (!file || !estado.dataUrlPendiente) {
       setEstado("Selecciona imagen", "badge-light-warning");
@@ -84,27 +84,45 @@
       setEstado("Falta alt text", "badge-light-danger");
       return;
     }
-    var item = {
-      id: "media_" + Date.now(),
-      nombre: file.name,
-      mime: file.type,
-      bytes: file.size,
-      url: estado.dataUrlPendiente,
-      alt: alt,
-      uso: valor("cms_media_uso") || "home",
-      tipo: valor("cms_media_tipo") || "banner",
-      estatus: "activo",
-      creado_en: new Date().toISOString()
-    };
-    estado.items.unshift(item);
-    estado.activo = item.id;
-    estado.archivoPendiente = null;
-    estado.dataUrlPendiente = "";
-    if ($("cms_media_archivo")) $("cms_media_archivo").value = "";
-    setValue("cms_media_alt", "");
-    guardarLocal();
-    renderTodo();
-    setEstado("Agregada local", "badge-light-success");
+    var boton = $("cms_media_agregar");
+    var data = new FormData();
+    data.append("_csrf", window.ERP_CSRF_TOKEN || "");
+    data.append("archivo", file);
+    data.append("alt", alt);
+    data.append("uso", valor("cms_media_uso") || "home");
+    data.append("tipo", valor("cms_media_tipo") || "banner");
+    if (boton) boton.disabled = true;
+    setEstado("Subiendo...", "badge-light-info");
+    fetch("/cms/media_admin_subir_erp", {
+      method: "POST",
+      body: data,
+      credentials: "same-origin",
+      headers: {"X-CSRF-Token": window.ERP_CSRF_TOKEN || ""}
+    }).then(function (response) {
+      return response.json();
+    }).then(function (json) {
+      if (!json || json.error) {
+        throw new Error(json && json.mensaje ? json.mensaje : "No se pudo subir la imagen");
+      }
+      var item = normalizarItemServidor(json.depurar || {});
+      if (!item || !item.id) {
+        throw new Error("El servidor no devolvio la imagen guardada");
+      }
+      mezclarItemsServidor([item]);
+      estado.activo = item.id;
+      estado.archivoPendiente = null;
+      estado.dataUrlPendiente = "";
+      if ($("cms_media_archivo")) $("cms_media_archivo").value = "";
+      setValue("cms_media_alt", "");
+      guardarLocal();
+      renderTodo();
+      setEstado(json.tipo === "info" ? "Ya existia en BD" : "Subida a BD", json.tipo === "info" ? "badge-light-info" : "badge-light-success");
+      cargarListadoServidor();
+    }).catch(function (error) {
+      setEstado(error.message || "Error al subir", "badge-light-danger");
+    }).finally(function () {
+      if (boton) boton.disabled = false;
+    });
   }
 
   function validarArchivo(file) {
@@ -123,7 +141,7 @@
     if (!node) return;
     var items = filtrarItems();
     if (!items.length) {
-      node.innerHTML = '<div class="text-muted">Sin imagenes en la biblioteca local.</div>';
+      node.innerHTML = '<div class="text-muted">Sin imagenes en la biblioteca Media CMS.</div>';
       return;
     }
     node.innerHTML = items.map(function (item) {
@@ -214,8 +232,11 @@
       .then(function (response) { return response.json(); })
       .then(function (json) {
         var data = json && json.depurar ? json.depurar : {};
-        if (data.persistencia_real && Array.isArray(data.items) && data.items.length) {
-          setEstado("BD read-only disponible", "badge-light-info");
+        if (data.persistencia_real && Array.isArray(data.items)) {
+          mezclarItemsServidor(data.items.map(normalizarItemServidor).filter(Boolean));
+          guardarLocal();
+          renderTodo();
+          setEstado(data.items.length ? "BD sincronizada" : "BD lista", "badge-light-info");
         }
       })
       .catch(function () {
@@ -234,8 +255,8 @@
       '<div><span class="badge badge-light-primary me-2">Tablas</span><code>' + escapeHtml(data.tabla_archivos || "") + '</code> / <code>' + escapeHtml(data.tabla_usos || "") + '</code></div>' +
       '<div><span class="badge badge-light-primary me-2">Limite</span>' + escapeHtml(limites.max_mb || "") + ' MB, ' + escapeHtml((limites.extensiones || []).join(", ")) + '</div>' +
       '<div><span class="badge badge-light-info me-2">GET</span><code>/cms/media_admin_listar_erp</code></div>' +
-      '<div><span class="badge badge-light-warning me-2">POST futuro</span><code>' + escapeHtml(endpoints.subir || "") + '</code></div>' +
-      '<div><span class="badge badge-light-success me-2">Estado</span>No mueve archivos ni escribe BD.</div>' +
+      '<div><span class="badge badge-light-success me-2">POST activo</span><code>' + escapeHtml(endpoints.subir || "") + '</code></div>' +
+      '<div><span class="badge badge-light-success me-2">Estado</span>Upload activo con BD autorizada.</div>' +
     '</div>';
   }
 
@@ -258,9 +279,43 @@
   }
 
   function copiarReferencia(item) {
-    var payload = JSON.stringify({ media_id: item.id, alt: item.alt, uso: item.uso, tipo: item.tipo }, null, 2);
+    var payload = JSON.stringify({ media_id: item.media_id || item.id, codigo: item.codigo || "", url: item.url, alt: item.alt, uso: item.uso, tipo: item.tipo }, null, 2);
     if (navigator.clipboard) navigator.clipboard.writeText(payload);
     setEstado("Referencia copiada", "badge-light-success");
+  }
+
+  function normalizarItemServidor(item) {
+    if (!item || !item.url) return null;
+    var mediaId = item.id_media_archivo || item.media_id || "";
+    return {
+      id: mediaId ? "bd_" + mediaId : (item.codigo || item.url),
+      media_id: mediaId,
+      codigo: item.codigo || "",
+      nombre: item.nombre_original || item.nombre || item.nombre_archivo || "Imagen CMS",
+      mime: item.mime || "",
+      bytes: Number(item.bytes || 0),
+      url: item.url,
+      alt: item.alt || item.alt_text || "",
+      uso: item.uso || item.uso_sugerido || "general",
+      tipo: item.tipo || item.tipo_sugerido || "editorial",
+      estatus: item.estatus || "activo",
+      creado_en: item.creado_en || item.fecha_registro || "",
+      origen: "bd"
+    };
+  }
+
+  function mezclarItemsServidor(items) {
+    items.forEach(function (item) {
+      if (!item || !item.id) return;
+      var index = estado.items.findIndex(function (actual) {
+        return actual.id === item.id || (actual.codigo && item.codigo && actual.codigo === item.codigo);
+      });
+      if (index >= 0) {
+        estado.items[index] = item;
+      } else {
+        estado.items.unshift(item);
+      }
+    });
   }
 
   function limpiarArchivados() {

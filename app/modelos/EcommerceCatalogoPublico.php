@@ -124,7 +124,7 @@ class EcommerceCatalogoPublico extends CRUD {
         array(
           "metodo" => "GET",
           "ruta" => "/ecommercePublico/categorias",
-          "descripcion" => "Arbol publico de categorias para mega menu, home y landings SEO con rutas /categoria/{slug}.",
+          "descripcion" => "Arbol publico de categorias para mega menu, home y landings SEO con rutas jerarquicas /categoria/{path_slug}.",
           "respuesta_depurar" => array("items", "arbol", "resumen", "frontend", "cms_pendiente", "guardrails")
         ),
         array(
@@ -873,14 +873,14 @@ class EcommerceCatalogoPublico extends CRUD {
 
   /**
    * Documentacion IA: Codex GPT-5 | Fecha: 2026-08-19
-   * Proposito: entregar contrato read-only para activar biblioteca media CMS real.
-   * Impacto: CMS media; prepara subida/listado/archivado seguros sin mover archivos ni escribir BD.
-   * Contrato: solo lectura; no consulta archivos fisicos ni expone rutas internas.
+   * Proposito: entregar contrato operativo para biblioteca media CMS real.
+   * Impacto: CMS media; informa carpeta, limites y endpoints sin exponer rutas internas.
+   * Contrato: GET solo lectura; describe upload activo y acciones pendientes.
    */
   public function mediaAdminPreflightInterno($planEsquema) {
     return $this->respuesta(false, "info", "Preflight Media CMS generado sin ejecutar", array(
-      "modo" => "readonly_preflight",
-      "fase" => "cms_media_persistencia_pendiente_autorizacion",
+      "modo" => "persistencia_autorizada",
+      "fase" => "cms_media_upload_activo",
       "pantalla" => "/cms/media",
       "carpeta_publica_propuesta" => "/assets/media/cms/ecommerce",
       "ruta_fisica_pendiente_autorizacion" => "public/assets/media/cms/ecommerce",
@@ -908,14 +908,21 @@ class EcommerceCatalogoPublico extends CRUD {
       ),
       "esquema" => isset($planEsquema["depurar"]) ? $planEsquema["depurar"] : array(),
       "guardrails" => array(
-        "read_only" => true,
-        "no_escribe_bd" => true,
-        "no_mueve_archivos" => true,
+        "read_only" => false,
+        "upload_activo" => true,
         "no_borra_fisicos" => true,
         "no_expone_rutas_internas" => true,
-        "requiere_respaldo_antes_ddl" => true,
+        "acciones_pendientes_bloqueadas" => array("actualizar", "archivar", "usos"),
+        "requiere_respaldo_antes_ddl" => false,
         "requiere_csrf_post" => true,
         "requiere_auditoria" => true
+      ),
+      "guardrails_preflight" => array(
+        "read_only_get" => true,
+        "no_escribe_bd_get" => true,
+        "no_mueve_archivos_get" => true,
+        "no_borra_fisicos" => true,
+        "no_expone_rutas_internas" => true
       )
     ));
   }
@@ -1002,6 +1009,214 @@ class EcommerceCatalogoPublico extends CRUD {
         "no_borra_fisicos" => true
       )
     ));
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-08-21
+   * Proposito: guardar imagenes publicas reutilizables en la biblioteca Media CMS.
+   * Impacto: CMS media; permite administrar banners/cards/imagenes editoriales para frontend sin modificar catalogo.
+   * Contrato: valida upload real, MIME, extension, peso, dimensiones, hash y alt text antes de mover archivo e insertar BD.
+   */
+  public function mediaAdminSubirInterno($archivo, $datos = array(), $idUsuario = 0) {
+    $db = $this->getConexion();
+    $rutaDestino = "";
+    try {
+      if (!$this->tablaExiste($db, "erp_ecommerce_media_archivos")) {
+        throw new Exception("La tabla de Media CMS no existe. Ejecuta primero la persistencia autorizada.");
+      }
+
+      $this->mediaValidarArchivoUpload($archivo);
+      $mime = $this->mediaDetectarMime($archivo["tmp_name"]);
+      $extension = $this->mediaExtensionSegura($archivo["name"], $mime);
+      $this->mediaValidarMimeExtension($mime, $extension);
+
+      $dimensiones = @getimagesize($archivo["tmp_name"]);
+      if (!$dimensiones || empty($dimensiones[0]) || empty($dimensiones[1])) {
+        throw new Exception("El archivo no parece ser una imagen valida");
+      }
+
+      $alt = trim((string) $this->valor($datos, "alt", $this->valor($datos, "alt_text", "")));
+      if ($alt === "") {
+        throw new Exception("El alt text es obligatorio para usar la imagen en frontend");
+      }
+      $alt = mb_substr($alt, 0, 255);
+
+      $uso = $this->mediaValorPermitido($this->valor($datos, "uso", "home"), array(
+        "home", "categoria", "producto", "global", "blog", "marca", "pagina", "politica", "general"
+      ), "general");
+      $tipo = $this->mediaValorPermitido($this->valor($datos, "tipo", "banner"), array(
+        "banner", "hero", "card", "thumb", "editorial", "logo", "og", "principal"
+      ), "editorial");
+
+      $hash = hash_file("sha256", $archivo["tmp_name"]);
+      if (!$hash) {
+        throw new Exception("No fue posible calcular el hash de la imagen");
+      }
+
+      $existente = $this->mediaBuscarPorHash($db, $hash);
+      if ($existente) {
+        return $this->respuesta(false, "info", "La imagen ya existia en la biblioteca", $existente);
+      }
+
+      $directorio = dirname(__DIR__, 2) . DIRECTORY_SEPARATOR . "public" . DIRECTORY_SEPARATOR . "assets" . DIRECTORY_SEPARATOR . "media" . DIRECTORY_SEPARATOR . "cms" . DIRECTORY_SEPARATOR . "ecommerce";
+      if (!is_dir($directorio) && !mkdir($directorio, 0775, true) && !is_dir($directorio)) {
+        throw new Exception("No fue posible preparar la carpeta publica de Media CMS");
+      }
+
+      $directorioReal = realpath($directorio);
+      if (!$directorioReal) {
+        throw new Exception("No fue posible validar la carpeta publica de Media CMS");
+      }
+
+      $base = $this->limpiarCodigoCms(pathinfo($archivo["name"], PATHINFO_FILENAME), 70);
+      if ($base === "") { $base = "imagen"; }
+      $corto = substr($hash, 0, 12);
+      $nombreArchivo = "cms_" . date("Ymd_His") . "_" . $corto . "_" . $base . "." . $extension;
+      $rutaDestino = $directorioReal . DIRECTORY_SEPARATOR . $nombreArchivo;
+      if (realpath(dirname($rutaDestino)) !== $directorioReal) {
+        throw new Exception("Ruta de almacenamiento no valida");
+      }
+      if (is_file($rutaDestino)) {
+        throw new Exception("Ya existe un archivo con el nombre generado");
+      }
+      if (!move_uploaded_file($archivo["tmp_name"], $rutaDestino)) {
+        throw new Exception("No fue posible guardar la imagen");
+      }
+
+      $codigo = "media_" . $corto;
+      $rutaPublica = "/assets/media/cms/ecommerce/" . $nombreArchivo;
+      $metadata = array(
+        "ancho" => (int) $dimensiones[0],
+        "alto" => (int) $dimensiones[1],
+        "origen" => "cms_media_admin",
+        "fecha_upload" => date("c")
+      );
+
+      $stmt = $db->prepare("INSERT INTO erp_ecommerce_media_archivos
+        (codigo, nombre_original, nombre_archivo, ruta_publica, mime, extension,
+         bytes, ancho, alto, hash_sha256, alt_text, uso_sugerido, tipo_sugerido,
+         estatus, metadata_json, creado_por)
+        VALUES (:codigo, :original, :archivo, :ruta, :mime, :extension,
+          :bytes, :ancho, :alto, :hash, :alt, :uso, :tipo,
+          'activo', :metadata, :usuario)");
+      $stmt->execute(array(
+        ":codigo" => $codigo,
+        ":original" => mb_substr(basename($archivo["name"]), 0, 255),
+        ":archivo" => $nombreArchivo,
+        ":ruta" => $rutaPublica,
+        ":mime" => $mime,
+        ":extension" => $extension,
+        ":bytes" => intval($archivo["size"]),
+        ":ancho" => (int) $dimensiones[0],
+        ":alto" => (int) $dimensiones[1],
+        ":hash" => $hash,
+        ":alt" => $alt,
+        ":uso" => $uso,
+        ":tipo" => $tipo,
+        ":metadata" => json_encode($metadata, JSON_UNESCAPED_UNICODE),
+        ":usuario" => intval($idUsuario) ?: null
+      ));
+
+      $id = intval($db->lastInsertId());
+      $item = $this->mediaBuscarPorId($db, $id);
+      return $this->respuesta(false, "success", "Imagen subida a Media CMS", $item);
+    } catch (Exception $e) {
+      if ($rutaDestino && is_file($rutaDestino)) {
+        unlink($rutaDestino);
+      }
+      return $this->respuesta(true, "danger", $e->getMessage(), array(
+        "guardrails" => array(
+          "no_modifica_catalogo" => true,
+          "no_modifica_inventario" => true,
+          "solo_imagenes_publicas" => true
+        )
+      ));
+    }
+  }
+
+  private function mediaValidarArchivoUpload($archivo) {
+    if (!is_array($archivo) || !isset($archivo["error"]) || intval($archivo["error"]) !== UPLOAD_ERR_OK) {
+      throw new Exception("Selecciona una imagen valida");
+    }
+    if (empty($archivo["tmp_name"]) || !is_uploaded_file($archivo["tmp_name"])) {
+      throw new Exception("La carga de la imagen no es valida");
+    }
+    $tamano = intval(isset($archivo["size"]) ? $archivo["size"] : 0);
+    if ($tamano <= 0 || $tamano > 2097152) {
+      throw new Exception("La imagen debe pesar entre 1 byte y 2 MB");
+    }
+  }
+
+  private function mediaDetectarMime($ruta) {
+    $finfo = new finfo(FILEINFO_MIME_TYPE);
+    return (string) $finfo->file($ruta);
+  }
+
+  private function mediaExtensionSegura($nombre, $mime) {
+    $mapa = array(
+      "image/jpeg" => "jpg",
+      "image/png" => "png",
+      "image/webp" => "webp"
+    );
+    $extension = strtolower(pathinfo((string) $nombre, PATHINFO_EXTENSION));
+    $extension = preg_replace("/[^a-z0-9]/", "", $extension);
+    return isset($mapa[$mime]) ? $mapa[$mime] : $extension;
+  }
+
+  private function mediaValidarMimeExtension($mime, $extension) {
+    $mimes = array("image/jpeg", "image/png", "image/webp");
+    $extensiones = array("jpg", "jpeg", "png", "webp");
+    if (!in_array($mime, $mimes, true)) {
+      throw new Exception("Tipo de imagen no permitido: " . $mime);
+    }
+    if (!in_array($extension, $extensiones, true)) {
+      throw new Exception("Extension de imagen no permitida");
+    }
+  }
+
+  private function mediaValorPermitido($valor, $permitidos, $default) {
+    $valor = $this->limpiarCodigoCms($valor, 60);
+    return in_array($valor, $permitidos, true) ? $valor : $default;
+  }
+
+  private function mediaBuscarPorHash($db, $hash) {
+    $stmt = $db->prepare("SELECT id_media_archivo, codigo, nombre_original, nombre_archivo, ruta_publica, mime, extension, bytes, ancho, alto, alt_text, uso_sugerido, tipo_sugerido, estatus, fecha_registro
+      FROM erp_ecommerce_media_archivos
+      WHERE hash_sha256=:hash
+      LIMIT 1");
+    $stmt->execute(array(":hash" => $hash));
+    $row = $stmt->fetch(PDO::FETCH_ASSOC);
+    return $row ? $this->mediaFormatearItem($row) : null;
+  }
+
+  private function mediaBuscarPorId($db, $id) {
+    $stmt = $db->prepare("SELECT id_media_archivo, codigo, nombre_original, nombre_archivo, ruta_publica, mime, extension, bytes, ancho, alto, alt_text, uso_sugerido, tipo_sugerido, estatus, fecha_registro
+      FROM erp_ecommerce_media_archivos
+      WHERE id_media_archivo=:id
+      LIMIT 1");
+    $stmt->execute(array(":id" => intval($id)));
+    $row = $stmt->fetch(PDO::FETCH_ASSOC);
+    return $row ? $this->mediaFormatearItem($row) : array();
+  }
+
+  private function mediaFormatearItem($row) {
+    return array(
+      "id_media_archivo" => (int) $row["id_media_archivo"],
+      "codigo" => (string) $row["codigo"],
+      "nombre_original" => (string) $row["nombre_original"],
+      "nombre_archivo" => (string) $row["nombre_archivo"],
+      "url" => (string) $row["ruta_publica"],
+      "mime" => (string) $row["mime"],
+      "extension" => (string) $row["extension"],
+      "bytes" => (int) $row["bytes"],
+      "ancho" => $row["ancho"] !== null ? (int) $row["ancho"] : null,
+      "alto" => $row["alto"] !== null ? (int) $row["alto"] : null,
+      "alt" => (string) $row["alt_text"],
+      "uso" => (string) $row["uso_sugerido"],
+      "tipo" => (string) $row["tipo_sugerido"],
+      "estatus" => (string) $row["estatus"],
+      "creado_en" => (string) $row["fecha_registro"]
+    );
   }
 
   /**
@@ -1892,7 +2107,7 @@ class EcommerceCatalogoPublico extends CRUD {
       }
       $categoriaRaw = $this->valor($filtros, "categoria_id", $this->valor($filtros, "categoria", 0));
       $categoria = intval($categoriaRaw);
-      $categoriaSlug = $this->limpiarFiltroPublico($this->valor($filtros, "categoria_slug", is_numeric($categoriaRaw) ? "" : $categoriaRaw));
+      $categoriaSlug = $this->limpiarCategoriaSlugPublico($this->valor($filtros, "categoria_slug", is_numeric($categoriaRaw) ? "" : $categoriaRaw));
       $incluirHijos = intval($this->valor($filtros, "incluir_hijos", 0)) === 1;
       $categoriaIds = $this->categoriaIdsFiltroPublico($db, $categoria, $categoriaSlug, $incluirHijos);
       if (!empty($categoriaIds)) {
@@ -1992,7 +2207,7 @@ class EcommerceCatalogoPublico extends CRUD {
           "marca_slug" => array("tipo" => "string", "fuente" => "/ecommercePublico/marcas depurar.items.slug_publico"),
           "categoria" => array("tipo" => "int|string compatible", "fuente" => "/ecommercePublico/categorias depurar.items"),
           "categoria_id" => array("tipo" => "int", "fuente" => "/ecommercePublico/categorias depurar.items.id"),
-          "categoria_slug" => array("tipo" => "string", "fuente" => "/ecommercePublico/categorias depurar.items.slug_publico"),
+          "categoria_slug" => array("tipo" => "string", "fuente" => "/ecommercePublico/categorias depurar.items.path_slug", "uso" => "Usar path_slug jerarquico. Slugs cortos ambiguos devuelven catalogo vacio."),
           "incluir_hijos" => array("tipo" => "bool", "valores" => array("1"), "uso" => "Incluye productos de subcategorias para landings madre."),
           "disponibilidad" => array("tipo" => "enum", "valores" => $this->estadosDisponibilidadPublica()),
           "destacado" => array("tipo" => "bool", "valores" => array("1")),
@@ -2028,9 +2243,9 @@ class EcommerceCatalogoPublico extends CRUD {
         "ejemplos" => array(
           "primeros_productos" => "/ecommercePublico/catalogo?limite=24",
           "buscar" => "/ecommercePublico/catalogo?q=alimento&limite=24",
-          "categoria_slug" => "/ecommercePublico/catalogo?categoria_slug=aves&incluir_hijos=1&limite=24",
+          "categoria_slug" => "/ecommercePublico/catalogo?categoria_slug=acuario-y-peces/alimentacion&incluir_hijos=1&limite=24",
           "marca_slug" => "/ecommercePublico/catalogo?marca_slug=tropical&limite=24",
-          "facets_contextuales" => "/ecommercePublico/catalogo_filtros?categoria_slug=aves&incluir_hijos=1",
+          "facets_contextuales" => "/ecommercePublico/catalogo_filtros?categoria_slug=acuario-y-peces/alimentacion&incluir_hijos=1",
           "filtrar_disponibles" => "/ecommercePublico/catalogo?disponibilidad=disponible&orden=precio_asc&limite=24",
           "estado_vacio" => "/ecommercePublico/catalogo?q=__sin_resultados_catalogo_frontend__&limite=3",
           "checklist_fase_2" => "/ecommercePublico/fase_2_checklist",
@@ -2334,7 +2549,7 @@ class EcommerceCatalogoPublico extends CRUD {
   /**
    * Documentacion IA: Codex GPT-5 | Fecha: 2026-08-15
    * Proposito: publicar categorias jerarquicas para navegacion, mega menu y landings SEO.
-   * Impacto: Frontend Artiani; habilita /categoria/{slug} sin leer tablas internas ni depender de fallbacks.
+   * Impacto: Frontend Artiani; habilita /categoria/{path_slug} sin leer tablas internas ni depender de fallbacks.
    * Contrato: read-only; deriva totales de publicaciones activas, excluye granel y no muestra stock exacto.
    */
   public function categoriasPublicas($opciones = array()) {
@@ -2362,8 +2577,10 @@ class EcommerceCatalogoPublico extends CRUD {
           "solo_con_productos_publicables" => true
         ),
         "frontend" => array(
-          "ruta_categoria" => "/categoria/{slug_publico}",
-          "catalogo_por_slug" => "/ecommercePublico/catalogo?categoria_slug={slug_publico}&incluir_hijos=1&limite=24",
+          "ruta_categoria" => "/categoria/{path_slug}",
+          "catalogo_por_slug" => "/ecommercePublico/catalogo?categoria_slug={path_slug}&incluir_hijos=1&limite=24",
+          "slug_canonico" => "path_slug",
+          "slug_corto_solo_compatibilidad" => true,
           "usar_arbol_para_mega_menu" => true,
           "usar_items_para_busqueda_y_sitemap" => true
         ),
@@ -2464,13 +2681,20 @@ class EcommerceCatalogoPublico extends CRUD {
         $f["categoria_slug"] = "";
         $f["incluir_hijos"] = intval($this->valor($base, "incluir_hijos", 0));
         $total = intval($this->valor($this->catalogoPublico(array_merge($f, array("limite" => 1))), array("depurar", "paginacion", "total"), 0));
-        $activo = intval($this->valor($base, "categoria_id", 0)) === intval($cat["id"]) || $this->valor($base, "categoria_slug", "") === $cat["slug_publico"];
+        $categoriaSlugActivo = $this->valor($base, "categoria_slug", "");
+        $activo = intval($this->valor($base, "categoria_id", 0)) === intval($cat["id"])
+          || $categoriaSlugActivo === $cat["slug_publico"]
+          || $categoriaSlugActivo === $this->valor($cat, "path_slug", "")
+          || $categoriaSlugActivo === $this->valor($cat, "slug_corto", "");
         $categorias[] = array(
           "id" => intval($cat["id"]),
           "nombre" => $cat["nombre"],
           "nombre_completo" => $cat["nombre_completo"],
           "slug" => $cat["slug_publico"],
+          "slug_corto" => $this->valor($cat, "slug_corto", ""),
+          "slug_hoja" => $this->valor($cat, "slug_hoja", ""),
           "path_slug" => $this->valor($cat, "path_slug", $cat["slug_publico"]),
+          "url" => $this->valor($cat, "url", "/categoria/" . $this->valor($cat, "path_slug", $cat["slug_publico"])),
           "total" => $total,
           "activo" => $activo,
           "disabled" => $total <= 0 && !$activo
@@ -2630,7 +2854,7 @@ class EcommerceCatalogoPublico extends CRUD {
         ),
         "mascotas" => $this->itemsNavegacionDesdeFiltros($this->valor($dep, "mascotas", array()), "mascota", "mascota", $limite),
         "necesidades" => $this->itemsNavegacionDesdeFiltros($this->valor($dep, "necesidades", array()), "necesidad", "necesidad", $limite),
-        "categorias" => $this->itemsNavegacionDesdeFiltros($this->valor($dep, "categorias", array()), "categoria", "categoria", $limite),
+        "categorias" => $this->itemsNavegacionDesdeCategoriasPublicas($this->valor($depCategorias, "items", array()), $limite),
         "categorias_arbol" => $this->valor($depCategorias, "arbol", array()),
         "marcas" => $this->itemsNavegacionDesdeFiltros($this->valor($dep, "marcas", array()), "marca", "marca", $limite),
         "marcas_destacadas" => $this->itemsNavegacionDesdeMarcasPublicas($this->valor($depMarcasPublicas, "items", array()), $limite),
@@ -6033,6 +6257,21 @@ class EcommerceCatalogoPublico extends CRUD {
 
   private function slugificar($texto) {
     $texto = strtolower($this->normalizarTextoPlano($texto));
+    $texto = html_entity_decode($texto, ENT_QUOTES | ENT_HTML5, "UTF-8");
+    $texto = strtr($texto, array(
+      "á" => "a", "à" => "a", "ä" => "a", "â" => "a", "ã" => "a", "å" => "a",
+      "é" => "e", "è" => "e", "ë" => "e", "ê" => "e",
+      "í" => "i", "ì" => "i", "ï" => "i", "î" => "i",
+      "ó" => "o", "ò" => "o", "ö" => "o", "ô" => "o", "õ" => "o",
+      "ú" => "u", "ù" => "u", "ü" => "u", "û" => "u",
+      "ñ" => "n", "ç" => "c", "¿" => "", "¡" => ""
+    ));
+    $transliterado = @iconv("UTF-8", "ASCII//TRANSLIT//IGNORE", $texto);
+    if ($transliterado !== false) {
+      $texto = strtolower($transliterado);
+    }
+    $texto = str_replace(array("&", "+"), " y ", $texto);
+    $texto = preg_replace('/[\'"`´]+/', '', $texto);
     $texto = preg_replace('/[^a-z0-9]+/', '-', $texto);
     $texto = trim($texto, '-');
     return substr($texto !== "" ? $texto : "producto", 0, 170);
@@ -6087,6 +6326,7 @@ class EcommerceCatalogoPublico extends CRUD {
   private function formatearPublicacion($fila) {
     $mostrarPrecio = intval($fila["mostrar_precio"]) === 1;
     $mostrarDisponibilidad = intval($fila["mostrar_disponibilidad"]) === 1;
+    $categoriaPathSlug = implode("/", array_map(array($this, "slugificar"), $this->partesRutaCategoriaPublica($this->valor($fila, "categoria", ""))));
     return array(
       "id_publicacion" => intval($fila["id_publicacion"]),
       "id_producto_erp" => intval($fila["id_producto_erp"]),
@@ -6105,8 +6345,10 @@ class EcommerceCatalogoPublico extends CRUD {
         "id" => intval($this->valor($fila, "id_categoria_erp", 0)),
         "nombre" => $this->valor($fila, "categoria_nombre", ""),
         "nombre_completo" => $this->valor($fila, "categoria", ""),
-        "slug" => $this->slugificar($this->valor($fila, "categoria_nombre", $this->valor($fila, "categoria", ""))),
-        "path_slug" => implode("/", array_map(array($this, "slugificar"), $this->partesRutaCategoriaPublica($this->valor($fila, "categoria", ""))))
+        "slug" => $categoriaPathSlug,
+        "slug_corto" => $this->slugificar($this->valor($fila, "categoria_nombre", $this->valor($fila, "categoria", ""))),
+        "path_slug" => $categoriaPathSlug,
+        "url" => "/categoria/" . $categoriaPathSlug
       ),
       "presentacion" => $this->presentacionPublicaSalida($fila),
       "descripcion" => trim((string) $fila["descripcion_publica"]) !== "" ? $fila["descripcion_publica"] : $this->descripcionCatalogoParaEcommerce($fila),
@@ -6184,8 +6426,19 @@ class EcommerceCatalogoPublico extends CRUD {
 
   private function limpiarFiltroPublico($valor) {
     $valor = strtolower(trim((string) $valor));
-    $valor = preg_replace('/[^a-z0-9_\-]/', '', $valor);
-    return substr($valor, 0, 60);
+    $valor = str_replace("\\", "/", $valor);
+    $valor = preg_replace('/[^a-z0-9_\-\/]/', '', $valor);
+    $valor = preg_replace('/\/+/', '/', $valor);
+    $valor = trim($valor, "/");
+    return substr($valor, 0, 220);
+  }
+
+  private function limpiarCategoriaSlugPublico($valor) {
+    $valor = str_replace("\\", "/", trim((string) $valor));
+    if ($valor === "") {
+      return "";
+    }
+    return substr($this->slugificarPathPublico(explode("/", $valor)), 0, 220);
   }
 
   private function variantesProductoPublico($db, $fila, $limite = 12) {
@@ -6683,21 +6936,35 @@ class EcommerceCatalogoPublico extends CRUD {
 
   private function categoriaIdsFiltroPublico($db, $categoriaId, $categoriaSlug, $incluirHijos) {
     $categoriaId = intval($categoriaId);
-    $categoriaSlug = $this->limpiarFiltroPublico($categoriaSlug);
+    $categoriaSlug = $this->limpiarCategoriaSlugPublico($categoriaSlug);
     if ($categoriaId <= 0 && $categoriaSlug === "") {
       return array();
     }
     $items = $this->categoriasPublicasItems($db);
     $objetivo = null;
+    $candidatosSlugCorto = array();
     foreach ($items as $item) {
       if ($categoriaId > 0 && intval($item["id"]) === $categoriaId) {
         $objetivo = $item;
         break;
       }
-      if ($categoriaSlug !== "" && $item["slug_publico"] === $categoriaSlug) {
+      if ($categoriaSlug !== "" && (
+        $item["slug_publico"] === $categoriaSlug ||
+        $this->valor($item, "path_slug", "") === $categoriaSlug ||
+        trim($this->valor($item, "url", ""), "/") === "categoria/" . $categoriaSlug
+      )) {
         $objetivo = $item;
         break;
       }
+      if ($categoriaSlug !== "" && (
+        $this->valor($item, "slug_corto", "") === $categoriaSlug ||
+        $this->valor($item, "slug_hoja", "") === $categoriaSlug
+      )) {
+        $candidatosSlugCorto[] = $item;
+      }
+    }
+    if (!$objetivo && count($candidatosSlugCorto) === 1) {
+      $objetivo = $candidatosSlugCorto[0];
     }
     if (!$objetivo) {
       return array();
@@ -6731,8 +6998,9 @@ class EcommerceCatalogoPublico extends CRUD {
     $marcaId = intval($marcaRaw);
     $marcaSlug = $this->limpiarFiltroPublico($this->valor($opciones, "marca_slug", is_numeric($marcaRaw) ? "" : $marcaRaw));
     $marcaFiltro = $this->marcaIdFiltroPublico($db, $marcaId, $marcaSlug);
-    $categoriaId = intval($this->valor($opciones, "categoria_id", $this->valor($opciones, "categoria", 0)));
-    $categoriaSlug = $this->limpiarFiltroPublico($this->valor($opciones, "categoria_slug", ""));
+    $categoriaRaw = $this->valor($opciones, "categoria_id", $this->valor($opciones, "categoria", 0));
+    $categoriaId = intval($categoriaRaw);
+    $categoriaSlug = $this->limpiarCategoriaSlugPublico($this->valor($opciones, "categoria_slug", is_numeric($categoriaRaw) ? "" : $categoriaRaw));
     return array(
       "q" => trim((string) $this->valor($opciones, "q", "")),
       "mascota" => $this->limpiarFiltroPublico($this->valor($opciones, "mascota", "")),
@@ -6882,8 +7150,9 @@ class EcommerceCatalogoPublico extends CRUD {
         continue;
       }
       $slugBase = $this->slugificar($nombre);
-      $slug = $this->slugPublicoUnico($slugBase, intval($fila["id"]), $items);
-      $pathSlug = implode("/", array_map(array($this, "slugificar"), $partes ?: array($nombre)));
+      $slugCorto = $this->slugPublicoUnico($slugBase, intval($fila["id"]), $items);
+      $pathBase = $this->slugificarPathPublico($partes ?: array($nombre));
+      $pathSlug = $this->slugPathPublicoUnico($pathBase, intval($fila["id"]), $items);
       $nivel = $this->valor($fila, "nivel_real", null);
       $nivel = $nivel !== null && $nivel !== "" ? intval($nivel) : max(0, count($partes) - 1);
       $item = array(
@@ -6891,8 +7160,11 @@ class EcommerceCatalogoPublico extends CRUD {
         "parent_id" => $this->valor($fila, "parent_id_real", null) !== null && $this->valor($fila, "parent_id_real", "") !== "" ? intval($fila["parent_id_real"]) : null,
         "nombre" => $nombre,
         "nombre_completo" => $rutaNormalizada,
-        "slug_publico" => $slug,
+        "slug_publico" => $pathSlug,
+        "slug_corto" => $slugCorto,
+        "slug_hoja" => $slugBase,
         "path_slug" => $pathSlug,
+        "url_path" => $pathSlug,
         "nivel" => $nivel,
         "orden" => $this->valor($fila, "orden_real", null) !== null && $this->valor($fila, "orden_real", "") !== "" ? intval($fila["orden_real"]) : 100,
         "total_productos" => $totalDirecto,
@@ -6904,9 +7176,11 @@ class EcommerceCatalogoPublico extends CRUD {
         "descripcion_corta" => trim((string) $this->valor($fila, "descripcion_real", "")),
         "seo_title" => $nombre . " | Artiani",
         "seo_description" => "Encuentra " . strtolower($nombre) . " en Artiani.",
-        "url" => "/categoria/" . $slug,
-        "api_catalogo" => "/ecommercePublico/catalogo?categoria_slug=" . rawurlencode($slug) . "&incluir_hijos=1&limite=24",
-        "_ruta_slug" => $this->slugificar(implode(" ", $partes ?: array($nombre))),
+        "url" => "/categoria/" . $pathSlug,
+        "url_canonica" => "/categoria/" . $pathSlug,
+        "api_catalogo" => "/ecommercePublico/catalogo?categoria_slug=" . rawurlencode($pathSlug) . "&incluir_hijos=1&limite=24",
+        "cms_editable_future" => array("path_slug", "url", "seo_title", "seo_description", "imagen_menu", "imagen_card", "imagen_banner", "orden", "visible_frontend"),
+        "_ruta_slug" => $pathBase,
         "_parent_resuelto" => false
       );
       $items[$item["id"]] = $item;
@@ -6921,7 +7195,7 @@ class EcommerceCatalogoPublico extends CRUD {
       $partes = explode(" / ", $item["nombre_completo"]);
       array_pop($partes);
       if (!empty($partes)) {
-        $parentKey = $this->slugificar(implode(" ", $partes));
+        $parentKey = $this->slugificarPathPublico($partes);
         if (isset($porRutaSlug[$parentKey])) {
           $items[$id]["parent_id"] = $porRutaSlug[$parentKey];
           $items[$id]["_parent_resuelto"] = true;
@@ -7013,12 +7287,41 @@ class EcommerceCatalogoPublico extends CRUD {
     $slugBase = $slugBase !== "" ? $slugBase : "categoria-" . intval($id);
     $slug = $slugBase;
     foreach ($items as $item) {
-      if ($item["slug_publico"] === $slug) {
+      if ($this->valor($item, "slug_publico", "") === $slug || $this->valor($item, "slug_corto", "") === $slug) {
         $slug = $slugBase . "-" . intval($id);
         break;
       }
     }
     return $slug;
+  }
+
+  private function slugificarPathPublico($partes) {
+    $slugs = array();
+    foreach ((array) $partes as $parte) {
+      $slug = $this->slugificar($parte);
+      if ($slug !== "" && $slug !== "producto") {
+        $slugs[] = $slug;
+      }
+    }
+    return implode("/", $slugs);
+  }
+
+  private function slugPathPublicoUnico($pathBase, $id, $items) {
+    $pathBase = trim((string) $pathBase, "/");
+    if ($pathBase === "") {
+      $pathBase = "categoria-" . intval($id);
+    }
+    $path = $pathBase;
+    foreach ($items as $item) {
+      if ($this->valor($item, "path_slug", "") === $path || $this->valor($item, "slug_publico", "") === $path) {
+        $partes = explode("/", $pathBase);
+        $ultimo = array_pop($partes);
+        $partes[] = ($ultimo !== "" ? $ultimo : "categoria") . "-" . intval($id);
+        $path = implode("/", $partes);
+        break;
+      }
+    }
+    return $path;
   }
 
   private function primeraColumnaExistente($db, $tabla, $columnas) {
@@ -7615,6 +7918,33 @@ class EcommerceCatalogoPublico extends CRUD {
         "label" => $nombre,
         "slug" => $slug,
         "url" => "/marca/" . $slug,
+        "total" => intval($this->valor($item, "total_productos", 0))
+      );
+      if (count($salida) >= $limite) {
+        break;
+      }
+    }
+    return $salida;
+  }
+
+  private function itemsNavegacionDesdeCategoriasPublicas($items, $limite) {
+    $salida = array();
+    foreach ((array) $items as $item) {
+      $pathSlug = trim((string) $this->valor($item, "path_slug", $this->valor($item, "slug_publico", "")));
+      $nombre = trim((string) $this->valor($item, "nombre", ""));
+      if ($pathSlug === "" || $nombre === "") {
+        continue;
+      }
+      $salida[] = array(
+        "id" => intval($this->valor($item, "id", 0)),
+        "tipo" => "categoria",
+        "label" => $nombre,
+        "nombre_completo" => $this->valor($item, "nombre_completo", $nombre),
+        "slug" => $pathSlug,
+        "slug_corto" => $this->valor($item, "slug_corto", ""),
+        "path_slug" => $pathSlug,
+        "url" => $this->valor($item, "url", "/categoria/" . $pathSlug),
+        "api_catalogo" => $this->valor($item, "api_catalogo", "/ecommercePublico/catalogo?categoria_slug=" . rawurlencode($pathSlug) . "&incluir_hijos=1&limite=24"),
         "total" => intval($this->valor($item, "total_productos", 0))
       );
       if (count($salida) >= $limite) {

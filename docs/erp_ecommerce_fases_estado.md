@@ -787,6 +787,48 @@ Pendiente CMS:
   - `destacada_home`;
   - visibilidad forzada cuando no tenga productos.
 
+## URLs jerarquicas SEO para categorias 2026-08-21
+
+Necesidad frontend:
+
+- Evitar URLs ambiguas cuando varias ramas comparten el mismo nombre de categoria, por ejemplo `Acuario y peces / Alimentacion` y `Perros / Alimentacion`.
+- Permitir landings limpias como `/categoria/acuario-y-peces/alimentacion` sin que el frontend tenga que inventar rutas.
+- Preparar el contrato para que CMS pueda editar despues el `path_slug`, textos SEO e imagenes sin romper la integracion actual.
+
+Cambios aplicados:
+
+- `GET /ecommercePublico/categorias` ahora usa slug jerarquico como ruta canonica:
+  - `slug_publico`;
+  - `path_slug`;
+  - `url_path`;
+  - `url`;
+  - `url_canonica`.
+- Cada categoria conserva tambien:
+  - `slug_corto`, solo auxiliar/compatibilidad;
+  - `slug_hoja`, para diagnosticar nombres repetidos;
+  - `cms_editable_future`, con campos que CMS podra persistir despues.
+- `GET /ecommercePublico/catalogo` acepta `categoria_slug` con ruta completa:
+  - `categoria_slug=acuario-y-peces/alimentacion`;
+  - `categoria_slug=perros/alimentacion`;
+  - `categoria_slug=aves/habitat/jaulas`.
+- Si se envia un slug corto ambiguo, por ejemplo `categoria_slug=alimentacion`, la API responde `items=[]` y `total=0` para no mostrar productos de otra rama.
+- Los objetos `categoria_obj` dentro de cada producto incluyen `path_slug` y `url` para que cards/listados apunten a la categoria correcta.
+- `GET /ecommercePublico/catalogo_filtros` expone `slug`, `slug_corto`, `slug_hoja`, `path_slug` y `url` en categorias.
+
+Reglas SEO:
+
+- La URL publica de categoria debe salir de `item.url` o de `/categoria/` + `item.path_slug`.
+- Frontend no debe construir URLs con `nombre` ni con `slug_corto`.
+- `slug_publico` y `path_slug` eliminan tildes, caracteres raros, signos, comillas y separadores inconsistentes.
+- El caracter `/` solo se usa para representar jerarquia real.
+- En query string, frontend puede enviar el `path_slug` completo en `categoria_slug`; si lo codifica, `/` puede viajar como `%2F`.
+
+Ejemplos probados:
+
+- `GET /ecommercePublico/catalogo?categoria_slug=alimentacion&incluir_hijos=1&limite=2` devuelve `total=0` por ambiguedad.
+- `GET /ecommercePublico/catalogo?categoria_slug=acuario-y-peces%2Falimentacion&incluir_hijos=1&limite=2` devuelve productos de acuario.
+- `GET /ecommercePublico/catalogo?categoria_slug=perros%2Falimentacion&incluir_hijos=1&limite=2` devuelve productos de perro.
+
 ## Calidad editorial de publicaciones 2026-08-19
 
 Problema detectado:

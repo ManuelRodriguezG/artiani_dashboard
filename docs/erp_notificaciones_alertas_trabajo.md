@@ -182,6 +182,28 @@ Cada modulo nuevo debe responder:
 5. Cual es la ruta para atenderlas.
 6. Cuando se consideran resueltas.
 
+## Comercial/Listas desde Catalogo, Almacen y Rentabilidad
+
+Listas de precios debe recibir pendientes cuando otro modulo crea o cambia una unidad vendible que requiere decision comercial.
+
+Eventos recomendados:
+
+- Catalogo crea o activa una presentacion vendible sin precio vigente.
+- Catalogo cambia una receta, factor de conversion, unidad base, incremento minimo, precision decimal o merma.
+- Almacen/Tienda confirma una apertura de empaque que habilita venta por granel o presentacion preparada.
+- Proveedores/Compras actualiza un costo vigente que provoca perdida o margen bajo en una lista activa.
+- Rentabilidad detecta presentacion, apertura o paquete con costo calculable pero sin precio aprobado.
+
+Responsabilidad:
+
+- Origen: `catalogo`, `almacen`, `proveedores`, `compras` o `rentabilidad`.
+- Responsable: `comercial`.
+- Permiso para ver: `ventas.listas.ver`.
+- Permiso para resolver: `ventas.listas.editar` o permiso de aprobacion comercial si el precio queda con margen bajo.
+- Ruta destino: `/comercial/listas_precios`, idealmente con filtro por SKU/lista cuando la UI lo soporte.
+
+La alerta no debe modificar precios automaticamente. Debe llevar al operador a capturar, prevalidar y guardar el precio con auditoria en Listas de precios. El costo mostrado debe venir del resolutor de Rentabilidad, no de una captura duplicada en Listas.
+
 ## Compras como primer caso
 
 Compras debe generar alertas cuando:

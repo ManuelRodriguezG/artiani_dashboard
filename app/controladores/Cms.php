@@ -219,13 +219,28 @@ class Cms extends Controlador {
   }
 
   /**
-   * Documentacion IA: Codex GPT-5 | Fecha: 2026-08-20
-   * Proposito: reservar endpoint futuro para subir Media CMS.
-   * Impacto: CMS media; evita activar upload real antes de respaldo, DDL y auditoria.
-   * Contrato: POST protegido; siempre bloqueado en fase actual.
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-08-21
+   * Proposito: subir imagenes publicas a la biblioteca Media CMS.
+   * Impacto: CMS media; habilita imagenes reutilizables para Home/categorias/marcas sin tocar catalogo, precios ni inventario.
+   * Contrato: POST protegido por permiso, CSRF global y auditoria explicita; solo acepta imagenes publicas validadas.
    */
   public function media_admin_subir_erp() {
-    return json_encode($this->respuestaEscrituraCmsMediaBloqueada("media_admin_subir_erp"), JSON_UNESCAPED_UNICODE);
+    $this->requerirAlgunPermiso(array("cms.editar", "catalogo.editar"));
+    $respuesta = $this->modelo("EcommerceCatalogoPublico")->mediaAdminSubirInterno(
+      isset($_FILES["archivo"]) ? $_FILES["archivo"] : array(),
+      $_POST,
+      $this->usuarioActualId()
+    );
+    SesionSeguridad::registrarAuditoria("cms", "media_admin_subir_erp", array(
+      "id_registro" => isset($respuesta["depurar"]["id_media_archivo"]) ? $respuesta["depurar"]["id_media_archivo"] : null,
+      "datos_despues" => array(
+        "error" => isset($respuesta["error"]) ? (bool) $respuesta["error"] : true,
+        "mensaje" => isset($respuesta["mensaje"]) ? $respuesta["mensaje"] : "",
+        "codigo" => isset($respuesta["depurar"]["codigo"]) ? $respuesta["depurar"]["codigo"] : "",
+        "url" => isset($respuesta["depurar"]["url"]) ? $respuesta["depurar"]["url"] : ""
+      )
+    ));
+    return json_encode($respuesta, JSON_UNESCAPED_UNICODE);
   }
 
   /**

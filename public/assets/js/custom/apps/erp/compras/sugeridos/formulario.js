@@ -1,6 +1,7 @@
 ﻿"use strict";
 (function () {
     var items = [];
+    var candidatos = [];
     var schemaPendiente = false;
     var ocultarCeros = false;
     var puedeCrear = false;
@@ -16,6 +17,67 @@
 
     function money(valor) {
         return "$" + Number(valor || 0).toFixed(2);
+    }
+
+    /**
+     * IA: Codex GPT-5
+     * Fecha: 2026-08-21
+     * Proposito: separar resultados de busqueda contra partidas agregadas al sugerido.
+     * Impacto: UX de Compras/Sugerido; el usuario decide que codigos del proveedor agregar.
+     */
+    function normalizarItemProveedor(x) {
+        return {
+            id_sku_erp: Number(x.id_sku_erp || x.id_sku || 0),
+            id_sku_proveedor: Number(x.id_sku_proveedor || 0),
+            sku_erp: x.sku_erp || "",
+            sku_proveedor: x.sku_proveedor || x.sku_erp || "",
+            nombre_erp: x.nombre_erp || "",
+            nombre_proveedor: x.nombre_proveedor || x.nombre_erp || "",
+            unidad_compra: x.unidad_compra || "",
+            factor_conversion: Number(x.factor_conversion || 1),
+            cantidad_minima: Number(x.cantidad_minima || 1),
+            stock_minimo: Number(x.stock_minimo || 0),
+            stock_maximo: x.stock_maximo === null ? null : Number(x.stock_maximo || 0),
+            punto_reorden: Number(x.punto_reorden || 0),
+            existencia_revisada: Number(x.existencia_revisada || 0),
+            cantidad_sugerida: Number(x.cantidad_sugerida || 0),
+            cantidad_solicitar: Number(x.cantidad_solicitar || x.cantidad_sugerida || 0),
+            costo_estimado: Number(x.costo_estimado || x.costo_ultimo || 0),
+            observaciones: ""
+        };
+    }
+
+    function renderResultados() {
+        var wrap = document.getElementById("sugerido_resultados_wrap");
+        var body = document.getElementById("sugerido_resultados");
+        if (!wrap || !body) { return; }
+        wrap.classList.toggle("d-none", candidatos.length <= 0);
+        body.innerHTML = candidatos.map(function (x, i) {
+            var yaAgregado = items.some(function (item) {
+                return Number(item.id_sku_proveedor || 0) === Number(x.id_sku_proveedor || 0);
+            });
+            return "<tr>" +
+                "<td><div class=\"fw-bold\">" + esc(x.sku_proveedor || x.sku_erp) + "</div><div class=\"text-muted fs-8\">SKU ERP: " + esc(x.sku_erp || "-") + "</div></td>" +
+                "<td>" + esc(x.nombre_proveedor || x.nombre_erp) + "<div class=\"text-muted fs-8\">" + esc(x.unidad_compra || "") + " | factor " + Number(x.factor_conversion || 1).toFixed(6) + "</div></td>" +
+                "<td class=\"text-end fw-bold\">" + money(x.costo_estimado) + "</td>" +
+                "<td class=\"text-end\"><button type=\"button\" class=\"btn btn-sm " + (yaAgregado ? "btn-light" : "btn-light-primary") + "\" data-sugerido-agregar=\"" + i + "\"" + (yaAgregado || modoLectura ? " disabled" : "") + ">" + (yaAgregado ? "Agregado" : "Agregar") + "</button></td>" +
+                "</tr>";
+        }).join("");
+    }
+
+    function agregarCandidato(indice) {
+        var candidato = candidatos[Number(indice)];
+        if (!candidato || modoLectura) { return; }
+        var existe = items.some(function (item) {
+            return Number(item.id_sku_proveedor || 0) === Number(candidato.id_sku_proveedor || 0);
+        });
+        if (existe) {
+            renderResultados();
+            return;
+        }
+        items.push(Object.assign({}, candidato));
+        recalcular(false);
+        renderResultados();
     }
 
     function post(url, data) {
@@ -115,12 +177,6 @@
             });
     }
 
-    /**
-     * IA: Codex GPT-5
-     * Fecha: 2026-08-21
-     * Proposito: agregar productos al sugerido bajo demanda desde codigos del proveedor, sin cargar variantes internas ni reemplazar la revision actual.
-     * Impacto: Compras/Sugerido; la seleccion del proveedor no llena toda la tabla y la busqueda fusiona sin duplicar por relacion proveedor-SKU.
-     */
     function consultarProveedor() {
         var proveedor = document.getElementById("sugerido_proveedor").value;
         var q = document.getElementById("sugerido_buscar").value.trim();
@@ -129,6 +185,8 @@
             return;
         }
         if (q.length < 2) {
+            candidatos = [];
+            renderResultados();
             document.getElementById("sugerido_resumen").textContent = "Escribe al menos dos caracteres del SKU o producto del proveedor.";
             return;
         }
@@ -137,39 +195,14 @@
             .then(function (r) { return r.json(); })
             .then(function (r) {
                 if (r.error) { throw new Error(r.mensaje); }
-                var agregados = 0;
-                var existentes = {};
-                items.forEach(function (item) { existentes[Number(item.id_sku_proveedor || 0)] = true; });
-                (r.depurar.items || []).forEach(function (x) {
-                    var idRelacion = Number(x.id_sku_proveedor || 0);
-                    if (!idRelacion || existentes[idRelacion]) { return; }
-                    items.push({
-                        id_sku_erp: Number(x.id_sku_erp || x.id_sku || 0),
-                        id_sku_proveedor: idRelacion,
-                        sku_erp: x.sku_erp || "",
-                        sku_proveedor: x.sku_proveedor || x.sku_erp || "",
-                        nombre_erp: x.nombre_erp || "",
-                        nombre_proveedor: x.nombre_proveedor || x.nombre_erp || "",
-                        unidad_compra: x.unidad_compra || "",
-                        factor_conversion: Number(x.factor_conversion || 1),
-                        cantidad_minima: Number(x.cantidad_minima || 1),
-                        stock_minimo: Number(x.stock_minimo || 0),
-                        stock_maximo: x.stock_maximo === null ? null : Number(x.stock_maximo || 0),
-                        punto_reorden: Number(x.punto_reorden || 0),
-                        existencia_revisada: Number(x.existencia_revisada || 0),
-                        cantidad_sugerida: Number(x.cantidad_sugerida || 0),
-                        cantidad_solicitar: Number(x.cantidad_solicitar || x.cantidad_sugerida || 0),
-                        costo_estimado: Number(x.costo_estimado || x.costo_ultimo || 0),
-                        observaciones: ""
-                    });
-                    existentes[idRelacion] = true;
-                    agregados++;
-                });
-                recalcular(false);
-                if (agregados <= 0) {
-                    document.getElementById("sugerido_resumen").textContent = "No se agregaron productos nuevos con esa busqueda.";
-                }
+                candidatos = (r.depurar.items || []).map(normalizarItemProveedor);
+                renderResultados();
+                document.getElementById("sugerido_resumen").textContent = candidatos.length > 0
+                    ? candidatos.length + " resultado(s). Agrega solo los productos que quieres incluir en el sugerido."
+                    : "No se encontraron productos del proveedor con esa busqueda.";
             }).catch(function (e) {
+                candidatos = [];
+                renderResultados();
                 Swal.fire({text: e.message || "No se pudieron consultar productos", icon: "error", confirmButtonText: "Aceptar"});
                 document.getElementById("sugerido_resumen").textContent = "No se pudieron consultar productos.";
             });
@@ -220,7 +253,7 @@
                 "<td class=\"text-end\">" + money(x.costo_estimado) + "</td>" +
                 "<td><input class=\"form-control form-control-sm\" data-sugerido-obs=\"" + i + "\" value=\"" + esc(x.observaciones || "") + "\"" + readonly + "></td>" +
                 "</tr>";
-        }).join("") || "<tr><td colspan=\"10\" class=\"text-center text-muted py-8\">Selecciona proveedor para consultar productos vinculados.</td></tr>";
+        }).join("") || "<tr><td colspan=\"10\" class=\"text-center text-muted py-8\">Busca productos del proveedor y agrega solo los que quieres revisar.</td></tr>";
 
         actualizarResumen();
     }
@@ -283,7 +316,7 @@
             Swal.fire({text: e.message || "No se pudieron cargar proveedores.", icon: "error", confirmButtonText: "Aceptar"});
         });
 
-        document.getElementById("sugerido_proveedor").addEventListener("change", function () { if (!modoLectura) { items = []; document.getElementById("sugerido_buscar").value = ""; render(); } });
+        document.getElementById("sugerido_proveedor").addEventListener("change", function () { if (!modoLectura) { items = []; candidatos = []; document.getElementById("sugerido_buscar").value = ""; renderResultados(); render(); } });
         document.getElementById("sugerido_buscar").addEventListener("keydown", function (e) {
             if (modoLectura) { return; }
             if (e.key === "Enter") {
@@ -297,6 +330,10 @@
             ocultarCeros = !ocultarCeros;
             this.textContent = ocultarCeros ? "Mostrar todos" : "Ocultar ceros";
             render();
+        });
+        document.getElementById("sugerido_resultados").addEventListener("click", function (e) {
+            var boton = e.target.closest("[data-sugerido-agregar]");
+            if (boton) { agregarCandidato(boton.getAttribute("data-sugerido-agregar")); }
         });
         document.getElementById("sugerido_items").addEventListener("input", function (e) {
             if (modoLectura) { return; }
@@ -335,5 +372,7 @@
         render();
     });
 })();
+
+
 
 

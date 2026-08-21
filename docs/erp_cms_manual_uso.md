@@ -711,23 +711,22 @@ Ruta: `/cms/media`
 
 ### Para que sirve
 
-Esta pantalla inicia la biblioteca de imagenes del CMS para el frontend. Su objetivo es dejar de pegar URLs manualmente y preparar un flujo profesional para seleccionar imagenes desde el CMS.
+Esta pantalla administra la biblioteca Media CMS para el frontend. Su objetivo es dejar de pegar URLs manualmente y subir imagenes publicas controladas desde el panel.
 
-En la fase actual funciona como biblioteca local:
+En la fase actual:
 
-- selecciona imagenes JPG, PNG o WebP desde tu equipo
-- valida tipo y peso local recomendado
-- muestra miniaturas y preview
-- permite capturar `alt text`
+- sube imagenes JPG, PNG o WebP al servidor
+- guarda la referencia en `erp_ecommerce_media_archivos`
+- valida tipo MIME real, extension, peso maximo de 2 MB, dimensiones y hash SHA-256
+- exige `alt text`
 - clasifica por uso: Home, Categoria, Producto, Global o Blog futuro
 - clasifica por tipo: banner, hero, card, thumbnail o editorial
-- permite copiar una referencia estructurada
-- permite archivar/quitar imagenes de la biblioteca local
+- lista imagenes guardadas desde `/cms/media_admin_listar_erp`
+- permite copiar una referencia estructurada para usarla en secciones del CMS
 
-Tambien consulta el preflight read-only `/cms/media_admin_preflight_erp`, que muestra la carpeta publica propuesta, tablas futuras, limites de archivo y endpoints POST que siguen bloqueados.
-Tambien existe `/cms/media_admin_listar_erp`, que intenta listar desde BD cuando las tablas existan; si no existen, devuelve lista vacia y mantiene la biblioteca local como fuente operativa.
+Tambien consulta `/cms/media_admin_preflight_erp`, que muestra carpeta publica, tablas, limites y endpoints disponibles.
 
-Importante: todavia no sube archivos al servidor, no borra archivos fisicos y no guarda rutas en BD.
+Importante: la subida real ya esta activa; editar metadatos, archivar en BD y registrar usos reales siguen pendientes.
 
 ### Flujo recomendado
 
@@ -751,7 +750,7 @@ Importante: todavia no sube archivos al servidor, no borra archivos fisicos y no
 
 5. Captura `Alt text`.
 
-6. Pulsa `Agregar a biblioteca local`.
+6. Pulsa `Subir a biblioteca`.
 
 7. Selecciona la imagen en `Biblioteca`.
 
@@ -759,9 +758,9 @@ Importante: todavia no sube archivos al servidor, no borra archivos fisicos y no
 
 9. Usa `Copiar referencia` si necesitas revisar el contrato que despues usara Home.
 
-10. Usa `Archivar` para marcar imagenes que ya no quieres usar.
+10. Usa `Copiar referencia` para revisar el contrato con `media_id`, `codigo`, `url`, `alt`, `uso` y `tipo`.
 
-11. Usa `Limpiar archivados` para quitar de la biblioteca local las imagenes archivadas.
+11. Por ahora `Archivar` y `Limpiar archivados` solo afectan la vista local; el archivado real de BD queda pendiente.
 
 ### Como usarla desde Home
 
@@ -797,27 +796,26 @@ La galeria del modal muestra previsualizaciones. El campo de texto es solo `Filt
 
 - `Biblioteca` muestra imagenes disponibles para seleccionar en secciones futuras.
 - `Detalle` muestra uso, tipo, formato, peso, estatus y preview.
-- `Archivado` significa que la imagen queda fuera de uso local, pero no borra ningun archivo fisico.
-- `Quitar` elimina la entrada de la biblioteca local del navegador.
-- `Copiar referencia` genera una referencia JSON con `media_id`, `alt`, `uso` y `tipo`.
+- `Archivado` en esta fase solo cambia la maqueta local; todavia no archiva la fila en BD.
+- `Quitar` elimina la entrada local del navegador, no borra la imagen del servidor.
+- `Copiar referencia` genera una referencia JSON con `media_id`, `codigo`, `url`, `alt`, `uso` y `tipo`.
 
 ### Importante
 
-- Esta pantalla todavia no sube archivos al servidor.
+- Esta pantalla ya sube archivos al servidor usando `/cms/media_admin_subir_erp`.
 - Esta pantalla todavia no borra archivos fisicos.
-- Esta pantalla todavia no guarda media en BD.
-- La carpeta publica propuesta es `/assets/media/cms/ecommerce`.
-- Las tablas propuestas para persistencia real son `erp_ecommerce_media_archivos` y `erp_ecommerce_media_usos`.
-- El endpoint `/cms/media_admin_preflight_erp` solo lee contrato; no crea carpetas, no ejecuta DDL y no mueve archivos.
-- El endpoint `/cms/media_admin_listar_erp` es solo lectura; no sube ni modifica imagenes.
-- Los endpoints `/cms/media_admin_subir_erp`, `/cms/media_admin_actualizar_erp`, `/cms/media_admin_archivar_erp` y `/cms/media_admin_usos_erp` siguen bloqueados.
-- La carga real de imagenes requiere definir ruta publica, tamanos, formatos, nombres seguros, respaldo y limpieza segura.
+- Esta pantalla ya guarda media en BD dentro de `erp_ecommerce_media_archivos`.
+- La carpeta publica activa es `/assets/media/cms/ecommerce`.
+- Las tablas del modulo son `erp_ecommerce_media_archivos` y `erp_ecommerce_media_usos`.
+- El endpoint `/cms/media_admin_preflight_erp` solo lee contrato.
+- El endpoint `/cms/media_admin_listar_erp` es solo lectura.
+- Los endpoints `/cms/media_admin_actualizar_erp`, `/cms/media_admin_archivar_erp` y `/cms/media_admin_usos_erp` siguen bloqueados.
 - No se deben guardar rutas internas del ERP para que el frontend las lea directamente.
 
 ### Errores comunes
 
 - Agregar una imagen sin `alt text`.
-- Pensar que la imagen local ya esta publicada en el frontend.
+- Pensar que subir una imagen ya la coloca automaticamente en Home; todavia hay que seleccionarla en la seccion correspondiente.
 - Borrar una entrada local pensando que ya se borro del servidor.
 - Usar imagenes demasiado pesadas sin politica de optimizacion.
 - Guardar rutas internas del ERP como si fueran URLs publicas.

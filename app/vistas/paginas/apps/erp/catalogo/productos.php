@@ -248,8 +248,11 @@
                                         <div class="form-text">Uso interno escaneable. No sustituye un EAN/UPC/GTIN oficial.</div>
                                     </div>
                                     <div class="col-md-4"><label class="form-label">Tipo de inventario</label><select class="form-select" name="tipo_inventario"><option value="inventariable">Inventariable</option><option value="consumible">Consumible</option><option value="kit">Kit</option><option value="servicio">Servicio</option><option value="cargo">Cargo/Gasto</option></select></div>
-                                    <div class="col-md-4"><label class="form-label">Precio provisional</label><input class="form-control" type="number" name="precio" min="0" step="0.000001" value="0"><div class="form-text">Temporal hasta operar listas de precios por canal.</div></div>
-                                    <div class="col-md-4"><label class="form-label">Moneda</label><select class="form-select" name="moneda"><option value="MXN">MXN</option><option value="USD">USD</option></select></div>
+                                    <div class="col-md-8">
+                                        <div class="alert alert-light-info mb-0">
+                                            El precio de venta se captura en Comercial &gt; Listas de precios. Catalogo solo mantiene identidad, unidades, fiscal e inventario.
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                             <div class="tab-pane fade" id="catalogo_tab_inventario">
@@ -306,7 +309,7 @@
                                     </div>
                                     <div class="col-md-3"><label class="form-label">IVA %</label><input class="form-control" type="number" name="iva_porcentaje" min="0" step="0.0001"></div>
                                     <div class="col-md-3"><label class="form-label">IEPS %</label><input class="form-control" type="number" name="ieps_porcentaje" min="0" step="0.0001"></div>
-                                    <div class="col-md-4 d-flex align-items-end pb-3"><label class="form-check form-switch form-check-custom form-check-solid"><input class="form-check-input" type="checkbox" name="incluye_impuestos" value="1"><span class="form-check-label">El precio incluye impuestos</span></label></div>
+                                    <div class="col-md-4 d-flex align-items-end pb-3"><label class="form-check form-switch form-check-custom form-check-solid"><input class="form-check-input" type="checkbox" name="incluye_impuestos" value="1"><span class="form-check-label">La lista de precios incluye impuestos</span></label></div>
                                 </div>
                             </div>
                         </div>
@@ -415,7 +418,7 @@
                             <div id="catalogo_sku_objetivos_resumen" class="d-flex flex-wrap gap-2 mb-5"></div>
                             <div class="table-responsive">
                                 <table class="table align-middle table-row-dashed gy-4">
-                                    <thead><tr class="text-muted fw-bold fs-7 text-uppercase"><th>SKU</th><th>Nombre</th><th>Unidad</th><th>Precio</th><th>Inventario</th><th>Calidad</th><th>Estado</th><?php if (SesionSeguridad::tienePermiso('catalogo.editar')): ?><th class="text-end">Accion</th><?php endif; ?></tr></thead>
+                                    <thead><tr class="text-muted fw-bold fs-7 text-uppercase"><th>SKU</th><th>Nombre</th><th>Unidad</th><th>Listas</th><th>Inventario</th><th>Calidad</th><th>Estado</th><?php if (SesionSeguridad::tienePermiso('catalogo.editar')): ?><th class="text-end">Accion</th><?php endif; ?></tr></thead>
                                     <tbody id="catalogo_detalle_skus_lista"></tbody>
                                 </table>
                             </div>
@@ -466,8 +469,11 @@
                                         <div class="form-text">Uso interno escaneable. No sustituye un EAN/UPC/GTIN oficial.</div>
                                     </div>
                                     <div class="col-md-3"><label class="form-label">Tipo inventario</label><select class="form-select" name="tipo_inventario"><option value="inventariable">Inventariable</option><option value="consumible">Consumible</option><option value="kit">Kit</option><option value="servicio">Servicio</option><option value="cargo">Cargo/Gasto</option></select></div>
-                                    <div class="col-md-2"><label class="form-label">Precio provisional</label><input class="form-control" type="number" name="precio" min="0" step="0.000001" value="0"><div class="form-text">No sustituye lista/canal.</div></div>
-                                    <div class="col-md-2"><label class="form-label">Moneda</label><select class="form-select" name="moneda"><option value="MXN">MXN</option><option value="USD">USD</option></select></div>
+                                    <div class="col-md-4">
+                                        <div class="alert alert-light-info mb-0 py-3">
+                                            El precio operativo se administra en Comercial &gt; Listas de precios.
+                                        </div>
+                                    </div>
                                     <div class="col-md-2"><label class="form-label">Stock mínimo</label><input class="form-control" type="number" name="stock_minimo" min="0" step="0.000001" value="0"></div>
                                     <div class="col-md-2"><label class="form-label">Stock máximo</label><input class="form-control" type="number" name="stock_maximo" min="0" step="0.000001"></div>
                                     <div class="col-md-2"><label class="form-label">Reorden</label><input class="form-control" type="number" name="punto_reorden" min="0" step="0.000001" value="0"></div>
@@ -503,7 +509,7 @@
                                         <label class="form-check form-switch form-check-custom form-check-solid"><input class="form-check-input" type="checkbox" name="requiere_serie" value="1"><span class="form-check-label">Serie</span></label>
                                         <label class="form-check form-switch form-check-custom form-check-solid"><input class="form-check-input" type="checkbox" name="permite_existencia_negativa" value="1"><span class="form-check-label">Existencia negativa</span></label>
                                         <label class="form-check form-switch form-check-custom form-check-solid"><input class="form-check-input" type="checkbox" name="permite_venta_sin_existencia" value="1"><span class="form-check-label">Venta sin existencia</span></label>
-                                        <label class="form-check form-switch form-check-custom form-check-solid"><input class="form-check-input" type="checkbox" name="incluye_impuestos" value="1"><span class="form-check-label">Precio con impuestos</span></label>
+                                        <label class="form-check form-switch form-check-custom form-check-solid"><input class="form-check-input" type="checkbox" name="incluye_impuestos" value="1"><span class="form-check-label">Lista de precios incluye impuestos</span></label>
                                     </div>
                                     <div class="col-12 d-flex flex-wrap gap-8">
                                         <label class="form-check form-switch form-check-custom form-check-solid"><input class="form-check-input" type="checkbox" name="requiere_serie_fabricante" value="1"><span class="form-check-label">Serie fabricante</span></label>

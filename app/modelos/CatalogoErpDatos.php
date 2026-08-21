@@ -943,8 +943,9 @@ class CatalogoErpDatos extends CRUD {
   /**
    * IA: Codex GPT-5
    * Fecha: 2026-06-24
-   * Proposito: audita completitud de Catalogo separando precio provisional de decisiones formales de listas.
-   * Impacto: Catalogo ERP; Precios/Listas sigue siendo responsable del precio final por canal.
+   * Proposito: audita completitud de Catalogo separando precio operativo de decisiones formales de listas.
+   * Impacto: Catalogo ERP; Comercial/Listas es responsable del precio final por canal.
+   * Actualizacion 2026-08-21: los pendientes de precio se leen desde `erp_listas_precios_detalle`, no desde el precio legacy de Catalogo.
    */
   public function auditarCalidadCatalogo() {
     try {
@@ -956,7 +957,7 @@ class CatalogoErpDatos extends CRUD {
         "productos_sin_marca" => intval($db->query("SELECT COUNT(*) FROM erp_catalogo_productos WHERE estatus<>'fusionado' AND id_marca_erp IS NULL")->fetchColumn()),
         "productos_sin_categoria" => intval($db->query("SELECT COUNT(*) FROM erp_catalogo_productos p WHERE p.estatus<>'fusionado' AND NOT EXISTS (SELECT 1 FROM erp_catalogo_producto_categorias pc WHERE pc.id_producto_erp=p.id_producto_erp)")->fetchColumn()),
         "productos_sin_imagen" => intval($db->query("SELECT COUNT(*) FROM erp_catalogo_productos p WHERE p.estatus<>'fusionado' AND NOT EXISTS (SELECT 1 FROM erp_catalogo_imagenes i WHERE i.id_producto_erp=p.id_producto_erp AND i.estatus='activo')")->fetchColumn()),
-        "skus_sin_precio" => intval($db->query("SELECT COUNT(*) FROM erp_catalogo_skus s WHERE s.estatus<>'fusionado' AND NOT EXISTS (SELECT 1 FROM erp_catalogo_sku_precios pr WHERE pr.id_sku=s.id_sku AND pr.estatus='activo')")->fetchColumn()),
+        "skus_sin_precio" => intval($db->query("SELECT COUNT(*) FROM erp_catalogo_skus s WHERE s.estatus<>'fusionado' AND NOT EXISTS (SELECT 1 FROM erp_listas_precios_detalle d INNER JOIN erp_listas_precios l ON l.id_lista_precio=d.id_lista_precio WHERE d.id_sku=s.id_sku AND d.estatus='activo' AND d.precio>0 AND l.estatus='activa' AND (d.fecha_inicio IS NULL OR d.fecha_inicio<=NOW()) AND (d.fecha_fin IS NULL OR d.fecha_fin>=NOW()) AND (l.fecha_inicio IS NULL OR l.fecha_inicio<=NOW()) AND (l.fecha_fin IS NULL OR l.fecha_fin>=NOW()))")->fetchColumn()),
         "skus_fiscal_incompleto" => intval($db->query("SELECT COUNT(*) FROM erp_catalogo_skus s LEFT JOIN erp_catalogo_sku_impuestos imp ON imp.id_sku=s.id_sku WHERE s.estatus<>'fusionado' AND (imp.id_sku IS NULL OR TRIM(COALESCE(imp.clave_producto_sat,''))='' OR TRIM(COALESCE(imp.clave_unidad_sat,''))='' OR TRIM(COALESCE(imp.objeto_impuesto,''))='' OR imp.iva_porcentaje IS NULL OR imp.ieps_porcentaje IS NULL OR imp.incluye_impuestos IS NULL)")->fetchColumn()),
         "skus_activos_fiscal_incompleto" => intval($db->query("SELECT COUNT(*) FROM erp_catalogo_skus s LEFT JOIN erp_catalogo_sku_impuestos imp ON imp.id_sku=s.id_sku WHERE s.estatus='activo' AND (imp.id_sku IS NULL OR TRIM(COALESCE(imp.clave_producto_sat,''))='' OR TRIM(COALESCE(imp.clave_unidad_sat,''))='' OR TRIM(COALESCE(imp.objeto_impuesto,''))='' OR imp.iva_porcentaje IS NULL OR imp.ieps_porcentaje IS NULL OR imp.incluye_impuestos IS NULL)")->fetchColumn()),
         "skus_comprables_fiscal_incompleto" => intval($db->query("SELECT COUNT(*) FROM erp_catalogo_skus s LEFT JOIN erp_catalogo_sku_impuestos imp ON imp.id_sku=s.id_sku WHERE s.estatus='activo' AND EXISTS (SELECT 1 FROM erp_catalogo_sku_proveedores sp WHERE sp.id_sku=s.id_sku AND sp.estatus='activo') AND (imp.id_sku IS NULL OR TRIM(COALESCE(imp.clave_producto_sat,''))='' OR TRIM(COALESCE(imp.clave_unidad_sat,''))='' OR TRIM(COALESCE(imp.objeto_impuesto,''))='' OR imp.iva_porcentaje IS NULL OR imp.ieps_porcentaje IS NULL OR imp.incluye_impuestos IS NULL)")->fetchColumn()),
@@ -972,7 +973,7 @@ class CatalogoErpDatos extends CRUD {
 
       $problemas = array_merge(
         $this->problemasCatalogo($db, "Producto sin SKU", "alta", "SELECT p.id_producto_erp, NULL id_sku, p.codigo_producto, p.nombre producto, NULL sku FROM erp_catalogo_productos p WHERE p.estatus<>'fusionado' AND NOT EXISTS (SELECT 1 FROM erp_catalogo_skus s WHERE s.id_producto_erp=p.id_producto_erp AND s.estatus<>'fusionado') ORDER BY p.id_producto_erp DESC LIMIT 25"),
-        $this->problemasCatalogo($db, "SKU sin precio provisional", "media", "SELECT p.id_producto_erp, s.id_sku, p.codigo_producto, p.nombre producto, s.sku FROM erp_catalogo_skus s INNER JOIN erp_catalogo_productos p ON p.id_producto_erp=s.id_producto_erp WHERE s.estatus<>'fusionado' AND NOT EXISTS (SELECT 1 FROM erp_catalogo_sku_precios pr WHERE pr.id_sku=s.id_sku AND pr.estatus='activo') ORDER BY s.id_sku DESC LIMIT 25"),
+        $this->problemasCatalogo($db, "SKU sin precio en listas", "media", "SELECT p.id_producto_erp, s.id_sku, p.codigo_producto, p.nombre producto, s.sku FROM erp_catalogo_skus s INNER JOIN erp_catalogo_productos p ON p.id_producto_erp=s.id_producto_erp WHERE s.estatus<>'fusionado' AND NOT EXISTS (SELECT 1 FROM erp_listas_precios_detalle d INNER JOIN erp_listas_precios l ON l.id_lista_precio=d.id_lista_precio WHERE d.id_sku=s.id_sku AND d.estatus='activo' AND d.precio>0 AND l.estatus='activa' AND (d.fecha_inicio IS NULL OR d.fecha_inicio<=NOW()) AND (d.fecha_fin IS NULL OR d.fecha_fin>=NOW()) AND (l.fecha_inicio IS NULL OR l.fecha_inicio<=NOW()) AND (l.fecha_fin IS NULL OR l.fecha_fin>=NOW())) ORDER BY s.id_sku DESC LIMIT 25"),
         $this->problemasCatalogo($db, "SKU comprable sin fiscal completo", "bloqueante", "SELECT p.id_producto_erp, s.id_sku, p.codigo_producto, p.nombre producto, s.sku FROM erp_catalogo_skus s INNER JOIN erp_catalogo_productos p ON p.id_producto_erp=s.id_producto_erp LEFT JOIN erp_catalogo_sku_impuestos imp ON imp.id_sku=s.id_sku WHERE s.estatus='activo' AND EXISTS (SELECT 1 FROM erp_catalogo_sku_proveedores sp WHERE sp.id_sku=s.id_sku AND sp.estatus='activo') AND (imp.id_sku IS NULL OR TRIM(COALESCE(imp.clave_producto_sat,''))='' OR TRIM(COALESCE(imp.clave_unidad_sat,''))='' OR TRIM(COALESCE(imp.objeto_impuesto,''))='' OR imp.iva_porcentaje IS NULL OR imp.ieps_porcentaje IS NULL OR imp.incluye_impuestos IS NULL) ORDER BY s.id_sku DESC LIMIT 25"),
         $this->problemasCatalogo($db, "SKU activo sin proveedor activo", "alta", "SELECT p.id_producto_erp, s.id_sku, p.codigo_producto, p.nombre producto, s.sku FROM erp_catalogo_skus s INNER JOIN erp_catalogo_productos p ON p.id_producto_erp=s.id_producto_erp WHERE s.estatus='activo' AND NOT EXISTS (SELECT 1 FROM erp_catalogo_sku_proveedores sp WHERE sp.id_sku=s.id_sku AND sp.estatus='activo') ORDER BY s.id_sku DESC LIMIT 25"),
         $this->problemasCatalogo($db, "SKU activo sin codigo principal", "media", "SELECT p.id_producto_erp, s.id_sku, p.codigo_producto, p.nombre producto, s.sku FROM erp_catalogo_skus s INNER JOIN erp_catalogo_productos p ON p.id_producto_erp=s.id_producto_erp WHERE s.estatus='activo' AND NOT EXISTS (SELECT 1 FROM erp_catalogo_sku_codigos c WHERE c.id_sku=s.id_sku AND c.es_principal=1 AND c.estatus='activo') ORDER BY s.id_sku DESC LIMIT 25"),
@@ -2774,6 +2775,7 @@ class CatalogoErpDatos extends CRUD {
       $idMarca = $this->resolverMarca($db, $datos);
       $idCategoria = $this->resolverCategoria($db, $datos);
 
+      $db->beginTransaction();
       $stmt = $db->prepare("INSERT INTO erp_catalogo_productos
         (codigo_producto, nombre, descripcion, tipo_producto, id_marca_erp, maneja_variantes, estatus, creado_por)
         VALUES (:codigo, :nombre, :descripcion, 'producto', :marca, 0, 'borrador', :usuario)");
@@ -2838,21 +2840,30 @@ class CatalogoErpDatos extends CRUD {
       ));
 
       $this->confirmarSkuTemporalProveedor($db, $idIncidencia, $idProducto, $idSku);
+      $relacionProveedor = $esProveedorSinMatch
+        ? $this->crearRelacionProveedorDesdeSkuTemporal($db, $incidencia, $detalle, $renglon, $idSku, $idUnidad)
+        : array("id_sku_proveedor" => 0, "relacion_creada" => false);
       $idNotificacionSeguimiento = $esVentaRapidaSinMatch
         ? $this->registrarNotificacionesSkuTemporalVentaRapida($db, $incidencia, $detalle, $idProducto, $idSku, $sku, $idUsuario)
         : $this->registrarNotificacionesSkuTemporalProveedor($db, $incidencia, $detalle, $renglon, $idProducto, $idSku, $sku, $idUsuario);
 
+      $db->commit();
       return $this->respuesta(false, "success", "SKU temporal creado en Catalogo", array(
         "id_incidencia_calidad" => $idIncidencia,
         "id_producto_erp" => $idProducto,
         "id_sku" => $idSku,
+        "id_sku_proveedor" => intval(isset($relacionProveedor["id_sku_proveedor"]) ? $relacionProveedor["id_sku_proveedor"] : 0),
+        "relacion_proveedor" => $relacionProveedor,
         "id_notificacion_seguimiento" => $idNotificacionSeguimiento,
         "sku" => $sku,
         "codigo_producto" => $codigoProducto,
         "estatus" => "borrador",
-        "siguiente_paso" => $esVentaRapidaSinMatch ? "Completar Catalogo y vincular el VRP desde Ventas/POS" : "Completar Catalogo y hacer matching desde Proveedores"
+        "siguiente_paso" => $esVentaRapidaSinMatch ? "Completar Catalogo y vincular el VRP desde Ventas/POS" : "Completar Catalogo y validar datos de compra/costo desde Proveedores"
       ));
     } catch (Exception $e) {
+      if (isset($db) && $db->inTransaction()) {
+        $db->rollBack();
+      }
       $mensaje = $e->getCode() === "23000" ? "El codigo de producto, SKU o codigo ya existe; revisa matching antes de crear temporal" : $e->getMessage();
       return $this->respuesta(true, "danger", $mensaje);
     }
@@ -2889,6 +2900,122 @@ class CatalogoErpDatos extends CRUD {
     }
   }
 
+  /**
+   * IA: Codex GPT-5 | Fecha: 2026-08-21
+   * Proposito: cuando Catalogo crea un SKU desde una incidencia de Proveedores, registra la relacion SKU-proveedor de origen sin marcarla como preferida.
+   * Impacto: Catalogo/Proveedores; evita que un SKU creado desde proveedor quede como "sin proveedor" y conserva el flujo formal de costos en Proveedores.
+   * Contrato: no aplica costo vigente ni costo_referencia; usa unidad/factor del renglon si existen y cae a unidad base/factor 1.
+   */
+  private function crearRelacionProveedorDesdeSkuTemporal($db, $incidencia, $detalle, $renglon, $idSku, $idUnidadBase) {
+    $idProveedor = intval(isset($detalle["id_proveedor"]) ? $detalle["id_proveedor"] : 0);
+    $idLista = intval(isset($detalle["id_lista_proveedor_erp"]) ? $detalle["id_lista_proveedor_erp"] : 0);
+    $idDetalle = intval(isset($incidencia["id_referencia"]) ? $incidencia["id_referencia"] : 0);
+    if ($idProveedor <= 0 || intval($idSku) <= 0) {
+      return array("id_sku_proveedor" => 0, "relacion_creada" => false, "motivo" => "sin_contexto_proveedor");
+    }
+
+    $renglonReal = $renglon;
+    if ($idDetalle > 0) {
+      $stmt = $db->prepare("SELECT d.*
+        FROM erp_proveedores_listas_detalle_erp d
+        INNER JOIN erp_proveedores_listas_erp l ON l.id_lista_proveedor_erp = d.id_lista_proveedor_erp
+        WHERE d.id_lista_detalle_erp = :detalle
+          AND (:lista_cmp = 0 OR d.id_lista_proveedor_erp = :lista_val)
+          AND l.id_proveedor = :proveedor
+        LIMIT 1");
+      $stmt->execute(array(":detalle" => $idDetalle, ":lista_cmp" => $idLista, ":lista_val" => $idLista, ":proveedor" => $idProveedor));
+      $fila = $stmt->fetch(PDO::FETCH_ASSOC);
+      if ($fila) {
+        $renglonReal = array_merge(is_array($renglonReal) ? $renglonReal : array(), $fila);
+        $idLista = intval(isset($fila["id_lista_proveedor_erp"]) ? $fila["id_lista_proveedor_erp"] : $idLista);
+      }
+    }
+
+    $idUnidad = intval(isset($renglonReal["id_unidad_compra"]) ? $renglonReal["id_unidad_compra"] : 0);
+    if ($idUnidad <= 0 || !$this->unidadBaseExiste($db, $idUnidad)) {
+      $idUnidad = intval($idUnidadBase);
+    }
+    if ($idUnidad <= 0 || !$this->unidadBaseExiste($db, $idUnidad)) {
+      return array("id_sku_proveedor" => 0, "relacion_creada" => false, "motivo" => "sin_unidad_valida");
+    }
+
+    $factor = isset($renglonReal["factor_conversion"]) && is_numeric($renglonReal["factor_conversion"]) ? floatval($renglonReal["factor_conversion"]) : 0;
+    if ($factor <= 0) {
+      $factor = 1;
+    }
+    $cantidadMinima = isset($renglonReal["cantidad_minima"]) && is_numeric($renglonReal["cantidad_minima"]) ? floatval($renglonReal["cantidad_minima"]) : 0;
+    if ($cantidadMinima <= 0) {
+      $cantidadMinima = 1;
+    }
+    $skuProveedor = $this->skuProveedorDesdeRenglonCatalogo($renglonReal);
+
+    $stmt = $db->prepare("INSERT INTO erp_catalogo_sku_proveedores
+        (id_sku, id_proveedor, sku_proveedor, id_unidad_compra, factor_conversion, costo_ultimo, cantidad_minima, dias_entrega, es_preferido, estatus)
+      VALUES
+        (:sku, :proveedor, :sku_proveedor, :unidad, :factor, 0, :minima, 0, 0, 'activo')
+      ON DUPLICATE KEY UPDATE
+        id_sku_proveedor = LAST_INSERT_ID(id_sku_proveedor),
+        sku_proveedor = VALUES(sku_proveedor),
+        id_unidad_compra = VALUES(id_unidad_compra),
+        factor_conversion = VALUES(factor_conversion),
+        cantidad_minima = VALUES(cantidad_minima),
+        estatus = 'activo',
+        fecha_actualizacion = CURRENT_TIMESTAMP");
+    $stmt->execute(array(
+      ":sku" => intval($idSku),
+      ":proveedor" => $idProveedor,
+      ":sku_proveedor" => $skuProveedor !== "" ? $skuProveedor : null,
+      ":unidad" => $idUnidad,
+      ":factor" => $factor,
+      ":minima" => $cantidadMinima
+    ));
+    $idSkuProveedor = intval($db->lastInsertId());
+
+    if ($idDetalle > 0 && $idSkuProveedor > 0) {
+      $stmt = $db->prepare("UPDATE erp_proveedores_listas_detalle_erp d
+        INNER JOIN erp_proveedores_listas_erp l ON l.id_lista_proveedor_erp = d.id_lista_proveedor_erp
+        SET d.id_sku = :sku,
+            d.id_sku_proveedor = :sku_proveedor_id,
+            d.id_unidad_compra = CASE WHEN d.id_unidad_compra IS NULL OR d.id_unidad_compra <= 0 THEN :unidad ELSE d.id_unidad_compra END,
+            d.factor_conversion = CASE WHEN d.factor_conversion IS NULL OR d.factor_conversion <= 0 THEN :factor ELSE d.factor_conversion END,
+            d.cantidad_minima = CASE WHEN d.cantidad_minima IS NULL OR d.cantidad_minima <= 0 THEN :minima ELSE d.cantidad_minima END,
+            d.estado_match = 'relacion_aplicada',
+            d.criterio_match = 'catalogo_sku_temporal_creado_proveedor',
+            d.fecha_actualizacion = NOW()
+        WHERE d.id_lista_detalle_erp = :detalle
+          AND l.id_proveedor = :proveedor");
+      $stmt->execute(array(
+        ":sku" => intval($idSku),
+        ":sku_proveedor_id" => $idSkuProveedor,
+        ":unidad" => $idUnidad,
+        ":factor" => $factor,
+        ":minima" => $cantidadMinima,
+        ":detalle" => $idDetalle,
+        ":proveedor" => $idProveedor
+      ));
+    }
+
+    return array(
+      "id_sku_proveedor" => $idSkuProveedor,
+      "relacion_creada" => $idSkuProveedor > 0,
+      "id_proveedor" => $idProveedor,
+      "id_lista_proveedor_erp" => $idLista,
+      "id_lista_detalle_erp" => $idDetalle,
+      "es_preferido" => 0,
+      "aplica_costo" => false
+    );
+  }
+
+  private function skuProveedorDesdeRenglonCatalogo($renglon) {
+    foreach (array("sku_proveedor", "codigo_barras", "codigo_interno") as $campo) {
+      $valor = $this->textoArrayCatalogo(is_array($renglon) ? $renglon : array(), $campo, "");
+      if ($valor !== "") {
+        return substr($valor, 0, 150);
+      }
+    }
+    return "";
+  }
+
   private function registrarNotificacionesSkuTemporalProveedor($db, $incidencia, $detalle, $renglon, $idProducto, $idSku, $sku, $idUsuario) {
     try {
       require_once __DIR__ . "/NotificacionesErp.php";
@@ -2912,8 +3039,8 @@ class CatalogoErpDatos extends CRUD {
         "id_entidad_origen" => $idIncidencia,
         "area_responsable" => "proveedores",
         "permiso_requerido" => "proveedores.matching",
-        "titulo" => "SKU temporal creado; vincular proveedor",
-        "descripcion" => "Catalogo creo el SKU temporal " . $sku . ". Proveedores debe relacionarlo con el producto del proveedor" . ($skuProveedor !== "" ? " " . $skuProveedor : "") . ".",
+        "titulo" => "SKU temporal creado; validar compra",
+        "descripcion" => "Catalogo creo el SKU temporal " . $sku . " y lo relaciono con el proveedor de origen" . ($skuProveedor !== "" ? " (" . $skuProveedor . ")" : "") . ". Proveedores debe validar compra y costo cuando aplique.",
         "prioridad" => "normal",
         "url_accion" => "/proveedor/mostrar_proveedores_erp",
         "payload_json" => array(
@@ -2928,7 +3055,7 @@ class CatalogoErpDatos extends CRUD {
           "id_lista_detalle_erp" => intval(isset($incidencia["id_referencia"]) ? $incidencia["id_referencia"] : 0),
           "sku_proveedor" => $skuProveedor,
           "descripcion_proveedor" => $descripcion,
-          "siguiente_paso" => "hacer_matching_desde_proveedores"
+          "siguiente_paso" => "validar_compra_y_costo_desde_proveedores"
         ),
         "creado_por" => intval($idUsuario) ?: null
       ));
@@ -3898,6 +4025,12 @@ class CatalogoErpDatos extends CRUD {
     }
   }
 
+  /**
+   * IA: Codex GPT-5 | Fecha: 2026-08-21
+   * Proposito: consulta el detalle operativo del producto sin convertir Catalogo en dueño de precios.
+   * Impacto: Catalogo ERP; el estado de precio se lee desde Comercial/Listas de precios en modo solo lectura.
+   * Contrato: no guarda ni calcula precios; `precio`/`moneda` solo indican si existe precio activo vigente en listas.
+   */
   public function consultarProducto($idProducto) {
     try {
       $db = $this->getConexion();
@@ -3921,7 +4054,23 @@ class CatalogoErpDatos extends CRUD {
       $stmt = $db->prepare("SELECT s.id_sku, s.sku, s.nombre, s.tipo_inventario, s.id_unidad_base, s.factor_unidad_base, s.costo_referencia,
         s.permite_venta_sin_existencia, s.estatus, u.nombre AS unidad, u.abreviatura,
         u.tipo_magnitud, u.decimales_permitidos,
-        cod.codigo AS codigo_barras, pr.precio, pr.moneda,
+        cod.codigo AS codigo_barras,
+        (SELECT d.precio
+          FROM erp_listas_precios_detalle d
+          INNER JOIN erp_listas_precios l ON l.id_lista_precio=d.id_lista_precio
+          WHERE d.id_sku=s.id_sku AND d.estatus='activo' AND d.precio>0 AND l.estatus='activa'
+            AND (d.fecha_inicio IS NULL OR d.fecha_inicio<=NOW()) AND (d.fecha_fin IS NULL OR d.fecha_fin>=NOW())
+            AND (l.fecha_inicio IS NULL OR l.fecha_inicio<=NOW()) AND (l.fecha_fin IS NULL OR l.fecha_fin>=NOW())
+          ORDER BY l.prioridad ASC, d.id_lista_precio_detalle DESC
+          LIMIT 1) AS precio,
+        COALESCE((SELECT d.moneda
+          FROM erp_listas_precios_detalle d
+          INNER JOIN erp_listas_precios l ON l.id_lista_precio=d.id_lista_precio
+          WHERE d.id_sku=s.id_sku AND d.estatus='activo' AND d.precio>0 AND l.estatus='activa'
+            AND (d.fecha_inicio IS NULL OR d.fecha_inicio<=NOW()) AND (d.fecha_fin IS NULL OR d.fecha_fin>=NOW())
+            AND (l.fecha_inicio IS NULL OR l.fecha_inicio<=NOW()) AND (l.fecha_fin IS NULL OR l.fecha_fin>=NOW())
+          ORDER BY l.prioridad ASC, d.id_lista_precio_detalle DESC
+          LIMIT 1), 'MXN') AS moneda,
         r.controla_inventario, r.requiere_lote, r.requiere_caducidad, r.requiere_serie, r.requiere_serie_fabricante,
         r.generar_etiqueta_interna, r.requiere_escaneo_venta,
         r.permite_venta_fraccionaria, r.precision_decimal, r.incremento_minimo_venta,
@@ -3950,7 +4099,6 @@ class CatalogoErpDatos extends CRUD {
             WHERE c2.id_sku=s.id_sku AND c2.es_principal=1 AND c2.estatus='activo'
             ORDER BY c2.tipo_codigo='codigo_barras' DESC, c2.id_sku_codigo DESC LIMIT 1
           )
-        LEFT JOIN erp_catalogo_sku_precios pr ON pr.id_sku = s.id_sku AND pr.lista_precio = 'general'
         LEFT JOIN erp_catalogo_sku_reglas_inventario r ON r.id_sku = s.id_sku
         LEFT JOIN erp_catalogo_sku_impuestos imp ON imp.id_sku = s.id_sku
         WHERE s.id_producto_erp = :producto ORDER BY s.id_sku");
@@ -6814,10 +6962,7 @@ class CatalogoErpDatos extends CRUD {
 
       $this->actualizarCodigoBarrasPrincipal($db, $idSku, $codigoBarras);
 
-      $db->prepare("DELETE FROM erp_catalogo_sku_precios WHERE id_sku=:sku AND lista_precio='general'")
-        ->execute(array(":sku" => $idSku));
-      $stmt = $db->prepare("INSERT INTO erp_catalogo_sku_precios (id_sku, lista_precio, moneda, precio, estatus) VALUES (:sku, 'general', :moneda, :precio, 'activo')");
-      $stmt->execute(array(":sku" => $idSku, ":moneda" => $this->opcion($datos, "moneda", array("MXN", "USD"), "MXN"), ":precio" => $this->decimal($datos, "precio")));
+      // Precio operativo: Catalogo ya no escribe listas/precios; Comercial > Listas de precios es la fuente.
 
       $this->guardarFiscalSku($db, $idSku, $datos);
 
@@ -6945,12 +7090,7 @@ class CatalogoErpDatos extends CRUD {
       $codigoBarras = $this->texto($datos, "codigo_barras");
       $this->actualizarCodigoBarrasPrincipal($db, $idSku, $codigoBarras);
 
-      $stmt = $db->prepare("INSERT INTO erp_catalogo_sku_precios (id_sku, lista_precio, moneda, precio, estatus) VALUES (:sku, 'general', :moneda, :precio, 'activo')");
-      $stmt->execute(array(
-        ":sku" => $idSku,
-        ":moneda" => $this->opcion($datos, "moneda", array("MXN", "USD"), "MXN"),
-        ":precio" => $this->decimal($datos, "precio")
-      ));
+      // Precio operativo: se captura en Comercial > Listas de precios, no en Catalogo.
 
       $this->guardarFiscalSku($db, $idSku, $datos);
 
@@ -7041,8 +7181,7 @@ class CatalogoErpDatos extends CRUD {
     $idSku = intval($db->lastInsertId());
 
     $this->actualizarCodigoBarrasPrincipal($db, $idSku, $this->texto($datos, "codigo_barras"));
-    $stmt = $db->prepare("INSERT INTO erp_catalogo_sku_precios (id_sku, lista_precio, moneda, precio, estatus) VALUES (:sku, 'general', :moneda, :precio, 'activo')");
-    $stmt->execute(array(":sku" => $idSku, ":moneda" => $this->opcion($datos, "moneda", array("MXN", "USD"), "MXN"), ":precio" => $this->decimal($datos, "precio")));
+    // Precio operativo: se captura en Comercial > Listas de precios, no en Catalogo.
     $this->guardarFiscalSku($db, $idSku, $datos);
     $stockMaximo = $this->texto($datos, "stock_maximo");
     $stmt = $db->prepare("INSERT INTO erp_catalogo_sku_reglas_inventario
@@ -7076,7 +7215,7 @@ class CatalogoErpDatos extends CRUD {
       return $datos;
     }
     $campos = array(
-      "id_unidad_base", "factor_unidad_base", "tipo_inventario", "costo_referencia", "precio", "moneda",
+      "id_unidad_base", "factor_unidad_base", "tipo_inventario", "costo_referencia",
       "stock_minimo", "stock_maximo", "punto_reorden", "estrategia_salida",
       "iva_porcentaje", "ieps_porcentaje", "incluye_impuestos", "requiere_lote",
       "requiere_caducidad", "requiere_serie", "permite_venta_sin_existencia",

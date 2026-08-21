@@ -3851,13 +3851,22 @@ class RentabilidadErp extends CRUD {
                 GROUP BY c.id_sku_erp
             ) xml ON xml.id_sku=s.id_sku
             LEFT JOIN (
-                SELECT sp.id_sku,
-                    SUBSTRING_INDEX(GROUP_CONCAT(ROUND(sp.costo_ultimo, 6) ORDER BY sp.es_preferido DESC, sp.fecha_actualizacion DESC, sp.id_sku_proveedor DESC), ',', 1) costo_proveedor,
-                    SUBSTRING_INDEX(GROUP_CONCAT(prv.proveedor ORDER BY sp.es_preferido DESC, sp.fecha_actualizacion DESC, sp.id_sku_proveedor DESC), ',', 1) proveedor
-                FROM erp_catalogo_sku_proveedores sp
-                LEFT JOIN erp_proveedores prv ON prv.id_proveedor=sp.id_proveedor
-                WHERE sp.estatus='activo' AND COALESCE(sp.costo_ultimo,0) > 0
-                GROUP BY sp.id_sku
+                SELECT c.id_sku,
+                    SUBSTRING_INDEX(GROUP_CONCAT(ROUND(
+                        (c.costo
+                            * CASE WHEN COALESCE(c.moneda,'MXN')<>'MXN' THEN COALESCE(NULLIF(c.tipo_cambio_referencia,0),1) ELSE 1 END)
+                            / CASE WHEN COALESCE(c.factor_conversion,0)>0 THEN c.factor_conversion ELSE 1 END
+                        , 6) ORDER BY
+                        CASE WHEN c.vigencia_desde IS NULL OR c.vigencia_desde='' THEN 1 ELSE 0 END,
+                        c.vigencia_desde DESC, c.fecha_actualizacion DESC, c.id_costo_proveedor_sku DESC), ',', 1) costo_proveedor,
+                    SUBSTRING_INDEX(GROUP_CONCAT(prv.proveedor ORDER BY
+                        CASE WHEN c.vigencia_desde IS NULL OR c.vigencia_desde='' THEN 1 ELSE 0 END,
+                        c.vigencia_desde DESC, c.fecha_actualizacion DESC, c.id_costo_proveedor_sku DESC), ',', 1) proveedor
+                FROM erp_proveedores_sku_costos c
+                LEFT JOIN erp_proveedores prv ON prv.id_proveedor=c.id_proveedor
+                WHERE c.estatus='vigente' AND COALESCE(c.costo,0) > 0
+                    AND (c.vigencia_hasta IS NULL OR c.vigencia_hasta='' OR c.vigencia_hasta>=CURRENT_DATE)
+                GROUP BY c.id_sku
             ) prov ON prov.id_sku=s.id_sku
             WHERE s.estatus <> 'fusionado'
               AND (:termino='' OR s.sku LIKE :buscar OR s.nombre LIKE :buscar OR p.nombre LIKE :buscar)
@@ -4453,7 +4462,9 @@ class RentabilidadErp extends CRUD {
                     "moneda" => "MXN",
                     "fuente" => $fuente,
                     "confianza" => $this->confianzaCostoFuente($fuente),
-                    "formula" => $fuente === "inventario_promedio" ? "costo_promedio_inventario * factor_unidad_base" : "costo directo desde " . $fuente,
+                    "formula" => isset($dato["formula"]) && trim(strval($dato["formula"])) !== ""
+                        ? $dato["formula"]
+                        : ($fuente === "inventario_promedio" ? "costo_promedio_inventario * factor_unidad_base" : "costo directo desde " . $fuente),
                     "id_sku_origen" => null,
                     "sku_origen" => null,
                     "factor_usado" => round($factor, 6),
@@ -4727,7 +4738,11 @@ class RentabilidadErp extends CRUD {
     private function costoProveedorSku($db, $idSku) {
         if ($this->tablaExisteSimple("erp_proveedores_sku_costos")) {
             $stmt = $db->prepare("SELECT c.costo, c.fecha_actualizacion fecha, c.id_proveedor, prv.proveedor,
-                    c.id_costo_proveedor_sku, c.id_sku_proveedor, c.id_lista_proveedor_erp, c.id_lista_detalle_erp
+                    c.id_costo_proveedor_sku, c.id_sku_proveedor, c.id_lista_proveedor_erp, c.id_lista_detalle_erp,
+                    COALESCE(c.moneda, 'MXN') moneda,
+                    COALESCE(c.tipo_cambio_referencia, 1) tipo_cambio_referencia,
+                    CASE WHEN COALESCE(c.factor_conversion,0) > 0 THEN c.factor_conversion ELSE 1 END factor_conversion,
+                    COALESCE(c.costo_incluye_impuestos, 0) costo_incluye_impuestos
                 FROM erp_proveedores_sku_costos c
                 LEFT JOIN erp_proveedores prv ON prv.id_proveedor=c.id_proveedor
                 WHERE c.id_sku=:sku AND c.estatus='vigente' AND COALESCE(c.costo,0)>0
@@ -4741,16 +4756,25 @@ class RentabilidadErp extends CRUD {
             $stmt->execute(array(":sku" => intval($idSku)));
             $fila = $stmt->fetch(PDO::FETCH_ASSOC);
             if ($fila) {
+                $normalizado = $this->normalizarCostoProveedorVigente($fila);
                 return array(
-                    "costo" => floatval($fila["costo"]),
+                    "costo" => $normalizado["costo_unitario"],
                     "fecha" => $fila["fecha"],
+                    "formula" => $normalizado["formula"],
                     "detalle" => array(
                         "id_proveedor" => intval($fila["id_proveedor"]),
                         "proveedor" => $fila["proveedor"],
                         "id_costo_proveedor_sku" => intval($fila["id_costo_proveedor_sku"]),
                         "id_sku_proveedor" => intval($fila["id_sku_proveedor"]),
                         "id_lista_proveedor_erp" => intval($fila["id_lista_proveedor_erp"]),
-                        "id_lista_detalle_erp" => intval($fila["id_lista_detalle_erp"])
+                        "id_lista_detalle_erp" => intval($fila["id_lista_detalle_erp"]),
+                        "costo_original_proveedor" => $normalizado["costo_original"],
+                        "costo_mxn_proveedor" => $normalizado["costo_mxn"],
+                        "moneda" => $normalizado["moneda"],
+                        "tipo_cambio_referencia" => $normalizado["tipo_cambio_referencia"],
+                        "factor_conversion" => $normalizado["factor_conversion"],
+                        "costo_incluye_impuestos" => $normalizado["costo_incluye_impuestos"],
+                        "formula" => $normalizado["formula"]
                     )
                 );
             }
@@ -4768,6 +4792,31 @@ class RentabilidadErp extends CRUD {
         $stmt->execute(array(":sku" => intval($idSku)));
         $fila = $stmt->fetch(PDO::FETCH_ASSOC);
         return array("costo" => $fila ? floatval($fila["costo"]) : 0, "fecha" => $fila ? $fila["fecha"] : null, "detalle" => $fila ? array("id_proveedor" => intval($fila["id_proveedor"]), "proveedor" => $fila["proveedor"]) : null);
+    }
+
+    private function normalizarCostoProveedorVigente($fila) {
+        $costoOriginal = floatval(isset($fila["costo"]) ? $fila["costo"] : 0);
+        $moneda = strtoupper(trim(strval(isset($fila["moneda"]) ? $fila["moneda"] : "MXN")));
+        $tipoCambio = $moneda !== "MXN" ? floatval(isset($fila["tipo_cambio_referencia"]) ? $fila["tipo_cambio_referencia"] : 1) : 1;
+        if ($tipoCambio <= 0) {
+            $tipoCambio = 1;
+        }
+        $factorConversion = floatval(isset($fila["factor_conversion"]) ? $fila["factor_conversion"] : 1);
+        if ($factorConversion <= 0) {
+            $factorConversion = 1;
+        }
+        $costoMxn = $costoOriginal * $tipoCambio;
+        $costoUnitario = $costoMxn / $factorConversion;
+        return array(
+            "costo_original" => round($costoOriginal, 6),
+            "costo_mxn" => round($costoMxn, 6),
+            "costo_unitario" => round($costoUnitario, 6),
+            "moneda" => $moneda === "" ? "MXN" : $moneda,
+            "tipo_cambio_referencia" => round($tipoCambio, 6),
+            "factor_conversion" => round($factorConversion, 6),
+            "costo_incluye_impuestos" => intval(isset($fila["costo_incluye_impuestos"]) ? $fila["costo_incluye_impuestos"] : 0),
+            "formula" => "costo proveedor vigente * tipo_cambio / factor_conversion"
+        );
     }
 
     private function costoInventarioPromedioSku($db, $idSku, $factorUnidad) {

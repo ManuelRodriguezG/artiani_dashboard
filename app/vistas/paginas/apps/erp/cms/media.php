@@ -10,9 +10,9 @@
     <link href="assets/css/style.bundle.css" rel="stylesheet" type="text/css">
     <!--
       Documentacion IA: Codex GPT-5, 2026-08-14.
-      Proposito: iniciar biblioteca media del CMS para seleccionar imagenes de frontend.
-      Impacto: CMS media; reemplaza captura manual de URLs por flujo local preparado.
-      Contrato: biblioteca local y preflight read-only servidor; no sube archivos, no borra fisicos y no escribe BD.
+      Proposito: administrar biblioteca media del CMS para imagenes de frontend.
+      Impacto: CMS media; reemplaza captura manual de URLs por subida publica controlada.
+      Contrato: alta real autorizada; no borra fisicos ni modifica catalogo, precios o inventario.
     -->
     <style>
         .cms-media-panel { border: 1px solid #e7e9ef; border-radius: 8px; background: #fff; }
@@ -53,8 +53,8 @@
                             <div class="alert alert-info d-flex align-items-start gap-3">
                                 <i class="bi bi-images fs-2"></i>
                                 <div>
-                                    <div class="fw-bold">Biblioteca local con preflight de persistencia</div>
-                                    <div>Selecciona imagenes, revisa miniaturas, asigna alt text y clasifica su uso. El servidor expone un preflight read-only para preparar subida real, sin mover archivos ni escribir BD todavia.</div>
+                                    <div class="fw-bold">Biblioteca Media CMS</div>
+                                    <div>Sube imagenes publicas para Home, categorias y secciones editoriales. Cada imagen se guarda con alt text, uso sugerido, tipo, hash y URL publica controlada.</div>
                                 </div>
                             </div>
 
@@ -64,7 +64,7 @@
                                         <div class="d-flex justify-content-between align-items-start gap-3 mb-4">
                                             <div>
                                                 <h3 class="fw-bold mb-1">Agregar imagen</h3>
-                                                <span class="text-muted fs-7">JPG, PNG o WebP. Maximo local recomendado: 2 MB.</span>
+                                                <span class="text-muted fs-7">JPG, PNG o WebP. Maximo permitido: 2 MB.</span>
                                             </div>
                                             <span class="badge badge-light-primary" id="cms_media_estado">Listo</span>
                                         </div>
@@ -98,7 +98,7 @@
                                                 <input class="form-control form-control-solid" id="cms_media_alt" type="text" placeholder="Descripcion accesible de la imagen">
                                             </div>
                                             <div class="col-12">
-                                                <button class="btn btn-primary w-100" type="button" id="cms_media_agregar"><i class="bi bi-plus-circle"></i> Agregar a biblioteca local</button>
+                                                <button class="btn btn-primary w-100" type="button" id="cms_media_agregar"><i class="bi bi-cloud-upload"></i> Subir a biblioteca</button>
                                             </div>
                                         </div>
                                     </div>
@@ -108,8 +108,8 @@
                                         <div class="d-flex flex-column gap-3 fs-7">
                                             <div><span class="badge badge-light-success me-2">OK</span>Validar extension, peso y alt text antes de usar.</div>
                                             <div><span class="badge badge-light-info me-2">Preflight</span><code>/cms/media_admin_preflight_erp</code></div>
-                                            <div><span class="badge badge-light-warning me-2">Pendiente</span>Subida real a carpeta publica controlada.</div>
-                                            <div><span class="badge badge-light-warning me-2">Pendiente</span>BD para archivo, usos, referencias y limpieza segura.</div>
+                                            <div><span class="badge badge-light-success me-2">Activo</span>Subida real a carpeta publica controlada.</div>
+                                            <div><span class="badge badge-light-warning me-2">Pendiente</span>Editar metadatos, archivar y registrar usos reales.</div>
                                             <div><span class="badge badge-light-danger me-2">No</span>No guardar rutas internas del ERP como URL publica.</div>
                                         </div>
                                     </div>
@@ -118,7 +118,7 @@
                                         <div class="d-flex justify-content-between align-items-start gap-3 mb-4">
                                             <div>
                                                 <h3 class="fw-bold mb-1">Preflight servidor</h3>
-                                                <span class="text-muted fs-7">Contrato de persistencia real antes de autorizar upload.</span>
+                                                <span class="text-muted fs-7">Contrato de persistencia y endpoints disponibles.</span>
                                             </div>
                                             <span class="badge badge-light-info" id="cms_media_preflight_estado">Read-only</span>
                                         </div>
@@ -172,6 +172,6 @@
 </div>
 <script src="assets/plugins/global/plugins.bundle.js"></script>
 <script src="assets/js/scripts.bundle.js"></script>
-<script src="/assets/js/custom/apps/erp/cms/media.js?v=20260814-media1"></script>
+<script src="/assets/js/custom/apps/erp/cms/media.js?v=20260821-media-upload1"></script>
 </body>
 </html>

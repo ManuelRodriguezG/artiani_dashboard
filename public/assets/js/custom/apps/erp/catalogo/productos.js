@@ -681,7 +681,7 @@
             return;
         }
         Swal.fire({
-            text: "Se creara producto y SKU en borrador. No se activara, no tendra costo y no quedara ligado al proveedor automaticamente.",
+            text: "Se creara producto y SKU en borrador. Si viene de Proveedores, quedara ligado a ese proveedor sin marcarlo como principal; los costos se validan despues desde Proveedores.",
             icon: "warning",
             showCancelButton: true,
             confirmButtonText: "Crear borrador",
@@ -992,7 +992,7 @@
             var unidadSku = "<div>" + escapeHtml(sku.unidad) + "</div><span class=\"text-muted fs-7\">Factor " + escapeHtml(sku.factor_unidad_base || "1") + "</span>";
             return "<tr><td><div class=\"fw-bold\">" + escapeHtml(sku.sku) + "</div><span class=\"text-muted fs-7\">" + escapeHtml(sku.codigo_barras || "") + "</span></td>" +
                 "<td>" + escapeHtml(sku.nombre) + "</td><td>" + unidadSku + "</td>" +
-                "<td>" + escapeHtml(sku.moneda || "MXN") + " " + escapeHtml(sku.precio || "0") + "</td>" +
+                "<td>" + (numeroMayorCero(sku.precio) ? "<span class=\"badge badge-light-success\">Con precio en lista</span>" : "<span class=\"badge badge-light-warning\">Pendiente en Listas</span>") + "</td>" +
                 "<td><div>" + escapeHtml(sku.estrategia_salida || "FIFO") + "</div><span class=\"text-muted fs-7\">" + escapeHtml(controles) + "</span></td>" +
                 "<td>" + calidad + "</td>" +
                 "<td><span class=\"badge badge-light-" + claseEstatusMaestro(sku.estatus) + "\">" + escapeHtml(sku.estatus) + "</span></td>" +
@@ -1090,7 +1090,7 @@
             indicadores.push({objetivo: "venta", texto: "Venta sin codigo", color: "warning", titulo: "SKU activo sin codigo principal. No bloquea compras por id_sku, pero afecta busqueda, escaneo y venta mostrador."});
         }
         if (activo && !numeroMayorCero(sku.precio)) {
-            indicadores.push({objetivo: "venta", texto: "Venta sin precio prov.", color: "info", titulo: "Sin precio provisional en Catalogo. El precio final debe definirse despues en Listas de precios/canal."});
+            indicadores.push({objetivo: "venta", texto: "Precio pendiente", color: "info", titulo: "Sin precio activo en Listas de precios. Catalogo no captura precio operativo."});
         }
         if (controlaInventario && (String(sku.tiene_regla_inventario) !== "1" || Number(sku.punto_reorden || 0) <= 0)) {
             indicadores.push({objetivo: "inventario", texto: "Inventario revisar", color: "info", titulo: "Regla de inventario pendiente o con reorden en cero. Afecta alertas de reposicion, no la existencia actual."});
@@ -1353,9 +1353,6 @@
         setValor(form, "id_unidad_base", base.id_unidad_base || "");
         setValor(form, "factor_unidad_base", base.factor_unidad_base || "1");
         setValor(form, "tipo_inventario", base.tipo_inventario || "inventariable");
-        setValor(form, "costo_referencia", base.costo_referencia || "0");
-        setValor(form, "precio", base.precio || "0");
-        setValor(form, "moneda", base.moneda || "MXN");
         setValor(form, "stock_minimo", base.stock_minimo || "0");
         setValor(form, "stock_maximo", base.stock_maximo || "");
         setValor(form, "punto_reorden", base.punto_reorden || "0");
@@ -1414,9 +1411,6 @@
         setValor(form, "codigo_barras", sku.codigo_barras || "");
         form.dataset.codigoBarrasOriginal = sku.codigo_barras || "";
         setValor(form, "tipo_inventario", sku.tipo_inventario || "inventariable");
-        setValor(form, "costo_referencia", sku.costo_referencia || "0");
-        setValor(form, "precio", sku.precio || "0");
-        setValor(form, "moneda", sku.moneda || "MXN");
         setValor(form, "stock_minimo", sku.stock_minimo || "0");
         setValor(form, "stock_maximo", sku.stock_maximo || "");
         setValor(form, "punto_reorden", sku.punto_reorden || "0");
@@ -1500,7 +1494,7 @@
             alerta.textContent = "";
             return;
         }
-        alerta.textContent = "Formulario listo para crear un SKU nuevo. Solo se copiaron reglas de inventario, fiscal y precio provisional desde " + (base.sku || "el ultimo SKU") + "; captura SKU, nombre y codigo antes de guardar.";
+        alerta.textContent = "Formulario listo para crear un SKU nuevo. Solo se copiaron reglas de inventario y fiscal desde " + (base.sku || "el ultimo SKU") + "; captura SKU, nombre y codigo antes de guardar. El precio se define en Listas de precios.";
         alerta.classList.remove("d-none");
     }
 

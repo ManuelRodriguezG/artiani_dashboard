@@ -187,6 +187,43 @@ Estado 2026-07-16:
 - Guardado masivo posterior a prevalidacion 2026-08-18: el panel de prevalidacion muestra `Aplicar lote validado` cuando el lote es guardable. Esto evita que el operador vea un estado verde sin una accion clara de persistencia. Los avisos comerciales vuelven a pedir confirmacion antes de guardar. El backend permite lotes de hasta 1000 precios por prevalidacion/guardado.
 - Imagen en mesa de precios 2026-08-19: el listado de productos de Listas de precios muestra miniatura desde `erp_catalogo_imagenes`, priorizando imagen del SKU y despues portada/empaque/detalle/galeria del producto. Es solo lectura; Comercial no copia ni administra archivos de imagen.
 - Costo proveedor vigente 2026-08-19: Listas de precios y Rentabilidad deben usar `erp_proveedores_sku_costos.estatus='vigente'` como fuente canonica de costo proveedor. `erp_catalogo_sku_proveedores.costo_ultimo` queda como fallback historico porque puede conservar relaciones preferidas viejas que ya no coinciden con la lista validada del proveedor. Caso detectado: SKU `1330` tenia relacion preferida HOBBY PET $2,818.32, pero costo vigente AQUAKRILL $1,875.00.
+- Costo proveedor normalizado 2026-08-21: cuando el proveedor vende una presentacion mayor, caja, costal o rollo, Listas de precios y Rentabilidad conservan el costo original del proveedor para trazabilidad pero calculan margen con costo unitario normalizado: `costo * tipo_cambio / factor_conversion`. Ejemplo: costal de 20 kg en $1,000 debe compararse contra $50/kg si el SKU se vende por kg. `costo_incluye_impuestos` queda visible como bandera de origen; no se descuenta automaticamente en Listas porque el precio comercial/POS tambien suele capturarse con impuestos incluidos.
+- Pendiente comercial por receta/presentacion 2026-08-21: Catalogo es dueno de variantes, presentaciones, recetas y reglas de apertura; Almacen/Tienda ejecuta la transformacion fisica cuando se abre empaque, se prepara presentacion o se confirma stock derivado. Cuando una receta/presentacion/apertura genera un SKU vendible nuevo o cambia su costo derivado, el sistema debe crear o exponer un pendiente para Comercial/Listas con ruta a la lista correspondiente. Listas no debe inventar la receta: consume `RentabilidadErp::resolverCostoVigenteSku` para calcular costo desde el SKU origen y permite capturar/aprobar el precio comercial con margen visible.
+
+## Contrato operativo para recetas, presentaciones y aperturas
+
+El flujo correcto no es capturar el costo dos veces en Listas:
+
+1. Catalogo define la unidad vendible:
+   - SKU cerrado normal, por pieza.
+   - SKU fraccionario por unidad base, por ejemplo kg, m o l.
+   - Presentacion estandar, por ejemplo 500 g, 51 cm o paquete armado.
+   - Receta/apertura de empaque, por ejemplo costal 20 kg que se abre para venta por kg.
+2. Proveedores/Compras aportan el costo de compra del SKU origen o de la presentacion comprada.
+3. Almacen/Tienda confirma la ejecucion fisica cuando se abre, transforma o prepara stock.
+4. Rentabilidad calcula el costo vigente:
+   - directo si el SKU tiene costo propio;
+   - derivado por factor si es presentacion;
+   - derivado por apertura confirmada si viene de empaque abierto;
+   - suma de componentes si es paquete/receta.
+5. Comercial/Listas recibe el pendiente de precio, ve costo, formula, confianza y margen, y decide el precio de venta.
+6. POS/ecommerce solo consumen el resolutor de precios; no calculan precios ni recetas.
+
+Eventos que deben generar pendiente hacia Listas:
+
+- Se crea una presentacion vendible activa sin precio en listas vigentes.
+- Se activa venta fraccionaria o cambia unidad/incremento minimo de un SKU.
+- Se confirma apertura de empaque que habilita venta por unidad base.
+- Cambia factor de conversion, merma o receta de una presentacion activa.
+- Cambia costo proveedor/compra del SKU origen y deja margen bajo/perdida en listas existentes.
+
+Destino recomendado del pendiente:
+
+- Area responsable: `comercial`.
+- Permiso para ver: `ventas.listas.ver`.
+- Permiso para resolver: `ventas.listas.editar` o `ventas.listas.aprobar`, segun el riesgo.
+- Ruta: `/comercial/listas_precios` o editor de lista con filtro del SKU.
+- Payload: `id_sku`, `sku_origen`, tipo derivacion, costo calculado, formula, factor, merma, canal/almacen sugerido y listas afectadas.
 
 Reglas del apply:
 

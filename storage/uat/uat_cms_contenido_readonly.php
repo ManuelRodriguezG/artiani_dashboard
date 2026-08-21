@@ -4,7 +4,7 @@
  * Documentacion IA: Codex GPT-5, 2026-08-10.
  * Proposito: validar contratos internos del modulo CMS contenido con persistencia parcial.
  * Impacto: protege estado, manifest, preview y primer guardado de bloques sin publicar contenido real.
- * Contrato: permite guardar bloques borrador; no ejecuta DDL, no publica slots, no sube media ni modifica catalogo/inventario.
+ * Contrato: permite guardar bloques borrador y subir media publica controlada; no publica slots ni modifica catalogo/inventario.
  */
 
 chdir(__DIR__ . "/../../public");
@@ -74,8 +74,8 @@ if (!empty($mediaListado["error"])) { $bloqueos[] = "media_listado_error"; }
 if (valorCmsAdmin($mediaPreflight, array("depurar", "carpeta_publica_propuesta"), "") !== "/assets/media/cms/ecommerce") { $bloqueos[] = "media_preflight_carpeta_incorrecta"; }
 if (valorCmsAdmin($mediaPreflight, array("depurar", "tabla_archivos"), "") !== "erp_ecommerce_media_archivos") { $bloqueos[] = "media_preflight_sin_tabla_archivos"; }
 if (valorCmsAdmin($mediaPreflight, array("depurar", "tabla_usos"), "") !== "erp_ecommerce_media_usos") { $bloqueos[] = "media_preflight_sin_tabla_usos"; }
-if (empty(valorCmsAdmin($mediaPreflight, array("depurar", "guardrails", "no_mueve_archivos"), false))) { $bloqueos[] = "media_preflight_no_declara_no_mueve_archivos"; }
-if (empty(valorCmsAdmin($mediaPreflight, array("depurar", "guardrails", "requiere_respaldo_antes_ddl"), false))) { $bloqueos[] = "media_preflight_sin_respaldo"; }
+if (empty(valorCmsAdmin($mediaPreflight, array("depurar", "guardrails", "upload_activo"), false))) { $bloqueos[] = "media_preflight_sin_upload_activo"; }
+if (empty(valorCmsAdmin($mediaPreflight, array("depurar", "guardrails", "requiere_csrf_post"), false))) { $bloqueos[] = "media_preflight_sin_csrf"; }
 if (empty(valorCmsAdmin($mediaListado, array("depurar", "guardrails", "no_mueve_archivos"), false))) { $bloqueos[] = "media_listado_no_declara_no_mueve_archivos"; }
 if (!empty($home["error"])) { $bloqueos[] = "home_error"; }
 if (!empty($categoria["error"])) { $bloqueos[] = "categoria_error"; }
@@ -140,7 +140,7 @@ if (strpos((string) $vistaSlots, "Vista estructural read-only") === false) { $bl
 if (strpos((string) $vistaSlots, "erp_cms_manual_uso.md") === false) { $bloqueos[] = "vista_slots_sin_link_manual"; }
 if (strpos((string) $vistaMedia, "ecom_cms_visual") === false) { $bloqueos[] = "vista_media_sin_preview_visual"; }
 if (strpos((string) $vistaMedia, "data-cms-bloques-mode=\"seleccion\"") === false) { $bloqueos[] = "vista_media_no_es_solo_seleccion"; }
-if (strpos((string) $vistaMedia, "Biblioteca local con preflight de persistencia") === false) { $bloqueos[] = "vista_media_sin_biblioteca_preflight"; }
+if (strpos((string) $vistaMedia, "Biblioteca Media CMS") === false) { $bloqueos[] = "vista_media_sin_biblioteca_media_cms"; }
 if (strpos((string) $vistaMedia, "cms_media_preflight") === false) { $bloqueos[] = "vista_media_sin_preflight"; }
 if (strpos((string) $vistaMedia, "/cms/media_admin_preflight_erp") === false) { $bloqueos[] = "vista_media_sin_endpoint_preflight"; }
 if (strpos((string) $vistaMedia, "cms_media_biblioteca") === false) { $bloqueos[] = "vista_media_sin_grid_biblioteca"; }
@@ -357,9 +357,10 @@ if (strpos((string) $jsFrontendActual, "function seleccionarMediaPreview") === f
 if (strpos((string) $jsFrontendActual, "function renderMediaPickerPreview") === false) { $bloqueos[] = "js_frontend_actual_sin_render_preview_media"; }
 if (strpos((string) $jsFrontendActual, "Usar imagen seleccionada") === false) { $bloqueos[] = "js_frontend_actual_sin_boton_usar_media_preview"; }
 if (strpos((string) $jsMedia, "function renderBibliotecaMedia") === false) { $bloqueos[] = "js_media_sin_render_biblioteca"; }
-if (strpos((string) $jsMedia, "function agregarArchivoLocal") === false) { $bloqueos[] = "js_media_sin_agregar_local"; }
+if (strpos((string) $jsMedia, "function subirArchivoServidor") === false) { $bloqueos[] = "js_media_sin_subir_servidor"; }
 if (strpos((string) $jsMedia, "function limpiarArchivados") === false) { $bloqueos[] = "js_media_sin_limpiar_archivados"; }
-if (strpos((string) $jsMedia, "no sube archivos") === false) { $bloqueos[] = "js_media_no_declara_sin_upload"; }
+if (strpos((string) $jsMedia, "/cms/media_admin_subir_erp") === false) { $bloqueos[] = "js_media_sin_endpoint_upload"; }
+if (strpos((string) $jsMedia, "\"X-CSRF-Token\"") === false) { $bloqueos[] = "js_media_sin_csrf_upload"; }
 if (strpos((string) $jsMedia, "function cargarPreflightServidor") === false) { $bloqueos[] = "js_media_sin_preflight_servidor"; }
 if (strpos((string) $jsMedia, "/cms/media_admin_preflight_erp") === false) { $bloqueos[] = "js_media_sin_endpoint_preflight"; }
 if (strpos((string) $jsMedia, "function cargarListadoServidor") === false) { $bloqueos[] = "js_media_sin_listado_servidor"; }
@@ -467,11 +468,12 @@ if (strpos((string) $controladorCms, "public function slots") === false) { $bloq
 if (strpos((string) $controladorCms, "public function media") === false) { $bloqueos[] = "controlador_sin_ruta_media"; }
 if (strpos((string) $controladorCms, "public function media_admin_preflight_erp") === false) { $bloqueos[] = "controlador_sin_media_preflight"; }
 if (strpos((string) $controladorCms, "public function media_admin_listar_erp") === false) { $bloqueos[] = "controlador_sin_media_listar"; }
-if (strpos((string) $controladorCms, "public function media_admin_subir_erp") === false) { $bloqueos[] = "controlador_sin_media_subir_bloqueado"; }
+if (strpos((string) $controladorCms, "public function media_admin_subir_erp") === false) { $bloqueos[] = "controlador_sin_media_subir"; }
 if (strpos((string) $controladorCms, "public function media_admin_actualizar_erp") === false) { $bloqueos[] = "controlador_sin_media_actualizar_bloqueado"; }
 if (strpos((string) $controladorCms, "public function media_admin_archivar_erp") === false) { $bloqueos[] = "controlador_sin_media_archivar_bloqueado"; }
 if (strpos((string) $controladorCms, "public function media_admin_usos_erp") === false) { $bloqueos[] = "controlador_sin_media_usos_bloqueado"; }
-if (strpos((string) $controladorCms, "respuestaEscrituraCmsMediaBloqueada") === false) { $bloqueos[] = "controlador_media_post_no_bloquea"; }
+if (strpos((string) $controladorCms, "mediaAdminSubirInterno") === false) { $bloqueos[] = "controlador_media_subir_no_llama_modelo"; }
+if (strpos((string) $controladorCms, "respuestaEscrituraCmsMediaBloqueada") === false) { $bloqueos[] = "controlador_media_pendientes_no_bloquea"; }
 if (strpos((string) $controladorCms, "public function json") === false) { $bloqueos[] = "controlador_sin_ruta_json"; }
 if (strpos((string) $controladorCms, "public function frontend_plantillas") === false) { $bloqueos[] = "controlador_sin_ruta_frontend_plantillas"; }
 if (strpos((string) $controladorCms, "public function frontend_constructor") === false) { $bloqueos[] = "controlador_sin_ruta_frontend_constructor"; }
@@ -511,6 +513,7 @@ if (strpos((string) $modeloPublico, "falta alt text de imagen") === false) { $bl
 if (strpos((string) $modeloPublico, "falta endpoint source") === false) { $bloqueos[] = "modelo_publicacion_no_valida_source"; }
 if (strpos((string) $modeloPublico, "function mediaAdminPreflightInterno") === false) { $bloqueos[] = "modelo_sin_media_preflight"; }
 if (strpos((string) $modeloPublico, "function mediaAdminListarInterno") === false) { $bloqueos[] = "modelo_sin_media_listar"; }
+if (strpos((string) $modeloPublico, "function mediaAdminSubirInterno") === false) { $bloqueos[] = "modelo_sin_media_subir"; }
 if (strpos((string) $modeloEsquema, "function planActualizarCmsMediaBiblioteca") === false) { $bloqueos[] = "esquema_sin_plan_media_biblioteca"; }
 if (strpos((string) $modeloEsquema, "erp_ecommerce_media_archivos") === false) { $bloqueos[] = "esquema_media_sin_tabla_archivos"; }
 if (strpos((string) $modeloEsquema, "erp_ecommerce_media_usos") === false) { $bloqueos[] = "esquema_media_sin_tabla_usos"; }
@@ -538,7 +541,7 @@ if (strpos((string) $manualCms, "CMS > Slots") === false) { $bloqueos[] = "manua
 if (strpos((string) $manualCms, "Detalle del slot") === false) { $bloqueos[] = "manual_slots_sin_detalle"; }
 if (strpos((string) $manualCms, "Vista estructural read-only") === false) { $bloqueos[] = "manual_slots_sin_readonly"; }
 if (strpos((string) $manualCms, "CMS > Media") === false) { $bloqueos[] = "manual_sin_media"; }
-if (strpos((string) $manualCms, "biblioteca local") === false) { $bloqueos[] = "manual_media_sin_biblioteca_local"; }
+if (strpos((string) $manualCms, "biblioteca Media CMS") === false) { $bloqueos[] = "manual_media_sin_biblioteca_media"; }
 if (strpos((string) $manualCms, "alt text") === false) { $bloqueos[] = "manual_media_sin_alt_text"; }
 if (strpos((string) $manualCms, "/cms/media_admin_preflight_erp") === false) { $bloqueos[] = "manual_media_sin_preflight"; }
 if (strpos((string) $manualCms, "/cms/media_admin_listar_erp") === false) { $bloqueos[] = "manual_media_sin_listar"; }
@@ -618,8 +621,8 @@ if (strpos((string) $planBuilderWokiee, "app/Pages/catalog.php") === false) { $b
 if (strpos((string) $planBuilderWokiee, "erp_ecommerce_frontend_temas") === false) { $bloqueos[] = "plan_builder_wokiee_sin_tabla_temas"; }
 if (strpos((string) $uatPersistenciaPreflight, "cms_persistencia_lista_para_respaldo_y_autorizacion") === false) { $bloqueos[] = "uat_preflight_persistencia_sin_senal"; }
 if (strpos((string) $uatPersistenciaPreflight, '"total" => $ddlContenido + $ddlFrontend') === false) { $bloqueos[] = "uat_preflight_persistencia_sin_total_ddl"; }
-if (strpos((string) $uatMediaPreflight, "cms_media_preflight_readonly") === false) { $bloqueos[] = "uat_media_preflight_sin_senal"; }
-if (strpos((string) $uatMediaPreflight, "no ejecuta DDL") === false) { $bloqueos[] = "uat_media_preflight_no_declara_readonly"; }
+if (strpos((string) $uatMediaPreflight, "cms_media_upload_activo_controlado") === false) { $bloqueos[] = "uat_media_upload_sin_senal"; }
+if (strpos((string) $uatMediaPreflight, "no sube archivos") === false) { $bloqueos[] = "uat_media_upload_no_declara_readonly"; }
 if (strpos((string) $uatSeedReadonly, "cms_seed_base_verificado") === false) { $bloqueos[] = "uat_seed_readonly_sin_senal"; }
 if (strpos((string) $uatSeedReadonly, "bloques_publicados_sin_flujo_publicacion") === false) { $bloqueos[] = "uat_seed_readonly_no_protege_publicados"; }
 
@@ -665,7 +668,8 @@ echo json_encode(array(
     "carpeta_publica" => valorCmsAdmin($mediaPreflight, array("depurar", "carpeta_publica_propuesta"), ""),
     "tabla_archivos" => valorCmsAdmin($mediaPreflight, array("depurar", "tabla_archivos"), ""),
     "tabla_usos" => valorCmsAdmin($mediaPreflight, array("depurar", "tabla_usos"), ""),
-    "no_mueve_archivos" => valorCmsAdmin($mediaPreflight, array("depurar", "guardrails", "no_mueve_archivos"), false)
+    "upload_activo" => valorCmsAdmin($mediaPreflight, array("depurar", "guardrails", "upload_activo"), false),
+    "requiere_csrf_post" => valorCmsAdmin($mediaPreflight, array("depurar", "guardrails", "requiere_csrf_post"), false)
   ),
   "ui" => array(
     "editor_local" => true,

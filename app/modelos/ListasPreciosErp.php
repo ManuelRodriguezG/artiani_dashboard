@@ -346,7 +346,11 @@ class ListasPreciosErp extends CRUD {
                 : "LEFT JOIN (SELECT NULL id_sku, NULL costo_promedio_inventario) ci ON 1=0";
             if ($this->tablaExiste($db, "erp_proveedores_sku_costos")) {
                 $joinCostoProveedor = "LEFT JOIN (
-                    SELECT c.id_sku, SUBSTRING_INDEX(GROUP_CONCAT(c.costo ORDER BY
+                    SELECT c.id_sku, SUBSTRING_INDEX(GROUP_CONCAT(ROUND(
+                            (c.costo
+                                * CASE WHEN COALESCE(c.moneda,'MXN')<>'MXN' THEN COALESCE(NULLIF(c.tipo_cambio_referencia,0),1) ELSE 1 END)
+                                / CASE WHEN COALESCE(c.factor_conversion,0)>0 THEN c.factor_conversion ELSE 1 END
+                            , 6) ORDER BY
                             CASE WHEN c.vigencia_desde IS NULL OR c.vigencia_desde='' THEN 1 ELSE 0 END,
                             c.vigencia_desde DESC, c.fecha_actualizacion DESC, c.id_costo_proveedor_sku DESC), ',', 1) costo_proveedor,
                         SUBSTRING_INDEX(GROUP_CONCAT(c.id_proveedor ORDER BY
@@ -2273,7 +2277,11 @@ class ListasPreciosErp extends CRUD {
             $costos["costo_promedio_inventario"] = floatval($stmt->fetchColumn());
         }
         if ($this->tablaExiste($db, "erp_proveedores_sku_costos")) {
-            $stmt = $db->prepare("SELECT costo
+            $stmt = $db->prepare("SELECT ROUND(
+                    (costo
+                        * CASE WHEN COALESCE(moneda,'MXN')<>'MXN' THEN COALESCE(NULLIF(tipo_cambio_referencia,0),1) ELSE 1 END)
+                        / CASE WHEN COALESCE(factor_conversion,0)>0 THEN factor_conversion ELSE 1 END
+                    , 6) costo
                 FROM erp_proveedores_sku_costos
                 WHERE id_sku=:sku AND estatus='vigente' AND costo > 0
                     AND (vigencia_hasta IS NULL OR vigencia_hasta='' OR vigencia_hasta>=CURRENT_DATE)

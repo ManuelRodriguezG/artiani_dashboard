@@ -246,6 +246,20 @@ No escribe costo.
 
 Cuando Rentabilidad/Listas ya no dependan de `costo_referencia`, marcarlo como legado/fallback y quitarlo de los flujos operativos.
 
+## Avance 2026-08-21 - Corte operativo de precios
+
+Estado: aplicado en `C:\xampp\htdocs\panel_de_control`.
+
+- Catálogo dejó de capturar `precio` y `moneda` en el modal de producto/SKU.
+- Catálogo dejó de escribir `erp_catalogo_sku_precios` al crear o editar SKUs.
+- La completitud de precio se audita contra `erp_listas_precios_detalle` y listas activas vigentes.
+- `erp_catalogo_sku_precios` no se borra todavía; queda como dato legado/fallback hasta que Listas de precios cubra el catálogo operativo.
+- Resultado read-only inicial: 1845 SKUs vigentes, 1 con precio activo en Listas y 1844 pendientes.
+
+Regla:
+
+- Si un SKU aparece como pendiente de precio en Catálogo, se atiende en Comercial > Listas de precios, no editando el producto.
+
 No eliminar columnas sin auditoria y respaldo externo.
 
 ## Decision recomendada

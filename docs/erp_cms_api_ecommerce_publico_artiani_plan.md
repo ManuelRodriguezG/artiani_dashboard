@@ -136,22 +136,23 @@ Rutas avanzadas:
 
 La biblioteca real de media debe separarse del contenido para poder reutilizar archivos en Home, categorias, marcas, paginas y politicas.
 
-Preflight actual:
+Estado actual:
 
 - `GET /cms/media_admin_preflight_erp`
 - `GET /cms/media_admin_listar_erp`
-- carpeta publica propuesta: `/assets/media/cms/ecommerce`
-- tabla archivos propuesta: `erp_ecommerce_media_archivos`
-- tabla usos propuesta: `erp_ecommerce_media_usos`
+- `POST /cms/media_admin_subir_erp`
+- carpeta publica activa: `/assets/media/cms/ecommerce`
+- tabla archivos activa: `erp_ecommerce_media_archivos`
+- tabla usos activa: `erp_ecommerce_media_usos`
 - maximo inicial: 2 MB
 - formatos: JPG, PNG y WebP
 - requiere `alt_text`
+- valida MIME real, extension, dimensiones y hash SHA-256
 
-Endpoints POST futuros bloqueados hasta respaldo/autorizacion:
+Endpoints POST que siguen bloqueados hasta cerrar reglas de metadatos/usos:
 
-- `POST /cms/media_admin_subir_erp`
 - `POST /cms/media_admin_actualizar_erp`
 - `POST /cms/media_admin_archivar_erp`
 - `POST /cms/media_admin_usos_erp`
 
-Guardrail: el preflight no crea carpetas, no ejecuta DDL, no mueve archivos y no borra fisicos.
+Guardrail: Media CMS no modifica catalogo, precios ni inventario. El endpoint de subida guarda solo imagen publica controlada; no expone rutas internas del ERP.

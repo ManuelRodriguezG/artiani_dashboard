@@ -7343,3 +7343,27 @@ Siguiente prueba real:
 - Confirmar que aparece candidato unico para SKU ERP `11302`.
 - Seleccionar/aplicar matching o usar matching masivo.
 - Despues completar/aplicar relacion y costo si el renglon queda listo.
+
+## Proveedores - Alta en Catalogo conserva relacion proveedor 2026-08-21
+
+Decision operativa:
+
+- Cuando un renglon de Proveedores se envia a Catalogo y Catalogo crea un producto/SKU temporal desde esa incidencia, el SKU debe quedar relacionado con el proveedor de origen.
+- La relacion se crea como referencia operativa, no como proveedor principal/favorito.
+- No se aplica costo vigente ni `costo_referencia` en este paso; los costos siguen pasando por el flujo formal de Proveedores: completar compra, validar lista y aplicar costos.
+
+Alcance aplicado:
+
+- `crearSkuTemporalDesdeIncidenciaProveedor` ahora registra automaticamente `erp_catalogo_sku_proveedores` para el proveedor de origen cuando la incidencia es `proveedor_sku_sin_match`.
+- Si existe el renglon real de la lista, se toma su `sku_proveedor`, unidad, factor y cantidad minima; si falta unidad/factor, se usa una configuracion minima conservadora con la unidad base seleccionada en Catalogo y factor `1`.
+- El renglon de lista queda vinculado con `id_sku`, `id_sku_proveedor`, `estado_match='relacion_aplicada'` y criterio `catalogo_sku_temporal_creado_proveedor`.
+- La relacion se crea con `es_preferido=0`, para no decidir proveedor principal automaticamente.
+- La ventana de Catalogo aclara que el borrador quedara ligado al proveedor sin aplicar costos.
+
+Prueba real pendiente:
+
+- Desde Proveedores, enviar un renglon sin SKU ERP a Catalogo.
+- En Catalogo ERP > Incidencias, crear el SKU temporal desde esa incidencia.
+- Abrir el producto/SKU creado y confirmar que aparece el proveedor relacionado.
+- Regresar a la lista de Proveedores y confirmar que el renglon ya aparece relacionado.
+- Completar datos de compra/costo desde Proveedores y aplicar el flujo normal de validacion de lista.

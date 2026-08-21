@@ -16,14 +16,17 @@ Decision UX 2026-08-14:
 - `CMS > Media / Archivos` sera la biblioteca para subir, seleccionar, reutilizar, archivar y limpiar imagenes del frontend.
 - Los campos de imagen por URL son temporales; el flujo profesional sera seleccionar media desde la biblioteca del CMS.
 
-Avance Media 2026-08-14:
+Avance Media 2026-08-21:
 
-- `/cms/media` ya funciona como biblioteca local inicial.
-- Permite seleccionar imagenes JPG/PNG/WebP desde el equipo, validar peso/tipo, capturar alt text, clasificar uso/tipo, previsualizar, copiar referencia, archivar y limpiar archivados.
+- `/cms/media` ya funciona como biblioteca Media CMS con subida real autorizada.
+- Permite seleccionar imagenes JPG/PNG/WebP desde el equipo, validar peso/tipo/MIME/dimensiones/hash, capturar alt text, clasificar uso/tipo, previsualizar y copiar referencia.
+- El respaldo previo a DDL de Media quedo generado en `C:\xampp\panel_db_backups\artianilocal_panel_20260821_141529_antes_cms_media_persistencia.sql`.
+- Las tablas `erp_ecommerce_media_archivos` y `erp_ecommerce_media_usos` quedaron aplicadas y la carpeta publica activa es `/assets/media/cms/ecommerce`.
 - `/cms/frontend/home` ya puede abrir un selector `Media` en campos de imagen de Hero, Categorias y Banner; toma imagen y alt text desde la biblioteca local.
 - El modal `Media` de Home tambien permite cargar una imagen nueva y usarla en el momento, sin obligar a ir primero a `/cms/media`; la galeria queda visible con filtro opcional.
 - La galeria del modal ya muestra `Preview seleccionado` antes de aplicar una imagen existente; el usuario confirma con `Usar imagen seleccionada`.
-- No sube archivos al servidor, no borra archivos fisicos y no guarda BD; prepara el flujo antes de activar persistencia real de media.
+- `/cms/media_admin_subir_erp` ya sube imagen publica con CSRF, permisos y auditoria explicita.
+- `/cms/media_admin_actualizar_erp`, `/cms/media_admin_archivar_erp` y `/cms/media_admin_usos_erp` siguen bloqueados hasta cerrar edicion de metadatos, archivado seguro y trazabilidad de usos.
 
 Prioridad nueva:
 
@@ -54,9 +57,9 @@ Avance 2026-08-13:
 - `/cms/frontend/marcas` ya tiene editor local inicial para logo, banner, alt text, SEO, destacado, visibilidad y orden editorial de marcas publicas, sin crear ni modificar marcas ERP.
 - `/cms/frontend/paginas` ya tiene editor local inicial para paginas informativas con slug, URL publica, contenido, imagen principal, alt text y SEO, sin editar archivos frontend.
 - `/cms/frontend/politicas` ya tiene editor local inicial para privacidad, envios, devoluciones y terminos con version, estatus, vigencia, contenido y SEO, sujeto a revision legal antes de publicar.
-- `/cms/media` ya consulta `/cms/media_admin_preflight_erp`, endpoint read-only que prepara carpeta publica, limites, MIME permitidos, tablas `erp_ecommerce_media_archivos`/`erp_ecommerce_media_usos` y endpoints POST futuros bloqueados.
-- `/cms/media_admin_listar_erp` ya existe como GET read-only: si las tablas media no existen devuelve lista vacia y mantiene `localStorage` como fuente operativa; si existen, puede listar archivos sin moverlos ni modificarlos.
-- `storage/uat/uat_cms_media_persistencia_preflight.php` valida que Media siga read-only y listo para pedir autorizacion de respaldo/DDL/upload real.
+- `/cms/media` ya consulta `/cms/media_admin_preflight_erp`, endpoint GET que informa carpeta publica, limites, MIME permitidos, tablas `erp_ecommerce_media_archivos`/`erp_ecommerce_media_usos` y estado de upload activo.
+- `/cms/media_admin_listar_erp` ya existe como GET read-only para listar archivos sin moverlos ni modificarlos.
+- `storage/uat/uat_cms_media_persistencia_preflight.php` valida que Media tenga upload activo controlado sin ejecutar cargas durante UAT.
 - El editor produce `Preview JSON esperado` con el formato del contrato frontend.
 - Aun no guarda este contrato en BD ni publica `/ecommercePublico/cms_frontend`; primero se cerrara el shape exacto con el frontend actual.
 
@@ -69,7 +72,7 @@ Plan CMS/API ecommerce publico: `docs/erp_cms_api_ecommerce_publico_artiani_plan
 Contrato frontend renderer: `docs/erp_cms_frontend_renderer_contrato.md`
 Plan builder visual Wokiee: `docs/erp_cms_visual_builder_wokiee_plan.md`
 
-Estado de cierre contenido: respaldo externo generado, DDL de tablas CMS aplicado y semilla estructural base cargada el 2026-08-12. Los endpoints internos de manifest ya leen estructura desde BD semilla (`bd_seed`) para contenido y plantillas frontend. El guardado real esta activo para bloques de contenido en borrador desde `/cms/contenido_bloque_guardar_erp`; el panel tambien puede listar esos bloques desde `/cms/contenido_admin_bloques_erp`, cargarlos a la biblioteca editorial del slot activo, pausar/reactivar borradores con `/cms/contenido_bloque_estatus_erp`, colocarlos en slots internos con `/cms/contenido_publicacion_guardar_erp` y publicar/pausar esas colocaciones con `/cms/contenido_publicacion_estatus_erp`. La API publica ya intenta leer BD publicada/vigente y conserva fallback default si no hay publicaciones publicadas. Media estructurada y renderer final del frontend siguen pendientes.
+Estado de cierre contenido: respaldo externo generado, DDL de tablas CMS aplicado y semilla estructural base cargada el 2026-08-12. Los endpoints internos de manifest ya leen estructura desde BD semilla (`bd_seed`) para contenido y plantillas frontend. El guardado real esta activo para bloques de contenido en borrador desde `/cms/contenido_bloque_guardar_erp`; el panel tambien puede listar esos bloques desde `/cms/contenido_admin_bloques_erp`, cargarlos a la biblioteca editorial del slot activo, pausar/reactivar borradores con `/cms/contenido_bloque_estatus_erp`, colocarlos en slots internos con `/cms/contenido_publicacion_guardar_erp` y publicar/pausar esas colocaciones con `/cms/contenido_publicacion_estatus_erp`. La API publica ya intenta leer BD publicada/vigente y conserva fallback default si no hay publicaciones publicadas. Media CMS ya tiene upload real; quedan pendientes editar metadatos, archivar seguro, registrar usos y cerrar renderer final del frontend.
 
 Respaldo usado antes de DDL:
 

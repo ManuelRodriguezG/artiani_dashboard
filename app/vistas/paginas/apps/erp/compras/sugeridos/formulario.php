@@ -66,8 +66,23 @@ $modo = isset($datos["modo"]) ? $datos["modo"] : "editar";
                             </div>
                         </div>
 
+                        <div class="table-responsive mb-6 d-none" id="sugerido_resultados_wrap">
+                            <div class="text-muted fw-bold fs-7 text-uppercase mb-2">Resultados del proveedor</div>
+                            <table class="table align-middle table-row-dashed gy-3 mb-0">
+                                <thead>
+                                    <tr class="text-muted fw-bold fs-8 text-uppercase">
+                                        <th>SKU proveedor</th>
+                                        <th>Producto proveedor</th>
+                                        <th class="text-end">Costo</th>
+                                        <th class="text-end">Accion</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="sugerido_resultados"></tbody>
+                            </table>
+                        </div>
+
                         <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-4">
-                            <div class="text-muted fs-7" id="sugerido_resumen">Selecciona proveedor para consultar productos.</div>
+                            <div class="text-muted fs-7" id="sugerido_resumen">Selecciona proveedor para buscar productos.</div>
                             <div class="d-flex gap-2">
                                 <button type="button" class="btn btn-sm btn-light" id="sugerido_recalcular"><i class="bi bi-calculator"></i> Recalcular</button>
                                 <button type="button" class="btn btn-sm btn-light-danger" id="sugerido_limpiar_ceros">Ocultar ceros</button>
@@ -109,8 +124,9 @@ $modo = isset($datos["modo"]) ? $datos["modo"] : "editar";
 </div>
 <script src="assets/plugins/global/plugins.bundle.js"></script>
 <script src="assets/js/scripts.bundle.js"></script>
-<script src="/assets/js/custom/apps/erp/compras/sugeridos/formulario.js?v=20260821-3"></script>
+<script src="/assets/js/custom/apps/erp/compras/sugeridos/formulario.js?v=20260821-4"></script>
 </body>
 </html>
+
 
 

@@ -4067,6 +4067,70 @@ Siguiente paso recomendado:
 - Auditar read-only todos los campos/endpoints/vistas de Catalogo que muestren o guarden costos.
 - Preparar plan para ocultar o mover esos campos sin romper Listas de precios ni Rentabilidad.
 
+## Actualizacion 2026-08-21 - Precio operativo sale de Catalogo
+
+Proyecto aplicado: `C:\xampp\htdocs\panel_de_control`.
+
+Decision:
+
+- Catalogo ya no captura ni guarda precio operativo del SKU.
+- La fuente vigente para precios es Comercial > Listas de precios.
+- `erp_catalogo_sku_precios` queda como legado/fallback de lectura historica, pero Catálogo Productos ya no lo actualiza al crear o editar SKUs.
+
+Cambios aplicados:
+
+- Se retiraron los inputs `precio` y `moneda` del modal de alta/edicion de producto/SKU.
+- `CatalogoErpDatos::actualizarSku()`, `crearProductoConSku()` e `insertarSkuCompleto()` dejaron de borrar/insertar registros en `erp_catalogo_sku_precios`.
+- El detalle de producto ahora lee si existe precio activo desde `erp_listas_precios_detalle` + `erp_listas_precios` en modo solo lectura.
+- La auditoria de calidad cambio `SKU sin precio provisional` por `SKU sin precio en listas`.
+- La tabla de SKUs en el modal muestra `Con precio en lista` o `Pendiente en Listas`.
+
+Auditoria read-only:
+
+- SKUs vigentes auditados: 1845.
+- Con precio activo en Listas: 1.
+- Pendientes en Listas: 1844.
+
+Validacion:
+
+- `C:\xampp\php\php.exe -l app\modelos\CatalogoErpDatos.php`: OK.
+- `C:\xampp\php\php.exe -l app\vistas\paginas\apps\erp\catalogo\productos.php`: OK.
+- `node --check public\assets\js\custom\apps\erp\catalogo\productos.js`: OK.
+
+Siguiente paso recomendado:
+
+- Usar Comercial > Listas de precios para cargar/prevalidar precios por lote y tomar como pendientes reales los SKUs marcados como `Pendiente en Listas`.
+
+## Actualizacion 2026-08-21 - SKUs derivados y pendientes a Listas/Rentabilidad
+
+Proyecto aplicado: `C:\xampp\htdocs\panel_de_control`.
+
+Documento rector:
+
+- `docs/erp_catalogo_skus_derivados_alertas_plan.md`
+
+Decision:
+
+- Catalogo define la estructura de SKUs principales y derivados, pero no el precio final ni el costo operativo.
+- Presentaciones, aperturas de empaque y paquetes ya tienen estructuras propias; recetas/paquetes no se deben duplicar en otra tabla.
+- El siguiente paso tecnico debe ser un resolutor read-only de contexto de SKU vendible para normalizar `normal`, `variante`, `granel`, `presentacion`, `apertura_empaque` y `paquete`.
+- Cuando un SKU vendible se cree o active sin precio vigente, Catalogo debe generar pendiente para Comercial/Listas.
+- Cuando el costo de un SKU derivado no pueda resolverse con `RentabilidadErp::resolverCostoVigenteSku`, debe generarse pendiente para Rentabilidad/Costos.
+
+Regla estricta:
+
+- No reintroducir campos de precio o costo operativo en el modal de Catalogo.
+- No duplicar costos manualmente en presentaciones, aperturas ni paquetes si pueden derivarse del SKU origen.
+- Antes de implementar alertas persistentes, auditar la tabla/helper transversal de notificaciones vigente y permisos reales de Listas/Rentabilidad.
+
+Orden recomendado:
+
+1. Resolver contexto vendible del SKU en Catalogo.
+2. Auditar derivados sin precio vigente en Listas.
+3. Auditar derivados sin costo resoluble por Rentabilidad.
+4. Generar pendientes idempotentes al guardar/activar SKU, presentacion, apertura o paquete.
+5. Mostrar badges operativos en Catalogo sin bloquear captura.
+
 ## Actualizacion 2026-08-20 - Fusion conserva imagenes por SKU
 
 Proyecto aplicado: `C:\xampp\htdocs\panel_de_control`.
