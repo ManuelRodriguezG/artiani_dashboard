@@ -471,6 +471,52 @@ class ComprasEsquema extends DBSchema {
     }
     /**
      * IA: Codex GPT-5
+     * Fecha: 2026-08-21
+     * Proposito: preparar solo la tabla formal de gastos/cargos asociados a ordenes de compra.
+     * Impacto: Compras/Finanzas/Costos; permite activar reportes de cargos sin ejecutar todo el plan de Compras.
+     * Contrato: no modifica inventario, no crea recepciones y requiere respaldo externo antes de ejecutar.
+     */
+    public function planActualizarGastosCompra($ejecutar = false) {
+        $plan = array();
+        $plan[] = $this->crearTablaSiNoExiste("erp_compras_ordenes_cargos_costos", array(
+            "`id_cargo_costo` BIGINT NOT NULL AUTO_INCREMENT",
+            "`id_orden_compra` INT NOT NULL",
+            "`id_orden_detalle` INT NOT NULL",
+            "`id_proveedor` INT NULL",
+            "`tipo_cargo` VARCHAR(40) NOT NULL",
+            "`descripcion` VARCHAR(255) NOT NULL",
+            "`cantidad` DECIMAL(18,6) NOT NULL DEFAULT 1.000000",
+            "`costo_unitario` DECIMAL(18,6) NOT NULL DEFAULT 0.000000",
+            "`subtotal` DECIMAL(18,6) NOT NULL DEFAULT 0.000000",
+            "`descuento` DECIMAL(18,6) NOT NULL DEFAULT 0.000000",
+            "`porcentaje_impuesto` DECIMAL(10,6) NOT NULL DEFAULT 0.000000",
+            "`total` DECIMAL(18,6) NOT NULL DEFAULT 0.000000",
+            "`tratamiento` VARCHAR(40) NOT NULL DEFAULT 'gasto'",
+            "`metodo_prorrateo` VARCHAR(40) NULL",
+            "`estatus` VARCHAR(40) NOT NULL DEFAULT 'pendiente_finanzas'",
+            "`origen` VARCHAR(40) NOT NULL DEFAULT 'detalle_orden'",
+            "`observaciones` TEXT NULL",
+            "`creado_por` INT NULL",
+            "`validado_por` INT NULL",
+            "`fecha_validacion` DATETIME NULL",
+            "`fecha_registro` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
+            "`fecha_actualizacion` DATETIME NULL",
+            "PRIMARY KEY (`id_cargo_costo`)",
+            "UNIQUE KEY `idx_cargo_costo_detalle` (`id_orden_detalle`)",
+            "KEY `idx_cargo_costo_orden` (`id_orden_compra`)",
+            "KEY `idx_cargo_costo_proveedor` (`id_proveedor`)",
+            "KEY `idx_cargo_costo_tipo` (`tipo_cargo`, `estatus`)",
+            "KEY `idx_cargo_costo_tratamiento` (`tratamiento`, `estatus`)"
+        ), "ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci", $ejecutar);
+        return array(
+            "error" => false,
+            "tipo" => "success",
+            "mensaje" => $ejecutar ? "Plan de gastos de compra ejecutado" : "Plan de gastos de compra generado en dry-run",
+            "depurar" => $plan
+        );
+    }
+    /**
+     * IA: Codex GPT-5
      * Fecha: 2026-08-20
      * Proposito: preparar solo las tablas de Sugerido de compra por proveedor.
      * Impacto: Compras/Sugerido; DDL acotado para evitar ejecutar el plan completo de Compras.

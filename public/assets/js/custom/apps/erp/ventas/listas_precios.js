@@ -8,7 +8,7 @@
      * Impacto: elimina herramientas tecnicas visibles y usa endpoints operativos con permisos finos.
      */
     function request(url) {
-        return fetch(url, {credentials: "same-origin"}).then(function (response) { return response.json(); });
+        return fetch(url, {credentials: "same-origin"}).then(parseResponseJson);
     }
 
     function postRequest(url, data) {
@@ -17,7 +17,22 @@
             headers: {"Content-Type": "application/x-www-form-urlencoded; charset=UTF-8", "X-CSRF-Token": window.ERP_CSRF_TOKEN || ""},
             body: new URLSearchParams(data).toString(),
             credentials: "same-origin"
-        }).then(function (response) { return response.json(); });
+        }).then(parseResponseJson);
+    }
+
+    function parseResponseJson(response) {
+        return response.text().then(function (text) {
+            var data = null;
+            try {
+                data = text ? JSON.parse(text) : {};
+            } catch (e) {
+                throw new Error("Respuesta no valida del servidor (" + response.status + "). Revisa sesion, permisos o CSRF.");
+            }
+            if (!response.ok) {
+                throw new Error(data.mensaje || ("Error HTTP " + response.status));
+            }
+            return data;
+        });
     }
 
     function escapeHtml(value) {
@@ -402,8 +417,8 @@
         actualizarFlujoOperativo("encabezado");
     }
 
-    function payloadLista() {
-        return {
+    function payloadLista(extra) {
+        var payload = {
             id_lista_precio: document.getElementById("lp_lista_id").value,
             codigo: document.getElementById("lp_lista_codigo").value,
             nombre: document.getElementById("lp_lista_nombre").value,
@@ -416,6 +431,11 @@
             observaciones: document.getElementById("lp_lista_observaciones").value,
             motivo: document.getElementById("lp_lista_observaciones").value || "Operacion Comercial/Listas de precios"
         };
+        extra = extra || {};
+        Object.keys(extra).forEach(function (clave) {
+            payload[clave] = extra[clave];
+        });
+        return payload;
     }
 
     function aplicarPresetAlcance(canal) {
@@ -505,8 +525,13 @@
         nodo.textContent = texto;
     }
 
-    function guardarLista() {
-        postRequest("/comercial/listas_precios_lista_guardar_operativo_erp", payloadLista()).then(function (response) {
+    function guardarLista(opciones) {
+        opciones = opciones || {};
+        var boton = document.getElementById("lp_guardar_lista");
+        if (boton) {
+            boton.disabled = true;
+        }
+        return postRequest("/comercial/listas_precios_lista_guardar_operativo_erp", payloadLista(opciones.extra || {})).then(function (response) {
             if (response.error) {
                 throw new Error(response.mensaje);
             }
@@ -518,10 +543,21 @@
             cargarRevision();
             cargarProductos();
             actualizarFlujoOperativo("encabezado");
-        }).catch(mostrarError);
+        }).catch(function (error) {
+            if (typeof opciones.onError === "function") {
+                opciones.onError(error);
+            }
+            mostrarError(error);
+        }).finally(function () {
+            if (boton) {
+                boton.disabled = false;
+            }
+        });
     }
 
     function cambiarEstatusLista(estatus) {
+        var estatusSelect = document.getElementById("lp_lista_estatus");
+        var estatusAnterior = estatusSelect.value;
         var revisionLocal = revisionLocalPantalla();
         if (estatus === "activa" && revisionLocal.bloqueos.length > 0) {
             mostrarAlerta("warning", revisionLocal.bloqueos[0]);
@@ -531,8 +567,15 @@
             mostrarAlerta("warning", "La lista tiene bloqueos de revision. Resuelvelos antes de activar.");
             return;
         }
-        document.getElementById("lp_lista_estatus").value = estatus;
-        guardarLista();
+        estatusSelect.value = estatus;
+        guardarLista({
+            extra: estatus === "activa" ? {confirmar_activacion: "1"} : {},
+            onError: function () {
+                estatusSelect.value = estatusAnterior;
+                actualizarBotonesEstatus();
+                actualizarFlujoOperativo("encabezado");
+            }
+        });
     }
 
     function filtrosProductos() {
@@ -2721,6 +2764,9 @@
     }
 
     document.addEventListener("DOMContentLoaded", function () {
+        var params = new URLSearchParams(window.location.search || "");
+        var skuInicial = params.get("sku") || params.get("q") || "";
+        var idSkuInicial = params.get("id_sku") || "";
         activarFlujoOperativo();
         activarTabsEditor();
         activarTabsProductos();
@@ -2809,8 +2855,13 @@
         });
         cargarFase1Readiness();
         cargarResumen();
-        var params = new URLSearchParams(window.location.search || "");
         var idInicial = params.get("id_lista_precio") || params.get("id");
+        if (skuInicial) {
+            document.getElementById("lp_producto_q").value = skuInicial;
+        }
+        if (idSkuInicial) {
+            document.getElementById("lp_preview_sku").value = idSkuInicial;
+        }
         if (idInicial) {
             consultarLista(idInicial);
         } else {

@@ -4124,6 +4124,264 @@ class CatalogoErpDatos extends CRUD {
 
   /**
    * IA: Codex GPT-5
+   * Fecha: 2026-08-21
+   * Proposito: normaliza como se puede vender un SKU y de que regla/origen depende.
+   * Impacto: Catalogo ERP; sirve como contrato read-only para Listas, Rentabilidad, Almacen, POS y Ecommerce.
+   * Contrato: no escribe BD, no calcula precios y no expone montos de costo; solo indica si hay precio vigente y si el costo es resoluble.
+   */
+  public function resolverContextoSkuVendible($idSku) {
+    $idSku = intval($idSku);
+    if ($idSku <= 0) {
+      return $this->respuesta(true, "warning", "Indica el SKU a consultar");
+    }
+
+    try {
+      $db = $this->getConexion();
+      $requiereFisicasSelect = $this->esquemaRecepcionVariableDisponible($db)
+        ? "COALESCE(r.requiere_unidades_fisicas_recepcion, 0) AS requiere_unidades_fisicas_recepcion"
+        : "0 AS requiere_unidades_fisicas_recepcion";
+      $stmt = $db->prepare("SELECT s.id_sku, s.id_producto_erp, s.sku, s.nombre AS nombre_sku,
+          s.tipo_inventario, s.id_unidad_base, s.factor_unidad_base, s.estatus AS estatus_sku,
+          p.codigo_producto, p.nombre AS nombre_producto, p.maneja_variantes, p.estatus AS estatus_producto,
+          u.codigo AS unidad_base_codigo, u.nombre AS unidad_base_nombre, u.abreviatura AS unidad_base_abreviatura,
+          u.tipo_magnitud AS unidad_base_magnitud, u.decimales_permitidos AS unidad_base_decimales,
+          COALESCE(r.controla_inventario, 1) AS controla_inventario,
+          COALESCE(r.permite_venta_fraccionaria, 0) AS permite_venta_fraccionaria,
+          COALESCE(r.precision_decimal, 0) AS precision_decimal,
+          COALESCE(r.incremento_minimo_venta, 1) AS incremento_minimo_venta,
+          COALESCE(NULLIF(r.unidad_venta_label, ''), u.abreviatura, u.codigo, u.nombre) AS unidad_venta,
+          COALESCE(r.generar_etiqueta_interna, 0) AS generar_etiqueta_interna,
+          " . $requiereFisicasSelect . "
+        FROM erp_catalogo_skus s
+        INNER JOIN erp_catalogo_productos p ON p.id_producto_erp=s.id_producto_erp
+        LEFT JOIN erp_catalogo_unidades u ON u.id_unidad=s.id_unidad_base
+        LEFT JOIN erp_catalogo_sku_reglas_inventario r ON r.id_sku=s.id_sku
+        WHERE s.id_sku=:sku
+        LIMIT 1");
+      $stmt->execute(array(":sku" => $idSku));
+      $sku = $stmt->fetch(PDO::FETCH_ASSOC);
+      if (!$sku) {
+        return $this->respuesta(true, "warning", "SKU ERP no encontrado");
+      }
+
+      $derivacion = $this->resolverDerivacionSkuVendible($db, $sku);
+      $precio = $this->consultarPrecioVigenteListaSku($db, $idSku);
+      $costo = $this->consultarCostoResolubleSkuRedactado($idSku, $derivacion["tipo_derivacion"]);
+      $estatusOperativo = $this->estatusOperativoSkuVendible($sku);
+      $esVendible = $estatusOperativo["codigo"] === "operativo";
+      $requierePrecio = $esVendible;
+      $alertas = array();
+
+      if ($requierePrecio && !$precio["tiene_precio_vigente"]) {
+        $alertas[] = array(
+          "tipo" => "catalogo_sku_vendible_sin_precio_lista",
+          "responsable" => "comercial_listas",
+          "permiso_ver" => "ventas.listas.ver",
+          "mensaje" => "SKU vendible sin precio activo vigente en Listas"
+        );
+      }
+      if ($esVendible && !$costo["costo_derivable"]) {
+        $alertas[] = array(
+          "tipo" => "catalogo_sku_derivado_costo_no_resuelto",
+          "responsable" => "rentabilidad_costos",
+          "permiso_ver" => "pendiente_auditar",
+          "mensaje" => "SKU vendible sin costo resoluble para margen"
+        );
+      }
+      if ($esVendible && in_array($derivacion["tipo_derivacion"], array("granel", "presentacion", "apertura_empaque"), true) && intval($derivacion["id_sku_origen"]) <= 0) {
+        $alertas[] = array(
+          "tipo" => "catalogo_sku_derivado_sin_origen",
+          "responsable" => "catalogo",
+          "permiso_ver" => "catalogo.ver",
+          "mensaje" => "SKU derivado vendible sin SKU origen configurado"
+        );
+      }
+
+      $contexto = array(
+        "id_sku" => intval($sku["id_sku"]),
+        "sku" => $sku["sku"],
+        "id_producto_erp" => intval($sku["id_producto_erp"]),
+        "codigo_producto" => $sku["codigo_producto"],
+        "nombre_producto" => $sku["nombre_producto"],
+        "nombre_sku" => $sku["nombre_sku"],
+        "tipo_derivacion" => $derivacion["tipo_derivacion"],
+        "relacion_operativa" => $derivacion["relacion_operativa"],
+        "id_sku_origen" => $derivacion["id_sku_origen"],
+        "sku_origen" => $derivacion["sku_origen"],
+        "factor_conversion" => $derivacion["factor_conversion"],
+        "unidad_base" => array(
+          "id_unidad" => intval($sku["id_unidad_base"]),
+          "codigo" => $sku["unidad_base_codigo"],
+          "nombre" => $sku["unidad_base_nombre"],
+          "abreviatura" => $sku["unidad_base_abreviatura"],
+          "tipo_magnitud" => $sku["unidad_base_magnitud"],
+          "decimales_permitidos" => intval($sku["unidad_base_decimales"])
+        ),
+        "unidad_venta" => $sku["unidad_venta"],
+        "merma_porcentaje" => $derivacion["merma_porcentaje"],
+        "permite_venta_fraccionaria" => intval($sku["permite_venta_fraccionaria"]),
+        "precision_decimal" => intval($sku["precision_decimal"]),
+        "incremento_minimo_venta" => floatval($sku["incremento_minimo_venta"]),
+        "controla_inventario" => intval($sku["controla_inventario"]),
+        "trazabilidad_fisica" => array(
+          "generar_etiqueta_interna" => intval($sku["generar_etiqueta_interna"]),
+          "requiere_unidades_fisicas_recepcion" => intval($sku["requiere_unidades_fisicas_recepcion"])
+        ),
+        "estatus_operativo" => $estatusOperativo,
+        "es_vendible" => $esVendible ? 1 : 0,
+        "requiere_precio_lista" => $requierePrecio ? 1 : 0,
+        "tiene_precio_vigente" => $precio["tiene_precio_vigente"] ? 1 : 0,
+        "precio_lista_resumen" => array(
+          "fuente" => "erp_listas_precios_detalle",
+          "id_lista_precio" => $precio["id_lista_precio"],
+          "lista" => $precio["lista"],
+          "moneda" => $precio["moneda"]
+        ),
+        "requiere_costo" => $esVendible ? 1 : 0,
+        "costo_derivable" => $costo["costo_derivable"] ? 1 : 0,
+        "costo_resumen" => $costo["resumen"],
+        "responsable_precio" => "comercial_listas",
+        "responsable_costo" => "rentabilidad_costos",
+        "derivacion_detalle" => $derivacion["detalle"],
+        "alertas_sugeridas" => $alertas
+      );
+
+      return $this->respuesta(false, "success", "Contexto vendible consultado", array(
+        "contexto" => $contexto,
+        "read_only" => true
+      ));
+    } catch (Exception $e) {
+      return $this->respuesta(true, "danger", $e->getMessage());
+    }
+  }
+
+  /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-08-21
+   * Proposito: lista SKUs activos que pueden venderse pero no tienen precio vigente en Listas.
+   * Impacto: Catalogo ERP/Comercial; prepara bandeja de pendientes sin escribir notificaciones ni precios.
+   * Contrato: read-only; devuelve contexto redactado por SKU y respeta `q`/`limite`.
+   */
+  public function auditarSkusVendiblesSinPrecioLista($filtros = array()) {
+    try {
+      $db = $this->getConexion();
+      $limite = max(1, min(300, intval(isset($filtros["limite"]) ? $filtros["limite"] : 120)));
+      $q = trim((string) (isset($filtros["q"]) ? $filtros["q"] : ""));
+      $params = array();
+      $where = array("s.estatus='activo'", "p.estatus='activo'");
+      if ($q !== "") {
+        $where[] = "(s.sku LIKE :q OR s.nombre LIKE :q OR p.codigo_producto LIKE :q OR p.nombre LIKE :q)";
+        $params[":q"] = "%" . $q . "%";
+      }
+
+      $sqlPrecio = $this->tablaExisteCatalogo($db, "erp_listas_precios") && $this->tablaExisteCatalogo($db, "erp_listas_precios_detalle")
+        ? "AND NOT EXISTS (SELECT 1
+            FROM erp_listas_precios_detalle d
+            INNER JOIN erp_listas_precios l ON l.id_lista_precio=d.id_lista_precio
+            WHERE d.id_sku=s.id_sku AND d.estatus='activo' AND d.precio>0 AND l.estatus='activa'
+              AND (d.fecha_inicio IS NULL OR d.fecha_inicio<=NOW()) AND (d.fecha_fin IS NULL OR d.fecha_fin>=NOW())
+              AND (l.fecha_inicio IS NULL OR l.fecha_inicio<=NOW()) AND (l.fecha_fin IS NULL OR l.fecha_fin>=NOW()))"
+        : "";
+
+      $stmt = $db->prepare("SELECT s.id_sku
+        FROM erp_catalogo_skus s
+        INNER JOIN erp_catalogo_productos p ON p.id_producto_erp=s.id_producto_erp
+        WHERE " . implode(" AND ", $where) . " " . $sqlPrecio . "
+        ORDER BY s.id_sku DESC
+        LIMIT " . intval($limite));
+      $stmt->execute($params);
+
+      $items = array();
+      foreach ($stmt->fetchAll(PDO::FETCH_COLUMN) as $idSku) {
+        $contexto = $this->resolverContextoSkuVendible(intval($idSku));
+        if ($contexto["error"] || !isset($contexto["depurar"]["contexto"])) {
+          continue;
+        }
+        $ctx = $contexto["depurar"]["contexto"];
+        if (intval($ctx["es_vendible"]) === 1 && intval($ctx["tiene_precio_vigente"]) === 0) {
+          $items[] = $ctx;
+        }
+      }
+
+      return $this->respuesta(false, "success", "SKUs vendibles sin precio vigente auditados", array(
+        "resumen" => array(
+          "total" => count($items),
+          "limite" => $limite,
+          "responsable" => "comercial_listas",
+          "permiso_sugerido" => "ventas.listas.ver"
+        ),
+        "items" => $items,
+        "read_only" => true
+      ));
+    } catch (Exception $e) {
+      return $this->respuesta(true, "danger", $e->getMessage(), array("items" => array()));
+    }
+  }
+
+  /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-08-21
+   * Proposito: lista SKUs activos cuyo costo no puede resolverse con Rentabilidad.
+   * Impacto: Catalogo ERP/Rentabilidad; prepara pendientes tecnicos sin exponer montos de costo.
+   * Contrato: read-only; escanea una ventana acotada de SKUs activos y devuelve contexto redactado.
+   */
+  public function auditarSkusVendiblesSinCostoResoluble($filtros = array()) {
+    try {
+      $db = $this->getConexion();
+      $limite = max(1, min(200, intval(isset($filtros["limite"]) ? $filtros["limite"] : 80)));
+      $q = trim((string) (isset($filtros["q"]) ? $filtros["q"] : ""));
+      $params = array();
+      $where = array("s.estatus='activo'", "p.estatus='activo'");
+      if ($q !== "") {
+        $where[] = "(s.sku LIKE :q OR s.nombre LIKE :q OR p.codigo_producto LIKE :q OR p.nombre LIKE :q)";
+        $params[":q"] = "%" . $q . "%";
+      }
+
+      $ventana = min(600, max($limite * 4, $limite));
+      $stmt = $db->prepare("SELECT s.id_sku
+        FROM erp_catalogo_skus s
+        INNER JOIN erp_catalogo_productos p ON p.id_producto_erp=s.id_producto_erp
+        WHERE " . implode(" AND ", $where) . "
+        ORDER BY s.id_sku DESC
+        LIMIT " . intval($ventana));
+      $stmt->execute($params);
+
+      $items = array();
+      $revisados = 0;
+      foreach ($stmt->fetchAll(PDO::FETCH_COLUMN) as $idSku) {
+        if (count($items) >= $limite) {
+          break;
+        }
+        $contexto = $this->resolverContextoSkuVendible(intval($idSku));
+        if ($contexto["error"] || !isset($contexto["depurar"]["contexto"])) {
+          continue;
+        }
+        $revisados++;
+        $ctx = $contexto["depurar"]["contexto"];
+        if (intval($ctx["es_vendible"]) === 1 && intval($ctx["costo_derivable"]) === 0) {
+          $items[] = $ctx;
+        }
+      }
+
+      return $this->respuesta(false, "success", "SKUs vendibles sin costo resoluble auditados", array(
+        "resumen" => array(
+          "total" => count($items),
+          "revisados" => $revisados,
+          "ventana" => $ventana,
+          "limite" => $limite,
+          "responsable" => "rentabilidad_costos",
+          "permiso_sugerido" => "pendiente_auditar"
+        ),
+        "items" => $items,
+        "read_only" => true
+      ));
+    } catch (Exception $e) {
+      return $this->respuesta(true, "danger", $e->getMessage(), array("items" => array()));
+    }
+  }
+
+  /**
+   * IA: Codex GPT-5
    * Fecha: 2026-07-11
    * Proposito: lista categoria principal y secundarias de un producto para edicion controlada.
    * Impacto: Catalogo ERP; habilita clasificacion multiple sin cambiar esquema ni afectar otros modulos.
@@ -7614,6 +7872,280 @@ class CatalogoErpDatos extends CRUD {
       ON DUPLICATE KEY UPDATE id_sku=VALUES(id_sku), es_principal=1,
         estatus='activo', fecha_actualizacion=CURRENT_TIMESTAMP");
     $stmt->execute(array(":sku" => intval($idSku), ":codigo" => $codigoBarras));
+  }
+
+  /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-08-21
+   * Proposito: infiere el tipo de derivacion de un SKU sin agregar columnas nuevas al esquema.
+   * Impacto: Catalogo ERP; centraliza prioridad paquete > apertura/granel > presentacion > variante > normal.
+   * Contrato: read-only; devuelve detalle suficiente para alertas sin ejecutar movimientos ni precios.
+   */
+  private function resolverDerivacionSkuVendible($db, $sku) {
+    $idSku = intval($sku["id_sku"]);
+    $base = array(
+      "tipo_derivacion" => "normal",
+      "relacion_operativa" => null,
+      "id_sku_origen" => null,
+      "sku_origen" => null,
+      "factor_conversion" => max(1, floatval($sku["factor_unidad_base"])),
+      "merma_porcentaje" => 0,
+      "detalle" => array()
+    );
+
+    if ($this->tablaExisteCatalogo($db, "erp_catalogo_sku_paquetes")) {
+      $stmt = $db->prepare("SELECT id_paquete, tipo_paquete, modo_disponibilidad, permite_configuracion_cliente,
+          permite_desarmar, requiere_armado_almacen, estatus
+        FROM erp_catalogo_sku_paquetes
+        WHERE id_sku_paquete=:sku AND estatus IN ('activo','borrador')
+        ORDER BY FIELD(estatus, 'activo', 'borrador'), id_paquete DESC
+        LIMIT 1");
+      $stmt->execute(array(":sku" => $idSku));
+      $paquete = $stmt->fetch(PDO::FETCH_ASSOC);
+      if ($paquete) {
+        $base["tipo_derivacion"] = "paquete";
+        $base["relacion_operativa"] = "receta_paquete";
+        $base["factor_conversion"] = 1;
+        $base["detalle"] = array(
+          "id_paquete" => intval($paquete["id_paquete"]),
+          "tipo_paquete" => $paquete["tipo_paquete"],
+          "modo_disponibilidad" => $paquete["modo_disponibilidad"],
+          "permite_configuracion_cliente" => intval($paquete["permite_configuracion_cliente"]),
+          "permite_desarmar" => intval($paquete["permite_desarmar"]),
+          "requiere_armado_almacen" => intval($paquete["requiere_armado_almacen"]),
+          "estatus" => $paquete["estatus"]
+        );
+        return $base;
+      }
+    }
+
+    if ($this->tablaExisteCatalogo($db, "erp_catalogo_sku_aperturas_empaque")) {
+      $stmt = $db->prepare("SELECT ae.id_apertura_empaque, ae.id_sku_origen, ae.factor_conversion,
+          ae.requiere_unidad_fisica, ae.conserva_lote, ae.conserva_caducidad,
+          ae.permite_merma, ae.merma_porcentaje_default, ae.estatus,
+          ori.sku AS sku_origen, ori.nombre AS nombre_origen
+        FROM erp_catalogo_sku_aperturas_empaque ae
+        INNER JOIN erp_catalogo_skus ori ON ori.id_sku=ae.id_sku_origen
+        WHERE ae.id_sku_destino=:sku AND ae.estatus='activo'
+        ORDER BY ae.id_apertura_empaque DESC
+        LIMIT 1");
+      $stmt->execute(array(":sku" => $idSku));
+      $apertura = $stmt->fetch(PDO::FETCH_ASSOC);
+      if ($apertura) {
+        $base["tipo_derivacion"] = intval($sku["permite_venta_fraccionaria"]) === 1 ? "granel" : "apertura_empaque";
+        $base["relacion_operativa"] = "apertura_empaque";
+        $base["id_sku_origen"] = intval($apertura["id_sku_origen"]);
+        $base["sku_origen"] = $apertura["sku_origen"];
+        $base["factor_conversion"] = floatval($apertura["factor_conversion"]);
+        $base["merma_porcentaje"] = floatval($apertura["merma_porcentaje_default"]);
+        $base["detalle"] = array(
+          "id_apertura_empaque" => intval($apertura["id_apertura_empaque"]),
+          "nombre_origen" => $apertura["nombre_origen"],
+          "requiere_unidad_fisica" => intval($apertura["requiere_unidad_fisica"]),
+          "conserva_lote" => intval($apertura["conserva_lote"]),
+          "conserva_caducidad" => intval($apertura["conserva_caducidad"]),
+          "permite_merma" => intval($apertura["permite_merma"]),
+          "estatus" => $apertura["estatus"]
+        );
+        return $base;
+      }
+    }
+
+    if ($this->tablaExisteCatalogo($db, "erp_catalogo_sku_presentaciones")) {
+      $stmt = $db->prepare("SELECT pr.id_sku_presentacion_regla, pr.id_sku_base, pr.factor_salida_base,
+          pr.modo_disponibilidad, pr.consume_stock_base_en, pr.requiere_empaque,
+          pr.capacidad_diaria, pr.merma_porcentaje, pr.estatus,
+          base.sku AS sku_origen, base.nombre AS nombre_origen
+        FROM erp_catalogo_sku_presentaciones pr
+        INNER JOIN erp_catalogo_skus base ON base.id_sku=pr.id_sku_base
+        WHERE pr.id_sku_presentacion=:sku AND pr.estatus='activa'
+        ORDER BY pr.id_sku_presentacion_regla DESC
+        LIMIT 1");
+      $stmt->execute(array(":sku" => $idSku));
+      $presentacion = $stmt->fetch(PDO::FETCH_ASSOC);
+      if ($presentacion) {
+        $base["tipo_derivacion"] = "presentacion";
+        $base["relacion_operativa"] = "presentacion";
+        $base["id_sku_origen"] = intval($presentacion["id_sku_base"]);
+        $base["sku_origen"] = $presentacion["sku_origen"];
+        $base["factor_conversion"] = floatval($presentacion["factor_salida_base"]);
+        $base["merma_porcentaje"] = floatval($presentacion["merma_porcentaje"]);
+        $base["detalle"] = array(
+          "id_sku_presentacion_regla" => intval($presentacion["id_sku_presentacion_regla"]),
+          "nombre_origen" => $presentacion["nombre_origen"],
+          "modo_disponibilidad" => $presentacion["modo_disponibilidad"],
+          "consume_stock_base_en" => $presentacion["consume_stock_base_en"],
+          "requiere_empaque" => intval($presentacion["requiere_empaque"]),
+          "capacidad_diaria" => $presentacion["capacidad_diaria"] !== null ? floatval($presentacion["capacidad_diaria"]) : null,
+          "estatus" => $presentacion["estatus"]
+        );
+        return $base;
+      }
+    }
+
+    if (intval($sku["maneja_variantes"]) === 1 && $this->tablaExisteCatalogo($db, "erp_catalogo_sku_atributos")) {
+      $stmt = $db->prepare("SELECT COUNT(*) FROM erp_catalogo_sku_atributos WHERE id_sku=:sku AND TRIM(COALESCE(valor,''))<>''");
+      $stmt->execute(array(":sku" => $idSku));
+      if (intval($stmt->fetchColumn()) > 0) {
+        $base["tipo_derivacion"] = "variante";
+        $base["relacion_operativa"] = "atributos_variante";
+      }
+    }
+
+    if ($base["tipo_derivacion"] === "normal" && intval($sku["permite_venta_fraccionaria"]) === 1) {
+      $base["tipo_derivacion"] = "granel";
+      $base["relacion_operativa"] = null;
+      $base["detalle"] = array(
+        "configuracion_incompleta" => true,
+        "faltante" => "SKU origen o regla de apertura de empaque",
+        "nota" => "Venta fraccionaria activa sin relacion operativa de origen"
+      );
+    }
+
+    return $base;
+  }
+
+  /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-08-21
+   * Proposito: consulta si el SKU tiene precio activo vigente en Comercial/Listas sin exponer ni modificar Catalogo.
+   * Impacto: Catalogo ERP/Comercial; alimenta pendientes de precio sin capturar precio en Catalogo.
+   * Contrato: read-only sobre `erp_listas_precios` y `erp_listas_precios_detalle`.
+   */
+  private function consultarPrecioVigenteListaSku($db, $idSku) {
+    $default = array(
+      "tiene_precio_vigente" => false,
+      "id_lista_precio" => null,
+      "lista" => null,
+      "moneda" => null
+    );
+    if (!$this->tablaExisteCatalogo($db, "erp_listas_precios") || !$this->tablaExisteCatalogo($db, "erp_listas_precios_detalle")) {
+      return $default;
+    }
+
+    $stmt = $db->prepare("SELECT l.id_lista_precio, l.nombre AS lista, d.moneda
+      FROM erp_listas_precios_detalle d
+      INNER JOIN erp_listas_precios l ON l.id_lista_precio=d.id_lista_precio
+      WHERE d.id_sku=:sku AND d.estatus='activo' AND d.precio>0 AND l.estatus='activa'
+        AND (d.fecha_inicio IS NULL OR d.fecha_inicio<=NOW()) AND (d.fecha_fin IS NULL OR d.fecha_fin>=NOW())
+        AND (l.fecha_inicio IS NULL OR l.fecha_inicio<=NOW()) AND (l.fecha_fin IS NULL OR l.fecha_fin>=NOW())
+      ORDER BY l.prioridad ASC, d.id_lista_precio_detalle DESC
+      LIMIT 1");
+    $stmt->execute(array(":sku" => intval($idSku)));
+    $fila = $stmt->fetch(PDO::FETCH_ASSOC);
+    if (!$fila) {
+      return $default;
+    }
+
+    return array(
+      "tiene_precio_vigente" => true,
+      "id_lista_precio" => intval($fila["id_lista_precio"]),
+      "lista" => $fila["lista"],
+      "moneda" => $fila["moneda"]
+    );
+  }
+
+  /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-08-21
+   * Proposito: verifica si Rentabilidad puede resolver costo sin filtrar montos a usuarios de Catalogo.
+   * Impacto: Catalogo ERP/Rentabilidad; permite alertar `costo_no_resuelto` sin duplicar costos.
+   * Contrato: read-only; llama al resolutor central y redacta el importe antes de devolver contexto.
+   */
+  private function consultarCostoResolubleSkuRedactado($idSku, $tipoDerivacion) {
+    $respuesta = array(
+      "costo_derivable" => false,
+      "resumen" => array(
+        "fuente" => null,
+        "confianza" => "no_consultado",
+        "tipo_resolucion" => null,
+        "formula" => null,
+        "advertencias" => array()
+      )
+    );
+
+    try {
+      if (!class_exists("RentabilidadErp")) {
+        $archivo = __DIR__ . "/RentabilidadErp.php";
+        if (is_file($archivo)) {
+          require_once $archivo;
+        }
+      }
+      if (!class_exists("RentabilidadErp")) {
+        $respuesta["resumen"]["advertencias"][] = array(
+          "codigo" => "CAT-SKU-CTX-001",
+          "tipo" => "rentabilidad_no_disponible",
+          "mensaje" => "No se pudo cargar RentabilidadErp para validar costo"
+        );
+        return $respuesta;
+      }
+
+      $rentabilidad = new RentabilidadErp();
+      $costo = $rentabilidad->resolverCostoVigenteSku($idSku, array(
+        "tipo" => $this->tipoCostoDesdeDerivacion($tipoDerivacion),
+        "contexto_consumo" => "catalogo_contexto_vendible",
+        "incluir_fallback_catalogo" => 0
+      ));
+      $depurar = isset($costo["depurar"]) && is_array($costo["depurar"]) ? $costo["depurar"] : array();
+      $importe = isset($depurar["costo"]) ? floatval($depurar["costo"]) : 0;
+      $respuesta["costo_derivable"] = !$costo["error"] && $importe > 0;
+      $respuesta["resumen"] = array(
+        "fuente" => isset($depurar["fuente"]) ? $depurar["fuente"] : null,
+        "confianza" => isset($depurar["confianza"]) ? $depurar["confianza"] : ($respuesta["costo_derivable"] ? "desconocida" : "sin_evidencia"),
+        "tipo_resolucion" => isset($depurar["tipo_resolucion"]) ? $depurar["tipo_resolucion"] : null,
+        "formula" => isset($depurar["formula"]) ? $depurar["formula"] : null,
+        "advertencias" => isset($depurar["advertencias"]) && is_array($depurar["advertencias"]) ? $depurar["advertencias"] : array()
+      );
+      if (!$respuesta["costo_derivable"] && empty($respuesta["resumen"]["advertencias"])) {
+        $respuesta["resumen"]["advertencias"][] = array(
+          "codigo" => "CAT-SKU-CTX-002",
+          "tipo" => "costo_sin_evidencia",
+          "mensaje" => isset($costo["mensaje"]) ? $costo["mensaje"] : "Rentabilidad no pudo resolver costo vigente"
+        );
+      }
+      return $respuesta;
+    } catch (Exception $e) {
+      $respuesta["resumen"]["advertencias"][] = array(
+        "codigo" => "CAT-SKU-CTX-003",
+        "tipo" => "error_resolviendo_costo",
+        "mensaje" => $e->getMessage()
+      );
+      return $respuesta;
+    }
+  }
+
+  private function tipoCostoDesdeDerivacion($tipoDerivacion) {
+    if ($tipoDerivacion === "presentacion") { return "presentacion"; }
+    if ($tipoDerivacion === "granel" || $tipoDerivacion === "apertura_empaque") { return "apertura_empaque"; }
+    if ($tipoDerivacion === "paquete") { return "paquete_combo"; }
+    return "auto";
+  }
+
+  private function estatusOperativoSkuVendible($sku) {
+    $estatusSku = isset($sku["estatus_sku"]) ? $sku["estatus_sku"] : "";
+    $estatusProducto = isset($sku["estatus_producto"]) ? $sku["estatus_producto"] : "";
+    if ($estatusProducto !== "activo") {
+      return array(
+        "codigo" => "producto_no_operativo",
+        "estatus_producto" => $estatusProducto,
+        "estatus_sku" => $estatusSku,
+        "mensaje" => "El producto maestro no esta activo"
+      );
+    }
+    if ($estatusSku !== "activo") {
+      return array(
+        "codigo" => "sku_no_operativo",
+        "estatus_producto" => $estatusProducto,
+        "estatus_sku" => $estatusSku,
+        "mensaje" => "El SKU no esta activo"
+      );
+    }
+    return array(
+      "codigo" => "operativo",
+      "estatus_producto" => $estatusProducto,
+      "estatus_sku" => $estatusSku,
+      "mensaje" => "SKU activo y vendible"
+    );
   }
 
   private function texto($datos, $campo, $default = "") {

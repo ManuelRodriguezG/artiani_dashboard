@@ -143,7 +143,7 @@
                                             <span class="badge badge-light-info" id="ecom_lote_seleccionados">0 seleccionados</span>
                                             <button class="btn btn-sm btn-light" type="button" id="ecom_lote_limpiar">Limpiar seleccion</button>
                                             <button class="btn btn-sm btn-light-primary" type="button" id="ecom_lote_borrador">Guardar borradores</button>
-                                            <button class="btn btn-sm btn-success" type="button" id="ecom_lote_publicar">Publicar borradores</button>
+                                            <button class="btn btn-sm btn-success" type="button" id="ecom_lote_publicar">Publicar seleccion</button>
                                             <label class="form-check form-check-custom form-check-solid fs-7">
                                                 <input class="form-check-input" type="checkbox" id="ecom_lote_confirmar_agotados">
                                                 <span class="form-check-label">Permitir agotados en lote</span>
@@ -276,6 +276,6 @@
 </div>
 <script src="assets/plugins/global/plugins.bundle.js"></script>
 <script src="assets/js/scripts.bundle.js"></script>
-<script src="/assets/js/custom/apps/erp/ecommerce/publicaciones.js?v=20260815-borrador-incompleto1"></script>
+<script src="/assets/js/custom/apps/erp/ecommerce/publicaciones.js?v=20260821-precio-activo1"></script>
 </body>
 </html>

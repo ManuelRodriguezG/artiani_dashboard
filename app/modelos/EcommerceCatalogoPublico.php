@@ -2490,7 +2490,10 @@ class EcommerceCatalogoPublico extends CRUD {
         FROM erp_ecommerce_publicaciones pub
         INNER JOIN erp_catalogo_skus s ON s.id_sku=pub.id_sku
         INNER JOIN erp_catalogo_productos p ON p.id_producto_erp=pub.id_producto_erp
+        LEFT JOIN erp_catalogo_sku_reglas_inventario r ON r.id_sku=s.id_sku
+        " . $this->sqlJoinPrecioListaVigente("s", "INNER") . "
         WHERE " . $baseWhere . " AND TRIM(COALESCE(pub.mascota_especie,''))<>''
+          AND COALESCE(r.permite_venta_fraccionaria, 0)=0
         ORDER BY pub.mascota_especie")->fetchAll(PDO::FETCH_ASSOC);
       $mascotas = $this->agruparMascotasFiltro($mascotasFilas);
       $marcas = $db->query("SELECT m.id_marca_erp id, m.nombre etiqueta, COUNT(*) total
@@ -2498,7 +2501,10 @@ class EcommerceCatalogoPublico extends CRUD {
         INNER JOIN erp_catalogo_skus s ON s.id_sku=pub.id_sku
         INNER JOIN erp_catalogo_productos p ON p.id_producto_erp=pub.id_producto_erp
         INNER JOIN erp_catalogo_marcas m ON m.id_marca_erp=p.id_marca_erp
+        LEFT JOIN erp_catalogo_sku_reglas_inventario r ON r.id_sku=s.id_sku
+        " . $this->sqlJoinPrecioListaVigente("s", "INNER") . "
         WHERE " . $baseWhere . "
+          AND COALESCE(r.permite_venta_fraccionaria, 0)=0
         GROUP BY m.id_marca_erp, m.nombre ORDER BY m.nombre")->fetchAll(PDO::FETCH_ASSOC);
       $categorias = $db->query("SELECT c.id_categoria_erp id, COALESCE(c.ruta, c.nombre) etiqueta, COUNT(*) total
         FROM erp_ecommerce_publicaciones pub
@@ -2506,7 +2512,10 @@ class EcommerceCatalogoPublico extends CRUD {
         INNER JOIN erp_catalogo_productos p ON p.id_producto_erp=pub.id_producto_erp
         INNER JOIN erp_catalogo_producto_categorias pc ON pc.id_producto_erp=p.id_producto_erp AND pc.es_principal=1
         INNER JOIN erp_catalogo_categorias c ON c.id_categoria_erp=pc.id_categoria_erp
+        LEFT JOIN erp_catalogo_sku_reglas_inventario r ON r.id_sku=s.id_sku
+        " . $this->sqlJoinPrecioListaVigente("s", "INNER") . "
         WHERE " . $baseWhere . "
+          AND COALESCE(r.permite_venta_fraccionaria, 0)=0
         GROUP BY c.id_categoria_erp, c.ruta, c.nombre ORDER BY etiqueta")->fetchAll(PDO::FETCH_ASSOC);
       $disponibilidad = array();
       $where = array("pub.estatus_publicacion='publicado'", "p.estatus='activo'", "s.estatus='activo'");
@@ -4877,11 +4886,13 @@ class EcommerceCatalogoPublico extends CRUD {
         $bloqueos[] = $bloqueoEditorial;
       }
       $bloqueos = array_values(array_unique($bloqueos));
+      $precioGeneralActivo = !in_array("precio_general_faltante", $bloqueos, true);
 
       return $this->respuesta(false, empty($bloqueos) ? "success" : "warning", empty($bloqueos) ? "Propuesta de publicacion preparada" : "Propuesta preparada con bloqueos", array(
         "read_only" => true,
         "no_escribe_bd" => true,
         "publicable_fase_1" => empty($bloqueos),
+        "producto_completo_operativo" => empty($bloqueos),
         "bloqueos_publicacion" => $bloqueos,
         "auditoria_editorial" => $auditoriaEditorial,
         "producto_vivo_erp" => array(
@@ -4895,6 +4906,13 @@ class EcommerceCatalogoPublico extends CRUD {
           "imagen" => $fila["url_imagen"],
           "precio" => floatval($fila["precio"]),
           "moneda" => $fila["moneda"] ?: "MXN",
+          "precio_general_activo" => $precioGeneralActivo,
+          "precio_vigente_lista_activo" => $precioGeneralActivo,
+          "lista_precio_id" => isset($fila["id_lista_precio"]) ? intval($fila["id_lista_precio"]) : null,
+          "lista_precio_codigo" => isset($fila["lista_codigo"]) ? (string) $fila["lista_codigo"] : "",
+          "lista_precio_nombre" => isset($fila["lista_nombre"]) ? (string) $fila["lista_nombre"] : "",
+          "lista_precio_requerida" => "general",
+          "moneda_requerida" => "MXN",
           "disponibilidad_publica_sugerida" => $this->disponibilidadPublicaSugerida($fila),
           "id_publicacion" => isset($fila["id_publicacion"]) ? intval($fila["id_publicacion"]) : 0,
           "estatus_publicacion" => isset($fila["estatus_publicacion"]) ? (string) $fila["estatus_publicacion"] : ""
@@ -5543,10 +5561,10 @@ class EcommerceCatalogoPublico extends CRUD {
   }
 
   /**
-   * Documentacion IA: Codex GPT-5 | Fecha: 2026-07-30; actualizado 2026-08-11
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-07-30; actualizado 2026-08-21
    * Proposito: publicar un lote de borradores ecommerce seleccionados en panel.
    * Impacto: expone publicaciones aprobadas al API publico manteniendo inventario intacto.
-   * Contrato: escribe solo estatus/fecha de publicacion; requiere token de lote, confirmacion de revision y confirmacion explicita si hay agotados.
+   * Contrato: puede crear borrador faltante y publicar en lote; requiere token, revision y confirmacion explicita si hay agotados.
    */
   public function publicarBorradoresLoteAutorizado($datos = array(), $opciones = array()) {
     $token = trim((string) $this->valor($opciones, "autorizar", $this->valor($datos, "autorizar", "")));
@@ -5571,7 +5589,15 @@ class EcommerceCatalogoPublico extends CRUD {
     $resultados = array();
     $ok = 0;
     $error = 0;
+    $crearBorradorSiNoExiste = intval($this->valor($datos, "crear_borrador_si_no_existe", 0)) === 1;
     foreach ($skus as $idSku) {
+      $borrador = null;
+      if ($crearBorradorSiNoExiste) {
+        $borrador = $this->guardarPublicacionBorradorAutorizada(array(
+          "id_sku" => $idSku,
+          "estatus_publicacion" => "borrador"
+        ), array("autorizar" => "ECOMMERCE_PUBLICO_PUBLICACION_BORRADOR"));
+      }
       $respuesta = $this->publicarBorradorAutorizado(array(
         "id_sku" => $idSku,
         "confirmar_revision" => 1,
@@ -5588,6 +5614,12 @@ class EcommerceCatalogoPublico extends CRUD {
         "mensaje" => isset($respuesta["mensaje"]) ? $respuesta["mensaje"] : "",
         "tipo" => isset($respuesta["tipo"]) ? $respuesta["tipo"] : "",
         "bloqueos" => $this->valor($respuesta, array("depurar", "bloqueos_publicacion"), array()),
+        "borrador_previo" => $borrador ? array(
+          "ok" => empty($borrador["error"]),
+          "mensaje" => isset($borrador["mensaje"]) ? $borrador["mensaje"] : "",
+          "bloqueos" => $this->valor($borrador, array("depurar", "bloqueos_publicacion"), array()),
+          "bloqueos_publicabilidad" => $this->valor($borrador, array("depurar", "bloqueos_publicabilidad"), array())
+        ) : null,
         "publicacion" => $this->valor($respuesta, array("depurar", "publicacion"), array())
       );
     }
@@ -5597,6 +5629,8 @@ class EcommerceCatalogoPublico extends CRUD {
       "total_ok" => $ok,
       "total_error" => $error,
       "resultados" => $resultados,
+      "crear_borrador_si_no_existe" => $crearBorradorSiNoExiste,
+      "confirmar_agotado" => intval($this->valor($datos, "confirmar_agotado", 0)) === 1,
       "no_toca_inventario" => true,
       "no_toca_ecom_legacy" => true
     ));
@@ -5828,10 +5862,18 @@ class EcommerceCatalogoPublico extends CRUD {
       return $this->respuesta(true, "warning", "Selecciona al menos un SKU", array("no_escribe_bd" => true));
     }
     $estatus = trim((string) $this->valor($datos, "estatus_publicacion", ""));
+    $crearBorradorSiNoExiste = $estatus === "publicado" && intval($this->valor($datos, "crear_borrador_si_no_existe", 0)) === 1;
     $ok = 0;
     $error = 0;
     $resultados = array();
     foreach ($skus as $idSku) {
+      $borrador = null;
+      if ($crearBorradorSiNoExiste) {
+        $borrador = $this->guardarPublicacionBorradorAutorizada(array(
+          "id_sku" => $idSku,
+          "estatus_publicacion" => "borrador"
+        ), array("autorizar" => "ECOMMERCE_PUBLICO_PUBLICACION_BORRADOR"));
+      }
       $respuesta = $this->cambiarEstatusPublicacionAutorizado(array(
         "id_sku" => $idSku,
         "estatus_publicacion" => $estatus,
@@ -5846,7 +5888,13 @@ class EcommerceCatalogoPublico extends CRUD {
         "id_sku" => $idSku,
         "ok" => empty($respuesta["error"]),
         "mensaje" => isset($respuesta["mensaje"]) ? $respuesta["mensaje"] : "",
-        "bloqueos" => $this->valor($respuesta, array("depurar", "bloqueos_publicacion"), array())
+        "bloqueos" => $this->valor($respuesta, array("depurar", "bloqueos_publicacion"), array()),
+        "borrador_previo" => $borrador ? array(
+          "ok" => empty($borrador["error"]),
+          "mensaje" => isset($borrador["mensaje"]) ? $borrador["mensaje"] : "",
+          "bloqueos" => $this->valor($borrador, array("depurar", "bloqueos_publicacion"), array()),
+          "bloqueos_publicabilidad" => $this->valor($borrador, array("depurar", "bloqueos_publicabilidad"), array())
+        ) : null
       );
     }
     return $this->respuesta($ok === 0, $ok > 0 ? "success" : "warning", "Lote de estatus ecommerce procesado", array(
@@ -5855,6 +5903,8 @@ class EcommerceCatalogoPublico extends CRUD {
       "total_ok" => $ok,
       "total_error" => $error,
       "resultados" => $resultados,
+      "crear_borrador_si_no_existe" => $crearBorradorSiNoExiste,
+      "confirmar_agotado" => intval($this->valor($datos, "confirmar_agotado", 0)) === 1,
       "no_toca_inventario" => true,
       "no_toca_ecom_legacy" => true
     ));
@@ -5868,7 +5918,7 @@ class EcommerceCatalogoPublico extends CRUD {
     $sql = "SELECT
         COUNT(*) skus_total,
         SUM(p.estatus='activo' AND s.estatus='activo') skus_activos_producto_activo,
-        SUM(CASE WHEN pr.id_sku_precio IS NOT NULL THEN 1 ELSE 0 END) skus_con_precio,
+        SUM(CASE WHEN pr.id_lista_precio_detalle IS NOT NULL THEN 1 ELSE 0 END) skus_con_precio,
         SUM(CASE WHEN img.id_imagen_erp IS NOT NULL THEN 1 ELSE 0 END) skus_con_imagen,
         SUM(CASE WHEN pc.id_categoria_erp IS NOT NULL THEN 1 ELSE 0 END) skus_con_categoria,
         SUM(CASE WHEN p.id_marca_erp IS NOT NULL THEN 1 ELSE 0 END) skus_con_marca,
@@ -5876,7 +5926,7 @@ class EcommerceCatalogoPublico extends CRUD {
         " . $publicadosExpr . " skus_ya_publicados,
         SUM(CASE WHEN p.estatus='activo'
               AND s.estatus='activo'
-              AND pr.id_sku_precio IS NOT NULL
+              AND pr.id_lista_precio_detalle IS NOT NULL
               AND img.id_imagen_erp IS NOT NULL
               AND pc.id_categoria_erp IS NOT NULL
               AND COALESCE(r.permite_venta_fraccionaria, 0)=0
@@ -5885,7 +5935,7 @@ class EcommerceCatalogoPublico extends CRUD {
       INNER JOIN erp_catalogo_productos p ON p.id_producto_erp=s.id_producto_erp
       LEFT JOIN erp_catalogo_producto_categorias pc ON pc.id_producto_erp=p.id_producto_erp AND pc.es_principal=1
       LEFT JOIN erp_catalogo_sku_reglas_inventario r ON r.id_sku=s.id_sku
-      LEFT JOIN erp_catalogo_sku_precios pr ON pr.id_sku=s.id_sku AND pr.lista_precio='general' AND pr.moneda='MXN' AND pr.estatus='activo' AND pr.precio>0
+      " . $this->sqlJoinPrecioListaVigente("s", "LEFT") . "
       LEFT JOIN (
         SELECT id_producto_erp, MIN(id_imagen_erp) id_imagen_erp
         FROM erp_catalogo_imagenes
@@ -5925,13 +5975,13 @@ class EcommerceCatalogoPublico extends CRUD {
     $where = array("p.estatus='activo'", "s.estatus='activo'");
     $params = array();
     if ($soloPublicables) {
-      $where[] = "pr.id_sku_precio IS NOT NULL";
+      $where[] = "pr.id_lista_precio_detalle IS NOT NULL";
       $where[] = "img.url_imagen IS NOT NULL";
       $where[] = "pc.id_categoria_erp IS NOT NULL";
       $where[] = "COALESCE(r.permite_venta_fraccionaria, 0)=0";
     }
     if ($soloBloqueados) {
-      $where[] = "(pr.id_sku_precio IS NULL OR img.url_imagen IS NULL OR pc.id_categoria_erp IS NULL OR COALESCE(r.permite_venta_fraccionaria, 0)=1)";
+      $where[] = "(pr.id_lista_precio_detalle IS NULL OR img.url_imagen IS NULL OR pc.id_categoria_erp IS NULL OR COALESCE(r.permite_venta_fraccionaria, 0)=1)";
     }
     if ($busqueda !== "") {
       $where[] = "(p.nombre LIKE :q OR s.nombre LIKE :q OR s.sku LIKE :q OR p.codigo_producto LIKE :q OR m.nombre LIKE :q OR c.nombre LIKE :q OR c.ruta LIKE :q)";
@@ -5989,7 +6039,7 @@ class EcommerceCatalogoPublico extends CRUD {
       LEFT JOIN erp_catalogo_producto_categorias pc ON pc.id_producto_erp=p.id_producto_erp AND pc.es_principal=1
       LEFT JOIN erp_catalogo_categorias c ON c.id_categoria_erp=pc.id_categoria_erp
       LEFT JOIN erp_catalogo_sku_reglas_inventario r ON r.id_sku=s.id_sku
-      LEFT JOIN erp_catalogo_sku_precios pr ON pr.id_sku=s.id_sku AND pr.lista_precio='general' AND pr.moneda='MXN' AND pr.estatus='activo' AND pr.precio>0
+      " . $this->sqlJoinPrecioListaVigente("s", "LEFT") . "
       LEFT JOIN (
         SELECT i.id_producto_erp, i.url_imagen
         FROM erp_catalogo_imagenes i
@@ -6023,7 +6073,7 @@ class EcommerceCatalogoPublico extends CRUD {
         COALESCE(c.ruta, c.nombre) categoria,
         COALESCE(NULLIF(r.unidad_venta_label, ''), u.abreviatura, u.codigo, '') presentacion_base,
         p.descripcion descripcion_catalogo,
-        pr.precio, pr.moneda,
+        pr.precio, pr.moneda, pr.id_lista_precio, pr.lista_codigo, pr.lista_nombre,
         img.url_imagen,
         COALESCE(r.controla_inventario, CASE WHEN s.tipo_inventario IN ('servicio','cargo') THEN 0 ELSE 1 END) controla_inventario,
         COALESCE(r.permite_venta_fraccionaria, 0) permite_venta_fraccionaria,
@@ -6031,7 +6081,7 @@ class EcommerceCatalogoPublico extends CRUD {
         " . ($tienePublicaciones ? "pub.id_publicacion, pub.estatus_publicacion, pub.slug slug_publicacion, pub.titulo_publico titulo_publico_publicacion, pub.descripcion_publica descripcion_publica_publicacion, pub.presentacion_publica presentacion_publica_publicacion, pub.mascota_especie mascota_especie_publicacion, pub.necesidades_json necesidades_json_publicacion, pub.destacado destacado_publicacion, pub.orden orden_publicacion, pub.permite_cotizacion permite_cotizacion_publicacion, pub.permite_whatsapp permite_whatsapp_publicacion, pub.mostrar_precio mostrar_precio_publicacion, pub.mostrar_disponibilidad mostrar_disponibilidad_publicacion" : "NULL id_publicacion, NULL estatus_publicacion, NULL slug_publicacion, NULL titulo_publico_publicacion, NULL descripcion_publica_publicacion, NULL presentacion_publica_publicacion, NULL mascota_especie_publicacion, NULL necesidades_json_publicacion, NULL destacado_publicacion, NULL orden_publicacion, NULL permite_cotizacion_publicacion, NULL permite_whatsapp_publicacion, NULL mostrar_precio_publicacion, NULL mostrar_disponibilidad_publicacion") . "
       " . $joins . "
       WHERE " . implode(" AND ", $where) . "
-      ORDER BY CASE WHEN pr.id_sku_precio IS NOT NULL AND img.url_imagen IS NOT NULL AND pc.id_categoria_erp IS NOT NULL AND COALESCE(r.permite_venta_fraccionaria,0)=0 THEN 0 ELSE 1 END,
+      ORDER BY CASE WHEN pr.id_lista_precio_detalle IS NOT NULL AND img.url_imagen IS NOT NULL AND pc.id_categoria_erp IS NOT NULL AND COALESCE(r.permite_venta_fraccionaria,0)=0 THEN 0 ELSE 1 END,
         p.nombre, s.sku
       LIMIT " . intval($limite) . " OFFSET " . max(0, intval($offset));
     $stmt = $db->prepare($sql);
@@ -6041,6 +6091,14 @@ class EcommerceCatalogoPublico extends CRUD {
         $bloqueos = $this->bloqueosPublicacion($fila);
         $auditoriaEditorial = $this->auditoriaEditorialPublicacion($fila);
         $fila["publicable_fase_1"] = empty($bloqueos) ? 1 : 0;
+        $fila["producto_completo_operativo"] = empty($bloqueos) ? 1 : 0;
+        $fila["precio_general_activo"] = in_array("precio_general_faltante", $bloqueos, true) ? 0 : 1;
+        $fila["precio_vigente_lista_activo"] = $fila["precio_general_activo"];
+        $fila["lista_precio_requerida"] = "general";
+        $fila["lista_precio_id"] = isset($fila["id_lista_precio"]) ? intval($fila["id_lista_precio"]) : null;
+        $fila["lista_precio_codigo"] = isset($fila["lista_codigo"]) ? (string) $fila["lista_codigo"] : "";
+        $fila["lista_precio_nombre"] = isset($fila["lista_nombre"]) ? (string) $fila["lista_nombre"] : "";
+        $fila["moneda_requerida"] = "MXN";
         $fila["bloqueos_publicacion"] = $bloqueos;
         $fila["auditoria_editorial"] = $auditoriaEditorial;
         $fila["alertas_editoriales"] = $this->valor($auditoriaEditorial, "alertas", array());
@@ -6059,7 +6117,7 @@ class EcommerceCatalogoPublico extends CRUD {
         COALESCE(c.ruta, c.nombre) categoria,
         COALESCE(NULLIF(r.unidad_venta_label, ''), u.abreviatura, u.codigo, '') presentacion_base,
         p.descripcion descripcion_catalogo,
-        pr.precio, pr.moneda,
+        pr.precio, pr.moneda, pr.id_lista_precio, pr.lista_codigo, pr.lista_nombre,
         img.url_imagen,
         COALESCE(r.controla_inventario, CASE WHEN s.tipo_inventario IN ('servicio','cargo') THEN 0 ELSE 1 END) controla_inventario,
         COALESCE(r.permite_venta_fraccionaria, 0) permite_venta_fraccionaria,
@@ -6072,7 +6130,7 @@ class EcommerceCatalogoPublico extends CRUD {
       LEFT JOIN erp_catalogo_producto_categorias pc ON pc.id_producto_erp=p.id_producto_erp AND pc.es_principal=1
       LEFT JOIN erp_catalogo_categorias c ON c.id_categoria_erp=pc.id_categoria_erp
       LEFT JOIN erp_catalogo_sku_reglas_inventario r ON r.id_sku=s.id_sku
-      LEFT JOIN erp_catalogo_sku_precios pr ON pr.id_sku=s.id_sku AND pr.lista_precio='general' AND pr.moneda='MXN' AND pr.estatus='activo' AND pr.precio>0
+      " . $this->sqlJoinPrecioListaVigente("s", "LEFT") . "
       LEFT JOIN (
         SELECT i.id_producto_erp, i.url_imagen
         FROM erp_catalogo_imagenes i
@@ -6283,6 +6341,47 @@ class EcommerceCatalogoPublico extends CRUD {
     return str_replace($buscar, $reemplazar, (string) $texto);
   }
 
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-08-21
+   * Proposito: resolver el precio ecommerce desde listas comerciales activas, no desde precios legacy de Catalogo.
+   * Impacto: catalogo publico, publicabilidad, marcas y categorias; un producto sin lista activa vigente no queda completo ni visible.
+   * Contrato: devuelve un JOIN con alias `pr`, priorizando `erp_listas_precios.prioridad` y el detalle mas reciente.
+   */
+  private function sqlJoinPrecioListaVigente($aliasSku = "s", $tipoJoin = "LEFT") {
+    $aliasSku = preg_replace('/[^A-Za-z0-9_]/', '', (string) $aliasSku);
+    $tipoJoin = strtoupper(trim((string) $tipoJoin)) === "INNER" ? "INNER" : "LEFT";
+    return $tipoJoin . " JOIN (
+        SELECT d.id_lista_precio_detalle, d.id_sku, d.precio, COALESCE(NULLIF(d.moneda, ''), 'MXN') moneda,
+          l.id_lista_precio, l.codigo lista_codigo, l.nombre lista_nombre, l.prioridad lista_prioridad
+        FROM erp_listas_precios_detalle d
+        INNER JOIN erp_listas_precios l ON l.id_lista_precio=d.id_lista_precio
+        WHERE d.estatus='activo'
+          AND d.precio>0
+          AND COALESCE(NULLIF(d.moneda, ''), 'MXN')='MXN'
+          AND l.estatus='activa'
+          AND (d.fecha_inicio IS NULL OR d.fecha_inicio<=NOW())
+          AND (d.fecha_fin IS NULL OR d.fecha_fin>=NOW())
+          AND (l.fecha_inicio IS NULL OR l.fecha_inicio<=NOW())
+          AND (l.fecha_fin IS NULL OR l.fecha_fin>=NOW())
+          AND d.id_lista_precio_detalle = (
+            SELECT d2.id_lista_precio_detalle
+            FROM erp_listas_precios_detalle d2
+            INNER JOIN erp_listas_precios l2 ON l2.id_lista_precio=d2.id_lista_precio
+            WHERE d2.id_sku=d.id_sku
+              AND d2.estatus='activo'
+              AND d2.precio>0
+              AND COALESCE(NULLIF(d2.moneda, ''), 'MXN')='MXN'
+              AND l2.estatus='activa'
+              AND (d2.fecha_inicio IS NULL OR d2.fecha_inicio<=NOW())
+              AND (d2.fecha_fin IS NULL OR d2.fecha_fin>=NOW())
+              AND (l2.fecha_inicio IS NULL OR l2.fecha_inicio<=NOW())
+              AND (l2.fecha_fin IS NULL OR l2.fecha_fin>=NOW())
+            ORDER BY l2.prioridad ASC, d2.id_lista_precio_detalle DESC
+            LIMIT 1
+          )
+      ) pr ON pr.id_sku=" . $aliasSku . ".id_sku";
+  }
+
   private function sqlPublicacionesBase($where) {
     return "SELECT pub.id_publicacion, pub.id_producto_erp, pub.id_sku, pub.slug,
         pub.titulo_publico, pub.descripcion_publica, pub.presentacion_publica,
@@ -6290,7 +6389,7 @@ class EcommerceCatalogoPublico extends CRUD {
         pub.permite_cotizacion, pub.permite_whatsapp, pub.mostrar_precio, pub.mostrar_disponibilidad,
         s.sku, COALESCE(s.nombre, p.nombre) nombre_sku, p.nombre nombre_producto, p.descripcion descripcion_catalogo,
         m.id_marca_erp, m.nombre marca, pc.id_categoria_erp, c.nombre categoria_nombre, COALESCE(c.ruta, c.nombre) categoria,
-        pr.precio, pr.moneda,
+        pr.precio, pr.moneda, pr.id_lista_precio, pr.lista_codigo, pr.lista_nombre,
         img.url_imagen,
         COALESCE(r.controla_inventario, CASE WHEN s.tipo_inventario IN ('servicio','cargo') THEN 0 ELSE 1 END) controla_inventario,
         COALESCE(r.permite_venta_fraccionaria, 0) permite_venta_fraccionaria,
@@ -6302,7 +6401,7 @@ class EcommerceCatalogoPublico extends CRUD {
       LEFT JOIN erp_catalogo_producto_categorias pc ON pc.id_producto_erp=p.id_producto_erp AND pc.es_principal=1
       LEFT JOIN erp_catalogo_categorias c ON c.id_categoria_erp=pc.id_categoria_erp
       LEFT JOIN erp_catalogo_sku_reglas_inventario r ON r.id_sku=s.id_sku
-      LEFT JOIN erp_catalogo_sku_precios pr ON pr.id_sku=s.id_sku AND pr.lista_precio='general' AND pr.moneda='MXN' AND pr.estatus='activo' AND pr.precio>0
+      " . $this->sqlJoinPrecioListaVigente("s", "LEFT") . "
       LEFT JOIN (
         SELECT i.id_producto_erp, i.url_imagen
         FROM erp_catalogo_imagenes i
@@ -6320,6 +6419,7 @@ class EcommerceCatalogoPublico extends CRUD {
         GROUP BY id_sku_erp
       ) inv ON inv.id_sku_erp=s.id_sku
       WHERE " . implode(" AND ", $where) . "
+        AND pr.id_lista_precio_detalle IS NOT NULL
         AND COALESCE(r.permite_venta_fraccionaria, 0)=0";
   }
 
@@ -6390,7 +6490,10 @@ class EcommerceCatalogoPublico extends CRUD {
       FROM erp_ecommerce_publicaciones pub
       INNER JOIN erp_catalogo_skus s ON s.id_sku=pub.id_sku
       INNER JOIN erp_catalogo_productos p ON p.id_producto_erp=pub.id_producto_erp
+      LEFT JOIN erp_catalogo_sku_reglas_inventario r ON r.id_sku=s.id_sku
+      " . $this->sqlJoinPrecioListaVigente("s", "INNER") . "
       WHERE pub.estatus_publicacion='publicado' AND p.estatus='activo' AND s.estatus='activo'
+        AND COALESCE(r.permite_venta_fraccionaria, 0)=0
         AND TRIM(COALESCE(pub.necesidades_json,''))<>''")->fetchAll(PDO::FETCH_ASSOC);
     $conteo = array();
     foreach ($filas as $fila) {
@@ -7024,6 +7127,7 @@ class EcommerceCatalogoPublico extends CRUD {
       INNER JOIN erp_catalogo_productos p ON p.id_producto_erp=pub.id_producto_erp AND p.id_producto_erp=s.id_producto_erp
       INNER JOIN erp_catalogo_marcas m ON m.id_marca_erp=p.id_marca_erp
       LEFT JOIN erp_catalogo_sku_reglas_inventario r ON r.id_sku=s.id_sku
+      " . $this->sqlJoinPrecioListaVigente("s", "INNER") . "
       WHERE pub.estatus_publicacion='publicado'
         AND p.estatus='activo'
         AND s.estatus='activo'
@@ -7100,6 +7204,7 @@ class EcommerceCatalogoPublico extends CRUD {
       INNER JOIN erp_catalogo_producto_categorias pc ON pc.id_producto_erp=p.id_producto_erp AND pc.es_principal=1
       INNER JOIN erp_catalogo_categorias c ON c.id_categoria_erp=pc.id_categoria_erp
       LEFT JOIN erp_catalogo_sku_reglas_inventario r ON r.id_sku=s.id_sku
+      " . $this->sqlJoinPrecioListaVigente("s", "INNER") . "
       WHERE pub.estatus_publicacion='publicado'
         AND p.estatus='activo'
         AND s.estatus='activo'

@@ -5353,6 +5353,17 @@ class Proveedores extends CRUD {
                     d.*,
                     s.sku AS sku_erp,
                     s.nombre AS sku_nombre,
+                    sp_auto.id_sku_proveedor AS id_sku_proveedor_existente,
+                    sp_auto.sku_proveedor AS sku_proveedor_existente,
+                    sp_auto.id_unidad_compra AS id_unidad_compra_existente,
+                    sp_auto.factor_conversion AS factor_conversion_existente,
+                    sp_auto.cantidad_minima AS cantidad_minima_existente,
+                    sp_auto.costo_ultimo AS costo_ultimo_existente,
+                    cv.id_costo_proveedor_sku AS id_costo_vigente,
+                    cv.costo AS costo_vigente,
+                    cv.moneda AS moneda_vigente,
+                    cv.factor_conversion AS factor_conversion_vigente,
+                    cv.costo_incluye_impuestos AS costo_incluye_impuestos_vigente,
                     (
                         SELECT img.url_imagen
                         FROM erp_catalogo_imagenes img
@@ -5378,10 +5389,18 @@ class Proveedores extends CRUD {
                     ) AS tiene_costo_vigente
                 FROM erp_proveedores_listas_detalle_erp d
                 LEFT JOIN erp_catalogo_skus s ON s.id_sku = d.id_sku
+                LEFT JOIN erp_catalogo_sku_proveedores sp_auto
+                    ON sp_auto.id_sku = d.id_sku
+                   AND sp_auto.id_proveedor = :id_proveedor
+                   AND sp_auto.estatus = 'activo'
+                LEFT JOIN erp_proveedores_sku_costos cv
+                    ON cv.id_lista_detalle_erp = d.id_lista_detalle_erp
+                   AND cv.id_proveedor = :id_proveedor_costo
+                   AND cv.estatus = 'vigente'
                 WHERE d.id_lista_proveedor_erp = :id_lista
                 ORDER BY d.id_lista_detalle_erp ASC
                 LIMIT 5000");
-            $stmt->execute(array(":id_lista" => $idLista));
+            $stmt->execute(array(":id_lista" => $idLista, ":id_proveedor" => $idProveedor, ":id_proveedor_costo" => $idProveedor));
             $detalle = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
             return array(

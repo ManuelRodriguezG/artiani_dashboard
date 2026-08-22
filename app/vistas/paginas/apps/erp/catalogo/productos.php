@@ -164,6 +164,70 @@
                                     <div class="card-header border-0 pt-6">
                                         <div class="card-title">
                                             <div>
+                                                <h3 class="fw-bold mb-1">Pendientes comerciales de SKUs</h3>
+                                                <span class="text-muted fs-7">Revision bajo demanda de precios en Listas y costos resolubles</span>
+                                            </div>
+                                        </div>
+                                        <div class="card-toolbar d-flex flex-wrap gap-2">
+                                            <button class="btn btn-sm btn-light-primary" type="button" id="catalogo_auditoria_precios_recargar">
+                                                <i class="bi bi-tags"></i> Revisar precios
+                                            </button>
+                                            <button class="btn btn-sm btn-light-warning" type="button" id="catalogo_auditoria_costos_recargar">
+                                                <i class="bi bi-graph-up-arrow"></i> Revisar costos
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div class="card-body pt-0">
+                                        <div class="row g-5">
+                                            <div class="col-xl-6">
+                                                <div class="d-flex align-items-center justify-content-between mb-3">
+                                                    <span class="fw-bold">Sin precio vigente en Listas</span>
+                                                    <span class="badge badge-light-primary" id="catalogo_auditoria_precios_total">Sin revisar</span>
+                                                </div>
+                                                <div class="table-responsive border rounded">
+                                                    <table class="table align-middle table-row-dashed fs-8 gy-3 mb-0">
+                                                        <thead>
+                                                            <tr class="text-muted fw-bold text-uppercase">
+                                                                <th>SKU</th>
+                                                                <th>Tipo</th>
+                                                                <th>Origen</th>
+                                                                <th class="text-end">Accion</th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody id="catalogo_auditoria_precios_body">
+                                                            <tr><td colspan="4" class="text-center text-muted py-6">Usa Revisar precios para consultar pendientes.</td></tr>
+                                                        </tbody>
+                                                    </table>
+                                                </div>
+                                            </div>
+                                            <div class="col-xl-6">
+                                                <div class="d-flex align-items-center justify-content-between mb-3">
+                                                    <span class="fw-bold">Sin costo resoluble</span>
+                                                    <span class="badge badge-light-warning" id="catalogo_auditoria_costos_total">Sin revisar</span>
+                                                </div>
+                                                <div class="table-responsive border rounded">
+                                                    <table class="table align-middle table-row-dashed fs-8 gy-3 mb-0">
+                                                        <thead>
+                                                            <tr class="text-muted fw-bold text-uppercase">
+                                                                <th>SKU</th>
+                                                                <th>Tipo</th>
+                                                                <th>Faltante</th>
+                                                                <th class="text-end">Accion</th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody id="catalogo_auditoria_costos_body">
+                                                            <tr><td colspan="4" class="text-center text-muted py-6">Usa Revisar costos para consultar pendientes.</td></tr>
+                                                        </tbody>
+                                                    </table>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="card mt-6">
+                                    <div class="card-header border-0 pt-6">
+                                        <div class="card-title">
+                                            <div>
                                                 <h3 class="fw-bold mb-1">Incidencias de calidad</h3>
                                                 <span class="text-muted fs-7">Pendientes abiertos de Catalogo, Proveedores y otros modulos</span>
                                             </div>
@@ -1057,6 +1121,6 @@
             "costos" => SesionSeguridad::tienePermiso("catalogo.costos")
         )); ?>;
     </script>
-    <script src="/assets/js/custom/apps/erp/catalogo/productos.js?v=20260731-paquetes-ux-guiado-1"></script>
+    <script src="/assets/js/custom/apps/erp/catalogo/productos.js?v=20260821-skus-vendibles-acciones-1"></script>
 </body>
 </html>

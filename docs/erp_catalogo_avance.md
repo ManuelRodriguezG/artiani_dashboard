@@ -4131,6 +4131,91 @@ Orden recomendado:
 4. Generar pendientes idempotentes al guardar/activar SKU, presentacion, apertura o paquete.
 5. Mostrar badges operativos en Catalogo sin bloquear captura.
 
+Avance aplicado:
+
+- `CatalogoErpDatos::resolverContextoSkuVendible($idSku)` implementado como consulta read-only.
+- Endpoint `CatalogoErp/contexto_sku_vendible?id_sku=ID` agregado con permiso `catalogo.ver`.
+- El contexto infiere `normal`, `variante`, `granel`, `presentacion`, `apertura_empaque` o `paquete` sin agregar columnas nuevas.
+- El contexto consulta precio vigente en `erp_listas_precios_detalle` solo como existencia de precio; no devuelve importe.
+- El contexto consulta `RentabilidadErp::resolverCostoVigenteSku()` para saber si el costo es resoluble, pero redacta el importe para no exponer costos desde Catalogo.
+- Se devuelven `alertas_sugeridas` para Listas y Rentabilidad, todavia sin persistir notificaciones.
+
+Validacion:
+
+- `C:\xampp\php\php.exe -l app\controladores\CatalogoErp.php`: OK.
+- `C:\xampp\php\php.exe -l app\modelos\CatalogoErpDatos.php`: OK.
+- `C:\xampp\php\php.exe -l storage\uat\uat_catalogo_contexto_sku_vendible_readonly.php`: OK.
+- MySQL local confirmado en puerto `3406`.
+- UAT read-only `storage\uat\uat_catalogo_contexto_sku_vendible_readonly.php`: OK.
+- SKU `PROD0965-1500G`: detectado como `presentacion`, origen `PROD0965`, costo resoluble y sin exponer monto.
+- SKU `INOS-PESS-1500GR`: detectado como `presentacion`, operativo, sin precio vigente en Listas y con alerta sugerida `catalogo_sku_vendible_sin_precio_lista`.
+
+Siguiente paso recomendado:
+
+- Probar `CatalogoErp/contexto_sku_vendible?id_sku=ID` desde navegador con sesion activa.
+- Implementar auditorias por lote: SKUs vendibles sin precio vigente y SKUs derivados sin costo resoluble.
+
+## Actualizacion 2026-08-21 - Auditorias por lote de SKUs vendibles
+
+Proyecto aplicado: `C:\xampp\htdocs\panel_de_control`.
+
+Cambios aplicados:
+
+- Endpoint `CatalogoErp/auditoria_skus_vendibles_sin_precio` agregado como read-only.
+- Endpoint `CatalogoErp/auditoria_skus_vendibles_sin_costo` agregado como read-only.
+- UAT `storage/uat/uat_catalogo_skus_vendibles_pendientes_readonly.php` agregado para probar ambos modos.
+- El contexto vendible ahora identifica como `granel` a SKUs con venta fraccionaria aunque todavia no tengan regla de apertura; en ese caso agrega alerta `catalogo_sku_derivado_sin_origen`.
+
+Evidencia UAT:
+
+- `--modo=precio --limite=5`: OK, devuelve SKUs vendibles sin precio vigente para Comercial/Listas.
+- `--modo=costo --limite=5`: OK, detecta `NUEC-A20K-GRANEL` como SKU granel sin costo resoluble.
+- `NUEC-A20K-GRANEL`: ahora queda como `tipo_derivacion=granel`, `configuracion_incompleta=true` y falta `SKU origen o regla de apertura de empaque`.
+
+Regla de categorias para asignacion de productos:
+
+- Los selectores de Categoria principal y Categorias secundarias en Catalogo deben mostrar categorias activas de tipo `maestra` con `permite_productos=1`.
+- Ya existe validacion backend en `resolverCategoria()` y `resolverCategoriasSecundariasProducto()` para impedir asignar nodos estructurales o categorias que no permiten productos.
+- Si una categoria principal o subcategoria debe poder recibir productos, se debe marcar explicitamente `permite_productos=1` desde Configuracion.
+
+Siguiente paso recomendado:
+
+- Mostrar estas auditorias en UI o generar pendientes persistentes idempotentes hacia Comercial/Listas, Rentabilidad/Costos y Catalogo.
+
+Avance UI:
+
+- Se agrego la tarjeta `Pendientes comerciales de SKUs` en Catalogo > Productos.
+- La auditoria se ejecuta bajo demanda para no hacer mas lenta la carga inicial del catalogo.
+- Boton `Revisar precios`: consulta `CatalogoErp/auditoria_skus_vendibles_sin_precio`.
+- Boton `Revisar costos`: consulta `CatalogoErp/auditoria_skus_vendibles_sin_costo`.
+- Cada renglon permite abrir el producto en el modal de Catalogo para revisar SKUs y corregir origen/presentacion/apertura cuando aplique.
+- En la tabla de SKUs del modal de producto se agrego el boton `Contexto`, que consulta `CatalogoErp/contexto_sku_vendible` y muestra tipo de derivacion, origen, factor, unidad, precio vigente en Listas y si el costo es resoluble, sin exponer montos de costo.
+- Este contexto es solo lectura; las alertas que muestra son sugerencias operativas y todavia no generan pendientes persistentes en Comercial/Listas o Rentabilidad/Costos.
+- Los pendientes ya no quedan solo como semaforo visual: los renglones de precio abren `/comercial/listas_precios?sku=SKU&id_sku=ID` y los renglones de costo abren `/rentabilidad/skus?sku=SKU&id_sku=ID&origen_costo=sin_costo`.
+- Listas de precios acepta `sku`, `q` e `id_sku` desde la URL para precargar el filtro del producto y el preview.
+- Rentabilidad/SKUs acepta `sku`, `q`, `id_sku` y `origen_costo` desde la URL para abrir la consulta ya enfocada en el SKU pendiente.
+
+Regla de responsabilidad:
+
+- Catalogo detecta que el SKU vendible necesita precio o costo resoluble, pero no captura importes.
+- Comercial/Listas decide y guarda precios vigentes por lista/canal.
+- Rentabilidad/Costos resuelve costo vigente o costo derivado desde compras, proveedor, inventario, presentacion, apertura o paquete.
+- Si Rentabilidad no puede resolver costo, Catalogo debe corregir estructura de origen/factor solo cuando el faltante sea estructural; si el faltante es evidencia de compra/costo, corresponde a Compras/Proveedores/Almacen/Rentabilidad.
+
+Validacion adicional:
+
+- `C:\xampp\php\php.exe -l app\vistas\paginas\apps\erp\catalogo\productos.php`: OK.
+- `node --check public\assets\js\custom\apps\erp\catalogo\productos.js`: OK.
+- `node --check public\assets\js\custom\apps\erp\ventas\listas_precios.js`: OK.
+- `node --check public\assets\js\custom\apps\erp\rentabilidad\analisis.js`: OK.
+- `C:\xampp\php\php.exe -l app\vistas\paginas\apps\erp\ventas\listas_precios.php`: OK.
+- `C:\xampp\php\php.exe -l app\vistas\paginas\apps\erp\rentabilidad\skus.php`: OK.
+
+Siguiente paso recomendado:
+
+- Probar en navegador los dos botones de auditoria y confirmar que los botones `Listas` y `Rentabilidad` abren el SKU filtrado.
+- Despues decidir si se generan pendientes persistentes reales desde eventos de guardar/activar SKU, presentacion, apertura o paquete.
+
 ## Actualizacion 2026-08-20 - Fusion conserva imagenes por SKU
 
 Proyecto aplicado: `C:\xampp\htdocs\panel_de_control`.

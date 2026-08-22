@@ -198,3 +198,48 @@ Compras captura el cargo para que el total de la factura/orden cuadre.
 Almacen no recibe cargos.  
 Finanzas valida el gasto y su documento.  
 Costos decide si se prorratea al inventario o queda como gasto/rentabilidad.
+
+## Implementacion preparada en Compras
+
+Fecha: 2026-08-21  
+IA: Codex GPT-5
+
+Se preparo una tabla formal para separar reportes de cargos/gastos de las partidas normales de productos:
+
+- `erp_compras_ordenes_cargos_costos`
+
+Contrato operativo:
+
+- Nace desde partidas de orden con `tipo_item` `cargo`, `servicio`, `adicional` o `no_inventariable`.
+- Conserva `id_orden_detalle` como llave unica para evitar duplicados al volver a guardar la orden.
+- Si el cargo se elimina de la orden, el registro formal se marca como `cancelado`.
+- No afecta inventario, kardex, lotes, recepciones ni existencias.
+- Su estatus inicial es `pendiente_finanzas`.
+- Su tratamiento inicial es `gasto`; `adicional` inicia como `rentabilidad` para revision posterior.
+- Finanzas/Costos podran reclasificar en el futuro a `gasto`, `prorrateo_inventario` o `rentabilidad`.
+
+Endpoint de esquema acotado:
+
+- `Compra/esquema_actualizar_gastos_compra`
+
+Antes de ejecutar con `ejecutar=1`, se requiere respaldo externo de la base y autorizacion explicita.
+
+## Listado operativo de gastos de compra
+
+Fecha: 2026-08-21  
+IA: Codex GPT-5
+
+Se agrego una pantalla de lectura para consultar cargos/gastos ya sincronizados:
+
+- Ruta: `/compra/mostrar_gastos_compra`
+- Endpoint JSON: `/compra/gastos_compra_listar_erp`
+- Permiso: `compras.ver`
+
+Alcance actual:
+
+- Muestra registros activos de `erp_compras_ordenes_cargos_costos`.
+- Permite buscar por orden, proveedor o concepto.
+- Permite filtrar por tipo, tratamiento y estatus.
+- Muestra resumen de registros, subtotal, impuestos y total.
+- Permite abrir la orden relacionada.
+- No reclasifica tratamientos ni valida finanzas; eso queda para modulo Finanzas/Costos.

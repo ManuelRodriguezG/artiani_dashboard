@@ -15,6 +15,13 @@
         return new Intl.NumberFormat("es-MX", {style: "currency", currency: "MXN"}).format(Number(value || 0));
     }
 
+    function precioHtml(item) {
+        if (Number((item || {}).precio_general_activo || 0) !== 1 || Number((item || {}).precio || 0) <= 0) {
+            return "<span class=\"badge badge-light-danger\">Sin lista precio activa</span>";
+        }
+        return dinero(item.precio || 0);
+    }
+
     function imagenUrl(url) {
         url = String(url || "").trim();
         if (!url) { return placeholderImagen; }
@@ -215,7 +222,7 @@
 
     function etiquetaBloqueo(bloqueo) {
         var mapa = {
-            precio_general_faltante: "Sin precio",
+            precio_general_faltante: "Sin lista precio activa",
             imagen_faltante: "Sin imagen",
             categoria_principal_faltante: "Sin categoria",
             venta_fraccionaria_bloqueada_fase_1: "Granel",
@@ -275,7 +282,7 @@
             return "<tr data-sku-row=\"" + escapeHtml(item.id_sku || "") + "\"" + (activo ? " class=\"ecom-ctl-row-active\"" : "") + ">" +
                 "<td><input class=\"form-check-input ecom-ctl-check\" type=\"checkbox\" value=\"" + escapeHtml(item.id_sku || "") + "\" data-estatus=\"" + escapeHtml(estatus) + "\"></td>" +
                 "<td><img class=\"ecom-control-img\" src=\"" + escapeHtml(imagenUrl(item.url_imagen)) + "\" alt=\"\"></td>" +
-                "<td><div class=\"fw-bold\">" + escapeHtml(item.nombre_publico || "") + "</div><div class=\"text-muted fs-8\">" + escapeHtml(item.sku || "") + " | " + escapeHtml(item.marca || "Sin marca") + " | " + dinero(item.precio || 0) + "</div>" + bloqueosHtml(item) + "</td>" +
+                "<td><div class=\"fw-bold\">" + escapeHtml(item.nombre_publico || "") + "</div><div class=\"text-muted fs-8\">" + escapeHtml(item.sku || "") + " | " + escapeHtml(item.marca || "Sin marca") + " | " + precioHtml(item) + "</div>" + bloqueosHtml(item) + "</td>" +
                 "<td>" + escapeHtml(item.categoria || "Sin categoria") + "</td>" +
                 "<td>" + disponibilidadBadge(item.disponibilidad_publica_sugerida) + "</td>" +
                 "<td>" + estadoBadge(estatus) + "</td>" +
@@ -368,7 +375,7 @@
             "<div id=\"ecom_ctl_form\" data-id-sku=\"" + escapeHtml(producto.id_sku || "") + "\" data-id-publicacion=\"" + escapeHtml(idPublicacion || "") + "\">" +
                 "<div class=\"d-flex gap-3 mb-4\">" +
                     "<img class=\"ecom-control-img\" src=\"" + escapeHtml(imagenUrl(producto.imagen)) + "\" alt=\"\">" +
-                    "<div><div class=\"fw-bold\">" + escapeHtml(producto.nombre || "") + "</div><div class=\"text-muted fs-8\">" + escapeHtml(producto.sku || "") + " | " + dinero(producto.precio || 0) + "</div><div class=\"mt-1\">" + estadoBadge(estatus) + " " + disponibilidadBadge(producto.disponibilidad_publica_sugerida) + "</div></div>" +
+                    "<div><div class=\"fw-bold\">" + escapeHtml(producto.nombre || "") + "</div><div class=\"text-muted fs-8\">" + escapeHtml(producto.sku || "") + " | " + precioHtml(producto) + "</div><div class=\"mt-1\">" + estadoBadge(estatus) + " " + disponibilidadBadge(producto.disponibilidad_publica_sugerida) + "</div></div>" +
                 "</div>" +
                 "<div class=\"alert " + (bloqueos.length ? "alert-warning" : "alert-success") + " py-3 mb-4\">" +
                     "<div class=\"fw-bold fs-7 mb-1\">" + (bloqueos.length ? "Diagnostico antes de publicar" : "Listo para publicar") + "</div>" +
@@ -524,7 +531,8 @@
             autorizar: "ECOMMERCE_PUBLICO_LOTE_ESTATUS",
             id_skus: skus.join(","),
             estatus_publicacion: "publicado",
-            confirmar_agotado: $("ecom_ctl_confirmar_agotados").checked ? "1" : "0"
+            confirmar_agotado: $("ecom_ctl_confirmar_agotados").checked ? "1" : "0",
+            crear_borrador_si_no_existe: "1"
         }).then(procesarLote).catch(alertar);
     }
 

@@ -553,7 +553,7 @@ window.RENTABILIDAD_PERMISOS = <?= json_encode(array(
     "snapshot" => SesionSeguridad::tienePermiso("rentabilidad.snapshot")
 )) ?>;
 </script>
-<script src="/assets/js/custom/apps/erp/rentabilidad/analisis.js?v=20260819-1"></script>
+<script src="/assets/js/custom/apps/erp/rentabilidad/analisis.js?v=20260821-filtro-sku-url-1"></script>
 </body>
 </html>
 

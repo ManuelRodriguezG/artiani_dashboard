@@ -6,6 +6,7 @@ class OrdenesCompraErp extends CRUD {
     private $detalleDatosFiscalesColumnaExiste = null;
     private $detalleEvidenciaCostoColumnaExiste = null;
     private $ordenCierreSinRecepcionColumnasExisten = null;
+    private $ordenCargosCostosTablaExiste = null;
 
     public function generarDesdeSolicitud($idSolicitud, $idUsuario) {
         $db = $this->getConexion();
@@ -31,6 +32,7 @@ class OrdenesCompraErp extends CRUD {
             $idProveedor = intval($stmt->fetchColumn());
             $detalle = $this->validarDetalle($db, $items, $idProveedor, intval($idSolicitud));
             $this->insertarDetalle($db, $idOrden, $detalle);
+            $this->sincronizarCargosCostosCompra($db, $idOrden, $idUsuario);
             $subtotal = 0;
             $impuestos = 0;
             $total = 0;
@@ -288,6 +290,76 @@ class OrdenesCompraErp extends CRUD {
         }
     }
 
+    /**
+     * IA: Codex GPT-5
+     * Fecha: 2026-08-21
+     * Proposito: listar cargos/gastos formales derivados de ordenes de compra.
+     * Impacto: Compras/Finanzas/Costos; consulta gastos sin modificar inventario ni ordenes.
+     * Contrato: devuelve items y resumen; solo lee erp_compras_ordenes_cargos_costos.
+     */
+    public function listarGastosCompra($filtros = array()) {
+        try {
+            $db = $this->getConexion();
+            if (!$this->ordenCargosCostosTablaExiste($db)) {
+                return $this->respuesta(false, "success", "Gastos de compra consultados", array(
+                    "items" => array(),
+                    "resumen" => array("registros" => 0, "subtotal" => 0, "impuestos" => 0, "total" => 0)
+                ));
+            }
+            $where = array("1=1");
+            $params = array();
+            if (!empty($filtros["tipo_cargo"])) {
+                $where[] = "g.tipo_cargo=:tipo_cargo";
+                $params[":tipo_cargo"] = trim((string) $filtros["tipo_cargo"]);
+            }
+            if (!empty($filtros["tratamiento"])) {
+                $where[] = "g.tratamiento=:tratamiento";
+                $params[":tratamiento"] = trim((string) $filtros["tratamiento"]);
+            }
+            if (!empty($filtros["estatus"])) {
+                $where[] = "g.estatus=:estatus";
+                $params[":estatus"] = trim((string) $filtros["estatus"]);
+            } else {
+                $where[] = "g.estatus!='cancelado'";
+            }
+            if (!empty($filtros["q"])) {
+                $where[] = "(g.descripcion LIKE :q OR o.folio LIKE :q OR o.folio_proveedor LIKE :q OR p.proveedor LIKE :q)";
+                $params[":q"] = "%" . trim((string) $filtros["q"]) . "%";
+            }
+            $sqlWhere = implode(" AND ", $where);
+            $stmt = $db->prepare("SELECT g.id_cargo_costo, g.id_orden_compra, g.id_orden_detalle,
+                    g.tipo_cargo, g.descripcion, g.cantidad, g.costo_unitario, g.subtotal,
+                    g.descuento, g.porcentaje_impuesto, g.total, g.tratamiento,
+                    g.metodo_prorrateo, g.estatus, g.origen, g.fecha_registro,
+                    o.folio, o.folio_proveedor, o.estatus estatus_orden,
+                    p.proveedor
+                FROM erp_compras_ordenes_cargos_costos g
+                INNER JOIN erp_compras_ordenes o ON o.id_orden_compra=g.id_orden_compra
+                LEFT JOIN erp_proveedores p ON p.id_proveedor=g.id_proveedor
+                WHERE " . $sqlWhere . "
+                ORDER BY g.fecha_registro DESC, g.id_cargo_costo DESC
+                LIMIT 500");
+            $stmt->execute($params);
+            $items = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+            $stmt = $db->prepare("SELECT COUNT(*) registros,
+                    COALESCE(SUM(g.subtotal),0) subtotal,
+                    COALESCE(SUM(GREATEST(g.total - g.subtotal + g.descuento, 0)),0) impuestos,
+                    COALESCE(SUM(g.total),0) total
+                FROM erp_compras_ordenes_cargos_costos g
+                INNER JOIN erp_compras_ordenes o ON o.id_orden_compra=g.id_orden_compra
+                LEFT JOIN erp_proveedores p ON p.id_proveedor=g.id_proveedor
+                WHERE " . $sqlWhere);
+            $stmt->execute($params);
+            $resumen = $stmt->fetch(PDO::FETCH_ASSOC);
+            return $this->respuesta(false, "success", "Gastos de compra consultados", array(
+                "items" => $items,
+                "resumen" => $resumen ?: array("registros" => 0, "subtotal" => 0, "impuestos" => 0, "total" => 0)
+            ));
+        } catch (Exception $e) {
+            return $this->respuesta(true, "danger", $e->getMessage());
+        }
+    }
     public function consultar($idOrden) {
         try {
             $db = $this->getConexion();
@@ -610,6 +682,7 @@ class OrdenesCompraErp extends CRUD {
                 WHERE id_orden_compra=:id");
             $stmt->execute($paramsOrden);
             $this->sincronizarDetalle($db, $idOrden, $detalle);
+            $this->sincronizarCargosCostosCompra($db, $idOrden, $idUsuario);
             $this->registrarIncidenciasCatalogoDesdeOrden($db, $idOrden, intval($orden["id_proveedor"]), $detalle, $idUsuario);
             $this->registrarNotificacionesOperativasDesdeOrden($db, $orden, $idOrden, intval($orden["id_proveedor"]), $detalle, $idUsuario, $estatusDestino);
             $db->commit();
@@ -699,7 +772,7 @@ class OrdenesCompraErp extends CRUD {
                 throw new Exception("Orden de compra no encontrada");
             }
             if (in_array($orden["estatus"], array("borrador", "cancelada"), true)) {
-                throw new Exception("Solo se pueden consolidar costos de ordenes enviadas o recibidas");
+                throw new Exception("Solo se pueden consolidar costos de ordenes enviadas, recibidas o cerradas sin recepcion");
             }
 
             $incluyeIvaSelect = $this->detalleIncluyeIvaColumnaExiste($db) ? "d.costo_unitario_incluye_impuesto" : "0";
@@ -797,8 +870,8 @@ class OrdenesCompraErp extends CRUD {
                 "estatus_orden" => isset($orden["estatus"]) ? $orden["estatus"] : "",
                 "skus_actualizados" => count($aplicados),
                 "reglas" => array(
-                    "La orden debe estar enviada o recibida.",
-                    "El costo se toma del snapshot comprometido de la orden enviada.",
+                    "La orden debe estar enviada, recibida o cerrada sin recepcion.",
+                    "El costo se toma del snapshot comprometido de la orden cerrada operativamente.",
                     "El costo usa el snapshot neto guardado en la orden.",
                     "Si la orden no esta en MXN se usa el tipo de cambio guardado en la orden.",
                     "El costo promedio historico se calcula como indicador, no se guarda en esquema nuevo."
@@ -1251,6 +1324,118 @@ class OrdenesCompraErp extends CRUD {
         }
     }
 
+    /**
+     * IA: Codex GPT-5
+     * Fecha: 2026-08-21
+     * Proposito: sincroniza partidas no inventariables de la orden hacia una tabla formal de gastos/costos de compra.
+     * Impacto: Compras/Finanzas/Costos; permite reportar fletes, envios, maniobras y servicios sin afectar almacen ni inventario.
+     * Contrato: solo opera si existe erp_compras_ordenes_cargos_costos; no crea kardex, no recibe mercancia y conserva id_orden_detalle como llave anti-duplicados.
+     */
+    private function sincronizarCargosCostosCompra($db, $idOrden, $idUsuario) {
+        if (!$this->ordenCargosCostosTablaExiste($db)) {
+            return;
+        }
+        $stmt = $db->prepare("SELECT o.id_proveedor, d.id_detalle, d.tipo_item, d.nombre_producto,
+                d.cantidad, d.costo_unitario, d.porcentaje_impuesto, d.subtotal, d.descuento, d.total
+            FROM erp_compras_ordenes_detalle d
+            INNER JOIN erp_compras_ordenes o ON o.id_orden_compra=d.id_orden_compra
+            WHERE d.id_orden_compra=:orden
+              AND d.tipo_item IN ('servicio','cargo','no_inventariable','adicional')
+            ORDER BY d.id_detalle");
+        $stmt->execute(array(":orden" => intval($idOrden)));
+        $cargos = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        $idsDetalle = array();
+
+        $upsert = $db->prepare("INSERT INTO erp_compras_ordenes_cargos_costos
+            (id_orden_compra, id_orden_detalle, id_proveedor, tipo_cargo, descripcion,
+             cantidad, costo_unitario, subtotal, descuento, porcentaje_impuesto, total,
+             tratamiento, metodo_prorrateo, estatus, origen, creado_por, fecha_actualizacion)
+            VALUES
+            (:orden, :detalle, :proveedor, :tipo, :descripcion,
+             :cantidad, :costo, :subtotal, :descuento, :impuesto, :total,
+             :tratamiento, :metodo_prorrateo, :estatus, 'detalle_orden', :usuario, NOW())
+            ON DUPLICATE KEY UPDATE
+                id_proveedor=VALUES(id_proveedor),
+                tipo_cargo=VALUES(tipo_cargo),
+                descripcion=VALUES(descripcion),
+                cantidad=VALUES(cantidad),
+                costo_unitario=VALUES(costo_unitario),
+                subtotal=VALUES(subtotal),
+                descuento=VALUES(descuento),
+                porcentaje_impuesto=VALUES(porcentaje_impuesto),
+                total=VALUES(total),
+                tratamiento=VALUES(tratamiento),
+                metodo_prorrateo=VALUES(metodo_prorrateo),
+                estatus=CASE WHEN estatus='cancelado' THEN VALUES(estatus) ELSE estatus END,
+                fecha_actualizacion=NOW()");
+
+        foreach ($cargos as $cargo) {
+            $tipo = strtolower(trim((string) (isset($cargo["tipo_item"]) ? $cargo["tipo_item"] : "cargo")));
+            if (!$this->esTipoItemNoInventariable($tipo)) {
+                continue;
+            }
+            $idDetalle = intval($cargo["id_detalle"]);
+            $idsDetalle[] = $idDetalle;
+            $upsert->execute(array(
+                ":orden" => intval($idOrden),
+                ":detalle" => $idDetalle,
+                ":proveedor" => intval(isset($cargo["id_proveedor"]) ? $cargo["id_proveedor"] : 0) ?: null,
+                ":tipo" => $tipo,
+                ":descripcion" => trim((string) (isset($cargo["nombre_producto"]) ? $cargo["nombre_producto"] : "")),
+                ":cantidad" => round(floatval(isset($cargo["cantidad"]) ? $cargo["cantidad"] : 0), 6),
+                ":costo" => round(floatval(isset($cargo["costo_unitario"]) ? $cargo["costo_unitario"] : 0), 6),
+                ":subtotal" => round(floatval(isset($cargo["subtotal"]) ? $cargo["subtotal"] : 0), 6),
+                ":descuento" => round(floatval(isset($cargo["descuento"]) ? $cargo["descuento"] : 0), 6),
+                ":impuesto" => round(floatval(isset($cargo["porcentaje_impuesto"]) ? $cargo["porcentaje_impuesto"] : 0), 6),
+                ":total" => round(floatval(isset($cargo["total"]) ? $cargo["total"] : 0), 6),
+                ":tratamiento" => $this->tratamientoDefaultCargoCompra($tipo),
+                ":metodo_prorrateo" => null,
+                ":estatus" => "pendiente_finanzas",
+                ":usuario" => intval($idUsuario) ?: null
+            ));
+        }
+
+        if (empty($idsDetalle)) {
+            $stmt = $db->prepare("UPDATE erp_compras_ordenes_cargos_costos
+                SET estatus='cancelado', fecha_actualizacion=NOW()
+                WHERE id_orden_compra=:orden AND estatus!='cancelado'");
+            $stmt->execute(array(":orden" => intval($idOrden)));
+            return;
+        }
+
+        $marcas = implode(",", array_fill(0, count($idsDetalle), "?"));
+        $stmt = $db->prepare("UPDATE erp_compras_ordenes_cargos_costos
+            SET estatus='cancelado', fecha_actualizacion=NOW()
+            WHERE id_orden_compra=? AND estatus!='cancelado' AND id_orden_detalle NOT IN (" . $marcas . ")");
+        $stmt->execute(array_merge(array(intval($idOrden)), $idsDetalle));
+    }
+
+    /**
+     * IA: Codex GPT-5
+     * Fecha: 2026-08-21
+     * Proposito: definir la politica inicial de costo para cargos capturados desde Compras.
+     * Impacto: Compras/Finanzas; Finanzas podra reclasificar a prorrateo o rentabilidad despues.
+     */
+    private function tratamientoDefaultCargoCompra($tipoItem) {
+        $tipoItem = strtolower(trim((string) $tipoItem));
+        if ($tipoItem === "adicional") {
+            return "rentabilidad";
+        }
+        return "gasto";
+    }
+
+    private function ordenCargosCostosTablaExiste($db) {
+        if ($this->ordenCargosCostosTablaExiste === null) {
+            try {
+                $stmt = $db->prepare("SHOW TABLES LIKE 'erp_compras_ordenes_cargos_costos'");
+                $stmt->execute();
+                $this->ordenCargosCostosTablaExiste = ($stmt->fetch(PDO::FETCH_NUM) !== false);
+            } catch (Exception $e) {
+                $this->ordenCargosCostosTablaExiste = false;
+            }
+        }
+        return $this->ordenCargosCostosTablaExiste;
+    }
     private function detalleIncluyeIvaColumnaExiste($db) {
         if ($this->detalleIncluyeIvaColumnaExiste === null) {
             try {

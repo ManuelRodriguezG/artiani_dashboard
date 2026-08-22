@@ -7367,3 +7367,39 @@ Prueba real pendiente:
 - Abrir el producto/SKU creado y confirmar que aparece el proveedor relacionado.
 - Regresar a la lista de Proveedores y confirmar que el renglon ya aparece relacionado.
 - Completar datos de compra/costo desde Proveedores y aplicar el flujo normal de validacion de lista.
+
+## Proveedores - Factor de compra y refresco de relacion existente 2026-08-21
+
+Caso detectado:
+
+- SKU ERP `Q311` (`id_sku=636`), proveedor `PETPLANET` (`id_proveedor=6`).
+- Lista proveedor `30`, renglon `16796`.
+- El renglon de lista tenia costo `47.25 MXN` y `factor_conversion=5`, pero la relacion activa `erp_catalogo_sku_proveedores` estaba con `factor_conversion=1`.
+- El costo vigente guardado en `erp_proveedores_sku_costos` estaba con factor `1`, por lo que Listas de precios/rentabilidad lo interpretaba como `47.25` por pieza en lugar de `47.25 / 5 = 9.45` por pieza.
+
+Regla operativa:
+
+- El costo capturado en Proveedores representa lo que cobra el proveedor por su presentacion de compra.
+- `factor_conversion` representa cuantas unidades base ERP contiene esa presentacion.
+- El costo unitario ERP para rentabilidad/listas se calcula como `costo / factor_conversion`.
+- Editar un renglon de lista solo corrige la evidencia/preparacion del renglon; para que afecte la relacion formal proveedor-SKU se debe usar `Aplicar relacion`.
+- Para que afecte costo vigente se debe usar `Aplicar costo vigente` despues de que la relacion este aplicada.
+- No se modifica `costo_referencia` automaticamente por editar una lista; eso sigue en el flujo separado de costo de referencia.
+
+Alcance aplicado:
+
+- El detalle de lista ahora consulta si ya existe una relacion activa `erp_catalogo_sku_proveedores` para el SKU ERP y proveedor, aunque el renglon aun no tenga `id_sku_proveedor`.
+- En la tabla de renglones se muestra una insignia compacta cuando existe relacion proveedor-SKU para el SKU ERP y proveedor.
+- En el modal de editar renglon se muestra la relacion con el mismo patron visual de SKU ERP seleccionado, sin alertas amarillas ni textos explicativos largos.
+- Esto ayuda a detectar casos como Q311 antes de aplicar costo y evita capturar IDs manualmente.
+
+Flujo correcto para corregir Q311:
+
+- Revisar que el renglon `16796` tenga `factor_conversion=5`, costo `47.25`, moneda `MXN` e impuestos definidos.
+- Usar `Aplicar relacion` para que la relacion Petplanet-Q311 tome factor `5`.
+- Usar `Aplicar costo vigente` para que `erp_proveedores_sku_costos` guarde el costo con factor `5`.
+- Validar en Listas de precios/rentabilidad que el costo proveedor unitario sea `9.45`.
+
+Pendiente recomendado:
+
+- Agregar una incidencia/alerta operativa automatica cuando una lista validada tenga renglones donde el factor/costo de lista difiera de la relacion o costo vigente ya aplicado, para que Proveedores revise antes de afectar rentabilidad.

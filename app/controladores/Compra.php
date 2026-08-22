@@ -274,6 +274,16 @@ class Compra extends Controlador {
         ));
     }
 
+    /**
+     * IA: Codex GPT-5
+     * Fecha: 2026-08-21
+     * Proposito: mostrar el reporte operativo de gastos/cargos de compra.
+     * Impacto: Compras; lectura para seguimiento sin reclasificacion financiera.
+     */
+    public function mostrar_gastos_compra() {
+        $this->requerirPermiso("compras.ver");
+        $this->vista("apps/erp/compras/gastos/listado");
+    }
     public function editar_orden_compra($id = 0) {
         $this->requerirPermiso("compras.editar");
         $this->vista("apps/erp/compras/ordenes/formulario", array(
@@ -377,6 +387,16 @@ class Compra extends Controlador {
         return json_encode($this->modelo("OrdenesCompraErp")->listar($_GET));
     }
 
+    /**
+     * IA: Codex GPT-5
+     * Fecha: 2026-08-21
+     * Proposito: consultar cargos/gastos de compra para el listado operativo.
+     * Impacto: Compras/Finanzas/Costos; solo lectura, no modifica tratamientos ni estatus.
+     */
+    public function gastos_compra_listar_erp() {
+        $this->requerirPermiso("compras.ver");
+        return json_encode($this->modelo("OrdenesCompraErp")->listarGastosCompra($_GET));
+    }
     public function orden_buscar_skus_erp() {
         $this->requerirPermiso("compras.ver");
         return json_encode($this->modelo("OrdenesCompraErp")->buscarSkus(
@@ -461,7 +481,8 @@ class Compra extends Controlador {
             }
         }
         if (!$respuesta["error"] && isset($respuesta["depurar"]["estatus"]) &&
-            $respuesta["depurar"]["estatus"] === "enviada") {
+            in_array($respuesta["depurar"]["estatus"], array("enviada", "cerrada_sin_recepcion"), true)) {
+            $estatusOperativo = $respuesta["depurar"]["estatus"];
             $advertenciasOperativas = isset($respuesta["depurar"]["advertencias_operativas"]) &&
                 is_array($respuesta["depurar"]["advertencias_operativas"])
                 ? $respuesta["depurar"]["advertencias_operativas"] : array();
@@ -470,20 +491,35 @@ class Compra extends Controlador {
                 $respuesta["mensaje"] .= ". La orden tiene advertencias operativas";
                 $this->auditarOrdenErp("advertencias_operativas", array(
                     "error" => false,
-                    "mensaje" => "Orden enviada con advertencias operativas",
+                    "mensaje" => "Orden con advertencias operativas",
                     "depurar" => array(
                         "id_orden_compra" => $respuesta["depurar"]["id_orden_compra"],
+                        "estatus" => $estatusOperativo,
                         "advertencias_operativas" => $advertenciasOperativas
                     )
                 ));
             }
-            $respuesta["depurar"]["recepcion_almacen"] = $this->preparar_recepcion_almacen_si_enviada(
-                $respuesta["depurar"]["id_orden_compra"]
-            );
-            if ($respuesta["depurar"]["recepcion_almacen"]["error"]) {
-                $respuesta["tipo"] = "warning";
-                $respuesta["mensaje"] .= ". La recepcion requiere revision";
+            if ($estatusOperativo === "enviada") {
+                $respuesta["depurar"]["recepcion_almacen"] = $this->preparar_recepcion_almacen_si_enviada(
+                    $respuesta["depurar"]["id_orden_compra"]
+                );
+                if ($respuesta["depurar"]["recepcion_almacen"]["error"]) {
+                    $respuesta["tipo"] = "warning";
+                    $respuesta["mensaje"] .= ". La recepcion requiere revision";
+                }
+            } else {
+                $respuesta["depurar"]["recepcion_almacen"] = array(
+                    "error" => false,
+                    "tipo" => "info",
+                    "mensaje" => "Orden cerrada sin recepcion; no se prepara almacen ni inventario"
+                );
             }
+            /**
+             * IA: Codex GPT-5
+             * Fecha: 2026-08-21
+             * Proposito: permitir compras operativas cerradas sin recepcion para alimentar costos, incidencias y seguimiento sin afectar inventario.
+             * Impacto: Compras/Ordenes; solo consolida costos de SKUs ERP existentes, no crea kardex ni recepcion de almacen.
+             */
             $respuesta["depurar"]["costos_consolidados"] = $this->modelo("OrdenesCompraErp")->cerrarCostos(
                 $respuesta["depurar"]["id_orden_compra"],
                 isset($_SESSION["id_usuario"]) ? $_SESSION["id_usuario"] : 0
@@ -746,6 +782,19 @@ class Compra extends Controlador {
         $ejecutar = isset($_POST['ejecutar']) && $_POST['ejecutar'] == 1;
         $esquema = $this->modelo("ComprasEsquema");
         return json_encode($esquema->planActualizarOrdenCompra($ejecutar));
+    }
+    /**
+     * IA: Codex GPT-5
+     * Fecha: 2026-08-21
+     * Proposito: ejecutar/auditar solo el esquema formal de gastos/cargos de compra.
+     * Impacto: Compras/Finanzas/Costos; activa tabla de reportes de cargos sin ejecutar todo el plan de Compras.
+     * Contrato: requiere permiso sistema.soporte; ejecutar=1 solo despues de respaldo externo autorizado.
+     */
+    public function esquema_actualizar_gastos_compra() {
+        $this->requerirPermiso("sistema.soporte");
+        $ejecutar = isset($_POST['ejecutar']) && $_POST['ejecutar'] == 1;
+        $esquema = $this->modelo("ComprasEsquema");
+        return json_encode($esquema->planActualizarGastosCompra($ejecutar));
     }
     /**
      * IA: Codex GPT-5

@@ -259,6 +259,13 @@
         return "<span class=\"badge " + item[0] + "\">" + escapeHtml(item[1]) + "</span>";
     }
 
+    function precioHtml(item) {
+        if (Number(item.precio_general_activo || 0) !== 1 || Number(item.precio || 0) <= 0) {
+            return "<span class=\"badge badge-light-danger\">Sin lista precio activa</span>";
+        }
+        return dinero(item.precio || 0);
+    }
+
     function bloqueosHtml(item) {
         var bloqueos = item.bloqueos_publicacion || [];
         var auditoria = item.auditoria_editorial || {};
@@ -298,7 +305,7 @@
 
     function etiquetaBloqueo(bloqueo) {
         var mapa = {
-            precio_general_faltante: "Sin precio",
+            precio_general_faltante: "Sin lista precio activa",
             imagen_faltante: "Sin imagen",
             categoria_principal_faltante: "Sin categoria",
             venta_fraccionaria_bloqueada_fase_1: "Granel bloqueado",
@@ -353,7 +360,7 @@
                 "<td><div class=\"fw-bold\">" + escapeHtml(item.nombre_publico || "") + "</div><div class=\"text-muted fs-8\">" + escapeHtml(item.sku || "") + " | " + escapeHtml(item.codigo_producto || "") + "</div>" + estadoPublicacionHtml(item) + "</td>" +
                 "<td>" + escapeHtml(item.marca || "Sin marca") + "</td>" +
                 "<td>" + escapeHtml(item.categoria || "Sin categoria") + "</td>" +
-                "<td class=\"text-end fw-semibold\">" + dinero(item.precio || 0) + "</td>" +
+                "<td class=\"text-end fw-semibold\">" + precioHtml(item) + "</td>" +
                 "<td>" + disponibilidadBadge(item.disponibilidad_publica_sugerida) + "</td>" +
                 "<td>" + bloqueosHtml(item) + "</td>" +
                 "<td class=\"text-end\"><button class=\"btn btn-sm btn-light-primary ecom-preparar\" type=\"button\" data-sku=\"" + escapeHtml(item.id_sku || "") + "\">Preparar</button></td>" +
@@ -759,12 +766,12 @@
     }
 
     function publicarBorradoresLote() {
-        var skus = skusSeleccionadosLote("borrador");
+        var skus = skusSeleccionadosLote("");
         if (!skus.length) {
-            window.alert("Selecciona productos en estado borrador.");
+            window.alert("Selecciona al menos un producto.");
             return;
         }
-        if (!window.confirm("Publicar " + skus.length + " borradores seleccionados en el API publico?")) {
+        if (!window.confirm("Publicar " + skus.length + " productos seleccionados en el API publico? Si alguno no tiene borrador, se creara antes de publicar.")) {
             return;
         }
         setEstado("Publicando lote...", "badge-light-info");
@@ -772,7 +779,8 @@
             autorizar: "ECOMMERCE_PUBLICO_LOTE_PUBLICAR",
             id_skus: skus.join(","),
             confirmar_revision: "1",
-            confirmar_agotado: $("ecom_lote_confirmar_agotados") && $("ecom_lote_confirmar_agotados").checked ? "1" : "0"
+            confirmar_agotado: $("ecom_lote_confirmar_agotados") && $("ecom_lote_confirmar_agotados").checked ? "1" : "0",
+            crear_borrador_si_no_existe: "1"
         }).then(function (response) {
             if (response.error) { throw new Error(response.mensaje || "No se pudo publicar lote"); }
             var depurar = response.depurar || {};
@@ -785,6 +793,9 @@
                 }
             });
             setEstado("Publicados: " + Number(depurar.total_ok || 0), "badge-light-success");
+            if (Number(depurar.total_error || 0) > 0 || resumenResultadoLote(depurar) !== "") {
+                window.alert("Publicacion masiva procesada.\nOK: " + Number(depurar.total_ok || 0) + "\nErrores: " + Number(depurar.total_error || 0) + "\n\n" + resumenResultadoLote(depurar));
+            }
             cargarTodo();
         }).catch(function (error) {
             setEstado("Error", "badge-light-danger");

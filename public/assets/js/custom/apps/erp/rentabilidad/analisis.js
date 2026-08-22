@@ -1562,6 +1562,15 @@
         }
     }
     document.addEventListener("DOMContentLoaded", function () {
+        var params = new URLSearchParams(window.location.search || "");
+        var skuInicial = params.get("sku") || params.get("q") || params.get("id_sku") || "";
+        var origenCostoInicial = params.get("origen_costo") || "";
+        if (skuInicial) {
+            $("rentabilidad_buscar").value = skuInicial;
+        }
+        if (origenCostoInicial) {
+            $("rentabilidad_origen_costo").value = origenCostoInicial;
+        }
         aplicarVistaRentabilidad();
         moverConsultaSkuArriba();
         $("rentabilidad_canal").addEventListener("change", function () { aplicarDefaults(); cargar(); });

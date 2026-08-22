@@ -329,6 +329,7 @@ Politica recomendada de estatus de orden:
 - `parcial`: almacen recibio parte de la mercancia; compras no debe establecerlo manualmente.
 - `recibida`: almacen confirmo recepcion completa; compras no debe establecerlo manualmente.
 - `cerrada_sin_recepcion`: compras cierra la orden sin almacen; conserva costos, pagos, adjuntos, XML e incidencias de catalogo/proveedor, pero no crea recepcion ni inventario.
+- Actualizacion 2026-08-21: al cerrar sin recepcion, Compras puede consolidar costos operativos de SKUs ERP existentes y mantener alertas/incidencias de Catalogo/Proveedores; no crea recepcion, kardex ni existencias.
 - `cancelada`: anula la orden cuando no hay recepcion, pagos o notas aplicadas.
 
 Pendiente de mejorar:
@@ -907,4 +908,3 @@ Decision:
 Motivo:
 
 - Seguridad, trazabilidad y control de almacenamiento.
-

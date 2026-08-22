@@ -617,6 +617,43 @@ class Catalogoerp extends Controlador {
   }
 
   /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-08-21
+   * Proposito: expone el contexto vendible normalizado de un SKU para Listas, Rentabilidad, Almacen y canales.
+   * Impacto: Catalogo ERP; solo lectura, no muestra montos de costo ni modifica precios/inventario.
+   * Contrato: GET protegido por `catalogo.ver`; acepta `id_sku` y devuelve estructura, derivacion y pendientes comerciales.
+   */
+  public function contexto_sku_vendible() {
+    $this->requerirPermiso("catalogo.ver");
+    $idSku = isset($_GET["id_sku"]) ? intval($_GET["id_sku"]) : 0;
+    return json_encode($this->modelo("CatalogoErpDatos")->resolverContextoSkuVendible($idSku));
+  }
+
+  /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-08-21
+   * Proposito: audita SKUs operativos que requieren precio vigente en Listas.
+   * Impacto: Catalogo ERP/Comercial; solo lectura, prepara pendientes sin escribir notificaciones.
+   * Contrato: GET protegido por `catalogo.ver`; acepta `q` y `limite`.
+   */
+  public function auditoria_skus_vendibles_sin_precio() {
+    $this->requerirPermiso("catalogo.ver");
+    return json_encode($this->modelo("CatalogoErpDatos")->auditarSkusVendiblesSinPrecioLista($_GET));
+  }
+
+  /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-08-21
+   * Proposito: audita SKUs operativos cuyo costo no puede resolverse desde Rentabilidad.
+   * Impacto: Catalogo ERP/Rentabilidad; solo lectura, no expone importes ni guarda costos.
+   * Contrato: GET protegido por `catalogo.ver`; acepta `q` y `limite`.
+   */
+  public function auditoria_skus_vendibles_sin_costo() {
+    $this->requerirPermiso("catalogo.ver");
+    return json_encode($this->modelo("CatalogoErpDatos")->auditarSkusVendiblesSinCostoResoluble($_GET));
+  }
+
+  /**
    * IA: Codex GPT-5 | Fecha: 2026-06-26
    * Proposito: busca SKUs candidatos para recetas de paquete sin restringirlos al producto abierto.
    * Impacto: Catalogo ERP; prepara paquetes simples/configurables con componentes de multiples productos.

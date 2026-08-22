@@ -829,6 +829,74 @@ Ejemplos probados:
 - `GET /ecommercePublico/catalogo?categoria_slug=acuario-y-peces%2Falimentacion&incluir_hijos=1&limite=2` devuelve productos de acuario.
 - `GET /ecommercePublico/catalogo?categoria_slug=perros%2Falimentacion&incluir_hijos=1&limite=2` devuelve productos de perro.
 
+## Publicacion masiva con agotados 2026-08-21
+
+Problema:
+
+- El boton de publicacion masiva en `/ecommercePublico/publicaciones` solo tomaba seleccionados con estatus `borrador`.
+- Si el usuario seleccionaba productos candidatos o recien configurados, no entraban al lote y parecia necesario publicar uno por uno.
+- La confirmacion `Permitir agotados en lote` ya existia visualmente, pero el flujo no resolvia el caso de crear borrador faltante y publicarlo en la misma accion.
+
+Cambios aplicados:
+
+- El boton ahora se muestra como `Publicar seleccion`.
+- La accion masiva toma todos los SKUs seleccionados, no solo los que ya estan en borrador.
+- El frontend envia:
+  - `crear_borrador_si_no_existe=1`;
+  - `confirmar_revision=1`;
+  - `confirmar_agotado=1` cuando el checkbox `Permitir agotados en lote` esta marcado.
+- `publicarBorradoresLoteAutorizado()` puede crear el borrador faltante antes de intentar publicar.
+- La respuesta por SKU incluye `borrador_previo` para diagnosticar si primero tuvo que crear borrador o si fallo esa etapa.
+- El endpoint generico `publicaciones_lote_estatus_erp` tambien acepta `crear_borrador_si_no_existe=1` cuando se cambia a `publicado`.
+- La pantalla `/ecommercePublico/control` envia la confirmacion de agotados y la creacion de borrador faltante al publicar/reactivar por lote.
+
+Reglas:
+
+- Si un SKU esta agotado y no se marco `Permitir agotados en lote`, sigue bloqueando publicacion con `sku_agotado_requiere_confirmar_agotado`.
+- Publicar agotados no toca inventario, no aparta stock, no crea pedido y solo expone la ficha como publicacion ecommerce.
+- Si falta precio, slug/titulo requerido, o existe un bloqueo critico de publicabilidad, la publicacion sigue bloqueada.
+- El flujo puede crear borrador masivo, pero no reactiva publicaciones pausadas/publicadas como si fueran borradores.
+
+## Regla operativa de lista de precios activa 2026-08-21
+
+Decision:
+
+- Un producto ecommerce no se considera completo si no tiene precio vigente en una lista comercial activa en MXN con precio mayor a cero.
+- La publicacion puede guardarse como borrador para curaduria, pero no debe publicarse ni aparecer como producto completo en el API publico.
+
+Fuente de precio:
+
+- Tablas ERP operativas: `erp_listas_precios` + `erp_listas_precios_detalle`.
+- `erp_catalogo_sku_precios` queda descartada como fuente ecommerce por ser legacy/fallback.
+- Condiciones actuales:
+  - lista con `l.estatus='activa'`;
+  - detalle con `d.estatus='activo'`;
+  - `d.precio>0`;
+  - `COALESCE(d.moneda,'MXN')='MXN'`;
+  - vigencia activa por fechas de lista y detalle;
+  - si hay mas de una lista activa, gana la de menor `l.prioridad` y, en empate, el detalle mas reciente.
+
+Cambios aplicados:
+
+- El catalogo publico solo devuelve publicaciones con precio resuelto desde lista comercial activa.
+- Filtros, categorias y marcas publicas solo cuentan productos con precio resuelto desde lista comercial activa.
+- La auditoria/lista interna marca:
+  - `precio_general_activo`;
+  - `precio_vigente_lista_activo`;
+  - `lista_precio_id`;
+  - `lista_precio_codigo`;
+  - `lista_precio_nombre`;
+  - `lista_precio_requerida=general`;
+  - `moneda_requerida=MXN`;
+  - `producto_completo_operativo`.
+- La UI deja de mostrar `$0.00` cuando falta precio y muestra `Sin lista precio activa`.
+
+Reglas:
+
+- `Permitir agotados en lote` solo resuelve falta de stock, no resuelve falta de precio.
+- Si falta lista de precio activa, se bloquea publicacion con `precio_general_faltante`.
+- Ocultar el precio en frontend con `mostrar_precio=0` no sustituye la lista de precio activa; el producto sigue necesitando precio para ser completo.
+
 ## Calidad editorial de publicaciones 2026-08-19
 
 Problema detectado:

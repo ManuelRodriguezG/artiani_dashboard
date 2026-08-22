@@ -187,6 +187,6 @@
 </div>
 <script src="assets/plugins/global/plugins.bundle.js"></script>
 <script src="assets/js/scripts.bundle.js"></script>
-<script src="/assets/js/custom/apps/erp/ecommerce/control.js?v=20260811-preparacion2"></script>
+<script src="/assets/js/custom/apps/erp/ecommerce/control.js?v=20260821-precio-activo1"></script>
 </body>
 </html>

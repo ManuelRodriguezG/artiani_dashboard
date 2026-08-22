@@ -613,6 +613,6 @@
 </div>
 <script src="assets/plugins/global/plugins.bundle.js"></script>
 <script src="assets/js/scripts.bundle.js"></script>
-<script src="/assets/js/custom/apps/erp/ventas/listas_precios.js?v=20260719-flujo-guiado1"></script>
+<script src="/assets/js/custom/apps/erp/ventas/listas_precios.js?v=20260821-filtro-sku-url-1"></script>
 </body>
 </html>

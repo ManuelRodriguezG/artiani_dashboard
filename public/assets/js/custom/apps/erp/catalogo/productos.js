@@ -22,6 +22,7 @@
     var productosSeleccionados = {};
     var componentesPaqueteForm = [];
     var paqueteGrupoActualId = 0;
+    var auditoriaSkusVendibles = {precio: [], costo: []};
 
     function request(url, data) {
         var body = null;
@@ -583,6 +584,181 @@
     }
 
     /**
+     * IA: Codex GPT-5
+     * Fecha: 2026-08-21
+     * Proposito: consulta bajo demanda SKUs vendibles con pendientes para Listas o Rentabilidad.
+     * Impacto: Catalogo ERP; solo lectura, evita cargar auditorias pesadas al abrir la pantalla.
+     * Contrato: modo `precio` usa Listas; modo `costo` usa Rentabilidad con costos redactados.
+     */
+    function recargarAuditoriaSkusVendibles(modo) {
+        var endpoint = modo === "costo"
+            ? "/catalogoerp/auditoria_skus_vendibles_sin_costo?limite=25"
+            : "/catalogoerp/auditoria_skus_vendibles_sin_precio?limite=25";
+        var total = document.getElementById(modo === "costo" ? "catalogo_auditoria_costos_total" : "catalogo_auditoria_precios_total");
+        var body = document.getElementById(modo === "costo" ? "catalogo_auditoria_costos_body" : "catalogo_auditoria_precios_body");
+        if (total) {
+            total.textContent = "Revisando...";
+        }
+        if (body) {
+            body.innerHTML = "<tr><td colspan=\"4\" class=\"text-center text-muted py-6\">Consultando auditoria...</td></tr>";
+        }
+        request(endpoint).then(function (response) {
+            if (response.error) {
+                throw new Error(response.mensaje);
+            }
+            auditoriaSkusVendibles[modo] = (response.depurar && response.depurar.items) || [];
+            renderAuditoriaSkusVendibles(modo, response.depurar || {});
+        }).catch(function (error) {
+            if (total) {
+                total.textContent = "Error";
+            }
+            if (body) {
+                body.innerHTML = "<tr><td colspan=\"4\" class=\"text-center text-danger py-6\">" + escapeHtml(error.message || String(error)) + "</td></tr>";
+            }
+        });
+    }
+
+    function renderAuditoriaSkusVendibles(modo, depurar) {
+        var esCosto = modo === "costo";
+        var body = document.getElementById(esCosto ? "catalogo_auditoria_costos_body" : "catalogo_auditoria_precios_body");
+        var total = document.getElementById(esCosto ? "catalogo_auditoria_costos_total" : "catalogo_auditoria_precios_total");
+        var items = auditoriaSkusVendibles[modo] || [];
+        var resumen = depurar.resumen || {};
+        if (total) {
+            total.textContent = items.length + " pendiente(s)";
+        }
+        if (!body) {
+            return;
+        }
+        body.innerHTML = items.map(function (item) {
+            var origen = item.sku_origen || "-";
+            var faltante = (item.derivacion_detalle && item.derivacion_detalle.faltante)
+                || (item.costo_resumen && item.costo_resumen.formula)
+                || "Costo no resoluble";
+            var segunda = esCosto ? faltante : origen;
+            var badge = item.tipo_derivacion === "granel" && item.derivacion_detalle && item.derivacion_detalle.configuracion_incompleta
+                ? "<span class=\"badge badge-light-danger ms-1\">Origen pendiente</span>"
+                : "";
+            var acciones = "<div class=\"d-flex justify-content-end gap-1 flex-wrap\">" +
+                "<button class=\"btn btn-sm btn-light-primary\" type=\"button\" data-auditoria-producto=\"" + escapeAttr(item.id_producto_erp) + "\" data-auditoria-sku=\"" + escapeAttr(item.id_sku) + "\"><i class=\"bi bi-eye\"></i> Ver</button>" +
+                (esCosto
+                    ? "<a class=\"btn btn-sm btn-light-warning\" href=\"" + escapeAttr(urlRentabilidadSku(item)) + "\"><i class=\"bi bi-graph-up-arrow\"></i> Rentabilidad</a>"
+                    : "<a class=\"btn btn-sm btn-light-success\" href=\"" + escapeAttr(urlListasPreciosSku(item)) + "\"><i class=\"bi bi-tags\"></i> Listas</a>") +
+                "</div>";
+            return "<tr>" +
+                "<td><div class=\"fw-bold\">" + escapeHtml(item.sku || "-") + "</div><span class=\"text-muted\">" + escapeHtml(item.nombre_sku || item.nombre_producto || "") + "</span></td>" +
+                "<td><span class=\"badge badge-light-" + claseTipoDerivacion(item.tipo_derivacion) + "\">" + escapeHtml(item.tipo_derivacion || "normal") + "</span>" + badge + "</td>" +
+                "<td>" + escapeHtml(segunda) + "</td>" +
+                "<td class=\"text-end\">" + acciones + "</td>" +
+                "</tr>";
+        }).join("") || "<tr><td colspan=\"4\" class=\"text-center text-muted py-6\">Sin pendientes en la ventana revisada" + (resumen.revisados ? " (" + escapeHtml(resumen.revisados) + " revisados)" : "") + ".</td></tr>";
+    }
+
+    function claseTipoDerivacion(tipo) {
+        if (tipo === "granel" || tipo === "apertura_empaque") {
+            return "warning";
+        }
+        if (tipo === "presentacion") {
+            return "info";
+        }
+        if (tipo === "paquete") {
+            return "primary";
+        }
+        if (tipo === "variante") {
+            return "success";
+        }
+        return "secondary";
+    }
+
+    /**
+     * IA: Codex GPT-5
+     * Fecha: 2026-08-21
+     * Proposito: muestra una ficha read-only del contexto vendible de un SKU sin exponer montos de costo.
+     * Impacto: Catalogo ERP; ayuda a corregir origen, precio y costo desde el modal de producto.
+     * Contrato: consume `/catalogoerp/contexto_sku_vendible`; no guarda datos ni genera pendientes.
+     */
+    function consultarContextoSkuVendible(idSku) {
+        if (!idSku) {
+            return;
+        }
+        request("/catalogoerp/contexto_sku_vendible?id_sku=" + encodeURIComponent(idSku)).then(function (response) {
+            if (response.error) {
+                throw new Error(response.mensaje);
+            }
+            mostrarContextoSkuVendible((response.depurar && response.depurar.contexto) || {});
+        }).catch(function (error) {
+            Swal.fire({text: error.message || String(error), icon: "error", confirmButtonText: "Aceptar"});
+        });
+    }
+
+    /**
+     * IA: Codex GPT-5
+     * Fecha: 2026-08-21
+     * Proposito: construir enlaces de atencion desde Catalogo hacia los modulos responsables.
+     * Impacto: Catalogo ERP; convierte auditorias visuales en rutas accionables sin mover precios ni costos.
+     * Contrato: solo arma URLs con SKU/id_sku; el modulo destino mantiene sus permisos y reglas.
+     */
+    function urlListasPreciosSku(item) {
+        var params = new URLSearchParams({
+            sku: item.sku || "",
+            id_sku: item.id_sku || ""
+        });
+        return "/comercial/listas_precios?" + params.toString();
+    }
+
+    function urlRentabilidadSku(item) {
+        var params = new URLSearchParams({
+            sku: item.sku || "",
+            id_sku: item.id_sku || "",
+            origen_costo: "sin_costo"
+        });
+        return "/rentabilidad/skus?" + params.toString();
+    }
+
+    function mostrarContextoSkuVendible(contexto) {
+        var unidad = contexto.unidad_base || {};
+        var alertas = contexto.alertas_sugeridas || [];
+        var costoFuente = contexto.costo_resumen && contexto.costo_resumen.fuente ? contexto.costo_resumen.fuente : "fuente no resuelta";
+        var acciones = "<div class=\"d-flex flex-wrap gap-2 mt-4\">" +
+            "<a class=\"btn btn-sm btn-light-success\" href=\"" + escapeAttr(urlListasPreciosSku(contexto)) + "\"><i class=\"bi bi-tags\"></i> Abrir en Listas</a>" +
+            "<a class=\"btn btn-sm btn-light-warning\" href=\"" + escapeAttr(urlRentabilidadSku(contexto)) + "\"><i class=\"bi bi-graph-up-arrow\"></i> Abrir en Rentabilidad</a>" +
+            "</div>";
+        var html = "<div class=\"text-start\">" +
+            "<div class=\"d-flex flex-wrap gap-2 mb-4\">" +
+            "<span class=\"badge badge-light-" + claseTipoDerivacion(contexto.tipo_derivacion) + "\">" + escapeHtml(contexto.tipo_derivacion || "normal") + "</span>" +
+            "<span class=\"badge badge-light-" + (String(contexto.es_vendible) === "1" ? "success" : "secondary") + "\">" + escapeHtml(contexto.estatus_operativo && contexto.estatus_operativo.mensaje ? contexto.estatus_operativo.mensaje : "Sin estatus") + "</span>" +
+            "</div>" +
+            "<div class=\"row g-3 fs-7\">" +
+            datoContextoHtml("SKU", contexto.sku) +
+            datoContextoHtml("Producto", contexto.nombre_producto) +
+            datoContextoHtml("Origen", contexto.sku_origen || "Sin origen configurado") +
+            datoContextoHtml("Factor", contexto.factor_conversion) +
+            datoContextoHtml("Unidad base", [unidad.nombre, unidad.abreviatura].filter(Boolean).join(" ")) +
+            datoContextoHtml("Unidad venta", contexto.unidad_venta) +
+            datoContextoHtml("Merma", String(contexto.merma_porcentaje || 0) + "%") +
+            datoContextoHtml("Precision", contexto.precision_decimal) +
+            datoContextoHtml("Incremento minimo", contexto.incremento_minimo_venta) +
+            datoContextoHtml("Precio en Listas", String(contexto.tiene_precio_vigente) === "1" ? "Con precio vigente" : "Pendiente") +
+            datoContextoHtml("Costo", String(contexto.costo_derivable) === "1" ? "Resoluble (" + costoFuente + ")" : "No resoluble") +
+            "</div>" +
+            (alertas.length ? "<div class=\"separator my-4\"></div><div class=\"fw-bold mb-2\">Alertas sugeridas</div>" + alertas.map(function (alerta) {
+                return "<div class=\"alert alert-light-" + (alerta.responsable === "catalogo" ? "danger" : "warning") + " py-2 mb-2\"><span class=\"fw-semibold\">" + escapeHtml(alerta.responsable || "-") + ":</span> " + escapeHtml(alerta.mensaje || alerta.tipo || "") + "</div>";
+            }).join("") : "<div class=\"alert alert-light-success mt-4 py-2 mb-0\">Sin alertas sugeridas para este contexto.</div>") +
+            acciones +
+            "</div>";
+        Swal.fire({
+            title: "Contexto vendible",
+            html: html,
+            width: 820,
+            confirmButtonText: "Cerrar"
+        });
+    }
+
+    function datoContextoHtml(label, value) {
+        return "<div class=\"col-md-6\"><div class=\"text-muted\">" + escapeHtml(label) + "</div><div class=\"fw-semibold\">" + escapeHtml(value == null || value === "" ? "-" : value) + "</div></div>";
+    }
+
+    /**
      * IA: Codex GPT-5 | Fecha: 2026-07-30
      * Proposito: permite cerrar manualmente incidencias de calidad ya atendidas sin confundir estatus maestro con resolucion operativa.
      * Impacto: Catalogo ERP; limpia la cola de Incidencias calidad mediante el endpoint auditado existente.
@@ -990,9 +1166,11 @@
             ].filter(Boolean).join(", ") || "Estándar";
             var calidad = renderIndicadoresCalidadSku(sku);
             var unidadSku = "<div>" + escapeHtml(sku.unidad) + "</div><span class=\"text-muted fs-7\">Factor " + escapeHtml(sku.factor_unidad_base || "1") + "</span>";
+            var listas = (numeroMayorCero(sku.precio) ? "<span class=\"badge badge-light-success\">Con precio en lista</span>" : "<span class=\"badge badge-light-warning\">Pendiente en Listas</span>") +
+                "<div class=\"mt-2\"><button type=\"button\" class=\"btn btn-xs btn-light-info py-1 px-2\" data-contexto-sku=\"" + escapeAttr(sku.id_sku) + "\"><i class=\"bi bi-diagram-3\"></i> Contexto</button></div>";
             return "<tr><td><div class=\"fw-bold\">" + escapeHtml(sku.sku) + "</div><span class=\"text-muted fs-7\">" + escapeHtml(sku.codigo_barras || "") + "</span></td>" +
                 "<td>" + escapeHtml(sku.nombre) + "</td><td>" + unidadSku + "</td>" +
-                "<td>" + (numeroMayorCero(sku.precio) ? "<span class=\"badge badge-light-success\">Con precio en lista</span>" : "<span class=\"badge badge-light-warning\">Pendiente en Listas</span>") + "</td>" +
+                "<td>" + listas + "</td>" +
                 "<td><div>" + escapeHtml(sku.estrategia_salida || "FIFO") + "</div><span class=\"text-muted fs-7\">" + escapeHtml(controles) + "</span></td>" +
                 "<td>" + calidad + "</td>" +
                 "<td><span class=\"badge badge-light-" + claseEstatusMaestro(sku.estatus) + "\">" + escapeHtml(sku.estatus) + "</span></td>" +
@@ -4012,6 +4190,10 @@
         var tamanoPaginaSelect = document.getElementById("catalogo_tamano_pagina");
         var incidenciasBody = document.getElementById("catalogo_incidencias_body");
         var incidenciasRecargar = document.getElementById("catalogo_incidencias_recargar");
+        var auditoriaPreciosRecargar = document.getElementById("catalogo_auditoria_precios_recargar");
+        var auditoriaCostosRecargar = document.getElementById("catalogo_auditoria_costos_recargar");
+        var auditoriaPreciosBody = document.getElementById("catalogo_auditoria_precios_body");
+        var auditoriaCostosBody = document.getElementById("catalogo_auditoria_costos_body");
         var codigoBarrasBuscar = document.getElementById("catalogo_codigo_barras_buscar");
         var codigoBarrasInput = document.getElementById("catalogo_codigo_barras_diagnostico");
         var codigoBarrasResultado = document.getElementById("catalogo_codigo_barras_resultado");
@@ -4168,6 +4350,27 @@
         if (incidenciasRecargar) {
             incidenciasRecargar.addEventListener("click", recargarIncidenciasCalidad);
         }
+        if (auditoriaPreciosRecargar) {
+            auditoriaPreciosRecargar.addEventListener("click", function () {
+                recargarAuditoriaSkusVendibles("precio");
+            });
+        }
+        if (auditoriaCostosRecargar) {
+            auditoriaCostosRecargar.addEventListener("click", function () {
+                recargarAuditoriaSkusVendibles("costo");
+            });
+        }
+        [auditoriaPreciosBody, auditoriaCostosBody].forEach(function (bodyAuditoria) {
+            if (!bodyAuditoria) {
+                return;
+            }
+            bodyAuditoria.addEventListener("click", function (event) {
+                var button = event.target.closest("[data-auditoria-producto]");
+                if (button && button.getAttribute("data-auditoria-producto")) {
+                    abrirDetalle(button.getAttribute("data-auditoria-producto"), "catalogo_detalle_skus");
+                }
+            });
+        });
         if (incidenciasBody) {
             incidenciasBody.addEventListener("click", function (event) {
                 var estatus = event.target.closest("[data-incidencia-estatus]");
@@ -4219,6 +4422,11 @@
             });
         }
         document.getElementById("catalogo_detalle_skus_lista").addEventListener("click", function (event) {
+            var contexto = event.target.closest("[data-contexto-sku]");
+            if (contexto) {
+                consultarContextoSkuVendible(contexto.getAttribute("data-contexto-sku"));
+                return;
+            }
             var button = event.target.closest("[data-editar-sku]");
             if (button) {
                 editarSku(button.getAttribute("data-editar-sku"));

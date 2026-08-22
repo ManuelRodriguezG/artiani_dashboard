@@ -1257,8 +1257,12 @@
                 ? "<button class=\"btn btn-sm btn-icon btn-light-danger me-2\" type=\"button\" title=\"Eliminar renglon\" data-eliminar-renglon=\"" + esc(x.id_lista_detalle_erp) + "\"><i class=\"bi bi-trash\"></i></button>"
                 : "";
             var skuCatalogo = x.sku_erp ? "<div class=\"text-muted fs-8\">ERP: " + esc(x.sku_erp) + (x.sku_nombre ? " | " + esc(x.sku_nombre) : "") + "</div>" : "";
+            var factorDifiere = Number(x.factor_conversion || 0) > 0 && Number(x.factor_conversion_existente || 0) > 0 && Number(x.factor_conversion || 0) !== Number(x.factor_conversion_existente || 0);
+            var relacionCatalogo = Number(x.id_sku_proveedor || 0) <= 0 && Number(x.id_sku_proveedor_existente || 0) > 0
+                ? "<div class=\"mt-1\"><span class=\"badge badge-light-success\">Relacion proveedor-SKU #" + esc(x.id_sku_proveedor_existente) + "</span>" + (factorDifiere ? " <span class=\"badge badge-light-info\">Factor " + esc(x.factor_conversion_existente) + " -> " + esc(x.factor_conversion) + "</span>" : "") + "</div>"
+                : (factorDifiere ? "<div class=\"mt-1\"><span class=\"badge badge-light-info\">Factor " + esc(x.factor_conversion_existente) + " -> " + esc(x.factor_conversion) + "</span></div>" : "");
             return "<tr>" +
-                "<td><div class=\"d-flex align-items-center gap-3\">" + imagenListaDetalleHtml(x) + "<div class=\"min-w-0\"><div class=\"fw-bold\">" + esc(sku) + "</div><span class=\"text-muted fs-8\">" + esc(x.marca_proveedor || "") + "</span>" + skuCatalogo + "</div></div></td>" +
+                "<td><div class=\"d-flex align-items-center gap-3\">" + imagenListaDetalleHtml(x) + "<div class=\"min-w-0\"><div class=\"fw-bold\">" + esc(sku) + "</div><span class=\"text-muted fs-8\">" + esc(x.marca_proveedor || "") + "</span>" + skuCatalogo + relacionCatalogo + "</div></div></td>" +
                 "<td>" + esc(x.descripcion_proveedor || "-") + "</td>" +
                 "<td>" + esc(unidad) + estadoCompra + "</td>" +
                 "<td class=\"text-end\">" + esc(costo) + "</td>" +
@@ -1517,7 +1521,13 @@
         document.getElementById("proveedores_erp_lista_detalle_form_titulo").textContent = renglon.id_lista_detalle_erp ? "Editar renglon" : "Agregar renglon";
         document.getElementById("proveedores_erp_lista_detalle_form_error").classList.add("d-none");
         document.getElementById("proveedores_erp_lista_detalle_sku_buscar").value = renglon.sku_erp || renglon.sku || "";
-        document.getElementById("proveedores_erp_lista_detalle_sku_resultados").innerHTML = "";
+        var factorDifiere = Number(renglon.factor_conversion || 0) > 0 && Number(renglon.factor_conversion_existente || 0) > 0 && Number(renglon.factor_conversion || 0) !== Number(renglon.factor_conversion_existente || 0);
+        var relacionExistente = Number(renglon.id_sku_proveedor || 0) <= 0 && Number(renglon.id_sku_proveedor_existente || 0) > 0
+            ? tarjetaSkuListaDetalle(renglon, renglon.id_sku_proveedor_existente, factorDifiere)
+            : (Number(renglon.id_sku_proveedor || 0) > 0
+                ? tarjetaSkuListaDetalle(renglon, renglon.id_sku_proveedor, factorDifiere)
+                : "");
+        document.getElementById("proveedores_erp_lista_detalle_sku_resultados").innerHTML = relacionExistente;
         llenarUnidadesListaDetalle();
         setValor(form, "id_unidad_compra", renglon.id_unidad_compra || "");
         bootstrap.Modal.getOrCreateInstance(document.getElementById("proveedores_erp_lista_detalle_form_modal")).show();
@@ -1550,6 +1560,19 @@
         }).catch(function (err) {
             contenedor.innerHTML = "<div class=\"text-danger fs-8\">" + esc(err.message) + "</div>";
         });
+    }
+
+    function tarjetaSkuListaDetalle(renglon, idRelacion, factorDifiere) {
+        var titulo = [renglon.sku_erp || renglon.sku, renglon.sku_nombre].filter(Boolean).join(" | ");
+        var meta = [
+            idRelacion ? "Relacion #" + idRelacion : "",
+            renglon.id_sku ? "SKU ERP #" + renglon.id_sku : "",
+            factorDifiere ? "Factor " + renglon.factor_conversion_existente + " -> " + renglon.factor_conversion : ""
+        ].filter(Boolean).join(" | ");
+        return "<div class=\"btn btn-sm btn-light-success text-start w-100 mb-2 pe-none\">" +
+            "<span class=\"fw-semibold d-block\">" + esc(titulo || "SKU ERP relacionado") + "</span>" +
+            "<span class=\"text-muted fs-8\">" + esc(meta || "Relacion proveedor-SKU") + "</span>" +
+        "</div>";
     }
 
     function seleccionarSkuManualListaDetalle(boton) {
