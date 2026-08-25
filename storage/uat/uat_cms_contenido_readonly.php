@@ -350,6 +350,8 @@ if (strpos((string) $jsFrontendActual, "function mediaLocalItems") === false) { 
 if (strpos((string) $jsFrontendActual, "cms_actual_media_archivo") === false) { $bloqueos[] = "js_frontend_actual_modal_sin_carga_media"; }
 if (strpos((string) $jsFrontendActual, "function prepararMediaDesdeModal") === false) { $bloqueos[] = "js_frontend_actual_sin_preparar_media_modal"; }
 if (strpos((string) $jsFrontendActual, "function agregarYUsarMediaDesdeModal") === false) { $bloqueos[] = "js_frontend_actual_sin_agregar_y_usar_media"; }
+if (strpos((string) $jsFrontendActual, "/cms/media_admin_subir_erp") === false) { $bloqueos[] = "js_frontend_actual_media_no_sube_servidor"; }
+if (strpos((string) $jsFrontendActual, "/cms/media_admin_listar_erp") === false) { $bloqueos[] = "js_frontend_actual_media_no_lista_servidor"; }
 if (strpos((string) $jsFrontendActual, "Galeria disponible") === false) { $bloqueos[] = "js_frontend_actual_modal_sin_galeria"; }
 if (strpos((string) $jsFrontendActual, "Filtro opcional") === false) { $bloqueos[] = "js_frontend_actual_modal_sin_filtro_opcional"; }
 if (strpos((string) $jsFrontendActual, "cms_actual_media_preview_seleccion") === false) { $bloqueos[] = "js_frontend_actual_modal_sin_preview_seleccion"; }
@@ -514,6 +516,8 @@ if (strpos((string) $modeloPublico, "falta endpoint source") === false) { $bloqu
 if (strpos((string) $modeloPublico, "function mediaAdminPreflightInterno") === false) { $bloqueos[] = "modelo_sin_media_preflight"; }
 if (strpos((string) $modeloPublico, "function mediaAdminListarInterno") === false) { $bloqueos[] = "modelo_sin_media_listar"; }
 if (strpos((string) $modeloPublico, "function mediaAdminSubirInterno") === false) { $bloqueos[] = "modelo_sin_media_subir"; }
+if (strpos((string) $modeloPublico, "function mediaCmsPrincipalPublica") === false) { $bloqueos[] = "modelo_sin_media_fallback_publico"; }
+if (strpos((string) $modeloPublico, "media_cms_fallback") === false) { $bloqueos[] = "modelo_sin_estado_media_fallback"; }
 if (strpos((string) $modeloEsquema, "function planActualizarCmsMediaBiblioteca") === false) { $bloqueos[] = "esquema_sin_plan_media_biblioteca"; }
 if (strpos((string) $modeloEsquema, "erp_ecommerce_media_archivos") === false) { $bloqueos[] = "esquema_media_sin_tabla_archivos"; }
 if (strpos((string) $modeloEsquema, "erp_ecommerce_media_usos") === false) { $bloqueos[] = "esquema_media_sin_tabla_usos"; }

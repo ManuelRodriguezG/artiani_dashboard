@@ -897,6 +897,91 @@ Reglas:
 - Si falta lista de precio activa, se bloquea publicacion con `precio_general_faltante`.
 - Ocultar el precio en frontend con `mostrar_precio=0` no sustituye la lista de precio activa; el producto sigue necesitando precio para ser completo.
 
+## Diagnostico honesto de publicacion masiva 2026-08-24
+
+Problema:
+
+- En lotes grandes era posible publicar una parte y dejar otra bloqueada, pero la UI mostraba textos genericos como `lote procesado`.
+- Cuando ningun producto publicaba, el frontend podia caer en error generico y perder el detalle por SKU.
+- Esto confundia la operacion porque el objetivo es usar la pagina como referencia de que productos faltan por corregir.
+
+Regla operativa:
+
+- La publicacion masiva procesa SKU por SKU y debe publicar todos los que esten completos.
+- La falta de stock no bloquea si el usuario marca `Permitir agotados en lote`.
+- Siguen bloqueando publicacion:
+  - falta de lista de precio activa;
+  - falta de imagen;
+  - venta fraccionaria/granel bloqueada;
+  - slug/titulo invalido;
+  - publicacion no disponible como borrador.
+- Categoria y marca faltantes quedan como pendientes de calidad/navegacion, pero no bloquean la publicacion inicial.
+
+Cambios aplicados:
+
+- El backend devuelve `resultado_lote`:
+  - `completo`;
+  - `parcial`;
+  - `sin_cambios`.
+- La respuesta incluye `total_solicitado`, `total_ok`, `total_error` y resultados por SKU.
+- Los resultados fallidos agregan, cuando esta disponible, `sku`, `nombre`, `categoria`, `precio` y `bloqueos`.
+- La UI muestra `Publicacion masiva parcial` o `No se publico ningun producto` cuando corresponde.
+- Si ningun producto se publico, el frontend conserva el detalle de resultados y no lo sustituye por un error generico.
+
+## Seleccion masiva por filtro 2026-08-24
+
+Problema:
+
+- La tabla de publicaciones esta paginada para que sea usable, pero seleccionar productos pagina por pagina es lento para operaciones de catalogo completo.
+
+Decision:
+
+- Se agrega boton `Seleccionar todos` en `/ecommercePublico/publicaciones`.
+- La seleccion toma todos los SKUs que coinciden con los filtros actuales, no solo la pagina visible.
+- Respeta busqueda, modo `todos/publicables/bloqueados` y estatus de publicacion.
+- Es read-only: seleccionar no guarda, no publica y no toca inventario.
+- La accion esta limitada a 5000 SKUs para evitar payloads excesivos; si se trunca, la UI lo avisa.
+
+Endpoints:
+
+- `GET /ecommercePublico/publicaciones_ids_filtrados_erp`
+- Devuelve `id_skus`, `estatus_por_sku`, `total_filtrado`, `total_seleccionado` y `seleccion_truncada`.
+
+## Publicacion masiva idempotente 2026-08-24
+
+Problema:
+
+- Al usar `Seleccionar todos`, el lote puede mezclar SKUs sin publicacion, en borrador, pausados y ya publicados.
+- El flujo masivo anterior intentaba publicar estrictamente como `borrador`; por eso un producto que individualmente podia manejarse bien fallaba en lote con bloqueos como publicacion existente o no borrador.
+
+Decision:
+
+- `Publicar seleccion` ahora significa dejar el SKU en `publicado` si cumple reglas, no solo publicar borradores.
+- Si el SKU no tiene publicacion, primero intenta crear borrador y despues publicarlo.
+- Si ya tiene publicacion en borrador o pausada, la cambia a `publicado`.
+- Si ya esta publicado y sigue cumpliendo precio/imagen/no granel, cuenta como OK.
+- Si ya esta publicado pero perdio condiciones operativas, queda marcado como error para corregir catalogo/listas.
+
+Reglas que se mantienen:
+
+- `Permitir agotados en lote` solo omite el bloqueo de stock agotado.
+- Falta de precio activo, imagen, slug/titulo o regla granel siguen bloqueando publicacion.
+- Falta de categoria o marca no bloquea; se debe corregir despues para mejorar menu, filtros y landings.
+
+## Publicacion existente no es bloqueo 2026-08-24
+
+Problema:
+
+- Un SKU con publicacion en `borrador` podia mostrar el bloqueo `publicacion_existente` / `Ya tiene publicacion`.
+- Eso confundia la operacion porque `borrador`, `pausado` o `publicado` son estados de la publicacion, no fallas de publicabilidad.
+
+Decision:
+
+- `bloqueosPublicacion()` ya no agrega `publicacion_existente`.
+- La existencia de publicacion se informa por `estatus_publicacion`.
+- Para publicar, solo cuentan bloqueos reales: precio activo, imagen, granel/fraccionario, slug/titulo y agotado si no se confirmo.
+- Un SKU en `borrador` debe poder publicarse si cumple esos requisitos.
+
 ## Calidad editorial de publicaciones 2026-08-19
 
 Problema detectado:

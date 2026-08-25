@@ -530,6 +530,17 @@ class EcommercePublico extends Controlador {
   }
 
   /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-08-24
+   * Proposito: devolver IDs de todos los SKUs que coinciden con los filtros actuales para seleccion masiva.
+   * Impacto: Ecommerce publico/publicaciones; facilita lotes grandes sin seleccionar pagina por pagina.
+   * Contrato: GET protegido por `catalogo.ver`; solo lectura, no publica ni guarda cambios.
+   */
+  public function publicaciones_ids_filtrados_erp() {
+    $this->requerirPermiso("catalogo.ver");
+    return json_encode($this->modelo("EcommerceCatalogoPublico")->idsPublicabilidadFiltrada($_GET));
+  }
+
+  /**
    * Documentacion IA: Codex GPT-5 | Fecha: 2026-07-13
    * Proposito: mostrar readiness interno para arrancar frontend ecommerce externo con mocks o datos reales.
    * Impacto: Ecommerce publico; concentra bloqueos de DDL, CORS, WhatsApp y publicaciones sin escribir BD.

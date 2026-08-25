@@ -66,6 +66,18 @@ class Rentabilidad extends Controlador {
 
     /**
      * IA: Codex GPT-5
+     * Fecha: 2026-08-23
+     * Proposito: abrir bandeja separada de incidencias de costo derivado generadas desde Catalogo.
+     * Impacto: navegacion de Rentabilidad; evita mezclar incidencias persistentes con consulta por SKU.
+     * Contrato: requiere rentabilidad.ver; la vista consulta y pre-resuelve en modo read-only.
+     */
+    public function incidencias_costos() {
+        $this->requerirPermiso("rentabilidad.ver");
+        $this->vista("apps/erp/rentabilidad/incidencias_costos");
+    }
+
+    /**
+     * IA: Codex GPT-5
      * Fecha: 2026-08-04
      * Proposito: abrir vista enfocada de historial y vigencia de snapshots.
      * Impacto: trazabilidad de Rentabilidad sin aplicar precios.
@@ -265,6 +277,49 @@ class Rentabilidad extends Controlador {
     public function costos_derivados_pendientes_erp() {
         $this->requerirPermiso("rentabilidad.ver");
         return json_encode($this->modelo("RentabilidadErp")->auditarPendientesCostoDerivado($_GET));
+    }
+
+    /**
+     * IA: Codex GPT-5
+     * Fecha: 2026-08-23
+     * Proposito: exponer bandeja persistente de incidencias de costo derivado generadas desde Catalogo.
+     * Impacto: Rentabilidad/Costos puede atender pendientes reales en `erp_notificaciones`.
+     * Contrato: requiere rentabilidad.ver; endpoint read-only.
+     */
+    public function incidencias_costos_derivados_erp() {
+        $this->requerirPermiso("rentabilidad.ver");
+        return json_encode($this->modelo("RentabilidadErp")->listarIncidenciasCostoDerivado($_GET));
+    }
+
+    /**
+     * IA: Codex GPT-5
+     * Fecha: 2026-08-23
+     * Proposito: simular resolucion de incidencia de costo derivado antes de escribir estatus.
+     * Impacto: prepara la resolucion operativa sin modificar Catalogo, Listas, Ventas ni notificaciones.
+     * Contrato: requiere rentabilidad.ver; dry-run read-only.
+     */
+    public function incidencia_costo_derivado_pre_resolver_erp() {
+        $this->requerirPermiso("rentabilidad.ver");
+        return json_encode($this->modelo("RentabilidadErp")->preResolverIncidenciaCostoDerivado($_GET));
+    }
+
+    /**
+     * IA: Codex GPT-5
+     * Fecha: 2026-08-24
+     * Proposito: aplicar resolucion persistente de incidencia de costo derivado.
+     * Impacto: actualiza `erp_notificaciones` con estatus y payload trazable; no toca Catalogo, Listas ni Ventas.
+     * Contrato: requiere rentabilidad.snapshot, respaldo externo y confirmacion exacta.
+     */
+    public function incidencia_costo_derivado_resolver_erp() {
+        $this->requerirPermiso("rentabilidad.snapshot");
+        $respuesta = $this->modelo("RentabilidadErp")->resolverIncidenciaCostoDerivadoPersistente($_POST, $this->usuarioActualId());
+        SesionSeguridad::registrarAuditoria("rentabilidad", "incidencia_costo_derivado_resolver_erp", array(
+            "entidad" => "erp_notificaciones",
+            "resultado" => $respuesta["error"] ? "error" : "ok",
+            "mensaje" => $respuesta["mensaje"],
+            "datos_despues" => isset($respuesta["depurar"]) ? $respuesta["depurar"] : null
+        ));
+        return json_encode($respuesta);
     }
 
     public function datos_base_auditar_erp() {

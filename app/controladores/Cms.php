@@ -264,6 +264,26 @@ class Cms extends Controlador {
   }
 
   /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-08-24
+   * Proposito: eliminar imagenes de Media CMS no usadas por contenido publicado.
+   * Impacto: CMS media; permite limpiar duplicados sin romper banners o paginas activas.
+   * Contrato: POST protegido por permiso, CSRF global, auditoria explicita y validacion de ruta publica CMS.
+   */
+  public function media_admin_eliminar_erp() {
+    $this->requerirAlgunPermiso(array("cms.editar", "catalogo.editar"));
+    $respuesta = $this->modelo("EcommerceCatalogoPublico")->mediaAdminEliminarInterno($_POST, $this->usuarioActualId());
+    SesionSeguridad::registrarAuditoria("cms", "media_admin_eliminar_erp", array(
+      "id_registro" => isset($_POST["id_media_archivo"]) ? intval($_POST["id_media_archivo"]) : null,
+      "datos_despues" => array(
+        "error" => isset($respuesta["error"]) ? (bool) $respuesta["error"] : true,
+        "mensaje" => isset($respuesta["mensaje"]) ? $respuesta["mensaje"] : "",
+        "archivo_eliminado" => isset($respuesta["depurar"]["archivo_eliminado"]) ? (bool) $respuesta["depurar"]["archivo_eliminado"] : false
+      )
+    ));
+    return json_encode($respuesta, JSON_UNESCAPED_UNICODE);
+  }
+
+  /**
    * Documentacion IA: Codex GPT-5 | Fecha: 2026-08-20
    * Proposito: reservar endpoint futuro para registrar usos de Media CMS.
    * Impacto: CMS media; prepara trazabilidad de imagenes usadas por Home/categorias/marcas/paginas.
@@ -531,6 +551,29 @@ class Cms extends Controlador {
         "pagina" => isset($depurar["pagina"]) ? $depurar["pagina"] : null,
         "estatus" => isset($depurar["estatus"]) ? $depurar["estatus"] : null,
         "publicado_api" => false
+      )
+    ));
+    return json_encode($respuesta, JSON_UNESCAPED_UNICODE);
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-08-23
+   * Proposito: publicar el banner operativo de Home desde CMS Frontend.
+   * Impacto: CMS contenido; persiste `home_banner` como bloque publicado para que lo lea la API publica.
+   * Contrato: POST protegido por cms.publicar/catalogo.editar, CSRF y auditoria; no toca catalogo, precios ni inventario.
+   */
+  public function frontend_home_banner_publicar_erp() {
+    $this->requerirAlgunPermiso(array("cms.publicar", "catalogo.editar"));
+    $respuesta = $this->modelo("EcommerceCatalogoPublico")->frontendHomeBannerPublicarInterno($_POST, $this->usuarioActualId());
+    $depurar = isset($respuesta["depurar"]) && is_array($respuesta["depurar"]) ? $respuesta["depurar"] : array();
+    SesionSeguridad::registrarAuditoria("cms", "frontend_home_banner_publicar_erp", array(
+      "resultado" => empty($respuesta["error"]) ? "ok" : "error",
+      "mensaje" => isset($respuesta["mensaje"]) ? $respuesta["mensaje"] : "",
+      "datos_despues" => array(
+        "id_bloque" => isset($depurar["id_bloque"]) ? $depurar["id_bloque"] : null,
+        "id_publicacion_contenido" => isset($depurar["id_publicacion_contenido"]) ? $depurar["id_publicacion_contenido"] : null,
+        "slot" => isset($depurar["slot"]) ? $depurar["slot"] : null,
+        "publicado_api" => isset($depurar["publicado_api"]) ? $depurar["publicado_api"] : false
       )
     ));
     return json_encode($respuesta, JSON_UNESCAPED_UNICODE);

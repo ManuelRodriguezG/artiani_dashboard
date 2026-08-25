@@ -106,7 +106,7 @@
                             </div>
 
                             <div class="row g-4 mb-5">
-                                <div class="col-md-3"><div class="ecom-kpi"><div class="ecom-kpi__label">Publicables Fase 1</div><div class="ecom-kpi__value" id="ecom_kpi_publicables">0</div><div class="text-muted fs-7 mt-2">SKUs con precio, imagen y categoria, sin granel.</div></div></div>
+                                <div class="col-md-3"><div class="ecom-kpi"><div class="ecom-kpi__label">Publicables Fase 1</div><div class="ecom-kpi__value" id="ecom_kpi_publicables">0</div><div class="text-muted fs-7 mt-2">SKUs con precio e imagen, sin granel.</div></div></div>
                                 <div class="col-md-3"><div class="ecom-kpi"><div class="ecom-kpi__label">Con imagen</div><div class="ecom-kpi__value" id="ecom_kpi_imagen">0</div><div class="text-muted fs-7 mt-2">Listos visualmente para vitrina.</div></div></div>
                                 <div class="col-md-3"><div class="ecom-kpi"><div class="ecom-kpi__label">Con categoria</div><div class="ecom-kpi__value" id="ecom_kpi_categoria">0</div><div class="text-muted fs-7 mt-2">Permiten filtros y navegacion.</div></div></div>
                                 <div class="col-md-3"><div class="ecom-kpi"><div class="ecom-kpi__label">DDL pendiente</div><div class="ecom-kpi__value" id="ecom_kpi_ddl">0</div><div class="text-muted fs-7 mt-2">Tablas faltantes para publicaciones/cotizaciones.</div></div></div>
@@ -141,6 +141,7 @@
                                     <div class="card-toolbar">
                                         <div class="d-flex flex-wrap align-items-center gap-2">
                                             <span class="badge badge-light-info" id="ecom_lote_seleccionados">0 seleccionados</span>
+                                            <button class="btn btn-sm btn-light-info" type="button" id="ecom_lote_seleccionar_todos">Seleccionar todos</button>
                                             <button class="btn btn-sm btn-light" type="button" id="ecom_lote_limpiar">Limpiar seleccion</button>
                                             <button class="btn btn-sm btn-light-primary" type="button" id="ecom_lote_borrador">Guardar borradores</button>
                                             <button class="btn btn-sm btn-success" type="button" id="ecom_lote_publicar">Publicar seleccion</button>
@@ -276,6 +277,6 @@
 </div>
 <script src="assets/plugins/global/plugins.bundle.js"></script>
 <script src="assets/js/scripts.bundle.js"></script>
-<script src="/assets/js/custom/apps/erp/ecommerce/publicaciones.js?v=20260821-precio-activo1"></script>
+<script src="/assets/js/custom/apps/erp/ecommerce/publicaciones.js?v=20260824-publica-sin-categoria1"></script>
 </body>
 </html>

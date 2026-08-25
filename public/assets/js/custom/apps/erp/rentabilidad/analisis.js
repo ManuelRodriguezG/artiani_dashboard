@@ -2,6 +2,7 @@
 (function () {
     var defaults = {};
     var rentabilidadFallbacks = {};
+    var FRASE_RESOLVER_INCIDENCIA_COSTO = "AUTORIZO APLICAR RESOLUCION PERSISTENTE DE INCIDENCIAS DE COSTO DERIVADO";
     /**
      * IA: Codex GPT-5 | Fecha: 2026-08-04
      * Proposito: permitir vistas separadas de Rentabilidad sin fallar cuando una seccion no se renderiza.
@@ -101,6 +102,8 @@
                     render(response.depurar || {});
                 });
             }];
+        } else if (vista === "incidencias_costos") {
+            tareas = [cargarIncidenciasCostosDerivados];
         } else if (vista === "cierre") {
             tareas = [cargarPlanCierre, cargarImpactoCierre, cargarHallazgosCierre, cargarPrioridadesCierre, cargarResponsablesCierre, cargarChecklistCierre, cargarAutorizacionesCierre, cargarPreflightRecomendaciones, cargarRecomendacionesPersistentes];
         } else if (vista === "aprobaciones") {
@@ -430,6 +433,20 @@
             renderCostosDerivados(response.depurar || {});
         }).catch(function (error) {
             $("rentabilidad_costos_derivados").innerHTML = "<div class=\"alert alert-danger mb-0\">" + escapeHtml(error.message) + "</div>";
+        });
+    }
+    /**
+     * IA: Codex GPT-5 | Fecha: 2026-08-23
+     * Proposito: cargar la bandeja persistente de incidencias de costo derivado enviadas por Catalogo.
+     * Impacto: UI de Rentabilidad/Costos; separa incidencias reales de auditorias calculadas.
+     * Contrato: consulta read-only; la accion de resolver es dry-run hasta autorizacion de escritura.
+     */
+    function cargarIncidenciasCostosDerivados() {
+        return request("/rentabilidad/incidencias_costos_derivados_erp?" + new URLSearchParams({q: $("rentabilidad_buscar").value.trim(), limite: "120"}).toString()).then(function (response) {
+            if (response.error) { throw new Error(response.mensaje); }
+            renderIncidenciasCostosDerivados(response.depurar || {});
+        }).catch(function (error) {
+            $("rentabilidad_incidencias_costos").innerHTML = "<div class=\"alert alert-danger mb-0\">" + escapeHtml(error.message) + "</div>";
         });
     }
     function guardarRecomendacionesPersistentes() {
@@ -1337,6 +1354,137 @@
         }
         return "Revisar contrato tecnico y evidencia de costo en el modulo responsable.";
     }
+    /**
+     * IA: Codex GPT-5 | Fecha: 2026-08-23
+     * Proposito: renderizar incidencias persistentes de costo derivado con accion de pre-resolucion.
+     * Impacto: Rentabilidad/Costos atiende trabajo real de Catalogo sin mezclarlo con auditorias read-only.
+     * Contrato: no escribe datos; el boton Resolver costo ejecuta un dry-run del resolutor.
+     */
+    function renderIncidenciasCostosDerivados(data) {
+        var resumen = data.resumen || {};
+        var items = data.items || [];
+        var badges = "<div class=\"d-flex flex-wrap gap-2 mb-3\">" +
+            "<span class=\"badge badge-light-primary\">Total " + Number(resumen.total || 0) + "</span>" +
+            "<span class=\"badge badge-light-warning\">Pendientes " + Number(resumen.pendiente || 0) + "</span>" +
+            "<span class=\"badge badge-light-info\">En revision " + Number(resumen.en_revision || 0) + "</span>" +
+            "<span class=\"badge badge-light-danger\">Bloqueadas " + Number(resumen.bloqueada || 0) + "</span>" +
+            "</div>";
+        if (!items.length) {
+            $("rentabilidad_incidencias_costos").innerHTML = badges + "<div class=\"text-muted fs-8\">Sin incidencias persistentes de costo derivado con el filtro actual</div>";
+            return;
+        }
+        $("rentabilidad_incidencias_costos").innerHTML = badges +
+            "<div class=\"table-responsive\"><table class=\"table align-middle table-row-dashed gy-3 mb-0\"><thead><tr class=\"text-muted fw-bold fs-8 text-uppercase\"><th>SKU derivado</th><th>Tipo</th><th>Origen/factor</th><th>Costo resuelto</th><th>Formula</th><th>Incidencia</th><th>Siguiente paso</th><th class=\"text-end\">Accion</th></tr></thead><tbody>" +
+            items.slice(0, 60).map(function (item) {
+                var costo = item.costo_resolucion || {};
+                var estatusClase = item.estatus === "bloqueada" ? "badge-light-danger" : (item.estatus === "en_revision" ? "badge-light-info" : "badge-light-warning");
+                var prioridadClase = item.prioridad === "critica" || item.prioridad === "alta" ? "badge-light-danger" : "badge-light-secondary";
+                var propuestaClase = costo.estatus_propuesto === "resuelta" ? "badge-light-success" : "badge-light-danger";
+                var costoDetalle = costo.costo > 0
+                    ? "<div class=\"fw-bold\">" + dinero(costo.costo) + "</div><div class=\"text-muted fs-8\">" + escapeHtml(costo.fuente || "") + " / " + escapeHtml(costo.confianza || "") + "</div>"
+                    : "<div class=\"fw-bold text-danger\">Sin costo</div><div class=\"text-muted fs-8\">" + escapeHtml(costo.fuente || "sin_costo") + "</div>";
+                var origen = costo.sku_origen || item.sku_origen || "-";
+                var factor = costo.factor_usado || item.factor_conversion || 0;
+                var cantidadUtil = costo.cantidad_util ? " / util " + Number(costo.cantidad_util || 0).toFixed(6) : "";
+                var alertas = ((costo.bloqueos || []).length ? costo.bloqueos : (costo.advertencias || [])).slice(0, 2).map(function (alerta) {
+                    return "<div class=\"text-muted fs-8\">" + escapeHtml(alerta.id || "") + " " + escapeHtml(alerta.mensaje || "") + "</div>";
+                }).join("");
+                return "<tr>" +
+                    "<td><div class=\"fw-bold\">" + escapeHtml(item.sku_derivado || "") + "</div><div class=\"text-muted fs-8\">#" + Number(item.id_notificacion || 0) + " / SKU " + Number(item.id_sku_derivado || 0) + "</div></td>" +
+                    "<td><span class=\"badge badge-light-primary\">" + escapeHtml(item.tipo_derivacion || "") + "</span></td>" +
+                    "<td><div class=\"fw-bold\">" + escapeHtml(origen) + "</div><div class=\"text-muted fs-8\">factor " + Number(factor || 0).toFixed(6) + cantidadUtil + " / merma " + pct(costo.merma_porcentaje || item.merma_porcentaje || 0) + "</div><div class=\"text-muted fs-8\">" + escapeHtml(item.modo_inventario || "") + "</div></td>" +
+                    "<td>" + costoDetalle + "<span class=\"badge " + propuestaClase + "\">" + escapeHtml(costo.estatus_propuesto || "") + "</span></td>" +
+                    "<td><div class=\"text-muted fs-8\">" + escapeHtml(costo.formula || "") + "</div>" + alertas + "</td>" +
+                    "<td><span class=\"badge " + prioridadClase + "\">" + escapeHtml(item.prioridad || "") + "</span> <span class=\"badge " + estatusClase + "\">" + escapeHtml(item.estatus || "") + "</span><div class=\"text-muted fs-8\">" + escapeHtml(item.evento_origen || "") + "</div><div class=\"text-muted fs-8\">" + escapeHtml(item.fecha_registro || "") + "</div></td>" +
+                    "<td><div class=\"text-muted fs-8\">" + escapeHtml(costo.siguiente_paso || item.siguiente_paso || "") + "</div></td>" +
+                    "<td class=\"text-end\"><button class=\"btn btn-sm btn-light-primary\" type=\"button\" data-incidencia-costo-resolver=\"" + Number(item.id_notificacion || 0) + "\"><i class=\"bi bi-calculator\"></i> Resolver costo</button></td>" +
+                    "</tr>";
+            }).join("") + "</tbody></table></div>";
+    }
+    function preResolverIncidenciaCosto(idNotificacion) {
+        if (!idNotificacion) { return; }
+        request("/rentabilidad/incidencia_costo_derivado_pre_resolver_erp?" + new URLSearchParams({id_notificacion: idNotificacion}).toString()).then(function (response) {
+            if (response.error) { throw new Error(response.mensaje); }
+            var data = response.depurar || {};
+            var r = data.resolucion || {};
+            var bloqueos = (r.bloqueos || []).map(function (item) {
+                return "<div class=\"text-muted fs-8\">" + escapeHtml(item.id || "") + " - " + escapeHtml(item.mensaje || "") + "</div>";
+            }).join("");
+            var puedeAplicar = !!(window.RENTABILIDAD_PERMISOS && window.RENTABILIDAD_PERMISOS.snapshot);
+            Swal.fire({
+                icon: data.estatus_propuesto === "resuelta" ? "success" : "warning",
+                title: data.estatus_propuesto === "resuelta" ? "Costo resoluble" : "Costo bloqueable",
+                html: "<div class=\"text-start\">" +
+                    "<div><strong>Estatus propuesto:</strong> " + escapeHtml(data.estatus_propuesto || "") + "</div>" +
+                    "<div><strong>Costo:</strong> " + dinero(r.costo || 0) + "</div>" +
+                    "<div><strong>Fuente:</strong> " + escapeHtml(r.fuente || "") + "</div>" +
+                    "<div><strong>Confianza:</strong> " + escapeHtml(r.confianza || "") + "</div>" +
+                    "<div><strong>Formula:</strong> <span class=\"text-muted\">" + escapeHtml(r.formula || "") + "</span></div>" +
+                    "<div><strong>Siguiente paso:</strong> " + escapeHtml(data.siguiente_paso || "") + "</div>" +
+                    (data.responsable_bloqueo ? "<div><strong>Responsable bloqueo:</strong> " + escapeHtml(data.responsable_bloqueo || "") + "</div>" : "") +
+                    (bloqueos ? "<div class=\"mt-3\"><strong>Bloqueos</strong>" + bloqueos + "</div>" : "") +
+                    "<div class=\"alert alert-info mt-4 mb-0\">" + (puedeAplicar ? "Pre-resolucion lista. Si aplicas, solo se actualizara erp_notificaciones; no Catalogo, Listas ni Ventas." : "Dry-run: no se actualizo la incidencia. Tu usuario no tiene permiso rentabilidad.snapshot para aplicar el resultado.") + "</div>" +
+                "</div>",
+                showCancelButton: puedeAplicar,
+                confirmButtonText: puedeAplicar ? "Aplicar resultado" : "Aceptar",
+                cancelButtonText: "Solo revisar"
+            }).then(function (confirmacion) {
+                if (puedeAplicar && confirmacion.isConfirmed) {
+                    aplicarResolucionIncidenciaCosto(idNotificacion);
+                }
+            });
+        }).catch(function (error) {
+            Swal.fire({text: error.message, icon: "error", confirmButtonText: "Aceptar"});
+        });
+    }
+    /**
+     * IA: Codex GPT-5 | Fecha: 2026-08-24
+     * Proposito: pedir respaldo y confirmacion exacta antes de cerrar una incidencia de costo derivado.
+     * Impacto: habilita resolucion persistente controlada desde Rentabilidad; la escritura queda limitada a erp_notificaciones.
+     * Contrato: POST protegido por CSRF; no modifica Catalogo, Listas, Ventas ni costos maestros.
+     */
+    function aplicarResolucionIncidenciaCosto(idNotificacion) {
+        Swal.fire({
+            title: "Respaldo externo",
+            text: "Indica la referencia o ruta del respaldo antes de actualizar la incidencia.",
+            input: "text",
+            inputPlaceholder: "Ej. C:\\xampp\\panel_db_backups\\respaldo_2026-08-24.sql",
+            icon: "warning",
+            showCancelButton: true,
+            confirmButtonText: "Continuar",
+            cancelButtonText: "Cancelar",
+            inputValidator: function (value) {
+                return value && value.trim().length >= 8 ? undefined : "Captura una referencia de respaldo valida";
+            }
+        }).then(function (respaldo) {
+            if (!respaldo.isConfirmed) { return; }
+            Swal.fire({
+                title: "Confirmar resolucion",
+                html: "Escribe <strong>" + escapeHtml(FRASE_RESOLVER_INCIDENCIA_COSTO) + "</strong> para aplicar el resultado.",
+                input: "text",
+                icon: "warning",
+                showCancelButton: true,
+                confirmButtonText: "Aplicar",
+                cancelButtonText: "Cancelar",
+                inputValidator: function (value) {
+                    return value === FRASE_RESOLVER_INCIDENCIA_COSTO ? undefined : "La frase no coincide";
+                }
+            }).then(function (confirmacion) {
+                if (!confirmacion.isConfirmed) { return; }
+                post("/rentabilidad/incidencia_costo_derivado_resolver_erp", {
+                    id_notificacion: idNotificacion,
+                    respaldo_externo_ref: respaldo.value.trim(),
+                    confirmar_autorizacion: confirmacion.value
+                }).then(function (response) {
+                    if (response.error) { throw new Error(response.mensaje); }
+                    Swal.fire({text: response.mensaje, icon: response.tipo || "success", confirmButtonText: "Aceptar"});
+                    cargarIncidenciasCostosDerivados();
+                }).catch(function (error) {
+                    Swal.fire({text: error.message, icon: "error", confirmButtonText: "Aceptar"});
+                });
+            });
+        });
+    }
     function renderRecomendacionesPersistentes(data) {
         var items = data.items || [];
         if (!items.length) {
@@ -1541,6 +1689,7 @@
         var visibles = {
             analisis: ["Tablero ejecutivo", "Estado del modulo", "Preflight uso comercial", "Plan de desbloqueo", "Auditoria final", "Recomendaciones operativas"],
             skus: ["Escenarios comerciales", "Matriz de escenarios", "Canal recomendado", "Precios objetivo", "Sensibilidad"],
+            incidencias_costos: ["Incidencias de costo desde Catalogo"],
             cierre: ["Plan de cierre", "Impacto de cierre", "Hallazgos de cierre", "Prioridad de cierre", "Responsables de cierre", "Checklist de cierre", "Paquete de autorizacion", "Recomendaciones persistentes"],
             aprobaciones: ["Aprobacion de precios", "Aprobacion interna", "Paquete autorizacion aprobaciones", "Aprobaciones internas guardadas"],
             calidad: ["Cierre comercial", "Semaforo de cierre", "Variacion de costos", "Datos base para cierre", "Evidencia fiscal XML", "Preflight fiscal", "Workflow comercial", "Costos de presentaciones", "Costos derivados pendientes"],
@@ -1599,6 +1748,11 @@
         $("rentabilidad_snapshots_vigencia_recargar").addEventListener("click", cargarVigenciaSnapshots);
         $("rentabilidad_presentaciones_recargar").addEventListener("click", cargarPresentaciones);
         $("rentabilidad_costos_derivados_recargar").addEventListener("click", cargarCostosDerivados);
+        $("rentabilidad_incidencias_costos_recargar").addEventListener("click", cargarIncidenciasCostosDerivados);
+        $("rentabilidad_incidencias_costos").addEventListener("click", function (event) {
+            var boton = event.target.closest("[data-incidencia-costo-resolver]");
+            if (boton) { preResolverIncidenciaCosto(boton.getAttribute("data-incidencia-costo-resolver")); }
+        });
         $("rentabilidad_matriz_recargar").addEventListener("click", cargarMatriz);
         $("rentabilidad_canales_recargar").addEventListener("click", cargarCanales);
         $("rentabilidad_plan_recargar").addEventListener("click", cargarPlanCierre);

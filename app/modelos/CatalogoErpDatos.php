@@ -4142,6 +4142,7 @@ class CatalogoErpDatos extends CRUD {
         : "0 AS requiere_unidades_fisicas_recepcion";
       $stmt = $db->prepare("SELECT s.id_sku, s.id_producto_erp, s.sku, s.nombre AS nombre_sku,
           s.tipo_inventario, s.id_unidad_base, s.factor_unidad_base, s.estatus AS estatus_sku,
+          COALESCE(s.fecha_actualizacion, s.fecha_registro) AS fecha_actualizacion,
           p.codigo_producto, p.nombre AS nombre_producto, p.maneja_variantes, p.estatus AS estatus_producto,
           u.codigo AS unidad_base_codigo, u.nombre AS unidad_base_nombre, u.abreviatura AS unidad_base_abreviatura,
           u.tipo_magnitud AS unidad_base_magnitud, u.decimales_permitidos AS unidad_base_decimales,
@@ -4170,6 +4171,9 @@ class CatalogoErpDatos extends CRUD {
       $estatusOperativo = $this->estatusOperativoSkuVendible($sku);
       $esVendible = $estatusOperativo["codigo"] === "operativo";
       $requierePrecio = $esVendible;
+      $componentes = $this->componentesContextoSkuVendible($db, $derivacion);
+      $modoInventario = $this->modoInventarioContextoSkuVendible($sku, $derivacion);
+      $advertenciasConfiguracion = $this->advertenciasConfiguracionSkuVendible($sku, $derivacion, $componentes);
       $alertas = array();
 
       if ($requierePrecio && !$precio["tiene_precio_vigente"]) {
@@ -4198,6 +4202,8 @@ class CatalogoErpDatos extends CRUD {
       }
 
       $contexto = array(
+        "id_sku_derivado" => intval($sku["id_sku"]),
+        "sku_derivado" => $sku["sku"],
         "id_sku" => intval($sku["id_sku"]),
         "sku" => $sku["sku"],
         "id_producto_erp" => intval($sku["id_producto_erp"]),
@@ -4205,10 +4211,12 @@ class CatalogoErpDatos extends CRUD {
         "nombre_producto" => $sku["nombre_producto"],
         "nombre_sku" => $sku["nombre_sku"],
         "tipo_derivacion" => $derivacion["tipo_derivacion"],
+        "tipo_derivacion_rentabilidad" => $derivacion["tipo_derivacion"] === "normal" ? "sku_normal" : $derivacion["tipo_derivacion"],
         "relacion_operativa" => $derivacion["relacion_operativa"],
         "id_sku_origen" => $derivacion["id_sku_origen"],
         "sku_origen" => $derivacion["sku_origen"],
         "factor_conversion" => $derivacion["factor_conversion"],
+        "modo_inventario" => $modoInventario,
         "unidad_base" => array(
           "id_unidad" => intval($sku["id_unidad_base"]),
           "codigo" => $sku["unidad_base_codigo"],
@@ -4242,6 +4250,9 @@ class CatalogoErpDatos extends CRUD {
         "costo_resumen" => $costo["resumen"],
         "responsable_precio" => "comercial_listas",
         "responsable_costo" => "rentabilidad_costos",
+        "componentes" => $componentes,
+        "fecha_actualizacion" => $sku["fecha_actualizacion"],
+        "advertencias_configuracion" => $advertenciasConfiguracion,
         "derivacion_detalle" => $derivacion["detalle"],
         "alertas_sugeridas" => $alertas
       );
@@ -4262,7 +4273,166 @@ class CatalogoErpDatos extends CRUD {
    * Impacto: Catalogo ERP/Comercial; prepara bandeja de pendientes sin escribir notificaciones ni precios.
    * Contrato: read-only; devuelve contexto redactado por SKU y respeta `q`/`limite`.
    */
-  public function auditarSkusVendiblesSinPrecioLista($filtros = array()) {
+  /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-08-23
+   * Proposito: registrar incidencia persistente para que Rentabilidad atienda costo de SKUs derivados creados o modificados en Catalogo.
+   * Impacto: Catalogo ERP/Rentabilidad; usa `erp_notificaciones` idempotente y no guarda costos ni precios.
+   * Contrato: no bloquea el guardado principal si notificaciones no esta disponible; devuelve id_notificacion o motivo de omision.
+   */
+  private function registrarIncidenciaCostoDerivadoSku($db, $idSku, $eventoOrigen, $idUsuario = 0) {
+    $idSku = intval($idSku);
+    if ($idSku <= 0 || !$this->tablaExisteCatalogo($db, "erp_notificaciones")) {
+      return array("registrada" => 0, "motivo" => "notificaciones_no_disponibles");
+    }
+    try {
+      $respuestaContexto = $this->resolverContextoSkuVendible($idSku);
+      if ($respuestaContexto["error"] || !isset($respuestaContexto["depurar"]["contexto"])) {
+        return array("registrada" => 0, "motivo" => "contexto_no_resuelto");
+      }
+      $contexto = $respuestaContexto["depurar"]["contexto"];
+      $tipo = isset($contexto["tipo_derivacion_rentabilidad"]) ? (string) $contexto["tipo_derivacion_rentabilidad"] : "sku_normal";
+      if (intval($contexto["es_vendible"]) !== 1 || intval($contexto["requiere_costo"]) !== 1 || $tipo === "sku_normal") {
+        return array("registrada" => 0, "motivo" => "sku_no_derivado_o_no_vendible", "tipo_derivacion" => $tipo);
+      }
+
+      $receta = array(
+        "id_sku_origen" => isset($contexto["id_sku_origen"]) ? intval($contexto["id_sku_origen"]) : 0,
+        "tipo_derivacion_rentabilidad" => $tipo,
+        "factor_conversion" => isset($contexto["factor_conversion"]) ? floatval($contexto["factor_conversion"]) : 0,
+        "merma_porcentaje" => isset($contexto["merma_porcentaje"]) ? floatval($contexto["merma_porcentaje"]) : 0,
+        "unidad_base" => isset($contexto["unidad_base"]) ? $contexto["unidad_base"] : array(),
+        "unidad_venta" => isset($contexto["unidad_venta"]) ? $contexto["unidad_venta"] : "",
+        "precision_decimal" => isset($contexto["precision_decimal"]) ? intval($contexto["precision_decimal"]) : 0,
+        "incremento_minimo_venta" => isset($contexto["incremento_minimo_venta"]) ? floatval($contexto["incremento_minimo_venta"]) : 0,
+        "modo_inventario" => isset($contexto["modo_inventario"]) ? $contexto["modo_inventario"] : "",
+        "componentes" => isset($contexto["componentes"]) ? $contexto["componentes"] : array()
+      );
+      $hashReceta = hash("sha256", json_encode($receta, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
+      $huella = hash("sha256", "catalogo|costo_derivado|sku:" . intval($contexto["id_sku_derivado"]) . "|tipo:" . $tipo);
+      $advertencias = isset($contexto["advertencias_configuracion"]) && is_array($contexto["advertencias_configuracion"])
+        ? $contexto["advertencias_configuracion"]
+        : array();
+      $prioridad = !empty($advertencias) || intval($contexto["costo_derivable"]) !== 1 ? "alta" : "normal";
+
+      require_once __DIR__ . "/NotificacionesErp.php";
+      $notificaciones = new NotificacionesErp();
+      $idNotificacion = $notificaciones->guardarOperativaEnConexion($db, array(
+        "tipo" => "catalogo_sku_derivado_costo_pendiente",
+        "modulo_origen" => "catalogo",
+        "entidad_origen" => "erp_catalogo_skus",
+        "id_entidad_origen" => intval($contexto["id_sku_derivado"]),
+        "area_responsable" => "rentabilidad_costos",
+        "permiso_requerido" => "rentabilidad.ver",
+        "titulo" => "Resolver costo derivado de " . $contexto["sku_derivado"],
+        "descripcion" => "Catalogo actualizo una receta " . $tipo . " para el SKU " . $contexto["sku_derivado"] . ". Rentabilidad debe validar formula, fuente y confianza del costo.",
+        "prioridad" => $prioridad,
+        "estatus" => "pendiente",
+        "url_accion" => "/rentabilidad/skus?id_sku=" . intval($contexto["id_sku_derivado"]) . "&origen=catalogo_incidencia_costo",
+        "payload_json" => array(
+          "huella" => $huella,
+          "hash_receta" => $hashReceta,
+          "id_sku_derivado" => intval($contexto["id_sku_derivado"]),
+          "sku_derivado" => $contexto["sku_derivado"],
+          "id_producto_erp" => intval($contexto["id_producto_erp"]),
+          "tipo_derivacion_rentabilidad" => $tipo,
+          "id_sku_origen" => isset($contexto["id_sku_origen"]) ? intval($contexto["id_sku_origen"]) : 0,
+          "sku_origen" => isset($contexto["sku_origen"]) ? $contexto["sku_origen"] : "",
+          "factor_conversion" => isset($contexto["factor_conversion"]) ? floatval($contexto["factor_conversion"]) : 0,
+          "merma_porcentaje" => isset($contexto["merma_porcentaje"]) ? floatval($contexto["merma_porcentaje"]) : 0,
+          "unidad_base" => isset($contexto["unidad_base"]) ? $contexto["unidad_base"] : array(),
+          "unidad_venta" => isset($contexto["unidad_venta"]) ? $contexto["unidad_venta"] : "",
+          "modo_inventario" => isset($contexto["modo_inventario"]) ? $contexto["modo_inventario"] : "",
+          "componentes" => isset($contexto["componentes"]) ? $contexto["componentes"] : array(),
+          "advertencias_configuracion" => $advertencias,
+          "costo_derivable" => intval($contexto["costo_derivable"]),
+          "evento_origen" => trim((string) $eventoOrigen),
+          "fecha_contexto_catalogo" => isset($contexto["fecha_actualizacion"]) ? $contexto["fecha_actualizacion"] : date("Y-m-d H:i:s"),
+          "responsable_sugerido" => "rentabilidad_costos",
+          "siguiente_paso" => "resolver_costo_derivado_en_rentabilidad"
+        ),
+        "creado_por" => intval($idUsuario) ?: null
+      ));
+      return array("registrada" => 1, "id_notificacion" => intval($idNotificacion), "huella" => $huella, "hash_receta" => $hashReceta);
+    } catch (Exception $e) {
+      return array("registrada" => 0, "motivo" => "error_notificacion", "mensaje" => $e->getMessage());
+    }
+  }
+
+  /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-08-23
+   * Proposito: permite generar manualmente una incidencia de costo derivado desde Pendientes comerciales.
+   * Impacto: Catalogo ERP/Rentabilidad; no calcula ni guarda costos, solo solicita revision persistente.
+   * Contrato: recibe id_sku activo/derivado/vendible y reutiliza la huella idempotente de `erp_notificaciones`.
+   */
+  public function generarIncidenciaCostoDerivadoManual($datos, $idUsuario = 0) {
+    $idSku = intval(isset($datos["id_sku"]) ? $datos["id_sku"] : 0);
+    if ($idSku <= 0) {
+      return $this->respuesta(true, "warning", "Selecciona un SKU para generar la incidencia de costo");
+    }
+    try {
+      $db = $this->getConexion();
+      $resultado = $this->registrarIncidenciaCostoDerivadoSku($db, $idSku, "manual_pendientes_comerciales", $idUsuario);
+      if (intval(isset($resultado["registrada"]) ? $resultado["registrada"] : 0) !== 1) {
+        $motivo = isset($resultado["motivo"]) ? $resultado["motivo"] : "no_registrada";
+        $mensajes = array(
+          "notificaciones_no_disponibles" => "No se pudo generar la incidencia porque la bandeja de notificaciones no esta disponible",
+          "contexto_no_resuelto" => "No se pudo resolver el contexto vendible del SKU",
+          "sku_no_derivado_o_no_vendible" => "El SKU no requiere incidencia de costo derivado o no esta vendible",
+          "error_notificacion" => "No se pudo guardar la incidencia en Rentabilidad"
+        );
+        return $this->respuesta(true, "warning", isset($mensajes[$motivo]) ? $mensajes[$motivo] : "No se genero la incidencia de costo", array(
+          "incidencia_costo_derivado" => $resultado
+        ));
+      }
+      return $this->respuesta(false, "success", "Incidencia de costo enviada a Rentabilidad", array(
+        "incidencia_costo_derivado" => $resultado
+      ));
+    } catch (Exception $e) {
+      return $this->respuesta(true, "danger", $e->getMessage());
+    }
+  }
+  /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-08-23
+   * Proposito: cancelar incidencias activas de costo derivado cuando la receta deja de estar vigente.
+   * Impacto: limpia bandeja de Rentabilidad sin borrar historial de notificaciones.
+   * Contrato: best-effort; no lanza excepciones al flujo principal de Catalogo.
+   */
+  private function cancelarIncidenciasCostoDerivadoSku($db, $idSku, $motivo) {
+    $idSku = intval($idSku);
+    if ($idSku <= 0 || !$this->tablaExisteCatalogo($db, "erp_notificaciones")) {
+      return 0;
+    }
+    try {
+      $stmt = $db->prepare("UPDATE erp_notificaciones
+        SET estatus='cancelada', fecha_actualizacion=NOW(), fecha_resolucion=NOW()
+        WHERE tipo='catalogo_sku_derivado_costo_pendiente'
+          AND estatus IN ('pendiente','en_revision','bloqueada')
+          AND payload_json LIKE :sku");
+      $stmt->execute(array(":sku" => '%"id_sku_derivado":' . $idSku . '%'));
+      return intval($stmt->rowCount());
+    } catch (Exception $e) {
+      return 0;
+    }
+  }
+
+  private function idSkuPaquetePorPaquete($db, $idPaquete) {
+    if (intval($idPaquete) <= 0 || !$this->tablaExisteCatalogo($db, "erp_catalogo_sku_paquetes")) {
+      return 0;
+    }
+    $stmt = $db->prepare("SELECT id_sku_paquete FROM erp_catalogo_sku_paquetes WHERE id_paquete=:paquete LIMIT 1");
+    $stmt->execute(array(":paquete" => intval($idPaquete)));
+    return intval($stmt->fetchColumn());
+  }
+  /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-08-21
+   * Proposito: lista SKUs activos que pueden venderse pero no tienen precio vigente en Listas.
+   * Impacto: Catalogo ERP/Comercial; prepara bandeja de pendientes sin escribir notificaciones ni precios.
+   * Contrato: read-only; devuelve contexto redactado por SKU y respeta `q`/`limite`.
+   */  public function auditarSkusVendiblesSinPrecioLista($filtros = array()) {
     try {
       $db = $this->getConexion();
       $limite = max(1, min(300, intval(isset($filtros["limite"]) ? $filtros["limite"] : 120)));
@@ -5388,10 +5558,12 @@ class CatalogoErpDatos extends CRUD {
 
       $this->guardarComponentesPaquete($db, $idPaquete, $componentes);
       $db->commit();
+      $incidenciaCosto = $this->registrarIncidenciaCostoDerivadoSku($db, $idSkuPaquete, "guardar_paquete", $idUsuario);
       return $this->respuesta(false, "success", "Paquete guardado", array(
         "id_paquete" => $idPaquete,
         "id_sku_paquete" => $idSkuPaquete,
-        "componentes" => count($componentes)
+        "componentes" => count($componentes),
+        "incidencia_costo_derivado" => $incidenciaCosto
       ));
     } catch (Exception $e) {
       if ($db->inTransaction()) {
@@ -5417,6 +5589,7 @@ class CatalogoErpDatos extends CRUD {
       return $this->respuesta(true, "warning", "Selecciona el paquete que vas a desactivar");
     }
     try {
+      $idSkuPaquete = $this->idSkuPaquetePorPaquete($db, $idPaquete);
       $stmt = $db->prepare("UPDATE erp_catalogo_sku_paquetes
         SET estatus='inactivo', fecha_actualizacion=CURRENT_TIMESTAMP
         WHERE id_paquete=:id");
@@ -5424,12 +5597,68 @@ class CatalogoErpDatos extends CRUD {
       if ($stmt->rowCount() === 0) {
         return $this->respuesta(true, "warning", "No se encontro el paquete indicado");
       }
-      return $this->respuesta(false, "success", "Paquete desactivado", array("id_paquete" => $idPaquete));
+      $canceladas = $this->cancelarIncidenciasCostoDerivadoSku($db, $idSkuPaquete, "paquete_desactivado");
+      return $this->respuesta(false, "success", "Paquete desactivado", array("id_paquete" => $idPaquete, "incidencias_costo_canceladas" => $canceladas));
     } catch (Exception $e) {
       return $this->respuesta(true, "danger", $e->getMessage());
     }
   }
 
+  /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-08-24
+   * Proposito: elimina fisicamente una receta de paquete durante la fase de limpieza de Catalogo.
+   * Impacto: Catalogo ERP; borra componentes, grupos y opciones sin tocar ventas, inventario ni SKUs.
+   * Contrato: uso acotado a construccion/pruebas; cancela incidencias de costo del SKU paquete.
+   */
+  public function eliminarPaquete($datos) {
+    $db = $this->getConexion();
+    if (!$this->esquemaPaquetesDisponible($db)) {
+      return $this->respuesta(true, "warning", "El esquema de paquetes configurables aun no esta aplicado");
+    }
+    $idPaquete = intval(isset($datos["id_paquete"]) ? $datos["id_paquete"] : 0);
+    if ($idPaquete <= 0) {
+      return $this->respuesta(true, "warning", "Selecciona el paquete que vas a eliminar");
+    }
+    try {
+      $stmtSku = $db->prepare("SELECT id_sku_paquete FROM erp_catalogo_sku_paquetes WHERE id_paquete=:id LIMIT 1");
+      $stmtSku->execute(array(":id" => $idPaquete));
+      $idSkuPaquete = intval($stmtSku->fetchColumn());
+      if ($idSkuPaquete <= 0) {
+        return $this->respuesta(true, "warning", "No se encontro el paquete indicado");
+      }
+      $db->beginTransaction();
+      $stmtGrupos = $db->prepare("SELECT id_grupo FROM erp_catalogo_sku_paquete_grupos WHERE id_paquete=:paquete");
+      $stmtGrupos->execute(array(":paquete" => $idPaquete));
+      $idsGrupos = array_map("intval", $stmtGrupos->fetchAll(PDO::FETCH_COLUMN));
+      if (!empty($idsGrupos)) {
+        $listaGrupos = implode(",", $idsGrupos);
+        $db->exec("DELETE FROM erp_catalogo_sku_paquete_grupo_opciones WHERE id_grupo IN (" . $listaGrupos . ")");
+        $db->exec("DELETE FROM erp_catalogo_sku_paquete_grupos WHERE id_grupo IN (" . $listaGrupos . ")");
+      }
+      $stmt = $db->prepare("DELETE FROM erp_catalogo_sku_paquete_componentes WHERE id_paquete=:paquete");
+      $stmt->execute(array(":paquete" => $idPaquete));
+      $stmt = $db->prepare("DELETE FROM erp_catalogo_sku_paquetes WHERE id_paquete=:paquete");
+      $stmt->execute(array(":paquete" => $idPaquete));
+      $eliminados = intval($stmt->rowCount());
+      if ($eliminados === 0) {
+        $db->rollBack();
+        return $this->respuesta(true, "warning", "No se encontro el paquete indicado");
+      }
+      $db->commit();
+      $canceladas = $this->cancelarIncidenciasCostoDerivadoSku($db, $idSkuPaquete, "paquete_eliminado_limpieza");
+      return $this->respuesta(false, "success", "Paquete eliminado", array(
+        "id_paquete" => $idPaquete,
+        "id_sku_paquete" => $idSkuPaquete,
+        "incidencias_costo_canceladas" => $canceladas
+      ));
+    } catch (Exception $e) {
+      if ($db->inTransaction()) {
+        $db->rollBack();
+      }
+      return $this->respuesta(true, "danger", $e->getMessage());
+    }
+  }
   /**
    * IA: Codex GPT-5
    * Fecha: 2026-06-26
@@ -5527,10 +5756,13 @@ class CatalogoErpDatos extends CRUD {
           ":paquete" => $idPaquete
         ));
 
+      $idSkuPaquete = $this->idSkuPaquetePorPaquete($db, $idPaquete);
+      $incidenciaCosto = $this->registrarIncidenciaCostoDerivadoSku($db, $idSkuPaquete, "guardar_paquete_grupo", $idUsuario);
       return $this->respuesta(false, "success", "Grupo de paquete guardado", array(
         "id_grupo" => $idGrupo,
         "id_paquete" => $idPaquete,
-        "actualizado_por" => intval($idUsuario) ?: null
+        "actualizado_por" => intval($idUsuario) ?: null,
+        "incidencia_costo_derivado" => $incidenciaCosto
       ));
     } catch (Exception $e) {
       return $this->respuesta(true, "danger", $e->getCode() === "23000" ? "Ya existe un grupo con ese codigo en el paquete" : $e->getMessage());
@@ -5567,7 +5799,11 @@ class CatalogoErpDatos extends CRUD {
         WHERE id_grupo=:id AND estatus='activo'")
         ->execute(array(":id" => $idGrupo));
       $db->commit();
-      return $this->respuesta(false, "success", "Grupo desactivado", array("id_grupo" => $idGrupo));
+      $stmtPaquete = $db->prepare("SELECT p.id_sku_paquete FROM erp_catalogo_sku_paquete_grupos g INNER JOIN erp_catalogo_sku_paquetes p ON p.id_paquete=g.id_paquete WHERE g.id_grupo=:id LIMIT 1");
+      $stmtPaquete->execute(array(":id" => $idGrupo));
+      $idSkuPaquete = intval($stmtPaquete->fetchColumn());
+      $incidenciaCosto = $this->registrarIncidenciaCostoDerivadoSku($db, $idSkuPaquete, "desactivar_paquete_grupo", 0);
+      return $this->respuesta(false, "success", "Grupo desactivado", array("id_grupo" => $idGrupo, "incidencia_costo_derivado" => $incidenciaCosto));
     } catch (Exception $e) {
       if ($db->inTransaction()) {
         $db->rollBack();
@@ -5578,11 +5814,53 @@ class CatalogoErpDatos extends CRUD {
 
   /**
    * IA: Codex GPT-5
+   * Fecha: 2026-08-24
+   * Proposito: elimina fisicamente un grupo configurable y sus opciones durante limpieza de recetas.
+   * Impacto: Catalogo ERP; actualiza la incidencia de costo del paquete sin tocar ventas ni inventario.
+   * Contrato: requiere id_grupo; se usa solo para corregir configuraciones en construccion.
+   */
+  public function eliminarPaqueteGrupo($datos) {
+    $db = $this->getConexion();
+    if (!$this->esquemaPaquetesDisponible($db)) {
+      return $this->respuesta(true, "warning", "El esquema de paquetes configurables aun no esta aplicado");
+    }
+    $idGrupo = intval(isset($datos["id_grupo"]) ? $datos["id_grupo"] : 0);
+    if ($idGrupo <= 0) {
+      return $this->respuesta(true, "warning", "Selecciona el grupo que vas a eliminar");
+    }
+    try {
+      $stmtSku = $db->prepare("SELECT p.id_sku_paquete FROM erp_catalogo_sku_paquete_grupos g INNER JOIN erp_catalogo_sku_paquetes p ON p.id_paquete=g.id_paquete WHERE g.id_grupo=:id LIMIT 1");
+      $stmtSku->execute(array(":id" => $idGrupo));
+      $idSkuPaquete = intval($stmtSku->fetchColumn());
+      if ($idSkuPaquete <= 0) {
+        return $this->respuesta(true, "warning", "No se encontro el grupo indicado");
+      }
+      $db->beginTransaction();
+      $stmt = $db->prepare("DELETE FROM erp_catalogo_sku_paquete_grupo_opciones WHERE id_grupo=:id");
+      $stmt->execute(array(":id" => $idGrupo));
+      $stmt = $db->prepare("DELETE FROM erp_catalogo_sku_paquete_grupos WHERE id_grupo=:id");
+      $stmt->execute(array(":id" => $idGrupo));
+      if (intval($stmt->rowCount()) === 0) {
+        $db->rollBack();
+        return $this->respuesta(true, "warning", "No se encontro el grupo indicado");
+      }
+      $db->commit();
+      $incidenciaCosto = $this->registrarIncidenciaCostoDerivadoSku($db, $idSkuPaquete, "eliminar_paquete_grupo", 0);
+      return $this->respuesta(false, "success", "Grupo eliminado", array("id_grupo" => $idGrupo, "incidencia_costo_derivado" => $incidenciaCosto));
+    } catch (Exception $e) {
+      if ($db->inTransaction()) {
+        $db->rollBack();
+      }
+      return $this->respuesta(true, "danger", $e->getMessage());
+    }
+  }
+  /**
+   * IA: Codex GPT-5
    * Fecha: 2026-06-26
    * Proposito: guarda una opcion SKU dentro de un grupo de paquete configurable.
    * Impacto: Catalogo ERP; define alternativas elegibles sin decidir precio ni consumo de inventario.
    */
-  public function guardarPaqueteGrupoOpcion($datos) {
+  public function guardarPaqueteGrupoOpcion($datos, $idUsuario = 0) {
     $db = $this->getConexion();
     if (!$this->esquemaPaquetesDisponible($db)) {
       return $this->respuesta(true, "warning", "El esquema de paquetes configurables aun no esta aplicado");
@@ -5683,9 +5961,12 @@ class CatalogoErpDatos extends CRUD {
         $idOpcion = intval($db->lastInsertId());
       }
 
+      $idSkuPaquete = intval($grupo["id_sku_paquete"]);
+      $incidenciaCosto = $this->registrarIncidenciaCostoDerivadoSku($db, $idSkuPaquete, "guardar_paquete_opcion", $idUsuario);
       return $this->respuesta(false, "success", "Opcion de paquete guardada", array(
         "id_opcion" => $idOpcion,
-        "id_grupo" => $idGrupo
+        "id_grupo" => $idGrupo,
+        "incidencia_costo_derivado" => $incidenciaCosto
       ));
     } catch (Exception $e) {
       return $this->respuesta(true, "danger", $e->getMessage());
@@ -5708,6 +5989,9 @@ class CatalogoErpDatos extends CRUD {
       return $this->respuesta(true, "warning", "Selecciona la opcion que vas a desactivar");
     }
     try {
+      $stmtSkuPaquete = $db->prepare("SELECT p.id_sku_paquete FROM erp_catalogo_sku_paquete_grupo_opciones o INNER JOIN erp_catalogo_sku_paquete_grupos g ON g.id_grupo=o.id_grupo INNER JOIN erp_catalogo_sku_paquetes p ON p.id_paquete=g.id_paquete WHERE o.id_opcion=:id LIMIT 1");
+      $stmtSkuPaquete->execute(array(":id" => $idOpcion));
+      $idSkuPaquete = intval($stmtSkuPaquete->fetchColumn());
       $stmt = $db->prepare("UPDATE erp_catalogo_sku_paquete_grupo_opciones
         SET estatus='inactivo', fecha_actualizacion=CURRENT_TIMESTAMP
         WHERE id_opcion=:id");
@@ -5715,12 +5999,47 @@ class CatalogoErpDatos extends CRUD {
       if ($stmt->rowCount() === 0) {
         return $this->respuesta(true, "warning", "No se encontro la opcion indicada");
       }
-      return $this->respuesta(false, "success", "Opcion desactivada", array("id_opcion" => $idOpcion));
+      $incidenciaCosto = $this->registrarIncidenciaCostoDerivadoSku($db, $idSkuPaquete, "desactivar_paquete_opcion", 0);
+      return $this->respuesta(false, "success", "Opcion desactivada", array("id_opcion" => $idOpcion, "incidencia_costo_derivado" => $incidenciaCosto));
     } catch (Exception $e) {
       return $this->respuesta(true, "danger", $e->getMessage());
     }
   }
 
+  /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-08-24
+   * Proposito: elimina fisicamente una opcion configurable durante limpieza de recetas de paquete.
+   * Impacto: Catalogo ERP; deja el grupo limpio y dispara revision de costo del paquete.
+   * Contrato: requiere id_opcion; no toca ventas, inventario ni el SKU opcion.
+   */
+  public function eliminarPaqueteGrupoOpcion($datos) {
+    $db = $this->getConexion();
+    if (!$this->esquemaPaquetesDisponible($db)) {
+      return $this->respuesta(true, "warning", "El esquema de paquetes configurables aun no esta aplicado");
+    }
+    $idOpcion = intval(isset($datos["id_opcion"]) ? $datos["id_opcion"] : 0);
+    if ($idOpcion <= 0) {
+      return $this->respuesta(true, "warning", "Selecciona la opcion que vas a eliminar");
+    }
+    try {
+      $stmtSku = $db->prepare("SELECT p.id_sku_paquete FROM erp_catalogo_sku_paquete_grupo_opciones o INNER JOIN erp_catalogo_sku_paquete_grupos g ON g.id_grupo=o.id_grupo INNER JOIN erp_catalogo_sku_paquetes p ON p.id_paquete=g.id_paquete WHERE o.id_opcion=:id LIMIT 1");
+      $stmtSku->execute(array(":id" => $idOpcion));
+      $idSkuPaquete = intval($stmtSku->fetchColumn());
+      if ($idSkuPaquete <= 0) {
+        return $this->respuesta(true, "warning", "No se encontro la opcion indicada");
+      }
+      $stmt = $db->prepare("DELETE FROM erp_catalogo_sku_paquete_grupo_opciones WHERE id_opcion=:id");
+      $stmt->execute(array(":id" => $idOpcion));
+      if (intval($stmt->rowCount()) === 0) {
+        return $this->respuesta(true, "warning", "No se encontro la opcion indicada");
+      }
+      $incidenciaCosto = $this->registrarIncidenciaCostoDerivadoSku($db, $idSkuPaquete, "eliminar_paquete_opcion", 0);
+      return $this->respuesta(false, "success", "Opcion eliminada", array("id_opcion" => $idOpcion, "incidencia_costo_derivado" => $incidenciaCosto));
+    } catch (Exception $e) {
+      return $this->respuesta(true, "danger", $e->getMessage());
+    }
+  }
   /**
    * IA: Codex GPT-5
    * Fecha: 2026-06-26
@@ -5842,7 +6161,7 @@ class CatalogoErpDatos extends CRUD {
     }
   }
 
-  public function guardarSkuPresentacion($datos) {
+  public function guardarSkuPresentacion($datos, $idUsuario = 0) {
     $idRegla = intval(isset($datos["id_sku_presentacion_regla"]) ? $datos["id_sku_presentacion_regla"] : 0);
     $idBase = intval(isset($datos["id_sku_base"]) ? $datos["id_sku_base"] : 0);
     $idPresentacion = intval(isset($datos["id_sku_presentacion"]) ? $datos["id_sku_presentacion"] : 0);
@@ -5940,10 +6259,12 @@ class CatalogoErpDatos extends CRUD {
         $stmt->execute($params);
       }
       $db->commit();
+      $incidenciaCosto = $this->registrarIncidenciaCostoDerivadoSku($db, $idPresentacion, "guardar_presentacion", $idUsuario);
       return $this->respuesta(false, "success", "Presentacion de venta guardada", array(
         "id_sku_presentacion_regla" => $idRegla,
         "id_sku_base" => $idBase,
-        "id_sku_presentacion" => $idPresentacion
+        "id_sku_presentacion" => $idPresentacion,
+        "incidencia_costo_derivado" => $incidenciaCosto
       ));
     } catch (Exception $e) {
       if ($db->inTransaction()) {
@@ -5960,6 +6281,9 @@ class CatalogoErpDatos extends CRUD {
     }
     try {
       $db = $this->getConexion();
+      $stmtSku = $db->prepare("SELECT id_sku_presentacion FROM erp_catalogo_sku_presentaciones WHERE id_sku_presentacion_regla=:id LIMIT 1");
+      $stmtSku->execute(array(":id" => $id));
+      $idSkuPresentacion = intval($stmtSku->fetchColumn());
       $stmt = $db->prepare("UPDATE erp_catalogo_sku_presentaciones
         SET estatus='inactiva', fecha_actualizacion=CURRENT_TIMESTAMP
         WHERE id_sku_presentacion_regla=:id");
@@ -5967,12 +6291,48 @@ class CatalogoErpDatos extends CRUD {
       if ($stmt->rowCount() === 0) {
         return $this->respuesta(true, "warning", "No se encontro la presentacion indicada");
       }
-      return $this->respuesta(false, "success", "Presentacion desactivada", array("id_sku_presentacion_regla" => $id));
+      $canceladas = $this->cancelarIncidenciasCostoDerivadoSku($db, $idSkuPresentacion, "presentacion_desactivada");
+      return $this->respuesta(false, "success", "Presentacion desactivada", array("id_sku_presentacion_regla" => $id, "incidencias_costo_canceladas" => $canceladas));
     } catch (Exception $e) {
       return $this->respuesta(true, "danger", $e->getMessage());
     }
   }
 
+  /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-08-24
+   * Proposito: elimina fisicamente una regla de presentacion durante limpieza de Catalogo.
+   * Impacto: Catalogo ERP; borra solo la receta, no el SKU ni inventario/ventas.
+   * Contrato: uso acotado a construccion/pruebas; cancela incidencias de costo del SKU presentacion.
+   */
+  public function eliminarSkuPresentacion($datos) {
+    $id = intval(isset($datos["id_sku_presentacion_regla"]) ? $datos["id_sku_presentacion_regla"] : 0);
+    if ($id <= 0) {
+      return $this->respuesta(true, "warning", "Selecciona la presentacion que vas a eliminar");
+    }
+    try {
+      $db = $this->getConexion();
+      $stmtSku = $db->prepare("SELECT id_sku_presentacion FROM erp_catalogo_sku_presentaciones WHERE id_sku_presentacion_regla=:id LIMIT 1");
+      $stmtSku->execute(array(":id" => $id));
+      $idSkuPresentacion = intval($stmtSku->fetchColumn());
+      if ($idSkuPresentacion <= 0) {
+        return $this->respuesta(true, "warning", "No se encontro la presentacion indicada");
+      }
+      $stmt = $db->prepare("DELETE FROM erp_catalogo_sku_presentaciones WHERE id_sku_presentacion_regla=:id");
+      $stmt->execute(array(":id" => $id));
+      if (intval($stmt->rowCount()) === 0) {
+        return $this->respuesta(true, "warning", "No se encontro la presentacion indicada");
+      }
+      $canceladas = $this->cancelarIncidenciasCostoDerivadoSku($db, $idSkuPresentacion, "presentacion_eliminada_limpieza");
+      return $this->respuesta(false, "success", "Presentacion eliminada", array(
+        "id_sku_presentacion_regla" => $id,
+        "id_sku_presentacion" => $idSkuPresentacion,
+        "incidencias_costo_canceladas" => $canceladas
+      ));
+    } catch (Exception $e) {
+      return $this->respuesta(true, "danger", $e->getMessage());
+    }
+  }
   private function consultarSkuPresentaciones($db, $idProducto) {
     $stmt = $db->prepare("SELECT pr.id_sku_presentacion_regla, pr.id_sku_base, pr.id_sku_presentacion,
       pr.factor_salida_base, pr.modo_disponibilidad, pr.consume_stock_base_en, pr.requiere_empaque,
@@ -6002,11 +6362,11 @@ class CatalogoErpDatos extends CRUD {
   /**
    * IA: Codex GPT-5
    * Fecha: 2026-07-28
-   * Proposito: guarda la regla Catalogo para abrir un SKU cerrado hacia un SKU granel sin mezclarla con presentaciones.
+   * Proposito: guarda la regla Catalogo para abrir un SKU cerrado hacia un SKU destino sin mezclarla con presentaciones.
    * Impacto: Catalogo ERP; Almacen/Inventario consumiran esta relacion cuando exista el flujo de apertura.
    * Contrato: requiere tabla `erp_catalogo_sku_aperturas_empaque`; no ejecuta movimientos ni afecta existencias.
    */
-  public function guardarSkuAperturaEmpaque($datos) {
+  public function guardarSkuAperturaEmpaque($datos, $idUsuario = 0) {
     $idApertura = intval(isset($datos["id_apertura_empaque"]) ? $datos["id_apertura_empaque"] : 0);
     $idOrigen = intval(isset($datos["id_sku_origen"]) ? $datos["id_sku_origen"] : 0);
     $idDestino = intval(isset($datos["id_sku_destino"]) ? $datos["id_sku_destino"] : 0);
@@ -6015,7 +6375,7 @@ class CatalogoErpDatos extends CRUD {
     $estatus = $this->opcion($datos, "estatus", array("activo", "inactivo"), "activo");
 
     if ($idOrigen <= 0 || $idDestino <= 0) {
-      return $this->respuesta(true, "warning", "Selecciona SKU origen cerrado y SKU destino granel");
+      return $this->respuesta(true, "warning", "Selecciona SKU origen cerrado y SKU destino de apertura");
     }
     if ($idOrigen === $idDestino) {
       return $this->respuesta(true, "warning", "El SKU origen y el SKU destino no pueden ser el mismo");
@@ -6068,13 +6428,7 @@ class CatalogoErpDatos extends CRUD {
         return $this->respuesta(true, "warning", "El SKU origen debe controlar inventario para poder abrirse");
       }
       if (!$this->controlaInventario($skus[$idDestino]["tipo_inventario"]) || intval($skus[$idDestino]["controla_inventario"]) !== 1) {
-        return $this->respuesta(true, "warning", "El SKU destino debe controlar inventario para recibir granel");
-      }
-      if (intval($skus[$idDestino]["permite_venta_fraccionaria"]) !== 1) {
-        return $this->respuesta(true, "warning", "El SKU destino debe tener activa Venta fraccionaria para usarse como granel");
-      }
-      if (intval($skus[$idDestino]["decimales_permitidos"]) !== 1 || intval($skus[$idDestino]["precision_decimal"]) <= 0 || floatval($skus[$idDestino]["incremento_minimo_venta"]) <= 0) {
-        return $this->respuesta(true, "warning", "El SKU destino granel debe tener unidad decimal, precision e incremento configurados");
+        return $this->respuesta(true, "warning", "El SKU destino debe controlar inventario para recibir la apertura");
       }
       if ($this->booleano($datos, "requiere_unidad_fisica") && intval($skus[$idOrigen]["requiere_unidades_fisicas_recepcion"]) !== 1 && intval($skus[$idOrigen]["generar_etiqueta_interna"]) !== 1) {
         return $this->respuesta(true, "warning", "Si requiere unidad fisica, el SKU origen debe tener trazabilidad o captura de unidades fisicas");
@@ -6118,10 +6472,12 @@ class CatalogoErpDatos extends CRUD {
         $stmt->execute($params);
       }
       $db->commit();
+      $incidenciaCosto = $this->registrarIncidenciaCostoDerivadoSku($db, $idDestino, "guardar_apertura_empaque", $idUsuario);
       return $this->respuesta(false, "success", "Apertura de empaque guardada", array(
         "id_apertura_empaque" => $idApertura,
         "id_sku_origen" => $idOrigen,
-        "id_sku_destino" => $idDestino
+        "id_sku_destino" => $idDestino,
+        "incidencia_costo_derivado" => $incidenciaCosto
       ));
     } catch (Exception $e) {
       if ($db->inTransaction()) {
@@ -6147,6 +6503,9 @@ class CatalogoErpDatos extends CRUD {
       if (!$this->tablaExisteCatalogo($db, "erp_catalogo_sku_aperturas_empaque")) {
         return $this->respuesta(true, "warning", "Falta aplicar el DDL de Apertura de empaques", array("tabla_faltante" => "erp_catalogo_sku_aperturas_empaque"));
       }
+      $stmtSku = $db->prepare("SELECT id_sku_destino FROM erp_catalogo_sku_aperturas_empaque WHERE id_apertura_empaque=:id LIMIT 1");
+      $stmtSku->execute(array(":id" => $id));
+      $idSkuDestino = intval($stmtSku->fetchColumn());
       $stmt = $db->prepare("UPDATE erp_catalogo_sku_aperturas_empaque
         SET estatus='inactivo', fecha_actualizacion=CURRENT_TIMESTAMP
         WHERE id_apertura_empaque=:id");
@@ -6154,12 +6513,51 @@ class CatalogoErpDatos extends CRUD {
       if ($stmt->rowCount() === 0) {
         return $this->respuesta(true, "warning", "No se encontro la apertura indicada");
       }
-      return $this->respuesta(false, "success", "Apertura de empaque desactivada", array("id_apertura_empaque" => $id));
+      $canceladas = $this->cancelarIncidenciasCostoDerivadoSku($db, $idSkuDestino, "apertura_empaque_desactivada");
+      return $this->respuesta(false, "success", "Apertura de empaque desactivada", array("id_apertura_empaque" => $id, "incidencias_costo_canceladas" => $canceladas));
     } catch (Exception $e) {
       return $this->respuesta(true, "danger", $e->getMessage());
     }
   }
 
+  /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-08-24
+   * Proposito: elimina fisicamente una regla de apertura de empaque durante limpieza de Catalogo.
+   * Impacto: Catalogo ERP; borra solo la relacion origen-destino, no mueve inventario ni toca ventas.
+   * Contrato: uso acotado a construccion/pruebas; cancela incidencias de costo del SKU destino.
+   */
+  public function eliminarSkuAperturaEmpaque($datos) {
+    $id = intval(isset($datos["id_apertura_empaque"]) ? $datos["id_apertura_empaque"] : 0);
+    if ($id <= 0) {
+      return $this->respuesta(true, "warning", "Selecciona la apertura que vas a eliminar");
+    }
+    try {
+      $db = $this->getConexion();
+      if (!$this->tablaExisteCatalogo($db, "erp_catalogo_sku_aperturas_empaque")) {
+        return $this->respuesta(true, "warning", "Falta aplicar el DDL de Apertura de empaques", array("tabla_faltante" => "erp_catalogo_sku_aperturas_empaque"));
+      }
+      $stmtSku = $db->prepare("SELECT id_sku_destino FROM erp_catalogo_sku_aperturas_empaque WHERE id_apertura_empaque=:id LIMIT 1");
+      $stmtSku->execute(array(":id" => $id));
+      $idSkuDestino = intval($stmtSku->fetchColumn());
+      if ($idSkuDestino <= 0) {
+        return $this->respuesta(true, "warning", "No se encontro la apertura indicada");
+      }
+      $stmt = $db->prepare("DELETE FROM erp_catalogo_sku_aperturas_empaque WHERE id_apertura_empaque=:id");
+      $stmt->execute(array(":id" => $id));
+      if (intval($stmt->rowCount()) === 0) {
+        return $this->respuesta(true, "warning", "No se encontro la apertura indicada");
+      }
+      $canceladas = $this->cancelarIncidenciasCostoDerivadoSku($db, $idSkuDestino, "apertura_empaque_eliminada_limpieza");
+      return $this->respuesta(false, "success", "Apertura de empaque eliminada", array(
+        "id_apertura_empaque" => $id,
+        "id_sku_destino" => $idSkuDestino,
+        "incidencias_costo_canceladas" => $canceladas
+      ));
+    } catch (Exception $e) {
+      return $this->respuesta(true, "danger", $e->getMessage());
+    }
+  }
   /**
    * IA: Codex GPT-5
    * Fecha: 2026-08-08
@@ -7281,10 +7679,12 @@ class CatalogoErpDatos extends CRUD {
       }
 
       $db->commit();
+      $incidenciaCosto = $this->registrarIncidenciaCostoDerivadoSku($db, $idSku, "actualizar_sku", $idUsuario);
       return $this->respuesta(false, "success", "SKU actualizado correctamente", array(
         "id_producto_erp" => $idProducto,
         "id_sku" => $idSku,
-        "cambios_identidad" => $cambiosIdentidad
+        "cambios_identidad" => $cambiosIdentidad,
+        "incidencia_costo_derivado" => $incidenciaCosto
       ));
     } catch (Exception $e) {
       if ($db->inTransaction()) {
@@ -8007,6 +8407,205 @@ class CatalogoErpDatos extends CRUD {
 
   /**
    * IA: Codex GPT-5
+   * Fecha: 2026-08-22
+   * Proposito: exponer componentes de paquetes/recetas en el contrato de salida hacia Rentabilidad.
+   * Impacto: Catalogo ERP; Rentabilidad puede calcular costo de paquete sin consultar UI ni capturas duplicadas.
+   * Contrato: read-only; si el SKU no es paquete devuelve listas vacias.
+   */
+  private function componentesContextoSkuVendible($db, $derivacion) {
+    $resultado = array(
+      "componentes_fijos" => array(),
+      "grupos_configurables" => array()
+    );
+    if (!is_array($derivacion) || $derivacion["tipo_derivacion"] !== "paquete") {
+      return $resultado;
+    }
+    $idPaquete = intval(isset($derivacion["detalle"]["id_paquete"]) ? $derivacion["detalle"]["id_paquete"] : 0);
+    if ($idPaquete <= 0) {
+      return $resultado;
+    }
+
+    if ($this->tablaExisteCatalogo($db, "erp_catalogo_sku_paquete_componentes")) {
+      $stmt = $db->prepare("SELECT c.id_componente, c.id_sku_componente, s.sku, s.nombre AS nombre_sku,
+          c.cantidad, c.id_unidad, COALESCE(u.abreviatura, u.codigo, '') AS unidad,
+          c.factor_conversion, c.orden, c.estatus
+        FROM erp_catalogo_sku_paquete_componentes c
+        INNER JOIN erp_catalogo_skus s ON s.id_sku=c.id_sku_componente
+        LEFT JOIN erp_catalogo_unidades u ON u.id_unidad=c.id_unidad
+        WHERE c.id_paquete=:paquete AND c.estatus='activo'
+        ORDER BY c.orden, c.id_componente");
+      $stmt->execute(array(":paquete" => $idPaquete));
+      foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $fila) {
+        $resultado["componentes_fijos"][] = array(
+          "id_componente" => intval($fila["id_componente"]),
+          "id_sku_componente" => intval($fila["id_sku_componente"]),
+          "sku" => $fila["sku"],
+          "nombre_sku" => $fila["nombre_sku"],
+          "cantidad" => floatval($fila["cantidad"]),
+          "id_unidad" => $fila["id_unidad"] !== null ? intval($fila["id_unidad"]) : null,
+          "unidad" => $fila["unidad"],
+          "factor_conversion" => floatval($fila["factor_conversion"]),
+          "orden" => intval($fila["orden"]),
+          "estatus" => $fila["estatus"]
+        );
+      }
+    }
+
+    if (!$this->tablaExisteCatalogo($db, "erp_catalogo_sku_paquete_grupos") || !$this->tablaExisteCatalogo($db, "erp_catalogo_sku_paquete_grupo_opciones")) {
+      return $resultado;
+    }
+    $stmt = $db->prepare("SELECT id_grupo, codigo, nombre, descripcion, min_selecciones, max_selecciones,
+        modo_cantidad, cantidad_total_grupo, obligatorio, orden, estatus
+      FROM erp_catalogo_sku_paquete_grupos
+      WHERE id_paquete=:paquete AND estatus='activo'
+      ORDER BY orden, id_grupo");
+    $stmt->execute(array(":paquete" => $idPaquete));
+    $grupos = array();
+    foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $grupo) {
+      $grupo["id_grupo"] = intval($grupo["id_grupo"]);
+      $grupo["min_selecciones"] = intval($grupo["min_selecciones"]);
+      $grupo["max_selecciones"] = intval($grupo["max_selecciones"]);
+      $grupo["cantidad_total_grupo"] = $grupo["cantidad_total_grupo"] !== null ? floatval($grupo["cantidad_total_grupo"]) : null;
+      $grupo["obligatorio"] = intval($grupo["obligatorio"]);
+      $grupo["orden"] = intval($grupo["orden"]);
+      $grupo["opciones"] = array();
+      $grupos[$grupo["id_grupo"]] = $grupo;
+    }
+    if (empty($grupos)) {
+      return $resultado;
+    }
+
+    $listaGrupos = implode(",", array_map("intval", array_keys($grupos)));
+    $opciones = $db->query("SELECT o.id_opcion, o.id_grupo, o.id_sku_opcion, s.sku, s.nombre AS nombre_sku,
+        o.cantidad_default, o.cantidad_minima, o.cantidad_maxima, o.id_unidad,
+        COALESCE(u.abreviatura, u.codigo, '') AS unidad, o.factor_conversion,
+        o.permite_cantidad_editable, o.orden, o.estatus
+      FROM erp_catalogo_sku_paquete_grupo_opciones o
+      INNER JOIN erp_catalogo_skus s ON s.id_sku=o.id_sku_opcion
+      LEFT JOIN erp_catalogo_unidades u ON u.id_unidad=o.id_unidad
+      WHERE o.id_grupo IN (" . $listaGrupos . ") AND o.estatus='activo'
+      ORDER BY o.id_grupo, o.orden, o.id_opcion")->fetchAll(PDO::FETCH_ASSOC);
+    foreach ($opciones as $opcion) {
+      $idGrupo = intval($opcion["id_grupo"]);
+      if (!isset($grupos[$idGrupo])) {
+        continue;
+      }
+      $grupos[$idGrupo]["opciones"][] = array(
+        "id_opcion" => intval($opcion["id_opcion"]),
+        "id_sku_opcion" => intval($opcion["id_sku_opcion"]),
+        "sku" => $opcion["sku"],
+        "nombre_sku" => $opcion["nombre_sku"],
+        "cantidad_default" => floatval($opcion["cantidad_default"]),
+        "cantidad_minima" => floatval($opcion["cantidad_minima"]),
+        "cantidad_maxima" => $opcion["cantidad_maxima"] !== null ? floatval($opcion["cantidad_maxima"]) : null,
+        "id_unidad" => $opcion["id_unidad"] !== null ? intval($opcion["id_unidad"]) : null,
+        "unidad" => $opcion["unidad"],
+        "factor_conversion" => floatval($opcion["factor_conversion"]),
+        "permite_cantidad_editable" => intval($opcion["permite_cantidad_editable"]),
+        "orden" => intval($opcion["orden"]),
+        "estatus" => $opcion["estatus"]
+      );
+    }
+    $resultado["grupos_configurables"] = array_values($grupos);
+    return $resultado;
+  }
+
+  /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-08-22
+   * Proposito: traducir reglas de Catalogo a un modo de inventario entendible por Rentabilidad.
+   * Impacto: evita que Rentabilidad deduzca si el costo se toma de stock propio, origen o preparacion.
+   * Contrato: devuelve uno de `stock_propio`, `descuenta_origen`, `preparacion_al_momento` o `no_inventariable`.
+   */
+  private function modoInventarioContextoSkuVendible($sku, $derivacion) {
+    if (intval($sku["controla_inventario"]) !== 1) {
+      return "no_inventariable";
+    }
+    $tipo = isset($derivacion["tipo_derivacion"]) ? $derivacion["tipo_derivacion"] : "normal";
+    $detalle = isset($derivacion["detalle"]) && is_array($derivacion["detalle"]) ? $derivacion["detalle"] : array();
+    if ($tipo === "paquete") {
+      $modo = isset($detalle["modo_disponibilidad"]) ? $detalle["modo_disponibilidad"] : "";
+      if ($modo === "por_componentes") {
+        return "descuenta_origen";
+      }
+      if ($modo === "por_existencia_armada") {
+        return "stock_propio";
+      }
+      return "preparacion_al_momento";
+    }
+    if ($tipo === "presentacion") {
+      $modo = isset($detalle["modo_disponibilidad"]) ? $detalle["modo_disponibilidad"] : "";
+      $consumo = isset($detalle["consume_stock_base_en"]) ? $detalle["consume_stock_base_en"] : "";
+      if ($consumo === "venta" || $modo === "bajo_demanda") {
+        return "descuenta_origen";
+      }
+      if ($modo === "preparada" || $consumo === "preparacion") {
+        return "stock_propio";
+      }
+      return "preparacion_al_momento";
+    }
+    if ($tipo === "apertura_empaque" || $tipo === "granel") {
+      return intval(isset($derivacion["id_sku_origen"]) ? $derivacion["id_sku_origen"] : 0) > 0 ? "stock_propio" : "descuenta_origen";
+    }
+    return "stock_propio";
+  }
+
+  /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-08-22
+   * Proposito: normalizar advertencias de configuracion para que Rentabilidad sepa que falta sin interpretar textos de UI.
+   * Impacto: Catalogo ERP/Rentabilidad; convierte faltantes estructurales en claves accionables.
+   * Contrato: read-only; no marca incidencias ni guarda pendientes.
+   */
+  private function advertenciasConfiguracionSkuVendible($sku, $derivacion, $componentes) {
+    $advertencias = array();
+    $tipo = isset($derivacion["tipo_derivacion"]) ? $derivacion["tipo_derivacion"] : "normal";
+    $detalle = isset($derivacion["detalle"]) && is_array($derivacion["detalle"]) ? $derivacion["detalle"] : array();
+
+    if (isset($detalle["configuracion_incompleta"]) && intval($detalle["configuracion_incompleta"]) === 1) {
+      $advertencias[] = array(
+        "codigo" => "CAT-DER-001",
+        "campo" => "id_sku_origen",
+        "mensaje" => isset($detalle["faltante"]) ? $detalle["faltante"] : "Configuracion derivada incompleta"
+      );
+    }
+    if (in_array($tipo, array("granel", "presentacion", "apertura_empaque"), true) && intval(isset($derivacion["id_sku_origen"]) ? $derivacion["id_sku_origen"] : 0) <= 0) {
+      $advertencias[] = array(
+        "codigo" => "CAT-DER-002",
+        "campo" => "id_sku_origen",
+        "mensaje" => "SKU derivado sin SKU origen configurado"
+      );
+    }
+    if (in_array($tipo, array("granel", "presentacion", "apertura_empaque"), true) && floatval(isset($derivacion["factor_conversion"]) ? $derivacion["factor_conversion"] : 0) <= 0) {
+      $advertencias[] = array(
+        "codigo" => "CAT-DER-003",
+        "campo" => "factor_conversion",
+        "mensaje" => "Factor de conversion invalido para derivar costo"
+      );
+    }
+    if ($tipo === "paquete") {
+      $fijos = isset($componentes["componentes_fijos"]) ? count($componentes["componentes_fijos"]) : 0;
+      $grupos = isset($componentes["grupos_configurables"]) ? count($componentes["grupos_configurables"]) : 0;
+      if ($fijos + $grupos === 0) {
+        $advertencias[] = array(
+          "codigo" => "CAT-DER-004",
+          "campo" => "componentes",
+          "mensaje" => "Paquete sin componentes ni grupos configurables activos"
+        );
+      }
+    }
+    if ($tipo === "variante" && intval($sku["maneja_variantes"]) !== 1) {
+      $advertencias[] = array(
+        "codigo" => "CAT-DER-005",
+        "campo" => "maneja_variantes",
+        "mensaje" => "SKU detectado como variante sin bandera de variantes en producto maestro"
+      );
+    }
+    return $advertencias;
+  }
+
+  /**
+   * IA: Codex GPT-5
    * Fecha: 2026-08-21
    * Proposito: consulta si el SKU tiene precio activo vigente en Comercial/Listas sin exponer ni modificar Catalogo.
    * Impacto: Catalogo ERP/Comercial; alimenta pendientes de precio sin capturar precio en Catalogo.
@@ -8240,3 +8839,5 @@ class CatalogoErpDatos extends CRUD {
     return array("error" => $error, "tipo" => $tipo, "mensaje" => $mensaje, "depurar" => $depurar);
   }
 }
+
+

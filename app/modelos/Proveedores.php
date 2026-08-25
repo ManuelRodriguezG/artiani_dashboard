@@ -5976,6 +5976,154 @@ class Proveedores extends CRUD {
     }
 
     /**
+     * IA: Codex GPT-5 | Fecha: 2026-08-22
+     * Proposito: sincronizar una edicion confirmada del renglon con su relacion proveedor-SKU y costo vigente existentes.
+     * Impacto: Proveedores/Listas de precios; corrige factor/costo operativo ya aplicado sin crear costos nuevos ni tocar costo_referencia.
+     * Contrato: requiere renglon con id_sku_proveedor y costo vigente existente del mismo renglon.
+     */
+    public function sincronizarEdicionListaDetalleErp($datos, $id_usuario) {
+        $db = $this->getConexion();
+        try {
+            $idProveedor = isset($datos["id_proveedor"]) ? intval($datos["id_proveedor"]) : 0;
+            $idLista = isset($datos["id_lista_proveedor_erp"]) ? intval($datos["id_lista_proveedor_erp"]) : 0;
+            $idDetalle = isset($datos["id_lista_detalle_erp"]) ? intval($datos["id_lista_detalle_erp"]) : 0;
+            if ($idProveedor <= 0 || $idLista <= 0 || $idDetalle <= 0) {
+                return array("error" => true, "tipo" => "warning", "mensaje" => "Renglon de lista invalido", "depurar" => null);
+            }
+
+            $renglon = $this->consultarListaDetalleProveedorErp($db, $idDetalle, $idLista, $idProveedor);
+            if (!$renglon) {
+                return array("error" => true, "tipo" => "warning", "mensaje" => "Renglon de lista no encontrado", "depurar" => null);
+            }
+
+            $idSku = intval(isset($renglon["id_sku"]) ? $renglon["id_sku"] : 0);
+            $idSkuProveedor = intval(isset($renglon["id_sku_proveedor"]) ? $renglon["id_sku_proveedor"] : 0);
+            $idUnidad = intval(isset($renglon["id_unidad_compra"]) ? $renglon["id_unidad_compra"] : 0);
+            $factor = floatval(isset($renglon["factor_conversion"]) ? $renglon["factor_conversion"] : 0);
+            $cantidadMinima = floatval(isset($renglon["cantidad_minima"]) ? $renglon["cantidad_minima"] : 0);
+            $costo = floatval(isset($renglon["costo"]) ? $renglon["costo"] : 0);
+            $moneda = strtoupper($this->textoProveedorErp($renglon, "moneda", 10));
+            $incluyeImpuestos = isset($renglon["costo_incluye_impuestos"]) && $renglon["costo_incluye_impuestos"] !== null && trim((string) $renglon["costo_incluye_impuestos"]) !== "" ? intval($renglon["costo_incluye_impuestos"]) : null;
+
+            if ($idSku <= 0 || $idSkuProveedor <= 0) {
+                return array("error" => true, "tipo" => "warning", "mensaje" => "El renglon aun no tiene relacion proveedor-SKU aplicada", "depurar" => null);
+            }
+            if ($idUnidad <= 0 || $factor <= 0 || $cantidadMinima <= 0) {
+                return array("error" => true, "tipo" => "warning", "mensaje" => "Completa unidad, factor y cantidad minima antes de sincronizar", "depurar" => null);
+            }
+            if ($costo <= 0 || $moneda === "" || $incluyeImpuestos === null || !in_array($incluyeImpuestos, array(0, 1), true)) {
+                return array("error" => true, "tipo" => "warning", "mensaje" => "Completa costo, moneda e impuestos antes de sincronizar", "depurar" => null);
+            }
+
+            $relacionAntes = $this->consultarRelacionSkuProveedorErp($db, $idSkuProveedor, $idSku, $idProveedor);
+            if (!$relacionAntes || intval($relacionAntes["id_sku"]) !== $idSku) {
+                return array("error" => true, "tipo" => "warning", "mensaje" => "Relacion proveedor-SKU no valida para este renglon", "depurar" => null);
+            }
+
+            $costoAntes = $this->consultarCostoProveedorSkuPorDetalleErp($db, $idDetalle, $idProveedor);
+            if (!$costoAntes || strtolower((string) $costoAntes["estatus"]) !== "vigente") {
+                return array("error" => true, "tipo" => "warning", "mensaje" => "Este renglon no tiene costo vigente existente para sincronizar", "depurar" => null);
+            }
+
+            $lista = $this->consultarListaProveedorErp($db, $idLista, $idProveedor);
+            $vigenciaDesde = $lista && isset($lista["vigencia_desde"]) ? $lista["vigencia_desde"] : null;
+            $vigenciaHasta = $lista && isset($lista["vigencia_hasta"]) ? $lista["vigencia_hasta"] : null;
+            $idDocumento = $lista && isset($lista["id_documento_proveedor"]) ? intval($lista["id_documento_proveedor"]) : 0;
+
+            $db->beginTransaction();
+
+            $stmtRelacion = $db->prepare("UPDATE erp_catalogo_sku_proveedores SET
+                sku_proveedor = :sku_proveedor,
+                id_unidad_compra = :id_unidad_compra,
+                factor_conversion = :factor_conversion,
+                costo_ultimo = :costo_ultimo,
+                cantidad_minima = :cantidad_minima,
+                fecha_actualizacion = CURRENT_TIMESTAMP
+                WHERE id_sku_proveedor = :id_sku_proveedor
+                  AND id_proveedor = :id_proveedor
+                  AND id_sku = :id_sku");
+            $stmtRelacion->execute(array(
+                ":sku_proveedor" => $this->skuProveedorRelacionDesdeRenglonErp($renglon),
+                ":id_unidad_compra" => $idUnidad,
+                ":factor_conversion" => $factor,
+                ":costo_ultimo" => $costo,
+                ":cantidad_minima" => $cantidadMinima,
+                ":id_sku_proveedor" => $idSkuProveedor,
+                ":id_proveedor" => $idProveedor,
+                ":id_sku" => $idSku
+            ));
+
+            $stmtCosto = $db->prepare("UPDATE erp_proveedores_sku_costos SET
+                id_sku = :id_sku,
+                id_sku_proveedor = :id_sku_proveedor,
+                id_lista_proveedor_erp = :id_lista,
+                costo = :costo,
+                moneda = :moneda,
+                id_unidad_compra = :id_unidad_compra,
+                factor_conversion = :factor_conversion,
+                costo_incluye_impuestos = :costo_incluye_impuestos,
+                vigencia_desde = :vigencia_desde,
+                vigencia_hasta = :vigencia_hasta,
+                origen = 'lista_proveedor',
+                id_documento_proveedor = :id_documento_proveedor,
+                estatus = 'vigente',
+                autorizado_por = COALESCE(autorizado_por, :autorizado_por),
+                fecha_autorizacion = COALESCE(fecha_autorizacion, NOW()),
+                fecha_actualizacion = NOW()
+                WHERE id_costo_proveedor_sku = :id_costo");
+            $stmtCosto->execute(array(
+                ":id_sku" => $idSku,
+                ":id_sku_proveedor" => $idSkuProveedor,
+                ":id_lista" => $idLista,
+                ":costo" => $costo,
+                ":moneda" => $moneda,
+                ":id_unidad_compra" => $idUnidad,
+                ":factor_conversion" => $factor,
+                ":costo_incluye_impuestos" => $incluyeImpuestos,
+                ":vigencia_desde" => $vigenciaDesde,
+                ":vigencia_hasta" => $vigenciaHasta,
+                ":id_documento_proveedor" => $idDocumento > 0 ? $idDocumento : null,
+                ":autorizado_por" => intval($id_usuario) ?: null,
+                ":id_costo" => intval($costoAntes["id_costo_proveedor_sku"])
+            ));
+
+            $stmtDetalle = $db->prepare("UPDATE erp_proveedores_listas_detalle_erp SET
+                estado_match = 'costo_aplicado',
+                criterio_match = 'costo_proveedor_sincronizado_desde_edicion',
+                fecha_actualizacion = NOW()
+                WHERE id_lista_detalle_erp = :id_detalle
+                  AND id_lista_proveedor_erp = :id_lista");
+            $stmtDetalle->execute(array(":id_detalle" => $idDetalle, ":id_lista" => $idLista));
+
+            $relacionDespues = $this->consultarRelacionSkuProveedorErp($db, $idSkuProveedor, $idSku, $idProveedor);
+            $costoDespues = $this->consultarCostoProveedorSkuPorDetalleErp($db, $idDetalle, $idProveedor);
+            $db->commit();
+
+            return array(
+                "error" => false,
+                "tipo" => "success",
+                "mensaje" => "Renglon, relacion y costo vigente sincronizados",
+                "depurar" => array(
+                    "id_proveedor" => $idProveedor,
+                    "id_lista_proveedor_erp" => $idLista,
+                    "id_lista_detalle_erp" => $idDetalle,
+                    "id_sku" => $idSku,
+                    "id_sku_proveedor" => $idSkuProveedor,
+                    "id_costo_proveedor_sku" => intval($costoAntes["id_costo_proveedor_sku"]),
+                    "costo_unitario" => round($costo / $factor, 6),
+                    "antes" => array("relacion" => $relacionAntes, "costo" => $costoAntes),
+                    "despues" => array("relacion" => $relacionDespues, "costo" => $costoDespues)
+                )
+            );
+        } catch (Exception $e) {
+            if ($db->inTransaction()) {
+                $db->rollBack();
+            }
+            return array("error" => true, "tipo" => "danger", "mensaje" => $e->getMessage(), "depurar" => null);
+        }
+    }
+
+    /**
      * IA: Codex GPT-5
      * Fecha: 2026-07-20
      * Proposito: completar datos de compra en varios renglones de lista sin aplicar relacion ni costo.

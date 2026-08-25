@@ -889,8 +889,8 @@ class EcommerceCatalogoPublico extends CRUD {
       "limites" => array(
         "max_bytes" => 2097152,
         "max_mb" => 2,
-        "mimes" => array("image/jpeg", "image/png", "image/webp"),
-        "extensiones" => array("jpg", "jpeg", "png", "webp"),
+        "mimes" => array("image/jpeg", "image/png", "image/webp", "image/vnd.microsoft.icon", "image/x-icon"),
+        "extensiones" => array("jpg", "jpeg", "png", "webp", "ico"),
         "requiere_alt_text" => true
       ),
       "nombres" => array(
@@ -904,13 +904,14 @@ class EcommerceCatalogoPublico extends CRUD {
         "subir" => "/cms/media_admin_subir_erp",
         "actualizar" => "/cms/media_admin_actualizar_erp",
         "archivar" => "/cms/media_admin_archivar_erp",
+        "eliminar" => "/cms/media_admin_eliminar_erp",
         "usos" => "/cms/media_admin_usos_erp"
       ),
       "esquema" => isset($planEsquema["depurar"]) ? $planEsquema["depurar"] : array(),
       "guardrails" => array(
         "read_only" => false,
         "upload_activo" => true,
-        "no_borra_fisicos" => true,
+        "eliminacion_fisica_controlada" => true,
         "no_expone_rutas_internas" => true,
         "acciones_pendientes_bloqueadas" => array("actualizar", "archivar", "usos"),
         "requiere_respaldo_antes_ddl" => false,
@@ -1030,8 +1031,9 @@ class EcommerceCatalogoPublico extends CRUD {
       $extension = $this->mediaExtensionSegura($archivo["name"], $mime);
       $this->mediaValidarMimeExtension($mime, $extension);
 
+      $esIcono = $extension === "ico";
       $dimensiones = @getimagesize($archivo["tmp_name"]);
-      if (!$dimensiones || empty($dimensiones[0]) || empty($dimensiones[1])) {
+      if (!$esIcono && (!$dimensiones || empty($dimensiones[0]) || empty($dimensiones[1]))) {
         throw new Exception("El archivo no parece ser una imagen valida");
       }
 
@@ -1045,7 +1047,7 @@ class EcommerceCatalogoPublico extends CRUD {
         "home", "categoria", "producto", "global", "blog", "marca", "pagina", "politica", "general"
       ), "general");
       $tipo = $this->mediaValorPermitido($this->valor($datos, "tipo", "banner"), array(
-        "banner", "hero", "card", "thumb", "editorial", "logo", "og", "principal"
+        "banner", "hero", "card", "thumb", "editorial", "logo", "og", "principal", "favicon"
       ), "editorial");
 
       $hash = hash_file("sha256", $archivo["tmp_name"]);
@@ -1086,8 +1088,8 @@ class EcommerceCatalogoPublico extends CRUD {
       $codigo = "media_" . $corto;
       $rutaPublica = "/assets/media/cms/ecommerce/" . $nombreArchivo;
       $metadata = array(
-        "ancho" => (int) $dimensiones[0],
-        "alto" => (int) $dimensiones[1],
+        "ancho" => $dimensiones && !empty($dimensiones[0]) ? (int) $dimensiones[0] : null,
+        "alto" => $dimensiones && !empty($dimensiones[1]) ? (int) $dimensiones[1] : null,
         "origen" => "cms_media_admin",
         "fecha_upload" => date("c")
       );
@@ -1107,8 +1109,8 @@ class EcommerceCatalogoPublico extends CRUD {
         ":mime" => $mime,
         ":extension" => $extension,
         ":bytes" => intval($archivo["size"]),
-        ":ancho" => (int) $dimensiones[0],
-        ":alto" => (int) $dimensiones[1],
+        ":ancho" => $dimensiones && !empty($dimensiones[0]) ? (int) $dimensiones[0] : null,
+        ":alto" => $dimensiones && !empty($dimensiones[1]) ? (int) $dimensiones[1] : null,
         ":hash" => $hash,
         ":alt" => $alt,
         ":uso" => $uso,
@@ -1129,6 +1131,84 @@ class EcommerceCatalogoPublico extends CRUD {
           "no_modifica_catalogo" => true,
           "no_modifica_inventario" => true,
           "solo_imagenes_publicas" => true
+        )
+      ));
+    }
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-08-24
+   * Proposito: eliminar archivos Media CMS no usados por contenido publicado.
+   * Impacto: limpia duplicados de multimedia sin dejar referencias rotas en la API publica.
+   * Contrato: borra fila y archivo fisico solo dentro de public/assets/media/cms/ecommerce; bloquea si esta publicado.
+   */
+  public function mediaAdminEliminarInterno($datos = array(), $idUsuario = 0) {
+    try {
+      $db = $this->getConexion();
+      if (!$this->tablaExiste($db, "erp_ecommerce_media_archivos")) {
+        throw new Exception("La tabla de Media CMS no existe.");
+      }
+
+      $id = intval($this->valor($datos, "id_media_archivo", $this->valor($datos, "media_id", 0)));
+      if ($id <= 0) {
+        throw new Exception("Indica la imagen que quieres eliminar.");
+      }
+
+      $item = $this->mediaBuscarPorId($db, $id);
+      if (!$item || empty($item["id_media_archivo"])) {
+        throw new Exception("La imagen de Media CMS no existe.");
+      }
+
+      $url = (string) $this->valor($item, "url", "");
+      if ($url === "" || strpos($url, "/assets/media/cms/ecommerce/") !== 0) {
+        throw new Exception("La ruta publica de la imagen no pertenece a Media CMS.");
+      }
+
+      $usosPublicados = $this->mediaConteoUsosPublicados($db, $url);
+      if ($usosPublicados > 0) {
+        return $this->respuesta(true, "warning", "No se puede eliminar porque la imagen esta usada por contenido publicado.", array(
+          "id_media_archivo" => $id,
+          "url" => $url,
+          "usos_publicados" => $usosPublicados,
+          "sugerencia" => "Primero reemplaza o pausa el contenido que usa esta imagen."
+        ));
+      }
+
+      $directorio = dirname(__DIR__, 2) . DIRECTORY_SEPARATOR . "public" . DIRECTORY_SEPARATOR . "assets" . DIRECTORY_SEPARATOR . "media" . DIRECTORY_SEPARATOR . "cms" . DIRECTORY_SEPARATOR . "ecommerce";
+      $directorioReal = realpath($directorio);
+      if (!$directorioReal) {
+        throw new Exception("No fue posible validar la carpeta publica de Media CMS.");
+      }
+      $rutaArchivo = $directorioReal . DIRECTORY_SEPARATOR . basename($url);
+      $rutaReal = is_file($rutaArchivo) ? realpath($rutaArchivo) : false;
+      if ($rutaReal && strpos($rutaReal, $directorioReal . DIRECTORY_SEPARATOR) !== 0) {
+        throw new Exception("La ruta fisica de la imagen no es valida.");
+      }
+
+      $db->beginTransaction();
+      $stmt = $db->prepare("DELETE FROM erp_ecommerce_media_archivos WHERE id_media_archivo=:id LIMIT 1");
+      $stmt->execute(array(":id" => $id));
+      $db->commit();
+
+      $archivoEliminado = false;
+      if ($rutaReal && is_file($rutaReal)) {
+        $archivoEliminado = unlink($rutaReal);
+      }
+
+      return $this->respuesta(false, "success", "Imagen eliminada de Media CMS.", array(
+        "id_media_archivo" => $id,
+        "url" => $url,
+        "archivo_eliminado" => $archivoEliminado,
+        "eliminado_por" => intval($idUsuario) ?: null
+      ));
+    } catch (Exception $e) {
+      if (isset($db) && $db && $db->inTransaction()) {
+        $db->rollBack();
+      }
+      return $this->respuesta(true, "danger", $e->getMessage(), array(
+        "guardrails" => array(
+          "no_elimina_si_esta_publicado" => true,
+          "solo_media_cms" => true
         )
       ));
     }
@@ -1156,7 +1236,9 @@ class EcommerceCatalogoPublico extends CRUD {
     $mapa = array(
       "image/jpeg" => "jpg",
       "image/png" => "png",
-      "image/webp" => "webp"
+      "image/webp" => "webp",
+      "image/vnd.microsoft.icon" => "ico",
+      "image/x-icon" => "ico"
     );
     $extension = strtolower(pathinfo((string) $nombre, PATHINFO_EXTENSION));
     $extension = preg_replace("/[^a-z0-9]/", "", $extension);
@@ -1164,8 +1246,11 @@ class EcommerceCatalogoPublico extends CRUD {
   }
 
   private function mediaValidarMimeExtension($mime, $extension) {
-    $mimes = array("image/jpeg", "image/png", "image/webp");
-    $extensiones = array("jpg", "jpeg", "png", "webp");
+    $mimes = array("image/jpeg", "image/png", "image/webp", "image/vnd.microsoft.icon", "image/x-icon", "image/icon");
+    $extensiones = array("jpg", "jpeg", "png", "webp", "ico");
+    if ($extension === "ico" && in_array($mime, array("application/octet-stream", "application/ico"), true)) {
+      return;
+    }
     if (!in_array($mime, $mimes, true)) {
       throw new Exception("Tipo de imagen no permitido: " . $mime);
     }
@@ -1197,6 +1282,22 @@ class EcommerceCatalogoPublico extends CRUD {
     $stmt->execute(array(":id" => intval($id)));
     $row = $stmt->fetch(PDO::FETCH_ASSOC);
     return $row ? $this->mediaFormatearItem($row) : array();
+  }
+
+  private function mediaConteoUsosPublicados($db, $url) {
+    if (!$this->tablaExiste($db, "erp_ecommerce_contenido_bloques") || !$this->tablaExiste($db, "erp_ecommerce_contenido_publicaciones")) {
+      return 0;
+    }
+    $stmt = $db->prepare(
+      "SELECT COUNT(*) FROM erp_ecommerce_contenido_publicaciones pub " .
+      "INNER JOIN erp_ecommerce_contenido_bloques b ON b.id_bloque=pub.id_bloque " .
+      "WHERE pub.estatus='publicado' AND (INSTR(b.payload_json, :url) > 0 OR INSTR(b.payload_json, :url_escapada) > 0)"
+    );
+    $stmt->execute(array(
+      ":url" => "%" . $url . "%",
+      ":url_escapada" => "%" . str_replace("/", "\\/", $url) . "%"
+    ));
+    return (int) $stmt->fetchColumn();
   }
 
   private function mediaFormatearItem($row) {
@@ -4571,7 +4672,7 @@ class EcommerceCatalogoPublico extends CRUD {
           "sku_activo" => true,
           "precio_general_activo" => true,
           "imagen_activa" => true,
-          "categoria_principal" => true,
+          "categoria_principal" => false,
           "marca_recomendada" => true,
           "bloquear_fraccionarios_granel" => true,
           "no_requiere_existencia_para_publicar" => true,
@@ -4580,6 +4681,66 @@ class EcommerceCatalogoPublico extends CRUD {
       ));
     } catch (Exception $e) {
       return $this->respuesta(true, "danger", $e->getMessage(), array("read_only" => true));
+    }
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-08-24
+   * Proposito: devolver IDs de todos los SKUs filtrados para seleccion masiva sin depender de paginacion visible.
+   * Impacto: Ecommerce publico/publicaciones; no escribe BD y permite lotes sobre el filtro actual.
+   * Contrato: read-only; limita la seleccion para evitar payloads excesivos en acciones POST posteriores.
+   */
+  public function idsPublicabilidadFiltrada($filtros = array()) {
+    try {
+      $db = $this->getConexion();
+      if (!$db) {
+        return $this->respuesta(true, "warning", "Conexion MySQL no disponible", array("read_only" => true, "id_skus" => array()));
+      }
+
+      $limite = max(1, min(5000, intval($this->valor($filtros, "limite", 5000))));
+      $soloBloqueados = intval($this->valor($filtros, "solo_bloqueados", 0)) === 1;
+      $soloPublicables = intval($this->valor($filtros, "solo_publicables", 0)) === 1;
+      $busqueda = trim((string) $this->valor($filtros, "q", ""));
+      $estatusPublicacion = trim((string) $this->valor($filtros, "estatus_publicacion", ""));
+      $disponibilidad = trim((string) $this->valor($filtros, "disponibilidad", ""));
+      $categoriaTexto = trim((string) $this->valor($filtros, "categoria_texto", ""));
+      $mascota = $this->limpiarFiltroPublico($this->valor($filtros, "mascota", ""));
+      $necesidad = $this->limpiarFiltroPublico($this->valor($filtros, "necesidad", ""));
+      $granel = trim((string) $this->valor($filtros, "granel", ""));
+
+      $paginacion = array();
+      $candidatos = $this->listarCandidatosPublicacion($db, $limite, $soloBloqueados, $soloPublicables, $busqueda, $estatusPublicacion, array(
+        "disponibilidad" => $disponibilidad,
+        "categoria_texto" => $categoriaTexto,
+        "mascota" => $mascota,
+        "necesidad" => $necesidad,
+        "granel" => $granel
+      ), 0, $paginacion);
+
+      $ids = array();
+      $estatus = array();
+      foreach ($candidatos as $fila) {
+        $idSku = intval($this->valor($fila, "id_sku", 0));
+        if ($idSku <= 0) {
+          continue;
+        }
+        $ids[] = $idSku;
+        $estatus[(string) $idSku] = (string) $this->valor($fila, "estatus_publicacion", "");
+      }
+      $total = intval($this->valor($paginacion, "total", count($ids)));
+
+      return $this->respuesta(false, "success", "Seleccion filtrada ecommerce consultada", array(
+        "read_only" => true,
+        "no_escribe_bd" => true,
+        "id_skus" => array_values(array_unique($ids)),
+        "estatus_por_sku" => $estatus,
+        "total_filtrado" => $total,
+        "total_seleccionado" => count(array_unique($ids)),
+        "limite" => $limite,
+        "seleccion_truncada" => $total > $limite
+      ));
+    } catch (Exception $e) {
+      return $this->respuesta(true, "danger", $e->getMessage(), array("read_only" => true, "id_skus" => array()));
     }
   }
 
@@ -5088,7 +5249,6 @@ class EcommerceCatalogoPublico extends CRUD {
       $bloqueosQuePermitenBorrador = array(
         "precio_general_faltante",
         "imagen_faltante",
-        "categoria_principal_faltante",
         "venta_fraccionaria_bloqueada_fase_1",
         "posible_granel_textual"
       );
@@ -5590,19 +5750,21 @@ class EcommerceCatalogoPublico extends CRUD {
     $ok = 0;
     $error = 0;
     $crearBorradorSiNoExiste = intval($this->valor($datos, "crear_borrador_si_no_existe", 0)) === 1;
+    $db = $this->getConexion();
     foreach ($skus as $idSku) {
       $borrador = null;
+      $candidatoLote = $db ? $this->consultarCandidatoPorSku($db, $idSku) : null;
       if ($crearBorradorSiNoExiste) {
         $borrador = $this->guardarPublicacionBorradorAutorizada(array(
           "id_sku" => $idSku,
           "estatus_publicacion" => "borrador"
         ), array("autorizar" => "ECOMMERCE_PUBLICO_PUBLICACION_BORRADOR"));
       }
-      $respuesta = $this->publicarBorradorAutorizado(array(
+      $respuesta = $this->cambiarEstatusPublicacionAutorizado(array(
         "id_sku" => $idSku,
-        "confirmar_revision" => 1,
+        "estatus_publicacion" => "publicado",
         "confirmar_agotado" => intval($this->valor($datos, "confirmar_agotado", 0))
-      ), array("autorizar" => "ECOMMERCE_PUBLICO_PUBLICAR_BORRADOR"));
+      ), array("autorizar" => "ECOMMERCE_PUBLICO_GOBIERNO_ESTATUS"));
       if (empty($respuesta["error"])) {
         $ok++;
       } else {
@@ -5613,6 +5775,10 @@ class EcommerceCatalogoPublico extends CRUD {
         "ok" => empty($respuesta["error"]),
         "mensaje" => isset($respuesta["mensaje"]) ? $respuesta["mensaje"] : "",
         "tipo" => isset($respuesta["tipo"]) ? $respuesta["tipo"] : "",
+        "sku" => $candidatoLote ? $this->valor($candidatoLote, "sku", "") : "",
+        "nombre" => $candidatoLote ? $this->valor($candidatoLote, "nombre_publico", "") : "",
+        "categoria" => $candidatoLote ? $this->valor($candidatoLote, "categoria", "") : "",
+        "precio" => $candidatoLote ? $this->valor($candidatoLote, "precio", null) : null,
         "bloqueos" => $this->valor($respuesta, array("depurar", "bloqueos_publicacion"), array()),
         "borrador_previo" => $borrador ? array(
           "ok" => empty($borrador["error"]),
@@ -5620,14 +5786,18 @@ class EcommerceCatalogoPublico extends CRUD {
           "bloqueos" => $this->valor($borrador, array("depurar", "bloqueos_publicacion"), array()),
           "bloqueos_publicabilidad" => $this->valor($borrador, array("depurar", "bloqueos_publicabilidad"), array())
         ) : null,
-        "publicacion" => $this->valor($respuesta, array("depurar", "publicacion"), array())
+        "publicacion" => $this->valor($respuesta, array("depurar", "publicacion"), array()),
+        "estatus_publicacion" => $this->valor($respuesta, array("depurar", "estatus_publicacion"), "")
       );
     }
-    return $this->respuesta($ok === 0, $ok > 0 ? "success" : "warning", "Lote de publicaciones procesado", array(
+    $mensaje = $this->mensajeResultadoLote("publicacion", count($skus), $ok, $error);
+    return $this->respuesta($ok === 0, $error > 0 ? "warning" : "success", $mensaje, array(
       "escribe_bd" => $ok > 0,
       "id_skus" => $skus,
+      "total_solicitado" => count($skus),
       "total_ok" => $ok,
       "total_error" => $error,
+      "resultado_lote" => $error > 0 ? ($ok > 0 ? "parcial" : "sin_cambios") : "completo",
       "resultados" => $resultados,
       "crear_borrador_si_no_existe" => $crearBorradorSiNoExiste,
       "confirmar_agotado" => intval($this->valor($datos, "confirmar_agotado", 0)) === 1,
@@ -5759,6 +5929,17 @@ class EcommerceCatalogoPublico extends CRUD {
     }
   }
 
+  private function mensajeResultadoLote($accion, $total, $ok, $error) {
+    $accion = trim((string) $accion);
+    if ($ok <= 0) {
+      return "No se realizo ningun cambio del lote; revisa los bloqueos por producto";
+    }
+    if ($error > 0) {
+      return ucfirst($accion) . " parcial: " . intval($ok) . " de " . intval($total) . " productos quedaron aplicados; " . intval($error) . " requieren correccion";
+    }
+    return ucfirst($accion) . " masiva completada: " . intval($ok) . " de " . intval($total) . " productos";
+  }
+
   /**
    * Documentacion IA: Codex GPT-5 | Fecha: 2026-07-30
    * Proposito: cambiar el estatus operativo de una publicacion ecommerce desde el panel de control.
@@ -5888,6 +6069,10 @@ class EcommerceCatalogoPublico extends CRUD {
         "id_sku" => $idSku,
         "ok" => empty($respuesta["error"]),
         "mensaje" => isset($respuesta["mensaje"]) ? $respuesta["mensaje"] : "",
+        "sku" => $this->valor($respuesta, array("depurar", "plan", "depurar", "producto_vivo_erp", "sku"), ""),
+        "nombre" => $this->valor($respuesta, array("depurar", "plan", "depurar", "producto_vivo_erp", "nombre"), ""),
+        "categoria" => $this->valor($respuesta, array("depurar", "plan", "depurar", "producto_vivo_erp", "categoria"), ""),
+        "precio" => $this->valor($respuesta, array("depurar", "plan", "depurar", "producto_vivo_erp", "precio"), null),
         "bloqueos" => $this->valor($respuesta, array("depurar", "bloqueos_publicacion"), array()),
         "borrador_previo" => $borrador ? array(
           "ok" => empty($borrador["error"]),
@@ -5897,11 +6082,14 @@ class EcommerceCatalogoPublico extends CRUD {
         ) : null
       );
     }
-    return $this->respuesta($ok === 0, $ok > 0 ? "success" : "warning", "Lote de estatus ecommerce procesado", array(
+    $mensaje = $this->mensajeResultadoLote("estatus ecommerce", count($skus), $ok, $error);
+    return $this->respuesta($ok === 0, $error > 0 ? "warning" : "success", $mensaje, array(
       "escribe_bd" => $ok > 0,
       "estatus_publicacion" => $estatus,
+      "total_solicitado" => count($skus),
       "total_ok" => $ok,
       "total_error" => $error,
+      "resultado_lote" => $error > 0 ? ($ok > 0 ? "parcial" : "sin_cambios") : "completo",
       "resultados" => $resultados,
       "crear_borrador_si_no_existe" => $crearBorradorSiNoExiste,
       "confirmar_agotado" => intval($this->valor($datos, "confirmar_agotado", 0)) === 1,
@@ -5928,7 +6116,6 @@ class EcommerceCatalogoPublico extends CRUD {
               AND s.estatus='activo'
               AND pr.id_lista_precio_detalle IS NOT NULL
               AND img.id_imagen_erp IS NOT NULL
-              AND pc.id_categoria_erp IS NOT NULL
               AND COALESCE(r.permite_venta_fraccionaria, 0)=0
             THEN 1 ELSE 0 END) skus_publicables_fase_1
       FROM erp_catalogo_skus s
@@ -5977,11 +6164,10 @@ class EcommerceCatalogoPublico extends CRUD {
     if ($soloPublicables) {
       $where[] = "pr.id_lista_precio_detalle IS NOT NULL";
       $where[] = "img.url_imagen IS NOT NULL";
-      $where[] = "pc.id_categoria_erp IS NOT NULL";
       $where[] = "COALESCE(r.permite_venta_fraccionaria, 0)=0";
     }
     if ($soloBloqueados) {
-      $where[] = "(pr.id_lista_precio_detalle IS NULL OR img.url_imagen IS NULL OR pc.id_categoria_erp IS NULL OR COALESCE(r.permite_venta_fraccionaria, 0)=1)";
+      $where[] = "(pr.id_lista_precio_detalle IS NULL OR img.url_imagen IS NULL OR COALESCE(r.permite_venta_fraccionaria, 0)=1)";
     }
     if ($busqueda !== "") {
       $where[] = "(p.nombre LIKE :q OR s.nombre LIKE :q OR s.sku LIKE :q OR p.codigo_producto LIKE :q OR m.nombre LIKE :q OR c.nombre LIKE :q OR c.ruta LIKE :q)";
@@ -6081,7 +6267,7 @@ class EcommerceCatalogoPublico extends CRUD {
         " . ($tienePublicaciones ? "pub.id_publicacion, pub.estatus_publicacion, pub.slug slug_publicacion, pub.titulo_publico titulo_publico_publicacion, pub.descripcion_publica descripcion_publica_publicacion, pub.presentacion_publica presentacion_publica_publicacion, pub.mascota_especie mascota_especie_publicacion, pub.necesidades_json necesidades_json_publicacion, pub.destacado destacado_publicacion, pub.orden orden_publicacion, pub.permite_cotizacion permite_cotizacion_publicacion, pub.permite_whatsapp permite_whatsapp_publicacion, pub.mostrar_precio mostrar_precio_publicacion, pub.mostrar_disponibilidad mostrar_disponibilidad_publicacion" : "NULL id_publicacion, NULL estatus_publicacion, NULL slug_publicacion, NULL titulo_publico_publicacion, NULL descripcion_publica_publicacion, NULL presentacion_publica_publicacion, NULL mascota_especie_publicacion, NULL necesidades_json_publicacion, NULL destacado_publicacion, NULL orden_publicacion, NULL permite_cotizacion_publicacion, NULL permite_whatsapp_publicacion, NULL mostrar_precio_publicacion, NULL mostrar_disponibilidad_publicacion") . "
       " . $joins . "
       WHERE " . implode(" AND ", $where) . "
-      ORDER BY CASE WHEN pr.id_lista_precio_detalle IS NOT NULL AND img.url_imagen IS NOT NULL AND pc.id_categoria_erp IS NOT NULL AND COALESCE(r.permite_venta_fraccionaria,0)=0 THEN 0 ELSE 1 END,
+      ORDER BY CASE WHEN pr.id_lista_precio_detalle IS NOT NULL AND img.url_imagen IS NOT NULL AND COALESCE(r.permite_venta_fraccionaria,0)=0 THEN 0 ELSE 1 END,
         p.nombre, s.sku
       LIMIT " . intval($limite) . " OFFSET " . max(0, intval($offset));
     $stmt = $db->prepare($sql);
@@ -6163,17 +6349,11 @@ class EcommerceCatalogoPublico extends CRUD {
     if (trim((string) $fila["url_imagen"]) === "") {
       $bloqueos[] = "imagen_faltante";
     }
-    if (trim((string) $fila["categoria"]) === "") {
-      $bloqueos[] = "categoria_principal_faltante";
-    }
     if (intval($fila["permite_venta_fraccionaria"]) === 1) {
       $bloqueos[] = "venta_fraccionaria_bloqueada_fase_1";
     }
     foreach ($this->valor($this->auditoriaEditorialPublicacion($fila), "bloqueos_criticos", array()) as $bloqueoEditorial) {
       $bloqueos[] = $bloqueoEditorial;
-    }
-    if (!empty($fila["id_publicacion"])) {
-      $bloqueos[] = "publicacion_existente";
     }
     return array_values(array_unique($bloqueos));
   }
@@ -6242,6 +6422,143 @@ class EcommerceCatalogoPublico extends CRUD {
       "sugerencias" => $sugerencias,
       "campos_revisados" => array("titulo_publico", "descripcion_publica", "presentacion_publica")
     );
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-08-23
+   * Proposito: publicar desde CMS Frontend el banner Home como contenido consumible por API publica.
+   * Impacto: Home ecommerce; conecta el editor operativo `home_banner` con `home.hero` sin tocar catalogo/precios/inventario.
+   * Contrato: escritura controlada; exige imagen desktop y alt text, upsert por codigo estable y publica una sola pieza vigente.
+   */
+  public function frontendHomeBannerPublicarInterno($datos, $idUsuario = 0) {
+    try {
+      $db = $this->getConexion();
+      if (!$db || !$this->tablasCmsContenidoDisponibles($db)) {
+        return $this->respuesta(true, "warning", "El esquema CMS contenido no esta disponible para publicar Home banner.", array("persistencia_real" => false));
+      }
+
+      $payloadRaw = (string) $this->valor($datos, "payload_json", "{}");
+      $payload = json_decode($payloadRaw, true);
+      if (!is_array($payload)) {
+        return $this->respuesta(true, "warning", "El payload del banner no es JSON valido.", array("json_error" => json_last_error_msg()));
+      }
+
+      $items = $this->valor($payload, "items", array());
+      if (!is_array($items) || empty($items)) {
+        return $this->respuesta(true, "warning", "El banner no tiene items para publicar.", array("codigo" => "home_banner"));
+      }
+      $item = null;
+      foreach ($items as $posible) {
+        if (!is_array($posible)) { continue; }
+        if (!array_key_exists("visible", $posible) || (bool) $posible["visible"]) {
+          $item = $posible;
+          break;
+        }
+      }
+      if (!$item) {
+        return $this->respuesta(true, "warning", "No hay banner visible para publicar.", array("codigo" => "home_banner"));
+      }
+
+      $imagenDesktop = trim((string) $this->valor($item, "imagen_desktop", ""));
+      $imagenMobile = trim((string) $this->valor($item, "imagen_mobile", $imagenDesktop));
+      $alt = trim((string) $this->valor($item, "alt", ""));
+      if ($imagenDesktop === "" || strpos($imagenDesktop, "/assets/media/cms/ecommerce/") !== 0) {
+        return $this->respuesta(true, "warning", "Selecciona una imagen guardada en Media CMS antes de publicar.", array(
+          "imagen_desktop" => $imagenDesktop,
+          "requiere_prefijo" => "/assets/media/cms/ecommerce/"
+        ));
+      }
+      if ($alt === "") {
+        return $this->respuesta(true, "warning", "Captura alt text antes de publicar el banner.", array("campo" => "alt"));
+      }
+
+      $titulo = trim((string) $this->valor($item, "titulo", $this->valor($payload, "titulo", "Banner Home")));
+      if ($titulo === "") { $titulo = "Banner Home"; }
+      $subtitulo = trim((string) $this->valor($item, "subtitulo", ""));
+      $cta = $this->valor($item, "cta", array());
+      if (!is_array($cta)) { $cta = array(); }
+
+      $bloquePayload = array(
+        "titulo" => $titulo,
+        "subtitulo" => $subtitulo,
+        "media" => array(
+          "imagen_desktop" => $imagenDesktop,
+          "imagen_mobile" => $imagenMobile !== "" ? $imagenMobile : $imagenDesktop,
+          "alt" => $alt,
+          "estado" => "publicado_desde_cms_frontend"
+        ),
+        "cta" => array(
+          "label" => trim((string) $this->valor($cta, "label", "Ver productos")),
+          "url" => trim((string) $this->valor($cta, "url", "/#productos"))
+        ),
+        "frontend" => array(
+          "origen" => "home_banner",
+          "variante" => (string) $this->valor($payload, array("config", "variante"), "wokiee_banner_full_width")
+        )
+      );
+
+      $db->beginTransaction();
+      $codigoBloque = "home_banner_publicado";
+      $stmtBloque = $db->prepare("SELECT id_bloque FROM erp_ecommerce_contenido_bloques WHERE codigo=:codigo LIMIT 1");
+      $stmtBloque->execute(array(":codigo" => $codigoBloque));
+      $idBloque = (int) $stmtBloque->fetchColumn();
+      $payloadJson = json_encode($bloquePayload, JSON_UNESCAPED_UNICODE);
+      if ($idBloque > 0) {
+        $stmt = $db->prepare("UPDATE erp_ecommerce_contenido_bloques SET tipo_bloque='hero_banner', nombre_interno='Home banner publicado', titulo=:titulo, payload_json=:payload, estatus='borrador', fecha_actualizacion=NOW(), actualizado_por=:usuario WHERE id_bloque=:id");
+        $stmt->execute(array(":titulo" => $titulo, ":payload" => $payloadJson, ":usuario" => intval($idUsuario) ?: null, ":id" => $idBloque));
+      } else {
+        $stmt = $db->prepare("INSERT INTO erp_ecommerce_contenido_bloques (tipo_bloque, codigo, nombre_interno, titulo, payload_json, estatus, creado_por, actualizado_por) VALUES ('hero_banner', :codigo, 'Home banner publicado', :titulo, :payload, 'borrador', :usuario, :usuario)");
+        $stmt->execute(array(":codigo" => $codigoBloque, ":titulo" => $titulo, ":payload" => $payloadJson, ":usuario" => intval($idUsuario) ?: null));
+        $idBloque = (int) $db->lastInsertId();
+      }
+
+      $stmtPlantilla = $db->prepare("SELECT id_plantilla FROM erp_ecommerce_plantillas WHERE codigo='artiani_default' AND activa=1 LIMIT 1");
+      $stmtPlantilla->execute();
+      $idPlantilla = (int) $stmtPlantilla->fetchColumn();
+      $stmtSlot = $db->prepare("SELECT id_slot FROM erp_ecommerce_plantilla_slots WHERE id_plantilla=:plantilla AND codigo='home.hero' AND estatus='activo' LIMIT 1");
+      $stmtSlot->execute(array(":plantilla" => $idPlantilla));
+      $idSlot = (int) $stmtSlot->fetchColumn();
+      if ($idPlantilla <= 0 || $idSlot <= 0) {
+        $db->rollBack();
+        return $this->respuesta(true, "warning", "No existe plantilla/slot Home hero activo para publicar.", array("plantilla" => $idPlantilla, "slot" => $idSlot));
+      }
+
+      $stmtPausar = $db->prepare("UPDATE erp_ecommerce_contenido_publicaciones SET estatus='pausado', fecha_actualizacion=NOW(), actualizado_por=:usuario WHERE id_plantilla=:plantilla AND id_slot=:slot AND pagina='home' AND contexto_clave='*' AND canal='catalogo_publico' AND estatus='publicado'");
+      $stmtPausar->execute(array(":usuario" => intval($idUsuario) ?: null, ":plantilla" => $idPlantilla, ":slot" => $idSlot));
+
+      $stmtPub = $db->prepare("SELECT id_publicacion_contenido FROM erp_ecommerce_contenido_publicaciones WHERE id_plantilla=:plantilla AND id_slot=:slot AND id_bloque=:bloque AND pagina='home' AND contexto_clave='*' AND canal='catalogo_publico' LIMIT 1");
+      $stmtPub->execute(array(":plantilla" => $idPlantilla, ":slot" => $idSlot, ":bloque" => $idBloque));
+      $idPublicacion = (int) $stmtPub->fetchColumn();
+      if ($idPublicacion > 0) {
+        $stmt = $db->prepare("UPDATE erp_ecommerce_contenido_publicaciones SET orden=1, estatus='publicado', vigente_desde=NULL, vigente_hasta=NULL, fecha_actualizacion=NOW(), actualizado_por=:usuario WHERE id_publicacion_contenido=:id");
+        $stmt->execute(array(":usuario" => intval($idUsuario) ?: null, ":id" => $idPublicacion));
+      } else {
+        $stmt = $db->prepare("INSERT INTO erp_ecommerce_contenido_publicaciones (id_plantilla, id_slot, id_bloque, pagina, contexto_clave, orden, estatus, vigente_desde, vigente_hasta, canal, actualizado_por) VALUES (:plantilla, :slot, :bloque, 'home', '*', 1, 'publicado', NULL, NULL, 'catalogo_publico', :usuario)");
+        $stmt->execute(array(":plantilla" => $idPlantilla, ":slot" => $idSlot, ":bloque" => $idBloque, ":usuario" => intval($idUsuario) ?: null));
+        $idPublicacion = (int) $db->lastInsertId();
+      }
+      $db->commit();
+
+      return $this->respuesta(false, "success", "Home banner publicado para API publica.", array(
+        "id_bloque" => $idBloque,
+        "id_publicacion_contenido" => $idPublicacion,
+        "slot" => "home.hero",
+        "pagina" => "home",
+        "publicado_api" => true,
+        "endpoint" => "/ecommercePublico/contenido_pagina?pagina=home",
+        "media" => $bloquePayload["media"],
+        "guardrails" => array(
+          "no_modifica_catalogo" => true,
+          "no_modifica_precios" => true,
+          "no_modifica_inventario" => true
+        )
+      ));
+    } catch (Exception $e) {
+      if (isset($db) && $db instanceof PDO && $db->inTransaction()) {
+        $db->rollBack();
+      }
+      return $this->respuesta(true, "danger", "No se pudo publicar Home banner.", array("error_tecnico" => $e->getMessage()));
+    }
   }
 
   /**
@@ -10089,6 +10406,9 @@ class EcommerceCatalogoPublico extends CRUD {
   }
 
   private function bloqueHeroDefault() {
+    $media = $this->mediaCmsPrincipalPublica("home", array("hero", "banner", "principal"));
+    $imagen = $this->valor($media, "url", "");
+    $alt = $this->valor($media, "alt", "Productos para mascotas Artiani");
     return array(
       "id" => "home-hero-default",
       "tipo" => "hero_banner",
@@ -10096,17 +10416,22 @@ class EcommerceCatalogoPublico extends CRUD {
       "titulo" => "Todo para tus mascotas",
       "subtitulo" => "Alimento, habitats, accesorios y cuidado especializado con catalogo vivo desde Artiani.",
       "media" => array(
-        "imagen_desktop" => "",
-        "imagen_mobile" => "",
-        "alt" => "Productos para mascotas Artiani",
-        "estado" => "pendiente_panel"
+        "imagen_desktop" => $imagen,
+        "imagen_mobile" => $imagen,
+        "alt" => $alt,
+        "media_id" => $this->valor($media, "id_media_archivo", null),
+        "codigo" => $this->valor($media, "codigo", ""),
+        "estado" => $imagen !== "" ? "media_cms_fallback" : "pendiente_panel"
       ),
       "cta" => array("label" => "Ver catalogo", "url" => "/catalogo"),
-      "guardrails" => array("requiere_imagen_real_panel" => true)
+      "guardrails" => array("requiere_imagen_real_panel" => $imagen === "", "fallback_media_cms" => $imagen !== "")
     );
   }
 
   private function bloqueCategoryBannerDefault($categoria, $categoriaLabel) {
+    $media = $this->mediaCmsPrincipalPublica("categoria", array("banner", "hero", "principal"));
+    $imagen = $this->valor($media, "url", "");
+    $alt = $this->valor($media, "alt", "Categoria " . $categoriaLabel);
     return array(
       "id" => "categoria-banner-" . ($categoria !== "" ? $categoria : "default"),
       "tipo" => "category_banner",
@@ -10115,14 +10440,65 @@ class EcommerceCatalogoPublico extends CRUD {
       "titulo" => $categoriaLabel,
       "subtitulo" => "Productos publicados y validados desde el catalogo Artiani.",
       "media" => array(
-        "imagen_desktop" => "",
-        "imagen_mobile" => "",
-        "alt" => "Categoria " . $categoriaLabel,
-        "estado" => "pendiente_panel"
+        "imagen_desktop" => $imagen,
+        "imagen_mobile" => $imagen,
+        "alt" => $alt,
+        "media_id" => $this->valor($media, "id_media_archivo", null),
+        "codigo" => $this->valor($media, "codigo", ""),
+        "estado" => $imagen !== "" ? "media_cms_fallback" : "pendiente_panel"
       ),
       "cta" => array("label" => "Ver productos", "url" => "/catalogo" . ($categoria !== "" ? "?categoria=" . rawurlencode($categoria) : "")),
-      "guardrails" => array("requiere_imagen_real_panel" => true)
+      "guardrails" => array("requiere_imagen_real_panel" => $imagen === "", "fallback_media_cms" => $imagen !== "")
     );
+  }
+
+  private function mediaCmsPrincipalPublica($uso, $tipos) {
+    try {
+      $db = $this->getConexion();
+      if (!$db || !$this->tablaExiste($db, "erp_ecommerce_media_archivos")) {
+        return array();
+      }
+      $uso = $this->limpiarCodigoCms($uso, 60);
+      $tiposLimpios = array();
+      foreach ((array) $tipos as $tipo) {
+        $tipo = $this->limpiarCodigoCms($tipo, 60);
+        if ($tipo !== "") { $tiposLimpios[] = $tipo; }
+      }
+      if ($uso === "" || empty($tiposLimpios)) {
+        return array();
+      }
+      $placeholders = array();
+      $params = array(":uso" => $uso);
+      foreach ($tiposLimpios as $index => $tipo) {
+        $key = ":tipo" . $index;
+        $placeholders[] = $key;
+        $params[$key] = $tipo;
+      }
+      $sql = "SELECT id_media_archivo, codigo, ruta_publica, alt_text, uso_sugerido, tipo_sugerido, fecha_registro
+        FROM erp_ecommerce_media_archivos
+        WHERE estatus='activo'
+          AND uso_sugerido=:uso
+          AND tipo_sugerido IN (" . implode(",", $placeholders) . ")
+        ORDER BY id_media_archivo DESC
+        LIMIT 1";
+      $stmt = $db->prepare($sql);
+      $stmt->execute($params);
+      $row = $stmt->fetch(PDO::FETCH_ASSOC);
+      if (!$row) {
+        return array();
+      }
+      return array(
+        "id_media_archivo" => (int) $row["id_media_archivo"],
+        "codigo" => (string) $row["codigo"],
+        "url" => (string) $row["ruta_publica"],
+        "alt" => (string) $row["alt_text"],
+        "uso" => (string) $row["uso_sugerido"],
+        "tipo" => (string) $row["tipo_sugerido"],
+        "fuente" => "erp_ecommerce_media_archivos"
+      );
+    } catch (Exception $e) {
+      return array();
+    }
   }
 
   private function bloqueProductCollectionDefault($id, $titulo, $endpoint, $url) {

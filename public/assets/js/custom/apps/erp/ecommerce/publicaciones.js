@@ -68,6 +68,13 @@
         };
     }
 
+    function filtrosSeleccionTotal() {
+        var filtros = filtrosAuditoria();
+        filtros.pagina = 1;
+        filtros.limite = 5000;
+        return filtros;
+    }
+
     function resetearPaginaYCargar() {
         paginaActual = 1;
         cargarTodo();
@@ -447,7 +454,7 @@
                     "<div class=\"fs-6 fw-semibold mb-2\">" + dinero(producto.precio || 0) + " " + escapeHtml(producto.moneda || "MXN") + "</div>" +
                     "<div class=\"mb-2\">" + disponibilidadBadge(producto.disponibilidad_publica_sugerida) + "</div>" +
                     (estatus ? "<div class=\"mb-2\"><span class=\"badge " + (estatus === "publicado" ? "badge-light-success" : "badge-light-warning") + "\">" + escapeHtml(estatus) + "</span></div>" : "") +
-                    "<div class=\"text-muted fs-7\">Los precio, imagen, marca y categoria seguiran viniendo vivos desde ERP. La publicacion solo guarda curaduria.</div>" +
+                    "<div class=\"text-muted fs-7\">Precio e imagen siguen viniendo vivos desde ERP. Marca y categoria ayudan a navegacion, pero no bloquean esta publicacion inicial.</div>" +
                 "</div>" +
                 "<div class=\"col-lg-4\">" +
                     "<div class=\"border rounded p-4 bg-light\">" +
@@ -653,6 +660,43 @@
         actualizarSeleccionLote();
     }
 
+    function seleccionarTodosFiltrados() {
+        var total = Number(paginacionActual.total || 0);
+        if (total <= 0) {
+            window.alert("No hay productos para seleccionar con los filtros actuales.");
+            return;
+        }
+        if (!window.confirm("Seleccionar todos los productos que coinciden con los filtros actuales (" + total + ")?")) {
+            return;
+        }
+        setEstado("Seleccionando todo...", "badge-light-info");
+        getJson("/ecommercePublico/publicaciones_ids_filtrados_erp", filtrosSeleccionTotal()).then(function (response) {
+            if (response.error) { throw new Error(response.mensaje || "No se pudo seleccionar todo"); }
+            var depurar = response.depurar || {};
+            var ids = Array.isArray(depurar.id_skus) ? depurar.id_skus : [];
+            var estatus = depurar.estatus_por_sku || {};
+            ids.forEach(function (idSku) {
+                var id = String(idSku || "");
+                if (!id) { return; }
+                seleccionLote[id] = true;
+                estatusSeleccionLote[id] = estatus[id] || estatusSeleccionLote[id] || "";
+            });
+            Array.prototype.forEach.call(document.querySelectorAll(".ecom-lote-check"), function (check) {
+                if (seleccionLote[String(check.value || "")]) {
+                    check.checked = true;
+                }
+            });
+            actualizarSeleccionLote();
+            setEstado("Seleccionados: " + Object.keys(seleccionLote).length, "badge-light-success");
+            if (depurar.seleccion_truncada) {
+                window.alert("Se seleccionaron " + Number(depurar.total_seleccionado || ids.length) + " de " + Number(depurar.total_filtrado || total) + " productos. Ajusta filtros para seleccionar el resto.");
+            }
+        }).catch(function (error) {
+            setEstado("Error", "badge-light-danger");
+            window.alert(error.message || "No se pudo seleccionar todo.");
+        });
+    }
+
     function datosConfiguracionLote() {
         var datos = {};
         Array.prototype.forEach.call(document.querySelectorAll("[data-lote-config]"), function (campo) {
@@ -667,16 +711,29 @@
     function resumenResultadoLote(depurar) {
         var errores = (depurar.resultados || []).filter(function (resultado) {
             return resultado && resultado.ok !== true;
-        }).slice(0, 5).map(function (resultado) {
-            var bloqueos = (resultado.bloqueos || resultado.bloqueos_publicabilidad || []).join(", ");
-            return "SKU " + (resultado.id_sku || "") + ": " + (bloqueos || resultado.mensaje || "sin detalle");
+        }).slice(0, 12).map(function (resultado) {
+            var bloqueos = (resultado.bloqueos || resultado.bloqueos_publicabilidad || []).map(etiquetaBloqueo).join(", ");
+            var nombre = resultado.sku || resultado.nombre ? " [" + [resultado.sku || "", resultado.nombre || ""].filter(Boolean).join(" - ") + "]" : "";
+            return "SKU ID " + (resultado.id_sku || "") + nombre + ": " + (bloqueos || resultado.mensaje || "sin detalle");
         });
         var advertencias = (depurar.resultados || []).filter(function (resultado) {
             return resultado && resultado.ok === true && (resultado.bloqueos_publicabilidad || []).length;
         }).slice(0, 5).map(function (resultado) {
-            return "SKU " + (resultado.id_sku || "") + ": borrador creado, pendiente " + resultado.bloqueos_publicabilidad.join(", ");
+            return "SKU ID " + (resultado.id_sku || "") + ": borrador creado, pendiente " + resultado.bloqueos_publicabilidad.map(etiquetaBloqueo).join(", ");
         });
+        var restantes = Math.max(0, Number(depurar.total_error || 0) - errores.length);
+        if (restantes > 0) {
+            errores.push("Y " + restantes + " productos mas con bloqueos.");
+        }
         return errores.concat(advertencias).join("\n");
+    }
+
+    function tituloResultadoLote(accion, depurar) {
+        var totalOk = Number(depurar.total_ok || 0);
+        var totalError = Number(depurar.total_error || 0);
+        if (totalOk <= 0) { return "No se publico ningun producto."; }
+        if (totalError > 0) { return accion + " parcial."; }
+        return accion + " completada.";
     }
 
     function actualizarSeleccionLote() {
@@ -782,7 +839,7 @@
             confirmar_agotado: $("ecom_lote_confirmar_agotados") && $("ecom_lote_confirmar_agotados").checked ? "1" : "0",
             crear_borrador_si_no_existe: "1"
         }).then(function (response) {
-            if (response.error) { throw new Error(response.mensaje || "No se pudo publicar lote"); }
+            if (response.error && !(response.depurar && Array.isArray(response.depurar.resultados))) { throw new Error(response.mensaje || "No se pudo publicar lote"); }
             var depurar = response.depurar || {};
             (depurar.resultados || []).forEach(function (resultado) {
                 if (!resultado || resultado.ok !== true) { return; }
@@ -792,9 +849,11 @@
                     delete estatusSeleccionLote[id];
                 }
             });
-            setEstado("Publicados: " + Number(depurar.total_ok || 0), "badge-light-success");
-            if (Number(depurar.total_error || 0) > 0 || resumenResultadoLote(depurar) !== "") {
-                window.alert("Publicacion masiva procesada.\nOK: " + Number(depurar.total_ok || 0) + "\nErrores: " + Number(depurar.total_error || 0) + "\n\n" + resumenResultadoLote(depurar));
+            var totalOk = Number(depurar.total_ok || 0);
+            var totalError = Number(depurar.total_error || 0);
+            setEstado("Publicados: " + totalOk + " / No publicados: " + totalError, totalError > 0 ? "badge-light-warning" : "badge-light-success");
+            if (totalError > 0 || response.error || resumenResultadoLote(depurar) !== "") {
+                window.alert(tituloResultadoLote("Publicacion masiva", depurar) + "\nOK: " + totalOk + "\nNo publicados: " + totalError + "\n\n" + (response.mensaje || "") + "\n\n" + resumenResultadoLote(depurar));
             }
             cargarTodo();
         }).catch(function (error) {
@@ -853,6 +912,7 @@
             cargarAuditoria();
         });
         $("ecom_lote_limpiar").addEventListener("click", limpiarSeleccionLote);
+        $("ecom_lote_seleccionar_todos").addEventListener("click", seleccionarTodosFiltrados);
         $("ecom_lote_borrador").addEventListener("click", guardarBorradoresLote);
         $("ecom_lote_config_aplicar").addEventListener("click", aplicarConfiguracionLote);
         $("ecom_lote_publicar").addEventListener("click", publicarBorradoresLote);

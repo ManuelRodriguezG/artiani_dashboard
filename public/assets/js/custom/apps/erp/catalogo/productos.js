@@ -642,7 +642,8 @@
             var acciones = "<div class=\"d-flex justify-content-end gap-1 flex-wrap\">" +
                 "<button class=\"btn btn-sm btn-light-primary\" type=\"button\" data-auditoria-producto=\"" + escapeAttr(item.id_producto_erp) + "\" data-auditoria-sku=\"" + escapeAttr(item.id_sku) + "\"><i class=\"bi bi-eye\"></i> Ver</button>" +
                 (esCosto
-                    ? "<a class=\"btn btn-sm btn-light-warning\" href=\"" + escapeAttr(urlRentabilidadSku(item)) + "\"><i class=\"bi bi-graph-up-arrow\"></i> Rentabilidad</a>"
+                    ? "<button class=\"btn btn-sm btn-warning\" type=\"button\" data-incidencia-costo-sku=\"" + escapeAttr(item.id_sku) + "\"><i class=\"bi bi-send\"></i> Generar incidencia</button>" +
+                      "<a class=\"btn btn-sm btn-light-warning\" href=\"" + escapeAttr(urlRentabilidadSku(item)) + "\"><i class=\"bi bi-graph-up-arrow\"></i> Rentabilidad</a>"
                     : "<a class=\"btn btn-sm btn-light-success\" href=\"" + escapeAttr(urlListasPreciosSku(item)) + "\"><i class=\"bi bi-tags\"></i> Listas</a>") +
                 "</div>";
             return "<tr>" +
@@ -654,6 +655,37 @@
         }).join("") || "<tr><td colspan=\"4\" class=\"text-center text-muted py-6\">Sin pendientes en la ventana revisada" + (resumen.revisados ? " (" + escapeHtml(resumen.revisados) + " revisados)" : "") + ".</td></tr>";
     }
 
+    /**
+     * IA: Codex GPT-5
+     * Fecha: 2026-08-23
+     * Proposito: crea manualmente una incidencia de costo derivado desde Pendientes comerciales.
+     * Impacto: Catalogo ERP/Rentabilidad; no calcula costos ni cambia precios, solo solicita revision operativa.
+     * Contrato: POST a `/catalogoerp/incidencia_costo_derivado_generar` con id_sku.
+     */
+    function generarIncidenciaCostoDerivado(idSku, boton) {
+        if (!idSku) {
+            return;
+        }
+        var original = boton ? boton.innerHTML : "";
+        if (boton) {
+            boton.disabled = true;
+            boton.innerHTML = "<span class=\"spinner-border spinner-border-sm me-1\"></span> Generando";
+        }
+        request("/catalogoerp/incidencia_costo_derivado_generar", {id_sku: idSku}).then(function (response) {
+            if (response.error) {
+                throw new Error(response.mensaje || "No se pudo generar la incidencia");
+            }
+            Swal.fire({text: response.mensaje || "Incidencia generada", icon: "success", confirmButtonText: "Aceptar"});
+            recargarAuditoriaSkusVendibles("costo");
+        }).catch(function (error) {
+            Swal.fire({text: error.message || String(error), icon: "warning", confirmButtonText: "Aceptar"});
+        }).finally(function () {
+            if (boton) {
+                boton.disabled = false;
+                boton.innerHTML = original;
+            }
+        });
+    }
     function claseTipoDerivacion(tipo) {
         if (tipo === "granel" || tipo === "apertura_empaque") {
             return "warning";
@@ -960,9 +992,9 @@
      */
     /**
      * IA: Codex GPT-5 | Fecha: 2026-07-28
-     * Proposito: separa candidatos de origen cerrado y destino granel en Apertura de empaques.
-     * Impacto: Catalogo ERP; reduce errores al configurar conversion cerrado -> granel sin tocar Inventario.
-     * Contrato: origen excluye SKUs fraccionarios; destino requiere venta fraccionaria activa.
+     * Proposito: separa candidatos de origen cerrado y destino operativo en Apertura de empaques.
+     * Impacto: Catalogo ERP; reduce errores al configurar conversion de empaque cerrado sin tocar Inventario.
+     * Contrato: origen excluye SKUs fraccionarios; destino acepta SKUs operativos con inventario, sean piezas o decimales.
      */
     function skusCandidatosOrigenApertura(skus) {
         return (skus || []).filter(function (sku) {
@@ -971,9 +1003,7 @@
     }
 
     function skusCandidatosDestinoApertura(skus) {
-        return (skus || []).filter(function (sku) {
-            return String(sku.permite_venta_fraccionaria || "0") === "1";
-        });
+        return skus || [];
     }
     function activarTabDetalle(tabId) {
         var modal = document.getElementById("catalogo_modal_detalle");
@@ -1897,7 +1927,8 @@
         lista.innerHTML = presentaciones.map(function (item) {
             var acciones = puedeEditar
                 ? "<div class=\"d-flex justify-content-end gap-2\"><button type=\"button\" class=\"btn btn-sm btn-icon btn-light-primary\" title=\"Editar\" data-editar-presentacion=\"" + escapeAttr(item.id_sku_presentacion_regla) + "\"><i class=\"bi bi-pencil-square\"></i></button>" +
-                  (item.estatus === "activa" ? "<button type=\"button\" class=\"btn btn-sm btn-icon btn-light-danger\" title=\"Desactivar\" data-desactivar-presentacion=\"" + escapeAttr(item.id_sku_presentacion_regla) + "\"><i class=\"bi bi-eye-slash\"></i></button>" : "") + "</div>"
+                  (item.estatus === "activa" ? "<button type=\"button\" class=\"btn btn-sm btn-icon btn-light-warning\" title=\"Desactivar\" data-desactivar-presentacion=\"" + escapeAttr(item.id_sku_presentacion_regla) + "\"><i class=\"bi bi-eye-slash\"></i></button>" : "") +
+                  "<button type=\"button\" class=\"btn btn-sm btn-icon btn-light-danger\" title=\"Eliminar definitivo\" data-eliminar-presentacion=\"" + escapeAttr(item.id_sku_presentacion_regla) + "\"><i class=\"bi bi-trash3\"></i></button></div>"
                 : "";
             var alertas = renderAlertasPresentacion(item);
             return "<tr>" +
@@ -1966,7 +1997,8 @@
         lista.innerHTML = items.map(function (item) {
             var acciones = puedeEditar
                 ? "<div class=\"d-flex justify-content-end gap-2\"><button type=\"button\" class=\"btn btn-sm btn-icon btn-light-primary\" title=\"Editar\" data-editar-apertura-empaque=\"" + escapeAttr(item.id_apertura_empaque) + "\"><i class=\"bi bi-pencil-square\"></i></button>" +
-                  (item.estatus === "activo" ? "<button type=\"button\" class=\"btn btn-sm btn-icon btn-light-danger\" title=\"Desactivar\" data-desactivar-apertura-empaque=\"" + escapeAttr(item.id_apertura_empaque) + "\"><i class=\"bi bi-eye-slash\"></i></button>" : "") + "</div>"
+                  (item.estatus === "activo" ? "<button type=\"button\" class=\"btn btn-sm btn-icon btn-light-warning\" title=\"Desactivar\" data-desactivar-apertura-empaque=\"" + escapeAttr(item.id_apertura_empaque) + "\"><i class=\"bi bi-eye-slash\"></i></button>" : "") +
+                  "<button type=\"button\" class=\"btn btn-sm btn-icon btn-light-danger\" title=\"Eliminar definitivo\" data-eliminar-apertura-empaque=\"" + escapeAttr(item.id_apertura_empaque) + "\"><i class=\"bi bi-trash3\"></i></button></div>"
                 : "";
             var trazabilidad = [];
             if (String(item.requiere_unidad_fisica) === "1") {
@@ -2084,7 +2116,8 @@
                     "<span class=\"badge badge-light-" + (paquete.estatus === "activo" ? "success" : "secondary") + "\">" + escapeHtml(paquete.estatus || "") + "</span>" +
                     (puedeEditar ? "<button type=\"button\" class=\"btn btn-sm btn-icon btn-light-primary\" title=\"Editar paquete\" data-editar-paquete=\"" + escapeAttr(paquete.id_paquete) + "\"><i class=\"bi bi-pencil-square\"></i></button>" +
                     "<button type=\"button\" class=\"btn btn-sm btn-icon btn-light-info\" title=\"Nuevo grupo\" data-nuevo-grupo-paquete=\"" + escapeAttr(paquete.id_paquete) + "\"><i class=\"bi bi-plus-square\"></i></button>" +
-                    (paquete.estatus === "activo" || paquete.estatus === "borrador" ? "<button type=\"button\" class=\"btn btn-sm btn-icon btn-light-danger\" title=\"Eliminar paquete de la vista\" data-desactivar-paquete=\"" + escapeAttr(paquete.id_paquete) + "\"><i class=\"bi bi-trash\"></i></button>" : "") : "") + "</div>" +
+                    (paquete.estatus === "activo" || paquete.estatus === "borrador" ? "<button type=\"button\" class=\"btn btn-sm btn-icon btn-light-warning\" title=\"Desactivar paquete\" data-desactivar-paquete=\"" + escapeAttr(paquete.id_paquete) + "\"><i class=\"bi bi-eye-slash\"></i></button>" : "") +
+                    "<button type=\"button\" class=\"btn btn-sm btn-icon btn-light-danger\" title=\"Eliminar paquete definitivo\" data-eliminar-paquete=\"" + escapeAttr(paquete.id_paquete) + "\"><i class=\"bi bi-trash3\"></i></button>" : "") + "</div>" +
                 "</div>" +
                 "<div class=\"row g-5\">" +
                     "<div class=\"col-lg-5\"><div class=\"fw-semibold mb-3\">Componentes fijos</div>" +
@@ -2341,14 +2374,16 @@
                 "<div class=\"d-flex flex-wrap gap-2 align-items-center\"><span class=\"badge badge-light-primary\">Min " + escapeHtml(grupo.min_selecciones || "0") + " / Max " + escapeHtml(grupo.max_selecciones || "0") + "</span>" +
                 (puedeEditar ? "<button type=\"button\" class=\"btn btn-sm btn-icon btn-light-primary\" title=\"Editar grupo\" data-editar-grupo-paquete=\"" + escapeAttr(grupo.id_grupo) + "\"><i class=\"bi bi-pencil-square\"></i></button>" +
                 "<button type=\"button\" class=\"btn btn-sm btn-icon btn-light-info\" title=\"Nueva opcion\" data-nueva-opcion-grupo=\"" + escapeAttr(grupo.id_grupo) + "\"><i class=\"bi bi-plus-square\"></i></button>" +
-                "<button type=\"button\" class=\"btn btn-sm btn-icon btn-light-danger\" title=\"Eliminar grupo de la vista\" data-desactivar-grupo-paquete=\"" + escapeAttr(grupo.id_grupo) + "\"><i class=\"bi bi-trash\"></i></button>" : "") + "</div>" +
+                "<button type=\"button\" class=\"btn btn-sm btn-icon btn-light-warning\" title=\"Desactivar grupo\" data-desactivar-grupo-paquete=\"" + escapeAttr(grupo.id_grupo) + "\"><i class=\"bi bi-eye-slash\"></i></button>" +
+                "<button type=\"button\" class=\"btn btn-sm btn-icon btn-light-danger\" title=\"Eliminar grupo definitivo\" data-eliminar-grupo-paquete=\"" + escapeAttr(grupo.id_grupo) + "\"><i class=\"bi bi-trash3\"></i></button>" : "") + "</div>" +
             "</div>" +
             (opciones.length ? "<div class=\"d-flex flex-column gap-2\">" + opciones.map(function (opcion) {
                 return "<div class=\"d-flex justify-content-between gap-3\">" +
                     "<span><span class=\"fw-semibold\">" + escapeHtml(opcion.sku || "") + "</span> <span class=\"text-muted fs-8\">" + escapeHtml(opcion.nombre_sku || "") + "</span></span>" +
                     "<span class=\"text-nowrap\">" + escapeHtml(opcion.cantidad_default || "0") + " " + escapeHtml(opcion.unidad || "") + "</span>" +
                     (puedeEditar ? "<span class=\"text-nowrap\"><button type=\"button\" class=\"btn btn-sm btn-icon btn-light-primary\" title=\"Editar opcion\" data-editar-opcion-paquete=\"" + escapeAttr(opcion.id_opcion) + "\" data-grupo=\"" + escapeAttr(grupo.id_grupo) + "\"><i class=\"bi bi-pencil-square\"></i></button>" +
-                    "<button type=\"button\" class=\"btn btn-sm btn-icon btn-light-danger ms-1\" title=\"Eliminar opcion de la vista\" data-desactivar-opcion-paquete=\"" + escapeAttr(opcion.id_opcion) + "\"><i class=\"bi bi-trash\"></i></button></span>" : "") +
+                    "<button type=\"button\" class=\"btn btn-sm btn-icon btn-light-warning ms-1\" title=\"Desactivar opcion\" data-desactivar-opcion-paquete=\"" + escapeAttr(opcion.id_opcion) + "\"><i class=\"bi bi-eye-slash\"></i></button>" +
+                    "<button type=\"button\" class=\"btn btn-sm btn-icon btn-light-danger ms-1\" title=\"Eliminar opcion definitiva\" data-eliminar-opcion-paquete=\"" + escapeAttr(opcion.id_opcion) + "\"><i class=\"bi bi-trash3\"></i></button></span>" : "") +
                 "</div>";
             }).join("") + "</div>" : "<div class=\"text-muted fs-8\">Sin opciones configuradas.</div>") +
         "</div>";
@@ -2705,6 +2740,86 @@
         });
     }
 
+    /**
+     * IA: Codex GPT-5
+     * Fecha: 2026-08-24
+     * Proposito: elimina fisicamente recetas de Catalogo durante la fase de limpieza de configuracion.
+     * Impacto: UI Catalogo ERP; no elimina SKUs ni ejecuta movimientos, solo llama endpoints acotados de recetas.
+     * Contrato: recibe endpoint, payload y tab destino; siempre pide confirmacion explicita.
+     */
+    function eliminarRecetaCatalogo(config) {
+        Swal.fire({
+            title: "Eliminar definitivo",
+            text: config.mensaje || "Esta receta se borrara de Catalogo. Usa esto solo durante limpieza de pruebas.",
+            icon: "warning",
+            showCancelButton: true,
+            confirmButtonText: "Si, eliminar",
+            cancelButtonText: "Cancelar"
+        }).then(function (result) {
+            if (!result.isConfirmed) { return; }
+            request(config.endpoint, config.data).then(function (response) {
+                if (response.error) { throw new Error(response.mensaje); }
+                Swal.fire({text: response.mensaje, icon: "success", confirmButtonText: "Aceptar"});
+                if (typeof config.despues === "function") {
+                    config.despues(response);
+                    return;
+                }
+                abrirDetalle(productoActualId, config.tab || "catalogo_detalle_producto");
+            }).catch(function (error) {
+                mostrarError(document.getElementById(config.errorId || "catalogo_detalle_error"), error);
+            });
+        });
+    }
+
+    function eliminarPresentacion(id) {
+        eliminarRecetaCatalogo({
+            endpoint: "/catalogoerp/eliminar_sku_presentacion",
+            data: {id_sku_presentacion_regla: id},
+            tab: "catalogo_detalle_presentaciones",
+            errorId: "catalogo_presentaciones_error",
+            mensaje: "Se eliminara la regla de presentacion. El SKU y sus imagenes se conservan."
+        });
+    }
+
+    function eliminarAperturaEmpaque(id) {
+        eliminarRecetaCatalogo({
+            endpoint: "/catalogoerp/eliminar_sku_apertura_empaque",
+            data: {id_apertura_empaque: id},
+            tab: "catalogo_detalle_aperturas_empaque",
+            errorId: "catalogo_aperturas_empaque_error",
+            mensaje: "Se eliminara la relacion de apertura de empaque. No se mueve inventario."
+        });
+    }
+
+    function eliminarPaqueteSimple(idPaquete) {
+        eliminarRecetaCatalogo({
+            endpoint: "/catalogoerp/eliminar_paquete",
+            data: {id_paquete: idPaquete},
+            tab: "catalogo_detalle_paquetes",
+            errorId: "catalogo_paquetes_error",
+            mensaje: "Se eliminara la receta del paquete con sus componentes, grupos y opciones. El SKU paquete se conserva."
+        });
+    }
+
+    function eliminarGrupoPaquete(idGrupo) {
+        eliminarRecetaCatalogo({
+            endpoint: "/catalogoerp/eliminar_paquete_grupo",
+            data: {id_grupo: idGrupo},
+            tab: "catalogo_detalle_paquetes",
+            errorId: "catalogo_paquetes_error",
+            mensaje: "Se eliminara el grupo configurable y todas sus opciones."
+        });
+    }
+
+    function eliminarOpcionPaquete(idOpcion) {
+        eliminarRecetaCatalogo({
+            endpoint: "/catalogoerp/eliminar_paquete_opcion",
+            data: {id_opcion: idOpcion},
+            tab: "catalogo_detalle_paquetes",
+            errorId: "catalogo_paquetes_error",
+            mensaje: "Se eliminara esta opcion del grupo configurable."
+        });
+    }
     /**
      * IA: Codex GPT-5 | Fecha: 2026-06-26
      * Proposito: busca SKUs globales para agregarlos como componentes de paquete.
@@ -4365,6 +4480,11 @@
                 return;
             }
             bodyAuditoria.addEventListener("click", function (event) {
+                var incidenciaCosto = event.target.closest("[data-incidencia-costo-sku]");
+                if (incidenciaCosto) {
+                    generarIncidenciaCostoDerivado(incidenciaCosto.getAttribute("data-incidencia-costo-sku"), incidenciaCosto);
+                    return;
+                }
                 var button = event.target.closest("[data-auditoria-producto]");
                 if (button && button.getAttribute("data-auditoria-producto")) {
                     abrirDetalle(button.getAttribute("data-auditoria-producto"), "catalogo_detalle_skus");
@@ -4463,10 +4583,13 @@
             presentacionesLista.addEventListener("click", function (event) {
                 var editar = event.target.closest("[data-editar-presentacion]");
                 var desactivar = event.target.closest("[data-desactivar-presentacion]");
+                var eliminar = event.target.closest("[data-eliminar-presentacion]");
                 if (editar) {
                     editarPresentacion(editar.getAttribute("data-editar-presentacion"));
                 } else if (desactivar) {
                     desactivarPresentacion(desactivar.getAttribute("data-desactivar-presentacion"));
+                } else if (eliminar) {
+                    eliminarPresentacion(eliminar.getAttribute("data-eliminar-presentacion"));
                 }
             });
         }
@@ -4475,10 +4598,13 @@
             aperturasEmpaqueLista.addEventListener("click", function (event) {
                 var editar = event.target.closest("[data-editar-apertura-empaque]");
                 var desactivar = event.target.closest("[data-desactivar-apertura-empaque]");
+                var eliminar = event.target.closest("[data-eliminar-apertura-empaque]");
                 if (editar) {
                     editarAperturaEmpaque(editar.getAttribute("data-editar-apertura-empaque"));
                 } else if (desactivar) {
                     desactivarAperturaEmpaque(desactivar.getAttribute("data-desactivar-apertura-empaque"));
+                } else if (eliminar) {
+                    eliminarAperturaEmpaque(eliminar.getAttribute("data-eliminar-apertura-empaque"));
                 }
             });
         }
@@ -4585,6 +4711,9 @@
                 var editarOpcion = event.target.closest("[data-editar-opcion-paquete]");
                 var desactivarGrupo = event.target.closest("[data-desactivar-grupo-paquete]");
                 var desactivarOpcion = event.target.closest("[data-desactivar-opcion-paquete]");
+                var eliminarPaquete = event.target.closest("[data-eliminar-paquete]");
+                var eliminarGrupo = event.target.closest("[data-eliminar-grupo-paquete]");
+                var eliminarOpcion = event.target.closest("[data-eliminar-opcion-paquete]");
                 if (editar) {
                     editarPaqueteSimple(editar.getAttribute("data-editar-paquete"));
                 } else if (desactivar) {
@@ -4607,6 +4736,12 @@
                     desactivarGrupoPaquete(desactivarGrupo.getAttribute("data-desactivar-grupo-paquete"));
                 } else if (desactivarOpcion) {
                     desactivarOpcionPaquete(desactivarOpcion.getAttribute("data-desactivar-opcion-paquete"));
+                } else if (eliminarPaquete) {
+                    eliminarPaqueteSimple(eliminarPaquete.getAttribute("data-eliminar-paquete"));
+                } else if (eliminarGrupo) {
+                    eliminarGrupoPaquete(eliminarGrupo.getAttribute("data-eliminar-grupo-paquete"));
+                } else if (eliminarOpcion) {
+                    eliminarOpcionPaquete(eliminarOpcion.getAttribute("data-eliminar-opcion-paquete"));
                 }
             });
         }

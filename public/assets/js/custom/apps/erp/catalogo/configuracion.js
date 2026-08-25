@@ -1691,7 +1691,18 @@
     }
 
     function setValor(name, value) { var input = form.querySelector("[name='" + name + "']"); if (input) { input.value = value == null ? "" : value; } }
-    function marcar(name, value) { var input = form.querySelector("[name='" + name + "']"); if (input) { input.checked = String(value) === "1"; } }
+    /**
+     * IA: Codex GPT-5 | Fecha: 2026-08-24
+     * Proposito: normaliza valores booleanos al precargar checks de catalogos maestros.
+     * Impacto: Configuracion de Catalogo ERP; evita que categorias nuevas se guarden como estructurales cuando deben permitir productos.
+     * Contrato: acepta 1, true, "1", "true" y "on" como valor marcado.
+     */
+    function marcar(name, value) {
+        var input = form.querySelector("[name='" + name + "']");
+        if (input) {
+            input.checked = value === true || value === 1 || ["1", "true", "on"].indexOf(String(value).toLowerCase()) >= 0;
+        }
+    }
     function valor(id) { var el = document.getElementById(id); return el ? el.value : ""; }
     function escapeHtml(value) { var div = document.createElement("div"); div.textContent = value == null ? "" : String(value); return div.innerHTML; }
 

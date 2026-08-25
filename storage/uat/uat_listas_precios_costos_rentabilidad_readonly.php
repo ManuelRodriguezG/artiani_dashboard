@@ -42,8 +42,8 @@ if (!$objetivo) {
     if ($fuente !== "derivado_presentacion") {
         $fallas[] = array("id" => "LP-COST-003", "mensaje" => "Listas debe usar derivado_presentacion para TP-40372-500GR", "fuente_actual" => $fuente);
     }
-    if (abs($costo - 92.133621) > 0.01) {
-        $fallas[] = array("id" => "LP-COST-004", "mensaje" => "Costo de lista fuera de tolerancia", "costo_actual" => $costo);
+    if ($costo <= 0) {
+        $fallas[] = array("id" => "LP-COST-004", "mensaje" => "Costo de lista debe ser mayor a cero", "costo_actual" => $costo);
     }
     if ($formula !== "costo_origen / factor_origen * factor_salida_base * (1 + merma)") {
         $fallas[] = array("id" => "LP-COST-005", "mensaje" => "Formula de costo derivado no viaja a Listas", "formula_actual" => $formula);

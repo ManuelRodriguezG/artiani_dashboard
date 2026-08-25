@@ -258,7 +258,8 @@
         var html = "<div class=\"fw-semibold fs-7 mb-1\">No procesados:</div><div class=\"d-flex flex-column gap-1\">";
         fallidos.slice(0, max).forEach(function (item) {
             var bloqueos = Array.isArray(item.bloqueos) ? item.bloqueos : [];
-            html += "<div class=\"fs-7\"><span class=\"fw-semibold\">SKU ID " + escapeHtml(item.id_sku || "") + ":</span> " +
+            var nombre = item.sku || item.nombre ? " [" + [item.sku || "", item.nombre || ""].filter(Boolean).join(" - ") + "]" : "";
+            html += "<div class=\"fs-7\"><span class=\"fw-semibold\">SKU ID " + escapeHtml(item.id_sku || "") + escapeHtml(nombre) + ":</span> " +
                 escapeHtml(item.mensaje || "No se pudo procesar") +
                 (bloqueos.length ? " <span class=\"text-muted\">(" + escapeHtml(bloqueos.map(etiquetaBloqueo).join(", ")) + ")</span>" : "") +
             "</div>";
@@ -552,9 +553,10 @@
         var depurar = response.depurar || {};
         var totalOk = Number(depurar.total_ok || 0);
         var totalError = Number(depurar.total_error || 0);
-        var tipo = totalError > 0 ? "warning" : "success";
-        setEstado("OK " + totalOk + " / Error " + totalError, totalError > 0 ? "badge-light-warning" : "badge-light-success");
-        mostrarDiagnostico(totalError > 0 ? "Lote procesado con observaciones" : "Lote procesado", tipo, {
+        var tipo = totalOk <= 0 ? "warning" : (totalError > 0 ? "warning" : "success");
+        var titulo = totalOk <= 0 ? "No se aplico ningun producto" : (totalError > 0 ? "Lote aplicado parcialmente" : "Lote aplicado completo");
+        setEstado("OK " + totalOk + " / No aplicados " + totalError, totalError > 0 || totalOk <= 0 ? "badge-light-warning" : "badge-light-success");
+        mostrarDiagnostico(titulo, tipo, {
             mensaje: response.mensaje || "",
             resultados: depurar.resultados || []
         });

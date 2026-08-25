@@ -4216,6 +4216,38 @@ Siguiente paso recomendado:
 - Probar en navegador los dos botones de auditoria y confirmar que los botones `Listas` y `Rentabilidad` abren el SKU filtrado.
 - Despues decidir si se generan pendientes persistentes reales desde eventos de guardar/activar SKU, presentacion, apertura o paquete.
 
+## Actualizacion 2026-08-22 - Contrato Catalogo -> Rentabilidad para SKUs derivados
+
+Proyecto aplicado: `C:\xampp\htdocs\panel_de_control`.
+
+Se amplio el contrato read-only `CatalogoErpDatos::resolverContextoSkuVendible($idSku)` para que Rentabilidad pueda consumir informacion estructural sin volver a inferir desde UI:
+
+- Alias explicitos `id_sku_derivado` y `sku_derivado`.
+- Alias `tipo_derivacion_rentabilidad`, usando `sku_normal` cuando la UI mantiene `tipo_derivacion=normal`.
+- `modo_inventario`: `stock_propio`, `descuenta_origen`, `preparacion_al_momento` o `no_inventariable`.
+- `componentes`: componentes fijos y grupos configurables para paquetes/recetas.
+- `fecha_actualizacion` del SKU.
+- `advertencias_configuracion` con claves `CAT-DER-*` para faltantes estructurales.
+
+Alcance:
+
+- Sin DDL.
+- Sin tocar Listas de precios.
+- Sin guardar costos ni precios en Catalogo.
+- Sin generar pendientes persistentes todavia.
+
+Validacion:
+
+- `C:\xampp\php\php.exe -l app\modelos\CatalogoErpDatos.php`: OK.
+- UAT contexto SKU activo reciente: OK.
+- UAT costo pendiente: OK, mantiene `NUEC-A20K-GRANEL` como pendiente estructural por falta de origen/apertura.
+- UAT paquete `PER-05-01`: OK, devuelve componentes fijos para Rentabilidad.
+
+Pendiente:
+
+- Definir si Catalogo debe crear pendientes persistentes idempotentes al guardar/activar/cambiar derivaciones vendibles o si por ahora basta con auditoria bajo demanda.
+- Se genero handoff para Rentabilidad en `docs/erp_rentabilidad_handoff_catalogo_skus_derivados.md` con contrato, reglas por tipo, UAT y criterio de cierre del modulo destino.
+
 ## Actualizacion 2026-08-20 - Fusion conserva imagenes por SKU
 
 Proyecto aplicado: `C:\xampp\htdocs\panel_de_control`.
@@ -4247,3 +4279,162 @@ Validacion:
 Siguiente paso recomendado:
 
 - Probar una fusion controlada con un producto origen de un solo SKU y una imagen general; confirmar que al abrir el destino la imagen aparece asociada al SKU movido.
+
+## Decision 2026-08-23 - Incidencias persistentes para Rentabilidad
+
+Se aclara que los links desde Catalogo hacia Rentabilidad son solo atajos visuales. El flujo robusto debe ser una incidencia persistente e idempotente en `erp_notificaciones` cuando Catalogo cree, active o cambie una receta vendible que afecte costo.
+
+Documento rector de este plan:
+
+```text
+docs/erp_catalogo_incidencias_rentabilidad_skus_derivados_plan.md
+```
+
+Decision:
+
+- Catalogo genera incidencia `catalogo_sku_derivado_costo_pendiente`.
+- Rentabilidad intenta resolver costo automaticamente con `RentabilidadErp::resolverCostoVigenteSku`.
+- Si puede resolver, cierra la incidencia y deja trazable formula/fuente/confianza.
+- Si no puede resolver, deja bloqueo con responsable claro: Catalogo, Rentabilidad, Compras, Proveedores, Almacen/Tienda o Comercial/Listas.
+- Comercial/Listas debe recibir pendiente de precio solo cuando el costo ya sea confiable o cuando se decida permitir precio con advertencia.
+
+## Avance 2026-08-23 - Fase 1 implementada en Catalogo
+
+Proyecto aplicado: `C:\xampp\htdocs\panel_de_control`.
+
+Se implemento la primera fase del plan de incidencias hacia Rentabilidad para SKUs derivados.
+
+Codigo:
+
+- `CatalogoErpDatos::registrarIncidenciaCostoDerivadoSku($db, $idSku, $eventoOrigen, $idUsuario)`.
+- `CatalogoErpDatos::cancelarIncidenciasCostoDerivadoSku($db, $idSku, $motivo)`.
+- Reutiliza `erp_notificaciones` y `NotificacionesErp::guardarOperativaEnConexion`.
+- Tipo de incidencia: `catalogo_sku_derivado_costo_pendiente`.
+- Area responsable: `rentabilidad_costos`.
+- Permiso de vista sugerido: `rentabilidad.ver`.
+
+Eventos conectados:
+
+- Guardar paquete.
+- Guardar grupo de paquete.
+- Desactivar grupo de paquete.
+- Guardar opcion de paquete configurable.
+- Desactivar opcion de paquete configurable.
+- Guardar presentacion.
+- Guardar apertura de empaque.
+- Actualizar SKU, para cubrir activacion/cambio operativo de un SKU derivado.
+
+Reglas aplicadas:
+
+- Solo registra si el SKU es vendible, requiere costo y no es `sku_normal`.
+- La huella es estable por SKU/tipo para evitar duplicados.
+- El `payload_json` incluye `hash_receta` para detectar cambios de receta sin ensuciar la bandeja.
+- Si se desactiva presentacion, apertura o paquete completo, se cancelan incidencias activas del SKU derivado.
+- Si no existe `erp_notificaciones`, el guardado de Catalogo no se rompe; devuelve omision en `incidencia_costo_derivado`.
+- Catalogo no calcula ni guarda costos ni precios.
+
+Validacion:
+
+- `C:\xampp\php\php.exe -l app\modelos\CatalogoErpDatos.php`: OK.
+- `C:\xampp\php\php.exe -l app\controladores\CatalogoErp.php`: OK.
+- `storage\uat\uat_catalogo_contexto_sku_vendible_readonly.php --id_sku=1764`: OK.
+- `storage\uat\uat_catalogo_skus_vendibles_pendientes_readonly.php --modo=costo --limite=3`: OK.
+
+Pendiente siguiente:
+
+- Probar en UI guardar una presentacion o paquete activo y confirmar que aparece una notificacion en `erp_notificaciones` sin duplicarse al guardar dos veces.
+- En Rentabilidad, construir la bandeja/resolucion de incidencias `catalogo_sku_derivado_costo_pendiente`.
+## Avance 2026-08-23 - Incidencia manual desde Pendientes comerciales
+
+Proyecto aplicado: `C:\xampp\htdocs\panel_de_control`.
+
+Se agrego una accion manual en la seccion `Pendientes comerciales de SKUs` para generar la incidencia de costo hacia Rentabilidad sobre SKUs derivados ya creados.
+
+Codigo:
+
+- `CatalogoErpDatos::generarIncidenciaCostoDerivadoManual($datos, $idUsuario)`.
+- `CatalogoErp::incidencia_costo_derivado_generar()`.
+- Boton `Generar incidencia` en la auditoria de costos de `public/assets/js/custom/apps/erp/catalogo/productos.js`.
+
+Reglas aplicadas:
+
+- La accion no calcula costo ni guarda precio.
+- Reutiliza la misma huella idempotente de `catalogo_sku_derivado_costo_pendiente`, por lo que no debe duplicar incidencias activas del mismo SKU/tipo.
+- Solo aplica si el SKU es vendible, requiere costo y su tipo de derivacion no es `sku_normal`.
+- Queda protegida por `catalogo.editar` porque crea una notificacion persistente.
+- Sirve para regularizar SKUs derivados existentes que fueron creados antes de conectar los eventos automaticos.
+
+UAT recomendado:
+
+1. Ir a Catalogo ERP > Productos.
+2. En `Pendientes comerciales de SKUs`, presionar `Revisar costos`.
+3. En un SKU derivado pendiente, presionar `Generar incidencia`.
+4. Confirmar respuesta `Incidencia de costo enviada a Rentabilidad`.
+5. Revisar en `erp_notificaciones` una fila tipo `catalogo_sku_derivado_costo_pendiente` con `payload_json.evento_origen=manual_pendientes_comerciales`.
+6. Repetir el click y confirmar que no se crean duplicados innecesarios.
+## Avance 2026-08-24 - Limpieza de recetas y apertura de empaque flexible
+
+Proyecto aplicado: `C:\xampp\htdocs\panel_de_control`.
+
+Se agrego una accion de eliminacion fisica para recetas de Catalogo durante la fase de construccion/pruebas, porque aun no hay operacion productiva que dependa de esas recetas y se necesita corregir configuraciones sin dejar ruido visual.
+
+Alcance implementado:
+
+- Presentaciones: `CatalogoErpDatos::eliminarSkuPresentacion` y endpoint `CatalogoErp::eliminar_sku_presentacion`.
+- Aperturas de empaque: `CatalogoErpDatos::eliminarSkuAperturaEmpaque` y endpoint `CatalogoErp::eliminar_sku_apertura_empaque`.
+- Paquetes: `CatalogoErpDatos::eliminarPaquete` y endpoint `CatalogoErp::eliminar_paquete`.
+- Grupos configurables: `CatalogoErpDatos::eliminarPaqueteGrupo` y endpoint `CatalogoErp::eliminar_paquete_grupo`.
+- Opciones configurables: `CatalogoErpDatos::eliminarPaqueteGrupoOpcion` y endpoint `CatalogoErp::eliminar_paquete_opcion`.
+- UI: botones `Eliminar definitivo` con confirmacion en Presentaciones, Apertura de empaques y Paquetes.
+
+Regla importante de arquitectura:
+
+- `Apertura de empaque` ya no exige que el SKU destino tenga `permite_venta_fraccionaria=1`.
+- La apertura solo modela conversion de un SKU cerrado hacia un SKU destino operativo que controla inventario.
+- El destino puede estar en pza, kg, g, lt, ml, m u otra unidad valida del SKU.
+- Si ese destino se vendera fraccionado, entonces su propia regla de venta fraccionaria/precision/incremento lo valida en el flujo de venta o POS, no la regla de apertura.
+
+Restricciones conservadas:
+
+- El SKU origen y destino deben existir y estar operativos.
+- Origen y destino no pueden ser el mismo SKU.
+- Ambos deben controlar inventario.
+- La apertura sigue limitada al mismo producto maestro.
+- Si se marca `requiere_unidad_fisica`, el origen debe tener trazabilidad o captura de unidades fisicas.
+- No se elimina el SKU, imagenes, proveedores, movimientos, ventas ni inventario; solo la receta de Catalogo.
+
+Validacion:
+
+- `C:\xampp\php\php.exe -l app\modelos\CatalogoErpDatos.php`: OK.
+- `C:\xampp\php\php.exe -l app\controladores\CatalogoErp.php`: OK.
+- `node --check public\assets\js\custom\apps\erp\catalogo\productos.js`: OK.
+
+UAT recomendado:
+
+1. Abrir un producto con presentaciones, aperturas o paquetes de prueba.
+2. Usar `Eliminar definitivo` en una presentacion y confirmar que desaparece sin borrar el SKU.
+3. Usar `Eliminar definitivo` en una apertura y confirmar que desaparece sin mover inventario.
+4. Usar `Eliminar definitivo` en una opcion/grupo/paquete y confirmar que la receta queda limpia.
+5. Crear una apertura cuyo SKU destino use unidad pieza y confirmar que ya no pide activar venta fraccionaria.
+
+## Avance 2026-08-24 - Categorias operativas al crear desde Configuracion
+
+Proyecto aplicado: `C:\xampp\htdocs\panel_de_control`.
+
+Hallazgo:
+
+- La categoria `Alimentadores` estaba activa y era `maestra`, pero quedo como estructural porque `erp_catalogo_categorias.permite_productos=0`.
+- En Catalogo ERP una categoria aparece como operativa y puede asignarse a productos solo cuando cumple: `estatus='activa'`, `tipo_categoria='maestra'` y `permite_productos=1`.
+- El formulario intentaba marcar por default `Permitir asignar productos directamente`, pero la funcion JS `marcar` solo reconocia el valor string `"1"` y no el booleano `true`.
+
+Correccion:
+
+- `public/assets/js/custom/apps/erp/catalogo/configuracion.js`: `marcar` ahora acepta `true`, `1`, `"1"`, `"true"` y `"on"`.
+- Se actualizo la categoria `Alimentadores` para dejarla operativa: `permite_productos=1`.
+
+UAT recomendado:
+
+1. Ir a ERP > Catalogo > Configuracion > Categorias.
+2. Confirmar que `Alimentadores` aparece como `Operativa`.
+3. Crear una categoria hija nueva bajo `Acuario y peces` dejando activo `Permitir asignar productos directamente`.
+4. Guardar, recargar y confirmar que queda como `Operativa` y aparece en los selectores de categoria de productos.

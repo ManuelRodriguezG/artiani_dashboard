@@ -868,6 +868,9 @@
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-light-success" id="proveedores_erp_lista_detalle_guardar_sincronizar">
+                        <i class="bi bi-arrow-repeat"></i> Guardar y sincronizar
+                    </button>
                     <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg"></i> Guardar renglon</button>
                 </div>
             </form>

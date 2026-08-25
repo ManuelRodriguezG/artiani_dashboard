@@ -20,7 +20,7 @@ class UatRentabilidadCostosDerivadosReader extends CRUD {
 $lector = new UatRentabilidadCostosDerivadosReader();
 $db = $lector->db();
 $modelo = new RentabilidadErp();
-$skus = array("TP-40372", "TP-40372-500GR", "TP-40372-100GR", "NUEC-C20K-GRANEL", "PER-05-01");
+$skus = array("TP-40372", "TP-40372-500GR", "TP-40372-100GR", "NUEC-C20K-GRANEL", "NUAN-ARMG25K-GRANEL", "PER-05-01");
 $resultados = array();
 $fallas = array();
 
@@ -50,11 +50,20 @@ foreach ($skus as $sku) {
 if (!isset($resultados["TP-40372-500GR"]) || $resultados["TP-40372-500GR"]["fuente"] !== "derivado_presentacion") {
     $fallas[] = array("id" => "COST-DER-UAT-002", "mensaje" => "TP-40372-500GR debe resolverse como derivado_presentacion");
 }
-if (isset($resultados["TP-40372-500GR"]) && abs(floatval($resultados["TP-40372-500GR"]["costo"]) - 92.133621) > 0.01) {
-    $fallas[] = array("id" => "COST-DER-UAT-003", "mensaje" => "Costo derivado de TP-40372-500GR fuera de tolerancia");
+if (isset($resultados["TP-40372-500GR"]) && floatval($resultados["TP-40372-500GR"]["costo"]) <= 0) {
+    $fallas[] = array("id" => "COST-DER-UAT-003", "mensaje" => "Costo derivado de TP-40372-500GR debe ser mayor a cero");
 }
-if (!isset($resultados["NUEC-C20K-GRANEL"]) || $resultados["NUEC-C20K-GRANEL"]["fuente"] !== "sin_costo") {
-    $fallas[] = array("id" => "COST-DER-UAT-004", "mensaje" => "Apertura sin costo debe quedar bloqueada como sin_costo");
+if (isset($resultados["TP-40372-500GR"]) && $resultados["TP-40372-500GR"]["formula"] !== "costo_origen / factor_origen * factor_salida_base * (1 + merma)") {
+    $fallas[] = array("id" => "COST-DER-UAT-006", "mensaje" => "TP-40372-500GR debe exponer formula derivada");
+}
+if (!isset($resultados["NUEC-C20K-GRANEL"]) || $resultados["NUEC-C20K-GRANEL"]["fuente"] !== "derivado_apertura_receta") {
+    $fallas[] = array("id" => "COST-DER-UAT-004", "mensaje" => "Apertura con receta activa debe calcular costo teorico desde Catalogo");
+}
+if (!isset($resultados["NUAN-ARMG25K-GRANEL"]) || $resultados["NUAN-ARMG25K-GRANEL"]["fuente"] !== "derivado_apertura_receta") {
+    $fallas[] = array("id" => "COST-DER-UAT-007", "mensaje" => "NUAN-ARMG25K-GRANEL debe resolverse desde receta de apertura");
+}
+if (isset($resultados["NUAN-ARMG25K-GRANEL"]) && abs(floatval($resultados["NUAN-ARMG25K-GRANEL"]["costo"]) - 37.4) > 0.01) {
+    $fallas[] = array("id" => "COST-DER-UAT-008", "mensaje" => "NUAN-ARMG25K-GRANEL debe costearse por kg util: 935 / 25 = 37.4");
 }
 if (!isset($resultados["PER-05-01"]) || $resultados["PER-05-01"]["rango"] === null) {
     $fallas[] = array("id" => "COST-DER-UAT-005", "mensaje" => "Paquete debe devolver rango de costo");

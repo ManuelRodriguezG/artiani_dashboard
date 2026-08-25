@@ -79,7 +79,7 @@
                                 <div class="col-md-3"><div class="ecom-control-kpi"><div class="ecom-control-kpi__label">Publicados</div><div class="ecom-control-kpi__value" id="ecom_ctl_publicados">0</div><div class="text-muted fs-7 mt-2">Visibles en API publica.</div></div></div>
                                 <div class="col-md-3"><div class="ecom-control-kpi"><div class="ecom-control-kpi__label">Borradores</div><div class="ecom-control-kpi__value" id="ecom_ctl_borradores">0</div><div class="text-muted fs-7 mt-2">Listos para revisar/publicar.</div></div></div>
                                 <div class="col-md-3"><div class="ecom-control-kpi"><div class="ecom-control-kpi__label">Pausados</div><div class="ecom-control-kpi__value" id="ecom_ctl_pausados">0</div><div class="text-muted fs-7 mt-2">Ocultos del ecommerce.</div></div></div>
-                                <div class="col-md-3"><div class="ecom-control-kpi"><div class="ecom-control-kpi__label">Publicables</div><div class="ecom-control-kpi__value" id="ecom_ctl_publicables">0</div><div class="text-muted fs-7 mt-2">Con precio, imagen y categoria.</div></div></div>
+                                <div class="col-md-3"><div class="ecom-control-kpi"><div class="ecom-control-kpi__label">Publicables</div><div class="ecom-control-kpi__value" id="ecom_ctl_publicables">0</div><div class="text-muted fs-7 mt-2">Con precio e imagen, sin granel.</div></div></div>
                             </div>
 
                             <div class="card mb-5">
@@ -187,6 +187,6 @@
 </div>
 <script src="assets/plugins/global/plugins.bundle.js"></script>
 <script src="assets/js/scripts.bundle.js"></script>
-<script src="/assets/js/custom/apps/erp/ecommerce/control.js?v=20260821-precio-activo1"></script>
+<script src="/assets/js/custom/apps/erp/ecommerce/control.js?v=20260824-publica-sin-categoria1"></script>
 </body>
 </html>

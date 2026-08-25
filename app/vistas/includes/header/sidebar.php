@@ -86,6 +86,7 @@ $gruposMenu = array(
             array('titulo' => 'Resumen ejecutivo', 'ruta' => '/rentabilidad/analisis', 'permiso' => 'rentabilidad.ver'),
             array('titulo' => 'Cierre comercial', 'ruta' => '/rentabilidad/cierre', 'permiso' => 'rentabilidad.ver'),
             array('titulo' => 'Aprobaciones', 'ruta' => '/rentabilidad/aprobaciones', 'permiso' => 'rentabilidad.ver'),
+            array('titulo' => 'Incidencias de costo', 'ruta' => '/rentabilidad/incidencias_costos', 'permiso' => 'rentabilidad.ver'),
             array('titulo' => 'Calidad de datos', 'ruta' => '/rentabilidad/calidad', 'permiso' => 'rentabilidad.ver'),
             array('titulo' => 'Historial', 'ruta' => '/rentabilidad/historial', 'permiso' => 'rentabilidad.ver'),
             array('titulo' => 'Manual de uso', 'ruta' => '/rentabilidad/manual', 'permiso' => 'rentabilidad.ver')

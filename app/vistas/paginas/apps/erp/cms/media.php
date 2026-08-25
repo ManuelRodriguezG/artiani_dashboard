@@ -64,13 +64,13 @@
                                         <div class="d-flex justify-content-between align-items-start gap-3 mb-4">
                                             <div>
                                                 <h3 class="fw-bold mb-1">Agregar imagen</h3>
-                                                <span class="text-muted fs-7">JPG, PNG o WebP. Maximo permitido: 2 MB.</span>
+                                                <span class="text-muted fs-7">JPG, PNG, WebP o ICO. Maximo permitido: 2 MB.</span>
                                             </div>
                                             <span class="badge badge-light-primary" id="cms_media_estado">Listo</span>
                                         </div>
                                         <div class="cms-media-drop mb-4">
                                             <label class="form-label fw-bold">Archivo</label>
-                                            <input class="form-control" type="file" id="cms_media_archivo" accept="image/jpeg,image/png,image/webp">
+                                            <input class="form-control" type="file" id="cms_media_archivo" accept="image/jpeg,image/png,image/webp,image/vnd.microsoft.icon,image/x-icon,.ico">
                                         </div>
                                         <div class="row g-3">
                                             <div class="col-md-6">
@@ -91,6 +91,7 @@
                                                     <option value="card">Card</option>
                                                     <option value="thumb">Thumbnail</option>
                                                     <option value="editorial">Editorial</option>
+                                                    <option value="favicon">Favicon</option>
                                                 </select>
                                             </div>
                                             <div class="col-12">
@@ -172,6 +173,9 @@
 </div>
 <script src="assets/plugins/global/plugins.bundle.js"></script>
 <script src="assets/js/scripts.bundle.js"></script>
-<script src="/assets/js/custom/apps/erp/cms/media.js?v=20260821-media-upload1"></script>
+<script>
+    window.ERP_CSRF_TOKEN = "<?= htmlspecialchars(SesionSeguridad::csrfToken(), ENT_QUOTES, 'UTF-8') ?>";
+</script>
+<script src="/assets/js/custom/apps/erp/cms/media.js?v=20260824-media-delete-ico2"></script>
 </body>
 </html>

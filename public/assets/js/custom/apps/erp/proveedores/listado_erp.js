@@ -1593,16 +1593,10 @@
         var form = event.currentTarget;
         var button = form.querySelector("[type='submit']");
         var error = document.getElementById("proveedores_erp_lista_detalle_form_error");
-        var data = {};
-        new FormData(form).forEach(function (value, key) {
-            data[key] = value;
-        });
+        var data = datosFormularioListaDetalle(form);
         button.disabled = true;
         error.classList.add("d-none");
-        post("/proveedor/proveedor_lista_detalle_guardar_erp", data).then(function (response) {
-            if (response.error) {
-                throw new Error(response.mensaje || "No fue posible guardar el renglon.");
-            }
+        guardarRenglonListaDetalle(data).then(function (response) {
             bootstrap.Modal.getInstance(document.getElementById("proveedores_erp_lista_detalle_form_modal")).hide();
             Swal.fire({text: response.mensaje, icon: "success", confirmButtonText: "Aceptar"});
             if (listaDetalleActual) {
@@ -1613,6 +1607,69 @@
             error.classList.remove("d-none");
         }).finally(function () {
             button.disabled = false;
+        });
+    }
+
+    function datosFormularioListaDetalle(form) {
+        var data = {};
+        new FormData(form).forEach(function (value, key) {
+            data[key] = value;
+        });
+        return data;
+    }
+
+    function guardarRenglonListaDetalle(data) {
+        return post("/proveedor/proveedor_lista_detalle_guardar_erp", data).then(function (response) {
+            if (response.error) {
+                throw new Error(response.mensaje || "No fue posible guardar el renglon.");
+            }
+            return response;
+        });
+    }
+
+    function guardarListaDetalleSincronizar() {
+        var form = document.getElementById("proveedores_erp_lista_detalle_form");
+        var button = document.getElementById("proveedores_erp_lista_detalle_guardar_sincronizar");
+        var error = document.getElementById("proveedores_erp_lista_detalle_form_error");
+        if (!form || !button || !proveedorActual || !listaDetalleActual) {
+            return;
+        }
+        Swal.fire({
+            text: "Se guardara el renglon y se sincronizara su relacion proveedor-SKU y costo vigente existentes. No se crearan costos nuevos ni se tocara costo_referencia.",
+            icon: "warning",
+            showCancelButton: true,
+            confirmButtonText: "Guardar y sincronizar",
+            cancelButtonText: "Cancelar"
+        }).then(function (result) {
+            if (!result.isConfirmed) {
+                return;
+            }
+            var data = datosFormularioListaDetalle(form);
+            button.disabled = true;
+            error.classList.add("d-none");
+            guardarRenglonListaDetalle(data).then(function (response) {
+                var depurar = response.depurar || {};
+                return post("/proveedor/proveedor_lista_detalle_sincronizar_erp", {
+                    id_proveedor: depurar.id_proveedor || proveedorActual.id_proveedor,
+                    id_lista_proveedor_erp: depurar.id_lista_proveedor_erp || listaDetalleActual.id_lista_proveedor_erp,
+                    id_lista_detalle_erp: depurar.id_lista_detalle_erp || data.id_lista_detalle_erp
+                });
+            }).then(function (response) {
+                if (response.error) {
+                    throw new Error(response.mensaje || "No fue posible sincronizar el renglon.");
+                }
+                bootstrap.Modal.getInstance(document.getElementById("proveedores_erp_lista_detalle_form_modal")).hide();
+                Swal.fire({text: response.mensaje, icon: "success", confirmButtonText: "Aceptar"});
+                if (listaDetalleActual) {
+                    abrirDetalleLista(listaDetalleActual);
+                }
+                cargarCostosProveedor();
+            }).catch(function (err) {
+                error.textContent = err.message;
+                error.classList.remove("d-none");
+            }).finally(function () {
+                button.disabled = false;
+            });
         });
     }
 
@@ -3346,6 +3403,11 @@
         var formListaDetalle = document.getElementById("proveedores_erp_lista_detalle_form");
         if (formListaDetalle) {
             formListaDetalle.addEventListener("submit", guardarListaDetalle);
+        }
+        var guardarSincronizarDetalle = document.getElementById("proveedores_erp_lista_detalle_guardar_sincronizar");
+        if (guardarSincronizarDetalle) {
+            guardarSincronizarDetalle.addEventListener("click", guardarListaDetalleSincronizar);
+            guardarSincronizarDetalle.classList.toggle("d-none", !permisos.costos);
         }
         var buscarSkuBtn = document.getElementById("proveedores_erp_lista_detalle_sku_btn");
         if (buscarSkuBtn) {

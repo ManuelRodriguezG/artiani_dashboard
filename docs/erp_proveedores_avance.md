@@ -7403,3 +7403,12 @@ Flujo correcto para corregir Q311:
 Pendiente recomendado:
 
 - Agregar una incidencia/alerta operativa automatica cuando una lista validada tenga renglones donde el factor/costo de lista difiera de la relacion o costo vigente ya aplicado, para que Proveedores revise antes de afectar rentabilidad.
+
+Actualizacion autorizada 2026-08-22:
+
+- Se agrega accion explicita dentro del modal de edicion: `Guardar y sincronizar`.
+- La accion primero guarda el renglon y despues sincroniza la relacion proveedor-SKU y el costo vigente existentes del mismo renglon.
+- No crea costos nuevos.
+- No modifica `costo_referencia`.
+- Si el renglon aun no tiene relacion aplicada o no tiene costo vigente existente, el sistema no sincroniza y avisa el motivo.
+- Este flujo resuelve casos como Q311, donde corregir factor en el renglon debe actualizar el costo vigente ya aplicado para que Listas de precios/rentabilidad lean el costo unitario correcto.

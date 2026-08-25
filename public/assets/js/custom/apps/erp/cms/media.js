@@ -9,7 +9,7 @@
 
   var STORAGE_KEY = "erp_cms_media_biblioteca_local_v1";
   var MAX_BYTES = 2 * 1024 * 1024;
-  var permitidos = ["image/jpeg", "image/png", "image/webp"];
+  var permitidos = ["image/jpeg", "image/png", "image/webp", "image/vnd.microsoft.icon", "image/x-icon", "image/icon", "application/ico"];
 
   var estado = {
     items: [],
@@ -97,9 +97,24 @@
       method: "POST",
       body: data,
       credentials: "same-origin",
-      headers: {"X-CSRF-Token": window.ERP_CSRF_TOKEN || ""}
+      headers: {
+        "X-CSRF-Token": window.ERP_CSRF_TOKEN || "",
+        "Accept": "application/json",
+        "X-Requested-With": "XMLHttpRequest"
+      }
     }).then(function (response) {
-      return response.json();
+      return response.text().then(function (text) {
+        var json = null;
+        try {
+          json = JSON.parse(text);
+        } catch (error) {
+          throw new Error("Respuesta no JSON del servidor (" + response.status + "): " + text.substring(0, 140));
+        }
+        if (!response.ok && json && json.mensaje) {
+          throw new Error(json.mensaje);
+        }
+        return json;
+      });
     }).then(function (json) {
       if (!json || json.error) {
         throw new Error(json && json.mensaje ? json.mensaje : "No se pudo subir la imagen");
@@ -126,7 +141,9 @@
   }
 
   function validarArchivo(file) {
-    if (permitidos.indexOf(file.type) === -1) return "Tipo no permitido";
+    var nombre = String(file.name || "").toLowerCase();
+    var esIco = /\.ico$/.test(nombre);
+    if (permitidos.indexOf(file.type) === -1 && !esIco) return "Tipo no permitido";
     if (file.size > MAX_BYTES) return "Supera 2 MB";
     return "";
   }
@@ -145,19 +162,20 @@
       return;
     }
     node.innerHTML = items.map(function (item) {
+      var esServidor = esItemServidor(item);
       return '<div class="cms-media-card ' + (item.id === estado.activo ? 'is-active' : '') + '" data-media-id="' + escapeAttr(item.id) + '">' +
         '<img class="cms-media-thumb" src="' + escapeAttr(item.url) + '" alt="' + escapeAttr(item.alt) + '">' +
         '<div class="p-3">' +
           '<div class="fw-bold text-truncate">' + escapeHtml(item.nombre) + '</div>' +
           '<div class="text-muted fs-8 text-truncate">' + escapeHtml(item.alt) + '</div>' +
           '<div class="d-flex justify-content-between align-items-center mt-3 gap-2">' +
-            '<span class="badge ' + (item.estatus === "archivado" ? 'badge-light-warning' : 'badge-light-success') + '">' + escapeHtml(item.estatus) + '</span>' +
+            '<span class="badge ' + (esServidor ? 'badge-light-success' : 'badge-light-warning') + '">' + (esServidor ? 'Servidor BD' : 'Temporal local') + '</span>' +
             '<span class="text-muted fs-8">' + escapeHtml(item.uso) + ' / ' + escapeHtml(item.tipo) + '</span>' +
           '</div>' +
           '<div class="cms-media-actions mt-3">' +
             '<button class="btn btn-sm btn-light-primary" type="button" data-media-action="copiar" data-media-id="' + escapeAttr(item.id) + '"><i class="bi bi-clipboard"></i></button>' +
             '<button class="btn btn-sm btn-light-warning" type="button" data-media-action="archivar" data-media-id="' + escapeAttr(item.id) + '"><i class="bi bi-archive"></i></button>' +
-            '<button class="btn btn-sm btn-light-danger" type="button" data-media-action="quitar" data-media-id="' + escapeAttr(item.id) + '"><i class="bi bi-trash"></i></button>' +
+            '<button class="btn btn-sm btn-light-danger" type="button" data-media-action="eliminar" data-media-id="' + escapeAttr(item.id) + '"><i class="bi bi-trash"></i></button>' +
           '</div>' +
         '</div>' +
       '</div>';
@@ -182,12 +200,13 @@
         meta("Tipo", item.tipo) +
         meta("Formato", item.mime) +
         meta("Peso", formatoBytes(item.bytes)) +
+        meta("Origen", esItemServidor(item) ? "Servidor BD" : "Temporal local") +
         meta("Estatus", item.estatus) +
         meta("Creado", item.creado_en ? item.creado_en.substring(0, 10) : "") +
       '</div>' +
       '<div class="cms-media-actions">' +
         '<button class="btn btn-sm btn-light-primary" type="button" data-media-detail-action="copiar"><i class="bi bi-clipboard"></i> Copiar referencia</button>' +
-        '<button class="btn btn-sm btn-light-warning" type="button" data-media-detail-action="archivar"><i class="bi bi-archive"></i> Archivar</button>' +
+        '<button class="btn btn-sm btn-light-danger" type="button" data-media-detail-action="eliminar"><i class="bi bi-trash"></i> Eliminar</button>' +
       '</div>';
     if (visual) {
       visual.innerHTML = '<div class="text-muted fs-8 text-uppercase fw-bold mb-2">Preview de uso</div><img class="ecom-cms-preview-img" src="' + escapeAttr(item.url) + '" alt="' + escapeAttr(item.alt) + '">';
@@ -270,12 +289,64 @@
     if (accion === "archivar") {
       item.estatus = item.estatus === "archivado" ? "activo" : "archivado";
     }
-    if (accion === "quitar") {
+    if (accion === "eliminar") {
+      if (esItemServidor(item)) {
+        eliminarMediaServidor(item);
+        return;
+      }
+      if (!window.confirm("Esta imagen es temporal local. Se quitara solo de este navegador.")) return;
       estado.items = estado.items.filter(function (actual) { return actual.id !== id; });
       if (estado.activo === id) estado.activo = estado.items[0] ? estado.items[0].id : "";
     }
     guardarLocal();
     renderTodo();
+  }
+
+  function eliminarMediaServidor(item) {
+    if (!item || !item.media_id) {
+      setEstado("Falta id BD", "badge-light-danger");
+      return;
+    }
+    if (!window.confirm("Eliminar esta imagen de Media CMS? Solo se permite si no esta usada por contenido publicado.")) return;
+    var data = new FormData();
+    data.append("_csrf", window.ERP_CSRF_TOKEN || "");
+    data.append("id_media_archivo", item.media_id);
+    setEstado("Eliminando...", "badge-light-info");
+    fetch("/cms/media_admin_eliminar_erp", {
+      method: "POST",
+      body: data,
+      credentials: "same-origin",
+      headers: {
+        "X-CSRF-Token": window.ERP_CSRF_TOKEN || "",
+        "Accept": "application/json",
+        "X-Requested-With": "XMLHttpRequest"
+      }
+    }).then(function (response) {
+      return response.text().then(function (text) {
+        var json = null;
+        try {
+          json = JSON.parse(text);
+        } catch (error) {
+          throw new Error("Respuesta no JSON del servidor (" + response.status + "): " + text.substring(0, 140));
+        }
+        if (!response.ok && json && json.mensaje) {
+          throw new Error(json.mensaje);
+        }
+        return json;
+      });
+    }).then(function (json) {
+      if (!json || json.error) {
+        throw new Error(json && json.mensaje ? json.mensaje : "No se pudo eliminar la imagen");
+      }
+      estado.items = estado.items.filter(function (actual) { return actual.id !== item.id; });
+      if (estado.activo === item.id) estado.activo = estado.items[0] ? estado.items[0].id : "";
+      guardarLocal();
+      renderTodo();
+      setEstado("Imagen eliminada", "badge-light-success");
+      cargarListadoServidor();
+    }).catch(function (error) {
+      setEstado(error.message || "Error al eliminar", "badge-light-danger");
+    });
   }
 
   function copiarReferencia(item) {
@@ -352,12 +423,22 @@
   function cargarLocal() {
     try {
       var raw = localStorage.getItem(STORAGE_KEY);
-      estado.items = raw ? JSON.parse(raw) : [];
+      estado.items = raw ? JSON.parse(raw).map(normalizarItemLocal) : [];
       estado.activo = estado.items[0] ? estado.items[0].id : "";
     } catch (error) {
       estado.items = [];
       estado.activo = "";
     }
+  }
+
+  function normalizarItemLocal(item) {
+    if (!item || typeof item !== "object") return {};
+    if (!item.origen) item.origen = String(item.id || "").indexOf("bd_") === 0 ? "bd" : "local";
+    return item;
+  }
+
+  function esItemServidor(item) {
+    return !!(item && item.origen === "bd" && String(item.url || "").indexOf("/assets/media/cms/ecommerce/") === 0);
   }
 
   function guardarLocal() {

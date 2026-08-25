@@ -654,6 +654,25 @@ class Catalogoerp extends Controlador {
   }
 
   /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-08-23
+   * Proposito: genera una incidencia manual para que Rentabilidad revise el costo de un SKU derivado.
+   * Impacto: Catalogo ERP/Rentabilidad; crea notificacion operativa sin calcular ni guardar costos.
+   * Contrato: POST protegido por `catalogo.editar`; recibe id_sku y devuelve resultado idempotente.
+   */
+  public function incidencia_costo_derivado_generar() {
+    $this->requerirPermiso("catalogo.editar");
+    $respuesta = $this->modelo("CatalogoErpDatos")->generarIncidenciaCostoDerivadoManual($_POST, $this->usuarioActualId());
+    SesionSeguridad::registrarAuditoria("catalogo", "generar_incidencia_costo_derivado", array(
+      "entidad" => "erp_notificaciones",
+      "entidad_id" => isset($respuesta["depurar"]["incidencia_costo_derivado"]["id_notificacion"]) ? intval($respuesta["depurar"]["incidencia_costo_derivado"]["id_notificacion"]) : null,
+      "resultado" => $respuesta["error"] ? "error" : "ok",
+      "mensaje" => $respuesta["mensaje"],
+      "datos_despues" => isset($respuesta["depurar"]) ? $respuesta["depurar"] : null
+    ));
+    return json_encode($respuesta);
+  }
+  /**
    * IA: Codex GPT-5 | Fecha: 2026-06-26
    * Proposito: busca SKUs candidatos para recetas de paquete sin restringirlos al producto abierto.
    * Impacto: Catalogo ERP; prepara paquetes simples/configurables con componentes de multiples productos.
@@ -715,7 +734,7 @@ class Catalogoerp extends Controlador {
 
   public function guardar_sku_presentacion() {
     $this->requerirPermiso("catalogo.editar");
-    $respuesta = $this->modelo("CatalogoErpDatos")->guardarSkuPresentacion($_POST);
+    $respuesta = $this->modelo("CatalogoErpDatos")->guardarSkuPresentacion($_POST, $this->usuarioActualId());
     SesionSeguridad::registrarAuditoria("catalogo", "guardar_sku_presentacion", array(
       "entidad" => "erp_catalogo_sku_presentaciones",
       "entidad_id" => isset($_POST["id_sku_presentacion"]) ? intval($_POST["id_sku_presentacion"]) : null,
@@ -745,9 +764,28 @@ class Catalogoerp extends Controlador {
    * Proposito: guarda reglas de apertura de empaque separadas de presentaciones comerciales.
    * Impacto: Catalogo ERP; define contrato para Almacen/Inventario sin ejecutar movimientos.
    */
+  /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-08-24
+   * Proposito: elimina fisicamente una regla de presentacion durante limpieza de Catalogo.
+   * Impacto: Catalogo ERP; borra solo la receta, no el SKU ni movimientos.
+   * Contrato: POST protegido por `catalogo.editar`; accion temporal de construccion/pruebas.
+   */
+  public function eliminar_sku_presentacion() {
+    $this->requerirPermiso("catalogo.editar");
+    $respuesta = $this->modelo("CatalogoErpDatos")->eliminarSkuPresentacion($_POST);
+    SesionSeguridad::registrarAuditoria("catalogo", "eliminar_sku_presentacion", array(
+      "entidad" => "erp_catalogo_sku_presentaciones",
+      "entidad_id" => isset($_POST["id_sku_presentacion_regla"]) ? intval($_POST["id_sku_presentacion_regla"]) : null,
+      "resultado" => $respuesta["error"] ? "error" : "ok",
+      "mensaje" => $respuesta["mensaje"],
+      "datos_despues" => isset($respuesta["depurar"]) ? $respuesta["depurar"] : null
+    ));
+    return json_encode($respuesta);
+  }
   public function guardar_sku_apertura_empaque() {
     $this->requerirPermiso("catalogo.editar");
-    $respuesta = $this->modelo("CatalogoErpDatos")->guardarSkuAperturaEmpaque($_POST);
+    $respuesta = $this->modelo("CatalogoErpDatos")->guardarSkuAperturaEmpaque($_POST, $this->usuarioActualId());
     SesionSeguridad::registrarAuditoria("catalogo", "guardar_sku_apertura_empaque", array(
       "entidad" => "erp_catalogo_sku_aperturas_empaque",
       "entidad_id" => isset($_POST["id_apertura_empaque"]) ? intval($_POST["id_apertura_empaque"]) : null,
@@ -782,6 +820,25 @@ class Catalogoerp extends Controlador {
    * Proposito: guarda reglas de reclasificacion de inventario entre SKUs permitidos.
    * Impacto: Catalogo ERP; define contrato que Inventario ejecutara con kardex doble.
    */
+  /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-08-24
+   * Proposito: elimina fisicamente una regla de apertura de empaque durante limpieza de Catalogo.
+   * Impacto: Catalogo ERP; no mueve inventario ni toca ventas.
+   * Contrato: POST protegido por `catalogo.editar`; accion temporal de construccion/pruebas.
+   */
+  public function eliminar_sku_apertura_empaque() {
+    $this->requerirPermiso("catalogo.editar");
+    $respuesta = $this->modelo("CatalogoErpDatos")->eliminarSkuAperturaEmpaque($_POST);
+    SesionSeguridad::registrarAuditoria("catalogo", "eliminar_sku_apertura_empaque", array(
+      "entidad" => "erp_catalogo_sku_aperturas_empaque",
+      "entidad_id" => isset($_POST["id_apertura_empaque"]) ? intval($_POST["id_apertura_empaque"]) : null,
+      "resultado" => $respuesta["error"] ? "error" : "ok",
+      "mensaje" => $respuesta["mensaje"],
+      "datos_despues" => isset($respuesta["depurar"]) ? $respuesta["depurar"] : null
+    ));
+    return json_encode($respuesta);
+  }
   public function guardar_sku_reclasificacion() {
     $this->requerirPermiso("catalogo.editar");
     $respuesta = $this->modelo("CatalogoErpDatos")->guardarSkuReclasificacion($_POST, $this->usuarioActualId());
@@ -852,6 +909,25 @@ class Catalogoerp extends Controlador {
    * Proposito: guarda grupo de seleccion de paquete configurable.
    * Impacto: Catalogo ERP; define opciones elegibles sin tocar ventas ni inventario.
    */
+  /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-08-24
+   * Proposito: elimina fisicamente una receta de paquete durante limpieza de Catalogo.
+   * Impacto: Catalogo ERP; borra receta y dependientes sin tocar SKUs, ventas ni inventario.
+   * Contrato: POST protegido por `catalogo.editar`; accion temporal de construccion/pruebas.
+   */
+  public function eliminar_paquete() {
+    $this->requerirPermiso("catalogo.editar");
+    $respuesta = $this->modelo("CatalogoErpDatos")->eliminarPaquete($_POST);
+    SesionSeguridad::registrarAuditoria("catalogo", "eliminar_paquete", array(
+      "entidad" => "erp_catalogo_sku_paquetes",
+      "entidad_id" => isset($_POST["id_paquete"]) ? intval($_POST["id_paquete"]) : null,
+      "resultado" => $respuesta["error"] ? "error" : "ok",
+      "mensaje" => $respuesta["mensaje"],
+      "datos_despues" => isset($respuesta["depurar"]) ? $respuesta["depurar"] : null
+    ));
+    return json_encode($respuesta);
+  }
   public function guardar_paquete_grupo() {
     $this->requerirPermiso("catalogo.editar");
     $respuesta = $this->modelo("CatalogoErpDatos")->guardarPaqueteGrupo($_POST, $this->usuarioActualId());
@@ -887,9 +963,28 @@ class Catalogoerp extends Controlador {
    * Proposito: guarda opcion SKU dentro de un grupo configurable de paquete.
    * Impacto: Catalogo ERP; no define precio final ni movimiento de inventario.
    */
+  /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-08-24
+   * Proposito: elimina fisicamente un grupo configurable durante limpieza de Catalogo.
+   * Impacto: Catalogo ERP; borra grupo y opciones sin tocar ventas ni inventario.
+   * Contrato: POST protegido por `catalogo.editar`; accion temporal de construccion/pruebas.
+   */
+  public function eliminar_paquete_grupo() {
+    $this->requerirPermiso("catalogo.editar");
+    $respuesta = $this->modelo("CatalogoErpDatos")->eliminarPaqueteGrupo($_POST);
+    SesionSeguridad::registrarAuditoria("catalogo", "eliminar_paquete_grupo", array(
+      "entidad" => "erp_catalogo_sku_paquete_grupos",
+      "entidad_id" => isset($_POST["id_grupo"]) ? intval($_POST["id_grupo"]) : null,
+      "resultado" => $respuesta["error"] ? "error" : "ok",
+      "mensaje" => $respuesta["mensaje"],
+      "datos_despues" => isset($respuesta["depurar"]) ? $respuesta["depurar"] : null
+    ));
+    return json_encode($respuesta);
+  }
   public function guardar_paquete_opcion() {
     $this->requerirPermiso("catalogo.editar");
-    $respuesta = $this->modelo("CatalogoErpDatos")->guardarPaqueteGrupoOpcion($_POST);
+    $respuesta = $this->modelo("CatalogoErpDatos")->guardarPaqueteGrupoOpcion($_POST, $this->usuarioActualId());
     SesionSeguridad::registrarAuditoria("catalogo", "guardar_paquete_opcion", array(
       "entidad" => "erp_catalogo_sku_paquete_grupo_opciones",
       "entidad_id" => isset($respuesta["depurar"]["id_opcion"]) ? intval($respuesta["depurar"]["id_opcion"]) : null,
@@ -917,6 +1012,25 @@ class Catalogoerp extends Controlador {
     return json_encode($respuesta);
   }
 
+  /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-08-24
+   * Proposito: elimina fisicamente una opcion configurable durante limpieza de Catalogo.
+   * Impacto: Catalogo ERP; borra solo la opcion de paquete sin tocar el SKU opcion.
+   * Contrato: POST protegido por `catalogo.editar`; accion temporal de construccion/pruebas.
+   */
+  public function eliminar_paquete_opcion() {
+    $this->requerirPermiso("catalogo.editar");
+    $respuesta = $this->modelo("CatalogoErpDatos")->eliminarPaqueteGrupoOpcion($_POST);
+    SesionSeguridad::registrarAuditoria("catalogo", "eliminar_paquete_opcion", array(
+      "entidad" => "erp_catalogo_sku_paquete_grupo_opciones",
+      "entidad_id" => isset($_POST["id_opcion"]) ? intval($_POST["id_opcion"]) : null,
+      "resultado" => $respuesta["error"] ? "error" : "ok",
+      "mensaje" => $respuesta["mensaje"],
+      "datos_despues" => isset($respuesta["depurar"]) ? $respuesta["depurar"] : null
+    ));
+    return json_encode($respuesta);
+  }
   public function guardar_variantes() {
     $this->requerirPermiso("catalogo.editar");
     $respuesta = $this->modelo("CatalogoErpDatos")->guardarVariantesProducto($_POST);
@@ -1197,3 +1311,4 @@ class Catalogoerp extends Controlador {
     return json_encode($respuesta);
   }
 }
+

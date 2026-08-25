@@ -571,6 +571,20 @@ class Proveedor extends Controlador {
         echo json_encode($respuesta);
     }
 
+    public function proveedor_lista_detalle_sincronizar_erp() {
+        $this->requerirPermiso("proveedores.costos");
+        $respuesta = $this->modelo("Proveedores")->sincronizarEdicionListaDetalleErp($_POST, $this->usuarioActualId());
+        SesionSeguridad::registrarAuditoria("proveedores", "proveedor_lista_detalle_sincronizar", array(
+            "entidad" => "erp_proveedores_listas_detalle_erp",
+            "entidad_id" => isset($respuesta["depurar"]["id_lista_detalle_erp"]) ? intval($respuesta["depurar"]["id_lista_detalle_erp"]) : null,
+            "resultado" => $respuesta["error"] ? "error" : "ok",
+            "mensaje" => $respuesta["mensaje"],
+            "datos_antes" => isset($respuesta["depurar"]["antes"]) ? $respuesta["depurar"]["antes"] : null,
+            "datos_despues" => isset($respuesta["depurar"]["despues"]) ? $respuesta["depurar"]["despues"] : null
+        ));
+        echo json_encode($respuesta);
+    }
+
     public function proveedor_incidencias_dry_run_erp() {
         $this->requerirPermiso("proveedores.auditoria");
         $id_proveedor = isset($_REQUEST["id_proveedor"]) ? $_REQUEST["id_proveedor"] : 0;

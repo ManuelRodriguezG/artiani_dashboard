@@ -112,7 +112,7 @@
             },
             asignacion: {
                 listo: asignaciones > 0 || canal === "general",
-                texto: asignaciones ? (asignaciones + " vinculo(s)") : "General o pendiente de segmento."
+                texto: asignaciones ? (asignaciones + " vinculo(s)") : (canal === "general" ? "Publico general, sin cliente requerido." : "Opcional: segmento o cliente.")
             },
             revision: {
                 listo: !!revision && revision.puede_activar !== false && cambios === 0,
@@ -203,7 +203,7 @@
             encabezado: "Encabezado",
             productos: "Productos",
             alcance: "Alcance",
-            asignacion: "Clientes/Segmentos",
+            asignacion: "Cobertura",
             revision: "Revision"
         };
         return etiquetas[tab] || "Encabezado";
@@ -462,7 +462,8 @@
         var mensajes = [];
         var tipo = "light";
         if (canal === "general") {
-            mensajes.push("Lista base para " + alcance + "; conviene dejarla con menor prioridad que listas especificas.");
+            mensajes.push("Lista base para publico general en " + alcance + "; no requiere asignar clientes.");
+            mensajes.push("Si un cliente o segmento tiene una lista mas especifica, el resolutor la usara antes que esta.");
         } else if (canal === "pos") {
             mensajes.push("Lista para punto de venta en " + alcance + ".");
         } else if (canal === "pedido_tienda") {

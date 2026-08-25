@@ -106,6 +106,9 @@
 </div>
 <script src="assets/plugins/global/plugins.bundle.js"></script>
 <script src="assets/js/scripts.bundle.js"></script>
-<script src="/assets/js/custom/apps/erp/cms/frontend_actual.js?v=20260813-actual1"></script>
+<script>
+    window.ERP_CSRF_TOKEN = "<?= htmlspecialchars(SesionSeguridad::csrfToken(), ENT_QUOTES, 'UTF-8') ?>";
+</script>
+<script src="/assets/js/custom/apps/erp/cms/frontend_actual.js?v=20260824-media-delete-ico2"></script>
 </body>
 </html>

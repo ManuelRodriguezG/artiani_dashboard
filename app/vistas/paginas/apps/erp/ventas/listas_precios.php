@@ -69,7 +69,7 @@
                             <div>
                                 <div class="text-muted fs-8 text-uppercase fw-semibold mb-1">ERP / Comercial</div>
                                 <h1 class="page-heading text-dark fw-bold fs-3 mb-1">Editor de lista de precios</h1>
-                                <span class="text-muted">Crea o edita una lista concreta con productos, margen, alcance y asignaciones.</span>
+                                <span class="text-muted">Crea o edita una lista concreta con productos, margen, alcance y excepciones opcionales.</span>
                             </div>
                             <div class="d-flex flex-wrap gap-2">
                                 <a class="btn btn-light" href="/comercial/listas_precios"><i class="bi bi-arrow-left"></i> Listado</a>
@@ -99,7 +99,7 @@
                                 <div class="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-3">
                                     <div>
                                         <div class="fw-bold fs-5">Flujo para crear una lista</div>
-                                        <div class="text-muted fs-8">Trabaja de izquierda a derecha: encabezado, precios, alcance, clientes/segmentos y revision final.</div>
+                                        <div class="text-muted fs-8">Trabaja de izquierda a derecha: encabezado, precios, alcance, cobertura opcional y revision final.</div>
                                     </div>
                                     <span class="badge badge-light-primary" id="lp_flujo_estado">Sin lista</span>
                                 </div>
@@ -119,10 +119,10 @@
                                         <div class="fw-semibold mt-2">Alcance</div>
                                         <div class="text-muted fs-8" id="lp_flujo_alcance">Define canal y prioridad.</div>
                                     </button>
-                                    <button class="lp-flow-step" type="button" data-lp-flujo="asignacion" data-lp-scroll="#lp_segmentos_crm">
+                                    <button class="lp-flow-step" type="button" data-lp-flujo="asignacion" data-lp-scroll="#lp_cobertura_general_bloque">
                                         <span class="lp-flow-index">4</span>
-                                        <div class="fw-semibold mt-2">Asignacion</div>
-                                        <div class="text-muted fs-8" id="lp_flujo_asignacion">Usa segmentos o excepcion por cliente.</div>
+                                        <div class="fw-semibold mt-2">Cobertura</div>
+                                        <div class="text-muted fs-8" id="lp_flujo_asignacion">General, segmento o excepcion.</div>
                                     </button>
                                     <button class="lp-flow-step" type="button" data-lp-flujo="revision" data-lp-scroll="#lp_revision">
                                         <span class="lp-flow-index">5</span>
@@ -144,7 +144,7 @@
                                     <button class="lp-editor-tab is-active" type="button" data-lp-editor-tab="encabezado"><i class="bi bi-card-text"></i> Encabezado</button>
                                     <button class="lp-editor-tab" type="button" data-lp-editor-tab="productos"><i class="bi bi-tags"></i> Productos <span class="badge badge-light" id="lp_tab_productos_count">0</span></button>
                                     <button class="lp-editor-tab" type="button" data-lp-editor-tab="alcance"><i class="bi bi-bullseye"></i> Alcance</button>
-                                    <button class="lp-editor-tab" type="button" data-lp-editor-tab="asignacion"><i class="bi bi-people"></i> Clientes/Segmentos</button>
+                                    <button class="lp-editor-tab" type="button" data-lp-editor-tab="asignacion"><i class="bi bi-people"></i> Cobertura</button>
                                     <button class="lp-editor-tab" type="button" data-lp-editor-tab="revision"><i class="bi bi-shield-check"></i> Revision</button>
                                 </div>
                             </section>
@@ -440,10 +440,14 @@
                                             </section>
 
                                             <section class="lp-card p-4 lp-editor-panel" data-lp-editor-panel="asignacion">
-                                                <div class="fw-bold fs-5 mb-1">Clientes y segmentos</div>
-                                                <div class="text-muted fs-8 mb-3">La asignacion directa a cliente es una excepcion; para miles de clientes debe usarse segmento/tipo CRM.</div>
+                                                <div class="fw-bold fs-5 mb-1">Cobertura y excepciones</div>
+                                                <div class="text-muted fs-8 mb-3">Para publico general no se asigna cliente. La lista aplica por su alcance; cliente y segmento solo hacen reglas mas especificas.</div>
+                                                <div class="alert alert-light-primary py-3 mb-3 fs-7" id="lp_cobertura_general_bloque">
+                                                    <div class="fw-semibold mb-1"><i class="bi bi-globe2 me-1"></i> Publico general</div>
+                                                    <div>Usa <strong>Alcance: General</strong>, deja almacen vacio si debe aplicar a todos los almacenes y no agregues clientes. Si un cliente o segmento tiene otra lista activa, esa lista ganara automaticamente por ser mas especifica.</div>
+                                                </div>
                                                 <div class="alert alert-light-success py-3 mb-3 fs-7">
-                                                    Segmentos CRM activo: vincula esta lista a tipos de cliente para evitar asignaciones cliente por cliente.
+                                                    Segmentos CRM: usalos para grupos como recurrente, mayoreo o VIP. No son necesarios para publico general.
                                                 </div>
                                                 <div class="border rounded p-3 mb-4" id="lp_segmentos_bloque">
                                                     <div class="d-flex justify-content-between align-items-start gap-2 mb-3">
@@ -519,7 +523,7 @@
                                                     <div class="d-flex justify-content-between align-items-start gap-2 mb-3">
                                                         <div>
                                                             <div class="fw-semibold fs-7">Excepcion por cliente</div>
-                                                            <div class="text-muted fs-8">Usar solo para acuerdos puntuales; para volumen conviene segmento CRM.</div>
+                                                            <div class="text-muted fs-8">No se usa para publico general. Usar solo para acuerdos puntuales; para volumen conviene segmento CRM.</div>
                                                         </div>
                                                         <span class="badge badge-light-warning">excepcion</span>
                                                     </div>
@@ -534,7 +538,7 @@
                                                         </div>
                                                         <div class="col-7">
                                                             <label class="form-label text-muted fs-8 text-uppercase">Cliente seleccionado</label>
-                                                            <input class="form-control form-control-solid" id="lp_asig_cliente" inputmode="numeric" placeholder="id_cliente_crm">
+                                                            <input class="form-control form-control-solid" id="lp_asig_cliente" inputmode="numeric" readonly placeholder="Se llena al elegir un cliente">
                                                         </div>
                                                         <div class="col-5">
                                                             <label class="form-label text-muted fs-8 text-uppercase">Prioridad</label>

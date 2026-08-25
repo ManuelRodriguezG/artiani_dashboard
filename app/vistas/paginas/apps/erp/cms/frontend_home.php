@@ -10,5 +10,5 @@ $cmsFrontendHeading = "CMS / Frontend / Home";
 $cmsFrontendSubtitulo = "Administra hero, categorias, productos destacados, colecciones y banner de Home";
 $cmsFrontendGrupoInicial = "home";
 $cmsFrontendAvisoTitulo = "Home del ecommerce";
-$cmsFrontendAvisoTexto = "Aqui se configura el contenido visual que necesita la portada del frontend. Por ahora el editor es local y genera el JSON esperado; despues se conectara a media, persistencia y API publica.";
+$cmsFrontendAvisoTexto = "Aqui se configura el contenido visual que necesita la portada del frontend. Media ya sube imagenes al servidor; el guardado completo de secciones Home sigue pendiente de persistencia frontend.";
 require __DIR__ . "/frontend_actual.php";

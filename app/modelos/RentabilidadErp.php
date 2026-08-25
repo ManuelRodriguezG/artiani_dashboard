@@ -4318,6 +4318,7 @@ class RentabilidadErp extends CRUD {
             }
             $visitados = isset($contexto["_visitados"]) && is_array($contexto["_visitados"]) ? $contexto["_visitados"] : array();
             $resolucion = $this->resolverCostoVigenteSkuInterno($db, $idSku, $contexto, $visitados);
+            $resolucion = $this->normalizarContratoCostoVigente($resolucion);
             return $this->respuesta(false, "success", "Costo vigente consultado", $resolucion);
         } catch (Exception $e) {
             return $this->respuesta(true, "danger", $e->getMessage());
@@ -4379,6 +4380,426 @@ class RentabilidadErp extends CRUD {
         }
     }
 
+    /**
+     * IA: Codex GPT-5
+     * Fecha: 2026-08-23
+     * Proposito: listar incidencias persistentes enviadas por Catalogo para resolver costo de SKUs derivados.
+     * Impacto: Rentabilidad/Costos atiende pendientes desde `erp_notificaciones` sin tocar Catalogo, Listas ni Ventas.
+     * Contrato: read-only; filtra tipo `catalogo_sku_derivado_costo_pendiente` y devuelve payload normalizado para UI.
+     */
+    public function listarIncidenciasCostoDerivado($filtros = array()) {
+        try {
+            if (!$this->tablaExisteSimple("erp_notificaciones")) {
+                return $this->respuesta(false, "success", "No existe bandeja transversal de notificaciones", array(
+                    "resumen" => array("total" => 0, "pendiente" => 0, "en_revision" => 0, "bloqueada" => 0),
+                    "items" => array()
+                ));
+            }
+            $db = $this->getConexion();
+            $limite = max(10, min(200, intval(isset($filtros["limite"]) ? $filtros["limite"] : 80)));
+            $q = trim(isset($filtros["q"]) ? strval($filtros["q"]) : "");
+            $where = array(
+                "tipo='catalogo_sku_derivado_costo_pendiente'",
+                "area_responsable='rentabilidad_costos'",
+                "estatus IN ('pendiente','en_revision','bloqueada')"
+            );
+            $params = array();
+            if ($q !== "") {
+                $where[] = "(titulo LIKE :q OR descripcion LIKE :q OR payload_json LIKE :q)";
+                $params[":q"] = "%" . $q . "%";
+            }
+
+            $sql = "SELECT id_notificacion, tipo, modulo_origen, entidad_origen, id_entidad_origen,
+                    area_responsable, permiso_requerido, titulo, descripcion, prioridad, estatus,
+                    url_accion, payload_json, fecha_registro, fecha_actualizacion, fecha_resolucion
+                FROM erp_notificaciones
+                WHERE " . implode(" AND ", $where) . "
+                ORDER BY FIELD(prioridad,'critica','alta','normal','info'),
+                    FIELD(estatus,'bloqueada','pendiente','en_revision'),
+                    id_notificacion DESC
+                LIMIT " . $limite;
+            $stmt = $db->prepare($sql);
+            $stmt->execute($params);
+            $items = array();
+            $resumen = array("total" => 0, "pendiente" => 0, "en_revision" => 0, "bloqueada" => 0);
+            foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $fila) {
+                $item = $this->normalizarIncidenciaCostoDerivado($fila);
+                $item["costo_resolucion"] = $this->resolverCostoPreviewIncidencia($item);
+                $items[] = $item;
+                $resumen["total"]++;
+                if (isset($resumen[$item["estatus"]])) {
+                    $resumen[$item["estatus"]]++;
+                }
+            }
+
+            return $this->respuesta(false, "success", "Incidencias de costo derivado consultadas", array(
+                "resumen" => $resumen,
+                "items" => $items,
+                "reglas" => array(
+                    "Bandeja persistente desde erp_notificaciones.",
+                    "Consulta read-only: no modifica Catalogo, Listas, Ventas ni la incidencia.",
+                    "La resolucion dry-run calcula que pasaria antes de pedir autorizacion para escribir estatus."
+                )
+            ));
+        } catch (Exception $e) {
+            return $this->respuesta(true, "danger", $e->getMessage());
+        }
+    }
+
+    /**
+     * IA: Codex GPT-5
+     * Fecha: 2026-08-23
+     * Proposito: simular la resolucion de una incidencia de costo derivado con el resolutor vigente.
+     * Impacto: permite auditar si la incidencia quedaria resuelta o bloqueada antes de escribir `erp_notificaciones`.
+     * Contrato: dry-run; no cambia estatus, no modifica payload, no toca Catalogo, Listas ni Ventas.
+     */
+    public function preResolverIncidenciaCostoDerivado($datos) {
+        try {
+            if (!$this->tablaExisteSimple("erp_notificaciones")) {
+                return $this->respuesta(true, "warning", "No existe erp_notificaciones para resolver incidencias");
+            }
+            $idNotificacion = intval(isset($datos["id_notificacion"]) ? $datos["id_notificacion"] : 0);
+            if ($idNotificacion <= 0) {
+                return $this->respuesta(true, "warning", "Indica la incidencia a resolver");
+            }
+            $db = $this->getConexion();
+            $stmt = $db->prepare("SELECT *
+                FROM erp_notificaciones
+                WHERE id_notificacion=:id
+                  AND tipo='catalogo_sku_derivado_costo_pendiente'
+                  AND area_responsable='rentabilidad_costos'
+                  AND estatus IN ('pendiente','en_revision','bloqueada')
+                LIMIT 1");
+            $stmt->execute(array(":id" => $idNotificacion));
+            $fila = $stmt->fetch(PDO::FETCH_ASSOC);
+            if (!$fila) {
+                return $this->respuesta(true, "warning", "Incidencia no encontrada o no resoluble");
+            }
+
+            $payload = $this->jsonArray(isset($fila["payload_json"]) ? $fila["payload_json"] : "");
+            $resultado = $this->evaluarIncidenciaCostoDerivado($fila, $payload);
+
+            return $this->respuesta(false, $resultado["estatus_propuesto"] === "resuelta" ? "success" : "warning", $resultado["estatus_propuesto"] === "resuelta" ? "Costo derivado resoluble" : "Costo derivado bloqueable", array(
+                "id_notificacion" => $idNotificacion,
+                "dry_run" => true,
+                "estatus_actual" => $fila["estatus"],
+                "estatus_propuesto" => $resultado["estatus_propuesto"],
+                "responsable_bloqueo" => $resultado["responsable_bloqueo"],
+                "siguiente_paso" => $resultado["siguiente_paso"],
+                "payload_resumen_propuesto" => $resultado["payload_resumen_propuesto"],
+                "resolucion" => $resultado["resolucion"]
+            ));
+        } catch (Exception $e) {
+            return $this->respuesta(true, "danger", $e->getMessage());
+        }
+    }
+
+    /**
+     * IA: Codex GPT-5
+     * Fecha: 2026-08-24
+     * Proposito: cerrar persistentemente una incidencia de costo derivado con el resultado del resolutor de Rentabilidad.
+     * Impacto: actualiza solo `erp_notificaciones`; no modifica Catalogo, Listas de precios, Ventas ni costos maestros.
+     * Contrato: requiere id_notificacion, respaldo_externo_ref y confirmacion exacta; guarda estatus/payload trazable.
+     */
+    public function resolverIncidenciaCostoDerivadoPersistente($datos, $idUsuario) {
+        try {
+            if (!$this->tablaExisteSimple("erp_notificaciones")) {
+                return $this->respuesta(true, "warning", "No existe erp_notificaciones para resolver incidencias");
+            }
+            $confirmacion = trim(isset($datos["confirmar_autorizacion"]) ? strval($datos["confirmar_autorizacion"]) : "");
+            if ($confirmacion !== "AUTORIZO APLICAR RESOLUCION PERSISTENTE DE INCIDENCIAS DE COSTO DERIVADO") {
+                return $this->respuesta(true, "warning", "Falta confirmacion exacta para escribir la resolucion persistente");
+            }
+            $respaldo = trim(isset($datos["respaldo_externo_ref"]) ? strval($datos["respaldo_externo_ref"]) : "");
+            if (strlen($respaldo) < 8) {
+                return $this->respuesta(true, "warning", "Indica referencia de respaldo externo antes de resolver la incidencia");
+            }
+            $idNotificacion = intval(isset($datos["id_notificacion"]) ? $datos["id_notificacion"] : 0);
+            if ($idNotificacion <= 0) {
+                return $this->respuesta(true, "warning", "Indica la incidencia a resolver");
+            }
+
+            $db = $this->getConexion();
+            $db->beginTransaction();
+            $stmt = $db->prepare("SELECT *
+                FROM erp_notificaciones
+                WHERE id_notificacion=:id
+                  AND tipo='catalogo_sku_derivado_costo_pendiente'
+                  AND area_responsable='rentabilidad_costos'
+                  AND estatus IN ('pendiente','en_revision','bloqueada')
+                LIMIT 1
+                FOR UPDATE");
+            $stmt->execute(array(":id" => $idNotificacion));
+            $fila = $stmt->fetch(PDO::FETCH_ASSOC);
+            if (!$fila) {
+                $db->rollBack();
+                return $this->respuesta(true, "warning", "Incidencia no encontrada o no resoluble");
+            }
+
+            $payload = $this->jsonArray(isset($fila["payload_json"]) ? $fila["payload_json"] : "");
+            $resultado = $this->evaluarIncidenciaCostoDerivado($fila, $payload);
+            $payloadActualizado = $resultado["payload_resumen_propuesto"];
+            $payloadActualizado["respaldo_externo_ref"] = $respaldo;
+            $payloadActualizado["resuelto_por"] = intval($idUsuario);
+            $payloadActualizado["fecha_resolucion_rentabilidad"] = date("Y-m-d H:i:s");
+            $estatus = $resultado["estatus_propuesto"];
+
+            $sql = "UPDATE erp_notificaciones
+                SET estatus=:estatus,
+                    payload_json=:payload,
+                    fecha_actualizacion=NOW(),
+                    fecha_resolucion=" . ($estatus === "resuelta" ? "NOW()" : "NULL") . "
+                WHERE id_notificacion=:id
+                  AND tipo='catalogo_sku_derivado_costo_pendiente'
+                  AND area_responsable='rentabilidad_costos'";
+            $update = $db->prepare($sql);
+            $update->execute(array(
+                ":estatus" => $estatus,
+                ":payload" => json_encode($payloadActualizado, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+                ":id" => $idNotificacion
+            ));
+            $db->commit();
+
+            return $this->respuesta(false, $estatus === "resuelta" ? "success" : "warning", $estatus === "resuelta" ? "Incidencia de costo resuelta" : "Incidencia de costo bloqueada", array(
+                "id_notificacion" => $idNotificacion,
+                "estatus" => $estatus,
+                "respaldo_externo_ref" => $respaldo,
+                "resolucion" => $resultado["resolucion"],
+                "payload" => $payloadActualizado
+            ));
+        } catch (Exception $e) {
+            if (isset($db) && $db instanceof PDO && $db->inTransaction()) {
+                $db->rollBack();
+            }
+            return $this->respuesta(true, "danger", $e->getMessage());
+        }
+    }
+
+    private function evaluarIncidenciaCostoDerivado($fila, $payload) {
+        $idNotificacion = intval($fila["id_notificacion"]);
+        $idSku = intval(isset($payload["id_sku_derivado"]) ? $payload["id_sku_derivado"] : $fila["id_entidad_origen"]);
+        if ($idSku <= 0) {
+            $bloqueo = $this->advertenciaCosto("COST-INC-001", "sku_derivado_faltante", "La incidencia no contiene id_sku_derivado");
+            $resolucion = $this->respuestaCostoSinEvidencia(0, "La incidencia no contiene id_sku_derivado");
+            $resolucion["bloqueos"] = array($bloqueo);
+            $payload["costo_resuelto"] = 0;
+            $payload["bloqueos"] = array($bloqueo);
+            $payload["advertencias"] = array($bloqueo);
+            $payload["responsable_bloqueo"] = "catalogo";
+            $payload["siguiente_paso"] = "Resolver en Catalogo.";
+            return array(
+                "id_notificacion" => $idNotificacion,
+                "estatus_propuesto" => "bloqueada",
+                "responsable_bloqueo" => "catalogo",
+                "siguiente_paso" => "Resolver en Catalogo.",
+                "payload_resumen_propuesto" => $payload,
+                "resolucion" => $resolucion
+            );
+        }
+
+        $respuestaCosto = $this->resolverCostoVigenteSku($idSku, $this->contextoIncidenciaCostoDerivado($payload));
+        $resolucion = isset($respuestaCosto["depurar"]) && is_array($respuestaCosto["depurar"]) ? $respuestaCosto["depurar"] : array();
+        $resolucion = $this->normalizarContratoCostoVigente($resolucion);
+        $confiable = $this->costoResolucionConfiable($resolucion);
+        $responsableBloqueo = $confiable ? null : $this->responsableBloqueoCostoDerivado($resolucion, $payload);
+        $siguientePaso = $confiable ? "costo_resuelto_validar_precio_en_listas" : $this->siguientePasoIncidenciaCostoDerivado($resolucion, $responsableBloqueo);
+        return array(
+            "id_notificacion" => $idNotificacion,
+            "estatus_propuesto" => $confiable ? "resuelta" : "bloqueada",
+            "responsable_bloqueo" => $responsableBloqueo,
+            "siguiente_paso" => $siguientePaso,
+            "payload_resumen_propuesto" => $this->payloadResumenIncidenciaCostoDerivado($payload, $resolucion, $confiable),
+            "resolucion" => $resolucion
+        );
+    }
+
+    private function normalizarIncidenciaCostoDerivado($fila) {
+        $payload = $this->jsonArray(isset($fila["payload_json"]) ? $fila["payload_json"] : "");
+        return array(
+            "id_notificacion" => intval($fila["id_notificacion"]),
+            "sku_derivado" => isset($payload["sku_derivado"]) ? $payload["sku_derivado"] : "",
+            "id_sku_derivado" => intval(isset($payload["id_sku_derivado"]) ? $payload["id_sku_derivado"] : $fila["id_entidad_origen"]),
+            "tipo_derivacion" => isset($payload["tipo_derivacion_rentabilidad"]) ? $payload["tipo_derivacion_rentabilidad"] : "",
+            "sku_origen" => isset($payload["sku_origen"]) ? $payload["sku_origen"] : "",
+            "id_sku_origen" => intval(isset($payload["id_sku_origen"]) ? $payload["id_sku_origen"] : 0),
+            "factor_conversion" => floatval(isset($payload["factor_conversion"]) ? $payload["factor_conversion"] : 0),
+            "merma_porcentaje" => floatval(isset($payload["merma_porcentaje"]) ? $payload["merma_porcentaje"] : 0),
+            "modo_inventario" => isset($payload["modo_inventario"]) ? $payload["modo_inventario"] : "",
+            "evento_origen" => isset($payload["evento_origen"]) ? $payload["evento_origen"] : "",
+            "siguiente_paso" => isset($payload["siguiente_paso"]) ? $payload["siguiente_paso"] : "",
+            "costo_derivable" => intval(isset($payload["costo_derivable"]) ? $payload["costo_derivable"] : 0),
+            "prioridad" => $fila["prioridad"],
+            "estatus" => $fila["estatus"],
+            "titulo" => $fila["titulo"],
+            "descripcion" => $fila["descripcion"],
+            "fecha_registro" => $fila["fecha_registro"],
+            "fecha_actualizacion" => $fila["fecha_actualizacion"],
+            "payload" => $payload
+        );
+    }
+
+    private function jsonArray($json) {
+        $data = json_decode((string) $json, true);
+        return is_array($data) ? $data : array();
+    }
+
+    private function contextoIncidenciaCostoDerivado($payload) {
+        $tipo = isset($payload["tipo_derivacion_rentabilidad"]) ? trim((string) $payload["tipo_derivacion_rentabilidad"]) : "auto";
+        $mapa = array(
+            "presentacion" => "presentacion",
+            "apertura_empaque" => "apertura_empaque",
+            "granel" => "apertura_empaque",
+            "paquete" => "paquete_combo",
+            "paquete_combo" => "paquete_combo",
+            "variante" => "auto"
+        );
+        $contexto = array(
+            "tipo" => isset($mapa[$tipo]) ? $mapa[$tipo] : "auto",
+            "origen_incidencia" => "catalogo_sku_derivado_costo_pendiente"
+        );
+        foreach (array("tipo_derivacion_rentabilidad", "id_sku_origen", "sku_origen", "factor_conversion", "merma_porcentaje", "modo_inventario") as $campo) {
+            if (array_key_exists($campo, $payload)) {
+                $contexto[$campo] = $payload[$campo];
+            }
+        }
+        return $contexto;
+    }
+
+    private function costoResolucionConfiable($resolucion) {
+        $confianza = isset($resolucion["confianza"]) ? $resolucion["confianza"] : "";
+        return floatval(isset($resolucion["costo"]) ? $resolucion["costo"] : 0) > 0
+            && empty($resolucion["bloqueos"])
+            && in_array($confianza, array("alta", "media"), true);
+    }
+
+    private function payloadResumenIncidenciaCostoDerivado($payload, $resolucion, $confiable) {
+        $payload["costo_resuelto"] = $confiable ? 1 : 0;
+        $payload["costo"] = floatval(isset($resolucion["costo"]) ? $resolucion["costo"] : 0);
+        $payload["fuente"] = isset($resolucion["fuente"]) ? $resolucion["fuente"] : "sin_costo";
+        $payload["formula"] = isset($resolucion["formula"]) ? $resolucion["formula"] : "";
+        $payload["confianza"] = isset($resolucion["confianza"]) ? $resolucion["confianza"] : "sin_evidencia";
+        $payload["advertencias"] = isset($resolucion["advertencias"]) ? $resolucion["advertencias"] : array();
+        $payload["bloqueos"] = isset($resolucion["bloqueos"]) ? $resolucion["bloqueos"] : array();
+        $payload["fecha_resolucion_rentabilidad"] = date("Y-m-d H:i:s");
+        $responsable = $confiable ? null : $this->responsableBloqueoCostoDerivado($resolucion, $payload);
+        $payload["siguiente_paso"] = $confiable ? "costo_resuelto_validar_precio_en_listas" : $this->siguientePasoIncidenciaCostoDerivado($resolucion, $responsable);
+        if (!$confiable) {
+            $payload["responsable_bloqueo"] = $responsable;
+        }
+        $payload["resolucion_rentabilidad"] = $this->resumenResolucionIncidencia($resolucion);
+        return $payload;
+    }
+
+    private function resumenResolucionIncidencia($resolucion) {
+        return array(
+            "id_sku" => intval(isset($resolucion["id_sku"]) ? $resolucion["id_sku"] : 0),
+            "sku" => isset($resolucion["sku"]) ? $resolucion["sku"] : "",
+            "tipo_resolucion" => isset($resolucion["tipo_resolucion"]) ? $resolucion["tipo_resolucion"] : "",
+            "costo" => floatval(isset($resolucion["costo"]) ? $resolucion["costo"] : 0),
+            "fuente" => isset($resolucion["fuente"]) ? $resolucion["fuente"] : "",
+            "confianza" => isset($resolucion["confianza"]) ? $resolucion["confianza"] : "",
+            "formula" => isset($resolucion["formula"]) ? $resolucion["formula"] : "",
+            "sku_origen" => isset($resolucion["sku_origen"]) ? $resolucion["sku_origen"] : null,
+            "factor_usado" => isset($resolucion["factor_usado"]) ? $resolucion["factor_usado"] : null,
+            "cantidad_util" => isset($resolucion["cantidad_util"]) ? $resolucion["cantidad_util"] : null,
+            "merma_porcentaje" => isset($resolucion["merma_porcentaje"]) ? $resolucion["merma_porcentaje"] : 0
+        );
+    }
+
+    /**
+     * IA: Codex GPT-5
+     * Fecha: 2026-08-24
+     * Proposito: calcular preview de costo dentro de la bandeja de incidencias sin cerrar la incidencia.
+     * Impacto: Rentabilidad muestra costo, fuente y formula en la bandeja operativa antes de escribir `erp_notificaciones`.
+     * Contrato: read-only; usa `resolverCostoVigenteSku` y nunca modifica Catalogo, Listas, Ventas ni notificaciones.
+     */
+    private function resolverCostoPreviewIncidencia($item) {
+        $idSku = intval(isset($item["id_sku_derivado"]) ? $item["id_sku_derivado"] : 0);
+        if ($idSku <= 0) {
+            return array(
+                "costo" => 0,
+                "fuente" => "sin_costo",
+                "confianza" => "sin_evidencia",
+                "formula" => "sin id_sku_derivado",
+                "sku_origen" => isset($item["sku_origen"]) ? $item["sku_origen"] : null,
+                "factor_usado" => null,
+                "cantidad_util" => null,
+                "advertencias" => array($this->advertenciaCosto("COST-INC-001", "sku_derivado_faltante", "La incidencia no contiene id_sku_derivado")),
+                "bloqueos" => array($this->advertenciaCosto("COST-INC-001", "sku_derivado_faltante", "La incidencia no contiene id_sku_derivado")),
+                "estatus_propuesto" => "bloqueada",
+                "siguiente_paso" => "Resolver en Catalogo."
+            );
+        }
+        $payload = isset($item["payload"]) && is_array($item["payload"]) ? $item["payload"] : array();
+        $respuesta = $this->resolverCostoVigenteSku($idSku, $this->contextoIncidenciaCostoDerivado($payload));
+        $resolucion = isset($respuesta["depurar"]) && is_array($respuesta["depurar"]) ? $respuesta["depurar"] : array();
+        $resolucion = $this->normalizarContratoCostoVigente($resolucion);
+        $confiable = $this->costoResolucionConfiable($resolucion);
+        return array(
+            "costo" => floatval($resolucion["costo"]),
+            "moneda" => $resolucion["moneda"],
+            "fuente" => $resolucion["fuente"],
+            "confianza" => $resolucion["confianza"],
+            "formula" => $resolucion["formula"],
+            "sku_origen" => $resolucion["sku_origen"],
+            "factor_usado" => $resolucion["factor_usado"],
+            "cantidad_util" => $resolucion["cantidad_util"],
+            "merma_porcentaje" => $resolucion["merma_porcentaje"],
+            "advertencias" => $resolucion["advertencias"],
+            "bloqueos" => $resolucion["bloqueos"],
+            "estatus_propuesto" => $confiable ? "resuelta" : "bloqueada",
+            "siguiente_paso" => $confiable ? "costo_resuelto_validar_precio_en_listas" : $this->siguientePasoIncidenciaCostoDerivado($resolucion, $this->responsableBloqueoCostoDerivado($resolucion, $payload))
+        );
+    }
+
+    private function responsableBloqueoCostoDerivado($resolucion, $payload) {
+        $items = isset($resolucion["bloqueos"]) && is_array($resolucion["bloqueos"]) ? $resolucion["bloqueos"] : array();
+        $tipo = isset($payload["tipo_derivacion_rentabilidad"]) ? $payload["tipo_derivacion_rentabilidad"] : "";
+        $advertenciasCatalogo = isset($payload["advertencias_configuracion"]) && is_array($payload["advertencias_configuracion"]) ? $payload["advertencias_configuracion"] : array();
+        foreach ($advertenciasCatalogo as $advertencia) {
+            $codigo = isset($advertencia["codigo"]) ? $advertencia["codigo"] : "";
+            if (in_array($codigo, array("CAT-DER-001", "CAT-DER-002"), true)) {
+                return "catalogo";
+            }
+        }
+        if (in_array($tipo, array("granel", "apertura_empaque", "presentacion", "variante"), true)
+            && intval(isset($payload["id_sku_origen"]) ? $payload["id_sku_origen"] : 0) <= 0) {
+            return "catalogo";
+        }
+        foreach ($items as $item) {
+            $id = isset($item["id"]) ? $item["id"] : "";
+            $mensaje = isset($item["mensaje"]) ? strtolower($item["mensaje"]) : "";
+            if ($id === "COST-DER-002" || strpos($mensaje, "factor") !== false || strpos($mensaje, "origen") !== false && strpos($mensaje, "no encontrado") !== false) {
+                return "catalogo";
+            }
+            if ($id === "COST-DER-005" && strpos($mensaje, "componente") !== false && strpos($mensaje, "sin costo") === false) {
+                return "catalogo";
+            }
+            if ($id === "COST-DER-007" || $id === "COST-DER-008") {
+                return "almacen_tienda";
+            }
+            if ($id === "COST-DER-003" || $id === "COST-DER-005" || $id === "COST-DER-000") {
+                return "rentabilidad_costos";
+            }
+        }
+        if ($tipo === "variante") {
+            return "catalogo";
+        }
+        return "rentabilidad_costos";
+    }
+
+    private function siguientePasoIncidenciaCostoDerivado($resolucion, $responsable) {
+        if ($responsable === "catalogo") {
+            return "Resolver en Catalogo.";
+        }
+        if ($responsable === "almacen_tienda") {
+            return "Resolver en Almacen/Tienda.";
+        }
+        return isset($resolucion["siguiente_paso"]) && trim((string) $resolucion["siguiente_paso"]) !== ""
+            ? $resolucion["siguiente_paso"]
+            : "Resolver costo proveedor/compra.";
+    }
+
     private function resolverCostoVigenteSkuInterno($db, $idSku, $contexto, &$visitados) {
         if (in_array($idSku, $visitados, true)) {
             return $this->respuestaCostoSinEvidencia($idSku, "Ciclo de costo derivado detectado");
@@ -4390,6 +4811,22 @@ class RentabilidadErp extends CRUD {
         }
 
         $tipo = isset($contexto["tipo"]) ? strval($contexto["tipo"]) : "auto";
+        if ($tipo === "granel") {
+            $granelDirecto = $this->resolverCostoGranelSku($db, $sku);
+            if (floatval($granelDirecto["costo"]) > 0) {
+                return $granelDirecto;
+            }
+            $apertura = $this->resolverCostoAperturaSku($db, $sku);
+            if ($apertura !== null && floatval($apertura["costo"]) > 0) {
+                return $apertura;
+            }
+            $aperturaReceta = $this->resolverCostoAperturaRecetaSku($db, $sku, array("tipo" => "apertura_empaque"), $visitados, $apertura);
+            if ($aperturaReceta !== null && floatval($aperturaReceta["costo"]) > 0) {
+                return $aperturaReceta;
+            }
+            return $granelDirecto;
+        }
+
         $directoSinCatalogo = $this->resolverCostoDirectoSku($db, $sku, false);
         if ($tipo === "sku_normal" || ($tipo === "auto" && floatval($directoSinCatalogo["costo"]) > 0)) {
             return $directoSinCatalogo;
@@ -4404,6 +4841,10 @@ class RentabilidadErp extends CRUD {
         if (($tipo === "apertura_empaque" || $tipo === "auto") && $apertura !== null && floatval($apertura["costo"]) > 0) {
             return $apertura;
         }
+        $aperturaReceta = $this->resolverCostoAperturaRecetaSku($db, $sku, $contexto, $visitados, $apertura);
+        if (($tipo === "apertura_empaque" || $tipo === "auto") && $aperturaReceta !== null && floatval($aperturaReceta["costo"]) > 0) {
+            return $aperturaReceta;
+        }
 
         $presentacion = $this->resolverCostoPresentacionSku($db, $sku, $contexto, $visitados);
         if (($tipo === "presentacion" || $tipo === "auto") && $presentacion !== null && floatval($presentacion["costo"]) > 0) {
@@ -4413,8 +4854,14 @@ class RentabilidadErp extends CRUD {
         if (($tipo === "apertura_empaque" || $tipo === "auto") && $apertura !== null) {
             return $apertura;
         }
+        if (($tipo === "apertura_empaque" || $tipo === "auto") && $aperturaReceta !== null) {
+            return $aperturaReceta;
+        }
         if (($tipo === "presentacion" || $tipo === "auto") && $presentacion !== null) {
             return $presentacion;
+        }
+        if ($tipo === "apertura_empaque" && $apertura === null) {
+            return $this->respuestaCostoDerivadoBloqueado($sku, "apertura_empaque", "COST-DER-007", "Apertura sin confirmacion de Almacen/Tienda");
         }
 
         return $this->resolverCostoDirectoSku($db, $sku, !isset($contexto["incluir_fallback_catalogo"]) || intval($contexto["incluir_fallback_catalogo"]) === 1);
@@ -4436,10 +4883,10 @@ class RentabilidadErp extends CRUD {
         $idSku = intval($sku["id_sku"]);
         $factor = max(1, floatval($sku["factor_unidad_base"]));
         $fuentes = array(
+            "proveedor_relacion" => $this->costoProveedorSku($db, $idSku),
             "compras_promedio" => $this->costoComprasPromedioSku($db, $idSku),
             "compra_ultima" => $this->costoCompraUltimaSku($db, $idSku),
             "xml_ultimo" => $this->costoXmlUltimoSku($db, $idSku),
-            "proveedor_relacion" => $this->costoProveedorSku($db, $idSku),
             "inventario_promedio" => $this->costoInventarioPromedioSku($db, $idSku, $factor)
         );
         if ($incluirCatalogo) {
@@ -4486,6 +4933,91 @@ class RentabilidadErp extends CRUD {
         return $resp;
     }
 
+    private function resolverCostoAperturaRecetaSku($db, $sku, $contexto, &$visitados, $aperturaConfirmada = null) {
+        if (!$this->tablaExisteSimple("erp_catalogo_sku_aperturas_empaque")) {
+            return null;
+        }
+        $stmt = $db->prepare("SELECT ae.id_apertura_empaque, ae.id_sku_origen, ae.factor_conversion,
+                ae.permite_merma, ae.merma_porcentaje_default, ori.sku sku_origen, ori.factor_unidad_base factor_origen
+            FROM erp_catalogo_sku_aperturas_empaque ae
+            INNER JOIN erp_catalogo_skus ori ON ori.id_sku=ae.id_sku_origen
+            WHERE ae.id_sku_destino=:sku AND ae.estatus='activo'
+            ORDER BY ae.id_apertura_empaque DESC
+            LIMIT 1");
+        $stmt->execute(array(":sku" => intval($sku["id_sku"])));
+        $regla = $stmt->fetch(PDO::FETCH_ASSOC);
+        if (!$regla) {
+            return null;
+        }
+
+        $factorReceta = floatval($regla["factor_conversion"]);
+        if ($factorReceta <= 0) {
+            return $this->respuestaCostoDerivadoBloqueado($sku, "apertura_empaque", "COST-DER-002", "Apertura de empaque sin factor valido");
+        }
+
+        $origen = $this->resolverCostoVigenteSkuInterno($db, intval($regla["id_sku_origen"]), $this->contextoOrigenCosto($contexto), $visitados);
+        if (floatval($origen["costo"]) <= 0) {
+            return $this->respuestaCostoDerivadoBloqueado($sku, "apertura_empaque", "COST-DER-003", "SKU origen sin costo vigente", $origen);
+        }
+
+        $factor = $this->factorAperturaEfectivo($sku, $regla, $factorReceta);
+        $merma = intval($regla["permite_merma"]) === 1 ? max(0, floatval($regla["merma_porcentaje_default"])) : 0;
+        $cantidadUtil = $factor * max(0.000001, 1 - ($merma / 100));
+        $costo = floatval($origen["costo"]) / $cantidadUtil;
+        $formula = $factor > $factorReceta && $factorReceta <= 1
+            ? "costo_origen / (factor_efectivo_apertura * (1 - merma))"
+            : "costo_origen / (factor_conversion * (1 - merma))";
+        $resp = $this->respuestaCostoDerivado($sku, "apertura_empaque", "derivado_apertura_receta", $costo, $origen, intval($regla["id_sku_origen"]), $regla["sku_origen"], $factor, $merma, $formula);
+        $resp["cantidad_util"] = round($cantidadUtil, 6);
+        $resp["fuentes_consultadas"]["receta_apertura"] = array(
+            "id_apertura_empaque" => intval($regla["id_apertura_empaque"]),
+            "factor_conversion" => round($factor, 6),
+            "factor_conversion_receta" => round($factorReceta, 6),
+            "cantidad_util" => round($cantidadUtil, 6)
+        );
+        if ($factor > $factorReceta && $factorReceta <= 1) {
+            $resp["advertencias"][] = $this->advertenciaCosto("COST-DER-013", "factor_apertura_inferido", "Factor de apertura inferido desde el SKU granel/origen porque la receta tiene factor 1");
+        }
+        if ($aperturaConfirmada !== null && floatval($aperturaConfirmada["costo"]) <= 0) {
+            $resp["advertencias"][] = $this->advertenciaCosto("COST-DER-012", "apertura_confirmada_sin_costo_real", "Existe apertura confirmada sin costo real; se usa costo teorico de receta");
+        } else {
+            $resp["advertencias"][] = $this->advertenciaCosto("COST-DER-011", "apertura_sin_confirmacion", "Costo teorico desde receta de Catalogo; falta apertura fisica confirmada");
+        }
+        return $resp;
+    }
+
+    private function factorAperturaEfectivo($sku, $regla, $factorReceta) {
+        $factorReceta = floatval($factorReceta);
+        if ($factorReceta > 1) {
+            return $factorReceta;
+        }
+        $factorDestino = isset($sku["factor_unidad_base"]) ? floatval($sku["factor_unidad_base"]) : 0;
+        if ($factorDestino > 1) {
+            return $factorDestino;
+        }
+        $factorOrigen = isset($regla["factor_origen"]) ? floatval($regla["factor_origen"]) : 0;
+        if ($factorOrigen > 1) {
+            return $factorOrigen;
+        }
+        return max(0.000001, $factorReceta);
+    }
+
+    private function resolverCostoGranelSku($db, $sku) {
+        $factor = max(1, floatval($sku["factor_unidad_base"]));
+        $base = $this->resolverCostoDirectoSku($db, $sku, true);
+        if (floatval($base["costo"]) <= 0) {
+            $base["tipo_resolucion"] = "granel";
+            $base["formula"] = "sin evidencia para costo por unidad base";
+            return $base;
+        }
+        $base["tipo_resolucion"] = "granel";
+        $base["costo"] = round(floatval($base["costo"]) / $factor, 6);
+        $base["formula"] = "costo_sku / factor_unidad_base";
+        $base["factor_usado"] = round($factor, 6);
+        $base["cantidad_util"] = 1;
+        return $base;
+    }
+
     private function resolverCostoPresentacionSku($db, $sku, $contexto, &$visitados) {
         if ($this->tablaExisteSimple("erp_catalogo_sku_presentaciones")) {
             $stmt = $db->prepare("SELECT pr.*, base.sku sku_origen, base.factor_unidad_base factor_origen
@@ -4500,14 +5032,28 @@ class RentabilidadErp extends CRUD {
                 if ($factor <= 0) {
                     return $this->respuestaCostoDerivadoBloqueado($sku, "presentacion", "COST-DER-002", "Presentacion sin factor valido");
                 }
-                $origen = $this->resolverCostoVigenteSkuInterno($db, intval($regla["id_sku_base"]), $contexto, $visitados);
+                $origen = $this->resolverCostoVigenteSkuInterno($db, intval($regla["id_sku_base"]), $this->contextoOrigenCosto($contexto), $visitados);
                 if (floatval($origen["costo"]) <= 0) {
                     return $this->respuestaCostoDerivadoBloqueado($sku, "presentacion", "COST-DER-003", "SKU origen sin costo vigente", $origen);
                 }
                 $factorOrigen = max(1, floatval($regla["factor_origen"]));
+                $factorEfectivo = $this->factorPresentacionEfectivo($sku, $factor);
                 $merma = max(0, floatval($regla["merma_porcentaje"]));
-                $costo = (floatval($origen["costo"]) / $factorOrigen) * $factor * (1 + ($merma / 100));
-                return $this->respuestaCostoDerivado($sku, "presentacion", "derivado_presentacion", $costo, $origen, intval($regla["id_sku_base"]), $regla["sku_origen"], $factor, $merma, "costo_origen / factor_origen * factor_salida_base * (1 + merma)");
+                $costo = (floatval($origen["costo"]) / $factorOrigen) * $factorEfectivo * (1 + ($merma / 100));
+                $formula = $factorEfectivo > $factor && $factor <= 1
+                    ? "costo_origen / factor_origen * factor_efectivo_presentacion * (1 + merma)"
+                    : "costo_origen / factor_origen * factor_salida_base * (1 + merma)";
+                $resp = $this->respuestaCostoDerivado($sku, "presentacion", "derivado_presentacion", $costo, $origen, intval($regla["id_sku_base"]), $regla["sku_origen"], $factorEfectivo, $merma, $formula);
+                $resp["fuentes_consultadas"]["receta_presentacion"] = array(
+                    "id_sku_presentacion_regla" => intval($regla["id_sku_presentacion_regla"]),
+                    "factor_salida_base" => round($factor, 6),
+                    "factor_efectivo_presentacion" => round($factorEfectivo, 6),
+                    "factor_origen" => round($factorOrigen, 6)
+                );
+                if ($factorEfectivo > $factor && $factor <= 1) {
+                    $resp["advertencias"][] = $this->advertenciaCosto("COST-DER-014", "factor_presentacion_inferido", "Factor de presentacion inferido desde el SKU destino porque la receta tiene factor 1");
+                }
+                return $resp;
             }
         }
 
@@ -4523,7 +5069,7 @@ class RentabilidadErp extends CRUD {
                 if (floatval($regla["cantidad_origen"]) <= 0 || floatval($regla["unidades_resultado"]) <= 0) {
                     return $this->respuestaCostoDerivadoBloqueado($sku, "transformacion", "COST-DER-002", "Transformacion sin cantidad/factor valido");
                 }
-                $origen = $this->resolverCostoVigenteSkuInterno($db, intval($regla["id_sku_origen"]), $contexto, $visitados);
+                $origen = $this->resolverCostoVigenteSkuInterno($db, intval($regla["id_sku_origen"]), $this->contextoOrigenCosto($contexto), $visitados);
                 if (floatval($origen["costo"]) <= 0) {
                     return $this->respuestaCostoDerivadoBloqueado($sku, "transformacion", "COST-DER-003", "SKU origen sin costo vigente", $origen);
                 }
@@ -4536,6 +5082,18 @@ class RentabilidadErp extends CRUD {
             }
         }
         return null;
+    }
+
+    private function factorPresentacionEfectivo($sku, $factorReceta) {
+        $factorReceta = floatval($factorReceta);
+        if ($factorReceta > 1) {
+            return $factorReceta;
+        }
+        $factorDestino = isset($sku["factor_unidad_base"]) ? floatval($sku["factor_unidad_base"]) : 0;
+        if ($factorDestino > 1) {
+            return $factorDestino;
+        }
+        return max(0.000001, $factorReceta);
     }
 
     private function resolverCostoAperturaSku($db, $sku) {
@@ -4599,7 +5157,7 @@ class RentabilidadErp extends CRUD {
             $st->execute(array(":p" => intval($paquete["id_paquete"])));
             foreach ($st->fetchAll(PDO::FETCH_ASSOC) as $comp) {
                 $visitadosComponente = $visitados;
-                $res = $this->resolverCostoVigenteSkuInterno($db, intval($comp["id_sku_componente"]), $contexto, $visitadosComponente);
+                $res = $this->resolverCostoVigenteSkuInterno($db, intval($comp["id_sku_componente"]), $this->contextoOrigenCosto($contexto), $visitadosComponente);
                 $cantidad = floatval($comp["cantidad"]) * max(1, floatval($comp["factor_conversion"]));
                 $subtotal = floatval($res["costo"]) * $cantidad;
                 if (floatval($res["costo"]) <= 0) {
@@ -4649,7 +5207,7 @@ class RentabilidadErp extends CRUD {
             $costos = array();
             foreach ($op->fetchAll(PDO::FETCH_ASSOC) as $fila) {
                 $visitadosOpcion = $visitados;
-                $costo = $this->resolverCostoVigenteSkuInterno($db, intval($fila["id_sku_opcion"]), $contexto, $visitadosOpcion);
+                $costo = $this->resolverCostoVigenteSkuInterno($db, intval($fila["id_sku_opcion"]), $this->contextoOrigenCosto($contexto), $visitadosOpcion);
                 $cantidad = floatval($fila["cantidad_default"]) * max(1, floatval($fila["factor_conversion"]));
                 $subtotal = floatval($costo["costo"]) * $cantidad;
                 if (floatval($costo["costo"]) <= 0) {
@@ -4864,6 +5422,12 @@ class RentabilidadErp extends CRUD {
         );
     }
 
+    private function contextoOrigenCosto($contexto) {
+        $ctx = is_array($contexto) ? $contexto : array();
+        unset($ctx["tipo"]);
+        return $ctx;
+    }
+
     private function respuestaCostoDerivadoBloqueado($sku, $tipo, $id, $mensaje, $origen = null) {
         $resp = $this->respuestaCostoSinEvidencia(intval($sku["id_sku"]), $mensaje);
         $resp["sku"] = $sku["sku"];
@@ -4899,6 +5463,86 @@ class RentabilidadErp extends CRUD {
         );
     }
 
+    private function normalizarContratoCostoVigente($resolucion) {
+        $campos = array(
+            "id_sku" => 0,
+            "sku" => null,
+            "producto" => null,
+            "tipo_resolucion" => "sin_costo",
+            "costo" => 0,
+            "moneda" => "MXN",
+            "fuente" => "sin_costo",
+            "confianza" => "sin_evidencia",
+            "formula" => "",
+            "id_sku_origen" => null,
+            "sku_origen" => null,
+            "factor_usado" => null,
+            "cantidad_util" => null,
+            "merma_porcentaje" => 0,
+            "componentes" => array(),
+            "rango" => null,
+            "advertencias" => array(),
+            "bloqueos" => array(),
+            "siguiente_paso" => "",
+            "fuentes_consultadas" => array()
+        );
+        foreach ($campos as $campo => $valor) {
+            if (!array_key_exists($campo, $resolucion)) {
+                $resolucion[$campo] = $valor;
+            }
+        }
+
+        $bloqueos = array();
+        $idsBloqueantes = array("COST-DER-000", "COST-DER-001", "COST-DER-002", "COST-DER-003", "COST-DER-005", "COST-DER-007", "COST-DER-008");
+        foreach ($resolucion["advertencias"] as $advertencia) {
+            $id = isset($advertencia["id"]) ? $advertencia["id"] : "";
+            if (in_array($id, $idsBloqueantes, true)) {
+                $bloqueos[] = $advertencia;
+            }
+        }
+        $resolucion["bloqueos"] = $bloqueos;
+        $resolucion["siguiente_paso"] = $this->siguientePasoCostoVigente($resolucion);
+        return $resolucion;
+    }
+
+    private function siguientePasoCostoVigente($resolucion) {
+        $items = !empty($resolucion["bloqueos"]) ? $resolucion["bloqueos"] : $resolucion["advertencias"];
+        $principal = isset($items[0]) ? $items[0] : array();
+        foreach ($items as $item) {
+            if (isset($item["id"]) && $item["id"] !== "COST-DER-000") {
+                $principal = $item;
+                break;
+            }
+        }
+        $id = isset($principal["id"]) ? $principal["id"] : "";
+        $mensaje = isset($principal["mensaje"]) ? $principal["mensaje"] : "";
+        if ($id === "COST-DER-001" || stripos($mensaje, "SKU no encontrado") !== false || stripos($mensaje, "origen") !== false && stripos($mensaje, "no encontrado") !== false) {
+            return "Resolver en Catalogo.";
+        }
+        if ($id === "COST-DER-002") {
+            return "Completar factor de conversion en Catalogo.";
+        }
+        if ($id === "COST-DER-003") {
+            return "Resolver costo proveedor/compra del SKU origen.";
+        }
+        if ($id === "COST-DER-005") {
+            return "Completar receta en Catalogo.";
+        }
+        if ($id === "COST-DER-007" || $id === "COST-DER-008") {
+            return "Resolver en Almacen/Tienda.";
+        }
+        if ($id === "COST-DER-006") {
+            return "Reemplazar fallback historico de Catalogo con costo proveedor, compra, XML o inventario.";
+        }
+        if ($id === "COST-DER-000") {
+            return "Resolver costo proveedor/compra.";
+        }
+        if (floatval($resolucion["costo"]) <= 0) {
+            return "Resolver costo proveedor/compra.";
+        }
+        return "Costo vigente disponible en modo read-only; Listas puede usarlo para calcular margen sin escribir precio.";
+    }
+
     private function advertenciaCosto($id, $clave, $mensaje) {
         return array("id" => $id, "clave" => $clave, "mensaje" => $mensaje);
     }
@@ -4907,7 +5551,7 @@ class RentabilidadErp extends CRUD {
         if (in_array($fuente, array("compras_promedio", "compra_ultima", "xml_ultimo", "inventario_promedio"), true)) {
             return "alta";
         }
-        if ($fuente === "proveedor_relacion") {
+        if (in_array($fuente, array("proveedor_relacion", "derivado_apertura_receta"), true)) {
             return "media";
         }
         if ($fuente === "catalogo_referencia") {

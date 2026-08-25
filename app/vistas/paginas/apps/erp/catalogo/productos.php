@@ -165,7 +165,7 @@
                                         <div class="card-title">
                                             <div>
                                                 <h3 class="fw-bold mb-1">Pendientes comerciales de SKUs</h3>
-                                                <span class="text-muted fs-7">Revision bajo demanda de precios en Listas y costos resolubles</span>
+                                                <span class="text-muted fs-7">Revision bajo demanda de precios en Listas y costos; permite generar incidencias para Rentabilidad</span>
                                             </div>
                                         </div>
                                         <div class="card-toolbar d-flex flex-wrap gap-2">

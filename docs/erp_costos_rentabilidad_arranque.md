@@ -1467,3 +1467,225 @@ Pendiente siguiente:
 - `analizarSkus` ya consume `resolverCostoVigenteSku` para exponer `costo_resolucion` en la consulta de SKUs.
 - Listas de precios ya consume `RentabilidadErp::resolverCostoVigenteSku` en modo read-only para margen, conservando `costo_referencia_original` solo como dato historico.
 - Revisar con Almacen la apertura `APE-20260728-0001`, porque esta confirmada pero sus costos quedaron en cero.
+
+## Actualizacion contrato costo vigente SKU
+
+Fecha: 2026-08-22
+IA: Codex GPT-5
+Alcance: `RentabilidadErp::resolverCostoVigenteSku`.
+
+Decision vigente:
+- Para SKU normal, el costo proveedor vigente tiene prioridad como costo comercial esperado; si no existe, se usan compras promedio, ultima compra, XML, inventario promedio y finalmente `catalogo_referencia` solo como fallback historico auditado.
+- Rentabilidad calcula costo, no precio final. Listas de precios solo consume el costo read-only para margen.
+- El contrato de respuesta queda normalizado con: `id_sku`, `sku`, `tipo_resolucion`, `costo`, `moneda`, `fuente`, `confianza`, `formula`, `id_sku_origen`, `sku_origen`, `factor_usado`, `merma_porcentaje`, `componentes`, `advertencias`, `bloqueos` y `siguiente_paso`.
+- Se agrego modo `tipo=granel` para devolver costo por unidad base usando `costo_sku / factor_unidad_base`.
+- Si una apertura no tiene confirmacion, devuelve `COST-DER-007` y `siguiente_paso=Resolver en Almacen/Tienda`.
+- Si una apertura confirmada no trae costo real, devuelve `COST-DER-008` y queda bloqueada para cierre comercial.
+
+Evidencia UAT read-only:
+- `storage/uat/uat_rentabilidad_resolver_costo_vigente_contrato_readonly.php`: `ok=true`.
+- `sku_normal_proveedor`: `SDH-506`, fuente `proveedor_relacion`.
+- `presentacion_derivada`: `TP-40372-500GR`, costo `123.75`, fuente `derivado_presentacion`, origen `TP-40372`.
+- `granel_unidad_base`: `TP-40372`, costo por unidad base `247.5`, fuente `proveedor_relacion`.
+- `apertura_sin_confirmar`: bloquea con `COST-DER-007`.
+- `apertura_confirmada_sin_costo`: `NUEC-C20K-GRANEL`, bloquea con `COST-DER-008`.
+- `paquete_componente_sin_costo`: `PER-05-01`, bloquea con `COST-DER-005`.
+
+Skips justificados por datos actuales:
+- No hay muestra real de apertura confirmada con costo unitario/costo total mayor a cero.
+- No hay muestra real de paquete completo sin bloqueos.
+- No hay muestra real de derivado activo con factor invalido; el branch `COST-DER-002` queda protegido por codigo y se debe probar con fixture autorizado cuando exista dato real.
+
+## Costo teorico desde receta de Catalogo
+
+Fecha: 2026-08-22
+IA: Codex GPT-5
+Alcance: SKUs derivados desde Catalogo hacia Rentabilidad.
+
+Decision operativa:
+- El costo de un SKU derivado debe poder consultarse desde que Catalogo guarda su receta/contrato tecnico, no hasta que Almacen/Tienda ejecuta la apertura fisica.
+- Catalogo no guarda costo; solo guarda SKU origen, SKU destino, factor, merma y reglas tecnicas.
+- Rentabilidad calcula `costo_teorico` desde esa receta y devuelve fuente, formula, confianza, advertencias y bloqueos.
+- Si despues existe apertura real confirmada con costo, `apertura_confirmada` debe ganar como evidencia real.
+- Si la apertura real existe pero quedo con costo cero, Rentabilidad conserva el costo teorico de receta como usable para margen y agrega advertencia `COST-DER-012` para corregir Almacen/Tienda.
+
+Formula para apertura/granel por receta:
+
+```text
+costo_destino = costo_origen / (factor_conversion * (1 - merma))
+```
+
+Ejemplo actual:
+- `NUEC-C20K-GRANEL`: costo `85`, fuente `derivado_apertura_receta`, origen `NUEC-C20K`, formula `costo_origen / (factor_conversion * (1 - merma))`.
+- Tiene advertencia `COST-DER-012` porque existe apertura confirmada sin costo real, pero ya no queda sin costo para margen.
+
+UAT:
+- `storage/uat/uat_rentabilidad_resolver_costo_vigente_contrato_readonly.php`: valida `apertura_receta_catalogo`.
+- `storage/uat/uat_rentabilidad_resolutor_costos_derivados_readonly.php`: valida `NUEC-C20K-GRANEL` como `derivado_apertura_receta`.
+
+## Apertura granel con factor efectivo
+
+Fecha: 2026-08-23
+IA: Codex GPT-5
+Alcance: SKUs granel derivados desde receta de apertura de empaque.
+
+Hallazgo:
+- Una receta de apertura puede traer `factor_conversion=1` porque operativamente representa abrir `1` empaque origen.
+- Para costo de venta granel, ese `1` no significa que el SKU destino cuesta lo mismo que el empaque completo.
+- Rentabilidad debe convertir el empaque a cantidad util vendible usando el factor del SKU destino granel o, si aplica, el factor del SKU origen.
+
+Decision:
+- Si `factor_conversion > 1`, Rentabilidad usa ese factor como cantidad util de receta.
+- Si `factor_conversion <= 1` y el SKU destino tiene `factor_unidad_base > 1`, Rentabilidad usa ese factor como `factor_efectivo_apertura`.
+- Si el destino no tiene factor util pero el origen si, usa el factor del origen.
+- Cuando infiere factor, agrega advertencia `COST-DER-013` para que Catalogo pueda corregir o hacer explicito el contrato tecnico despues.
+- La formula visible cambia a `costo_origen / (factor_efectivo_apertura * (1 - merma))` para no ocultar la inferencia.
+
+Evidencia actual:
+- `NUAN-ARMG25K-GRANEL`: origen `NUAN-ARMG25K`, costo origen `935`, receta `factor_conversion=1`, factor efectivo `25`, costo granel `37.4`.
+- Fuente: `derivado_apertura_receta`.
+- Advertencias: `COST-DER-013` por factor inferido y `COST-DER-011` si aun no hay apertura fisica confirmada.
+- `NUEC-CRP8K-GRANEL`: origen `NUEC-CRP8K`, costo origen `895`, receta `factor_conversion=1`, factor efectivo `8`, costo granel `111.875`.
+- El modo explicito `tipo=granel` tambien debe caer a receta de apertura si el SKU granel no tiene costo directo propio; no debe responder `sin_costo` cuando existe receta derivable.
+
+Regla para fases siguientes:
+- Presentaciones, granel, variantes, aperturas y paquetes deben entregar cantidad/factor con semantica clara: cantidad de salida vendible, unidad base y merma.
+- Rentabilidad puede inferir para no romper margen, pero debe advertir la inferencia y dejar trazable la formula.
+- Paquetes y recetas deben sumar componentes ya resueltos por este contrato; si un componente no tiene costo o factor, bloquean cierre comercial con el pendiente accionable correspondiente.
+
+## Incidencias de costo derivado desde Catalogo
+
+Fecha: 2026-08-23
+IA: Codex GPT-5
+Alcance: ERP > Rentabilidad/Costos, vista `skus`.
+
+Avance implementado:
+- Se agrego bandeja persistente `Incidencias de costo desde Catalogo` en una vista separada: `Rentabilidad > Incidencias de costo`.
+- Se retiro la bandeja de `Rentabilidad > Consulta por SKU` para evitar scroll excesivo y mezclar trabajo operativo con consulta de productos.
+- La bandeja consulta `erp_notificaciones` filtrando:
+  - `tipo = catalogo_sku_derivado_costo_pendiente`;
+  - `area_responsable = rentabilidad_costos`;
+  - `estatus IN (pendiente, en_revision, bloqueada)`.
+- Se muestran SKU derivado, tipo derivacion, SKU origen, factor, merma, modo inventario, evento origen, prioridad, estatus, fecha registro y siguiente paso.
+- La bandeja muestra el costo resuelto en linea por incidencia: costo, fuente, confianza, formula, factor usado, cantidad util, advertencias/bloqueos y estatus propuesto.
+- Se agrego accion `Resolver costo` en modo dry-run: usa `RentabilidadErp::resolverCostoVigenteSku(id_sku_derivado, contexto)` y propone `resuelta` o `bloqueada` sin actualizar BD.
+
+Contratos agregados:
+- `RentabilidadErp::listarIncidenciasCostoDerivado($filtros)`: read-only.
+- `RentabilidadErp::preResolverIncidenciaCostoDerivado($datos)`: dry-run read-only.
+- `RentabilidadErp::resolverIncidenciaCostoDerivadoPersistente($datos, $idUsuario)`: escritura controlada solo en `erp_notificaciones`.
+- `Rentabilidad::incidencias_costos_derivados_erp()`: endpoint de consulta.
+- `Rentabilidad::incidencia_costo_derivado_pre_resolver_erp()`: endpoint dry-run.
+- `Rentabilidad::incidencia_costo_derivado_resolver_erp()`: endpoint persistente con permiso `rentabilidad.snapshot`.
+- `Rentabilidad::incidencias_costos()`: pantalla separada para bandeja operativa.
+
+Resolucion persistente autorizada:
+- Autorizacion recibida: `AUTORIZO APLICAR RESOLUCION PERSISTENTE DE INCIDENCIAS DE COSTO DERIVADO`.
+- La pantalla primero ejecuta pre-resolucion read-only y muestra costo, fuente, confianza, formula, bloqueos y siguiente paso.
+- Para aplicar el resultado pide:
+  - permiso `rentabilidad.snapshot`;
+  - referencia de respaldo externo;
+  - frase exacta de autorizacion.
+- Si el costo es confiable, actualiza la incidencia como `resuelta` con `costo_resuelto=1`, fuente, formula, confianza, advertencias, fecha de resolucion y siguiente paso `costo_resuelto_validar_precio_en_listas`.
+- Si falta evidencia, actualiza la incidencia como `bloqueada` con bloqueos, advertencias, responsable y siguiente paso.
+- Escritura permitida: solo `erp_notificaciones.estatus`, `payload_json`, `fecha_actualizacion` y, cuando queda resuelta, `fecha_resolucion`.
+- Fuera de alcance: no modifica Catalogo, Listas de precios, Ventas, costos maestros ni precios.
+
+UAT:
+- `storage/uat/uat_rentabilidad_incidencias_costos_derivados_readonly.php`.
+- `storage/uat/uat_rentabilidad_incidencias_costos_derivados_persistente_guard_readonly.php`.
+- `storage/uat/uat_rentabilidad_ali_tebrio1k_1000p_presentacion_readonly.php`.
+- Resultado 2026-08-24: `ok=true`; detecta incidencias pendientes y valida que cada item incluya `costo_resolucion` read-only.
+- `NUEC-CRP8K-GRANEL`: costo visible en bandeja `111.875`, fuente `derivado_apertura_receta`, estatus propuesto `resuelta`.
+- `ALI-TEBRIO1K-1000P`: presentacion con receta `factor_salida_base=1`, SKU destino `factor_unidad_base=1000` y origen `ALI-TEBRIO1K` con factor `6500`; Rentabilidad usa factor efectivo `1000` y calcula `530 / 6500 * 1000 = 81.538462`.
+
+Regla de factor efectivo para presentaciones:
+- Si la receta de presentacion trae `factor_salida_base > 1`, se usa ese factor.
+- Si la receta trae `factor_salida_base = 1` y el SKU destino declara `factor_unidad_base > 1`, Rentabilidad usa el factor del SKU destino como cantidad efectiva.
+- Se agrega advertencia `COST-DER-014 factor_presentacion_inferido` para dejar trazabilidad de que el factor fue inferido desde el SKU destino.
+- Esta regla no escribe costos en Catalogo y no modifica precios; solo afecta el resolutor read-only/persistente de incidencias.
+
+## Handoff Catalogo -> Rentabilidad para SKUs derivados
+
+Fecha: 2026-08-22
+IA: Codex GPT-5
+Proyecto canonico: `C:\xampp\htdocs\panel_de_control`.
+
+Catalogo ERP ya expone un contrato read-only para que Rentabilidad calcule costos de SKUs derivados sin guardar costos ni precios en Catalogo.
+
+Documento de continuidad:
+
+```text
+docs/erp_rentabilidad_handoff_catalogo_skus_derivados.md
+```
+
+Puntos clave para Rentabilidad:
+
+- Consumir `CatalogoErpDatos::resolverContextoSkuVendible($idSku)` como fuente estructural.
+- Preferir `tipo_derivacion_rentabilidad` sobre inferencias de UI.
+- Usar `modo_inventario`, `factor_conversion`, `merma_porcentaje`, `componentes` y `advertencias_configuracion` para decidir formula, bloqueo y siguiente responsable.
+- Distinguir pendiente estructural de Catalogo (`CAT-DER-*`) contra pendiente de evidencia de costo/proveedor/compra/inventario.
+- No pedir costo manual en Catalogo y no modificar Listas de precios desde este flujo.
+
+Siguiente paso recomendado:
+
+- En Rentabilidad, ajustar el resolutor de costo vigente y la auditoria de costos derivados para consumir el contrato de Catalogo y mostrar el origen/factor/formula/faltante de cada SKU derivado.
+
+## Plan 2026-08-23 - Incidencias desde Catalogo por costo derivado
+
+Catalogo no debe depender de links manuales para que Rentabilidad atienda costos de presentaciones, aperturas, granel, paquetes o variantes.
+
+Documento de continuidad:
+
+```text
+docs/erp_catalogo_incidencias_rentabilidad_skus_derivados_plan.md
+```
+
+Rentabilidad debe recibir incidencias persistentes tipo `catalogo_sku_derivado_costo_pendiente`, intentar resolucion automatica con el resolutor de costo vigente y mantener la incidencia como `bloqueada` cuando falte estructura o evidencia. El costo resuelto no modifica precio; si falta precio despues de costo confiable, corresponde pendiente para Comercial/Listas.
+
+## Avance 2026-08-23 - Fase 1 implementada en Catalogo
+
+Proyecto aplicado: `C:\xampp\htdocs\panel_de_control`.
+
+Se implemento la primera fase del plan de incidencias hacia Rentabilidad para SKUs derivados.
+
+Codigo:
+
+- `CatalogoErpDatos::registrarIncidenciaCostoDerivadoSku($db, $idSku, $eventoOrigen, $idUsuario)`.
+- `CatalogoErpDatos::cancelarIncidenciasCostoDerivadoSku($db, $idSku, $motivo)`.
+- Reutiliza `erp_notificaciones` y `NotificacionesErp::guardarOperativaEnConexion`.
+- Tipo de incidencia: `catalogo_sku_derivado_costo_pendiente`.
+- Area responsable: `rentabilidad_costos`.
+- Permiso de vista sugerido: `rentabilidad.ver`.
+
+Eventos conectados:
+
+- Guardar paquete.
+- Guardar grupo de paquete.
+- Desactivar grupo de paquete.
+- Guardar opcion de paquete configurable.
+- Desactivar opcion de paquete configurable.
+- Guardar presentacion.
+- Guardar apertura de empaque.
+- Actualizar SKU, para cubrir activacion/cambio operativo de un SKU derivado.
+
+Reglas aplicadas:
+
+- Solo registra si el SKU es vendible, requiere costo y no es `sku_normal`.
+- La huella es estable por SKU/tipo para evitar duplicados.
+- El `payload_json` incluye `hash_receta` para detectar cambios de receta sin ensuciar la bandeja.
+- Si se desactiva presentacion, apertura o paquete completo, se cancelan incidencias activas del SKU derivado.
+- Si no existe `erp_notificaciones`, el guardado de Catalogo no se rompe; devuelve omision en `incidencia_costo_derivado`.
+- Catalogo no calcula ni guarda costos ni precios.
+
+Validacion:
+
+- `C:\xampp\php\php.exe -l app\modelos\CatalogoErpDatos.php`: OK.
+- `C:\xampp\php\php.exe -l app\controladores\CatalogoErp.php`: OK.
+- `storage\uat\uat_catalogo_contexto_sku_vendible_readonly.php --id_sku=1764`: OK.
+- `storage\uat\uat_catalogo_skus_vendibles_pendientes_readonly.php --modo=costo --limite=3`: OK.
+
+Pendiente siguiente:
+
+- Probar en UI guardar una presentacion o paquete activo y confirmar que aparece una notificacion en `erp_notificaciones` sin duplicarse al guardar dos veces.
+- En Rentabilidad, construir la bandeja/resolucion de incidencias `catalogo_sku_derivado_costo_pendiente`.

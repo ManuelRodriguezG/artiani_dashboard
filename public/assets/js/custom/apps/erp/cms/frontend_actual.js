@@ -8,8 +8,9 @@
   "use strict";
 
   var MEDIA_STORAGE_KEY = "erp_cms_media_biblioteca_local_v1";
+  var FRONTEND_DRAFT_STORAGE_KEY = "erp_cms_frontend_actual_borrador_v1";
   var MEDIA_MAX_BYTES = 2 * 1024 * 1024;
-  var MEDIA_MIMES = ["image/jpeg", "image/png", "image/webp"];
+  var MEDIA_MIMES = ["image/jpeg", "image/png", "image/webp", "image/vnd.microsoft.icon", "image/x-icon", "image/icon", "application/ico"];
 
   var estado = {
     grupo: "global",
@@ -653,6 +654,7 @@
   document.addEventListener("DOMContentLoaded", function () {
     var grupoInicial = document.body ? document.body.getAttribute("data-cms-actual-grupo") : "";
     if (grupoInicial) estado.grupo = grupoInicial;
+    cargarBorradorFrontendLocal();
     renderTodo();
     on("cms_actual_copiar_json", "click", copiarJson);
   });
@@ -700,6 +702,7 @@
 
   function renderGrupo() {
     var grupo = grupoActual();
+    guardarBorradorFrontendLocal();
     setText("cms_actual_titulo", grupo.titulo);
     setText("cms_actual_subtitulo", grupo.subtitulo);
     setText("cms_actual_endpoint", grupo.endpoint);
@@ -709,6 +712,51 @@
       bindGrupoEditors();
     }
     setText("cms_actual_json", JSON.stringify(previewJson(grupo), null, 2));
+  }
+
+  function cargarBorradorFrontendLocal() {
+    try {
+      var raw = localStorage.getItem(FRONTEND_DRAFT_STORAGE_KEY);
+      if (!raw) return;
+      var borrador = JSON.parse(raw);
+      if (!borrador || !borrador.datos) return;
+      estado.datos = mergeProfundo(estado.datos, borrador.datos);
+      if (borrador.grupo) estado.grupo = borrador.grupo;
+      setText("cms_actual_estado", "Borrador local cargado");
+    } catch (error) {
+      setText("cms_actual_estado", "Borrador local invalido");
+    }
+  }
+
+  function guardarBorradorFrontendLocal() {
+    try {
+      localStorage.setItem(FRONTEND_DRAFT_STORAGE_KEY, JSON.stringify({
+        version: "cms_frontend_actual_borrador_2026_08_23",
+        grupo: estado.grupo,
+        datos: estado.datos,
+        actualizado_en: new Date().toISOString()
+      }));
+      setText("cms_actual_estado", "Borrador local guardado");
+    } catch (error) {
+      setText("cms_actual_estado", "No se pudo guardar local");
+    }
+  }
+
+  function mergeProfundo(base, extra) {
+    if (!extra || typeof extra !== "object" || Array.isArray(extra)) return base;
+    Object.keys(extra).forEach(function (key) {
+      if (Array.isArray(extra[key])) {
+        base[key] = extra[key];
+      } else if (extra[key] && typeof extra[key] === "object") {
+        if (!base[key] || typeof base[key] !== "object" || Array.isArray(base[key])) {
+          base[key] = {};
+        }
+        base[key] = mergeProfundo(base[key], extra[key]);
+      } else {
+        base[key] = extra[key];
+      }
+    });
+    return base;
   }
 
   function renderSeccion(item) {
@@ -914,6 +962,7 @@
       });
     });
     on("cms_actual_banner_agregar", "click", agregarBannerItem);
+    on("cms_actual_banner_publicar", "click", publicarBannerHome);
     Array.prototype.forEach.call(document.querySelectorAll("[data-global-field]"), function (node) {
       node.addEventListener("input", function () {
         actualizarGlobalField(node.getAttribute("data-global-section"), node.getAttribute("data-global-field"), node.value);
@@ -2125,7 +2174,8 @@
         '<div class="col-md-2"><label class="form-label fs-8 fw-bold">Modo</label><select class="form-select form-select-sm" data-banner-config="config.modo"><option value="estatico"' + (data.config.modo === "estatico" ? ' selected' : '') + '>Estatico</option><option value="slides"' + (data.config.modo === "slides" ? ' selected' : '') + '>Slides futuro</option></select></div>' +
         '<div class="col-md-4"><label class="form-label fs-8 fw-bold">Variante visual</label><input class="form-control form-control-sm" data-banner-config="config.variante" value="' + escapeAttr(data.config.variante || "wokiee_banner_full_width") + '"></div>' +
       '</div>' +
-      '<div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3"><div class="fw-bold">Imagenes del banner</div><button class="btn btn-sm btn-light-primary" type="button" id="cms_actual_banner_agregar"><i class="bi bi-plus-circle"></i> Agregar slide futuro</button></div>' +
+      '<div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3"><div class="fw-bold">Imagenes del banner</div><div class="d-flex gap-2"><button class="btn btn-sm btn-primary" type="button" id="cms_actual_banner_publicar"><i class="bi bi-cloud-check"></i> Guardar y publicar banner</button><button class="btn btn-sm btn-light-primary" type="button" id="cms_actual_banner_agregar"><i class="bi bi-plus-circle"></i> Agregar slide futuro</button></div></div>' +
+      '<div class="alert alert-light-warning fs-7 py-3 mb-4" id="cms_actual_banner_estado">Pendiente de publicar en la API. Usa una imagen guardada en Media CMS y captura el alt obligatorio.</div>' +
       (data.items || []).map(renderBannerItem).join("") +
       '<div class="alert alert-light-info fs-7 mb-0">Por ahora se usa como banner estatico. Si despues el frontend lo soporta como carrusel, los items ya quedan preparados.</div>' +
     '</div>';
@@ -2133,6 +2183,10 @@
 
   function renderBannerItem(item, index) {
     var bg = item.imagen_desktop ? ' style="background-image:url(' + escapeAttr(urlPreviewSeguro(item.imagen_desktop)) + ')"' : "";
+    var resumenImagen = resumenUrlMedia(item.imagen_desktop);
+    var estadoImagen = esUrlMediaCms(item.imagen_desktop)
+      ? '<span class="badge badge-light-success">Imagen Media CMS lista para API</span>'
+      : '<span class="badge badge-light-warning">Imagen no guardada en Media CMS</span>';
     return '<div class="cms-actual-slide mb-4" data-banner-item="' + escapeAttr(index) + '">' +
       '<div class="d-flex justify-content-between align-items-center gap-2 mb-3">' +
         '<div class="fw-semibold">Banner ' + escapeHtml(index + 1) + '</div>' +
@@ -2143,6 +2197,7 @@
         '</div>' +
       '</div>' +
       '<div class="cms-actual-slide-preview mb-4"' + bg + '><div><h2 class="text-white fw-bold mb-2">' + escapeHtml(item.titulo || "Banner de Home") + '</h2><div class="opacity-75">' + escapeHtml(item.subtitulo || "") + '</div></div></div>' +
+      '<div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3">' + estadoImagen + '<span class="text-muted fs-8 text-truncate mw-100">Desktop: ' + escapeHtml(resumenImagen) + '</span></div>' +
       '<div class="row g-3">' +
         inputBanner(index, "titulo", "Titulo visible", item.titulo, "col-md-4") +
         inputBanner(index, "subtitulo", "Subtitulo visible", item.subtitulo, "col-md-4") +
@@ -2161,7 +2216,8 @@
 
   function inputConMedia(contexto, index, campo, label, value, col, dataAttr) {
     var esImagen = campo === "imagen_desktop" || campo === "imagen_mobile" || campo === "imagen_card" || campo === "imagen_banner";
-    var input = '<input class="form-control form-control-sm" ' + dataAttr + '="' + escapeAttr(campo) + '" data-index="' + escapeAttr(index) + '" value="' + escapeAttr(value == null ? "" : value) + '">';
+    var inputValue = esImagen && String(value || "").indexOf("data:image/") === 0 ? "" : value;
+    var input = '<input class="form-control form-control-sm" ' + dataAttr + '="' + escapeAttr(campo) + '" data-index="' + escapeAttr(index) + '" value="' + escapeAttr(inputValue == null ? "" : inputValue) + '">';
     if (esImagen) {
       input = '<div class="input-group input-group-sm">' +
         input +
@@ -2216,6 +2272,74 @@
       orden: (items.length + 1) * 10
     });
     renderGrupo();
+  }
+
+  function publicarBannerHome() {
+    var data = bannerData();
+    var item = (data.items || []).filter(function (actual) {
+      return actual && actual.visible !== false;
+    })[0];
+    if (!item) {
+      setBannerEstado("No hay ningun banner visible para publicar.", "warning");
+      return;
+    }
+    item.imagen_desktop = normalizarUrlMediaCms(item.imagen_desktop);
+    if (!esUrlMediaCms(item.imagen_desktop)) {
+      setBannerEstado("Selecciona una imagen guardada en Media CMS. Si apenas elegiste un archivo local, primero usa Subir y usar.", "warning");
+      renderGrupo();
+      return;
+    }
+    if (item.imagen_mobile) item.imagen_mobile = normalizarUrlMediaCms(item.imagen_mobile);
+    if (!item.alt) {
+      setBannerEstado("Falta el texto alt del banner. Es obligatorio para publicar.", "warning");
+      return;
+    }
+    var boton = $("cms_actual_banner_publicar");
+    var form = new FormData();
+    form.append("_csrf", window.ERP_CSRF_TOKEN || "");
+    form.append("payload_json", JSON.stringify(data));
+    if (boton) boton.disabled = true;
+    setBannerEstado("Publicando banner en la API...", "info");
+    fetch("/cms/frontend_home_banner_publicar_erp", {
+      method: "POST",
+      body: form,
+      credentials: "same-origin",
+      headers: {
+        "X-CSRF-Token": window.ERP_CSRF_TOKEN || "",
+        "Accept": "application/json",
+        "X-Requested-With": "XMLHttpRequest"
+      }
+    }).then(function (response) {
+      return response.text().then(function (text) {
+        var json = null;
+        try {
+          json = JSON.parse(text);
+        } catch (error) {
+          throw new Error("Respuesta no JSON del servidor (" + response.status + "): " + text.substring(0, 140));
+        }
+        if (!response.ok && json && json.mensaje) {
+          throw new Error(json.mensaje);
+        }
+        return json;
+      });
+    }).then(function (json) {
+      if (!json || json.error) {
+        throw new Error(json && json.mensaje ? json.mensaje : "No se pudo publicar banner");
+      }
+      setBannerEstado("Banner publicado. El endpoint /ecommercePublico/contenido_pagina?pagina=home ya debe entregar esta imagen.", "success");
+    }).catch(function (error) {
+      setBannerEstado(error.message || "Error al publicar banner.", "danger");
+    }).finally(function () {
+      if (boton) boton.disabled = false;
+    });
+  }
+
+  function setBannerEstado(mensaje, tipo) {
+    setText("cms_actual_estado", mensaje);
+    var node = $("cms_actual_banner_estado");
+    if (!node) return;
+    node.className = "alert fs-7 py-3 mb-4 alert-light-" + (tipo || "info");
+    node.textContent = mensaje;
   }
 
   function previewJson(grupo) {
@@ -2577,6 +2701,7 @@
     estado.mediaPicker = { contexto: contexto, index: index, campo: campo, archivo: null, dataUrl: "", seleccion: "" };
     asegurarModalMedia();
     renderMediaPicker();
+    cargarMediaServidorPicker();
     var modalNode = $("cms_actual_media_modal");
     if (window.bootstrap && bootstrap.Modal) {
       bootstrap.Modal.getOrCreateInstance(modalNode).show();
@@ -2591,17 +2716,17 @@
     var wrapper = document.createElement("div");
     wrapper.innerHTML = '<div class="modal fade" id="cms_actual_media_modal" tabindex="-1" aria-hidden="true">' +
       '<div class="modal-dialog modal-xl modal-dialog-scrollable"><div class="modal-content">' +
-        '<div class="modal-header"><div><h3 class="modal-title fw-bold">Seleccionar imagen de Media</h3><div class="text-muted fs-7">Biblioteca local de /cms/media.</div></div><button type="button" class="btn btn-icon btn-sm btn-light" data-bs-dismiss="modal"><i class="bi bi-x-lg"></i></button></div>' +
+        '<div class="modal-header"><div><h3 class="modal-title fw-bold">Seleccionar imagen de Media</h3><div class="text-muted fs-7">Biblioteca Media CMS.</div></div><button type="button" class="btn btn-icon btn-sm btn-light" data-bs-dismiss="modal"><i class="bi bi-x-lg"></i></button></div>' +
         '<div class="modal-body">' +
-          '<div class="alert alert-info py-3 fs-7">Puedes elegir una imagen existente o cargar una nueva aqui mismo. En esta fase queda en biblioteca local; todavia no hay upload real al servidor.</div>' +
+          '<div class="alert alert-info py-3 fs-7">Seleccionar un archivo solo muestra preview. Para guardarlo en servidor pulsa <strong>Subir y usar</strong>; despues quedara en Media CMS y podra salir en la API publica.</div>' +
           '<div class="border rounded p-4 mb-5 bg-light">' +
             '<div class="fw-bold mb-3">Cargar nueva imagen</div>' +
             '<div class="row g-3 align-items-end">' +
-              '<div class="col-md-4"><label class="form-label fs-8 fw-bold">Archivo</label><input class="form-control form-control-sm" id="cms_actual_media_archivo" type="file" accept="image/jpeg,image/png,image/webp"></div>' +
+              '<div class="col-md-4"><label class="form-label fs-8 fw-bold">Archivo</label><input class="form-control form-control-sm" id="cms_actual_media_archivo" type="file" accept="image/jpeg,image/png,image/webp,image/vnd.microsoft.icon,image/x-icon,.ico"></div>' +
               '<div class="col-md-2"><label class="form-label fs-8 fw-bold">Uso</label><select class="form-select form-select-sm" id="cms_actual_media_nuevo_uso"><option value="home">Home</option><option value="categoria">Categoria</option><option value="producto">Producto</option><option value="global">Global</option><option value="blog">Blog futuro</option></select></div>' +
-              '<div class="col-md-2"><label class="form-label fs-8 fw-bold">Tipo</label><select class="form-select form-select-sm" id="cms_actual_media_nuevo_tipo"><option value="banner">Banner</option><option value="hero">Hero</option><option value="card">Card</option><option value="thumb">Thumbnail</option><option value="editorial">Editorial</option></select></div>' +
+              '<div class="col-md-2"><label class="form-label fs-8 fw-bold">Tipo</label><select class="form-select form-select-sm" id="cms_actual_media_nuevo_tipo"><option value="banner">Banner</option><option value="hero">Hero</option><option value="card">Card</option><option value="thumb">Thumbnail</option><option value="editorial">Editorial</option><option value="favicon">Favicon</option></select></div>' +
               '<div class="col-md-3"><label class="form-label fs-8 fw-bold">Alt text</label><input class="form-control form-control-sm" id="cms_actual_media_nuevo_alt" type="text"></div>' +
-              '<div class="col-md-1"><button class="btn btn-sm btn-primary w-100" type="button" id="cms_actual_media_agregar_usar"><i class="bi bi-check2"></i></button></div>' +
+              '<div class="col-md-2"><button class="btn btn-sm btn-primary w-100" type="button" id="cms_actual_media_agregar_usar"><i class="bi bi-cloud-upload"></i> Subir y usar</button></div>' +
             '</div>' +
             '<div class="mt-3" id="cms_actual_media_preview_nuevo"></div>' +
           '</div>' +
@@ -2675,26 +2800,71 @@
       setText("cms_actual_media_preview_nuevo", "Captura alt text antes de usar la imagen.");
       return;
     }
-    var item = {
-      id: "media_" + Date.now(),
-      nombre: file.name,
-      mime: file.type,
-      bytes: file.size,
-      url: dataUrl,
-      alt: alt,
-      uso: valor("cms_actual_media_nuevo_uso") || "home",
-      tipo: valor("cms_actual_media_nuevo_tipo") || "banner",
-      estatus: "activo",
-      creado_en: new Date().toISOString()
-    };
-    var items = mediaLocalItems();
-    items.unshift(item);
-    guardarMediaLocalItems(items);
-    estado.mediaPicker.archivo = null;
-    estado.mediaPicker.dataUrl = "";
-    if ($("cms_actual_media_archivo")) $("cms_actual_media_archivo").value = "";
-    setText("cms_actual_media_preview_nuevo", "");
-    aplicarMediaSeleccionada(item.id);
+    var boton = $("cms_actual_media_agregar_usar");
+    var data = new FormData();
+    data.append("_csrf", window.ERP_CSRF_TOKEN || "");
+    data.append("archivo", file);
+    data.append("alt", alt);
+    data.append("uso", valor("cms_actual_media_nuevo_uso") || "home");
+    data.append("tipo", valor("cms_actual_media_nuevo_tipo") || "banner");
+    if (boton) boton.disabled = true;
+    setText("cms_actual_media_preview_nuevo", "Subiendo imagen a Media CMS...");
+    fetch("/cms/media_admin_subir_erp", {
+      method: "POST",
+      body: data,
+      credentials: "same-origin",
+      headers: {
+        "X-CSRF-Token": window.ERP_CSRF_TOKEN || "",
+        "Accept": "application/json",
+        "X-Requested-With": "XMLHttpRequest"
+      }
+    }).then(function (response) {
+      return response.text().then(function (text) {
+        var json = null;
+        try {
+          json = JSON.parse(text);
+        } catch (error) {
+          throw new Error("Respuesta no JSON del servidor (" + response.status + "): " + text.substring(0, 140));
+        }
+        if (!response.ok && json && json.mensaje) {
+          throw new Error(json.mensaje);
+        }
+        return json;
+      });
+    }).then(function (json) {
+      if (!json || json.error) {
+        throw new Error(json && json.mensaje ? json.mensaje : "No se pudo subir la imagen");
+      }
+      var item = normalizarMediaServidor(json.depurar || {});
+      if (!item || !item.id) {
+        throw new Error("El servidor no devolvio la imagen guardada");
+      }
+      guardarMediaLocalItems(mezclarMediaItems(mediaLocalItems(), [item]));
+      estado.mediaPicker.archivo = null;
+      estado.mediaPicker.dataUrl = "";
+      if ($("cms_actual_media_archivo")) $("cms_actual_media_archivo").value = "";
+      setText("cms_actual_media_preview_nuevo", "");
+      aplicarMediaSeleccionada(item.id);
+    }).catch(function (error) {
+      setText("cms_actual_media_preview_nuevo", error.message || "No se pudo subir la imagen.");
+    }).finally(function () {
+      if (boton) boton.disabled = false;
+    });
+  }
+
+  function cargarMediaServidorPicker() {
+    if (!window.fetch) return;
+    fetch("/cms/media_admin_listar_erp?limite=80", { credentials: "same-origin" })
+      .then(function (response) { return response.json(); })
+      .then(function (json) {
+        var data = json && json.depurar ? json.depurar : {};
+        if (!Array.isArray(data.items)) return;
+        guardarMediaLocalItems(mezclarMediaItems(mediaLocalItems(), data.items.map(normalizarMediaServidor).filter(Boolean)));
+        renderMediaPicker();
+      })
+      .catch(function () {
+        // La galeria local queda como fallback visual si el listado protegido no responde.
+      });
   }
 
   function renderMediaPicker() {
@@ -2707,7 +2877,7 @@
       return item.estatus !== "archivado" && (!uso || item.uso === uso) && (!busqueda || texto.indexOf(busqueda) !== -1);
     });
     if (!items.length) {
-      node.innerHTML = '<div class="col-12"><div class="text-muted">Sin imagenes locales disponibles. Agrega imagenes desde /cms/media.</div></div>';
+      node.innerHTML = '<div class="col-12"><div class="text-muted">Sin imagenes disponibles. Sube una imagen o revisa /cms/media.</div></div>';
       renderMediaPickerPreview(null);
       return;
     }
@@ -2715,13 +2885,14 @@
       estado.mediaPicker.seleccion = items[0].id;
     }
     node.innerHTML = items.map(function (item) {
+      var esServidor = esMediaServidor(item);
       return '<div class="col-md-4 col-xl-3">' +
         '<div class="border rounded overflow-hidden h-100 bg-white ' + (item.id === estado.mediaPicker.seleccion ? 'border-primary' : '') + '">' +
           '<img src="' + escapeAttr(item.url) + '" alt="' + escapeAttr(item.alt) + '" style="width:100%;aspect-ratio:16/10;object-fit:cover;background:#f3f6f9;">' +
           '<div class="p-3">' +
             '<div class="fw-bold text-truncate">' + escapeHtml(item.nombre) + '</div>' +
             '<div class="text-muted fs-8 text-truncate mb-3">' + escapeHtml(item.alt) + '</div>' +
-            '<div class="d-flex justify-content-between align-items-center gap-2 mb-3"><span class="badge badge-light-primary">' + escapeHtml(item.uso) + '</span><span class="text-muted fs-8">' + escapeHtml(item.tipo) + '</span></div>' +
+            '<div class="d-flex justify-content-between align-items-center gap-2 mb-3"><span class="badge ' + (esServidor ? 'badge-light-success' : 'badge-light-warning') + '">' + (esServidor ? 'Servidor BD' : 'Temporal local') + '</span><span class="text-muted fs-8">' + escapeHtml(item.uso) + ' / ' + escapeHtml(item.tipo) + '</span></div>' +
             '<button type="button" class="btn btn-sm btn-light-primary w-100" data-media-select="' + escapeAttr(item.id) + '"><i class="bi bi-eye"></i> Previsualizar</button>' +
           '</div>' +
         '</div>' +
@@ -2742,12 +2913,15 @@
       node.innerHTML = '<div class="text-muted">Selecciona una imagen de la galeria para revisarla antes de aplicarla.</div>';
       return;
     }
+    var esServidor = esMediaServidor(item);
     node.innerHTML = '<div class="fw-bold mb-3">Preview seleccionado</div>' +
       '<img src="' + escapeAttr(item.url) + '" alt="' + escapeAttr(item.alt) + '" style="width:100%;aspect-ratio:16/11;object-fit:cover;border-radius:8px;border:1px solid #e7e9ef;background:#f3f6f9;">' +
       '<div class="fw-semibold mt-3 text-break">' + escapeHtml(item.nombre) + '</div>' +
       '<div class="text-muted fs-7 mt-1">' + escapeHtml(item.alt) + '</div>' +
-      '<div class="d-flex flex-wrap gap-2 mt-3"><span class="badge badge-light-primary">' + escapeHtml(item.uso) + '</span><span class="badge badge-light-info">' + escapeHtml(item.tipo) + '</span><span class="badge badge-light">' + escapeHtml(formatoBytes(item.bytes)) + '</span></div>' +
-      '<button class="btn btn-primary w-100 mt-4" type="button" id="cms_actual_media_usar_seleccion"><i class="bi bi-check2-circle"></i> Usar imagen seleccionada</button>';
+      '<div class="d-flex flex-wrap gap-2 mt-3"><span class="badge ' + (esServidor ? 'badge-light-success' : 'badge-light-warning') + '">' + (esServidor ? 'Servidor BD' : 'Temporal local') + '</span><span class="badge badge-light-primary">' + escapeHtml(item.uso) + '</span><span class="badge badge-light-info">' + escapeHtml(item.tipo) + '</span><span class="badge badge-light">' + escapeHtml(formatoBytes(item.bytes)) + '</span></div>' +
+      (esServidor
+        ? '<button class="btn btn-primary w-100 mt-4" type="button" id="cms_actual_media_usar_seleccion"><i class="bi bi-check2-circle"></i> Usar imagen seleccionada</button>'
+        : '<div class="alert alert-light-warning fs-7 mt-4 mb-0">Esta imagen solo vive en este navegador. Para usarla en el banner primero subela con <strong>Subir y usar</strong>.</div>');
     on("cms_actual_media_usar_seleccion", "click", function () {
       aplicarMediaSeleccionada(item.id);
     });
@@ -2756,6 +2930,14 @@
   function aplicarMediaSeleccionada(id) {
     var media = mediaLocalItems().filter(function (item) { return item.id === id; })[0];
     if (!media) return;
+    if (!esMediaServidor(media)) {
+      var preview = $("cms_actual_media_preview_seleccion");
+      if (preview) {
+        preview.insertAdjacentHTML("beforeend", '<div class="alert alert-light-warning fs-7 mt-4 mb-0">No se aplico: esta imagen es temporal local y no existe para la API.</div>');
+      }
+      setText("cms_actual_estado", "Imagen temporal local no aplicada");
+      return;
+    }
     var picker = estado.mediaPicker || {};
     var target = null;
     if (picker.contexto === "hero") target = heroData().items[picker.index];
@@ -2766,7 +2948,7 @@
     if (picker.contexto === "cms_marca") target = marcasCmsData("marcas_items").items[picker.index];
     if (picker.contexto === "cms_pagina") target = paginasCmsData("paginas_items").items[picker.index];
     if (!target) return;
-    setPath(target, picker.campo, media.url);
+    setPath(target, picker.campo, normalizarUrlMediaCms(media.url));
     if (picker.contexto === "cms_categoria" && picker.campo === "imagen_card" && !target.alt_card && media.alt) target.alt_card = media.alt;
     if (picker.contexto === "cms_categoria" && picker.campo === "imagen_banner" && !target.alt_banner && media.alt) target.alt_banner = media.alt;
     if (picker.contexto === "cms_marca" && picker.campo === "logo" && !target.alt_logo && media.alt) target.alt_logo = media.alt;
@@ -2774,7 +2956,7 @@
     if (picker.contexto === "cms_pagina" && picker.campo === "imagen_principal" && !target.alt_imagen && media.alt) target.alt_imagen = media.alt;
     if (!target.alt && media.alt) target.alt = media.alt;
     renderGrupo();
-    setText("cms_actual_estado", "Media aplicada");
+    setText("cms_actual_estado", "Media aplicada: " + normalizarUrlMediaCms(media.url));
     var modalNode = $("cms_actual_media_modal");
     if (window.bootstrap && bootstrap.Modal && modalNode) {
       bootstrap.Modal.getOrCreateInstance(modalNode).hide();
@@ -2796,8 +2978,50 @@
     localStorage.setItem(MEDIA_STORAGE_KEY, JSON.stringify(items || []));
   }
 
+  function normalizarMediaServidor(item) {
+    if (!item || !item.url) return null;
+    var mediaId = item.id_media_archivo || item.media_id || "";
+    return {
+      id: mediaId ? "bd_" + mediaId : (item.codigo || item.url),
+      media_id: mediaId,
+      codigo: item.codigo || "",
+      nombre: item.nombre_original || item.nombre || item.nombre_archivo || "Imagen CMS",
+      mime: item.mime || "",
+      bytes: Number(item.bytes || 0),
+      url: item.url,
+      alt: item.alt || item.alt_text || "",
+      uso: item.uso || item.uso_sugerido || "general",
+      tipo: item.tipo || item.tipo_sugerido || "editorial",
+      estatus: item.estatus || "activo",
+      creado_en: item.creado_en || item.fecha_registro || "",
+      origen: "bd"
+    };
+  }
+
+  function esMediaServidor(item) {
+    return !!(item && item.origen === "bd" && esUrlMediaCms(item.url));
+  }
+
+  function mezclarMediaItems(actuales, nuevos) {
+    var salida = (actuales || []).slice();
+    (nuevos || []).forEach(function (item) {
+      if (!item || !item.id) return;
+      var index = salida.findIndex(function (actual) {
+        return actual.id === item.id || (actual.codigo && item.codigo && actual.codigo === item.codigo);
+      });
+      if (index >= 0) {
+        salida[index] = item;
+      } else {
+        salida.unshift(item);
+      }
+    });
+    return salida;
+  }
+
   function validarMediaFile(file) {
-    if (MEDIA_MIMES.indexOf(file.type) === -1) return "Tipo no permitido. Usa JPG, PNG o WebP.";
+    var nombre = String(file.name || "").toLowerCase();
+    var esIco = /\.ico$/.test(nombre);
+    if (MEDIA_MIMES.indexOf(file.type) === -1 && !esIco) return "Tipo no permitido. Usa JPG, PNG, WebP o ICO.";
     if (file.size > MEDIA_MAX_BYTES) return "La imagen supera 2 MB.";
     return "";
   }
@@ -2854,6 +3078,27 @@
     url = String(url || "").trim();
     if (!url || /^javascript:/i.test(url)) return "";
     return url.replace(/["'()\\]/g, "");
+  }
+
+  function normalizarUrlMediaCms(url) {
+    url = String(url || "").trim();
+    if (!url) return "";
+    var match = url.match(/\/assets\/media\/cms\/ecommerce\/[^?#\s"']+/);
+    return match ? match[0] : url;
+  }
+
+  function esUrlMediaCms(url) {
+    return normalizarUrlMediaCms(url).indexOf("/assets/media/cms/ecommerce/") === 0;
+  }
+
+  function resumenUrlMedia(url) {
+    url = String(url || "").trim();
+    if (!url) return "sin imagen";
+    if (url.indexOf("data:image/") === 0) return "archivo temporal sin subir";
+    var normalizada = normalizarUrlMediaCms(url);
+    var partes = normalizada.split("/");
+    var nombre = partes[partes.length - 1] || normalizada;
+    return nombre.length > 54 ? nombre.substring(0, 51) + "..." : nombre;
   }
 
   function grupoActual() {

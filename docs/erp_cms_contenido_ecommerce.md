@@ -26,6 +26,8 @@ Avance Media 2026-08-21:
 - El modal `Media` de Home tambien permite cargar una imagen nueva y usarla en el momento, sin obligar a ir primero a `/cms/media`; la galeria queda visible con filtro opcional.
 - La galeria del modal ya muestra `Preview seleccionado` antes de aplicar una imagen existente; el usuario confirma con `Usar imagen seleccionada`.
 - `/cms/media_admin_subir_erp` ya sube imagen publica con CSRF, permisos y auditoria explicita.
+- El modal `Media` de `/cms/frontend/home` ya usa `/cms/media_admin_subir_erp` y `/cms/media_admin_listar_erp`; ya no debe guardar nuevas imagenes solo como `dataUrl` local.
+- `/ecommercePublico/contenido_pagina?pagina=home` puede usar como fallback del hero la ultima imagen activa de `erp_ecommerce_media_archivos` con `uso_sugerido=home` y `tipo_sugerido` `hero`, `banner` o `principal`, mientras no exista publicacion CMS formal.
 - `/cms/media_admin_actualizar_erp`, `/cms/media_admin_archivar_erp` y `/cms/media_admin_usos_erp` siguen bloqueados hasta cerrar edicion de metadatos, archivado seguro y trazabilidad de usos.
 
 Prioridad nueva:

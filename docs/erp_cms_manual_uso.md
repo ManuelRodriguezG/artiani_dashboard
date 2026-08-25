@@ -779,7 +779,7 @@ Flujo rapido desde Home:
    - cargar una nueva imagen
    - capturar `alt text`
    - elegir uso/tipo
-   - agregarla y usarla inmediatamente
+   - subirla a Media CMS y usarla inmediatamente
    - seleccionar una imagen ya existente desde la galeria disponible
 
 4. Si eliges una imagen existente, primero se muestra en `Preview seleccionado`.
@@ -790,7 +790,9 @@ Flujo rapido desde Home:
 
 7. Revisa el `Preview JSON esperado`.
 
-La galeria del modal muestra previsualizaciones. El campo de texto es solo `Filtro opcional`; no necesitas depender del nombre del archivo si la imagen se reconoce visualmente.
+La galeria del modal muestra previsualizaciones desde Media CMS. El campo de texto es solo `Filtro opcional`; no necesitas depender del nombre del archivo si la imagen se reconoce visualmente.
+
+Nota API: mientras no exista una publicacion CMS formal para `home.hero`, `/ecommercePublico/contenido_pagina?pagina=home` puede usar como fallback la ultima imagen activa de Media CMS con `uso=home` y `tipo=hero`, `banner` o `principal`.
 
 ### Como interpretar la vista
 
