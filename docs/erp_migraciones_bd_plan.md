@@ -1072,8 +1072,8 @@ foraneas_faltantes_destino=0
 Tablas solo en productivo:
 
 ```text
-verp_establecimientos_productos_existencias
-vista_mdb_productos
+verp_establecimientos_productos_existencias=VIEW
+vista_mdb_productos=VIEW
 ```
 
 Restriccion:
@@ -1082,6 +1082,216 @@ Restriccion:
 - Los respaldos completos no modifican ninguna base.
 - El reemplazo real sigue bloqueado: se requiere respaldo local, respaldo productivo, bandera habilitada y autorizacion literal separada.
 - No ejecutar reemplazo completo si productivo ya recibio operacion real que deba conservarse.
+
+## Avance ejecutado - Respaldos completos para promocion
+
+Fecha: 2026-08-25
+
+Autorizacion recibida:
+
+```text
+AUTORIZO GENERAR RESPALDOS COMPLETOS DE LOCAL Y PRODUCTIVO PARA PROMOCION COMPLETA
+```
+
+Respaldos generados:
+
+```text
+productivo=C:\xampp\panel_db_backups\productivo_artianicom_sys_panel_20260825_220309_antes_promocion_completa.sql
+productivo_tamano_bytes=28333494
+productivo_sha256=06d8027029e41b4919f7a729c820ae89eb94b72cd128e27f6d59b02577d2a98b
+
+local=C:\xampp\panel_db_backups\local_artianilocal_panel_20260825_220354_antes_promocion_completa.sql
+local_tamano_bytes=38933763
+local_sha256=2cbcc2953d9c350b45d851027acefd3d6ad7f42fb77de2fe9e8c59bd0fd95134
+```
+
+Preflight posterior:
+
+```text
+respaldo_local_ok=si
+respaldo_productivo_ok=si
+bloqueos=0
+puede_reemplazar=no
+promocion_completa_habilitada=no
+advertencias=2
+advertencias_detalle=promocion_completa_deshabilitada,productivo_tiene_tablas_no_presentes_en_local
+```
+
+Decision operativa:
+
+- Los respaldos ya sirven como compuerta para la siguiente fase.
+- El reemplazo completo sigue bloqueado hasta habilitar explicitamente `_opciones.promocion_completa_habilitada`.
+- Antes de reemplazar, confirmar si las 2 vistas solo en productivo pueden desaparecer o quedar sin uso.
+
+## Avance implementado - Reemplazo completo protegido
+
+Fecha: 2026-08-25
+
+Se agrego:
+
+- `MigracionesBd::aplicarPromocionCompleta`;
+- endpoint `MigracionBd::promocion_completa_aplicar`;
+- pestaña UI `Promocion completa`;
+- preparacion automatica de confirmacion literal;
+- simulacion de reemplazo sin ejecutar;
+- comando de restore saneado sin exponer password;
+- limpieza ordenada de objetos del destino cuando se ejecute la promocion real.
+
+Compuertas requeridas:
+
+```text
+respaldo_local=valido
+respaldo_productivo=valido
+token=MIGRACIONES_BD_REEMPLAZO_COMPLETO
+confirmacion_literal=valida
+promocion_completa_habilitada=true
+permiso=sistema.soporte
+```
+
+Simulacion verificada:
+
+```text
+ejecutar=no
+puede_ejecutar=no
+bloqueos=1
+bloqueo=promocion_completa_deshabilitada
+```
+
+Decision operativa:
+
+- El flujo final ya esta armado, pero sigue bloqueado por bandera local.
+- Para ejecutar realmente, el dueno debe autorizar habilitar `_opciones.promocion_completa_habilitada` y despues solicitar el reemplazo completo.
+- La ejecucion real borrara objetos actuales del destino y restaurara el respaldo local completo.
+
+## Estado de ejecucion pendiente - Promocion completa
+
+Fecha: 2026-08-25
+
+Preflight revalidado:
+
+```text
+respaldo_local_ok=si
+respaldo_productivo_ok=si
+bloqueos=0
+promocion_completa_habilitada=no
+advertencias=2
+```
+
+Respaldos vigentes:
+
+```text
+respaldo_local=C:\xampp\panel_db_backups\local_artianilocal_panel_20260825_220354_antes_promocion_completa.sql
+respaldo_productivo=C:\xampp\panel_db_backups\productivo_artianicom_sys_panel_20260825_220309_antes_promocion_completa.sql
+```
+
+Autorizacion final requerida para ejecutar reemplazo:
+
+```text
+AUTORIZO HABILITAR PROMOCION COMPLETA Y REEMPLAZAR PRODUCTIVO CON BASE LOCAL usando respaldo local C:\xampp\panel_db_backups\local_artianilocal_panel_20260825_220354_antes_promocion_completa.sql y respaldo productivo C:\xampp\panel_db_backups\productivo_artianicom_sys_panel_20260825_220309_antes_promocion_completa.sql. Entiendo que productivo quedara con esquema y datos de local.
+```
+
+Restriccion:
+
+- No ejecutar reemplazo real con una respuesta generica como `continua`.
+- La autorizacion final debe mencionar habilitar promocion completa y reemplazar productivo con base local.
+
+## Ejecucion completada - Promocion completa local a productivo
+
+Fecha: 2026-08-25
+
+Autorizacion final recibida:
+
+```text
+AUTORIZO HABILITAR PROMOCION COMPLETA Y REEMPLAZAR PRODUCTIVO CON BASE LOCAL usando respaldo local C:\xampp\panel_db_backups\local_artianilocal_panel_20260825_220354_antes_promocion_completa.sql y respaldo productivo C:\xampp\panel_db_backups\productivo_artianicom_sys_panel_20260825_220309_antes_promocion_completa.sql. Entiendo que productivo quedara con esquema y datos de local.
+```
+
+Ejecucion:
+
+```text
+destino=productivo
+respaldo_local=C:\xampp\panel_db_backups\local_artianilocal_panel_20260825_220354_antes_promocion_completa.sql
+respaldo_productivo=C:\xampp\panel_db_backups\productivo_artianicom_sys_panel_20260825_220309_antes_promocion_completa.sql
+objetos_destino_eliminados=210
+restore_codigo=0
+restore_duracion_segundos=38.137
+duracion_total_segundos=43.221
+resultado=success
+```
+
+Verificacion posterior:
+
+```text
+local_tablas=272
+local_columnas=3638
+local_indices=1366
+local_fks=105
+productivo_tablas=272
+productivo_columnas=3638
+productivo_indices=1366
+productivo_fks=105
+tablas_solo_origen=0
+tablas_solo_destino=0
+columnas_faltantes_destino=0
+columnas_faltantes_origen=0
+columnas_diferentes=0
+indices_faltantes_destino=0
+foraneas_faltantes_destino=0
+```
+
+Post-ejecucion:
+
+- Se creo `app/config/mysql.local.php` no versionado para que el entorno local apunte a la misma base productiva.
+- La conexion local efectiva quedo en la base productiva.
+- Se apago nuevamente `_opciones.promocion_completa_habilitada`.
+- El respaldo productivo previo queda disponible como rollback.
+
+## Respaldo post-activacion productiva
+
+Fecha: 2026-08-25
+
+Se genero respaldo completo de la base productiva ya activada, guardado localmente para no llenar el servidor:
+
+```text
+archivo=C:\xampp\panel_db_backups\productivo_artianicom_sys_panel_20260825_225108_antes_promocion_completa.sql
+tamano_bytes=38935169
+sha256=d2dea52e468c0bfbcd95ce7654dbbdc02369c86b6d5b99bcf898bfb722587c05
+ubicacion=local
+dentro_repo=no
+validado=si
+```
+
+Decision operativa:
+
+- Los respaldos rutinarios de productivo pueden generarse desde la computadora local y guardarse en `C:\xampp\panel_db_backups`.
+- Evitar acumular respaldos dentro del servidor productivo salvo que exista una politica externa de rotacion.
+- Mantener al menos un respaldo previo a reemplazo y un respaldo post-activacion.
+
+## Avance implementado - Conexion local opcional a BD productiva
+
+Fecha: 2026-08-25
+
+Se agrego:
+
+- `app/config/mysql.local.example.php`;
+- exclusion de `app/config/mysql.local.php` en `.gitignore`;
+- carga opcional de `mysql.local.php` desde `app/config/mysql.php` solo para hosts locales;
+- compuerta `habilitado=true` dentro del archivo privado.
+
+Decision operativa:
+
+- No se cambio la conexion local actual.
+- Si `mysql.local.php` no existe, local sigue usando `artianilocal`.
+- Cuando productivo ya sea la base definitiva, local puede conectarse a esa misma BD creando `mysql.local.php` con credenciales productivas y `habilitado=true`.
+- No versionar credenciales ni activar este override antes del reemplazo completo autorizado.
+
+Verificacion:
+
+```text
+mysql_php_sintaxis=ok
+mysql_local_example_sintaxis=ok
+conexion_actual_local=artianilocal:3406
+override_local=apagado
+```
 
 Decision operativa:
 

@@ -214,6 +214,9 @@ $esquemaTecnico = isset($configuracion["esquema_tecnico"]) ? $configuracion["esq
                                         <li class="nav-item">
                                             <a class="nav-link" data-bs-toggle="tab" href="#migbd_tab_activacion">Activacion</a>
                                         </li>
+                                        <li class="nav-item">
+                                            <a class="nav-link" data-bs-toggle="tab" href="#migbd_tab_promocion_completa">Promocion completa</a>
+                                        </li>
                                     </ul>
                                     <div class="tab-content">
                                         <div class="tab-pane fade show active" id="migbd_tab_ambientes">
@@ -457,6 +460,56 @@ $esquemaTecnico = isset($configuracion["esquema_tecnico"]) ? $configuracion["esq
                                                                 La aplicacion real exige paquete persistido, respaldo valido, permiso, token, confirmacion literal y bandera local de habilitacion.
                                                             </div>
                                                         </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="tab-pane fade" id="migbd_tab_promocion_completa">
+                                            <div class="alert alert-warning d-flex align-items-start gap-4">
+                                                <i class="bi bi-exclamation-triangle fs-2"></i>
+                                                <div>
+                                                    <div class="fw-bold mb-1">Reemplazo completo de productivo</div>
+                                                    <div>Este flujo prepara que productivo quede con esquema y datos completos de local. Requiere respaldo local, respaldo productivo, bandera local habilitada, token y confirmacion literal.</div>
+                                                </div>
+                                            </div>
+                                            <div class="row g-5">
+                                                <div class="col-xl-6">
+                                                    <label class="form-label">Respaldo local a restaurar</label>
+                                                    <input class="form-control form-control-solid" id="migbd_promocion_respaldo_local" value="C:\xampp\panel_db_backups\local_artianilocal_panel_20260825_220354_antes_promocion_completa.sql">
+                                                </div>
+                                                <div class="col-xl-6">
+                                                    <label class="form-label">Respaldo productivo rollback</label>
+                                                    <input class="form-control form-control-solid" id="migbd_promocion_respaldo_productivo" value="C:\xampp\panel_db_backups\productivo_artianicom_sys_panel_20260825_220309_antes_promocion_completa.sql">
+                                                </div>
+                                                <div class="col-xl-4">
+                                                    <label class="form-label">Token reemplazo</label>
+                                                    <input class="form-control form-control-solid" id="migbd_promocion_token" placeholder="MIGRACIONES_BD_REEMPLAZO_COMPLETO">
+                                                </div>
+                                                <div class="col-xl-8">
+                                                    <label class="form-label">Confirmacion reemplazo</label>
+                                                    <textarea class="form-control form-control-solid" id="migbd_promocion_confirmacion" rows="3" placeholder="AUTORIZO REEMPLAZAR PRODUCTIVO CON BASE LOCAL ..."></textarea>
+                                                </div>
+                                                <div class="col-12 d-flex justify-content-end gap-3">
+                                                    <button type="button" class="btn btn-light-primary" id="migbd_btn_promocion_preflight">
+                                                        <i class="bi bi-shield-check"></i>
+                                                        Preflight completo
+                                                    </button>
+                                                    <button type="button" class="btn btn-light" id="migbd_btn_promocion_preparar">
+                                                        <i class="bi bi-magic"></i>
+                                                        Preparar confirmacion
+                                                    </button>
+                                                    <button type="button" class="btn btn-light-warning" id="migbd_btn_promocion_simular">
+                                                        <i class="bi bi-play-circle"></i>
+                                                        Simular reemplazo
+                                                    </button>
+                                                    <button type="button" class="btn btn-danger" id="migbd_btn_promocion_aplicar">
+                                                        <i class="bi bi-database-fill-up"></i>
+                                                        Reemplazar productivo
+                                                    </button>
+                                                </div>
+                                                <div class="col-12">
+                                                    <div id="migbd_promocion_resultado" class="border rounded p-5 text-muted">
+                                                        Ejecuta el preflight para revisar respaldos, diferencias y compuertas antes del reemplazo completo.
                                                     </div>
                                                 </div>
                                             </div>

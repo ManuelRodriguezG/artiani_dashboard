@@ -1,1 +1,2 @@
 app/config/migraciones_ambientes.local.php
+app/config/mysql.local.php

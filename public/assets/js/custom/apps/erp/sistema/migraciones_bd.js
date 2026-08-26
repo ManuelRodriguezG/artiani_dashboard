@@ -1637,6 +1637,140 @@
         });
     }
 
+    function datosPromocionCompleta() {
+        return {
+            destino: destinoSeleccionado() || "productivo",
+            respaldo_local: (document.getElementById("migbd_promocion_respaldo_local") || {}).value || "",
+            respaldo_productivo: (document.getElementById("migbd_promocion_respaldo_productivo") || {}).value || "",
+            autorizar: (document.getElementById("migbd_promocion_token") || {}).value || "",
+            confirmacion: (document.getElementById("migbd_promocion_confirmacion") || {}).value || ""
+        };
+    }
+
+    function cargarPreflightPromocionCompleta() {
+        var datos = datosPromocionCompleta();
+        var contenedor = document.getElementById("migbd_promocion_resultado");
+        if (!contenedor) {
+            return;
+        }
+        contenedor.innerHTML = '<div class="text-muted">Validando promocion completa...</div>';
+        activarTab("#migbd_tab_promocion_completa");
+        request("/migracionBd/promocion_completa_preflight?destino=" + encodeURIComponent(datos.destino) +
+            "&respaldo_local=" + encodeURIComponent(datos.respaldo_local) +
+            "&respaldo_productivo=" + encodeURIComponent(datos.respaldo_productivo)).then(function (response) {
+            if (response.error) {
+                throw new Error(response.mensaje || "No fue posible validar promocion completa");
+            }
+            contenedor.innerHTML = renderPromocionCompleta(response.depurar || {});
+        }).catch(function (error) {
+            contenedor.innerHTML = '<div class="alert alert-danger mb-0">' + escapeHtml(error.message || String(error)) + "</div>";
+        });
+    }
+
+    function renderPromocionCompleta(d) {
+        var comparacion = d.comparacion_resumen || {};
+        var local = d.local && d.local.totales ? d.local.totales : {};
+        var productivo = d.productivo && d.productivo.totales ? d.productivo.totales : {};
+        return '<div class="row g-4 mb-5">' +
+            resumenBox("Local tablas", local.tablas || 0, "primary") +
+            resumenBox("Productivo tablas", productivo.tablas || 0, "info") +
+            resumenBox("Bloqueos", (d.bloqueos || []).length, (d.bloqueos || []).length ? "danger" : "success") +
+            resumenBox("Reemplazar", d.puede_reemplazar ? "si" : "no", d.puede_reemplazar ? "success" : "danger") +
+            "</div>" +
+            '<div class="mb-5">' +
+            '<span class="badge ' + (d.promocion_completa_habilitada ? "badge-light-success" : "badge-light-warning") + ' me-2">Bandera ' + (d.promocion_completa_habilitada ? "habilitada" : "apagada") + "</span>" +
+            '<span class="badge ' + (d.respaldo_local && d.respaldo_local.ok ? "badge-light-success" : "badge-light-warning") + ' me-2">Respaldo local ' + (d.respaldo_local && d.respaldo_local.ok ? "valido" : "pendiente") + "</span>" +
+            '<span class="badge ' + (d.respaldo_productivo && d.respaldo_productivo.ok ? "badge-light-success" : "badge-light-warning") + '">Respaldo productivo ' + (d.respaldo_productivo && d.respaldo_productivo.ok ? "valido" : "pendiente") + "</span>" +
+            "</div>" +
+            '<div class="row g-4 mb-5">' +
+            resumenBox("Solo local", comparacion.tablas_solo_origen || 0, "primary") +
+            resumenBox("Solo productivo", comparacion.tablas_solo_destino || 0, "warning") +
+            resumenBox("Columnas faltantes", comparacion.columnas_faltantes_destino || 0, "info") +
+            resumenBox("Indices faltantes", comparacion.indices_faltantes_destino || 0, "info") +
+            "</div>" +
+            renderListaSimple("Advertencias", (d.advertencias || []).map(function (item) {
+                return {valor: item};
+            }), ["valor"]) +
+            renderListaSimple("Bloqueos", (d.bloqueos || []).map(function (item) {
+                return {valor: item};
+            }), ["valor"]) +
+            renderListaSimple("Objetos solo en productivo", (d.tablas_solo_productivo || []).map(function (tabla) {
+                return {valor: tabla};
+            }), ["valor"]) +
+            renderListaSimple("Runbook", (d.runbook || []).map(function (paso) {
+                return {valor: paso};
+            }), ["valor"]) +
+            '<div class="fw-bold mb-2">Confirmacion requerida</div>' +
+            '<pre class="bg-light rounded p-3 mb-0"><code>' + escapeHtml(d.confirmacion_reemplazo || "") + "</code></pre>";
+    }
+
+    function prepararConfirmacionPromocionCompleta() {
+        var datos = datosPromocionCompleta();
+        var inputToken = document.getElementById("migbd_promocion_token");
+        var inputConfirmacion = document.getElementById("migbd_promocion_confirmacion");
+        if (inputToken) {
+            inputToken.value = "MIGRACIONES_BD_REEMPLAZO_COMPLETO";
+        }
+        if (inputConfirmacion) {
+            inputConfirmacion.value = "AUTORIZO REEMPLAZAR PRODUCTIVO CON BASE LOCAL del ambiente " + datos.destino +
+                " usando respaldo local " + datos.respaldo_local +
+                " y respaldo productivo " + datos.respaldo_productivo +
+                ". Entiendo que productivo quedara con esquema y datos de local.";
+        }
+    }
+
+    function aplicarPromocionCompleta(ejecutar) {
+        var datos = datosPromocionCompleta();
+        var contenedor = document.getElementById("migbd_promocion_resultado");
+        var enviar = function () {
+            contenedor.innerHTML = '<div class="text-muted">' + (ejecutar ? "Solicitando reemplazo protegido..." : "Simulando reemplazo...") + "</div>";
+            postRequest("/migracionBd/promocion_completa_aplicar", {
+                destino: datos.destino,
+                respaldo_local: datos.respaldo_local,
+                respaldo_productivo: datos.respaldo_productivo,
+                autorizar: datos.autorizar,
+                confirmacion: datos.confirmacion,
+                ejecutar: ejecutar ? 1 : 0
+            }).then(function (response) {
+                contenedor.innerHTML = renderPromocionAplicacion(response);
+            }).catch(function (error) {
+                contenedor.innerHTML = '<div class="alert alert-danger mb-0">' + escapeHtml(error.message || String(error)) + "</div>";
+            });
+        };
+        if (!ejecutar || !window.Swal) {
+            enviar();
+            return;
+        }
+        Swal.fire({
+            text: "Esto reemplazaria productivo completo con el respaldo local si todas las compuertas del backend son validas.",
+            icon: "warning",
+            showCancelButton: true,
+            confirmButtonText: "Solicitar reemplazo",
+            cancelButtonText: "Cancelar"
+        }).then(function (result) {
+            if (result.isConfirmed) {
+                enviar();
+            }
+        });
+    }
+
+    function renderPromocionAplicacion(response) {
+        var d = response.depurar || {};
+        var color = response.error ? "danger" : ((d.bloqueos || []).length ? "warning" : "success");
+        return '<div class="alert alert-' + color + '">' + escapeHtml(response.mensaje || "") + "</div>" +
+            '<div class="row g-4 mb-5">' +
+            resumenBox("Ejecutar", d.ejecutar ? "si" : "no", d.ejecutar ? "danger" : "info") +
+            resumenBox("Puede ejecutar", d.puede_ejecutar ? "si" : "no", d.puede_ejecutar ? "success" : "danger") +
+            resumenBox("Bloqueos", (d.bloqueos || []).length, (d.bloqueos || []).length ? "danger" : "success") +
+            resumenBox("Destino", d.destino || "", "primary") +
+            "</div>" +
+            renderListaSimple("Bloqueos", (d.bloqueos || []).map(function (item) {
+                return {valor: item};
+            }), ["valor"]) +
+            '<div class="fw-bold mb-2">Comando restore saneado</div>' +
+            '<pre class="bg-light rounded p-3 mb-0"><code>' + escapeHtml(d.comando_restore_saneado || "") + "</code></pre>";
+    }
+
     document.addEventListener("DOMContentLoaded", function () {
         var btnPoliticas = document.getElementById("migbd_btn_clasificar");
         var btnSelfcheck = document.getElementById("migbd_btn_selfcheck");
@@ -1675,6 +1809,10 @@
         var btnPaqueteAplicar = document.getElementById("migbd_btn_paquete_aplicar");
         var contenedorAmbientes = document.getElementById("migbd_tab_ambientes");
         var btnPreflightDestino = document.getElementById("migbd_btn_preflight_destino");
+        var btnPromocionPreflight = document.getElementById("migbd_btn_promocion_preflight");
+        var btnPromocionPreparar = document.getElementById("migbd_btn_promocion_preparar");
+        var btnPromocionSimular = document.getElementById("migbd_btn_promocion_simular");
+        var btnPromocionAplicar = document.getElementById("migbd_btn_promocion_aplicar");
         if (btnPoliticas) {
             btnPoliticas.addEventListener("click", cargarPoliticas);
         }
@@ -1854,6 +1992,22 @@
         }
         if (btnPreflightDestino) {
             btnPreflightDestino.addEventListener("click", preflightDestino);
+        }
+        if (btnPromocionPreflight) {
+            btnPromocionPreflight.addEventListener("click", cargarPreflightPromocionCompleta);
+        }
+        if (btnPromocionPreparar) {
+            btnPromocionPreparar.addEventListener("click", prepararConfirmacionPromocionCompleta);
+        }
+        if (btnPromocionSimular) {
+            btnPromocionSimular.addEventListener("click", function () {
+                aplicarPromocionCompleta(false);
+            });
+        }
+        if (btnPromocionAplicar) {
+            btnPromocionAplicar.addEventListener("click", function () {
+                aplicarPromocionCompleta(true);
+            });
         }
     });
 })();

@@ -1375,6 +1375,100 @@ class MigracionesBd extends CRUD {
 
   /**
    * IA: Codex GPT-5
+   * Fecha: 2026-08-25
+   * Proposito: reemplazar productivo completo con el respaldo local autorizado.
+   * Impacto: Migraciones BD; operacion destructiva sobre destino, protegida por respaldos, bandera, token y confirmacion literal.
+   * Contrato: sin `ejecutar` solo valida; con `ejecutar=true` borra objetos del destino y restaura dump local.
+   */
+  public function aplicarPromocionCompleta($aliasDestino, $respaldoLocal, $respaldoDestino, $autorizar, $confirmacion, $ejecutar = false, $idUsuario = 0) {
+    $aliasDestino = trim((string) $aliasDestino);
+    $respaldoLocal = trim((string) $respaldoLocal);
+    $respaldoDestino = trim((string) $respaldoDestino);
+    $autorizar = trim((string) $autorizar);
+    $confirmacion = trim((string) $confirmacion);
+
+    $preflight = $this->preflightPromocionCompleta($aliasDestino, $respaldoLocal, $respaldoDestino);
+    $ambienteDestino = $this->ambienteConexionConfig($aliasDestino);
+    $respaldoLocalOk = isset($preflight["depurar"]["respaldo_local"]["ok"]) && $preflight["depurar"]["respaldo_local"]["ok"];
+    $respaldoDestinoOk = isset($preflight["depurar"]["respaldo_productivo"]["ok"]) && $preflight["depurar"]["respaldo_productivo"]["ok"];
+    $tokenOk = $autorizar === "MIGRACIONES_BD_REEMPLAZO_COMPLETO";
+    $confirmacionOk = $this->confirmacionPromocionCompletaOk($confirmacion, $aliasDestino, $respaldoLocal, $respaldoDestino);
+    $habilitada = $this->promocionCompletaHabilitada();
+    $mysqlDisponible = file_exists($this->rutaMysqlCliente()) && is_readable($this->rutaMysqlCliente());
+
+    $bloqueos = array();
+    if ($preflight["error"] || !empty($preflight["depurar"]["bloqueos"])) {
+      $bloqueos[] = "preflight_no_listo";
+    }
+    if (!$respaldoLocalOk) {
+      $bloqueos[] = "respaldo_local_no_valido";
+    }
+    if (!$respaldoDestinoOk) {
+      $bloqueos[] = "respaldo_productivo_no_valido";
+    }
+    if (!$habilitada) {
+      $bloqueos[] = "promocion_completa_deshabilitada";
+    }
+    if (!$tokenOk) {
+      $bloqueos[] = "token_reemplazo_invalido";
+    }
+    if (!$confirmacionOk) {
+      $bloqueos[] = "confirmacion_reemplazo_invalida";
+    }
+    if (!$ambienteDestino) {
+      $bloqueos[] = "destino_no_configurado";
+    }
+    if (!$mysqlDisponible) {
+      $bloqueos[] = "mysql_cliente_no_disponible";
+    }
+
+    $datos = array(
+      "modo" => "reemplazo_completo_local_a_productivo",
+      "destino" => $aliasDestino,
+      "ejecutar" => (bool) $ejecutar,
+      "puede_ejecutar" => empty($bloqueos),
+      "bloqueos" => array_values(array_unique($bloqueos)),
+      "preflight" => isset($preflight["depurar"]) ? $preflight["depurar"] : null,
+      "mysql_cliente" => $this->rutaMysqlCliente(),
+      "comando_restore_saneado" => $ambienteDestino ? $this->comandoRestoreAmbienteSaneado($ambienteDestino, $respaldoLocal) : "",
+      "nota" => "La ejecucion real borra objetos actuales del destino y restaura el dump local. El respaldo productivo queda como rollback."
+    );
+
+    if (!empty($bloqueos) || !$ejecutar) {
+      return $this->respuesta(false, empty($bloqueos) ? "success" : "warning", empty($bloqueos) ? "Promocion completa lista para ejecutar con autorizacion" : "Promocion completa no lista", $datos);
+    }
+
+    $conexionDestino = $this->conectarAmbiente($ambienteDestino);
+    if ($conexionDestino["error"]) {
+      $datos["bloqueos"][] = "conexion_destino_fallida";
+      $datos["conexion"] = $conexionDestino["depurar"];
+      return $this->respuesta(true, "danger", "No fue posible conectar al destino para reemplazo", $datos);
+    }
+
+    $inicio = microtime(true);
+    $objetosEliminados = $this->eliminarObjetosDestino($conexionDestino["depurar"]["conexion"], $ambienteDestino["base"]);
+    if ($objetosEliminados["error"]) {
+      $datos["eliminacion"] = $objetosEliminados["depurar"];
+      return $this->respuesta(true, "danger", "No fue posible limpiar productivo antes de restaurar", $datos);
+    }
+
+    $restore = $this->ejecutarRestoreAmbiente($ambienteDestino, $respaldoLocal);
+    $datos["eliminacion"] = $objetosEliminados["depurar"];
+    $datos["restore"] = $restore["depurar"];
+    $datos["duracion_segundos"] = round(microtime(true) - $inicio, 3);
+    $datos["id_usuario"] = $idUsuario;
+
+    if ($restore["error"]) {
+      return $this->respuesta(true, "danger", "Restauracion de local sobre productivo fallo; revisar respaldo productivo para rollback", $datos);
+    }
+
+    $verificacion = $this->probarAmbiente($aliasDestino);
+    $datos["verificacion"] = $verificacion["error"] ? $verificacion : $verificacion["depurar"];
+    return $this->respuesta(false, "success", "Productivo fue reemplazado con la base local", $datos);
+  }
+
+  /**
+   * IA: Codex GPT-5
    * Fecha: 2026-08-01
    * Proposito: validar si un paquete persistido esta listo para aplicacion controlada.
    * Impacto: Migraciones BD; no ejecuta SQL, solo revisa paquete, respaldo y compuertas.
@@ -2789,6 +2883,98 @@ class MigracionesBd extends CRUD {
       . " --single-transaction --routines --events --triggers --add-drop-table --default-character-set=utf8mb4"
       . " --result-file=\"" . $archivo . "\" "
       . (isset($ambiente["base"]) ? $ambiente["base"] : "");
+  }
+
+  private function comandoRestoreAmbienteSaneado($ambiente, $archivo) {
+    return $this->rutaMysqlCliente()
+      . " --host=" . (isset($ambiente["host"]) ? $ambiente["host"] : "")
+      . " --port=" . (isset($ambiente["port"]) ? $ambiente["port"] : "3306")
+      . " --user=" . (isset($ambiente["usuario"]) ? $ambiente["usuario"] : "")
+      . " --default-character-set=utf8mb4 "
+      . (isset($ambiente["base"]) ? $ambiente["base"] : "")
+      . " < \"" . trim((string) $archivo) . "\"";
+  }
+
+  private function confirmacionPromocionCompletaOk($confirmacion, $aliasDestino, $respaldoLocal, $respaldoDestino) {
+    $confirmacion = trim((string) $confirmacion);
+    return stripos($confirmacion, "AUTORIZO REEMPLAZAR PRODUCTIVO CON BASE LOCAL") !== false
+      && stripos($confirmacion, "ambiente " . $aliasDestino) !== false
+      && stripos($confirmacion, $respaldoLocal) !== false
+      && stripos($confirmacion, $respaldoDestino) !== false
+      && stripos($confirmacion, "productivo quedara con esquema y datos de local") !== false;
+  }
+
+  private function eliminarObjetosDestino($conexion, $base) {
+    try {
+      $stmt = $conexion->prepare("SELECT TABLE_NAME AS nombre, TABLE_TYPE AS tipo
+                                  FROM INFORMATION_SCHEMA.TABLES
+                                  WHERE TABLE_SCHEMA=:base
+                                  ORDER BY CASE WHEN TABLE_TYPE='VIEW' THEN 0 ELSE 1 END, TABLE_NAME");
+      $stmt->execute(array(":base" => $base));
+      $objetos = $stmt->fetchAll(PDO::FETCH_ASSOC);
+      $conexion->exec("SET FOREIGN_KEY_CHECKS=0");
+      $eliminados = array();
+      foreach ($objetos as $objeto) {
+        $nombre = isset($objeto["nombre"]) ? $objeto["nombre"] : "";
+        if (!$this->identificadorTablaValido($nombre)) {
+          continue;
+        }
+        $tipo = isset($objeto["tipo"]) && $objeto["tipo"] === "VIEW" ? "VIEW" : "TABLE";
+        $conexion->exec("DROP " . $tipo . " IF EXISTS `" . $nombre . "`");
+        $eliminados[] = array("nombre" => $nombre, "tipo" => $tipo);
+      }
+      $conexion->exec("SET FOREIGN_KEY_CHECKS=1");
+      return $this->respuesta(false, "success", "Objetos del destino eliminados", array(
+        "base" => $base,
+        "total" => count($eliminados),
+        "objetos" => $eliminados
+      ));
+    } catch (Exception $e) {
+      try {
+        $conexion->exec("SET FOREIGN_KEY_CHECKS=1");
+      } catch (Exception $ignorar) {
+      }
+      return $this->respuesta(true, "danger", $e->getMessage(), array("base" => $base));
+    }
+  }
+
+  private function ejecutarRestoreAmbiente($ambiente, $archivo) {
+    $mysql = $this->rutaMysqlCliente();
+    $args = array(
+      $mysql,
+      "--host=" . $ambiente["host"],
+      "--port=" . $ambiente["port"],
+      "--user=" . $ambiente["usuario"],
+      "--default-character-set=utf8mb4",
+      $ambiente["base"]
+    );
+    if (!empty($ambiente["password"])) {
+      array_splice($args, 4, 0, array("--password=" . $ambiente["password"]));
+    }
+
+    $descriptor = array(
+      0 => array("file", $archivo, "r"),
+      1 => array("pipe", "w"),
+      2 => array("pipe", "w")
+    );
+    $inicio = microtime(true);
+    $proceso = proc_open($args, $descriptor, $pipes);
+    if (!is_resource($proceso)) {
+      return $this->respuesta(true, "danger", "No fue posible iniciar cliente mysql");
+    }
+    $stdout = stream_get_contents($pipes[1]);
+    $stderr = stream_get_contents($pipes[2]);
+    fclose($pipes[1]);
+    fclose($pipes[2]);
+    $codigo = proc_close($proceso);
+
+    return $this->respuesta($codigo !== 0, $codigo === 0 ? "success" : "danger", $codigo === 0 ? "Restore ejecutado" : "Restore fallo", array(
+      "codigo_salida" => $codigo,
+      "stdout" => trim((string) $stdout),
+      "stderr" => trim((string) $stderr),
+      "duracion_segundos" => round(microtime(true) - $inicio, 3),
+      "comando_saneado" => $this->comandoRestoreAmbienteSaneado($ambiente, $archivo)
+    ));
   }
 
   private function comandoRestoreSaneado($archivo) {

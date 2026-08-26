@@ -88,6 +88,36 @@ class MigracionBd extends Controlador {
 
   /**
    * IA: Codex GPT-5
+   * Fecha: 2026-08-25
+   * Proposito: ejecutar o simular reemplazo completo de productivo con base local.
+   * Impacto: Migraciones BD; ejecucion real es destructiva y exige compuertas finales.
+   */
+  public function promocion_completa_aplicar() {
+    $this->requerirPermiso("sistema.soporte");
+    $destino = isset($_POST["destino"]) ? trim($_POST["destino"]) : "productivo";
+    $respaldoLocal = isset($_POST["respaldo_local"]) ? trim($_POST["respaldo_local"]) : "";
+    $respaldoProductivo = isset($_POST["respaldo_productivo"]) ? trim($_POST["respaldo_productivo"]) : "";
+    $autorizar = isset($_POST["autorizar"]) ? trim($_POST["autorizar"]) : "";
+    $confirmacion = isset($_POST["confirmacion"]) ? trim($_POST["confirmacion"]) : "";
+    $ejecutar = isset($_POST["ejecutar"]) && $_POST["ejecutar"] == 1;
+    $modelo = $this->modelo("MigracionesBd");
+    $respuesta = $modelo->aplicarPromocionCompleta($destino, $respaldoLocal, $respaldoProductivo, $autorizar, $confirmacion, $ejecutar, $this->usuarioActualId());
+    SesionSeguridad::registrarAuditoria("migraciones", "promocion_completa_aplicar", array(
+      "entidad" => "base_productiva",
+      "resultado" => $respuesta["error"] ? "error" : "ok",
+      "datos_despues" => isset($respuesta["depurar"]) ? array(
+        "destino" => isset($respuesta["depurar"]["destino"]) ? $respuesta["depurar"]["destino"] : $destino,
+        "ejecutar" => isset($respuesta["depurar"]["ejecutar"]) ? $respuesta["depurar"]["ejecutar"] : false,
+        "puede_ejecutar" => isset($respuesta["depurar"]["puede_ejecutar"]) ? $respuesta["depurar"]["puede_ejecutar"] : false,
+        "bloqueos" => isset($respuesta["depurar"]["bloqueos"]) ? $respuesta["depurar"]["bloqueos"] : array()
+      ) : null,
+      "mensaje" => $respuesta["mensaje"]
+    ));
+    echo json_encode($respuesta);
+  }
+
+  /**
+   * IA: Codex GPT-5
    * Fecha: 2026-08-01
    * Proposito: revisar prerequisitos operativos del modulo sin ejecutar cambios.
    * Impacto: Migraciones BD; solo lectura.

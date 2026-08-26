@@ -67,6 +67,19 @@ if ($_SERVER["SERVER_NAME"] == "localhost") {
     $mysqlUser = "artianicom_artianicom";
     $mysqlPass = 'N^emH;iTA9Po';
 }
+$mysqlLocalOverridePath = __DIR__ . "/mysql.local.php";
+$mysqlLocalOverrideHosts = array("localhost", "dashboard.com.local", "panel.com.local", "dashboard_mgebike.com.local");
+if (in_array($_SERVER["SERVER_NAME"], $mysqlLocalOverrideHosts, true) && file_exists($mysqlLocalOverridePath)) {
+    $mysqlLocalOverride = require $mysqlLocalOverridePath;
+    if (is_array($mysqlLocalOverride) && !empty($mysqlLocalOverride["habilitado"])
+        && !empty($mysqlLocalOverride["host"]) && !empty($mysqlLocalOverride["base"]) && !empty($mysqlLocalOverride["usuario"])) {
+        $mysqlHost = (string) $mysqlLocalOverride["host"];
+        $mysqlBase = (string) $mysqlLocalOverride["base"];
+        $mysqlPort = !empty($mysqlLocalOverride["port"]) ? (string) $mysqlLocalOverride["port"] : "3306";
+        $mysqlUser = (string) $mysqlLocalOverride["usuario"];
+        $mysqlPass = array_key_exists("password", $mysqlLocalOverride) ? (string) $mysqlLocalOverride["password"] : "";
+    }
+}
 //var_dump($_SERVER["SERVER_NAME"]);
 define("MYSQLHOST", $mysqlHost);
 define("MYSQLBASE", $mysqlBase);

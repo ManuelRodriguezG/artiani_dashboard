@@ -13,9 +13,11 @@ Centralizar en SYS/Administracion la revision de entorno, base de datos activa y
 - La configuracion general pertenece a SYS, no a POS ni a ERP.
 - POS puede consumir configuracion de ticket/terminal, pero no debe decidir la base de datos ni el ambiente.
 - La seleccion actual de base de datos depende de `SERVER_NAME` en `app/config/mysql.php`.
+- En hosts locales, `app/config/mysql.php` puede cargar `app/config/mysql.local.php` si existe y trae `habilitado=true`.
 - La UI muestra diagnostico saneado: host, ambiente, URL, BD activa y estado de conexion.
 - La UI permite guardar parametros operativos no sensibles en `sys_configuracion_parametros`.
 - No se muestran contrasenas ni se guardan credenciales desde la pantalla general.
+- `app/config/mysql.local.php` no debe versionarse ni activarse antes de la promocion completa autorizada.
 
 ## Impresion de tickets
 
@@ -61,6 +63,7 @@ Aplicacion 2026-07-23:
 - Disenar tablas de parametros SYS si se requiere persistir configuraciones no sensibles.
 - Disenar conector local de impresora POS y prueba de impresion.
 - Separar credenciales sensibles de configuracion navegable.
+- Usar `app/config/mysql.local.example.php` como plantilla para conectar local a productivo solo despues de autorizar la base productiva definitiva.
 
 ## Handoff / continuidad
 

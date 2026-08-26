@@ -48,6 +48,19 @@ C:\xampp\panel_db_backups\artianilocal_panel_20260717_153000_antes_ecommerce_pub
 - Para cambios por modulo, reutilizar siempre `C:\xampp\panel_db_backups`.
 - En documentacion y comandos usar la ruta completa del respaldo o una referencia externa verificable.
 - No exponer credenciales de `app/config/mysql.php` en documentos ni respuestas.
+- Para no llenar el servidor, los respaldos de productivo pueden generarse desde la computadora local y almacenarse en `C:\xampp\panel_db_backups`.
+
+## Respaldo productivo post-activacion
+
+Fecha: 2026-08-25
+
+```text
+archivo=C:\xampp\panel_db_backups\productivo_artianicom_sys_panel_20260825_225108_antes_promocion_completa.sql
+tamano_bytes=38935169
+sha256=d2dea52e468c0bfbcd95ce7654dbbdc02369c86b6d5b99bcf898bfb722587c05
+validado=si
+dentro_repo=no
+```
 
 ## Validacion minima
 
