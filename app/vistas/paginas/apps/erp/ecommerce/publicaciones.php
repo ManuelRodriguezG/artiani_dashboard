@@ -146,8 +146,8 @@
                                             <button class="btn btn-sm btn-light-primary" type="button" id="ecom_lote_borrador">Guardar borradores</button>
                                             <button class="btn btn-sm btn-success" type="button" id="ecom_lote_publicar">Publicar seleccion</button>
                                             <label class="form-check form-check-custom form-check-solid fs-7">
-                                                <input class="form-check-input" type="checkbox" id="ecom_lote_confirmar_agotados">
-                                                <span class="form-check-label">Permitir agotados en lote</span>
+                                                <input class="form-check-input" type="checkbox" id="ecom_lote_confirmar_agotados" checked disabled>
+                                                <span class="form-check-label">Agotados permitidos en lote</span>
                                             </label>
                                             <span class="badge badge-light-primary" id="ecom_estado">Listo</span>
                                         </div>
@@ -277,6 +277,6 @@
 </div>
 <script src="assets/plugins/global/plugins.bundle.js"></script>
 <script src="assets/js/scripts.bundle.js"></script>
-<script src="/assets/js/custom/apps/erp/ecommerce/publicaciones.js?v=20260824-publica-sin-categoria1"></script>
+<script src="/assets/js/custom/apps/erp/ecommerce/publicaciones.js?v=20260825-agotados-lote1"></script>
 </body>
 </html>

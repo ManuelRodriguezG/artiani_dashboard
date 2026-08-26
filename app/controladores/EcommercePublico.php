@@ -807,8 +807,12 @@ class EcommercePublico extends Controlador {
       "datos_antes" => array("id_skus" => isset($_POST["id_skus"]) ? (string) $_POST["id_skus"] : ""),
       "datos_despues" => array(
         "estatus" => isset($_POST["estatus_publicacion"]) ? (string) $_POST["estatus_publicacion"] : "",
+        "total_solicitado" => isset($respuesta["depurar"]["total_solicitado"]) ? intval($respuesta["depurar"]["total_solicitado"]) : 0,
         "total_ok" => isset($respuesta["depurar"]["total_ok"]) ? intval($respuesta["depurar"]["total_ok"]) : 0,
-        "total_error" => isset($respuesta["depurar"]["total_error"]) ? intval($respuesta["depurar"]["total_error"]) : 0
+        "total_error" => isset($respuesta["depurar"]["total_error"]) ? intval($respuesta["depurar"]["total_error"]) : 0,
+        "resultado_lote" => isset($respuesta["depurar"]["resultado_lote"]) ? (string) $respuesta["depurar"]["resultado_lote"] : "",
+        "confirmar_agotado" => isset($respuesta["depurar"]["confirmar_agotado"]) ? (bool) $respuesta["depurar"]["confirmar_agotado"] : false,
+        "agotados_permitidos_por_politica_lote" => isset($respuesta["depurar"]["agotados_permitidos_por_politica_lote"]) ? (bool) $respuesta["depurar"]["agotados_permitidos_por_politica_lote"] : false
       )
     ));
     return json_encode($respuesta);
@@ -830,8 +834,12 @@ class EcommercePublico extends Controlador {
       "mensaje" => isset($respuesta["mensaje"]) ? $respuesta["mensaje"] : "",
       "datos_antes" => array("id_skus" => isset($_POST["id_skus"]) ? (string) $_POST["id_skus"] : ""),
       "datos_despues" => array(
+        "total_solicitado" => isset($respuesta["depurar"]["total_solicitado"]) ? intval($respuesta["depurar"]["total_solicitado"]) : 0,
         "total_ok" => isset($respuesta["depurar"]["total_ok"]) ? intval($respuesta["depurar"]["total_ok"]) : 0,
-        "total_error" => isset($respuesta["depurar"]["total_error"]) ? intval($respuesta["depurar"]["total_error"]) : 0
+        "total_error" => isset($respuesta["depurar"]["total_error"]) ? intval($respuesta["depurar"]["total_error"]) : 0,
+        "resultado_lote" => isset($respuesta["depurar"]["resultado_lote"]) ? (string) $respuesta["depurar"]["resultado_lote"] : "",
+        "confirmar_agotado" => isset($respuesta["depurar"]["confirmar_agotado"]) ? (bool) $respuesta["depurar"]["confirmar_agotado"] : false,
+        "agotados_permitidos_por_politica_lote" => isset($respuesta["depurar"]["agotados_permitidos_por_politica_lote"]) ? (bool) $respuesta["depurar"]["agotados_permitidos_por_politica_lote"] : false
       )
     ));
     return json_encode($respuesta);

@@ -580,6 +580,148 @@ class Cms extends Controlador {
   }
 
   /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-08-25
+   * Proposito: publicar la franja promocional de Home desde CMS Frontend.
+   * Impacto: CMS contenido; persiste `home_promo` como bloque publicado para el slot `home.promo`.
+   * Contrato: POST protegido por cms.publicar/catalogo.editar, CSRF y auditoria; no toca catalogo, precios ni inventario.
+   */
+  public function frontend_home_promo_publicar_erp() {
+    $this->requerirAlgunPermiso(array("cms.publicar", "catalogo.editar"));
+    $respuesta = $this->modelo("EcommerceCatalogoPublico")->frontendHomePromoPublicarInterno($_POST, $this->usuarioActualId());
+    $depurar = isset($respuesta["depurar"]) && is_array($respuesta["depurar"]) ? $respuesta["depurar"] : array();
+    SesionSeguridad::registrarAuditoria("cms", "frontend_home_promo_publicar_erp", array(
+      "resultado" => empty($respuesta["error"]) ? "ok" : "error",
+      "mensaje" => isset($respuesta["mensaje"]) ? $respuesta["mensaje"] : "",
+      "datos_despues" => array(
+        "id_bloque" => isset($depurar["id_bloque"]) ? $depurar["id_bloque"] : null,
+        "id_publicacion_contenido" => isset($depurar["id_publicacion_contenido"]) ? $depurar["id_publicacion_contenido"] : null,
+        "slot" => isset($depurar["slot"]) ? $depurar["slot"] : null,
+        "items_total" => isset($depurar["items_total"]) ? $depurar["items_total"] : 0,
+        "publicado_api" => isset($depurar["publicado_api"]) ? $depurar["publicado_api"] : false
+      )
+    ));
+    return json_encode($respuesta, JSON_UNESCAPED_UNICODE);
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-08-25
+   * Proposito: publicar las categorias destacadas de Home desde CMS Frontend.
+   * Impacto: CMS contenido; persiste `home_categorias_destacadas` en el slot `home.categorias`.
+   * Contrato: POST protegido por cms.publicar/catalogo.editar, CSRF y auditoria; solo referencia categorias reales.
+   */
+  public function frontend_home_categorias_publicar_erp() {
+    $this->requerirAlgunPermiso(array("cms.publicar", "catalogo.editar"));
+    $respuesta = $this->modelo("EcommerceCatalogoPublico")->frontendHomeCategoriasPublicarInterno($_POST, $this->usuarioActualId());
+    $depurar = isset($respuesta["depurar"]) && is_array($respuesta["depurar"]) ? $respuesta["depurar"] : array();
+    SesionSeguridad::registrarAuditoria("cms", "frontend_home_categorias_publicar_erp", array(
+      "resultado" => empty($respuesta["error"]) ? "ok" : "error",
+      "mensaje" => isset($respuesta["mensaje"]) ? $respuesta["mensaje"] : "",
+      "datos_despues" => array(
+        "id_bloque" => isset($depurar["id_bloque"]) ? $depurar["id_bloque"] : null,
+        "id_publicacion_contenido" => isset($depurar["id_publicacion_contenido"]) ? $depurar["id_publicacion_contenido"] : null,
+        "slot" => isset($depurar["slot"]) ? $depurar["slot"] : null,
+        "items_total" => isset($depurar["items_total"]) ? $depurar["items_total"] : 0,
+        "publicado_api" => isset($depurar["publicado_api"]) ? $depurar["publicado_api"] : false
+      )
+    ));
+    return json_encode($respuesta, JSON_UNESCAPED_UNICODE);
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-08-25
+   * Proposito: publicar productos destacados de Home desde CMS Frontend.
+   * Impacto: CMS contenido; persiste criterio/referencias de productos en el slot `home.destacados`.
+   * Contrato: POST protegido por cms.publicar/catalogo.editar, CSRF y auditoria; no modifica productos, precios ni inventario.
+   */
+  public function frontend_home_productos_publicar_erp() {
+    $this->requerirAlgunPermiso(array("cms.publicar", "catalogo.editar"));
+    $respuesta = $this->modelo("EcommerceCatalogoPublico")->frontendHomeProductosPublicarInterno($_POST, $this->usuarioActualId());
+    $depurar = isset($respuesta["depurar"]) && is_array($respuesta["depurar"]) ? $respuesta["depurar"] : array();
+    SesionSeguridad::registrarAuditoria("cms", "frontend_home_productos_publicar_erp", array(
+      "resultado" => empty($respuesta["error"]) ? "ok" : "error",
+      "mensaje" => isset($respuesta["mensaje"]) ? $respuesta["mensaje"] : "",
+      "datos_despues" => array(
+        "id_bloque" => isset($depurar["id_bloque"]) ? $depurar["id_bloque"] : null,
+        "id_publicacion_contenido" => isset($depurar["id_publicacion_contenido"]) ? $depurar["id_publicacion_contenido"] : null,
+        "slot" => isset($depurar["slot"]) ? $depurar["slot"] : null,
+        "modo" => isset($depurar["modo"]) ? $depurar["modo"] : "",
+        "referencias_total" => isset($depurar["referencias_total"]) ? $depurar["referencias_total"] : 0,
+        "publicado_api" => isset($depurar["publicado_api"]) ? $depurar["publicado_api"] : false
+      )
+    ));
+    return json_encode($respuesta, JSON_UNESCAPED_UNICODE);
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-08-25
+   * Proposito: publicar colecciones de productos de Home desde CMS Frontend.
+   * Impacto: CMS contenido; persiste varias vitrinas en `home.destacados` sin reemplazar productos destacados.
+   * Contrato: POST protegido por cms.publicar/catalogo.editar, CSRF y auditoria; solo envia criterios/referencias.
+   */
+  public function frontend_home_colecciones_publicar_erp() {
+    $this->requerirAlgunPermiso(array("cms.publicar", "catalogo.editar"));
+    $respuesta = $this->modelo("EcommerceCatalogoPublico")->frontendHomeColeccionesPublicarInterno($_POST, $this->usuarioActualId());
+    $depurar = isset($respuesta["depurar"]) && is_array($respuesta["depurar"]) ? $respuesta["depurar"] : array();
+    SesionSeguridad::registrarAuditoria("cms", "frontend_home_colecciones_publicar_erp", array(
+      "resultado" => empty($respuesta["error"]) ? "ok" : "error",
+      "mensaje" => isset($respuesta["mensaje"]) ? $respuesta["mensaje"] : "",
+      "datos_despues" => array(
+        "id_bloque" => isset($depurar["id_bloque"]) ? $depurar["id_bloque"] : null,
+        "id_publicacion_contenido" => isset($depurar["id_publicacion_contenido"]) ? $depurar["id_publicacion_contenido"] : null,
+        "slot" => isset($depurar["slot"]) ? $depurar["slot"] : null,
+        "colecciones_total" => isset($depurar["colecciones_total"]) ? $depurar["colecciones_total"] : 0,
+        "publicado_api" => isset($depurar["publicado_api"]) ? $depurar["publicado_api"] : false
+      )
+    ));
+    return json_encode($respuesta, JSON_UNESCAPED_UNICODE);
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-08-25
+   * Proposito: publicar la configuracion global operativa del frontend desde CMS.
+   * Impacto: CMS frontend global; persiste marca, contacto, SEO, redes y assets para configuracion_inicial.
+   * Contrato: POST protegido por cms.publicar/catalogo.editar, CSRF y auditoria; no expone secretos ni toca catalogo.
+   */
+  public function frontend_global_publicar_erp() {
+    $this->requerirAlgunPermiso(array("cms.publicar", "catalogo.editar"));
+    $respuesta = $this->modelo("EcommerceCatalogoPublico")->frontendGlobalPublicarInterno($_POST, $this->usuarioActualId());
+    $depurar = isset($respuesta["depurar"]) && is_array($respuesta["depurar"]) ? $respuesta["depurar"] : array();
+    SesionSeguridad::registrarAuditoria("cms", "frontend_global_publicar_erp", array(
+      "resultado" => empty($respuesta["error"]) ? "ok" : "error",
+      "mensaje" => isset($respuesta["mensaje"]) ? $respuesta["mensaje"] : "",
+      "datos_despues" => array(
+        "id_bloque" => isset($depurar["id_bloque"]) ? $depurar["id_bloque"] : null,
+        "codigo" => isset($depurar["codigo"]) ? $depurar["codigo"] : "",
+        "publicado_api" => isset($depurar["publicado_api"]) ? $depurar["publicado_api"] : false
+      )
+    ));
+    return json_encode($respuesta, JSON_UNESCAPED_UNICODE);
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-08-25
+   * Proposito: publicar enriquecimiento visual/SEO de categorias desde CMS Frontend.
+   * Impacto: CMS frontend categorias; agrega imagenes y textos publicos sin modificar catalogo, precios ni inventario.
+   * Contrato: POST protegido por cms.publicar/catalogo.editar, CSRF y auditoria; la categoria real debe existir en ERP/API.
+   */
+  public function frontend_categorias_publicar_erp() {
+    $this->requerirAlgunPermiso(array("cms.publicar", "catalogo.editar"));
+    $respuesta = $this->modelo("EcommerceCatalogoPublico")->frontendCategoriasPublicarInterno($_POST, $this->usuarioActualId());
+    $depurar = isset($respuesta["depurar"]) && is_array($respuesta["depurar"]) ? $respuesta["depurar"] : array();
+    SesionSeguridad::registrarAuditoria("cms", "frontend_categorias_publicar_erp", array(
+      "resultado" => empty($respuesta["error"]) ? "ok" : "error",
+      "mensaje" => isset($respuesta["mensaje"]) ? $respuesta["mensaje"] : "",
+      "datos_despues" => array(
+        "id_bloque" => isset($depurar["id_bloque"]) ? $depurar["id_bloque"] : null,
+        "codigo" => isset($depurar["codigo"]) ? $depurar["codigo"] : "",
+        "categorias_total" => isset($depurar["categorias_total"]) ? $depurar["categorias_total"] : 0,
+        "publicado_api" => isset($depurar["publicado_api"]) ? $depurar["publicado_api"] : false
+      )
+    ));
+    return json_encode($respuesta, JSON_UNESCAPED_UNICODE);
+  }
+
+  /**
    * Documentacion IA: Codex GPT-5 | Fecha: 2026-08-11
    * Proposito: declarar contrato futuro para guardar plantillas de vista frontend.
    * Impacto: CMS frontend; reserva el endpoint sin activar persistencia ni editar archivos del ecommerce.

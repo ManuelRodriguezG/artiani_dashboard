@@ -387,6 +387,26 @@
             }
           ]
         },
+        home_promo: {
+          codigo: "home_promo",
+          tipo: "promo_strip",
+          visible: true,
+          orden: 20,
+          titulo: "Franja promocional",
+          config: {
+            variante: "wokiee_promo_strip",
+            tono: "info"
+          },
+          items: [
+            {
+              icono: "bi-whatsapp",
+              texto: "Atencion personalizada por WhatsApp",
+              cta: { label: "Escribir", url: "https://wa.me/" },
+              visible: true,
+              orden: 10
+            }
+          ]
+        },
         home_categorias_destacadas: {
           codigo: "home_categorias_destacadas",
           tipo: "categorias_destacadas",
@@ -589,6 +609,7 @@
       prioridad: 7,
       secciones: [
         seccion("home_hero_carrusel", "hero_carrusel", "Banner principal con imagen desktop/mobile y slides.", ["items", "autoplay", "intervalo_ms", "cta"]),
+        seccion("home_promo", "promo_strip", "Franja corta para avisos, WhatsApp, envios o mensajes comerciales.", ["texto", "icono", "cta", "visible"]),
         seccion("home_categorias_destacadas", "categorias_destacadas", "Categorias reales publicadas con imagen card/banner.", ["categoria_id", "slug", "imagen_card", "imagen_banner"]),
         seccion("home_productos_destacados", "productos_destacados", "Productos por criterio o lista manual.", ["fuente.modo", "fuente.criterio", "fuente.productos", "limite"]),
         seccion("home_colecciones", "coleccion_productos", "Colecciones repetibles: novedades, destacados, basicos.", ["titulo", "fuente", "cta"]),
@@ -657,6 +678,8 @@
     cargarBorradorFrontendLocal();
     renderTodo();
     on("cms_actual_copiar_json", "click", copiarJson);
+    on("cms_actual_home_estado_refrescar", "click", consultarEstadoHomePublicado);
+    bindEstadoHomePublicado();
   });
 
   function seccion(codigo, tipo, descripcion, campos) {
@@ -667,7 +690,15 @@
     renderPrioridad();
     renderNav();
     renderReglas();
+    renderEstadoHomeVisibilidad();
     renderGrupo();
+  }
+
+  function renderEstadoHomeVisibilidad() {
+    var panel = $("cms_actual_home_estado_panel");
+    if (!panel) return;
+    panel.classList.toggle("d-none", estado.grupo !== "home");
+    if (estado.grupo === "home") consultarEstadoHomePublicado();
   }
 
   function renderPrioridad() {
@@ -708,10 +739,109 @@
     setText("cms_actual_endpoint", grupo.endpoint);
     var node = $("cms_actual_secciones");
     if (node) {
-      node.innerHTML = grupo.secciones.map(renderSeccion).join("");
+      node.innerHTML = renderAccionesGrupo(grupo) + grupo.secciones.map(renderSeccion).join("");
       bindGrupoEditors();
     }
     setText("cms_actual_json", JSON.stringify(previewJson(grupo), null, 2));
+  }
+
+  function renderAccionesGrupo(grupo) {
+    if (!grupo) return "";
+    if (grupo.codigo === "categorias") {
+      return '<div class="alert alert-light-primary d-flex justify-content-between align-items-center flex-wrap gap-3 mb-4">' +
+        '<div><div class="fw-bold">Publicacion de categorias frontend</div><div class="fs-7 text-muted">Guarda imagenes, textos SEO, destacado, visible y orden sin modificar categorias reales del ERP.</div></div>' +
+        '<button class="btn btn-sm btn-primary" type="button" id="cms_actual_categorias_publicar"><i class="bi bi-cloud-check"></i> Guardar y publicar categorias</button>' +
+      '</div><div class="alert alert-light-warning fs-7 py-3 mb-4" id="cms_actual_categorias_estado">Pendiente de publicar en la API.</div>';
+    }
+    if (grupo.codigo !== "global") return "";
+    return '<div class="alert alert-light-primary d-flex justify-content-between align-items-center flex-wrap gap-3 mb-4">' +
+      '<div><div class="fw-bold">Publicacion global del frontend</div><div class="fs-7 text-muted">Guarda marca, contacto, logos, favicon, redes, ubicacion, horarios y SEO para configuracion_inicial.</div></div>' +
+      '<button class="btn btn-sm btn-primary" type="button" id="cms_actual_global_publicar"><i class="bi bi-cloud-check"></i> Guardar y publicar global</button>' +
+    '</div><div class="alert alert-light-warning fs-7 py-3 mb-4" id="cms_actual_global_estado">Pendiente de publicar en la API.</div>';
+  }
+
+  function consultarEstadoHomePublicado() {
+    var node = $("cms_actual_home_estado");
+    var boton = $("cms_actual_home_estado_refrescar");
+    if (!node) return;
+    node.innerHTML = '<div class="cms-actual-status-card text-muted fs-7">Consultando API publica...</div>';
+    if (boton) boton.disabled = true;
+    fetch("/ecommercePublico/contenido_pagina?pagina=home", {
+      method: "GET",
+      credentials: "same-origin",
+      headers: {
+        "Accept": "application/json",
+        "X-Requested-With": "XMLHttpRequest"
+      }
+    }).then(function (response) {
+      return response.text().then(function (text) {
+        var json = null;
+        try {
+          json = JSON.parse(text);
+        } catch (error) {
+          throw new Error("Respuesta no JSON del servidor (" + response.status + ")");
+        }
+        if (!response.ok) throw new Error((json && json.mensaje) || "No se pudo consultar Home");
+        return json;
+      });
+    }).then(function (json) {
+      renderEstadoHomePublicado(json && json.depurar ? json.depurar : {});
+    }).catch(function (error) {
+      node.innerHTML = '<div class="cms-actual-status-card"><div class="badge badge-light-danger mb-2">Error</div><div class="fs-7">' + escapeHtml(error.message || "No se pudo consultar API") + '</div></div>';
+    }).finally(function () {
+      if (boton) boton.disabled = false;
+    });
+  }
+
+  function renderEstadoHomePublicado(depurar) {
+    var node = $("cms_actual_home_estado");
+    if (!node) return;
+    var hero = bloquesSlotPublicado(depurar, "home.hero");
+    var promo = bloquesSlotPublicado(depurar, "home.promo");
+    var categorias = bloquesSlotPublicado(depurar, "home.categorias");
+    var destacados = bloquesSlotPublicado(depurar, "home.destacados");
+    node.innerHTML = [
+      tarjetaEstadoHome("Hero / Banner", hero, "home.hero", "cms_actual_banner_api"),
+      tarjetaEstadoHome("Promo", promo, "home.promo", "cms_actual_promo_api"),
+      tarjetaEstadoHome("Categorias", categorias, "home.categorias", "cms_actual_home_categorias_api"),
+      tarjetaEstadoHome("Destacados", destacados, "home.destacados", "cms_actual_home_productos_api")
+    ].join("");
+  }
+
+  function bindEstadoHomePublicado() {
+    var node = $("cms_actual_home_estado");
+    if (!node) return;
+    node.addEventListener("click", function (event) {
+      var button = event.target && event.target.closest ? event.target.closest("[data-status-jump]") : null;
+      if (!button) return;
+      var targetId = button.getAttribute("data-status-jump") || "";
+      estado.grupo = "home";
+      renderTodo();
+      window.setTimeout(function () {
+        var target = $(targetId);
+        if (target) {
+          target.click();
+          target.scrollIntoView({ behavior: "smooth", block: "center" });
+        }
+      }, 50);
+    });
+  }
+
+  function tarjetaEstadoHome(titulo, bloques, slot, botonId) {
+    var total = Array.isArray(bloques) ? bloques.length : 0;
+    var publicado = total > 0;
+    var codigos = publicado ? bloques.map(function (bloque) { return bloque.codigo || bloque.tipo || "bloque"; }).join(", ") : "Pendiente";
+    var clase = publicado ? "badge-light-success" : "badge-light-warning";
+    var estadoTexto = publicado ? "Publicado" : "Pendiente";
+    return '<div class="cms-actual-status-card">' +
+      '<div class="d-flex justify-content-between align-items-start gap-2 mb-3">' +
+        '<div class="fw-bold">' + escapeHtml(titulo) + '</div>' +
+        '<span class="badge ' + clase + '">' + escapeHtml(estadoTexto) + '</span>' +
+      '</div>' +
+      '<div class="text-muted fs-8 mb-2">' + escapeHtml(slot) + '</div>' +
+      '<div class="fs-7 text-break">' + escapeHtml(codigos) + '</div>' +
+      '<button class="btn btn-sm btn-light mt-3" type="button" data-status-jump="' + escapeAttr(botonId) + '"><i class="bi bi-broadcast"></i> Ver detalle</button>' +
+    '</div>';
   }
 
   function cargarBorradorFrontendLocal() {
@@ -780,6 +910,9 @@
     }
     if (item.codigo === "home_hero_carrusel") {
       return renderHeroCarrusel(item);
+    }
+    if (item.codigo === "home_promo") {
+      return renderPromoHome(item);
     }
     if (item.codigo === "home_categorias_destacadas") {
       return renderCategoriasDestacadas(item);
@@ -854,6 +987,52 @@
     return inputConMedia("hero", index, campo, label, value, col, "data-hero-slide-field");
   }
 
+  function renderPromoHome(item) {
+    var data = promoData();
+    var items = data.items || [];
+    return '<div class="cms-actual-card mb-4">' +
+      '<div class="d-flex justify-content-between align-items-start gap-3 flex-wrap mb-4">' +
+        '<div><div class="fw-bold">' + escapeHtml(item.codigo) + '</div><div class="text-muted fs-8">' + escapeHtml(item.descripcion) + '</div></div>' +
+        '<span class="badge badge-light-success">Editor activo</span>' +
+      '</div>' +
+      '<div class="row g-3 mb-4">' +
+        '<div class="col-md-3"><label class="form-label fs-8 fw-bold">Visible</label><select class="form-select form-select-sm" data-promo-config="visible"><option value="1"' + (data.visible ? ' selected' : '') + '>Si</option><option value="0"' + (!data.visible ? ' selected' : '') + '>No</option></select></div>' +
+        '<div class="col-md-4"><label class="form-label fs-8 fw-bold">Titulo interno</label><input class="form-control form-control-sm" data-promo-config="titulo" value="' + escapeAttr(data.titulo || "") + '"></div>' +
+        '<div class="col-md-3"><label class="form-label fs-8 fw-bold">Variante</label><input class="form-control form-control-sm" data-promo-config="config.variante" value="' + escapeAttr(data.config.variante || "wokiee_promo_strip") + '"></div>' +
+        '<div class="col-md-2"><label class="form-label fs-8 fw-bold">Tono</label><select class="form-select form-select-sm" data-promo-config="config.tono"><option value="info"' + (data.config.tono === "info" ? ' selected' : '') + '>Info</option><option value="success"' + (data.config.tono === "success" ? ' selected' : '') + '>Success</option><option value="warning"' + (data.config.tono === "warning" ? ' selected' : '') + '>Warning</option></select></div>' +
+      '</div>' +
+      '<div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3"><div class="fw-bold">Avisos</div><div class="d-flex gap-2"><button class="btn btn-sm btn-light-info" type="button" id="cms_actual_promo_api"><i class="bi bi-broadcast"></i> Ver API publicada</button><button class="btn btn-sm btn-primary" type="button" id="cms_actual_promo_publicar"><i class="bi bi-cloud-check"></i> Guardar y publicar promo</button><button class="btn btn-sm btn-light-primary" type="button" id="cms_actual_promo_agregar"><i class="bi bi-plus-circle"></i> Agregar aviso</button></div></div>' +
+      '<div class="alert alert-light-warning fs-7 py-3 mb-4" id="cms_actual_promo_estado">Pendiente de publicar en la API. Captura al menos un aviso visible.</div>' +
+      '<div class="alert alert-light-secondary fs-7 py-3 mb-4 d-none" id="cms_actual_promo_api_estado"></div>' +
+      items.map(renderPromoItem).join("") +
+      '<div class="alert alert-light-info fs-7 mb-0">Usa esta franja para mensajes cortos. No modifica productos, precios ni inventario.</div>' +
+    '</div>';
+  }
+
+  function renderPromoItem(item, index) {
+    return '<div class="cms-actual-slide mb-3" data-promo-item="' + escapeAttr(index) + '">' +
+      '<div class="d-flex justify-content-between align-items-center gap-2 mb-3">' +
+        '<div><div class="fw-semibold">Aviso ' + escapeHtml(index + 1) + '</div><div class="text-muted fs-8">' + escapeHtml(item.visible ? "Visible" : "Oculto") + '</div></div>' +
+        '<div class="d-flex gap-2">' +
+          '<button class="btn btn-sm btn-light" type="button" data-promo-action="subir" data-index="' + escapeAttr(index) + '"><i class="bi bi-arrow-up"></i></button>' +
+          '<button class="btn btn-sm btn-light" type="button" data-promo-action="bajar" data-index="' + escapeAttr(index) + '"><i class="bi bi-arrow-down"></i></button>' +
+          '<button class="btn btn-sm btn-light-warning" type="button" data-promo-action="toggle" data-index="' + escapeAttr(index) + '"><i class="bi ' + (item.visible ? 'bi-eye-slash' : 'bi-eye') + '"></i></button>' +
+          '<button class="btn btn-sm btn-light-danger" type="button" data-promo-action="eliminar" data-index="' + escapeAttr(index) + '"><i class="bi bi-trash"></i></button>' +
+        '</div>' +
+      '</div>' +
+      '<div class="row g-3">' +
+        inputPromo(index, "icono", "Icono", item.icono, "col-md-3") +
+        inputPromo(index, "texto", "Texto visible", item.texto, "col-md-5") +
+        inputPromo(index, "cta.label", "CTA texto", (item.cta || {}).label, "col-md-2") +
+        inputPromo(index, "cta.url", "CTA URL", (item.cta || {}).url, "col-md-2") +
+      '</div>' +
+    '</div>';
+  }
+
+  function inputPromo(index, campo, label, value, col) {
+    return '<div class="' + escapeAttr(col || "col-md-4") + '"><label class="form-label fs-8 fw-bold">' + escapeHtml(label) + '</label><input class="form-control form-control-sm" data-promo-field="' + escapeAttr(campo) + '" data-index="' + escapeAttr(index) + '" value="' + escapeAttr(value == null ? "" : value) + '"></div>';
+  }
+
   function bindGrupoEditors() {
     Array.prototype.forEach.call(document.querySelectorAll("[data-hero-config]"), function (node) {
       node.addEventListener("input", function () {
@@ -874,6 +1053,30 @@
       });
     });
     on("cms_actual_hero_agregar", "click", agregarHeroSlide);
+    Array.prototype.forEach.call(document.querySelectorAll("[data-promo-config]"), function (node) {
+      node.addEventListener("input", function () {
+        actualizarPromoConfig(node.getAttribute("data-promo-config"), node.value);
+      });
+      node.addEventListener("change", function () {
+        actualizarPromoConfig(node.getAttribute("data-promo-config"), node.value);
+      });
+    });
+    Array.prototype.forEach.call(document.querySelectorAll("[data-promo-field]"), function (node) {
+      node.addEventListener("input", function () {
+        actualizarPromoItem(parseInt(node.getAttribute("data-index") || "0", 10), node.getAttribute("data-promo-field"), node.value);
+      });
+      node.addEventListener("change", function () {
+        actualizarPromoItem(parseInt(node.getAttribute("data-index") || "0", 10), node.getAttribute("data-promo-field"), node.value);
+      });
+    });
+    Array.prototype.forEach.call(document.querySelectorAll("[data-promo-action]"), function (button) {
+      button.addEventListener("click", function () {
+        ejecutarPromoAccion(button.getAttribute("data-promo-action"), parseInt(button.getAttribute("data-index") || "0", 10));
+      });
+    });
+    on("cms_actual_promo_agregar", "click", agregarPromoItem);
+    on("cms_actual_promo_publicar", "click", publicarPromoHome);
+    on("cms_actual_promo_api", "click", consultarApiPromoHome);
     Array.prototype.forEach.call(document.querySelectorAll("[data-categoria-config]"), function (node) {
       node.addEventListener("input", function () {
         actualizarCategoriaConfig(node.getAttribute("data-categoria-config"), node.value);
@@ -895,7 +1098,9 @@
         ejecutarCategoriaAccion(button.getAttribute("data-categoria-action"), parseInt(button.getAttribute("data-index") || "0", 10));
       });
     });
-    on("cms_actual_categoria_agregar", "click", agregarCategoriaItem);
+    on("cms_actual_home_categoria_agregar", "click", agregarCategoriaItem);
+    on("cms_actual_home_categorias_publicar", "click", publicarHomeCategorias);
+    on("cms_actual_home_categorias_api", "click", consultarApiHomeCategorias);
     Array.prototype.forEach.call(document.querySelectorAll("[data-productos-config]"), function (node) {
       node.addEventListener("input", function () {
         actualizarProductosConfig(node.getAttribute("data-productos-config"), node.value);
@@ -918,6 +1123,8 @@
       });
     });
     on("cms_actual_producto_agregar", "click", agregarProductoManual);
+    on("cms_actual_home_productos_publicar", "click", publicarHomeProductos);
+    on("cms_actual_home_productos_api", "click", consultarApiHomeProductos);
     Array.prototype.forEach.call(document.querySelectorAll("[data-colecciones-config]"), function (node) {
       node.addEventListener("input", function () {
         actualizarColeccionesConfig(node.getAttribute("data-colecciones-config"), node.value);
@@ -940,6 +1147,8 @@
       });
     });
     on("cms_actual_coleccion_agregar", "click", agregarColeccionProducto);
+    on("cms_actual_home_colecciones_publicar", "click", publicarHomeColecciones);
+    on("cms_actual_home_colecciones_api", "click", consultarApiHomeColecciones);
     Array.prototype.forEach.call(document.querySelectorAll("[data-banner-config]"), function (node) {
       node.addEventListener("input", function () {
         actualizarBannerConfig(node.getAttribute("data-banner-config"), node.value);
@@ -963,6 +1172,7 @@
     });
     on("cms_actual_banner_agregar", "click", agregarBannerItem);
     on("cms_actual_banner_publicar", "click", publicarBannerHome);
+    on("cms_actual_banner_api", "click", consultarApiBannerHome);
     Array.prototype.forEach.call(document.querySelectorAll("[data-global-field]"), function (node) {
       node.addEventListener("input", function () {
         actualizarGlobalField(node.getAttribute("data-global-section"), node.getAttribute("data-global-field"), node.value);
@@ -971,6 +1181,8 @@
         actualizarGlobalField(node.getAttribute("data-global-section"), node.getAttribute("data-global-field"), node.value);
       });
     });
+    on("cms_actual_global_publicar", "click", publicarGlobalFrontend);
+    on("cms_actual_categorias_publicar", "click", publicarCategoriasFrontend);
     Array.prototype.forEach.call(document.querySelectorAll("[data-nav-field]"), function (node) {
       node.addEventListener("input", function () {
         actualizarNavegacionField(node.getAttribute("data-nav-section"), node.getAttribute("data-nav-field"), node.value);
@@ -1860,6 +2072,51 @@
     renderGrupo();
   }
 
+  function actualizarPromoConfig(campo, valor) {
+    var data = promoData();
+    if (campo === "visible") data.visible = valor === "1";
+    else setPath(data, campo, valor);
+    refrescarJson();
+  }
+
+  function actualizarPromoItem(index, campo, valor) {
+    var item = promoData().items[index];
+    if (!item) return;
+    setPath(item, campo, valor);
+    refrescarJson();
+  }
+
+  function ejecutarPromoAccion(accion, index) {
+    var items = promoData().items;
+    if (!items[index]) return;
+    if (accion === "subir" && index > 0) {
+      items.splice(index - 1, 0, items.splice(index, 1)[0]);
+    }
+    if (accion === "bajar" && index < items.length - 1) {
+      items.splice(index + 1, 0, items.splice(index, 1)[0]);
+    }
+    if (accion === "toggle") {
+      items[index].visible = !items[index].visible;
+    }
+    if (accion === "eliminar" && items.length > 1) {
+      items.splice(index, 1);
+    }
+    normalizarOrden(items);
+    renderGrupo();
+  }
+
+  function agregarPromoItem() {
+    var items = promoData().items;
+    items.push({
+      icono: "bi-stars",
+      texto: "Nuevo aviso para Home",
+      cta: { label: "", url: "" },
+      visible: true,
+      orden: (items.length + 1) * 10
+    });
+    renderGrupo();
+  }
+
   function renderCategoriasDestacadas(item) {
     var data = categoriasData();
     return '<div class="cms-actual-card mb-4">' +
@@ -1875,7 +2132,9 @@
         '<div class="col-md-2"><label class="form-label fs-8 fw-bold">Columnas desktop</label><input class="form-control form-control-sm" data-categoria-config="columnas_desktop" value="' + escapeAttr(data.config.columnas_desktop || 4) + '"></div>' +
         '<div class="col-md-2"><label class="form-label fs-8 fw-bold">Columnas mobile</label><input class="form-control form-control-sm" data-categoria-config="columnas_mobile" value="' + escapeAttr(data.config.columnas_mobile || 2) + '"></div>' +
       '</div>' +
-      '<div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3"><div class="fw-bold">Tarjetas de categoria</div><button class="btn btn-sm btn-light-primary" type="button" id="cms_actual_categoria_agregar"><i class="bi bi-plus-circle"></i> Agregar categoria</button></div>' +
+      '<div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3"><div class="fw-bold">Tarjetas de categoria</div><div class="d-flex gap-2"><button class="btn btn-sm btn-light-info" type="button" id="cms_actual_home_categorias_api"><i class="bi bi-broadcast"></i> Ver API publicada</button><button class="btn btn-sm btn-primary" type="button" id="cms_actual_home_categorias_publicar"><i class="bi bi-cloud-check"></i> Guardar y publicar categorias Home</button><button class="btn btn-sm btn-light-primary" type="button" id="cms_actual_home_categoria_agregar"><i class="bi bi-plus-circle"></i> Agregar categoria</button></div></div>' +
+      '<div class="alert alert-light-warning fs-7 py-3 mb-4" id="cms_actual_home_categorias_estado">Pendiente de publicar en la API. Cada categoria visible necesita slug o ID ERP.</div>' +
+      '<div class="alert alert-light-secondary fs-7 py-3 mb-4 d-none" id="cms_actual_home_categorias_api_estado"></div>' +
       data.items.map(renderCategoriaItem).join("") +
       '<div class="alert alert-light-info fs-7 mb-0">Aqui solo se configura contenido visual. La categoria real se mantiene en catalogo y se referencia por categoria_id o slug.</div>' +
     '</div>';
@@ -1966,6 +2225,137 @@
     renderGrupo();
   }
 
+  function publicarHomeCategorias() {
+    var data = categoriasData();
+    var visibles = (data.items || []).filter(function (item) {
+      return item && item.visible !== false;
+    });
+    if (!data.visible || !visibles.length) {
+      setHomeCategoriasEstado("Deja al menos una categoria visible antes de publicar.", "warning");
+      return;
+    }
+    var invalida = visibles.filter(function (item) {
+      return !item.categoria_id && !String(item.slug || "").trim();
+    })[0];
+    if (invalida) {
+      setHomeCategoriasEstado("Cada categoria visible necesita ID ERP o slug.", "warning");
+      return;
+    }
+    var boton = $("cms_actual_home_categorias_publicar");
+    var form = new FormData();
+    form.append("_csrf", window.ERP_CSRF_TOKEN || "");
+    form.append("payload_json", JSON.stringify(data));
+    if (boton) boton.disabled = true;
+    setHomeCategoriasEstado("Publicando categorias destacadas en la API...", "info");
+    fetch("/cms/frontend_home_categorias_publicar_erp", {
+      method: "POST",
+      body: form,
+      credentials: "same-origin",
+      headers: {
+        "X-CSRF-Token": window.ERP_CSRF_TOKEN || "",
+        "Accept": "application/json",
+        "X-Requested-With": "XMLHttpRequest"
+      }
+    }).then(function (response) {
+      return response.text().then(function (text) {
+        var json = null;
+        try {
+          json = JSON.parse(text);
+        } catch (error) {
+          throw new Error("Respuesta no JSON del servidor (" + response.status + "): " + text.substring(0, 140));
+        }
+        if (!response.ok && json && json.mensaje) {
+          throw new Error(json.mensaje);
+        }
+        return json;
+      });
+    }).then(function (json) {
+      if (!json || json.error) {
+        throw new Error(json && json.mensaje ? json.mensaje : "No se pudo publicar categorias Home");
+      }
+      setHomeCategoriasEstado("Categorias Home publicadas. El endpoint /ecommercePublico/contenido_pagina?pagina=home ya debe entregar home.categorias.", "success");
+      consultarEstadoHomePublicado();
+    }).catch(function (error) {
+      setHomeCategoriasEstado(error.message || "Error al publicar categorias Home.", "danger");
+    }).finally(function () {
+      if (boton) boton.disabled = false;
+    });
+  }
+
+  function consultarApiHomeCategorias() {
+    var node = $("cms_actual_home_categorias_api_estado");
+    var boton = $("cms_actual_home_categorias_api");
+    if (node) {
+      node.className = "alert alert-light-info fs-7 py-3 mb-4";
+      node.textContent = "Consultando /ecommercePublico/contenido_pagina?pagina=home...";
+    }
+    if (boton) boton.disabled = true;
+    fetch("/ecommercePublico/contenido_pagina?pagina=home", {
+      method: "GET",
+      credentials: "same-origin",
+      headers: {
+        "Accept": "application/json",
+        "X-Requested-With": "XMLHttpRequest"
+      }
+    }).then(function (response) {
+      return response.text().then(function (text) {
+        var json = null;
+        try {
+          json = JSON.parse(text);
+        } catch (error) {
+          throw new Error("Respuesta no JSON del servidor (" + response.status + "): " + text.substring(0, 140));
+        }
+        if (!response.ok) {
+          throw new Error((json && json.mensaje) || "No se pudo consultar la API publica");
+        }
+        return json;
+      });
+    }).then(function (json) {
+      var depurar = json && json.depurar ? json.depurar : {};
+      var bloques = bloquesSlotPublicado(depurar, "home.categorias");
+      if (!bloques.length) {
+        mostrarApiHomeCategorias("No hay categorias publicadas en home.categorias. El frontend usara fallback/default.", "warning");
+        return;
+      }
+      var bloque = bloques[0] || {};
+      var items = Array.isArray(bloque.items) ? bloque.items : [];
+      mostrarApiHomeCategorias(
+        '<div class="fw-bold mb-2">Categorias publicadas para Home</div>' +
+        '<div><span class="fw-semibold">Fuente:</span> ' + escapeHtml(depurar.fuente || "sin fuente") + '</div>' +
+        '<div><span class="fw-semibold">Total:</span> ' + escapeHtml(items.length) + '</div>' +
+        items.slice(0, 6).map(function (item, index) {
+          return '<div class="mt-2 text-break"><span class="fw-semibold">' + escapeHtml(index + 1) + '.</span> ' + escapeHtml(item.titulo || item.slug || "") + ' · ' + escapeHtml(item.imagen_card || "sin imagen") + '</div>';
+        }).join(""),
+        "success",
+        true
+      );
+    }).catch(function (error) {
+      mostrarApiHomeCategorias(error.message || "Error al consultar API publicada.", "danger");
+    }).finally(function () {
+      if (boton) boton.disabled = false;
+    });
+  }
+
+  function setHomeCategoriasEstado(mensaje, tipo) {
+    setText("cms_actual_estado", mensaje);
+    var node = $("cms_actual_home_categorias_estado");
+    if (!node) return;
+    node.className = "alert fs-7 py-3 mb-4 alert-light-" + (tipo || "info");
+    node.textContent = mensaje;
+  }
+
+  function mostrarApiHomeCategorias(mensaje, tipo, esHtml) {
+    setText("cms_actual_estado", esHtml ? "API publicada consultada" : mensaje);
+    var node = $("cms_actual_home_categorias_api_estado");
+    if (!node) return;
+    node.className = "alert fs-7 py-3 mb-4 alert-light-" + (tipo || "info");
+    if (esHtml) {
+      node.innerHTML = mensaje;
+    } else {
+      node.textContent = mensaje;
+    }
+  }
+
   function renderProductosDestacados(item) {
     var data = productosData();
     return '<div class="cms-actual-card mb-4">' +
@@ -1987,7 +2377,9 @@
         '<div class="col-md-3"><label class="form-label fs-8 fw-bold">CTA texto</label><input class="form-control form-control-sm" data-productos-config="cta.label" value="' + escapeAttr((data.cta || {}).label || "") + '"></div>' +
         '<div class="col-md-3"><label class="form-label fs-8 fw-bold">CTA URL</label><input class="form-control form-control-sm" data-productos-config="cta.url" value="' + escapeAttr((data.cta || {}).url || "") + '"></div>' +
       '</div>' +
-      '<div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3"><div class="fw-bold">Lista manual opcional</div><button class="btn btn-sm btn-light-primary" type="button" id="cms_actual_producto_agregar"><i class="bi bi-plus-circle"></i> Agregar producto</button></div>' +
+      '<div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3"><div class="fw-bold">Lista manual opcional</div><div class="d-flex gap-2"><button class="btn btn-sm btn-light-info" type="button" id="cms_actual_home_productos_api"><i class="bi bi-broadcast"></i> Ver API publicada</button><button class="btn btn-sm btn-primary" type="button" id="cms_actual_home_productos_publicar"><i class="bi bi-cloud-check"></i> Guardar y publicar productos Home</button><button class="btn btn-sm btn-light-primary" type="button" id="cms_actual_producto_agregar"><i class="bi bi-plus-circle"></i> Agregar producto</button></div></div>' +
+      '<div class="alert alert-light-warning fs-7 py-3 mb-4" id="cms_actual_home_productos_estado">Pendiente de publicar en la API. Define criterio automatico o lista manual.</div>' +
+      '<div class="alert alert-light-secondary fs-7 py-3 mb-4 d-none" id="cms_actual_home_productos_api_estado"></div>' +
       (data.fuente.productos || []).map(renderProductoManual).join("") +
       '<div class="alert alert-light-info fs-7 mb-0">El CMS solo envia referencias y criterio. El frontend debe consultar productos por API publica y no mostrar stock exacto.</div>' +
     '</div>';
@@ -2059,6 +2451,141 @@
     renderGrupo();
   }
 
+  function publicarHomeProductos() {
+    var data = productosData();
+    var fuente = data.fuente || {};
+    if (!data.visible) {
+      setHomeProductosEstado("Activa la seccion antes de publicar productos Home.", "warning");
+      return;
+    }
+    if (fuente.modo === "manual") {
+      var refs = (fuente.productos || []).filter(function (item) {
+        return item && (item.producto_id || String(item.sku || "").trim() || String(item.slug || "").trim());
+      });
+      if (!refs.length) {
+        setHomeProductosEstado("En modo manual agrega al menos un producto por SKU, ID o slug.", "warning");
+        return;
+      }
+    } else if (!String(fuente.criterio || "").trim()) {
+      setHomeProductosEstado("En modo automatico selecciona un criterio.", "warning");
+      return;
+    }
+    var boton = $("cms_actual_home_productos_publicar");
+    var form = new FormData();
+    form.append("_csrf", window.ERP_CSRF_TOKEN || "");
+    form.append("payload_json", JSON.stringify(data));
+    if (boton) boton.disabled = true;
+    setHomeProductosEstado("Publicando productos destacados en la API...", "info");
+    fetch("/cms/frontend_home_productos_publicar_erp", {
+      method: "POST",
+      body: form,
+      credentials: "same-origin",
+      headers: {
+        "X-CSRF-Token": window.ERP_CSRF_TOKEN || "",
+        "Accept": "application/json",
+        "X-Requested-With": "XMLHttpRequest"
+      }
+    }).then(function (response) {
+      return response.text().then(function (text) {
+        var json = null;
+        try {
+          json = JSON.parse(text);
+        } catch (error) {
+          throw new Error("Respuesta no JSON del servidor (" + response.status + "): " + text.substring(0, 140));
+        }
+        if (!response.ok && json && json.mensaje) {
+          throw new Error(json.mensaje);
+        }
+        return json;
+      });
+    }).then(function (json) {
+      if (!json || json.error) {
+        throw new Error(json && json.mensaje ? json.mensaje : "No se pudo publicar productos Home");
+      }
+      setHomeProductosEstado("Productos Home publicados. El endpoint /ecommercePublico/contenido_pagina?pagina=home ya debe entregar home.destacados.", "success");
+      consultarEstadoHomePublicado();
+    }).catch(function (error) {
+      setHomeProductosEstado(error.message || "Error al publicar productos Home.", "danger");
+    }).finally(function () {
+      if (boton) boton.disabled = false;
+    });
+  }
+
+  function consultarApiHomeProductos() {
+    var node = $("cms_actual_home_productos_api_estado");
+    var boton = $("cms_actual_home_productos_api");
+    if (node) {
+      node.className = "alert alert-light-info fs-7 py-3 mb-4";
+      node.textContent = "Consultando /ecommercePublico/contenido_pagina?pagina=home...";
+    }
+    if (boton) boton.disabled = true;
+    fetch("/ecommercePublico/contenido_pagina?pagina=home", {
+      method: "GET",
+      credentials: "same-origin",
+      headers: {
+        "Accept": "application/json",
+        "X-Requested-With": "XMLHttpRequest"
+      }
+    }).then(function (response) {
+      return response.text().then(function (text) {
+        var json = null;
+        try {
+          json = JSON.parse(text);
+        } catch (error) {
+          throw new Error("Respuesta no JSON del servidor (" + response.status + "): " + text.substring(0, 140));
+        }
+        if (!response.ok) {
+          throw new Error((json && json.mensaje) || "No se pudo consultar la API publica");
+        }
+        return json;
+      });
+    }).then(function (json) {
+      var depurar = json && json.depurar ? json.depurar : {};
+      var bloques = bloquesSlotPublicado(depurar, "home.destacados");
+      if (!bloques.length) {
+        mostrarApiHomeProductos("No hay productos publicados en home.destacados. El frontend usara fallback/default.", "warning");
+        return;
+      }
+      var bloque = bloques[0] || {};
+      var fuente = bloque.fuente || {};
+      var productos = Array.isArray(fuente.productos) ? fuente.productos : [];
+      mostrarApiHomeProductos(
+        '<div class="fw-bold mb-2">Productos destacados publicados para Home</div>' +
+        '<div><span class="fw-semibold">Fuente:</span> ' + escapeHtml(depurar.fuente || "sin fuente") + '</div>' +
+        '<div><span class="fw-semibold">Modo:</span> ' + escapeHtml(fuente.modo || "") + '</div>' +
+        '<div><span class="fw-semibold">Criterio:</span> ' + escapeHtml(fuente.criterio || "") + '</div>' +
+        '<div><span class="fw-semibold">Limite:</span> ' + escapeHtml(bloque.limite || "") + '</div>' +
+        '<div><span class="fw-semibold">Referencias manuales:</span> ' + escapeHtml(productos.length) + '</div>',
+        "success",
+        true
+      );
+    }).catch(function (error) {
+      mostrarApiHomeProductos(error.message || "Error al consultar API publicada.", "danger");
+    }).finally(function () {
+      if (boton) boton.disabled = false;
+    });
+  }
+
+  function setHomeProductosEstado(mensaje, tipo) {
+    setText("cms_actual_estado", mensaje);
+    var node = $("cms_actual_home_productos_estado");
+    if (!node) return;
+    node.className = "alert fs-7 py-3 mb-4 alert-light-" + (tipo || "info");
+    node.textContent = mensaje;
+  }
+
+  function mostrarApiHomeProductos(mensaje, tipo, esHtml) {
+    setText("cms_actual_estado", esHtml ? "API publicada consultada" : mensaje);
+    var node = $("cms_actual_home_productos_api_estado");
+    if (!node) return;
+    node.className = "alert fs-7 py-3 mb-4 alert-light-" + (tipo || "info");
+    if (esHtml) {
+      node.innerHTML = mensaje;
+    } else {
+      node.textContent = mensaje;
+    }
+  }
+
   function renderColeccionesProductos(item) {
     var data = coleccionesData();
     return '<div class="cms-actual-card mb-4">' +
@@ -2072,7 +2599,9 @@
         '<div class="col-md-4"><label class="form-label fs-8 fw-bold">Subtitulo grupo</label><input class="form-control form-control-sm" data-colecciones-config="subtitulo" value="' + escapeAttr(data.subtitulo || "") + '"></div>' +
         '<div class="col-md-2"><label class="form-label fs-8 fw-bold">Variante</label><input class="form-control form-control-sm" data-colecciones-config="config.variante" value="' + escapeAttr(data.config.variante || "wokiee_collection_rows") + '"></div>' +
       '</div>' +
-      '<div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3"><div class="fw-bold">Colecciones</div><button class="btn btn-sm btn-light-primary" type="button" id="cms_actual_coleccion_agregar"><i class="bi bi-plus-circle"></i> Agregar coleccion</button></div>' +
+      '<div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3"><div class="fw-bold">Colecciones</div><div class="d-flex gap-2"><button class="btn btn-sm btn-light-info" type="button" id="cms_actual_home_colecciones_api"><i class="bi bi-broadcast"></i> Ver API publicada</button><button class="btn btn-sm btn-primary" type="button" id="cms_actual_home_colecciones_publicar"><i class="bi bi-cloud-check"></i> Guardar y publicar colecciones</button><button class="btn btn-sm btn-light-primary" type="button" id="cms_actual_coleccion_agregar"><i class="bi bi-plus-circle"></i> Agregar coleccion</button></div></div>' +
+      '<div class="alert alert-light-warning fs-7 py-3 mb-4" id="cms_actual_home_colecciones_estado">Pendiente de publicar en la API. Define al menos una coleccion visible.</div>' +
+      '<div class="alert alert-light-secondary fs-7 py-3 mb-4 d-none" id="cms_actual_home_colecciones_api_estado"></div>' +
       (data.items || []).map(renderColeccionItem).join("") +
       '<div class="alert alert-light-info fs-7 mb-0">Cada coleccion es una vitrina independiente. Puedes usar criterio automatico o referencias manuales separadas por coma.</div>' +
     '</div>';
@@ -2160,6 +2689,143 @@
     renderGrupo();
   }
 
+  function publicarHomeColecciones() {
+    var data = coleccionesData();
+    var visibles = (data.items || []).filter(function (item) {
+      return item && item.visible !== false && String(item.titulo || "").trim();
+    });
+    if (!data.visible || !visibles.length) {
+      setHomeColeccionesEstado("Deja al menos una coleccion visible con titulo antes de publicar.", "warning");
+      return;
+    }
+    var invalida = visibles.filter(function (item) {
+      var fuente = item.fuente || {};
+      if (fuente.modo === "manual") {
+        return !(Array.isArray(fuente.productos) && fuente.productos.length);
+      }
+      return !String(fuente.criterio || "").trim();
+    })[0];
+    if (invalida) {
+      setHomeColeccionesEstado("Cada coleccion visible necesita criterio automatico o referencias manuales.", "warning");
+      return;
+    }
+    var boton = $("cms_actual_home_colecciones_publicar");
+    var form = new FormData();
+    form.append("_csrf", window.ERP_CSRF_TOKEN || "");
+    form.append("payload_json", JSON.stringify(data));
+    if (boton) boton.disabled = true;
+    setHomeColeccionesEstado("Publicando colecciones en la API...", "info");
+    fetch("/cms/frontend_home_colecciones_publicar_erp", {
+      method: "POST",
+      body: form,
+      credentials: "same-origin",
+      headers: {
+        "X-CSRF-Token": window.ERP_CSRF_TOKEN || "",
+        "Accept": "application/json",
+        "X-Requested-With": "XMLHttpRequest"
+      }
+    }).then(function (response) {
+      return response.text().then(function (text) {
+        var json = null;
+        try {
+          json = JSON.parse(text);
+        } catch (error) {
+          throw new Error("Respuesta no JSON del servidor (" + response.status + "): " + text.substring(0, 140));
+        }
+        if (!response.ok && json && json.mensaje) {
+          throw new Error(json.mensaje);
+        }
+        return json;
+      });
+    }).then(function (json) {
+      if (!json || json.error) {
+        throw new Error(json && json.mensaje ? json.mensaje : "No se pudo publicar colecciones");
+      }
+      setHomeColeccionesEstado("Colecciones publicadas. El endpoint /ecommercePublico/contenido_pagina?pagina=home ya debe entregar el bloque de colecciones.", "success");
+      consultarEstadoHomePublicado();
+    }).catch(function (error) {
+      setHomeColeccionesEstado(error.message || "Error al publicar colecciones.", "danger");
+    }).finally(function () {
+      if (boton) boton.disabled = false;
+    });
+  }
+
+  function consultarApiHomeColecciones() {
+    var node = $("cms_actual_home_colecciones_api_estado");
+    var boton = $("cms_actual_home_colecciones_api");
+    if (node) {
+      node.className = "alert alert-light-info fs-7 py-3 mb-4";
+      node.textContent = "Consultando /ecommercePublico/contenido_pagina?pagina=home...";
+    }
+    if (boton) boton.disabled = true;
+    fetch("/ecommercePublico/contenido_pagina?pagina=home", {
+      method: "GET",
+      credentials: "same-origin",
+      headers: {
+        "Accept": "application/json",
+        "X-Requested-With": "XMLHttpRequest"
+      }
+    }).then(function (response) {
+      return response.text().then(function (text) {
+        var json = null;
+        try {
+          json = JSON.parse(text);
+        } catch (error) {
+          throw new Error("Respuesta no JSON del servidor (" + response.status + "): " + text.substring(0, 140));
+        }
+        if (!response.ok) {
+          throw new Error((json && json.mensaje) || "No se pudo consultar la API publica");
+        }
+        return json;
+      });
+    }).then(function (json) {
+      var depurar = json && json.depurar ? json.depurar : {};
+      var bloques = bloquesSlotPublicado(depurar, "home.destacados").filter(function (bloque) {
+        return bloque && bloque.frontend && bloque.frontend.origen === "home_colecciones";
+      });
+      if (!bloques.length) {
+        mostrarApiHomeColecciones("No hay colecciones publicadas en home.destacados. El frontend usara fallback/default para esa parte.", "warning");
+        return;
+      }
+      var bloque = bloques[0] || {};
+      var items = Array.isArray(bloque.items) ? bloque.items : [];
+      mostrarApiHomeColecciones(
+        '<div class="fw-bold mb-2">Colecciones publicadas para Home</div>' +
+        '<div><span class="fw-semibold">Fuente:</span> ' + escapeHtml(depurar.fuente || "sin fuente") + '</div>' +
+        '<div><span class="fw-semibold">Total:</span> ' + escapeHtml(items.length) + '</div>' +
+        items.slice(0, 6).map(function (item, index) {
+          return '<div class="mt-2"><span class="fw-semibold">' + escapeHtml(index + 1) + '.</span> ' + escapeHtml(item.titulo || item.codigo || "") + ' · ' + escapeHtml((item.fuente || {}).criterio || (item.fuente || {}).modo || "") + '</div>';
+        }).join(""),
+        "success",
+        true
+      );
+    }).catch(function (error) {
+      mostrarApiHomeColecciones(error.message || "Error al consultar API publicada.", "danger");
+    }).finally(function () {
+      if (boton) boton.disabled = false;
+    });
+  }
+
+  function setHomeColeccionesEstado(mensaje, tipo) {
+    setText("cms_actual_estado", mensaje);
+    var node = $("cms_actual_home_colecciones_estado");
+    if (!node) return;
+    node.className = "alert fs-7 py-3 mb-4 alert-light-" + (tipo || "info");
+    node.textContent = mensaje;
+  }
+
+  function mostrarApiHomeColecciones(mensaje, tipo, esHtml) {
+    setText("cms_actual_estado", esHtml ? "API publicada consultada" : mensaje);
+    var node = $("cms_actual_home_colecciones_api_estado");
+    if (!node) return;
+    node.className = "alert fs-7 py-3 mb-4 alert-light-" + (tipo || "info");
+    if (esHtml) {
+      node.innerHTML = mensaje;
+    } else {
+      node.textContent = mensaje;
+    }
+  }
+
   function renderBannerHome(item) {
     var data = bannerData();
     return '<div class="cms-actual-card mb-4">' +
@@ -2174,8 +2840,9 @@
         '<div class="col-md-2"><label class="form-label fs-8 fw-bold">Modo</label><select class="form-select form-select-sm" data-banner-config="config.modo"><option value="estatico"' + (data.config.modo === "estatico" ? ' selected' : '') + '>Estatico</option><option value="slides"' + (data.config.modo === "slides" ? ' selected' : '') + '>Slides futuro</option></select></div>' +
         '<div class="col-md-4"><label class="form-label fs-8 fw-bold">Variante visual</label><input class="form-control form-control-sm" data-banner-config="config.variante" value="' + escapeAttr(data.config.variante || "wokiee_banner_full_width") + '"></div>' +
       '</div>' +
-      '<div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3"><div class="fw-bold">Imagenes del banner</div><div class="d-flex gap-2"><button class="btn btn-sm btn-primary" type="button" id="cms_actual_banner_publicar"><i class="bi bi-cloud-check"></i> Guardar y publicar banner</button><button class="btn btn-sm btn-light-primary" type="button" id="cms_actual_banner_agregar"><i class="bi bi-plus-circle"></i> Agregar slide futuro</button></div></div>' +
+      '<div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3"><div class="fw-bold">Imagenes del banner</div><div class="d-flex gap-2"><button class="btn btn-sm btn-light-info" type="button" id="cms_actual_banner_api"><i class="bi bi-broadcast"></i> Ver API publicada</button><button class="btn btn-sm btn-primary" type="button" id="cms_actual_banner_publicar"><i class="bi bi-cloud-check"></i> Guardar y publicar banner</button><button class="btn btn-sm btn-light-primary" type="button" id="cms_actual_banner_agregar"><i class="bi bi-plus-circle"></i> Agregar slide futuro</button></div></div>' +
       '<div class="alert alert-light-warning fs-7 py-3 mb-4" id="cms_actual_banner_estado">Pendiente de publicar en la API. Usa una imagen guardada en Media CMS y captura el alt obligatorio.</div>' +
+      '<div class="alert alert-light-secondary fs-7 py-3 mb-4 d-none" id="cms_actual_banner_api_estado"></div>' +
       (data.items || []).map(renderBannerItem).join("") +
       '<div class="alert alert-light-info fs-7 mb-0">Por ahora se usa como banner estatico. Si despues el frontend lo soporta como carrusel, los items ya quedan preparados.</div>' +
     '</div>';
@@ -2327,6 +2994,7 @@
         throw new Error(json && json.mensaje ? json.mensaje : "No se pudo publicar banner");
       }
       setBannerEstado("Banner publicado. El endpoint /ecommercePublico/contenido_pagina?pagina=home ya debe entregar esta imagen.", "success");
+      consultarEstadoHomePublicado();
     }).catch(function (error) {
       setBannerEstado(error.message || "Error al publicar banner.", "danger");
     }).finally(function () {
@@ -2337,6 +3005,331 @@
   function setBannerEstado(mensaje, tipo) {
     setText("cms_actual_estado", mensaje);
     var node = $("cms_actual_banner_estado");
+    if (!node) return;
+    node.className = "alert fs-7 py-3 mb-4 alert-light-" + (tipo || "info");
+    node.textContent = mensaje;
+  }
+
+  function consultarApiBannerHome() {
+    var node = $("cms_actual_banner_api_estado");
+    var boton = $("cms_actual_banner_api");
+    if (node) {
+      node.className = "alert alert-light-info fs-7 py-3 mb-4";
+      node.textContent = "Consultando /ecommercePublico/contenido_pagina?pagina=home...";
+    }
+    if (boton) boton.disabled = true;
+    fetch("/ecommercePublico/contenido_pagina?pagina=home", {
+      method: "GET",
+      credentials: "same-origin",
+      headers: {
+        "Accept": "application/json",
+        "X-Requested-With": "XMLHttpRequest"
+      }
+    }).then(function (response) {
+      return response.text().then(function (text) {
+        var json = null;
+        try {
+          json = JSON.parse(text);
+        } catch (error) {
+          throw new Error("Respuesta no JSON del servidor (" + response.status + "): " + text.substring(0, 140));
+        }
+        if (!response.ok) {
+          throw new Error((json && json.mensaje) || "No se pudo consultar la API publica");
+        }
+        return json;
+      });
+    }).then(function (json) {
+      var depurar = json && json.depurar ? json.depurar : {};
+      var bloque = bloqueHomeHeroPublicado(depurar);
+      if (!bloque) {
+        mostrarApiBannerHome("No hay banner publicado en home.hero. El frontend usara fallback/default.", "warning");
+        return;
+      }
+      var media = bloque.media || {};
+      mostrarApiBannerHome(
+        '<div class="fw-bold mb-2">Banner publicado para frontend</div>' +
+        '<div><span class="fw-semibold">Fuente:</span> ' + escapeHtml(depurar.fuente || "sin fuente") + '</div>' +
+        '<div><span class="fw-semibold">Titulo:</span> ' + escapeHtml(bloque.titulo || "") + '</div>' +
+        '<div class="text-break"><span class="fw-semibold">Desktop:</span> ' + escapeHtml(media.imagen_desktop || "") + '</div>' +
+        '<div class="text-break"><span class="fw-semibold">Mobile:</span> ' + escapeHtml(media.imagen_mobile || "") + '</div>' +
+        '<div><span class="fw-semibold">Alt:</span> ' + escapeHtml(media.alt || "") + '</div>',
+        "success",
+        true
+      );
+    }).catch(function (error) {
+      mostrarApiBannerHome(error.message || "Error al consultar API publicada.", "danger");
+    }).finally(function () {
+      if (boton) boton.disabled = false;
+    });
+  }
+
+  function bloqueHomeHeroPublicado(depurar) {
+    var slots = depurar && Array.isArray(depurar.slots) ? depurar.slots : [];
+    for (var i = 0; i < slots.length; i++) {
+      if (!slots[i] || slots[i].slot !== "home.hero") continue;
+      var bloques = Array.isArray(slots[i].bloques) ? slots[i].bloques : [];
+      for (var j = 0; j < bloques.length; j++) {
+        if (bloques[j] && bloques[j].media && bloques[j].media.imagen_desktop) {
+          return bloques[j];
+        }
+      }
+    }
+    return null;
+  }
+
+  function mostrarApiBannerHome(mensaje, tipo, esHtml) {
+    setText("cms_actual_estado", esHtml ? "API publicada consultada" : mensaje);
+    var node = $("cms_actual_banner_api_estado");
+    if (!node) return;
+    node.className = "alert fs-7 py-3 mb-4 alert-light-" + (tipo || "info");
+    if (esHtml) {
+      node.innerHTML = mensaje;
+    } else {
+      node.textContent = mensaje;
+    }
+  }
+
+  function publicarPromoHome() {
+    var data = promoData();
+    var visibles = (data.items || []).filter(function (item) {
+      return item && item.visible !== false && String(item.texto || "").trim() !== "";
+    });
+    if (!data.visible || !visibles.length) {
+      setPromoEstado("Captura al menos un aviso visible con texto antes de publicar.", "warning");
+      return;
+    }
+    var boton = $("cms_actual_promo_publicar");
+    var form = new FormData();
+    form.append("_csrf", window.ERP_CSRF_TOKEN || "");
+    form.append("payload_json", JSON.stringify(data));
+    if (boton) boton.disabled = true;
+    setPromoEstado("Publicando promo en la API...", "info");
+    fetch("/cms/frontend_home_promo_publicar_erp", {
+      method: "POST",
+      body: form,
+      credentials: "same-origin",
+      headers: {
+        "X-CSRF-Token": window.ERP_CSRF_TOKEN || "",
+        "Accept": "application/json",
+        "X-Requested-With": "XMLHttpRequest"
+      }
+    }).then(function (response) {
+      return response.text().then(function (text) {
+        var json = null;
+        try {
+          json = JSON.parse(text);
+        } catch (error) {
+          throw new Error("Respuesta no JSON del servidor (" + response.status + "): " + text.substring(0, 140));
+        }
+        if (!response.ok && json && json.mensaje) {
+          throw new Error(json.mensaje);
+        }
+        return json;
+      });
+    }).then(function (json) {
+      if (!json || json.error) {
+        throw new Error(json && json.mensaje ? json.mensaje : "No se pudo publicar promo");
+      }
+      setPromoEstado("Promo publicada. El endpoint /ecommercePublico/contenido_pagina?pagina=home ya debe entregar home.promo.", "success");
+      consultarEstadoHomePublicado();
+    }).catch(function (error) {
+      setPromoEstado(error.message || "Error al publicar promo.", "danger");
+    }).finally(function () {
+      if (boton) boton.disabled = false;
+    });
+  }
+
+  function setPromoEstado(mensaje, tipo) {
+    setText("cms_actual_estado", mensaje);
+    var node = $("cms_actual_promo_estado");
+    if (!node) return;
+    node.className = "alert fs-7 py-3 mb-4 alert-light-" + (tipo || "info");
+    node.textContent = mensaje;
+  }
+
+  function consultarApiPromoHome() {
+    var node = $("cms_actual_promo_api_estado");
+    var boton = $("cms_actual_promo_api");
+    if (node) {
+      node.className = "alert alert-light-info fs-7 py-3 mb-4";
+      node.textContent = "Consultando /ecommercePublico/contenido_pagina?pagina=home...";
+    }
+    if (boton) boton.disabled = true;
+    fetch("/ecommercePublico/contenido_pagina?pagina=home", {
+      method: "GET",
+      credentials: "same-origin",
+      headers: {
+        "Accept": "application/json",
+        "X-Requested-With": "XMLHttpRequest"
+      }
+    }).then(function (response) {
+      return response.text().then(function (text) {
+        var json = null;
+        try {
+          json = JSON.parse(text);
+        } catch (error) {
+          throw new Error("Respuesta no JSON del servidor (" + response.status + "): " + text.substring(0, 140));
+        }
+        if (!response.ok) {
+          throw new Error((json && json.mensaje) || "No se pudo consultar la API publica");
+        }
+        return json;
+      });
+    }).then(function (json) {
+      var depurar = json && json.depurar ? json.depurar : {};
+      var bloques = bloquesSlotPublicado(depurar, "home.promo");
+      if (!bloques.length) {
+        mostrarApiPromoHome("No hay promo publicada en home.promo. El frontend usara fallback/default.", "warning");
+        return;
+      }
+      mostrarApiPromoHome(
+        '<div class="fw-bold mb-2">Promos publicadas para frontend</div>' +
+        '<div><span class="fw-semibold">Fuente:</span> ' + escapeHtml(depurar.fuente || "sin fuente") + '</div>' +
+        bloques.map(function (bloque, index) {
+          return '<div class="mt-2"><span class="fw-semibold">Aviso ' + escapeHtml(index + 1) + ':</span> ' + escapeHtml(bloque.texto || bloque.titulo || "") + '</div>';
+        }).join(""),
+        "success",
+        true
+      );
+    }).catch(function (error) {
+      mostrarApiPromoHome(error.message || "Error al consultar API publicada.", "danger");
+    }).finally(function () {
+      if (boton) boton.disabled = false;
+    });
+  }
+
+  function bloquesSlotPublicado(depurar, slotCodigo) {
+    var slots = depurar && Array.isArray(depurar.slots) ? depurar.slots : [];
+    for (var i = 0; i < slots.length; i++) {
+      if (!slots[i] || slots[i].slot !== slotCodigo) continue;
+      return Array.isArray(slots[i].bloques) ? slots[i].bloques : [];
+    }
+    return [];
+  }
+
+  function mostrarApiPromoHome(mensaje, tipo, esHtml) {
+    setText("cms_actual_estado", esHtml ? "API publicada consultada" : mensaje);
+    var node = $("cms_actual_promo_api_estado");
+    if (!node) return;
+    node.className = "alert fs-7 py-3 mb-4 alert-light-" + (tipo || "info");
+    if (esHtml) {
+      node.innerHTML = mensaje;
+    } else {
+      node.textContent = mensaje;
+    }
+  }
+
+  function publicarGlobalFrontend() {
+    var json = previewGlobalJson();
+    var negocio = json.depurar && json.depurar.negocio ? json.depurar.negocio : {};
+    if (!String(negocio.nombre_comercial || "").trim()) {
+      setGlobalEstado("Captura el nombre comercial antes de publicar.", "warning");
+      return;
+    }
+    var boton = $("cms_actual_global_publicar");
+    var form = new FormData();
+    form.append("_csrf", window.ERP_CSRF_TOKEN || "");
+    form.append("payload_json", JSON.stringify(json.depurar || {}));
+    if (boton) boton.disabled = true;
+    setGlobalEstado("Publicando configuracion global...", "info");
+    fetch("/cms/frontend_global_publicar_erp", {
+      method: "POST",
+      body: form,
+      credentials: "same-origin",
+      headers: {
+        "X-CSRF-Token": window.ERP_CSRF_TOKEN || "",
+        "Accept": "application/json",
+        "X-Requested-With": "XMLHttpRequest"
+      }
+    }).then(function (response) {
+      return response.text().then(function (text) {
+        var jsonRespuesta = null;
+        try {
+          jsonRespuesta = JSON.parse(text);
+        } catch (error) {
+          throw new Error("Respuesta no JSON del servidor (" + response.status + "): " + text.substring(0, 140));
+        }
+        if (!response.ok && jsonRespuesta && jsonRespuesta.mensaje) {
+          throw new Error(jsonRespuesta.mensaje);
+        }
+        return jsonRespuesta;
+      });
+    }).then(function (jsonRespuesta) {
+      if (!jsonRespuesta || jsonRespuesta.error) {
+        throw new Error(jsonRespuesta && jsonRespuesta.mensaje ? jsonRespuesta.mensaje : "No se pudo publicar global");
+      }
+      setGlobalEstado("Configuracion global publicada. configuracion_inicial ya puede entregarla.", "success");
+    }).catch(function (error) {
+      setGlobalEstado(error.message || "Error al publicar global.", "danger");
+    }).finally(function () {
+      if (boton) boton.disabled = false;
+    });
+  }
+
+  function setGlobalEstado(mensaje, tipo) {
+    setText("cms_actual_estado", mensaje);
+    var node = $("cms_actual_global_estado");
+    if (!node) return;
+    node.className = "alert fs-7 py-3 mb-4 alert-light-" + (tipo || "info");
+    node.textContent = mensaje;
+  }
+
+  function publicarCategoriasFrontend() {
+    var json = previewCategoriasCmsJson();
+    var categorias = json.depurar && Array.isArray(json.depurar.categorias) ? json.depurar.categorias : [];
+    var visibles = categorias.filter(function (item) { return item && item.visible !== false; });
+    if (!visibles.length) {
+      setCategoriasEstado("Deja al menos una categoria visible antes de publicar.", "warning");
+      return;
+    }
+    var invalida = visibles.filter(function (item) { return !item.categoria_id && !String(item.slug || "").trim(); })[0];
+    if (invalida) {
+      setCategoriasEstado("Cada categoria visible necesita ID ERP o slug.", "warning");
+      return;
+    }
+    var boton = $("cms_actual_categorias_publicar");
+    var form = new FormData();
+    form.append("_csrf", window.ERP_CSRF_TOKEN || "");
+    form.append("payload_json", JSON.stringify(json.depurar || {}));
+    if (boton) boton.disabled = true;
+    setCategoriasEstado("Publicando categorias...", "info");
+    fetch("/cms/frontend_categorias_publicar_erp", {
+      method: "POST",
+      body: form,
+      credentials: "same-origin",
+      headers: {
+        "X-CSRF-Token": window.ERP_CSRF_TOKEN || "",
+        "Accept": "application/json",
+        "X-Requested-With": "XMLHttpRequest"
+      }
+    }).then(function (response) {
+      return response.text().then(function (text) {
+        var jsonRespuesta = null;
+        try {
+          jsonRespuesta = JSON.parse(text);
+        } catch (error) {
+          throw new Error("Respuesta no JSON del servidor (" + response.status + "): " + text.substring(0, 140));
+        }
+        if (!response.ok && jsonRespuesta && jsonRespuesta.mensaje) {
+          throw new Error(jsonRespuesta.mensaje);
+        }
+        return jsonRespuesta;
+      });
+    }).then(function (jsonRespuesta) {
+      if (!jsonRespuesta || jsonRespuesta.error) {
+        throw new Error(jsonRespuesta && jsonRespuesta.mensaje ? jsonRespuesta.mensaje : "No se pudo publicar categorias");
+      }
+      setCategoriasEstado("Categorias publicadas. /ecommercePublico/categorias ya puede entregar el enriquecimiento CMS.", "success");
+    }).catch(function (error) {
+      setCategoriasEstado(error.message || "Error al publicar categorias.", "danger");
+    }).finally(function () {
+      if (boton) boton.disabled = false;
+    });
+  }
+
+  function setCategoriasEstado(mensaje, tipo) {
+    setText("cms_actual_estado", mensaje);
+    var node = $("cms_actual_categorias_estado");
     if (!node) return;
     node.className = "alert fs-7 py-3 mb-4 alert-light-" + (tipo || "info");
     node.textContent = mensaje;
@@ -2617,6 +3610,7 @@
         config: {},
         secciones: grupo.secciones.map(function (item, index) {
           if (item.codigo === "home_hero_carrusel") return hero;
+          if (item.codigo === "home_promo") return promoData();
           if (item.codigo === "home_categorias_destacadas") return categoriasData();
           if (item.codigo === "home_productos_destacados") return productosData();
           if (item.codigo === "home_colecciones") return coleccionesData();
@@ -2639,6 +3633,10 @@
 
   function heroData() {
     return estado.datos.home.home_hero_carrusel;
+  }
+
+  function promoData() {
+    return estado.datos.home.home_promo;
   }
 
   function categoriasData() {
@@ -2732,7 +3730,7 @@
           '</div>' +
           '<div class="row g-4">' +
             '<div class="col-lg-8">' +
-              '<div class="d-flex justify-content-between align-items-end flex-wrap gap-3 mb-4"><div><div class="fw-bold">Galeria disponible</div><div class="text-muted fs-8">Previsualiza y elige una imagen.</div></div><div class="d-flex gap-2"><input class="form-control form-control-sm w-200px" id="cms_actual_media_buscar" type="text" placeholder="Filtro opcional"><select class="form-select form-select-sm w-150px" id="cms_actual_media_uso"><option value="">Todos</option><option value="home">Home</option><option value="categoria">Categoria</option><option value="producto">Producto</option><option value="global">Global</option><option value="blog">Blog futuro</option></select></div></div>' +
+              '<div class="d-flex justify-content-between align-items-end flex-wrap gap-3 mb-4"><div><div class="fw-bold">Galeria disponible</div><div class="text-muted fs-8">Previsualiza y elige una imagen.</div></div><div class="d-flex gap-2"><button class="btn btn-sm btn-light-warning" type="button" id="cms_actual_media_limpiar_temporales"><i class="bi bi-eraser"></i> Limpiar temporales</button><input class="form-control form-control-sm w-200px" id="cms_actual_media_buscar" type="text" placeholder="Filtro opcional"><select class="form-select form-select-sm w-150px" id="cms_actual_media_uso"><option value="">Todos</option><option value="home">Home</option><option value="categoria">Categoria</option><option value="producto">Producto</option><option value="global">Global</option><option value="blog">Blog futuro</option></select></div></div>' +
               '<div class="row g-4" id="cms_actual_media_lista"></div>' +
             '</div>' +
             '<div class="col-lg-4">' +
@@ -2750,6 +3748,7 @@
     });
     on("cms_actual_media_buscar", "input", renderMediaPicker);
     on("cms_actual_media_uso", "change", renderMediaPicker);
+    on("cms_actual_media_limpiar_temporales", "click", limpiarMediaTemporalesPicker);
     var lista = $("cms_actual_media_lista");
     if (lista) {
       lista.addEventListener("click", function (event) {
@@ -2859,7 +3858,7 @@
       .then(function (json) {
         var data = json && json.depurar ? json.depurar : {};
         if (!Array.isArray(data.items)) return;
-        guardarMediaLocalItems(mezclarMediaItems(mediaLocalItems(), data.items.map(normalizarMediaServidor).filter(Boolean)));
+        guardarMediaLocalItems(reconciliarMediaServidor(mediaLocalItems(), data.items.map(normalizarMediaServidor).filter(Boolean)));
         renderMediaPicker();
       })
       .catch(function () {
@@ -3016,6 +4015,25 @@
       }
     });
     return salida;
+  }
+
+  function reconciliarMediaServidor(actuales, nuevos) {
+    var idsServidor = {};
+    (nuevos || []).forEach(function (item) {
+      if (item && item.id) idsServidor[item.id] = true;
+    });
+    var salida = (actuales || []).filter(function (item) {
+      return !(item && item.origen === "bd" && !idsServidor[item.id]);
+    });
+    return mezclarMediaItems(salida, nuevos || []);
+  }
+
+  function limpiarMediaTemporalesPicker() {
+    if (!window.confirm("Quitar las imagenes temporales locales de esta galeria? No afecta archivos del servidor.")) return;
+    guardarMediaLocalItems(mediaLocalItems().filter(function (item) { return item && item.origen === "bd"; }));
+    if (estado.mediaPicker) estado.mediaPicker.seleccion = "";
+    renderMediaPicker();
+    setText("cms_actual_estado", "Temporales limpiados");
   }
 
   function validarMediaFile(file) {

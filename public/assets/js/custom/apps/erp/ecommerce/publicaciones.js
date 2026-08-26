@@ -836,7 +836,7 @@
             autorizar: "ECOMMERCE_PUBLICO_LOTE_PUBLICAR",
             id_skus: skus.join(","),
             confirmar_revision: "1",
-            confirmar_agotado: $("ecom_lote_confirmar_agotados") && $("ecom_lote_confirmar_agotados").checked ? "1" : "0",
+            confirmar_agotado: "1",
             crear_borrador_si_no_existe: "1"
         }).then(function (response) {
             if (response.error && !(response.depurar && Array.isArray(response.depurar.resultados))) { throw new Error(response.mensaje || "No se pudo publicar lote"); }

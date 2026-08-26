@@ -639,6 +639,7 @@ class EcommerceCatalogoPublico extends CRUD {
     $respuesta = $this->bootstrapPublico($opciones);
     $contenidoHome = $this->contenidoPaginaPublica(array("pagina" => "home", "plantilla" => "artiani_default"));
     $depurarHome = $this->valor($contenidoHome, "depurar", array());
+    $globalPublicado = $this->frontendGlobalPublicadoDesdeBd();
     $respuesta["mensaje"] = !empty($respuesta["error"])
       ? (isset($respuesta["mensaje"]) ? $respuesta["mensaje"] : "Configuracion inicial ecommerce con observaciones")
       : "Configuracion inicial ecommerce lista";
@@ -653,7 +654,13 @@ class EcommerceCatalogoPublico extends CRUD {
       "categoria" => "/ecommercePublico/contenido_pagina?pagina=categoria&categoria={slug_categoria}",
       "estado" => $this->valor($depurarHome, "fuente", "default_readonly"),
       "panel_pendiente" => $this->valor($depurarHome, "fuente", "default_readonly") !== "bd_publicada",
+      "global_estado" => !empty($globalPublicado) ? "bd_publicada" : "default_readonly",
       "fallback_default_si_no_hay_publicado" => true
+    );
+    $respuesta["depurar"]["cms_global"] = !empty($globalPublicado) ? $globalPublicado : array(
+      "pagina" => "global",
+      "fuente" => "default_readonly",
+      "panel_pendiente" => true
     );
     $respuesta["depurar"]["contenido_inicial"] = array(
       "home" => array(
@@ -1298,6 +1305,125 @@ class EcommerceCatalogoPublico extends CRUD {
       ":url_escapada" => "%" . str_replace("/", "\\/", $url) . "%"
     ));
     return (int) $stmt->fetchColumn();
+  }
+
+  private function frontendGlobalPublicadoDesdeBd() {
+    try {
+      $db = $this->getConexion();
+      if (!$db || !$this->tablaExiste($db, "erp_ecommerce_contenido_bloques")) {
+        return array();
+      }
+      $stmt = $db->prepare("SELECT id_bloque, codigo, titulo, payload_json, fecha_actualizacion FROM erp_ecommerce_contenido_bloques WHERE codigo='frontend_global_publicado' AND estatus='publicado' LIMIT 1");
+      $stmt->execute();
+      $row = $stmt->fetch(PDO::FETCH_ASSOC);
+      if (!$row) {
+        return array();
+      }
+      $payload = json_decode((string) $row["payload_json"], true);
+      if (!is_array($payload)) {
+        return array();
+      }
+      $payload["id_bloque"] = (int) $row["id_bloque"];
+      $payload["codigo"] = (string) $row["codigo"];
+      $payload["fuente"] = "bd_publicada";
+      $payload["actualizado_en_bd"] = (string) $row["fecha_actualizacion"];
+      return $payload;
+    } catch (Exception $e) {
+      return array();
+    }
+  }
+
+  private function frontendCategoriasPublicadoDesdeBd() {
+    try {
+      $db = $this->getConexion();
+      if (!$db || !$this->tablaExiste($db, "erp_ecommerce_contenido_bloques")) {
+        return array();
+      }
+      $stmt = $db->prepare("SELECT id_bloque, codigo, payload_json, fecha_actualizacion FROM erp_ecommerce_contenido_bloques WHERE codigo='frontend_categorias_publicado' AND estatus='publicado' LIMIT 1");
+      $stmt->execute();
+      $row = $stmt->fetch(PDO::FETCH_ASSOC);
+      if (!$row) {
+        return array();
+      }
+      $payload = json_decode((string) $row["payload_json"], true);
+      if (!is_array($payload)) {
+        return array();
+      }
+      $payload["id_bloque"] = (int) $row["id_bloque"];
+      $payload["codigo"] = (string) $row["codigo"];
+      $payload["actualizado_en_bd"] = (string) $row["fecha_actualizacion"];
+      return $payload;
+    } catch (Exception $e) {
+      return array();
+    }
+  }
+
+  private function aplicarCmsCategoriasPublicas($items, $cmsCategorias) {
+    $cmsItems = $this->valor($cmsCategorias, "categorias", array());
+    if (!is_array($cmsItems) || empty($cmsItems)) {
+      return $items;
+    }
+    $porId = array();
+    $porSlug = array();
+    foreach ($cmsItems as $cms) {
+      if (!is_array($cms)) { continue; }
+      $id = intval($this->valor($cms, "categoria_id", 0));
+      $slug = trim((string) $this->valor($cms, "slug", ""));
+      if ($id > 0) { $porId[$id] = $cms; }
+      if ($slug !== "") { $porSlug[$slug] = $cms; }
+    }
+
+    foreach ($items as $id => $item) {
+      $cms = isset($porId[intval($item["id"])]) ? $porId[intval($item["id"])] : null;
+      if (!$cms) {
+        $slugPublico = (string) $this->valor($item, "slug_publico", "");
+        $slugCorto = (string) $this->valor($item, "slug_corto", "");
+        $cms = isset($porSlug[$slugPublico]) ? $porSlug[$slugPublico] : (isset($porSlug[$slugCorto]) ? $porSlug[$slugCorto] : null);
+      }
+      if (!$cms) { continue; }
+      if (array_key_exists("visible", $cms)) { $items[$id]["visible_frontend"] = (bool) $cms["visible"]; }
+      if ($this->valor($cms, "titulo", "") !== "") { $items[$id]["nombre_publico"] = (string) $cms["titulo"]; }
+      if ($this->valor($cms, "subtitulo", "") !== "") { $items[$id]["subtitulo"] = (string) $cms["subtitulo"]; }
+      if ($this->valor($cms, "descripcion_seo", "") !== "") {
+        $items[$id]["descripcion_corta"] = (string) $cms["descripcion_seo"];
+        $items[$id]["seo_description"] = (string) $cms["descripcion_seo"];
+      }
+      foreach (array("imagen_card", "imagen_banner", "alt_card", "alt_banner", "url") as $campo) {
+        if ($this->valor($cms, $campo, "") !== "") {
+          $items[$id][$campo] = $cms[$campo];
+        }
+      }
+      $items[$id]["destacado_home"] = !empty($cms["destacado"]);
+      $items[$id]["orden_cms"] = intval($this->valor($cms, "orden", $this->valor($item, "orden", 100)));
+      $items[$id]["cms_frontend"] = array(
+        "fuente" => "bd_publicada",
+        "aplicado" => true
+      );
+    }
+
+    uasort($items, function ($a, $b) {
+      $oa = intval(isset($a["orden_cms"]) ? $a["orden_cms"] : $this->valor($a, "orden", 100));
+      $ob = intval(isset($b["orden_cms"]) ? $b["orden_cms"] : $this->valor($b, "orden", 100));
+      if ($oa === $ob) { return strcasecmp((string) $this->valor($a, "nombre", ""), (string) $this->valor($b, "nombre", "")); }
+      return $oa < $ob ? -1 : 1;
+    });
+    return $items;
+  }
+
+  private function cmsPayloadContieneSecreto($valor) {
+    if (is_array($valor)) {
+      foreach ($valor as $clave => $item) {
+        $claveNormalizada = strtolower((string) $clave);
+        if (preg_match('/(password|passwd|token|secret|api_key|apikey|private_key|access_key|bearer)/', $claveNormalizada)) {
+          return true;
+        }
+        if ($this->cmsPayloadContieneSecreto($item)) {
+          return true;
+        }
+      }
+      return false;
+    }
+    return false;
   }
 
   private function mediaFormatearItem($row) {
@@ -2212,7 +2338,12 @@ class EcommerceCatalogoPublico extends CRUD {
       $incluirHijos = intval($this->valor($filtros, "incluir_hijos", 0)) === 1;
       $categoriaIds = $this->categoriaIdsFiltroPublico($db, $categoria, $categoriaSlug, $incluirHijos);
       if (!empty($categoriaIds)) {
-        $where[] = "pc.id_categoria_erp IN (" . implode(",", array_map("intval", $categoriaIds)) . ")";
+        $where[] = "EXISTS (
+          SELECT 1
+          FROM erp_catalogo_producto_categorias pcf
+          WHERE pcf.id_producto_erp=p.id_producto_erp
+            AND pcf.id_categoria_erp IN (" . implode(",", array_map("intval", $categoriaIds)) . ")
+        )";
       } elseif ($categoria > 0 || $categoriaSlug !== "") {
         $where[] = "pc.id_categoria_erp = -1";
       }
@@ -2607,11 +2738,11 @@ class EcommerceCatalogoPublico extends CRUD {
         WHERE " . $baseWhere . "
           AND COALESCE(r.permite_venta_fraccionaria, 0)=0
         GROUP BY m.id_marca_erp, m.nombre ORDER BY m.nombre")->fetchAll(PDO::FETCH_ASSOC);
-      $categorias = $db->query("SELECT c.id_categoria_erp id, COALESCE(c.ruta, c.nombre) etiqueta, COUNT(*) total
+      $categorias = $db->query("SELECT c.id_categoria_erp id, COALESCE(c.ruta, c.nombre) etiqueta, COUNT(DISTINCT pub.id_publicacion) total
         FROM erp_ecommerce_publicaciones pub
         INNER JOIN erp_catalogo_skus s ON s.id_sku=pub.id_sku
         INNER JOIN erp_catalogo_productos p ON p.id_producto_erp=pub.id_producto_erp
-        INNER JOIN erp_catalogo_producto_categorias pc ON pc.id_producto_erp=p.id_producto_erp AND pc.es_principal=1
+        INNER JOIN erp_catalogo_producto_categorias pc ON pc.id_producto_erp=p.id_producto_erp
         INNER JOIN erp_catalogo_categorias c ON c.id_categoria_erp=pc.id_categoria_erp
         LEFT JOIN erp_catalogo_sku_reglas_inventario r ON r.id_sku=s.id_sku
         " . $this->sqlJoinPrecioListaVigente("s", "INNER") . "
@@ -2676,6 +2807,10 @@ class EcommerceCatalogoPublico extends CRUD {
       }
 
       $items = $this->categoriasPublicasItems($db);
+      $cmsCategorias = $this->frontendCategoriasPublicadoDesdeBd();
+      if (!empty($cmsCategorias)) {
+        $items = $this->aplicarCmsCategoriasPublicas($items, $cmsCategorias);
+      }
       $arbol = $this->categoriasPublicasArbol($items);
       return $this->respuesta(false, "success", "Categorias ecommerce consultadas", array(
         "configurado" => true,
@@ -2695,8 +2830,13 @@ class EcommerceCatalogoPublico extends CRUD {
           "usar_items_para_busqueda_y_sitemap" => true
         ),
         "cms_pendiente" => array(
-          "imagenes_y_textos_editables" => true,
+          "imagenes_y_textos_editables" => empty($cmsCategorias),
           "campos" => array("imagen_menu", "imagen_card", "imagen_banner", "descripcion_corta", "seo_title", "seo_description", "orden", "destacado_home")
+        ),
+        "cms_frontend" => array(
+          "fuente" => !empty($cmsCategorias) ? "bd_publicada" : "default_readonly",
+          "config" => $this->valor($cmsCategorias, "config", array()),
+          "categorias_publicadas" => count($this->valor($cmsCategorias, "categorias", array()))
         ),
         "guardrails" => array(
           "read_only" => true,
@@ -5750,6 +5890,7 @@ class EcommerceCatalogoPublico extends CRUD {
     $ok = 0;
     $error = 0;
     $crearBorradorSiNoExiste = intval($this->valor($datos, "crear_borrador_si_no_existe", 0)) === 1;
+    $confirmarAgotadoLote = 1;
     $db = $this->getConexion();
     foreach ($skus as $idSku) {
       $borrador = null;
@@ -5763,7 +5904,7 @@ class EcommerceCatalogoPublico extends CRUD {
       $respuesta = $this->cambiarEstatusPublicacionAutorizado(array(
         "id_sku" => $idSku,
         "estatus_publicacion" => "publicado",
-        "confirmar_agotado" => intval($this->valor($datos, "confirmar_agotado", 0))
+        "confirmar_agotado" => $confirmarAgotadoLote
       ), array("autorizar" => "ECOMMERCE_PUBLICO_GOBIERNO_ESTATUS"));
       if (empty($respuesta["error"])) {
         $ok++;
@@ -5800,7 +5941,8 @@ class EcommerceCatalogoPublico extends CRUD {
       "resultado_lote" => $error > 0 ? ($ok > 0 ? "parcial" : "sin_cambios") : "completo",
       "resultados" => $resultados,
       "crear_borrador_si_no_existe" => $crearBorradorSiNoExiste,
-      "confirmar_agotado" => intval($this->valor($datos, "confirmar_agotado", 0)) === 1,
+      "confirmar_agotado" => true,
+      "agotados_permitidos_por_politica_lote" => true,
       "no_toca_inventario" => true,
       "no_toca_ecom_legacy" => true
     ));
@@ -6044,6 +6186,7 @@ class EcommerceCatalogoPublico extends CRUD {
     }
     $estatus = trim((string) $this->valor($datos, "estatus_publicacion", ""));
     $crearBorradorSiNoExiste = $estatus === "publicado" && intval($this->valor($datos, "crear_borrador_si_no_existe", 0)) === 1;
+    $confirmarAgotadoLote = $estatus === "publicado" ? 1 : intval($this->valor($datos, "confirmar_agotado", 0));
     $ok = 0;
     $error = 0;
     $resultados = array();
@@ -6058,7 +6201,7 @@ class EcommerceCatalogoPublico extends CRUD {
       $respuesta = $this->cambiarEstatusPublicacionAutorizado(array(
         "id_sku" => $idSku,
         "estatus_publicacion" => $estatus,
-        "confirmar_agotado" => intval($this->valor($datos, "confirmar_agotado", 0))
+        "confirmar_agotado" => $confirmarAgotadoLote
       ), array("autorizar" => "ECOMMERCE_PUBLICO_GOBIERNO_ESTATUS"));
       if (empty($respuesta["error"])) {
         $ok++;
@@ -6092,7 +6235,8 @@ class EcommerceCatalogoPublico extends CRUD {
       "resultado_lote" => $error > 0 ? ($ok > 0 ? "parcial" : "sin_cambios") : "completo",
       "resultados" => $resultados,
       "crear_borrador_si_no_existe" => $crearBorradorSiNoExiste,
-      "confirmar_agotado" => intval($this->valor($datos, "confirmar_agotado", 0)) === 1,
+      "confirmar_agotado" => $confirmarAgotadoLote === 1,
+      "agotados_permitidos_por_politica_lote" => $estatus === "publicado",
       "no_toca_inventario" => true,
       "no_toca_ecom_legacy" => true
     ));
@@ -6107,7 +6251,7 @@ class EcommerceCatalogoPublico extends CRUD {
         COUNT(*) skus_total,
         SUM(p.estatus='activo' AND s.estatus='activo') skus_activos_producto_activo,
         SUM(CASE WHEN pr.id_lista_precio_detalle IS NOT NULL THEN 1 ELSE 0 END) skus_con_precio,
-        SUM(CASE WHEN img.id_imagen_erp IS NOT NULL THEN 1 ELSE 0 END) skus_con_imagen,
+        SUM(CASE WHEN COALESCE(img_sku.id_imagen_erp, img_prod.id_imagen_erp) IS NOT NULL THEN 1 ELSE 0 END) skus_con_imagen,
         SUM(CASE WHEN pc.id_categoria_erp IS NOT NULL THEN 1 ELSE 0 END) skus_con_categoria,
         SUM(CASE WHEN p.id_marca_erp IS NOT NULL THEN 1 ELSE 0 END) skus_con_marca,
         SUM(CASE WHEN COALESCE(r.permite_venta_fraccionaria, 0)=1 THEN 1 ELSE 0 END) skus_fraccionarios,
@@ -6115,7 +6259,7 @@ class EcommerceCatalogoPublico extends CRUD {
         SUM(CASE WHEN p.estatus='activo'
               AND s.estatus='activo'
               AND pr.id_lista_precio_detalle IS NOT NULL
-              AND img.id_imagen_erp IS NOT NULL
+              AND COALESCE(img_sku.id_imagen_erp, img_prod.id_imagen_erp) IS NOT NULL
               AND COALESCE(r.permite_venta_fraccionaria, 0)=0
             THEN 1 ELSE 0 END) skus_publicables_fase_1
       FROM erp_catalogo_skus s
@@ -6123,12 +6267,26 @@ class EcommerceCatalogoPublico extends CRUD {
       LEFT JOIN erp_catalogo_producto_categorias pc ON pc.id_producto_erp=p.id_producto_erp AND pc.es_principal=1
       LEFT JOIN erp_catalogo_sku_reglas_inventario r ON r.id_sku=s.id_sku
       " . $this->sqlJoinPrecioListaVigente("s", "LEFT") . "
-      LEFT JOIN (
-        SELECT id_producto_erp, MIN(id_imagen_erp) id_imagen_erp
-        FROM erp_catalogo_imagenes
-        WHERE estatus='activo' AND TRIM(COALESCE(url_imagen,''))<>''
-        GROUP BY id_producto_erp
-      ) img ON img.id_producto_erp=p.id_producto_erp
+      LEFT JOIN erp_catalogo_imagenes img_sku ON img_sku.id_imagen_erp=(
+        SELECT i.id_imagen_erp
+        FROM erp_catalogo_imagenes i
+        WHERE i.id_producto_erp=p.id_producto_erp
+          AND i.id_sku=s.id_sku
+          AND i.estatus='activo'
+          AND TRIM(COALESCE(i.url_imagen,''))<>''
+        ORDER BY CASE WHEN i.tipo_imagen='principal' THEN 0 ELSE 1 END, i.orden ASC, i.id_imagen_erp ASC
+        LIMIT 1
+      )
+      LEFT JOIN erp_catalogo_imagenes img_prod ON img_prod.id_imagen_erp=(
+        SELECT i.id_imagen_erp
+        FROM erp_catalogo_imagenes i
+        WHERE i.id_producto_erp=p.id_producto_erp
+          AND (i.id_sku IS NULL OR i.id_sku=0)
+          AND i.estatus='activo'
+          AND TRIM(COALESCE(i.url_imagen,''))<>''
+        ORDER BY CASE WHEN i.tipo_imagen='principal' THEN 0 ELSE 1 END, i.orden ASC, i.id_imagen_erp ASC
+        LIMIT 1
+      )
       " . $joinPublicaciones;
     return $db->query($sql)->fetch(PDO::FETCH_ASSOC);
   }
@@ -6163,11 +6321,11 @@ class EcommerceCatalogoPublico extends CRUD {
     $params = array();
     if ($soloPublicables) {
       $where[] = "pr.id_lista_precio_detalle IS NOT NULL";
-      $where[] = "img.url_imagen IS NOT NULL";
+      $where[] = "COALESCE(img_sku.url_imagen, img_prod.url_imagen) IS NOT NULL";
       $where[] = "COALESCE(r.permite_venta_fraccionaria, 0)=0";
     }
     if ($soloBloqueados) {
-      $where[] = "(pr.id_lista_precio_detalle IS NULL OR img.url_imagen IS NULL OR COALESCE(r.permite_venta_fraccionaria, 0)=1)";
+      $where[] = "(pr.id_lista_precio_detalle IS NULL OR COALESCE(img_sku.url_imagen, img_prod.url_imagen) IS NULL OR COALESCE(r.permite_venta_fraccionaria, 0)=1)";
     }
     if ($busqueda !== "") {
       $where[] = "(p.nombre LIKE :q OR s.nombre LIKE :q OR s.sku LIKE :q OR p.codigo_producto LIKE :q OR m.nombre LIKE :q OR c.nombre LIKE :q OR c.ruta LIKE :q)";
@@ -6226,16 +6384,26 @@ class EcommerceCatalogoPublico extends CRUD {
       LEFT JOIN erp_catalogo_categorias c ON c.id_categoria_erp=pc.id_categoria_erp
       LEFT JOIN erp_catalogo_sku_reglas_inventario r ON r.id_sku=s.id_sku
       " . $this->sqlJoinPrecioListaVigente("s", "LEFT") . "
-      LEFT JOIN (
-        SELECT i.id_producto_erp, i.url_imagen
+      LEFT JOIN erp_catalogo_imagenes img_sku ON img_sku.id_imagen_erp=(
+        SELECT i.id_imagen_erp
         FROM erp_catalogo_imagenes i
-        INNER JOIN (
-          SELECT id_producto_erp, MIN(id_imagen_erp) id_imagen_erp
-          FROM erp_catalogo_imagenes
-          WHERE estatus='activo' AND TRIM(COALESCE(url_imagen,''))<>''
-          GROUP BY id_producto_erp
-        ) x ON x.id_imagen_erp=i.id_imagen_erp
-      ) img ON img.id_producto_erp=p.id_producto_erp
+        WHERE i.id_producto_erp=p.id_producto_erp
+          AND i.id_sku=s.id_sku
+          AND i.estatus='activo'
+          AND TRIM(COALESCE(i.url_imagen,''))<>''
+        ORDER BY CASE WHEN i.tipo_imagen='principal' THEN 0 ELSE 1 END, i.orden ASC, i.id_imagen_erp ASC
+        LIMIT 1
+      )
+      LEFT JOIN erp_catalogo_imagenes img_prod ON img_prod.id_imagen_erp=(
+        SELECT i.id_imagen_erp
+        FROM erp_catalogo_imagenes i
+        WHERE i.id_producto_erp=p.id_producto_erp
+          AND (i.id_sku IS NULL OR i.id_sku=0)
+          AND i.estatus='activo'
+          AND TRIM(COALESCE(i.url_imagen,''))<>''
+        ORDER BY CASE WHEN i.tipo_imagen='principal' THEN 0 ELSE 1 END, i.orden ASC, i.id_imagen_erp ASC
+        LIMIT 1
+      )
       LEFT JOIN (
         SELECT id_sku_erp, SUM(cantidad_disponible) cantidad_disponible
         FROM erp_inventario_existencias
@@ -6260,14 +6428,15 @@ class EcommerceCatalogoPublico extends CRUD {
         COALESCE(NULLIF(r.unidad_venta_label, ''), u.abreviatura, u.codigo, '') presentacion_base,
         p.descripcion descripcion_catalogo,
         pr.precio, pr.moneda, pr.id_lista_precio, pr.lista_codigo, pr.lista_nombre,
-        img.url_imagen,
+        COALESCE(img_sku.url_imagen, img_prod.url_imagen) url_imagen,
+        CASE WHEN img_sku.url_imagen IS NOT NULL THEN 'sku' WHEN img_prod.url_imagen IS NOT NULL THEN 'producto' ELSE '' END imagen_fuente,
         COALESCE(r.controla_inventario, CASE WHEN s.tipo_inventario IN ('servicio','cargo') THEN 0 ELSE 1 END) controla_inventario,
         COALESCE(r.permite_venta_fraccionaria, 0) permite_venta_fraccionaria,
         COALESCE(inv.cantidad_disponible, 0) existencia_disponible,
         " . ($tienePublicaciones ? "pub.id_publicacion, pub.estatus_publicacion, pub.slug slug_publicacion, pub.titulo_publico titulo_publico_publicacion, pub.descripcion_publica descripcion_publica_publicacion, pub.presentacion_publica presentacion_publica_publicacion, pub.mascota_especie mascota_especie_publicacion, pub.necesidades_json necesidades_json_publicacion, pub.destacado destacado_publicacion, pub.orden orden_publicacion, pub.permite_cotizacion permite_cotizacion_publicacion, pub.permite_whatsapp permite_whatsapp_publicacion, pub.mostrar_precio mostrar_precio_publicacion, pub.mostrar_disponibilidad mostrar_disponibilidad_publicacion" : "NULL id_publicacion, NULL estatus_publicacion, NULL slug_publicacion, NULL titulo_publico_publicacion, NULL descripcion_publica_publicacion, NULL presentacion_publica_publicacion, NULL mascota_especie_publicacion, NULL necesidades_json_publicacion, NULL destacado_publicacion, NULL orden_publicacion, NULL permite_cotizacion_publicacion, NULL permite_whatsapp_publicacion, NULL mostrar_precio_publicacion, NULL mostrar_disponibilidad_publicacion") . "
       " . $joins . "
       WHERE " . implode(" AND ", $where) . "
-      ORDER BY CASE WHEN pr.id_lista_precio_detalle IS NOT NULL AND img.url_imagen IS NOT NULL AND COALESCE(r.permite_venta_fraccionaria,0)=0 THEN 0 ELSE 1 END,
+      ORDER BY CASE WHEN pr.id_lista_precio_detalle IS NOT NULL AND COALESCE(img_sku.url_imagen, img_prod.url_imagen) IS NOT NULL AND COALESCE(r.permite_venta_fraccionaria,0)=0 THEN 0 ELSE 1 END,
         p.nombre, s.sku
       LIMIT " . intval($limite) . " OFFSET " . max(0, intval($offset));
     $stmt = $db->prepare($sql);
@@ -6304,7 +6473,8 @@ class EcommerceCatalogoPublico extends CRUD {
         COALESCE(NULLIF(r.unidad_venta_label, ''), u.abreviatura, u.codigo, '') presentacion_base,
         p.descripcion descripcion_catalogo,
         pr.precio, pr.moneda, pr.id_lista_precio, pr.lista_codigo, pr.lista_nombre,
-        img.url_imagen,
+        COALESCE(img_sku.url_imagen, img_prod.url_imagen) url_imagen,
+        CASE WHEN img_sku.url_imagen IS NOT NULL THEN 'sku' WHEN img_prod.url_imagen IS NOT NULL THEN 'producto' ELSE '' END imagen_fuente,
         COALESCE(r.controla_inventario, CASE WHEN s.tipo_inventario IN ('servicio','cargo') THEN 0 ELSE 1 END) controla_inventario,
         COALESCE(r.permite_venta_fraccionaria, 0) permite_venta_fraccionaria,
         COALESCE(inv.cantidad_disponible, 0) existencia_disponible,
@@ -6317,16 +6487,26 @@ class EcommerceCatalogoPublico extends CRUD {
       LEFT JOIN erp_catalogo_categorias c ON c.id_categoria_erp=pc.id_categoria_erp
       LEFT JOIN erp_catalogo_sku_reglas_inventario r ON r.id_sku=s.id_sku
       " . $this->sqlJoinPrecioListaVigente("s", "LEFT") . "
-      LEFT JOIN (
-        SELECT i.id_producto_erp, i.url_imagen
+      LEFT JOIN erp_catalogo_imagenes img_sku ON img_sku.id_imagen_erp=(
+        SELECT i.id_imagen_erp
         FROM erp_catalogo_imagenes i
-        INNER JOIN (
-          SELECT id_producto_erp, MIN(id_imagen_erp) id_imagen_erp
-          FROM erp_catalogo_imagenes
-          WHERE estatus='activo' AND TRIM(COALESCE(url_imagen,''))<>''
-          GROUP BY id_producto_erp
-        ) x ON x.id_imagen_erp=i.id_imagen_erp
-      ) img ON img.id_producto_erp=p.id_producto_erp
+        WHERE i.id_producto_erp=p.id_producto_erp
+          AND i.id_sku=s.id_sku
+          AND i.estatus='activo'
+          AND TRIM(COALESCE(i.url_imagen,''))<>''
+        ORDER BY CASE WHEN i.tipo_imagen='principal' THEN 0 ELSE 1 END, i.orden ASC, i.id_imagen_erp ASC
+        LIMIT 1
+      )
+      LEFT JOIN erp_catalogo_imagenes img_prod ON img_prod.id_imagen_erp=(
+        SELECT i.id_imagen_erp
+        FROM erp_catalogo_imagenes i
+        WHERE i.id_producto_erp=p.id_producto_erp
+          AND (i.id_sku IS NULL OR i.id_sku=0)
+          AND i.estatus='activo'
+          AND TRIM(COALESCE(i.url_imagen,''))<>''
+        ORDER BY CASE WHEN i.tipo_imagen='principal' THEN 0 ELSE 1 END, i.orden ASC, i.id_imagen_erp ASC
+        LIMIT 1
+      )
       LEFT JOIN (
         SELECT id_sku_erp, SUM(cantidad_disponible) cantidad_disponible
         FROM erp_inventario_existencias
@@ -6562,6 +6742,794 @@ class EcommerceCatalogoPublico extends CRUD {
   }
 
   /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-08-25
+   * Proposito: publicar desde CMS Frontend la franja promocional de Home como contenido consumible por API publica.
+   * Impacto: Home ecommerce; conecta el editor operativo `home_promo` con `home.promo` sin tocar catalogo/precios/inventario.
+   * Contrato: escritura controlada; exige al menos un aviso visible con texto y publica una pieza vigente.
+   */
+  public function frontendHomePromoPublicarInterno($datos, $idUsuario = 0) {
+    try {
+      $db = $this->getConexion();
+      if (!$db || !$this->tablasCmsContenidoDisponibles($db)) {
+        return $this->respuesta(true, "warning", "El esquema CMS contenido no esta disponible para publicar Home promo.", array("persistencia_real" => false));
+      }
+
+      $payloadRaw = (string) $this->valor($datos, "payload_json", "{}");
+      $payload = json_decode($payloadRaw, true);
+      if (!is_array($payload)) {
+        return $this->respuesta(true, "warning", "El payload de promo no es JSON valido.", array("json_error" => json_last_error_msg()));
+      }
+
+      $items = $this->valor($payload, "items", array());
+      if (!is_array($items) || empty($items)) {
+        return $this->respuesta(true, "warning", "La promo no tiene avisos para publicar.", array("codigo" => "home_promo"));
+      }
+      $itemsPublicos = array();
+      foreach ($items as $index => $item) {
+        if (!is_array($item)) { continue; }
+        if (array_key_exists("visible", $item) && !(bool) $item["visible"]) { continue; }
+        $texto = trim((string) $this->valor($item, "texto", ""));
+        if ($texto === "") { continue; }
+        $cta = $this->valor($item, "cta", array());
+        if (!is_array($cta)) { $cta = array(); }
+        $itemsPublicos[] = array(
+          "icono" => trim((string) $this->valor($item, "icono", "")),
+          "texto" => $texto,
+          "cta" => array(
+            "label" => trim((string) $this->valor($cta, "label", "")),
+            "url" => trim((string) $this->valor($cta, "url", ""))
+          ),
+          "visible" => true,
+          "orden" => intval($this->valor($item, "orden", ($index + 1) * 10))
+        );
+      }
+      if (empty($itemsPublicos)) {
+        return $this->respuesta(true, "warning", "Captura al menos un aviso visible con texto para publicar la promo.", array("codigo" => "home_promo"));
+      }
+      usort($itemsPublicos, function ($a, $b) {
+        return intval($this->valor($a, "orden", 0)) <=> intval($this->valor($b, "orden", 0));
+      });
+
+      $titulo = trim((string) $this->valor($payload, "titulo", "Franja promocional Home"));
+      if ($titulo === "") { $titulo = "Franja promocional Home"; }
+      $config = $this->valor($payload, "config", array());
+      if (!is_array($config)) { $config = array(); }
+      $bloquePayload = array(
+        "titulo" => $titulo,
+        "texto" => (string) $this->valor($itemsPublicos[0], "texto", ""),
+        "items" => $itemsPublicos,
+        "frontend" => array(
+          "origen" => "home_promo",
+          "variante" => trim((string) $this->valor($config, "variante", "wokiee_promo_strip")),
+          "tono" => trim((string) $this->valor($config, "tono", "info"))
+        )
+      );
+
+      $db->beginTransaction();
+      $codigoBloque = "home_promo_publicado";
+      $stmtBloque = $db->prepare("SELECT id_bloque FROM erp_ecommerce_contenido_bloques WHERE codigo=:codigo LIMIT 1");
+      $stmtBloque->execute(array(":codigo" => $codigoBloque));
+      $idBloque = (int) $stmtBloque->fetchColumn();
+      $payloadJson = json_encode($bloquePayload, JSON_UNESCAPED_UNICODE);
+      if ($idBloque > 0) {
+        $stmt = $db->prepare("UPDATE erp_ecommerce_contenido_bloques SET tipo_bloque='promo_strip', nombre_interno='Home promo publicado', titulo=:titulo, payload_json=:payload, estatus='borrador', fecha_actualizacion=NOW(), actualizado_por=:usuario WHERE id_bloque=:id");
+        $stmt->execute(array(":titulo" => $titulo, ":payload" => $payloadJson, ":usuario" => intval($idUsuario) ?: null, ":id" => $idBloque));
+      } else {
+        $stmt = $db->prepare("INSERT INTO erp_ecommerce_contenido_bloques (tipo_bloque, codigo, nombre_interno, titulo, payload_json, estatus, creado_por, actualizado_por) VALUES ('promo_strip', :codigo, 'Home promo publicado', :titulo, :payload, 'borrador', :usuario, :usuario)");
+        $stmt->execute(array(":codigo" => $codigoBloque, ":titulo" => $titulo, ":payload" => $payloadJson, ":usuario" => intval($idUsuario) ?: null));
+        $idBloque = (int) $db->lastInsertId();
+      }
+
+      $stmtPlantilla = $db->prepare("SELECT id_plantilla FROM erp_ecommerce_plantillas WHERE codigo='artiani_default' AND activa=1 LIMIT 1");
+      $stmtPlantilla->execute();
+      $idPlantilla = (int) $stmtPlantilla->fetchColumn();
+      $stmtSlot = $db->prepare("SELECT id_slot FROM erp_ecommerce_plantilla_slots WHERE id_plantilla=:plantilla AND codigo='home.promo' AND estatus='activo' LIMIT 1");
+      $stmtSlot->execute(array(":plantilla" => $idPlantilla));
+      $idSlot = (int) $stmtSlot->fetchColumn();
+      if ($idPlantilla <= 0 || $idSlot <= 0) {
+        $db->rollBack();
+        return $this->respuesta(true, "warning", "No existe plantilla/slot Home promo activo para publicar.", array("plantilla" => $idPlantilla, "slot" => $idSlot));
+      }
+
+      $stmtPausar = $db->prepare("UPDATE erp_ecommerce_contenido_publicaciones SET estatus='pausado', fecha_actualizacion=NOW(), actualizado_por=:usuario WHERE id_plantilla=:plantilla AND id_slot=:slot AND pagina='home' AND contexto_clave='*' AND canal='catalogo_publico' AND estatus='publicado'");
+      $stmtPausar->execute(array(":usuario" => intval($idUsuario) ?: null, ":plantilla" => $idPlantilla, ":slot" => $idSlot));
+
+      $stmtPub = $db->prepare("SELECT id_publicacion_contenido FROM erp_ecommerce_contenido_publicaciones WHERE id_plantilla=:plantilla AND id_slot=:slot AND id_bloque=:bloque AND pagina='home' AND contexto_clave='*' AND canal='catalogo_publico' LIMIT 1");
+      $stmtPub->execute(array(":plantilla" => $idPlantilla, ":slot" => $idSlot, ":bloque" => $idBloque));
+      $idPublicacion = (int) $stmtPub->fetchColumn();
+      if ($idPublicacion > 0) {
+        $stmt = $db->prepare("UPDATE erp_ecommerce_contenido_publicaciones SET orden=1, estatus='publicado', vigente_desde=NULL, vigente_hasta=NULL, fecha_actualizacion=NOW(), actualizado_por=:usuario WHERE id_publicacion_contenido=:id");
+        $stmt->execute(array(":usuario" => intval($idUsuario) ?: null, ":id" => $idPublicacion));
+      } else {
+        $stmt = $db->prepare("INSERT INTO erp_ecommerce_contenido_publicaciones (id_plantilla, id_slot, id_bloque, pagina, contexto_clave, orden, estatus, vigente_desde, vigente_hasta, canal, actualizado_por) VALUES (:plantilla, :slot, :bloque, 'home', '*', 1, 'publicado', NULL, NULL, 'catalogo_publico', :usuario)");
+        $stmt->execute(array(":plantilla" => $idPlantilla, ":slot" => $idSlot, ":bloque" => $idBloque, ":usuario" => intval($idUsuario) ?: null));
+        $idPublicacion = (int) $db->lastInsertId();
+      }
+      $db->commit();
+
+      return $this->respuesta(false, "success", "Home promo publicada para API publica.", array(
+        "id_bloque" => $idBloque,
+        "id_publicacion_contenido" => $idPublicacion,
+        "slot" => "home.promo",
+        "pagina" => "home",
+        "items_total" => count($itemsPublicos),
+        "publicado_api" => true,
+        "endpoint" => "/ecommercePublico/contenido_pagina?pagina=home",
+        "guardrails" => array(
+          "no_modifica_catalogo" => true,
+          "no_modifica_precios" => true,
+          "no_modifica_inventario" => true
+        )
+      ));
+    } catch (Exception $e) {
+      if (isset($db) && $db instanceof PDO && $db->inTransaction()) {
+        $db->rollBack();
+      }
+      return $this->respuesta(true, "danger", "No se pudo publicar Home promo.", array("error_tecnico" => $e->getMessage()));
+    }
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-08-25
+   * Proposito: publicar desde CMS Frontend las categorias destacadas de Home para el slot `home.categorias`.
+   * Impacto: Home ecommerce; permite controlar cards de categoria sin crear/editar categorias reales ni tocar catalogo.
+   * Contrato: escritura controlada; cada item visible requiere categoria_id o slug, y las imagenes deben venir de Media CMS.
+   */
+  public function frontendHomeCategoriasPublicarInterno($datos, $idUsuario = 0) {
+    try {
+      $db = $this->getConexion();
+      if (!$db || !$this->tablasCmsContenidoDisponibles($db)) {
+        return $this->respuesta(true, "warning", "El esquema CMS contenido no esta disponible para publicar Home categorias.", array("persistencia_real" => false));
+      }
+
+      $payloadRaw = (string) $this->valor($datos, "payload_json", "{}");
+      $payload = json_decode($payloadRaw, true);
+      if (!is_array($payload)) {
+        return $this->respuesta(true, "warning", "El payload de categorias Home no es JSON valido.", array("json_error" => json_last_error_msg()));
+      }
+
+      $items = $this->valor($payload, "items", array());
+      if (!is_array($items) || empty($items)) {
+        return $this->respuesta(true, "warning", "No hay categorias destacadas para publicar.", array("codigo" => "home_categorias_destacadas"));
+      }
+
+      $itemsPublicos = array();
+      $errores = array();
+      foreach ($items as $index => $item) {
+        if (!is_array($item)) { continue; }
+        if (array_key_exists("visible", $item) && !(bool) $item["visible"]) { continue; }
+        $idCategoria = intval($this->valor($item, "categoria_id", 0));
+        $slug = trim((string) $this->valor($item, "slug", ""));
+        if ($idCategoria <= 0 && $slug === "") {
+          $errores[] = "categoria_" . ($index + 1) . "_sin_id_ni_slug";
+          continue;
+        }
+        foreach (array("imagen_card", "imagen_banner") as $campoImagen) {
+          $url = trim((string) $this->valor($item, $campoImagen, ""));
+          if ($url !== "" && strpos($url, "/assets/media/cms/ecommerce/") !== 0) {
+            $errores[] = "categoria_" . ($index + 1) . "_" . $campoImagen . "_no_media_cms";
+          }
+        }
+        $itemsPublicos[] = array(
+          "categoria_id" => $idCategoria > 0 ? $idCategoria : null,
+          "slug" => $slug,
+          "titulo" => trim((string) $this->valor($item, "titulo", "")),
+          "subtitulo" => trim((string) $this->valor($item, "subtitulo", "")),
+          "imagen_card" => trim((string) $this->valor($item, "imagen_card", "")),
+          "imagen_banner" => trim((string) $this->valor($item, "imagen_banner", "")),
+          "alt" => trim((string) $this->valor($item, "alt", "")),
+          "url" => trim((string) $this->valor($item, "url", "")),
+          "visible" => true,
+          "orden" => intval($this->valor($item, "orden", ($index + 1) * 10))
+        );
+      }
+      if (!empty($errores)) {
+        return $this->respuesta(true, "warning", "Corrige categorias destacadas antes de publicar.", array("errores" => array_values(array_unique($errores))));
+      }
+      if (empty($itemsPublicos)) {
+        return $this->respuesta(true, "warning", "Deja al menos una categoria visible para publicar.", array("codigo" => "home_categorias_destacadas"));
+      }
+      usort($itemsPublicos, function ($a, $b) {
+        return intval($this->valor($a, "orden", 0)) <=> intval($this->valor($b, "orden", 0));
+      });
+
+      $config = $this->valor($payload, "config", array());
+      if (!is_array($config)) { $config = array(); }
+      $titulo = trim((string) $this->valor($payload, "titulo", "Categorias destacadas"));
+      if ($titulo === "") { $titulo = "Categorias destacadas"; }
+      $bloquePayload = array(
+        "titulo" => $titulo,
+        "subtitulo" => trim((string) $this->valor($payload, "subtitulo", "")),
+        "items" => $itemsPublicos,
+        "frontend" => array(
+          "origen" => "home_categorias_destacadas",
+          "variante" => trim((string) $this->valor($config, "variante", "wokiee_category_cards")),
+          "columnas_desktop" => intval($this->valor($config, "columnas_desktop", 4)),
+          "columnas_mobile" => intval($this->valor($config, "columnas_mobile", 2))
+        )
+      );
+
+      $db->beginTransaction();
+      $codigoBloque = "home_categorias_destacadas_publicado";
+      $stmtBloque = $db->prepare("SELECT id_bloque FROM erp_ecommerce_contenido_bloques WHERE codigo=:codigo LIMIT 1");
+      $stmtBloque->execute(array(":codigo" => $codigoBloque));
+      $idBloque = (int) $stmtBloque->fetchColumn();
+      $payloadJson = json_encode($bloquePayload, JSON_UNESCAPED_UNICODE);
+      if ($idBloque > 0) {
+        $stmt = $db->prepare("UPDATE erp_ecommerce_contenido_bloques SET tipo_bloque='image_card_grid', nombre_interno='Home categorias destacadas publicado', titulo=:titulo, payload_json=:payload, estatus='borrador', fecha_actualizacion=NOW(), actualizado_por=:usuario WHERE id_bloque=:id");
+        $stmt->execute(array(":titulo" => $titulo, ":payload" => $payloadJson, ":usuario" => intval($idUsuario) ?: null, ":id" => $idBloque));
+      } else {
+        $stmt = $db->prepare("INSERT INTO erp_ecommerce_contenido_bloques (tipo_bloque, codigo, nombre_interno, titulo, payload_json, estatus, creado_por, actualizado_por) VALUES ('image_card_grid', :codigo, 'Home categorias destacadas publicado', :titulo, :payload, 'borrador', :usuario, :usuario)");
+        $stmt->execute(array(":codigo" => $codigoBloque, ":titulo" => $titulo, ":payload" => $payloadJson, ":usuario" => intval($idUsuario) ?: null));
+        $idBloque = (int) $db->lastInsertId();
+      }
+
+      $stmtPlantilla = $db->prepare("SELECT id_plantilla FROM erp_ecommerce_plantillas WHERE codigo='artiani_default' AND activa=1 LIMIT 1");
+      $stmtPlantilla->execute();
+      $idPlantilla = (int) $stmtPlantilla->fetchColumn();
+      $stmtSlot = $db->prepare("SELECT id_slot FROM erp_ecommerce_plantilla_slots WHERE id_plantilla=:plantilla AND codigo='home.categorias' AND estatus='activo' LIMIT 1");
+      $stmtSlot->execute(array(":plantilla" => $idPlantilla));
+      $idSlot = (int) $stmtSlot->fetchColumn();
+      if ($idPlantilla <= 0 || $idSlot <= 0) {
+        $db->rollBack();
+        return $this->respuesta(true, "warning", "No existe plantilla/slot Home categorias activo para publicar.", array("plantilla" => $idPlantilla, "slot" => $idSlot));
+      }
+
+      $stmtPausar = $db->prepare("UPDATE erp_ecommerce_contenido_publicaciones SET estatus='pausado', fecha_actualizacion=NOW(), actualizado_por=:usuario WHERE id_plantilla=:plantilla AND id_slot=:slot AND pagina='home' AND contexto_clave='*' AND canal='catalogo_publico' AND estatus='publicado'");
+      $stmtPausar->execute(array(":usuario" => intval($idUsuario) ?: null, ":plantilla" => $idPlantilla, ":slot" => $idSlot));
+
+      $stmtPub = $db->prepare("SELECT id_publicacion_contenido FROM erp_ecommerce_contenido_publicaciones WHERE id_plantilla=:plantilla AND id_slot=:slot AND id_bloque=:bloque AND pagina='home' AND contexto_clave='*' AND canal='catalogo_publico' LIMIT 1");
+      $stmtPub->execute(array(":plantilla" => $idPlantilla, ":slot" => $idSlot, ":bloque" => $idBloque));
+      $idPublicacion = (int) $stmtPub->fetchColumn();
+      if ($idPublicacion > 0) {
+        $stmt = $db->prepare("UPDATE erp_ecommerce_contenido_publicaciones SET orden=1, estatus='publicado', vigente_desde=NULL, vigente_hasta=NULL, fecha_actualizacion=NOW(), actualizado_por=:usuario WHERE id_publicacion_contenido=:id");
+        $stmt->execute(array(":usuario" => intval($idUsuario) ?: null, ":id" => $idPublicacion));
+      } else {
+        $stmt = $db->prepare("INSERT INTO erp_ecommerce_contenido_publicaciones (id_plantilla, id_slot, id_bloque, pagina, contexto_clave, orden, estatus, vigente_desde, vigente_hasta, canal, actualizado_por) VALUES (:plantilla, :slot, :bloque, 'home', '*', 1, 'publicado', NULL, NULL, 'catalogo_publico', :usuario)");
+        $stmt->execute(array(":plantilla" => $idPlantilla, ":slot" => $idSlot, ":bloque" => $idBloque, ":usuario" => intval($idUsuario) ?: null));
+        $idPublicacion = (int) $db->lastInsertId();
+      }
+      $db->commit();
+
+      return $this->respuesta(false, "success", "Categorias destacadas de Home publicadas para API publica.", array(
+        "id_bloque" => $idBloque,
+        "id_publicacion_contenido" => $idPublicacion,
+        "slot" => "home.categorias",
+        "pagina" => "home",
+        "items_total" => count($itemsPublicos),
+        "publicado_api" => true,
+        "endpoint" => "/ecommercePublico/contenido_pagina?pagina=home",
+        "guardrails" => array(
+          "no_modifica_catalogo" => true,
+          "no_modifica_precios" => true,
+          "no_modifica_inventario" => true
+        )
+      ));
+    } catch (Exception $e) {
+      if (isset($db) && $db instanceof PDO && $db->inTransaction()) {
+        $db->rollBack();
+      }
+      return $this->respuesta(true, "danger", "No se pudieron publicar categorias destacadas de Home.", array("error_tecnico" => $e->getMessage()));
+    }
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-08-25
+   * Proposito: publicar desde CMS Frontend la vitrina principal de productos destacados de Home.
+   * Impacto: Home ecommerce; entrega criterio o referencias manuales al frontend sin tocar catalogo, precios ni inventario.
+   * Contrato: escritura controlada; modo criterio requiere criterio y modo manual requiere al menos SKU, ID o slug.
+   */
+  public function frontendHomeProductosPublicarInterno($datos, $idUsuario = 0) {
+    try {
+      $db = $this->getConexion();
+      if (!$db || !$this->tablasCmsContenidoDisponibles($db)) {
+        return $this->respuesta(true, "warning", "El esquema CMS contenido no esta disponible para publicar Home productos.", array("persistencia_real" => false));
+      }
+
+      $payloadRaw = (string) $this->valor($datos, "payload_json", "{}");
+      $payload = json_decode($payloadRaw, true);
+      if (!is_array($payload)) {
+        return $this->respuesta(true, "warning", "El payload de productos Home no es JSON valido.", array("json_error" => json_last_error_msg()));
+      }
+
+      $fuente = $this->valor($payload, "fuente", array());
+      if (!is_array($fuente)) { $fuente = array(); }
+      $modo = trim((string) $this->valor($fuente, "modo", "criterio"));
+      if (!in_array($modo, array("criterio", "manual"), true)) { $modo = "criterio"; }
+      $criterio = trim((string) $this->valor($fuente, "criterio", "destacados"));
+      if ($modo === "criterio" && $criterio === "") {
+        return $this->respuesta(true, "warning", "Selecciona un criterio para productos destacados.", array("campo" => "fuente.criterio"));
+      }
+
+      $referencias = array();
+      $productos = $this->valor($fuente, "productos", array());
+      if (is_array($productos)) {
+        foreach ($productos as $index => $producto) {
+          if (!is_array($producto)) { continue; }
+          $productoId = intval($this->valor($producto, "producto_id", 0));
+          $sku = trim((string) $this->valor($producto, "sku", ""));
+          $slug = trim((string) $this->valor($producto, "slug", ""));
+          if ($productoId <= 0 && $sku === "" && $slug === "") { continue; }
+          $referencias[] = array(
+            "producto_id" => $productoId > 0 ? $productoId : null,
+            "sku" => $sku,
+            "slug" => $slug,
+            "titulo_override" => trim((string) $this->valor($producto, "titulo_override", "")),
+            "orden" => intval($this->valor($producto, "orden", ($index + 1) * 10))
+          );
+        }
+      }
+      if ($modo === "manual" && empty($referencias)) {
+        return $this->respuesta(true, "warning", "En modo manual agrega al menos un producto por SKU, ID o slug.", array("campo" => "fuente.productos"));
+      }
+      usort($referencias, function ($a, $b) {
+        return intval($this->valor($a, "orden", 0)) <=> intval($this->valor($b, "orden", 0));
+      });
+
+      $config = $this->valor($payload, "config", array());
+      if (!is_array($config)) { $config = array(); }
+      $cta = $this->valor($payload, "cta", array());
+      if (!is_array($cta)) { $cta = array(); }
+      $titulo = trim((string) $this->valor($payload, "titulo", "Productos destacados"));
+      if ($titulo === "") { $titulo = "Productos destacados"; }
+      $limite = intval($this->valor($payload, "limite", 12));
+      if ($limite <= 0) { $limite = 12; }
+      if ($limite > 48) { $limite = 48; }
+
+      $bloquePayload = array(
+        "titulo" => $titulo,
+        "subtitulo" => trim((string) $this->valor($payload, "subtitulo", "")),
+        "fuente" => array(
+          "modo" => $modo,
+          "criterio" => $criterio,
+          "categoria_slug" => trim((string) $this->valor($fuente, "categoria_slug", "")),
+          "marca_slug" => trim((string) $this->valor($fuente, "marca_slug", "")),
+          "productos" => $referencias
+        ),
+        "limite" => $limite,
+        "cta" => array(
+          "label" => trim((string) $this->valor($cta, "label", "Ver catalogo")),
+          "url" => trim((string) $this->valor($cta, "url", "/#productos"))
+        ),
+        "frontend" => array(
+          "origen" => "home_productos_destacados",
+          "variante" => trim((string) $this->valor($config, "variante", "wokiee_product_carousel")),
+          "mostrar_precio" => (bool) $this->valor($config, "mostrar_precio", true),
+          "mostrar_badges" => (bool) $this->valor($config, "mostrar_badges", true)
+        ),
+        "guardrails" => array(
+          "frontend_resuelve_productos_por_api" => true,
+          "no_stock_exacto" => true,
+          "no_modifica_catalogo" => true,
+          "no_modifica_precios" => true,
+          "no_modifica_inventario" => true
+        )
+      );
+
+      $db->beginTransaction();
+      $codigoBloque = "home_productos_destacados_publicado";
+      $stmtBloque = $db->prepare("SELECT id_bloque FROM erp_ecommerce_contenido_bloques WHERE codigo=:codigo LIMIT 1");
+      $stmtBloque->execute(array(":codigo" => $codigoBloque));
+      $idBloque = (int) $stmtBloque->fetchColumn();
+      $payloadJson = json_encode($bloquePayload, JSON_UNESCAPED_UNICODE);
+      if ($idBloque > 0) {
+        $stmt = $db->prepare("UPDATE erp_ecommerce_contenido_bloques SET tipo_bloque='product_collection', nombre_interno='Home productos destacados publicado', titulo=:titulo, payload_json=:payload, estatus='borrador', fecha_actualizacion=NOW(), actualizado_por=:usuario WHERE id_bloque=:id");
+        $stmt->execute(array(":titulo" => $titulo, ":payload" => $payloadJson, ":usuario" => intval($idUsuario) ?: null, ":id" => $idBloque));
+      } else {
+        $stmt = $db->prepare("INSERT INTO erp_ecommerce_contenido_bloques (tipo_bloque, codigo, nombre_interno, titulo, payload_json, estatus, creado_por, actualizado_por) VALUES ('product_collection', :codigo, 'Home productos destacados publicado', :titulo, :payload, 'borrador', :usuario, :usuario)");
+        $stmt->execute(array(":codigo" => $codigoBloque, ":titulo" => $titulo, ":payload" => $payloadJson, ":usuario" => intval($idUsuario) ?: null));
+        $idBloque = (int) $db->lastInsertId();
+      }
+
+      $stmtPlantilla = $db->prepare("SELECT id_plantilla FROM erp_ecommerce_plantillas WHERE codigo='artiani_default' AND activa=1 LIMIT 1");
+      $stmtPlantilla->execute();
+      $idPlantilla = (int) $stmtPlantilla->fetchColumn();
+      $stmtSlot = $db->prepare("SELECT id_slot FROM erp_ecommerce_plantilla_slots WHERE id_plantilla=:plantilla AND codigo='home.destacados' AND estatus='activo' LIMIT 1");
+      $stmtSlot->execute(array(":plantilla" => $idPlantilla));
+      $idSlot = (int) $stmtSlot->fetchColumn();
+      if ($idPlantilla <= 0 || $idSlot <= 0) {
+        $db->rollBack();
+        return $this->respuesta(true, "warning", "No existe plantilla/slot Home destacados activo para publicar.", array("plantilla" => $idPlantilla, "slot" => $idSlot));
+      }
+
+      $stmtPausar = $db->prepare("UPDATE erp_ecommerce_contenido_publicaciones SET estatus='pausado', fecha_actualizacion=NOW(), actualizado_por=:usuario WHERE id_plantilla=:plantilla AND id_slot=:slot AND pagina='home' AND contexto_clave='*' AND canal='catalogo_publico' AND estatus='publicado'");
+      $stmtPausar->execute(array(":usuario" => intval($idUsuario) ?: null, ":plantilla" => $idPlantilla, ":slot" => $idSlot));
+
+      $stmtPub = $db->prepare("SELECT id_publicacion_contenido FROM erp_ecommerce_contenido_publicaciones WHERE id_plantilla=:plantilla AND id_slot=:slot AND id_bloque=:bloque AND pagina='home' AND contexto_clave='*' AND canal='catalogo_publico' LIMIT 1");
+      $stmtPub->execute(array(":plantilla" => $idPlantilla, ":slot" => $idSlot, ":bloque" => $idBloque));
+      $idPublicacion = (int) $stmtPub->fetchColumn();
+      if ($idPublicacion > 0) {
+        $stmt = $db->prepare("UPDATE erp_ecommerce_contenido_publicaciones SET orden=1, estatus='publicado', vigente_desde=NULL, vigente_hasta=NULL, fecha_actualizacion=NOW(), actualizado_por=:usuario WHERE id_publicacion_contenido=:id");
+        $stmt->execute(array(":usuario" => intval($idUsuario) ?: null, ":id" => $idPublicacion));
+      } else {
+        $stmt = $db->prepare("INSERT INTO erp_ecommerce_contenido_publicaciones (id_plantilla, id_slot, id_bloque, pagina, contexto_clave, orden, estatus, vigente_desde, vigente_hasta, canal, actualizado_por) VALUES (:plantilla, :slot, :bloque, 'home', '*', 1, 'publicado', NULL, NULL, 'catalogo_publico', :usuario)");
+        $stmt->execute(array(":plantilla" => $idPlantilla, ":slot" => $idSlot, ":bloque" => $idBloque, ":usuario" => intval($idUsuario) ?: null));
+        $idPublicacion = (int) $db->lastInsertId();
+      }
+      $db->commit();
+
+      return $this->respuesta(false, "success", "Productos destacados de Home publicados para API publica.", array(
+        "id_bloque" => $idBloque,
+        "id_publicacion_contenido" => $idPublicacion,
+        "slot" => "home.destacados",
+        "pagina" => "home",
+        "modo" => $modo,
+        "referencias_total" => count($referencias),
+        "publicado_api" => true,
+        "endpoint" => "/ecommercePublico/contenido_pagina?pagina=home",
+        "guardrails" => $bloquePayload["guardrails"]
+      ));
+    } catch (Exception $e) {
+      if (isset($db) && $db instanceof PDO && $db->inTransaction()) {
+        $db->rollBack();
+      }
+      return $this->respuesta(true, "danger", "No se pudieron publicar productos destacados de Home.", array("error_tecnico" => $e->getMessage()));
+    }
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-08-25
+   * Proposito: publicar desde CMS Frontend un grupo de colecciones de productos para Home.
+   * Impacto: Home ecommerce; entrega varias vitrinas de productos en `home.destacados` sin reemplazar la vitrina principal.
+   * Contrato: escritura controlada; cada coleccion visible requiere titulo y criterio o referencias manuales.
+   */
+  public function frontendHomeColeccionesPublicarInterno($datos, $idUsuario = 0) {
+    try {
+      $db = $this->getConexion();
+      if (!$db || !$this->tablasCmsContenidoDisponibles($db)) {
+        return $this->respuesta(true, "warning", "El esquema CMS contenido no esta disponible para publicar Home colecciones.", array("persistencia_real" => false));
+      }
+
+      $payloadRaw = (string) $this->valor($datos, "payload_json", "{}");
+      $payload = json_decode($payloadRaw, true);
+      if (!is_array($payload)) {
+        return $this->respuesta(true, "warning", "El payload de colecciones Home no es JSON valido.", array("json_error" => json_last_error_msg()));
+      }
+
+      $items = $this->valor($payload, "items", array());
+      if (!is_array($items) || empty($items)) {
+        return $this->respuesta(true, "warning", "No hay colecciones para publicar.", array("codigo" => "home_colecciones"));
+      }
+
+      $colecciones = array();
+      $errores = array();
+      foreach ($items as $index => $item) {
+        if (!is_array($item)) { continue; }
+        if (array_key_exists("visible", $item) && !(bool) $item["visible"]) { continue; }
+        $titulo = trim((string) $this->valor($item, "titulo", ""));
+        if ($titulo === "") {
+          $errores[] = "coleccion_" . ($index + 1) . "_sin_titulo";
+          continue;
+        }
+        $fuente = $this->valor($item, "fuente", array());
+        if (!is_array($fuente)) { $fuente = array(); }
+        $modo = trim((string) $this->valor($fuente, "modo", "criterio"));
+        if (!in_array($modo, array("criterio", "manual"), true)) { $modo = "criterio"; }
+        $criterio = trim((string) $this->valor($fuente, "criterio", "destacados"));
+
+        $referencias = array();
+        $productos = $this->valor($fuente, "productos", array());
+        if (is_array($productos)) {
+          foreach ($productos as $pos => $producto) {
+            if (!is_array($producto)) { continue; }
+            $productoId = intval($this->valor($producto, "producto_id", 0));
+            $sku = trim((string) $this->valor($producto, "sku", ""));
+            $slug = trim((string) $this->valor($producto, "slug", ""));
+            if ($productoId <= 0 && $sku === "" && $slug === "") { continue; }
+            $referencias[] = array(
+              "producto_id" => $productoId > 0 ? $productoId : null,
+              "sku" => $sku,
+              "slug" => $slug,
+              "orden" => intval($this->valor($producto, "orden", ($pos + 1) * 10))
+            );
+          }
+        }
+        if ($modo === "manual" && empty($referencias)) {
+          $errores[] = "coleccion_" . ($index + 1) . "_manual_sin_productos";
+          continue;
+        }
+        if ($modo === "criterio" && $criterio === "") {
+          $errores[] = "coleccion_" . ($index + 1) . "_sin_criterio";
+          continue;
+        }
+        usort($referencias, function ($a, $b) {
+          return intval($this->valor($a, "orden", 0)) <=> intval($this->valor($b, "orden", 0));
+        });
+        $cta = $this->valor($item, "cta", array());
+        if (!is_array($cta)) { $cta = array(); }
+        $config = $this->valor($item, "config", array());
+        if (!is_array($config)) { $config = array(); }
+        $limite = intval($this->valor($item, "limite", 8));
+        if ($limite <= 0) { $limite = 8; }
+        if ($limite > 48) { $limite = 48; }
+        $colecciones[] = array(
+          "codigo" => trim((string) $this->valor($item, "codigo", "coleccion_" . ($index + 1))),
+          "titulo" => $titulo,
+          "subtitulo" => trim((string) $this->valor($item, "subtitulo", "")),
+          "fuente" => array(
+            "modo" => $modo,
+            "criterio" => $criterio,
+            "categoria_slug" => trim((string) $this->valor($fuente, "categoria_slug", "")),
+            "marca_slug" => trim((string) $this->valor($fuente, "marca_slug", "")),
+            "productos" => $referencias
+          ),
+          "limite" => $limite,
+          "cta" => array(
+            "label" => trim((string) $this->valor($cta, "label", "")),
+            "url" => trim((string) $this->valor($cta, "url", ""))
+          ),
+          "config" => array(
+            "variante" => trim((string) $this->valor($config, "variante", "wokiee_product_row"))
+          ),
+          "visible" => true,
+          "orden" => intval($this->valor($item, "orden", ($index + 1) * 10))
+        );
+      }
+      if (!empty($errores)) {
+        return $this->respuesta(true, "warning", "Corrige colecciones antes de publicar.", array("errores" => array_values(array_unique($errores))));
+      }
+      if (empty($colecciones)) {
+        return $this->respuesta(true, "warning", "Deja al menos una coleccion visible para publicar.", array("codigo" => "home_colecciones"));
+      }
+      usort($colecciones, function ($a, $b) {
+        return intval($this->valor($a, "orden", 0)) <=> intval($this->valor($b, "orden", 0));
+      });
+
+      $configGrupo = $this->valor($payload, "config", array());
+      if (!is_array($configGrupo)) { $configGrupo = array(); }
+      $tituloGrupo = trim((string) $this->valor($payload, "titulo", "Colecciones de productos"));
+      if ($tituloGrupo === "") { $tituloGrupo = "Colecciones de productos"; }
+      $bloquePayload = array(
+        "titulo" => $tituloGrupo,
+        "subtitulo" => trim((string) $this->valor($payload, "subtitulo", "")),
+        "items" => $colecciones,
+        "frontend" => array(
+          "origen" => "home_colecciones",
+          "variante" => trim((string) $this->valor($configGrupo, "variante", "wokiee_collection_rows"))
+        ),
+        "guardrails" => array(
+          "frontend_resuelve_productos_por_api" => true,
+          "no_stock_exacto" => true,
+          "no_modifica_catalogo" => true,
+          "no_modifica_precios" => true,
+          "no_modifica_inventario" => true
+        )
+      );
+
+      $db->beginTransaction();
+      $codigoBloque = "home_colecciones_publicado";
+      $stmtBloque = $db->prepare("SELECT id_bloque FROM erp_ecommerce_contenido_bloques WHERE codigo=:codigo LIMIT 1");
+      $stmtBloque->execute(array(":codigo" => $codigoBloque));
+      $idBloque = (int) $stmtBloque->fetchColumn();
+      $payloadJson = json_encode($bloquePayload, JSON_UNESCAPED_UNICODE);
+      if ($idBloque > 0) {
+        $stmt = $db->prepare("UPDATE erp_ecommerce_contenido_bloques SET tipo_bloque='product_collection', nombre_interno='Home colecciones publicado', titulo=:titulo, payload_json=:payload, estatus='borrador', fecha_actualizacion=NOW(), actualizado_por=:usuario WHERE id_bloque=:id");
+        $stmt->execute(array(":titulo" => $tituloGrupo, ":payload" => $payloadJson, ":usuario" => intval($idUsuario) ?: null, ":id" => $idBloque));
+      } else {
+        $stmt = $db->prepare("INSERT INTO erp_ecommerce_contenido_bloques (tipo_bloque, codigo, nombre_interno, titulo, payload_json, estatus, creado_por, actualizado_por) VALUES ('product_collection', :codigo, 'Home colecciones publicado', :titulo, :payload, 'borrador', :usuario, :usuario)");
+        $stmt->execute(array(":codigo" => $codigoBloque, ":titulo" => $tituloGrupo, ":payload" => $payloadJson, ":usuario" => intval($idUsuario) ?: null));
+        $idBloque = (int) $db->lastInsertId();
+      }
+
+      $stmtPlantilla = $db->prepare("SELECT id_plantilla FROM erp_ecommerce_plantillas WHERE codigo='artiani_default' AND activa=1 LIMIT 1");
+      $stmtPlantilla->execute();
+      $idPlantilla = (int) $stmtPlantilla->fetchColumn();
+      $stmtSlot = $db->prepare("SELECT id_slot FROM erp_ecommerce_plantilla_slots WHERE id_plantilla=:plantilla AND codigo='home.destacados' AND estatus='activo' LIMIT 1");
+      $stmtSlot->execute(array(":plantilla" => $idPlantilla));
+      $idSlot = (int) $stmtSlot->fetchColumn();
+      if ($idPlantilla <= 0 || $idSlot <= 0) {
+        $db->rollBack();
+        return $this->respuesta(true, "warning", "No existe plantilla/slot Home destacados activo para publicar colecciones.", array("plantilla" => $idPlantilla, "slot" => $idSlot));
+      }
+
+      $stmtPub = $db->prepare("SELECT id_publicacion_contenido FROM erp_ecommerce_contenido_publicaciones WHERE id_plantilla=:plantilla AND id_slot=:slot AND id_bloque=:bloque AND pagina='home' AND contexto_clave='*' AND canal='catalogo_publico' LIMIT 1");
+      $stmtPub->execute(array(":plantilla" => $idPlantilla, ":slot" => $idSlot, ":bloque" => $idBloque));
+      $idPublicacion = (int) $stmtPub->fetchColumn();
+      if ($idPublicacion > 0) {
+        $stmt = $db->prepare("UPDATE erp_ecommerce_contenido_publicaciones SET orden=20, estatus='publicado', vigente_desde=NULL, vigente_hasta=NULL, fecha_actualizacion=NOW(), actualizado_por=:usuario WHERE id_publicacion_contenido=:id");
+        $stmt->execute(array(":usuario" => intval($idUsuario) ?: null, ":id" => $idPublicacion));
+      } else {
+        $stmt = $db->prepare("INSERT INTO erp_ecommerce_contenido_publicaciones (id_plantilla, id_slot, id_bloque, pagina, contexto_clave, orden, estatus, vigente_desde, vigente_hasta, canal, actualizado_por) VALUES (:plantilla, :slot, :bloque, 'home', '*', 20, 'publicado', NULL, NULL, 'catalogo_publico', :usuario)");
+        $stmt->execute(array(":plantilla" => $idPlantilla, ":slot" => $idSlot, ":bloque" => $idBloque, ":usuario" => intval($idUsuario) ?: null));
+        $idPublicacion = (int) $db->lastInsertId();
+      }
+      $db->commit();
+
+      return $this->respuesta(false, "success", "Colecciones de Home publicadas para API publica.", array(
+        "id_bloque" => $idBloque,
+        "id_publicacion_contenido" => $idPublicacion,
+        "slot" => "home.destacados",
+        "pagina" => "home",
+        "colecciones_total" => count($colecciones),
+        "publicado_api" => true,
+        "endpoint" => "/ecommercePublico/contenido_pagina?pagina=home",
+        "guardrails" => $bloquePayload["guardrails"]
+      ));
+    } catch (Exception $e) {
+      if (isset($db) && $db instanceof PDO && $db->inTransaction()) {
+        $db->rollBack();
+      }
+      return $this->respuesta(true, "danger", "No se pudieron publicar colecciones de Home.", array("error_tecnico" => $e->getMessage()));
+    }
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-08-25
+   * Proposito: publicar configuracion global CMS para el arranque del frontend ecommerce.
+   * Impacto: configuracion_inicial puede consumir marca, contacto, SEO, redes, navegacion y assets sin hardcodear.
+   * Contrato: escritura controlada en bloque CMS tecnico; no guarda secretos ni HTML/JS libre.
+   */
+  public function frontendGlobalPublicarInterno($datos, $idUsuario = 0) {
+    try {
+      $db = $this->getConexion();
+      if (!$db || !$this->tablaExiste($db, "erp_ecommerce_contenido_bloques")) {
+        return $this->respuesta(true, "warning", "El esquema CMS contenido no esta disponible para publicar Global.", array("persistencia_real" => false));
+      }
+
+      $payloadRaw = (string) $this->valor($datos, "payload_json", "{}");
+      $payload = json_decode($payloadRaw, true);
+      if (!is_array($payload)) {
+        return $this->respuesta(true, "warning", "El payload global no es JSON valido.", array("json_error" => json_last_error_msg()));
+      }
+
+      $negocio = $this->valor($payload, "negocio", array());
+      if (!is_array($negocio)) { $negocio = array(); }
+      $nombre = trim((string) $this->valor($negocio, "nombre_comercial", ""));
+      if ($nombre === "") {
+        return $this->respuesta(true, "warning", "Captura nombre comercial antes de publicar Global.", array("campo" => "negocio.nombre_comercial"));
+      }
+      if ($this->cmsPayloadContieneSecreto($payload)) {
+        return $this->respuesta(true, "warning", "El payload global contiene campos con apariencia de secreto.", array(
+          "bloqueo" => "no_publicar_secretos"
+        ));
+      }
+
+      $payload["pagina"] = "global";
+      $payload["actualizado_en"] = date("c");
+      $payload["fuente"] = "bd_publicada";
+      $payload["guardrails"] = array(
+        "no_secretos" => true,
+        "no_archivos_erp" => true,
+        "publicado_desde_cms" => true
+      );
+
+      $codigo = "frontend_global_publicado";
+      $payloadJson = json_encode($payload, JSON_UNESCAPED_UNICODE);
+      $stmtBuscar = $db->prepare("SELECT id_bloque FROM erp_ecommerce_contenido_bloques WHERE codigo=:codigo LIMIT 1");
+      $stmtBuscar->execute(array(":codigo" => $codigo));
+      $idBloque = (int) $stmtBuscar->fetchColumn();
+
+      if ($idBloque > 0) {
+        $stmt = $db->prepare("UPDATE erp_ecommerce_contenido_bloques SET tipo_bloque='content_html_safe', nombre_interno='Frontend global publicado', titulo=:titulo, payload_json=:payload, estatus='publicado', fecha_actualizacion=NOW(), actualizado_por=:usuario WHERE id_bloque=:id");
+        $stmt->execute(array(":titulo" => $nombre, ":payload" => $payloadJson, ":usuario" => intval($idUsuario) ?: null, ":id" => $idBloque));
+      } else {
+        $stmt = $db->prepare("INSERT INTO erp_ecommerce_contenido_bloques (tipo_bloque, codigo, nombre_interno, titulo, payload_json, estatus, creado_por, actualizado_por) VALUES ('content_html_safe', :codigo, 'Frontend global publicado', :titulo, :payload, 'publicado', :usuario, :usuario)");
+        $stmt->execute(array(":codigo" => $codigo, ":titulo" => $nombre, ":payload" => $payloadJson, ":usuario" => intval($idUsuario) ?: null));
+        $idBloque = (int) $db->lastInsertId();
+      }
+
+      return $this->respuesta(false, "success", "Configuracion global publicada para API publica.", array(
+        "id_bloque" => $idBloque,
+        "codigo" => $codigo,
+        "publicado_api" => true,
+        "endpoint" => "/ecommercePublico/configuracion_inicial",
+        "global" => $payload,
+        "guardrails" => array(
+          "no_secretos" => true,
+          "no_modifica_catalogo" => true,
+          "no_modifica_precios" => true,
+          "no_modifica_inventario" => true
+        )
+      ));
+    } catch (Exception $e) {
+      return $this->respuesta(true, "danger", "No se pudo publicar configuracion global.", array("error_tecnico" => $e->getMessage()));
+    }
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-08-25
+   * Proposito: publicar enriquecimiento CMS de categorias para API publica.
+   * Impacto: agrega imagenes, SEO, destacados y orden sin crear/editar categorias reales.
+   * Contrato: escritura controlada en bloque CMS tecnico; valida rutas Media CMS si se informan imagenes.
+   */
+  public function frontendCategoriasPublicarInterno($datos, $idUsuario = 0) {
+    try {
+      $db = $this->getConexion();
+      if (!$db || !$this->tablaExiste($db, "erp_ecommerce_contenido_bloques")) {
+        return $this->respuesta(true, "warning", "El esquema CMS contenido no esta disponible para publicar Categorias.", array("persistencia_real" => false));
+      }
+
+      $payloadRaw = (string) $this->valor($datos, "payload_json", "{}");
+      $payload = json_decode($payloadRaw, true);
+      if (!is_array($payload)) {
+        return $this->respuesta(true, "warning", "El payload de categorias no es JSON valido.", array("json_error" => json_last_error_msg()));
+      }
+
+      $categorias = $this->valor($payload, "categorias", array());
+      if (!is_array($categorias) || empty($categorias)) {
+        return $this->respuesta(true, "warning", "No hay categorias para publicar.", array("campo" => "categorias"));
+      }
+
+      $limpias = array();
+      $errores = array();
+      foreach ($categorias as $index => $categoria) {
+        if (!is_array($categoria)) { continue; }
+        $visible = array_key_exists("visible", $categoria) ? (bool) $categoria["visible"] : true;
+        $idCategoria = intval($this->valor($categoria, "categoria_id", 0));
+        $slug = trim((string) $this->valor($categoria, "slug", ""));
+        if ($visible && $idCategoria <= 0 && $slug === "") {
+          $errores[] = "categoria_" . ($index + 1) . "_sin_id_ni_slug";
+          continue;
+        }
+        foreach (array("imagen_card", "imagen_banner") as $campoImagen) {
+          $url = trim((string) $this->valor($categoria, $campoImagen, ""));
+          if ($url !== "" && strpos($url, "/assets/media/cms/ecommerce/") !== 0) {
+            $errores[] = "categoria_" . ($index + 1) . "_" . $campoImagen . "_no_media_cms";
+          }
+        }
+        $limpias[] = array(
+          "categoria_id" => $idCategoria > 0 ? $idCategoria : null,
+          "slug" => $slug,
+          "titulo" => trim((string) $this->valor($categoria, "titulo", "")),
+          "subtitulo" => trim((string) $this->valor($categoria, "subtitulo", "")),
+          "descripcion_seo" => trim((string) $this->valor($categoria, "descripcion_seo", "")),
+          "imagen_card" => trim((string) $this->valor($categoria, "imagen_card", "")),
+          "imagen_banner" => trim((string) $this->valor($categoria, "imagen_banner", "")),
+          "alt_card" => trim((string) $this->valor($categoria, "alt_card", "")),
+          "alt_banner" => trim((string) $this->valor($categoria, "alt_banner", "")),
+          "destacado" => (bool) $this->valor($categoria, "destacado", false),
+          "visible" => $visible,
+          "orden" => intval($this->valor($categoria, "orden", ($index + 1) * 10)),
+          "url" => trim((string) $this->valor($categoria, "url", ""))
+        );
+      }
+      if (!empty($errores)) {
+        return $this->respuesta(true, "warning", "Corrige categorias antes de publicar.", array("errores" => array_values(array_unique($errores))));
+      }
+
+      $payloadPublicado = array(
+        "version" => "cms_frontend_categorias_2026_08_25",
+        "pagina" => "categorias",
+        "actualizado_en" => date("c"),
+        "fuente" => "bd_publicada",
+        "config" => $this->valor($payload, "config", array()),
+        "categorias" => $limpias,
+        "guardrails" => array(
+          "no_modifica_catalogo" => true,
+          "no_modifica_precios" => true,
+          "no_modifica_inventario" => true,
+          "publicado_desde_cms" => true
+        )
+      );
+
+      $codigo = "frontend_categorias_publicado";
+      $payloadJson = json_encode($payloadPublicado, JSON_UNESCAPED_UNICODE);
+      $stmtBuscar = $db->prepare("SELECT id_bloque FROM erp_ecommerce_contenido_bloques WHERE codigo=:codigo LIMIT 1");
+      $stmtBuscar->execute(array(":codigo" => $codigo));
+      $idBloque = (int) $stmtBuscar->fetchColumn();
+      if ($idBloque > 0) {
+        $stmt = $db->prepare("UPDATE erp_ecommerce_contenido_bloques SET tipo_bloque='image_card_grid', nombre_interno='Frontend categorias publicado', titulo='Categorias frontend', payload_json=:payload, estatus='publicado', fecha_actualizacion=NOW(), actualizado_por=:usuario WHERE id_bloque=:id");
+        $stmt->execute(array(":payload" => $payloadJson, ":usuario" => intval($idUsuario) ?: null, ":id" => $idBloque));
+      } else {
+        $stmt = $db->prepare("INSERT INTO erp_ecommerce_contenido_bloques (tipo_bloque, codigo, nombre_interno, titulo, payload_json, estatus, creado_por, actualizado_por) VALUES ('image_card_grid', :codigo, 'Frontend categorias publicado', 'Categorias frontend', :payload, 'publicado', :usuario, :usuario)");
+        $stmt->execute(array(":codigo" => $codigo, ":payload" => $payloadJson, ":usuario" => intval($idUsuario) ?: null));
+        $idBloque = (int) $db->lastInsertId();
+      }
+
+      return $this->respuesta(false, "success", "Categorias frontend publicadas para API publica.", array(
+        "id_bloque" => $idBloque,
+        "codigo" => $codigo,
+        "categorias_total" => count($limpias),
+        "publicado_api" => true,
+        "endpoint" => "/ecommercePublico/categorias",
+        "guardrails" => $payloadPublicado["guardrails"]
+      ));
+    } catch (Exception $e) {
+      return $this->respuesta(true, "danger", "No se pudo publicar categorias frontend.", array("error_tecnico" => $e->getMessage()));
+    }
+  }
+
+  /**
    * Documentacion IA: Codex GPT-5 | Fecha: 2026-08-11
    * Proposito: reutilizar la descripcion existente del Catalogo ERP como texto temporal de ecommerce.
    * Impacto: evita fichas publicas vacias mientras se redacta curaduria especifica para ecommerce.
@@ -6707,7 +7675,22 @@ class EcommerceCatalogoPublico extends CRUD {
         s.sku, COALESCE(s.nombre, p.nombre) nombre_sku, p.nombre nombre_producto, p.descripcion descripcion_catalogo,
         m.id_marca_erp, m.nombre marca, pc.id_categoria_erp, c.nombre categoria_nombre, COALESCE(c.ruta, c.nombre) categoria,
         pr.precio, pr.moneda, pr.id_lista_precio, pr.lista_codigo, pr.lista_nombre,
-        img.url_imagen,
+        COALESCE(img_sku.url_imagen, img_prod.url_imagen) url_imagen,
+        CASE WHEN img_sku.url_imagen IS NOT NULL THEN 'sku' WHEN img_prod.url_imagen IS NOT NULL THEN 'producto' ELSE '' END imagen_fuente,
+        (
+          SELECT GROUP_CONCAT(CONCAT_WS('~', c2.id_categoria_erp, REPLACE(COALESCE(c2.ruta, c2.nombre), '~', ' '), REPLACE(c2.nombre, '~', ' '), pc2.es_principal) ORDER BY pc2.es_principal DESC, COALESCE(c2.ruta, c2.nombre), c2.nombre SEPARATOR '||')
+          FROM erp_catalogo_producto_categorias pc2
+          INNER JOIN erp_catalogo_categorias c2 ON c2.id_categoria_erp=pc2.id_categoria_erp
+          WHERE pc2.id_producto_erp=p.id_producto_erp
+        ) categorias_serializadas,
+        (
+          SELECT GROUP_CONCAT(CONCAT_WS('~', i.id_imagen_erp, COALESCE(i.id_sku, 0), REPLACE(i.tipo_imagen, '~', ' '), REPLACE(i.url_imagen, '~', ' '), REPLACE(COALESCE(i.texto_alternativo, ''), '~', ' ')) ORDER BY CASE WHEN i.id_sku=s.id_sku THEN 0 WHEN COALESCE(i.id_sku, 0)=0 THEN 1 ELSE 2 END, i.orden ASC, i.id_imagen_erp ASC SEPARATOR '||')
+          FROM erp_catalogo_imagenes i
+          WHERE i.id_producto_erp=p.id_producto_erp
+            AND i.estatus='activo'
+            AND TRIM(COALESCE(i.url_imagen,''))<>''
+            AND (i.id_sku=s.id_sku OR i.id_sku IS NULL OR i.id_sku=0)
+        ) imagenes_serializadas,
         COALESCE(r.controla_inventario, CASE WHEN s.tipo_inventario IN ('servicio','cargo') THEN 0 ELSE 1 END) controla_inventario,
         COALESCE(r.permite_venta_fraccionaria, 0) permite_venta_fraccionaria,
         COALESCE(inv.cantidad_disponible, 0) existencia_disponible
@@ -6719,16 +7702,26 @@ class EcommerceCatalogoPublico extends CRUD {
       LEFT JOIN erp_catalogo_categorias c ON c.id_categoria_erp=pc.id_categoria_erp
       LEFT JOIN erp_catalogo_sku_reglas_inventario r ON r.id_sku=s.id_sku
       " . $this->sqlJoinPrecioListaVigente("s", "LEFT") . "
-      LEFT JOIN (
-        SELECT i.id_producto_erp, i.url_imagen
+      LEFT JOIN erp_catalogo_imagenes img_sku ON img_sku.id_imagen_erp=(
+        SELECT i.id_imagen_erp
         FROM erp_catalogo_imagenes i
-        INNER JOIN (
-          SELECT id_producto_erp, MIN(id_imagen_erp) id_imagen_erp
-          FROM erp_catalogo_imagenes
-          WHERE estatus='activo' AND TRIM(COALESCE(url_imagen,''))<>''
-          GROUP BY id_producto_erp
-        ) x ON x.id_imagen_erp=i.id_imagen_erp
-      ) img ON img.id_producto_erp=p.id_producto_erp
+        WHERE i.id_producto_erp=p.id_producto_erp
+          AND i.id_sku=s.id_sku
+          AND i.estatus='activo'
+          AND TRIM(COALESCE(i.url_imagen,''))<>''
+        ORDER BY CASE WHEN i.tipo_imagen='principal' THEN 0 ELSE 1 END, i.orden ASC, i.id_imagen_erp ASC
+        LIMIT 1
+      )
+      LEFT JOIN erp_catalogo_imagenes img_prod ON img_prod.id_imagen_erp=(
+        SELECT i.id_imagen_erp
+        FROM erp_catalogo_imagenes i
+        WHERE i.id_producto_erp=p.id_producto_erp
+          AND (i.id_sku IS NULL OR i.id_sku=0)
+          AND i.estatus='activo'
+          AND TRIM(COALESCE(i.url_imagen,''))<>''
+        ORDER BY CASE WHEN i.tipo_imagen='principal' THEN 0 ELSE 1 END, i.orden ASC, i.id_imagen_erp ASC
+        LIMIT 1
+      )
       LEFT JOIN (
         SELECT id_sku_erp, SUM(cantidad_disponible) cantidad_disponible
         FROM erp_inventario_existencias
@@ -6740,10 +7733,22 @@ class EcommerceCatalogoPublico extends CRUD {
         AND COALESCE(r.permite_venta_fraccionaria, 0)=0";
   }
 
-  private function formatearPublicacion($fila) {
+  private function formatearPublicacion($fila, $incluirGrupo = true) {
     $mostrarPrecio = intval($fila["mostrar_precio"]) === 1;
     $mostrarDisponibilidad = intval($fila["mostrar_disponibilidad"]) === 1;
     $categoriaPathSlug = implode("/", array_map(array($this, "slugificar"), $this->partesRutaCategoriaPublica($this->valor($fila, "categoria", ""))));
+    $categorias = $this->decodificarCategoriasPublicacion($this->valor($fila, "categorias_serializadas", ""));
+    $imagenes = $this->decodificarImagenesPublicacion($this->valor($fila, "imagenes_serializadas", ""), intval($fila["id_sku"]));
+    $categoriaPrincipal = $this->categoriaPrincipalDesdeLista($categorias, array(
+      "id" => intval($this->valor($fila, "id_categoria_erp", 0)),
+      "nombre" => $this->valor($fila, "categoria_nombre", ""),
+      "nombre_completo" => $this->valor($fila, "categoria", ""),
+      "slug" => $categoriaPathSlug,
+      "slug_corto" => $this->slugificar($this->valor($fila, "categoria_nombre", $this->valor($fila, "categoria", ""))),
+      "path_slug" => $categoriaPathSlug,
+      "url" => "/categoria/" . $categoriaPathSlug,
+      "principal" => true
+    ));
     return array(
       "id_publicacion" => intval($fila["id_publicacion"]),
       "id_producto_erp" => intval($fila["id_producto_erp"]),
@@ -6758,18 +7763,14 @@ class EcommerceCatalogoPublico extends CRUD {
         "nombre" => $this->valor($fila, "marca", ""),
         "slug" => $this->slugificar($this->valor($fila, "marca", ""))
       ),
-      "categoria_obj" => array(
-        "id" => intval($this->valor($fila, "id_categoria_erp", 0)),
-        "nombre" => $this->valor($fila, "categoria_nombre", ""),
-        "nombre_completo" => $this->valor($fila, "categoria", ""),
-        "slug" => $categoriaPathSlug,
-        "slug_corto" => $this->slugificar($this->valor($fila, "categoria_nombre", $this->valor($fila, "categoria", ""))),
-        "path_slug" => $categoriaPathSlug,
-        "url" => "/categoria/" . $categoriaPathSlug
-      ),
+      "categoria_obj" => $categoriaPrincipal,
+      "categorias" => $categorias,
+      "categoria_ids" => array_map(function($cat) { return intval($cat["id"]); }, $categorias),
       "presentacion" => $this->presentacionPublicaSalida($fila),
       "descripcion" => trim((string) $fila["descripcion_publica"]) !== "" ? $fila["descripcion_publica"] : $this->descripcionCatalogoParaEcommerce($fila),
       "imagen" => $fila["url_imagen"],
+      "imagen_fuente" => $this->valor($fila, "imagen_fuente", ""),
+      "imagenes" => $imagenes,
       "precio" => $mostrarPrecio ? floatval($fila["precio"]) : null,
       "moneda" => $mostrarPrecio ? ($fila["moneda"] ?: "MXN") : null,
       "disponibilidad" => $mostrarDisponibilidad ? $this->disponibilidadPublicaSugerida($fila) : "consultar_disponibilidad",
@@ -6777,8 +7778,71 @@ class EcommerceCatalogoPublico extends CRUD {
       "mascotas" => $this->decodificarMascotasPublicacion($fila["mascota_especie"]),
       "necesidades" => $this->decodificarJsonLista($fila["necesidades_json"]),
       "permite_cotizacion" => intval($fila["permite_cotizacion"]) === 1,
-      "permite_whatsapp" => intval($fila["permite_whatsapp"]) === 1
+      "permite_whatsapp" => intval($fila["permite_whatsapp"]) === 1,
+      "grupo_producto" => $incluirGrupo ? $this->resumenGrupoProductoPublico($fila) : null
     );
+  }
+
+  private function decodificarCategoriasPublicacion($serializado) {
+    $salida = array();
+    $vistos = array();
+    foreach (explode("||", (string) $serializado) as $item) {
+      $item = trim($item);
+      if ($item === "") { continue; }
+      $partes = explode("~", $item);
+      $id = intval($this->valor($partes, 0, 0));
+      if ($id <= 0 || isset($vistos[$id])) { continue; }
+      $ruta = trim((string) $this->valor($partes, 1, ""));
+      $nombre = trim((string) $this->valor($partes, 2, ""));
+      $principal = intval($this->valor($partes, 3, 0)) === 1;
+      $pathSlug = implode("/", array_map(array($this, "slugificar"), $this->partesRutaCategoriaPublica($ruta !== "" ? $ruta : $nombre)));
+      $salida[] = array(
+        "id" => $id,
+        "nombre" => $nombre,
+        "nombre_completo" => $ruta !== "" ? $ruta : $nombre,
+        "slug" => $pathSlug,
+        "slug_corto" => $this->slugificar($nombre !== "" ? $nombre : $ruta),
+        "path_slug" => $pathSlug,
+        "url" => "/categoria/" . $pathSlug,
+        "principal" => $principal
+      );
+      $vistos[$id] = true;
+    }
+    return $salida;
+  }
+
+  private function categoriaPrincipalDesdeLista($categorias, $fallback) {
+    foreach ($categorias as $cat) {
+      if (!empty($cat["principal"])) {
+        return $cat;
+      }
+    }
+    return $fallback;
+  }
+
+  private function decodificarImagenesPublicacion($serializado, $idSku) {
+    $salida = array();
+    $vistos = array();
+    foreach (explode("||", (string) $serializado) as $item) {
+      $item = trim($item);
+      if ($item === "") { continue; }
+      $partes = explode("~", $item);
+      $id = intval($this->valor($partes, 0, 0));
+      $url = trim((string) $this->valor($partes, 3, ""));
+      if ($id <= 0 || $url === "" || isset($vistos[$id])) { continue; }
+      $imagenSku = intval($this->valor($partes, 1, 0));
+      $salida[] = array(
+        "id" => $id,
+        "id_sku" => $imagenSku > 0 ? $imagenSku : null,
+        "tipo" => trim((string) $this->valor($partes, 2, "")),
+        "url" => $url,
+        "alt" => trim((string) $this->valor($partes, 4, "")),
+        "fuente" => $imagenSku === intval($idSku) ? "sku" : "producto",
+        "principal" => empty($salida)
+      );
+      $vistos[$id] = true;
+    }
+    return $salida;
   }
 
   private function presentacionPublicaSalida($fila) {
@@ -6861,6 +7925,104 @@ class EcommerceCatalogoPublico extends CRUD {
     return substr($this->slugificarPathPublico(explode("/", $valor)), 0, 220);
   }
 
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-08-25
+   * Proposito: exponer agrupacion publica por producto ERP para que frontend pinte variantes/presentaciones sin duplicar logica.
+   * Impacto: Ecommerce publico; permite cards agrupadas, selectores de presentacion y navegacion consistente entre catalogo y ficha.
+   * Contrato: solo lectura; usa publicaciones ya publicadas, con precio vigente y sin granel/fraccionario.
+   */
+  private function resumenGrupoProductoPublico($fila, $limitePreview = 6) {
+    try {
+      $db = $this->getConexion();
+      $idProducto = intval($this->valor($fila, "id_producto_erp", 0));
+      if (!$db || $idProducto <= 0) {
+        return $this->grupoProductoSimple($fila);
+      }
+      $where = array(
+        "pub.estatus_publicacion='publicado'",
+        "p.estatus='activo'",
+        "s.estatus='activo'",
+        "pub.id_producto_erp=:producto"
+      );
+      $sqlBase = $this->sqlPublicacionesBase($where);
+      $stmtTotal = $db->prepare("SELECT COUNT(*) FROM (" . $sqlBase . ") grupo");
+      $stmtTotal->execute(array(":producto" => $idProducto));
+      $total = (int) $stmtTotal->fetchColumn();
+      $agrupable = $total > 1;
+      $preview = array();
+      if ($agrupable) {
+        $stmt = $db->prepare($sqlBase . " ORDER BY pr.precio ASC, pub.orden ASC, pub.titulo_publico ASC LIMIT " . max(1, intval($limitePreview)));
+        $stmt->execute(array(":producto" => $idProducto));
+        foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+          $preview[] = $this->variantePreviewPublica($this->formatearPublicacion($row, false), intval($this->valor($fila, "id_sku", 0)));
+        }
+      }
+      return array(
+        "id_producto_erp" => $idProducto,
+        "agrupable" => $agrupable,
+        "tipo" => $agrupable ? "sku_variants_same_product" : "simple",
+        "total_variantes_publicadas" => $total,
+        "seleccion_actual" => array(
+          "id_publicacion" => intval($this->valor($fila, "id_publicacion", 0)),
+          "id_sku" => intval($this->valor($fila, "id_sku", 0)),
+          "sku" => (string) $this->valor($fila, "sku", ""),
+          "slug" => (string) $this->valor($fila, "slug", ""),
+          "url" => "/producto/" . (string) $this->valor($fila, "slug", "")
+        ),
+        "variantes_preview" => $preview,
+        "frontend" => array(
+          "mostrar_como_producto_agrupado" => $agrupable,
+          "selector_recomendado" => "chips_presentacion_o_color",
+          "deduplicar_catalogo_opcional" => true,
+          "campo_agrupador" => "id_producto_erp"
+        )
+      );
+    } catch (Exception $e) {
+      return $this->grupoProductoSimple($fila);
+    }
+  }
+
+  private function grupoProductoSimple($fila) {
+    return array(
+      "id_producto_erp" => intval($this->valor($fila, "id_producto_erp", 0)),
+      "agrupable" => false,
+      "tipo" => "simple",
+      "total_variantes_publicadas" => 1,
+      "seleccion_actual" => array(
+        "id_publicacion" => intval($this->valor($fila, "id_publicacion", 0)),
+        "id_sku" => intval($this->valor($fila, "id_sku", 0)),
+        "sku" => (string) $this->valor($fila, "sku", ""),
+        "slug" => (string) $this->valor($fila, "slug", ""),
+        "url" => "/producto/" . (string) $this->valor($fila, "slug", "")
+      ),
+      "variantes_preview" => array(),
+      "frontend" => array(
+        "mostrar_como_producto_agrupado" => false,
+        "selector_recomendado" => "ninguno",
+        "deduplicar_catalogo_opcional" => false,
+        "campo_agrupador" => "id_producto_erp"
+      )
+    );
+  }
+
+  private function variantePreviewPublica($item, $idSkuActual) {
+    return array(
+      "id_publicacion" => intval($this->valor($item, "id_publicacion", 0)),
+      "id_sku" => intval($this->valor($item, "id_sku", 0)),
+      "sku" => (string) $this->valor($item, "sku", ""),
+      "slug" => (string) $this->valor($item, "slug", ""),
+      "url" => "/producto/" . (string) $this->valor($item, "slug", ""),
+      "nombre" => (string) $this->valor($item, "nombre", ""),
+      "presentacion" => (string) $this->valor($item, "presentacion", ""),
+      "precio" => $this->valor($item, "precio", null),
+      "moneda" => $this->valor($item, "moneda", "MXN"),
+      "disponibilidad" => (string) $this->valor($item, "disponibilidad", "consultar_disponibilidad"),
+      "imagen" => $this->valor($item, "imagen", null),
+      "imagen_fuente" => (string) $this->valor($item, "imagen_fuente", ""),
+      "actual" => intval($this->valor($item, "id_sku", 0)) === intval($idSkuActual)
+    );
+  }
+
   private function variantesProductoPublico($db, $fila, $limite = 12) {
     $where = array(
       "pub.estatus_publicacion='publicado'",
@@ -6876,7 +8038,7 @@ class EcommerceCatalogoPublico extends CRUD {
     ));
     $items = array();
     foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $variante) {
-      $items[] = $this->formatearPublicacion($variante);
+      $items[] = $this->formatearPublicacion($variante, false);
     }
     return $items;
   }
@@ -6933,7 +8095,7 @@ class EcommerceCatalogoPublico extends CRUD {
     $stmt->execute($params);
     $items = array();
     foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $relacionado) {
-      $items[] = $this->formatearPublicacion($relacionado);
+      $items[] = $this->formatearPublicacion($relacionado, false);
     }
     return $items;
   }
@@ -7022,10 +8184,10 @@ class EcommerceCatalogoPublico extends CRUD {
           $this->valor($item, "categoria", "")
         ))),
         "mostrar_precio" => !empty($acciones["mostrar_precio"]),
-        "mostrar_variantes" => count($variantes) > 1,
+        "mostrar_variantes" => count($variantes) > 0 || !empty($this->valor($this->valor($item, "grupo_producto", array()), "agrupable", false)),
         "mostrar_relacionados" => count($relacionados) > 0,
         "mostrar_breadcrumbs" => count($breadcrumbs) > 1,
-        "variantes_total" => count($variantes),
+        "variantes_total" => intval($this->valor($this->valor($item, "grupo_producto", array()), "total_variantes_publicadas", count($variantes))),
         "relacionados_total" => count($relacionados)
       ),
       "cta" => array(
@@ -7518,7 +8680,7 @@ class EcommerceCatalogoPublico extends CRUD {
       FROM erp_ecommerce_publicaciones pub
       INNER JOIN erp_catalogo_skus s ON s.id_sku=pub.id_sku
       INNER JOIN erp_catalogo_productos p ON p.id_producto_erp=pub.id_producto_erp
-      INNER JOIN erp_catalogo_producto_categorias pc ON pc.id_producto_erp=p.id_producto_erp AND pc.es_principal=1
+      INNER JOIN erp_catalogo_producto_categorias pc ON pc.id_producto_erp=p.id_producto_erp
       INNER JOIN erp_catalogo_categorias c ON c.id_categoria_erp=pc.id_categoria_erp
       LEFT JOIN erp_catalogo_sku_reglas_inventario r ON r.id_sku=s.id_sku
       " . $this->sqlJoinPrecioListaVigente("s", "INNER") . "
@@ -9226,6 +10388,12 @@ class EcommerceCatalogoPublico extends CRUD {
     );
   }
 
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-08-25
+   * Proposito: normalizar lotes ecommerce respetando seleccion total operativa.
+   * Impacto: evita que `Seleccionar todos` envie miles de SKUs pero el backend procese solo los primeros 100.
+   * Contrato: limita a 5000 SKUs, mismo techo usado por el endpoint de IDs filtrados.
+   */
   private function normalizarIdsSkuLote($valor) {
     if (is_string($valor)) {
       $decodificado = json_decode($valor, true);
@@ -9240,7 +10408,7 @@ class EcommerceCatalogoPublico extends CRUD {
       if ($idSku > 0 && !in_array($idSku, $ids, true)) {
         $ids[] = $idSku;
       }
-      if (count($ids) >= 100) {
+      if (count($ids) >= 5000) {
         break;
       }
     }

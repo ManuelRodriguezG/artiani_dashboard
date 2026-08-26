@@ -4438,3 +4438,47 @@ UAT recomendado:
 2. Confirmar que `Alimentadores` aparece como `Operativa`.
 3. Crear una categoria hija nueva bajo `Acuario y peces` dejando activo `Permitir asignar productos directamente`.
 4. Guardar, recargar y confirmar que queda como `Operativa` y aparece en los selectores de categoria de productos.
+## Avance 2026-08-25 - Edicion de categorias operativas
+
+Proyecto aplicado: `C:\xampp\htdocs\panel_de_control`.
+
+Hallazgo:
+
+- Al editar una categoria estructural y marcar `Permitir asignar productos directamente`, el cambio podia no persistir.
+- La causa estaba en `public/assets/js/custom/apps/erp/catalogo/configuracion.js`: `setValor()` trataba el checkbox como input de texto y cambiaba su `value` a `0` cuando la categoria estaba estructural.
+- Si el usuario despues marcaba el checkbox, el navegador enviaba `permite_productos=0`, por lo que el backend guardaba nuevamente la categoria como estructural.
+
+Correccion:
+
+- `setValor()` ahora detecta `input.type === "checkbox"` y usa `marcar()` para cambiar solo la propiedad `checked`.
+- Los checkboxes conservan su `value="1"`, de modo que al marcarlos el POST envia `permite_productos=1`.
+
+UAT recomendado:
+
+1. Abrir ERP > Catalogo > Configuracion > Categorias.
+2. Editar una categoria estructural activa.
+3. Marcar `Permitir asignar productos directamente` y guardar.
+4. Reabrir la categoria y confirmar que el check permanece activo.
+5. Confirmar que la categoria aparece como `Operativa` y queda disponible para asignar productos.
+## Avance 2026-08-25 - Refresco de maestros e imagenes sin recargar pagina
+
+Proyecto aplicado: `C:\xampp\htdocs\panel_de_control`.
+
+Hallazgo:
+
+- Al guardar datos maestros desde Configuracion, la tabla podia refrescarse tarde o perder el contexto visual del registro actualizado.
+- Al cargar imagen en marca/categoria, el modal si guardaba la imagen, pero la tabla principal podia no mostrar el cambio hasta recargar pagina.
+- Si el usuario estaba filtrando `Sin imagen`, al subir imagen el registro dejaba de cumplir el filtro y desaparecia, dificultando encontrarlo de nuevo.
+
+Correccion:
+
+- `cargar()` y `cargarImagenesMaestro()` ahora devuelven promesa para esperar el refresco real.
+- Guardar datos maestros espera `cargar()` antes de mostrar exito y enfoca el renglon actualizado.
+- Guardar/desactivar imagen espera el refresco del modal y de la tabla principal.
+- Si filtros activos ocultan el registro recien actualizado, se relajan los filtros de marca/categoria necesarios y se resalta el renglon.
+
+UAT recomendado:
+
+1. Editar una categoria o marca, guardar y confirmar que el renglon queda actualizado y resaltado sin recargar.
+2. Filtrar categorias o marcas por `Sin imagen`, abrir una, subir imagen y confirmar que la tabla principal se actualiza sin F5.
+3. Confirmar que el modal de imagenes queda con la imagen nueva en la lista y el formulario listo para otra captura.

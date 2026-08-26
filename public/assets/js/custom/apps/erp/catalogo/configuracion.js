@@ -48,11 +48,18 @@
         }).then(function (response) { return response.json(); });
     }
 
+    /**
+     * IA: Codex GPT-5 | Fecha: 2026-08-25
+     * Proposito: refresca catalogos maestros devolviendo una promesa para encadenar acciones de UI.
+     * Impacto: Configuracion de Catalogo ERP; permite mostrar cambios guardados e imagenes sin recargar la pagina.
+     * Contrato: actualiza `datos`, renderiza tablas y devuelve el payload JSON recibido.
+     */
     function cargar() {
-        request("/catalogoerp/auxiliares_listar").then(function (response) {
+        return request("/catalogoerp/auxiliares_listar").then(function (response) {
             datos = response.depurar || datos;
             render();
             llenarPadres();
+            return response;
         });
     }
 
@@ -1425,12 +1432,75 @@
         var data = {}; new FormData(form).forEach(function (value, key) { data[key] = value; });
         request("/catalogoerp/auxiliar_guardar", data).then(function (response) {
             if (response.error) { throw new Error(response.mensaje); }
-            modal.hide(); cargar(); Swal.fire({text: response.mensaje, icon: "success", confirmButtonText: "Aceptar"});
+            var idGuardado = response.depurar && response.depurar.id ? response.depurar.id : data.id;
+            modal.hide();
+            return cargar().then(function () {
+                enfocarRegistroMaestro(data.tipo_catalogo, idGuardado);
+                Swal.fire({text: response.mensaje, icon: "success", confirmButtonText: "Aceptar"});
+            });
         }).catch(function (error) {
             var box = document.getElementById("catalogo_aux_error"); box.textContent = error.message; box.classList.remove("d-none");
         });
     }
 
+    /**
+     * IA: Codex GPT-5 | Fecha: 2026-08-25
+     * Proposito: localiza y resalta el registro maestro recien guardado o actualizado.
+     * Impacto: Configuracion de Catalogo ERP; evita perder el contexto al guardar categorias, marcas o imagenes.
+     * Contrato: usa botones `data-editar`/`data-id` ya renderizados en cada renglon.
+     */
+    function enfocarRegistroMaestro(tipo, id) {
+        if (!tipo || !id) {
+            return;
+        }
+        window.setTimeout(function () {
+            var boton = document.querySelector("[data-editar='" + tipo + "'][data-id='" + id + "']");
+            if (!boton) {
+                prepararFiltrosParaRegistroMaestro(tipo, id);
+                render();
+                boton = document.querySelector("[data-editar='" + tipo + "'][data-id='" + id + "']");
+            }
+            var fila = boton ? boton.closest("tr") : null;
+            if (!fila) {
+                return;
+            }
+            fila.classList.add("table-primary");
+            fila.scrollIntoView({behavior: "smooth", block: "center"});
+            window.setTimeout(function () { fila.classList.remove("table-primary"); }, 3500);
+        }, 80);
+    }
+
+    /**
+     * IA: Codex GPT-5 | Fecha: 2026-08-25
+     * Proposito: relaja filtros que ocultarian el registro maestro recien actualizado.
+     * Impacto: Configuracion de Catalogo ERP; si una imagen cambia el estado visual, el renglon sigue localizable sin recargar.
+     * Contrato: solo modifica filtros locales de marcas/categorias cuando el registro no esta visible.
+     */
+    function prepararFiltrosParaRegistroMaestro(tipo, id) {
+        var item = obtenerItemCatalogo(tipo, id);
+        if (!item) {
+            return;
+        }
+        if (tipo === "marca") {
+            setValorElemento("catalogo_marcas_buscar", item.nombre || item.codigo || "");
+            setValorElemento("catalogo_marcas_imagen", "");
+            setValorElemento("catalogo_marcas_estatus", item.estatus || "");
+        }
+        if (tipo === "categoria") {
+            setValorElemento("catalogo_categorias_buscar", item.nombre || item.ruta || item.codigo || "");
+            setValorElemento("catalogo_categorias_filtro", categoriaEsLegadoEcommerce(item) ? "" : "principal");
+            setValorElemento("catalogo_categorias_uso", "");
+            setValorElemento("catalogo_categorias_imagen", "");
+            setValorElemento("catalogo_categorias_estatus", item.estatus || "");
+        }
+    }
+
+    function setValorElemento(id, value) {
+        var input = document.getElementById(id);
+        if (input) {
+            input.value = value == null ? "" : value;
+        }
+    }
     /**
      * IA: Codex GPT-5 | Fecha: 2026-07-12
      * Proposito: cambia estatus de un catalogo maestro reutilizando el contrato de guardado existente.
@@ -1482,9 +1552,15 @@
         cargarImagenesMaestro();
     }
 
+    /**
+     * IA: Codex GPT-5 | Fecha: 2026-08-25
+     * Proposito: refresca imagenes del maestro actual devolviendo promesa para sincronizar modal y tabla.
+     * Impacto: Configuracion de Catalogo ERP; evita esperar recarga completa para ver imagenes de marcas/categorias.
+     * Contrato: actualiza `imagenMaestroActual` y retorna el payload JSON recibido.
+     */
     function cargarImagenesMaestro() {
         var params = new URLSearchParams({tipo_entidad: imagenMaestroActual.tipo, id_entidad: imagenMaestroActual.id});
-        request("/catalogoerp/imagenes_maestro_listar?" + params.toString()).then(function (response) {
+        return request("/catalogoerp/imagenes_maestro_listar?" + params.toString()).then(function (response) {
             if (response.error) {
                 throw new Error(response.mensaje);
             }
@@ -1493,8 +1569,10 @@
             imagenMaestroActual.tipos = depurar.tipos_permitidos || tiposImagenMaestro(imagenMaestroActual.tipo);
             imagenMaestroActual.imagenes = depurar.imagenes || [];
             renderImagenesMaestro(response.mensaje);
+            return response;
         }).catch(function (error) {
             document.getElementById("catalogo_imagen_maestro_lista").innerHTML = "<tr><td colspan=\"5\" class=\"text-center text-danger py-8\">" + escapeHtml(error.message) + "</td></tr>";
+            throw error;
         });
     }
 
@@ -1537,9 +1615,10 @@
                 throw new Error(response.mensaje);
             }
             limpiarFormularioImagenMaestro();
-            cargarImagenesMaestro();
-            cargar();
-            Swal.fire({text: response.mensaje, icon: "success", confirmButtonText: "Aceptar"});
+            return Promise.all([cargarImagenesMaestro(), cargar()]).then(function () {
+                enfocarRegistroMaestro(imagenMaestroActual.tipo, imagenMaestroActual.id);
+                Swal.fire({text: response.mensaje, icon: "success", confirmButtonText: "Aceptar"});
+            });
         }).catch(function (error) {
             box.textContent = error.message;
             box.classList.remove("d-none");
@@ -1618,8 +1697,9 @@
                 if (response.error) {
                     throw new Error(response.mensaje);
                 }
-                cargarImagenesMaestro();
-                cargar();
+                Promise.all([cargarImagenesMaestro(), cargar()]).then(function () {
+                    enfocarRegistroMaestro(imagenMaestroActual.tipo, imagenMaestroActual.id);
+                });
             }).catch(function (error) {
                 Swal.fire({text: error.message, icon: "error", confirmButtonText: "Aceptar"});
             });
@@ -1690,7 +1770,23 @@
         }
     }
 
-    function setValor(name, value) { var input = form.querySelector("[name='" + name + "']"); if (input) { input.value = value == null ? "" : value; } }
+    /**
+     * IA: Codex GPT-5 | Fecha: 2026-08-25
+     * Proposito: asigna valores al formulario auxiliar sin corromper el valor de los checkboxes.
+     * Impacto: Configuracion de Catalogo ERP; permite cambiar categorias entre estructurales y operativas al editar.
+     * Contrato: los checkboxes conservan su value HTML y solo actualizan checked mediante `marcar`.
+     */
+    function setValor(name, value) {
+        var input = form.querySelector("[name='" + name + "']");
+        if (!input) {
+            return;
+        }
+        if (input.type === "checkbox") {
+            marcar(name, value);
+            return;
+        }
+        input.value = value == null ? "" : value;
+    }
     /**
      * IA: Codex GPT-5 | Fecha: 2026-08-24
      * Proposito: normaliza valores booleanos al precargar checks de catalogos maestros.

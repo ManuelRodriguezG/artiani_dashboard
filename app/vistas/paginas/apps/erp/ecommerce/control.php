@@ -127,8 +127,8 @@
                                         <button class="btn btn-sm btn-warning" type="button" id="ecom_ctl_lote_pausar"><i class="bi bi-eye-slash"></i> Pausar</button>
                                         <button class="btn btn-sm btn-light-success" type="button" id="ecom_ctl_lote_reactivar"><i class="bi bi-arrow-repeat"></i> Reactivar</button>
                                         <div class="form-check form-check-custom form-check-solid ms-lg-4">
-                                            <input class="form-check-input" type="checkbox" id="ecom_ctl_confirmar_agotados">
-                                            <label class="form-check-label fs-7" for="ecom_ctl_confirmar_agotados">Permitir agotados en lote</label>
+                                            <input class="form-check-input" type="checkbox" id="ecom_ctl_confirmar_agotados" checked disabled>
+                                            <label class="form-check-label fs-7" for="ecom_ctl_confirmar_agotados">Agotados permitidos en lote</label>
                                         </div>
                                         <span class="badge badge-light-primary ms-auto" id="ecom_ctl_estado">Listo</span>
                                     </div>
@@ -187,6 +187,6 @@
 </div>
 <script src="assets/plugins/global/plugins.bundle.js"></script>
 <script src="assets/js/scripts.bundle.js"></script>
-<script src="/assets/js/custom/apps/erp/ecommerce/control.js?v=20260824-publica-sin-categoria1"></script>
+<script src="/assets/js/custom/apps/erp/ecommerce/control.js?v=20260825-agotados-lote1"></script>
 </body>
 </html>

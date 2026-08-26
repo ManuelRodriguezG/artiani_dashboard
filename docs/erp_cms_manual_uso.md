@@ -74,20 +74,22 @@ Estado actual:
 
 - Pantalla operativa inicial para configuracion global del ecommerce.
 - Permite editar datos del negocio: nombre comercial, razon social, slogan, descripcion, WhatsApp, telefono y emails.
-- Permite preparar logos e imagen OG usando campos con boton `Media`.
+- Permite preparar logo principal, logo blanco, favicon e imagen OG usando campos con boton `Media`.
 - Permite capturar direccion publica, URL de Google Maps, embed, latitud y longitud.
 - Permite editar horarios visibles de forma inicial.
 - Permite capturar redes sociales.
 - Permite editar SEO global: `site_name`, `title_default`, `description_default`, `og_image_default` y `robots_default`.
 - Permite preparar menu principal y columnas de footer como JSON controlado.
-- Genera `Preview JSON esperado` para alimentar despues `/ecommercePublico/configuracion_inicial`.
+- Genera `Preview JSON esperado`.
+- Ya cuenta con boton `Guardar y publicar global`, que guarda el bloque tecnico `frontend_global_publicado`.
+- `/ecommercePublico/configuracion_inicial` entrega la llave `cms_global` cuando hay configuracion global publicada.
 
 Reglas para usarlo:
 
 - No guardar secretos, tokens ni llaves privadas.
 - No guardar rutas internas del ERP como imagen publica.
 - `/ecommercePublico/configuracion_inicial` sigue siendo el endpoint principal de arranque del frontend.
-- La captura actual es local; la persistencia real se activara despues de cerrar estructura y respaldo.
+- Para logos, favicon e imagen OG, usar imagenes marcadas como `Servidor BD`; las temporales locales no salen en API.
 
 ## CMS > Frontend > Navegacion
 
@@ -121,6 +123,8 @@ Estado actual:
 - Permite administrar por categoria: ID ERP, slug, titulo, subtitulo, descripcion SEO, URL publica, visible, destacado y orden.
 - Permite seleccionar imagen card y banner desde `Media`.
 - Genera `Preview JSON esperado` orientado a `/ecommercePublico/categorias`.
+- Ya cuenta con boton `Guardar y publicar categorias`.
+- `/ecommercePublico/categorias` conserva las categorias reales del ERP y agrega el enriquecimiento CMS cuando existe.
 
 Reglas para usarlo:
 
@@ -128,7 +132,7 @@ Reglas para usarlo:
 - No modificar precios, inventario ni publicacion de producto desde esta pantalla.
 - Cada imagen publica debe tener alt text.
 - Los slugs y URLs deben corresponder a rutas publicas del frontend, por ejemplo `/categoria/peces`.
-- La captura actual es local; persistencia real queda pendiente.
+- Para imagenes, usar Media marcada como `Servidor BD`; las temporales locales no salen en API.
 
 ## CMS > Frontend > Marcas
 
@@ -198,19 +202,21 @@ Ruta: `/cms/frontend_actual`, grupo `Home`.
 
 Estado actual:
 
-- `home.categorias_destacadas` ya tiene editor local operativo.
+- `home.categorias_destacadas` ya tiene editor operativo.
 - Permite editar titulo, subtitulo, visibilidad, variante visual y columnas desktop/mobile.
 - Permite editar tarjetas de categoria: `categoria_id`, `slug`, titulo, subtitulo, URL publica, imagen card, imagen banner y alt text.
 - Permite agregar, duplicar, ocultar/mostrar y eliminar tarjetas.
 - Actualiza el `Preview JSON esperado` dentro de `secciones` para que el frontend pueda renderizar un grid de categorias.
-- Los campos `imagen_card` e `imagen_banner` tienen boton `Media` para elegir imagen desde la biblioteca local.
-- Todavia no guarda en BD ni consulta categorias reales automaticamente; por ahora referencia categorias por `categoria_id` o `slug`.
+- Los campos `imagen_card` e `imagen_banner` tienen boton `Media` para elegir imagen desde Media CMS.
+- El boton `Guardar y publicar categorias Home` persiste la seccion en BD y la expone en `/ecommercePublico/contenido_pagina?pagina=home`, slot `home.categorias`.
+- El boton `Ver API publicada` consulta la API publica y muestra las categorias que recibira el frontend.
 
 Reglas para usarlo:
 
 - La categoria real se administra en catalogo; el CMS solo decide como se muestra en Home.
 - Usa `slug` estable, por ejemplo `peces`, `perros`, `gatos`.
 - Usa URL publica del frontend, por ejemplo `/categoria/peces`.
+- Si usas imagenes, selecciona archivos con etiqueta `Servidor BD`.
 - `imagen_card` es para la tarjeta de Home.
 - `imagen_banner` queda preparada para reutilizarla despues en pagina de categoria.
 - Toda tarjeta visible debe tener `alt`.
@@ -221,20 +227,22 @@ Ruta: `/cms/frontend_actual`, grupo `Home`.
 
 Estado actual:
 
-- `home.productos_destacados` ya tiene editor local operativo.
+- `home.productos_destacados` ya tiene editor operativo.
 - Permite editar titulo, subtitulo, visibilidad, limite de productos, variante visual y CTA.
 - Permite elegir fuente por `criterio automatico` o `lista manual`.
 - En modo criterio se puede indicar criterio, categoria slug y marca slug.
 - En lista manual se pueden capturar referencias por `producto_id`, `sku` o `slug`.
 - Permite agregar, duplicar y eliminar referencias manuales.
 - Actualiza el `Preview JSON esperado` con `fuente`, `limite`, `cta` y `config`.
-- Todavia no consulta productos reales ni guarda en BD; el frontend sera quien resuelva productos desde API publica.
+- El boton `Guardar y publicar productos Home` persiste la vitrina en BD y la expone en `/ecommercePublico/contenido_pagina?pagina=home`, slot `home.destacados`.
+- El boton `Ver API publicada` consulta la API publica y muestra el modo, criterio, limite y referencias manuales que recibira el frontend.
 
 Reglas para usarlo:
 
 - El CMS no edita precio, stock, inventario ni publicacion del producto.
 - Si quieres una vitrina general, usa `criterio automatico`.
 - Si quieres forzar una seleccion concreta, usa `lista manual` y referencia productos por SKU, ID o slug.
+- El frontend es quien resuelve los productos finales desde la API publica de catalogo/producto.
 - No mostrar disponibilidad ni stock exacto en esta seccion.
 - El texto del CTA debe llevar a una ruta publica, por ejemplo `/#productos`, `/buscar` o `/categoria/peces`.
 
@@ -244,19 +252,22 @@ Ruta: `/cms/frontend_actual`, grupo `Home`.
 
 Estado actual:
 
-- `home.coleccion_productos` ya tiene editor local operativo como grupo de colecciones repetibles.
+- `home.coleccion_productos` ya tiene editor operativo como grupo de colecciones repetibles.
 - Permite editar titulo/subtitulo general, visibilidad y variante del grupo.
 - Permite crear varias colecciones independientes, por ejemplo novedades, basicos, destacados o campañas.
 - Cada coleccion permite titulo, subtitulo, criterio, categoria slug, marca slug, limite, CTA y variante visual.
 - Permite capturar referencias manuales separadas por coma en `SKUs/IDs/slugs manuales`.
 - Permite agregar, duplicar, ocultar/mostrar y eliminar colecciones.
 - Actualiza el `Preview JSON esperado` con `items`, donde cada item es una vitrina que el frontend puede renderizar.
-- Todavia no consulta productos reales ni guarda en BD; el frontend resolvera la lista desde API publica.
+- El boton `Guardar y publicar colecciones` persiste el grupo en BD y lo expone en `/ecommercePublico/contenido_pagina?pagina=home`, slot `home.destacados`.
+- El boton `Ver API publicada` consulta la API publica y muestra las colecciones que recibira el frontend.
+- El frontend resolvera los productos finales desde API publica segun el criterio o referencias manuales.
 
 Como decidir:
 
 - Usa `Productos destacados` cuando quieres una sola vitrina principal de Home.
 - Usa `Colecciones` cuando necesitas varias filas o carruseles, por ejemplo `Temporada acuario`, `Novedades`, `Basicos para perro`.
+- `Productos destacados` y `Colecciones` pueden convivir en el slot `home.destacados`; productos usa el orden principal y colecciones se publica despues.
 - Si la coleccion cambia con frecuencia por campaña, usa `codigo` estable y cambia titulo, criterio o referencias manuales.
 - El CMS no edita productos, precios, stock ni inventario.
 
@@ -271,16 +282,35 @@ Estado actual:
 - La estructura usa `items` para que despues pueda crecer a slides si el frontend lo soporta.
 - Permite visible/oculto, variante visual y modo `estatico` o `slides futuro`.
 - Permite agregar, duplicar, ocultar/mostrar y eliminar items de banner.
-- Los campos de imagen tienen boton `Media` para elegir imagen desde la biblioteca local.
+- Los campos de imagen tienen boton `Media` para elegir imagen desde Media CMS.
 - Actualiza el `Preview JSON esperado` con `banner_simple`.
-- Todavia no guarda en BD ni sube imagenes; se capturan URLs que despues resolvera el frontend.
+- El boton `Guardar y publicar banner` persiste el banner en BD y lo expone en `/ecommercePublico/contenido_pagina?pagina=home`.
+- El boton `Ver API publicada` consulta la API publica y muestra la imagen desktop, mobile, alt, titulo y fuente que ya recibira el frontend.
 
 Reglas para usarlo:
 
 - Usalo para la imagen estatica actual del Home.
+- Primero sube o selecciona una imagen con etiqueta `Servidor BD`; las imagenes `Temporal local` solo sirven para previsualizar antes de subir.
 - No lo amarres a temporada, promociones o campañas salvo que ese sea el contenido puntual del momento.
 - Toda imagen visible debe tener `alt`.
 - Si despues se requiere carrusel, se activa desde frontend usando los `items` ya preparados.
+
+## CMS > Frontend actual > Home promo
+
+Ruta: `/cms/frontend_actual`, grupo `Home`.
+
+Estado actual:
+
+- `home.promo` ya tiene editor operativo para avisos cortos del Home.
+- Permite capturar icono, texto visible, CTA, tono visual y variante.
+- El boton `Guardar y publicar promo` persiste la franja en BD y la expone en `/ecommercePublico/contenido_pagina?pagina=home`, slot `home.promo`.
+- El boton `Ver API publicada` consulta la API publica y muestra los avisos que recibira el frontend.
+
+Reglas para usarlo:
+
+- Usalo para mensajes breves: WhatsApp, envios, entrega, horarios o aviso comercial puntual.
+- No lo uses para editar precios, descuentos reales, inventario ni productos.
+- Si el CTA queda vacio, el frontend puede renderizar solo el texto.
 
 ## Reglas generales
 
@@ -377,6 +407,20 @@ El panel `Estado de Home` aparece arriba de la maqueta y sirve como checklist op
 - `Errores`: problemas que bloquean publicar, por ejemplo falta de contenido, falta de alt text o vigencia invalida.
 
 Cada tarjeta de seccion se puede pulsar para seleccionarla en el constructor.
+
+En `CMS > Frontend > Home` tambien existe el panel `Estado publicado de Home`. Ese panel consulta `/ecommercePublico/contenido_pagina?pagina=home` y muestra lo que realmente esta publicado para frontend por slot:
+
+- `home.hero`: banner principal.
+- `home.promo`: franja de avisos.
+- `home.categorias`: categorias destacadas de portada.
+- `home.destacados`: productos destacados y colecciones.
+
+Flujo recomendado:
+
+1. Edita la seccion en Home.
+2. Pulsa `Guardar y publicar`.
+3. Revisa `Estado publicado de Home`.
+4. Usa `Ver detalle` o `Ver API publicada` para confirmar que frontend ya recibe el contenido.
 
 ## CMS > Editor avanzado de contenido
 
@@ -720,6 +764,12 @@ En la fase actual:
 - valida tipo MIME real, extension, peso maximo de 2 MB, dimensiones y hash SHA-256
 - exige `alt text`
 - clasifica por uso: Home, Categoria, Producto, Global o Blog futuro
+- acepta JPG, PNG, WebP e ICO para favicon
+- distingue origen `Servidor BD` contra `Temporal local`
+- permite eliminar temporales locales del navegador
+- permite eliminar archivos reales de Media CMS solo si no estan usados por contenido publicado
+- sincroniza con BD y quita automaticamente referencias antiguas `Servidor BD` que ya no existan en servidor
+- incluye boton `Limpiar temporales` para borrar de la galeria lo que solo vive en el navegador
 - clasifica por tipo: banner, hero, card, thumbnail o editorial
 - lista imagenes guardadas desde `/cms/media_admin_listar_erp`
 - permite copiar una referencia estructurada para usarla en secciones del CMS
@@ -739,6 +789,7 @@ Importante: la subida real ya esta activa; editar metadatos, archivar en BD y re
    - `Categoria`
    - `Producto`
    - `Global`
+   - `Favicon`
    - `Blog futuro`
 
 4. Elige `Tipo`:

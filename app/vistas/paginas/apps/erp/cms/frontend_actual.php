@@ -8,7 +8,7 @@
       $cmsFrontendSubtitulo = isset($cmsFrontendSubtitulo) ? $cmsFrontendSubtitulo : "Administra las secciones visuales de Home que consumira el ecommerce publico";
       $cmsFrontendGrupoInicial = isset($cmsFrontendGrupoInicial) ? $cmsFrontendGrupoInicial : "home";
       $cmsFrontendAvisoTitulo = isset($cmsFrontendAvisoTitulo) ? $cmsFrontendAvisoTitulo : "Home del frontend";
-      $cmsFrontendAvisoTexto = isset($cmsFrontendAvisoTexto) ? $cmsFrontendAvisoTexto : "Esta pantalla concentra lo editable de Home: hero, categorias, productos destacados, colecciones y banner. La API y la persistencia real se conectaran despues de cerrar el contrato de esta pagina.";
+      $cmsFrontendAvisoTexto = isset($cmsFrontendAvisoTexto) ? $cmsFrontendAvisoTexto : "Esta pantalla concentra lo editable de Home: hero, promo, categorias, productos destacados, colecciones y banner. Cada seccion publicable puede guardarse en BD y verificarse contra la API publica.";
     ?>
     <title><?= htmlspecialchars($cmsFrontendTitulo, ENT_QUOTES, 'UTF-8'); ?></title>
     <meta charset="utf-8">
@@ -35,7 +35,11 @@
         .cms-actual-slide-preview { min-height: 180px; border-radius: 8px; background: #111827; color: #fff; background-size: cover; background-position: center; display: flex; align-items: center; padding: 24px; position: relative; overflow: hidden; }
         .cms-actual-slide-preview::before { content: ""; position: absolute; inset: 0; background: linear-gradient(90deg, rgba(17, 24, 39, .82), rgba(17, 24, 39, .28)); }
         .cms-actual-slide-preview > div { position: relative; max-width: 520px; }
+        .cms-actual-status-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+        .cms-actual-status-card { border: 1px solid #e7e9ef; border-radius: 8px; background: #fff; padding: 14px; min-height: 104px; }
         @media (max-width: 1199.98px) { .cms-actual-grid, .cms-actual-priority, .cms-actual-fields { grid-template-columns: 1fr; } }
+        @media (max-width: 1199.98px) { .cms-actual-status-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+        @media (max-width: 767.98px) { .cms-actual-status-grid { grid-template-columns: 1fr; } }
     </style>
 </head>
 <body id="kt_app_body" data-cms-actual-grupo="<?= htmlspecialchars($cmsFrontendGrupoInicial, ENT_QUOTES, 'UTF-8'); ?>" data-kt-app-layout="dark-sidebar" data-kt-app-header-fixed="true" data-kt-app-sidebar-enabled="true" data-kt-app-sidebar-fixed="true" class="app-default">
@@ -71,6 +75,17 @@
                             </div>
 
                             <div class="cms-actual-priority mb-5" id="cms_actual_prioridad"></div>
+
+                            <div class="cms-actual-panel p-4 mb-5" id="cms_actual_home_estado_panel">
+                                <div class="d-flex justify-content-between align-items-center flex-wrap gap-3 mb-4">
+                                    <div>
+                                        <div class="fw-bold">Estado publicado de Home</div>
+                                        <div class="text-muted fs-7">Resumen real de lo que esta entregando la API publica.</div>
+                                    </div>
+                                    <button class="btn btn-sm btn-light-info" type="button" id="cms_actual_home_estado_refrescar"><i class="bi bi-arrow-clockwise"></i> Refrescar estado</button>
+                                </div>
+                                <div class="cms-actual-status-grid" id="cms_actual_home_estado">Consultando API publica...</div>
+                            </div>
 
                             <div class="cms-actual-grid">
                                 <aside class="cms-actual-panel p-4">
@@ -109,6 +124,6 @@
 <script>
     window.ERP_CSRF_TOKEN = "<?= htmlspecialchars(SesionSeguridad::csrfToken(), ENT_QUOTES, 'UTF-8') ?>";
 </script>
-<script src="/assets/js/custom/apps/erp/cms/frontend_actual.js?v=20260824-media-delete-ico2"></script>
+<script src="/assets/js/custom/apps/erp/cms/frontend_actual.js?v=20260825-home-estado1"></script>
 </body>
 </html>

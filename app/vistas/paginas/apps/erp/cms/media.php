@@ -44,6 +44,7 @@
                             <div class="d-flex gap-2">
                                 <a class="btn btn-light" href="/cms/frontend/home"><i class="bi bi-house"></i> Home</a>
                                 <a class="btn btn-light" href="/docs/erp_cms_manual_uso.md" target="_blank" rel="noopener"><i class="bi bi-journal-text"></i> Manual</a>
+                                <button class="btn btn-light-warning" type="button" id="cms_media_limpiar_temporales"><i class="bi bi-eraser"></i> Limpiar temporales</button>
                                 <button class="btn btn-light-danger" type="button" id="cms_media_limpiar_archivados"><i class="bi bi-archive"></i> Limpiar archivados</button>
                             </div>
                         </div>
@@ -176,6 +177,6 @@
 <script>
     window.ERP_CSRF_TOKEN = "<?= htmlspecialchars(SesionSeguridad::csrfToken(), ENT_QUOTES, 'UTF-8') ?>";
 </script>
-<script src="/assets/js/custom/apps/erp/cms/media.js?v=20260824-media-delete-ico2"></script>
+<script src="/assets/js/custom/apps/erp/cms/media.js?v=20260825-media-limpiar1"></script>
 </body>
 </html>

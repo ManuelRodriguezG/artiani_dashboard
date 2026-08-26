@@ -964,9 +964,33 @@ Decision:
 
 Reglas que se mantienen:
 
-- `Permitir agotados en lote` solo omite el bloqueo de stock agotado.
+- En publicacion masiva, los agotados quedan permitidos por politica del lote; el backend fuerza `confirmar_agotado=1`.
 - Falta de precio activo, imagen, slug/titulo o regla granel siguen bloqueando publicacion.
 - Falta de categoria o marca no bloquea; se debe corregir despues para mejorar menu, filtros y landings.
+
+## Publicacion masiva con agotados permitidos por politica 2026-08-25
+
+Problema detectado:
+
+- El SKU visible `7490` corresponde internamente a `id_sku=1868`.
+- El producto tenia precio activo e imagen, y estaba en publicacion `borrador`.
+- La disponibilidad calculada era `agotado`; si el checkbox de lote no viajaba como `confirmar_agotado=1`, el masivo no lo publicaba aunque individualmente si fuera publicable al confirmar agotado.
+- En auditoria, el POST de `Seleccionar todos` si incluia `id_sku=1868`, pero el helper interno `normalizarIdsSkuLote()` recortaba el lote a 100 SKUs.
+- Por eso el mensaje podia decir `29 de 100` aunque el usuario habia seleccionado muchos mas productos; los SKUs posteriores, como `1868`, no se procesaban.
+
+Decision:
+
+- Las acciones masivas de publicar/reactivar ya no dependen del checkbox para permitir agotados.
+- `publicarBorradoresLoteAutorizado()` fuerza `confirmar_agotado=1` al cambiar cada SKU a `publicado`.
+- `cambiarEstatusLoteAutorizado()` fuerza `confirmar_agotado=1` cuando el estatus destino es `publicado`.
+- La UI conserva la seccion como indicador operativo deshabilitado: `Agotados permitidos en lote`.
+- `normalizarIdsSkuLote()` ahora permite hasta 5000 SKUs, alineado con `publicaciones_ids_filtrados_erp`.
+
+Reglas que se mantienen:
+
+- La falta de stock no bloquea publicacion masiva.
+- Falta de precio activo, imagen, slug/titulo, bloqueo editorial critico o regla granel/fraccionaria siguen impidiendo publicar.
+- El flujo no toca inventario, no aparta existencias, no crea pedido y no activa checkout/pagos.
 
 ## Publicacion existente no es bloqueo 2026-08-24
 
@@ -981,6 +1005,63 @@ Decision:
 - La existencia de publicacion se informa por `estatus_publicacion`.
 - Para publicar, solo cuentan bloqueos reales: precio activo, imagen, granel/fraccionario, slug/titulo y agotado si no se confirmo.
 - Un SKU en `borrador` debe poder publicarse si cumple esos requisitos.
+
+## API publica con imagen por SKU y categorias alternas 2026-08-25
+
+Problema detectado:
+
+- `erp_catalogo_imagenes` permite imagenes por `id_sku`, pero la API publica tomaba la primera imagen activa del producto general.
+- Hay SKUs publicados con imagen especifica de variante; frontend podia recibir una imagen generica o equivocada.
+- `erp_catalogo_producto_categorias` permite multiples categorias por producto, pero catalogo, filtros y categorias publicas usaban solo `es_principal=1`.
+- Frontend no podia distinguir categorias alternas ni filtrar productos por una categoria secundaria.
+
+Decision:
+
+- `GET /ecommercePublico/catalogo` y `GET /ecommercePublico/producto/{slug}` priorizan imagen de SKU sobre imagen general de producto.
+- Cada item publico mantiene `imagen` como compatibilidad y agrega:
+  - `imagen_fuente`: `sku` o `producto`;
+  - `imagenes[]`: galeria publica ordenada, con fuente y bandera `principal`.
+- Cada item publico mantiene `categoria_obj` como categoria principal y agrega:
+  - `categorias[]`: todas las categorias del producto, con `principal=true/false`, `path_slug`, `url` y nombre completo;
+  - `categoria_ids[]`: IDs ERP publicos para filtros.
+- `GET /ecommercePublico/catalogo?categoria_slug=...` ya filtra por cualquier categoria asociada al producto, no solo principal.
+- `GET /ecommercePublico/filtros` y `GET /ecommercePublico/categorias` cuentan categorias asociadas publicables, incluyendo alternas.
+
+Reglas:
+
+- No se expone stock exacto ni costos.
+- Productos sin categoria siguen publicables si tienen precio, imagen y no son granel, pero salen con `categorias=[]`; se deben corregir operativamente para mejorar navegacion.
+- Frontend debe usar `categoria_obj` para breadcrumb principal y `categorias[]` para badges, filtros secundarios, landings alternas y SEO contextual.
+
+## API publica con productos agrupados y variantes 2026-08-25
+
+Problema detectado:
+
+- Hay productos ERP con varios SKUs publicados que representan colores, presentaciones o variantes del mismo producto.
+- El detalle publico ya podia devolver `variantes`, pero el catalogo/listado no indicaba si una tarjeta pertenecia a un grupo.
+- Frontend podia pintar varias tarjetas sueltas sin saber que pertenecian al mismo `id_producto_erp`.
+
+Decision:
+
+- Cada item de `GET /ecommercePublico/catalogo` y `GET /ecommercePublico/producto/{slug}` agrega `grupo_producto`.
+- `grupo_producto.id_producto_erp` es el agrupador canonico para frontend.
+- `grupo_producto.agrupable=true` cuando hay mas de un SKU publicado, con precio vigente y no granel/fraccionario, para el mismo producto ERP.
+- `grupo_producto.total_variantes_publicadas` informa el total real del grupo.
+- `grupo_producto.variantes_preview` entrega una vista previa limitada para chips o selectores visuales sin llamar todavia al detalle.
+- El detalle mantiene `depurar.variantes` con las variantes completas adicionales del producto.
+
+Contrato sugerido para frontend:
+
+- En catalogo normal puede seguir mostrando cada SKU como tarjeta independiente.
+- Si quiere una experiencia agrupada, debe agrupar por `item.grupo_producto.id_producto_erp`.
+- Si `item.grupo_producto.agrupable=true`, puede mostrar una sola card principal y pintar `variantes_preview` como chips de color/presentacion.
+- Cada variante trae `slug`, `url`, `sku`, `nombre`, `presentacion`, `precio`, `disponibilidad`, `imagen`, `imagen_fuente` y `actual`.
+- No se expone stock exacto, costos ni productos a granel.
+
+Ejemplo probado:
+
+- `GET /ecommercePublico/catalogo?q=PEZMN-01&limite=1`
+- Producto `Pez monja`, `id_producto_erp=1533`, `total_variantes_publicadas=7`.
 
 ## Calidad editorial de publicaciones 2026-08-19
 

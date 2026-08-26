@@ -31,6 +31,7 @@
     on("cms_media_agregar", "click", subirArchivoServidor);
     on("cms_media_buscar", "input", renderBibliotecaMedia);
     on("cms_media_filtro_uso", "change", renderBibliotecaMedia);
+    on("cms_media_limpiar_temporales", "click", limpiarTemporalesLocales);
     on("cms_media_limpiar_archivados", "click", limpiarArchivados);
 
     var biblioteca = $("cms_media_biblioteca");
@@ -252,7 +253,8 @@
       .then(function (json) {
         var data = json && json.depurar ? json.depurar : {};
         if (data.persistencia_real && Array.isArray(data.items)) {
-          mezclarItemsServidor(data.items.map(normalizarItemServidor).filter(Boolean));
+          var itemsServidor = data.items.map(normalizarItemServidor).filter(Boolean);
+          reconciliarItemsServidor(itemsServidor);
           guardarLocal();
           renderTodo();
           setEstado(data.items.length ? "BD sincronizada" : "BD lista", "badge-light-info");
@@ -387,6 +389,27 @@
         estado.items.unshift(item);
       }
     });
+  }
+
+  function reconciliarItemsServidor(itemsServidor) {
+    var idsServidor = {};
+    (itemsServidor || []).forEach(function (item) {
+      if (item && item.id) idsServidor[item.id] = true;
+    });
+    estado.items = estado.items.filter(function (item) {
+      return !(item && item.origen === "bd" && !idsServidor[item.id]);
+    });
+    mezclarItemsServidor(itemsServidor || []);
+    if (!buscarMedia(estado.activo)) estado.activo = estado.items[0] ? estado.items[0].id : "";
+  }
+
+  function limpiarTemporalesLocales() {
+    if (!window.confirm("Quitar todas las imagenes temporales locales de esta galeria? No afecta archivos del servidor.")) return;
+    estado.items = estado.items.filter(function (item) { return item && item.origen === "bd"; });
+    if (!buscarMedia(estado.activo)) estado.activo = estado.items[0] ? estado.items[0].id : "";
+    guardarLocal();
+    renderTodo();
+    setEstado("Temporales limpiados", "badge-light-success");
   }
 
   function limpiarArchivados() {

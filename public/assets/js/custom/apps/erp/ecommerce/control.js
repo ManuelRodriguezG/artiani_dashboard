@@ -532,7 +532,7 @@
             autorizar: "ECOMMERCE_PUBLICO_LOTE_ESTATUS",
             id_skus: skus.join(","),
             estatus_publicacion: "publicado",
-            confirmar_agotado: $("ecom_ctl_confirmar_agotados").checked ? "1" : "0",
+            confirmar_agotado: "1",
             crear_borrador_si_no_existe: "1"
         }).then(procesarLote).catch(alertar);
     }
