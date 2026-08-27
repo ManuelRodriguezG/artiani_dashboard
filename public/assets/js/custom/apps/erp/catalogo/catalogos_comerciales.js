@@ -19,7 +19,11 @@
         paginaCandidatos: 1,
         paginaSeleccion: 1,
         catalogos: [],
-        catalogoActualId: 0
+        categorias: [],
+        catalogoActualId: 0,
+        modoInicial: "listado",
+        catalogoInicialId: 0,
+        nuevoInicial: false
     };
 
     const $ = (id) => document.getElementById(id);
@@ -76,6 +80,49 @@
     function plantillaActual() {
         const valor = $("cc_plantilla")?.value || "square";
         return ["square", "story", "compact"].includes(valor) ? valor : "square";
+    }
+
+    /**
+     * IA: Codex GPT-5 | Fecha: 2026-08-26
+     * Proposito: controlar densidad visual del catalogo exportable sin cambiar el esquema.
+     * Impacto: UI Catalogos comerciales; permite generar PNG con productos mas grandes por fila.
+     * Contrato: persiste la densidad como sufijo de plantilla (`square_3`, `story_2`) en la columna existente.
+     */
+    function columnasExportacionActual() {
+        const columnas = Number($("cc_columnas_exportacion")?.value || 3);
+        return [2, 3, 4, 5].includes(columnas) ? columnas : 3;
+    }
+
+    function filasExportacionActual() {
+        const valor = $("cc_filas_exportacion")?.value || "auto";
+        if (valor === "auto") return 0;
+        const filas = Number(valor);
+        return [2, 3, 4, 5, 6].includes(filas) ? filas : 0;
+    }
+
+    function plantillaBase(valor) {
+        const base = String(valor || "square").split("_")[0];
+        return ["square", "story", "compact"].includes(base) ? base : "square";
+    }
+
+    function columnasDesdePlantilla(valor) {
+        const match = String(valor || "").match(/_(\d)(?:x(\d))?$/);
+        const columnas = Number(match && match[1] ? match[1] : 3);
+        return [2, 3, 4, 5].includes(columnas) ? columnas : 3;
+    }
+
+    function filasDesdePlantilla(valor) {
+        const match = String(valor || "").match(/_(\d)x(\d)$/);
+        const filas = Number(match && match[2] ? match[2] : 0);
+        return [2, 3, 4, 5, 6].includes(filas) ? filas : 0;
+    }
+
+    function plantillaPersistenteActual() {
+        const base = plantillaActual();
+        if (base === "compact") return "compact";
+        const columnas = columnasExportacionActual();
+        const filas = filasExportacionActual();
+        return filas > 0 ? `${base}_${columnas}x${filas}` : `${base}_${columnas}`;
     }
 
     function badgeAlerta(alerta) {
@@ -189,7 +236,10 @@
 
     function opcionesActuales() {
         return {
-            plantilla: plantillaActual(),
+            plantilla: plantillaPersistenteActual(),
+            plantillaBase: plantillaActual(),
+            columnasExportacion: columnasExportacionActual(),
+            filasExportacion: filasExportacionActual(),
             mostrarPrecio: Boolean($("cc_mostrar_precio")?.checked),
             mostrarMarca: Boolean($("cc_mostrar_marca")?.checked),
             mostrarCategoria: Boolean($("cc_mostrar_categoria")?.checked),
@@ -213,13 +263,74 @@
 
     function aplicarOpciones(datos) {
         const opciones = datos || {};
-        if ($("cc_plantilla")) $("cc_plantilla").value = opciones.plantilla || "square";
+        const plantillaPersistida = opciones.plantilla || opciones.plantillaPersistente || "square";
+        if ($("cc_plantilla")) $("cc_plantilla").value = plantillaBase(plantillaPersistida);
+        if ($("cc_columnas_exportacion")) $("cc_columnas_exportacion").value = String(opciones.columnasExportacion || columnasDesdePlantilla(plantillaPersistida));
+        const filasPersistidas = opciones.filasExportacion || filasDesdePlantilla(plantillaPersistida);
+        if ($("cc_filas_exportacion")) $("cc_filas_exportacion").value = filasPersistidas ? String(filasPersistidas) : "auto";
         if ($("cc_mostrar_precio")) $("cc_mostrar_precio").checked = opciones.mostrarPrecio !== false;
         if ($("cc_mostrar_marca")) $("cc_mostrar_marca").checked = opciones.mostrarMarca !== false;
         if ($("cc_mostrar_categoria")) $("cc_mostrar_categoria").checked = Boolean(opciones.mostrarCategoria);
         if ($("cc_mostrar_presentacion")) $("cc_mostrar_presentacion").checked = opciones.mostrarPresentacion !== false;
         if ($("cc_mostrar_sku")) $("cc_mostrar_sku").checked = Boolean(opciones.mostrarSku);
         if ($("cc_mostrar_disponibilidad")) $("cc_mostrar_disponibilidad").checked = Boolean(opciones.mostrarDisponibilidad);
+    }
+
+    /**
+     * IA: Codex GPT-5 | Fecha: 2026-08-26
+     * Proposito: leer la ruta operativa inicial de Catalogos comerciales.
+     * Impacto: UI Comercial; permite abrir listado, nuevo, editar o ver sin duplicar vistas ni endpoints.
+     * Contrato: consume inputs ocultos generados por PHP y no modifica BD.
+     */
+    function leerModoInicial() {
+        const modo = $("cc_modo_inicial")?.value || "listado";
+        estado.modoInicial = modo === "editor" || modo === "preview" ? modo : "guardados";
+        estado.catalogoInicialId = Number($("cc_catalogo_inicial")?.value || 0);
+        estado.nuevoInicial = String($("cc_nuevo_inicial")?.value || "0") === "1";
+    }
+
+    /**
+     * IA: Codex GPT-5 | Fecha: 2026-08-26
+     * Proposito: ofrecer un selector de categorias ERP dentro del armado comercial.
+     * Impacto: UI Catalogos comerciales; permite agregar candidatos por categoria sin duplicar reglas del catalogo maestro.
+     * Contrato: lee `/catalogoerp/catalogos` y usa solo categorias activas que permiten productos.
+     */
+    async function cargarCategorias() {
+        const select = $("cc_categoria");
+        if (!select) return;
+        const json = await apiGet("/catalogoerp/catalogos");
+        if (json.error) throw new Error(json.mensaje || "No se pudieron cargar categorias");
+        const categorias = json.depurar && Array.isArray(json.depurar.categorias) ? json.depurar.categorias : [];
+        estado.categorias = categorias.filter((categoria) => Number(categoria.permite_productos ?? 1) === 1 && (!categoria.estatus || categoria.estatus === "activa"));
+        select.innerHTML = `<option value="">Todas las categorias</option>${estado.categorias.map((categoria) => {
+            const nombre = categoria.ruta || categoria.nombre || categoria.codigo || "Categoria";
+            const total = Number(categoria.total_productos || 0);
+            const sufijo = total > 0 ? ` (${total})` : "";
+            return `<option value="${escapeHtml(categoria.id_categoria_erp)}">${escapeHtml(nombre + sufijo)}</option>`;
+        }).join("")}`;
+        activarBuscadorSelect(select);
+    }
+
+    /**
+     * IA: Codex GPT-5 | Fecha: 2026-08-26
+     * Proposito: permitir escritura/busqueda en selectores largos cuando Select2 esta disponible.
+     * Impacto: UX Catalogos comerciales; agiliza encontrar categorias sin perder compatibilidad con select nativo.
+     * Contrato: mejora progresiva; no agrega dependencias nuevas ni cambia el valor enviado al filtro.
+     */
+    function activarBuscadorSelect(select) {
+        if (!select || !window.jQuery || !jQuery.fn || !jQuery.fn.select2) return;
+        const $select = jQuery(select);
+        if ($select.data("select2")) $select.select2("destroy");
+        $select.select2({
+            width: "100%",
+            dropdownParent: jQuery(document.body),
+            placeholder: "Escribe una categoria",
+            allowClear: true,
+            language: {
+                noResults: function () { return "Sin resultados"; },
+                searching: function () { return "Buscando..."; }
+            }
+        });
     }
 
     /**
@@ -295,6 +406,7 @@
         params.set("solo_alertas", $("cc_alertas")?.value || "0");
         params.set("solo_con_imagen", $("cc_imagen")?.value || "0");
         params.set("modo_precio", $("cc_modo_precio")?.value || "indistinto");
+        params.set("id_categoria_erp", $("cc_categoria")?.value || "");
         return params;
     }
 
@@ -405,6 +517,11 @@
         if ($("cc_res_sel")) $("cc_res_sel").textContent = items.length.toLocaleString("es-MX");
         const plantilla = plantillaActual();
         preview.className = `cc-preview-grid cc-preview-grid--${plantilla}`;
+        if (plantilla === "compact") {
+            preview.style.removeProperty("grid-template-columns");
+        } else {
+            preview.style.gridTemplateColumns = `repeat(${columnasExportacionActual()}, minmax(0, 1fr))`;
+        }
 
         if (!items.length) {
             contenedor.innerHTML = `<div class="text-muted py-4">Sin items seleccionados</div>`;
@@ -500,6 +617,7 @@
         guardarSeleccionLocal();
         renderTabla();
         renderSeleccion();
+        limpiarPreviewPaginasExportacion();
     }
 
     /**
@@ -520,6 +638,7 @@
         estado.seleccion = new Map(items.map((item) => [String(item.id_sku), item]));
         guardarSeleccionLocal();
         renderSeleccion();
+        limpiarPreviewPaginasExportacion();
     }
 
     /**
@@ -536,6 +655,23 @@
         guardarSeleccionLocal();
         renderTabla();
         renderSeleccion();
+        limpiarPreviewPaginasExportacion();
+    }
+
+    /**
+     * IA: Codex GPT-5 | Fecha: 2026-08-26
+     * Proposito: agregar todos los candidatos cargados por el filtro actual.
+     * Impacto: UI Catalogos comerciales; permite usar una categoria como fuente masiva de productos.
+     * Contrato: solo usa los candidatos ya consultados; respeta el limite de carga seleccionado y no escribe BD.
+     */
+    function seleccionarCargados() {
+        estado.items.forEach((item) => {
+            estado.seleccion.set(String(item.id_sku), item);
+        });
+        guardarSeleccionLocal();
+        renderTabla();
+        renderSeleccion();
+        limpiarPreviewPaginasExportacion();
     }
 
     /**
@@ -552,6 +688,23 @@
         guardarSeleccionLocal();
         renderTabla();
         renderSeleccion();
+        limpiarPreviewPaginasExportacion();
+    }
+
+    /**
+     * IA: Codex GPT-5 | Fecha: 2026-08-26
+     * Proposito: quitar de la seleccion todos los candidatos cargados por el filtro actual.
+     * Impacto: UI Catalogos comerciales; facilita corregir altas masivas por categoria.
+     * Contrato: solo modifica seleccion local/localStorage; no borra catalogos ni SKUs.
+     */
+    function quitarCargados() {
+        estado.items.forEach((item) => {
+            estado.seleccion.delete(String(item.id_sku));
+        });
+        guardarSeleccionLocal();
+        renderTabla();
+        renderSeleccion();
+        limpiarPreviewPaginasExportacion();
     }
 
     /**
@@ -728,6 +881,7 @@
             if (item && item.id_sku) estado.seleccion.set(String(item.id_sku), item);
         });
         aplicarMaterial(borrador.material || {});
+        aplicarOpciones(borrador.opciones || {});
         if ($("cc_borrador_nombre")) $("cc_borrador_nombre").value = nombre;
         guardarSeleccionLocal();
         renderTabla();
@@ -1039,7 +1193,7 @@
         const contenedor = $("cc_catalogos_guardados_lista");
         if (!contenedor) return;
         if (!estado.catalogos.length) {
-            contenedor.innerHTML = `<div class="text-muted py-4">No hay catalogos comerciales guardados.</div>`;
+            contenedor.innerHTML = `<div class="text-muted py-4">No hay catalogos comerciales guardados. Usa Nuevo para preparar el primero.</div>`;
             return;
         }
         contenedor.innerHTML = estado.catalogos.map((catalogo) => `<article class="cc-saved-card">
@@ -1049,7 +1203,8 @@
                 <div class="cc-saved-card__meta">Actualizado: ${escapeHtml(fechaCatalogoTexto(catalogo.fecha_actualizacion || catalogo.fecha_creacion))}</div>
             </div>
             <div class="d-flex gap-2 flex-wrap mt-auto">
-                <button class="btn btn-sm btn-light-primary" type="button" data-cc-editar-catalogo="${escapeHtml(catalogo.id_catalogo_comercial)}"><i class="bi bi-pencil"></i> Editar</button>
+                <a class="btn btn-sm btn-light-dark" href="/catalogoerp/catalogos_comerciales_ver?id_catalogo_comercial=${encodeURIComponent(catalogo.id_catalogo_comercial)}"><i class="bi bi-eye"></i> Ver</a>
+                <a class="btn btn-sm btn-light-primary" href="/catalogoerp/catalogos_comerciales_editar?id_catalogo_comercial=${encodeURIComponent(catalogo.id_catalogo_comercial)}"><i class="bi bi-pencil"></i> Editar</a>
                 <button class="btn btn-sm btn-light-danger" type="button" data-cc-archivar-catalogo="${escapeHtml(catalogo.id_catalogo_comercial)}"><i class="bi bi-archive"></i> Archivar</button>
             </div>
         </article>`).join("");
@@ -1217,22 +1372,31 @@
         if (plantilla === "compact") {
             return { width, height, margen, gap, columnas: 1, cardW: width - margen * 2, cardH: 155, headerH: 76, tituloH: 52, portadaH: 120 };
         }
-        if (plantilla === "story") {
-            const columnas = 5;
-            const cardW = Math.floor((width - margen * 2 - gap * (columnas - 1)) / columnas);
-            return { width, height, margen, gap, columnas, cardW, cardH: 270, headerH: 76, tituloH: 52, portadaH: 120 };
-        }
-        const columnas = 5;
+        const columnas = columnasExportacionActual();
+        const filasDeseadas = filasExportacionActual();
+        const altoPorColumnas = { 2: 470, 3: 360, 4: 305, 5: 270 };
         const cardW = Math.floor((width - margen * 2 - gap * (columnas - 1)) / columnas);
-        return { width, height, margen, gap, columnas, cardW, cardH: 270, headerH: 76, tituloH: 52, portadaH: 120 };
+        return { width, height, margen, gap, columnas, filasDeseadas, cardW, cardH: altoPorColumnas[columnas] || 360, headerH: 76, tituloH: 52, portadaH: 120 };
+    }
+
+    function altoDisponibleItems(layout, incluirPortada) {
+        const encabezado = incluirPortada ? layout.headerH : layout.tituloH;
+        const altoInicial = layout.margen + encabezado + (incluirPortada ? layout.portadaH + layout.gap : 0) + layout.gap + 30;
+        return Math.max(120, layout.height - altoInicial - layout.margen);
+    }
+
+    function cardHPaginaCatalogo(layout, incluirPortada) {
+        if (layout.columnas <= 1 || !layout.filasDeseadas) return layout.cardH;
+        const disponible = altoDisponibleItems(layout, incluirPortada);
+        const filas = Math.max(1, layout.filasDeseadas);
+        return Math.max(170, Math.floor((disponible - layout.gap * (filas - 1)) / filas));
     }
 
     function itemsPorPaginaCatalogo(layout, incluirPortada) {
-        const encabezado = incluirPortada ? layout.headerH : layout.tituloH;
-        const altoInicial = layout.margen + encabezado + (incluirPortada ? layout.portadaH + layout.gap : 0) + layout.gap + 30;
-        const disponible = layout.height - altoInicial - layout.margen;
-        const filasCalculadas = Math.max(1, Math.floor((disponible + layout.gap) / (layout.cardH + layout.gap)));
-        const limiteFilas = layout.columnas > 1 ? (incluirPortada ? 4 : 5) : filasCalculadas;
+        const cardH = cardHPaginaCatalogo(layout, incluirPortada);
+        const disponible = altoDisponibleItems(layout, incluirPortada);
+        const filasCalculadas = Math.max(1, Math.floor((disponible + layout.gap) / (cardH + layout.gap)));
+        const limiteFilas = layout.filasDeseadas || (layout.columnas > 1 ? (incluirPortada ? 4 : 5) : filasCalculadas);
         const filas = Math.min(limiteFilas, filasCalculadas);
         return Math.max(1, filas * layout.columnas);
     }
@@ -1310,12 +1474,13 @@
         let y = layout.margen;
         if (paginaDatos.portada) y = dibujarPortadaPagina(ctx, material, layout, y);
         y = dibujarHeaderPagina(ctx, material, layout, y, numeroPagina, totalPaginas, !paginaDatos.portada);
+        const cardH = cardHPaginaCatalogo(layout, paginaDatos.portada);
         for (let i = 0; i < paginaDatos.items.length; i += 1) {
             const col = i % layout.columnas;
             const row = Math.floor(i / layout.columnas);
             const x = layout.margen + col * (layout.cardW + layout.gap);
-            const itemY = y + row * (layout.cardH + layout.gap);
-            await dibujarTarjetaCanvas(ctx, paginaDatos.items[i], x, itemY, layout.cardW, layout.cardH, opciones);
+            const itemY = y + row * (cardH + layout.gap);
+            await dibujarTarjetaCanvas(ctx, paginaDatos.items[i], x, itemY, layout.cardW, cardH, opciones);
         }
         ctx.fillStyle = "#9ca3af";
         ctx.font = "600 16px Arial, sans-serif";
@@ -1323,6 +1488,52 @@
         ctx.fillText("Precios y disponibilidad sujetos a confirmacion", layout.width / 2, layout.height - 26);
         ctx.textAlign = "left";
         return canvas;
+    }
+
+    function limpiarPreviewPaginasExportacion() {
+        const wrap = $("cc_preview_paginas_wrap");
+        const contenedor = $("cc_preview_paginas");
+        const resumen = $("cc_preview_paginas_resumen");
+        if (wrap) wrap.classList.add("d-none");
+        if (contenedor) contenedor.innerHTML = "";
+        if (resumen) resumen.textContent = "";
+    }
+
+    /**
+     * IA: Codex GPT-5 | Fecha: 2026-08-26
+     * Proposito: previsualizar las paginas PNG antes de descargar archivos.
+     * Impacto: UI Catalogos comerciales; permite ajustar filas/columnas sin generar imagenes innecesarias.
+     * Contrato: dibuja miniaturas locales en canvas usando la misma rutina del exportador; no escribe servidor ni descarga.
+     */
+    async function previsualizarPaginasPngCanvas() {
+        const items = Array.from(estado.seleccion.values());
+        if (!items.length) throw new Error("Selecciona al menos un producto para previsualizar paginas");
+        const wrap = $("cc_preview_paginas_wrap");
+        const contenedor = $("cc_preview_paginas");
+        const resumen = $("cc_preview_paginas_resumen");
+        if (!wrap || !contenedor) return;
+        setEstado("Preparando preview", "warning");
+        contenedor.innerHTML = "";
+        wrap.classList.remove("d-none");
+        const opciones = opcionesActuales();
+        const material = materialActual();
+        const layout = layoutPaginaCatalogo(plantillaActual());
+        const paginas = paginasCatalogo(items, layout, material.portadaActiva !== false);
+        if (resumen) {
+            const filas = layout.filasDeseadas ? `${layout.filasDeseadas}` : "auto";
+            resumen.textContent = `${paginas.length} paginas - ${layout.columnas} columnas x ${filas} filas`;
+        }
+        for (let i = 0; i < paginas.length; i += 1) {
+            setEstado(`Preview ${i + 1}/${paginas.length}`, "warning");
+            const canvas = await dibujarPaginaCatalogoCanvas(paginas[i], i + 1, paginas.length, layout, material, opciones);
+            const card = document.createElement("article");
+            card.className = "cc-page-preview-card";
+            card.innerHTML = `<div class="cc-page-preview-card__meta"><span>Pagina ${i + 1}</span><span>${paginas[i].items.length} productos</span></div>`;
+            card.appendChild(canvas);
+            contenedor.appendChild(card);
+            await new Promise((resolve) => setTimeout(resolve, 40));
+        }
+        setEstado(`Preview listo (${paginas.length})`, "success");
     }
 
     /**
@@ -1379,7 +1590,12 @@
             renderSeleccion();
         });
         $("cc_seleccionar_visibles")?.addEventListener("click", seleccionarVisibles);
+        $("cc_seleccionar_cargados")?.addEventListener("click", seleccionarCargados);
         $("cc_quitar_visibles")?.addEventListener("click", quitarVisibles);
+        $("cc_quitar_cargados")?.addEventListener("click", quitarCargados);
+        $("cc_previsualizar_paginas")?.addEventListener("click", () => {
+            previsualizarPaginasPngCanvas().catch(mostrarError);
+        });
         $("cc_exportar_png")?.addEventListener("click", () => {
             exportarPreviewPngCanvas().catch(mostrarError);
         });
@@ -1466,15 +1682,27 @@
             renderTabla();
             renderSeleccion();
         });
-        ["cc_mostrar_precio", "cc_mostrar_marca", "cc_mostrar_categoria", "cc_mostrar_presentacion", "cc_mostrar_sku", "cc_mostrar_disponibilidad", "cc_plantilla"].forEach((id) => {
-            $(id)?.addEventListener("change", renderSeleccion);
+        ["cc_mostrar_precio", "cc_mostrar_marca", "cc_mostrar_categoria", "cc_mostrar_presentacion", "cc_mostrar_sku", "cc_mostrar_disponibilidad", "cc_plantilla", "cc_columnas_exportacion", "cc_filas_exportacion"].forEach((id) => {
+            $(id)?.addEventListener("change", () => {
+                renderSeleccion();
+                limpiarPreviewPaginasExportacion();
+            });
         });
         ["cc_material_titulo", "cc_material_subtitulo", "cc_material_cta", "cc_portada_etiqueta", "cc_portada_descripcion", "cc_portada_nota"].forEach((id) => {
-            $(id)?.addEventListener("input", renderSeleccion);
+            $(id)?.addEventListener("input", () => {
+                renderSeleccion();
+                limpiarPreviewPaginasExportacion();
+            });
         });
-        $("cc_portada_activa")?.addEventListener("change", renderSeleccion);
+        $("cc_portada_activa")?.addEventListener("change", () => {
+            renderSeleccion();
+            limpiarPreviewPaginasExportacion();
+        });
         $("cc_q")?.addEventListener("keydown", (event) => {
             if (event.key === "Enter") cargar().catch(mostrarError);
+        });
+        $("cc_categoria")?.addEventListener("change", () => {
+            cargar().catch(mostrarError);
         });
         document.addEventListener("click", (event) => {
             const toggle = event.target.closest("[data-cc-toggle]");
@@ -1520,13 +1748,30 @@
         }
     }
 
-    document.addEventListener("DOMContentLoaded", () => {
+    async function iniciarCatalogosComerciales() {
+        leerModoInicial();
         cargarSeleccionLocal();
         cargarMaterialLocal();
-        cargarCatalogosGuardados().catch(mostrarError);
         enlazarEventos();
         renderSeleccion();
-        cargar().catch(mostrarError);
+        if (estado.nuevoInicial) {
+            estado.catalogoActualId = 0;
+            estado.seleccion.clear();
+            guardarSeleccionLocal();
+            if ($("cc_borrador_nombre")) $("cc_borrador_nombre").value = "";
+            renderSeleccion();
+        }
+        await cargarCategorias();
+        await cargarCatalogosGuardados();
+        if (estado.catalogoInicialId > 0) {
+            await cargarCatalogoServidor(estado.catalogoInicialId);
+        }
+        mostrarVista(estado.modoInicial);
+        await cargar();
+    }
+
+    document.addEventListener("DOMContentLoaded", () => {
+        iniciarCatalogosComerciales().catch(mostrarError);
     });
 })();
 

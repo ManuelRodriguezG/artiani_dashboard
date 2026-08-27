@@ -6124,6 +6124,175 @@ class Proveedores extends CRUD {
     }
 
     /**
+     * IA: Codex GPT-5 | Fecha: 2026-08-26
+     * Proposito: retirar una relacion equivocada desde un renglon de lista y proteger uso operativo existente.
+     * Impacto: Proveedores/Listas; permite corregir matching sin borrar costos, solicitudes u ordenes.
+     * Contrato: limpia id_sku/id_sku_proveedor del renglon; inactiva la relacion formal solo si no hay bloqueos.
+     */
+    public function desvincularRelacionListaDetalleErp($datos, $id_usuario) {
+        $db = $this->getConexion();
+        try {
+            $idProveedor = isset($datos["id_proveedor"]) ? intval($datos["id_proveedor"]) : 0;
+            $idLista = isset($datos["id_lista_proveedor_erp"]) ? intval($datos["id_lista_proveedor_erp"]) : 0;
+            $idDetalle = isset($datos["id_lista_detalle_erp"]) ? intval($datos["id_lista_detalle_erp"]) : 0;
+            $motivo = $this->textoProveedorErp($datos, "motivo", 500);
+            if ($idProveedor <= 0 || $idLista <= 0 || $idDetalle <= 0) {
+                return array("error" => true, "tipo" => "warning", "mensaje" => "Renglon de lista invalido", "depurar" => null);
+            }
+            if ($motivo === "") {
+                return array("error" => true, "tipo" => "warning", "mensaje" => "Captura el motivo para quitar la relacion", "depurar" => null);
+            }
+
+            $antes = $this->consultarListaDetalleProveedorErp($db, $idDetalle, $idLista, $idProveedor);
+            if (!$antes) {
+                return array("error" => true, "tipo" => "warning", "mensaje" => "Renglon de lista no encontrado", "depurar" => null);
+            }
+
+            $idSku = intval(isset($antes["id_sku"]) ? $antes["id_sku"] : 0);
+            $idSkuProveedor = intval(isset($antes["id_sku_proveedor"]) ? $antes["id_sku_proveedor"] : 0);
+            if ($idSku <= 0 && $idSkuProveedor <= 0) {
+                return array("error" => true, "tipo" => "info", "mensaje" => "El renglon no tiene relacion para quitar", "depurar" => array("id_lista_detalle_erp" => $idDetalle, "antes" => $antes));
+            }
+
+            $relacionAntes = $idSkuProveedor > 0
+                ? $this->consultarRelacionSkuProveedorErp($db, $idSkuProveedor, $idSku, $idProveedor)
+                : null;
+            $idSkuRelacion = $relacionAntes && isset($relacionAntes["id_sku"]) ? intval($relacionAntes["id_sku"]) : $idSku;
+            if ($idSku <= 0 && $idSkuRelacion > 0) {
+                $idSku = $idSkuRelacion;
+            }
+            $bloqueos = $this->bloqueosRelacionProveedorSkuErp($db, $idProveedor, $idSku, $idSkuProveedor, $idDetalle);
+            $puedeInactivarRelacion = $relacionAntes && empty($bloqueos);
+            $nota = "Relacion retirada por usuario el " . date("Y-m-d H:i:s") . ". Motivo: " . $motivo . ".";
+            if ($relacionAntes) {
+                $nota .= $puedeInactivarRelacion
+                    ? " Relacion formal inactivada automaticamente por no tener uso operativo."
+                    : " Relacion formal conservada por uso operativo: " . implode(", ", $bloqueos) . ".";
+            }
+
+            $db->beginTransaction();
+
+            $stmtDetalle = $db->prepare("UPDATE erp_proveedores_listas_detalle_erp SET
+                id_sku = NULL,
+                id_sku_proveedor = NULL,
+                estado_match = 'sin_match',
+                criterio_match = 'relacion_retirada_por_usuario',
+                observaciones = TRIM(CONCAT(COALESCE(observaciones, ''), CASE WHEN COALESCE(observaciones, '') = '' THEN '' ELSE '\n' END, :nota)),
+                fecha_actualizacion = NOW()
+                WHERE id_lista_detalle_erp = :id_detalle
+                  AND id_lista_proveedor_erp = :id_lista");
+            $stmtDetalle->execute(array(
+                ":nota" => $nota,
+                ":id_detalle" => $idDetalle,
+                ":id_lista" => $idLista
+            ));
+
+            if ($puedeInactivarRelacion) {
+                $stmtRelacion = $db->prepare("UPDATE erp_catalogo_sku_proveedores SET
+                    estatus = 'inactivo',
+                    es_preferido = 0,
+                    fecha_actualizacion = CURRENT_TIMESTAMP
+                    WHERE id_sku_proveedor = :id_sku_proveedor
+                      AND id_proveedor = :id_proveedor
+                      AND id_sku = :id_sku");
+                $stmtRelacion->execute(array(
+                    ":id_sku_proveedor" => $idSkuProveedor,
+                    ":id_proveedor" => $idProveedor,
+                    ":id_sku" => $idSkuRelacion
+                ));
+            }
+
+            $despues = $this->consultarListaDetalleProveedorErp($db, $idDetalle, $idLista, $idProveedor);
+            $relacionDespues = $relacionAntes
+                ? $this->consultarRelacionSkuProveedorErp($db, $idSkuProveedor, $idSku, $idProveedor)
+                : null;
+            $db->commit();
+
+            return array(
+                "error" => false,
+                "tipo" => empty($bloqueos) ? "success" : "warning",
+                "mensaje" => empty($bloqueos)
+                    ? "Relacion retirada del renglon"
+                    : "Relacion retirada del renglon; la relacion formal se conservo por uso operativo",
+                "depurar" => array(
+                    "id_proveedor" => $idProveedor,
+                    "id_lista_proveedor_erp" => $idLista,
+                    "id_lista_detalle_erp" => $idDetalle,
+                    "id_sku" => $idSku,
+                    "id_sku_proveedor" => $idSkuProveedor,
+                    "relacion_formal_inactivada" => $puedeInactivarRelacion,
+                    "bloqueos" => $bloqueos,
+                    "antes" => array("renglon" => $antes, "relacion" => $relacionAntes),
+                    "despues" => array("renglon" => $despues, "relacion" => $relacionDespues)
+                )
+            );
+        } catch (Exception $e) {
+            if ($db->inTransaction()) {
+                $db->rollBack();
+            }
+            return array("error" => true, "tipo" => "danger", "mensaje" => $e->getMessage(), "depurar" => null);
+        }
+    }
+
+    private function bloqueosRelacionProveedorSkuErp($db, $idProveedor, $idSku, $idSkuProveedor, $idDetalleActual) {
+        $bloqueos = array();
+        if ($idSkuProveedor <= 0) {
+            return $bloqueos;
+        }
+
+        $costosVigentes = $this->contarProveedorErp($db, "erp_proveedores_sku_costos", "id_proveedor = :id_proveedor AND id_sku_proveedor = :id_sku_proveedor AND estatus = 'vigente'", array(
+            ":id_proveedor" => intval($idProveedor),
+            ":id_sku_proveedor" => intval($idSkuProveedor)
+        ));
+        if ($costosVigentes > 0) {
+            $bloqueos[] = "costo vigente";
+        }
+
+        $otrosRenglones = $this->contarProveedorErp($db, "erp_proveedores_listas_detalle_erp d INNER JOIN erp_proveedores_listas_erp l ON l.id_lista_proveedor_erp = d.id_lista_proveedor_erp", "l.id_proveedor = :id_proveedor AND d.id_sku_proveedor = :id_sku_proveedor AND d.id_lista_detalle_erp <> :id_detalle", array(
+            ":id_proveedor" => intval($idProveedor),
+            ":id_sku_proveedor" => intval($idSkuProveedor),
+            ":id_detalle" => intval($idDetalleActual)
+        ));
+        if ($otrosRenglones > 0) {
+            $bloqueos[] = "otros renglones";
+        }
+
+        if ($this->tablaExisteAuditoriaProveedores($db, "erp_compras_ordenes_detalle") && $this->columnaExisteProveedorErp($db, "erp_compras_ordenes_detalle", "id_sku_proveedor")) {
+            $ordenes = $this->contarProveedorErp($db, "erp_compras_ordenes_detalle", "id_sku_proveedor = :id_sku_proveedor", array(":id_sku_proveedor" => intval($idSkuProveedor)));
+            if ($ordenes > 0) {
+                $bloqueos[] = "ordenes de compra";
+            }
+        }
+
+        if ($this->tablaExisteAuditoriaProveedores($db, "erp_compras_solicitudes_detalle") && $this->columnaExisteProveedorErp($db, "erp_compras_solicitudes_detalle", "id_sku_proveedor")) {
+            $solicitudes = $this->contarProveedorErp($db, "erp_compras_solicitudes_detalle", "id_sku_proveedor = :id_sku_proveedor", array(":id_sku_proveedor" => intval($idSkuProveedor)));
+            if ($solicitudes > 0) {
+                $bloqueos[] = "solicitudes de compra";
+            }
+        }
+
+        return $bloqueos;
+    }
+
+    private function columnaExisteProveedorErp($db, $tabla, $columna) {
+        $base = defined("MYSQLBASE") ? MYSQLBASE : "";
+        if ($base === "") {
+            $base = $db->query("SELECT DATABASE()")->fetchColumn();
+        }
+        $stmt = $db->prepare("SELECT COUNT(*)
+            FROM INFORMATION_SCHEMA.COLUMNS
+            WHERE TABLE_SCHEMA = :base
+              AND TABLE_NAME = :tabla
+              AND COLUMN_NAME = :columna");
+        $stmt->execute(array(
+            ":base" => $base,
+            ":tabla" => $tabla,
+            ":columna" => $columna
+        ));
+        return intval($stmt->fetchColumn()) > 0;
+    }
+
+    /**
      * IA: Codex GPT-5
      * Fecha: 2026-07-20
      * Proposito: completar datos de compra en varios renglones de lista sin aplicar relacion ni costo.

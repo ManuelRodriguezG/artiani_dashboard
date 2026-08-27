@@ -34,7 +34,53 @@ class Catalogoerp extends Controlador {
    */
   public function catalogos_comerciales() {
     $this->requerirPermiso("catalogo.ver");
-    $this->vista("apps/erp/catalogo/catalogos_comerciales");
+    $this->vista("apps/erp/catalogo/catalogos_comerciales_listado", array(
+      "modo" => "listado",
+      "id_catalogo_comercial" => 0
+    ));
+  }
+
+  /**
+   * IA: Codex GPT-5 | Fecha: 2026-08-26
+   * Proposito: abrir el constructor de un catalogo comercial nuevo desde una ruta operativa separada.
+   * Impacto: Catalogo ERP/Comercial; ordena el flujo sin crear tablas ni tocar productos, precios o inventario.
+   * Contrato: vista protegida por `catalogo.editar`; inicia el editor sin catalogo cargado.
+   */
+  public function catalogos_comerciales_nuevo() {
+    $this->requerirPermiso("catalogo.editar");
+    $this->vista("apps/erp/catalogo/catalogos_comerciales_formulario", array(
+      "modo" => "editor",
+      "id_catalogo_comercial" => 0,
+      "nuevo" => true
+    ));
+  }
+
+  /**
+   * IA: Codex GPT-5 | Fecha: 2026-08-26
+   * Proposito: abrir un catalogo comercial persistido directamente en modo edicion.
+   * Impacto: Catalogo ERP/Comercial; mejora navegacion tipo listado/editar sin modificar el contrato de guardado.
+   * Contrato: GET protegido por `catalogo.editar`; acepta `id_catalogo_comercial`.
+   */
+  public function catalogos_comerciales_editar() {
+    $this->requerirPermiso("catalogo.editar");
+    $this->vista("apps/erp/catalogo/catalogos_comerciales_formulario", array(
+      "modo" => "editor",
+      "id_catalogo_comercial" => isset($_GET["id_catalogo_comercial"]) ? intval($_GET["id_catalogo_comercial"]) : 0
+    ));
+  }
+
+  /**
+   * IA: Codex GPT-5 | Fecha: 2026-08-26
+   * Proposito: abrir un catalogo comercial persistido en modo vista previa/consulta.
+   * Impacto: Catalogo ERP/Comercial; permite revisar o exportar material sin pasar primero por el editor.
+   * Contrato: GET protegido por `catalogo.ver`; acepta `id_catalogo_comercial`.
+   */
+  public function catalogos_comerciales_ver() {
+    $this->requerirPermiso("catalogo.ver");
+    $this->vista("apps/erp/catalogo/catalogos_comerciales_formulario", array(
+      "modo" => "preview",
+      "id_catalogo_comercial" => isset($_GET["id_catalogo_comercial"]) ? intval($_GET["id_catalogo_comercial"]) : 0
+    ));
   }
 
   public function propuestas_nombres() {
@@ -1043,6 +1089,44 @@ class Catalogoerp extends Controlador {
     return json_encode($respuesta);
   }
 
+  /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-08-27
+   * Proposito: guarda atributos tecnicos de ficha/comparacion para SKUs de un producto.
+   * Impacto: Catalogo ERP; no marca variantes ni toca precios, inventario o ecommerce.
+   * Contrato: POST protegido por `catalogo.editar`; usa `id_producto_erp`, `id_atributo_erp|nuevo_atributo` y `valores[id_sku]`.
+   */
+  public function guardar_atributos_tecnicos() {
+    $this->requerirPermiso("catalogo.editar");
+    $respuesta = $this->modelo("CatalogoErpDatos")->guardarAtributosTecnicosProducto($_POST);
+    SesionSeguridad::registrarAuditoria("catalogo", "guardar_atributos_tecnicos_producto", array(
+      "entidad" => "erp_catalogo_productos",
+      "entidad_id" => isset($_POST["id_producto_erp"]) ? intval($_POST["id_producto_erp"]) : null,
+      "resultado" => $respuesta["error"] ? "error" : "ok",
+      "mensaje" => $respuesta["mensaje"]
+    ));
+    return json_encode($respuesta);
+  }
+
+  /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-08-27
+   * Proposito: elimina una columna de variante del producto sin borrar SKUs.
+   * Impacto: Catalogo ERP; limpia metadata de variante y conserva identidad operativa de los SKUs.
+   * Contrato: POST protegido por `catalogo.editar`; requiere `id_producto_erp` e `id_atributo_erp`.
+   */
+  public function eliminar_variante_atributo() {
+    $this->requerirPermiso("catalogo.editar");
+    $respuesta = $this->modelo("CatalogoErpDatos")->eliminarVarianteAtributoProducto($_POST);
+    SesionSeguridad::registrarAuditoria("catalogo", "eliminar_variante_atributo_producto", array(
+      "entidad" => "erp_catalogo_sku_atributos",
+      "entidad_id" => isset($_POST["id_atributo_erp"]) ? intval($_POST["id_atributo_erp"]) : null,
+      "resultado" => $respuesta["error"] ? "error" : "ok",
+      "mensaje" => $respuesta["mensaje"],
+      "datos_despues" => isset($respuesta["depurar"]) ? $respuesta["depurar"] : null
+    ));
+    return json_encode($respuesta);
+  }
   public function guardar_imagen() {
     $this->requerirPermiso("catalogo.editar");
     $datos = $_POST;

@@ -4482,3 +4482,42 @@ UAT recomendado:
 1. Editar una categoria o marca, guardar y confirmar que el renglon queda actualizado y resaltado sin recargar.
 2. Filtrar categorias o marcas por `Sin imagen`, abrir una, subir imagen y confirmar que la tabla principal se actualiza sin F5.
 3. Confirmar que el modal de imagenes queda con la imagen nueva en la lista y el formulario listo para otra captura.
+## Avance 2026-08-27 - Atributos tecnicos y limpieza de variantes
+
+Proyecto aplicado: `C:\xampp\htdocs\panel_de_control`.
+
+Decision:
+
+- Catalogo mantiene por ahora atributos tecnicos dentro del modal de producto, separados de la pestana `Variantes`.
+- Los atributos tecnicos usan la estructura existente `erp_catalogo_atributos` + `erp_catalogo_sku_atributos`, sin DDL nuevo.
+- `Variantes` sigue representando atributos diferenciadores de SKUs vendibles.
+- `Atributos` representa ficha tecnica/comparacion/filtros futuros para ecommerce y agentes, sin tocar POS, inventario, precio o costo.
+- No se borran SKUs al limpiar variantes; solo se eliminan valores de atributos de variante. Si el producto queda sin atributos de variante, se apaga `maneja_variantes`.
+
+Cambios implementados:
+
+- `app/controladores/CatalogoErp.php`: endpoints `guardar_atributos_tecnicos` y `eliminar_variante_atributo`, ambos con permiso `catalogo.editar` y auditoria.
+- `app/modelos/CatalogoErpDatos.php`: consulta `atributos_tecnicos` en el detalle de producto, guarda atributos tecnicos por SKU y elimina una columna de variante sin borrar SKUs.
+- `app/vistas/paginas/apps/erp/catalogo/productos.php`: nueva pestana `Atributos` dentro del modal del producto.
+- `public/assets/js/custom/apps/erp/catalogo/productos.js`: render/edicion de atributos tecnicos y boton de eliminar variante desde la matriz.
+
+Validacion:
+
+- `C:\xampp\php\php.exe -l app\controladores\CatalogoErp.php`: OK.
+- `C:\xampp\php\php.exe -l app\modelos\CatalogoErpDatos.php`: OK.
+- `node --check public\assets\js\custom\apps\erp\catalogo\productos.js`: OK.
+
+UAT recomendado:
+
+1. Abrir un producto ERP con uno o varios SKUs.
+2. Ir a la pestana `Atributos`.
+3. Crear atributo tecnico nuevo, por ejemplo `Material`, `Medida`, `Caudal` o `Consumo`, preparar valores y guardar.
+4. Confirmar que al reabrir el producto aparece en `Atributos`, no en `Variantes`.
+5. En `Variantes`, agregar o editar un atributo diferenciador.
+6. Usar el boton de eliminar variante y confirmar que desaparece la columna sin borrar ningun SKU.
+7. Confirmar que los SKUs, imagenes, proveedores, presentaciones, paquetes y codigos quedan intactos.
+
+Pendiente recomendado:
+
+- Si la ficha tecnica crece, planear DDL futuro para marcar atributos como `filtrable`, `comparable`, `visible_ecommerce`, `grupo` y reglas por categoria.
+- Evaluar UI futura para eliminar valores tecnicos individuales o administrar atributos recomendados por categoria.

@@ -451,6 +451,7 @@
                         <li class="nav-item"><a class="nav-link active" data-bs-toggle="tab" href="#catalogo_detalle_producto">Datos maestros</a></li>
                         <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#catalogo_detalle_skus">SKU</a></li>
                         <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#catalogo_detalle_variantes">Variantes</a></li>
+                        <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#catalogo_detalle_atributos">Atributos</a></li>
                         <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#catalogo_detalle_presentaciones">Presentaciones</a></li>
                         <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#catalogo_detalle_aperturas_empaque">Apertura de empaques</a></li>
                         <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#catalogo_detalle_reclasificaciones">Reclasificacion</a></li>
@@ -634,6 +635,44 @@
                             </form>
                             <?php endif; ?>
                             <div class="alert alert-danger d-none mt-6" id="catalogo_variantes_error"></div>
+                        </div>
+                        <div class="tab-pane fade" id="catalogo_detalle_atributos">
+                            <div id="catalogo_atributos_tecnicos_estado" class="alert alert-light-info mb-6">
+                                Atributos para ficha tecnica, comparacion y filtros futuros. No cambian inventario, precio ni operacion POS.
+                            </div>
+                            <div class="table-responsive">
+                                <table class="table align-middle table-row-dashed gy-4">
+                                    <thead id="catalogo_atributos_tecnicos_encabezado"></thead>
+                                    <tbody id="catalogo_atributos_tecnicos_lista"></tbody>
+                                </table>
+                            </div>
+                            <?php if (SesionSeguridad::tienePermiso('catalogo.editar')): ?>
+                            <div class="separator my-7"></div>
+                            <form id="catalogo_form_atributos_tecnicos" data-erp-ajax="true">
+                                <input type="hidden" name="id_producto_erp">
+                                <div class="row g-5 align-items-end">
+                                    <div class="col-md-5">
+                                        <label class="form-label">Atributo tecnico existente</label>
+                                        <select class="form-select" name="id_atributo_erp" id="catalogo_atributo_tecnico_atributo">
+                                            <option value="">Seleccionar atributo</option>
+                                        </select>
+                                        <div class="form-text">Usa atributos no marcados como variante para ficha tecnica o comparacion.</div>
+                                    </div>
+                                    <div class="col-md-5">
+                                        <label class="form-label">O crear atributo tecnico</label>
+                                        <input class="form-control" name="nuevo_atributo" maxlength="100" placeholder="Ej. Caudal, Consumo, Material, Medida">
+                                    </div>
+                                    <div class="col-md-2 text-end">
+                                        <button class="btn btn-primary w-100" type="button" id="catalogo_preparar_atributo_tecnico"><i class="bi bi-list-check"></i> Preparar</button>
+                                    </div>
+                                </div>
+                                <div id="catalogo_atributo_tecnico_valores" class="mt-6"></div>
+                                <div class="text-end mt-6 d-none" id="catalogo_atributo_tecnico_guardar_contenedor">
+                                    <button class="btn btn-primary" type="submit"><i class="bi bi-check-lg"></i> Guardar atributos</button>
+                                </div>
+                            </form>
+                            <?php endif; ?>
+                            <div class="alert alert-danger d-none mt-6" id="catalogo_atributos_tecnicos_error"></div>
                         </div>
                         <div class="tab-pane fade" id="catalogo_detalle_presentaciones">
                             <div class="alert alert-light-info mb-6">

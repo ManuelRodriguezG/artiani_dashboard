@@ -1256,6 +1256,9 @@
             var eliminar = permisos.listas && !x.id_sku_proveedor && ["relacion_aplicada", "costo_aplicado"].indexOf(String(x.estado_match || "")) < 0
                 ? "<button class=\"btn btn-sm btn-icon btn-light-danger me-2\" type=\"button\" title=\"Eliminar renglon\" data-eliminar-renglon=\"" + esc(x.id_lista_detalle_erp) + "\"><i class=\"bi bi-trash\"></i></button>"
                 : "";
+            var desvincular = permisos.matching && (Number(x.id_sku || 0) > 0 || Number(x.id_sku_proveedor || 0) > 0)
+                ? "<button class=\"btn btn-sm btn-icon btn-light-danger me-2\" type=\"button\" title=\"Quitar relacion del renglon\" data-desvincular-renglon=\"" + esc(x.id_lista_detalle_erp) + "\"><i class=\"bi bi-link-45deg\"></i></button>"
+                : "";
             var skuCatalogo = x.sku_erp ? "<div class=\"text-muted fs-8\">ERP: " + esc(x.sku_erp) + (x.sku_nombre ? " | " + esc(x.sku_nombre) : "") + "</div>" : "";
             var factorDifiere = Number(x.factor_conversion || 0) > 0 && Number(x.factor_conversion_existente || 0) > 0 && Number(x.factor_conversion || 0) !== Number(x.factor_conversion_existente || 0);
             var relacionCatalogo = Number(x.id_sku_proveedor || 0) <= 0 && Number(x.id_sku_proveedor_existente || 0) > 0
@@ -1266,7 +1269,7 @@
                 "<td>" + esc(x.descripcion_proveedor || "-") + "</td>" +
                 "<td>" + esc(unidad) + estadoCompra + "</td>" +
                 "<td class=\"text-end\">" + esc(costo) + "</td>" +
-                "<td class=\"text-end\">" + aplicar + aplicarCosto + enviarCatalogo + eliminar + "<button class=\"btn btn-sm btn-icon btn-light-primary\" type=\"button\" title=\"Editar renglon\" data-lista-renglon=\"" + esc(x.id_lista_detalle_erp) + "\"><i class=\"bi bi-pencil-square\"></i></button></td>" +
+                "<td class=\"text-end\">" + aplicar + aplicarCosto + enviarCatalogo + desvincular + eliminar + "<button class=\"btn btn-sm btn-icon btn-light-primary\" type=\"button\" title=\"Editar renglon\" data-lista-renglon=\"" + esc(x.id_lista_detalle_erp) + "\"><i class=\"bi bi-pencil-square\"></i></button></td>" +
                 "</tr>";
         }).join("") || "<tr><td colspan=\"5\" class=\"text-center text-muted py-6\">Sin renglones capturados</td></tr>";
     }
@@ -1521,6 +1524,12 @@
         document.getElementById("proveedores_erp_lista_detalle_form_titulo").textContent = renglon.id_lista_detalle_erp ? "Editar renglon" : "Agregar renglon";
         document.getElementById("proveedores_erp_lista_detalle_form_error").classList.add("d-none");
         document.getElementById("proveedores_erp_lista_detalle_sku_buscar").value = renglon.sku_erp || renglon.sku || "";
+        var desvincularBtn = document.getElementById("proveedores_erp_lista_detalle_desvincular");
+        if (desvincularBtn) {
+            var tieneRelacion = Number(renglon.id_sku || 0) > 0 || Number(renglon.id_sku_proveedor || 0) > 0;
+            desvincularBtn.classList.toggle("d-none", !permisos.matching || !tieneRelacion || !renglon.id_lista_detalle_erp);
+            desvincularBtn.setAttribute("data-desvincular-renglon", renglon.id_lista_detalle_erp || "");
+        }
         var factorDifiere = Number(renglon.factor_conversion || 0) > 0 && Number(renglon.factor_conversion_existente || 0) > 0 && Number(renglon.factor_conversion || 0) !== Number(renglon.factor_conversion_existente || 0);
         var relacionExistente = Number(renglon.id_sku_proveedor || 0) <= 0 && Number(renglon.id_sku_proveedor_existente || 0) > 0
             ? tarjetaSkuListaDetalle(renglon, renglon.id_sku_proveedor_existente, factorDifiere)
@@ -1669,6 +1678,51 @@
                 error.classList.remove("d-none");
             }).finally(function () {
                 button.disabled = false;
+            });
+        });
+    }
+
+    function desvincularRelacionListaDetalle(idRenglon) {
+        if (!proveedorActual || !listaDetalleActual || !idRenglon || !permisos.matching) {
+            return;
+        }
+        Swal.fire({
+            title: "Quitar relacion",
+            input: "text",
+            inputPlaceholder: "Ej. Relacion equivocada con otro SKU",
+            text: "Se quitara la relacion de este renglon. La relacion formal solo se inactiva si no tiene costos vigentes ni uso en compras.",
+            icon: "warning",
+            showCancelButton: true,
+            confirmButtonText: "Quitar relacion",
+            cancelButtonText: "Cancelar",
+            inputValidator: function (value) {
+                if (!String(value || "").trim()) {
+                    return "Captura el motivo.";
+                }
+                return null;
+            }
+        }).then(function (result) {
+            if (!result.isConfirmed) {
+                return;
+            }
+            post("/proveedor/proveedor_lista_detalle_desvincular_erp", {
+                id_proveedor: proveedorActual.id_proveedor,
+                id_lista_proveedor_erp: listaDetalleActual.id_lista_proveedor_erp,
+                id_lista_detalle_erp: idRenglon,
+                motivo: result.value || ""
+            }).then(function (response) {
+                if (response.error) {
+                    throw new Error(response.mensaje || "No fue posible quitar la relacion.");
+                }
+                var modal = bootstrap.Modal.getInstance(document.getElementById("proveedores_erp_lista_detalle_form_modal"));
+                if (modal) {
+                    modal.hide();
+                }
+                Swal.fire({text: response.mensaje, icon: response.tipo === "warning" ? "warning" : "success", confirmButtonText: "Aceptar"});
+                abrirDetalleLista(listaDetalleActual);
+                cargarCostosProveedor();
+            }).catch(function (err) {
+                Swal.fire({text: err.message, icon: "error", confirmButtonText: "Aceptar"});
             });
         });
     }
@@ -3338,6 +3392,11 @@
                 eliminarListaDetalle(eliminar.getAttribute("data-eliminar-renglon"));
                 return;
             }
+            var desvincular = event.target.closest("[data-desvincular-renglon]");
+            if (desvincular && permisos.matching) {
+                desvincularRelacionListaDetalle(desvincular.getAttribute("data-desvincular-renglon"));
+                return;
+            }
             var aplicar = event.target.closest("[data-aplicar-relacion]");
             if (aplicar && permisos.matching) {
                 aplicarRelacionSkuProveedor(aplicar.getAttribute("data-aplicar-relacion"));
@@ -3408,6 +3467,13 @@
         if (guardarSincronizarDetalle) {
             guardarSincronizarDetalle.addEventListener("click", guardarListaDetalleSincronizar);
             guardarSincronizarDetalle.classList.toggle("d-none", !permisos.costos);
+        }
+        var desvincularDetalle = document.getElementById("proveedores_erp_lista_detalle_desvincular");
+        if (desvincularDetalle) {
+            desvincularDetalle.addEventListener("click", function () {
+                desvincularRelacionListaDetalle(desvincularDetalle.getAttribute("data-desvincular-renglon"));
+            });
+            desvincularDetalle.classList.toggle("d-none", true);
         }
         var buscarSkuBtn = document.getElementById("proveedores_erp_lista_detalle_sku_btn");
         if (buscarSkuBtn) {

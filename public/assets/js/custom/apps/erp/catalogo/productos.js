@@ -74,6 +74,7 @@
         llenarSelect("catalogo_masivo_proveedor", catalogos.proveedores || [], "id_proveedor", etiquetaProveedor, true);
         llenarSelect("catalogo_masivo_unidad_compra", catalogos.unidades || [], "id_unidad", etiquetaUnidad, true);
         llenarSelect("catalogo_variante_atributo", catalogos.atributos || [], "id_atributo_erp", etiquetaAtributo, true);
+        llenarSelect("catalogo_atributo_tecnico_atributo", atributosTecnicosDisponibles(), "id_atributo_erp", etiquetaAtributo, true);
         llenarSelect("catalogo_marca", catalogos.marcas || [], "id_marca_erp", etiquetaNombre, true);
         llenarSelect("catalogo_editar_marca", catalogos.marcas || [], "id_marca_erp", etiquetaNombre, true);
         llenarSelect("catalogo_temporal_marca", catalogos.marcas || [], "id_marca_erp", etiquetaNombre, true);
@@ -93,6 +94,18 @@
     function etiquetaProveedor(item) { return item.proveedor; }
     function etiquetaSku(item) { return item.sku + " - " + item.nombre; }
     function etiquetaAtributo(item) { return item.nombre + (String(item.es_variante) === "1" ? " (variante)" : ""); }
+
+    /**
+     * IA: Codex GPT-5 | Fecha: 2026-08-27
+     * Proposito: separa atributos tecnicos de atributos usados para variantes.
+     * Impacto: Catalogo ERP; evita que la ficha tecnica active alertas de variantes o mezcle conceptos operativos.
+     * Contrato: usa solo atributos activos con `es_variante` distinto de 1.
+     */
+    function atributosTecnicosDisponibles() {
+        return (catalogosDisponibles.atributos || []).filter(function (item) {
+            return String(item.es_variante || "0") !== "1";
+        });
+    }
 
     function llenarSelect(id, items, valueKey, label, conservarPrimero) {
         var select = document.getElementById(id);
@@ -959,6 +972,7 @@
             renderReclasificaciones(response.depurar.reclasificaciones || {esquema_disponible: false, items: []});
             renderPaquetes(response.depurar.paquetes || {});
             renderVariantes(response.depurar.skus || [], response.depurar.variantes || {});
+            renderAtributosTecnicos(response.depurar.skus || [], response.depurar.atributos_tecnicos || {});
             precargarSkuBase(response.depurar.skus || []);
             var skusOperativosDetalle = skusOperativos(response.depurar.skus || []);
             var skusOrigenApertura = skusCandidatosOrigenApertura(skusOperativosDetalle);
@@ -1050,6 +1064,10 @@
         var variantesForm = document.getElementById("catalogo_form_variantes");
         if (variantesForm) {
             setValor(variantesForm, "id_producto_erp", producto.id_producto_erp);
+        }
+        var atributosTecnicosForm = document.getElementById("catalogo_form_atributos_tecnicos");
+        if (atributosTecnicosForm) {
+            setValor(atributosTecnicosForm, "id_producto_erp", producto.id_producto_erp);
         }
         var presentacionForm = document.getElementById("catalogo_form_presentacion");
         var aperturaEmpaqueForm = document.getElementById("catalogo_form_apertura_empaque");
@@ -2982,9 +3000,13 @@
         var estado = document.getElementById("catalogo_variantes_estado");
         encabezado.innerHTML = "<tr class=\"text-muted fw-bold fs-7 text-uppercase\"><th>SKU</th><th>Nombre</th>" +
             atributos.map(function (atributo) {
-                return "<th><span class=\"d-inline-flex align-items-center gap-2\">" + escapeHtml(atributo.nombre) +
-                    "<button type=\"button\" class=\"btn btn-sm btn-light-primary\" title=\"Editar valores\" data-editar-variante=\"" +
-                    escapeHtml(atributo.id_atributo_erp) + "\"><i class=\"bi bi-pencil-square\"></i> Editar</button></span></th>";
+                var acciones = permisos.editar
+                    ? "<span class=\"d-inline-flex align-items-center gap-2 ms-2\"><button type=\"button\" class=\"btn btn-sm btn-light-primary\" title=\"Editar valores\" data-editar-variante=\"" +
+                        escapeHtml(atributo.id_atributo_erp) + "\"><i class=\"bi bi-pencil-square\"></i> Editar</button>" +
+                        "<button type=\"button\" class=\"btn btn-sm btn-light-danger\" title=\"Eliminar esta variante sin borrar SKUs\" data-eliminar-variante-atributo=\"" +
+                        escapeHtml(atributo.id_atributo_erp) + "\"><i class=\"bi bi-trash\"></i></button></span>"
+                    : "";
+                return "<th><span class=\"d-inline-flex align-items-center gap-2\">" + escapeHtml(atributo.nombre) + acciones + "</span></th>";
             }).join("") + "</tr>";
         lista.innerHTML = skus.map(function (sku) {
             return "<tr><td class=\"fw-bold\">" + escapeHtml(sku.sku) + "</td><td>" + escapeHtml(sku.nombre) + "</td>" +
@@ -3016,6 +3038,79 @@
             estado.className = "alert alert-light-success mb-6";
             estado.textContent = "Las combinaciones de variantes están completas y son únicas.";
         }
+    }
+
+    /**
+     * IA: Codex GPT-5 | Fecha: 2026-08-27
+     * Proposito: renderiza atributos tecnicos por SKU separados de la matriz de variantes.
+     * Impacto: Catalogo ERP; habilita ficha tecnica/comparacion futura sin afectar inventario, POS ni precios.
+     * Contrato: espera `atributos_tecnicos.atributos` y `atributos_tecnicos.valores` desde `/catalogoerp/consultar`.
+     */
+    function renderAtributosTecnicos(skus, atributosTecnicos) {
+        var atributos = atributosTecnicos.atributos || [];
+        var valores = atributosTecnicos.valores || {};
+        var encabezado = document.getElementById("catalogo_atributos_tecnicos_encabezado");
+        var lista = document.getElementById("catalogo_atributos_tecnicos_lista");
+        var estado = document.getElementById("catalogo_atributos_tecnicos_estado");
+        if (!encabezado || !lista || !estado) {
+            return;
+        }
+        encabezado.innerHTML = "<tr class=\"text-muted fw-bold fs-7 text-uppercase\"><th>SKU</th><th>Nombre</th>" +
+            atributos.map(function (atributo) {
+                var accion = permisos.editar
+                    ? " <button type=\"button\" class=\"btn btn-sm btn-light-primary\" title=\"Editar valores\" data-editar-atributo-tecnico=\"" + escapeHtml(atributo.id_atributo_erp) + "\"><i class=\"bi bi-pencil-square\"></i> Editar</button>"
+                    : "";
+                return "<th>" + escapeHtml(atributo.nombre) + accion + "</th>";
+            }).join("") + "</tr>";
+        lista.innerHTML = skus.map(function (sku) {
+            return "<tr><td class=\"fw-bold\">" + escapeHtml(sku.sku) + "</td><td>" + escapeHtml(sku.nombre) + "</td>" +
+                atributos.map(function (atributo) {
+                    var valor = valores[sku.id_sku] && valores[sku.id_sku][atributo.id_atributo_erp] ? valores[sku.id_sku][atributo.id_atributo_erp] : "";
+                    return "<td>" + mostrarValorAtributo(valor, atributo) + "</td>";
+                }).join("") + "</tr>";
+        }).join("") || "<tr><td colspan=\"2\" class=\"text-center text-muted py-7\">Sin SKU registrados</td></tr>";
+        if (!atributos.length) {
+            estado.className = "alert alert-light-info mb-6";
+            estado.textContent = "Sin atributos tecnicos capturados. Agrega datos para ficha, comparacion y filtros futuros.";
+        } else {
+            estado.className = "alert alert-light-success mb-6";
+            estado.textContent = "Atributos tecnicos listos para consulta interna y preparacion de ecommerce.";
+        }
+    }
+
+    /**
+     * IA: Codex GPT-5 | Fecha: 2026-08-27
+     * Proposito: prepara captura masiva de un atributo tecnico para los SKUs del producto.
+     * Impacto: UX de Catalogo ERP; acelera captura sin mezclarla con variantes.
+     */
+    function prepararAtributoTecnico() {
+        var form = document.getElementById("catalogo_form_atributos_tecnicos");
+        if (!form) {
+            return;
+        }
+        var atributoId = form.querySelector("[name='id_atributo_erp']").value;
+        var nombreNuevo = form.querySelector("[name='nuevo_atributo']").value.trim();
+        if (nombreNuevo) {
+            atributoId = "";
+            form.querySelector("[name='id_atributo_erp']").value = "";
+        }
+        var atributo = atributosTecnicosDisponibles().find(function (item) { return String(item.id_atributo_erp) === String(atributoId); });
+        var titulo = nombreNuevo || (atributo ? atributo.nombre : "");
+        var error = document.getElementById("catalogo_atributos_tecnicos_error");
+        if (!titulo) {
+            mostrarError(error, new Error("Selecciona o escribe un atributo tecnico"));
+            return;
+        }
+        error.classList.add("d-none");
+        var valores = detalleActual.atributos_tecnicos && detalleActual.atributos_tecnicos.valores ? detalleActual.atributos_tecnicos.valores : {};
+        document.getElementById("catalogo_atributo_tecnico_valores").innerHTML =
+            "<div class=\"fw-bold mb-4\">" + escapeHtml(titulo) + "</div><div class=\"row g-4\">" +
+            (detalleActual.skus || []).map(function (sku) {
+                var actual = atributoId && valores[sku.id_sku] ? valores[sku.id_sku][atributoId] || "" : "";
+                return "<div class=\"col-md-6\"><label class=\"form-label\">" + escapeHtml(sku.sku + " - " + sku.nombre) +
+                    "</label>" + campoValorAtributo(sku.id_sku, actual, atributo || {tipo_dato: "texto"}) + "</div>";
+            }).join("") + "</div>";
+        document.getElementById("catalogo_atributo_tecnico_guardar_contenedor").classList.remove("d-none");
     }
 
     function prepararVariante() {
@@ -3732,6 +3827,64 @@
         });
     }
 
+    /**
+     * IA: Codex GPT-5 | Fecha: 2026-08-27
+     * Proposito: guarda atributos tecnicos del producto usando el contrato AJAX existente.
+     * Impacto: Catalogo ERP; no marca variantes ni cambia SKUs operativos.
+     */
+    function guardarAtributosTecnicos(event) {
+        event.preventDefault();
+        var currentForm = event.currentTarget;
+        enviarFormulario(currentForm, "/catalogoerp/guardar_atributos_tecnicos", document.getElementById("catalogo_atributos_tecnicos_error"), function () {
+            currentForm.reset();
+            setValor(currentForm, "id_producto_erp", productoActualId);
+            document.getElementById("catalogo_atributo_tecnico_valores").innerHTML = "";
+            document.getElementById("catalogo_atributo_tecnico_guardar_contenedor").classList.add("d-none");
+            cargar();
+            abrirDetalle(productoActualId, "catalogo_detalle_atributos");
+        });
+    }
+
+    /**
+     * IA: Codex GPT-5 | Fecha: 2026-08-27
+     * Proposito: elimina una columna de variante sin borrar ningun SKU del producto.
+     * Impacto: Catalogo ERP; permite corregir variantes mal capturadas durante saneamiento de catalogo.
+     * Contrato: POST a `/catalogoerp/eliminar_variante_atributo` con producto y atributo.
+     */
+    function eliminarVarianteAtributo(idAtributo) {
+        var errorBox = document.getElementById("catalogo_variantes_error");
+        var ejecutar = function () {
+            request("/catalogoerp/eliminar_variante_atributo", {
+                id_producto_erp: productoActualId,
+                id_atributo_erp: idAtributo
+            }).then(function (response) {
+                if (response.error) {
+                    throw new Error(response.mensaje);
+                }
+                Swal.fire({text: response.mensaje, icon: "success", confirmButtonText: "Aceptar"});
+                cargar();
+                abrirDetalle(productoActualId, "catalogo_detalle_variantes");
+            }).catch(function (error) {
+                mostrarError(errorBox, error);
+            });
+        };
+        if (window.Swal) {
+            Swal.fire({
+                text: "Se eliminaran los valores de esta variante en todos los SKUs del producto. Los SKUs no se borran.",
+                icon: "warning",
+                showCancelButton: true,
+                confirmButtonText: "Eliminar variante",
+                cancelButtonText: "Cancelar"
+            }).then(function (result) {
+                if (result.isConfirmed) {
+                    ejecutar();
+                }
+            });
+        } else if (window.confirm("Eliminar esta variante sin borrar SKUs?")) {
+            ejecutar();
+        }
+    }
+
     function enviarFormulario(currentForm, url, errorBox, success) {
         var button = currentForm.querySelector("[type='submit']");
         button.disabled = true;
@@ -4441,6 +4594,10 @@
         if (variantesForm) {
             variantesForm.addEventListener("submit", guardarVariantes);
         }
+        var atributosTecnicosForm = document.getElementById("catalogo_form_atributos_tecnicos");
+        if (atributosTecnicosForm) {
+            atributosTecnicosForm.addEventListener("submit", guardarAtributosTecnicos);
+        }
         if (presentacionForm) {
             presentacionForm.addEventListener("submit", guardarPresentacion);
         }
@@ -4512,6 +4669,10 @@
         if (prepararVariantes) {
             prepararVariantes.addEventListener("click", prepararVariante);
         }
+        var prepararAtributoTecnicoBtn = document.getElementById("catalogo_preparar_atributo_tecnico");
+        if (prepararAtributoTecnicoBtn) {
+            prepararAtributoTecnicoBtn.addEventListener("click", prepararAtributoTecnico);
+        }
         /**
          * IA: Codex GPT-5 | Fecha: 2026-07-22
          * Proposito: permitir Catalogo en modo solo lectura sin romper el JS cuando PHP oculta formularios de edicion.
@@ -4531,6 +4692,11 @@
         var variantesEncabezado = document.getElementById("catalogo_variantes_encabezado");
         if (variantesEncabezado) {
             variantesEncabezado.addEventListener("click", function (event) {
+                var eliminar = event.target.closest("[data-eliminar-variante-atributo]");
+                if (eliminar) {
+                    eliminarVarianteAtributo(eliminar.getAttribute("data-eliminar-variante-atributo"));
+                    return;
+                }
                 var button = event.target.closest("[data-editar-variante]");
                 var atributo = document.getElementById("catalogo_variante_atributo");
                 var nuevo = document.querySelector("#catalogo_form_variantes [name='nuevo_atributo']");
@@ -4538,6 +4704,19 @@
                     atributo.value = button.getAttribute("data-editar-variante");
                     nuevo.value = "";
                     prepararVariante();
+                }
+            });
+        }
+        var atributosTecnicosEncabezado = document.getElementById("catalogo_atributos_tecnicos_encabezado");
+        if (atributosTecnicosEncabezado) {
+            atributosTecnicosEncabezado.addEventListener("click", function (event) {
+                var button = event.target.closest("[data-editar-atributo-tecnico]");
+                var atributo = document.getElementById("catalogo_atributo_tecnico_atributo");
+                var nuevo = document.querySelector("#catalogo_form_atributos_tecnicos [name='nuevo_atributo']");
+                if (button && atributo && nuevo) {
+                    atributo.value = button.getAttribute("data-editar-atributo-tecnico");
+                    nuevo.value = "";
+                    prepararAtributoTecnico();
                 }
             });
         }

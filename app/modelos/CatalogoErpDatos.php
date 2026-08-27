@@ -79,6 +79,7 @@ class CatalogoErpDatos extends CRUD {
       $soloAlertas = intval(isset($filtros["solo_alertas"]) ? $filtros["solo_alertas"] : 0) === 1;
       $soloConImagen = intval(isset($filtros["solo_con_imagen"]) ? $filtros["solo_con_imagen"] : 0) === 1;
       $modoPrecio = $this->opcion($filtros, "modo_precio", array("con_precio", "sin_precio", "indistinto"), "indistinto");
+      $idCategoria = intval(isset($filtros["id_categoria_erp"]) ? $filtros["id_categoria_erp"] : 0);
 
       $tienePublicaciones = $this->tablaExisteCatalogo($db, "erp_ecommerce_publicaciones");
       $tienePresentaciones = $this->tablaExisteCatalogo($db, "erp_catalogo_sku_presentaciones");
@@ -99,6 +100,19 @@ class CatalogoErpDatos extends CRUD {
       }
       if ($modoPrecio === "sin_precio") {
         $where[] = "pr.id_sku_precio IS NULL";
+      }
+      if ($idCategoria > 0) {
+        $where[] = "EXISTS (
+          SELECT 1
+          FROM erp_catalogo_producto_categorias pcf
+          INNER JOIN erp_catalogo_categorias cf ON cf.id_categoria_erp=pcf.id_categoria_erp
+          WHERE pcf.id_producto_erp=p.id_producto_erp
+            AND pcf.id_categoria_erp=:id_categoria_erp
+            AND cf.estatus='activa'
+            AND cf.tipo_categoria='maestra'
+            AND cf.permite_productos=1
+        )";
+        $params[":id_categoria_erp"] = $idCategoria;
       }
 
       $selectPublicacion = $tienePublicaciones
@@ -215,7 +229,8 @@ class CatalogoErpDatos extends CRUD {
           "limite" => $limite,
           "solo_alertas" => $soloAlertas ? 1 : 0,
           "solo_con_imagen" => $soloConImagen ? 1 : 0,
-          "modo_precio" => $modoPrecio
+          "modo_precio" => $modoPrecio,
+          "id_categoria_erp" => $idCategoria
         ),
         "schema" => array(
           "publicaciones" => $tienePublicaciones,
@@ -4115,7 +4130,8 @@ class CatalogoErpDatos extends CRUD {
         "aperturas_empaque" => $this->consultarSkuAperturasEmpaque($db, intval($idProducto)),
         "reclasificaciones" => $this->consultarSkuReclasificaciones($db, intval($idProducto)),
         "paquetes" => $this->consultarPaquetesProducto($db, intval($idProducto)),
-        "variantes" => $this->consultarVariantesProducto($db, intval($idProducto), $skus)
+        "variantes" => $this->consultarVariantesProducto($db, intval($idProducto), $skus),
+        "atributos_tecnicos" => $this->consultarAtributosTecnicosProducto($db, intval($idProducto), $skus)
       ));
     } catch (Exception $e) {
       return $this->respuesta(true, "danger", $e->getMessage());
@@ -4655,6 +4671,132 @@ class CatalogoErpDatos extends CRUD {
     }
   }
 
+  /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-08-27
+   * Proposito: guarda atributos tecnicos por SKU sin convertirlos en variantes.
+   * Impacto: Catalogo ERP; prepara ficha tecnica/comparacion para ecommerce futuro sin tocar POS, inventario ni precios.
+   * Contrato: recibe `id_producto_erp`, atributo existente no-variante o `nuevo_atributo`, y `valores[id_sku]`.
+   */
+  public function guardarAtributosTecnicosProducto($datos) {
+    $idProducto = intval(isset($datos["id_producto_erp"]) ? $datos["id_producto_erp"] : 0);
+    $idAtributo = intval(isset($datos["id_atributo_erp"]) ? $datos["id_atributo_erp"] : 0);
+    $nombreNuevo = $this->texto($datos, "nuevo_atributo");
+    if ($nombreNuevo !== "") {
+      $idAtributo = 0;
+    }
+    $valores = isset($datos["valores"]) && is_array($datos["valores"]) ? $datos["valores"] : array();
+    if ($idProducto <= 0 || ($idAtributo <= 0 && $nombreNuevo === "")) {
+      return $this->respuesta(true, "warning", "Selecciona o crea un atributo tecnico");
+    }
+
+    $db = $this->getConexion();
+    try {
+      $db->beginTransaction();
+      $stmt = $db->prepare("SELECT id_sku FROM erp_catalogo_skus WHERE id_producto_erp=:producto AND estatus<>'fusionado' ORDER BY id_sku");
+      $stmt->execute(array(":producto" => $idProducto));
+      $idsSku = array_map("intval", $stmt->fetchAll(PDO::FETCH_COLUMN));
+      if (empty($idsSku)) {
+        throw new Exception("El producto no tiene SKU para configurar atributos");
+      }
+
+      if ($idAtributo <= 0) {
+        $stmt = $db->prepare("SELECT id_atributo_erp FROM erp_catalogo_atributos WHERE LOWER(TRIM(nombre))=LOWER(TRIM(:nombre)) AND estatus='activo' AND es_variante=0 ORDER BY id_atributo_erp LIMIT 1");
+        $stmt->execute(array(":nombre" => $nombreNuevo));
+        $idAtributo = intval($stmt->fetchColumn());
+        if ($idAtributo <= 0) {
+          $codigo = "TEC-" . strtoupper(substr(md5($nombreNuevo), 0, 12));
+          $stmt = $db->prepare("INSERT INTO erp_catalogo_atributos (codigo, nombre, tipo_dato, es_variante, estatus)
+            VALUES (:codigo, :nombre, 'texto', 0, 'activo')
+            ON DUPLICATE KEY UPDATE id_atributo_erp=LAST_INSERT_ID(id_atributo_erp), estatus='activo'");
+          $stmt->execute(array(":codigo" => $codigo, ":nombre" => $nombreNuevo));
+          $idAtributo = intval($db->lastInsertId());
+        }
+      }
+
+      $stmt = $db->prepare("SELECT id_atributo_erp, tipo_dato, configuracion_json, es_variante FROM erp_catalogo_atributos WHERE id_atributo_erp=:atributo AND estatus='activo'");
+      $stmt->execute(array(":atributo" => $idAtributo));
+      $definicionAtributo = $stmt->fetch(PDO::FETCH_ASSOC);
+      if (!$definicionAtributo) {
+        throw new Exception("El atributo seleccionado no existe o esta inactivo");
+      }
+      if (intval($definicionAtributo["es_variante"]) === 1) {
+        throw new Exception("Ese atributo esta marcado como variante; editalo en la pestana Variantes o crea un atributo tecnico separado");
+      }
+
+      $upsert = $db->prepare("INSERT INTO erp_catalogo_sku_atributos (id_sku, id_atributo_erp, valor)
+        VALUES (:sku, :atributo, :valor)
+        ON DUPLICATE KEY UPDATE valor=VALUES(valor), fecha_actualizacion=CURRENT_TIMESTAMP");
+      $eliminar = $db->prepare("DELETE FROM erp_catalogo_sku_atributos WHERE id_sku=:sku AND id_atributo_erp=:atributo");
+      foreach ($idsSku as $idSku) {
+        $valor = isset($valores[$idSku]) ? $this->normalizarValorAtributo($valores[$idSku], $definicionAtributo) : "";
+        if ($valor === "") {
+          $eliminar->execute(array(":sku" => $idSku, ":atributo" => $idAtributo));
+        } else {
+          $upsert->execute(array(":sku" => $idSku, ":atributo" => $idAtributo, ":valor" => substr($valor, 0, 500)));
+        }
+      }
+
+      $db->commit();
+      return $this->respuesta(false, "success", "Atributos tecnicos guardados", array("id_atributo_erp" => $idAtributo));
+    } catch (Exception $e) {
+      if ($db->inTransaction()) {
+        $db->rollBack();
+      }
+      return $this->respuesta(true, "warning", $e->getMessage());
+    }
+  }
+
+  /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-08-27
+   * Proposito: elimina la relacion de un atributo de variante en todos los SKUs de un producto.
+   * Impacto: Catalogo ERP; limpia variantes mal capturadas sin borrar SKUs, codigos, imagenes ni relaciones operativas.
+   * Contrato: requiere producto y atributo marcado como variante; si ya no quedan atributos de variante apaga la bandera del producto.
+   */
+  public function eliminarVarianteAtributoProducto($datos) {
+    $idProducto = intval(isset($datos["id_producto_erp"]) ? $datos["id_producto_erp"] : 0);
+    $idAtributo = intval(isset($datos["id_atributo_erp"]) ? $datos["id_atributo_erp"] : 0);
+    if ($idProducto <= 0 || $idAtributo <= 0) {
+      return $this->respuesta(true, "warning", "Indica producto y atributo de variante");
+    }
+
+    $db = $this->getConexion();
+    try {
+      $db->beginTransaction();
+      $stmt = $db->prepare("SELECT id_atributo_erp FROM erp_catalogo_atributos WHERE id_atributo_erp=:atributo AND es_variante=1 AND estatus='activo'");
+      $stmt->execute(array(":atributo" => $idAtributo));
+      if (!$stmt->fetchColumn()) {
+        throw new Exception("El atributo seleccionado no es una variante activa");
+      }
+      $stmt = $db->prepare("DELETE sa FROM erp_catalogo_sku_atributos sa
+        INNER JOIN erp_catalogo_skus s ON s.id_sku=sa.id_sku
+        WHERE s.id_producto_erp=:producto AND sa.id_atributo_erp=:atributo");
+      $stmt->execute(array(":producto" => $idProducto, ":atributo" => $idAtributo));
+      $eliminados = $stmt->rowCount();
+
+      $stmt = $db->prepare("SELECT COUNT(*) FROM erp_catalogo_sku_atributos sa
+        INNER JOIN erp_catalogo_skus s ON s.id_sku=sa.id_sku
+        INNER JOIN erp_catalogo_atributos a ON a.id_atributo_erp=sa.id_atributo_erp AND a.es_variante=1 AND a.estatus='activo'
+        WHERE s.id_producto_erp=:producto AND TRIM(COALESCE(sa.valor,''))<>''");
+      $stmt->execute(array(":producto" => $idProducto));
+      $restantes = intval($stmt->fetchColumn());
+      if ($restantes === 0) {
+        $db->prepare("UPDATE erp_catalogo_productos SET maneja_variantes=0, fecha_actualizacion=CURRENT_TIMESTAMP WHERE id_producto_erp=:producto")
+          ->execute(array(":producto" => $idProducto));
+      }
+      $db->commit();
+      return $this->respuesta(false, "success", "Variante eliminada sin borrar SKUs", array(
+        "valores_eliminados" => $eliminados,
+        "atributos_variante_restantes" => $restantes
+      ));
+    } catch (Exception $e) {
+      if ($db->inTransaction()) {
+        $db->rollBack();
+      }
+      return $this->respuesta(true, "warning", $e->getMessage());
+    }
+  }
   public function guardarImagenProducto($datos) {
     $idImagen = intval(isset($datos["id_imagen_erp"]) ? $datos["id_imagen_erp"] : 0);
     $idProducto = intval(isset($datos["id_producto_erp"]) ? $datos["id_producto_erp"] : 0);
@@ -4984,6 +5126,34 @@ class CatalogoErpDatos extends CRUD {
     );
   }
 
+  /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-08-27
+   * Proposito: consulta atributos tecnicos capturados por SKU para la ficha del producto.
+   * Impacto: Catalogo ERP; separa ficha/comparacion de variantes operativas sin cambiar esquema.
+   * Contrato: devuelve atributos no-variante y valores por SKU usando `erp_catalogo_sku_atributos`.
+   */
+  private function consultarAtributosTecnicosProducto($db, $idProducto, $skus) {
+    $stmt = $db->prepare("SELECT DISTINCT a.id_atributo_erp, a.codigo, a.nombre, a.tipo_dato, a.unidad, a.configuracion_json, a.es_variante
+      FROM erp_catalogo_atributos a
+      INNER JOIN erp_catalogo_sku_atributos sa ON sa.id_atributo_erp=a.id_atributo_erp
+      INNER JOIN erp_catalogo_skus s ON s.id_sku=sa.id_sku
+      WHERE s.id_producto_erp=:producto AND a.es_variante=0 AND a.estatus='activo'
+      ORDER BY a.nombre");
+    $stmt->execute(array(":producto" => $idProducto));
+    $atributos = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    $valores = array();
+    if (!empty($skus)) {
+      $ids = implode(",", array_map(function ($sku) { return intval($sku["id_sku"]); }, $skus));
+      $stmt = $db->query("SELECT sa.id_sku, sa.id_atributo_erp, sa.valor FROM erp_catalogo_sku_atributos sa
+        INNER JOIN erp_catalogo_atributos a ON a.id_atributo_erp=sa.id_atributo_erp AND a.es_variante=0
+        WHERE sa.id_sku IN (" . $ids . ")");
+      foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $fila) {
+        $valores[$fila["id_sku"]][$fila["id_atributo_erp"]] = $fila["valor"];
+      }
+    }
+    return array("atributos" => $atributos, "valores" => $valores);
+  }
   private function consultarImagenesProducto($db, $idProducto) {
     $stmt = $db->prepare("SELECT i.id_imagen_erp, i.id_producto_erp, i.id_sku, i.tipo_imagen, i.url_imagen,
       i.texto_alternativo, i.orden, i.fuente, i.id_externo, i.estatus, s.sku
@@ -7392,8 +7562,17 @@ class CatalogoErpDatos extends CRUD {
   }
 
   private function opcionesCatalogoComercialDesdeFila($catalogo) {
+    $plantilla = isset($catalogo["plantilla"]) ? (string)$catalogo["plantilla"] : "square";
+    $columnas = 3;
+    $filas = 0;
+    if (preg_match('/_(\d)(?:x(\d))?$/', $plantilla, $coincidencias)) {
+      $columnas = intval($coincidencias[1]);
+      $filas = isset($coincidencias[2]) ? intval($coincidencias[2]) : 0;
+    }
     return array(
-      "plantilla" => $catalogo["plantilla"],
+      "plantilla" => $plantilla,
+      "columnasExportacion" => in_array($columnas, array(2, 3, 4, 5), true) ? $columnas : 3,
+      "filasExportacion" => in_array($filas, array(2, 3, 4, 5, 6), true) ? $filas : 0,
       "mostrarPrecio" => intval($catalogo["mostrar_precio"]) === 1,
       "mostrarMarca" => intval($catalogo["mostrar_marca"]) === 1,
       "mostrarCategoria" => intval($catalogo["mostrar_categoria"]) === 1,
@@ -7421,7 +7600,7 @@ class CatalogoErpDatos extends CRUD {
       ":titulo" => substr($titulo, 0, 120),
       ":subtitulo" => substr(trim((string)(isset($material["subtitulo"]) ? $material["subtitulo"] : "")), 0, 180) ?: null,
       ":cta" => substr(trim((string)(isset($material["cta"]) ? $material["cta"] : "")), 0, 160) ?: null,
-      ":plantilla" => $this->opcion($opciones, "plantilla", array("square", "story", "compact"), "square"),
+      ":plantilla" => $this->normalizarPlantillaCatalogoComercial(isset($opciones["plantilla"]) ? $opciones["plantilla"] : "square"),
       ":precio" => !empty($opciones["mostrarPrecio"]) ? 1 : 0,
       ":marca" => array_key_exists("mostrarMarca", $opciones) ? (!empty($opciones["mostrarMarca"]) ? 1 : 0) : 1,
       ":categoria" => !empty($opciones["mostrarCategoria"]) ? 1 : 0,
@@ -7434,6 +7613,20 @@ class CatalogoErpDatos extends CRUD {
       ":portada_nota" => substr(trim((string)(isset($material["portadaNota"]) ? $material["portadaNota"] : "")), 0, 180) ?: null,
       ":usuario" => $idUsuario ? intval($idUsuario) : null
     );
+  }
+
+  private function normalizarPlantillaCatalogoComercial($valor) {
+    $plantilla = trim((string)$valor);
+    if ($plantilla === "compact") {
+      return "compact";
+    }
+    if (preg_match('/^(square|story)(?:_([2-5])(?:x([2-6]))?)?$/', $plantilla, $coincidencias)) {
+      $base = $coincidencias[1];
+      $columnas = isset($coincidencias[2]) && $coincidencias[2] !== "" ? $coincidencias[2] : "3";
+      $filas = isset($coincidencias[3]) && $coincidencias[3] !== "" ? "x" . $coincidencias[3] : "";
+      return $base . "_" . $columnas . $filas;
+    }
+    return "square_3";
   }
 
   private function codigoCatalogoComercial($db) {

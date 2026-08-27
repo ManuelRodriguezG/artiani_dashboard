@@ -7412,3 +7412,37 @@ Actualizacion autorizada 2026-08-22:
 - No modifica `costo_referencia`.
 - Si el renglon aun no tiene relacion aplicada o no tiene costo vigente existente, el sistema no sincroniza y avisa el motivo.
 - Este flujo resuelve casos como Q311, donde corregir factor en el renglon debe actualizar el costo vigente ya aplicado para que Listas de precios/rentabilidad lean el costo unitario correcto.
+
+## Proveedores - Retiro controlado de relacion equivocada 2026-08-26
+
+Necesidad:
+
+- Si un renglon de lista fue relacionado por error con un SKU ERP o una relacion proveedor-SKU, Proveedores necesita corregirlo desde el propio renglon.
+- En un ERP robusto no se debe borrar historia ni romper costos/compras que ya usaron esa relacion.
+
+Decision aplicada:
+
+- La accion se llama `Quitar relacion` y vive en el detalle de lista:
+  - icono en acciones del renglon;
+  - boton dentro del modal `Editar renglon`.
+- La accion pide motivo obligatorio para dejar evidencia.
+- Siempre limpia la relacion del renglon (`id_sku`, `id_sku_proveedor`) y lo regresa a `estado_match='sin_match'` con criterio `relacion_retirada_por_usuario`.
+- Solo inactiva la relacion formal en `erp_catalogo_sku_proveedores` cuando no detecta uso operativo.
+- Si hay costo vigente, otro renglon, solicitud u orden de compra usando la relacion, la relacion formal queda activa y el sistema avisa que solo se retiro del renglon.
+- No borra costos, solicitudes, ordenes ni cambia `costo_referencia`.
+
+Archivos tocados:
+
+- `app/controladores/Proveedor.php`: endpoint `proveedor_lista_detalle_desvincular_erp`.
+- `app/modelos/Proveedores.php`: metodo `desvincularRelacionListaDetalleErp` con validaciones de uso operativo.
+- `app/vistas/paginas/apps/erp/proveedores/listado_erp.php`: boton `Quitar relacion` en modal de renglon.
+- `public/assets/js/custom/apps/erp/proveedores/listado_erp.js`: accion en tabla, confirmacion con motivo y refresco de detalle/costos.
+
+Prueba real pendiente:
+
+- Abrir Proveedores > lista con un renglon relacionado por error.
+- Usar el icono `Quitar relacion` o entrar a `Editar renglon` > `Quitar relacion`.
+- Capturar motivo.
+- Confirmar que el renglon queda sin SKU ERP/relacion proveedor-SKU y vuelve a poder matchearse.
+- Si la relacion tenia costo vigente o uso en compras, confirmar que el mensaje indique que la relacion formal se conservo.
+- Si la relacion no tenia uso operativo, confirmar que ya no aparezca como relacion activa comprable.

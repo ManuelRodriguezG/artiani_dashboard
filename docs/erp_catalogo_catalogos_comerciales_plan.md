@@ -1401,3 +1401,115 @@ UAT recomendado:
 3. Confirmar pagina 1 con hasta 20 productos.
 4. Confirmar paginas 2+ con hasta 25 productos.
 5. Revisar en telefono si imagen y titulo siguen siendo legibles.
+
+## Ajuste 2026-08-26 - Flujo operativo listado/editor/ver
+
+Contexto:
+
+- Se necesita empezar a organizar catalogos comerciales reales, con un flujo parecido a Compras/Solicitudes: listado, nuevo, editar y ver.
+- La pantalla anterior tenia vistas internas, pero la entrada principal mezclaba listado, editor y preview en una sola ruta.
+
+Cambios aplicados:
+
+- `CatalogoErp::catalogos_comerciales()` ahora abre el listado operativo.
+- Se agregaron rutas:
+  - `/catalogoerp/catalogos_comerciales_nuevo`;
+  - `/catalogoerp/catalogos_comerciales_editar?id_catalogo_comercial=ID`;
+  - `/catalogoerp/catalogos_comerciales_ver?id_catalogo_comercial=ID`.
+- `catalogos_comerciales_formulario.php` recibe modo inicial, id de catalogo y bandera de nuevo catalogo.
+- `catalogos_comerciales.js` carga automaticamente el catalogo cuando la ruta trae ID y abre la seccion correcta.
+- Las tarjetas de catalogos guardados ahora muestran acciones separadas `Ver`, `Editar` y `Archivar`.
+- No se aplico DDL, no se tocaron Costos/Rentabilidad, no se modificaron productos, SKUs, precios, ventas ni inventario.
+
+Regla operativa:
+
+- `Catalogos` es la entrada diaria para revisar materiales guardados.
+- `Nuevo` inicia un armado limpio.
+- `Editar` permite modificar seleccion, datos del material y plantilla.
+- `Ver` abre directamente la previsualizacion/exportacion del catalogo guardado.
+
+Validacion:
+
+- `C:\xampp\php\php.exe -l app\controladores\CatalogoErp.php`: sin errores.
+- `C:\xampp\php\php.exe -l app\vistas\paginas\apps\erp\catalogo\catalogos_comerciales_formulario.php`: sin errores.
+- `node --check public\assets\js\custom\apps\erp\catalogo\catalogos_comerciales.js`: sin errores.
+
+Siguiente paso recomendado:
+
+- Sobre este flujo ya ordenado, implementar agrupacion visual de variantes por producto maestro y mostrar atributos comerciales importantes sin fusionar SKUs.
+
+## Correccion 2026-08-26 - Vistas separadas de Catalogos comerciales
+
+Contexto:
+
+- El flujo anterior seguia mezclando listado, editor y vista previa en una misma vista PHP con secciones internas.
+- Operativamente se requiere algo mas parecido a Compras/Solicitudes: una pantalla de catalogos y una pantalla clara para crear/editar.
+
+Cambios aplicados:
+
+- Se creo `app/vistas/paginas/apps/erp/catalogo/catalogos_comerciales_listado.php`.
+- Se creo `app/vistas/paginas/apps/erp/catalogo/catalogos_comerciales_formulario.php`.
+- Se creo `public/assets/js/custom/apps/erp/catalogo/catalogos_comerciales_listado.js`.
+- `/catalogoerp/catalogos_comerciales` ahora carga solo el listado tabular.
+- `/catalogoerp/catalogos_comerciales_nuevo` y `/catalogoerp/catalogos_comerciales_editar` cargan solo el formulario.
+- `/catalogoerp/catalogos_comerciales_ver` carga el formulario en modo vista previa.
+- El formulario muestra primero `Informacion del catalogo` y despues `Productos del catalogo`.
+
+Regla:
+
+- La vista principal de Catalogos comerciales debe ser un listado, no un editor con paneles mezclados.
+- La edicion debe sentirse como captura de un catalogo: informacion general arriba, productos abajo y vista previa al final.
+- El archivo anterior `catalogos_comerciales.php` fue retirado para evitar dos vistas compitiendo; las entradas operativas son listado y formulario.
+
+Validacion:
+
+- `C:\xampp\php\php.exe -l app\controladores\CatalogoErp.php`: sin errores.
+- `C:\xampp\php\php.exe -l app\vistas\paginas\apps\erp\catalogo\catalogos_comerciales_listado.php`: sin errores.
+- `C:\xampp\php\php.exe -l app\vistas\paginas\apps\erp\catalogo\catalogos_comerciales_formulario.php`: sin errores.
+- `node --check public\assets\js\custom\apps\erp\catalogo\catalogos_comerciales.js`: sin errores.
+- `node --check public\assets\js\custom\apps\erp\catalogo\catalogos_comerciales_listado.js`: sin errores.
+
+## Ajuste 2026-08-26 - Seleccion por categoria y densidad de exportacion
+
+Contexto:
+
+- Al crear catalogos comerciales, las categorias existentes ayudan a revisar que productos faltan y a cargar familias completas sin buscarlas una por una.
+- Las primeras pruebas de PNG con demasiados productos por imagen quedan poco legibles; hacer zoom distorsiona o no resuelve la falta de espacio.
+
+Cambios aplicados:
+
+- El editor de Catalogos comerciales agrega selector `Categoria` alimentado desde `/catalogoerp/catalogos`.
+- El endpoint de candidatos acepta `id_categoria_erp` y filtra por `erp_catalogo_producto_categorias` contra categorias maestras activas que permiten productos.
+- Se agregan acciones masivas `Agregar cargados` y `Quitar cargados` para operar sobre todo el resultado consultado, ademas de los botones de pagina visible.
+- La vista previa permite elegir `2`, `3`, `4` o `5` productos por fila.
+- El exportador PNG por paginas usa la densidad elegida para calcular columnas, alto de tarjeta y cantidad de productos por pagina.
+- La densidad se guarda dentro de la configuracion visual existente (`plantilla` con sufijo, por ejemplo `square_3`) para evitar DDL por ahora.
+
+Regla:
+
+- La categoria solo ayuda a seleccionar candidatos comerciales; no modifica categoria maestra, SKU, inventario, compras, ventas ni precios.
+- Menos productos por fila significa tarjetas mas grandes y mas paginas PNG, lo cual es preferible cuando el catalogo se envia por WhatsApp o redes.
+- No se aplica DDL para este ajuste; si despues se necesita configuracion mas detallada por canal/formato, se evaluara una tabla/columna nueva con respaldo externo.
+
+## Ajuste 2026-08-26 - Categoria escribible, filas y preview de paginas
+
+Contexto:
+
+- El selector de categorias puede crecer demasiado; conviene poder escribir para encontrar una categoria especifica.
+- Definir solo columnas no siempre aprovecha bien el lienzo exportable: con portada o pocos productos pueden quedar espacios en blanco.
+- Antes de descargar varios PNG, el operador necesita ver como quedaran las paginas para ajustar densidad visual.
+
+Cambios aplicados:
+
+- `cc_categoria` activa Select2 como mejora progresiva cuando esta disponible; si no existe, conserva select nativo.
+- Se agrega selector `Filas auto/2/3/4/5/6` junto al selector de columnas.
+- La exportacion calcula el alto de tarjeta por pagina cuando hay filas manuales, considerando si la pagina incluye portada.
+- Se agrega `Preview paginas`, que dibuja miniaturas canvas usando la misma rutina del exportador PNG, sin descargar archivos.
+- Al cambiar seleccion, textos, portada, plantilla, filas o columnas se limpia el preview de paginas para evitar ver una version anterior.
+- La configuracion de filas y columnas se persiste en `plantilla` con formato compacto, por ejemplo `square_3x4`, usando la columna existente `VARCHAR(30)`.
+
+Regla:
+
+- `Filas auto` mantiene el comportamiento conservador de paginacion; filas manuales sirven para controlar densidad cuando el catalogo necesita verse mas lleno o mas grande.
+- El preview de paginas no escribe servidor, no genera archivos y no modifica productos/SKUs.
+- No se aplica DDL para esta mejora.

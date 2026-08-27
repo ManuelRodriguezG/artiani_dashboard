@@ -585,6 +585,27 @@ class Proveedor extends Controlador {
         echo json_encode($respuesta);
     }
 
+    /**
+     * IA: Codex GPT-5
+     * Fecha: 2026-08-26
+     * Proposito: retirar una relacion equivocada desde el renglon de lista sin borrar historial.
+     * Impacto: Proveedores/Listas; permite corregir matching aplicado y protege costos/compras ya operativos.
+     * Contrato: limpia el renglon y solo inactiva la relacion formal si no tiene costo vigente ni uso operativo.
+     */
+    public function proveedor_lista_detalle_desvincular_erp() {
+        $this->requerirPermiso("proveedores.matching");
+        $respuesta = $this->modelo("Proveedores")->desvincularRelacionListaDetalleErp($_POST, $this->usuarioActualId());
+        SesionSeguridad::registrarAuditoria("proveedores", "proveedor_lista_detalle_desvincular", array(
+            "entidad" => "erp_proveedores_listas_detalle_erp",
+            "entidad_id" => isset($respuesta["depurar"]["id_lista_detalle_erp"]) ? intval($respuesta["depurar"]["id_lista_detalle_erp"]) : null,
+            "resultado" => $respuesta["error"] ? "error" : "ok",
+            "mensaje" => $respuesta["mensaje"],
+            "datos_antes" => isset($respuesta["depurar"]["antes"]) ? $respuesta["depurar"]["antes"] : null,
+            "datos_despues" => isset($respuesta["depurar"]["despues"]) ? $respuesta["depurar"]["despues"] : null
+        ));
+        echo json_encode($respuesta);
+    }
+
     public function proveedor_incidencias_dry_run_erp() {
         $this->requerirPermiso("proveedores.auditoria");
         $id_proveedor = isset($_REQUEST["id_proveedor"]) ? $_REQUEST["id_proveedor"] : 0;

@@ -867,6 +867,9 @@
                     <div class="alert alert-danger d-none mt-6" id="proveedores_erp_lista_detalle_form_error"></div>
                 </div>
                 <div class="modal-footer">
+                    <button type="button" class="btn btn-light-danger me-auto d-none" id="proveedores_erp_lista_detalle_desvincular">
+                        <i class="bi bi-link-45deg"></i> Quitar relacion
+                    </button>
                     <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancelar</button>
                     <button type="button" class="btn btn-light-success" id="proveedores_erp_lista_detalle_guardar_sincronizar">
                         <i class="bi bi-arrow-repeat"></i> Guardar y sincronizar
