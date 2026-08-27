@@ -9,6 +9,7 @@
      */
     const STORAGE_KEY = "erp_catalogos_comerciales_mvp_seleccion";
     const STORAGE_META_KEY = "erp_catalogos_comerciales_mvp_material";
+    const STORAGE_OPTIONS_KEY = "erp_catalogos_comerciales_mvp_opciones";
     const STORAGE_DRAFTS_KEY = "erp_catalogos_comerciales_mvp_borradores";
     const CANDIDATOS_POR_PAGINA = 12;
     const SELECCION_POR_PAGINA = 8;
@@ -69,6 +70,60 @@
         const numero = Number(valor);
         if (!Number.isFinite(numero) || numero <= 0) return "Sin precio";
         return new Intl.NumberFormat("es-MX", { style: "currency", currency: moneda || "MXN" }).format(numero);
+    }
+
+    function valorColor(id, fallback) {
+        const valor = String($(id)?.value || fallback || "").trim();
+        return /^#[0-9a-f]{6}$/i.test(valor) ? valor : fallback;
+    }
+
+    function valorEntero(id, permitidos, fallback) {
+        const valor = Number($(id)?.value || fallback);
+        return permitidos.includes(valor) ? valor : fallback;
+    }
+
+    function fuenteVisualActual() {
+        const valor = $("cc_fuente_visual")?.value || "arial";
+        const mapa = {
+            arial: "Arial, sans-serif",
+            verdana: "Verdana, Geneva, sans-serif",
+            georgia: "Georgia, serif",
+            trebuchet: "'Trebuchet MS', Arial, sans-serif",
+            impacto: "Impact, Haettenschweiler, 'Arial Narrow Bold', sans-serif"
+        };
+        return mapa[valor] ? { clave: valor, familia: mapa[valor] } : { clave: "arial", familia: mapa.arial };
+    }
+
+    function estiloVisualActual() {
+        const fuente = fuenteVisualActual();
+        return {
+            fuente: fuente.clave,
+            familiaFuente: fuente.familia,
+            colorTitulo: valorColor("cc_color_titulo", "#181c32"),
+            colorProducto: valorColor("cc_color_producto", "#181c32"),
+            colorMeta: valorColor("cc_color_meta", "#5e6278"),
+            colorPrecio: valorColor("cc_color_precio", "#0f7a5f"),
+            tamTitulo: valorEntero("cc_tam_titulo", [21, 23, 26, 30], 23),
+            tamProducto: valorEntero("cc_tam_producto", [10, 11, 13, 15], 11),
+            tamMeta: valorEntero("cc_tam_meta", [8, 9, 10, 12], 9),
+            tamPrecio: valorEntero("cc_tam_precio", [12, 13, 15, 18], 13)
+        };
+    }
+
+    function aplicarEstiloVisual() {
+        const estilo = estiloVisualActual();
+        const area = document.querySelector(".cc-print-area");
+        if (!area) return estilo;
+        area.style.setProperty("--cc-font-family", estilo.familiaFuente);
+        area.style.setProperty("--cc-title-color", estilo.colorTitulo);
+        area.style.setProperty("--cc-product-color", estilo.colorProducto);
+        area.style.setProperty("--cc-meta-color", estilo.colorMeta);
+        area.style.setProperty("--cc-price-color", estilo.colorPrecio);
+        area.style.setProperty("--cc-title-size", `${estilo.tamTitulo}px`);
+        area.style.setProperty("--cc-product-size", `${estilo.tamProducto}px`);
+        area.style.setProperty("--cc-meta-size", `${estilo.tamMeta}px`);
+        area.style.setProperty("--cc-price-size", `${estilo.tamPrecio}px`);
+        return estilo;
     }
 
     /**
@@ -222,6 +277,23 @@
         if ($("cc_portada_nota")) $("cc_portada_nota").value = datos.portadaNota || "";
     }
 
+    function guardarOpcionesLocal() {
+        try {
+            localStorage.setItem(STORAGE_OPTIONS_KEY, JSON.stringify(opcionesActuales()));
+        } catch (e) {
+            // La configuracion visual puede operar sin persistencia local.
+        }
+    }
+
+    function cargarOpcionesLocal() {
+        try {
+            const datos = JSON.parse(localStorage.getItem(STORAGE_OPTIONS_KEY) || "{}") || {};
+            aplicarOpciones(datos);
+        } catch (e) {
+            aplicarOpciones({});
+        }
+    }
+
     function materialActual() {
         return {
             titulo: $("cc_material_titulo")?.value || "",
@@ -240,12 +312,14 @@
             plantillaBase: plantillaActual(),
             columnasExportacion: columnasExportacionActual(),
             filasExportacion: filasExportacionActual(),
+            estiloVisual: estiloVisualActual(),
             mostrarPrecio: Boolean($("cc_mostrar_precio")?.checked),
             mostrarMarca: Boolean($("cc_mostrar_marca")?.checked),
             mostrarCategoria: Boolean($("cc_mostrar_categoria")?.checked),
             mostrarPresentacion: Boolean($("cc_mostrar_presentacion")?.checked),
             mostrarSku: Boolean($("cc_mostrar_sku")?.checked),
-            mostrarDisponibilidad: Boolean($("cc_mostrar_disponibilidad")?.checked)
+            mostrarDisponibilidad: Boolean($("cc_mostrar_disponibilidad")?.checked),
+            agruparVariantes: Boolean($("cc_agrupar_variantes")?.checked)
         };
     }
 
@@ -274,6 +348,18 @@
         if ($("cc_mostrar_presentacion")) $("cc_mostrar_presentacion").checked = opciones.mostrarPresentacion !== false;
         if ($("cc_mostrar_sku")) $("cc_mostrar_sku").checked = Boolean(opciones.mostrarSku);
         if ($("cc_mostrar_disponibilidad")) $("cc_mostrar_disponibilidad").checked = Boolean(opciones.mostrarDisponibilidad);
+        if ($("cc_agrupar_variantes")) $("cc_agrupar_variantes").checked = Boolean(opciones.agruparVariantes);
+        const estilo = opciones.estiloVisual || {};
+        if ($("cc_fuente_visual")) $("cc_fuente_visual").value = estilo.fuente || "arial";
+        if ($("cc_color_titulo")) $("cc_color_titulo").value = /^#[0-9a-f]{6}$/i.test(estilo.colorTitulo || "") ? estilo.colorTitulo : "#181c32";
+        if ($("cc_color_producto")) $("cc_color_producto").value = /^#[0-9a-f]{6}$/i.test(estilo.colorProducto || "") ? estilo.colorProducto : "#181c32";
+        if ($("cc_color_meta")) $("cc_color_meta").value = /^#[0-9a-f]{6}$/i.test(estilo.colorMeta || "") ? estilo.colorMeta : "#5e6278";
+        if ($("cc_color_precio")) $("cc_color_precio").value = /^#[0-9a-f]{6}$/i.test(estilo.colorPrecio || "") ? estilo.colorPrecio : "#0f7a5f";
+        if ($("cc_tam_titulo")) $("cc_tam_titulo").value = String(estilo.tamTitulo || 23);
+        if ($("cc_tam_producto")) $("cc_tam_producto").value = String(estilo.tamProducto || 11);
+        if ($("cc_tam_meta")) $("cc_tam_meta").value = String(estilo.tamMeta || 9);
+        if ($("cc_tam_precio")) $("cc_tam_precio").value = String(estilo.tamPrecio || 13);
+        aplicarEstiloVisual();
     }
 
     /**
@@ -495,6 +581,7 @@
                     <div class="fw-bold text-gray-900">${escapeHtml(item.nombre)}</div>
                     <div class="text-muted">${escapeHtml(item.sku)} - ${escapeHtml(item.tipo_item)} - ${escapeHtml(item.marca || "Sin marca")}</div>
                     <div class="text-muted">${escapeHtml(item.presentacion_comercial || "")}</div>
+                    ${item.variante_resumen ? `<div class="text-primary fs-8">${escapeHtml(item.variante_resumen)}</div>` : ""}
                 </td>
                 <td>${escapeHtml(item.categoria || "Sin categoria")}</td>
                 <td class="fw-semibold">${escapeHtml(dinero(item.precio, item.moneda))}</td>
@@ -508,6 +595,88 @@
         }).join("");
     }
 
+    function etiquetaVariante(item) {
+        const resumen = String(item.variante_resumen || "").trim();
+        if (resumen) return resumen;
+        const presentacion = String(item.presentacion_comercial || "").trim();
+        if (presentacion && presentacion !== String(item.sku || "").trim()) return presentacion;
+        return String(item.nombre || item.sku || "Variante").trim();
+    }
+
+    function precioTextoComercial(item) {
+        if (item && item.precio_texto) return item.precio_texto;
+        return dinero(item ? item.precio : null, item ? item.moneda : "MXN");
+    }
+
+    /**
+     * IA: Codex GPT-5 | Fecha: 2026-08-27
+     * Proposito: construir una representacion visual agrupada sin alterar la seleccion real de SKUs.
+     * Impacto: Catalogos comerciales; permite mostrar variantes compactas en una sola tarjeta por producto.
+     * Contrato: no fusiona ni borra SKUs; solo colapsa en memoria para preview, texto y PNG.
+     */
+    function itemsVisualesCatalogo() {
+        const items = Array.from(estado.seleccion.values());
+        if (!Boolean($("cc_agrupar_variantes")?.checked)) return items;
+        const grupos = new Map();
+        const salida = [];
+        items.forEach((item) => {
+            const idProducto = Number(item.id_producto_erp || 0);
+            const esVariante = Boolean(item.maneja_variantes) || Number(item.variant_count || 0) > 0;
+            if (idProducto <= 0 || !esVariante) {
+                salida.push(item);
+                return;
+            }
+            const clave = String(idProducto);
+            if (!grupos.has(clave)) {
+                grupos.set(clave, []);
+                salida.push({ __grupoProducto: clave });
+            }
+            grupos.get(clave).push(item);
+        });
+        return salida.map((entrada) => {
+            if (!entrada.__grupoProducto) return entrada;
+            const variantes = grupos.get(entrada.__grupoProducto) || [];
+            if (variantes.length <= 1) return variantes[0];
+            const base = variantes[0] || {};
+            const precios = variantes.map((item) => Number(item.precio)).filter((precio) => Number.isFinite(precio) && precio > 0);
+            const min = precios.length ? Math.min(...precios) : null;
+            const max = precios.length ? Math.max(...precios) : null;
+            const moneda = variantes.find((item) => item.moneda)?.moneda || "MXN";
+            const imagen = variantes.find((item) => item.imagen_portada)?.imagen_portada || base.imagen_portada || "";
+            const precioTexto = min && max && min !== max ? `${dinero(min, moneda)} - ${dinero(max, moneda)}` : dinero(min, moneda);
+            return {
+                id_sku: `grupo-${entrada.__grupoProducto}`,
+                id_producto_erp: Number(entrada.__grupoProducto),
+                tipo_item: "grupo_variantes",
+                tipo_visual: "grupo_variantes",
+                codigo_producto: base.codigo_producto || "",
+                sku: variantes.map((item) => item.sku).filter(Boolean).join(", "),
+                nombre: base.producto || base.nombre || "Producto",
+                producto: base.producto || base.nombre || "Producto",
+                maneja_variantes: true,
+                marca: base.marca || "",
+                categoria: base.categoria || "",
+                imagen_portada: imagen,
+                presentacion_comercial: `${variantes.length} variantes`,
+                precio: min,
+                moneda,
+                precio_texto: precioTexto,
+                disponibilidad_simple: variantes.some((item) => item.disponibilidad_simple === "disponible") ? "disponible" : (base.disponibilidad_simple || "consultar"),
+                variantes: variantes.map((item) => ({
+                    id_sku: item.id_sku,
+                    sku: item.sku,
+                    nombre: item.nombre,
+                    etiqueta: etiquetaVariante(item),
+                    imagen_portada: item.imagen_portada,
+                    precio: item.precio,
+                    moneda: item.moneda,
+                    disponibilidad_simple: item.disponibilidad_simple
+                })),
+                alertas: Array.from(new Set(variantes.flatMap((item) => Array.isArray(item.alertas) ? item.alertas : [])))
+            };
+        });
+    }
+
     function renderSeleccion() {
         const contenedor = $("cc_seleccion");
         const preview = $("cc_preview");
@@ -517,6 +686,7 @@
         if ($("cc_res_sel")) $("cc_res_sel").textContent = items.length.toLocaleString("es-MX");
         const plantilla = plantillaActual();
         preview.className = `cc-preview-grid cc-preview-grid--${plantilla}`;
+        aplicarEstiloVisual();
         if (plantilla === "compact") {
             preview.style.removeProperty("grid-template-columns");
         } else {
@@ -556,17 +726,20 @@
         const mostrarPresentacion = Boolean($("cc_mostrar_presentacion")?.checked);
         const mostrarSku = Boolean($("cc_mostrar_sku")?.checked);
         const mostrarDisponibilidad = Boolean($("cc_mostrar_disponibilidad")?.checked);
+        const visualItems = itemsVisualesCatalogo();
 
-        preview.innerHTML = items.map((item) => `<article class="cc-card">
+        preview.innerHTML = visualItems.map((item) => `<article class="cc-card">
             <div class="cc-card__media">${imagenHtml(item.imagen_portada, "")}</div>
             <div class="cc-card__body">
                 <div class="cc-card__title">${escapeHtml(item.nombre)}</div>
                 ${mostrarMarca && item.marca ? `<div class="cc-card__meta">${escapeHtml(item.marca)}</div>` : ""}
                 ${mostrarCategoria ? `<div class="cc-card__meta">${escapeHtml(item.categoria || "Sin categoria")}</div>` : ""}
                 ${mostrarPresentacion ? `<div class="cc-card__meta">${escapeHtml(item.presentacion_comercial || item.sku)}</div>` : ""}
+                ${Array.isArray(item.variantes) && item.variantes.some((variante) => variante.imagen_portada) ? `<div class="cc-card__variant-images">${item.variantes.filter((variante) => variante.imagen_portada).slice(0, 6).map((variante) => `<img class="cc-card__variant-image" src="${escapeHtml(normalizarRutaImagen(variante.imagen_portada))}" alt="">`).join("")}</div>` : ""}
+                ${Array.isArray(item.variantes) && item.variantes.length ? `<div class="cc-card__variants">${item.variantes.slice(0, 8).map((variante) => `<span class="cc-card__variant">${escapeHtml(variante.etiqueta || variante.sku || "Variante")}</span>`).join("")}</div>` : ""}
                 ${mostrarSku ? `<div class="cc-card__meta">${escapeHtml(item.sku)}</div>` : ""}
                 ${mostrarDisponibilidad ? `<div class="cc-card__meta">${escapeHtml(item.disponibilidad_simple || "consultar")}</div>` : ""}
-                ${mostrarPrecio ? `<div class="cc-card__price">${escapeHtml(dinero(item.precio, item.moneda))}</div>` : ""}
+                ${mostrarPrecio ? `<div class="cc-card__price">${escapeHtml(precioTextoComercial(item))}</div>` : ""}
             </div>
         </article>`).join("");
     }
@@ -580,6 +753,7 @@
     function renderEncabezadoMaterial() {
         const contenedor = $("cc_preview_header");
         if (!contenedor) return;
+        aplicarEstiloVisual();
         const titulo = ($("cc_material_titulo")?.value || "").trim();
         const subtitulo = ($("cc_material_subtitulo")?.value || "").trim();
         const cta = ($("cc_material_cta")?.value || "").trim();
@@ -752,10 +926,15 @@
             if (mostrarMarca && item.marca) partes.push(item.marca);
             if (mostrarCategoria) partes.push(item.categoria || "Sin categoria");
             if (mostrarPresentacion && item.presentacion_comercial) partes.push(item.presentacion_comercial);
-            if (mostrarPrecio) partes.push(dinero(item.precio, item.moneda));
+            if (mostrarPrecio) partes.push(precioTextoComercial(item));
             if (mostrarSku) partes.push(`SKU ${item.sku || ""}`.trim());
             if (mostrarDisponibilidad) partes.push(item.disponibilidad_simple || "consultar disponibilidad");
             lineas.push(partes.filter(Boolean).join(" - "));
+            if (Array.isArray(item.variantes) && item.variantes.length) {
+                item.variantes.slice(0, 12).forEach((variante) => {
+                    lineas.push(`   - ${variante.etiqueta || variante.sku || "Variante"}`);
+                });
+            }
         });
 
         if (cta) {
@@ -851,6 +1030,7 @@
         const nombre = ($("cc_borrador_nombre")?.value || "").trim();
         if (!nombre) throw new Error("Captura un nombre para el catalogo");
         if (!estado.seleccion.size) throw new Error("Selecciona al menos un producto para guardar");
+        guardarOpcionesLocal();
         const json = await apiPost("/catalogoerp/catalogos_comerciales_guardar", {
             id_catalogo_comercial: estado.catalogoActualId || 0,
             nombre,
@@ -1317,6 +1497,7 @@
     }
 
     async function dibujarTarjetaCanvas(ctx, item, x, y, w, h, opciones) {
+        const estilo = opciones.estiloVisual || estiloVisualActual();
         ctx.save();
         ctx.fillStyle = "#ffffff";
         redondearRect(ctx, x, y, w, h, 18);
@@ -1335,11 +1516,11 @@
         ctx.restore();
 
         const bodyY = y + altoImagen + 12;
-        ctx.fillStyle = "#181c32";
-        ctx.font = "800 12px Arial, sans-serif";
-        let cursor = canvasTexto(ctx, item.nombre || "Producto", x + 10, bodyY, w - 20, 15, 3) + 1;
-        ctx.fillStyle = "#5e6278";
-        ctx.font = "500 9px Arial, sans-serif";
+        ctx.fillStyle = estilo.colorProducto || "#181c32";
+        ctx.font = `800 ${estilo.tamProducto || 11}px ${estilo.familiaFuente || "Arial, sans-serif"}`;
+        let cursor = canvasTexto(ctx, item.nombre || "Producto", x + 10, bodyY, w - 20, Math.max(13, Number(estilo.tamProducto || 11) + 4), 3) + 1;
+        ctx.fillStyle = estilo.colorMeta || "#5e6278";
+        ctx.font = `500 ${estilo.tamMeta || 9}px ${estilo.familiaFuente || "Arial, sans-serif"}`;
         const metas = [];
         if (opciones.mostrarMarca && item.marca) metas.push(item.marca);
         if (opciones.mostrarCategoria) metas.push(item.categoria || "Sin categoria");
@@ -1349,12 +1530,23 @@
         const precioY = y + h - 18;
         metas.slice(0, 3).forEach((meta) => {
             if (cursor > precioY - 26) return;
-            cursor = canvasTexto(ctx, meta, x + 10, cursor, w - 20, 11, 1);
+            cursor = canvasTexto(ctx, meta, x + 10, cursor, w - 20, Math.max(10, Number(estilo.tamMeta || 9) + 2), 1);
         });
+        if (Array.isArray(item.variantes) && item.variantes.length) {
+            ctx.fillStyle = estilo.colorMeta || "#5e6278";
+            ctx.font = `700 ${estilo.tamMeta || 9}px ${estilo.familiaFuente || "Arial, sans-serif"}`;
+            item.variantes.slice(0, 5).forEach((variante) => {
+                if (cursor > precioY - 24) return;
+                cursor = canvasTexto(ctx, `- ${variante.etiqueta || variante.sku || "Variante"}`, x + 10, cursor, w - 20, Math.max(10, Number(estilo.tamMeta || 9) + 2), 1);
+            });
+            if (item.variantes.length > 5 && cursor <= precioY - 24) {
+                cursor = canvasTexto(ctx, `+ ${item.variantes.length - 5} variantes mas`, x + 10, cursor, w - 20, Math.max(10, Number(estilo.tamMeta || 9) + 2), 1);
+            }
+        }
         if (opciones.mostrarPrecio) {
-            ctx.fillStyle = "#0f7a5f";
-            ctx.font = "800 13px Arial, sans-serif";
-            ctx.fillText(dinero(item.precio, item.moneda), x + 10, precioY);
+            ctx.fillStyle = estilo.colorPrecio || "#0f7a5f";
+            ctx.font = `800 ${estilo.tamPrecio || 13}px ${estilo.familiaFuente || "Arial, sans-serif"}`;
+            ctx.fillText(precioTextoComercial(item), x + 10, precioY);
         }
     }
 
@@ -1413,7 +1605,8 @@
         return paginas.length ? paginas : [{ items: [], portada: portadaActiva }];
     }
 
-    function dibujarPortadaPagina(ctx, material, layout, y) {
+    function dibujarPortadaPagina(ctx, material, layout, y, opciones) {
+        const estilo = opciones.estiloVisual || estiloVisualActual();
         ctx.fillStyle = "#f8fafc";
         redondearRect(ctx, layout.margen, y, layout.width - layout.margen * 2, layout.portadaH, 20);
         ctx.fill();
@@ -1421,23 +1614,24 @@
         ctx.lineWidth = 2;
         ctx.stroke();
         ctx.fillStyle = "#0f7a5f";
-        ctx.font = "800 14px Arial, sans-serif";
+        ctx.font = `800 14px ${estilo.familiaFuente || "Arial, sans-serif"}`;
         ctx.fillText((material.portadaEtiqueta || "Catalogo recomendado").toUpperCase(), layout.margen + 22, y + 28);
         if (material.portadaNota || material.cta) {
             ctx.textAlign = "right";
             ctx.fillText(material.portadaNota || material.cta, layout.width - layout.margen - 22, y + 28);
             ctx.textAlign = "left";
         }
-        ctx.fillStyle = "#181c32";
-        ctx.font = "900 30px Arial, sans-serif";
-        canvasTexto(ctx, material.titulo || "Catalogo de productos", layout.margen + 22, y + 62, layout.width - layout.margen * 2 - 44, 34, 1);
-        ctx.fillStyle = "#5e6278";
-        ctx.font = "500 16px Arial, sans-serif";
+        ctx.fillStyle = estilo.colorTitulo || "#181c32";
+        ctx.font = `900 ${Math.max(24, Number(estilo.tamTitulo || 23) + 7)}px ${estilo.familiaFuente || "Arial, sans-serif"}`;
+        canvasTexto(ctx, material.titulo || "Catalogo de productos", layout.margen + 22, y + 62, layout.width - layout.margen * 2 - 44, Math.max(28, Number(estilo.tamTitulo || 23) + 11), 1);
+        ctx.fillStyle = estilo.colorMeta || "#5e6278";
+        ctx.font = `500 16px ${estilo.familiaFuente || "Arial, sans-serif"}`;
         canvasTexto(ctx, material.portadaDescripcion || material.subtitulo || "", layout.margen + 22, y + 92, layout.width - layout.margen * 2 - 44, 20, 1);
         return y + layout.portadaH + layout.gap;
     }
 
-    function dibujarHeaderPagina(ctx, material, layout, y, pagina, totalPaginas, compacto) {
+    function dibujarHeaderPagina(ctx, material, layout, y, pagina, totalPaginas, compacto, opciones) {
+        const estilo = opciones.estiloVisual || estiloVisualActual();
         ctx.fillStyle = "#ffffff";
         const alto = compacto ? layout.tituloH : layout.headerH;
         redondearRect(ctx, layout.margen, y, layout.width - layout.margen * 2, alto, 18);
@@ -1445,15 +1639,15 @@
         ctx.strokeStyle = "#dfe3ea";
         ctx.lineWidth = 2;
         ctx.stroke();
-        ctx.fillStyle = "#181c32";
-        ctx.font = compacto ? "900 22px Arial, sans-serif" : "900 24px Arial, sans-serif";
-        canvasTexto(ctx, material.titulo || "Catalogo de productos", layout.margen + 22, y + (compacto ? 34 : 32), layout.width - layout.margen * 2 - 145, 28, 1);
+        ctx.fillStyle = estilo.colorTitulo || "#181c32";
+        ctx.font = `900 ${compacto ? Math.max(20, Number(estilo.tamTitulo || 23) - 1) : estilo.tamTitulo || 23}px ${estilo.familiaFuente || "Arial, sans-serif"}`;
+        canvasTexto(ctx, material.titulo || "Catalogo de productos", layout.margen + 22, y + (compacto ? 34 : 32), layout.width - layout.margen * 2 - 145, Math.max(24, Number(estilo.tamTitulo || 23) + 4), 1);
         if (!compacto) {
-            ctx.fillStyle = "#5e6278";
-            ctx.font = "500 15px Arial, sans-serif";
+            ctx.fillStyle = estilo.colorMeta || "#5e6278";
+            ctx.font = `500 15px ${estilo.familiaFuente || "Arial, sans-serif"}`;
             canvasTexto(ctx, material.subtitulo || "", layout.margen + 22, y + 52, layout.width - layout.margen * 2 - 44, 19, 1);
-            ctx.fillStyle = "#0f7a5f";
-            ctx.font = "800 14px Arial, sans-serif";
+            ctx.fillStyle = estilo.colorPrecio || "#0f7a5f";
+            ctx.font = `800 14px ${estilo.familiaFuente || "Arial, sans-serif"}`;
             canvasTexto(ctx, material.cta || "", layout.margen + 22, y + 70, layout.width - layout.margen * 2 - 44, 18, 1);
         }
         ctx.fillStyle = "#7e8299";
@@ -1472,8 +1666,8 @@
         ctx.fillStyle = "#ffffff";
         ctx.fillRect(0, 0, layout.width, layout.height);
         let y = layout.margen;
-        if (paginaDatos.portada) y = dibujarPortadaPagina(ctx, material, layout, y);
-        y = dibujarHeaderPagina(ctx, material, layout, y, numeroPagina, totalPaginas, !paginaDatos.portada);
+        if (paginaDatos.portada) y = dibujarPortadaPagina(ctx, material, layout, y, opciones);
+        y = dibujarHeaderPagina(ctx, material, layout, y, numeroPagina, totalPaginas, !paginaDatos.portada, opciones);
         const cardH = cardHPaginaCatalogo(layout, paginaDatos.portada);
         for (let i = 0; i < paginaDatos.items.length; i += 1) {
             const col = i % layout.columnas;
@@ -1506,7 +1700,7 @@
      * Contrato: dibuja miniaturas locales en canvas usando la misma rutina del exportador; no escribe servidor ni descarga.
      */
     async function previsualizarPaginasPngCanvas() {
-        const items = Array.from(estado.seleccion.values());
+        const items = itemsVisualesCatalogo();
         if (!items.length) throw new Error("Selecciona al menos un producto para previsualizar paginas");
         const wrap = $("cc_preview_paginas_wrap");
         const contenedor = $("cc_preview_paginas");
@@ -1543,7 +1737,7 @@
      * Contrato: pagina a 1080x1400 px, dibuja solo datos seleccionados y omite imagenes externas no locales.
      */
     async function exportarPreviewPngCanvas() {
-        const items = Array.from(estado.seleccion.values());
+        const items = itemsVisualesCatalogo();
         if (!items.length) throw new Error("Selecciona al menos un producto para exportar PNG");
         setEstado("Preparando paginas PNG", "warning");
         const opciones = opcionesActuales();
@@ -1682,9 +1876,17 @@
             renderTabla();
             renderSeleccion();
         });
-        ["cc_mostrar_precio", "cc_mostrar_marca", "cc_mostrar_categoria", "cc_mostrar_presentacion", "cc_mostrar_sku", "cc_mostrar_disponibilidad", "cc_plantilla", "cc_columnas_exportacion", "cc_filas_exportacion"].forEach((id) => {
+        ["cc_mostrar_precio", "cc_mostrar_marca", "cc_mostrar_categoria", "cc_mostrar_presentacion", "cc_mostrar_sku", "cc_mostrar_disponibilidad", "cc_agrupar_variantes", "cc_plantilla", "cc_columnas_exportacion", "cc_filas_exportacion", "cc_fuente_visual", "cc_tam_titulo", "cc_tam_producto", "cc_tam_meta", "cc_tam_precio"].forEach((id) => {
             $(id)?.addEventListener("change", () => {
                 renderSeleccion();
+                guardarOpcionesLocal();
+                limpiarPreviewPaginasExportacion();
+            });
+        });
+        ["cc_color_titulo", "cc_color_producto", "cc_color_meta", "cc_color_precio"].forEach((id) => {
+            $(id)?.addEventListener("input", () => {
+                renderSeleccion();
+                guardarOpcionesLocal();
                 limpiarPreviewPaginasExportacion();
             });
         });
@@ -1752,6 +1954,7 @@
         leerModoInicial();
         cargarSeleccionLocal();
         cargarMaterialLocal();
+        cargarOpcionesLocal();
         enlazarEventos();
         renderSeleccion();
         if (estado.nuevoInicial) {

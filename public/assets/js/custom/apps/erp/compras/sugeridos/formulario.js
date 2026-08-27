@@ -1,4 +1,4 @@
-﻿"use strict";
+"use strict";
 (function () {
     var items = [];
     var candidatos = [];
@@ -244,12 +244,12 @@
             return "<tr>" +
                 "<td><div class=\"fw-bold\">" + esc(x.sku_proveedor || x.sku_erp) + "</div><div class=\"text-muted fs-8\">SKU ERP: " + esc(x.sku_erp || "-") + "</div></td>" +
                 "<td>" + esc(x.nombre_proveedor || x.nombre_erp) + "<div class=\"text-muted fs-8\">" + esc(x.unidad_compra || "") + " | factor " + Number(x.factor_conversion || 1).toFixed(6) + "</div></td>" +
-                "<td class=\"text-end\"><input class=\"form-control form-control-sm text-end\" inputmode=\"decimal\" data-sugerido-minimo=\"" + i + "\" value=\"" + Number(x.stock_minimo || 0) + "\"" + readonly + "></td>" +
-                "<td class=\"text-end\"><input class=\"form-control form-control-sm text-end\" inputmode=\"decimal\" data-sugerido-maximo=\"" + i + "\" value=\"" + (x.stock_maximo === null || x.stock_maximo === "" ? "" : Number(x.stock_maximo || 0)) + "\"" + readonly + "></td>" +
-                "<td class=\"text-end\"><input class=\"form-control form-control-sm text-end\" inputmode=\"decimal\" data-sugerido-reorden=\"" + i + "\" value=\"" + Number(x.punto_reorden || 0) + "\"" + readonly + "></td>" +
-                "<td class=\"text-end\"><input class=\"form-control form-control-sm text-end\" inputmode=\"decimal\" data-sugerido-existencia=\"" + i + "\" value=\"" + Number(x.existencia_revisada || 0) + "\"" + readonly + "></td>" +
-                "<td class=\"text-end fw-bold\"><span data-sugerido-sugerida=\"" + i + "\">" + Number(x.cantidad_sugerida || 0).toFixed(6) + "</span></td>" +
-                "<td class=\"text-end\"><input class=\"form-control form-control-sm text-end\" inputmode=\"decimal\" data-sugerido-cantidad=\"" + i + "\" value=\"" + Number(x.cantidad_solicitar || 0) + "\"" + readonly + "></td>" +
+                "<td class=\"text-end\"><input class=\"form-control form-control-sm text-end sugerido-cantidad-input\" inputmode=\"decimal\" data-sugerido-minimo=\"" + i + "\" value=\"" + Number(x.stock_minimo || 0) + "\"" + readonly + "></td>" +
+                "<td class=\"text-end\"><input class=\"form-control form-control-sm text-end sugerido-cantidad-input\" inputmode=\"decimal\" data-sugerido-maximo=\"" + i + "\" value=\"" + (x.stock_maximo === null || x.stock_maximo === "" ? "" : Number(x.stock_maximo || 0)) + "\"" + readonly + "></td>" +
+                "<td class=\"text-end\"><input class=\"form-control form-control-sm text-end sugerido-cantidad-input\" inputmode=\"decimal\" data-sugerido-reorden=\"" + i + "\" value=\"" + Number(x.punto_reorden || 0) + "\"" + readonly + "></td>" +
+                "<td class=\"text-end\"><input class=\"form-control form-control-sm text-end sugerido-cantidad-input\" inputmode=\"decimal\" data-sugerido-existencia=\"" + i + "\" value=\"" + Number(x.existencia_revisada || 0) + "\"" + readonly + "></td>" +
+                "<td class=\"text-end fw-bold\"><span class=\"sugerido-cantidad-readonly\" data-sugerido-sugerida=\"" + i + "\">" + Number(x.cantidad_sugerida || 0).toFixed(6) + "</span></td>" +
+                "<td class=\"text-end\"><input class=\"form-control form-control-sm text-end sugerido-cantidad-final-input\" inputmode=\"decimal\" data-sugerido-cantidad=\"" + i + "\" value=\"" + Number(x.cantidad_solicitar || 0) + "\"" + readonly + "></td>" +
                 "<td class=\"text-end\">" + money(x.costo_estimado) + "</td>" +
                 "<td><input class=\"form-control form-control-sm\" data-sugerido-obs=\"" + i + "\" value=\"" + esc(x.observaciones || "") + "\"" + readonly + "></td>" +
                 "</tr>";
@@ -334,6 +334,16 @@
         document.getElementById("sugerido_resultados").addEventListener("click", function (e) {
             var boton = e.target.closest("[data-sugerido-agregar]");
             if (boton) { agregarCandidato(boton.getAttribute("data-sugerido-agregar")); }
+        });
+        /**
+         * IA: Codex GPT-5 | Fecha: 2026-08-27
+         * Proposito: facilitar captura movil de cantidades seleccionando el valor completo al enfocar.
+         * Impacto: UX Compras/Sugerido; permite reemplazar ceros/defaults sin pelear con el cursor.
+         */
+        document.getElementById("sugerido_items").addEventListener("focusin", function (e) {
+            if (e.target.matches("[data-sugerido-minimo], [data-sugerido-maximo], [data-sugerido-reorden], [data-sugerido-existencia], [data-sugerido-cantidad]")) {
+                e.target.select();
+            }
         });
         document.getElementById("sugerido_items").addEventListener("input", function (e) {
             if (modoLectura) { return; }

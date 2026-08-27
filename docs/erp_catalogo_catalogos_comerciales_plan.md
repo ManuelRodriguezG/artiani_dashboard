@@ -1513,3 +1513,65 @@ Regla:
 - `Filas auto` mantiene el comportamiento conservador de paginacion; filas manuales sirven para controlar densidad cuando el catalogo necesita verse mas lleno o mas grande.
 - El preview de paginas no escribe servidor, no genera archivos y no modifica productos/SKUs.
 - No se aplica DDL para esta mejora.
+
+## Ajuste 2026-08-27 - Estilo visual editable sin DDL
+
+Contexto:
+
+- Los catalogos comerciales necesitan verse mas llamativos para WhatsApp/redes, pero todavia no se ha autorizado ampliar persistencia visual por catalogo.
+- La configuracion debe afectar vista previa, preview de paginas y exportacion PNG sin tocar Costos/Rentabilidad ni modificar SKUs.
+
+Cambios aplicados:
+
+- Se agrega bloque `Estilo` en la vista previa del formulario.
+- Controles disponibles:
+  - tipografia;
+  - color de titulo;
+  - color de nombre de producto;
+  - color de datos secundarios;
+  - color de precio;
+  - tamano de titulo;
+  - tamano de producto;
+  - tamano de datos;
+  - tamano de precio.
+- La vista previa HTML usa variables CSS para aplicar estilo en tarjetas, encabezado y portada.
+- El preview de paginas y la exportacion PNG usan los mismos valores al dibujar canvas.
+- La configuracion se conserva en `localStorage` y en borradores JSON exportados/importados.
+
+Regla:
+
+- Esta mejora no aplica DDL.
+- El guardado actual en BD no persiste colores/tipografia/tamanos por catalogo porque `erp_catalogo_comercial_catalogos` solo guarda plantilla y banderas visuales.
+- Para persistir estilos por catalogo entre usuarios/dispositivos se requiere DDL autorizado, idealmente una columna JSON de opciones visuales o una tabla de configuracion de plantilla.
+
+Estado de variantes antes de este ajuste:
+
+- La agrupacion visual automatica de SKUs variantes bajo una sola tarjeta comercial aun no esta implementada.
+- El flujo actual sigue seleccionando SKUs individuales y permite ordenarlos/exportarlos.
+- Siguiente paso recomendado: crear modo de seleccion `Individual / Agrupar variantes`, consultar atributos de `erp_catalogo_sku_atributos` y renderizar una tarjeta por producto comercial con variantes compactas debajo, sin fusionar ni borrar SKUs.
+
+## Ajuste 2026-08-27 - Agrupacion visual de variantes
+
+Contexto:
+
+- Los SKUs operativos deben seguir separados, pero el catalogo comercial necesita mostrar una sola tarjeta cuando el cliente solo debe comparar medidas, colores, capacidades u otros atributos.
+- La informacion de variantes ya existe en Catalogo ERP mediante `erp_catalogo_productos.maneja_variantes`, `erp_catalogo_sku_atributos` y `erp_catalogo_atributos.es_variante`.
+
+Cambios aplicados:
+
+- Los candidatos comerciales ahora incluyen:
+  - `maneja_variantes`;
+  - `variante_resumen`;
+  - `variant_count`.
+- La consulta de candidatos y la reconstruccion de catalogos guardados prefieren imagen especifica de SKU y usan imagen del producto como respaldo.
+- Se agrega check `Agrupar variantes` en la vista previa.
+- Cuando el check esta activo, el render visual agrupa SKUs seleccionados por `id_producto_erp` si el producto maneja variantes o el SKU tiene atributos de variante.
+- La tarjeta agrupada muestra el nombre del producto, total de variantes, rango de precio si aplica, miniaturas disponibles y etiquetas compactas de variantes.
+- El texto copiado, preview de paginas y exportacion PNG usan la misma representacion agrupada.
+
+Regla:
+
+- El guardado sigue enviando todos los SKUs seleccionados por separado a `erp_catalogo_comercial_items`.
+- La agrupacion es solo visual y no fusiona, borra ni modifica SKUs, precios, inventario, compras o ventas.
+- Si una variante no tiene atributos capturados, la etiqueta cae a presentacion, nombre o SKU como respaldo visible.
+- Persistir el check `Agrupar variantes` por catalogo en BD requeriria DDL futuro; por ahora queda como opcion visual local/JSON.

@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 $idSugerido = isset($datos["id_sugerido_compra"]) ? intval($datos["id_sugerido_compra"]) : 0;
 $puedeCrear = !empty($datos["puede_crear"]);
 $puedeEditar = !empty($datos["puede_editar"]);
@@ -14,6 +14,37 @@ $modo = isset($datos["modo"]) ? $datos["modo"] : "editar";
     <link rel="shortcut icon" href="assets/media/logos/favicon.ico">
     <link href="assets/plugins/global/plugins.bundle.css" rel="stylesheet">
     <link href="assets/css/style.bundle.css" rel="stylesheet">
+    <style>
+        /* IA: Codex GPT-5 | Fecha: 2026-08-27
+           Proposito: ampliar inputs numericos de Sugerido de compra para captura movil.
+           Impacto: UX Compras/Sugerido; no cambia calculos ni persistencia. */
+        .sugerido-cantidad-input {
+            min-width: 7.5rem;
+            width: 7.5rem;
+            max-width: 100%;
+        }
+        .sugerido-cantidad-final-input {
+            min-width: 8.5rem;
+            width: 8.5rem;
+            max-width: 100%;
+            font-weight: 600;
+        }
+        .sugerido-cantidad-readonly {
+            display: inline-block;
+            min-width: 7.5rem;
+            text-align: right;
+        }
+        @media (max-width: 767.98px) {
+            .sugerido-cantidad-input,
+            .sugerido-cantidad-final-input {
+                min-width: 8.75rem;
+                width: 8.75rem;
+            }
+            #sugerido_items td {
+                white-space: nowrap;
+            }
+        }
+    </style>
 </head>
 <body id="kt_app_body" data-kt-app-layout="dark-sidebar" data-kt-app-header-fixed="true" data-kt-app-sidebar-enabled="true" data-kt-app-sidebar-fixed="true" class="app-default">
 <input type="hidden" id="sugerido_id" value="<?= $idSugerido ?>">
@@ -124,7 +155,7 @@ $modo = isset($datos["modo"]) ? $datos["modo"] : "editar";
 </div>
 <script src="assets/plugins/global/plugins.bundle.js"></script>
 <script src="assets/js/scripts.bundle.js"></script>
-<script src="/assets/js/custom/apps/erp/compras/sugeridos/formulario.js?v=20260821-4"></script>
+<script src="/assets/js/custom/apps/erp/compras/sugeridos/formulario.js?v=20260827-1"></script>
 </body>
 </html>
 

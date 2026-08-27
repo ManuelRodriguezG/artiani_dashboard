@@ -85,6 +85,7 @@ class CatalogoErpDatos extends CRUD {
       $tienePresentaciones = $this->tablaExisteCatalogo($db, "erp_catalogo_sku_presentaciones");
       $tienePaquetes = $this->tablaExisteCatalogo($db, "erp_catalogo_sku_paquetes");
       $tieneInventario = $this->tablaExisteCatalogo($db, "erp_inventario_existencias");
+      $tieneAtributosVariante = $this->tablaExisteCatalogo($db, "erp_catalogo_sku_atributos") && $this->tablaExisteCatalogo($db, "erp_catalogo_atributos");
 
       $where = array("p.estatus IN ('activo','borrador','en_revision')", "s.estatus IN ('activo','borrador','en_revision')");
       $params = array();
@@ -93,7 +94,7 @@ class CatalogoErpDatos extends CRUD {
         $params[":q"] = "%" . $q . "%";
       }
       if ($soloConImagen) {
-        $where[] = "img.url_imagen IS NOT NULL";
+        $where[] = "COALESCE(img_sku.url_imagen, img.url_imagen) IS NOT NULL";
       }
       if ($modoPrecio === "con_precio") {
         $where[] = "pr.id_sku_precio IS NOT NULL";
@@ -147,17 +148,31 @@ class CatalogoErpDatos extends CRUD {
             GROUP BY id_sku_erp
           ) inv ON inv.id_sku_erp=s.id_sku"
         : "";
+      $selectVariantes = $tieneAtributosVariante
+        ? "var.variant_count, var.variante_resumen"
+        : "0 AS variant_count, NULL AS variante_resumen";
+      $joinVariantes = $tieneAtributosVariante
+        ? "LEFT JOIN (
+            SELECT sa.id_sku, COUNT(*) variant_count,
+              GROUP_CONCAT(CONCAT(a.nombre, ': ', sa.valor) ORDER BY a.nombre SEPARATOR ' | ') variante_resumen
+            FROM erp_catalogo_sku_atributos sa
+            INNER JOIN erp_catalogo_atributos a ON a.id_atributo_erp=sa.id_atributo_erp
+            WHERE a.es_variante=1 AND a.estatus='activo' AND TRIM(COALESCE(sa.valor,''))<>''
+            GROUP BY sa.id_sku
+          ) var ON var.id_sku=s.id_sku"
+        : "";
 
-      $sql = "SELECT p.id_producto_erp, p.codigo_producto, p.nombre AS producto, p.estatus AS estatus_producto,
+      $sql = "SELECT p.id_producto_erp, p.codigo_producto, p.nombre AS producto, p.estatus AS estatus_producto, p.maneja_variantes,
           s.id_sku, s.sku, COALESCE(NULLIF(s.nombre,''), p.nombre) AS nombre_sku, s.estatus AS estatus_sku,
           s.tipo_inventario, u.codigo AS unidad_codigo, u.abreviatura AS unidad_abreviatura,
           m.nombre AS marca, pc.id_categoria_erp, COALESCE(c.ruta, c.nombre) AS categoria,
-          img.url_imagen AS imagen_portada,
+          COALESCE(img_sku.url_imagen, img.url_imagen) AS imagen_portada,
           pr.precio, pr.moneda, r.unidad_venta_label, r.permite_venta_fraccionaria, r.controla_inventario,
           " . $selectInventario . ",
           " . $selectPublicacion . ",
           " . $selectPresentacion . ",
-          " . $selectPaquete . "
+          " . $selectPaquete . ",
+          " . $selectVariantes . "
         FROM erp_catalogo_skus s
         INNER JOIN erp_catalogo_productos p ON p.id_producto_erp=s.id_producto_erp
         LEFT JOIN erp_catalogo_marcas m ON m.id_marca_erp=p.id_marca_erp
@@ -166,6 +181,16 @@ class CatalogoErpDatos extends CRUD {
         LEFT JOIN erp_catalogo_categorias c ON c.id_categoria_erp=pc.id_categoria_erp
         LEFT JOIN erp_catalogo_sku_reglas_inventario r ON r.id_sku=s.id_sku
         LEFT JOIN erp_catalogo_sku_precios pr ON pr.id_sku=s.id_sku AND pr.lista_precio='general' AND pr.moneda='MXN' AND pr.estatus='activo' AND pr.precio>0
+        LEFT JOIN (
+          SELECT i.id_sku, i.url_imagen
+          FROM erp_catalogo_imagenes i
+          INNER JOIN (
+            SELECT id_sku, MIN(id_imagen_erp) id_imagen_erp
+            FROM erp_catalogo_imagenes
+            WHERE estatus='activo' AND id_sku IS NOT NULL AND TRIM(COALESCE(url_imagen,''))<>''
+            GROUP BY id_sku
+          ) x ON x.id_imagen_erp=i.id_imagen_erp
+        ) img_sku ON img_sku.id_sku=s.id_sku
         LEFT JOIN (
           SELECT i.id_producto_erp, i.url_imagen
           FROM erp_catalogo_imagenes i
@@ -180,9 +205,10 @@ class CatalogoErpDatos extends CRUD {
         " . $joinPresentacion . "
         " . $joinPaquete . "
         " . $joinInventario . "
+        " . $joinVariantes . "
         WHERE " . implode(" AND ", $where) . "
         ORDER BY
-          CASE WHEN img.url_imagen IS NULL THEN 1 ELSE 0 END,
+          CASE WHEN COALESCE(img_sku.url_imagen, img.url_imagen) IS NULL THEN 1 ELSE 0 END,
           CASE WHEN pr.id_sku_precio IS NULL THEN 1 ELSE 0 END,
           p.nombre, s.sku
         LIMIT " . intval($soloAlertas ? min(600, $limite * 3) : $limite);
@@ -236,7 +262,8 @@ class CatalogoErpDatos extends CRUD {
           "publicaciones" => $tienePublicaciones,
           "presentaciones" => $tienePresentaciones,
           "paquetes" => $tienePaquetes,
-          "inventario" => $tieneInventario
+          "inventario" => $tieneInventario,
+          "atributos_variante" => $tieneAtributosVariante
         ),
         "resumen" => $resumen,
         "items" => $items
@@ -7405,6 +7432,9 @@ class CatalogoErpDatos extends CRUD {
       "sku" => $fila["sku"],
       "nombre" => $fila["nombre_sku"],
       "producto" => $fila["producto"],
+      "maneja_variantes" => intval(isset($fila["maneja_variantes"]) ? $fila["maneja_variantes"] : 0) === 1,
+      "variante_resumen" => trim((string)(isset($fila["variante_resumen"]) ? $fila["variante_resumen"] : "")),
+      "variant_count" => intval(isset($fila["variant_count"]) ? $fila["variant_count"] : 0),
       "marca" => $fila["marca"],
       "categoria" => $fila["categoria"],
       "imagen_portada" => $fila["imagen_portada"],
@@ -7448,6 +7478,7 @@ class CatalogoErpDatos extends CRUD {
     $tienePresentaciones = $this->tablaExisteCatalogo($db, "erp_catalogo_sku_presentaciones");
     $tienePaquetes = $this->tablaExisteCatalogo($db, "erp_catalogo_sku_paquetes");
     $tieneInventario = $this->tablaExisteCatalogo($db, "erp_inventario_existencias");
+    $tieneAtributosVariante = $this->tablaExisteCatalogo($db, "erp_catalogo_sku_atributos") && $this->tablaExisteCatalogo($db, "erp_catalogo_atributos");
 
     $selectPublicacion = $tienePublicaciones
       ? "pub.id_publicacion, pub.estatus_publicacion, pub.slug, pub.titulo_publico, pub.presentacion_publica, pub.mostrar_precio, pub.mostrar_disponibilidad"
@@ -7476,18 +7507,32 @@ class CatalogoErpDatos extends CRUD {
           GROUP BY id_sku_erp
         ) inv ON inv.id_sku_erp=s.id_sku"
       : "";
+    $selectVariantes = $tieneAtributosVariante
+      ? "var.variant_count, var.variante_resumen"
+      : "0 AS variant_count, NULL AS variante_resumen";
+    $joinVariantes = $tieneAtributosVariante
+      ? "LEFT JOIN (
+          SELECT sa.id_sku, COUNT(*) variant_count,
+            GROUP_CONCAT(CONCAT(a.nombre, ': ', sa.valor) ORDER BY a.nombre SEPARATOR ' | ') variante_resumen
+          FROM erp_catalogo_sku_atributos sa
+          INNER JOIN erp_catalogo_atributos a ON a.id_atributo_erp=sa.id_atributo_erp
+          WHERE a.es_variante=1 AND a.estatus='activo' AND TRIM(COALESCE(sa.valor,''))<>''
+          GROUP BY sa.id_sku
+        ) var ON var.id_sku=s.id_sku"
+      : "";
 
-    $stmt = $db->prepare("SELECT p.id_producto_erp, p.codigo_producto, p.nombre AS producto, p.estatus AS estatus_producto,
+    $stmt = $db->prepare("SELECT p.id_producto_erp, p.codigo_producto, p.nombre AS producto, p.estatus AS estatus_producto, p.maneja_variantes,
         s.id_sku, s.sku, COALESCE(NULLIF(s.nombre,''), p.nombre) AS nombre_sku, s.estatus AS estatus_sku,
         s.tipo_inventario, u.codigo AS unidad_codigo, u.abreviatura AS unidad_abreviatura,
         m.nombre AS marca, pc.id_categoria_erp, COALESCE(c.ruta, c.nombre) AS categoria,
-        img.url_imagen AS imagen_portada,
+        COALESCE(img_sku.url_imagen, img.url_imagen) AS imagen_portada,
         pr.precio, pr.moneda, r.unidad_venta_label, r.permite_venta_fraccionaria, r.controla_inventario,
         i.titulo_override, i.descripcion_override, i.precio_texto_override, i.nota_item,
         " . $selectInventario . ",
         " . $selectPublicacion . ",
         " . $selectPresentacion . ",
-        " . $selectPaquete . "
+        " . $selectPaquete . ",
+        " . $selectVariantes . "
       FROM erp_catalogo_comercial_items i
       INNER JOIN erp_catalogo_skus s ON s.id_sku=i.id_sku
       INNER JOIN erp_catalogo_productos p ON p.id_producto_erp=s.id_producto_erp
@@ -7497,6 +7542,16 @@ class CatalogoErpDatos extends CRUD {
       LEFT JOIN erp_catalogo_categorias c ON c.id_categoria_erp=pc.id_categoria_erp
       LEFT JOIN erp_catalogo_sku_reglas_inventario r ON r.id_sku=s.id_sku
       LEFT JOIN erp_catalogo_sku_precios pr ON pr.id_sku=s.id_sku AND pr.lista_precio='general' AND pr.moneda='MXN' AND pr.estatus='activo' AND pr.precio>0
+      LEFT JOIN (
+        SELECT ii.id_sku, ii.url_imagen
+        FROM erp_catalogo_imagenes ii
+        INNER JOIN (
+          SELECT id_sku, MIN(id_imagen_erp) id_imagen_erp
+          FROM erp_catalogo_imagenes
+          WHERE estatus='activo' AND id_sku IS NOT NULL AND TRIM(COALESCE(url_imagen,''))<>''
+          GROUP BY id_sku
+        ) x ON x.id_imagen_erp=ii.id_imagen_erp
+      ) img_sku ON img_sku.id_sku=s.id_sku
       LEFT JOIN (
         SELECT ii.id_producto_erp, ii.url_imagen
         FROM erp_catalogo_imagenes ii
@@ -7511,6 +7566,7 @@ class CatalogoErpDatos extends CRUD {
       " . $joinPresentacion . "
       " . $joinPaquete . "
       " . $joinInventario . "
+      " . $joinVariantes . "
       WHERE i.id_catalogo_comercial=:catalogo AND i.estatus=1
         AND p.estatus IN ('activo','borrador','en_revision')
         AND s.estatus IN ('activo','borrador','en_revision')

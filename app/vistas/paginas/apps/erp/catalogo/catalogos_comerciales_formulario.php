@@ -40,9 +40,14 @@ $ccSubtitulo = $ccSoloVista ? "Vista previa y exportacion para redes" : "Informa
         .cc-card__media { aspect-ratio: 4 / 5; background: #f8fafc; display: grid; place-items: center; overflow: hidden; }
         .cc-card__media img { width: 100%; height: 100%; object-fit: contain; padding: 8px; box-sizing: border-box; }
         .cc-card__body { padding: 7px; display: flex; flex-direction: column; gap: 3px; flex: 1; }
-        .cc-card__title { font-weight: 800; font-size: .7rem; line-height: 1.16; color: #181c32; letter-spacing: 0; overflow-wrap: anywhere; }
-        .cc-card__meta { color: #5e6278; font-size: .56rem; line-height: 1.18; }
-        .cc-card__price { font-weight: 800; color: #0f7a5f; font-size: .74rem; margin-top: auto; }
+        .cc-print-area { --cc-font-family: Arial, sans-serif; --cc-title-color: #181c32; --cc-product-color: #181c32; --cc-meta-color: #5e6278; --cc-price-color: #0f7a5f; --cc-title-size: 23px; --cc-product-size: 11px; --cc-meta-size: 9px; --cc-price-size: 13px; font-family: var(--cc-font-family); }
+        .cc-card__title { font-weight: 800; font-size: var(--cc-product-size); line-height: 1.16; color: var(--cc-product-color); letter-spacing: 0; overflow-wrap: anywhere; }
+        .cc-card__meta { color: var(--cc-meta-color); font-size: var(--cc-meta-size); line-height: 1.18; }
+        .cc-card__price { font-weight: 800; color: var(--cc-price-color); font-size: var(--cc-price-size); margin-top: auto; }
+        .cc-card__variants { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
+        .cc-card__variant { border: 1px solid #dfe3ea; border-radius: 6px; color: var(--cc-meta-color); font-size: var(--cc-meta-size); line-height: 1.15; padding: 3px 5px; background: #f8fafc; overflow-wrap: anywhere; }
+        .cc-card__variant-images { display: flex; gap: 4px; margin-top: 4px; flex-wrap: wrap; }
+        .cc-card__variant-image { width: 30px; height: 30px; border-radius: 6px; border: 1px solid #dfe3ea; object-fit: cover; background: #f8fafc; }
         .cc-preview-grid--square, .cc-preview-grid--story { grid-template-columns: repeat(5, minmax(0, 1fr)); }
         .cc-preview-grid--compact { grid-template-columns: 1fr; gap: 8px; }
         .cc-preview-grid--compact .cc-card { min-height: 136px; flex-direction: row; }
@@ -54,14 +59,16 @@ $ccSubtitulo = $ccSoloVista ? "Vista previa y exportacion para redes" : "Informa
         .cc-page-preview-card__meta { display: flex; justify-content: space-between; gap: 8px; align-items: center; margin-bottom: 8px; color: #5e6278; font-size: .72rem; font-weight: 700; }
         .cc-form-grid { display: grid; grid-template-columns: minmax(180px, 1fr) minmax(220px, 1.4fr) minmax(180px, 1fr); gap: 10px; }
         .cc-preview-header { border: 1px solid #dfe3ea; border-radius: 8px; padding: 18px; margin-bottom: 14px; background: #fff; }
-        .cc-preview-header__title { font-size: 1.45rem; line-height: 1.15; font-weight: 850; color: #181c32; letter-spacing: 0; margin: 0; }
-        .cc-preview-header__subtitle { color: #5e6278; font-size: .92rem; margin-top: 6px; }
-        .cc-preview-header__cta { color: #0f7a5f; font-size: .9rem; font-weight: 700; margin-top: 10px; }
+        .cc-preview-header__title { font-size: var(--cc-title-size); line-height: 1.15; font-weight: 850; color: var(--cc-title-color); letter-spacing: 0; margin: 0; }
+        .cc-preview-header__subtitle { color: var(--cc-meta-color); font-size: .92rem; margin-top: 6px; }
+        .cc-preview-header__cta { color: var(--cc-price-color); font-size: .9rem; font-weight: 700; margin-top: 10px; }
         .cc-cover-card { border: 1px solid #dfe3ea; border-radius: 8px; min-height: 150px; padding: 18px; margin-bottom: 12px; background: #f8fafc; display: flex; flex-direction: column; justify-content: center; gap: 7px; }
         .cc-cover-card__label { color: #0f7a5f; font-size: .78rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0; }
-        .cc-cover-card__title { color: #181c32; font-size: 1.45rem; line-height: 1.08; font-weight: 850; letter-spacing: 0; margin: 0; }
-        .cc-cover-card__desc { color: #5e6278; font-size: .88rem; line-height: 1.3; max-width: 760px; }
-        .cc-cover-card__cta { color: #181c32; font-size: .82rem; font-weight: 750; }
+        .cc-cover-card__title { color: var(--cc-title-color); font-size: var(--cc-title-size); line-height: 1.08; font-weight: 850; letter-spacing: 0; margin: 0; }
+        .cc-cover-card__desc { color: var(--cc-meta-color); font-size: .88rem; line-height: 1.3; max-width: 760px; }
+        .cc-cover-card__cta { color: var(--cc-price-color); font-size: .82rem; font-weight: 750; }
+        .cc-style-grid { display: grid; grid-template-columns: minmax(150px, 1fr) repeat(8, minmax(92px, .65fr)); gap: 10px; align-items: end; margin-bottom: 14px; }
+        .cc-color-input { width: 100%; min-height: 38px; padding: 4px; border: 1px solid #e4e6ef; border-radius: 6px; background: #fff; }
         .cc-pager { display: flex; align-items: center; justify-content: flex-end; gap: 8px; flex-wrap: wrap; }
         @media print {
             body { background: #fff !important; }
@@ -89,11 +96,13 @@ $ccSubtitulo = $ccSoloVista ? "Vista previa y exportacion para redes" : "Informa
             .cc-form-grid { grid-template-columns: 1fr; }
             .cc-summary { grid-template-columns: repeat(3, minmax(110px, 1fr)); }
             .cc-preview-grid, .cc-preview-grid--square, .cc-preview-grid--story { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+            .cc-style-grid { grid-template-columns: repeat(3, minmax(120px, 1fr)); }
         }
         @media (max-width: 640px) {
             .cc-toolbar { grid-template-columns: 1fr; }
             .cc-summary { grid-template-columns: repeat(2, minmax(110px, 1fr)); }
             .cc-preview-grid, .cc-preview-grid--square, .cc-preview-grid--story { grid-template-columns: 1fr; }
+            .cc-style-grid { grid-template-columns: repeat(2, minmax(110px, 1fr)); }
         }
     </style>
 </head>
@@ -349,10 +358,78 @@ $ccSubtitulo = $ccSoloVista ? "Vista previa y exportacion para redes" : "Informa
                                             <input class="form-check-input" type="checkbox" id="cc_mostrar_disponibilidad">
                                             <span class="form-check-label">Disponibilidad</span>
                                         </label>
+                                        <label class="form-check form-check-sm form-check-custom form-check-solid mb-0">
+                                            <input class="form-check-input" type="checkbox" id="cc_agrupar_variantes">
+                                            <span class="form-check-label">Agrupar variantes</span>
+                                        </label>
                                         <button class="btn btn-light-primary" type="button" id="cc_previsualizar_paginas"><i class="bi bi-layout-three-columns"></i> Preview paginas</button>
                                         <button class="btn btn-light-success" type="button" id="cc_exportar_png"><i class="bi bi-file-earmark-image"></i> Exportar paginas PNG</button>
                                         <button class="btn btn-light-primary" type="button" id="cc_modo_captura"><i class="bi bi-aspect-ratio"></i> Modo captura</button>
                                         <button class="btn btn-light-dark" type="button" onclick="window.print()"><i class="bi bi-printer"></i> Imprimir</button>
+                                    </div>
+                                </div>
+                                <div class="cc-style-grid">
+                                    <div>
+                                        <label class="form-label fw-semibold fs-8">Tipografia</label>
+                                        <select class="form-select form-select-sm form-select-solid" id="cc_fuente_visual">
+                                            <option value="arial">Arial</option>
+                                            <option value="verdana">Verdana</option>
+                                            <option value="georgia">Georgia</option>
+                                            <option value="trebuchet">Trebuchet</option>
+                                            <option value="impacto">Impacto</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label class="form-label fw-semibold fs-8">Color titulo</label>
+                                        <input class="cc-color-input" type="color" id="cc_color_titulo" value="#181c32">
+                                    </div>
+                                    <div>
+                                        <label class="form-label fw-semibold fs-8">Color producto</label>
+                                        <input class="cc-color-input" type="color" id="cc_color_producto" value="#181c32">
+                                    </div>
+                                    <div>
+                                        <label class="form-label fw-semibold fs-8">Color datos</label>
+                                        <input class="cc-color-input" type="color" id="cc_color_meta" value="#5e6278">
+                                    </div>
+                                    <div>
+                                        <label class="form-label fw-semibold fs-8">Color precio</label>
+                                        <input class="cc-color-input" type="color" id="cc_color_precio" value="#0f7a5f">
+                                    </div>
+                                    <div>
+                                        <label class="form-label fw-semibold fs-8">Titulo</label>
+                                        <select class="form-select form-select-sm form-select-solid" id="cc_tam_titulo">
+                                            <option value="21">21 px</option>
+                                            <option value="23" selected>23 px</option>
+                                            <option value="26">26 px</option>
+                                            <option value="30">30 px</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label class="form-label fw-semibold fs-8">Producto</label>
+                                        <select class="form-select form-select-sm form-select-solid" id="cc_tam_producto">
+                                            <option value="10">10 px</option>
+                                            <option value="11" selected>11 px</option>
+                                            <option value="13">13 px</option>
+                                            <option value="15">15 px</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label class="form-label fw-semibold fs-8">Datos</label>
+                                        <select class="form-select form-select-sm form-select-solid" id="cc_tam_meta">
+                                            <option value="8">8 px</option>
+                                            <option value="9" selected>9 px</option>
+                                            <option value="10">10 px</option>
+                                            <option value="12">12 px</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label class="form-label fw-semibold fs-8">Precio</label>
+                                        <select class="form-select form-select-sm form-select-solid" id="cc_tam_precio">
+                                            <option value="12">12 px</option>
+                                            <option value="13" selected>13 px</option>
+                                            <option value="15">15 px</option>
+                                            <option value="18">18 px</option>
+                                        </select>
                                     </div>
                                 </div>
                                 <div id="cc_preview_header"></div>
@@ -374,6 +451,6 @@ $ccSubtitulo = $ccSoloVista ? "Vista previa y exportacion para redes" : "Informa
 </div>
 <script src="assets/plugins/global/plugins.bundle.js"></script>
 <script src="assets/js/scripts.bundle.js"></script>
-<script src="/assets/js/custom/apps/erp/catalogo/catalogos_comerciales.js?v=20260826-preview-paginas-1"></script>
+<script src="/assets/js/custom/apps/erp/catalogo/catalogos_comerciales.js?v=20260827-estilo-visual-1"></script>
 </body>
 </html>

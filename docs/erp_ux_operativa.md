@@ -134,3 +134,16 @@ En Compras > Solicitudes y Ordenes:
 - Definir paso decimal por unidad cuando no sea entera.
 - Alinear validacion frontend/backend.
 - Evitar que flechas nativas generen incrementos inesperados.
+
+## Captura movil en tablas
+
+Documentacion IA: Codex GPT-5  
+Fecha: 2026-08-27  
+Contexto: Sugerido de compra por proveedor
+
+Regla:
+
+- Los inputs numericos dentro de tablas operativas deben tener ancho minimo estable; no deben colapsar al ancho de un solo digito.
+- En movil, los campos de cantidad deben permitir ver y reemplazar el valor completo sin pelear con el cursor.
+- Para campos con valor default `0`, es recomendable seleccionar el contenido completo al enfocar cuando el usuario va a capturar manualmente.
+- El ancho recomendado inicial para cantidades en tablas es de `7.5rem` a `8.75rem`, ajustando por importancia del campo.
