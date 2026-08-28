@@ -1063,6 +1063,29 @@ Ejemplo probado:
 - `GET /ecommercePublico/catalogo?q=PEZMN-01&limite=1`
 - Producto `Pez monja`, `id_producto_erp=1533`, `total_variantes_publicadas=7`.
 
+## Estructura sidebar Ecommerce y CMS tienda 2026-08-28
+
+Decision:
+
+- El sidebar deja de mostrar `CMS` como seccion principal separada para la tienda.
+- Las pantallas CMS relacionadas con el frontend publico viven visualmente dentro de `Ecommerce`.
+- Las rutas internas se conservan como `/cms/...` porque el controlador `Cms` sigue siendo el motor de contenido, plantillas, slots, media y configuracion visual.
+- La seccion `Ecommerce` queda ordenada por intencion operativa:
+  - `Operacion ecommerce`: control, publicaciones, cotizaciones, analytics y catalogo ecommerce legacy.
+  - `Contenido tienda`: home, categorias, producto, carrito, global, navegacion, marcas, paginas, politicas y media.
+  - `CMS avanzado`: editor de bloques, plantillas, persistencia, slots y preview JSON.
+
+Regla arquitectonica:
+
+- Ecommerce administra lo que el cliente consulta o envia desde la tienda.
+- CMS tienda administra lo que el frontend muestra dentro de la tienda.
+- Un futuro CMS general para redes sociales, blog, campañas o contenido institucional debe crearse como dominio/canal aparte, no mezclarse con solicitudes, cotizaciones, pedidos ni facturacion ecommerce.
+
+Siguiente paso recomendado:
+
+- Crear `Centro de Atencion Ecommerce` para capturar solicitudes del frontend: contacto, carrito por WhatsApp, solicitud de factura, pregunta de producto y seguimiento.
+- Despues conectar esos registros con CRM cuando exista identidad de cliente canonica.
+
 ## Calidad editorial de publicaciones 2026-08-19
 
 Problema detectado:

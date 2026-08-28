@@ -38,7 +38,6 @@ $seccionesMenu = array(
     'Proyectos' => array('icono' => 'bi-kanban'),
     'TMS' => array('icono' => 'bi-truck'),
     'CRM' => array('icono' => 'bi-people'),
-    'CMS' => array('icono' => 'bi-layout-text-window-reverse'),
     'Ecommerce' => array('icono' => 'bi-shop'),
     'Administracion' => array('icono' => 'bi-shield-lock')
 );
@@ -61,6 +60,7 @@ $gruposMenu = array(
         'items' => array(
             array('titulo' => 'Productos ERP', 'ruta' => '/catalogoerp', 'permiso' => 'catalogo.ver'),
             array('titulo' => 'Organizacion catalogo', 'ruta' => '/catalogoerp/organizacion', 'permiso' => 'catalogo.ver'),
+            array('titulo' => 'Paquetes', 'ruta' => '/catalogoerp/paquetes', 'permiso' => 'catalogo.ver'),
             array('titulo' => 'Revision migracion', 'ruta' => '/catalogoerp/migracion_ecommerce', 'permiso' => 'catalogo.ver'),
             array('titulo' => 'Configuracion catalogo', 'ruta' => '/catalogoerp/configuracion', 'permiso' => 'catalogo.editar')
         )
@@ -214,9 +214,10 @@ $gruposMenu = array(
         )
     ),
     array(
-        'seccion' => 'CMS',
-        'titulo' => 'Avanzado contenido',
+        'seccion' => 'Ecommerce',
+        'titulo' => 'CMS avanzado',
         'icono' => 'bi-layout-text-window-reverse',
+        'orden' => 30,
         'permiso' => array('cms.ver', 'catalogo.ver'),
         'items' => array(
             array('titulo' => 'Editor de bloques', 'ruta' => '/cms/contenido', 'permiso' => array('cms.ver', 'catalogo.ver')),
@@ -228,9 +229,10 @@ $gruposMenu = array(
         )
     ),
     array(
-        'seccion' => 'CMS',
-        'titulo' => 'Frontend',
+        'seccion' => 'Ecommerce',
+        'titulo' => 'Contenido tienda',
         'icono' => 'bi-window-sidebar',
+        'orden' => 20,
         'permiso' => array('cms.ver', 'catalogo.ver'),
         'items' => array(
             array('titulo' => 'Home', 'ruta' => '/cms/frontend/home', 'permiso' => array('cms.ver', 'catalogo.ver')),
@@ -250,12 +252,14 @@ $gruposMenu = array(
     ),
     array(
         'seccion' => 'Ecommerce',
-        'titulo' => 'Ecommerce',
+        'titulo' => 'Operacion ecommerce',
         'icono' => 'bi-shop',
+        'orden' => 10,
         'permiso' => '',
         'items' => array(
             array('titulo' => 'Control Artiani', 'ruta' => '/ecommercePublico/control', 'permiso' => 'catalogo.ver'),
             array('titulo' => 'Ecommerce publico', 'ruta' => '/ecommercePublico/publicaciones', 'permiso' => 'catalogo.ver'),
+            array('titulo' => 'Cotizaciones', 'ruta' => '/ecommercePublico/cotizaciones', 'permiso' => 'catalogo.ver'),
             array('titulo' => 'Analytics', 'ruta' => '/ecommercePublico/analytics', 'permiso' => 'catalogo.ver'),
             array('titulo' => 'Catalogo ecommerce', 'ruta' => '/producto/catalogo', 'permiso' => 'ecommerce.ver')
         )
@@ -354,6 +358,17 @@ $gruposMenu = array(
 
                     $grupo['items_visibles'] = $itemsVisibles;
                     $modulosVisibles[$seccionGrupo]['grupos'][] = $grupo;
+                }
+
+                foreach ($modulosVisibles as $seccionGrupo => $modulo) {
+                    usort($modulosVisibles[$seccionGrupo]['grupos'], function ($a, $b) {
+                        $ordenA = isset($a['orden']) ? intval($a['orden']) : 100;
+                        $ordenB = isset($b['orden']) ? intval($b['orden']) : 100;
+                        if ($ordenA === $ordenB) {
+                            return strcasecmp($a['titulo'], $b['titulo']);
+                        }
+                        return $ordenA < $ordenB ? -1 : 1;
+                    });
                 }
                 ?>
 

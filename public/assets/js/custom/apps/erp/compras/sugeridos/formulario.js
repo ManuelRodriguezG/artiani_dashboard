@@ -8,6 +8,11 @@
     var puedeEditar = false;
     var modoLectura = false;
     var timer = null;
+    var scanStream = null;
+    var scanActivo = false;
+    var scanTorchActivo = false;
+    var scanCamaras = [];
+    var scanCamaraSeleccionada = "";
 
     function esc(valor) {
         var d = document.createElement("div");
@@ -226,11 +231,13 @@
     function actualizarResumen() {
         var totalPiezas = items.reduce(function (t, x) { return t + Number(x.cantidad_solicitar || 0); }, 0);
         var total = items.reduce(function (t, x) { return t + Number(x.cantidad_solicitar || 0) * Number(x.costo_estimado || 0); }, 0);
+        var totalExistenciaRevisada = items.reduce(function (t, x) { return t + Number(x.existencia_revisada || 0); }, 0);
         var totalInventarioEstimado = items.reduce(function (t, x) {
             return t + Number(x.existencia_revisada || 0) * Number(x.costo_estimado || 0);
         }, 0);
         document.getElementById("sugerido_total_piezas").textContent = totalPiezas.toFixed(6);
         document.getElementById("sugerido_total").textContent = money(total);
+        document.getElementById("sugerido_total_existencia_revisada").textContent = totalExistenciaRevisada.toFixed(6);
         document.getElementById("sugerido_total_inventario_estimado").textContent = money(totalInventarioEstimado);
         document.getElementById("sugerido_resumen").textContent = items.length + " productos consultados; " +
             items.filter(function (x) { return Number(x.cantidad_solicitar || 0) > 0; }).length + " con cantidad a solicitar.";
@@ -267,6 +274,219 @@
         actualizarResumen();
     }
 
+
+    /**
+     * IA: Codex GPT-5 | Fecha: 2026-08-27
+     * Proposito: buscar y agregar por codigo escaneado dentro del proveedor seleccionado.
+     * Impacto: UX Compras/Sugerido; reutiliza endpoint de proveedor y no muestra productos fuera de la relacion activa.
+     */
+    function buscarCodigoEscaneadoSugerido(valor) {
+        valor = String(valor || "").trim();
+        var proveedor = document.getElementById("sugerido_proveedor").value;
+        if (!valor || !proveedor) { return; }
+        document.getElementById("sugerido_buscar").value = valor;
+        document.getElementById("sugerido_resumen").textContent = "Codigo leido: " + valor + ". Buscando en proveedor...";
+        fetch("/compra/sugeridos_productos_proveedor_erp?" + new URLSearchParams({id_proveedor: proveedor, q: valor, limite: 8}), {credentials: "same-origin"})
+            .then(function (r) { return r.json(); })
+            .then(function (r) {
+                if (r.error) { throw new Error(r.mensaje); }
+                candidatos = (r.depurar.items || []).map(normalizarItemProveedor);
+                renderResultados();
+                if (candidatos.length === 1) {
+                    agregarCandidato(0);
+                    document.getElementById("sugerido_resumen").textContent = "Codigo leido. Producto agregado al sugerido.";
+                } else if (candidatos.length > 1) {
+                    document.getElementById("sugerido_resumen").textContent = "Codigo leido con varias coincidencias. Elige el producto correcto.";
+                } else {
+                    document.getElementById("sugerido_resumen").textContent = "Codigo leido sin coincidencias en este proveedor.";
+                }
+            }).catch(function (e) {
+                Swal.fire({text: e.message || "No se pudo buscar el codigo", icon: "error", confirmButtonText: "Aceptar"});
+            });
+    }
+
+    function prepararCamarasSugerido() {
+        if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) { return Promise.resolve([]); }
+        return navigator.mediaDevices.enumerateDevices().then(function (devices) {
+            var videoDevices = devices.filter(function (device) { return device.kind === "videoinput"; });
+            if (videoDevices.some(function (device) { return device.label; })) { return videoDevices; }
+            return navigator.mediaDevices.getUserMedia({video: true, audio: false}).then(function (tmpStream) {
+                tmpStream.getTracks().forEach(function (track) { track.stop(); });
+                return navigator.mediaDevices.enumerateDevices().then(function (devicesAfterPermission) {
+                    return devicesAfterPermission.filter(function (device) { return device.kind === "videoinput"; });
+                });
+            }).catch(function () { return videoDevices; });
+        }).then(function (videoDevices) {
+            scanCamaras = videoDevices || [];
+            renderSelectorCamarasSugerido();
+            return scanCamaras;
+        });
+    }
+
+    function renderSelectorCamarasSugerido() {
+        var select = document.getElementById("sugerido_scan_camera_device");
+        var label = document.getElementById("sugerido_scan_camera_device_label");
+        if (!select || !label || scanCamaras.length <= 1) {
+            if (select) { select.classList.add("d-none"); }
+            if (label) { label.classList.add("d-none"); }
+            return;
+        }
+        select.innerHTML = scanCamaras.map(function (device, index) {
+            return "<option value=\"" + esc(device.deviceId) + "\">" + esc(device.label || ("Camara " + (index + 1))) + "</option>";
+        }).join("");
+        if (scanCamaraSeleccionada) { select.value = scanCamaraSeleccionada; }
+        select.classList.remove("d-none");
+        label.classList.remove("d-none");
+    }
+
+    function elegirCamaraPreferidaSugerido() {
+        if (scanCamaraSeleccionada) { return scanCamaraSeleccionada; }
+        if (!scanCamaras.length) { return ""; }
+        var candidatas = scanCamaras.map(function (device) { return {device: device, label: String(device.label || "").toLowerCase()}; });
+        var trasera = candidatas.filter(function (item) { return !/(front|frontal|user|facetime|selfie|ultra|wide|gran angular|0\.5|macro)/i.test(item.label); });
+        var principal = trasera.find(function (item) { return /(back|rear|environment|trasera|posterior|principal|main)/i.test(item.label); });
+        if (principal) { return principal.device.deviceId; }
+        if (trasera.length) { return trasera[trasera.length - 1].device.deviceId; }
+        return scanCamaras[scanCamaras.length - 1].deviceId;
+    }
+
+    function restriccionesCamaraSugerido(deviceId) {
+        var video = {width: {ideal: 1280}, height: {ideal: 720}, frameRate: {ideal: 30, max: 30}};
+        if (deviceId) { video.deviceId = {exact: deviceId}; } else { video.facingMode = {ideal: "environment"}; }
+        return {audio: false, video: video};
+    }
+
+    function scanTrackSugerido() {
+        return scanStream ? scanStream.getVideoTracks()[0] : null;
+    }
+
+    function aplicarMejorasCamaraSugerido() {
+        var track = scanTrackSugerido();
+        if (!track || !track.getCapabilities) { return Promise.resolve(false); }
+        var caps = track.getCapabilities();
+        var advanced = [];
+        if (caps.focusMode && caps.focusMode.indexOf("continuous") !== -1) { advanced.push({focusMode: "continuous"}); }
+        if (!advanced.length) { return Promise.resolve(false); }
+        return track.applyConstraints({advanced: advanced}).then(function () { return true; }).catch(function () { return false; });
+    }
+
+    function actualizarControlesCamaraSugerido() {
+        var track = scanTrackSugerido();
+        var caps = track && track.getCapabilities ? track.getCapabilities() : {};
+        document.getElementById("sugerido_scan_focus").classList.toggle("d-none", !track);
+        document.getElementById("sugerido_scan_stop").classList.toggle("d-none", !track);
+        document.getElementById("sugerido_scan_torch").classList.toggle("d-none", !(caps && caps.torch));
+    }
+
+    function iniciarCamaraSugerido() {
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+            document.getElementById("sugerido_scan_estado").textContent = "Este navegador no expone camara para la pagina actual.";
+            return;
+        }
+        if (!("BarcodeDetector" in window)) {
+            document.getElementById("sugerido_scan_estado").textContent = "Tu navegador no tiene lector nativo de codigos; usa busqueda manual o escaner USB.";
+            return;
+        }
+        detenerCamaraSugerido(false);
+        document.getElementById("sugerido_scan_estado").textContent = "Buscando camaras disponibles...";
+        prepararCamarasSugerido().then(function () {
+            var deviceId = elegirCamaraPreferidaSugerido();
+            scanCamaraSeleccionada = deviceId;
+            renderSelectorCamarasSugerido();
+            return navigator.mediaDevices.getUserMedia(restriccionesCamaraSugerido(deviceId)).catch(function () {
+                return navigator.mediaDevices.getUserMedia(restriccionesCamaraSugerido(""));
+            });
+        }).then(function (mediaStream) {
+            scanStream = mediaStream;
+            scanActivo = true;
+            scanTorchActivo = false;
+            var video = document.getElementById("sugerido_scan_video");
+            video.srcObject = scanStream;
+            document.getElementById("sugerido_scan_wrap").classList.remove("d-none");
+            actualizarControlesCamaraSugerido();
+            video.play().catch(function () {});
+            aplicarMejorasCamaraSugerido().then(function (mejorado) {
+                document.getElementById("sugerido_scan_estado").textContent = mejorado ? "Camara lista con enfoque continuo." : "Camara lista. Manten el codigo a distancia nitida.";
+            });
+            detectarLoopCamaraSugerido(new BarcodeDetector({formats: ["ean_13", "ean_8", "code_128", "code_39", "upc_a", "upc_e", "qr_code"]}));
+        }).catch(function (error) {
+            document.getElementById("sugerido_scan_estado").textContent = "No se pudo abrir la camara: " + error.message;
+        });
+    }
+
+    function detectarLoopCamaraSugerido(detector) {
+        var video = document.getElementById("sugerido_scan_video");
+        if (!scanActivo || !video || video.readyState < 2) {
+            if (scanActivo) { setTimeout(function () { detectarLoopCamaraSugerido(detector); }, 250); }
+            return;
+        }
+        detector.detect(video).then(function (codigos) {
+            if (codigos && codigos.length) {
+                var valor = codigos[0].rawValue || "";
+                if (valor) {
+                    document.getElementById("sugerido_scan_estado").textContent = "Codigo leido: " + valor;
+                    detenerCamaraSugerido(false);
+                    bootstrap.Modal.getOrCreateInstance(document.getElementById("sugerido_scan_modal")).hide();
+                    buscarCodigoEscaneadoSugerido(valor);
+                    return;
+                }
+            }
+            if (scanActivo) { setTimeout(function () { detectarLoopCamaraSugerido(detector); }, 350); }
+        }).catch(function () {
+            if (scanActivo) { setTimeout(function () { detectarLoopCamaraSugerido(detector); }, 600); }
+        });
+    }
+
+    function alternarLuzCamaraSugerido() {
+        var track = scanTrackSugerido();
+        if (!track) { return; }
+        scanTorchActivo = !scanTorchActivo;
+        track.applyConstraints({advanced: [{torch: scanTorchActivo}]}).then(function () {
+            document.getElementById("sugerido_scan_torch").classList.toggle("btn-warning", scanTorchActivo);
+            document.getElementById("sugerido_scan_torch").classList.toggle("btn-light-warning", !scanTorchActivo);
+            document.getElementById("sugerido_scan_estado").textContent = scanTorchActivo ? "Luz encendida." : "Luz apagada.";
+        }).catch(function () {
+            scanTorchActivo = false;
+            document.getElementById("sugerido_scan_estado").textContent = "Este dispositivo no permite controlar la luz desde el navegador.";
+        });
+    }
+
+    function reiniciarCamaraConSeleccionSugerido() {
+        var select = document.getElementById("sugerido_scan_camera_device");
+        if (!select) { return; }
+        scanCamaraSeleccionada = select.value;
+        iniciarCamaraSugerido();
+    }
+
+    function mejorarEnfoqueCamaraSugerido() {
+        aplicarMejorasCamaraSugerido().then(function (ok) {
+            document.getElementById("sugerido_scan_estado").textContent = ok ? "Enfoque continuo solicitado." : "Este navegador no permite ajustar enfoque.";
+        });
+    }
+
+    function detenerCamaraSugerido(actualizarTexto) {
+        scanActivo = false;
+        scanTorchActivo = false;
+        if (scanStream) { scanStream.getTracks().forEach(function (track) { track.stop(); }); }
+        scanStream = null;
+        document.getElementById("sugerido_scan_wrap").classList.add("d-none");
+        document.getElementById("sugerido_scan_focus").classList.add("d-none");
+        document.getElementById("sugerido_scan_torch").classList.add("d-none");
+        document.getElementById("sugerido_scan_stop").classList.add("d-none");
+        document.getElementById("sugerido_scan_torch").classList.remove("btn-warning");
+        document.getElementById("sugerido_scan_torch").classList.add("btn-light-warning");
+        if (actualizarTexto !== false) { document.getElementById("sugerido_scan_estado").textContent = "Camara detenida."; }
+    }
+
+    function abrirEscanerSugerido() {
+        if (modoLectura) { return; }
+        if (!document.getElementById("sugerido_proveedor").value) {
+            Swal.fire({text: "Selecciona un proveedor antes de escanear.", icon: "warning", confirmButtonText: "Aceptar"});
+            return;
+        }
+        document.getElementById("sugerido_scan_estado").textContent = "Abriendo camara...";
+        bootstrap.Modal.getOrCreateInstance(document.getElementById("sugerido_scan_modal")).show();
+    }
     function guardar(estatus) {
         if (schemaPendiente) {
             Swal.fire({text: "Primero hay que preparar el esquema de Sugerido de compra con respaldo externo y autorizacion.", icon: "warning", confirmButtonText: "Aceptar"});
@@ -320,6 +540,14 @@
         document.getElementById("sugerido_proveedor").disabled = modoLectura;
         document.getElementById("sugerido_observaciones").readOnly = modoLectura;
         document.getElementById("sugerido_buscar").readOnly = modoLectura;
+        document.getElementById("sugerido_scan_camera_btn").classList.toggle("d-none", modoLectura);
+        document.getElementById("sugerido_scan_camera_btn").addEventListener("click", abrirEscanerSugerido);
+        document.getElementById("sugerido_scan_start").addEventListener("click", iniciarCamaraSugerido);
+        document.getElementById("sugerido_scan_camera_device").addEventListener("change", reiniciarCamaraConSeleccionSugerido);
+        document.getElementById("sugerido_scan_focus").addEventListener("click", mejorarEnfoqueCamaraSugerido);
+        document.getElementById("sugerido_scan_torch").addEventListener("click", alternarLuzCamaraSugerido);
+        document.getElementById("sugerido_scan_stop").addEventListener("click", detenerCamaraSugerido);
+        document.getElementById("sugerido_scan_modal").addEventListener("hidden.bs.modal", detenerCamaraSugerido);
         cargarCatalogos().then(cargarSugerido).catch(function (e) {
             document.getElementById("sugerido_resumen").textContent = e.message || "No se pudieron cargar proveedores.";
             Swal.fire({text: e.message || "No se pudieron cargar proveedores.", icon: "error", confirmButtonText: "Aceptar"});

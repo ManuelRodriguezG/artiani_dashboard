@@ -117,6 +117,9 @@
             tarjeta("Catalogo", "bi-box-seam", "/catalogoerp/configuracion", modulos.catalogo, [
                 ["Sin SKU", "productos_sin_sku"], ["Sin marca", "productos_sin_marca"], ["Sin precio", "skus_sin_precio"], ["Incidencias", "incidencias_abiertas"]
             ]),
+            tarjeta("Catalogos comerciales", "bi-images", "/catalogoerp/catalogos_comerciales", modulos.catalogos_comerciales, [
+                ["Activos", "activos"], ["Borradores", "borradores"], ["Items", "items_activos"], ["Actual. 7d", "actualizados_7d"]
+            ]),
             tarjeta("Proveedores", "bi-truck", "/proveedor/mostrar_proveedores_erp", modulos.proveedores, [
                 ["Activos", "proveedores_activos"], ["Listas", "listas"], ["Costos", "costos_vigentes"], ["Incidencias", "incidencias_pendientes"]
             ]),

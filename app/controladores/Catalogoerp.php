@@ -21,6 +21,18 @@ class Catalogoerp extends Controlador {
     $this->vista("apps/erp/catalogo/migracion_ecommerce");
   }
 
+  /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-08-27
+   * Proposito: abrir la administracion dedicada de paquetes de Catalogo ERP.
+   * Impacto: Catalogo ERP; separa recetas de paquetes del modal de productos para reducir confusion operativa.
+   * Contrato: vista protegida por `catalogo.ver`; las escrituras siguen en endpoints existentes con `catalogo.editar`.
+   */
+  public function paquetes() {
+    $this->requerirPermiso("catalogo.ver");
+    $this->vista("apps/erp/catalogo/paquetes");
+  }
+
   public function organizacion() {
     $this->requerirPermiso("catalogo.ver");
     $this->vista("apps/erp/catalogo/organizacion");
@@ -723,6 +735,18 @@ class Catalogoerp extends Controlador {
    * Proposito: busca SKUs candidatos para recetas de paquete sin restringirlos al producto abierto.
    * Impacto: Catalogo ERP; prepara paquetes simples/configurables con componentes de multiples productos.
    */
+  /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-08-27
+   * Proposito: listar paquetes configurables desde una pantalla dedicada de Catalogo.
+   * Impacto: Catalogo ERP; expone recetas globales sin depender del producto abierto.
+   * Contrato: GET protegido por `catalogo.ver`; acepta `q`, `estatus` y `limite`.
+   */
+  public function paquetes_listar() {
+    $this->requerirPermiso("catalogo.ver");
+    return json_encode($this->modelo("CatalogoErpDatos")->listarPaquetesCatalogo($_GET));
+  }
+
   public function paquetes_buscar_skus() {
     $this->requerirPermiso("catalogo.ver");
     $termino = isset($_GET["q"]) ? $_GET["q"] : "";

@@ -906,6 +906,8 @@ class EcommerceCatalogoPublico extends CRUD {
         "conservar_nombre_original_en_bd" => true,
         "no_sobrescribir_archivos" => true
       ),
+      "usos_sugeridos" => array("home", "categoria", "producto", "global", "blog"),
+      "tipos_sugeridos" => array("logo", "logo_blanco", "favicon", "open_graph", "banner", "hero", "card", "thumb", "editorial"),
       "endpoints_admin_futuros" => array(
         "listar" => "/cms/media_admin_listar_erp",
         "subir" => "/cms/media_admin_subir_erp",
@@ -943,7 +945,7 @@ class EcommerceCatalogoPublico extends CRUD {
    */
   public function mediaAdminListarInterno($opciones = array()) {
     $db = $this->getConexion();
-    if (!$this->tablaExiste($db, "erp_ecommerce_media_archivos")) {
+    if (!$db || !$this->tablaExiste($db, "erp_ecommerce_media_archivos")) {
       return $this->respuesta(false, "info", "Media CMS en modo local; persistencia pendiente", array(
         "modo" => "local_preflight",
         "persistencia_real" => false,
@@ -7384,6 +7386,8 @@ class EcommerceCatalogoPublico extends CRUD {
         ));
       }
 
+      $payload = $this->frontendGlobalNormalizarPayload($payload);
+
       $payload["pagina"] = "global";
       $payload["actualizado_en"] = date("c");
       $payload["fuente"] = "bd_publicada";
@@ -7424,6 +7428,27 @@ class EcommerceCatalogoPublico extends CRUD {
     } catch (Exception $e) {
       return $this->respuesta(true, "danger", "No se pudo publicar configuracion global.", array("error_tecnico" => $e->getMessage()));
     }
+  }
+
+  private function frontendGlobalNormalizarPayload($payload) {
+    if (!is_array($payload)) {
+      return array();
+    }
+    if (isset($payload["mapa"]) && is_array($payload["mapa"]) && isset($payload["mapa"]["embed_url"])) {
+      $payload["mapa"]["embed_url"] = $this->frontendGlobalExtraerEmbedUrl((string) $payload["mapa"]["embed_url"]);
+    }
+    return $payload;
+  }
+
+  private function frontendGlobalExtraerEmbedUrl($valor) {
+    $valor = trim((string) $valor);
+    if ($valor === "") {
+      return "";
+    }
+    if (preg_match('/\ssrc=["\']([^"\']+)["\']/i', $valor, $matches)) {
+      $valor = trim((string) $matches[1]);
+    }
+    return str_replace("&amp;", "&", $valor);
   }
 
   /**

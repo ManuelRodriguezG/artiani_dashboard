@@ -124,6 +124,6 @@
 <script>
     window.ERP_CSRF_TOKEN = "<?= htmlspecialchars(SesionSeguridad::csrfToken(), ENT_QUOTES, 'UTF-8') ?>";
 </script>
-<script src="/assets/js/custom/apps/erp/cms/frontend_actual.js?v=20260825-home-estado1"></script>
+<script src="/assets/js/custom/apps/erp/cms/frontend_actual.js?v=20260827-global-media1"></script>
 </body>
 </html>

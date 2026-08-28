@@ -34,6 +34,10 @@ $modo = isset($datos["modo"]) ? $datos["modo"] : "editar";
             min-width: 7.5rem;
             text-align: right;
         }
+        .sugerido-scan-preview { position: relative; border-radius: 8px; overflow: hidden; background: #111827; min-height: 320px; }
+        .sugerido-scan-preview video { width: 100%; min-height: 320px; object-fit: cover; display: block; }
+        .sugerido-scan-guide { position: absolute; left: 10%; right: 10%; top: 38%; height: 86px; border: 2px solid rgba(255,255,255,.9); border-radius: 8px; box-shadow: 0 0 0 999px rgba(0,0,0,.22); pointer-events: none; }
+        .sugerido-scan-line { position: absolute; left: 12%; right: 12%; top: calc(38% + 43px); height: 2px; background: #50cd89; box-shadow: 0 0 12px rgba(80,205,137,.75); pointer-events: none; }
         @media (max-width: 767.98px) {
             .sugerido-cantidad-input,
             .sugerido-cantidad-final-input {
@@ -90,8 +94,9 @@ $modo = isset($datos["modo"]) ? $datos["modo"] : "editar";
                                 <div class="d-flex gap-2">
                                     <div class="position-relative flex-grow-1">
                                         <i class="bi bi-search position-absolute ms-5 mt-3 fs-3"></i>
-                                        <input class="form-control form-control-solid ps-12" id="sugerido_buscar" placeholder="SKU o producto">
+                                        <input class="form-control form-control-solid ps-12" id="sugerido_buscar" placeholder="SKU, producto o codigo">
                                     </div>
+                                    <button type="button" class="btn btn-light-primary" id="sugerido_scan_camera_btn" title="Escanear codigo"><i class="bi bi-camera"></i></button>
                                     <button type="button" class="btn btn-primary" id="sugerido_buscar_productos">Buscar</button>
                                 </div>
                             </div>
@@ -145,6 +150,11 @@ $modo = isset($datos["modo"]) ? $datos["modo"] : "editar";
                                         <td></td>
                                     </tr>
                                     <tr>
+                                        <td colspan="7" class="text-end text-muted fw-bold">Cantidad revisada total</td>
+                                        <td class="text-end text-muted fw-bold" id="sugerido_total_existencia_revisada">0</td>
+                                        <td class="text-muted fs-8" colspan="2">Suma de existencia revisada</td>
+                                    </tr>
+                                    <tr>
                                         <td colspan="8" class="text-end text-muted fw-bold">Inventario fisico estimado</td>
                                         <td class="text-end text-muted fw-bold" id="sugerido_total_inventario_estimado">$0.00</td>
                                         <td class="text-muted fs-8">Existencia revisada x costo</td>
@@ -158,9 +168,38 @@ $modo = isset($datos["modo"]) ? $datos["modo"] : "editar";
         </div>
     </div>
 </div>
+<div class="modal fade" id="sugerido_scan_modal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div>
+                    <h3 class="modal-title mb-1">Escanear producto</h3>
+                    <div class="text-muted fs-7">Lee el codigo para buscarlo dentro del proveedor seleccionado</div>
+                </div>
+                <button type="button" class="btn btn-icon btn-sm btn-active-light-primary" data-bs-dismiss="modal"><i class="bi bi-x-lg"></i></button>
+            </div>
+            <div class="modal-body">
+                <div class="d-flex flex-wrap gap-2 align-items-center mb-3">
+                    <label class="form-label text-muted fs-8 text-uppercase mb-0 d-none" id="sugerido_scan_camera_device_label">Camara</label>
+                    <select class="form-select form-select-solid w-auto d-none" id="sugerido_scan_camera_device"></select>
+                    <button class="btn btn-light-primary" id="sugerido_scan_start" type="button"><i class="bi bi-camera-video"></i> Iniciar</button>
+                    <button class="btn btn-light-warning d-none" id="sugerido_scan_torch" type="button"><i class="bi bi-lightbulb"></i> Luz</button>
+                    <button class="btn btn-light-info d-none" id="sugerido_scan_focus" type="button"><i class="bi bi-bullseye"></i> Enfoque</button>
+                    <button class="btn btn-light-danger d-none" id="sugerido_scan_stop" type="button"><i class="bi bi-stop-circle"></i> Detener</button>
+                </div>
+                <div class="sugerido-scan-preview d-none" id="sugerido_scan_wrap">
+                    <video id="sugerido_scan_video" playsinline muted autoplay></video>
+                    <div class="sugerido-scan-guide"></div>
+                    <div class="sugerido-scan-line"></div>
+                </div>
+                <div class="text-muted fs-7 mt-3" id="sugerido_scan_estado">Selecciona proveedor, abre la camara y apunta al codigo. Se agregara si hay coincidencia unica.</div>
+            </div>
+        </div>
+    </div>
+</div>
 <script src="assets/plugins/global/plugins.bundle.js"></script>
 <script src="assets/js/scripts.bundle.js"></script>
-<script src="/assets/js/custom/apps/erp/compras/sugeridos/formulario.js?v=20260827-2"></script>
+<script src="/assets/js/custom/apps/erp/compras/sugeridos/formulario.js?v=20260827-4"></script>
 </body>
 </html>
 

@@ -55,7 +55,7 @@
                                 <i class="bi bi-images fs-2"></i>
                                 <div>
                                     <div class="fw-bold">Biblioteca Media CMS</div>
-                                    <div>Sube imagenes publicas para Home, categorias y secciones editoriales. Cada imagen se guarda con alt text, uso sugerido, tipo, hash y URL publica controlada.</div>
+                                    <div>Sube imagenes publicas para Home, categorias, Global y secciones editoriales. Cada imagen se guarda con alt text, uso sugerido, tipo, hash y URL publica controlada.</div>
                                 </div>
                             </div>
 
@@ -87,12 +87,15 @@
                                             <div class="col-md-6">
                                                 <label class="form-label">Tipo</label>
                                                 <select class="form-select form-select-solid" id="cms_media_tipo">
+                                                    <option value="logo">Logo principal</option>
+                                                    <option value="logo_blanco">Logo blanco</option>
+                                                    <option value="favicon">Favicon</option>
+                                                    <option value="open_graph">Imagen social SEO</option>
                                                     <option value="banner">Banner</option>
                                                     <option value="hero">Hero</option>
                                                     <option value="card">Card</option>
                                                     <option value="thumb">Thumbnail</option>
                                                     <option value="editorial">Editorial</option>
-                                                    <option value="favicon">Favicon</option>
                                                 </select>
                                             </div>
                                             <div class="col-12">
@@ -109,6 +112,7 @@
                                         <h3 class="fw-bold mb-4">Politica inicial</h3>
                                         <div class="d-flex flex-column gap-3 fs-7">
                                             <div><span class="badge badge-light-success me-2">OK</span>Validar extension, peso y alt text antes de usar.</div>
+                                            <div><span class="badge badge-light-primary me-2">Global</span>Logo: uso Global + tipo Logo principal. Favicon: uso Global + tipo Favicon.</div>
                                             <div><span class="badge badge-light-info me-2">Preflight</span><code>/cms/media_admin_preflight_erp</code></div>
                                             <div><span class="badge badge-light-success me-2">Activo</span>Subida real a carpeta publica controlada.</div>
                                             <div><span class="badge badge-light-warning me-2">Pendiente</span>Editar metadatos, archivar y registrar usos reales.</div>
@@ -177,6 +181,6 @@
 <script>
     window.ERP_CSRF_TOKEN = "<?= htmlspecialchars(SesionSeguridad::csrfToken(), ENT_QUOTES, 'UTF-8') ?>";
 </script>
-<script src="/assets/js/custom/apps/erp/cms/media.js?v=20260825-media-limpiar1"></script>
+<script src="/assets/js/custom/apps/erp/cms/media.js?v=20260827-global-tipos1"></script>
 </body>
 </html>

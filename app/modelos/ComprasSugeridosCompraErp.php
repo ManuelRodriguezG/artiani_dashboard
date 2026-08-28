@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 
 class ComprasSugeridosCompraErp extends CRUD {
 
@@ -147,6 +147,8 @@ class ComprasSugeridosCompraErp extends CRUD {
      * Impacto: Compras/Sugerido; lectura ERP nueva, sin fallback legacy ni inventario.
      * Actualizacion IA: Codex GPT-5 | Fecha: 2026-08-21
      * Regla: Sugerido parte de codigos exactos de la lista del proveedor; no expande variantes internas ERP.
+     * Actualizacion IA: Codex GPT-5 | Fecha: 2026-08-27
+     * Regla: permite buscar/escanear codigos alternos del SKU ERP solo cuando ya existe relacion activa con el proveedor seleccionado.
      */
     public function productosProveedor($filtros = array()) {
         try {
@@ -192,6 +194,11 @@ class ComprasSugeridosCompraErp extends CRUD {
                         OR LOWER(TRIM(ldq.codigo_barras))=LOWER(TRIM(sp.sku_proveedor))
                       )
                       AND (ldq.descripcion_proveedor LIKE :q OR ldq.sku_proveedor LIKE :q OR ldq.codigo_barras LIKE :q OR ldq.codigo_interno LIKE :q OR ldq.marca_proveedor LIKE :q)
+                ) OR EXISTS (
+                    SELECT 1 FROM erp_catalogo_sku_codigos codq
+                    WHERE codq.id_sku=sp.id_sku
+                      AND codq.estatus='activo'
+                      AND codq.codigo LIKE :q
                 ))";
                 $params[":q"] = "%" . $q . "%";
             }

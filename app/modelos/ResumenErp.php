@@ -6,7 +6,7 @@ class ResumenErp extends CRUD {
    * IA: Codex GPT-5
    * Fecha: 2026-07-29
    * Proposito: concentrar indicadores operativos de la primera pantalla ERP sin depender de vistas legacy.
-   * Impacto: Resumen ERP; lee notificaciones, ventas, compras, almacen, inventario, catalogo, proveedores, CRM y TMS.
+   * Impacto: Resumen ERP; lee notificaciones, ventas, compras, almacen, inventario, catalogo, catalogos comerciales, proveedores, CRM y TMS.
    * Contrato: read-only; tolera tablas faltantes y respeta permisos visibles del usuario.
    */
   public function consultar($idUsuario, $permisos = array()) {
@@ -22,6 +22,7 @@ class ResumenErp extends CRUD {
           "almacen" => $this->puede($permisos, "almacen.ver") ? $this->resumenAlmacen($db) : $this->moduloOculto("almacen.ver"),
           "inventario" => $this->puede($permisos, "inventario.ver") ? $this->resumenInventario($db) : $this->moduloOculto("inventario.ver"),
           "catalogo" => $this->puede($permisos, "catalogo.ver") ? $this->resumenCatalogo($db) : $this->moduloOculto("catalogo.ver"),
+          "catalogos_comerciales" => $this->puede($permisos, "catalogo.ver") ? $this->resumenCatalogosComerciales($db) : $this->moduloOculto("catalogo.ver"),
           "proveedores" => $this->puede($permisos, "proveedores.ver") ? $this->resumenProveedores($db) : $this->moduloOculto("proveedores.ver"),
           "crm" => $this->puede($permisos, "crm.ver") ? $this->resumenCrm($db) : $this->moduloOculto("crm.ver"),
           "tms" => $this->puede($permisos, "tms.ver") ? $this->resumenTms($db) : $this->moduloOculto("tms.ver")
@@ -216,6 +217,39 @@ class ResumenErp extends CRUD {
 
   /**
    * IA: Codex GPT-5
+   * Fecha: 2026-08-27
+   * Proposito: destacar el trabajo activo de Catalogos comerciales en la primera pantalla.
+   * Impacto: Catalogo ERP/Comercial; consulta materiales guardados e items activos sin modificar productos, precios ni publicaciones.
+   * Contrato: read-only; usa `catalogo.ver` porque la ruta operativa actual del sidebar aun depende de ese permiso.
+   */
+  private function resumenCatalogosComerciales($db) {
+    if (!$this->tablaExiste($db, "erp_catalogo_comercial_catalogos")) {
+      return $this->moduloPendiente("Esquema de Catalogos comerciales pendiente");
+    }
+    $catalogos = $this->fila($db, "SELECT COUNT(*) total,
+        SUM(CASE WHEN estatus='borrador' THEN 1 ELSE 0 END) borradores,
+        SUM(CASE WHEN estatus='revision' THEN 1 ELSE 0 END) revision,
+        SUM(CASE WHEN estatus='publicado' THEN 1 ELSE 0 END) publicados,
+        SUM(CASE WHEN estatus<>'archivado' THEN 1 ELSE 0 END) activos,
+        SUM(CASE WHEN estatus<>'archivado' AND fecha_actualizacion>=DATE_SUB(NOW(), INTERVAL 7 DAY) THEN 1 ELSE 0 END) actualizados_7d
+      FROM erp_catalogo_comercial_catalogos");
+    $itemsActivos = $this->tablaExiste($db, "erp_catalogo_comercial_items")
+      ? intval($this->escalar($db, "SELECT COUNT(*) FROM erp_catalogo_comercial_items i INNER JOIN erp_catalogo_comercial_catalogos c ON c.id_catalogo_comercial=i.id_catalogo_comercial WHERE i.estatus=1 AND c.estatus<>'archivado'"))
+      : 0;
+    return array(
+      "visible" => true,
+      "total" => intval($this->valor($catalogos, "total", 0)),
+      "activos" => intval($this->valor($catalogos, "activos", 0)),
+      "borradores" => intval($this->valor($catalogos, "borradores", 0)),
+      "revision" => intval($this->valor($catalogos, "revision", 0)),
+      "publicados" => intval($this->valor($catalogos, "publicados", 0)),
+      "actualizados_7d" => intval($this->valor($catalogos, "actualizados_7d", 0)),
+      "items_activos" => $itemsActivos
+    );
+  }
+
+  /**
+   * IA: Codex GPT-5
    * Fecha: 2026-07-29
    * Proposito: resumir preparacion de proveedores, listas, costos e incidencias.
    * Impacto: Proveedores ERP; lectura agregada para priorizar matching y costos.
@@ -302,6 +336,8 @@ class ResumenErp extends CRUD {
       array("titulo" => "Recepciones", "url" => "/almacen/mostrar_recepciones", "icono" => "bi-box-arrow-in-down", "permiso" => "almacen.ver"),
       array("titulo" => "Existencias", "url" => "/inventario/productos_existencias", "icono" => "bi-clipboard-data", "permiso" => "inventario.ver"),
       array("titulo" => "Catalogo", "url" => "/catalogoerp", "icono" => "bi-box-seam", "permiso" => "catalogo.ver"),
+      array("titulo" => "Catalogos comerciales", "url" => "/catalogoerp/catalogos_comerciales", "icono" => "bi-images", "permiso" => "catalogo.ver"),
+      array("titulo" => "Nuevo catalogo comercial", "url" => "/catalogoerp/catalogos_comerciales_nuevo", "icono" => "bi-plus-square", "permiso" => "catalogo.editar"),
       array("titulo" => "Clientes", "url" => "/crm/clientes", "icono" => "bi-person-vcard", "permiso" => "crm.ver"),
       array("titulo" => "Entregas", "url" => "/tms/servicios", "icono" => "bi-truck", "permiso" => "tms.ver"),
       array("titulo" => "Notificaciones", "url" => "/sistema/notificaciones", "icono" => "bi-bell", "permiso" => "notificaciones.ver")

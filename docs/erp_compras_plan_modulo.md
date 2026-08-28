@@ -919,3 +919,15 @@ Modulo: Compras / Sugerido de compra
 - No debe crear kardex, movimientos ni modificar existencias reales.
 - Puede mostrar un valor aproximado de inventario fisico usando `existencia revisada x costo estimado` para ayudar a dimensionar mercancia disponible.
 - Ese importe debe tratarse como estimacion de trabajo, no como valuacion contable definitiva.
+
+## Decision UX: Escaneo en Sugerido de compra
+
+Documentacion IA: Codex GPT-5  
+Fecha: 2026-08-27  
+Modulo: Compras / Sugerido de compra
+
+- El escaneo por camara es una ayuda de captura para buscar codigos dentro del proveedor seleccionado.
+- No debe listar productos fuera del proveedor ni saltarse la relacion activa proveedor-SKU ERP.
+- Si el codigo escaneado coincide con un solo producto del proveedor, puede agregarse automaticamente al sugerido.
+- Si hay varias coincidencias, el usuario debe elegir para evitar partidas equivocadas.
+- El backend puede buscar tambien en codigos alternos del SKU ERP, pero solo despues de filtrar por proveedor y relacion activa.

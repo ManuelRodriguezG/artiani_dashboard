@@ -154,7 +154,7 @@ class CatalogoErpDatos extends CRUD {
       $joinVariantes = $tieneAtributosVariante
         ? "LEFT JOIN (
             SELECT sa.id_sku, COUNT(*) variant_count,
-              GROUP_CONCAT(CONCAT(a.nombre, ': ', sa.valor) ORDER BY a.nombre SEPARATOR ' | ') variante_resumen
+              GROUP_CONCAT(TRIM(sa.valor) ORDER BY a.nombre SEPARATOR ' | ') variante_resumen
             FROM erp_catalogo_sku_atributos sa
             INNER JOIN erp_catalogo_atributos a ON a.id_atributo_erp=sa.id_atributo_erp
             WHERE a.es_variante=1 AND a.estatus='activo' AND TRIM(COALESCE(sa.valor,''))<>''
@@ -5494,6 +5494,158 @@ class CatalogoErpDatos extends CRUD {
 
   /**
    * IA: Codex GPT-5
+   * Fecha: 2026-08-28
+   * Proposito: lista paquetes configurables de forma global para la pantalla dedicada de Catalogo ERP.
+   * Impacto: Catalogo ERP; permite administrar paquetes sin depender del modal de un producto normal.
+   * Contrato: read-only; acepta q, estatus y limite, excluye SKUs/productos no operativos y devuelve componentes/grupos/opciones activos.
+   */
+  public function listarPaquetesCatalogo($filtros = array()) {
+    $db = $this->getConexion();
+    if (!$this->esquemaPaquetesDisponible($db)) {
+      return $this->respuesta(true, "warning", "El esquema de paquetes configurables aun no esta aplicado", array(
+        "esquema_disponible" => false,
+        "paquetes" => array(),
+        "totales" => array("paquetes" => 0, "componentes" => 0, "grupos" => 0, "opciones" => 0)
+      ));
+    }
+
+    $q = trim((string) (isset($filtros["q"]) ? $filtros["q"] : ""));
+    $estatus = isset($filtros["estatus"]) ? (string) $filtros["estatus"] : "activos";
+    $limite = max(1, min(300, intval(isset($filtros["limite"]) ? $filtros["limite"] : 100)));
+    $where = array(
+      "s.estatus NOT IN ('inactivo','descontinuado','fusionado')",
+      "prod.estatus NOT IN ('inactivo','descontinuado','fusionado')"
+    );
+    $params = array();
+
+    if ($estatus === "activos") {
+      $where[] = "p.estatus IN ('activo','borrador')";
+    } elseif ($estatus !== "todos") {
+      $estatusPermitidos = array("activo", "borrador", "inactivo");
+      if (!in_array($estatus, $estatusPermitidos, true)) {
+        $where[] = "p.estatus IN ('activo','borrador')";
+      } else {
+        $where[] = "p.estatus=:estatus";
+        $params[":estatus"] = $estatus;
+      }
+    }
+
+    if ($q !== "") {
+      $where[] = "(s.sku LIKE :q OR s.nombre LIKE :q OR prod.nombre LIKE :q OR prod.codigo_producto LIKE :q)";
+      $params[":q"] = "%" . $q . "%";
+    }
+
+    try {
+      $stmt = $db->prepare("SELECT p.id_paquete, p.id_sku_paquete, p.tipo_paquete, p.modo_disponibilidad,
+          p.permite_configuracion_cliente, p.permite_desarmar, p.requiere_armado_almacen,
+          p.observaciones, p.estatus, s.sku, s.nombre AS nombre_sku,
+          prod.id_producto_erp, prod.codigo_producto, prod.nombre AS producto
+        FROM erp_catalogo_sku_paquetes p
+        INNER JOIN erp_catalogo_skus s ON s.id_sku=p.id_sku_paquete
+        INNER JOIN erp_catalogo_productos prod ON prod.id_producto_erp=s.id_producto_erp
+        WHERE " . implode(" AND ", $where) . "
+        ORDER BY p.fecha_actualizacion DESC, p.id_paquete DESC
+        LIMIT " . intval($limite));
+      $stmt->execute($params);
+      $filas = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+      $paquetes = array();
+      $ids = array();
+      foreach ($filas as $fila) {
+        $id = intval($fila["id_paquete"]);
+        $fila["componentes"] = array();
+        $fila["grupos"] = array();
+        $paquetes[$id] = $fila;
+        $ids[] = $id;
+      }
+
+      $componentes = array();
+      $grupos = array();
+      $opciones = array();
+      if (!empty($ids)) {
+        $listaIds = implode(",", array_map("intval", $ids));
+        $componentes = $db->query("SELECT c.id_componente, c.id_paquete, c.id_sku_componente, c.cantidad,
+            c.id_unidad, c.factor_conversion, c.orden, c.estatus, s.sku, s.nombre AS nombre_sku,
+            u.abreviatura AS unidad
+          FROM erp_catalogo_sku_paquete_componentes c
+          INNER JOIN erp_catalogo_skus s ON s.id_sku=c.id_sku_componente
+          INNER JOIN erp_catalogo_productos prod ON prod.id_producto_erp=s.id_producto_erp
+          LEFT JOIN erp_catalogo_unidades u ON u.id_unidad=c.id_unidad
+          WHERE c.id_paquete IN (" . $listaIds . ") AND c.estatus='activo'
+            AND s.estatus NOT IN ('inactivo','descontinuado','fusionado')
+            AND prod.estatus NOT IN ('inactivo','descontinuado','fusionado')
+          ORDER BY c.id_paquete, c.orden, c.id_componente")->fetchAll(PDO::FETCH_ASSOC);
+        foreach ($componentes as $componente) {
+          $idPaquete = intval($componente["id_paquete"]);
+          if (isset($paquetes[$idPaquete])) {
+            $paquetes[$idPaquete]["componentes"][] = $componente;
+          }
+        }
+
+        $grupos = $db->query("SELECT id_grupo, id_paquete, codigo, nombre, descripcion,
+            min_selecciones, max_selecciones, modo_cantidad, cantidad_total_grupo,
+            obligatorio, orden, estatus
+          FROM erp_catalogo_sku_paquete_grupos
+          WHERE id_paquete IN (" . $listaIds . ") AND estatus='activo'
+          ORDER BY id_paquete, orden, id_grupo")->fetchAll(PDO::FETCH_ASSOC);
+        $gruposPorId = array();
+        foreach ($grupos as $grupo) {
+          $idGrupo = intval($grupo["id_grupo"]);
+          $idPaquete = intval($grupo["id_paquete"]);
+          $grupo["opciones"] = array();
+          $gruposPorId[$idGrupo] = array("id_paquete" => $idPaquete, "grupo" => $grupo);
+        }
+
+        if (!empty($gruposPorId)) {
+          $listaGrupos = implode(",", array_map("intval", array_keys($gruposPorId)));
+          $opciones = $db->query("SELECT o.id_opcion, o.id_grupo, o.id_sku_opcion, o.cantidad_default,
+              o.cantidad_minima, o.cantidad_maxima, o.id_unidad, o.factor_conversion,
+              o.permite_cantidad_editable, o.orden, o.estatus, s.sku, s.nombre AS nombre_sku,
+              u.abreviatura AS unidad
+            FROM erp_catalogo_sku_paquete_grupo_opciones o
+            INNER JOIN erp_catalogo_skus s ON s.id_sku=o.id_sku_opcion
+            INNER JOIN erp_catalogo_productos prod ON prod.id_producto_erp=s.id_producto_erp
+            LEFT JOIN erp_catalogo_unidades u ON u.id_unidad=o.id_unidad
+            WHERE o.id_grupo IN (" . $listaGrupos . ") AND o.estatus='activo'
+              AND s.estatus NOT IN ('inactivo','descontinuado','fusionado')
+              AND prod.estatus NOT IN ('inactivo','descontinuado','fusionado')
+            ORDER BY o.id_grupo, o.orden, o.id_opcion")->fetchAll(PDO::FETCH_ASSOC);
+          foreach ($opciones as $opcion) {
+            $idGrupo = intval($opcion["id_grupo"]);
+            if (isset($gruposPorId[$idGrupo])) {
+              $gruposPorId[$idGrupo]["grupo"]["opciones"][] = $opcion;
+            }
+          }
+        }
+
+        foreach ($gruposPorId as $grupoInfo) {
+          $idPaquete = intval($grupoInfo["id_paquete"]);
+          if (isset($paquetes[$idPaquete])) {
+            $paquetes[$idPaquete]["grupos"][] = $grupoInfo["grupo"];
+          }
+        }
+      }
+
+      return $this->respuesta(false, "success", "Paquetes consultados", array(
+        "esquema_disponible" => true,
+        "paquetes" => array_values($paquetes),
+        "totales" => array(
+          "paquetes" => count($paquetes),
+          "componentes" => count($componentes),
+          "grupos" => count($grupos),
+          "opciones" => count($opciones)
+        )
+      ));
+    } catch (Exception $e) {
+      return $this->respuesta(true, "danger", $e->getMessage(), array(
+        "esquema_disponible" => false,
+        "paquetes" => array(),
+        "totales" => array("paquetes" => 0, "componentes" => 0, "grupos" => 0, "opciones" => 0)
+      ));
+    }
+  }
+  /**
+   * IA: Codex GPT-5
    * Fecha: 2026-06-26
    * Proposito: consulta paquetes configurables del producto sin romper el modal si el esquema aun no fue autorizado.
    * Impacto: Catalogo ERP; prepara la lectura de recetas de paquetes y mantiene el flujo en modo seguro sin migracion aplicada.
@@ -7400,15 +7552,6 @@ class CatalogoErpDatos extends CRUD {
     }
 
     $presentacion = trim((string) (isset($fila["presentacion_publica"]) ? $fila["presentacion_publica"] : ""));
-    if ($presentacion === "") {
-      $presentacion = trim((string) (isset($fila["unidad_venta_label"]) ? $fila["unidad_venta_label"] : ""));
-    }
-    if ($presentacion === "") {
-      $presentacion = trim((string) (isset($fila["unidad_abreviatura"]) ? $fila["unidad_abreviatura"] : ""));
-    }
-    if ($presentacion === "") {
-      $presentacion = trim((string) (isset($fila["unidad_codigo"]) ? $fila["unidad_codigo"] : ""));
-    }
 
     $alertas = array();
     if (trim((string) $fila["imagen_portada"]) === "") { $alertas[] = "sin_imagen"; }
@@ -7520,7 +7663,7 @@ class CatalogoErpDatos extends CRUD {
     $joinVariantes = $tieneAtributosVariante
       ? "LEFT JOIN (
           SELECT sa.id_sku, COUNT(*) variant_count,
-            GROUP_CONCAT(CONCAT(a.nombre, ': ', sa.valor) ORDER BY a.nombre SEPARATOR ' | ') variante_resumen
+            GROUP_CONCAT(TRIM(sa.valor) ORDER BY a.nombre SEPARATOR ' | ') variante_resumen
           FROM erp_catalogo_sku_atributos sa
           INNER JOIN erp_catalogo_atributos a ON a.id_atributo_erp=sa.id_atributo_erp
           WHERE a.es_variante=1 AND a.estatus='activo' AND TRIM(COALESCE(sa.valor,''))<>''

@@ -81,6 +81,10 @@ Estado actual:
 - Permite editar SEO global: `site_name`, `title_default`, `description_default`, `og_image_default` y `robots_default`.
 - Permite preparar menu principal y columnas de footer como JSON controlado.
 - Genera `Preview JSON esperado`.
+- Guarda borrador local automaticamente mientras capturas para evitar perdida al recargar.
+- Incluye boton `Guardar borrador local` para confirmar la copia del navegador.
+- Incluye boton `Cargar publicado` para recuperar lo que ya entrega `/ecommercePublico/configuracion_inicial`.
+- Incluye boton `Ver API publicada` para revisar si el frontend ya recibe nombre, logo, favicon, mapa y SEO.
 - Ya cuenta con boton `Guardar y publicar global`, que guarda el bloque tecnico `frontend_global_publicado`.
 - `/ecommercePublico/configuracion_inicial` entrega la llave `cms_global` cuando hay configuracion global publicada.
 
@@ -90,6 +94,11 @@ Reglas para usarlo:
 - No guardar rutas internas del ERP como imagen publica.
 - `/ecommercePublico/configuracion_inicial` sigue siendo el endpoint principal de arranque del frontend.
 - Para logos, favicon e imagen OG, usar imagenes marcadas como `Servidor BD`; las temporales locales no salen en API.
+- Google Maps acepta dos capturas: puedes pegar el iframe completo de Google Maps o pegar solo el URL del atributo `src`. El CMS extrae y guarda `mapa.embed_url` limpio.
+- Para logo principal usa `Uso: Global` y `Tipo: Logo principal`.
+- Para logo blanco usa `Uso: Global` y `Tipo: Logo blanco`.
+- Para favicon usa `Uso: Global` y `Tipo: Favicon`; se permite archivo `.ico`.
+- Para la imagen social/SEO usa `Uso: Global` y `Tipo: Imagen social SEO`.
 
 ## CMS > Frontend > Navegacion
 
@@ -770,7 +779,7 @@ En la fase actual:
 - permite eliminar archivos reales de Media CMS solo si no estan usados por contenido publicado
 - sincroniza con BD y quita automaticamente referencias antiguas `Servidor BD` que ya no existan en servidor
 - incluye boton `Limpiar temporales` para borrar de la galeria lo que solo vive en el navegador
-- clasifica por tipo: banner, hero, card, thumbnail o editorial
+- clasifica por tipo: logo principal, logo blanco, favicon, imagen social SEO, banner, hero, card, thumbnail o editorial
 - lista imagenes guardadas desde `/cms/media_admin_listar_erp`
 - permite copiar una referencia estructurada para usarla en secciones del CMS
 
@@ -793,6 +802,10 @@ Importante: la subida real ya esta activa; editar metadatos, archivar en BD y re
    - `Blog futuro`
 
 4. Elige `Tipo`:
+   - `Logo principal`
+   - `Logo blanco`
+   - `Favicon`
+   - `Imagen social SEO`
    - `Banner`
    - `Hero`
    - `Card`

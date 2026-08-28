@@ -602,8 +602,22 @@ if (strpos((string) $manualCms, "Guardar y publicar global") === false) { $bloqu
 if (strpos((string) $controladorCms, "frontend_global_publicar_erp") === false) { $bloqueos[] = "controlador_sin_publicar_global"; }
 if (strpos((string) $modeloPublico, "frontendGlobalPublicarInterno") === false) { $bloqueos[] = "modelo_sin_publicar_global"; }
 if (strpos((string) $modeloPublico, "frontendGlobalPublicadoDesdeBd") === false) { $bloqueos[] = "modelo_sin_lectura_global_publicado"; }
+if (strpos((string) $modeloPublico, "frontendGlobalExtraerEmbedUrl") === false) { $bloqueos[] = "modelo_sin_normalizar_embed_global"; }
 if (!array_key_exists("cms_global", valorCmsAdmin($configuracionInicial, array("depurar"), array()))) { $bloqueos[] = "configuracion_inicial_sin_cms_global"; }
 if (strpos((string) $jsFrontendActual, "cms_actual_global_publicar") === false) { $bloqueos[] = "js_frontend_actual_sin_boton_global_publicar"; }
+if (strpos((string) $jsFrontendActual, "cms_actual_global_borrador") === false) { $bloqueos[] = "js_frontend_actual_sin_boton_global_borrador"; }
+if (strpos((string) $jsFrontendActual, "cms_actual_global_cargar_publicado") === false) { $bloqueos[] = "js_frontend_actual_sin_cargar_global_publicado"; }
+if (strpos((string) $jsFrontendActual, "cms_actual_global_api") === false) { $bloqueos[] = "js_frontend_actual_sin_ver_api_global"; }
+if (strpos((string) $jsFrontendActual, "function consultarApiGlobalFrontend") === false) { $bloqueos[] = "js_frontend_actual_sin_consultar_api_global"; }
+if (strpos((string) $jsFrontendActual, "function extraerGoogleMapsEmbed") === false) { $bloqueos[] = "js_frontend_actual_sin_extraer_google_maps_embed"; }
+if (strpos((string) $jsFrontendActual, "/ecommercePublico/configuracion_inicial") === false) { $bloqueos[] = "js_frontend_actual_sin_configuracion_inicial_global"; }
+if (strpos((string) $manualCms, "Google Maps acepta dos capturas") === false) { $bloqueos[] = "manual_sin_instruccion_google_maps"; }
+if (strpos((string) $manualCms, "Ver API publicada") === false) { $bloqueos[] = "manual_sin_ver_api_global"; }
+if (strpos((string) $manualCms, "Uso: Global") === false) { $bloqueos[] = "manual_sin_uso_global_media"; }
+if (strpos((string) $vistaMedia, "Logo principal") === false) { $bloqueos[] = "vista_media_sin_tipo_logo_principal"; }
+if (strpos((string) $vistaMedia, "Logo blanco") === false) { $bloqueos[] = "vista_media_sin_tipo_logo_blanco"; }
+if (strpos((string) $vistaMedia, "Imagen social SEO") === false) { $bloqueos[] = "vista_media_sin_tipo_open_graph"; }
+if (strpos((string) $jsFrontendActual, "Imagen social SEO") === false) { $bloqueos[] = "js_frontend_actual_modal_sin_tipo_open_graph"; }
 if (strpos((string) $manualCms, "Home promo") === false) { $bloqueos[] = "manual_sin_home_promo"; }
 if (strpos((string) $controladorCms, "frontend_home_promo_publicar_erp") === false) { $bloqueos[] = "controlador_sin_publicar_home_promo"; }
 if (strpos((string) $modeloPublico, "frontendHomePromoPublicarInterno") === false) { $bloqueos[] = "modelo_sin_publicar_home_promo"; }

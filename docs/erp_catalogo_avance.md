@@ -4521,3 +4521,13 @@ Pendiente recomendado:
 
 - Si la ficha tecnica crece, planear DDL futuro para marcar atributos como `filtrable`, `comparable`, `visible_ecommerce`, `grupo` y reglas por categoria.
 - Evaluar UI futura para eliminar valores tecnicos individuales o administrar atributos recomendados por categoria.
+
+## Avance 2026-08-28 - Paquetes como seccion dedicada
+
+- Contexto actual: Paquetes deja de vivir dentro del modal normal de producto. Se agrego una pantalla dedicada en Catalogo ERP para administrar SKUs tipo paquete/kit con receta, componentes fijos y grupos configurables.
+- Cambios recientes: se agrego ruta `/catalogoerp/paquetes`, entrada de sidebar `Catalogo > Paquetes`, vista `app/vistas/paginas/apps/erp/catalogo/paquetes.php`, JS dedicado `public/assets/js/custom/apps/erp/catalogo/paquetes.js` y contrato read-only `CatalogoErpDatos::listarPaquetesCatalogo()` consumido por `/catalogoerp/paquetes_listar`.
+- Decision: un paquete es un SKU vendible propio, normalmente producto tipo `kit`. Catálogo solo define estructura/receta; no calcula costo ni precio final. Al guardar receta/grupo/opcion se conserva el disparo existente de incidencia de costo derivado para Rentabilidad.
+- Limpieza: se retiro la pestaña `Paquetes` y las referencias activas de paquetes del modal de productos para evitar que el operador mezcle alta/edicion de producto normal con armado de paquete.
+- Contratos: componentes fijos usan `erp_catalogo_sku_paquete_componentes`; grupos configurables usan `erp_catalogo_sku_paquete_grupos`; opciones usan `erp_catalogo_sku_paquete_grupo_opciones`. El buscador global de SKUs excluye productos/SKUs inactivos, descontinuados o fusionados.
+- Impacta a: Rentabilidad debe atender incidencias de costo derivado para paquetes; Listas de precios debe asignar precio comercial al SKU paquete; Inventario/Ventas aun no deben ejecutar armado ni venta configurable hasta su propio cierre.
+- Siguiente paso recomendado: probar `/catalogoerp/paquetes` creando un SKU paquete minimo, guardar receta con componentes, agregar un grupo configurable y una opcion; confirmar que el modal de producto ya no muestra la pestaña Paquetes.

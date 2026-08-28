@@ -455,7 +455,6 @@
                         <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#catalogo_detalle_presentaciones">Presentaciones</a></li>
                         <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#catalogo_detalle_aperturas_empaque">Apertura de empaques</a></li>
                         <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#catalogo_detalle_reclasificaciones">Reclasificacion</a></li>
-                        <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#catalogo_detalle_paquetes">Paquetes</a></li>
                         <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#catalogo_detalle_imagenes">Imagenes</a></li>
                         <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#catalogo_detalle_proveedores">Proveedores</a></li>
                     </ul>
@@ -864,131 +863,6 @@
                             </form>
                             <?php endif; ?>
                             <div class="alert alert-danger d-none mt-6" id="catalogo_reclasificaciones_error"></div>
-                        </div>
-                        <div class="tab-pane fade" id="catalogo_detalle_paquetes">
-                            <div class="alert alert-light-info mb-6">
-                                <div class="fw-semibold mb-2">Paquete = SKU vendible con receta.</div>
-                                <div class="text-muted fs-8">Primero define el SKU que se vendera como paquete. Despues agrega componentes fijos. Si el cliente puede elegir alternativas, agrega grupos configurables y sus opciones.</div>
-                            </div>
-                            <div class="alert alert-light-primary mb-6" id="catalogo_paquetes_guia_sku">
-                                <div class="fw-semibold mb-2">Un paquete vendible necesita su propio SKU.</div>
-                                <div class="text-muted fs-8 mb-3">Si el mismo producto fisico participa en varios paquetes, crea un SKU por paquete comercial y usa el producto fisico como componente. Ejemplo: un SKU para terrario equipado y otro SKU para acuario equipado.</div>
-                                <?php if (SesionSeguridad::tienePermiso('catalogo.editar')): ?>
-                                <button class="btn btn-sm btn-light-primary" type="button" id="catalogo_paquete_crear_sku"><i class="bi bi-plus-lg"></i> Crear SKU de paquete</button>
-                                <?php endif; ?>
-                            </div>
-                            <div id="catalogo_paquetes_estado" class="mb-6"></div>
-                            <div id="catalogo_paquetes_lista"></div>
-                            <?php if (SesionSeguridad::tienePermiso('catalogo.editar')): ?>
-                            <div class="separator my-7 d-none" data-paquete-form></div>
-                            <div class="border rounded p-5 mb-6 bg-light d-none" data-paquete-form>
-                                <div class="d-flex flex-column flex-lg-row justify-content-between gap-3 mb-4">
-                                    <div>
-                                        <div class="fw-semibold">Paso 1 - Crear SKU vendible del paquete</div>
-                                        <div class="text-muted fs-8">Usalo si todavia no existe el SKU comercial del paquete. El componente seleccionado abajo se agregara como primer componente fijo.</div>
-                                    </div>
-                                </div>
-                                <form id="catalogo_form_paquete_sku_inline" data-erp-ajax="true">
-                                    <input type="hidden" name="id_producto_erp">
-                                    <div class="row g-4 align-items-end">
-                                        <div class="col-md-3"><label class="form-label required">Nuevo SKU paquete</label><input class="form-control" name="sku" maxlength="150" required placeholder="PER-05-ACUARIO-KIT"></div>
-                                        <div class="col-md-4"><label class="form-label required">Nombre del paquete</label><input class="form-control" name="nombre_sku" maxlength="255" required placeholder="Pecera equipada para acuario"></div>
-                                        <div class="col-md-2"><label class="form-label required">Unidad paquete</label><select class="form-select" name="id_unidad_base" id="catalogo_paquete_sku_unidad_inline" required></select></div>
-                                        <div class="col-md-3"><label class="form-label required">Primer componente fijo</label><select class="form-select" name="id_sku_componente_base" id="catalogo_paquete_sku_componente_base" required></select></div>
-                                        <div class="col-md-2"><label class="form-label">Cantidad componente</label><input class="form-control" type="number" name="cantidad_componente_base" min="0.000001" step="0.000001" value="1"></div>
-                                        <div class="col-md-10 text-end"><button class="btn btn-light-primary" type="submit"><i class="bi bi-plus-lg"></i> Crear SKU paquete y usar como receta</button></div>
-                                    </div>
-                                </form>
-                            </div>
-                            <form id="catalogo_form_paquete" class="d-none" data-erp-ajax="true">
-                                <input type="hidden" name="id_paquete">
-                                <h3 class="fs-5 mb-2" id="catalogo_paquete_form_titulo">Paso 2 - Crear receta del paquete</h3>
-                                <div class="text-muted fs-8 mb-5">Selecciona el SKU paquete que se vendera y agrega los componentes que siempre deben ir incluidos.</div>
-                                <div class="row g-5">
-                                    <div class="col-md-4"><label class="form-label required">SKU paquete</label><select class="form-select" name="id_sku_paquete" id="catalogo_paquete_sku" required></select></div>
-                                    <div class="col-md-2"><label class="form-label">Tipo</label><select class="form-select" name="tipo_paquete"><option value="simple">Simple</option><option value="configurable">Configurable</option><option value="prearmado">Prearmado</option><option value="virtual">Virtual</option><option value="combo">Combo</option><option value="comprado_cerrado">Comprado cerrado</option></select></div>
-                                    <div class="col-md-3"><label class="form-label">Disponibilidad</label><select class="form-select" name="modo_disponibilidad"><option value="por_componentes">Por componentes</option><option value="por_existencia_armada">Por existencia armada</option><option value="mixto">Mixto</option></select></div>
-                                    <div class="col-md-3"><label class="form-label">Estado</label><select class="form-select" name="estatus"><option value="activo">Activo</option><option value="borrador">Borrador</option><option value="inactivo">Inactivo</option></select></div>
-                                    <div class="col-12 d-flex flex-wrap gap-8">
-                                        <label class="form-check form-switch form-check-custom form-check-solid"><input class="form-check-input" type="checkbox" name="permite_configuracion_cliente" value="1"><span class="form-check-label">Permite configurar opciones</span></label>
-                                        <label class="form-check form-switch form-check-custom form-check-solid"><input class="form-check-input" type="checkbox" name="requiere_armado_almacen" value="1"><span class="form-check-label">Requiere armado en almacen</span></label>
-                                        <label class="form-check form-switch form-check-custom form-check-solid"><input class="form-check-input" type="checkbox" name="permite_desarmar" value="1"><span class="form-check-label">Permite desarmar</span></label>
-                                    </div>
-                                    <div class="col-md-8">
-                                        <label class="form-label">Buscar componente fijo</label>
-                                        <div class="input-group">
-                                            <input class="form-control" id="catalogo_paquete_buscar_sku" placeholder="SKU, nombre o producto">
-                                            <button class="btn btn-light-primary" type="button" id="catalogo_paquete_buscar_boton"><i class="bi bi-search"></i> Buscar</button>
-                                        </div>
-                                        <div id="catalogo_paquete_resultados_sku" class="mt-3"></div>
-                                    </div>
-                                    <div class="col-md-4"><label class="form-label">Observaciones</label><textarea class="form-control" name="observaciones" rows="3"></textarea></div>
-                                    <div class="col-12">
-                                        <div class="text-muted fs-8 mb-2">Componentes fijos: siempre se incluyen en el paquete. Para quitar uno guardado, edita el paquete, elimina el renglon y guarda la receta.</div>
-                                        <div class="table-responsive">
-                                            <table class="table align-middle table-row-dashed gy-3">
-                                                <thead><tr class="text-muted fw-bold fs-7 text-uppercase"><th>Componente</th><th>Cantidad</th><th>Unidad</th><th>Factor</th><th class="text-end">Accion</th></tr></thead>
-                                                <tbody id="catalogo_paquete_componentes_lista"></tbody>
-                                            </table>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="text-end mt-6"><button class="btn btn-primary" type="submit" id="catalogo_paquete_guardar"><i class="bi bi-box-seam"></i> Guardar receta del SKU paquete</button></div>
-                            </form>
-                            <div class="separator my-7 d-none" data-paquete-form></div>
-                            <div class="row g-6 d-none" data-paquete-form>
-                                <div class="col-lg-6">
-                                    <form id="catalogo_form_paquete_grupo" data-erp-ajax="true">
-                                        <input type="hidden" name="id_grupo">
-                                        <input type="hidden" name="id_paquete">
-                                        <h3 class="fs-5 mb-2">Paso 3 - Grupo configurable</h3>
-                                        <div class="text-muted fs-8 mb-5">Agrega un grupo solo si el paquete permite elegir alternativas, por ejemplo color, tipo de filtro, decoracion o accesorio.</div>
-                                        <div class="row g-4">
-                                            <div class="col-md-4"><label class="form-label required">Codigo</label><input class="form-control" name="codigo" maxlength="80" required></div>
-                                            <div class="col-md-8"><label class="form-label required">Nombre</label><input class="form-control" name="nombre" maxlength="150" required></div>
-                                            <div class="col-md-3"><label class="form-label">Min</label><input class="form-control" type="number" name="min_selecciones" min="0" step="1" value="1"></div>
-                                            <div class="col-md-3"><label class="form-label">Max</label><input class="form-control" type="number" name="max_selecciones" min="1" step="1" value="1"></div>
-                                            <div class="col-md-6"><label class="form-label">Cantidad</label><select class="form-select" name="modo_cantidad"><option value="cantidad_fija">Cantidad fija</option><option value="cantidad_editable">Cantidad editable</option><option value="distribuir_total">Distribuir total</option></select></div>
-                                            <div class="col-md-4"><label class="form-label">Total grupo</label><input class="form-control" type="number" name="cantidad_total_grupo" min="0.000001" step="0.000001"></div>
-                                            <div class="col-md-4"><label class="form-label">Orden</label><input class="form-control" type="number" name="orden" value="0"></div>
-                                            <div class="col-md-4"><label class="form-label">Estado</label><select class="form-select" name="estatus"><option value="activo">Activo</option><option value="borrador">Borrador</option><option value="inactivo">Inactivo</option></select></div>
-                                            <div class="col-12"><label class="form-label">Descripcion</label><input class="form-control" name="descripcion" maxlength="255"></div>
-                                            <div class="col-12"><label class="form-check form-switch form-check-custom form-check-solid"><input class="form-check-input" type="checkbox" name="obligatorio" value="1" checked><span class="form-check-label">Grupo obligatorio</span></label></div>
-                                        </div>
-                                        <div class="text-end mt-5"><button class="btn btn-primary" type="submit"><i class="bi bi-list-check"></i> Guardar grupo</button></div>
-                                    </form>
-                                </div>
-                                <div class="col-lg-6 d-none" id="catalogo_paquete_opcion_panel">
-                                    <form id="catalogo_form_paquete_opcion" data-erp-ajax="true">
-                                        <input type="hidden" name="id_opcion">
-                                        <input type="hidden" name="id_grupo">
-                                        <h3 class="fs-5 mb-2">Paso 4 - Opcion del grupo</h3>
-                                        <div class="text-muted fs-8 mb-5">Esta seccion aparece al elegir `Nueva opcion` o `Editar opcion` dentro de un grupo. Busca globalmente el SKU elegible.</div>
-                                        <div class="row g-4">
-                                            <div class="col-12">
-                                                <label class="form-label">Buscar SKU opcion</label>
-                                                <div class="input-group">
-                                                    <input class="form-control" id="catalogo_paquete_opcion_buscar_sku" placeholder="SKU, nombre o producto">
-                                                    <button class="btn btn-light-primary" type="button" id="catalogo_paquete_opcion_buscar_boton"><i class="bi bi-search"></i> Buscar</button>
-                                                </div>
-                                                <div id="catalogo_paquete_opcion_resultados_sku" class="mt-3"></div>
-                                            </div>
-                                            <div class="col-12"><label class="form-label required">SKU opcion seleccionado</label><select class="form-select" name="id_sku_opcion" id="catalogo_paquete_opcion_sku" required><option value="">Selecciona desde busqueda</option></select></div>
-                                            <div class="col-md-4"><label class="form-label required">Cantidad</label><input class="form-control" type="number" name="cantidad_default" min="0.000001" step="0.000001" value="1" required></div>
-                                            <div class="col-md-4"><label class="form-label">Minima</label><input class="form-control" type="number" name="cantidad_minima" min="0.000001" step="0.000001"></div>
-                                            <div class="col-md-4"><label class="form-label">Maxima</label><input class="form-control" type="number" name="cantidad_maxima" min="0.000001" step="0.000001"></div>
-                                            <div class="col-md-4"><label class="form-label">Unidad</label><select class="form-select" name="id_unidad" id="catalogo_paquete_opcion_unidad"><option value="">Base SKU</option></select></div>
-                                            <div class="col-md-4"><label class="form-label">Factor</label><input class="form-control" type="number" name="factor_conversion" min="0.000001" step="0.000001" value="1"></div>
-                                            <div class="col-md-4"><label class="form-label">Orden</label><input class="form-control" type="number" name="orden" value="0"></div>
-                                            <div class="col-md-4"><label class="form-label">Estado</label><select class="form-select" name="estatus"><option value="activo">Activo</option><option value="borrador">Borrador</option><option value="inactivo">Inactivo</option></select></div>
-                                            <div class="col-md-8 d-flex align-items-end pb-3"><label class="form-check form-switch form-check-custom form-check-solid"><input class="form-check-input" type="checkbox" name="permite_cantidad_editable" value="1"><span class="form-check-label">Cantidad editable</span></label></div>
-                                        </div>
-                                        <div class="text-end mt-5"><button class="btn btn-primary" type="submit"><i class="bi bi-ui-checks-grid"></i> Guardar opcion</button></div>
-                                    </form>
-                                </div>
-                            </div>
-                            <?php endif; ?>
-                            <div class="alert alert-danger d-none mt-6" id="catalogo_paquetes_error"></div>
                         </div>
                         <div class="tab-pane fade" id="catalogo_detalle_imagenes">
                             <div id="catalogo_imagenes_lista" class="row g-5"></div>

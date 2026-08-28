@@ -37,8 +37,8 @@ $ccSubtitulo = $ccSoloVista ? "Vista previa y exportacion para redes" : "Informa
         .cc-alerts { display: flex; flex-wrap: wrap; gap: 5px; }
         .cc-preview-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; }
         .cc-card { border: 1px solid #dfe3ea; border-radius: 8px; overflow: hidden; background: #fff; min-height: 330px; display: flex; flex-direction: column; }
-        .cc-card__media { aspect-ratio: 4 / 5; background: #f8fafc; display: grid; place-items: center; overflow: hidden; }
-        .cc-card__media img { width: 100%; height: 100%; object-fit: contain; padding: 8px; box-sizing: border-box; }
+        .cc-card__media { aspect-ratio: 1 / 1; background: #f8fafc; display: grid; place-items: center; overflow: hidden; }
+        .cc-card__media img { width: 100%; height: 100%; object-fit: contain; padding: 6px; box-sizing: border-box; }
         .cc-card__body { padding: 7px; display: flex; flex-direction: column; gap: 3px; flex: 1; }
         .cc-print-area { --cc-font-family: Arial, sans-serif; --cc-title-color: #181c32; --cc-product-color: #181c32; --cc-meta-color: #5e6278; --cc-price-color: #0f7a5f; --cc-title-size: 23px; --cc-product-size: 11px; --cc-meta-size: 9px; --cc-price-size: 13px; font-family: var(--cc-font-family); }
         .cc-card__title { font-weight: 800; font-size: var(--cc-product-size); line-height: 1.16; color: var(--cc-product-color); letter-spacing: 0; overflow-wrap: anywhere; }
@@ -46,8 +46,8 @@ $ccSubtitulo = $ccSoloVista ? "Vista previa y exportacion para redes" : "Informa
         .cc-card__price { font-weight: 800; color: var(--cc-price-color); font-size: var(--cc-price-size); margin-top: auto; }
         .cc-card__variants { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
         .cc-card__variant { border: 1px solid #dfe3ea; border-radius: 6px; color: var(--cc-meta-color); font-size: var(--cc-meta-size); line-height: 1.15; padding: 3px 5px; background: #f8fafc; overflow-wrap: anywhere; }
-        .cc-card__variant-images { display: flex; gap: 4px; margin-top: 4px; flex-wrap: wrap; }
-        .cc-card__variant-image { width: 30px; height: 30px; border-radius: 6px; border: 1px solid #dfe3ea; object-fit: cover; background: #f8fafc; }
+        .cc-card__variant-images { display: flex; gap: 5px; margin-top: 4px; flex-wrap: wrap; }
+        .cc-card__variant-image { width: 42px; height: 42px; border-radius: 6px; border: 1px solid #dfe3ea; object-fit: contain; background: #f8fafc; padding: 2px; box-sizing: border-box; }
         .cc-preview-grid--square, .cc-preview-grid--story { grid-template-columns: repeat(5, minmax(0, 1fr)); }
         .cc-preview-grid--compact { grid-template-columns: 1fr; gap: 8px; }
         .cc-preview-grid--compact .cc-card { min-height: 136px; flex-direction: row; }
@@ -451,6 +451,6 @@ $ccSubtitulo = $ccSoloVista ? "Vista previa y exportacion para redes" : "Informa
 </div>
 <script src="assets/plugins/global/plugins.bundle.js"></script>
 <script src="assets/js/scripts.bundle.js"></script>
-<script src="/assets/js/custom/apps/erp/catalogo/catalogos_comerciales.js?v=20260827-estilo-variantes-db-1"></script>
+<script src="/assets/js/custom/apps/erp/catalogo/catalogos_comerciales.js?v=20260827-guardar-unidades-1"></script>
 </body>
 </html>

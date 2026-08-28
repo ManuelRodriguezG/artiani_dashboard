@@ -1,5 +1,15 @@
 # ERP Catalogo - Plan de catalogos comerciales
 
+## Integracion con Resumen ERP
+
+Fecha: 2026-08-27
+
+- Se agrego un bloque de Catalogos comerciales en la pantalla inicial `/inicio`.
+- Ruta operativa del bloque: `/catalogoerp/catalogos_comerciales`.
+- Indicadores mostrados: activos, borradores, items activos y actualizados en los ultimos 7 dias.
+- Acceso rapido adicional: `/catalogoerp/catalogos_comerciales_nuevo`, visible solo con `catalogo.editar`.
+- Esta integracion es read-only y no publica, archiva, crea ni modifica catalogos.
+
 Fecha: 2026-07-23
 Proyecto vigente: `C:\xampp\htdocs\panel_de_control`
 
@@ -1610,3 +1620,41 @@ Regla:
 
 - La agrupacion sigue siendo visual; los items del catalogo comercial se guardan como SKUs separados en `erp_catalogo_comercial_items`.
 - No se tocan costos, rentabilidad, inventario, compras, ventas ni listas de precios.
+
+## Ajuste 2026-08-27 - Preview PNG de variantes con imagen y valor
+
+Contexto:
+
+- En la vista HTML las variantes agrupadas ya se veian claras, pero el preview de paginas y la exportacion PNG no mostraban la misma riqueza visual.
+- El usuario pidio mini imagenes cuadradas mas grandes y etiquetas basadas en el valor de la variante, no en el nombre/unidad del atributo.
+
+Cambios aplicados:
+
+- `variante_resumen` ahora usa los valores capturados en `erp_catalogo_sku_atributos` para atributos variantes activos, sin anteponer el nombre del atributo.
+- La UI limpia etiquetas antiguas con formato `Atributo: valor` para mostrar preferentemente solo `valor`.
+- La vista HTML usa imagen principal cuadrada y miniaturas de variante de 42x42 con `contain`.
+- El canvas usado por preview de paginas y exportacion PNG dibuja miniaturas cuadradas de variantes dentro de la tarjeta agrupada.
+
+Regla:
+
+- No se modifica estructura de SKUs ni atributos; solo cambia consulta y representacion comercial.
+- No hay DDL en este ajuste.
+
+## Ajuste 2026-08-27 - Guardado visible y sin unidad operativa
+
+Contexto:
+
+- El usuario reporto que el boton Guardar parecia no hacer nada aunque el catalogo se guardara.
+- Tambien pidio quitar de Catálogos comerciales lo relacionado con la unidad del producto.
+
+Cambios aplicados:
+
+- El boton Guardar ahora se deshabilita durante el POST y muestra estado `Guardando`.
+- Al guardar correctamente muestra confirmacion con opciones `Seguir editando` o `Ir a catalogos`.
+- Cuando se crea un catalogo nuevo, la URL se actualiza a la ruta de edicion con `id_catalogo_comercial`.
+- La presentacion comercial ya no usa `unidad_venta_label`, `unidad_abreviatura` ni `unidad_codigo` como fallback visible.
+- El preview HTML y canvas/PNG ya no sustituyen una presentacion vacia por SKU o unidad.
+
+Regla:
+
+- Las unidades siguen existiendo en Catálogo ERP para operacion, inventario y fiscal; solo se retiran como texto visible/fallback del material comercial.

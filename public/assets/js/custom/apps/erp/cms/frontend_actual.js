@@ -14,6 +14,7 @@
 
   var estado = {
     grupo: "global",
+    borradorLocalCargado: false,
     mediaPicker: { contexto: "", index: 0, campo: "", archivo: null, dataUrl: "", seleccion: "" },
     datos: {
       global: {
@@ -675,8 +676,12 @@
   document.addEventListener("DOMContentLoaded", function () {
     var grupoInicial = document.body ? document.body.getAttribute("data-cms-actual-grupo") : "";
     if (grupoInicial) estado.grupo = grupoInicial;
-    cargarBorradorFrontendLocal();
+    var tieneBorrador = cargarBorradorFrontendLocal(!grupoInicial);
+    if (grupoInicial) estado.grupo = grupoInicial;
     renderTodo();
+    if (!tieneBorrador) {
+      cargarGlobalPublicadoFrontend(false);
+    }
     on("cms_actual_copiar_json", "click", copiarJson);
     on("cms_actual_home_estado_refrescar", "click", consultarEstadoHomePublicado);
     bindEstadoHomePublicado();
@@ -733,7 +738,7 @@
 
   function renderGrupo() {
     var grupo = grupoActual();
-    guardarBorradorFrontendLocal();
+    guardarBorradorFrontendLocal(true);
     setText("cms_actual_titulo", grupo.titulo);
     setText("cms_actual_subtitulo", grupo.subtitulo);
     setText("cms_actual_endpoint", grupo.endpoint);
@@ -756,8 +761,14 @@
     if (grupo.codigo !== "global") return "";
     return '<div class="alert alert-light-primary d-flex justify-content-between align-items-center flex-wrap gap-3 mb-4">' +
       '<div><div class="fw-bold">Publicacion global del frontend</div><div class="fs-7 text-muted">Guarda marca, contacto, logos, favicon, redes, ubicacion, horarios y SEO para configuracion_inicial.</div></div>' +
-      '<button class="btn btn-sm btn-primary" type="button" id="cms_actual_global_publicar"><i class="bi bi-cloud-check"></i> Guardar y publicar global</button>' +
-    '</div><div class="alert alert-light-warning fs-7 py-3 mb-4" id="cms_actual_global_estado">Pendiente de publicar en la API.</div>';
+      '<div class="d-flex flex-wrap gap-2">' +
+        '<button class="btn btn-sm btn-light-primary" type="button" id="cms_actual_global_borrador"><i class="bi bi-save"></i> Guardar borrador local</button>' +
+        '<button class="btn btn-sm btn-light-info" type="button" id="cms_actual_global_cargar_publicado"><i class="bi bi-arrow-clockwise"></i> Cargar publicado</button>' +
+        '<button class="btn btn-sm btn-light-success" type="button" id="cms_actual_global_api"><i class="bi bi-broadcast"></i> Ver API publicada</button>' +
+        '<button class="btn btn-sm btn-primary" type="button" id="cms_actual_global_publicar"><i class="bi bi-cloud-check"></i> Guardar y publicar global</button>' +
+      '</div>' +
+    '</div><div class="alert alert-light-warning fs-7 py-3 mb-4" id="cms_actual_global_estado">Pendiente de publicar en la API.</div>' +
+    '<div class="alert alert-light-secondary fs-7 py-3 mb-4 d-none" id="cms_actual_global_api_estado"></div>';
   }
 
   function consultarEstadoHomePublicado() {
@@ -844,31 +855,44 @@
     '</div>';
   }
 
-  function cargarBorradorFrontendLocal() {
+  function cargarBorradorFrontendLocal(usarGrupoGuardado) {
     try {
       var raw = localStorage.getItem(FRONTEND_DRAFT_STORAGE_KEY);
-      if (!raw) return;
+      if (!raw) return false;
       var borrador = JSON.parse(raw);
-      if (!borrador || !borrador.datos) return;
+      if (!borrador || !borrador.datos) return false;
       estado.datos = mergeProfundo(estado.datos, borrador.datos);
-      if (borrador.grupo) estado.grupo = borrador.grupo;
+      if (usarGrupoGuardado && borrador.grupo) estado.grupo = borrador.grupo;
+      estado.borradorLocalCargado = true;
       setText("cms_actual_estado", "Borrador local cargado");
+      return true;
     } catch (error) {
       setText("cms_actual_estado", "Borrador local invalido");
+      return false;
     }
   }
 
-  function guardarBorradorFrontendLocal() {
+  function guardarBorradorFrontendLocal(silencioso) {
     try {
       localStorage.setItem(FRONTEND_DRAFT_STORAGE_KEY, JSON.stringify({
-        version: "cms_frontend_actual_borrador_2026_08_23",
+        version: "cms_frontend_actual_borrador_2026_08_27",
         grupo: estado.grupo,
         datos: estado.datos,
         actualizado_en: new Date().toISOString()
       }));
-      setText("cms_actual_estado", "Borrador local guardado");
+      if (!silencioso) setText("cms_actual_estado", "Borrador local guardado");
+      return true;
     } catch (error) {
-      setText("cms_actual_estado", "No se pudo guardar local");
+      if (!silencioso) setText("cms_actual_estado", "No se pudo guardar local");
+      return false;
+    }
+  }
+
+  function guardarBorradorGlobalManual() {
+    if (guardarBorradorFrontendLocal(false)) {
+      setGlobalEstado("Borrador local guardado en este navegador. Para enviarlo al frontend usa Guardar y publicar global.", "success");
+    } else {
+      setGlobalEstado("No se pudo guardar el borrador local.", "danger");
     }
   }
 
@@ -1181,6 +1205,9 @@
         actualizarGlobalField(node.getAttribute("data-global-section"), node.getAttribute("data-global-field"), node.value);
       });
     });
+    on("cms_actual_global_borrador", "click", guardarBorradorGlobalManual);
+    on("cms_actual_global_cargar_publicado", "click", function () { cargarGlobalPublicadoFrontend(true); });
+    on("cms_actual_global_api", "click", consultarApiGlobalFrontend);
     on("cms_actual_global_publicar", "click", publicarGlobalFrontend);
     on("cms_actual_categorias_publicar", "click", publicarCategoriasFrontend);
     Array.prototype.forEach.call(document.querySelectorAll("[data-nav-field]"), function (node) {
@@ -1692,6 +1719,7 @@
     }
     if (codigo === "global_ubicacion") {
       return [
+        '<div class="col-12"><div class="alert alert-light-info fs-7 mb-0">Google Maps: puedes pegar el iframe completo de Google o solo el URL del atributo src. El CMS guardara el embed URL limpio.</div></div>',
         inputGlobal(codigo, "direccion.calle", "Calle", data.direccion.calle, "col-md-4"),
         inputGlobal(codigo, "direccion.colonia", "Colonia", data.direccion.colonia, "col-md-4"),
         inputGlobal(codigo, "direccion.ciudad", "Ciudad", data.direccion.ciudad, "col-md-4"),
@@ -1700,7 +1728,7 @@
         inputGlobal(codigo, "direccion.pais", "Pais", data.direccion.pais, "col-md-3"),
         inputGlobal(codigo, "direccion.texto_publico", "Texto publico", data.direccion.texto_publico, "col-md-3"),
         inputGlobal(codigo, "mapa.google_maps_url", "Google Maps URL", data.mapa.google_maps_url, "col-md-6"),
-        inputGlobal(codigo, "mapa.embed_url", "Embed URL", data.mapa.embed_url, "col-md-6"),
+        inputGlobal(codigo, "mapa.embed_url", "Embed URL o iframe", data.mapa.embed_url, "col-md-6"),
         inputGlobal(codigo, "mapa.lat", "Lat", data.mapa.lat, "col-md-3"),
         inputGlobal(codigo, "mapa.lng", "Lng", data.mapa.lng, "col-md-3")
       ];
@@ -1753,6 +1781,9 @@
   function actualizarGlobalField(seccionCodigo, campo, valor) {
     var data = globalData(seccionCodigo);
     if (!data) return;
+    if (seccionCodigo === "global_ubicacion" && campo === "mapa.embed_url") {
+      valor = extraerGoogleMapsEmbed(valor);
+    }
     if (campo === "menu_principal_json" || campo === "footer_columnas_json") {
       try {
         data[campo.replace("_json", "")] = JSON.parse(valor || "[]");
@@ -1766,6 +1797,74 @@
       setPath(data, campo, valor);
     }
     refrescarJson();
+  }
+
+  function extraerGoogleMapsEmbed(valor) {
+    var texto = String(valor || "").trim();
+    if (!texto) return "";
+    var matchSrc = texto.match(/\ssrc=["']([^"']+)["']/i);
+    if (matchSrc && matchSrc[1]) {
+      return matchSrc[1].replace(/&amp;/g, "&").trim();
+    }
+    return texto.replace(/&amp;/g, "&");
+  }
+
+  function cargarGlobalPublicadoFrontend(forzar) {
+    var boton = $("cms_actual_global_cargar_publicado");
+    if (boton) boton.disabled = true;
+    if (forzar) setGlobalEstado("Consultando configuracion_inicial...", "info");
+    fetch("/ecommercePublico/configuracion_inicial", {
+      method: "GET",
+      credentials: "same-origin",
+      headers: {
+        "Accept": "application/json",
+        "X-Requested-With": "XMLHttpRequest"
+      }
+    }).then(function (response) {
+      return response.text().then(function (text) {
+        var json = null;
+        try {
+          json = JSON.parse(text);
+        } catch (error) {
+          throw new Error("Respuesta no JSON del servidor (" + response.status + ")");
+        }
+        if (!response.ok) throw new Error((json && json.mensaje) || "No se pudo consultar configuracion_inicial");
+        return json;
+      });
+    }).then(function (json) {
+      var publicado = json && json.depurar ? json.depurar.cms_global : null;
+      if (!publicado || publicado.fuente !== "bd_publicada") {
+        if (forzar) setGlobalEstado("No hay Global publicado en BD todavia.", "warning");
+        return;
+      }
+      aplicarGlobalPublicado(publicado);
+      guardarBorradorFrontendLocal(true);
+      if (estado.grupo === "global" || forzar) renderTodo();
+      setGlobalEstado("Global publicado cargado desde configuracion_inicial.", "success");
+    }).catch(function (error) {
+      if (forzar) setGlobalEstado(error.message || "No se pudo cargar Global publicado.", "danger");
+    }).finally(function () {
+      if (boton) boton.disabled = false;
+    });
+  }
+
+  function aplicarGlobalPublicado(publicado) {
+    if (!publicado || typeof publicado !== "object") return;
+    var global = estado.datos.global || {};
+    if (publicado.negocio) global.global_negocio = mergeProfundo(global.global_negocio || {}, publicado.negocio);
+    if (publicado.direccion || publicado.mapa) {
+      global.global_ubicacion = global.global_ubicacion || {};
+      global.global_ubicacion.direccion = mergeProfundo(global.global_ubicacion.direccion || {}, publicado.direccion || {});
+      global.global_ubicacion.mapa = mergeProfundo(global.global_ubicacion.mapa || {}, publicado.mapa || {});
+    }
+    if (Array.isArray(publicado.horarios)) {
+      global.global_horarios = global.global_horarios || {};
+      global.global_horarios.items = publicado.horarios;
+    }
+    if (publicado.redes_sociales) global.global_redes = mergeProfundo(global.global_redes || {}, publicado.redes_sociales);
+    if (publicado.seo_global) global.global_seo = mergeProfundo(global.global_seo || {}, publicado.seo_global);
+    if (publicado.navegacion) global.global_navegacion = mergeProfundo(global.global_navegacion || {}, publicado.navegacion);
+    estado.datos.global = global;
   }
 
   function actualizarNavegacionField(seccionCodigo, campo, valor) {
@@ -3219,6 +3318,70 @@
     }
   }
 
+  function consultarApiGlobalFrontend() {
+    var node = $("cms_actual_global_api_estado");
+    var boton = $("cms_actual_global_api");
+    if (node) {
+      node.className = "alert alert-light-info fs-7 py-3 mb-4";
+      node.textContent = "Consultando /ecommercePublico/configuracion_inicial...";
+    }
+    if (boton) boton.disabled = true;
+    fetch("/ecommercePublico/configuracion_inicial", {
+      method: "GET",
+      credentials: "same-origin",
+      headers: {
+        "Accept": "application/json",
+        "X-Requested-With": "XMLHttpRequest"
+      }
+    }).then(function (response) {
+      return response.text().then(function (text) {
+        var json = null;
+        try {
+          json = JSON.parse(text);
+        } catch (error) {
+          throw new Error("Respuesta no JSON del servidor (" + response.status + "): " + text.substring(0, 140));
+        }
+        if (!response.ok) throw new Error((json && json.mensaje) || "No se pudo consultar configuracion_inicial");
+        return json;
+      });
+    }).then(function (json) {
+      var publicado = json && json.depurar ? json.depurar.cms_global : null;
+      if (!publicado || publicado.fuente !== "bd_publicada") {
+        mostrarApiGlobalFrontend("No hay Global publicado en BD. El frontend recibira defaults hasta usar Guardar y publicar global.", "warning");
+        return;
+      }
+      var negocio = publicado.negocio || {};
+      var mapa = publicado.mapa || {};
+      var seo = publicado.seo_global || {};
+      mostrarApiGlobalFrontend(
+        '<div class="fw-bold mb-2">Global publicado para frontend</div>' +
+        '<div><span class="fw-semibold">Nombre:</span> ' + escapeHtml(negocio.nombre_comercial || "sin nombre") + '</div>' +
+        '<div><span class="fw-semibold">Logo:</span> ' + escapeHtml(resumenUrlMedia(negocio.logo_principal || "")) + '</div>' +
+        '<div><span class="fw-semibold">Favicon:</span> ' + escapeHtml(resumenUrlMedia(negocio.favicon || "")) + '</div>' +
+        '<div><span class="fw-semibold">Mapa embed:</span> ' + escapeHtml(mapa.embed_url ? "configurado" : "sin configurar") + '</div>' +
+        '<div><span class="fw-semibold">SEO title:</span> ' + escapeHtml(seo.title_default || "sin titulo") + '</div>',
+        "success",
+        true
+      );
+    }).catch(function (error) {
+      mostrarApiGlobalFrontend(error.message || "No se pudo consultar API publicada.", "danger");
+    }).finally(function () {
+      if (boton) boton.disabled = false;
+    });
+  }
+
+  function mostrarApiGlobalFrontend(mensaje, tipo, esHtml) {
+    setText("cms_actual_estado", esHtml ? "API global consultada" : mensaje);
+    var node = $("cms_actual_global_api_estado");
+    if (!node) return;
+    node.className = "alert fs-7 py-3 mb-4 alert-light-" + (tipo || "info");
+    if (esHtml) {
+      node.innerHTML = mensaje;
+    } else {
+      node.textContent = mensaje;
+    }
+  }
+
   function publicarGlobalFrontend() {
     var json = previewGlobalJson();
     var negocio = json.depurar && json.depurar.negocio ? json.depurar.negocio : {};
@@ -3226,6 +3389,7 @@
       setGlobalEstado("Captura el nombre comercial antes de publicar.", "warning");
       return;
     }
+    guardarBorradorFrontendLocal(true);
     var boton = $("cms_actual_global_publicar");
     var form = new FormData();
     form.append("_csrf", window.ERP_CSRF_TOKEN || "");
@@ -3259,6 +3423,7 @@
         throw new Error(jsonRespuesta && jsonRespuesta.mensaje ? jsonRespuesta.mensaje : "No se pudo publicar global");
       }
       setGlobalEstado("Configuracion global publicada. configuracion_inicial ya puede entregarla.", "success");
+      consultarApiGlobalFrontend();
     }).catch(function (error) {
       setGlobalEstado(error.message || "Error al publicar global.", "danger");
     }).finally(function () {
@@ -3698,6 +3863,7 @@
   function abrirSelectorMedia(contexto, index, campo) {
     estado.mediaPicker = { contexto: contexto, index: index, campo: campo, archivo: null, dataUrl: "", seleccion: "" };
     asegurarModalMedia();
+    aplicarDefaultsMediaPicker();
     renderMediaPicker();
     cargarMediaServidorPicker();
     var modalNode = $("cms_actual_media_modal");
@@ -3722,7 +3888,7 @@
             '<div class="row g-3 align-items-end">' +
               '<div class="col-md-4"><label class="form-label fs-8 fw-bold">Archivo</label><input class="form-control form-control-sm" id="cms_actual_media_archivo" type="file" accept="image/jpeg,image/png,image/webp,image/vnd.microsoft.icon,image/x-icon,.ico"></div>' +
               '<div class="col-md-2"><label class="form-label fs-8 fw-bold">Uso</label><select class="form-select form-select-sm" id="cms_actual_media_nuevo_uso"><option value="home">Home</option><option value="categoria">Categoria</option><option value="producto">Producto</option><option value="global">Global</option><option value="blog">Blog futuro</option></select></div>' +
-              '<div class="col-md-2"><label class="form-label fs-8 fw-bold">Tipo</label><select class="form-select form-select-sm" id="cms_actual_media_nuevo_tipo"><option value="banner">Banner</option><option value="hero">Hero</option><option value="card">Card</option><option value="thumb">Thumbnail</option><option value="editorial">Editorial</option><option value="favicon">Favicon</option></select></div>' +
+              '<div class="col-md-2"><label class="form-label fs-8 fw-bold">Tipo</label><select class="form-select form-select-sm" id="cms_actual_media_nuevo_tipo"><option value="logo">Logo principal</option><option value="logo_blanco">Logo blanco</option><option value="favicon">Favicon</option><option value="open_graph">Imagen social SEO</option><option value="banner">Banner</option><option value="hero">Hero</option><option value="card">Card</option><option value="thumb">Thumbnail</option><option value="editorial">Editorial</option></select></div>' +
               '<div class="col-md-3"><label class="form-label fs-8 fw-bold">Alt text</label><input class="form-control form-control-sm" id="cms_actual_media_nuevo_alt" type="text"></div>' +
               '<div class="col-md-2"><button class="btn btn-sm btn-primary w-100" type="button" id="cms_actual_media_agregar_usar"><i class="bi bi-cloud-upload"></i> Subir y usar</button></div>' +
             '</div>' +
@@ -3757,6 +3923,23 @@
         seleccionarMediaPreview(button.getAttribute("data-media-select"));
       });
     }
+  }
+
+  function aplicarDefaultsMediaPicker() {
+    var picker = estado.mediaPicker || {};
+    var uso = picker.contexto === "global" ? "global" : "";
+    var tipo = "";
+    if (picker.campo === "logo_principal") tipo = "logo";
+    if (picker.campo === "logo_blanco") tipo = "logo_blanco";
+    if (picker.campo === "favicon") tipo = "favicon";
+    if (picker.campo === "og_image_default") tipo = "open_graph";
+    if (!tipo && picker.campo && picker.campo.indexOf("imagen_desktop") !== -1) tipo = "hero";
+    if (!tipo && picker.campo && picker.campo.indexOf("imagen_mobile") !== -1) tipo = "hero";
+    if (!tipo && picker.campo && picker.campo.indexOf("imagen_banner") !== -1) tipo = "banner";
+    if (!tipo && picker.campo && picker.campo.indexOf("imagen_card") !== -1) tipo = "card";
+    if (uso && $("cms_actual_media_nuevo_uso")) $("cms_actual_media_nuevo_uso").value = uso;
+    if (uso && $("cms_actual_media_uso")) $("cms_actual_media_uso").value = uso;
+    if (tipo && $("cms_actual_media_nuevo_tipo")) $("cms_actual_media_nuevo_tipo").value = tipo;
   }
 
   function prepararMediaDesdeModal() {
@@ -3891,7 +4074,7 @@
           '<div class="p-3">' +
             '<div class="fw-bold text-truncate">' + escapeHtml(item.nombre) + '</div>' +
             '<div class="text-muted fs-8 text-truncate mb-3">' + escapeHtml(item.alt) + '</div>' +
-            '<div class="d-flex justify-content-between align-items-center gap-2 mb-3"><span class="badge ' + (esServidor ? 'badge-light-success' : 'badge-light-warning') + '">' + (esServidor ? 'Servidor BD' : 'Temporal local') + '</span><span class="text-muted fs-8">' + escapeHtml(item.uso) + ' / ' + escapeHtml(item.tipo) + '</span></div>' +
+            '<div class="d-flex justify-content-between align-items-center gap-2 mb-3"><span class="badge ' + (esServidor ? 'badge-light-success' : 'badge-light-warning') + '">' + (esServidor ? 'Servidor BD' : 'Temporal local') + '</span><span class="text-muted fs-8">' + escapeHtml(labelUsoMedia(item.uso)) + ' / ' + escapeHtml(labelTipoMedia(item.tipo)) + '</span></div>' +
             '<button type="button" class="btn btn-sm btn-light-primary w-100" data-media-select="' + escapeAttr(item.id) + '"><i class="bi bi-eye"></i> Previsualizar</button>' +
           '</div>' +
         '</div>' +
@@ -3917,7 +4100,7 @@
       '<img src="' + escapeAttr(item.url) + '" alt="' + escapeAttr(item.alt) + '" style="width:100%;aspect-ratio:16/11;object-fit:cover;border-radius:8px;border:1px solid #e7e9ef;background:#f3f6f9;">' +
       '<div class="fw-semibold mt-3 text-break">' + escapeHtml(item.nombre) + '</div>' +
       '<div class="text-muted fs-7 mt-1">' + escapeHtml(item.alt) + '</div>' +
-      '<div class="d-flex flex-wrap gap-2 mt-3"><span class="badge ' + (esServidor ? 'badge-light-success' : 'badge-light-warning') + '">' + (esServidor ? 'Servidor BD' : 'Temporal local') + '</span><span class="badge badge-light-primary">' + escapeHtml(item.uso) + '</span><span class="badge badge-light-info">' + escapeHtml(item.tipo) + '</span><span class="badge badge-light">' + escapeHtml(formatoBytes(item.bytes)) + '</span></div>' +
+      '<div class="d-flex flex-wrap gap-2 mt-3"><span class="badge ' + (esServidor ? 'badge-light-success' : 'badge-light-warning') + '">' + (esServidor ? 'Servidor BD' : 'Temporal local') + '</span><span class="badge badge-light-primary">' + escapeHtml(labelUsoMedia(item.uso)) + '</span><span class="badge badge-light-info">' + escapeHtml(labelTipoMedia(item.tipo)) + '</span><span class="badge badge-light">' + escapeHtml(formatoBytes(item.bytes)) + '</span></div>' +
       (esServidor
         ? '<button class="btn btn-primary w-100 mt-4" type="button" id="cms_actual_media_usar_seleccion"><i class="bi bi-check2-circle"></i> Usar imagen seleccionada</button>'
         : '<div class="alert alert-light-warning fs-7 mt-4 mb-0">Esta imagen solo vive en este navegador. Para usarla en el banner primero subela con <strong>Subir y usar</strong>.</div>');
@@ -4001,6 +4184,33 @@
     return !!(item && item.origen === "bd" && esUrlMediaCms(item.url));
   }
 
+  function labelUsoMedia(uso) {
+    var labels = {
+      home: "Home",
+      categoria: "Categoria",
+      producto: "Producto",
+      global: "Global",
+      blog: "Blog futuro",
+      general: "General"
+    };
+    return labels[String(uso || "")] || uso || "General";
+  }
+
+  function labelTipoMedia(tipo) {
+    var labels = {
+      logo: "Logo principal",
+      logo_blanco: "Logo blanco",
+      favicon: "Favicon",
+      open_graph: "Imagen social SEO",
+      banner: "Banner",
+      hero: "Hero",
+      card: "Card",
+      thumb: "Thumbnail",
+      editorial: "Editorial"
+    };
+    return labels[String(tipo || "")] || tipo || "Editorial";
+  }
+
   function mezclarMediaItems(actuales, nuevos) {
     var salida = (actuales || []).slice();
     (nuevos || []).forEach(function (item) {
@@ -4073,6 +4283,7 @@
 
   function refrescarJson() {
     setText("cms_actual_json", JSON.stringify(previewJson(grupoActual()), null, 2));
+    guardarBorradorFrontendLocal(true);
     setText("cms_actual_estado", "Editando local");
   }
 

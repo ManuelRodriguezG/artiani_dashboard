@@ -171,7 +171,7 @@
           '<div class="text-muted fs-8 text-truncate">' + escapeHtml(item.alt) + '</div>' +
           '<div class="d-flex justify-content-between align-items-center mt-3 gap-2">' +
             '<span class="badge ' + (esServidor ? 'badge-light-success' : 'badge-light-warning') + '">' + (esServidor ? 'Servidor BD' : 'Temporal local') + '</span>' +
-            '<span class="text-muted fs-8">' + escapeHtml(item.uso) + ' / ' + escapeHtml(item.tipo) + '</span>' +
+            '<span class="text-muted fs-8">' + escapeHtml(labelUsoMedia(item.uso)) + ' / ' + escapeHtml(labelTipoMedia(item.tipo)) + '</span>' +
           '</div>' +
           '<div class="cms-media-actions mt-3">' +
             '<button class="btn btn-sm btn-light-primary" type="button" data-media-action="copiar" data-media-id="' + escapeAttr(item.id) + '"><i class="bi bi-clipboard"></i></button>' +
@@ -197,8 +197,8 @@
       '<h4 class="fw-bold mb-2">' + escapeHtml(item.nombre) + '</h4>' +
       '<div class="text-muted fs-7 mb-4">' + escapeHtml(item.alt) + '</div>' +
       '<div class="cms-media-meta fs-7 mb-4">' +
-        meta("Uso", item.uso) +
-        meta("Tipo", item.tipo) +
+        meta("Uso", labelUsoMedia(item.uso)) +
+        meta("Tipo", labelTipoMedia(item.tipo)) +
         meta("Formato", item.mime) +
         meta("Peso", formatoBytes(item.bytes)) +
         meta("Origen", esItemServidor(item) ? "Servidor BD" : "Temporal local") +
@@ -275,6 +275,7 @@
       '<div><span class="badge badge-light-primary me-2">Carpeta</span><code>' + escapeHtml(data.carpeta_publica_propuesta || "") + '</code></div>' +
       '<div><span class="badge badge-light-primary me-2">Tablas</span><code>' + escapeHtml(data.tabla_archivos || "") + '</code> / <code>' + escapeHtml(data.tabla_usos || "") + '</code></div>' +
       '<div><span class="badge badge-light-primary me-2">Limite</span>' + escapeHtml(limites.max_mb || "") + ' MB, ' + escapeHtml((limites.extensiones || []).join(", ")) + '</div>' +
+      '<div><span class="badge badge-light-primary me-2">Tipos</span>' + escapeHtml((data.tipos_sugeridos || []).map(labelTipoMedia).join(", ")) + '</div>' +
       '<div><span class="badge badge-light-info me-2">GET</span><code>/cms/media_admin_listar_erp</code></div>' +
       '<div><span class="badge badge-light-success me-2">POST activo</span><code>' + escapeHtml(endpoints.subir || "") + '</code></div>' +
       '<div><span class="badge badge-light-success me-2">Estado</span>Upload activo con BD autorizada.</div>' +
@@ -458,6 +459,33 @@
     if (!item || typeof item !== "object") return {};
     if (!item.origen) item.origen = String(item.id || "").indexOf("bd_") === 0 ? "bd" : "local";
     return item;
+  }
+
+  function labelUsoMedia(uso) {
+    var labels = {
+      home: "Home",
+      categoria: "Categoria",
+      producto: "Producto",
+      global: "Global",
+      blog: "Blog futuro",
+      general: "General"
+    };
+    return labels[String(uso || "")] || uso || "General";
+  }
+
+  function labelTipoMedia(tipo) {
+    var labels = {
+      logo: "Logo principal",
+      logo_blanco: "Logo blanco",
+      favicon: "Favicon",
+      open_graph: "Imagen social SEO",
+      banner: "Banner",
+      hero: "Hero",
+      card: "Card",
+      thumb: "Thumbnail",
+      editorial: "Editorial"
+    };
+    return labels[String(tipo || "")] || tipo || "Editorial";
   }
 
   function esItemServidor(item) {

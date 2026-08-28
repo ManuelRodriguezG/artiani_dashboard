@@ -580,7 +580,7 @@
                 <td>
                     <div class="fw-bold text-gray-900">${escapeHtml(item.nombre)}</div>
                     <div class="text-muted">${escapeHtml(item.sku)} - ${escapeHtml(item.tipo_item)} - ${escapeHtml(item.marca || "Sin marca")}</div>
-                    <div class="text-muted">${escapeHtml(item.presentacion_comercial || "")}</div>
+                    ${item.presentacion_comercial ? `<div class="text-muted">${escapeHtml(item.presentacion_comercial)}</div>` : ""}
                     ${item.variante_resumen ? `<div class="text-primary fs-8">${escapeHtml(item.variante_resumen)}</div>` : ""}
                 </td>
                 <td>${escapeHtml(item.categoria || "Sin categoria")}</td>
@@ -597,10 +597,16 @@
 
     function etiquetaVariante(item) {
         const resumen = String(item.variante_resumen || "").trim();
-        if (resumen) return resumen;
-        const presentacion = String(item.presentacion_comercial || "").trim();
-        if (presentacion && presentacion !== String(item.sku || "").trim()) return presentacion;
+        if (resumen) return etiquetaValorVariante(resumen);
         return String(item.nombre || item.sku || "Variante").trim();
+    }
+
+    function etiquetaValorVariante(texto) {
+        return String(texto || "")
+            .split("|")
+            .map((parte) => parte.trim().replace(/^[^:]{1,35}:\s*/, ""))
+            .filter(Boolean)
+            .join(" | ");
     }
 
     function precioTextoComercial(item) {
@@ -734,7 +740,7 @@
                 <div class="cc-card__title">${escapeHtml(item.nombre)}</div>
                 ${mostrarMarca && item.marca ? `<div class="cc-card__meta">${escapeHtml(item.marca)}</div>` : ""}
                 ${mostrarCategoria ? `<div class="cc-card__meta">${escapeHtml(item.categoria || "Sin categoria")}</div>` : ""}
-                ${mostrarPresentacion ? `<div class="cc-card__meta">${escapeHtml(item.presentacion_comercial || item.sku)}</div>` : ""}
+                ${mostrarPresentacion && item.presentacion_comercial ? `<div class="cc-card__meta">${escapeHtml(item.presentacion_comercial)}</div>` : ""}
                 ${Array.isArray(item.variantes) && item.variantes.some((variante) => variante.imagen_portada) ? `<div class="cc-card__variant-images">${item.variantes.filter((variante) => variante.imagen_portada).slice(0, 6).map((variante) => `<img class="cc-card__variant-image" src="${escapeHtml(normalizarRutaImagen(variante.imagen_portada))}" alt="">`).join("")}</div>` : ""}
                 ${Array.isArray(item.variantes) && item.variantes.length ? `<div class="cc-card__variants">${item.variantes.slice(0, 8).map((variante) => `<span class="cc-card__variant">${escapeHtml(variante.etiqueta || variante.sku || "Variante")}</span>`).join("")}</div>` : ""}
                 ${mostrarSku ? `<div class="cc-card__meta">${escapeHtml(item.sku)}</div>` : ""}
@@ -1030,19 +1036,55 @@
         const nombre = ($("cc_borrador_nombre")?.value || "").trim();
         if (!nombre) throw new Error("Captura un nombre para el catalogo");
         if (!estado.seleccion.size) throw new Error("Selecciona al menos un producto para guardar");
+        const botonGuardar = $("cc_guardar_borrador");
+        const htmlOriginal = botonGuardar ? botonGuardar.innerHTML : "";
+        if (botonGuardar) {
+            botonGuardar.disabled = true;
+            botonGuardar.innerHTML = `<span class="spinner-border spinner-border-sm me-2"></span>Guardando`;
+        }
         guardarOpcionesLocal();
-        const json = await apiPost("/catalogoerp/catalogos_comerciales_guardar", {
-            id_catalogo_comercial: estado.catalogoActualId || 0,
-            nombre,
-            material: JSON.stringify(materialActual()),
-            opciones: JSON.stringify(opcionesActuales()),
-            items: JSON.stringify(Array.from(estado.seleccion.values()))
+        setEstado("Guardando catalogo", "warning");
+        try {
+            const json = await apiPost("/catalogoerp/catalogos_comerciales_guardar", {
+                id_catalogo_comercial: estado.catalogoActualId || 0,
+                nombre,
+                material: JSON.stringify(materialActual()),
+                opciones: JSON.stringify(opcionesActuales()),
+                items: JSON.stringify(Array.from(estado.seleccion.values()))
+            });
+            if (json.error) throw new Error(json.mensaje || "No se pudo guardar el catalogo");
+            estado.catalogoActualId = Number(json.depurar && json.depurar.id_catalogo_comercial ? json.depurar.id_catalogo_comercial : 0);
+            await cargarCatalogosGuardados();
+            if ($("cc_borradores_guardados")) $("cc_borradores_guardados").value = String(estado.catalogoActualId || "");
+            if (estado.catalogoActualId > 0 && window.history && window.history.replaceState) {
+                window.history.replaceState({}, "", `/catalogoerp/catalogos_comerciales_editar?id_catalogo_comercial=${encodeURIComponent(estado.catalogoActualId)}`);
+            }
+            setEstado("Catalogo guardado", "success");
+            await confirmarCatalogoGuardado();
+        } finally {
+            if (botonGuardar) {
+                botonGuardar.disabled = false;
+                botonGuardar.innerHTML = htmlOriginal || `<i class="bi bi-save"></i> Guardar`;
+            }
+        }
+    }
+
+    async function confirmarCatalogoGuardado() {
+        if (!window.Swal) {
+            alert("Catalogo guardado correctamente");
+            return;
+        }
+        const resultado = await Swal.fire({
+            title: "Catalogo guardado",
+            text: "Puedes seguir editando este catalogo o volver a la lista.",
+            icon: "success",
+            showDenyButton: true,
+            confirmButtonText: "Seguir editando",
+            denyButtonText: "Ir a catalogos"
         });
-        if (json.error) throw new Error(json.mensaje || "No se pudo guardar el catalogo");
-        estado.catalogoActualId = Number(json.depurar && json.depurar.id_catalogo_comercial ? json.depurar.id_catalogo_comercial : 0);
-        await cargarCatalogosGuardados();
-        if ($("cc_borradores_guardados")) $("cc_borradores_guardados").value = String(estado.catalogoActualId || "");
-        setEstado("Catalogo guardado", "success");
+        if (resultado.isDenied) {
+            window.location.href = "/catalogoerp/catalogos_comerciales";
+        }
     }
 
     /**
@@ -1496,6 +1538,20 @@
         ctx.drawImage(img, dx, dy, dw, dh);
     }
 
+    function dibujarImagenCuadrada(ctx, img, x, y, size) {
+        ctx.save();
+        ctx.fillStyle = "#f8fafc";
+        redondearRect(ctx, x, y, size, size, 8);
+        ctx.fill();
+        ctx.strokeStyle = "#dfe3ea";
+        ctx.lineWidth = 1;
+        ctx.stroke();
+        redondearRect(ctx, x + 2, y + 2, size - 4, size - 4, 6);
+        ctx.clip();
+        dibujarImagenContain(ctx, img, x + 4, y + 4, size - 8, size - 8);
+        ctx.restore();
+    }
+
     async function dibujarTarjetaCanvas(ctx, item, x, y, w, h, opciones) {
         const estilo = opciones.estiloVisual || estiloVisualActual();
         ctx.save();
@@ -1505,7 +1561,9 @@
         ctx.strokeStyle = "#dfe3ea";
         ctx.lineWidth = 2;
         ctx.stroke();
-        const altoImagen = Math.round(h * 0.67);
+        const altoImagen = Array.isArray(item.variantes) && item.variantes.length
+            ? Math.min(Math.round(w * 0.9), Math.round(h * 0.58))
+            : Math.min(w, Math.round(h * 0.66));
         ctx.fillStyle = "#f8fafc";
         redondearRect(ctx, x, y, w, altoImagen, 18);
         ctx.fill();
@@ -1524,7 +1582,7 @@
         const metas = [];
         if (opciones.mostrarMarca && item.marca) metas.push(item.marca);
         if (opciones.mostrarCategoria) metas.push(item.categoria || "Sin categoria");
-        if (opciones.mostrarPresentacion) metas.push(item.presentacion_comercial || item.sku || "");
+        if (opciones.mostrarPresentacion && item.presentacion_comercial) metas.push(item.presentacion_comercial);
         if (opciones.mostrarSku) metas.push(item.sku || "");
         if (opciones.mostrarDisponibilidad) metas.push(item.disponibilidad_simple || "consultar disponibilidad");
         const precioY = y + h - 18;
@@ -1533,14 +1591,24 @@
             cursor = canvasTexto(ctx, meta, x + 10, cursor, w - 20, Math.max(10, Number(estilo.tamMeta || 9) + 2), 1);
         });
         if (Array.isArray(item.variantes) && item.variantes.length) {
+            const variantesConImagen = item.variantes.filter((variante) => variante.imagen_portada).slice(0, 5);
+            if (variantesConImagen.length && cursor <= precioY - 58) {
+                const gapMini = 6;
+                const miniSize = Math.min(48, Math.max(34, Math.floor((w - 20 - gapMini * (variantesConImagen.length - 1)) / variantesConImagen.length)));
+                for (let i = 0; i < variantesConImagen.length; i += 1) {
+                    const imgVariante = await cargarImagenCanvas(variantesConImagen[i].imagen_portada);
+                    dibujarImagenCuadrada(ctx, imgVariante, x + 10 + i * (miniSize + gapMini), cursor, miniSize);
+                }
+                cursor += miniSize + 8;
+            }
             ctx.fillStyle = estilo.colorMeta || "#5e6278";
             ctx.font = `700 ${estilo.tamMeta || 9}px ${estilo.familiaFuente || "Arial, sans-serif"}`;
-            item.variantes.slice(0, 5).forEach((variante) => {
+            item.variantes.slice(0, 6).forEach((variante) => {
                 if (cursor > precioY - 24) return;
-                cursor = canvasTexto(ctx, `- ${variante.etiqueta || variante.sku || "Variante"}`, x + 10, cursor, w - 20, Math.max(10, Number(estilo.tamMeta || 9) + 2), 1);
+                cursor = canvasTexto(ctx, etiquetaValorVariante(variante.etiqueta || variante.sku || "Variante"), x + 10, cursor, w - 20, Math.max(10, Number(estilo.tamMeta || 9) + 2), 1);
             });
-            if (item.variantes.length > 5 && cursor <= precioY - 24) {
-                cursor = canvasTexto(ctx, `+ ${item.variantes.length - 5} variantes mas`, x + 10, cursor, w - 20, Math.max(10, Number(estilo.tamMeta || 9) + 2), 1);
+            if (item.variantes.length > 6 && cursor <= precioY - 24) {
+                cursor = canvasTexto(ctx, `+ ${item.variantes.length - 6} variantes mas`, x + 10, cursor, w - 20, Math.max(10, Number(estilo.tamMeta || 9) + 2), 1);
             }
         }
         if (opciones.mostrarPrecio) {
