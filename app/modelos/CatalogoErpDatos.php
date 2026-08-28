@@ -388,6 +388,9 @@ class CatalogoErpDatos extends CRUD {
             nombre=:nombre, titulo=:titulo, subtitulo=:subtitulo, cta=:cta, plantilla=:plantilla,
             mostrar_precio=:precio, mostrar_marca=:marca, mostrar_categoria=:categoria,
             mostrar_presentacion=:presentacion, mostrar_sku=:sku, mostrar_disponibilidad=:disponibilidad,
+            agrupar_variantes=:agrupar_variantes, fuente_visual=:fuente_visual,
+            color_titulo=:color_titulo, color_producto=:color_producto, color_meta=:color_meta, color_precio=:color_precio,
+            tam_titulo=:tam_titulo, tam_producto=:tam_producto, tam_meta=:tam_meta, tam_precio=:tam_precio,
             portada_activa=:portada_activa, portada_etiqueta=:portada_etiqueta,
             portada_descripcion=:portada_descripcion, portada_nota=:portada_nota,
             id_usuario_actualizacion=:usuario, fecha_actualizacion=CURRENT_TIMESTAMP
@@ -397,10 +400,14 @@ class CatalogoErpDatos extends CRUD {
         $codigo = $this->codigoCatalogoComercial($db);
         $stmt = $db->prepare("INSERT INTO erp_catalogo_comercial_catalogos
           (codigo, nombre, titulo, subtitulo, cta, plantilla, mostrar_precio, mostrar_marca, mostrar_categoria,
-           mostrar_presentacion, mostrar_sku, mostrar_disponibilidad, portada_activa, portada_etiqueta,
+           mostrar_presentacion, mostrar_sku, mostrar_disponibilidad, agrupar_variantes, fuente_visual,
+           color_titulo, color_producto, color_meta, color_precio, tam_titulo, tam_producto, tam_meta, tam_precio,
+           portada_activa, portada_etiqueta,
            portada_descripcion, portada_nota, estatus, id_usuario_creacion, id_usuario_actualizacion)
           VALUES (:codigo, :nombre, :titulo, :subtitulo, :cta, :plantilla, :precio, :marca, :categoria,
-           :presentacion, :sku, :disponibilidad, :portada_activa, :portada_etiqueta,
+           :presentacion, :sku, :disponibilidad, :agrupar_variantes, :fuente_visual,
+           :color_titulo, :color_producto, :color_meta, :color_precio, :tam_titulo, :tam_producto, :tam_meta, :tam_precio,
+           :portada_activa, :portada_etiqueta,
            :portada_descripcion, :portada_nota, 'borrador', :usuario, :usuario)");
         $params = $this->paramsCatalogoComercial(0, $nombre, $titulo, $material, $opciones, $idUsuario);
         $params[":codigo"] = $codigo;
@@ -7634,7 +7641,19 @@ class CatalogoErpDatos extends CRUD {
       "mostrarCategoria" => intval($catalogo["mostrar_categoria"]) === 1,
       "mostrarPresentacion" => intval($catalogo["mostrar_presentacion"]) === 1,
       "mostrarSku" => intval($catalogo["mostrar_sku"]) === 1,
-      "mostrarDisponibilidad" => intval($catalogo["mostrar_disponibilidad"]) === 1
+      "mostrarDisponibilidad" => intval($catalogo["mostrar_disponibilidad"]) === 1,
+      "agruparVariantes" => intval(isset($catalogo["agrupar_variantes"]) ? $catalogo["agrupar_variantes"] : 0) === 1,
+      "estiloVisual" => array(
+        "fuente" => $this->normalizarFuenteVisualCatalogoComercial(isset($catalogo["fuente_visual"]) ? $catalogo["fuente_visual"] : "arial"),
+        "colorTitulo" => $this->normalizarColorCatalogoComercial(isset($catalogo["color_titulo"]) ? $catalogo["color_titulo"] : "", "#181c32"),
+        "colorProducto" => $this->normalizarColorCatalogoComercial(isset($catalogo["color_producto"]) ? $catalogo["color_producto"] : "", "#181c32"),
+        "colorMeta" => $this->normalizarColorCatalogoComercial(isset($catalogo["color_meta"]) ? $catalogo["color_meta"] : "", "#5e6278"),
+        "colorPrecio" => $this->normalizarColorCatalogoComercial(isset($catalogo["color_precio"]) ? $catalogo["color_precio"] : "", "#0f7a5f"),
+        "tamTitulo" => $this->normalizarTamCatalogoComercial(isset($catalogo["tam_titulo"]) ? $catalogo["tam_titulo"] : 23, array(21, 23, 26, 30), 23),
+        "tamProducto" => $this->normalizarTamCatalogoComercial(isset($catalogo["tam_producto"]) ? $catalogo["tam_producto"] : 11, array(10, 11, 13, 15), 11),
+        "tamMeta" => $this->normalizarTamCatalogoComercial(isset($catalogo["tam_meta"]) ? $catalogo["tam_meta"] : 9, array(8, 9, 10, 12), 9),
+        "tamPrecio" => $this->normalizarTamCatalogoComercial(isset($catalogo["tam_precio"]) ? $catalogo["tam_precio"] : 13, array(12, 13, 15, 18), 13)
+      )
     );
   }
 
@@ -7650,6 +7669,7 @@ class CatalogoErpDatos extends CRUD {
   }
 
   private function paramsCatalogoComercial($idCatalogo, $nombre, $titulo, $material, $opciones, $idUsuario) {
+    $estiloVisual = $this->estiloVisualCatalogoComercial($opciones);
     return array(
       ":id" => intval($idCatalogo),
       ":nombre" => substr($nombre, 0, 120),
@@ -7663,6 +7683,16 @@ class CatalogoErpDatos extends CRUD {
       ":presentacion" => array_key_exists("mostrarPresentacion", $opciones) ? (!empty($opciones["mostrarPresentacion"]) ? 1 : 0) : 1,
       ":sku" => !empty($opciones["mostrarSku"]) ? 1 : 0,
       ":disponibilidad" => !empty($opciones["mostrarDisponibilidad"]) ? 1 : 0,
+      ":agrupar_variantes" => !empty($opciones["agruparVariantes"]) ? 1 : 0,
+      ":fuente_visual" => $estiloVisual["fuente"],
+      ":color_titulo" => $estiloVisual["colorTitulo"],
+      ":color_producto" => $estiloVisual["colorProducto"],
+      ":color_meta" => $estiloVisual["colorMeta"],
+      ":color_precio" => $estiloVisual["colorPrecio"],
+      ":tam_titulo" => $estiloVisual["tamTitulo"],
+      ":tam_producto" => $estiloVisual["tamProducto"],
+      ":tam_meta" => $estiloVisual["tamMeta"],
+      ":tam_precio" => $estiloVisual["tamPrecio"],
       ":portada_activa" => array_key_exists("portadaActiva", $material) ? (!empty($material["portadaActiva"]) ? 1 : 0) : 1,
       ":portada_etiqueta" => substr(trim((string)(isset($material["portadaEtiqueta"]) ? $material["portadaEtiqueta"] : "")), 0, 80) ?: null,
       ":portada_descripcion" => substr(trim((string)(isset($material["portadaDescripcion"]) ? $material["portadaDescripcion"] : "")), 0, 255) ?: null,
@@ -7683,6 +7713,43 @@ class CatalogoErpDatos extends CRUD {
       return $base . "_" . $columnas . $filas;
     }
     return "square_3";
+  }
+
+  /**
+   * IA GPT-5 Codex - 2026-08-27
+   * Proposito: normalizar estilos visuales persistidos para Catalogos comerciales sin afectar datos operativos de SKU.
+   * Impacto: Catalogo ERP/Comercial; limita tipografias, colores y tamanos guardados por catalogo.
+   * Contrato: devuelve defaults validos si el cliente envia valores vacios o fuera de catalogo.
+   */
+  private function estiloVisualCatalogoComercial($opciones) {
+    $estilo = isset($opciones["estiloVisual"]) && is_array($opciones["estiloVisual"]) ? $opciones["estiloVisual"] : array();
+    return array(
+      "fuente" => $this->normalizarFuenteVisualCatalogoComercial(isset($estilo["fuente"]) ? $estilo["fuente"] : "arial"),
+      "colorTitulo" => $this->normalizarColorCatalogoComercial(isset($estilo["colorTitulo"]) ? $estilo["colorTitulo"] : "", "#181c32"),
+      "colorProducto" => $this->normalizarColorCatalogoComercial(isset($estilo["colorProducto"]) ? $estilo["colorProducto"] : "", "#181c32"),
+      "colorMeta" => $this->normalizarColorCatalogoComercial(isset($estilo["colorMeta"]) ? $estilo["colorMeta"] : "", "#5e6278"),
+      "colorPrecio" => $this->normalizarColorCatalogoComercial(isset($estilo["colorPrecio"]) ? $estilo["colorPrecio"] : "", "#0f7a5f"),
+      "tamTitulo" => $this->normalizarTamCatalogoComercial(isset($estilo["tamTitulo"]) ? $estilo["tamTitulo"] : 23, array(21, 23, 26, 30), 23),
+      "tamProducto" => $this->normalizarTamCatalogoComercial(isset($estilo["tamProducto"]) ? $estilo["tamProducto"] : 11, array(10, 11, 13, 15), 11),
+      "tamMeta" => $this->normalizarTamCatalogoComercial(isset($estilo["tamMeta"]) ? $estilo["tamMeta"] : 9, array(8, 9, 10, 12), 9),
+      "tamPrecio" => $this->normalizarTamCatalogoComercial(isset($estilo["tamPrecio"]) ? $estilo["tamPrecio"] : 13, array(12, 13, 15, 18), 13)
+    );
+  }
+
+  private function normalizarFuenteVisualCatalogoComercial($valor) {
+    $fuente = strtolower(trim((string)$valor));
+    $permitidas = array("arial", "montserrat", "playfair", "georgia", "verdana");
+    return in_array($fuente, $permitidas, true) ? $fuente : "arial";
+  }
+
+  private function normalizarColorCatalogoComercial($valor, $default) {
+    $color = strtolower(trim((string)$valor));
+    return preg_match('/^#[0-9a-f]{6}$/', $color) ? $color : $default;
+  }
+
+  private function normalizarTamCatalogoComercial($valor, $permitidos, $default) {
+    $tam = intval($valor);
+    return in_array($tam, $permitidos, true) ? $tam : intval($default);
   }
 
   private function codigoCatalogoComercial($db) {

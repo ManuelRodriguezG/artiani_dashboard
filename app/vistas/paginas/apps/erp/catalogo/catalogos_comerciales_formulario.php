@@ -451,6 +451,6 @@ $ccSubtitulo = $ccSoloVista ? "Vista previa y exportacion para redes" : "Informa
 </div>
 <script src="assets/plugins/global/plugins.bundle.js"></script>
 <script src="assets/js/scripts.bundle.js"></script>
-<script src="/assets/js/custom/apps/erp/catalogo/catalogos_comerciales.js?v=20260827-estilo-visual-1"></script>
+<script src="/assets/js/custom/apps/erp/catalogo/catalogos_comerciales.js?v=20260827-estilo-variantes-db-1"></script>
 </body>
 </html>

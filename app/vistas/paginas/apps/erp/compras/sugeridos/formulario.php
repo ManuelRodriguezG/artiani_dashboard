@@ -139,10 +139,15 @@ $modo = isset($datos["modo"]) ? $datos["modo"] : "editar";
                                 <tbody id="sugerido_items"></tbody>
                                 <tfoot>
                                     <tr>
-                                        <td colspan="7" class="text-end fw-bold">Total estimado</td>
+                                        <td colspan="7" class="text-end fw-bold">Total a solicitar estimado</td>
                                         <td class="text-end fw-bold" id="sugerido_total_piezas">0</td>
                                         <td class="text-end fw-bold fs-5" id="sugerido_total">$0.00</td>
                                         <td></td>
+                                    </tr>
+                                    <tr>
+                                        <td colspan="8" class="text-end text-muted fw-bold">Inventario fisico estimado</td>
+                                        <td class="text-end text-muted fw-bold" id="sugerido_total_inventario_estimado">$0.00</td>
+                                        <td class="text-muted fs-8">Existencia revisada x costo</td>
                                     </tr>
                                 </tfoot>
                             </table>
@@ -155,7 +160,7 @@ $modo = isset($datos["modo"]) ? $datos["modo"] : "editar";
 </div>
 <script src="assets/plugins/global/plugins.bundle.js"></script>
 <script src="assets/js/scripts.bundle.js"></script>
-<script src="/assets/js/custom/apps/erp/compras/sugeridos/formulario.js?v=20260827-1"></script>
+<script src="/assets/js/custom/apps/erp/compras/sugeridos/formulario.js?v=20260827-2"></script>
 </body>
 </html>
 

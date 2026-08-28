@@ -218,11 +218,20 @@
         render();
     }
 
+    /**
+     * IA: Codex GPT-5 | Fecha: 2026-08-27
+     * Proposito: mostrar el valor aproximado levantado en mini inventarios sin afectar inventario real.
+     * Impacto: UX Compras/Sugerido; calcula solo en pantalla con existencia revisada x costo estimado.
+     */
     function actualizarResumen() {
         var totalPiezas = items.reduce(function (t, x) { return t + Number(x.cantidad_solicitar || 0); }, 0);
         var total = items.reduce(function (t, x) { return t + Number(x.cantidad_solicitar || 0) * Number(x.costo_estimado || 0); }, 0);
+        var totalInventarioEstimado = items.reduce(function (t, x) {
+            return t + Number(x.existencia_revisada || 0) * Number(x.costo_estimado || 0);
+        }, 0);
         document.getElementById("sugerido_total_piezas").textContent = totalPiezas.toFixed(6);
         document.getElementById("sugerido_total").textContent = money(total);
+        document.getElementById("sugerido_total_inventario_estimado").textContent = money(totalInventarioEstimado);
         document.getElementById("sugerido_resumen").textContent = items.length + " productos consultados; " +
             items.filter(function (x) { return Number(x.cantidad_solicitar || 0) > 0; }).length + " con cantidad a solicitar.";
     }

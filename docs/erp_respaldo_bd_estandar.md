@@ -379,3 +379,28 @@ Alcance:
 - Vinculacion a roles base `direccion`, `crm` y `administrador_erp`.
 - No retira permisos amplios existentes.
 - No toca clientes, ventas, POS, ecommerce, garantias, apartados, devoluciones ni legacy.
+
+## Catalogo ERP - Catalogos comerciales estilos y variantes
+
+Fecha: 2026-08-27  
+Ruta estandar usada:
+
+```txt
+C:\xampp\panel_db_backups\artianicom_sys_panel_de_control_20260827_antes_catalogos_comerciales_estilos_variantes.sql
+```
+
+Validacion:
+
+```text
+archivo_existe=true
+archivo_legible=true
+tamano_bytes=39072861
+```
+
+Alcance:
+
+- Base efectiva del proyecto para `panel.com.local`: `artianicom_sys`.
+- Agrega persistencia de estilo visual por catalogo comercial: fuente, colores y tamanos de texto.
+- Agrega bandera `agrupar_variantes` para presentacion visual de variantes.
+- No fusiona ni borra SKUs.
+- No toca costos, rentabilidad, inventario, compras, ventas ni listas de precios.

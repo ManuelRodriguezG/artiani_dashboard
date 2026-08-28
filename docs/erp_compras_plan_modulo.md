@@ -1,4 +1,4 @@
-﻿# ERP Compras y Solicitudes - Plan vivo del modulo
+# ERP Compras y Solicitudes - Plan vivo del modulo
 
 Documentacion IA: Codex GPT-5  
 Fecha base: 2026-06-07  
@@ -908,3 +908,14 @@ Decision:
 Motivo:
 
 - Seguridad, trazabilidad y control de almacenamiento.
+
+## Decision operativa: mini inventario en Sugerido de compra
+
+Documentacion IA: Codex GPT-5  
+Fecha: 2026-08-27  
+Modulo: Compras / Sugerido de compra
+
+- La existencia revisada capturada en Sugerido de compra es una herramienta operativa de decision, no inventario oficial.
+- No debe crear kardex, movimientos ni modificar existencias reales.
+- Puede mostrar un valor aproximado de inventario fisico usando `existencia revisada x costo estimado` para ayudar a dimensionar mercancia disponible.
+- Ese importe debe tratarse como estimacion de trabajo, no como valuacion contable definitiva.

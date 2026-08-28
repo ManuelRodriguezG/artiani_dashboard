@@ -1574,4 +1574,39 @@ Regla:
 - El guardado sigue enviando todos los SKUs seleccionados por separado a `erp_catalogo_comercial_items`.
 - La agrupacion es solo visual y no fusiona, borra ni modifica SKUs, precios, inventario, compras o ventas.
 - Si una variante no tiene atributos capturados, la etiqueta cae a presentacion, nombre o SKU como respaldo visible.
-- Persistir el check `Agrupar variantes` por catalogo en BD requeriria DDL futuro; por ahora queda como opcion visual local/JSON.
+- Persistir el check `Agrupar variantes` por catalogo en BD requeria DDL futuro; queda atendido en el ajuste del 2026-08-27 de persistencia visual.
+
+## Ajuste 2026-08-27 - Persistencia BD de estilos y agrupacion visual
+
+Contexto:
+
+- El usuario autorizo implementar en base de datos los colores, tipografia, tamanos y agrupacion visual de variantes.
+- Antes de DDL productivo se genero respaldo externo en `C:\xampp\panel_db_backups\artianicom_sys_panel_de_control_20260827_antes_catalogos_comerciales_estilos_variantes.sql`.
+
+DDL aplicado:
+
+- Tabla: `erp_catalogo_comercial_catalogos`.
+- Base efectiva del proyecto para `panel.com.local`: `artianicom_sys`.
+- Columnas agregadas:
+  - `agrupar_variantes TINYINT(1) NOT NULL DEFAULT 0`;
+  - `fuente_visual VARCHAR(30) NOT NULL DEFAULT 'arial'`;
+  - `color_titulo VARCHAR(7) NOT NULL DEFAULT '#181c32'`;
+  - `color_producto VARCHAR(7) NOT NULL DEFAULT '#181c32'`;
+  - `color_meta VARCHAR(7) NOT NULL DEFAULT '#5e6278'`;
+  - `color_precio VARCHAR(7) NOT NULL DEFAULT '#0f7a5f'`;
+  - `tam_titulo INT NOT NULL DEFAULT 23`;
+  - `tam_producto INT NOT NULL DEFAULT 11`;
+  - `tam_meta INT NOT NULL DEFAULT 9`;
+  - `tam_precio INT NOT NULL DEFAULT 13`.
+
+Cambios aplicados:
+
+- El esquema `CatalogoErpEsquema` crea estas columnas en instalaciones nuevas y las agrega si faltan en instalaciones existentes.
+- `CatalogoErpDatos::guardarCatalogoComercial()` persiste estilos visuales y la bandera `agrupar_variantes`.
+- `CatalogoErpDatos::consultarCatalogoComercial()` devuelve estas opciones para reconstruir el editor desde BD.
+- Se normalizan valores permitidos de fuente, colores hexadecimales y tamanos antes de guardar.
+
+Regla:
+
+- La agrupacion sigue siendo visual; los items del catalogo comercial se guardan como SKUs separados en `erp_catalogo_comercial_items`.
+- No se tocan costos, rentabilidad, inventario, compras, ventas ni listas de precios.
