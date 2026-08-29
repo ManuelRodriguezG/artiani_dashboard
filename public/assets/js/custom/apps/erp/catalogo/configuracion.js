@@ -27,11 +27,39 @@
     var relacionesProveedorSeleccionadas = {};
     var permisos = window.CATALOGO_PERMISOS || {};
     var proveedorCostosInicializado = false;
+    var guardandoMaestro = false;
     var cargasDiferidas = {};
     var modulosConfiguracion = ["maestros", "calidad", "clasificacion", "clasificacion_heredada", "reglas", "proveedor_costos"];
 
+    /**
+     * IA: Codex GPT-5 | Fecha: 2026-08-29
+     * Proposito: normaliza respuestas AJAX de Configuracion para distinguir errores de sesion, permisos y JSON invalido.
+     * Impacto: Catalogo ERP; evita que el guardado de maestros parezca perdido cuando el backend devuelve HTML o 403.
+     * Contrato: acepta JSON servido como texto/HTML por endpoints legados; lanza Error legible si el cuerpo no es JSON valido.
+     */
     function request(url, data) {
-        return fetch(url, {method: data ? "POST" : "GET", headers: data ? {"Content-Type": "application/x-www-form-urlencoded; charset=UTF-8"} : {}, body: data ? new URLSearchParams(data).toString() : null, credentials: "same-origin"}).then(function (response) { return response.json(); });
+        return fetch(url, {
+            method: data ? "POST" : "GET",
+            headers: data ? {"Content-Type": "application/x-www-form-urlencoded; charset=UTF-8"} : {},
+            body: data ? new URLSearchParams(data).toString() : null,
+            credentials: "same-origin"
+        }).then(function (response) {
+            return response.text().then(function (text) {
+                var json;
+                try {
+                    json = JSON.parse(text);
+                } catch (e) {
+                    throw new Error(response.status === 401 || response.status === 403
+                        ? "Tu sesion o permiso ya no permite guardar. Vuelve a iniciar sesion y reintenta."
+                        : "El servidor no devolvio una respuesta JSON valida. Revisa sesion o recarga la pantalla.");
+                }
+                if (!response.ok && !json.error) {
+                    json.error = true;
+                    json.mensaje = json.mensaje || "No se pudo completar la solicitud.";
+                }
+                return json;
+            });
+        });
     }
 
     /**
@@ -1294,6 +1322,7 @@
     }
 
     function abrirNuevo() {
+        limpiarErrorMaestro();
         form.reset();
         setValor("tipo_catalogo", tipoActual);
         setValor("id", "");
@@ -1309,6 +1338,7 @@
     }
 
     function abrirEditar(tipo, id) {
+        limpiarErrorMaestro();
         tipoActual = tipo;
         form.reset();
         configurarCampos(tipo);
@@ -1427,8 +1457,20 @@
         return false;
     }
 
+    /**
+     * IA: Codex GPT-5 | Fecha: 2026-08-29
+     * Proposito: guarda datos maestros con proteccion contra doble envio y errores visibles.
+     * Impacto: Catalogo ERP; reduce altas parciales o percepcion de perdida al crear categorias y subcategorias.
+     * Contrato: serializa `catalogo_aux_form`, llama `/catalogoerp/auxiliar_guardar` y refresca `/auxiliares_listar` antes de cerrar el ciclo visual.
+     */
     function guardar(event) {
         event.preventDefault();
+        if (guardandoMaestro) {
+            return;
+        }
+        guardandoMaestro = true;
+        limpiarErrorMaestro();
+        actualizarEstadoGuardadoMaestro(true);
         var data = {}; new FormData(form).forEach(function (value, key) { data[key] = value; });
         request("/catalogoerp/auxiliar_guardar", data).then(function (response) {
             if (response.error) { throw new Error(response.mensaje); }
@@ -1436,11 +1478,49 @@
             modal.hide();
             return cargar().then(function () {
                 enfocarRegistroMaestro(data.tipo_catalogo, idGuardado);
-                Swal.fire({text: response.mensaje, icon: "success", confirmButtonText: "Aceptar"});
+                var existe = obtenerItemCatalogo(data.tipo_catalogo, idGuardado);
+                Swal.fire({
+                    text: existe ? response.mensaje : response.mensaje + " Si no lo ves en la lista, limpia filtros o recarga la pantalla.",
+                    icon: existe ? "success" : "info",
+                    confirmButtonText: "Aceptar"
+                });
             });
         }).catch(function (error) {
-            var box = document.getElementById("catalogo_aux_error"); box.textContent = error.message; box.classList.remove("d-none");
+            mostrarErrorMaestro(error.message);
+        }).finally(function () {
+            guardandoMaestro = false;
+            actualizarEstadoGuardadoMaestro(false);
         });
+    }
+
+    /**
+     * IA: Codex GPT-5 | Fecha: 2026-08-29
+     * Proposito: controla el estado visual del formulario maestro durante guardado AJAX.
+     * Impacto: Catalogo ERP; evita doble clics y errores viejos al capturar altas consecutivas.
+     */
+    function actualizarEstadoGuardadoMaestro(guardando) {
+        var boton = form ? form.querySelector("button[type='submit']") : null;
+        if (!boton) {
+            return;
+        }
+        boton.disabled = !!guardando;
+        boton.innerHTML = guardando ? "Guardando..." : "<i class=\"bi bi-check-lg\"></i> Guardar";
+    }
+
+    function limpiarErrorMaestro() {
+        var box = document.getElementById("catalogo_aux_error");
+        if (box) {
+            box.textContent = "";
+            box.classList.add("d-none");
+        }
+    }
+
+    function mostrarErrorMaestro(mensaje) {
+        var box = document.getElementById("catalogo_aux_error");
+        if (box) {
+            box.textContent = mensaje || "No se pudo guardar el registro.";
+            box.classList.remove("d-none");
+        }
     }
 
     /**

@@ -9,6 +9,7 @@ $cmsFrontendTitulo = "CMS - Frontend Categorias";
 $cmsFrontendHeading = "CMS / Frontend / Categorias";
 $cmsFrontendSubtitulo = "Administra imagenes, banners, SEO, visibilidad y orden editorial de categorias";
 $cmsFrontendGrupoInicial = "categorias";
+$cmsFrontendVistaDedicada = true;
 $cmsFrontendAvisoTitulo = "Categorias publicas del ecommerce";
 $cmsFrontendAvisoTexto = "Aqui se prepara la capa editorial de categorias: imagen card, banner, textos SEO, destacado y orden. Las categorias reales seguiran viniendo del ERP/API publica; el CMS solo las enriquece.";
 require __DIR__ . "/frontend_actual.php";

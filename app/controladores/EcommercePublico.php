@@ -69,6 +69,28 @@ class EcommercePublico extends Controlador {
   }
 
   /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-08-28
+   * Proposito: exponer alias semantico para que el frontend consuma contenido CMS publicado por pagina.
+   * Impacto: Ecommerce publico; alinea contrato CMS/frontend sin duplicar reglas ni leer archivos internos.
+   * Contrato: GET publico read-only; delega en contenido_pagina y no escribe BD.
+   */
+  public function cms_frontend() {
+    if ($this->esOptionsPublicas()) { return $this->responderOpcionesPublicas(); }
+    return $this->responderApiPublica($this->modelo("EcommerceCatalogoPublico")->contenidoPaginaPublica($_GET));
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-08-28
+   * Proposito: exponer checklist vivo de requerimientos CMS que frontend debe integrar.
+   * Impacto: Frontend ecommerce; sincroniza pendientes sin leer documentos internos del ERP.
+   * Contrato: GET publico read-only; no escribe BD, no expone secretos ni toca catalogo/inventario.
+   */
+  public function frontend_requerimientos() {
+    if ($this->esOptionsPublicas()) { return $this->responderOpcionesPublicas(); }
+    return $this->responderApiPublica($this->modelo("EcommerceCatalogoPublico")->frontendRequerimientosPublicos($_GET));
+  }
+
+  /**
    * Documentacion IA: Codex GPT-5 | Fecha: 2026-07-31
    * Proposito: entregar paquete inicial para que el frontend arranque ecommerce con una sola llamada.
    * Impacto: Ecommerce publico; agrupa readiness, configuracion, filtros, secciones y canales sin escribir BD.

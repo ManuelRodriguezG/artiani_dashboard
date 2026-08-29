@@ -4531,3 +4531,12 @@ Pendiente recomendado:
 - Contratos: componentes fijos usan `erp_catalogo_sku_paquete_componentes`; grupos configurables usan `erp_catalogo_sku_paquete_grupos`; opciones usan `erp_catalogo_sku_paquete_grupo_opciones`. El buscador global de SKUs excluye productos/SKUs inactivos, descontinuados o fusionados.
 - Impacta a: Rentabilidad debe atender incidencias de costo derivado para paquetes; Listas de precios debe asignar precio comercial al SKU paquete; Inventario/Ventas aun no deben ejecutar armado ni venta configurable hasta su propio cierre.
 - Siguiente paso recomendado: probar `/catalogoerp/paquetes` creando un SKU paquete minimo, guardar receta con componentes, agregar un grupo configurable y una opcion; confirmar que el modal de producto ya no muestra la pestaña Paquetes.
+
+## Avance 2026-08-29 - Guardado de datos maestros en Configuracion
+
+- Proyecto aplicado: `C:\xampp\htdocs\panel_de_control`.
+- Hallazgo: el flujo de Configuracion > Catalogos maestros guardaba por AJAX, pero si la sesion/permisos devolvian HTML o una respuesta no JSON, la UI podia sentirse como "no guardo" sin una causa clara.
+- Riesgo operativo: al crear categorias/subcategorias en lote, un doble clic o una sesion vencida podia dejar al operador sin saber si el registro quedo guardado, oculto por filtros o rechazado por backend.
+- Correccion: `public/assets/js/custom/apps/erp/catalogo/configuracion.js` ahora acepta JSON servido como texto/HTML por endpoints legados, muestra error legible por sesion/permisos cuando el cuerpo no es JSON, bloquea doble envio del formulario maestro y espera refresco de `/catalogoerp/auxiliares_listar` antes de confirmar el guardado.
+- Sin cambios de esquema ni escrituras masivas en BD.
+- UAT recomendado: crear una categoria hija bajo una categoria activa, guardar una sola vez, confirmar mensaje de exito, confirmar que el renglon aparece/resalta y reabrir para validar `Categoria padre`, `Tipo`, `Origen`, `Permitir asignar productos directamente` y `Estado`.

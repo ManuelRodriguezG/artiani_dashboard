@@ -3,12 +3,13 @@
 <head>
     <base href="../../../../">
     <?php
-      $cmsFrontendTitulo = isset($cmsFrontendTitulo) ? $cmsFrontendTitulo : "CMS - Frontend Home ecommerce";
-      $cmsFrontendHeading = isset($cmsFrontendHeading) ? $cmsFrontendHeading : "CMS / Frontend / Home";
-      $cmsFrontendSubtitulo = isset($cmsFrontendSubtitulo) ? $cmsFrontendSubtitulo : "Administra las secciones visuales de Home que consumira el ecommerce publico";
+      $cmsFrontendTitulo = isset($cmsFrontendTitulo) ? $cmsFrontendTitulo : "CMS - Frontend ecommerce";
+      $cmsFrontendHeading = isset($cmsFrontendHeading) ? $cmsFrontendHeading : "CMS / Frontend";
+      $cmsFrontendSubtitulo = isset($cmsFrontendSubtitulo) ? $cmsFrontendSubtitulo : "Mapa general de paginas y grupos configurables del ecommerce publico";
       $cmsFrontendGrupoInicial = isset($cmsFrontendGrupoInicial) ? $cmsFrontendGrupoInicial : "home";
-      $cmsFrontendAvisoTitulo = isset($cmsFrontendAvisoTitulo) ? $cmsFrontendAvisoTitulo : "Home del frontend";
-      $cmsFrontendAvisoTexto = isset($cmsFrontendAvisoTexto) ? $cmsFrontendAvisoTexto : "Esta pantalla concentra lo editable de Home: hero, promo, categorias, productos destacados, colecciones y banner. Cada seccion publicable puede guardarse en BD y verificarse contra la API publica.";
+      $cmsFrontendVistaDedicada = !empty($cmsFrontendVistaDedicada);
+      $cmsFrontendAvisoTitulo = isset($cmsFrontendAvisoTitulo) ? $cmsFrontendAvisoTitulo : "Mapa CMS Frontend";
+      $cmsFrontendAvisoTexto = isset($cmsFrontendAvisoTexto) ? $cmsFrontendAvisoTexto : "Esta entrada sirve para ubicar paginas y grupos. Al abrir una pagina, el editor cambia a una vista dedicada para capturar solo lo que pertenece a esa parte del frontend.";
     ?>
     <title><?= htmlspecialchars($cmsFrontendTitulo, ENT_QUOTES, 'UTF-8'); ?></title>
     <meta charset="utf-8">
@@ -37,12 +38,19 @@
         .cms-actual-slide-preview > div { position: relative; max-width: 520px; }
         .cms-actual-status-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
         .cms-actual-status-card { border: 1px solid #e7e9ef; border-radius: 8px; background: #fff; padding: 14px; min-height: 104px; }
+        .cms-actual-page-links { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+        .cms-actual-page-link { display: block; border: 1px solid #e7e9ef; border-radius: 8px; background: #fff; padding: 12px; color: inherit; }
+        .cms-actual-page-link:hover { border-color: #009ef7; background: #f1faff; color: inherit; }
+        body[data-cms-actual-dedicada="1"] .cms-actual-grid { grid-template-columns: minmax(0, 1fr); }
+        body[data-cms-actual-dedicada="1"] .cms-actual-hub-only { display: none !important; }
+        body[data-cms-actual-dedicada="1"] .cms-actual-editor-panel { padding: 28px !important; }
         @media (max-width: 1199.98px) { .cms-actual-grid, .cms-actual-priority, .cms-actual-fields { grid-template-columns: 1fr; } }
+        @media (max-width: 1199.98px) { .cms-actual-page-links { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
         @media (max-width: 1199.98px) { .cms-actual-status-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-        @media (max-width: 767.98px) { .cms-actual-status-grid { grid-template-columns: 1fr; } }
+        @media (max-width: 767.98px) { .cms-actual-status-grid, .cms-actual-page-links { grid-template-columns: 1fr; } }
     </style>
 </head>
-<body id="kt_app_body" data-cms-actual-grupo="<?= htmlspecialchars($cmsFrontendGrupoInicial, ENT_QUOTES, 'UTF-8'); ?>" data-kt-app-layout="dark-sidebar" data-kt-app-header-fixed="true" data-kt-app-sidebar-enabled="true" data-kt-app-sidebar-fixed="true" class="app-default">
+<body id="kt_app_body" data-cms-actual-grupo="<?= htmlspecialchars($cmsFrontendGrupoInicial, ENT_QUOTES, 'UTF-8'); ?>" data-cms-actual-dedicada="<?= $cmsFrontendVistaDedicada ? '1' : '0'; ?>" data-kt-app-layout="dark-sidebar" data-kt-app-header-fixed="true" data-kt-app-sidebar-enabled="true" data-kt-app-sidebar-fixed="true" class="app-default">
 <div class="d-flex flex-column flex-root app-root" id="kt_app_root">
     <div class="app-page flex-column flex-column-fluid" id="kt_app_page">
         <?= include_once '../app/vistas/includes/header/header.php'; ?>
@@ -57,6 +65,9 @@
                                 <span class="text-muted"><?= htmlspecialchars($cmsFrontendSubtitulo, ENT_QUOTES, 'UTF-8'); ?></span>
                             </div>
                             <div class="d-flex gap-2">
+                                <?php if ($cmsFrontendVistaDedicada) : ?>
+                                <a class="btn btn-light" href="/cms"><i class="bi bi-grid"></i> Mapa CMS</a>
+                                <?php endif; ?>
                                 <a class="btn btn-light" href="/cms/media"><i class="bi bi-images"></i> Media / Archivos</a>
                                 <a class="btn btn-light" href="/cms/contenido"><i class="bi bi-sliders"></i> Editor avanzado</a>
                                 <a class="btn btn-light" href="/docs/erp_cms_manual_uso.md" target="_blank" rel="noopener"><i class="bi bi-journal-text"></i> Manual</a>
@@ -74,7 +85,29 @@
                                 </div>
                             </div>
 
-                            <div class="cms-actual-priority mb-5" id="cms_actual_prioridad"></div>
+                            <?php if ($cmsFrontendVistaDedicada) : ?>
+                            <div class="cms-actual-panel p-4 mb-5">
+                                <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
+                                    <div>
+                                        <div class="fw-bold">Vista dedicada</div>
+                                        <div class="text-muted fs-7">Esta pantalla solo muestra y guarda configuracion de este grupo. Para cambiar de pagina usa el menu lateral o el mapa del CMS.</div>
+                                    </div>
+                                    <a class="btn btn-sm btn-light-primary" href="/cms"><i class="bi bi-arrow-left"></i> Ver paginas y grupos</a>
+                                </div>
+                            </div>
+                            <?php else : ?>
+                            <div class="cms-actual-panel p-4 mb-5 cms-actual-hub-only">
+                                <div class="d-flex justify-content-between align-items-start flex-wrap gap-3 mb-4">
+                                    <div>
+                                        <div class="fw-bold">Paginas y grupos del CMS Frontend</div>
+                                        <div class="text-muted fs-7">Selecciona una pagina para abrir su editor dedicado.</div>
+                                    </div>
+                                    <span class="badge badge-light-info">Mapa general</span>
+                                </div>
+                                <div class="cms-actual-page-links" id="cms_actual_page_links"></div>
+                            </div>
+                            <div class="cms-actual-priority mb-5 cms-actual-hub-only" id="cms_actual_prioridad"></div>
+                            <?php endif; ?>
 
                             <div class="cms-actual-panel p-4 mb-5" id="cms_actual_home_estado_panel">
                                 <div class="d-flex justify-content-between align-items-center flex-wrap gap-3 mb-4">
@@ -88,14 +121,14 @@
                             </div>
 
                             <div class="cms-actual-grid">
-                                <aside class="cms-actual-panel p-4">
+                                <aside class="cms-actual-panel p-4 cms-actual-hub-only">
                                     <div class="fw-bold mb-3">Paginas y grupos</div>
                                     <div class="cms-actual-nav" id="cms_actual_nav"></div>
                                     <div class="separator my-5"></div>
                                     <div class="fw-bold mb-3">Reglas publicas</div>
                                     <div id="cms_actual_reglas"></div>
                                 </aside>
-                                <section class="cms-actual-panel p-5">
+                                <section class="cms-actual-panel p-5 cms-actual-editor-panel">
                                     <div class="d-flex justify-content-between align-items-start flex-wrap gap-3 mb-4">
                                         <div>
                                             <h3 class="fw-bold mb-1" id="cms_actual_titulo">Contrato</h3>
@@ -124,6 +157,6 @@
 <script>
     window.ERP_CSRF_TOKEN = "<?= htmlspecialchars(SesionSeguridad::csrfToken(), ENT_QUOTES, 'UTF-8') ?>";
 </script>
-<script src="/assets/js/custom/apps/erp/cms/frontend_actual.js?v=20260827-global-media1"></script>
+<script src="/assets/js/custom/apps/erp/cms/frontend_actual.js?v=20260829-categorias-imagenes-catalogo1"></script>
 </body>
 </html>

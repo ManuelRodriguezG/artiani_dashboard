@@ -9,6 +9,7 @@ $cmsFrontendTitulo = "CMS - Frontend Politicas";
 $cmsFrontendHeading = "CMS / Frontend / Politicas";
 $cmsFrontendSubtitulo = "Administra politicas publicas, avisos y textos legales del ecommerce";
 $cmsFrontendGrupoInicial = "politicas";
+$cmsFrontendVistaDedicada = true;
 $cmsFrontendAvisoTitulo = "Politicas del ecommerce";
 $cmsFrontendAvisoTexto = "Aqui se preparan textos de privacidad, envios, devoluciones y terminos. Por ahora el editor genera preview JSON local; la revision legal y persistencia real quedan pendientes.";
 require __DIR__ . "/frontend_actual.php";

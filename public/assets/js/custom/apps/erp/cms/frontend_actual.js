@@ -14,8 +14,10 @@
 
   var estado = {
     grupo: "global",
+    vistaDedicada: false,
     borradorLocalCargado: false,
     mediaPicker: { contexto: "", index: 0, campo: "", archivo: null, dataUrl: "", seleccion: "" },
+    catalogos: { categorias: [], categoriasPorId: {} },
     datos: {
       global: {
         global_negocio: {
@@ -160,6 +162,31 @@
           titulo: "Necesitas ayuda para elegir?",
           texto: "Te orientamos por WhatsApp para encontrar el producto correcto.",
           cta: { label: "Escribir por WhatsApp", url: "" }
+        }
+      },
+      catalogo: {
+        catalogo_configuracion: {
+          codigo: "catalogo_configuracion",
+          tipo: "content_html_safe",
+          visible: true,
+          orden: 10,
+          titulo: "Catalogo Artiani",
+          subtitulo: "Explora productos para acuario y mascotas.",
+          contenido_html: "<p>Encuentra alimento, accesorios, habitats y cuidado especializado. Precios y disponibilidad se confirman al enviar tu solicitud.</p>",
+          cta: { label: "Ver productos", url: "/catalogo" },
+          seo: {
+            title: "Catalogo Artiani",
+            description: "Catalogo de productos para acuario y mascotas en Artiani."
+          },
+          estados: {
+            sin_resultados_titulo: "No encontramos productos",
+            sin_resultados_texto: "Intenta quitar filtros o buscar otra palabra."
+          },
+          config: {
+            variante: "wokiee_catalog_header",
+            mostrar_breadcrumbs: true,
+            mostrar_conteo: true
+          }
         }
       },
       categorias: {
@@ -408,6 +435,30 @@
             }
           ]
         },
+        home_promos_categoria: {
+          codigo: "home_promos_categoria",
+          tipo: "promos_categoria",
+          visible: true,
+          orden: 25,
+          titulo: "Promos por categoria",
+          subtitulo: "Accesos visuales hacia categorias comerciales fuertes.",
+          config: {
+            variante: "wokiee_promo_categories"
+          },
+          items: [
+            {
+              titulo: "Alimentos de acuario",
+              subtitulo: "Nutricion para cada especie",
+              imagen: "",
+              alt: "Alimentos de acuario",
+              url: "/categoria/acuario-y-peces/alimentacion/alimentos-de-acuario",
+              path_slug: "acuario-y-peces/alimentacion/alimentos-de-acuario",
+              categoria_id: 0,
+              visible: true,
+              orden: 10
+            }
+          ]
+        },
         home_categorias_destacadas: {
           codigo: "home_categorias_destacadas",
           tipo: "categorias_destacadas",
@@ -471,6 +522,35 @@
             mostrar_badges: true
           }
         },
+        home_marcas_destacadas: {
+          codigo: "home_marcas_destacadas",
+          tipo: "marcas_destacadas",
+          visible: true,
+          orden: 45,
+          titulo: "Marcas destacadas",
+          subtitulo: "Entradas rapidas por marca.",
+          config: {
+            variante: "wokiee_brand_strip",
+            mostrar_iniciales_si_sin_logo: true
+          },
+          items: [
+            {
+              marca_id: 0,
+              nombre: "Marca destacada",
+              subtitulo: "Ver marca",
+              slug: "marca-destacada",
+              slug_publico: "marca-destacada",
+              logo: "",
+              imagen_banner: "",
+              alt_logo: "Logo de marca destacada",
+              descripcion_corta: "",
+              url: "/marca/marca-destacada",
+              visible: true,
+              visible_frontend: true,
+              orden: 10
+            }
+          ]
+        },
         home_colecciones: {
           codigo: "home_colecciones",
           tipo: "coleccion_productos",
@@ -500,6 +580,59 @@
               config: { variante: "wokiee_product_row" }
             }
           ]
+        },
+        home_esenciales_artiani: {
+          codigo: "home_esenciales_artiani",
+          tipo: "bloque_editorial_cards",
+          visible: true,
+          orden: 70,
+          titulo: "Esenciales Artiani",
+          subtitulo: "Atajos para encontrar lo que buscas.",
+          categoria_principal: {
+            categoria_id: 0,
+            titulo: "Acuario y peces",
+            url: "/categoria/acuario-y-peces",
+            path_slug: "acuario-y-peces",
+            imagen: "",
+            alt: "Productos para acuario y peces",
+            objetivo: "Llevar a la categoria principal de acuario"
+          },
+          items: [
+            {
+              categoria_id: 0,
+              titulo: "Alimentos de acuario",
+              subtitulo: "Nutricion para peces tropicales y de ornato",
+              url: "/categoria/acuario-y-peces/alimentacion/alimentos-de-acuario",
+              path_slug: "acuario-y-peces/alimentacion/alimentos-de-acuario",
+              imagen: "",
+              alt: "Alimentos para peces",
+              objetivo: "Enviar al cliente a alimentos de acuario",
+              visible: true,
+              orden: 10
+            }
+          ],
+          config: {
+            max_items: 3,
+            variante: "wokiee_editorial_cards"
+          }
+        },
+        home_compra_guiada: {
+          codigo: "home_compra_guiada",
+          tipo: "compra_guiada",
+          visible: true,
+          orden: 80,
+          titulo: "Compra guiada",
+          subtitulo: "Encuentra productos por mascota",
+          config: {
+            mostrar_mascotas: true,
+            mostrar_necesidades: false,
+            prioridad: "secundaria",
+            variante: "wokiee_guided_chips"
+          },
+          tracking: {
+            section_id: "home_compra_guiada",
+            section_name: "Compra guiada"
+          }
         },
         home_banner: {
           codigo: "home_banner",
@@ -559,6 +692,16 @@
       ]
     },
     {
+      codigo: "catalogo",
+      titulo: "Catalogo",
+      subtitulo: "Encabezado, SEO y estados del listado publico.",
+      endpoint: "GET /ecommercePublico/cms_frontend?pagina=catalogo",
+      prioridad: 3,
+      secciones: [
+        seccion("catalogo_configuracion", "content_html_safe", "Texto superior, SEO y estados sin resultados del catalogo.", ["titulo", "subtitulo", "contenido_html", "seo", "estados"])
+      ]
+    },
+    {
       codigo: "categorias",
       titulo: "Categorias",
       subtitulo: "Imagenes, banners, SEO, orden y destacados de categorias publicas.",
@@ -611,9 +754,13 @@
       secciones: [
         seccion("home_hero_carrusel", "hero_carrusel", "Banner principal con imagen desktop/mobile y slides.", ["items", "autoplay", "intervalo_ms", "cta"]),
         seccion("home_promo", "promo_strip", "Franja corta para avisos, WhatsApp, envios o mensajes comerciales.", ["texto", "icono", "cta", "visible"]),
+        seccion("home_promos_categoria", "promos_categoria", "Promos visuales grandes hacia categorias comerciales fuertes.", ["titulo", "imagen", "url", "path_slug"]),
         seccion("home_categorias_destacadas", "categorias_destacadas", "Categorias reales publicadas con imagen card/banner.", ["categoria_id", "slug", "imagen_card", "imagen_banner"]),
         seccion("home_productos_destacados", "productos_destacados", "Productos por criterio o lista manual.", ["fuente.modo", "fuente.criterio", "fuente.productos", "limite"]),
+        seccion("home_marcas_destacadas", "marcas_destacadas", "Marcas reales destacadas con logo opcional.", ["marca_id", "nombre", "slug", "logo"]),
         seccion("home_colecciones", "coleccion_productos", "Colecciones repetibles: novedades, destacados, basicos.", ["titulo", "fuente", "cta"]),
+        seccion("home_esenciales_artiani", "bloque_editorial_cards", "Cards editoriales tipo Esenciales Artiani por categoria principal.", ["categoria_principal", "items", "url", "imagen"]),
+        seccion("home_compra_guiada", "compra_guiada", "Entrada visual para orientar compra por mascota o necesidad.", ["titulo", "subtitulo", "config"]),
         seccion("home_banner", "banner_simple", "Banner de Home estatico hoy, preparado para slides despues.", ["imagen_desktop", "imagen_mobile", "alt", "cta"])
       ]
     },
@@ -675,10 +822,12 @@
 
   document.addEventListener("DOMContentLoaded", function () {
     var grupoInicial = document.body ? document.body.getAttribute("data-cms-actual-grupo") : "";
+    estado.vistaDedicada = document.body ? document.body.getAttribute("data-cms-actual-dedicada") === "1" : false;
     if (grupoInicial) estado.grupo = grupoInicial;
     var tieneBorrador = cargarBorradorFrontendLocal(!grupoInicial);
     if (grupoInicial) estado.grupo = grupoInicial;
     renderTodo();
+    cargarCatalogoCategoriasCms();
     if (!tieneBorrador) {
       cargarGlobalPublicadoFrontend(false);
     }
@@ -692,6 +841,7 @@
   }
 
   function renderTodo() {
+    renderPageLinks();
     renderPrioridad();
     renderNav();
     renderReglas();
@@ -714,6 +864,53 @@
     }).join("");
   }
 
+  function renderPageLinks() {
+    var node = $("cms_actual_page_links");
+    if (!node) return;
+    node.innerHTML = grupos.map(function (grupo) {
+      return '<a class="cms-actual-page-link text-decoration-none" href="' + escapeAttr(rutaGrupo(grupo.codigo)) + '">' +
+        '<div class="d-flex justify-content-between align-items-start gap-2">' +
+          '<div><div class="fw-bold">' + escapeHtml(grupo.titulo) + '</div><div class="text-muted fs-8 mt-1">' + escapeHtml(grupo.subtitulo) + '</div></div>' +
+          '<i class="bi bi-arrow-right text-primary"></i>' +
+        '</div>' +
+      '</a>';
+    }).join("");
+  }
+
+  function cargarCatalogoCategoriasCms() {
+    if (!window.fetch) return;
+    fetch("/ecommercePublico/categorias", {
+      method: "GET",
+      credentials: "same-origin",
+      headers: {
+        "Accept": "application/json",
+        "X-Requested-With": "XMLHttpRequest"
+      }
+    }).then(function (response) {
+      return response.text().then(function (text) {
+        var json = null;
+        try {
+          json = JSON.parse(text);
+        } catch (error) {
+          throw new Error("Respuesta no JSON al consultar categorias");
+        }
+        if (!response.ok || !json || json.error) throw new Error((json && json.mensaje) || "No se pudieron consultar categorias");
+        return json;
+      });
+    }).then(function (json) {
+      var items = json && json.depurar && Array.isArray(json.depurar.items) ? json.depurar.items : [];
+      estado.catalogos.categorias = items;
+      estado.catalogos.categoriasPorId = {};
+      items.forEach(function (item) {
+        if (item && item.id != null) estado.catalogos.categoriasPorId[String(item.id)] = item;
+      });
+      renderGrupo();
+    }).catch(function () {
+      estado.catalogos.categorias = [];
+      estado.catalogos.categoriasPorId = {};
+    });
+  }
+
   function renderNav() {
     var node = $("cms_actual_nav");
     if (!node) return;
@@ -723,9 +920,25 @@
     Array.prototype.forEach.call(node.querySelectorAll("[data-grupo]"), function (button) {
       button.addEventListener("click", function () {
         estado.grupo = button.getAttribute("data-grupo") || "home";
+        if (estado.vistaDedicada) {
+          window.location.href = rutaGrupo(estado.grupo);
+          return;
+        }
         renderTodo();
       });
     });
+  }
+
+  function rutaGrupo(codigo) {
+    if (codigo === "home") return "/cms/frontend/home";
+    if (codigo === "global") return "/cms/frontend/global";
+    if (codigo === "navegacion") return "/cms/frontend/navegacion";
+    if (codigo === "catalogo") return "/cms/frontend/catalogo";
+    if (codigo === "categorias") return "/cms/frontend/categorias";
+    if (codigo === "marcas") return "/cms/frontend/marcas";
+    if (codigo === "paginas") return "/cms/frontend/paginas";
+    if (codigo === "politicas") return "/cms/frontend/politicas";
+    return "/cms";
   }
 
   function renderReglas() {
@@ -755,7 +968,7 @@
     if (grupo.codigo === "categorias") {
       return '<div class="alert alert-light-primary d-flex justify-content-between align-items-center flex-wrap gap-3 mb-4">' +
         '<div><div class="fw-bold">Publicacion de categorias frontend</div><div class="fs-7 text-muted">Guarda imagenes, textos SEO, destacado, visible y orden sin modificar categorias reales del ERP.</div></div>' +
-        '<button class="btn btn-sm btn-primary" type="button" id="cms_actual_categorias_publicar"><i class="bi bi-cloud-check"></i> Guardar y publicar categorias</button>' +
+        '<div class="d-flex flex-wrap gap-2"><button class="btn btn-sm btn-light-primary" type="button" id="cms_actual_categorias_borrador"><i class="bi bi-save"></i> Guardar borrador local</button><button class="btn btn-sm btn-primary" type="button" id="cms_actual_categorias_publicar"><i class="bi bi-cloud-check"></i> Guardar y publicar categorias</button></div>' +
       '</div><div class="alert alert-light-warning fs-7 py-3 mb-4" id="cms_actual_categorias_estado">Pendiente de publicar en la API.</div>';
     }
     if (grupo.codigo !== "global") return "";
@@ -809,13 +1022,21 @@
     if (!node) return;
     var hero = bloquesSlotPublicado(depurar, "home.hero");
     var promo = bloquesSlotPublicado(depurar, "home.promo");
+    var promosCategoria = bloquesSlotPublicado(depurar, "home.promos");
     var categorias = bloquesSlotPublicado(depurar, "home.categorias");
+    var marcas = bloquesSlotPublicado(depurar, "home.marcas");
     var destacados = bloquesSlotPublicado(depurar, "home.destacados");
+    var esenciales = bloquesSlotPublicado(depurar, "home.esenciales");
+    var compraGuiada = bloquesSlotPublicado(depurar, "home.compra_guiada");
     node.innerHTML = [
       tarjetaEstadoHome("Hero / Banner", hero, "home.hero", "cms_actual_banner_api"),
       tarjetaEstadoHome("Promo", promo, "home.promo", "cms_actual_promo_api"),
+      tarjetaEstadoHome("Promos categoria", promosCategoria, "home.promos", "cms_actual_home_promos_api"),
       tarjetaEstadoHome("Categorias", categorias, "home.categorias", "cms_actual_home_categorias_api"),
-      tarjetaEstadoHome("Destacados", destacados, "home.destacados", "cms_actual_home_productos_api")
+      tarjetaEstadoHome("Marcas", marcas, "home.marcas", "cms_actual_home_marcas_api"),
+      tarjetaEstadoHome("Destacados", destacados, "home.destacados", "cms_actual_home_productos_api"),
+      tarjetaEstadoHome("Esenciales", esenciales, "home.esenciales", "cms_actual_home_esenciales_api"),
+      tarjetaEstadoHome("Compra guiada", compraGuiada, "home.compra_guiada", "cms_actual_home_compra_guiada_api")
     ].join("");
   }
 
@@ -926,6 +1147,9 @@
     if (item.codigo.indexOf("categorias_") === 0) {
       return renderCategoriasCmsSeccion(item);
     }
+    if (item.codigo.indexOf("catalogo_") === 0) {
+      return renderCatalogoCmsSeccion(item);
+    }
     if (item.codigo.indexOf("nav_") === 0) {
       return renderNavegacionSeccion(item);
     }
@@ -938,14 +1162,26 @@
     if (item.codigo === "home_promo") {
       return renderPromoHome(item);
     }
+    if (item.codigo === "home_promos_categoria") {
+      return renderHomePromosCategoria(item);
+    }
     if (item.codigo === "home_categorias_destacadas") {
       return renderCategoriasDestacadas(item);
     }
     if (item.codigo === "home_productos_destacados") {
       return renderProductosDestacados(item);
     }
+    if (item.codigo === "home_marcas_destacadas") {
+      return renderHomeMarcasDestacadas(item);
+    }
     if (item.codigo === "home_colecciones") {
       return renderColeccionesProductos(item);
+    }
+    if (item.codigo === "home_esenciales_artiani") {
+      return renderHomeEsencialesArtiani(item);
+    }
+    if (item.codigo === "home_compra_guiada") {
+      return renderCompraGuiadaHome(item);
     }
     if (item.codigo === "home_banner") {
       return renderBannerHome(item);
@@ -1057,6 +1293,48 @@
     return '<div class="' + escapeAttr(col || "col-md-4") + '"><label class="form-label fs-8 fw-bold">' + escapeHtml(label) + '</label><input class="form-control form-control-sm" data-promo-field="' + escapeAttr(campo) + '" data-index="' + escapeAttr(index) + '" value="' + escapeAttr(value == null ? "" : value) + '"></div>';
   }
 
+  function renderCatalogoCmsSeccion(item) {
+    var data = catalogoData(item.codigo);
+    if (!data) return "";
+    return '<div class="cms-actual-card mb-4">' +
+      '<div class="d-flex justify-content-between align-items-start gap-3 flex-wrap mb-4">' +
+        '<div><div class="fw-bold">' + escapeHtml(item.descripcion) + '</div><div class="text-muted fs-8">' + escapeHtml(item.codigo) + ' / catalogo.encabezado</div></div>' +
+        '<span class="badge badge-light-success">Editor activo</span>' +
+      '</div>' +
+      '<div class="row g-3 mb-4">' +
+        inputCatalogo("visible", "Visible 1/0", data.visible ? "1" : "0", "col-md-2") +
+        inputCatalogo("orden", "Orden", data.orden, "col-md-2") +
+        inputCatalogo("titulo", "Titulo", data.titulo, "col-md-4") +
+        inputCatalogo("subtitulo", "Subtitulo", data.subtitulo, "col-md-4") +
+        '<div class="col-12"><label class="form-label fs-8 fw-bold">Texto superior</label><textarea class="form-control form-control-sm" rows="4" data-catalogo-field="contenido_html">' + escapeHtml(data.contenido_html || "") + '</textarea><div class="text-muted fs-8 mt-1">HTML permitido al publicar: p, br, strong, b, em, i, ul, ol, li.</div></div>' +
+        inputCatalogo("cta.label", "CTA texto", data.cta ? data.cta.label : "", "col-md-3") +
+        inputCatalogo("cta.url", "CTA URL", data.cta ? data.cta.url : "", "col-md-3") +
+        inputCatalogo("seo.title", "SEO title", data.seo ? data.seo.title : "", "col-md-3") +
+        inputCatalogo("seo.description", "SEO description", data.seo ? data.seo.description : "", "col-md-3") +
+        inputCatalogo("estados.sin_resultados_titulo", "Titulo sin resultados", data.estados ? data.estados.sin_resultados_titulo : "", "col-md-4") +
+        inputCatalogo("estados.sin_resultados_texto", "Texto sin resultados", data.estados ? data.estados.sin_resultados_texto : "", "col-md-5") +
+        inputCatalogo("config.variante", "Variante frontend", data.config ? data.config.variante : "", "col-md-3") +
+      '</div>' +
+      '<div class="cms-actual-slide mb-4">' +
+        '<div class="text-uppercase fs-8 fw-bold text-muted mb-2">Preview administrativo</div>' +
+        '<h2 class="fw-bold mb-2">' + escapeHtml(data.titulo || "Catalogo") + '</h2>' +
+        '<div class="text-muted mb-3">' + escapeHtml(data.subtitulo || "") + '</div>' +
+        '<div class="fs-7">' + escapeHtml(String(data.contenido_html || "").replace(/<[^>]+>/g, " ")) + '</div>' +
+      '</div>' +
+      '<div class="d-flex gap-2 flex-wrap mb-3">' +
+        '<button class="btn btn-sm btn-light-primary" type="button" id="cms_actual_catalogo_borrador"><i class="bi bi-save"></i> Guardar borrador</button>' +
+        '<button class="btn btn-sm btn-light-info" type="button" id="cms_actual_catalogo_api"><i class="bi bi-broadcast"></i> Ver API publicada</button>' +
+        '<button class="btn btn-sm btn-primary" type="button" id="cms_actual_catalogo_publicar"><i class="bi bi-cloud-check"></i> Guardar y publicar catalogo</button>' +
+      '</div>' +
+      '<div class="alert alert-light-warning fs-7 py-3 mb-4" id="cms_actual_catalogo_estado">Pendiente de publicar en la API. Esto solo controla textos del catalogo, no productos ni filtros.</div>' +
+      '<div class="alert alert-light-secondary fs-7 py-3 mb-0 d-none" id="cms_actual_catalogo_api_estado"></div>' +
+    '</div>';
+  }
+
+  function inputCatalogo(campo, label, value, col) {
+    return '<div class="' + escapeAttr(col || "col-md-4") + '"><label class="form-label fs-8 fw-bold">' + escapeHtml(label) + '</label><input class="form-control form-control-sm" data-catalogo-field="' + escapeAttr(campo) + '" value="' + escapeAttr(value == null ? "" : value) + '"></div>';
+  }
+
   function bindGrupoEditors() {
     Array.prototype.forEach.call(document.querySelectorAll("[data-hero-config]"), function (node) {
       node.addEventListener("input", function () {
@@ -1101,6 +1379,91 @@
     on("cms_actual_promo_agregar", "click", agregarPromoItem);
     on("cms_actual_promo_publicar", "click", publicarPromoHome);
     on("cms_actual_promo_api", "click", consultarApiPromoHome);
+    Array.prototype.forEach.call(document.querySelectorAll("[data-home-list-config]"), function (node) {
+      node.addEventListener("input", function () {
+        actualizarHomeListConfig(node.getAttribute("data-home-list-config"), node.value);
+      });
+      node.addEventListener("change", function () {
+        actualizarHomeListConfig(node.getAttribute("data-home-list-config"), node.value);
+      });
+    });
+    Array.prototype.forEach.call(document.querySelectorAll("[data-home-list-field]"), function (node) {
+      node.addEventListener("input", function () {
+        actualizarHomeListItem(node.getAttribute("data-home-list-context"), parseInt(node.getAttribute("data-index") || "0", 10), node.getAttribute("data-home-list-field"), node.value);
+      });
+      node.addEventListener("change", function () {
+        actualizarHomeListItem(node.getAttribute("data-home-list-context"), parseInt(node.getAttribute("data-index") || "0", 10), node.getAttribute("data-home-list-field"), node.value);
+      });
+    });
+    Array.prototype.forEach.call(document.querySelectorAll("[data-home-list-action]"), function (button) {
+      button.addEventListener("click", function () {
+        ejecutarHomeListAccion(button.getAttribute("data-home-list-context"), button.getAttribute("data-home-list-action"), parseInt(button.getAttribute("data-index") || "0", 10));
+      });
+    });
+    Array.prototype.forEach.call(document.querySelectorAll("[data-esenciales-config]"), function (node) {
+      node.addEventListener("input", function () {
+        actualizarEsencialesConfig(node.getAttribute("data-esenciales-config"), node.value);
+      });
+      node.addEventListener("change", function () {
+        actualizarEsencialesConfig(node.getAttribute("data-esenciales-config"), node.value);
+      });
+    });
+    Array.prototype.forEach.call(document.querySelectorAll("[data-esencial-principal-field]"), function (node) {
+      node.addEventListener("input", function () {
+        actualizarEsencialPrincipal(node.getAttribute("data-esencial-principal-field"), node.value);
+      });
+      node.addEventListener("change", function () {
+        actualizarEsencialPrincipal(node.getAttribute("data-esencial-principal-field"), node.value);
+      });
+    });
+    Array.prototype.forEach.call(document.querySelectorAll("[data-esencial-categoria-select]"), function (node) {
+      node.addEventListener("change", function () {
+        seleccionarCategoriaEsencialPrincipal(node.value);
+      });
+    });
+    Array.prototype.forEach.call(document.querySelectorAll("[data-home-category-select]"), function (node) {
+      node.addEventListener("change", function () {
+        seleccionarCategoriaHomeLista(node.getAttribute("data-home-category-select"), parseInt(node.getAttribute("data-index") || "0", 10), node.value);
+      });
+    });
+    Array.prototype.forEach.call(document.querySelectorAll("[data-use-category-image]"), function (button) {
+      button.addEventListener("click", function () {
+        usarImagenCategoriaEsenciales(button.getAttribute("data-use-category-image"), parseInt(button.getAttribute("data-index") || "0", 10));
+      });
+    });
+    Array.prototype.forEach.call(document.querySelectorAll("[data-home-section-draft]"), function (button) {
+      button.addEventListener("click", function () {
+        guardarBorradorSeccion(button.getAttribute("data-home-section-draft") || "home");
+      });
+    });
+    on("cms_actual_home_promo_categoria_agregar", "click", agregarHomePromoCategoria);
+    on("cms_actual_home_promos_publicar", "click", publicarHomePromosCategoria);
+    on("cms_actual_home_promos_api", "click", consultarApiHomePromosCategoria);
+    on("cms_actual_home_marca_agregar", "click", agregarHomeMarca);
+    on("cms_actual_home_marcas_publicar", "click", publicarHomeMarcas);
+    on("cms_actual_home_marcas_api", "click", consultarApiHomeMarcas);
+    on("cms_actual_home_esencial_agregar", "click", agregarHomeEsencial);
+    on("cms_actual_home_esenciales_publicar", "click", publicarHomeEsenciales);
+    on("cms_actual_home_esenciales_api", "click", consultarApiHomeEsenciales);
+    Array.prototype.forEach.call(document.querySelectorAll("[data-compra-guiada-field]"), function (node) {
+      node.addEventListener("input", function () {
+        actualizarCompraGuiadaField(node.getAttribute("data-compra-guiada-field"), node.value);
+      });
+      node.addEventListener("change", function () {
+        actualizarCompraGuiadaField(node.getAttribute("data-compra-guiada-field"), node.value);
+      });
+    });
+    Array.prototype.forEach.call(document.querySelectorAll("[data-compra-guiada-config]"), function (node) {
+      node.addEventListener("input", function () {
+        actualizarCompraGuiadaConfig(node.getAttribute("data-compra-guiada-config"), node.value);
+      });
+      node.addEventListener("change", function () {
+        actualizarCompraGuiadaConfig(node.getAttribute("data-compra-guiada-config"), node.value);
+      });
+    });
+    on("cms_actual_home_compra_guiada_borrador", "click", guardarBorradorCompraGuiadaHome);
+    on("cms_actual_home_compra_guiada_publicar", "click", publicarCompraGuiadaHome);
+    on("cms_actual_home_compra_guiada_api", "click", consultarApiCompraGuiadaHome);
     Array.prototype.forEach.call(document.querySelectorAll("[data-categoria-config]"), function (node) {
       node.addEventListener("input", function () {
         actualizarCategoriaConfig(node.getAttribute("data-categoria-config"), node.value);
@@ -1209,6 +1572,17 @@
     on("cms_actual_global_cargar_publicado", "click", function () { cargarGlobalPublicadoFrontend(true); });
     on("cms_actual_global_api", "click", consultarApiGlobalFrontend);
     on("cms_actual_global_publicar", "click", publicarGlobalFrontend);
+    Array.prototype.forEach.call(document.querySelectorAll("[data-catalogo-field]"), function (node) {
+      node.addEventListener("input", function () {
+        actualizarCatalogoField(node.getAttribute("data-catalogo-field"), node.value);
+      });
+      node.addEventListener("change", function () {
+        actualizarCatalogoField(node.getAttribute("data-catalogo-field"), node.value);
+      });
+    });
+    on("cms_actual_catalogo_borrador", "click", guardarBorradorCatalogo);
+    on("cms_actual_catalogo_publicar", "click", publicarCatalogoFrontend);
+    on("cms_actual_catalogo_api", "click", consultarApiCatalogoFrontend);
     on("cms_actual_categorias_publicar", "click", publicarCategoriasFrontend);
     Array.prototype.forEach.call(document.querySelectorAll("[data-nav-field]"), function (node) {
       node.addEventListener("input", function () {
@@ -1243,7 +1617,19 @@
         ejecutarCategoriaCmsAccion(button.getAttribute("data-cms-cat-action") || "", parseInt(button.getAttribute("data-index") || "0", 10));
       });
     });
+    Array.prototype.forEach.call(document.querySelectorAll("[data-cms-category-select]"), function (node) {
+      node.addEventListener("change", function () {
+        seleccionarCategoriaCmsItem(parseInt(node.getAttribute("data-index") || "0", 10), node.value);
+      });
+    });
+    Array.prototype.forEach.call(document.querySelectorAll("[data-cms-cat-use-image]"), function (button) {
+      button.addEventListener("click", function () {
+        usarImagenCategoriaCmsItem(parseInt(button.getAttribute("data-index") || "0", 10), button.getAttribute("data-field") || "imagen_card");
+      });
+    });
+    on("cms_actual_categorias_borrador", "click", guardarBorradorCategoriasCms);
     on("cms_actual_categoria_agregar", "click", agregarCategoriaCmsItem);
+    on("cms_actual_marcas_publicar", "click", publicarMarcasFrontend);
     Array.prototype.forEach.call(document.querySelectorAll("[data-cms-marca-field]"), function (node) {
       node.addEventListener("input", function () {
         actualizarMarcaCmsField(node.getAttribute("data-cms-marca-section"), node.getAttribute("data-cms-marca-field"), node.value);
@@ -1347,6 +1733,9 @@
           '<div class="cms-actual-slide-preview"' + (bg ? ' style="background-image:url(' + escapeAttr(urlPreviewSeguro(bg)) + ')"' : '') + '><div><div class="text-uppercase fs-8 fw-bold">Preview categoria</div><h4 class="text-white fw-bold mt-2">' + escapeHtml(item.titulo || "") + '</h4><div class="fs-7">' + escapeHtml(item.subtitulo || "") + '</div></div></div>' +
         '</div>' +
         '<div class="col-lg-8"><div class="row g-3">' +
+          selectorCategoriaCmsItem(index, item) +
+          botonUsarImagenCategoriaCmsItem(index, "imagen_card", item) +
+          botonUsarImagenCategoriaCmsItem(index, "imagen_banner", item) +
           inputCategoriaItem(index, "categoria_id", "ID ERP", item.categoria_id, "col-md-2") +
           inputCategoriaItem(index, "slug", "Slug", item.slug, "col-md-3") +
           inputCategoriaItem(index, "titulo", "Titulo", item.titulo, "col-md-3") +
@@ -1376,6 +1765,27 @@
     return '<div class="' + escapeAttr(col || "col-md-4") + '"><label class="form-label fs-8 fw-bold">' + escapeHtml(label) + '</label>' + input + '</div>';
   }
 
+  function selectorCategoriaCmsItem(index, item) {
+    return '<div class="col-md-12">' +
+      '<label class="form-label fs-8 fw-bold">Seleccionar categoria real</label>' +
+      '<select class="form-select form-select-sm" data-cms-category-select="categorias_items" data-index="' + escapeAttr(index) + '">' +
+        opcionesCategoriasCms(item && item.categoria_id ? item.categoria_id : 0) +
+      '</select>' +
+      '<div class="text-muted fs-8 mt-1">Al seleccionar se completan ID ERP, titulo, slug, URL publica y alt. Despues puedes ajustar el texto comercial.</div>' +
+    '</div>';
+  }
+
+  function botonUsarImagenCategoriaCmsItem(index, campo, item) {
+    var categoria = categoriaCmsPorId(item && item.categoria_id ? item.categoria_id : 0);
+    var imagen = campo === "imagen_banner" ? imagenBannerCategoriaCms(categoria) : imagenCardCategoriaCms(categoria);
+    var texto = campo === "imagen_banner" ? "Usar banner de categoria" : "Usar card de categoria";
+    var ayuda = imagen ? "Copia la imagen editorial de la categoria seleccionada." : "La categoria no tiene imagen disponible; puedes subir una desde Media.";
+    return '<div class="col-md-6">' +
+      '<button class="btn btn-sm ' + (imagen ? "btn-light-success" : "btn-light-secondary") + '" type="button" data-cms-cat-use-image="' + escapeAttr(index) + '" data-index="' + escapeAttr(index) + '" data-field="' + escapeAttr(campo) + '"' + (!imagen ? ' disabled' : '') + '><i class="bi bi-image"></i> ' + escapeHtml(texto) + '</button>' +
+      '<div class="text-muted fs-8 mt-1">' + escapeHtml(ayuda) + '</div>' +
+    '</div>';
+  }
+
   function renderMarcasCmsSeccion(item) {
     var data = marcasCmsData(item.codigo);
     if (!data) return "";
@@ -1402,8 +1812,9 @@
   function renderMarcasCmsItems(data) {
     var items = data.items || [];
     return '<div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">' +
-      '<div class="fw-bold">Marcas editoriales</div><button class="btn btn-sm btn-light-primary" type="button" id="cms_actual_marca_agregar"><i class="bi bi-plus-circle"></i> Agregar marca</button>' +
+      '<div class="fw-bold">Marcas editoriales</div><div class="d-flex gap-2"><button class="btn btn-sm btn-primary" type="button" id="cms_actual_marcas_publicar"><i class="bi bi-cloud-check"></i> Guardar y publicar marcas</button><button class="btn btn-sm btn-light-primary" type="button" id="cms_actual_marca_agregar"><i class="bi bi-plus-circle"></i> Agregar marca</button></div>' +
     '</div>' +
+    '<div class="alert alert-light-warning fs-7 py-3 mb-4" id="cms_actual_marcas_estado">Pendiente de publicar. Cada marca visible necesita ID ERP o slug; logo/banner deben venir de Media CMS.</div>' +
     items.map(renderMarcaCmsCard).join("") +
     '<div class="alert alert-light-info fs-7 mb-0">La marca real debe existir en ERP/API. Aqui solo se prepara logo, banner, texto publico, SEO, destacado, visible y orden.</div>';
   }
@@ -1969,6 +2380,58 @@
     renderGrupo();
   }
 
+  function seleccionarCategoriaCmsItem(index, idCategoria) {
+    var categoria = categoriaCmsPorId(idCategoria);
+    var data = categoriasCmsData("categorias_items");
+    var item = data && data.items ? data.items[index] : null;
+    if (!categoria || !item) return;
+    aplicarCategoriaEditorialCms(item, categoria, true);
+    setCategoriasEstado("Categoria real aplicada al borrador. Puedes ajustar textos o imagenes antes de publicar.", "success");
+    renderGrupo();
+  }
+
+  function usarImagenCategoriaCmsItem(index, campo) {
+    var data = categoriasCmsData("categorias_items");
+    var item = data && data.items ? data.items[index] : null;
+    if (!item) return;
+    var categoria = categoriaCmsPorId(item.categoria_id);
+    var imagen = campo === "imagen_banner" ? imagenBannerCategoriaCms(categoria) : imagenCardCategoriaCms(categoria);
+    if (!imagen) {
+      setCategoriasEstado("La categoria seleccionada no tiene imagen disponible. Sube una imagen desde Media CMS.", "warning");
+      return;
+    }
+    item[campo] = imagen;
+    if (campo === "imagen_banner" && !item.alt_banner) item.alt_banner = "Banner de categoria " + (item.titulo || "");
+    if (campo === "imagen_card" && !item.alt_card) item.alt_card = "Categoria " + (item.titulo || "");
+    setCategoriasEstado("Imagen aplicada al borrador de categoria.", "success");
+    renderGrupo();
+  }
+
+  function aplicarCategoriaEditorialCms(destino, categoria, conservarImagen) {
+    if (!destino || !categoria) return;
+    destino.categoria_id = parseInt(categoria.id || "0", 10) || 0;
+    destino.titulo = categoria.nombre || categoria.nombre_completo || destino.titulo || "";
+    destino.slug = categoria.path_slug || categoria.slug_publico || categoria.slug || destino.slug || "";
+    destino.path_slug = categoria.path_slug || destino.slug;
+    destino.url = categoria.url_canonica || categoria.url || (destino.slug ? "/categoria/" + destino.slug : destino.url || "");
+    if (!destino.subtitulo && categoria.descripcion_corta) destino.subtitulo = categoria.descripcion_corta;
+    if (!destino.descripcion_seo && categoria.descripcion_corta) destino.descripcion_seo = categoria.descripcion_corta;
+    if (!destino.alt_card) destino.alt_card = "Categoria " + (destino.titulo || "");
+    if (!destino.alt_banner) destino.alt_banner = "Banner de categoria " + (destino.titulo || "");
+    if (!conservarImagen) {
+      if (!destino.imagen_card) destino.imagen_card = imagenCardCategoriaCms(categoria);
+      if (!destino.imagen_banner) destino.imagen_banner = imagenBannerCategoriaCms(categoria);
+    }
+  }
+
+  function guardarBorradorCategoriasCms() {
+    if (guardarBorradorFrontendLocal(false)) {
+      setCategoriasEstado("Borrador local de categorias guardado. Para enviarlo al frontend usa Guardar y publicar categorias.", "success");
+    } else {
+      setCategoriasEstado("No se pudo guardar el borrador local de categorias.", "danger");
+    }
+  }
+
   function actualizarMarcaCmsField(seccionCodigo, campo, valor) {
     var data = marcasCmsData(seccionCodigo);
     if (!data) return;
@@ -2214,6 +2677,48 @@
       orden: (items.length + 1) * 10
     });
     renderGrupo();
+  }
+
+  function renderHomePromosCategoria(item) {
+    var data = promosCategoriaData();
+    return '<div class="cms-actual-card mb-4">' +
+      '<div class="d-flex justify-content-between align-items-start gap-3 flex-wrap mb-4">' +
+        '<div><div class="fw-bold">' + escapeHtml(item.codigo) + '</div><div class="text-muted fs-8">' + escapeHtml(item.descripcion) + '</div></div>' +
+        '<span class="badge badge-light-success">Editor activo</span>' +
+      '</div>' +
+      '<div class="row g-3 mb-4">' +
+        '<div class="col-md-2"><label class="form-label fs-8 fw-bold">Visible</label><select class="form-select form-select-sm" data-home-list-config="promos_categoria.visible"><option value="1"' + (data.visible ? ' selected' : '') + '>Si</option><option value="0"' + (!data.visible ? ' selected' : '') + '>No</option></select></div>' +
+        '<div class="col-md-4"><label class="form-label fs-8 fw-bold">Titulo interno</label><input class="form-control form-control-sm" data-home-list-config="promos_categoria.titulo" value="' + escapeAttr(data.titulo || "") + '"></div>' +
+        '<div class="col-md-4"><label class="form-label fs-8 fw-bold">Subtitulo interno</label><input class="form-control form-control-sm" data-home-list-config="promos_categoria.subtitulo" value="' + escapeAttr(data.subtitulo || "") + '"></div>' +
+        '<div class="col-md-2"><label class="form-label fs-8 fw-bold">Variante</label><input class="form-control form-control-sm" data-home-list-config="promos_categoria.config.variante" value="' + escapeAttr((data.config || {}).variante || "") + '"></div>' +
+      '</div>' +
+      '<div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3"><div class="fw-bold">Promos de categoria</div><div class="d-flex gap-2"><button class="btn btn-sm btn-light-primary" type="button" data-home-section-draft="promos_categoria"><i class="bi bi-save"></i> Guardar borrador</button><button class="btn btn-sm btn-light-info" type="button" id="cms_actual_home_promos_api"><i class="bi bi-broadcast"></i> Ver API publicada</button><button class="btn btn-sm btn-primary" type="button" id="cms_actual_home_promos_publicar"><i class="bi bi-cloud-check"></i> Guardar y publicar promos</button><button class="btn btn-sm btn-light-primary" type="button" id="cms_actual_home_promo_categoria_agregar"><i class="bi bi-plus-circle"></i> Agregar promo</button></div></div>' +
+      '<div class="alert alert-light-warning fs-7 py-3 mb-4" id="cms_actual_home_promos_estado">Pendiente de publicar. Cada promo visible necesita titulo, URL canonica e imagen Media CMS.</div>' +
+      '<div class="alert alert-light-secondary fs-7 py-3 mb-4 d-none" id="cms_actual_home_promos_api_estado"></div>' +
+      (data.items || []).map(function (promo, index) { return renderHomePromoCategoriaItem(promo, index); }).join("") +
+      '<div class="alert alert-light-info fs-7 mb-0">Estas cards dirigen a categorias fuertes. Usa URLs completas tipo /categoria/acuario-y-peces/alimentacion/alimentos-de-acuario.</div>' +
+    '</div>';
+  }
+
+  function renderHomePromoCategoriaItem(item, index) {
+    var bg = item.imagen ? ' style="background-image:url(' + escapeAttr(urlPreviewSeguro(item.imagen)) + ')"' : "";
+    return '<div class="cms-actual-slide mb-4">' +
+      '<div class="d-flex justify-content-between align-items-center gap-2 mb-3">' +
+        '<div class="fw-semibold">Promo categoria ' + escapeHtml(index + 1) + '</div>' +
+        accionesHomeLista("promos_categoria", index) +
+      '</div>' +
+      '<div class="cms-actual-slide-preview mb-4"' + bg + '><div><h2 class="text-white fw-bold mb-2">' + escapeHtml(item.titulo || "Promo categoria") + '</h2><div class="opacity-75">' + escapeHtml(item.subtitulo || "") + '</div></div></div>' +
+      '<div class="row g-3">' +
+        inputHomeLista("promos_categoria", index, "titulo", "Titulo", item.titulo, "col-md-4") +
+        inputHomeLista("promos_categoria", index, "subtitulo", "Subtitulo", item.subtitulo, "col-md-4") +
+        inputHomeLista("promos_categoria", index, "categoria_id", "Categoria ID", item.categoria_id, "col-md-2") +
+        inputHomeLista("promos_categoria", index, "visible", "Visible 1/0", item.visible ? "1" : "0", "col-md-2") +
+        inputHomeLista("promos_categoria", index, "url", "URL publica", item.url, "col-md-6") +
+        inputHomeLista("promos_categoria", index, "path_slug", "Path slug canonico", item.path_slug, "col-md-6") +
+        inputHomeLista("promos_categoria", index, "imagen", "Imagen", item.imagen, "col-md-6", true) +
+        inputHomeLista("promos_categoria", index, "alt", "Alt obligatorio", item.alt, "col-md-6") +
+      '</div>' +
+    '</div>';
   }
 
   function renderCategoriasDestacadas(item) {
@@ -2685,6 +3190,50 @@
     }
   }
 
+  function renderHomeMarcasDestacadas(item) {
+    var data = marcasHomeData();
+    return '<div class="cms-actual-card mb-4">' +
+      '<div class="d-flex justify-content-between align-items-start gap-3 flex-wrap mb-4">' +
+        '<div><div class="fw-bold">' + escapeHtml(item.codigo) + '</div><div class="text-muted fs-8">' + escapeHtml(item.descripcion) + '</div></div>' +
+        '<span class="badge badge-light-success">Editor activo</span>' +
+      '</div>' +
+      '<div class="row g-3 mb-4">' +
+        '<div class="col-md-2"><label class="form-label fs-8 fw-bold">Visible</label><select class="form-select form-select-sm" data-home-list-config="marcas.visible"><option value="1"' + (data.visible ? ' selected' : '') + '>Si</option><option value="0"' + (!data.visible ? ' selected' : '') + '>No</option></select></div>' +
+        '<div class="col-md-4"><label class="form-label fs-8 fw-bold">Titulo</label><input class="form-control form-control-sm" data-home-list-config="marcas.titulo" value="' + escapeAttr(data.titulo || "") + '"></div>' +
+        '<div class="col-md-4"><label class="form-label fs-8 fw-bold">Subtitulo</label><input class="form-control form-control-sm" data-home-list-config="marcas.subtitulo" value="' + escapeAttr(data.subtitulo || "") + '"></div>' +
+        '<div class="col-md-2"><label class="form-label fs-8 fw-bold">Variante</label><input class="form-control form-control-sm" data-home-list-config="marcas.config.variante" value="' + escapeAttr((data.config || {}).variante || "") + '"></div>' +
+      '</div>' +
+      '<div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3"><div class="fw-bold">Marcas destacadas</div><div class="d-flex gap-2"><button class="btn btn-sm btn-light-primary" type="button" data-home-section-draft="marcas"><i class="bi bi-save"></i> Guardar borrador</button><button class="btn btn-sm btn-light-info" type="button" id="cms_actual_home_marcas_api"><i class="bi bi-broadcast"></i> Ver API publicada</button><button class="btn btn-sm btn-primary" type="button" id="cms_actual_home_marcas_publicar"><i class="bi bi-cloud-check"></i> Guardar y publicar marcas</button><button class="btn btn-sm btn-light-primary" type="button" id="cms_actual_home_marca_agregar"><i class="bi bi-plus-circle"></i> Agregar marca</button></div></div>' +
+      '<div class="alert alert-light-warning fs-7 py-3 mb-4" id="cms_actual_home_marcas_estado">Pendiente de publicar. Cada marca visible necesita nombre, slug o ID y URL publica.</div>' +
+      '<div class="alert alert-light-secondary fs-7 py-3 mb-4 d-none" id="cms_actual_home_marcas_api_estado"></div>' +
+      (data.items || []).map(renderHomeMarcaItem).join("") +
+      '<div class="alert alert-light-info fs-7 mb-0">El CMS no crea marcas reales. Solo controla orden, logo y capa editorial de marcas que ya existen o existiran en la API.</div>' +
+    '</div>';
+  }
+
+  function renderHomeMarcaItem(item, index) {
+    var bg = item.imagen_banner || item.logo;
+    return '<div class="cms-actual-slide mb-4">' +
+      '<div class="d-flex justify-content-between align-items-center gap-2 mb-3">' +
+        '<div class="fw-semibold">Marca ' + escapeHtml(index + 1) + '</div>' +
+        accionesHomeLista("marcas", index) +
+      '</div>' +
+      '<div class="cms-actual-slide-preview mb-4"' + (bg ? ' style="background-image:url(' + escapeAttr(urlPreviewSeguro(bg)) + ')"' : '') + '><div><h2 class="text-white fw-bold mb-2">' + escapeHtml(item.nombre || "Marca") + '</h2><div class="opacity-75">' + escapeHtml(item.subtitulo || item.descripcion_corta || "") + '</div></div></div>' +
+      '<div class="row g-3">' +
+        inputHomeLista("marcas", index, "nombre", "Nombre", item.nombre, "col-md-3") +
+        inputHomeLista("marcas", index, "subtitulo", "Subtitulo", item.subtitulo, "col-md-3") +
+        inputHomeLista("marcas", index, "marca_id", "Marca ID", item.marca_id, "col-md-2") +
+        inputHomeLista("marcas", index, "visible", "Visible 1/0", item.visible ? "1" : "0", "col-md-2") +
+        inputHomeLista("marcas", index, "slug", "Slug", item.slug, "col-md-2") +
+        inputHomeLista("marcas", index, "url", "URL publica", item.url, "col-md-4") +
+        inputHomeLista("marcas", index, "logo", "Logo", item.logo, "col-md-4", true) +
+        inputHomeLista("marcas", index, "imagen_banner", "Banner marca opcional", item.imagen_banner, "col-md-4", true) +
+        inputHomeLista("marcas", index, "alt_logo", "Alt logo", item.alt_logo, "col-md-6") +
+        inputHomeLista("marcas", index, "descripcion_corta", "Descripcion corta", item.descripcion_corta, "col-md-6") +
+      '</div>' +
+    '</div>';
+  }
+
   function renderColeccionesProductos(item) {
     var data = coleccionesData();
     return '<div class="cms-actual-card mb-4">' +
@@ -2925,6 +3474,98 @@
     }
   }
 
+  function renderHomeEsencialesArtiani(item) {
+    var data = esencialesData();
+    var principal = data.categoria_principal || {};
+    return '<div class="cms-actual-card mb-4">' +
+      '<div class="d-flex justify-content-between align-items-start gap-3 flex-wrap mb-4">' +
+        '<div><div class="fw-bold">' + escapeHtml(item.codigo) + '</div><div class="text-muted fs-8">' + escapeHtml(item.descripcion) + '</div></div>' +
+        '<span class="badge badge-light-success">Editor activo</span>' +
+      '</div>' +
+      '<div class="row g-3 mb-4">' +
+        '<div class="col-md-2"><label class="form-label fs-8 fw-bold">Visible</label><select class="form-select form-select-sm" data-esenciales-config="visible"><option value="1"' + (data.visible ? ' selected' : '') + '>Si</option><option value="0"' + (!data.visible ? ' selected' : '') + '>No</option></select></div>' +
+        '<div class="col-md-4"><label class="form-label fs-8 fw-bold">Titulo visible</label><input class="form-control form-control-sm" data-esenciales-config="titulo" value="' + escapeAttr(data.titulo || "") + '"></div>' +
+        '<div class="col-md-4"><label class="form-label fs-8 fw-bold">Subtitulo</label><input class="form-control form-control-sm" data-esenciales-config="subtitulo" value="' + escapeAttr(data.subtitulo || "") + '"></div>' +
+        '<div class="col-md-2"><label class="form-label fs-8 fw-bold">Orden</label><input class="form-control form-control-sm" data-esenciales-config="orden" value="' + escapeAttr(data.orden || 70) + '"></div>' +
+      '</div>' +
+      '<div class="fw-bold mb-3">Categoria principal</div>' +
+      '<div class="cms-actual-slide mb-4"><div class="row g-3">' +
+        selectorCategoriaEsencialPrincipal(principal) +
+        botonUsarImagenCategoria("principal", 0, principal) +
+        inputEsencialPrincipal("titulo", "Titulo", principal.titulo, "col-md-4") +
+        inputEsencialPrincipal("url", "URL publica generada", principal.url, "col-md-4") +
+        inputEsencialPrincipal("path_slug", "Path slug generado", principal.path_slug, "col-md-4") +
+        inputEsencialPrincipal("imagen", "Imagen", principal.imagen, "col-md-6", true) +
+        inputEsencialPrincipal("alt", "Alt", principal.alt, "col-md-6") +
+        inputEsencialPrincipal("objetivo", "Objetivo interno", principal.objetivo, "col-md-12") +
+      '</div></div>' +
+      '<div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3"><div class="fw-bold">Cards esenciales</div><div class="d-flex gap-2"><button class="btn btn-sm btn-light-primary" type="button" data-home-section-draft="esenciales"><i class="bi bi-save"></i> Guardar borrador</button><button class="btn btn-sm btn-light-info" type="button" id="cms_actual_home_esenciales_api"><i class="bi bi-broadcast"></i> Ver API publicada</button><button class="btn btn-sm btn-primary" type="button" id="cms_actual_home_esenciales_publicar"><i class="bi bi-cloud-check"></i> Guardar y publicar esenciales</button><button class="btn btn-sm btn-light-primary" type="button" id="cms_actual_home_esencial_agregar"><i class="bi bi-plus-circle"></i> Agregar card</button></div></div>' +
+      '<div class="alert alert-light-warning fs-7 py-3 mb-4" id="cms_actual_home_esenciales_estado">Pendiente de publicar. Maximo 3 cards visibles con titulo, URL, path_slug e imagen.</div>' +
+      '<div class="alert alert-light-secondary fs-7 py-3 mb-4 d-none" id="cms_actual_home_esenciales_api_estado"></div>' +
+      (data.items || []).map(renderHomeEsencialItem).join("") +
+      '<div class="alert alert-light-info fs-7 mb-0">Usa esta seccion para destacar una categoria principal y tres accesos relevantes; no sustituye el arbol real de categorias.</div>' +
+    '</div>';
+  }
+
+  function renderHomeEsencialItem(item, index) {
+    var bg = item.imagen ? ' style="background-image:url(' + escapeAttr(urlPreviewSeguro(item.imagen)) + ')"' : "";
+    return '<div class="cms-actual-slide mb-4">' +
+      '<div class="d-flex justify-content-between align-items-center gap-2 mb-3">' +
+        '<div class="fw-semibold">Card esencial ' + escapeHtml(index + 1) + '</div>' +
+        accionesHomeLista("esenciales", index) +
+      '</div>' +
+      '<div class="cms-actual-slide-preview mb-4"' + bg + '><div><h2 class="text-white fw-bold mb-2">' + escapeHtml(item.titulo || "Esencial") + '</h2><div class="opacity-75">' + escapeHtml(item.subtitulo || "") + '</div></div></div>' +
+      '<div class="row g-3">' +
+        selectorCategoriaHomeLista("esenciales", index, item, "col-md-12") +
+        botonUsarImagenCategoria("esenciales", index, item) +
+        inputHomeLista("esenciales", index, "titulo", "Titulo", item.titulo, "col-md-4") +
+        inputHomeLista("esenciales", index, "subtitulo", "Subtitulo", item.subtitulo, "col-md-4") +
+        inputHomeLista("esenciales", index, "visible", "Visible 1/0", item.visible ? "1" : "0", "col-md-2") +
+        inputHomeLista("esenciales", index, "url", "URL publica generada", item.url, "col-md-6") +
+        inputHomeLista("esenciales", index, "path_slug", "Path slug generado", item.path_slug, "col-md-6") +
+        inputHomeLista("esenciales", index, "imagen", "Imagen", item.imagen, "col-md-6", true) +
+        inputHomeLista("esenciales", index, "alt", "Alt", item.alt, "col-md-6") +
+        inputHomeLista("esenciales", index, "objetivo", "Objetivo interno", item.objetivo, "col-md-12") +
+      '</div>' +
+    '</div>';
+  }
+
+  function renderCompraGuiadaHome(item) {
+    var data = compraGuiadaData();
+    var config = data.config || {};
+    return '<div class="cms-actual-card mb-4">' +
+      '<div class="d-flex justify-content-between align-items-start gap-3 flex-wrap mb-4">' +
+        '<div><div class="fw-bold">' + escapeHtml(item.codigo) + '</div><div class="text-muted fs-8">' + escapeHtml(item.descripcion) + '</div></div>' +
+        '<span class="badge badge-light-success">Editor activo</span>' +
+      '</div>' +
+      '<div class="row g-3 mb-4">' +
+        '<div class="col-md-2"><label class="form-label fs-8 fw-bold">Visible</label><select class="form-select form-select-sm" data-compra-guiada-field="visible"><option value="1"' + (data.visible ? ' selected' : '') + '>Si</option><option value="0"' + (!data.visible ? ' selected' : '') + '>No</option></select></div>' +
+        '<div class="col-md-4"><label class="form-label fs-8 fw-bold">Titulo</label><input class="form-control form-control-sm" data-compra-guiada-field="titulo" value="' + escapeAttr(data.titulo || "") + '"></div>' +
+        '<div class="col-md-4"><label class="form-label fs-8 fw-bold">Subtitulo</label><input class="form-control form-control-sm" data-compra-guiada-field="subtitulo" value="' + escapeAttr(data.subtitulo || "") + '"></div>' +
+        '<div class="col-md-2"><label class="form-label fs-8 fw-bold">Orden</label><input class="form-control form-control-sm" data-compra-guiada-field="orden" value="' + escapeAttr(data.orden || 80) + '"></div>' +
+        '<div class="col-md-3"><label class="form-label fs-8 fw-bold">Mostrar mascotas</label><select class="form-select form-select-sm" data-compra-guiada-config="mostrar_mascotas"><option value="1"' + (config.mostrar_mascotas ? ' selected' : '') + '>Si</option><option value="0"' + (!config.mostrar_mascotas ? ' selected' : '') + '>No</option></select></div>' +
+        '<div class="col-md-3"><label class="form-label fs-8 fw-bold">Mostrar necesidades</label><select class="form-select form-select-sm" data-compra-guiada-config="mostrar_necesidades"><option value="1"' + (config.mostrar_necesidades ? ' selected' : '') + '>Si</option><option value="0"' + (!config.mostrar_necesidades ? ' selected' : '') + '>No</option></select></div>' +
+        '<div class="col-md-3"><label class="form-label fs-8 fw-bold">Prioridad</label><select class="form-select form-select-sm" data-compra-guiada-config="prioridad"><option value="secundaria"' + (config.prioridad !== "principal" ? ' selected' : '') + '>Secundaria</option><option value="principal"' + (config.prioridad === "principal" ? ' selected' : '') + '>Principal</option></select></div>' +
+        '<div class="col-md-3"><label class="form-label fs-8 fw-bold">Variante frontend</label><input class="form-control form-control-sm" data-compra-guiada-config="variante" value="' + escapeAttr(config.variante || "wokiee_guided_chips") + '"></div>' +
+      '</div>' +
+      '<div class="cms-actual-slide mb-4">' +
+        '<div class="fw-bold mb-2">' + escapeHtml(data.titulo || "Compra guiada") + '</div>' +
+        '<div class="text-muted fs-7 mb-3">' + escapeHtml(data.subtitulo || "") + '</div>' +
+        '<div class="d-flex flex-wrap gap-2">' +
+          (config.mostrar_mascotas ? '<span class="badge badge-light-primary">Perros</span><span class="badge badge-light-primary">Gatos</span><span class="badge badge-light-primary">Acuario</span><span class="badge badge-light-primary">Aves</span>' : '') +
+          (config.mostrar_necesidades ? '<span class="badge badge-light-info">Alimento</span><span class="badge badge-light-info">Habitat</span><span class="badge badge-light-info">Cuidado</span>' : '') +
+        '</div>' +
+      '</div>' +
+      '<div class="d-flex gap-2 flex-wrap mb-3">' +
+        '<button class="btn btn-sm btn-light-primary" type="button" id="cms_actual_home_compra_guiada_borrador"><i class="bi bi-save"></i> Guardar borrador</button>' +
+        '<button class="btn btn-sm btn-light-info" type="button" id="cms_actual_home_compra_guiada_api"><i class="bi bi-broadcast"></i> Ver API publicada</button>' +
+        '<button class="btn btn-sm btn-primary" type="button" id="cms_actual_home_compra_guiada_publicar"><i class="bi bi-cloud-check"></i> Guardar y publicar compra guiada</button>' +
+      '</div>' +
+      '<div class="alert alert-light-warning fs-7 py-3 mb-4" id="cms_actual_home_compra_guiada_estado">Pendiente de publicar en la API. El frontend pinta las opciones con su taxonomia/catalogo.</div>' +
+      '<div class="alert alert-light-secondary fs-7 py-3 mb-0 d-none" id="cms_actual_home_compra_guiada_api_estado"></div>' +
+    '</div>';
+  }
+
   function renderBannerHome(item) {
     var data = bannerData();
     return '<div class="cms-actual-card mb-4">' +
@@ -2991,6 +3632,590 @@
       '</div>';
     }
     return '<div class="' + escapeAttr(col || "col-md-6") + '"><label class="form-label fs-8 fw-bold">' + escapeHtml(label) + '</label>' + input + '</div>';
+  }
+
+  function inputHomeLista(contexto, index, campo, label, value, col, media) {
+    var inputValue = media && String(value || "").indexOf("data:image/") === 0 ? "" : value;
+    var input = '<input class="form-control form-control-sm" data-home-list-context="' + escapeAttr(contexto) + '" data-home-list-field="' + escapeAttr(campo) + '" data-index="' + escapeAttr(index) + '" value="' + escapeAttr(inputValue == null ? "" : inputValue) + '">';
+    if (media) {
+      input = '<div class="input-group input-group-sm">' + input + '<button class="btn btn-light-primary" type="button" data-media-picker="home_' + escapeAttr(contexto) + '" data-index="' + escapeAttr(index) + '" data-field="' + escapeAttr(campo) + '"><i class="bi bi-images"></i> Media</button></div>';
+    }
+    return '<div class="' + escapeAttr(col || "col-md-6") + '"><label class="form-label fs-8 fw-bold">' + escapeHtml(label) + '</label>' + input + '</div>';
+  }
+
+  function inputEsencialPrincipal(campo, label, value, col, media) {
+    var inputValue = media && String(value || "").indexOf("data:image/") === 0 ? "" : value;
+    var input = '<input class="form-control form-control-sm" data-esencial-principal-field="' + escapeAttr(campo) + '" value="' + escapeAttr(inputValue == null ? "" : inputValue) + '">';
+    if (media) {
+      input = '<div class="input-group input-group-sm">' + input + '<button class="btn btn-light-primary" type="button" data-media-picker="home_esencial_principal" data-index="0" data-field="' + escapeAttr(campo) + '"><i class="bi bi-images"></i> Media</button></div>';
+    }
+    return '<div class="' + escapeAttr(col || "col-md-6") + '"><label class="form-label fs-8 fw-bold">' + escapeHtml(label) + '</label>' + input + '</div>';
+  }
+
+  function selectorCategoriaEsencialPrincipal(principal) {
+    return '<div class="col-md-12">' +
+      '<label class="form-label fs-8 fw-bold">Seleccionar categoria principal</label>' +
+      '<select class="form-select form-select-sm" data-esencial-categoria-select="principal">' +
+        opcionesCategoriasCms(principal && principal.categoria_id ? principal.categoria_id : 0) +
+      '</select>' +
+      '<div class="text-muted fs-8 mt-1">Al seleccionar se completan titulo, URL publica y path_slug. Puedes ajustar el texto despues si necesitas un titulo comercial.</div>' +
+    '</div>';
+  }
+
+  function selectorCategoriaHomeLista(contexto, index, item, col) {
+    return '<div class="' + escapeAttr(col || "col-md-12") + '">' +
+      '<label class="form-label fs-8 fw-bold">Seleccionar categoria</label>' +
+      '<select class="form-select form-select-sm" data-home-category-select="' + escapeAttr(contexto) + '" data-index="' + escapeAttr(index) + '">' +
+        opcionesCategoriasCms(item && item.categoria_id ? item.categoria_id : 0) +
+      '</select>' +
+      '<div class="text-muted fs-8 mt-1">Usa la categoria real del catalogo; el CMS deriva URL y slug canonico para frontend.</div>' +
+    '</div>';
+  }
+
+  function botonUsarImagenCategoria(contexto, index, item) {
+    var categoria = categoriaCmsPorId(item && item.categoria_id ? item.categoria_id : 0);
+    var imagen = imagenCategoriaCms(categoria);
+    var texto = imagen ? "Usar imagen de categoria" : "Categoria sin imagen disponible";
+    var clase = imagen ? "btn-light-success" : "btn-light-secondary";
+    var ayuda = imagen ? "Copia la imagen de la categoria seleccionada. Si despues no te gusta, puedes reemplazarla desde Media." : "Primero asigna imagen a esa categoria o sube una imagen propia para esta seccion.";
+    return '<div class="col-md-12">' +
+      '<button class="btn btn-sm ' + clase + '" type="button" data-use-category-image="' + escapeAttr(contexto) + '" data-index="' + escapeAttr(index) + '"' + (!imagen ? ' disabled' : '') + '><i class="bi bi-image"></i> ' + escapeHtml(texto) + '</button>' +
+      '<div class="text-muted fs-8 mt-1">' + escapeHtml(ayuda) + '</div>' +
+    '</div>';
+  }
+
+  function opcionesCategoriasCms(seleccionada) {
+    var items = estado.catalogos && Array.isArray(estado.catalogos.categorias) ? estado.catalogos.categorias : [];
+    var html = '<option value="">Seleccionar categoria...</option>';
+    if (!items.length) {
+      return html + '<option value="" disabled>Cargando categorias publicas...</option>';
+    }
+    items.forEach(function (cat) {
+      var id = cat && cat.id != null ? String(cat.id) : "";
+      if (!id) return;
+      var nombre = cat.nombre_completo || cat.nombre || cat.path_slug || ("Categoria " + id);
+      var total = cat.total_productos != null ? " (" + cat.total_productos + ")" : "";
+      html += '<option value="' + escapeAttr(id) + '"' + (String(seleccionada || "") === id ? ' selected' : '') + '>' + escapeHtml(nombre + total) + '</option>';
+    });
+    return html;
+  }
+
+  function categoriaCmsPorId(id) {
+    var key = String(id || "");
+    return estado.catalogos && estado.catalogos.categoriasPorId ? estado.catalogos.categoriasPorId[key] : null;
+  }
+
+  function imagenCategoriaCms(categoria) {
+    if (!categoria) return "";
+    return primeraImagenCategoriaCms(categoria, ["imagen_banner", "imagen_card", "imagen_menu", "imagen", "url_imagen", "imagen_publica", "thumbnail", "foto"]);
+  }
+
+  function imagenCardCategoriaCms(categoria) {
+    if (!categoria) return "";
+    return primeraImagenCategoriaCms(categoria, ["imagen_card", "imagen_menu", "imagen", "url_imagen", "imagen_publica", "thumbnail", "imagen_banner", "foto"]);
+  }
+
+  function imagenBannerCategoriaCms(categoria) {
+    if (!categoria) return "";
+    return primeraImagenCategoriaCms(categoria, ["imagen_banner", "imagen", "url_imagen", "imagen_publica", "imagen_card", "imagen_menu", "thumbnail", "foto"]);
+  }
+
+  function primeraImagenCategoriaCms(categoria, campos) {
+    if (!categoria) return "";
+    for (var i = 0; i < campos.length; i++) {
+      var valor = categoria[campos[i]];
+      if (valor) return valor;
+    }
+    var grupos = [categoria.media, categoria.cms, categoria.editorial, categoria.imagenes, categoria.imagenes_catalogo];
+    for (var g = 0; g < grupos.length; g++) {
+      var grupo = grupos[g];
+      if (Array.isArray(grupo)) {
+        for (var a = 0; a < grupo.length; a++) {
+          var item = grupo[a];
+          if (!item || typeof item !== "object") continue;
+          for (var ac = 0; ac < campos.length; ac++) {
+            if (item[campos[ac]]) return item[campos[ac]];
+          }
+          if (item.url_imagen) return item.url_imagen;
+          if (item.url) return item.url;
+        }
+        continue;
+      }
+      if (!grupo || typeof grupo !== "object") continue;
+      for (var c = 0; c < campos.length; c++) {
+        if (grupo[campos[c]]) return grupo[campos[c]];
+      }
+      if (grupo.url_imagen) return grupo.url_imagen;
+      if (grupo.url) return grupo.url;
+    }
+    return "";
+  }
+
+  function aplicarCategoriaCmsDestino(destino, categoria, conservarImagen) {
+    if (!destino || !categoria) return;
+    destino.categoria_id = parseInt(categoria.id || "0", 10) || 0;
+    destino.titulo = categoria.nombre || categoria.nombre_completo || destino.titulo || "";
+    destino.url = categoria.url_canonica || categoria.url || (categoria.path_slug ? "/categoria/" + categoria.path_slug : destino.url || "");
+    destino.path_slug = categoria.path_slug || categoria.slug_publico || destino.path_slug || "";
+    if (!destino.subtitulo && categoria.descripcion_corta) destino.subtitulo = categoria.descripcion_corta;
+    if (!destino.alt) destino.alt = "Categoria " + (categoria.nombre || categoria.nombre_completo || "");
+    if (!conservarImagen && !destino.imagen && imagenCategoriaCms(categoria)) {
+      destino.imagen = imagenCategoriaCms(categoria);
+    }
+  }
+
+  function accionesHomeLista(contexto, index) {
+    return '<div class="d-flex gap-2">' +
+      '<button class="btn btn-sm btn-light" type="button" data-home-list-context="' + escapeAttr(contexto) + '" data-home-list-action="duplicar" data-index="' + escapeAttr(index) + '"><i class="bi bi-copy"></i></button>' +
+      '<button class="btn btn-sm btn-light-warning" type="button" data-home-list-context="' + escapeAttr(contexto) + '" data-home-list-action="toggle" data-index="' + escapeAttr(index) + '"><i class="bi bi-eye"></i></button>' +
+      '<button class="btn btn-sm btn-light-danger" type="button" data-home-list-context="' + escapeAttr(contexto) + '" data-home-list-action="eliminar" data-index="' + escapeAttr(index) + '"><i class="bi bi-trash"></i></button>' +
+    '</div>';
+  }
+
+  function homeListaData(contexto) {
+    if (contexto === "promos_categoria") return promosCategoriaData();
+    if (contexto === "marcas") return marcasHomeData();
+    if (contexto === "esenciales") return esencialesData();
+    return null;
+  }
+
+  function actualizarHomeListConfig(path, valor) {
+    var partes = String(path || "").split(".");
+    var contexto = partes.shift();
+    var data = homeListaData(contexto);
+    if (!data) return;
+    var campo = partes.join(".");
+    if (campo === "visible") data.visible = valor === "1";
+    else setPath(data, campo, valor);
+    refrescarJson();
+  }
+
+  function actualizarHomeListItem(contexto, index, campo, valor) {
+    var data = homeListaData(contexto);
+    var item = data && data.items ? data.items[index] : null;
+    if (!item) return;
+    if (campo === "categoria_id" || campo === "marca_id") item[campo] = parseInt(valor || "0", 10) || 0;
+    else if (campo === "visible") item.visible = valor === "1";
+    else setPath(item, campo, valor);
+    refrescarJson();
+  }
+
+  function actualizarEsencialesConfig(campo, valor) {
+    var data = esencialesData();
+    if (campo === "visible") data.visible = valor === "1";
+    else if (campo === "orden") data.orden = parseInt(valor || "70", 10) || 70;
+    else setPath(data, campo, valor);
+    refrescarJson();
+  }
+
+  function actualizarEsencialPrincipal(campo, valor) {
+    var data = esencialesData();
+    data.categoria_principal = data.categoria_principal || {};
+    if (campo === "categoria_id") data.categoria_principal.categoria_id = parseInt(valor || "0", 10) || 0;
+    else setPath(data.categoria_principal, campo, valor);
+    refrescarJson();
+  }
+
+  function seleccionarCategoriaEsencialPrincipal(idCategoria) {
+    var categoria = categoriaCmsPorId(idCategoria);
+    if (!categoria) return;
+    var data = esencialesData();
+    data.categoria_principal = data.categoria_principal || {};
+    aplicarCategoriaCmsDestino(data.categoria_principal, categoria, !!data.categoria_principal.imagen);
+    renderGrupo();
+  }
+
+  function seleccionarCategoriaHomeLista(contexto, index, idCategoria) {
+    var categoria = categoriaCmsPorId(idCategoria);
+    var data = homeListaData(contexto);
+    var item = data && data.items ? data.items[index] : null;
+    if (!categoria || !item) return;
+    aplicarCategoriaCmsDestino(item, categoria, !!item.imagen);
+    renderGrupo();
+  }
+
+  function usarImagenCategoriaEsenciales(contexto, index) {
+    var target = null;
+    if (contexto === "principal") {
+      target = esencialesData().categoria_principal || {};
+      esencialesData().categoria_principal = target;
+    } else {
+      var data = homeListaData(contexto);
+      target = data && data.items ? data.items[index] : null;
+    }
+    if (!target) return;
+    var categoria = categoriaCmsPorId(target.categoria_id);
+    var imagen = imagenCategoriaCms(categoria);
+    if (!imagen) {
+      setHomeListaEstado("esenciales", "La categoria seleccionada no tiene imagen editorial disponible. Sube una imagen propia o configura imagen en CMS > Frontend > Categorias.", "warning");
+      return;
+    }
+    target.imagen = imagen;
+    if (!target.alt) target.alt = "Categoria " + (categoria.nombre || categoria.nombre_completo || target.titulo || "");
+    setHomeListaEstado("esenciales", "Imagen de categoria aplicada al borrador.", "success");
+    renderGrupo();
+  }
+
+  function guardarBorradorSeccion(contexto) {
+    if (guardarBorradorFrontendLocal(false)) {
+      setHomeListaEstado(contexto, "Borrador guardado localmente. Puedes volver despues aunque falte imagen; para publicar si se validara la imagen.", "success");
+    }
+  }
+
+  function ejecutarHomeListAccion(contexto, accion, index) {
+    var data = homeListaData(contexto);
+    var items = data && data.items ? data.items : [];
+    if (!items[index]) return;
+    if (accion === "duplicar") {
+      var copia = JSON.parse(JSON.stringify(items[index]));
+      copia.orden = (items.length + 1) * 10;
+      items.splice(index + 1, 0, copia);
+    }
+    if (accion === "toggle") items[index].visible = !items[index].visible;
+    if (accion === "eliminar" && items.length > 1) items.splice(index, 1);
+    if (contexto === "esenciales" && items.length > 3) items.splice(3);
+    normalizarOrden(items);
+    renderGrupo();
+  }
+
+  function agregarHomePromoCategoria() {
+    var items = promosCategoriaData().items;
+    items.push({ titulo: "Nueva promo", subtitulo: "", imagen: "", alt: "", url: "/categoria/nueva-categoria", path_slug: "nueva-categoria", categoria_id: 0, visible: true, orden: (items.length + 1) * 10 });
+    renderGrupo();
+  }
+
+  function agregarHomeMarca() {
+    var items = marcasHomeData().items;
+    items.push({ marca_id: 0, nombre: "Nueva marca", subtitulo: "Ver marca", slug: "nueva-marca", slug_publico: "nueva-marca", logo: "", imagen_banner: "", alt_logo: "Logo de nueva marca", descripcion_corta: "", url: "/marca/nueva-marca", visible: true, visible_frontend: true, orden: (items.length + 1) * 10 });
+    renderGrupo();
+  }
+
+  function agregarHomeEsencial() {
+    var items = esencialesData().items;
+    if (items.length >= 3) {
+      setHomeListaEstado("esenciales", "Maximo 3 cards visibles para Esenciales Artiani.", "warning");
+      return;
+    }
+    items.push({ categoria_id: 0, titulo: "Nuevo esencial", subtitulo: "", url: "", path_slug: "", imagen: "", alt: "", objetivo: "", visible: true, orden: (items.length + 1) * 10 });
+    renderGrupo();
+  }
+
+  function publicarHomePromosCategoria() {
+    publicarHomeLista("promos_categoria", promosCategoriaData(), "/cms/frontend_home_promos_categoria_publicar_erp", "promos_categoria");
+  }
+
+  function publicarHomeMarcas() {
+    publicarHomeLista("marcas", marcasHomeData(), "/cms/frontend_home_marcas_publicar_erp", "marcas_destacadas");
+  }
+
+  function publicarHomeEsenciales() {
+    completarImagenesEsencialesDesdeCategoria();
+    publicarHomeLista("esenciales", esencialesData(), "/cms/frontend_home_esenciales_publicar_erp", "bloque_editorial_cards");
+  }
+
+  function publicarHomeLista(contexto, data, endpoint, tipoContrato) {
+    var validacion = validarHomeLista(contexto, data);
+    if (validacion) {
+      setHomeListaEstado(contexto, validacion, "warning");
+      return;
+    }
+    var boton = $("cms_actual_home_" + contextoBoton(contexto) + "_publicar");
+    var form = new FormData();
+    form.append("_csrf", window.ERP_CSRF_TOKEN || "");
+    form.append("payload_json", JSON.stringify(data));
+    if (boton) boton.disabled = true;
+    setHomeListaEstado(contexto, "Publicando " + tipoContrato + " en la API...", "info");
+    fetch(endpoint, {
+      method: "POST",
+      body: form,
+      credentials: "same-origin",
+      headers: {
+        "X-CSRF-Token": window.ERP_CSRF_TOKEN || "",
+        "Accept": "application/json",
+        "X-Requested-With": "XMLHttpRequest"
+      }
+    }).then(function (response) {
+      return response.text().then(function (text) {
+        var json = null;
+        try {
+          json = JSON.parse(text);
+        } catch (error) {
+          throw new Error("Respuesta no JSON del servidor (" + response.status + "): " + text.substring(0, 140));
+        }
+        if (!response.ok && json && json.mensaje) throw new Error(json.mensaje);
+        return json;
+      });
+    }).then(function (json) {
+      if (!json || json.error) throw new Error(json && json.mensaje ? json.mensaje : "No se pudo publicar");
+      setHomeListaEstado(contexto, "Publicado. Verifica con Ver API publicada.", "success");
+      consultarEstadoHomePublicado();
+      consultarApiHomeLista(contexto);
+    }).catch(function (error) {
+      setHomeListaEstado(contexto, error.message || "Error al publicar.", "danger");
+    }).finally(function () {
+      if (boton) boton.disabled = false;
+    });
+  }
+
+  function validarHomeLista(contexto, data) {
+    if (!data || !data.visible) return "Activa la seccion antes de publicar.";
+    var items = (data.items || []).filter(function (item) { return item && item.visible !== false; });
+    if (contexto === "esenciales" && items.length > 3) return "Esenciales permite maximo 3 cards visibles.";
+    if (!items.length) return "Deja al menos un item visible.";
+    for (var i = 0; i < items.length; i++) {
+      var item = items[i] || {};
+      if (contexto === "marcas") {
+        if (!String(item.nombre || "").trim()) return "Cada marca visible necesita nombre.";
+        if (!String(item.url || "").trim()) return "Cada marca visible necesita URL publica.";
+      } else {
+        if (!String(item.titulo || "").trim()) return "Cada item visible necesita titulo.";
+        if (!String(item.url || "").trim()) return "Cada item visible necesita URL publica.";
+        if (contexto === "esenciales" && !(parseInt(item.categoria_id || "0", 10) > 0) && !String(item.path_slug || "").trim()) return "Selecciona categoria o deja path_slug canonico en cada card esencial visible.";
+        if (contexto === "promos_categoria" && !String(item.path_slug || "").trim()) return "Cada promo visible necesita path_slug canonico.";
+        if (!String(item.imagen || "").trim()) return "Cada item visible necesita imagen.";
+      }
+    }
+    return "";
+  }
+
+  function completarImagenesEsencialesDesdeCategoria() {
+    var data = esencialesData();
+    if (!data) return;
+    if (data.categoria_principal && !data.categoria_principal.imagen && data.categoria_principal.categoria_id) {
+      var categoriaPrincipal = categoriaCmsPorId(data.categoria_principal.categoria_id);
+      var imagenPrincipal = imagenCategoriaCms(categoriaPrincipal);
+      if (imagenPrincipal) data.categoria_principal.imagen = imagenPrincipal;
+      if (imagenPrincipal && !data.categoria_principal.alt) data.categoria_principal.alt = "Categoria " + (data.categoria_principal.titulo || "");
+    }
+    (data.items || []).forEach(function (item) {
+      if (!item || item.imagen || !item.categoria_id) return;
+      var categoria = categoriaCmsPorId(item.categoria_id);
+      var imagen = imagenCategoriaCms(categoria);
+      if (!imagen) return;
+      item.imagen = imagen;
+      if (!item.alt) item.alt = "Categoria " + (item.titulo || "");
+    });
+  }
+
+  function consultarApiHomePromosCategoria() {
+    consultarApiHomeLista("promos_categoria");
+  }
+
+  function consultarApiHomeMarcas() {
+    consultarApiHomeLista("marcas");
+  }
+
+  function consultarApiHomeEsenciales() {
+    consultarApiHomeLista("esenciales");
+  }
+
+  function consultarApiHomeLista(contexto) {
+    var boton = $("cms_actual_home_" + contextoBoton(contexto) + "_api");
+    if (boton) boton.disabled = true;
+    setHomeListaApi(contexto, "Consultando /ecommercePublico/cms_frontend?pagina=home...", "info");
+    fetch("/ecommercePublico/cms_frontend?pagina=home", {
+      method: "GET",
+      credentials: "same-origin",
+      headers: {
+        "Accept": "application/json",
+        "X-Requested-With": "XMLHttpRequest"
+      }
+    }).then(function (response) {
+      return response.text().then(function (text) {
+        var json = null;
+        try {
+          json = JSON.parse(text);
+        } catch (error) {
+          throw new Error("Respuesta no JSON del servidor (" + response.status + "): " + text.substring(0, 140));
+        }
+        if (!response.ok) throw new Error((json && json.mensaje) || "No se pudo consultar la API publica");
+        return json;
+      });
+    }).then(function (json) {
+      var depurar = json && json.depurar ? json.depurar : {};
+      var slot = contexto === "promos_categoria" ? "home.promos" : (contexto === "marcas" ? "home.marcas" : "home.esenciales");
+      var bloques = bloquesSlotPublicado(depurar, slot);
+      if (!bloques.length) {
+        setHomeListaApi(contexto, "No hay contenido publicado en " + slot + ".", "warning");
+        return;
+      }
+      var bloque = bloques[0] || {};
+      var items = Array.isArray(bloque.items) ? bloque.items : [];
+      setHomeListaApi(contexto, '<div class="fw-bold mb-2">' + escapeHtml(slot) + ' publicado</div><div><span class="fw-semibold">Tipo:</span> ' + escapeHtml(bloque.tipo || bloque.frontend_tipo || "") + '</div><div><span class="fw-semibold">Titulo:</span> ' + escapeHtml(bloque.titulo || "") + '</div><div><span class="fw-semibold">Items:</span> ' + escapeHtml(items.length) + '</div>', "success", true);
+    }).catch(function (error) {
+      setHomeListaApi(contexto, error.message || "Error al consultar API publicada.", "danger");
+    }).finally(function () {
+      if (boton) boton.disabled = false;
+    });
+  }
+
+  function contextoBoton(contexto) {
+    if (contexto === "promos_categoria") return "promos";
+    if (contexto === "marcas") return "marcas";
+    if (contexto === "esenciales") return "esenciales";
+    return contexto;
+  }
+
+  function setHomeListaEstado(contexto, mensaje, tipo) {
+    setText("cms_actual_estado", mensaje);
+    var node = $("cms_actual_home_" + contextoBoton(contexto) + "_estado");
+    if (!node) return;
+    node.className = "alert fs-7 py-3 mb-4 alert-light-" + (tipo || "info");
+    node.textContent = mensaje;
+  }
+
+  function setHomeListaApi(contexto, mensaje, tipo, esHtml) {
+    setText("cms_actual_estado", esHtml ? "API publicada consultada" : mensaje);
+    var node = $("cms_actual_home_" + contextoBoton(contexto) + "_api_estado");
+    if (!node) return;
+    node.className = "alert fs-7 py-3 mb-4 alert-light-" + (tipo || "info");
+    if (esHtml) node.innerHTML = mensaje;
+    else node.textContent = mensaje;
+  }
+
+  function actualizarCompraGuiadaField(campo, valor) {
+    var data = compraGuiadaData();
+    if (campo === "visible") data.visible = valor === "1";
+    else if (campo === "orden") data.orden = parseInt(valor || "80", 10) || 80;
+    else setPath(data, campo, valor);
+    refrescarJson();
+  }
+
+  function actualizarCompraGuiadaConfig(campo, valor) {
+    var data = compraGuiadaData();
+    if (!data.config) data.config = {};
+    if (campo === "mostrar_mascotas" || campo === "mostrar_necesidades") {
+      data.config[campo] = valor === "1";
+    } else {
+      data.config[campo] = valor;
+    }
+    refrescarJson();
+  }
+
+  function guardarBorradorCompraGuiadaHome() {
+    if (guardarBorradorFrontendLocal(false)) {
+      setCompraGuiadaEstado("Borrador local guardado. Para enviarlo al frontend usa Guardar y publicar compra guiada.", "success");
+    } else {
+      setCompraGuiadaEstado("No se pudo guardar el borrador local.", "danger");
+    }
+  }
+
+  function publicarCompraGuiadaHome() {
+    var data = compraGuiadaData();
+    if (!data.visible) {
+      setCompraGuiadaEstado("Activa la seccion antes de publicarla.", "warning");
+      return;
+    }
+    if (!String(data.titulo || "").trim()) {
+      setCompraGuiadaEstado("Captura el titulo antes de publicar.", "warning");
+      return;
+    }
+    var config = data.config || {};
+    if (!config.mostrar_mascotas && !config.mostrar_necesidades) {
+      setCompraGuiadaEstado("Activa mascotas o necesidades para que frontend tenga algo que pintar.", "warning");
+      return;
+    }
+    var boton = $("cms_actual_home_compra_guiada_publicar");
+    var form = new FormData();
+    form.append("_csrf", window.ERP_CSRF_TOKEN || "");
+    form.append("payload_json", JSON.stringify(data));
+    if (boton) boton.disabled = true;
+    setCompraGuiadaEstado("Publicando Compra guiada en la API...", "info");
+    fetch("/cms/frontend_home_compra_guiada_publicar_erp", {
+      method: "POST",
+      body: form,
+      credentials: "same-origin",
+      headers: {
+        "X-CSRF-Token": window.ERP_CSRF_TOKEN || "",
+        "Accept": "application/json",
+        "X-Requested-With": "XMLHttpRequest"
+      }
+    }).then(function (response) {
+      return response.text().then(function (text) {
+        var json = null;
+        try {
+          json = JSON.parse(text);
+        } catch (error) {
+          throw new Error("Respuesta no JSON del servidor (" + response.status + "): " + text.substring(0, 140));
+        }
+        if (!response.ok && json && json.mensaje) throw new Error(json.mensaje);
+        return json;
+      });
+    }).then(function (json) {
+      if (!json || json.error) throw new Error(json && json.mensaje ? json.mensaje : "No se pudo publicar Compra guiada");
+      setCompraGuiadaEstado("Compra guiada publicada. Verifica con Ver API publicada.", "success");
+      consultarEstadoHomePublicado();
+      consultarApiCompraGuiadaHome();
+    }).catch(function (error) {
+      setCompraGuiadaEstado(error.message || "Error al publicar Compra guiada.", "danger");
+    }).finally(function () {
+      if (boton) boton.disabled = false;
+    });
+  }
+
+  function consultarApiCompraGuiadaHome() {
+    var boton = $("cms_actual_home_compra_guiada_api");
+    if (boton) boton.disabled = true;
+    setCompraGuiadaApi("Consultando /ecommercePublico/cms_frontend?pagina=home...", "info");
+    fetch("/ecommercePublico/cms_frontend?pagina=home", {
+      method: "GET",
+      credentials: "same-origin",
+      headers: {
+        "Accept": "application/json",
+        "X-Requested-With": "XMLHttpRequest"
+      }
+    }).then(function (response) {
+      return response.text().then(function (text) {
+        var json = null;
+        try {
+          json = JSON.parse(text);
+        } catch (error) {
+          throw new Error("Respuesta no JSON del servidor (" + response.status + "): " + text.substring(0, 140));
+        }
+        if (!response.ok) throw new Error((json && json.mensaje) || "No se pudo consultar la API publica");
+        return json;
+      });
+    }).then(function (json) {
+      var depurar = json && json.depurar ? json.depurar : {};
+      var bloques = bloquesSlotPublicado(depurar, "home.compra_guiada");
+      if (!bloques.length) {
+        setCompraGuiadaApi("No hay Compra guiada publicada en home.compra_guiada.", "warning");
+        return;
+      }
+      var bloque = bloques[0] || {};
+      var config = bloque.config || {};
+      setCompraGuiadaApi(
+        '<div class="fw-bold mb-2">Compra guiada publicada para Home</div>' +
+        '<div><span class="fw-semibold">Fuente:</span> ' + escapeHtml(depurar.fuente || "sin fuente") + '</div>' +
+        '<div><span class="fw-semibold">Titulo:</span> ' + escapeHtml(bloque.titulo || "") + '</div>' +
+        '<div><span class="fw-semibold">Mascotas:</span> ' + escapeHtml(config.mostrar_mascotas ? "si" : "no") + '</div>' +
+        '<div><span class="fw-semibold">Necesidades:</span> ' + escapeHtml(config.mostrar_necesidades ? "si" : "no") + '</div>' +
+        '<div><span class="fw-semibold">Prioridad:</span> ' + escapeHtml(config.prioridad || "") + '</div>',
+        "success",
+        true
+      );
+    }).catch(function (error) {
+      setCompraGuiadaApi(error.message || "Error al consultar API publicada.", "danger");
+    }).finally(function () {
+      if (boton) boton.disabled = false;
+    });
+  }
+
+  function setCompraGuiadaEstado(mensaje, tipo) {
+    setText("cms_actual_estado", mensaje);
+    var node = $("cms_actual_home_compra_guiada_estado");
+    if (!node) return;
+    node.className = "alert fs-7 py-3 mb-4 alert-light-" + (tipo || "info");
+    node.textContent = mensaje;
+  }
+
+  function setCompraGuiadaApi(mensaje, tipo, esHtml) {
+    setText("cms_actual_estado", esHtml ? "API publicada consultada" : mensaje);
+    var node = $("cms_actual_home_compra_guiada_api_estado");
+    if (!node) return;
+    node.className = "alert fs-7 py-3 mb-0 alert-light-" + (tipo || "info");
+    if (esHtml) node.innerHTML = mensaje;
+    else node.textContent = mensaje;
   }
 
   function actualizarBannerConfig(campo, valor) {
@@ -3439,6 +4664,129 @@
     node.textContent = mensaje;
   }
 
+  function actualizarCatalogoField(campo, valor) {
+    var data = catalogoData("catalogo_configuracion");
+    if (!data) return;
+    if (campo === "visible") data.visible = valor === "1";
+    else if (campo === "orden") data.orden = parseInt(valor || "10", 10) || 10;
+    else setPath(data, campo, valor);
+    refrescarJson();
+  }
+
+  function guardarBorradorCatalogo() {
+    if (guardarBorradorFrontendLocal(false)) {
+      setCatalogoEstado("Borrador local guardado. Para enviarlo al frontend usa Guardar y publicar catalogo.", "success");
+    } else {
+      setCatalogoEstado("No se pudo guardar el borrador local.", "danger");
+    }
+  }
+
+  function publicarCatalogoFrontend() {
+    var data = catalogoData("catalogo_configuracion");
+    if (!data || !String(data.titulo || "").trim()) {
+      setCatalogoEstado("Captura el titulo del catalogo antes de publicar.", "warning");
+      return;
+    }
+    var boton = $("cms_actual_catalogo_publicar");
+    var form = new FormData();
+    form.append("_csrf", window.ERP_CSRF_TOKEN || "");
+    form.append("payload_json", JSON.stringify(data));
+    if (boton) boton.disabled = true;
+    setCatalogoEstado("Publicando Catalogo en la API...", "info");
+    fetch("/cms/frontend_catalogo_publicar_erp", {
+      method: "POST",
+      body: form,
+      credentials: "same-origin",
+      headers: {
+        "X-CSRF-Token": window.ERP_CSRF_TOKEN || "",
+        "Accept": "application/json",
+        "X-Requested-With": "XMLHttpRequest"
+      }
+    }).then(function (response) {
+      return response.text().then(function (text) {
+        var json = null;
+        try {
+          json = JSON.parse(text);
+        } catch (error) {
+          throw new Error("Respuesta no JSON del servidor (" + response.status + "): " + text.substring(0, 140));
+        }
+        if (!response.ok && json && json.mensaje) throw new Error(json.mensaje);
+        return json;
+      });
+    }).then(function (json) {
+      if (!json || json.error) throw new Error(json && json.mensaje ? json.mensaje : "No se pudo publicar Catalogo");
+      setCatalogoEstado("Catalogo publicado. Verifica con Ver API publicada.", "success");
+      consultarApiCatalogoFrontend();
+    }).catch(function (error) {
+      setCatalogoEstado(error.message || "Error al publicar Catalogo.", "danger");
+    }).finally(function () {
+      if (boton) boton.disabled = false;
+    });
+  }
+
+  function consultarApiCatalogoFrontend() {
+    var boton = $("cms_actual_catalogo_api");
+    if (boton) boton.disabled = true;
+    setCatalogoApi("Consultando /ecommercePublico/cms_frontend?pagina=catalogo...", "info");
+    fetch("/ecommercePublico/cms_frontend?pagina=catalogo", {
+      method: "GET",
+      credentials: "same-origin",
+      headers: {
+        "Accept": "application/json",
+        "X-Requested-With": "XMLHttpRequest"
+      }
+    }).then(function (response) {
+      return response.text().then(function (text) {
+        var json = null;
+        try {
+          json = JSON.parse(text);
+        } catch (error) {
+          throw new Error("Respuesta no JSON del servidor (" + response.status + "): " + text.substring(0, 140));
+        }
+        if (!response.ok) throw new Error((json && json.mensaje) || "No se pudo consultar la API publica");
+        return json;
+      });
+    }).then(function (json) {
+      var depurar = json && json.depurar ? json.depurar : {};
+      var bloques = bloquesSlotPublicado(depurar, "catalogo.encabezado");
+      if (!bloques.length) {
+        setCatalogoApi("No hay encabezado publicado en catalogo.encabezado.", "warning");
+        return;
+      }
+      var bloque = bloques[0] || {};
+      setCatalogoApi(
+        '<div class="fw-bold mb-2">Catalogo publicado</div>' +
+        '<div><span class="fw-semibold">Fuente:</span> ' + escapeHtml(depurar.fuente || "sin fuente") + '</div>' +
+        '<div><span class="fw-semibold">Titulo:</span> ' + escapeHtml(bloque.titulo || "") + '</div>' +
+        '<div><span class="fw-semibold">Tipo:</span> ' + escapeHtml(bloque.tipo || "") + '</div>' +
+        '<div><span class="fw-semibold">SEO:</span> ' + escapeHtml((bloque.seo || {}).title || "") + '</div>',
+        "success",
+        true
+      );
+    }).catch(function (error) {
+      setCatalogoApi(error.message || "Error al consultar API publicada.", "danger");
+    }).finally(function () {
+      if (boton) boton.disabled = false;
+    });
+  }
+
+  function setCatalogoEstado(mensaje, tipo) {
+    setText("cms_actual_estado", mensaje);
+    var node = $("cms_actual_catalogo_estado");
+    if (!node) return;
+    node.className = "alert fs-7 py-3 mb-4 alert-light-" + (tipo || "info");
+    node.textContent = mensaje;
+  }
+
+  function setCatalogoApi(mensaje, tipo, esHtml) {
+    setText("cms_actual_estado", esHtml ? "API catalogo consultada" : mensaje);
+    var node = $("cms_actual_catalogo_api_estado");
+    if (!node) return;
+    node.className = "alert fs-7 py-3 mb-0 alert-light-" + (tipo || "info");
+    if (esHtml) node.innerHTML = mensaje;
+    else node.textContent = mensaje;
+  }
+
   function publicarCategoriasFrontend() {
     var json = previewCategoriasCmsJson();
     var categorias = json.depurar && Array.isArray(json.depurar.categorias) ? json.depurar.categorias : [];
@@ -3500,6 +4848,67 @@
     node.textContent = mensaje;
   }
 
+  function publicarMarcasFrontend() {
+    var json = previewMarcasCmsJson();
+    var marcas = json.depurar && Array.isArray(json.depurar.marcas) ? json.depurar.marcas : [];
+    var visibles = marcas.filter(function (item) { return item && item.visible !== false; });
+    if (!visibles.length) {
+      setMarcasEstado("Deja al menos una marca visible antes de publicar.", "warning");
+      return;
+    }
+    var invalida = visibles.filter(function (item) { return !item.marca_id && !String(item.slug || "").trim(); })[0];
+    if (invalida) {
+      setMarcasEstado("Cada marca visible necesita ID ERP o slug.", "warning");
+      return;
+    }
+    var boton = $("cms_actual_marcas_publicar");
+    var form = new FormData();
+    form.append("_csrf", window.ERP_CSRF_TOKEN || "");
+    form.append("payload_json", JSON.stringify(json.depurar || {}));
+    if (boton) boton.disabled = true;
+    setMarcasEstado("Publicando marcas...", "info");
+    fetch("/cms/frontend_marcas_publicar_erp", {
+      method: "POST",
+      body: form,
+      credentials: "same-origin",
+      headers: {
+        "X-CSRF-Token": window.ERP_CSRF_TOKEN || "",
+        "Accept": "application/json",
+        "X-Requested-With": "XMLHttpRequest"
+      }
+    }).then(function (response) {
+      return response.text().then(function (text) {
+        var jsonRespuesta = null;
+        try {
+          jsonRespuesta = JSON.parse(text);
+        } catch (error) {
+          throw new Error("Respuesta no JSON del servidor (" + response.status + "): " + text.substring(0, 140));
+        }
+        if (!response.ok && jsonRespuesta && jsonRespuesta.mensaje) {
+          throw new Error(jsonRespuesta.mensaje);
+        }
+        return jsonRespuesta;
+      });
+    }).then(function (jsonRespuesta) {
+      if (!jsonRespuesta || jsonRespuesta.error) {
+        throw new Error(jsonRespuesta && jsonRespuesta.mensaje ? jsonRespuesta.mensaje : "No se pudo publicar marcas");
+      }
+      setMarcasEstado("Marcas publicadas. /ecommercePublico/marcas ya puede entregar logos, banners y SEO desde CMS.", "success");
+    }).catch(function (error) {
+      setMarcasEstado(error.message || "Error al publicar marcas.", "danger");
+    }).finally(function () {
+      if (boton) boton.disabled = false;
+    });
+  }
+
+  function setMarcasEstado(mensaje, tipo) {
+    setText("cms_actual_estado", mensaje);
+    var node = $("cms_actual_marcas_estado");
+    if (!node) return;
+    node.className = "alert fs-7 py-3 mb-4 alert-light-" + (tipo || "info");
+    node.textContent = mensaje;
+  }
+
   function previewJson(grupo) {
     if (grupo.codigo === "politicas") {
       return previewPoliticasCmsJson();
@@ -3512,6 +4921,9 @@
     }
     if (grupo.codigo === "categorias") {
       return previewCategoriasCmsJson();
+    }
+    if (grupo.codigo === "catalogo") {
+      return previewCatalogoCmsJson();
     }
     if (grupo.codigo === "navegacion") {
       return previewNavegacionJson();
@@ -3601,6 +5013,29 @@
     };
   }
 
+  function previewCatalogoCmsJson() {
+    var data = catalogoData("catalogo_configuracion") || {};
+    return {
+      tipo: "success",
+      mensaje: "CMS frontend catalogo consultado",
+      depurar: {
+        version: "cms_frontend_catalogo_2026_08_28",
+        pagina: "catalogo",
+        endpoint_destino: "/ecommercePublico/cms_frontend?pagina=catalogo",
+        actualizado_en: "pendiente",
+        slot: "catalogo.encabezado",
+        secciones: [data],
+        guardrails: {
+          no_modifica_catalogo: true,
+          no_modifica_productos: true,
+          no_modifica_precios: true,
+          no_modifica_inventario: true,
+          fuente: "preview_local_panel"
+        }
+      }
+    };
+  }
+
   function previewCategoriasCmsJson() {
     var config = categoriasCmsData("categorias_config") || {};
     var items = categoriasCmsData("categorias_items") ? categoriasCmsData("categorias_items").items : [];
@@ -3617,6 +5052,7 @@
           return {
             categoria_id: item.categoria_id,
             slug: item.slug,
+            path_slug: item.path_slug || item.slug,
             titulo: item.titulo,
             subtitulo: item.subtitulo,
             descripcion_seo: item.descripcion_seo,
@@ -3776,9 +5212,13 @@
         secciones: grupo.secciones.map(function (item, index) {
           if (item.codigo === "home_hero_carrusel") return hero;
           if (item.codigo === "home_promo") return promoData();
+          if (item.codigo === "home_promos_categoria") return promosCategoriaData();
           if (item.codigo === "home_categorias_destacadas") return categoriasData();
           if (item.codigo === "home_productos_destacados") return productosData();
+          if (item.codigo === "home_marcas_destacadas") return marcasHomeData();
           if (item.codigo === "home_colecciones") return coleccionesData();
+          if (item.codigo === "home_esenciales_artiani") return esencialesData();
+          if (item.codigo === "home_compra_guiada") return compraGuiadaData();
           if (item.codigo === "home_banner") return bannerData();
           return {
             codigo: item.codigo,
@@ -3808,12 +5248,28 @@
     return estado.datos.home.home_categorias_destacadas;
   }
 
+  function promosCategoriaData() {
+    return estado.datos.home.home_promos_categoria;
+  }
+
   function productosData() {
     return estado.datos.home.home_productos_destacados;
   }
 
+  function marcasHomeData() {
+    return estado.datos.home.home_marcas_destacadas;
+  }
+
   function coleccionesData() {
     return estado.datos.home.home_colecciones;
+  }
+
+  function esencialesData() {
+    return estado.datos.home.home_esenciales_artiani;
+  }
+
+  function compraGuiadaData() {
+    return estado.datos.home.home_compra_guiada;
   }
 
   function bannerData() {
@@ -3834,6 +5290,10 @@
 
   function marcasCmsData(codigo) {
     return estado.datos.marcas ? estado.datos.marcas[codigo] : null;
+  }
+
+  function catalogoData(codigo) {
+    return estado.datos.catalogo ? estado.datos.catalogo[codigo] : null;
   }
 
   function paginasCmsData(codigo) {
@@ -3883,6 +5343,7 @@
         '<div class="modal-header"><div><h3 class="modal-title fw-bold">Seleccionar imagen de Media</h3><div class="text-muted fs-7">Biblioteca Media CMS.</div></div><button type="button" class="btn btn-icon btn-sm btn-light" data-bs-dismiss="modal"><i class="bi bi-x-lg"></i></button></div>' +
         '<div class="modal-body">' +
           '<div class="alert alert-info py-3 fs-7">Seleccionar un archivo solo muestra preview. Para guardarlo en servidor pulsa <strong>Subir y usar</strong>; despues quedara en Media CMS y podra salir en la API publica.</div>' +
+          '<div class="alert alert-light-primary py-3 fs-7" id="cms_actual_media_recomendacion"></div>' +
           '<div class="border rounded p-4 mb-5 bg-light">' +
             '<div class="fw-bold mb-3">Cargar nueva imagen</div>' +
             '<div class="row g-3 align-items-end">' +
@@ -3909,6 +5370,8 @@
     document.body.appendChild(wrapper.firstChild);
     on("cms_actual_media_archivo", "change", prepararMediaDesdeModal);
     on("cms_actual_media_agregar_usar", "click", agregarYUsarMediaDesdeModal);
+    on("cms_actual_media_nuevo_uso", "change", renderMediaRecomendacion);
+    on("cms_actual_media_nuevo_tipo", "change", renderMediaRecomendacion);
     on("cms_actual_media_usar_seleccion", "click", function () {
       if (estado.mediaPicker && estado.mediaPicker.seleccion) aplicarMediaSeleccionada(estado.mediaPicker.seleccion);
     });
@@ -3929,10 +5392,14 @@
     var picker = estado.mediaPicker || {};
     var uso = picker.contexto === "global" ? "global" : "";
     var tipo = "";
+    if (String(picker.contexto || "").indexOf("home_") === 0) uso = "home";
     if (picker.campo === "logo_principal") tipo = "logo";
     if (picker.campo === "logo_blanco") tipo = "logo_blanco";
     if (picker.campo === "favicon") tipo = "favicon";
     if (picker.campo === "og_image_default") tipo = "open_graph";
+    if (picker.campo === "logo") tipo = "logo";
+    if (picker.campo === "imagen") tipo = "card";
+    if (picker.contexto === "home_esenciales" || picker.contexto === "home_esencial_principal") tipo = "editorial";
     if (!tipo && picker.campo && picker.campo.indexOf("imagen_desktop") !== -1) tipo = "hero";
     if (!tipo && picker.campo && picker.campo.indexOf("imagen_mobile") !== -1) tipo = "hero";
     if (!tipo && picker.campo && picker.campo.indexOf("imagen_banner") !== -1) tipo = "banner";
@@ -3940,6 +5407,28 @@
     if (uso && $("cms_actual_media_nuevo_uso")) $("cms_actual_media_nuevo_uso").value = uso;
     if (uso && $("cms_actual_media_uso")) $("cms_actual_media_uso").value = uso;
     if (tipo && $("cms_actual_media_nuevo_tipo")) $("cms_actual_media_nuevo_tipo").value = tipo;
+    renderMediaRecomendacion();
+  }
+
+  function renderMediaRecomendacion() {
+    var node = $("cms_actual_media_recomendacion");
+    if (!node) return;
+    node.innerHTML = '<span class="fw-bold">Proporcion recomendada:</span> ' + escapeHtml(recomendacionMediaActual());
+  }
+
+  function recomendacionMediaActual() {
+    var uso = valor("cms_actual_media_nuevo_uso") || "";
+    var tipo = valor("cms_actual_media_nuevo_tipo") || "";
+    var contexto = estado.mediaPicker ? estado.mediaPicker.contexto : "";
+    if (tipo === "favicon") return "ICO/PNG cuadrado 64 x 64 o 128 x 128.";
+    if (tipo === "logo" || tipo === "logo_blanco") return "Logo horizontal en PNG/WebP transparente, aprox. 600 x 200; conserva margen.";
+    if (tipo === "open_graph") return "1200 x 630 en JPG/WebP para SEO y redes sociales.";
+    if (tipo === "hero") return "1920 x 700 o 1600 x 600 en JPG/WebP; deja texto importante centrado.";
+    if (tipo === "banner") return "1600 x 600 para banner ancho; si es banner de categoria usa tambien una version mobile despues.";
+    if (contexto === "home_esenciales" || contexto === "home_esencial_principal" || tipo === "editorial") return "1200 x 900 o 1600 x 1200 en JPG/WebP; ideal para cards editoriales de Home.";
+    if (uso === "categoria" || tipo === "card") return "Categoria/card: ideal 1200 x 1200 cuadrada. Tu formato 900 x 900 sirve; mejor subir 1200 x 1200 optimizada.";
+    if (tipo === "thumb") return "600 x 600 cuadrada.";
+    return "JPG/WebP optimizada, menos de 500 KB si se puede, con alt text descriptivo.";
   }
 
   function prepararMediaDesdeModal() {
@@ -4126,6 +5615,10 @@
     if (picker.contexto === "categoria") target = categoriasData().items[picker.index];
     if (picker.contexto === "banner") target = bannerData().items[picker.index];
     if (picker.contexto === "global") target = globalData(picker.index);
+    if (picker.contexto === "home_promos_categoria") target = promosCategoriaData().items[picker.index];
+    if (picker.contexto === "home_marcas") target = marcasHomeData().items[picker.index];
+    if (picker.contexto === "home_esenciales") target = esencialesData().items[picker.index];
+    if (picker.contexto === "home_esencial_principal") target = esencialesData().categoria_principal;
     if (picker.contexto === "cms_categoria") target = categoriasCmsData("categorias_items").items[picker.index];
     if (picker.contexto === "cms_marca") target = marcasCmsData("marcas_items").items[picker.index];
     if (picker.contexto === "cms_pagina") target = paginasCmsData("paginas_items").items[picker.index];
@@ -4136,6 +5629,10 @@
     if (picker.contexto === "cms_marca" && picker.campo === "logo" && !target.alt_logo && media.alt) target.alt_logo = media.alt;
     if (picker.contexto === "cms_marca" && picker.campo === "imagen_banner" && !target.alt_banner && media.alt) target.alt_banner = media.alt;
     if (picker.contexto === "cms_pagina" && picker.campo === "imagen_principal" && !target.alt_imagen && media.alt) target.alt_imagen = media.alt;
+    if (picker.contexto === "home_promos_categoria" && picker.campo === "imagen" && !target.alt && media.alt) target.alt = media.alt;
+    if (picker.contexto === "home_esenciales" && picker.campo === "imagen" && !target.alt && media.alt) target.alt = media.alt;
+    if (picker.contexto === "home_esencial_principal" && picker.campo === "imagen" && !target.alt && media.alt) target.alt = media.alt;
+    if (picker.contexto === "home_marcas" && picker.campo === "logo" && !target.alt_logo && media.alt) target.alt_logo = media.alt;
     if (!target.alt && media.alt) target.alt = media.alt;
     renderGrupo();
     setText("cms_actual_estado", "Media aplicada: " + normalizarUrlMediaCms(media.url));

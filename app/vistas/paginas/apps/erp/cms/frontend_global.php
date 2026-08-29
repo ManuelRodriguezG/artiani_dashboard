@@ -9,6 +9,7 @@ $cmsFrontendTitulo = "CMS - Frontend Global";
 $cmsFrontendHeading = "CMS / Frontend / Global";
 $cmsFrontendSubtitulo = "Administra negocio, contacto, logos, horarios, redes, SEO y navegacion global";
 $cmsFrontendGrupoInicial = "global";
+$cmsFrontendVistaDedicada = true;
 $cmsFrontendAvisoTitulo = "Configuracion global del ecommerce";
 $cmsFrontendAvisoTexto = "Aqui se preparan los datos que despues alimentaran /ecommercePublico/configuracion_inicial: negocio, ubicacion, horarios, redes, SEO y navegacion. Por ahora el editor genera preview JSON local.";
 require __DIR__ . "/frontend_actual.php";

@@ -12,6 +12,214 @@ class RentabilidadErp extends CRUD {
         ));
     }
 
+    /**
+     * IA: Codex GPT-5
+     * Fecha: 2026-08-28
+     * Proposito: listar listas de precios reales para usarlas como canales analizables en Rentabilidad.
+     * Impacto: reemplaza la dependencia operativa de escenarios fijos por listas/canales configurables existentes.
+     * Contrato: read-only; no crea canales, no modifica Listas ni precios.
+     */
+    public function listasPrecioRentabilidad($filtros = array()) {
+        try {
+            if (!$this->tablaExisteSimple("erp_listas_precios")) {
+                return $this->respuesta(false, "success", "No existe tabla de listas de precios", array(
+                    "items" => array(),
+                    "resumen" => array("total" => 0, "activas" => 0)
+                ));
+            }
+            $db = $this->getConexion();
+            $q = trim(isset($filtros["q"]) ? strval($filtros["q"]) : "");
+            $estatus = trim(isset($filtros["estatus"]) ? strval($filtros["estatus"]) : "");
+            $limite = max(10, min(300, intval(isset($filtros["limite"]) ? $filtros["limite"] : 120)));
+            $where = array("1=1");
+            $params = array();
+            if ($q !== "") {
+                $where[] = "(l.codigo LIKE :q OR l.nombre LIKE :q OR l.canal LIKE :q)";
+                $params[":q"] = "%" . $q . "%";
+            }
+            if ($estatus !== "") {
+                $where[] = "l.estatus=:estatus";
+                $params[":estatus"] = $estatus;
+            }
+            $detalles = $this->tablaExisteSimple("erp_listas_precios_detalle")
+                ? "(SELECT COUNT(*) FROM erp_listas_precios_detalle d WHERE d.id_lista_precio=l.id_lista_precio AND d.estatus='activo')"
+                : "0";
+            $stmt = $db->prepare("SELECT l.id_lista_precio, l.codigo, l.nombre, COALESCE(l.canal,'general') canal,
+                    l.id_almacen, l.prioridad, l.estatus, l.fecha_inicio, l.fecha_fin,
+                    $detalles detalles_activos
+                FROM erp_listas_precios l
+                WHERE " . implode(" AND ", $where) . "
+                ORDER BY l.estatus='activa' DESC, l.prioridad ASC, l.nombre ASC
+                LIMIT " . $limite);
+            $stmt->execute($params);
+            $items = array();
+            $resumen = array("total" => 0, "activas" => 0, "borrador" => 0, "pausada" => 0, "cancelada" => 0);
+            foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $fila) {
+                $estatusFila = isset($fila["estatus"]) ? $fila["estatus"] : "";
+                $resumen["total"]++;
+                if (isset($resumen[$estatusFila])) {
+                    $resumen[$estatusFila]++;
+                }
+                $items[] = array(
+                    "id_lista_precio" => intval($fila["id_lista_precio"]),
+                    "codigo" => $fila["codigo"],
+                    "nombre" => $fila["nombre"],
+                    "canal" => $fila["canal"] ?: "general",
+                    "id_almacen" => $fila["id_almacen"] === null ? null : intval($fila["id_almacen"]),
+                    "prioridad" => intval($fila["prioridad"]),
+                    "estatus" => $estatusFila,
+                    "fecha_inicio" => $fila["fecha_inicio"],
+                    "fecha_fin" => $fila["fecha_fin"],
+                    "detalles_activos" => intval($fila["detalles_activos"])
+                );
+            }
+
+            return $this->respuesta(false, "success", "Listas de precios consultadas para Rentabilidad", array(
+                "resumen" => $resumen,
+                "items" => $items,
+                "reglas" => array(
+                    "Cada lista se trata como canal de analisis configurable.",
+                    "Rentabilidad no crea listas ni aplica precios en esta consulta.",
+                    "Canales persistentes propios de Rentabilidad requieren DDL y autorizacion posterior."
+                )
+            ));
+        } catch (Exception $e) {
+            return $this->respuesta(true, "danger", $e->getMessage());
+        }
+    }
+
+    /**
+     * IA: Codex GPT-5
+     * Fecha: 2026-08-28
+     * Proposito: analizar utilidad real estimada de una lista de precios existente.
+     * Impacto: habilita Rentabilidad como herramienta por lista/canal con impuestos y costo vigente trazable.
+     * Contrato: read-only; no modifica Catalogo, Listas, Inventario, Compras ni Ventas.
+     */
+
+    /**
+     * IA: Codex GPT-5
+     * Fecha: 2026-08-29
+     * Proposito: diagnosticar SKUs de una lista que no tienen costo y pueden resolverse como variantes operativas.
+     * Impacto: crea una bandeja read-only de atencion antes de pedir cambios persistentes en Catalogo/Listas.
+     * Contrato: no escribe BD, no modifica Catalogo, no actualiza precios; solo recomienda siguiente paso.
+     */
+    public function atencionCostosListaPrecios($filtros = array()) {
+        try {
+            $filtrosAnalisis = $filtros;
+            $filtrosAnalisis["riesgo"] = "";
+            $filtrosAnalisis["limite"] = isset($filtros["limite"]) ? $filtros["limite"] : 80;
+            $analisis = $this->analizarListaPrecios($filtrosAnalisis);
+            if (!empty($analisis["error"])) {
+                return $analisis;
+            }
+            $db = $this->getConexion();
+            $items = array();
+            $resumen = array("evaluados" => 0, "sin_costo" => 0, "variantes_candidatas" => 0, "requiere_catalogo" => 0, "requiere_costo_origen" => 0);
+            foreach (isset($analisis["depurar"]["items"]) ? $analisis["depurar"]["items"] : array() as $item) {
+                $resumen["evaluados"]++;
+                if (floatval($item["costo_real_sin_impuesto"]) > 0 && !in_array("sin_costo", $item["hallazgos"], true)) {
+                    continue;
+                }
+                $resumen["sin_costo"]++;
+                $candidatos = $this->candidatosCostoVarianteOperativa($db, $item);
+                if (!empty($candidatos)) {
+                    $resumen["variantes_candidatas"]++;
+                    $resumen["requiere_catalogo"]++;
+                    $accion = count($candidatos) === 1 ? "configurar_variante_operativa" : "seleccionar_sku_origen";
+                    $siguiente = count($candidatos) === 1 ? "Validar en Catalogo que sea variante operativa factor 1 del SKU origen sugerido." : "Seleccionar en Catalogo el SKU origen correcto y factor de derivacion.";
+                } else {
+                    $resumen["requiere_costo_origen"]++;
+                    $accion = "resolver_costo_origen";
+                    $siguiente = "No hay SKU hermano con costo confiable; resolver costo proveedor/compra o completar receta tecnica.";
+                }
+                $items[] = array(
+                    "id_lista_precio_detalle" => $item["id_lista_precio_detalle"],
+                    "id_sku" => $item["id_sku"],
+                    "sku" => $item["sku"],
+                    "producto" => $item["producto"],
+                    "id_producto_erp" => isset($item["id_producto_erp"]) ? $item["id_producto_erp"] : null,
+                    "costo_actual" => $item["costo_real_sin_impuesto"],
+                    "origen_costo" => $item["origen_costo"],
+                    "accion_sugerida" => $accion,
+                    "candidatos_origen" => $candidatos,
+                    "siguiente_paso" => $siguiente,
+                    "bloqueos" => empty($candidatos) ? array("sin_costo_origen_confiable") : array(),
+                    "modo" => "dry_run"
+                );
+            }
+            return $this->respuesta(false, "success", "Atencion de costos por lista consultada", array(
+                "lista" => $analisis["depurar"]["lista"],
+                "resumen" => $resumen,
+                "items" => $items,
+                "reglas" => array(
+                    "Rentabilidad detecta el problema y sugiere origen; Catalogo conserva la relacion tecnica.",
+                    "Una variante operativa debe derivar costo por factor, normalmente 1, desde un SKU origen con costo confiable.",
+                    "Esta consulta no guarda costos, no crea recetas y no modifica listas de precios."
+                )
+            ));
+        } catch (Exception $e) {
+            return $this->respuesta(true, "danger", $e->getMessage());
+        }
+    }
+    public function analizarListaPrecios($filtros = array()) {
+        try {
+            if (!$this->tablaExisteSimple("erp_listas_precios") || !$this->tablaExisteSimple("erp_listas_precios_detalle")) {
+                return $this->respuesta(true, "warning", "Falta esquema de listas de precios para analizar rentabilidad");
+            }
+            $idLista = intval(isset($filtros["id_lista_precio"]) ? $filtros["id_lista_precio"] : 0);
+            if ($idLista <= 0) {
+                return $this->respuesta(true, "warning", "Selecciona una lista de precios para analizar");
+            }
+            $db = $this->getConexion();
+            $lista = $this->consultarListaPrecioRentabilidad($db, $idLista);
+            if (!$lista) {
+                return $this->respuesta(true, "warning", "Lista de precios no encontrada");
+            }
+
+            $q = trim(isset($filtros["q"]) ? strval($filtros["q"]) : "");
+            $riesgo = trim(isset($filtros["riesgo"]) ? strval($filtros["riesgo"]) : "");
+            $limite = max(10, min(500, intval(isset($filtros["limite"]) ? $filtros["limite"] : 250)));
+            $gastoPct = $this->porcentaje($filtros, "gasto_pct", 0);
+            $comisionPct = $this->porcentaje($filtros, "comision_pct", 0);
+            $margenObjetivoPct = $this->porcentaje($filtros, "margen_objetivo_pct", 20);
+            $ajustePct = $this->porcentajeAjusteLista($filtros, "ajuste_pct", 0);
+
+            $items = array();
+            foreach ($this->consultarFilasListaPrecio($db, $idLista, $q, $limite) as $fila) {
+                $item = $this->calcularItemListaPrecio($db, $fila, $lista, $gastoPct, $comisionPct, $margenObjetivoPct, $ajustePct);
+                if ($riesgo !== "" && $item["riesgo_clave"] !== $riesgo) {
+                    continue;
+                }
+                $items[] = $item;
+            }
+            $resumen = $this->resumenListaPrecio($items);
+            $propuestas = $this->propuestasListaPrecio($items);
+            return $this->respuesta(false, "success", "Rentabilidad de lista consultada", array(
+                "lista" => $lista,
+                "escenario" => array(
+                    "origen" => "lista_precio",
+                    "id_lista_precio" => $idLista,
+                    "canal" => $lista["canal"],
+                    "gasto_pct" => $gastoPct,
+                    "comision_pct" => $comisionPct,
+                    "margen_objetivo_pct" => $margenObjetivoPct,
+                    "ajuste_pct" => $ajustePct
+                ),
+                "resumen" => $resumen,
+                "propuestas" => $propuestas,
+                "items" => $items,
+                "reglas" => array(
+                    "Precio base tomado de erp_listas_precios_detalle.",
+                    "Precio sin impuestos calculado con la configuracion fiscal del SKU.",
+                    "Costo vigente resuelto por Rentabilidad sin escribir costos en Catalogo.",
+                    "Las acciones sugeridas son alertas/propuestas; no modifican listas ni ventas."
+                )
+            ));
+        } catch (Exception $e) {
+            return $this->respuesta(true, "danger", $e->getMessage());
+        }
+    }
+
     public function auditarEscenariosComerciales() {
         try {
             $db = $this->getConexion();
@@ -167,6 +375,7 @@ class RentabilidadErp extends CRUD {
             return $this->respuesta(false, "success", "Comparacion de escenarios consultada", array(
                 "sku" => array(
                     "id_sku" => intval($fila["id_sku"]),
+            "id_producto_erp" => intval($fila["id_producto_erp"]),
                     "sku" => $fila["sku"],
                     "producto" => $fila["producto"]
                 ),
@@ -255,6 +464,7 @@ class RentabilidadErp extends CRUD {
             return $this->respuesta(false, "success", "Evidencia de rentabilidad consultada", array(
                 "sku" => array(
                     "id_sku" => intval($fila["id_sku"]),
+            "id_producto_erp" => intval($fila["id_producto_erp"]),
                     "sku" => $fila["sku"],
                     "producto" => $fila["producto"]
                 ),
@@ -355,6 +565,7 @@ class RentabilidadErp extends CRUD {
                 }
                 $items[] = array(
                     "id_sku" => intval($fila["id_sku"]),
+            "id_producto_erp" => intval($fila["id_producto_erp"]),
                     "sku" => $fila["sku"],
                     "producto" => $fila["producto"],
                     "mejor_canal" => $mejor ? $mejor["canal"] : null,
@@ -463,6 +674,7 @@ class RentabilidadErp extends CRUD {
 
                 $items[] = array(
                     "id_sku" => intval($fila["id_sku"]),
+            "id_producto_erp" => intval($fila["id_producto_erp"]),
                     "sku" => $fila["sku"],
                     "producto" => $fila["producto"],
                     "canal_recomendado" => $dictamen["canal"],
@@ -1190,6 +1402,7 @@ class RentabilidadErp extends CRUD {
 
                 $items[] = array(
                     "id_sku" => intval($fila["id_sku"]),
+            "id_producto_erp" => intval($fila["id_producto_erp"]),
                     "sku" => $fila["sku"],
                     "producto" => $fila["producto"],
                     "requiere_subir" => $requiereSubir,
@@ -3009,6 +3222,7 @@ class RentabilidadErp extends CRUD {
 
                 $base = array(
                     "id_sku" => intval($fila["id_sku"]),
+            "id_producto_erp" => intval($fila["id_producto_erp"]),
                     "sku" => $sku,
                     "producto" => $fila["producto"],
                     "costo_referencia" => round(floatval($fila["costo_referencia"]), 6),
@@ -3161,6 +3375,7 @@ class RentabilidadErp extends CRUD {
                 }
                 $items[] = array(
                     "id_sku" => intval($fila["id_sku"]),
+            "id_producto_erp" => intval($fila["id_producto_erp"]),
                     "sku" => $fila["sku"],
                     "producto" => $fila["producto"],
                     "faltantes" => $faltantes,
@@ -5965,6 +6180,355 @@ class RentabilidadErp extends CRUD {
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
+    private function consultarListaPrecioRentabilidad($db, $idLista) {
+        $stmt = $db->prepare("SELECT id_lista_precio, codigo, nombre, COALESCE(canal,'general') canal,
+                id_almacen, prioridad, estatus, fecha_inicio, fecha_fin, observaciones
+            FROM erp_listas_precios
+            WHERE id_lista_precio=:lista
+            LIMIT 1");
+        $stmt->execute(array(":lista" => intval($idLista)));
+        $fila = $stmt->fetch(PDO::FETCH_ASSOC);
+        if (!$fila) {
+            return null;
+        }
+        return array(
+            "id_lista_precio" => intval($fila["id_lista_precio"]),
+            "codigo" => $fila["codigo"],
+            "nombre" => $fila["nombre"],
+            "canal" => $fila["canal"] ?: "general",
+            "id_almacen" => $fila["id_almacen"] === null ? null : intval($fila["id_almacen"]),
+            "prioridad" => intval($fila["prioridad"]),
+            "estatus" => $fila["estatus"],
+            "fecha_inicio" => $fila["fecha_inicio"],
+            "fecha_fin" => $fila["fecha_fin"],
+            "observaciones" => $fila["observaciones"]
+        );
+    }
+
+    private function consultarFilasListaPrecio($db, $idLista, $termino, $limite) {
+        $limite = max(1, min(500, intval($limite)));
+        $where = array(
+            "d.id_lista_precio=:lista",
+            "d.estatus='activo'",
+            "d.id_sku IS NOT NULL",
+            "s.estatus <> 'fusionado'",
+            "(d.fecha_inicio IS NULL OR d.fecha_inicio<=NOW())",
+            "(d.fecha_fin IS NULL OR d.fecha_fin>=NOW())"
+        );
+        $params = array(":lista" => intval($idLista));
+        $termino = trim(strval($termino));
+        if ($termino !== "") {
+            $where[] = "(s.sku LIKE :q OR s.nombre LIKE :q OR p.nombre LIKE :q)";
+            $params[":q"] = "%" . $termino . "%";
+        }
+        $stmt = $db->prepare("SELECT d.id_lista_precio_detalle, d.id_lista_precio, d.precio precio_lista,
+                COALESCE(d.moneda,'MXN') moneda_precio, d.fecha_inicio detalle_fecha_inicio,
+                d.fecha_fin detalle_fecha_fin, s.id_sku, s.sku, COALESCE(s.nombre, p.nombre) producto,
+                s.id_producto_erp, s.costo_referencia, s.factor_unidad_base,
+                imp.iva_porcentaje, imp.ieps_porcentaje, imp.incluye_impuestos,
+                inv.cantidad_total, inv.disponible_total, inv.apartada_total, inv.valor_total, inv.costo_promedio_inventario,
+                compra.ultimo_costo_compra, compra.fecha_ultima_compra, compra.costo_promedio_compras,
+                xml.ultimo_costo_xml, xml.fecha_ultimo_xml,
+                prov.costo_ultimo_proveedor, prov.proveedor_preferido
+            FROM erp_listas_precios_detalle d
+            INNER JOIN erp_catalogo_skus s ON s.id_sku=d.id_sku
+            INNER JOIN erp_catalogo_productos p ON p.id_producto_erp=s.id_producto_erp
+            LEFT JOIN erp_catalogo_sku_impuestos imp ON imp.id_sku=s.id_sku
+            LEFT JOIN (
+                SELECT id_sku_erp id_sku,
+                    SUM(cantidad) cantidad_total,
+                    SUM(cantidad_disponible) disponible_total,
+                    SUM(cantidad_apartada) apartada_total,
+                    SUM(cantidad * costo_promedio) valor_total,
+                    CASE WHEN SUM(cantidad) > 0 THEN SUM(cantidad * costo_promedio) / SUM(cantidad) ELSE NULL END costo_promedio_inventario
+                FROM erp_inventario_existencias
+                GROUP BY id_sku_erp
+            ) inv ON inv.id_sku=s.id_sku
+            LEFT JOIN (
+                SELECT d2.id_sku_erp id_sku,
+                    SUBSTRING_INDEX(GROUP_CONCAT(ROUND(
+                        (d2.costo_unitario / CASE
+                            WHEN COALESCE(d2.costo_unitario_incluye_impuesto,0)=1
+                            THEN 1 + ((COALESCE(imp_compra.iva_porcentaje,0) + COALESCE(imp_compra.ieps_porcentaje,0)) / 100)
+                            ELSE 1
+                        END)
+                        * CASE WHEN COALESCE(o.moneda,'MXN')<>'MXN' THEN COALESCE(NULLIF(o.tipo_cambio,0),1) ELSE 1 END, 6
+                    ) ORDER BY o.fecha_orden DESC, d2.id_detalle DESC), ',', 1) ultimo_costo_compra,
+                    MAX(o.fecha_orden) fecha_ultima_compra,
+                    CASE WHEN SUM(COALESCE(d2.cantidad_recibida, d2.cantidad, 0)) > 0 THEN
+                        SUM(COALESCE(d2.cantidad_recibida, d2.cantidad, 0)
+                            * (d2.costo_unitario / CASE
+                                WHEN COALESCE(d2.costo_unitario_incluye_impuesto,0)=1
+                                THEN 1 + ((COALESCE(imp_compra.iva_porcentaje,0) + COALESCE(imp_compra.ieps_porcentaje,0)) / 100)
+                                ELSE 1
+                            END)
+                            * CASE WHEN COALESCE(o.moneda,'MXN')<>'MXN' THEN COALESCE(NULLIF(o.tipo_cambio,0),1) ELSE 1 END)
+                        / SUM(COALESCE(d2.cantidad_recibida, d2.cantidad, 0))
+                    ELSE NULL END costo_promedio_compras
+                FROM erp_compras_ordenes_detalle d2
+                INNER JOIN erp_compras_ordenes o ON o.id_orden_compra=d2.id_orden_compra
+                LEFT JOIN erp_catalogo_sku_impuestos imp_compra ON imp_compra.id_sku=d2.id_sku_erp
+                WHERE COALESCE(o.estatus,'') <> 'cancelada' AND COALESCE(d2.costo_unitario,0) > 0
+                GROUP BY d2.id_sku_erp
+            ) compra ON compra.id_sku=s.id_sku
+            LEFT JOIN (
+                SELECT c.id_sku_erp id_sku,
+                    SUBSTRING_INDEX(GROUP_CONCAT(ROUND(c.valor_unitario, 6) ORDER BY f.fecha_emision DESC, c.id_documento_concepto DESC), ',', 1) ultimo_costo_xml,
+                    MAX(f.fecha_emision) fecha_ultimo_xml
+                FROM erp_compras_documentos_fiscales_conceptos c
+                INNER JOIN erp_compras_documentos_fiscales f ON f.id_documento_fiscal=c.id_documento_fiscal
+                WHERE COALESCE(c.valor_unitario,0) > 0
+                GROUP BY c.id_sku_erp
+            ) xml ON xml.id_sku=s.id_sku
+            LEFT JOIN (
+                SELECT c.id_sku,
+                    SUBSTRING_INDEX(GROUP_CONCAT(ROUND(
+                        (c.costo
+                            * CASE WHEN COALESCE(c.moneda,'MXN')<>'MXN' THEN COALESCE(NULLIF(c.tipo_cambio_referencia,0),1) ELSE 1 END)
+                            / CASE WHEN COALESCE(c.factor_conversion,0)>0 THEN c.factor_conversion ELSE 1 END
+                        , 6) ORDER BY
+                        CASE WHEN c.vigencia_desde IS NULL OR c.vigencia_desde='' THEN 1 ELSE 0 END,
+                        c.vigencia_desde DESC, c.fecha_actualizacion DESC, c.id_costo_proveedor_sku DESC), ',', 1) costo_ultimo_proveedor,
+                    SUBSTRING_INDEX(GROUP_CONCAT(prv.proveedor ORDER BY
+                        CASE WHEN c.vigencia_desde IS NULL OR c.vigencia_desde='' THEN 1 ELSE 0 END,
+                        c.vigencia_desde DESC, c.fecha_actualizacion DESC, c.id_costo_proveedor_sku DESC), ',', 1) proveedor_preferido
+                FROM erp_proveedores_sku_costos c
+                LEFT JOIN erp_proveedores prv ON prv.id_proveedor=c.id_proveedor
+                WHERE c.estatus='vigente' AND COALESCE(c.costo,0) > 0
+                    AND (c.vigencia_hasta IS NULL OR c.vigencia_hasta='' OR c.vigencia_hasta>=CURRENT_DATE)
+                GROUP BY c.id_sku
+            ) prov ON prov.id_sku=s.id_sku
+            WHERE " . implode(" AND ", $where) . "
+            ORDER BY s.sku ASC
+            LIMIT " . $limite);
+        $stmt->execute($params);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    private function calcularItemListaPrecio($db, $fila, $lista, $gastoPct, $comisionPct, $margenObjetivoPct, $ajustePct) {
+        $precioLista = floatval($fila["precio_lista"]);
+        $iva = $fila["iva_porcentaje"] === null ? null : floatval($fila["iva_porcentaje"]);
+        $ieps = $fila["ieps_porcentaje"] === null ? null : floatval($fila["ieps_porcentaje"]);
+        $incluye = $fila["incluye_impuestos"] === null ? null : intval($fila["incluye_impuestos"]);
+        $tasa = max(0, ($iva === null ? 0 : $iva) + ($ieps === null ? 0 : $ieps)) / 100;
+        $precioSinImpuesto = ($incluye === 1 && $tasa > 0) ? $precioLista / (1 + $tasa) : $precioLista;
+        $precioConImpuesto = ($incluye === 1 || $tasa <= 0) ? $precioLista : $precioLista * (1 + $tasa);
+        $precioAnalisis = $precioSinImpuesto * (1 + ($ajustePct / 100));
+
+        $visitadosCosto = array();
+        $costoResolucion = $this->resolverCostoVigenteSkuInterno($db, intval($fila["id_sku"]), array("tipo" => "auto"), $visitadosCosto);
+        $costoReal = floatval(isset($costoResolucion["costo"]) ? $costoResolucion["costo"] : 0);
+        $origenCosto = isset($costoResolucion["fuente"]) ? $costoResolucion["fuente"] : "sin_costo";
+        $margenBrutoPct = $precioAnalisis > 0 ? (($precioAnalisis - $costoReal) / $precioAnalisis) * 100 : null;
+        $utilidadBruta = $precioAnalisis - $costoReal;
+        $gastosImporte = $precioAnalisis * (($gastoPct + $comisionPct) / 100);
+        $utilidadEstimada = $utilidadBruta - $gastosImporte;
+        $utilidadEstimadaPct = $precioAnalisis > 0 ? ($utilidadEstimada / $precioAnalisis) * 100 : null;
+        $denominador = 1 - (($gastoPct + $comisionPct + $margenObjetivoPct) / 100);
+        $precioMinimo = $denominador > 0 ? $costoReal / $denominador : null;
+        $precioSugeridoSin = $precioMinimo === null ? null : max($precioSinImpuesto, $precioMinimo);
+        $precioSugeridoCon = $precioSugeridoSin === null ? null : ($incluye === 1 ? $precioSugeridoSin * (1 + $tasa) : $precioSugeridoSin);
+
+        $hallazgosDetalle = array();
+        if ($costoReal <= 0) { $hallazgosDetalle[] = $this->hallazgo("COST-LP-101", "sin_costo", "warning", "SKU sin costo vigente calculable"); }
+        if ($precioLista <= 0) { $hallazgosDetalle[] = $this->hallazgo("COST-LP-102", "sin_precio", "warning", "SKU sin precio activo en la lista"); }
+        if ($iva === null || $ieps === null || $incluye === null) { $hallazgosDetalle[] = $this->hallazgo("COST-LP-103", "fiscal_incompleto", "warning", "Impuestos incompletos para separar precio sin impuestos"); }
+        if ($precioAnalisis > 0 && $utilidadEstimada < 0) { $hallazgosDetalle[] = $this->hallazgo("COST-LP-104", "perdida_estimada", "danger", "La lista deja utilidad estimada negativa"); }
+        if ($margenBrutoPct !== null && $margenBrutoPct < $margenObjetivoPct) { $hallazgosDetalle[] = $this->hallazgo("COST-LP-105", "margen_bajo", "warning", "Margen bruto menor al objetivo del analisis"); }
+        if (!empty($costoResolucion["advertencias"])) { $hallazgosDetalle[] = $this->hallazgo("COST-LP-109", "costo_derivado_con_alerta", "warning", "El costo vigente tiene advertencias de derivacion o evidencia"); }
+        $hallazgos = array_map(function ($item) { return $item["clave"]; }, $hallazgosDetalle);
+        $riesgo = $this->riesgo($hallazgos, $margenBrutoPct, $utilidadEstimada);
+        $accion = $this->accionSugeridaListaPrecio($riesgo["clave"], $precioMinimo, $precioSinImpuesto, $precioSugeridoSin);
+
+        return array(
+            "id_lista_precio_detalle" => intval($fila["id_lista_precio_detalle"]),
+            "id_lista_precio" => intval($fila["id_lista_precio"]),
+            "lista" => $lista["nombre"],
+            "canal" => $lista["canal"],
+            "id_sku" => intval($fila["id_sku"]),
+            "id_producto_erp" => intval($fila["id_producto_erp"]),
+            "sku" => $fila["sku"],
+            "producto" => $fila["producto"],
+            "moneda" => $fila["moneda_precio"],
+            "precio_lista_con_impuesto" => round($precioConImpuesto, 6),
+            "precio_lista_sin_impuesto" => round($precioSinImpuesto, 6),
+            "precio_analisis_sin_impuesto" => round($precioAnalisis, 6),
+            "impuestos_estimados" => round(max(0, $precioConImpuesto - $precioSinImpuesto), 6),
+            "ajuste_pct" => round(floatval($ajustePct), 4),
+            "costo_real_sin_impuesto" => round($costoReal, 6),
+            "origen_costo" => $origenCosto,
+            "costo_resolucion" => $costoResolucion,
+            "margen_bruto_pct" => $margenBrutoPct === null ? null : round($margenBrutoPct, 2),
+            "utilidad_bruta" => round($utilidadBruta, 6),
+            "gastos_estimados" => round($gastosImporte, 6),
+            "utilidad_estimada" => round($utilidadEstimada, 6),
+            "utilidad_estimada_pct" => $utilidadEstimadaPct === null ? null : round($utilidadEstimadaPct, 2),
+            "precio_minimo_rentable_sin_impuesto" => $precioMinimo === null ? null : round($precioMinimo, 6),
+            "precio_sugerido_sin_impuesto" => $precioSugeridoSin === null ? null : round($precioSugeridoSin, 6),
+            "precio_sugerido_con_impuesto" => $precioSugeridoCon === null ? null : round($precioSugeridoCon, 6),
+            "delta_sugerido_sin_impuesto" => $precioSugeridoSin === null ? 0 : round($precioSugeridoSin - $precioSinImpuesto, 6),
+            "inventario" => array(
+                "cantidad_total" => round(floatval($fila["cantidad_total"]), 4),
+                "disponible_total" => round(floatval($fila["disponible_total"]), 4),
+                "valor_total" => round(floatval($fila["valor_total"]), 6)
+            ),
+            "fiscal" => array(
+                "iva_porcentaje" => $iva,
+                "ieps_porcentaje" => $ieps,
+                "incluye_impuestos" => $incluye
+            ),
+            "hallazgos" => $hallazgos,
+            "hallazgos_detalle" => $hallazgosDetalle,
+            "riesgo_clave" => $riesgo["clave"],
+            "riesgo_texto" => $riesgo["texto"],
+            "riesgo_tipo" => $riesgo["tipo"],
+            "accion_sugerida" => $accion["accion"],
+            "siguiente_paso" => $accion["siguiente_paso"]
+        );
+    }
+
+    /**
+     * IA: Codex GPT-5
+     * Fecha: 2026-08-29
+     * Proposito: separar propuestas accionables derivadas del analisis por lista sin persistirlas.
+     * Impacto: Rentabilidad muestra una bandeja de trabajo clara antes de enviar cambios a Listas.
+     * Contrato: read-only; no crea propuestas persistentes ni actualiza precios.
+     */
+
+    private function candidatosCostoVarianteOperativa($db, $item) {
+        $idProducto = intval(isset($item["id_producto_erp"]) ? $item["id_producto_erp"] : 0);
+        $idSku = intval(isset($item["id_sku"]) ? $item["id_sku"] : 0);
+        if ($idProducto <= 0 || $idSku <= 0) {
+            return array();
+        }
+        $stmt = $db->prepare("SELECT s.id_sku, s.sku, COALESCE(s.nombre, p.nombre) producto,
+                CASE WHEN COALESCE(s.factor_unidad_base,0)>0 THEN s.factor_unidad_base ELSE 1 END factor_unidad_base
+            FROM erp_catalogo_skus s
+            INNER JOIN erp_catalogo_productos p ON p.id_producto_erp=s.id_producto_erp
+            WHERE s.id_producto_erp=:producto AND s.id_sku<>:sku AND s.estatus<>'fusionado'
+            ORDER BY s.sku ASC
+            LIMIT 25");
+        $stmt->execute(array(":producto" => $idProducto, ":sku" => $idSku));
+        $candidatos = array();
+        foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $fila) {
+            $visitados = array();
+            $costo = $this->resolverCostoVigenteSkuInterno($db, intval($fila["id_sku"]), array("tipo" => "auto"), $visitados);
+            if (floatval(isset($costo["costo"]) ? $costo["costo"] : 0) <= 0) {
+                continue;
+            }
+            $candidatos[] = array(
+                "id_sku_origen" => intval($fila["id_sku"]),
+                "sku_origen" => $fila["sku"],
+                "producto_origen" => $fila["producto"],
+                "costo_origen" => round(floatval($costo["costo"]), 6),
+                "fuente" => isset($costo["fuente"]) ? $costo["fuente"] : "sin_fuente",
+                "confianza" => isset($costo["confianza"]) ? $costo["confianza"] : "baja",
+                "factor_sugerido" => 1,
+                "formula_sugerida" => "costo_sku_origen * factor_variante_operativa",
+                "advertencia" => "Validar que sea la misma unidad economica antes de configurar la relacion tecnica."
+            );
+        }
+        return array_slice($candidatos, 0, 5);
+    }
+    private function propuestasListaPrecio($items) {
+        $propuestas = array(
+            "total" => 0,
+            "proponer_subir_precio" => 0,
+            "completar_datos" => 0,
+            "revisar_margen" => 0,
+            "proponer_ajuste" => 0,
+            "conservar_precio" => 0,
+            "items" => array()
+        );
+        foreach ($items as $item) {
+            $accion = isset($item["accion_sugerida"]) ? $item["accion_sugerida"] : "";
+            if ($accion === "conservar_precio") {
+                $propuestas["conservar_precio"]++;
+                continue;
+            }
+            if (isset($propuestas[$accion])) {
+                $propuestas[$accion]++;
+            } elseif ($accion !== "") {
+                $propuestas[$accion] = 1;
+            }
+            $propuestas["total"]++;
+            $propuestas["items"][] = array(
+                "id_lista_precio_detalle" => $item["id_lista_precio_detalle"],
+                "id_sku" => $item["id_sku"],
+                "sku" => $item["sku"],
+                "producto" => $item["producto"],
+                "accion_sugerida" => $accion,
+                "riesgo_clave" => $item["riesgo_clave"],
+                "riesgo_texto" => $item["riesgo_texto"],
+                "riesgo_tipo" => $item["riesgo_tipo"],
+                "precio_actual_sin_impuesto" => $item["precio_lista_sin_impuesto"],
+                "precio_actual_con_impuesto" => $item["precio_lista_con_impuesto"],
+                "precio_minimo_rentable_sin_impuesto" => $item["precio_minimo_rentable_sin_impuesto"],
+                "precio_sugerido_sin_impuesto" => $item["precio_sugerido_sin_impuesto"],
+                "precio_sugerido_con_impuesto" => $item["precio_sugerido_con_impuesto"],
+                "delta_sugerido_sin_impuesto" => $item["delta_sugerido_sin_impuesto"],
+                "costo_real_sin_impuesto" => $item["costo_real_sin_impuesto"],
+                "origen_costo" => $item["origen_costo"],
+                "margen_bruto_pct" => $item["margen_bruto_pct"],
+                "utilidad_estimada" => $item["utilidad_estimada"],
+                "hallazgos" => $item["hallazgos"],
+                "siguiente_paso" => $item["siguiente_paso"]
+            );
+        }
+        usort($propuestas["items"], function ($a, $b) {
+            $prioridad = array("completar_datos" => 1, "proponer_subir_precio" => 2, "revisar_margen" => 3, "proponer_ajuste" => 4);
+            $pa = isset($prioridad[$a["accion_sugerida"]]) ? $prioridad[$a["accion_sugerida"]] : 9;
+            $pb = isset($prioridad[$b["accion_sugerida"]]) ? $prioridad[$b["accion_sugerida"]] : 9;
+            if ($pa !== $pb) { return $pa - $pb; }
+            return floatval($b["delta_sugerido_sin_impuesto"]) <=> floatval($a["delta_sugerido_sin_impuesto"]);
+        });
+        $propuestas["items"] = array_slice($propuestas["items"], 0, 50);
+        return $propuestas;
+    }
+    private function resumenListaPrecio($items) {
+        $resumen = array(
+            "skus" => count($items),
+            "rentables" => 0,
+            "perdida" => 0,
+            "margen_bajo" => 0,
+            "sin_costo" => 0,
+            "sin_precio" => 0,
+            "utilidad_estimada" => 0,
+            "delta_sugerido" => 0,
+            "valor_inventario" => 0
+        );
+        foreach ($items as $item) {
+            if ($item["riesgo_clave"] === "rentable") { $resumen["rentables"]++; }
+            if (in_array("perdida_estimada", $item["hallazgos"], true)) { $resumen["perdida"]++; }
+            if (in_array("margen_bajo", $item["hallazgos"], true)) { $resumen["margen_bajo"]++; }
+            if (in_array("sin_costo", $item["hallazgos"], true)) { $resumen["sin_costo"]++; }
+            if (in_array("sin_precio", $item["hallazgos"], true)) { $resumen["sin_precio"]++; }
+            $resumen["utilidad_estimada"] += floatval($item["utilidad_estimada"]);
+            $resumen["delta_sugerido"] += max(0, floatval($item["delta_sugerido_sin_impuesto"]));
+            $resumen["valor_inventario"] += floatval($item["inventario"]["valor_total"]);
+        }
+        foreach (array("utilidad_estimada", "delta_sugerido", "valor_inventario") as $campo) {
+            $resumen[$campo] = round($resumen[$campo], 6);
+        }
+        return $resumen;
+    }
+
+    private function accionSugeridaListaPrecio($riesgo, $precioMinimo, $precioActualSin, $precioSugeridoSin) {
+        if ($riesgo === "incompleto") {
+            return array("accion" => "completar_datos", "siguiente_paso" => "Resolver costo, precio o impuestos antes de proponer cambios a Listas.");
+        }
+        if ($precioMinimo !== null && floatval($precioActualSin) + 0.01 < floatval($precioMinimo)) {
+            return array("accion" => "proponer_subir_precio", "siguiente_paso" => "Enviar propuesta a Listas para subir precio hasta minimo rentable o margen objetivo.");
+        }
+        if ($riesgo === "margen_bajo") {
+            return array("accion" => "revisar_margen", "siguiente_paso" => "Revisar estrategia comercial; posible ajuste de precio o excepcion autorizada.");
+        }
+        if ($precioSugeridoSin !== null && floatval($precioSugeridoSin) > floatval($precioActualSin) + 0.01) {
+            return array("accion" => "proponer_ajuste", "siguiente_paso" => "Preparar propuesta de cambio para Listas en modo aprobacion.");
+        }
+        return array("accion" => "conservar_precio", "siguiente_paso" => "Precio rentable bajo los parametros actuales; conservar evidencia.");
+    }
+
     private function detallesSnapshot($db, $idSnapshot) {
         $stmt = $db->prepare("SELECT id_snapshot_detalle, id_sku, sku, producto, costo_real_sin_impuesto,
                 precio_escenario_sin_impuesto, margen_bruto_pct, utilidad_estimada,
@@ -6173,6 +6737,7 @@ class RentabilidadErp extends CRUD {
 
         return array(
             "id_sku" => intval($fila["id_sku"]),
+            "id_producto_erp" => intval($fila["id_producto_erp"]),
             "sku" => $fila["sku"],
             "producto" => $fila["producto"],
             "canal" => $canal,
@@ -6378,6 +6943,13 @@ class RentabilidadErp extends CRUD {
             return floatval($default);
         }
         return max(0, min(95, floatval($datos[$campo])));
+    }
+
+    private function porcentajeAjusteLista($datos, $campo, $default) {
+        if (!isset($datos[$campo]) || trim((string) $datos[$campo]) === "") {
+            return floatval($default);
+        }
+        return max(-95, min(300, floatval($datos[$campo])));
     }
 
     private function opcion($valor, $permitidos, $default) {

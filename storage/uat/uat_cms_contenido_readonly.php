@@ -40,6 +40,7 @@ $vistaFrontendActual = file_get_contents("../app/vistas/paginas/apps/erp/cms/fro
 $vistaFrontendHome = file_get_contents("../app/vistas/paginas/apps/erp/cms/frontend_home.php");
 $vistaFrontendGlobal = file_get_contents("../app/vistas/paginas/apps/erp/cms/frontend_global.php");
 $vistaFrontendNavegacion = file_get_contents("../app/vistas/paginas/apps/erp/cms/frontend_navegacion.php");
+$vistaFrontendCatalogo = file_get_contents("../app/vistas/paginas/apps/erp/cms/frontend_catalogo.php");
 $vistaFrontendCategorias = file_get_contents("../app/vistas/paginas/apps/erp/cms/frontend_categorias.php");
 $vistaFrontendMarcas = file_get_contents("../app/vistas/paginas/apps/erp/cms/frontend_marcas.php");
 $vistaFrontendPaginas = file_get_contents("../app/vistas/paginas/apps/erp/cms/frontend_paginas.php");
@@ -53,6 +54,7 @@ $jsFrontendActual = file_get_contents("../public/assets/js/custom/apps/erp/cms/f
 $jsMedia = file_get_contents("../public/assets/js/custom/apps/erp/cms/media.js");
 $sidebar = file_get_contents("../app/vistas/includes/header/sidebar.php");
 $controladorCms = file_get_contents("../app/controladores/Cms.php");
+$controladorEcommercePublico = file_get_contents("../app/controladores/EcommercePublico.php");
 $modeloPublico = file_get_contents("../app/modelos/EcommerceCatalogoPublico.php");
 $modeloEsquema = file_get_contents("../app/modelos/EcommercePublicoEsquema.php");
 $seguridadEsquema = file_get_contents("../app/modelos/SeguridadEsquema.php");
@@ -322,7 +324,10 @@ if (strpos((string) $jsFrontend, "function renderComponenteDetalle") === false) 
 if (strpos((string) $jsFrontend, "function usosComponente") === false) { $bloqueos[] = "js_frontend_sin_uso_componentes"; }
 if (strpos((string) $jsFrontend, "function renderActivaciones") === false) { $bloqueos[] = "js_frontend_sin_activaciones"; }
 if (strpos((string) $jsFrontend, "function plantillaPorCodigo") === false) { $bloqueos[] = "js_frontend_sin_lookup_plantilla"; }
-if (strpos((string) $vistaFrontendActual, "CMS / Frontend / Home") === false) { $bloqueos[] = "vista_frontend_actual_sin_titulo_home"; }
+if (strpos((string) $vistaFrontendActual, "CMS / Frontend") === false) { $bloqueos[] = "vista_frontend_actual_sin_titulo_mapa"; }
+if (strpos((string) $vistaFrontendActual, "cms_actual_page_links") === false) { $bloqueos[] = "vista_frontend_actual_sin_mapa_paginas"; }
+if (strpos((string) $vistaFrontendActual, "data-cms-actual-dedicada") === false) { $bloqueos[] = "vista_frontend_actual_sin_modo_dedicado"; }
+if (strpos((string) $vistaFrontendActual, "cms-actual-hub-only") === false) { $bloqueos[] = "vista_frontend_actual_sin_modo_hub"; }
 if (strpos((string) $vistaFrontendActual, "cms_actual_prioridad") === false) { $bloqueos[] = "vista_frontend_actual_sin_prioridad"; }
 if (strpos((string) $vistaFrontendActual, "cms_actual_home_estado_panel") === false) { $bloqueos[] = "vista_frontend_actual_sin_estado_publicado_home"; }
 if (strpos((string) $vistaFrontendActual, "Estado publicado de Home") === false) { $bloqueos[] = "vista_frontend_actual_sin_titulo_estado_publicado_home"; }
@@ -330,20 +335,33 @@ if (strpos((string) $vistaFrontendActual, "cms_actual_json") === false) { $bloqu
 if (strpos((string) $vistaFrontendActual, "frontend_actual.js") === false) { $bloqueos[] = "vista_frontend_actual_sin_js"; }
 if (strpos((string) $vistaFrontendHome, "CMS / Frontend / Home") === false) { $bloqueos[] = "vista_frontend_home_sin_titulo_operativo"; }
 if (strpos((string) $vistaFrontendHome, "\$cmsFrontendGrupoInicial = \"home\"") === false) { $bloqueos[] = "vista_frontend_home_no_abre_home"; }
+if (strpos((string) $vistaFrontendHome, "\$cmsFrontendVistaDedicada = true") === false) { $bloqueos[] = "vista_frontend_home_no_es_dedicada"; }
 if (strpos((string) $vistaFrontendGlobal, "CMS / Frontend / Global") === false) { $bloqueos[] = "vista_frontend_global_sin_titulo_operativo"; }
 if (strpos((string) $vistaFrontendGlobal, "\$cmsFrontendGrupoInicial = \"global\"") === false) { $bloqueos[] = "vista_frontend_global_no_abre_global"; }
+if (strpos((string) $vistaFrontendGlobal, "\$cmsFrontendVistaDedicada = true") === false) { $bloqueos[] = "vista_frontend_global_no_es_dedicada"; }
 if (strpos((string) $vistaFrontendNavegacion, "CMS / Frontend / Navegacion") === false) { $bloqueos[] = "vista_frontend_navegacion_sin_titulo_operativo"; }
 if (strpos((string) $vistaFrontendNavegacion, "\$cmsFrontendGrupoInicial = \"navegacion\"") === false) { $bloqueos[] = "vista_frontend_navegacion_no_abre_navegacion"; }
+if (strpos((string) $vistaFrontendNavegacion, "\$cmsFrontendVistaDedicada = true") === false) { $bloqueos[] = "vista_frontend_navegacion_no_es_dedicada"; }
+if (strpos((string) $vistaFrontendCatalogo, "CMS / Frontend / Catalogo") === false) { $bloqueos[] = "vista_frontend_catalogo_sin_titulo_operativo"; }
+if (strpos((string) $vistaFrontendCatalogo, "\$cmsFrontendGrupoInicial = \"catalogo\"") === false) { $bloqueos[] = "vista_frontend_catalogo_no_abre_catalogo"; }
+if (strpos((string) $vistaFrontendCatalogo, "\$cmsFrontendVistaDedicada = true") === false) { $bloqueos[] = "vista_frontend_catalogo_no_es_dedicada"; }
 if (strpos((string) $vistaFrontendCategorias, "CMS / Frontend / Categorias") === false) { $bloqueos[] = "vista_frontend_categorias_sin_titulo_operativo"; }
 if (strpos((string) $vistaFrontendCategorias, "\$cmsFrontendGrupoInicial = \"categorias\"") === false) { $bloqueos[] = "vista_frontend_categorias_no_abre_categorias"; }
+if (strpos((string) $vistaFrontendCategorias, "\$cmsFrontendVistaDedicada = true") === false) { $bloqueos[] = "vista_frontend_categorias_no_es_dedicada"; }
 if (strpos((string) $vistaFrontendMarcas, "CMS / Frontend / Marcas") === false) { $bloqueos[] = "vista_frontend_marcas_sin_titulo_operativo"; }
 if (strpos((string) $vistaFrontendMarcas, "\$cmsFrontendGrupoInicial = \"marcas\"") === false) { $bloqueos[] = "vista_frontend_marcas_no_abre_marcas"; }
+if (strpos((string) $vistaFrontendMarcas, "\$cmsFrontendVistaDedicada = true") === false) { $bloqueos[] = "vista_frontend_marcas_no_es_dedicada"; }
 if (strpos((string) $vistaFrontendPaginas, "CMS / Frontend / Paginas") === false) { $bloqueos[] = "vista_frontend_paginas_sin_titulo_operativo"; }
 if (strpos((string) $vistaFrontendPaginas, "\$cmsFrontendGrupoInicial = \"paginas\"") === false) { $bloqueos[] = "vista_frontend_paginas_no_abre_paginas"; }
+if (strpos((string) $vistaFrontendPaginas, "\$cmsFrontendVistaDedicada = true") === false) { $bloqueos[] = "vista_frontend_paginas_no_es_dedicada"; }
 if (strpos((string) $vistaFrontendPoliticas, "CMS / Frontend / Politicas") === false) { $bloqueos[] = "vista_frontend_politicas_sin_titulo_operativo"; }
 if (strpos((string) $vistaFrontendPoliticas, "\$cmsFrontendGrupoInicial = \"politicas\"") === false) { $bloqueos[] = "vista_frontend_politicas_no_abre_politicas"; }
+if (strpos((string) $vistaFrontendPoliticas, "\$cmsFrontendVistaDedicada = true") === false) { $bloqueos[] = "vista_frontend_politicas_no_es_dedicada"; }
 if (strpos((string) $vistaFrontendPlaceholder, "Seccion reservada") === false) { $bloqueos[] = "vista_frontend_placeholder_sin_estado"; }
 if (strpos((string) $jsFrontendActual, "data-cms-actual-grupo") === false) { $bloqueos[] = "js_frontend_actual_no_lee_grupo_inicial"; }
+if (strpos((string) $jsFrontendActual, "data-cms-actual-dedicada") === false) { $bloqueos[] = "js_frontend_actual_no_lee_modo_dedicado"; }
+if (strpos((string) $jsFrontendActual, "function renderPageLinks") === false) { $bloqueos[] = "js_frontend_actual_sin_mapa_paginas"; }
+if (strpos((string) $jsFrontendActual, "function rutaGrupo") === false) { $bloqueos[] = "js_frontend_actual_sin_rutas_dedicadas"; }
 if (strpos((string) $jsFrontendActual, "erp_cms_media_biblioteca_local_v1") === false) { $bloqueos[] = "js_frontend_actual_no_lee_biblioteca_media"; }
 if (strpos((string) $jsFrontendActual, "data-media-picker") === false) { $bloqueos[] = "js_frontend_actual_sin_boton_media"; }
 if (strpos((string) $jsFrontendActual, "function abrirSelectorMedia") === false) { $bloqueos[] = "js_frontend_actual_sin_selector_media"; }
@@ -386,6 +404,46 @@ if (strpos((string) $jsFrontendActual, "cms_actual_home_categorias_publicar") ==
 if (strpos((string) $jsFrontendActual, "cms_actual_home_categorias_api") === false) { $bloqueos[] = "js_frontend_actual_sin_ver_api_home_categorias"; }
 if (strpos((string) $jsFrontendActual, "function publicarHomeCategorias") === false) { $bloqueos[] = "js_frontend_actual_sin_funcion_publicar_home_categorias"; }
 if (strpos((string) $jsFrontendActual, "function consultarApiHomeCategorias") === false) { $bloqueos[] = "js_frontend_actual_sin_funcion_api_home_categorias"; }
+if (strpos((string) $jsFrontendActual, "catalogo_configuracion") === false) { $bloqueos[] = "js_frontend_actual_sin_catalogo_configuracion"; }
+if (strpos((string) $jsFrontendActual, "function renderCatalogoCmsSeccion") === false) { $bloqueos[] = "js_frontend_actual_sin_editor_catalogo"; }
+if (strpos((string) $jsFrontendActual, "cms_actual_catalogo_publicar") === false) { $bloqueos[] = "js_frontend_actual_sin_publicar_catalogo"; }
+if (strpos((string) $jsFrontendActual, "/cms/frontend_catalogo_publicar_erp") === false) { $bloqueos[] = "js_frontend_actual_sin_post_catalogo"; }
+if (strpos((string) $jsFrontendActual, "/ecommercePublico/cms_frontend?pagina=catalogo") === false) { $bloqueos[] = "js_frontend_actual_sin_api_catalogo"; }
+if (strpos((string) $jsFrontendActual, "home_promos_categoria") === false) { $bloqueos[] = "js_frontend_actual_sin_home_promos_categoria"; }
+if (strpos((string) $jsFrontendActual, "cms_actual_home_promos_publicar") === false) { $bloqueos[] = "js_frontend_actual_sin_publicar_home_promos"; }
+if (strpos((string) $jsFrontendActual, "function renderHomePromosCategoria") === false) { $bloqueos[] = "js_frontend_actual_sin_editor_home_promos"; }
+if (strpos((string) $jsFrontendActual, "home_marcas_destacadas") === false) { $bloqueos[] = "js_frontend_actual_sin_home_marcas_destacadas"; }
+if (strpos((string) $jsFrontendActual, "cms_actual_home_marcas_publicar") === false) { $bloqueos[] = "js_frontend_actual_sin_publicar_home_marcas"; }
+if (strpos((string) $jsFrontendActual, "function renderHomeMarcasDestacadas") === false) { $bloqueos[] = "js_frontend_actual_sin_editor_home_marcas"; }
+if (strpos((string) $jsFrontendActual, "home_esenciales_artiani") === false) { $bloqueos[] = "js_frontend_actual_sin_home_esenciales"; }
+if (strpos((string) $jsFrontendActual, "cms_actual_home_esenciales_publicar") === false) { $bloqueos[] = "js_frontend_actual_sin_publicar_home_esenciales"; }
+if (strpos((string) $jsFrontendActual, "function renderHomeEsencialesArtiani") === false) { $bloqueos[] = "js_frontend_actual_sin_editor_home_esenciales"; }
+if (strpos((string) $jsFrontendActual, "function completarImagenesEsencialesDesdeCategoria") === false) { $bloqueos[] = "js_frontend_actual_sin_autocompletar_imagen_esenciales"; }
+if (strpos((string) $jsFrontendActual, "/ecommercePublico/categorias") === false) { $bloqueos[] = "js_frontend_actual_sin_catalogo_categorias"; }
+if (strpos((string) $jsFrontendActual, "function selectorCategoriaEsencialPrincipal") === false) { $bloqueos[] = "js_frontend_actual_sin_selector_categoria_principal"; }
+if (strpos((string) $jsFrontendActual, "function selectorCategoriaHomeLista") === false) { $bloqueos[] = "js_frontend_actual_sin_selector_categoria_card"; }
+if (strpos((string) $jsFrontendActual, "function aplicarCategoriaCmsDestino") === false) { $bloqueos[] = "js_frontend_actual_no_deriva_categoria"; }
+if (strpos((string) $jsFrontendActual, "function selectorCategoriaCmsItem") === false) { $bloqueos[] = "js_frontend_actual_sin_selector_categoria_cms"; }
+if (strpos((string) $jsFrontendActual, "function seleccionarCategoriaCmsItem") === false) { $bloqueos[] = "js_frontend_actual_sin_aplicar_categoria_cms"; }
+if (strpos((string) $jsFrontendActual, "function usarImagenCategoriaCmsItem") === false) { $bloqueos[] = "js_frontend_actual_sin_usar_imagen_categoria_cms"; }
+if (strpos((string) $jsFrontendActual, "path_slug") === false) { $bloqueos[] = "js_frontend_actual_sin_path_slug_categoria"; }
+if (strpos((string) $jsFrontendActual, "function imagenCategoriaCms") === false) { $bloqueos[] = "js_frontend_actual_sin_imagen_categoria"; }
+if (strpos((string) $jsFrontendActual, "data-use-category-image") === false) { $bloqueos[] = "js_frontend_actual_sin_boton_usar_imagen_categoria"; }
+if (strpos((string) $jsFrontendActual, "function guardarBorradorSeccion") === false) { $bloqueos[] = "js_frontend_actual_sin_guardar_borrador_seccion"; }
+if (strpos((string) $jsFrontendActual, "data-home-section-draft") === false) { $bloqueos[] = "js_frontend_actual_sin_boton_borrador_seccion"; }
+if (strpos((string) $jsFrontendActual, "function recomendacionMediaActual") === false) { $bloqueos[] = "js_frontend_actual_sin_recomendacion_media"; }
+if (strpos((string) $jsFrontendActual, "1200 x 1200") === false) { $bloqueos[] = "js_frontend_actual_sin_recomendacion_categoria"; }
+if (strpos((string) $jsFrontendActual, "1200 x 900") === false) { $bloqueos[] = "js_frontend_actual_sin_recomendacion_editorial"; }
+if (strpos((string) $manualCms, "Home promos por categoria") === false) { $bloqueos[] = "manual_sin_home_promos_categoria"; }
+if (strpos((string) $manualCms, "Home marcas destacadas") === false) { $bloqueos[] = "manual_sin_home_marcas"; }
+if (strpos((string) $manualCms, "Home Esenciales Artiani") === false) { $bloqueos[] = "manual_sin_home_esenciales"; }
+if (strpos((string) $manualCms, "Si el campo imagen esta vacio") === false) { $bloqueos[] = "manual_sin_autocompletar_imagen_esenciales"; }
+if (strpos((string) $manualCms, "selector de categoria real") === false) { $bloqueos[] = "manual_sin_selector_categoria_esenciales"; }
+if (strpos((string) $manualCms, "seleccionar una categoria real") === false) { $bloqueos[] = "manual_sin_selector_categoria_cms"; }
+if (strpos((string) $manualCms, "path_slug") === false) { $bloqueos[] = "manual_sin_path_slug_categoria"; }
+if (strpos((string) $manualCms, "Usar imagen de categoria") === false) { $bloqueos[] = "manual_sin_usar_imagen_categoria"; }
+if (strpos((string) $manualCms, "1200 x 1200") === false) { $bloqueos[] = "manual_sin_medida_categoria"; }
+if (strpos((string) $manualCms, "1200 x 900") === false) { $bloqueos[] = "manual_sin_medida_editorial"; }
 if (strpos((string) $jsFrontendActual, "data-categoria-field") === false) { $bloqueos[] = "js_frontend_actual_sin_campos_categoria"; }
 if (strpos((string) $jsFrontendActual, "categoria_id") === false) { $bloqueos[] = "js_frontend_actual_sin_categoria_id"; }
 if (strpos((string) $jsFrontendActual, "imagen_card") === false) { $bloqueos[] = "js_frontend_actual_sin_imagen_card_categoria"; }
@@ -471,6 +529,7 @@ if (strpos((string) $sidebar, "/cms/media") === false) { $bloqueos[] = "sidebar_
 if (strpos((string) $sidebar, "/cms/json") === false) { $bloqueos[] = "sidebar_sin_cms_json"; }
 if (strpos((string) $sidebar, "/cms/frontend_plantillas") === false) { $bloqueos[] = "sidebar_sin_cms_frontend_plantillas"; }
 if (strpos((string) $sidebar, "/cms/frontend/home") === false) { $bloqueos[] = "sidebar_sin_cms_frontend_home"; }
+if (strpos((string) $sidebar, "/cms/frontend/catalogo") === false) { $bloqueos[] = "sidebar_sin_cms_frontend_catalogo"; }
 if (strpos((string) $sidebar, "/cms/frontend/categorias") === false) { $bloqueos[] = "sidebar_sin_cms_frontend_categorias"; }
 if (strpos((string) $sidebar, "/cms/frontend/producto") === false) { $bloqueos[] = "sidebar_sin_cms_frontend_producto"; }
 if (strpos((string) $sidebar, "/cms/frontend/carrito") === false) { $bloqueos[] = "sidebar_sin_cms_frontend_carrito"; }
@@ -481,10 +540,10 @@ if (strpos((string) $sidebar, "/cms/frontend/paginas") === false) { $bloqueos[] 
 if (strpos((string) $sidebar, "/cms/frontend/politicas") === false) { $bloqueos[] = "sidebar_sin_cms_frontend_politicas"; }
 if (strpos((string) $sidebar, "/cms/frontend_componentes") === false) { $bloqueos[] = "sidebar_sin_cms_frontend_componentes"; }
 if (strpos((string) $sidebar, "/cms/frontend_activaciones") === false) { $bloqueos[] = "sidebar_sin_cms_frontend_activaciones"; }
-if (strpos((string) $sidebar, "'titulo' => 'Frontend'") === false) { $bloqueos[] = "sidebar_sin_grupo_cms_frontend"; }
-if (strpos((string) $sidebar, "'titulo' => 'Avanzado contenido'") === false) { $bloqueos[] = "sidebar_sin_grupo_cms_avanzado_contenido"; }
+if (strpos((string) $sidebar, "'titulo' => 'Contenido tienda'") === false) { $bloqueos[] = "sidebar_sin_grupo_cms_frontend"; }
+if (strpos((string) $sidebar, "'titulo' => 'CMS avanzado'") === false) { $bloqueos[] = "sidebar_sin_grupo_cms_avanzado_contenido"; }
 if (strpos((string) $sidebar, "'titulo' => 'Home'") === false) { $bloqueos[] = "sidebar_sin_home_frontend"; }
-if (strpos((string) $sidebar, "'seccion' => 'CMS'") === false) { $bloqueos[] = "sidebar_sin_seccion_cms"; }
+if (strpos((string) $sidebar, "'seccion' => 'Ecommerce'") === false) { $bloqueos[] = "sidebar_sin_seccion_cms"; }
 if (strpos((string) $sidebar, "/ecommercePublico/contenido") !== false) { $bloqueos[] = "sidebar_cms_colgado_de_ecommerce"; }
 if (strpos((string) $sidebar, "#cms_tab_") !== false) { $bloqueos[] = "sidebar_usa_hashes_de_tabs"; }
 if (strpos((string) $vistaContenido . $vistaPlantillas . $vistaPersistencia . $vistaSlots . $vistaMedia . $vistaJson . $vistaFrontendPlantillas . $vistaFrontendComponentes, "data-cms-tab") !== false) { $bloqueos[] = "vistas_aun_usan_tabs"; }
@@ -507,6 +566,7 @@ if (strpos((string) $controladorCms, "public function frontend(") === false) { $
 if (strpos((string) $controladorCms, "public function frontend_home") === false) { $bloqueos[] = "controlador_sin_ruta_frontend_home"; }
 if (strpos((string) $controladorCms, "public function frontend_global") === false) { $bloqueos[] = "controlador_sin_ruta_frontend_global"; }
 if (strpos((string) $controladorCms, "public function frontend_navegacion") === false) { $bloqueos[] = "controlador_sin_ruta_frontend_navegacion"; }
+if (strpos((string) $controladorCms, "public function frontend_catalogo") === false) { $bloqueos[] = "controlador_sin_ruta_frontend_catalogo"; }
 if (strpos((string) $controladorCms, "public function frontend_categorias") === false) { $bloqueos[] = "controlador_sin_ruta_frontend_categorias"; }
 if (strpos((string) $controladorCms, "public function frontend_marcas") === false) { $bloqueos[] = "controlador_sin_ruta_frontend_marcas"; }
 if (strpos((string) $controladorCms, "public function frontend_paginas") === false) { $bloqueos[] = "controlador_sin_ruta_frontend_paginas"; }
@@ -517,7 +577,7 @@ if (strpos((string) $controladorCms, "public function frontend_activaciones") ==
 if (strpos((string) $controladorCms, "public function frontend_admin_manifest_erp") === false) { $bloqueos[] = "controlador_sin_manifest_frontend"; }
 if (strpos((string) $controladorCms, "public function frontend_admin_estado_erp") === false) { $bloqueos[] = "controlador_sin_estado_frontend"; }
 if (strpos((string) $controladorCms, "public function index") === false) { $bloqueos[] = "controlador_sin_ruta_index_cms"; }
-if (strpos((string) $controladorCms, "\$this->frontend_home();") === false) { $bloqueos[] = "controlador_index_no_abre_frontend_home"; }
+if (strpos((string) $controladorCms, "\$this->frontend_actual();") === false) { $bloqueos[] = "controlador_index_no_abre_mapa_frontend"; }
 if (strpos((string) $controladorCms, "public function contenido_admin_bloques_erp") === false) { $bloqueos[] = "controlador_sin_listado_bloques_bd"; }
 if (strpos((string) $controladorCms, "public function contenido_bloque_guardar_erp") === false) { $bloqueos[] = "controlador_sin_post_bloque_guardar"; }
 if (strpos((string) $controladorCms, "contenidoBloqueGuardarInterno") === false) { $bloqueos[] = "controlador_bloque_guardar_no_llama_modelo"; }
@@ -611,6 +671,15 @@ if (strpos((string) $jsFrontendActual, "cms_actual_global_api") === false) { $bl
 if (strpos((string) $jsFrontendActual, "function consultarApiGlobalFrontend") === false) { $bloqueos[] = "js_frontend_actual_sin_consultar_api_global"; }
 if (strpos((string) $jsFrontendActual, "function extraerGoogleMapsEmbed") === false) { $bloqueos[] = "js_frontend_actual_sin_extraer_google_maps_embed"; }
 if (strpos((string) $jsFrontendActual, "/ecommercePublico/configuracion_inicial") === false) { $bloqueos[] = "js_frontend_actual_sin_configuracion_inicial_global"; }
+if (strpos((string) $controladorCms, "frontend_catalogo_publicar_erp") === false) { $bloqueos[] = "controlador_sin_publicar_catalogo"; }
+if (strpos((string) $modeloPublico, "frontendCatalogoPublicarInterno") === false) { $bloqueos[] = "modelo_sin_publicar_catalogo"; }
+if (strpos((string) $modeloPublico, "catalogo.encabezado") === false) { $bloqueos[] = "modelo_sin_slot_catalogo_encabezado"; }
+if (strpos((string) $jsFrontendActual, "catalogo_configuracion") === false) { $bloqueos[] = "js_frontend_actual_sin_catalogo_configuracion"; }
+if (strpos((string) $jsFrontendActual, "function renderCatalogoCmsSeccion") === false) { $bloqueos[] = "js_frontend_actual_sin_editor_catalogo"; }
+if (strpos((string) $jsFrontendActual, "cms_actual_catalogo_publicar") === false) { $bloqueos[] = "js_frontend_actual_sin_publicar_catalogo"; }
+if (strpos((string) $jsFrontendActual, "/cms/frontend_catalogo_publicar_erp") === false) { $bloqueos[] = "js_frontend_actual_sin_post_catalogo"; }
+if (strpos((string) $jsFrontendActual, "/ecommercePublico/cms_frontend?pagina=catalogo") === false) { $bloqueos[] = "js_frontend_actual_sin_api_catalogo"; }
+if (strpos((string) $manualCms, "CMS > Frontend > Catalogo") === false) { $bloqueos[] = "manual_sin_frontend_catalogo"; }
 if (strpos((string) $manualCms, "Google Maps acepta dos capturas") === false) { $bloqueos[] = "manual_sin_instruccion_google_maps"; }
 if (strpos((string) $manualCms, "Ver API publicada") === false) { $bloqueos[] = "manual_sin_ver_api_global"; }
 if (strpos((string) $manualCms, "Uso: Global") === false) { $bloqueos[] = "manual_sin_uso_global_media"; }
@@ -623,6 +692,28 @@ if (strpos((string) $controladorCms, "frontend_home_promo_publicar_erp") === fal
 if (strpos((string) $modeloPublico, "frontendHomePromoPublicarInterno") === false) { $bloqueos[] = "modelo_sin_publicar_home_promo"; }
 if (strpos((string) $controladorCms, "frontend_home_categorias_publicar_erp") === false) { $bloqueos[] = "controlador_sin_publicar_home_categorias"; }
 if (strpos((string) $modeloPublico, "frontendHomeCategoriasPublicarInterno") === false) { $bloqueos[] = "modelo_sin_publicar_home_categorias"; }
+if (strpos((string) $controladorCms, "frontend_home_promos_categoria_publicar_erp") === false) { $bloqueos[] = "controlador_sin_publicar_home_promos_categoria"; }
+if (strpos((string) $modeloPublico, "frontendHomePromosCategoriaPublicarInterno") === false) { $bloqueos[] = "modelo_sin_publicar_home_promos_categoria"; }
+if (strpos((string) $controladorCms, "frontend_home_marcas_publicar_erp") === false) { $bloqueos[] = "controlador_sin_publicar_home_marcas"; }
+if (strpos((string) $modeloPublico, "frontendHomeMarcasPublicarInterno") === false) { $bloqueos[] = "modelo_sin_publicar_home_marcas"; }
+if (strpos((string) $controladorCms, "frontend_home_esenciales_publicar_erp") === false) { $bloqueos[] = "controlador_sin_publicar_home_esenciales"; }
+if (strpos((string) $modeloPublico, "frontendHomeEsencialesPublicarInterno") === false) { $bloqueos[] = "modelo_sin_publicar_home_esenciales"; }
+if (strpos((string) $modeloPublico, "cmsCategoriaPublicaPorId") === false) { $bloqueos[] = "modelo_sin_derivar_categoria_por_id"; }
+if (strpos((string) $modeloPublico, "cmsCategoriaEditorialHomeDesdePayload") === false) { $bloqueos[] = "modelo_sin_normalizar_categoria_principal"; }
+if (strpos((string) $modeloPublico, "home.promos") === false) { $bloqueos[] = "modelo_sin_slot_home_promos"; }
+if (strpos((string) $modeloPublico, "home.marcas") === false) { $bloqueos[] = "modelo_sin_slot_home_marcas"; }
+if (strpos((string) $modeloPublico, "home.esenciales") === false) { $bloqueos[] = "modelo_sin_slot_home_esenciales"; }
+if (strpos((string) $controladorEcommercePublico, "public function cms_frontend") === false) { $bloqueos[] = "controlador_publico_sin_alias_cms_frontend"; }
+if (strpos((string) $controladorEcommercePublico, "public function frontend_requerimientos") === false) { $bloqueos[] = "controlador_publico_sin_frontend_requerimientos"; }
+if (strpos((string) $modeloPublico, "frontendRequerimientosPublicos") === false) { $bloqueos[] = "modelo_sin_frontend_requerimientos"; }
+if (strpos((string) $controladorCms, "frontend_home_compra_guiada_publicar_erp") === false) { $bloqueos[] = "controlador_sin_publicar_home_compra_guiada"; }
+if (strpos((string) $modeloPublico, "frontendHomeCompraGuiadaPublicarInterno") === false) { $bloqueos[] = "modelo_sin_publicar_home_compra_guiada"; }
+if (strpos((string) $modeloPublico, "home.compra_guiada") === false) { $bloqueos[] = "modelo_sin_slot_home_compra_guiada"; }
+if (strpos((string) $modeloPublico, "compra_guiada") === false) { $bloqueos[] = "modelo_sin_tipo_compra_guiada"; }
+if (strpos((string) $jsFrontendActual, "home_compra_guiada") === false) { $bloqueos[] = "js_frontend_actual_sin_home_compra_guiada"; }
+if (strpos((string) $jsFrontendActual, "function renderCompraGuiadaHome") === false) { $bloqueos[] = "js_frontend_actual_sin_render_compra_guiada"; }
+if (strpos((string) $jsFrontendActual, "/cms/frontend_home_compra_guiada_publicar_erp") === false) { $bloqueos[] = "js_frontend_actual_sin_post_compra_guiada"; }
+if (strpos((string) $manualCms, "CMS > Frontend > Home > Compra guiada") === false) { $bloqueos[] = "manual_sin_home_compra_guiada"; }
 if (strpos((string) $controladorCms, "frontend_home_productos_publicar_erp") === false) { $bloqueos[] = "controlador_sin_publicar_home_productos"; }
 if (strpos((string) $modeloPublico, "frontendHomeProductosPublicarInterno") === false) { $bloqueos[] = "modelo_sin_publicar_home_productos"; }
 if (strpos((string) $controladorCms, "frontend_home_colecciones_publicar_erp") === false) { $bloqueos[] = "controlador_sin_publicar_home_colecciones"; }
@@ -632,6 +723,10 @@ if (strpos((string) $manualCms, "Guardar y publicar categorias") === false) { $b
 if (strpos((string) $controladorCms, "frontend_categorias_publicar_erp") === false) { $bloqueos[] = "controlador_sin_publicar_categorias"; }
 if (strpos((string) $modeloPublico, "frontendCategoriasPublicarInterno") === false) { $bloqueos[] = "modelo_sin_publicar_categorias"; }
 if (strpos((string) $modeloPublico, "aplicarCmsCategoriasPublicas") === false) { $bloqueos[] = "modelo_sin_merge_cms_categorias"; }
+if (strpos((string) $modeloPublico, "cmsCategoriaPublicaPorId") === false) { $bloqueos[] = "modelo_sin_lookup_categoria_cms"; }
+if (strpos((string) $modeloPublico, "categoriasPublicasImagenesCatalogo") === false) { $bloqueos[] = "modelo_sin_imagenes_catalogo_categoria_publica"; }
+if (strpos((string) $modeloPublico, "imagenes_catalogo") === false) { $bloqueos[] = "modelo_no_expone_imagenes_catalogo_categoria"; }
+if (strpos((string) $modeloPublico, '"path_slug" => $pathSlug') === false) { $bloqueos[] = "modelo_sin_path_slug_categoria_publicada"; }
 if (strpos((string) $jsFrontendActual, "cms_actual_categorias_publicar") === false) { $bloqueos[] = "js_frontend_actual_sin_boton_categorias_publicar"; }
 if (strpos((string) $manualCms, "CMS > Frontend > Marcas") === false) { $bloqueos[] = "manual_sin_frontend_marcas"; }
 if (strpos((string) $manualCms, "CMS > Frontend > Paginas") === false) { $bloqueos[] = "manual_sin_frontend_paginas"; }
@@ -749,10 +844,12 @@ echo json_encode(array(
     "validacion_local" => true,
     "borrador_local" => true,
     "intercambio_json" => true,
-    "sidebar" => array("/cms/contenido", "/cms/plantillas", "/cms/persistencia", "/cms/slots", "/cms/media", "/cms/json", "/cms/frontend/home", "/cms/frontend/global", "/cms/frontend/navegacion", "/cms/frontend/categorias", "/cms/frontend/marcas", "/cms/frontend/paginas", "/cms/frontend/politicas", "/cms/frontend_constructor", "/cms/frontend_plantillas", "/cms/frontend_componentes", "/cms/frontend_activaciones"),
-    "frontend_operativo" => array("/cms/frontend/home", "/cms/frontend/global", "/cms/frontend/navegacion", "/cms/frontend/categorias", "/cms/frontend/marcas", "/cms/frontend/paginas", "/cms/frontend/politicas"),
+    "sidebar" => array("/cms/contenido", "/cms/plantillas", "/cms/persistencia", "/cms/slots", "/cms/media", "/cms/json", "/cms/frontend/home", "/cms/frontend/catalogo", "/cms/frontend/global", "/cms/frontend/navegacion", "/cms/frontend/categorias", "/cms/frontend/marcas", "/cms/frontend/paginas", "/cms/frontend/politicas", "/cms/frontend_constructor", "/cms/frontend_plantillas", "/cms/frontend_componentes", "/cms/frontend_activaciones"),
+    "frontend_operativo" => array("/cms/frontend/home", "/cms/frontend/catalogo", "/cms/frontend/global", "/cms/frontend/navegacion", "/cms/frontend/categorias", "/cms/frontend/marcas", "/cms/frontend/paginas", "/cms/frontend/politicas"),
     "navegacion" => "vistas_separadas_sin_tabs",
     "entrada_directa" => "/cms",
+    "entrada_directa_tipo" => "mapa_paginas_grupos",
+    "vistas_dedicadas" => true,
     "modulo_separado" => "CMS",
     "permiso_dueno" => "cms.ver",
     "permiso_puente" => "catalogo.ver",
@@ -770,10 +867,21 @@ echo json_encode(array(
       "/cms/frontend_home_banner_publicar_erp",
       "/cms/frontend_home_promo_publicar_erp",
       "/cms/frontend_home_categorias_publicar_erp",
+      "/cms/frontend_home_promos_categoria_publicar_erp",
+      "/cms/frontend_home_marcas_publicar_erp",
+      "/cms/frontend_home_esenciales_publicar_erp",
+      "/cms/frontend_home_compra_guiada_publicar_erp",
       "/cms/frontend_home_productos_publicar_erp",
       "/cms/frontend_home_colecciones_publicar_erp",
+      "/cms/frontend_catalogo_publicar_erp",
       "/cms/frontend_global_publicar_erp",
       "/cms/frontend_categorias_publicar_erp"
+    ),
+    "publico" => array(
+      "/ecommercePublico/frontend_requerimientos",
+      "/ecommercePublico/cms_frontend?pagina=home",
+      "/ecommercePublico/cms_frontend?pagina=catalogo",
+      "/ecommercePublico/contenido_pagina?pagina=home"
     ),
     "pendiente_frontend_plantillas" => array(
       "/cms/frontend_plantilla_guardar_erp",

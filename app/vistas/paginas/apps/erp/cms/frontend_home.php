@@ -9,6 +9,7 @@ $cmsFrontendTitulo = "CMS - Frontend Home";
 $cmsFrontendHeading = "CMS / Frontend / Home";
 $cmsFrontendSubtitulo = "Administra hero, categorias, productos destacados, colecciones y banner de Home";
 $cmsFrontendGrupoInicial = "home";
+$cmsFrontendVistaDedicada = true;
 $cmsFrontendAvisoTitulo = "Home del ecommerce";
-$cmsFrontendAvisoTexto = "Aqui se configura el contenido visual que necesita la portada del frontend. Media ya sube imagenes al servidor; el guardado completo de secciones Home sigue pendiente de persistencia frontend.";
+$cmsFrontendAvisoTexto = "Aqui se configura el contenido visual que necesita la portada del frontend: hero, promos, categorias, marcas, destacados, colecciones y esenciales. Las secciones publicables se guardan en BD y se verifican contra la API publica.";
 require __DIR__ . "/frontend_actual.php";

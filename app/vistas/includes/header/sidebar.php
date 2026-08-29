@@ -38,6 +38,7 @@ $seccionesMenu = array(
     'Proyectos' => array('icono' => 'bi-kanban'),
     'TMS' => array('icono' => 'bi-truck'),
     'CRM' => array('icono' => 'bi-people'),
+    'CMS' => array('icono' => 'bi-layout-text-window-reverse'),
     'Ecommerce' => array('icono' => 'bi-shop'),
     'Administracion' => array('icono' => 'bi-shield-lock')
 );
@@ -82,6 +83,7 @@ $gruposMenu = array(
         'icono' => 'bi-graph-up-arrow',
         'permiso' => 'rentabilidad.ver',
         'items' => array(
+            array('titulo' => 'Herramienta por lista', 'ruta' => '/rentabilidad/herramienta', 'permiso' => 'rentabilidad.ver'),
             array('titulo' => 'Consulta por SKU', 'ruta' => '/rentabilidad/skus', 'permiso' => 'rentabilidad.ver'),
             array('titulo' => 'Resumen ejecutivo', 'ruta' => '/rentabilidad/analisis', 'permiso' => 'rentabilidad.ver'),
             array('titulo' => 'Cierre comercial', 'ruta' => '/rentabilidad/cierre', 'permiso' => 'rentabilidad.ver'),
@@ -137,6 +139,15 @@ $gruposMenu = array(
             array('titulo' => 'Recompensas', 'ruta' => '/crm/recompensas', 'permiso' => array('crm.ver', 'crm.recompensas.ver')),
             array('titulo' => 'Reportes', 'ruta' => '/crm/reportes', 'permiso' => array('crm.ver', 'crm.reportes.ver')),
             array('titulo' => 'Auditoria', 'ruta' => '/crm/clientes#crm_tab_auditoria', 'permiso' => 'crm.auditoria')
+        )
+    ),
+    array(
+        'seccion' => 'ERP',
+        'titulo' => 'Contabilidad',
+        'icono' => 'bi-bank',
+        'permiso' => 'finanzas.ver',
+        'items' => array(
+            array('titulo' => 'Cierre mensual', 'ruta' => '/contabilidad/cierre_mensual', 'permiso' => 'finanzas.ver')
         )
     ),
     array(
@@ -214,10 +225,9 @@ $gruposMenu = array(
         )
     ),
     array(
-        'seccion' => 'Ecommerce',
+        'seccion' => 'CMS',
         'titulo' => 'CMS avanzado',
         'icono' => 'bi-layout-text-window-reverse',
-        'orden' => 30,
         'permiso' => array('cms.ver', 'catalogo.ver'),
         'items' => array(
             array('titulo' => 'Editor de bloques', 'ruta' => '/cms/contenido', 'permiso' => array('cms.ver', 'catalogo.ver')),
@@ -229,13 +239,13 @@ $gruposMenu = array(
         )
     ),
     array(
-        'seccion' => 'Ecommerce',
+        'seccion' => 'CMS',
         'titulo' => 'Contenido tienda',
         'icono' => 'bi-window-sidebar',
-        'orden' => 20,
         'permiso' => array('cms.ver', 'catalogo.ver'),
         'items' => array(
             array('titulo' => 'Home', 'ruta' => '/cms/frontend/home', 'permiso' => array('cms.ver', 'catalogo.ver')),
+            array('titulo' => 'Catalogo', 'ruta' => '/cms/frontend/catalogo', 'permiso' => array('cms.ver', 'catalogo.ver')),
             array('titulo' => 'Categorias', 'ruta' => '/cms/frontend/categorias', 'permiso' => array('cms.ver', 'catalogo.ver')),
             array('titulo' => 'Producto', 'ruta' => '/cms/frontend/producto', 'permiso' => array('cms.ver', 'catalogo.ver')),
             array('titulo' => 'Carrito', 'ruta' => '/cms/frontend/carrito', 'permiso' => array('cms.ver', 'catalogo.ver')),
@@ -254,7 +264,6 @@ $gruposMenu = array(
         'seccion' => 'Ecommerce',
         'titulo' => 'Operacion ecommerce',
         'icono' => 'bi-shop',
-        'orden' => 10,
         'permiso' => '',
         'items' => array(
             array('titulo' => 'Control Artiani', 'ruta' => '/ecommercePublico/control', 'permiso' => 'catalogo.ver'),
@@ -358,17 +367,6 @@ $gruposMenu = array(
 
                     $grupo['items_visibles'] = $itemsVisibles;
                     $modulosVisibles[$seccionGrupo]['grupos'][] = $grupo;
-                }
-
-                foreach ($modulosVisibles as $seccionGrupo => $modulo) {
-                    usort($modulosVisibles[$seccionGrupo]['grupos'], function ($a, $b) {
-                        $ordenA = isset($a['orden']) ? intval($a['orden']) : 100;
-                        $ordenB = isset($b['orden']) ? intval($b['orden']) : 100;
-                        if ($ordenA === $ordenB) {
-                            return strcasecmp($a['titulo'], $b['titulo']);
-                        }
-                        return $ordenA < $ordenB ? -1 : 1;
-                    });
                 }
                 ?>
 

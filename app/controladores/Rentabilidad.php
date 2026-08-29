@@ -8,7 +8,19 @@ class Rentabilidad extends Controlador {
 
     public function index() {
         $this->requerirPermiso("rentabilidad.ver");
-        $this->redirigir("/rentabilidad/skus");
+        $this->redirigir("/rentabilidad/herramienta");
+    }
+
+    /**
+     * IA: Codex GPT-5
+     * Fecha: 2026-08-28
+     * Proposito: abrir herramienta operativa de rentabilidad por lista de precios real.
+     * Impacto: Rentabilidad se orienta a canales/listas configurables sin depender de escenarios fijos.
+     * Contrato: requiere rentabilidad.ver; vista read-only, no aplica precios ni modifica Listas.
+     */
+    public function herramienta() {
+        $this->requerirPermiso("rentabilidad.ver");
+        $this->vista("apps/erp/rentabilidad/herramienta");
     }
 
     public function analisis() {
@@ -102,6 +114,42 @@ class Rentabilidad extends Controlador {
     public function escenarios_erp() {
         $this->requerirPermiso("rentabilidad.ver");
         return json_encode($this->modelo("RentabilidadErp")->escenariosBase());
+    }
+
+    /**
+     * IA: Codex GPT-5
+     * Fecha: 2026-08-28
+     * Proposito: exponer listas de precios reales como canales analizables por Rentabilidad.
+     * Impacto: la UI deja de depender de canales fijos y permite elegir lista vigente/borrador/pausada.
+     * Contrato: requiere rentabilidad.ver; consulta read-only sobre Listas.
+     */
+    public function listas_precios_erp() {
+        $this->requerirPermiso("rentabilidad.ver");
+        return json_encode($this->modelo("RentabilidadErp")->listasPrecioRentabilidad($_GET));
+    }
+
+    /**
+     * IA: Codex GPT-5
+     * Fecha: 2026-08-28
+     * Proposito: analizar rentabilidad de SKUs incluidos en una lista de precios real.
+     * Impacto: calcula costo, impuestos, margen, utilidad y acciones sugeridas sin escribir precios.
+     * Contrato: requiere rentabilidad.ver; read-only, no modifica Catalogo, Listas, Inventario ni Ventas.
+     */
+    public function analizar_lista_erp() {
+        $this->requerirPermiso("rentabilidad.ver");
+        return json_encode($this->modelo("RentabilidadErp")->analizarListaPrecios($_GET));
+    }
+
+    /**
+     * IA: Codex GPT-5
+     * Fecha: 2026-08-29
+     * Proposito: exponer diagnostico read-only de SKUs sin costo dentro de una lista de precios.
+     * Impacto: Rentabilidad separa casos atendibles por variante/presentacion/apertura sin capturar costos en Catalogo.
+     * Contrato: requiere rentabilidad.ver; no escribe BD ni actualiza precios.
+     */
+    public function atencion_costos_lista_erp() {
+        $this->requerirPermiso("rentabilidad.ver");
+        return json_encode($this->modelo("RentabilidadErp")->atencionCostosListaPrecios($_GET));
     }
 
     public function escenarios_auditar_erp() {

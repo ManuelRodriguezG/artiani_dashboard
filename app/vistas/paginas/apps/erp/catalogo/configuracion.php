@@ -544,6 +544,6 @@
         "costos" => SesionSeguridad::tienePermiso("catalogo.costos")
     )); ?>;
 </script>
-<script src="/assets/js/custom/apps/erp/catalogo/configuracion.js?v=20260725-maestros-legacy-3"></script>
+<script src="/assets/js/custom/apps/erp/catalogo/configuracion.js?v=20260829-maestros-guardado-1"></script>
 </body>
 </html>

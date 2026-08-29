@@ -1063,28 +1063,60 @@ Ejemplo probado:
 - `GET /ecommercePublico/catalogo?q=PEZMN-01&limite=1`
 - Producto `Pez monja`, `id_producto_erp=1533`, `total_variantes_publicadas=7`.
 
-## Estructura sidebar Ecommerce y CMS tienda 2026-08-28
+## Estructura sidebar Ecommerce y CMS independiente 2026-08-28
 
 Decision:
 
-- El sidebar deja de mostrar `CMS` como seccion principal separada para la tienda.
-- Las pantallas CMS relacionadas con el frontend publico viven visualmente dentro de `Ecommerce`.
-- Las rutas internas se conservan como `/cms/...` porque el controlador `Cms` sigue siendo el motor de contenido, plantillas, slots, media y configuracion visual.
-- La seccion `Ecommerce` queda ordenada por intencion operativa:
-  - `Operacion ecommerce`: control, publicaciones, cotizaciones, analytics y catalogo ecommerce legacy.
-  - `Contenido tienda`: home, categorias, producto, carrito, global, navegacion, marcas, paginas, politicas y media.
-  - `CMS avanzado`: editor de bloques, plantillas, persistencia, slots y preview JSON.
+- `CMS` queda como seccion principal independiente porque puede alimentar ecommerce, redes sociales, blog, campanas, landings, WhatsApp, email y contenido institucional.
+- `Ecommerce` queda como seccion operativa comercial: control, publicaciones, cotizaciones, analytics, catalogo ecommerce legacy y futuras solicitudes/pedidos.
+- Las rutas internas del CMS se conservan como `/cms/...` porque el controlador `Cms` sigue siendo el motor de contenido, plantillas, slots, media y configuracion visual.
+- Dentro de `CMS`, el grupo `Contenido tienda` representa el canal ecommerce actual.
+- Dentro de `CMS`, el grupo `CMS avanzado` concentra herramientas tecnicas/editoriales: editor de bloques, plantillas, persistencia, slots y preview JSON.
 
 Regla arquitectonica:
 
+- CMS administra contenido reutilizable y publicable por canal.
 - Ecommerce administra lo que el cliente consulta o envia desde la tienda.
-- CMS tienda administra lo que el frontend muestra dentro de la tienda.
-- Un futuro CMS general para redes sociales, blog, campañas o contenido institucional debe crearse como dominio/canal aparte, no mezclarse con solicitudes, cotizaciones, pedidos ni facturacion ecommerce.
+- El canal ecommerce del CMS puede alimentar al frontend publico, pero no debe absorber solicitudes, cotizaciones, pedidos, facturacion ni atencion.
+- Un futuro contenido para redes sociales, blog, campanas o institucional debe crecer como canales dentro de CMS, no dentro de Ecommerce.
 
 Siguiente paso recomendado:
 
 - Crear `Centro de Atencion Ecommerce` para capturar solicitudes del frontend: contacto, carrito por WhatsApp, solicitud de factura, pregunta de producto y seguimiento.
 - Despues conectar esos registros con CRM cuando exista identidad de cliente canonica.
+
+## Imagenes publicas de marcas desde CMS 2026-08-28
+
+Problema detectado:
+
+- `GET /ecommercePublico/marcas` entregaba marcas publicas con `logo=null` e `imagen_banner=null`.
+- La pantalla CMS de marcas permite capturar `logo`, `imagen_banner`, alt texts y SEO, pero el endpoint publico no aplicaba esa capa editorial.
+- `marca_obj` dentro de productos tampoco exponia imagenes de marca.
+
+Decision:
+
+- Se agrega lectura de CMS publicado para marcas mediante bloque tecnico `frontend_marcas_publicado`.
+- Como compatibilidad/transicion, tambien se puede usar `home_marcas_destacadas_publicado` para enriquecer marcas por `marca_id` o `slug`.
+- `GET /ecommercePublico/marcas` conserva todas las marcas publicables y agrega datos CMS cuando existan:
+  - `logo`;
+  - `imagen_banner`;
+  - `alt_logo`;
+  - `alt_banner`;
+  - `descripcion_corta`;
+  - `seo_title`;
+  - `seo_description`;
+  - `orden_cms`;
+  - `destacada_home`;
+  - `cms_frontend`.
+- `GET /ecommercePublico/catalogo` y `GET /ecommercePublico/producto/{slug}` enriquecen `item.marca_obj` con `logo`, `imagen_banner`, `alt_logo` y `alt_banner` cuando CMS ya lo publico.
+- `GET /ecommercePublico/navegacion` incluye `logo` e `imagen_banner` dentro de `marcas_destacadas` si hay capa CMS publicada.
+- Se agrega endpoint interno `POST /cms/frontend_marcas_publicar_erp` para publicar marcas desde CMS hacia la API publica.
+
+Reglas:
+
+- Las imagenes de marca deben venir de Media CMS y usar ruta publica bajo `/assets/media/cms/ecommerce/`.
+- Si no hay marcas publicadas desde CMS, la API seguira entregando `logo=null` e `imagen_banner=null`, pero `depurar.cms_frontend.fuente` indicara `default_readonly`.
+- Frontend no debe leer archivos internos ni tablas; debe consumir `/ecommercePublico/marcas`, `/ecommercePublico/navegacion` o `item.marca_obj`.
 
 ## Calidad editorial de publicaciones 2026-08-19
 

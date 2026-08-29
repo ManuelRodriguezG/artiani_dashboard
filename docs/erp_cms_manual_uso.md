@@ -14,6 +14,14 @@ El CMS ya no debe enfocarse en un constructor generico tipo Wix/WordPress. El ca
 
 `C:\xampp\htdocs\frontend\ecommerce-publico\docs\CONTRATO_CMS_FRONTEND_ECOMMERCE.md`
 
+Flujo de coordinacion con frontend:
+
+- El frontend documentara en ese contrato las secciones nuevas o modificadas que necesiten contenido administrable.
+- El CMS debe implementar cada necesidad como una seccion concreta y usable del panel, por ejemplo marcas destacadas, categorias destacadas o bloques editoriales de Home.
+- Antes de crear campos nuevos, revisar el contrato para respetar nombres, estructura JSON, rutas esperadas y reglas de render.
+- El CMS no debe inventar contenido de catalogo: solo administra la capa editorial, imagenes, orden, textos, CTA y referencias que el frontend consumira por API.
+- Cuando una seccion quede implementada, este manual debe indicar como capturarla, como publicarla y como verificar que la API ya la entrega.
+
 Ruta principal:
 
 - `/cms`
@@ -41,13 +49,13 @@ El CMS Frontend se organiza por paginas reales del ecommerce, no por contratos t
 - `/cms/frontend/global`: header, footer, WhatsApp y SEO.
 - `/cms/media`: biblioteca de imagenes y archivos del CMS.
 
-La ruta legacy `/cms/frontend_actual` queda como alias tecnico hacia Home, pero ya no debe ser el camino principal de uso.
+La ruta `/cms` es el mapa general del CMS Frontend. Desde ahi se abren vistas dedicadas por pagina o grupo, por ejemplo `/cms/frontend/home`.
 
 La captura de imagenes no debe quedarse en pegar URL manual para siempre. El siguiente paso es preparar `CMS > Media / Archivos` como biblioteca para subir, seleccionar, reutilizar, archivar y limpiar imagenes.
 
 ## CMS > Frontend actual > Home hero carrusel
 
-Ruta: `/cms/frontend_actual`, grupo `Home`.
+Ruta: `/cms/frontend/home`.
 
 Estado actual:
 
@@ -120,6 +128,27 @@ Reglas para usarlo:
 - `Categorias` puede quedar como tipo especial para que despues el frontend lo alimente desde `/ecommercePublico/categorias`.
 - La captura actual es local; persistencia real de navegacion queda pendiente.
 
+## CMS > Frontend > Catalogo
+
+Ruta: `/cms/frontend/catalogo`.
+
+Estado actual:
+
+- Pantalla operativa para la capa editorial del listado publico de productos.
+- Permite editar titulo, subtitulo, texto superior, CTA, SEO y textos de sin resultados.
+- Publica el bloque `catalogo_configuracion` en el slot `catalogo.encabezado`.
+- El endpoint publico de verificacion es `/ecommercePublico/cms_frontend?pagina=catalogo`.
+- No cambia productos, filtros, precios, disponibilidad ni inventario.
+
+Reglas para usarlo:
+
+- Usa `Guardar borrador` si solo quieres conservar el avance en este navegador.
+- Usa `Guardar y publicar catalogo` para que frontend pueda recibirlo por API.
+- Usa `Ver API publicada` para confirmar que existe contenido en `catalogo.encabezado`.
+- El campo `Texto superior` permite HTML basico: `p`, `br`, `strong`, `b`, `em`, `i`, `ul`, `ol`, `li`.
+- No pegues scripts, iframes ni estilos en linea.
+- El texto de sin resultados debe ser publico y amable; no debe mencionar ERP, stock exacto ni procesos internos.
+
 ## CMS > Frontend > Categorias
 
 Ruta: `/cms/frontend/categorias`.
@@ -130,7 +159,9 @@ Estado actual:
 - Permite preparar titulo y subtitulo del listado de categorias.
 - Permite controlar si las categorias se muestran en Home y en menu.
 - Permite administrar por categoria: ID ERP, slug, titulo, subtitulo, descripcion SEO, URL publica, visible, destacado y orden.
+- Permite seleccionar una categoria real desde el catalogo publico para completar ID ERP, titulo, slug, URL publica y alt automaticamente.
 - Permite seleccionar imagen card y banner desde `Media`.
+- Permite usar imagen de categoria cuando la categoria real ya tenga una imagen editorial disponible.
 - Genera `Preview JSON esperado` orientado a `/ecommercePublico/categorias`.
 - Ya cuenta con boton `Guardar y publicar categorias`.
 - `/ecommercePublico/categorias` conserva las categorias reales del ERP y agrega el enriquecimiento CMS cuando existe.
@@ -141,7 +172,26 @@ Reglas para usarlo:
 - No modificar precios, inventario ni publicacion de producto desde esta pantalla.
 - Cada imagen publica debe tener alt text.
 - Los slugs y URLs deben corresponder a rutas publicas del frontend, por ejemplo `/categoria/peces`.
+- Para jerarquias de categoria/subcategoria usa `path_slug`, por ejemplo `acuario-y-peces/alimentacion/alimentos-de-acuario`.
 - Para imagenes, usar Media marcada como `Servidor BD`; las temporales locales no salen en API.
+
+## CMS > Frontend > Home > Esenciales Artiani
+
+Ruta: `/cms/frontend/home`.
+
+Uso recomendado:
+
+- En `home_esenciales_artiani`, selecciona la categoria principal y las categorias de cada card.
+- Si la categoria real ya tiene imagen, el CMS puede copiarla al bloque con `Usar imagen de categoria`.
+- Si el campo imagen esta vacio, al publicar Esenciales el CMS intenta completar la imagen desde la categoria seleccionada.
+- Si la imagen de categoria no te gusta, puedes reemplazarla con una imagen de `Media` solo para esa card.
+- Para estas cards se recomienda imagen editorial 1200 x 900 px o card limpia 1200 x 1200 px, segun el recorte del frontend.
+
+Reglas:
+
+- Cada card visible necesita titulo, URL/path_slug e imagen.
+- La categoria real ayuda a llenar datos, pero el CMS no crea ni modifica categorias del ERP.
+- No dupliques imagenes si ya existe una adecuada en la categoria; primero prueba `Usar imagen de categoria`.
 
 ## CMS > Frontend > Marcas
 
@@ -207,7 +257,7 @@ Reglas para usarlo:
 
 ## CMS > Frontend actual > Home categorias destacadas
 
-Ruta: `/cms/frontend_actual`, grupo `Home`.
+Ruta: `/cms/frontend/home`.
 
 Estado actual:
 
@@ -232,7 +282,7 @@ Reglas para usarlo:
 
 ## CMS > Frontend actual > Home productos destacados
 
-Ruta: `/cms/frontend_actual`, grupo `Home`.
+Ruta: `/cms/frontend/home`.
 
 Estado actual:
 
@@ -257,7 +307,7 @@ Reglas para usarlo:
 
 ## CMS > Frontend actual > Home colecciones de productos
 
-Ruta: `/cms/frontend_actual`, grupo `Home`.
+Ruta: `/cms/frontend/home`.
 
 Estado actual:
 
@@ -282,7 +332,7 @@ Como decidir:
 
 ## CMS > Frontend actual > Home banner
 
-Ruta: `/cms/frontend_actual`, grupo `Home`.
+Ruta: `/cms/frontend/home`.
 
 Estado actual:
 
@@ -306,7 +356,7 @@ Reglas para usarlo:
 
 ## CMS > Frontend actual > Home promo
 
-Ruta: `/cms/frontend_actual`, grupo `Home`.
+Ruta: `/cms/frontend/home`.
 
 Estado actual:
 
@@ -321,11 +371,74 @@ Reglas para usarlo:
 - No lo uses para editar precios, descuentos reales, inventario ni productos.
 - Si el CTA queda vacio, el frontend puede renderizar solo el texto.
 
+## CMS > Frontend actual > Home promos por categoria
+
+Ruta: `/cms/frontend/home`.
+
+Estado actual:
+
+- `home.promos_categoria` ya tiene editor operativo.
+- Permite editar titulo/subtitulo interno, visibilidad, variante y cards promocionales.
+- Cada card permite titulo, subtitulo, `categoria_id`, URL publica, `path_slug`, imagen, alt y orden.
+- El boton `Guardar y publicar promos` persiste la seccion en BD y la expone en `/ecommercePublico/contenido_pagina?pagina=home`, slot `home.promos`.
+- El boton `Ver API publicada` confirma si frontend ya recibe el slot.
+
+Reglas para usarlo:
+
+- Usar rutas canonicas completas, por ejemplo `/categoria/acuario-y-peces/alimentacion/alimentos-de-acuario`.
+- `path_slug` debe coincidir sin el prefijo `/categoria/`.
+- Cada card visible necesita titulo, URL e imagen.
+- No crea categorias ni modifica catalogo; solo dirige al cliente a una categoria real.
+
+## CMS > Frontend actual > Home marcas destacadas
+
+Ruta: `/cms/frontend/home`.
+
+Estado actual:
+
+- `home.marcas_destacadas` ya tiene editor operativo.
+- Permite editar titulo, subtitulo, variante visual y lista de marcas destacadas.
+- Cada marca permite `marca_id`, nombre, slug, URL publica, logo, banner opcional, alt y descripcion corta.
+- El boton `Guardar y publicar marcas` persiste la seccion en BD y la expone en `/ecommercePublico/contenido_pagina?pagina=home`, slot `home.marcas`.
+- Si no capturas logo, frontend puede usar fallback visual con iniciales.
+
+Reglas para usarlo:
+
+- La marca real debe existir o existir despues en la API/catalogo.
+- Usar URL publica limpia, por ejemplo `/marca/tropical`.
+- Para logos usa Media CMS con `Uso: Home` o `Global` y `Tipo: Logo principal`.
+
+## CMS > Frontend actual > Home Esenciales Artiani
+
+Ruta: `/cms/frontend/home`.
+
+Estado actual:
+
+- `home_esenciales_artiani` ya tiene editor operativo para `bloque_editorial_cards`.
+- Permite configurar una categoria principal y hasta 3 cards de categorias destacadas.
+- La categoria principal y cada card tienen selector de categoria real desde `/ecommercePublico/categorias`.
+- Al seleccionar categoria, el CMS completa titulo, URL publica y `path_slug` canonico.
+- Si la categoria ya tiene `imagen_banner`, `imagen_card` o `imagen_menu`, puedes usar `Usar imagen de categoria` para copiarla al bloque.
+- Tambien puedes usar `Guardar borrador` aunque falte imagen; publicar sigue validando imagen porque afecta la API publica.
+- Cada card permite ajustar titulo comercial, subtitulo, imagen, alt y objetivo interno.
+- El boton `Guardar y publicar esenciales` persiste la seccion en BD y la expone en `/ecommercePublico/contenido_pagina?pagina=home`, slot `home.esenciales`.
+- El frontend puede usar esta seccion para reemplazar el fallback editorial de Esenciales Artiani.
+
+Reglas para usarlo:
+
+- Maximo 3 cards visibles.
+- Cada card visible necesita categoria seleccionada o `path_slug` canonico, mas imagen.
+- Evita escribir URL y slug a mano; usalos solo como ajuste excepcional si el frontend necesita una ruta especial.
+- Para imagen maestra de categoria se recomienda formato cuadrado `1200 x 1200` en JPG/WebP optimizado. Tu formato anterior `900 x 900` funciona, pero `1200 x 1200` da mas margen para pantallas retina.
+- Para imagen especifica de Esenciales/Home se recomienda `1200 x 900` o `1600 x 1200`, porque se adapta mejor a cards editoriales.
+- Usar esta seccion para guiar al cliente dentro de una familia principal, no para reemplazar el catalogo real.
+
 ## Reglas generales
 
-- El modulo CMS vive en el menu lateral `CMS`.
-- La entrada principal debe ser `CMS > Frontend actual > Contrato frontend`.
-- La entrada principal del CMS debe ser `Paginas ecommerce`: ahi se elige Home, Categoria, Producto, Carrito, Header o Footer y se administra la estructura visual por secciones.
+- El modulo CMS vive en el menu lateral dentro de la seccion `Ecommerce`.
+- La entrada `/cms` funciona como mapa general de paginas y grupos.
+- Las pantallas operativas viven separadas, por ejemplo `/cms/frontend/home`, `/cms/frontend/global`, `/cms/frontend/categorias`, `/cms/frontend/marcas`, `/cms/frontend/paginas` y `/cms/frontend/politicas`.
+- La entrada principal del CMS debe permitir elegir la pagina o grupo; despues cada pantalla debe mostrar solo lo que pertenece a esa pagina para evitar ruido operativo.
 - La seccion `Avanzado contenido` conserva las herramientas tecnicas: bloques, slots, media, JSON y persistencia de contenido.
 - La seccion `Paginas ecommerce` prepara constructor visual, plantillas de vista, layouts, componentes, variantes y activaciones.
 - Wokiee es el primer tema visual activo, pero el CMS debe permitir registrar otros temas visuales futuros.
@@ -1125,7 +1238,18 @@ Plan builder visual Wokiee/Artiani: `docs/erp_cms_visual_builder_wokiee_plan.md`
 
 ### Navegacion del submodulo
 
-Las pantallas de CMS Frontend tienen una subnavegacion visible. En el menu lateral el grupo se muestra como `Paginas ecommerce` para que el uso diario empiece por paginas reales de la tienda:
+La ruta `/cms` funciona como mapa general de paginas y grupos. Ahi puedes ver que existe Home, Global, Navegacion, Categorias, Marcas, Paginas y Politicas sin mezclar todavia la captura diaria.
+
+Cuando seleccionas una pagina o grupo, el sistema abre una vista dedicada. Ejemplos:
+
+- `/cms/frontend/home`: solo Home.
+- `/cms/frontend/global`: solo configuracion global.
+- `/cms/frontend/categorias`: solo categorias.
+- `/cms/frontend/marcas`: solo marcas.
+- `/cms/frontend/paginas`: solo paginas informativas.
+- `/cms/frontend/politicas`: solo politicas.
+
+En el menu lateral el grupo operativo se muestra como `Contenido tienda` para que el uso diario empiece por paginas reales de la tienda. Las vistas tecnicas se conservan separadas:
 
 - `Plantillas`
 - `Paginas`
@@ -1408,6 +1532,55 @@ Cuando se activen deberan validar permisos, CSRF, compatibilidad slot/componente
 - Crear variantes que no existen en el frontend.
 - Confundir slot de contenido con componente visual.
 
+## CMS > Frontend > Home > Compra guiada
+
+Ruta: `/cms/frontend/home`
+
+### Para que sirve
+
+Esta seccion controla el bloque `home_compra_guiada`, pensado para que el frontend muestre una entrada de ayuda tipo "compra por mascota" o "compra por necesidad".
+
+No crea categorias, no edita productos y no modifica la taxonomia real. Solo entrega configuracion editorial en JSON para que el frontend renderice sus opciones con datos de catalogo/taxonomia.
+
+### Campos
+
+- `Titulo`: texto principal visible.
+- `Subtitulo`: texto de apoyo.
+- `Orden`: posicion sugerida dentro de Home.
+- `Mostrar mascotas`: permite que frontend pinte accesos por mascota.
+- `Mostrar necesidades`: permite que frontend pinte accesos por necesidad.
+- `Prioridad`: indica si la seccion debe tratarse como principal o secundaria.
+- `Variante frontend`: nombre de variante programada que el frontend reconoce.
+
+### Flujo recomendado
+
+1. Abre `/cms/frontend/home`.
+2. Ve a `home_compra_guiada`.
+3. Captura titulo y subtitulo.
+4. Activa `Mostrar mascotas`, `Mostrar necesidades` o ambas.
+5. Usa `Guardar borrador` si todavia no quieres enviarlo a frontend.
+6. Usa `Guardar y publicar compra guiada` para publicarlo en el slot `home.compra_guiada`.
+7. Usa `Ver API publicada` para comprobar que `/ecommercePublico/cms_frontend?pagina=home` ya entrega el bloque.
+
+### Contrato para frontend
+
+El bloque publicado se entrega en:
+
+- Endpoint: `/ecommercePublico/cms_frontend?pagina=home`
+- Slot: `home.compra_guiada`
+- Tipo: `compra_guiada`
+- Codigo: `home_compra_guiada`
+
+El frontend debe mapear `tipo=compra_guiada` al componente visual que tenga programado, por ejemplo `GuidedBuying`.
+
+### Checklist publico para frontend
+
+Ruta publica:
+
+- `/ecommercePublico/frontend_requerimientos`
+
+Este endpoint lista que secciones CMS ya estan listas, parciales o pendientes para que el frontend pueda priorizar integracion sin leer archivos internos del ERP.
+
 ## CMS > Frontend > Componentes
 
 Ruta: `/cms/frontend_componentes`
@@ -1431,6 +1604,7 @@ El ERP/CMS no crea el componente visual; solo registra que el frontend lo puede 
 - `CategoryGrid`
 - `ProductCarousel`
 - `ImageCardGrid`
+- `GuidedBuying`
 - `SafeHtmlBlock`
 
 ### Flujo recomendado
@@ -1484,6 +1658,7 @@ El ERP/CMS no crea el componente visual; solo registra que el frontend lo puede 
 - `CategoryGrid`: renderiza cards de categorias.
 - `ProductCarousel`: renderiza colecciones dinamicas de productos.
 - `ImageCardGrid`: renderiza grids de cards con imagen.
+- `GuidedBuying`: renderiza entradas de compra guiada por mascota o necesidad.
 - `SafeHtmlBlock`: renderiza contenido editorial sanitizado.
 
 ### Relacion componente / bloque / slot

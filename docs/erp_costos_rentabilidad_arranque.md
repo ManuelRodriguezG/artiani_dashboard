@@ -177,6 +177,52 @@ Estado: esquema aplicado y primer snapshot persistente guardado.
 - Utilidad estimada: margen bruto en importe menos gasto operativo y comision porcentual sobre precio.
 - Precio minimo rentable: `costo / (1 - gasto_pct - comision_pct - margen_objetivo_pct)`.
 
+## Herramienta por lista de precios
+
+Fecha: 2026-08-28  
+IA: Codex GPT-5  
+Estado: Fase 1 read-only implementada.
+
+Decision operativa:
+
+- Rentabilidad debe partir de listas de precios reales, no de escenarios fijos hardcodeados.
+- Cada lista de precios funciona como canal analizable porque ya contiene `canal`, alcance, prioridad, vigencia y precios por SKU.
+- Los escenarios fijos `menudeo`, `mayoreo` y `alianza` quedan como referencia tecnica/legada para vistas antiguas, no como centro operativo del modulo.
+- La herramienta nueva permite seleccionar una lista, capturar gasto, comision, margen objetivo y ajuste porcentual de simulacion.
+- El ajuste porcentual admite negativos para simular mayoreo, remate o alianzas desde una lista base.
+
+Contratos agregados:
+
+- `Rentabilidad::herramienta()`: vista operativa principal.
+- `Rentabilidad::listas_precios_erp()`: lista canales/listas reales en modo read-only.
+- `Rentabilidad::analizar_lista_erp()`: calcula rentabilidad por SKU de una lista real.
+- `RentabilidadErp::listasPrecioRentabilidad($filtros)`: consulta encabezados de listas y conteo activo.
+- `RentabilidadErp::analizarListaPrecios($filtros)`: usa precio de `erp_listas_precios_detalle`, impuestos de SKU y costo vigente de Rentabilidad.
+
+Salida esperada por SKU:
+
+- Precio de lista con impuestos.
+- Precio de lista sin impuestos.
+- Precio de analisis con ajuste porcentual simulado.
+- Costo vigente sin impuestos, fuente y trazabilidad.
+- Margen bruto.
+- Utilidad estimada despues de gasto/comision.
+- Precio minimo rentable.
+- Precio sugerido con/sin impuestos.
+- Riesgo, hallazgos y siguiente paso.
+
+Fronteras:
+
+- No crea listas.
+- No aplica precios.
+- No modifica ventas pasadas.
+- No escribe costos en Catalogo.
+- Propuestas persistentes hacia Listas quedan como siguiente fase y requieren respaldo/autorizacion.
+
+UAT:
+
+- `storage/uat/uat_rentabilidad_herramienta_lista_readonly.php`.
+
 ## UAT propuesto
 
 | ID | Caso | Evidencia |

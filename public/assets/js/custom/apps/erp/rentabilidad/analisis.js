@@ -102,6 +102,10 @@
                     render(response.depurar || {});
                 });
             }];
+        } else if (vista === "herramienta") {
+            tareas = [function () {
+                return cargarListasRentabilidad().then(function () { return Promise.all([cargarAnalisisListaRentabilidad(), cargarAtencionCostosListaRentabilidad()]); });
+            }];
         } else if (vista === "incidencias_costos") {
             tareas = [cargarIncidenciasCostosDerivados];
         } else if (vista === "cierre") {
@@ -436,6 +440,60 @@
         });
     }
     /**
+     * IA: Codex GPT-5 | Fecha: 2026-08-28
+     * Proposito: cargar listas reales para analizarlas como canales de Rentabilidad.
+     * Impacto: la herramienta deja de depender de escenarios hardcodeados para su operacion principal.
+     * Contrato: consulta read-only; no crea listas ni canales.
+     */
+    function cargarListasRentabilidad() {
+        return request("/rentabilidad/listas_precios_erp?estatus=&limite=200").then(function (response) {
+            if (response.error) { throw new Error(response.mensaje); }
+            var items = (response.depurar || {}).items || [];
+            var select = $("rentabilidad_lista_precio");
+            var valorActual = select.value;
+            select.innerHTML = items.map(function (item) {
+                return "<option value=\"" + Number(item.id_lista_precio || 0) + "\">" + escapeHtml(item.codigo || "") + " - " + escapeHtml(item.nombre || "") + " (" + escapeHtml(item.canal || "general") + ", " + escapeHtml(item.estatus || "") + ")</option>";
+            }).join("");
+            if (valorActual && Array.prototype.some.call(select.options, function (opt) { return opt.value === valorActual; })) {
+                select.value = valorActual;
+            }
+            if (!select.value && select.options.length) {
+                select.value = select.options[0].value;
+            }
+        }).catch(function (error) {
+            $("rentabilidad_herramienta_resumen").innerHTML = "<div class=\"alert alert-danger mb-0\">" + escapeHtml(error.message) + "</div>";
+            throw error;
+        });
+    }
+    function filtrosListaRentabilidad() {
+        return new URLSearchParams({
+            id_lista_precio: $("rentabilidad_lista_precio").value,
+            q: $("rentabilidad_buscar").value.trim(),
+            riesgo: $("rentabilidad_riesgo").value,
+            gasto_pct: $("rentabilidad_gasto").value,
+            comision_pct: $("rentabilidad_comision").value,
+            margen_objetivo_pct: $("rentabilidad_objetivo").value,
+            ajuste_pct: $("rentabilidad_ajuste").value,
+            limite: "50"
+        }).toString();
+    }
+    function cargarAnalisisListaRentabilidad() {
+        if (!$("rentabilidad_lista_precio").value) {
+            $("rentabilidad_herramienta_resumen").innerHTML = "<div class=\"text-muted fs-8\">Sin listas de precios disponibles para analizar</div>";
+            if ($("rentabilidad_herramienta_propuestas")) { $("rentabilidad_herramienta_propuestas").innerHTML = "<tr><td colspan=\"6\" class=\"text-center text-muted py-10\">Sin lista seleccionada</td></tr>"; }
+            $("rentabilidad_herramienta_items").innerHTML = "<tr><td colspan=\"8\" class=\"text-center text-muted py-10\">Sin lista seleccionada</td></tr>";
+            return Promise.resolve();
+        }
+        return request("/rentabilidad/analizar_lista_erp?" + filtrosListaRentabilidad()).then(function (response) {
+            if (response.error) { throw new Error(response.mensaje); }
+            renderAnalisisListaRentabilidad(response.depurar || {});
+        }).catch(function (error) {
+            $("rentabilidad_herramienta_resumen").innerHTML = "<div class=\"alert alert-danger mb-0\">" + escapeHtml(error.message) + "</div>";
+            if ($("rentabilidad_herramienta_propuestas")) { $("rentabilidad_herramienta_propuestas").innerHTML = ""; }
+            $("rentabilidad_herramienta_items").innerHTML = "";
+        });
+    }
+    /**
      * IA: Codex GPT-5 | Fecha: 2026-08-23
      * Proposito: cargar la bandeja persistente de incidencias de costo derivado enviadas por Catalogo.
      * Impacto: UI de Rentabilidad/Costos; separa incidencias reales de auditorias calculadas.
@@ -569,6 +627,95 @@
             "<span class=\"badge badge-light-success fs-7\">Valor inventario " + dinero(resumen.valor_inventario || 0) + "</span>";
         $("rentabilidad_items").innerHTML = (data.items || []).map(renderItem).join("") ||
             "<tr><td colspan=\"9\" class=\"text-center text-muted py-10\">Sin SKUs para el filtro seleccionado</td></tr>";
+    }
+    function renderAnalisisListaRentabilidad(data) {
+        var resumen = data.resumen || {};
+        var lista = data.lista || {};
+        var escenario = data.escenario || {};
+        $("rentabilidad_herramienta_resumen").innerHTML =
+            "<div class=\"d-flex flex-wrap gap-2 mb-4\">" +
+            "<span class=\"badge badge-light-primary\">Lista " + escapeHtml(lista.codigo || "") + "</span>" +
+            "<span class=\"badge badge-light-info\">Canal " + escapeHtml(lista.canal || "general") + "</span>" +
+            "<span class=\"badge badge-light-secondary\">SKUs " + Number(resumen.skus || 0) + "</span>" +
+            "<span class=\"badge badge-light-success\">Rentables " + Number(resumen.rentables || 0) + "</span>" +
+            "<span class=\"badge badge-light-danger\">Perdida " + Number(resumen.perdida || 0) + "</span>" +
+            "<span class=\"badge badge-light-warning\">Margen bajo " + Number(resumen.margen_bajo || 0) + "</span>" +
+            "<span class=\"badge badge-light-info\">Sin costo " + Number(resumen.sin_costo || 0) + "</span>" +
+            "<span class=\"badge badge-light-secondary\">Sin precio " + Number(resumen.sin_precio || 0) + "</span>" +
+            "<span class=\"badge badge-light-primary\">Utilidad " + dinero(resumen.utilidad_estimada || 0) + "</span>" +
+            "<span class=\"badge badge-light-warning\">Ajuste sugerido " + dinero(resumen.delta_sugerido || 0) + "</span>" +
+            "</div>" +
+            "<div class=\"text-muted fs-8\">Gasto " + pct(escenario.gasto_pct || 0) + " / Comision " + pct(escenario.comision_pct || 0) + " / Margen objetivo " + pct(escenario.margen_objetivo_pct || 0) + " / Simulacion ajuste " + pct(escenario.ajuste_pct || 0) + "</div>";
+        renderPropuestasListaRentabilidad(data.propuestas || {});
+        $("rentabilidad_herramienta_items").innerHTML = (data.items || []).map(renderItemListaRentabilidad).join("") ||
+            "<tr><td colspan=\"8\" class=\"text-center text-muted py-10\">Sin productos para la lista/filtro seleccionado</td></tr>";
+    }
+    function cargarAtencionCostosListaRentabilidad() {
+        if (!$("rentabilidad_lista_precio").value) {
+            return Promise.resolve();
+        }
+        return request("/rentabilidad/atencion_costos_lista_erp?" + filtrosListaRentabilidad()).then(function (response) {
+            if (response.error) { throw new Error(response.mensaje); }
+            renderAtencionCostosListaRentabilidad(response.depurar || {});
+        }).catch(function (error) {
+            $("rentabilidad_herramienta_atencion_resumen").innerHTML = "<div class=\"alert alert-danger mb-0\">" + escapeHtml(error.message) + "</div>";
+            $("rentabilidad_herramienta_atencion_costos").innerHTML = "";
+        });
+    }
+    function renderAtencionCostosListaRentabilidad(data) {
+        var resumen = data.resumen || {};
+        $("rentabilidad_herramienta_atencion_resumen").innerHTML =
+            "<div class=\"d-flex flex-wrap gap-2\">" +
+            "<span class=\"badge badge-light-secondary\">Evaluados " + Number(resumen.evaluados || 0) + "</span>" +
+            "<span class=\"badge badge-light-danger\">Sin costo " + Number(resumen.sin_costo || 0) + "</span>" +
+            "<span class=\"badge badge-light-info\">Con candidatos " + Number(resumen.variantes_candidatas || 0) + "</span>" +
+            "<span class=\"badge badge-light-warning\">Resolver en Catalogo " + Number(resumen.requiere_catalogo || 0) + "</span>" +
+            "<span class=\"badge badge-light-primary\">Resolver costo origen " + Number(resumen.requiere_costo_origen || 0) + "</span>" +
+            "</div>";
+        $("rentabilidad_herramienta_atencion_costos").innerHTML = (data.items || []).map(renderAtencionCostoListaItem).join("") ||
+            "<tr><td colspan=\"5\" class=\"text-center text-muted py-10\">Sin SKUs pendientes de costo en esta muestra</td></tr>";
+    }
+    function renderAtencionCostoListaItem(item) {
+        var candidato = (item.candidatos_origen || [])[0] || null;
+        var origen = candidato ? "<div class=\"fw-bold\">" + escapeHtml(candidato.sku_origen || "") + "</div><div class=\"text-muted fs-8\">" + escapeHtml(candidato.producto_origen || "") + "</div>" : "<span class=\"text-muted fs-8\">Sin candidato</span>";
+        var costo = candidato ? "<div class=\"fw-bold\">" + dinero(candidato.costo_origen) + "</div><div class=\"text-muted fs-8\">" + escapeHtml(candidato.fuente || "") + " / " + escapeHtml(candidato.confianza || "") + "</div>" : "-";
+        return "<tr>" +
+            "<td><div class=\"fw-bold\">" + escapeHtml(item.sku || "") + "</div><div class=\"text-muted fs-8\">" + escapeHtml(item.producto || "") + "</div></td>" +
+            "<td>" + origen + "</td>" +
+            "<td>" + costo + "</td>" +
+            "<td><span class=\"badge badge-light-warning\">" + escapeHtml(item.accion_sugerida || "") + "</span><div class=\"text-muted fs-8\">dry-run</div></td>" +
+            "<td><div class=\"text-muted fs-8\">" + escapeHtml(item.siguiente_paso || "") + "</div></td>" +
+            "</tr>";
+    }
+    function renderPropuestasListaRentabilidad(propuestas) {
+        var contenedor = $("rentabilidad_herramienta_propuestas");
+        if (!contenedor) { return; }
+        var items = propuestas.items || [];
+        contenedor.innerHTML = items.map(function (item) {
+            return "<tr>" +
+                "<td><div class=\"fw-bold\">" + escapeHtml(item.sku || "") + "</div><div class=\"text-muted fs-8\">" + escapeHtml(item.producto || "") + "</div></td>" +
+                "<td class=\"text-end\"><div class=\"fw-bold\">" + dinero(item.precio_actual_con_impuesto) + "</div><div class=\"text-muted fs-8\">Sin imp. " + dinero(item.precio_actual_sin_impuesto) + "</div></td>" +
+                "<td class=\"text-end\"><div class=\"fw-bold\">" + (item.precio_sugerido_con_impuesto == null ? "-" : dinero(item.precio_sugerido_con_impuesto)) + "</div><div class=\"text-muted fs-8\">Min. " + (item.precio_minimo_rentable_sin_impuesto == null ? "-" : dinero(item.precio_minimo_rentable_sin_impuesto)) + "</div></td>" +
+                "<td class=\"text-end\"><div class=\"fw-bold\">" + dinero(item.delta_sugerido_sin_impuesto || 0) + "</div><div class=\"text-muted fs-8\">Margen " + pct(item.margen_bruto_pct) + "</div></td>" +
+                "<td>" + badgeRiesgo(item) + "<div class=\"text-muted fs-8\">" + escapeHtml(item.accion_sugerida || "") + "</div></td>" +
+                "<td><div class=\"text-muted fs-8\">" + escapeHtml(item.siguiente_paso || "") + "</div></td>" +
+                "</tr>";
+        }).join("") || "<tr><td colspan=\"6\" class=\"text-center text-muted py-10\">Sin propuestas para esta lista con los filtros actuales</td></tr>";
+    }
+    function renderItemListaRentabilidad(item) {
+        var hallazgos = (item.hallazgos_detalle || []).slice(0, 3).map(function (hallazgo) {
+            return "<div class=\"text-muted fs-8\">" + escapeHtml(hallazgo.id || "") + " " + escapeHtml(hallazgo.clave || "") + "</div>";
+        }).join("");
+        return "<tr>" +
+            "<td><div class=\"fw-bold\">" + escapeHtml(item.sku || "") + "</div><div class=\"text-muted fs-8\">" + escapeHtml(item.producto || "") + "</div><div class=\"text-muted fs-8\">" + escapeHtml(item.accion_sugerida || "") + "</div></td>" +
+            "<td class=\"text-end\"><div class=\"fw-bold\">" + dinero(item.precio_lista_con_impuesto) + "</div><div class=\"text-muted fs-8\">Sin imp. " + dinero(item.precio_lista_sin_impuesto) + "</div><div class=\"text-muted fs-8\">Analisis " + dinero(item.precio_analisis_sin_impuesto) + "</div></td>" +
+            "<td class=\"text-end\"><div class=\"fw-bold\">" + dinero(item.costo_real_sin_impuesto) + "</div><div class=\"text-muted fs-8\">" + escapeHtml(item.origen_costo || "") + "</div></td>" +
+            "<td class=\"text-end\"><div class=\"fw-bold\">" + pct(item.margen_bruto_pct) + "</div><div class=\"text-muted fs-8\">Bruta " + dinero(item.utilidad_bruta) + "</div></td>" +
+            "<td class=\"text-end\"><div class=\"fw-bold\">" + dinero(item.utilidad_estimada) + "</div><div class=\"text-muted fs-8\">" + pct(item.utilidad_estimada_pct) + "</div></td>" +
+            "<td class=\"text-end\"><div class=\"fw-bold\">" + (item.precio_minimo_rentable_sin_impuesto == null ? "-" : dinero(item.precio_minimo_rentable_sin_impuesto)) + "</div><div class=\"text-muted fs-8\">Sug. " + (item.precio_sugerido_con_impuesto == null ? "-" : dinero(item.precio_sugerido_con_impuesto)) + "</div></td>" +
+            "<td>" + badgeRiesgo(item) + hallazgos + "</td>" +
+            "<td><div class=\"text-muted fs-8\">" + escapeHtml(item.siguiente_paso || "") + "</div></td>" +
+            "</tr>";
     }
     function renderRecomendaciones(data) {
         var grupos = data.grupos || {};
@@ -1687,6 +1834,7 @@
     function aplicarVistaRentabilidad() {
         var vista = window.RENTABILIDAD_VISTA || "analisis";
         var visibles = {
+            herramienta: ["Resumen de lista", "Atencion de costos", "Propuestas read-only", "Productos de la lista"],
             analisis: ["Tablero ejecutivo", "Estado del modulo", "Preflight uso comercial", "Plan de desbloqueo", "Auditoria final", "Recomendaciones operativas"],
             skus: ["Escenarios comerciales", "Matriz de escenarios", "Canal recomendado", "Precios objetivo", "Sensibilidad"],
             incidencias_costos: ["Incidencias de costo desde Catalogo"],
@@ -1722,6 +1870,20 @@
         }
         aplicarVistaRentabilidad();
         moverConsultaSkuArriba();
+        if ((window.RENTABILIDAD_VISTA || "analisis") === "herramienta") {
+            $("rentabilidad_recargar").addEventListener("click", cargar);
+            $("rentabilidad_lista_precio").addEventListener("change", cargar);
+            $("rentabilidad_riesgo").addEventListener("change", cargar);
+            ["rentabilidad_gasto", "rentabilidad_comision", "rentabilidad_objetivo", "rentabilidad_ajuste"].forEach(function (id) {
+                $(id).addEventListener("change", cargar);
+            });
+            $("rentabilidad_buscar").addEventListener("input", programarCarga);
+            $("rentabilidad_buscar").addEventListener("keydown", function (event) {
+                if (event.key === "Enter") { event.preventDefault(); cargar(); }
+            });
+            cargar();
+            return;
+        }
         $("rentabilidad_canal").addEventListener("change", function () { aplicarDefaults(); cargar(); });
         $("rentabilidad_recargar").addEventListener("click", cargar);
         if ($("rentabilidad_snapshot_guardar")) {
@@ -1783,6 +1945,8 @@
         $("rentabilidad_buscar").addEventListener("keydown", function (event) {
             if (event.key === "Enter") { event.preventDefault(); cargar(); }
         });
+        $("rentabilidad_lista_precio").addEventListener("change", cargar);
+        $("rentabilidad_ajuste").addEventListener("change", cargar);
         ["rentabilidad_accion", "rentabilidad_stock", "rentabilidad_origen_costo"].forEach(function (id) {
             $(id).addEventListener("change", cargar);
         });
@@ -1797,5 +1961,3 @@
         });
     });
 })();
-
-
