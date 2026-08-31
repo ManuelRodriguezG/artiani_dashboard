@@ -2,12 +2,23 @@
 (function () {
     var movimientos = [];
     var cfdis = [];
+    var estadosCuenta = [];
+    var filasCrudas = [];
+    var matrizCruda = [];
+    var encabezadosCrudos = [];
+    var archivoCrudoNombre = "";
+    var estadoCuentaActualId = "";
+
+    var tiposMovimiento = ["gasto", "ingreso", "transpaso"];
+    var actividades = ["negocio", "programacion", "personal", "publicidad", "inversion"];
+    var formasPago = ["efectivo", "tarjeta_debito", "tarjeta_credito", "transferencia", "cheque", "comision_bancaria"];
+    var categorias = ["venta", "compra_mercancia", "gasto_operativo", "servicio", "nomina", "impuestos", "renta", "publicidad", "software", "banco_comision", "inversion", "personal", "por_definir"];
 
     /**
      * IA: Codex GPT-5 | Fecha: 2026-08-29
-     * Proposito: obtener nodos del MVP contable sin romper si una seccion cambia temporalmente.
-     * Impacto: UI de Contabilidad; permite iterar la vista sin errores JS ruidosos.
-     * Contrato: devuelve el nodo solicitado o null; las llamadas validan existencia.
+     * Proposito: controlar el ambiente local de clasificacion mensual sin persistir datos.
+     * Impacto: Contabilidad; prepara movimientos bancarios y XML para revision del contador.
+     * Contrato: procesa CSV/TXT/XML en navegador y exporta CSV/JSON con clasificacion editable.
      */
     function $(id) { return document.getElementById(id); }
     function escapeHtml(value) { var div = document.createElement("div"); div.textContent = value == null ? "" : String(value); return div.innerHTML; }
@@ -40,14 +51,43 @@
         var s = value == null ? "" : String(value);
         return /[",\r\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
     }
+    function label(value) { return String(value || "").replace(/_/g, " "); }
+    function options(valores, actual) {
+        return valores.map(function (v) {
+            return "<option value=\"" + v + "\"" + (v === actual ? " selected" : "") + ">" + label(v) + "</option>";
+        }).join("");
+    }
+    function badge(texto, tipo) {
+        return "<span class=\"badge badge-light-" + (tipo || "primary") + "\">" + escapeHtml(texto) + "</span>";
+    }
+    function requestXlsx(file) {
+        var form = new FormData();
+        form.append("archivo", file);
+        return fetch("/contabilidad/importar_estado_cuenta_erp", {
+            method: "POST",
+            credentials: "same-origin",
+            headers: {"X-CSRF-Token": window.ERP_CSRF_TOKEN || ""},
+            body: form
+        }).then(function (response) { return response.json(); });
+    }
 
     /**
      * IA: Codex GPT-5 | Fecha: 2026-08-29
-     * Proposito: dividir estados bancarios CSV/TXT con separador comun sin depender de un banco especifico.
-     * Impacto: Contabilidad MVP; permite validar flujo antes de construir importadores por banco.
-     * Contrato: acepta texto con encabezados; regresa objetos por columna detectada.
+     * Proposito: leer estados de cuenta con separadores comunes para no amarrar el MVP a un banco.
+     * Impacto: Contabilidad; habilita pruebas con CSV/TXT reales antes de crear importadores por banco.
+     * Contrato: la primera fila debe contener encabezados detectables como fecha/concepto/cargo/abono/importe.
      */
     function parseCsv(texto) {
+        var matriz = parseCsvMatriz(texto);
+        if (!matriz.length) { return []; }
+        var headers = matriz.shift().map(function (h) { return normalizar(h); });
+        return matriz.map(function (fila) {
+            var obj = {};
+            headers.forEach(function (h, i) { obj[h] = fila[i] || ""; });
+            return obj;
+        });
+    }
+    function parseCsvMatriz(texto) {
         var lineas = String(texto || "").replace(/\r/g, "").split("\n").filter(function (l) { return l.trim() !== ""; });
         if (!lineas.length) { return []; }
         var primera = lineas[0];
@@ -69,11 +109,10 @@
             actual.push(celda);
             return actual.map(function (x) { return x.trim(); });
         });
-        var headers = filas.shift().map(function (h) { return normalizar(h); });
+        var ancho = filas.reduce(function (max, fila) { return Math.max(max, fila.length); }, 0);
         return filas.map(function (fila) {
-            var obj = {};
-            headers.forEach(function (h, i) { obj[h] = fila[i] || ""; });
-            return obj;
+            while (fila.length < ancho) { fila.push(""); }
+            return fila;
         });
     }
     function valorPorAlias(obj, aliases) {
@@ -86,55 +125,344 @@
         }
         return "";
     }
-    function clasificarMovimiento(concepto, cargo, abono) {
+    function sugerirTipo(concepto, cargo, abono) {
         var c = normalizar(concepto);
-        if (abono > 0) { return "deposito"; }
-        if (/traspaso|transferencia entre|cuenta propia|spei recibido propio|retiro cajero/.test(c)) { return "interno"; }
-        if (/sat|imss|infonavit|isr|iva|impuesto|tesoreria/.test(c)) { return "impuesto"; }
-        if (/proveedor|compra|factura|mercancia|mayoreo|distribuid/.test(c)) { return "compra"; }
-        if (/renta|luz|cfe|gasolina|nomina|telefono|internet|comision|software|publicidad|mensualidad|servicio/.test(c)) { return "gasto"; }
-        return "revision";
+        if (/traspaso|transpaso|transferencia entre|cuenta propia|spei recibido propio|pago tarjeta|tarjeta credito/.test(c)) { return "transpaso"; }
+        if (abono > 0) { return "ingreso"; }
+        return "gasto";
     }
-    function cfdiEsperado(tipo) {
-        return tipo === "interno" || tipo === "impuesto" || tipo === "deposito" ? "no_aplica" : "pendiente";
+    function sugerirActividad(concepto, tipo) {
+        var c = normalizar(concepto);
+        if (/personal|super|restaurant|uber|netflix|spotify|farmacia/.test(c)) { return "personal"; }
+        if (/inversion|gbm|cetes|acciones|fondo|broker/.test(c)) { return "inversion"; }
+        if (/facebook|meta|google ads|publicidad|mercado ads|marketing/.test(c)) { return "publicidad"; }
+        if (/host|dominio|servidor|software|openai|github|cloud|programacion|desarrollo/.test(c)) { return "programacion"; }
+        if (tipo === "transpaso") { return "negocio"; }
+        return "negocio";
     }
-    function importarMovimientos(rows) {
-        movimientos = rows.map(function (row, idx) {
-            var cargo = numero(valorPorAlias(row, ["cargo", "retiro", "egreso", "debito", "importe cargo"]));
-            var abono = numero(valorPorAlias(row, ["abono", "deposito", "ingreso", "credito", "importe abono"]));
-            var importe = numero(valorPorAlias(row, ["importe", "monto", "cantidad"]));
-            if (!cargo && !abono && importe) {
-                if (importe < 0) { cargo = Math.abs(importe); } else { abono = importe; }
-            }
-            var concepto = valorPorAlias(row, ["concepto", "descripcion", "detalle", "referencia", "movimiento"]);
-            var tipo = clasificarMovimiento(concepto, cargo, abono);
-            return {
-                id: "mov-" + Date.now() + "-" + idx,
-                fecha: valorPorAlias(row, ["fecha", "operacion", "aplicacion"]) || "",
-                concepto: concepto || "Movimiento sin concepto",
-                referencia: valorPorAlias(row, ["referencia", "folio", "rastreo", "autorizacion"]) || "",
-                cargo: cargo,
-                abono: abono,
-                tipo: tipo,
-                cfdi: cfdiEsperado(tipo),
-                cfdi_uuid: "",
-                notas: ""
-            };
-        });
-        autoRelacionarCfdi();
-        render();
+    function sugerirFormaPago(concepto, tipo) {
+        var c = normalizar(concepto);
+        if (/efectivo|retiro cajero|disposicion/.test(c)) { return "efectivo"; }
+        if (/tdc|tarjeta credito|pago tarjeta|visa credito|mastercard credito/.test(c)) { return "tarjeta_credito"; }
+        if (/debito|tarjeta|tpv|terminal/.test(c)) { return "tarjeta_debito"; }
+        if (/cheque/.test(c)) { return "cheque"; }
+        if (/comision|manejo de cuenta|iva comision/.test(c)) { return "comision_bancaria"; }
+        if (tipo === "transpaso" || /spei|transferencia|traspaso|transpaso/.test(c)) { return "transferencia"; }
+        return "transferencia";
+    }
+    function sugerirCategoria(concepto, tipo, actividad) {
+        var c = normalizar(concepto);
+        if (actividad === "personal") { return "personal"; }
+        if (actividad === "inversion") { return "inversion"; }
+        if (tipo === "ingreso") { return "venta"; }
+        if (/sat|imss|infonavit|isr|iva|impuesto|tesoreria/.test(c)) { return "impuestos"; }
+        if (/proveedor|compra|factura|mercancia|mayoreo|distribuid/.test(c)) { return "compra_mercancia"; }
+        if (/renta|arrendamiento/.test(c)) { return "renta"; }
+        if (/nomina|sueldo|salario/.test(c)) { return "nomina"; }
+        if (/facebook|meta|google ads|publicidad|mercado ads/.test(c)) { return "publicidad"; }
+        if (/host|dominio|software|openai|github|cloud|servidor/.test(c)) { return "software"; }
+        if (/cfe|luz|telefono|internet|agua|servicio/.test(c)) { return "servicio"; }
+        if (/comision|manejo de cuenta|iva comision/.test(c)) { return "banco_comision"; }
+        return "gasto_operativo";
+    }
+    function cfdiEsperado(mov) {
+        if (mov.tipo_movimiento !== "gasto") { return "no_aplica"; }
+        if (["personal", "inversion"].indexOf(mov.actividad) >= 0) { return "no_aplica"; }
+        if (["impuestos", "banco_comision"].indexOf(mov.categoria) >= 0) { return "no_aplica"; }
+        return "pendiente";
     }
     function leerArchivoTexto(file, cb) {
         var reader = new FileReader();
         reader.onload = function () { cb(String(reader.result || "")); };
         reader.readAsText(file, "UTF-8");
     }
+    function mostrarError(texto) {
+        if (window.Swal) {
+            Swal.fire({text: texto, icon: "warning", confirmButtonText: "Aceptar"});
+        } else {
+            alert(texto);
+        }
+    }
+    function prepararMapeo(rows) {
+        filasCrudas = rows || [];
+        matrizCruda = [];
+        encabezadosCrudos = filasCrudas.length ? Object.keys(filasCrudas[0]) : [];
+        if (!encabezadosCrudos.length) {
+            mostrarError("No encontre columnas legibles en el archivo.");
+            return;
+        }
+        renderMapeo();
+    }
+    function encabezadoUnico(valor, indice, usados) {
+        var base = String(valor || "").trim() || "Columna " + (indice + 1);
+        var nombre = base;
+        var n = 2;
+        while (usados[nombre]) {
+            nombre = base + " " + n;
+            n++;
+        }
+        usados[nombre] = true;
+        return nombre;
+    }
+    function reconstruirFilasDesdeMatriz() {
+        var select = $("contabilidad_mapeo_fila_header");
+        var headerIndex = select ? Number(select.value || 0) : 0;
+        var usados = {};
+        encabezadosCrudos = (matrizCruda[headerIndex] || []).map(function (h, i) { return encabezadoUnico(h, i, usados); });
+        filasCrudas = matrizCruda.slice(headerIndex + 1).map(function (fila) {
+            var obj = {};
+            encabezadosCrudos.forEach(function (h, i) { obj[h] = fila[i] || ""; });
+            return obj;
+        }).filter(function (row) {
+            return Object.keys(row).some(function (key) { return String(row[key] || "").trim() !== ""; });
+        });
+    }
+    function prepararMapeoMatriz(matriz) {
+        matrizCruda = matriz || [];
+        if (!matrizCruda.length) {
+            mostrarError("No encontre filas legibles en el archivo.");
+            return;
+        }
+        var select = $("contabilidad_mapeo_fila_header");
+        var opciones = matrizCruda.slice(0, Math.min(12, matrizCruda.length)).map(function (fila, i) {
+            var muestra = fila.filter(function (x) { return String(x || "").trim() !== ""; }).slice(0, 3).join(" / ");
+            return "<option value=\"" + i + "\">Fila " + (i + 1) + (muestra ? " - " + escapeHtml(muestra).slice(0, 70) : "") + "</option>";
+        }).join("");
+        select.innerHTML = opciones || "<option value=\"0\">Fila 1</option>";
+        var mejor = 0;
+        var scoreMejor = -1;
+        matrizCruda.slice(0, Math.min(12, matrizCruda.length)).forEach(function (fila, i) {
+            var texto = normalizar(fila.join(" "));
+            var score = ["fecha", "concepto", "descripcion", "monto", "importe", "cargo", "abono", "cuenta"].reduce(function (s, palabra) {
+                return s + (texto.indexOf(palabra) >= 0 ? 1 : 0);
+            }, 0);
+            if (score > scoreMejor) { scoreMejor = score; mejor = i; }
+        });
+        select.value = String(mejor);
+        reconstruirFilasDesdeMatriz();
+        if (!encabezadosCrudos.length) {
+            mostrarError("No encontre columnas legibles en el archivo.");
+            return;
+        }
+        renderMapeo();
+    }
+    function sugerirColumna(patrones) {
+        var normalizados = encabezadosCrudos.map(function (h) { return {original: h, n: normalizar(h)}; });
+        for (var i = 0; i < patrones.length; i++) {
+            var patron = normalizar(patrones[i]);
+            var match = normalizados.find(function (h) { return h.n.indexOf(patron) >= 0; });
+            if (match) { return match.original; }
+        }
+        return "";
+    }
+    function renderSelectMapeo(id, seleccionado) {
+        var html = "<option value=\"\">No usar</option>" + encabezadosCrudos.map(function (h) {
+            return "<option value=\"" + escapeHtml(h) + "\"" + (h === seleccionado ? " selected" : "") + ">" + escapeHtml(h) + "</option>";
+        }).join("");
+        $(id).innerHTML = html;
+    }
+    function renderMapeo() {
+        if (matrizCruda.length) { reconstruirFilasDesdeMatriz(); }
+        $("contabilidad_mapeo_subtitulo").textContent = archivoCrudoNombre || "Archivo original";
+        $("contabilidad_mapeo_resumen").innerHTML =
+            badge("Filas: " + filasCrudas.length, "info") +
+            badge("Columnas: " + encabezadosCrudos.length, "warning") +
+            (matrizCruda.length ? badge("Encabezado editable", "success") : "") +
+            badge("Salida: 7 columnas utiles", "primary");
+        renderSelectMapeo("map_fecha", sugerirColumna(["fecha", "date", "operation date"]));
+        renderSelectMapeo("map_concepto", sugerirColumna(["descripcion", "description", "concepto", "detalle", "movimiento"]));
+        renderSelectMapeo("map_monto", sugerirColumna(["monto", "importe", "amount", "total"]));
+        renderSelectMapeo("map_egreso", sugerirColumna(["egreso", "cargo", "debito", "debit", "retiro"]));
+        renderSelectMapeo("map_ingreso", sugerirColumna(["ingreso", "abono", "credito", "credit", "deposito"]));
+        renderSelectMapeo("map_movimiento", sugerirColumna(["movimiento", "tipo", "transaction type"]));
+        renderSelectMapeo("map_actividad", sugerirColumna(["actividad"]));
+        renderSelectMapeo("map_cuenta", sugerirColumna(["cuenta", "banco", "account"]));
+        renderSelectMapeo("map_folio", sugerirColumna(["folio", "factura", "referencia", "reference", "uuid"]));
+        renderPreviewMapeo();
+        bootstrap.Modal.getOrCreateInstance($("contabilidad_mapeo_modal")).show();
+    }
+
+    function columnasPreviewMapeo() {
+        var ids = ["map_fecha", "map_concepto", "map_monto", "map_movimiento", "map_actividad", "map_cuenta", "map_folio"];
+        var columnas = [];
+        ids.forEach(function (id) {
+            var columna = $(id).value;
+            if (columna && columnas.indexOf(columna) < 0) {
+                columnas.push(columna);
+            }
+        });
+        if (!columnas.length) {
+            columnas = encabezadosCrudos.slice(0, 8);
+        }
+        return columnas;
+    }
+    function renderPreviewMapeo() {
+        if (matrizCruda.length) { reconstruirFilasDesdeMatriz(); }
+        var columnas = columnasPreviewMapeo();
+        var limite = Number($("contabilidad_mapeo_limite").value || 25);
+        $("contabilidad_mapeo_preview_head").innerHTML = "<tr class=\"fw-bold text-muted\">" + columnas.map(function (h) {
+            return "<th class=\"text-nowrap\">" + escapeHtml(h) + "</th>";
+        }).join("") + "</tr>";
+        $("contabilidad_mapeo_preview_body").innerHTML = filasCrudas.slice(0, limite).map(function (row) {
+            return "<tr>" + columnas.map(function (h) {
+                return "<td class=\"text-nowrap\">" + escapeHtml(row[h] || "") + "</td>";
+            }).join("") + "</tr>";
+        }).join("") || "<tr><td class=\"text-center text-muted py-6\" colspan=\"" + Math.max(columnas.length, 1) + "\">Sin filas para vista previa</td></tr>";
+    }
+    function valorMapeado(row, id) {
+        var columna = $(id).value;
+        return columna ? (row[columna] || "") : "";
+    }
+    function normalizarTipoMapeado(valor, concepto, cargo, abono) {
+        var v = normalizar(valor);
+        if (/ingreso|deposito|cobro/.test(v)) { return "ingreso"; }
+        if (/traspaso|transpaso|transferencia interna|interno/.test(v)) { return "transpaso"; }
+        if (/egreso|gasto|cargo|pago|retiro/.test(v)) { return "gasto"; }
+        return sugerirTipo(concepto, cargo, abono);
+    }
+    function normalizarActividadMapeada(valor, concepto, tipo) {
+        var v = normalizar(valor);
+        if (/negocio/.test(v)) { return "negocio"; }
+        if (/programacion|desarrollo|software/.test(v)) { return "programacion"; }
+        if (/personal/.test(v)) { return "personal"; }
+        if (/publicidad|ads|marketing/.test(v)) { return "publicidad"; }
+        return sugerirActividad(concepto, tipo);
+    }
+    function normalizarFechaMapeada(valor) {
+        var raw = String(valor || "").trim();
+        if (/^\d{5}(\.\d+)?$/.test(raw)) {
+            var base = new Date(Date.UTC(1899, 11, 30));
+            base.setUTCDate(base.getUTCDate() + Math.floor(Number(raw)));
+            return base.toISOString().slice(0, 10);
+        }
+        var partes = raw.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})/);
+        if (partes) {
+            var anio = partes[3].length === 2 ? "20" + partes[3] : partes[3];
+            return anio + "-" + partes[2].padStart(2, "0") + "-" + partes[1].padStart(2, "0");
+        }
+        return raw.slice(0, 10);
+    }
+    function registrarEstadoCuenta(cantidadMovimientos) {
+        var cuenta = $("contabilidad_cuenta").value || "Cuenta sin nombre";
+        estadoCuentaActualId = "edo-" + Date.now() + "-" + estadosCuenta.length;
+        estadosCuenta.push({
+            id: estadoCuentaActualId,
+            archivo: archivoCrudoNombre || "captura_manual.csv",
+            periodo: $("contabilidad_periodo").value || hoyPeriodo(),
+            cuenta: cuenta,
+            filas: filasCrudas.length,
+            columnas: encabezadosCrudos.length,
+            movimientos: cantidadMovimientos || 0,
+            fecha_carga: new Date().toLocaleString("es-MX")
+        });
+        return estadoCuentaActualId;
+    }
+    function importarMovimientos(rows) {
+        var cuentaDefault = $("contabilidad_cuenta").value || "";
+        filasCrudas = rows || [];
+        encabezadosCrudos = filasCrudas.length ? Object.keys(filasCrudas[0]) : [];
+        var estadoId = registrarEstadoCuenta(rows.length);
+        var nuevos = rows.map(function (row, idx) {
+            var cargo = numero(valorPorAlias(row, ["cargo", "retiro", "egreso", "debito", "importe cargo"]));
+            var abono = numero(valorPorAlias(row, ["abono", "deposito", "ingreso", "credito", "importe abono"]));
+            var importe = numero(valorPorAlias(row, ["importe", "monto", "cantidad"]));
+            if (!cargo && !abono && importe) {
+                if (importe < 0) { cargo = Math.abs(importe); } else { abono = importe; }
+            }
+            var concepto = valorPorAlias(row, ["concepto", "descripcion", "detalle", "referencia", "movimiento"]) || "Movimiento sin concepto";
+            var tipo = sugerirTipo(concepto, cargo, abono);
+            var actividad = sugerirActividad(concepto, tipo);
+            var formaPago = sugerirFormaPago(concepto, tipo);
+            var categoria = sugerirCategoria(concepto, tipo, actividad);
+            var mov = {
+                id: "mov-" + Date.now() + "-" + idx,
+                fecha: valorPorAlias(row, ["fecha", "operacion", "aplicacion"]) || "",
+                cuenta: valorPorAlias(row, ["cuenta", "banco"]) || cuentaDefault,
+                concepto: concepto,
+                referencia: valorPorAlias(row, ["referencia", "folio", "rastreo", "autorizacion"]) || "",
+                cargo: cargo,
+                abono: abono,
+                monto: abono > 0 ? abono : cargo,
+                tipo_movimiento: tipo,
+                actividad: actividad,
+                forma_pago: formaPago,
+                categoria: categoria,
+                cfdi: "",
+                cfdi_uuid: "",
+                cfdi_sugerencia: "",
+                notas: ""
+            };
+            mov.estado_cuenta_id = estadoId;
+            mov.archivo_estado_cuenta = archivoCrudoNombre || "demo.csv";
+            mov.cfdi = cfdiEsperado(mov);
+            return mov;
+        });
+        movimientos = movimientos.concat(nuevos);
+        autoRelacionarCfdi();
+        render();
+        var modal = bootstrap.Modal.getInstance($("contabilidad_mapeo_modal"));
+        if (modal) {
+            modal.hide();
+        }
+    }
+    function importarDesdeMapeo() {
+        var cuentaDefault = $("contabilidad_cuenta").value || "";
+        if (matrizCruda.length) { reconstruirFilasDesdeMatriz(); }
+        if (!$("map_fecha").value || !$("map_concepto").value) {
+            mostrarError("Mapea al menos fecha y descripcion/concepto.");
+            return;
+        }
+        var estadoId = registrarEstadoCuenta(filasCrudas.length);
+        var nuevos = filasCrudas.map(function (row, idx) {
+            var monto = numero(valorMapeado(row, "map_monto"));
+            var cargo = numero(valorMapeado(row, "map_egreso"));
+            var abono = numero(valorMapeado(row, "map_ingreso"));
+            if (!cargo && !abono && monto) {
+                if (monto < 0) { cargo = Math.abs(monto); } else { abono = monto; }
+            }
+            var concepto = valorMapeado(row, "map_concepto") || "Movimiento sin concepto";
+            var tipo = normalizarTipoMapeado(valorMapeado(row, "map_movimiento"), concepto, cargo, abono);
+            var actividad = normalizarActividadMapeada(valorMapeado(row, "map_actividad"), concepto, tipo);
+            var formaPago = sugerirFormaPago(concepto, tipo);
+            var categoria = sugerirCategoria(concepto, tipo, actividad);
+            var mov = {
+                id: "mov-" + Date.now() + "-" + idx,
+                fecha: normalizarFechaMapeada(valorMapeado(row, "map_fecha")),
+                cuenta: valorMapeado(row, "map_cuenta") || cuentaDefault,
+                concepto: concepto,
+                referencia: valorMapeado(row, "map_folio"),
+                cargo: cargo,
+                abono: abono,
+                monto: abono > 0 ? abono : cargo,
+                tipo_movimiento: tipo,
+                actividad: actividad,
+                forma_pago: formaPago,
+                categoria: categoria,
+                cfdi: "",
+                cfdi_uuid: "",
+                cfdi_sugerencia: "",
+                notas: ""
+            };
+            mov.estado_cuenta_id = estadoId;
+            mov.archivo_estado_cuenta = archivoCrudoNombre || "";
+            mov.cfdi = cfdiEsperado(mov);
+            return mov;
+        }).filter(function (m) { return m.fecha || m.concepto || m.cargo || m.abono; });
+        estadosCuenta[estadosCuenta.length - 1].movimientos = nuevos.length;
+        movimientos = movimientos.concat(nuevos);
+        autoRelacionarCfdi();
+        render();
+        var modal = bootstrap.Modal.getInstance($("contabilidad_mapeo_modal"));
+        if (modal) {
+            modal.hide();
+        }
+    }
 
     /**
      * IA: Codex GPT-5 | Fecha: 2026-08-29
-     * Proposito: extraer metadatos principales de XML CFDI para conciliacion manual rapida.
-     * Impacto: Contabilidad MVP; no valida fiscalmente ni sustituye revision del contador.
-     * Contrato: acepta XML CFDI 3.3/4.0 y devuelve UUID, RFCs, total, fecha, serie/folio.
+     * Proposito: extraer metadatos principales de XML CFDI para sugerir su movimiento bancario.
+     * Impacto: Contabilidad; ayuda a corroborar compras/gastos sin validar fiscalmente el comprobante.
+     * Contrato: acepta CFDI 3.3/4.0 y devuelve UUID, RFCs, total, fecha, serie y folio.
      */
     function parseCfdiXml(texto, nombre) {
         var xml = new DOMParser().parseFromString(texto, "text/xml");
@@ -148,6 +476,8 @@
             fecha: comprobante ? (comprobante.getAttribute("Fecha") || "").slice(0, 10) : "",
             total: numero(comprobante ? comprobante.getAttribute("Total") : 0),
             tipo: comprobante ? (comprobante.getAttribute("TipoDeComprobante") || "") : "",
+            metodo_pago: comprobante ? (comprobante.getAttribute("MetodoPago") || "") : "",
+            forma_pago_sat: comprobante ? (comprobante.getAttribute("FormaPago") || "") : "",
             serie: comprobante ? (comprobante.getAttribute("Serie") || "") : "",
             folio: comprobante ? (comprobante.getAttribute("Folio") || "") : "",
             rfc_emisor: emisor ? (emisor.getAttribute("Rfc") || "") : "",
@@ -155,50 +485,60 @@
             rfc_receptor: receptor ? (receptor.getAttribute("Rfc") || "") : ""
         };
     }
+    function scoreCfdi(mov, cfdi) {
+        var monto = mov.cargo > 0 ? mov.cargo : mov.abono;
+        var score = 0;
+        if (Math.abs(Number(cfdi.total || 0) - monto) <= 0.99) { score += 70; }
+        else if (Math.abs(Number(cfdi.total || 0) - monto) <= 5) { score += 40; }
+        if (mov.fecha && cfdi.fecha && mov.fecha === cfdi.fecha) { score += 15; }
+        if (normalizar(mov.concepto).indexOf(normalizar(cfdi.rfc_emisor)) >= 0) { score += 10; }
+        if (normalizar(mov.concepto).indexOf(normalizar(cfdi.emisor).slice(0, 10)) >= 0) { score += 10; }
+        return score;
+    }
     function autoRelacionarCfdi() {
         movimientos.forEach(function (mov) {
-            if (mov.cfdi === "ligado") { return; }
-            var monto = mov.cargo > 0 ? mov.cargo : mov.abono;
-            var candidato = cfdis.find(function (cfdi) {
-                return Math.abs(Number(cfdi.total || 0) - monto) <= 1 && normalizar(mov.concepto).indexOf(normalizar(cfdi.rfc_emisor)) >= 0;
-            }) || cfdis.find(function (cfdi) {
-                return Math.abs(Number(cfdi.total || 0) - monto) <= 1;
-            });
-            if (candidato && mov.cargo > 0) {
-                mov.cfdi = "ligado";
-                mov.cfdi_uuid = candidato.uuid;
+            if (mov.cfdi === "ligado" || mov.tipo_movimiento !== "gasto") { return; }
+            var candidatos = cfdis.map(function (cfdi) {
+                return {cfdi: cfdi, score: scoreCfdi(mov, cfdi)};
+            }).filter(function (x) { return x.score >= 40; }).sort(function (a, b) { return b.score - a.score; });
+            if (candidatos.length) {
+                mov.cfdi_sugerencia = candidatos[0].cfdi.uuid;
+                if (candidatos[0].score >= 70 && mov.cfdi === "pendiente") {
+                    mov.cfdi = "ligado";
+                    mov.cfdi_uuid = candidatos[0].cfdi.uuid;
+                }
             }
         });
     }
     function filtros() {
         return {
-            q: normalizar($("contabilidad_buscar") ? $("contabilidad_buscar").value : ""),
-            tipo: $("contabilidad_tipo") ? $("contabilidad_tipo").value : "",
-            cfdi: $("contabilidad_cfdi") ? $("contabilidad_cfdi").value : "",
-            flujo: $("contabilidad_flujo") ? $("contabilidad_flujo").value : ""
+            q: normalizar($("contabilidad_buscar").value),
+            tipo: $("contabilidad_tipo").value,
+            actividad: $("contabilidad_actividad").value,
+            cfdi: $("contabilidad_cfdi").value,
+            pago: ""
         };
     }
     function visibles() {
         var f = filtros();
         return movimientos.filter(function (m) {
-            var flujo = m.abono > 0 ? "ingreso" : "egreso";
-            var texto = normalizar([m.fecha, m.concepto, m.referencia, m.cfdi_uuid, m.cargo, m.abono].join(" "));
+            var texto = normalizar([m.fecha, m.cuenta, m.concepto, m.referencia, m.cfdi_uuid, m.categoria, m.forma_pago, m.cargo, m.abono].join(" "));
             return (!f.q || texto.indexOf(f.q) >= 0) &&
-                (!f.tipo || m.tipo === f.tipo) &&
-                (!f.cfdi || m.cfdi === f.cfdi) &&
-                (!f.flujo || flujo === f.flujo);
+                (!f.tipo || m.tipo_movimiento === f.tipo) &&
+                (!f.actividad || m.actividad === f.actividad) &&
+                (!f.cfdi || m.cfdi === f.cfdi);
         });
     }
     function renderKpis() {
-        var totalDepositos = movimientos.reduce(function (s, m) { return s + Number(m.abono || 0); }, 0);
+        var totalIngresos = movimientos.reduce(function (s, m) { return s + Number(m.abono || 0); }, 0);
         var totalEgresos = movimientos.reduce(function (s, m) { return s + Number(m.cargo || 0); }, 0);
+        var traspasos = movimientos.filter(function (m) { return m.tipo_movimiento === "transpaso"; }).length;
         var pendientes = movimientos.filter(function (m) { return m.cfdi === "pendiente"; }).length;
-        var ligados = movimientos.filter(function (m) { return m.cfdi === "ligado"; }).length;
         var data = [
-            ["Ingresos", money(totalDepositos), "badge-light-success", "bi-arrow-down-circle"],
+            ["Ingresos", money(totalIngresos), "badge-light-success", "bi-arrow-down-circle"],
             ["Egresos", money(totalEgresos), "badge-light-danger", "bi-arrow-up-circle"],
-            ["CFDI ligados", ligados, "badge-light-primary", "bi-link-45deg"],
-            ["Pendientes", pendientes, "badge-light-warning", "bi-exclamation-triangle"]
+            ["Traspasos", traspasos, "badge-light-info", "bi-arrow-left-right"],
+            ["CFDI pendientes", pendientes, "badge-light-warning", "bi-exclamation-triangle"]
         ];
         $("contabilidad_kpis").innerHTML = data.map(function (item) {
             return "<div class=\"col-md-3\"><div class=\"card h-100\"><div class=\"card-body d-flex align-items-center gap-3\">" +
@@ -211,61 +551,128 @@
         var rows = visibles();
         $("contabilidad_total_visible").textContent = rows.length + " visibles";
         $("contabilidad_movimientos").innerHTML = rows.map(function (m) {
+            var sugerencia = m.cfdi_sugerencia && m.cfdi !== "ligado" ? "<div class=\"text-primary fs-9 mt-1\">Sugerido: " + escapeHtml(m.cfdi_sugerencia) + "</div>" : "";
             return "<tr data-id=\"" + escapeHtml(m.id) + "\">" +
                 "<td class=\"text-nowrap\">" + escapeHtml(m.fecha || "-") + "</td>" +
                 "<td><div class=\"fw-semibold\">" + escapeHtml(m.concepto) + "</div><div class=\"text-muted fs-8\">" + escapeHtml(m.referencia || "") + "</div></td>" +
-                "<td class=\"text-end text-danger\">" + (m.cargo ? money(m.cargo) : "-") + "</td>" +
-                "<td class=\"text-end text-success\">" + (m.abono ? money(m.abono) : "-") + "</td>" +
-                "<td><select class=\"form-select form-select-sm form-select-solid\" data-campo=\"tipo\">" +
-                ["deposito", "compra", "gasto", "interno", "impuesto", "revision"].map(function (t) { return "<option value=\"" + t + "\"" + (m.tipo === t ? " selected" : "") + ">" + t + "</option>"; }).join("") +
-                "</select></td>" +
-                "<td><select class=\"form-select form-select-sm form-select-solid\" data-campo=\"cfdi\">" +
-                ["ligado", "pendiente", "no_aplica"].map(function (t) { return "<option value=\"" + t + "\"" + (m.cfdi === t ? " selected" : "") + ">" + t + "</option>"; }).join("") +
-                "</select><div class=\"text-muted fs-9 mt-1\">" + escapeHtml(m.cfdi_uuid || "") + "</div></td>" +
-                "<td class=\"text-end\"><button class=\"btn btn-sm btn-icon btn-light-primary\" type=\"button\" data-ligar=\"" + escapeHtml(m.id) + "\"><i class=\"bi bi-link\"></i></button></td>" +
+                "<td><select class=\"form-select form-select-sm form-select-solid min-w-125px\" data-campo=\"tipo_movimiento\">" + options(tiposMovimiento, m.tipo_movimiento) + "</select></td>" +
+                "<td><select class=\"form-select form-select-sm form-select-solid min-w-125px\" data-campo=\"actividad\">" + options(actividades, m.actividad) + "</select></td>" +
+                "<td><input class=\"form-control form-control-sm form-control-solid min-w-125px\" data-campo=\"cuenta\" value=\"" + escapeHtml(m.cuenta || "") + "\"></td>" +
+                "<td class=\"text-end fw-bold\">" + money(m.monto || 0) + "</td>" +
+                "<td><input class=\"form-control form-control-sm form-control-solid min-w-150px\" data-campo=\"referencia\" value=\"" + escapeHtml(m.referencia || "") + "\"></td>" +
+                "<td><select class=\"form-select form-select-sm form-select-solid min-w-125px\" data-campo=\"cfdi\">" + options(["ligado", "pendiente", "no_aplica"], m.cfdi) + "</select>" +
+                "<div class=\"text-muted fs-9 mt-1\">" + escapeHtml(m.cfdi_uuid || "") + "</div>" + sugerencia + "</td>" +
+                "<td class=\"text-end\"><button class=\"btn btn-sm btn-icon btn-light-primary\" title=\"Ligar CFDI sugerido\" type=\"button\" data-ligar=\"" + escapeHtml(m.id) + "\"><i class=\"bi bi-link\"></i></button></td>" +
                 "</tr>";
-        }).join("") || "<tr><td colspan=\"7\" class=\"text-center text-muted py-8\">Carga movimientos bancarios para iniciar el cierre.</td></tr>";
+        }).join("") || "<tr><td colspan=\"9\" class=\"text-center text-muted py-8\">Carga movimientos bancarios para iniciar el cierre.</td></tr>";
     }
     function renderCfdis() {
         $("contabilidad_cfdis").innerHTML = cfdis.map(function (c) {
+            var ligado = movimientos.some(function (m) { return m.cfdi_uuid === c.uuid; });
             return "<div class=\"border-bottom py-3\"><div class=\"fw-bold\">" + escapeHtml(c.emisor || c.rfc_emisor || c.archivo) + "</div>" +
                 "<div class=\"text-muted fs-8\">" + escapeHtml(c.fecha || "-") + " | " + escapeHtml(c.uuid || "Sin UUID") + "</div>" +
-                "<div class=\"d-flex justify-content-between mt-1\"><span class=\"badge badge-light\">" + escapeHtml(c.tipo || "CFDI") + "</span><span class=\"fw-bold\">" + money(c.total) + "</span></div></div>";
+                "<div class=\"d-flex justify-content-between mt-1\"><span class=\"badge " + (ligado ? "badge-light-success" : "badge-light") + "\">" + (ligado ? "ligado" : escapeHtml(c.tipo || "CFDI")) + "</span><span class=\"fw-bold\">" + money(c.total) + "</span></div></div>";
         }).join("") || "<div class=\"text-muted py-4\">Carga XML para relacionarlos con egresos.</div>";
     }
     function renderPendientes() {
         var pendientes = movimientos.filter(function (m) { return m.cfdi === "pendiente"; });
         $("contabilidad_pendientes").innerHTML = pendientes.map(function (m) {
             return "<div class=\"alert alert-warning py-3 mb-3\"><div class=\"fw-bold\">" + escapeHtml(m.concepto) + "</div>" +
-                "<div class=\"fs-8\">" + escapeHtml(m.fecha || "-") + " | " + money(m.cargo || m.abono) + " | " + escapeHtml(m.tipo) + "</div></div>";
+                "<div class=\"fs-8\">" + escapeHtml(m.fecha || "-") + " | " + money(m.cargo || m.abono) + " | " + label(m.actividad) + " | " + label(m.categoria) + "</div></div>";
         }).join("") || "<div class=\"alert alert-success py-3 mb-0\">Sin pendientes visibles de CFDI.</div>";
     }
+    function renderEstadosCuenta() {
+        var contenedor = $("contabilidad_estados");
+        if (!contenedor) { return; }
+        contenedor.innerHTML = estadosCuenta.map(function (edo) {
+            var ligados = movimientos.filter(function (m) { return m.estado_cuenta_id === edo.id && m.cfdi === "ligado"; }).length;
+            return "<div class=\"d-flex flex-wrap align-items-center justify-content-between gap-3 border-bottom py-3\">" +
+                "<div><div class=\"fw-bold\">" + escapeHtml(edo.cuenta) + "</div>" +
+                "<div class=\"text-muted fs-8\">" + escapeHtml(edo.archivo) + " | " + escapeHtml(edo.periodo) + " | " + escapeHtml(edo.fecha_carga) + "</div></div>" +
+                "<div class=\"d-flex flex-wrap gap-2\">" +
+                badge(edo.movimientos + " movimientos", "primary") +
+                badge(edo.filas + " filas leidas", "info") +
+                badge(edo.columnas + " columnas", "warning") +
+                badge(ligados + " CFDI ligados", ligados ? "success" : "secondary") +
+                "</div></div>";
+        }).join("") || "<div class=\"text-muted py-4\">Carga un estado de cuenta para iniciar. Puedes cargar varios archivos y se mantendran separados por cuenta.</div>";
+    }
+    function movimientosPorCuenta() {
+        return movimientos.reduce(function (map, mov) {
+            var cuenta = mov.cuenta || "Cuenta sin nombre";
+            if (!map[cuenta]) {
+                map[cuenta] = {cuenta: cuenta, movimientos: [], gasto: 0, ingreso: 0, transpaso: 0, pendientes: 0};
+            }
+            map[cuenta].movimientos.push(mov);
+            if (mov.tipo_movimiento === "ingreso") { map[cuenta].ingreso += Number(mov.monto || 0); }
+            if (mov.tipo_movimiento === "gasto") { map[cuenta].gasto += Number(mov.monto || 0); }
+            if (mov.tipo_movimiento === "transpaso") { map[cuenta].transpaso += Number(mov.monto || 0); }
+            if (mov.cfdi === "pendiente") { map[cuenta].pendientes++; }
+            return map;
+        }, {});
+    }
+    function renderConciliacion() {
+        var contenedor = $("contabilidad_conciliacion_cuentas");
+        if (!contenedor) { return; }
+        var grupos = Object.values(movimientosPorCuenta());
+        $("contabilidad_conciliacion_total").textContent = grupos.length + " cuentas";
+        contenedor.innerHTML = grupos.map(function (grupo) {
+            var porTipo = tiposMovimiento.map(function (tipo) {
+                var lista = grupo.movimientos.filter(function (m) { return m.tipo_movimiento === tipo; });
+                var total = lista.reduce(function (s, m) { return s + Number(m.monto || 0); }, 0);
+                return "<div class=\"col-md-4\"><div class=\"border rounded p-4 h-100\">" +
+                    "<div class=\"text-muted fs-8 text-uppercase\">" + label(tipo) + "</div>" +
+                    "<div class=\"fw-bold fs-5\">" + money(total) + "</div>" +
+                    "<div class=\"text-muted fs-8\">" + lista.length + " movimientos</div></div></div>";
+            }).join("");
+            return "<div class=\"border-bottom py-5\">" +
+                "<div class=\"d-flex flex-wrap align-items-center justify-content-between gap-3 mb-4\">" +
+                "<div><div class=\"fw-bold fs-5\">" + escapeHtml(grupo.cuenta) + "</div>" +
+                "<div class=\"text-muted fs-8\">" + grupo.movimientos.length + " movimientos | " + grupo.pendientes + " CFDI pendientes</div></div>" +
+                "<button class=\"btn btn-sm btn-light-primary\" type=\"button\" data-export-cuenta=\"" + escapeHtml(grupo.cuenta) + "\"><i class=\"bi bi-download\"></i> CSV cuenta</button>" +
+                "</div><div class=\"row g-3\">" + porTipo + "</div></div>";
+        }).join("") || "<div class=\"text-muted py-4\">Cuando importes estados de cuenta, aqui veras los movimientos separados por cuenta y por tipo.</div>";
+    }
     function render() {
+        renderEstadosCuenta();
         renderKpis();
         renderMovimientos();
         renderCfdis();
         renderPendientes();
+        renderConciliacion();
     }
     function exportarCsv() {
         var periodo = $("contabilidad_periodo").value || hoyPeriodo();
         var cuenta = $("contabilidad_cuenta").value || "";
-        var headers = ["periodo", "cuenta", "fecha", "concepto", "referencia", "cargo", "abono", "tipo", "cfdi", "cfdi_uuid", "notas"];
+        var headers = ["periodo", "fecha", "descripcion", "movimiento", "actividad", "cuenta", "monto", "folio_factura", "cfdi", "cfdi_uuid", "cfdi_sugerencia", "archivo_estado_cuenta", "notas"];
         var lines = [headers.join(",")].concat(movimientos.map(function (m) {
-            return [periodo, cuenta, m.fecha, m.concepto, m.referencia, m.cargo, m.abono, m.tipo, m.cfdi, m.cfdi_uuid, m.notas].map(csvEscape).join(",");
+            return [periodo, m.fecha, m.concepto, m.tipo_movimiento, m.actividad, m.cuenta || cuenta, m.monto, m.referencia, m.cfdi, m.cfdi_uuid, m.cfdi_sugerencia, m.archivo_estado_cuenta, m.notas].map(csvEscape).join(",");
         }));
-        descargar("cierre_contable_" + periodo + ".csv", lines.join("\n"), "text/csv;charset=utf-8");
+        descargar("clasificacion_movimientos_" + periodo + ".csv", lines.join("\n"), "text/csv;charset=utf-8");
+    }
+    function exportarCsvCuenta(cuentaSeleccionada) {
+        var periodo = $("contabilidad_periodo").value || hoyPeriodo();
+        var headers = ["periodo", "fecha", "descripcion", "movimiento", "actividad", "cuenta", "monto", "folio_factura", "cfdi", "cfdi_uuid", "cfdi_sugerencia", "archivo_estado_cuenta", "notas"];
+        var rows = movimientos.filter(function (m) { return (m.cuenta || "Cuenta sin nombre") === cuentaSeleccionada; });
+        var lines = [headers.join(",")].concat(rows.map(function (m) {
+            return [periodo, m.fecha, m.concepto, m.tipo_movimiento, m.actividad, m.cuenta, m.monto, m.referencia, m.cfdi, m.cfdi_uuid, m.cfdi_sugerencia, m.archivo_estado_cuenta, m.notas].map(csvEscape).join(",");
+        }));
+        descargar("clasificacion_" + cuentaSeleccionada.replace(/[^a-z0-9]+/gi, "_").toLowerCase() + "_" + periodo + ".csv", lines.join("\n"), "text/csv;charset=utf-8");
     }
     function exportarJson() {
         var periodo = $("contabilidad_periodo").value || hoyPeriodo();
-        descargar("cierre_contable_" + periodo + ".json", JSON.stringify({
+        descargar("clasificacion_movimientos_" + periodo + ".json", JSON.stringify({
             periodo: periodo,
             cuenta: $("contabilidad_cuenta").value || "",
+            estados_cuenta: estadosCuenta,
             movimientos: movimientos,
             cfdis: cfdis
         }, null, 2), "application/json;charset=utf-8");
     }
     function cargarDemo() {
-        importarMovimientos(parseCsv("fecha,concepto,cargo,abono,referencia\n2026-08-01,DEPOSITO VENTA MOSTRADOR,,5800,POS-001\n2026-08-02,TRANSFERENCIA PROVEEDOR ACUARIOS SA,3200,,SPEI-889\n2026-08-03,PAGO CFE SUCURSAL CENTRO,840.50,,SERV-100\n2026-08-04,TRASPASO CUENTA PROPIA BBVA,5000,,INT-77\n2026-08-17,PAGO SAT IVA JULIO,1260,,SAT-IVA"));
+        $("contabilidad_cuenta").value = "BBVA negocio";
+        archivoCrudoNombre = "demo_estado_cuenta.csv";
+        importarMovimientos(parseCsv("fecha,concepto,cargo,abono,referencia\n2026-08-01,DEPOSITO VENTA MOSTRADOR,,5800,POS-001\n2026-08-02,SPEI PROVEEDOR ACUARIOS SA,3200,,SPEI-889\n2026-08-03,PAGO CFE SUCURSAL CENTRO,840.50,,SERV-100\n2026-08-04,TRANSPASO CUENTA PROPIA BBVA,5000,,INT-77\n2026-08-05,PAGO TARJETA CREDITO NU,2400,,TDC-1\n2026-08-08,OPENAI SOFTWARE PROGRAMACION,399,,DEV-55\n2026-08-17,PAGO SAT IVA JULIO,1260,,SAT-IVA"));
         cfdis = [{
             archivo: "demo.xml",
             uuid: "DEMO-UUID-ACUARIOS-3200",
@@ -283,7 +690,29 @@
         $("contabilidad_banco_archivo").addEventListener("change", function (e) {
             var file = e.target.files[0];
             if (!file) { return; }
-            leerArchivoTexto(file, function (texto) { importarMovimientos(parseCsv(texto)); });
+            archivoCrudoNombre = file.name;
+            var extension = file.name.split(".").pop().toLowerCase();
+            if (extension === "xlsx") {
+                requestXlsx(file).then(function (response) {
+                    if (response.error) {
+                        mostrarError(response.mensaje || "No pude leer el XLSX.");
+                        return;
+                    }
+                    if (response.depurar && response.depurar.matriz) {
+                        prepararMapeoMatriz(response.depurar.matriz);
+                    } else {
+                        prepararMapeo((response.depurar && response.depurar.filas) || []);
+                    }
+                }).catch(function () {
+                    mostrarError("No pude enviar el XLSX para lectura.");
+                });
+                return;
+            }
+            if (extension === "xls") {
+                mostrarError("El formato XLS antiguo no se puede leer todavia. Exportalo como XLSX, CSV o TXT.");
+                return;
+            }
+            leerArchivoTexto(file, function (texto) { prepararMapeoMatriz(parseCsvMatriz(texto)); });
         });
         $("contabilidad_xml_archivos").addEventListener("change", function (e) {
             var archivos = Array.prototype.slice.call(e.target.files || []);
@@ -297,17 +726,18 @@
                 });
             });
         });
-        ["contabilidad_buscar", "contabilidad_tipo", "contabilidad_cfdi", "contabilidad_flujo"].forEach(function (id) {
+        ["contabilidad_buscar", "contabilidad_tipo", "contabilidad_actividad", "contabilidad_cfdi"].forEach(function (id) {
             $(id).addEventListener("input", render);
             $(id).addEventListener("change", render);
         });
         $("contabilidad_movimientos").addEventListener("change", function (e) {
             var row = e.target.closest("tr[data-id]");
             var mov = row ? movimientos.find(function (m) { return m.id === row.getAttribute("data-id"); }) : null;
-            if (!mov || !e.target.getAttribute("data-campo")) { return; }
-            mov[e.target.getAttribute("data-campo")] = e.target.value;
-            if (e.target.getAttribute("data-campo") === "tipo" && mov.cfdi !== "ligado") {
-                mov.cfdi = cfdiEsperado(mov.tipo);
+            var campo = e.target.getAttribute("data-campo");
+            if (!mov || !campo) { return; }
+            mov[campo] = e.target.value;
+            if (["tipo_movimiento", "actividad"].indexOf(campo) >= 0 && mov.cfdi !== "ligado") {
+                mov.cfdi = cfdiEsperado(mov);
             }
             render();
         });
@@ -316,20 +746,34 @@
             if (!btn) { return; }
             var mov = movimientos.find(function (m) { return m.id === btn.getAttribute("data-ligar"); });
             if (!mov) { return; }
-            var monto = mov.cargo || mov.abono;
-            var opciones = cfdis.filter(function (c) { return Math.abs(Number(c.total || 0) - monto) <= 1; });
-            var elegido = opciones[0] || cfdis[0];
+            var elegido = cfdis.find(function (c) { return c.uuid === mov.cfdi_sugerencia; });
+            if (!elegido) {
+                elegido = cfdis.map(function (cfdi) { return {cfdi: cfdi, score: scoreCfdi(mov, cfdi)}; })
+                    .sort(function (a, b) { return b.score - a.score; })[0];
+                elegido = elegido ? elegido.cfdi : null;
+            }
             if (elegido) {
                 mov.cfdi = "ligado";
                 mov.cfdi_uuid = elegido.uuid;
+                mov.cfdi_sugerencia = "";
                 render();
             }
+        });
+        $("contabilidad_mapeo_limite").addEventListener("change", renderPreviewMapeo);
+        $("contabilidad_mapeo_fila_header").addEventListener("change", function () { renderMapeo(); });
+        ["map_fecha", "map_concepto", "map_monto", "map_egreso", "map_ingreso", "map_movimiento", "map_actividad", "map_cuenta", "map_folio"].forEach(function (id) {
+            $(id).addEventListener("change", renderPreviewMapeo);
+        });
+        $("contabilidad_conciliacion_cuentas").addEventListener("click", function (e) {
+            var btn = e.target.closest("[data-export-cuenta]");
+            if (btn) { exportarCsvCuenta(btn.getAttribute("data-export-cuenta")); }
         });
         $("contabilidad_exportar_csv").addEventListener("click", exportarCsv);
         $("contabilidad_exportar_json").addEventListener("click", exportarJson);
         $("contabilidad_recalcular").addEventListener("click", function () { autoRelacionarCfdi(); render(); });
+        $("contabilidad_mapeo_aplicar").addEventListener("click", importarDesdeMapeo);
         $("contabilidad_demo").addEventListener("click", cargarDemo);
-        $("contabilidad_limpiar").addEventListener("click", function () { movimientos = []; cfdis = []; render(); });
+        $("contabilidad_limpiar").addEventListener("click", function () { movimientos = []; cfdis = []; estadosCuenta = []; filasCrudas = []; matrizCruda = []; encabezadosCrudos = []; render(); });
         render();
     }
     document.addEventListener("DOMContentLoaded", bind);

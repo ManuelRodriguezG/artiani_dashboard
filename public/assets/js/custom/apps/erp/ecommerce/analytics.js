@@ -1,7 +1,7 @@
 /*
- * Documentacion IA: Codex GPT-5, 2026-08-04.
- * Proposito: UX read-only para dashboard Ecommerce / Analytics.
- * Impacto: consulta metricas anonimas sin registrar eventos, ventas, checkout ni inventario.
+ * Documentacion IA: Codex GPT-5, 2026-08-31.
+ * Proposito: UX interna para dashboard Ecommerce / Analytics.
+ * Impacto: consulta metricas anonimas de persistencia real sin registrar ventas, checkout ni inventario.
  * Contrato: solo GET interno protegido.
  */
 (function () {
@@ -52,19 +52,28 @@
     var resumen = get(depurar, ["resumen"], {});
     setText("ecom_an_kpi_sesiones", resumen.sesiones_total || 0);
     setText("ecom_an_kpi_eventos", resumen.eventos_total || 0);
+    setText("ecom_an_kpi_page_views", resumen.page_views || 0);
+    setText("ecom_an_kpi_productos_vistos", resumen.productos_vistos || 0);
     setText("ecom_an_kpi_busquedas", resumen.busquedas_total || 0);
     setText("ecom_an_kpi_whatsapp", resumen.whatsapp_total || 0);
+    setText("ecom_an_kpi_facturacion", resumen.facturacion_submit_total || 0);
     renderEmbudo(get(depurar, ["embudo"], {}));
+    renderAbandono(get(depurar, ["abandono_por_etapa"], []));
+    renderSesiones(get(depurar, ["sesiones_recientes"], []));
+    renderList("ecom_an_canales", get(depurar, ["canales"], []));
     renderList("ecom_an_urls", get(depurar, ["urls_mas_vistas"], []));
     renderProductos("ecom_an_productos_vistos", get(depurar, ["productos_mas_vistos"], []));
     renderProductos("ecom_an_productos_cotizacion", get(depurar, ["productos_agregados_cotizacion"], []));
+    renderList("ecom_an_conversiones", get(depurar, ["conversiones_por_tipo"], []), etiquetaConversion);
     renderList("ecom_an_busquedas", get(depurar, ["busquedas_frecuentes"], []));
     renderList("ecom_an_sin_resultados", get(depurar, ["busquedas_sin_resultados"], []));
+    renderFacturacion(get(depurar, ["facturacion_eventos"], []));
     renderProductos("ecom_an_interes_sin_conversion", get(depurar, ["productos_interes_sin_conversion"], []), "vistas");
     renderList("ecom_an_mascotas", get(depurar, ["mascotas_consultadas"], []));
     renderList("ecom_an_necesidades", get(depurar, ["necesidades_consultadas"], []));
     toggleEmpty(!get(depurar, ["configurado"], false) || Number(resumen.eventos_total || 0) + Number(resumen.busquedas_total || 0) === 0);
     setEstado(get(depurar, ["configurado"], false) ? etiquetaFuente(get(depurar, ["fuente_metricas"], "eventos_crudos")) : "Sin esquema", get(depurar, ["configurado"], false) ? "badge-light-success" : "badge-light-warning");
+    setPersistencia(get(depurar, ["persistencia", "modo_actual"], ""));
   }
 
   function renderEmbudo(embudo) {
@@ -83,7 +92,7 @@
     }).join("");
   }
 
-  function renderList(id, items) {
+  function renderList(id, items, formatter) {
     var node = document.getElementById(id);
     if (!node) return;
     if (!Array.isArray(items) || items.length === 0) {
@@ -91,7 +100,47 @@
       return;
     }
     node.innerHTML = '<div class="table-responsive"><table class="table table-row-dashed fs-7 gy-3 mb-0"><tbody>' + items.map(function (item) {
-      return '<tr><td class="fw-semibold">' + escapeHtml(item.valor || item.query_normalizada || item.termino || "") + '</td><td class="text-end fw-bold">' + escapeHtml(item.total == null ? "" : item.total) + '</td></tr>';
+      var label = item.valor || item.query_normalizada || item.termino || "";
+      if (typeof formatter === "function") label = formatter(label);
+      return '<tr><td class="fw-semibold">' + escapeHtml(label) + '</td><td class="text-end fw-bold">' + escapeHtml(item.total == null ? "" : item.total) + '</td></tr>';
+    }).join("") + '</tbody></table></div>';
+  }
+
+  function renderSesiones(items) {
+    var node = document.getElementById("ecom_an_sesiones");
+    if (!node) return;
+    if (!Array.isArray(items) || items.length === 0) {
+      node.innerHTML = '<div class="text-muted py-3">Sin datos en el rango.</div>';
+      return;
+    }
+    node.innerHTML = '<div class="table-responsive ecom-an-scroll"><table class="table table-row-dashed fs-7 gy-3 mb-0"><thead><tr class="text-muted fw-bold"><th>Sesion</th><th>Ruta</th><th>Canal</th><th class="text-end">Eventos</th><th>Actividad</th></tr></thead><tbody>' + items.map(function (item) {
+      var utm = [item.utm_source, item.utm_medium, item.utm_campaign].filter(Boolean).join(" / ");
+      return '<tr><td><span class="fw-semibold">' + escapeHtml(item.session_id_hash_corto || "-") + '</span><div class="text-muted fs-8">' + escapeHtml(item.dispositivo_aproximado || "-") + '</div></td><td><span class="fw-semibold">' + escapeHtml(item.ultimo_ruta || item.primer_ruta || "-") + '</span><div class="text-muted fs-8">' + escapeHtml(utm || item.referrer || "-") + '</div></td><td>' + escapeHtml(item.canal || "-") + '</td><td class="text-end fw-bold">' + escapeHtml(item.eventos_total || 0) + '</td><td><span class="text-muted fs-8">' + escapeHtml(item.fecha_ultima_actividad || item.fecha_inicio || "-") + '</span></td></tr>';
+    }).join("") + '</tbody></table></div>';
+  }
+
+  function renderFacturacion(items) {
+    var node = document.getElementById("ecom_an_facturacion");
+    if (!node) return;
+    if (!Array.isArray(items) || items.length === 0) {
+      node.innerHTML = '<div class="text-muted py-3">Sin datos en el rango.</div>';
+      return;
+    }
+    node.innerHTML = '<div class="table-responsive"><table class="table table-row-dashed fs-7 gy-3 mb-0"><tbody>' + items.map(function (item) {
+      return '<tr><td><span class="fw-semibold">' + escapeHtml(etiquetaConversion(item.tipo_conversion)) + '</span><div class="text-muted fs-8">' + escapeHtml(item.ruta_origen || "-") + '</div></td><td><span class="text-muted fs-8">' + escapeHtml(item.fecha_registro || "-") + '</span></td></tr>';
+    }).join("") + '</tbody></table></div>';
+  }
+
+  function renderAbandono(items) {
+    var node = document.getElementById("ecom_an_abandono");
+    if (!node) return;
+    if (!Array.isArray(items) || items.length === 0) {
+      node.innerHTML = '<div class="text-muted py-3">Sin datos en el rango.</div>';
+      return;
+    }
+    node.innerHTML = '<div class="table-responsive"><table class="table table-row-dashed fs-7 gy-3 mb-0"><tbody>' + items.map(function (item) {
+      var ratio = item.ratio_paso == null ? "-" : Math.round(Number(item.ratio_paso) * 100) + "%";
+      return '<tr><td><span class="fw-semibold">' + escapeHtml(etiquetaPaso(item.de)) + '</span><div class="text-muted fs-8">a ' + escapeHtml(etiquetaPaso(item.a)) + '</div></td><td class="text-end"><div class="fw-bold">' + escapeHtml(item.abandono_estimado || 0) + '</div><div class="text-muted fs-8">' + escapeHtml(ratio) + '</div></td></tr>';
     }).join("") + '</tbody></table></div>';
   }
 
@@ -141,8 +190,39 @@
     node.textContent = texto;
   }
 
+  function setPersistencia(modo) {
+    var node = document.getElementById("ecom_an_persistencia");
+    if (!node) return;
+    var activo = modo === "registra_bd";
+    node.className = "badge " + (activo ? "badge-light-success" : "badge-light-warning") + " ms-2";
+    node.textContent = activo ? "Persistencia activa" : "Preflight";
+  }
+
   function etiquetaFuente(fuente) {
     return fuente === "resumen_diario" ? "Resumen diario" : "Read-only";
+  }
+
+  function etiquetaPaso(paso) {
+    return {
+      page_view: "Visita",
+      view_product: "Producto",
+      add_to_quote: "Cotizacion",
+      quote_dryrun: "Dry-run",
+      quote_preflight: "Preflight",
+      open_whatsapp: "WhatsApp"
+    }[paso] || paso || "";
+  }
+
+  function etiquetaConversion(tipo) {
+    return {
+      add_to_quote: "Agregado a cotizacion",
+      remove_from_quote: "Quitado de cotizacion",
+      quote_dryrun: "Validacion carrito",
+      quote_preflight: "Preflight cotizacion",
+      open_whatsapp: "Apertura WhatsApp",
+      facturacion_view: "Vista facturacion",
+      facturacion_submit: "Envio facturacion"
+    }[tipo] || tipo || "";
   }
 
   function get(obj, path, fallback) {

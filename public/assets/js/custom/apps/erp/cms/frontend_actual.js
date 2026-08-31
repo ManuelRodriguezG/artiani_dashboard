@@ -17,7 +17,7 @@
     vistaDedicada: false,
     borradorLocalCargado: false,
     mediaPicker: { contexto: "", index: 0, campo: "", archivo: null, dataUrl: "", seleccion: "" },
-    catalogos: { categorias: [], categoriasPorId: {} },
+    catalogos: { categorias: [], categoriasPorId: {}, marcas: [], marcasPorId: {} },
     datos: {
       global: {
         global_negocio: {
@@ -101,6 +101,40 @@
           ],
           footer_columnas: [
             { titulo: "Ayuda", links: "Como comprar|/como-comprar\nFacturacion|/facturacion", orden: 10, visible: true }
+          ]
+        },
+        global_whatsapp_chat: {
+          codigo: "global_whatsapp_chat",
+          slot: "global.whatsapp_chat",
+          tipo: "whatsapp_chat",
+          layout: "floating_multi_contact",
+          visible: true,
+          orden: 70,
+          titulo: "Necesitas ayuda?",
+          subtitulo: "Elige un asesor y escribenos por WhatsApp.",
+          boton: { label: "WhatsApp", icono: "whatsapp" },
+          mensaje_default: "Hola, vi el catalogo de Artiani y quiero mas informacion.",
+          config: {
+            posicion: "bottom_right",
+            mostrar_en_mobile: true,
+            mostrar_en_desktop: true,
+            abrir_en_nueva_pestana: true,
+            mostrar_horario: true,
+            mostrar_estado_online: false
+          },
+          contactos: [
+            {
+              id: "ventas",
+              nombre: "Ventas Artiani",
+              descripcion: "Productos, precios y pedidos",
+              telefono: "",
+              mensaje: "Hola, quiero informacion sobre productos de Artiani.",
+              avatar: "",
+              icono: "whatsapp",
+              horario: "Lunes a sabado de 10:00 a 19:00",
+              orden: 10,
+              visible: true
+            }
           ]
         }
       },
@@ -217,6 +251,7 @@
               imagen_banner: "",
               alt_card: "Categoria de peces",
               alt_banner: "Banner de categoria peces",
+              heredar_banner: true,
               destacado: true,
               visible: true,
               orden: 10,
@@ -232,6 +267,7 @@
               imagen_banner: "",
               alt_card: "Categoria de perros",
               alt_banner: "Banner de categoria perros",
+              heredar_banner: true,
               destacado: true,
               visible: true,
               orden: 20,
@@ -528,28 +564,25 @@
           visible: true,
           orden: 45,
           titulo: "Marcas destacadas",
-          subtitulo: "Entradas rapidas por marca.",
+          subtitulo: "Marcas relacionadas con una categoria del catalogo.",
+          layout: "marcas_contextuales",
+          categoria_contexto: {
+            categoria_id: 0,
+            titulo: "",
+            path_slug: "",
+            url: ""
+          },
+          fuente: {
+            modo: "mixto",
+            categoria_slug: "",
+            limite: 0,
+            rellenar_automatico_si_faltan: true
+          },
           config: {
             variante: "wokiee_brand_strip",
             mostrar_iniciales_si_sin_logo: true
           },
-          items: [
-            {
-              marca_id: 0,
-              nombre: "Marca destacada",
-              subtitulo: "Ver marca",
-              slug: "marca-destacada",
-              slug_publico: "marca-destacada",
-              logo: "",
-              imagen_banner: "",
-              alt_logo: "Logo de marca destacada",
-              descripcion_corta: "",
-              url: "/marca/marca-destacada",
-              visible: true,
-              visible_frontend: true,
-              orden: 10
-            }
-          ]
+          items: []
         },
         home_colecciones: {
           codigo: "home_colecciones",
@@ -675,7 +708,8 @@
         seccion("global_horarios", "horarios", "Horarios visibles por dia o grupo de dias.", ["dias", "horario", "visible"]),
         seccion("global_redes", "redes_sociales", "Redes sociales publicas.", ["facebook", "instagram", "tiktok", "youtube"]),
         seccion("global_seo", "seo_defaults", "SEO global del sitio.", ["site_name", "title_default", "description_default", "og_image_default"]),
-        seccion("global_navegacion", "navegacion", "Menu principal y columnas de footer.", ["menu_principal", "footer_columnas"])
+        seccion("global_navegacion", "navegacion", "Menu principal y columnas de footer.", ["menu_principal", "footer_columnas"]),
+        seccion("global_whatsapp_chat", "whatsapp_chat", "Boton flotante multi contacto para el frontend.", ["visible", "contactos", "mensaje_default", "posicion"])
       ]
     },
     {
@@ -757,7 +791,7 @@
         seccion("home_promos_categoria", "promos_categoria", "Promos visuales grandes hacia categorias comerciales fuertes.", ["titulo", "imagen", "url", "path_slug"]),
         seccion("home_categorias_destacadas", "categorias_destacadas", "Categorias reales publicadas con imagen card/banner.", ["categoria_id", "slug", "imagen_card", "imagen_banner"]),
         seccion("home_productos_destacados", "productos_destacados", "Productos por criterio o lista manual.", ["fuente.modo", "fuente.criterio", "fuente.productos", "limite"]),
-        seccion("home_marcas_destacadas", "marcas_destacadas", "Marcas reales destacadas con logo opcional.", ["marca_id", "nombre", "slug", "logo"]),
+        seccion("home_marcas_destacadas", "marcas_destacadas", "Marcas destacadas desde una categoria origen.", ["categoria_contexto", "fuente", "items"]),
         seccion("home_colecciones", "coleccion_productos", "Colecciones repetibles: novedades, destacados, basicos.", ["titulo", "fuente", "cta"]),
         seccion("home_esenciales_artiani", "bloque_editorial_cards", "Cards editoriales tipo Esenciales Artiani por categoria principal.", ["categoria_principal", "items", "url", "imagen"]),
         seccion("home_compra_guiada", "compra_guiada", "Entrada visual para orientar compra por mascota o necesidad.", ["titulo", "subtitulo", "config"]),
@@ -828,6 +862,7 @@
     if (grupoInicial) estado.grupo = grupoInicial;
     renderTodo();
     cargarCatalogoCategoriasCms();
+    cargarCatalogoMarcasCms();
     if (!tieneBorrador) {
       cargarGlobalPublicadoFrontend(false);
     }
@@ -908,6 +943,40 @@
     }).catch(function () {
       estado.catalogos.categorias = [];
       estado.catalogos.categoriasPorId = {};
+    });
+  }
+
+  function cargarCatalogoMarcasCms() {
+    if (!window.fetch) return;
+    fetch("/ecommercePublico/marcas", {
+      method: "GET",
+      credentials: "same-origin",
+      headers: {
+        "Accept": "application/json",
+        "X-Requested-With": "XMLHttpRequest"
+      }
+    }).then(function (response) {
+      return response.text().then(function (text) {
+        var json = null;
+        try {
+          json = JSON.parse(text);
+        } catch (error) {
+          throw new Error("Respuesta no JSON al consultar marcas");
+        }
+        if (!response.ok || !json || json.error) throw new Error((json && json.mensaje) || "No se pudieron consultar marcas");
+        return json;
+      });
+    }).then(function (json) {
+      var items = json && json.depurar && Array.isArray(json.depurar.items) ? json.depurar.items : [];
+      estado.catalogos.marcas = items;
+      estado.catalogos.marcasPorId = {};
+      items.forEach(function (item) {
+        if (item && item.id != null) estado.catalogos.marcasPorId[String(item.id)] = item;
+      });
+      renderGrupo();
+    }).catch(function () {
+      estado.catalogos.marcas = [];
+      estado.catalogos.marcasPorId = {};
     });
   }
 
@@ -1210,7 +1279,9 @@
         '<div class="col-md-3"><label class="form-label fs-8 fw-bold">Intervalo ms</label><input class="form-control form-control-sm" data-hero-config="intervalo_ms" value="' + escapeAttr(data.config.intervalo_ms) + '"></div>' +
         '<div class="col-md-3"><label class="form-label fs-8 fw-bold">Estilo</label><input class="form-control form-control-sm" data-hero-config="estilo" value="' + escapeAttr(data.config.estilo || "wokiee_full_width") + '"></div>' +
       '</div>' +
-      '<div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3"><div class="fw-bold">Slides</div><button class="btn btn-sm btn-light-primary" type="button" id="cms_actual_hero_agregar"><i class="bi bi-plus-circle"></i> Agregar slide</button></div>' +
+      '<div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3"><div class="fw-bold">Slides</div><div class="d-flex gap-2"><button class="btn btn-sm btn-light-primary" type="button" id="cms_actual_hero_borrador"><i class="bi bi-save"></i> Guardar borrador</button><button class="btn btn-sm btn-light-info" type="button" id="cms_actual_hero_api"><i class="bi bi-broadcast"></i> Ver API publicada</button><button class="btn btn-sm btn-primary" type="button" id="cms_actual_hero_publicar"><i class="bi bi-cloud-check"></i> Guardar y publicar hero</button><button class="btn btn-sm btn-light-primary" type="button" id="cms_actual_hero_agregar"><i class="bi bi-plus-circle"></i> Agregar slide</button></div></div>' +
+      '<div class="alert alert-light-warning fs-7 py-3 mb-4" id="cms_actual_hero_estado">Pendiente de publicar en la API. Cada slide visible necesita imagen desktop y alt.</div>' +
+      '<div class="alert alert-light-secondary fs-7 py-3 mb-4 d-none" id="cms_actual_hero_api_estado"></div>' +
       data.items.map(renderHeroSlide).join("") +
       '<div class="alert alert-light-info fs-7 mb-0">Recomendado: desktop 1920x820, mobile 768x980, imagen optimizada y alt obligatorio.</div>' +
     '</div>';
@@ -1355,6 +1426,11 @@
       });
     });
     on("cms_actual_hero_agregar", "click", agregarHeroSlide);
+    on("cms_actual_hero_borrador", "click", function () {
+      if (guardarBorradorFrontendLocal(false)) setHeroEstado("Borrador local guardado. Puedes publicar cuando las imagenes vengan de Media CMS.", "success");
+    });
+    on("cms_actual_hero_publicar", "click", publicarHeroCarrusel);
+    on("cms_actual_hero_api", "click", consultarApiHeroCarrusel);
     Array.prototype.forEach.call(document.querySelectorAll("[data-promo-config]"), function (node) {
       node.addEventListener("input", function () {
         actualizarPromoConfig(node.getAttribute("data-promo-config"), node.value);
@@ -1424,6 +1500,16 @@
     Array.prototype.forEach.call(document.querySelectorAll("[data-home-category-select]"), function (node) {
       node.addEventListener("change", function () {
         seleccionarCategoriaHomeLista(node.getAttribute("data-home-category-select"), parseInt(node.getAttribute("data-index") || "0", 10), node.value);
+      });
+    });
+    Array.prototype.forEach.call(document.querySelectorAll("[data-home-marcas-category-select]"), function (node) {
+      node.addEventListener("change", function () {
+        seleccionarCategoriaHomeMarcas(node.value);
+      });
+    });
+    Array.prototype.forEach.call(document.querySelectorAll("[data-home-marca-select]"), function (node) {
+      node.addEventListener("change", function () {
+        seleccionarMarcaHomeManual(parseInt(node.getAttribute("data-index") || "0", 10), node.value);
       });
     });
     Array.prototype.forEach.call(document.querySelectorAll("[data-use-category-image]"), function (button) {
@@ -1572,6 +1658,30 @@
     on("cms_actual_global_cargar_publicado", "click", function () { cargarGlobalPublicadoFrontend(true); });
     on("cms_actual_global_api", "click", consultarApiGlobalFrontend);
     on("cms_actual_global_publicar", "click", publicarGlobalFrontend);
+    on("cms_actual_global_whatsapp_agregar", "click", agregarWhatsappContacto);
+    on("cms_actual_global_whatsapp_publicar", "click", publicarGlobalWhatsapp);
+    on("cms_actual_global_whatsapp_api", "click", consultarApiGlobalWhatsapp);
+    Array.prototype.forEach.call(document.querySelectorAll("[data-global-whatsapp-field]"), function (node) {
+      node.addEventListener("input", function () {
+        actualizarWhatsappGlobal(node.getAttribute("data-global-whatsapp-field"), node.value);
+      });
+      node.addEventListener("change", function () {
+        actualizarWhatsappGlobal(node.getAttribute("data-global-whatsapp-field"), node.value);
+      });
+    });
+    Array.prototype.forEach.call(document.querySelectorAll("[data-global-whatsapp-contacto-field]"), function (node) {
+      node.addEventListener("input", function () {
+        actualizarWhatsappContacto(parseInt(node.getAttribute("data-index") || "0", 10), node.getAttribute("data-global-whatsapp-contacto-field"), node.value);
+      });
+      node.addEventListener("change", function () {
+        actualizarWhatsappContacto(parseInt(node.getAttribute("data-index") || "0", 10), node.getAttribute("data-global-whatsapp-contacto-field"), node.value);
+      });
+    });
+    Array.prototype.forEach.call(document.querySelectorAll("[data-global-whatsapp-contacto-action]"), function (button) {
+      button.addEventListener("click", function () {
+        ejecutarWhatsappContactoAccion(button.getAttribute("data-global-whatsapp-contacto-action") || "", parseInt(button.getAttribute("data-index") || "0", 10));
+      });
+    });
     Array.prototype.forEach.call(document.querySelectorAll("[data-catalogo-field]"), function (node) {
       node.addEventListener("input", function () {
         actualizarCatalogoField(node.getAttribute("data-catalogo-field"), node.value);
@@ -1743,9 +1853,10 @@
           inputCategoriaItem(index, "subtitulo", "Subtitulo", item.subtitulo, "col-md-6") +
           inputCategoriaItem(index, "descripcion_seo", "Descripcion SEO", item.descripcion_seo, "col-md-6") +
           inputCategoriaItem(index, "imagen_card", "Imagen card", item.imagen_card, "col-md-6", true) +
-          inputCategoriaItem(index, "imagen_banner", "Imagen banner", item.imagen_banner, "col-md-6", true) +
+          inputCategoriaItem(index, "imagen_banner", "Banner principal ecommerce", item.imagen_banner, "col-md-6", true) +
           inputCategoriaItem(index, "alt_card", "Alt card", item.alt_card, "col-md-6") +
           inputCategoriaItem(index, "alt_banner", "Alt banner", item.alt_banner, "col-md-6") +
+          '<div class="col-md-3"><label class="form-label fs-8 fw-bold">Heredar banner</label><select class="form-select form-select-sm" data-cms-cat-section="categorias_items" data-cms-cat-field="items.' + escapeAttr(index) + '.heredar_banner"><option value="1"' + (item.heredar_banner !== false ? ' selected' : '') + '>Si</option><option value="0"' + (item.heredar_banner === false ? ' selected' : '') + '>No</option></select><div class="text-muted fs-8 mt-1">Si no tiene banner propio, usa el primer banner de su jerarquia padre.</div></div>' +
           '<div class="col-md-3"><label class="form-label fs-8 fw-bold">Destacado</label><select class="form-select form-select-sm" data-cms-cat-section="categorias_items" data-cms-cat-field="items.' + escapeAttr(index) + '.destacado"><option value="1"' + (item.destacado ? ' selected' : '') + '>Si</option><option value="0"' + (!item.destacado ? ' selected' : '') + '>No</option></select></div>' +
           '<div class="col-md-3"><label class="form-label fs-8 fw-bold">Visible</label><select class="form-select form-select-sm" data-cms-cat-section="categorias_items" data-cms-cat-field="items.' + escapeAttr(index) + '.visible"><option value="1"' + (item.visible ? ' selected' : '') + '>Si</option><option value="0"' + (!item.visible ? ' selected' : '') + '>No</option></select></div>' +
         '</div></div>' +
@@ -2102,6 +2213,9 @@
   function renderGlobalSeccion(item) {
     var data = globalData(item.codigo);
     if (!data) return "";
+    if (item.codigo === "global_whatsapp_chat") {
+      return renderGlobalWhatsappChat(item, data);
+    }
     var campos = camposGlobal(item.codigo, data);
     return '<div class="cms-actual-card mb-4">' +
       '<div class="d-flex justify-content-between align-items-start gap-3 flex-wrap mb-4">' +
@@ -2110,6 +2224,80 @@
       '</div>' +
       '<div class="row g-3">' + campos.join("") + '</div>' +
     '</div>';
+  }
+
+  function renderGlobalWhatsappChat(item, data) {
+    var contactos = Array.isArray(data.contactos) ? data.contactos : [];
+    return '<div class="cms-actual-card mb-4">' +
+      '<div class="d-flex justify-content-between align-items-start gap-3 flex-wrap mb-4">' +
+        '<div><div class="fw-bold">' + escapeHtml(item.codigo) + '</div><div class="text-muted fs-8">' + escapeHtml(item.descripcion) + '</div></div>' +
+        '<span class="badge badge-light-success">Editor activo</span>' +
+      '</div>' +
+      '<div class="row g-3 mb-4">' +
+        selectWhatsappGlobal("visible", "Modulo activo", data.visible ? "1" : "0", [["1", "Si"], ["0", "No"]], "col-md-2") +
+        inputWhatsappGlobal("titulo", "Titulo", data.titulo, "col-md-3") +
+        inputWhatsappGlobal("subtitulo", "Subtitulo", data.subtitulo, "col-md-5") +
+        inputWhatsappGlobal("orden", "Orden", data.orden, "col-md-2") +
+        inputWhatsappGlobal("boton.label", "Texto boton", (data.boton || {}).label, "col-md-3") +
+        inputWhatsappGlobal("mensaje_default", "Mensaje default", data.mensaje_default, "col-md-6") +
+        selectWhatsappGlobal("config.posicion", "Posicion", (data.config || {}).posicion || "bottom_right", [["bottom_right", "Abajo derecha"], ["bottom_left", "Abajo izquierda"]], "col-md-3") +
+        selectWhatsappGlobal("config.mostrar_en_mobile", "Mobile", (data.config || {}).mostrar_en_mobile ? "1" : "0", [["1", "Mostrar"], ["0", "Ocultar"]], "col-md-3") +
+        selectWhatsappGlobal("config.mostrar_en_desktop", "Desktop", (data.config || {}).mostrar_en_desktop ? "1" : "0", [["1", "Mostrar"], ["0", "Ocultar"]], "col-md-3") +
+        selectWhatsappGlobal("config.abrir_en_nueva_pestana", "Nueva pestana", (data.config || {}).abrir_en_nueva_pestana ? "1" : "0", [["1", "Si"], ["0", "No"]], "col-md-3") +
+        selectWhatsappGlobal("config.mostrar_horario", "Horario", (data.config || {}).mostrar_horario ? "1" : "0", [["1", "Mostrar"], ["0", "Ocultar"]], "col-md-3") +
+      '</div>' +
+      '<div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">' +
+        '<div><div class="fw-bold">Contactos WhatsApp</div><div class="text-muted fs-8">Telefono en formato internacional sin espacios. Ejemplo Mexico: 521XXXXXXXXXX.</div></div>' +
+        '<div class="d-flex flex-wrap gap-2"><button class="btn btn-sm btn-light-info" type="button" id="cms_actual_global_whatsapp_api"><i class="bi bi-broadcast"></i> Ver API global</button><button class="btn btn-sm btn-primary" type="button" id="cms_actual_global_whatsapp_publicar"><i class="bi bi-cloud-check"></i> Guardar y publicar WhatsApp</button><button class="btn btn-sm btn-light-primary" type="button" id="cms_actual_global_whatsapp_agregar"><i class="bi bi-plus-circle"></i> Agregar contacto</button></div>' +
+      '</div>' +
+      '<div class="alert alert-light-warning fs-7 py-3 mb-4" id="cms_actual_global_whatsapp_estado">Pendiente de publicar en /ecommercePublico/contenido_pagina?pagina=global.</div>' +
+      '<div class="alert alert-light-secondary fs-7 py-3 mb-4 d-none" id="cms_actual_global_whatsapp_api_estado"></div>' +
+      contactos.map(renderWhatsappContacto).join("") +
+      '<div class="alert alert-light-info fs-7 mb-0">Avatar recomendado: WebP o PNG cuadrado 400x400. Puede quedar vacio; frontend usara iniciales o icono WhatsApp.</div>' +
+    '</div>';
+  }
+
+  function inputWhatsappGlobal(campo, label, value, col) {
+    return '<div class="' + escapeAttr(col || "col-md-4") + '"><label class="form-label fs-8 fw-bold">' + escapeHtml(label) + '</label><input class="form-control form-control-sm" data-global-whatsapp-field="' + escapeAttr(campo) + '" value="' + escapeAttr(value == null ? "" : value) + '"></div>';
+  }
+
+  function selectWhatsappGlobal(campo, label, value, opciones, col) {
+    return '<div class="' + escapeAttr(col || "col-md-3") + '"><label class="form-label fs-8 fw-bold">' + escapeHtml(label) + '</label><select class="form-select form-select-sm" data-global-whatsapp-field="' + escapeAttr(campo) + '">' + opciones.map(function (opcion) {
+      return '<option value="' + escapeAttr(opcion[0]) + '"' + (String(value) === String(opcion[0]) ? ' selected' : '') + '>' + escapeHtml(opcion[1]) + '</option>';
+    }).join("") + '</select></div>';
+  }
+
+  function renderWhatsappContacto(contacto, index) {
+    var avatar = contacto.avatar ? '<img src="' + escapeAttr(urlPreviewSeguro(contacto.avatar)) + '" alt="" style="width:54px;height:54px;object-fit:cover;border-radius:8px;border:1px solid #e7e9ef;">' : '<div class="d-flex align-items-center justify-content-center bg-light-success text-success fw-bold" style="width:54px;height:54px;border-radius:8px;">WA</div>';
+    return '<div class="cms-actual-slide mb-3">' +
+      '<div class="d-flex justify-content-between align-items-center gap-3 mb-3">' +
+        '<div class="d-flex align-items-center gap-3">' + avatar + '<div><div class="fw-semibold">' + escapeHtml(contacto.nombre || "Contacto") + '</div><div class="text-muted fs-8">' + escapeHtml(contacto.visible ? "Visible" : "Oculto") + '</div></div></div>' +
+        '<div class="d-flex gap-2">' +
+          '<button class="btn btn-sm btn-light" type="button" data-global-whatsapp-contacto-action="subir" data-index="' + escapeAttr(index) + '"><i class="bi bi-arrow-up"></i></button>' +
+          '<button class="btn btn-sm btn-light" type="button" data-global-whatsapp-contacto-action="bajar" data-index="' + escapeAttr(index) + '"><i class="bi bi-arrow-down"></i></button>' +
+          '<button class="btn btn-sm btn-light-warning" type="button" data-global-whatsapp-contacto-action="toggle" data-index="' + escapeAttr(index) + '"><i class="bi ' + (contacto.visible ? 'bi-eye-slash' : 'bi-eye') + '"></i></button>' +
+          '<button class="btn btn-sm btn-light-danger" type="button" data-global-whatsapp-contacto-action="eliminar" data-index="' + escapeAttr(index) + '"><i class="bi bi-trash"></i></button>' +
+        '</div>' +
+      '</div>' +
+      '<div class="row g-3">' +
+        inputWhatsappContacto(index, "id", "ID publico", contacto.id, "col-md-3") +
+        inputWhatsappContacto(index, "nombre", "Nombre obligatorio", contacto.nombre, "col-md-3") +
+        inputWhatsappContacto(index, "telefono", "Telefono obligatorio", contacto.telefono, "col-md-3") +
+        inputWhatsappContacto(index, "orden", "Orden", contacto.orden, "col-md-3") +
+        inputWhatsappContacto(index, "descripcion", "Descripcion", contacto.descripcion, "col-md-6") +
+        inputWhatsappContacto(index, "mensaje", "Mensaje personalizado", contacto.mensaje, "col-md-6") +
+        inputWhatsappContacto(index, "avatar", "Avatar", contacto.avatar, "col-md-6", true) +
+        inputWhatsappContacto(index, "horario", "Horario", contacto.horario, "col-md-6") +
+      '</div>' +
+    '</div>';
+  }
+
+  function inputWhatsappContacto(index, campo, label, value, col, media) {
+    var input = '<input class="form-control form-control-sm" data-index="' + escapeAttr(index) + '" data-global-whatsapp-contacto-field="' + escapeAttr(campo) + '" value="' + escapeAttr(value == null ? "" : value) + '">';
+    if (media) {
+      input = '<div class="input-group input-group-sm">' + input + '<button class="btn btn-light-primary" type="button" data-media-picker="global_whatsapp_contacto" data-index="' + escapeAttr(index) + '" data-field="' + escapeAttr(campo) + '"><i class="bi bi-images"></i> Media</button></div>';
+    }
+    return '<div class="' + escapeAttr(col || "col-md-4") + '"><label class="form-label fs-8 fw-bold">' + escapeHtml(label) + '</label>' + input + '</div>';
   }
 
   function camposGlobal(codigo, data) {
@@ -2275,6 +2463,7 @@
     if (publicado.redes_sociales) global.global_redes = mergeProfundo(global.global_redes || {}, publicado.redes_sociales);
     if (publicado.seo_global) global.global_seo = mergeProfundo(global.global_seo || {}, publicado.seo_global);
     if (publicado.navegacion) global.global_navegacion = mergeProfundo(global.global_navegacion || {}, publicado.navegacion);
+    if (publicado.whatsapp_chat) global.global_whatsapp_chat = mergeProfundo(global.global_whatsapp_chat || whatsappGlobalDefault(), publicado.whatsapp_chat);
     estado.datos.global = global;
   }
 
@@ -2331,7 +2520,7 @@
   function actualizarCategoriaCmsField(seccionCodigo, campo, valor) {
     var data = categoriasCmsData(seccionCodigo);
     if (!data) return;
-    if (campo === "mostrar_en_home" || campo === "mostrar_en_menu" || campo.indexOf(".visible") !== -1 || campo.indexOf(".destacado") !== -1) {
+    if (campo === "mostrar_en_home" || campo === "mostrar_en_menu" || campo.indexOf(".visible") !== -1 || campo.indexOf(".destacado") !== -1 || campo.indexOf(".heredar_banner") !== -1) {
       setPath(data, campo, valor === "1");
     } else if (campo.indexOf(".categoria_id") !== -1) {
       setPath(data, campo, parseInt(valor || "0", 10) || 0);
@@ -2372,6 +2561,7 @@
       imagen_banner: "",
       alt_card: "",
       alt_banner: "",
+      heredar_banner: true,
       destacado: false,
       visible: true,
       orden: (items.length + 1) * 10,
@@ -2418,6 +2608,7 @@
     if (!destino.descripcion_seo && categoria.descripcion_corta) destino.descripcion_seo = categoria.descripcion_corta;
     if (!destino.alt_card) destino.alt_card = "Categoria " + (destino.titulo || "");
     if (!destino.alt_banner) destino.alt_banner = "Banner de categoria " + (destino.titulo || "");
+    if (destino.heredar_banner !== false) destino.heredar_banner = true;
     if (!conservarImagen) {
       if (!destino.imagen_card) destino.imagen_card = imagenCardCategoriaCms(categoria);
       if (!destino.imagen_banner) destino.imagen_banner = imagenBannerCategoriaCms(categoria);
@@ -3201,14 +3392,36 @@
         '<div class="col-md-2"><label class="form-label fs-8 fw-bold">Visible</label><select class="form-select form-select-sm" data-home-list-config="marcas.visible"><option value="1"' + (data.visible ? ' selected' : '') + '>Si</option><option value="0"' + (!data.visible ? ' selected' : '') + '>No</option></select></div>' +
         '<div class="col-md-4"><label class="form-label fs-8 fw-bold">Titulo</label><input class="form-control form-control-sm" data-home-list-config="marcas.titulo" value="' + escapeAttr(data.titulo || "") + '"></div>' +
         '<div class="col-md-4"><label class="form-label fs-8 fw-bold">Subtitulo</label><input class="form-control form-control-sm" data-home-list-config="marcas.subtitulo" value="' + escapeAttr(data.subtitulo || "") + '"></div>' +
+        '<div class="col-md-2"><label class="form-label fs-8 fw-bold">Orden</label><input class="form-control form-control-sm" data-home-list-config="marcas.orden" value="' + escapeAttr(data.orden || 45) + '"></div>' +
+        selectorCategoriaMarcasHome(data) +
+        '<div class="col-md-3"><label class="form-label fs-8 fw-bold">Modo</label><select class="form-select form-select-sm" data-home-list-config="marcas.fuente.modo"><option value="mixto"' + ((data.fuente || {}).modo === "mixto" ? ' selected' : '') + '>Mixto: categoria + marcas manuales</option><option value="automatico_categoria"' + ((data.fuente || {}).modo === "automatico_categoria" ? ' selected' : '') + '>Automatico por categoria</option><option value="manual"' + ((data.fuente || {}).modo === "manual" ? ' selected' : '') + '>Solo marcas manuales</option></select></div>' +
+        '<div class="col-md-2"><label class="form-label fs-8 fw-bold">Limite 0=todas</label><input class="form-control form-control-sm" data-home-list-config="marcas.fuente.limite" value="' + escapeAttr((data.fuente || {}).limite || 0) + '"></div>' +
+        '<div class="col-md-3"><label class="form-label fs-8 fw-bold">Completar automatico</label><select class="form-select form-select-sm" data-home-list-config="marcas.fuente.rellenar_automatico_si_faltan"><option value="1"' + ((data.fuente || {}).rellenar_automatico_si_faltan !== false ? ' selected' : '') + '>Si</option><option value="0"' + ((data.fuente || {}).rellenar_automatico_si_faltan === false ? ' selected' : '') + '>No</option></select></div>' +
         '<div class="col-md-2"><label class="form-label fs-8 fw-bold">Variante</label><input class="form-control form-control-sm" data-home-list-config="marcas.config.variante" value="' + escapeAttr((data.config || {}).variante || "") + '"></div>' +
+        '<div class="col-md-6"><label class="form-label fs-8 fw-bold">Path categoria</label><input class="form-control form-control-sm" data-home-list-config="marcas.categoria_contexto.path_slug" value="' + escapeAttr((data.categoria_contexto || {}).path_slug || (data.fuente || {}).categoria_slug || "") + '"></div>' +
+        '<div class="col-md-6"><label class="form-label fs-8 fw-bold">URL categoria</label><input class="form-control form-control-sm" data-home-list-config="marcas.categoria_contexto.url" value="' + escapeAttr((data.categoria_contexto || {}).url || "") + '"></div>' +
+        '<div class="col-md-6"><label class="form-label fs-8 fw-bold">Imagen card categoria</label><input class="form-control form-control-sm" data-home-list-config="marcas.categoria_contexto.imagen_card" value="' + escapeAttr((data.categoria_contexto || {}).imagen_card || "") + '"></div>' +
+        '<div class="col-md-6"><label class="form-label fs-8 fw-bold">Imagen banner categoria</label><input class="form-control form-control-sm" data-home-list-config="marcas.categoria_contexto.imagen_banner" value="' + escapeAttr((data.categoria_contexto || {}).imagen_banner || "") + '"></div>' +
       '</div>' +
-      '<div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3"><div class="fw-bold">Marcas destacadas</div><div class="d-flex gap-2"><button class="btn btn-sm btn-light-primary" type="button" data-home-section-draft="marcas"><i class="bi bi-save"></i> Guardar borrador</button><button class="btn btn-sm btn-light-info" type="button" id="cms_actual_home_marcas_api"><i class="bi bi-broadcast"></i> Ver API publicada</button><button class="btn btn-sm btn-primary" type="button" id="cms_actual_home_marcas_publicar"><i class="bi bi-cloud-check"></i> Guardar y publicar marcas</button><button class="btn btn-sm btn-light-primary" type="button" id="cms_actual_home_marca_agregar"><i class="bi bi-plus-circle"></i> Agregar marca</button></div></div>' +
-      '<div class="alert alert-light-warning fs-7 py-3 mb-4" id="cms_actual_home_marcas_estado">Pendiente de publicar. Cada marca visible necesita nombre, slug o ID y URL publica.</div>' +
+      '<div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3"><div class="fw-bold">Marcas manuales opcionales</div><div class="d-flex gap-2"><button class="btn btn-sm btn-light-primary" type="button" data-home-section-draft="marcas"><i class="bi bi-save"></i> Guardar borrador</button><button class="btn btn-sm btn-light-info" type="button" id="cms_actual_home_marcas_api"><i class="bi bi-broadcast"></i> Ver API publicada</button><button class="btn btn-sm btn-primary" type="button" id="cms_actual_home_marcas_publicar"><i class="bi bi-cloud-check"></i> Guardar y publicar marcas</button><button class="btn btn-sm btn-light-primary" type="button" id="cms_actual_home_marca_agregar"><i class="bi bi-plus-circle"></i> Agregar marca manual</button></div></div>' +
+      '<div class="alert alert-light-warning fs-7 py-3 mb-4" id="cms_actual_home_marcas_estado">Pendiente de publicar. Selecciona la categoria que manda el contexto; las marcas manuales solo sirven para priorizar o reemplazar.</div>' +
       '<div class="alert alert-light-secondary fs-7 py-3 mb-4 d-none" id="cms_actual_home_marcas_api_estado"></div>' +
+      (!(data.items || []).length ? '<div class="alert alert-light-secondary fs-7 py-3 mb-4">No hay marcas manuales. Si usas modo automatico o mixto, la categoria origen sera suficiente para publicar el bloque.</div>' : '') +
       (data.items || []).map(renderHomeMarcaItem).join("") +
-      '<div class="alert alert-light-info fs-7 mb-0">El CMS no crea marcas reales. Solo controla orden, logo y capa editorial de marcas que ya existen o existiran en la API.</div>' +
+      '<div class="alert alert-light-info fs-7 mb-0">El CMS no crea marcas reales. La categoria define el contexto y frontend/API pueden completar marcas reales con productos publicados; las marcas manuales solo afinan la seleccion.</div>' +
     '</div>';
+  }
+
+  function selectorCategoriaMarcasHome(data) {
+    var contexto = data.categoria_contexto || {};
+    var selected = contexto.categoria_id || 0;
+    var categorias = estado.catalogos.categorias || [];
+    var options = '<option value="">Selecciona categoria de origen</option>' + categorias.map(function (categoria) {
+      var id = parseInt(categoria.id || "0", 10) || 0;
+      var label = categoria.nombre_completo || categoria.ruta || categoria.nombre || ("Categoria " + id);
+      return '<option value="' + escapeAttr(id) + '"' + (parseInt(selected || "0", 10) === id ? ' selected' : '') + '>' + escapeHtml(label) + '</option>';
+    }).join("");
+    return '<div class="col-md-4"><label class="form-label fs-8 fw-bold">Categoria origen</label><select class="form-select form-select-sm" data-home-marcas-category-select>' + options + '</select></div>';
   }
 
   function renderHomeMarcaItem(item, index) {
@@ -3220,6 +3433,7 @@
       '</div>' +
       '<div class="cms-actual-slide-preview mb-4"' + (bg ? ' style="background-image:url(' + escapeAttr(urlPreviewSeguro(bg)) + ')"' : '') + '><div><h2 class="text-white fw-bold mb-2">' + escapeHtml(item.nombre || "Marca") + '</h2><div class="opacity-75">' + escapeHtml(item.subtitulo || item.descripcion_corta || "") + '</div></div></div>' +
       '<div class="row g-3">' +
+        selectorMarcaHomeManual(index, item, "col-md-4") +
         inputHomeLista("marcas", index, "nombre", "Nombre", item.nombre, "col-md-3") +
         inputHomeLista("marcas", index, "subtitulo", "Subtitulo", item.subtitulo, "col-md-3") +
         inputHomeLista("marcas", index, "marca_id", "Marca ID", item.marca_id, "col-md-2") +
@@ -3232,6 +3446,17 @@
         inputHomeLista("marcas", index, "descripcion_corta", "Descripcion corta", item.descripcion_corta, "col-md-6") +
       '</div>' +
     '</div>';
+  }
+
+  function selectorMarcaHomeManual(index, item, col) {
+    var selected = parseInt((item || {}).marca_id || "0", 10) || 0;
+    var marcas = estado.catalogos.marcas || [];
+    var options = '<option value="">Selecciona marca real</option>' + marcas.map(function (marca) {
+      var id = parseInt(marca.id || "0", 10) || 0;
+      var label = marca.nombre || marca.nombre_publico || ("Marca " + id);
+      return '<option value="' + escapeAttr(id) + '"' + (selected === id ? ' selected' : '') + '>' + escapeHtml(label) + '</option>';
+    }).join("");
+    return '<div class="' + escapeAttr(col || "col-md-4") + '"><label class="form-label fs-8 fw-bold">Marca real</label><select class="form-select form-select-sm" data-home-marca-select data-index="' + escapeAttr(index) + '">' + options + '</select></div>';
   }
 
   function renderColeccionesProductos(item) {
@@ -3786,7 +4011,16 @@
     if (!data) return;
     var campo = partes.join(".");
     if (campo === "visible") data.visible = valor === "1";
-    else setPath(data, campo, valor);
+    else if (campo === "orden") data.orden = parseInt(valor || "45", 10) || 45;
+    else if (campo === "fuente.limite") setPath(data, campo, Math.max(0, parseInt(valor || "0", 10) || 0));
+    else if (campo === "fuente.rellenar_automatico_si_faltan") setPath(data, campo, valor === "1");
+    else {
+      setPath(data, campo, valor);
+      if (contexto === "marcas" && campo === "categoria_contexto.path_slug") {
+        data.fuente = data.fuente || {};
+        data.fuente.categoria_slug = String(valor || "").trim().replace(/^\/+|\/+$/g, "");
+      }
+    }
     refrescarJson();
   }
 
@@ -3831,6 +4065,44 @@
     var item = data && data.items ? data.items[index] : null;
     if (!categoria || !item) return;
     aplicarCategoriaCmsDestino(item, categoria, !!item.imagen);
+    renderGrupo();
+  }
+
+  function seleccionarCategoriaHomeMarcas(idCategoria) {
+    var categoria = categoriaCmsPorId(idCategoria);
+    if (!categoria) return;
+    var data = marcasHomeData();
+    data.categoria_contexto = data.categoria_contexto || {};
+    aplicarCategoriaCmsDestino(data.categoria_contexto, categoria, true);
+    delete data.categoria_contexto.subtitulo;
+    data.categoria_contexto.imagen = categoria.imagen_card || categoria.imagen_banner || categoria.imagen_menu || data.categoria_contexto.imagen || "";
+    data.categoria_contexto.imagen_menu = categoria.imagen_menu || "";
+    data.categoria_contexto.imagen_card = categoria.imagen_card || "";
+    data.categoria_contexto.imagen_banner = categoria.imagen_banner || "";
+    data.categoria_contexto.imagenes_catalogo = categoria.imagenes_catalogo || [];
+    data.fuente = data.fuente || {};
+    data.fuente.categoria_slug = data.categoria_contexto.path_slug || data.fuente.categoria_slug || "";
+    if (!data.titulo || data.titulo === "Marcas destacadas") data.titulo = "Marcas para " + (data.categoria_contexto.titulo || categoria.nombre || "esta categoria");
+    if (!data.subtitulo || data.subtitulo === "Entradas rapidas por marca.") data.subtitulo = "Seleccion de marcas relacionadas con esta categoria.";
+    renderGrupo();
+  }
+
+  function seleccionarMarcaHomeManual(index, idMarca) {
+    var data = marcasHomeData();
+    var item = data && data.items ? data.items[index] : null;
+    var marca = estado.catalogos.marcasPorId ? estado.catalogos.marcasPorId[String(idMarca || "")] : null;
+    if (!item || !marca) return;
+    item.marca_id = parseInt(marca.id || "0", 10) || 0;
+    item.nombre = marca.nombre_publico || marca.nombre || item.nombre || "";
+    item.slug = marca.slug_publico || marca.slug || item.slug || "";
+    item.slug_publico = item.slug;
+    item.url = marca.url || (item.slug ? "/marca/" + item.slug : item.url || "");
+    item.logo = marca.logo || item.logo || "";
+    item.imagen_banner = marca.imagen_banner || item.imagen_banner || "";
+    item.alt_logo = marca.alt_logo || ("Logo de " + item.nombre);
+    item.descripcion_corta = marca.descripcion_corta || item.descripcion_corta || "";
+    item.visible = true;
+    item.visible_frontend = true;
     renderGrupo();
   }
 
@@ -3901,6 +4173,7 @@
   }
 
   function publicarHomePromosCategoria() {
+    completarImagenesPromosCategoriaDesdeCategoria();
     publicarHomeLista("promos_categoria", promosCategoriaData(), "/cms/frontend_home_promos_categoria_publicar_erp", "promos_categoria");
   }
 
@@ -3961,10 +4234,19 @@
     if (!data || !data.visible) return "Activa la seccion antes de publicar.";
     var items = (data.items || []).filter(function (item) { return item && item.visible !== false; });
     if (contexto === "esenciales" && items.length > 3) return "Esenciales permite maximo 3 cards visibles.";
-    if (!items.length) return "Deja al menos un item visible.";
+    if (contexto === "marcas") {
+      var fuente = data.fuente || {};
+      var contextoCategoria = data.categoria_contexto || {};
+      var modo = fuente.modo || "mixto";
+      var categoriaSlug = String(fuente.categoria_slug || contextoCategoria.path_slug || "").trim();
+      if (modo !== "manual" && !categoriaSlug) return "Selecciona una categoria origen para marcas destacadas.";
+      if (modo === "manual" && !items.length) return "Deja al menos una marca manual visible.";
+    }
+    if (contexto !== "marcas" && !items.length) return "Deja al menos un item visible.";
     for (var i = 0; i < items.length; i++) {
       var item = items[i] || {};
       if (contexto === "marcas") {
+        if (modo !== "manual" && !String(item.nombre || item.url || item.slug || item.logo || "").trim() && !(parseInt(item.marca_id || "0", 10) > 0)) continue;
         if (!String(item.nombre || "").trim()) return "Cada marca visible necesita nombre.";
         if (!String(item.url || "").trim()) return "Cada marca visible necesita URL publica.";
       } else {
@@ -3972,10 +4254,25 @@
         if (!String(item.url || "").trim()) return "Cada item visible necesita URL publica.";
         if (contexto === "esenciales" && !(parseInt(item.categoria_id || "0", 10) > 0) && !String(item.path_slug || "").trim()) return "Selecciona categoria o deja path_slug canonico en cada card esencial visible.";
         if (contexto === "promos_categoria" && !String(item.path_slug || "").trim()) return "Cada promo visible necesita path_slug canonico.";
+        item.imagen = normalizarUrlMediaCms(item.imagen);
         if (!String(item.imagen || "").trim()) return "Cada item visible necesita imagen.";
+        if (!esUrlImagenPublicaPersistente(item.imagen)) return "Item " + (i + 1) + ": imagen no publica o temporal.";
+        if (!String(item.alt || "").trim()) return "Item " + (i + 1) + ": falta alt.";
       }
     }
     return "";
+  }
+
+  function completarImagenesPromosCategoriaDesdeCategoria() {
+    var data = promosCategoriaData();
+    (data.items || []).forEach(function (item) {
+      if (!item || item.imagen || !item.categoria_id) return;
+      var categoria = categoriaCmsPorId(item.categoria_id);
+      var imagen = imagenCategoriaCms(categoria);
+      if (!imagen) return;
+      item.imagen = imagen;
+      if (!item.alt) item.alt = "Categoria " + (item.titulo || categoria.nombre || "");
+    });
   }
 
   function completarImagenesEsencialesDesdeCategoria() {
@@ -4041,7 +4338,7 @@
       }
       var bloque = bloques[0] || {};
       var items = Array.isArray(bloque.items) ? bloque.items : [];
-      setHomeListaApi(contexto, '<div class="fw-bold mb-2">' + escapeHtml(slot) + ' publicado</div><div><span class="fw-semibold">Tipo:</span> ' + escapeHtml(bloque.tipo || bloque.frontend_tipo || "") + '</div><div><span class="fw-semibold">Titulo:</span> ' + escapeHtml(bloque.titulo || "") + '</div><div><span class="fw-semibold">Items:</span> ' + escapeHtml(items.length) + '</div>', "success", true);
+      setHomeListaApi(contexto, '<div class="fw-bold mb-2">' + escapeHtml(slot) + ' publicado</div><div><span class="fw-semibold">Fuente:</span> ' + escapeHtml(depurar.fuente || "sin fuente") + '</div><div><span class="fw-semibold">Tipo:</span> ' + escapeHtml(bloque.tipo || bloque.frontend_tipo || "") + '</div><div><span class="fw-semibold">Titulo:</span> ' + escapeHtml(bloque.titulo || "") + '</div><div><span class="fw-semibold">Items:</span> ' + escapeHtml(items.length) + '</div>' + resumenImagenesItemsApi(items, contexto), "success", true);
     }).catch(function (error) {
       setHomeListaApi(contexto, error.message || "Error al consultar API publicada.", "danger");
     }).finally(function () {
@@ -4223,6 +4520,139 @@
     if (campo === "visible") data.visible = valor === "1";
     else setPath(data, campo, valor);
     refrescarJson();
+  }
+
+  /**
+   * IA: Codex GPT-5 | Fecha: 2026-08-31
+   * Proposito: publicar el editor `home_hero_carrusel` en el slot publico `home.hero`.
+   * Impacto: CMS Frontend Home; garantiza media.imagen_desktop/mobile, items[].imagen_desktop/mobile y alt para frontend.
+   */
+  function publicarHeroCarrusel() {
+    var data = heroData();
+    var validacion = validarHeroCarrusel(data);
+    if (validacion) {
+      setHeroEstado(validacion, "warning");
+      renderGrupo();
+      return;
+    }
+    var boton = $("cms_actual_hero_publicar");
+    var form = new FormData();
+    form.append("_csrf", window.ERP_CSRF_TOKEN || "");
+    form.append("payload_json", JSON.stringify(data));
+    if (boton) boton.disabled = true;
+    setHeroEstado("Publicando hero en la API...", "info");
+    fetch("/cms/frontend_home_banner_publicar_erp", {
+      method: "POST",
+      body: form,
+      credentials: "same-origin",
+      headers: {
+        "X-CSRF-Token": window.ERP_CSRF_TOKEN || "",
+        "Accept": "application/json",
+        "X-Requested-With": "XMLHttpRequest"
+      }
+    }).then(function (response) {
+      return response.text().then(function (text) {
+        var json = null;
+        try {
+          json = JSON.parse(text);
+        } catch (error) {
+          throw new Error("Respuesta no JSON del servidor (" + response.status + "): " + text.substring(0, 140));
+        }
+        if (!response.ok && json && json.mensaje) throw new Error(json.mensaje);
+        return json;
+      });
+    }).then(function (json) {
+      if (!json || json.error) throw new Error(json && json.mensaje ? json.mensaje : "No se pudo publicar hero");
+      setHeroEstado("Hero publicado. Verifica con Ver API publicada.", "success");
+      consultarEstadoHomePublicado();
+      consultarApiHeroCarrusel();
+    }).catch(function (error) {
+      setHeroEstado(error.message || "Error al publicar hero.", "danger");
+    }).finally(function () {
+      if (boton) boton.disabled = false;
+    });
+  }
+
+  function validarHeroCarrusel(data) {
+    if (!data || !data.visible) return "Activa el hero antes de publicar.";
+    var visibles = (data.items || []).filter(function (item) { return item && item.visible !== false; });
+    if (!visibles.length) return "Deja al menos un slide visible.";
+    for (var i = 0; i < visibles.length; i++) {
+      var item = visibles[i];
+      item.imagen_desktop = normalizarUrlMediaCms(item.imagen_desktop);
+      if (item.imagen_mobile) item.imagen_mobile = normalizarUrlMediaCms(item.imagen_mobile);
+      if (!String(item.imagen_desktop || "").trim()) return "Slide " + (i + 1) + ": falta imagen desktop.";
+      if (!esUrlMediaCms(item.imagen_desktop)) return "Slide " + (i + 1) + ": usa imagen de Media CMS.";
+      if (item.imagen_mobile && !esUrlMediaCms(item.imagen_mobile)) return "Slide " + (i + 1) + ": imagen mobile no es Media CMS.";
+      if (!String(item.alt || "").trim()) return "Slide " + (i + 1) + ": falta alt.";
+    }
+    return "";
+  }
+
+  function consultarApiHeroCarrusel() {
+    var boton = $("cms_actual_hero_api");
+    if (boton) boton.disabled = true;
+    setHeroApi("Consultando /ecommercePublico/cms_frontend?pagina=home...", "info");
+    fetch("/ecommercePublico/cms_frontend?pagina=home", {
+      method: "GET",
+      credentials: "same-origin",
+      headers: {
+        "Accept": "application/json",
+        "X-Requested-With": "XMLHttpRequest"
+      }
+    }).then(function (response) {
+      return response.text().then(function (text) {
+        var json = null;
+        try {
+          json = JSON.parse(text);
+        } catch (error) {
+          throw new Error("Respuesta no JSON del servidor (" + response.status + "): " + text.substring(0, 140));
+        }
+        if (!response.ok) throw new Error((json && json.mensaje) || "No se pudo consultar la API publica");
+        return json;
+      });
+    }).then(function (json) {
+      var depurar = json && json.depurar ? json.depurar : {};
+      var bloque = bloqueHomeHeroPublicado(depurar);
+      if (!bloque) {
+        setHeroApi("No hay hero publicado en home.hero.", "warning");
+        return;
+      }
+      var media = bloque.media || {};
+      var items = Array.isArray(bloque.items) ? bloque.items : [];
+      setHeroApi(
+        '<div class="fw-bold mb-2">Hero publicado para frontend</div>' +
+        '<div><span class="fw-semibold">Fuente:</span> ' + escapeHtml(depurar.fuente || "sin fuente") + '</div>' +
+        '<div class="text-break"><span class="fw-semibold">media.desktop:</span> ' + escapeHtml(media.imagen_desktop || "") + '</div>' +
+        '<div class="text-break"><span class="fw-semibold">media.mobile:</span> ' + escapeHtml(media.imagen_mobile || "") + '</div>' +
+        '<div><span class="fw-semibold">media.alt:</span> ' + escapeHtml(media.alt || "") + '</div>' +
+        '<div><span class="fw-semibold">Items:</span> ' + escapeHtml(items.length) + '</div>' +
+        resumenImagenesItemsApi(items, "hero"),
+        "success",
+        true
+      );
+    }).catch(function (error) {
+      setHeroApi(error.message || "Error al consultar API publicada.", "danger");
+    }).finally(function () {
+      if (boton) boton.disabled = false;
+    });
+  }
+
+  function setHeroEstado(mensaje, tipo) {
+    setText("cms_actual_estado", mensaje);
+    var node = $("cms_actual_hero_estado");
+    if (!node) return;
+    node.className = "alert fs-7 py-3 mb-4 alert-light-" + (tipo || "info");
+    node.textContent = mensaje;
+  }
+
+  function setHeroApi(mensaje, tipo, esHtml) {
+    setText("cms_actual_estado", esHtml ? "API publicada consultada" : mensaje);
+    var node = $("cms_actual_hero_api_estado");
+    if (!node) return;
+    node.className = "alert fs-7 py-3 mb-4 alert-light-" + (tipo || "info");
+    if (esHtml) node.innerHTML = mensaje;
+    else node.textContent = mensaje;
   }
 
   function actualizarBannerItem(index, campo, valor) {
@@ -4607,6 +5037,184 @@
     }
   }
 
+  function actualizarWhatsappGlobal(campo, valor) {
+    var data = whatsappGlobalData();
+    if (!data) return;
+    if (campo === "visible" || campo === "config.mostrar_en_mobile" || campo === "config.mostrar_en_desktop" || campo === "config.abrir_en_nueva_pestana" || campo === "config.mostrar_horario" || campo === "config.mostrar_estado_online") {
+      setPath(data, campo, valor === "1");
+    } else if (campo === "orden") {
+      data.orden = parseInt(valor || "10", 10) || 10;
+    } else {
+      setPath(data, campo, valor);
+    }
+    refrescarJson();
+  }
+
+  function actualizarWhatsappContacto(index, campo, valor) {
+    var data = whatsappGlobalData();
+    var contactos = data && Array.isArray(data.contactos) ? data.contactos : [];
+    if (!contactos[index]) return;
+    if (campo === "telefono") valor = String(valor || "").replace(/\D+/g, "");
+    if (campo === "orden") valor = parseInt(valor || ((index + 1) * 10), 10) || ((index + 1) * 10);
+    setPath(contactos[index], campo, valor);
+    refrescarJson();
+  }
+
+  function agregarWhatsappContacto() {
+    var data = whatsappGlobalData();
+    if (!data.contactos) data.contactos = [];
+    data.contactos.push({
+      id: "contacto_" + (data.contactos.length + 1),
+      nombre: "Nuevo contacto",
+      descripcion: "",
+      telefono: "",
+      mensaje: "",
+      avatar: "",
+      icono: "whatsapp",
+      horario: "",
+      orden: (data.contactos.length + 1) * 10,
+      visible: true
+    });
+    renderGrupo();
+  }
+
+  function ejecutarWhatsappContactoAccion(accion, index) {
+    var data = whatsappGlobalData();
+    var contactos = data && Array.isArray(data.contactos) ? data.contactos : [];
+    if (!contactos[index]) return;
+    if (accion === "subir" && index > 0) {
+      contactos.splice(index - 1, 0, contactos.splice(index, 1)[0]);
+    }
+    if (accion === "bajar" && index < contactos.length - 1) {
+      contactos.splice(index + 1, 0, contactos.splice(index, 1)[0]);
+    }
+    if (accion === "toggle") {
+      contactos[index].visible = !contactos[index].visible;
+    }
+    if (accion === "eliminar" && contactos.length > 1) {
+      contactos.splice(index, 1);
+    }
+    normalizarOrden(contactos);
+    renderGrupo();
+  }
+
+  function telefonoWhatsappValido(telefono) {
+    return /^[1-9][0-9]{9,15}$/.test(String(telefono || "").replace(/\D+/g, ""));
+  }
+
+  function publicarGlobalWhatsapp() {
+    var data = whatsappGlobalData();
+    var contactos = Array.isArray(data.contactos) ? data.contactos : [];
+    var visibles = contactos.filter(function (contacto) { return contacto && contacto.visible !== false; });
+    var invalidos = visibles.filter(function (contacto) {
+      return !String(contacto.nombre || "").trim() || !telefonoWhatsappValido(contacto.telefono);
+    });
+    if (data.visible && (!visibles.length || invalidos.length)) {
+      setGlobalWhatsappEstado("Cada contacto visible necesita nombre y telefono internacional sin espacios.", "warning");
+      return;
+    }
+    guardarBorradorFrontendLocal(true);
+    var boton = $("cms_actual_global_whatsapp_publicar");
+    var form = new FormData();
+    form.append("_csrf", window.ERP_CSRF_TOKEN || "");
+    form.append("payload_json", JSON.stringify(data));
+    if (boton) boton.disabled = true;
+    setGlobalWhatsappEstado("Publicando WhatsApp global...", "info");
+    fetch("/cms/frontend_global_whatsapp_publicar_erp", {
+      method: "POST",
+      body: form,
+      credentials: "same-origin",
+      headers: {
+        "X-CSRF-Token": window.ERP_CSRF_TOKEN || "",
+        "Accept": "application/json",
+        "X-Requested-With": "XMLHttpRequest"
+      }
+    }).then(function (response) {
+      return response.text().then(function (text) {
+        var json = null;
+        try {
+          json = JSON.parse(text);
+        } catch (error) {
+          throw new Error("Respuesta no JSON del servidor (" + response.status + "): " + text.substring(0, 140));
+        }
+        if (!response.ok && json && json.mensaje) throw new Error(json.mensaje);
+        return json;
+      });
+    }).then(function (json) {
+      if (!json || json.error) throw new Error(json && json.mensaje ? json.mensaje : "No se pudo publicar WhatsApp");
+      setGlobalWhatsappEstado("WhatsApp publicado. El frontend puede leer global.whatsapp_chat.", "success");
+      consultarApiGlobalWhatsapp();
+    }).catch(function (error) {
+      setGlobalWhatsappEstado(error.message || "Error al publicar WhatsApp.", "danger");
+    }).finally(function () {
+      if (boton) boton.disabled = false;
+    });
+  }
+
+  function consultarApiGlobalWhatsapp() {
+    var boton = $("cms_actual_global_whatsapp_api");
+    if (boton) boton.disabled = true;
+    setGlobalWhatsappApi("Consultando /ecommercePublico/contenido_pagina?pagina=global...", "info");
+    fetch("/ecommercePublico/contenido_pagina?pagina=global", {
+      method: "GET",
+      credentials: "same-origin",
+      headers: {
+        "Accept": "application/json",
+        "X-Requested-With": "XMLHttpRequest"
+      }
+    }).then(function (response) {
+      return response.text().then(function (text) {
+        var json = null;
+        try {
+          json = JSON.parse(text);
+        } catch (error) {
+          throw new Error("Respuesta no JSON del servidor (" + response.status + "): " + text.substring(0, 140));
+        }
+        if (!response.ok) throw new Error((json && json.mensaje) || "No se pudo consultar pagina global");
+        return json;
+      });
+    }).then(function (json) {
+      var depurar = json && json.depurar ? json.depurar : {};
+      var bloques = bloquesSlotPublicado(depurar, "global.whatsapp_chat");
+      if (!bloques.length) {
+        setGlobalWhatsappApi("No hay WhatsApp publicado en global.whatsapp_chat.", "warning");
+        return;
+      }
+      var bloque = bloques[0] || {};
+      var contactos = Array.isArray(bloque.contactos) ? bloque.contactos.filter(function (item) { return item && item.visible !== false; }) : [];
+      setGlobalWhatsappApi(
+        '<div class="fw-bold mb-2">WhatsApp publicado</div>' +
+        '<div><span class="fw-semibold">Fuente:</span> ' + escapeHtml(depurar.fuente || "sin fuente") + '</div>' +
+        '<div><span class="fw-semibold">Visible:</span> ' + escapeHtml(bloque.visible ? "si" : "no") + '</div>' +
+        '<div><span class="fw-semibold">Titulo:</span> ' + escapeHtml(bloque.titulo || "") + '</div>' +
+        '<div><span class="fw-semibold">Contactos visibles:</span> ' + escapeHtml(contactos.length) + '</div>',
+        "success",
+        true
+      );
+    }).catch(function (error) {
+      setGlobalWhatsappApi(error.message || "Error al consultar WhatsApp global.", "danger");
+    }).finally(function () {
+      if (boton) boton.disabled = false;
+    });
+  }
+
+  function setGlobalWhatsappEstado(mensaje, tipo) {
+    setText("cms_actual_estado", mensaje);
+    var node = $("cms_actual_global_whatsapp_estado");
+    if (!node) return;
+    node.className = "alert fs-7 py-3 mb-4 alert-light-" + (tipo || "info");
+    node.textContent = mensaje;
+  }
+
+  function setGlobalWhatsappApi(mensaje, tipo, esHtml) {
+    setText("cms_actual_estado", esHtml ? "API WhatsApp global consultada" : mensaje);
+    var node = $("cms_actual_global_whatsapp_api_estado");
+    if (!node) return;
+    node.className = "alert fs-7 py-3 mb-4 alert-light-" + (tipo || "info");
+    if (esHtml) node.innerHTML = mensaje;
+    else node.textContent = mensaje;
+  }
+
   function publicarGlobalFrontend() {
     var json = previewGlobalJson();
     var negocio = json.depurar && json.depurar.negocio ? json.depurar.negocio : {};
@@ -4976,6 +5584,7 @@
         redes_sociales: global.global_redes,
         seo_global: global.global_seo,
         navegacion: global.global_navegacion,
+        whatsapp_chat: whatsappGlobalData(),
         guardrails: {
           no_archivos_erp: true,
           no_secretos: true,
@@ -5060,6 +5669,7 @@
             imagen_banner: item.imagen_banner,
             alt_card: item.alt_card,
             alt_banner: item.alt_banner,
+            heredar_banner: item.heredar_banner !== false,
             destacado: item.destacado,
             visible: item.visible,
             orden: item.orden,
@@ -5277,7 +5887,52 @@
   }
 
   function globalData(codigo) {
+    if (!estado.datos.global) estado.datos.global = {};
+    if (codigo === "global_whatsapp_chat" && !estado.datos.global.global_whatsapp_chat) {
+      estado.datos.global.global_whatsapp_chat = whatsappGlobalDefault();
+    }
     return estado.datos.global ? estado.datos.global[codigo] : null;
+  }
+
+  function whatsappGlobalData() {
+    return globalData("global_whatsapp_chat");
+  }
+
+  function whatsappGlobalDefault() {
+    return {
+      codigo: "global_whatsapp_chat",
+      slot: "global.whatsapp_chat",
+      tipo: "whatsapp_chat",
+      layout: "floating_multi_contact",
+      visible: true,
+      orden: 70,
+      titulo: "Necesitas ayuda?",
+      subtitulo: "Elige un asesor y escribenos por WhatsApp.",
+      boton: { label: "WhatsApp", icono: "whatsapp" },
+      mensaje_default: "Hola, vi el catalogo de Artiani y quiero mas informacion.",
+      config: {
+        posicion: "bottom_right",
+        mostrar_en_mobile: true,
+        mostrar_en_desktop: true,
+        abrir_en_nueva_pestana: true,
+        mostrar_horario: true,
+        mostrar_estado_online: false
+      },
+      contactos: [
+        {
+          id: "ventas",
+          nombre: "Ventas Artiani",
+          descripcion: "Productos, precios y pedidos",
+          telefono: "",
+          mensaje: "Hola, quiero informacion sobre productos de Artiani.",
+          avatar: "",
+          icono: "whatsapp",
+          horario: "Lunes a sabado de 10:00 a 19:00",
+          orden: 10,
+          visible: true
+        }
+      ]
+    };
   }
 
   function navegacionData(codigo) {
@@ -5622,6 +6277,7 @@
     if (picker.contexto === "cms_categoria") target = categoriasCmsData("categorias_items").items[picker.index];
     if (picker.contexto === "cms_marca") target = marcasCmsData("marcas_items").items[picker.index];
     if (picker.contexto === "cms_pagina") target = paginasCmsData("paginas_items").items[picker.index];
+    if (picker.contexto === "global_whatsapp_contacto") target = whatsappGlobalData().contactos[picker.index];
     if (!target) return;
     setPath(target, picker.campo, normalizarUrlMediaCms(media.url));
     if (picker.contexto === "cms_categoria" && picker.campo === "imagen_card" && !target.alt_card && media.alt) target.alt_card = media.alt;
@@ -5633,6 +6289,7 @@
     if (picker.contexto === "home_esenciales" && picker.campo === "imagen" && !target.alt && media.alt) target.alt = media.alt;
     if (picker.contexto === "home_esencial_principal" && picker.campo === "imagen" && !target.alt && media.alt) target.alt = media.alt;
     if (picker.contexto === "home_marcas" && picker.campo === "logo" && !target.alt_logo && media.alt) target.alt_logo = media.alt;
+    if (picker.contexto === "global_whatsapp_contacto" && picker.campo === "avatar" && !target.descripcion && media.alt) target.descripcion = media.alt;
     if (!target.alt && media.alt) target.alt = media.alt;
     renderGrupo();
     setText("cms_actual_estado", "Media aplicada: " + normalizarUrlMediaCms(media.url));
@@ -5815,6 +6472,25 @@
 
   function esUrlMediaCms(url) {
     return normalizarUrlMediaCms(url).indexOf("/assets/media/cms/ecommerce/") === 0;
+  }
+
+  function esUrlImagenPublicaPersistente(url) {
+    url = String(url || "").trim();
+    if (!url || /^data:image\//i.test(url) || /^blob:/i.test(url) || /^file:/i.test(url)) return false;
+    if (/^[a-zA-Z]:[\\/]/.test(url) || url.indexOf("../") !== -1) return false;
+    if (/^\/(app|storage|tmp)\//i.test(url)) return false;
+    return /^(\/|https?:\/\/)/i.test(url);
+  }
+
+  function resumenImagenesItemsApi(items, contexto) {
+    var lista = (items || []).slice(0, 3);
+    if (!lista.length) return "";
+    return '<div class="mt-2">' + lista.map(function (item, index) {
+      var imagen = item.imagen || item.imagen_card || item.imagen_banner || item.logo || item.imagen_desktop || "";
+      var mobile = item.imagen_mobile || "";
+      var alt = item.alt || item.alt_card || item.alt_logo || "";
+      return '<div class="text-break"><span class="fw-semibold">' + escapeHtml(contexto === "hero" ? "Slide " : "Item ") + escapeHtml(index + 1) + ':</span> ' + escapeHtml(resumenUrlMedia(imagen)) + (mobile ? ' / mobile: ' + escapeHtml(resumenUrlMedia(mobile)) : '') + (alt ? ' / alt: ' + escapeHtml(alt) : '') + '</div>';
+    }).join("") + '</div>';
   }
 
   function resumenUrlMedia(url) {

@@ -18,26 +18,55 @@ class EcommerceAnalyticsErp extends CRUD {
   );
 
   /**
-   * Documentacion IA: Codex GPT-5 | Fecha: 2026-08-04
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-08-30
    * Proposito: entregar contrato publico de analytics ecommerce para frontend externo.
-   * Impacto: evita que el frontend lea docs/archivos internos y fija payloads anonimos sin persistencia real aun.
+   * Impacto: evita que el frontend lea docs/archivos internos y fija payloads anonimos listos para persistencia real.
    * Contrato: solo lectura; no escribe BD ni expone datos internos.
    */
   public function contratoFrontend() {
+    $db = $this->getConexion();
+    $tablas = $this->tablasDisponibles($db);
+    $persistenciaActiva = $this->trackingPublicoActivo($tablas);
     return $this->respuesta(false, "success", "Contrato Ecommerce / Analytics", array(
-      "version" => "fase1-analytics-readonly-2026-08-04",
-      "estado" => "preflight_sin_persistencia",
+      "version" => "fase2-analytics-ready-2026-08-30",
+      "estado" => $persistenciaActiva ? "persistencia_publica_activa" : "preflight_listo_para_persistencia",
+      "persistencia" => array(
+        "activa" => $persistenciaActiva,
+        "modo_actual" => $persistenciaActiva ? "registra_bd" : "valida_sin_guardar",
+        "tablas" => $tablas,
+        "activacion_backend" => "Cuando exista esquema y se habilite ECOMMERCE_ANALYTICS_TRACKING_PUBLICO=true, estos mismos endpoints guardaran eventos anonimos."
+      ),
       "endpoints_publicos" => array(
-        array("metodo" => "POST", "ruta" => "/ecommercePublico/analytics_sesion", "uso" => "Validar/normalizar sesion anonima."),
-        array("metodo" => "POST", "ruta" => "/ecommercePublico/evento_navegacion", "uso" => "Validar evento anonimo."),
-        array("metodo" => "POST", "ruta" => "/ecommercePublico/busqueda_registrar", "uso" => "Validar busqueda anonima."),
-        array("metodo" => "POST", "ruta" => "/ecommercePublico/analytics_conversion", "uso" => "Validar conversion anonima.")
+        array("metodo" => "POST", "ruta" => "/ecommercePublico/analytics_sesion", "uso" => "Crear/actualizar sesion anonima o validarla si la persistencia aun no esta activa."),
+        array("metodo" => "POST", "ruta" => "/ecommercePublico/evento_navegacion", "uso" => "Registrar o validar evento anonimo de navegacion/catalogo/embudo."),
+        array("metodo" => "POST", "ruta" => "/ecommercePublico/busqueda_registrar", "uso" => "Registrar o validar busqueda anonima con conteo de resultados."),
+        array("metodo" => "POST", "ruta" => "/ecommercePublico/analytics_conversion", "uso" => "Registrar o validar conversion anonima del embudo.")
       ),
       "eventos_permitidos" => $this->eventosPermitidos,
       "datos_permitidos" => array("session_id", "tipo_evento", "canal", "ruta", "referrer", "utm_source", "utm_medium", "utm_campaign", "dispositivo", "mascota", "necesidad", "id_publicacion", "id_sku", "slug", "query", "resultados_total", "sin_resultados", "metadata"),
       "datos_prohibidos" => array("nombre", "telefono", "correo", "email", "rfc", "razon_social", "direccion", "datos_fiscales", "stock_exacto"),
-      "guardrails" => $this->guardrails()
+      "regla_cliente" => "Frontend debe generar un session_id anonimo persistente en localStorage; no debe enviar datos personales en analytics. Cuando el usuario deje contacto/cotizacion, el backend podra enlazar esa sesion por flujo separado.",
+      "guardrails" => $this->guardrails($persistenciaActiva)
     ));
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-08-30
+   * Proposito: indicar si los endpoints publicos pueden persistir tracking anonimo.
+   * Impacto: permite activar analytics real con una bandera operativa sin cambiar contrato de frontend.
+   * Contrato: solo evalua constantes y tablas requeridas; no escribe BD.
+   */
+  public function trackingPublicoActivo($tablas = null) {
+    if (!defined("ECOMMERCE_ANALYTICS_TRACKING_PUBLICO") || ECOMMERCE_ANALYTICS_TRACKING_PUBLICO !== true) {
+      return false;
+    }
+    if ($tablas === null) {
+      $tablas = $this->tablasDisponibles($this->getConexion());
+    }
+    foreach (array("sesiones", "eventos", "busquedas", "conversiones") as $tabla) {
+      if (empty($tablas[$tabla])) { return false; }
+    }
+    return true;
   }
 
   /**
@@ -191,7 +220,20 @@ class EcommerceAnalyticsErp extends CRUD {
       "rango" => array("desde" => $desde, "hasta" => $hasta, "limite" => $limite),
       "tablas" => $tablas,
       "fuente_metricas" => "eventos_crudos",
-      "resumen" => array("sesiones_total" => 0, "eventos_total" => 0, "busquedas_total" => 0, "busquedas_sin_resultados" => 0, "whatsapp_total" => 0),
+      "resumen" => array(
+        "sesiones_total" => 0,
+        "eventos_total" => 0,
+        "page_views" => 0,
+        "productos_vistos" => 0,
+        "busquedas_total" => 0,
+        "busquedas_sin_resultados" => 0,
+        "add_to_quote_total" => 0,
+        "quote_dryrun_total" => 0,
+        "quote_preflight_total" => 0,
+        "whatsapp_total" => 0,
+        "facturacion_view_total" => 0,
+        "facturacion_submit_total" => 0
+      ),
       "visitas_por_dia" => array(),
       "urls_mas_vistas" => array(),
       "productos_mas_vistos" => array(),
@@ -200,10 +242,18 @@ class EcommerceAnalyticsErp extends CRUD {
       "busquedas_sin_resultados" => array(),
       "embudo" => $this->embudoVacio(),
       "abandono_por_etapa" => array(),
+      "sesiones_recientes" => array(),
+      "conversiones_por_tipo" => array(),
+      "facturacion_eventos" => array(),
+      "canales" => array(),
       "mascotas_consultadas" => array(),
       "necesidades_consultadas" => array(),
       "productos_interes_sin_conversion" => array(),
       "oportunidades_publicacion" => array(),
+      "persistencia" => array(
+        "activa" => $this->trackingPublicoActivo($tablas),
+        "modo_actual" => $this->trackingPublicoActivo($tablas) ? "registra_bd" : "valida_sin_guardar"
+      ),
       "guardrails" => $this->guardrails()
     );
     if (!$db) {
@@ -223,6 +273,10 @@ class EcommerceAnalyticsErp extends CRUD {
         $stmt = $db->prepare("SELECT COUNT(*) FROM erp_ecommerce_analytics_sesiones WHERE fecha_inicio BETWEEN :inicio AND :fin");
         $stmt->execute(array(":inicio" => $inicio, ":fin" => $fin));
         $depurar["resumen"]["sesiones_total"] = intval($stmt->fetchColumn());
+        $this->cargarDashboardSesiones($db, $depurar, $inicio, $fin, $limite);
+      }
+      if ($tablas["conversiones"]) {
+        $this->cargarDashboardConversiones($db, $depurar, $inicio, $fin, $limite);
       }
       if ($tablas["resumen_diario"]) {
         $this->cargarDashboardResumenDiario($db, $depurar, $desde, $hasta);
@@ -312,7 +366,7 @@ class EcommerceAnalyticsErp extends CRUD {
         ":utm_campaign" => $sesion["utm_campaign"],
         ":dispositivo" => $sesion["dispositivo_aproximado"]
       ));
-      return $this->respuesta(false, "success", "Sesion analytics registrada", array("escribe_bd" => true, "session_id_hash" => $sesion["session_id_hash"], "guardrails" => $this->guardrails()));
+      return $this->respuesta(false, "success", "Sesion analytics registrada", array("escribe_bd" => true, "session_id_hash" => $sesion["session_id_hash"], "guardrails" => $this->guardrails(true)));
     } catch (Exception $e) {
       return $this->respuesta(true, "danger", $e->getMessage(), array("escribe_bd" => false));
     }
@@ -347,7 +401,7 @@ class EcommerceAnalyticsErp extends CRUD {
         $this->insertarConversionDesdeEvento($db, $evento);
       }
       $db->commit();
-      return $this->respuesta(false, "success", "Evento analytics registrado", array("escribe_bd" => true, "id_analytics_evento" => $idEvento, "guardrails" => $this->guardrails()));
+      return $this->respuesta(false, "success", "Evento analytics registrado", array("escribe_bd" => true, "id_analytics_evento" => $idEvento, "guardrails" => $this->guardrails(true)));
     } catch (Exception $e) {
       if (isset($db) && $db && $db->inTransaction()) { $db->rollBack(); }
       return $this->respuesta(true, "danger", $e->getMessage(), array("escribe_bd" => false));
@@ -371,6 +425,7 @@ class EcommerceAnalyticsErp extends CRUD {
     $busqueda = $preflight["depurar"]["busqueda_normalizada"];
     try {
       $db = $this->getConexion();
+      $this->upsertSesionLigera($db, $this->eventoDesdeBusqueda($busqueda));
       $stmt = $db->prepare("INSERT INTO erp_ecommerce_analytics_busquedas
           (session_id_hash, canal, query, query_normalizada, ruta, mascota, necesidad, resultados_total, sin_resultados, filtros_json, metadata_json, fecha_registro)
         VALUES
@@ -388,7 +443,7 @@ class EcommerceAnalyticsErp extends CRUD {
         ":filtros_json" => json_encode($busqueda["filtros"], JSON_UNESCAPED_UNICODE),
         ":metadata_json" => json_encode($busqueda["metadata"], JSON_UNESCAPED_UNICODE)
       ));
-      return $this->respuesta(false, "success", "Busqueda analytics registrada", array("escribe_bd" => true, "id_analytics_busqueda" => intval($db->lastInsertId()), "guardrails" => $this->guardrails()));
+      return $this->respuesta(false, "success", "Busqueda analytics registrada", array("escribe_bd" => true, "id_analytics_busqueda" => intval($db->lastInsertId()), "guardrails" => $this->guardrails(true)));
     } catch (Exception $e) {
       return $this->respuesta(true, "danger", $e->getMessage(), array("escribe_bd" => false));
     }
@@ -411,9 +466,19 @@ class EcommerceAnalyticsErp extends CRUD {
     $evento = $preflight["depurar"]["conversion_normalizada"];
     try {
       $db = $this->getConexion();
+      $db->beginTransaction();
+      $this->upsertSesionLigera($db, $evento);
+      $stmt = $db->prepare("INSERT INTO erp_ecommerce_analytics_eventos
+          (session_id_hash, tipo_evento, canal, ruta, referrer, utm_source, utm_medium, utm_campaign, dispositivo_aproximado, mascota, necesidad, id_publicacion, id_sku, slug, metadata_json, fecha_registro)
+        VALUES
+          (:session_id_hash, :tipo_evento, :canal, :ruta, :referrer, :utm_source, :utm_medium, :utm_campaign, :dispositivo, :mascota, :necesidad, :id_publicacion, :id_sku, :slug, :metadata_json, NOW())");
+      $stmt->execute($this->paramsEvento($evento));
+      $idEvento = intval($db->lastInsertId());
       $id = $this->insertarConversionDesdeEvento($db, $evento);
-      return $this->respuesta(false, "success", "Conversion analytics registrada", array("escribe_bd" => true, "id_analytics_conversion" => $id, "guardrails" => $this->guardrails()));
+      $db->commit();
+      return $this->respuesta(false, "success", "Conversion analytics registrada", array("escribe_bd" => true, "id_analytics_evento" => $idEvento, "id_analytics_conversion" => $id, "guardrails" => $this->guardrails(true)));
     } catch (Exception $e) {
+      if (isset($db) && $db && $db->inTransaction()) { $db->rollBack(); }
       return $this->respuesta(true, "danger", $e->getMessage(), array("escribe_bd" => false));
     }
   }
@@ -588,7 +653,14 @@ class EcommerceAnalyticsErp extends CRUD {
       $tipo = $this->valor($fila, "tipo_evento", "");
       $total = intval($this->valor($fila, "total", 0));
       if (isset($depurar["embudo"][$tipo])) { $depurar["embudo"][$tipo] = $total; }
+      if ($tipo === "page_view") { $depurar["resumen"]["page_views"] = $total; }
+      if ($tipo === "view_product") { $depurar["resumen"]["productos_vistos"] = $total; }
+      if ($tipo === "add_to_quote") { $depurar["resumen"]["add_to_quote_total"] = $total; }
+      if ($tipo === "quote_dryrun") { $depurar["resumen"]["quote_dryrun_total"] = $total; }
+      if ($tipo === "quote_preflight") { $depurar["resumen"]["quote_preflight_total"] = $total; }
       if ($tipo === "open_whatsapp") { $depurar["resumen"]["whatsapp_total"] = $total; }
+      if ($tipo === "facturacion_view") { $depurar["resumen"]["facturacion_view_total"] = $total; }
+      if ($tipo === "facturacion_submit") { $depurar["resumen"]["facturacion_submit_total"] = $total; }
     }
     $depurar["productos_interes_sin_conversion"] = $this->consultaProductosInteresSinConversion($db, $inicio, $fin, $limite);
   }
@@ -602,6 +674,61 @@ class EcommerceAnalyticsErp extends CRUD {
     $depurar["busquedas_frecuentes"] = $this->consultaTop($db, "query_normalizada", "erp_ecommerce_analytics_busquedas", "1=1", $inicio, $fin, $limite);
     $depurar["busquedas_sin_resultados"] = $this->consultaTop($db, "query_normalizada", "erp_ecommerce_analytics_busquedas", "sin_resultados=1", $inicio, $fin, $limite);
     $depurar["oportunidades_publicacion"] = $depurar["busquedas_sin_resultados"];
+  }
+
+  private function cargarDashboardSesiones($db, &$depurar, $inicio, $fin, $limite) {
+    $stmt = $db->prepare("SELECT session_id_hash, canal, primer_ruta, ultimo_ruta, referrer, utm_source, utm_medium, utm_campaign, dispositivo_aproximado, fecha_inicio, fecha_ultima_actividad, eventos_total
+      FROM erp_ecommerce_analytics_sesiones
+      WHERE fecha_inicio BETWEEN :inicio AND :fin
+      ORDER BY COALESCE(fecha_ultima_actividad, fecha_inicio) DESC
+      LIMIT " . intval($limite));
+    $stmt->execute(array(":inicio" => $inicio, ":fin" => $fin));
+    $sesiones = array();
+    foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $fila) {
+      $sesiones[] = array(
+        "session_id_hash_corto" => substr((string) $this->valor($fila, "session_id_hash", ""), 0, 12),
+        "canal" => $this->valor($fila, "canal", ""),
+        "primer_ruta" => $this->valor($fila, "primer_ruta", ""),
+        "ultimo_ruta" => $this->valor($fila, "ultimo_ruta", ""),
+        "referrer" => $this->valor($fila, "referrer", ""),
+        "utm_source" => $this->valor($fila, "utm_source", ""),
+        "utm_medium" => $this->valor($fila, "utm_medium", ""),
+        "utm_campaign" => $this->valor($fila, "utm_campaign", ""),
+        "dispositivo_aproximado" => $this->valor($fila, "dispositivo_aproximado", ""),
+        "fecha_inicio" => $this->valor($fila, "fecha_inicio", ""),
+        "fecha_ultima_actividad" => $this->valor($fila, "fecha_ultima_actividad", ""),
+        "eventos_total" => intval($this->valor($fila, "eventos_total", 0))
+      );
+    }
+    $depurar["sesiones_recientes"] = $sesiones;
+    $stmt = $db->prepare("SELECT canal valor, COUNT(*) total, MAX(fecha_inicio) ultima_fecha
+      FROM erp_ecommerce_analytics_sesiones
+      WHERE fecha_inicio BETWEEN :inicio AND :fin
+        AND TRIM(COALESCE(canal,''))<>''
+      GROUP BY canal
+      ORDER BY total DESC, valor ASC
+      LIMIT " . intval($limite));
+    $stmt->execute(array(":inicio" => $inicio, ":fin" => $fin));
+    $depurar["canales"] = $stmt->fetchAll(PDO::FETCH_ASSOC);
+  }
+
+  private function cargarDashboardConversiones($db, &$depurar, $inicio, $fin, $limite) {
+    $stmt = $db->prepare("SELECT tipo_conversion valor, COUNT(*) total, MAX(fecha_registro) ultima_fecha
+      FROM erp_ecommerce_analytics_conversiones
+      WHERE fecha_registro BETWEEN :inicio AND :fin
+      GROUP BY tipo_conversion
+      ORDER BY total DESC, valor ASC");
+    $stmt->execute(array(":inicio" => $inicio, ":fin" => $fin));
+    $depurar["conversiones_por_tipo"] = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    $stmt = $db->prepare("SELECT tipo_conversion, canal, id_publicacion, id_sku, slug, ruta_origen, etapa_origen, fecha_registro
+      FROM erp_ecommerce_analytics_conversiones
+      WHERE fecha_registro BETWEEN :inicio AND :fin
+        AND tipo_conversion IN ('facturacion_view', 'facturacion_submit')
+      ORDER BY fecha_registro DESC
+      LIMIT " . intval($limite));
+    $stmt->execute(array(":inicio" => $inicio, ":fin" => $fin));
+    $depurar["facturacion_eventos"] = $stmt->fetchAll(PDO::FETCH_ASSOC);
   }
 
   private function cargarDashboardResumenDiario($db, &$depurar, $desde, $hasta) {
@@ -652,9 +779,16 @@ class EcommerceAnalyticsErp extends CRUD {
     $depurar["fuente_metricas"] = "resumen_diario";
     $depurar["resumen"]["sesiones_total"] = $totales["sesiones_total"];
     $depurar["resumen"]["eventos_total"] = $totales["eventos_total"];
+    $depurar["resumen"]["page_views"] = $totales["page_views"];
+    $depurar["resumen"]["productos_vistos"] = $totales["productos_vistos"];
     $depurar["resumen"]["busquedas_total"] = $totales["busquedas_total"];
     $depurar["resumen"]["busquedas_sin_resultados"] = $totales["busquedas_sin_resultados"];
+    $depurar["resumen"]["add_to_quote_total"] = $totales["add_to_quote_total"];
+    $depurar["resumen"]["quote_dryrun_total"] = $totales["dryrun_total"];
+    $depurar["resumen"]["quote_preflight_total"] = $totales["preflight_total"];
     $depurar["resumen"]["whatsapp_total"] = $totales["whatsapp_total"];
+    $depurar["resumen"]["facturacion_view_total"] = $totales["facturacion_view_total"];
+    $depurar["resumen"]["facturacion_submit_total"] = $totales["facturacion_submit_total"];
     $depurar["visitas_por_dia"] = $visitas;
     $depurar["embudo"]["page_view"] = $totales["page_views"];
     $depurar["embudo"]["view_product"] = $totales["productos_vistos"];
@@ -840,6 +974,26 @@ class EcommerceAnalyticsErp extends CRUD {
       ":id_sku" => intval($evento["id_sku"]) > 0 ? intval($evento["id_sku"]) : null,
       ":slug" => $evento["slug"],
       ":metadata_json" => json_encode($evento["metadata"], JSON_UNESCAPED_UNICODE)
+    );
+  }
+
+  private function eventoDesdeBusqueda($busqueda) {
+    return array(
+      "session_id_hash" => $busqueda["session_id_hash"],
+      "tipo_evento" => "search",
+      "canal" => $busqueda["canal"],
+      "ruta" => $busqueda["ruta"],
+      "referrer" => "",
+      "utm_source" => "",
+      "utm_medium" => "",
+      "utm_campaign" => "",
+      "dispositivo_aproximado" => "",
+      "mascota" => $busqueda["mascota"],
+      "necesidad" => $busqueda["necesidad"],
+      "id_publicacion" => 0,
+      "id_sku" => 0,
+      "slug" => "",
+      "metadata" => $busqueda["metadata"]
     );
   }
 
@@ -1116,10 +1270,11 @@ class EcommerceAnalyticsErp extends CRUD {
     return is_array($datos) && array_key_exists($clave, $datos) ? $datos[$clave] : $default;
   }
 
-  private function guardrails() {
+  private function guardrails($escrituraAnonimaActiva = false) {
     return array(
-      "no_escribe_bd" => true,
-      "persistencia_requiere_autorizacion_explicita" => true,
+      "no_escribe_bd" => !$escrituraAnonimaActiva,
+      "escribe_solo_analytics_anonimo" => $escrituraAnonimaActiva,
+      "persistencia_requiere_autorizacion_explicita" => !$escrituraAnonimaActiva,
       "no_guardar_datos_personales" => true,
       "session_id_se_devuelve_como_hash" => true,
       "no_mostrar_stock_exacto" => true,

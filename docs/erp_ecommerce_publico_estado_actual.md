@@ -4,6 +4,37 @@ Documentacion IA: Codex GPT-5
 Fecha: 2026-07-15  
 Estado: verde con datos reales Fase 1; catalogo publico activado sin checkout.
 
+Actualizacion 2026-08-30:
+
+- Se preparo el modulo `Ecommerce Leads / Carritos` para capturar intencion comercial sin crear pedidos, ventas ni movimientos de inventario.
+- Se agregaron modelos `EcommerceLeadsErp` y `EcommerceLeadsEsquema`.
+- Endpoints publicos nuevos en modo contrato/preflight:
+  - `GET /ecommercePublico/leads_contrato`;
+  - `POST /ecommercePublico/carrito_sincronizar`;
+  - `POST /ecommercePublico/carrito_evento`;
+  - `POST /ecommercePublico/intento_pedido`;
+  - `POST /ecommercePublico/contacto_registrar`;
+  - `POST /ecommercePublico/facturacion_solicitud_registrar`.
+- Endpoints internos nuevos:
+  - `GET /ecommercePublico/leads`;
+  - `GET /ecommercePublico/carritos_dashboard_erp`;
+  - `GET /ecommercePublico/carrito_detalle_erp/{id}`;
+  - `POST /ecommercePublico/carrito_accion_plan_erp`;
+  - `GET /ecommercePublico/esquema_auditar_leads`;
+  - `GET /ecommercePublico/esquema_plan_leads`.
+- El modulo queda separado de Analytics: Analytics mide eventos anonimos; Leads guarda snapshot comercial y contacto solo si el cliente lo escribio explicitamente.
+- Los items de Leads se validan read-only contra publicaciones/catalogo cuando estan disponibles y devuelven `validacion_publicacion` por renglon (`publicacion_vigente`, `publicacion_no_publicada`, `sku_sin_publicacion`, `producto_inactivo`, `sku_inactivo`, `identificadores_inconsistentes`, `no_encontrado`, `sin_identificador`, `validacion_no_disponible` o `validacion_error`).
+- La persistencia real queda preparada en codigo detras de `ECOMMERCE_LEADS_PUBLICO=true`; no se ejecuto DDL ni se activo escritura publica. La activacion debe hacerse despues de respaldo externo y UAT.
+- UATs read-only agregados:
+  - `storage/uat/uat_ecommerce_leads_plan_readonly.php`;
+  - `storage/uat/uat_ecommerce_leads_http_readonly.php`.
+- Scripts de activacion/postcheck preparados:
+  - `storage/uat/uat_ecommerce_leads_schema_apply_authorized.php`;
+  - `storage/uat/uat_ecommerce_leads_schema_postcheck_readonly.php`;
+  - `storage/uat/uat_ecommerce_leads_persistencia_publica_http.php`.
+- Vista interna preparada en `app/vistas/paginas/apps/erp/ecommerce/leads.php` con JS `public/assets/js/custom/apps/erp/ecommerce/leads.js`.
+- Documento vivo nuevo: `docs/erp_ecommerce_leads_carritos_plan.md`.
+
 Actualizacion 2026-07-30:
 
 - La consola interna `http://panel.com.local/ecommercePublico/publicaciones` ya permite preparar curaduria, guardar/actualizar borrador y publicar productos ecommerce desde el panel.

@@ -1,9 +1,9 @@
 <?php
 
 /**
- * Documentacion IA: Codex GPT-5, 2026-08-05.
- * Proposito: validar contrato read-only del dashboard Ecommerce / Analytics.
- * Impacto: confirma fallback entre resumen diario y eventos crudos sin escribir BD.
+ * Documentacion IA: Codex GPT-5, 2026-08-31.
+ * Proposito: validar contrato read-only del dashboard Ecommerce / Analytics v1.
+ * Impacto: confirma vista interna ampliada sin escribir BD ni exponer PII.
  * Contrato: read-only; no crea tablas ni registra eventos.
  */
 
@@ -25,7 +25,18 @@ $ok = empty($dashboard["error"])
   && isset($depurar["resumen"])
   && isset($depurar["embudo"])
   && isset($depurar["visitas_por_dia"])
-  && isset($depurar["guardrails"]["no_escribe_bd"]);
+  && isset($depurar["sesiones_recientes"])
+  && isset($depurar["canales"])
+  && isset($depurar["conversiones_por_tipo"])
+  && isset($depurar["facturacion_eventos"])
+  && isset($depurar["abandono_por_etapa"])
+  && isset($depurar["persistencia"]["modo_actual"])
+  && isset($depurar["guardrails"]["no_escribe_bd"])
+  && !isset($depurar["session_id"])
+  && !isset($depurar["telefono"])
+  && !isset($depurar["correo"])
+  && !isset($depurar["email"])
+  && !isset($depurar["rfc"]);
 
 echo json_encode(array(
   "ok" => $ok,
@@ -36,6 +47,14 @@ echo json_encode(array(
   "tablas" => $depurar["tablas"] ?? array(),
   "resumen" => $depurar["resumen"] ?? array(),
   "embudo_claves" => array_keys($depurar["embudo"] ?? array()),
+  "vista_claves" => array(
+    "sesiones_recientes" => is_array($depurar["sesiones_recientes"] ?? null),
+    "canales" => is_array($depurar["canales"] ?? null),
+    "conversiones_por_tipo" => is_array($depurar["conversiones_por_tipo"] ?? null),
+    "facturacion_eventos" => is_array($depurar["facturacion_eventos"] ?? null),
+    "abandono_por_etapa" => is_array($depurar["abandono_por_etapa"] ?? null),
+    "persistencia" => $depurar["persistencia"]["modo_actual"] ?? null
+  ),
   "guardrails" => array(
     "no_escribe_bd" => true,
     "fallback_resumen_diario_o_eventos_crudos" => true,

@@ -79,6 +79,15 @@ $gruposMenu = array(
     ),
     array(
         'seccion' => 'ERP',
+        'titulo' => 'Business Intelligence',
+        'icono' => 'bi-bar-chart-line',
+        'permiso' => array('reportes.ver', 'finanzas.ver', 'ventas.ver', 'catalogo.ver', 'ecommerce.ver'),
+        'items' => array(
+            array('titulo' => 'Publicidad y temporadas', 'ruta' => '/businessintelligence/publicidad_temporadas', 'permiso' => array('reportes.ver', 'finanzas.ver', 'ventas.ver', 'catalogo.ver', 'ecommerce.ver'))
+        )
+    ),
+    array(
+        'seccion' => 'ERP',
         'titulo' => 'Rentabilidad',
         'icono' => 'bi-graph-up-arrow',
         'permiso' => 'rentabilidad.ver',
@@ -268,6 +277,7 @@ $gruposMenu = array(
         'items' => array(
             array('titulo' => 'Control Artiani', 'ruta' => '/ecommercePublico/control', 'permiso' => 'catalogo.ver'),
             array('titulo' => 'Ecommerce publico', 'ruta' => '/ecommercePublico/publicaciones', 'permiso' => 'catalogo.ver'),
+            array('titulo' => 'Leads / Carritos', 'ruta' => '/ecommercePublico/leads', 'permiso' => 'catalogo.ver'),
             array('titulo' => 'Cotizaciones', 'ruta' => '/ecommercePublico/cotizaciones', 'permiso' => 'catalogo.ver'),
             array('titulo' => 'Analytics', 'ruta' => '/ecommercePublico/analytics', 'permiso' => 'catalogo.ver'),
             array('titulo' => 'Catalogo ecommerce', 'ruta' => '/producto/catalogo', 'permiso' => 'ecommerce.ver')

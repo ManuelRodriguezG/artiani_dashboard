@@ -9,8 +9,8 @@
     <link href="assets/plugins/global/plugins.bundle.css" rel="stylesheet" type="text/css">
     <link href="assets/css/style.bundle.css" rel="stylesheet" type="text/css">
     <!--
-      Documentacion IA: Codex GPT-5, 2026-08-04.
-      Proposito: dashboard interno read-only para Ecommerce / Analytics.
+      Documentacion IA: Codex GPT-5, 2026-08-31.
+      Proposito: dashboard interno operativo para Ecommerce / Analytics v1.
       Impacto: decisiones de catalogo, navegacion y conversion sin datos personales, stock exacto, ventas ni inventario.
       Contrato: consume endpoints internos protegidos; no escribe BD.
     -->
@@ -23,6 +23,7 @@
         .ecom-an-funnel { display: grid; grid-template-columns: repeat(6, minmax(110px, 1fr)); gap: 10px; }
         .ecom-an-step { border: 1px solid #dfe4ef; border-radius: 8px; padding: 12px; background: #f9fafc; min-height: 84px; }
         .ecom-an-step strong { display: block; font-size: 1.25rem; color: #181c32; }
+        .ecom-an-scroll { max-height: 360px; overflow: auto; }
         @media (max-width: 991px) { .ecom-an-funnel { grid-template-columns: repeat(2, minmax(120px, 1fr)); } }
     </style>
 </head>
@@ -49,11 +50,11 @@
                     </div>
                     <div class="app-content flex-column-fluid">
                         <div class="app-container container-fluid">
-                            <div class="alert alert-info d-flex align-items-start gap-3">
+                            <div class="alert alert-success d-flex align-items-start gap-3">
                                 <i class="bi bi-shield-check fs-2"></i>
                                 <div>
-                                    <div class="fw-bold">Fase 1 read-only</div>
-                                    <div>No guarda datos personales, no muestra stock exacto, no crea checkout, no toca ventas y no descuenta inventario.</div>
+                                    <div class="fw-bold">Analytics v1 activo</div>
+                                    <div>Persistencia anonima por session hash; no guarda datos personales, no muestra stock exacto, no crea checkout, no toca ventas y no descuenta inventario.</div>
                                 </div>
                             </div>
 
@@ -77,15 +78,19 @@
                                     </div>
                                     <div class="col-md-3 text-md-end">
                                         <span class="badge badge-light-primary" id="ecom_an_estado">Listo</span>
+                                        <span class="badge badge-light ms-2" id="ecom_an_persistencia">Validando</span>
                                     </div>
                                 </div>
                             </div>
 
                             <div class="row g-4 mb-5">
                                 <div class="col-md-3"><div class="ecom-an-kpi"><div class="ecom-an-kpi__label">Sesiones</div><div class="ecom-an-kpi__value" id="ecom_an_kpi_sesiones">0</div><div class="text-muted fs-7 mt-2">Session hash anonimo.</div></div></div>
-                                <div class="col-md-3"><div class="ecom-an-kpi"><div class="ecom-an-kpi__label">Eventos</div><div class="ecom-an-kpi__value" id="ecom_an_kpi_eventos">0</div><div class="text-muted fs-7 mt-2">Navegacion registrada.</div></div></div>
+                                <div class="col-md-3"><div class="ecom-an-kpi"><div class="ecom-an-kpi__label">Page views</div><div class="ecom-an-kpi__value" id="ecom_an_kpi_page_views">0</div><div class="text-muted fs-7 mt-2">URLs visitadas.</div></div></div>
+                                <div class="col-md-3"><div class="ecom-an-kpi"><div class="ecom-an-kpi__label">Productos vistos</div><div class="ecom-an-kpi__value" id="ecom_an_kpi_productos_vistos">0</div><div class="text-muted fs-7 mt-2">Detalle de producto.</div></div></div>
                                 <div class="col-md-3"><div class="ecom-an-kpi"><div class="ecom-an-kpi__label">Busquedas</div><div class="ecom-an-kpi__value" id="ecom_an_kpi_busquedas">0</div><div class="text-muted fs-7 mt-2">Demanda anonima.</div></div></div>
+                                <div class="col-md-3"><div class="ecom-an-kpi"><div class="ecom-an-kpi__label">Eventos</div><div class="ecom-an-kpi__value" id="ecom_an_kpi_eventos">0</div><div class="text-muted fs-7 mt-2">Tracking total.</div></div></div>
                                 <div class="col-md-3"><div class="ecom-an-kpi"><div class="ecom-an-kpi__label">WhatsApp</div><div class="ecom-an-kpi__value" id="ecom_an_kpi_whatsapp">0</div><div class="text-muted fs-7 mt-2">Aperturas estimadas.</div></div></div>
+                                <div class="col-md-3"><div class="ecom-an-kpi"><div class="ecom-an-kpi__label">Facturacion</div><div class="ecom-an-kpi__value" id="ecom_an_kpi_facturacion">0</div><div class="text-muted fs-7 mt-2">Envios de solicitud.</div></div></div>
                             </div>
 
                             <div class="ecom-an-panel p-5 mb-5">
@@ -99,14 +104,19 @@
                             </div>
 
                             <div class="row g-5 mb-5">
+                                <div class="col-xl-8"><div class="ecom-an-panel p-5 h-100"><h3 class="fw-bold mb-4">Sesiones recientes</h3><div id="ecom_an_sesiones"></div></div></div>
+                                <div class="col-xl-4"><div class="ecom-an-panel p-5 h-100"><h3 class="fw-bold mb-4">Canales</h3><div id="ecom_an_canales"></div></div></div>
                                 <div class="col-lg-6"><div class="ecom-an-panel p-5 h-100"><h3 class="fw-bold mb-4">URLs mas vistas</h3><div id="ecom_an_urls"></div></div></div>
                                 <div class="col-lg-6"><div class="ecom-an-panel p-5 h-100"><h3 class="fw-bold mb-4">Productos mas vistos</h3><div id="ecom_an_productos_vistos"></div></div></div>
                                 <div class="col-lg-6"><div class="ecom-an-panel p-5 h-100"><h3 class="fw-bold mb-4">Agregados a cotizacion</h3><div id="ecom_an_productos_cotizacion"></div></div></div>
+                                <div class="col-lg-6"><div class="ecom-an-panel p-5 h-100"><h3 class="fw-bold mb-4">Conversiones</h3><div id="ecom_an_conversiones"></div></div></div>
                                 <div class="col-lg-6"><div class="ecom-an-panel p-5 h-100"><h3 class="fw-bold mb-4">Busquedas frecuentes</h3><div id="ecom_an_busquedas"></div></div></div>
                                 <div class="col-lg-6"><div class="ecom-an-panel p-5 h-100"><h3 class="fw-bold mb-4">Busquedas sin resultados</h3><div id="ecom_an_sin_resultados"></div></div></div>
+                                <div class="col-lg-6"><div class="ecom-an-panel p-5 h-100"><h3 class="fw-bold mb-4">Facturacion</h3><div id="ecom_an_facturacion"></div></div></div>
                                 <div class="col-lg-6"><div class="ecom-an-panel p-5 h-100"><h3 class="fw-bold mb-4">Interes sin conversion</h3><div id="ecom_an_interes_sin_conversion"></div></div></div>
                                 <div class="col-lg-6"><div class="ecom-an-panel p-5 h-100"><h3 class="fw-bold mb-4">Mascotas consultadas</h3><div id="ecom_an_mascotas"></div></div></div>
                                 <div class="col-lg-6"><div class="ecom-an-panel p-5 h-100"><h3 class="fw-bold mb-4">Necesidades consultadas</h3><div id="ecom_an_necesidades"></div></div></div>
+                                <div class="col-lg-6"><div class="ecom-an-panel p-5 h-100"><h3 class="fw-bold mb-4">Abandono por etapa</h3><div id="ecom_an_abandono"></div></div></div>
                             </div>
 
                             <div class="ecom-an-empty p-5 text-center text-muted d-none" id="ecom_an_empty">
@@ -121,6 +131,6 @@
 </div>
 <script src="assets/plugins/global/plugins.bundle.js"></script>
 <script src="assets/js/scripts.bundle.js"></script>
-<script src="/assets/js/custom/apps/erp/ecommerce/analytics.js?v=20260804-readonly1"></script>
+<script src="/assets/js/custom/apps/erp/ecommerce/analytics.js?v=20260831-v1-activo"></script>
 </body>
 </html>

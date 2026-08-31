@@ -108,6 +108,30 @@ Reglas para usarlo:
 - Para favicon usa `Uso: Global` y `Tipo: Favicon`; se permite archivo `.ico`.
 - Para la imagen social/SEO usa `Uso: Global` y `Tipo: Imagen social SEO`.
 
+### WhatsApp multi contacto
+
+Ruta: `/cms/frontend/global`, seccion `global_whatsapp_chat`.
+
+Uso:
+
+- Activa o desactiva todo el modulo con `Modulo activo`.
+- Captura titulo, subtitulo, texto del boton y mensaje default.
+- Agrega uno o varios contactos con `Agregar contacto`.
+- Cada contacto visible necesita nombre y telefono en formato internacional sin espacios. Para Mexico usa `521XXXXXXXXXX`.
+- Si el mensaje del contacto queda vacio, el frontend puede usar `mensaje_default`.
+- El avatar es opcional; si lo usas, selecciona una imagen guardada en Media CMS. Recomendado: WebP/PNG cuadrado 400x400.
+- Usa `Guardar y publicar WhatsApp` para que salga en la API.
+- Usa `Ver API global` para validar `GET /ecommercePublico/contenido_pagina?pagina=global`.
+
+Contrato publicado:
+
+- Slot: `global.whatsapp_chat`.
+- Tipo: `whatsapp_chat`.
+- Layout: `floating_multi_contact`.
+- El frontend debe ordenar por `orden`, mostrar solo `visible=true` y no mostrar contactos sin telefono valido.
+- Cada contacto abre `https://wa.me/{telefono}?text={mensaje_url_encoded}`.
+- Si el modulo esta desactivado, el frontend no debe mostrar el boton flotante.
+
 ## CMS > Frontend > Navegacion
 
 Ruta: `/cms/frontend/navegacion`.
@@ -160,8 +184,9 @@ Estado actual:
 - Permite controlar si las categorias se muestran en Home y en menu.
 - Permite administrar por categoria: ID ERP, slug, titulo, subtitulo, descripcion SEO, URL publica, visible, destacado y orden.
 - Permite seleccionar una categoria real desde el catalogo publico para completar ID ERP, titulo, slug, URL publica y alt automaticamente.
-- Permite seleccionar imagen card y banner desde `Media`.
+- Permite seleccionar imagen card y `Banner principal ecommerce` desde `Media`.
 - Permite usar imagen de categoria cuando la categoria real ya tenga una imagen editorial disponible.
+- Permite definir `Heredar banner`: si una subcategoria no tiene banner propio, `/ecommercePublico/categorias` resuelve `banner_ecommerce` usando el primer padre de la jerarquia que tenga `imagen_banner`.
 - Genera `Preview JSON esperado` orientado a `/ecommercePublico/categorias`.
 - Ya cuenta con boton `Guardar y publicar categorias`.
 - `/ecommercePublico/categorias` conserva las categorias reales del ERP y agrega el enriquecimiento CMS cuando existe.
@@ -174,6 +199,8 @@ Reglas para usarlo:
 - Los slugs y URLs deben corresponder a rutas publicas del frontend, por ejemplo `/categoria/peces`.
 - Para jerarquias de categoria/subcategoria usa `path_slug`, por ejemplo `acuario-y-peces/alimentacion/alimentos-de-acuario`.
 - Para imagenes, usar Media marcada como `Servidor BD`; las temporales locales no salen en API.
+- Frontend debe preferir `banner_ecommerce.imagen_desktop` para portada de categoria; `imagen_banner_resuelta` queda como atajo.
+- Si la categoria tiene banner propio, ese gana. Si no tiene y `Heredar banner` esta en `Si`, gana el primer banner de su jerarquia padre.
 
 ## CMS > Frontend > Home > Esenciales Artiani
 
@@ -397,14 +424,20 @@ Ruta: `/cms/frontend/home`.
 Estado actual:
 
 - `home.marcas_destacadas` ya tiene editor operativo.
-- Permite editar titulo, subtitulo, variante visual y lista de marcas destacadas.
-- Cada marca permite `marca_id`, nombre, slug, URL publica, logo, banner opcional, alt y descripcion corta.
+- Permite editar titulo, subtitulo, orden, variante visual y categoria origen.
+- La categoria origen define el contexto comercial, por ejemplo una categoria principal o subcategoria con productos publicados.
+- Puede trabajar en modo `mixto`, `automatico_categoria` o `manual`.
+- Al seleccionar la categoria, el bloque publica tambien `imagen`, `imagen_menu`, `imagen_card`, `imagen_banner` e `imagenes_catalogo` dentro de `categoria_contexto`.
+- Cada marca manual permite `marca_id`, nombre, slug, URL publica, logo, banner opcional, alt y descripcion corta.
 - El boton `Guardar y publicar marcas` persiste la seccion en BD y la expone en `/ecommercePublico/contenido_pagina?pagina=home`, slot `home.marcas`.
-- Si no capturas logo, frontend puede usar fallback visual con iniciales.
+- Si no capturas marcas manuales y usas modo automatico/mixto, el backend completa `items` con marcas reales que tienen productos publicados en esa categoria.
 
 Reglas para usarlo:
 
-- La marca real debe existir o existir despues en la API/catalogo.
+- Primero selecciona una categoria real en `Categoria origen`.
+- En `Modo`, usa `Mixto` si quieres que la categoria mande y ademas priorizar algunas marcas manuales.
+- Usa `Automatico por categoria` cuando quieras mostrar todas las marcas publicadas de esa categoria. En `Limite 0=todas`, deja `0` para que el backend mande hasta 100 marcas.
+- Usa `Manual` solo si vas a seleccionar marcas especificas una por una desde el selector `Marca real`.
 - Usar URL publica limpia, por ejemplo `/marca/tropical`.
 - Para logos usa Media CMS con `Uso: Home` o `Global` y `Tipo: Logo principal`.
 
@@ -970,6 +1003,24 @@ Flujo rapido desde Home:
 La galeria del modal muestra previsualizaciones desde Media CMS. El campo de texto es solo `Filtro opcional`; no necesitas depender del nombre del archivo si la imagen se reconoce visualmente.
 
 Nota API: mientras no exista una publicacion CMS formal para `home.hero`, `/ecommercePublico/contenido_pagina?pagina=home` puede usar como fallback la ultima imagen activa de Media CMS con `uso=home` y `tipo=hero`, `banner` o `principal`.
+
+### Imagenes Home y API publicada
+
+Regla general: al publicar Home, no pegues `data:image`, `blob:`, `file:`, rutas `C:\...`, `/app/...`, `/storage/...` ni temporales. Usa una URL persistente de Media CMS, normalmente `/assets/media/cms/ecommerce/...`. Si una imagen ya existe en Media CMS, abre el modal, previsualizala y pulsa `Usar imagen seleccionada`; no la vuelvas a subir.
+
+- Hero / Banner principal: publica en `home.hero`. Debe entregar `media.imagen_desktop`, `media.imagen_mobile`, `media.alt` y tambien `items[].imagen_desktop`, `items[].imagen_mobile`, `items[].alt`. Desktop recomendado: 1920 x 700 u 800. Mobile recomendado: 900 x 1200.
+- Home promos por categoria: cada item publica `imagen`, `alt`, `url`, `path_slug` y `categoria_id`. Si seleccionas una categoria real, el panel completa URL y path; si la categoria ya tiene imagen puedes usar `Usar imagen de categoria`, y si no te gusta puedes reemplazarla con Media CMS. Medidas: 1200 x 900 o 1200 x 1200.
+- Categorias destacadas Home: cada item publica `imagen`, `imagen_card`, `imagen_banner`, `alt`, `alt_card`, `alt_banner`, `url`, `path_slug` y `categoria_id`. No dupliques imagen si la categoria ya tiene `imagen_card` o `imagen_banner`; usa la imagen de categoria o reemplazala con Media CMS. Card: 1200 x 1200. Banner: 1920 x 500 o 600.
+- Home Esenciales Artiani: publica `categoria_principal.imagen`, `categoria_principal.imagen_card`, `categoria_principal.imagen_banner` y cards con `items[].imagen`, `items[].alt`, `items[].categoria_id`, `items[].path_slug`, `items[].url`. Puedes guardar borrador aunque falten imagenes; para publicar se autocompletan desde categoria cuando existan.
+- Home marcas destacadas: publica `categoria_contexto.imagen`, `imagen_menu`, `imagen_card`, `imagen_banner`, `imagenes_catalogo`, `path_slug`, `url`, y por marca `logo`, `imagen_banner`, `url`, `slug`, `marca_id`. En modo `automatico_categoria` entrega marcas reales de la categoria; `Limite 0=todas` resuelve hasta 100.
+
+Para verificar, usa `Ver API publicada` en cada seccion. El panel consulta `/ecommercePublico/cms_frontend?pagina=home` o `/ecommercePublico/contenido_pagina?pagina=home`, muestra la fuente `bd_publicada`, cantidad de items y las primeras imagenes que llegan. Si el resumen muestra `sin imagen` o una imagen temporal, no publiques: corrige desde Media CMS o usa la imagen de categoria disponible.
+
+Diferencias de imagen:
+
+- Imagen de categoria: vive en el catalogo publico de categorias y sirve como base editorial para cards o banners.
+- Imagen de Home: es una imagen elegida para una seccion especifica de Home; puede reemplazar a la imagen de categoria sin cambiar catalogo.
+- Banner principal: es la imagen de primer impacto de `home.hero`; debe tener desktop, mobile y alt propio.
 
 ### Como interpretar la vista
 

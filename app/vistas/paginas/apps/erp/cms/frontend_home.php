@@ -7,7 +7,7 @@
  */
 $cmsFrontendTitulo = "CMS - Frontend Home";
 $cmsFrontendHeading = "CMS / Frontend / Home";
-$cmsFrontendSubtitulo = "Administra hero, categorias, productos destacados, colecciones y banner de Home";
+$cmsFrontendSubtitulo = "Administra hero, promos, categorias, marcas, productos destacados, colecciones y banner de Home";
 $cmsFrontendGrupoInicial = "home";
 $cmsFrontendVistaDedicada = true;
 $cmsFrontendAvisoTitulo = "Home del ecommerce";

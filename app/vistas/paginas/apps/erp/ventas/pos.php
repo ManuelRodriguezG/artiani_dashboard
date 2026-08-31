@@ -352,6 +352,11 @@
                                                         <span>Total estimado</span>
                                                         <strong id="pos_total">$0.00</strong>
                                                     </div>
+                                                    <div class="border rounded p-3 mb-3">
+                                                        <label class="form-label text-muted fs-8 text-uppercase mb-1">Fecha operativa temporal</label>
+                                                        <input class="form-control form-control-sm" id="pos_fecha_operacion" type="datetime-local">
+                                                        <div class="text-muted fs-8 mt-1">Solo aplica en caja piloto sin afectar inventario. Si se deja vacia, usa la fecha actual.</div>
+                                                    </div>
                                                     <div class="d-grid gap-2">
                                                         <button class="btn btn-success btn-lg w-100" id="pos_cobrar_real" type="button"><i class="bi bi-cash-coin"></i> Cobrar <span class="pos-shortcut-hint">Ctrl+Enter</span></button>
                                                         <button class="btn btn-warning btn-lg w-100 d-none" id="pos_cobrar_faltantes_real" type="button"><i class="bi bi-exclamation-triangle"></i> Cobrar con faltantes</button>
@@ -662,6 +667,6 @@ window.POS_USUARIO_ACTUAL = <?= json_encode(array(
 </script>
 <script src="assets/plugins/global/plugins.bundle.js"></script>
 <script src="assets/js/scripts.bundle.js"></script>
-<script src="/assets/js/custom/apps/erp/ventas/pos.js?v=20260818-modo-inventario-pos1"></script>
+<script src="/assets/js/custom/apps/erp/ventas/pos.js?v=20260829-fecha-operacion-piloto1"></script>
 </body>
 </html>

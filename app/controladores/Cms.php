@@ -829,6 +829,30 @@ class Cms extends Controlador {
   }
 
   /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-08-30
+   * Proposito: publicar el widget WhatsApp multi contacto para el frontend publico.
+   * Impacto: CMS frontend global; crea/actualiza bloque `global.whatsapp_chat` consumible por contenido_pagina.
+   * Contrato: POST protegido por cms.publicar/catalogo.editar, CSRF y auditoria; valida telefonos publicos y no toca catalogo.
+   */
+  public function frontend_global_whatsapp_publicar_erp() {
+    $this->requerirAlgunPermiso(array("cms.publicar", "catalogo.editar"));
+    $respuesta = $this->modelo("EcommerceCatalogoPublico")->frontendGlobalWhatsappPublicarInterno($_POST, $this->usuarioActualId());
+    $depurar = isset($respuesta["depurar"]) && is_array($respuesta["depurar"]) ? $respuesta["depurar"] : array();
+    SesionSeguridad::registrarAuditoria("cms", "frontend_global_whatsapp_publicar_erp", array(
+      "resultado" => empty($respuesta["error"]) ? "ok" : "error",
+      "mensaje" => isset($respuesta["mensaje"]) ? $respuesta["mensaje"] : "",
+      "datos_despues" => array(
+        "id_bloque" => isset($depurar["id_bloque"]) ? $depurar["id_bloque"] : null,
+        "id_publicacion_contenido" => isset($depurar["id_publicacion_contenido"]) ? $depurar["id_publicacion_contenido"] : null,
+        "slot" => isset($depurar["slot"]) ? $depurar["slot"] : "global.whatsapp_chat",
+        "contactos_visibles" => isset($depurar["contactos_visibles"]) ? $depurar["contactos_visibles"] : 0,
+        "publicado_api" => isset($depurar["publicado_api"]) ? $depurar["publicado_api"] : false
+      )
+    ));
+    return json_encode($respuesta, JSON_UNESCAPED_UNICODE);
+  }
+
+  /**
    * Documentacion IA: Codex GPT-5 | Fecha: 2026-08-25
    * Proposito: publicar enriquecimiento visual/SEO de categorias desde CMS Frontend.
    * Impacto: CMS frontend categorias; agrega imagenes y textos publicos sin modificar catalogo, precios ni inventario.

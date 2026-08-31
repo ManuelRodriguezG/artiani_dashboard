@@ -1166,3 +1166,181 @@ Pendiente:
   - descripcion pendiente.
 - Agregar accion masiva para pausar publicaciones con posible granel textual.
 - Conectar estos conteos al resumen/KPIs de la pantalla.
+
+## Ecommerce Analytics v1 preparado 2026-08-30
+
+Objetivo:
+
+- Medir desde la primera version publica el camino anonimo de cada visitante:
+  - sesion;
+  - pagina visitada;
+  - producto visto;
+  - busqueda;
+  - alta/baja de carrito o cotizacion;
+  - dry-run/preflight;
+  - apertura de WhatsApp;
+  - vistas/envios de facturacion.
+
+Cambios aplicados:
+
+- Se actualiza `GET /ecommercePublico/analytics_contrato` a version `fase2-analytics-ready-2026-08-30`.
+- El contrato ahora informa:
+  - `depurar.estado`;
+  - `depurar.persistencia.activa`;
+  - `depurar.persistencia.modo_actual`;
+  - tablas disponibles;
+  - eventos permitidos;
+  - datos permitidos y prohibidos.
+- Los endpoints publicos conservan el mismo contrato para frontend:
+  - `POST /ecommercePublico/analytics_sesion`;
+  - `POST /ecommercePublico/evento_navegacion`;
+  - `POST /ecommercePublico/busqueda_registrar`;
+  - `POST /ecommercePublico/analytics_conversion`.
+- Se deja preparado el cambio automatico de preflight a persistencia real con bandera operativa `ECOMMERCE_ANALYTICS_TRACKING_PUBLICO=true`.
+- Si la bandera no esta activa o faltan tablas, los endpoints siguen en modo `preflight` y no escriben BD.
+- Se agrega documento para frontend:
+  - `docs/erp_ecommerce_analytics_frontend_handoff.md`.
+
+Reglas:
+
+- Frontend debe generar un `session_id` anonimo persistente en `localStorage`.
+- Analytics no debe recibir datos personales:
+  - nombre;
+  - telefono;
+  - correo/email;
+  - RFC;
+  - razon social;
+  - direccion;
+  - datos fiscales.
+- Analytics no debe recibir stock exacto.
+- Cuando el usuario envie cotizacion/contacto/facturacion, el mismo `session_id` debe viajar en ese flujo para enlazar despues con CRM/pedidos sin contaminar eventos crudos.
+
+Pendiente para activar persistencia real:
+
+- Auditar/aplicar esquema `EcommerceAnalyticsEsquema`.
+- Confirmar politica de retencion de eventos crudos.
+- Activar bandera `ECOMMERCE_ANALYTICS_TRACKING_PUBLICO=true` en configuracion del entorno.
+- Ejecutar pruebas POST reales contra los cuatro endpoints.
+- Revisar dashboard interno `EcommercePublico/analytics`.
+
+## Ecommerce Analytics v1 activo 2026-08-31
+
+Resultado:
+
+- DDL de `EcommerceAnalyticsEsquema` aplicado con respaldo externo verificado.
+- Tablas disponibles:
+  - `erp_ecommerce_analytics_sesiones`;
+  - `erp_ecommerce_analytics_eventos`;
+  - `erp_ecommerce_analytics_busquedas`;
+  - `erp_ecommerce_analytics_conversiones`;
+  - `erp_ecommerce_analytics_resumen_diario`.
+- Bandera activa:
+  - `ECOMMERCE_ANALYTICS_TRACKING_PUBLICO=true`.
+- Contrato publico actual:
+  - `depurar.estado=persistencia_publica_activa`;
+  - `depurar.persistencia.activa=true`;
+  - `depurar.persistencia.modo_actual=registra_bd`.
+- UAT nuevo:
+  - `storage/uat/uat_ecommerce_analytics_persistencia_publica_http.php`.
+- Senal UAT:
+  - `verde_persistencia_publica_anonima`.
+
+Respaldo usado:
+
+```text
+C:\xampp\panel_db_backups\artianicom_sys_panel_20260830_215637_antes_ecommerce_analytics_v1.sql
+sha256=0c9d62f08c76c6056e017fad0f341dd4a3533c5506f777f277dcada8acde6e42
+```
+
+Reglas confirmadas:
+
+- Analytics registra solo datos anonimos por `session_id_hash`.
+- Bloquea PII y stock exacto antes de escribir.
+- No toca ventas, inventario, checkout, pedidos ni cotizaciones reales.
+- `analytics_conversion` registra conversion y evento de embudo para que el dashboard vea WhatsApp/cotizacion.
+- Busquedas y conversiones actualizan sesion ligera para mantener actividad por `session_id_hash`.
+
+Vista interna:
+
+- Ruta:
+  - `GET /ecommercePublico/analytics`.
+- Endpoint de datos:
+  - `GET /ecommercePublico/analytics_dashboard_erp?desde=YYYY-MM-DD&hasta=YYYY-MM-DD&limite=10`.
+- La vista muestra:
+  - sesiones anonimas recientes por hash corto;
+  - canales;
+  - URLs mas visitadas;
+  - productos mas vistos;
+  - busquedas frecuentes;
+  - busquedas sin resultados;
+  - conversiones por tipo;
+  - eventos de facturacion;
+  - embudo;
+  - aperturas de WhatsApp;
+  - abandono por etapa.
+- UAT read-only:
+  - `storage/uat/uat_ecommerce_analytics_dashboard_readonly.php`.
+
+Siguientes pasos:
+
+- Definir retencion operativa de eventos crudos, sugerido 180 dias.
+- Activar resumen diario programado cuando haya volumen.
+- Crear enlace futuro desde atencion/cotizaciones/contactos/facturacion por `session_id_hash`, fuera de analytics crudo y sin guardar PII en eventos.
+- Agregar filtros avanzados por canal/ruta/producto cuando haya volumen suficiente.
+
+## Ajuste operativo 2026-08-31 - Despublicar sin borrar curaduria
+
+Problema:
+
+- La tabla de publicaciones no tenia un interruptor claro para apagar un producto publicado sin borrar su curaduria.
+- Para operacion diaria, despublicar debe ser reversible y no debe borrar imagenes, textos, slug ni configuracion ecommerce.
+
+Decision:
+
+- `estatus_publicacion='pausado'` es el estado canonico para despublicar/ocultar temporalmente sin borrar.
+- `estatus_publicacion='borrador'` queda para preparacion editorial o retiro a mesa de trabajo.
+- `estatus_publicacion='publicado'` es el unico estado visible en API publica.
+- No se agrega `oculto` porque `pausado` ya existe en esquema, consultas internas, readiness y metrica operativa.
+
+Reglas:
+
+- Productos en `pausado` o `borrador` no aparecen en:
+  - `/ecommercePublico/catalogo`;
+  - `/ecommercePublico/producto/{slug}`;
+  - `/ecommercePublico/secciones`;
+  - `/ecommercePublico/navegacion`;
+  - `/ecommercePublico/categorias`;
+  - `/ecommercePublico/marcas`;
+  - `/ecommercePublico/filtros`;
+  - `/ecommercePublico/catalogo_filtros`.
+- Siguen visibles en el panel interno para editar y volver a publicar.
+- Pausar no toca inventario, precios, ventas, imagenes ni legacy `ecom_*`.
+- Publicar sigue bloqueado por falta de precio activo, falta de imagen, regla granel/fraccionaria o bloqueo editorial critico.
+- Marca/categoria faltantes siguen como pendientes de calidad/navegacion, no como bloqueo de publicacion inicial.
+
+Cambios UI/backend:
+
+- `/ecommercePublico/publicaciones` agrega switch por fila `Publicado`.
+- OFF cambia la publicacion a `pausado`; ON intenta cambiarla a `publicado` con las validaciones del backend.
+- Acciones rapidas por fila:
+  - Publicar;
+  - Pausar;
+  - Editar;
+  - API si ya esta publicado.
+- Acciones masivas:
+  - Publicar seleccion;
+  - Pausar seleccion;
+  - Pasar a borrador.
+- Filtros operativos agregados:
+  - Bloqueados;
+  - Sin precio;
+  - Sin imagen;
+  - Posible granel;
+  - Con alerta editorial.
+- Respuestas de lote informan:
+  - `total_solicitado`;
+  - `total_ok`;
+  - `total_igual`;
+  - `total_error`;
+  - `resultado_lote`;
+  - detalle por SKU con bloqueos cuando falle.

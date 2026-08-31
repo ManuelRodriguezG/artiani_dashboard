@@ -6188,6 +6188,14 @@ class VentasErp extends CRUD {
         );
         $modoInventarioVenta = $this->resolverModoInventarioCajaPos($db, $datosVenta["id_caja"]);
         $afectarInventarioVenta = intval($this->valor($modoInventarioVenta, "afectar_inventario", 1)) === 1;
+        $fechaOperacionVenta = $this->resolverFechaOperacionVentaPos($this->valor($datos, "fecha_operacion", ""), $modoInventarioVenta);
+        if (!empty($fechaOperacionVenta["error"])) {
+            return $this->respuesta(true, "warning", $fechaOperacionVenta["mensaje"], array(
+                "bloqueos" => array("fecha_operacion_invalida"),
+                "fecha_operacion" => $this->valor($datos, "fecha_operacion", ""),
+                "modo_inventario_pos" => $modoInventarioVenta
+            ));
+        }
 
         $atencionOrigen = null;
         if ($idAtencion > 0) {
@@ -6365,10 +6373,10 @@ class VentasErp extends CRUD {
                 (folio, canal, tipo_documento, estatus, id_almacen, id_caja, id_turno_caja,
                  id_cliente$columnasClienteCrm, cliente_nombre_publico, cliente_identificador_publico,
                  subtotal, descuento_total, impuestos_total, total,
-                 pagado_total, saldo_total, creado_por, observaciones, descuento_motivo,
+                 pagado_total, saldo_total, fecha_venta, creado_por, observaciones, descuento_motivo,
                  autorizado_comercial_por, fecha_autorizacion_comercial)
                 VALUES (:folio, 'pos', 'venta', :estatus, :almacen, :caja, :turno,
-                 :id_cliente$valoresClienteCrm, :cliente, :identificador_cliente, :subtotal, :descuento_total, 0, :total, :pagado, :saldo, :usuario, :observaciones,
+                 :id_cliente$valoresClienteCrm, :cliente, :identificador_cliente, :subtotal, :descuento_total, 0, :total, :pagado, :saldo, :fecha_venta, :usuario, :observaciones,
                  :descuento_motivo, :autorizado_comercial_por, :fecha_autorizacion_comercial)");
             $stmt->execute(array_merge(array(
                 ":folio" => $folio,
@@ -6384,6 +6392,7 @@ class VentasErp extends CRUD {
                 ":total" => $total,
                 ":pagado" => $pagadoTotal,
                 ":saldo" => $saldoTotal,
+                ":fecha_venta" => $fechaOperacionVenta["fecha_venta"],
                 ":usuario" => $idUsuario,
                 ":observaciones" => $observaciones,
                 ":descuento_motivo" => $excepcionBloqueada ? $this->valor($excepcionBloqueada, "motivo", null) : null,
@@ -6613,7 +6622,7 @@ class VentasErp extends CRUD {
                     "id_venta" => $idVenta,
                     "id_almacen" => $datosVenta["id_almacen"],
                     "canal" => "pos",
-                    "fecha" => date("Y-m-d"),
+                    "fecha" => substr($fechaOperacionVenta["fecha_venta"], 0, 10),
                     "detalles" => $detallesGarantia
                 ));
                 if (!empty($snapshotsGarantia["error"])) {
@@ -6667,6 +6676,7 @@ class VentasErp extends CRUD {
                 "inventario" => $evidenciaInventario,
                 "inventario_pendiente" => $pendientesInventario,
                 "modo_inventario_pos" => $modoInventarioVenta,
+                "fecha_operacion" => $fechaOperacionVenta,
                 "venta_rapida" => $pendientesVentaRapida,
                 "garantias" => $this->valorRutaPosReal($snapshotsGarantia, array("depurar", "guardados"), array()),
                 "pagos" => $evidenciaPagos,
@@ -9697,6 +9707,69 @@ class VentasErp extends CRUD {
             );
         }
         return $modo;
+    }
+
+    /**
+     * Documentacion IA: Codex GPT-5, 2026-08-29.
+     * Proposito: permitir captura temporal de fecha de venta solo en caja piloto sin afectar inventario.
+     * Impacto: habilita reportes historicos de piloto sin alterar inventario/kardex ni permitir backdating en operacion normal.
+     * Contrato: retorna fecha SQL segura; bloquea fechas futuras, formatos invalidos y retroactivos mayores a 180 dias.
+     */
+    private function resolverFechaOperacionVentaPos($fechaEntrada, $modoInventarioVenta) {
+        $fechaEntrada = trim((string) $fechaEntrada);
+        if ($fechaEntrada === "") {
+            return array(
+                "error" => false,
+                "origen" => "sistema",
+                "fecha_venta" => date("Y-m-d H:i:s"),
+                "fecha_operacion_temporal" => false
+            );
+        }
+
+        $afectaInventario = intval($this->valor($modoInventarioVenta, "afectar_inventario", 1)) === 1;
+        $modoOperacion = trim((string) $this->valor($modoInventarioVenta, "modo_operacion_inventario", "normal"));
+        if ($afectaInventario || $modoOperacion !== "piloto_sin_inventario") {
+            return array(
+                "error" => true,
+                "mensaje" => "La fecha operativa temporal solo esta permitida en cajas piloto sin afectar inventario"
+            );
+        }
+
+        $normalizada = str_replace("T", " ", $fechaEntrada);
+        if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $normalizada) === 1) {
+            $normalizada .= date(" H:i:s");
+        } elseif (preg_match('/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/', $normalizada) === 1) {
+            $normalizada .= ":00";
+        }
+
+        $timestamp = strtotime($normalizada);
+        if ($timestamp === false || date("Y-m-d H:i:s", $timestamp) === "1970-01-01 00:00:00") {
+            return array(
+                "error" => true,
+                "mensaje" => "Fecha operativa invalida. Usa fecha y hora validas."
+            );
+        }
+
+        $ahora = time();
+        if ($timestamp > $ahora + 300) {
+            return array(
+                "error" => true,
+                "mensaje" => "La fecha operativa no puede ser futura"
+            );
+        }
+        if ($timestamp < strtotime("-180 days", $ahora)) {
+            return array(
+                "error" => true,
+                "mensaje" => "La fecha operativa temporal no puede ser mayor a 180 dias"
+            );
+        }
+
+        return array(
+            "error" => false,
+            "origen" => "operador_piloto",
+            "fecha_venta" => date("Y-m-d H:i:s", $timestamp),
+            "fecha_operacion_temporal" => true
+        );
     }
 
     private function configuracionCajaValidarParaGuardar($db, $datos, $idCaja = 0) {

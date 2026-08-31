@@ -9,7 +9,7 @@
     <link href="assets/plugins/global/plugins.bundle.css" rel="stylesheet" type="text/css">
     <link href="assets/css/style.bundle.css" rel="stylesheet" type="text/css">
     <!--
-      Documentacion IA: Codex GPT-5, 2026-07-30; actualizado 2026-08-11.
+      Documentacion IA: Codex GPT-5, 2026-07-30; actualizado 2026-08-31.
       Proposito: consola interna para preparar, guardar borradores y publicar productos del catalogo vivo ecommerce.
       Impacto: administra curaduria ecommerce; no modifica precios/imagenes ERP, no descuenta inventario y no usa legacy ecom_*; permite confirmar publicacion de agotados y evita recorrer listas largas para preparar.
       Contrato: POST protegidos por catalogo.editar, CSRF, token interno y auditoria explicita.
@@ -27,6 +27,8 @@
         .ecom-readiness__signal--rojo { background: #f1416c; }
         .ecom-table-scroll { max-height: 42vh; overflow: auto; border: 1px solid #eef0f5; border-radius: 8px; }
         .ecom-sticky-head th { position: sticky; top: 0; background: #fff; z-index: 1; }
+        .ecom-pub-switch { min-width: 120px; }
+        .ecom-actions { min-width: 190px; }
         @media (max-width: 991.98px) {
             .ecom-table-scroll { max-height: 38vh; }
         }
@@ -131,6 +133,14 @@
                                             <option value="publicado">Publicado</option>
                                             <option value="pausado">Pausado</option>
                                         </select>
+                                        <select class="form-select form-select-solid w-180px" id="ecom_filtro_calidad">
+                                            <option value="">Todos los casos</option>
+                                            <option value="bloqueados">Bloqueados</option>
+                                            <option value="sin_precio">Sin precio</option>
+                                            <option value="sin_imagen">Sin imagen</option>
+                                            <option value="posible_granel">Posible granel</option>
+                                            <option value="alerta_editorial">Con alerta editorial</option>
+                                        </select>
                                         <select class="form-select form-select-solid w-120px" id="ecom_filtro_limite">
                                             <option value="25">25</option>
                                             <option value="50" selected>50</option>
@@ -145,6 +155,8 @@
                                             <button class="btn btn-sm btn-light" type="button" id="ecom_lote_limpiar">Limpiar seleccion</button>
                                             <button class="btn btn-sm btn-light-primary" type="button" id="ecom_lote_borrador">Guardar borradores</button>
                                             <button class="btn btn-sm btn-success" type="button" id="ecom_lote_publicar">Publicar seleccion</button>
+                                            <button class="btn btn-sm btn-light-warning" type="button" id="ecom_lote_pausar">Pausar seleccion</button>
+                                            <button class="btn btn-sm btn-light-secondary" type="button" id="ecom_lote_pasara_borrador">Pasar a borrador</button>
                                             <label class="form-check form-check-custom form-check-solid fs-7">
                                                 <input class="form-check-input" type="checkbox" id="ecom_lote_confirmar_agotados" checked disabled>
                                                 <span class="form-check-label">Agotados permitidos en lote</span>
@@ -225,6 +237,7 @@
                                                     <th>Categoria</th>
                                                     <th class="text-end">Precio</th>
                                                     <th>Disponibilidad publica</th>
+                                                    <th>Publicado</th>
                                                     <th>Dictamen</th>
                                                     <th class="text-end">Accion</th>
                                                 </tr>
@@ -277,6 +290,6 @@
 </div>
 <script src="assets/plugins/global/plugins.bundle.js"></script>
 <script src="assets/js/scripts.bundle.js"></script>
-<script src="/assets/js/custom/apps/erp/ecommerce/publicaciones.js?v=20260825-agotados-lote1"></script>
+<script src="/assets/js/custom/apps/erp/ecommerce/publicaciones.js?v=20260831-estatus-switch1"></script>
 </body>
 </html>

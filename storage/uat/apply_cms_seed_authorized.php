@@ -234,7 +234,8 @@ function seedSeccionesFrontend($db, $plantillas, $componentes) {
     array("wokiee_home_default", "home.hero", "HeroSlider", "full_width", 1),
     array("wokiee_home_default", "home.promo", "PromoStrip", "compact", 2),
     array("wokiee_home_default", "home.categorias", "CategoryGrid", "cards_4", 3),
-    array("wokiee_home_default", "home.destacados", "ProductCarousel", "compact_cards", 4),
+    array("wokiee_home_default", "home.marcas", "ImageCardGrid", "brand_strip", 4),
+    array("wokiee_home_default", "home.destacados", "ProductCarousel", "compact_cards", 5),
     array("wokiee_categoria_default", "categoria.banner", "HeroSlider", "boxed", 1),
     array("wokiee_categoria_default", "categoria.productos", "ProductCarousel", "wide_cards", 2),
     array("wokiee_catalogo_default", "catalogo.encabezado", "SafeHtmlBlock", "wide", 1)
@@ -280,7 +281,7 @@ function componentesSeed() {
     "PromoStrip" => array("nombre" => "Tira promocional", "descripcion" => "Renderiza textos promocionales.", "bloques" => array("promo_strip"), "variantes" => array("single", "stacked", "compact"), "slots" => array("home.promo", "catalogo.encabezado")),
     "CategoryGrid" => array("nombre" => "Grid de categorias", "descripcion" => "Renderiza cards de categorias.", "bloques" => array("image_card_grid"), "variantes" => array("cards_3", "cards_4", "mosaic"), "slots" => array("home.categorias")),
     "ProductCarousel" => array("nombre" => "Carrusel de productos", "descripcion" => "Renderiza colecciones dinamicas de productos.", "bloques" => array("product_collection"), "variantes" => array("compact_cards", "wide_cards", "simple_row"), "slots" => array("home.destacados", "categoria.productos")),
-    "ImageCardGrid" => array("nombre" => "Cards con imagen", "descripcion" => "Renderiza grids editoriales con imagen.", "bloques" => array("image_card_grid"), "variantes" => array("two_columns", "three_columns", "editorial"), "slots" => array("home.categorias", "home.promo")),
+    "ImageCardGrid" => array("nombre" => "Cards con imagen", "descripcion" => "Renderiza grids editoriales con imagen.", "bloques" => array("image_card_grid"), "variantes" => array("two_columns", "three_columns", "editorial", "brand_strip"), "slots" => array("home.categorias", "home.promo", "home.marcas")),
     "SafeHtmlBlock" => array("nombre" => "Contenido HTML seguro", "descripcion" => "Renderiza contenido editorial sanitizado.", "bloques" => array("content_html_safe"), "variantes" => array("narrow", "wide", "accordion"), "slots" => array("catalogo.encabezado", "home.promo"))
   );
 }

@@ -388,59 +388,160 @@ class EcommercePublico extends Controlador {
   }
 
   /**
-   * Documentacion IA: Codex GPT-5 | Fecha: 2026-08-04
-   * Proposito: validar sesion anonima de analytics sin persistirla.
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-08-30
+   * Proposito: recibir sesion anonima de analytics para validar o persistir segun bandera operativa.
    * Impacto: prepara tracking seguro por session hash sin cliente, checkout, ventas ni inventario.
-   * Contrato: POST publico preflight; no escribe BD y bloquea datos personales detectables.
+   * Contrato: POST publico; sin bandera activa se mantiene en preflight y bloquea datos personales detectables.
    */
   public function analytics_sesion() {
     if ($this->esOptionsPublicas()) { return $this->responderOpcionesPublicas(); }
     if (!isset($_SERVER["REQUEST_METHOD"]) || strtoupper((string) $_SERVER["REQUEST_METHOD"]) !== "POST") {
       return $this->responderApiPublica($this->modelo("EcommerceCatalogoPublico")->metodoPostRequerido("analytics_sesion_preflight"));
     }
-    return $this->responderApiPublica($this->modelo("EcommerceAnalyticsErp")->sesionPreflight($this->entradaJsonPublica()));
+    $analytics = $this->modelo("EcommerceAnalyticsErp");
+    $datos = $this->entradaJsonPublica();
+    if ($analytics->trackingPublicoActivo()) {
+      return $this->responderApiPublica($analytics->registrarSesionAutorizada($datos, array("autorizar" => "ECOMMERCE_ANALYTICS_TRACKING")));
+    }
+    return $this->responderApiPublica($analytics->sesionPreflight($datos));
   }
 
   /**
-   * Documentacion IA: Codex GPT-5 | Fecha: 2026-07-29
-   * Proposito: validar evento anonimo de navegacion sin guardarlo.
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-08-30
+   * Proposito: recibir evento anonimo de navegacion para validar o persistir segun bandera operativa.
    * Impacto: Ecommerce publico; prepara analitica de mascotas, productos y conversion a WhatsApp.
-   * Contrato: POST publico preflight; no escribe BD y no acepta datos personales en tracking.
+   * Contrato: POST publico; sin bandera activa se mantiene en preflight y no acepta datos personales en tracking.
    */
   public function evento_navegacion() {
     if ($this->esOptionsPublicas()) { return $this->responderOpcionesPublicas(); }
     if (!isset($_SERVER["REQUEST_METHOD"]) || strtoupper((string) $_SERVER["REQUEST_METHOD"]) !== "POST") {
       return $this->responderApiPublica($this->modelo("EcommerceCatalogoPublico")->metodoPostRequerido("evento_navegacion_preflight"));
     }
-    return $this->responderApiPublica($this->modelo("EcommerceAnalyticsErp")->eventoPreflight($this->entradaJsonPublica()));
+    $analytics = $this->modelo("EcommerceAnalyticsErp");
+    $datos = $this->entradaJsonPublica();
+    if ($analytics->trackingPublicoActivo()) {
+      return $this->responderApiPublica($analytics->registrarEventoAutorizado($datos, array("autorizar" => "ECOMMERCE_ANALYTICS_TRACKING")));
+    }
+    return $this->responderApiPublica($analytics->eventoPreflight($datos));
   }
 
   /**
-   * Documentacion IA: Codex GPT-5 | Fecha: 2026-07-29
-   * Proposito: validar busqueda anonima ecommerce sin persistirla.
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-08-30
+   * Proposito: recibir busqueda anonima ecommerce para validar o persistir segun bandera operativa.
    * Impacto: Ecommerce publico; prepara aprendizaje de demanda, faltantes y necesidades por mascota.
-   * Contrato: POST publico preflight; no escribe BD y no guarda datos personales.
+   * Contrato: POST publico; sin bandera activa se mantiene en preflight y no guarda datos personales.
    */
   public function busqueda_registrar() {
     if ($this->esOptionsPublicas()) { return $this->responderOpcionesPublicas(); }
     if (!isset($_SERVER["REQUEST_METHOD"]) || strtoupper((string) $_SERVER["REQUEST_METHOD"]) !== "POST") {
       return $this->responderApiPublica($this->modelo("EcommerceCatalogoPublico")->metodoPostRequerido("busqueda_preflight"));
     }
-    return $this->responderApiPublica($this->modelo("EcommerceAnalyticsErp")->busquedaPreflight($this->entradaJsonPublica()));
+    $analytics = $this->modelo("EcommerceAnalyticsErp");
+    $datos = $this->entradaJsonPublica();
+    if ($analytics->trackingPublicoActivo()) {
+      return $this->responderApiPublica($analytics->registrarBusquedaAutorizada($datos, array("autorizar" => "ECOMMERCE_ANALYTICS_TRACKING")));
+    }
+    return $this->responderApiPublica($analytics->busquedaPreflight($datos));
   }
 
   /**
-   * Documentacion IA: Codex GPT-5 | Fecha: 2026-08-04
-   * Proposito: validar conversion anonima ecommerce sin persistirla.
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-08-30
+   * Proposito: recibir conversion anonima ecommerce para validar o persistir segun bandera operativa.
    * Impacto: prepara embudo visita-producto-cotizacion-dryrun-preflight-WhatsApp sin checkout ni ventas.
-   * Contrato: POST publico preflight; no escribe BD ni toca inventario.
+   * Contrato: POST publico; sin bandera activa se mantiene en preflight, no crea checkout ni toca inventario.
    */
   public function analytics_conversion() {
     if ($this->esOptionsPublicas()) { return $this->responderOpcionesPublicas(); }
     if (!isset($_SERVER["REQUEST_METHOD"]) || strtoupper((string) $_SERVER["REQUEST_METHOD"]) !== "POST") {
       return $this->responderApiPublica($this->modelo("EcommerceCatalogoPublico")->metodoPostRequerido("analytics_conversion_preflight"));
     }
-    return $this->responderApiPublica($this->modelo("EcommerceAnalyticsErp")->conversionPreflight($this->entradaJsonPublica()));
+    $analytics = $this->modelo("EcommerceAnalyticsErp");
+    $datos = $this->entradaJsonPublica();
+    if ($analytics->trackingPublicoActivo()) {
+      return $this->responderApiPublica($analytics->registrarConversionAutorizada($datos, array("autorizar" => "ECOMMERCE_ANALYTICS_TRACKING")));
+    }
+    return $this->responderApiPublica($analytics->conversionPreflight($datos));
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-08-30
+   * Proposito: exponer contrato publico para carritos/leads ecommerce.
+   * Impacto: Frontend Artiani; separa intencion comercial de analytics anonimo y de ventas reales.
+   * Contrato: GET publico read-only; no escribe BD ni expone datos internos.
+   */
+  public function leads_contrato() {
+    if ($this->esOptionsPublicas()) { return $this->responderOpcionesPublicas(); }
+    return $this->responderApiPublica($this->modelo("EcommerceLeadsErp")->contratoFrontend());
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-08-30
+   * Proposito: recibir snapshot comercial del carrito ecommerce para seguimiento futuro.
+   * Impacto: Ecommerce Leads; prepara persistencia por session_id_hash sin crear pedido ni tocar inventario.
+   * Contrato: POST publico; si persistencia no esta activa responde preflight sin guardar.
+   */
+  public function carrito_sincronizar() {
+    if ($this->esOptionsPublicas()) { return $this->responderOpcionesPublicas(); }
+    if (!$this->esPostPublico()) {
+      return $this->responderApiPublica($this->modelo("EcommerceCatalogoPublico")->metodoPostRequerido("carrito_sincronizar"));
+    }
+    return $this->responderApiPublica($this->modelo("EcommerceLeadsErp")->carritoSincronizar($this->entradaJsonPublica()));
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-08-30
+   * Proposito: recibir evento comercial puntual de carrito ecommerce.
+   * Impacto: Ecommerce Leads; registra etapas como vista de carrito, cambio de cantidad o abandono estimado.
+   * Contrato: POST publico; no sustituye analytics y no acepta datos personales fuera de contacto.
+   */
+  public function carrito_evento() {
+    if ($this->esOptionsPublicas()) { return $this->responderOpcionesPublicas(); }
+    if (!$this->esPostPublico()) {
+      return $this->responderApiPublica($this->modelo("EcommerceCatalogoPublico")->metodoPostRequerido("carrito_evento"));
+    }
+    return $this->responderApiPublica($this->modelo("EcommerceLeadsErp")->carritoEvento($this->entradaJsonPublica()));
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-08-30
+   * Proposito: capturar intento de pedido o apertura de WhatsApp con snapshot comercial.
+   * Impacto: Ecommerce Leads; conserva que queria comprar el cliente aunque borre/no envie el mensaje.
+   * Contrato: POST publico; no crea pedido, venta, cotizacion real ni descuenta inventario.
+   */
+  public function intento_pedido() {
+    if ($this->esOptionsPublicas()) { return $this->responderOpcionesPublicas(); }
+    if (!$this->esPostPublico()) {
+      return $this->responderApiPublica($this->modelo("EcommerceCatalogoPublico")->metodoPostRequerido("intento_pedido"));
+    }
+    return $this->responderApiPublica($this->modelo("EcommerceLeadsErp")->intentoPedido($this->entradaJsonPublica()));
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-08-30
+   * Proposito: enlazar carrito anonimo con contacto escrito explicitamente por el cliente.
+   * Impacto: Ecommerce Leads/CRM futuro; no inventa cliente y conserva privacidad por session_id_hash.
+   * Contrato: POST publico; no crea cliente CRM automaticamente.
+   */
+  public function contacto_registrar() {
+    if ($this->esOptionsPublicas()) { return $this->responderOpcionesPublicas(); }
+    if (!$this->esPostPublico()) {
+      return $this->responderApiPublica($this->modelo("EcommerceCatalogoPublico")->metodoPostRequerido("contacto_registrar"));
+    }
+    return $this->responderApiPublica($this->modelo("EcommerceLeadsErp")->contactoRegistrar($this->entradaJsonPublica()));
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-08-30
+   * Proposito: recibir solicitud de facturacion ecommerce ligada a session_id/carrito.
+   * Impacto: Ecommerce Leads; prepara seguimiento fiscal sin emitir factura ni registrar venta.
+   * Contrato: POST publico; no factura y no crea cliente automaticamente.
+   */
+  public function facturacion_solicitud_registrar() {
+    if ($this->esOptionsPublicas()) { return $this->responderOpcionesPublicas(); }
+    if (!$this->esPostPublico()) {
+      return $this->responderApiPublica($this->modelo("EcommerceCatalogoPublico")->metodoPostRequerido("facturacion_solicitud_registrar"));
+    }
+    return $this->responderApiPublica($this->modelo("EcommerceLeadsErp")->facturacionSolicitudRegistrar($this->entradaJsonPublica()));
   }
 
   /**
@@ -490,6 +591,10 @@ class EcommercePublico extends Controlador {
     return isset($_SERVER["REQUEST_METHOD"]) && strtoupper((string) $_SERVER["REQUEST_METHOD"]) === "OPTIONS";
   }
 
+  private function esPostPublico() {
+    return isset($_SERVER["REQUEST_METHOD"]) && strtoupper((string) $_SERVER["REQUEST_METHOD"]) === "POST";
+  }
+
   private function entradaJsonPublica() {
     $raw = file_get_contents("php://input");
     $json = json_decode((string) $raw, true);
@@ -527,6 +632,17 @@ class EcommercePublico extends Controlador {
   public function cotizaciones() {
     $this->requerirPermiso("catalogo.ver");
     $this->vista("apps/erp/ecommerce/cotizaciones");
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-08-31
+   * Proposito: abrir bandeja interna de carritos/leads ecommerce.
+   * Impacto: seguimiento comercial de intenciones capturadas desde frontend sin crear pedidos ni ventas.
+   * Contrato: vista protegida por `catalogo.ver`; las acciones actuales son planes read-only.
+   */
+  public function leads() {
+    $this->requerirPermiso("catalogo.ver");
+    $this->vista("apps/erp/ecommerce/leads");
   }
 
   /**
@@ -710,6 +826,42 @@ class EcommercePublico extends Controlador {
   public function analytics_retencion_plan_erp() {
     $this->requerirPermiso("catalogo.ver");
     return json_encode($this->modelo("EcommerceAnalyticsErp")->retencionPlanInterno($_GET));
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-08-30
+   * Proposito: listar bandeja interna de carritos/leads ecommerce.
+   * Impacto: seguimiento comercial desde ERP sin consultar analytics anonimo ni crear ventas.
+   * Contrato: GET protegido por `catalogo.ver`; solo lectura.
+   */
+  public function carritos_dashboard_erp() {
+    $this->requerirPermiso("catalogo.ver");
+    return json_encode($this->modelo("EcommerceLeadsErp")->dashboardInterno($_GET));
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-08-30
+   * Proposito: consultar detalle interno de carrito/lead ecommerce.
+   * Impacto: muestra snapshot comercial, eventos y notas sin crear pedido ni venta.
+   * Contrato: GET protegido por `catalogo.ver`; solo lectura.
+   */
+  public function carrito_detalle_erp($id = "") {
+    $this->requerirPermiso("catalogo.ver");
+    $filtros = $_GET;
+    if ($id !== "") { $filtros["id_carrito_lead"] = $id; }
+    return json_encode($this->modelo("EcommerceLeadsErp")->detalleInterno($filtros));
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-08-30
+   * Proposito: planear accion interna sobre carrito/lead ecommerce.
+   * Impacto: prepara seguimiento, conversion, descarte o nota sin ejecutar cambios.
+   * Contrato: POST protegido por `catalogo.ver`; read-only, no cambia estatus ni crea documentos.
+   */
+  public function carrito_accion_plan_erp() {
+    $this->requerirPermiso("catalogo.ver");
+    $datos = !empty($_POST) ? $_POST : $this->entradaJsonPublica();
+    return json_encode($this->modelo("EcommerceLeadsErp")->accionPlanInterna($datos));
   }
 
   /**
@@ -1011,5 +1163,27 @@ class EcommercePublico extends Controlador {
   public function esquema_plan_analytics() {
     $this->requerirPermiso("catalogo.ver");
     return json_encode($this->modelo("EcommerceAnalyticsEsquema")->planActualizarEcommerceAnalytics(false));
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-08-30
+   * Proposito: auditar esquema de Ecommerce Leads/Carritos sin ejecutar DDL.
+   * Impacto: revisa readiness para seguimiento comercial del ecommerce publico.
+   * Contrato: GET protegido por `catalogo.ver`; solo lectura.
+   */
+  public function esquema_auditar_leads() {
+    $this->requerirPermiso("catalogo.ver");
+    return json_encode($this->modelo("EcommerceLeadsEsquema")->auditarEcommerceLeads());
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-08-30
+   * Proposito: generar plan DDL de Ecommerce Leads/Carritos sin ejecutarlo.
+   * Impacto: prepara tablas de snapshot comercial, eventos y notas con respaldo/autorizacion futura.
+   * Contrato: GET protegido por `catalogo.ver`; no ejecuta DDL.
+   */
+  public function esquema_plan_leads() {
+    $this->requerirPermiso("catalogo.ver");
+    return json_encode($this->modelo("EcommerceLeadsEsquema")->planActualizarEcommerceLeads(false));
   }
 }

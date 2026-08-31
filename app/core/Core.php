@@ -40,7 +40,7 @@
 			require_once RUTA_APP.'/controladores/'.$this->controladorActual.'.php';
 			$nombreControlador = $this->controladorActual;
 			$controladoresProtegidos = array(
-				'Almacen', 'Archivos', 'Busqueda', 'CatalogoErp', 'Categoria', 'Clientes', 'Comercial', 'Crm', 'Compra', 'Compra_venta',
+				'Almacen', 'Archivos', 'Busqueda', 'BusinessIntelligence', 'CatalogoErp', 'Categoria', 'Clientes', 'Comercial', 'Crm', 'Compra', 'Compra_venta',
 				'Cms', 'Contabilidad', 'Costo', 'Dashboard', 'Empresa', 'Garantias', 'Inicio', 'Inventario', 'Link', 'Marca', 'MigracionBd', 'Panel',
 				'Paquetes', 'Producto', 'Produccion', 'Proveedor', 'Proyecto', 'Rentabilidad', 'Sistema', 'Sucursal', 'Tms', 'Users', 'Usuario',
 				'Utilidad', 'Ventas'

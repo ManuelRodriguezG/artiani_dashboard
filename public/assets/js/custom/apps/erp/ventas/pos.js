@@ -1884,6 +1884,7 @@
             cliente_nombre_publico: clientePublico(),
             id_cliente: idClienteCrmActivo(),
             identificador_cliente: identificadorClienteActivo(),
+            fecha_operacion: document.getElementById("pos_fecha_operacion") ? document.getElementById("pos_fecha_operacion").value : "",
             fecha_entrega_compromiso: document.getElementById("pos_fecha_compromiso").value,
             exigir_pago_completo: exigePagoCompleto(),
             items: JSON.stringify(items),
@@ -2064,6 +2065,10 @@
         var pagoSaldo = pagos.reduce(function (suma, item) { return suma + (esPagoSaldoCrmUi(item) ? cantidad(item.monto) : 0); }, 0);
         var contieneVentaRapida = carrito.some(function (item) { return item.tipo_partida === "venta_rapida"; });
         var mensaje = "Se confirmara una venta real por " + dinero(totalCobroActual()) + ". Caja recibira " + dinero(pagoCaja) + (pagoSaldo > 0 ? " y saldo cliente cubrira " + dinero(pagoSaldo) + " sin entrar a caja." : ".");
+        var fechaOperacion = document.getElementById("pos_fecha_operacion") ? document.getElementById("pos_fecha_operacion").value : "";
+        if (fechaOperacion) {
+            mensaje += " Fecha operativa: " + fechaOperacion + ".";
+        }
         if (contieneVentaRapida) {
             mensaje += " Incluye producto por clasificar: se creara pendiente a Catalogo/Inventario y no se movera kardex.";
         }

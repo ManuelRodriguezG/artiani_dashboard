@@ -5395,3 +5395,21 @@ Imagenes POS:
 - Tambien se ajusto `consultarVisualSkuChecador` para no tomar imagen especifica de otro SKU como imagen generica.
 - UAT read-only creada: `storage/uat/uat_ventas_pos_busqueda_imagenes_readonly.php`.
 - Resultado con `--q=spf --id_almacen=5 --limite=20`: `ok=true`, `total_filas=10`, `duplicados_por_id_sku=[]`.
+
+Fecha operativa temporal POS:
+
+- Decision 2026-08-29: permitir capturar ventas con fecha distinta al dia actual para piloto operativo/reportes, sin crear un tipo separado de venta.
+- La venta sigue siendo venta POS normal; solo cambia `fecha_venta` cuando el backend lo autoriza.
+- Campo UI agregado en `/ventas/pos`: `Fecha operativa temporal`.
+- Payload POS envia `fecha_operacion` al confirmar cobro.
+- Backend `VentasErp::resolverFechaOperacionVentaPos`:
+  - si el campo esta vacio, usa fecha/hora del sistema;
+  - si hay fecha manual, solo la acepta cuando la caja esta en `piloto_sin_inventario`;
+  - bloquea fecha futura;
+  - bloquea retroactivo mayor a 180 dias;
+  - no permite backdating en caja normal con inventario/kardex.
+- `confirmarVentaPosReal` inserta `fecha_venta=:fecha_venta`.
+- Snapshot de garantia usa la fecha operativa de la venta, no `date("Y-m-d")`, para no iniciar garantias con dia incorrecto.
+- UAT read-only creada: `storage/uat/uat_ventas_pos_fecha_operacion_piloto_readonly.php`.
+- Resultado vigente: `ok=true`.
+- Nota operativa: la fecha de venta puede ser historica, pero el pago/caja pertenecen al turno abierto actual. Para captura historica masiva sin afectar arqueo real conviene abrir un turno especial de captura o preparar despues un modo administrativo sin movimiento de caja.
