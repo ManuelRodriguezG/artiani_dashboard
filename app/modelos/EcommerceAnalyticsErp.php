@@ -220,6 +220,8 @@ class EcommerceAnalyticsErp extends CRUD {
       "rango" => array("desde" => $desde, "hasta" => $hasta, "limite" => $limite),
       "tablas" => $tablas,
       "fuente_metricas" => "eventos_crudos",
+      "fecha_consulta" => date("Y-m-d H:i:s"),
+      "ultimo_evento" => array(),
       "resumen" => array(
         "sesiones_total" => 0,
         "eventos_total" => 0,
@@ -641,6 +643,13 @@ class EcommerceAnalyticsErp extends CRUD {
     $stmt = $db->prepare("SELECT COUNT(*) total FROM erp_ecommerce_analytics_eventos WHERE fecha_registro BETWEEN :inicio AND :fin");
     $stmt->execute(array(":inicio" => $inicio, ":fin" => $fin));
     $depurar["resumen"]["eventos_total"] = intval($stmt->fetchColumn());
+    $stmt = $db->prepare("SELECT tipo_evento, canal, ruta, slug, fecha_registro
+      FROM erp_ecommerce_analytics_eventos
+      WHERE fecha_registro BETWEEN :inicio AND :fin
+      ORDER BY fecha_registro DESC, id_analytics_evento DESC
+      LIMIT 1");
+    $stmt->execute(array(":inicio" => $inicio, ":fin" => $fin));
+    $depurar["ultimo_evento"] = $stmt->fetch(PDO::FETCH_ASSOC) ?: array();
     $depurar["visitas_por_dia"] = $this->consulta($db, "SELECT DATE(fecha_registro) fecha, COUNT(*) visitas FROM erp_ecommerce_analytics_eventos WHERE fecha_registro BETWEEN :inicio AND :fin AND tipo_evento='page_view' GROUP BY DATE(fecha_registro) ORDER BY fecha ASC", array(":inicio" => $inicio, ":fin" => $fin));
     $depurar["urls_mas_vistas"] = $this->consultaTop($db, "ruta", "erp_ecommerce_analytics_eventos", "tipo_evento='page_view'", $inicio, $fin, $limite);
     $depurar["productos_mas_vistos"] = $this->consultaProductos($db, "view_product", $inicio, $fin, $limite);

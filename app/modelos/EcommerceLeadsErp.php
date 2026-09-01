@@ -12,9 +12,10 @@ class EcommerceLeadsErp extends CRUD {
    * Contrato: solo lectura; no escribe BD ni expone datos internos sensibles.
    */
   public function contratoFrontend() {
+    $persistenciaActiva = $this->persistenciaPublicaActiva();
     return $this->respuesta(false, "success", "Contrato Ecommerce Leads / Carritos", array(
       "version" => "fase3-leads-carritos-2026-08-30",
-      "estado" => $this->persistenciaPublicaActiva() ? "persistencia_publica_activa" : "preflight_listo_para_persistencia",
+      "estado" => $persistenciaActiva ? "persistencia_publica_activa" : "preflight_listo_para_persistencia",
       "endpoints_publicos" => array(
         array("metodo" => "POST", "ruta" => "/ecommercePublico/carrito_sincronizar", "uso" => "Enviar snapshot completo del carrito cuando cambia o entra a /carrito."),
         array("metodo" => "POST", "ruta" => "/ecommercePublico/carrito_evento", "uso" => "Registrar evento comercial puntual ligado a session_id."),
@@ -29,7 +30,7 @@ class EcommerceLeadsErp extends CRUD {
       ),
       "estados" => $this->estatusPermitidos,
       "eventos_permitidos" => $this->eventosPermitidos,
-      "guardrails" => $this->guardrails(false)
+      "guardrails" => $this->guardrails($persistenciaActiva)
     ));
   }
 

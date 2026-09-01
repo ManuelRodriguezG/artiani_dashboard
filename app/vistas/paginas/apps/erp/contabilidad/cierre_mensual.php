@@ -211,17 +211,16 @@
                     </div>
                 </div>
                 <div class="alert alert-warning py-3 mb-5">
-                    Revisa el mapeo antes de aplicar. Solo estas columnas pasaran a la mesa mensual.
+                    Prepara el archivo con una sola columna Monto antes de cargarlo. El sistema no usara Saldo posterior como monto.
                 </div>
                 <div class="row g-3 mb-6" id="contabilidad_mapeo_campos">
                     <div class="col-md-3"><label class="form-label fs-8">Fecha</label><select class="form-select form-select-sm" id="map_fecha"></select><div class="text-muted fs-9 mt-1">Fecha del movimiento.</div></div>
                     <div class="col-md-3"><label class="form-label fs-8">Descripcion</label><select class="form-select form-select-sm" id="map_concepto"></select><div class="text-muted fs-9 mt-1">Concepto visible del banco.</div></div>
-                    <div class="col-md-3"><label class="form-label fs-8">Monto</label><select class="form-select form-select-sm" id="map_monto"></select><div class="text-muted fs-9 mt-1">Importe unico si existe.</div></div>
+                    <div class="col-md-3"><label class="form-label fs-8">Monto</label><select class="form-select form-select-sm" id="map_monto"></select><div class="text-muted fs-9 mt-1">Importe del movimiento.</div></div>
                     <div class="col-md-3"><label class="form-label fs-8">Folio / factura</label><select class="form-select form-select-sm" id="map_folio"></select><div class="text-muted fs-9 mt-1">Referencia para CFDI.</div></div>
-                    <div class="col-md-3"><label class="form-label fs-8">Movimiento</label><select class="form-select form-select-sm" id="map_movimiento"></select><div class="text-muted fs-9 mt-1">Gasto, ingreso o transpaso.</div></div>
+                    <div class="col-md-3"><label class="form-label fs-8">Movimiento</label><select class="form-select form-select-sm" id="map_movimiento"></select><div class="text-muted fs-9 mt-1">Opcional; lo puedes corregir en la mesa.</div></div>
                     <div class="col-md-3"><label class="form-label fs-8">Actividad</label><select class="form-select form-select-sm" id="map_actividad"></select><div class="text-muted fs-9 mt-1">Negocio, programacion, personal o publicidad.</div></div>
                     <div class="col-md-3"><label class="form-label fs-8">Cuenta</label><select class="form-select form-select-sm" id="map_cuenta"></select><div class="text-muted fs-9 mt-1">Banco o cuenta origen.</div></div>
-                    <div class="col-md-3"><label class="form-label fs-8">Egreso / ingreso separados</label><div class="row g-2"><div class="col-6"><select class="form-select form-select-sm" id="map_egreso"></select></div><div class="col-6"><select class="form-select form-select-sm" id="map_ingreso"></select></div></div><div class="text-muted fs-9 mt-1">Usalo si no hay monto unico.</div></div>
                 </div>
                 <div class="table-responsive border rounded">
                     <table class="table table-row-dashed gy-3 align-middle mb-0">

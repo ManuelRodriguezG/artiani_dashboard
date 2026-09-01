@@ -4540,3 +4540,12 @@ Pendiente recomendado:
 - Correccion: `public/assets/js/custom/apps/erp/catalogo/configuracion.js` ahora acepta JSON servido como texto/HTML por endpoints legados, muestra error legible por sesion/permisos cuando el cuerpo no es JSON, bloquea doble envio del formulario maestro y espera refresco de `/catalogoerp/auxiliares_listar` antes de confirmar el guardado.
 - Sin cambios de esquema ni escrituras masivas en BD.
 - UAT recomendado: crear una categoria hija bajo una categoria activa, guardar una sola vez, confirmar mensaje de exito, confirmar que el renglon aparece/resalta y reabrir para validar `Categoria padre`, `Tipo`, `Origen`, `Permitir asignar productos directamente` y `Estado`.
+
+## Avance 2026-08-31 - Categoria principal opcional en edicion
+
+- Proyecto aplicado: `C:\xampp\htdocs\panel_de_control`.
+- Hallazgo: el modelo ya permite guardar un producto sin categoria principal (`id_categoria_erp` vacio), pero la UI de edicion no tenia una accion clara para quitarla y el operador quedaba obligado visualmente a elegir otra.
+- Decision: durante saneamiento/reclasificacion, un producto ERP puede quedar temporalmente sin categoria principal. Esto no borra categorias secundarias y no toca SKU, precios, costos, existencias ni imagenes.
+- Correccion: el modal de producto agrega el boton `Quitar` junto a `Categoria principal`; limpia el select y el cambio queda aplicado al presionar `Guardar datos maestros`.
+- Riesgo operativo controlado: el producto sin categoria principal puede seguir apareciendo como pendiente de calidad/clasificacion hasta que se le asigne una categoria operativa definitiva.
+- UAT recomendado: abrir un producto con categoria principal, presionar `Quitar`, guardar datos maestros, cerrar y reabrir el modal; confirmar que queda `Sin categoria` y que las categorias secundarias no se eliminan.

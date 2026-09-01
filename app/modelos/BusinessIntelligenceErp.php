@@ -10,16 +10,20 @@ class BusinessIntelligenceErp extends CRUD {
    * Contrato: devuelve tablas, columnas y rangos detectados en la conexion activa.
    */
   public function diagnostico() {
-    $db = $this->getConexion();
-    $tablas = $this->tablasDisponibles($db);
+    $fuente = $this->conexionBiHistorica();
+    $db = $fuente["db"];
+    $base = $fuente["base"];
+    $tablas = $this->tablasDisponibles($db, $base);
     $columnas = array();
     foreach (array_keys($tablas) as $tabla) {
-      $columnas[$tabla] = $tablas[$tabla] ? $this->columnasTabla($db, $tabla) : array();
+      $columnas[$tabla] = $tablas[$tabla] ? $this->columnasTabla($db, $base, $tabla) : array();
     }
 
     return $this->respuesta(false, "success", "Diagnostico BI consultado", array(
       "read_only" => true,
-      "base" => defined("MYSQLBASE") ? MYSQLBASE : "",
+      "base" => $base,
+      "fuente" => $fuente["fuente"],
+      "base_principal" => defined("MYSQLBASE") ? MYSQLBASE : "",
       "tablas" => $tablas,
       "columnas" => $columnas,
       "rangos" => $this->rangosDisponibles($db, $tablas, $columnas),
@@ -35,7 +39,9 @@ class BusinessIntelligenceErp extends CRUD {
    * Contrato: filtros GET `desde`, `hasta`, `limite`; salida agregada para UI.
    */
   public function publicidadTemporadasDashboard($filtros = array()) {
-    $db = $this->getConexion();
+    $fuente = $this->conexionBiHistorica();
+    $db = $fuente["db"];
+    $base = $fuente["base"];
     $desde = $this->fechaFiltro($this->valor($filtros, "desde", date("Y-m-d", strtotime("-365 days"))), date("Y-m-d", strtotime("-365 days")));
     $hasta = $this->fechaFiltro($this->valor($filtros, "hasta", date("Y-m-d")), date("Y-m-d"));
     if (strtotime($hasta) < strtotime($desde)) {
@@ -49,6 +55,9 @@ class BusinessIntelligenceErp extends CRUD {
 
     $depurar = array(
       "read_only" => true,
+      "base" => $base,
+      "fuente" => $fuente["fuente"],
+      "base_principal" => defined("MYSQLBASE") ? MYSQLBASE : "",
       "rango" => array("desde" => $desde, "hasta" => $hasta, "limite" => $limite),
       "tablas" => array(),
       "columnas" => array(),
@@ -76,10 +85,10 @@ class BusinessIntelligenceErp extends CRUD {
     }
 
     try {
-      $tablas = $this->tablasDisponibles($db);
+      $tablas = $this->tablasDisponibles($db, $base);
       $columnas = array();
       foreach (array_keys($tablas) as $tabla) {
-        $columnas[$tabla] = $tablas[$tabla] ? $this->columnasTabla($db, $tabla) : array();
+        $columnas[$tabla] = $tablas[$tabla] ? $this->columnasTabla($db, $base, $tabla) : array();
       }
       $depurar["tablas"] = $tablas;
       $depurar["columnas"] = $columnas;
@@ -342,11 +351,37 @@ class BusinessIntelligenceErp extends CRUD {
       LIMIT " . intval($limite), array(":tipo" => $tipo, ":inicio" => $inicio, ":fin" => $fin));
   }
 
-  private function tablasDisponibles($db) {
+  private function conexionBiHistorica() {
+    $db = $this->getConexion();
+    $base = defined("MYSQLBASE") ? MYSQLBASE : "";
+    if ($this->tablaExiste($db, $base, "bi_busquedas") || $this->tablaExiste($db, $base, "bi_seguimiento_consumibles")) {
+      return array("db" => $db, "base" => $base, "fuente" => "conexion_activa");
+    }
+
+    if ($base !== "artianicom_artiani" && defined("MYSQLHOST") && defined("MYSQLPORT") && defined("MYSQLUSER") && defined("MYSQLPASS")) {
+      try {
+        $options = array(
+          PDO::MYSQL_ATTR_INIT_COMMAND => "SET NAMES utf8mb4",
+          PDO::ATTR_PERSISTENT => false,
+          PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+          PDO::ATTR_TIMEOUT => 10
+        );
+        $historica = new PDO("mysql:host=" . MYSQLHOST . ";port=" . MYSQLPORT . ";dbname=artianicom_artiani", MYSQLUSER, MYSQLPASS, $options);
+        if ($this->tablaExiste($historica, "artianicom_artiani", "bi_busquedas") || $this->tablaExiste($historica, "artianicom_artiani", "bi_seguimiento_consumibles")) {
+          return array("db" => $historica, "base" => "artianicom_artiani", "fuente" => "bi_legacy_productivo");
+        }
+      } catch (Exception $e) {
+      }
+    }
+
+    return array("db" => $db, "base" => $base, "fuente" => "conexion_activa_sin_bi_legacy");
+  }
+
+  private function tablasDisponibles($db, $base) {
     $tablas = array("bi_busquedas", "bi_seguimiento_consumibles", "ecom_productos", "ecom_categorias", "ecom_clasificaciones", "ecom_marcas");
     $salida = array();
     foreach ($tablas as $tabla) {
-      $salida[$tabla] = $this->tablaExiste($db, $tabla);
+      $salida[$tabla] = $this->tablaExiste($db, $base, $tabla);
     }
     return $salida;
   }
@@ -369,17 +404,17 @@ class BusinessIntelligenceErp extends CRUD {
     return $stmt->fetch(PDO::FETCH_ASSOC) ?: array("desde" => null, "hasta" => null, "total" => 0);
   }
 
-  private function tablaExiste($db, $tabla) {
-    if (!$db || !preg_match('/^[a-zA-Z0-9_]+$/', $tabla)) { return false; }
+  private function tablaExiste($db, $base, $tabla) {
+    if (!$db || !preg_match('/^[a-zA-Z0-9_]+$/', $base) || !preg_match('/^[a-zA-Z0-9_]+$/', $tabla)) { return false; }
     $stmt = $db->prepare("SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA=:base AND TABLE_NAME=:tabla LIMIT 1");
-    $stmt->execute(array(":base" => MYSQLBASE, ":tabla" => $tabla));
+    $stmt->execute(array(":base" => $base, ":tabla" => $tabla));
     return (bool) $stmt->fetchColumn();
   }
 
-  private function columnasTabla($db, $tabla) {
-    if (!$db || !preg_match('/^[a-zA-Z0-9_]+$/', $tabla)) { return array(); }
+  private function columnasTabla($db, $base, $tabla) {
+    if (!$db || !preg_match('/^[a-zA-Z0-9_]+$/', $base) || !preg_match('/^[a-zA-Z0-9_]+$/', $tabla)) { return array(); }
     $stmt = $db->prepare("SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=:base AND TABLE_NAME=:tabla ORDER BY ORDINAL_POSITION");
-    $stmt->execute(array(":base" => MYSQLBASE, ":tabla" => $tabla));
+    $stmt->execute(array(":base" => $base, ":tabla" => $tabla));
     return $stmt->fetchAll(PDO::FETCH_COLUMN) ?: array();
   }
 

@@ -79,6 +79,8 @@
                                     <div class="col-md-3 text-md-end">
                                         <span class="badge badge-light-primary" id="ecom_an_estado">Listo</span>
                                         <span class="badge badge-light ms-2" id="ecom_an_persistencia">Validando</span>
+                                        <div class="text-muted fs-8 mt-2">Ultimo evento: <span id="ecom_an_ultimo_evento">-</span></div>
+                                        <div class="text-muted fs-8">Actualizado: <span id="ecom_an_actualizado">-</span></div>
                                     </div>
                                 </div>
                             </div>

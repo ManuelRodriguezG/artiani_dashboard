@@ -35,6 +35,20 @@ Actualizacion 2026-08-30:
 - Vista interna preparada en `app/vistas/paginas/apps/erp/ecommerce/leads.php` con JS `public/assets/js/custom/apps/erp/ecommerce/leads.js`.
 - Documento vivo nuevo: `docs/erp_ecommerce_leads_carritos_plan.md`.
 
+Actualizacion 2026-08-31:
+
+- Activacion aplicada contra la base configurada productiva `artianicom_sys`.
+- Respaldo externo generado antes del DDL:
+  - `C:\xampp\panel_db_backups\artianicom_sys_panel_20260831_140027_antes_ecommerce_leads.sql`;
+  - tamano: `39783689` bytes;
+  - sha256: `4fbf1be407873601ecff9977932e7b7b58030e9fffd07e7f535c6ec52cd31880`.
+- DDL aplicado con token `ECOMMERCE_LEADS_DDL`.
+- Postcheck read-only: `esquema_leads_completo`, 4 tablas existentes, 0 columnas faltantes, 0 indices faltantes.
+- Se activo `ECOMMERCE_LEADS_PUBLICO=true` para que los endpoints publicos registren carritos/leads.
+- UAT de persistencia publica HTTP: `verde_persistencia_publica_leads`.
+- Verificacion final read-only: `erp_ecommerce_leads_carritos=2`, `erp_ecommerce_leads_carrito_items=2`, `erp_ecommerce_leads_eventos=4`, `erp_ecommerce_leads_notas=0`.
+- Guardrails conservados: no crea pedido, no crea venta, no descuenta inventario y bloquea PII fuera de `contacto`.
+
 Actualizacion 2026-07-30:
 
 - La consola interna `http://panel.com.local/ecommercePublico/publicaciones` ya permite preparar curaduria, guardar/actualizar borrador y publicar productos ecommerce desde el panel.

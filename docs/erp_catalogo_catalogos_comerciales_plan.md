@@ -1658,3 +1658,23 @@ Cambios aplicados:
 Regla:
 
 - Las unidades siguen existiendo en Catálogo ERP para operacion, inventario y fiscal; solo se retiran como texto visible/fallback del material comercial.
+## Ajuste 2026-08-31 - Precios desde Listas de precios
+
+Contexto:
+
+- El usuario pidio revisar si Catalogos comerciales seguia tomando precio general de Catalogo ERP.
+- La auditoria encontro que candidatos y catalogos guardados usaban `erp_catalogo_sku_precios` con `lista_precio='general'`.
+
+Cambios aplicados:
+
+- Catalogos comerciales ahora resuelve precios desde `erp_listas_precios` y `erp_listas_precios_detalle`.
+- Solo considera listas `activa`, detalles `activo`, precio mayor a cero, moneda `MXN`, vigencias validas y alcance general/sin almacen.
+- Si existe precio especifico por SKU gana sobre precio por producto.
+- Los filtros `con precio` y `sin precio` ya usan la existencia de detalle vigente en Listas de precios.
+- El payload incluye `precio_origen='listas_precios'`, `id_lista_precio` y `lista_precio_nombre` para trazabilidad.
+
+Regla:
+
+- Catalogos comerciales no calcula precios ni rentabilidad.
+- Si muestra precio, debe venir de Listas de precios.
+- No hubo DDL en este ajuste.

@@ -787,6 +787,7 @@
       prioridad: 7,
       secciones: [
         seccion("home_hero_carrusel", "hero_carrusel", "Banner principal con imagen desktop/mobile y slides.", ["items", "autoplay", "intervalo_ms", "cta"]),
+        seccion("home_orden_componentes", "orden_componentes", "Orden visible de componentes del Home; el hero se mantiene fijo arriba.", ["slot", "tipo", "orden", "visible"]),
         seccion("home_promo", "promo_strip", "Franja corta para avisos, WhatsApp, envios o mensajes comerciales.", ["texto", "icono", "cta", "visible"]),
         seccion("home_promos_categoria", "promos_categoria", "Promos visuales grandes hacia categorias comerciales fuertes.", ["titulo", "imagen", "url", "path_slug"]),
         seccion("home_categorias_destacadas", "categorias_destacadas", "Categorias reales publicadas con imagen card/banner.", ["categoria_id", "slug", "imagen_card", "imagen_banner"]),
@@ -1228,6 +1229,9 @@
     if (item.codigo === "home_hero_carrusel") {
       return renderHeroCarrusel(item);
     }
+    if (item.codigo === "home_orden_componentes") {
+      return renderHomeOrdenComponentes(item);
+    }
     if (item.codigo === "home_promo") {
       return renderPromoHome(item);
     }
@@ -1316,6 +1320,52 @@
 
   function inputSlide(index, campo, label, value, col) {
     return inputConMedia("hero", index, campo, label, value, col, "data-hero-slide-field");
+  }
+
+  function renderHomeOrdenComponentes(item) {
+    var componentes = homeComponentesOrdenables();
+    return '<div class="cms-actual-card mb-4">' +
+      '<div class="d-flex justify-content-between align-items-start gap-3 flex-wrap mb-4">' +
+        '<div><div class="fw-bold">' + escapeHtml(item.codigo) + '</div><div class="text-muted fs-8">' + escapeHtml(item.descripcion) + '</div></div>' +
+        '<span class="badge badge-light-primary">Hero fijo arriba</span>' +
+      '</div>' +
+      '<div class="alert alert-light-info fs-7 py-3 mb-4">El hero/banner principal no entra en este orden: siempre queda primero. Lo demas se ordena con el campo <strong>orden</strong> que se guarda al publicar cada seccion.</div>' +
+      '<div class="table-responsive"><table class="table align-middle table-row-dashed fs-7 mb-0">' +
+        '<thead><tr class="text-muted text-uppercase fw-bold"><th>Componente</th><th>Slot</th><th style="width:120px;">Visible</th><th style="width:110px;">Orden</th><th style="width:150px;">Acciones</th></tr></thead>' +
+        '<tbody>' + componentes.map(renderHomeOrdenFila).join("") + '</tbody>' +
+      '</table></div>' +
+      '<div class="alert alert-light-warning fs-7 py-3 mt-4 mb-0">Despues de cambiar el orden, publica las secciones que moviste para que /ecommercePublico/contenido_pagina?pagina=home lo refleje.</div>' +
+    '</div>';
+  }
+
+  function homeComponentesOrdenables() {
+    var defs = [
+      ["home_promo", "home.promo", "Promo / avisos"],
+      ["home_promos_categoria", "home.promos", "Promos por categoria"],
+      ["home_categorias_destacadas", "home.categorias", "Categorias destacadas"],
+      ["home_productos_destacados", "home.destacados", "Productos destacados"],
+      ["home_marcas_destacadas", "home.marcas", "Marcas por categoria"],
+      ["home_colecciones", "home.destacados", "Colecciones de productos"],
+      ["home_esenciales_artiani", "home.esenciales", "Esenciales Artiani"],
+      ["home_compra_guiada", "home.compra_guiada", "Compra guiada"],
+      ["home_banner", "home.hero", "Banner simple legacy"]
+    ];
+    return defs.map(function (def) {
+      return { key: def[0], slot: def[1], nombre: def[2], data: estado.datos.home[def[0]] || {} };
+    }).sort(function (a, b) {
+      return (parseInt(a.data.orden || "0", 10) || 0) - (parseInt(b.data.orden || "0", 10) || 0);
+    });
+  }
+
+  function renderHomeOrdenFila(item) {
+    var visible = item.data.visible !== false;
+    return '<tr>' +
+      '<td><div class="fw-semibold">' + escapeHtml(item.nombre) + '</div><div class="text-muted">' + escapeHtml(item.key) + '</div></td>' +
+      '<td><span class="badge badge-light">' + escapeHtml(item.slot) + '</span></td>' +
+      '<td><select class="form-select form-select-sm" data-home-order-key="' + escapeAttr(item.key) + '" data-home-order-field="visible"><option value="1"' + (visible ? ' selected' : '') + '>Si</option><option value="0"' + (!visible ? ' selected' : '') + '>No</option></select></td>' +
+      '<td><input class="form-control form-control-sm" data-home-order-key="' + escapeAttr(item.key) + '" data-home-order-field="orden" value="' + escapeAttr(item.data.orden || 10) + '"></td>' +
+      '<td><div class="d-flex gap-2"><button class="btn btn-sm btn-light" type="button" data-home-order-key="' + escapeAttr(item.key) + '" data-home-order-action="subir"><i class="bi bi-arrow-up"></i></button><button class="btn btn-sm btn-light" type="button" data-home-order-key="' + escapeAttr(item.key) + '" data-home-order-action="bajar"><i class="bi bi-arrow-down"></i></button><button class="btn btn-sm btn-light-warning" type="button" data-home-order-key="' + escapeAttr(item.key) + '" data-home-order-action="toggle"><i class="bi ' + (visible ? 'bi-eye-slash' : 'bi-eye') + '"></i></button></div></td>' +
+    '</tr>';
   }
 
   function renderPromoHome(item) {
@@ -1476,6 +1526,19 @@
         ejecutarHomeListAccion(button.getAttribute("data-home-list-context"), button.getAttribute("data-home-list-action"), parseInt(button.getAttribute("data-index") || "0", 10));
       });
     });
+    Array.prototype.forEach.call(document.querySelectorAll("[data-home-order-field]"), function (node) {
+      node.addEventListener("input", function () {
+        actualizarHomeOrdenField(node.getAttribute("data-home-order-key") || "", node.getAttribute("data-home-order-field") || "", node.value);
+      });
+      node.addEventListener("change", function () {
+        actualizarHomeOrdenField(node.getAttribute("data-home-order-key") || "", node.getAttribute("data-home-order-field") || "", node.value);
+      });
+    });
+    Array.prototype.forEach.call(document.querySelectorAll("[data-home-order-action]"), function (button) {
+      button.addEventListener("click", function () {
+        ejecutarHomeOrdenAccion(button.getAttribute("data-home-order-key") || "", button.getAttribute("data-home-order-action") || "");
+      });
+    });
     Array.prototype.forEach.call(document.querySelectorAll("[data-esenciales-config]"), function (node) {
       node.addEventListener("input", function () {
         actualizarEsencialesConfig(node.getAttribute("data-esenciales-config"), node.value);
@@ -1528,6 +1591,15 @@
     on("cms_actual_home_marca_agregar", "click", agregarHomeMarca);
     on("cms_actual_home_marcas_publicar", "click", publicarHomeMarcas);
     on("cms_actual_home_marcas_api", "click", consultarApiHomeMarcas);
+    on("cms_actual_home_marcas_preview", "click", consultarPreviewHomeMarcas);
+    var previewMarcas = $("cms_actual_home_marcas_preview_lista");
+    if (previewMarcas) {
+      previewMarcas.addEventListener("click", function (event) {
+        var button = event.target.closest("[data-home-marca-preview-add]");
+        if (!button) return;
+        agregarMarcaDesdePreview(parseInt(button.getAttribute("data-home-marca-preview-add") || "0", 10));
+      });
+    }
     on("cms_actual_home_esencial_agregar", "click", agregarHomeEsencial);
     on("cms_actual_home_esenciales_publicar", "click", publicarHomeEsenciales);
     on("cms_actual_home_esenciales_api", "click", consultarApiHomeEsenciales);
@@ -2948,6 +3020,8 @@
       '</div>' +
       '<div class="cms-actual-slide-preview mb-4"' + bg + '><div><div class="text-uppercase fs-8 fw-bold mb-2">' + escapeHtml(item.slug || "categoria") + '</div><h2 class="text-white fw-bold mb-2">' + escapeHtml(item.titulo || "Categoria") + '</h2><div class="opacity-75">' + escapeHtml(item.subtitulo || "") + '</div></div></div>' +
       '<div class="row g-3">' +
+        selectorCategoriaHomeLista("categorias", index, item, "col-md-12") +
+        botonUsarImagenCategoria("categorias", index, item) +
         inputCategoria(index, "titulo", "Titulo card", item.titulo, "col-md-4") +
         inputCategoria(index, "slug", "Slug", item.slug, "col-md-4") +
         inputCategoria(index, "categoria_id", "Categoria ID", item.categoria_id, "col-md-2") +
@@ -3403,6 +3477,9 @@
         '<div class="col-md-6"><label class="form-label fs-8 fw-bold">Imagen card categoria</label><input class="form-control form-control-sm" data-home-list-config="marcas.categoria_contexto.imagen_card" value="' + escapeAttr((data.categoria_contexto || {}).imagen_card || "") + '"></div>' +
         '<div class="col-md-6"><label class="form-label fs-8 fw-bold">Imagen banner categoria</label><input class="form-control form-control-sm" data-home-list-config="marcas.categoria_contexto.imagen_banner" value="' + escapeAttr((data.categoria_contexto || {}).imagen_banner || "") + '"></div>' +
       '</div>' +
+      '<div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3"><div class="fw-bold">Marcas de la categoria</div><button class="btn btn-sm btn-light-info" type="button" id="cms_actual_home_marcas_preview"><i class="bi bi-eye"></i> Ver marcas de la categoria</button></div>' +
+      '<div class="alert alert-light-secondary fs-7 py-3 mb-4" id="cms_actual_home_marcas_preview_estado">Selecciona una categoria origen y revisa aqui si sus marcas tienen logo/banner.</div>' +
+      '<div class="row g-3 mb-4" id="cms_actual_home_marcas_preview_lista"></div>' +
       '<div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3"><div class="fw-bold">Marcas manuales opcionales</div><div class="d-flex gap-2"><button class="btn btn-sm btn-light-primary" type="button" data-home-section-draft="marcas"><i class="bi bi-save"></i> Guardar borrador</button><button class="btn btn-sm btn-light-info" type="button" id="cms_actual_home_marcas_api"><i class="bi bi-broadcast"></i> Ver API publicada</button><button class="btn btn-sm btn-primary" type="button" id="cms_actual_home_marcas_publicar"><i class="bi bi-cloud-check"></i> Guardar y publicar marcas</button><button class="btn btn-sm btn-light-primary" type="button" id="cms_actual_home_marca_agregar"><i class="bi bi-plus-circle"></i> Agregar marca manual</button></div></div>' +
       '<div class="alert alert-light-warning fs-7 py-3 mb-4" id="cms_actual_home_marcas_estado">Pendiente de publicar. Selecciona la categoria que manda el contexto; las marcas manuales solo sirven para priorizar o reemplazar.</div>' +
       '<div class="alert alert-light-secondary fs-7 py-3 mb-4 d-none" id="cms_actual_home_marcas_api_estado"></div>' +
@@ -3457,6 +3534,126 @@
       return '<option value="' + escapeAttr(id) + '"' + (selected === id ? ' selected' : '') + '>' + escapeHtml(label) + '</option>';
     }).join("");
     return '<div class="' + escapeAttr(col || "col-md-4") + '"><label class="form-label fs-8 fw-bold">Marca real</label><select class="form-select form-select-sm" data-home-marca-select data-index="' + escapeAttr(index) + '">' + options + '</select></div>';
+  }
+
+  /**
+   * IA: Codex GPT-5 | Fecha: 2026-08-31
+   * Proposito: previsualizar marcas reales por categoria con diagnostico de imagen.
+   * Impacto: CMS Frontend Home; muestra que marcas enviaria `home_marcas_destacadas` y cuales requieren logo/banner en CMS Marcas.
+   */
+  function consultarPreviewHomeMarcas() {
+    var data = marcasHomeData();
+    var contexto = data.categoria_contexto || {};
+    var fuente = data.fuente || {};
+    var categoriaId = parseInt(contexto.categoria_id || "0", 10) || 0;
+    var categoriaSlug = String(fuente.categoria_slug || contexto.path_slug || "").trim();
+    if (!categoriaId && !categoriaSlug) {
+      setPreviewHomeMarcas("Selecciona una categoria origen primero.", "warning");
+      return;
+    }
+    var limite = parseInt(fuente.limite || "0", 10) || 0;
+    var url = "/cms/frontend_home_marcas_preview_erp?categoria_id=" + encodeURIComponent(categoriaId) + "&categoria_slug=" + encodeURIComponent(categoriaSlug) + "&limite=" + encodeURIComponent(limite);
+    var boton = $("cms_actual_home_marcas_preview");
+    if (boton) boton.disabled = true;
+    setPreviewHomeMarcas("Consultando marcas reales de la categoria...", "info");
+    fetch(url, {
+      method: "GET",
+      credentials: "same-origin",
+      headers: {
+        "Accept": "application/json",
+        "X-Requested-With": "XMLHttpRequest"
+      }
+    }).then(function (response) {
+      return response.text().then(function (text) {
+        var json = null;
+        try {
+          json = JSON.parse(text);
+        } catch (error) {
+          throw new Error("Respuesta no JSON del servidor (" + response.status + "): " + text.substring(0, 140));
+        }
+        if (!response.ok && json && json.mensaje) throw new Error(json.mensaje);
+        return json;
+      });
+    }).then(function (json) {
+      if (!json || json.error) throw new Error(json && json.mensaje ? json.mensaje : "No se pudo consultar preview");
+      var depurar = json.depurar || {};
+      estado.previewMarcasCategoria = depurar.items || [];
+      renderPreviewHomeMarcas(depurar);
+    }).catch(function (error) {
+      setPreviewHomeMarcas(error.message || "Error al consultar preview de marcas.", "danger");
+    }).finally(function () {
+      if (boton) boton.disabled = false;
+    });
+  }
+
+  function renderPreviewHomeMarcas(depurar) {
+    var resumen = depurar.resumen || {};
+    var items = Array.isArray(depurar.items) ? depurar.items : [];
+    setPreviewHomeMarcas(
+      "Marcas encontradas: " + (resumen.total || items.length) + ". Con imagen: " + (resumen.con_imagen || 0) + ". Sin imagen: " + (resumen.sin_imagen || 0) + ".",
+      resumen.sin_imagen ? "warning" : "success"
+    );
+    var lista = $("cms_actual_home_marcas_preview_lista");
+    if (!lista) return;
+    if (!items.length) {
+      lista.innerHTML = '<div class="col-12"><div class="alert alert-light-warning fs-7 mb-0">No encontre marcas publicadas para esa categoria.</div></div>';
+      return;
+    }
+    lista.innerHTML = items.map(function (item, index) {
+      var imagen = item.logo || item.imagen_banner || "";
+      var tieneImagen = !!item.tiene_imagen;
+      return '<div class="col-md-4 col-xl-3">' +
+        '<div class="border rounded bg-white overflow-hidden h-100">' +
+          (imagen ? '<img src="' + escapeAttr(urlPreviewSeguro(imagen)) + '" alt="' + escapeAttr(item.alt_logo || item.nombre || "") + '" style="width:100%;aspect-ratio:16/10;object-fit:contain;background:#f3f6f9;padding:10px;">' : '<div class="d-flex align-items-center justify-content-center bg-light text-muted" style="width:100%;aspect-ratio:16/10;">Sin imagen</div>') +
+          '<div class="p-3">' +
+            '<div class="fw-bold text-truncate">' + escapeHtml(item.nombre || "Marca") + '</div>' +
+            '<div class="text-muted fs-8 text-truncate mb-2">' + escapeHtml(item.url || "") + '</div>' +
+            '<div class="d-flex flex-wrap gap-2 mb-3"><span class="badge ' + (tieneImagen ? 'badge-light-success' : 'badge-light-warning') + '">' + (tieneImagen ? 'Con imagen' : 'Sin imagen') + '</span><span class="badge badge-light">' + escapeHtml((item.total_productos || 0) + " productos") + '</span></div>' +
+            '<button class="btn btn-sm ' + (tieneImagen ? 'btn-light-primary' : 'btn-light-secondary') + ' w-100" type="button" data-home-marca-preview-add="' + escapeAttr(index) + '"' + (!tieneImagen ? ' disabled' : '') + '><i class="bi bi-plus-circle"></i> Agregar al borrador</button>' +
+          '</div>' +
+        '</div>' +
+      '</div>';
+    }).join("");
+  }
+
+  function agregarMarcaDesdePreview(index) {
+    var item = estado.previewMarcasCategoria && estado.previewMarcasCategoria[index] ? estado.previewMarcasCategoria[index] : null;
+    if (!item || !item.tiene_imagen) return;
+    var data = marcasHomeData();
+    data.items = data.items || [];
+    var marcaId = parseInt(item.marca_id || "0", 10) || 0;
+    var yaExiste = data.items.some(function (actual) {
+      return parseInt((actual || {}).marca_id || "0", 10) === marcaId;
+    });
+    if (yaExiste) {
+      setPreviewHomeMarcas("Esa marca ya esta en el borrador manual.", "info");
+      return;
+    }
+    data.items.push({
+      marca_id: marcaId,
+      nombre: item.nombre || "",
+      subtitulo: item.subtitulo || "Ver marca",
+      slug: item.slug || "",
+      slug_publico: item.slug || "",
+      logo: item.logo || "",
+      imagen_banner: item.imagen_banner || "",
+      alt_logo: item.alt_logo || ("Logo de " + (item.nombre || "")),
+      descripcion_corta: item.descripcion_corta || "",
+      url: item.url || "",
+      visible: true,
+      visible_frontend: true,
+      orden: (data.items.length + 1) * 10
+    });
+    setPreviewHomeMarcas("Marca agregada al borrador manual.", "success");
+    renderGrupo();
+  }
+
+  function setPreviewHomeMarcas(mensaje, tipo) {
+    setText("cms_actual_estado", mensaje);
+    var node = $("cms_actual_home_marcas_preview_estado");
+    if (!node) return;
+    node.className = "alert fs-7 py-3 mb-4 alert-light-" + (tipo || "info");
+    node.textContent = mensaje;
   }
 
   function renderColeccionesProductos(item) {
@@ -3999,9 +4196,39 @@
 
   function homeListaData(contexto) {
     if (contexto === "promos_categoria") return promosCategoriaData();
+    if (contexto === "categorias") return categoriasData();
     if (contexto === "marcas") return marcasHomeData();
     if (contexto === "esenciales") return esencialesData();
     return null;
+  }
+
+  function actualizarHomeOrdenField(key, campo, valor) {
+    var data = estado.datos.home ? estado.datos.home[key] : null;
+    if (!data) return;
+    if (campo === "visible") data.visible = valor === "1";
+    if (campo === "orden") data.orden = parseInt(valor || "10", 10) || 10;
+    refrescarJson();
+  }
+
+  function ejecutarHomeOrdenAccion(key, accion) {
+    var componentes = homeComponentesOrdenables();
+    var index = componentes.findIndex(function (item) { return item.key === key; });
+    if (index < 0) return;
+    if (accion === "toggle") {
+      componentes[index].data.visible = componentes[index].data.visible === false;
+      renderGrupo();
+      return;
+    }
+    if (accion === "subir" && index > 0) {
+      componentes.splice(index - 1, 0, componentes.splice(index, 1)[0]);
+    }
+    if (accion === "bajar" && index < componentes.length - 1) {
+      componentes.splice(index + 1, 0, componentes.splice(index, 1)[0]);
+    }
+    componentes.forEach(function (item, pos) {
+      if (item.data) item.data.orden = (pos + 2) * 10;
+    });
+    renderGrupo();
   }
 
   function actualizarHomeListConfig(path, valor) {
@@ -4065,6 +4292,11 @@
     var item = data && data.items ? data.items[index] : null;
     if (!categoria || !item) return;
     aplicarCategoriaCmsDestino(item, categoria, !!item.imagen);
+    if (contexto === "categorias") {
+      if (!item.imagen_card) item.imagen_card = imagenCardCategoriaCms(categoria);
+      if (!item.imagen_banner) item.imagen_banner = imagenBannerCategoriaCms(categoria);
+      if (!item.alt) item.alt = "Categoria " + (item.titulo || categoria.nombre || categoria.nombre_completo || "");
+    }
     renderGrupo();
   }
 
@@ -4119,12 +4351,19 @@
     var categoria = categoriaCmsPorId(target.categoria_id);
     var imagen = imagenCategoriaCms(categoria);
     if (!imagen) {
-      setHomeListaEstado("esenciales", "La categoria seleccionada no tiene imagen editorial disponible. Sube una imagen propia o configura imagen en CMS > Frontend > Categorias.", "warning");
+      if (contexto === "categorias") setHomeCategoriasEstado("La categoria seleccionada no tiene imagen editorial disponible. Sube una imagen propia o configura imagen en CMS > Frontend > Categorias.", "warning");
+      else setHomeListaEstado("esenciales", "La categoria seleccionada no tiene imagen editorial disponible. Sube una imagen propia o configura imagen en CMS > Frontend > Categorias.", "warning");
       return;
     }
-    target.imagen = imagen;
+    if (contexto === "categorias") {
+      target.imagen_card = imagenCardCategoriaCms(categoria) || imagen;
+      target.imagen_banner = target.imagen_banner || imagenBannerCategoriaCms(categoria) || imagen;
+    } else {
+      target.imagen = imagen;
+    }
     if (!target.alt) target.alt = "Categoria " + (categoria.nombre || categoria.nombre_completo || target.titulo || "");
-    setHomeListaEstado("esenciales", "Imagen de categoria aplicada al borrador.", "success");
+    if (contexto === "categorias") setHomeCategoriasEstado("Imagen de categoria aplicada al borrador.", "success");
+    else setHomeListaEstado("esenciales", "Imagen de categoria aplicada al borrador.", "success");
     renderGrupo();
   }
 
@@ -5551,7 +5790,28 @@
         actualizado_en: "pendiente",
         seo: {},
         config: {},
-        secciones: grupo.secciones.map(function (item, index) {
+        orden_componentes: homeComponentesOrdenables().map(function (item) {
+          return {
+            codigo: item.key,
+            slot: item.slot,
+            visible: item.data.visible !== false,
+            orden: parseInt(item.data.orden || "0", 10) || 0
+          };
+        }),
+        secciones_ordenadas: homeComponentesOrdenables().filter(function (item) {
+          return item.data.visible !== false;
+        }).map(function (item) {
+          return {
+            codigo: item.key,
+            slot: item.slot,
+            tipo: item.data.tipo || "",
+            layout: item.data.layout || (item.data.config ? item.data.config.variante : ""),
+            orden: parseInt(item.data.orden || "0", 10) || 0
+          };
+        }),
+        secciones: grupo.secciones.filter(function (item) {
+          return item.codigo !== "home_orden_componentes";
+        }).map(function (item, index) {
           return {
             codigo: item.codigo,
             tipo: item.tipo,

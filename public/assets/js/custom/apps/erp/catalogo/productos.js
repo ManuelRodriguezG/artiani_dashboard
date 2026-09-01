@@ -3098,6 +3098,20 @@
         }
     }
 
+    /**
+     * IA: Codex GPT-5 | Fecha: 2026-08-31
+     * Proposito: permite quitar la categoria principal de un producto sin obligar a seleccionar otra.
+     * Impacto: Catalogo ERP; facilita reclasificacion gradual y evita mantener categorias historicas incorrectas.
+     * Contrato: solo limpia el campo en UI; la baja real se confirma al guardar datos maestros.
+     */
+    function limpiarCategoriaPrincipalEdicion() {
+        var form = document.getElementById("catalogo_form_editar");
+        if (!form) {
+            return;
+        }
+        setValor(form, "id_categoria_erp", "");
+    }
+
     function setChecked(currentForm, name, value) {
         var input = currentForm.querySelector("[name='" + name + "']");
         if (input) {
@@ -3608,6 +3622,10 @@
         var codigoBarrasResultado = document.getElementById("catalogo_codigo_barras_resultado");
         if (editar) {
             editar.addEventListener("submit", guardarEdicion);
+        }
+        var limpiarCategoriaPrincipal = document.getElementById("catalogo_editar_categoria_limpiar");
+        if (limpiarCategoriaPrincipal) {
+            limpiarCategoriaPrincipal.addEventListener("click", limpiarCategoriaPrincipalEdicion);
         }
         if (duplicarAbrir) {
             duplicarAbrir.addEventListener("click", abrirDuplicarProducto);

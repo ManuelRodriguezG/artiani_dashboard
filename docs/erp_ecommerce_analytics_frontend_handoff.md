@@ -13,6 +13,8 @@ Los endpoints pueden trabajar en dos modos con el mismo contrato:
 
 Analytics v1 ya esta activo en modo `registra_bd` para el backend configurado en `panel.com.local`. Frontend no cambia endpoints entre modos.
 
+Nota operativa: `panel.com.local` apunta a la base productiva efectiva del backend. Cualquier prueba desde frontend con payload valido registrara filas reales anonimas en `erp_ecommerce_analytics_*`.
+
 ## Endpoint de contrato
 
 Consultar antes de integrar o para diagnostico:
@@ -48,6 +50,62 @@ if (!sessionId) {
 ```
 
 Ese `session_id` se manda en todos los eventos.
+
+## SDK publico opcional
+
+Se deja un helper vanilla para acelerar la integracion del frontend externo:
+
+```html
+<script src="http://panel.com.local/assets/js/custom/apps/ecommerce/analytics-tracker-publico.js?v=20260831"></script>
+<script>
+  window.ArtianiEcommerceAnalytics.init({
+    endpointBase: "http://panel.com.local",
+    canal: "web_publica",
+    autoSession: true,
+    autoPageView: true
+  });
+</script>
+```
+
+Uso recomendado:
+
+```js
+window.ArtianiEcommerceAnalytics.viewProduct({
+  id_publicacion: producto.id_publicacion,
+  id_sku: producto.id_sku,
+  slug: producto.slug,
+  metadata: {
+    categoria_slug: producto.categoria_slug,
+    marca_slug: producto.marca_slug
+  }
+});
+
+window.ArtianiEcommerceAnalytics.search({
+  query: termino,
+  resultados_total: resultados.length,
+  sin_resultados: resultados.length === 0,
+  filtros: filtrosPublicos
+});
+
+window.ArtianiEcommerceAnalytics.conversion("add_to_quote", {
+  id_publicacion: producto.id_publicacion,
+  id_sku: producto.id_sku,
+  slug: producto.slug,
+  metadata: {
+    cantidad: cantidad,
+    origen: "product_detail"
+  }
+});
+
+window.ArtianiEcommerceAnalytics.openWhatsapp({
+  metadata: {
+    items_total: carrito.length,
+    origen: "cart_whatsapp_button"
+  }
+});
+```
+
+El SDK filtra claves prohibidas antes de enviar, pero esa limpieza no sustituye la regla principal: el frontend no debe construir payloads de analytics con datos personales ni stock exacto.
 
 No enviar datos personales en analytics:
 

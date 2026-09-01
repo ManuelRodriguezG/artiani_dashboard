@@ -2,7 +2,7 @@
 
 Documentacion IA: Codex GPT-5  
 Fecha: 2026-08-30  
-Estado: contrato y preflight implementados; DDL y persistencia real pendientes de autorizacion.
+Estado: contrato, DDL y persistencia publica activados con respaldo productivo previo.
 
 ## Objetivo
 
@@ -48,6 +48,8 @@ Ambos se conectan por `session_id`, pero en BD se guarda hash irreversible. Anal
 - `EcommerceAnalyticsErp` ya separa tracking anonimo y bloquea PII.
 - `EcommercePublico` no esta protegido globalmente por `Core`; los endpoints internos se protegen por metodo con `requerirPermiso("catalogo.ver")` o `catalogo.editar`.
 - Existen `Prospectos` y `Carritos` legacy/CRM, pero no deben ser base del nuevo modulo.
+- Activacion 2026-08-31: DDL aplicado contra `artianicom_sys`, `ECOMMERCE_LEADS_PUBLICO=true`, UAT HTTP `verde_persistencia_publica_leads`.
+- Respaldo usado: `C:\xampp\panel_db_backups\artianicom_sys_panel_20260831_140027_antes_ecommerce_leads.sql`.
 
 ## Endpoints implementados
 
@@ -116,10 +118,8 @@ descartado
 1. Ejecutar auditoria read-only de esquema con `/ecommercePublico/esquema_auditar_leads`.
 2. Revisar plan DDL con `/ecommercePublico/esquema_plan_leads`.
 3. Preparar UAT read-only HTTP para payloads: carrito anonimo, WhatsApp con mensaje vacio, contacto, facturacion y PII fuera de `contacto`.
-4. Autorizar DDL solo con respaldo externo en `C:\xampp\panel_db_backups`.
-5. Implementar persistencia real transaccional detras de `ECOMMERCE_LEADS_PUBLICO=true`.
-6. Crear vista interna operativa de bandeja y detalle.
-7. Definir permiso fino futuro recomendado: `ecommerce.leads.ver` y `ecommerce.leads.operar`; mientras tanto se usa `catalogo.ver` para lectura interna.
+4. Definir permiso fino futuro recomendado: `ecommerce.leads.ver` y `ecommerce.leads.operar`; mientras tanto se usa `catalogo.ver` para lectura interna.
+5. Preparar limpieza/etiquetado de registros UAT si operacion lo solicita.
 
 ## Seccion copiable para frontend
 

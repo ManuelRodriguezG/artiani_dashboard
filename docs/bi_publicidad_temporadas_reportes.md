@@ -240,3 +240,12 @@ Fecha: 2026-08-31
   - busquedas frecuentes para campanas o landings;
   - productos con interes historico para validar stock, precio, utilidad y contenido;
   - categorias con demanda agrupada para campanas por familia.
+
+## Correccion de fuente BI
+
+Fecha: 2026-08-31
+
+- En `panel.com.local`, la conexion activa puede apuntar a `artianicom_sys`, donde no existen `bi_busquedas` ni `bi_seguimiento_consumibles`.
+- El modulo BI ahora detecta esa condicion y usa una conexion read-only a la base historica `artianicom_artiani` cuando ahi existan las tablas legacy.
+- El resto del ERP conserva su conexion activa; el fallback solo aplica dentro de `BusinessIntelligenceErp`.
+- La UI muestra la fuente usada en el diagnostico para evitar confundir base activa con base historica BI.

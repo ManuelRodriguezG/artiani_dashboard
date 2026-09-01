@@ -7,7 +7,7 @@ define('APP_TIMEZONE', 'America/Mexico_City');
 define('RUTA_APP', dirname(dirname(__FILE__)));
 define('SESSION_TIMEOUT_SECONDS', 1800);
 define('ECOMMERCE_ANALYTICS_TRACKING_PUBLICO', true);
-define('ECOMMERCE_LEADS_PUBLICO', false);
+define('ECOMMERCE_LEADS_PUBLICO', true);
 ini_set('session.gc_maxlifetime', SESSION_TIMEOUT_SECONDS);
 ini_set('session.cookie_httponly', 1);
 ini_set('session.cookie_samesite', 'Lax');

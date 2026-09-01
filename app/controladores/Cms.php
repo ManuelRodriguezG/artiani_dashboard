@@ -689,6 +689,17 @@ class Cms extends Controlador {
   }
 
   /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-08-31
+   * Proposito: previsualizar marcas reales de una categoria para CMS Home.
+   * Impacto: CMS Frontend Home; permite ver logo/banner disponible antes de publicar marcas destacadas.
+   * Contrato: GET protegido, solo lectura; no modifica marcas, catalogo, precios ni inventario.
+   */
+  public function frontend_home_marcas_preview_erp() {
+    $this->requerirAlgunPermiso(array("cms.ver", "catalogo.ver"));
+    return json_encode($this->modelo("EcommerceCatalogoPublico")->frontendHomeMarcasPreviewInterno($_GET), JSON_UNESCAPED_UNICODE);
+  }
+
+  /**
    * Documentacion IA: Codex GPT-5 | Fecha: 2026-08-28
    * Proposito: publicar Esenciales Artiani desde CMS Frontend Home.
    * Impacto: CMS contenido; persiste `home_esenciales_artiani` en el slot `home.esenciales`.

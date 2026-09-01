@@ -134,6 +134,14 @@ senal_frontend_analytics_http=verde_persistencia_publica_anonima
 
 El UAT registra eventos anonimos de prueba y confirma que payloads con PII o stock exacto quedan bloqueados con `no_escribe_bd=true`.
 
+SDK publico opcional para frontend externo:
+
+```text
+http://panel.com.local/assets/js/custom/apps/ecommerce/analytics-tracker-publico.js?v=20260831
+```
+
+El SDK genera `session_id` en `localStorage`, agrega canal/ruta/UTM/dispositivo, filtra claves prohibidas y envia a los endpoints publicos de analytics. La validacion definitiva sigue estando en backend.
+
 ## Persistencia publica activa
 
 El modelo `EcommerceAnalyticsErp` contiene funciones de persistencia autorizada:

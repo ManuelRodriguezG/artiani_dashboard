@@ -1244,6 +1244,8 @@ Resultado:
   - `storage/uat/uat_ecommerce_analytics_persistencia_publica_http.php`.
 - Senal UAT:
   - `verde_persistencia_publica_anonima`.
+- SDK publico opcional para frontend:
+  - `public/assets/js/custom/apps/ecommerce/analytics-tracker-publico.js`.
 
 Respaldo usado:
 
@@ -1259,6 +1261,7 @@ Reglas confirmadas:
 - No toca ventas, inventario, checkout, pedidos ni cotizaciones reales.
 - `analytics_conversion` registra conversion y evento de embudo para que el dashboard vea WhatsApp/cotizacion.
 - Busquedas y conversiones actualizan sesion ligera para mantener actividad por `session_id_hash`.
+- El SDK frontend filtra claves prohibidas antes de enviar, pero la seguridad final permanece en backend.
 
 Vista interna:
 

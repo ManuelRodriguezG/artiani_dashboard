@@ -74,6 +74,8 @@
     toggleEmpty(!get(depurar, ["configurado"], false) || Number(resumen.eventos_total || 0) + Number(resumen.busquedas_total || 0) === 0);
     setEstado(get(depurar, ["configurado"], false) ? etiquetaFuente(get(depurar, ["fuente_metricas"], "eventos_crudos")) : "Sin esquema", get(depurar, ["configurado"], false) ? "badge-light-success" : "badge-light-warning");
     setPersistencia(get(depurar, ["persistencia", "modo_actual"], ""));
+    setText("ecom_an_ultimo_evento", resumenUltimoEvento(get(depurar, ["ultimo_evento"], {})));
+    setText("ecom_an_actualizado", get(depurar, ["fecha_consulta"], "-"));
   }
 
   function renderEmbudo(embudo) {
@@ -199,7 +201,13 @@
   }
 
   function etiquetaFuente(fuente) {
-    return fuente === "resumen_diario" ? "Resumen diario" : "Read-only";
+    return fuente === "resumen_diario" ? "Resumen diario" : "Eventos crudos";
+  }
+
+  function resumenUltimoEvento(evento) {
+    if (!evento || !evento.fecha_registro) return "-";
+    var partes = [evento.fecha_registro, evento.tipo_evento || "", evento.ruta || evento.slug || ""].filter(Boolean);
+    return partes.join(" | ");
   }
 
   function etiquetaPaso(paso) {

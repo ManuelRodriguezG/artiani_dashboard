@@ -7,6 +7,7 @@
     var matrizCruda = [];
     var encabezadosCrudos = [];
     var archivoCrudoNombre = "";
+    var archivoCrudoHoja = "";
     var estadoCuentaActualId = "";
 
     var tiposMovimiento = ["gasto", "ingreso", "transpaso"];
@@ -27,7 +28,8 @@
         if (value == null) { return 0; }
         var limpio = String(value).replace(/\s/g, "").replace(/\$/g, "").replace(/,/g, "");
         var n = parseFloat(limpio);
-        return isNaN(n) ? 0 : n;
+        if (isNaN(n)) { return 0; }
+        return Math.abs(n) < 0.000001 ? 0 : n;
     }
     function hoyPeriodo() {
         var d = new Date();
@@ -231,11 +233,14 @@
         select.innerHTML = opciones || "<option value=\"0\">Fila 1</option>";
         var mejor = 0;
         var scoreMejor = -1;
-        matrizCruda.slice(0, Math.min(12, matrizCruda.length)).forEach(function (fila, i) {
+        matrizCruda.slice(0, Math.min(18, matrizCruda.length)).forEach(function (fila, i) {
             var texto = normalizar(fila.join(" "));
-            var score = ["fecha", "concepto", "descripcion", "monto", "importe", "cargo", "abono", "cuenta"].reduce(function (s, palabra) {
+            var score = ["fecha", "concepto", "descripcion", "monto", "importe", "cuenta", "movimiento", "actividad"].reduce(function (s, palabra) {
                 return s + (texto.indexOf(palabra) >= 0 ? 1 : 0);
             }, 0);
+            if (/fecha/.test(texto) && /concepto/.test(texto) && /monto|importe/.test(texto) && !/saldo posterior/.test(texto)) {
+                score += 5;
+            }
             if (score > scoreMejor) { scoreMejor = score; mejor = i; }
         });
         select.value = String(mejor);
@@ -263,7 +268,7 @@
     }
     function renderMapeo() {
         if (matrizCruda.length) { reconstruirFilasDesdeMatriz(); }
-        $("contabilidad_mapeo_subtitulo").textContent = archivoCrudoNombre || "Archivo original";
+        $("contabilidad_mapeo_subtitulo").textContent = (archivoCrudoNombre || "Archivo original") + (archivoCrudoHoja ? " | Hoja: " + archivoCrudoHoja : "");
         $("contabilidad_mapeo_resumen").innerHTML =
             badge("Filas: " + filasCrudas.length, "info") +
             badge("Columnas: " + encabezadosCrudos.length, "warning") +
@@ -271,9 +276,7 @@
             badge("Salida: 7 columnas utiles", "primary");
         renderSelectMapeo("map_fecha", sugerirColumna(["fecha", "date", "operation date"]));
         renderSelectMapeo("map_concepto", sugerirColumna(["descripcion", "description", "concepto", "detalle", "movimiento"]));
-        renderSelectMapeo("map_monto", sugerirColumna(["monto", "importe", "amount", "total"]));
-        renderSelectMapeo("map_egreso", sugerirColumna(["egreso", "cargo", "debito", "debit", "retiro"]));
-        renderSelectMapeo("map_ingreso", sugerirColumna(["ingreso", "abono", "credito", "credit", "deposito"]));
+        renderSelectMapeo("map_monto", sugerirColumna(["monto", "importe", "amount", "total operacion", "importe operacion"]));
         renderSelectMapeo("map_movimiento", sugerirColumna(["movimiento", "tipo", "transaction type"]));
         renderSelectMapeo("map_actividad", sugerirColumna(["actividad"]));
         renderSelectMapeo("map_cuenta", sugerirColumna(["cuenta", "banco", "account"]));
@@ -318,7 +321,7 @@
         if (/ingreso|deposito|cobro/.test(v)) { return "ingreso"; }
         if (/traspaso|transpaso|transferencia interna|interno/.test(v)) { return "transpaso"; }
         if (/egreso|gasto|cargo|pago|retiro/.test(v)) { return "gasto"; }
-        return sugerirTipo(concepto, cargo, abono);
+        return "gasto";
     }
     function normalizarActividadMapeada(valor, concepto, tipo) {
         var v = normalizar(valor);
@@ -340,6 +343,13 @@
             var anio = partes[3].length === 2 ? "20" + partes[3] : partes[3];
             return anio + "-" + partes[2].padStart(2, "0") + "-" + partes[1].padStart(2, "0");
         }
+        var meses = {ene: "01", enero: "01", feb: "02", febrero: "02", mar: "03", marzo: "03", abr: "04", abril: "04", may: "05", mayo: "05", jun: "06", junio: "06", jul: "07", julio: "07", ago: "08", agosto: "08", sep: "09", sept: "09", septiembre: "09", oct: "10", octubre: "10", nov: "11", noviembre: "11", dic: "12", diciembre: "12"};
+        var textoMes = normalizar(raw).replace(/\./g, "");
+        var partesMes = textoMes.match(/^(\d{1,2})[\/\-\s]+([a-z]+)[\/\-\s]+(\d{2,4})/);
+        if (partesMes && meses[partesMes[2]]) {
+            var anioMes = partesMes[3].length === 2 ? "20" + partesMes[3] : partesMes[3];
+            return anioMes + "-" + meses[partesMes[2]] + "-" + partesMes[1].padStart(2, "0");
+        }
         return raw.slice(0, 10);
     }
     function registrarEstadoCuenta(cantidadMovimientos) {
@@ -352,6 +362,7 @@
             cuenta: cuenta,
             filas: filasCrudas.length,
             columnas: encabezadosCrudos.length,
+            hoja: archivoCrudoHoja || "",
             movimientos: cantidadMovimientos || 0,
             fecha_carga: new Date().toLocaleString("es-MX")
         });
@@ -408,18 +419,16 @@
     function importarDesdeMapeo() {
         var cuentaDefault = $("contabilidad_cuenta").value || "";
         if (matrizCruda.length) { reconstruirFilasDesdeMatriz(); }
-        if (!$("map_fecha").value || !$("map_concepto").value) {
-            mostrarError("Mapea al menos fecha y descripcion/concepto.");
+        if (!$("map_fecha").value || !$("map_concepto").value || !$("map_monto").value) {
+            mostrarError("Mapea al menos fecha, descripcion/concepto y monto.");
             return;
         }
         var estadoId = registrarEstadoCuenta(filasCrudas.length);
         var nuevos = filasCrudas.map(function (row, idx) {
             var monto = numero(valorMapeado(row, "map_monto"));
-            var cargo = numero(valorMapeado(row, "map_egreso"));
-            var abono = numero(valorMapeado(row, "map_ingreso"));
-            if (!cargo && !abono && monto) {
-                if (monto < 0) { cargo = Math.abs(monto); } else { abono = monto; }
-            }
+            var tipoMapeado = normalizarTipoMapeado(valorMapeado(row, "map_movimiento"), "", 0, 0);
+            var cargo = tipoMapeado === "ingreso" ? 0 : Math.abs(monto);
+            var abono = tipoMapeado === "ingreso" ? Math.abs(monto) : 0;
             var concepto = valorMapeado(row, "map_concepto") || "Movimiento sin concepto";
             var tipo = normalizarTipoMapeado(valorMapeado(row, "map_movimiento"), concepto, cargo, abono);
             var actividad = normalizarActividadMapeada(valorMapeado(row, "map_actividad"), concepto, tipo);
@@ -433,7 +442,7 @@
                 referencia: valorMapeado(row, "map_folio"),
                 cargo: cargo,
                 abono: abono,
-                monto: abono > 0 ? abono : cargo,
+                monto: Math.abs(monto),
                 tipo_movimiento: tipo,
                 actividad: actividad,
                 forma_pago: formaPago,
@@ -447,7 +456,7 @@
             mov.archivo_estado_cuenta = archivoCrudoNombre || "";
             mov.cfdi = cfdiEsperado(mov);
             return mov;
-        }).filter(function (m) { return m.fecha || m.concepto || m.cargo || m.abono; });
+        }).filter(function (m) { return m.fecha || (m.concepto && m.concepto !== "Movimiento sin concepto") || m.monto; });
         estadosCuenta[estadosCuenta.length - 1].movimientos = nuevos.length;
         movimientos = movimientos.concat(nuevos);
         autoRelacionarCfdi();
@@ -530,8 +539,8 @@
         });
     }
     function renderKpis() {
-        var totalIngresos = movimientos.reduce(function (s, m) { return s + Number(m.abono || 0); }, 0);
-        var totalEgresos = movimientos.reduce(function (s, m) { return s + Number(m.cargo || 0); }, 0);
+        var totalIngresos = movimientos.reduce(function (s, m) { return s + (m.tipo_movimiento === "ingreso" ? Number(m.monto || 0) : 0); }, 0);
+        var totalEgresos = movimientos.reduce(function (s, m) { return s + (m.tipo_movimiento === "gasto" ? Number(m.monto || 0) : 0); }, 0);
         var traspasos = movimientos.filter(function (m) { return m.tipo_movimiento === "transpaso"; }).length;
         var pendientes = movimientos.filter(function (m) { return m.cfdi === "pendiente"; }).length;
         var data = [
@@ -588,7 +597,7 @@
             var ligados = movimientos.filter(function (m) { return m.estado_cuenta_id === edo.id && m.cfdi === "ligado"; }).length;
             return "<div class=\"d-flex flex-wrap align-items-center justify-content-between gap-3 border-bottom py-3\">" +
                 "<div><div class=\"fw-bold\">" + escapeHtml(edo.cuenta) + "</div>" +
-                "<div class=\"text-muted fs-8\">" + escapeHtml(edo.archivo) + " | " + escapeHtml(edo.periodo) + " | " + escapeHtml(edo.fecha_carga) + "</div></div>" +
+                "<div class=\"text-muted fs-8\">" + escapeHtml(edo.archivo) + (edo.hoja ? " | Hoja: " + escapeHtml(edo.hoja) : "") + " | " + escapeHtml(edo.periodo) + " | " + escapeHtml(edo.fecha_carga) + "</div></div>" +
                 "<div class=\"d-flex flex-wrap gap-2\">" +
                 badge(edo.movimientos + " movimientos", "primary") +
                 badge(edo.filas + " filas leidas", "info") +
@@ -672,6 +681,7 @@
     function cargarDemo() {
         $("contabilidad_cuenta").value = "BBVA negocio";
         archivoCrudoNombre = "demo_estado_cuenta.csv";
+        archivoCrudoHoja = "";
         importarMovimientos(parseCsv("fecha,concepto,cargo,abono,referencia\n2026-08-01,DEPOSITO VENTA MOSTRADOR,,5800,POS-001\n2026-08-02,SPEI PROVEEDOR ACUARIOS SA,3200,,SPEI-889\n2026-08-03,PAGO CFE SUCURSAL CENTRO,840.50,,SERV-100\n2026-08-04,TRANSPASO CUENTA PROPIA BBVA,5000,,INT-77\n2026-08-05,PAGO TARJETA CREDITO NU,2400,,TDC-1\n2026-08-08,OPENAI SOFTWARE PROGRAMACION,399,,DEV-55\n2026-08-17,PAGO SAT IVA JULIO,1260,,SAT-IVA"));
         cfdis = [{
             archivo: "demo.xml",
@@ -691,6 +701,7 @@
             var file = e.target.files[0];
             if (!file) { return; }
             archivoCrudoNombre = file.name;
+            archivoCrudoHoja = "";
             var extension = file.name.split(".").pop().toLowerCase();
             if (extension === "xlsx") {
                 requestXlsx(file).then(function (response) {
@@ -698,6 +709,7 @@
                         mostrarError(response.mensaje || "No pude leer el XLSX.");
                         return;
                     }
+                    archivoCrudoHoja = (response.depurar && response.depurar.hoja) || "";
                     if (response.depurar && response.depurar.matriz) {
                         prepararMapeoMatriz(response.depurar.matriz);
                     } else {
@@ -761,7 +773,7 @@
         });
         $("contabilidad_mapeo_limite").addEventListener("change", renderPreviewMapeo);
         $("contabilidad_mapeo_fila_header").addEventListener("change", function () { renderMapeo(); });
-        ["map_fecha", "map_concepto", "map_monto", "map_egreso", "map_ingreso", "map_movimiento", "map_actividad", "map_cuenta", "map_folio"].forEach(function (id) {
+        ["map_fecha", "map_concepto", "map_monto", "map_movimiento", "map_actividad", "map_cuenta", "map_folio"].forEach(function (id) {
             $(id).addEventListener("change", renderPreviewMapeo);
         });
         $("contabilidad_conciliacion_cuentas").addEventListener("click", function (e) {
@@ -773,7 +785,7 @@
         $("contabilidad_recalcular").addEventListener("click", function () { autoRelacionarCfdi(); render(); });
         $("contabilidad_mapeo_aplicar").addEventListener("click", importarDesdeMapeo);
         $("contabilidad_demo").addEventListener("click", cargarDemo);
-        $("contabilidad_limpiar").addEventListener("click", function () { movimientos = []; cfdis = []; estadosCuenta = []; filasCrudas = []; matrizCruda = []; encabezadosCrudos = []; render(); });
+        $("contabilidad_limpiar").addEventListener("click", function () { movimientos = []; cfdis = []; estadosCuenta = []; filasCrudas = []; matrizCruda = []; encabezadosCrudos = []; archivoCrudoHoja = ""; render(); });
         render();
     }
     document.addEventListener("DOMContentLoaded", bind);

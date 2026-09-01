@@ -131,7 +131,10 @@
                             </div>
 
                             <div class="bi-panel p-5 mb-5">
-                                <h3 class="fw-bold mb-4">Diagnostico de fuentes</h3>
+                                <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-4">
+                                    <h3 class="fw-bold mb-0">Diagnostico de fuentes</h3>
+                                    <span class="badge badge-light-info" id="bi_fuente">Fuente pendiente</span>
+                                </div>
                                 <div id="bi_diagnostico"></div>
                             </div>
 
@@ -147,6 +150,6 @@
 </div>
 <script src="assets/plugins/global/plugins.bundle.js"></script>
 <script src="assets/js/scripts.bundle.js"></script>
-<script src="/assets/js/custom/apps/erp/bi/publicidad_temporadas.js?v=20260831-readonly1"></script>
+<script src="/assets/js/custom/apps/erp/bi/publicidad_temporadas.js?v=20260831-readonly2"></script>
 </body>
 </html>

@@ -31,6 +31,8 @@ $ok = empty($dashboard["error"])
   && isset($depurar["facturacion_eventos"])
   && isset($depurar["abandono_por_etapa"])
   && isset($depurar["persistencia"]["modo_actual"])
+  && isset($depurar["fecha_consulta"])
+  && isset($depurar["ultimo_evento"])
   && isset($depurar["guardrails"]["no_escribe_bd"])
   && !isset($depurar["session_id"])
   && !isset($depurar["telefono"])
@@ -53,7 +55,9 @@ echo json_encode(array(
     "conversiones_por_tipo" => is_array($depurar["conversiones_por_tipo"] ?? null),
     "facturacion_eventos" => is_array($depurar["facturacion_eventos"] ?? null),
     "abandono_por_etapa" => is_array($depurar["abandono_por_etapa"] ?? null),
-    "persistencia" => $depurar["persistencia"]["modo_actual"] ?? null
+    "persistencia" => $depurar["persistencia"]["modo_actual"] ?? null,
+    "fecha_consulta" => $depurar["fecha_consulta"] ?? null,
+    "ultimo_evento" => $depurar["ultimo_evento"] ?? array()
   ),
   "guardrails" => array(
     "no_escribe_bd" => true,

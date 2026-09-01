@@ -468,7 +468,18 @@
                                     <div class="col-md-3"><label class="form-label">Tipo</label><select class="form-select" name="tipo_producto"><option value="producto">Producto</option><option value="insumo">Insumo</option><option value="kit">Kit</option><option value="servicio">Servicio</option></select></div>
                                     <div class="col-md-3"><label class="form-label">Estado maestro</label><select class="form-select" name="estatus"><option value="activo">Activo - maestro vigente</option><option value="borrador">Borrador - captura inicial</option><option value="en_revision">En revision - validar datos</option><option value="inactivo">Inactivo - no operativo</option><option value="descontinuado">Descontinuado</option></select><div class="form-text">Activo no significa listo para vender.</div></div>
                                     <div class="col-md-3"><label class="form-label">Marca</label><select class="form-select" name="id_marca_erp" id="catalogo_editar_marca"><option value="">Sin marca</option></select></div>
-                                    <div class="col-md-3"><label class="form-label">Categoría principal</label><select class="form-select" name="id_categoria_erp" id="catalogo_editar_categoria"><option value="">Sin categoría</option></select><div class="form-text">Default operativo para reportes y reglas.</div></div>
+                                    <div class="col-md-3">
+                                        <div class="d-flex align-items-center justify-content-between mb-2">
+                                            <label class="form-label mb-0">Categoría principal</label>
+                                            <?php if (SesionSeguridad::tienePermiso('catalogo.editar')): ?>
+                                            <button class="btn btn-sm btn-light-warning py-1 px-2" type="button" id="catalogo_editar_categoria_limpiar" data-permiso-editar title="Quitar categoria principal">
+                                                <i class="bi bi-x-circle"></i> Quitar
+                                            </button>
+                                            <?php endif; ?>
+                                        </div>
+                                        <select class="form-select" name="id_categoria_erp" id="catalogo_editar_categoria" data-placeholder="Sin categoria"><option value="">Sin categoría</option></select>
+                                        <div class="form-text">Puede quedar sin categoria mientras reclasificas; guardalo asi para quitar la principal.</div>
+                                    </div>
                                     <div class="col-md-6"><label class="form-label">Categorías secundarias</label><select class="form-select" name="categorias_secundarias[]" id="catalogo_editar_categorias_secundarias" multiple data-placeholder="Buscar categorías alternas"></select><div class="form-text">Opcionales para navegación, venta o clasificación alterna. No sustituyen la principal.</div></div>
                                     <div class="col-12"><label class="form-label">Descripción</label><textarea class="form-control" name="descripcion" rows="3"></textarea></div>
                                     <div class="col-12"><label class="form-check form-switch form-check-custom form-check-solid"><input class="form-check-input" type="checkbox" name="maneja_variantes" value="1"><span class="form-check-label">Maneja variantes</span></label></div>

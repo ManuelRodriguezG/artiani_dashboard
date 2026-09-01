@@ -202,6 +202,30 @@ Reglas para usarlo:
 - Frontend debe preferir `banner_ecommerce.imagen_desktop` para portada de categoria; `imagen_banner_resuelta` queda como atajo.
 - Si la categoria tiene banner propio, ese gana. Si no tiene y `Heredar banner` esta en `Si`, gana el primer banner de su jerarquia padre.
 
+## CMS > Frontend > Home > Orden y categorias destacadas
+
+Ruta: `/cms/frontend/home`.
+
+Orden del Home:
+
+- La seccion `home_orden_componentes` permite acomodar la portada sin tocar codigo del frontend.
+- El hero/banner principal se mantiene fijo arriba por fase 1.
+- Usa las flechas para subir o bajar secciones como promos, categorias destacadas, productos, marcas, colecciones, esenciales y compra guiada.
+- Puedes ocultar una seccion desde `Visible`.
+- El campo `Orden` se guarda en el borrador local y se envia cuando publiques cada seccion.
+- El endpoint `/ecommercePublico/contenido_pagina?pagina=home` marca `home.hero` con `fijo=true` y ordena las demas secciones por `orden`.
+- Los bloques publicados incluyen `tracking.section_id`, `tracking.section_slot`, `tracking.section_type` y `tracking.section_order` para que frontend pinte atributos `data-section-*`.
+
+Categorias destacadas Home:
+
+- En cada tarjeta usa `Seleccionar categoria` para elegir una categoria real del catalogo publico.
+- Al seleccionar, el CMS completa `categoria_id`, titulo, URL publica y `path_slug`.
+- Usa `Usar imagen de categoria` para copiar `imagen_card` y `imagen_banner` cuando la categoria ya tenga imagen disponible.
+- Si la imagen de categoria no te gusta, reemplazala desde el boton `Media` en `Imagen card` o `Imagen banner`.
+- Para publicar, cada categoria visible necesita categoria real o slug, imagen publica y alt.
+
+Pendiente siguiente: permitir duplicar secciones completas como varios `home.marcas` o varios `home.esenciales` independientes. Hoy se pueden publicar varias colecciones dentro de `home_colecciones` y varios items dentro de cada seccion, pero las secciones base siguen siendo una por tipo.
+
 ## CMS > Frontend > Home > Esenciales Artiani
 
 Ruta: `/cms/frontend/home`.
@@ -429,6 +453,10 @@ Estado actual:
 - Puede trabajar en modo `mixto`, `automatico_categoria` o `manual`.
 - Al seleccionar la categoria, el bloque publica tambien `imagen`, `imagen_menu`, `imagen_card`, `imagen_banner` e `imagenes_catalogo` dentro de `categoria_contexto`.
 - Cada marca manual permite `marca_id`, nombre, slug, URL publica, logo, banner opcional, alt y descripcion corta.
+- Incluye el boton `Ver marcas de la categoria` para consultar una preview real antes de publicar.
+- La preview muestra cada marca detectada por la categoria, su total aproximado de productos y si esta `Con imagen` o `Sin imagen`.
+- Desde la preview puedes agregar al borrador manual las marcas que ya tienen logo o banner publico.
+- La API publica tambien reutiliza imagenes maestras cargadas en Catalogo ERP (`erp_catalogo_marca_imagenes` / `/uploads/erp/catalogo/marcas`) aunque no se hayan duplicado en CMS Marcas.
 - El boton `Guardar y publicar marcas` persiste la seccion en BD y la expone en `/ecommercePublico/contenido_pagina?pagina=home`, slot `home.marcas`.
 - Si no capturas marcas manuales y usas modo automatico/mixto, el backend completa `items` con marcas reales que tienen productos publicados en esa categoria.
 
@@ -438,8 +466,10 @@ Reglas para usarlo:
 - En `Modo`, usa `Mixto` si quieres que la categoria mande y ademas priorizar algunas marcas manuales.
 - Usa `Automatico por categoria` cuando quieras mostrar todas las marcas publicadas de esa categoria. En `Limite 0=todas`, deja `0` para que el backend mande hasta 100 marcas.
 - Usa `Manual` solo si vas a seleccionar marcas especificas una por una desde el selector `Marca real`.
+- Si una marca aparece como `Sin imagen`, primero cargale logo o banner desde `CMS > Frontend > Marcas` o desde Media CMS antes de esperar que se vea como tarjeta visual en Home.
 - Usar URL publica limpia, por ejemplo `/marca/tropical`.
 - Para logos usa Media CMS con `Uso: Home` o `Global` y `Tipo: Logo principal`.
+- El frontend debe leer `depurar.slots[]`, buscar el objeto con `slot: "home.marcas"` y luego renderizar `bloques[0].items[].logo` o `items[].imagen_banner`.
 
 ## CMS > Frontend actual > Home Esenciales Artiani
 

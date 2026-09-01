@@ -86,6 +86,7 @@ class CatalogoErpDatos extends CRUD {
       $tienePaquetes = $this->tablaExisteCatalogo($db, "erp_catalogo_sku_paquetes");
       $tieneInventario = $this->tablaExisteCatalogo($db, "erp_inventario_existencias");
       $tieneAtributosVariante = $this->tablaExisteCatalogo($db, "erp_catalogo_sku_atributos") && $this->tablaExisteCatalogo($db, "erp_catalogo_atributos");
+      $precioCatalogo = $this->precioCatalogoComercialSql($db);
 
       $where = array("p.estatus IN ('activo','borrador','en_revision')", "s.estatus IN ('activo','borrador','en_revision')");
       $params = array();
@@ -97,10 +98,10 @@ class CatalogoErpDatos extends CRUD {
         $where[] = "COALESCE(img_sku.url_imagen, img.url_imagen) IS NOT NULL";
       }
       if ($modoPrecio === "con_precio") {
-        $where[] = "pr.id_sku_precio IS NOT NULL";
+        $where[] = $precioCatalogo["disponible"] ? "pr.id_lista_precio_detalle IS NOT NULL" : "1=0";
       }
       if ($modoPrecio === "sin_precio") {
-        $where[] = "pr.id_sku_precio IS NULL";
+        $where[] = $precioCatalogo["disponible"] ? "pr.id_lista_precio_detalle IS NULL" : "1=1";
       }
       if ($idCategoria > 0) {
         $where[] = "EXISTS (
@@ -167,7 +168,8 @@ class CatalogoErpDatos extends CRUD {
           s.tipo_inventario, u.codigo AS unidad_codigo, u.abreviatura AS unidad_abreviatura,
           m.nombre AS marca, pc.id_categoria_erp, COALESCE(c.ruta, c.nombre) AS categoria,
           COALESCE(img_sku.url_imagen, img.url_imagen) AS imagen_portada,
-          pr.precio, pr.moneda, r.unidad_venta_label, r.permite_venta_fraccionaria, r.controla_inventario,
+          " . $precioCatalogo["select"] . ",
+          r.unidad_venta_label, r.permite_venta_fraccionaria, r.controla_inventario,
           " . $selectInventario . ",
           " . $selectPublicacion . ",
           " . $selectPresentacion . ",
@@ -180,7 +182,7 @@ class CatalogoErpDatos extends CRUD {
         LEFT JOIN erp_catalogo_producto_categorias pc ON pc.id_producto_erp=p.id_producto_erp AND pc.es_principal=1
         LEFT JOIN erp_catalogo_categorias c ON c.id_categoria_erp=pc.id_categoria_erp
         LEFT JOIN erp_catalogo_sku_reglas_inventario r ON r.id_sku=s.id_sku
-        LEFT JOIN erp_catalogo_sku_precios pr ON pr.id_sku=s.id_sku AND pr.lista_precio='general' AND pr.moneda='MXN' AND pr.estatus='activo' AND pr.precio>0
+        " . $precioCatalogo["join"] . "
         LEFT JOIN (
           SELECT i.id_sku, i.url_imagen
           FROM erp_catalogo_imagenes i
@@ -209,7 +211,7 @@ class CatalogoErpDatos extends CRUD {
         WHERE " . implode(" AND ", $where) . "
         ORDER BY
           CASE WHEN COALESCE(img_sku.url_imagen, img.url_imagen) IS NULL THEN 1 ELSE 0 END,
-          CASE WHEN pr.id_sku_precio IS NULL THEN 1 ELSE 0 END,
+          " . ($precioCatalogo["disponible"] ? "CASE WHEN pr.id_lista_precio_detalle IS NULL THEN 1 ELSE 0 END" : "1") . ",
           p.nombre, s.sku
         LIMIT " . intval($soloAlertas ? min(600, $limite * 3) : $limite);
 
@@ -7537,6 +7539,58 @@ class CatalogoErpDatos extends CRUD {
   }
 
   /**
+   * IA GPT-5 Codex - 2026-08-31
+   * Proposito: resolver precio comercial desde Listas de precios, no desde el precio historico del Catalogo ERP.
+   * Impacto: Catalogos comerciales; mantiene la vista como consumidora de precios autorizados por Comercial/Listas.
+   * Contrato: devuelve SQL read-only para alias externo `s`/`p`; prioriza precio por SKU sobre precio por producto.
+   */
+  private function precioCatalogoComercialSql($db) {
+    if (!$this->tablaExisteCatalogo($db, "erp_listas_precios") || !$this->tablaExisteCatalogo($db, "erp_listas_precios_detalle")) {
+      return array(
+        "disponible" => false,
+        "select" => "NULL AS id_lista_precio_detalle, NULL AS id_lista_precio, NULL AS lista_precio_nombre, NULL AS precio, NULL AS moneda",
+        "join" => ""
+      );
+    }
+
+    $vigencia = "l2.estatus='activa'
+      AND d2.estatus='activo'
+      AND d2.precio>0
+      AND COALESCE(d2.moneda, 'MXN')='MXN'
+      AND (l2.canal IS NULL OR l2.canal='' OR l2.canal='general')
+      AND (l2.id_almacen IS NULL OR l2.id_almacen=0)
+      AND (l2.fecha_inicio IS NULL OR l2.fecha_inicio<=NOW())
+      AND (l2.fecha_fin IS NULL OR l2.fecha_fin>=NOW())
+      AND (d2.fecha_inicio IS NULL OR d2.fecha_inicio<=NOW())
+      AND (d2.fecha_fin IS NULL OR d2.fecha_fin>=NOW())";
+
+    $join = "LEFT JOIN (
+        SELECT d.id_lista_precio_detalle, d.id_lista_precio, d.id_sku, d.id_producto_erp, d.precio, d.moneda,
+          l.nombre AS lista_precio_nombre
+        FROM erp_listas_precios_detalle d
+        INNER JOIN erp_listas_precios l ON l.id_lista_precio=d.id_lista_precio
+      ) pr ON pr.id_lista_precio_detalle=(
+        SELECT d2.id_lista_precio_detalle
+        FROM erp_listas_precios_detalle d2
+        INNER JOIN erp_listas_precios l2 ON l2.id_lista_precio=d2.id_lista_precio
+        WHERE " . $vigencia . "
+          AND (d2.id_sku=s.id_sku OR (d2.id_sku IS NULL AND d2.id_producto_erp=p.id_producto_erp))
+        ORDER BY
+          CASE WHEN d2.id_sku=s.id_sku THEN 0 ELSE 1 END,
+          l2.prioridad ASC,
+          l2.id_lista_precio DESC,
+          d2.id_lista_precio_detalle DESC
+        LIMIT 1
+      )";
+
+    return array(
+      "disponible" => true,
+      "select" => "pr.id_lista_precio_detalle, pr.id_lista_precio, pr.lista_precio_nombre, pr.precio, pr.moneda",
+      "join" => $join
+    );
+  }
+
+  /**
    * IA: Codex GPT-5
    * Fecha: 2026-07-23
    * Proposito: convertir datos ERP de un SKU en contrato visual para catalogos comerciales.
@@ -7591,6 +7645,9 @@ class CatalogoErpDatos extends CRUD {
       "presentacion_comercial" => $presentacion,
       "precio" => (!empty($fila["precio"]) && floatval($fila["precio"]) > 0) ? floatval($fila["precio"]) : null,
       "moneda" => (!empty($fila["precio"]) && floatval($fila["precio"]) > 0) ? ($fila["moneda"] ?: "MXN") : null,
+      "precio_origen" => !empty($fila["id_lista_precio_detalle"]) ? "listas_precios" : null,
+      "id_lista_precio" => !empty($fila["id_lista_precio"]) ? intval($fila["id_lista_precio"]) : null,
+      "lista_precio_nombre" => isset($fila["lista_precio_nombre"]) ? $fila["lista_precio_nombre"] : null,
       "disponibilidad_simple" => $disponibilidad,
       "estatus" => array(
         "producto" => $fila["estatus_producto"],
@@ -7629,6 +7686,7 @@ class CatalogoErpDatos extends CRUD {
     $tienePaquetes = $this->tablaExisteCatalogo($db, "erp_catalogo_sku_paquetes");
     $tieneInventario = $this->tablaExisteCatalogo($db, "erp_inventario_existencias");
     $tieneAtributosVariante = $this->tablaExisteCatalogo($db, "erp_catalogo_sku_atributos") && $this->tablaExisteCatalogo($db, "erp_catalogo_atributos");
+    $precioCatalogo = $this->precioCatalogoComercialSql($db);
 
     $selectPublicacion = $tienePublicaciones
       ? "pub.id_publicacion, pub.estatus_publicacion, pub.slug, pub.titulo_publico, pub.presentacion_publica, pub.mostrar_precio, pub.mostrar_disponibilidad"
@@ -7676,7 +7734,8 @@ class CatalogoErpDatos extends CRUD {
         s.tipo_inventario, u.codigo AS unidad_codigo, u.abreviatura AS unidad_abreviatura,
         m.nombre AS marca, pc.id_categoria_erp, COALESCE(c.ruta, c.nombre) AS categoria,
         COALESCE(img_sku.url_imagen, img.url_imagen) AS imagen_portada,
-        pr.precio, pr.moneda, r.unidad_venta_label, r.permite_venta_fraccionaria, r.controla_inventario,
+        " . $precioCatalogo["select"] . ",
+        r.unidad_venta_label, r.permite_venta_fraccionaria, r.controla_inventario,
         i.titulo_override, i.descripcion_override, i.precio_texto_override, i.nota_item,
         " . $selectInventario . ",
         " . $selectPublicacion . ",
@@ -7691,7 +7750,7 @@ class CatalogoErpDatos extends CRUD {
       LEFT JOIN erp_catalogo_producto_categorias pc ON pc.id_producto_erp=p.id_producto_erp AND pc.es_principal=1
       LEFT JOIN erp_catalogo_categorias c ON c.id_categoria_erp=pc.id_categoria_erp
       LEFT JOIN erp_catalogo_sku_reglas_inventario r ON r.id_sku=s.id_sku
-      LEFT JOIN erp_catalogo_sku_precios pr ON pr.id_sku=s.id_sku AND pr.lista_precio='general' AND pr.moneda='MXN' AND pr.estatus='activo' AND pr.precio>0
+      " . $precioCatalogo["join"] . "
       LEFT JOIN (
         SELECT ii.id_sku, ii.url_imagen
         FROM erp_catalogo_imagenes ii

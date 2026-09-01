@@ -61,6 +61,7 @@
   function renderDashboard(response) {
     var depurar = get(response, ["depurar"], {});
     var resumen = get(depurar, ["resumen"], {});
+    setFuente(depurar);
     setText("bi_kpi_eventos", resumen.eventos_consumibles || 0);
     setText("bi_kpi_productos", resumen.visitas_productos || 0);
     setText("bi_kpi_busquedas", resumen.busquedas_total || 0);
@@ -221,6 +222,7 @@
   }
 
   function renderDiagnostico(depurar) {
+    setFuente(depurar);
     var tablas = get(depurar, ["tablas"], {});
     var rangos = get(depurar, ["rangos"], {});
     var filas = Object.keys(tablas).map(function (tabla) {
@@ -232,8 +234,26 @@
     renderList("bi_diagnostico", filas);
   }
 
+  function setFuente(depurar) {
+    var node = document.getElementById("bi_fuente");
+    if (!node) return;
+    var fuente = depurar.fuente || "conexion_activa";
+    var base = depurar.base || "";
+    node.className = "badge " + (fuente === "bi_legacy_productivo" ? "badge-light-success" : "badge-light-info");
+    node.textContent = fuente + (base ? " / " + base : "");
+  }
+
   function jsonResponse(response) {
-    return response.json();
+    if (!response.ok) {
+      throw new Error("HTTP " + response.status);
+    }
+    return response.text().then(function (text) {
+      try {
+        return JSON.parse(text);
+      } catch (error) {
+        throw new Error("Respuesta no JSON del servidor");
+      }
+    });
   }
 
   function on(id, eventName, callback) {

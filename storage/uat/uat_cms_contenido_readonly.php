@@ -27,6 +27,7 @@ $manifest = $cms->contenidoAdminManifestInterno();
 $frontendManifest = $cms->frontendPlantillasAdminManifestInterno();
 $home = $cms->contenidoAdminPaginaInterna(array("pagina" => "home"));
 $categoria = $cms->contenidoAdminPaginaInterna(array("pagina" => "categoria", "categoria" => "peces"));
+$homeMarcasPreview = $cms->frontendHomeMarcasPreviewInterno(array("categoria_slug" => "peces", "limite" => 5));
 $configuracionInicial = $cms->configuracionInicialPublica(array("limite_secciones" => 2));
 $vistaContenido = file_get_contents("../app/vistas/paginas/apps/erp/cms/contenido.php");
 $vistaPlantillas = file_get_contents("../app/vistas/paginas/apps/erp/cms/plantillas.php");
@@ -407,6 +408,10 @@ if (strpos((string) $jsFrontendActual, "function esUrlImagenPublicaPersistente")
 if (strpos((string) $jsFrontendActual, "function resumenImagenesItemsApi") === false) { $bloqueos[] = "js_frontend_actual_sin_resumen_imagenes_api"; }
 if (strpos((string) $jsFrontendActual, "function completarImagenesPromosCategoriaDesdeCategoria") === false) { $bloqueos[] = "js_frontend_actual_sin_autocompletar_promos_categoria"; }
 if (strpos((string) $jsFrontendActual, "data:image") === false) { $bloqueos[] = "js_frontend_actual_sin_validacion_data_image"; }
+if (strpos((string) $jsFrontendActual, "home_orden_componentes") === false) { $bloqueos[] = "js_frontend_actual_sin_orden_home"; }
+if (strpos((string) $jsFrontendActual, "function renderHomeOrdenComponentes") === false) { $bloqueos[] = "js_frontend_actual_sin_editor_orden_home"; }
+if (strpos((string) $jsFrontendActual, "data-home-order-action") === false) { $bloqueos[] = "js_frontend_actual_sin_acciones_orden_home"; }
+if (strpos((string) $jsFrontendActual, "secciones_ordenadas") === false) { $bloqueos[] = "js_frontend_actual_sin_preview_orden_home"; }
 if (strpos((string) $jsFrontendActual, "categorias_destacadas") === false) { $bloqueos[] = "js_frontend_actual_sin_categorias_destacadas"; }
 if (strpos((string) $jsFrontendActual, "function renderCategoriasDestacadas") === false) { $bloqueos[] = "js_frontend_actual_sin_editor_categorias"; }
 if (strpos((string) $jsFrontendActual, "cms_actual_home_categoria_agregar") === false) { $bloqueos[] = "js_frontend_actual_sin_agregar_categoria_home"; }
@@ -414,6 +419,7 @@ if (strpos((string) $jsFrontendActual, "cms_actual_home_categorias_publicar") ==
 if (strpos((string) $jsFrontendActual, "cms_actual_home_categorias_api") === false) { $bloqueos[] = "js_frontend_actual_sin_ver_api_home_categorias"; }
 if (strpos((string) $jsFrontendActual, "function publicarHomeCategorias") === false) { $bloqueos[] = "js_frontend_actual_sin_funcion_publicar_home_categorias"; }
 if (strpos((string) $jsFrontendActual, "function consultarApiHomeCategorias") === false) { $bloqueos[] = "js_frontend_actual_sin_funcion_api_home_categorias"; }
+if (strpos((string) $jsFrontendActual, 'selectorCategoriaHomeLista("categorias"') === false) { $bloqueos[] = "js_frontend_actual_sin_selector_categoria_home_destacadas"; }
 if (strpos((string) $jsFrontendActual, "catalogo_configuracion") === false) { $bloqueos[] = "js_frontend_actual_sin_catalogo_configuracion"; }
 if (strpos((string) $jsFrontendActual, "function renderCatalogoCmsSeccion") === false) { $bloqueos[] = "js_frontend_actual_sin_editor_catalogo"; }
 if (strpos((string) $jsFrontendActual, "cms_actual_catalogo_publicar") === false) { $bloqueos[] = "js_frontend_actual_sin_publicar_catalogo"; }
@@ -425,6 +431,10 @@ if (strpos((string) $jsFrontendActual, "function renderHomePromosCategoria") ===
 if (strpos((string) $jsFrontendActual, "home_marcas_destacadas") === false) { $bloqueos[] = "js_frontend_actual_sin_home_marcas_destacadas"; }
 if (strpos((string) $jsFrontendActual, "cms_actual_home_marcas_publicar") === false) { $bloqueos[] = "js_frontend_actual_sin_publicar_home_marcas"; }
 if (strpos((string) $jsFrontendActual, "function renderHomeMarcasDestacadas") === false) { $bloqueos[] = "js_frontend_actual_sin_editor_home_marcas"; }
+if (strpos((string) $jsFrontendActual, "cms_actual_home_marcas_preview") === false) { $bloqueos[] = "js_frontend_actual_sin_preview_home_marcas"; }
+if (strpos((string) $jsFrontendActual, "function consultarPreviewHomeMarcas") === false) { $bloqueos[] = "js_frontend_actual_sin_consultar_preview_home_marcas"; }
+if (strpos((string) $jsFrontendActual, "function renderPreviewHomeMarcas") === false) { $bloqueos[] = "js_frontend_actual_sin_render_preview_home_marcas"; }
+if (strpos((string) $jsFrontendActual, "data-home-marca-preview-add") === false) { $bloqueos[] = "js_frontend_actual_sin_agregar_preview_home_marcas"; }
 if (strpos((string) $jsFrontendActual, "function selectorCategoriaMarcasHome") === false) { $bloqueos[] = "js_frontend_actual_sin_selector_categoria_marcas"; }
 if (strpos((string) $jsFrontendActual, "function seleccionarCategoriaHomeMarcas") === false) { $bloqueos[] = "js_frontend_actual_sin_aplicar_categoria_marcas"; }
 if (strpos((string) $jsFrontendActual, "function cargarCatalogoMarcasCms") === false) { $bloqueos[] = "js_frontend_actual_sin_catalogo_marcas"; }
@@ -455,7 +465,11 @@ if (strpos((string) $jsFrontendActual, "function recomendacionMediaActual") === 
 if (strpos((string) $jsFrontendActual, "1200 x 1200") === false) { $bloqueos[] = "js_frontend_actual_sin_recomendacion_categoria"; }
 if (strpos((string) $jsFrontendActual, "1200 x 900") === false) { $bloqueos[] = "js_frontend_actual_sin_recomendacion_editorial"; }
 if (strpos((string) $manualCms, "Home promos por categoria") === false) { $bloqueos[] = "manual_sin_home_promos_categoria"; }
+if (strpos((string) $manualCms, "Orden del Home") === false) { $bloqueos[] = "manual_sin_orden_home"; }
+if (strpos((string) $manualCms, "home_orden_componentes") === false) { $bloqueos[] = "manual_sin_home_orden_componentes"; }
 if (strpos((string) $manualCms, "Home marcas destacadas") === false) { $bloqueos[] = "manual_sin_home_marcas"; }
+if (strpos((string) $manualCms, "Ver marcas de la categoria") === false) { $bloqueos[] = "manual_sin_preview_home_marcas"; }
+if (strpos((string) $manualCms, "Sin imagen") === false) { $bloqueos[] = "manual_sin_diagnostico_imagen_home_marcas"; }
 if (strpos((string) $manualCms, "Limite 0=todas") === false) { $bloqueos[] = "manual_sin_modo_todas_marcas"; }
 if (strpos((string) $manualCms, "Marca real") === false) { $bloqueos[] = "manual_sin_selector_marca_real"; }
 if (strpos((string) $manualCms, "Home Esenciales Artiani") === false) { $bloqueos[] = "manual_sin_home_esenciales"; }
@@ -702,6 +716,9 @@ if (strpos((string) $controladorCms, "frontend_global_publicar_erp") === false) 
 if (strpos((string) $modeloPublico, "frontendGlobalPublicarInterno") === false) { $bloqueos[] = "modelo_sin_publicar_global"; }
 if (strpos((string) $modeloPublico, "frontendGlobalPublicadoDesdeBd") === false) { $bloqueos[] = "modelo_sin_lectura_global_publicado"; }
 if (strpos((string) $modeloPublico, "frontendGlobalExtraerEmbedUrl") === false) { $bloqueos[] = "modelo_sin_normalizar_embed_global"; }
+if (strpos((string) $modeloPublico, "function contenidoOrdenarSlotsHome") === false) { $bloqueos[] = "modelo_sin_ordenar_slots_home"; }
+if (strpos((string) $modeloPublico, "\"fijo\"") === false) { $bloqueos[] = "modelo_sin_marca_slot_fijo"; }
+if (strpos((string) $modeloPublico, "section_order") === false) { $bloqueos[] = "modelo_sin_tracking_section_order"; }
 if (strpos((string) $controladorCms, "frontend_global_whatsapp_publicar_erp") === false) { $bloqueos[] = "controlador_sin_publicar_global_whatsapp"; }
 if (strpos((string) $modeloPublico, "frontendGlobalWhatsappPublicarInterno") === false) { $bloqueos[] = "modelo_sin_publicar_global_whatsapp"; }
 if (strpos((string) $modeloPublico, "global.whatsapp_chat") === false) { $bloqueos[] = "modelo_sin_slot_global_whatsapp"; }
@@ -744,7 +761,13 @@ if (strpos((string) $modeloPublico, "frontendHomeCategoriasPublicarInterno") ===
 if (strpos((string) $controladorCms, "frontend_home_promos_categoria_publicar_erp") === false) { $bloqueos[] = "controlador_sin_publicar_home_promos_categoria"; }
 if (strpos((string) $modeloPublico, "frontendHomePromosCategoriaPublicarInterno") === false) { $bloqueos[] = "modelo_sin_publicar_home_promos_categoria"; }
 if (strpos((string) $controladorCms, "frontend_home_marcas_publicar_erp") === false) { $bloqueos[] = "controlador_sin_publicar_home_marcas"; }
+if (strpos((string) $controladorCms, "frontend_home_marcas_preview_erp") === false) { $bloqueos[] = "controlador_sin_preview_home_marcas"; }
 if (strpos((string) $modeloPublico, "frontendHomeMarcasPublicarInterno") === false) { $bloqueos[] = "modelo_sin_publicar_home_marcas"; }
+if (strpos((string) $modeloPublico, "frontendHomeMarcasPreviewInterno") === false) { $bloqueos[] = "modelo_sin_preview_home_marcas"; }
+if (strpos((string) $modeloPublico, "cmsNormalizarImagenesMarcasHome") === false) { $bloqueos[] = "modelo_sin_normalizar_imagenes_home_marcas"; }
+if (strpos((string) $modeloPublico, "cmsHidratarMarcasHomePublicadas") === false) { $bloqueos[] = "modelo_sin_hidratar_home_marcas_publicadas"; }
+if (strpos((string) $modeloPublico, "marcasPublicasImagenesCatalogo") === false) { $bloqueos[] = "modelo_sin_imagenes_catalogo_marcas_publicas"; }
+if (strpos((string) $modeloPublico, "estado_imagen") === false) { $bloqueos[] = "modelo_sin_estado_imagen_home_marcas"; }
 if (strpos((string) $controladorCms, "frontend_home_esenciales_publicar_erp") === false) { $bloqueos[] = "controlador_sin_publicar_home_esenciales"; }
 if (strpos((string) $modeloPublico, "frontendHomeEsencialesPublicarInterno") === false) { $bloqueos[] = "modelo_sin_publicar_home_esenciales"; }
 if (strpos((string) $modeloPublico, "cmsCategoriaPublicaPorId") === false) { $bloqueos[] = "modelo_sin_derivar_categoria_por_id"; }
@@ -755,6 +778,9 @@ if (strpos((string) $modeloPublico, "categoria_contexto") === false) { $bloqueos
 if (strpos((string) $modeloPublico, "automatico_categoria") === false) { $bloqueos[] = "modelo_sin_fuente_automatica_marcas"; }
 if (strpos((string) $modeloPublico, "cmsMarcasPublicasPorCategoria") === false) { $bloqueos[] = "modelo_sin_resolver_marcas_por_categoria"; }
 if (strpos((string) $modeloPublico, "imagenes_catalogo") === false) { $bloqueos[] = "modelo_sin_imagenes_categoria_contexto"; }
+if (valorCmsAdmin($homeMarcasPreview, array("depurar", "guardrails", "read_only"), false) !== true) { $bloqueos[] = "preview_home_marcas_no_readonly"; }
+if (valorCmsAdmin($homeMarcasPreview, array("depurar", "guardrails", "no_modifica_catalogo"), false) !== true) { $bloqueos[] = "preview_home_marcas_no_declara_catalogo_readonly"; }
+if (!is_array(valorCmsAdmin($homeMarcasPreview, array("depurar", "items"), array()))) { $bloqueos[] = "preview_home_marcas_items_invalido"; }
 if (strpos((string) $modeloPublico, "home.esenciales") === false) { $bloqueos[] = "modelo_sin_slot_home_esenciales"; }
 if (strpos((string) $controladorEcommercePublico, "public function cms_frontend") === false) { $bloqueos[] = "controlador_publico_sin_alias_cms_frontend"; }
 if (strpos((string) $controladorEcommercePublico, "public function frontend_requerimientos") === false) { $bloqueos[] = "controlador_publico_sin_frontend_requerimientos"; }

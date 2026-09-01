@@ -67,6 +67,38 @@ Razon: el dueno separa manualmente los movimientos por cuenta antes de enviarlos
 
 Nota tecnica: el importador XLSX ahora devuelve tambien una matriz cruda. La UI permite escoger que fila es el encabezado porque algunos bancos exportan filas introductorias antes de los nombres reales de columnas. Google Sheets suele resolver esto visualmente, pero el parser propio necesita que esa fila se confirme antes de mapear.
 
+## Ajuste tecnico XLSX 2026-08-31
+
+El lector XLSX de Contabilidad no debe depender de `xl/worksheets/sheet1.xml` como unica fuente. Algunos archivos bancarios contienen varias hojas, hojas vacias iniciales, rutas internas relativas o estilos que representan fechas como numeros seriales de Excel.
+
+Se refuerza el importador para:
+
+- Resolver las hojas reales desde `xl/workbook.xml` y `xl/_rels/workbook.xml.rels`.
+- Elegir la hoja con mayor cantidad de celdas con valor para evitar tomar una portada o instrucciones vacias.
+- Devolver a la UI el nombre de la hoja usada.
+- Mantener la matriz cruda para que el usuario confirme la fila de encabezados.
+- Convertir fechas numericas de Excel cuando el estilo de celda indica formato de fecha.
+
+## Diagnostico archivo CTA2780 2026-08-31
+
+Archivo revisado: `Movimientos_CTA2780_30_08_26.xlsx`.
+
+- Hoja real: `data`.
+- Rango detectado: `A1:G356`.
+- La fila 1 es resumen del estado de cuenta, no encabezado.
+- La fila 3 contiene encabezados reales: `FECHA`, `HORA`, `CONCEPTO`, `RETIRO`, `DEPOSITO`, `MONEDA`, `SALDO POSTERIOR`.
+- Las fechas vienen como texto con mes en espanol, por ejemplo `28/ago/26`.
+- Los importes vienen como numeros crudos, por ejemplo `6750`, aunque Excel los muestre como `$6,750.00`.
+- Algunos saldos cero pueden venir como residuo flotante, por ejemplo `2.2737367544323E-13`; la UI debe normalizarlos a `0`.
+
+Ajuste aplicado: la deteccion de encabezado prioriza filas que contengan `fecha`, `concepto` y `monto/importe`; la normalizacion de fecha acepta meses en espanol; los numeros cercanos a cero se tratan como cero.
+
+Correccion posterior del mismo diagnostico: el archivo usa `sharedStrings.xml` para guardar textos y la lectura basada en SimpleXML podia devolver indices (`2`, `3`, `4`, etc.) en vez del texto real (`FECHA`, `HORA`, `CONCEPTO`). Se cambia la decodificacion de strings compartidos y lectura de celdas a DOM/XPath para respetar namespaces del XLSX.
+
+Regla de mapeo simplificada: el archivo que se sube a Contabilidad debe traer una sola columna `Monto`. Si el estado de cuenta original trae columnas separadas como `RETIRO` y `DEPOSITO`, el ajuste preferido es preparar antes una columna auxiliar `Monto` con el importe de la operacion y no mapear `SALDO POSTERIOR`.
+
+La clasificacion contable no debe depender del banco. El usuario debe poder editar manualmente si el movimiento es `gasto`, `ingreso` o `transpaso`, porque el banco no conoce la intencion operativa del movimiento.
+
 ## Flujo operativo recomendado
 
 1. Seleccionar periodo mensual y cuenta bancaria.
