@@ -39,31 +39,6 @@
                                             <label class="form-label">Mes</label>
                                             <input class="form-control form-control-solid" id="contabilidad_periodo" type="month">
                                         </div>
-                                        <div class="col-md-3">
-                                            <label class="form-label">Banco / cuenta</label>
-                                            <input class="form-control form-control-solid" id="contabilidad_cuenta" list="contabilidad_cuentas_sugeridas" placeholder="BBVA 0123">
-                                            <datalist id="contabilidad_cuentas_sugeridas">
-                                                <option value="BBVA"></option>
-                                                <option value="Banamex"></option>
-                                                <option value="Santander"></option>
-                                                <option value="Mercado Pago"></option>
-                                                <option value="Nu credito"></option>
-                                                <option value="Efectivo"></option>
-                                            </datalist>
-                                        </div>
-                                        <div class="col-md-3">
-                                            <label class="form-label">Estado de cuenta</label>
-                                            <input class="form-control form-control-solid" id="contabilidad_banco_archivo" type="file" accept=".csv,.txt,.xlsx">
-                                        </div>
-                                        <div class="col-md-3">
-                                            <label class="form-label">CFDI XML</label>
-                                            <input class="form-control form-control-solid" id="contabilidad_xml_archivos" type="file" accept=".xml" multiple>
-                                        </div>
-                                        <div class="col-md-1">
-                                            <button class="btn btn-light-primary w-100" id="contabilidad_demo" type="button"><i class="bi bi-stars"></i></button>
-                                        </div>
-                                    </div>
-                                    <div class="row g-4 mt-2">
                                         <div class="col-md-4">
                                             <label class="form-label">Buscar</label>
                                             <div class="position-relative">
@@ -75,9 +50,8 @@
                                             <label class="form-label">Movimiento</label>
                                             <select class="form-select form-select-solid" id="contabilidad_tipo">
                                                 <option value="">Todos</option>
-                                                <option value="gasto">Gasto</option>
+                                                <option value="egreso">Egreso</option>
                                                 <option value="ingreso">Ingreso</option>
-                                                <option value="transpaso">Transpaso</option>
                                             </select>
                                         </div>
                                         <div class="col-md-2">
@@ -89,6 +63,21 @@
                                                 <option value="inversion">Inversion</option>
                                                 <option value="programacion">Programacion</option>
                                                 <option value="publicidad">Publicidad</option>
+                                                <option value="transpaso">Transpaso</option>
+                                            </select>
+                                        </div>
+                                        <div class="col-md-2">
+                                            <label class="form-label">Categoria</label>
+                                            <select class="form-select form-select-solid" id="contabilidad_categoria">
+                                                <option value="">Todas</option>
+                                                <option value="compra_mercancia">Compras</option>
+                                                <option value="gasto_operativo">Gasto operativo</option>
+                                                <option value="servicio">Servicio</option>
+                                                <option value="publicidad">Publicidad</option>
+                                                <option value="software">Software</option>
+                                                <option value="impuestos">Impuestos</option>
+                                                <option value="personal">Personal</option>
+                                                <option value="inversion">Inversion</option>
                                             </select>
                                         </div>
                                         <div class="col-md-2">
@@ -100,82 +89,237 @@
                                                 <option value="no_aplica">No aplica</option>
                                             </select>
                                         </div>
-                                        <div class="col-md-2">
-                                            <button class="btn btn-light w-100" id="contabilidad_recalcular" type="button"><i class="bi bi-arrow-clockwise"></i> Recalcular</button>
+                                        <div class="col-md-1">
+                                            <button class="btn btn-light w-100" id="contabilidad_recalcular" type="button" title="Recalcular"><i class="bi bi-arrow-clockwise"></i></button>
                                         </div>
                                     </div>
                                 </div>
-                            </div>
-
-                            <div class="card mb-6">
-                                <div class="card-header border-0 pt-5">
-                                    <div class="card-title">
-                                        <h3 class="fw-bold fs-5 mb-0">Estados de cuenta cargados</h3>
-                                    </div>
-                                    <div class="card-toolbar">
-                                        <span class="badge badge-light-primary">Flujo: cargar, mapear, clasificar, conciliar</span>
-                                    </div>
-                                </div>
-                                <div class="card-body pt-0" id="contabilidad_estados"></div>
                             </div>
 
                             <div class="row g-4 mb-6" id="contabilidad_kpis"></div>
 
-                            <div class="row g-6">
-                                <div class="col-xl-8">
-                                    <div class="card">
-                                        <div class="card-header border-0 pt-5">
-                                            <div class="card-title"><h3 class="fw-bold fs-5 mb-0">Movimientos bancarios</h3></div>
-                                            <div class="card-toolbar"><span class="badge badge-light" id="contabilidad_total_visible">0 visibles</span></div>
+                            <ul class="nav nav-tabs nav-line-tabs nav-line-tabs-2x fs-6 mb-6" role="tablist">
+                                <li class="nav-item" role="presentation">
+                                    <a class="nav-link active" data-bs-toggle="tab" href="#contabilidad_tab_resumen" role="tab">Resumen</a>
+                                </li>
+                                <li class="nav-item" role="presentation">
+                                    <a class="nav-link" data-bs-toggle="tab" href="#contabilidad_tab_estados" role="tab">Estados de cuenta</a>
+                                </li>
+                                <li class="nav-item" role="presentation">
+                                    <a class="nav-link" data-bs-toggle="tab" href="#contabilidad_tab_movimientos" role="tab">Clasificacion</a>
+                                </li>
+                                <li class="nav-item" role="presentation">
+                                    <a class="nav-link" data-bs-toggle="tab" href="#contabilidad_tab_conciliacion" role="tab">Conciliacion</a>
+                                </li>
+                            </ul>
+
+                            <div class="tab-content">
+                                <div class="tab-pane fade show active" id="contabilidad_tab_resumen" role="tabpanel">
+                                    <div class="row g-6">
+                                        <div class="col-xl-7">
+                                            <div class="card h-100">
+                                                <div class="card-header border-0 pt-5">
+                                                    <div class="card-title"><h3 class="fw-bold fs-5 mb-0">Cierres guardados</h3></div>
+                                                    <div class="card-toolbar"><span class="badge badge-light" id="contabilidad_guardados_total">0 guardados</span></div>
+                                                </div>
+                                                <div class="card-body pt-0" id="contabilidad_guardados"></div>
+                                            </div>
                                         </div>
-                                        <div class="card-body pt-0">
-                                            <div class="table-responsive">
-                                                <table class="table table-row-dashed align-middle">
-                                                    <thead>
-                                                    <tr class="fw-bold text-muted">
-                                                        <th>Fecha</th>
-                                                        <th>Descripcion</th>
-                                                        <th>Movimiento</th>
-                                                        <th>Actividad</th>
-                                                        <th>Cuenta</th>
-                                                        <th class="text-end">Monto</th>
-                                                        <th>Folio / factura</th>
-                                                        <th>CFDI</th>
-                                                        <th class="text-end">Acciones</th>
-                                                    </tr>
-                                                    </thead>
-                                                    <tbody id="contabilidad_movimientos"></tbody>
-                                                </table>
+                                        <div class="col-xl-5">
+                                            <div class="card h-100">
+                                                <div class="card-header border-0 pt-5">
+                                                    <div class="card-title"><h3 class="fw-bold fs-5 mb-0">Flujo del mes</h3></div>
+                                                </div>
+                                                <div class="card-body pt-0">
+                                                    <div class="d-flex align-items-start gap-3 border-bottom py-4">
+                                                        <span class="badge badge-light-primary p-3"><i class="bi bi-file-earmark-spreadsheet fs-3"></i></span>
+                                                        <div><div class="fw-bold">1. Estados de cuenta</div><div class="text-muted fs-8">Carga uno o varios archivos por cuenta.</div></div>
+                                                    </div>
+                                                    <div class="d-flex align-items-start gap-3 border-bottom py-4">
+                                                        <span class="badge badge-light-info p-3"><i class="bi bi-pencil-square fs-3"></i></span>
+                                                        <div><div class="fw-bold">2. Clasificacion</div><div class="text-muted fs-8">Edita movimiento, actividad, categoria y folio.</div></div>
+                                                    </div>
+                                                    <div class="d-flex align-items-start gap-3 py-4">
+                                                        <span class="badge badge-light-success p-3"><i class="bi bi-check2-circle fs-3"></i></span>
+                                                        <div><div class="fw-bold">3. Conciliacion</div><div class="text-muted fs-8">Filtra agosto por compras, egresos, ingresos o cuenta.</div></div>
+                                                    </div>
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
                                 </div>
-                                <div class="col-xl-4">
+
+                                <div class="tab-pane fade" id="contabilidad_tab_estados" role="tabpanel">
                                     <div class="card mb-6">
                                         <div class="card-header border-0 pt-5">
-                                            <div class="card-title"><h3 class="fw-bold fs-5 mb-0">CFDI cargados</h3></div>
+                                            <div class="card-title"><h3 class="fw-bold fs-5 mb-0">Agregar estado de cuenta</h3></div>
+                                            <div class="card-toolbar">
+                                                <button class="btn btn-sm btn-light-primary" id="contabilidad_guardar_borrador" type="button"><i class="bi bi-save"></i> Guardar cierre</button>
+                                            </div>
                                         </div>
-                                        <div class="card-body pt-0" id="contabilidad_cfdis"></div>
+                                        <div class="card-body pt-0">
+                                            <div class="row g-4 align-items-end">
+                                                <div class="col-md-4">
+                                                    <label class="form-label">Banco / cuenta</label>
+                                                    <input class="form-control form-control-solid" id="contabilidad_cuenta" list="contabilidad_cuentas_sugeridas" placeholder="Santander CTA2780">
+                                                    <datalist id="contabilidad_cuentas_sugeridas">
+                                                        <option value="BBVA"></option>
+                                                        <option value="Banamex"></option>
+                                                        <option value="Santander"></option>
+                                                        <option value="Mercado Pago"></option>
+                                                        <option value="Nu credito"></option>
+                                                        <option value="Efectivo"></option>
+                                                    </datalist>
+                                                </div>
+                                                <div class="col-md-4">
+                                                    <label class="form-label">Estado de cuenta</label>
+                                                    <input class="form-control form-control-solid" id="contabilidad_banco_archivo" type="file" accept=".csv,.txt,.xlsx,.json">
+                                                </div>
+                                                <div class="col-md-3">
+                                                    <label class="form-label">CFDI XML</label>
+                                                    <input class="form-control form-control-solid" id="contabilidad_xml_archivos" type="file" accept=".xml" multiple>
+                                                </div>
+                                                <div class="col-md-1">
+                                                    <button class="btn btn-light-primary w-100" id="contabilidad_demo" type="button" title="Demo"><i class="bi bi-stars"></i></button>
+                                                </div>
+                                            </div>
+                                        </div>
                                     </div>
+
                                     <div class="card">
                                         <div class="card-header border-0 pt-5">
-                                            <div class="card-title"><h3 class="fw-bold fs-5 mb-0">Pendientes del contador</h3></div>
+                                            <div class="card-title"><h3 class="fw-bold fs-5 mb-0">Estados cargados</h3></div>
+                                            <div class="card-toolbar d-flex gap-2">
+                                                <button class="btn btn-sm btn-light" id="contabilidad_ver_todos_estados" type="button"><i class="bi bi-list-ul"></i> Ver todos</button>
+                                                <span class="badge badge-light-primary">Por archivo y cuenta</span>
+                                            </div>
                                         </div>
-                                        <div class="card-body pt-0" id="contabilidad_pendientes"></div>
+                                        <div class="card-body pt-0" id="contabilidad_estados"></div>
                                     </div>
                                 </div>
-                            </div>
 
-                            <div class="card mt-6">
-                                <div class="card-header border-0 pt-5">
-                                    <div class="card-title">
-                                        <h3 class="fw-bold fs-5 mb-0">Conciliacion por cuenta</h3>
-                                    </div>
-                                    <div class="card-toolbar">
-                                        <span class="badge badge-light" id="contabilidad_conciliacion_total">0 cuentas</span>
+                                <div class="tab-pane fade" id="contabilidad_tab_movimientos" role="tabpanel">
+                                    <div class="row g-6">
+                                        <div class="col-xl-8">
+                                            <div class="card">
+                                                <div class="card-header border-0 pt-5">
+                                                    <div class="card-title"><h3 class="fw-bold fs-5 mb-0">Movimientos bancarios</h3></div>
+                                                    <div class="card-toolbar"><span class="badge badge-light" id="contabilidad_total_visible">0 visibles</span></div>
+                                                </div>
+                                                <div class="card-body pt-0">
+                                                    <div class="border rounded p-4 mb-5">
+                                                        <div class="d-flex flex-wrap align-items-end gap-3">
+                                                            <div>
+                                                                <label class="form-label fs-8">Seleccionados</label>
+                                                                <div><span class="badge badge-light-primary" id="contabilidad_masivo_total">0 movimientos</span></div>
+                                                            </div>
+                                                            <div class="min-w-150px">
+                                                                <label class="form-label fs-8">Movimiento</label>
+                                                                <select class="form-select form-select-sm" id="masivo_movimiento">
+                                                                    <option value="">Sin cambio</option>
+                                                                    <option value="egreso">Egreso</option>
+                                                                    <option value="ingreso">Ingreso</option>
+                                                                </select>
+                                                            </div>
+                                                            <div class="min-w-150px">
+                                                                <label class="form-label fs-8">Actividad</label>
+                                                                <select class="form-select form-select-sm" id="masivo_actividad">
+                                                                    <option value="">Sin cambio</option>
+                                                                    <option value="negocio">Negocio</option>
+                                                                    <option value="programacion">Programacion</option>
+                                                                    <option value="personal">Personal</option>
+                                                                    <option value="publicidad">Publicidad</option>
+                                                                    <option value="inversion">Inversion</option>
+                                                                    <option value="transpaso">Transpaso</option>
+                                                                </select>
+                                                            </div>
+                                                            <div class="min-w-175px">
+                                                                <label class="form-label fs-8">Categoria</label>
+                                                                <select class="form-select form-select-sm" id="masivo_categoria">
+                                                                    <option value="">Sin cambio</option>
+                                                                    <option value="compra_mercancia">Compras</option>
+                                                                    <option value="gasto_operativo">Gasto operativo</option>
+                                                                    <option value="servicio">Servicio</option>
+                                                                    <option value="publicidad">Publicidad</option>
+                                                                    <option value="software">Software</option>
+                                                                    <option value="impuestos">Impuestos</option>
+                                                                    <option value="personal">Personal</option>
+                                                                    <option value="inversion">Inversion</option>
+                                                                    <option value="por_definir">Por definir</option>
+                                                                </select>
+                                                            </div>
+                                                            <div class="min-w-150px">
+                                                                <label class="form-label fs-8">CFDI</label>
+                                                                <select class="form-select form-select-sm" id="masivo_cfdi">
+                                                                    <option value="">Sin cambio</option>
+                                                                    <option value="ligado">Ligado</option>
+                                                                    <option value="pendiente">Pendiente</option>
+                                                                    <option value="no_aplica">No aplica</option>
+                                                                </select>
+                                                            </div>
+                                                            <div class="min-w-175px">
+                                                                <label class="form-label fs-8">Cuenta</label>
+                                                                <input class="form-control form-control-sm" id="masivo_cuenta" placeholder="Sin cambio">
+                                                            </div>
+                                                            <div class="ms-auto d-flex gap-2">
+                                                                <button class="btn btn-sm btn-light" id="contabilidad_masivo_limpiar" type="button"><i class="bi bi-x-circle"></i> Limpiar</button>
+                                                                <button class="btn btn-sm btn-primary" id="contabilidad_masivo_aplicar" type="button"><i class="bi bi-check2-square"></i> Aplicar</button>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                    <div class="table-responsive">
+                                                        <table class="table table-row-dashed align-middle">
+                                                            <thead>
+                                                            <tr class="fw-bold text-muted">
+                                                                <th class="w-25px"><input class="form-check-input" id="contabilidad_select_todos" type="checkbox"></th>
+                                                                <th>Fecha</th>
+                                                                <th>Descripcion</th>
+                                                                <th>Movimiento</th>
+                                                                <th>Actividad</th>
+                                                                <th>Categoria</th>
+                                                                <th>Cuenta</th>
+                                                                <th class="text-end">Monto</th>
+                                                                <th>Folio / factura</th>
+                                                                <th>CFDI</th>
+                                                                <th class="text-end">Acciones</th>
+                                                            </tr>
+                                                            </thead>
+                                                            <tbody id="contabilidad_movimientos"></tbody>
+                                                        </table>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="col-xl-4">
+                                            <div class="card mb-6">
+                                                <div class="card-header border-0 pt-5">
+                                                    <div class="card-title"><h3 class="fw-bold fs-5 mb-0">CFDI cargados</h3></div>
+                                                </div>
+                                                <div class="card-body pt-0" id="contabilidad_cfdis"></div>
+                                            </div>
+                                            <div class="card">
+                                                <div class="card-header border-0 pt-5">
+                                                    <div class="card-title"><h3 class="fw-bold fs-5 mb-0">Pendientes del contador</h3></div>
+                                                </div>
+                                                <div class="card-body pt-0" id="contabilidad_pendientes"></div>
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
-                                <div class="card-body pt-0" id="contabilidad_conciliacion_cuentas"></div>
+
+                                <div class="tab-pane fade" id="contabilidad_tab_conciliacion" role="tabpanel">
+                                    <div class="card">
+                                        <div class="card-header border-0 pt-5">
+                                            <div class="card-title">
+                                                <h3 class="fw-bold fs-5 mb-0">Conciliacion por cuenta</h3>
+                                            </div>
+                                            <div class="card-toolbar">
+                                                <span class="badge badge-light" id="contabilidad_conciliacion_total">0 cuentas</span>
+                                            </div>
+                                        </div>
+                                        <div class="card-body pt-0" id="contabilidad_conciliacion_cuentas"></div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -218,8 +362,8 @@
                     <div class="col-md-3"><label class="form-label fs-8">Descripcion</label><select class="form-select form-select-sm" id="map_concepto"></select><div class="text-muted fs-9 mt-1">Concepto visible del banco.</div></div>
                     <div class="col-md-3"><label class="form-label fs-8">Monto</label><select class="form-select form-select-sm" id="map_monto"></select><div class="text-muted fs-9 mt-1">Importe del movimiento.</div></div>
                     <div class="col-md-3"><label class="form-label fs-8">Folio / factura</label><select class="form-select form-select-sm" id="map_folio"></select><div class="text-muted fs-9 mt-1">Referencia para CFDI.</div></div>
-                    <div class="col-md-3"><label class="form-label fs-8">Movimiento</label><select class="form-select form-select-sm" id="map_movimiento"></select><div class="text-muted fs-9 mt-1">Opcional; lo puedes corregir en la mesa.</div></div>
-                    <div class="col-md-3"><label class="form-label fs-8">Actividad</label><select class="form-select form-select-sm" id="map_actividad"></select><div class="text-muted fs-9 mt-1">Negocio, programacion, personal o publicidad.</div></div>
+                    <div class="col-md-3"><label class="form-label fs-8">Movimiento</label><select class="form-select form-select-sm" id="map_movimiento"></select><div class="text-muted fs-9 mt-1">Egreso o ingreso; lo puedes corregir en la mesa.</div></div>
+                    <div class="col-md-3"><label class="form-label fs-8">Actividad</label><select class="form-select form-select-sm" id="map_actividad"></select><div class="text-muted fs-9 mt-1">Negocio, programacion, personal, publicidad o transpaso.</div></div>
                     <div class="col-md-3"><label class="form-label fs-8">Cuenta</label><select class="form-select form-select-sm" id="map_cuenta"></select><div class="text-muted fs-9 mt-1">Banco o cuenta origen.</div></div>
                 </div>
                 <div class="table-responsive border rounded">

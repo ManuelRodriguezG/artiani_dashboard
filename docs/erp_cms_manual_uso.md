@@ -128,9 +128,12 @@ Contrato publicado:
 - Slot: `global.whatsapp_chat`.
 - Tipo: `whatsapp_chat`.
 - Layout: `floating_multi_contact`.
+- Campo directo para frontend: `whatsapp_contactos`.
+- Cada contacto publicado incluye `id`, `nombre`, `telefono`, `etiqueta`, `descripcion`, `horario`, `mensaje_default`, `activo` y `orden`.
 - El frontend debe ordenar por `orden`, mostrar solo `visible=true` y no mostrar contactos sin telefono valido.
 - Cada contacto abre `https://wa.me/{telefono}?text={mensaje_url_encoded}`.
 - Si el modulo esta desactivado, el frontend no debe mostrar el boton flotante.
+- `/ecommercePublico/configuracion_inicial` tambien expone `depurar.whatsapp_contactos` como acceso rapido; si viene vacio, frontend puede usar su fallback `whatsapp_numero_principal`.
 
 ## CMS > Frontend > Navegacion
 
@@ -182,13 +185,17 @@ Estado actual:
 - Pantalla operativa inicial para enriquecer categorias publicas.
 - Permite preparar titulo y subtitulo del listado de categorias.
 - Permite controlar si las categorias se muestran en Home y en menu.
-- Permite administrar por categoria: ID ERP, slug, titulo, subtitulo, descripcion SEO, URL publica, visible, destacado y orden.
+- Separa la captura en dos componentes: `Categorias destacadas` para cards/vitrinas y `Banners por categoria` para landings de categoria.
+- `Categorias destacadas` administra ID ERP, path slug, titulo, subtitulo, descripcion SEO, URL publica, imagen card, alt card, visible, destacado y orden.
+- `Banners por categoria` administra ID ERP, path slug, titulo/subtitulo de banner, URL canonica, banner desktop, banner mobile, alt banner, activo y herencia.
 - Permite seleccionar una categoria real desde el catalogo publico para completar ID ERP, titulo, slug, URL publica y alt automaticamente.
-- Permite seleccionar imagen card y `Banner principal ecommerce` desde `Media`.
+- Permite seleccionar imagen card, `Banner principal ecommerce` y banner mobile desde `Media`.
+- Permite seleccionar `Banner ecommerce mobile`; si queda vacio, la API usa el banner desktop como fallback mobile.
 - Permite usar imagen de categoria cuando la categoria real ya tenga una imagen editorial disponible.
-- Permite definir `Heredar banner`: si una subcategoria no tiene banner propio, `/ecommercePublico/categorias` resuelve `banner_ecommerce` usando el primer padre de la jerarquia que tenga `imagen_banner`.
+- Permite definir `Heredar banner`: si una subcategoria no tiene imagen propia, `/ecommercePublico/categorias` resuelve los campos de banner usando el primer padre de la jerarquia que tenga imagen disponible.
 - Genera `Preview JSON esperado` orientado a `/ecommercePublico/categorias`.
 - Ya cuenta con boton `Guardar y publicar categorias`.
+- Cuenta con boton `Ver API categoria`, que consulta `/ecommercePublico/categorias` y `/ecommercePublico/contenido_pagina?pagina=categoria&categoria={slug}` para confirmar que el banner resuelto llega al frontend.
 - `/ecommercePublico/categorias` conserva las categorias reales del ERP y agrega el enriquecimiento CMS cuando existe.
 
 Reglas para usarlo:
@@ -198,9 +205,14 @@ Reglas para usarlo:
 - Cada imagen publica debe tener alt text.
 - Los slugs y URLs deben corresponder a rutas publicas del frontend, por ejemplo `/categoria/peces`.
 - Para jerarquias de categoria/subcategoria usa `path_slug`, por ejemplo `acuario-y-peces/alimentacion/alimentos-de-acuario`.
-- Para imagenes, usar Media marcada como `Servidor BD`; las temporales locales no salen en API.
-- Frontend debe preferir `banner_ecommerce.imagen_desktop` para portada de categoria; `imagen_banner_resuelta` queda como atajo.
+- Para imagenes, usar Media marcada como `Servidor BD` o una ruta publica persistente; las temporales locales no salen en API.
+- Frontend debe preferir los campos directos `imagen_banner`, `imagen_banner_mobile`, `banner_alt`, `banner_titulo` y `banner_subtitulo`; `banner_ecommerce` queda como detalle compatible/diagnostico.
 - Si la categoria tiene banner propio, ese gana. Si no tiene y `Heredar banner` esta en `Si`, gana el primer banner de su jerarquia padre.
+- `/ecommercePublico/contenido_pagina?pagina=categoria&categoria={slug}` usa el mismo `banner_ecommerce` resuelto para el bloque `categoria.banner`, incluyendo titulo, subtitulo, alt text y desktop/mobile.
+- El endpoint publico tambien entrega campos directos para frontend: `imagen_banner`, `imagen_banner_mobile`, `imagen_card`, `banner_alt`, `banner_titulo` y `banner_subtitulo`.
+- La prioridad visual por categoria es: `imagen_banner`, `banner`, `banner_url`, `imagen_portada`, `portada`, `imagen_card`, `imagen`; si no hay imagen propia, hereda desde el padre inmediato y sube hasta la categoria principal de la jerarquia.
+- Usa siempre `path_slug` jerarquico y `url` canonica; no construyas banners ni rutas por `slug_corto`.
+- Medidas sugeridas: banner desktop 1920 x 520 px en webp/jpg menor a 350 KB; banner mobile 900 x 760 px menor a 250 KB; card 700 x 700 px o 900 x 700 px.
 
 ## CMS > Frontend > Home > Orden y categorias destacadas
 

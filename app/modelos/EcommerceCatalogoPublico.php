@@ -639,6 +639,9 @@ class EcommerceCatalogoPublico extends CRUD {
     $respuesta = $this->bootstrapPublico($opciones);
     $contenidoHome = $this->contenidoPaginaPublica(array("pagina" => "home", "plantilla" => "artiani_default"));
     $depurarHome = $this->valor($contenidoHome, "depurar", array());
+    $contenidoGlobal = $this->contenidoPaginaPublica(array("pagina" => "global", "plantilla" => "artiani_default"));
+    $depurarGlobal = $this->valor($contenidoGlobal, "depurar", array());
+    $whatsappContactos = $this->frontendWhatsappContactosDesdeContenidoGlobal($depurarGlobal);
     $globalPublicado = $this->frontendGlobalPublicadoDesdeBd();
     $respuesta["mensaje"] = !empty($respuesta["error"])
       ? (isset($respuesta["mensaje"]) ? $respuesta["mensaje"] : "Configuracion inicial ecommerce con observaciones")
@@ -651,6 +654,7 @@ class EcommerceCatalogoPublico extends CRUD {
     $respuesta["depurar"]["contenido"] = array(
       "manifest" => "/ecommercePublico/contenido_manifest",
       "home" => "/ecommercePublico/contenido_pagina?pagina=home&plantilla=artiani_default",
+      "global" => "/ecommercePublico/contenido_pagina?pagina=global&plantilla=artiani_default",
       "categoria" => "/ecommercePublico/contenido_pagina?pagina=categoria&categoria={slug_categoria}",
       "estado" => $this->valor($depurarHome, "fuente", "default_readonly"),
       "panel_pendiente" => $this->valor($depurarHome, "fuente", "default_readonly") !== "bd_publicada",
@@ -662,6 +666,8 @@ class EcommerceCatalogoPublico extends CRUD {
       "fuente" => "default_readonly",
       "panel_pendiente" => true
     );
+    $respuesta["depurar"]["whatsapp_contactos"] = $whatsappContactos;
+    $respuesta["whatsapp_contactos"] = $whatsappContactos;
     $respuesta["depurar"]["contenido_inicial"] = array(
       "home" => array(
         "pagina" => $this->valor($depurarHome, "pagina", "home"),
@@ -670,6 +676,14 @@ class EcommerceCatalogoPublico extends CRUD {
         "slots" => $this->valor($depurarHome, "slots", array()),
         "resumen" => $this->valor($depurarHome, "resumen", array()),
         "fuente" => $this->valor($depurarHome, "fuente", "default_readonly")
+      ),
+      "global" => array(
+        "pagina" => $this->valor($depurarGlobal, "pagina", "global"),
+        "plantilla" => $this->valor($depurarGlobal, "plantilla", "artiani_default"),
+        "plantilla_vista" => $this->valor($depurarGlobal, "plantilla_vista", array()),
+        "slots" => $this->valor($depurarGlobal, "slots", array()),
+        "resumen" => $this->valor($depurarGlobal, "resumen", array()),
+        "fuente" => $this->valor($depurarGlobal, "fuente", "default_readonly")
       ),
       "guardrails" => array(
         "read_only" => true,
@@ -838,7 +852,7 @@ class EcommerceCatalogoPublico extends CRUD {
     if ($pagina === "home") {
       $slots = $this->contenidoOrdenarSlotsHome($slots);
     }
-    return $this->respuesta(false, "success", "Contenido de pagina ecommerce disponible", array(
+    $depurar = array(
       "pagina" => $pagina,
       "plantilla" => $plantilla,
       "categoria" => $categoria,
@@ -869,7 +883,11 @@ class EcommerceCatalogoPublico extends CRUD {
         "plantilla_vista_readonly" => true,
         "imagenes_reales_pendientes_panel" => true
       )
-    ));
+    );
+    if ($pagina === "global") {
+      $depurar["whatsapp_contactos"] = $this->frontendWhatsappContactosDesdeContenidoGlobal($depurar);
+    }
+    return $this->respuesta(false, "success", "Contenido de pagina ecommerce disponible", $depurar);
   }
 
   /**
@@ -1404,6 +1422,49 @@ class EcommerceCatalogoPublico extends CRUD {
     }
   }
 
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-01
+   * Proposito: exponer contactos WhatsApp activos como llave directa para configuracion_inicial.
+   * Impacto: frontend puede usar `depurar.whatsapp_contactos` o el slot `global.whatsapp_chat` sin leer datos internos.
+   * Contrato: solo lectura; filtra contactos inactivos/sin telefono valido.
+   */
+  private function frontendWhatsappContactosDesdeContenidoGlobal($depurarGlobal) {
+    $slots = $this->valor($depurarGlobal, "slots", array());
+    if (!is_array($slots)) { return array(); }
+    foreach ($slots as $slot) {
+      if (!is_array($slot) || (string) $this->valor($slot, "slot", "") !== "global.whatsapp_chat") { continue; }
+      $bloques = $this->valor($slot, "bloques", array());
+      if (!is_array($bloques) || empty($bloques)) { return array(); }
+      $bloque = $bloques[0];
+      if (!is_array($bloque) || (array_key_exists("visible", $bloque) && !(bool) $bloque["visible"])) { return array(); }
+      $contactos = $this->valor($bloque, "whatsapp_contactos", $this->valor($bloque, "contactos", array()));
+      if (!is_array($contactos)) { return array(); }
+      $salida = array();
+      foreach ($contactos as $contacto) {
+        if (!is_array($contacto)) { continue; }
+        if ((array_key_exists("activo", $contacto) && !(bool) $contacto["activo"]) || (array_key_exists("visible", $contacto) && !(bool) $contacto["visible"])) { continue; }
+        $telefono = $this->frontendWhatsappTelefonoNormalizado((string) $this->valor($contacto, "telefono", ""));
+        if (!$this->frontendWhatsappTelefonoValido($telefono)) { continue; }
+        $salida[] = array(
+          "id" => (string) $this->valor($contacto, "id", ""),
+          "nombre" => (string) $this->valor($contacto, "nombre", ""),
+          "telefono" => $telefono,
+          "etiqueta" => (string) $this->valor($contacto, "etiqueta", ""),
+          "descripcion" => (string) $this->valor($contacto, "descripcion", ""),
+          "horario" => (string) $this->valor($contacto, "horario", ""),
+          "mensaje_default" => (string) $this->valor($contacto, "mensaje_default", $this->valor($contacto, "mensaje", "")),
+          "activo" => true,
+          "orden" => intval($this->valor($contacto, "orden", 0))
+        );
+      }
+      usort($salida, function ($a, $b) {
+        return intval($this->valor($a, "orden", 0)) <=> intval($this->valor($b, "orden", 0));
+      });
+      return $salida;
+    }
+    return array();
+  }
+
   private function frontendCategoriasPublicadoDesdeBd() {
     try {
       $db = $this->getConexion();
@@ -1517,8 +1578,7 @@ class EcommerceCatalogoPublico extends CRUD {
       $cms = isset($porId[intval($item["id"])]) ? $porId[intval($item["id"])] : null;
       if (!$cms) {
         $slugPublico = (string) $this->valor($item, "slug_publico", "");
-        $slugCorto = (string) $this->valor($item, "slug_corto", "");
-        $cms = isset($porSlug[$slugPublico]) ? $porSlug[$slugPublico] : (isset($porSlug[$slugCorto]) ? $porSlug[$slugCorto] : null);
+        $cms = isset($porSlug[$slugPublico]) ? $porSlug[$slugPublico] : null;
       }
       if (!$cms) { continue; }
       if (array_key_exists("visible", $cms)) { $items[$id]["visible_frontend"] = (bool) $cms["visible"]; }
@@ -1528,7 +1588,7 @@ class EcommerceCatalogoPublico extends CRUD {
         $items[$id]["descripcion_corta"] = (string) $cms["descripcion_seo"];
         $items[$id]["seo_description"] = (string) $cms["descripcion_seo"];
       }
-      foreach (array("imagen_card", "imagen_banner", "alt_card", "alt_banner", "url") as $campo) {
+      foreach (array("imagen_card", "imagen_banner", "imagen_banner_mobile", "banner", "banner_url", "imagen_portada", "portada", "imagen", "alt_card", "alt_banner", "banner_alt", "banner_titulo", "banner_subtitulo", "url") as $campo) {
         if ($this->valor($cms, $campo, "") !== "") {
           $items[$id][$campo] = $cms[$campo];
         }
@@ -1552,10 +1612,10 @@ class EcommerceCatalogoPublico extends CRUD {
   }
 
   /**
-   * Documentacion IA: Codex GPT-5 | Fecha: 2026-08-30
-   * Proposito: resolver banner ecommerce de categoria con herencia por jerarquia.
-   * Impacto: `/ecommercePublico/categorias` entrega banner propio o heredado para landings/listados sin que frontend replique reglas.
-   * Contrato: solo lectura; no modifica catalogo ni archivos, solo enriquece el payload publico.
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-01
+   * Proposito: resolver banner ecommerce de categoria con prioridad visual y herencia por jerarquia.
+   * Impacto: `/ecommercePublico/categorias` y `contenido_pagina?pagina=categoria` entregan imagenes directas para frontend sin que replique reglas.
+   * Contrato: solo lectura; usa path_slug jerarquico, resuelve desktop/mobile, alt, titulo y subtitulo sin modificar catalogo ni archivos.
    */
   private function aplicarHerenciaBannersCategoriasPublicas($items) {
     if (!is_array($items) || empty($items)) {
@@ -1563,45 +1623,31 @@ class EcommerceCatalogoPublico extends CRUD {
     }
     foreach (array_keys($items) as $id) {
       $items[$id]["heredar_banner"] = array_key_exists("heredar_banner", $items[$id]) ? (bool) $items[$id]["heredar_banner"] : true;
+      $items[$id]["_banner_candidato_propio"] = $this->categoriaBannerCandidatoPublico($items[$id]);
     }
     foreach (array_keys($items) as $id) {
-      $propio = trim((string) $this->valor($items[$id], "imagen_banner", ""));
-      $altPropio = trim((string) $this->valor($items[$id], "alt_banner", ""));
-      if ($propio !== "") {
-        $items[$id]["imagen_banner_resuelta"] = $propio;
-        $items[$id]["banner_ecommerce"] = array(
-          "imagen_desktop" => $propio,
-          "imagen_mobile" => $propio,
-          "alt" => $altPropio !== "" ? $altPropio : "Banner de categoria " . $this->valor($items[$id], "nombre_publico", $this->valor($items[$id], "nombre", "")),
-          "fuente" => "propia",
-          "heredado" => false,
-          "categoria_origen_id" => intval($this->valor($items[$id], "id", 0)),
-          "categoria_origen_path_slug" => $this->valor($items[$id], "path_slug", ""),
-          "categoria_origen_titulo" => $this->valor($items[$id], "nombre_publico", $this->valor($items[$id], "nombre", ""))
-        );
+      $propio = $this->valor($items[$id], "_banner_candidato_propio", array());
+      if (!empty($propio)) {
+        $items[$id] = $this->aplicarBannerCategoriaDirecto($items[$id], $items[$id], $propio, "propia", false);
         continue;
       }
       $heredado = !empty($items[$id]["heredar_banner"]) ? $this->bannerCategoriaAncestroPublico($items, $id) : array();
       if (!empty($heredado)) {
-        $imagen = trim((string) $this->valor($heredado, "imagen_banner", ""));
-        $items[$id]["imagen_banner_resuelta"] = $imagen;
-        $items[$id]["banner_ecommerce"] = array(
-          "imagen_desktop" => $imagen,
-          "imagen_mobile" => $imagen,
-          "alt" => trim((string) $this->valor($heredado, "alt_banner", "")) !== "" ? trim((string) $this->valor($heredado, "alt_banner", "")) : "Banner de categoria " . $this->valor($heredado, "nombre_publico", $this->valor($heredado, "nombre", "")),
-          "fuente" => "heredada",
-          "heredado" => true,
-          "categoria_origen_id" => intval($this->valor($heredado, "id", 0)),
-          "categoria_origen_path_slug" => $this->valor($heredado, "path_slug", ""),
-          "categoria_origen_titulo" => $this->valor($heredado, "nombre_publico", $this->valor($heredado, "nombre", ""))
-        );
+        $items[$id] = $this->aplicarBannerCategoriaDirecto($items[$id], $heredado, $this->valor($heredado, "_banner_candidato_propio", array()), "heredada", true);
         continue;
       }
       $items[$id]["imagen_banner_resuelta"] = "";
+      $items[$id]["imagen_banner"] = "";
+      $items[$id]["imagen_banner_mobile"] = "";
+      $items[$id]["banner_alt"] = "";
+      $items[$id]["banner_titulo"] = "";
+      $items[$id]["banner_subtitulo"] = "";
       $items[$id]["banner_ecommerce"] = array(
         "imagen_desktop" => "",
         "imagen_mobile" => "",
         "alt" => "",
+        "titulo" => "",
+        "subtitulo" => "",
         "fuente" => "ninguna",
         "heredado" => false,
         "categoria_origen_id" => null,
@@ -1609,7 +1655,52 @@ class EcommerceCatalogoPublico extends CRUD {
         "categoria_origen_titulo" => ""
       );
     }
+    foreach (array_keys($items) as $id) {
+      unset($items[$id]["_banner_candidato_propio"]);
+    }
     return $items;
+  }
+
+  private function categoriaBannerCandidatoPublico($item) {
+    foreach (array("imagen_banner", "banner", "banner_url", "imagen_portada", "portada", "imagen_card", "imagen") as $campo) {
+      $url = $this->cmsNormalizarUrlImagenPublica($this->valor($item, $campo, ""));
+      if ($url !== "") {
+        return array("url" => $url, "campo" => $campo);
+      }
+    }
+    return array();
+  }
+
+  private function aplicarBannerCategoriaDirecto($item, $origen, $banner, $fuente, $heredado) {
+    $imagen = trim((string) $this->valor($banner, "url", ""));
+    $mobile = $this->cmsNormalizarUrlImagenPublica($this->valor($origen, "imagen_banner_mobile", ""));
+    if ($mobile === "") { $mobile = $imagen; }
+    $titulo = $this->valor($origen, "banner_titulo", $this->valor($origen, "nombre_publico", $this->valor($origen, "nombre", "")));
+    $subtitulo = $this->valor($origen, "banner_subtitulo", $this->valor($origen, "subtitulo", $this->valor($origen, "descripcion_corta", "")));
+    $alt = trim((string) $this->valor($origen, "banner_alt", $this->valor($origen, "alt_banner", "")));
+    if ($alt === "") { $alt = trim((string) $this->valor($origen, "alt", "")); }
+    if ($alt === "") { $alt = "Banner de categoria " . $titulo; }
+
+    $item["imagen_banner"] = $imagen;
+    $item["imagen_banner_mobile"] = $mobile;
+    $item["imagen_banner_resuelta"] = $imagen;
+    $item["banner_alt"] = $alt;
+    $item["banner_titulo"] = $titulo;
+    $item["banner_subtitulo"] = $subtitulo;
+    $item["banner_ecommerce"] = array(
+      "imagen_desktop" => $imagen,
+      "imagen_mobile" => $mobile,
+      "alt" => $alt,
+      "titulo" => $titulo,
+      "subtitulo" => $subtitulo,
+      "fuente" => $fuente,
+      "campo_origen" => $this->valor($banner, "campo", ""),
+      "heredado" => (bool) $heredado,
+      "categoria_origen_id" => intval($this->valor($origen, "id", 0)),
+      "categoria_origen_path_slug" => $this->valor($origen, "path_slug", ""),
+      "categoria_origen_titulo" => $titulo
+    );
+    return $item;
   }
 
   private function bannerCategoriaAncestroPublico($items, $idCategoria) {
@@ -1622,7 +1713,7 @@ class EcommerceCatalogoPublico extends CRUD {
       }
       $visitados[$parentId] = true;
       $padre = $items[$parentId];
-      if (trim((string) $this->valor($padre, "imagen_banner", "")) !== "") {
+      if (!empty($this->valor($padre, "_banner_candidato_propio", array()))) {
         return $padre;
       }
       $actual = $padre;
@@ -7914,6 +8005,28 @@ class EcommerceCatalogoPublico extends CRUD {
   }
 
   /**
+   * IA: Codex GPT-5 | Fecha: 2026-09-01
+   * Proposito: validar referencias CMS contra categorias reales ya publicables.
+   * Impacto: CMS / Frontend / Categorias; evita publicar banners para categorias inexistentes.
+   * Contrato: solo lectura; busca por ID, path_slug o slug_publico sin consultar tablas de productos.
+   */
+  private function cmsCategoriaPublicaPorReferencia($categoriasPublicas, $idCategoria, $slug) {
+    $idCategoria = intval($idCategoria);
+    $slug = trim((string) $slug);
+    foreach ((array) $categoriasPublicas as $categoria) {
+      if ($idCategoria > 0 && intval($this->valor($categoria, "id", 0)) === $idCategoria) {
+        return $categoria;
+      }
+      if ($slug !== ""
+        && ($this->valor($categoria, "path_slug", "") === $slug
+          || $this->valor($categoria, "slug_publico", "") === $slug)) {
+        return $categoria;
+      }
+    }
+    return array();
+  }
+
+  /**
    * IA: Codex GPT-5
    * Fecha: 2026-08-31
    * Proposito: normalizar cards Home con imagen publica persistente antes de publicar.
@@ -8578,11 +8691,14 @@ class EcommerceCatalogoPublico extends CRUD {
     $visible = (bool) $this->valor($payload, "visible", true);
     $contactos = array();
     $ids = array();
-    $items = $this->valor($payload, "contactos", array());
+    $items = $this->valor($payload, "whatsapp_contactos", array());
+    if (!is_array($items) || empty($items)) {
+      $items = $this->valor($payload, "contactos", array());
+    }
     if (is_array($items)) {
       foreach ($items as $index => $item) {
         if (!is_array($item)) { continue; }
-        if (array_key_exists("visible", $item) && !(bool) $item["visible"]) { continue; }
+        if ((array_key_exists("visible", $item) && !(bool) $item["visible"]) || (array_key_exists("activo", $item) && !(bool) $item["activo"])) { continue; }
         $nombre = trim((string) $this->valor($item, "nombre", ""));
         $telefono = $this->frontendWhatsappTelefonoNormalizado((string) $this->valor($item, "telefono", ""));
         if ($nombre === "" || !$this->frontendWhatsappTelefonoValido($telefono)) { continue; }
@@ -8596,19 +8712,22 @@ class EcommerceCatalogoPublico extends CRUD {
           $n++;
         }
         $ids[$id] = true;
-        $mensaje = trim((string) $this->valor($item, "mensaje", ""));
+        $mensaje = trim((string) $this->valor($item, "mensaje_default", $this->valor($item, "mensaje", "")));
         $avatar = trim((string) $this->valor($item, "avatar", ""));
         if (!$this->frontendWhatsappAvatarPublicoValido($avatar)) { $avatar = ""; }
         $contactos[] = array(
           "id" => $id,
           "nombre" => $nombre,
+          "etiqueta" => trim((string) $this->valor($item, "etiqueta", "")),
           "descripcion" => trim((string) $this->valor($item, "descripcion", "")),
           "telefono" => $telefono,
           "mensaje" => $mensaje !== "" ? $mensaje : $mensajeDefault,
+          "mensaje_default" => $mensaje !== "" ? $mensaje : $mensajeDefault,
           "avatar" => $avatar,
           "icono" => "whatsapp",
           "horario" => trim((string) $this->valor($item, "horario", "")),
           "orden" => intval($this->valor($item, "orden", ($index + 1) * 10)),
+          "activo" => true,
           "visible" => true
         );
       }
@@ -8638,6 +8757,7 @@ class EcommerceCatalogoPublico extends CRUD {
         "mostrar_estado_online" => (bool) $this->valor($config, "mostrar_estado_online", false)
       ),
       "contactos" => $contactos,
+      "whatsapp_contactos" => $contactos,
       "analytics_eventos_futuros" => array(
         "whatsapp_widget_open",
         "whatsapp_contact_click",
@@ -8654,7 +8774,11 @@ class EcommerceCatalogoPublico extends CRUD {
   }
 
   private function frontendWhatsappTelefonoNormalizado($telefono) {
-    return preg_replace('/\D+/', '', (string) $telefono);
+    $telefono = preg_replace('/\D+/', '', (string) $telefono);
+    if (strlen($telefono) === 10) {
+      return "52" . $telefono;
+    }
+    return $telefono;
   }
 
   private function frontendWhatsappTelefonoValido($telefono) {
@@ -8767,10 +8891,10 @@ class EcommerceCatalogoPublico extends CRUD {
   }
 
   /**
-   * Documentacion IA: Codex GPT-5 | Fecha: 2026-08-25
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-01
    * Proposito: publicar enriquecimiento CMS de categorias para API publica.
-   * Impacto: agrega imagenes, SEO, destacados y orden sin crear/editar categorias reales.
-   * Contrato: escritura controlada en bloque CMS tecnico; valida rutas Media CMS si se informan imagenes.
+   * Impacto: agrega imagenes desktop/mobile, SEO, destacados y orden sin crear/editar categorias reales.
+   * Contrato: escritura controlada en bloque CMS tecnico; valida rutas publicas persistentes si se informan imagenes.
    */
   public function frontendCategoriasPublicarInterno($datos, $idUsuario = 0) {
     try {
@@ -8790,19 +8914,27 @@ class EcommerceCatalogoPublico extends CRUD {
         return $this->respuesta(true, "warning", "No hay categorias para publicar.", array("campo" => "categorias"));
       }
 
+      $categoriasPublicasValidas = $this->categoriasPublicasItems($db);
       $limpias = array();
       $errores = array();
       foreach ($categorias as $index => $categoria) {
         if (!is_array($categoria)) { continue; }
         $visible = array_key_exists("visible", $categoria) ? (bool) $categoria["visible"] : true;
         $idCategoria = intval($this->valor($categoria, "categoria_id", 0));
-        $categoriaReal = $idCategoria > 0 ? $this->cmsCategoriaPublicaPorId($db, $idCategoria) : array();
         $slug = trim((string) $this->valor($categoria, "slug", ""));
+        $categoriaReal = $this->cmsCategoriaPublicaPorReferencia($categoriasPublicasValidas, $idCategoria, $slug);
         if ($slug === "" && !empty($categoriaReal)) {
           $slug = trim((string) $this->valor($categoriaReal, "path_slug", $this->valor($categoriaReal, "slug_publico", "")));
         }
         if ($visible && $idCategoria <= 0 && $slug === "") {
           $errores[] = "categoria_" . ($index + 1) . "_sin_id_ni_slug";
+          continue;
+        }
+        if ($visible && empty($categoriaReal)) {
+          $errores[] = "categoria_" . ($index + 1) . "_no_existe_en_catalogo_publico";
+          continue;
+        }
+        if (empty($categoriaReal)) {
           continue;
         }
         $tituloCategoria = trim((string) $this->valor($categoria, "titulo", ""));
@@ -8826,12 +8958,23 @@ class EcommerceCatalogoPublico extends CRUD {
         if ($descripcionSeo === "" && !empty($categoriaReal)) {
           $descripcionSeo = trim((string) $this->valor($categoriaReal, "descripcion_corta", ""));
         }
-        foreach (array("imagen_card", "imagen_banner") as $campoImagen) {
+        foreach (array("imagen_card", "imagen_banner", "imagen_banner_mobile") as $campoImagen) {
           $url = trim((string) $this->valor($categoria, $campoImagen, ""));
-          if ($url !== "" && strpos($url, "/assets/media/cms/ecommerce/") !== 0) {
-            $errores[] = "categoria_" . ($index + 1) . "_" . $campoImagen . "_no_media_cms";
+          if ($url !== "" && $this->cmsNormalizarUrlImagenPublica($url) === "") {
+            $errores[] = "categoria_" . ($index + 1) . "_" . $campoImagen . "_" . $this->cmsMotivoUrlImagenInvalida($url);
           }
         }
+        $imagenCard = $this->cmsNormalizarUrlImagenPublica($this->valor($categoria, "imagen_card", ""));
+        $imagenBanner = $this->cmsNormalizarUrlImagenPublica($this->valor($categoria, "imagen_banner", ""));
+        if ($imagenBanner === "") {
+          foreach (array("banner", "banner_url", "imagen_portada", "portada", "imagen") as $campoBannerAlias) {
+            $imagenBanner = $this->cmsNormalizarUrlImagenPublica($this->valor($categoria, $campoBannerAlias, ""));
+            if ($imagenBanner !== "") { break; }
+          }
+        }
+        $imagenBannerMobile = $this->cmsNormalizarUrlImagenPublica($this->valor($categoria, "imagen_banner_mobile", ""));
+        $altBanner = trim((string) $this->valor($categoria, "banner_alt", $this->valor($categoria, "alt_banner", "")));
+        if ($altBanner === "") { $altBanner = "Banner de categoria " . $tituloCategoria; }
         $limpias[] = array(
           "categoria_id" => $idCategoria > 0 ? $idCategoria : null,
           "slug" => $slug,
@@ -8839,10 +8982,14 @@ class EcommerceCatalogoPublico extends CRUD {
           "titulo" => $tituloCategoria,
           "subtitulo" => $subtituloCategoria,
           "descripcion_seo" => $descripcionSeo,
-          "imagen_card" => trim((string) $this->valor($categoria, "imagen_card", "")),
-          "imagen_banner" => trim((string) $this->valor($categoria, "imagen_banner", "")),
+          "imagen_card" => $imagenCard,
+          "imagen_banner" => $imagenBanner,
+          "imagen_banner_mobile" => $imagenBannerMobile,
           "alt_card" => trim((string) $this->valor($categoria, "alt_card", "")) !== "" ? trim((string) $this->valor($categoria, "alt_card", "")) : "Categoria " . $tituloCategoria,
-          "alt_banner" => trim((string) $this->valor($categoria, "alt_banner", "")) !== "" ? trim((string) $this->valor($categoria, "alt_banner", "")) : "Banner de categoria " . $tituloCategoria,
+          "alt_banner" => $altBanner,
+          "banner_alt" => $altBanner,
+          "banner_titulo" => $tituloCategoria,
+          "banner_subtitulo" => $subtituloCategoria,
           "heredar_banner" => $this->valor($categoria, "heredar_banner", true) ? true : false,
           "destacado" => (bool) $this->valor($categoria, "destacado", false),
           "visible" => $visible,
@@ -8852,6 +8999,9 @@ class EcommerceCatalogoPublico extends CRUD {
       }
       if (!empty($errores)) {
         return $this->respuesta(true, "warning", "Corrige categorias antes de publicar.", array("errores" => array_values(array_unique($errores))));
+      }
+      if (empty($limpias)) {
+        return $this->respuesta(true, "warning", "No hay categorias reales para publicar.", array("campo" => "categorias"));
       }
 
       $payloadPublicado = array(
@@ -10331,6 +10481,12 @@ class EcommerceCatalogoPublico extends CRUD {
         "imagen_menu" => $this->valor($imagenesCategoria, "imagen_menu", null),
         "imagen_card" => $this->valor($imagenesCategoria, "imagen_card", null),
         "imagen_banner" => $this->valor($imagenesCategoria, "imagen_banner", null),
+        "imagen_banner_mobile" => null,
+        "banner_alt" => $this->valor($imagenesCategoria, "alt_banner", ""),
+        "banner_titulo" => $nombre,
+        "banner_subtitulo" => trim((string) $this->valor($fila, "descripcion_real", "")),
+        "alt_card" => $this->valor($imagenesCategoria, "alt_card", ""),
+        "alt_banner" => $this->valor($imagenesCategoria, "alt_banner", ""),
         "imagenes_catalogo" => $this->valor($imagenesCategoria, "imagenes", array()),
         "descripcion_corta" => trim((string) $this->valor($fila, "descripcion_real", "")),
         "seo_title" => $nombre . " | Artiani",
@@ -10338,7 +10494,7 @@ class EcommerceCatalogoPublico extends CRUD {
         "url" => "/categoria/" . $pathSlug,
         "url_canonica" => "/categoria/" . $pathSlug,
         "api_catalogo" => "/ecommercePublico/catalogo?categoria_slug=" . rawurlencode($pathSlug) . "&incluir_hijos=1&limite=24",
-        "cms_editable_future" => array("path_slug", "url", "seo_title", "seo_description", "imagen_menu", "imagen_card", "imagen_banner", "orden", "visible_frontend"),
+        "cms_editable_future" => array("path_slug", "url", "seo_title", "seo_description", "imagen_menu", "imagen_card", "imagen_banner", "imagen_banner_mobile", "banner_alt", "banner_titulo", "banner_subtitulo", "orden", "visible_frontend"),
         "_ruta_slug" => $pathBase,
         "_parent_resuelto" => false
       );
@@ -10396,6 +10552,8 @@ class EcommerceCatalogoPublico extends CRUD {
           "imagen_menu" => null,
           "imagen_card" => null,
           "imagen_banner" => null,
+          "alt_card" => "",
+          "alt_banner" => "",
           "imagenes" => array()
         );
       }
@@ -10411,17 +10569,21 @@ class EcommerceCatalogoPublico extends CRUD {
       }
       if (($tipo === "card" || $tipo === "icono" || $tipo === "referencia") && !$imagenes[$id]["imagen_card"]) {
         $imagenes[$id]["imagen_card"] = $url;
+        $imagenes[$id]["alt_card"] = trim((string) $this->valor($fila, "texto_alternativo", ""));
       }
       if (($tipo === "portada" || $tipo === "banner" || $tipo === "card" || $tipo === "referencia") && !$imagenes[$id]["imagen_banner"]) {
         $imagenes[$id]["imagen_banner"] = $url;
+        $imagenes[$id]["alt_banner"] = trim((string) $this->valor($fila, "texto_alternativo", ""));
       }
     }
     foreach ($imagenes as $id => $grupo) {
       if (!$grupo["imagen_card"]) {
         $imagenes[$id]["imagen_card"] = $grupo["imagen_menu"] ?: $grupo["imagen_banner"];
+        $imagenes[$id]["alt_card"] = $grupo["alt_banner"];
       }
       if (!$grupo["imagen_banner"]) {
         $imagenes[$id]["imagen_banner"] = $grupo["imagen_card"] ?: $grupo["imagen_menu"];
+        $imagenes[$id]["alt_banner"] = $grupo["alt_card"];
       }
       if (!$grupo["imagen_menu"]) {
         $imagenes[$id]["imagen_menu"] = $grupo["imagen_card"] ?: $grupo["imagen_banner"];
@@ -12328,7 +12490,7 @@ class EcommerceCatalogoPublico extends CRUD {
         $slots = $this->contenidoOrdenarSlotsHome($slots);
       }
 
-      return array(
+      $depurar = array(
         "pagina" => $pagina,
         "plantilla" => $plantillaCodigo,
         "categoria" => $categoria,
@@ -12363,6 +12525,10 @@ class EcommerceCatalogoPublico extends CRUD {
           "frontend_renderiza_plantilla_vista" => true
         )
       );
+      if ($pagina === "global") {
+        $depurar["whatsapp_contactos"] = $this->frontendWhatsappContactosDesdeContenidoGlobal($depurar);
+      }
+      return $depurar;
     } catch (Exception $e) {
       return null;
     }
@@ -12513,6 +12679,9 @@ class EcommerceCatalogoPublico extends CRUD {
     while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
       $payload = $this->jsonArray($row["payload_json"]);
       $payload = $this->cmsLimpiarPayloadImagenesPublicas($payload);
+      if ($slotCodigo === "global.whatsapp_chat" || (string) $this->valor($payload, "tipo", "") === "whatsapp_chat") {
+        $payload = $this->frontendGlobalWhatsappNormalizarPayload($payload);
+      }
       if (array_key_exists("visible", $payload) && !(bool) $payload["visible"]) {
         continue;
       }
@@ -13313,7 +13482,7 @@ class EcommerceCatalogoPublico extends CRUD {
       $categoriaLabel = $categoria !== "" ? ucwords(str_replace(array("-", "_"), " ", $categoria)) : "Categoria";
       $endpointCategoria = ctype_digit((string) $categoria)
         ? "/ecommercePublico/catalogo?categoria=" . rawurlencode($categoria) . "&limite=12"
-        : "/ecommercePublico/catalogo?q=" . rawurlencode($categoriaLabel) . "&limite=12";
+        : "/ecommercePublico/catalogo?categoria_slug=" . rawurlencode($categoria) . "&incluir_hijos=1&limite=12";
       return array(
         array(
           "slot" => "categoria.banner",
@@ -13327,7 +13496,7 @@ class EcommerceCatalogoPublico extends CRUD {
             "categoria-productos",
             "Productos para " . $categoriaLabel,
             $endpointCategoria,
-            "/catalogo?categoria=" . rawurlencode($categoria)
+            $categoria !== "" ? "/categoria/" . $categoria : "/catalogo"
           ))
         )
       );
@@ -13377,6 +13546,7 @@ class EcommerceCatalogoPublico extends CRUD {
                 "mostrar_estado_online" => false
               ),
               "contactos" => array(),
+              "whatsapp_contactos" => array(),
               "guardrails" => array("requiere_configuracion_panel" => true, "no_telefonos_demo" => true)
             )
           )
@@ -13542,18 +13712,21 @@ class EcommerceCatalogoPublico extends CRUD {
     $bannerCategoriaTieneImagen = !empty($bannerCategoria) && $this->valor($bannerCategoria, "imagen_desktop", "") !== "";
     if ($bannerCategoriaTieneImagen) {
       $imagen = (string) $this->valor($bannerCategoria, "imagen_desktop", $imagen);
+      $imagenMobile = (string) $this->valor($bannerCategoria, "imagen_mobile", $imagen);
       $alt = (string) $this->valor($bannerCategoria, "alt", $alt);
+    } else {
+      $imagenMobile = $imagen;
     }
     return array(
       "id" => "categoria-banner-" . ($categoria !== "" ? $categoria : "default"),
       "tipo" => "category_banner",
       "estatus" => "publicado_default",
       "categoria" => $categoria,
-      "titulo" => $categoriaLabel,
-      "subtitulo" => "Productos publicados y validados desde el catalogo Artiani.",
+      "titulo" => $this->valor($bannerCategoria, "titulo", $categoriaLabel),
+      "subtitulo" => $this->valor($bannerCategoria, "subtitulo", "Productos publicados y validados desde el catalogo Artiani."),
       "media" => array(
         "imagen_desktop" => $imagen,
-        "imagen_mobile" => $imagen,
+        "imagen_mobile" => $imagenMobile,
         "alt" => $alt,
         "media_id" => $this->valor($media, "id_media_archivo", null),
         "codigo" => $this->valor($media, "codigo", ""),
@@ -13579,10 +13752,9 @@ class EcommerceCatalogoPublico extends CRUD {
       $items = $this->aplicarHerenciaBannersCategoriasPublicas($items);
       $buscado = $this->limpiarCategoriaSlugPublico($categoria);
       foreach ($items as $item) {
-        if (intval($this->valor($item, "id", 0)) === intval($categoria)
+        if ((ctype_digit((string) $categoria) && intval($this->valor($item, "id", 0)) === intval($categoria))
           || $this->valor($item, "path_slug", "") === $buscado
-          || $this->valor($item, "slug_publico", "") === $buscado
-          || $this->valor($item, "slug_corto", "") === $buscado) {
+          || $this->valor($item, "slug_publico", "") === $buscado) {
           return $this->valor($item, "banner_ecommerce", array());
         }
       }

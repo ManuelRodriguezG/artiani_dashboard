@@ -25,8 +25,8 @@ La necesidad corresponde a un modulo propio de Finanzas/Contabilidad, no a Compr
 
 El flujo inicial se ajusta a la forma en que el dueno clasifica sus estados de cuenta:
 
-- Tipo de movimiento: `gasto`, `ingreso`, `transpaso`.
-- Actividad: `negocio`, `programacion`, `personal`, `publicidad` y `inversion` como opcion conservada de la definicion inicial.
+- Tipo de movimiento: `egreso` o `ingreso`.
+- Actividad: `negocio`, `programacion`, `personal`, `publicidad`, `inversion` y `transpaso`.
 - Cuenta: banco/cuenta desde la que se esta revisando el movimiento.
 - Monto: una sola columna final, aunque el archivo origen tenga cargos/abonos separados.
 - Folio/factura/referencia: identificador operativo que despues puede enlazarse con CFDI XML.
@@ -41,8 +41,8 @@ Antes de importar movimientos, la UI muestra un mapeo manual porque bancos como 
 
 - Fecha.
 - Descripcion o concepto.
-- Movimiento: gasto, ingreso o transpaso.
-- Actividad: negocio, programacion, personal o publicidad.
+- Movimiento: egreso o ingreso.
+- Actividad: negocio, programacion, personal, publicidad, inversion o transpaso.
 - Cuenta: Santander, Mercado Pago, Efectivo u otra cuenta escrita por el usuario.
 - Monto, o columnas separadas de egreso/ingreso si el archivo las trae asi.
 - Folio/factura/referencia para enlazar despues con CFDI XML.
@@ -97,7 +97,58 @@ Correccion posterior del mismo diagnostico: el archivo usa `sharedStrings.xml` p
 
 Regla de mapeo simplificada: el archivo que se sube a Contabilidad debe traer una sola columna `Monto`. Si el estado de cuenta original trae columnas separadas como `RETIRO` y `DEPOSITO`, el ajuste preferido es preparar antes una columna auxiliar `Monto` con el importe de la operacion y no mapear `SALDO POSTERIOR`.
 
-La clasificacion contable no debe depender del banco. El usuario debe poder editar manualmente si el movimiento es `gasto`, `ingreso` o `transpaso`, porque el banco no conoce la intencion operativa del movimiento.
+La clasificacion contable no debe depender del banco. El usuario debe poder editar manualmente si el movimiento es `egreso` o `ingreso`; y distinguir en actividad si corresponde a negocio, programacion, personal, publicidad, inversion o transpaso.
+
+## Ajuste conceptual 2026-09-01
+
+`Movimiento` representa la direccion del dinero en la cuenta: `egreso` o `ingreso`.
+
+`Actividad` representa la intencion operativa: `negocio`, `programacion`, `personal`, `publicidad`, `inversion` o `transpaso`.
+
+Razon: un gasto, una inversion y un traspaso pueden ser salidas de cuenta, por lo tanto todos son `egreso`; lo que los diferencia para revision contable es la actividad.
+
+## Ajuste operativo 2026-09-01
+
+Se agrega guardado local de cierres mensuales en navegador para que el usuario pueda conservar la clasificacion mientras se define la persistencia final en base de datos.
+
+- Un cierre guardado conserva periodo, cuenta base, estados de cuenta cargados, movimientos clasificados y CFDI cargados.
+- La seccion `Cierres guardados` permite abrir o eliminar borradores locales.
+- La mesa de movimientos expone `Categoria` para distinguir compras (`compra_mercancia`) de otros gastos dentro de un mismo periodo.
+- Los filtros del cierre permiten consultar por periodo abierto, movimiento, actividad, categoria y CFDI.
+
+Limitacion: el guardado local vive en `localStorage` del navegador. No reemplaza la persistencia ERP futura ni permite consulta multiusuario/servidor.
+
+## Ajuste UX de flujo 2026-09-01
+
+La pantalla se separa en pestañas para evitar que carga, clasificacion, CFDI, guardados y conciliacion compitan en la misma vista.
+
+- `Resumen`: informacion general del mes, cierres guardados y flujo operativo.
+- `Estados de cuenta`: alta de nuevo archivo, carga de XML, guardado del cierre y lista de estados ya cargados.
+- `Clasificacion`: mesa editable de movimientos bancarios.
+- `Conciliacion`: resumen por cuenta y tipo de movimiento.
+
+Cada estado cargado puede abrirse desde `Estados de cuenta` con accion `Ver / editar`, lo que filtra la mesa de clasificacion a ese archivo/cuenta. La accion `Ver todos` quita ese filtro para revisar el mes completo.
+
+## Ajuste operativo 2026-09-01 eliminacion MVP
+
+En el MVP local se permite eliminar:
+
+- Un movimiento individual desde la mesa de clasificacion.
+- Un estado de cuenta completo desde la seccion `Estados de cuenta`; esto tambien elimina sus movimientos asociados del cierre actual.
+
+Regla para fase BD: estas acciones deben revisarse antes de persistir. En base de datos conviene modelarlas como baja logica/cancelacion de importacion para conservar historial de trabajo, no como borrado fisico silencioso.
+
+## Ajuste operativo 2026-09-01 acciones masivas
+
+La mesa de clasificacion permite seleccionar movimientos individuales o todos los visibles para aplicar campos en lote:
+
+- Movimiento.
+- Actividad.
+- Categoria.
+- CFDI.
+- Cuenta.
+
+La seleccion masiva respeta los filtros activos y el estado de cuenta abierto. Si no se elige un valor para un campo, ese campo queda sin cambio.
 
 ## Flujo operativo recomendado
 
@@ -112,7 +163,7 @@ La clasificacion contable no debe depender del banco. El usuario debe poder edit
 ## Reglas iniciales
 
 - Los ingresos bancarios se clasifican por defecto como `ingreso`.
-- Los cargos bancarios se clasifican por defecto como `gasto`.
+- Los cargos bancarios se clasifican por defecto como `egreso`.
 - Los transpasos entre cuentas propias no deben solicitar factura fiscal.
 - Movimientos personales e inversiones no deben mezclarse con deducciones del negocio sin revision del contador.
 - Un impuesto normalmente no requiere CFDI de proveedor.

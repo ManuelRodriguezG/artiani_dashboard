@@ -126,9 +126,11 @@
             {
               id: "ventas",
               nombre: "Ventas Artiani",
+              etiqueta: "Ventas",
               descripcion: "Productos, precios y pedidos",
               telefono: "",
               mensaje: "Hola, quiero informacion sobre productos de Artiani.",
+              mensaje_default: "Hola, quiero informacion sobre productos de Artiani.",
               avatar: "",
               icono: "whatsapp",
               horario: "Lunes a sabado de 10:00 a 19:00",
@@ -249,6 +251,7 @@
               descripcion_seo: "",
               imagen_card: "",
               imagen_banner: "",
+              imagen_banner_mobile: "",
               alt_card: "Categoria de peces",
               alt_banner: "Banner de categoria peces",
               heredar_banner: true,
@@ -265,6 +268,7 @@
               descripcion_seo: "",
               imagen_card: "",
               imagen_banner: "",
+              imagen_banner_mobile: "",
               alt_card: "Categoria de perros",
               alt_banner: "Banner de categoria perros",
               heredar_banner: true,
@@ -272,6 +276,61 @@
               visible: true,
               orden: 20,
               url: "/categoria/perros"
+            }
+          ]
+        },
+        categorias_destacadas: {
+          codigo: "categorias_destacadas",
+          tipo: "categorias_destacadas",
+          visible: true,
+          orden: 20,
+          items: [
+            {
+              categoria_id: 0,
+              slug: "peces",
+              titulo: "Peces",
+              subtitulo: "Acuarios, alimento y mantenimiento",
+              descripcion_seo: "",
+              imagen_card: "",
+              alt_card: "Categoria de peces",
+              destacado: true,
+              visible: true,
+              orden: 10,
+              url: "/categoria/peces"
+            },
+            {
+              categoria_id: 0,
+              slug: "perros",
+              titulo: "Perros",
+              subtitulo: "Alimento, accesorios y cuidado diario",
+              descripcion_seo: "",
+              imagen_card: "",
+              alt_card: "Categoria de perros",
+              destacado: true,
+              visible: true,
+              orden: 20,
+              url: "/categoria/perros"
+            }
+          ]
+        },
+        categorias_banners: {
+          codigo: "categorias_banners",
+          tipo: "categoria_banner_config",
+          visible: true,
+          orden: 30,
+          items: [
+            {
+              categoria_id: 0,
+              slug: "acuario-y-peces",
+              titulo: "Acuario y peces",
+              subtitulo: "Productos para acuarios, peces y mantenimiento",
+              imagen_banner: "",
+              imagen_banner_mobile: "",
+              alt_banner: "Acuario y peces Artiani",
+              heredar_banner: true,
+              visible: true,
+              orden: 10,
+              url: "/categoria/acuario-y-peces"
             }
           ]
         }
@@ -743,7 +802,8 @@
       prioridad: 3,
       secciones: [
         seccion("categorias_config", "categorias_config", "Configuracion general de categorias.", ["titulo", "subtitulo", "fuente"]),
-        seccion("categorias_items", "categoria_editorial", "Capa editorial por categoria.", ["slug", "imagen_card", "imagen_banner", "seo", "destacado"])
+        seccion("categorias_destacadas", "categorias_destacadas", "Categorias destacadas para vitrinas y listados.", ["categoria_id", "imagen_card", "texto", "destacado"]),
+        seccion("categorias_banners", "categoria_banner_config", "Banners principales por categoria para landings.", ["path_slug", "imagen_banner", "imagen_banner_mobile", "herencia"])
       ]
     },
     {
@@ -860,6 +920,7 @@
     estado.vistaDedicada = document.body ? document.body.getAttribute("data-cms-actual-dedicada") === "1" : false;
     if (grupoInicial) estado.grupo = grupoInicial;
     var tieneBorrador = cargarBorradorFrontendLocal(!grupoInicial);
+    sincronizarCategoriasCmsSeparadas();
     if (grupoInicial) estado.grupo = grupoInicial;
     renderTodo();
     cargarCatalogoCategoriasCms();
@@ -1153,6 +1214,7 @@
       var borrador = JSON.parse(raw);
       if (!borrador || !borrador.datos) return false;
       estado.datos = mergeProfundo(estado.datos, borrador.datos);
+      sincronizarCategoriasCmsSeparadas();
       if (usarGrupoGuardado && borrador.grupo) estado.grupo = borrador.grupo;
       estado.borradorLocalCargado = true;
       setText("cms_actual_estado", "Borrador local cargado");
@@ -1796,21 +1858,24 @@
     });
     Array.prototype.forEach.call(document.querySelectorAll("[data-cms-cat-action]"), function (button) {
       button.addEventListener("click", function () {
-        ejecutarCategoriaCmsAccion(button.getAttribute("data-cms-cat-action") || "", parseInt(button.getAttribute("data-index") || "0", 10));
+        ejecutarCategoriaCmsAccion(button.getAttribute("data-cms-cat-action") || "", parseInt(button.getAttribute("data-index") || "0", 10), button.getAttribute("data-section") || "categorias_items");
       });
     });
     Array.prototype.forEach.call(document.querySelectorAll("[data-cms-category-select]"), function (node) {
       node.addEventListener("change", function () {
-        seleccionarCategoriaCmsItem(parseInt(node.getAttribute("data-index") || "0", 10), node.value);
+        seleccionarCategoriaCmsItem(parseInt(node.getAttribute("data-index") || "0", 10), node.value, node.getAttribute("data-cms-category-select") || "categorias_items");
       });
     });
     Array.prototype.forEach.call(document.querySelectorAll("[data-cms-cat-use-image]"), function (button) {
       button.addEventListener("click", function () {
-        usarImagenCategoriaCmsItem(parseInt(button.getAttribute("data-index") || "0", 10), button.getAttribute("data-field") || "imagen_card");
+        usarImagenCategoriaCmsItem(parseInt(button.getAttribute("data-index") || "0", 10), button.getAttribute("data-field") || "imagen_card", button.getAttribute("data-section") || "categorias_items");
       });
     });
     on("cms_actual_categorias_borrador", "click", guardarBorradorCategoriasCms);
+    on("cms_actual_categorias_api", "click", consultarApiCategoriasFrontend);
     on("cms_actual_categoria_agregar", "click", agregarCategoriaCmsItem);
+    on("cms_actual_categoria_destacada_agregar", "click", function () { agregarCategoriaCmsItem("categorias_destacadas"); });
+    on("cms_actual_categoria_banner_agregar", "click", function () { agregarCategoriaCmsItem("categorias_banners"); });
     on("cms_actual_marcas_publicar", "click", publicarMarcasFrontend);
     Array.prototype.forEach.call(document.querySelectorAll("[data-cms-marca-field]"), function (node) {
       node.addEventListener("input", function () {
@@ -1860,7 +1925,8 @@
         abrirSelectorMedia(
           button.getAttribute("data-media-picker"),
           /^[0-9]+$/.test(rawIndex) ? parseInt(rawIndex, 10) : rawIndex,
-          button.getAttribute("data-field") || ""
+          button.getAttribute("data-field") || "",
+          button.getAttribute("data-section") || ""
         );
       });
     });
@@ -1869,7 +1935,11 @@
   function renderCategoriasCmsSeccion(item) {
     var data = categoriasCmsData(item.codigo);
     if (!data) return "";
-    var contenido = item.codigo === "categorias_config" ? renderCategoriasCmsConfig(data) : renderCategoriasCmsItems(data);
+    var contenido = "";
+    if (item.codigo === "categorias_config") contenido = renderCategoriasCmsConfig(data);
+    else if (item.codigo === "categorias_destacadas") contenido = renderCategoriasDestacadasCmsItems(data);
+    else if (item.codigo === "categorias_banners") contenido = renderCategoriasBannersCmsItems(data);
+    else contenido = renderCategoriasCmsItems(data);
     return '<div class="cms-actual-card mb-4">' +
       '<div class="d-flex justify-content-between align-items-start gap-3 flex-wrap mb-4">' +
         '<div><div class="fw-bold">' + escapeHtml(item.descripcion) + '</div><div class="text-muted fs-8">' + escapeHtml(item.codigo) + '</div></div>' +
@@ -1877,6 +1947,25 @@
       '</div>' +
       contenido +
     '</div>';
+  }
+
+  function renderCategoriasDestacadasCmsItems(data) {
+    var items = data.items || [];
+    return '<div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">' +
+      '<div class="fw-bold">Categorias destacadas</div><button class="btn btn-sm btn-light-primary" type="button" id="cms_actual_categoria_destacada_agregar"><i class="bi bi-plus-circle"></i> Agregar destacada</button>' +
+    '</div>' +
+    items.map(function (item, index) { return renderCategoriaDestacadaCmsCard(item, index); }).join("") +
+    '<div class="alert alert-light-info fs-7 mb-0">Esta seccion controla tarjetas destacadas y textos editoriales. No define el banner principal de la landing de categoria.</div>';
+  }
+
+  function renderCategoriasBannersCmsItems(data) {
+    var items = data.items || [];
+    return '<div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">' +
+      '<div class="fw-bold">Banners por categoria</div><div class="d-flex gap-2"><button class="btn btn-sm btn-light-info" type="button" id="cms_actual_categorias_api"><i class="bi bi-broadcast"></i> Ver API categoria</button><button class="btn btn-sm btn-light-primary" type="button" id="cms_actual_categoria_banner_agregar"><i class="bi bi-plus-circle"></i> Agregar banner</button></div>' +
+    '</div>' +
+    '<div class="alert alert-light-secondary fs-7 py-3 mb-4 d-none" id="cms_actual_categorias_api_estado"></div>' +
+    items.map(function (item, index) { return renderCategoriaBannerCmsCard(item, index); }).join("") +
+    '<div class="alert alert-light-info fs-7 mb-0">Esta seccion alimenta /ecommercePublico/categorias y la landing /categoria/{path_slug}. Si una subcategoria no tiene imagen propia, la API hereda desde su jerarquia.</div>';
   }
 
   function renderCategoriasCmsConfig(data) {
@@ -1892,10 +1981,65 @@
   function renderCategoriasCmsItems(data) {
     var items = data.items || [];
     return '<div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">' +
-      '<div class="fw-bold">Categorias editoriales</div><button class="btn btn-sm btn-light-primary" type="button" id="cms_actual_categoria_agregar"><i class="bi bi-plus-circle"></i> Agregar categoria</button>' +
+      '<div class="fw-bold">Categorias editoriales</div><div class="d-flex gap-2"><button class="btn btn-sm btn-light-info" type="button" id="cms_actual_categorias_api"><i class="bi bi-broadcast"></i> Ver API categoria</button><button class="btn btn-sm btn-light-primary" type="button" id="cms_actual_categoria_agregar"><i class="bi bi-plus-circle"></i> Agregar categoria</button></div>' +
     '</div>' +
+    '<div class="alert alert-light-secondary fs-7 py-3 mb-4 d-none" id="cms_actual_categorias_api_estado"></div>' +
     items.map(renderCategoriaCmsCard).join("") +
     '<div class="alert alert-light-info fs-7 mb-0">La categoria real debe existir en ERP/API. Aqui solo se prepara imagen, texto publico, SEO, destacado, visible y orden.</div>';
+  }
+
+  function renderCategoriaDestacadaCmsCard(item, index) {
+    var bg = item.imagen_card;
+    return '<div class="cms-actual-slide mb-4">' +
+      '<div class="d-flex justify-content-between align-items-center gap-2 mb-3">' +
+        '<div><div class="fw-semibold">' + escapeHtml(item.titulo || ("Categoria destacada " + (index + 1))) + '</div><div class="text-muted fs-8">' + escapeHtml(item.slug || "sin-slug") + '</div></div>' +
+        accionesCategoriaCms("destacadas", index) +
+      '</div>' +
+      '<div class="row g-4">' +
+        '<div class="col-lg-4"><div class="cms-actual-slide-preview"' + (bg ? ' style="background-image:url(' + escapeAttr(urlPreviewSeguro(bg)) + ')"' : '') + '><div><div class="text-uppercase fs-8 fw-bold">Card destacada</div><h4 class="text-white fw-bold mt-2">' + escapeHtml(item.titulo || "") + '</h4><div class="fs-7">' + escapeHtml(item.subtitulo || "") + '</div></div></div></div>' +
+        '<div class="col-lg-8"><div class="row g-3">' +
+          selectorCategoriaCmsItem(index, item, "categorias_destacadas") +
+          botonUsarImagenCategoriaCmsItem(index, "imagen_card", item, "categorias_destacadas") +
+          inputCategoriaItemSeccion(index, "categoria_id", "ID ERP", item.categoria_id, "col-md-2", false, "categorias_destacadas") +
+          inputCategoriaItemSeccion(index, "slug", "Path slug", item.slug, "col-md-3", false, "categorias_destacadas") +
+          inputCategoriaItemSeccion(index, "titulo", "Titulo", item.titulo, "col-md-3", false, "categorias_destacadas") +
+          inputCategoriaItemSeccion(index, "url", "URL publica", item.url, "col-md-4", false, "categorias_destacadas") +
+          inputCategoriaItemSeccion(index, "subtitulo", "Subtitulo", item.subtitulo, "col-md-6", false, "categorias_destacadas") +
+          inputCategoriaItemSeccion(index, "descripcion_seo", "Descripcion SEO", item.descripcion_seo, "col-md-6", false, "categorias_destacadas") +
+          inputCategoriaItemSeccion(index, "imagen_card", "Imagen card", item.imagen_card, "col-md-6", true, "categorias_destacadas") +
+          inputCategoriaItemSeccion(index, "alt_card", "Alt card", item.alt_card, "col-md-6", false, "categorias_destacadas") +
+          selectCategoriaBoolean(index, "destacado", "Destacado", item.destacado, "categorias_destacadas") +
+          selectCategoriaBoolean(index, "visible", "Visible", item.visible, "categorias_destacadas") +
+        '</div></div>' +
+      '</div>' +
+    '</div>';
+  }
+
+  function renderCategoriaBannerCmsCard(item, index) {
+    var bg = item.imagen_banner || item.imagen_banner_mobile;
+    return '<div class="cms-actual-slide mb-4">' +
+      '<div class="d-flex justify-content-between align-items-center gap-2 mb-3">' +
+        '<div><div class="fw-semibold">' + escapeHtml(item.titulo || ("Banner categoria " + (index + 1))) + '</div><div class="text-muted fs-8">' + escapeHtml(item.slug || "sin-path-slug") + '</div></div>' +
+        accionesCategoriaCms("banners", index) +
+      '</div>' +
+      '<div class="row g-4">' +
+        '<div class="col-lg-4"><div class="cms-actual-slide-preview"' + (bg ? ' style="background-image:url(' + escapeAttr(urlPreviewSeguro(bg)) + ')"' : '') + '><div><div class="text-uppercase fs-8 fw-bold">Banner landing</div><h4 class="text-white fw-bold mt-2">' + escapeHtml(item.titulo || "") + '</h4><div class="fs-7">' + escapeHtml(item.subtitulo || "") + '</div></div></div></div>' +
+        '<div class="col-lg-8"><div class="row g-3">' +
+          selectorCategoriaCmsItem(index, item, "categorias_banners") +
+          botonUsarImagenCategoriaCmsItem(index, "imagen_banner", item, "categorias_banners") +
+          inputCategoriaItemSeccion(index, "categoria_id", "ID ERP", item.categoria_id, "col-md-2", false, "categorias_banners") +
+          inputCategoriaItemSeccion(index, "slug", "Path slug", item.slug, "col-md-3", false, "categorias_banners") +
+          inputCategoriaItemSeccion(index, "titulo", "Titulo banner", item.titulo, "col-md-3", false, "categorias_banners") +
+          inputCategoriaItemSeccion(index, "url", "URL canonica", item.url, "col-md-4", false, "categorias_banners") +
+          inputCategoriaItemSeccion(index, "subtitulo", "Subtitulo banner", item.subtitulo, "col-md-6", false, "categorias_banners") +
+          inputCategoriaItemSeccion(index, "imagen_banner", "Banner desktop", item.imagen_banner, "col-md-6", true, "categorias_banners") +
+          inputCategoriaItemSeccion(index, "imagen_banner_mobile", "Banner mobile", item.imagen_banner_mobile, "col-md-6", true, "categorias_banners") +
+          inputCategoriaItemSeccion(index, "alt_banner", "Alt banner", item.alt_banner, "col-md-6", false, "categorias_banners") +
+          '<div class="col-md-3"><label class="form-label fs-8 fw-bold">Heredar banner</label><select class="form-select form-select-sm" data-cms-cat-section="categorias_banners" data-cms-cat-field="items.' + escapeAttr(index) + '.heredar_banner"><option value="1"' + (item.heredar_banner !== false ? ' selected' : '') + '>Si</option><option value="0"' + (item.heredar_banner === false ? ' selected' : '') + '>No</option></select><div class="text-muted fs-8 mt-1">Si no tiene imagen propia, sube al padre inmediato y luego a la categoria principal.</div></div>' +
+          selectCategoriaBoolean(index, "visible", "Activo", item.visible, "categorias_banners") +
+        '</div></div>' +
+      '</div>' +
+    '</div>';
   }
 
   function renderCategoriaCmsCard(item, index) {
@@ -1925,7 +2069,8 @@
           inputCategoriaItem(index, "subtitulo", "Subtitulo", item.subtitulo, "col-md-6") +
           inputCategoriaItem(index, "descripcion_seo", "Descripcion SEO", item.descripcion_seo, "col-md-6") +
           inputCategoriaItem(index, "imagen_card", "Imagen card", item.imagen_card, "col-md-6", true) +
-          inputCategoriaItem(index, "imagen_banner", "Banner principal ecommerce", item.imagen_banner, "col-md-6", true) +
+          inputCategoriaItem(index, "imagen_banner", "Banner principal ecommerce desktop", item.imagen_banner, "col-md-6", true) +
+          inputCategoriaItem(index, "imagen_banner_mobile", "Banner ecommerce mobile", item.imagen_banner_mobile, "col-md-6", true) +
           inputCategoriaItem(index, "alt_card", "Alt card", item.alt_card, "col-md-6") +
           inputCategoriaItem(index, "alt_banner", "Alt banner", item.alt_banner, "col-md-6") +
           '<div class="col-md-3"><label class="form-label fs-8 fw-bold">Heredar banner</label><select class="form-select form-select-sm" data-cms-cat-section="categorias_items" data-cms-cat-field="items.' + escapeAttr(index) + '.heredar_banner"><option value="1"' + (item.heredar_banner !== false ? ' selected' : '') + '>Si</option><option value="0"' + (item.heredar_banner === false ? ' selected' : '') + '>No</option></select><div class="text-muted fs-8 mt-1">Si no tiene banner propio, usa el primer banner de su jerarquia padre.</div></div>' +
@@ -1941,32 +2086,53 @@
   }
 
   function inputCategoriaItem(index, campo, label, value, col, media) {
-    var input = '<input class="form-control form-control-sm" data-cms-cat-section="categorias_items" data-cms-cat-field="items.' + escapeAttr(index) + '.' + escapeAttr(campo) + '" value="' + escapeAttr(value == null ? "" : value) + '">';
+    return inputCategoriaItemSeccion(index, campo, label, value, col, media, "categorias_items");
+  }
+
+  function inputCategoriaItemSeccion(index, campo, label, value, col, media, seccionCodigo) {
+    seccionCodigo = seccionCodigo || "categorias_items";
+    var input = '<input class="form-control form-control-sm" data-cms-cat-section="' + escapeAttr(seccionCodigo) + '" data-cms-cat-field="items.' + escapeAttr(index) + '.' + escapeAttr(campo) + '" value="' + escapeAttr(value == null ? "" : value) + '">';
     if (media) {
-      input = '<div class="input-group input-group-sm">' + input + '<button class="btn btn-light-primary" type="button" data-media-picker="cms_categoria" data-index="' + escapeAttr(index) + '" data-field="' + escapeAttr(campo) + '"><i class="bi bi-images"></i> Media</button></div>';
+      input = '<div class="input-group input-group-sm">' + input + '<button class="btn btn-light-primary" type="button" data-media-picker="cms_categoria" data-index="' + escapeAttr(index) + '" data-section="' + escapeAttr(seccionCodigo) + '" data-field="' + escapeAttr(campo) + '"><i class="bi bi-images"></i> Media</button></div>';
     }
     return '<div class="' + escapeAttr(col || "col-md-4") + '"><label class="form-label fs-8 fw-bold">' + escapeHtml(label) + '</label>' + input + '</div>';
   }
 
-  function selectorCategoriaCmsItem(index, item) {
+  function selectorCategoriaCmsItem(index, item, seccionCodigo) {
+    seccionCodigo = seccionCodigo || "categorias_items";
     return '<div class="col-md-12">' +
       '<label class="form-label fs-8 fw-bold">Seleccionar categoria real</label>' +
-      '<select class="form-select form-select-sm" data-cms-category-select="categorias_items" data-index="' + escapeAttr(index) + '">' +
+      '<select class="form-select form-select-sm" data-cms-category-select="' + escapeAttr(seccionCodigo) + '" data-index="' + escapeAttr(index) + '">' +
         opcionesCategoriasCms(item && item.categoria_id ? item.categoria_id : 0) +
       '</select>' +
       '<div class="text-muted fs-8 mt-1">Al seleccionar se completan ID ERP, titulo, slug, URL publica y alt. Despues puedes ajustar el texto comercial.</div>' +
     '</div>';
   }
 
-  function botonUsarImagenCategoriaCmsItem(index, campo, item) {
+  function botonUsarImagenCategoriaCmsItem(index, campo, item, seccionCodigo) {
+    seccionCodigo = seccionCodigo || "categorias_items";
     var categoria = categoriaCmsPorId(item && item.categoria_id ? item.categoria_id : 0);
     var imagen = campo === "imagen_banner" ? imagenBannerCategoriaCms(categoria) : imagenCardCategoriaCms(categoria);
     var texto = campo === "imagen_banner" ? "Usar banner de categoria" : "Usar card de categoria";
     var ayuda = imagen ? "Copia la imagen editorial de la categoria seleccionada." : "La categoria no tiene imagen disponible; puedes subir una desde Media.";
     return '<div class="col-md-6">' +
-      '<button class="btn btn-sm ' + (imagen ? "btn-light-success" : "btn-light-secondary") + '" type="button" data-cms-cat-use-image="' + escapeAttr(index) + '" data-index="' + escapeAttr(index) + '" data-field="' + escapeAttr(campo) + '"' + (!imagen ? ' disabled' : '') + '><i class="bi bi-image"></i> ' + escapeHtml(texto) + '</button>' +
+      '<button class="btn btn-sm ' + (imagen ? "btn-light-success" : "btn-light-secondary") + '" type="button" data-cms-cat-use-image="' + escapeAttr(index) + '" data-index="' + escapeAttr(index) + '" data-section="' + escapeAttr(seccionCodigo) + '" data-field="' + escapeAttr(campo) + '"' + (!imagen ? ' disabled' : '') + '><i class="bi bi-image"></i> ' + escapeHtml(texto) + '</button>' +
       '<div class="text-muted fs-8 mt-1">' + escapeHtml(ayuda) + '</div>' +
     '</div>';
+  }
+
+  function accionesCategoriaCms(tipo, index) {
+    var seccionCodigo = tipo === "banners" ? "categorias_banners" : "categorias_destacadas";
+    return '<div class="d-flex gap-2">' +
+      '<button class="btn btn-sm btn-light" type="button" data-cms-cat-action="subir" data-section="' + escapeAttr(seccionCodigo) + '" data-index="' + escapeAttr(index) + '"><i class="bi bi-arrow-up"></i></button>' +
+      '<button class="btn btn-sm btn-light" type="button" data-cms-cat-action="bajar" data-section="' + escapeAttr(seccionCodigo) + '" data-index="' + escapeAttr(index) + '"><i class="bi bi-arrow-down"></i></button>' +
+      '<button class="btn btn-sm btn-light-warning" type="button" data-cms-cat-action="toggle" data-section="' + escapeAttr(seccionCodigo) + '" data-index="' + escapeAttr(index) + '"><i class="bi bi-eye"></i></button>' +
+      '<button class="btn btn-sm btn-light-danger" type="button" data-cms-cat-action="eliminar" data-section="' + escapeAttr(seccionCodigo) + '" data-index="' + escapeAttr(index) + '"><i class="bi bi-trash"></i></button>' +
+    '</div>';
+  }
+
+  function selectCategoriaBoolean(index, campo, label, value, seccionCodigo) {
+    return '<div class="col-md-3"><label class="form-label fs-8 fw-bold">' + escapeHtml(label) + '</label><select class="form-select form-select-sm" data-cms-cat-section="' + escapeAttr(seccionCodigo) + '" data-cms-cat-field="items.' + escapeAttr(index) + '.' + escapeAttr(campo) + '"><option value="1"' + (value !== false ? ' selected' : '') + '>Si</option><option value="0"' + (value === false ? ' selected' : '') + '>No</option></select></div>';
   }
 
   function renderMarcasCmsSeccion(item) {
@@ -2354,10 +2520,11 @@
       '<div class="row g-3">' +
         inputWhatsappContacto(index, "id", "ID publico", contacto.id, "col-md-3") +
         inputWhatsappContacto(index, "nombre", "Nombre obligatorio", contacto.nombre, "col-md-3") +
-        inputWhatsappContacto(index, "telefono", "Telefono obligatorio", contacto.telefono, "col-md-3") +
-        inputWhatsappContacto(index, "orden", "Orden", contacto.orden, "col-md-3") +
+        inputWhatsappContacto(index, "etiqueta", "Etiqueta", contacto.etiqueta, "col-md-2") +
+        inputWhatsappContacto(index, "telefono", "Telefono obligatorio", contacto.telefono, "col-md-2") +
+        inputWhatsappContacto(index, "orden", "Orden", contacto.orden, "col-md-2") +
         inputWhatsappContacto(index, "descripcion", "Descripcion", contacto.descripcion, "col-md-6") +
-        inputWhatsappContacto(index, "mensaje", "Mensaje personalizado", contacto.mensaje, "col-md-6") +
+        inputWhatsappContacto(index, "mensaje", "Mensaje default", contacto.mensaje || contacto.mensaje_default, "col-md-6") +
         inputWhatsappContacto(index, "avatar", "Avatar", contacto.avatar, "col-md-6", true) +
         inputWhatsappContacto(index, "horario", "Horario", contacto.horario, "col-md-6") +
       '</div>' +
@@ -2602,8 +2769,9 @@
     refrescarJson();
   }
 
-  function ejecutarCategoriaCmsAccion(accion, index) {
-    var items = categoriasCmsData("categorias_items").items;
+  function ejecutarCategoriaCmsAccion(accion, index, seccionCodigo) {
+    var data = categoriasCmsData(seccionCodigo || "categorias_items");
+    var items = data && Array.isArray(data.items) ? data.items : [];
     if (!items[index]) return;
     if (accion === "subir" && index > 0) {
       items.splice(index - 1, 0, items.splice(index, 1)[0]);
@@ -2621,30 +2789,45 @@
     renderGrupo();
   }
 
-  function agregarCategoriaCmsItem() {
-    var items = categoriasCmsData("categorias_items").items;
-    items.push({
+  function agregarCategoriaCmsItem(seccionCodigo) {
+    seccionCodigo = seccionCodigo || "categorias_items";
+    var data = categoriasCmsData(seccionCodigo);
+    var items = data && Array.isArray(data.items) ? data.items : [];
+    var item = {
       categoria_id: 0,
       slug: "nueva-categoria",
       titulo: "Nueva categoria",
       subtitulo: "",
       descripcion_seo: "",
-      imagen_card: "",
-      imagen_banner: "",
-      alt_card: "",
-      alt_banner: "",
-      heredar_banner: true,
-      destacado: false,
       visible: true,
       orden: (items.length + 1) * 10,
       url: "/categoria/nueva-categoria"
-    });
+    };
+    if (seccionCodigo === "categorias_banners") {
+      item.imagen_banner = "";
+      item.imagen_banner_mobile = "";
+      item.alt_banner = "";
+      item.heredar_banner = true;
+    } else if (seccionCodigo === "categorias_destacadas") {
+      item.imagen_card = "";
+      item.alt_card = "";
+      item.destacado = true;
+    } else {
+      item.imagen_card = "";
+      item.imagen_banner = "";
+      item.imagen_banner_mobile = "";
+      item.alt_card = "";
+      item.alt_banner = "";
+      item.heredar_banner = true;
+      item.destacado = false;
+    }
+    items.push(item);
     renderGrupo();
   }
 
-  function seleccionarCategoriaCmsItem(index, idCategoria) {
+  function seleccionarCategoriaCmsItem(index, idCategoria, seccionCodigo) {
     var categoria = categoriaCmsPorId(idCategoria);
-    var data = categoriasCmsData("categorias_items");
+    var data = categoriasCmsData(seccionCodigo || "categorias_items");
     var item = data && data.items ? data.items[index] : null;
     if (!categoria || !item) return;
     aplicarCategoriaEditorialCms(item, categoria, true);
@@ -2652,8 +2835,8 @@
     renderGrupo();
   }
 
-  function usarImagenCategoriaCmsItem(index, campo) {
-    var data = categoriasCmsData("categorias_items");
+  function usarImagenCategoriaCmsItem(index, campo, seccionCodigo) {
+    var data = categoriasCmsData(seccionCodigo || "categorias_items");
     var item = data && data.items ? data.items[index] : null;
     if (!item) return;
     var categoria = categoriaCmsPorId(item.categoria_id);
@@ -5296,6 +5479,7 @@
     if (campo === "telefono") valor = String(valor || "").replace(/\D+/g, "");
     if (campo === "orden") valor = parseInt(valor || ((index + 1) * 10), 10) || ((index + 1) * 10);
     setPath(contactos[index], campo, valor);
+    if (campo === "mensaje") contactos[index].mensaje_default = valor;
     refrescarJson();
   }
 
@@ -5305,9 +5489,11 @@
     data.contactos.push({
       id: "contacto_" + (data.contactos.length + 1),
       nombre: "Nuevo contacto",
+      etiqueta: "Contacto",
       descripcion: "",
       telefono: "",
       mensaje: "",
+      mensaje_default: "",
       avatar: "",
       icono: "whatsapp",
       horario: "",
@@ -5680,10 +5866,92 @@
         throw new Error(jsonRespuesta && jsonRespuesta.mensaje ? jsonRespuesta.mensaje : "No se pudo publicar categorias");
       }
       setCategoriasEstado("Categorias publicadas. /ecommercePublico/categorias ya puede entregar el enriquecimiento CMS.", "success");
+      consultarApiCategoriasFrontend();
     }).catch(function (error) {
       setCategoriasEstado(error.message || "Error al publicar categorias.", "danger");
     }).finally(function () {
       if (boton) boton.disabled = false;
+    });
+  }
+
+  /**
+   * IA: Codex GPT-5 | Fecha: 2026-09-01
+   * Proposito: validar desde CMS que categorias y pagina de categoria expongan el banner resuelto.
+   * Impacto: CMS / Frontend / Categorias; consulta APIs publicas sin modificar catalogo, precios ni inventario.
+   */
+  function consultarApiCategoriasFrontend() {
+    var data = categoriasCmsData("categorias_banners") || categoriasCmsData("categorias_items");
+    var items = data && Array.isArray(data.items) ? data.items : [];
+    var seleccionado = items.filter(function (item) {
+      return item && item.visible !== false && (String(item.path_slug || item.slug || "").trim() || item.categoria_id);
+    })[0] || items[0] || {};
+    var slug = String(seleccionado.path_slug || seleccionado.slug || "").trim();
+    var boton = $("cms_actual_categorias_api");
+    if (boton) boton.disabled = true;
+    setCategoriasApi("Consultando /ecommercePublico/categorias" + (slug ? " y pagina de categoria..." : "..."), "info");
+    Promise.all([
+      fetchJsonCms("/ecommercePublico/categorias"),
+      slug ? fetchJsonCms("/ecommercePublico/contenido_pagina?pagina=categoria&categoria=" + encodeURIComponent(slug)) : Promise.resolve(null)
+    ]).then(function (respuestas) {
+      var categorias = respuestas[0] && respuestas[0].depurar ? respuestas[0].depurar : {};
+      var pagina = respuestas[1] && respuestas[1].depurar ? respuestas[1].depurar : {};
+      var apiItems = Array.isArray(categorias.items) ? categorias.items : [];
+      var encontrada = apiItems.filter(function (item) {
+        return item && (
+          String(item.path_slug || "") === slug ||
+          String(item.slug_publico || "") === slug ||
+          (seleccionado.categoria_id && parseInt(item.id || "0", 10) === parseInt(seleccionado.categoria_id || "0", 10))
+        );
+      })[0] || {};
+      var banner = encontrada.banner_ecommerce || {};
+      var bloques = pagina.slots ? bloquesSlotPublicado(pagina, "categoria.banner") : [];
+      var bloque = bloques[0] || {};
+      var media = bloque.media || {};
+      setCategoriasApi(
+        '<div class="fw-bold mb-2">API categorias consultada</div>' +
+        '<div><span class="fw-semibold">Fuente CMS:</span> ' + escapeHtml((categorias.cms_frontend || {}).fuente || categorias.fuente || "sin fuente") + '</div>' +
+        '<div><span class="fw-semibold">Categorias reales:</span> ' + escapeHtml(apiItems.length) + '</div>' +
+        '<div><span class="fw-semibold">Slug revisado:</span> ' + escapeHtml(slug || "sin slug") + '</div>' +
+        '<div><span class="fw-semibold">Banner resuelto:</span> ' + escapeHtml(banner.imagen_desktop || encontrada.imagen_banner_resuelta || "sin banner") + '</div>' +
+        '<div><span class="fw-semibold">Banner mobile:</span> ' + escapeHtml(banner.imagen_mobile || "sin mobile propio") + '</div>' +
+        '<div><span class="fw-semibold">Herencia:</span> ' + escapeHtml(banner.fuente || "sin fuente") + (banner.categoria_origen_path_slug ? " desde " + escapeHtml(banner.categoria_origen_path_slug) : "") + '</div>' +
+        '<div><span class="fw-semibold">contenido_pagina categoria.banner:</span> ' + escapeHtml(media.imagen_desktop || "sin bloque") + '</div>',
+        (banner.imagen_desktop || media.imagen_desktop) ? "success" : "warning",
+        true
+      );
+    }).catch(function (error) {
+      setCategoriasApi(error.message || "Error al consultar API de categorias.", "danger");
+    }).finally(function () {
+      if (boton) boton.disabled = false;
+    });
+  }
+
+  /**
+   * IA: Codex GPT-5 | Fecha: 2026-09-01
+   * Proposito: centralizar lecturas JSON de endpoints CMS/ecommerce para diagnosticos de panel.
+   * Impacto: evita duplicar parseo defensivo en verificaciones read-only.
+   */
+  function fetchJsonCms(url) {
+    return fetch(url, {
+      method: "GET",
+      credentials: "same-origin",
+      headers: {
+        "Accept": "application/json",
+        "X-Requested-With": "XMLHttpRequest"
+      }
+    }).then(function (response) {
+      return response.text().then(function (text) {
+        var json = null;
+        try {
+          json = JSON.parse(text);
+        } catch (error) {
+          throw new Error("Respuesta no JSON del servidor (" + response.status + "): " + text.substring(0, 140));
+        }
+        if (!response.ok) {
+          throw new Error((json && json.mensaje) || "No se pudo consultar " + url);
+        }
+        return json;
+      });
     });
   }
 
@@ -5693,6 +5961,16 @@
     if (!node) return;
     node.className = "alert fs-7 py-3 mb-4 alert-light-" + (tipo || "info");
     node.textContent = mensaje;
+  }
+
+  function setCategoriasApi(mensaje, tipo, esHtml) {
+    setText("cms_actual_estado", esHtml ? "API categorias consultada" : mensaje);
+    var node = $("cms_actual_categorias_api_estado");
+    if (!node) return;
+    node.className = "alert fs-7 py-3 mb-4 alert-light-" + (tipo || "info");
+    node.classList.remove("d-none");
+    if (esHtml) node.innerHTML = mensaje;
+    else node.textContent = mensaje;
   }
 
   function publicarMarcasFrontend() {
@@ -5845,6 +6123,7 @@
         seo_global: global.global_seo,
         navegacion: global.global_navegacion,
         whatsapp_chat: whatsappGlobalData(),
+        whatsapp_contactos: whatsappGlobalData() && Array.isArray(whatsappGlobalData().contactos) ? whatsappGlobalData().contactos : [],
         guardrails: {
           no_archivos_erp: true,
           no_secretos: true,
@@ -5907,7 +6186,9 @@
 
   function previewCategoriasCmsJson() {
     var config = categoriasCmsData("categorias_config") || {};
-    var items = categoriasCmsData("categorias_items") ? categoriasCmsData("categorias_items").items : [];
+    var destacadas = categoriasCmsData("categorias_destacadas") ? categoriasCmsData("categorias_destacadas").items : [];
+    var banners = categoriasCmsData("categorias_banners") ? categoriasCmsData("categorias_banners").items : [];
+    var items = categoriasCmsItemsPublicacion(destacadas, banners);
     return {
       tipo: "success",
       mensaje: "CMS frontend categorias consultado",
@@ -5917,24 +6198,14 @@
         endpoint_destino: "/ecommercePublico/categorias",
         actualizado_en: "pendiente",
         config: config,
+        categorias_destacadas: (destacadas || []).map(function (item) {
+          return normalizarCategoriaCmsPreview(item, "destacada");
+        }),
+        categorias_banners: (banners || []).map(function (item) {
+          return normalizarCategoriaCmsPreview(item, "banner");
+        }),
         categorias: (items || []).map(function (item) {
-          return {
-            categoria_id: item.categoria_id,
-            slug: item.slug,
-            path_slug: item.path_slug || item.slug,
-            titulo: item.titulo,
-            subtitulo: item.subtitulo,
-            descripcion_seo: item.descripcion_seo,
-            imagen_card: item.imagen_card,
-            imagen_banner: item.imagen_banner,
-            alt_card: item.alt_card,
-            alt_banner: item.alt_banner,
-            heredar_banner: item.heredar_banner !== false,
-            destacado: item.destacado,
-            visible: item.visible,
-            orden: item.orden,
-            url: item.url
-          };
+          return normalizarCategoriaCmsPreview(item, "publicacion");
         }),
         guardrails: {
           no_modifica_catalogo: true,
@@ -5943,6 +6214,69 @@
           fuente: "preview_local_panel"
         }
       }
+    };
+  }
+
+  function categoriasCmsItemsPublicacion(destacadas, banners) {
+    var porClave = {};
+    var salida = [];
+    function claveItem(item) {
+      if (!item) return "";
+      if (item.categoria_id) return "id:" + String(item.categoria_id);
+      var slug = String(item.path_slug || item.slug || "").trim();
+      return slug ? "slug:" + slug : "";
+    }
+    function agregar(item, tipo) {
+      var normal = normalizarCategoriaCmsPreview(item, tipo);
+      var clave = claveItem(normal);
+      if (!clave) {
+        salida.push(normal);
+        return;
+      }
+      if (!porClave[clave]) {
+        porClave[clave] = normal;
+        salida.push(normal);
+        return;
+      }
+      Object.keys(normal).forEach(function (campo) {
+        var valor = normal[campo];
+        if (tipo === "banner" && ["imagen_banner", "imagen_banner_mobile", "alt_banner", "banner_alt", "banner_titulo", "banner_subtitulo", "heredar_banner", "visible", "orden"].indexOf(campo) !== -1) {
+          porClave[clave][campo] = valor;
+        } else if ((porClave[clave][campo] === "" || porClave[clave][campo] == null) && valor !== "" && valor != null) {
+          porClave[clave][campo] = valor;
+        }
+      });
+    }
+    (destacadas || []).forEach(function (item) { agregar(item, "destacada"); });
+    (banners || []).forEach(function (item) { agregar(item, "banner"); });
+    return salida;
+  }
+
+  function normalizarCategoriaCmsPreview(item, tipo) {
+    item = item || {};
+    var titulo = item.titulo || "";
+    var subtitulo = item.subtitulo || "";
+    var altBanner = item.banner_alt || item.alt_banner || "";
+    return {
+      categoria_id: item.categoria_id,
+      slug: item.slug,
+      path_slug: item.path_slug || item.slug,
+      titulo: titulo,
+      subtitulo: subtitulo,
+      descripcion_seo: item.descripcion_seo || "",
+      imagen_card: item.imagen_card || "",
+      imagen_banner: item.imagen_banner || "",
+      imagen_banner_mobile: item.imagen_banner_mobile || "",
+      alt_card: item.alt_card || "",
+      alt_banner: altBanner,
+      banner_alt: altBanner,
+      banner_titulo: item.banner_titulo || titulo,
+      banner_subtitulo: item.banner_subtitulo || subtitulo,
+      heredar_banner: item.heredar_banner !== false,
+      destacado: tipo === "destacada" ? item.destacado !== false : !!item.destacado,
+      visible: item.visible !== false,
+      orden: item.orden,
+      url: item.url
     };
   }
 
@@ -6182,9 +6516,11 @@
         {
           id: "ventas",
           nombre: "Ventas Artiani",
+          etiqueta: "Ventas",
           descripcion: "Productos, precios y pedidos",
           telefono: "",
           mensaje: "Hola, quiero informacion sobre productos de Artiani.",
+          mensaje_default: "Hola, quiero informacion sobre productos de Artiani.",
           avatar: "",
           icono: "whatsapp",
           horario: "Lunes a sabado de 10:00 a 19:00",
@@ -6200,7 +6536,63 @@
   }
 
   function categoriasCmsData(codigo) {
+    sincronizarCategoriasCmsSeparadas();
     return estado.datos.categorias ? estado.datos.categorias[codigo] : null;
+  }
+
+  function sincronizarCategoriasCmsSeparadas() {
+    if (!estado.datos || !estado.datos.categorias) return;
+    var categorias = estado.datos.categorias;
+    var base = categorias.categorias_items && Array.isArray(categorias.categorias_items.items) ? categorias.categorias_items.items : [];
+    if ((!categorias.categorias_destacadas || !Array.isArray(categorias.categorias_destacadas.items)) && base.length) {
+      categorias.categorias_destacadas = {
+        codigo: "categorias_destacadas",
+        tipo: "categorias_destacadas",
+        visible: true,
+        orden: 20,
+        items: base.map(function (item) {
+          return {
+            categoria_id: item.categoria_id || 0,
+            slug: item.path_slug || item.slug || "",
+            path_slug: item.path_slug || item.slug || "",
+            titulo: item.titulo || "",
+            subtitulo: item.subtitulo || "",
+            descripcion_seo: item.descripcion_seo || "",
+            imagen_card: item.imagen_card || "",
+            alt_card: item.alt_card || "",
+            destacado: item.destacado !== false,
+            visible: item.visible !== false,
+            orden: item.orden || 10,
+            url: item.url || ""
+          };
+        })
+      };
+    }
+    if ((!categorias.categorias_banners || !Array.isArray(categorias.categorias_banners.items)) && base.length) {
+      categorias.categorias_banners = {
+        codigo: "categorias_banners",
+        tipo: "categoria_banner_config",
+        visible: true,
+        orden: 30,
+        items: base.map(function (item) {
+          return {
+            categoria_id: item.categoria_id || 0,
+            slug: item.path_slug || item.slug || "",
+            path_slug: item.path_slug || item.slug || "",
+            titulo: item.titulo || "",
+            subtitulo: item.subtitulo || "",
+            imagen_banner: item.imagen_banner || "",
+            imagen_banner_mobile: item.imagen_banner_mobile || "",
+            alt_banner: item.alt_banner || item.banner_alt || "",
+            banner_alt: item.banner_alt || item.alt_banner || "",
+            heredar_banner: item.heredar_banner !== false,
+            visible: item.visible !== false,
+            orden: item.orden || 10,
+            url: item.url || ""
+          };
+        })
+      };
+    }
   }
 
   function marcasCmsData(codigo) {
@@ -6235,8 +6627,8 @@
     }).filter(Boolean);
   }
 
-  function abrirSelectorMedia(contexto, index, campo) {
-    estado.mediaPicker = { contexto: contexto, index: index, campo: campo, archivo: null, dataUrl: "", seleccion: "" };
+  function abrirSelectorMedia(contexto, index, campo, seccionCodigo) {
+    estado.mediaPicker = { contexto: contexto, index: index, campo: campo, seccionCodigo: seccionCodigo || "", archivo: null, dataUrl: "", seleccion: "" };
     asegurarModalMedia();
     aplicarDefaultsMediaPicker();
     renderMediaPicker();
@@ -6534,14 +6926,17 @@
     if (picker.contexto === "home_marcas") target = marcasHomeData().items[picker.index];
     if (picker.contexto === "home_esenciales") target = esencialesData().items[picker.index];
     if (picker.contexto === "home_esencial_principal") target = esencialesData().categoria_principal;
-    if (picker.contexto === "cms_categoria") target = categoriasCmsData("categorias_items").items[picker.index];
+    if (picker.contexto === "cms_categoria") {
+      var dataCategoriaCms = categoriasCmsData(picker.seccionCodigo || "categorias_items");
+      target = dataCategoriaCms && dataCategoriaCms.items ? dataCategoriaCms.items[picker.index] : null;
+    }
     if (picker.contexto === "cms_marca") target = marcasCmsData("marcas_items").items[picker.index];
     if (picker.contexto === "cms_pagina") target = paginasCmsData("paginas_items").items[picker.index];
     if (picker.contexto === "global_whatsapp_contacto") target = whatsappGlobalData().contactos[picker.index];
     if (!target) return;
     setPath(target, picker.campo, normalizarUrlMediaCms(media.url));
     if (picker.contexto === "cms_categoria" && picker.campo === "imagen_card" && !target.alt_card && media.alt) target.alt_card = media.alt;
-    if (picker.contexto === "cms_categoria" && picker.campo === "imagen_banner" && !target.alt_banner && media.alt) target.alt_banner = media.alt;
+    if (picker.contexto === "cms_categoria" && (picker.campo === "imagen_banner" || picker.campo === "imagen_banner_mobile") && !target.alt_banner && media.alt) target.alt_banner = media.alt;
     if (picker.contexto === "cms_marca" && picker.campo === "logo" && !target.alt_logo && media.alt) target.alt_logo = media.alt;
     if (picker.contexto === "cms_marca" && picker.campo === "imagen_banner" && !target.alt_banner && media.alt) target.alt_banner = media.alt;
     if (picker.contexto === "cms_pagina" && picker.campo === "imagen_principal" && !target.alt_imagen && media.alt) target.alt_imagen = media.alt;

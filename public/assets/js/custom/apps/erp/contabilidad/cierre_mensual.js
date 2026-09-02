@@ -9,9 +9,12 @@
     var archivoCrudoNombre = "";
     var archivoCrudoHoja = "";
     var estadoCuentaActualId = "";
+    var estadoSeleccionadoId = "";
+    var seleccionados = {};
+    var STORAGE_KEY = "erp_contabilidad_cierres_local_v1";
 
-    var tiposMovimiento = ["gasto", "ingreso", "transpaso"];
-    var actividades = ["negocio", "programacion", "personal", "publicidad", "inversion"];
+    var tiposMovimiento = ["egreso", "ingreso"];
+    var actividades = ["negocio", "programacion", "personal", "publicidad", "inversion", "transpaso"];
     var formasPago = ["efectivo", "tarjeta_debito", "tarjeta_credito", "transferencia", "cheque", "comision_bancaria"];
     var categorias = ["venta", "compra_mercancia", "gasto_operativo", "servicio", "nomina", "impuestos", "renta", "publicidad", "software", "banco_comision", "inversion", "personal", "por_definir"];
 
@@ -48,6 +51,87 @@
         a.click();
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
+    }
+    function leerCierresGuardados() {
+        try {
+            var raw = localStorage.getItem(STORAGE_KEY);
+            var data = raw ? JSON.parse(raw) : [];
+            return Array.isArray(data) ? data : [];
+        } catch (e) {
+            return [];
+        }
+    }
+    function escribirCierresGuardados(cierres) {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(cierres || []));
+    }
+    function snapshotCierreActual() {
+        return {
+            id: $("contabilidad_periodo").value || hoyPeriodo(),
+            periodo: $("contabilidad_periodo").value || hoyPeriodo(),
+            cuenta_base: $("contabilidad_cuenta").value || "",
+            actualizado: new Date().toISOString(),
+            estados_cuenta: estadosCuenta,
+            movimientos: movimientos,
+            cfdis: cfdis
+        };
+    }
+    function guardarCierreLocal() {
+        if (!movimientos.length) {
+            mostrarError("Carga y clasifica movimientos antes de guardar el cierre.");
+            return;
+        }
+        var cierre = snapshotCierreActual();
+        var cierres = leerCierresGuardados().filter(function (item) { return item.id !== cierre.id; });
+        cierres.unshift(cierre);
+        escribirCierresGuardados(cierres.slice(0, 24));
+        renderGuardados();
+        if (window.Swal) {
+            Swal.fire({text: "Cierre guardado en este navegador.", icon: "success", timer: 1400, showConfirmButton: false});
+        }
+    }
+    function cargarCierreLocal(id) {
+        var cierre = leerCierresGuardados().find(function (item) { return item.id === id; });
+        if (!cierre) {
+            mostrarError("No encontre ese cierre guardado.");
+            return;
+        }
+        $("contabilidad_periodo").value = cierre.periodo || hoyPeriodo();
+        $("contabilidad_cuenta").value = cierre.cuenta_base || "";
+        estadosCuenta = Array.isArray(cierre.estados_cuenta) ? cierre.estados_cuenta : [];
+        movimientos = Array.isArray(cierre.movimientos) ? cierre.movimientos : [];
+        cfdis = Array.isArray(cierre.cfdis) ? cierre.cfdis : [];
+        normalizarMovimientosLegacy();
+        filasCrudas = [];
+        matrizCruda = [];
+        encabezadosCrudos = [];
+        archivoCrudoNombre = "";
+        archivoCrudoHoja = "";
+        estadoSeleccionadoId = "";
+        seleccionados = {};
+        render();
+    }
+    function restaurarCierre(data) {
+        if (!data || !Array.isArray(data.movimientos)) {
+            mostrarError("El JSON no parece ser un cierre contable exportado.");
+            return;
+        }
+        $("contabilidad_periodo").value = data.periodo || hoyPeriodo();
+        $("contabilidad_cuenta").value = data.cuenta || data.cuenta_base || "";
+        estadosCuenta = Array.isArray(data.estados_cuenta) ? data.estados_cuenta : [];
+        movimientos = data.movimientos;
+        cfdis = Array.isArray(data.cfdis) ? data.cfdis : [];
+        normalizarMovimientosLegacy();
+        filasCrudas = [];
+        matrizCruda = [];
+        encabezadosCrudos = [];
+        archivoCrudoNombre = "";
+        archivoCrudoHoja = "";
+        seleccionados = {};
+        render();
+    }
+    function eliminarCierreLocal(id) {
+        escribirCierresGuardados(leerCierresGuardados().filter(function (item) { return item.id !== id; }));
+        renderGuardados();
     }
     function csvEscape(value) {
         var s = value == null ? "" : String(value);
@@ -128,18 +212,16 @@
         return "";
     }
     function sugerirTipo(concepto, cargo, abono) {
-        var c = normalizar(concepto);
-        if (/traspaso|transpaso|transferencia entre|cuenta propia|spei recibido propio|pago tarjeta|tarjeta credito/.test(c)) { return "transpaso"; }
         if (abono > 0) { return "ingreso"; }
-        return "gasto";
+        return "egreso";
     }
     function sugerirActividad(concepto, tipo) {
         var c = normalizar(concepto);
+        if (/traspaso|transpaso|transferencia entre|cuenta propia|spei recibido propio|pago tarjeta|tarjeta credito/.test(c)) { return "transpaso"; }
         if (/personal|super|restaurant|uber|netflix|spotify|farmacia/.test(c)) { return "personal"; }
         if (/inversion|gbm|cetes|acciones|fondo|broker/.test(c)) { return "inversion"; }
         if (/facebook|meta|google ads|publicidad|mercado ads|marketing/.test(c)) { return "publicidad"; }
         if (/host|dominio|servidor|software|openai|github|cloud|programacion|desarrollo/.test(c)) { return "programacion"; }
-        if (tipo === "transpaso") { return "negocio"; }
         return "negocio";
     }
     function sugerirFormaPago(concepto, tipo) {
@@ -149,7 +231,7 @@
         if (/debito|tarjeta|tpv|terminal/.test(c)) { return "tarjeta_debito"; }
         if (/cheque/.test(c)) { return "cheque"; }
         if (/comision|manejo de cuenta|iva comision/.test(c)) { return "comision_bancaria"; }
-        if (tipo === "transpaso" || /spei|transferencia|traspaso|transpaso/.test(c)) { return "transferencia"; }
+        if (/spei|transferencia|traspaso|transpaso/.test(c)) { return "transferencia"; }
         return "transferencia";
     }
     function sugerirCategoria(concepto, tipo, actividad) {
@@ -168,10 +250,33 @@
         return "gasto_operativo";
     }
     function cfdiEsperado(mov) {
-        if (mov.tipo_movimiento !== "gasto") { return "no_aplica"; }
-        if (["personal", "inversion"].indexOf(mov.actividad) >= 0) { return "no_aplica"; }
+        if (mov.tipo_movimiento !== "egreso") { return "no_aplica"; }
+        if (["personal", "inversion", "transpaso"].indexOf(mov.actividad) >= 0) { return "no_aplica"; }
         if (["impuestos", "banco_comision"].indexOf(mov.categoria) >= 0) { return "no_aplica"; }
         return "pendiente";
+    }
+    function normalizarMovimientoLegacy(mov) {
+        if (!mov) { return mov; }
+        if (mov.tipo_movimiento === "gasto") {
+            mov.tipo_movimiento = "egreso";
+        }
+        if (mov.tipo_movimiento === "transpaso") {
+            mov.tipo_movimiento = "egreso";
+            mov.actividad = "transpaso";
+        }
+        if (mov.actividad === "interno") {
+            mov.actividad = "transpaso";
+        }
+        if (tiposMovimiento.indexOf(mov.tipo_movimiento) < 0) {
+            mov.tipo_movimiento = "egreso";
+        }
+        if (actividades.indexOf(mov.actividad) < 0) {
+            mov.actividad = "negocio";
+        }
+        return mov;
+    }
+    function normalizarMovimientosLegacy() {
+        movimientos = movimientos.map(normalizarMovimientoLegacy);
     }
     function leerArchivoTexto(file, cb) {
         var reader = new FileReader();
@@ -184,6 +289,21 @@
         } else {
             alert(texto);
         }
+    }
+    function confirmarAccion(texto, cb) {
+        if (window.Swal) {
+            Swal.fire({
+                text: texto,
+                icon: "warning",
+                showCancelButton: true,
+                confirmButtonText: "Eliminar",
+                cancelButtonText: "Cancelar"
+            }).then(function (result) {
+                if (result.isConfirmed) { cb(); }
+            });
+            return;
+        }
+        if (confirm(texto)) { cb(); }
     }
     function prepararMapeo(rows) {
         filasCrudas = rows || [];
@@ -319,9 +439,8 @@
     function normalizarTipoMapeado(valor, concepto, cargo, abono) {
         var v = normalizar(valor);
         if (/ingreso|deposito|cobro/.test(v)) { return "ingreso"; }
-        if (/traspaso|transpaso|transferencia interna|interno/.test(v)) { return "transpaso"; }
-        if (/egreso|gasto|cargo|pago|retiro/.test(v)) { return "gasto"; }
-        return "gasto";
+        if (/egreso|gasto|cargo|pago|retiro|traspaso|transpaso|transferencia interna|interno/.test(v)) { return "egreso"; }
+        return "egreso";
     }
     function normalizarActividadMapeada(valor, concepto, tipo) {
         var v = normalizar(valor);
@@ -329,6 +448,7 @@
         if (/programacion|desarrollo|software/.test(v)) { return "programacion"; }
         if (/personal/.test(v)) { return "personal"; }
         if (/publicidad|ads|marketing/.test(v)) { return "publicidad"; }
+        if (/traspaso|transpaso|interno/.test(v)) { return "transpaso"; }
         return sugerirActividad(concepto, tipo);
     }
     function normalizarFechaMapeada(valor) {
@@ -366,6 +486,7 @@
             movimientos: cantidadMovimientos || 0,
             fecha_carga: new Date().toLocaleString("es-MX")
         });
+        estadoSeleccionadoId = estadoCuentaActualId;
         return estadoCuentaActualId;
     }
     function importarMovimientos(rows) {
@@ -406,7 +527,7 @@
             mov.estado_cuenta_id = estadoId;
             mov.archivo_estado_cuenta = archivoCrudoNombre || "demo.csv";
             mov.cfdi = cfdiEsperado(mov);
-            return mov;
+            return normalizarMovimientoLegacy(mov);
         });
         movimientos = movimientos.concat(nuevos);
         autoRelacionarCfdi();
@@ -455,7 +576,7 @@
             mov.estado_cuenta_id = estadoId;
             mov.archivo_estado_cuenta = archivoCrudoNombre || "";
             mov.cfdi = cfdiEsperado(mov);
-            return mov;
+            return normalizarMovimientoLegacy(mov);
         }).filter(function (m) { return m.fecha || (m.concepto && m.concepto !== "Movimiento sin concepto") || m.monto; });
         estadosCuenta[estadosCuenta.length - 1].movimientos = nuevos.length;
         movimientos = movimientos.concat(nuevos);
@@ -506,7 +627,7 @@
     }
     function autoRelacionarCfdi() {
         movimientos.forEach(function (mov) {
-            if (mov.cfdi === "ligado" || mov.tipo_movimiento !== "gasto") { return; }
+            if (mov.cfdi === "ligado" || mov.tipo_movimiento !== "egreso" || mov.actividad === "transpaso") { return; }
             var candidatos = cfdis.map(function (cfdi) {
                 return {cfdi: cfdi, score: scoreCfdi(mov, cfdi)};
             }).filter(function (x) { return x.score >= 40; }).sort(function (a, b) { return b.score - a.score; });
@@ -524,7 +645,9 @@
             q: normalizar($("contabilidad_buscar").value),
             tipo: $("contabilidad_tipo").value,
             actividad: $("contabilidad_actividad").value,
+            categoria: $("contabilidad_categoria").value,
             cfdi: $("contabilidad_cfdi").value,
+            estado: estadoSeleccionadoId,
             pago: ""
         };
     }
@@ -535,13 +658,69 @@
             return (!f.q || texto.indexOf(f.q) >= 0) &&
                 (!f.tipo || m.tipo_movimiento === f.tipo) &&
                 (!f.actividad || m.actividad === f.actividad) &&
-                (!f.cfdi || m.cfdi === f.cfdi);
+                (!f.categoria || m.categoria === f.categoria) &&
+                (!f.cfdi || m.cfdi === f.cfdi) &&
+                (!f.estado || m.estado_cuenta_id === f.estado);
         });
+    }
+    function idsSeleccionadosValidos() {
+        var ids = {};
+        movimientos.forEach(function (m) { ids[m.id] = true; });
+        Object.keys(seleccionados).forEach(function (id) {
+            if (!ids[id]) { delete seleccionados[id]; }
+        });
+        return Object.keys(seleccionados).filter(function (id) { return seleccionados[id]; });
+    }
+    function limpiarSeleccion() {
+        seleccionados = {};
+        render();
+    }
+    function seleccionarVisibles(activo) {
+        visibles().forEach(function (m) {
+            if (activo) {
+                seleccionados[m.id] = true;
+            } else {
+                delete seleccionados[m.id];
+            }
+        });
+        render();
+    }
+    function aplicarMasivo() {
+        var ids = idsSeleccionadosValidos();
+        if (!ids.length) {
+            mostrarError("Selecciona al menos un movimiento.");
+            return;
+        }
+        var cambios = {
+            tipo_movimiento: $("masivo_movimiento").value,
+            actividad: $("masivo_actividad").value,
+            categoria: $("masivo_categoria").value,
+            cfdi: $("masivo_cfdi").value,
+            cuenta: $("masivo_cuenta").value.trim()
+        };
+        if (!cambios.tipo_movimiento && !cambios.actividad && !cambios.categoria && !cambios.cfdi && !cambios.cuenta) {
+            mostrarError("Elige al menos un campo para aplicar.");
+            return;
+        }
+        movimientos.forEach(function (mov) {
+            if (!seleccionados[mov.id]) { return; }
+            Object.keys(cambios).forEach(function (campo) {
+                if (cambios[campo]) { mov[campo] = cambios[campo]; }
+            });
+            if (!cambios.cfdi && mov.cfdi !== "ligado") {
+                mov.cfdi = cfdiEsperado(mov);
+            }
+            normalizarMovimientoLegacy(mov);
+        });
+        ["masivo_movimiento", "masivo_actividad", "masivo_categoria", "masivo_cfdi", "masivo_cuenta"].forEach(function (id) {
+            if ($(id).tagName === "SELECT") { $(id).value = ""; } else { $(id).value = ""; }
+        });
+        render();
     }
     function renderKpis() {
         var totalIngresos = movimientos.reduce(function (s, m) { return s + (m.tipo_movimiento === "ingreso" ? Number(m.monto || 0) : 0); }, 0);
-        var totalEgresos = movimientos.reduce(function (s, m) { return s + (m.tipo_movimiento === "gasto" ? Number(m.monto || 0) : 0); }, 0);
-        var traspasos = movimientos.filter(function (m) { return m.tipo_movimiento === "transpaso"; }).length;
+        var totalEgresos = movimientos.reduce(function (s, m) { return s + (m.tipo_movimiento === "egreso" ? Number(m.monto || 0) : 0); }, 0);
+        var traspasos = movimientos.filter(function (m) { return m.actividad === "transpaso"; }).length;
         var pendientes = movimientos.filter(function (m) { return m.cfdi === "pendiente"; }).length;
         var data = [
             ["Ingresos", money(totalIngresos), "badge-light-success", "bi-arrow-down-circle"],
@@ -559,21 +738,35 @@
     function renderMovimientos() {
         var rows = visibles();
         $("contabilidad_total_visible").textContent = rows.length + " visibles";
+        var ids = idsSeleccionadosValidos();
+        var visiblesSeleccionados = rows.filter(function (m) { return seleccionados[m.id]; }).length;
+        if ($("contabilidad_masivo_total")) {
+            $("contabilidad_masivo_total").textContent = ids.length + " seleccionados";
+        }
+        if ($("contabilidad_select_todos")) {
+            $("contabilidad_select_todos").checked = rows.length > 0 && visiblesSeleccionados === rows.length;
+            $("contabilidad_select_todos").indeterminate = visiblesSeleccionados > 0 && visiblesSeleccionados < rows.length;
+        }
         $("contabilidad_movimientos").innerHTML = rows.map(function (m) {
             var sugerencia = m.cfdi_sugerencia && m.cfdi !== "ligado" ? "<div class=\"text-primary fs-9 mt-1\">Sugerido: " + escapeHtml(m.cfdi_sugerencia) + "</div>" : "";
             return "<tr data-id=\"" + escapeHtml(m.id) + "\">" +
+                "<td><input class=\"form-check-input\" type=\"checkbox\" data-seleccionar-mov=\"" + escapeHtml(m.id) + "\"" + (seleccionados[m.id] ? " checked" : "") + "></td>" +
                 "<td class=\"text-nowrap\">" + escapeHtml(m.fecha || "-") + "</td>" +
                 "<td><div class=\"fw-semibold\">" + escapeHtml(m.concepto) + "</div><div class=\"text-muted fs-8\">" + escapeHtml(m.referencia || "") + "</div></td>" +
                 "<td><select class=\"form-select form-select-sm form-select-solid min-w-125px\" data-campo=\"tipo_movimiento\">" + options(tiposMovimiento, m.tipo_movimiento) + "</select></td>" +
                 "<td><select class=\"form-select form-select-sm form-select-solid min-w-125px\" data-campo=\"actividad\">" + options(actividades, m.actividad) + "</select></td>" +
+                "<td><select class=\"form-select form-select-sm form-select-solid min-w-150px\" data-campo=\"categoria\">" + options(categorias, m.categoria) + "</select></td>" +
                 "<td><input class=\"form-control form-control-sm form-control-solid min-w-125px\" data-campo=\"cuenta\" value=\"" + escapeHtml(m.cuenta || "") + "\"></td>" +
                 "<td class=\"text-end fw-bold\">" + money(m.monto || 0) + "</td>" +
                 "<td><input class=\"form-control form-control-sm form-control-solid min-w-150px\" data-campo=\"referencia\" value=\"" + escapeHtml(m.referencia || "") + "\"></td>" +
                 "<td><select class=\"form-select form-select-sm form-select-solid min-w-125px\" data-campo=\"cfdi\">" + options(["ligado", "pendiente", "no_aplica"], m.cfdi) + "</select>" +
                 "<div class=\"text-muted fs-9 mt-1\">" + escapeHtml(m.cfdi_uuid || "") + "</div>" + sugerencia + "</td>" +
-                "<td class=\"text-end\"><button class=\"btn btn-sm btn-icon btn-light-primary\" title=\"Ligar CFDI sugerido\" type=\"button\" data-ligar=\"" + escapeHtml(m.id) + "\"><i class=\"bi bi-link\"></i></button></td>" +
+                "<td class=\"text-end\"><div class=\"d-flex justify-content-end gap-2\">" +
+                "<button class=\"btn btn-sm btn-icon btn-light-primary\" title=\"Ligar CFDI sugerido\" type=\"button\" data-ligar=\"" + escapeHtml(m.id) + "\"><i class=\"bi bi-link\"></i></button>" +
+                "<button class=\"btn btn-sm btn-icon btn-light-danger\" title=\"Eliminar movimiento\" type=\"button\" data-eliminar-mov=\"" + escapeHtml(m.id) + "\"><i class=\"bi bi-trash3\"></i></button>" +
+                "</div></td>" +
                 "</tr>";
-        }).join("") || "<tr><td colspan=\"9\" class=\"text-center text-muted py-8\">Carga movimientos bancarios para iniciar el cierre.</td></tr>";
+        }).join("") || "<tr><td colspan=\"11\" class=\"text-center text-muted py-8\">Carga movimientos bancarios para iniciar el cierre.</td></tr>";
     }
     function renderCfdis() {
         $("contabilidad_cfdis").innerHTML = cfdis.map(function (c) {
@@ -595,7 +788,8 @@
         if (!contenedor) { return; }
         contenedor.innerHTML = estadosCuenta.map(function (edo) {
             var ligados = movimientos.filter(function (m) { return m.estado_cuenta_id === edo.id && m.cfdi === "ligado"; }).length;
-            return "<div class=\"d-flex flex-wrap align-items-center justify-content-between gap-3 border-bottom py-3\">" +
+            var activo = estadoSeleccionadoId === edo.id;
+            return "<div class=\"d-flex flex-wrap align-items-center justify-content-between gap-3 border-bottom py-3" + (activo ? " bg-light-primary px-3 rounded" : "") + "\">" +
                 "<div><div class=\"fw-bold\">" + escapeHtml(edo.cuenta) + "</div>" +
                 "<div class=\"text-muted fs-8\">" + escapeHtml(edo.archivo) + (edo.hoja ? " | Hoja: " + escapeHtml(edo.hoja) : "") + " | " + escapeHtml(edo.periodo) + " | " + escapeHtml(edo.fecha_carga) + "</div></div>" +
                 "<div class=\"d-flex flex-wrap gap-2\">" +
@@ -603,19 +797,40 @@
                 badge(edo.filas + " filas leidas", "info") +
                 badge(edo.columnas + " columnas", "warning") +
                 badge(ligados + " CFDI ligados", ligados ? "success" : "secondary") +
+                "<button class=\"btn btn-sm " + (activo ? "btn-primary" : "btn-light-primary") + "\" type=\"button\" data-ver-estado=\"" + escapeHtml(edo.id) + "\"><i class=\"bi bi-pencil-square\"></i> " + (activo ? "Editando" : "Ver / editar") + "</button>" +
+                "<button class=\"btn btn-sm btn-light\" type=\"button\" data-export-estado=\"" + escapeHtml(edo.id) + "\"><i class=\"bi bi-download\"></i></button>" +
+                "<button class=\"btn btn-sm btn-light-danger\" type=\"button\" data-eliminar-estado=\"" + escapeHtml(edo.id) + "\"><i class=\"bi bi-trash3\"></i></button>" +
                 "</div></div>";
         }).join("") || "<div class=\"text-muted py-4\">Carga un estado de cuenta para iniciar. Puedes cargar varios archivos y se mantendran separados por cuenta.</div>";
+    }
+    function renderGuardados() {
+        var contenedor = $("contabilidad_guardados");
+        if (!contenedor) { return; }
+        var cierres = leerCierresGuardados();
+        $("contabilidad_guardados_total").textContent = cierres.length + " guardados";
+        contenedor.innerHTML = cierres.map(function (cierre) {
+            var cuentas = {};
+            (cierre.movimientos || []).forEach(function (m) { cuentas[m.cuenta || "Cuenta sin nombre"] = true; });
+            var actualizado = cierre.actualizado ? new Date(cierre.actualizado).toLocaleString("es-MX") : "";
+            return "<div class=\"d-flex flex-wrap align-items-center justify-content-between gap-3 border-bottom py-3\">" +
+                "<div><div class=\"fw-bold\">" + escapeHtml(cierre.periodo || cierre.id) + "</div>" +
+                "<div class=\"text-muted fs-8\">" + (cierre.movimientos || []).length + " movimientos | " + Object.keys(cuentas).length + " cuentas | " + escapeHtml(actualizado) + "</div></div>" +
+                "<div class=\"d-flex gap-2\">" +
+                "<button class=\"btn btn-sm btn-light-primary\" type=\"button\" data-cargar-cierre=\"" + escapeHtml(cierre.id) + "\"><i class=\"bi bi-folder2-open\"></i> Abrir</button>" +
+                "<button class=\"btn btn-sm btn-light\" type=\"button\" data-eliminar-cierre=\"" + escapeHtml(cierre.id) + "\"><i class=\"bi bi-trash3\"></i></button>" +
+                "</div></div>";
+        }).join("") || "<div class=\"text-muted py-4\">Todavia no hay cierres guardados en este navegador.</div>";
     }
     function movimientosPorCuenta() {
         return movimientos.reduce(function (map, mov) {
             var cuenta = mov.cuenta || "Cuenta sin nombre";
             if (!map[cuenta]) {
-                map[cuenta] = {cuenta: cuenta, movimientos: [], gasto: 0, ingreso: 0, transpaso: 0, pendientes: 0};
+                map[cuenta] = {cuenta: cuenta, movimientos: [], egreso: 0, ingreso: 0, transpaso: 0, pendientes: 0};
             }
             map[cuenta].movimientos.push(mov);
             if (mov.tipo_movimiento === "ingreso") { map[cuenta].ingreso += Number(mov.monto || 0); }
-            if (mov.tipo_movimiento === "gasto") { map[cuenta].gasto += Number(mov.monto || 0); }
-            if (mov.tipo_movimiento === "transpaso") { map[cuenta].transpaso += Number(mov.monto || 0); }
+            if (mov.tipo_movimiento === "egreso") { map[cuenta].egreso += Number(mov.monto || 0); }
+            if (mov.actividad === "transpaso") { map[cuenta].transpaso += Number(mov.monto || 0); }
             if (mov.cfdi === "pendiente") { map[cuenta].pendientes++; }
             return map;
         }, {});
@@ -644,6 +859,7 @@
     }
     function render() {
         renderEstadosCuenta();
+        renderGuardados();
         renderKpis();
         renderMovimientos();
         renderCfdis();
@@ -653,20 +869,63 @@
     function exportarCsv() {
         var periodo = $("contabilidad_periodo").value || hoyPeriodo();
         var cuenta = $("contabilidad_cuenta").value || "";
-        var headers = ["periodo", "fecha", "descripcion", "movimiento", "actividad", "cuenta", "monto", "folio_factura", "cfdi", "cfdi_uuid", "cfdi_sugerencia", "archivo_estado_cuenta", "notas"];
+        var headers = ["periodo", "fecha", "descripcion", "movimiento", "actividad", "categoria", "cuenta", "monto", "folio_factura", "cfdi", "cfdi_uuid", "cfdi_sugerencia", "archivo_estado_cuenta", "notas"];
         var lines = [headers.join(",")].concat(movimientos.map(function (m) {
-            return [periodo, m.fecha, m.concepto, m.tipo_movimiento, m.actividad, m.cuenta || cuenta, m.monto, m.referencia, m.cfdi, m.cfdi_uuid, m.cfdi_sugerencia, m.archivo_estado_cuenta, m.notas].map(csvEscape).join(",");
+            return [periodo, m.fecha, m.concepto, m.tipo_movimiento, m.actividad, m.categoria, m.cuenta || cuenta, m.monto, m.referencia, m.cfdi, m.cfdi_uuid, m.cfdi_sugerencia, m.archivo_estado_cuenta, m.notas].map(csvEscape).join(",");
         }));
         descargar("clasificacion_movimientos_" + periodo + ".csv", lines.join("\n"), "text/csv;charset=utf-8");
     }
     function exportarCsvCuenta(cuentaSeleccionada) {
         var periodo = $("contabilidad_periodo").value || hoyPeriodo();
-        var headers = ["periodo", "fecha", "descripcion", "movimiento", "actividad", "cuenta", "monto", "folio_factura", "cfdi", "cfdi_uuid", "cfdi_sugerencia", "archivo_estado_cuenta", "notas"];
+        var headers = ["periodo", "fecha", "descripcion", "movimiento", "actividad", "categoria", "cuenta", "monto", "folio_factura", "cfdi", "cfdi_uuid", "cfdi_sugerencia", "archivo_estado_cuenta", "notas"];
         var rows = movimientos.filter(function (m) { return (m.cuenta || "Cuenta sin nombre") === cuentaSeleccionada; });
         var lines = [headers.join(",")].concat(rows.map(function (m) {
-            return [periodo, m.fecha, m.concepto, m.tipo_movimiento, m.actividad, m.cuenta, m.monto, m.referencia, m.cfdi, m.cfdi_uuid, m.cfdi_sugerencia, m.archivo_estado_cuenta, m.notas].map(csvEscape).join(",");
+            return [periodo, m.fecha, m.concepto, m.tipo_movimiento, m.actividad, m.categoria, m.cuenta, m.monto, m.referencia, m.cfdi, m.cfdi_uuid, m.cfdi_sugerencia, m.archivo_estado_cuenta, m.notas].map(csvEscape).join(",");
         }));
         descargar("clasificacion_" + cuentaSeleccionada.replace(/[^a-z0-9]+/gi, "_").toLowerCase() + "_" + periodo + ".csv", lines.join("\n"), "text/csv;charset=utf-8");
+    }
+    function exportarCsvEstado(estadoId) {
+        var estado = estadosCuenta.find(function (edo) { return edo.id === estadoId; });
+        var periodo = $("contabilidad_periodo").value || hoyPeriodo();
+        var headers = ["periodo", "fecha", "descripcion", "movimiento", "actividad", "categoria", "cuenta", "monto", "folio_factura", "cfdi", "cfdi_uuid", "cfdi_sugerencia", "archivo_estado_cuenta", "notas"];
+        var rows = movimientos.filter(function (m) { return m.estado_cuenta_id === estadoId; });
+        var lines = [headers.join(",")].concat(rows.map(function (m) {
+            return [periodo, m.fecha, m.concepto, m.tipo_movimiento, m.actividad, m.categoria, m.cuenta, m.monto, m.referencia, m.cfdi, m.cfdi_uuid, m.cfdi_sugerencia, m.archivo_estado_cuenta, m.notas].map(csvEscape).join(",");
+        }));
+        var base = estado ? estado.archivo : "estado_cuenta";
+        descargar("clasificacion_" + base.replace(/\.[^.]+$/, "").replace(/[^a-z0-9]+/gi, "_").toLowerCase() + "_" + periodo + ".csv", lines.join("\n"), "text/csv;charset=utf-8");
+    }
+    function activarTab(id) {
+        var link = document.querySelector("a[href=\"#" + id + "\"]");
+        if (link && window.bootstrap && bootstrap.Tab) {
+            bootstrap.Tab.getOrCreateInstance(link).show();
+        }
+    }
+    function verEstadoCuenta(estadoId) {
+        estadoSeleccionadoId = estadoId;
+        activarTab("contabilidad_tab_movimientos");
+        render();
+    }
+    function eliminarMovimiento(movimientoId) {
+        confirmarAccion("Se eliminara este movimiento del cierre actual.", function () {
+            movimientos = movimientos.filter(function (m) { return m.id !== movimientoId; });
+            delete seleccionados[movimientoId];
+            estadosCuenta.forEach(function (edo) {
+                edo.movimientos = movimientos.filter(function (m) { return m.estado_cuenta_id === edo.id; }).length;
+            });
+            render();
+        });
+    }
+    function eliminarEstadoCuenta(estadoId) {
+        confirmarAccion("Se eliminara este estado de cuenta y todos sus movimientos del cierre actual.", function () {
+            estadosCuenta = estadosCuenta.filter(function (edo) { return edo.id !== estadoId; });
+            movimientos.filter(function (m) { return m.estado_cuenta_id === estadoId; }).forEach(function (m) { delete seleccionados[m.id]; });
+            movimientos = movimientos.filter(function (m) { return m.estado_cuenta_id !== estadoId; });
+            if (estadoSeleccionadoId === estadoId) {
+                estadoSeleccionadoId = "";
+            }
+            render();
+        });
     }
     function exportarJson() {
         var periodo = $("contabilidad_periodo").value || hoyPeriodo();
@@ -703,6 +962,16 @@
             archivoCrudoNombre = file.name;
             archivoCrudoHoja = "";
             var extension = file.name.split(".").pop().toLowerCase();
+            if (extension === "json") {
+                leerArchivoTexto(file, function (texto) {
+                    try {
+                        restaurarCierre(JSON.parse(texto));
+                    } catch (error) {
+                        mostrarError("No pude leer el JSON del cierre.");
+                    }
+                });
+                return;
+            }
             if (extension === "xlsx") {
                 requestXlsx(file).then(function (response) {
                     if (response.error) {
@@ -738,22 +1007,37 @@
                 });
             });
         });
-        ["contabilidad_buscar", "contabilidad_tipo", "contabilidad_actividad", "contabilidad_cfdi"].forEach(function (id) {
+        ["contabilidad_buscar", "contabilidad_tipo", "contabilidad_actividad", "contabilidad_categoria", "contabilidad_cfdi"].forEach(function (id) {
             $(id).addEventListener("input", render);
             $(id).addEventListener("change", render);
         });
         $("contabilidad_movimientos").addEventListener("change", function (e) {
+            var check = e.target.closest("[data-seleccionar-mov]");
+            if (check) {
+                if (check.checked) {
+                    seleccionados[check.getAttribute("data-seleccionar-mov")] = true;
+                } else {
+                    delete seleccionados[check.getAttribute("data-seleccionar-mov")];
+                }
+                renderMovimientos();
+                return;
+            }
             var row = e.target.closest("tr[data-id]");
             var mov = row ? movimientos.find(function (m) { return m.id === row.getAttribute("data-id"); }) : null;
             var campo = e.target.getAttribute("data-campo");
             if (!mov || !campo) { return; }
             mov[campo] = e.target.value;
-            if (["tipo_movimiento", "actividad"].indexOf(campo) >= 0 && mov.cfdi !== "ligado") {
+            if (["tipo_movimiento", "actividad", "categoria"].indexOf(campo) >= 0 && mov.cfdi !== "ligado") {
                 mov.cfdi = cfdiEsperado(mov);
             }
             render();
         });
         $("contabilidad_movimientos").addEventListener("click", function (e) {
+            var eliminarMov = e.target.closest("[data-eliminar-mov]");
+            if (eliminarMov) {
+                eliminarMovimiento(eliminarMov.getAttribute("data-eliminar-mov"));
+                return;
+            }
             var btn = e.target.closest("[data-ligar]");
             if (!btn) { return; }
             var mov = movimientos.find(function (m) { return m.id === btn.getAttribute("data-ligar"); });
@@ -771,6 +1055,11 @@
                 render();
             }
         });
+        $("contabilidad_select_todos").addEventListener("change", function (e) {
+            seleccionarVisibles(e.target.checked);
+        });
+        $("contabilidad_masivo_aplicar").addEventListener("click", aplicarMasivo);
+        $("contabilidad_masivo_limpiar").addEventListener("click", limpiarSeleccion);
         $("contabilidad_mapeo_limite").addEventListener("change", renderPreviewMapeo);
         $("contabilidad_mapeo_fila_header").addEventListener("change", function () { renderMapeo(); });
         ["map_fecha", "map_concepto", "map_monto", "map_movimiento", "map_actividad", "map_cuenta", "map_folio"].forEach(function (id) {
@@ -780,12 +1069,42 @@
             var btn = e.target.closest("[data-export-cuenta]");
             if (btn) { exportarCsvCuenta(btn.getAttribute("data-export-cuenta")); }
         });
+        $("contabilidad_estados").addEventListener("click", function (e) {
+            var ver = e.target.closest("[data-ver-estado]");
+            var exportar = e.target.closest("[data-export-estado]");
+            var eliminar = e.target.closest("[data-eliminar-estado]");
+            if (ver) {
+                verEstadoCuenta(ver.getAttribute("data-ver-estado"));
+            }
+            if (exportar) {
+                exportarCsvEstado(exportar.getAttribute("data-export-estado"));
+            }
+            if (eliminar) {
+                eliminarEstadoCuenta(eliminar.getAttribute("data-eliminar-estado"));
+            }
+        });
+        $("contabilidad_ver_todos_estados").addEventListener("click", function () {
+            estadoSeleccionadoId = "";
+            activarTab("contabilidad_tab_movimientos");
+            render();
+        });
+        $("contabilidad_guardar_borrador").addEventListener("click", guardarCierreLocal);
+        $("contabilidad_guardados").addEventListener("click", function (e) {
+            var cargar = e.target.closest("[data-cargar-cierre]");
+            var eliminar = e.target.closest("[data-eliminar-cierre]");
+            if (cargar) {
+                cargarCierreLocal(cargar.getAttribute("data-cargar-cierre"));
+            }
+            if (eliminar) {
+                eliminarCierreLocal(eliminar.getAttribute("data-eliminar-cierre"));
+            }
+        });
         $("contabilidad_exportar_csv").addEventListener("click", exportarCsv);
         $("contabilidad_exportar_json").addEventListener("click", exportarJson);
         $("contabilidad_recalcular").addEventListener("click", function () { autoRelacionarCfdi(); render(); });
         $("contabilidad_mapeo_aplicar").addEventListener("click", importarDesdeMapeo);
         $("contabilidad_demo").addEventListener("click", cargarDemo);
-        $("contabilidad_limpiar").addEventListener("click", function () { movimientos = []; cfdis = []; estadosCuenta = []; filasCrudas = []; matrizCruda = []; encabezadosCrudos = []; archivoCrudoHoja = ""; render(); });
+        $("contabilidad_limpiar").addEventListener("click", function () { movimientos = []; cfdis = []; estadosCuenta = []; filasCrudas = []; matrizCruda = []; encabezadosCrudos = []; archivoCrudoHoja = ""; estadoSeleccionadoId = ""; render(); });
         render();
     }
     document.addEventListener("DOMContentLoaded", bind);

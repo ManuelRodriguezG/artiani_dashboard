@@ -723,8 +723,12 @@ if (strpos((string) $controladorCms, "frontend_global_whatsapp_publicar_erp") ==
 if (strpos((string) $modeloPublico, "frontendGlobalWhatsappPublicarInterno") === false) { $bloqueos[] = "modelo_sin_publicar_global_whatsapp"; }
 if (strpos((string) $modeloPublico, "global.whatsapp_chat") === false) { $bloqueos[] = "modelo_sin_slot_global_whatsapp"; }
 if (strpos((string) $modeloPublico, "whatsapp_chat") === false) { $bloqueos[] = "modelo_sin_tipo_whatsapp_chat"; }
+if (strpos((string) $modeloPublico, "whatsapp_contactos") === false) { $bloqueos[] = "modelo_sin_whatsapp_contactos"; }
+if (strpos((string) $modeloPublico, "frontendWhatsappContactosDesdeContenidoGlobal") === false) { $bloqueos[] = "modelo_sin_contactos_whatsapp_configuracion_inicial"; }
 if (strpos((string) $modeloPublico, "/ecommercePublico/contenido_pagina?pagina=global") === false) { $bloqueos[] = "modelo_sin_endpoint_global_contenido_pagina"; }
 if (strpos((string) $jsFrontendActual, "global_whatsapp_chat") === false) { $bloqueos[] = "js_frontend_actual_sin_global_whatsapp"; }
+if (strpos((string) $jsFrontendActual, "whatsapp_contactos") === false) { $bloqueos[] = "js_frontend_actual_sin_whatsapp_contactos"; }
+if (strpos((string) $jsFrontendActual, "etiqueta") === false) { $bloqueos[] = "js_frontend_actual_sin_etiqueta_whatsapp"; }
 if (strpos((string) $jsFrontendActual, "function renderGlobalWhatsappChat") === false) { $bloqueos[] = "js_frontend_actual_sin_editor_whatsapp"; }
 if (strpos((string) $jsFrontendActual, "/cms/frontend_global_whatsapp_publicar_erp") === false) { $bloqueos[] = "js_frontend_actual_sin_post_whatsapp"; }
 if (strpos((string) $jsFrontendActual, "global_whatsapp_contacto") === false) { $bloqueos[] = "js_frontend_actual_sin_media_whatsapp"; }
