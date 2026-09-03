@@ -289,6 +289,61 @@ class EcommercePublico extends Controlador {
   }
 
   /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-03
+   * Proposito: exponer readiness SEO especifico para migracion de URLs del ecommerce publico.
+   * Impacto: Frontend ecommerce; permite validar dominio, sitemap, robots, redirecciones y pendientes antes de publicar.
+   * Contrato: GET publico read-only; no escribe BD ni usa rutas internas como canonical.
+   */
+  public function seo_estado() {
+    if ($this->esOptionsPublicas()) { return $this->responderOpcionesPublicas(); }
+    return $this->responderApiPublica($this->modelo("EcommerceCatalogoPublico")->seoEstadoPublico($_GET));
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-03
+   * Proposito: entregar URLs publicas validas y canonicas para sitemap/render SEO.
+   * Impacto: Frontend ecommerce; evita indexar endpoints internos `/ecommercePublico/*`.
+   * Contrato: GET publico read-only; solo devuelve rutas publicas oficiales.
+   */
+  public function seo_urls() {
+    if ($this->esOptionsPublicas()) { return $this->responderOpcionesPublicas(); }
+    return $this->responderApiPublica($this->modelo("EcommerceCatalogoPublico")->seoUrlsPublicas($_GET));
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-03
+   * Proposito: entregar mapa aprobado de redirecciones 301 para migracion SEO.
+   * Impacto: Frontend ecommerce; permite redirigir URLs antiguas antes de renderizar la app.
+   * Contrato: GET publico read-only; si no existe tabla devuelve lista vacia y reglas fallback.
+   */
+  public function seo_redirecciones() {
+    if ($this->esOptionsPublicas()) { return $this->responderOpcionesPublicas(); }
+    return $this->responderApiPublica($this->modelo("EcommerceCatalogoPublico")->seoRedireccionesPublicas($_GET));
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-03
+   * Proposito: entregar sitemap estructurado usando solo URLs publicas indexables.
+   * Impacto: Frontend ecommerce; genera `/sitemap.xml` sin rutas ERP/API.
+   * Contrato: GET publico read-only; no escribe archivos.
+   */
+  public function seo_sitemap() {
+    if ($this->esOptionsPublicas()) { return $this->responderOpcionesPublicas(); }
+    return $this->responderApiPublica($this->modelo("EcommerceCatalogoPublico")->seoSitemapPublico($_GET));
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-03
+   * Proposito: entregar contenido sugerido de robots.txt para frontend publico.
+   * Impacto: Frontend ecommerce; centraliza Allow/Sitemap desde configuracion ERP.
+   * Contrato: GET publico read-only; no escribe archivos.
+   */
+  public function seo_robots() {
+    if ($this->esOptionsPublicas()) { return $this->responderOpcionesPublicas(); }
+    return $this->responderApiPublica($this->modelo("EcommerceCatalogoPublico")->seoRobotsPublico($_GET));
+  }
+
+  /**
    * Documentacion IA: Codex GPT-5 | Fecha: 2026-07-11
    * Proposito: exponer disponibilidad publica simple de una publicacion o SKU publicado.
    * Impacto: Ecommerce publico/Inventario; traduce stock interno a estados simples.
@@ -654,6 +709,133 @@ class EcommercePublico extends Controlador {
   public function analytics() {
     $this->requerirPermiso("catalogo.ver");
     $this->vista("apps/erp/ecommerce/analytics");
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-03
+   * Proposito: abrir consola interna de SEO/migracion URLs del ecommerce publico.
+   * Impacto: Ecommerce SEO; concentra URLs canonicas, redirecciones, sitemap, robots y DDL pendiente.
+   * Contrato: vista protegida por `catalogo.ver`; no escribe BD ni aplica migraciones.
+   */
+  public function seo_migracion() {
+    $this->requerirPermiso("catalogo.ver");
+    $this->vista("apps/erp/ecommerce/seo_migracion");
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-03
+   * Proposito: entregar dashboard interno read-only para preparar migracion SEO.
+   * Impacto: Ecommerce SEO; permite revisar estado, URLs, redirecciones, sitemap y robots desde ERP.
+   * Contrato: GET protegido por `catalogo.ver`; solo lectura.
+   */
+  public function seo_dashboard_erp() {
+    $this->requerirPermiso("catalogo.ver");
+    return json_encode($this->modelo("EcommerceCatalogoPublico")->seoDashboardInterno($_GET));
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-03
+   * Proposito: preparar importacion de URLs viejas sin guardar BD.
+   * Impacto: Ecommerce SEO; normaliza URLs, detecta tipo probable y sugiere destinos publicos.
+   * Contrato: POST protegido por `catalogo.ver`; read-only, no inserta URLs ni redirecciones.
+   */
+  public function seo_urls_viejas_importar_plan_erp() {
+    $this->requerirPermiso("catalogo.ver");
+    $datos = !empty($_POST) ? $_POST : $this->entradaJsonPublica();
+    return json_encode($this->modelo("EcommerceCatalogoPublico")->seoUrlsViejasImportarPlanInterno($datos));
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-03
+   * Proposito: validar propuesta de redireccion SEO antes de persistirla.
+   * Impacto: Ecommerce SEO; evita destinos internos, ciclos simples y status no permitidos.
+   * Contrato: POST protegido por `catalogo.ver`; read-only, devuelve SQL sugerido sin ejecutar.
+   */
+  public function seo_redireccion_plan_erp() {
+    $this->requerirPermiso("catalogo.ver");
+    $datos = !empty($_POST) ? $_POST : $this->entradaJsonPublica();
+    return json_encode($this->modelo("EcommerceCatalogoPublico")->seoRedireccionPlanInterno($datos));
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-03
+   * Proposito: preparar sincronizacion de URLs canonicas SEO sin guardar BD.
+   * Impacto: Ecommerce SEO; compara rutas publicas actuales contra snapshot persistente.
+   * Contrato: POST protegido por `catalogo.ver`; read-only, devuelve SQL preview sin ejecutar.
+   */
+  public function seo_urls_sincronizar_plan_erp() {
+    $this->requerirPermiso("catalogo.ver");
+    $datos = !empty($_POST) ? $_POST : $this->entradaJsonPublica();
+    return json_encode($this->modelo("EcommerceCatalogoPublico")->seoUrlsCanonicasSincronizarPlanInterno($datos));
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-03
+   * Proposito: persistir snapshot de URLs canonicas SEO con autorizacion operativa.
+   * Impacto: Ecommerce SEO; llena/actualiza `erp_ecommerce_seo_urls` para monitoreo y auditoria.
+   * Contrato: POST protegido por `catalogo.editar`; requiere token interno, CSRF y tabla SEO aplicada.
+   */
+  public function seo_urls_sincronizar_erp() {
+    $this->requerirPermiso("catalogo.editar");
+    $datos = !empty($_POST) ? $_POST : $this->entradaJsonPublica();
+    $respuesta = $this->modelo("EcommerceCatalogoPublico")->seoUrlsCanonicasSincronizarAutorizado($datos);
+    SesionSeguridad::registrarAuditoria("ecommerce_seo", "urls_canonicas_sincronizar", array(
+      "resultado" => empty($respuesta["error"]) ? "ok" : "error",
+      "mensaje" => isset($respuesta["mensaje"]) ? $respuesta["mensaje"] : "",
+      "datos_antes" => array("limite" => isset($datos["limite"]) ? intval($datos["limite"]) : 0),
+      "datos_despues" => array(
+        "total_insertadas" => isset($respuesta["depurar"]["total_insertadas"]) ? intval($respuesta["depurar"]["total_insertadas"]) : 0,
+        "total_actualizadas" => isset($respuesta["depurar"]["total_actualizadas"]) ? intval($respuesta["depurar"]["total_actualizadas"]) : 0,
+        "total_omitidas" => isset($respuesta["depurar"]["total_omitidas"]) ? intval($respuesta["depurar"]["total_omitidas"]) : 0
+      )
+    ));
+    return json_encode($respuesta);
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-03
+   * Proposito: importar URLs viejas SEO con autorizacion operativa.
+   * Impacto: Ecommerce SEO; crea/actualiza pendientes de mapeo sin crear redirecciones automaticamente.
+   * Contrato: POST protegido por `catalogo.editar`; requiere token interno, CSRF y tablas SEO aplicadas.
+   */
+  public function seo_urls_viejas_importar_erp() {
+    $this->requerirPermiso("catalogo.editar");
+    $datos = !empty($_POST) ? $_POST : $this->entradaJsonPublica();
+    $respuesta = $this->modelo("EcommerceCatalogoPublico")->seoUrlsViejasImportarAutorizado($datos, array(
+      "autorizar" => isset($datos["autorizar"]) ? $datos["autorizar"] : ""
+    ));
+    SesionSeguridad::registrarAuditoria("ecommerce_seo", "urls_viejas_importar", array(
+      "resultado" => empty($respuesta["error"]) ? "ok" : "error",
+      "mensaje" => isset($respuesta["mensaje"]) ? $respuesta["mensaje"] : "",
+      "datos_antes" => array("total_recibidas" => isset($respuesta["depurar"]["total_recibidas"]) ? intval($respuesta["depurar"]["total_recibidas"]) : 0),
+      "datos_despues" => array(
+        "total_insertadas" => isset($respuesta["depurar"]["total_insertadas"]) ? intval($respuesta["depurar"]["total_insertadas"]) : 0,
+        "total_actualizadas" => isset($respuesta["depurar"]["total_actualizadas"]) ? intval($respuesta["depurar"]["total_actualizadas"]) : 0,
+        "total_omitidas" => isset($respuesta["depurar"]["total_omitidas"]) ? intval($respuesta["depurar"]["total_omitidas"]) : 0
+      )
+    ));
+    return json_encode($respuesta);
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-03
+   * Proposito: guardar una redireccion SEO aprobada.
+   * Impacto: Ecommerce SEO; alimenta `/seo_redirecciones` para que frontend aplique 301.
+   * Contrato: POST protegido por `catalogo.editar`; requiere token interno, CSRF y tablas SEO aplicadas.
+   */
+  public function seo_redireccion_guardar_erp() {
+    $this->requerirPermiso("catalogo.editar");
+    $datos = !empty($_POST) ? $_POST : $this->entradaJsonPublica();
+    $respuesta = $this->modelo("EcommerceCatalogoPublico")->seoRedireccionGuardarAutorizada($datos, array(
+      "autorizar" => isset($datos["autorizar"]) ? $datos["autorizar"] : ""
+    ));
+    SesionSeguridad::registrarAuditoria("ecommerce_seo", "redireccion_guardar", array(
+      "resultado" => empty($respuesta["error"]) ? "ok" : "error",
+      "mensaje" => isset($respuesta["mensaje"]) ? $respuesta["mensaje"] : "",
+      "datos_antes" => array("from" => isset($datos["from"]) ? (string) $datos["from"] : ""),
+      "datos_despues" => array("redireccion" => isset($respuesta["depurar"]["redireccion"]) ? $respuesta["depurar"]["redireccion"] : array())
+    ));
+    return json_encode($respuesta);
   }
 
   /**
@@ -1097,6 +1279,28 @@ class EcommercePublico extends Controlador {
   public function esquema_plan_ecommerce_publico() {
     $this->requerirPermiso("catalogo.ver");
     return json_encode($this->modelo("EcommercePublicoEsquema")->planActualizarEcommercePublico(false));
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-03
+   * Proposito: auditar tablas SEO/migracion de URLs sin ejecutar DDL.
+   * Impacto: Ecommerce SEO; permite revisar readiness de redirecciones, URLs viejas y 404.
+   * Contrato: GET protegido por `catalogo.ver`; solo lectura.
+   */
+  public function esquema_auditar_seo_migracion() {
+    $this->requerirPermiso("catalogo.ver");
+    return json_encode($this->modelo("EcommercePublicoEsquema")->auditarSeoMigracion());
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-03
+   * Proposito: generar plan DDL read-only para SEO/migracion de URLs.
+   * Impacto: Ecommerce SEO; prepara configuracion, URLs canonicas, redirecciones, URLs viejas y 404.
+   * Contrato: GET protegido por `catalogo.ver`; no ejecuta DDL.
+   */
+  public function esquema_plan_seo_migracion() {
+    $this->requerirPermiso("catalogo.ver");
+    return json_encode($this->modelo("EcommercePublicoEsquema")->planActualizarSeoMigracion(false));
   }
 
   /**

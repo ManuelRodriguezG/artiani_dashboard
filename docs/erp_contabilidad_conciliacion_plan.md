@@ -150,6 +150,20 @@ La mesa de clasificacion permite seleccionar movimientos individuales o todos lo
 
 La seleccion masiva respeta los filtros activos y el estado de cuenta abierto. Si no se elige un valor para un campo, ese campo queda sin cambio.
 
+## Ajuste operativo 2026-09-02 periodo por estado de cuenta
+
+El alta de estados de cuenta incluye un campo `Mes` propio del archivo importado. Ese periodo se guarda en el registro local del estado de cuenta y se sincroniza con el mes activo del cierre para que la conciliacion pueda separar archivos por agosto, septiembre u otro periodo, aun cuando se carguen varias cuentas.
+
+## Ajuste operativo 2026-09-02 mesa CFDI y reporte
+
+Los CFDI XML se cargan en lote y se convierten en renglones operativos con solo la informacion necesaria para conciliacion: fecha, UUID, emisor, total, tipo de comprobante, metodo/forma de pago SAT, categoria, actividad, forma de pago operativa y cuenta sugerida.
+
+La categoria del CFDI permite distinguir compras de mercancia contra gastos operativos u otros egresos. La cuenta sugerida permite registrar CFDI que no aparecen en estados bancarios como `Efectivo`, `Tarjeta de credito`, `Tarjeta debito` o `Transferencia`.
+
+Si un CFDI coincide por monto/fecha/emisor con un movimiento bancario, puede ligarse al movimiento. Si no aparece en bancos, el MVP permite crear un movimiento auxiliar desde el CFDI para que el reporte final del contador no pierda ese gasto.
+
+Para estados de cuenta de tarjeta de credito en PDF, el flujo futuro debe separar dos casos: PDF con texto seleccionable, que puede extraerse en servidor; y PDF escaneado/imagen, que requiere OCR antes de mapear columnas.
+
 ## Flujo operativo recomendado
 
 1. Seleccionar periodo mensual y cuenta bancaria.

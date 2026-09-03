@@ -196,9 +196,35 @@ class EcommerceCatalogoPublico extends CRUD {
         array(
           "metodo" => "GET",
           "ruta" => "/ecommercePublico/seo",
-          "descripcion" => "Metadatos SEO/descubrimiento para que el frontend genere title, description, sitemap, robots, rutas y JSON-LD.",
+          "descripcion" => "Endpoint SEO legacy compatible; conserva metadatos y ahora usa canonicals publicos sin `/ecommercePublico`.",
           "parametros" => array("limite" => "1-200 productos, default 100."),
           "respuesta_depurar" => array("configurado", "meta", "robots", "sitemap", "sitemap_xml_sugerido", "rutas", "json_ld", "fase_2", "resumen")
+        ),
+        array(
+          "metodo" => "GET",
+          "ruta" => "/ecommercePublico/seo_estado",
+          "descripcion" => "Readiness especifico SEO: dominio, sitemap, robots, redirecciones activas y URLs pendientes."
+        ),
+        array(
+          "metodo" => "GET",
+          "ruta" => "/ecommercePublico/seo_urls",
+          "descripcion" => "Inventario de URLs publicas canonicas: home, categorias, productos, marcas y paginas informativas.",
+          "parametros" => array("limite" => "1-500 productos, default 250.")
+        ),
+        array(
+          "metodo" => "GET",
+          "ruta" => "/ecommercePublico/seo_redirecciones",
+          "descripcion" => "Mapa de redirecciones aprobadas para que el frontend aplique 301 antes de renderizar."
+        ),
+        array(
+          "metodo" => "GET",
+          "ruta" => "/ecommercePublico/seo_sitemap",
+          "descripcion" => "Sitemap estructurado usando solo URLs publicas indexables."
+        ),
+        array(
+          "metodo" => "GET",
+          "ruta" => "/ecommercePublico/seo_robots",
+          "descripcion" => "Contenido sugerido para `/robots.txt` con sitemap de produccion."
         ),
         array(
           "metodo" => "GET",
@@ -661,11 +687,13 @@ class EcommerceCatalogoPublico extends CRUD {
       "global_estado" => !empty($globalPublicado) ? "bd_publicada" : "default_readonly",
       "fallback_default_si_no_hay_publicado" => true
     );
-    $respuesta["depurar"]["cms_global"] = !empty($globalPublicado) ? $globalPublicado : array(
+    $cmsGlobal = !empty($globalPublicado) ? $globalPublicado : array(
       "pagina" => "global",
       "fuente" => "default_readonly",
       "panel_pendiente" => true
     );
+    $respuesta["depurar"]["cms_global"] = $cmsGlobal;
+    $respuesta["cms_global"] = $cmsGlobal;
     $respuesta["depurar"]["whatsapp_contactos"] = $whatsappContactos;
     $respuesta["whatsapp_contactos"] = $whatsappContactos;
     $respuesta["depurar"]["contenido_inicial"] = array(
@@ -1805,7 +1833,7 @@ class EcommerceCatalogoPublico extends CRUD {
     if (is_array($valor)) {
       foreach ($valor as $clave => $item) {
         $claveNormalizada = strtolower((string) $clave);
-        if (preg_match('/(password|passwd|token|secret|api_key|apikey|private_key|access_key|bearer)/', $claveNormalizada)) {
+        if (preg_match('/(^|_)(password|passwd|token|secret|api[_-]?key|apikey|private[_-]?key|access[_-]?key|bearer)($|_)/', $claveNormalizada)) {
           return true;
         }
         if ($this->cmsPayloadContieneSecreto($item)) {
@@ -3909,8 +3937,11 @@ class EcommerceCatalogoPublico extends CRUD {
         "base_url_configurada" => $urlSitio,
         "rutas_estaticas" => array(
           array("path" => "/", "priority" => "1.0", "changefreq" => "daily"),
-          array("path" => "/catalogo", "priority" => "0.9", "changefreq" => "daily"),
-          array("path" => "/cotizacion", "priority" => "0.3", "changefreq" => "weekly")
+          array("path" => "/categorias", "priority" => "0.9", "changefreq" => "daily"),
+          array("path" => "/contacto", "priority" => "0.4", "changefreq" => "monthly"),
+          array("path" => "/como-comprar", "priority" => "0.4", "changefreq" => "monthly"),
+          array("path" => "/aviso-de-privacidad", "priority" => "0.3", "changefreq" => "monthly"),
+          array("path" => "/politicas-cambios", "priority" => "0.3", "changefreq" => "monthly")
         ),
         "productos" => array(),
         "filtros" => array("mascotas" => array(), "necesidades" => array(), "categorias" => array(), "marcas" => array(), "disponibilidad" => array())
@@ -3921,7 +3952,7 @@ class EcommerceCatalogoPublico extends CRUD {
         foreach ($this->valor($catalogo, array("depurar", "items"), array()) as $item) {
           $sitemap["productos"][] = array(
             "slug" => $this->valor($item, "slug", ""),
-            "path" => "/ecommercePublico/producto/" . $this->valor($item, "slug", ""),
+            "path" => "/producto/" . $this->valor($item, "slug", ""),
             "title" => $this->valor($item, "nombre", ""),
             "description" => trim((string) $this->valor($item, "descripcion", "")),
             "image" => $this->valor($item, "imagen", ""),
@@ -3933,31 +3964,31 @@ class EcommerceCatalogoPublico extends CRUD {
         foreach ($this->valor($filtros, array("depurar", "mascotas"), array()) as $fila) {
           $valor = $this->valor($fila, "valor", "");
           if ($valor !== "") {
-            $sitemap["filtros"]["mascotas"][] = array("valor" => $valor, "path" => "/ecommercePublico/catalogo?mascota=" . rawurlencode($valor), "title" => "Productos para " . $this->etiquetaTaxonomiaPublica($valor), "priority" => "0.6", "changefreq" => "weekly");
+            $sitemap["filtros"]["mascotas"][] = array("valor" => $valor, "path" => "/buscar/" . rawurlencode($valor), "title" => "Productos para " . $this->etiquetaTaxonomiaPublica($valor), "priority" => "0.4", "changefreq" => "weekly");
           }
         }
         foreach ($this->valor($filtros, array("depurar", "necesidades"), array()) as $fila) {
           $valor = $this->valor($fila, "valor", "");
           if ($valor !== "") {
-            $sitemap["filtros"]["necesidades"][] = array("valor" => $valor, "path" => "/ecommercePublico/catalogo?necesidad=" . rawurlencode($valor), "title" => $this->etiquetaTaxonomiaPublica($valor), "priority" => "0.6", "changefreq" => "weekly");
+            $sitemap["filtros"]["necesidades"][] = array("valor" => $valor, "path" => "/buscar/" . rawurlencode($valor), "title" => $this->etiquetaTaxonomiaPublica($valor), "priority" => "0.4", "changefreq" => "weekly");
           }
         }
         foreach ($this->valor($filtros, array("depurar", "categorias"), array()) as $fila) {
           $valor = $this->valor($fila, "id", "");
           if ($valor !== "") {
-            $sitemap["filtros"]["categorias"][] = array("valor" => $valor, "path" => "/ecommercePublico/catalogo?categoria=" . rawurlencode($valor), "title" => $this->valor($fila, "etiqueta", "Categoria"), "priority" => "0.6", "changefreq" => "weekly");
+            $sitemap["filtros"]["categorias"][] = array("valor" => $valor, "path" => "/categorias", "title" => $this->valor($fila, "etiqueta", "Categoria"), "priority" => "0.5", "changefreq" => "weekly");
           }
         }
         foreach ($this->valor($filtros, array("depurar", "marcas"), array()) as $fila) {
           $valor = $this->valor($fila, "id", "");
           if ($valor !== "") {
-            $sitemap["filtros"]["marcas"][] = array("valor" => $valor, "path" => "/ecommercePublico/catalogo?marca=" . rawurlencode($valor), "title" => $this->valor($fila, "etiqueta", "Marca"), "priority" => "0.5", "changefreq" => "weekly");
+            $sitemap["filtros"]["marcas"][] = array("valor" => $valor, "path" => "/categorias", "title" => $this->valor($fila, "etiqueta", "Marca"), "priority" => "0.4", "changefreq" => "weekly");
           }
         }
         foreach ($this->valor($filtros, array("depurar", "disponibilidad"), array()) as $fila) {
           $valor = $this->valor($fila, "valor", "");
           if ($valor !== "") {
-            $sitemap["filtros"]["disponibilidad"][] = array("valor" => $valor, "path" => "/ecommercePublico/catalogo?disponibilidad=" . rawurlencode($valor), "title" => $this->valor($fila, "etiqueta", $valor), "priority" => "0.4", "changefreq" => "daily");
+            $sitemap["filtros"]["disponibilidad"][] = array("valor" => $valor, "path" => "/categorias", "title" => $this->valor($fila, "etiqueta", $valor), "priority" => "0.3", "changefreq" => "daily");
           }
         }
       }
@@ -4020,6 +4051,675 @@ class EcommerceCatalogoPublico extends CRUD {
       ));
     } catch (Exception $e) {
       return $this->respuesta(true, "danger", $e->getMessage(), array("configurado" => false));
+    }
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-03
+   * Proposito: resumir readiness SEO para migracion y publicacion del frontend ecommerce.
+   * Impacto: Ecommerce publico; informa dominio, sitemap, robots, redirecciones y URLs pendientes.
+   * Contrato: read-only; no escribe BD y solo cuenta tablas SEO si existen.
+   */
+  public function seoEstadoPublico($opciones = array()) {
+    try {
+      $db = $this->getConexion();
+      $config = $this->configuracionSeoPublica($db);
+      $baseUrl = $this->dominioProduccionSeoPublico($config);
+      $redireccionesTotal = $db && $this->tablaExiste($db, "erp_ecommerce_seo_redirecciones")
+        ? intval($db->query("SELECT COUNT(*) FROM erp_ecommerce_seo_redirecciones WHERE activo=1")->fetchColumn())
+        : 0;
+      $pendientesTotal = $db && $this->tablaExiste($db, "erp_ecommerce_seo_urls_viejas")
+        ? intval($db->query("SELECT COUNT(*) FROM erp_ecommerce_seo_urls_viejas WHERE estatus_mapeo IN ('pendiente','sin_equivalente','revision')")->fetchColumn())
+        : 0;
+      $urlsPersistidasTotal = $db && $this->tablaExiste($db, "erp_ecommerce_seo_urls")
+        ? intval($db->query("SELECT COUNT(*) FROM erp_ecommerce_seo_urls WHERE activo=1")->fetchColumn())
+        : 0;
+      return $this->respuesta(false, "success", "Estado SEO ecommerce consultado", array(
+        "configurado" => $db && $this->tablaExiste($db, "erp_ecommerce_publicaciones"),
+        "dominio_produccion" => $baseUrl,
+        "sitemap_activo" => !empty($config["sitemap_activo"]),
+        "robots_activo" => trim((string) $this->valor($config, "robots_default", "")) !== "",
+        "urls_persistidas_total" => $urlsPersistidasTotal,
+        "redirecciones_total" => $redireccionesTotal,
+        "urls_pendientes_total" => $pendientesTotal,
+        "tablas_seo" => array(
+          "configuracion" => $db && $this->tablaExiste($db, "erp_ecommerce_seo_configuracion"),
+          "urls" => $db && $this->tablaExiste($db, "erp_ecommerce_seo_urls"),
+          "redirecciones" => $db && $this->tablaExiste($db, "erp_ecommerce_seo_redirecciones"),
+          "urls_viejas" => $db && $this->tablaExiste($db, "erp_ecommerce_seo_urls_viejas"),
+          "errores_404" => $db && $this->tablaExiste($db, "erp_ecommerce_seo_errores_404")
+        ),
+        "guardrails" => array("read_only" => true, "frontend_aplica_301" => true, "canonical_sin_ecommercePublico" => true)
+      ));
+    } catch (Exception $e) {
+      return $this->respuesta(true, "danger", $e->getMessage(), array("configurado" => false));
+    }
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-03
+   * Proposito: entregar inventario de URLs publicas canonicas para frontend.
+   * Impacto: SEO ecommerce; habilita sitemap, canonical y validacion de rutas publicas oficiales.
+   * Contrato: read-only; paths devueltos nunca deben iniciar con `/ecommercePublico`.
+   */
+  public function seoUrlsPublicas($opciones = array()) {
+    try {
+      $baseUrl = $this->dominioProduccionSeoPublico($this->configuracionSeoPublica($this->getConexion()));
+      $limite = max(1, min(500, intval($this->valor($opciones, "limite", 250))));
+      return $this->respuesta(false, "success", "URLs SEO ecommerce consultadas", array(
+        "base_url" => $baseUrl,
+        "urls" => $this->seoUrlsPublicasItems($baseUrl, $limite),
+        "guardrails" => array("solo_urls_publicas" => true, "no_ecommercePublico" => true, "read_only" => true)
+      ));
+    } catch (Exception $e) {
+      return $this->respuesta(true, "danger", $e->getMessage(), array("base_url" => "", "urls" => array()));
+    }
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-03
+   * Proposito: preparar sincronizacion de URLs canonicas hacia tabla SEO sin escribir BD.
+   * Impacto: Ecommerce SEO; permite auditar altas/actualizaciones antes de persistir snapshot canonico.
+   * Contrato: POST/GET interno read-only; no inserta, no actualiza y no desactiva URLs.
+   */
+  public function seoUrlsCanonicasSincronizarPlanInterno($opciones = array()) {
+    try {
+      $db = $this->getConexion();
+      $baseUrl = $this->dominioProduccionSeoPublico($this->configuracionSeoPublica($db));
+      $limite = max(1, min(500, intval($this->valor($opciones, "limite", 500))));
+      $items = $this->seoUrlsPublicasItems($baseUrl, $limite);
+      $tablaDisponible = $db && $this->tablaExiste($db, "erp_ecommerce_seo_urls");
+      $existentes = array();
+      if ($tablaDisponible) {
+        $stmt = $db->query("SELECT path, tipo, entidad_id, url, canonical, title, description, indexable, activo FROM erp_ecommerce_seo_urls");
+        foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $fila) {
+          $existentes[(string) $fila["path"]] = $fila;
+        }
+      }
+
+      $nuevas = 0;
+      $actualizar = 0;
+      $sinCambio = 0;
+      $bloqueadas = 0;
+      $sqlPreview = array();
+      foreach ($items as $item) {
+        $path = $this->normalizarSeoPathPublico($this->valor($item, "path", ""));
+        if ($path === "" || strpos($path, "/ecommercePublico") === 0) {
+          $bloqueadas++;
+          continue;
+        }
+        $actual = isset($existentes[$path]) ? $existentes[$path] : null;
+        if (!$actual) {
+          $nuevas++;
+        } elseif (
+          (string) $this->valor($actual, "canonical", "") !== (string) $this->valor($item, "canonical", "") ||
+          (string) $this->valor($actual, "title", "") !== (string) $this->valor($item, "title", "") ||
+          (string) $this->valor($actual, "description", "") !== (string) $this->valor($item, "description", "") ||
+          intval($this->valor($actual, "indexable", 1)) !== (!empty($item["indexable"]) ? 1 : 0) ||
+          intval($this->valor($actual, "activo", 1)) !== 1
+        ) {
+          $actualizar++;
+        } else {
+          $sinCambio++;
+        }
+        if (count($sqlPreview) < 20) {
+          $sqlPreview[] = $this->sqlSeoUrlCanonicaUpsertPreview($item);
+        }
+      }
+
+      return $this->respuesta(false, "success", "Plan de sincronizacion de URLs canonicas generado sin ejecutar", array(
+        "read_only" => true,
+        "tabla_disponible" => $tablaDisponible,
+        "total_canonicas" => count($items),
+        "nuevas" => $nuevas,
+        "actualizar" => $actualizar,
+        "sin_cambio" => $sinCambio,
+        "bloqueadas" => $bloqueadas,
+        "sql_preview" => $sqlPreview,
+        "guardrails" => array("no_escribe_bd" => true, "no_desactiva_ausentes" => true, "sin_rutas_api" => true)
+      ));
+    } catch (Exception $e) {
+      return $this->respuesta(true, "danger", $e->getMessage(), array("read_only" => true));
+    }
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-03
+   * Proposito: persistir snapshot de URLs canonicas actuales con token operativo.
+   * Impacto: Ecommerce SEO; mantiene tabla `erp_ecommerce_seo_urls` alineada a rutas publicas.
+   * Contrato: escritura protegida; requiere `ECOMMERCE_SEO_SYNC_URLS_CANONICAS` y no desactiva ausentes.
+   */
+  public function seoUrlsCanonicasSincronizarAutorizado($opciones = array()) {
+    $token = trim((string) $this->valor($opciones, "autorizar", ""));
+    if ($token !== "ECOMMERCE_SEO_SYNC_URLS_CANONICAS") {
+      return $this->respuesta(true, "warning", "Sincronizacion de URLs canonicas bloqueada", array(
+        "bloqueado" => true,
+        "no_escribe_bd" => true,
+        "token_requerido" => "ECOMMERCE_SEO_SYNC_URLS_CANONICAS"
+      ));
+    }
+
+    try {
+      $db = $this->getConexion();
+      if (!$db) {
+        return $this->respuesta(true, "warning", "Conexion MySQL no disponible", array("no_escribe_bd" => true));
+      }
+      if (!$this->tablaExiste($db, "erp_ecommerce_seo_urls")) {
+        return $this->respuesta(true, "warning", "No se sincronizaron URLs porque falta aplicar DDL SEO", array(
+          "no_escribe_bd" => true,
+          "tabla_requerida" => "erp_ecommerce_seo_urls"
+        ));
+      }
+
+      $baseUrl = $this->dominioProduccionSeoPublico($this->configuracionSeoPublica($db));
+      $limite = max(1, min(500, intval($this->valor($opciones, "limite", 500))));
+      $items = $this->seoUrlsPublicasItems($baseUrl, $limite);
+      if (empty($items)) {
+        return $this->respuesta(true, "warning", "No hay URLs canonicas para sincronizar", array("no_escribe_bd" => true));
+      }
+
+      $insertadas = 0;
+      $actualizadas = 0;
+      $sinCambio = 0;
+      $omitidas = 0;
+      $db->beginTransaction();
+      $stmt = $db->prepare("INSERT INTO erp_ecommerce_seo_urls
+          (tipo, entidad_id, path, url, canonical, title, description, indexable, activo, fecha_actualizacion)
+        VALUES
+          (:tipo, :entidad_id, :path, :url, :canonical, :title, :description, :indexable, 1, NOW())
+        ON DUPLICATE KEY UPDATE
+          tipo=VALUES(tipo),
+          entidad_id=VALUES(entidad_id),
+          url=VALUES(url),
+          canonical=VALUES(canonical),
+          title=VALUES(title),
+          description=VALUES(description),
+          indexable=VALUES(indexable),
+          activo=1,
+          fecha_actualizacion=NOW()");
+
+      foreach ($items as $item) {
+        $path = $this->normalizarSeoPathPublico($this->valor($item, "path", ""));
+        if ($path === "" || strpos($path, "/ecommercePublico") === 0) {
+          $omitidas++;
+          continue;
+        }
+        $stmt->execute(array(
+          ":tipo" => trim((string) $this->valor($item, "tipo", "url")),
+          ":entidad_id" => intval($this->valor($item, "entidad_id", 0)) > 0 ? intval($this->valor($item, "entidad_id", 0)) : null,
+          ":path" => $path,
+          ":url" => (string) $this->valor($item, "url", $this->urlSeoPublica($baseUrl, $path)),
+          ":canonical" => (string) $this->valor($item, "canonical", $this->urlSeoPublica($baseUrl, $path)),
+          ":title" => trim((string) $this->valor($item, "title", "")),
+          ":description" => trim((string) $this->valor($item, "description", "")),
+          ":indexable" => !empty($item["indexable"]) ? 1 : 0
+        ));
+        $afectadas = $stmt->rowCount();
+        if ($afectadas === 1) {
+          $insertadas++;
+        } elseif ($afectadas >= 2) {
+          $actualizadas++;
+        } else {
+          $sinCambio++;
+        }
+      }
+      $db->commit();
+
+      return $this->respuesta(false, "success", "URLs canonicas SEO sincronizadas", array(
+        "escribe_bd" => true,
+        "total_canonicas" => count($items),
+        "total_insertadas" => $insertadas,
+        "total_actualizadas" => $actualizadas,
+        "total_sin_cambio" => $sinCambio,
+        "total_omitidas" => $omitidas,
+        "guardrails" => array("token_operativo" => true, "no_desactiva_ausentes" => true, "sin_rutas_api" => true)
+      ));
+    } catch (Exception $e) {
+      if (isset($db) && $db && $db->inTransaction()) {
+        $db->rollBack();
+      }
+      return $this->respuesta(true, "danger", $e->getMessage(), array("escribe_bd" => false));
+    }
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-03
+   * Proposito: entregar redirecciones 301 aprobadas para migrar URLs viejas.
+   * Impacto: Frontend ecommerce; se ejecuta antes de renderizar para conservar autoridad SEO.
+   * Contrato: read-only; solo incluye activo=1 y status 301/302/308.
+   */
+  public function seoRedireccionesPublicas($opciones = array()) {
+    try {
+      $db = $this->getConexion();
+      $baseUrl = $this->dominioProduccionSeoPublico($this->configuracionSeoPublica($db));
+      $redirecciones = array();
+      if ($db && $this->tablaExiste($db, "erp_ecommerce_seo_redirecciones")) {
+        $stmt = $db->query("SELECT url_origen, url_destino, status_code, tipo, motivo, activo, revisado
+          FROM erp_ecommerce_seo_redirecciones
+          WHERE activo=1 AND status_code IN (301,302,308)
+          ORDER BY revisado DESC, tipo ASC, url_origen ASC");
+        foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $fila) {
+          $from = $this->normalizarSeoPathPublico($this->valor($fila, "url_origen", ""));
+          $to = $this->normalizarSeoPathPublico($this->valor($fila, "url_destino", ""));
+          if ($from === "" || $to === "" || $from === $to || strpos($to, "/ecommercePublico") === 0) {
+            continue;
+          }
+          $redirecciones[] = array(
+            "from" => $from,
+            "to" => $to,
+            "status" => intval($this->valor($fila, "status_code", 301)),
+            "tipo" => $this->valor($fila, "tipo", "manual"),
+            "activo" => intval($this->valor($fila, "activo", 0)) === 1,
+            "revisado" => intval($this->valor($fila, "revisado", 0)) === 1,
+            "motivo" => $this->valor($fila, "motivo", "")
+          );
+        }
+      }
+      return $this->respuesta(false, "success", "Redirecciones SEO ecommerce consultadas", array(
+        "base_url" => $baseUrl,
+        "redirecciones" => $redirecciones,
+        "fallback" => array(
+          "sin_equivalente_exacto" => "/categorias",
+          "preferir_categoria_cercana" => true,
+          "nunca_redirigir_todo_a_home" => true
+        ),
+        "guardrails" => array("frontend_aplica_antes_de_render" => true, "solo_activas" => true, "read_only" => true)
+      ));
+    } catch (Exception $e) {
+      return $this->respuesta(true, "danger", $e->getMessage(), array("base_url" => "", "redirecciones" => array()));
+    }
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-03
+   * Proposito: entregar sitemap estructurado sin rutas internas de API.
+   * Impacto: Frontend ecommerce; permite servir `/sitemap.xml` usando solo URLs indexables.
+   * Contrato: read-only; excluye noindex y `/ecommercePublico/*`.
+   */
+  public function seoSitemapPublico($opciones = array()) {
+    try {
+      $baseUrl = $this->dominioProduccionSeoPublico($this->configuracionSeoPublica($this->getConexion()));
+      $urls = $this->seoUrlsPublicasItems($baseUrl, max(1, min(500, intval($this->valor($opciones, "limite", 250)))));
+      $items = array();
+      foreach ($urls as $url) {
+        if (empty($url["indexable"]) || strpos((string) $url["path"], "/ecommercePublico") === 0) {
+          continue;
+        }
+        $items[] = array(
+          "loc" => $this->valor($url, "canonical", ""),
+          "changefreq" => $this->seoChangefreqPorTipo($this->valor($url, "tipo", "")),
+          "priority" => $this->seoPriorityPorTipo($this->valor($url, "tipo", ""))
+        );
+      }
+      return $this->respuesta(false, "success", "Sitemap SEO ecommerce consultado", array(
+        "base_url" => $baseUrl,
+        "items" => $items,
+        "guardrails" => array("no_urls_api" => true, "solo_indexables" => true, "read_only" => true)
+      ));
+    } catch (Exception $e) {
+      return $this->respuesta(true, "danger", $e->getMessage(), array("base_url" => "", "items" => array()));
+    }
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-03
+   * Proposito: entregar robots.txt sugerido desde configuracion SEO.
+   * Impacto: Frontend ecommerce; sirve `/robots.txt` sin hardcodear dominio en frontend.
+   * Contrato: read-only; frontend lo materializa, ERP no escribe archivos.
+   */
+  public function seoRobotsPublico($opciones = array()) {
+    try {
+      $config = $this->configuracionSeoPublica($this->getConexion());
+      $baseUrl = $this->dominioProduccionSeoPublico($config);
+      $robots = trim((string) $this->valor($config, "robots_default", ""));
+      if ($robots === "") {
+        $robots = "User-agent: *\nAllow: /\nSitemap: " . $baseUrl . "/sitemap.xml";
+      }
+      return $this->respuesta(false, "success", "Robots SEO ecommerce consultado", array(
+        "robots_txt" => $robots,
+        "base_url" => $baseUrl,
+        "guardrails" => array("frontend_sirve_robots_txt" => true, "read_only" => true)
+      ));
+    } catch (Exception $e) {
+      return $this->respuesta(true, "danger", $e->getMessage(), array("robots_txt" => "User-agent: *\nAllow: /"));
+    }
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-03
+   * Proposito: consolidar datos SEO para consola interna de migracion URLs.
+   * Impacto: Ecommerce SEO; facilita revision operativa sin escribir redirecciones ni ejecutar DDL.
+   * Contrato: GET interno protegido desde controlador; solo lectura.
+   */
+  public function seoDashboardInterno($opciones = array()) {
+    try {
+      $limite = max(1, min(80, intval($this->valor($opciones, "limite", 25))));
+      $estado = $this->seoEstadoPublico($opciones);
+      $urls = $this->seoUrlsPublicas(array("limite" => $limite));
+      $redirecciones = $this->seoRedireccionesPublicas($opciones);
+      $sitemap = $this->seoSitemapPublico(array("limite" => $limite));
+      $robots = $this->seoRobotsPublico($opciones);
+      $urlsItems = $this->valor($urls, array("depurar", "urls"), array());
+      $redireccionesItems = $this->valor($redirecciones, array("depurar", "redirecciones"), array());
+      $sitemapItems = $this->valor($sitemap, array("depurar", "items"), array());
+      $tipos = array();
+      foreach ($urlsItems as $item) {
+        $tipo = (string) $this->valor($item, "tipo", "otro");
+        if (!isset($tipos[$tipo])) { $tipos[$tipo] = 0; }
+        $tipos[$tipo]++;
+      }
+      return $this->respuesta(false, "success", "Dashboard SEO ecommerce consultado", array(
+        "estado" => $this->valor($estado, "depurar", array()),
+        "resumen" => array(
+          "urls_total_muestra" => count($urlsItems),
+          "urls_por_tipo" => $tipos,
+          "redirecciones_activas" => count($redireccionesItems),
+          "sitemap_items_muestra" => count($sitemapItems),
+          "robots_disponible" => trim((string) $this->valor($robots, array("depurar", "robots_txt"), "")) !== ""
+        ),
+        "urls" => $urlsItems,
+        "redirecciones" => $redireccionesItems,
+        "sitemap" => $sitemapItems,
+        "robots_txt" => $this->valor($robots, array("depurar", "robots_txt"), ""),
+        "endpoints_publicos" => array(
+          "/ecommercePublico/seo_estado",
+          "/ecommercePublico/seo_urls",
+          "/ecommercePublico/seo_redirecciones",
+          "/ecommercePublico/seo_sitemap",
+          "/ecommercePublico/seo_robots"
+        ),
+        "endpoints_internos" => array(
+          "/ecommercePublico/esquema_auditar_seo_migracion",
+          "/ecommercePublico/esquema_plan_seo_migracion",
+          "/ecommercePublico/seo_urls_sincronizar_plan_erp",
+          "/ecommercePublico/seo_urls_viejas_importar_plan_erp",
+          "/ecommercePublico/seo_redireccion_plan_erp"
+        ),
+        "endpoints_autorizados" => array(
+          "/ecommercePublico/seo_urls_sincronizar_erp" => "ECOMMERCE_SEO_SYNC_URLS_CANONICAS",
+          "/ecommercePublico/seo_urls_viejas_importar_erp" => "ECOMMERCE_SEO_IMPORTAR_URLS_VIEJAS",
+          "/ecommercePublico/seo_redireccion_guardar_erp" => "ECOMMERCE_SEO_GUARDAR_REDIRECCION"
+        ),
+        "siguiente_operativo" => array(
+          "revisar_plan_ddl",
+          "autorizar_respaldo_y_apply",
+          "importar_urls_viejas",
+          "revisar_equivalencias",
+          "aprobar_redirecciones_301",
+          "integrar_frontend"
+        ),
+        "guardrails" => array(
+          "read_only" => true,
+          "no_escribe_bd" => true,
+          "no_aplica_ddl" => true,
+          "no_redirige_desde_erp" => true,
+          "canonical_sin_ecommercePublico" => true
+        )
+      ));
+    } catch (Exception $e) {
+      return $this->respuesta(true, "danger", $e->getMessage(), array("configurado" => false));
+    }
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-03
+   * Proposito: simular importacion de URLs viejas y sugerir equivalencias canonicas.
+   * Impacto: Ecommerce SEO; prepara carga de `erp_ecommerce_seo_urls_viejas` y redirecciones sin escribir BD.
+   * Contrato: POST interno read-only; recibe `urls_texto` multilinea o `urls` array y devuelve plan revisable.
+   */
+  public function seoUrlsViejasImportarPlanInterno($datos = array()) {
+    try {
+      $baseUrl = $this->dominioProduccionSeoPublico($this->configuracionSeoPublica($this->getConexion()));
+      $canonicas = $this->seoUrlsPublicasItems($baseUrl, 500);
+      $entradas = $this->seoUrlsViejasEntradas($datos);
+      $items = array();
+      $vistos = array();
+      foreach ($entradas as $entrada) {
+        $path = $this->normalizarSeoPathPublico($entrada);
+        if ($path === "" || isset($vistos[$path])) {
+          continue;
+        }
+        $vistos[$path] = true;
+        $tipo = $this->seoTipoDetectadoPath($path);
+        $sugerencia = $this->seoSugerirDestinoPublico($path, $tipo, $canonicas);
+        $items[] = array(
+          "url_original" => trim((string) $entrada),
+          "path_original" => $path,
+          "tipo_detectado" => $tipo,
+          "estatus_mapeo" => $this->valor($sugerencia, "path", "") === "" ? "sin_equivalente" : "sugerido",
+          "url_destino_sugerida" => $this->valor($sugerencia, "path", ""),
+          "confianza" => $this->valor($sugerencia, "confianza", "baja"),
+          "motivo" => $this->valor($sugerencia, "motivo", ""),
+          "sql_preview" => "INSERT INTO erp_ecommerce_seo_urls_viejas (url_original, path_original, tipo_detectado, origen, estatus_mapeo, url_destino_sugerida, fecha_registro) VALUES (" .
+            $this->sqlQuote($entrada) . ", " . $this->sqlQuote($path) . ", " . $this->sqlQuote($tipo) . ", 'importacion_manual', " .
+            $this->sqlQuote($this->valor($sugerencia, "path", "") === "" ? "sin_equivalente" : "revision") . ", " . $this->sqlQuote($this->valor($sugerencia, "path", "")) . ", NOW());"
+        );
+      }
+      return $this->respuesta(false, "success", "Plan de importacion SEO generado sin ejecutar", array(
+        "read_only" => true,
+        "total_recibidas" => count($entradas),
+        "total_unicas" => count($items),
+        "items" => $items,
+        "siguientes_pasos" => array("revisar_sugerencias", "autorizar_importacion", "aprobar_redirecciones_301"),
+        "guardrails" => array("no_escribe_bd" => true, "no_crea_redirecciones" => true, "destinos_publicos" => true)
+      ));
+    } catch (Exception $e) {
+      return $this->respuesta(true, "danger", $e->getMessage(), array("read_only" => true));
+    }
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-03
+   * Proposito: validar una redireccion SEO propuesta sin guardarla.
+   * Impacto: Ecommerce SEO; prepara aprobacion manual evitando loops y rutas API internas.
+   * Contrato: POST interno read-only; devuelve bloqueos y SQL preview sin ejecutar.
+   */
+  public function seoRedireccionPlanInterno($datos = array()) {
+    try {
+      $fromRaw = trim((string) $this->valor($datos, "from", $this->valor($datos, "url_origen", "")));
+      $toRaw = trim((string) $this->valor($datos, "to", $this->valor($datos, "url_destino", "")));
+      $from = $this->normalizarSeoPathPublico($fromRaw);
+      $to = $toRaw === "" ? "" : $this->normalizarSeoPathPublico($toRaw);
+      $status = intval($this->valor($datos, "status", $this->valor($datos, "status_code", 301)));
+      $tipo = $this->limpiarFiltroPublico($this->valor($datos, "tipo", "manual"));
+      if ($tipo === "") { $tipo = "manual"; }
+      $motivo = trim((string) $this->valor($datos, "motivo", "revision_manual_seo"));
+      $bloqueos = array();
+      if ($from === "" || $from === "/") { $bloqueos[] = "origen_invalido"; }
+      if ($to === "" || $to === "/ecommercePublico") { $bloqueos[] = "destino_invalido"; }
+      if (strpos($from, "/ecommercePublico") === 0 || strpos($to, "/ecommercePublico") === 0) { $bloqueos[] = "no_usar_rutas_api"; }
+      if ($from === $to) { $bloqueos[] = "redireccion_a_si_misma"; }
+      if (!in_array($status, array(301, 302, 308), true)) { $bloqueos[] = "status_no_permitido"; }
+      $sql = empty($bloqueos)
+        ? "INSERT INTO erp_ecommerce_seo_redirecciones (url_origen, url_destino, status_code, tipo, motivo, activo, revisado, fecha_registro, fecha_actualizacion) VALUES (" .
+          $this->sqlQuote($from) . ", " . $this->sqlQuote($to) . ", " . intval($status) . ", " . $this->sqlQuote($tipo) . ", " . $this->sqlQuote($motivo) . ", 1, 1, NOW(), NOW()) ON DUPLICATE KEY UPDATE url_destino=VALUES(url_destino), status_code=VALUES(status_code), tipo=VALUES(tipo), motivo=VALUES(motivo), activo=1, revisado=1, fecha_actualizacion=NOW();"
+        : "";
+      return $this->respuesta(false, empty($bloqueos) ? "success" : "warning", empty($bloqueos) ? "Redireccion valida para aprobacion" : "Redireccion requiere correccion", array(
+        "read_only" => true,
+        "valida" => empty($bloqueos),
+        "bloqueos" => $bloqueos,
+        "redireccion" => array("from" => $from, "to" => $to, "status" => $status, "tipo" => $tipo, "motivo" => $motivo, "activo" => true),
+        "sql_preview" => $sql,
+        "guardrails" => array("no_escribe_bd" => true, "frontend_aplica_301" => true, "no_ecommercePublico" => true)
+      ));
+    } catch (Exception $e) {
+      return $this->respuesta(true, "danger", $e->getMessage(), array("read_only" => true));
+    }
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-03
+   * Proposito: persistir URLs viejas SEO ya revisadas mediante token operativo explicito.
+   * Impacto: Ecommerce SEO; crea pendientes de mapeo sin generar redirecciones 301 automaticamente.
+   * Contrato: POST interno protegido; escribe solo con `ECOMMERCE_SEO_IMPORTAR_URLS_VIEJAS` y tabla aplicada.
+   */
+  public function seoUrlsViejasImportarAutorizado($datos = array(), $opciones = array()) {
+    $token = trim((string) $this->valor($opciones, "autorizar", $this->valor($datos, "autorizar", "")));
+    if ($token !== "ECOMMERCE_SEO_IMPORTAR_URLS_VIEJAS") {
+      return $this->respuesta(true, "warning", "Importacion de URLs viejas bloqueada", array(
+        "bloqueado" => true,
+        "no_escribe_bd" => true,
+        "token_requerido" => "ECOMMERCE_SEO_IMPORTAR_URLS_VIEJAS"
+      ));
+    }
+
+    try {
+      $db = $this->getConexion();
+      if (!$db) {
+        return $this->respuesta(true, "warning", "Conexion MySQL no disponible", array("no_escribe_bd" => true));
+      }
+      if (!$this->tablaExiste($db, "erp_ecommerce_seo_urls_viejas")) {
+        return $this->respuesta(true, "warning", "No se importaron URLs porque falta aplicar DDL SEO", array(
+          "no_escribe_bd" => true,
+          "tabla_requerida" => "erp_ecommerce_seo_urls_viejas"
+        ));
+      }
+
+      $plan = $this->seoUrlsViejasImportarPlanInterno($datos);
+      $depurar = $this->valor($plan, "depurar", array());
+      $items = $this->valor($depurar, "items", array());
+      if (!is_array($items) || empty($items)) {
+        return $this->respuesta(true, "warning", "No hay URLs validas para importar", array(
+          "no_escribe_bd" => true,
+          "plan" => $plan
+        ));
+      }
+
+      $insertadas = 0;
+      $actualizadas = 0;
+      $omitidas = 0;
+      $db->beginTransaction();
+      $stmt = $db->prepare("INSERT INTO erp_ecommerce_seo_urls_viejas
+          (url_original, path_original, tipo_detectado, titulo_detectado, origen, estatus_mapeo, url_destino_sugerida, fecha_registro)
+        VALUES
+          (:url_original, :path_original, :tipo_detectado, NULL, 'importacion_manual', :estatus_mapeo, :url_destino_sugerida, NOW())
+        ON DUPLICATE KEY UPDATE
+          url_original=VALUES(url_original),
+          tipo_detectado=VALUES(tipo_detectado),
+          origen=VALUES(origen),
+          estatus_mapeo=VALUES(estatus_mapeo),
+          url_destino_sugerida=VALUES(url_destino_sugerida)");
+
+      foreach ($items as $item) {
+        $path = $this->normalizarSeoPathPublico($this->valor($item, "path_original", ""));
+        if ($path === "" || strpos($path, "/ecommercePublico") === 0) {
+          $omitidas++;
+          continue;
+        }
+        $destinoRaw = trim((string) $this->valor($item, "url_destino_sugerida", ""));
+        $destino = $destinoRaw === "" ? "" : $this->normalizarSeoPathPublico($destinoRaw);
+        $estatus = $destino === "" ? "sin_equivalente" : "revision";
+        $stmt->execute(array(
+          ":url_original" => trim((string) $this->valor($item, "url_original", $path)),
+          ":path_original" => $path,
+          ":tipo_detectado" => trim((string) $this->valor($item, "tipo_detectado", "desconocido")),
+          ":estatus_mapeo" => $estatus,
+          ":url_destino_sugerida" => $destino === "" ? null : $destino
+        ));
+        if ($stmt->rowCount() === 1) {
+          $insertadas++;
+        } else {
+          $actualizadas++;
+        }
+      }
+      $db->commit();
+
+      return $this->respuesta(false, "success", "URLs viejas SEO importadas para revision", array(
+        "escribe_bd" => true,
+        "total_recibidas" => intval($this->valor($depurar, "total_recibidas", 0)),
+        "total_insertadas" => $insertadas,
+        "total_actualizadas" => $actualizadas,
+        "total_omitidas" => $omitidas,
+        "no_crea_redirecciones" => true,
+        "guardrails" => array("token_operativo" => true, "sin_301_automaticos" => true, "sin_rutas_api" => true)
+      ));
+    } catch (Exception $e) {
+      if (isset($db) && $db && $db->inTransaction()) {
+        $db->rollBack();
+      }
+      return $this->respuesta(true, "danger", $e->getMessage(), array("escribe_bd" => false));
+    }
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-03
+   * Proposito: guardar una redireccion SEO aprobada por operacion.
+   * Impacto: Ecommerce SEO; alimenta la fuente interna que el frontend publico debe convertir en 301/308.
+   * Contrato: POST interno protegido; escribe solo con `ECOMMERCE_SEO_GUARDAR_REDIRECCION` y tabla aplicada.
+   */
+  public function seoRedireccionGuardarAutorizada($datos = array(), $opciones = array()) {
+    $token = trim((string) $this->valor($opciones, "autorizar", $this->valor($datos, "autorizar", "")));
+    if ($token !== "ECOMMERCE_SEO_GUARDAR_REDIRECCION") {
+      return $this->respuesta(true, "warning", "Guardado de redireccion SEO bloqueado", array(
+        "bloqueado" => true,
+        "no_escribe_bd" => true,
+        "token_requerido" => "ECOMMERCE_SEO_GUARDAR_REDIRECCION"
+      ));
+    }
+
+    try {
+      $db = $this->getConexion();
+      if (!$db) {
+        return $this->respuesta(true, "warning", "Conexion MySQL no disponible", array("no_escribe_bd" => true));
+      }
+      if (!$this->tablaExiste($db, "erp_ecommerce_seo_redirecciones")) {
+        return $this->respuesta(true, "warning", "No se guardo redireccion porque falta aplicar DDL SEO", array(
+          "no_escribe_bd" => true,
+          "tabla_requerida" => "erp_ecommerce_seo_redirecciones"
+        ));
+      }
+
+      $plan = $this->seoRedireccionPlanInterno($datos);
+      $depurar = $this->valor($plan, "depurar", array());
+      if (!$this->valor($depurar, "valida", false)) {
+        return $this->respuesta(true, "warning", "No se guardo redireccion por bloqueos de validacion", array(
+          "no_escribe_bd" => true,
+          "bloqueos" => $this->valor($depurar, "bloqueos", array()),
+          "plan" => $plan
+        ));
+      }
+
+      $redireccion = $this->valor($depurar, "redireccion", array());
+      $from = $this->normalizarSeoPathPublico($this->valor($redireccion, "from", ""));
+      $to = $this->normalizarSeoPathPublico($this->valor($redireccion, "to", ""));
+      $status = intval($this->valor($redireccion, "status", 301));
+      $tipo = $this->limpiarFiltroPublico($this->valor($redireccion, "tipo", "manual"));
+      $motivo = trim((string) $this->valor($redireccion, "motivo", "revision_manual_seo"));
+
+      $db->beginTransaction();
+      $stmt = $db->prepare("INSERT INTO erp_ecommerce_seo_redirecciones
+          (url_origen, url_destino, status_code, tipo, motivo, activo, revisado, fecha_registro, fecha_actualizacion)
+        VALUES
+          (:url_origen, :url_destino, :status_code, :tipo, :motivo, 1, 1, NOW(), NOW())
+        ON DUPLICATE KEY UPDATE
+          url_destino=VALUES(url_destino),
+          status_code=VALUES(status_code),
+          tipo=VALUES(tipo),
+          motivo=VALUES(motivo),
+          activo=1,
+          revisado=1,
+          fecha_actualizacion=NOW()");
+      $stmt->execute(array(
+        ":url_origen" => $from,
+        ":url_destino" => $to,
+        ":status_code" => $status,
+        ":tipo" => $tipo,
+        ":motivo" => $motivo
+      ));
+      $afectadas = $stmt->rowCount();
+      $db->commit();
+
+      return $this->respuesta(false, "success", "Redireccion SEO guardada", array(
+        "escribe_bd" => true,
+        "filas_afectadas" => $afectadas,
+        "redireccion" => array("from" => $from, "to" => $to, "status" => $status, "tipo" => $tipo, "motivo" => $motivo, "activo" => true),
+        "guardrails" => array("token_operativo" => true, "sin_rutas_api" => true, "frontend_aplica_301" => true)
+      ));
+    } catch (Exception $e) {
+      if (isset($db) && $db && $db->inTransaction()) {
+        $db->rollBack();
+      }
+      return $this->respuesta(true, "danger", $e->getMessage(), array("escribe_bd" => false));
     }
   }
 
@@ -8817,7 +9517,9 @@ class EcommerceCatalogoPublico extends CRUD {
       if (!is_array($negocio)) { $negocio = array(); }
       $nombre = trim((string) $this->valor($negocio, "nombre_comercial", ""));
       if ($nombre === "") {
-        return $this->respuesta(true, "warning", "Captura nombre comercial antes de publicar Global.", array("campo" => "negocio.nombre_comercial"));
+        $nombre = "Artiani";
+        $negocio["nombre_comercial"] = $nombre;
+        $payload["negocio"] = $negocio;
       }
       if ($this->cmsPayloadContieneSecreto($payload)) {
         return $this->respuesta(true, "warning", "El payload global contiene campos con apariencia de secreto.", array(
@@ -9922,6 +10624,245 @@ class EcommerceCatalogoPublico extends CRUD {
   }
 
   /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-03
+   * Proposito: construir URLs SEO oficiales desde catalogo, categorias y marcas publicadas.
+   * Impacto: Ecommerce publico; alimenta `seo_urls` y `seo_sitemap` sin exponer rutas API internas.
+   * Contrato: solo paths publicos `/`, `/categorias`, `/categoria/*`, `/producto/*`, `/marca/*` y paginas informativas.
+   */
+  private function seoUrlsPublicasItems($baseUrl, $limite) {
+    $urls = array();
+    $vistos = array();
+    $agregar = function ($tipo, $path, $meta = array()) use (&$urls, &$vistos, $baseUrl) {
+      $path = $this->normalizarSeoPathPublico($path);
+      if ($path === "" || strpos($path, "/ecommercePublico") === 0 || isset($vistos[$path])) {
+        return;
+      }
+      $vistos[$path] = true;
+      $url = $this->urlSeoPublica($baseUrl, $path);
+      $urls[] = array_merge(array(
+        "tipo" => $tipo,
+        "path" => $path,
+        "url" => $url,
+        "canonical" => $url,
+        "indexable" => true
+      ), $meta);
+    };
+
+    $agregar("home", "/", array(
+      "title" => "Artiani",
+      "description" => "Productos para mascotas en Artiani."
+    ));
+    foreach (array(
+      array("categorias", "/categorias", "Categorias | Artiani"),
+      array("contacto", "/contacto", "Contacto | Artiani"),
+      array("como_comprar", "/como-comprar", "Como comprar | Artiani"),
+      array("aviso_privacidad", "/aviso-de-privacidad", "Aviso de privacidad | Artiani"),
+      array("politicas_cambios", "/politicas-cambios", "Politicas de cambios | Artiani")
+    ) as $ruta) {
+      $agregar($ruta[0], $ruta[1], array("title" => $ruta[2]));
+    }
+
+    $db = $this->getConexion();
+    if (!$db || !$this->tablaExiste($db, "erp_ecommerce_publicaciones")) {
+      return $urls;
+    }
+
+    foreach (array_values($this->categoriasPublicasItems($db)) as $categoria) {
+      $path = "/categoria/" . trim((string) $this->valor($categoria, "path_slug", ""), "/");
+      $agregar("categoria", $path, array(
+        "entidad_id" => intval($this->valor($categoria, "id", 0)),
+        "title" => $this->valor($categoria, "seo_title", $this->valor($categoria, "nombre", "Categoria") . " | Artiani"),
+        "description" => $this->valor($categoria, "seo_description", ""),
+        "total_productos" => intval($this->valor($categoria, "total_productos", 0))
+      ));
+    }
+
+    foreach (array_values($this->marcasPublicasItems($db)) as $marca) {
+      $path = "/marca/" . trim((string) $this->valor($marca, "slug_publico", $this->valor($marca, "slug", "")), "/");
+      $agregar("marca", $path, array(
+        "entidad_id" => intval($this->valor($marca, "id", 0)),
+        "title" => $this->valor($marca, "seo_title", $this->valor($marca, "nombre", "Marca") . " | Artiani"),
+        "description" => $this->valor($marca, "seo_description", ""),
+        "total_productos" => intval($this->valor($marca, "total_productos", 0))
+      ));
+    }
+
+    $catalogo = $this->catalogoPublico(array("limite" => $limite));
+    foreach ($this->valor($catalogo, array("depurar", "items"), array()) as $producto) {
+      $slug = trim((string) $this->valor($producto, "slug", ""));
+      if ($slug === "") {
+        continue;
+      }
+      $agregar("producto", "/producto/" . $slug, array(
+        "entidad_id" => intval($this->valor($producto, "id_publicacion", 0)),
+        "id_sku" => intval($this->valor($producto, "id_sku", 0)),
+        "title" => $this->valor($producto, "nombre", "Producto") . " | Artiani",
+        "description" => substr(trim((string) $this->valor($producto, "descripcion", "")), 0, 160),
+        "image" => $this->valor($producto, "imagen", null)
+      ));
+    }
+
+    return $urls;
+  }
+
+  private function sqlSeoUrlCanonicaUpsertPreview($item) {
+    return "INSERT INTO erp_ecommerce_seo_urls (tipo, entidad_id, path, url, canonical, title, description, indexable, activo, fecha_actualizacion) VALUES (" .
+      $this->sqlQuote($this->valor($item, "tipo", "url")) . ", " .
+      (intval($this->valor($item, "entidad_id", 0)) > 0 ? intval($this->valor($item, "entidad_id", 0)) : "NULL") . ", " .
+      $this->sqlQuote($this->normalizarSeoPathPublico($this->valor($item, "path", ""))) . ", " .
+      $this->sqlQuote($this->valor($item, "url", "")) . ", " .
+      $this->sqlQuote($this->valor($item, "canonical", "")) . ", " .
+      $this->sqlQuote($this->valor($item, "title", "")) . ", " .
+      $this->sqlQuote($this->valor($item, "description", "")) . ", " .
+      (!empty($item["indexable"]) ? "1" : "0") . ", 1, NOW()) ON DUPLICATE KEY UPDATE url=VALUES(url), canonical=VALUES(canonical), title=VALUES(title), description=VALUES(description), indexable=VALUES(indexable), activo=1, fecha_actualizacion=NOW();";
+  }
+
+  private function configuracionSeoPublica($db) {
+    $configResp = $this->configuracionPublica();
+    $config = $this->valor($configResp, array("depurar", "configuracion"), $this->configuracionPublicaDefault());
+    $salida = array(
+      "dominio_produccion" => trim((string) $this->valor($config, "url_sitio_publico", "")),
+      "robots_default" => "",
+      "sitemap_activo" => true,
+      "redirecciones_activas" => true,
+      "noindex_produccion" => false
+    );
+    if ($db && $this->tablaExiste($db, "erp_ecommerce_seo_configuracion")) {
+      $stmt = $db->query("SELECT dominio_produccion, robots_default, sitemap_activo, redirecciones_activas, noindex_produccion
+        FROM erp_ecommerce_seo_configuracion
+        ORDER BY id_configuracion DESC
+        LIMIT 1");
+      $fila = $stmt->fetch(PDO::FETCH_ASSOC);
+      if ($fila) {
+        $salida["dominio_produccion"] = trim((string) $this->valor($fila, "dominio_produccion", $salida["dominio_produccion"]));
+        $salida["robots_default"] = trim((string) $this->valor($fila, "robots_default", ""));
+        $salida["sitemap_activo"] = intval($this->valor($fila, "sitemap_activo", 1)) === 1;
+        $salida["redirecciones_activas"] = intval($this->valor($fila, "redirecciones_activas", 1)) === 1;
+        $salida["noindex_produccion"] = intval($this->valor($fila, "noindex_produccion", 0)) === 1;
+      }
+    }
+    return $salida;
+  }
+
+  private function dominioProduccionSeoPublico($config) {
+    $baseUrl = rtrim(trim((string) $this->valor($config, "dominio_produccion", "")), "/");
+    return $baseUrl !== "" ? $baseUrl : "https://artiani.com.mx";
+  }
+
+  private function normalizarSeoPathPublico($path) {
+    $path = trim((string) $path);
+    if ($path === "" || $path === "/") {
+      return "/";
+    }
+    if (preg_match('/^https?:\/\//i', $path)) {
+      $partes = parse_url($path);
+      $path = isset($partes["path"]) ? $partes["path"] : "/";
+      if (!empty($partes["query"])) {
+        $path .= "?" . $partes["query"];
+      }
+    }
+    $path = "/" . ltrim($path, "/");
+    $path = preg_replace('/\/+/', '/', $path);
+    return $path;
+  }
+
+  private function urlSeoPublica($baseUrl, $path) {
+    $baseUrl = rtrim(trim((string) $baseUrl), "/");
+    $path = $this->normalizarSeoPathPublico($path);
+    return $baseUrl . ($path === "/" ? "/" : $path);
+  }
+
+  private function seoChangefreqPorTipo($tipo) {
+    if ($tipo === "home" || $tipo === "categorias") { return "daily"; }
+    if ($tipo === "producto" || $tipo === "categoria" || $tipo === "marca") { return "weekly"; }
+    return "monthly";
+  }
+
+  private function seoPriorityPorTipo($tipo) {
+    if ($tipo === "home") { return "1.0"; }
+    if ($tipo === "categorias") { return "0.9"; }
+    if ($tipo === "categoria" || $tipo === "marca") { return "0.8"; }
+    if ($tipo === "producto") { return "0.7"; }
+    return "0.4";
+  }
+
+  private function seoUrlsViejasEntradas($datos) {
+    $entradas = array();
+    $urls = $this->valor($datos, "urls", array());
+    if (is_array($urls)) {
+      foreach ($urls as $url) {
+        if (trim((string) $url) !== "") { $entradas[] = trim((string) $url); }
+      }
+    }
+    $texto = (string) $this->valor($datos, "urls_texto", $this->valor($datos, "texto", ""));
+    foreach (preg_split('/\r\n|\r|\n/', $texto) as $linea) {
+      $linea = trim((string) $linea);
+      if ($linea === "") { continue; }
+      $partes = preg_split('/[\s,;]+/', $linea);
+      foreach ($partes as $parte) {
+        $parte = trim((string) $parte);
+        if ($parte !== "") { $entradas[] = $parte; }
+      }
+    }
+    return $entradas;
+  }
+
+  private function seoTipoDetectadoPath($path) {
+    $path = strtolower((string) $path);
+    if (strpos($path, "producto") !== false || preg_match('/(sku|id_producto|product|p=)/', $path)) { return "producto"; }
+    if (strpos($path, "categoria") !== false || strpos($path, "category") !== false || strpos($path, "cat=") !== false) { return "categoria"; }
+    if (strpos($path, "marca") !== false || strpos($path, "brand") !== false) { return "marca"; }
+    if (strpos($path, "buscar") !== false || strpos($path, "search") !== false || strpos($path, "q=") !== false) { return "busqueda"; }
+    return "desconocido";
+  }
+
+  private function seoSugerirDestinoPublico($path, $tipo, $canonicas) {
+    $path = $this->normalizarSeoPathPublico($path);
+    $tokensOrigen = $this->seoTokensPath($path);
+    $mejor = array("path" => "", "score" => 0, "confianza" => "baja", "motivo" => "sin_equivalente_exactamente_detectable");
+    foreach ($canonicas as $url) {
+      $tipoCanonico = (string) $this->valor($url, "tipo", "");
+      if (in_array($tipoCanonico, array("home", "contacto", "como_comprar", "aviso_privacidad", "politicas_cambios"), true)) {
+        continue;
+      }
+      if ($tipo !== "desconocido" && $tipo !== "busqueda" && $tipoCanonico !== $tipo) {
+        continue;
+      }
+      $pathCanonico = (string) $this->valor($url, "path", "");
+      $tokensDestino = $this->seoTokensPath($pathCanonico . " " . $this->valor($url, "title", ""));
+      $score = count(array_intersect($tokensOrigen, $tokensDestino));
+      if ($path === $pathCanonico) { $score += 20; }
+      if ($score > $mejor["score"]) {
+        $mejor = array(
+          "path" => $pathCanonico,
+          "score" => $score,
+          "confianza" => $score >= 20 ? "exacta" : ($score >= 3 ? "media" : "baja"),
+          "motivo" => $score >= 20 ? "path_ya_canonico" : "tokens_compartidos_" . $score
+        );
+      }
+    }
+    if ($mejor["score"] <= 0) {
+      $mejor["path"] = $tipo === "categoria" || $tipo === "busqueda" ? "/categorias" : "";
+      $mejor["motivo"] = $mejor["path"] !== "" ? "fallback_a_categorias" : "requiere_revision_manual";
+    }
+    unset($mejor["score"]);
+    return $mejor;
+  }
+
+  private function seoTokensPath($texto) {
+    $texto = strtolower($this->normalizarTextoPlano((string) $texto));
+    $texto = preg_replace('/[^a-z0-9]+/', ' ', $texto);
+    $tokens = array();
+    foreach (preg_split('/\s+/', trim($texto)) as $token) {
+      if (strlen($token) < 3 || in_array($token, array("html", "php", "www", "com", "https", "http", "producto", "categoria", "marca"), true)) {
+        continue;
+      }
+      $tokens[] = $token;
+    }
+    return array_values(array_unique($tokens));
+  }
+
+  /**
    * Documentacion IA: Codex GPT-5 | Fecha: 2026-08-05
    * Proposito: entregar metadatos de Fase 2 para sitemap, robots, canonical y rutas SEO guiadas por API.
    * Impacto: Frontend ecommerce; evita hardcodear generacion SEO y conserva rutas derivadas del catalogo ERP.
@@ -9952,9 +10893,10 @@ class EcommerceCatalogoPublico extends CRUD {
       ),
       "canonical" => array(
         "base" => $this->valor($meta, "canonical_base", ""),
-        "catalogo" => $this->canonicalSeoPublico($urlSitio, "/ecommercePublico/catalogo"),
-        "producto_pattern" => $this->canonicalSeoPublico($urlSitio, "/ecommercePublico/producto/{slug}"),
-        "filtro_pattern" => $this->canonicalSeoPublico($urlSitio, "/ecommercePublico/catalogo?{parametro}={valor}")
+        "categorias" => $this->canonicalSeoPublico($urlSitio, "/categorias"),
+        "producto_pattern" => $this->canonicalSeoPublico($urlSitio, "/producto/{slug}"),
+        "categoria_pattern" => $this->canonicalSeoPublico($urlSitio, "/categoria/{path_slug}"),
+        "marca_pattern" => $this->canonicalSeoPublico($urlSitio, "/marca/{slug}")
       ),
       "json_ld" => array(
         "organization_type" => "PetStore",

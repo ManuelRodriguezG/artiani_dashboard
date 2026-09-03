@@ -43,6 +43,7 @@
                             </div>
                             <div class="d-flex gap-2">
                                 <a class="btn btn-light" href="/ecommercePublico/control"><i class="bi bi-sliders"></i> Control</a>
+                                <a class="btn btn-light" href="/ecommercePublico/seo_migracion"><i class="bi bi-signpost-split"></i> SEO</a>
                                 <a class="btn btn-light-primary" href="/ecommercePublico/cotizaciones"><i class="bi bi-chat-dots"></i> Cotizaciones</a>
                                 <button class="btn btn-primary" type="button" id="ecom_an_recargar"><i class="bi bi-arrow-clockwise"></i> Recargar</button>
                             </div>

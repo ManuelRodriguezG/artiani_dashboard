@@ -109,7 +109,13 @@
                                     <a class="nav-link" data-bs-toggle="tab" href="#contabilidad_tab_movimientos" role="tab">Clasificacion</a>
                                 </li>
                                 <li class="nav-item" role="presentation">
+                                    <a class="nav-link" data-bs-toggle="tab" href="#contabilidad_tab_cfdi" role="tab">CFDI</a>
+                                </li>
+                                <li class="nav-item" role="presentation">
                                     <a class="nav-link" data-bs-toggle="tab" href="#contabilidad_tab_conciliacion" role="tab">Conciliacion</a>
+                                </li>
+                                <li class="nav-item" role="presentation">
+                                    <a class="nav-link" data-bs-toggle="tab" href="#contabilidad_tab_reporte" role="tab">Reporte</a>
                                 </li>
                             </ul>
 
@@ -159,7 +165,11 @@
                                         </div>
                                         <div class="card-body pt-0">
                                             <div class="row g-4 align-items-end">
-                                                <div class="col-md-4">
+                                                <div class="col-md-2">
+                                                    <label class="form-label">Mes</label>
+                                                    <input class="form-control form-control-solid" id="contabilidad_estado_periodo" type="month">
+                                                </div>
+                                                <div class="col-md-3">
                                                     <label class="form-label">Banco / cuenta</label>
                                                     <input class="form-control form-control-solid" id="contabilidad_cuenta" list="contabilidad_cuentas_sugeridas" placeholder="Santander CTA2780">
                                                     <datalist id="contabilidad_cuentas_sugeridas">
@@ -171,13 +181,9 @@
                                                         <option value="Efectivo"></option>
                                                     </datalist>
                                                 </div>
-                                                <div class="col-md-4">
+                                                <div class="col-md-3">
                                                     <label class="form-label">Estado de cuenta</label>
                                                     <input class="form-control form-control-solid" id="contabilidad_banco_archivo" type="file" accept=".csv,.txt,.xlsx,.json">
-                                                </div>
-                                                <div class="col-md-3">
-                                                    <label class="form-label">CFDI XML</label>
-                                                    <input class="form-control form-control-solid" id="contabilidad_xml_archivos" type="file" accept=".xml" multiple>
                                                 </div>
                                                 <div class="col-md-1">
                                                     <button class="btn btn-light-primary w-100" id="contabilidad_demo" type="button" title="Demo"><i class="bi bi-stars"></i></button>
@@ -291,17 +297,68 @@
                                             </div>
                                         </div>
                                         <div class="col-xl-4">
-                                            <div class="card mb-6">
-                                                <div class="card-header border-0 pt-5">
-                                                    <div class="card-title"><h3 class="fw-bold fs-5 mb-0">CFDI cargados</h3></div>
-                                                </div>
-                                                <div class="card-body pt-0" id="contabilidad_cfdis"></div>
-                                            </div>
                                             <div class="card">
                                                 <div class="card-header border-0 pt-5">
                                                     <div class="card-title"><h3 class="fw-bold fs-5 mb-0">Pendientes del contador</h3></div>
                                                 </div>
                                                 <div class="card-body pt-0" id="contabilidad_pendientes"></div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="tab-pane fade" id="contabilidad_tab_cfdi" role="tabpanel">
+                                    <div class="card">
+                                        <div class="card-header border-0 pt-5">
+                                            <div class="card-title"><h3 class="fw-bold fs-5 mb-0">CFDI cargados</h3></div>
+                                            <div class="card-toolbar"><span class="badge badge-light" id="contabilidad_cfdi_total">0 CFDI</span></div>
+                                        </div>
+                                        <div class="card-body pt-0">
+                                            <div class="row g-4 align-items-end mb-6">
+                                                <div class="col-md-4">
+                                                    <label class="form-label">CFDI XML</label>
+                                                    <input class="form-control form-control-solid" id="contabilidad_xml_archivos" type="file" accept=".xml" multiple>
+                                                </div>
+                                                <div class="col-md-3">
+                                                    <label class="form-label">Cuenta si no hay banco</label>
+                                                    <select class="form-select form-select-solid" id="contabilidad_cfdi_cuenta_default">
+                                                        <option value="Efectivo">Efectivo</option>
+                                                        <option value="Tarjeta de credito">Tarjeta de credito</option>
+                                                        <option value="Tarjeta debito">Tarjeta debito</option>
+                                                        <option value="Transferencia">Transferencia</option>
+                                                    </select>
+                                                </div>
+                                                <div class="col-md-3">
+                                                    <label class="form-label">Clasificacion inicial</label>
+                                                    <select class="form-select form-select-solid" id="contabilidad_cfdi_categoria_default">
+                                                        <option value="gasto_operativo">Gasto operativo</option>
+                                                        <option value="compra_mercancia">Compra</option>
+                                                        <option value="servicio">Servicio</option>
+                                                        <option value="publicidad">Publicidad</option>
+                                                        <option value="software">Software</option>
+                                                    </select>
+                                                </div>
+                                                <div class="col-md-2">
+                                                    <button class="btn btn-light-primary w-100" id="contabilidad_cfdi_crear_movimientos" type="button"><i class="bi bi-plus-circle"></i> Crear sin banco</button>
+                                                </div>
+                                            </div>
+                                            <div class="table-responsive">
+                                                <table class="table table-row-dashed align-middle">
+                                                    <thead>
+                                                    <tr class="fw-bold text-muted">
+                                                        <th>Fecha</th>
+                                                        <th>Emisor / UUID</th>
+                                                        <th>Clasificacion</th>
+                                                        <th>Actividad</th>
+                                                        <th>Pago</th>
+                                                        <th>Cuenta</th>
+                                                        <th class="text-end">Total</th>
+                                                        <th>Relacion</th>
+                                                        <th class="text-end">Acciones</th>
+                                                    </tr>
+                                                    </thead>
+                                                    <tbody id="contabilidad_cfdis"></tbody>
+                                                </table>
                                             </div>
                                         </div>
                                     </div>
@@ -318,6 +375,21 @@
                                             </div>
                                         </div>
                                         <div class="card-body pt-0" id="contabilidad_conciliacion_cuentas"></div>
+                                    </div>
+                                </div>
+
+                                <div class="tab-pane fade" id="contabilidad_tab_reporte" role="tabpanel">
+                                    <div class="card">
+                                        <div class="card-header border-0 pt-5">
+                                            <div class="card-title"><h3 class="fw-bold fs-5 mb-0">Reporte para contador</h3></div>
+                                            <div class="card-toolbar d-flex gap-2">
+                                                <button class="btn btn-sm btn-light" id="contabilidad_reporte_generar" type="button"><i class="bi bi-arrow-clockwise"></i> Generar</button>
+                                                <button class="btn btn-sm btn-primary" id="contabilidad_reporte_copiar" type="button"><i class="bi bi-clipboard"></i> Copiar</button>
+                                            </div>
+                                        </div>
+                                        <div class="card-body pt-0">
+                                            <textarea class="form-control form-control-solid" id="contabilidad_reporte_texto" rows="16"></textarea>
+                                        </div>
                                     </div>
                                 </div>
                             </div>

@@ -389,6 +389,23 @@ Ruta estandar usada:
 C:\xampp\panel_db_backups\artianicom_sys_panel_de_control_20260827_antes_catalogos_comerciales_estilos_variantes.sql
 ```
 
+Ecommerce SEO/migracion URLs:
+
+```text
+C:\xampp\panel_db_backups\artianilocal_panel_20260903_antes_ecommerce_seo_migracion.sql
+```
+
+Validacion:
+
+```text
+archivo_existe=true
+archivo_legible=true
+tamano_bytes=38934285
+aplicacion=DDL SEO/migracion ecommerce
+token=ECOMMERCE_SEO_MIGRACION_DDL
+fecha=2026-09-03
+```
+
 Validacion:
 
 ```text

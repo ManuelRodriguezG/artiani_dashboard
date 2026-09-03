@@ -1178,22 +1178,22 @@
 
     /**
      * IA: Codex GPT-5 | Fecha: 2026-06-24
-     * Proposito: renderiza SKUs del producto ocultando archivados por defecto y permitiendo consultarlos.
-     * Impacto: Catalogo ERP; descontinuar un SKU no elimina historial ni contamina la operacion diaria.
+     * Proposito: renderiza SKUs del producto mostrando inactivos/descontinuados para permitir correccion operativa.
+     * Impacto: Catalogo ERP; solo oculta fusionados por defecto para no mezclar historicos de identidad con edicion diaria.
      */
     function renderSkus(skus) {
         var lista = document.getElementById("catalogo_detalle_skus_lista");
         var puedeEditar = !!document.getElementById("catalogo_form_sku");
         renderResumenObjetivosSku(skus);
         var base = skus.filter(function (sku) {
-            return mostrarSkusArchivados || !esEstatusArchivado(sku.estatus);
+            return mostrarSkusArchivados || String(sku.estatus || "") !== "fusionado";
         });
         var visibles = base.filter(function (sku) {
             return filtroObjetivoSku === "todos" || indicadoresCalidadSku(sku).some(function (indicador) {
                 return indicador.objetivo === filtroObjetivoSku;
             });
         });
-        lista.innerHTML = visibles.map(function (sku) {
+        var filas = visibles.map(function (sku) {
             var controles = [
                 String(sku.requiere_lote) === "1" ? "Lote" : "",
                 String(sku.requiere_caducidad) === "1" ? "Caducidad" : "",
@@ -1213,7 +1213,18 @@
                 "<td>" + calidad + "</td>" +
                 "<td><span class=\"badge badge-light-" + claseEstatusMaestro(sku.estatus) + "\">" + escapeHtml(sku.estatus) + "</span></td>" +
                 (puedeEditar ? "<td class=\"text-end\"><button type=\"button\" class=\"btn btn-sm btn-icon btn-light-primary\" title=\"Editar SKU\" data-editar-sku=\"" + escapeHtml(sku.id_sku) + "\"><i class=\"bi bi-pencil-square\"></i></button></td>" : "") + "</tr>";
-        }).join("") || "<tr><td colspan=\"" + (puedeEditar ? "8" : "7") + "\" class=\"text-center text-muted py-7\">" + (skus.length ? "Sin SKU con este filtro" : "Sin SKU registrados") + "</td></tr>";
+        }).join("");
+        if (!filas) {
+            var totalArchivados = skus.filter(function (sku) {
+                return String(sku.estatus || "") === "fusionado";
+            }).length;
+            var mensajeVacio = skus.length ? "Sin SKU con este filtro" : "Sin SKU registrados";
+            var accionArchivados = totalArchivados > 0 && !mostrarSkusArchivados
+                ? "<div class=\"mt-3\"><button type=\"button\" class=\"btn btn-sm btn-light-secondary\" data-toggle-skus-archivados=\"1\"><i class=\"bi bi-archive\"></i> Ver SKUs fusionados (" + escapeHtml(totalArchivados) + ")</button></div><div class=\"text-muted fs-7 mt-2\">Los SKUs inactivos o descontinuados se muestran para poder revisarlos sin filtros ocultos.</div>"
+                : "";
+            filas = "<tr><td colspan=\"" + (puedeEditar ? "8" : "7") + "\" class=\"text-center text-muted py-7\">" + escapeHtml(mensajeVacio) + accionArchivados + "</td></tr>";
+        }
+        lista.innerHTML = filas;
     }
 
     /**
@@ -1227,10 +1238,10 @@
             return;
         }
         var base = skus.filter(function (sku) {
-            return mostrarSkusArchivados || !esEstatusArchivado(sku.estatus);
+            return mostrarSkusArchivados || String(sku.estatus || "") !== "fusionado";
         });
         var archivados = skus.filter(function (sku) {
-            return esEstatusArchivado(sku.estatus);
+            return String(sku.estatus || "") === "fusionado";
         }).length;
         var objetivos = [
             {id: "todos", texto: "Todos", color: "primary"},
@@ -1261,7 +1272,7 @@
             return "<button type=\"button\" class=\"btn btn-sm " + clase + "\" data-filtro-objetivo-sku=\"" + escapeAttr(item.id) + "\">" +
                 escapeHtml(item.texto) + " <span class=\"badge badge-light ms-1\">" + escapeHtml(conteos[item.id] || 0) + "</span></button>";
         }).join("") + "<button type=\"button\" class=\"btn btn-sm " + (mostrarSkusArchivados ? "btn-secondary" : "btn-light-secondary") + "\" data-toggle-skus-archivados=\"1\">" +
-            escapeHtml(mostrarSkusArchivados ? "Ocultar archivados" : "Ver archivados") + " <span class=\"badge badge-light ms-1\">" + escapeHtml(archivados) + "</span></button>";
+            escapeHtml(mostrarSkusArchivados ? "Ocultar fusionados" : "Ver fusionados") + " <span class=\"badge badge-light ms-1\">" + escapeHtml(archivados) + "</span></button>";
     }
 
     function renderIndicadoresCalidadSku(sku) {

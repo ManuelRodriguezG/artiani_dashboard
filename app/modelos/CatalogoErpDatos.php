@@ -3214,18 +3214,15 @@ class CatalogoErpDatos extends CRUD {
     return $fila ? $fila : null;
   }
 
+  /**
+   * IA: Codex GPT-5 | Fecha: 2026-09-02
+   * Proposito: definir una descripcion comercial inicial para productos temporales creados desde Proveedores.
+   * Impacto: Catalogo ERP; evita guardar trazas operativas de incidencias, proveedor o lista dentro de la descripcion publica.
+   * Contrato: devuelve solo texto visible de producto; la evidencia operativa queda en incidencias/eventos, no en `descripcion`.
+   */
   private function descripcionTemporalCatalogo($incidencia, $detalle, $renglon) {
-    $partes = array(
-      "SKU temporal creado desde Proveedores.",
-      "Incidencia: " . intval(isset($incidencia["id_incidencia_calidad"]) ? $incidencia["id_incidencia_calidad"] : 0),
-      "Proveedor: " . intval(isset($detalle["id_proveedor"]) ? $detalle["id_proveedor"] : 0),
-      "Lista: " . intval(isset($detalle["id_lista_proveedor_erp"]) ? $detalle["id_lista_proveedor_erp"] : 0)
-    );
     $descripcion = $this->textoArrayCatalogo($renglon, "descripcion_proveedor", "");
-    if ($descripcion !== "") {
-      $partes[] = "Descripcion proveedor: " . $descripcion;
-    }
-    return implode("\n", $partes);
+    return $descripcion;
   }
 
   private function resumenIncidenciasCalidad($db) {

@@ -4549,3 +4549,73 @@ Pendiente recomendado:
 - Correccion: el modal de producto agrega el boton `Quitar` junto a `Categoria principal`; limpia el select y el cambio queda aplicado al presionar `Guardar datos maestros`.
 - Riesgo operativo controlado: el producto sin categoria principal puede seguir apareciendo como pendiente de calidad/clasificacion hasta que se le asigne una categoria operativa definitiva.
 - UAT recomendado: abrir un producto con categoria principal, presionar `Quitar`, guardar datos maestros, cerrar y reabrir el modal; confirmar que queda `Sin categoria` y que las categorias secundarias no se eliminan.
+
+## Avance 2026-09-02 - Limpieza de descripciones para ecommerce
+
+- Proyecto aplicado: `C:\xampp\htdocs\panel_de_control`.
+- Hallazgo: la limpieza general de descripciones habia quedado como plan, no como proceso ejecutado. La extraccion previa de atributos tecnicos no limpiaba el campo `erp_catalogo_productos.descripcion`.
+- Auditoria read-only creada: `storage/uat/uat_catalogo_descripciones_limpieza_readonly.php`.
+- Resultado read-only 2026-09-02: 1581 productos revisados; 1505 con HTML incrustado; 202 con entidades HTML; 1521 con limpieza sugerida; 5 sin descripcion; 55 sin cambios; 0 con posible codificacion danada.
+- Criterio: Catalogo puede limpiar HTML/entidades para dejar texto plano apto para ecommerce, pero no debe corregir ortografia ni reescribir contenido comercial automaticamente en esta fase.
+- Aplicador preparado, no ejecutado: `storage/uat/uat_catalogo_descripciones_limpieza_apply.php`.
+- Candados del aplicador: requiere respaldo externo existente fuera del proyecto, token `CATALOGO_DESCRIPCIONES_HTML_LIMPIAR` y confirmacion `APLICAR_DESCRIPCIONES_LIMPIAS`.
+- Alcance del aplicador: actualiza solo `erp_catalogo_productos.descripcion`; omite productos con posible codificacion danada; no toca SKUs, atributos, categorias, imagenes, costos, precios ni ecommerce.
+- Comando pendiente cuando se autorice:
+  `C:\xampp\php\php.exe storage\uat\uat_catalogo_descripciones_limpieza_apply.php --autorizar=CATALOGO_DESCRIPCIONES_HTML_LIMPIAR --respaldo=RUTA_RESPALDO_EXTERNO --confirmacion=APLICAR_DESCRIPCIONES_LIMPIAS`
+
+Aplicacion autorizada 2026-09-02:
+
+- Token recibido: `CATALOGO_DESCRIPCIONES_HTML_LIMPIAR`.
+- Confirmacion recibida: `APLICAR_DESCRIPCIONES_LIMPIAS`.
+- La ruta enviada inicialmente era placeholder, por lo que se genero respaldo externo real en `C:\xampp\panel_db_backups\artianicom_sys_panel_de_control_20260902_231112_antes_catalogo_descripciones_limpieza.sql`.
+- Script de respaldo creado: `storage/uat/uat_catalogo_descripciones_respaldo_externo.php`.
+- Resultado apply: 1521 productos actualizados; 0 omitidos por codificacion; 62 sin cambios.
+- Validacion posterior: 1584 productos revisados; 0 con HTML incrustado; 0 con entidades HTML; 0 con posible codificacion danada; 0 con limpieza sugerida; 5 sin descripcion.
+- Nota: la limpieza conservo el contenido textual; solo retiro marcas HTML, entidades y espacios tecnicos. No corrigio ortografia ni reescribio contenido comercial.
+
+## Avance 2026-09-02 - Textos operativos fuera de descripcion comercial
+
+- Proyecto aplicado: `C:\xampp\htdocs\panel_de_control`.
+- Hallazgo: productos creados desde incidencias/listas de proveedor estaban guardando trazas operativas en `erp_catalogo_productos.descripcion`, por ejemplo `SKU temporal creado desde Proveedores`, `Incidencia`, `Proveedor`, `Lista` y `Descripcion proveedor`.
+- Causa corregida: `CatalogoErpDatos::descripcionTemporalCatalogo()` ya no arma descripciones con datos internos; ahora devuelve solo el texto visible del proveedor cuando exista. La evidencia operativa debe vivir en incidencias/eventos, no en descripcion comercial.
+- Auditoria read-only creada: `storage/uat/uat_catalogo_descripciones_operativas_readonly.php`.
+- Resultado read-only 2026-09-02: 1581 productos con descripcion revisados; 62 candidatos; 302 lineas operativas detectadas; 60 productos quedarian sin descripcion porque su contenido actual es solo operativo.
+- Aplicador preparado, no ejecutado: `storage/uat/uat_catalogo_descripciones_operativas_apply.php`.
+- Candados del aplicador: requiere respaldo externo existente, token `CATALOGO_DESCRIPCIONES_OPERATIVAS_LIMPIAR` y confirmacion `QUITAR_TEXTO_OPERATIVO_DESCRIPCIONES`.
+- Criterio: quitar texto operativo no significa eliminar producto ni borrar datos de proveedor/lista reales; solo limpiar la descripcion comercial. Los productos que queden sin descripcion deben pasar a captura comercial posterior.
+
+Aplicacion autorizada 2026-09-02:
+
+- Token recibido: `CATALOGO_DESCRIPCIONES_OPERATIVAS_LIMPIAR`.
+- Confirmacion recibida: `QUITAR_TEXTO_OPERATIVO_DESCRIPCIONES`.
+- Respaldo externo generado antes de aplicar: `C:\xampp\panel_db_backups\artianicom_sys_panel_de_control_20260902_233528_antes_catalogo_descripciones_limpieza.sql`.
+- Resultado apply: 62 productos actualizados; 302 lineas operativas removidas; 60 productos quedaron sin descripcion porque su contenido era solo operativo.
+- Validacion posterior de texto operativo: 1521 productos con descripcion revisados; 0 candidatos; 0 lineas operativas detectadas.
+- Validacion posterior de limpieza tecnica: 1586 productos revisados; 0 HTML incrustado; 0 entidades HTML; 0 posible codificacion danada; 0 limpieza sugerida; 65 productos sin descripcion.
+- Pendiente operativo: capturar descripcion comercial real para los 65 productos sin descripcion antes de publicar en ecommerce.
+
+## Avance 2026-09-02 - Diagnostico SKU SPH-600 oculto por estatus
+
+- Proyecto aplicado: `C:\xampp\htdocs\panel_de_control`.
+- Caso: al abrir el producto `ECOM-1034 / Cabeza de poder 600`, el operador reporto que el SKU `SPH-600` parecia no existir despues de reactivar el producto.
+- Hallazgo read-only: el producto padre esta `activo`, pero el SKU `SPH-600` sigue con estatus `inactivo`. Como es el unico SKU del producto, la vista normal queda sin SKUs visibles.
+- Evidencia: `SPH-600` existe como `id_sku=795`, pertenece a `id_producto_erp=699`, tiene proveedor activo, codigo de barras activo e imagen de portada activa.
+- Decision: no se debe reactivar automaticamente todos los SKUs al reactivar un producto maestro, porque un producto puede tener SKUs descontinuados que no deben volver a operacion por accidente.
+- Correccion UX: en el modal de producto, cuando no hay SKUs visibles pero si hay SKUs archivados, la tabla muestra una accion directa `Ver SKUs archivados` y una nota para revisar el estatus del SKU.
+- UAT recomendado: abrir `SPH-600`, presionar `Ver SKUs archivados`, editar el SKU y cambiar su estatus a `activo` si realmente vuelve a operacion.
+
+Actualizacion 2026-09-03:
+
+- Decision ajustada: dentro del modal de producto, los SKUs `inactivo` y `descontinuado` deben mostrarse por defecto para permitir correccion y reactivacion sin filtros ocultos. Solo `fusionado` permanece oculto por defecto porque representa historial de identidad.
+- Correccion UX: el boton de la tabla ahora se refiere a `Ver fusionados`, no a todos los archivados.
+- Impacto controlado: los selectores operativos de proveedores, presentaciones, aperturas, paquetes y reclasificaciones siguen excluyendo SKUs inactivos/descontinuados/fusionados; el cambio aplica solo a la tabla interna de SKUs del producto.
+
+## Avance 2026-09-03 - SP-3641 no aparecia en Sugeridos de compra
+
+- Proyecto aplicado: `C:\xampp\htdocs\panel_de_control`.
+- Caso: `SP-3641` estaba activo y con proveedor relacionado, pero no aparecia en `Compras > Sugerido de compra`.
+- Hallazgo read-only: `SP-3641` existe como `id_sku=25`, producto `id_producto_erp=12`, estatus SKU `activo`, producto `activo`. Tiene relacion activa con proveedor `1` como `JHA-05` y con proveedor `9` como `SP-3641`.
+- Causa: `ComprasSugeridosCompraErp::productosProveedor()` exigia que la linea de lista vinculada tuviera texto de codigo identico a `erp_catalogo_sku_proveedores.sku_proveedor`. Para proveedor `1`, la relacion activa dice `JHA-05`, pero la lista vinculada por IDs conserva `SP-3641`; por eso Sugeridos lo ocultaba aunque la relacion era valida.
+- Correccion: Sugeridos sigue exigiendo proveedor activo, SKU activo, producto activo y lista vinculada por `id_sku_proveedor/id_sku`, pero ya no bloquea por diferencia textual entre codigo historico de lista y SKU proveedor actual.
+- Validacion: despues del ajuste, `SP-3641` aparece en Sugeridos para proveedor `1` buscando `SP-3641` o `JHA-05`; tambien aparece para proveedor `9` buscando `SP-3641`.
+- Herramienta UAT read-only creada: `storage/uat/uat_compras_sku_proveedor_busqueda_readonly.php`.

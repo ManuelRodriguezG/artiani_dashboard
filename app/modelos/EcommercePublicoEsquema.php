@@ -832,6 +832,132 @@ class EcommercePublicoEsquema extends DBSchema {
     );
   }
 
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-03
+   * Proposito: generar plan DDL para SEO, sitemap y migracion de URLs viejas sin ejecutarlo.
+   * Impacto: Ecommerce SEO; prepara configuracion, URLs canonicas, redirecciones 301, URLs importadas y errores 404.
+   * Contrato: con $ejecutar=false solo devuelve SQL propuesto; no crea tablas ni modifica datos.
+   */
+  public function planActualizarSeoMigracion($ejecutar = false) {
+    $opciones = "ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci";
+    $plan = array();
+
+    $plan[] = $this->crearTablaSiNoExiste("erp_ecommerce_seo_configuracion", array(
+      "`id_configuracion` BIGINT NOT NULL AUTO_INCREMENT",
+      "`dominio_produccion` VARCHAR(255) NOT NULL DEFAULT 'https://artiani.com.mx'",
+      "`robots_default` TEXT NULL",
+      "`sitemap_activo` TINYINT(1) NOT NULL DEFAULT 1",
+      "`redirecciones_activas` TINYINT(1) NOT NULL DEFAULT 1",
+      "`noindex_produccion` TINYINT(1) NOT NULL DEFAULT 0",
+      "`fecha_actualizacion` DATETIME NULL",
+      "`actualizado_por` INT NULL",
+      "PRIMARY KEY (`id_configuracion`)"
+    ), $opciones, $ejecutar);
+
+    $plan[] = $this->crearTablaSiNoExiste("erp_ecommerce_seo_urls", array(
+      "`id_url` BIGINT NOT NULL AUTO_INCREMENT",
+      "`tipo` VARCHAR(40) NOT NULL",
+      "`entidad_id` BIGINT NULL",
+      "`path` VARCHAR(500) NOT NULL",
+      "`url` VARCHAR(600) NOT NULL",
+      "`canonical` VARCHAR(600) NOT NULL",
+      "`title` VARCHAR(255) NULL",
+      "`description` TEXT NULL",
+      "`indexable` TINYINT(1) NOT NULL DEFAULT 1",
+      "`activo` TINYINT(1) NOT NULL DEFAULT 1",
+      "`fecha_actualizacion` DATETIME NULL",
+      "PRIMARY KEY (`id_url`)",
+      "UNIQUE KEY `idx_ecom_seo_url_path` (`path`)",
+      "KEY `idx_ecom_seo_url_tipo` (`tipo`, `activo`, `indexable`)",
+      "KEY `idx_ecom_seo_url_entidad` (`tipo`, `entidad_id`)"
+    ), $opciones, $ejecutar);
+
+    $plan[] = $this->crearTablaSiNoExiste("erp_ecommerce_seo_redirecciones", array(
+      "`id_redireccion` BIGINT NOT NULL AUTO_INCREMENT",
+      "`url_origen` VARCHAR(500) NOT NULL",
+      "`url_destino` VARCHAR(500) NOT NULL",
+      "`status_code` SMALLINT NOT NULL DEFAULT 301",
+      "`tipo` VARCHAR(40) NOT NULL DEFAULT 'manual'",
+      "`motivo` VARCHAR(255) NULL",
+      "`activo` TINYINT(1) NOT NULL DEFAULT 1",
+      "`revisado` TINYINT(1) NOT NULL DEFAULT 0",
+      "`fecha_registro` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
+      "`fecha_actualizacion` DATETIME NULL",
+      "`actualizado_por` INT NULL",
+      "PRIMARY KEY (`id_redireccion`)",
+      "UNIQUE KEY `idx_ecom_seo_redir_origen` (`url_origen`)",
+      "KEY `idx_ecom_seo_redir_estado` (`activo`, `revisado`, `status_code`)",
+      "KEY `idx_ecom_seo_redir_tipo` (`tipo`, `activo`)"
+    ), $opciones, $ejecutar);
+
+    $plan[] = $this->crearTablaSiNoExiste("erp_ecommerce_seo_urls_viejas", array(
+      "`id_url_vieja` BIGINT NOT NULL AUTO_INCREMENT",
+      "`url_original` VARCHAR(700) NOT NULL",
+      "`path_original` VARCHAR(500) NOT NULL",
+      "`tipo_detectado` VARCHAR(40) NULL",
+      "`titulo_detectado` VARCHAR(255) NULL",
+      "`origen` VARCHAR(80) NOT NULL DEFAULT 'importacion'",
+      "`estatus_mapeo` VARCHAR(40) NOT NULL DEFAULT 'pendiente'",
+      "`url_destino_sugerida` VARCHAR(500) NULL",
+      "`fecha_registro` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
+      "PRIMARY KEY (`id_url_vieja`)",
+      "UNIQUE KEY `idx_ecom_seo_url_vieja_path` (`path_original`)",
+      "KEY `idx_ecom_seo_url_vieja_estado` (`estatus_mapeo`, `tipo_detectado`)"
+    ), $opciones, $ejecutar);
+
+    $plan[] = $this->crearTablaSiNoExiste("erp_ecommerce_seo_errores_404", array(
+      "`id_error` BIGINT NOT NULL AUTO_INCREMENT",
+      "`path` VARCHAR(500) NOT NULL",
+      "`referrer` VARCHAR(500) NULL",
+      "`user_agent` VARCHAR(255) NULL",
+      "`contador` INT NOT NULL DEFAULT 1",
+      "`ultima_fecha` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
+      "`redireccion_sugerida` VARCHAR(500) NULL",
+      "`atendido` TINYINT(1) NOT NULL DEFAULT 0",
+      "PRIMARY KEY (`id_error`)",
+      "UNIQUE KEY `idx_ecom_seo_404_path` (`path`)",
+      "KEY `idx_ecom_seo_404_estado` (`atendido`, `ultima_fecha`)"
+    ), $opciones, $ejecutar);
+
+    return $this->respuestaPlan($plan, $ejecutar);
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-03
+   * Proposito: auditar existencia de tablas SEO/migracion sin ejecutar DDL.
+   * Impacto: Ecommerce SEO; muestra faltantes para preparar redirecciones y monitoreo 404.
+   * Contrato: solo lectura.
+   */
+  public function auditarSeoMigracion() {
+    $tablas = $this->tablasSeoMigracion();
+    $auditoria = array();
+    $faltantes = 0;
+    foreach ($tablas as $tabla) {
+      $existe = $this->tablaExiste($tabla);
+      $auditoria[$tabla] = array(
+        "existe" => $existe,
+        "impacto" => $existe ? "Disponible para SEO/migracion ecommerce." : "Pendiente para configuracion SEO, redirecciones o reporte 404."
+      );
+      if (!$existe) {
+        $faltantes++;
+      }
+    }
+
+    return array(
+      "error" => false,
+      "tipo" => $faltantes > 0 ? "warning" : "success",
+      "mensaje" => $faltantes > 0 ? "Esquema SEO ecommerce pendiente" : "Esquema SEO ecommerce disponible",
+      "depurar" => array(
+        "read_only" => true,
+        "tablas_total" => count($tablas),
+        "tablas_faltantes" => $faltantes,
+        "auditoria" => $auditoria,
+        "no_ejecuta_redirecciones" => true,
+        "frontend_aplica_301" => true
+      )
+    );
+  }
+
   private function tablasEcommercePublico() {
     return array(
       "erp_ecommerce_publicaciones",
@@ -859,6 +985,16 @@ class EcommercePublicoEsquema extends DBSchema {
       "erp_ecommerce_eventos_navegacion",
       "erp_ecommerce_busquedas",
       "erp_ecommerce_taxonomia_mascotas"
+    );
+  }
+
+  private function tablasSeoMigracion() {
+    return array(
+      "erp_ecommerce_seo_configuracion",
+      "erp_ecommerce_seo_urls",
+      "erp_ecommerce_seo_redirecciones",
+      "erp_ecommerce_seo_urls_viejas",
+      "erp_ecommerce_seo_errores_404"
     );
   }
 

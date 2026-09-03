@@ -157,6 +157,6 @@
 <script>
     window.ERP_CSRF_TOKEN = "<?= htmlspecialchars(SesionSeguridad::csrfToken(), ENT_QUOTES, 'UTF-8') ?>";
 </script>
-<script src="/assets/js/custom/apps/erp/cms/frontend_actual.js?v=20260901-whatsapp-contactos1"></script>
+<script src="/assets/js/custom/apps/erp/cms/frontend_actual.js?v=20260902-global-publicar1"></script>
 </body>
 </html>

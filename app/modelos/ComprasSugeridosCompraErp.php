@@ -149,6 +149,8 @@ class ComprasSugeridosCompraErp extends CRUD {
      * Regla: Sugerido parte de codigos exactos de la lista del proveedor; no expande variantes internas ERP.
      * Actualizacion IA: Codex GPT-5 | Fecha: 2026-08-27
      * Regla: permite buscar/escanear codigos alternos del SKU ERP solo cuando ya existe relacion activa con el proveedor seleccionado.
+     * Actualizacion IA: Codex GPT-5 | Fecha: 2026-09-03
+     * Regla: si la lista ya esta vinculada por id_sku_proveedor/id_sku, no exige que el texto de codigo coincida con sp.sku_proveedor.
      */
     public function productosProveedor($filtros = array()) {
         try {
@@ -173,11 +175,6 @@ class ComprasSugeridosCompraErp extends CRUD {
                     WHERE l_base.id_proveedor=sp.id_proveedor
                       AND ld_base.id_sku_proveedor=sp.id_sku_proveedor
                       AND ld_base.id_sku=sp.id_sku
-                      AND (
-                        LOWER(TRIM(ld_base.sku_proveedor))=LOWER(TRIM(sp.sku_proveedor))
-                        OR LOWER(TRIM(ld_base.codigo_interno))=LOWER(TRIM(sp.sku_proveedor))
-                        OR LOWER(TRIM(ld_base.codigo_barras))=LOWER(TRIM(sp.sku_proveedor))
-                      )
                 )"
             );
             $params = array(":proveedor" => $idProveedor);
@@ -188,11 +185,6 @@ class ComprasSugeridosCompraErp extends CRUD {
                     WHERE lq.id_proveedor=sp.id_proveedor
                       AND ldq.id_sku_proveedor=sp.id_sku_proveedor
                       AND ldq.id_sku=sp.id_sku
-                      AND (
-                        LOWER(TRIM(ldq.sku_proveedor))=LOWER(TRIM(sp.sku_proveedor))
-                        OR LOWER(TRIM(ldq.codigo_interno))=LOWER(TRIM(sp.sku_proveedor))
-                        OR LOWER(TRIM(ldq.codigo_barras))=LOWER(TRIM(sp.sku_proveedor))
-                      )
                       AND (ldq.descripcion_proveedor LIKE :q OR ldq.sku_proveedor LIKE :q OR ldq.codigo_barras LIKE :q OR ldq.codigo_interno LIKE :q OR ldq.marca_proveedor LIKE :q)
                 ) OR EXISTS (
                     SELECT 1 FROM erp_catalogo_sku_codigos codq

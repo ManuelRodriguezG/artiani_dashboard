@@ -1871,6 +1871,12 @@
         usarImagenCategoriaCmsItem(parseInt(button.getAttribute("data-index") || "0", 10), button.getAttribute("data-field") || "imagen_card", button.getAttribute("data-section") || "categorias_items");
       });
     });
+    Array.prototype.forEach.call(document.querySelectorAll("[data-cms-categorias-borrador]"), function (button) {
+      button.addEventListener("click", guardarBorradorCategoriasCms);
+    });
+    Array.prototype.forEach.call(document.querySelectorAll("[data-cms-categorias-publicar]"), function (button) {
+      button.addEventListener("click", publicarCategoriasFrontend);
+    });
     on("cms_actual_categorias_borrador", "click", guardarBorradorCategoriasCms);
     on("cms_actual_categorias_api", "click", consultarApiCategoriasFrontend);
     on("cms_actual_categoria_agregar", "click", agregarCategoriaCmsItem);
@@ -1961,7 +1967,7 @@
   function renderCategoriasBannersCmsItems(data) {
     var items = data.items || [];
     return '<div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">' +
-      '<div class="fw-bold">Banners por categoria</div><div class="d-flex gap-2"><button class="btn btn-sm btn-light-info" type="button" id="cms_actual_categorias_api"><i class="bi bi-broadcast"></i> Ver API categoria</button><button class="btn btn-sm btn-light-primary" type="button" id="cms_actual_categoria_banner_agregar"><i class="bi bi-plus-circle"></i> Agregar banner</button></div>' +
+      '<div class="fw-bold">Banners por categoria</div><div class="d-flex flex-wrap gap-2"><button class="btn btn-sm btn-light-primary" type="button" data-cms-categorias-borrador="1"><i class="bi bi-save"></i> Guardar borrador</button><button class="btn btn-sm btn-primary" type="button" data-cms-categorias-publicar="1"><i class="bi bi-cloud-check"></i> Guardar y publicar banners</button><button class="btn btn-sm btn-light-info" type="button" id="cms_actual_categorias_api"><i class="bi bi-broadcast"></i> Ver API categoria</button><button class="btn btn-sm btn-light-primary" type="button" id="cms_actual_categoria_banner_agregar"><i class="bi bi-plus-circle"></i> Agregar banner</button></div>' +
     '</div>' +
     '<div class="alert alert-light-secondary fs-7 py-3 mb-4 d-none" id="cms_actual_categorias_api_estado"></div>' +
     items.map(function (item, index) { return renderCategoriaBannerCmsCard(item, index); }).join("") +
@@ -5644,8 +5650,8 @@
     var json = previewGlobalJson();
     var negocio = json.depurar && json.depurar.negocio ? json.depurar.negocio : {};
     if (!String(negocio.nombre_comercial || "").trim()) {
-      setGlobalEstado("Captura el nombre comercial antes de publicar.", "warning");
-      return;
+      negocio.nombre_comercial = "Artiani";
+      if (json.depurar) json.depurar.negocio = negocio;
     }
     guardarBorradorFrontendLocal(true);
     var boton = $("cms_actual_global_publicar");
