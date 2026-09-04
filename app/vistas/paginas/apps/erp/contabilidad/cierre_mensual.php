@@ -70,8 +70,10 @@
                                             <label class="form-label">Categoria</label>
                                             <select class="form-select form-select-solid" id="contabilidad_categoria">
                                                 <option value="">Todas</option>
+                                                <option value="no_aplica">No aplica</option>
                                                 <option value="compra_mercancia">Compras</option>
                                                 <option value="gasto_operativo">Gasto operativo</option>
+                                                <option value="comision_plataforma">Comision plataforma</option>
                                                 <option value="servicio">Servicio</option>
                                                 <option value="publicidad">Publicidad</option>
                                                 <option value="software">Software</option>
@@ -189,6 +191,42 @@
                                                     <button class="btn btn-light-primary w-100" id="contabilidad_demo" type="button" title="Demo"><i class="bi bi-stars"></i></button>
                                                 </div>
                                             </div>
+                                            <div class="separator my-6"></div>
+                                            <div class="row g-4 align-items-end">
+                                                <div class="col-md-2">
+                                                    <label class="form-label">Fecha</label>
+                                                    <input class="form-control form-control-solid" id="manual_fecha" type="date">
+                                                </div>
+                                                <div class="col-md-3">
+                                                    <label class="form-label">Concepto manual</label>
+                                                    <input class="form-control form-control-solid" id="manual_concepto" placeholder="Compra tarjeta credito">
+                                                </div>
+                                                <div class="col-md-2">
+                                                    <label class="form-label">Movimiento</label>
+                                                    <select class="form-select form-select-solid" id="manual_movimiento">
+                                                        <option value="egreso">Egreso</option>
+                                                        <option value="ingreso">Ingreso</option>
+                                                    </select>
+                                                </div>
+                                                <div class="col-md-2">
+                                                    <label class="form-label">Actividad</label>
+                                                    <select class="form-select form-select-solid" id="manual_actividad">
+                                                        <option value="negocio">Negocio</option>
+                                                        <option value="programacion">Programacion</option>
+                                                        <option value="personal">Personal</option>
+                                                        <option value="publicidad">Publicidad</option>
+                                                        <option value="inversion">Inversion</option>
+                                                        <option value="transpaso">Transpaso</option>
+                                                    </select>
+                                                </div>
+                                                <div class="col-md-2">
+                                                    <label class="form-label">Monto</label>
+                                                    <input class="form-control form-control-solid" id="manual_monto" type="number" step="0.01" placeholder="0.00">
+                                                </div>
+                                                <div class="col-md-1">
+                                                    <button class="btn btn-light-success w-100" id="manual_agregar" type="button" title="Agregar movimiento manual"><i class="bi bi-plus-lg"></i></button>
+                                                </div>
+                                            </div>
                                         </div>
                                     </div>
 
@@ -243,8 +281,10 @@
                                                                 <label class="form-label fs-8">Categoria</label>
                                                                 <select class="form-select form-select-sm" id="masivo_categoria">
                                                                     <option value="">Sin cambio</option>
+                                                                    <option value="no_aplica">No aplica</option>
                                                                     <option value="compra_mercancia">Compras</option>
                                                                     <option value="gasto_operativo">Gasto operativo</option>
+                                                                    <option value="comision_plataforma">Comision plataforma</option>
                                                                     <option value="servicio">Servicio</option>
                                                                     <option value="publicidad">Publicidad</option>
                                                                     <option value="software">Software</option>
@@ -315,39 +355,101 @@
                                         </div>
                                         <div class="card-body pt-0">
                                             <div class="row g-4 align-items-end mb-6">
-                                                <div class="col-md-4">
+                                                <div class="col-md-2">
+                                                    <label class="form-label">Mes CFDI</label>
+                                                    <input class="form-control form-control-solid" id="contabilidad_cfdi_periodo" type="month">
+                                                </div>
+                                                <div class="col-md-3">
                                                     <label class="form-label">CFDI XML</label>
                                                     <input class="form-control form-control-solid" id="contabilidad_xml_archivos" type="file" accept=".xml" multiple>
+                                                </div>
+                                                <div class="col-md-2">
+                                                    <label class="form-label">Tratamiento</label>
+                                                    <select class="form-select form-select-solid" id="contabilidad_cfdi_tratamiento_default">
+                                                        <option value="conciliar_banco">Conciliar con banco</option>
+                                                        <option value="crear_auxiliar">Crear gasto desde CFDI</option>
+                                                    </select>
                                                 </div>
                                                 <div class="col-md-3">
                                                     <label class="form-label">Cuenta si no hay banco</label>
                                                     <select class="form-select form-select-solid" id="contabilidad_cfdi_cuenta_default">
-                                                        <option value="Efectivo">Efectivo</option>
-                                                        <option value="Tarjeta de credito">Tarjeta de credito</option>
-                                                        <option value="Tarjeta debito">Tarjeta debito</option>
-                                                        <option value="Transferencia">Transferencia</option>
                                                     </select>
                                                 </div>
-                                                <div class="col-md-3">
+                                                <div class="col-md-2">
                                                     <label class="form-label">Clasificacion inicial</label>
                                                     <select class="form-select form-select-solid" id="contabilidad_cfdi_categoria_default">
                                                         <option value="gasto_operativo">Gasto operativo</option>
                                                         <option value="compra_mercancia">Compra</option>
+                                                        <option value="comision_plataforma">Comision plataforma</option>
+                                                        <option value="no_aplica">No aplica</option>
                                                         <option value="servicio">Servicio</option>
                                                         <option value="publicidad">Publicidad</option>
                                                         <option value="software">Software</option>
                                                     </select>
                                                 </div>
                                                 <div class="col-md-2">
-                                                    <button class="btn btn-light-primary w-100" id="contabilidad_cfdi_crear_movimientos" type="button"><i class="bi bi-plus-circle"></i> Crear sin banco</button>
+                                                    <button class="btn btn-light-primary w-100" id="contabilidad_cfdi_crear_movimientos" type="button"><i class="bi bi-plus-circle"></i> Crear gastos</button>
+                                                </div>
+                                            </div>
+                                            <div class="border rounded p-4 mb-5">
+                                                <div class="d-flex flex-wrap align-items-end gap-3">
+                                                    <div>
+                                                        <label class="form-label fs-8">Seleccionados</label>
+                                                        <div><span class="badge badge-light-primary" id="contabilidad_cfdi_masivo_total">0 CFDI</span></div>
+                                                    </div>
+                                                    <div class="min-w-150px">
+                                                        <label class="form-label fs-8">Tratamiento</label>
+                                                        <select class="form-select form-select-sm" id="cfdi_masivo_tratamiento">
+                                                            <option value="">Sin cambio</option>
+                                                            <option value="conciliar_banco">Conciliar con banco</option>
+                                                            <option value="crear_auxiliar">Crear gasto desde CFDI</option>
+                                                        </select>
+                                                    </div>
+                                                    <div class="min-w-175px">
+                                                        <label class="form-label fs-8">Clasificacion</label>
+                                                        <select class="form-select form-select-sm" id="cfdi_masivo_categoria">
+                                                            <option value="">Sin cambio</option>
+                                                            <option value="gasto_operativo">Gasto operativo</option>
+                                                            <option value="compra_mercancia">Compra</option>
+                                                            <option value="comision_plataforma">Comision plataforma</option>
+                                                            <option value="servicio">Servicio</option>
+                                                            <option value="publicidad">Publicidad</option>
+                                                            <option value="software">Software</option>
+                                                        </select>
+                                                    </div>
+                                                    <div class="min-w-150px">
+                                                        <label class="form-label fs-8">Actividad</label>
+                                                        <select class="form-select form-select-sm" id="cfdi_masivo_actividad">
+                                                            <option value="">Sin cambio</option>
+                                                            <option value="negocio">Negocio</option>
+                                                            <option value="programacion">Programacion</option>
+                                                            <option value="personal">Personal</option>
+                                                            <option value="publicidad">Publicidad</option>
+                                                            <option value="inversion">Inversion</option>
+                                                        </select>
+                                                    </div>
+                                                    <div class="min-w-150px">
+                                                        <label class="form-label fs-8">Pago</label>
+                                                        <select class="form-select form-select-sm" id="cfdi_masivo_forma_pago"></select>
+                                                    </div>
+                                                    <div class="min-w-175px">
+                                                        <label class="form-label fs-8">Cuenta</label>
+                                                        <select class="form-select form-select-sm" id="cfdi_masivo_cuenta"></select>
+                                                    </div>
+                                                    <div class="ms-auto d-flex gap-2">
+                                                        <button class="btn btn-sm btn-light" id="cfdi_masivo_limpiar" type="button"><i class="bi bi-x-circle"></i> Limpiar</button>
+                                                        <button class="btn btn-sm btn-light-success" id="cfdi_masivo_crear_aux" type="button"><i class="bi bi-plus-circle"></i> Crear auxiliares</button>
+                                                        <button class="btn btn-sm btn-primary" id="cfdi_masivo_aplicar" type="button"><i class="bi bi-check2-square"></i> Aplicar</button>
+                                                    </div>
                                                 </div>
                                             </div>
                                             <div class="table-responsive">
                                                 <table class="table table-row-dashed align-middle">
                                                     <thead>
                                                     <tr class="fw-bold text-muted">
+                                                        <th class="w-25px"><input class="form-check-input" id="cfdi_select_todos" type="checkbox"></th>
                                                         <th>Fecha</th>
-                                                        <th>Emisor / UUID</th>
+                                                        <th>CFDI / Conceptos</th>
                                                         <th>Clasificacion</th>
                                                         <th>Actividad</th>
                                                         <th>Pago</th>

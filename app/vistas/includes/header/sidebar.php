@@ -143,6 +143,7 @@ $gruposMenu = array(
         'permiso' => array('crm.ver', 'crm.clientes.ver', 'crm.seguimiento.ver', 'crm.comercial.ver', 'crm.recompensas.ver', 'crm.reportes.ver'),
         'items' => array(
             array('titulo' => 'Clientes', 'ruta' => '/crm/clientes#crm_tab_clientes', 'permiso' => array('crm.ver', 'crm.clientes.ver')),
+            array('titulo' => 'Asesor de prospectos', 'ruta' => '/atencion', 'permiso' => array('crm.ver', 'crm.seguimiento.ver', 'ventas.ver', 'ventas.operar')),
             array('titulo' => 'Seguimiento', 'ruta' => '/crm/seguimiento', 'permiso' => array('crm.ver', 'crm.seguimiento.ver')),
             array('titulo' => 'Comercial', 'ruta' => '/crm/comercial', 'permiso' => array('crm.ver', 'crm.comercial.ver')),
             array('titulo' => 'Recompensas', 'ruta' => '/crm/recompensas', 'permiso' => array('crm.ver', 'crm.recompensas.ver')),
@@ -280,6 +281,7 @@ $gruposMenu = array(
             array('titulo' => 'Leads / Carritos', 'ruta' => '/ecommercePublico/leads', 'permiso' => 'catalogo.ver'),
             array('titulo' => 'Cotizaciones', 'ruta' => '/ecommercePublico/cotizaciones', 'permiso' => 'catalogo.ver'),
             array('titulo' => 'Analytics', 'ruta' => '/ecommercePublico/analytics', 'permiso' => 'catalogo.ver'),
+            array('titulo' => 'SEO y URLs', 'ruta' => '/ecommercePublico/seo_migracion', 'permiso' => 'catalogo.ver'),
             array('titulo' => 'Catalogo ecommerce', 'ruta' => '/producto/catalogo', 'permiso' => 'ecommerce.ver')
         )
     ),

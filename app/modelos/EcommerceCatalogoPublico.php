@@ -1171,10 +1171,31 @@ class EcommerceCatalogoPublico extends CRUD {
         "home", "categoria", "producto", "global", "blog", "marca", "pagina", "politica", "general"
       ), "general");
       $tipo = $this->mediaValorPermitido($this->valor($datos, "tipo", "banner"), array(
-        "banner", "hero", "card", "thumb", "editorial", "logo", "og", "principal", "favicon"
+        "banner", "hero", "card", "thumb", "editorial", "logo", "logo_blanco", "og", "open_graph", "principal", "favicon"
       ), "editorial");
 
-      $hash = hash_file("sha256", $archivo["tmp_name"]);
+      $contenidoFinal = null;
+      $conversionFavicon = false;
+      if ($tipo === "favicon" && $extension !== "ico") {
+        if ($mime !== "image/png") {
+          throw new Exception("Para convertir a favicon .ico sube un PNG cuadrado de 64, 128 o 256 px");
+        }
+        $anchoFavicon = $dimensiones && !empty($dimensiones[0]) ? (int) $dimensiones[0] : 0;
+        $altoFavicon = $dimensiones && !empty($dimensiones[1]) ? (int) $dimensiones[1] : 0;
+        if ($anchoFavicon <= 0 || $altoFavicon <= 0 || $anchoFavicon !== $altoFavicon || $anchoFavicon > 256) {
+          throw new Exception("El favicon debe ser PNG cuadrado de maximo 256 x 256 px para guardarlo como .ico");
+        }
+        $pngFavicon = file_get_contents($archivo["tmp_name"]);
+        if ($pngFavicon === false || $pngFavicon === "") {
+          throw new Exception("No fue posible leer el PNG para convertirlo a .ico");
+        }
+        $contenidoFinal = $this->mediaCrearIcoDesdePng($pngFavicon, $anchoFavicon, $altoFavicon);
+        $mime = "image/x-icon";
+        $extension = "ico";
+        $conversionFavicon = true;
+      }
+
+      $hash = $contenidoFinal !== null ? hash("sha256", $contenidoFinal) : hash_file("sha256", $archivo["tmp_name"]);
       if (!$hash) {
         throw new Exception("No fue posible calcular el hash de la imagen");
       }
@@ -1205,17 +1226,26 @@ class EcommerceCatalogoPublico extends CRUD {
       if (is_file($rutaDestino)) {
         throw new Exception("Ya existe un archivo con el nombre generado");
       }
-      if (!move_uploaded_file($archivo["tmp_name"], $rutaDestino)) {
-        throw new Exception("No fue posible guardar la imagen");
+      if ($contenidoFinal !== null) {
+        if (file_put_contents($rutaDestino, $contenidoFinal) === false) {
+          throw new Exception("No fue posible guardar el favicon .ico");
+        }
+      } else {
+        if (!move_uploaded_file($archivo["tmp_name"], $rutaDestino)) {
+          throw new Exception("No fue posible guardar la imagen");
+        }
       }
 
       $codigo = "media_" . $corto;
       $rutaPublica = "/assets/media/cms/ecommerce/" . $nombreArchivo;
+      $bytesFinal = $contenidoFinal !== null ? strlen($contenidoFinal) : intval($archivo["size"]);
       $metadata = array(
         "ancho" => $dimensiones && !empty($dimensiones[0]) ? (int) $dimensiones[0] : null,
         "alto" => $dimensiones && !empty($dimensiones[1]) ? (int) $dimensiones[1] : null,
         "origen" => "cms_media_admin",
-        "fecha_upload" => date("c")
+        "fecha_upload" => date("c"),
+        "favicon_convertido_a_ico" => $conversionFavicon,
+        "mime_original" => $conversionFavicon ? $this->mediaDetectarMime($archivo["tmp_name"]) : $mime
       );
 
       $stmt = $db->prepare("INSERT INTO erp_ecommerce_media_archivos
@@ -1232,7 +1262,7 @@ class EcommerceCatalogoPublico extends CRUD {
         ":ruta" => $rutaPublica,
         ":mime" => $mime,
         ":extension" => $extension,
-        ":bytes" => intval($archivo["size"]),
+        ":bytes" => $bytesFinal,
         ":ancho" => $dimensiones && !empty($dimensiones[0]) ? (int) $dimensiones[0] : null,
         ":alto" => $dimensiones && !empty($dimensiones[1]) ? (int) $dimensiones[1] : null,
         ":hash" => $hash,
@@ -1381,6 +1411,16 @@ class EcommerceCatalogoPublico extends CRUD {
     if (!in_array($extension, $extensiones, true)) {
       throw new Exception("Extension de imagen no permitida");
     }
+  }
+
+  private function mediaCrearIcoDesdePng($png, $ancho, $alto) {
+    $anchoByte = (int) $ancho >= 256 ? 0 : (int) $ancho;
+    $altoByte = (int) $alto >= 256 ? 0 : (int) $alto;
+    $tamano = strlen($png);
+    $offset = 22;
+    return pack("vvv", 0, 1, 1) .
+      pack("CCCCvvVV", $anchoByte, $altoByte, 0, 0, 1, 32, $tamano, $offset) .
+      $png;
   }
 
   private function mediaValorPermitido($valor, $permitidos, $default) {

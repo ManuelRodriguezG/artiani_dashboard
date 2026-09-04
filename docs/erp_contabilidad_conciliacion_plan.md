@@ -162,7 +162,66 @@ La categoria del CFDI permite distinguir compras de mercancia contra gastos oper
 
 Si un CFDI coincide por monto/fecha/emisor con un movimiento bancario, puede ligarse al movimiento. Si no aparece en bancos, el MVP permite crear un movimiento auxiliar desde el CFDI para que el reporte final del contador no pierda ese gasto.
 
+Datos XML relevantes para el MVP:
+
+- Identificacion: UUID, serie, folio, archivo.
+- Fechas y moneda: fecha, periodo, moneda.
+- Partes: RFC/nombre emisor y RFC/nombre receptor.
+- Fiscal-operativo: tipo de comprobante, uso CFDI, metodo de pago SAT, forma de pago SAT.
+- Importes: subtotal, descuento, total, IVA trasladado, IVA retenido e ISR retenido.
+- Conceptos: descripcion principal, resumen de conceptos y cantidad de conceptos.
+
+La sugerencia de relacion CFDI-banco se calcula por monto absoluto, fecha exacta o cercana, RFC/emisor en concepto bancario, folio y UUID. Los ingresos y transpasos penalizan la coincidencia porque normalmente los CFDI de gastos/compras deben relacionarse contra egresos.
+
 Para estados de cuenta de tarjeta de credito en PDF, el flujo futuro debe separar dos casos: PDF con texto seleccionable, que puede extraerse en servidor; y PDF escaneado/imagen, que requiere OCR antes de mapear columnas.
+
+## Ajuste operativo 2026-09-03 autoguardado y monto firmado
+
+El MVP mantiene un borrador activo en `localStorage` que se actualiza automaticamente al importar, editar, ligar CFDI, crear movimientos auxiliares o eliminar registros. El boton `Guardar cierre` conserva ademas una version mensual en la lista de cierres guardados.
+
+Los movimientos bancarios trabajan con monto firmado: ingresos positivos y egresos negativos. Los cargos/abonos internos se conservan como auxiliares para conciliacion y sugerencias de CFDI, pero el reporte final expone el monto con signo.
+
+Para el cierre operativo del dueno, los campos principales de movimientos bancarios son `movimiento`, `actividad` y `monto`. La categoria queda como apoyo, especialmente para CFDI; en ingresos y transpasos se asigna `no_aplica`.
+
+## Ajuste operativo 2026-09-03 CFDI auxiliares de plataforma
+
+Las comisiones de Mercado Pago u otras plataformas pueden venir como CFDI sin existir como cargo directo en un estado de cuenta bancario. En ese caso no se deben marcar como pendientes de banco.
+
+Tratamiento recomendado:
+
+- Origen: `cfdi_auxiliar`.
+- Movimiento: `egreso`.
+- Actividad: `negocio`.
+- Categoria: `comision_plataforma`.
+- Forma de pago: `retencion_plataforma`.
+- Cuenta: `Mercado Pago - comisiones`.
+- Monto: negativo.
+
+La pestaña CFDI permite elegir antes de cargar XML si el tratamiento inicial sera `Conciliar con banco` o `Crear gasto desde CFDI`. Este segundo caso crea el movimiento auxiliar ligado al CFDI sin borrar ni modificar estados de cuenta existentes.
+
+## Ajuste operativo 2026-09-04 cuentas CFDI y captura manual
+
+La cuenta de CFDI deja de ser texto libre en la mesa y se alimenta dinamicamente con:
+
+- Cuentas de estados de cuenta cargados en el periodo activo.
+- Cuenta escrita en el alta de estado de cuenta.
+- Cuentas auxiliares: `Efectivo`, `Mercado Pago - comisiones`, `Tarjeta de credito`, `Tarjeta debito` y `Transferencia`.
+
+La carga de CFDI incluye mes/año propio para evitar mezclar XML de otro periodo. Si el XML trae fecha, su periodo se toma del comprobante; si no, se usa el mes seleccionado en la seccion CFDI.
+
+Para tarjetas de credito con estado de cuenta en PDF y pocos movimientos, el MVP prioriza captura manual. La extraccion automatica de PDF queda para fase posterior porque los estados de tarjeta suelen incluir muchas paginas, cortes, intereses, promociones y texto no tabular que puede requerir limpieza u OCR.
+
+## Ajuste operativo 2026-09-04 acciones masivas CFDI
+
+La mesa CFDI permite seleccionar comprobantes individuales o todos los visibles del mes activo para aplicar en lote:
+
+- Tratamiento: conciliar con banco o crear gasto desde CFDI.
+- Categoria.
+- Actividad.
+- Forma de pago.
+- Cuenta.
+
+Tambien permite crear movimientos auxiliares solo para los CFDI seleccionados. Un movimiento auxiliar no pertenece a un estado de cuenta bancario; aparece en `Clasificacion`, `Conciliacion` y `Reporte` como origen `cfdi_auxiliar` bajo la cuenta auxiliar asignada, por ejemplo `Mercado Pago - comisiones`.
 
 ## Flujo operativo recomendado
 

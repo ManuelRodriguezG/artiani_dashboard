@@ -59,6 +59,7 @@ function erpHeaderCatalogoBusqueda()
         )),
         array('seccion' => 'CRM', 'titulo' => 'CRM', 'icono' => 'bi-person-vcard', 'items' => array(
             array('titulo' => 'Clientes', 'ruta' => '/crm/clientes#crm_tab_clientes', 'permiso' => array('crm.ver', 'crm.clientes.ver'), 'detalle' => 'Clientes CRM contactos'),
+            array('titulo' => 'Asesor de prospectos', 'ruta' => '/atencion', 'permiso' => array('crm.ver', 'crm.seguimiento.ver', 'ventas.ver', 'ventas.operar'), 'detalle' => 'Respuestas prospectos WhatsApp Messenger Facebook mayoreo catalogo productos'),
             array('titulo' => 'Seguimiento', 'ruta' => '/crm/seguimiento', 'permiso' => array('crm.ver', 'crm.seguimiento.ver'), 'detalle' => 'Seguimiento clientes CRM'),
             array('titulo' => 'Comercial', 'ruta' => '/crm/comercial', 'permiso' => array('crm.ver', 'crm.comercial.ver'), 'detalle' => 'CRM comercial oportunidades'),
             array('titulo' => 'Recompensas', 'ruta' => '/crm/recompensas', 'permiso' => array('crm.ver', 'crm.recompensas.ver'), 'detalle' => 'Puntos recompensas clientes'),
@@ -128,6 +129,7 @@ function erpHeaderCatalogoBusqueda()
             array('titulo' => 'Control Artiani', 'ruta' => '/ecommercePublico/control', 'permiso' => 'catalogo.ver', 'detalle' => 'Control ecommerce publico'),
             array('titulo' => 'Ecommerce publico', 'ruta' => '/ecommercePublico/publicaciones', 'permiso' => 'catalogo.ver', 'detalle' => 'Publicaciones tienda en linea'),
             array('titulo' => 'Analytics', 'ruta' => '/ecommercePublico/analytics', 'permiso' => 'catalogo.ver', 'detalle' => 'Analitica ecommerce'),
+            array('titulo' => 'SEO y URLs', 'ruta' => '/ecommercePublico/seo_migracion', 'permiso' => 'catalogo.ver', 'detalle' => 'SEO sitemap robots redirecciones URLs canonicas'),
             array('titulo' => 'Catalogo ecommerce', 'ruta' => '/producto/catalogo', 'permiso' => 'ecommerce.ver', 'detalle' => 'Productos ecommerce catalogo anterior')
         )),
         array('seccion' => 'Administracion', 'titulo' => 'Administracion', 'icono' => 'bi-shield-lock', 'items' => array(
