@@ -50,6 +50,8 @@ Ambos se conectan por `session_id`, pero en BD se guarda hash irreversible. Anal
 - Existen `Prospectos` y `Carritos` legacy/CRM, pero no deben ser base del nuevo modulo.
 - Activacion 2026-08-31: DDL aplicado contra `artianicom_sys`, `ECOMMERCE_LEADS_PUBLICO=true`, UAT HTTP `verde_persistencia_publica_leads`.
 - Respaldo usado: `C:\xampp\panel_db_backups\artianicom_sys_panel_20260831_140027_antes_ecommerce_leads.sql`.
+- Actualizacion 2026-09-05: la vista interna de Leads incluye seccion `Productos agregados por sesion`, alimentada por `GET /ecommercePublico/productos_leads_erp`.
+- Esta seccion permite filtrar por producto/SKU/contacto/session hash y por `validacion_publicacion`, sin crear pedidos ni ventas.
 
 ## Endpoints implementados
 
@@ -70,6 +72,7 @@ Internos:
 GET  /ecommercePublico/leads
 GET  /ecommercePublico/carritos_dashboard_erp
 GET  /ecommercePublico/carrito_detalle_erp/{id}
+GET  /ecommercePublico/productos_leads_erp
 POST /ecommercePublico/carrito_accion_plan_erp
 GET  /ecommercePublico/esquema_auditar_leads
 GET  /ecommercePublico/esquema_plan_leads

@@ -24,7 +24,7 @@ Actualizacion 2026-08-30:
   - `GET /ecommercePublico/esquema_plan_leads`.
 - El modulo queda separado de Analytics: Analytics mide eventos anonimos; Leads guarda snapshot comercial y contacto solo si el cliente lo escribio explicitamente.
 - Los items de Leads se validan read-only contra publicaciones/catalogo cuando estan disponibles y devuelven `validacion_publicacion` por renglon (`publicacion_vigente`, `publicacion_no_publicada`, `sku_sin_publicacion`, `producto_inactivo`, `sku_inactivo`, `identificadores_inconsistentes`, `no_encontrado`, `sin_identificador`, `validacion_no_disponible` o `validacion_error`).
-- La persistencia real queda preparada en codigo detras de `ECOMMERCE_LEADS_PUBLICO=true`; no se ejecuto DDL ni se activo escritura publica. La activacion debe hacerse despues de respaldo externo y UAT.
+- La persistencia real quedo preparada en codigo detras de `ECOMMERCE_LEADS_PUBLICO=true`; la activacion productiva se documento en la actualizacion 2026-08-31.
 - UATs read-only agregados:
   - `storage/uat/uat_ecommerce_leads_plan_readonly.php`;
   - `storage/uat/uat_ecommerce_leads_http_readonly.php`.
@@ -48,6 +48,17 @@ Actualizacion 2026-08-31:
 - UAT de persistencia publica HTTP: `verde_persistencia_publica_leads`.
 - Verificacion final read-only: `erp_ecommerce_leads_carritos=2`, `erp_ecommerce_leads_carrito_items=2`, `erp_ecommerce_leads_eventos=4`, `erp_ecommerce_leads_notas=0`.
 - Guardrails conservados: no crea pedido, no crea venta, no descuenta inventario y bloquea PII fuera de `contacto`.
+
+Actualizacion 2026-09-05:
+
+- La pantalla interna `GET /ecommercePublico/leads` ahora incluye seccion `Productos agregados por sesion`.
+- Nuevo endpoint interno protegido: `GET /ecommercePublico/productos_leads_erp`.
+- La consulta cruza `erp_ecommerce_leads_carritos` + `erp_ecommerce_leads_carrito_items` y devuelve producto, SKU, publicacion, imagen viva de catalogo, cantidad, subtotal, validacion, session hash y contacto disponible.
+- La vista incluye galeria visual con imagenes y miniaturas en tabla; si el catalogo no tiene imagen se muestra placeholder.
+- Al seleccionar un lead, la galeria y tabla de productos se filtran por ese `id_carrito_lead`; el boton `Ver todos` limpia la seleccion.
+- UAT read-only agregado: `storage/uat/uat_ecommerce_leads_productos_readonly.php`.
+- Resultado UAT: `verde_productos_por_sesion`, 11 renglones de productos, 6 vigentes y 5 para revision.
+- Verificacion HTTP sin sesion: `302` a `/autenticacion/login`, por lo que el listado no queda publico.
 
 Actualizacion 2026-07-30:
 

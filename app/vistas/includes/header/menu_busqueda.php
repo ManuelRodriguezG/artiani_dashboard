@@ -129,6 +129,7 @@ function erpHeaderCatalogoBusqueda()
             array('titulo' => 'Control Artiani', 'ruta' => '/ecommercePublico/control', 'permiso' => 'catalogo.ver', 'detalle' => 'Control ecommerce publico'),
             array('titulo' => 'Ecommerce publico', 'ruta' => '/ecommercePublico/publicaciones', 'permiso' => 'catalogo.ver', 'detalle' => 'Publicaciones tienda en linea'),
             array('titulo' => 'Analytics', 'ruta' => '/ecommercePublico/analytics', 'permiso' => 'catalogo.ver', 'detalle' => 'Analitica ecommerce'),
+            array('titulo' => 'Flujo sesiones', 'ruta' => '/ecommercePublico/analytics_flujo', 'permiso' => 'catalogo.ver', 'detalle' => 'Recorridos anonimos ecommerce'),
             array('titulo' => 'SEO y URLs', 'ruta' => '/ecommercePublico/seo_migracion', 'permiso' => 'catalogo.ver', 'detalle' => 'SEO sitemap robots redirecciones URLs canonicas'),
             array('titulo' => 'Catalogo ecommerce', 'ruta' => '/producto/catalogo', 'permiso' => 'ecommerce.ver', 'detalle' => 'Productos ecommerce catalogo anterior')
         )),

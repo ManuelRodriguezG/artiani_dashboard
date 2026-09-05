@@ -712,6 +712,17 @@ class EcommercePublico extends Controlador {
   }
 
   /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-05
+   * Proposito: abrir vista interna read-only del flujo de navegacion por sesion anonima.
+   * Impacto: permite revisar recorridos ecommerce sin exponer PII, session_id completo, ventas ni inventario.
+   * Contrato: vista protegida por `catalogo.ver`; no escribe BD.
+   */
+  public function analytics_flujo() {
+    $this->requerirPermiso("catalogo.ver");
+    $this->vista("apps/erp/ecommerce/analytics_flujo");
+  }
+
+  /**
    * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-03
    * Proposito: abrir consola interna de SEO/migracion URLs del ecommerce publico.
    * Impacto: Ecommerce SEO; concentra URLs canonicas, redirecciones, sitemap, robots y DDL pendiente.
@@ -978,6 +989,17 @@ class EcommercePublico extends Controlador {
   }
 
   /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-05
+   * Proposito: entregar timeline read-only de navegacion por sesion anonima.
+   * Impacto: soporta analisis operativo de recorridos sin tocar ventas, inventario ni datos personales.
+   * Contrato: GET protegido por `catalogo.ver`; solo lectura.
+   */
+  public function analytics_flujo_erp() {
+    $this->requerirPermiso("catalogo.ver");
+    return json_encode($this->modelo("EcommerceAnalyticsErp")->flujoSesionesInterno($_GET));
+  }
+
+  /**
    * Documentacion IA: Codex GPT-5 | Fecha: 2026-08-04
    * Proposito: revisar readiness de persistencia Ecommerce / Analytics sin activarla.
    * Impacto: permite ver esquema, token requerido y orden de activacion antes de registrar tracking real.
@@ -1032,6 +1054,17 @@ class EcommercePublico extends Controlador {
     $filtros = $_GET;
     if ($id !== "") { $filtros["id_carrito_lead"] = $id; }
     return json_encode($this->modelo("EcommerceLeadsErp")->detalleInterno($filtros));
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-05
+   * Proposito: listar productos agregados en sesiones/leads ecommerce.
+   * Impacto: seguimiento comercial por producto sin consultar analytics ni crear ventas.
+   * Contrato: GET protegido por `catalogo.ver`; solo lectura.
+   */
+  public function productos_leads_erp() {
+    $this->requerirPermiso("catalogo.ver");
+    return json_encode($this->modelo("EcommerceLeadsErp")->productosInterno($_GET));
   }
 
   /**

@@ -1281,8 +1281,14 @@ Vista interna:
   - embudo;
   - aperturas de WhatsApp;
   - abandono por etapa.
+- Vista adicional de flujo:
+  - `GET /ecommercePublico/analytics_flujo`.
+- Endpoint read-only:
+  - `GET /ecommercePublico/analytics_flujo_erp?desde=YYYY-MM-DD&hasta=YYYY-MM-DD&limite=25&session_key=HASH12`.
+- El flujo combina eventos y busquedas por sesion anonima, ordenados cronologicamente.
 - UAT read-only:
   - `storage/uat/uat_ecommerce_analytics_dashboard_readonly.php`.
+  - `storage/uat/uat_ecommerce_analytics_flujo_readonly.php`.
 
 Siguientes pasos:
 

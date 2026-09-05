@@ -42,6 +42,7 @@
                                 <span class="text-muted">Navegacion, busquedas y conversion anonima del ecommerce publico</span>
                             </div>
                             <div class="d-flex gap-2">
+                                <a class="btn btn-light" href="/ecommercePublico/analytics_flujo"><i class="bi bi-diagram-3"></i> Flujo</a>
                                 <a class="btn btn-light" href="/ecommercePublico/control"><i class="bi bi-sliders"></i> Control</a>
                                 <a class="btn btn-light" href="/ecommercePublico/seo_migracion"><i class="bi bi-signpost-split"></i> SEO</a>
                                 <a class="btn btn-light-primary" href="/ecommercePublico/cotizaciones"><i class="bi bi-chat-dots"></i> Cotizaciones</a>

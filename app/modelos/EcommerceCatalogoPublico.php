@@ -805,8 +805,11 @@ class EcommerceCatalogoPublico extends CRUD {
       $this->frontendRequerimiento("home_promo", "listo", "media", "home", "home.promo", "promo_strip", "Franja promocional o aviso operativo de Home."),
       $this->frontendRequerimiento("home_promos_categoria", "listo", "alta", "home", "home.promos", "image_card_grid", "Promos visuales hacia categorias comerciales fuertes."),
       $this->frontendRequerimiento("home_categorias_destacadas", "listo", "alta", "home", "home.categorias", "image_card_grid", "Categorias destacadas con imagen editorial y URL canonica."),
-      $this->frontendRequerimiento("home_marcas_destacadas", "listo", "alta", "home", "home.marcas", "image_card_grid", "Marcas destacadas desde una categoria origen, con imagenes de categoria y prioridad manual opcional."),
+      $this->frontendRequerimiento("home_marcas_destacadas", "listo", "alta", "home", "home.marcas", "marcas_destacadas", "Marcas destacadas desde una categoria origen, con imagenes de categoria y prioridad manual opcional."),
       $this->frontendRequerimiento("home_productos_destacados", "listo", "alta", "home", "home.destacados", "product_collection", "Productos destacados por criterio o lista manual."),
+      $this->frontendRequerimiento("home_nuevos_productos_categoria", "listo", "alta", "home", "home.productos_carrusel", "productos_carrusel", "Nuevos productos por categoria con limite y orden recientes.", array("categoria_slug", "incluir_hijos", "limite", "orden")),
+      $this->frontendRequerimiento("home_promo_editorial_categoria", "listo", "alta", "home", "home.promo_editorial", "promo_editorial", "Banner editorial grande hacia una categoria con imagen desktop/mobile.", array("titulo", "media", "cta", "text_theme", "overlay")),
+      $this->frontendRequerimiento("home_visual_productos_categoria", "listo", "alta", "home", "home.visual_productos", "visual_productos", "Categoria visual con imagen grande y dos productos relacionados.", array("categoria_slug", "media", "limite", "cta")),
       $this->frontendRequerimiento("home_coleccion_productos", "listo", "media", "home", "home.destacados", "product_collection", "Colecciones repetibles para vitrinas editoriales."),
       $this->frontendRequerimiento("home_esenciales_artiani", "listo", "media", "home", "home.esenciales", "image_card_grid", "Bloque editorial de tres categorias/cards esenciales."),
       $this->frontendRequerimiento("home_compra_guiada", "listo", "media", "home", "home.compra_guiada", "compra_guiada", "Selector editorial para orientar compra por mascota o necesidad.", array("titulo", "subtitulo", "config")),
@@ -890,6 +893,7 @@ class EcommerceCatalogoPublico extends CRUD {
       "version_contenido" => "default-2026-08-10",
       "plantilla_vista" => $this->plantillaVistaPaginaDefault($pagina),
       "slots" => $slots,
+      "secciones" => $this->cmsSeccionesDesdeSlots($slots),
       "resumen" => array(
         "slots_total" => count($slots),
         "bloques_total" => $this->contarBloquesContenido($slots),
@@ -2492,9 +2496,23 @@ class EcommerceCatalogoPublico extends CRUD {
       array(
         "codigo" => "ProductCarousel",
         "nombre" => "Carrusel de productos",
-        "bloques_permitidos" => array("product_collection"),
-        "variantes" => array("compact_cards", "wide_cards", "simple_row"),
-        "slots_compatibles" => array("home.destacados", "categoria.productos")
+        "bloques_permitidos" => array("product_collection", "productos_carrusel"),
+        "variantes" => array("compact_cards", "wide_cards", "simple_row", "wokiee_new_products_categoria"),
+        "slots_compatibles" => array("home.destacados", "home.productos_carrusel", "categoria.productos")
+      ),
+      array(
+        "codigo" => "EditorialPromo",
+        "nombre" => "Promo editorial",
+        "bloques_permitidos" => array("promo_editorial"),
+        "variantes" => array("wokiee_accessory_update_single"),
+        "slots_compatibles" => array("home.promo_editorial")
+      ),
+      array(
+        "codigo" => "VisualProducts",
+        "nombre" => "Categoria visual con productos",
+        "bloques_permitidos" => array("visual_productos"),
+        "variantes" => array("categoria_visual_2_productos"),
+        "slots_compatibles" => array("home.visual_productos")
       ),
       array(
         "codigo" => "ImageCardGrid",
@@ -2526,7 +2544,10 @@ class EcommerceCatalogoPublico extends CRUD {
           array("slot" => "home.categorias", "componente" => "CategoryGrid", "variante" => "cards_4", "orden" => 4),
           array("slot" => "home.marcas", "componente" => "ImageCardGrid", "variante" => "brand_strip", "orden" => 5),
           array("slot" => "home.destacados", "componente" => "ProductCarousel", "variante" => "compact_cards", "orden" => 6),
-          array("slot" => "home.esenciales", "componente" => "ImageCardGrid", "variante" => "editorial", "orden" => 7)
+          array("slot" => "home.productos_carrusel", "componente" => "ProductCarousel", "variante" => "wokiee_new_products_categoria", "orden" => 7),
+          array("slot" => "home.promo_editorial", "componente" => "EditorialPromo", "variante" => "wokiee_accessory_update_single", "orden" => 8),
+          array("slot" => "home.visual_productos", "componente" => "VisualProducts", "variante" => "categoria_visual_2_productos", "orden" => 9),
+          array("slot" => "home.esenciales", "componente" => "ImageCardGrid", "variante" => "editorial", "orden" => 10)
         )
       ),
       array(
@@ -8450,7 +8471,7 @@ class EcommerceCatalogoPublico extends CRUD {
         "config" => $this->valor($payload, "config", array()),
         "frontend" => array("origen" => "home_marcas_destacadas", "tipo" => "marcas_destacadas")
       );
-      return $this->cmsPublicarBloqueHomeSlot($db, "home.marcas", "Marcas destacadas Home", array("image_card_grid"), "home_marcas_destacadas_publicado", "image_card_grid", "Home marcas destacadas publicado", $bloquePayload["titulo"], $bloquePayload, intval($this->valor($payload, "orden", 45)), $idUsuario);
+      return $this->cmsPublicarBloqueHomeSlot($db, "home.marcas", "Marcas destacadas Home", array("marcas_destacadas", "image_card_grid"), "home_marcas_destacadas_publicado", "marcas_destacadas", "Home marcas destacadas publicado", $bloquePayload["titulo"], $bloquePayload, intval($this->valor($payload, "orden", 45)), $idUsuario);
     } catch (Exception $e) {
       return $this->respuesta(true, "danger", "No se pudieron publicar marcas destacadas.", array("error_tecnico" => $e->getMessage()));
     }
@@ -8745,6 +8766,73 @@ class EcommerceCatalogoPublico extends CRUD {
   }
 
   /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-04
+   * Proposito: resolver una categoria publica por slug canonico para reutilizar su imagen en modulos Home.
+   * Impacto: CMS/API Home; habilita `media.usar_imagen_categoria` sin duplicar archivos.
+   * Contrato: solo lectura; compara path_slug, slug_publico, slug_corto y url publica.
+   */
+  private function cmsCategoriaPublicaPorSlug($db, $slug) {
+    $slug = trim((string) $slug, "/");
+    if (!$db || $slug === "") { return array(); }
+    foreach ($this->categoriasPublicasItems($db) as $categoria) {
+      $candidatos = array(
+        trim((string) $this->valor($categoria, "path_slug", ""), "/"),
+        trim((string) $this->valor($categoria, "slug_publico", ""), "/"),
+        trim((string) $this->valor($categoria, "slug_corto", ""), "/"),
+        trim(str_replace("/categoria/", "", (string) $this->valor($categoria, "url", "")), "/"),
+        trim(str_replace("/categoria/", "", (string) $this->valor($categoria, "url_canonica", "")), "/")
+      );
+      if (in_array($slug, $candidatos, true)) {
+        return $categoria;
+      }
+    }
+    return array();
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-04
+   * Proposito: elegir la imagen de categoria para `home.promo_editorial` respetando prioridad desktop/mobile.
+   * Impacto: payload publico Home; deja trazable si la imagen vino de banner, mobile, portada, card o imagen.
+   * Contrato: no valida dimensiones; solo devuelve URL publica normalizada y origen elegido.
+   */
+  private function cmsImagenCategoriaParaPromoHome($categoria, $modo, $preferida = "banner") {
+    if (!is_array($categoria) || empty($categoria)) {
+      return array("url" => "", "origen" => "");
+    }
+    $desktop = array("imagen_banner", "portada", "imagen_card", "imagen");
+    $mobile = array("imagen_banner_mobile", "imagen_mobile", "portada", "imagen_card", "imagen");
+    if ($preferida === "card") {
+      $desktop = array("imagen_card", "imagen_banner", "portada", "imagen");
+      $mobile = array("imagen_card", "imagen_banner_mobile", "imagen_mobile", "portada", "imagen");
+    } elseif ($preferida === "portada") {
+      $desktop = array("portada", "imagen_banner", "imagen_card", "imagen");
+      $mobile = array("portada", "imagen_banner_mobile", "imagen_mobile", "imagen_card", "imagen");
+    } elseif ($preferida === "imagen") {
+      $desktop = array("imagen", "imagen_banner", "portada", "imagen_card");
+      $mobile = array("imagen", "imagen_banner_mobile", "imagen_mobile", "portada", "imagen_card");
+    }
+    $prioridad = $modo === "mobile" ? $mobile : $desktop;
+    foreach ($prioridad as $campo) {
+      $url = $this->cmsNormalizarUrlImagenPublica($this->valor($categoria, $campo, ""));
+      if ($url !== "") {
+        return array("url" => $url, "origen" => $campo);
+      }
+      foreach ((array) $this->valor($categoria, "imagenes_catalogo", array()) as $imagenCatalogo) {
+        if (!is_array($imagenCatalogo)) { continue; }
+        $tipo = trim((string) $this->valor($imagenCatalogo, "tipo_imagen", ""));
+        if (($campo === "portada" && $tipo !== "portada") || ($campo === "imagen_banner" && $tipo !== "banner") || ($campo === "imagen_card" && $tipo !== "card") || ($campo === "imagen" && !in_array($tipo, array("referencia", "icono"), true))) {
+          continue;
+        }
+        $urlCatalogo = $this->cmsNormalizarUrlImagenPublica($this->valor($imagenCatalogo, "url_imagen", ""));
+        if ($urlCatalogo !== "") {
+          return array("url" => $urlCatalogo, "origen" => "imagenes_catalogo." . $tipo);
+        }
+      }
+    }
+    return array("url" => "", "origen" => "");
+  }
+
+  /**
    * IA: Codex GPT-5 | Fecha: 2026-09-01
    * Proposito: validar referencias CMS contra categorias reales ya publicables.
    * Impacto: CMS / Frontend / Categorias; evita publicar banners para categorias inexistentes.
@@ -9024,6 +9112,208 @@ class EcommerceCatalogoPublico extends CRUD {
       if ($db instanceof PDO && $db->inTransaction()) { $db->rollBack(); }
       return $this->respuesta(true, "danger", "No se pudo publicar " . $titulo . ".", array("error_tecnico" => $e->getMessage(), "slot" => $slotCodigo));
     }
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-04
+   * Proposito: publicar carrusel de nuevos productos por categoria para Home.
+   * Impacto: CMS/API Home; entrega `productos_carrusel` en `home.productos_carrusel`.
+   * Contrato: no resuelve ni modifica productos; frontend consulta catalogo con categoria_slug, incluir_hijos, limite y orden.
+   */
+  public function frontendHomeProductosCarruselPublicarInterno($datos, $idUsuario = 0) {
+    $payload = $this->cmsPayloadModuloHomeCategoria($datos, array(
+      "codigo_default" => "home_nuevos_acuario",
+      "tipo" => "productos_carrusel",
+      "layout_default" => "wokiee_new_products_categoria",
+      "titulo_default" => "Acuario y peces",
+      "eyebrow_default" => "Nuevos productos",
+      "limite_default" => 8,
+      "limite_max" => 8,
+      "orden_catalogo_default" => "recientes",
+      "requiere_imagen" => false
+    ));
+    if (!empty($payload["error_validacion"])) {
+      return $this->respuesta(true, "warning", $payload["error_validacion"], array("codigo" => "home_productos_carrusel"));
+    }
+    return $this->cmsPublicarModuloHomeCategoria($payload, "home.productos_carrusel", "Productos carrusel Home", "productos_carrusel", "home_productos_carrusel_publicado", "Home productos carrusel publicado", $idUsuario);
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-04
+   * Proposito: publicar banner editorial de categoria para Home.
+   * Impacto: CMS/API Home; entrega `promo_editorial` en `home.promo_editorial`.
+   * Contrato: requiere imagen publica si esta visible; no modifica categorias, productos, precios ni inventario.
+   */
+  public function frontendHomePromoEditorialPublicarInterno($datos, $idUsuario = 0) {
+    $payload = $this->cmsPayloadModuloHomeCategoria($datos, array(
+      "codigo_default" => "home_promo_acuario",
+      "tipo" => "promo_editorial",
+      "layout_default" => "wokiee_accessory_update_single",
+      "titulo_default" => "Acuario y peces",
+      "limite_default" => 0,
+      "limite_max" => 0,
+      "requiere_imagen" => true
+    ));
+    if (!empty($payload["error_validacion"])) {
+      return $this->respuesta(true, "warning", $payload["error_validacion"], array("codigo" => "home_promo_editorial"));
+    }
+    return $this->cmsPublicarModuloHomeCategoria($payload, "home.promo_editorial", "Promo editorial Home", "promo_editorial", "home_promo_editorial_publicado", "Home promo editorial publicado", $idUsuario);
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-04
+   * Proposito: publicar categoria visual con productos relacionados para Home.
+   * Impacto: CMS/API Home; entrega `visual_productos` en `home.visual_productos`.
+   * Contrato: fuente por categoria, maximo 2 productos; no usa carrusel ni toca catalogo/precios/inventario.
+   */
+  public function frontendHomeVisualProductosPublicarInterno($datos, $idUsuario = 0) {
+    $payload = $this->cmsPayloadModuloHomeCategoria($datos, array(
+      "codigo_default" => "home_visual_filtracion",
+      "tipo" => "visual_productos",
+      "layout_default" => "categoria_visual_2_productos",
+      "titulo_default" => "Categoria destacada",
+      "eyebrow_default" => "Categoria destacada",
+      "limite_default" => 2,
+      "limite_max" => 2,
+      "orden_catalogo_default" => "relevancia",
+      "requiere_imagen" => true
+    ));
+    if (!empty($payload["error_validacion"])) {
+      return $this->respuesta(true, "warning", $payload["error_validacion"], array("codigo" => "home_visual_productos"));
+    }
+    return $this->cmsPublicarModuloHomeCategoria($payload, "home.visual_productos", "Visual productos Home", "visual_productos", "home_visual_productos_publicado", "Home visual productos publicado", $idUsuario);
+  }
+
+  private function cmsPublicarModuloHomeCategoria($payload, $slotCodigo, $slotNombre, $tipoBloque, $codigoBloque, $nombreInterno, $idUsuario) {
+    $db = $this->getConexion();
+    if (!$db || !$this->tablasCmsContenidoDisponibles($db)) {
+      return $this->respuesta(true, "warning", "El esquema CMS contenido no esta disponible para publicar " . $slotNombre . ".", array("persistencia_real" => false));
+    }
+    return $this->cmsPublicarBloqueHomeSlot($db, $slotCodigo, $slotNombre, array($tipoBloque), $codigoBloque, $tipoBloque, $nombreInterno, $this->valor($payload, "titulo", $slotNombre), $payload, intval($this->valor($payload, "orden", 80)), $idUsuario);
+  }
+
+  private function cmsPayloadModuloHomeCategoria($datos, $opciones) {
+    $payloadRaw = (string) $this->valor($datos, "payload_json", "{}");
+    $payload = json_decode($payloadRaw, true);
+    if (!is_array($payload)) {
+      return array("error_validacion" => "El payload del modulo Home no es JSON valido.");
+    }
+    $tipo = (string) $this->valor($opciones, "tipo", "");
+    $visible = array_key_exists("visible", $payload) ? (bool) $payload["visible"] : true;
+    $fuente = $this->valor($payload, "fuente", array());
+    if (!is_array($fuente)) { $fuente = array(); }
+    $media = $this->valor($payload, "media", array());
+    if (!is_array($media)) { $media = array(); }
+    $cta = $this->valor($payload, "cta", array());
+    if (!is_array($cta)) { $cta = array(); }
+    $config = $this->valor($payload, "config", array());
+    if (!is_array($config)) { $config = array(); }
+
+    $categoriaSlug = trim((string) $this->valor($fuente, "categoria_slug", ""));
+    $categoriaSlug = trim($categoriaSlug, "/");
+    $limiteDefault = intval($this->valor($opciones, "limite_default", 0));
+    $limiteMax = intval($this->valor($opciones, "limite_max", 0));
+    $limite = intval($this->valor($fuente, "limite", $this->valor($payload, "limite", $limiteDefault)));
+    if ($limiteDefault > 0 && $limite <= 0) { $limite = $limiteDefault; }
+    if ($limiteMax > 0 && $limite > $limiteMax) { $limite = $limiteMax; }
+
+    $usarImagenCategoria = !empty($media["usar_imagen_categoria"]);
+    $categoriaImagenPreferida = trim((string) $this->valor($media, "categoria_imagen_preferida", "banner"));
+    if (!in_array($categoriaImagenPreferida, array("banner", "card", "portada", "imagen"), true)) { $categoriaImagenPreferida = "banner"; }
+    $categoriaPublica = array();
+    $imagenCategoriaDesktop = array("url" => "", "origen" => "");
+    $imagenCategoriaMobile = array("url" => "", "origen" => "");
+    if ($usarImagenCategoria && $categoriaSlug !== "") {
+      $dbCategorias = $this->getConexion();
+      if ($dbCategorias) {
+        $categoriaPublica = $this->cmsCategoriaPublicaPorSlug($dbCategorias, $categoriaSlug);
+        $imagenCategoriaDesktop = $this->cmsImagenCategoriaParaPromoHome($categoriaPublica, "desktop", $categoriaImagenPreferida);
+        $imagenCategoriaMobile = $this->cmsImagenCategoriaParaPromoHome($categoriaPublica, "mobile", $categoriaImagenPreferida);
+      }
+    }
+
+    $imagenDesktop = $usarImagenCategoria ? $imagenCategoriaDesktop["url"] : $this->cmsNormalizarUrlImagenPublica($this->valor($media, "imagen_desktop", ""));
+    $imagenMobile = $usarImagenCategoria ? $imagenCategoriaMobile["url"] : $this->cmsNormalizarUrlImagenPublica($this->valor($media, "imagen_mobile", ""));
+    if ($imagenMobile === "") { $imagenMobile = $imagenDesktop; }
+    if ($visible && $categoriaSlug === "") {
+      return array("error_validacion" => "Selecciona categoria_slug canonico para el modulo Home.");
+    }
+    if ($visible && !empty($opciones["requiere_imagen"]) && $imagenDesktop === "") {
+      return array("error_validacion" => $usarImagenCategoria ? "La categoria seleccionada no tiene imagen publica para promo editorial." : "Selecciona imagen desktop publica para el modulo Home.");
+    }
+
+    $items = $this->valor($payload, "items", array());
+    if (!is_array($items)) { $items = array(); }
+    if ($tipo === "promo_editorial") {
+      $posicionesPermitidas = array("center center", "center top", "center bottom", "left center", "right center");
+      $overlayPermitido = array("light", "dark", "none");
+      $textThemePermitido = array("dark", "light");
+      $textoPosicionPermitida = array("left", "center", "right");
+      if (!in_array((string) $this->valor($config, "object_position_desktop", ""), $posicionesPermitidas, true)) { $config["object_position_desktop"] = "center center"; }
+      if (!in_array((string) $this->valor($config, "object_position_mobile", ""), $posicionesPermitidas, true)) { $config["object_position_mobile"] = "center center"; }
+      if (!in_array((string) $this->valor($config, "overlay", ""), $overlayPermitido, true)) { $config["overlay"] = "light"; }
+      if (!in_array((string) $this->valor($config, "text_theme", ""), $textThemePermitido, true)) { $config["text_theme"] = "dark"; }
+      if (!in_array((string) $this->valor($config, "texto_posicion", ""), $textoPosicionPermitida, true)) { $config["texto_posicion"] = "left"; }
+      $config["overlay_opacity"] = max(0, min(1, floatval($this->valor($config, "overlay_opacity", 0.25))));
+      $item = isset($items[0]) && is_array($items[0]) ? $items[0] : array();
+      $items = array(array(
+        "titulo" => trim((string) $this->valor($item, "titulo", $this->valor($payload, "titulo", $this->valor($opciones, "titulo_default", "")))),
+        "subtitulo" => trim((string) $this->valor($item, "subtitulo", $this->valor($payload, "subtitulo", ""))),
+        "imagen" => $this->cmsNormalizarUrlImagenPublica($this->valor($item, "imagen", $imagenDesktop)),
+        "imagen_mobile" => $this->cmsNormalizarUrlImagenPublica($this->valor($item, "imagen_mobile", $imagenMobile)),
+        "alt" => trim((string) $this->valor($item, "alt", $this->valor($media, "alt", ""))),
+        "url" => trim((string) $this->valor($item, "url", $this->valor($cta, "url", ($categoriaSlug !== "" ? "/categoria/" . $categoriaSlug : "")))),
+        "visible" => array_key_exists("visible", $item) ? (bool) $item["visible"] : true,
+        "orden" => intval($this->valor($item, "orden", 10))
+      ));
+      if ($visible && trim((string) $items[0]["alt"]) === "") {
+        return array("error_validacion" => "Captura alt para la imagen del banner editorial.");
+      }
+    }
+
+    return array(
+      "codigo" => trim((string) $this->valor($payload, "codigo", $this->valor($opciones, "codigo_default", $tipo))),
+      "tipo" => $tipo,
+      "layout" => trim((string) $this->valor($payload, "layout", $this->valor($opciones, "layout_default", ""))),
+      "visible" => $visible,
+      "orden" => intval($this->valor($payload, "orden", 80)),
+      "eyebrow" => trim((string) $this->valor($payload, "eyebrow", $this->valor($opciones, "eyebrow_default", ""))),
+      "titulo" => trim((string) $this->valor($payload, "titulo", $this->valor($opciones, "titulo_default", ""))),
+      "subtitulo" => trim((string) $this->valor($payload, "subtitulo", "")),
+      "fuente" => array(
+        "modo" => "categoria",
+        "categoria_slug" => $categoriaSlug,
+        "incluir_hijos" => $this->valor($fuente, "incluir_hijos", true) ? true : false,
+        "limite" => $limite,
+        "orden" => trim((string) $this->valor($fuente, "orden", $this->valor($opciones, "orden_catalogo_default", "relevancia"))),
+        "destacado" => $this->valor($fuente, "destacado", null)
+      ),
+      "media" => array(
+        "usar_imagen_categoria" => $usarImagenCategoria,
+        "categoria_imagen_preferida" => $categoriaImagenPreferida,
+        "categoria_imagen_resuelta" => $usarImagenCategoria ? $imagenDesktop : "",
+        "categoria_imagen_mobile_resuelta" => $usarImagenCategoria ? $imagenMobile : "",
+        "categoria_imagen_origen" => $usarImagenCategoria ? $imagenCategoriaDesktop["origen"] : "",
+        "categoria_imagen_mobile_origen" => $usarImagenCategoria ? $imagenCategoriaMobile["origen"] : "",
+        "imagen_desktop" => $imagenDesktop,
+        "imagen_mobile" => $imagenMobile,
+        "alt" => trim((string) $this->valor($media, "alt", ""))
+      ),
+      "items" => $items,
+      "cta" => array(
+        "label" => trim((string) $this->valor($cta, "label", "Ver todo")),
+        "url" => trim((string) $this->valor($cta, "url", ($categoriaSlug !== "" ? "/categoria/" . $categoriaSlug : "")))
+      ),
+      "config" => $config,
+      "frontend" => array("origen" => trim((string) $this->valor($payload, "codigo", $this->valor($opciones, "codigo_default", $tipo))), "tipo" => $tipo),
+      "guardrails" => array(
+        "frontend_resuelve_productos_por_api" => $tipo !== "promo_editorial",
+        "no_stock_exacto" => true,
+        "no_modifica_catalogo" => true,
+        "no_modifica_precios" => true,
+        "no_modifica_inventario" => true
+      )
+    );
   }
 
   /**
@@ -10760,8 +11050,10 @@ class EcommerceCatalogoPublico extends CRUD {
   private function configuracionSeoPublica($db) {
     $configResp = $this->configuracionPublica();
     $config = $this->valor($configResp, array("depurar", "configuracion"), $this->configuracionPublicaDefault());
+    $frontendLocal = trim((string) $this->valor($config, "url_sitio_publico", ""));
     $salida = array(
-      "dominio_produccion" => trim((string) $this->valor($config, "url_sitio_publico", "")),
+      "dominio_produccion" => "https://artiani.com.mx",
+      "frontend_local" => $frontendLocal,
       "robots_default" => "",
       "sitemap_activo" => true,
       "redirecciones_activas" => true,
@@ -10774,7 +11066,10 @@ class EcommerceCatalogoPublico extends CRUD {
         LIMIT 1");
       $fila = $stmt->fetch(PDO::FETCH_ASSOC);
       if ($fila) {
-        $salida["dominio_produccion"] = trim((string) $this->valor($fila, "dominio_produccion", $salida["dominio_produccion"]));
+        $dominioConfigurado = trim((string) $this->valor($fila, "dominio_produccion", ""));
+        if ($dominioConfigurado !== "") {
+          $salida["dominio_produccion"] = $dominioConfigurado;
+        }
         $salida["robots_default"] = trim((string) $this->valor($fila, "robots_default", ""));
         $salida["sitemap_activo"] = intval($this->valor($fila, "sitemap_activo", 1)) === 1;
         $salida["redirecciones_activas"] = intval($this->valor($fila, "redirecciones_activas", 1)) === 1;
@@ -13483,6 +13778,7 @@ class EcommerceCatalogoPublico extends CRUD {
         "version_contenido" => "bd-publicada-" . date("Ymd"),
         "plantilla_vista" => $this->plantillaVistaPublicaDesdeBd($pagina, $contexto),
         "slots" => $slots,
+        "secciones" => $this->cmsSeccionesDesdeSlots($slots),
         "resumen" => array(
           "slots_total" => count($slots),
           "bloques_total" => $bloquesTotal,
@@ -13627,7 +13923,11 @@ class EcommerceCatalogoPublico extends CRUD {
       $payload["id_bloque"] = (int) $row["id_bloque"];
       $payload["id_publicacion_contenido"] = (int) $row["id_publicacion_contenido"];
       $payload["codigo"] = (string) $row["codigo"];
-      $payload["tipo"] = (string) $row["tipo_bloque"];
+      $tipoPublico = (string) $row["tipo_bloque"];
+      if ($slotCodigo === "home.marcas" && trim((string) $this->valor($payload, "tipo", "")) !== "") {
+        $tipoPublico = trim((string) $this->valor($payload, "tipo", ""));
+      }
+      $payload["tipo"] = $tipoPublico;
       $payload["estatus"] = (string) $row["estatus_publicacion"];
       if (!isset($payload["titulo"]) || trim((string) $payload["titulo"]) === "") {
         $payload["titulo"] = (string) $row["titulo"];
@@ -13673,7 +13973,11 @@ class EcommerceCatalogoPublico extends CRUD {
       unset($payload["_cms_guardrails"]);
       $payload["id"] = "cms-" . (int) $row["id_publicacion_contenido"];
       $payload["codigo"] = (string) $row["codigo"];
-      $payload["tipo"] = (string) $row["tipo_bloque"];
+      $tipoPublico = (string) $row["tipo_bloque"];
+      if ($slotCodigo === "home.marcas" && trim((string) $this->valor($payload, "tipo", "")) !== "") {
+        $tipoPublico = trim((string) $this->valor($payload, "tipo", ""));
+      }
+      $payload["tipo"] = $tipoPublico;
       $payload["estatus"] = "publicado";
       if (!isset($payload["titulo"]) || trim((string) $payload["titulo"]) === "") {
         $payload["titulo"] = (string) $row["titulo"];
@@ -13687,7 +13991,7 @@ class EcommerceCatalogoPublico extends CRUD {
       $payload["tracking"] = array_merge(array(
         "section_id" => (string) $row["codigo"],
         "section_slot" => $slotCodigo,
-        "section_type" => (string) $row["tipo_bloque"],
+        "section_type" => $tipoPublico,
         "section_order" => (int) $row["orden"]
       ), $payload["tracking"]);
       $payload["vigencia"] = array("desde" => (string) $row["vigente_desde"], "hasta" => (string) $row["vigente_hasta"]);
@@ -13701,6 +14005,41 @@ class EcommerceCatalogoPublico extends CRUD {
       $bloques[] = $payload;
     }
     return $bloques;
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-04
+   * Proposito: entregar lista plana `secciones` para el frontend Home sin quitar compatibilidad de `slots`.
+   * Impacto: `/ecommercePublico/cms_frontend?pagina=home`; facilita render por orden y visibilidad.
+   * Contrato: solo transforma payload publico en memoria; no escribe BD ni modifica catalogo.
+   */
+  private function cmsSeccionesDesdeSlots($slots) {
+    $secciones = array();
+    foreach ((array) $slots as $slot) {
+      if (!is_array($slot)) { continue; }
+      $slotCodigo = (string) $this->valor($slot, "slot", $this->valor($slot, "codigo", ""));
+      foreach ((array) $this->valor($slot, "bloques", array()) as $bloque) {
+        if (!is_array($bloque)) { continue; }
+        $seccion = $bloque;
+        $seccion["slot"] = $slotCodigo;
+        $seccion["codigo"] = trim((string) $this->valor($seccion, "codigo", $this->valor($seccion, "id", $slotCodigo)));
+        $seccion["tipo"] = trim((string) $this->valor($seccion, "tipo", $this->valor($seccion, "tipo_bloque", "")));
+        $seccion["layout"] = trim((string) $this->valor($seccion, "layout", $this->valor($seccion, array("config", "variante"), "")));
+        $seccion["visible"] = array_key_exists("visible", $seccion) ? (bool) $seccion["visible"] : true;
+        $seccion["orden"] = intval($this->valor($seccion, "orden", $this->valor($slot, "orden", 100)));
+        foreach (array("fuente", "cta", "config", "items", "media") as $campo) {
+          if (!isset($seccion[$campo])) {
+            $seccion[$campo] = $campo === "items" ? array() : array();
+          }
+        }
+        unset($seccion["_cms_guardrails"]);
+        $secciones[] = $seccion;
+      }
+    }
+    usort($secciones, function ($a, $b) {
+      return intval($this->valor($a, "orden", 0)) <=> intval($this->valor($b, "orden", 0));
+    });
+    return $secciones;
   }
 
   /**
@@ -14360,6 +14699,30 @@ class EcommerceCatalogoPublico extends CRUD {
         "campos" => array("titulo", "source.tipo", "source.endpoint", "limite", "cta_label", "cta_url")
       ),
       array(
+        "tipo" => "productos_carrusel",
+        "nombre" => "Productos carrusel por categoria",
+        "uso" => "Carrusel de productos recientes o destacados filtrado por categoria.",
+        "campos" => array("codigo", "layout", "titulo", "fuente.categoria_slug", "fuente.incluir_hijos", "fuente.limite", "fuente.orden", "cta")
+      ),
+      array(
+        "tipo" => "promo_editorial",
+        "nombre" => "Banner editorial de categoria",
+        "uso" => "Banner grande con imagen, texto corto y CTA hacia una categoria.",
+        "campos" => array("codigo", "layout", "titulo", "items[].imagen", "items[].imagen_mobile", "items[].alt", "cta", "config")
+      ),
+      array(
+        "tipo" => "visual_productos",
+        "nombre" => "Categoria visual con productos",
+        "uso" => "Bloque visual de categoria con pocos productos relacionados y sin carrusel.",
+        "campos" => array("codigo", "layout", "titulo", "fuente.categoria_slug", "media.imagen_desktop", "media.imagen_mobile", "media.alt", "fuente.limite")
+      ),
+      array(
+        "tipo" => "marcas_destacadas",
+        "nombre" => "Marcas destacadas",
+        "uso" => "Marcas reales por categoria con logo/banner y fallback textual.",
+        "campos" => array("codigo", "layout", "categoria_contexto", "fuente.categoria_slug", "items[].marca_id", "items[].logo", "items[].imagen_banner")
+      ),
+      array(
         "tipo" => "promo_strip",
         "nombre" => "Franja promocional",
         "uso" => "Aviso corto de servicio, promocion o informacion operativa.",
@@ -14398,8 +14761,11 @@ class EcommerceCatalogoPublico extends CRUD {
       array("codigo" => "home.promo", "nombre" => "Franja informativa home", "pagina" => "home", "tipos" => array("promo_strip"), "max_bloques" => 2, "requerido" => false),
       array("codigo" => "home.promos", "nombre" => "Promos por categoria", "pagina" => "home", "tipos" => array("image_card_grid"), "max_bloques" => 1, "requerido" => false),
       array("codigo" => "home.categorias", "nombre" => "Categorias destacadas", "pagina" => "home", "tipos" => array("image_card_grid"), "max_bloques" => 1, "requerido" => false),
-      array("codigo" => "home.marcas", "nombre" => "Marcas destacadas", "pagina" => "home", "tipos" => array("image_card_grid"), "max_bloques" => 1, "requerido" => false),
+      array("codigo" => "home.marcas", "nombre" => "Marcas destacadas", "pagina" => "home", "tipos" => array("marcas_destacadas", "image_card_grid"), "max_bloques" => 1, "requerido" => false),
       array("codigo" => "home.destacados", "nombre" => "Productos destacados", "pagina" => "home", "tipos" => array("product_collection"), "max_bloques" => 3, "requerido" => false),
+      array("codigo" => "home.productos_carrusel", "nombre" => "Nuevos productos por categoria", "pagina" => "home", "tipos" => array("productos_carrusel"), "max_bloques" => 3, "requerido" => false),
+      array("codigo" => "home.promo_editorial", "nombre" => "Banner editorial de categoria", "pagina" => "home", "tipos" => array("promo_editorial"), "max_bloques" => 2, "requerido" => false),
+      array("codigo" => "home.visual_productos", "nombre" => "Categoria visual con productos", "pagina" => "home", "tipos" => array("visual_productos"), "max_bloques" => 2, "requerido" => false),
       array("codigo" => "home.esenciales", "nombre" => "Esenciales Artiani", "pagina" => "home", "tipos" => array("image_card_grid"), "max_bloques" => 1, "requerido" => false),
       array("codigo" => "home.compra_guiada", "nombre" => "Compra guiada", "pagina" => "home", "tipos" => array("compra_guiada"), "max_bloques" => 1, "requerido" => false),
       array("codigo" => "categoria.banner", "nombre" => "Banner de categoria", "pagina" => "categoria", "tipos" => array("category_banner"), "max_bloques" => 1, "requerido" => false),
@@ -14569,6 +14935,21 @@ class EcommerceCatalogoPublico extends CRUD {
         )
       ),
       array(
+        "slot" => "home.productos_carrusel",
+        "nombre" => "Nuevos productos por categoria",
+        "bloques" => array($this->bloqueHomeProductosCarruselDefault())
+      ),
+      array(
+        "slot" => "home.promo_editorial",
+        "nombre" => "Banner editorial de categoria",
+        "bloques" => array($this->bloqueHomePromoEditorialDefault())
+      ),
+      array(
+        "slot" => "home.visual_productos",
+        "nombre" => "Categoria visual con productos",
+        "bloques" => array($this->bloqueHomeVisualProductosDefault())
+      ),
+      array(
         "slot" => "home.compra_guiada",
         "nombre" => "Compra guiada",
         "bloques" => array(
@@ -14609,7 +14990,10 @@ class EcommerceCatalogoPublico extends CRUD {
           array("slot" => "home.categorias", "componente" => "CategoryGrid", "variante" => "cards_4", "orden" => 3),
           array("slot" => "home.marcas", "componente" => "ImageCardGrid", "variante" => "brand_strip", "orden" => 4),
           array("slot" => "home.destacados", "componente" => "ProductCarousel", "variante" => "compact_cards", "orden" => 5),
-          array("slot" => "home.compra_guiada", "componente" => "GuidedBuying", "variante" => "chips", "orden" => 6)
+          array("slot" => "home.productos_carrusel", "componente" => "ProductCarousel", "variante" => "wokiee_new_products_categoria", "orden" => 6),
+          array("slot" => "home.promo_editorial", "componente" => "EditorialPromo", "variante" => "wokiee_accessory_update_single", "orden" => 7),
+          array("slot" => "home.visual_productos", "componente" => "VisualProducts", "variante" => "categoria_visual_2_productos", "orden" => 8),
+          array("slot" => "home.compra_guiada", "componente" => "GuidedBuying", "variante" => "chips", "orden" => 9)
         )
       ),
       "categoria" => array(
@@ -14655,11 +15039,72 @@ class EcommerceCatalogoPublico extends CRUD {
       array("codigo" => "HeroSlider", "bloques_permitidos" => array("hero_banner", "category_banner"), "variantes" => array("full_width", "boxed", "split")),
       array("codigo" => "PromoStrip", "bloques_permitidos" => array("promo_strip"), "variantes" => array("single", "stacked", "compact")),
       array("codigo" => "CategoryGrid", "bloques_permitidos" => array("image_card_grid"), "variantes" => array("cards_3", "cards_4", "mosaic")),
-      array("codigo" => "ProductCarousel", "bloques_permitidos" => array("product_collection"), "variantes" => array("compact_cards", "wide_cards", "simple_row")),
+      array("codigo" => "ProductCarousel", "bloques_permitidos" => array("product_collection", "productos_carrusel"), "variantes" => array("compact_cards", "wide_cards", "simple_row", "wokiee_new_products_categoria")),
+      array("codigo" => "EditorialPromo", "bloques_permitidos" => array("promo_editorial"), "variantes" => array("wokiee_accessory_update_single")),
+      array("codigo" => "VisualProducts", "bloques_permitidos" => array("visual_productos"), "variantes" => array("categoria_visual_2_productos")),
       array("codigo" => "ImageCardGrid", "bloques_permitidos" => array("image_card_grid"), "variantes" => array("two_columns", "three_columns", "editorial", "brand_strip")),
       array("codigo" => "GuidedBuying", "bloques_permitidos" => array("compra_guiada"), "variantes" => array("chips", "compact", "mascotas")),
       array("codigo" => "WhatsAppChat", "bloques_permitidos" => array("whatsapp_chat"), "variantes" => array("floating_multi_contact", "floating_single_contact")),
       array("codigo" => "SafeHtmlBlock", "bloques_permitidos" => array("content_html_safe"), "variantes" => array("narrow", "wide", "accordion"))
+    );
+  }
+
+  private function bloqueHomeProductosCarruselDefault() {
+    return array(
+      "id" => "home-nuevos-acuario-default",
+      "codigo" => "home_nuevos_acuario",
+      "tipo" => "productos_carrusel",
+      "layout" => "wokiee_new_products_categoria",
+      "estatus" => "publicado_default",
+      "visible" => false,
+      "orden" => 70,
+      "eyebrow" => "Nuevos productos",
+      "titulo" => "Acuario y peces",
+      "subtitulo" => "Lo mas reciente publicado dentro de esta categoria.",
+      "fuente" => array("modo" => "categoria", "categoria_slug" => "acuario-y-peces", "incluir_hijos" => true, "limite" => 8, "orden" => "recientes"),
+      "cta" => array("label" => "Ver todo", "url" => "/categoria/acuario-y-peces?orden=recientes"),
+      "config" => array("mostrar_flechas" => true, "flechas_posicion" => "orillas_centro", "ocultar_si_sin_productos" => true),
+      "items" => array(),
+      "media" => array()
+    );
+  }
+
+  private function bloqueHomePromoEditorialDefault() {
+    return array(
+      "id" => "home-promo-editorial-default",
+      "codigo" => "home_promo_acuario",
+      "tipo" => "promo_editorial",
+      "layout" => "wokiee_accessory_update_single",
+      "estatus" => "publicado_default",
+      "visible" => false,
+      "orden" => 80,
+      "titulo" => "Acuario y peces",
+      "subtitulo" => "Ideas utiles para montar, mejorar o mantener tu acuario con mas claridad.",
+      "fuente" => array("modo" => "categoria", "categoria_slug" => "acuario-y-peces"),
+      "items" => array(array("titulo" => "Acuario y peces", "subtitulo" => "Ideas utiles para montar, mejorar o mantener tu acuario con mas claridad.", "imagen" => "", "imagen_mobile" => "", "alt" => "Productos para acuario en Artiani", "url" => "/categoria/acuario-y-peces", "visible" => true, "orden" => 10)),
+      "cta" => array("label" => "Ver categoria", "url" => "/categoria/acuario-y-peces"),
+      "config" => array("object_position_desktop" => "center center", "object_position_mobile" => "center center", "text_theme" => "dark", "overlay" => "light", "overlay_opacity" => 0.25, "texto_posicion" => "left"),
+      "media" => array("usar_imagen_categoria" => false, "categoria_imagen_preferida" => "banner", "imagen_desktop" => "", "imagen_mobile" => "", "alt" => "Productos para acuario en Artiani")
+    );
+  }
+
+  private function bloqueHomeVisualProductosDefault() {
+    return array(
+      "id" => "home-visual-productos-default",
+      "codigo" => "home_visual_filtracion",
+      "tipo" => "visual_productos",
+      "layout" => "categoria_visual_2_productos",
+      "estatus" => "publicado_default",
+      "visible" => false,
+      "orden" => 90,
+      "eyebrow" => "Categoria destacada",
+      "titulo" => "Filtracion y oxigenacion",
+      "subtitulo" => "Productos relacionados para comparar opciones y armar tu carrito.",
+      "fuente" => array("modo" => "categoria", "categoria_slug" => "acuario-y-peces/equipamiento-tecnico/filtracion-y-oxigenacion", "incluir_hijos" => true, "limite" => 2, "orden" => "relevancia"),
+      "media" => array("imagen_desktop" => "", "imagen_mobile" => "", "alt" => "Filtracion y oxigenacion para acuarios"),
+      "cta" => array("label" => "Ver todo", "url" => "/categoria/acuario-y-peces/equipamiento-tecnico/filtracion-y-oxigenacion"),
+      "config" => array("posicion_media" => "izquierda", "productos_layout" => "grid_2", "usar_carrusel" => false, "ocultar_si_sin_productos" => true),
+      "items" => array()
     );
   }
 

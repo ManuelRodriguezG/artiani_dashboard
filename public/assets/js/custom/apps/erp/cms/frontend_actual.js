@@ -617,6 +617,52 @@
             mostrar_badges: true
           }
         },
+        home_productos_carrusel: {
+          codigo: "home_nuevos_acuario",
+          tipo: "productos_carrusel",
+          layout: "wokiee_new_products_categoria",
+          visible: false,
+          orden: 70,
+          eyebrow: "Nuevos productos",
+          titulo: "Acuario y peces",
+          subtitulo: "Lo mas reciente publicado dentro de esta categoria.",
+          fuente: { modo: "categoria", categoria_slug: "acuario-y-peces", incluir_hijos: true, limite: 8, orden: "recientes" },
+          cta: { label: "Ver todo", url: "/categoria/acuario-y-peces?orden=recientes" },
+          config: { mostrar_flechas: true, flechas_posicion: "orillas_centro", ocultar_si_sin_productos: true },
+          items: [],
+          media: {}
+        },
+        home_promo_editorial: {
+          codigo: "home_promo_acuario",
+          tipo: "promo_editorial",
+          layout: "wokiee_accessory_update_single",
+          visible: false,
+          orden: 80,
+          titulo: "Acuario y peces",
+          subtitulo: "Ideas utiles para montar, mejorar o mantener tu acuario con mas claridad.",
+          fuente: { modo: "categoria", categoria_slug: "acuario-y-peces" },
+          items: [
+            { titulo: "Acuario y peces", subtitulo: "Ideas utiles para montar, mejorar o mantener tu acuario con mas claridad.", imagen: "", imagen_mobile: "", alt: "Productos para acuario en Artiani", url: "/categoria/acuario-y-peces", visible: true, orden: 10 }
+          ],
+          cta: { label: "Ver categoria", url: "/categoria/acuario-y-peces" },
+          config: { object_position_desktop: "center center", object_position_mobile: "center center", text_theme: "dark", overlay: "light", overlay_opacity: 0.25, texto_posicion: "left" },
+          media: { usar_imagen_categoria: false, categoria_imagen_preferida: "banner", imagen_desktop: "", imagen_mobile: "", alt: "Productos para acuario en Artiani" }
+        },
+        home_visual_productos: {
+          codigo: "home_visual_filtracion",
+          tipo: "visual_productos",
+          layout: "categoria_visual_2_productos",
+          visible: false,
+          orden: 90,
+          eyebrow: "Categoria destacada",
+          titulo: "Filtracion y oxigenacion",
+          subtitulo: "Productos relacionados para comparar opciones y armar tu carrito.",
+          fuente: { modo: "categoria", categoria_slug: "acuario-y-peces/equipamiento-tecnico/filtracion-y-oxigenacion", incluir_hijos: true, limite: 2, orden: "relevancia" },
+          media: { imagen_desktop: "", imagen_mobile: "", alt: "Filtracion y oxigenacion para acuarios" },
+          cta: { label: "Ver todo", url: "/categoria/acuario-y-peces/equipamiento-tecnico/filtracion-y-oxigenacion" },
+          config: { posicion_media: "izquierda", productos_layout: "grid_2", usar_carrusel: false, ocultar_si_sin_productos: true },
+          items: []
+        },
         home_marcas_destacadas: {
           codigo: "home_marcas_destacadas",
           tipo: "marcas_destacadas",
@@ -852,6 +898,9 @@
         seccion("home_promos_categoria", "promos_categoria", "Promos visuales grandes hacia categorias comerciales fuertes.", ["titulo", "imagen", "url", "path_slug"]),
         seccion("home_categorias_destacadas", "categorias_destacadas", "Categorias reales publicadas con imagen card/banner.", ["categoria_id", "slug", "imagen_card", "imagen_banner"]),
         seccion("home_productos_destacados", "productos_destacados", "Productos por criterio o lista manual.", ["fuente.modo", "fuente.criterio", "fuente.productos", "limite"]),
+        seccion("home_productos_carrusel", "productos_carrusel", "Nuevos productos por categoria con carrusel de 8 productos.", ["categoria_slug", "incluir_hijos", "limite", "orden"]),
+        seccion("home_promo_editorial", "promo_editorial", "Banner editorial grande de categoria con imagen desktop/mobile.", ["titulo", "imagen", "cta", "config"]),
+        seccion("home_visual_productos", "visual_productos", "Categoria visual con imagen y 2 productos relacionados.", ["categoria_slug", "media", "cta", "config"]),
         seccion("home_marcas_destacadas", "marcas_destacadas", "Marcas destacadas desde una categoria origen.", ["categoria_contexto", "fuente", "items"]),
         seccion("home_colecciones", "coleccion_productos", "Colecciones repetibles: novedades, destacados, basicos.", ["titulo", "fuente", "cta"]),
         seccion("home_esenciales_artiani", "bloque_editorial_cards", "Cards editoriales tipo Esenciales Artiani por categoria principal.", ["categoria_principal", "items", "url", "imagen"]),
@@ -1306,6 +1355,15 @@
     if (item.codigo === "home_productos_destacados") {
       return renderProductosDestacados(item);
     }
+    if (item.codigo === "home_productos_carrusel") {
+      return renderModuloHomeCategoria("productos_carrusel", item);
+    }
+    if (item.codigo === "home_promo_editorial") {
+      return renderModuloHomeCategoria("promo_editorial", item);
+    }
+    if (item.codigo === "home_visual_productos") {
+      return renderModuloHomeCategoria("visual_productos", item);
+    }
     if (item.codigo === "home_marcas_destacadas") {
       return renderHomeMarcasDestacadas(item);
     }
@@ -1406,6 +1464,9 @@
       ["home_promos_categoria", "home.promos", "Promos por categoria"],
       ["home_categorias_destacadas", "home.categorias", "Categorias destacadas"],
       ["home_productos_destacados", "home.destacados", "Productos destacados"],
+      ["home_productos_carrusel", "home.productos_carrusel", "Nuevos productos por categoria"],
+      ["home_promo_editorial", "home.promo_editorial", "Banner editorial categoria"],
+      ["home_visual_productos", "home.visual_productos", "Categoria visual con productos"],
       ["home_marcas_destacadas", "home.marcas", "Marcas por categoria"],
       ["home_colecciones", "home.destacados", "Colecciones de productos"],
       ["home_esenciales_artiani", "home.esenciales", "Esenciales Artiani"],
@@ -1732,6 +1793,20 @@
     on("cms_actual_producto_agregar", "click", agregarProductoManual);
     on("cms_actual_home_productos_publicar", "click", publicarHomeProductos);
     on("cms_actual_home_productos_api", "click", consultarApiHomeProductos);
+    Array.prototype.forEach.call(document.querySelectorAll("[data-home-modulo-config]"), function (node) {
+      node.addEventListener("input", function () {
+        actualizarModuloHomeCategoria(node.getAttribute("data-home-modulo"), node.getAttribute("data-home-modulo-config"), node.value);
+      });
+      node.addEventListener("change", function () {
+        actualizarModuloHomeCategoria(node.getAttribute("data-home-modulo"), node.getAttribute("data-home-modulo-config"), node.value);
+      });
+    });
+    on("cms_actual_home_productos_carrusel_publicar", "click", function () { publicarModuloHomeCategoria("productos_carrusel"); });
+    on("cms_actual_home_productos_carrusel_api", "click", function () { consultarApiModuloHomeCategoria("productos_carrusel"); });
+    on("cms_actual_home_promo_editorial_publicar", "click", function () { publicarModuloHomeCategoria("promo_editorial"); });
+    on("cms_actual_home_promo_editorial_api", "click", function () { consultarApiModuloHomeCategoria("promo_editorial"); });
+    on("cms_actual_home_visual_productos_publicar", "click", function () { publicarModuloHomeCategoria("visual_productos"); });
+    on("cms_actual_home_visual_productos_api", "click", function () { consultarApiModuloHomeCategoria("visual_productos"); });
     Array.prototype.forEach.call(document.querySelectorAll("[data-colecciones-config]"), function (node) {
       node.addEventListener("input", function () {
         actualizarColeccionesConfig(node.getAttribute("data-colecciones-config"), node.value);
@@ -3414,6 +3489,65 @@
     }
   }
 
+  function renderModuloHomeCategoria(contexto, item) {
+    var data = moduloHomeCategoriaData(contexto);
+    var meta = moduloHomeCategoriaMeta(contexto);
+    var media = data.media || {};
+    return '<div class="cms-actual-card mb-4">' +
+      '<div class="d-flex justify-content-between align-items-start gap-3 flex-wrap mb-4">' +
+        '<div><div class="fw-bold">' + escapeHtml(item.codigo) + '</div><div class="text-muted fs-8">' + escapeHtml(item.descripcion) + '</div></div>' +
+        '<span class="badge badge-light-success">Editor activo</span>' +
+      '</div>' +
+      '<div class="row g-3 mb-4">' +
+        campoModuloHome(contexto, "visible", "Visible", data.visible ? "1" : "0", "col-md-2", "select", [["1", "Si"], ["0", "No"]]) +
+        campoModuloHome(contexto, "orden", "Orden", data.orden || meta.orden, "col-md-2") +
+        campoModuloHome(contexto, "codigo", "Codigo", data.codigo || meta.codigo, "col-md-4") +
+        campoModuloHome(contexto, "layout", "Layout", data.layout || meta.layout, "col-md-4") +
+        campoModuloHome(contexto, "eyebrow", "Eyebrow", data.eyebrow || "", "col-md-3") +
+        campoModuloHome(contexto, "titulo", "Titulo", data.titulo || "", "col-md-4") +
+        campoModuloHome(contexto, "subtitulo", "Subtitulo", data.subtitulo || "", "col-md-5") +
+        campoModuloHome(contexto, "fuente.categoria_slug", "Categoria slug canonico", (data.fuente || {}).categoria_slug || "", "col-md-5") +
+        campoModuloHome(contexto, "fuente.incluir_hijos", "Incluir hijos", (data.fuente || {}).incluir_hijos ? "1" : "0", "col-md-2", "select", [["1", "Si"], ["0", "No"]]) +
+        campoModuloHome(contexto, "fuente.limite", "Limite", (data.fuente || {}).limite || meta.limite, "col-md-2") +
+        campoModuloHome(contexto, "fuente.orden", "Orden catalogo", (data.fuente || {}).orden || meta.ordenCatalogo, "col-md-3", "select", [["recientes", "Recientes"], ["relevancia", "Relevancia"], ["precio_asc", "Precio menor"], ["precio_desc", "Precio mayor"]]) +
+        campoModuloHome(contexto, "cta.label", "CTA texto", (data.cta || {}).label || "", "col-md-3") +
+        campoModuloHome(contexto, "cta.url", "CTA URL", (data.cta || {}).url || "", "col-md-5") +
+        (contexto === "promo_editorial" ? campoModuloHome(contexto, "media.usar_imagen_categoria", "Imagen de categoria", media.usar_imagen_categoria ? "1" : "0", "col-md-3", "select", [["0", "Banner propio"], ["1", "Usar categoria"]]) : "") +
+        (contexto === "promo_editorial" ? campoModuloHome(contexto, "media.categoria_imagen_preferida", "Imagen preferida", media.categoria_imagen_preferida || "banner", "col-md-3", "select", [["banner", "Banner"], ["portada", "Portada"], ["card", "Card"], ["imagen", "Imagen"]]) : "") +
+        (meta.media ? campoModuloHome(contexto, "media.imagen_desktop", "Imagen desktop", media.imagen_desktop || "", "col-md-6", "media") : "") +
+        (meta.media ? campoModuloHome(contexto, "media.imagen_mobile", "Imagen mobile", media.imagen_mobile || "", "col-md-6", "media") : "") +
+        (meta.media ? campoModuloHome(contexto, "media.alt", "Alt imagen", media.alt || "", "col-md-6") : "") +
+        (contexto === "promo_editorial" ? campoModuloHome(contexto, "config.object_position_desktop", "Posicion desktop", (data.config || {}).object_position_desktop || "center center", "col-md-3", "select", [["center center", "Center center"], ["center top", "Center top"], ["center bottom", "Center bottom"], ["left center", "Left center"], ["right center", "Right center"]]) : "") +
+        (contexto === "promo_editorial" ? campoModuloHome(contexto, "config.object_position_mobile", "Posicion mobile", (data.config || {}).object_position_mobile || "center center", "col-md-3", "select", [["center center", "Center center"], ["center top", "Center top"], ["center bottom", "Center bottom"], ["left center", "Left center"], ["right center", "Right center"]]) : "") +
+        (contexto === "promo_editorial" ? campoModuloHome(contexto, "config.text_theme", "Texto", (data.config || {}).text_theme || "dark", "col-md-2", "select", [["dark", "Dark"], ["light", "Light"]]) : "") +
+        (contexto === "promo_editorial" ? campoModuloHome(contexto, "config.overlay", "Overlay", (data.config || {}).overlay || "light", "col-md-2", "select", [["light", "Light"], ["dark", "Dark"], ["none", "None"]]) : "") +
+        (contexto === "promo_editorial" ? campoModuloHome(contexto, "config.overlay_opacity", "Opacidad", (data.config || {}).overlay_opacity || 0.25, "col-md-2") : "") +
+        (contexto === "promo_editorial" ? campoModuloHome(contexto, "config.texto_posicion", "Texto posicion", (data.config || {}).texto_posicion || "left", "col-md-2", "select", [["left", "Left"], ["center", "Center"], ["right", "Right"]]) : "") +
+        (contexto === "visual_productos" ? campoModuloHome(contexto, "config.posicion_media", "Media", (data.config || {}).posicion_media || "izquierda", "col-md-2", "select", [["izquierda", "Izquierda"], ["derecha", "Derecha"]]) : "") +
+        (contexto === "visual_productos" ? campoModuloHome(contexto, "config.ocultar_si_sin_productos", "Ocultar sin productos", (data.config || {}).ocultar_si_sin_productos ? "1" : "0", "col-md-3", "select", [["1", "Si"], ["0", "No"]]) : "") +
+      '</div>' +
+      '<div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3"><div class="fw-bold">' + escapeHtml(meta.tituloPanel) + '</div><div class="d-flex gap-2"><button class="btn btn-sm btn-light-info" type="button" id="cms_actual_home_' + escapeAttr(contexto) + '_api"><i class="bi bi-broadcast"></i> Ver API publicada</button><button class="btn btn-sm btn-primary" type="button" id="cms_actual_home_' + escapeAttr(contexto) + '_publicar"><i class="bi bi-cloud-check"></i> Guardar y publicar</button></div></div>' +
+      '<div class="alert alert-light-warning fs-7 py-3 mb-4" id="cms_actual_home_' + escapeAttr(contexto) + '_estado">Pendiente de publicar. Usa categoria_slug completo y rutas publicas.</div>' +
+      '<div class="alert alert-light-secondary fs-7 py-3 mb-0 d-none" id="cms_actual_home_' + escapeAttr(contexto) + '_api_estado"></div>' +
+    '</div>';
+  }
+
+  function campoModuloHome(contexto, campo, label, value, col, tipo, opciones) {
+    var attr = ' data-home-modulo="' + escapeAttr(contexto) + '" data-home-modulo-config="' + escapeAttr(campo) + '"';
+    var input = "";
+    if (tipo === "select") {
+      input = '<select class="form-select form-select-sm"' + attr + '>' + (opciones || []).map(function (opcion) {
+        return '<option value="' + escapeAttr(opcion[0]) + '"' + (String(value) === String(opcion[0]) ? ' selected' : '') + '>' + escapeHtml(opcion[1]) + '</option>';
+      }).join("") + '</select>';
+    } else {
+      input = '<input class="form-control form-control-sm"' + attr + ' value="' + escapeAttr(value == null ? "" : value) + '">';
+      if (tipo === "media") {
+        input = '<div class="input-group input-group-sm">' + input + '<button class="btn btn-light-primary" type="button" data-media-picker="home_modulo_' + escapeAttr(contexto) + '" data-index="0" data-field="' + escapeAttr(campo) + '"><i class="bi bi-images"></i> Media</button></div>';
+      }
+    }
+    return '<div class="' + escapeAttr(col || "col-md-4") + '"><label class="form-label fs-8 fw-bold">' + escapeHtml(label) + '</label>' + input + '</div>';
+  }
+
   function renderProductosDestacados(item) {
     var data = productosData();
     return '<div class="cms-actual-card mb-4">' +
@@ -3507,6 +3641,158 @@
       orden: (items.length + 1) * 10
     });
     renderGrupo();
+  }
+
+  /**
+   * IA: Codex GPT-5 | Fecha: 2026-09-04
+   * Proposito: administrar modulos Home por categoria solicitados para frontend Artiani.
+   * Impacto: CMS Home; publica productos_carrusel, promo_editorial y visual_productos sin editar catalogo.
+   */
+  function actualizarModuloHomeCategoria(contexto, campo, valor) {
+    var data = moduloHomeCategoriaData(contexto);
+    if (!data) return;
+    if (campo === "visible" || campo === "fuente.incluir_hijos" || campo === "config.ocultar_si_sin_productos" || campo === "media.usar_imagen_categoria") {
+      setPath(data, campo, valor === "1");
+    } else if (campo === "orden" || campo === "fuente.limite") {
+      setPath(data, campo, parseInt(valor || "0", 10) || 0);
+    } else if (campo === "config.overlay_opacity") {
+      setPath(data, campo, Math.max(0, Math.min(1, parseFloat(valor || "0") || 0)));
+    } else {
+      setPath(data, campo, valor);
+    }
+    if (contexto === "promo_editorial") sincronizarPromoEditorialItem(data);
+    refrescarJson();
+  }
+
+  function publicarModuloHomeCategoria(contexto) {
+    var data = moduloHomeCategoriaData(contexto);
+    var meta = moduloHomeCategoriaMeta(contexto);
+    if (!data) return;
+    if (contexto === "promo_editorial") sincronizarPromoEditorialItem(data);
+    var validacion = validarModuloHomeCategoria(contexto, data);
+    if (validacion) {
+      setModuloHomeCategoriaEstado(contexto, validacion, "warning");
+      return;
+    }
+    var boton = $("cms_actual_home_" + contexto + "_publicar");
+    var form = new FormData();
+    form.append("_csrf", window.ERP_CSRF_TOKEN || "");
+    form.append("payload_json", JSON.stringify(data));
+    if (boton) boton.disabled = true;
+    setModuloHomeCategoriaEstado(contexto, "Publicando " + meta.tipo + " en la API...", "info");
+    fetch(meta.endpoint, {
+      method: "POST",
+      body: form,
+      credentials: "same-origin",
+      headers: {
+        "X-CSRF-Token": window.ERP_CSRF_TOKEN || "",
+        "Accept": "application/json",
+        "X-Requested-With": "XMLHttpRequest"
+      }
+    }).then(function (response) {
+      return response.text().then(function (text) {
+        var json = null;
+        try {
+          json = JSON.parse(text);
+        } catch (error) {
+          throw new Error("Respuesta no JSON del servidor (" + response.status + "): " + text.substring(0, 140));
+        }
+        if (!response.ok && json && json.mensaje) throw new Error(json.mensaje);
+        return json;
+      });
+    }).then(function (json) {
+      if (!json || json.error) throw new Error(json && json.mensaje ? json.mensaje : "No se pudo publicar");
+      setModuloHomeCategoriaEstado(contexto, "Publicado. Verifica con Ver API publicada.", "success");
+      consultarEstadoHomePublicado();
+      consultarApiModuloHomeCategoria(contexto);
+    }).catch(function (error) {
+      setModuloHomeCategoriaEstado(contexto, error.message || "Error al publicar.", "danger");
+    }).finally(function () {
+      if (boton) boton.disabled = false;
+    });
+  }
+
+  function validarModuloHomeCategoria(contexto, data) {
+    if (!data) return "No hay datos del modulo.";
+    if (!data.visible) return "";
+    var fuente = data.fuente || {};
+    var media = data.media || {};
+    if (!String(fuente.categoria_slug || "").trim()) return "Captura categoria_slug canonico.";
+    if (contexto === "productos_carrusel" && (parseInt(fuente.limite || "0", 10) || 0) > 8) return "Nuevos productos permite maximo 8.";
+    if (contexto === "visual_productos" && (parseInt(fuente.limite || "0", 10) || 0) > 2) return "Categoria visual permite maximo 2 productos.";
+    if (contexto === "promo_editorial" && !media.usar_imagen_categoria && !esUrlImagenPublicaPersistente(media.imagen_desktop || "")) return "Selecciona imagen desktop publica o activa imagen de categoria.";
+    if (contexto === "visual_productos" && !esUrlImagenPublicaPersistente(media.imagen_desktop || "")) return "Selecciona imagen desktop publica.";
+    if ((contexto === "promo_editorial" || contexto === "visual_productos") && !String(media.alt || "").trim()) return "Captura alt de imagen.";
+    return "";
+  }
+
+  function consultarApiModuloHomeCategoria(contexto) {
+    var meta = moduloHomeCategoriaMeta(contexto);
+    var boton = $("cms_actual_home_" + contexto + "_api");
+    if (boton) boton.disabled = true;
+    setModuloHomeCategoriaApi(contexto, "Consultando /ecommercePublico/cms_frontend?pagina=home...", "info");
+    fetch("/ecommercePublico/cms_frontend?pagina=home", {
+      method: "GET",
+      credentials: "same-origin",
+      headers: {
+        "Accept": "application/json",
+        "X-Requested-With": "XMLHttpRequest"
+      }
+    }).then(function (response) {
+      return response.text().then(function (text) {
+        var json = null;
+        try {
+          json = JSON.parse(text);
+        } catch (error) {
+          throw new Error("Respuesta no JSON del servidor (" + response.status + "): " + text.substring(0, 140));
+        }
+        if (!response.ok) throw new Error((json && json.mensaje) || "No se pudo consultar la API publica");
+        return json;
+      });
+    }).then(function (json) {
+      var depurar = json && json.depurar ? json.depurar : {};
+      var bloques = bloquesSlotPublicado(depurar, meta.slot);
+      if (!bloques.length) {
+        setModuloHomeCategoriaApi(contexto, "No hay contenido publicado en " + meta.slot + ".", "warning");
+        return;
+      }
+      var bloque = bloques[0] || {};
+      setModuloHomeCategoriaApi(contexto, '<div class="fw-bold mb-2">' + escapeHtml(meta.slot) + ' publicado</div><div><span class="fw-semibold">Tipo:</span> ' + escapeHtml(bloque.tipo || "") + '</div><div><span class="fw-semibold">Layout:</span> ' + escapeHtml(bloque.layout || "") + '</div><div><span class="fw-semibold">Categoria:</span> ' + escapeHtml((bloque.fuente || {}).categoria_slug || "") + '</div><div><span class="fw-semibold">Limite:</span> ' + escapeHtml((bloque.fuente || {}).limite || "") + '</div>', "success", true);
+    }).catch(function (error) {
+      setModuloHomeCategoriaApi(contexto, error.message || "Error al consultar API publicada.", "danger");
+    }).finally(function () {
+      if (boton) boton.disabled = false;
+    });
+  }
+
+  function sincronizarPromoEditorialItem(data) {
+    data.items = data.items && data.items.length ? data.items : [{}];
+    data.media = data.media || {};
+    data.items[0].titulo = data.titulo || data.items[0].titulo || "";
+    data.items[0].subtitulo = data.subtitulo || data.items[0].subtitulo || "";
+    data.items[0].imagen = data.media.imagen_desktop || data.items[0].imagen || "";
+    data.items[0].imagen_mobile = data.media.imagen_mobile || data.items[0].imagen_mobile || data.items[0].imagen || "";
+    data.items[0].alt = data.media.alt || data.items[0].alt || "";
+    data.items[0].url = (data.cta || {}).url || data.items[0].url || "";
+    data.items[0].visible = true;
+    data.items[0].orden = 10;
+  }
+
+  function setModuloHomeCategoriaEstado(contexto, mensaje, tipo) {
+    setText("cms_actual_estado", mensaje);
+    var node = $("cms_actual_home_" + contexto + "_estado");
+    if (!node) return;
+    node.className = "alert fs-7 py-3 mb-4 alert-light-" + (tipo || "info");
+    node.textContent = mensaje;
+  }
+
+  function setModuloHomeCategoriaApi(contexto, mensaje, tipo, esHtml) {
+    setText("cms_actual_estado", esHtml ? "API publicada consultada" : mensaje);
+    var node = $("cms_actual_home_" + contexto + "_api_estado");
+    if (!node) return;
+    node.className = "alert fs-7 py-3 mb-0 alert-light-" + (tipo || "info");
+    if (esHtml) node.innerHTML = mensaje;
+    else node.textContent = mensaje;
   }
 
   function publicarHomeProductos() {
@@ -6466,6 +6752,55 @@
     return estado.datos.home.home_productos_destacados;
   }
 
+  function moduloHomeCategoriaData(contexto) {
+    if (contexto === "productos_carrusel") return estado.datos.home.home_productos_carrusel;
+    if (contexto === "promo_editorial") return estado.datos.home.home_promo_editorial;
+    if (contexto === "visual_productos") return estado.datos.home.home_visual_productos;
+    return null;
+  }
+
+  function moduloHomeCategoriaMeta(contexto) {
+    var mapa = {
+      productos_carrusel: {
+        codigo: "home_nuevos_acuario",
+        tipo: "productos_carrusel",
+        slot: "home.productos_carrusel",
+        endpoint: "/cms/frontend_home_productos_carrusel_publicar_erp",
+        layout: "wokiee_new_products_categoria",
+        orden: 70,
+        limite: 8,
+        ordenCatalogo: "recientes",
+        media: false,
+        tituloPanel: "Nuevos productos por categoria"
+      },
+      promo_editorial: {
+        codigo: "home_promo_acuario",
+        tipo: "promo_editorial",
+        slot: "home.promo_editorial",
+        endpoint: "/cms/frontend_home_promo_editorial_publicar_erp",
+        layout: "wokiee_accessory_update_single",
+        orden: 80,
+        limite: 0,
+        ordenCatalogo: "relevancia",
+        media: true,
+        tituloPanel: "Banner editorial de categoria"
+      },
+      visual_productos: {
+        codigo: "home_visual_filtracion",
+        tipo: "visual_productos",
+        slot: "home.visual_productos",
+        endpoint: "/cms/frontend_home_visual_productos_publicar_erp",
+        layout: "categoria_visual_2_productos",
+        orden: 90,
+        limite: 2,
+        ordenCatalogo: "relevancia",
+        media: true,
+        tituloPanel: "Categoria visual con productos"
+      }
+    };
+    return mapa[contexto] || mapa.productos_carrusel;
+  }
+
   function marcasHomeData() {
     return estado.datos.home.home_marcas_destacadas;
   }
@@ -6932,6 +7267,9 @@
     if (picker.contexto === "home_marcas") target = marcasHomeData().items[picker.index];
     if (picker.contexto === "home_esenciales") target = esencialesData().items[picker.index];
     if (picker.contexto === "home_esencial_principal") target = esencialesData().categoria_principal;
+    if (String(picker.contexto || "").indexOf("home_modulo_") === 0) {
+      target = moduloHomeCategoriaData(String(picker.contexto || "").replace("home_modulo_", ""));
+    }
     if (picker.contexto === "cms_categoria") {
       var dataCategoriaCms = categoriasCmsData(picker.seccionCodigo || "categorias_items");
       target = dataCategoriaCms && dataCategoriaCms.items ? dataCategoriaCms.items[picker.index] : null;
@@ -6950,6 +7288,14 @@
     if (picker.contexto === "home_esenciales" && picker.campo === "imagen" && !target.alt && media.alt) target.alt = media.alt;
     if (picker.contexto === "home_esencial_principal" && picker.campo === "imagen" && !target.alt && media.alt) target.alt = media.alt;
     if (picker.contexto === "home_marcas" && picker.campo === "logo" && !target.alt_logo && media.alt) target.alt_logo = media.alt;
+    if (String(picker.contexto || "").indexOf("home_modulo_") === 0) {
+      var contextoModuloHome = String(picker.contexto || "").replace("home_modulo_", "");
+      if (picker.campo === "media.imagen_desktop" && target.media && !target.media.imagen_mobile) {
+        target.media.imagen_mobile = normalizarUrlMediaCms(media.url);
+      }
+      if (target.media && !target.media.alt && media.alt) target.media.alt = media.alt;
+      if (contextoModuloHome === "promo_editorial") sincronizarPromoEditorialItem(target);
+    }
     if (picker.contexto === "global_whatsapp_contacto" && picker.campo === "avatar" && !target.descripcion && media.alt) target.descripcion = media.alt;
     if (!target.alt && media.alt) target.alt = media.alt;
     renderGrupo();

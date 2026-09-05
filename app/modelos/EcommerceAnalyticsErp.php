@@ -291,6 +291,63 @@ class EcommerceAnalyticsErp extends CRUD {
   }
 
   /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-05
+   * Proposito: consultar flujo de navegacion anonimo por sesiones ecommerce.
+   * Impacto: permite seguir recorridos reales sin exponer session_id completo, PII, ventas ni inventario.
+   * Contrato: interno read-only; solo SELECT sobre tablas `erp_ecommerce_analytics_*`.
+   */
+  public function flujoSesionesInterno($filtros = array()) {
+    $db = $this->getConexion();
+    $desde = $this->fechaFiltro($this->valor($filtros, "desde", date("Y-m-d", strtotime("-7 days"))), date("Y-m-d", strtotime("-7 days")));
+    $hasta = $this->fechaFiltro($this->valor($filtros, "hasta", date("Y-m-d")), date("Y-m-d"));
+    $limite = max(5, min(100, intval($this->valor($filtros, "limite", 25))));
+    $sessionKey = $this->limpiarToken($this->valor($filtros, "session_key", ""), 16);
+    $tablas = $this->tablasDisponibles($db);
+    $depurar = array(
+      "read_only" => true,
+      "configurado" => !empty($tablas["sesiones"]) && !empty($tablas["eventos"]),
+      "rango" => array("desde" => $desde, "hasta" => $hasta, "limite" => $limite),
+      "session_key" => $sessionKey,
+      "fecha_consulta" => date("Y-m-d H:i:s"),
+      "tablas" => $tablas,
+      "sesiones" => array(),
+      "sesion_seleccionada" => array(),
+      "timeline" => array(),
+      "resumen" => array("sesiones_total" => 0, "eventos_total" => 0, "busquedas_total" => 0, "conversiones_total" => 0),
+      "guardrails" => $this->guardrails()
+    );
+    if (!$db) {
+      return $this->respuesta(true, "warning", "Conexion MySQL no disponible", $depurar);
+    }
+    if (empty($tablas["sesiones"]) || empty($tablas["eventos"])) {
+      return $this->respuesta(false, "warning", "Esquema Analytics incompleto para flujo de sesiones", $depurar);
+    }
+    $inicio = $desde . " 00:00:00";
+    $fin = $hasta . " 23:59:59";
+
+    try {
+      $depurar["sesiones"] = $this->consultarSesionesFlujo($db, $inicio, $fin, $limite);
+      $depurar["resumen"]["sesiones_total"] = count($depurar["sesiones"]);
+      if ($sessionKey === "" && !empty($depurar["sesiones"][0]["session_key"])) {
+        $sessionKey = $depurar["sesiones"][0]["session_key"];
+        $depurar["session_key"] = $sessionKey;
+      }
+      if ($sessionKey !== "") {
+        $depurar["sesion_seleccionada"] = $this->consultarSesionFlujo($db, $sessionKey, $inicio, $fin);
+        $depurar["timeline"] = $this->consultarTimelineSesion($db, $sessionKey, $inicio, $fin, $tablas, 200);
+        foreach ($depurar["timeline"] as $item) {
+          if ($item["origen"] === "evento") { $depurar["resumen"]["eventos_total"]++; }
+          if ($item["origen"] === "busqueda") { $depurar["resumen"]["busquedas_total"]++; }
+          if (!empty($item["es_conversion"])) { $depurar["resumen"]["conversiones_total"]++; }
+        }
+      }
+      return $this->respuesta(false, "success", "Flujo de navegacion Ecommerce / Analytics", $depurar);
+    } catch (Exception $e) {
+      return $this->respuesta(true, "danger", $e->getMessage(), $depurar);
+    }
+  }
+
+  /**
    * Documentacion IA: Codex GPT-5 | Fecha: 2026-08-04
    * Proposito: planear la activacion de persistencia analytics sin escribir BD.
    * Impacto: permite revisar tablas, tokens, guardrails y contratos antes de habilitar tracking real.
@@ -672,6 +729,146 @@ class EcommerceAnalyticsErp extends CRUD {
       if ($tipo === "facturacion_submit") { $depurar["resumen"]["facturacion_submit_total"] = $total; }
     }
     $depurar["productos_interes_sin_conversion"] = $this->consultaProductosInteresSinConversion($db, $inicio, $fin, $limite);
+  }
+
+  private function consultarSesionesFlujo($db, $inicio, $fin, $limite) {
+    $stmt = $db->prepare("SELECT s.session_id_hash, s.canal, s.primer_ruta, s.ultimo_ruta, s.referrer, s.utm_source, s.utm_medium, s.utm_campaign, s.dispositivo_aproximado, s.fecha_inicio, s.fecha_ultima_actividad, s.eventos_total,
+        (SELECT COUNT(*) FROM erp_ecommerce_analytics_eventos e WHERE e.session_id_hash=s.session_id_hash AND e.fecha_registro BETWEEN :inicio_ev AND :fin_ev) eventos_rango,
+        (SELECT COUNT(*) FROM erp_ecommerce_analytics_busquedas b WHERE b.session_id_hash=s.session_id_hash AND b.fecha_registro BETWEEN :inicio_bus AND :fin_bus) busquedas_rango
+      FROM erp_ecommerce_analytics_sesiones s
+      WHERE COALESCE(s.fecha_ultima_actividad, s.fecha_inicio) BETWEEN :inicio AND :fin
+      ORDER BY COALESCE(s.fecha_ultima_actividad, s.fecha_inicio) DESC
+      LIMIT " . intval($limite));
+    $stmt->execute(array(
+      ":inicio" => $inicio,
+      ":fin" => $fin,
+      ":inicio_ev" => $inicio,
+      ":fin_ev" => $fin,
+      ":inicio_bus" => $inicio,
+      ":fin_bus" => $fin
+    ));
+    $items = array();
+    foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $fila) {
+      $items[] = array(
+        "session_key" => substr((string) $this->valor($fila, "session_id_hash", ""), 0, 12),
+        "canal" => $this->valor($fila, "canal", ""),
+        "primer_ruta" => $this->valor($fila, "primer_ruta", ""),
+        "ultimo_ruta" => $this->valor($fila, "ultimo_ruta", ""),
+        "referrer" => $this->valor($fila, "referrer", ""),
+        "utm_source" => $this->valor($fila, "utm_source", ""),
+        "utm_medium" => $this->valor($fila, "utm_medium", ""),
+        "utm_campaign" => $this->valor($fila, "utm_campaign", ""),
+        "dispositivo_aproximado" => $this->valor($fila, "dispositivo_aproximado", ""),
+        "fecha_inicio" => $this->valor($fila, "fecha_inicio", ""),
+        "fecha_ultima_actividad" => $this->valor($fila, "fecha_ultima_actividad", ""),
+        "eventos_total" => intval($this->valor($fila, "eventos_total", 0)),
+        "eventos_rango" => intval($this->valor($fila, "eventos_rango", 0)),
+        "busquedas_rango" => intval($this->valor($fila, "busquedas_rango", 0))
+      );
+    }
+    return $items;
+  }
+
+  private function consultarSesionFlujo($db, $sessionKey, $inicio, $fin) {
+    $stmt = $db->prepare("SELECT LEFT(session_id_hash, 12) session_key, canal, primer_ruta, ultimo_ruta, referrer, utm_source, utm_medium, utm_campaign, dispositivo_aproximado, fecha_inicio, fecha_ultima_actividad, eventos_total
+      FROM erp_ecommerce_analytics_sesiones
+      WHERE session_id_hash LIKE :session_key
+        AND COALESCE(fecha_ultima_actividad, fecha_inicio) BETWEEN :inicio AND :fin
+      ORDER BY COALESCE(fecha_ultima_actividad, fecha_inicio) DESC
+      LIMIT 1");
+    $stmt->execute(array(":session_key" => $sessionKey . "%", ":inicio" => $inicio, ":fin" => $fin));
+    $fila = $stmt->fetch(PDO::FETCH_ASSOC);
+    if (!$fila) { return array(); }
+    return array(
+      "session_key" => $this->valor($fila, "session_key", ""),
+      "canal" => $this->valor($fila, "canal", ""),
+      "primer_ruta" => $this->valor($fila, "primer_ruta", ""),
+      "ultimo_ruta" => $this->valor($fila, "ultimo_ruta", ""),
+      "referrer" => $this->valor($fila, "referrer", ""),
+      "utm_source" => $this->valor($fila, "utm_source", ""),
+      "utm_medium" => $this->valor($fila, "utm_medium", ""),
+      "utm_campaign" => $this->valor($fila, "utm_campaign", ""),
+      "dispositivo_aproximado" => $this->valor($fila, "dispositivo_aproximado", ""),
+      "fecha_inicio" => $this->valor($fila, "fecha_inicio", ""),
+      "fecha_ultima_actividad" => $this->valor($fila, "fecha_ultima_actividad", ""),
+      "eventos_total" => intval($this->valor($fila, "eventos_total", 0))
+    );
+  }
+
+  private function consultarTimelineSesion($db, $sessionKey, $inicio, $fin, $tablas, $limite) {
+    $timeline = array();
+    $stmt = $db->prepare("SELECT id_analytics_evento id_registro, tipo_evento, canal, ruta, referrer, id_publicacion, id_sku, slug, mascota, necesidad, fecha_registro
+      FROM erp_ecommerce_analytics_eventos
+      WHERE session_id_hash LIKE :session_key
+        AND fecha_registro BETWEEN :inicio AND :fin
+      ORDER BY fecha_registro ASC, id_analytics_evento ASC
+      LIMIT " . intval($limite));
+    $stmt->execute(array(":session_key" => $sessionKey . "%", ":inicio" => $inicio, ":fin" => $fin));
+    foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $fila) {
+      $tipo = $this->valor($fila, "tipo_evento", "");
+      $timeline[] = array(
+        "origen" => "evento",
+        "tipo" => $tipo,
+        "etiqueta" => $this->etiquetaEventoFlujo($tipo),
+        "ruta" => $this->valor($fila, "ruta", ""),
+        "referrer" => $this->valor($fila, "referrer", ""),
+        "canal" => $this->valor($fila, "canal", ""),
+        "id_publicacion" => intval($this->valor($fila, "id_publicacion", 0)),
+        "id_sku" => intval($this->valor($fila, "id_sku", 0)),
+        "slug" => $this->valor($fila, "slug", ""),
+        "mascota" => $this->valor($fila, "mascota", ""),
+        "necesidad" => $this->valor($fila, "necesidad", ""),
+        "fecha" => $this->valor($fila, "fecha_registro", ""),
+        "es_conversion" => in_array($tipo, array("add_to_quote", "remove_from_quote", "quote_dryrun", "quote_preflight", "open_whatsapp", "facturacion_submit"), true)
+      );
+    }
+    if (!empty($tablas["busquedas"])) {
+      $stmt = $db->prepare("SELECT id_analytics_busqueda id_registro, canal, query_normalizada, ruta, resultados_total, sin_resultados, mascota, necesidad, fecha_registro
+        FROM erp_ecommerce_analytics_busquedas
+        WHERE session_id_hash LIKE :session_key
+          AND fecha_registro BETWEEN :inicio AND :fin
+        ORDER BY fecha_registro ASC, id_analytics_busqueda ASC
+        LIMIT " . intval($limite));
+      $stmt->execute(array(":session_key" => $sessionKey . "%", ":inicio" => $inicio, ":fin" => $fin));
+      foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $fila) {
+        $timeline[] = array(
+          "origen" => "busqueda",
+          "tipo" => "search",
+          "etiqueta" => "Busqueda",
+          "ruta" => $this->valor($fila, "ruta", ""),
+          "canal" => $this->valor($fila, "canal", ""),
+          "query" => $this->valor($fila, "query_normalizada", ""),
+          "resultados_total" => intval($this->valor($fila, "resultados_total", 0)),
+          "sin_resultados" => intval($this->valor($fila, "sin_resultados", 0)) === 1,
+          "mascota" => $this->valor($fila, "mascota", ""),
+          "necesidad" => $this->valor($fila, "necesidad", ""),
+          "fecha" => $this->valor($fila, "fecha_registro", ""),
+          "es_conversion" => false
+        );
+      }
+    }
+    usort($timeline, function ($a, $b) {
+      return strcmp($a["fecha"], $b["fecha"]);
+    });
+    return array_slice($timeline, 0, $limite);
+  }
+
+  private function etiquetaEventoFlujo($tipo) {
+    $mapa = array(
+      "page_view" => "Pagina vista",
+      "view_product" => "Producto visto",
+      "search" => "Busqueda",
+      "select_mascota" => "Mascota seleccionada",
+      "select_necesidad" => "Necesidad seleccionada",
+      "add_to_quote" => "Agregado a cotizacion",
+      "remove_from_quote" => "Quitado de cotizacion",
+      "quote_dryrun" => "Validacion carrito",
+      "quote_preflight" => "Preflight cotizacion",
+      "open_whatsapp" => "Apertura WhatsApp",
+      "facturacion_view" => "Vista facturacion",
+      "facturacion_submit" => "Envio facturacion"
+    );
+    return isset($mapa[$tipo]) ? $mapa[$tipo] : $tipo;
   }
 
   private function cargarDashboardBusquedas($db, &$depurar, $inicio, $fin, $limite) {

@@ -57,6 +57,8 @@ Regla canonica: ninguna URL publica SEO debe iniciar con `/ecommercePublico`. Es
 - `/aviso-de-privacidad`
 - `/politicas-cambios`
 
+Decision 2026-09-04: el dominio productivo permanece como `https://artiani.com.mx`. `http://artiani.com.local` es solo entorno local/preview para construir la nueva estructura. La migracion SEO debe mapear rutas viejas del mismo dominio productivo hacia las nuevas URIs, por ejemplo `https://artiani.com.mx/ruta-vieja` -> `https://artiani.com.mx/producto/slug-nuevo`.
+
 El endpoint legacy `GET /ecommercePublico/seo` se conserva por compatibilidad, pero ahora sus rutas sugeridas tambien evitan `/ecommercePublico` para canonical/sitemap.
 
 Tablas propuestas sin aplicar:

@@ -206,6 +206,100 @@ class EcommerceLeadsErp extends CRUD {
   }
 
   /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-05
+   * Proposito: listar productos agregados a carritos/leads con contexto de sesion y contacto.
+   * Impacto: permite seguimiento comercial por producto sin consultar analytics anonimo ni crear documentos operativos.
+   * Contrato: GET protegido; solo lectura.
+   */
+  public function productosInterno($filtros = array()) {
+    $db = $this->getConexion();
+    $tablas = $this->tablasDisponibles($db);
+    if (!$db || empty($tablas["carritos"]) || empty($tablas["items"])) {
+      return $this->respuesta(false, "info", "Productos de Ecommerce Leads aun sin esquema", array(
+        "configurado" => false,
+        "items" => array(),
+        "resumen" => $this->resumenProductosVacio(),
+        "tablas" => $tablas,
+        "guardrails" => $this->guardrails(false)
+      ));
+    }
+    try {
+      $pagina = max(1, intval($this->valor($filtros, "pagina", 1)));
+      $limite = max(5, min(120, intval($this->valor($filtros, "limite", 60))));
+      $offset = ($pagina - 1) * $limite;
+      $where = array("1=1");
+      $params = array();
+
+      $idCarritoLead = intval($this->valor($filtros, "id_carrito_lead", $this->valor($filtros, "id", 0)));
+      if ($idCarritoLead > 0) {
+        $where[] = "i.id_carrito_lead=:id_carrito_lead";
+        $params[":id_carrito_lead"] = $idCarritoLead;
+      }
+
+      $estatus = $this->limpiarToken($this->valor($filtros, "estatus", ""), 40);
+      if ($estatus !== "" && in_array($estatus, $this->estatusPermitidos, true)) {
+        $where[] = "c.estatus=:estatus";
+        $params[":estatus"] = $estatus;
+      }
+
+      $validacion = $this->limpiarToken($this->valor($filtros, "validacion", ""), 60);
+      if ($validacion !== "") {
+        $where[] = "i.validacion_publicacion=:validacion";
+        $params[":validacion"] = $validacion;
+      }
+
+      $q = $this->limpiarTexto($this->valor($filtros, "q", ""), 120);
+      if ($q !== "") {
+        $where[] = "(i.nombre_snapshot LIKE :q OR i.sku_snapshot LIKE :q OR i.slug LIKE :q OR c.nombre_contacto LIKE :q OR c.telefono_contacto LIKE :q OR c.correo_contacto LIKE :q OR c.session_id_hash LIKE :q)";
+        $params[":q"] = "%" . $q . "%";
+      }
+
+      $sqlWhere = implode(" AND ", $where);
+      $joinCatalogo = $this->joinCatalogoImagenesLeads($db);
+      $stmtTotal = $db->prepare("SELECT COUNT(*)
+        FROM erp_ecommerce_leads_carrito_items i
+        INNER JOIN erp_ecommerce_leads_carritos c ON c.id_carrito_lead=i.id_carrito_lead
+        WHERE " . $sqlWhere);
+      $stmtTotal->execute($params);
+      $total = intval($stmtTotal->fetchColumn());
+
+      $stmt = $db->prepare("SELECT
+          i.id_carrito_lead_item, i.id_carrito_lead, i.renglon, i.id_publicacion, i.id_sku, i.slug,
+          i.sku_snapshot, i.nombre_snapshot, i.cantidad, i.precio_unitario_snapshot, i.subtotal_snapshot,
+          i.moneda_snapshot, i.validacion_publicacion, i.metadata_json, i.fecha_registro AS fecha_item,
+          " . $joinCatalogo["select"] . "
+          c.session_id_hash, c.canal, c.estatus, c.etapa_actual, c.ultima_ruta,
+          c.nombre_contacto, c.telefono_contacto, c.correo_contacto,
+          c.whatsapp_abierto, c.acepta_politicas, c.solicito_facturacion,
+          c.fecha_registro AS fecha_lead, c.fecha_ultima_actividad
+        FROM erp_ecommerce_leads_carrito_items i
+        INNER JOIN erp_ecommerce_leads_carritos c ON c.id_carrito_lead=i.id_carrito_lead
+        " . $joinCatalogo["joins"] . "
+        WHERE " . $sqlWhere . "
+        ORDER BY COALESCE(c.fecha_ultima_actividad, c.fecha_registro) DESC, i.id_carrito_lead_item DESC
+        LIMIT " . intval($limite) . " OFFSET " . intval($offset));
+      $stmt->execute($params);
+
+      $items = array();
+      foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $fila) {
+        $items[] = $this->formatearProductoLead($fila);
+      }
+
+      return $this->respuesta(false, "success", "Productos de Ecommerce Leads consultados", array(
+        "configurado" => true,
+        "items" => $items,
+        "resumen" => $this->resumenProductos($items),
+        "paginacion" => array("pagina" => $pagina, "limite" => $limite, "total" => $total),
+        "filtros" => array("id_carrito_lead" => $idCarritoLead, "estatus" => $estatus, "validacion" => $validacion, "q" => $q),
+        "tablas" => $tablas,
+        "guardrails" => $this->guardrails(false)
+      ));
+    } catch (Exception $e) {
+      return $this->respuesta(true, "danger", $e->getMessage(), array("items" => array(), "read_only" => true));
+    }
+  }
+
+  /**
    * Documentacion IA: Codex GPT-5 | Fecha: 2026-08-30
    * Proposito: planear acciones internas sobre un carrito/lead sin ejecutarlas.
    * Impacto: define seguimiento, conversion, descarte o nota sin crear pedido ni venta.
@@ -711,8 +805,114 @@ class EcommerceLeadsErp extends CRUD {
     );
   }
 
+  private function formatearProductoLead($fila) {
+    $metadata = json_decode((string) $fila["metadata_json"], true);
+    if (!is_array($metadata)) { $metadata = array(); }
+    $skuSnapshot = (string) $fila["sku_snapshot"];
+    $nombreSnapshot = (string) $fila["nombre_snapshot"];
+    if ($skuSnapshot === "" && !empty($metadata["sku_catalogo"])) { $skuSnapshot = (string) $metadata["sku_catalogo"]; }
+    if ($nombreSnapshot === "" && !empty($metadata["nombre_catalogo"])) { $nombreSnapshot = (string) $metadata["nombre_catalogo"]; }
+    return array(
+      "id_carrito_lead_item" => intval($fila["id_carrito_lead_item"]),
+      "id_carrito_lead" => intval($fila["id_carrito_lead"]),
+      "renglon" => intval($fila["renglon"]),
+      "id_publicacion" => intval($fila["id_publicacion"]),
+      "id_sku" => intval($fila["id_sku"]),
+      "slug" => $fila["slug"],
+      "sku" => $skuSnapshot,
+      "nombre" => $nombreSnapshot,
+      "cantidad" => floatval($fila["cantidad"]),
+      "precio_unitario" => floatval($fila["precio_unitario_snapshot"]),
+      "subtotal" => floatval($fila["subtotal_snapshot"]),
+      "moneda" => $fila["moneda_snapshot"],
+      "validacion_publicacion" => $fila["validacion_publicacion"],
+      "validacion_detalle" => $metadata,
+      "imagen_url" => $this->normalizarUrlImagenLead($this->valor($fila, "imagen_url", "")),
+      "imagen_fuente" => $this->valor($fila, "imagen_fuente", ""),
+      "session_id_hash" => substr((string) $fila["session_id_hash"], 0, 16),
+      "canal" => $fila["canal"],
+      "estatus" => $fila["estatus"],
+      "etapa_actual" => $fila["etapa_actual"],
+      "ultima_ruta" => $fila["ultima_ruta"],
+      "nombre_contacto" => $fila["nombre_contacto"],
+      "telefono_contacto" => $fila["telefono_contacto"],
+      "correo_contacto" => $fila["correo_contacto"],
+      "whatsapp_abierto" => intval($fila["whatsapp_abierto"]) === 1,
+      "acepta_politicas" => intval($fila["acepta_politicas"]) === 1,
+      "solicito_facturacion" => intval($fila["solicito_facturacion"]) === 1,
+      "fecha_item" => $fila["fecha_item"],
+      "fecha_lead" => $fila["fecha_lead"],
+      "fecha_ultima_actividad" => $fila["fecha_ultima_actividad"]
+    );
+  }
+
+  private function joinCatalogoImagenesLeads($db) {
+    if (!$this->tablaExisteDb($db, "erp_ecommerce_publicaciones")
+      || !$this->tablaExisteDb($db, "erp_catalogo_skus")
+      || !$this->tablaExisteDb($db, "erp_catalogo_productos")
+      || !$this->tablaExisteDb($db, "erp_catalogo_imagenes")) {
+      return array(
+        "select" => "NULL AS imagen_url, '' AS imagen_fuente,",
+        "joins" => ""
+      );
+    }
+    return array(
+      "select" => "COALESCE(img_sku.url_imagen, img_prod.url_imagen) AS imagen_url,
+          CASE WHEN img_sku.url_imagen IS NOT NULL THEN 'sku' WHEN img_prod.url_imagen IS NOT NULL THEN 'producto' ELSE '' END AS imagen_fuente,",
+      "joins" => "LEFT JOIN erp_ecommerce_publicaciones pub ON pub.id_publicacion=i.id_publicacion
+        LEFT JOIN erp_catalogo_skus s ON s.id_sku=COALESCE(pub.id_sku, NULLIF(i.id_sku, 0))
+        LEFT JOIN erp_catalogo_productos p ON p.id_producto_erp=s.id_producto_erp
+        LEFT JOIN erp_catalogo_imagenes img_sku ON img_sku.id_imagen_erp=(
+          SELECT ci.id_imagen_erp
+          FROM erp_catalogo_imagenes ci
+          WHERE ci.id_producto_erp=p.id_producto_erp
+            AND ci.id_sku=s.id_sku
+            AND ci.estatus='activo'
+            AND TRIM(COALESCE(ci.url_imagen,''))<>''
+          ORDER BY CASE WHEN ci.tipo_imagen='principal' THEN 0 ELSE 1 END, ci.orden ASC, ci.id_imagen_erp ASC
+          LIMIT 1
+        )
+        LEFT JOIN erp_catalogo_imagenes img_prod ON img_prod.id_imagen_erp=(
+          SELECT ci.id_imagen_erp
+          FROM erp_catalogo_imagenes ci
+          WHERE ci.id_producto_erp=p.id_producto_erp
+            AND (ci.id_sku IS NULL OR ci.id_sku=0)
+            AND ci.estatus='activo'
+            AND TRIM(COALESCE(ci.url_imagen,''))<>''
+          ORDER BY CASE WHEN ci.tipo_imagen='principal' THEN 0 ELSE 1 END, ci.orden ASC, ci.id_imagen_erp ASC
+          LIMIT 1
+        )"
+    );
+  }
+
+  private function normalizarUrlImagenLead($url) {
+    $url = trim((string) $url);
+    if ($url === "") { return ""; }
+    if (preg_match('/^https?:\/\//i', $url) || strpos($url, "/") === 0) { return $url; }
+    return "/" . ltrim($url, "/");
+  }
+
   private function resumenVacio() {
     return array("total" => 0, "anonimos" => 0, "con_contacto" => 0, "whatsapp_abierto" => 0, "subtotal_estimado" => 0);
+  }
+
+  private function resumenProductosVacio() {
+    return array("total" => 0, "piezas_total" => 0, "subtotal" => 0, "vigentes" => 0, "requieren_revision" => 0);
+  }
+
+  private function resumenProductos($items) {
+    $resumen = $this->resumenProductosVacio();
+    $resumen["total"] = count($items);
+    foreach ($items as $item) {
+      $resumen["piezas_total"] += floatval($item["cantidad"]);
+      $resumen["subtotal"] += floatval($item["subtotal"]);
+      if ($item["validacion_publicacion"] === "publicacion_vigente") {
+        $resumen["vigentes"]++;
+      } else {
+        $resumen["requieren_revision"]++;
+      }
+    }
+    return $resumen;
   }
 
   private function resumenItems($items) {

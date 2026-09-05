@@ -453,6 +453,37 @@ Reglas para usarlo:
 - Cada card visible necesita titulo, URL e imagen.
 - No crea categorias ni modifica catalogo; solo dirige al cliente a una categoria real.
 
+## CMS > Frontend actual > Home modulos por categoria
+
+Ruta: `/cms/frontend/home`.
+
+Estado actual:
+
+- `home.productos_carrusel` publica un carrusel de productos nuevos por categoria.
+- `home.promo_editorial` publica un banner editorial de categoria con imagen desktop/mobile obligatoria cuando esta visible.
+- `home.visual_productos` publica una imagen editorial de categoria con hasta 2 productos relacionados.
+- Los tres modulos usan una categoria real por `categoria_slug`; el CMS no crea categorias ni productos.
+- Cada modulo permite editar visible, orden, textos, CTA, fuente, limite y layout.
+- `home.promo_editorial` permite usar banner propio del modulo o reutilizar la imagen ya asignada a la categoria seleccionada.
+- Los campos de imagen de `promo_editorial` y `visual_productos` tienen boton `Media` y solo salen en API si son rutas persistentes.
+- Los botones `Guardar y publicar` persisten cada modulo en su slot publico: `home.productos_carrusel`, `home.promo_editorial` y `home.visual_productos`.
+- El boton `Ver API publicada` consulta `/ecommercePublico/cms_frontend?pagina=home` y muestra si el slot ya llega al frontend.
+
+Reglas para usarlo:
+
+- `home.productos_carrusel` debe usar limite maximo 8 y orden `recientes` para la fila de nuevos productos.
+- `home.promo_editorial` necesita imagen y alt si esta visible. Si `media.usar_imagen_categoria=false`, debe traer `media.imagen_desktop` y se recomienda `media.imagen_mobile`. Si `media.usar_imagen_categoria=true`, no exige banner propio y resuelve imagen desde la categoria.
+- Para imagen propia de `home.promo_editorial`, desktop recomendado 1920x620 px WebP menor a 280 KB; minimo 1440x480 px. Mobile recomendado 900x900 o 900x1125 px WebP menor a 180 KB; minimo 720x720 px.
+- Para imagen de categoria en `home.promo_editorial`, la prioridad desktop es `imagen_banner`, `portada`, `imagen_card`, `imagen`; la prioridad mobile es `imagen_banner_mobile`, `imagen_mobile`, `portada`, `imagen_card`, `imagen`.
+- `home.promo_editorial` publica `media.categoria_imagen_resuelta`, `media.categoria_imagen_mobile_resuelta`, `media.categoria_imagen_origen` y `media.categoria_imagen_mobile_origen` cuando reutiliza imagen de categoria.
+- Configura `object_position_desktop` y `object_position_mobile` con estos valores: `center center`, `center top`, `center bottom`, `left center`, `right center`.
+- El frontend debe renderizar la imagen con `object-fit: cover`; alturas recomendadas: desktop 520 a 620 px, mobile 420 a 560 px.
+- Configura contraste con `overlay`, `overlay_opacity`, `text_theme` y `texto_posicion` segun la imagen.
+- `home.visual_productos` necesita imagen y alt si esta visible; el frontend debe resolver solo 2 productos relacionados.
+- Usa `categoria_slug` canonico, por ejemplo `acuario-y-peces/alimentacion`.
+- No incluir modulos locales de cliente como vistos recientemente, favoritos, carrito o `home.actividad_cliente`; esos viven en frontend local, no en CMS/API.
+- El endpoint publico tambien entrega `depurar.secciones`, una lista plana ordenada por `orden`, ademas de `depurar.slots` para compatibilidad.
+
 ## CMS > Frontend actual > Home marcas destacadas
 
 Ruta: `/cms/frontend/home`.

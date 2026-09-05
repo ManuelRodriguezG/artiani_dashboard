@@ -232,10 +232,22 @@ Vista:
 GET /ecommercePublico/analytics
 ```
 
+Vista de flujo por sesion:
+
+```http
+GET /ecommercePublico/analytics_flujo
+```
+
 Endpoint de datos:
 
 ```http
 GET /ecommercePublico/analytics_dashboard_erp?desde=YYYY-MM-DD&hasta=YYYY-MM-DD&limite=10
+```
+
+Endpoint de flujo:
+
+```http
+GET /ecommercePublico/analytics_flujo_erp?desde=YYYY-MM-DD&hasta=YYYY-MM-DD&limite=25&session_key=HASH12
 ```
 
 Metricas previstas:
@@ -262,12 +274,13 @@ Si el esquema aun no existe, el dashboard responde `configurado=false` con arreg
 
 Cuando `erp_ecommerce_analytics_resumen_diario` exista y tenga filas en el rango, el dashboard usa `fuente_metricas=resumen_diario` para KPIs, visitas por dia y embudo. Si no hay resumen diario, conserva `fuente_metricas=eventos_crudos` y calcula desde eventos/busquedas disponibles.
 
-La vista interna v1 muestra un tablero operativo inicial con KPIs, sesiones anonimas recientes, canales, URLs, productos, busquedas, conversiones, facturacion, embudo y abandono por etapa. No muestra `session_id` completo, datos personales ni stock exacto.
+La vista interna v1 muestra un tablero operativo inicial con KPIs, sesiones anonimas recientes, canales, URLs, productos, busquedas, conversiones, facturacion, embudo y abandono por etapa. La vista de flujo muestra sesiones anonimas y timeline cronologico por `session_key` corto. No muestra `session_id` completo, datos personales ni stock exacto.
 
 UAT especifico:
 
 ```text
 C:\xampp\php\php.exe storage\uat\uat_ecommerce_analytics_dashboard_readonly.php
+C:\xampp\php\php.exe storage\uat\uat_ecommerce_analytics_flujo_readonly.php
 ```
 
 ## Enlace futuro con cotizaciones/contactos/facturacion

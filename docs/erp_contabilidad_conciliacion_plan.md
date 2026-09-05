@@ -223,6 +223,62 @@ La mesa CFDI permite seleccionar comprobantes individuales o todos los visibles 
 
 Tambien permite crear movimientos auxiliares solo para los CFDI seleccionados. Un movimiento auxiliar no pertenece a un estado de cuenta bancario; aparece en `Clasificacion`, `Conciliacion` y `Reporte` como origen `cfdi_auxiliar` bajo la cuenta auxiliar asignada, por ejemplo `Mercado Pago - comisiones`.
 
+Correccion operativa: cargar XML no debe crear movimientos auxiliares automaticamente aunque el tratamiento inicial sea `Crear gasto desde CFDI`. La carga solo registra los CFDI y aplica defaults; la creacion de auxiliares requiere accion explicita del usuario desde el boton individual o masivo.
+
+Para CFDI en tratamiento `Conciliar con banco`, la cuenta puede quedar como `Por relacionar` hasta que el usuario la asigne o se ligue contra un movimiento. Esto evita que un XML quede asociado a `Efectivo` solo por defaults de captura.
+
+Herramienta de reparacion MVP: la accion masiva `Deshacer auxiliares` elimina los movimientos auxiliares creados desde los CFDI seleccionados y deja esos XML nuevamente como pendientes para conciliar. Esta accion no elimina estados de cuenta ni movimientos bancarios importados.
+
+El reporte del contador debe tomar todos los movimientos del mes activo, incluyendo estados de cuenta, capturas manuales y CFDI auxiliares. No debe depender del estado de cuenta abierto en la mesa de clasificacion, porque eso ocultaria cuentas auxiliares como `Tarjeta de credito` o `Mercado Pago - comisiones`.
+
+## Ajuste operativo 2026-09-04 conciliacion con CFDI asignados
+
+La conciliacion por cuenta debe mostrar tambien los CFDI del mes activo que ya tienen una cuenta de pago asignada, aunque todavia no se haya creado el movimiento auxiliar ni se hayan ligado a un movimiento bancario.
+
+Estos registros aparecen como origen `cfdi_sin_movimiento` y funcionan como pendientes operativos: permiten ver importes de `Tarjeta de credito`, `Efectivo`, `Mercado Pago - comisiones` u otra cuenta auxiliar antes de materializarlos. Para consolidarlos como movimientos finales, el usuario debe ligarlos contra un estado de cuenta o crear el movimiento auxiliar desde CFDI.
+
+La conciliacion por cuenta debe permitir revisar el detalle antes de descargar. La accion `Ver` abre una mesa de lectura con totales, pendientes, CFDI sin movimiento y renglones incluidos en esa cuenta. Desde ese mismo detalle se puede descargar el CSV de la cuenta revisada.
+
+La descarga completa conserva todas las columnas utiles para trazabilidad fiscal. La descarga simple usa una estructura de lectura operativa similar a la vista previa: fecha, descripcion, movimiento, actividad, categoria, cuenta, forma de pago, monto, CFDI, origen y notas.
+
+La mesa de clasificacion debe permitir elegir el ambito de trabajo para evitar mezclar todo el cierre mensual en una sola tabla. El selector puede apuntar a todo el mes, a un estado de cuenta cargado o a una cuenta generada sin estado bancario, por ejemplo movimientos auxiliares creados desde CFDI.
+
+Los filtros operativos deben vivir dentro de cada mesa/tab, no solo en el encabezado general. En `Clasificacion`, el filtro de descripcion funciona como buscador con sugerencias de conceptos existentes del ambito activo. El usuario puede seleccionar una descripcion exacta o escribir texto libre para buscar coincidencias dentro del concepto; despues puede seleccionar todos los visibles y aplicar cambios masivos.
+
+La mesa `CFDI` tambien debe tener filtros propios por descripcion, clasificacion, actividad, forma de pago, cuenta y relacion. Al cambiar filtros se limpia la seleccion masiva para evitar aplicar cambios a registros ocultos de un filtro anterior.
+
+Las cuentas capturadas manualmente o creadas a partir de CFDI no deben mostrarse como archivos con `0 filas leidas` y `0 columnas`, porque no provienen de una importacion tabular. En la lista de estados/cuentas deben mostrarse como `Cuenta sin archivo` y contar movimientos, CFDI ligados y CFDI pendientes por cuenta y periodo. Esto permite revisar tarjetas de credito capturadas manualmente o auxiliares creados desde CFDI sin confundirlas con un estado de cuenta mal leido.
+
+La seccion `Pendientes del contador` debe servir como acceso rapido a la revision. Cada pendiente puede abrir directamente la mesa de clasificacion, filtrar por su descripcion, mantener el estado/cuenta correspondiente y seleccionar el movimiento para corregirlo, marcarlo como no aplica o ligarlo con CFDI.
+
+## Ajuste operativo 2026-09-05 ventas y traspasos
+
+Las ventas operativas del mes se extraen como movimientos con `movimiento = ingreso` y `actividad = negocio`. Esta vista debe estar disponible desde conciliacion para revisar y descargar solo los ingresos de negocio sin mezclar traspasos, inversiones o movimientos personales.
+
+Los traspasos entre cuentas propias se identifican por `actividad = transpaso`. Para ayudar a relacionarlos, el MVP sugiere pares cuando existe un egreso y un ingreso con el mismo monto absoluto, cuentas distintas y fechas cercanas. La relacion se guarda localmente en `traspaso_grupo` y `traspaso_relacionado`; no cambia el monto ni crea un movimiento nuevo.
+
+Los traspasos relacionados deben quedar con `categoria = no_aplica` y `cfdi = no_aplica`, porque no representan ingreso gravable ni gasto deducible por si mismos. Siguen apareciendo en conciliacion para comprobar que la salida de una cuenta corresponde con la entrada de otra.
+
+## Ajuste operativo 2026-09-05 relacion CFDI-banco
+
+La relacion entre CFDI y movimiento bancario no debe crearse automaticamente por similitud. El sistema puede calcular candidatos y sugerir el mas probable, pero la liga final debe confirmarla el usuario.
+
+Una coincidencia exacta requiere monto igual y fecha igual entre el CFDI, o su complemento de pago cuando aplique, y el movimiento bancario. Si no existe coincidencia exacta, la mesa de relacion debe mostrar candidatos disponibles y permitir busqueda manual por fecha, descripcion, cuenta, monto, emisor, RFC, folio o UUID.
+
+Al confirmar una relacion, el sistema marca el movimiento como `cfdi = ligado`, guarda el UUID en el movimiento y registra `movimiento_relacionado` en el CFDI. Si alguno de los dos ya esta ligado con otro registro, primero debe deshacerse la relacion anterior para evitar sustituciones silenciosas.
+
+## Ajuste operativo 2026-09-04 complementos de pago
+
+Los CFDI de tipo `P` o complementos de pago no deben tomarse por el atributo `Total` del comprobante, porque fiscalmente puede venir en cero. Para conciliacion operativa, el monto debe salir del complemento de pagos:
+
+- `pago20:Totales MontoTotalPagos`, cuando exista.
+- Suma de `pago20:Pago Monto` o `pago10:Pago Monto`, cuando no exista el total.
+- La forma de pago operativa debe salir de `FormaDePagoP`.
+- La fecha relevante para conciliar debe salir de `FechaPago`.
+- Los documentos relacionados deben conservarse como referencia para entender que factura original se esta pagando.
+
+El MVP marca estos XML como complemento de pago y exporta columnas adicionales de fecha de pago, monto de pago, numero de operacion y documentos relacionados.
+
 ## Flujo operativo recomendado
 
 1. Seleccionar periodo mensual y cuenta bancaria.

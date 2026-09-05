@@ -700,6 +700,45 @@ class Cms extends Controlador {
   }
 
   /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-04
+   * Proposito: publicar carrusel de nuevos productos por categoria desde CMS Home.
+   * Impacto: CMS/API Home; persiste `productos_carrusel` en `home.productos_carrusel`.
+   * Contrato: POST protegido por cms.publicar/catalogo.editar y CSRF; no modifica productos, precios ni inventario.
+   */
+  public function frontend_home_productos_carrusel_publicar_erp() {
+    $this->requerirAlgunPermiso(array("cms.publicar", "catalogo.editar"));
+    $respuesta = $this->modelo("EcommerceCatalogoPublico")->frontendHomeProductosCarruselPublicarInterno($_POST, $this->usuarioActualId());
+    $this->auditarPublicacionHomeCms("frontend_home_productos_carrusel_publicar_erp", $respuesta);
+    return json_encode($respuesta, JSON_UNESCAPED_UNICODE);
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-04
+   * Proposito: publicar banner editorial de categoria desde CMS Home.
+   * Impacto: CMS/API Home; persiste `promo_editorial` en `home.promo_editorial`.
+   * Contrato: POST protegido por cms.publicar/catalogo.editar y CSRF; no modifica categorias/productos.
+   */
+  public function frontend_home_promo_editorial_publicar_erp() {
+    $this->requerirAlgunPermiso(array("cms.publicar", "catalogo.editar"));
+    $respuesta = $this->modelo("EcommerceCatalogoPublico")->frontendHomePromoEditorialPublicarInterno($_POST, $this->usuarioActualId());
+    $this->auditarPublicacionHomeCms("frontend_home_promo_editorial_publicar_erp", $respuesta);
+    return json_encode($respuesta, JSON_UNESCAPED_UNICODE);
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-04
+   * Proposito: publicar categoria visual con productos desde CMS Home.
+   * Impacto: CMS/API Home; persiste `visual_productos` en `home.visual_productos`.
+   * Contrato: POST protegido por cms.publicar/catalogo.editar y CSRF; no usa carrusel ni edita catalogo.
+   */
+  public function frontend_home_visual_productos_publicar_erp() {
+    $this->requerirAlgunPermiso(array("cms.publicar", "catalogo.editar"));
+    $respuesta = $this->modelo("EcommerceCatalogoPublico")->frontendHomeVisualProductosPublicarInterno($_POST, $this->usuarioActualId());
+    $this->auditarPublicacionHomeCms("frontend_home_visual_productos_publicar_erp", $respuesta);
+    return json_encode($respuesta, JSON_UNESCAPED_UNICODE);
+  }
+
+  /**
    * Documentacion IA: Codex GPT-5 | Fecha: 2026-08-28
    * Proposito: publicar Esenciales Artiani desde CMS Frontend Home.
    * Impacto: CMS contenido; persiste `home_esenciales_artiani` en el slot `home.esenciales`.
@@ -1037,5 +1076,25 @@ class Cms extends Controlador {
         )
       )
     );
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-04
+   * Proposito: centralizar auditoria de publicaciones CMS Home agregadas por modulos nuevos.
+   * Impacto: controlador CMS; registra resultado sin duplicar estructura ni exponer payloads completos.
+   * Contrato: no modifica respuesta; solo registra metadatos operativos de la publicacion.
+   */
+  private function auditarPublicacionHomeCms($accion, $respuesta) {
+    $depurar = isset($respuesta["depurar"]) && is_array($respuesta["depurar"]) ? $respuesta["depurar"] : array();
+    SesionSeguridad::registrarAuditoria("cms", $accion, array(
+      "resultado" => empty($respuesta["error"]) ? "ok" : "error",
+      "mensaje" => isset($respuesta["mensaje"]) ? $respuesta["mensaje"] : "",
+      "datos_despues" => array(
+        "id_bloque" => isset($depurar["id_bloque"]) ? $depurar["id_bloque"] : null,
+        "slot" => isset($depurar["slot"]) ? $depurar["slot"] : null,
+        "items_total" => isset($depurar["items_total"]) ? $depurar["items_total"] : 0,
+        "publicado_api" => isset($depurar["publicado_api"]) ? $depurar["publicado_api"] : false
+      )
+    ));
   }
 }

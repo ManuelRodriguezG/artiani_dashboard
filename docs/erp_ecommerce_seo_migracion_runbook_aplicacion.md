@@ -8,6 +8,31 @@ Estado: guia operativa; no ejecutar apply sin autorizacion explicita.
 
 Aplicar el esquema SEO/migracion para administrar URLs canonicas, redirecciones 301, URLs viejas importadas y 404 detectados desde el ERP, dejando que el frontend publico materialice redirecciones, `robots.txt` y `sitemap.xml`.
 
+## Decision dominio y URIs 2026-09-04
+
+El dominio publico no cambia:
+
+```text
+https://artiani.com.mx
+```
+
+La migracion SEO es de rutas viejas a rutas nuevas dentro del mismo dominio. El frontend puede seguir construyendose y probandose en local, pero canonical, sitemap y redirecciones productivas deben apuntar al dominio final `https://artiani.com.mx`.
+
+Ejemplos:
+
+```text
+https://artiani.com.mx/ruta-vieja.html  ->  https://artiani.com.mx/producto/slug-nuevo
+https://artiani.com.mx/categoria-vieja  ->  https://artiani.com.mx/categoria/perros/accesorios
+```
+
+Reglas:
+
+- `http://artiani.com.local` es ambiente local/preview, no canonical productivo.
+- `https://artiani.com.mx` es el dominio canonico final.
+- Las redirecciones se guardan por `path` (`/ruta-vieja.html` -> `/producto/slug-nuevo`) para que el frontend las aplique en el mismo host.
+- No redirigir todo a home; buscar producto/categoria/marca equivalente antes de usar fallback.
+- No publicar sitemap productivo con base local.
+
 ## Preflight read-only
 
 Ejecutar:
@@ -134,6 +159,7 @@ La persistencia de URLs viejas y redirecciones esta separada del DDL:
   - no desactiva URLs ausentes automaticamente
   - plan final read-only 2026-09-03: `260` canonicas, `260` nuevas, `0` bloqueadas
   - sincronizacion ejecutada 2026-09-03: `260` canonicas insertadas, `0` internas, `0` omitidas
+  - ajuste dominio 2026-09-04: endpoints vivos usan `https://artiani.com.mx`; snapshot persistido requiere nueva sincronizacion (`270` canonicas: `10` nuevas, `260` actualizar, `0` bloqueadas)
 - Importar URLs viejas: `POST /ecommercePublico/seo_urls_viejas_importar_erp`
   - permiso: `catalogo.editar`
   - token: `ECOMMERCE_SEO_IMPORTAR_URLS_VIEJAS`

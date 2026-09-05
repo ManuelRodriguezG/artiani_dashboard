@@ -252,6 +252,73 @@
                                                 </div>
                                                 <div class="card-body pt-0">
                                                     <div class="border rounded p-4 mb-5">
+                                                        <div class="row g-3 align-items-end">
+                                                            <div class="col-md-3">
+                                                                <label class="form-label fs-8">Clasificar</label>
+                                                                <select class="form-select form-select-sm" id="clasificacion_origen">
+                                                                    <option value="">Todo el mes</option>
+                                                                </select>
+                                                            </div>
+                                                            <div class="col-md-3">
+                                                                <label class="form-label fs-8">Descripcion</label>
+                                                                <input class="form-control form-control-sm" id="clasificacion_descripcion" list="clasificacion_descripciones_sugeridas" placeholder="Selecciona o escribe">
+                                                                <datalist id="clasificacion_descripciones_sugeridas"></datalist>
+                                                            </div>
+                                                            <div class="col-md-2">
+                                                                <label class="form-label fs-8">Movimiento</label>
+                                                                <select class="form-select form-select-sm" id="clasificacion_tipo">
+                                                                    <option value="">Todos</option>
+                                                                    <option value="egreso">Egreso</option>
+                                                                    <option value="ingreso">Ingreso</option>
+                                                                </select>
+                                                            </div>
+                                                            <div class="col-md-2">
+                                                                <label class="form-label fs-8">Actividad</label>
+                                                                <select class="form-select form-select-sm" id="clasificacion_actividad">
+                                                                    <option value="">Todas</option>
+                                                                    <option value="negocio">Negocio</option>
+                                                                    <option value="personal">Personal</option>
+                                                                    <option value="inversion">Inversion</option>
+                                                                    <option value="programacion">Programacion</option>
+                                                                    <option value="publicidad">Publicidad</option>
+                                                                    <option value="transpaso">Transpaso</option>
+                                                                </select>
+                                                            </div>
+                                                            <div class="col-md-2">
+                                                                <label class="form-label fs-8">Categoria</label>
+                                                                <select class="form-select form-select-sm" id="clasificacion_categoria">
+                                                                    <option value="">Todas</option>
+                                                                    <option value="no_aplica">No aplica</option>
+                                                                    <option value="compra_mercancia">Compras</option>
+                                                                    <option value="gasto_operativo">Gasto operativo</option>
+                                                                    <option value="comision_plataforma">Comision plataforma</option>
+                                                                    <option value="servicio">Servicio</option>
+                                                                    <option value="publicidad">Publicidad</option>
+                                                                    <option value="software">Software</option>
+                                                                    <option value="impuestos">Impuestos</option>
+                                                                    <option value="personal">Personal</option>
+                                                                    <option value="inversion">Inversion</option>
+                                                                </select>
+                                                            </div>
+                                                            <div class="col-md-2">
+                                                                <label class="form-label fs-8">CFDI</label>
+                                                                <select class="form-select form-select-sm" id="clasificacion_cfdi">
+                                                                    <option value="">Todos</option>
+                                                                    <option value="ligado">Ligado</option>
+                                                                    <option value="pendiente">Pendiente</option>
+                                                                    <option value="no_aplica">No aplica</option>
+                                                                </select>
+                                                            </div>
+                                                            <div class="col-md-3">
+                                                                <label class="form-label fs-8">Cuenta</label>
+                                                                <input class="form-control form-control-sm" id="clasificacion_cuenta" placeholder="Cuenta contiene">
+                                                            </div>
+                                                            <div class="col-md-2">
+                                                                <button class="btn btn-sm btn-light w-100" id="clasificacion_filtros_limpiar" type="button"><i class="bi bi-x-circle"></i> Limpiar</button>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                    <div class="border rounded p-4 mb-5">
                                                         <div class="d-flex flex-wrap align-items-end gap-3">
                                                             <div>
                                                                 <label class="form-label fs-8">Seleccionados</label>
@@ -392,6 +459,56 @@
                                                 </div>
                                             </div>
                                             <div class="border rounded p-4 mb-5">
+                                                <div class="row g-3 align-items-end mb-4">
+                                                    <div class="col-md-3">
+                                                        <label class="form-label fs-8">Descripcion</label>
+                                                        <input class="form-control form-control-sm" id="cfdi_filtro_descripcion" list="cfdi_descripciones_sugeridas" placeholder="Emisor, concepto o UUID">
+                                                        <datalist id="cfdi_descripciones_sugeridas"></datalist>
+                                                    </div>
+                                                    <div class="col-md-2">
+                                                        <label class="form-label fs-8">Clasificacion</label>
+                                                        <select class="form-select form-select-sm" id="cfdi_filtro_categoria">
+                                                            <option value="">Todas</option>
+                                                            <option value="gasto_operativo">Gasto operativo</option>
+                                                            <option value="compra_mercancia">Compra</option>
+                                                            <option value="comision_plataforma">Comision plataforma</option>
+                                                            <option value="servicio">Servicio</option>
+                                                            <option value="publicidad">Publicidad</option>
+                                                            <option value="software">Software</option>
+                                                        </select>
+                                                    </div>
+                                                    <div class="col-md-2">
+                                                        <label class="form-label fs-8">Actividad</label>
+                                                        <select class="form-select form-select-sm" id="cfdi_filtro_actividad">
+                                                            <option value="">Todas</option>
+                                                            <option value="negocio">Negocio</option>
+                                                            <option value="programacion">Programacion</option>
+                                                            <option value="personal">Personal</option>
+                                                            <option value="publicidad">Publicidad</option>
+                                                            <option value="inversion">Inversion</option>
+                                                        </select>
+                                                    </div>
+                                                    <div class="col-md-2">
+                                                        <label class="form-label fs-8">Pago</label>
+                                                        <select class="form-select form-select-sm" id="cfdi_filtro_forma_pago"></select>
+                                                    </div>
+                                                    <div class="col-md-2">
+                                                        <label class="form-label fs-8">Cuenta</label>
+                                                        <select class="form-select form-select-sm" id="cfdi_filtro_cuenta"></select>
+                                                    </div>
+                                                    <div class="col-md-2">
+                                                        <label class="form-label fs-8">Relacion</label>
+                                                        <select class="form-select form-select-sm" id="cfdi_filtro_relacion">
+                                                            <option value="">Todas</option>
+                                                            <option value="ligado">Ligado</option>
+                                                            <option value="sugerido">Sugerido</option>
+                                                            <option value="sin_banco">Sin banco</option>
+                                                        </select>
+                                                    </div>
+                                                    <div class="col-md-1">
+                                                        <button class="btn btn-sm btn-light w-100" id="cfdi_filtros_limpiar" type="button" title="Limpiar filtros"><i class="bi bi-x-circle"></i></button>
+                                                    </div>
+                                                </div>
                                                 <div class="d-flex flex-wrap align-items-end gap-3">
                                                     <div>
                                                         <label class="form-label fs-8">Seleccionados</label>
@@ -438,6 +555,7 @@
                                                     </div>
                                                     <div class="ms-auto d-flex gap-2">
                                                         <button class="btn btn-sm btn-light" id="cfdi_masivo_limpiar" type="button"><i class="bi bi-x-circle"></i> Limpiar</button>
+                                                        <button class="btn btn-sm btn-light-warning" id="cfdi_masivo_deshacer_aux" type="button"><i class="bi bi-arrow-counterclockwise"></i> Deshacer auxiliares</button>
                                                         <button class="btn btn-sm btn-light-success" id="cfdi_masivo_crear_aux" type="button"><i class="bi bi-plus-circle"></i> Crear auxiliares</button>
                                                         <button class="btn btn-sm btn-primary" id="cfdi_masivo_aplicar" type="button"><i class="bi bi-check2-square"></i> Aplicar</button>
                                                     </div>
@@ -472,7 +590,10 @@
                                             <div class="card-title">
                                                 <h3 class="fw-bold fs-5 mb-0">Conciliacion por cuenta</h3>
                                             </div>
-                                            <div class="card-toolbar">
+                                            <div class="card-toolbar d-flex flex-wrap gap-2">
+                                                <button class="btn btn-sm btn-light-success" id="contabilidad_ver_ventas" type="button"><i class="bi bi-cash-coin"></i> Ver ventas</button>
+                                                <button class="btn btn-sm btn-light-info" id="contabilidad_ver_traspasos" type="button"><i class="bi bi-arrow-left-right"></i> Ver traspasos</button>
+                                                <button class="btn btn-sm btn-light-primary" id="contabilidad_detectar_traspasos" type="button"><i class="bi bi-magic"></i> Sugerir traspasos</button>
                                                 <span class="badge badge-light" id="contabilidad_conciliacion_total">0 cuentas</span>
                                             </div>
                                         </div>
@@ -499,6 +620,84 @@
                     </div>
                 </div>
                 <?= include_once '../app/vistas/includes/footer/footer.php'; ?>
+            </div>
+        </div>
+    </div>
+</div>
+<div class="modal fade" id="contabilidad_conciliacion_modal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div>
+                    <h3 class="modal-title fw-bold fs-4 mb-1" id="contabilidad_conciliacion_modal_titulo">Conciliacion</h3>
+                    <div class="text-muted fs-8" id="contabilidad_conciliacion_modal_subtitulo"></div>
+                </div>
+                <button type="button" class="btn btn-sm btn-icon btn-light" data-bs-dismiss="modal" title="Cerrar"><i class="bi bi-x-lg"></i></button>
+            </div>
+            <div class="modal-body">
+                <div class="row g-4 mb-5" id="contabilidad_conciliacion_modal_resumen"></div>
+                <div class="table-responsive">
+                    <table class="table table-row-dashed align-middle">
+                        <thead>
+                        <tr class="fw-bold text-muted">
+                            <th>Fecha</th>
+                            <th>Descripcion</th>
+                            <th>Movimiento</th>
+                            <th>Actividad</th>
+                            <th>Categoria</th>
+                            <th>Pago</th>
+                            <th>CFDI</th>
+                            <th class="text-end">Monto</th>
+                        </tr>
+                        </thead>
+                        <tbody id="contabilidad_conciliacion_modal_movimientos"></tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cerrar</button>
+                <button type="button" class="btn btn-light-primary" id="contabilidad_conciliacion_modal_simple"><i class="bi bi-table"></i> Descargar simple</button>
+                <button type="button" class="btn btn-primary" id="contabilidad_conciliacion_modal_exportar"><i class="bi bi-download"></i> Descargar CSV</button>
+            </div>
+        </div>
+    </div>
+</div>
+<div class="modal fade" id="contabilidad_relacion_modal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div>
+                    <h3 class="modal-title fw-bold fs-4 mb-1" id="contabilidad_relacion_titulo">Relacion CFDI</h3>
+                    <div class="text-muted fs-8" id="contabilidad_relacion_subtitulo"></div>
+                </div>
+                <button type="button" class="btn btn-sm btn-icon btn-light" data-bs-dismiss="modal" title="Cerrar"><i class="bi bi-x-lg"></i></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-primary py-3 mb-4" id="contabilidad_relacion_resumen"></div>
+                <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-4">
+                    <div class="text-muted fs-8" id="contabilidad_relacion_estado"></div>
+                    <div class="w-100 w-md-300px">
+                        <input class="form-control form-control-sm form-control-solid" id="contabilidad_relacion_buscar" type="search" placeholder="Buscar fecha, descripcion, cuenta, monto o UUID">
+                    </div>
+                </div>
+                <div class="table-responsive border rounded">
+                    <table class="table table-row-dashed align-middle mb-0">
+                        <thead>
+                        <tr class="fw-bold text-muted">
+                            <th>Fecha</th>
+                            <th>Cuenta / origen</th>
+                            <th>Descripcion</th>
+                            <th>Coincidencia</th>
+                            <th class="text-end">Monto</th>
+                            <th class="text-end">Accion</th>
+                        </tr>
+                        </thead>
+                        <tbody id="contabilidad_relacion_candidatos"></tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cerrar</button>
             </div>
         </div>
     </div>
