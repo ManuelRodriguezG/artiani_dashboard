@@ -406,6 +406,23 @@ token=ECOMMERCE_SEO_MIGRACION_DDL
 fecha=2026-09-03
 ```
 
+Ecommerce SEO/resync canonicas a dominio productivo:
+
+```text
+C:\xampp\panel_db_backups\artianilocal_panel_20260905_antes_ecommerce_seo_resync_canonicas.sql
+```
+
+Validacion:
+
+```text
+archivo_existe=true
+archivo_legible=true
+tamano_bytes=38934285
+aplicacion=sync canonicas SEO a https://artiani.com.mx
+token=ECOMMERCE_SEO_SYNC_URLS_CANONICAS
+fecha=2026-09-05
+```
+
 Validacion:
 
 ```text

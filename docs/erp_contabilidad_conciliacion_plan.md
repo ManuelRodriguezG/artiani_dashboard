@@ -171,7 +171,7 @@ Datos XML relevantes para el MVP:
 - Importes: subtotal, descuento, total, IVA trasladado, IVA retenido e ISR retenido.
 - Conceptos: descripcion principal, resumen de conceptos y cantidad de conceptos.
 
-La sugerencia de relacion CFDI-banco se calcula por monto absoluto, fecha exacta o cercana, RFC/emisor en concepto bancario, folio y UUID. Los ingresos y transpasos penalizan la coincidencia porque normalmente los CFDI de gastos/compras deben relacionarse contra egresos.
+La sugerencia de relacion CFDI-banco se calcula por monto absoluto, fecha como referencia, RFC/emisor en concepto bancario, folio y UUID. Los ingresos y transpasos penalizan la coincidencia porque normalmente los CFDI de gastos/compras deben relacionarse contra egresos.
 
 Para estados de cuenta de tarjeta de credito en PDF, el flujo futuro debe separar dos casos: PDF con texto seleccionable, que puede extraerse en servidor; y PDF escaneado/imagen, que requiere OCR antes de mapear columnas.
 
@@ -263,9 +263,11 @@ Los traspasos relacionados deben quedar con `categoria = no_aplica` y `cfdi = no
 
 La relacion entre CFDI y movimiento bancario no debe crearse automaticamente por similitud. El sistema puede calcular candidatos y sugerir el mas probable, pero la liga final debe confirmarla el usuario.
 
-Una coincidencia exacta requiere monto igual y fecha igual entre el CFDI, o su complemento de pago cuando aplique, y el movimiento bancario. Si no existe coincidencia exacta, la mesa de relacion debe mostrar candidatos disponibles y permitir busqueda manual por fecha, descripcion, cuenta, monto, emisor, RFC, folio o UUID.
+Una coincidencia operativa fuerte requiere monto igual o compatible por redondeo entre el CFDI, o su complemento de pago cuando aplique, y el movimiento bancario. La fecha ayuda a ordenar candidatos y explicar la sugerencia, pero no debe ser requisito de relacion porque puede variar por corte, aplicacion bancaria, tarjeta o plataforma. Si no existe monto compatible, la mesa de relacion debe permitir busqueda manual por fecha, descripcion, cuenta, monto, emisor, RFC, folio o UUID.
 
 Al confirmar una relacion, el sistema marca el movimiento como `cfdi = ligado`, guarda el UUID en el movimiento y registra `movimiento_relacionado` en el CFDI. Si alguno de los dos ya esta ligado con otro registro, primero debe deshacerse la relacion anterior para evitar sustituciones silenciosas.
+
+La accion de reparacion `Deshacer montos no exactos` quita las relaciones CFDI-banco del mes activo cuando el monto no coincide o no cuadra por redondeo. Esta accion deja el movimiento y el CFDI como pendientes para volver a revisarlos, sin eliminar estados de cuenta ni movimientos auxiliares creados desde CFDI.
 
 ## Ajuste operativo 2026-09-04 complementos de pago
 

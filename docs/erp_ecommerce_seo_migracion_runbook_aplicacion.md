@@ -160,6 +160,7 @@ La persistencia de URLs viejas y redirecciones esta separada del DDL:
   - plan final read-only 2026-09-03: `260` canonicas, `260` nuevas, `0` bloqueadas
   - sincronizacion ejecutada 2026-09-03: `260` canonicas insertadas, `0` internas, `0` omitidas
   - ajuste dominio 2026-09-04: endpoints vivos usan `https://artiani.com.mx`; snapshot persistido requiere nueva sincronizacion (`270` canonicas: `10` nuevas, `260` actualizar, `0` bloqueadas)
+  - resync ejecutada 2026-09-05 con respaldo `C:\xampp\panel_db_backups\artianilocal_panel_20260905_antes_ecommerce_seo_resync_canonicas.sql`: `270` activas, `270` productivas, `0` locales, `0` internas
 - Importar URLs viejas: `POST /ecommercePublico/seo_urls_viejas_importar_erp`
   - permiso: `catalogo.editar`
   - token: `ECOMMERCE_SEO_IMPORTAR_URLS_VIEJAS`
@@ -172,3 +173,64 @@ La persistencia de URLs viejas y redirecciones esta separada del DDL:
   - valida origen/destino/status antes de escribir
 
 Si el token falta, el token no coincide o la tabla no existe, el modelo debe responder con `no_escribe_bd=true`.
+
+## Analisis URLs viejas 2026-09-05
+
+Regla de migracion confirmada por negocio: el dominio productivo se mantiene como `https://artiani.com.mx`; solo cambian las URIs hacia la nueva estructura construida en local. Las URLs viejas deben analizarse como paths antiguos del mismo dominio, no como migracion de dominio.
+
+Extraccion read-only desde sitio vivo:
+
+```bash
+C:\xampp\php\php.exe storage\uat\uat_ecommerce_seo_crawl_urls_viejas_readonly.php --base=https://artiani.com.mx --max=350 --delay_ms=80
+```
+
+Archivos generados:
+
+- `storage/tmp/ecommerce_seo_urls_viejas_crawl_20260906_015158.json`
+- `storage/tmp/ecommerce_seo_urls_viejas_crawl_20260906_015158.csv`
+- `storage/tmp/ecommerce_seo_urls_viejas_import_20260906_015158.txt`
+
+Resultado del crawl:
+
+- `350` URLs detectadas.
+- `330` con HTTP `200`.
+- `20` con HTTP `500`.
+- Tipos detectados por crawler: `221` producto legacy, `73` categoria legacy, `21` clasificacion, `32` otro, `1` home, `1` contacto, `1` sitemap.
+
+Plan de equivalencias read-only con heuristica estricta:
+
+```bash
+C:\xampp\php\php.exe storage\uat\uat_ecommerce_seo_urls_viejas_plan_desde_archivo_readonly.php --archivo=storage\tmp\ecommerce_seo_urls_viejas_import_20260906_015158.txt
+```
+
+Archivos generados:
+
+- `storage/tmp/ecommerce_seo_urls_viejas_plan_20260905_175808.json`
+- `storage/tmp/ecommerce_seo_urls_viejas_plan_20260905_175808.csv`
+
+Resultado del plan:
+
+- `350` URLs unicas evaluadas.
+- `110` con sugerencia de destino.
+- `240` sin equivalente confiable.
+- Confianza: `3` exacta, `14` media, `333` baja.
+
+Reporte enriquecido read-only para revision:
+
+```bash
+C:\xampp\php\php.exe storage\uat\uat_ecommerce_seo_urls_viejas_reporte_enriquecido_readonly.php --plan=storage\tmp\ecommerce_seo_urls_viejas_plan_20260905_175808.json --crawl=storage\tmp\ecommerce_seo_urls_viejas_crawl_20260906_015158.json
+```
+
+Archivos generados:
+
+- `storage/tmp/ecommerce_seo_urls_viejas_reporte_enriquecido_20260906_015954.json`
+- `storage/tmp/ecommerce_seo_urls_viejas_reporte_enriquecido_20260906_015954.csv`
+
+Criterio operativo:
+
+- `aprobar_301_candidato`: solo equivalencias exactas/alta confianza; hoy son `3` rutas simples (`/`, `/index.html`, `/contacto`).
+- `validar_301_candidato`: sugerencias medias; hoy son `14`, principalmente productos/categorias que deben revisarse por variante, marca y tamano antes de crear 301.
+- `revisar_manual`: URLs indexables sin equivalencia confiable; hoy son `270`.
+- `excluir_o_410`: rutas de plantilla vieja o errores HTTP; hoy son `63`. No convertir automaticamente a home.
+
+No se importaron URLs viejas a BD y no se crearon redirecciones 301 durante este analisis.

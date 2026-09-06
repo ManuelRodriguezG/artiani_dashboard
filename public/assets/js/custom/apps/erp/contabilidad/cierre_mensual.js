@@ -1205,10 +1205,11 @@
         var diferencia = Math.abs(totalCfdi - monto);
         var motivos = [];
         var score = 0;
+        var montoCompatible = diferencia <= 1;
         if (diferencia <= 0.01) { score += 70; motivos.push("monto exacto"); }
-        else if (diferencia <= 0.99) { score += 55; motivos.push("monto casi exacto"); }
+        else if (montoCompatible) { score += 55; motivos.push("monto por redondeo"); }
         else if (diferencia <= 5) { score += 40; motivos.push("monto cercano"); }
-        if (dias === 0) { score += 20; motivos.push("fecha exacta"); }
+        if (dias === 0) { score += 20; motivos.push("misma fecha"); }
         else if (dias <= 3) { score += 10; motivos.push("fecha cercana"); }
         else if (dias <= 7) { score += 5; motivos.push("misma semana"); }
         if (cfdi.rfc_emisor && texto.indexOf(normalizar(cfdi.rfc_emisor)) >= 0) { score += 15; motivos.push("RFC en concepto"); }
@@ -1220,7 +1221,8 @@
         if (mov.actividad === "transpaso" || mov.tipo_movimiento === "ingreso") { score -= 30; }
         return {
             score: score,
-            exacta: diferencia <= 0.01 && dias === 0,
+            exacta: montoCompatible,
+            montoCompatible: montoCompatible,
             diferencia: diferencia,
             dias: dias,
             motivos: motivos
@@ -1321,7 +1323,7 @@
             rows = ordenarCandidatosRelacion(rows);
         }
         var exactas = rows.filter(function (item) { return item.coincidencia.exacta; }).length;
-        $("contabilidad_relacion_estado").textContent = exactas ? exactas + " coincidencia(s) exacta(s) por monto y fecha." : "Sin coincidencia exacta; selecciona manualmente el registro correcto.";
+        $("contabilidad_relacion_estado").textContent = exactas ? exactas + " candidato(s) con monto compatible. La fecha solo es referencia." : "Sin monto compatible; selecciona manualmente solo si corresponde.";
         tbody.innerHTML = rows.map(function (item) {
             var mov = item.mov;
             var cfdi = item.cfdi;
@@ -1333,7 +1335,7 @@
             var fecha = relacionContexto.tipo === "cfdi" ? (mov.fecha || "-") : (fechaCfdiRelacion(cfdi) || cfdi.fecha || "-");
             var monto = relacionContexto.tipo === "cfdi" ? montoMovimiento(mov) : montoCfdiRelacion(cfdi);
             var badge = c.exacta ? "badge-light-success" : (c.score >= 70 ? "badge-light-primary" : "badge-light-warning");
-            var etiqueta = c.exacta ? "Exacta" : "Revisar";
+            var etiqueta = c.exacta ? "Monto compatible" : "Revisar";
             var detalle = c.motivos.length ? c.motivos.join(", ") : "sin coincidencias fuertes";
             return "<tr>" +
                 "<td class=\"text-nowrap\">" + escapeHtml(fecha) + "</td>" +
@@ -1534,6 +1536,48 @@
         cfdi.tratamiento = "conciliar_banco";
         cfdi.origen = "cfdi";
         render();
+    }
+    function movimientoBancarioLigadoCfdi(cfdi) {
+        var movimientoId = cfdi.movimiento_relacionado || "";
+        return movimientos.find(function (mov) {
+            if (esMovimientoAuxiliarCfdi(mov)) { return false; }
+            return (cfdi.uuid && mov.cfdi_uuid === cfdi.uuid) || (movimientoId && mov.id === movimientoId);
+        });
+    }
+    function deshacerRelacionNoExacta(cfdi) {
+        var mov = movimientoBancarioLigadoCfdi(cfdi);
+        if (!mov || coincidenciaCfdi(mov, cfdi).exacta) { return false; }
+        mov.cfdi_uuid = "";
+        mov.cfdi_sugerencia = "";
+        mov.cfdi = cfdiEsperado(mov);
+        cfdi.movimiento_relacionado = "";
+        cfdi.estatus_relacion = "pendiente";
+        cfdi.tratamiento = "conciliar_banco";
+        cfdi.origen = "cfdi";
+        delete cfdisSeleccionados[cfdi.id];
+        delete seleccionados[mov.id];
+        return true;
+    }
+    function deshacerRelacionesNoExactas() {
+        var candidatos = cfdisPeriodoActual().filter(function (cfdi) {
+            normalizarCfdiLegacy(cfdi);
+            return !!movimientoBancarioLigadoCfdi(cfdi) && !coincidenciaCfdi(movimientoBancarioLigadoCfdi(cfdi), cfdi).exacta;
+        });
+        if (!candidatos.length) {
+            mostrarError("No encontre relaciones bancarias no exactas en el mes actual.");
+            return;
+        }
+        confirmarAccion("Se quitaran " + candidatos.length + " relaciones CFDI-banco cuyo monto no coincide o no cuadra por redondeo. La fecha no se tomara como requisito. No se eliminaran estados de cuenta ni auxiliares CFDI.", function () {
+            var quitadas = 0;
+            candidatos.forEach(function (cfdi) {
+                if (deshacerRelacionNoExacta(cfdi)) { quitadas++; }
+            });
+            autoRelacionarCfdi();
+            render();
+            if (window.Swal) {
+                Swal.fire({text: quitadas + " relaciones con monto no compatible quedaron pendientes para revisar.", icon: "success", timer: 1600, showConfirmButton: false});
+            }
+        });
     }
     function deshacerAuxiliaresCfdiSeleccionados() {
         var ids = idsCfdiSeleccionadosValidos();
@@ -1830,7 +1874,7 @@
         $("contabilidad_movimientos").innerHTML = rows.map(function (m) {
             var cfdiSugerido = m.cfdi_sugerencia ? cfdiPorId(m.cfdi_sugerencia) : null;
             var coincidenciaSugerida = cfdiSugerido ? coincidenciaCfdi(m, cfdiSugerido) : null;
-            var textoSugerencia = coincidenciaSugerida && coincidenciaSugerida.exacta ? "Sugerido exacto" : "Sugerido";
+            var textoSugerencia = coincidenciaSugerida && coincidenciaSugerida.exacta ? "Monto compatible" : "Sugerido";
             var sugerencia = m.cfdi_sugerencia && m.cfdi !== "ligado" ? "<div class=\"text-primary fs-9 mt-1\">" + textoSugerencia + ": " + escapeHtml(m.cfdi_sugerencia) + "</div>" : "";
             var origen = m.origen || (m.estado_cuenta_id ? "estado_cuenta" : "manual");
             var traspaso = m.traspaso_grupo ? "<div class=\"text-info fs-9 mt-1\">Traspaso " + escapeHtml(m.traspaso_grupo) + "</div>" : "";
@@ -1874,7 +1918,7 @@
                 .filter(function (x) { return x.score >= 40; })
                 .sort(function (a, b) { return b.score - a.score; })[0];
             var coincidenciaSugerida = sugerido ? coincidenciaCfdi(sugerido.mov, c) : null;
-            var relacion = ligado ? "Ligado" : (sugerido ? (coincidenciaSugerida.exacta ? "Exacto sugerido" : "Sugerido") : "Sin banco");
+            var relacion = ligado ? "Ligado" : (sugerido ? (coincidenciaSugerida.exacta ? "Monto compatible" : "Sugerido") : "Sin banco");
             var pagoComplemento = c.pago_complemento ? "<span class=\"badge badge-light-info ms-2\">Complemento pago</span>" : "";
             var detallePago = c.pago_complemento ? "<div class=\"text-primary fs-9 mt-1\">Pago " + escapeHtml(c.pago_fecha || c.fecha || "-") + " | " + money(c.pago_monto || c.total || 0) + (c.num_operacion ? " | Op. " + escapeHtml(c.num_operacion) : "") + "</div>" : "";
             var doctos = c.doctos_relacionados ? "<div class=\"text-muted fs-9 mt-1\">Relacionado: " + escapeHtml(c.doctos_relacionados) + "</div>" : "";
@@ -2457,6 +2501,7 @@
         $("cfdi_masivo_aplicar").addEventListener("click", aplicarMasivoCfdi);
         $("cfdi_masivo_crear_aux").addEventListener("click", crearAuxiliaresCfdiSeleccionados);
         $("cfdi_masivo_deshacer_aux").addEventListener("click", deshacerAuxiliaresCfdiSeleccionados);
+        $("cfdi_deshacer_no_exactas").addEventListener("click", deshacerRelacionesNoExactas);
         $("cfdi_masivo_limpiar").addEventListener("click", limpiarSeleccionCfdi);
         $("contabilidad_cfdi_crear_movimientos").addEventListener("click", crearMovimientosCfdiSinBanco);
         $("clasificacion_origen").addEventListener("change", function (e) {

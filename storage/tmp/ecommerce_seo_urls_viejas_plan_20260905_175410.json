@@ -1,0 +1,19 @@
+{
+    "ok": true,
+    "modo": "read-only",
+    "archivo_origen": "storage\\tmp\\ecommerce_seo_urls_viejas_import_20260906_015158.txt",
+    "total": 0,
+    "resumen": {
+        "estatus": [],
+        "tipo": [],
+        "confianza": [],
+        "con_sugerencia": 0,
+        "sin_sugerencia": 0
+    },
+    "items": [],
+    "guardrails": {
+        "no_escribe_bd": true,
+        "no_importa_urls": true,
+        "no_crea_redirecciones": true
+    }
+}

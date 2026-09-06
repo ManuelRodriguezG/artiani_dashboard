@@ -11026,6 +11026,7 @@ class EcommerceCatalogoPublico extends CRUD {
       $agregar("producto", "/producto/" . $slug, array(
         "entidad_id" => intval($this->valor($producto, "id_publicacion", 0)),
         "id_sku" => intval($this->valor($producto, "id_sku", 0)),
+        "sku" => trim((string) $this->valor($producto, "sku", "")),
         "title" => $this->valor($producto, "nombre", "Producto") . " | Artiani",
         "description" => substr(trim((string) $this->valor($producto, "descripcion", "")), 0, 160),
         "image" => $this->valor($producto, "imagen", null)
@@ -11133,6 +11134,10 @@ class EcommerceCatalogoPublico extends CRUD {
     foreach (preg_split('/\r\n|\r|\n/', $texto) as $linea) {
       $linea = trim((string) $linea);
       if ($linea === "") { continue; }
+      if (preg_match('/^https?:\/\//i', $linea) || strpos($linea, "/") === 0) {
+        $entradas[] = $linea;
+        continue;
+      }
       $partes = preg_split('/[\s,;]+/', $linea);
       foreach ($partes as $parte) {
         $parte = trim((string) $parte);
@@ -11144,16 +11149,27 @@ class EcommerceCatalogoPublico extends CRUD {
 
   private function seoTipoDetectadoPath($path) {
     $path = strtolower((string) $path);
+    if ($path === "/" || $path === "/index.html" || $path === "/inicio") { return "home"; }
+    if ($path === "/contacto" || strpos($path, "/contacto") === 0) { return "contacto"; }
+    if (strpos($path, "/producto/categoria/") === 0 || strpos($path, "categoria") !== false || strpos($path, "category") !== false || strpos($path, "cat=") !== false) { return "categoria"; }
+    if (strpos($path, "/producto/clasificacion/") === 0) { return "categoria"; }
+    if (strpos($path, "/producto/marca/") === 0 || strpos($path, "marca") !== false || strpos($path, "brand") !== false) { return "marca"; }
     if (strpos($path, "producto") !== false || preg_match('/(sku|id_producto|product|p=)/', $path)) { return "producto"; }
-    if (strpos($path, "categoria") !== false || strpos($path, "category") !== false || strpos($path, "cat=") !== false) { return "categoria"; }
-    if (strpos($path, "marca") !== false || strpos($path, "brand") !== false) { return "marca"; }
     if (strpos($path, "buscar") !== false || strpos($path, "search") !== false || strpos($path, "q=") !== false) { return "busqueda"; }
     return "desconocido";
   }
 
   private function seoSugerirDestinoPublico($path, $tipo, $canonicas) {
     $path = $this->normalizarSeoPathPublico($path);
+    if ($tipo === "home") {
+      return array("path" => "/", "confianza" => "exacta", "motivo" => "home_legacy");
+    }
+    if ($tipo === "contacto") {
+      return array("path" => "/contacto", "confianza" => "exacta", "motivo" => "contacto_legacy");
+    }
+
     $tokensOrigen = $this->seoTokensPath($path);
+    $skuOrigen = $this->seoSkuLegacyDesdePath($path);
     $mejor = array("path" => "", "score" => 0, "confianza" => "baja", "motivo" => "sin_equivalente_exactamente_detectable");
     foreach ($canonicas as $url) {
       $tipoCanonico = (string) $this->valor($url, "tipo", "");
@@ -11164,24 +11180,41 @@ class EcommerceCatalogoPublico extends CRUD {
         continue;
       }
       $pathCanonico = (string) $this->valor($url, "path", "");
-      $tokensDestino = $this->seoTokensPath($pathCanonico . " " . $this->valor($url, "title", ""));
+      $skuCanonico = $this->seoSkuNormalizado($this->valor($url, "sku", ""));
+      $tokensDestino = $this->seoTokensPath($pathCanonico . " " . $this->valor($url, "title", "") . " " . $this->valor($url, "description", ""));
       $score = count(array_intersect($tokensOrigen, $tokensDestino));
       if ($path === $pathCanonico) { $score += 20; }
+      if ($skuOrigen !== "" && $skuCanonico !== "" && $skuOrigen === $skuCanonico) { $score += 15; }
       if ($score > $mejor["score"]) {
         $mejor = array(
           "path" => $pathCanonico,
           "score" => $score,
-          "confianza" => $score >= 20 ? "exacta" : ($score >= 3 ? "media" : "baja"),
-          "motivo" => $score >= 20 ? "path_ya_canonico" : "tokens_compartidos_" . $score
+          "confianza" => $score >= 15 && $skuOrigen !== "" && $skuCanonico === $skuOrigen ? "alta" : ($score >= 20 ? "exacta" : ($score >= 4 ? "media" : "baja")),
+          "motivo" => $score >= 15 && $skuOrigen !== "" && $skuCanonico === $skuOrigen ? "sku_legacy_coincide" : ($score >= 20 ? "path_ya_canonico" : "tokens_compartidos_" . $score)
         );
       }
     }
     if ($mejor["score"] <= 0) {
       $mejor["path"] = $tipo === "categoria" || $tipo === "busqueda" ? "/categorias" : "";
       $mejor["motivo"] = $mejor["path"] !== "" ? "fallback_a_categorias" : "requiere_revision_manual";
+    } elseif ($mejor["score"] < 4 && $tipo !== "categoria") {
+      $mejor = array("path" => "", "score" => 0, "confianza" => "baja", "motivo" => "coincidencia_insuficiente");
     }
     unset($mejor["score"]);
     return $mejor;
+  }
+
+  private function seoSkuLegacyDesdePath($path) {
+    $path = trim((string) parse_url($this->normalizarSeoPathPublico($path), PHP_URL_PATH));
+    $partes = explode("/", trim($path, "/"));
+    $ultimo = trim((string) end($partes));
+    return $this->seoSkuNormalizado($ultimo);
+  }
+
+  private function seoSkuNormalizado($sku) {
+    $sku = strtoupper(trim((string) $sku));
+    $sku = preg_replace('/[^A-Z0-9]/', '', $sku);
+    return strlen($sku) >= 4 ? $sku : "";
   }
 
   private function seoTokensPath($texto) {

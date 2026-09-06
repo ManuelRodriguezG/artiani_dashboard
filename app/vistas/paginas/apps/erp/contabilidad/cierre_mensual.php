@@ -555,6 +555,7 @@
                                                     </div>
                                                     <div class="ms-auto d-flex gap-2">
                                                         <button class="btn btn-sm btn-light" id="cfdi_masivo_limpiar" type="button"><i class="bi bi-x-circle"></i> Limpiar</button>
+                                                        <button class="btn btn-sm btn-light-danger" id="cfdi_deshacer_no_exactas" type="button"><i class="bi bi-exclamation-triangle"></i> Deshacer montos no exactos</button>
                                                         <button class="btn btn-sm btn-light-warning" id="cfdi_masivo_deshacer_aux" type="button"><i class="bi bi-arrow-counterclockwise"></i> Deshacer auxiliares</button>
                                                         <button class="btn btn-sm btn-light-success" id="cfdi_masivo_crear_aux" type="button"><i class="bi bi-plus-circle"></i> Crear auxiliares</button>
                                                         <button class="btn btn-sm btn-primary" id="cfdi_masivo_aplicar" type="button"><i class="bi bi-check2-square"></i> Aplicar</button>

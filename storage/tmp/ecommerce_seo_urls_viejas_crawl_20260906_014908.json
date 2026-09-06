@@ -1,0 +1,1193 @@
+{
+    "ok": true,
+    "modo": "read-only",
+    "base": "https://artiani.com.mx",
+    "hosts_permitidos": [
+        "artiani.com.mx",
+        "www.artiani.com.mx"
+    ],
+    "total_urls": 120,
+    "total_paginas_visitadas": 120,
+    "total_errores": 18,
+    "duracion_segundos": 48.79,
+    "items": [
+        {
+            "url": "https://artiani.com.mx/",
+            "path": "/",
+            "tipo_detectado": "home",
+            "status": 200,
+            "content_type": "text/html; charset=UTF-8",
+            "titulo": "Artiani acuario, artículos para animales y más",
+            "fuente": "crawl"
+        },
+        {
+            "url": "https://artiani.com.mx/carrito/empty-cart.html",
+            "path": "/carrito/empty-cart.html",
+            "tipo_detectado": "otro",
+            "status": 500,
+            "content_type": "text/html; charset=UTF-8",
+            "titulo": "",
+            "fuente": "crawl"
+        },
+        {
+            "url": "https://artiani.com.mx/carrito/index-skin-base-ball.html",
+            "path": "/carrito/index-skin-base-ball.html",
+            "tipo_detectado": "otro",
+            "status": 500,
+            "content_type": "text/html; charset=UTF-8",
+            "titulo": "",
+            "fuente": "crawl"
+        },
+        {
+            "url": "https://artiani.com.mx/carrito/index-skin-football.html",
+            "path": "/carrito/index-skin-football.html",
+            "tipo_detectado": "otro",
+            "status": 500,
+            "content_type": "text/html; charset=UTF-8",
+            "titulo": "",
+            "fuente": "crawl"
+        },
+        {
+            "url": "https://artiani.com.mx/carrito/index-skin-snowboards.html",
+            "path": "/carrito/index-skin-snowboards.html",
+            "tipo_detectado": "otro",
+            "status": 500,
+            "content_type": "text/html; charset=UTF-8",
+            "titulo": "",
+            "fuente": "crawl"
+        },
+        {
+            "url": "https://artiani.com.mx/carrito/index.html",
+            "path": "/carrito/index.html",
+            "tipo_detectado": "otro",
+            "status": 500,
+            "content_type": "text/html; charset=UTF-8",
+            "titulo": "",
+            "fuente": "crawl"
+        },
+        {
+            "url": "https://artiani.com.mx/carrito/product.html",
+            "path": "/carrito/product.html",
+            "tipo_detectado": "otro",
+            "status": 500,
+            "content_type": "text/html; charset=UTF-8",
+            "titulo": "",
+            "fuente": "crawl"
+        },
+        {
+            "url": "https://artiani.com.mx/carrito/vista_previa",
+            "path": "/carrito/vista_previa",
+            "tipo_detectado": "otro",
+            "status": 200,
+            "content_type": "text/html; charset=UTF-8",
+            "titulo": "Carrito - Beay",
+            "fuente": "crawl"
+        },
+        {
+            "url": "https://artiani.com.mx/collections/womens",
+            "path": "/collections/womens",
+            "tipo_detectado": "otro",
+            "status": 200,
+            "content_type": "text/html; charset=UTF-8",
+            "titulo": "Artiani acuario, artículos para animales y más",
+            "fuente": "crawl"
+        },
+        {
+            "url": "https://artiani.com.mx/contacto",
+            "path": "/contacto",
+            "tipo_detectado": "contacto",
+            "status": 200,
+            "content_type": "text/html; charset=UTF-8",
+            "titulo": "Contacto - Beay",
+            "fuente": "crawl"
+        },
+        {
+            "url": "https://artiani.com.mx/data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAB4AAAAMgAQMAAAD4P+14AAAAA1BMVEUAAACnej3aAAAAAXRSTlMAQObYZgAAAPdJREFUeNrswYEAAAAAgKD9qRepAgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABg9uBAAAAAAADI/7URVFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVWFPTgQAAAAAADyf20EVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVpDw4JAAAAAAT9f+0JIwAAAAAAAAAAALAJ8T4AAZAZiOkAAAAASUVORK5CYII=",
+            "path": "/data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAB4AAAAMgAQMAAAD4P+14AAAAA1BMVEUAAACnej3aAAAAAXRSTlMAQObYZgAAAPdJREFUeNrswYEAAAAAgKD9qRepAgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABg9uBAAAAAAADI/7URVFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVWFPTgQAAAAAADyf20EVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVpDw4JAAAAAAT9f+0JIwAAAAAAAAAAALAJ8T4AAZAZiOkAAAAASUVORK5CYII=",
+            "tipo_detectado": "otro",
+            "status": 200,
+            "content_type": "text/html; charset=UTF-8",
+            "titulo": "Artiani acuario, artículos para animales y más",
+            "fuente": "crawl"
+        },
+        {
+            "url": "https://artiani.com.mx/empty-cart.html",
+            "path": "/empty-cart.html",
+            "tipo_detectado": "otro",
+            "status": 200,
+            "content_type": "text/html; charset=UTF-8",
+            "titulo": "Artiani acuario, artículos para animales y más",
+            "fuente": "crawl"
+        },
+        {
+            "url": "https://artiani.com.mx/index-skin-base-ball.html",
+            "path": "/index-skin-base-ball.html",
+            "tipo_detectado": "otro",
+            "status": 200,
+            "content_type": "text/html; charset=UTF-8",
+            "titulo": "Artiani acuario, artículos para animales y más",
+            "fuente": "crawl"
+        },
+        {
+            "url": "https://artiani.com.mx/index-skin-football.html",
+            "path": "/index-skin-football.html",
+            "tipo_detectado": "otro",
+            "status": 200,
+            "content_type": "text/html; charset=UTF-8",
+            "titulo": "Artiani acuario, artículos para animales y más",
+            "fuente": "crawl"
+        },
+        {
+            "url": "https://artiani.com.mx/index-skin-snowboards.html",
+            "path": "/index-skin-snowboards.html",
+            "tipo_detectado": "otro",
+            "status": 200,
+            "content_type": "text/html; charset=UTF-8",
+            "titulo": "Artiani acuario, artículos para animales y más",
+            "fuente": "crawl"
+        },
+        {
+            "url": "https://artiani.com.mx/index.html",
+            "path": "/index.html",
+            "tipo_detectado": "otro",
+            "status": 200,
+            "content_type": "text/html; charset=UTF-8",
+            "titulo": "Artiani acuario, artículos para animales y más",
+            "fuente": "crawl"
+        },
+        {
+            "url": "https://artiani.com.mx/listing-collection.html",
+            "path": "/listing-collection.html",
+            "tipo_detectado": "otro",
+            "status": 200,
+            "content_type": "text/html; charset=UTF-8",
+            "titulo": "Artiani acuario, artículos para animales y más",
+            "fuente": "crawl"
+        },
+        {
+            "url": "https://artiani.com.mx/listing-left-column.html",
+            "path": "/listing-left-column.html",
+            "tipo_detectado": "otro",
+            "status": 200,
+            "content_type": "text/html; charset=UTF-8",
+            "titulo": "Artiani acuario, artículos para animales y más",
+            "fuente": "crawl"
+        },
+        {
+            "url": "https://artiani.com.mx/product.html",
+            "path": "/product.html",
+            "tipo_detectado": "otro",
+            "status": 200,
+            "content_type": "text/html; charset=UTF-8",
+            "titulo": "Artiani acuario, artículos para animales y más",
+            "fuente": "crawl"
+        },
+        {
+            "url": "https://artiani.com.mx/producto/Alimento-para-gato-adulto-indoor-nupec-1.5-kg/NUGAIN-01",
+            "path": "/producto/Alimento-para-gato-adulto-indoor-nupec-1.5-kg/NUGAIN-01",
+            "tipo_detectado": "producto_legacy",
+            "status": 200,
+            "content_type": "text/html; charset=UTF-8",
+            "titulo": "Producto - Alimento para gato adulto indoor nupec 1.5 kg",
+            "fuente": "crawl"
+        },
+        {
+            "url": "https://artiani.com.mx/producto/Alimento-para-gato-adulto-indoor-nupec-3kg/NUPI-01",
+            "path": "/producto/Alimento-para-gato-adulto-indoor-nupec-3kg/NUPI-01",
+            "tipo_detectado": "producto_legacy",
+            "status": 200,
+            "content_type": "text/html; charset=UTF-8",
+            "titulo": "Producto - Alimento para gato adulto indoor nupec 3kg",
+            "fuente": "crawl"
+        },
+        {
+            "url": "https://artiani.com.mx/producto/Alimento-para-gato-kitten-nupec-3kg/KINU-01",
+            "path": "/producto/Alimento-para-gato-kitten-nupec-3kg/KINU-01",
+            "tipo_detectado": "producto_legacy",
+            "status": 200,
+            "content_type": "text/html; charset=UTF-8",
+            "titulo": "Producto - Alimento para gato kitten nupec 3kg",
+            "fuente": "crawl"
+        },
+        {
+            "url": "https://artiani.com.mx/producto/Bomba-de-aire-1-salida-/AIR-01",
+            "path": "/producto/Bomba-de-aire-1-salida-/AIR-01",
+            "tipo_detectado": "producto_legacy",
+            "status": 200,
+            "content_type": "text/html; charset=UTF-8",
+            "titulo": "Producto - Bomba de aire 1 salida",
+            "fuente": "crawl"
+        },
+        {
+            "url": "https://artiani.com.mx/producto/Cama_antiestres_chica_para_mascotas/CAMC-01",
+            "path": "/producto/Cama_antiestres_chica_para_mascotas/CAMC-01",
+            "tipo_detectado": "producto_legacy",
+            "status": 200,
+            "content_type": "text/html; charset=UTF-8",
+            "titulo": "Producto - Cama_antiestres_chica_para_mascotas",
+            "fuente": "crawl"
+        },
+        {
+            "url": "https://artiani.com.mx/producto/Cama_antiestres_chica_para_mascotas/CAMC-02",
+            "path": "/producto/Cama_antiestres_chica_para_mascotas/CAMC-02",
+            "tipo_detectado": "producto_legacy",
+            "status": 200,
+            "content_type": "text/html; charset=UTF-8",
+            "titulo": "Producto - Cama_antiestres_chica_para_mascotas",
+            "fuente": "crawl"
+        },
+        {
+            "url": "https://artiani.com.mx/producto/Cama_antiestres_chica_para_mascotas_/CAMC-04",
+            "path": "/producto/Cama_antiestres_chica_para_mascotas_/CAMC-04",
+            "tipo_detectado": "producto_legacy",
+            "status": 200,
+            "content_type": "text/html; charset=UTF-8",
+            "titulo": "Producto - Cama_antiestres_chica_para_mascotas_",
+            "fuente": "crawl"
+        },
+        {
+            "url": "https://artiani.com.mx/producto/Cama_antiestres_mediana_para_perros_y_gatos/CAMM-07",
+            "path": "/producto/Cama_antiestres_mediana_para_perros_y_gatos/CAMM-07",
+            "tipo_detectado": "producto_legacy",
+            "status": 200,
+            "content_type": "text/html; charset=UTF-8",
+            "titulo": "Producto - Cama_antiestres_mediana_para_perros_y_gatos",
+            "fuente": "crawl"
+        },
+        {
+            "url": "https://artiani.com.mx/producto/Canutillos_anillos_de_ceramica_/CANC-01",
+            "path": "/producto/Canutillos_anillos_de_ceramica_/CANC-01",
+            "tipo_detectado": "producto_legacy",
+            "status": 200,
+            "content_type": "text/html; charset=UTF-8",
+            "titulo": "Producto - Canutillos_anillos_de_ceramica_",
+            "fuente": "crawl"
+        },
+        {
+            "url": "https://artiani.com.mx/producto/Croqueta-para-gato-kitten-nupec-1.5kg/KINU-02",
+            "path": "/producto/Croqueta-para-gato-kitten-nupec-1.5kg/KINU-02",
+            "tipo_detectado": "producto_legacy",
+            "status": 200,
+            "content_type": "text/html; charset=UTF-8",
+            "titulo": "Producto - Croqueta para gato kitten nupec 1.5kg",
+            "fuente": "crawl"
+        },
+        {
+            "url": "https://artiani.com.mx/producto/Filtro-Cascada-100/FILCC-04",
+            "path": "/producto/Filtro-Cascada-100/FILCC-04",
+            "tipo_detectado": "producto_legacy",
+            "status": 200,
+            "content_type": "text/html; charset=UTF-8",
+            "titulo": "Producto - Filtro Cascada 100",
+            "fuente": "crawl"
+        },
+        {
+            "url": "https://artiani.com.mx/producto/Filtro-Cascada-300/FILCC-05",
+            "path": "/producto/Filtro-Cascada-300/FILCC-05",
+            "tipo_detectado": "producto_legacy",
+            "status": 200,
+            "content_type": "text/html; charset=UTF-8",
+            "titulo": "Producto - Filtro Cascada 300",
+            "fuente": "crawl"
+        },
+        {
+            "url": "https://artiani.com.mx/producto/Isla-para-tortuguero-circular/ISLA-01",
+            "path": "/producto/Isla-para-tortuguero-circular/ISLA-01",
+            "tipo_detectado": "producto_legacy",
+            "status": 200,
+            "content_type": "text/html; charset=UTF-8",
+            "titulo": "Producto - Isla para tortuguero circular",
+            "fuente": "crawl"
+        },
+        {
+            "url": "https://artiani.com.mx/producto/Jaula-de-hamster-lux-verde-/JHA-05VE",
+            "path": "/producto/Jaula-de-hamster-lux-verde-/JHA-05VE",
+            "tipo_detectado": "producto_legacy",
+            "status": 200,
+            "content_type": "text/html; charset=UTF-8",
+            "titulo": "Producto - Jaula de hamster lux verde",
+            "fuente": "crawl"
+        },
+        {
+            "url": "https://artiani.com.mx/producto/Jaula-hamster-con-tubos-57-x-31-x-29-cm-/JHA-15",
+            "path": "/producto/Jaula-hamster-con-tubos-57-x-31-x-29-cm-/JHA-15",
+            "tipo_detectado": "producto_legacy",
+            "status": 200,
+            "content_type": "text/html; charset=UTF-8",
+            "titulo": "Producto - Jaula hamster con tubos 57 x 31 x 29 cm",
+            "fuente": "crawl"
+        },
+        {
+            "url": "https://artiani.com.mx/producto/Jaula-hamster-residencial-amarilla/JHA-26",
+            "path": "/producto/Jaula-hamster-residencial-amarilla/JHA-26",
+            "tipo_detectado": "producto_legacy",
+            "status": 200,
+            "content_type": "text/html; charset=UTF-8",
+            "titulo": "Producto - Jaula hamster residencial amarilla",
+            "fuente": "crawl"
+        },
+        {
+            "url": "https://artiani.com.mx/producto/Jaula-hamster-residencial-azul/JHA-25",
+            "path": "/producto/Jaula-hamster-residencial-azul/JHA-25",
+            "tipo_detectado": "producto_legacy",
+            "status": 200,
+            "content_type": "text/html; charset=UTF-8",
+            "titulo": "Producto - Jaula hamster residencial azul",
+            "fuente": "crawl"
+        },
+        {
+            "url": "https://artiani.com.mx/producto/Jaula-para-mamifero-decan-rosa-/JCO-04R",
+            "path": "/producto/Jaula-para-mamifero-decan-rosa-/JCO-04R",
+            "tipo_detectado": "producto_legacy",
+            "status": 200,
+            "content_type": "text/html; charset=UTF-8",
+            "titulo": "Producto - Jaula para mamifero decan rosa",
+            "fuente": "crawl"
+        },
+        {
+            "url": "https://artiani.com.mx/producto/Jaula-para-mamifero-decan-verde-/JCO-04V",
+            "path": "/producto/Jaula-para-mamifero-decan-verde-/JCO-04V",
+            "tipo_detectado": "producto_legacy",
+            "status": 200,
+            "content_type": "text/html; charset=UTF-8",
+            "titulo": "Producto - Jaula para mamifero decan verde",
+            "fuente": "crawl"
+        },
+        {
+            "url": "https://artiani.com.mx/producto/Jaula-para-mamifero-decan/JCO-04",
+            "path": "/producto/Jaula-para-mamifero-decan/JCO-04",
+            "tipo_detectado": "producto_legacy",
+            "status": 200,
+            "content_type": "text/html; charset=UTF-8",
+            "titulo": "Producto - Jaula para mamifero decan",
+            "fuente": "crawl"
+        },
+        {
+            "url": "https://artiani.com.mx/producto/Jaula-para-mamifero-despar/JCO-01",
+            "path": "/producto/Jaula-para-mamifero-despar/JCO-01",
+            "tipo_detectado": "producto_legacy",
+            "status": 200,
+            "content_type": "text/html; charset=UTF-8",
+            "titulo": "Producto - Jaula para mamifero despar",
+            "fuente": "crawl"
+        },
+        {
+            "url": "https://artiani.com.mx/producto/Leche-para-cachorrros-/LECH-01",
+            "path": "/producto/Leche-para-cachorrros-/LECH-01",
+            "tipo_detectado": "producto_legacy",
+            "status": 200,
+            "content_type": "text/html; charset=UTF-8",
+            "titulo": "Producto - Leche para cachorrros",
+            "fuente": "crawl"
+        },
+        {
+            "url": "https://artiani.com.mx/producto/Nupec-Croqueta-Costal-Adulto-Nutricion-Canina-Cientifica-2-kg/NUDE-01",
+            "path": "/producto/Nupec-Croqueta-Costal-Adulto-Nutricion-Canina-Cientifica-2-kg/NUDE-01",
+            "tipo_detectado": "producto_legacy",
+            "status": 200,
+            "content_type": "text/html; charset=UTF-8",
+            "titulo": "Producto - Nupec Croqueta Costal Adulto Nutricion Canina Cientifica 2 kg",
+            "fuente": "crawl"
+        },
+        {
+            "url": "https://artiani.com.mx/producto/Nupec-Croqueta-Costal-Adulto-Nutricion-Canina-Cientifica-20-kg/NUDE-03",
+            "path": "/producto/Nupec-Croqueta-Costal-Adulto-Nutricion-Canina-Cientifica-20-kg/NUDE-03",
+            "tipo_detectado": "producto_legacy",
+            "status": 200,
+            "content_type": "text/html; charset=UTF-8",
+            "titulo": "Producto - Nupec Croqueta Costal Adulto Nutricion Canina Cientifica 20 kg",
+            "fuente": "crawl"
+        },
+        {
+            "url": "https://artiani.com.mx/producto/Nupec-Croqueta-Costal-Adulto-Nutricion-Canina-Cientifica-8-kg/NUDE-02",
+            "path": "/producto/Nupec-Croqueta-Costal-Adulto-Nutricion-Canina-Cientifica-8-kg/NUDE-02",
+            "tipo_detectado": "producto_legacy",
+            "status": 200,
+            "content_type": "text/html; charset=UTF-8",
+            "titulo": "Producto - Nupec Croqueta Costal Adulto Nutricion Canina Cientifica 8 kg",
+            "fuente": "crawl"
+        },
+        {
+            "url": "https://artiani.com.mx/producto/Pecera-imen-con-mueble-con-marcos-aleman-/PERM-01",
+            "path": "/producto/Pecera-imen-con-mueble-con-marcos-aleman-/PERM-01",
+            "tipo_detectado": "producto_legacy",
+            "status": 200,
+            "content_type": "text/html; charset=UTF-8",
+            "titulo": "Producto - Pecera imen con mueble con marcos aleman",
+            "fuente": "crawl"
+        },
+        {
+            "url": "https://artiani.com.mx/producto/Pecera-panoramica-250-litros-/PEP-05",
+            "path": "/producto/Pecera-panoramica-250-litros-/PEP-05",
+            "tipo_detectado": "producto_legacy",
+            "status": 200,
+            "content_type": "text/html; charset=UTF-8",
+            "titulo": "Producto - Pecera panoramica 250 litros",
+            "fuente": "crawl"
+        },
+        {
+            "url": "https://artiani.com.mx/producto/Pecera-panoramica-52-x-37-x-60-cm-altura-100-litros-6-mm/PERA-P5060",
+            "path": "/producto/Pecera-panoramica-52-x-37-x-60-cm-altura-100-litros-6-mm/PERA-P5060",
+            "tipo_detectado": "producto_legacy",
+            "status": 200,
+            "content_type": "text/html; charset=UTF-8",
+            "titulo": "Producto - Pecera panoramica 52 x 37 x 60 cm altura 100 litros 6 mm",
+            "fuente": "crawl"
+        },
+        {
+            "url": "https://artiani.com.mx/producto/Pecera-rectangular-102.5-x-26-x-50-cm-altura-130-litros-6-mm/PERA-10050",
+            "path": "/producto/Pecera-rectangular-102.5-x-26-x-50-cm-altura-130-litros-6-mm/PERA-10050",
+            "tipo_detectado": "producto_legacy",
+            "status": 200,
+            "content_type": "text/html; charset=UTF-8",
+            "titulo": "Producto - Pecera rectangular 102.5 x 26 x 50 cm altura 130 litros 6 mm",
+            "fuente": "crawl"
+        },
+        {
+            "url": "https://artiani.com.mx/producto/Pecera-rectangular-2lts-equipo-basico/PERE-01",
+            "path": "/producto/Pecera-rectangular-2lts-equipo-basico/PERE-01",
+            "tipo_detectado": "producto_legacy",
+            "status": 200,
+            "content_type": "text/html; charset=UTF-8",
+            "titulo": "Producto - Pecera rectangular 2lts equipo basico",
+            "fuente": "crawl"
+        },
+        {
+            "url": "https://artiani.com.mx/producto/Pecera-rectangular-equipada-4-litros/PERE-02",
+            "path": "/producto/Pecera-rectangular-equipada-4-litros/PERE-02",
+            "tipo_detectado": "producto_legacy",
+            "status": 200,
+            "content_type": "text/html; charset=UTF-8",
+            "titulo": "Producto - Pecera rectangular equipada 4 litros",
+            "fuente": "crawl"
+        },
+        {
+            "url": "https://artiani.com.mx/producto/Pecera-rectangular-equipo-basico-130lts/PERE-08",
+            "path": "/producto/Pecera-rectangular-equipo-basico-130lts/PERE-08",
+            "tipo_detectado": "producto_legacy",
+            "status": 200,
+            "content_type": "text/html; charset=UTF-8",
+            "titulo": "Producto - Pecera rectangular equipo basico 130lts",
+            "fuente": "crawl"
+        },
+        {
+            "url": "https://artiani.com.mx/producto/Pecera-rectangular-triple-9-litros-equipo-basico/PERE-06",
+            "path": "/producto/Pecera-rectangular-triple-9-litros-equipo-basico/PERE-06",
+            "tipo_detectado": "producto_legacy",
+            "status": 200,
+            "content_type": "text/html; charset=UTF-8",
+            "titulo": "Producto - Pecera rectangular triple 9 litros equipo basico",
+            "fuente": "crawl"
+        },
+        {
+            "url": "https://artiani.com.mx/producto/Rascadero-colgante-chango/RAS-02CH",
+            "path": "/producto/Rascadero-colgante-chango/RAS-02CH",
+            "tipo_detectado": "producto_legacy",
+            "status": 200,
+            "content_type": "text/html; charset=UTF-8",
+            "titulo": "Producto - Rascadero colgante chango",
+            "fuente": "crawl"
+        },
+        {
+            "url": "https://artiani.com.mx/producto/Rascadero-colgante-jirafa/RAS-02",
+            "path": "/producto/Rascadero-colgante-jirafa/RAS-02",
+            "tipo_detectado": "producto_legacy",
+            "status": 200,
+            "content_type": "text/html; charset=UTF-8",
+            "titulo": "Producto - Rascadero colgante jirafa",
+            "fuente": "crawl"
+        },
+        {
+            "url": "https://artiani.com.mx/producto/Rascadero-mich-sencillo-rosa/RAS-07M",
+            "path": "/producto/Rascadero-mich-sencillo-rosa/RAS-07M",
+            "tipo_detectado": "producto_legacy",
+            "status": 200,
+            "content_type": "text/html; charset=UTF-8",
+            "titulo": "Producto - Rascadero mich sencillo rosa",
+            "fuente": "crawl"
+        },
+        {
+            "url": "https://artiani.com.mx/producto/Rascadero-poste-para-gato/RAS-01",
+            "path": "/producto/Rascadero-poste-para-gato/RAS-01",
+            "tipo_detectado": "producto_legacy",
+            "status": 200,
+            "content_type": "text/html; charset=UTF-8",
+            "titulo": "Producto - Rascadero poste para gato",
+            "fuente": "crawl"
+        },
+        {
+            "url": "https://artiani.com.mx/producto/Rodaja-snack-para-roedores-/TAR-02",
+            "path": "/producto/Rodaja-snack-para-roedores-/TAR-02",
+            "tipo_detectado": "producto_legacy",
+            "status": 200,
+            "content_type": "text/html; charset=UTF-8",
+            "titulo": "Producto - Rodaja snack para roedores",
+            "fuente": "crawl"
+        },
+        {
+            "url": "https://artiani.com.mx/producto/Snack-mini-bites-mezcla-de-hierbas-finas-/BITE-01",
+            "path": "/producto/Snack-mini-bites-mezcla-de-hierbas-finas-/BITE-01",
+            "tipo_detectado": "producto_legacy",
+            "status": 200,
+            "content_type": "text/html; charset=UTF-8",
+            "titulo": "Producto - Snack mini bites mezcla de hierbas finas",
+            "fuente": "crawl"
+        },
+        {
+            "url": "https://artiani.com.mx/producto/Snack-mix-tropical-para-rodeores/MEZ-03",
+            "path": "/producto/Snack-mix-tropical-para-rodeores/MEZ-03",
+            "tipo_detectado": "producto_legacy",
+            "status": 200,
+            "content_type": "text/html; charset=UTF-8",
+            "titulo": "Producto - Snack mix tropical para rodeores",
+            "fuente": "crawl"
+        },
+        {
+            "url": "https://artiani.com.mx/producto/Sustrato-organico-para-reptil-fibra-de-coco-2.1-Gal/SUT-04",
+            "path": "/producto/Sustrato-organico-para-reptil-fibra-de-coco-2.1-Gal/SUT-04",
+            "tipo_detectado": "producto_legacy",
+            "status": 200,
+            "content_type": "text/html; charset=UTF-8",
+            "titulo": "Producto - Sustrato organico para reptil fibra de coco 2.1 Gal",
+            "fuente": "crawl"
+        },
+        {
+            "url": "https://artiani.com.mx/producto/Sustrato-organico-para-reptil-polvillo-de-coco/SUT-05",
+            "path": "/producto/Sustrato-organico-para-reptil-polvillo-de-coco/SUT-05",
+            "tipo_detectado": "producto_legacy",
+            "status": 200,
+            "content_type": "text/html; charset=UTF-8",
+            "titulo": "Producto - Sustrato organico para reptil polvillo de coco",
+            "fuente": "crawl"
+        },
+        {
+            "url": "https://artiani.com.mx/producto/Tapa-para-pecera-de-plastico-con-puerta-40-cm/TAP-02",
+            "path": "/producto/Tapa-para-pecera-de-plastico-con-puerta-40-cm/TAP-02",
+            "tipo_detectado": "producto_legacy",
+            "status": 200,
+            "content_type": "text/html; charset=UTF-8",
+            "titulo": "Producto - Tapa para pecera de plastico con puerta 40 cm",
+            "fuente": "crawl"
+        },
+        {
+            "url": "https://artiani.com.mx/producto/Tapa-para-pecera-de-platico-con-puerta-50cm/TAP-01",
+            "path": "/producto/Tapa-para-pecera-de-platico-con-puerta-50cm/TAP-01",
+            "tipo_detectado": "producto_legacy",
+            "status": 200,
+            "content_type": "text/html; charset=UTF-8",
+            "titulo": "Producto - Tapa para pecera de platico con puerta 50cm",
+            "fuente": "crawl"
+        },
+        {
+            "url": "https://artiani.com.mx/producto/Tarta-preminum-snack-para-roedores-/TAR-01",
+            "path": "/producto/Tarta-preminum-snack-para-roedores-/TAR-01",
+            "tipo_detectado": "producto_legacy",
+            "status": 200,
+            "content_type": "text/html; charset=UTF-8",
+            "titulo": "Producto - Tarta preminum snack para roedores",
+            "fuente": "crawl"
+        },
+        {
+            "url": "https://artiani.com.mx/producto/Tortuguero-circular-en-kit-/TOR-02",
+            "path": "/producto/Tortuguero-circular-en-kit-/TOR-02",
+            "tipo_detectado": "producto_legacy",
+            "status": 200,
+            "content_type": "text/html; charset=UTF-8",
+            "titulo": "Producto - Tortuguero circular en kit",
+            "fuente": "crawl"
+        },
+        {
+            "url": "https://artiani.com.mx/producto/Tortuguero-de-rinon-en-kit/TOR-01",
+            "path": "/producto/Tortuguero-de-rinon-en-kit/TOR-01",
+            "tipo_detectado": "producto_legacy",
+            "status": 200,
+            "content_type": "text/html; charset=UTF-8",
+            "titulo": "Producto - Tortuguero de rinon en kit",
+            "fuente": "crawl"
+        },
+        {
+            "url": "https://artiani.com.mx/producto/Transportadora-capsula-apolo-para-mascotas/TRAP-01",
+            "path": "/producto/Transportadora-capsula-apolo-para-mascotas/TRAP-01",
+            "tipo_detectado": "producto_legacy",
+            "status": 200,
+            "content_type": "text/html; charset=UTF-8",
+            "titulo": "Producto - Transportadora capsula apolo para mascotas",
+            "fuente": "crawl"
+        },
+        {
+            "url": "https://artiani.com.mx/producto/Transportadora-capsula-mercurio-para-mascotas/TRAP-02",
+            "path": "/producto/Transportadora-capsula-mercurio-para-mascotas/TRAP-02",
+            "tipo_detectado": "producto_legacy",
+            "status": 200,
+            "content_type": "text/html; charset=UTF-8",
+            "titulo": "Producto - Transportadora capsula mercurio para mascotas",
+            "fuente": "crawl"
+        },
+        {
+            "url": "https://artiani.com.mx/producto/Transportadora-maletin-delta-armable-chica-/TRA-22",
+            "path": "/producto/Transportadora-maletin-delta-armable-chica-/TRA-22",
+            "tipo_detectado": "producto_legacy",
+            "status": 200,
+            "content_type": "text/html; charset=UTF-8",
+            "titulo": "Producto - Transportadora maletin delta armable chica",
+            "fuente": "crawl"
+        },
+        {
+            "url": "https://artiani.com.mx/producto/Transportadora-maletin-delta-armable-mediana-/TRA-21",
+            "path": "/producto/Transportadora-maletin-delta-armable-mediana-/TRA-21",
+            "tipo_detectado": "producto_legacy",
+            "status": 200,
+            "content_type": "text/html; charset=UTF-8",
+            "titulo": "Producto - Transportadora maletin delta armable mediana",
+            "fuente": "crawl"
+        },
+        {
+            "url": "https://artiani.com.mx/producto/categoria/alimento-para-gatos",
+            "path": "/producto/categoria/alimento-para-gatos",
+            "tipo_detectado": "categoria_legacy",
+            "status": 200,
+            "content_type": "text/html; charset=UTF-8",
+            "titulo": "Categoria - Alimento-para-gatos",
+            "fuente": "crawl"
+        },
+        {
+            "url": "https://artiani.com.mx/producto/categoria/alimento-para-perros-",
+            "path": "/producto/categoria/alimento-para-perros-",
+            "tipo_detectado": "categoria_legacy",
+            "status": 200,
+            "content_type": "text/html; charset=UTF-8",
+            "titulo": "Categoria - Alimento-para-perros-",
+            "fuente": "crawl"
+        },
+        {
+            "url": "https://artiani.com.mx/producto/categoria/alimentos-de-acuario",
+            "path": "/producto/categoria/alimentos-de-acuario",
+            "tipo_detectado": "categoria_legacy",
+            "status": 200,
+            "content_type": "text/html; charset=UTF-8",
+            "titulo": "Categoria - Alimentos-de-acuario",
+            "fuente": "crawl"
+        },
+        {
+            "url": "https://artiani.com.mx/producto/categoria/alimentos-para-aves",
+            "path": "/producto/categoria/alimentos-para-aves",
+            "tipo_detectado": "categoria_legacy",
+            "status": 200,
+            "content_type": "text/html; charset=UTF-8",
+            "titulo": "Categoria - Alimentos-para-aves",
+            "fuente": "crawl"
+        },
+        {
+            "url": "https://artiani.com.mx/producto/categoria/alimentos-para-mamiferos-roedores",
+            "path": "/producto/categoria/alimentos-para-mamiferos-roedores",
+            "tipo_detectado": "categoria_legacy",
+            "status": 200,
+            "content_type": "text/html; charset=UTF-8",
+            "titulo": "Categoria - Alimentos-para-mamiferos-roedores",
+            "fuente": "crawl"
+        },
+        {
+            "url": "https://artiani.com.mx/producto/categoria/alimentos_para_reptiles",
+            "path": "/producto/categoria/alimentos_para_reptiles",
+            "tipo_detectado": "categoria_legacy",
+            "status": 200,
+            "content_type": "text/html; charset=UTF-8",
+            "titulo": "Categoria - Alimentos para reptiles",
+            "fuente": "crawl"
+        },
+        {
+            "url": "https://artiani.com.mx/producto/categoria/antipulgas-para-perros-y-gatos",
+            "path": "/producto/categoria/antipulgas-para-perros-y-gatos",
+            "tipo_detectado": "categoria_legacy",
+            "status": 200,
+            "content_type": "text/html; charset=UTF-8",
+            "titulo": "Categoria - Antipulgas-para-perros-y-gatos",
+            "fuente": "crawl"
+        },
+        {
+            "url": "https://artiani.com.mx/producto/categoria/camas-casas-y-colchones-para-perros",
+            "path": "/producto/categoria/camas-casas-y-colchones-para-perros",
+            "tipo_detectado": "categoria_legacy",
+            "status": 200,
+            "content_type": "text/html; charset=UTF-8",
+            "titulo": "Categoria - Camas-casas-y-colchones-para-perros",
+            "fuente": "crawl"
+        },
+        {
+            "url": "https://artiani.com.mx/producto/categoria/dispensadores_de_agua_y_comida",
+            "path": "/producto/categoria/dispensadores_de_agua_y_comida",
+            "tipo_detectado": "categoria_legacy",
+            "status": 200,
+            "content_type": "text/html; charset=UTF-8",
+            "titulo": "Categoria - Dispensadores de agua y comida",
+            "fuente": "crawl"
+        },
+        {
+            "url": "https://artiani.com.mx/producto/categoria/filtracion_y_oxigenacion",
+            "path": "/producto/categoria/filtracion_y_oxigenacion",
+            "tipo_detectado": "categoria_legacy",
+            "status": 200,
+            "content_type": "text/html; charset=UTF-8",
+            "titulo": "Categoria - Filtracion y oxigenacion",
+            "fuente": "crawl"
+        },
+        {
+            "url": "https://artiani.com.mx/producto/categoria/habitat-para-mamiferos",
+            "path": "/producto/categoria/habitat-para-mamiferos",
+            "tipo_detectado": "categoria_legacy",
+            "status": 200,
+            "content_type": "text/html; charset=UTF-8",
+            "titulo": "Categoria - Habitat-para-mamiferos",
+            "fuente": "crawl"
+        },
+        {
+            "url": "https://artiani.com.mx/producto/categoria/jaulas_para_cuyos",
+            "path": "/producto/categoria/jaulas_para_cuyos",
+            "tipo_detectado": "categoria_legacy",
+            "status": 200,
+            "content_type": "text/html; charset=UTF-8",
+            "titulo": "Categoria - Jaulas para cuyos",
+            "fuente": "crawl"
+        },
+        {
+            "url": "https://artiani.com.mx/producto/categoria/jaulas_para_hamsters",
+            "path": "/producto/categoria/jaulas_para_hamsters",
+            "tipo_detectado": "categoria_legacy",
+            "status": 200,
+            "content_type": "text/html; charset=UTF-8",
+            "titulo": "Categoria - Jaulas para hamsters",
+            "fuente": "crawl"
+        },
+        {
+            "url": "https://artiani.com.mx/producto/categoria/peceras",
+            "path": "/producto/categoria/peceras",
+            "tipo_detectado": "categoria_legacy",
+            "status": 200,
+            "content_type": "text/html; charset=UTF-8",
+            "titulo": "Categoria - Peceras",
+            "fuente": "crawl"
+        },
+        {
+            "url": "https://artiani.com.mx/producto/categoria/peceras_equipadas",
+            "path": "/producto/categoria/peceras_equipadas",
+            "tipo_detectado": "categoria_legacy",
+            "status": 200,
+            "content_type": "text/html; charset=UTF-8",
+            "titulo": "Categoria - Peceras equipadas",
+            "fuente": "crawl"
+        },
+        {
+            "url": "https://artiani.com.mx/producto/categoria/premios,-snacks-y-desgaste-de-dientes-para-roedor",
+            "path": "/producto/categoria/premios,-snacks-y-desgaste-de-dientes-para-roedor",
+            "tipo_detectado": "categoria_legacy",
+            "status": 200,
+            "content_type": "text/html; charset=UTF-8",
+            "titulo": "Categoria - Premios,-snacks-y-desgaste-de-dientes-para-roedor",
+            "fuente": "crawl"
+        },
+        {
+            "url": "https://artiani.com.mx/producto/categoria/rascaderos-para-gato",
+            "path": "/producto/categoria/rascaderos-para-gato",
+            "tipo_detectado": "categoria_legacy",
+            "status": 200,
+            "content_type": "text/html; charset=UTF-8",
+            "titulo": "Categoria - Rascaderos-para-gato",
+            "fuente": "crawl"
+        },
+        {
+            "url": "https://artiani.com.mx/producto/categoria/terrarios",
+            "path": "/producto/categoria/terrarios",
+            "tipo_detectado": "categoria_legacy",
+            "status": 200,
+            "content_type": "text/html; charset=UTF-8",
+            "titulo": "Categoria - Terrarios",
+            "fuente": "crawl"
+        },
+        {
+            "url": "https://artiani.com.mx/producto/categoria/tortugueros",
+            "path": "/producto/categoria/tortugueros",
+            "tipo_detectado": "categoria_legacy",
+            "status": 200,
+            "content_type": "text/html; charset=UTF-8",
+            "titulo": "Categoria - Tortugueros",
+            "fuente": "crawl"
+        },
+        {
+            "url": "https://artiani.com.mx/producto/categoria/transportadoras_para_perros",
+            "path": "/producto/categoria/transportadoras_para_perros",
+            "tipo_detectado": "categoria_legacy",
+            "status": 200,
+            "content_type": "text/html; charset=UTF-8",
+            "titulo": "Categoria - Transportadoras para perros",
+            "fuente": "crawl"
+        },
+        {
+            "url": "https://artiani.com.mx/producto/clasificacion/acuario",
+            "path": "/producto/clasificacion/acuario",
+            "tipo_detectado": "clasificacion",
+            "status": 200,
+            "content_type": "text/html; charset=UTF-8",
+            "titulo": "Clasificacion - Acuario",
+            "fuente": "crawl"
+        },
+        {
+            "url": "https://artiani.com.mx/producto/clasificacion/aves",
+            "path": "/producto/clasificacion/aves",
+            "tipo_detectado": "clasificacion",
+            "status": 200,
+            "content_type": "text/html; charset=UTF-8",
+            "titulo": "Clasificacion - Aves",
+            "fuente": "crawl"
+        },
+        {
+            "url": "https://artiani.com.mx/producto/clasificacion/betta",
+            "path": "/producto/clasificacion/betta",
+            "tipo_detectado": "clasificacion",
+            "status": 200,
+            "content_type": "text/html; charset=UTF-8",
+            "titulo": "Clasificacion - Betta",
+            "fuente": "crawl"
+        },
+        {
+            "url": "https://artiani.com.mx/producto/clasificacion/conejo",
+            "path": "/producto/clasificacion/conejo",
+            "tipo_detectado": "clasificacion",
+            "status": 200,
+            "content_type": "text/html; charset=UTF-8",
+            "titulo": "Clasificacion - Conejo",
+            "fuente": "crawl"
+        },
+        {
+            "url": "https://artiani.com.mx/producto/clasificacion/cuyo",
+            "path": "/producto/clasificacion/cuyo",
+            "tipo_detectado": "clasificacion",
+            "status": 200,
+            "content_type": "text/html; charset=UTF-8",
+            "titulo": "Clasificacion - Cuyo",
+            "fuente": "crawl"
+        },
+        {
+            "url": "https://artiani.com.mx/producto/clasificacion/empty-cart.html",
+            "path": "/producto/clasificacion/empty-cart.html",
+            "tipo_detectado": "clasificacion",
+            "status": 500,
+            "content_type": "text/html; charset=UTF-8",
+            "titulo": "",
+            "fuente": "crawl"
+        },
+        {
+            "url": "https://artiani.com.mx/producto/clasificacion/erizo",
+            "path": "/producto/clasificacion/erizo",
+            "tipo_detectado": "clasificacion",
+            "status": 200,
+            "content_type": "text/html; charset=UTF-8",
+            "titulo": "Clasificacion - Erizo",
+            "fuente": "crawl"
+        },
+        {
+            "url": "https://artiani.com.mx/producto/clasificacion/gato",
+            "path": "/producto/clasificacion/gato",
+            "tipo_detectado": "clasificacion",
+            "status": 200,
+            "content_type": "text/html; charset=UTF-8",
+            "titulo": "Clasificacion - Gato",
+            "fuente": "crawl"
+        },
+        {
+            "url": "https://artiani.com.mx/producto/clasificacion/hamster",
+            "path": "/producto/clasificacion/hamster",
+            "tipo_detectado": "clasificacion",
+            "status": 200,
+            "content_type": "text/html; charset=UTF-8",
+            "titulo": "Clasificacion - Hamster",
+            "fuente": "crawl"
+        },
+        {
+            "url": "https://artiani.com.mx/producto/clasificacion/iguana",
+            "path": "/producto/clasificacion/iguana",
+            "tipo_detectado": "clasificacion",
+            "status": 200,
+            "content_type": "text/html; charset=UTF-8",
+            "titulo": "Clasificacion - Iguana",
+            "fuente": "crawl"
+        },
+        {
+            "url": "https://artiani.com.mx/producto/clasificacion/index-skin-base-ball.html",
+            "path": "/producto/clasificacion/index-skin-base-ball.html",
+            "tipo_detectado": "clasificacion",
+            "status": 500,
+            "content_type": "text/html; charset=UTF-8",
+            "titulo": "",
+            "fuente": "crawl"
+        },
+        {
+            "url": "https://artiani.com.mx/producto/clasificacion/index-skin-football.html",
+            "path": "/producto/clasificacion/index-skin-football.html",
+            "tipo_detectado": "clasificacion",
+            "status": 500,
+            "content_type": "text/html; charset=UTF-8",
+            "titulo": "",
+            "fuente": "crawl"
+        },
+        {
+            "url": "https://artiani.com.mx/producto/clasificacion/index-skin-snowboards.html",
+            "path": "/producto/clasificacion/index-skin-snowboards.html",
+            "tipo_detectado": "clasificacion",
+            "status": 500,
+            "content_type": "text/html; charset=UTF-8",
+            "titulo": "",
+            "fuente": "crawl"
+        },
+        {
+            "url": "https://artiani.com.mx/producto/clasificacion/listing-left-column.html",
+            "path": "/producto/clasificacion/listing-left-column.html",
+            "tipo_detectado": "clasificacion",
+            "status": 500,
+            "content_type": "text/html; charset=UTF-8",
+            "titulo": "",
+            "fuente": "crawl"
+        },
+        {
+            "url": "https://artiani.com.mx/producto/clasificacion/mamiferos",
+            "path": "/producto/clasificacion/mamiferos",
+            "tipo_detectado": "clasificacion",
+            "status": 200,
+            "content_type": "text/html; charset=UTF-8",
+            "titulo": "Clasificacion - Mamiferos",
+            "fuente": "crawl"
+        },
+        {
+            "url": "https://artiani.com.mx/producto/clasificacion/perro",
+            "path": "/producto/clasificacion/perro",
+            "tipo_detectado": "clasificacion",
+            "status": 200,
+            "content_type": "text/html; charset=UTF-8",
+            "titulo": "Clasificacion - Perro",
+            "fuente": "crawl"
+        },
+        {
+            "url": "https://artiani.com.mx/producto/clasificacion/perros-y-gatos",
+            "path": "/producto/clasificacion/perros-y-gatos",
+            "tipo_detectado": "clasificacion",
+            "status": 200,
+            "content_type": "text/html; charset=UTF-8",
+            "titulo": "Clasificacion - Perros-y-gatos",
+            "fuente": "crawl"
+        },
+        {
+            "url": "https://artiani.com.mx/producto/clasificacion/product.html",
+            "path": "/producto/clasificacion/product.html",
+            "tipo_detectado": "clasificacion",
+            "status": 500,
+            "content_type": "text/html; charset=UTF-8",
+            "titulo": "",
+            "fuente": "crawl"
+        },
+        {
+            "url": "https://artiani.com.mx/producto/clasificacion/reptiles",
+            "path": "/producto/clasificacion/reptiles",
+            "tipo_detectado": "clasificacion",
+            "status": 200,
+            "content_type": "text/html; charset=UTF-8",
+            "titulo": "Clasificacion - Reptiles",
+            "fuente": "crawl"
+        },
+        {
+            "url": "https://artiani.com.mx/producto/clasificacion/tortuga",
+            "path": "/producto/clasificacion/tortuga",
+            "tipo_detectado": "clasificacion",
+            "status": 200,
+            "content_type": "text/html; charset=UTF-8",
+            "titulo": "Clasificacion - Tortuga",
+            "fuente": "crawl"
+        },
+        {
+            "url": "https://artiani.com.mx/producto/tortuguero-circular-solo/TOR-03",
+            "path": "/producto/tortuguero-circular-solo/TOR-03",
+            "tipo_detectado": "producto_legacy",
+            "status": 200,
+            "content_type": "text/html; charset=UTF-8",
+            "titulo": "Producto - Tortuguero circular solo",
+            "fuente": "crawl"
+        },
+        {
+            "url": "https://artiani.com.mx/robots.txt",
+            "path": "/robots.txt",
+            "tipo_detectado": "otro",
+            "status": 200,
+            "content_type": "text/html; charset=UTF-8",
+            "titulo": "Artiani acuario, artículos para animales y más",
+            "fuente": "crawl"
+        },
+        {
+            "url": "https://artiani.com.mx/sitemap.xml",
+            "path": "/sitemap.xml",
+            "tipo_detectado": "sitemap",
+            "status": 200,
+            "content_type": "text/html; charset=UTF-8",
+            "titulo": "Artiani acuario, artículos para animales y más",
+            "fuente": "crawl"
+        },
+        {
+            "url": "https://artiani.com.mx/tienda/como_comprar",
+            "path": "/tienda/como_comprar",
+            "tipo_detectado": "otro",
+            "status": 200,
+            "content_type": "text/html; charset=UTF-8",
+            "titulo": "COMO COMPRAR - Beay",
+            "fuente": "crawl"
+        },
+        {
+            "url": "https://artiani.com.mx/tienda/empty-cart.html",
+            "path": "/tienda/empty-cart.html",
+            "tipo_detectado": "otro",
+            "status": 500,
+            "content_type": "text/html; charset=UTF-8",
+            "titulo": "",
+            "fuente": "crawl"
+        },
+        {
+            "url": "https://artiani.com.mx/tienda/index-skin-base-ball.html",
+            "path": "/tienda/index-skin-base-ball.html",
+            "tipo_detectado": "otro",
+            "status": 500,
+            "content_type": "text/html; charset=UTF-8",
+            "titulo": "",
+            "fuente": "crawl"
+        },
+        {
+            "url": "https://artiani.com.mx/tienda/index-skin-football.html",
+            "path": "/tienda/index-skin-football.html",
+            "tipo_detectado": "otro",
+            "status": 500,
+            "content_type": "text/html; charset=UTF-8",
+            "titulo": "",
+            "fuente": "crawl"
+        },
+        {
+            "url": "https://artiani.com.mx/tienda/index-skin-snowboards.html",
+            "path": "/tienda/index-skin-snowboards.html",
+            "tipo_detectado": "otro",
+            "status": 500,
+            "content_type": "text/html; charset=UTF-8",
+            "titulo": "",
+            "fuente": "crawl"
+        },
+        {
+            "url": "https://artiani.com.mx/tienda/index.html",
+            "path": "/tienda/index.html",
+            "tipo_detectado": "otro",
+            "status": 500,
+            "content_type": "text/html; charset=UTF-8",
+            "titulo": "",
+            "fuente": "crawl"
+        },
+        {
+            "url": "https://artiani.com.mx/tienda/product.html",
+            "path": "/tienda/product.html",
+            "tipo_detectado": "otro",
+            "status": 500,
+            "content_type": "text/html; charset=UTF-8",
+            "titulo": "",
+            "fuente": "crawl"
+        }
+    ],
+    "errores": [
+        {
+            "url": "https://artiani.com.mx/tienda/index-skin-snowboards.html",
+            "status": 500,
+            "error": ""
+        },
+        {
+            "url": "https://artiani.com.mx/tienda/index-skin-football.html",
+            "status": 500,
+            "error": ""
+        },
+        {
+            "url": "https://artiani.com.mx/tienda/index-skin-base-ball.html",
+            "status": 500,
+            "error": ""
+        },
+        {
+            "url": "https://artiani.com.mx/tienda/empty-cart.html",
+            "status": 500,
+            "error": ""
+        },
+        {
+            "url": "https://artiani.com.mx/tienda/product.html",
+            "status": 500,
+            "error": ""
+        },
+        {
+            "url": "https://artiani.com.mx/tienda/index.html",
+            "status": 500,
+            "error": ""
+        },
+        {
+            "url": "https://artiani.com.mx/carrito/index-skin-snowboards.html",
+            "status": 500,
+            "error": ""
+        },
+        {
+            "url": "https://artiani.com.mx/carrito/index-skin-football.html",
+            "status": 500,
+            "error": ""
+        },
+        {
+            "url": "https://artiani.com.mx/carrito/index-skin-base-ball.html",
+            "status": 500,
+            "error": ""
+        },
+        {
+            "url": "https://artiani.com.mx/carrito/empty-cart.html",
+            "status": 500,
+            "error": ""
+        },
+        {
+            "url": "https://artiani.com.mx/carrito/product.html",
+            "status": 500,
+            "error": ""
+        },
+        {
+            "url": "https://artiani.com.mx/carrito/index.html",
+            "status": 500,
+            "error": ""
+        },
+        {
+            "url": "https://artiani.com.mx/producto/clasificacion/index-skin-snowboards.html",
+            "status": 500,
+            "error": ""
+        },
+        {
+            "url": "https://artiani.com.mx/producto/clasificacion/index-skin-football.html",
+            "status": 500,
+            "error": ""
+        },
+        {
+            "url": "https://artiani.com.mx/producto/clasificacion/index-skin-base-ball.html",
+            "status": 500,
+            "error": ""
+        },
+        {
+            "url": "https://artiani.com.mx/producto/clasificacion/empty-cart.html",
+            "status": 500,
+            "error": ""
+        },
+        {
+            "url": "https://artiani.com.mx/producto/clasificacion/product.html",
+            "status": 500,
+            "error": ""
+        },
+        {
+            "url": "https://artiani.com.mx/producto/clasificacion/listing-left-column.html",
+            "status": 500,
+            "error": ""
+        }
+    ],
+    "guardrails": {
+        "no_escribe_bd": true,
+        "no_importa_urls": true,
+        "no_crea_redirecciones": true,
+        "mismo_dominio": true
+    }
+}
