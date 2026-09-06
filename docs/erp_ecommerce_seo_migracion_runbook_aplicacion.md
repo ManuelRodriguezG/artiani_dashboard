@@ -234,3 +234,49 @@ Criterio operativo:
 - `excluir_o_410`: rutas de plantilla vieja o errores HTTP; hoy son `63`. No convertir automaticamente a home.
 
 No se importaron URLs viejas a BD y no se crearon redirecciones 301 durante este analisis.
+
+## Mesa de revision en ERP
+
+La vista `/ecommercePublico/seo_migracion` incluye la seccion `Revision de URLs anteriores`.
+
+Fuente de datos:
+
+- Lee el ultimo `storage/tmp/ecommerce_seo_urls_viejas_reporte_enriquecido_*.json`.
+- No rastrea sitios desde la vista.
+- No escribe BD.
+- No crea redirecciones.
+
+Flujo recomendado:
+
+- Filtrar por `validar_301_candidato` para revisar primero los destinos con sugerencia.
+- Abrir el link de preview local (`http://artiani.com.local` + path nuevo) y confirmar producto/categoria.
+- Usar el boton de flecha para copiar origen/destino al formulario de redireccion manual.
+- Validar y guardar 301 solo con token `ECOMMERCE_SEO_GUARDAR_REDIRECCION`.
+- Ocultar en UI las URLs descartadas; ese descarte vive en `localStorage` del navegador y no sustituye una decision persistente futura.
+
+Si una URL vieja corresponde a producto descontinuado o ruta de plantilla vieja, no redirigir automaticamente a home. Preferir categoria cercana, 410 o revision manual segun el caso.
+
+## Relacion automatica viejo contra nuevo 2026-09-05
+
+Se intento consultar `http://artiani.com.local/` desde consola para rastrear el frontend local, pero no respondio dentro de `10` segundos (`status=0`, timeout). Para no bloquear la revision, la relacion se genero contra el inventario canonico nuevo del ERP, que representa las URIs publicas actuales que despues usara `https://artiani.com.mx`.
+
+Comando ejecutado:
+
+```bash
+C:\xampp\php\php.exe storage\uat\uat_ecommerce_seo_relacionar_urls_readonly.php --viejas=storage\tmp\ecommerce_seo_urls_viejas_reporte_enriquecido_20260906_015954.json --nuevas=erp --limite_nuevas=500
+```
+
+Archivos generados:
+
+- `storage/tmp/ecommerce_seo_urls_relaciones_20260905_232005.json`
+- `storage/tmp/ecommerce_seo_urls_relaciones_20260905_232005.csv`
+
+Resultado:
+
+- URLs viejas evaluadas: `350`.
+- URLs nuevas comparadas: `270`.
+- Relaciones potenciales encontradas: `35`.
+- Sin candidato: `315`.
+- Acciones sugeridas: `2` aprobar 301 candidato, `33` validar 301 candidato, `252` revisar manual, `63` excluir o 410.
+
+La vista `/ecommercePublico/seo_migracion` prioriza el ultimo `storage/tmp/ecommerce_seo_urls_relaciones_*.json` si existe. Cada URL vieja puede mostrar hasta tres sugerencias nuevas, con `score`, confianza, motivo y link de preview local.

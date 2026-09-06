@@ -7,6 +7,9 @@
 (function () {
   "use strict";
 
+  var mostrarOcultas = false;
+  var descartadasKey = "ecom_seo_urls_viejas_descartadas";
+
   document.addEventListener("DOMContentLoaded", function () {
     bindEvents();
     cargarSeo();
@@ -21,6 +24,12 @@
     var redireccionGuardar = document.getElementById("ecom_seo_redireccion_guardar");
     var urlsSyncPlan = document.getElementById("ecom_seo_urls_sync_plan");
     var urlsSyncGuardar = document.getElementById("ecom_seo_urls_sync_guardar");
+    var revisionRecargar = document.getElementById("ecom_seo_revision_recargar");
+    var revisionOcultas = document.getElementById("ecom_seo_revision_mostrar_ocultas");
+    var revisionQ = document.getElementById("ecom_seo_revision_q");
+    var revisionAccion = document.getElementById("ecom_seo_revision_accion");
+    var revisionPrioridad = document.getElementById("ecom_seo_revision_prioridad");
+    var revisionLimite = document.getElementById("ecom_seo_revision_limite");
     if (recargar) recargar.addEventListener("click", cargarSeo);
     if (limite) limite.addEventListener("change", cargarSeo);
     if (importarPlan) importarPlan.addEventListener("click", prepararImportacion);
@@ -29,6 +38,27 @@
     if (redireccionGuardar) redireccionGuardar.addEventListener("click", guardarRedireccion);
     if (urlsSyncPlan) urlsSyncPlan.addEventListener("click", prepararSyncUrls);
     if (urlsSyncGuardar) urlsSyncGuardar.addEventListener("click", guardarSyncUrls);
+    if (revisionRecargar) revisionRecargar.addEventListener("click", cargarRevisionUrls);
+    if (revisionOcultas) revisionOcultas.addEventListener("click", function () {
+      mostrarOcultas = !mostrarOcultas;
+      revisionOcultas.className = mostrarOcultas ? "btn btn-sm btn-warning" : "btn btn-sm btn-light-warning";
+      revisionOcultas.innerHTML = '<i class="bi bi-eye"></i> ' + (mostrarOcultas ? "Mostrando ocultas" : "Ocultas");
+      cargarRevisionUrls();
+    });
+    [revisionQ, revisionAccion, revisionPrioridad, revisionLimite].forEach(function (node) {
+      if (!node) return;
+      node.addEventListener(node === revisionQ ? "input" : "change", debounce(cargarRevisionUrls, 250));
+    });
+    document.addEventListener("click", function (event) {
+      var usar = event.target.closest("[data-seo-usar-redireccion]");
+      var ocultar = event.target.closest("[data-seo-ocultar-url]");
+      if (usar) {
+        usarRevisionComoRedireccion(usar);
+      }
+      if (ocultar) {
+        ocultarRevisionUrl(ocultar.getAttribute("data-seo-ocultar-url") || "");
+      }
+    });
   }
 
   function cargarSeo() {
@@ -37,15 +67,31 @@
     params.set("limite", valor("ecom_seo_limite") || "25");
     Promise.all([
       fetch("/ecommercePublico/seo_dashboard_erp?" + params.toString(), { headers: { Accept: "application/json" } }).then(jsonResponse),
-      fetch("/ecommercePublico/esquema_plan_seo_migracion", { headers: { Accept: "application/json" } }).then(jsonResponse)
+      fetch("/ecommercePublico/esquema_plan_seo_migracion", { headers: { Accept: "application/json" } }).then(jsonResponse),
+      fetch("/ecommercePublico/seo_urls_viejas_revision_erp?limite=120", { headers: { Accept: "application/json" } }).then(jsonResponse)
     ]).then(function (responses) {
       renderDashboard(responses[0]);
       renderDdl(responses[1]);
+      renderRevisionUrls(responses[2]);
       setEstado("Read-only", "badge-light-success");
     }).catch(function (error) {
       setEstado("Error", "badge-light-danger");
       renderError(error.message || "No se pudo consultar SEO.");
     });
+  }
+
+  function cargarRevisionUrls() {
+    var params = new URLSearchParams();
+    params.set("limite", valor("ecom_seo_revision_limite") || "120");
+    if (valor("ecom_seo_revision_q")) params.set("q", valor("ecom_seo_revision_q"));
+    if (valor("ecom_seo_revision_accion")) params.set("accion", valor("ecom_seo_revision_accion"));
+    if (valor("ecom_seo_revision_prioridad")) params.set("prioridad", valor("ecom_seo_revision_prioridad"));
+    fetch("/ecommercePublico/seo_urls_viejas_revision_erp?" + params.toString(), { headers: { Accept: "application/json" } })
+      .then(jsonResponse)
+      .then(renderRevisionUrls)
+      .catch(function (error) {
+        setHtml("ecom_seo_revision_info", '<div class="alert alert-danger py-3">' + escapeHtml(error.message || "No se pudo consultar revision.") + "</div>");
+      });
   }
 
   function renderDashboard(response) {
@@ -182,6 +228,107 @@
         "</div>"
       ].join("");
     }).join("");
+  }
+
+  function renderRevisionUrls(response) {
+    var depurar = get(response, ["depurar"], {});
+    var tbody = document.getElementById("ecom_seo_revision_body");
+    if (!tbody) return;
+    if (!depurar.disponible) {
+      setHtml("ecom_seo_revision_info", '<div class="alert alert-info py-3">Aun no hay reporte enriquecido. Ejecuta el rastreo read-only y genera el reporte para alimentar esta mesa.</div>');
+      tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-6">Sin reporte de URLs anteriores.</td></tr>';
+      renderRevisionResumen({});
+      return;
+    }
+    var descartadas = cargarDescartadas();
+    var items = Array.isArray(depurar.items) ? depurar.items : [];
+    var visibles = items.filter(function (item) {
+      return mostrarOcultas || !descartadas[item.path_original || ""];
+    });
+    setHtml("ecom_seo_revision_info", [
+      '<div class="d-flex flex-wrap gap-2 align-items-center">',
+      '<span class="badge badge-light-primary">Reporte: ' + escapeHtml(depurar.total_reporte || 0) + '</span>',
+      depurar.total_nuevas ? '<span class="badge badge-light-success">Nuevas: ' + escapeHtml(depurar.total_nuevas) + '</span>' : "",
+      '<span class="badge badge-light-info">Filtrado: ' + escapeHtml(depurar.total_filtrado || 0) + '</span>',
+      '<span class="badge badge-light-warning">Ocultas UI: ' + escapeHtml(Object.keys(descartadas).length) + '</span>',
+      '<span class="text-muted fs-8 ecom-seo-path">Preview local: ' + escapeHtml(depurar.base_local_revision || "http://artiani.com.local") + '</span>',
+      "</div>"
+    ].join(""));
+    renderRevisionResumen(depurar.resumen || {});
+    if (visibles.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-6">Sin URLs para los filtros actuales.</td></tr>';
+      return;
+    }
+    tbody.innerHTML = visibles.map(function (item) {
+      var destino = item.url_destino_sugerida || "";
+      var local = item.url_destino_local || "";
+      var ocultada = descartadas[item.path_original || ""];
+      var sugerencias = Array.isArray(item.sugerencias) ? item.sugerencias : [];
+      return [
+        '<tr class="' + (ocultada ? "ecom-seo-row-muted" : "") + '">',
+        '<td><div class="fw-semibold ecom-seo-path">' + escapeHtml(item.path_original || "-") + '</div><div class="text-muted fs-8 ecom-seo-path">' + escapeHtml(item.titulo_detectado || item.url_original || "") + "</div></td>",
+        '<td>' + badgeHttp(item.status_http) + "</td>",
+        '<td>' + badgeTipo(item.tipo_plan || item.tipo_crawl || "url") + '<div class="text-muted fs-8">' + escapeHtml(item.tipo_crawl || "") + "</div></td>",
+        '<td>' + renderSugerenciasRevision(item, sugerencias, destino, local) + "</td>",
+        '<td>' + badgeAccion(item.accion_sugerida) + '<div class="mt-1">' + badgeConfianza(item.confianza) + '</div><div class="text-muted fs-8">' + escapeHtml(item.nota || item.motivo || "") + "</div></td>",
+        '<td class="text-end"><div class="d-flex justify-content-end gap-2">' +
+          '<button class="btn btn-sm btn-light-primary" type="button" data-seo-usar-redireccion="1" data-from="' + escapeAttr(item.path_original || "") + '" data-to="' + escapeAttr(destino) + '" data-tipo="' + escapeAttr(item.tipo_plan || "manual") + '"' + (!destino ? " disabled" : "") + '><i class="bi bi-arrow-return-right"></i></button>' +
+          '<button class="btn btn-sm btn-light-warning" type="button" data-seo-ocultar-url="' + escapeAttr(item.path_original || "") + '"><i class="bi bi-eye-slash"></i></button>' +
+        "</div></td>",
+        "</tr>"
+      ].join("");
+    }).join("");
+  }
+
+  function renderSugerenciasRevision(item, sugerencias, destino, local) {
+    if (!sugerencias.length) {
+      return '<div class="fw-semibold ecom-seo-path">' + escapeHtml(destino || "Sin sugerencia") + '</div>' + (local ? '<a class="fs-8" target="_blank" rel="noopener" href="' + escapeAttr(local) + '">' + escapeHtml(local) + "</a>" : '<div class="text-muted fs-8">' + escapeHtml(item.motivo || "Requiere revision") + "</div>");
+    }
+    return sugerencias.map(function (sug, index) {
+      var path = sug.path || "";
+      var preview = path ? "http://artiani.com.local" + path : "";
+      return [
+        '<div class="' + (index > 0 ? "border-top pt-2 mt-2" : "") + '">',
+        '<button class="btn btn-sm btn-light-primary me-2" type="button" data-seo-usar-redireccion="1" data-from="' + escapeAttr(item.path_original || "") + '" data-to="' + escapeAttr(path) + '" data-tipo="' + escapeAttr(sug.tipo || item.tipo_plan || "manual") + '"><i class="bi bi-arrow-return-right"></i></button>',
+        '<span class="fw-semibold ecom-seo-path">' + escapeHtml(path || "-") + "</span>",
+        '<div class="text-muted fs-8 ecom-seo-path">' + escapeHtml(sug.title || sug.motivo || "") + "</div>",
+        '<div class="d-flex flex-wrap gap-2 mt-1">' + badgeConfianza(sug.confianza) + '<span class="badge badge-light">score ' + escapeHtml(sug.score || 0) + '</span><span class="badge badge-light">' + escapeHtml(sug.motivo || "") + "</span></div>",
+        preview ? '<a class="fs-8" target="_blank" rel="noopener" href="' + escapeAttr(preview) + '">' + escapeHtml(preview) + "</a>" : "",
+        "</div>"
+      ].join("");
+    }).join("");
+  }
+
+  function renderRevisionResumen(resumen) {
+    var node = document.getElementById("ecom_seo_revision_resumen");
+    if (!node) return;
+    var acciones = resumen.accion || {};
+    node.innerHTML = [
+      resumenCaja("Aprobar", acciones.aprobar_301_candidato || 0),
+      resumenCaja("Validar", acciones.validar_301_candidato || 0),
+      resumenCaja("Manual", acciones.revisar_manual || 0),
+      resumenCaja("Excluir/410", acciones.excluir_o_410 || 0)
+    ].join("");
+  }
+
+  function usarRevisionComoRedireccion(node) {
+    setValue("ecom_seo_redir_from", node.getAttribute("data-from") || "");
+    setValue("ecom_seo_redir_to", node.getAttribute("data-to") || "");
+    setValue("ecom_seo_redir_tipo", node.getAttribute("data-tipo") || "manual");
+    var form = document.getElementById("ecom_seo_redir_from");
+    if (form && form.scrollIntoView) form.scrollIntoView({ behavior: "smooth", block: "center" });
+  }
+
+  function ocultarRevisionUrl(path) {
+    if (!path) return;
+    var descartadas = cargarDescartadas();
+    if (descartadas[path]) {
+      delete descartadas[path];
+    } else {
+      descartadas[path] = true;
+    }
+    guardarDescartadas(descartadas);
+    cargarRevisionUrls();
   }
 
   function prepararImportacion() {
@@ -414,6 +561,28 @@
     return '<span class="badge badge-light-success">' + escapeHtml(status) + "</span>";
   }
 
+  function badgeHttp(status) {
+    status = Number(status || 0);
+    var clase = status >= 500 ? "badge-light-danger" : (status >= 400 ? "badge-light-warning" : "badge-light-success");
+    return '<span class="badge ' + clase + '">' + escapeHtml(status || "-") + "</span>";
+  }
+
+  function badgeAccion(accion) {
+    var clases = {
+      aprobar_301_candidato: "badge-light-success",
+      validar_301_candidato: "badge-light-primary",
+      revisar_manual: "badge-light-warning",
+      excluir_o_410: "badge-light-danger"
+    };
+    var textos = {
+      aprobar_301_candidato: "Aprobar",
+      validar_301_candidato: "Validar",
+      revisar_manual: "Manual",
+      excluir_o_410: "Excluir/410"
+    };
+    return '<span class="badge ' + (clases[accion] || "badge-light") + '">' + escapeHtml(textos[accion] || accion || "Revision") + "</span>";
+  }
+
   function badgeDdl(item) {
     var depurar = item && item.depurar ? item.depurar : {};
     if (depurar.ejecutado) return '<span class="badge badge-light-success">Aplicado</span>';
@@ -472,7 +641,7 @@
   }
 
   function badgeConfianza(valor) {
-    var clase = valor === "exacta" ? "badge-light-success" : (valor === "media" ? "badge-light-info" : "badge-light-warning");
+    var clase = valor === "exacta" || valor === "alta" ? "badge-light-success" : (valor === "media" ? "badge-light-info" : "badge-light-warning");
     return '<span class="badge ' + clase + '">' + escapeHtml(valor || "baja") + "</span>";
   }
 
@@ -496,6 +665,28 @@
     return cur == null ? fallback : cur;
   }
 
+  function cargarDescartadas() {
+    try {
+      return JSON.parse(window.localStorage.getItem(descartadasKey) || "{}") || {};
+    } catch (e) {
+      return {};
+    }
+  }
+
+  function guardarDescartadas(descartadas) {
+    try {
+      window.localStorage.setItem(descartadasKey, JSON.stringify(descartadas || {}));
+    } catch (e) {}
+  }
+
+  function debounce(fn, wait) {
+    var timer = null;
+    return function () {
+      window.clearTimeout(timer);
+      timer = window.setTimeout(fn, wait || 250);
+    };
+  }
+
   function escapeHtml(value) {
     return String(value == null ? "" : value)
       .replace(/&/g, "&amp;")
@@ -503,5 +694,9 @@
       .replace(/>/g, "&gt;")
       .replace(/"/g, "&quot;")
       .replace(/'/g, "&#039;");
+  }
+
+  function escapeAttr(value) {
+    return escapeHtml(value).replace(/`/g, "&#096;");
   }
 })();

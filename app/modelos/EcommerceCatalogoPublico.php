@@ -4493,6 +4493,7 @@ class EcommerceCatalogoPublico extends CRUD {
           "/ecommercePublico/esquema_auditar_seo_migracion",
           "/ecommercePublico/esquema_plan_seo_migracion",
           "/ecommercePublico/seo_urls_sincronizar_plan_erp",
+          "/ecommercePublico/seo_urls_viejas_revision_erp",
           "/ecommercePublico/seo_urls_viejas_importar_plan_erp",
           "/ecommercePublico/seo_redireccion_plan_erp"
         ),
@@ -4566,6 +4567,81 @@ class EcommerceCatalogoPublico extends CRUD {
       ));
     } catch (Exception $e) {
       return $this->respuesta(true, "danger", $e->getMessage(), array("read_only" => true));
+    }
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-05
+   * Proposito: mostrar el ultimo reporte local de URLs viejas con filtros de revision.
+   * Impacto: Ecommerce SEO; habilita mesa operativa para decidir 301, revision manual o descarte.
+   * Contrato: read-only; no escribe BD, no crea redirecciones y no rastrea sitios externos.
+   */
+  public function seoUrlsViejasRevisionInterna($opciones = array()) {
+    try {
+      $archivo = $this->seoUltimoArchivoTmp("ecommerce_seo_urls_relaciones_*.json");
+      if ($archivo === "") {
+        $archivo = $this->seoUltimoArchivoTmp("ecommerce_seo_urls_viejas_reporte_enriquecido_*.json");
+      }
+      if ($archivo === "") {
+        return $this->respuesta(false, "info", "No hay reporte enriquecido de URLs viejas todavia", array(
+          "disponible" => false,
+          "items" => array(),
+          "resumen" => array(),
+          "guardrails" => array("read_only" => true, "no_escribe_bd" => true, "no_crea_redirecciones" => true)
+        ));
+      }
+
+      $payload = json_decode(file_get_contents($archivo), true);
+      $items = $this->valor($payload, "items", array());
+      if (!is_array($items)) { $items = array(); }
+      $q = strtolower($this->normalizarTextoPlano(trim((string) $this->valor($opciones, "q", ""))));
+      $accion = trim((string) $this->valor($opciones, "accion", ""));
+      $prioridad = trim((string) $this->valor($opciones, "prioridad", ""));
+      $limite = max(1, min(500, intval($this->valor($opciones, "limite", 120))));
+      $baseLocal = rtrim(trim((string) $this->valor($this->configuracionSeoPublica($this->getConexion()), "frontend_local", "")), "/");
+      if ($baseLocal === "") { $baseLocal = "http://artiani.com.local"; }
+
+      $filtrados = array();
+      foreach ($items as $item) {
+        if ($accion !== "" && (string) $this->valor($item, "accion_sugerida", "") !== $accion) { continue; }
+        if ($prioridad !== "" && (string) $this->valor($item, "prioridad_revision", "") !== $prioridad) { continue; }
+        if ($q !== "") {
+          $texto = strtolower($this->normalizarTextoPlano(implode(" ", array(
+            $this->valor($item, "url_original", ""),
+            $this->valor($item, "path_original", ""),
+            $this->valor($item, "titulo_detectado", ""),
+            $this->valor($item, "url_destino_sugerida", ""),
+            $this->valor($item, "motivo", "")
+          ))));
+          if (strpos($texto, $q) === false) { continue; }
+        }
+        $destino = trim((string) $this->valor($item, "url_destino_sugerida", ""));
+        $item["url_destino_local"] = $destino !== "" ? $baseLocal . $destino : "";
+        $filtrados[] = $item;
+        if (count($filtrados) >= $limite) { break; }
+      }
+
+      return $this->respuesta(false, "success", "Revision de URLs viejas consultada", array(
+        "disponible" => true,
+        "archivo" => $archivo,
+        "base_origen" => $this->valor($payload, "base", "https://artiani.com.mx"),
+        "base_local_revision" => $baseLocal,
+        "total_reporte" => intval($this->valor($payload, "total", $this->valor($payload, "total_viejas", count($items)))),
+        "total_nuevas" => intval($this->valor($payload, "total_nuevas", 0)),
+        "total_filtrado" => count($filtrados),
+        "resumen" => $this->valor($payload, "resumen", array()),
+        "filtros" => array("q" => $q, "accion" => $accion, "prioridad" => $prioridad, "limite" => $limite),
+        "items" => $filtrados,
+        "guardrails" => array(
+          "read_only" => true,
+          "no_escribe_bd" => true,
+          "no_importa_urls" => true,
+          "no_crea_redirecciones" => true,
+          "descartes_solo_ui" => true
+        )
+      ));
+    } catch (Exception $e) {
+      return $this->respuesta(true, "danger", $e->getMessage(), array("read_only" => true, "items" => array()));
     }
   }
 
@@ -11145,6 +11221,17 @@ class EcommerceCatalogoPublico extends CRUD {
       }
     }
     return $entradas;
+  }
+
+  private function seoUltimoArchivoTmp($patron) {
+    $base = realpath(dirname(__DIR__, 2) . DIRECTORY_SEPARATOR . "storage" . DIRECTORY_SEPARATOR . "tmp");
+    if ($base === false) { return ""; }
+    $archivos = glob($base . DIRECTORY_SEPARATOR . basename((string) $patron));
+    if (!is_array($archivos) || empty($archivos)) { return ""; }
+    usort($archivos, function ($a, $b) {
+      return filemtime($b) - filemtime($a);
+    });
+    return is_readable($archivos[0]) ? $archivos[0] : "";
   }
 
   private function seoTipoDetectadoPath($path) {

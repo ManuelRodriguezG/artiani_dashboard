@@ -757,6 +757,17 @@ class EcommercePublico extends Controlador {
   }
 
   /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-05
+   * Proposito: entregar bandeja read-only de revision de URLs viejas rastreadas.
+   * Impacto: Ecommerce SEO; permite aprobar, validar o descartar candidatos antes de importar/crear 301.
+   * Contrato: GET protegido por `catalogo.ver`; lee ultimo reporte local y no escribe BD.
+   */
+  public function seo_urls_viejas_revision_erp() {
+    $this->requerirPermiso("catalogo.ver");
+    return json_encode($this->modelo("EcommerceCatalogoPublico")->seoUrlsViejasRevisionInterna($_GET));
+  }
+
+  /**
    * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-03
    * Proposito: validar propuesta de redireccion SEO antes de persistirla.
    * Impacto: Ecommerce SEO; evita destinos internos, ciclos simples y status no permitidos.

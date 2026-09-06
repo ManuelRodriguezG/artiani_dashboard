@@ -22,6 +22,8 @@
         .ecom-seo-scroll { max-height: 410px; overflow: auto; }
         .ecom-seo-code { max-height: 260px; overflow: auto; white-space: pre-wrap; font-size: .78rem; }
         .ecom-seo-path { word-break: break-word; }
+        .ecom-seo-review-table { min-width: 1120px; }
+        .ecom-seo-row-muted { opacity: .55; }
         .ecom-seo-steps { display: grid; grid-template-columns: repeat(6, minmax(120px, 1fr)); gap: 10px; }
         .ecom-seo-step { border: 1px solid #dfe4ef; border-radius: 8px; padding: 12px; background: #f9fafc; min-height: 86px; }
         @media (max-width: 1199.98px) { .ecom-seo-steps { grid-template-columns: repeat(3, minmax(120px, 1fr)); } }
@@ -90,6 +92,70 @@
                             <div class="ecom-seo-panel p-5 mb-5">
                                 <h3 class="fw-bold mb-4">Proceso operativo</h3>
                                 <div class="ecom-seo-steps" id="ecom_seo_pasos"></div>
+                            </div>
+
+                            <div class="ecom-seo-panel p-5 mb-5">
+                                <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+                                    <div>
+                                        <h3 class="fw-bold mb-1">Revision de URLs anteriores</h3>
+                                        <div class="text-muted fs-7">URLs rastreadas de artiani.com.mx comparadas contra la nueva estructura canonica y preview local.</div>
+                                    </div>
+                                    <div class="d-flex flex-wrap gap-2">
+                                        <button class="btn btn-sm btn-light" type="button" id="ecom_seo_revision_recargar"><i class="bi bi-arrow-clockwise"></i> Recargar</button>
+                                        <button class="btn btn-sm btn-light-warning" type="button" id="ecom_seo_revision_mostrar_ocultas"><i class="bi bi-eye"></i> Ocultas</button>
+                                    </div>
+                                </div>
+                                <div class="row g-3 mb-4">
+                                    <div class="col-md-4">
+                                        <label class="form-label">Buscar</label>
+                                        <input class="form-control form-control-solid" id="ecom_seo_revision_q" placeholder="Producto, categoria, SKU o path">
+                                    </div>
+                                    <div class="col-md-3">
+                                        <label class="form-label">Accion</label>
+                                        <select class="form-select form-select-solid" id="ecom_seo_revision_accion">
+                                            <option value="">Todas</option>
+                                            <option value="aprobar_301_candidato">Aprobar 301 candidato</option>
+                                            <option value="validar_301_candidato">Validar 301 candidato</option>
+                                            <option value="revisar_manual">Revisar manual</option>
+                                            <option value="excluir_o_410">Excluir o 410</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <label class="form-label">Prioridad</label>
+                                        <select class="form-select form-select-solid" id="ecom_seo_revision_prioridad">
+                                            <option value="">Todas</option>
+                                            <option value="alta">Alta</option>
+                                            <option value="media">Media</option>
+                                            <option value="baja">Baja</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-2">
+                                        <label class="form-label">Limite</label>
+                                        <select class="form-select form-select-solid" id="ecom_seo_revision_limite">
+                                            <option value="80">80</option>
+                                            <option value="120" selected>120</option>
+                                            <option value="250">250</option>
+                                            <option value="500">500</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="row g-3 mb-4" id="ecom_seo_revision_resumen"></div>
+                                <div id="ecom_seo_revision_info" class="mb-3"></div>
+                                <div class="table-responsive ecom-seo-scroll">
+                                    <table class="table table-row-dashed fs-7 gy-3 mb-0 ecom-seo-review-table">
+                                        <thead>
+                                        <tr class="text-muted fw-bold">
+                                            <th>Origen anterior</th>
+                                            <th>HTTP</th>
+                                            <th>Tipo</th>
+                                            <th>Sugerencia nueva</th>
+                                            <th>Accion</th>
+                                            <th class="text-end">Opciones</th>
+                                        </tr>
+                                        </thead>
+                                        <tbody id="ecom_seo_revision_body"></tbody>
+                                    </table>
+                                </div>
                             </div>
 
                             <div class="row g-5 mb-5">
@@ -234,6 +300,6 @@
 <script>
     window.ERP_CSRF_TOKEN = "<?= htmlspecialchars(SesionSeguridad::csrfToken(), ENT_QUOTES, 'UTF-8') ?>";
 </script>
-<script src="/assets/js/custom/apps/erp/ecommerce/seo_migracion.js?v=20260903-authorized1"></script>
+<script src="/assets/js/custom/apps/erp/ecommerce/seo_migracion.js?v=20260905-relaciones1"></script>
 </body>
 </html>
