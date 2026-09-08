@@ -146,6 +146,17 @@ class EcommercePublico extends Controlador {
   }
 
   /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-08
+   * Proposito: exponer redirecciones publicas activas para que el frontend aplique 301 reales.
+   * Impacto: Ecommerce SEO; soporta historial de slugs de producto sin exponer rutas internas del ERP.
+   * Contrato: GET publico read-only; devuelve solo redirecciones activas y paths publicos.
+   */
+  public function redirecciones() {
+    if ($this->esOptionsPublicas()) { return $this->responderOpcionesPublicas(); }
+    return $this->responderApiPublica($this->modelo("EcommerceCatalogoPublico")->seoRedireccionesPublicas($_GET));
+  }
+
+  /**
    * Documentacion IA: Codex GPT-5 | Fecha: 2026-07-11
    * Proposito: exponer filtros publicos disponibles para catalogo vivo.
    * Impacto: Ecommerce publico; permite UI por mascota/necesidad/marca/categoria.

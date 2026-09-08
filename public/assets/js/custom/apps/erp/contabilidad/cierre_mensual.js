@@ -20,6 +20,7 @@
     var conciliacionModalRows = [];
     var conciliacionModalNombre = "";
     var relacionContexto = {tipo: "", movId: "", cfdiId: "", busqueda: ""};
+    var conciliacionSeleccionada = "";
 
     var tiposMovimiento = ["egreso", "ingreso"];
     var actividades = ["negocio", "programacion", "personal", "publicidad", "inversion", "transpaso"];
@@ -163,6 +164,7 @@
         archivoCrudoHoja = "";
         estadoSeleccionadoId = "";
         clasificacionSeleccionada = "";
+        conciliacionSeleccionada = "";
         seleccionados = {};
         cfdisSeleccionados = {};
         render();
@@ -186,6 +188,7 @@
         archivoCrudoHoja = "";
         estadoSeleccionadoId = "";
         clasificacionSeleccionada = "";
+        conciliacionSeleccionada = "";
         seleccionados = {};
         cfdisSeleccionados = {};
         render();
@@ -316,6 +319,35 @@
             estadoSeleccionadoId = "";
             clasificacionSeleccionada = "";
         }
+        select.value = actual;
+    }
+    function renderConciliacionOrigen() {
+        var select = $("contabilidad_conciliacion_origen");
+        if (!select) { return; }
+        var periodo = periodoCierreActual();
+        var actual = conciliacionSeleccionada || select.value || "";
+        var validos = {"": true};
+        var estadosHtml = estadosCuenta.filter(function (edo) {
+            return !periodo || edo.periodo === periodo;
+        }).map(function (edo) {
+            var valor = valorFiltroEstado(edo.id);
+            validos[valor] = true;
+            return "<option value=\"" + escapeHtml(valor) + "\">" + escapeHtml(edo.cuenta || "Cuenta sin nombre") + " | " + escapeHtml(edo.archivo || "Estado") + "</option>";
+        }).join("");
+        var cuentasAux = {};
+        movimientosParaConciliacion().forEach(function (mov) {
+            if (!mov.estado_cuenta_id && mov.cuenta) { cuentasAux[mov.cuenta] = true; }
+        });
+        var auxHtml = Object.keys(cuentasAux).map(function (cuenta) {
+            var valor = valorFiltroCuentaAuxiliar(cuenta);
+            validos[valor] = true;
+            return "<option value=\"" + escapeHtml(valor) + "\">" + escapeHtml(cuenta) + "</option>";
+        }).join("");
+        select.innerHTML = "<option value=\"\">Todo el mes</option>" +
+            (estadosHtml ? "<optgroup label=\"Estados cargados\">" + estadosHtml + "</optgroup>" : "") +
+            (auxHtml ? "<optgroup label=\"Cuentas generadas\">" + auxHtml + "</optgroup>" : "");
+        if (!validos[actual]) { actual = ""; }
+        conciliacionSeleccionada = actual;
         select.value = actual;
     }
     function movimientosBaseClasificacion() {
@@ -1705,20 +1737,49 @@
     function movimientosParaConciliacion() {
         return movimientosPeriodoActual().concat(movimientosCfdiNoMaterializados());
     }
+    function movimientosParaConciliacionFiltrados() {
+        var filtro = conciliacionSeleccionada || ($("contabilidad_conciliacion_origen") ? $("contabilidad_conciliacion_origen").value : "");
+        return movimientosParaConciliacion().filter(function (mov) {
+            return !filtro || coincideFiltroClasificacion(mov, filtro);
+        });
+    }
     function movimientosConciliacionCuenta(cuentaSeleccionada) {
         var periodo = periodoCierreActual();
-        return movimientosParaConciliacion().filter(function (m) {
+        return movimientosParaConciliacionFiltrados().filter(function (m) {
             return (m.cuenta || "Cuenta sin nombre") === cuentaSeleccionada &&
                 (m.periodo || periodoEstadoPorId(m.estado_cuenta_id)) === periodo;
         });
     }
     function movimientosVentasPeriodo() {
-        return movimientosPeriodoActual().filter(function (m) {
+        return movimientosParaConciliacionFiltrados().filter(function (m) {
             return m.tipo_movimiento === "ingreso" && m.actividad === "negocio";
         });
     }
+    function movimientosComprasPeriodo() {
+        return movimientosParaConciliacionFiltrados().filter(function (m) {
+            return m.categoria === "compra_mercancia" && (m.periodo || periodoEstadoPorId(m.estado_cuenta_id)) === periodoCierreActual();
+        });
+    }
+    function movimientosGastosPeriodo() {
+        var categoriasGasto = {
+            gasto_operativo: true,
+            comision_plataforma: true,
+            servicio: true,
+            nomina: true,
+            impuestos: true,
+            renta: true,
+            publicidad: true,
+            software: true,
+            banco_comision: true
+        };
+        return movimientosParaConciliacionFiltrados().filter(function (m) {
+            return m.tipo_movimiento === "egreso" &&
+                m.actividad !== "transpaso" &&
+                !!categoriasGasto[m.categoria];
+        });
+    }
     function movimientosTraspasosPeriodo() {
-        return movimientosPeriodoActual().filter(function (m) {
+        return movimientosParaConciliacionFiltrados().filter(function (m) {
             return m.actividad === "transpaso";
         });
     }
@@ -2027,7 +2088,7 @@
         }).join("") || "<div class=\"text-muted py-4\">Todavia no hay cierres guardados en este navegador.</div>";
     }
     function movimientosPorCuenta() {
-        return movimientosParaConciliacion().reduce(function (map, mov) {
+        return movimientosParaConciliacionFiltrados().reduce(function (map, mov) {
             var cuenta = mov.cuenta || "Cuenta sin nombre";
             if (!map[cuenta]) {
                 map[cuenta] = {cuenta: cuenta, movimientos: [], egreso: 0, ingreso: 0, transpaso: 0, pendientes: 0, cfdi_sin_movimiento: 0};
@@ -2096,18 +2157,41 @@
         $("contabilidad_conciliacion_modal_movimientos").innerHTML = conciliacionModalRows.map(function (m) {
             var relacionado = m.traspaso_grupo ? "<div class=\"text-info fs-9 mt-1\">Traspaso " + escapeHtml(m.traspaso_grupo) + "</div>" : "";
             return filaDetalleConciliacion(m, relacionado);
-        }).join("") || "<tr><td colspan=\"8\" class=\"text-center text-muted py-8\">No hay movimientos para revisar.</td></tr>";
+        }).join("") || "<tr><td colspan=\"9\" class=\"text-center text-muted py-8\">No hay movimientos para revisar.</td></tr>";
         bootstrap.Modal.getOrCreateInstance($("contabilidad_conciliacion_modal")).show();
+    }
+    function estadoCuentaMovimiento(mov) {
+        if (mov.estado_cuenta_id) {
+            return estadosCuenta.find(function (edo) { return edo.id === mov.estado_cuenta_id; }) || {};
+        }
+        return {};
+    }
+    function origenDetalleMovimiento(mov) {
+        var edo = estadoCuentaMovimiento(mov);
+        var cuenta = mov.cuenta || edo.cuenta || "Cuenta sin nombre";
+        var archivo = edo.archivo || mov.archivo_estado_cuenta || "";
+        var hoja = edo.hoja ? " | Hoja: " + edo.hoja : "";
+        var tipo = "";
+        if (mov.origen === "cfdi_auxiliar") { tipo = "CFDI auxiliar"; }
+        else if (mov.origen === "cfdi_sin_movimiento") { tipo = "CFDI sin movimiento"; }
+        else if (archivo) { tipo = "Estado de cuenta"; }
+        else { tipo = "Captura manual"; }
+        return {
+            cuenta: cuenta,
+            detalle: [tipo, archivo].filter(Boolean).join(" | ") + hoja
+        };
     }
     function filaDetalleConciliacion(m, extra) {
         var cfdi = cfdiLigadoMovimiento(m);
         var cfdiTexto = m.cfdi_uuid || m.cfdi || "";
         var fiscal = cfdi.emisor ? "<div class=\"text-muted fs-9\">" + escapeHtml(cfdi.emisor) + "</div>" : "";
         var aviso = m.origen === "cfdi_sin_movimiento" ? "<div class=\"badge badge-light-info mt-1\">CFDI sin movimiento</div>" : "";
+        var origen = origenDetalleMovimiento(m);
         return "<tr>" +
             "<td class=\"text-nowrap\">" + escapeHtml(m.fecha || "-") + "</td>" +
+            "<td><div class=\"fw-semibold\">" + escapeHtml(origen.cuenta) + "</div><div class=\"text-muted fs-9\">" + escapeHtml(origen.detalle) + "</div></td>" +
             "<td><div class=\"fw-semibold\">" + escapeHtml(m.concepto || "") + "</div>" +
-            "<div class=\"text-muted fs-9\">" + escapeHtml(m.referencia || "") + (m.archivo_estado_cuenta ? " | " + escapeHtml(m.archivo_estado_cuenta) : "") + "</div>" + aviso + (extra || "") + "</td>" +
+            "<div class=\"text-muted fs-9\">" + escapeHtml(m.referencia || "") + "</div>" + aviso + (extra || "") + "</td>" +
             "<td>" + badge(label(m.tipo_movimiento), m.tipo_movimiento === "ingreso" ? "success" : "danger") + "</td>" +
             "<td>" + escapeHtml(label(m.actividad)) + "</td>" +
             "<td>" + escapeHtml(label(m.categoria)) + "</td>" +
@@ -2127,11 +2211,17 @@
         $("contabilidad_conciliacion_modal_movimientos").innerHTML = rows.map(function (m) {
             var relacionado = m.traspaso_grupo ? "<div class=\"text-info fs-9 mt-1\">Traspaso " + escapeHtml(m.traspaso_grupo) + "</div>" : "";
             return filaDetalleConciliacion(m, relacionado);
-        }).join("") || "<tr><td colspan=\"8\" class=\"text-center text-muted py-8\">No hay movimientos para esta cuenta.</td></tr>";
+        }).join("") || "<tr><td colspan=\"9\" class=\"text-center text-muted py-8\">No hay movimientos para esta cuenta.</td></tr>";
         bootstrap.Modal.getOrCreateInstance($("contabilidad_conciliacion_modal")).show();
     }
     function verVentasConciliacion() {
         abrirDetalleConciliacion("Ventas del mes", movimientosVentasPeriodo(), "ventas");
+    }
+    function verComprasConciliacion() {
+        abrirDetalleConciliacion("Compras del mes", movimientosComprasPeriodo(), "compras");
+    }
+    function verGastosConciliacion() {
+        abrirDetalleConciliacion("Gastos del mes", movimientosGastosPeriodo(), "gastos");
     }
     function verTraspasosConciliacion() {
         abrirDetalleConciliacion("Traspasos entre cuentas", movimientosTraspasosPeriodo(), "traspasos");
@@ -2141,6 +2231,7 @@
         renderGuardados();
         renderKpis();
         renderClasificadorOrigen();
+        renderConciliacionOrigen();
         renderDescripcionesFiltro();
         renderDescripcionesCfdiFiltro();
         renderMovimientos();
@@ -2610,8 +2701,14 @@
             }
         });
         $("contabilidad_ver_ventas").addEventListener("click", verVentasConciliacion);
+        $("contabilidad_ver_compras").addEventListener("click", verComprasConciliacion);
+        $("contabilidad_ver_gastos").addEventListener("click", verGastosConciliacion);
         $("contabilidad_ver_traspasos").addEventListener("click", verTraspasosConciliacion);
         $("contabilidad_detectar_traspasos").addEventListener("click", detectarTraspasos);
+        $("contabilidad_conciliacion_origen").addEventListener("change", function (e) {
+            conciliacionSeleccionada = e.target.value || "";
+            renderConciliacion();
+        });
         $("contabilidad_estados").addEventListener("click", function (e) {
             var ver = e.target.closest("[data-ver-estado]");
             var exportar = e.target.closest("[data-export-estado]");
@@ -2660,6 +2757,7 @@
             archivoCrudoHoja = "";
             estadoSeleccionadoId = "";
             clasificacionSeleccionada = "";
+            conciliacionSeleccionada = "";
             seleccionados = {};
             localStorage.removeItem(DRAFT_KEY);
             render();

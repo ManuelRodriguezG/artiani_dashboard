@@ -54,13 +54,28 @@
                 if (r.error) { throw new Error(r.mensaje); }
                 var schemaPendiente = !!(r.depurar && Number(r.depurar.schema_pendiente || 0) === 1);
                 document.getElementById("sugeridos_alerta_schema").classList.toggle("d-none", !schemaPendiente);
+                renderResumen(r.depurar && r.depurar.resumen ? r.depurar.resumen : {});
                 var rows = r.depurar && Array.isArray(r.depurar.items) ? r.depurar.items : [];
                 document.getElementById("sugeridos_body").innerHTML = rows.map(renderRow).join("") ||
-                    "<tr><td colspan=\"9\" class=\"text-center text-muted py-8\">Sin sugeridos de compra</td></tr>";
+                    "<tr><td colspan=\"10\" class=\"text-center text-muted py-8\">Sin sugeridos de compra</td></tr>";
             })
             .catch(function (e) {
-                document.getElementById("sugeridos_body").innerHTML = "<tr><td colspan=\"9\" class=\"text-center text-danger py-8\">" + esc(e.message || "No se pudo cargar") + "</td></tr>";
+                document.getElementById("sugeridos_body").innerHTML = "<tr><td colspan=\"10\" class=\"text-center text-danger py-8\">" + esc(e.message || "No se pudo cargar") + "</td></tr>";
             });
+    }
+
+    /**
+     * IA: Codex GPT-5 | Fecha: 2026-09-08
+     * Proposito: mostrar resumen operativo de sugeridos pendientes sin afectar inventario.
+     * Impacto: UX Compras/Sugerido; separa inventario fisico estimado de compra sugerida estimada.
+     */
+    function renderResumen(resumen) {
+        document.getElementById("sugeridos_resumen_pendientes").textContent = Number(resumen.sugeridos_pendientes || 0);
+        document.getElementById("sugeridos_resumen_partidas").textContent = Number(resumen.partidas || 0);
+        document.getElementById("sugeridos_resumen_inventario").textContent = money(resumen.inventario_estimado);
+        document.getElementById("sugeridos_resumen_compra").textContent = money(resumen.compra_sugerida_estimada);
+        document.getElementById("sugeridos_resumen_cantidad_revisada").textContent = Number(resumen.cantidad_revisada || 0).toFixed(6);
+        document.getElementById("sugeridos_resumen_cantidad_solicitar").textContent = Number(resumen.cantidad_a_solicitar || 0).toFixed(6);
     }
 
     function renderRow(x) {
@@ -79,6 +94,9 @@
         if (puedeGenerar) {
             acciones += " <button type=\"button\" class=\"btn btn-sm btn-primary\" data-sugerido-generar=\"" + esc(x.id_sugerido_compra) + "\"><i class=\"bi bi-file-earmark-plus me-1\"></i>Solicitud</button>";
         }
+        if (permisos.editar && !x.id_solicitud_generada && x.estatus !== "cancelada") {
+            acciones += " <button type=\"button\" class=\"btn btn-sm btn-light-danger\" data-sugerido-cancelar=\"" + esc(x.id_sugerido_compra) + "\"><i class=\"bi bi-x-circle me-1\"></i>Cancelar</button>";
+        }
         return "<tr>" +
             "<td class=\"fw-bold\">" + esc(x.folio || "-") + "</td>" +
             "<td>" + esc(x.proveedor || "-") + "</td>" +
@@ -86,6 +104,7 @@
             "<td class=\"text-end\">" + Number(x.total_partidas || 0) + "</td>" +
             "<td class=\"text-end\">" + Number(x.total_unidades || 0).toFixed(6) + "</td>" +
             "<td class=\"text-end fw-bold\">" + money(x.total_estimado) + "</td>" +
+            "<td class=\"text-end\"><div class=\"fw-bold\">" + money(x.inventario_revisado_estimado) + "</div><div class=\"text-muted fs-8\">" + Number(x.total_existencia_revisada || 0).toFixed(6) + " revisadas</div></td>" +
             "<td>" + solicitud + "</td>" +
             "<td><span class=\"badge badge-light\">" + esc(x.estatus || "-") + "</span></td>" +
             "<td class=\"text-end text-nowrap\">" + acciones + "</td>" +
@@ -115,6 +134,25 @@
         });
     }
 
+    function cancelar(id) {
+        Swal.fire({
+            text: "Se cancelara este sugerido de compra. No se borrara el historial ni se afectara inventario.",
+            icon: "question",
+            showCancelButton: true,
+            confirmButtonText: "Cancelar sugerido",
+            cancelButtonText: "Volver"
+        }).then(function (result) {
+            if (!result.isConfirmed) { return; }
+            post("/compra/sugerido_cancelar_erp", {id_sugerido_compra: id}).then(function (r) {
+                if (r.error) { throw new Error(r.mensaje); }
+                Swal.fire({text: r.mensaje, icon: "success", confirmButtonText: "Aceptar"});
+                cargar();
+            }).catch(function (e) {
+                Swal.fire({text: e.message || "No se pudo cancelar", icon: "error", confirmButtonText: "Aceptar"});
+            });
+        });
+    }
+
     document.addEventListener("DOMContentLoaded", function () {
         permisos.crear = Number(document.getElementById("sugeridos_permiso_crear").value || 0) === 1;
         permisos.editar = Number(document.getElementById("sugeridos_permiso_editar").value || 0) === 1;
@@ -128,10 +166,13 @@
         document.getElementById("sugeridos_body").addEventListener("click", function (e) {
             var duplicarId = e.target.closest("[data-sugerido-duplicar]");
             var generarId = e.target.closest("[data-sugerido-generar]");
+            var cancelarId = e.target.closest("[data-sugerido-cancelar]");
             if (duplicarId) {
                 duplicar(duplicarId.getAttribute("data-sugerido-duplicar"));
             } else if (generarId) {
                 generarSolicitud(generarId.getAttribute("data-sugerido-generar"));
+            } else if (cancelarId) {
+                cancelar(cancelarId.getAttribute("data-sugerido-cancelar"));
             }
         });
         cargarCatalogos().then(cargar);

@@ -137,7 +137,7 @@ class Compra extends Controlador {
             "id_sugerido_compra" => intval($id),
             "modo" => "ver",
             "puede_crear" => $this->usuarioPuede("compras.crear"),
-            "puede_editar" => false
+            "puede_editar" => $this->usuarioPuede("compras.editar")
         ));
     }
 
@@ -174,6 +174,23 @@ class Compra extends Controlador {
         return json_encode($respuesta);
     }
 
+    /**
+     * IA: Codex GPT-5
+     * Fecha: 2026-09-08
+     * Proposito: actualizar reglas de resurtido desde Sugerido sin reabrir ni editar el documento operativo.
+     * Impacto: Compras/Sugerido y Catalogo/Reorden; no modifica inventario ni kardex.
+     * Contrato: requiere compras.editar y registra auditoria de la accion.
+     */
+    public function sugerido_reglas_resurtido_guardar_erp() {
+        $this->requerirPermiso("compras.editar");
+        $respuesta = $this->modelo("ComprasSugeridosCompraErp")->actualizarReglasResurtido(
+            $_POST,
+            isset($_SESSION["id_usuario"]) ? $_SESSION["id_usuario"] : 0
+        );
+        $this->auditarSugeridoCompraErp("actualizar_reglas_resurtido", $respuesta);
+        return json_encode($respuesta);
+    }
+
     public function sugerido_generar_solicitud_erp() {
         $this->requerirPermiso("compras.crear");
         $respuesta = $this->modelo("ComprasSugeridosCompraErp")->generarSolicitud(
@@ -191,6 +208,22 @@ class Compra extends Controlador {
             isset($_SESSION["id_usuario"]) ? $_SESSION["id_usuario"] : 0
         );
         $this->auditarSugeridoCompraErp("duplicar", $respuesta);
+        return json_encode($respuesta);
+    }
+
+    /**
+     * IA: Codex GPT-5
+     * Fecha: 2026-09-08
+     * Proposito: cancelar logicamente un Sugerido de compra para limpiar pendientes sin borrar trazabilidad.
+     * Impacto: Compras/Sugerido; no elimina detalle, no afecta inventario ni solicitudes ya generadas.
+     * Contrato: requiere compras.editar y solo permite cancelar sugeridos sin solicitud generada.
+     */
+    public function sugerido_cancelar_erp() {
+        $this->requerirPermiso("compras.editar");
+        $respuesta = $this->modelo("ComprasSugeridosCompraErp")->cancelar(
+            isset($_POST["id_sugerido_compra"]) ? $_POST["id_sugerido_compra"] : 0
+        );
+        $this->auditarSugeridoCompraErp("cancelar", $respuesta);
         return json_encode($respuesta);
     }
 

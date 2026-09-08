@@ -112,8 +112,14 @@ class EcommerceCatalogoPublico extends CRUD {
         array(
           "metodo" => "GET",
           "ruta" => "/ecommercePublico/producto/{slug}",
-          "descripcion" => "Detalle publico de una publicacion con estatus publicado, variantes, relacionados y SEO basico.",
-          "respuesta_depurar" => array("item", "variantes", "relacionados", "breadcrumbs", "seo", "acciones", "fase_2", "guardrails")
+          "descripcion" => "Detalle publico de una publicacion con estatus publicado; si el slug es anterior puede responder redirect 301.",
+          "respuesta_depurar" => array("item", "variantes", "relacionados", "breadcrumbs", "seo", "acciones", "fase_2", "guardrails", "redirect", "redirect_to")
+        ),
+        array(
+          "metodo" => "GET",
+          "ruta" => "/ecommercePublico/redirecciones",
+          "descripcion" => "Alias publico de redirecciones activas para que el frontend aplique 301 antes de renderizar.",
+          "respuesta_depurar" => array("items", "redirecciones", "guardrails")
         ),
         array(
           "metodo" => "GET",
@@ -3115,7 +3121,7 @@ class EcommerceCatalogoPublico extends CRUD {
   public function productoPublico($slug) {
     try {
       $db = $this->getConexion();
-      $slug = trim((string) $slug);
+      $slug = $this->slugificar($slug);
       if (!$db || $slug === "" || !$this->tablaExiste($db, "erp_ecommerce_publicaciones")) {
         return $this->respuesta(false, "info", "Producto publico no disponible", array(
           "item" => null,
@@ -3130,6 +3136,17 @@ class EcommerceCatalogoPublico extends CRUD {
       $stmt->execute(array(":slug" => $slug));
       $fila = $stmt->fetch(PDO::FETCH_ASSOC);
       if (!$fila) {
+        $redirect = $this->redireccionProductoPorSlugAnterior($db, $slug);
+        if ($redirect) {
+          return $this->respuesta(false, "redirect", "Producto movido permanentemente", array(
+            "item" => null,
+            "redirect" => array("status" => 301, "to" => $redirect["to"]),
+            "status" => 301,
+            "redirect_to" => $redirect["to"],
+            "canonical_url" => $redirect["canonical_url"],
+            "seo" => array("canonical_url" => $redirect["canonical_url"])
+          ));
+        }
         return $this->respuesta(false, "info", "Producto publico no encontrado", array(
           "item" => null,
           "variantes" => array(),
@@ -4370,6 +4387,7 @@ class EcommerceCatalogoPublico extends CRUD {
             "to" => $to,
             "status" => intval($this->valor($fila, "status_code", 301)),
             "tipo" => $this->valor($fila, "tipo", "manual"),
+            "tipo_entidad" => $this->valor($fila, "tipo", "manual") === "producto_slug" ? "producto" : $this->valor($fila, "tipo", "manual"),
             "activo" => intval($this->valor($fila, "activo", 0)) === 1,
             "revisado" => intval($this->valor($fila, "revisado", 0)) === 1,
             "motivo" => $this->valor($fila, "motivo", "")
@@ -4378,6 +4396,7 @@ class EcommerceCatalogoPublico extends CRUD {
       }
       return $this->respuesta(false, "success", "Redirecciones SEO ecommerce consultadas", array(
         "base_url" => $baseUrl,
+        "items" => $redirecciones,
         "redirecciones" => $redirecciones,
         "fallback" => array(
           "sin_equivalente_exacto" => "/categorias",
@@ -6487,6 +6506,8 @@ class EcommerceCatalogoPublico extends CRUD {
           "mostrar_precio" => $publicacionActual["mostrar_precio"],
           "mostrar_disponibilidad" => $publicacionActual["mostrar_disponibilidad"]
         ),
+        "seo_url_publica" => $this->seoResumenUrlPublicacion($publicacionActual["slug"] !== "" ? $publicacionActual["slug"] : $this->slugificar($slugBase)),
+        "historial_slugs" => $publicacionActual["id_publicacion"] > 0 ? $this->historialSlugsPublicacion($db, $publicacionActual["id_publicacion"]) : array(),
         "taxonomia_publicacion" => $taxonomiaPublicacion,
         "flujo" => array(
           "fuente_viva" => "Catalogo ERP/Inventario ERP",
@@ -7270,6 +7291,8 @@ class EcommerceCatalogoPublico extends CRUD {
       }));
 
       $slug = $this->slugificar($this->valor($datos, "slug", $actual["slug"]));
+      $slugAnterior = $this->slugificar($actual["slug"]);
+      $slugCambio = $slugAnterior !== "" && $slug !== "" && $slugAnterior !== $slug;
       $titulo = trim((string) $this->valor($datos, "titulo_publico", $actual["titulo_publico"]));
       $descripcion = trim((string) $this->valor($datos, "descripcion_publica", $actual["descripcion_publica"]));
       if ($descripcion === "") {
@@ -7289,6 +7312,24 @@ class EcommerceCatalogoPublico extends CRUD {
         ));
       }
 
+      $db->beginTransaction();
+      $columnasExtra = array();
+      if ($this->columnaExiste($db, "erp_ecommerce_publicaciones", "url_publica")) {
+        $columnasExtra[] = "url_publica=:url_publica";
+      }
+      if ($this->columnaExiste($db, "erp_ecommerce_publicaciones", "canonical_url")) {
+        $columnasExtra[] = "canonical_url=:canonical_url";
+      }
+      if ($slugCambio && $this->columnaExiste($db, "erp_ecommerce_publicaciones", "fecha_slug_actualizado")) {
+        $columnasExtra[] = "fecha_slug_actualizado=NOW()";
+      }
+      if ($slugCambio && $this->columnaExiste($db, "erp_ecommerce_publicaciones", "usuario_slug_actualizado")) {
+        $columnasExtra[] = "usuario_slug_actualizado=:usuario_slug_actualizado";
+      }
+      if ($this->columnaExiste($db, "erp_ecommerce_publicaciones", "bloquear_slug_auto")) {
+        $columnasExtra[] = "bloquear_slug_auto=1";
+      }
+      $sqlExtra = empty($columnasExtra) ? "" : ",\n          " . implode(",\n          ", $columnasExtra);
       $stmtUpdate = $db->prepare("UPDATE erp_ecommerce_publicaciones
         SET slug=:slug,
           titulo_publico=:titulo,
@@ -7302,10 +7343,11 @@ class EcommerceCatalogoPublico extends CRUD {
           permite_whatsapp=:permite_whatsapp,
           mostrar_precio=:mostrar_precio,
           mostrar_disponibilidad=:mostrar_disponibilidad,
+          " . ltrim($sqlExtra, ",\n ") . (empty($sqlExtra) ? "" : ",") . "
           fecha_actualizacion=NOW()
         WHERE id_publicacion=:id
         LIMIT 1");
-      $stmtUpdate->execute(array(
+      $paramsUpdate = array(
         ":slug" => $slug,
         ":titulo" => $titulo,
         ":descripcion" => $descripcion,
@@ -7319,7 +7361,18 @@ class EcommerceCatalogoPublico extends CRUD {
         ":mostrar_precio" => $this->booleanoPublicacion($this->valor($datos, "mostrar_precio", $actual["mostrar_precio"])),
         ":mostrar_disponibilidad" => $this->booleanoPublicacion($this->valor($datos, "mostrar_disponibilidad", $actual["mostrar_disponibilidad"])),
         ":id" => intval($actual["id_publicacion"])
-      ));
+      );
+      if ($this->columnaExiste($db, "erp_ecommerce_publicaciones", "url_publica")) {
+        $paramsUpdate[":url_publica"] = "/producto/" . $slug;
+      }
+      if ($this->columnaExiste($db, "erp_ecommerce_publicaciones", "canonical_url")) {
+        $paramsUpdate[":canonical_url"] = $this->canonicalSeoPublico($this->dominioProduccionSeoPublico($this->configuracionSeoPublica($db)), "/producto/" . $slug);
+      }
+      if ($slugCambio && $this->columnaExiste($db, "erp_ecommerce_publicaciones", "usuario_slug_actualizado")) {
+        $paramsUpdate[":usuario_slug_actualizado"] = $this->usuarioActualId();
+      }
+      $stmtUpdate->execute($paramsUpdate);
+      $redireccionSlug = $slugCambio ? $this->registrarRedireccionSlugProducto($db, $actual, $slugAnterior, $slug) : null;
 
       $consulta = $db->prepare("SELECT id_publicacion, id_producto_erp, id_sku, canal, estatus_publicacion, slug, titulo_publico
         FROM erp_ecommerce_publicaciones
@@ -7327,16 +7380,24 @@ class EcommerceCatalogoPublico extends CRUD {
         LIMIT 1");
       $consulta->execute(array(":id" => intval($actual["id_publicacion"])));
       $publicacion = $consulta->fetch(PDO::FETCH_ASSOC);
+      $db->commit();
 
       return $this->respuesta(false, "success", "Curaduria ecommerce guardada", array(
         "escribe_bd" => true,
         "estatus_preservado" => $estatusActual,
         "publicacion" => $publicacion,
+        "slug_anterior" => $slugAnterior,
+        "slug_actual" => $slug,
+        "slug_cambiado" => $slugCambio,
+        "redireccion_301" => $redireccionSlug,
         "no_toca_inventario" => true,
         "no_toca_ecom_legacy" => true,
         "precio_imagen_se_leen_vivos_desde_erp" => true
       ));
     } catch (Exception $e) {
+      if (isset($db) && $db && $db->inTransaction()) {
+        $db->rollBack();
+      }
       return $this->respuesta(true, "danger", $e->getMessage(), array("escribe_bd" => false));
     }
   }
@@ -10495,11 +10556,18 @@ class EcommerceCatalogoPublico extends CRUD {
       "url" => "/categoria/" . $categoriaPathSlug,
       "principal" => true
     ));
+    $slugPublico = (string) $fila["slug"];
+    $urlPublica = "/producto/" . $slugPublico;
+    $canonicalUrl = $this->canonicalSeoPublico($this->dominioProduccionSeoPublico($this->configuracionSeoPublica($this->getConexion())), $urlPublica);
     return array(
       "id_publicacion" => intval($fila["id_publicacion"]),
       "id_producto_erp" => intval($fila["id_producto_erp"]),
       "id_sku" => intval($fila["id_sku"]),
-      "slug" => $fila["slug"],
+      "slug" => $slugPublico,
+      "slug_publico" => $slugPublico,
+      "url" => $urlPublica,
+      "url_publica" => $urlPublica,
+      "canonical_url" => $canonicalUrl,
       "sku" => $fila["sku"],
       "nombre" => $fila["titulo_publico"] ?: $fila["nombre_sku"],
       "marca" => $fila["marca"],
@@ -10887,6 +10955,7 @@ class EcommerceCatalogoPublico extends CRUD {
       "title" => substr($nombre . " | Artiani", 0, 90),
       "description" => substr($descripcion, 0, 160),
       "canonical_path" => "/producto/" . $this->valor($item, "slug", ""),
+      "canonical_url" => $this->valor($item, "canonical_url", ""),
       "image" => $this->valor($item, "imagen", null),
       "json_ld" => array(
         "@context" => "https://schema.org",
@@ -10958,7 +11027,8 @@ class EcommerceCatalogoPublico extends CRUD {
       "seo" => array(
         "title" => $this->valor($seo, "title", ""),
         "description" => $this->valor($seo, "description", ""),
-        "canonical_path" => $this->valor($seo, "canonical_path", "")
+        "canonical_path" => $this->valor($seo, "canonical_path", ""),
+        "canonical_url" => $this->valor($seo, "canonical_url", "")
       ),
       "guardrails" => array(
         "solo_publicado" => true,
@@ -13751,6 +13821,138 @@ class EcommerceCatalogoPublico extends CRUD {
     $stmt = $db->prepare("SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA=:base AND TABLE_NAME=:tabla LIMIT 1");
     $stmt->execute(array(":base" => MYSQLBASE, ":tabla" => $tabla));
     return (bool) $stmt->fetchColumn();
+  }
+
+  private function columnaExiste($db, $tabla, $columna) {
+    if (!preg_match('/^[a-zA-Z0-9_]+$/', (string) $tabla) || !preg_match('/^[a-zA-Z0-9_]+$/', (string) $columna)) {
+      return false;
+    }
+    $stmt = $db->prepare("SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=:base AND TABLE_NAME=:tabla AND COLUMN_NAME=:columna LIMIT 1");
+    $stmt->execute(array(":base" => MYSQLBASE, ":tabla" => $tabla, ":columna" => $columna));
+    return (bool) $stmt->fetchColumn();
+  }
+
+  private function redireccionProductoPorSlugAnterior($db, $slug) {
+    if (!$db || $slug === "" || !$this->tablaExiste($db, "erp_ecommerce_seo_redirecciones")) {
+      return null;
+    }
+    $from = "/producto/" . $slug;
+    $stmt = $db->prepare("SELECT url_destino, status_code
+      FROM erp_ecommerce_seo_redirecciones
+      WHERE url_origen=:from AND activo=1 AND status_code=301
+      LIMIT 1");
+    $stmt->execute(array(":from" => $from));
+    $fila = $stmt->fetch(PDO::FETCH_ASSOC);
+    if (!$fila) {
+      return null;
+    }
+    $to = $this->normalizarSeoPathPublico($this->valor($fila, "url_destino", ""));
+    if ($to === "" || strpos($to, "/ecommercePublico") === 0) {
+      return null;
+    }
+    $baseUrl = $this->dominioProduccionSeoPublico($this->configuracionSeoPublica($db));
+    return array(
+      "to" => $to,
+      "canonical_url" => $this->canonicalSeoPublico($baseUrl, $to)
+    );
+  }
+
+  private function registrarRedireccionSlugProducto($db, $actual, $slugAnterior, $slugNuevo) {
+    if (!$db || $slugAnterior === "" || $slugNuevo === "" || $slugAnterior === $slugNuevo || !$this->tablaExiste($db, "erp_ecommerce_seo_redirecciones")) {
+      return array("creada" => false, "motivo" => "tabla_seo_redirecciones_no_disponible");
+    }
+    $from = "/producto/" . $slugAnterior;
+    $to = "/producto/" . $slugNuevo;
+    $columnas = array("url_origen", "url_destino", "status_code", "tipo", "motivo", "activo", "revisado", "fecha_registro", "fecha_actualizacion", "actualizado_por");
+    $valores = array(":from", ":to", "301", "'producto_slug'", "'slug_publico_actualizado'", "1", "1", "NOW()", "NOW()", ":usuario");
+    $updates = array("url_destino=VALUES(url_destino)", "status_code=VALUES(status_code)", "tipo=VALUES(tipo)", "motivo=VALUES(motivo)", "activo=1", "revisado=1", "fecha_actualizacion=NOW()", "actualizado_por=VALUES(actualizado_por)");
+    $params = array(":from" => $from, ":to" => $to, ":usuario" => $this->usuarioActualId());
+    $extras = array(
+      "from_slug" => array(":from_slug", $slugAnterior),
+      "to_slug" => array(":to_slug", $slugNuevo),
+      "tipo_entidad" => array("'producto'", null),
+      "id_entidad" => array(":id_entidad", intval($this->valor($actual, "id_producto_erp", 0))),
+      "id_publicacion" => array(":id_publicacion", intval($this->valor($actual, "id_publicacion", 0)))
+    );
+    foreach ($extras as $columna => $def) {
+      if (!$this->columnaExiste($db, "erp_ecommerce_seo_redirecciones", $columna)) {
+        continue;
+      }
+      $columnas[] = $columna;
+      $valores[] = $def[0];
+      $updates[] = $columna . "=VALUES(" . $columna . ")";
+      if ($def[1] !== null) {
+        $params[$def[0]] = $def[1];
+      }
+    }
+    $sql = "INSERT INTO erp_ecommerce_seo_redirecciones (`" . implode("`,`", $columnas) . "`) VALUES (" . implode(",", $valores) . ") ON DUPLICATE KEY UPDATE " . implode(", ", $updates);
+    $stmt = $db->prepare($sql);
+    $stmt->execute($params);
+    return array(
+      "creada" => true,
+      "from" => $from,
+      "to" => $to,
+      "status" => 301,
+      "filas_afectadas" => $stmt->rowCount()
+    );
+  }
+
+  private function historialSlugsPublicacion($db, $idPublicacion) {
+    if (!$db || intval($idPublicacion) <= 0 || !$this->tablaExiste($db, "erp_ecommerce_seo_redirecciones")) {
+      return array();
+    }
+    if (!$this->columnaExiste($db, "erp_ecommerce_seo_redirecciones", "id_publicacion")) {
+      return array();
+    }
+    $where = "id_publicacion=:id";
+    $stmt = $db->prepare("SELECT url_origen, url_destino, status_code, tipo, motivo, activo, fecha_registro, fecha_actualizacion
+      FROM erp_ecommerce_seo_redirecciones
+      WHERE " . $where . " AND activo=1
+      ORDER BY fecha_actualizacion DESC, fecha_registro DESC, url_origen ASC
+      LIMIT 20");
+    $stmt->execute($where === "id_publicacion=:id" ? array(":id" => intval($idPublicacion)) : array());
+    $items = array();
+    foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $fila) {
+      $from = $this->normalizarSeoPathPublico($this->valor($fila, "url_origen", ""));
+      $to = $this->normalizarSeoPathPublico($this->valor($fila, "url_destino", ""));
+      if ($from === "" || $to === "") { continue; }
+      $items[] = array(
+        "from" => $from,
+        "to" => $to,
+        "from_slug" => preg_replace('/^\/producto\//', '', $from),
+        "to_slug" => preg_replace('/^\/producto\//', '', $to),
+        "status" => intval($this->valor($fila, "status_code", 301)),
+        "activo" => intval($this->valor($fila, "activo", 0)) === 1,
+        "motivo" => $this->valor($fila, "motivo", ""),
+        "fecha_registro" => $this->valor($fila, "fecha_registro", null),
+        "fecha_actualizacion" => $this->valor($fila, "fecha_actualizacion", null)
+      );
+    }
+    return $items;
+  }
+
+  private function seoResumenUrlPublicacion($slug) {
+    $slug = $this->slugificar($slug);
+    $path = $slug !== "" ? "/producto/" . $slug : "";
+    $base = $this->dominioProduccionSeoPublico($this->configuracionSeoPublica($this->getConexion()));
+    return array(
+      "slug_publico" => $slug,
+      "url_publica" => $path,
+      "canonical_url" => $path !== "" ? $this->canonicalSeoPublico($base, $path) : "",
+      "frontend_publico" => "https://artiani.com.mx",
+      "guardrails" => array(
+        "nombre_publico_no_recalcula_slug" => true,
+        "frontend_no_genera_slug_desde_nombre" => true,
+        "sitemap_solo_canonicas_actuales" => true
+      )
+    );
+  }
+
+  private function usuarioActualId() {
+    if (isset($_SESSION["id_usuario"])) { return intval($_SESSION["id_usuario"]); }
+    if (isset($_SESSION["usuario"]["id_usuario"])) { return intval($_SESSION["usuario"]["id_usuario"]); }
+    if (isset($_SESSION["usuario_id"])) { return intval($_SESSION["usuario_id"]); }
+    return null;
   }
 
   private function contenidoAdminPaginaDesdeBd($opciones = array()) {

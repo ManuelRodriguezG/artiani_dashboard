@@ -1353,3 +1353,100 @@ Cambios UI/backend:
   - `total_error`;
   - `resultado_lote`;
   - detalle por SKU con bloqueos cuando falle.
+
+## Preparacion productiva sys.artiani.com.mx 2026-09-07
+
+Objetivo:
+
+- Dejar listo el cambio del API ecommerce publico para operar desde `https://sys.artiani.com.mx/ecommercePublico` cuando el dueno indique salida productiva.
+
+Estado detectado:
+
+- `app/config/configuracion.php` ya contempla `SERVER_NAME=sys.artiani.com.mx`.
+- Para ese host, las rutas publicas quedan:
+  - `RUTA_URL=https://sys.artiani.com.mx/`;
+  - `RUTA_RECURSOS=https://sys.artiani.com.mx/`;
+  - `RUTA_URL_FRONT=https://artiani.com.mx/`;
+  - `RUTA_RECURSOS_IMG=https://sys.artiani.com.mx/`.
+- CORS del API ecommerce se controla desde `erp_ecommerce_configuracion.cors_origenes_permitidos`.
+- No debe usarse wildcard `*`; solo origenes exactos.
+
+Cambios aplicados:
+
+- Se ajustan banderas publicas de escritura para evitar activacion accidental en dominios productivos:
+  - `ECOMMERCE_ANALYTICS_TRACKING_PUBLICO`;
+  - `ECOMMERCE_LEADS_PUBLICO`.
+- En local quedan activas para pruebas.
+- En productivo quedan apagadas por defecto hasta decision operativa explicita.
+- Se agrega runbook:
+  - `docs/erp_ecommerce_productivo_sys_artiani_checklist.md`.
+
+Pendiente antes de salida:
+
+- Confirmar dominio frontend final:
+  - `https://artiani.com.mx`;
+  - y si aplica `https://www.artiani.com.mx`.
+- Confirmar WhatsApp productivo.
+- Sembrar configuracion publica con respaldo y autorizacion:
+  - `cors_origenes_permitidos=https://artiani.com.mx`;
+  - `url_sitio_publico=https://artiani.com.mx`;
+  - `mostrar_stock_exacto=0`.
+- Ejecutar gate productivo:
+  - `storage/uat/uat_ecommerce_publico_frontend_productivo_gate_readonly.php`.
+- Validar CMS, publicaciones, cotizacion preflight/dryrun, analytics y leads segun decision de activacion.
+
+## SEO productos - slugs estables y redirecciones 301 2026-09-08
+
+Problema:
+
+- Las fichas publicas usan `/producto/{slug}`.
+- El campo operativo existente es `erp_ecommerce_publicaciones.slug`; funciona como slug publico aunque el API tambien debe exponer aliases `slug_publico`, `url_publica` y `canonical_url`.
+- Cambiar `titulo_publico` o nombre visible no debe recalcular automaticamente la URL ya publicada.
+
+Estado detectado:
+
+- `prepararPublicacion()` genera slug sugerido desde nombre, presentacion y SKU solo cuando no existe publicacion previa.
+- Si ya existe publicacion, la preparacion conserva el slug guardado.
+- `guardarCuraduriaPublicacionAutorizada()` permitia cambiar `slug`, pero no registraba historial ni 301.
+- Ya existia tabla SEO general `erp_ecommerce_seo_redirecciones` para migracion, reutilizable para historial de slugs.
+- Sitemap/SEO ya construia rutas publicas `/producto/{slug}` y excluia rutas internas `/ecommercePublico`.
+
+Cambios aplicados:
+
+- `GET /ecommercePublico/producto/{slug}` normaliza el slug recibido y, si no encuentra producto actual, revisa redireccion 301 activa desde `/producto/{slug_anterior}`.
+- Si el slug era anterior, la API responde `tipo=redirect`, `status=301`, `redirect_to`, `redirect.to` y `canonical_url`.
+- `formatearPublicacion()` agrega aliases publicos:
+  - `slug_publico`;
+  - `url`;
+  - `url_publica`;
+  - `canonical_url`.
+- `guardarCuraduriaPublicacionAutorizada()` detecta cambio real de slug y crea/actualiza redireccion 301:
+  - `/producto/{slug_anterior}` -> `/producto/{slug_nuevo}`;
+  - tipo `producto_slug`;
+  - motivo `slug_publico_actualizado`.
+- La escritura de redireccion es transaccional junto con la curaduria cuando la tabla SEO existe.
+- `GET /ecommercePublico/redirecciones` queda como alias publico para redirecciones activas; mantiene compatibilidad con `/seo_redirecciones`.
+- `seo_redirecciones` agrega alias `items` ademas de `redirecciones`.
+- La preparacion interna expone `seo_url_publica` e `historial_slugs` para UI.
+- La pantalla `/ecommercePublico/publicaciones` agrega bloque `SEO y URL publica` con URL publica, canonical, historial de slugs, vista previa Google, copiar URL y sugerir slug desde titulo actual.
+- La UI no cambia slug automaticamente al editar titulo y confirma antes de guardar un cambio de slug.
+
+DDL complementario preparado, no ejecutado:
+
+- `erp_ecommerce_publicaciones`: `url_publica`, `canonical_url`, `fecha_slug_actualizado`, `usuario_slug_actualizado`, `bloquear_slug_auto`.
+- `erp_ecommerce_seo_redirecciones`: `from_slug`, `to_slug`, `tipo_entidad`, `id_entidad`, `id_publicacion`, indice `idx_ecom_seo_redir_producto`.
+
+Reglas confirmadas:
+
+- Cambiar nombre/titulo publico no cambia automaticamente el slug.
+- Frontend debe usar `item.slug` o `item.slug_publico`; no debe generar slugs desde nombre.
+- Sitemap solo debe incluir URLs canonicas actuales `/producto/{slug_publico}`.
+- Redirecciones previas no se incluyen en sitemap.
+- No exponer `/ecommercePublico/producto/...` como canonical publico.
+
+Pendiente antes de abrir indexacion:
+
+- Aplicar DDL complementario con respaldo externo y autorizacion explicita.
+- Probar cambio real de slug en una publicacion publicada y validar que se cree 301.
+- Probar `GET /ecommercePublico/producto/{slug_anterior}` y `GET /ecommercePublico/redirecciones`.
+- Confirmar que el frontend externo convierte `tipo=redirect/status=301` en una redireccion HTTP 301 real en SSR/middleware.

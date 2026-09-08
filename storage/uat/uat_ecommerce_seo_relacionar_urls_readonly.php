@@ -66,7 +66,7 @@ foreach (array("accion", "confianza", "tipo") as $key) {
 }
 
 usort($items, function ($a, $b) {
-  $orden = array("aprobar_301_candidato" => 0, "validar_301_candidato" => 1, "revisar_manual" => 2, "excluir_o_410" => 3);
+  $orden = array("sin_redireccion_necesaria" => 0, "aprobar_301_candidato" => 1, "validar_301_candidato" => 2, "revisar_manual" => 3, "excluir_o_410" => 4);
   $aa = isset($orden[$a["accion_sugerida"]]) ? $orden[$a["accion_sugerida"]] : 9;
   $ab = isset($orden[$b["accion_sugerida"]]) ? $orden[$b["accion_sugerida"]] : 9;
   if ($aa !== $ab) { return $aa - $ab; }
@@ -217,6 +217,7 @@ function esMedidaSeoRelacion($token) {
 function accionRelacionSeo($fila, $mejor) {
   if (esBasuraPlantillaSeoRelacion(valorSeoRelacion($fila, "path_original", ""))) { return "excluir_o_410"; }
   if (intval(valorSeoRelacion($fila, "status_http", 0)) >= 400) { return "excluir_o_410"; }
+  if (normalizarPathSeoRelacion(valorSeoRelacion($fila, "path_original", "")) === normalizarPathSeoRelacion(valorSeoRelacion($mejor, "path", ""))) { return "sin_redireccion_necesaria"; }
   if (in_array($mejor["confianza"], array("exacta", "alta"), true)) { return "aprobar_301_candidato"; }
   return "validar_301_candidato";
 }
@@ -229,6 +230,7 @@ function accionSinRelacionSeo($fila) {
 
 function notaRelacionSeo($fila, $mejor) {
   if (esBasuraPlantillaSeoRelacion(valorSeoRelacion($fila, "path_original", ""))) { return "ruta_plantilla_legacy"; }
+  if (normalizarPathSeoRelacion(valorSeoRelacion($fila, "path_original", "")) === normalizarPathSeoRelacion(valorSeoRelacion($mejor, "path", ""))) { return "misma_uri_se_conserva"; }
   if ($mejor["confianza"] === "exacta" || $mejor["confianza"] === "alta") { return "validar_visual_y_aprobar"; }
   return "validar_variante_marca_tamano_codigo";
 }

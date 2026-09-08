@@ -4,6 +4,8 @@
     var candidatos = [];
     var schemaPendiente = false;
     var ocultarCeros = false;
+    var filtroPartidas = "";
+    var partidaEnfocada = -1;
     var puedeCrear = false;
     var puedeEditar = false;
     var modoLectura = false;
@@ -13,6 +15,7 @@
     var scanTorchActivo = false;
     var scanCamaras = [];
     var scanCamaraSeleccionada = "";
+    var scanModo = "agregar";
 
     function esc(valor) {
         var d = document.createElement("div");
@@ -22,6 +25,16 @@
 
     function money(valor) {
         return "$" + Number(valor || 0).toFixed(2);
+    }
+
+    function textoBusquedaItem(item) {
+        return [
+            item.sku_proveedor,
+            item.sku_erp,
+            item.nombre_proveedor,
+            item.nombre_erp,
+            item.unidad_compra
+        ].join(" ").toLowerCase();
     }
 
     /**
@@ -224,6 +237,82 @@
     }
 
     /**
+     * IA: Codex GPT-5 | Fecha: 2026-09-08
+     * Proposito: ubicar partidas ya agregadas por texto, SKU o resultado de escaneo.
+     * Impacto: UX Compras/Sugerido; agiliza mini inventario en listas duplicadas sin agregar productos nuevos.
+     */
+    function filtrarPartidas(valor, enfocarPrimera) {
+        filtroPartidas = String(valor || "").trim().toLowerCase();
+        partidaEnfocada = -1;
+        if (filtroPartidas !== "") {
+            partidaEnfocada = items.findIndex(function (item) {
+                return textoBusquedaItem(item).indexOf(filtroPartidas) !== -1;
+            });
+        }
+        render();
+        if (enfocarPrimera && partidaEnfocada >= 0) {
+            setTimeout(function () {
+                var input = document.querySelector("[data-sugerido-existencia=\"" + partidaEnfocada + "\"]");
+                if (input) {
+                    input.focus();
+                    input.select();
+                    input.scrollIntoView({behavior: "smooth", block: "center"});
+                }
+            }, 80);
+        }
+    }
+
+    function limpiarFiltroPartidas() {
+        filtroPartidas = "";
+        partidaEnfocada = -1;
+        document.getElementById("sugerido_filtro_partidas").value = "";
+        render();
+    }
+
+    /**
+     * IA: Codex GPT-5 | Fecha: 2026-09-08
+     * Proposito: quitar una partida del sugerido actual sin modificar catalogo, proveedor ni inventario.
+     * Impacto: UX Compras/Sugerido; permite depurar listas duplicadas antes de guardar o generar solicitud.
+     */
+    function eliminarPartida(indice) {
+        if (modoLectura) { return; }
+        indice = Number(indice);
+        if (!items[indice]) { return; }
+        items.splice(indice, 1);
+        partidaEnfocada = -1;
+        renderResultados();
+        render();
+    }
+
+    /**
+     * IA: Codex GPT-5 | Fecha: 2026-09-08
+     * Proposito: reiniciar existencias revisadas para rehacer mini inventario desde una lista duplicada.
+     * Impacto: UX Compras/Sugerido; recalcula sugerido/cantidad a solicitar y no afecta inventario real.
+     */
+    function reiniciarExistenciasRevisadas() {
+        if (modoLectura) { return; }
+        if (!items.length) {
+            Swal.fire({text: "No hay partidas para reiniciar.", icon: "warning", confirmButtonText: "Aceptar"});
+            return;
+        }
+        Swal.fire({
+            text: "Se pondran en 0 las existencias revisadas y se recalcularan las cantidades sugeridas. No se modifica inventario.",
+            icon: "question",
+            showCancelButton: true,
+            confirmButtonText: "Reiniciar existencias",
+            cancelButtonText: "Cancelar"
+        }).then(function (result) {
+            if (!result.isConfirmed) { return; }
+            items.forEach(function (item) {
+                item.existencia_revisada = 0;
+                item.cantidad_sugerida = calcularCantidadSugerida(item);
+                item.cantidad_solicitar = item.cantidad_sugerida;
+            });
+            render();
+        });
+    }
+
+    /**
      * IA: Codex GPT-5 | Fecha: 2026-08-27
      * Proposito: mostrar el valor aproximado levantado en mini inventarios sin afectar inventario real.
      * Impacto: UX Compras/Sugerido; calcula solo en pantalla con existencia revisada x costo estimado.
@@ -252,12 +341,16 @@
     }
 
     function render() {
-        var visibles = items.filter(function (x) { return !ocultarCeros || Number(x.cantidad_solicitar || 0) > 0 || Number(x.cantidad_sugerida || 0) > 0; });
+        var visibles = items.filter(function (x) {
+            var coincideFiltro = filtroPartidas === "" || textoBusquedaItem(x).indexOf(filtroPartidas) !== -1;
+            var coincideCeros = !ocultarCeros || Number(x.cantidad_solicitar || 0) > 0 || Number(x.cantidad_sugerida || 0) > 0;
+            return coincideFiltro && coincideCeros;
+        });
         var readonly = modoLectura ? " readonly disabled" : "";
         document.getElementById("sugerido_items").innerHTML = visibles.map(function (x) {
             var i = items.indexOf(x);
             var maximo = x.stock_maximo === null || x.stock_maximo === "" ? "-" : Number(x.stock_maximo || 0).toFixed(2);
-            return "<tr>" +
+            return "<tr id=\"sugerido_item_" + i + "\" class=\"" + (i === partidaEnfocada ? "table-warning" : "") + "\">" +
                 "<td><div class=\"fw-bold\">" + esc(x.sku_proveedor || x.sku_erp) + "</div><div class=\"text-muted fs-8\">SKU ERP: " + esc(x.sku_erp || "-") + "</div></td>" +
                 "<td>" + esc(x.nombre_proveedor || x.nombre_erp) + "<div class=\"text-muted fs-8\">" + esc(x.unidad_compra || "") + " | factor " + Number(x.factor_conversion || 1).toFixed(6) + "</div></td>" +
                 "<td class=\"text-end\"><input class=\"form-control form-control-sm text-end sugerido-cantidad-input\" inputmode=\"decimal\" data-sugerido-minimo=\"" + i + "\" value=\"" + Number(x.stock_minimo || 0) + "\"" + readonly + "></td>" +
@@ -268,10 +361,14 @@
                 "<td class=\"text-end\"><input class=\"form-control form-control-sm text-end sugerido-cantidad-final-input\" inputmode=\"decimal\" data-sugerido-cantidad=\"" + i + "\" value=\"" + Number(x.cantidad_solicitar || 0) + "\"" + readonly + "></td>" +
                 "<td class=\"text-end\">" + money(x.costo_estimado) + "</td>" +
                 "<td><input class=\"form-control form-control-sm\" data-sugerido-obs=\"" + i + "\" value=\"" + esc(x.observaciones || "") + "\"" + readonly + "></td>" +
+                "<td class=\"text-end\"><button type=\"button\" class=\"btn btn-sm btn-light-danger\" data-sugerido-eliminar=\"" + i + "\"" + (modoLectura ? " disabled" : "") + "><i class=\"bi bi-trash\"></i></button></td>" +
                 "</tr>";
-        }).join("") || "<tr><td colspan=\"10\" class=\"text-center text-muted py-8\">Busca productos del proveedor y agrega solo los que quieres revisar.</td></tr>";
+        }).join("") || "<tr><td colspan=\"11\" class=\"text-center text-muted py-8\">Busca productos del proveedor y agrega solo los que quieres revisar.</td></tr>";
 
         actualizarResumen();
+        document.getElementById("sugerido_filtro_partidas_resumen").textContent = filtroPartidas === ""
+            ? items.length + " partidas agregadas"
+            : visibles.length + " de " + items.length + " partidas visibles";
     }
 
 
@@ -283,7 +380,12 @@
     function buscarCodigoEscaneadoSugerido(valor) {
         valor = String(valor || "").trim();
         var proveedor = document.getElementById("sugerido_proveedor").value;
-        if (!valor || !proveedor) { return; }
+        if (!valor) { return; }
+        if (scanModo === "partidas") {
+            buscarCodigoEnPartidas(valor);
+            return;
+        }
+        if (!proveedor) { return; }
         document.getElementById("sugerido_buscar").value = valor;
         document.getElementById("sugerido_resumen").textContent = "Codigo leido: " + valor + ". Buscando en proveedor...";
         fetch("/compra/sugeridos_productos_proveedor_erp?" + new URLSearchParams({id_proveedor: proveedor, q: valor, limite: 8}), {credentials: "same-origin"})
@@ -302,6 +404,46 @@
                 }
             }).catch(function (e) {
                 Swal.fire({text: e.message || "No se pudo buscar el codigo", icon: "error", confirmButtonText: "Aceptar"});
+            });
+    }
+
+    /**
+     * IA: Codex GPT-5 | Fecha: 2026-09-08
+     * Proposito: usar escaneo para filtrar partidas ya agregadas antes de recurrir al buscador del proveedor.
+     * Impacto: UX Compras/Sugerido; evita agregar productos al revisar un mini inventario ya armado.
+     */
+    function buscarCodigoEnPartidas(valor) {
+        valor = String(valor || "").trim();
+        if (!valor) { return; }
+        document.getElementById("sugerido_filtro_partidas").value = valor;
+        filtrarPartidas(valor, true);
+        if (partidaEnfocada >= 0) {
+            document.getElementById("sugerido_resumen").textContent = "Codigo encontrado en partidas agregadas.";
+            return;
+        }
+        var proveedor = document.getElementById("sugerido_proveedor").value;
+        if (!proveedor) {
+            document.getElementById("sugerido_resumen").textContent = "Codigo no encontrado en partidas agregadas.";
+            return;
+        }
+        fetch("/compra/sugeridos_productos_proveedor_erp?" + new URLSearchParams({id_proveedor: proveedor, q: valor, limite: 8}), {credentials: "same-origin"})
+            .then(function (r) { return r.json(); })
+            .then(function (r) {
+                if (r.error) { throw new Error(r.mensaje); }
+                var encontrados = (r.depurar.items || []).map(normalizarItemProveedor);
+                var ids = encontrados.map(function (x) { return Number(x.id_sku_proveedor || 0); });
+                var indice = items.findIndex(function (item) {
+                    return ids.indexOf(Number(item.id_sku_proveedor || 0)) !== -1;
+                });
+                if (indice >= 0) {
+                    document.getElementById("sugerido_filtro_partidas").value = items[indice].sku_proveedor || items[indice].sku_erp || valor;
+                    filtrarPartidas(document.getElementById("sugerido_filtro_partidas").value, true);
+                    document.getElementById("sugerido_resumen").textContent = "Codigo relacionado con una partida agregada.";
+                } else {
+                    document.getElementById("sugerido_resumen").textContent = "Codigo no encontrado en partidas agregadas.";
+                }
+            }).catch(function (e) {
+                document.getElementById("sugerido_resumen").textContent = e.message || "No se pudo buscar el codigo en partidas.";
             });
     }
 
@@ -478,13 +620,20 @@
         if (actualizarTexto !== false) { document.getElementById("sugerido_scan_estado").textContent = "Camara detenida."; }
     }
 
-    function abrirEscanerSugerido() {
+    function abrirEscanerSugerido(modo) {
         if (modoLectura) { return; }
-        if (!document.getElementById("sugerido_proveedor").value) {
+        scanModo = modo || "agregar";
+        if (scanModo === "agregar" && !document.getElementById("sugerido_proveedor").value) {
             Swal.fire({text: "Selecciona un proveedor antes de escanear.", icon: "warning", confirmButtonText: "Aceptar"});
             return;
         }
-        document.getElementById("sugerido_scan_estado").textContent = "Abriendo camara...";
+        document.getElementById("sugerido_scan_titulo").textContent = scanModo === "partidas" ? "Escanear partida agregada" : "Escanear producto";
+        document.getElementById("sugerido_scan_descripcion").textContent = scanModo === "partidas"
+            ? "Lee el codigo para localizarlo dentro de los productos ya agregados"
+            : "Lee el codigo para buscarlo dentro del proveedor seleccionado";
+        document.getElementById("sugerido_scan_estado").textContent = scanModo === "partidas"
+            ? "Abriendo camara para filtrar partidas agregadas..."
+            : "Abriendo camara...";
         bootstrap.Modal.getOrCreateInstance(document.getElementById("sugerido_scan_modal")).show();
     }
     function guardar(estatus) {
@@ -501,6 +650,7 @@
             id_proveedor: document.getElementById("sugerido_proveedor").value,
             observaciones: document.getElementById("sugerido_observaciones").value,
             estatus: estatus,
+            actualizar_reglas_resurtido: document.getElementById("sugerido_actualizar_reglas_resurtido").checked ? 1 : 0,
             items: JSON.stringify(items)
         }).then(function (r) {
             if (r.error) { throw new Error(r.mensaje); }
@@ -511,6 +661,37 @@
             });
         }).catch(function (e) {
             Swal.fire({text: e.message || "No se pudo guardar", icon: "error", confirmButtonText: "Aceptar"});
+        });
+    }
+
+    /**
+     * IA: Codex GPT-5 | Fecha: 2026-09-08
+     * Proposito: actualizar reglas de resurtido desde Sugerido sin tener que editar de nuevo el documento.
+     * Impacto: UX Compras/Sugerido; no afecta inventario ni genera solicitud.
+     */
+    function actualizarReglasResurtido() {
+        if (!puedeEditar) { return; }
+        if (!items.length) {
+            Swal.fire({text: "Agrega productos antes de actualizar reglas de resurtido.", icon: "warning", confirmButtonText: "Aceptar"});
+            return;
+        }
+        Swal.fire({
+            text: "Se guardaran minimo, maximo y reorden de estas partidas para futuras revisiones. No se modifica inventario.",
+            icon: "question",
+            showCancelButton: true,
+            confirmButtonText: "Actualizar reglas",
+            cancelButtonText: "Cancelar"
+        }).then(function (result) {
+            if (!result.isConfirmed) { return; }
+            post("/compra/sugerido_reglas_resurtido_guardar_erp", {
+                id_sugerido_compra: document.getElementById("sugerido_id").value,
+                items: JSON.stringify(items)
+            }).then(function (r) {
+                if (r.error) { throw new Error(r.mensaje); }
+                Swal.fire({text: r.mensaje, icon: "success", confirmButtonText: "Aceptar"});
+            }).catch(function (e) {
+                Swal.fire({text: e.message || "No se pudieron actualizar reglas", icon: "error", confirmButtonText: "Aceptar"});
+            });
         });
     }
 
@@ -537,11 +718,16 @@
         document.getElementById("sugerido_generar_solicitud").classList.toggle("d-none", modoLectura);
         document.getElementById("sugerido_recalcular").classList.toggle("d-none", modoLectura);
         document.getElementById("sugerido_buscar_productos").classList.toggle("d-none", modoLectura);
+        document.getElementById("sugerido_actualizar_reglas").classList.toggle("d-none", !puedeEditar);
+        document.getElementById("sugerido_actualizar_reglas_resurtido").disabled = modoLectura || !puedeEditar;
         document.getElementById("sugerido_proveedor").disabled = modoLectura;
         document.getElementById("sugerido_observaciones").readOnly = modoLectura;
         document.getElementById("sugerido_buscar").readOnly = modoLectura;
         document.getElementById("sugerido_scan_camera_btn").classList.toggle("d-none", modoLectura);
-        document.getElementById("sugerido_scan_camera_btn").addEventListener("click", abrirEscanerSugerido);
+        document.getElementById("sugerido_scan_partidas_btn").classList.toggle("d-none", modoLectura);
+        document.getElementById("sugerido_reiniciar_existencias").classList.toggle("d-none", modoLectura);
+        document.getElementById("sugerido_scan_camera_btn").addEventListener("click", function () { abrirEscanerSugerido("agregar"); });
+        document.getElementById("sugerido_scan_partidas_btn").addEventListener("click", function () { abrirEscanerSugerido("partidas"); });
         document.getElementById("sugerido_scan_start").addEventListener("click", iniciarCamaraSugerido);
         document.getElementById("sugerido_scan_camera_device").addEventListener("change", reiniciarCamaraConSeleccionSugerido);
         document.getElementById("sugerido_scan_focus").addEventListener("click", mejorarEnfoqueCamaraSugerido);
@@ -562,6 +748,15 @@
             }
         });
         document.getElementById("sugerido_recalcular").addEventListener("click", function () { recalcular(true); });
+        document.getElementById("sugerido_reiniciar_existencias").addEventListener("click", reiniciarExistenciasRevisadas);
+        document.getElementById("sugerido_filtro_partidas").addEventListener("input", function (e) { filtrarPartidas(e.target.value, false); });
+        document.getElementById("sugerido_filtro_partidas").addEventListener("keydown", function (e) {
+            if (e.key === "Enter") {
+                e.preventDefault();
+                filtrarPartidas(e.target.value, true);
+            }
+        });
+        document.getElementById("sugerido_limpiar_filtro_partidas").addEventListener("click", limpiarFiltroPartidas);
         document.getElementById("sugerido_buscar_productos").addEventListener("click", consultarProveedor);
         document.getElementById("sugerido_limpiar_ceros").addEventListener("click", function () {
             ocultarCeros = !ocultarCeros;
@@ -613,8 +808,15 @@
                 items[Number(obs)].observaciones = e.target.value;
             }
         });
+        document.getElementById("sugerido_items").addEventListener("click", function (e) {
+            var boton = e.target.closest("[data-sugerido-eliminar]");
+            if (boton) {
+                eliminarPartida(boton.getAttribute("data-sugerido-eliminar"));
+            }
+        });
         document.getElementById("sugerido_guardar_borrador").addEventListener("click", function () { guardar("borrador"); });
         document.getElementById("sugerido_marcar_lista").addEventListener("click", function () { guardar("lista"); });
+        document.getElementById("sugerido_actualizar_reglas").addEventListener("click", actualizarReglasResurtido);
         document.getElementById("sugerido_generar_solicitud").addEventListener("click", generarSolicitud);
         render();
     });

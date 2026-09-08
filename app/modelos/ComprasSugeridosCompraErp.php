@@ -54,7 +54,9 @@ class ComprasSugeridosCompraErp extends CRUD {
                     COUNT(d.id_detalle) AS total_partidas,
                     SUM(CASE WHEN COALESCE(d.cantidad_solicitar,0)>0 THEN 1 ELSE 0 END) AS partidas_solicitar,
                     SUM(COALESCE(d.cantidad_solicitar,0)) AS total_unidades,
-                    SUM(COALESCE(d.cantidad_solicitar,0) * COALESCE(d.costo_estimado,0)) AS total_estimado
+                    SUM(COALESCE(d.cantidad_solicitar,0) * COALESCE(d.costo_estimado,0)) AS total_estimado,
+                    SUM(COALESCE(d.existencia_revisada,0)) AS total_existencia_revisada,
+                    SUM(COALESCE(d.existencia_revisada,0) * COALESCE(d.costo_estimado,0)) AS inventario_revisado_estimado
                 FROM erp_compras_sugeridos_compra s
                 INNER JOIN erp_proveedores p ON p.id_proveedor=s.id_proveedor
                 LEFT JOIN erp_compras_sugeridos_compra_detalle d ON d.id_sugerido_compra=s.id_sugerido_compra
@@ -68,11 +70,48 @@ class ComprasSugeridosCompraErp extends CRUD {
             $stmt->execute($params);
             return $this->respuesta(false, "success", "Sugeridos consultados", array(
                 "schema_pendiente" => 0,
-                "items" => $stmt->fetchAll(PDO::FETCH_ASSOC)
+                "items" => $stmt->fetchAll(PDO::FETCH_ASSOC),
+                "resumen" => $this->resumenOperativoSugeridos($db, $idProveedor)
             ));
         } catch (Exception $e) {
             return $this->respuesta(true, "danger", $e->getMessage());
         }
+    }
+
+    /**
+     * IA: Codex GPT-5
+     * Fecha: 2026-09-08
+     * Proposito: calcular vista general de sugeridos pendientes sin convertir a solicitud.
+     * Impacto: Compras/Sugerido; muestra estimado operativo de inventario revisado y compra sugerida sin tocar inventario.
+     * Contrato: excluye cancelados y sugeridos con solicitud generada.
+     */
+    private function resumenOperativoSugeridos(PDO $db, $idProveedor = 0) {
+        $where = array("s.estatus IN ('borrador','lista')", "s.id_solicitud_generada IS NULL");
+        $params = array();
+        if (intval($idProveedor) > 0) {
+            $where[] = "s.id_proveedor=:proveedor";
+            $params[":proveedor"] = intval($idProveedor);
+        }
+        $stmt = $db->prepare("SELECT
+                COUNT(DISTINCT s.id_sugerido_compra) AS sugeridos_pendientes,
+                COUNT(d.id_detalle) AS partidas,
+                SUM(COALESCE(d.existencia_revisada,0)) AS cantidad_revisada,
+                SUM(COALESCE(d.existencia_revisada,0) * COALESCE(d.costo_estimado,0)) AS inventario_estimado,
+                SUM(COALESCE(d.cantidad_solicitar,0)) AS cantidad_a_solicitar,
+                SUM(COALESCE(d.cantidad_solicitar,0) * COALESCE(d.costo_estimado,0)) AS compra_sugerida_estimada
+            FROM erp_compras_sugeridos_compra s
+            LEFT JOIN erp_compras_sugeridos_compra_detalle d ON d.id_sugerido_compra=s.id_sugerido_compra
+            WHERE " . implode(" AND ", $where));
+        $stmt->execute($params);
+        $fila = $stmt->fetch(PDO::FETCH_ASSOC);
+        return array(
+            "sugeridos_pendientes" => intval($this->valor($fila, "sugeridos_pendientes", 0)),
+            "partidas" => intval($this->valor($fila, "partidas", 0)),
+            "cantidad_revisada" => floatval($this->valor($fila, "cantidad_revisada", 0)),
+            "inventario_estimado" => floatval($this->valor($fila, "inventario_estimado", 0)),
+            "cantidad_a_solicitar" => floatval($this->valor($fila, "cantidad_a_solicitar", 0)),
+            "compra_sugerida_estimada" => floatval($this->valor($fila, "compra_sugerida_estimada", 0))
+        );
     }
 
     /**
@@ -151,6 +190,8 @@ class ComprasSugeridosCompraErp extends CRUD {
      * Regla: permite buscar/escanear codigos alternos del SKU ERP solo cuando ya existe relacion activa con el proveedor seleccionado.
      * Actualizacion IA: Codex GPT-5 | Fecha: 2026-09-03
      * Regla: si la lista ya esta vinculada por id_sku_proveedor/id_sku, no exige que el texto de codigo coincida con sp.sku_proveedor.
+     * Actualizacion IA: Codex GPT-5 | Fecha: 2026-09-07
+     * Regla: costo estimado prioriza costo vigente, lista proveedor y costo_ultimo como ultimo respaldo.
      */
     public function productosProveedor($filtros = array()) {
         try {
@@ -203,7 +244,8 @@ class ComprasSugeridosCompraErp extends CRUD {
                     COALESCE(r.stock_minimo,0) AS stock_minimo,
                     r.stock_maximo,
                     COALESCE(r.punto_reorden,0) AS punto_reorden,
-                    COALESCE(cv.costo, sp.costo_ultimo, 0) AS costo_estimado,
+                    COALESCE(cv.costo, 0) AS costo_estimado,
+                    cv.costo AS costo_vigente,
                     cv.moneda AS moneda_costo,
                     cv.origen AS origen_costo,
                     (
@@ -256,7 +298,22 @@ class ComprasSugeridosCompraErp extends CRUD {
                 if ($fila["nombre_proveedor"] === "") {
                     $fila["nombre_proveedor"] = $fila["nombre_erp"];
                 }
-                $fila["costo_estimado"] = floatval($fila["costo_estimado"] ?: $fila["costo_lista_proveedor"] ?: $fila["costo_ultimo"] ?: 0);
+                $costoVigente = floatval(isset($fila["costo_vigente"]) ? $fila["costo_vigente"] : 0);
+                $costoListaProveedor = floatval(isset($fila["costo_lista_proveedor"]) ? $fila["costo_lista_proveedor"] : 0);
+                $costoUltimoRelacion = floatval(isset($fila["costo_ultimo"]) ? $fila["costo_ultimo"] : 0);
+                if ($costoVigente > 0) {
+                    $fila["costo_estimado"] = $costoVigente;
+                    $fila["fuente_costo"] = "costo_vigente";
+                } elseif ($costoListaProveedor > 0) {
+                    $fila["costo_estimado"] = $costoListaProveedor;
+                    $fila["fuente_costo"] = "lista_proveedor";
+                } elseif ($costoUltimoRelacion > 0) {
+                    $fila["costo_estimado"] = $costoUltimoRelacion;
+                    $fila["fuente_costo"] = "costo_ultimo_relacion";
+                } else {
+                    $fila["costo_estimado"] = 0;
+                    $fila["fuente_costo"] = "sin_costo";
+                }
                 $fila["factor_conversion"] = floatval($fila["factor_conversion"] ?: 1);
                 $fila["cantidad_minima"] = floatval($fila["cantidad_minima"] ?: 1);
                 $fila["stock_minimo"] = floatval($fila["stock_minimo"] ?: 0);
@@ -297,14 +354,149 @@ class ComprasSugeridosCompraErp extends CRUD {
             }
             $stmt = $db->prepare("SELECT * FROM erp_compras_sugeridos_compra_detalle WHERE id_sugerido_compra=:id ORDER BY id_detalle");
             $stmt->execute(array(":id" => $idSugerido));
+            $detalle = $this->refrescarCostosFaltantesDetalleSugerido($stmt->fetchAll(PDO::FETCH_ASSOC), intval($sugerido["id_proveedor"]));
+            $detalle = $this->refrescarReglasResurtidoDetalleSugerido($db, $detalle);
             return $this->respuesta(false, "success", "Sugerido consultado", array(
                 "schema_pendiente" => 0,
                 "sugerido" => $sugerido,
-                "detalle" => $stmt->fetchAll(PDO::FETCH_ASSOC)
+                "detalle" => $detalle
             ));
         } catch (Exception $e) {
             return $this->respuesta(true, "danger", $e->getMessage());
         }
+    }
+
+    /**
+     * IA: Codex GPT-5 | Fecha: 2026-09-07
+     * Proposito: refrescar costos vacios del detalle guardado con la relacion/lista vigente del proveedor.
+     * Impacto: Compras/Sugerido; solo lectura, no modifica BD y respeta costos snapshot mayores a cero.
+     */
+    private function refrescarCostosFaltantesDetalleSugerido($detalle, $idProveedor) {
+        if (!is_array($detalle) || empty($detalle) || intval($idProveedor) <= 0) {
+            return $detalle;
+        }
+        $respuesta = $this->productosProveedor(array("id_proveedor" => intval($idProveedor), "q" => "", "limite" => 800));
+        if (!empty($respuesta["error"]) || empty($respuesta["depurar"]["items"])) {
+            return $detalle;
+        }
+        $costos = array();
+        foreach ($respuesta["depurar"]["items"] as $item) {
+            $clave = intval($this->valor($item, "id_sku_proveedor", 0)) . "|" . intval($this->valor($item, "id_sku_erp", 0));
+            $costos[$clave] = $item;
+        }
+        foreach ($detalle as $i => $fila) {
+            if (floatval($this->valor($fila, "costo_estimado", 0)) > 0) {
+                continue;
+            }
+            $clave = intval($this->valor($fila, "id_sku_proveedor", 0)) . "|" . intval($this->valor($fila, "id_sku_erp", 0));
+            if (!isset($costos[$clave]) || floatval($this->valor($costos[$clave], "costo_estimado", 0)) <= 0) {
+                continue;
+            }
+            $detalle[$i]["costo_estimado"] = floatval($costos[$clave]["costo_estimado"]);
+            $detalle[$i]["fuente_costo_refrescada"] = $this->valor($costos[$clave], "fuente_costo", "proveedor_actual");
+        }
+        return $detalle;
+    }
+
+    /**
+     * IA: Codex GPT-5
+     * Fecha: 2026-09-08
+     * Proposito: cambiar Sugerido a cancelado como eliminacion logica operativa.
+     * Impacto: Compras/Sugerido; conserva historial y excluye del resumen pendiente.
+     * Contrato: no cancela sugeridos con solicitud generada; no borra detalle ni afecta inventario.
+     */
+    public function cancelar($idSugerido) {
+        $db = $this->getConexion();
+        try {
+            if (!$this->schemaDisponible($db)) {
+                return $this->respuesta(true, "warning", "El esquema de Sugerido de compra aun no esta preparado", array("schema_pendiente" => 1));
+            }
+            $idSugerido = intval($idSugerido);
+            if ($idSugerido <= 0) {
+                return $this->respuesta(true, "warning", "Sugerido invalido");
+            }
+            $db->beginTransaction();
+            $stmt = $db->prepare("SELECT estatus, id_solicitud_generada FROM erp_compras_sugeridos_compra WHERE id_sugerido_compra=:id FOR UPDATE");
+            $stmt->execute(array(":id" => $idSugerido));
+            $actual = $stmt->fetch(PDO::FETCH_ASSOC);
+            if (!$actual) {
+                throw new Exception("Sugerido no encontrado");
+            }
+            if (!empty($actual["id_solicitud_generada"])) {
+                throw new Exception("No se puede cancelar un sugerido que ya genero solicitud");
+            }
+            if ($actual["estatus"] === "cancelada") {
+                throw new Exception("El sugerido ya esta cancelado");
+            }
+            $stmt = $db->prepare("UPDATE erp_compras_sugeridos_compra SET estatus='cancelada', fecha_actualizacion=NOW() WHERE id_sugerido_compra=:id");
+            $stmt->execute(array(":id" => $idSugerido));
+            $db->commit();
+            return $this->respuesta(false, "success", "Sugerido de compra cancelado", array("id_sugerido_compra" => $idSugerido));
+        } catch (Exception $e) {
+            if ($db->inTransaction()) {
+                $db->rollBack();
+            }
+            return $this->respuesta(true, "danger", $e->getMessage());
+        }
+    }
+
+    /**
+     * IA: Codex GPT-5 | Fecha: 2026-09-08
+     * Proposito: hidratar minimos/maximos/reorden guardados previamente en Catalogo al consultar Sugerido.
+     * Impacto: Compras/Sugerido; permite reutilizar reglas actuales en sugeridos viejos o convertidos sin editar inventario.
+     * Contrato: solo lectura; respeta snapshots con valores capturados y completa partidas vacias desde erp_catalogo_sku_reglas_inventario.
+     */
+    private function refrescarReglasResurtidoDetalleSugerido(PDO $db, $detalle) {
+        if (!is_array($detalle) || empty($detalle)) {
+            return $detalle;
+        }
+        $ids = array();
+        foreach ($detalle as $fila) {
+            $idSku = intval($this->valor($fila, "id_sku_erp", 0));
+            if ($idSku > 0) {
+                $ids[$idSku] = $idSku;
+            }
+        }
+        if (empty($ids)) {
+            return $detalle;
+        }
+        $placeholders = array();
+        $params = array();
+        $n = 0;
+        foreach (array_values($ids) as $idSku) {
+            $clave = ":sku" . $n;
+            $placeholders[] = $clave;
+            $params[$clave] = $idSku;
+            $n++;
+        }
+        $stmt = $db->prepare("SELECT id_sku, stock_minimo, stock_maximo, punto_reorden
+            FROM erp_catalogo_sku_reglas_inventario
+            WHERE id_sku IN (" . implode(",", $placeholders) . ")");
+        $stmt->execute($params);
+        $reglas = array();
+        foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $regla) {
+            $reglas[intval($regla["id_sku"])] = $regla;
+        }
+        foreach ($detalle as $i => $fila) {
+            $idSku = intval($this->valor($fila, "id_sku_erp", 0));
+            if ($idSku <= 0 || !isset($reglas[$idSku])) {
+                continue;
+            }
+            $tieneSnapshot = floatval($this->valor($fila, "stock_minimo", 0)) > 0
+                || floatval($this->valor($fila, "punto_reorden", 0)) > 0
+                || ($this->valor($fila, "stock_maximo", null) !== null && $this->valor($fila, "stock_maximo", "") !== "" && floatval($this->valor($fila, "stock_maximo", 0)) > 0);
+            if ($tieneSnapshot) {
+                $detalle[$i]["stock_minimo_actual"] = floatval($reglas[$idSku]["stock_minimo"]);
+                $detalle[$i]["stock_maximo_actual"] = $reglas[$idSku]["stock_maximo"] === null ? null : floatval($reglas[$idSku]["stock_maximo"]);
+                $detalle[$i]["punto_reorden_actual"] = floatval($reglas[$idSku]["punto_reorden"]);
+                continue;
+            }
+            $detalle[$i]["stock_minimo"] = floatval($reglas[$idSku]["stock_minimo"]);
+            $detalle[$i]["stock_maximo"] = $reglas[$idSku]["stock_maximo"] === null ? null : floatval($reglas[$idSku]["stock_maximo"]);
+            $detalle[$i]["punto_reorden"] = floatval($reglas[$idSku]["punto_reorden"]);
+            $detalle[$i]["reglas_resurtido_refrescadas"] = 1;
+        }
+        return $detalle;
     }
 
     /**
@@ -367,8 +559,58 @@ class ComprasSugeridosCompraErp extends CRUD {
                     ->execute(array(":folio" => $folio, ":id" => $idSugerido));
             }
             $this->insertarDetalle($db, $idSugerido, $detalle);
+            $reglasActualizadas = 0;
+            if ($this->booleano($datos, "actualizar_reglas_resurtido")) {
+                $reglasActualizadas = $this->aplicarReglasResurtido($db, $detalle, $idUsuario);
+            }
             $db->commit();
-            return $this->respuesta(false, "success", "Sugerido de compra guardado", array("id_sugerido_compra" => $idSugerido, "estatus" => $estatus));
+            return $this->respuesta(false, "success", "Sugerido de compra guardado", array(
+                "id_sugerido_compra" => $idSugerido,
+                "estatus" => $estatus,
+                "reglas_resurtido_actualizadas" => $reglasActualizadas
+            ));
+        } catch (Exception $e) {
+            if ($db->inTransaction()) {
+                $db->rollBack();
+            }
+            return $this->respuesta(true, "danger", $e->getMessage());
+        }
+    }
+
+    /**
+     * IA: Codex GPT-5
+     * Fecha: 2026-09-08
+     * Proposito: guardar minimos, maximos y punto de reorden capturados en Sugerido como reglas futuras del SKU.
+     * Impacto: Compras/Sugerido y Catalogo/Reorden; permite recuperar datos aunque el sugerido ya tenga solicitud generada.
+     * Contrato: no modifica inventario, existencias ni kardex; solo actualiza erp_catalogo_sku_reglas_inventario.
+     */
+    public function actualizarReglasResurtido($datos, $idUsuario) {
+        $db = $this->getConexion();
+        try {
+            if (!$this->schemaDisponible($db)) {
+                return $this->respuesta(true, "warning", "El esquema de Sugerido de compra aun no esta preparado", array("schema_pendiente" => 1));
+            }
+            $idSugerido = intval($this->valor($datos, "id_sugerido_compra", 0));
+            $items = $this->valor($datos, "items", array());
+            if (is_string($items)) {
+                $items = json_decode($items, true);
+            }
+            if ((!is_array($items) || empty($items)) && $idSugerido > 0) {
+                $stmt = $db->prepare("SELECT * FROM erp_compras_sugeridos_compra_detalle WHERE id_sugerido_compra=:id ORDER BY id_detalle");
+                $stmt->execute(array(":id" => $idSugerido));
+                $items = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            }
+            if (!is_array($items) || empty($items)) {
+                return $this->respuesta(true, "warning", "No hay partidas para actualizar reglas de resurtido");
+            }
+            $detalle = $this->normalizarDetalle($items);
+            $db->beginTransaction();
+            $actualizados = $this->aplicarReglasResurtido($db, $detalle, $idUsuario);
+            $db->commit();
+            return $this->respuesta(false, "success", "Reglas de resurtido actualizadas", array(
+                "id_sugerido_compra" => $idSugerido,
+                "reglas_resurtido_actualizadas" => $actualizados
+            ));
         } catch (Exception $e) {
             if ($db->inTransaction()) {
                 $db->rollBack();
@@ -511,6 +753,48 @@ class ComprasSugeridosCompraErp extends CRUD {
         }
     }
 
+    /**
+     * IA: Codex GPT-5
+     * Fecha: 2026-09-08
+     * Proposito: aplicar snapshot de resurtido de Sugerido al maestro de reglas del SKU.
+     * Impacto: Catalogo/Reorden; conserva banderas existentes y crea regla minima si no existe.
+     * Contrato: debe ejecutarse dentro de una transaccion activa y no modifica existencias.
+     */
+    private function aplicarReglasResurtido(PDO $db, $detalle, $idUsuario) {
+        $stmt = $db->prepare("INSERT INTO erp_catalogo_sku_reglas_inventario
+            (id_sku, controla_inventario, stock_minimo, stock_maximo, punto_reorden)
+            VALUES (:sku, 1, :minimo, :maximo, :reorden)
+            ON DUPLICATE KEY UPDATE
+                stock_minimo=VALUES(stock_minimo),
+                stock_maximo=VALUES(stock_maximo),
+                punto_reorden=VALUES(punto_reorden),
+                fecha_actualizacion=CURRENT_TIMESTAMP");
+        $actualizados = 0;
+        foreach ($detalle as $item) {
+            $idSku = intval($item["id_sku_erp"]);
+            $minimo = max(0, floatval($item["stock_minimo"]));
+            $maximo = $item["stock_maximo"] === null || $item["stock_maximo"] === "" ? null : max(0, floatval($item["stock_maximo"]));
+            $reorden = max(0, floatval($item["punto_reorden"]));
+            if ($idSku <= 0) {
+                continue;
+            }
+            if ($maximo !== null && $maximo > 0 && $minimo > $maximo) {
+                throw new Exception("El minimo no puede ser mayor que el maximo en SKU " . $item["sku_erp"]);
+            }
+            if ($maximo !== null && $maximo > 0 && $reorden > $maximo) {
+                throw new Exception("El punto de reorden no puede ser mayor que el maximo en SKU " . $item["sku_erp"]);
+            }
+            $stmt->execute(array(
+                ":sku" => $idSku,
+                ":minimo" => $minimo,
+                ":maximo" => $maximo,
+                ":reorden" => $reorden
+            ));
+            $actualizados++;
+        }
+        return $actualizados;
+    }
+
     private function calcularCantidadSugerida($fila, $existencia) {
         $existencia = max(0, floatval($existencia));
         $minimo = max(0, floatval($this->valor($fila, "stock_minimo", 0)));
@@ -554,6 +838,11 @@ class ComprasSugeridosCompraErp extends CRUD {
 
     private function valor($datos, $campo, $default = null) {
         return is_array($datos) && array_key_exists($campo, $datos) ? $datos[$campo] : $default;
+    }
+
+    private function booleano($datos, $campo) {
+        $valor = $this->valor($datos, $campo, 0);
+        return $valor === true || $valor === 1 || $valor === "1" || $valor === "true" || $valor === "on";
     }
 
     private function respuesta($error, $tipo, $mensaje, $depurar = array()) {

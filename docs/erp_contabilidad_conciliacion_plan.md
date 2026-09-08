@@ -255,6 +255,14 @@ La seccion `Pendientes del contador` debe servir como acceso rapido a la revisio
 
 Las ventas operativas del mes se extraen como movimientos con `movimiento = ingreso` y `actividad = negocio`. Esta vista debe estar disponible desde conciliacion para revisar y descargar solo los ingresos de negocio sin mezclar traspasos, inversiones o movimientos personales.
 
+Las compras operativas del mes se extraen como movimientos con `categoria = compra_mercancia`. Esta vista debe incluir movimientos de estados de cuenta y CFDI asignados a cuenta que todavia esten como `cfdi_sin_movimiento`, para revisar compras pendientes de ligar o materializar sin mezclarlas con gastos operativos.
+
+Los gastos operativos del mes se extraen como egresos con categorias de gasto, por ejemplo `gasto_operativo`, `comision_plataforma`, `servicio`, `nomina`, `impuestos`, `renta`, `publicidad`, `software` y `banco_comision`. No deben mezclarse con `compra_mercancia` ni con `transpaso`.
+
+La conciliacion debe permitir elegir un ambito antes de revisar: todo el mes, un estado de cuenta cargado o una cuenta auxiliar/generada. Las vistas rapidas de ventas, compras, gastos y traspasos deben respetar ese ambito para que el usuario pueda aislar una cuenta sin perder las descargas por tipo.
+
+El detalle de conciliacion debe mostrar la cuenta y el estado de cuenta de origen en una columna propia. En vistas transversales como compras o gastos, esto evita confundir registros de Santander, Mercado Pago, efectivo, tarjeta de credito o CFDI auxiliares dentro de una sola lista.
+
 Los traspasos entre cuentas propias se identifican por `actividad = transpaso`. Para ayudar a relacionarlos, el MVP sugiere pares cuando existe un egreso y un ingreso con el mismo monto absoluto, cuentas distintas y fechas cercanas. La relacion se guarda localmente en `traspaso_grupo` y `traspaso_relacionado`; no cambia el monto ni crea un movimiento nuevo.
 
 Los traspasos relacionados deben quedar con `categoria = no_aplica` y `cfdi = no_aplica`, porque no representan ingreso gravable ni gasto deducible por si mismos. Siguen apareciendo en conciliacion para comprobar que la salida de una cuenta corresponde con la entrada de otra.

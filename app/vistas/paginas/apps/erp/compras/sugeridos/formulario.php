@@ -34,6 +34,9 @@ $modo = isset($datos["modo"]) ? $datos["modo"] : "editar";
             min-width: 7.5rem;
             text-align: right;
         }
+        .sugerido-filtro-partidas {
+            min-width: 16rem;
+        }
         .sugerido-scan-preview { position: relative; border-radius: 8px; overflow: hidden; background: #111827; min-height: 320px; }
         .sugerido-scan-preview video { width: 100%; min-height: 320px; object-fit: cover; display: block; }
         .sugerido-scan-guide { position: absolute; left: 10%; right: 10%; top: 38%; height: 86px; border: 2px solid rgba(255,255,255,.9); border-radius: 8px; box-shadow: 0 0 0 999px rgba(0,0,0,.22); pointer-events: none; }
@@ -119,10 +122,31 @@ $modo = isset($datos["modo"]) ? $datos["modo"] : "editar";
 
                         <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-4">
                             <div class="text-muted fs-7" id="sugerido_resumen">Selecciona proveedor para buscar productos.</div>
-                            <div class="d-flex gap-2">
+                            <div class="d-flex flex-wrap align-items-center gap-3">
+                                <label class="form-check form-check-custom form-check-solid mb-0">
+                                    <input class="form-check-input" type="checkbox" id="sugerido_actualizar_reglas_resurtido">
+                                    <span class="form-check-label text-muted fs-7">Guardar min/max/reorden para futuras revisiones</span>
+                                </label>
+                                <button type="button" class="btn btn-sm btn-light-primary" id="sugerido_actualizar_reglas"><i class="bi bi-save"></i> Actualizar reglas</button>
                                 <button type="button" class="btn btn-sm btn-light" id="sugerido_recalcular"><i class="bi bi-calculator"></i> Recalcular</button>
+                                <button type="button" class="btn btn-sm btn-light-warning" id="sugerido_reiniciar_existencias"><i class="bi bi-arrow-counterclockwise"></i> Existencias a 0</button>
                                 <button type="button" class="btn btn-sm btn-light-danger" id="sugerido_limpiar_ceros">Ocultar ceros</button>
                             </div>
+                        </div>
+
+                        <div class="d-flex flex-wrap align-items-end justify-content-between gap-3 mb-4">
+                            <div class="flex-grow-1 sugerido-filtro-partidas">
+                                <label class="form-label text-muted fs-8" for="sugerido_filtro_partidas">Buscar dentro de productos agregados</label>
+                                <div class="d-flex gap-2">
+                                    <div class="position-relative flex-grow-1">
+                                        <i class="bi bi-search position-absolute ms-5 mt-3 fs-3"></i>
+                                        <input class="form-control form-control-solid ps-12" id="sugerido_filtro_partidas" placeholder="SKU, nombre o codigo escaneado">
+                                    </div>
+                                    <button type="button" class="btn btn-light-primary" id="sugerido_scan_partidas_btn" title="Escanear dentro de agregados"><i class="bi bi-camera"></i></button>
+                                    <button type="button" class="btn btn-light" id="sugerido_limpiar_filtro_partidas"><i class="bi bi-x-lg"></i></button>
+                                </div>
+                            </div>
+                            <div class="text-muted fs-8" id="sugerido_filtro_partidas_resumen">0 partidas agregadas</div>
                         </div>
 
                         <div class="table-responsive">
@@ -139,6 +163,7 @@ $modo = isset($datos["modo"]) ? $datos["modo"] : "editar";
                                         <th class="text-end">A solicitar</th>
                                         <th class="text-end">Costo</th>
                                         <th>Obs.</th>
+                                        <th class="text-end">Accion</th>
                                     </tr>
                                 </thead>
                                 <tbody id="sugerido_items"></tbody>
@@ -147,17 +172,17 @@ $modo = isset($datos["modo"]) ? $datos["modo"] : "editar";
                                         <td colspan="7" class="text-end fw-bold">Total a solicitar estimado</td>
                                         <td class="text-end fw-bold" id="sugerido_total_piezas">0</td>
                                         <td class="text-end fw-bold fs-5" id="sugerido_total">$0.00</td>
-                                        <td></td>
+                                        <td colspan="2"></td>
                                     </tr>
                                     <tr>
                                         <td colspan="7" class="text-end text-muted fw-bold">Cantidad revisada total</td>
                                         <td class="text-end text-muted fw-bold" id="sugerido_total_existencia_revisada">0</td>
-                                        <td class="text-muted fs-8" colspan="2">Suma de existencia revisada</td>
+                                        <td class="text-muted fs-8" colspan="3">Suma de existencia revisada</td>
                                     </tr>
                                     <tr>
                                         <td colspan="8" class="text-end text-muted fw-bold">Inventario fisico estimado</td>
                                         <td class="text-end text-muted fw-bold" id="sugerido_total_inventario_estimado">$0.00</td>
-                                        <td class="text-muted fs-8">Existencia revisada x costo</td>
+                                        <td class="text-muted fs-8" colspan="2">Existencia revisada x costo</td>
                                     </tr>
                                 </tfoot>
                             </table>
@@ -173,8 +198,8 @@ $modo = isset($datos["modo"]) ? $datos["modo"] : "editar";
         <div class="modal-content">
             <div class="modal-header">
                 <div>
-                    <h3 class="modal-title mb-1">Escanear producto</h3>
-                    <div class="text-muted fs-7">Lee el codigo para buscarlo dentro del proveedor seleccionado</div>
+                    <h3 class="modal-title mb-1" id="sugerido_scan_titulo">Escanear producto</h3>
+                    <div class="text-muted fs-7" id="sugerido_scan_descripcion">Lee el codigo para buscarlo dentro del proveedor seleccionado</div>
                 </div>
                 <button type="button" class="btn btn-icon btn-sm btn-active-light-primary" data-bs-dismiss="modal"><i class="bi bi-x-lg"></i></button>
             </div>
@@ -199,7 +224,7 @@ $modo = isset($datos["modo"]) ? $datos["modo"] : "editar";
 </div>
 <script src="assets/plugins/global/plugins.bundle.js"></script>
 <script src="assets/js/scripts.bundle.js"></script>
-<script src="/assets/js/custom/apps/erp/compras/sugeridos/formulario.js?v=20260827-4"></script>
+<script src="/assets/js/custom/apps/erp/compras/sugeridos/formulario.js?v=20260908-3"></script>
 </body>
 </html>
 

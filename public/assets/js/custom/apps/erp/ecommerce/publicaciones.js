@@ -27,6 +27,16 @@
         return "/" + url.replace(/^\/+/, "");
     }
 
+    function slugificarLocal(texto) {
+        texto = String(texto || "").toLowerCase();
+        if (texto.normalize) {
+            texto = texto.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+        }
+        texto = texto.replace(/ñ/g, "n").replace(/[&+]/g, " y ");
+        texto = texto.replace(/['"`´]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "");
+        return texto.substring(0, 170);
+    }
+
     function getJson(url, params) {
         var query = new URLSearchParams(params || {}).toString();
         return fetch(url + (query ? "?" + query : ""), {credentials: "same-origin"}).then(function (response) {
@@ -466,6 +476,8 @@
         var bloqueos = data.bloqueos_publicacion || [];
         var necesidades = pub.necesidades || [];
         var taxonomia = data.taxonomia_publicacion || {};
+        var seoUrl = data.seo_url_publica || {};
+        var historialSlugs = data.historial_slugs || [];
         var auditoriaEditorial = data.auditoria_editorial || {};
         var idPublicacion = Number(producto.id_publicacion || 0);
         var estatus = String(producto.estatus_publicacion || "");
@@ -515,9 +527,14 @@
                 "</div>" +
                 "<div class=\"col-12\">" +
                     "<div class=\"border rounded p-4\">" +
-                        "<div class=\"row g-3\" id=\"ecom_publicacion_form\" data-id-sku=\"" + escapeHtml(producto.id_sku || "") + "\" data-id-publicacion=\"" + escapeHtml(idPublicacion || "") + "\">" +
+                        "<div class=\"row g-3\" id=\"ecom_publicacion_form\" data-id-sku=\"" + escapeHtml(producto.id_sku || "") + "\" data-id-publicacion=\"" + escapeHtml(idPublicacion || "") + "\" data-slug-original=\"" + escapeHtml(pub.slug || "") + "\" data-titulo-original=\"" + escapeHtml(pub.titulo_publico || producto.nombre || "") + "\">" +
                             "<div class=\"col-lg-6\"><label class=\"form-label fw-semibold\">Titulo publico</label><input class=\"form-control form-control-solid\" data-field=\"titulo_publico\" value=\"" + escapeHtml(pub.titulo_publico || producto.nombre || "") + "\"></div>" +
-                            "<div class=\"col-lg-6\"><label class=\"form-label fw-semibold\">Slug</label><input class=\"form-control form-control-solid\" data-field=\"slug\" value=\"" + escapeHtml(pub.slug || "") + "\"></div>" +
+                            "<div class=\"col-lg-6\"><label class=\"form-label fw-semibold\">Slug</label><div class=\"input-group\"><input class=\"form-control form-control-solid\" data-field=\"slug\" value=\"" + escapeHtml(pub.slug || "") + "\"><button class=\"btn btn-light-primary\" type=\"button\" id=\"ecom_sugerir_slug\">Sugerir</button></div><div class=\"text-muted fs-8 mt-1\">Cambiar el nombre publico no cambia esta URL automaticamente.</div></div>" +
+                            "<div class=\"col-12\"><div class=\"border rounded p-4 bg-light\"><div class=\"d-flex flex-wrap justify-content-between gap-3 mb-3\"><div><div class=\"fw-bold fs-7\">SEO y URL publica</div><div class=\"text-muted fs-8\">La URL canonica debe vivir en el frontend publico, no en /ecommercePublico.</div></div><button class=\"btn btn-sm btn-light-info\" type=\"button\" id=\"ecom_copiar_url_publica\">Copiar URL</button></div>" +
+                                "<div class=\"row g-3\"><div class=\"col-lg-4\"><div class=\"text-muted fs-8 fw-bold text-uppercase\">URL publica</div><code class=\"text-break\" id=\"ecom_url_publica_preview\">" + escapeHtml(seoUrl.url_publica || (pub.slug ? "/producto/" + pub.slug : "")) + "</code></div>" +
+                                "<div class=\"col-lg-4\"><div class=\"text-muted fs-8 fw-bold text-uppercase\">Canonical</div><code class=\"text-break\" id=\"ecom_canonical_preview\">" + escapeHtml(seoUrl.canonical_url || "") + "</code></div>" +
+                                "<div class=\"col-lg-4\"><div class=\"text-muted fs-8 fw-bold text-uppercase\">Historial slugs</div>" + historialSlugsHtml(historialSlugs) + "</div></div>" +
+                                "<div class=\"separator my-3\"></div><div class=\"fs-8 text-muted\">Vista previa Google</div><div class=\"fw-semibold\" id=\"ecom_google_title_preview\">" + escapeHtml(pub.titulo_publico || producto.nombre || "") + " | Artiani</div><div class=\"text-success fs-8\" id=\"ecom_google_url_preview\">" + escapeHtml(seoUrl.canonical_url || "") + "</div><div class=\"text-muted fs-8\" id=\"ecom_google_desc_preview\">" + escapeHtml((pub.descripcion_publica || "").substring(0, 160)) + "</div></div></div>" +
                             "<div class=\"col-lg-4\"><label class=\"form-label fw-semibold\">Presentacion comercial opcional</label><input class=\"form-control form-control-solid\" data-field=\"presentacion_publica\" value=\"" + escapeHtml(pub.presentacion_publica || producto.presentacion_base || "") + "\"><div class=\"text-muted fs-8 mt-1\">Texto visible, no sustituye caracteristicas ERP.</div></div>" +
                             "<div class=\"col-lg-4\"><label class=\"form-label fw-semibold\">Mascotas</label>" + mascotasCheckboxesHtml(taxonomia, pub.mascota_especie || "") + "</div>" +
                             "<div class=\"col-lg-4\"><label class=\"form-label fw-semibold\">Necesidades</label>" + necesidadesCheckboxesHtml(taxonomia, necesidades) + "</div>" +
@@ -571,6 +588,55 @@
         if (btnCerrar) {
             btnCerrar.addEventListener("click", renderPreviewInicial);
         }
+        enlazarSeoSlugUi();
+    }
+
+    function historialSlugsHtml(items) {
+        if (!Array.isArray(items) || !items.length) {
+            return "<span class=\"badge badge-light\">Sin cambios previos</span>";
+        }
+        return "<div class=\"d-flex flex-column gap-1\">" + items.slice(0, 5).map(function (item) {
+            return "<code class=\"fs-8 text-break\">" + escapeHtml(item.from || "") + " -> " + escapeHtml(item.to || "") + "</code>";
+        }).join("") + "</div>";
+    }
+
+    function enlazarSeoSlugUi() {
+        var form = $("ecom_publicacion_form");
+        if (!form) { return; }
+        var slugInput = form.querySelector("[data-field='slug']");
+        var tituloInput = form.querySelector("[data-field='titulo_publico']");
+        var descInput = form.querySelector("[data-field='descripcion_publica']");
+        var sugerir = $("ecom_sugerir_slug");
+        var copiar = $("ecom_copiar_url_publica");
+        var refrescar = function () {
+            var slug = slugificarLocal(slugInput ? slugInput.value : "");
+            var path = slug ? "/producto/" + slug : "";
+            var canonical = path ? "https://artiani.com.mx" + path : "";
+            if ($("ecom_url_publica_preview")) { $("ecom_url_publica_preview").textContent = path; }
+            if ($("ecom_canonical_preview")) { $("ecom_canonical_preview").textContent = canonical; }
+            if ($("ecom_google_title_preview")) { $("ecom_google_title_preview").textContent = String(tituloInput ? tituloInput.value : "").trim().substring(0, 90) + " | Artiani"; }
+            if ($("ecom_google_url_preview")) { $("ecom_google_url_preview").textContent = canonical; }
+            if ($("ecom_google_desc_preview")) { $("ecom_google_desc_preview").textContent = String(descInput ? descInput.value : "").trim().substring(0, 160); }
+        };
+        if (slugInput) { slugInput.addEventListener("input", refrescar); }
+        if (tituloInput) { tituloInput.addEventListener("input", refrescar); }
+        if (descInput) { descInput.addEventListener("input", refrescar); }
+        if (sugerir && tituloInput && slugInput) {
+            sugerir.addEventListener("click", function () {
+                slugInput.value = slugificarLocal(tituloInput.value);
+                refrescar();
+            });
+        }
+        if (copiar) {
+            copiar.addEventListener("click", function () {
+                var url = $("ecom_canonical_preview") ? $("ecom_canonical_preview").textContent : "";
+                if (navigator.clipboard && url) {
+                    navigator.clipboard.writeText(url);
+                    setEstado("URL copiada", "badge-light-success");
+                }
+            });
+        }
+        refrescar();
     }
 
     function avisoAgotadoHtml(agotado) {
@@ -671,6 +737,16 @@
 
     function guardarCuraduriaActual() {
         var datos = datosFormularioPublicacion();
+        var form = $("ecom_publicacion_form");
+        var slugOriginal = form ? slugificarLocal(form.getAttribute("data-slug-original") || "") : "";
+        var tituloOriginal = form ? String(form.getAttribute("data-titulo-original") || "") : "";
+        var slugNuevo = slugificarLocal(datos.slug || "");
+        if (tituloOriginal && datos.titulo_publico !== tituloOriginal && slugNuevo === slugOriginal) {
+            setEstado("Nombre actualizado; URL estable", "badge-light-info");
+        }
+        if (slugOriginal && slugNuevo && slugNuevo !== slugOriginal && !window.confirm("Cambiar la URL puede afectar SEO. Se creara una redireccion 301 desde la URL anterior.")) {
+            return;
+        }
         datos.autorizar = "ECOMMERCE_PUBLICO_PUBLICACION_CURADURIA";
         setEstado("Guardando cambios...", "badge-light-info");
         postForm("/ecommercePublico/publicaciones_guardar_curaduria_erp", datos).then(function (response) {

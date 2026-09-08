@@ -114,6 +114,7 @@
                                         <label class="form-label">Accion</label>
                                         <select class="form-select form-select-solid" id="ecom_seo_revision_accion">
                                             <option value="">Todas</option>
+                                            <option value="sin_redireccion_necesaria">Sin redireccion necesaria</option>
                                             <option value="aprobar_301_candidato">Aprobar 301 candidato</option>
                                             <option value="validar_301_candidato">Validar 301 candidato</option>
                                             <option value="revisar_manual">Revisar manual</option>
@@ -300,6 +301,6 @@
 <script>
     window.ERP_CSRF_TOKEN = "<?= htmlspecialchars(SesionSeguridad::csrfToken(), ENT_QUOTES, 'UTF-8') ?>";
 </script>
-<script src="/assets/js/custom/apps/erp/ecommerce/seo_migracion.js?v=20260905-relaciones1"></script>
+<script src="/assets/js/custom/apps/erp/ecommerce/seo_migracion.js?v=20260907-origen1"></script>
 </body>
 </html>

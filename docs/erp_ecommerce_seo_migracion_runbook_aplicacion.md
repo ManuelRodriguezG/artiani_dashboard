@@ -271,12 +271,14 @@ Archivos generados:
 - `storage/tmp/ecommerce_seo_urls_relaciones_20260905_232005.json`
 - `storage/tmp/ecommerce_seo_urls_relaciones_20260905_232005.csv`
 
-Resultado:
+Resultado actualizado 2026-09-07:
 
 - URLs viejas evaluadas: `350`.
-- URLs nuevas comparadas: `270`.
+- URLs nuevas comparadas: `272`.
 - Relaciones potenciales encontradas: `35`.
 - Sin candidato: `315`.
-- Acciones sugeridas: `2` aprobar 301 candidato, `33` validar 301 candidato, `252` revisar manual, `63` excluir o 410.
+- Acciones sugeridas: `2` sin redireccion necesaria, `33` validar 301 candidato, `252` revisar manual, `63` excluir o 410.
 
 La vista `/ecommercePublico/seo_migracion` prioriza el ultimo `storage/tmp/ecommerce_seo_urls_relaciones_*.json` si existe. Cada URL vieja puede mostrar hasta tres sugerencias nuevas, con `score`, confianza, motivo y link de preview local.
+
+Regla: si `path_original` y `url_destino_sugerida` son la misma URI, no se crea 301. La URL debe seguir respondiendo normal en el frontend nuevo y se clasifica como `sin_redireccion_necesaria`.

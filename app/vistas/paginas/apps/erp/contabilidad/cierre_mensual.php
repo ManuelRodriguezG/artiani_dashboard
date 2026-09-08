@@ -592,7 +592,12 @@
                                                 <h3 class="fw-bold fs-5 mb-0">Conciliacion por cuenta</h3>
                                             </div>
                                             <div class="card-toolbar d-flex flex-wrap gap-2">
+                                                <select class="form-select form-select-sm w-auto" id="contabilidad_conciliacion_origen" title="Filtrar conciliacion por estado de cuenta o cuenta auxiliar">
+                                                    <option value="">Todo el mes</option>
+                                                </select>
                                                 <button class="btn btn-sm btn-light-success" id="contabilidad_ver_ventas" type="button"><i class="bi bi-cash-coin"></i> Ver ventas</button>
+                                                <button class="btn btn-sm btn-light-warning" id="contabilidad_ver_compras" type="button"><i class="bi bi-bag-check"></i> Ver compras</button>
+                                                <button class="btn btn-sm btn-light-danger" id="contabilidad_ver_gastos" type="button"><i class="bi bi-receipt"></i> Ver gastos</button>
                                                 <button class="btn btn-sm btn-light-info" id="contabilidad_ver_traspasos" type="button"><i class="bi bi-arrow-left-right"></i> Ver traspasos</button>
                                                 <button class="btn btn-sm btn-light-primary" id="contabilidad_detectar_traspasos" type="button"><i class="bi bi-magic"></i> Sugerir traspasos</button>
                                                 <span class="badge badge-light" id="contabilidad_conciliacion_total">0 cuentas</span>
@@ -642,6 +647,7 @@
                         <thead>
                         <tr class="fw-bold text-muted">
                             <th>Fecha</th>
+                            <th>Cuenta / estado</th>
                             <th>Descripcion</th>
                             <th>Movimiento</th>
                             <th>Actividad</th>

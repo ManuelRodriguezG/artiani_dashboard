@@ -931,3 +931,52 @@ Modulo: Compras / Sugerido de compra
 - Si el codigo escaneado coincide con un solo producto del proveedor, puede agregarse automaticamente al sugerido.
 - Si hay varias coincidencias, el usuario debe elegir para evitar partidas equivocadas.
 - El backend puede buscar tambien en codigos alternos del SKU ERP, pero solo despues de filtrar por proveedor y relacion activa.
+
+## Decision tecnica: Prioridad de costo en Sugerido de compra
+
+Documentacion IA: Codex GPT-5  
+Fecha: 2026-09-07  
+Modulo: Compras / Sugerido de compra
+
+- El costo mostrado en Sugerido de compra no debe tomar precio de venta de Catalogo.
+- La prioridad correcta es: costo vigente en `erp_proveedores_sku_costos`, costo de la lista vinculada del proveedor y, al final, `erp_catalogo_sku_proveedores.costo_ultimo` como respaldo operativo.
+- Si una relacion proveedor-SKU acaba de generarse desde una lista con costo, Sugerido debe reflejar ese costo de lista aunque `costo_ultimo` este desactualizado.
+- Catalogo conserva datos del producto; Proveedores conserva relaciones/listas/costos; Compras guarda snapshot cuando genera solicitud u orden.
+
+## Decision operativa: Reglas de resurtido desde Sugerido de compra
+
+Documentacion IA: Codex GPT-5  
+Fecha: 2026-09-08  
+Modulo: Compras / Sugerido de compra
+
+- Sugerido de compra puede actualizar `stock_minimo`, `stock_maximo` y `punto_reorden` del SKU para no recapturar reglas en futuras revisiones.
+- La accion escribe en `erp_catalogo_sku_reglas_inventario`, pero no modifica inventario, existencias, kardex ni recepciones.
+- La actualizacion debe ser explicita: checkbox al guardar o boton `Actualizar reglas`.
+- El boton puede usarse tambien en sugeridos ya convertidos a solicitud para recuperar reglas capturadas previamente sin reabrir el documento.
+- La existencia revisada sigue siendo dato operativo del sugerido y no se convierte en inventario oficial.
+- Al consultar un sugerido existente, si sus partidas no tienen min/max/reorden capturados, la vista debe hidratar esos campos desde las reglas actuales del SKU para permitir reutilizar la informacion guardada.
+
+## Decision operativa: Estatus y resumen de Sugerido de compra
+
+Documentacion IA: Codex GPT-5  
+Fecha: 2026-09-08  
+Modulo: Compras / Sugerido de compra
+
+- Los sugeridos no se borran fisicamente; se cancelan logicamente para conservar trazabilidad.
+- Solo pueden cancelarse sugeridos sin solicitud generada.
+- El resumen del listado debe mostrar estimados de trabajo solo de sugeridos pendientes: `borrador` y `lista` sin solicitud generada.
+- `Inventario revisado estimado` es existencia revisada por costo estimado; no es inventario oficial ni contable.
+- `Compra sugerida estimada` es cantidad a solicitar por costo estimado; sirve para dimensionar futuras solicitudes.
+- El listado debe mostrar tambien el inventario revisado estimado por cada sugerido para comparar revisiones pendientes sin abrir una por una.
+
+## Decision UX: Revision fisica en Sugerido duplicado
+
+Documentacion IA: Codex GPT-5  
+Fecha: 2026-09-08  
+Modulo: Compras / Sugerido de compra
+
+- El formulario debe separar el buscador para agregar productos del proveedor del filtro sobre partidas ya agregadas.
+- El filtro de partidas permite localizar rapidamente productos dentro de listas duplicadas o largas sin agregar partidas nuevas.
+- El escaneo por camara puede operar en modo `agregar producto` o en modo `filtrar partidas agregadas`.
+- La accion `Existencias a 0` reinicia la captura fisica revisada y recalcula cantidades sugeridas sin tocar inventario real.
+- Cada partida agregada puede eliminarse del sugerido antes de guardar o generar solicitud; esta accion solo depura el documento de trabajo y no afecta catalogo, proveedor ni inventario.

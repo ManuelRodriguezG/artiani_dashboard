@@ -64,6 +64,36 @@ $puedeEditar = !empty($datos["puede_editar"]);
                                 <select id="sugeridos_proveedor" class="form-select form-select-solid"><option value="">Todos</option></select>
                             </div>
                         </div>
+                        <div class="row g-4 mb-6">
+                            <div class="col-xl-3 col-md-6">
+                                <div class="border border-gray-300 rounded p-4 h-100">
+                                    <div class="text-muted fs-8 text-uppercase fw-bold">Sugeridos pendientes</div>
+                                    <div class="fw-bold fs-2" id="sugeridos_resumen_pendientes">0</div>
+                                    <div class="text-muted fs-8"><span id="sugeridos_resumen_partidas">0</span> partidas sin solicitud</div>
+                                </div>
+                            </div>
+                            <div class="col-xl-3 col-md-6">
+                                <div class="border border-gray-300 rounded p-4 h-100">
+                                    <div class="text-muted fs-8 text-uppercase fw-bold">Inventario revisado estimado</div>
+                                    <div class="fw-bold fs-2" id="sugeridos_resumen_inventario">$0.00</div>
+                                    <div class="text-muted fs-8"><span id="sugeridos_resumen_cantidad_revisada">0</span> unidades revisadas</div>
+                                </div>
+                            </div>
+                            <div class="col-xl-3 col-md-6">
+                                <div class="border border-gray-300 rounded p-4 h-100">
+                                    <div class="text-muted fs-8 text-uppercase fw-bold">Compra sugerida estimada</div>
+                                    <div class="fw-bold fs-2" id="sugeridos_resumen_compra">$0.00</div>
+                                    <div class="text-muted fs-8"><span id="sugeridos_resumen_cantidad_solicitar">0</span> unidades a solicitar</div>
+                                </div>
+                            </div>
+                            <div class="col-xl-3 col-md-6">
+                                <div class="border border-gray-300 rounded p-4 h-100">
+                                    <div class="text-muted fs-8 text-uppercase fw-bold">Criterio</div>
+                                    <div class="fw-semibold fs-6 mt-2">Borrador y lista</div>
+                                    <div class="text-muted fs-8">No incluye cancelados ni sugeridos con solicitud generada.</div>
+                                </div>
+                            </div>
+                        </div>
                         <div class="table-responsive">
                             <table class="table align-middle table-row-dashed gy-4">
                                 <thead>
@@ -74,6 +104,7 @@ $puedeEditar = !empty($datos["puede_editar"]);
                                         <th class="text-end">Partidas</th>
                                         <th class="text-end">A solicitar</th>
                                         <th class="text-end">Estimado</th>
+                                        <th class="text-end">Inventario revisado</th>
                                         <th>Solicitud</th>
                                         <th>Estado</th>
                                         <th class="text-end">Acciones</th>
@@ -90,6 +121,6 @@ $puedeEditar = !empty($datos["puede_editar"]);
 </div>
 <script src="assets/plugins/global/plugins.bundle.js"></script>
 <script src="assets/js/scripts.bundle.js"></script>
-<script src="/assets/js/custom/apps/erp/compras/sugeridos/listado.js?v=20260820-1"></script>
+<script src="/assets/js/custom/apps/erp/compras/sugeridos/listado.js?v=20260908-2"></script>
 </body>
 </html>

@@ -376,6 +376,11 @@ class EcommercePublicoEsquema extends DBSchema {
       "`canal` VARCHAR(50) NOT NULL DEFAULT 'catalogo_publico'",
       "`estatus_publicacion` VARCHAR(30) NOT NULL DEFAULT 'borrador'",
       "`slug` VARCHAR(180) NOT NULL",
+      "`url_publica` VARCHAR(255) NULL",
+      "`canonical_url` VARCHAR(600) NULL",
+      "`fecha_slug_actualizado` DATETIME NULL",
+      "`usuario_slug_actualizado` INT NULL",
+      "`bloquear_slug_auto` TINYINT(1) NOT NULL DEFAULT 1",
       "`titulo_publico` VARCHAR(255) NOT NULL",
       "`descripcion_publica` TEXT NULL",
       "`presentacion_publica` VARCHAR(180) NULL",
@@ -398,6 +403,12 @@ class EcommercePublicoEsquema extends DBSchema {
       "KEY `idx_ecom_publicacion_producto` (`id_producto_erp`, `estatus_publicacion`)",
       "KEY `idx_ecom_publicacion_canal_estado` (`canal`, `estatus_publicacion`, `orden`)"
     ), $opciones, $ejecutar);
+
+    $plan[] = $this->agregarColumnaSiNoExiste("erp_ecommerce_publicaciones", "url_publica", "VARCHAR(255) NULL AFTER `slug`", $ejecutar);
+    $plan[] = $this->agregarColumnaSiNoExiste("erp_ecommerce_publicaciones", "canonical_url", "VARCHAR(600) NULL AFTER `url_publica`", $ejecutar);
+    $plan[] = $this->agregarColumnaSiNoExiste("erp_ecommerce_publicaciones", "fecha_slug_actualizado", "DATETIME NULL AFTER `canonical_url`", $ejecutar);
+    $plan[] = $this->agregarColumnaSiNoExiste("erp_ecommerce_publicaciones", "usuario_slug_actualizado", "INT NULL AFTER `fecha_slug_actualizado`", $ejecutar);
+    $plan[] = $this->agregarColumnaSiNoExiste("erp_ecommerce_publicaciones", "bloquear_slug_auto", "TINYINT(1) NOT NULL DEFAULT 1 AFTER `usuario_slug_actualizado`", $ejecutar);
 
     $plan[] = $this->crearTablaSiNoExiste("erp_ecommerce_configuracion", array(
       "`id_configuracion` BIGINT NOT NULL AUTO_INCREMENT",
@@ -876,6 +887,11 @@ class EcommercePublicoEsquema extends DBSchema {
       "`id_redireccion` BIGINT NOT NULL AUTO_INCREMENT",
       "`url_origen` VARCHAR(500) NOT NULL",
       "`url_destino` VARCHAR(500) NOT NULL",
+      "`from_slug` VARCHAR(180) NULL",
+      "`to_slug` VARCHAR(180) NULL",
+      "`tipo_entidad` VARCHAR(40) NULL",
+      "`id_entidad` BIGINT NULL",
+      "`id_publicacion` BIGINT NULL",
       "`status_code` SMALLINT NOT NULL DEFAULT 301",
       "`tipo` VARCHAR(40) NOT NULL DEFAULT 'manual'",
       "`motivo` VARCHAR(255) NULL",
@@ -889,6 +905,13 @@ class EcommercePublicoEsquema extends DBSchema {
       "KEY `idx_ecom_seo_redir_estado` (`activo`, `revisado`, `status_code`)",
       "KEY `idx_ecom_seo_redir_tipo` (`tipo`, `activo`)"
     ), $opciones, $ejecutar);
+
+    $plan[] = $this->agregarColumnaSiNoExiste("erp_ecommerce_seo_redirecciones", "from_slug", "VARCHAR(180) NULL AFTER `url_destino`", $ejecutar);
+    $plan[] = $this->agregarColumnaSiNoExiste("erp_ecommerce_seo_redirecciones", "to_slug", "VARCHAR(180) NULL AFTER `from_slug`", $ejecutar);
+    $plan[] = $this->agregarColumnaSiNoExiste("erp_ecommerce_seo_redirecciones", "tipo_entidad", "VARCHAR(40) NULL AFTER `to_slug`", $ejecutar);
+    $plan[] = $this->agregarColumnaSiNoExiste("erp_ecommerce_seo_redirecciones", "id_entidad", "BIGINT NULL AFTER `tipo_entidad`", $ejecutar);
+    $plan[] = $this->agregarColumnaSiNoExiste("erp_ecommerce_seo_redirecciones", "id_publicacion", "BIGINT NULL AFTER `id_entidad`", $ejecutar);
+    $plan[] = $this->agregarIndiceSiNoExiste("erp_ecommerce_seo_redirecciones", "idx_ecom_seo_redir_producto", "KEY `idx_ecom_seo_redir_producto` (`tipo_entidad`, `id_publicacion`, `activo`)", $ejecutar);
 
     $plan[] = $this->crearTablaSiNoExiste("erp_ecommerce_seo_urls_viejas", array(
       "`id_url_vieja` BIGINT NOT NULL AUTO_INCREMENT",

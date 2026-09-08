@@ -264,20 +264,32 @@
       var local = item.url_destino_local || "";
       var ocultada = descartadas[item.path_original || ""];
       var sugerencias = Array.isArray(item.sugerencias) ? item.sugerencias : [];
+      var mismaUri = normalizarPathUi(item.path_original || "") === normalizarPathUi(destino);
       return [
         '<tr class="' + (ocultada ? "ecom-seo-row-muted" : "") + '">',
-        '<td><div class="fw-semibold ecom-seo-path">' + escapeHtml(item.path_original || "-") + '</div><div class="text-muted fs-8 ecom-seo-path">' + escapeHtml(item.titulo_detectado || item.url_original || "") + "</div></td>",
+        '<td><div class="fw-semibold ecom-seo-path">' + escapeHtml(item.path_original || "-") + '</div>' + renderOrigenRevision(item) + '<div class="text-muted fs-8 ecom-seo-path">' + escapeHtml(item.titulo_detectado || "") + "</div></td>",
         '<td>' + badgeHttp(item.status_http) + "</td>",
         '<td>' + badgeTipo(item.tipo_plan || item.tipo_crawl || "url") + '<div class="text-muted fs-8">' + escapeHtml(item.tipo_crawl || "") + "</div></td>",
         '<td>' + renderSugerenciasRevision(item, sugerencias, destino, local) + "</td>",
         '<td>' + badgeAccion(item.accion_sugerida) + '<div class="mt-1">' + badgeConfianza(item.confianza) + '</div><div class="text-muted fs-8">' + escapeHtml(item.nota || item.motivo || "") + "</div></td>",
         '<td class="text-end"><div class="d-flex justify-content-end gap-2">' +
-          '<button class="btn btn-sm btn-light-primary" type="button" data-seo-usar-redireccion="1" data-from="' + escapeAttr(item.path_original || "") + '" data-to="' + escapeAttr(destino) + '" data-tipo="' + escapeAttr(item.tipo_plan || "manual") + '"' + (!destino ? " disabled" : "") + '><i class="bi bi-arrow-return-right"></i></button>' +
+          '<button class="btn btn-sm btn-light-primary" type="button" data-seo-usar-redireccion="1" data-from="' + escapeAttr(item.path_original || "") + '" data-to="' + escapeAttr(destino) + '" data-tipo="' + escapeAttr(item.tipo_plan || "manual") + '"' + (!destino || mismaUri ? " disabled" : "") + '><i class="bi bi-arrow-return-right"></i></button>' +
           '<button class="btn btn-sm btn-light-warning" type="button" data-seo-ocultar-url="' + escapeAttr(item.path_original || "") + '"><i class="bi bi-eye-slash"></i></button>' +
         "</div></td>",
         "</tr>"
       ].join("");
     }).join("");
+  }
+
+  function renderOrigenRevision(item) {
+    var url = item.url_original || "";
+    if (!url && item.path_original) {
+      url = "https://artiani.com.mx" + item.path_original;
+    }
+    if (!url) {
+      return "";
+    }
+    return '<a class="fs-8 ecom-seo-path d-inline-block" target="_blank" rel="noopener" href="' + escapeAttr(url) + '">' + escapeHtml(url) + "</a>";
   }
 
   function renderSugerenciasRevision(item, sugerencias, destino, local) {
@@ -304,6 +316,7 @@
     if (!node) return;
     var acciones = resumen.accion || {};
     node.innerHTML = [
+      resumenCaja("Sin 301", acciones.sin_redireccion_necesaria || 0),
       resumenCaja("Aprobar", acciones.aprobar_301_candidato || 0),
       resumenCaja("Validar", acciones.validar_301_candidato || 0),
       resumenCaja("Manual", acciones.revisar_manual || 0),
@@ -570,12 +583,14 @@
   function badgeAccion(accion) {
     var clases = {
       aprobar_301_candidato: "badge-light-success",
+      sin_redireccion_necesaria: "badge-light-info",
       validar_301_candidato: "badge-light-primary",
       revisar_manual: "badge-light-warning",
       excluir_o_410: "badge-light-danger"
     };
     var textos = {
       aprobar_301_candidato: "Aprobar",
+      sin_redireccion_necesaria: "Sin 301",
       validar_301_candidato: "Validar",
       revisar_manual: "Manual",
       excluir_o_410: "Excluir/410"
@@ -698,5 +713,15 @@
 
   function escapeAttr(value) {
     return escapeHtml(value).replace(/`/g, "&#096;");
+  }
+
+  function normalizarPathUi(path) {
+    path = String(path == null ? "" : path).trim();
+    if (!path) return "";
+    try {
+      if (/^https?:\/\//i.test(path)) path = new URL(path).pathname;
+    } catch (e) {}
+    path = "/" + path.replace(/^\/+/, "");
+    return path.replace(/\/+/g, "/");
   }
 })();
