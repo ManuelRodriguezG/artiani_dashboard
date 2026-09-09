@@ -4619,3 +4619,16 @@ Actualizacion 2026-09-03:
 - Correccion: Sugeridos sigue exigiendo proveedor activo, SKU activo, producto activo y lista vinculada por `id_sku_proveedor/id_sku`, pero ya no bloquea por diferencia textual entre codigo historico de lista y SKU proveedor actual.
 - Validacion: despues del ajuste, `SP-3641` aparece en Sugeridos para proveedor `1` buscando `SP-3641` o `JHA-05`; tambien aparece para proveedor `9` buscando `SP-3641`.
 - Herramienta UAT read-only creada: `storage/uat/uat_compras_sku_proveedor_busqueda_readonly.php`.
+
+## Avance 2026-09-08 - Organizacion de nombres para ecommerce
+
+- Proyecto aplicado: `C:\xampp\htdocs\panel_de_control`.
+- Caso: se requiere revisar si hay mas SKUs con nombres candidatos desde titulos de proveedor para seguir corrigiendo manualmente antes de ecommerce.
+- Auditoria read-only creada: `storage/uat/uat_catalogo_organizacion_nombres_readonly.php`.
+- Resultado read-only: `erp_catalogo_revision_nombres` tiene 485 aprobadas, 53 descartadas y 160 pendientes. Se detectaron 335 candidatos desde listas ERP nuevas sin revision y 150 candidatos legacy sin revision.
+- Hallazgo: la pantalla `/catalogoerp/organizacion` solo listaba propuestas existentes; el modelo tenia generador, pero no estaba expuesto en UI y dependia principalmente de la fuente legacy.
+- Correccion: se agrego accion `Actualizar propuestas` en Organizacion. La accion llena/actualiza `erp_catalogo_revision_nombres` desde listas ERP nuevas y legacy, pero no cambia nombres de SKUs automaticamente.
+- Regla: el operador sigue aprobando o descartando cada propuesta. Catalogo no debe reemplazar nombres comerciales sin revision humana porque impacta ecommerce.
+- Mejora tecnica: la normalizacion de propuestas limpia HTML/entidades, omite textos con posible codificacion corrupta y evita generar nuevas medidas con caracter `Ã—`; usa formato `10 x 20 x 30`.
+- Archivos: `CatalogoErp::propuestas_nombres_generar`, `CatalogoErpOrganizacion::generarPropuestasNombres`, vista/JS de `organizacion`.
+- UAT recomendado: abrir `/catalogoerp/organizacion`, presionar `Actualizar propuestas`, confirmar mensaje con conteos, filtrar por `Pendientes` y aprobar/descartar manualmente algunos nombres.

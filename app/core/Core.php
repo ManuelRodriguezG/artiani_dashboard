@@ -43,6 +43,7 @@
 				'Almacen', 'Archivos', 'Atencion', 'Busqueda', 'BusinessIntelligence', 'CatalogoErp', 'Categoria', 'Clientes', 'Comercial', 'Crm', 'Compra', 'Compra_venta',
 				'Cms', 'Contabilidad', 'Costo', 'Dashboard', 'Empresa', 'Garantias', 'Inicio', 'Inventario', 'Link', 'Marca', 'MigracionBd', 'Panel',
 				'Paquetes', 'Producto', 'Produccion', 'Proveedor', 'Proyecto', 'Rentabilidad', 'Sistema', 'Sucursal', 'Tms', 'Users', 'Usuario',
+				'DistribucionAdmin',
 				'Utilidad', 'Ventas'
 			);
 			if ($this->controladorProtegido($this->controladorActual, $controladoresProtegidos)) {
@@ -81,6 +82,14 @@
 				'Sistema.seguridad_usuario_estatus',
 				'Sistema.seguridad_usuario_crear',
 				'Sistema.seguridad_usuario_editar',
+				'DistribucionAdmin.cliente_aprobar',
+				'DistribucionAdmin.cliente_rechazar',
+				'DistribucionAdmin.cliente_suspendir',
+				'DistribucionAdmin.asignar_tipo_cliente',
+				'DistribucionAdmin.asignar_lista_precio',
+				'DistribucionAdmin.asignar_permisos',
+				'DistribucionAdmin.cotizacion_accion_plan',
+				'DistribucionAdmin.cotizacion_convertir_plan',
 				'CatalogoErp.registrar',
 				'CatalogoErp.actualizar',
 				'CatalogoErp.agregar_sku',

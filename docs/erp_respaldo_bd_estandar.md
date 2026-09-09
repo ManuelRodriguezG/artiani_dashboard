@@ -462,3 +462,27 @@ Alcance:
 - Agrega persistencia de portada comercial: tipo, imagen principal, logo y contacto.
 - La portada es material visual para redes/WhatsApp/PDF/PNG.
 - No modifica SKUs, costos, rentabilidad, inventario ni listas de precios.
+
+## Distribucion API - esquema clientes, tokens y cotizaciones
+
+Fecha: 2026-09-09  
+Ruta estandar usada:
+
+```txt
+C:\xampp\panel_db_backups\artianicom_sys_panel_de_control_20260909_002739_antes_distribucion_api_schema.sql
+```
+
+Validacion:
+
+```text
+archivo_existe=true
+archivo_legible=true
+tamano_bytes=41323600
+base=artianicom_sys
+```
+
+Alcance:
+
+- Creacion de tablas `erp_distribucion_*` para clientes externos, solicitudes, permisos, listas, tokens, cotizaciones y auditoria.
+- Aplicacion acotada de permisos internos ERP `distribucion.*`.
+- No modifica catalogo, precios, inventario, compras, ventas ni ecommerce.

@@ -199,9 +199,42 @@ class CatalogoErpOrganizacion extends CRUD {
     }
   }
 
+  /**
+   * IA: Codex GPT-5 | Fecha: 2026-09-08
+   * Proposito: preparar propuestas de nombre desde fuentes de proveedor actuales y legacy para revision manual.
+   * Impacto: Catalogo ERP/Organizacion; escribe solo en erp_catalogo_revision_nombres y no cambia nombres comerciales hasta aprobacion.
+   * Contrato: prioriza erp_proveedores_listas_detalle_erp por relacion proveedor-SKU; usa legacy como respaldo si existe.
+   */
   public function generarPropuestasNombres() {
     try {
       $db = $this->getConexion();
+      $guardar = $this->statementGuardarPropuestaNombre($db);
+      $resumen = array("erp_nuevo" => 0, "legacy" => 0, "omitidas" => 0, "propuestas" => 0);
+
+      $stmt = $db->query("SELECT s.id_sku, s.id_producto_erp, s.sku, s.nombre nombre_actual,
+        ld.descripcion_proveedor nombre_proveedor, ld.marca_proveedor, ld.id_lista_proveedor_erp,
+        sp.id_proveedor, sp.id_sku_proveedor
+        FROM erp_catalogo_skus s
+        INNER JOIN (
+          SELECT ld.id_sku, MAX(ld.id_lista_detalle_erp) id_lista_detalle_erp
+          FROM erp_proveedores_listas_detalle_erp ld
+          INNER JOIN erp_catalogo_sku_proveedores sp ON sp.id_sku_proveedor=ld.id_sku_proveedor AND sp.id_sku=ld.id_sku AND sp.estatus='activo'
+          WHERE ld.id_sku IS NOT NULL AND ld.id_sku_proveedor IS NOT NULL AND TRIM(COALESCE(ld.descripcion_proveedor,''))<>''
+          GROUP BY ld.id_sku
+        ) ult ON ult.id_sku=s.id_sku
+        INNER JOIN erp_proveedores_listas_detalle_erp ld ON ld.id_lista_detalle_erp=ult.id_lista_detalle_erp
+        INNER JOIN erp_catalogo_sku_proveedores sp ON sp.id_sku_proveedor=ld.id_sku_proveedor AND sp.id_sku=s.id_sku AND sp.estatus='activo'
+        WHERE s.estatus<>'fusionado'
+        ORDER BY s.id_sku");
+      foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $fila) {
+        $resultado = $this->guardarPropuestaNombreFuente($guardar, $fila, "erp_proveedores_listas_detalle_erp", array(
+          "id_proveedor" => intval($fila["id_proveedor"]),
+          "id_sku_proveedor" => intval($fila["id_sku_proveedor"]),
+          "id_lista_proveedor_erp" => intval($fila["id_lista_proveedor_erp"])
+        ));
+        $resumen[$resultado === "ok" ? "erp_nuevo" : "omitidas"]++;
+      }
+
       $tablaProveedores = $this->tablaProveedoresFuente($db);
       $stmt = $db->query("SELECT s.id_sku, s.id_producto_erp, s.sku, s.nombre nombre_actual,
         pl.nombre nombre_proveedor, pl.marca marca_proveedor, pl.id_lista_proveedor
@@ -214,51 +247,78 @@ class CatalogoErpOrganizacion extends CRUD {
           GROUP BY LOWER(TRIM(sku))
         ) ultima ON ultima.id_producto=pl.id_producto
         ORDER BY s.id_sku");
-      $guardar = $db->prepare("INSERT INTO erp_catalogo_revision_nombres
-        (id_producto_erp, id_sku, nombre_actual, nombre_proveedor, nombre_propuesto, evidencia_json, estatus)
-        VALUES (:producto, :sku, :actual, :proveedor, :propuesto, :evidencia, 'pendiente')
-        ON DUPLICATE KEY UPDATE nombre_actual=VALUES(nombre_actual), nombre_proveedor=VALUES(nombre_proveedor),
-          nombre_propuesto=IF(estatus='pendiente', VALUES(nombre_propuesto), nombre_propuesto),
-          evidencia_json=VALUES(evidencia_json), fecha_actualizacion=CURRENT_TIMESTAMP");
-      $total = 0;
       foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $fila) {
-        $propuesto = $this->normalizarNombre($fila["nombre_proveedor"]);
-        if ($propuesto === "" || $this->claveNombre($propuesto) === $this->claveNombre($fila["nombre_actual"])) {
-          continue;
-        }
-        $guardar->execute(array(
-          ":producto" => intval($fila["id_producto_erp"]),
-          ":sku" => intval($fila["id_sku"]),
-          ":actual" => $fila["nombre_actual"],
-          ":proveedor" => $fila["nombre_proveedor"],
-          ":propuesto" => $propuesto,
-          ":evidencia" => json_encode(array(
-            "fuente" => "erp_proveedores_listas_productos",
-            "sku" => $fila["sku"],
-            "marca_proveedor" => $fila["marca_proveedor"],
-            "id_lista_proveedor" => $fila["id_lista_proveedor"]
-          ), JSON_UNESCAPED_UNICODE)
+        $resultado = $this->guardarPropuestaNombreFuente($guardar, $fila, "erp_proveedores_listas_productos", array(
+          "id_lista_proveedor" => intval($fila["id_lista_proveedor"])
         ));
-        $total++;
+        $resumen[$resultado === "ok" ? "legacy" : "omitidas"]++;
       }
-      return array("error" => false, "tipo" => "success", "mensaje" => "Propuestas de nombres preparadas", "depurar" => array("propuestas" => $total));
+      $resumen["propuestas"] = $resumen["erp_nuevo"] + $resumen["legacy"];
+      return array("error" => false, "tipo" => "success", "mensaje" => "Propuestas de nombres preparadas", "depurar" => $resumen);
     } catch (Exception $e) {
       return array("error" => true, "tipo" => "danger", "mensaje" => $e->getMessage(), "depurar" => null);
     }
   }
 
+  /**
+   * IA: Codex GPT-5 | Fecha: 2026-09-08
+   * Proposito: centralizar el upsert de propuestas para conservar el contrato de revision manual.
+   * Impacto: Catalogo ERP; no modifica SKUs, solo registra candidatos revisables.
+   */
+  private function statementGuardarPropuestaNombre($db) {
+    return $db->prepare("INSERT INTO erp_catalogo_revision_nombres
+      (id_producto_erp, id_sku, nombre_actual, nombre_proveedor, nombre_propuesto, evidencia_json, estatus)
+      VALUES (:producto, :sku, :actual, :proveedor, :propuesto, :evidencia, 'pendiente')
+      ON DUPLICATE KEY UPDATE nombre_actual=VALUES(nombre_actual), nombre_proveedor=VALUES(nombre_proveedor),
+        nombre_propuesto=IF(estatus='pendiente', VALUES(nombre_propuesto), nombre_propuesto),
+        evidencia_json=VALUES(evidencia_json), fecha_actualizacion=CURRENT_TIMESTAMP");
+  }
+
+  /**
+   * IA: Codex GPT-5 | Fecha: 2026-09-08
+   * Proposito: validar y guardar una propuesta de nombre desde una fuente proveedor concreta.
+   * Impacto: Catalogo ERP; evita proponer nombres vacios, iguales o con codificacion corrupta.
+   */
+  private function guardarPropuestaNombreFuente($guardar, $fila, $fuente, $extra = array()) {
+    $propuesto = $this->normalizarNombre($fila["nombre_proveedor"]);
+    if ($propuesto === "" || $this->claveNombre($propuesto) === $this->claveNombre($fila["nombre_actual"])) {
+      return "omitida";
+    }
+    $evidencia = array_merge(array(
+      "fuente" => $fuente,
+      "sku" => $fila["sku"],
+      "marca_proveedor" => isset($fila["marca_proveedor"]) ? $fila["marca_proveedor"] : ""
+    ), $extra);
+    $guardar->execute(array(
+      ":producto" => intval($fila["id_producto_erp"]),
+      ":sku" => intval($fila["id_sku"]),
+      ":actual" => $fila["nombre_actual"],
+      ":proveedor" => $fila["nombre_proveedor"],
+      ":propuesto" => $propuesto,
+      ":evidencia" => json_encode($evidencia, JSON_UNESCAPED_UNICODE)
+    ));
+    return "ok";
+  }
+
   private function normalizarNombre($nombre) {
+    $nombre = strip_tags(html_entity_decode((string) $nombre, ENT_QUOTES | ENT_HTML5, "UTF-8"));
     $nombre = preg_replace('/\s+/', ' ', trim((string) $nombre));
     if ($nombre === "" || !mb_check_encoding($nombre, "UTF-8") || preg_match('/[¢£ �]/u', $nombre)) {
       return "";
     }
     $nombre = preg_replace('/\s+by\s+/i', ' ', $nombre);
-    $nombre = preg_replace('/\bIMPORTADO\b/i', '', $nombre);
+    $nombre = preg_replace('/\bIMPORTAD[OA]S?\b/i', '', $nombre);
     $nombre = preg_replace('/\s+/', ' ', trim($nombre));
     if ($nombre === "") {
       return "";
     }
     $nombre = mb_strtolower($nombre, "UTF-8");
+    if (preg_match('/\d+(?:\.\d+)?\s*[x×]\s*\d+(?:\.\d+)?/iu', $nombre)) {
+      $nombre = preg_replace_callback('/(\d+(?:\.\d+)?)\s*[x×]\s*(\d+(?:\.\d+)?)(?:\s*[x×]\s*(\d+(?:\.\d+)?))?/iu', function ($m) {
+        return $m[1] . " x " . $m[2] . (isset($m[3]) && $m[3] !== "" ? " x " . $m[3] : "");
+      }, $nombre);
+      return mb_strtoupper(mb_substr($nombre, 0, 1, "UTF-8"), "UTF-8") . mb_substr($nombre, 1, null, "UTF-8");
+    }
     $nombre = preg_replace_callback('/(\d+(?:\.\d+)?)\s*x\s*(\d+(?:\.\d+)?)(?:\s*x\s*(\d+(?:\.\d+)?))?/i', function ($m) {
       return $m[1] . " × " . $m[2] . (isset($m[3]) && $m[3] !== "" ? " × " . $m[3] : "");
     }, $nombre);

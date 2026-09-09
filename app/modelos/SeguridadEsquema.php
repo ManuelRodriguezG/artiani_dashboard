@@ -223,6 +223,12 @@ class SeguridadEsquema extends DBSchema {
       array("modulo" => "proyectos", "accion" => "configurar", "permiso" => "proyectos.configurar", "descripcion" => "Configurar catalogos y reglas del modulo Proyectos"),
       array("modulo" => "ecommerce", "accion" => "ver", "permiso" => "ecommerce.ver", "descripcion" => "Consultar estado de sincronizacion ecommerce"),
       array("modulo" => "ecommerce", "accion" => "sincronizar", "permiso" => "ecommerce.sincronizar", "descripcion" => "Ejecutar sincronizaciones de productos, stock, precios o pedidos"),
+      array("modulo" => "distribucion", "accion" => "ver", "permiso" => "distribucion.ver", "descripcion" => "Consultar consola interna de Distribucion"),
+      array("modulo" => "distribucion", "accion" => "editar", "permiso" => "distribucion.editar", "descripcion" => "Editar perfil comercial externo y permisos de Distribucion"),
+      array("modulo" => "distribucion", "accion" => "aprobar_clientes", "permiso" => "distribucion.aprobar_clientes", "descripcion" => "Aprobar, rechazar o suspender clientes externos de Distribucion"),
+      array("modulo" => "distribucion", "accion" => "asignar_precios", "permiso" => "distribucion.asignar_precios", "descripcion" => "Asignar listas de precios a clientes externos de Distribucion"),
+      array("modulo" => "distribucion", "accion" => "cotizaciones_ver", "permiso" => "distribucion.cotizaciones.ver", "descripcion" => "Consultar cotizaciones recibidas por Distribucion"),
+      array("modulo" => "distribucion", "accion" => "cotizaciones_gestionar", "permiso" => "distribucion.cotizaciones.gestionar", "descripcion" => "Gestionar seguimiento interno de cotizaciones Distribucion sin convertir automaticamente"),
       array("modulo" => "finanzas", "accion" => "ver", "permiso" => "finanzas.ver", "descripcion" => "Consultar informacion financiera y contable"),
       array("modulo" => "finanzas", "accion" => "operar", "permiso" => "finanzas.operar", "descripcion" => "Registrar pagos, saldos, notas y movimientos financieros"),
       array("modulo" => "notificaciones", "accion" => "ver", "permiso" => "notificaciones.ver", "descripcion" => "Consultar notificaciones y alertas operativas propias"),
@@ -247,7 +253,9 @@ class SeguridadEsquema extends DBSchema {
         "ventas.precio_manual", "ventas.descuento_partida", "ventas.descuento_general", "ventas.autorizar_excepcion_comercial",
         "ventas.caja_evidencias.revisar", "ventas.caja_diferencias.ver", "ventas.caja_diferencias.revisar", "ventas.caja_diferencias.resolver",
         "ventas.pos_config.ver", "ventas.pos_config.crear", "ventas.pos_config.editar", "ventas.pos_config.desactivar", "ventas.pos_config.asignar_usuario",
-        "cms.ver", "cms.editar", "cms.publicar", "ecommerce.ver", "finanzas.ver", "notificaciones.ver", "auditoria.ver", "reportes.ver",
+        "cms.ver", "cms.editar", "cms.publicar", "ecommerce.ver",
+        "distribucion.ver", "distribucion.editar", "distribucion.aprobar_clientes", "distribucion.asignar_precios", "distribucion.cotizaciones.ver", "distribucion.cotizaciones.gestionar",
+        "finanzas.ver", "notificaciones.ver", "auditoria.ver", "reportes.ver",
         "proveedores.ver", "proveedores.fiscales", "proveedores.condiciones", "proveedores.documentos",
         "proveedores.documentos_sensibles", "proveedores.listas", "proveedores.costos",
         "proveedores.autorizar", "proveedores.auditoria", "rentabilidad.ver", "rentabilidad.snapshot",
@@ -272,6 +280,7 @@ class SeguridadEsquema extends DBSchema {
         "ventas.caja_diferencias.ver", "ventas.caja_diferencias.revisar", "ventas.caja_diferencias.resolver",
         "ventas.pos_config.ver", "ventas.pos_config.crear", "ventas.pos_config.editar", "ventas.pos_config.desactivar", "ventas.pos_config.asignar_usuario",
         "cms.ver", "cms.editar", "cms.publicar", "ecommerce.ver",
+        "distribucion.ver", "distribucion.editar", "distribucion.aprobar_clientes", "distribucion.asignar_precios", "distribucion.cotizaciones.ver", "distribucion.cotizaciones.gestionar",
         "ecommerce.sincronizar", "finanzas.ver", "finanzas.operar", "notificaciones.ver", "auditoria.ver", "reportes.ver",
         "proveedores.ver", "proveedores.crear", "proveedores.editar", "proveedores.fiscales",
         "proveedores.contactos", "proveedores.condiciones", "proveedores.documentos",
@@ -304,6 +313,7 @@ class SeguridadEsquema extends DBSchema {
       ),
       "ventas" => array(
         "inventario.ver", "crm.pos.buscar", "crm.pos.alta_express", "ventas.ver", "ventas.operar", "ventas.listas.ver", "ventas.caja_diferencias.ver", "ecommerce.ver", "notificaciones.ver", "reportes.ver",
+        "distribucion.ver", "distribucion.cotizaciones.ver",
         "garantias.ver", "garantias.reclamos.crear", "tms.ver", "tms.crear", "proyectos.ver"
       ),
       "crm" => array(
@@ -314,7 +324,7 @@ class SeguridadEsquema extends DBSchema {
       ),
       "ecommerce" => array(
         "cms.ver", "cms.editar", "cms.publicar", "catalogo.ver", "catalogo.editar", "inventario.ver", "ventas.ver", "ventas.listas.ver", "ecommerce.ver",
-        "ecommerce.sincronizar", "notificaciones.ver", "reportes.ver", "proyectos.ver"
+        "ecommerce.sincronizar", "distribucion.ver", "distribucion.cotizaciones.ver", "notificaciones.ver", "reportes.ver", "proyectos.ver"
       ),
       "catalogo_productos" => array(
         "cms.ver", "cms.editar", "catalogo.ver", "catalogo.editar", "catalogo.costos", "compras.ver", "inventario.ver", "ecommerce.ver",
@@ -334,7 +344,7 @@ class SeguridadEsquema extends DBSchema {
       ),
       "auditor" => array(
         "catalogo.ver", "compras.ver", "almacen.ver", "inventario.ver", "ventas.ver",
-        "ventas.listas.ver", "ventas.listas.auditoria", "ventas.pos_config.ver", "cms.ver", "ecommerce.ver", "finanzas.ver", "notificaciones.ver", "auditoria.ver", "reportes.ver",
+        "ventas.listas.ver", "ventas.listas.auditoria", "ventas.pos_config.ver", "cms.ver", "ecommerce.ver", "distribucion.ver", "distribucion.cotizaciones.ver", "finanzas.ver", "notificaciones.ver", "auditoria.ver", "reportes.ver",
         "proveedores.ver", "proveedores.auditoria", "rentabilidad.ver", "garantias.ver", "garantias.reportes", "tms.ver", "tms.reportes", "proyectos.ver", "proyectos.auditoria"
       ),
       "solo_lectura" => array(

@@ -98,6 +98,20 @@ class EcommerceCatalogoPublico extends CRUD {
         ),
         array(
           "metodo" => "GET",
+          "ruta" => "/ecommercePublico/busqueda",
+          "descripcion" => "Busqueda inteligente v1 para frases naturales simples; interpreta sinonimos, atributos y categorias sugeridas sin reemplazar catalogo.",
+          "parametros" => array(
+            "q" => "Texto libre del cliente.",
+            "categoria_slug" => "Path slug opcional para acotar resultados.",
+            "marca_slug" => "Slug de marca opcional.",
+            "orden" => "relevancia|nombre|precio_asc|precio_desc|recientes.",
+            "pagina" => "Pagina, default 1.",
+            "limite" => "1-60, default 24."
+          ),
+          "respuesta_depurar" => array("fase", "items", "total", "paginacion", "interpretacion", "sugerencias", "categorias_relacionadas", "marcas_relacionadas", "mensaje_cliente", "frontend", "guardrails")
+        ),
+        array(
+          "metodo" => "GET",
           "ruta" => "/ecommercePublico/catalogo_manifest",
           "descripcion" => "Manifiesto robusto de catalogo para frontend: filtros, ordenamientos, limites, ejemplos, endpoints relacionados y guardrails.",
           "parametros" => array("limite_preview" => "1-6 productos ejemplo, default 3."),
@@ -2895,6 +2909,103 @@ class EcommerceCatalogoPublico extends CRUD {
   }
 
   /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-09
+   * Proposito: entregar busqueda inteligente v1 para frases naturales simples del ecommerce publico.
+   * Impacto: Frontend puede usar /buscar/{termino} con interpretacion, sugerencias y fallback sin inventar URLs.
+   * Contrato: GET publico read-only; reutiliza catalogoPublico, no registra busquedas y no expone stock exacto.
+   */
+  public function busquedaInteligentePublica($filtros = array()) {
+    try {
+      $qOriginal = trim((string) $this->valor($filtros, "q", ""));
+      $pagina = max(1, intval($this->valor($filtros, "pagina", 1)));
+      $limite = max(1, min(60, intval($this->valor($filtros, "limite", 24))));
+      $orden = trim((string) $this->valor($filtros, "orden", "relevancia"));
+      $interpretacion = $this->interpretarBusquedaPublica($qOriginal);
+      $candidatos = $this->queriesBusquedaInteligente($qOriginal, $interpretacion);
+      $catalogo = null;
+      $queryUsada = "";
+
+      foreach ($candidatos as $query) {
+        $params = array(
+          "q" => $query,
+          "pagina" => $pagina,
+          "limite" => $pagina === 1 ? max($limite, 60) : $limite,
+          "orden" => $orden
+        );
+        foreach (array("categoria_slug", "categoria", "categoria_id", "marca", "marca_slug", "disponibilidad", "destacado", "incluir_hijos") as $clave) {
+          $valor = $this->valor($filtros, $clave, null);
+          if ($valor !== null && trim((string) $valor) !== "") {
+            $params[$clave] = $valor;
+          }
+        }
+        $catalogo = $this->catalogoPublico($params);
+        $total = intval($this->valor($catalogo, array("depurar", "paginacion", "total"), 0));
+        $queryUsada = $query;
+        if ($total > 0 || $query === end($candidatos)) {
+          break;
+        }
+      }
+
+      $items = $this->valor($catalogo, array("depurar", "items"), array());
+      $paginacion = $this->valor($catalogo, array("depurar", "paginacion"), array("pagina" => $pagina, "limite" => $limite, "total" => 0));
+      $total = intval($this->valor($paginacion, "total", 0));
+      if ($pagina === 1 && !empty($items)) {
+        $items = $this->ordenarItemsBusquedaInteligente($items, $interpretacion);
+        $items = array_slice($items, 0, $limite);
+      }
+      if ($pagina === 1) {
+        $paginacion["limite"] = $limite;
+      }
+      $relacionadas = $this->categoriasRelacionadasBusqueda($interpretacion, $limite);
+      $marcasRelacionadas = $this->marcasRelacionadasBusqueda($interpretacion, $limite);
+      $sugerencias = $this->sugerenciasBusquedaInteligente($qOriginal, $interpretacion, $relacionadas, $total);
+      $tipo = $total > 0 ? "success" : "sin_resultados_con_sugerencias";
+
+      return $this->respuesta(false, $tipo, $total > 0 ? "Resultados de busqueda" : "Sin resultados exactos", array(
+        "ok" => true,
+        "fase" => "busqueda_inteligente_v1",
+        "q" => $qOriginal,
+        "query_usada_catalogo" => $queryUsada,
+        "items" => $items,
+        "total" => $total,
+        "paginacion" => $paginacion,
+        "interpretacion" => $interpretacion,
+        "sugerencias" => $sugerencias,
+        "categorias_relacionadas" => $relacionadas,
+        "marcas_relacionadas" => $marcasRelacionadas,
+        "terminos_relacionados" => $this->terminosRelacionadosBusqueda($interpretacion),
+        "mensaje_cliente" => $total > 0
+          ? ""
+          : "No encontramos una coincidencia exacta, pero estos productos o categorias pueden ayudarte a encontrar una opcion adecuada.",
+        "frontend" => array(
+          "endpoint_preferido_para_buscar" => "/ecommercePublico/busqueda",
+          "fallback_catalogo" => "/ecommercePublico/catalogo?q=" . rawurlencode($qOriginal),
+          "registrar_busqueda" => "/ecommercePublico/busqueda_registrar",
+          "usar_items_como_catalogo" => true,
+          "no_generar_slugs_en_frontend" => true
+        ),
+        "guardrails" => array(
+          "read_only" => true,
+          "no_registra_busqueda" => true,
+          "solo_publicados" => true,
+          "no_stock_exacto" => true,
+          "no_granel" => true,
+          "no_expone_costos" => true,
+          "no_inventa_urls" => true
+        )
+      ));
+    } catch (Exception $e) {
+      return $this->respuesta(true, "danger", $e->getMessage(), array(
+        "ok" => false,
+        "fase" => "busqueda_inteligente_v1",
+        "items" => array(),
+        "total" => 0,
+        "guardrails" => array("read_only" => true, "no_registra_busqueda" => true)
+      ));
+    }
+  }
+
+  /**
    * Documentacion IA: Codex GPT-5 | Fecha: 2026-08-04
    * Proposito: entregar manifiesto de catalogo robusto para que frontend no hardcodee filtros ni reglas.
    * Impacto: Frontend ecommerce; inicia Fase 2 con contrato estable de busqueda/listado/navegacion.
@@ -3525,34 +3636,54 @@ class EcommerceCatalogoPublico extends CRUD {
     try {
       $q = trim((string) $this->valor($opciones, "q", ""));
       $limite = max(1, min(12, intval($this->valor($opciones, "limite", 6))));
-      $catalogo = $this->catalogoPublico(array(
-        "q" => $q,
-        "limite" => $limite,
-        "orden" => "relevancia"
-      ));
+      $interpretacion = $this->interpretarBusquedaPublica($q);
+      $queryProductos = $q;
+      $catalogo = null;
+      foreach ($this->queriesBusquedaInteligente($q, $interpretacion) as $query) {
+        $catalogo = $this->catalogoPublico(array(
+          "q" => $query,
+          "limite" => $limite,
+          "orden" => "relevancia"
+        ));
+        $queryProductos = $query;
+        if (intval($this->valor($catalogo, array("depurar", "paginacion", "total"), 0)) > 0) {
+          break;
+        }
+      }
+      if ($catalogo === null) {
+        $catalogo = $this->catalogoPublico(array("q" => $q, "limite" => $limite, "orden" => "relevancia"));
+      }
       $filtros = $this->filtrosPublicos();
       $productos = array();
-      foreach ($this->valor($catalogo, array("depurar", "items"), array()) as $item) {
+      $itemsCatalogo = $this->ordenarItemsBusquedaInteligente($this->valor($catalogo, array("depurar", "items"), array()), $interpretacion);
+      foreach ($itemsCatalogo as $item) {
         $productos[] = array(
           "tipo" => "producto",
           "label" => $this->valor($item, "nombre", ""),
           "subtitulo" => trim((string) $this->valor($item, "marca", "") . " " . (string) $this->valor($item, "presentacion", "")),
           "valor" => $this->valor($item, "slug", ""),
-          "url" => "/ecommercePublico/producto/" . $this->valor($item, "slug", ""),
+          "url" => $this->valor($item, "url", "/producto/" . $this->valor($item, "slug", "")),
           "imagen" => $this->valor($item, "imagen", null),
           "precio" => $this->valor($item, "precio", null),
           "moneda" => $this->valor($item, "moneda", null),
-          "disponibilidad" => $this->valor($item, "disponibilidad", "consultar_disponibilidad")
+          "disponibilidad" => $this->valor($item, "disponibilidad", "consultar_disponibilidad"),
+          "relevancia_busqueda" => intval($this->valor($item, "relevancia_busqueda", 0))
         );
+        if (count($productos) >= $limite) {
+          break;
+        }
       }
 
       $depFiltros = $this->valor($filtros, "depurar", array());
+      $categoriasRelacionadas = $this->categoriasRelacionadasBusqueda($interpretacion, $limite);
+      $marcasRelacionadas = $this->marcasRelacionadasBusqueda($interpretacion, $limite);
+      $qTaxonomia = $this->valor($interpretacion, "texto_normalizado", $q);
       $grupos = array(
         "productos" => $productos,
-        "marcas" => $this->filtrarSugerenciasTaxonomia($this->valor($depFiltros, "marcas", array()), $q, $limite, "marca"),
-        "categorias" => $this->filtrarSugerenciasTaxonomia($this->valor($depFiltros, "categorias", array()), $q, $limite, "categoria"),
-        "mascotas" => $this->filtrarSugerenciasTaxonomia($this->valor($depFiltros, "mascotas", array()), $q, $limite, "mascota"),
-        "necesidades" => $this->filtrarSugerenciasTaxonomia($this->valor($depFiltros, "necesidades", array()), $q, $limite, "necesidad")
+        "marcas" => !empty($marcasRelacionadas) ? $this->sugerenciasRelacionadasTaxonomia($marcasRelacionadas, "marca", $limite) : $this->filtrarSugerenciasTaxonomia($this->valor($depFiltros, "marcas", array()), $qTaxonomia, $limite, "marca"),
+        "categorias" => !empty($categoriasRelacionadas) ? $this->sugerenciasRelacionadasTaxonomia($categoriasRelacionadas, "categoria", $limite) : $this->filtrarSugerenciasTaxonomia($this->valor($depFiltros, "categorias", array()), $qTaxonomia, $limite, "categoria"),
+        "mascotas" => $this->filtrarSugerenciasTaxonomia($this->valor($depFiltros, "mascotas", array()), $qTaxonomia, $limite, "mascota"),
+        "necesidades" => $this->filtrarSugerenciasTaxonomia($this->valor($depFiltros, "necesidades", array()), $qTaxonomia, $limite, "necesidad")
       );
       $total = 0;
       foreach ($grupos as $items) {
@@ -3561,6 +3692,9 @@ class EcommerceCatalogoPublico extends CRUD {
 
       return $this->respuesta(false, "success", "Sugerencias ecommerce consultadas", array(
         "q" => $q,
+        "fase" => "busqueda_sugerencias_inteligente_v1",
+        "query_usada_productos" => $queryProductos,
+        "interpretacion" => $interpretacion,
         "configurado" => !empty($this->valor($catalogo, array("depurar", "configurado"), false)),
         "grupos" => $grupos,
         "resumen" => array(
@@ -3572,8 +3706,11 @@ class EcommerceCatalogoPublico extends CRUD {
           "necesidades" => count($grupos["necesidades"]),
           "sin_resultados" => $total === 0
         ),
+        "sugerencias" => $this->sugerenciasBusquedaInteligente($q, $interpretacion, $categoriasRelacionadas, intval($this->valor($catalogo, array("depurar", "paginacion", "total"), 0))),
+        "terminos_relacionados" => $this->terminosRelacionadosBusqueda($interpretacion),
         "frontend" => array(
           "registrar_busqueda_futura" => "/ecommercePublico/busqueda_registrar",
+          "usar_busqueda_para_resultados" => "/ecommercePublico/busqueda?q=" . rawurlencode($q),
           "usar_catalogo_para_resultados" => "/ecommercePublico/catalogo?q=" . rawurlencode($q),
           "min_caracteres_recomendado" => 2
         ),
@@ -12718,8 +12855,10 @@ class EcommerceCatalogoPublico extends CRUD {
       if ($label === "" && $valor === "") {
         continue;
       }
-      $texto = strtolower($this->normalizarTextoPlano($label . " " . $valor));
-      if ($qNormalizado !== "" && strpos($texto, $qNormalizado) === false) {
+      $slugPublico = trim((string) $this->valor($item, "slug_publico", $this->valor($item, "slug", "")));
+      $pathSlug = trim((string) $this->valor($item, "path_slug", $slugPublico));
+      $texto = strtolower($this->normalizarTextoPlano($label . " " . $valor . " " . $slugPublico . " " . $pathSlug));
+      if ($qNormalizado !== "" && !$this->textoBusquedaCoincide($texto, $qNormalizado)) {
         continue;
       }
       $path = "/ecommercePublico/catalogo";
@@ -12728,9 +12867,9 @@ class EcommerceCatalogoPublico extends CRUD {
       } elseif ($tipo === "necesidad") {
         $path .= "?necesidad=" . rawurlencode($valor);
       } elseif ($tipo === "marca") {
-        $path .= "?marca=" . rawurlencode($valor);
+        $path = $slugPublico !== "" ? "/marca/" . $slugPublico : $path . "?marca=" . rawurlencode($valor);
       } elseif ($tipo === "categoria") {
-        $path .= "?categoria=" . rawurlencode($valor);
+        $path = $pathSlug !== "" ? "/categoria/" . $pathSlug : $path . "?categoria=" . rawurlencode($valor);
       }
       $salida[] = array(
         "tipo" => $tipo,
@@ -12744,6 +12883,348 @@ class EcommerceCatalogoPublico extends CRUD {
       }
     }
     return $salida;
+  }
+
+  private function sugerenciasRelacionadasTaxonomia($items, $tipo, $limite) {
+    $salida = array();
+    foreach ((array) $items as $item) {
+      $nombre = trim((string) $this->valor($item, "nombre", $this->valor($item, "label", "")));
+      $slug = trim((string) $this->valor($item, "slug_publico", $this->valor($item, "path_slug", "")));
+      $url = trim((string) $this->valor($item, "url", ""));
+      if ($nombre === "" || $url === "") {
+        continue;
+      }
+      $salida[] = array(
+        "tipo" => $tipo,
+        "label" => $nombre,
+        "valor" => $slug !== "" ? $slug : $nombre,
+        "url" => $url,
+        "total" => intval($this->valor($item, "total_productos", $this->valor($item, "total_estimado", 0))),
+        "imagen" => $this->valor($item, "imagen_card", $this->valor($item, "logo", null)),
+        "imagen_banner" => $this->valor($item, "imagen_banner", null)
+      );
+      if (count($salida) >= max(1, intval($limite))) {
+        break;
+      }
+    }
+    return $salida;
+  }
+
+  private function interpretarBusquedaPublica($q) {
+    $textoOriginal = trim((string) $q);
+    $texto = strtolower($this->normalizarTextoPlano($textoOriginal));
+    $transliterado = @iconv("UTF-8", "ASCII//TRANSLIT//IGNORE", $texto);
+    if ($transliterado !== false) {
+      $texto = strtolower($transliterado);
+    }
+    $texto = preg_replace('/[^a-z0-9\s]+/', ' ', $texto);
+    $texto = preg_replace('/\s+/', ' ', trim($texto));
+    $stopwords = array("para", "de", "del", "la", "el", "los", "las", "con", "en", "un", "una", "por", "y", "producto", "productos");
+    $tokens = $texto === "" ? array() : preg_split('/\s+/', $texto);
+    $terminos = array();
+    foreach ($tokens as $token) {
+      $token = trim((string) $token);
+      if ($token === "" || in_array($token, $stopwords, true)) {
+        continue;
+      }
+      $terminos[] = $this->normalizarPluralBusqueda($token);
+    }
+
+    $sinonimos = $this->sinonimosBusquedaPublica();
+    $sinonimosAplicados = array();
+    $terminosExpandidos = $terminos;
+    foreach ($terminos as $termino) {
+      if (isset($sinonimos[$termino])) {
+        $normalizado = $sinonimos[$termino];
+        $sinonimosAplicados[] = array("original" => $termino, "normalizado" => $normalizado);
+        $terminosExpandidos[] = $normalizado;
+      }
+    }
+
+    $atributos = $this->atributosBusquedaPublica($texto, $terminosExpandidos);
+    $terminoPrincipal = $this->terminoPrincipalBusqueda($terminosExpandidos);
+    $categoriaProbable = $this->categoriaProbableBusqueda($terminosExpandidos, $atributos);
+
+    return array(
+      "texto_original" => $textoOriginal,
+      "texto_normalizado" => implode(" ", array_values(array_unique($terminosExpandidos))),
+      "terminos" => array_values(array_unique($terminosExpandidos)),
+      "termino_principal" => $terminoPrincipal,
+      "intencion" => $this->intencionBusquedaPublica($terminosExpandidos, $atributos),
+      "categoria_probable" => $categoriaProbable,
+      "atributos_detectados" => $atributos,
+      "sinonimos_aplicados" => $sinonimosAplicados
+    );
+  }
+
+  private function sinonimosBusquedaPublica() {
+    return array(
+      "pecera" => "acuario",
+      "peceras" => "acuario",
+      "fishtank" => "acuario",
+      "tank" => "acuario",
+      "cascada" => "filtro",
+      "bomba" => "oxigenador",
+      "bombas" => "oxigenador",
+      "comida" => "alimento",
+      "croqueta" => "alimento",
+      "croquetas" => "alimento",
+      "jaulita" => "jaula",
+      "hamster" => "hamster",
+      "hamsters" => "hamster",
+      "camita" => "cama",
+      "transportadora" => "kennel"
+    );
+  }
+
+  private function normalizarPluralBusqueda($token) {
+    $token = trim((string) $token);
+    if (strlen($token) > 5 && substr($token, -2) === "es") {
+      return substr($token, 0, -2);
+    }
+    if (strlen($token) > 4 && substr($token, -1) === "s" && !preg_match('/\d+s$/', $token)) {
+      return substr($token, 0, -1);
+    }
+    return $token;
+  }
+
+  private function atributosBusquedaPublica($texto, $terminos) {
+    $atributos = array();
+    if (preg_match('/(\d+)\s*(l|lt|lts|litro|litros)\b/', $texto, $m)) {
+      $atributos["capacidad_litros"] = intval($m[1]);
+    }
+    foreach (array("cachorro", "adulto", "senior") as $etapa) {
+      if (in_array($etapa, $terminos, true) || strpos($texto, $etapa) !== false) {
+        $atributos["etapa"] = $etapa;
+        break;
+      }
+    }
+    $mascotas = array(
+      "perro" => array("perro", "canino", "cachorro"),
+      "gato" => array("gato", "felino", "gatito"),
+      "peces" => array("pez", "peces", "acuario", "pecera", "beta"),
+      "aves" => array("ave", "aves", "pajaro", "perico", "canario"),
+      "reptiles" => array("reptil", "tortuga", "iguana"),
+      "roedores" => array("roedor", "hamster", "conejo", "cuyo")
+    );
+    foreach ($mascotas as $mascota => $palabras) {
+      foreach ($palabras as $palabra) {
+        if (in_array($palabra, $terminos, true) || strpos($texto, $palabra) !== false) {
+          $atributos["mascota"] = $mascota;
+          break 2;
+        }
+      }
+    }
+    if (isset($atributos["mascota"]) && $atributos["mascota"] === "peces") {
+      $atributos["habitat"] = "acuario";
+    }
+    return $atributos;
+  }
+
+  private function terminoPrincipalBusqueda($terminos) {
+    $prioridad = array("filtro", "alimento", "jaula", "cama", "kennel", "transportadora", "sustrato", "shampoo", "collar", "correa", "oxigenador");
+    foreach ($prioridad as $termino) {
+      if (in_array($termino, $terminos, true)) {
+        return $termino;
+      }
+    }
+    return !empty($terminos) ? $terminos[0] : "";
+  }
+
+  private function intencionBusquedaPublica($terminos, $atributos) {
+    if (isset($atributos["capacidad_litros"])) {
+      return "buscar_producto_para_capacidad";
+    }
+    if (in_array("para", $terminos, true) || !empty($atributos["mascota"])) {
+      return "buscar_producto_para_uso";
+    }
+    return "buscar_producto";
+  }
+
+  private function categoriaProbableBusqueda($terminos, $atributos) {
+    if ((in_array("filtro", $terminos, true) || in_array("oxigenador", $terminos, true)) && $this->valor($atributos, "habitat", "") === "acuario") {
+      return array(
+        "nombre" => "Filtracion y oxigenacion",
+        "path_slug" => "acuario-y-peces/equipamiento-tecnico/filtracion-y-oxigenacion",
+        "url" => "/categoria/acuario-y-peces/equipamiento-tecnico/filtracion-y-oxigenacion"
+      );
+    }
+    if (in_array("alimento", $terminos, true) && $this->valor($atributos, "mascota", "") === "peces") {
+      return array("nombre" => "Alimentos para peces", "path_slug" => "acuario-y-peces/alimentacion", "url" => "/categoria/acuario-y-peces/alimentacion");
+    }
+    if (in_array("jaula", $terminos, true)) {
+      return array("nombre" => "Jaulas y habitat", "path_slug" => "", "url" => "/buscar/jaula");
+    }
+    return array();
+  }
+
+  private function queriesBusquedaInteligente($qOriginal, $interpretacion) {
+    $queries = array();
+    $qOriginal = trim((string) $qOriginal);
+    if ($qOriginal !== "") { $queries[] = $qOriginal; }
+    $normalizado = trim((string) $this->valor($interpretacion, "texto_normalizado", ""));
+    if ($normalizado !== "") { $queries[] = $normalizado; }
+    $principal = trim((string) $this->valor($interpretacion, "termino_principal", ""));
+    $atributos = $this->valor($interpretacion, "atributos_detectados", array());
+    if ($principal !== "" && $this->valor($atributos, "habitat", "") !== "") {
+      $queries[] = trim($principal . " " . $this->valor($atributos, "habitat", ""));
+    }
+    if ($principal !== "") { $queries[] = $principal; }
+    return array_values(array_unique($queries));
+  }
+
+  private function categoriasRelacionadasBusqueda($interpretacion, $limite) {
+    $relacionadas = array();
+    $probable = $this->valor($interpretacion, "categoria_probable", array());
+    if (!empty($probable)) {
+      $probable["total_estimado"] = 0;
+      $relacionadas[] = $probable;
+    }
+    $categorias = $this->categoriasPublicas(array("limite" => 80));
+    $items = $this->valor($categorias, array("depurar", "items"), array());
+    $texto = strtolower($this->normalizarTextoPlano(implode(" ", (array) $this->valor($interpretacion, "terminos", array()))));
+    foreach ($items as $categoria) {
+      if (count($relacionadas) >= max(1, intval($limite))) {
+        break;
+      }
+      $nombre = trim((string) $this->valor($categoria, "nombre", ""));
+      $path = trim((string) $this->valor($categoria, "path_slug", $this->valor($categoria, "slug_publico", "")));
+      $hayYa = false;
+      foreach ($relacionadas as $rel) {
+        if ($path !== "" && $this->valor($rel, "path_slug", "") === $path) { $hayYa = true; break; }
+      }
+      if ($hayYa) { continue; }
+      $buscable = strtolower($this->normalizarTextoPlano($nombre . " " . $this->valor($categoria, "nombre_completo", "") . " " . $path));
+      if ($texto !== "" && !$this->textoBusquedaCoincide($buscable, $texto)) {
+        continue;
+      }
+      $relacionadas[] = array(
+        "nombre" => $nombre,
+        "path_slug" => $path,
+        "url" => $this->valor($categoria, "url", ($path !== "" ? "/categoria/" . $path : "")),
+        "total_estimado" => intval($this->valor($categoria, "total_productos", $this->valor($categoria, "total", 0)))
+      );
+    }
+    return $relacionadas;
+  }
+
+  private function marcasRelacionadasBusqueda($interpretacion, $limite) {
+    $relacionadas = array();
+    $marcas = $this->marcasPublicas(array("limite" => 80));
+    $items = $this->valor($marcas, array("depurar", "items"), array());
+    $texto = strtolower($this->normalizarTextoPlano(implode(" ", (array) $this->valor($interpretacion, "terminos", array()))));
+    foreach ($items as $marca) {
+      if (count($relacionadas) >= max(1, intval($limite))) {
+        break;
+      }
+      $nombre = trim((string) $this->valor($marca, "nombre", ""));
+      $slug = trim((string) $this->valor($marca, "slug_publico", ""));
+      if ($nombre === "" || $slug === "") {
+        continue;
+      }
+      $buscable = strtolower($this->normalizarTextoPlano($nombre . " " . $slug));
+      if ($texto !== "" && !$this->textoBusquedaCoincide($buscable, $texto)) {
+        continue;
+      }
+      $relacionadas[] = array(
+        "id" => intval($this->valor($marca, "id", 0)),
+        "nombre" => $nombre,
+        "slug_publico" => $slug,
+        "url" => $this->valor($marca, "url", "/marca/" . $slug),
+        "logo" => $this->valor($marca, "logo", null),
+        "imagen_banner" => $this->valor($marca, "imagen_banner", null),
+        "total_productos" => intval($this->valor($marca, "total_productos", $this->valor($marca, "total", 0)))
+      );
+    }
+    return $relacionadas;
+  }
+
+  private function textoBusquedaCoincide($texto, $query) {
+    foreach (preg_split('/\s+/', trim((string) $query)) as $termino) {
+      if ($termino !== "" && strlen($termino) >= 3 && strpos($texto, $termino) !== false) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  private function sugerenciasBusquedaInteligente($qOriginal, $interpretacion, $categorias, $total) {
+    $sugerencias = array();
+    foreach ((array) $categorias as $categoria) {
+      $url = trim((string) $this->valor($categoria, "url", ""));
+      if ($url === "") { continue; }
+      $sugerencias[] = array(
+        "tipo" => "categoria",
+        "titulo" => "Ver " . $this->valor($categoria, "nombre", "categoria relacionada"),
+        "descripcion" => "Explora productos relacionados con tu busqueda.",
+        "url" => $url
+      );
+      break;
+    }
+    $principal = trim((string) $this->valor($interpretacion, "termino_principal", ""));
+    $atributos = $this->valor($interpretacion, "atributos_detectados", array());
+    $qSugerida = trim($principal . " " . $this->valor($atributos, "habitat", ""));
+    if ($qSugerida !== "") {
+      $sugerencias[] = array(
+        "tipo" => "busqueda",
+        "titulo" => "Buscar " . $qSugerida,
+        "q" => $qSugerida,
+        "url" => "/buscar/" . $this->slugificar($qSugerida)
+      );
+    }
+    if (intval($total) <= 0) {
+      $sugerencias[] = array(
+        "tipo" => "whatsapp",
+        "titulo" => "Pedir ayuda por WhatsApp",
+        "mensaje" => "Hola Artiani, estoy buscando " . trim((string) $qOriginal) . "."
+      );
+    }
+    return $sugerencias;
+  }
+
+  private function ordenarItemsBusquedaInteligente($items, $interpretacion) {
+    $terminos = (array) $this->valor($interpretacion, "terminos", array());
+    $principal = trim((string) $this->valor($interpretacion, "termino_principal", ""));
+    $categoriaProbable = strtolower($this->normalizarTextoPlano((string) $this->valor($interpretacion, array("categoria_probable", "path_slug"), "")));
+    foreach ($items as $i => $item) {
+      $score = 0;
+      $nombre = strtolower($this->normalizarTextoPlano((string) $this->valor($item, "nombre", "")));
+      $categoria = strtolower($this->normalizarTextoPlano((string) $this->valor($item, array("categoria_obj", "path_slug"), $this->valor($item, "categoria", ""))));
+      $marca = strtolower($this->normalizarTextoPlano((string) $this->valor($item, "marca", "")));
+      $sku = strtolower($this->normalizarTextoPlano((string) $this->valor($item, "sku", "")));
+      if ($principal !== "" && strpos($nombre, $principal) !== false) { $score += 60; }
+      if ($principal !== "" && strpos($categoria, $principal) !== false) { $score += 30; }
+      foreach ($terminos as $termino) {
+        $termino = trim((string) $termino);
+        if ($termino === "" || strlen($termino) < 3) { continue; }
+        if (strpos($nombre, $termino) !== false) { $score += 12; }
+        if (strpos($categoria, $termino) !== false) { $score += 8; }
+        if (strpos($marca, $termino) !== false) { $score += 6; }
+        if (strpos($sku, $termino) !== false) { $score += 10; }
+      }
+      if ($categoriaProbable !== "" && strpos($categoria, $categoriaProbable) !== false) { $score += 40; }
+      if ($this->valor($item, "imagen", "") !== "") { $score += 3; }
+      if (floatval($this->valor($item, "precio", 0)) > 0) { $score += 3; }
+      $items[$i]["relevancia_busqueda"] = $score;
+    }
+    usort($items, function($a, $b) {
+      $scoreA = intval(isset($a["relevancia_busqueda"]) ? $a["relevancia_busqueda"] : 0);
+      $scoreB = intval(isset($b["relevancia_busqueda"]) ? $b["relevancia_busqueda"] : 0);
+      if ($scoreA === $scoreB) {
+        return strcmp((string) $this->valor($a, "nombre", ""), (string) $this->valor($b, "nombre", ""));
+      }
+      return $scoreB - $scoreA;
+    });
+    return $items;
+  }
+
+  private function terminosRelacionadosBusqueda($interpretacion) {
+    $salida = (array) $this->valor($interpretacion, "terminos", array());
+    $categoria = $this->valor($interpretacion, array("categoria_probable", "nombre"), "");
+    if ($categoria !== "") {
+      $salida[] = strtolower($this->normalizarTextoPlano($categoria));
+    }
+    return array_values(array_unique(array_filter($salida)));
   }
 
   /**

@@ -113,6 +113,17 @@ class EcommercePublico extends Controlador {
   }
 
   /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-09
+   * Proposito: exponer busqueda inteligente v1 para interpretar frases naturales simples.
+   * Impacto: Ecommerce publico; mejora /buscar/{termino} con sinonimos, intencion y fallback sin cambiar catalogo base.
+   * Contrato: GET publico read-only; no registra busquedas, no expone stock exacto y usa solo publicaciones vigentes.
+   */
+  public function busqueda() {
+    if ($this->esOptionsPublicas()) { return $this->responderOpcionesPublicas(); }
+    return $this->responderApiPublica($this->modelo("EcommerceCatalogoPublico")->busquedaInteligentePublica($_GET));
+  }
+
+  /**
    * Documentacion IA: Codex GPT-5 | Fecha: 2026-08-04
    * Proposito: exponer manifiesto robusto del catalogo para que frontend construya listados sin hardcodear reglas.
    * Impacto: Ecommerce publico; documenta filtros, ordenamientos, limites, endpoints relacionados y guardrails.

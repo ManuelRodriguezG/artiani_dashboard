@@ -94,6 +94,39 @@
         });
     }
 
+    /**
+     * IA: Codex GPT-5 | Fecha: 2026-09-08
+     * Proposito: generar propuestas nuevas desde listas de proveedor sin aprobar nombres automaticamente.
+     * Impacto: Catalogo ERP/Organizacion; escribe solo registros de revision y refresca la bandeja manual.
+     */
+    function generarPropuestasNombres() {
+        var boton = document.getElementById("organizacion_generar_propuestas");
+        if (!boton || !permisos.editar) {
+            return;
+        }
+        boton.disabled = true;
+        var textoOriginal = boton.innerHTML;
+        boton.innerHTML = "<span class=\"spinner-border spinner-border-sm me-2\"></span>Actualizando...";
+        request("/catalogoerp/propuestas_nombres_generar", {accion: "generar"}).then(function (response) {
+            if (response.error) {
+                throw new Error(response.mensaje);
+            }
+            return cargar().then(function () {
+                var depurar = response.depurar || {};
+                Swal.fire({
+                    text: "Propuestas actualizadas. ERP nuevo: " + (depurar.erp_nuevo || 0) + ", legacy: " + (depurar.legacy || 0) + ".",
+                    icon: "success",
+                    confirmButtonText: "Aceptar"
+                });
+            });
+        }).catch(function (error) {
+            Swal.fire({text: error.message || String(error), icon: "error", confirmButtonText: "Aceptar"});
+        }).finally(function () {
+            boton.disabled = false;
+            boton.innerHTML = textoOriginal;
+        });
+    }
+
     function normalizarImagenUrl(url) {
         url = url || "";
         if (/^https?:\/\//i.test(url) || url.indexOf("/") === 0) {
@@ -287,6 +320,10 @@
                 resolver(button);
             }
         });
+        var generar = document.getElementById("organizacion_generar_propuestas");
+        if (generar) {
+            generar.addEventListener("click", generarPropuestasNombres);
+        }
         document.getElementById("fusion_previsualizar").addEventListener("click", previsualizarFusion);
         document.getElementById("fusion_form").addEventListener("submit", fusionar);
         configurarBusquedaFusion("origen");

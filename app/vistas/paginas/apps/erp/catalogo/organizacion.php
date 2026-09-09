@@ -20,7 +20,12 @@
                     <div class="app-toolbar py-3 py-lg-6">
                         <div class="app-container container-fluid d-flex flex-stack">
                             <div><h1 class="page-heading text-dark fw-bold fs-3 mb-1">Organización del catálogo</h1><span class="text-muted">Propuestas de nombres encontradas por coincidencia exacta de SKU con listas de proveedores</span></div>
-                            <a class="btn btn-light-primary" href="/catalogoerp"><i class="bi bi-box-seam"></i> Productos ERP</a>
+                            <div class="d-flex gap-2">
+                                <?php if (SesionSeguridad::tienePermiso("catalogo.editar")): ?>
+                                <button class="btn btn-light-success" type="button" id="organizacion_generar_propuestas"><i class="bi bi-arrow-repeat"></i> Actualizar propuestas</button>
+                                <?php endif; ?>
+                                <a class="btn btn-light-primary" href="/catalogoerp"><i class="bi bi-box-seam"></i> Productos ERP</a>
+                            </div>
                         </div>
                     </div>
                     <div class="app-content flex-column-fluid">
@@ -104,6 +109,6 @@
         "costos" => SesionSeguridad::tienePermiso("catalogo.costos")
     )); ?>;
 </script>
-<script src="/assets/js/custom/apps/erp/catalogo/organizacion.js?v=20260604-2"></script>
+<script src="/assets/js/custom/apps/erp/catalogo/organizacion.js?v=20260908-1"></script>
 </body>
 </html>

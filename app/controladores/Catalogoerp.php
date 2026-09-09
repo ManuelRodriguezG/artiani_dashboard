@@ -101,6 +101,24 @@ class Catalogoerp extends Controlador {
   }
 
   /**
+   * IA: Codex GPT-5 | Fecha: 2026-09-08
+   * Proposito: generar propuestas de nombres desde listas de proveedor para revision manual.
+   * Impacto: Catalogo ERP/Organizacion; crea/actualiza registros de revision, no modifica nombres de SKUs por si solo.
+   * Contrato: POST protegido por `catalogo.editar`; la aprobacion posterior aplica el cambio al SKU.
+   */
+  public function propuestas_nombres_generar() {
+    $this->requerirPermiso("catalogo.editar");
+    $respuesta = $this->modelo("CatalogoErpOrganizacion")->generarPropuestasNombres();
+    SesionSeguridad::registrarAuditoria("catalogo", "generar_propuestas_nombres", array(
+      "entidad" => "erp_catalogo_revision_nombres",
+      "resultado" => $respuesta["error"] ? "error" : "ok",
+      "mensaje" => $respuesta["mensaje"],
+      "depurar" => isset($respuesta["depurar"]) ? $respuesta["depurar"] : null
+    ));
+    return json_encode($respuesta);
+  }
+
+  /**
    * IA: Codex GPT-5 | Fecha: 2026-06-24
    * Proposito: publica el historial de fusiones para auditoria operativa de solo lectura.
    * Impacto: Catalogo ERP; no modifica datos ni habilita reversas automaticas.

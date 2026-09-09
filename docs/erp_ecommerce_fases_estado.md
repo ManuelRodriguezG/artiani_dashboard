@@ -1395,6 +1395,89 @@ Pendiente antes de salida:
   - `storage/uat/uat_ecommerce_publico_frontend_productivo_gate_readonly.php`.
 - Validar CMS, publicaciones, cotizacion preflight/dryrun, analytics y leads segun decision de activacion.
 
+## Busqueda inteligente publica v1 2026-09-09
+
+Objetivo:
+
+- Mejorar busquedas reales de clientes que escriben frases naturales como `Filtro para pecera de 40 litros`.
+
+Cambios aplicados:
+
+- Se agrega endpoint publico:
+  - `GET /ecommercePublico/busqueda?q={texto}&pagina=1&limite=24`.
+- El endpoint no reemplaza `GET /ecommercePublico/catalogo?q=...`; lo usa como fuente/fallback.
+- `GET /ecommercePublico/contratos` ya incluye `/ecommercePublico/busqueda`.
+- La respuesta incluye:
+  - `depurar.items` con la misma estructura de catalogo;
+  - `depurar.interpretacion`;
+  - `depurar.sugerencias`;
+  - `depurar.categorias_relacionadas`;
+  - `depurar.marcas_relacionadas`;
+  - `depurar.terminos_relacionados`;
+  - `depurar.mensaje_cliente`;
+  - `depurar.frontend`;
+  - `depurar.guardrails`.
+- Se agregan sinonimos iniciales:
+  - `pecera -> acuario`;
+  - `cascada -> filtro`;
+  - `bomba -> oxigenador`;
+  - `comida/croquetas -> alimento`;
+  - `jaulita -> jaula`;
+  - `transportadora -> kennel`;
+  - `camita -> cama`.
+- Se detectan atributos iniciales:
+  - litros;
+  - etapa;
+  - mascota;
+  - habitat.
+- Se agrega scoring ligero para subir resultados con mejor coincidencia en nombre, categoria, marca, SKU e imagen/precio.
+- Se agrega `depurar.marcas_relacionadas[]` cuando el texto coincide con marcas publicas.
+- `depurar.categorias_relacionadas[]` tambien alimenta autocomplete para frases largas.
+- Se documenta handoff:
+  - `docs/erp_ecommerce_busqueda_inteligente_frontend.md`.
+- Se agrega UAT read-only:
+  - `storage/uat/uat_ecommerce_publico_busqueda_inteligente_readonly.php`.
+
+Prueba realizada:
+
+- `GET /ecommercePublico/busqueda?q=Filtro%20para%20pecera%20de%2040%20litros&limite=3`.
+- Resultado:
+  - `tipo=success`;
+  - `fase=busqueda_inteligente_v1`;
+  - `query_usada_catalogo=filtro`;
+  - `total=38`;
+  - primeros resultados en `Filtracion y oxigenacion`.
+
+Pendiente:
+
+- Mover sinonimos, reglas de intencion, boosts y mensajes sin resultados a una configuracion administrable desde CMS/Ecommerce.
+- Agregar endpoint o vista interna para revisar busquedas sin resultado y convertirlas en reglas/sinonimos.
+
+### Busqueda sugerencias inteligente 2026-09-09
+
+Cambios aplicados:
+
+- `GET /ecommercePublico/busqueda_sugerencias` ahora usa la misma interpretacion de busqueda inteligente v1.
+- Autocomplete prueba queries candidatas y puede caer a termino principal cuando la frase completa no tiene match literal.
+- Los productos sugeridos incluyen `url` publica `/producto/{slug_publico}`.
+- Se agregan al payload:
+  - `depurar.fase=busqueda_sugerencias_inteligente_v1`;
+  - `depurar.query_usada_productos`;
+  - `depurar.interpretacion`;
+  - `depurar.sugerencias`;
+  - `depurar.terminos_relacionados`;
+  - `depurar.frontend.usar_busqueda_para_resultados`.
+
+Prueba realizada:
+
+- `GET /ecommercePublico/busqueda_sugerencias?q=Filtro%20para%20pecera%20de%2040%20litros&limite=3`.
+- Resultado:
+  - `tipo=success`;
+  - `query_usada_productos=filtro`;
+  - `total_sugerencias=3`;
+  - primer producto sugerido apunta a `/producto/...`;
+  - interpreta `pecera -> acuario`, `capacidad_litros=40`, `mascota=peces`, `habitat=acuario`.
+
 ## SEO productos - slugs estables y redirecciones 301 2026-09-08
 
 Problema:
