@@ -422,7 +422,7 @@ class CatalogoErpEsquema extends DBSchema {
         )
       ),
       "erp_catalogo_comercial_catalogos" => array(
-        "columnas" => array("id_catalogo_comercial", "codigo", "nombre", "titulo", "subtitulo", "cta", "plantilla", "mostrar_precio", "mostrar_marca", "mostrar_categoria", "mostrar_presentacion", "mostrar_sku", "mostrar_disponibilidad", "agrupar_variantes", "fuente_visual", "color_titulo", "color_producto", "color_meta", "color_precio", "tam_titulo", "tam_producto", "tam_meta", "tam_precio", "portada_activa", "portada_etiqueta", "portada_descripcion", "portada_nota", "estatus", "id_usuario_creacion", "id_usuario_actualizacion", "fecha_registro", "fecha_actualizacion"),
+        "columnas" => array("id_catalogo_comercial", "codigo", "nombre", "titulo", "subtitulo", "cta", "plantilla", "mostrar_precio", "mostrar_marca", "mostrar_categoria", "mostrar_presentacion", "mostrar_sku", "mostrar_disponibilidad", "agrupar_variantes", "fuente_visual", "color_titulo", "color_producto", "color_meta", "color_precio", "tam_titulo", "tam_producto", "tam_meta", "tam_precio", "portada_activa", "portada_tipo", "portada_imagen_url", "logo_url", "contacto_texto", "portada_etiqueta", "portada_descripcion", "portada_nota", "estatus", "id_usuario_creacion", "id_usuario_actualizacion", "fecha_registro", "fecha_actualizacion"),
         "indices" => array(
           "idx_catalogo_comercial_estatus" => array("columnas" => array("estatus"), "severidad" => "media", "impacto" => "Permite filtrar catalogos comerciales por estado operativo."),
           "idx_catalogo_comercial_nombre" => array("columnas" => array("nombre"), "severidad" => "baja", "impacto" => "Acelera busqueda de catalogos comerciales guardados."),
@@ -1239,6 +1239,10 @@ class CatalogoErpEsquema extends DBSchema {
       "`tam_meta` INT NOT NULL DEFAULT 9",
       "`tam_precio` INT NOT NULL DEFAULT 13",
       "`portada_activa` TINYINT(1) NOT NULL DEFAULT 1",
+      "`portada_tipo` VARCHAR(30) NOT NULL DEFAULT 'plantilla'",
+      "`portada_imagen_url` VARCHAR(255) NULL",
+      "`logo_url` VARCHAR(255) NULL",
+      "`contacto_texto` VARCHAR(255) NULL",
       "`portada_etiqueta` VARCHAR(80) NULL",
       "`portada_descripcion` VARCHAR(255) NULL",
       "`portada_nota` VARCHAR(180) NULL",
@@ -1263,6 +1267,10 @@ class CatalogoErpEsquema extends DBSchema {
     $plan[] = $this->agregarColumnaSiNoExiste("erp_catalogo_comercial_catalogos", "tam_producto", "INT NOT NULL DEFAULT 11 AFTER `tam_titulo`", $ejecutar);
     $plan[] = $this->agregarColumnaSiNoExiste("erp_catalogo_comercial_catalogos", "tam_meta", "INT NOT NULL DEFAULT 9 AFTER `tam_producto`", $ejecutar);
     $plan[] = $this->agregarColumnaSiNoExiste("erp_catalogo_comercial_catalogos", "tam_precio", "INT NOT NULL DEFAULT 13 AFTER `tam_meta`", $ejecutar);
+    $plan[] = $this->agregarColumnaSiNoExiste("erp_catalogo_comercial_catalogos", "portada_tipo", "VARCHAR(30) NOT NULL DEFAULT 'plantilla' AFTER `portada_activa`", $ejecutar);
+    $plan[] = $this->agregarColumnaSiNoExiste("erp_catalogo_comercial_catalogos", "portada_imagen_url", "VARCHAR(255) NULL AFTER `portada_tipo`", $ejecutar);
+    $plan[] = $this->agregarColumnaSiNoExiste("erp_catalogo_comercial_catalogos", "logo_url", "VARCHAR(255) NULL AFTER `portada_imagen_url`", $ejecutar);
+    $plan[] = $this->agregarColumnaSiNoExiste("erp_catalogo_comercial_catalogos", "contacto_texto", "VARCHAR(255) NULL AFTER `logo_url`", $ejecutar);
 
     $plan[] = $this->crearTablaSiNoExiste("erp_catalogo_comercial_items", array(
       "`id_catalogo_item` BIGINT NOT NULL AUTO_INCREMENT",

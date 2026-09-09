@@ -438,3 +438,27 @@ Alcance:
 - Agrega bandera `agrupar_variantes` para presentacion visual de variantes.
 - No fusiona ni borra SKUs.
 - No toca costos, rentabilidad, inventario, compras, ventas ni listas de precios.
+
+## Catalogo ERP - Catalogos comerciales portada e identidad
+
+Fecha: 2026-09-08  
+Ruta estandar usada:
+
+```txt
+C:\xampp\panel_db_backups\artianicom_sys_panel_de_control_20260909_012318_antes_catalogos_comerciales_portada_contacto.sql
+```
+
+Validacion:
+
+```text
+archivo_existe=true
+archivo_legible=true
+tamano_bytes=40931757
+base=artianicom_sys
+```
+
+Alcance:
+
+- Agrega persistencia de portada comercial: tipo, imagen principal, logo y contacto.
+- La portada es material visual para redes/WhatsApp/PDF/PNG.
+- No modifica SKUs, costos, rentabilidad, inventario ni listas de precios.

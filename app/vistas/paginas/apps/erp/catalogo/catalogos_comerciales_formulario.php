@@ -63,6 +63,13 @@ $ccSubtitulo = $ccSoloVista ? "Vista previa y exportacion para redes" : "Informa
         .cc-preview-header__subtitle { color: var(--cc-meta-color); font-size: .92rem; margin-top: 6px; }
         .cc-preview-header__cta { color: var(--cc-price-color); font-size: .9rem; font-weight: 700; margin-top: 10px; }
         .cc-cover-card { border: 1px solid #dfe3ea; border-radius: 8px; min-height: 150px; padding: 18px; margin-bottom: 12px; background: #f8fafc; display: flex; flex-direction: column; justify-content: center; gap: 7px; }
+        .cc-cover-card--image { min-height: 320px; position: relative; overflow: hidden; justify-content: flex-end; padding: 0; background: #111827; }
+        .cc-cover-card--image img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+        .cc-cover-card__overlay { position: relative; z-index: 1; width: 100%; padding: 18px; background: linear-gradient(180deg, rgba(17,24,39,0), rgba(17,24,39,.82)); color: #fff; }
+        .cc-cover-card__overlay .cc-cover-card__title,
+        .cc-cover-card__overlay .cc-cover-card__desc,
+        .cc-cover-card__overlay .cc-cover-card__cta { color: #fff; }
+        .cc-cover-card__logo { width: 84px; height: 84px; object-fit: contain; border-radius: 8px; background: rgba(255,255,255,.92); padding: 8px; margin-bottom: 8px; }
         .cc-cover-card__label { color: #0f7a5f; font-size: .78rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0; }
         .cc-cover-card__title { color: var(--cc-title-color); font-size: var(--cc-title-size); line-height: 1.08; font-weight: 850; letter-spacing: 0; margin: 0; }
         .cc-cover-card__desc { color: var(--cc-meta-color); font-size: .88rem; line-height: 1.3; max-width: 760px; }
@@ -185,8 +192,35 @@ $ccSubtitulo = $ccSoloVista ? "Vista previa y exportacion para redes" : "Informa
                                         <input class="form-check-input" type="checkbox" id="cc_portada_activa" checked>
                                         <span class="form-check-label fw-semibold">Mostrar portada</span>
                                     </label>
+                                    <div class="w-200px">
+                                        <select class="form-select form-select-solid form-select-sm" id="cc_portada_tipo">
+                                            <option value="plantilla">Plantilla editable</option>
+                                            <option value="imagen_completa">Imagen pagina completa</option>
+                                        </select>
+                                    </div>
                                     <div class="w-250px">
                                         <input class="form-control form-control-solid form-control-sm" id="cc_portada_etiqueta" maxlength="50" placeholder="Etiqueta de portada">
+                                    </div>
+                                    <div class="w-300px">
+                                        <input class="form-control form-control-solid form-control-sm" id="cc_portada_imagen_url" maxlength="255" placeholder="Ruta imagen portada /uploads/...">
+                                    </div>
+                                    <div class="w-300px">
+                                        <div class="input-group input-group-sm">
+                                            <input class="form-control form-control-solid" type="file" id="cc_portada_imagen_archivo" accept="image/jpeg,image/png,image/webp,image/gif">
+                                            <button class="btn btn-light-primary" type="button" id="cc_portada_imagen_subir"><i class="bi bi-cloud-arrow-up"></i> Cargar portada</button>
+                                        </div>
+                                    </div>
+                                    <div class="w-250px">
+                                        <input class="form-control form-control-solid form-control-sm" id="cc_logo_url" maxlength="255" placeholder="Ruta logo /uploads/...">
+                                    </div>
+                                    <div class="w-300px">
+                                        <div class="input-group input-group-sm">
+                                            <input class="form-control form-control-solid" type="file" id="cc_logo_archivo" accept="image/jpeg,image/png,image/webp,image/gif">
+                                            <button class="btn btn-light-primary" type="button" id="cc_logo_subir"><i class="bi bi-cloud-arrow-up"></i> Cargar logo</button>
+                                        </div>
+                                    </div>
+                                    <div class="w-300px">
+                                        <input class="form-control form-control-solid form-control-sm" id="cc_contacto_texto" maxlength="255" placeholder="WhatsApp, redes o sucursal">
                                     </div>
                                     <span class="badge badge-light-primary" id="cc_estado">Listo</span>
                                 </div>
@@ -297,7 +331,11 @@ $ccSubtitulo = $ccSoloVista ? "Vista previa y exportacion para redes" : "Informa
                                 <input type="hidden" id="cc_material_subtitulo">
                                 <input type="hidden" id="cc_material_cta">
                                 <input type="checkbox" class="d-none" id="cc_portada_activa" checked>
+                                <input type="hidden" id="cc_portada_tipo">
                                 <input type="hidden" id="cc_portada_etiqueta">
+                                <input type="hidden" id="cc_portada_imagen_url">
+                                <input type="hidden" id="cc_logo_url">
+                                <input type="hidden" id="cc_contacto_texto">
                                 <input type="hidden" id="cc_portada_descripcion">
                                 <input type="hidden" id="cc_portada_nota">
                                 <input type="hidden" id="cc_q">
@@ -451,6 +489,6 @@ $ccSubtitulo = $ccSoloVista ? "Vista previa y exportacion para redes" : "Informa
 </div>
 <script src="assets/plugins/global/plugins.bundle.js"></script>
 <script src="assets/js/scripts.bundle.js"></script>
-<script src="/assets/js/custom/apps/erp/catalogo/catalogos_comerciales.js?v=20260827-guardar-unidades-1"></script>
+<script src="/assets/js/custom/apps/erp/catalogo/catalogos_comerciales.js?v=20260908-portada-upload-1"></script>
 </body>
 </html>

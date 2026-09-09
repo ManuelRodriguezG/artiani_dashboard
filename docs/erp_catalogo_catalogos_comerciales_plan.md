@@ -1678,3 +1678,48 @@ Regla:
 - Catalogos comerciales no calcula precios ni rentabilidad.
 - Si muestra precio, debe venir de Listas de precios.
 - No hubo DDL en este ajuste.
+
+## Ajuste 2026-09-08 - Portada comercial e identidad
+
+Contexto:
+
+- El usuario necesita una primera pagina dedicada para identidad visual, logo, contacto o una imagen principal completa como en el sistema anterior.
+- La portada debe formar parte del catalogo guardado, no quedarse solo en el navegador.
+
+Cambios previstos/aplicados:
+
+- La portada activa ahora se exporta como primera pagina independiente; los productos empiezan en paginas posteriores.
+- Se agregan campos para tipo de portada, imagen principal, logo y contacto.
+- Si hay imagen de portada, el canvas la usa a pagina completa; si no hay imagen, genera una plantilla editable con espacios para identidad visual.
+- El preview de paginas PNG muestra la portada como pagina 1 y la exportacion descarga el archivo con sufijo `portada`.
+- El editor permite cargar imagen de portada y logo desde archivo; al terminar la carga rellena la ruta publica automaticamente.
+
+DDL autorizado:
+
+- `portada_tipo VARCHAR(30) NOT NULL DEFAULT 'plantilla'`;
+- `portada_imagen_url VARCHAR(255) NULL`;
+- `logo_url VARCHAR(255) NULL`;
+- `contacto_texto VARCHAR(255) NULL`.
+
+Regla:
+
+- Estos campos solo afectan materiales visuales comerciales.
+- No se fusionan SKUs, no se tocan costos, rentabilidad, inventario ni calculos de precio.
+
+## Ajuste 2026-09-08 - Carga de imagen para portada/logo
+
+Contexto:
+
+- El usuario no tenia una forma clara de subir la imagen de portada/logo ni de saber la ruta publica.
+
+Cambios aplicados:
+
+- Se agrego endpoint `catalogos_comerciales_subir_imagen` protegido por `catalogo.editar`.
+- Los archivos se guardan en `public/uploads/erp/catalogo/comerciales/{portada|logo}/{yyyymm}`.
+- La UI agrega controles `Cargar portada` y `Cargar logo`; al subir, la ruta se llena automaticamente en el campo correspondiente.
+- Al cargar portada se selecciona automaticamente el modo `Imagen pagina completa`.
+
+Regla:
+
+- La carga no escribe el catalogo por si sola; la ruta queda en pantalla y se persiste al usar `Guardar`.
+- No se guarda como imagen de producto ni se vincula a SKUs.

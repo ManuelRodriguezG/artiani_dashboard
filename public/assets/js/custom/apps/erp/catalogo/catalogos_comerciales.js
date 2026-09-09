@@ -66,6 +66,14 @@
         }).then((response) => response.json());
     }
 
+    function apiPostFormData(url, data) {
+        return fetch(url, {
+            method: "POST",
+            body: data,
+            credentials: "same-origin"
+        }).then((response) => response.json());
+    }
+
     function dinero(valor, moneda) {
         const numero = Number(valor);
         if (!Number.isFinite(numero) || numero <= 0) return "Sin precio";
@@ -245,7 +253,11 @@
                 subtitulo: $("cc_material_subtitulo")?.value || "",
                 cta: $("cc_material_cta")?.value || "",
                 portadaActiva: Boolean($("cc_portada_activa")?.checked),
+                portadaTipo: $("cc_portada_tipo")?.value || "plantilla",
                 portadaEtiqueta: $("cc_portada_etiqueta")?.value || "",
+                portadaImagenUrl: $("cc_portada_imagen_url")?.value || "",
+                logoUrl: $("cc_logo_url")?.value || "",
+                contactoTexto: $("cc_contacto_texto")?.value || "",
                 portadaDescripcion: $("cc_portada_descripcion")?.value || "",
                 portadaNota: $("cc_portada_nota")?.value || ""
             };
@@ -272,7 +284,11 @@
         if ($("cc_material_subtitulo")) $("cc_material_subtitulo").value = datos.subtitulo || "";
         if ($("cc_material_cta")) $("cc_material_cta").value = datos.cta || "Pregunta por disponibilidad";
         if ($("cc_portada_activa")) $("cc_portada_activa").checked = datos.portadaActiva !== false;
+        if ($("cc_portada_tipo")) $("cc_portada_tipo").value = datos.portadaTipo === "imagen_completa" ? "imagen_completa" : "plantilla";
         if ($("cc_portada_etiqueta")) $("cc_portada_etiqueta").value = datos.portadaEtiqueta || "Catalogo recomendado";
+        if ($("cc_portada_imagen_url")) $("cc_portada_imagen_url").value = datos.portadaImagenUrl || "";
+        if ($("cc_logo_url")) $("cc_logo_url").value = datos.logoUrl || "";
+        if ($("cc_contacto_texto")) $("cc_contacto_texto").value = datos.contactoTexto || "";
         if ($("cc_portada_descripcion")) $("cc_portada_descripcion").value = datos.portadaDescripcion || "";
         if ($("cc_portada_nota")) $("cc_portada_nota").value = datos.portadaNota || "";
     }
@@ -300,7 +316,11 @@
             subtitulo: $("cc_material_subtitulo")?.value || "",
             cta: $("cc_material_cta")?.value || "",
             portadaActiva: Boolean($("cc_portada_activa")?.checked),
+            portadaTipo: $("cc_portada_tipo")?.value || "plantilla",
             portadaEtiqueta: $("cc_portada_etiqueta")?.value || "",
+            portadaImagenUrl: $("cc_portada_imagen_url")?.value || "",
+            logoUrl: $("cc_logo_url")?.value || "",
+            contactoTexto: $("cc_contacto_texto")?.value || "",
             portadaDescripcion: $("cc_portada_descripcion")?.value || "",
             portadaNota: $("cc_portada_nota")?.value || ""
         };
@@ -329,7 +349,11 @@
         if ($("cc_material_subtitulo")) $("cc_material_subtitulo").value = material.subtitulo || "";
         if ($("cc_material_cta")) $("cc_material_cta").value = material.cta || "Pregunta por disponibilidad";
         if ($("cc_portada_activa")) $("cc_portada_activa").checked = material.portadaActiva !== false;
+        if ($("cc_portada_tipo")) $("cc_portada_tipo").value = material.portadaTipo === "imagen_completa" ? "imagen_completa" : "plantilla";
         if ($("cc_portada_etiqueta")) $("cc_portada_etiqueta").value = material.portadaEtiqueta || "Catalogo recomendado";
+        if ($("cc_portada_imagen_url")) $("cc_portada_imagen_url").value = material.portadaImagenUrl || "";
+        if ($("cc_logo_url")) $("cc_logo_url").value = material.logoUrl || "";
+        if ($("cc_contacto_texto")) $("cc_contacto_texto").value = material.contactoTexto || "";
         if ($("cc_portada_descripcion")) $("cc_portada_descripcion").value = material.portadaDescripcion || "";
         if ($("cc_portada_nota")) $("cc_portada_nota").value = material.portadaNota || "";
         guardarMaterialLocal();
@@ -764,7 +788,11 @@
         const subtitulo = ($("cc_material_subtitulo")?.value || "").trim();
         const cta = ($("cc_material_cta")?.value || "").trim();
         const portadaActiva = Boolean($("cc_portada_activa")?.checked);
+        const portadaTipo = $("cc_portada_tipo")?.value || "plantilla";
         const portadaEtiqueta = ($("cc_portada_etiqueta")?.value || "").trim();
+        const portadaImagenUrl = ($("cc_portada_imagen_url")?.value || "").trim();
+        const logoUrl = ($("cc_logo_url")?.value || "").trim();
+        const contactoTexto = ($("cc_contacto_texto")?.value || "").trim();
         const portadaDescripcion = ($("cc_portada_descripcion")?.value || "").trim();
         const portadaNota = ($("cc_portada_nota")?.value || "").trim();
         guardarMaterialLocal();
@@ -777,12 +805,26 @@
             ${subtitulo ? `<div class="cc-preview-header__subtitle">${escapeHtml(subtitulo)}</div>` : ""}
             ${cta ? `<div class="cc-preview-header__cta">${escapeHtml(cta)}</div>` : ""}
         </section>`;
-        const portada = portadaActiva ? `<section class="cc-cover-card">
-            ${portadaEtiqueta ? `<div class="cc-cover-card__label">${escapeHtml(portadaEtiqueta)}</div>` : ""}
-            ${titulo ? `<h3 class="cc-cover-card__title">${escapeHtml(titulo)}</h3>` : ""}
-            ${portadaDescripcion || subtitulo ? `<div class="cc-cover-card__desc">${escapeHtml(portadaDescripcion || subtitulo)}</div>` : ""}
-            ${portadaNota || cta ? `<div class="cc-cover-card__cta">${escapeHtml(portadaNota || cta)}</div>` : ""}
-        </section>` : "";
+        const logo = logoUrl ? `<img class="cc-cover-card__logo" src="${escapeHtml(normalizarRutaImagen(logoUrl))}" alt="">` : "";
+        const contacto = contactoTexto ? `<div class="cc-cover-card__cta">${escapeHtml(contactoTexto)}</div>` : "";
+        const portada = portadaActiva ? (portadaTipo === "imagen_completa" && portadaImagenUrl
+            ? `<section class="cc-cover-card cc-cover-card--image">
+                <img src="${escapeHtml(normalizarRutaImagen(portadaImagenUrl))}" alt="">
+                <div class="cc-cover-card__overlay">
+                    ${logo}
+                    ${portadaEtiqueta ? `<div class="cc-cover-card__label">${escapeHtml(portadaEtiqueta)}</div>` : ""}
+                    ${titulo ? `<h3 class="cc-cover-card__title">${escapeHtml(titulo)}</h3>` : ""}
+                    ${portadaDescripcion || subtitulo ? `<div class="cc-cover-card__desc">${escapeHtml(portadaDescripcion || subtitulo)}</div>` : ""}
+                    ${contacto || portadaNota || cta ? contacto || `<div class="cc-cover-card__cta">${escapeHtml(portadaNota || cta)}</div>` : ""}
+                </div>
+            </section>`
+            : `<section class="cc-cover-card">
+                ${logo}
+                ${portadaEtiqueta ? `<div class="cc-cover-card__label">${escapeHtml(portadaEtiqueta)}</div>` : ""}
+                ${titulo ? `<h3 class="cc-cover-card__title">${escapeHtml(titulo)}</h3>` : ""}
+                ${portadaDescripcion || subtitulo ? `<div class="cc-cover-card__desc">${escapeHtml(portadaDescripcion || subtitulo)}</div>` : ""}
+                ${contacto || portadaNota || cta ? contacto || `<div class="cc-cover-card__cta">${escapeHtml(portadaNota || cta)}</div>` : ""}
+            </section>`) : "";
         contenedor.innerHTML = `${portada}${titulo || subtitulo || cta ? encabezado : ""}`;
     }
 
@@ -997,7 +1039,11 @@
         if ($("cc_material_subtitulo")) $("cc_material_subtitulo").value = "";
         if ($("cc_material_cta")) $("cc_material_cta").value = "Pregunta por disponibilidad";
         if ($("cc_portada_activa")) $("cc_portada_activa").checked = true;
+        if ($("cc_portada_tipo")) $("cc_portada_tipo").value = "plantilla";
         if ($("cc_portada_etiqueta")) $("cc_portada_etiqueta").value = "Catalogo recomendado";
+        if ($("cc_portada_imagen_url")) $("cc_portada_imagen_url").value = "";
+        if ($("cc_logo_url")) $("cc_logo_url").value = "";
+        if ($("cc_contacto_texto")) $("cc_contacto_texto").value = "";
         if ($("cc_portada_descripcion")) $("cc_portada_descripcion").value = "";
         if ($("cc_portada_nota")) $("cc_portada_nota").value = "";
         renderTabla();
@@ -1065,6 +1111,50 @@
             if (botonGuardar) {
                 botonGuardar.disabled = false;
                 botonGuardar.innerHTML = htmlOriginal || `<i class="bi bi-save"></i> Guardar`;
+            }
+        }
+    }
+
+    /**
+     * IA: Codex GPT-5 | Fecha: 2026-09-08
+     * Proposito: cargar portada/logo desde el editor y rellenar la ruta publica automaticamente.
+     * Impacto: Catalogos comerciales; evita captura manual de URLs y mantiene los archivos fuera de imagenes de producto.
+     * Contrato: sube un archivo al endpoint protegido; la ruta se persiste hasta que el usuario guarda el catalogo.
+     */
+    async function subirImagenMaterial(tipo) {
+        const esLogo = tipo === "logo";
+        const inputArchivo = $(esLogo ? "cc_logo_archivo" : "cc_portada_imagen_archivo");
+        const inputRuta = $(esLogo ? "cc_logo_url" : "cc_portada_imagen_url");
+        const boton = $(esLogo ? "cc_logo_subir" : "cc_portada_imagen_subir");
+        if (!inputArchivo || !inputArchivo.files || !inputArchivo.files.length) {
+            throw new Error(esLogo ? "Selecciona el archivo del logo" : "Selecciona la imagen de portada");
+        }
+        const original = boton ? boton.innerHTML : "";
+        if (boton) {
+            boton.disabled = true;
+            boton.innerHTML = `<span class="spinner-border spinner-border-sm me-2"></span>Cargando`;
+        }
+        setEstado(esLogo ? "Cargando logo" : "Cargando portada", "warning");
+        try {
+            const data = new FormData();
+            data.append("tipo_imagen", esLogo ? "logo" : "portada");
+            data.append("id_catalogo_comercial", String(estado.catalogoActualId || 0));
+            data.append("archivo_imagen", inputArchivo.files[0]);
+            const json = await apiPostFormData("/catalogoerp/catalogos_comerciales_subir_imagen", data);
+            if (json.error) throw new Error(json.mensaje || "No se pudo cargar la imagen");
+            const ruta = json.depurar && json.depurar.url_imagen ? json.depurar.url_imagen : "";
+            if (!ruta) throw new Error("La carga no devolvio una ruta publica");
+            if (inputRuta) inputRuta.value = ruta;
+            if (!esLogo && $("cc_portada_tipo")) $("cc_portada_tipo").value = "imagen_completa";
+            inputArchivo.value = "";
+            guardarMaterialLocal();
+            renderSeleccion();
+            limpiarPreviewPaginasExportacion();
+            setEstado(esLogo ? "Logo cargado" : "Portada cargada", "success");
+        } finally {
+            if (boton) {
+                boton.disabled = false;
+                boton.innerHTML = original || (esLogo ? `<i class="bi bi-cloud-arrow-up"></i> Cargar logo` : `<i class="bi bi-cloud-arrow-up"></i> Cargar portada`);
             }
         }
     }
@@ -1664,13 +1754,67 @@
     function paginasCatalogo(items, layout, portadaActiva) {
         const paginas = [];
         let inicio = 0;
+        if (portadaActiva) {
+            paginas.push({ items: [], portada: true, portadaCompleta: true });
+        }
         while (inicio < items.length) {
-            const incluirPortada = portadaActiva && inicio === 0;
+            const incluirPortada = false;
             const cantidad = itemsPorPaginaCatalogo(layout, incluirPortada);
             paginas.push({ items: items.slice(inicio, inicio + cantidad), portada: incluirPortada });
             inicio += cantidad;
         }
         return paginas.length ? paginas : [{ items: [], portada: portadaActiva }];
+    }
+
+    async function dibujarPortadaCompletaPagina(ctx, material, layout, opciones) {
+        const estilo = opciones.estiloVisual || estiloVisualActual();
+        const fondo = await cargarImagenCanvas(material.portadaImagenUrl || "");
+        if (fondo) {
+            dibujarImagenCover(ctx, fondo, 0, 0, layout.width, layout.height);
+            const gradiente = ctx.createLinearGradient(0, layout.height * 0.42, 0, layout.height);
+            gradiente.addColorStop(0, "rgba(17,24,39,0)");
+            gradiente.addColorStop(1, "rgba(17,24,39,.88)");
+            ctx.fillStyle = gradiente;
+            ctx.fillRect(0, 0, layout.width, layout.height);
+        } else {
+            ctx.fillStyle = "#f8fafc";
+            ctx.fillRect(0, 0, layout.width, layout.height);
+            ctx.fillStyle = estilo.colorPrecio || "#0f7a5f";
+            ctx.fillRect(0, 0, layout.width, 18);
+            ctx.fillStyle = "#ffffff";
+            redondearRect(ctx, layout.margen, layout.margen, layout.width - layout.margen * 2, layout.height - layout.margen * 2, 28);
+            ctx.fill();
+            ctx.strokeStyle = "#dfe3ea";
+            ctx.lineWidth = 3;
+            ctx.stroke();
+            ctx.strokeStyle = "#e7e9ef";
+            ctx.lineWidth = 2;
+            ctx.setLineDash([10, 10]);
+            redondearRect(ctx, layout.margen + 34, layout.margen + 34, layout.width - layout.margen * 2 - 68, Math.round(layout.height * 0.45), 18);
+            ctx.stroke();
+            ctx.setLineDash([]);
+            ctx.fillStyle = estilo.colorMeta || "#5e6278";
+            ctx.font = `800 22px ${estilo.familiaFuente || "Arial, sans-serif"}`;
+            ctx.textAlign = "center";
+            ctx.fillText("Espacio para imagen principal, logo o identidad visual", layout.width / 2, layout.margen + Math.round(layout.height * 0.24));
+            ctx.textAlign = "left";
+        }
+        const logo = await cargarImagenCanvas(material.logoUrl || "");
+        const baseX = layout.margen + 34;
+        const baseY = fondo ? Math.round(layout.height * 0.58) : Math.round(layout.height * 0.57);
+        if (logo) dibujarImagenCuadrada(ctx, logo, baseX, baseY - 92, 76);
+        ctx.fillStyle = fondo ? "#ffffff" : (estilo.colorPrecio || "#0f7a5f");
+        ctx.font = `900 18px ${estilo.familiaFuente || "Arial, sans-serif"}`;
+        canvasTexto(ctx, (material.portadaEtiqueta || "Catalogo recomendado").toUpperCase(), baseX, baseY + (logo ? 0 : -24), layout.width - layout.margen * 2 - 68, 22, 1);
+        ctx.fillStyle = fondo ? "#ffffff" : (estilo.colorTitulo || "#181c32");
+        ctx.font = `900 ${Math.max(40, Number(estilo.tamTitulo || 23) + 24)}px ${estilo.familiaFuente || "Arial, sans-serif"}`;
+        let yTexto = canvasTexto(ctx, material.titulo || "Catalogo de productos", baseX, baseY + 54, layout.width - layout.margen * 2 - 68, Math.max(48, Number(estilo.tamTitulo || 23) + 30), 2);
+        ctx.fillStyle = fondo ? "rgba(255,255,255,.9)" : (estilo.colorMeta || "#5e6278");
+        ctx.font = `600 24px ${estilo.familiaFuente || "Arial, sans-serif"}`;
+        yTexto = canvasTexto(ctx, material.portadaDescripcion || material.subtitulo || "", baseX, yTexto + 14, layout.width - layout.margen * 2 - 68, 30, 3);
+        ctx.fillStyle = fondo ? "#ffffff" : (estilo.colorPrecio || "#0f7a5f");
+        ctx.font = `900 22px ${estilo.familiaFuente || "Arial, sans-serif"}`;
+        canvasTexto(ctx, material.contactoTexto || material.portadaNota || material.cta || "", baseX, yTexto + 28, layout.width - layout.margen * 2 - 68, 28, 2);
     }
 
     function dibujarPortadaPagina(ctx, material, layout, y, opciones) {
@@ -1684,9 +1828,9 @@
         ctx.fillStyle = "#0f7a5f";
         ctx.font = `800 14px ${estilo.familiaFuente || "Arial, sans-serif"}`;
         ctx.fillText((material.portadaEtiqueta || "Catalogo recomendado").toUpperCase(), layout.margen + 22, y + 28);
-        if (material.portadaNota || material.cta) {
+        if (material.contactoTexto || material.portadaNota || material.cta) {
             ctx.textAlign = "right";
-            ctx.fillText(material.portadaNota || material.cta, layout.width - layout.margen - 22, y + 28);
+            ctx.fillText(material.contactoTexto || material.portadaNota || material.cta, layout.width - layout.margen - 22, y + 28);
             ctx.textAlign = "left";
         }
         ctx.fillStyle = estilo.colorTitulo || "#181c32";
@@ -1734,6 +1878,10 @@
         ctx.fillStyle = "#ffffff";
         ctx.fillRect(0, 0, layout.width, layout.height);
         let y = layout.margen;
+        if (paginaDatos.portadaCompleta) {
+            await dibujarPortadaCompletaPagina(ctx, material, layout, opciones);
+            return canvas;
+        }
         if (paginaDatos.portada) y = dibujarPortadaPagina(ctx, material, layout, y, opciones);
         y = dibujarHeaderPagina(ctx, material, layout, y, numeroPagina, totalPaginas, !paginaDatos.portada, opciones);
         const cardH = cardHPaginaCatalogo(layout, paginaDatos.portada);
@@ -1790,7 +1938,8 @@
             const canvas = await dibujarPaginaCatalogoCanvas(paginas[i], i + 1, paginas.length, layout, material, opciones);
             const card = document.createElement("article");
             card.className = "cc-page-preview-card";
-            card.innerHTML = `<div class="cc-page-preview-card__meta"><span>Pagina ${i + 1}</span><span>${paginas[i].items.length} productos</span></div>`;
+            const etiquetaPagina = paginas[i].portadaCompleta ? "Portada" : `${paginas[i].items.length} productos`;
+            card.innerHTML = `<div class="cc-page-preview-card__meta"><span>Pagina ${i + 1}</span><span>${etiquetaPagina}</span></div>`;
             card.appendChild(canvas);
             contenedor.appendChild(card);
             await new Promise((resolve) => setTimeout(resolve, 40));
@@ -1818,8 +1967,8 @@
             const canvas = await dibujarPaginaCatalogoCanvas(paginas[i], i + 1, paginas.length, layout, material, opciones);
             const blob = await new Promise((resolve) => canvas.toBlob(resolve, "image/png", 0.95));
             if (!blob) throw new Error("No se pudo descargar una pagina PNG");
-            const sufijo = String(i + 1).padStart(2, "0");
-            descargarBlob(blob, `${nombreBase}-pag-${sufijo}.png`);
+            const sufijo = paginas[i].portadaCompleta ? "portada" : `pag-${String(i + 1).padStart(2, "0")}`;
+            descargarBlob(blob, `${nombreBase}-${sufijo}.png`);
             await new Promise((resolve) => setTimeout(resolve, 180));
         }
         setEstado(`PNG exportado (${paginas.length})`, "success");
@@ -1869,6 +2018,12 @@
         });
         $("cc_guardar_borrador")?.addEventListener("click", () => {
             guardarCatalogoServidor().catch(mostrarError);
+        });
+        $("cc_portada_imagen_subir")?.addEventListener("click", () => {
+            subirImagenMaterial("portada").catch(mostrarError);
+        });
+        $("cc_logo_subir")?.addEventListener("click", () => {
+            subirImagenMaterial("logo").catch(mostrarError);
         });
         $("cc_cargar_borrador")?.addEventListener("click", () => {
             cargarCatalogoServidor().catch(mostrarError);
@@ -1944,7 +2099,7 @@
             renderTabla();
             renderSeleccion();
         });
-        ["cc_mostrar_precio", "cc_mostrar_marca", "cc_mostrar_categoria", "cc_mostrar_presentacion", "cc_mostrar_sku", "cc_mostrar_disponibilidad", "cc_agrupar_variantes", "cc_plantilla", "cc_columnas_exportacion", "cc_filas_exportacion", "cc_fuente_visual", "cc_tam_titulo", "cc_tam_producto", "cc_tam_meta", "cc_tam_precio"].forEach((id) => {
+        ["cc_mostrar_precio", "cc_mostrar_marca", "cc_mostrar_categoria", "cc_mostrar_presentacion", "cc_mostrar_sku", "cc_mostrar_disponibilidad", "cc_agrupar_variantes", "cc_plantilla", "cc_columnas_exportacion", "cc_filas_exportacion", "cc_fuente_visual", "cc_tam_titulo", "cc_tam_producto", "cc_tam_meta", "cc_tam_precio", "cc_portada_tipo"].forEach((id) => {
             $(id)?.addEventListener("change", () => {
                 renderSeleccion();
                 guardarOpcionesLocal();
@@ -1958,7 +2113,7 @@
                 limpiarPreviewPaginasExportacion();
             });
         });
-        ["cc_material_titulo", "cc_material_subtitulo", "cc_material_cta", "cc_portada_etiqueta", "cc_portada_descripcion", "cc_portada_nota"].forEach((id) => {
+        ["cc_material_titulo", "cc_material_subtitulo", "cc_material_cta", "cc_portada_etiqueta", "cc_portada_imagen_url", "cc_logo_url", "cc_contacto_texto", "cc_portada_descripcion", "cc_portada_nota"].forEach((id) => {
             $(id)?.addEventListener("input", () => {
                 renderSeleccion();
                 limpiarPreviewPaginasExportacion();

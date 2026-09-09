@@ -542,6 +542,27 @@ class Catalogoerp extends Controlador {
   }
 
   /**
+   * IA: Codex GPT-5 | Fecha: 2026-09-08
+   * Proposito: cargar imagenes visuales para portada/logo de catalogos comerciales sin pedir rutas manuales.
+   * Impacto: Catalogo ERP/Comercial; guarda archivo publico y devuelve la ruta para persistirla en el catalogo.
+   * Contrato: POST protegido por `catalogo.editar`; no escribe BD por si solo y no toca imagenes de producto.
+   */
+  public function catalogos_comerciales_subir_imagen() {
+    $this->requerirPermiso("catalogo.editar");
+    $archivo = isset($_FILES["archivo_imagen"]) ? $_FILES["archivo_imagen"] : null;
+    $tipo = isset($_POST["tipo_imagen"]) ? $_POST["tipo_imagen"] : "portada";
+    $respuesta = $this->guardarArchivoImagenCatalogoComercial($archivo, $tipo);
+    SesionSeguridad::registrarAuditoria("catalogo", "subir_imagen_catalogo_comercial", array(
+      "entidad" => "erp_catalogo_comercial_catalogos",
+      "entidad_id" => isset($_POST["id_catalogo_comercial"]) ? intval($_POST["id_catalogo_comercial"]) : null,
+      "resultado" => $respuesta["error"] ? "error" : "ok",
+      "mensaje" => $respuesta["mensaje"],
+      "datos_despues" => isset($respuesta["depurar"]) ? $respuesta["depurar"] : null
+    ));
+    return json_encode($respuesta);
+  }
+
+  /**
    * IA: Codex GPT-5 | Fecha: 2026-07-26
    * Proposito: archivar un catalogo comercial sin borrar historial ni items.
    * Impacto: Catalogo ERP/Comercial; baja logica, no toca productos ni ventas.
@@ -1235,6 +1256,68 @@ class Catalogoerp extends Controlador {
       "tipo" => "success",
       "mensaje" => "Archivo cargado",
       "depurar" => array("url_imagen" => $relativoDirectorio . "/" . $nombre)
+    );
+  }
+
+  /**
+   * IA: Codex GPT-5 | Fecha: 2026-09-08
+   * Proposito: recibir assets propios de materiales comerciales y devolver una ruta publica reusable.
+   * Impacto: Catalogos comerciales; permite portada/logo sin vincular el archivo a un SKU ni a Catalogo maestro.
+   * Contrato: acepta JPG, PNG, WEBP o GIF de hasta 8 MB y guarda en `public/uploads/erp/catalogo/comerciales/{tipo}/{yyyymm}`.
+   */
+  private function guardarArchivoImagenCatalogoComercial($archivo, $tipo) {
+    if (!$archivo || !isset($archivo["error"]) || intval($archivo["error"]) === UPLOAD_ERR_NO_FILE) {
+      return array("error" => true, "tipo" => "warning", "mensaje" => "Selecciona una imagen para cargar", "depurar" => null);
+    }
+    if (intval($archivo["error"]) !== UPLOAD_ERR_OK) {
+      $errores = array(
+        UPLOAD_ERR_INI_SIZE => "La imagen excede el limite permitido por PHP",
+        UPLOAD_ERR_FORM_SIZE => "La imagen excede el limite permitido por el formulario",
+        UPLOAD_ERR_PARTIAL => "La imagen se recibio incompleta",
+        UPLOAD_ERR_NO_TMP_DIR => "No existe carpeta temporal para recibir la imagen",
+        UPLOAD_ERR_CANT_WRITE => "No fue posible escribir la imagen temporal",
+        UPLOAD_ERR_EXTENSION => "Una extension de PHP bloqueo la carga de la imagen"
+      );
+      $codigo = intval($archivo["error"]);
+      return array("error" => true, "tipo" => "warning", "mensaje" => isset($errores[$codigo]) ? $errores[$codigo] : "No fue posible recibir el archivo de imagen", "depurar" => array("upload_error" => $codigo));
+    }
+    if (intval($archivo["size"]) <= 0 || intval($archivo["size"]) > 8 * 1024 * 1024) {
+      return array("error" => true, "tipo" => "warning", "mensaje" => "La imagen debe pesar maximo 8 MB", "depurar" => null);
+    }
+
+    $tmp = isset($archivo["tmp_name"]) ? $archivo["tmp_name"] : "";
+    $finfo = function_exists("finfo_open") ? finfo_open(FILEINFO_MIME_TYPE) : null;
+    $mime = $finfo ? finfo_file($finfo, $tmp) : "";
+    if ($finfo) {
+      finfo_close($finfo);
+    }
+    $permitidos = array(
+      "image/jpeg" => "jpg",
+      "image/png" => "png",
+      "image/webp" => "webp",
+      "image/gif" => "gif"
+    );
+    if (!isset($permitidos[$mime])) {
+      return array("error" => true, "tipo" => "warning", "mensaje" => "Formato de imagen no permitido. Usa JPG, PNG, WEBP o GIF", "depurar" => array("mime" => $mime));
+    }
+
+    $tipoSeguro = $tipo === "logo" ? "logo" : "portada";
+    $relativoDirectorio = "uploads/erp/catalogo/comerciales/" . $tipoSeguro . "/" . date("Ym");
+    $directorio = dirname(__DIR__, 2) . DIRECTORY_SEPARATOR . "public" . DIRECTORY_SEPARATOR . str_replace("/", DIRECTORY_SEPARATOR, $relativoDirectorio);
+    if (!is_dir($directorio) && !mkdir($directorio, 0775, true)) {
+      return array("error" => true, "tipo" => "danger", "mensaje" => "No fue posible crear la carpeta de imagenes", "depurar" => null);
+    }
+    $nombre = $tipoSeguro . "-" . date("YmdHis") . "-" . bin2hex(random_bytes(4)) . "." . $permitidos[$mime];
+    $destino = $directorio . DIRECTORY_SEPARATOR . $nombre;
+    if (!move_uploaded_file($tmp, $destino)) {
+      return array("error" => true, "tipo" => "danger", "mensaje" => "No fue posible guardar el archivo de imagen", "depurar" => null);
+    }
+
+    return array(
+      "error" => false,
+      "tipo" => "success",
+      "mensaje" => "Imagen cargada",
+      "depurar" => array("url_imagen" => $relativoDirectorio . "/" . $nombre, "tipo_imagen" => $tipoSeguro)
     );
   }
 

@@ -393,7 +393,8 @@ class CatalogoErpDatos extends CRUD {
             agrupar_variantes=:agrupar_variantes, fuente_visual=:fuente_visual,
             color_titulo=:color_titulo, color_producto=:color_producto, color_meta=:color_meta, color_precio=:color_precio,
             tam_titulo=:tam_titulo, tam_producto=:tam_producto, tam_meta=:tam_meta, tam_precio=:tam_precio,
-            portada_activa=:portada_activa, portada_etiqueta=:portada_etiqueta,
+            portada_activa=:portada_activa, portada_tipo=:portada_tipo, portada_imagen_url=:portada_imagen_url,
+            logo_url=:logo_url, contacto_texto=:contacto_texto, portada_etiqueta=:portada_etiqueta,
             portada_descripcion=:portada_descripcion, portada_nota=:portada_nota,
             id_usuario_actualizacion=:usuario, fecha_actualizacion=CURRENT_TIMESTAMP
           WHERE id_catalogo_comercial=:id");
@@ -404,12 +405,12 @@ class CatalogoErpDatos extends CRUD {
           (codigo, nombre, titulo, subtitulo, cta, plantilla, mostrar_precio, mostrar_marca, mostrar_categoria,
            mostrar_presentacion, mostrar_sku, mostrar_disponibilidad, agrupar_variantes, fuente_visual,
            color_titulo, color_producto, color_meta, color_precio, tam_titulo, tam_producto, tam_meta, tam_precio,
-           portada_activa, portada_etiqueta,
+           portada_activa, portada_tipo, portada_imagen_url, logo_url, contacto_texto, portada_etiqueta,
            portada_descripcion, portada_nota, estatus, id_usuario_creacion, id_usuario_actualizacion)
           VALUES (:codigo, :nombre, :titulo, :subtitulo, :cta, :plantilla, :precio, :marca, :categoria,
            :presentacion, :sku, :disponibilidad, :agrupar_variantes, :fuente_visual,
            :color_titulo, :color_producto, :color_meta, :color_precio, :tam_titulo, :tam_producto, :tam_meta, :tam_precio,
-           :portada_activa, :portada_etiqueta,
+           :portada_activa, :portada_tipo, :portada_imagen_url, :logo_url, :contacto_texto, :portada_etiqueta,
            :portada_descripcion, :portada_nota, 'borrador', :usuario, :usuario)");
         $params = $this->paramsCatalogoComercial(0, $nombre, $titulo, $material, $opciones, $idUsuario);
         $params[":codigo"] = $codigo;
@@ -7817,6 +7818,10 @@ class CatalogoErpDatos extends CRUD {
       "subtitulo" => $catalogo["subtitulo"],
       "cta" => $catalogo["cta"],
       "portadaActiva" => intval($catalogo["portada_activa"]) === 1,
+      "portadaTipo" => isset($catalogo["portada_tipo"]) && $catalogo["portada_tipo"] === "imagen_completa" ? "imagen_completa" : "plantilla",
+      "portadaImagenUrl" => isset($catalogo["portada_imagen_url"]) ? $catalogo["portada_imagen_url"] : "",
+      "logoUrl" => isset($catalogo["logo_url"]) ? $catalogo["logo_url"] : "",
+      "contactoTexto" => isset($catalogo["contacto_texto"]) ? $catalogo["contacto_texto"] : "",
       "portadaEtiqueta" => $catalogo["portada_etiqueta"],
       "portadaDescripcion" => $catalogo["portada_descripcion"],
       "portadaNota" => $catalogo["portada_nota"]
@@ -7893,6 +7898,10 @@ class CatalogoErpDatos extends CRUD {
       ":tam_meta" => $estiloVisual["tamMeta"],
       ":tam_precio" => $estiloVisual["tamPrecio"],
       ":portada_activa" => array_key_exists("portadaActiva", $material) ? (!empty($material["portadaActiva"]) ? 1 : 0) : 1,
+      ":portada_tipo" => isset($material["portadaTipo"]) && $material["portadaTipo"] === "imagen_completa" ? "imagen_completa" : "plantilla",
+      ":portada_imagen_url" => substr(trim((string)(isset($material["portadaImagenUrl"]) ? $material["portadaImagenUrl"] : "")), 0, 255) ?: null,
+      ":logo_url" => substr(trim((string)(isset($material["logoUrl"]) ? $material["logoUrl"] : "")), 0, 255) ?: null,
+      ":contacto_texto" => substr(trim((string)(isset($material["contactoTexto"]) ? $material["contactoTexto"] : "")), 0, 255) ?: null,
       ":portada_etiqueta" => substr(trim((string)(isset($material["portadaEtiqueta"]) ? $material["portadaEtiqueta"] : "")), 0, 80) ?: null,
       ":portada_descripcion" => substr(trim((string)(isset($material["portadaDescripcion"]) ? $material["portadaDescripcion"] : "")), 0, 255) ?: null,
       ":portada_nota" => substr(trim((string)(isset($material["portadaNota"]) ? $material["portadaNota"] : "")), 0, 180) ?: null,
