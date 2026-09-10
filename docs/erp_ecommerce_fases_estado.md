@@ -1405,8 +1405,11 @@ Cambios aplicados:
 
 - Se agrega endpoint publico:
   - `GET /ecommercePublico/busqueda?q={texto}&pagina=1&limite=24`.
+- Se agrega manifest publico:
+  - `GET /ecommercePublico/busqueda_manifest`.
 - El endpoint no reemplaza `GET /ecommercePublico/catalogo?q=...`; lo usa como fuente/fallback.
 - `GET /ecommercePublico/contratos` ya incluye `/ecommercePublico/busqueda`.
+- `GET /ecommercePublico/contratos` ya incluye `/ecommercePublico/busqueda_manifest`.
 - La respuesta incluye:
   - `depurar.items` con la misma estructura de catalogo;
   - `depurar.interpretacion`;
@@ -1433,8 +1436,18 @@ Cambios aplicados:
 - Se agrega scoring ligero para subir resultados con mejor coincidencia en nombre, categoria, marca, SKU e imagen/precio.
 - Se agrega `depurar.marcas_relacionadas[]` cuando el texto coincide con marcas publicas.
 - `depurar.categorias_relacionadas[]` tambien alimenta autocomplete para frases largas.
+- La configuracion puede venir de `erp_ecommerce_configuracion.clave=busqueda_inteligente_config` cuando CMS la publique:
+  - `sinonimos`;
+  - `stopwords`;
+  - `prioridad_terminos`;
+  - `categorias_probables`;
+  - `boosts`;
+  - `mensajes`.
+- Si no hay configuracion publicada, la API usa defaults seguros en codigo.
 - Se documenta handoff:
   - `docs/erp_ecommerce_busqueda_inteligente_frontend.md`.
+- Se documenta configuracion CMS:
+  - `docs/erp_ecommerce_busqueda_cms_config.md`.
 - Se agrega UAT read-only:
   - `storage/uat/uat_ecommerce_publico_busqueda_inteligente_readonly.php`.
 
@@ -1450,7 +1463,6 @@ Prueba realizada:
 
 Pendiente:
 
-- Mover sinonimos, reglas de intencion, boosts y mensajes sin resultados a una configuracion administrable desde CMS/Ecommerce.
 - Agregar endpoint o vista interna para revisar busquedas sin resultado y convertirlas en reglas/sinonimos.
 
 ### Busqueda sugerencias inteligente 2026-09-09
@@ -1477,6 +1489,40 @@ Prueba realizada:
   - `total_sugerencias=3`;
   - primer producto sugerido apunta a `/producto/...`;
   - interpreta `pecera -> acuario`, `capacidad_litros=40`, `mascota=peces`, `habitat=acuario`.
+
+### CMS busqueda inteligente 2026-09-09
+
+Cambios aplicados:
+
+- Se agrego vista interna protegida `GET /cms/frontend/busqueda`.
+- La vista queda en CMS > Contenido tienda > Busqueda.
+- La pantalla permite cargar manifest, editar JSON, formatear, probar busquedas y publicar configuracion real.
+- Se agrego endpoint interno `GET /cms/frontend_busqueda_manifest_erp`.
+- Se agrego endpoint interno `POST /cms/frontend_busqueda_publicar_erp`.
+- La publicacion guarda JSON validado en `erp_ecommerce_configuracion.clave=busqueda_inteligente_config`.
+- El modelo valida `sinonimos`, `stopwords`, `prioridad_terminos`, `categorias_probables`, `boosts` y `mensajes.sin_resultados`.
+- Guardrails: no modifica catalogo ERP, productos, precios, inventario ni publicaciones ecommerce.
+
+Prueba realizada:
+
+- `php -l app/controladores/Cms.php`.
+- `php -l app/modelos/EcommerceCatalogoPublico.php`.
+- `php -l app/vistas/paginas/apps/erp/cms/frontend_busqueda.php`.
+- `node --check public/assets/js/custom/apps/erp/cms/frontend_busqueda.js`.
+- `php storage/uat/uat_ecommerce_publico_busqueda_inteligente_readonly.php http://panel.com.local`.
+
+Resultado UAT publico:
+
+- `ok=true`.
+- `/ecommercePublico/busqueda` responde `fase=busqueda_inteligente_v1`.
+- `/ecommercePublico/busqueda_sugerencias` responde `fase=busqueda_sugerencias_inteligente_v1`.
+- `/ecommercePublico/busqueda_manifest` expone `clave_configuracion=busqueda_inteligente_config`.
+
+Pendiente:
+
+- Probar la vista con sesion real desde navegador: `/cms/frontend/busqueda`.
+- Publicar una regla pequena desde CMS y confirmar que `/ecommercePublico/busqueda_manifest` cambie `fuente` a `bd_configuracion`.
+- Crear modulo futuro de analytics para registrar busquedas sin resultado y convertirlas en sinonimos/reglas.
 
 ## SEO productos - slugs estables y redirecciones 301 2026-09-08
 
@@ -1533,3 +1579,57 @@ Pendiente antes de abrir indexacion:
 - Probar cambio real de slug en una publicacion publicada y validar que se cree 301.
 - Probar `GET /ecommercePublico/producto/{slug_anterior}` y `GET /ecommercePublico/redirecciones`.
 - Confirmar que el frontend externo convierte `tipo=redirect/status=301` en una redireccion HTTP 301 real en SSR/middleware.
+
+### Mesa SEO de productos y slugs 2026-09-09
+
+Necesidad operativa:
+
+- Mientras se corrigen nombres publicos de productos, operacion necesita ver en una sola mesa `SKU`, nombre publico, slug actual, URL nueva y posibles URLs anteriores relacionadas.
+- La relacion contra URLs viejas debe ayudar por similitud, SKU/nombre/slug y reporte local, pero no debe aprobar 301 automaticamente.
+
+Cambios aplicados:
+
+- `GET /ecommercePublico/seo_productos_slugs_erp` lista publicaciones con `SKU`, `titulo_publico`, `slug`, URL local de revision, canonical productiva y sugerencias de URLs anteriores.
+- `POST /ecommercePublico/seo_producto_slug_plan_erp` valida cambio de nombre/slug en modo read-only y muestra si se generaria 301 por cambio de slug.
+- `POST /ecommercePublico/seo_producto_slug_guardar_erp` guarda nombre/slug reutilizando `guardarCuraduriaPublicacionAutorizada()` con token `ECOMMERCE_PUBLICO_PUBLICACION_CURADURIA`.
+- La vista `/ecommercePublico/seo_migracion` agrega bloque `Productos y slugs publicos` con filtros por busqueda, estatus y relacion vieja.
+- El boton de estrella sugiere slug desde el nombre actual, pero no lo cambia solo por escribir el nombre.
+- El boton de flecha de una URL vieja sugerida solo llena el formulario de redireccion manual; guardar la 301 sigue requiriendo token `ECOMMERCE_SEO_GUARDAR_REDIRECCION`.
+- Ajuste 2026-09-09: `/ecommercePublico/seo_migracion` ya no carga automaticamente la mesa pesada de productos ni el reporte completo de URLs anteriores al entrar; quedan como consultas bajo demanda desde sus botones/filtros.
+- El editor de producto agrega buscador de URL anterior productiva para seleccionar manualmente una URL vieja y enviarla al formulario de redireccion manual del producto actual.
+- Ajuste 2026-09-09: la fuente principal de `Revision de URLs anteriores` puede ser el Excel de URLs indexadas de Google; para cada URL vieja calcula hasta 3 URLs nuevas candidatas contra las canonicas actuales.
+- Cada sugerencia nueva muestra path, titulo, score/confianza y permite abrir la busqueda del producto nuevo para revisar nombre publico y slug.
+
+Regla confirmada:
+
+- `erp_ecommerce_publicaciones.slug` ya es el slug persistido en base de datos.
+- Cambiar nombre publico no cambia slug automaticamente.
+- Si se cambia slug con autorizacion, el historial operativo se conserva como redireccion 301 de `/producto/{slug_anterior}` a `/producto/{slug_nuevo}` cuando la tabla SEO existe.
+- El reporte local de URLs viejas proviene de rastreo del sitio productivo y de archivos en `storage/tmp`; no equivale a listado de URLs indexadas por Google Search Console.
+- La bandeja de URLs viejas ya no usa "ocultar" como accion primaria; cada URL debe clasificarse con decision SEO: redirigir a producto, mantener agotado, habilitar basico agotado, redirigir categoria, 410 descontinuado o pendiente.
+- Si el producto existe en catalogo ERP pero no esta publicado y puede volver o conviene conservar demanda SEO, preferir ficha basica agotada antes que 410.
+- Si el producto ya no volvera y existe sustituto claro, preferir 301 al producto sustituto.
+- Si no volvera y no hay sustituto claro, evaluar categoria especifica; 410 solo cuando se confirme baja definitiva sin equivalente util.
+
+### Regla profesional de slugs de producto 2026-09-10
+
+Decision aplicada:
+
+- Los slugs de producto deben ser cortos, descriptivos, legibles, en minusculas y separados por guiones.
+- El slug sugerido debe basarse en nombre comercial curado y, cuando ayude a distinguir variantes, en presentacion util: `100g`, `3kg`, `250ml`, `12kg`.
+- No incluir por defecto terminos genericos de empaque como `pza`, `pieza`, `unidad`, `c/u`.
+- No incluir SKU/codigo interno por defecto. El SKU queda para busqueda, relacion con URLs viejas, datos estructurados y desempate manual si dos productos terminan con el mismo slug.
+- Si existen productos muy similares, priorizar variante real, sabor, etapa, especie, talla o contenido antes de agregar SKU.
+- Una vez lanzado el dominio productivo, cualquier cambio de slug debe crear 301 desde la URL anterior y debe ser excepcional.
+
+Ejemplo recomendado:
+
+- Preferir `/producto/lata-nupec-adulto-carne-verduras-100g`.
+- Evitar `/producto/lata-nupec-adulto-con-carne-con-verduras-alimento-humedo-100-gr-pza-610691`.
+
+Cambio tecnico:
+
+- `prepararPublicacion()` ahora propone slug con una regla profesional que limpia la presentacion y no concatena SKU automaticamente.
+- La mesa `Productos y slugs publicos` expone `slug_profesional_sugerido`.
+- El boton de sugerir slug en la mesa SEO usa primero `slug_profesional_sugerido`.
+- No se cambian slugs existentes automaticamente; el usuario debe guardar explicitamente desde curaduria/mesa SEO.

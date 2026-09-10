@@ -36,6 +36,10 @@ class Cms extends Controlador {
       $this->frontend_catalogo();
       return;
     }
+    if ($pagina === "busqueda") {
+      $this->frontend_busqueda();
+      return;
+    }
     if ($pagina === "categorias") {
       $this->frontend_categorias();
       return;
@@ -98,6 +102,17 @@ class Cms extends Controlador {
   public function frontend_catalogo() {
     $this->requerirAlgunPermiso(array("cms.ver", "catalogo.ver"));
     $this->vista("apps/erp/cms/frontend_catalogo");
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-09
+   * Proposito: abrir CMS > Frontend > Busqueda como pantalla operativa.
+   * Impacto: CMS frontend; permite administrar sinonimos, reglas y mensajes del buscador publico.
+   * Contrato: vista protegida; publica configuracion JSON en `erp_ecommerce_configuracion` sin tocar catalogo, precios ni inventario.
+   */
+  public function frontend_busqueda() {
+    $this->requerirAlgunPermiso(array("cms.ver", "catalogo.ver"));
+    $this->vista("apps/erp/cms/frontend_busqueda");
   }
 
   /**
@@ -802,6 +817,42 @@ class Cms extends Controlador {
         "id_publicacion_contenido" => isset($depurar["id_publicacion_contenido"]) ? $depurar["id_publicacion_contenido"] : null,
         "slot" => isset($depurar["slot"]) ? $depurar["slot"] : null,
         "publicado_api" => isset($depurar["publicado_api"]) ? $depurar["publicado_api"] : false
+      )
+    ));
+    return json_encode($respuesta, JSON_UNESCAPED_UNICODE);
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-09
+   * Proposito: entregar al CMS el manifest actual de busqueda inteligente.
+   * Impacto: CMS frontend busqueda; permite editar desde la configuracion activa o defaults de codigo.
+   * Contrato: solo lectura, protegido por permiso; no escribe BD ni toca catalogo.
+   */
+  public function frontend_busqueda_manifest_erp() {
+    $this->requerirAlgunPermiso(array("cms.ver", "catalogo.ver"));
+    return json_encode($this->modelo("EcommerceCatalogoPublico")->busquedaManifestPublica($_GET), JSON_UNESCAPED_UNICODE);
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-09
+   * Proposito: publicar configuracion operativa del buscador publico desde CMS.
+   * Impacto: API ecommerce publico; actualiza sinonimos, prioridades, reglas y mensajes de busqueda.
+   * Contrato: POST protegido por cms.publicar/catalogo.editar, CSRF y auditoria; no toca productos, precios ni inventario.
+   */
+  public function frontend_busqueda_publicar_erp() {
+    $this->requerirAlgunPermiso(array("cms.publicar", "catalogo.editar"));
+    $respuesta = $this->modelo("EcommerceCatalogoPublico")->guardarBusquedaInteligenteConfigInterna($_POST, $this->usuarioActualId());
+    $depurar = isset($respuesta["depurar"]) && is_array($respuesta["depurar"]) ? $respuesta["depurar"] : array();
+    SesionSeguridad::registrarAuditoria("cms", "frontend_busqueda_publicar_erp", array(
+      "resultado" => empty($respuesta["error"]) ? "ok" : "error",
+      "mensaje" => isset($respuesta["mensaje"]) ? $respuesta["mensaje"] : "",
+      "datos_despues" => array(
+        "clave" => "busqueda_inteligente_config",
+        "fuente" => isset($depurar["fuente"]) ? $depurar["fuente"] : "",
+        "sinonimos" => isset($depurar["resumen"]["sinonimos"]) ? $depurar["resumen"]["sinonimos"] : 0,
+        "stopwords" => isset($depurar["resumen"]["stopwords"]) ? $depurar["resumen"]["stopwords"] : 0,
+        "categorias_probables" => isset($depurar["resumen"]["categorias_probables"]) ? $depurar["resumen"]["categorias_probables"] : 0,
+        "publicado_api" => empty($respuesta["error"])
       )
     ));
     return json_encode($respuesta, JSON_UNESCAPED_UNICODE);

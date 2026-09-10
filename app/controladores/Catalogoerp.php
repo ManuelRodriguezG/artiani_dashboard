@@ -39,6 +39,18 @@ class Catalogoerp extends Controlador {
   }
 
   /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-09-09
+   * Proposito: abrir una pantalla operativa para clasificar productos ERP sin entrar al modal completo.
+   * Impacto: Catalogo ERP; acelera asignacion de marca, categoria principal y categorias secundarias.
+   * Contrato: vista protegida por `catalogo.ver`; el guardado por fila se valida en endpoint separado con `catalogo.editar`.
+   */
+  public function clasificacion_rapida() {
+    $this->requerirPermiso("catalogo.ver");
+    $this->vista("apps/erp/catalogo/clasificacion_rapida");
+  }
+
+  /**
    * IA: Codex GPT-5 | Fecha: 2026-07-23
    * Proposito: abrir el MVP interno de catalogos comerciales alimentado por Catalogo ERP.
    * Impacto: Catalogo ERP/Comercial; permite validar candidatos y tarjetas sin persistencia ni exportacion formal.
@@ -505,6 +517,38 @@ class Catalogoerp extends Controlador {
   public function listar() {
     $this->requerirPermiso("catalogo.ver");
     return json_encode($this->modelo("CatalogoErpDatos")->listarProductos());
+  }
+
+  /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-09-09
+   * Proposito: alimentar la tabla de clasificacion rapida con productos, marcas y categorias asignables.
+   * Impacto: Catalogo ERP; endpoint read-only para detectar faltantes de clasificacion sin exponer costos.
+   * Contrato: GET protegido por `catalogo.ver`; acepta q, estatus, solo_pendientes y limite.
+   */
+  public function clasificacion_rapida_datos() {
+    $this->requerirPermiso("catalogo.ver");
+    return json_encode($this->modelo("CatalogoErpDatos")->listarClasificacionRapida($_GET));
+  }
+
+  /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-09-09
+   * Proposito: guardar marca y categorias de un producto desde la tabla de clasificacion rapida.
+   * Impacto: Catalogo ERP; escribe solo erp_catalogo_productos y erp_catalogo_producto_categorias del producto indicado.
+   * Contrato: POST protegido por `catalogo.editar`; acepta id_producto_erp, id_marca_erp, id_categoria_principal y categorias_secundarias.
+   */
+  public function clasificacion_rapida_guardar() {
+    $this->requerirPermiso("catalogo.editar");
+    $respuesta = $this->modelo("CatalogoErpDatos")->guardarClasificacionRapida($_POST, $this->usuarioActualId());
+    SesionSeguridad::registrarAuditoria("catalogo", "guardar_clasificacion_rapida", array(
+      "entidad" => "erp_catalogo_productos",
+      "entidad_id" => isset($_POST["id_producto_erp"]) ? intval($_POST["id_producto_erp"]) : null,
+      "resultado" => $respuesta["error"] ? "error" : "ok",
+      "mensaje" => $respuesta["mensaje"],
+      "datos_despues" => isset($respuesta["depurar"]) ? $respuesta["depurar"] : null
+    ));
+    return json_encode($respuesta);
   }
 
   /**

@@ -88,12 +88,52 @@ class DistribucionAdmin extends Controlador {
 
   /**
    * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-09
+   * Proposito: listar SKUs ERP publicables en canal Distribucion.
+   * Impacto: Admin ERP Distribucion; alimenta publicacion permanente con datos reales del catalogo.
+   * Contrato: GET protegido por `distribucion.editar`; read-only.
+   */
+  public function skus_publicables() {
+    $this->requerirPermiso("distribucion.editar");
+    return json_encode($this->modelo("DistribucionCatalogoApi")->skusPublicablesInternos($_GET));
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-09
+   * Proposito: publicar/reactivar SKU ERP en canal Distribucion.
+   * Impacto: Catalogo Distribucion; habilita visibilidad externa permanente.
+   * Contrato: POST protegido por `distribucion.editar`; valida precio activo y audita.
+   */
+  public function publicar_sku() {
+    $this->requerirPermiso("distribucion.editar");
+    return json_encode($this->modelo("DistribucionCatalogoApi")->publicarSkuInterno($_POST, $this->usuarioActualId()));
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-09
+   * Proposito: desactivar SKU del canal Distribucion sin borrar historial.
+   * Impacto: Catalogo Distribucion; retira visibilidad externa de forma auditada.
+   * Contrato: POST protegido por `distribucion.editar`; baja logica del vinculo.
+   */
+  public function desactivar_sku() {
+    $this->requerirPermiso("distribucion.editar");
+    return json_encode($this->modelo("DistribucionCatalogoApi")->desactivarSkuInterno($_POST, $this->usuarioActualId()));
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-09
    * Proposito: aprobar cliente Distribucion con escritura auditada.
    * Impacto: Admin ERP Distribucion; crea/activa cliente sin asignar listas/permisos automaticamente.
    * Contrato: POST protegido por `distribucion.aprobar_clientes`; registra auditoria propia.
    */
   public function cliente_aprobar() {
     $this->requerirPermiso("distribucion.aprobar_clientes");
+    if (intval(isset($_POST["id_lista_precio"]) ? $_POST["id_lista_precio"] : 0) > 0) {
+      $this->requerirPermiso("distribucion.asignar_precios");
+    }
+    $permisos = isset($_POST["permisos"]) ? trim((string) $_POST["permisos"]) : "";
+    if ($permisos !== "" && $permisos !== "[]" && $permisos !== "null") {
+      $this->requerirPermiso("distribucion.editar");
+    }
     return json_encode($this->modelo("DistribucionClientesApi")->clienteAprobarPlanInterno($_POST, $this->usuarioActualId()));
   }
 

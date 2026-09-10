@@ -3,24 +3,42 @@
 class DistribucionClientesApi extends CRUD {
 
   /**
-   * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-09
-   * Proposito: validar contrato de solicitud de acceso comercial sin aprobar clientes automaticamente.
-   * Impacto: Clientes Distribucion; prepara registro B2B externo sin asignar listas ni permisos sensibles.
-   * Contrato: POST JSON; bloquea persistencia hasta contar con esquema/flujo admin autorizado.
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-10
+   * Proposito: validar y persistir solicitud comercial MAYOREO de Distribucion sin aprobar acceso automaticamente.
+   * Impacto: Clientes Distribucion; guarda datos comerciales estructurados para revision interna ERP.
+   * Contrato: POST JSON; no crea usuarios internos, no asigna listas, permisos ni credenciales sensibles.
    */
   public function registrarSolicitud($datos = array(), $contexto = array()) {
     $nombre = trim((string) $this->valor($datos, "nombre", ""));
-    $empresa = trim((string) $this->valor($datos, "empresa", ""));
-    $correo = trim((string) $this->valor($datos, "correo", ""));
+    $nombreNegocio = trim((string) $this->valor($datos, "nombre_negocio", ""));
+    $empresa = trim((string) $this->valor($datos, "empresa", $nombreNegocio));
+    if ($empresa === "") { $empresa = $nombreNegocio; }
+    $correo = strtolower(trim((string) $this->valor($datos, "correo", "")));
     $telefono = trim((string) $this->valor($datos, "telefono", ""));
-    $tipoInteres = trim((string) $this->valor($datos, "tipo_interes", "registrado"));
+    $whatsapp = trim((string) $this->valor($datos, "whatsapp", ""));
+    $rfc = strtoupper(trim((string) $this->valor($datos, "rfc", "")));
+    $ciudad = trim((string) $this->valor($datos, "ciudad", ""));
+    $estado = trim((string) $this->valor($datos, "estado", ""));
+    $tipoInteresEntrada = strtolower(trim((string) $this->valor($datos, "tipo_interes", "mayorista")));
+    $tipoInteres = "mayorista";
+    $tipoNegocio = strtolower(trim((string) $this->valor($datos, "tipo_negocio", "")));
+    $calle = trim((string) $this->valor($datos, "calle", ""));
+    $numeroExterior = trim((string) $this->valor($datos, "numero_exterior", ""));
+    $numeroInterior = trim((string) $this->valor($datos, "numero_interior", ""));
+    $colonia = trim((string) $this->valor($datos, "colonia", ""));
+    $codigoPostal = trim((string) $this->valor($datos, "codigo_postal", ""));
+    $referencias = trim((string) $this->valor($datos, "referencias", ""));
+    $interesesComerciales = trim((string) $this->valor($datos, "intereses_comerciales", ""));
     $mensaje = trim((string) $this->valor($datos, "mensaje", ""));
+    $tiposNegocio = array("venta_internet", "veterinaria", "petshop", "acuario", "acuario_petshop", "estetica_canina", "criador", "vendedor_mercado", "vendedor_ambulante", "otro");
     $errores = array();
     if ($nombre === "") { $errores[] = "nombre_requerido"; }
+    if ($nombreNegocio === "") { $errores[] = "nombre_negocio_requerido"; }
     if ($correo === "" || !filter_var($correo, FILTER_VALIDATE_EMAIL)) { $errores[] = "correo_invalido"; }
-    if (!in_array($tipoInteres, array("registrado", "revendedor", "mayorista", "distribuidor_autorizado"), true)) {
-      $errores[] = "tipo_interes_invalido";
-    }
+    if ($telefono === "") { $errores[] = "telefono_requerido"; }
+    if ($ciudad === "") { $errores[] = "ciudad_requerida"; }
+    if ($estado === "") { $errores[] = "estado_requerido"; }
+    if (!in_array($tipoNegocio, $tiposNegocio, true)) { $errores[] = "tipo_negocio_invalido"; }
     if (!empty($errores)) {
       return $this->respuesta(true, "warning", "Solicitud de acceso incompleta", array("errores" => $errores));
     }
@@ -32,30 +50,82 @@ class DistribucionClientesApi extends CRUD {
         "estatus" => "pendiente",
         "configurado" => false,
         "no_aprueba_automaticamente" => true,
-        "campos_recibidos" => array("nombre", "empresa", "correo", "telefono", "tipo_interes", "mensaje")
+        "campos_recibidos" => array("nombre", "nombre_negocio", "empresa", "correo", "telefono", "whatsapp", "ciudad", "estado", "tipo_negocio", "tipo_interes", "mensaje")
       ));
     }
 
     try {
+      if (!$this->columnasSolicitudComercialListas($db)) {
+        return $this->respuesta(true, "warning", "Esquema de registro comercial Distribucion pendiente", array(
+          "configurado" => false,
+          "requiere_actualizar_esquema" => true,
+          "campos_busqueda_requeridos" => array("nombre_negocio", "whatsapp", "ciudad", "estado", "tipo_negocio", "datos_comerciales_json")
+        ));
+      }
       $folio = $this->folioSolicitud($db);
+      $datosComerciales = array(
+        "nombre" => $nombre,
+        "nombre_negocio" => $nombreNegocio,
+        "empresa" => $empresa,
+        "correo" => $correo,
+        "telefono" => $telefono,
+        "whatsapp" => $whatsapp,
+        "rfc" => $rfc,
+        "ciudad" => $ciudad,
+        "estado" => $estado,
+        "tipo_interes" => $tipoInteres,
+        "tipo_interes_recibido" => $tipoInteresEntrada,
+        "tipo_negocio" => $tipoNegocio,
+        "calle" => $calle,
+        "numero_exterior" => $numeroExterior,
+        "numero_interior" => $numeroInterior,
+        "colonia" => $colonia,
+        "codigo_postal" => $codigoPostal,
+        "referencias" => $referencias,
+        "intereses_comerciales" => $interesesComerciales,
+        "mensaje" => $mensaje,
+        "pendiente_permitir_registro_sin_correo" => true
+      );
       $stmt = $db->prepare("INSERT INTO erp_distribucion_solicitudes
-        (folio, nombre, empresa, correo, telefono, tipo_interes, mensaje, estatus, fecha_registro)
-        VALUES (:folio, :nombre, :empresa, :correo, :telefono, :tipo_interes, :mensaje, 'pendiente', NOW())");
+        (folio, nombre, nombre_negocio, empresa, correo, telefono, whatsapp, rfc, ciudad, estado, tipo_interes, tipo_negocio, calle, numero_exterior, numero_interior, colonia, codigo_postal, referencias, intereses_comerciales, mensaje, datos_comerciales_json, ip_registro, user_agent, estatus, fecha_registro)
+        VALUES (:folio, :nombre, :nombre_negocio, :empresa, :correo, :telefono, :whatsapp, :rfc, :ciudad, :estado, :tipo_interes, :tipo_negocio, :calle, :numero_exterior, :numero_interior, :colonia, :codigo_postal, :referencias, :intereses_comerciales, :mensaje, :datos_comerciales_json, :ip_registro, :user_agent, 'pendiente', NOW())");
       $stmt->execute(array(
         ":folio" => $folio,
         ":nombre" => $nombre,
+        ":nombre_negocio" => $nombreNegocio,
         ":empresa" => $empresa,
-        ":correo" => strtolower($correo),
+        ":correo" => $correo,
         ":telefono" => $telefono,
+        ":whatsapp" => $whatsapp,
+        ":rfc" => $rfc,
+        ":ciudad" => $ciudad,
+        ":estado" => $estado,
         ":tipo_interes" => $tipoInteres,
-        ":mensaje" => $mensaje
+        ":tipo_negocio" => $tipoNegocio,
+        ":calle" => $calle,
+        ":numero_exterior" => $numeroExterior,
+        ":numero_interior" => $numeroInterior,
+        ":colonia" => $colonia,
+        ":codigo_postal" => $codigoPostal,
+        ":referencias" => $referencias,
+        ":intereses_comerciales" => $interesesComerciales,
+        ":mensaje" => $mensaje,
+        ":datos_comerciales_json" => json_encode($datosComerciales, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+        ":ip_registro" => $this->ipContexto($contexto),
+        ":user_agent" => $this->userAgentContexto($contexto)
       ));
-      return $this->respuesta(false, "success", "Solicitud recibida. Tu acceso sera revisado.", array(
+      $respuesta = $this->respuesta(false, "success", "Solicitud recibida. Tu acceso sera revisado.", array(
         "folio" => $folio,
         "estatus" => "pendiente",
         "configurado" => true,
-        "no_aprueba_automaticamente" => true
+        "no_aprueba_automaticamente" => true,
+        "no_asigna_lista_automaticamente" => true,
+        "no_asigna_permisos_automaticamente" => true,
+        "tipo_interes_forzado" => $tipoInteresEntrada !== "mayorista"
       ));
+      $respuesta["folio"] = $folio;
+      $respuesta["estatus"] = "pendiente";
+      return $respuesta;
     } catch (Exception $e) {
       return $this->respuesta(true, "danger", "No se pudo registrar la solicitud", array("detalle" => "error_controlado"));
     }
@@ -190,7 +260,7 @@ class DistribucionClientesApi extends CRUD {
         $where[] = "estatus=:estatus";
         $params[":estatus"] = $estatus;
       }
-      $stmt = $db->prepare("SELECT id_solicitud_distribucion, folio, nombre, empresa, correo, telefono, tipo_interes, estatus, fecha_registro
+      $stmt = $db->prepare("SELECT id_solicitud_distribucion, folio, nombre, nombre_negocio, empresa, correo, telefono, whatsapp, rfc, ciudad, estado, tipo_interes, tipo_negocio, estatus, fecha_registro
         FROM erp_distribucion_solicitudes
         WHERE " . implode(" AND ", $where) . "
         ORDER BY id_solicitud_distribucion DESC
@@ -293,10 +363,10 @@ class DistribucionClientesApi extends CRUD {
   }
 
   /**
-   * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-09
-   * Proposito: aprobar cliente externo desde una solicitud Distribucion con trazabilidad propia.
-   * Impacto: Admin ERP Distribucion; crea/actualiza perfil externo sin asignar lista ni permisos automaticamente.
-   * Contrato: escritura transaccional; requiere esquema aplicado y permiso del controlador.
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-10
+   * Proposito: aprobar cliente externo desde solicitud Distribucion y configurar acceso comercial explicito.
+   * Impacto: Admin ERP Distribucion; crea/actualiza prospecto sin asumir lista, permisos ni credenciales automaticas.
+   * Contrato: escritura transaccional; lista/permisos solo se aplican cuando el admin los envia y el controlador los autoriza.
    */
   public function clienteAprobarPlanInterno($datos = array(), $idUsuario = null) {
     $idSolicitud = intval($this->valor($datos, "id_solicitud_distribucion", 0));
@@ -312,9 +382,25 @@ class DistribucionClientesApi extends CRUD {
       if (!$solicitud) {
         return $this->respuesta(true, "warning", "Solicitud no encontrada");
       }
-      $tipo = in_array($solicitud["tipo_interes"], array("registrado", "revendedor", "mayorista", "distribuidor_autorizado"), true) ? $solicitud["tipo_interes"] : "registrado";
+      $tipo = "mayorista";
+      $empresa = trim((string) (isset($solicitud["nombre_negocio"]) && $solicitud["nombre_negocio"] !== "" ? $solicitud["nombre_negocio"] : $solicitud["empresa"]));
       $contrasenia = (string) $this->valor($datos, "contrasenia", "");
       $hash = $contrasenia !== "" ? password_hash($contrasenia, PASSWORD_DEFAULT) : null;
+      $idLista = intval($this->valor($datos, "id_lista_precio", 0));
+      $lista = null;
+      if ($idLista > 0) {
+        $lista = $this->listaPrecioActiva($db, $idLista);
+        if (!$lista) {
+          return $this->respuesta(true, "warning", "Lista de precio no activa");
+        }
+      }
+      $permisos = $this->normalizarPermisos($this->valor($datos, "permisos", array()));
+      if (!empty($permisos)) {
+        $validacionPermisos = $this->validarPermisosComerciales($permisos);
+        if ($validacionPermisos !== true) {
+          return $this->respuesta(true, "warning", "Permiso comercial no valido", array("permiso" => $validacionPermisos));
+        }
+      }
       $db->beginTransaction();
       $stmt = $db->prepare("INSERT INTO erp_distribucion_clientes
         (nombre, empresa, correo, telefono, tipo_cliente, estatus, contrasenia_hash, fecha_aprobacion, fecha_registro, fecha_actualizacion)
@@ -323,7 +409,7 @@ class DistribucionClientesApi extends CRUD {
           estatus='aprobado', contrasenia_hash=COALESCE(VALUES(contrasenia_hash), contrasenia_hash), fecha_aprobacion=COALESCE(fecha_aprobacion, NOW()), fecha_actualizacion=NOW()");
       $stmt->execute(array(
         ":nombre" => $solicitud["nombre"],
-        ":empresa" => $solicitud["empresa"],
+        ":empresa" => $empresa,
         ":correo" => strtolower($solicitud["correo"]),
         ":telefono" => $solicitud["telefono"],
         ":tipo" => $tipo,
@@ -336,20 +422,31 @@ class DistribucionClientesApi extends CRUD {
         SET estatus='aprobado', id_cliente_distribucion=:cliente, fecha_actualizacion=NOW()
         WHERE id_solicitud_distribucion=:solicitud")
         ->execute(array(":cliente" => $idCliente, ":solicitud" => $idSolicitud));
+      if ($idLista > 0) {
+        $this->aplicarListaCliente($db, $idCliente, $idLista);
+      }
+      if (!empty($permisos)) {
+        $this->aplicarPermisosCliente($db, $idCliente, $permisos);
+      }
       $this->registrarAuditoria($db, "cliente", $idCliente, "aprobar", "ok", "Cliente Distribucion aprobado", array(
         "id_solicitud_distribucion" => $idSolicitud,
         "tipo_cliente" => $tipo,
         "contrasenia_recibida" => $hash !== null,
-        "lista_asignada" => false,
-        "permisos_asignados" => false
+        "lista_asignada" => $idLista > 0,
+        "id_lista_precio" => $idLista > 0 ? $idLista : null,
+        "permisos_asignados" => !empty($permisos),
+        "permisos" => $permisos
       ), $idUsuario, $idCliente);
       $db->commit();
       return $this->respuesta(false, "success", "Cliente Distribucion aprobado", array(
         "ejecutado" => true,
         "id_cliente_distribucion" => $idCliente,
         "id_solicitud_distribucion" => $idSolicitud,
-        "no_asigna_lista_automaticamente" => true,
-        "no_asigna_permisos_automaticamente" => true
+        "tipo_cliente" => $tipo,
+        "id_lista_precio" => $idLista > 0 ? $idLista : null,
+        "permisos" => $permisos,
+        "lista_asignada_explicitamente" => $idLista > 0,
+        "permisos_asignados_explicitamente" => !empty($permisos)
       ));
     } catch (Exception $e) {
       if ($db && $db->inTransaction()) { $db->rollBack(); }
@@ -446,23 +543,14 @@ class DistribucionClientesApi extends CRUD {
       return $this->respuesta(true, "warning", "Esquema de listas no disponible", array("configurado" => false));
     }
     try {
-      $stmtLista = $db->prepare("SELECT id_lista_precio, nombre, estatus FROM erp_listas_precios WHERE id_lista_precio=:lista LIMIT 1");
-      $stmtLista->execute(array(":lista" => $idLista));
-      $lista = $stmtLista->fetch(PDO::FETCH_ASSOC);
-      if (!$lista || (string) $lista["estatus"] !== "activa") {
+      $lista = $this->listaPrecioActiva($db, $idLista);
+      if (!$lista) {
         return $this->respuesta(true, "warning", "Lista de precio no activa");
       }
       $db->beginTransaction();
       $cliente = $this->buscarCliente($db, $idCliente);
       if (!$cliente) { throw new Exception("cliente_no_encontrado"); }
-      $db->prepare("UPDATE erp_distribucion_clientes SET id_lista_precio=:lista, fecha_actualizacion=NOW() WHERE id_cliente_distribucion=:cliente")
-        ->execute(array(":lista" => $idLista, ":cliente" => $idCliente));
-      $db->prepare("UPDATE erp_distribucion_cliente_listas SET estatus='inactivo', fecha_actualizacion=NOW() WHERE id_cliente_distribucion=:cliente AND estatus='activo'")
-        ->execute(array(":cliente" => $idCliente));
-      $db->prepare("INSERT INTO erp_distribucion_cliente_listas
-        (id_cliente_distribucion, id_lista_precio, prioridad, estatus, fecha_inicio, fecha_registro)
-        VALUES (:cliente, :lista, 1, 'activo', NOW(), NOW())")
-        ->execute(array(":cliente" => $idCliente, ":lista" => $idLista));
+      $this->aplicarListaCliente($db, $idCliente, $idLista);
       $this->registrarAuditoria($db, "cliente", $idCliente, "asignar_lista_precio", "ok", "Lista de precio Distribucion asignada", array(
         "id_lista_precio" => $idLista,
         "lista" => $lista["nombre"]
@@ -482,13 +570,10 @@ class DistribucionClientesApi extends CRUD {
    * Contrato: reemplazo idempotente de permisos activos; registra auditoria.
    */
   public function permisosPlanInterno($datos = array(), $idUsuario = null) {
-    require_once RUTA_APP . "/modelos/DistribucionPermisosApi.php";
-    $permitidos = (new DistribucionPermisosApi())->permisosComerciales();
     $permisos = $this->normalizarPermisos($this->valor($datos, "permisos", array()));
-    foreach ($permisos as $permiso) {
-      if (!in_array($permiso, $permitidos, true)) {
-        return $this->respuesta(true, "warning", "Permiso comercial no valido", array("permiso" => $permiso));
-      }
+    $validacionPermisos = $this->validarPermisosComerciales($permisos);
+    if ($validacionPermisos !== true) {
+      return $this->respuesta(true, "warning", "Permiso comercial no valido", array("permiso" => $validacionPermisos));
     }
     $idCliente = intval($this->valor($datos, "id_cliente_distribucion", 0));
     if ($idCliente <= 0) {
@@ -502,15 +587,7 @@ class DistribucionClientesApi extends CRUD {
       $db->beginTransaction();
       $cliente = $this->buscarCliente($db, $idCliente);
       if (!$cliente) { throw new Exception("cliente_no_encontrado"); }
-      $db->prepare("UPDATE erp_distribucion_cliente_permisos SET estatus='inactivo', fecha_actualizacion=NOW() WHERE id_cliente_distribucion=:cliente")
-        ->execute(array(":cliente" => $idCliente));
-      foreach ($permisos as $permiso) {
-        $db->prepare("INSERT INTO erp_distribucion_cliente_permisos
-          (id_cliente_distribucion, permiso, estatus, fecha_registro, fecha_actualizacion)
-          VALUES (:cliente, :permiso, 'activo', NOW(), NOW())
-          ON DUPLICATE KEY UPDATE estatus='activo', fecha_actualizacion=NOW()")
-          ->execute(array(":cliente" => $idCliente, ":permiso" => $permiso));
-      }
+      $this->aplicarPermisosCliente($db, $idCliente, $permisos);
       $this->registrarAuditoria($db, "cliente", $idCliente, "asignar_permisos", "ok", "Permisos Distribucion actualizados", array(
         "permisos" => $permisos
       ), $idUsuario, $idCliente);
@@ -533,6 +610,48 @@ class DistribucionClientesApi extends CRUD {
       $permisos[] = $fila["permiso"];
     }
     return $permisos;
+  }
+
+  private function listaPrecioActiva($db, $idLista) {
+    if (!$this->tablaExiste($db, "erp_listas_precios")) { return false; }
+    $stmtLista = $db->prepare("SELECT id_lista_precio, nombre, estatus FROM erp_listas_precios WHERE id_lista_precio=:lista LIMIT 1");
+    $stmtLista->execute(array(":lista" => intval($idLista)));
+    $lista = $stmtLista->fetch(PDO::FETCH_ASSOC);
+    return $lista && (string) $lista["estatus"] === "activa" ? $lista : false;
+  }
+
+  private function aplicarListaCliente($db, $idCliente, $idLista) {
+    $db->prepare("UPDATE erp_distribucion_clientes SET id_lista_precio=:lista, fecha_actualizacion=NOW() WHERE id_cliente_distribucion=:cliente")
+      ->execute(array(":lista" => intval($idLista), ":cliente" => intval($idCliente)));
+    $db->prepare("UPDATE erp_distribucion_cliente_listas SET estatus='inactivo', fecha_actualizacion=NOW() WHERE id_cliente_distribucion=:cliente AND estatus='activo'")
+      ->execute(array(":cliente" => intval($idCliente)));
+    $db->prepare("INSERT INTO erp_distribucion_cliente_listas
+      (id_cliente_distribucion, id_lista_precio, prioridad, estatus, fecha_inicio, fecha_registro)
+      VALUES (:cliente, :lista, 1, 'activo', NOW(), NOW())")
+      ->execute(array(":cliente" => intval($idCliente), ":lista" => intval($idLista)));
+  }
+
+  private function validarPermisosComerciales($permisos) {
+    require_once RUTA_APP . "/modelos/DistribucionPermisosApi.php";
+    $permitidos = (new DistribucionPermisosApi())->permisosComerciales();
+    foreach ($permisos as $permiso) {
+      if (!in_array($permiso, $permitidos, true)) {
+        return $permiso;
+      }
+    }
+    return true;
+  }
+
+  private function aplicarPermisosCliente($db, $idCliente, $permisos) {
+    $db->prepare("UPDATE erp_distribucion_cliente_permisos SET estatus='inactivo', fecha_actualizacion=NOW() WHERE id_cliente_distribucion=:cliente")
+      ->execute(array(":cliente" => intval($idCliente)));
+    foreach ($permisos as $permiso) {
+      $db->prepare("INSERT INTO erp_distribucion_cliente_permisos
+        (id_cliente_distribucion, permiso, estatus, fecha_registro, fecha_actualizacion)
+        VALUES (:cliente, :permiso, 'activo', NOW(), NOW())
+        ON DUPLICATE KEY UPDATE estatus='activo', fecha_actualizacion=NOW()")
+        ->execute(array(":cliente" => intval($idCliente), ":permiso" => $permiso));
+    }
   }
 
   private function actualizarClienteCampo($datos, $campo, $valor, $accion, $idUsuario) {
@@ -626,6 +745,38 @@ class DistribucionClientesApi extends CRUD {
     } catch (Exception $e) {
       return false;
     }
+  }
+
+  private function columnaExiste($db, $tabla, $columna) {
+    try {
+      $stmt = $db->prepare("SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=:base AND TABLE_NAME=:tabla AND COLUMN_NAME=:columna LIMIT 1");
+      $stmt->execute(array(":base" => MYSQLBASE, ":tabla" => $tabla, ":columna" => $columna));
+      return (bool) $stmt->fetch(PDO::FETCH_ASSOC);
+    } catch (Exception $e) {
+      return false;
+    }
+  }
+
+  private function columnasSolicitudComercialListas($db) {
+    $columnas = array("nombre_negocio", "whatsapp", "rfc", "ciudad", "estado", "tipo_negocio", "calle", "numero_exterior", "numero_interior", "colonia", "codigo_postal", "referencias", "intereses_comerciales", "datos_comerciales_json", "ip_registro", "user_agent");
+    foreach ($columnas as $columna) {
+      if (!$this->columnaExiste($db, "erp_distribucion_solicitudes", $columna)) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  private function ipContexto($contexto) {
+    $ip = is_array($contexto) ? trim((string) $this->valor($contexto, "ip", "")) : "";
+    if ($ip === "" && isset($_SERVER["REMOTE_ADDR"])) { $ip = (string) $_SERVER["REMOTE_ADDR"]; }
+    return substr($ip, 0, 80);
+  }
+
+  private function userAgentContexto($contexto) {
+    $ua = is_array($contexto) ? trim((string) $this->valor($contexto, "user_agent", "")) : "";
+    if ($ua === "" && isset($_SERVER["HTTP_USER_AGENT"])) { $ua = (string) $_SERVER["HTTP_USER_AGENT"]; }
+    return substr($ua, 0, 255);
   }
 
   private function respuesta($error, $tipo, $mensaje, $depurar = array()) {

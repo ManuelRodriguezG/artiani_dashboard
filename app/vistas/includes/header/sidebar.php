@@ -40,6 +40,7 @@ $seccionesMenu = array(
     'CRM' => array('icono' => 'bi-people'),
     'CMS' => array('icono' => 'bi-layout-text-window-reverse'),
     'Ecommerce' => array('icono' => 'bi-shop'),
+    'Distribucion' => array('icono' => 'bi-box-arrow-up-right'),
     'Administracion' => array('icono' => 'bi-shield-lock')
 );
 
@@ -60,6 +61,7 @@ $gruposMenu = array(
         'permiso' => 'catalogo.ver',
         'items' => array(
             array('titulo' => 'Productos ERP', 'ruta' => '/catalogoerp', 'permiso' => 'catalogo.ver'),
+            array('titulo' => 'Clasificacion rapida', 'ruta' => '/catalogoerp/clasificacion_rapida', 'permiso' => 'catalogo.ver'),
             array('titulo' => 'Organizacion catalogo', 'ruta' => '/catalogoerp/organizacion', 'permiso' => 'catalogo.ver'),
             array('titulo' => 'Paquetes', 'ruta' => '/catalogoerp/paquetes', 'permiso' => 'catalogo.ver'),
             array('titulo' => 'Revision migracion', 'ruta' => '/catalogoerp/migracion_ecommerce', 'permiso' => 'catalogo.ver'),
@@ -256,6 +258,7 @@ $gruposMenu = array(
         'items' => array(
             array('titulo' => 'Home', 'ruta' => '/cms/frontend/home', 'permiso' => array('cms.ver', 'catalogo.ver')),
             array('titulo' => 'Catalogo', 'ruta' => '/cms/frontend/catalogo', 'permiso' => array('cms.ver', 'catalogo.ver')),
+            array('titulo' => 'Busqueda', 'ruta' => '/cms/frontend/busqueda', 'permiso' => array('cms.ver', 'catalogo.ver')),
             array('titulo' => 'Categorias', 'ruta' => '/cms/frontend/categorias', 'permiso' => array('cms.ver', 'catalogo.ver')),
             array('titulo' => 'Producto', 'ruta' => '/cms/frontend/producto', 'permiso' => array('cms.ver', 'catalogo.ver')),
             array('titulo' => 'Carrito', 'ruta' => '/cms/frontend/carrito', 'permiso' => array('cms.ver', 'catalogo.ver')),
@@ -284,6 +287,15 @@ $gruposMenu = array(
             array('titulo' => 'Flujo sesiones', 'ruta' => '/ecommercePublico/analytics_flujo', 'permiso' => 'catalogo.ver'),
             array('titulo' => 'SEO y URLs', 'ruta' => '/ecommercePublico/seo_migracion', 'permiso' => 'catalogo.ver'),
             array('titulo' => 'Catalogo ecommerce', 'ruta' => '/producto/catalogo', 'permiso' => 'ecommerce.ver')
+        )
+    ),
+    array(
+        'seccion' => 'Distribucion',
+        'titulo' => 'Distribucion',
+        'icono' => 'bi-box-arrow-up-right',
+        'permiso' => 'distribucion.ver',
+        'items' => array(
+            array('titulo' => 'Administracion', 'ruta' => '/DistribucionAdmin/administracion', 'permiso' => 'distribucion.ver')
         )
     ),
     array(

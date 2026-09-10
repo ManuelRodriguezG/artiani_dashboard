@@ -13,9 +13,11 @@ $q = isset($opciones["q"]) ? trim((string) $opciones["q"]) : "Filtro para pecera
 $limite = isset($opciones["limite"]) ? max(1, min(12, intval($opciones["limite"]))) : 3;
 $httpBusqueda = requestBusquedaInteligente($base . "/ecommercePublico/busqueda?q=" . rawurlencode($q) . "&limite=" . intval($limite));
 $httpSugerencias = requestBusquedaInteligente($base . "/ecommercePublico/busqueda_sugerencias?q=" . rawurlencode($q) . "&limite=" . intval($limite));
+$httpManifest = requestBusquedaInteligente($base . "/ecommercePublico/busqueda_manifest");
 
 $depBusqueda = valorBusquedaInteligente($httpBusqueda, array("depurar"), array());
 $depSugerencias = valorBusquedaInteligente($httpSugerencias, array("depurar"), array());
+$depManifest = valorBusquedaInteligente($httpManifest, array("depurar"), array());
 $bloqueos = array();
 
 if (valorBusquedaInteligente($depBusqueda, array("fase"), "") !== "busqueda_inteligente_v1") {
@@ -64,6 +66,18 @@ foreach (array("busqueda" => $httpBusqueda, "sugerencias" => $httpSugerencias) a
     $bloqueos[] = "http_" . $nombre . "_tipo_incorrecto";
   }
 }
+if (empty($httpManifest["json_valido"]) || $httpManifest["tipo"] !== "success") {
+  $bloqueos[] = "http_manifest_no_success";
+}
+if (valorBusquedaInteligente($depManifest, array("fase"), "") !== "busqueda_inteligente_v1") {
+  $bloqueos[] = "manifest_fase_incorrecta";
+}
+if (empty(valorBusquedaInteligente($depManifest, array("configuracion", "sinonimos"), array()))) {
+  $bloqueos[] = "manifest_sinonimos_vacios";
+}
+if (valorBusquedaInteligente($depManifest, array("cms", "clave_configuracion"), "") !== "busqueda_inteligente_config") {
+  $bloqueos[] = "manifest_clave_cms_incorrecta";
+}
 
 $ok = empty($bloqueos);
 echo json_encode(array(
@@ -88,9 +102,17 @@ echo json_encode(array(
     "query_usada_productos" => valorBusquedaInteligente($depSugerencias, array("query_usada_productos"), ""),
     "resumen" => valorBusquedaInteligente($depSugerencias, array("resumen"), array())
   ),
+  "manifest" => array(
+    "fase" => valorBusquedaInteligente($depManifest, array("fase"), ""),
+    "fuente" => valorBusquedaInteligente($depManifest, array("fuente"), ""),
+    "clave_configuracion" => valorBusquedaInteligente($depManifest, array("cms", "clave_configuracion"), ""),
+    "sinonimos" => count(valorBusquedaInteligente($depManifest, array("configuracion", "sinonimos"), array())),
+    "categorias_probables" => count(valorBusquedaInteligente($depManifest, array("configuracion", "categorias_probables"), array()))
+  ),
   "http" => array(
     "busqueda" => resumenHttpBusquedaInteligente($httpBusqueda),
-    "sugerencias" => resumenHttpBusquedaInteligente($httpSugerencias)
+    "sugerencias" => resumenHttpBusquedaInteligente($httpSugerencias),
+    "manifest" => resumenHttpBusquedaInteligente($httpManifest)
   ),
   "guardrails" => array(
     "no_escribe_bd" => true,
@@ -108,7 +130,7 @@ function requestBusquedaInteligente($url) {
       "method" => "GET",
       "header" => "Accept: application/json\r\n",
       "ignore_errors" => true,
-      "timeout" => 10
+      "timeout" => 30
     )
   ));
   $raw = @file_get_contents($url, false, $context);

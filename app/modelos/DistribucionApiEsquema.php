@@ -84,11 +84,27 @@ class DistribucionApiEsquema extends DBSchema {
       "`id_solicitud_distribucion` BIGINT NOT NULL AUTO_INCREMENT",
       "`folio` VARCHAR(40) NOT NULL",
       "`nombre` VARCHAR(160) NOT NULL",
+      "`nombre_negocio` VARCHAR(180) NULL",
       "`empresa` VARCHAR(180) NULL",
       "`correo` VARCHAR(180) NOT NULL",
       "`telefono` VARCHAR(40) NULL",
-      "`tipo_interes` VARCHAR(40) NOT NULL DEFAULT 'registrado'",
+      "`whatsapp` VARCHAR(40) NULL",
+      "`rfc` VARCHAR(20) NULL",
+      "`ciudad` VARCHAR(120) NULL",
+      "`estado` VARCHAR(120) NULL",
+      "`tipo_interes` VARCHAR(40) NOT NULL DEFAULT 'mayorista'",
+      "`tipo_negocio` VARCHAR(60) NULL",
+      "`calle` VARCHAR(180) NULL",
+      "`numero_exterior` VARCHAR(40) NULL",
+      "`numero_interior` VARCHAR(40) NULL",
+      "`colonia` VARCHAR(120) NULL",
+      "`codigo_postal` VARCHAR(20) NULL",
+      "`referencias` TEXT NULL",
+      "`intereses_comerciales` TEXT NULL",
       "`mensaje` TEXT NULL",
+      "`datos_comerciales_json` LONGTEXT NULL",
+      "`ip_registro` VARCHAR(80) NULL",
+      "`user_agent` VARCHAR(255) NULL",
       "`estatus` VARCHAR(30) NOT NULL DEFAULT 'pendiente'",
       "`id_cliente_distribucion` BIGINT NULL",
       "`fecha_registro` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
@@ -96,8 +112,36 @@ class DistribucionApiEsquema extends DBSchema {
       "PRIMARY KEY (`id_solicitud_distribucion`)",
       "UNIQUE KEY `idx_dist_solicitud_folio` (`folio`)",
       "KEY `idx_dist_solicitud_correo` (`correo`, `estatus`)",
+      "KEY `idx_dist_solicitud_contacto` (`telefono`, `whatsapp`)",
+      "KEY `idx_dist_solicitud_ubicacion` (`estado`, `ciudad`)",
+      "KEY `idx_dist_solicitud_negocio` (`tipo_negocio`, `estatus`)",
       "KEY `idx_dist_solicitud_estatus` (`estatus`, `fecha_registro`)"
     ), "ENGINE=InnoDB DEFAULT CHARSET=utf8mb4", $ejecutar);
+
+    $columnasSolicitud = array(
+      "nombre_negocio" => "VARCHAR(180) NULL AFTER `nombre`",
+      "whatsapp" => "VARCHAR(40) NULL AFTER `telefono`",
+      "rfc" => "VARCHAR(20) NULL AFTER `whatsapp`",
+      "ciudad" => "VARCHAR(120) NULL AFTER `rfc`",
+      "estado" => "VARCHAR(120) NULL AFTER `ciudad`",
+      "tipo_negocio" => "VARCHAR(60) NULL AFTER `tipo_interes`",
+      "calle" => "VARCHAR(180) NULL AFTER `tipo_negocio`",
+      "numero_exterior" => "VARCHAR(40) NULL AFTER `calle`",
+      "numero_interior" => "VARCHAR(40) NULL AFTER `numero_exterior`",
+      "colonia" => "VARCHAR(120) NULL AFTER `numero_interior`",
+      "codigo_postal" => "VARCHAR(20) NULL AFTER `colonia`",
+      "referencias" => "TEXT NULL AFTER `codigo_postal`",
+      "intereses_comerciales" => "TEXT NULL AFTER `referencias`",
+      "datos_comerciales_json" => "LONGTEXT NULL AFTER `mensaje`",
+      "ip_registro" => "VARCHAR(80) NULL AFTER `datos_comerciales_json`",
+      "user_agent" => "VARCHAR(255) NULL AFTER `ip_registro`"
+    );
+    foreach ($columnasSolicitud as $columna => $definicion) {
+      $plan[] = $this->agregarColumnaSiNoExiste("erp_distribucion_solicitudes", $columna, $definicion, $ejecutar);
+    }
+    $plan[] = $this->agregarIndiceSiNoExiste("erp_distribucion_solicitudes", "idx_dist_solicitud_contacto", "KEY `idx_dist_solicitud_contacto` (`telefono`, `whatsapp`)", $ejecutar);
+    $plan[] = $this->agregarIndiceSiNoExiste("erp_distribucion_solicitudes", "idx_dist_solicitud_ubicacion", "KEY `idx_dist_solicitud_ubicacion` (`estado`, `ciudad`)", $ejecutar);
+    $plan[] = $this->agregarIndiceSiNoExiste("erp_distribucion_solicitudes", "idx_dist_solicitud_negocio", "KEY `idx_dist_solicitud_negocio` (`tipo_negocio`, `estatus`)", $ejecutar);
 
     $plan[] = $this->crearTablaSiNoExiste("erp_distribucion_cliente_permisos", array(
       "`id_cliente_permiso` BIGINT NOT NULL AUTO_INCREMENT",

@@ -112,6 +112,7 @@ function erpHeaderCatalogoBusqueda()
         )),
         array('seccion' => 'CMS', 'titulo' => 'Frontend', 'icono' => 'bi-window-sidebar', 'items' => array(
             array('titulo' => 'Home', 'ruta' => '/cms/frontend/home', 'permiso' => array('cms.ver', 'catalogo.ver'), 'detalle' => 'CMS frontend home'),
+            array('titulo' => 'Busqueda', 'ruta' => '/cms/frontend/busqueda', 'permiso' => array('cms.ver', 'catalogo.ver'), 'detalle' => 'CMS frontend busqueda inteligente'),
             array('titulo' => 'Categorias', 'ruta' => '/cms/frontend/categorias', 'permiso' => array('cms.ver', 'catalogo.ver'), 'detalle' => 'CMS frontend categorias'),
             array('titulo' => 'Producto', 'ruta' => '/cms/frontend/producto', 'permiso' => array('cms.ver', 'catalogo.ver'), 'detalle' => 'CMS frontend producto'),
             array('titulo' => 'Carrito', 'ruta' => '/cms/frontend/carrito', 'permiso' => array('cms.ver', 'catalogo.ver'), 'detalle' => 'CMS frontend carrito'),

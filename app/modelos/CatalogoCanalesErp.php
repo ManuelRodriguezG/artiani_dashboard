@@ -306,7 +306,7 @@ class CatalogoCanalesErp extends CRUD {
       "nombre" => $fila["nombre_sku"],
       "marca" => $this->valor($fila, "marca", ""),
       "categoria" => $this->valor($fila, "categoria", ""),
-      "imagen_principal" => $this->valor($fila, "imagen_principal", null),
+      "imagen_principal" => $this->urlRecurso($this->valor($fila, "imagen_principal", null)),
       "presentacion" => $this->presentacion($fila),
       "precio" => array("visible" => false, "tipo" => "sin_permiso", "moneda" => "MXN", "monto" => null, "mensaje" => "Solicitar precio"),
       "disponibilidad" => array("visible" => true, "estado" => $estado, "mensaje" => $this->mensajeDisponibilidad($estado)),
@@ -324,6 +324,16 @@ class CatalogoCanalesErp extends CRUD {
       if (!$this->tablaExiste($db, $tabla)) { $faltantes[] = $tabla; }
     }
     return array("ready" => empty($faltantes), "faltantes" => $faltantes, "conexion" => true);
+  }
+
+  private function urlRecurso($url) {
+    $url = trim((string) $url);
+    if ($url === "") { return null; }
+    if (preg_match('/^https?:\/\//i', $url) || strpos($url, "/") === 0) {
+      return $url;
+    }
+    $base = defined("RUTA_RECURSOS_IMG") ? RUTA_RECURSOS_IMG : (defined("RUTA_URL") ? RUTA_URL : "");
+    return rtrim($base, "/") . "/" . ltrim($url, "/");
   }
 
   private function itemsNormalizados($items) {

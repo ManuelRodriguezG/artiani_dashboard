@@ -3,12 +3,22 @@
 class DistribucionCotizacionesApi extends CRUD {
 
   /**
-   * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-09
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-10
    * Proposito: validar estructura de cotizacion Distribucion sin guardar ni tocar inventario.
-   * Impacto: Cotizaciones Distribucion; permite al frontend probar contrato con guardrails activos.
-   * Contrato: POST JSON; no aparta inventario, no crea venta y no crea pedido.
+   * Impacto: Cotizaciones Distribucion; respeta permiso comercial asignado al cliente externo.
+   * Contrato: POST JSON autenticado con `distribucion.cotizacion.solicitar`; no aparta inventario ni crea venta/pedido.
    */
   public function dryRun($datos = array(), $contexto = array()) {
+    if (empty($contexto["autenticado"])) {
+      return $this->respuesta(true, "warning", "Debes iniciar sesion para cotizar", array(
+        "requiere_autenticacion" => true,
+        "requiere_permiso" => "distribucion.cotizacion.solicitar"
+      ));
+    }
+    $permisos = $this->valor($contexto, "permisos", array());
+    if (!is_array($permisos) || !in_array("distribucion.cotizacion.solicitar", $permisos, true)) {
+      return $this->respuesta(true, "warning", "No tienes permiso para cotizar", array("requiere_permiso" => "distribucion.cotizacion.solicitar"));
+    }
     require_once RUTA_APP . "/modelos/DistribucionCatalogoApi.php";
     $catalogo = new DistribucionCatalogoApi();
     $precios = $catalogo->resolverPrecios($datos, $contexto);
@@ -172,6 +182,112 @@ class DistribucionCotizacionesApi extends CRUD {
   }
 
   /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-10
+   * Proposito: registrar solicitud de pedido Distribucion para revision interna de existencias y surtido.
+   * Impacto: Distribucion; permite pedir sin exponer existencia, apartar inventario, crear venta o crear pedido ERP.
+   * Contrato: POST autenticado con `distribucion.pedido.preliminar`; disponibilidad queda `por_confirmar`.
+   */
+  public function registrarPedidoPreliminar($datos = array(), $contexto = array()) {
+    if (empty($contexto["autenticado"])) {
+      return $this->respuesta(true, "warning", "Debes iniciar sesion para solicitar pedido", array(
+        "folio" => null,
+        "estatus" => null,
+        "requiere_autenticacion" => true,
+        "requiere_permiso" => "distribucion.pedido.preliminar"
+      ));
+    }
+    $permisos = $this->valor($contexto, "permisos", array());
+    if (!is_array($permisos) || !in_array("distribucion.pedido.preliminar", $permisos, true)) {
+      return $this->respuesta(true, "warning", "No tienes permiso para solicitar pedidos", array("requiere_permiso" => "distribucion.pedido.preliminar"));
+    }
+    $db = $this->getConexion();
+    if (!$this->esquemaOperativo($db)) {
+      return $this->respuesta(true, "warning", "Esquema de pedidos Distribucion no disponible", array("configurado" => false));
+    }
+    $items = $this->itemsNormalizados($this->valor($datos, "items", array()));
+    if (empty($items)) {
+      return $this->respuesta(true, "warning", "Agrega partidas para solicitar pedido");
+    }
+    $visibles = $this->skusVisiblesCanal($db, $items);
+    $bloqueos = array();
+    foreach ($items as $item) {
+      $idSku = intval($this->valor($item, "id_sku", 0));
+      if ($idSku <= 0 || !isset($visibles[$idSku])) {
+        $bloqueos[] = "sku_no_visible_canal_" . $idSku;
+      }
+    }
+    if (!empty($bloqueos)) {
+      return $this->respuesta(true, "warning", "La solicitud contiene SKUs no disponibles para Distribucion", array("bloqueos" => array_values(array_unique($bloqueos))));
+    }
+
+    try {
+      $idCliente = intval($this->valor($contexto, "id_cliente_distribucion", 0));
+      $folio = $this->folioPedido($db);
+      $comentarios = trim((string) $this->valor($datos, "comentarios", ""));
+      $skuInfo = $this->skuInfo($db, $items);
+      $db->beginTransaction();
+      $stmt = $db->prepare("INSERT INTO erp_distribucion_cotizaciones
+        (folio, id_cliente_distribucion, estatus, moneda, subtotal, total_estimado, comentarios, snapshot_json, fecha_registro, fecha_actualizacion)
+        VALUES (:folio, :cliente, 'pedido_solicitado', 'MXN', NULL, NULL, :comentarios, :snapshot, NOW(), NOW())");
+      $stmt->execute(array(
+        ":folio" => $folio,
+        ":cliente" => $idCliente,
+        ":comentarios" => $comentarios,
+        ":snapshot" => json_encode(array(
+          "tipo" => "pedido_preliminar",
+          "entrada" => $datos,
+          "contexto" => $this->contextoAuditable($contexto),
+          "guardrails" => array("existencia_no_expuesta" => true, "requiere_revision_interna" => true)
+        ), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)
+      ));
+      $idPedido = intval($db->lastInsertId());
+      $stmtItem = $db->prepare("INSERT INTO erp_distribucion_cotizacion_items
+        (id_cotizacion_distribucion, id_sku, sku_snapshot, nombre_snapshot, cantidad, precio_unitario_snapshot, subtotal_snapshot, disponibilidad_snapshot, snapshot_json, fecha_registro)
+        VALUES (:pedido, :sku, :sku_snapshot, :nombre, :cantidad, NULL, NULL, 'por_confirmar', :snapshot, NOW())");
+      foreach ($items as $item) {
+        $idSku = intval($this->valor($item, "id_sku", 0));
+        $info = isset($skuInfo[$idSku]) ? $skuInfo[$idSku] : array("sku" => null, "nombre" => null);
+        $stmtItem->execute(array(
+          ":pedido" => $idPedido,
+          ":sku" => $idSku,
+          ":sku_snapshot" => $this->valor($info, "sku", null),
+          ":nombre" => $this->valor($info, "nombre", null),
+          ":cantidad" => floatval($this->valor($item, "cantidad", 1)),
+          ":snapshot" => json_encode(array(
+            "id_sku" => $idSku,
+            "cantidad" => floatval($this->valor($item, "cantidad", 1)),
+            "disponibilidad" => "por_confirmar",
+            "revision_erp_requerida" => true
+          ), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)
+        ));
+      }
+      $this->registrarAuditoria($db, "pedido_preliminar", $idPedido, "registrar", "ok", "Pedido preliminar Distribucion registrado", array(
+        "folio" => $folio,
+        "estatus" => "pedido_solicitado",
+        "items" => count($items),
+        "existencia_no_expuesta" => true,
+        "no_aparta_inventario" => true,
+        "no_crea_venta" => true,
+        "no_crea_pedido_erp" => true
+      ), null, $idCliente);
+      $db->commit();
+      return $this->respuesta(false, "success", "Solicitud de pedido recibida. Revisaremos existencias y surtido.", array(
+        "configurado" => true,
+        "ejecutado" => true,
+        "folio" => $folio,
+        "id_pedido_preliminar_distribucion" => $idPedido,
+        "id_cotizacion_distribucion" => $idPedido,
+        "estatus" => "pedido_solicitado",
+        "disponibilidad" => "por_confirmar",
+        "guardrails" => array("existencia_no_expuesta" => true, "no_aparta_inventario" => true, "no_crea_venta" => true, "no_crea_pedido_erp" => true)
+      ));
+    } catch (Exception $e) {
+      if ($db && $db->inTransaction()) { $db->rollBack(); }
+      return $this->respuesta(true, "danger", "No se pudo registrar solicitud de pedido", array("detalle" => "error_controlado"));
+    }
+  }
+
+  /**
    * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-09
    * Proposito: listar cotizaciones Distribucion para administracion ERP.
    * Impacto: Admin ERP Distribucion; permite bandeja read-only de solicitudes recibidas.
@@ -325,6 +441,13 @@ class DistribucionCotizacionesApi extends CRUD {
     return $prefijo . str_pad((string) (intval($stmt->fetchColumn()) + 1), 4, "0", STR_PAD_LEFT);
   }
 
+  private function folioPedido($db) {
+    $prefijo = "DPED-" . date("Ymd") . "-";
+    $stmt = $db->prepare("SELECT COUNT(*) FROM erp_distribucion_cotizaciones WHERE folio LIKE :prefijo");
+    $stmt->execute(array(":prefijo" => $prefijo . "%"));
+    return $prefijo . str_pad((string) (intval($stmt->fetchColumn()) + 1), 4, "0", STR_PAD_LEFT);
+  }
+
   private function skuInfo($db, $items) {
     $ids = array();
     foreach ($items as $item) {
@@ -354,6 +477,37 @@ class DistribucionCotizacionesApi extends CRUD {
     return $mapa;
   }
 
+  private function skusVisiblesCanal($db, $items) {
+    $ids = array();
+    foreach ($items as $item) {
+      $idSku = intval($this->valor($item, "id_sku", 0));
+      if ($idSku > 0) { $ids[] = $idSku; }
+    }
+    $ids = array_values(array_unique($ids));
+    if (empty($ids) || !$this->tablaExiste($db, "erp_catalogo_canales_vinculos")) {
+      return array();
+    }
+    $params = array();
+    $placeholders = array();
+    foreach ($ids as $i => $idSku) {
+      $ph = ":sku" . $i;
+      $placeholders[] = $ph;
+      $params[$ph] = $idSku;
+    }
+    $stmt = $db->prepare("SELECT id_sku
+      FROM erp_catalogo_canales_vinculos
+      WHERE canal='distribucion'
+        AND estatus='activo'
+        AND sincronizar_catalogo=1
+        AND id_sku IN (" . implode(",", $placeholders) . ")");
+    $stmt->execute($params);
+    $mapa = array();
+    foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $fila) {
+      $mapa[intval($fila["id_sku"])] = true;
+    }
+    return $mapa;
+  }
+
   private function decimalONull($valor) {
     return $valor === null || $valor === "" ? null : floatval($valor);
   }
@@ -366,6 +520,21 @@ class DistribucionCotizacionesApi extends CRUD {
       "id_lista_precio" => $this->valor($contexto, "id_lista_precio", null),
       "permisos" => $this->valor($contexto, "permisos", array())
     );
+  }
+
+  private function itemsNormalizados($items) {
+    $items = is_array($items) ? array_slice($items, 0, 100) : array();
+    $salida = array();
+    foreach ($items as $item) {
+      if (!is_array($item)) { continue; }
+      $idSku = intval($this->valor($item, "id_sku", 0));
+      if ($idSku <= 0) { continue; }
+      $salida[] = array(
+        "id_sku" => $idSku,
+        "cantidad" => max(0.001, min(9999, floatval($this->valor($item, "cantidad", 1))))
+      );
+    }
+    return $salida;
   }
 
   private function registrarAuditoria($db, $entidad, $idEntidad, $accion, $resultado, $mensaje, $detalle, $idUsuario = null, $idCliente = null) {

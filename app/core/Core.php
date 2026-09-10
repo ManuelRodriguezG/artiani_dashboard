@@ -88,6 +88,8 @@
 				'DistribucionAdmin.asignar_tipo_cliente',
 				'DistribucionAdmin.asignar_lista_precio',
 				'DistribucionAdmin.asignar_permisos',
+				'DistribucionAdmin.publicar_sku',
+				'DistribucionAdmin.desactivar_sku',
 				'DistribucionAdmin.cotizacion_accion_plan',
 				'DistribucionAdmin.cotizacion_convertir_plan',
 				'CatalogoErp.registrar',

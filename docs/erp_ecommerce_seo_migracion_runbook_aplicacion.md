@@ -171,8 +171,61 @@ La persistencia de URLs viejas y redirecciones esta separada del DDL:
   - token: `ECOMMERCE_SEO_GUARDAR_REDIRECCION`
   - tabla requerida: `erp_ecommerce_seo_redirecciones`
   - valida origen/destino/status antes de escribir
+- Curar nombre publico y slug de producto: `POST /ecommercePublico/seo_producto_slug_guardar_erp`
+  - permiso: `catalogo.editar`
+  - token: `ECOMMERCE_PUBLICO_PUBLICACION_CURADURIA`
+  - tabla requerida: `erp_ecommerce_publicaciones`
+  - el slug ya vive en `erp_ecommerce_publicaciones.slug`
+  - cambiar nombre no recalcula slug automaticamente
+  - si el slug cambia, se registra 301 `/producto/{slug_anterior}` -> `/producto/{slug_nuevo}` cuando `erp_ecommerce_seo_redirecciones` existe
 
 Si el token falta, el token no coincide o la tabla no existe, el modelo debe responder con `no_escribe_bd=true`.
+
+## Mesa de productos y slugs
+
+Usar `/ecommercePublico/seo_migracion`, seccion `Productos y slugs publicos`.
+
+Flujo recomendado:
+
+- Buscar por SKU, nombre o slug.
+- Seleccionar producto con el lapiz.
+- Ajustar `Nombre publico`.
+- Mantener el slug si la URL publicada ya esta bien.
+- Usar la estrella solo cuando se quiera recalcular el slug desde el nombre.
+- Validar antes de guardar; si el slug cambia, revisar la 301 sugerida.
+- Guardar con `ECOMMERCE_PUBLICO_PUBLICACION_CURADURIA`.
+- Si una URL anterior sugerida corresponde al producto, usar la flecha para llenar `Redireccion manual`; guardar esa 301 aparte con `ECOMMERCE_SEO_GUARDAR_REDIRECCION`.
+
+Guardrail SEO:
+
+- Las sugerencias de URLs anteriores no crean relaciones ni redirecciones por si solas.
+- Una URL vieja identica a la nueva no requiere 301.
+- No usar `http://artiani.com.local` como canonical; solo sirve como preview local.
+
+## URLs indexadas desde Google
+
+Cuando Google/Search Console entregue Excel con URLs indexadas actuales, convertirlo a reporte local read-only:
+
+```bash
+C:\xampp\php\php.exe storage\uat\uat_ecommerce_seo_importar_excel_indexadas_readonly.php "C:\Users\aleja\Downloads\urls indexadas actuales.xlsx"
+```
+
+Resultado 2026-09-09:
+
+- archivo generado: `storage/tmp/ecommerce_seo_urls_indexadas_google_20260910_044027.json`
+- total URLs indexadas: `1000`
+- productos: `913`
+- categorias: `60`
+- paquetes: `24`
+- URLs con `undefined`: `62`
+
+Regla operativa:
+
+- Las URLs indexadas por Google tienen prioridad sobre el crawl general porque ya representan superficie SEO viva.
+- En `/ecommercePublico/seo_migracion`, la revision de URLs anteriores puede alternar fuente entre `Indexadas Google` y `Crawl / relaciones`.
+- El buscador dentro del editor de producto consulta primero las URLs indexadas de Google para asignar manualmente la redireccion correcta.
+- Flujo principal de revision: URL vieja indexada -> revisar hasta 3 URLs nuevas candidatas -> abrir producto nuevo sugerido para revisar nombre/slug -> llenar redireccion manual si corresponde.
+- La comparacion usa tokens del path/nombre y SKU cuando existe; si el SKU viejo no coincide con el identificador nuevo, el nombre sigue aportando score para encontrar equivalencias.
 
 ## Analisis URLs viejas 2026-09-05
 

@@ -29,7 +29,7 @@
                             <div class="app-container container-fluid d-flex flex-stack">
                                 <div>
                                     <h1 class="page-heading text-dark fw-bold fs-3 mb-1">Distribucion</h1>
-                                    <span class="text-muted">Clientes externos, permisos comerciales y cotizaciones</span>
+                                    <span class="text-muted">Clientes externos, permisos comerciales y solicitudes de pedido</span>
                                 </div>
                                 <button type="button" id="distribucion_refrescar" class="btn btn-light-primary">
                                     <i class="bi bi-arrow-clockwise"></i>
@@ -47,7 +47,10 @@
                                         <button class="nav-link" data-bs-toggle="tab" data-bs-target="#dist_tab_clientes" type="button" role="tab">Clientes</button>
                                     </li>
                                     <li class="nav-item" role="presentation">
-                                        <button class="nav-link" data-bs-toggle="tab" data-bs-target="#dist_tab_cotizaciones" type="button" role="tab">Cotizaciones</button>
+                                        <button class="nav-link" data-bs-toggle="tab" data-bs-target="#dist_tab_cotizaciones" type="button" role="tab">Pedidos</button>
+                                    </li>
+                                    <li class="nav-item" role="presentation">
+                                        <button class="nav-link" data-bs-toggle="tab" data-bs-target="#dist_tab_productos" type="button" role="tab">Productos</button>
                                     </li>
                                 </ul>
                                 <div class="tab-content">
@@ -76,7 +79,8 @@
                                                             <tr class="text-start text-muted fw-bold fs-7 text-uppercase">
                                                                 <th>Solicitud</th>
                                                                 <th>Contacto</th>
-                                                                <th>Interes</th>
+                                                                <th>Negocio</th>
+                                                                <th>Ubicacion</th>
                                                                 <th>Estado</th>
                                                                 <th class="text-end">Acciones</th>
                                                             </tr>
@@ -128,7 +132,7 @@
                                         <div class="card">
                                             <div class="card-header border-0 pt-6">
                                                 <div class="card-title">
-                                                    <h2 class="fw-bold mb-0">Cotizaciones recibidas</h2>
+                                                    <h2 class="fw-bold mb-0">Solicitudes recibidas</h2>
                                                 </div>
                                                 <div class="card-toolbar">
                                                     <span id="dist_cotizaciones_total" class="badge badge-light-primary">0</span>
@@ -148,6 +152,40 @@
                                                             </tr>
                                                         </thead>
                                                         <tbody id="dist_cotizaciones_lista"></tbody>
+                                                    </table>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="tab-pane fade" id="dist_tab_productos" role="tabpanel">
+                                        <div class="card">
+                                            <div class="card-header border-0 pt-6">
+                                                <div class="card-title">
+                                                    <div class="d-flex align-items-center position-relative my-1">
+                                                        <i class="bi bi-search fs-3 position-absolute ms-5"></i>
+                                                        <input type="text" id="dist_productos_buscar" class="form-control form-control-solid w-300px ps-12" placeholder="Buscar SKU o producto">
+                                                    </div>
+                                                </div>
+                                                <div class="card-toolbar d-flex gap-3">
+                                                    <button type="button" id="dist_productos_buscar_btn" class="btn btn-light-primary">
+                                                        <i class="bi bi-search"></i>
+                                                        Buscar
+                                                    </button>
+                                                </div>
+                                            </div>
+                                            <div class="card-body pt-0">
+                                                <div class="table-responsive">
+                                                    <table class="table align-middle table-row-dashed fs-6 gy-5">
+                                                        <thead>
+                                                            <tr class="text-start text-muted fw-bold fs-7 text-uppercase">
+                                                                <th>SKU</th>
+                                                                <th>Producto</th>
+                                                                <th>Slug</th>
+                                                                <th>Estado canal</th>
+                                                                <th class="text-end">Acciones</th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody id="dist_productos_lista"></tbody>
                                                     </table>
                                                 </div>
                                             </div>

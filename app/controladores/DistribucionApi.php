@@ -121,8 +121,8 @@ class DistribucionApi extends Controlador {
 
   /**
    * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-09
-   * Proposito: resolver disponibilidad comercial por servidor para una lista de SKUs.
-   * Impacto: Inventario Distribucion; traduce inventario ERP a estados comerciales sin cantidad exacta.
+   * Proposito: resolver disponibilidad confirmada solo cuando el ERP autorice mostrarla.
+   * Impacto: Inventario Distribucion; no forma parte del catalogo publico ni de la solicitud inicial.
    * Contrato: POST /disponibilidad/resolver; no aparta ni modifica inventario.
    */
   public function disponibilidad($accion = "") {
@@ -157,6 +157,25 @@ class DistribucionApi extends Controlador {
       return $this->responderApiDistribucion($cotizaciones->registrar($datos, $this->contextoCliente()));
     }
     return $this->responderApiDistribucion($this->modelo("DistribucionCatalogoApi")->endpointNoEncontrado("cotizacion/" . $accion));
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-10
+   * Proposito: registrar solicitud de pedido Distribucion sin mostrar existencia ni apartar inventario.
+   * Impacto: Distribucion; el ERP recibe partidas solicitadas para revision interna de surtido.
+   * Contrato: POST /pedido/registrar autenticado con `distribucion.pedido.preliminar`.
+   */
+  public function pedido($accion = "") {
+    if ($this->esOptionsDistribucion()) { return $this->responderOpcionesDistribucion(); }
+    if (!$this->esPostDistribucion()) {
+      return $this->responderApiDistribucion($this->modelo("DistribucionCatalogoApi")->metodoPostRequerido("pedido/" . $accion));
+    }
+    $cotizaciones = $this->modelo("DistribucionCotizacionesApi");
+    $datos = $this->entradaJsonDistribucion();
+    if ($accion === "registrar") {
+      return $this->responderApiDistribucion($cotizaciones->registrarPedidoPreliminar($datos, $this->contextoCliente()));
+    }
+    return $this->responderApiDistribucion($this->modelo("DistribucionCatalogoApi")->endpointNoEncontrado("pedido/" . $accion));
   }
 
   /**

@@ -124,6 +124,17 @@ class EcommercePublico extends Controlador {
   }
 
   /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-09
+   * Proposito: exponer manifest publico de busqueda inteligente para frontend y CMS.
+   * Impacto: Frontend puede saber sinonimos/reglas activas sin leer archivos internos del ERP.
+   * Contrato: GET publico read-only; no registra busquedas, no escribe BD y no expone datos sensibles.
+   */
+  public function busqueda_manifest() {
+    if ($this->esOptionsPublicas()) { return $this->responderOpcionesPublicas(); }
+    return $this->responderApiPublica($this->modelo("EcommerceCatalogoPublico")->busquedaManifestPublica($_GET));
+  }
+
+  /**
    * Documentacion IA: Codex GPT-5 | Fecha: 2026-08-04
    * Proposito: exponer manifiesto robusto del catalogo para que frontend construya listados sin hardcodear reglas.
    * Impacto: Ecommerce publico; documenta filtros, ordenamientos, limites, endpoints relacionados y guardrails.
@@ -790,6 +801,66 @@ class EcommercePublico extends Controlador {
   }
 
   /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-09
+   * Proposito: listar publicaciones ecommerce con SKU, nombre publico, slug y URLs viejas sugeridas.
+   * Impacto: Ecommerce SEO; facilita curaduria de nombres/slugs y mapeo manual de migracion sin escribir BD.
+   * Contrato: GET protegido por `catalogo.ver`; solo lectura, no recalcula slugs automaticamente.
+   */
+  public function seo_productos_slugs_erp() {
+    $this->requerirPermiso("catalogo.ver");
+    return json_encode($this->modelo("EcommerceCatalogoPublico")->seoProductosSlugsInterno($_GET));
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-09
+   * Proposito: buscar destinos canonicos nuevos para redirecciones SEO.
+   * Impacto: Ecommerce SEO; permite elegir producto, categoria o marca destino sin escribir BD.
+   * Contrato: GET protegido por `catalogo.ver`; solo lectura.
+   */
+  public function seo_destinos_canonicos_erp() {
+    $this->requerirPermiso("catalogo.ver");
+    return json_encode($this->modelo("EcommerceCatalogoPublico")->seoDestinosCanonicosInterno($_GET));
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-09
+   * Proposito: validar cambio de titulo/slug de una publicacion ecommerce antes de guardar.
+   * Impacto: Ecommerce SEO; muestra redireccion 301 sugerida si el slug cambia.
+   * Contrato: POST protegido por `catalogo.ver`; read-only, no modifica publicacion ni redirecciones.
+   */
+  public function seo_producto_slug_plan_erp() {
+    $this->requerirPermiso("catalogo.ver");
+    $datos = !empty($_POST) ? $_POST : $this->entradaJsonPublica();
+    return json_encode($this->modelo("EcommerceCatalogoPublico")->seoProductoSlugPlanInterno($datos));
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-09
+   * Proposito: guardar titulo publico y slug de una publicacion desde mesa SEO.
+   * Impacto: Ecommerce SEO; si el slug cambia, reutiliza curaduria autorizada y deja 301 cuando la tabla existe.
+   * Contrato: POST protegido por `catalogo.editar`; requiere CSRF y auditoria explicita, sin token operativo.
+   */
+  public function seo_producto_slug_guardar_erp() {
+    $this->requerirPermiso("catalogo.editar");
+    $datos = !empty($_POST) ? $_POST : $this->entradaJsonPublica();
+    $respuesta = $this->modelo("EcommerceCatalogoPublico")->seoProductoSlugGuardarAutorizado($datos);
+    SesionSeguridad::registrarAuditoria("ecommerce_seo", "producto_slug_guardar", array(
+      "resultado" => empty($respuesta["error"]) ? "ok" : "error",
+      "mensaje" => isset($respuesta["mensaje"]) ? $respuesta["mensaje"] : "",
+      "datos_antes" => array(
+        "id_publicacion" => isset($datos["id_publicacion"]) ? intval($datos["id_publicacion"]) : 0,
+        "slug_solicitado" => isset($datos["slug"]) ? (string) $datos["slug"] : ""
+      ),
+      "datos_despues" => array(
+        "slug_anterior" => isset($respuesta["depurar"]["slug_anterior"]) ? $respuesta["depurar"]["slug_anterior"] : "",
+        "slug_actual" => isset($respuesta["depurar"]["slug_actual"]) ? $respuesta["depurar"]["slug_actual"] : "",
+        "slug_cambiado" => isset($respuesta["depurar"]["slug_cambiado"]) ? (bool) $respuesta["depurar"]["slug_cambiado"] : false
+      )
+    ));
+    return json_encode($respuesta);
+  }
+
+  /**
    * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-03
    * Proposito: validar propuesta de redireccion SEO antes de persistirla.
    * Impacto: Ecommerce SEO; evita destinos internos, ciclos simples y status no permitidos.
@@ -865,14 +936,12 @@ class EcommercePublico extends Controlador {
    * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-03
    * Proposito: guardar una redireccion SEO aprobada.
    * Impacto: Ecommerce SEO; alimenta `/seo_redirecciones` para que frontend aplique 301.
-   * Contrato: POST protegido por `catalogo.editar`; requiere token interno, CSRF y tablas SEO aplicadas.
+   * Contrato: POST protegido por `catalogo.editar`; requiere CSRF, auditoria y tablas SEO aplicadas.
    */
   public function seo_redireccion_guardar_erp() {
     $this->requerirPermiso("catalogo.editar");
     $datos = !empty($_POST) ? $_POST : $this->entradaJsonPublica();
-    $respuesta = $this->modelo("EcommerceCatalogoPublico")->seoRedireccionGuardarAutorizada($datos, array(
-      "autorizar" => isset($datos["autorizar"]) ? $datos["autorizar"] : ""
-    ));
+    $respuesta = $this->modelo("EcommerceCatalogoPublico")->seoRedireccionGuardarAutorizada($datos);
     SesionSeguridad::registrarAuditoria("ecommerce_seo", "redireccion_guardar", array(
       "resultado" => empty($respuesta["error"]) ? "ok" : "error",
       "mensaje" => isset($respuesta["mensaje"]) ? $respuesta["mensaje"] : "",

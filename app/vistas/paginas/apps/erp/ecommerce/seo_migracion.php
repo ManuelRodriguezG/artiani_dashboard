@@ -12,7 +12,7 @@
       Documentacion IA: Codex GPT-5, 2026-09-03.
       Proposito: consola interna para preparar SEO y migracion de URLs ecommerce.
       Impacto: Ecommerce publico; revisa canonical, sitemap, robots, redirecciones y DDL antes de aplicar cambios.
-      Contrato: vista protegida; los POST de escritura requieren permiso, CSRF y token operativo.
+      Contrato: vista protegida; los POST de escritura requieren permiso/CSRF; acciones masivas conservan token operativo.
     -->
     <style>
         .ecom-seo-kpi { border: 1px solid #e7e9ef; border-radius: 8px; background: #fff; padding: 16px; min-height: 106px; }
@@ -23,6 +23,7 @@
         .ecom-seo-code { max-height: 260px; overflow: auto; white-space: pre-wrap; font-size: .78rem; }
         .ecom-seo-path { word-break: break-word; }
         .ecom-seo-review-table { min-width: 1120px; }
+        .ecom-seo-products-table { min-width: 1320px; }
         .ecom-seo-row-muted { opacity: .55; }
         .ecom-seo-steps { display: grid; grid-template-columns: repeat(6, minmax(120px, 1fr)); gap: 10px; }
         .ecom-seo-step { border: 1px solid #dfe4ef; border-radius: 8px; padding: 12px; background: #f9fafc; min-height: 86px; }
@@ -97,18 +98,125 @@
                             <div class="ecom-seo-panel p-5 mb-5">
                                 <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
                                     <div>
+                                        <h3 class="fw-bold mb-1">Productos y slugs publicos</h3>
+                                        <div class="text-muted fs-7">SKU, nombre publico, slug guardado en BD y candidatos de URLs anteriores para relacionar.</div>
+                                    </div>
+                                    <div class="d-flex flex-wrap gap-2">
+                                        <button class="btn btn-sm btn-light" type="button" id="ecom_seo_productos_recargar"><i class="bi bi-arrow-clockwise"></i> Recargar</button>
+                                        <button class="btn btn-sm btn-light-primary" type="button" id="ecom_seo_producto_slug_plan"><i class="bi bi-check2-circle"></i> Validar</button>
+                                        <button class="btn btn-sm btn-primary" type="button" id="ecom_seo_producto_slug_guardar"><i class="bi bi-save"></i> Guardar nombre/slug</button>
+                                    </div>
+                                </div>
+                                <div class="row g-3 mb-4">
+                                    <div class="col-lg-3">
+                                        <label class="form-label">Buscar producto</label>
+                                        <input class="form-control form-control-solid" id="ecom_seo_productos_q" placeholder="SKU, nombre o slug">
+                                    </div>
+                                    <div class="col-lg-2">
+                                        <label class="form-label">Estatus</label>
+                                        <select class="form-select form-select-solid" id="ecom_seo_productos_estatus">
+                                            <option value="">Todos</option>
+                                            <option value="publicado">Publicado</option>
+                                            <option value="borrador">Borrador</option>
+                                            <option value="pausado">Pausado</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-lg-2">
+                                        <label class="form-label">Relacion vieja</label>
+                                        <select class="form-select form-select-solid" id="ecom_seo_productos_relacion">
+                                            <option value="">Todas</option>
+                                            <option value="con_sugerencia">Con sugerencia</option>
+                                            <option value="sin_sugerencia">Sin sugerencia</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-lg-2">
+                                        <label class="form-label">Limite</label>
+                                        <select class="form-select form-select-solid" id="ecom_seo_productos_limite">
+                                            <option value="50">50</option>
+                                            <option value="80" selected>80</option>
+                                            <option value="150">150</option>
+                                            <option value="250">250</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="row g-4 mb-4">
+                                    <div class="col-xl-7">
+                                        <div class="table-responsive ecom-seo-scroll">
+                                            <table class="table table-row-dashed fs-7 gy-3 mb-0 ecom-seo-products-table">
+                                                <thead>
+                                                <tr class="text-muted fw-bold">
+                                                    <th>SKU</th>
+                                                    <th>Nombre publico</th>
+                                                    <th>Slug / URL nueva</th>
+                                                    <th>URL anterior sugerida</th>
+                                                    <th class="text-end">Opciones</th>
+                                                </tr>
+                                                </thead>
+                                                <tbody id="ecom_seo_productos_body"></tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                    <div class="col-xl-5">
+                                        <div class="border rounded p-4 h-100">
+                                            <div class="d-flex justify-content-between align-items-start gap-3 mb-3">
+                                                <div>
+                                                    <div class="text-muted fs-8 text-uppercase fw-bold">Editor SEO producto</div>
+                                                    <div class="fw-bold" id="ecom_seo_producto_editor_titulo">Selecciona un producto</div>
+                                                </div>
+                                                <span class="badge badge-light" id="ecom_seo_producto_editor_badge">Sin seleccion</span>
+                                            </div>
+                                            <input type="hidden" id="ecom_seo_producto_id_publicacion">
+                                            <input type="hidden" id="ecom_seo_producto_id_sku">
+                                            <label class="form-label">SKU</label>
+                                            <input class="form-control form-control-solid mb-3" id="ecom_seo_producto_sku" readonly>
+                                            <label class="form-label">Nombre publico</label>
+                                            <input class="form-control form-control-solid mb-3" id="ecom_seo_producto_titulo_publico" placeholder="Nombre visible del producto">
+                                            <label class="form-label">Slug publico</label>
+                                            <div class="input-group mb-3">
+                                                <span class="input-group-text">/producto/</span>
+                                                <input class="form-control form-control-solid" id="ecom_seo_producto_slug" placeholder="slug-del-producto">
+                                                <button class="btn btn-light-primary" type="button" id="ecom_seo_producto_slug_sugerir"><i class="bi bi-stars"></i></button>
+                                            </div>
+                                            <div class="d-flex flex-column gap-1 mb-3">
+                                                <a class="fs-8 ecom-seo-path" id="ecom_seo_producto_url_local" target="_blank" rel="noopener" href="#"></a>
+                                                <a class="fs-8 ecom-seo-path" id="ecom_seo_producto_url_canonical" target="_blank" rel="noopener" href="#"></a>
+                                            </div>
+                                            <div class="border rounded p-3 mb-3">
+                                                <label class="form-label">Buscar URL anterior productiva</label>
+                                                <div class="input-group mb-3">
+                                                    <input class="form-control form-control-solid" id="ecom_seo_producto_url_vieja_q" placeholder="SKU, nombre viejo o path anterior">
+                                                    <button class="btn btn-light-primary" type="button" id="ecom_seo_producto_url_vieja_buscar"><i class="bi bi-search"></i></button>
+                                                </div>
+                                                <div id="ecom_seo_producto_url_vieja_resultados"></div>
+                                            </div>
+                                            <div id="ecom_seo_producto_plan" class="mb-3"></div>
+                                            <div class="text-muted fs-8">Cambiar el nombre no cambia el slug automaticamente; usa la estrella solo cuando quieras recalcularlo desde el nombre.</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="ecom-seo-panel p-5 mb-5">
+                                <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+                                    <div>
                                         <h3 class="fw-bold mb-1">Revision de URLs anteriores</h3>
                                         <div class="text-muted fs-7">URLs rastreadas de artiani.com.mx comparadas contra la nueva estructura canonica y preview local.</div>
                                     </div>
                                     <div class="d-flex flex-wrap gap-2">
                                         <button class="btn btn-sm btn-light" type="button" id="ecom_seo_revision_recargar"><i class="bi bi-arrow-clockwise"></i> Recargar</button>
-                                        <button class="btn btn-sm btn-light-warning" type="button" id="ecom_seo_revision_mostrar_ocultas"><i class="bi bi-eye"></i> Ocultas</button>
                                     </div>
                                 </div>
                                 <div class="row g-3 mb-4">
-                                    <div class="col-md-4">
+                                    <div class="col-md-3">
                                         <label class="form-label">Buscar</label>
                                         <input class="form-control form-control-solid" id="ecom_seo_revision_q" placeholder="Producto, categoria, SKU o path">
+                                    </div>
+                                    <div class="col-md-3">
+                                        <label class="form-label">Fuente</label>
+                                        <select class="form-select form-select-solid" id="ecom_seo_revision_fuente">
+                                            <option value="indexadas" selected>Indexadas Google</option>
+                                            <option value="relaciones">Crawl / relaciones</option>
+                                        </select>
                                     </div>
                                     <div class="col-md-3">
                                         <label class="form-label">Accion</label>
@@ -121,7 +229,7 @@
                                             <option value="excluir_o_410">Excluir o 410</option>
                                         </select>
                                     </div>
-                                    <div class="col-md-3">
+                                    <div class="col-md-2">
                                         <label class="form-label">Prioridad</label>
                                         <select class="form-select form-select-solid" id="ecom_seo_revision_prioridad">
                                             <option value="">Todas</option>
@@ -130,7 +238,7 @@
                                             <option value="baja">Baja</option>
                                         </select>
                                     </div>
-                                    <div class="col-md-2">
+                                    <div class="col-md-1">
                                         <label class="form-label">Limite</label>
                                         <select class="form-select form-select-solid" id="ecom_seo_revision_limite">
                                             <option value="80">80</option>
@@ -188,6 +296,26 @@
                                         <input class="form-control form-control-solid mb-3" id="ecom_seo_redir_from" placeholder="/producto-viejo.html">
                                         <label class="form-label">Destino canonico</label>
                                         <input class="form-control form-control-solid mb-3" id="ecom_seo_redir_to" placeholder="/producto/slug-nuevo">
+                                        <div class="border rounded p-3 mb-3">
+                                            <div class="row g-2 align-items-end">
+                                                <div class="col-5">
+                                                    <label class="form-label">Buscar destino</label>
+                                                    <input class="form-control form-control-solid" id="ecom_seo_destino_q" placeholder="producto o categoria">
+                                                </div>
+                                                <div class="col-4">
+                                                    <label class="form-label">Tipo</label>
+                                                    <select class="form-select form-select-solid" id="ecom_seo_destino_tipo">
+                                                        <option value="producto">Producto</option>
+                                                        <option value="categoria">Categoria</option>
+                                                        <option value="marca">Marca</option>
+                                                    </select>
+                                                </div>
+                                                <div class="col-3">
+                                                    <button class="btn btn-light-primary w-100" type="button" id="ecom_seo_destino_buscar"><i class="bi bi-search"></i></button>
+                                                </div>
+                                            </div>
+                                            <div class="mt-3" id="ecom_seo_destino_resultados"></div>
+                                        </div>
                                         <div class="row g-3 mb-4">
                                             <div class="col-6">
                                                 <label class="form-label">Status</label>
@@ -207,8 +335,6 @@
                                                 </select>
                                             </div>
                                         </div>
-                                        <label class="form-label">Token redireccion</label>
-                                        <input class="form-control form-control-solid mb-4" id="ecom_seo_token_redireccion" type="password" autocomplete="off">
                                         <div id="ecom_seo_redireccion_resultado"></div>
                                     </div>
                                 </div>
@@ -301,6 +427,6 @@
 <script>
     window.ERP_CSRF_TOKEN = "<?= htmlspecialchars(SesionSeguridad::csrfToken(), ENT_QUOTES, 'UTF-8') ?>";
 </script>
-<script src="/assets/js/custom/apps/erp/ecommerce/seo_migracion.js?v=20260907-origen1"></script>
+<script src="/assets/js/custom/apps/erp/ecommerce/seo_migracion.js?v=20260910-seo-slug-redir-sin-token1"></script>
 </body>
 </html>

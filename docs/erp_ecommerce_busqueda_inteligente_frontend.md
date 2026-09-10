@@ -18,6 +18,30 @@ GET /ecommercePublico/busqueda?q={texto}&categoria_slug={path_slug}&marca_slug={
 
 No elimina `GET /ecommercePublico/catalogo?q=...`; queda como fallback tecnico.
 
+## Manifest de busqueda
+
+Para diagnostico y alineacion con CMS existe:
+
+```text
+GET /ecommercePublico/busqueda_manifest
+```
+
+Devuelve:
+
+```text
+depurar.fase=busqueda_inteligente_v1
+depurar.fuente=defaults_codigo|bd_configuracion|defaults_codigo_error_config
+depurar.configuracion.sinonimos
+depurar.configuracion.stopwords
+depurar.configuracion.prioridad_terminos
+depurar.configuracion.categorias_probables
+depurar.configuracion.boosts
+depurar.configuracion.mensajes
+depurar.cms.clave_configuracion=busqueda_inteligente_config
+```
+
+Cuando CMS publique reglas, debe guardarlas en `erp_ecommerce_configuracion.clave=busqueda_inteligente_config` como JSON activo. Si no existe configuracion, API usa defaults seguros en codigo.
+
 ## Autocomplete
 
 Para sugerencias en vivo usar:
@@ -225,4 +249,5 @@ ok=true
 senal_frontend=busqueda_inteligente_lista
 busqueda.fase=busqueda_inteligente_v1
 sugerencias.fase=busqueda_sugerencias_inteligente_v1
+manifest.clave_configuracion=busqueda_inteligente_config
 ```

@@ -486,3 +486,62 @@ Alcance:
 - Creacion de tablas `erp_distribucion_*` para clientes externos, solicitudes, permisos, listas, tokens, cotizaciones y auditoria.
 - Aplicacion acotada de permisos internos ERP `distribucion.*`.
 - No modifica catalogo, precios, inventario, compras, ventas ni ecommerce.
+
+## Ecommerce SEO - slugs profesionales
+
+Fecha: 2026-09-10
+
+Respaldo inicial local generado:
+
+```txt
+C:\xampp\panel_db_backups\artianilocal_panel_20260910_antes_ecommerce_slugs_seo.sql
+```
+
+Validacion:
+
+```text
+archivo_existe=true
+archivo_legible=true
+tamano_bytes=38934285
+base=artianilocal
+nota=Se genero antes de detectar que el contexto activo de la app apunta a artianicom_sys.
+```
+
+Respaldo real previo a normalizacion masiva:
+
+```txt
+C:\xampp\panel_db_backups\artianicom_sys_panel_20260910_antes_slugs_profesionales.sql
+```
+
+Validacion:
+
+```text
+archivo_existe=true
+archivo_legible=true
+tamano_bytes=41733943
+base=artianicom_sys
+```
+
+Respaldo post DDL/URLs previo a normalizacion:
+
+```txt
+C:\xampp\panel_db_backups\artianicom_sys_panel_20260910_despues_ecommerce_slugs_seo.sql
+```
+
+Validacion:
+
+```text
+archivo_existe=true
+archivo_legible=true
+tamano_bytes=41733943
+base=artianicom_sys
+```
+
+Alcance:
+
+- Aplica DDL complementario de publicaciones ecommerce y migracion SEO.
+- Puebla `url_publica` y `canonical_url` desde `erp_ecommerce_publicaciones.slug`.
+- Normaliza slugs profesionales quitando `pza`/SKU salvo casos necesarios para diferenciacion.
+- Registra 301 de slugs anteriores hacia slugs nuevos en `erp_ecommerce_seo_redirecciones`.
+- Resincroniza `erp_ecommerce_seo_urls` y desactiva URLs de producto obsoletas del snapshot.
+- No toca inventario, compras, ventas, precios ni frontend externo.

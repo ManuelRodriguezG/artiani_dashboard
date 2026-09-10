@@ -2178,6 +2178,220 @@ class CatalogoErpDatos extends CRUD {
   }
 
   /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-09-09
+   * Proposito: listar productos ERP para clasificacion rapida con marca, categoria principal y secundarias editables.
+   * Impacto: Catalogo ERP; reduce captura repetitiva sin tocar precios, inventario, ecommerce ni datos fiscales.
+   * Contrato: filtros opcionales q, estatus, faltante_marca, faltante_principal, faltante_secundarias y limite; devuelve catalogos activos para selects.
+   */
+  public function listarClasificacionRapida($filtros = array()) {
+    try {
+      $db = $this->getConexion();
+      $limite = max(20, min(500, intval(isset($filtros["limite"]) ? $filtros["limite"] : 150)));
+      $q = trim((string) (isset($filtros["q"]) ? $filtros["q"] : ""));
+      $estatus = $this->opcion($filtros, "estatus", array("", "borrador", "en_revision", "activo", "inactivo", "descontinuado"), "");
+      $faltanteMarca = intval(isset($filtros["faltante_marca"]) ? $filtros["faltante_marca"] : 0) === 1;
+      $faltantePrincipal = intval(isset($filtros["faltante_principal"]) ? $filtros["faltante_principal"] : 0) === 1;
+      $faltanteSecundarias = intval(isset($filtros["faltante_secundarias"]) ? $filtros["faltante_secundarias"] : 0) === 1;
+
+      $where = array("p.estatus<>'fusionado'");
+      $params = array();
+      if ($estatus !== "") {
+        $where[] = "p.estatus=:estatus";
+        $params[":estatus"] = $estatus;
+      }
+      if ($q !== "") {
+        $where[] = "(p.codigo_producto LIKE :q OR p.nombre LIKE :q OR m.nombre LIKE :q OR cp.categoria_principal LIKE :q OR cs.categorias_secundarias LIKE :q OR sk.skus LIKE :q)";
+        $params[":q"] = "%" . $q . "%";
+      }
+      if ($faltanteMarca) {
+        $where[] = "p.id_marca_erp IS NULL";
+      }
+      if ($faltantePrincipal) {
+        $where[] = "cp.id_categoria_erp IS NULL";
+      }
+      if ($faltanteSecundarias) {
+        $where[] = "cs.ids_categorias_secundarias IS NULL";
+      }
+
+      $sql = "SELECT p.id_producto_erp, p.codigo_producto, p.nombre, p.tipo_producto, p.estatus,
+          p.id_marca_erp, m.nombre AS marca,
+          cp.id_categoria_erp AS id_categoria_principal, cp.categoria_principal,
+          COALESCE(cs.ids_categorias_secundarias, '') AS ids_categorias_secundarias,
+          COALESCE(cs.categorias_secundarias, '') AS categorias_secundarias,
+          COALESCE(sk.skus, '') AS skus, COALESCE(sk.total_skus, 0) AS total_skus
+        FROM erp_catalogo_productos p
+        LEFT JOIN erp_catalogo_marcas m ON m.id_marca_erp=p.id_marca_erp
+        LEFT JOIN (
+          SELECT pc.id_producto_erp, pc.id_categoria_erp, COALESCE(c.ruta, c.nombre) AS categoria_principal
+          FROM erp_catalogo_producto_categorias pc
+          INNER JOIN erp_catalogo_categorias c ON c.id_categoria_erp=pc.id_categoria_erp
+          WHERE pc.es_principal=1
+        ) cp ON cp.id_producto_erp=p.id_producto_erp
+        LEFT JOIN (
+          SELECT pc.id_producto_erp,
+            GROUP_CONCAT(DISTINCT pc.id_categoria_erp ORDER BY COALESCE(c.ruta, c.nombre) SEPARATOR ',') AS ids_categorias_secundarias,
+            GROUP_CONCAT(DISTINCT COALESCE(c.ruta, c.nombre) ORDER BY COALESCE(c.ruta, c.nombre) SEPARATOR ' | ') AS categorias_secundarias
+          FROM erp_catalogo_producto_categorias pc
+          INNER JOIN erp_catalogo_categorias c ON c.id_categoria_erp=pc.id_categoria_erp
+          WHERE pc.es_principal=0
+          GROUP BY pc.id_producto_erp
+        ) cs ON cs.id_producto_erp=p.id_producto_erp
+        LEFT JOIN (
+          SELECT id_producto_erp,
+            GROUP_CONCAT(sku ORDER BY id_sku SEPARATOR ', ') AS skus,
+            COUNT(*) AS total_skus
+          FROM erp_catalogo_skus
+          WHERE estatus<>'fusionado'
+          GROUP BY id_producto_erp
+        ) sk ON sk.id_producto_erp=p.id_producto_erp
+        WHERE " . implode(" AND ", $where) . "
+        ORDER BY
+          CASE WHEN p.id_marca_erp IS NULL THEN 0 ELSE 1 END,
+          CASE WHEN cp.id_categoria_erp IS NULL THEN 0 ELSE 1 END,
+          p.nombre
+        LIMIT " . intval($limite);
+      $stmt = $db->prepare($sql);
+      $stmt->execute($params);
+
+      $categorias = $db->query("SELECT id_categoria_erp, codigo, nombre, ruta, nivel
+        FROM erp_catalogo_categorias
+        WHERE estatus='activa' AND tipo_categoria='maestra' AND permite_productos=1
+        ORDER BY COALESCE(ruta, nombre), nombre")->fetchAll(PDO::FETCH_ASSOC);
+      $marcas = $db->query("SELECT id_marca_erp, codigo, nombre
+        FROM erp_catalogo_marcas
+        WHERE estatus='activa'
+        ORDER BY nombre")->fetchAll(PDO::FETCH_ASSOC);
+
+      return $this->respuesta(false, "success", "Clasificacion rapida consultada", array(
+        "productos" => $stmt->fetchAll(PDO::FETCH_ASSOC),
+        "categorias" => $categorias,
+        "marcas" => $marcas,
+        "filtros" => array(
+          "q" => $q,
+          "estatus" => $estatus,
+          "faltante_marca" => $faltanteMarca ? 1 : 0,
+          "faltante_principal" => $faltantePrincipal ? 1 : 0,
+          "faltante_secundarias" => $faltanteSecundarias ? 1 : 0,
+          "limite" => $limite
+        )
+      ));
+    } catch (Exception $e) {
+      return $this->respuesta(true, "danger", $e->getMessage());
+    }
+  }
+
+  /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-09-09
+   * Proposito: persistir la clasificacion editorial basica de un producto desde la vista rapida.
+   * Impacto: Catalogo ERP; actualiza marca y reconstruye relaciones categoria-producto del producto seleccionado.
+   * Contrato: permite dejar marca o categoria principal vacias; categorias secundarias solo aceptan maestras asignables activas.
+   */
+  public function guardarClasificacionRapida($datos, $idUsuario) {
+    $idProducto = intval(isset($datos["id_producto_erp"]) ? $datos["id_producto_erp"] : 0);
+    $idMarca = intval(isset($datos["id_marca_erp"]) ? $datos["id_marca_erp"] : 0);
+    $idCategoriaPrincipal = intval(isset($datos["id_categoria_principal"]) ? $datos["id_categoria_principal"] : 0);
+    if ($idProducto <= 0) {
+      return $this->respuesta(true, "warning", "Selecciona un producto valido");
+    }
+
+    $db = $this->getConexion();
+    try {
+      $db->beginTransaction();
+      $stmt = $db->prepare("SELECT id_producto_erp FROM erp_catalogo_productos WHERE id_producto_erp=:producto AND estatus<>'fusionado' FOR UPDATE");
+      $stmt->execute(array(":producto" => $idProducto));
+      if (!$stmt->fetchColumn()) {
+        throw new Exception("Producto ERP no encontrado o fusionado");
+      }
+      if ($idMarca > 0) {
+        $stmt = $db->prepare("SELECT id_marca_erp FROM erp_catalogo_marcas WHERE id_marca_erp=:marca AND estatus='activa'");
+        $stmt->execute(array(":marca" => $idMarca));
+        if (!$stmt->fetchColumn()) {
+          throw new Exception("La marca seleccionada no esta activa");
+        }
+      }
+
+      $idsCategorias = $this->normalizarIdsCategoriasRapidas(isset($datos["categorias_secundarias"]) ? $datos["categorias_secundarias"] : array());
+      if ($idCategoriaPrincipal > 0) {
+        $idsCategorias[$idCategoriaPrincipal] = $idCategoriaPrincipal;
+      }
+      if (!empty($idsCategorias)) {
+        $stmt = $db->prepare("SELECT id_categoria_erp FROM erp_catalogo_categorias
+          WHERE id_categoria_erp=:categoria AND estatus='activa' AND tipo_categoria='maestra' AND permite_productos=1");
+        foreach ($idsCategorias as $idCategoria) {
+          $stmt->execute(array(":categoria" => $idCategoria));
+          if (!$stmt->fetchColumn()) {
+            throw new Exception("Una categoria seleccionada no esta activa o no permite productos");
+          }
+        }
+      }
+
+      $stmt = $db->prepare("UPDATE erp_catalogo_productos
+        SET id_marca_erp=:marca, actualizado_por=:usuario, fecha_actualizacion=CURRENT_TIMESTAMP
+        WHERE id_producto_erp=:producto");
+      $stmt->execute(array(
+        ":marca" => $idMarca > 0 ? $idMarca : null,
+        ":usuario" => intval($idUsuario) ?: null,
+        ":producto" => $idProducto
+      ));
+
+      $stmt = $db->prepare("DELETE FROM erp_catalogo_producto_categorias WHERE id_producto_erp=:producto");
+      $stmt->execute(array(":producto" => $idProducto));
+      if ($idCategoriaPrincipal > 0) {
+        $stmt = $db->prepare("INSERT INTO erp_catalogo_producto_categorias (id_producto_erp, id_categoria_erp, es_principal)
+          VALUES (:producto, :categoria, 1)");
+        $stmt->execute(array(":producto" => $idProducto, ":categoria" => $idCategoriaPrincipal));
+      }
+      $stmt = $db->prepare("INSERT INTO erp_catalogo_producto_categorias (id_producto_erp, id_categoria_erp, es_principal)
+        VALUES (:producto, :categoria, 0)");
+      foreach ($idsCategorias as $idCategoria) {
+        if ($idCategoria !== $idCategoriaPrincipal) {
+          $stmt->execute(array(":producto" => $idProducto, ":categoria" => $idCategoria));
+        }
+      }
+
+      $db->commit();
+      return $this->respuesta(false, "success", "Clasificacion del producto actualizada", array(
+        "id_producto_erp" => $idProducto,
+        "id_marca_erp" => $idMarca > 0 ? $idMarca : null,
+        "id_categoria_principal" => $idCategoriaPrincipal > 0 ? $idCategoriaPrincipal : null,
+        "categorias_secundarias" => array_values(array_diff($idsCategorias, array($idCategoriaPrincipal)))
+      ));
+    } catch (Exception $e) {
+      if ($db->inTransaction()) {
+        $db->rollBack();
+      }
+      return $this->respuesta(true, "danger", $e->getMessage());
+    }
+  }
+
+  /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-09-09
+   * Proposito: aceptar categorias secundarias desde select multiple, JSON o CSV sin duplicados.
+   * Impacto: Catalogo ERP; evita duplicar relaciones categoria-producto al guardar desde la tabla rapida.
+   * Contrato: devuelve arreglo asociativo id=>id con enteros positivos.
+   */
+  private function normalizarIdsCategoriasRapidas($entrada) {
+    if (is_string($entrada)) {
+      $decodificado = json_decode($entrada, true);
+      $entrada = is_array($decodificado) ? $decodificado : ($entrada === "" ? array() : explode(",", $entrada));
+    }
+    if (!is_array($entrada)) {
+      $entrada = array();
+    }
+    $ids = array();
+    foreach ($entrada as $valor) {
+      $id = intval($valor);
+      if ($id > 0) {
+        $ids[$id] = $id;
+      }
+    }
+    return $ids;
+  }
+
+  /**
    * IA: Codex GPT-5 | Fecha: 2026-07-17
    * Proposito: actualizar por lote el estado de vida del producto maestro sin abrir cada ficha.
    * Impacto: Catalogo ERP; acelera saneamiento operativo y conserva `fusionado` reservado al flujo de fusion.

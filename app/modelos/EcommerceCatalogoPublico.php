@@ -2,6 +2,8 @@
 
 class EcommerceCatalogoPublico extends CRUD {
 
+  private $cacheBusquedaInteligenteConfig = null;
+
   /**
    * Documentacion IA: Codex GPT-5 | Fecha: 2026-07-12
    * Proposito: entregar manifiesto versionado de contratos para el frontend ecommerce externo.
@@ -109,6 +111,12 @@ class EcommerceCatalogoPublico extends CRUD {
             "limite" => "1-60, default 24."
           ),
           "respuesta_depurar" => array("fase", "items", "total", "paginacion", "interpretacion", "sugerencias", "categorias_relacionadas", "marcas_relacionadas", "mensaje_cliente", "frontend", "guardrails")
+        ),
+        array(
+          "metodo" => "GET",
+          "ruta" => "/ecommercePublico/busqueda_manifest",
+          "descripcion" => "Manifest read-only de busqueda inteligente: sinonimos, reglas, boosts y estado CMS/configuracion.",
+          "respuesta_depurar" => array("fase", "fuente", "configuracion", "cms", "frontend", "guardrails")
         ),
         array(
           "metodo" => "GET",
@@ -2926,10 +2934,11 @@ class EcommerceCatalogoPublico extends CRUD {
       $queryUsada = "";
 
       foreach ($candidatos as $query) {
+        $limiteInterno = $pagina === 1 ? min(24, max($limite, $limite * 3)) : $limite;
         $params = array(
           "q" => $query,
           "pagina" => $pagina,
-          "limite" => $pagina === 1 ? max($limite, 60) : $limite,
+          "limite" => $limiteInterno,
           "orden" => $orden
         );
         foreach (array("categoria_slug", "categoria", "categoria_id", "marca", "marca_slug", "disponibilidad", "destacado", "incluir_hijos") as $clave) {
@@ -2956,9 +2965,10 @@ class EcommerceCatalogoPublico extends CRUD {
       if ($pagina === 1) {
         $paginacion["limite"] = $limite;
       }
-      $relacionadas = $this->categoriasRelacionadasBusqueda($interpretacion, $limite);
+      $relacionadas = $this->categoriasRelacionadasBusqueda($interpretacion, $limite, $items);
       $marcasRelacionadas = $this->marcasRelacionadasBusqueda($interpretacion, $limite);
       $sugerencias = $this->sugerenciasBusquedaInteligente($qOriginal, $interpretacion, $relacionadas, $total);
+      $configBusqueda = $this->busquedaInteligenteConfigPublica();
       $tipo = $total > 0 ? "success" : "sin_resultados_con_sugerencias";
 
       return $this->respuesta(false, $tipo, $total > 0 ? "Resultados de busqueda" : "Sin resultados exactos", array(
@@ -2976,7 +2986,7 @@ class EcommerceCatalogoPublico extends CRUD {
         "terminos_relacionados" => $this->terminosRelacionadosBusqueda($interpretacion),
         "mensaje_cliente" => $total > 0
           ? ""
-          : "No encontramos una coincidencia exacta, pero estos productos o categorias pueden ayudarte a encontrar una opcion adecuada.",
+          : $this->valor($configBusqueda, array("mensajes", "sin_resultados"), "No encontramos una coincidencia exacta, pero estos productos o categorias pueden ayudarte a encontrar una opcion adecuada."),
         "frontend" => array(
           "endpoint_preferido_para_buscar" => "/ecommercePublico/busqueda",
           "fallback_catalogo" => "/ecommercePublico/catalogo?q=" . rawurlencode($qOriginal),
@@ -3003,6 +3013,48 @@ class EcommerceCatalogoPublico extends CRUD {
         "guardrails" => array("read_only" => true, "no_registra_busqueda" => true)
       ));
     }
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-09
+   * Proposito: publicar manifest read-only de busqueda inteligente para frontend y futuro CMS.
+   * Impacto: permite auditar reglas activas, defaults y configuracion publicada sin leer archivos internos.
+   * Contrato: GET publico read-only; no registra busquedas ni escribe BD.
+   */
+  public function busquedaManifestPublica($opciones = array()) {
+    $config = $this->busquedaInteligenteConfigPublica();
+    return $this->respuesta(false, "success", "Manifest de busqueda inteligente ecommerce consultado", array(
+      "fase" => "busqueda_inteligente_v1",
+      "fuente" => $this->valor($config, "fuente", "defaults_codigo"),
+      "configuracion" => array(
+        "sinonimos" => $this->valor($config, "sinonimos", array()),
+        "prioridad_terminos" => $this->valor($config, "prioridad_terminos", array()),
+        "stopwords" => $this->valor($config, "stopwords", array()),
+        "categorias_probables" => $this->valor($config, "categorias_probables", array()),
+        "boosts" => $this->valor($config, "boosts", array()),
+        "mensajes" => $this->valor($config, "mensajes", array())
+      ),
+      "cms" => array(
+        "clave_configuracion" => "busqueda_inteligente_config",
+        "tabla" => "erp_ecommerce_configuracion",
+        "editable_futuro" => true,
+        "estado" => $this->valor($config, "fuente", "defaults_codigo") === "bd_configuracion" ? "configuracion_publicada" : "pendiente_publicar_desde_cms",
+        "campos_sugeridos" => array("sinonimos", "stopwords", "prioridad_terminos", "categorias_probables", "boosts", "mensajes")
+      ),
+      "frontend" => array(
+        "endpoint_busqueda" => "/ecommercePublico/busqueda",
+        "endpoint_sugerencias" => "/ecommercePublico/busqueda_sugerencias",
+        "usar_manifest_para_diagnostico" => true,
+        "no_generar_slugs_en_frontend" => true
+      ),
+      "guardrails" => array(
+        "read_only" => true,
+        "no_registra_busqueda" => true,
+        "no_expone_costos" => true,
+        "no_expone_stock_exacto" => true,
+        "no_lee_archivos_frontend" => true
+      )
+    ));
   }
 
   /**
@@ -3133,7 +3185,9 @@ class EcommerceCatalogoPublico extends CRUD {
         array("grupo" => "catalogo", "metodo" => "GET", "ruta" => "/ecommercePublico/catalogo_filtros", "obligatorio" => true, "uso_frontend" => "Facets contextuales con conteos reales."),
         array("grupo" => "catalogo", "metodo" => "GET", "ruta" => "/ecommercePublico/navegacion", "obligatorio" => true, "uso_frontend" => "Menus, chips y rutas explorables."),
         array("grupo" => "catalogo", "metodo" => "GET", "ruta" => "/ecommercePublico/secciones", "obligatorio" => true, "uso_frontend" => "Bloques de home y colecciones."),
+        array("grupo" => "busqueda", "metodo" => "GET", "ruta" => "/ecommercePublico/busqueda", "obligatorio" => true, "uso_frontend" => "Resultados inteligentes para /buscar/{termino}."),
         array("grupo" => "busqueda", "metodo" => "GET", "ruta" => "/ecommercePublico/busqueda_sugerencias", "obligatorio" => true, "uso_frontend" => "Autocomplete y busqueda guiada."),
+        array("grupo" => "busqueda", "metodo" => "GET", "ruta" => "/ecommercePublico/busqueda_manifest", "obligatorio" => false, "uso_frontend" => "Diagnostico de reglas, sinonimos y boosts activos."),
         array("grupo" => "producto", "metodo" => "GET", "ruta" => "/ecommercePublico/producto/{slug}", "obligatorio" => true, "uso_frontend" => "Ficha publica con relacionados, breadcrumbs, acciones y SEO."),
         array("grupo" => "producto", "metodo" => "GET", "ruta" => "/ecommercePublico/disponibilidad", "obligatorio" => true, "uso_frontend" => "Estado publico sin stock exacto."),
         array("grupo" => "carrito", "metodo" => "POST", "ruta" => "/ecommercePublico/cotizacion_dryrun", "obligatorio" => true, "uso_frontend" => "Validar carrito antes de contacto."),
@@ -3675,7 +3729,7 @@ class EcommerceCatalogoPublico extends CRUD {
       }
 
       $depFiltros = $this->valor($filtros, "depurar", array());
-      $categoriasRelacionadas = $this->categoriasRelacionadasBusqueda($interpretacion, $limite);
+      $categoriasRelacionadas = $this->categoriasRelacionadasBusqueda($interpretacion, $limite, $itemsCatalogo);
       $marcasRelacionadas = $this->marcasRelacionadasBusqueda($interpretacion, $limite);
       $qTaxonomia = $this->valor($interpretacion, "texto_normalizado", $q);
       $grupos = array(
@@ -4650,13 +4704,14 @@ class EcommerceCatalogoPublico extends CRUD {
           "/ecommercePublico/esquema_plan_seo_migracion",
           "/ecommercePublico/seo_urls_sincronizar_plan_erp",
           "/ecommercePublico/seo_urls_viejas_revision_erp",
+          "/ecommercePublico/seo_productos_slugs_erp",
+          "/ecommercePublico/seo_producto_slug_plan_erp",
           "/ecommercePublico/seo_urls_viejas_importar_plan_erp",
           "/ecommercePublico/seo_redireccion_plan_erp"
         ),
         "endpoints_autorizados" => array(
           "/ecommercePublico/seo_urls_sincronizar_erp" => "ECOMMERCE_SEO_SYNC_URLS_CANONICAS",
           "/ecommercePublico/seo_urls_viejas_importar_erp" => "ECOMMERCE_SEO_IMPORTAR_URLS_VIEJAS",
-          "/ecommercePublico/seo_redireccion_guardar_erp" => "ECOMMERCE_SEO_GUARDAR_REDIRECCION"
         ),
         "siguiente_operativo" => array(
           "revisar_plan_ddl",
@@ -4734,7 +4789,14 @@ class EcommerceCatalogoPublico extends CRUD {
    */
   public function seoUrlsViejasRevisionInterna($opciones = array()) {
     try {
-      $archivo = $this->seoUltimoArchivoTmp("ecommerce_seo_urls_relaciones_*.json");
+      $fuente = trim((string) $this->valor($opciones, "fuente", "indexadas"));
+      $archivo = "";
+      if ($fuente === "indexadas" || $fuente === "google_indexadas") {
+        $archivo = $this->seoUltimoArchivoTmp("ecommerce_seo_urls_indexadas_google_*.json");
+      }
+      if ($archivo === "") {
+        $archivo = $this->seoUltimoArchivoTmp("ecommerce_seo_urls_relaciones_*.json");
+      }
       if ($archivo === "") {
         $archivo = $this->seoUltimoArchivoTmp("ecommerce_seo_urls_viejas_reporte_enriquecido_*.json");
       }
@@ -4756,11 +4818,12 @@ class EcommerceCatalogoPublico extends CRUD {
       $limite = max(1, min(500, intval($this->valor($opciones, "limite", 120))));
       $baseLocal = rtrim(trim((string) $this->valor($this->configuracionSeoPublica($this->getConexion()), "frontend_local", "")), "/");
       if ($baseLocal === "") { $baseLocal = "http://artiani.com.local"; }
+      $usaIndexadas = strpos($archivo, "ecommerce_seo_urls_indexadas_google_") !== false;
+      $baseProduccion = $this->dominioProduccionSeoPublico($this->configuracionSeoPublica($this->getConexion()));
+      $canonicas = $usaIndexadas ? $this->seoUrlsComparacionMigracionItems($baseProduccion, 3000) : array();
 
       $filtrados = array();
       foreach ($items as $item) {
-        if ($accion !== "" && (string) $this->valor($item, "accion_sugerida", "") !== $accion) { continue; }
-        if ($prioridad !== "" && (string) $this->valor($item, "prioridad_revision", "") !== $prioridad) { continue; }
         if ($q !== "") {
           $texto = strtolower($this->normalizarTextoPlano(implode(" ", array(
             $this->valor($item, "url_original", ""),
@@ -4769,10 +4832,35 @@ class EcommerceCatalogoPublico extends CRUD {
             $this->valor($item, "url_destino_sugerida", ""),
             $this->valor($item, "motivo", "")
           ))));
-          if (strpos($texto, $q) === false) { continue; }
+          $textoSlug = $this->slugificar($texto);
+          $qSlug = $this->slugificar($q);
+          $textoCompacto = preg_replace('/[^a-z0-9]+/', '', $textoSlug);
+          $qCompacto = preg_replace('/[^a-z0-9]+/', '', $qSlug);
+          if (strpos($texto, $q) === false && strpos($textoSlug, $qSlug) === false && ($qCompacto === "" || strpos($textoCompacto, $qCompacto) === false)) { continue; }
+        }
+        if ($usaIndexadas) {
+          $tipoItem = $this->valor($item, "tipo_detectado", $this->seoTipoDetectadoPath($this->valor($item, "path_original", "")));
+          $sugerenciasIndexadas = $this->seoSugerenciasDestinoPublico($this->valor($item, "path_original", ""), $tipoItem, $canonicas, 3);
+          $item["sugerencias"] = $sugerenciasIndexadas;
+          if (!empty($sugerenciasIndexadas)) {
+            $item["url_destino_sugerida"] = $this->valor($sugerenciasIndexadas[0], "path", "");
+            $item["confianza"] = $this->valor($sugerenciasIndexadas[0], "confianza", "media");
+            $item["motivo"] = $this->valor($sugerenciasIndexadas[0], "motivo", "sugerido_desde_google_indexadas");
+            $item["accion_sugerida"] = $this->valor($sugerenciasIndexadas[0], "misma_uri", false) ? "sin_redireccion_necesaria" : "validar_301_candidato";
+          } else {
+            $item["url_destino_sugerida"] = "";
+            $item["confianza"] = "baja";
+            $item["motivo"] = "sin_candidato_nuevo_suficiente";
+            $item["accion_sugerida"] = "revisar_manual";
+          }
         }
         $destino = trim((string) $this->valor($item, "url_destino_sugerida", ""));
         $item["url_destino_local"] = $destino !== "" ? $baseLocal . $destino : "";
+        if (!isset($item["accion_sugerida"])) { $item["accion_sugerida"] = "revisar_manual"; }
+        if (!isset($item["prioridad_revision"])) { $item["prioridad_revision"] = $fuente === "indexadas" ? "alta" : "media"; }
+        if (!isset($item["confianza"])) { $item["confianza"] = "pendiente"; }
+        if ($accion !== "" && (string) $this->valor($item, "accion_sugerida", "") !== $accion) { continue; }
+        if ($prioridad !== "" && (string) $this->valor($item, "prioridad_revision", "") !== $prioridad) { continue; }
         $filtrados[] = $item;
         if (count($filtrados) >= $limite) { break; }
       }
@@ -4780,6 +4868,7 @@ class EcommerceCatalogoPublico extends CRUD {
       return $this->respuesta(false, "success", "Revision de URLs viejas consultada", array(
         "disponible" => true,
         "archivo" => $archivo,
+        "fuente" => strpos($archivo, "ecommerce_seo_urls_indexadas_google_") !== false ? "google_indexadas" : "crawl_relaciones",
         "base_origen" => $this->valor($payload, "base", "https://artiani.com.mx"),
         "base_local_revision" => $baseLocal,
         "total_reporte" => intval($this->valor($payload, "total", $this->valor($payload, "total_viejas", count($items)))),
@@ -4798,6 +4887,335 @@ class EcommerceCatalogoPublico extends CRUD {
       ));
     } catch (Exception $e) {
       return $this->respuesta(true, "danger", $e->getMessage(), array("read_only" => true, "items" => array()));
+    }
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-09
+   * Proposito: entregar mesa read-only de publicaciones con SKU, titulo publico, slug y sugerencias de URLs viejas.
+   * Impacto: Ecommerce SEO; permite curar nombres/slugs y preparar redirecciones sin escribir BD.
+   * Contrato: solo lectura; cambiar nombre no recalcula slug hasta que operacion lo solicite explicitamente.
+   */
+  public function seoProductosSlugsInterno($opciones = array()) {
+    try {
+      $db = $this->getConexion();
+      if (!$db) {
+        return $this->respuesta(true, "warning", "Conexion MySQL no disponible", array("read_only" => true, "items" => array()));
+      }
+      if (!$this->tablaExiste($db, "erp_ecommerce_publicaciones")) {
+        return $this->respuesta(true, "warning", "No existe tabla de publicaciones ecommerce", array(
+          "read_only" => true,
+          "tabla_requerida" => "erp_ecommerce_publicaciones",
+          "items" => array()
+        ));
+      }
+
+      $limite = max(1, min(250, intval($this->valor($opciones, "limite", 80))));
+      $qRaw = trim((string) $this->valor($opciones, "q", ""));
+      $estatus = trim((string) $this->valor($opciones, "estatus", ""));
+      $relacion = trim((string) $this->valor($opciones, "relacion", ""));
+      $where = array("pub.canal='catalogo_publico'");
+      $params = array();
+      if ($estatus !== "") {
+        $where[] = "pub.estatus_publicacion=:estatus";
+        $params[":estatus"] = $estatus;
+      }
+      if ($qRaw !== "") {
+        $where[] = "(s.sku LIKE :q OR pub.slug LIKE :q OR pub.titulo_publico LIKE :q OR s.nombre LIKE :q OR p.nombre LIKE :q)";
+        $params[":q"] = "%" . $qRaw . "%";
+      }
+
+      $sql = "SELECT pub.id_publicacion, pub.id_producto_erp, pub.id_sku, pub.estatus_publicacion,
+          pub.slug, pub.titulo_publico, pub.descripcion_publica, pub.presentacion_publica,
+          pub.fecha_actualizacion, s.sku, COALESCE(s.nombre, p.nombre) nombre_sku, p.nombre nombre_producto,
+          m.nombre marca, COALESCE(c.ruta, c.nombre) categoria
+        FROM erp_ecommerce_publicaciones pub
+        INNER JOIN erp_catalogo_skus s ON s.id_sku=pub.id_sku
+        INNER JOIN erp_catalogo_productos p ON p.id_producto_erp=pub.id_producto_erp
+        LEFT JOIN erp_catalogo_marcas m ON m.id_marca_erp=p.id_marca_erp
+        LEFT JOIN erp_catalogo_producto_categorias pc ON pc.id_producto_erp=p.id_producto_erp AND pc.es_principal=1
+        LEFT JOIN erp_catalogo_categorias c ON c.id_categoria_erp=pc.id_categoria_erp
+        WHERE " . implode(" AND ", $where) . "
+        ORDER BY pub.estatus_publicacion='publicado' DESC, pub.fecha_actualizacion DESC, pub.id_publicacion DESC
+        LIMIT " . intval($limite);
+      $stmt = $db->prepare($sql);
+      $stmt->execute($params);
+      $filas = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+      $config = $this->configuracionSeoPublica($db);
+      $baseProduccion = $this->dominioProduccionSeoPublico($config);
+      $baseLocal = rtrim(trim((string) $this->valor($config, "frontend_local", "")), "/");
+      if ($baseLocal === "") { $baseLocal = "http://artiani.com.local"; }
+      $reporte = $this->seoUrlsViejasReporteLocalItems("indexadas");
+      $itemsViejos = $this->valor($reporte, "items", array());
+      $baseOrigen = $this->valor($reporte, "base_origen", "https://artiani.com.mx");
+
+      $items = array();
+      foreach ($filas as $fila) {
+        $slug = $this->slugificar($this->valor($fila, "slug", ""));
+        $path = $slug !== "" ? "/producto/" . $slug : "";
+        $titulo = trim((string) $this->valor($fila, "titulo_publico", ""));
+        if ($titulo === "") { $titulo = trim((string) $this->valor($fila, "nombre_sku", $this->valor($fila, "nombre_producto", ""))); }
+        $slugProfesional = $this->slugProductoProfesionalSugerido($fila, $titulo);
+        $sugerencias = $this->seoSugerenciasUrlsViejasParaProducto($fila, $itemsViejos, $baseOrigen, $baseLocal, 3);
+        $tieneRelacion = !empty($sugerencias);
+        if ($relacion === "con_sugerencia" && !$tieneRelacion) { continue; }
+        if ($relacion === "sin_sugerencia" && $tieneRelacion) { continue; }
+        $items[] = array(
+          "id_publicacion" => intval($fila["id_publicacion"]),
+          "id_producto_erp" => intval($fila["id_producto_erp"]),
+          "id_sku" => intval($fila["id_sku"]),
+          "sku" => (string) $fila["sku"],
+          "nombre_producto" => (string) $fila["nombre_producto"],
+          "nombre_sku" => (string) $fila["nombre_sku"],
+          "titulo_publico" => $titulo,
+          "slug" => $slug,
+          "slug_sugerido_desde_nombre" => $slugProfesional,
+          "slug_profesional_sugerido" => $slugProfesional,
+          "url_publica" => $path,
+          "canonical_url" => $path !== "" ? $this->canonicalSeoPublico($baseProduccion, $path) : "",
+          "url_local" => $path !== "" ? $baseLocal . $path : "",
+          "estatus_publicacion" => (string) $fila["estatus_publicacion"],
+          "marca" => (string) $this->valor($fila, "marca", ""),
+          "categoria" => (string) $this->valor($fila, "categoria", ""),
+          "fecha_actualizacion" => $this->valor($fila, "fecha_actualizacion", null),
+          "urls_viejas_sugeridas" => $sugerencias,
+          "historial_slugs" => $this->historialSlugsPublicacion($db, intval($fila["id_publicacion"]))
+        );
+      }
+
+      return $this->respuesta(false, "success", "Productos SEO consultados", array(
+        "read_only" => true,
+        "total" => count($items),
+        "limite" => $limite,
+        "base_produccion" => $baseProduccion,
+        "base_local_revision" => $baseLocal,
+        "reporte_urls_viejas" => $this->valor($reporte, "archivo", ""),
+        "items" => $items,
+        "guardrails" => array(
+          "slug_ya_existe_en_bd" => true,
+          "nombre_no_recalcula_slug_automaticamente" => true,
+          "sugerencias_no_crean_redireccion" => true,
+          "guardar_requiere_token_curaduria" => true
+        )
+      ));
+    } catch (Exception $e) {
+      return $this->respuesta(true, "danger", $e->getMessage(), array("read_only" => true, "items" => array()));
+    }
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-09
+   * Proposito: buscar URLs canonicas nuevas para elegir destino de redireccion SEO.
+   * Impacto: Ecommerce SEO; soporta seleccion manual de producto, categoria o marca sin escribir BD.
+   * Contrato: read-only; devuelve paths publicos, canonical y metadata minima.
+   */
+  public function seoDestinosCanonicosInterno($opciones = array()) {
+    try {
+      $db = $this->getConexion();
+      $config = $this->configuracionSeoPublica($db);
+      $baseProduccion = $this->dominioProduccionSeoPublico($config);
+      $baseLocal = rtrim(trim((string) $this->valor($config, "frontend_local", "")), "/");
+      if ($baseLocal === "") { $baseLocal = "http://artiani.com.local"; }
+      $limite = max(1, min(80, intval($this->valor($opciones, "limite", 30))));
+      $tipo = trim((string) $this->valor($opciones, "tipo", ""));
+      $q = strtolower($this->normalizarTextoPlano(trim((string) $this->valor($opciones, "q", ""))));
+      $urls = $this->seoUrlsPublicasItems($baseProduccion, 1000);
+      $items = array();
+      foreach ($urls as $url) {
+        $tipoUrl = (string) $this->valor($url, "tipo", "");
+        if ($tipo !== "" && $tipoUrl !== $tipo) { continue; }
+        if ($q !== "") {
+          $texto = strtolower($this->normalizarTextoPlano(implode(" ", array(
+            $this->valor($url, "path", ""),
+            $this->valor($url, "title", ""),
+            $this->valor($url, "description", ""),
+            $this->valor($url, "sku", "")
+          ))));
+          if (strpos($texto, $q) === false) { continue; }
+        }
+        $path = $this->normalizarSeoPathPublico($this->valor($url, "path", ""));
+        $items[] = array(
+          "tipo" => $tipoUrl,
+          "path" => $path,
+          "canonical" => $this->valor($url, "canonical", $this->canonicalSeoPublico($baseProduccion, $path)),
+          "url_local" => $path !== "" ? $baseLocal . $path : "",
+          "title" => $this->valor($url, "title", ""),
+          "description" => $this->valor($url, "description", ""),
+          "sku" => $this->valor($url, "sku", ""),
+          "id_sku" => intval($this->valor($url, "id_sku", 0)),
+          "id_publicacion" => intval($this->valor($url, "entidad_id", 0))
+        );
+        if (count($items) >= $limite) { break; }
+      }
+      return $this->respuesta(false, "success", "Destinos canonicos SEO consultados", array(
+        "read_only" => true,
+        "total_filtrado" => count($items),
+        "base_produccion" => $baseProduccion,
+        "base_local_revision" => $baseLocal,
+        "items" => $items,
+        "guardrails" => array("no_escribe_bd" => true, "solo_paths_publicos" => true, "sin_rutas_api" => true)
+      ));
+    } catch (Exception $e) {
+      return $this->respuesta(true, "danger", $e->getMessage(), array("read_only" => true, "items" => array()));
+    }
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-09
+   * Proposito: planear cambio de titulo/slug SEO de producto sin ejecutar escritura.
+   * Impacto: Ecommerce SEO; anticipa conflictos y la redireccion 301 que deberia quedar si cambia el slug.
+   * Contrato: read-only; no modifica `erp_ecommerce_publicaciones` ni `erp_ecommerce_seo_redirecciones`.
+   */
+  public function seoProductoSlugPlanInterno($datos = array()) {
+    try {
+      $db = $this->getConexion();
+      if (!$db) {
+        return $this->respuesta(true, "warning", "Conexion MySQL no disponible", array("read_only" => true));
+      }
+      $actual = $this->seoConsultarPublicacionBasica($db, $datos);
+      if (!$actual) {
+        return $this->respuesta(true, "warning", "Publicacion ecommerce no encontrada", array("read_only" => true));
+      }
+      $titulo = trim((string) $this->valor($datos, "titulo_publico", $this->valor($actual, "titulo_publico", "")));
+      $slug = $this->slugificar($this->valor($datos, "slug", $this->valor($actual, "slug", "")));
+      $slugAnterior = $this->slugificar($this->valor($actual, "slug", ""));
+      $slugProfesional = $this->slugProductoProfesionalSugerido($actual, $titulo);
+      $bloqueos = array();
+      if ($titulo === "") { $bloqueos[] = "titulo_publico_requerido"; }
+      if ($slug === "") { $bloqueos[] = "slug_requerido"; }
+      if ($slug !== "" && $this->conflictoSlugPublicacion($db, $slug, intval($actual["id_sku"]))) { $bloqueos[] = "slug_ya_usado_por_otro_sku"; }
+      $slugCambio = $slugAnterior !== "" && $slug !== "" && $slugAnterior !== $slug;
+      $pathAnterior = $slugAnterior !== "" ? "/producto/" . $slugAnterior : "";
+      $pathNuevo = $slug !== "" ? "/producto/" . $slug : "";
+      $sql = empty($bloqueos)
+        ? "UPDATE erp_ecommerce_publicaciones SET titulo_publico=" . $this->sqlQuote($titulo) . ", slug=" . $this->sqlQuote($slug) . ", fecha_actualizacion=NOW() WHERE id_publicacion=" . intval($actual["id_publicacion"]) . " LIMIT 1;"
+        : "";
+      $sqlRedireccion = $slugCambio && empty($bloqueos)
+        ? "INSERT INTO erp_ecommerce_seo_redirecciones (url_origen, url_destino, status_code, tipo, motivo, activo, revisado, fecha_registro, fecha_actualizacion) VALUES (" . $this->sqlQuote($pathAnterior) . ", " . $this->sqlQuote($pathNuevo) . ", 301, 'producto_slug', 'slug_publico_actualizado', 1, 1, NOW(), NOW()) ON DUPLICATE KEY UPDATE url_destino=VALUES(url_destino), status_code=301, tipo='producto_slug', motivo='slug_publico_actualizado', activo=1, revisado=1, fecha_actualizacion=NOW();"
+        : "";
+
+      return $this->respuesta(false, empty($bloqueos) ? "success" : "warning", empty($bloqueos) ? "Plan SEO de producto generado sin ejecutar" : "Plan SEO requiere correccion", array(
+        "read_only" => true,
+        "valido" => empty($bloqueos),
+        "bloqueos" => array_values(array_unique($bloqueos)),
+        "publicacion_actual" => $actual,
+        "propuesto" => array(
+          "titulo_publico" => $titulo,
+          "slug" => $slug,
+          "url_publica" => $pathNuevo,
+          "slug_sugerido_desde_nombre" => $slugProfesional,
+          "slug_profesional_sugerido" => $slugProfesional
+        ),
+        "slug_anterior" => $slugAnterior,
+        "slug_actual" => $slug,
+        "slug_cambiado" => $slugCambio,
+        "redireccion_301_sugerida" => $slugCambio ? array("from" => $pathAnterior, "to" => $pathNuevo, "status" => 301, "tipo" => "producto_slug") : null,
+        "sql_preview" => array_values(array_filter(array($sql, $sqlRedireccion))),
+        "guardrails" => array("no_escribe_bd" => true, "nombre_no_recalcula_slug_automaticamente" => true)
+      ));
+    } catch (Exception $e) {
+      return $this->respuesta(true, "danger", $e->getMessage(), array("read_only" => true));
+    }
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-09
+   * Proposito: guardar nombre publico y slug desde la mesa SEO sin validar publicabilidad comercial.
+   * Impacto: Ecommerce SEO; conserva estatus, precios/visibilidad y registra redireccion 301 si cambia el slug.
+   * Contrato: escritura protegida por permiso `catalogo.editar`; no exige token operativo ni precio.
+   */
+  public function seoProductoSlugGuardarAutorizado($datos = array(), $opciones = array()) {
+    $plan = $this->seoProductoSlugPlanInterno($datos);
+    if (!empty($plan["error"]) || !$this->valor($plan, array("depurar", "valido"), false)) {
+      return $this->respuesta(true, "warning", "No se guardo producto SEO por bloqueos de validacion", array(
+        "no_escribe_bd" => true,
+        "plan" => $plan,
+        "bloqueos" => $this->valor($plan, array("depurar", "bloqueos"), array())
+      ));
+    }
+
+    try {
+      $db = $this->getConexion();
+      if (!$db) {
+        return $this->respuesta(true, "warning", "Conexion MySQL no disponible", array("no_escribe_bd" => true));
+      }
+      $actual = $this->seoConsultarPublicacionBasica($db, $datos);
+      if (!$actual) {
+        return $this->respuesta(true, "warning", "Publicacion ecommerce no encontrada", array("no_escribe_bd" => true));
+      }
+
+      $titulo = trim((string) $this->valor($datos, "titulo_publico", $this->valor($actual, "titulo_publico", "")));
+      $slug = $this->slugificar($this->valor($datos, "slug", $this->valor($actual, "slug", "")));
+      $slugAnterior = $this->slugificar($this->valor($actual, "slug", ""));
+      $slugCambio = $slugAnterior !== "" && $slug !== "" && $slugAnterior !== $slug;
+
+      $db->beginTransaction();
+      $columnasExtra = array();
+      if ($this->columnaExiste($db, "erp_ecommerce_publicaciones", "url_publica")) {
+        $columnasExtra[] = "url_publica=:url_publica";
+      }
+      if ($this->columnaExiste($db, "erp_ecommerce_publicaciones", "canonical_url")) {
+        $columnasExtra[] = "canonical_url=:canonical_url";
+      }
+      if ($slugCambio && $this->columnaExiste($db, "erp_ecommerce_publicaciones", "fecha_slug_actualizado")) {
+        $columnasExtra[] = "fecha_slug_actualizado=NOW()";
+      }
+      if ($slugCambio && $this->columnaExiste($db, "erp_ecommerce_publicaciones", "usuario_slug_actualizado")) {
+        $columnasExtra[] = "usuario_slug_actualizado=:usuario_slug_actualizado";
+      }
+      if ($this->columnaExiste($db, "erp_ecommerce_publicaciones", "bloquear_slug_auto")) {
+        $columnasExtra[] = "bloquear_slug_auto=1";
+      }
+      $sqlExtra = empty($columnasExtra) ? "" : ", " . implode(", ", $columnasExtra);
+      $stmtUpdate = $db->prepare("UPDATE erp_ecommerce_publicaciones
+        SET titulo_publico=:titulo,
+          slug=:slug" . $sqlExtra . ",
+          fecha_actualizacion=NOW()
+        WHERE id_publicacion=:id_publicacion
+        LIMIT 1");
+      $paramsUpdate = array(
+        ":titulo" => $titulo,
+        ":slug" => $slug,
+        ":id_publicacion" => intval($actual["id_publicacion"])
+      );
+      if ($this->columnaExiste($db, "erp_ecommerce_publicaciones", "url_publica")) {
+        $paramsUpdate[":url_publica"] = "/producto/" . $slug;
+      }
+      if ($this->columnaExiste($db, "erp_ecommerce_publicaciones", "canonical_url")) {
+        $paramsUpdate[":canonical_url"] = $this->canonicalSeoPublico($this->dominioProduccionSeoPublico($this->configuracionSeoPublica($db)), "/producto/" . $slug);
+      }
+      if ($slugCambio && $this->columnaExiste($db, "erp_ecommerce_publicaciones", "usuario_slug_actualizado")) {
+        $paramsUpdate[":usuario_slug_actualizado"] = $this->usuarioActualId();
+      }
+      $stmtUpdate->execute($paramsUpdate);
+      $redireccionSlug = $slugCambio ? $this->registrarRedireccionSlugProducto($db, $actual, $slugAnterior, $slug) : null;
+      $db->commit();
+
+      return $this->respuesta(false, "success", "Nombre publico y slug guardados", array(
+        "escribe_bd" => true,
+        "publicacion" => array(
+          "id_publicacion" => intval($actual["id_publicacion"]),
+          "id_producto_erp" => intval($actual["id_producto_erp"]),
+          "id_sku" => intval($actual["id_sku"]),
+          "estatus_publicacion" => $this->valor($actual, "estatus_publicacion", ""),
+          "titulo_publico" => $titulo,
+          "slug" => $slug
+        ),
+        "slug_anterior" => $slugAnterior,
+        "slug_actual" => $slug,
+        "slug_cambiado" => $slugCambio,
+        "redireccion_301" => $redireccionSlug,
+        "validacion_publicabilidad_omitida" => true,
+        "no_requiere_precio" => true,
+        "no_toca_inventario" => true,
+        "no_toca_ecom_legacy" => true
+      ));
+    } catch (Exception $e) {
+      if (isset($db) && $db && $db->inTransaction()) {
+        $db->rollBack();
+      }
+      return $this->respuesta(true, "danger", $e->getMessage(), array("escribe_bd" => false));
     }
   }
 
@@ -4938,18 +5356,9 @@ class EcommerceCatalogoPublico extends CRUD {
    * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-03
    * Proposito: guardar una redireccion SEO aprobada por operacion.
    * Impacto: Ecommerce SEO; alimenta la fuente interna que el frontend publico debe convertir en 301/308.
-   * Contrato: POST interno protegido; escribe solo con `ECOMMERCE_SEO_GUARDAR_REDIRECCION` y tabla aplicada.
+   * Contrato: POST interno protegido por permiso/CSRF; no exige token operativo para revision fila por fila.
    */
   public function seoRedireccionGuardarAutorizada($datos = array(), $opciones = array()) {
-    $token = trim((string) $this->valor($opciones, "autorizar", $this->valor($datos, "autorizar", "")));
-    if ($token !== "ECOMMERCE_SEO_GUARDAR_REDIRECCION") {
-      return $this->respuesta(true, "warning", "Guardado de redireccion SEO bloqueado", array(
-        "bloqueado" => true,
-        "no_escribe_bd" => true,
-        "token_requerido" => "ECOMMERCE_SEO_GUARDAR_REDIRECCION"
-      ));
-    }
-
     try {
       $db = $this->getConexion();
       if (!$db) {
@@ -5006,7 +5415,7 @@ class EcommerceCatalogoPublico extends CRUD {
         "escribe_bd" => true,
         "filas_afectadas" => $afectadas,
         "redireccion" => array("from" => $from, "to" => $to, "status" => $status, "tipo" => $tipo, "motivo" => $motivo, "activo" => true),
-        "guardrails" => array("token_operativo" => true, "sin_rutas_api" => true, "frontend_aplica_301" => true)
+        "guardrails" => array("permiso_catalogo_editar" => true, "sin_rutas_api" => true, "frontend_aplica_301" => true)
       ));
     } catch (Exception $e) {
       if (isset($db) && $db && $db->inTransaction()) {
@@ -5169,6 +5578,110 @@ class EcommerceCatalogoPublico extends CRUD {
       if (isset($db) && $db && $db->inTransaction()) {
         $db->rollBack();
       }
+      return $this->respuesta(true, "danger", $e->getMessage(), array("escribe_bd" => false));
+    }
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-09
+   * Proposito: publicar desde CMS la configuracion JSON del buscador inteligente publico.
+   * Impacto: Ecommerce publico; permite ajustar sinonimos, prioridad, reglas y mensajes sin desplegar codigo.
+   * Contrato: escritura controlada en `erp_ecommerce_configuracion`; no toca productos, precios, inventario ni contenidos CMS.
+   */
+  public function guardarBusquedaInteligenteConfigInterna($datos = array(), $idUsuario = null) {
+    try {
+      $db = $this->getConexion();
+      if (!$db) {
+        return $this->respuesta(true, "warning", "Conexion MySQL no disponible", array("no_escribe_bd" => true));
+      }
+      if (!$this->tablaExiste($db, "erp_ecommerce_configuracion")) {
+        return $this->respuesta(true, "warning", "No se guardo busqueda porque falta la tabla de configuracion", array(
+          "no_escribe_bd" => true,
+          "bloqueos" => array("tabla_erp_ecommerce_configuracion_pendiente")
+        ));
+      }
+
+      $jsonEntrada = trim((string) $this->valor($datos, "config_json", $this->valor($datos, "valor", "")));
+      if ($jsonEntrada === "") {
+        return $this->respuesta(true, "warning", "No se guardo busqueda porque el JSON esta vacio", array(
+          "no_escribe_bd" => true,
+          "bloqueos" => array("config_json_vacio")
+        ));
+      }
+      $decodificado = json_decode($jsonEntrada, true);
+      if (!is_array($decodificado)) {
+        return $this->respuesta(true, "warning", "No se guardo busqueda porque el JSON no es valido", array(
+          "no_escribe_bd" => true,
+          "bloqueos" => array("config_json_invalido"),
+          "json_error" => json_last_error_msg()
+        ));
+      }
+
+      $validacion = $this->normalizarBusquedaInteligenteConfig($decodificado);
+      if (!empty($validacion["bloqueos"])) {
+        return $this->respuesta(true, "warning", "No se guardo busqueda por bloqueos de configuracion", array(
+          "no_escribe_bd" => true,
+          "bloqueos" => $validacion["bloqueos"],
+          "advertencias" => $validacion["advertencias"]
+        ));
+      }
+
+      $configNormalizada = $validacion["config"];
+      $valorJson = json_encode($configNormalizada, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+      $tieneActualizadoPor = $this->columnaExiste($db, "erp_ecommerce_configuracion", "actualizado_por");
+
+      if ($tieneActualizadoPor) {
+        $stmt = $db->prepare("INSERT INTO erp_ecommerce_configuracion
+            (clave, valor, descripcion, estatus, fecha_registro, fecha_actualizacion, actualizado_por)
+          VALUES
+            ('busqueda_inteligente_config', :valor, :descripcion, 'activo', NOW(), NOW(), :usuario)
+          ON DUPLICATE KEY UPDATE
+            valor=VALUES(valor),
+            descripcion=VALUES(descripcion),
+            estatus='activo',
+            fecha_actualizacion=NOW(),
+            actualizado_por=VALUES(actualizado_por)");
+        $stmt->execute(array(
+          ":valor" => $valorJson,
+          ":descripcion" => "Configuracion publica de busqueda inteligente ecommerce",
+          ":usuario" => intval($idUsuario) ?: null
+        ));
+      } else {
+        $stmt = $db->prepare("INSERT INTO erp_ecommerce_configuracion
+            (clave, valor, descripcion, estatus, fecha_registro, fecha_actualizacion)
+          VALUES
+            ('busqueda_inteligente_config', :valor, :descripcion, 'activo', NOW(), NOW())
+          ON DUPLICATE KEY UPDATE
+            valor=VALUES(valor),
+            descripcion=VALUES(descripcion),
+            estatus='activo',
+            fecha_actualizacion=NOW()");
+        $stmt->execute(array(
+          ":valor" => $valorJson,
+          ":descripcion" => "Configuracion publica de busqueda inteligente ecommerce"
+        ));
+      }
+
+      $this->cacheBusquedaInteligenteConfig = null;
+      return $this->respuesta(false, "success", "Configuracion de busqueda publicada", array(
+        "escribe_bd" => true,
+        "fuente" => "bd_configuracion",
+        "clave" => "busqueda_inteligente_config",
+        "resumen" => array(
+          "sinonimos" => count($configNormalizada["sinonimos"]),
+          "stopwords" => count($configNormalizada["stopwords"]),
+          "prioridad_terminos" => count($configNormalizada["prioridad_terminos"]),
+          "categorias_probables" => count($configNormalizada["categorias_probables"])
+        ),
+        "advertencias" => $validacion["advertencias"],
+        "guardrails" => array(
+          "no_toca_catalogo" => true,
+          "no_toca_precios" => true,
+          "no_mueve_inventario" => true,
+          "api_publica_lee_clave_busqueda_inteligente_config" => true
+        )
+      ));
+    } catch (Exception $e) {
       return $this->respuesta(true, "danger", $e->getMessage(), array("escribe_bd" => false));
     }
   }
@@ -6580,7 +7093,7 @@ class EcommerceCatalogoPublico extends CRUD {
       $titulo = trim((string) $fila["nombre_publico"]);
       $descripcionCatalogo = $this->descripcionCatalogoParaEcommerce($fila);
       $presentacion = trim((string) $fila["presentacion_base"]);
-      $slugBase = $titulo . " " . $presentacion . " " . $fila["sku"];
+      $slugSugerido = $this->slugProductoProfesionalSugerido($fila, $titulo);
       $necesidadesSugeridas = $metadata["necesidades"];
       if ($publicacionActual["id_publicacion"] > 0 && !empty($publicacionActual["necesidades"])) {
         $necesidadesSugeridas = $publicacionActual["necesidades"];
@@ -6630,7 +7143,8 @@ class EcommerceCatalogoPublico extends CRUD {
         "publicacion_sugerida" => array(
           "canal" => "catalogo_publico",
           "estatus_publicacion" => "borrador",
-          "slug" => $publicacionActual["slug"] !== "" ? $publicacionActual["slug"] : $this->slugificar($slugBase),
+          "slug" => $publicacionActual["slug"] !== "" ? $publicacionActual["slug"] : $slugSugerido,
+          "slug_profesional_sugerido" => $slugSugerido,
           "titulo_publico" => $publicacionActual["titulo_publico"] !== "" ? $publicacionActual["titulo_publico"] : $titulo,
           "descripcion_publica" => $publicacionActual["descripcion_publica"] !== "" ? $publicacionActual["descripcion_publica"] : $descripcionCatalogo,
           "presentacion_publica" => $publicacionActual["presentacion_publica"] !== "" ? $publicacionActual["presentacion_publica"] : $presentacion,
@@ -6643,7 +7157,7 @@ class EcommerceCatalogoPublico extends CRUD {
           "mostrar_precio" => $publicacionActual["mostrar_precio"],
           "mostrar_disponibilidad" => $publicacionActual["mostrar_disponibilidad"]
         ),
-        "seo_url_publica" => $this->seoResumenUrlPublicacion($publicacionActual["slug"] !== "" ? $publicacionActual["slug"] : $this->slugificar($slugBase)),
+        "seo_url_publica" => $this->seoResumenUrlPublicacion($publicacionActual["slug"] !== "" ? $publicacionActual["slug"] : $slugSugerido),
         "historial_slugs" => $publicacionActual["id_publicacion"] > 0 ? $this->historialSlugsPublicacion($db, $publicacionActual["id_publicacion"]) : array(),
         "taxonomia_publicacion" => $taxonomiaPublicacion,
         "flujo" => array(
@@ -10561,6 +11075,73 @@ class EcommerceCatalogoPublico extends CRUD {
     return substr($texto !== "" ? $texto : "producto", 0, 170);
   }
 
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-10
+   * Proposito: formar slugs de producto legibles y estables para SEO sin contaminar URLs con SKU o empaque generico.
+   * Impacto: Ecommerce SEO; mejora propuestas nuevas, no modifica slugs publicados automaticamente.
+   * Contrato: devuelve un slug descriptivo basado en titulo y presentacion comercial util.
+   */
+  private function slugProductoProfesionalSugerido($fila, $titulo = "") {
+    $titulo = trim((string) $titulo);
+    if ($titulo === "") {
+      $titulo = trim((string) $this->valor($fila, "titulo_publico", $this->valor($fila, "titulo_publico_publicacion", "")));
+    }
+    if ($titulo === "") {
+      $titulo = trim((string) $this->valor($fila, "nombre_publico", $this->valor($fila, "nombre_sku", $this->valor($fila, "nombre_producto", $this->valor($fila, "nombre", "")))));
+    }
+
+    $presentacion = trim((string) $this->valor($fila, "presentacion_publica", $this->valor($fila, "presentacion_publica_publicacion", $this->valor($fila, "presentacion_base", ""))));
+    $tituloSlug = $this->textoProductoParaSlug($titulo);
+    $presentacionSlug = $this->presentacionParaSlugProducto($presentacion, $tituloSlug);
+    $base = trim($tituloSlug . ($presentacionSlug !== "" ? " " . $presentacionSlug : ""));
+    return $this->slugificar($base);
+  }
+
+  private function textoProductoParaSlug($texto) {
+    $texto = strtolower($this->normalizarTextoPlano($texto));
+    $texto = html_entity_decode($texto, ENT_QUOTES | ENT_HTML5, "UTF-8");
+    $texto = preg_replace('/\b(\d+(?:[\.,]\d+)?)\s*(kilogramos?|kgs?|kg)\b/i', '$1kg', $texto);
+    $texto = preg_replace('/\b(\d+(?:[\.,]\d+)?)\s*(gramos?|grs?|gr|g)\b/i', '$1g', $texto);
+    $texto = preg_replace('/\b(\d+(?:[\.,]\d+)?)\s*(mililitros?|mls?|ml)\b/i', '$1ml', $texto);
+    $texto = preg_replace('/\b(\d+(?:[\.,]\d+)?)\s*(litros?|lts?|lt|l)\b/i', '$1l', $texto);
+    $texto = str_replace(",", ".", $texto);
+    return trim(preg_replace('/\s+/', ' ', $texto));
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-10
+   * Proposito: conservar medidas utiles en el slug y eliminar terminos genericos como pza/pieza/unidad.
+   * Impacto: Ecommerce SEO; evita slugs largos tipo `100-gr-pza-sku` y deja variantes claras como `100g`.
+   * Contrato: devuelve texto apto para slugificar o cadena vacia si la presentacion no aporta diferenciacion.
+   */
+  private function presentacionParaSlugProducto($presentacion, $titulo = "") {
+    $texto = strtolower($this->normalizarTextoPlano($presentacion));
+    $texto = html_entity_decode($texto, ENT_QUOTES | ENT_HTML5, "UTF-8");
+    $texto = str_replace(array(",", "."), array(".", "."), $texto);
+    $texto = preg_replace('/\b(c\/u|cu|pzas?|pza|pz|pieza?s?|unidad(?:es)?|unid(?:ad)?\.?)\b/i', ' ', $texto);
+    $texto = preg_replace('/\b(\d+(?:\.\d+)?)\s*(kilogramos?|kgs?|kg)\b/i', '$1kg', $texto);
+    $texto = preg_replace('/\b(\d+(?:\.\d+)?)\s*(gramos?|grs?|gr|g)\b/i', '$1g', $texto);
+    $texto = preg_replace('/\b(\d+(?:\.\d+)?)\s*(mililitros?|mls?|ml)\b/i', '$1ml', $texto);
+    $texto = preg_replace('/\b(\d+(?:\.\d+)?)\s*(litros?|lts?|lt|l)\b/i', '$1l', $texto);
+    $texto = trim(preg_replace('/\s+/', ' ', $texto));
+    if (preg_match('/^(g|gr|kg|ml|l|lt|lts|cm|m)$/i', $texto)) {
+      return "";
+    }
+    if ($texto === "" || preg_match('/^\d+$/', $texto)) {
+      return "";
+    }
+
+    $slugPresentacion = $this->slugificar($texto);
+    $slugTitulo = $this->slugificar($titulo);
+    if ($slugPresentacion === "" || $slugPresentacion === "producto") {
+      return "";
+    }
+    if ($slugTitulo !== "" && strpos("-" . $slugTitulo . "-", "-" . $slugPresentacion . "-") !== false) {
+      return "";
+    }
+    return $slugPresentacion;
+  }
+
   private function normalizarTextoPlano($texto) {
     $buscar = array('á','é','í','ó','ú','ü','ñ','Á','É','Í','Ó','Ú','Ü','Ñ');
     $reemplazar = array('a','e','i','o','u','u','n','A','E','I','O','U','U','N');
@@ -11319,6 +11900,76 @@ class EcommerceCatalogoPublico extends CRUD {
     return $urls;
   }
 
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-10
+   * Proposito: construir universo amplio para relacionar URLs viejas de Google contra productos nuevos.
+   * Impacto: mejora sugerencias de migracion al incluir publicaciones pausadas/borrador, no solo canonicas indexables.
+   * Contrato: read-only; no modifica snapshot SEO ni publicaciones.
+   */
+  private function seoUrlsComparacionMigracionItems($baseUrl, $limite = 3000) {
+    $items = $this->seoUrlsPublicasItems($baseUrl, 1000);
+    $vistos = array();
+    foreach ($items as $item) {
+      $path = $this->normalizarSeoPathPublico($this->valor($item, "path", ""));
+      if ($path !== "") { $vistos[$path] = true; }
+    }
+
+    $db = $this->getConexion();
+    if (!$db || !$this->tablaExiste($db, "erp_ecommerce_publicaciones")) {
+      return $items;
+    }
+
+    $limite = max(1, min(5000, intval($limite)));
+    $sql = "SELECT pub.id_publicacion, pub.id_producto_erp, pub.id_sku, pub.slug, pub.url_publica, pub.canonical_url,
+        pub.titulo_publico, pub.descripcion_publica, pub.presentacion_publica, pub.estatus_publicacion,
+        s.sku, COALESCE(s.nombre, p.nombre) nombre_sku, p.nombre nombre_producto,
+        m.nombre marca, COALESCE(c.ruta, c.nombre) categoria
+      FROM erp_ecommerce_publicaciones pub
+      INNER JOIN erp_catalogo_skus s ON s.id_sku=pub.id_sku
+      INNER JOIN erp_catalogo_productos p ON p.id_producto_erp=pub.id_producto_erp
+      LEFT JOIN erp_catalogo_marcas m ON m.id_marca_erp=p.id_marca_erp
+      LEFT JOIN erp_catalogo_producto_categorias pc ON pc.id_producto_erp=p.id_producto_erp AND pc.es_principal=1
+      LEFT JOIN erp_catalogo_categorias c ON c.id_categoria_erp=pc.id_categoria_erp
+      WHERE pub.canal='catalogo_publico'
+      ORDER BY pub.estatus_publicacion='publicado' DESC, pub.id_publicacion ASC
+      LIMIT " . intval($limite);
+    foreach ($db->query($sql)->fetchAll(PDO::FETCH_ASSOC) as $fila) {
+      $slug = $this->slugificar($this->valor($fila, "slug", ""));
+      $path = $this->normalizarSeoPathPublico($this->valor($fila, "url_publica", ""));
+      if ($path === "" && $slug !== "") { $path = "/producto/" . $slug; }
+      if ($path === "") { continue; }
+      $url = $this->urlSeoPublica($baseUrl, $path);
+      $item = array(
+        "tipo" => "producto",
+        "path" => $path,
+        "url" => $url,
+        "canonical" => $this->valor($fila, "canonical_url", "") ?: $url,
+        "indexable" => $this->valor($fila, "estatus_publicacion", "") === "publicado",
+        "entidad_id" => intval($fila["id_publicacion"]),
+        "id_sku" => intval($fila["id_sku"]),
+        "id_producto_erp" => intval($fila["id_producto_erp"]),
+        "sku" => trim((string) $fila["sku"]),
+        "title" => trim((string) ($fila["titulo_publico"] ?: $fila["nombre_sku"] ?: $fila["nombre_producto"])) . " | Artiani",
+        "description" => trim(implode(" ", array(
+          $this->valor($fila, "descripcion_publica", ""),
+          $this->valor($fila, "presentacion_publica", ""),
+          $this->valor($fila, "nombre_sku", ""),
+          $this->valor($fila, "nombre_producto", ""),
+          $this->valor($fila, "marca", ""),
+          $this->valor($fila, "categoria", "")
+        ))),
+        "estatus_publicacion" => (string) $fila["estatus_publicacion"],
+        "fuente_comparacion" => isset($vistos[$path]) ? "canonica_indexable" : "publicacion_ecommerce"
+      );
+      if (isset($vistos[$path])) {
+        continue;
+      }
+      $vistos[$path] = true;
+      $items[] = $item;
+    }
+    return $items;
+  }
+
   private function sqlSeoUrlCanonicaUpsertPreview($item) {
     return "INSERT INTO erp_ecommerce_seo_urls (tipo, entidad_id, path, url, canonical, title, description, indexable, activo, fecha_actualizacion) VALUES (" .
       $this->sqlQuote($this->valor($item, "tipo", "url")) . ", " .
@@ -11498,6 +12149,87 @@ class EcommerceCatalogoPublico extends CRUD {
     return $mejor;
   }
 
+  private function seoSugerenciasDestinoPublico($path, $tipo, $canonicas, $limite = 3) {
+    $path = $this->normalizarSeoPathPublico($path);
+    if ($path === "" || $path === "/") { return array(); }
+    if ($tipo === "home") {
+      return array(array("path" => "/", "tipo" => "home", "score" => 999, "confianza" => "exacta", "motivo" => "home_legacy", "misma_uri" => $path === "/"));
+    }
+    if ($tipo === "contacto") {
+      return array(array("path" => "/contacto", "tipo" => "contacto", "score" => 999, "confianza" => "exacta", "motivo" => "contacto_legacy", "misma_uri" => $path === "/contacto"));
+    }
+
+    $tokensOrigen = $this->seoTokensPath($path);
+    $skuOrigen = $this->seoSkuLegacyDesdePath($path);
+    $candidatos = array();
+    foreach ((array) $canonicas as $url) {
+      $tipoCanonico = (string) $this->valor($url, "tipo", "");
+      if (in_array($tipoCanonico, array("home", "contacto", "como_comprar", "aviso_privacidad", "politicas_cambios"), true)) {
+        continue;
+      }
+      if ($tipo !== "desconocido" && $tipo !== "busqueda" && $tipoCanonico !== $tipo) {
+        continue;
+      }
+      $pathCanonico = (string) $this->valor($url, "path", "");
+      if ($pathCanonico === "") { continue; }
+      $skuCanonico = $this->seoSkuNormalizado($this->valor($url, "sku", ""));
+      $textoDestino = $pathCanonico . " " . $this->valor($url, "title", "") . " " . $this->valor($url, "description", "") . " " . $this->valor($url, "sku", "");
+      $tokensDestino = $this->seoTokensPath($textoDestino);
+      $interseccion = array_intersect($tokensOrigen, $tokensDestino);
+      $tokensRelevantesOrigen = max(1, count($tokensOrigen));
+      $cobertura = count($interseccion) / $tokensRelevantesOrigen;
+      $score = 0;
+      $motivos = array();
+      if ($path === $pathCanonico) {
+        $score += 1000;
+        $motivos[] = "misma_uri";
+      }
+      if ($skuOrigen !== "" && $skuCanonico !== "" && $skuOrigen === $skuCanonico) {
+        $score += 1000;
+        $motivos[] = "sku_legacy_coincide";
+      }
+      if (count($interseccion) > 0) {
+        foreach ($interseccion as $tokenCoincidente) {
+          $score += strlen($tokenCoincidente) >= 6 ? 35 : 22;
+        }
+        $score += intval($cobertura * 160);
+        $motivos[] = "tokens_" . implode("_", array_slice(array_values($interseccion), 0, 6));
+      }
+      $textoOrigenNormalizado = $this->slugificar(implode(" ", $tokensOrigen));
+      $textoDestinoNormalizado = $this->slugificar(implode(" ", $tokensDestino));
+      similar_text($textoOrigenNormalizado, $textoDestinoNormalizado, $porcentaje);
+      $score += intval($porcentaje * 0.8);
+      if ($porcentaje >= 55) {
+        $motivos[] = "nombre_muy_parecido";
+      } elseif ($porcentaje >= 35) {
+        $motivos[] = "nombre_parecido";
+      }
+      $tieneCoincidenciaFuerte = $path === $pathCanonico || ($skuOrigen !== "" && $skuCanonico !== "" && $skuOrigen === $skuCanonico);
+      if (!$tieneCoincidenciaFuerte && (count($interseccion) < 2 || $cobertura < 0.25 || $score < 85)) { continue; }
+      $confianza = $score >= 1000 ? "exacta" : ($score >= 220 ? "alta" : ($score >= 125 ? "media" : "baja"));
+      $candidatos[] = array(
+        "path" => $pathCanonico,
+        "tipo" => $tipoCanonico,
+        "title" => $this->valor($url, "title", ""),
+        "description" => $this->valor($url, "description", ""),
+        "sku" => $this->valor($url, "sku", ""),
+        "id_sku" => intval($this->valor($url, "id_sku", 0)),
+        "id_publicacion" => intval($this->valor($url, "entidad_id", 0)),
+        "estatus_publicacion" => $this->valor($url, "estatus_publicacion", ""),
+        "fuente_comparacion" => $this->valor($url, "fuente_comparacion", ""),
+        "slug" => preg_replace('/^\/producto\//', '', $pathCanonico),
+        "score" => $score,
+        "confianza" => $confianza,
+        "motivo" => implode(", ", array_values(array_unique($motivos))),
+        "misma_uri" => $path === $pathCanonico
+      );
+    }
+    usort($candidatos, function ($a, $b) {
+      return intval($b["score"]) - intval($a["score"]);
+    });
+    return array_slice($candidatos, 0, max(1, intval($limite)));
+  }
+
   private function seoSkuLegacyDesdePath($path) {
     $path = trim((string) parse_url($this->normalizarSeoPathPublico($path), PHP_URL_PATH));
     $partes = explode("/", trim($path, "/"));
@@ -11513,10 +12245,19 @@ class EcommerceCatalogoPublico extends CRUD {
 
   private function seoTokensPath($texto) {
     $texto = strtolower($this->normalizarTextoPlano((string) $texto));
+    $texto = preg_replace('/\b(\d+(?:[\.,]\d+)?)\s*(kilogramos?|kgs?|kg)\b/i', '$1kg', $texto);
+    $texto = preg_replace('/\b(\d+(?:[\.,]\d+)?)\s*(gramos?|grs?|gr|g)\b/i', '$1g', $texto);
+    $texto = preg_replace('/\b(\d+(?:[\.,]\d+)?)\s*(mililitros?|mls?|ml)\b/i', '$1ml', $texto);
+    $texto = preg_replace('/\b(\d+(?:[\.,]\d+)?)\s*(litros?|lts?|lt|l)\b/i', '$1l', $texto);
     $texto = preg_replace('/[^a-z0-9]+/', ' ', $texto);
     $tokens = array();
+    $stopwords = array(
+      "html", "php", "www", "com", "https", "http", "producto", "productos", "categoria", "categorias", "marca",
+      "artiani", "con", "para", "por", "del", "las", "los", "una", "uno", "tipo", "pza", "pzas", "pieza", "piezas",
+      "unidad", "unidades", "alimento", "humedo"
+    );
     foreach (preg_split('/\s+/', trim($texto)) as $token) {
-      if (strlen($token) < 3 || in_array($token, array("html", "php", "www", "com", "https", "http", "producto", "categoria", "marca"), true)) {
+      if (strlen($token) < 3 || in_array($token, $stopwords, true)) {
         continue;
       }
       $tokens[] = $token;
@@ -12910,6 +13651,298 @@ class EcommerceCatalogoPublico extends CRUD {
     return $salida;
   }
 
+  private function normalizarBusquedaInteligenteConfig($config) {
+    $defaults = $this->busquedaInteligenteConfigDefault();
+    $salida = array(
+      "sinonimos" => array(),
+      "stopwords" => array(),
+      "prioridad_terminos" => array(),
+      "categorias_probables" => array(),
+      "boosts" => array(),
+      "mensajes" => array()
+    );
+    $bloqueos = array();
+    $advertencias = array();
+
+    $sinonimos = $this->valor($config, "sinonimos", array());
+    if (!is_array($sinonimos)) {
+      $bloqueos[] = "sinonimos_debe_ser_objeto";
+    } else {
+      foreach ($sinonimos as $origen => $destino) {
+        $origen = $this->normalizarTokenConfigBusqueda($origen);
+        $destino = $this->normalizarTokenConfigBusqueda($destino);
+        if ($origen === "" || $destino === "") {
+          continue;
+        }
+        $salida["sinonimos"][$origen] = $destino;
+        if (count($salida["sinonimos"]) >= 300) {
+          $advertencias[] = "sinonimos_limitados_300";
+          break;
+        }
+      }
+    }
+
+    $stopwords = $this->valor($config, "stopwords", array());
+    if (!is_array($stopwords)) {
+      $bloqueos[] = "stopwords_debe_ser_arreglo";
+    } else {
+      foreach ($stopwords as $stopword) {
+        $stopword = $this->normalizarTokenConfigBusqueda($stopword);
+        if ($stopword !== "") {
+          $salida["stopwords"][] = $stopword;
+        }
+      }
+      $salida["stopwords"] = array_values(array_unique($salida["stopwords"]));
+    }
+
+    $prioridad = $this->valor($config, "prioridad_terminos", array());
+    if (!is_array($prioridad)) {
+      $bloqueos[] = "prioridad_terminos_debe_ser_arreglo";
+    } else {
+      foreach ($prioridad as $termino) {
+        $termino = $this->normalizarTokenConfigBusqueda($termino);
+        if ($termino !== "") {
+          $salida["prioridad_terminos"][] = $termino;
+        }
+      }
+      $salida["prioridad_terminos"] = array_values(array_unique($salida["prioridad_terminos"]));
+    }
+
+    $categorias = $this->valor($config, "categorias_probables", array());
+    if (!is_array($categorias)) {
+      $bloqueos[] = "categorias_probables_debe_ser_arreglo";
+    } else {
+      foreach ($categorias as $categoria) {
+        if (!is_array($categoria)) {
+          continue;
+        }
+        $terminos = array();
+        foreach ((array) $this->valor($categoria, "cuando_terminos", array()) as $termino) {
+          $termino = $this->normalizarTokenConfigBusqueda($termino);
+          if ($termino !== "") {
+            $terminos[] = $termino;
+          }
+        }
+        $nombre = $this->textoCortoConfigBusqueda($this->valor($categoria, "nombre", ""), 120);
+        $pathSlug = $this->pathSlugConfigBusqueda($this->valor($categoria, "path_slug", ""));
+        $url = trim((string) $this->valor($categoria, "url", ""));
+        if ($url === "" && $pathSlug !== "") {
+          $url = "/categoria/" . $pathSlug;
+        }
+        if (empty($terminos) || $nombre === "") {
+          continue;
+        }
+        $salida["categorias_probables"][] = array(
+          "cuando_terminos" => array_values(array_unique($terminos)),
+          "atributos" => $this->atributosConfigBusqueda($this->valor($categoria, "atributos", array())),
+          "nombre" => $nombre,
+          "path_slug" => $pathSlug,
+          "url" => $this->urlPublicaConfigBusqueda($url)
+        );
+        if (count($salida["categorias_probables"]) >= 100) {
+          $advertencias[] = "categorias_probables_limitadas_100";
+          break;
+        }
+      }
+    }
+
+    $boosts = $this->valor($config, "boosts", array());
+    if (!is_array($boosts)) {
+      $bloqueos[] = "boosts_debe_ser_objeto";
+    } else {
+      foreach ($defaults["boosts"] as $clave => $valorDefault) {
+        $valor = intval($this->valor($boosts, $clave, $valorDefault));
+        $salida["boosts"][$clave] = max(0, min(500, $valor));
+      }
+    }
+
+    $mensajes = $this->valor($config, "mensajes", array());
+    if (!is_array($mensajes)) {
+      $bloqueos[] = "mensajes_debe_ser_objeto";
+    } else {
+      $sinResultados = $this->textoCortoConfigBusqueda($this->valor($mensajes, "sin_resultados", $defaults["mensajes"]["sin_resultados"]), 240);
+      $salida["mensajes"]["sin_resultados"] = $sinResultados !== "" ? $sinResultados : $defaults["mensajes"]["sin_resultados"];
+    }
+
+    if (empty($salida["sinonimos"])) {
+      $advertencias[] = "sinonimos_vacios_se_usaran_defaults_al_combinar";
+    }
+    if (empty($salida["stopwords"])) {
+      $salida["stopwords"] = $defaults["stopwords"];
+    }
+    if (empty($salida["prioridad_terminos"])) {
+      $salida["prioridad_terminos"] = $defaults["prioridad_terminos"];
+    }
+    if (empty($salida["boosts"])) {
+      $salida["boosts"] = $defaults["boosts"];
+    }
+
+    return array(
+      "config" => $salida,
+      "bloqueos" => array_values(array_unique($bloqueos)),
+      "advertencias" => array_values(array_unique($advertencias))
+    );
+  }
+
+  private function normalizarTokenConfigBusqueda($valor) {
+    $texto = strtolower($this->normalizarTextoPlano((string) $valor));
+    $transliterado = @iconv("UTF-8", "ASCII//TRANSLIT//IGNORE", $texto);
+    if ($transliterado !== false) {
+      $texto = strtolower($transliterado);
+    }
+    $texto = preg_replace('/[^a-z0-9]+/', ' ', $texto);
+    return preg_replace('/\s+/', ' ', trim($texto));
+  }
+
+  private function textoCortoConfigBusqueda($valor, $maximo) {
+    $texto = trim(strip_tags((string) $valor));
+    $texto = preg_replace('/\s+/', ' ', $texto);
+    $maximo = max(1, intval($maximo));
+    return function_exists("mb_substr") ? mb_substr($texto, 0, $maximo, "UTF-8") : substr($texto, 0, $maximo);
+  }
+
+  private function pathSlugConfigBusqueda($valor) {
+    $partes = explode("/", trim((string) $valor, " /"));
+    $salida = array();
+    foreach ($partes as $parte) {
+      $slug = $this->slugConfigBusqueda($parte);
+      if ($slug !== "") {
+        $salida[] = $slug;
+      }
+    }
+    return implode("/", $salida);
+  }
+
+  private function urlPublicaConfigBusqueda($valor) {
+    $url = trim((string) $valor);
+    if ($url === "") {
+      return "";
+    }
+    if (strpos($url, "/categoria/") === 0 || strpos($url, "/buscar/") === 0 || strpos($url, "/marca/") === 0) {
+      return $url;
+    }
+    return "";
+  }
+
+  private function atributosConfigBusqueda($atributos) {
+    $salida = array();
+    if (!is_array($atributos)) {
+      return $salida;
+    }
+    foreach ($atributos as $clave => $valor) {
+      $clave = $this->normalizarTokenConfigBusqueda($clave);
+      $valor = $this->normalizarTokenConfigBusqueda($valor);
+      if ($clave !== "" && $valor !== "") {
+        $salida[$clave] = $valor;
+      }
+    }
+    return $salida;
+  }
+
+  private function slugConfigBusqueda($valor) {
+    $slug = strtolower($this->normalizarTextoPlano((string) $valor));
+    $transliterado = @iconv("UTF-8", "ASCII//TRANSLIT//IGNORE", $slug);
+    if ($transliterado !== false) {
+      $slug = strtolower($transliterado);
+    }
+    $slug = preg_replace('/[^a-z0-9]+/', '-', $slug);
+    return trim(preg_replace('/-+/', '-', $slug), "-");
+  }
+
+  private function busquedaInteligenteConfigPublica() {
+    if (is_array($this->cacheBusquedaInteligenteConfig)) {
+      return $this->cacheBusquedaInteligenteConfig;
+    }
+    $config = $this->busquedaInteligenteConfigDefault();
+    $config["fuente"] = "defaults_codigo";
+    try {
+      $db = $this->getConexion();
+      if ($db && $this->tablaExiste($db, "erp_ecommerce_configuracion")) {
+        $stmt = $db->prepare("SELECT valor FROM erp_ecommerce_configuracion WHERE clave='busqueda_inteligente_config' AND estatus='activo' LIMIT 1");
+        $stmt->execute();
+        $valor = $stmt->fetchColumn();
+        $json = $this->jsonArray($valor);
+        if (!empty($json)) {
+          foreach (array("sinonimos", "stopwords", "prioridad_terminos", "categorias_probables", "boosts", "mensajes") as $clave) {
+            $valorConfig = $this->valor($json, $clave, null);
+            if (is_array($valorConfig) && !empty($valorConfig)) {
+              $config[$clave] = $clave === "sinonimos" || $clave === "boosts" || $clave === "mensajes"
+                ? array_merge((array) $this->valor($config, $clave, array()), $valorConfig)
+                : array_values($valorConfig);
+            }
+          }
+          $config["fuente"] = "bd_configuracion";
+        }
+      }
+    } catch (Exception $e) {
+      $config["fuente"] = "defaults_codigo_error_config";
+      $config["error_configuracion"] = $e->getMessage();
+    }
+    $this->cacheBusquedaInteligenteConfig = $config;
+    return $config;
+  }
+
+  private function busquedaInteligenteConfigDefault() {
+    return array(
+      "sinonimos" => array(
+        "pecera" => "acuario",
+        "peceras" => "acuario",
+        "fishtank" => "acuario",
+        "tank" => "acuario",
+        "cascada" => "filtro",
+        "bomba" => "oxigenador",
+        "bombas" => "oxigenador",
+        "comida" => "alimento",
+        "croqueta" => "alimento",
+        "croquetas" => "alimento",
+        "jaulita" => "jaula",
+        "hamster" => "hamster",
+        "hamsters" => "hamster",
+        "camita" => "cama",
+        "transportadora" => "kennel"
+      ),
+      "stopwords" => array("para", "de", "del", "la", "el", "los", "las", "con", "en", "un", "una", "por", "y", "producto", "productos"),
+      "prioridad_terminos" => array("filtro", "alimento", "jaula", "cama", "kennel", "transportadora", "sustrato", "shampoo", "collar", "correa", "oxigenador"),
+      "categorias_probables" => array(
+        array(
+          "cuando_terminos" => array("filtro", "oxigenador"),
+          "atributos" => array("habitat" => "acuario"),
+          "nombre" => "Filtracion y oxigenacion",
+          "path_slug" => "acuario-y-peces/equipamiento-tecnico/filtracion-y-oxigenacion",
+          "url" => "/categoria/acuario-y-peces/equipamiento-tecnico/filtracion-y-oxigenacion"
+        ),
+        array(
+          "cuando_terminos" => array("alimento"),
+          "atributos" => array("mascota" => "peces"),
+          "nombre" => "Alimentos para peces",
+          "path_slug" => "acuario-y-peces/alimentacion",
+          "url" => "/categoria/acuario-y-peces/alimentacion"
+        ),
+        array(
+          "cuando_terminos" => array("jaula"),
+          "atributos" => array(),
+          "nombre" => "Jaulas y habitat",
+          "path_slug" => "",
+          "url" => "/buscar/jaula"
+        )
+      ),
+      "boosts" => array(
+        "nombre_principal" => 60,
+        "categoria_principal" => 30,
+        "nombre_termino" => 12,
+        "categoria_termino" => 8,
+        "marca_termino" => 6,
+        "sku_termino" => 10,
+        "categoria_probable" => 40,
+        "imagen" => 3,
+        "precio" => 3
+      ),
+      "mensajes" => array(
+        "sin_resultados" => "No encontramos una coincidencia exacta, pero estos productos o categorias pueden ayudarte a encontrar una opcion adecuada."
+      )
+    );
+  }
+
   private function interpretarBusquedaPublica($q) {
     $textoOriginal = trim((string) $q);
     $texto = strtolower($this->normalizarTextoPlano($textoOriginal));
@@ -12919,7 +13952,8 @@ class EcommerceCatalogoPublico extends CRUD {
     }
     $texto = preg_replace('/[^a-z0-9\s]+/', ' ', $texto);
     $texto = preg_replace('/\s+/', ' ', trim($texto));
-    $stopwords = array("para", "de", "del", "la", "el", "los", "las", "con", "en", "un", "una", "por", "y", "producto", "productos");
+    $configBusqueda = $this->busquedaInteligenteConfigPublica();
+    $stopwords = $this->valor($configBusqueda, "stopwords", array("para", "de", "del", "la", "el", "los", "las", "con", "en", "un", "una", "por", "y", "producto", "productos"));
     $tokens = $texto === "" ? array() : preg_split('/\s+/', $texto);
     $terminos = array();
     foreach ($tokens as $token) {
@@ -12958,23 +13992,8 @@ class EcommerceCatalogoPublico extends CRUD {
   }
 
   private function sinonimosBusquedaPublica() {
-    return array(
-      "pecera" => "acuario",
-      "peceras" => "acuario",
-      "fishtank" => "acuario",
-      "tank" => "acuario",
-      "cascada" => "filtro",
-      "bomba" => "oxigenador",
-      "bombas" => "oxigenador",
-      "comida" => "alimento",
-      "croqueta" => "alimento",
-      "croquetas" => "alimento",
-      "jaulita" => "jaula",
-      "hamster" => "hamster",
-      "hamsters" => "hamster",
-      "camita" => "cama",
-      "transportadora" => "kennel"
-    );
+    $configBusqueda = $this->busquedaInteligenteConfigPublica();
+    return (array) $this->valor($configBusqueda, "sinonimos", array());
   }
 
   private function normalizarPluralBusqueda($token) {
@@ -13022,7 +14041,8 @@ class EcommerceCatalogoPublico extends CRUD {
   }
 
   private function terminoPrincipalBusqueda($terminos) {
-    $prioridad = array("filtro", "alimento", "jaula", "cama", "kennel", "transportadora", "sustrato", "shampoo", "collar", "correa", "oxigenador");
+    $configBusqueda = $this->busquedaInteligenteConfigPublica();
+    $prioridad = (array) $this->valor($configBusqueda, "prioridad_terminos", array("filtro", "alimento", "jaula", "cama", "kennel", "transportadora", "sustrato", "shampoo", "collar", "correa", "oxigenador"));
     foreach ($prioridad as $termino) {
       if (in_array($termino, $terminos, true)) {
         return $termino;
@@ -13042,18 +14062,35 @@ class EcommerceCatalogoPublico extends CRUD {
   }
 
   private function categoriaProbableBusqueda($terminos, $atributos) {
-    if ((in_array("filtro", $terminos, true) || in_array("oxigenador", $terminos, true)) && $this->valor($atributos, "habitat", "") === "acuario") {
+    $configBusqueda = $this->busquedaInteligenteConfigPublica();
+    foreach ((array) $this->valor($configBusqueda, "categorias_probables", array()) as $regla) {
+      $cuandoTerminos = (array) $this->valor($regla, "cuando_terminos", array());
+      $atributosEsperados = (array) $this->valor($regla, "atributos", array());
+      $coincideTermino = empty($cuandoTerminos);
+      foreach ($cuandoTerminos as $termino) {
+        if (in_array((string) $termino, $terminos, true)) {
+          $coincideTermino = true;
+          break;
+        }
+      }
+      if (!$coincideTermino) {
+        continue;
+      }
+      $coincideAtributos = true;
+      foreach ($atributosEsperados as $clave => $valorEsperado) {
+        if ((string) $this->valor($atributos, $clave, "") !== (string) $valorEsperado) {
+          $coincideAtributos = false;
+          break;
+        }
+      }
+      if (!$coincideAtributos) {
+        continue;
+      }
       return array(
-        "nombre" => "Filtracion y oxigenacion",
-        "path_slug" => "acuario-y-peces/equipamiento-tecnico/filtracion-y-oxigenacion",
-        "url" => "/categoria/acuario-y-peces/equipamiento-tecnico/filtracion-y-oxigenacion"
+        "nombre" => $this->valor($regla, "nombre", "Categoria relacionada"),
+        "path_slug" => $this->valor($regla, "path_slug", ""),
+        "url" => $this->valor($regla, "url", "")
       );
-    }
-    if (in_array("alimento", $terminos, true) && $this->valor($atributos, "mascota", "") === "peces") {
-      return array("nombre" => "Alimentos para peces", "path_slug" => "acuario-y-peces/alimentacion", "url" => "/categoria/acuario-y-peces/alimentacion");
-    }
-    if (in_array("jaula", $terminos, true)) {
-      return array("nombre" => "Jaulas y habitat", "path_slug" => "", "url" => "/buscar/jaula");
     }
     return array();
   }
@@ -13061,24 +14098,58 @@ class EcommerceCatalogoPublico extends CRUD {
   private function queriesBusquedaInteligente($qOriginal, $interpretacion) {
     $queries = array();
     $qOriginal = trim((string) $qOriginal);
-    if ($qOriginal !== "") { $queries[] = $qOriginal; }
-    $normalizado = trim((string) $this->valor($interpretacion, "texto_normalizado", ""));
-    if ($normalizado !== "") { $queries[] = $normalizado; }
     $principal = trim((string) $this->valor($interpretacion, "termino_principal", ""));
     $atributos = $this->valor($interpretacion, "atributos_detectados", array());
     if ($principal !== "" && $this->valor($atributos, "habitat", "") !== "") {
       $queries[] = trim($principal . " " . $this->valor($atributos, "habitat", ""));
     }
     if ($principal !== "") { $queries[] = $principal; }
+    $normalizado = trim((string) $this->valor($interpretacion, "texto_normalizado", ""));
+    if ($normalizado !== "") { $queries[] = $normalizado; }
+    if ($qOriginal !== "") { $queries[] = $qOriginal; }
     return array_values(array_unique($queries));
   }
 
-  private function categoriasRelacionadasBusqueda($interpretacion, $limite) {
+  private function categoriasRelacionadasBusqueda($interpretacion, $limite, $items = array()) {
     $relacionadas = array();
     $probable = $this->valor($interpretacion, "categoria_probable", array());
     if (!empty($probable)) {
       $probable["total_estimado"] = 0;
       $relacionadas[] = $probable;
+    }
+    foreach ((array) $items as $item) {
+      if (count($relacionadas) >= max(1, intval($limite))) {
+        break;
+      }
+      $categoriasItem = (array) $this->valor($item, "categorias", array());
+      $categoriaPrincipal = $this->valor($item, "categoria_obj", array());
+      if (!empty($categoriaPrincipal)) {
+        array_unshift($categoriasItem, $categoriaPrincipal);
+      }
+      foreach ($categoriasItem as $categoriaItem) {
+        if (count($relacionadas) >= max(1, intval($limite))) {
+          break;
+        }
+        $nombreItem = trim((string) $this->valor($categoriaItem, "nombre", ""));
+        $pathItem = trim((string) $this->valor($categoriaItem, "path_slug", $this->valor($categoriaItem, "slug", "")));
+        if ($nombreItem === "" || $pathItem === "") {
+          continue;
+        }
+        $hayYa = false;
+        foreach ($relacionadas as $rel) {
+          if ($pathItem !== "" && $this->valor($rel, "path_slug", "") === $pathItem) { $hayYa = true; break; }
+        }
+        if ($hayYa) { continue; }
+        $relacionadas[] = array(
+          "nombre" => $nombreItem,
+          "path_slug" => $pathItem,
+          "url" => $this->valor($categoriaItem, "url", "/categoria/" . $pathItem),
+          "total_estimado" => 0
+        );
+      }
+    }
+    if (!empty($items) && !empty($relacionadas)) {
+      return $relacionadas;
     }
     $categorias = $this->categoriasPublicas(array("limite" => 80));
     $items = $this->valor($categorias, array("depurar", "items"), array());
@@ -13186,25 +14257,35 @@ class EcommerceCatalogoPublico extends CRUD {
     $terminos = (array) $this->valor($interpretacion, "terminos", array());
     $principal = trim((string) $this->valor($interpretacion, "termino_principal", ""));
     $categoriaProbable = strtolower($this->normalizarTextoPlano((string) $this->valor($interpretacion, array("categoria_probable", "path_slug"), "")));
+    $boosts = $this->valor($this->busquedaInteligenteConfigPublica(), "boosts", array());
+    $boostNombrePrincipal = intval($this->valor($boosts, "nombre_principal", 60));
+    $boostCategoriaPrincipal = intval($this->valor($boosts, "categoria_principal", 30));
+    $boostNombreTermino = intval($this->valor($boosts, "nombre_termino", 12));
+    $boostCategoriaTermino = intval($this->valor($boosts, "categoria_termino", 8));
+    $boostMarcaTermino = intval($this->valor($boosts, "marca_termino", 6));
+    $boostSkuTermino = intval($this->valor($boosts, "sku_termino", 10));
+    $boostCategoriaProbable = intval($this->valor($boosts, "categoria_probable", 40));
+    $boostImagen = intval($this->valor($boosts, "imagen", 3));
+    $boostPrecio = intval($this->valor($boosts, "precio", 3));
     foreach ($items as $i => $item) {
       $score = 0;
       $nombre = strtolower($this->normalizarTextoPlano((string) $this->valor($item, "nombre", "")));
       $categoria = strtolower($this->normalizarTextoPlano((string) $this->valor($item, array("categoria_obj", "path_slug"), $this->valor($item, "categoria", ""))));
       $marca = strtolower($this->normalizarTextoPlano((string) $this->valor($item, "marca", "")));
       $sku = strtolower($this->normalizarTextoPlano((string) $this->valor($item, "sku", "")));
-      if ($principal !== "" && strpos($nombre, $principal) !== false) { $score += 60; }
-      if ($principal !== "" && strpos($categoria, $principal) !== false) { $score += 30; }
+      if ($principal !== "" && strpos($nombre, $principal) !== false) { $score += $boostNombrePrincipal; }
+      if ($principal !== "" && strpos($categoria, $principal) !== false) { $score += $boostCategoriaPrincipal; }
       foreach ($terminos as $termino) {
         $termino = trim((string) $termino);
         if ($termino === "" || strlen($termino) < 3) { continue; }
-        if (strpos($nombre, $termino) !== false) { $score += 12; }
-        if (strpos($categoria, $termino) !== false) { $score += 8; }
-        if (strpos($marca, $termino) !== false) { $score += 6; }
-        if (strpos($sku, $termino) !== false) { $score += 10; }
+        if (strpos($nombre, $termino) !== false) { $score += $boostNombreTermino; }
+        if (strpos($categoria, $termino) !== false) { $score += $boostCategoriaTermino; }
+        if (strpos($marca, $termino) !== false) { $score += $boostMarcaTermino; }
+        if (strpos($sku, $termino) !== false) { $score += $boostSkuTermino; }
       }
-      if ($categoriaProbable !== "" && strpos($categoria, $categoriaProbable) !== false) { $score += 40; }
-      if ($this->valor($item, "imagen", "") !== "") { $score += 3; }
-      if (floatval($this->valor($item, "precio", 0)) > 0) { $score += 3; }
+      if ($categoriaProbable !== "" && strpos($categoria, $categoriaProbable) !== false) { $score += $boostCategoriaProbable; }
+      if ($this->valor($item, "imagen", "") !== "") { $score += $boostImagen; }
+      if (floatval($this->valor($item, "precio", 0)) > 0) { $score += $boostPrecio; }
       $items[$i]["relevancia_busqueda"] = $score;
     }
     usort($items, function($a, $b) {
@@ -14376,6 +15457,127 @@ class EcommerceCatalogoPublico extends CRUD {
       "status" => 301,
       "filas_afectadas" => $stmt->rowCount()
     );
+  }
+
+  private function seoConsultarPublicacionBasica($db, $datos) {
+    if (!$db) { return null; }
+    $idPublicacion = intval($this->valor($datos, "id_publicacion", 0));
+    $idSku = intval($this->valor($datos, "id_sku", 0));
+    if ($idPublicacion <= 0 && $idSku <= 0) { return null; }
+    $sql = "SELECT pub.id_publicacion, pub.id_producto_erp, pub.id_sku, pub.canal, pub.estatus_publicacion,
+        pub.slug, pub.titulo_publico, pub.descripcion_publica, pub.presentacion_publica,
+        s.sku, COALESCE(s.nombre, p.nombre) nombre_sku, p.nombre nombre_producto
+      FROM erp_ecommerce_publicaciones pub
+      INNER JOIN erp_catalogo_skus s ON s.id_sku=pub.id_sku
+      INNER JOIN erp_catalogo_productos p ON p.id_producto_erp=pub.id_producto_erp
+      WHERE " . ($idPublicacion > 0 ? "pub.id_publicacion=:id" : "pub.id_sku=:sku AND pub.canal='catalogo_publico'") . "
+      LIMIT 1";
+    $stmt = $db->prepare($sql);
+    $stmt->execute($idPublicacion > 0 ? array(":id" => $idPublicacion) : array(":sku" => $idSku));
+    $fila = $stmt->fetch(PDO::FETCH_ASSOC);
+    return $fila ?: null;
+  }
+
+  private function seoUrlsViejasReporteLocalItems($fuente = "auto") {
+    $archivo = "";
+    if ($fuente === "indexadas" || $fuente === "google_indexadas") {
+      $archivo = $this->seoUltimoArchivoTmp("ecommerce_seo_urls_indexadas_google_*.json");
+    }
+    if ($archivo === "") {
+      $archivo = $this->seoUltimoArchivoTmp("ecommerce_seo_urls_relaciones_*.json");
+    }
+    if ($archivo === "") {
+      $archivo = $this->seoUltimoArchivoTmp("ecommerce_seo_urls_viejas_reporte_enriquecido_*.json");
+    }
+    if ($archivo === "" || !is_file($archivo)) {
+      return array("archivo" => "", "base_origen" => "https://artiani.com.mx", "items" => array());
+    }
+    $payload = json_decode(file_get_contents($archivo), true);
+    if (!is_array($payload)) {
+      return array("archivo" => $archivo, "base_origen" => "https://artiani.com.mx", "items" => array());
+    }
+    $items = $this->valor($payload, "items", array());
+    return array(
+      "archivo" => $archivo,
+      "base_origen" => $this->valor($payload, "base", "https://artiani.com.mx"),
+      "items" => is_array($items) ? $items : array()
+    );
+  }
+
+  private function seoSugerenciasUrlsViejasParaProducto($producto, $itemsViejos, $baseOrigen, $baseLocal, $limite = 3) {
+    if (!is_array($itemsViejos) || empty($itemsViejos)) { return array(); }
+    $slug = $this->slugificar($this->valor($producto, "slug", ""));
+    $pathActual = $slug !== "" ? "/producto/" . $slug : "";
+    $sku = strtolower(trim((string) $this->valor($producto, "sku", "")));
+    $titulo = trim((string) $this->valor($producto, "titulo_publico", ""));
+    if ($titulo === "") { $titulo = trim((string) $this->valor($producto, "nombre_sku", $this->valor($producto, "nombre_producto", ""))); }
+    $textoProducto = strtolower($this->normalizarTextoPlano($titulo . " " . $this->valor($producto, "nombre_sku", "") . " " . $this->valor($producto, "nombre_producto", "") . " " . $sku));
+    $slugTitulo = $this->slugificar($titulo);
+    $candidatos = array();
+
+    foreach ($itemsViejos as $item) {
+      $pathOriginal = $this->normalizarSeoPathPublico($this->valor($item, "path_original", $this->valor($item, "url_original", "")));
+      if ($pathOriginal === "") { continue; }
+      $destino = $this->normalizarSeoPathPublico($this->valor($item, "url_destino_sugerida", ""));
+      $tituloViejo = trim((string) $this->valor($item, "titulo_detectado", $this->valor($item, "title", "")));
+      $textoViejo = strtolower($this->normalizarTextoPlano($pathOriginal . " " . $tituloViejo));
+      $score = 0;
+      $motivos = array();
+
+      if ($pathActual !== "" && $destino === $pathActual) {
+        $score += 120;
+        $motivos[] = "reporte_relaciona_path_actual";
+      }
+      $sugerencias = $this->valor($item, "sugerencias", array());
+      if (is_array($sugerencias)) {
+        foreach ($sugerencias as $sugerencia) {
+          if ($this->normalizarSeoPathPublico($this->valor($sugerencia, "path", "")) === $pathActual) {
+            $score += 110;
+            $motivos[] = "candidato_en_top_sugerencias";
+            break;
+          }
+        }
+      }
+      if ($sku !== "" && strpos($textoViejo, $sku) !== false) {
+        $score += 95;
+        $motivos[] = "coincide_sku";
+      }
+      $slugViejo = $this->slugificar(trim($pathOriginal, "/"));
+      if ($slug !== "" && strpos($slugViejo, $slug) !== false) {
+        $score += 80;
+        $motivos[] = "contiene_slug_actual";
+      }
+      if ($slugTitulo !== "" && strpos($slugViejo, $slugTitulo) !== false) {
+        $score += 70;
+        $motivos[] = "contiene_slug_nombre";
+      }
+      similar_text($this->slugificar($textoProducto), $slugViejo, $porcentajeSlug);
+      similar_text($this->normalizarTextoPlano($textoProducto), $this->normalizarTextoPlano($textoViejo), $porcentajeTexto);
+      $score += intval(max($porcentajeSlug, $porcentajeTexto) * 0.8);
+      if ($porcentajeSlug >= 55 || $porcentajeTexto >= 55) {
+        $motivos[] = "nombre_parecido";
+      }
+      if ($score < 45) { continue; }
+
+      $confianza = $score >= 120 ? "alta" : ($score >= 75 ? "media" : "baja");
+      $candidatos[] = array(
+        "path_original" => $pathOriginal,
+        "url_original" => $this->valor($item, "url_original", "") ?: rtrim($baseOrigen, "/") . $pathOriginal,
+        "titulo_detectado" => $tituloViejo,
+        "status_http" => intval($this->valor($item, "status_http", 0)),
+        "accion_sugerida" => $this->valor($item, "accion_sugerida", ""),
+        "confianza" => $confianza,
+        "score" => $score,
+        "motivo" => implode(", ", array_values(array_unique($motivos))),
+        "url_destino_sugerida" => $pathActual,
+        "url_destino_local" => $pathActual !== "" ? rtrim($baseLocal, "/") . $pathActual : ""
+      );
+    }
+
+    usort($candidatos, function($a, $b) {
+      return intval($b["score"]) - intval($a["score"]);
+    });
+    return array_slice($candidatos, 0, max(1, intval($limite)));
   }
 
   private function historialSlugsPublicacion($db, $idPublicacion) {
@@ -16141,7 +17343,9 @@ class EcommerceCatalogoPublico extends CRUD {
       array("metodo" => "GET", "ruta" => "/ecommercePublico/categorias", "uso_frontend" => "Arbol publico por slug para mega menu y landings SEO."),
       array("metodo" => "GET", "ruta" => "/ecommercePublico/marcas", "uso_frontend" => "Marcas publicas por slug para /marca/{slug}."),
       array("metodo" => "GET", "ruta" => "/ecommercePublico/catalogo_filtros", "uso_frontend" => "Filtros contextuales con conteos reales segun listado actual."),
+      array("metodo" => "GET", "ruta" => "/ecommercePublico/busqueda", "uso_frontend" => "Resultados inteligentes para /buscar/{termino}."),
       array("metodo" => "GET", "ruta" => "/ecommercePublico/busqueda_sugerencias", "uso_frontend" => "Autocompletado de busqueda."),
+      array("metodo" => "GET", "ruta" => "/ecommercePublico/busqueda_manifest", "uso_frontend" => "Manifest de sinonimos, reglas y boosts de busqueda."),
       array("metodo" => "GET", "ruta" => "/ecommercePublico/navegacion", "uso_frontend" => "Menus y chips por mascota, necesidad, categoria, marca y disponibilidad."),
       array("metodo" => "GET", "ruta" => "/ecommercePublico/secciones", "uso_frontend" => "Bloques para home y carruseles."),
       array("metodo" => "GET", "ruta" => "/ecommercePublico/politicas", "uso_frontend" => "Textos publicos legales/operativos."),

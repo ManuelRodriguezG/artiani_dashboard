@@ -4632,3 +4632,18 @@ Actualizacion 2026-09-03:
 - Mejora tecnica: la normalizacion de propuestas limpia HTML/entidades, omite textos con posible codificacion corrupta y evita generar nuevas medidas con caracter `Ã—`; usa formato `10 x 20 x 30`.
 - Archivos: `CatalogoErp::propuestas_nombres_generar`, `CatalogoErpOrganizacion::generarPropuestasNombres`, vista/JS de `organizacion`.
 - UAT recomendado: abrir `/catalogoerp/organizacion`, presionar `Actualizar propuestas`, confirmar mensaje con conteos, filtrar por `Pendientes` y aprobar/descartar manualmente algunos nombres.
+## 2026-09-09 - Clasificacion rapida de productos
+
+- Se agrego la vista `/catalogoerp/clasificacion_rapida` en el proyecto canonico actual `C:\xampp\htdocs\panel_de_control`.
+- La pantalla permite revisar SKU(s), producto, marca, categoria principal y categorias secundarias en una tabla editable para acelerar el saneamiento del catalogo.
+- El listado usa solo marcas activas y categorias maestras activas con `permite_productos=1`, respetando la regla de no seleccionar categorias estructurales.
+- El guardado es por renglon y actualiza `erp_catalogo_productos.id_marca_erp` y las relaciones de `erp_catalogo_producto_categorias` del producto seleccionado.
+- No se tocaron precios, costos, inventario, ecommerce ni esquema de base de datos.
+- Queda en el sidebar: ERP > Catalogo > Clasificacion rapida.
+- Criterio de prueba: abrir la vista con `Solo faltantes`, seleccionar marca/categoria en un producto, guardar el renglon y confirmar que al reabrir el producto ya aparece la misma clasificacion.
+
+### Ajuste UX 2026-09-09
+
+- La vista ya no carga por defecto solo productos incompletos; ahora muestra productos maestros agrupados por codigo interno/catalogo y sus SKU relacionados.
+- Se separaron los filtros de faltantes: `Sin marca`, `Sin principal` y `Sin secundarias`, para revisar exactamente que campo falta sin ocultar lo que ya esta capturado.
+- Aclaracion operativa: marca y categorias viven en el producto maestro (`erp_catalogo_productos` y `erp_catalogo_producto_categorias`), por eso los SKU agrupados comparten esos datos salvo que mas adelante se defina una excepcion por SKU.
