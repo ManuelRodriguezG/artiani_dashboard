@@ -177,7 +177,7 @@ La persistencia de URLs viejas y redirecciones esta separada del DDL:
   - tabla requerida: `erp_ecommerce_publicaciones`
   - el slug ya vive en `erp_ecommerce_publicaciones.slug`
   - cambiar nombre no recalcula slug automaticamente
-  - si el slug cambia, se registra 301 `/producto/{slug_anterior}` -> `/producto/{slug_nuevo}` cuando `erp_ecommerce_seo_redirecciones` existe
+  - si el slug cambia, no se registra 301 automaticamente; cualquier 301 debe capturarse aparte desde una URL vieja productiva revisada
 
 Si el token falta, el token no coincide o la tabla no existe, el modelo debe responder con `no_escribe_bd=true`.
 
@@ -192,7 +192,7 @@ Flujo recomendado:
 - Ajustar `Nombre publico`.
 - Mantener el slug si la URL publicada ya esta bien.
 - Usar la estrella solo cuando se quiera recalcular el slug desde el nombre.
-- Validar antes de guardar; si el slug cambia, revisar la 301 sugerida.
+- Validar antes de guardar; si el slug cambia, confirmar que no se cree 301 automatica.
 - Guardar con `ECOMMERCE_PUBLICO_PUBLICACION_CURADURIA`.
 - Si una URL anterior sugerida corresponde al producto, usar la flecha para llenar `Redireccion manual`; guardar esa 301 aparte con `ECOMMERCE_SEO_GUARDAR_REDIRECCION`.
 

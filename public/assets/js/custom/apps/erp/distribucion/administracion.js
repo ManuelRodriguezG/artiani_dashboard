@@ -113,9 +113,12 @@
     }
 
     function mensajeWhatsApp(item) {
+        if (item && item.mensaje_whatsapp) {
+            return item.mensaje_whatsapp;
+        }
         var nombre = item && item.nombre ? item.nombre : "buen dia";
         var correo = item && item.correo ? item.correo : "";
-        var portal = "https://distribucion.artiani.com.mx";
+        var portal = portalDistribucion();
         var partes = [
             "Hola " + nombre + ", tu solicitud de acceso mayorista Artiani ya fue aprobada.",
             correo ? "Puedes intentar ingresar al portal de Distribucion con este correo: " + correo + "." : "Ya puedes intentar ingresar al portal de Distribucion.",
@@ -125,6 +128,14 @@
         return partes.join("\n");
     }
 
+    function portalDistribucion() {
+        var host = String(window.location.hostname || "").toLowerCase();
+        if (host === "localhost" || host.indexOf(".com.local") !== -1) {
+            return "http://distribucion.artiani.com.local";
+        }
+        return "https://distribucion.artiani.com.mx";
+    }
+
     function abrirWhatsApp(item) {
         var numero = telefonoWhatsApp((item && (item.whatsapp || item.telefono)) || "");
         if (!numero) {
@@ -132,6 +143,98 @@
             return;
         }
         window.open("https://wa.me/" + encodeURIComponent(numero) + "?text=" + encodeURIComponent(mensajeWhatsApp(item)), "_blank", "noopener");
+    }
+
+    function abrirWhatsAppActivacion(data) {
+        request("/DistribucionAdmin/cliente_activacion_link", data).then(function (response) {
+            if (response.error) { throw new Error(response.mensaje); }
+            var depurar = response.depurar || {};
+            var cliente = depurar.cliente || {};
+            abrirWhatsApp({
+                nombre: cliente.nombre,
+                correo: cliente.correo,
+                telefono: cliente.telefono || data.telefono,
+                whatsapp: data.whatsapp || cliente.telefono,
+                mensaje_whatsapp: depurar.mensaje_whatsapp
+            });
+        }).catch(showError);
+    }
+
+    function generarLinkAccesoCliente(data) {
+        request("/DistribucionAdmin/cliente_activacion_link", data).then(function (response) {
+            if (response.error) { throw new Error(response.mensaje); }
+            var depurar = response.depurar || {};
+            var cliente = depurar.cliente || {};
+            var mensaje = depurar.mensaje_whatsapp || "";
+            var url = depurar.url || "";
+            Swal.fire({
+                title: "Nuevo link de acceso",
+                html: "<div class=\"text-start\">" +
+                    "<div class=\"mb-3\"><div class=\"fw-bold\">" + escapeHtml(cliente.nombre || "Cliente Distribucion") + "</div><div class=\"text-muted fs-7\">" + escapeHtml(cliente.correo || "") + "</div></div>" +
+                    "<label class=\"form-label fw-semibold\">Link de activacion</label>" +
+                    "<textarea class=\"form-control form-control-solid mb-3\" rows=\"3\" readonly>" + escapeHtml(url) + "</textarea>" +
+                    "<div class=\"text-muted fs-8\">Este nuevo link revoca links de activacion anteriores y vence en 72 horas.</div>" +
+                    "</div>",
+                icon: "success",
+                width: 720,
+                showCancelButton: true,
+                confirmButtonText: "Abrir WhatsApp",
+                cancelButtonText: "Cerrar"
+            }).then(function (result) {
+                if (!result.isConfirmed) { return; }
+                abrirWhatsApp({
+                    nombre: cliente.nombre,
+                    correo: cliente.correo,
+                    telefono: cliente.telefono || data.telefono,
+                    whatsapp: data.whatsapp || cliente.telefono,
+                    mensaje_whatsapp: mensaje
+                });
+            });
+        }).catch(showError);
+    }
+
+    function verAuditoriaCliente(idCliente) {
+        var cliente = clientes.find(function (item) { return String(item.id_cliente_distribucion) === String(idCliente); });
+        request("/DistribucionAdmin/cliente_auditoria?id_cliente_distribucion=" + encodeURIComponent(idCliente)).then(function (response) {
+            if (response.error) { throw new Error(response.mensaje); }
+            var items = response.depurar && response.depurar.items ? response.depurar.items : [];
+            var filas = items.map(function (item) {
+                return "<tr><td class=\"text-muted fs-8\">" + escapeHtml(item.fecha_registro || "") + "</td>" +
+                    "<td><div class=\"fw-semibold\">" + escapeHtml(item.accion || "") + "</div><div class=\"text-muted fs-8\">" + escapeHtml(item.mensaje || "") + "</div></td>" +
+                    "<td>" + badge(item.resultado || "ok") + "</td></tr>";
+            }).join("") || "<tr><td colspan=\"3\" class=\"text-center text-muted py-6\">Sin eventos registrados</td></tr>";
+            Swal.fire({
+                title: cliente ? cliente.nombre : "Historial de acceso",
+                html: "<div class=\"table-responsive text-start\"><table class=\"table table-row-dashed fs-7 gy-3 mb-0\">" +
+                    "<thead><tr class=\"text-muted fw-bold\"><th>Fecha</th><th>Evento</th><th>Resultado</th></tr></thead><tbody>" + filas + "</tbody></table></div>",
+                width: 850,
+                confirmButtonText: "Cerrar"
+            });
+        }).catch(showError);
+    }
+
+    function confirmarWhatsAppActivacion(solicitud, activacion) {
+        if (!solicitud || !activacion || !activacion.mensaje_whatsapp) {
+            showOk("Cliente Distribucion aprobado");
+            return;
+        }
+        Swal.fire({
+            title: "Cliente aprobado",
+            text: "Se genero link para crear contrasenia. Puedes abrir WhatsApp y enviar el mensaje manualmente.",
+            icon: "success",
+            showCancelButton: true,
+            confirmButtonText: "Abrir WhatsApp",
+            cancelButtonText: "Cerrar"
+        }).then(function (result) {
+            if (!result.isConfirmed) { return; }
+            abrirWhatsApp({
+                nombre: solicitud.nombre,
+                correo: solicitud.correo,
+                telefono: solicitud.telefono,
+                whatsapp: solicitud.whatsapp,
+                mensaje_whatsapp: activacion.mensaje_whatsapp
+            });
+        });
     }
 
     function getListaOptions(selected) {
@@ -186,8 +289,12 @@
             if (permisosUi.editar) {
                 acciones += "<button class=\"btn btn-sm btn-icon btn-light-primary\" title=\"Permisos\" data-cliente-permisos=\"" + escapeHtml(item.id_cliente_distribucion) + "\"><i class=\"bi bi-sliders\"></i></button> ";
             }
+            acciones += "<button class=\"btn btn-sm btn-icon btn-light-info\" title=\"Historial de acceso\" data-cliente-auditoria=\"" + escapeHtml(item.id_cliente_distribucion) + "\"><i class=\"bi bi-clock-history\"></i></button> ";
             if (item.telefono) {
                 acciones += "<button class=\"btn btn-sm btn-icon btn-light-success\" title=\"WhatsApp\" data-cliente-whatsapp=\"" + escapeHtml(item.id_cliente_distribucion) + "\"><i class=\"bi bi-whatsapp\"></i></button> ";
+            }
+            if (permisosUi.aprobar && item.estatus === "aprobado") {
+                acciones += "<button class=\"btn btn-sm btn-icon btn-light-warning\" title=\"Nuevo link de acceso\" data-cliente-acceso=\"" + escapeHtml(item.id_cliente_distribucion) + "\"><i class=\"bi bi-key\"></i></button> ";
             }
             if (permisosUi.aprobar && item.estatus !== "suspendido") {
                 acciones += "<button class=\"btn btn-sm btn-icon btn-light-danger\" title=\"Suspender\" data-cliente-suspender=\"" + escapeHtml(item.id_cliente_distribucion) + "\"><i class=\"bi bi-pause-circle\"></i></button>";
@@ -327,7 +434,7 @@
             })
                 .then(function (response) {
                     if (response.error) { throw new Error(response.mensaje); }
-                    showOk(response.mensaje);
+                    confirmarWhatsAppActivacion(solicitud, response.depurar ? response.depurar.activacion : null);
                     return cargarTodo();
                 }).catch(showError);
         });
@@ -422,16 +529,36 @@
             verSolicitud(button.getAttribute("data-solicitud-detalle"));
         } else if (button.hasAttribute("data-solicitud-whatsapp")) {
             var solicitud = solicitudes.find(function (item) { return String(item.id_solicitud_distribucion) === String(button.getAttribute("data-solicitud-whatsapp")); });
-            abrirWhatsApp(solicitud);
+            if (solicitud && solicitud.estatus === "aprobado" && solicitud.id_cliente_distribucion) {
+                abrirWhatsAppActivacion({
+                    id_solicitud_distribucion: solicitud.id_solicitud_distribucion,
+                    id_cliente_distribucion: solicitud.id_cliente_distribucion,
+                    telefono: solicitud.telefono,
+                    whatsapp: solicitud.whatsapp
+                });
+            } else {
+                abrirWhatsApp(solicitud);
+            }
         } else if (button.hasAttribute("data-solicitud-rechazar")) {
             accionSimple("/DistribucionAdmin/cliente_rechazar", {id_solicitud_distribucion: button.getAttribute("data-solicitud-rechazar")});
         } else if (button.hasAttribute("data-cliente-suspender")) {
             accionSimple("/DistribucionAdmin/cliente_suspendir", {id_cliente_distribucion: button.getAttribute("data-cliente-suspender")});
         } else if (button.hasAttribute("data-cliente-permisos")) {
             editarPermisos(button.getAttribute("data-cliente-permisos"));
+        } else if (button.hasAttribute("data-cliente-auditoria")) {
+            verAuditoriaCliente(button.getAttribute("data-cliente-auditoria"));
         } else if (button.hasAttribute("data-cliente-whatsapp")) {
             var cliente = clientes.find(function (item) { return String(item.id_cliente_distribucion) === String(button.getAttribute("data-cliente-whatsapp")); });
-            abrirWhatsApp(cliente);
+            abrirWhatsAppActivacion({
+                id_cliente_distribucion: cliente ? cliente.id_cliente_distribucion : button.getAttribute("data-cliente-whatsapp"),
+                telefono: cliente ? cliente.telefono : ""
+            });
+        } else if (button.hasAttribute("data-cliente-acceso")) {
+            var clienteAcceso = clientes.find(function (item) { return String(item.id_cliente_distribucion) === String(button.getAttribute("data-cliente-acceso")); });
+            generarLinkAccesoCliente({
+                id_cliente_distribucion: clienteAcceso ? clienteAcceso.id_cliente_distribucion : button.getAttribute("data-cliente-acceso"),
+                telefono: clienteAcceso ? clienteAcceso.telefono : ""
+            });
         } else if (button.hasAttribute("data-cotizacion")) {
             accionSimple("/DistribucionAdmin/cotizacion_accion_plan", {
                 id_cotizacion_distribucion: button.getAttribute("data-cotizacion"),

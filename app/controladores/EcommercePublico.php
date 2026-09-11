@@ -825,7 +825,7 @@ class EcommercePublico extends Controlador {
   /**
    * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-09
    * Proposito: validar cambio de titulo/slug de una publicacion ecommerce antes de guardar.
-   * Impacto: Ecommerce SEO; muestra redireccion 301 sugerida si el slug cambia.
+   * Impacto: Ecommerce SEO; valida slug sin sugerir 301 nueva-a-nueva.
    * Contrato: POST protegido por `catalogo.ver`; read-only, no modifica publicacion ni redirecciones.
    */
   public function seo_producto_slug_plan_erp() {
@@ -837,7 +837,7 @@ class EcommercePublico extends Controlador {
   /**
    * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-09
    * Proposito: guardar titulo publico y slug de una publicacion desde mesa SEO.
-   * Impacto: Ecommerce SEO; si el slug cambia, reutiliza curaduria autorizada y deja 301 cuando la tabla existe.
+   * Impacto: Ecommerce SEO; guarda slug sin crear 301 automatica por cambio interno.
    * Contrato: POST protegido por `catalogo.editar`; requiere CSRF y auditoria explicita, sin token operativo.
    */
   public function seo_producto_slug_guardar_erp() {

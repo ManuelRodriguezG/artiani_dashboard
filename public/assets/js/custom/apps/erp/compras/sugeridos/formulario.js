@@ -27,6 +27,29 @@
         return "$" + Number(valor || 0).toFixed(2);
     }
 
+    /**
+     * IA: Codex GPT-5
+     * Fecha: 2026-09-10
+     * Proposito: normalizar cantidades capturadas manualmente sin convertir valores invalidos a NaN.
+     * Impacto: Compras/Sugerido; evita que el guardado reemplace la cantidad solicitada por el sugerido.
+     */
+    function numero(valor) {
+        var texto = String(valor == null ? "" : valor).trim();
+        if (texto === "") { return 0; }
+        if (texto.indexOf(",") !== -1 && texto.indexOf(".") === -1) {
+            var partes = texto.split(",");
+            if (partes.length === 2 && partes[1].length <= 2) {
+                texto = partes[0].replace(/,/g, "") + "." + partes[1];
+            } else {
+                texto = texto.replace(/,/g, "");
+            }
+        } else {
+            texto = texto.replace(/,/g, "");
+        }
+        var n = Number(texto);
+        return Number.isFinite(n) ? n : 0;
+    }
+
     function textoBusquedaItem(item) {
         return [
             item.sku_proveedor,
@@ -52,15 +75,16 @@
             nombre_erp: x.nombre_erp || "",
             nombre_proveedor: x.nombre_proveedor || x.nombre_erp || "",
             unidad_compra: x.unidad_compra || "",
-            factor_conversion: Number(x.factor_conversion || 1),
-            cantidad_minima: Number(x.cantidad_minima || 1),
-            stock_minimo: Number(x.stock_minimo || 0),
-            stock_maximo: x.stock_maximo === null ? null : Number(x.stock_maximo || 0),
-            punto_reorden: Number(x.punto_reorden || 0),
-            existencia_revisada: Number(x.existencia_revisada || 0),
-            cantidad_sugerida: Number(x.cantidad_sugerida || 0),
-            cantidad_solicitar: Number(x.cantidad_solicitar || x.cantidad_sugerida || 0),
-            costo_estimado: Number(x.costo_estimado || x.costo_ultimo || 0),
+            factor_conversion: numero(x.factor_conversion || 1),
+            cantidad_minima: numero(x.cantidad_minima || 1),
+            stock_minimo: numero(x.stock_minimo || 0),
+            stock_maximo: x.stock_maximo === null ? null : numero(x.stock_maximo || 0),
+            punto_reorden: numero(x.punto_reorden || 0),
+            existencia_revisada: numero(x.existencia_revisada || 0),
+            cantidad_sugerida: numero(x.cantidad_sugerida || 0),
+            cantidad_solicitar: Object.prototype.hasOwnProperty.call(x, "cantidad_solicitar") ? numero(x.cantidad_solicitar) : numero(x.cantidad_sugerida || 0),
+            cantidad_solicitar_manual: Object.prototype.hasOwnProperty.call(x, "cantidad_solicitar") ? 1 : 0,
+            costo_estimado: numero(x.costo_estimado || x.costo_ultimo || 0),
             observaciones: ""
         };
     }
@@ -180,15 +204,16 @@
                 items = (r.depurar.detalle || []).map(function (x) {
                     x.id_sku_erp = Number(x.id_sku_erp || 0);
                     x.id_sku_proveedor = Number(x.id_sku_proveedor || 0);
-                    x.factor_conversion = Number(x.factor_conversion || 1);
-                    x.cantidad_minima = Number(x.cantidad_minima || 1);
-                    x.stock_minimo = Number(x.stock_minimo || 0);
-                    x.stock_maximo = x.stock_maximo === null ? null : Number(x.stock_maximo || 0);
-                    x.punto_reorden = Number(x.punto_reorden || 0);
-                    x.existencia_revisada = Number(x.existencia_revisada || 0);
-                    x.cantidad_sugerida = Number(x.cantidad_sugerida || 0);
-                    x.cantidad_solicitar = Number(x.cantidad_solicitar || 0);
-                    x.costo_estimado = Number(x.costo_estimado || 0);
+                    x.factor_conversion = numero(x.factor_conversion || 1);
+                    x.cantidad_minima = numero(x.cantidad_minima || 1);
+                    x.stock_minimo = numero(x.stock_minimo || 0);
+                    x.stock_maximo = x.stock_maximo === null ? null : numero(x.stock_maximo || 0);
+                    x.punto_reorden = numero(x.punto_reorden || 0);
+                    x.existencia_revisada = numero(x.existencia_revisada || 0);
+                    x.cantidad_sugerida = numero(x.cantidad_sugerida || 0);
+                    x.cantidad_solicitar = numero(x.cantidad_solicitar || 0);
+                    x.cantidad_solicitar_manual = 1;
+                    x.costo_estimado = numero(x.costo_estimado || 0);
                     return x;
                 });
                 render();
@@ -229,8 +254,9 @@
     function recalcular(reemplazarCantidadFinal) {
         items.forEach(function (item) {
             item.cantidad_sugerida = calcularCantidadSugerida(item);
-            if (reemplazarCantidadFinal || Number(item.cantidad_solicitar || 0) <= 0) {
+            if (reemplazarCantidadFinal || !Number(item.cantidad_solicitar_manual || 0)) {
                 item.cantidad_solicitar = item.cantidad_sugerida;
+                item.cantidad_solicitar_manual = 0;
             }
         });
         render();
@@ -307,6 +333,7 @@
                 item.existencia_revisada = 0;
                 item.cantidad_sugerida = calcularCantidadSugerida(item);
                 item.cantidad_solicitar = item.cantidad_sugerida;
+                item.cantidad_solicitar_manual = 0;
             });
             render();
         });
@@ -336,6 +363,13 @@
         var nodo = document.querySelector("[data-sugerido-sugerida=\"" + indice + "\"]");
         if (nodo) {
             nodo.textContent = Number(items[indice].cantidad_sugerida || 0).toFixed(6);
+        }
+        if (!Number(items[indice].cantidad_solicitar_manual || 0)) {
+            items[indice].cantidad_solicitar = items[indice].cantidad_sugerida;
+            var cantidad = document.querySelector("[data-sugerido-cantidad=\"" + indice + "\"]");
+            if (cantidad) {
+                cantidad.value = Number(items[indice].cantidad_solicitar || 0);
+            }
         }
         actualizarResumen();
     }
@@ -786,23 +820,24 @@
             var maximo = e.target.getAttribute("data-sugerido-maximo");
             var reorden = e.target.getAttribute("data-sugerido-reorden");
             if (minimo !== null) {
-                items[Number(minimo)].stock_minimo = Number(e.target.value || 0);
+                items[Number(minimo)].stock_minimo = numero(e.target.value);
                 items[Number(minimo)].cantidad_sugerida = calcularCantidadSugerida(items[Number(minimo)]);
                 actualizarSugeridoVisual(Number(minimo));
             } else if (maximo !== null) {
-                items[Number(maximo)].stock_maximo = e.target.value === "" ? null : Number(e.target.value || 0);
+                items[Number(maximo)].stock_maximo = e.target.value === "" ? null : numero(e.target.value);
                 items[Number(maximo)].cantidad_sugerida = calcularCantidadSugerida(items[Number(maximo)]);
                 actualizarSugeridoVisual(Number(maximo));
             } else if (reorden !== null) {
-                items[Number(reorden)].punto_reorden = Number(e.target.value || 0);
+                items[Number(reorden)].punto_reorden = numero(e.target.value);
                 items[Number(reorden)].cantidad_sugerida = calcularCantidadSugerida(items[Number(reorden)]);
                 actualizarSugeridoVisual(Number(reorden));
             } else if (existencia !== null) {
-                items[Number(existencia)].existencia_revisada = Number(e.target.value || 0);
+                items[Number(existencia)].existencia_revisada = numero(e.target.value);
                 items[Number(existencia)].cantidad_sugerida = calcularCantidadSugerida(items[Number(existencia)]);
                 actualizarSugeridoVisual(Number(existencia));
             } else if (cantidad !== null) {
-                items[Number(cantidad)].cantidad_solicitar = Number(e.target.value || 0);
+                items[Number(cantidad)].cantidad_solicitar = Math.max(0, numero(e.target.value));
+                items[Number(cantidad)].cantidad_solicitar_manual = 1;
                 actualizarResumen();
             } else if (obs !== null) {
                 items[Number(obs)].observaciones = e.target.value;

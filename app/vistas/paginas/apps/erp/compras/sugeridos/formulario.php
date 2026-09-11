@@ -224,7 +224,7 @@ $modo = isset($datos["modo"]) ? $datos["modo"] : "editar";
 </div>
 <script src="assets/plugins/global/plugins.bundle.js"></script>
 <script src="assets/js/scripts.bundle.js"></script>
-<script src="/assets/js/custom/apps/erp/compras/sugeridos/formulario.js?v=20260908-3"></script>
+<script src="/assets/js/custom/apps/erp/compras/sugeridos/formulario.js?v=20260910-1"></script>
 </body>
 </html>
 

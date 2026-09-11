@@ -980,3 +980,15 @@ Modulo: Compras / Sugerido de compra
 - El escaneo por camara puede operar en modo `agregar producto` o en modo `filtrar partidas agregadas`.
 - La accion `Existencias a 0` reinicia la captura fisica revisada y recalcula cantidades sugeridas sin tocar inventario real.
 - Cada partida agregada puede eliminarse del sugerido antes de guardar o generar solicitud; esta accion solo depura el documento de trabajo y no afecta catalogo, proveedor ni inventario.
+
+## Decision operativa: Cantidad solicitada manual en Sugerido
+
+Documentacion IA: Codex GPT-5  
+Fecha: 2026-09-10  
+Modulo: Compras / Sugerido de compra
+
+- `Cantidad sugerida` es un calculo basado en existencia revisada, minimos, maximos, punto de reorden, factor y cantidad minima.
+- `Cantidad solicitada` es una decision editable del usuario y debe respetarse al guardar, aunque sea menor, mayor o igual a 0.
+- El sistema solo debe reemplazar `Cantidad solicitada` cuando el usuario ejecute una accion explicita de recalculo masivo.
+- El backend no debe recalcular sobre la cantidad manual solo porque haya minimos/maximos configurados.
+- Los campos numericos del sugerido deben aceptar separadores comunes para evitar que una captura valida se guarde como 0 o sea sustituida por el sugerido.

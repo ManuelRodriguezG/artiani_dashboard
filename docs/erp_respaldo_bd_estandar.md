@@ -542,6 +542,30 @@ Alcance:
 - Aplica DDL complementario de publicaciones ecommerce y migracion SEO.
 - Puebla `url_publica` y `canonical_url` desde `erp_ecommerce_publicaciones.slug`.
 - Normaliza slugs profesionales quitando `pza`/SKU salvo casos necesarios para diferenciacion.
-- Registra 301 de slugs anteriores hacia slugs nuevos en `erp_ecommerce_seo_redirecciones`.
+- No registra 301 por cambio interno de slug; las 301 deben salir de URLs viejas productivas revisadas.
 - Resincroniza `erp_ecommerce_seo_urls` y desactiva URLs de producto obsoletas del snapshot.
 - No toca inventario, compras, ventas, precios ni frontend externo.
+
+## Ecommerce SEO - limpieza de 301 automaticas por slug
+
+Fecha: 2026-09-10
+
+Respaldo previo:
+
+```txt
+C:\xampp\panel_db_backups\artianicom_sys_panel_20260910_antes_limpiar_301_slug_auto.sql
+```
+
+Validacion:
+
+```text
+archivo_existe=true
+tamano_bytes=42405631
+base=artianicom_sys
+```
+
+Resultado:
+
+- Se eliminaron 1652 redirecciones automaticas `tipo='producto_slug'` con motivos `slug_profesional_pre_lanzamiento` y `slug_publico_actualizado`.
+- Quedaron 0 redirecciones automaticas por cambio interno de slug.
+- Se conservaron las redirecciones manuales reales de migracion (`motivo='revision_manual_seo'`).

@@ -27,8 +27,8 @@ class DistribucionApi extends Controlador {
   /**
    * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-09
    * Proposito: enrutar contratos de autenticacion externa sin usar la sesion interna del ERP.
-   * Impacto: Clientes Distribucion; reserva registro/login seguros para clientes externos.
-   * Contrato: POST /auth/registro y POST /auth/login; OPTIONS responde preflight.
+   * Impacto: Clientes Distribucion; registro, login y activacion de contrasenia por token.
+   * Contrato: POST /auth/registro, /auth/login, /auth/activar_consultar y /auth/activar_contrasenia.
    */
   public function auth($accion = "") {
     if ($this->esOptionsDistribucion()) { return $this->responderOpcionesDistribucion(); }
@@ -43,6 +43,12 @@ class DistribucionApi extends Controlador {
     }
     if ($accion === "login") {
       return $this->responderApiDistribucion($clientes->login($datos, $this->contextoCliente()));
+    }
+    if ($accion === "activar_consultar") {
+      return $this->responderApiDistribucion($clientes->activacionConsultar($datos));
+    }
+    if ($accion === "activar_contrasenia") {
+      return $this->responderApiDistribucion($clientes->activarContrasenia($datos, $this->contextoCliente()));
     }
     return $this->responderApiDistribucion($this->modelo("DistribucionCatalogoApi")->endpointNoEncontrado("auth/" . $accion));
   }

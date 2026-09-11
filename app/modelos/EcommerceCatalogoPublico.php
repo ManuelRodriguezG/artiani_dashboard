@@ -4601,6 +4601,36 @@ class EcommerceCatalogoPublico extends CRUD {
     }
   }
 
+  private function seoRedireccionesPorOrigenMapa($db) {
+    $mapa = array();
+    if (!$db || !$this->tablaExiste($db, "erp_ecommerce_seo_redirecciones")) {
+      return $mapa;
+    }
+    $stmt = $db->query("SELECT url_origen, url_destino, status_code, tipo, motivo, activo, revisado
+      FROM erp_ecommerce_seo_redirecciones
+      WHERE activo=1 AND status_code IN (301,302,308)
+      ORDER BY revisado DESC, fecha_actualizacion DESC, fecha_registro DESC");
+    foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $fila) {
+      $from = $this->normalizarSeoPathPublico($this->valor($fila, "url_origen", ""));
+      $to = $this->normalizarSeoPathPublico($this->valor($fila, "url_destino", ""));
+      if ($from === "" || $to === "" || $from === $to || strpos($to, "/ecommercePublico") === 0) {
+        continue;
+      }
+      if (isset($mapa[$from])) {
+        continue;
+      }
+      $mapa[$from] = array(
+        "from" => $from,
+        "to" => $to,
+        "status" => intval($this->valor($fila, "status_code", 301)),
+        "tipo" => $this->valor($fila, "tipo", "manual"),
+        "motivo" => $this->valor($fila, "motivo", ""),
+        "revisado" => intval($this->valor($fila, "revisado", 0)) === 1
+      );
+    }
+    return $mapa;
+  }
+
   /**
    * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-03
    * Proposito: entregar sitemap estructurado sin rutas internas de API.
@@ -4816,14 +4846,17 @@ class EcommerceCatalogoPublico extends CRUD {
       $accion = trim((string) $this->valor($opciones, "accion", ""));
       $prioridad = trim((string) $this->valor($opciones, "prioridad", ""));
       $limite = max(1, min(500, intval($this->valor($opciones, "limite", 120))));
-      $baseLocal = rtrim(trim((string) $this->valor($this->configuracionSeoPublica($this->getConexion()), "frontend_local", "")), "/");
+      $db = $this->getConexion();
+      $baseLocal = rtrim(trim((string) $this->valor($this->configuracionSeoPublica($db), "frontend_local", "")), "/");
       if ($baseLocal === "") { $baseLocal = "http://artiani.com.local"; }
       $usaIndexadas = strpos($archivo, "ecommerce_seo_urls_indexadas_google_") !== false;
-      $baseProduccion = $this->dominioProduccionSeoPublico($this->configuracionSeoPublica($this->getConexion()));
+      $baseProduccion = $this->dominioProduccionSeoPublico($this->configuracionSeoPublica($db));
       $canonicas = $usaIndexadas ? $this->seoUrlsComparacionMigracionItems($baseProduccion, 3000) : array();
+      $redireccionesExistentes = $this->seoRedireccionesPorOrigenMapa($db);
 
       $filtrados = array();
       foreach ($items as $item) {
+        $pathOriginal = $this->normalizarSeoPathPublico($this->valor($item, "path_original", $this->valor($item, "url_original", "")));
         if ($q !== "") {
           $texto = strtolower($this->normalizarTextoPlano(implode(" ", array(
             $this->valor($item, "url_original", ""),
@@ -4838,7 +4871,17 @@ class EcommerceCatalogoPublico extends CRUD {
           $qCompacto = preg_replace('/[^a-z0-9]+/', '', $qSlug);
           if (strpos($texto, $q) === false && strpos($textoSlug, $qSlug) === false && ($qCompacto === "" || strpos($textoCompacto, $qCompacto) === false)) { continue; }
         }
-        if ($usaIndexadas) {
+        $redireccionExistente = $pathOriginal !== "" && isset($redireccionesExistentes[$pathOriginal]) ? $redireccionesExistentes[$pathOriginal] : null;
+        if ($redireccionExistente) {
+          $item["redireccion_existente"] = $redireccionExistente;
+          $item["url_destino_sugerida"] = $this->valor($redireccionExistente, "to", "");
+          $item["confianza"] = "aprobada";
+          $item["motivo"] = "redireccion_ya_guardada";
+          $item["accion_sugerida"] = "relacionada_301";
+          $item["prioridad_revision"] = "resuelta";
+        } elseif ($accion === "relacionada_301") {
+          continue;
+        } elseif ($usaIndexadas) {
           $tipoItem = $this->valor($item, "tipo_detectado", $this->seoTipoDetectadoPath($this->valor($item, "path_original", "")));
           $sugerenciasIndexadas = $this->seoSugerenciasDestinoPublico($this->valor($item, "path_original", ""), $tipoItem, $canonicas, 3);
           $item["sugerencias"] = $sugerenciasIndexadas;
@@ -5064,7 +5107,7 @@ class EcommerceCatalogoPublico extends CRUD {
   /**
    * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-09
    * Proposito: planear cambio de titulo/slug SEO de producto sin ejecutar escritura.
-   * Impacto: Ecommerce SEO; anticipa conflictos y la redireccion 301 que deberia quedar si cambia el slug.
+   * Impacto: Ecommerce SEO; anticipa conflictos sin generar redirecciones nuevas-a-nuevas.
    * Contrato: read-only; no modifica `erp_ecommerce_publicaciones` ni `erp_ecommerce_seo_redirecciones`.
    */
   public function seoProductoSlugPlanInterno($datos = array()) {
@@ -5086,13 +5129,9 @@ class EcommerceCatalogoPublico extends CRUD {
       if ($slug === "") { $bloqueos[] = "slug_requerido"; }
       if ($slug !== "" && $this->conflictoSlugPublicacion($db, $slug, intval($actual["id_sku"]))) { $bloqueos[] = "slug_ya_usado_por_otro_sku"; }
       $slugCambio = $slugAnterior !== "" && $slug !== "" && $slugAnterior !== $slug;
-      $pathAnterior = $slugAnterior !== "" ? "/producto/" . $slugAnterior : "";
       $pathNuevo = $slug !== "" ? "/producto/" . $slug : "";
       $sql = empty($bloqueos)
         ? "UPDATE erp_ecommerce_publicaciones SET titulo_publico=" . $this->sqlQuote($titulo) . ", slug=" . $this->sqlQuote($slug) . ", fecha_actualizacion=NOW() WHERE id_publicacion=" . intval($actual["id_publicacion"]) . " LIMIT 1;"
-        : "";
-      $sqlRedireccion = $slugCambio && empty($bloqueos)
-        ? "INSERT INTO erp_ecommerce_seo_redirecciones (url_origen, url_destino, status_code, tipo, motivo, activo, revisado, fecha_registro, fecha_actualizacion) VALUES (" . $this->sqlQuote($pathAnterior) . ", " . $this->sqlQuote($pathNuevo) . ", 301, 'producto_slug', 'slug_publico_actualizado', 1, 1, NOW(), NOW()) ON DUPLICATE KEY UPDATE url_destino=VALUES(url_destino), status_code=301, tipo='producto_slug', motivo='slug_publico_actualizado', activo=1, revisado=1, fecha_actualizacion=NOW();"
         : "";
 
       return $this->respuesta(false, empty($bloqueos) ? "success" : "warning", empty($bloqueos) ? "Plan SEO de producto generado sin ejecutar" : "Plan SEO requiere correccion", array(
@@ -5110,9 +5149,10 @@ class EcommerceCatalogoPublico extends CRUD {
         "slug_anterior" => $slugAnterior,
         "slug_actual" => $slug,
         "slug_cambiado" => $slugCambio,
-        "redireccion_301_sugerida" => $slugCambio ? array("from" => $pathAnterior, "to" => $pathNuevo, "status" => 301, "tipo" => "producto_slug") : null,
-        "sql_preview" => array_values(array_filter(array($sql, $sqlRedireccion))),
-        "guardrails" => array("no_escribe_bd" => true, "nombre_no_recalcula_slug_automaticamente" => true)
+        "redireccion_301_sugerida" => null,
+        "redireccion_301_requiere_url_vieja_productiva" => $slugCambio,
+        "sql_preview" => array_values(array_filter(array($sql))),
+        "guardrails" => array("no_escribe_bd" => true, "nombre_no_recalcula_slug_automaticamente" => true, "sin_301_automatico_por_slug" => true)
       ));
     } catch (Exception $e) {
       return $this->respuesta(true, "danger", $e->getMessage(), array("read_only" => true));
@@ -5122,7 +5162,7 @@ class EcommerceCatalogoPublico extends CRUD {
   /**
    * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-09
    * Proposito: guardar nombre publico y slug desde la mesa SEO sin validar publicabilidad comercial.
-   * Impacto: Ecommerce SEO; conserva estatus, precios/visibilidad y registra redireccion 301 si cambia el slug.
+   * Impacto: Ecommerce SEO; conserva estatus, precios/visibilidad y no registra 301 por slug interno.
    * Contrato: escritura protegida por permiso `catalogo.editar`; no exige token operativo ni precio.
    */
   public function seoProductoSlugGuardarAutorizado($datos = array(), $opciones = array()) {
@@ -5189,7 +5229,6 @@ class EcommerceCatalogoPublico extends CRUD {
         $paramsUpdate[":usuario_slug_actualizado"] = $this->usuarioActualId();
       }
       $stmtUpdate->execute($paramsUpdate);
-      $redireccionSlug = $slugCambio ? $this->registrarRedireccionSlugProducto($db, $actual, $slugAnterior, $slug) : null;
       $db->commit();
 
       return $this->respuesta(false, "success", "Nombre publico y slug guardados", array(
@@ -5205,7 +5244,8 @@ class EcommerceCatalogoPublico extends CRUD {
         "slug_anterior" => $slugAnterior,
         "slug_actual" => $slug,
         "slug_cambiado" => $slugCambio,
-        "redireccion_301" => $redireccionSlug,
+        "redireccion_301" => null,
+        "redireccion_301_requiere_url_vieja_productiva" => $slugCambio,
         "validacion_publicabilidad_omitida" => true,
         "no_requiere_precio" => true,
         "no_toca_inventario" => true,
@@ -8023,7 +8063,6 @@ class EcommerceCatalogoPublico extends CRUD {
         $paramsUpdate[":usuario_slug_actualizado"] = $this->usuarioActualId();
       }
       $stmtUpdate->execute($paramsUpdate);
-      $redireccionSlug = $slugCambio ? $this->registrarRedireccionSlugProducto($db, $actual, $slugAnterior, $slug) : null;
 
       $consulta = $db->prepare("SELECT id_publicacion, id_producto_erp, id_sku, canal, estatus_publicacion, slug, titulo_publico
         FROM erp_ecommerce_publicaciones
@@ -8040,7 +8079,8 @@ class EcommerceCatalogoPublico extends CRUD {
         "slug_anterior" => $slugAnterior,
         "slug_actual" => $slug,
         "slug_cambiado" => $slugCambio,
-        "redireccion_301" => $redireccionSlug,
+        "redireccion_301" => null,
+        "redireccion_301_requiere_url_vieja_productiva" => $slugCambio,
         "no_toca_inventario" => true,
         "no_toca_ecom_legacy" => true,
         "precio_imagen_se_leen_vivos_desde_erp" => true
@@ -15420,42 +15460,10 @@ class EcommerceCatalogoPublico extends CRUD {
   }
 
   private function registrarRedireccionSlugProducto($db, $actual, $slugAnterior, $slugNuevo) {
-    if (!$db || $slugAnterior === "" || $slugNuevo === "" || $slugAnterior === $slugNuevo || !$this->tablaExiste($db, "erp_ecommerce_seo_redirecciones")) {
-      return array("creada" => false, "motivo" => "tabla_seo_redirecciones_no_disponible");
-    }
-    $from = "/producto/" . $slugAnterior;
-    $to = "/producto/" . $slugNuevo;
-    $columnas = array("url_origen", "url_destino", "status_code", "tipo", "motivo", "activo", "revisado", "fecha_registro", "fecha_actualizacion", "actualizado_por");
-    $valores = array(":from", ":to", "301", "'producto_slug'", "'slug_publico_actualizado'", "1", "1", "NOW()", "NOW()", ":usuario");
-    $updates = array("url_destino=VALUES(url_destino)", "status_code=VALUES(status_code)", "tipo=VALUES(tipo)", "motivo=VALUES(motivo)", "activo=1", "revisado=1", "fecha_actualizacion=NOW()", "actualizado_por=VALUES(actualizado_por)");
-    $params = array(":from" => $from, ":to" => $to, ":usuario" => $this->usuarioActualId());
-    $extras = array(
-      "from_slug" => array(":from_slug", $slugAnterior),
-      "to_slug" => array(":to_slug", $slugNuevo),
-      "tipo_entidad" => array("'producto'", null),
-      "id_entidad" => array(":id_entidad", intval($this->valor($actual, "id_producto_erp", 0))),
-      "id_publicacion" => array(":id_publicacion", intval($this->valor($actual, "id_publicacion", 0)))
-    );
-    foreach ($extras as $columna => $def) {
-      if (!$this->columnaExiste($db, "erp_ecommerce_seo_redirecciones", $columna)) {
-        continue;
-      }
-      $columnas[] = $columna;
-      $valores[] = $def[0];
-      $updates[] = $columna . "=VALUES(" . $columna . ")";
-      if ($def[1] !== null) {
-        $params[$def[0]] = $def[1];
-      }
-    }
-    $sql = "INSERT INTO erp_ecommerce_seo_redirecciones (`" . implode("`,`", $columnas) . "`) VALUES (" . implode(",", $valores) . ") ON DUPLICATE KEY UPDATE " . implode(", ", $updates);
-    $stmt = $db->prepare($sql);
-    $stmt->execute($params);
     return array(
-      "creada" => true,
-      "from" => $from,
-      "to" => $to,
-      "status" => 301,
-      "filas_afectadas" => $stmt->rowCount()
+      "creada" => false,
+      "motivo" => "slug_interno_no_crea_301",
+      "requiere_url_vieja_productiva" => $slugAnterior !== "" && $slugNuevo !== "" && $slugAnterior !== $slugNuevo
     );
   }
 

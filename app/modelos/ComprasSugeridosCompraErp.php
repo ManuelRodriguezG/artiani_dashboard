@@ -684,6 +684,7 @@ class ComprasSugeridosCompraErp extends CRUD {
         foreach ($items as $item) {
             $idSku = intval($this->valor($item, "id_sku_erp", $this->valor($item, "id_sku", 0)));
             $idRelacion = intval($this->valor($item, "id_sku_proveedor", 0));
+            $tieneCantidadSolicitar = is_array($item) && array_key_exists("cantidad_solicitar", $item);
             if ($idSku <= 0 || $idRelacion <= 0) {
                 throw new Exception("Todas las partidas deben tener relacion proveedor-SKU ERP");
             }
@@ -692,7 +693,7 @@ class ComprasSugeridosCompraErp extends CRUD {
                 throw new Exception("Hay productos repetidos en el sugerido");
             }
             $vistos[$clave] = true;
-            $existencia = round(floatval($this->valor($item, "existencia_revisada", 0)), 6);
+            $existencia = round($this->decimalFlexible($this->valor($item, "existencia_revisada", 0)), 6);
             $fila = array(
                 "id_sku_erp" => $idSku,
                 "id_sku_proveedor" => $idRelacion,
@@ -701,19 +702,19 @@ class ComprasSugeridosCompraErp extends CRUD {
                 "nombre_erp" => trim((string) $this->valor($item, "nombre_erp", "")),
                 "nombre_proveedor" => trim((string) $this->valor($item, "nombre_proveedor", $this->valor($item, "nombre", ""))),
                 "unidad_compra" => trim((string) $this->valor($item, "unidad_compra", $this->valor($item, "unidad", ""))),
-                "factor_conversion" => max(0.000001, floatval($this->valor($item, "factor_conversion", 1))),
-                "cantidad_minima" => max(0, floatval($this->valor($item, "cantidad_minima", 1))),
-                "stock_minimo" => max(0, floatval($this->valor($item, "stock_minimo", 0))),
-                "stock_maximo" => $this->valor($item, "stock_maximo", null) === null || $this->valor($item, "stock_maximo", "") === "" ? null : max(0, floatval($this->valor($item, "stock_maximo", 0))),
-                "punto_reorden" => max(0, floatval($this->valor($item, "punto_reorden", 0))),
+                "factor_conversion" => max(0.000001, $this->decimalFlexible($this->valor($item, "factor_conversion", 1))),
+                "cantidad_minima" => max(0, $this->decimalFlexible($this->valor($item, "cantidad_minima", 1))),
+                "stock_minimo" => max(0, $this->decimalFlexible($this->valor($item, "stock_minimo", 0))),
+                "stock_maximo" => $this->valor($item, "stock_maximo", null) === null || $this->valor($item, "stock_maximo", "") === "" ? null : max(0, $this->decimalFlexible($this->valor($item, "stock_maximo", 0))),
+                "punto_reorden" => max(0, $this->decimalFlexible($this->valor($item, "punto_reorden", 0))),
                 "existencia_revisada" => $existencia,
                 "cantidad_sugerida" => 0,
-                "cantidad_solicitar" => max(0, floatval($this->valor($item, "cantidad_solicitar", 0))),
-                "costo_estimado" => max(0, floatval($this->valor($item, "costo_estimado", $this->valor($item, "costo_ultimo", 0)))),
+                "cantidad_solicitar" => $tieneCantidadSolicitar ? max(0, $this->decimalFlexible($this->valor($item, "cantidad_solicitar", 0))) : 0,
+                "costo_estimado" => max(0, $this->decimalFlexible($this->valor($item, "costo_estimado", $this->valor($item, "costo_ultimo", 0)))),
                 "observaciones" => trim((string) $this->valor($item, "observaciones", ""))
             );
             $fila["cantidad_sugerida"] = $this->calcularCantidadSugerida($fila, $existencia);
-            if ($fila["cantidad_solicitar"] <= 0) {
+            if (!$tieneCantidadSolicitar) {
                 $fila["cantidad_solicitar"] = $fila["cantidad_sugerida"];
             }
             $detalle[] = $fila;
@@ -838,6 +839,33 @@ class ComprasSugeridosCompraErp extends CRUD {
 
     private function valor($datos, $campo, $default = null) {
         return is_array($datos) && array_key_exists($campo, $datos) ? $datos[$campo] : $default;
+    }
+
+    /**
+     * IA: Codex GPT-5
+     * Fecha: 2026-09-10
+     * Proposito: interpretar cantidades/costos capturados con separadores comunes sin perder decisiones manuales.
+     * Impacto: Compras/Sugerido; evita recalculos por valores numericos mal parseados.
+     */
+    private function decimalFlexible($valor) {
+        if (is_numeric($valor)) {
+            return floatval($valor);
+        }
+        $texto = trim((string) $valor);
+        if ($texto === "") {
+            return 0;
+        }
+        if (strpos($texto, ",") !== false && strpos($texto, ".") === false) {
+            $partes = explode(",", $texto);
+            if (count($partes) === 2 && strlen($partes[1]) <= 2) {
+                $texto = str_replace(",", ".", $texto);
+            } else {
+                $texto = str_replace(",", "", $texto);
+            }
+        } else {
+            $texto = str_replace(",", "", $texto);
+        }
+        return is_numeric($texto) ? floatval($texto) : 0;
     }
 
     private function booleano($datos, $campo) {

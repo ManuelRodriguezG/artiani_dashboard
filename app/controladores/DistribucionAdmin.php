@@ -60,6 +60,17 @@ class DistribucionAdmin extends Controlador {
   }
 
   /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-11
+   * Proposito: consultar auditoria interna de accesos/activaciones de un cliente Distribucion.
+   * Impacto: Admin ERP Distribucion; permite trazabilidad operativa sin exponer tokens ni contrasenas.
+   * Contrato: GET protegido por `distribucion.ver`; read-only.
+   */
+  public function cliente_auditoria() {
+    $this->requerirPermiso("distribucion.ver");
+    return json_encode($this->modelo("DistribucionClientesApi")->auditoriaClienteInterna($_GET));
+  }
+
+  /**
    * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-09
    * Proposito: listar listas de precio ERP activas para asignacion a clientes Distribucion.
    * Impacto: Admin ERP Distribucion; evita capturar IDs a ciegas en la UI.
@@ -157,6 +168,17 @@ class DistribucionAdmin extends Controlador {
   public function cliente_suspendir() {
     $this->requerirPermiso("distribucion.aprobar_clientes");
     return json_encode($this->modelo("DistribucionClientesApi")->clienteEstatusPlanInterno($_POST, "suspendido", $this->usuarioActualId()));
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-10
+   * Proposito: generar link manual de activacion de contrasenia para cliente aprobado.
+   * Impacto: Admin ERP Distribucion; permite reenviar WhatsApp/correo manual despues de recargar la vista.
+   * Contrato: POST protegido por `distribucion.aprobar_clientes`; revoca activaciones anteriores activas.
+   */
+  public function cliente_activacion_link() {
+    $this->requerirPermiso("distribucion.aprobar_clientes");
+    return json_encode($this->modelo("DistribucionClientesApi")->clienteActivacionLinkInterno($_POST, $this->usuarioActualId()));
   }
 
   /**

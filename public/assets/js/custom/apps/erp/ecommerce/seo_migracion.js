@@ -14,7 +14,6 @@
 
   document.addEventListener("DOMContentLoaded", function () {
     bindEvents();
-    cargarTokensSesion();
     inicializarMesasDiferidas();
     cargarSeo();
     cargarRevisionUrls();
@@ -36,6 +35,10 @@
     var revisionPrioridad = document.getElementById("ecom_seo_revision_prioridad");
     var revisionLimite = document.getElementById("ecom_seo_revision_limite");
     var revisionFuente = document.getElementById("ecom_seo_revision_fuente");
+    var rapidoRecargar = document.getElementById("ecom_seo_rapido_recargar");
+    var rapidoBuscar = document.getElementById("ecom_seo_rapido_buscar");
+    var rapidoGuardar = document.getElementById("ecom_seo_rapido_guardar");
+    var rapidoLimite = document.getElementById("ecom_seo_rapido_limite");
     var productosRecargar = document.getElementById("ecom_seo_productos_recargar");
     var productosQ = document.getElementById("ecom_seo_productos_q");
     var productosEstatus = document.getElementById("ecom_seo_productos_estatus");
@@ -57,14 +60,16 @@
     if (urlsSyncPlan) urlsSyncPlan.addEventListener("click", prepararSyncUrls);
     if (urlsSyncGuardar) urlsSyncGuardar.addEventListener("click", guardarSyncUrls);
     if (revisionRecargar) revisionRecargar.addEventListener("click", cargarRevisionUrls);
+    if (rapidoRecargar) rapidoRecargar.addEventListener("click", cargarRevisionUrls);
+    if (rapidoLimite) rapidoLimite.addEventListener("change", cargarRevisionUrls);
+    if (rapidoBuscar) rapidoBuscar.addEventListener("click", buscarRapidoDestinos);
+    if (rapidoGuardar) rapidoGuardar.addEventListener("click", guardarRapidoDecision);
     if (productosRecargar) productosRecargar.addEventListener("click", cargarProductosSlugs);
     if (productoSlugSugerir) productoSlugSugerir.addEventListener("click", sugerirSlugProductoSeleccionado);
     if (productoSlugPlan) productoSlugPlan.addEventListener("click", prepararProductoSlug);
     if (productoSlugGuardar) productoSlugGuardar.addEventListener("click", guardarProductoSlug);
     if (productoUrlViejaBuscar) productoUrlViejaBuscar.addEventListener("click", buscarUrlsViejasParaProducto);
     if (productoUrlViejaQ) productoUrlViejaQ.addEventListener("input", debounce(buscarUrlsViejasParaProducto, 350));
-    if (productoToken) productoToken.addEventListener("input", guardarTokensSesion);
-    if (redireccionToken) redireccionToken.addEventListener("input", guardarTokensSesion);
     if (destinoBuscar) destinoBuscar.addEventListener("click", buscarDestinosCanonicos);
     if (destinoQ) destinoQ.addEventListener("input", debounce(buscarDestinosCanonicos, 350));
     if (revisionOcultas) revisionOcultas.addEventListener("click", function () {
@@ -90,6 +95,9 @@
       var revisarProductoSugerido = event.target.closest("[data-seo-revisar-producto-sugerido]");
       var buscarProductoDesdeUrl = event.target.closest("[data-seo-buscar-producto-url]");
       var usarDestinoCanonico = event.target.closest("[data-seo-usar-destino-canonico]");
+      var elegirDestinoManual = event.target.closest("[data-seo-elegir-destino-manual]");
+      var rapidoEditar = event.target.closest("[data-seo-rapido-editar]");
+      var rapidoUsarDestino = event.target.closest("[data-seo-rapido-usar-destino]");
       if (usar) {
         usarRevisionComoRedireccion(usar);
       }
@@ -115,6 +123,16 @@
         setValue("ecom_seo_redir_to", usarDestinoCanonico.getAttribute("data-path") || "");
         setValue("ecom_seo_redir_tipo", usarDestinoCanonico.getAttribute("data-tipo") || "manual");
       }
+      if (elegirDestinoManual) {
+        prepararDestinoManualDesdeUrl(elegirDestinoManual);
+      }
+      if (rapidoEditar) {
+        abrirRapidoModal(parseJsonSeguro(rapidoEditar.getAttribute("data-item") || "{}"));
+      }
+      if (rapidoUsarDestino) {
+        setValue("ecom_seo_rapido_to", rapidoUsarDestino.getAttribute("data-path") || "");
+        setValue("ecom_seo_rapido_tipo", rapidoUsarDestino.getAttribute("data-tipo") || "producto");
+      }
     });
     document.addEventListener("change", function (event) {
       var decision = event.target.closest("[data-seo-decision-url]");
@@ -133,16 +151,10 @@
     if (revision) {
       revision.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-6">Cargando URLs indexadas de Google...</td></tr>';
     }
-  }
-
-  function cargarTokensSesion() {
-    try {
-    } catch (e) {}
-  }
-
-  function guardarTokensSesion() {
-    try {
-    } catch (e) {}
+    var rapido = document.getElementById("ecom_seo_rapido_body");
+    if (rapido) {
+      rapido.innerHTML = '<tr><td colspan="4" class="text-center text-muted py-6">Cargando modo rapido...</td></tr>';
+    }
   }
 
   function recargarSeoCompleto() {
@@ -169,16 +181,20 @@
 
   function cargarRevisionUrls() {
     var params = new URLSearchParams();
-    params.set("limite", valor("ecom_seo_revision_limite") || "120");
+    params.set("limite", valor("ecom_seo_rapido_limite") || valor("ecom_seo_revision_limite") || "20");
     params.set("fuente", valor("ecom_seo_revision_fuente") || "indexadas");
     if (valor("ecom_seo_revision_q")) params.set("q", valor("ecom_seo_revision_q"));
     if (valor("ecom_seo_revision_accion")) params.set("accion", valor("ecom_seo_revision_accion"));
     if (valor("ecom_seo_revision_prioridad")) params.set("prioridad", valor("ecom_seo_revision_prioridad"));
     fetch("/ecommercePublico/seo_urls_viejas_revision_erp?" + params.toString(), { headers: { Accept: "application/json" } })
       .then(jsonResponse)
-      .then(renderRevisionUrls)
+      .then(function (response) {
+        renderRevisionUrls(response);
+        renderRapidoUrls(response);
+      })
       .catch(function (error) {
         setHtml("ecom_seo_revision_info", '<div class="alert alert-danger py-3">' + escapeHtml(error.message || "No se pudo consultar revision.") + "</div>");
+        setHtml("ecom_seo_rapido_body", '<tr><td colspan="4"><div class="alert alert-danger py-3 mb-0">' + escapeHtml(error.message || "No se pudo consultar modo rapido.") + "</div></td></tr>");
       });
   }
 
@@ -346,8 +362,19 @@
       return;
     }
     var decisiones = cargarDecisiones();
+    var descartadas = cargarDescartadas();
     var items = Array.isArray(depurar.items) ? depurar.items : [];
-    var visibles = items;
+    var ocultasPorDecision = 0;
+    var visibles = items.filter(function (item) {
+      var path = item.path_original || "";
+      var decision = decisionValor(decisiones[path]);
+      var resuelta = !!descartadas[path] || decisionFinalUrlVieja(decision) || !!item.redireccion_existente;
+      if (resuelta && !mostrarOcultas) {
+        ocultasPorDecision++;
+        return false;
+      }
+      return true;
+    });
     setHtml("ecom_seo_revision_info", [
       '<div class="d-flex flex-wrap gap-2 align-items-center">',
       '<span class="badge badge-light-primary">Reporte: ' + escapeHtml(depurar.total_reporte || 0) + '</span>',
@@ -355,6 +382,7 @@
       depurar.total_nuevas ? '<span class="badge badge-light-success">Nuevas: ' + escapeHtml(depurar.total_nuevas) + '</span>' : "",
       '<span class="badge badge-light-info">Filtrado: ' + escapeHtml(depurar.total_filtrado || 0) + '</span>',
       '<span class="badge badge-light-warning">Decididas UI: ' + escapeHtml(Object.keys(decisiones).length) + '</span>',
+      ocultasPorDecision ? '<span class="badge badge-light-success">Resueltas ocultas: ' + escapeHtml(ocultasPorDecision) + '</span>' : "",
       '<span class="text-muted fs-8 ecom-seo-path">Preview local: ' + escapeHtml(depurar.base_local_revision || "http://artiani.com.local") + '</span>',
       "</div>"
     ].join(""));
@@ -367,17 +395,21 @@
       var destino = item.url_destino_sugerida || "";
       var local = item.url_destino_local || "";
       var sugerencias = Array.isArray(item.sugerencias) ? item.sugerencias : [];
+      var productoSugerido = primeraSugerenciaProducto(sugerencias);
+      var productoSugeridoData = productoSugerido ? productoSeoDesdeSugerencia(productoSugerido, productoSugerido.path || destino, productoSugerido.path ? "http://artiani.com.local" + productoSugerido.path : local) : null;
       var mismaUri = normalizarPathUi(item.path_original || "") === normalizarPathUi(destino);
-      var decisionActual = decisiones[item.path_original || ""] || "";
+      var decisionActual = decisionValor(decisiones[item.path_original || ""]);
       return [
         "<tr>",
         '<td><div class="fw-semibold ecom-seo-path">' + escapeHtml(item.path_original || "-") + '</div>' + renderOrigenRevision(item) + '<div class="text-muted fs-8 ecom-seo-path">' + escapeHtml(item.titulo_detectado || "") + "</div></td>",
         '<td>' + badgeHttp(item.status_http) + "</td>",
         '<td>' + badgeTipo(item.tipo_plan || item.tipo_detectado || item.tipo_crawl || "url") + '<div class="text-muted fs-8">' + escapeHtml(item.tipo_crawl || item.origen || "") + "</div></td>",
         '<td>' + renderSugerenciasRevision(item, sugerencias, destino, local) + "</td>",
-        '<td>' + badgeAccion(item.accion_sugerida) + '<div class="mt-1">' + badgeConfianza(item.confianza) + '</div><div class="text-muted fs-8">' + escapeHtml(item.nota || item.motivo || "") + "</div></td>",
+        '<td>' + badgeAccion(item.accion_sugerida) + '<div class="mt-1">' + badgeConfianza(item.confianza) + '</div>' + renderRedireccionExistenteBadge(item) + '<div class="text-muted fs-8">' + escapeHtml(item.nota || item.motivo || "") + "</div></td>",
         '<td class="text-end"><div class="d-flex justify-content-end gap-2 mb-2">' +
           '<button class="btn btn-sm btn-light-primary" type="button" data-seo-usar-redireccion="1" data-from="' + escapeAttr(item.path_original || "") + '" data-to="' + escapeAttr(destino) + '" data-tipo="' + escapeAttr(item.tipo_plan || item.tipo_detectado || "manual") + '"' + (!destino || mismaUri ? " disabled" : "") + '><i class="bi bi-arrow-return-right"></i></button>' +
+          '<button class="btn btn-sm btn-light-warning" type="button" data-seo-elegir-destino-manual="1" data-from="' + escapeAttr(item.path_original || "") + '" data-tipo="' + escapeAttr(item.tipo_plan || item.tipo_detectado || "producto") + '" data-q="' + escapeAttr(queryDesdePathViejo(item.path_original || "")) + '"><i class="bi bi-signpost-split"></i></button>' +
+          (productoSugeridoData ? '<button class="btn btn-sm btn-light-info" type="button" data-seo-revisar-producto-sugerido="1" data-producto="' + escapeAttr(JSON.stringify(productoSugeridoData)) + '"><i class="bi bi-pencil-square"></i></button>' : "") +
           '<button class="btn btn-sm btn-light-info" type="button" data-seo-buscar-producto-url="1" data-q="' + escapeAttr(queryDesdePathViejo(item.path_original || "")) + '"><i class="bi bi-search"></i></button>' +
         '</div><select class="form-select form-select-sm form-select-solid" data-seo-decision-url="' + escapeAttr(item.path_original || "") + '">' +
           opcionDecision("", "Pendiente", decisionActual) +
@@ -390,6 +422,156 @@
         "</tr>"
       ].join("");
     }).join("");
+  }
+
+  function renderRapidoUrls(response) {
+    var tbody = document.getElementById("ecom_seo_rapido_body");
+    if (!tbody) return;
+    var depurar = get(response, ["depurar"], {});
+    var decisiones = cargarDecisiones();
+    var descartadas = cargarDescartadas();
+    var items = (Array.isArray(depurar.items) ? depurar.items : []).filter(function (item) {
+      var path = item.path_original || "";
+      var decision = decisionValor(decisiones[path]);
+      return !(!!descartadas[path] || decisionFinalUrlVieja(decision) || !!item.redireccion_existente);
+    });
+    if (!items.length) {
+      tbody.innerHTML = '<tr><td colspan="4" class="text-center text-muted py-6">Sin URLs pendientes para el modo rapido.</td></tr>';
+      return;
+    }
+    tbody.innerHTML = items.map(function (item) {
+      var sugerencias = Array.isArray(item.sugerencias) ? item.sugerencias : [];
+      var destino = item.url_destino_sugerida || "";
+      var sugerencia = sugerencias.length ? sugerencias[0] : null;
+      var itemRapido = Object.assign({}, item, {
+        destino_rapido: destino,
+        tipo_rapido: get(sugerencia || {}, ["tipo"], item.tipo_plan || item.tipo_detectado || "producto"),
+        query_rapida: queryDesdePathViejo(item.path_original || "")
+      });
+      return [
+        "<tr>",
+        '<td><div class="fw-semibold ecom-seo-path">' + escapeHtml(item.path_original || "-") + '</div>' + renderOrigenRevision(item) + "</td>",
+        '<td><div class="fw-semibold ecom-seo-path">' + escapeHtml(destino || "Sin sugerencia") + '</div>' + (item.url_destino_local ? '<a class="fs-8 ecom-seo-path" target="_blank" rel="noopener" href="' + escapeAttr(item.url_destino_local) + '">' + escapeHtml(item.url_destino_local) + "</a>" : '<div class="text-muted fs-8">Puedes elegir destino manual.</div>') + "</td>",
+        '<td>' + badgeAccion(item.accion_sugerida) + '<div class="mt-1">' + badgeConfianza(item.confianza) + '</div></td>',
+        '<td class="text-end"><button class="btn btn-sm btn-primary" type="button" data-seo-rapido-editar="1" data-item="' + escapeAttr(JSON.stringify(itemRapido)) + '"><i class="bi bi-pencil-square"></i> Resolver</button></td>',
+        "</tr>"
+      ].join("");
+    }).join("");
+  }
+
+  function abrirRapidoModal(item) {
+    item = item || {};
+    var from = item.path_original || "";
+    var destino = item.destino_rapido || item.url_destino_sugerida || "";
+    var tipo = item.tipo_rapido || item.tipo_plan || item.tipo_detectado || "producto";
+    if (tipo === "desconocido" || tipo === "busqueda" || tipo === "url") tipo = "producto";
+    setValue("ecom_seo_rapido_item_json", JSON.stringify(item));
+    setValue("ecom_seo_rapido_from", from);
+    setValue("ecom_seo_rapido_decision", destino ? "301" : "301");
+    setValue("ecom_seo_rapido_tipo", tipo);
+    setValue("ecom_seo_rapido_status", "301");
+    setValue("ecom_seo_rapido_to", destino);
+    setValue("ecom_seo_rapido_buscar_q", item.query_rapida || queryDesdePathViejo(from));
+    setHtml("ecom_seo_rapido_resultados", "");
+    setHtml("ecom_seo_rapido_mensaje", "");
+    mostrarRapidoModal();
+  }
+
+  function mostrarRapidoModal() {
+    var node = document.getElementById("ecom_seo_rapido_modal");
+    if (!node) return;
+    if (window.bootstrap && window.bootstrap.Modal) {
+      window.bootstrap.Modal.getOrCreateInstance(node).show();
+      return;
+    }
+    node.style.display = "block";
+    node.classList.add("show");
+  }
+
+  function cerrarRapidoModal() {
+    var node = document.getElementById("ecom_seo_rapido_modal");
+    if (!node) return;
+    if (window.bootstrap && window.bootstrap.Modal) {
+      window.bootstrap.Modal.getOrCreateInstance(node).hide();
+      return;
+    }
+    node.classList.remove("show");
+    node.style.display = "none";
+  }
+
+  function buscarRapidoDestinos() {
+    var q = valor("ecom_seo_rapido_buscar_q");
+    var tipo = valor("ecom_seo_rapido_tipo") || "producto";
+    var node = document.getElementById("ecom_seo_rapido_resultados");
+    if (!node) return;
+    if (!q || q.length < 3 || tipo === "manual") {
+      node.innerHTML = '<div class="text-muted fs-8">Escribe al menos 3 caracteres o captura el destino manualmente.</div>';
+      return;
+    }
+    fetch("/ecommercePublico/seo_destinos_canonicos_erp?limite=20&tipo=" + encodeURIComponent(tipo) + "&q=" + encodeURIComponent(q), { headers: { Accept: "application/json" } })
+      .then(jsonResponse)
+      .then(function (response) {
+        var items = get(response, ["depurar", "items"], []);
+        if (!Array.isArray(items) || !items.length) {
+          node.innerHTML = '<div class="alert alert-info py-3 mb-0">Sin destinos para esa busqueda.</div>';
+          return;
+        }
+        node.innerHTML = '<div class="table-responsive ecom-seo-scroll"><table class="table table-row-dashed fs-8 gy-2 mb-0"><tbody>' +
+          items.map(function (item) {
+            return [
+              "<tr>",
+              '<td><div class="fw-semibold ecom-seo-path">' + escapeHtml(item.path || "-") + '</div><div class="text-muted fs-8">' + escapeHtml(item.title || "") + '</div><a class="fs-8 ecom-seo-path" target="_blank" rel="noopener" href="' + escapeAttr(item.url_local || "#") + '">' + escapeHtml(item.url_local || "") + "</a></td>",
+              '<td class="text-end"><button class="btn btn-sm btn-light-primary" type="button" data-seo-rapido-usar-destino="1" data-path="' + escapeAttr(item.path || "") + '" data-tipo="' + escapeAttr(item.tipo || tipo) + '"><i class="bi bi-check2"></i></button></td>',
+              "</tr>"
+            ].join("");
+          }).join("") + "</tbody></table></div>";
+      })
+      .catch(function (error) {
+        node.innerHTML = '<div class="alert alert-danger py-3 mb-0">' + escapeHtml(error.message || "No se pudieron buscar destinos.") + "</div>";
+      });
+  }
+
+  function guardarRapidoDecision() {
+    var decision = valor("ecom_seo_rapido_decision");
+    var from = valor("ecom_seo_rapido_from");
+    var to = valor("ecom_seo_rapido_to");
+    var tipo = valor("ecom_seo_rapido_tipo") || "producto";
+    var status = valor("ecom_seo_rapido_status") || "301";
+    if (!from) {
+      setHtml("ecom_seo_rapido_mensaje", '<div class="alert alert-warning py-3">Falta URL vieja.</div>');
+      return;
+    }
+    if (decision === "410") {
+      guardarDecisionUrlVieja(from, "410_descontinuado");
+      setHtml("ecom_seo_rapido_mensaje", '<div class="alert alert-success py-3">URL marcada como 410.</div>');
+      cerrarRapidoModal();
+      cargarRevisionUrls();
+      return;
+    }
+    if (!to) {
+      setHtml("ecom_seo_rapido_mensaje", '<div class="alert alert-warning py-3">Captura o selecciona el destino nuevo.</div>');
+      return;
+    }
+    setHtml("ecom_seo_rapido_mensaje", '<div class="alert alert-info py-3">Guardando redireccion...</div>');
+    postJson("/ecommercePublico/seo_redireccion_guardar_erp", {
+      from: from,
+      to: to,
+      status: status,
+      tipo: tipo,
+      motivo: "revision_manual_seo"
+    }).then(function (response) {
+      if (response.error) {
+        setHtml("ecom_seo_rapido_mensaje", '<div class="alert alert-warning py-3">' + escapeHtml(response.mensaje || "No se pudo guardar.") + "</div>");
+        return;
+      }
+      marcarUrlViejaResuelta(from, tipo === "categoria" ? "redirigir_categoria" : "redirigir_producto", { to: to, status: status, motivo: "revision_manual_seo" });
+      setHtml("ecom_seo_rapido_mensaje", '<div class="alert alert-success py-3">Redireccion guardada.</div>');
+      cerrarRapidoModal();
+      cargarSeo();
+      cargarRevisionUrls();
+    }).catch(function (error) {
+      setHtml("ecom_seo_rapido_mensaje", '<div class="alert alert-danger py-3">' + escapeHtml(error.message || "No se pudo guardar.") + "</div>");
+    });
   }
 
   function renderOrigenRevision(item) {
@@ -410,10 +592,11 @@
     return sugerencias.map(function (sug, index) {
       var path = sug.path || "";
       var preview = path ? "http://artiani.com.local" + path : "";
+      var producto = productoSeoDesdeSugerencia(sug, path, preview);
       return [
         '<div class="' + (index > 0 ? "border-top pt-2 mt-2" : "") + '">',
         '<button class="btn btn-sm btn-light-primary me-2" type="button" data-seo-usar-redireccion="1" data-from="' + escapeAttr(item.path_original || "") + '" data-to="' + escapeAttr(path) + '" data-tipo="' + escapeAttr(sug.tipo || item.tipo_plan || "manual") + '"><i class="bi bi-arrow-return-right"></i></button>',
-        '<button class="btn btn-sm btn-light-info me-2" type="button" data-seo-revisar-producto-sugerido="1" data-q="' + escapeAttr(sug.sku || sug.slug || sug.title || path) + '"><i class="bi bi-pencil-square"></i></button>',
+        '<button class="btn btn-sm btn-light-info me-2" type="button" data-seo-revisar-producto-sugerido="1" data-q="' + escapeAttr(sug.sku || sug.slug || sug.title || path) + '" data-producto="' + escapeAttr(JSON.stringify(producto)) + '"><i class="bi bi-pencil-square"></i></button>',
         '<span class="fw-semibold ecom-seo-path">' + escapeHtml(path || "-") + "</span>",
         '<div class="text-muted fs-8 ecom-seo-path">' + escapeHtml(sug.title || sug.motivo || "") + "</div>",
         '<div class="d-flex flex-wrap gap-2 mt-1">' + badgeConfianza(sug.confianza) + '<span class="badge badge-light">score ' + escapeHtml(sug.score || 0) + '</span><span class="badge badge-light">' + escapeHtml(sug.sku || "sin sku") + '</span><span class="badge badge-light">' + escapeHtml(sug.estatus_publicacion || sug.fuente_comparacion || "") + '</span><span class="badge badge-light">' + escapeHtml(sug.motivo || "") + "</span></div>",
@@ -421,6 +604,12 @@
         "</div>"
       ].join("");
     }).join("");
+  }
+
+  function renderRedireccionExistenteBadge(item) {
+    var redir = item && item.redireccion_existente ? item.redireccion_existente : null;
+    if (!redir) return "";
+    return '<div class="mt-1"><span class="badge badge-light-success">301 guardada</span></div><div class="text-muted fs-8 ecom-seo-path">' + escapeHtml(redir.from || "") + " -> " + escapeHtml(redir.to || "") + "</div>";
   }
 
   function renderRevisionResumen(resumen) {
@@ -434,6 +623,40 @@
       resumenCaja("Manual", acciones.revisar_manual || 0),
       resumenCaja("Excluir/410", acciones.excluir_o_410 || 0)
     ].join("");
+  }
+
+  function productoSeoDesdeSugerencia(sug, path, preview) {
+    sug = sug || {};
+    path = path || sug.path || "";
+    preview = preview || (path ? "http://artiani.com.local" + path : "");
+    var slug = sug.slug || String(path || "").replace(/^\/producto\//, "");
+    var titulo = sug.title || sug.titulo_publico || slug.replace(/-/g, " ");
+    return {
+      id_publicacion: sug.id_publicacion || 0,
+      id_sku: sug.id_sku || 0,
+      sku: sug.sku || "",
+      titulo_publico: titulo,
+      nombre_sku: titulo,
+      slug: slug,
+      url_publica: path,
+      url_local: preview,
+      canonical_url: path ? "https://artiani.com.mx" + path : "",
+      estatus_publicacion: sug.estatus_publicacion || sug.fuente_comparacion || "",
+      slug_profesional_sugerido: slug,
+      fuente_comparacion: sug.fuente_comparacion || "",
+      tipo: sug.tipo || ""
+    };
+  }
+
+  function primeraSugerenciaProducto(sugerencias) {
+    if (!Array.isArray(sugerencias)) { return null; }
+    for (var i = 0; i < sugerencias.length; i++) {
+      var sug = sugerencias[i] || {};
+      if (sug.id_publicacion || sug.id_sku || sug.tipo === "producto" || String(sug.path || "").indexOf("/producto/") === 0) {
+        return sug;
+      }
+    }
+    return null;
   }
 
   function renderProductosSlugs(response) {
@@ -491,7 +714,14 @@
     setHtml("ecom_seo_producto_url_vieja_resultados", "");
     setValue("ecom_seo_producto_url_vieja_q", get(item, ["sku"], "") || get(item, ["titulo_publico"], ""));
     var editor = document.getElementById("ecom_seo_producto_editor_titulo");
-    if (editor && editor.scrollIntoView) editor.scrollIntoView({ behavior: "smooth", block: "center" });
+    var destinoScroll = editor ? (editor.closest(".ecom-seo-panel") || editor) : null;
+    if (destinoScroll && destinoScroll.scrollIntoView) {
+      destinoScroll.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+    var inputTitulo = document.getElementById("ecom_seo_producto_titulo_publico");
+    if (inputTitulo && inputTitulo.focus) {
+      window.setTimeout(function () { inputTitulo.focus(); }, 350);
+    }
   }
 
   function sugerirSlugProductoSeleccionado() {
@@ -548,9 +778,14 @@
     setEstado("Guardando producto", "badge-light-warning");
     postJson("/ecommercePublico/seo_producto_slug_guardar_erp", data)
       .then(function (response) {
-        renderProductoSlugGuardado(response, get(response, ["depurar"], {}));
+        var depurar = get(response, ["depurar"], {});
+        renderProductoSlugGuardado(response, depurar);
         setEstado(response.error ? "Bloqueado" : "Guardado", response.error ? "badge-light-warning" : "badge-light-success");
-        if (!response.error) cargarProductosSlugs();
+        if (!response.error) {
+          actualizarProductoSeleccionadoDespuesGuardar(depurar);
+          cargarProductosSlugs();
+          cargarRevisionUrls();
+        }
       })
       .catch(function (error) {
         setEstado("Error", "badge-light-danger");
@@ -561,13 +796,13 @@
   function renderProductoSlugPlan(response, depurar) {
     var bloqueos = Array.isArray(depurar.bloqueos) ? depurar.bloqueos : [];
     var tipo = bloqueos.length ? "warning" : "success";
-    var redir = depurar.redireccion_301_sugerida || null;
+    var slugCambio = !!depurar.slug_cambiado;
     setHtml("ecom_seo_producto_plan", [
       '<div class="alert alert-' + tipo + ' py-3">',
       escapeHtml(response.mensaje || "Plan generado"),
       bloqueos.length ? '<div class="mt-2">Bloqueos: ' + escapeHtml(bloqueos.join(", ")) + "</div>" : "",
       "</div>",
-      redir ? '<div class="border rounded p-3 mb-3"><div class="fw-semibold">301 sugerido por cambio de slug</div><div class="ecom-seo-path fs-8">' + escapeHtml(redir.from) + " -> " + escapeHtml(redir.to) + "</div></div>" : '<div class="text-muted fs-8 mb-3">Sin cambio de slug; no requiere 301.</div>',
+      slugCambio ? '<div class="alert alert-info py-3 mb-3">El cambio de slug no crea 301 automaticamente. Si existe una URL anterior publicada, capturala en redirecciones 301 como URL vieja productiva.</div>' : '<div class="text-muted fs-8 mb-3">Sin cambio de slug; no requiere 301.</div>',
       depurar.sql_preview ? '<pre class="bg-light p-3 rounded ecom-seo-code">' + escapeHtml(JSON.stringify(depurar.sql_preview, null, 2)) + "</pre>" : ""
     ].join(""));
   }
@@ -583,11 +818,48 @@
         slug_anterior: depurar.slug_anterior || "",
         slug_actual: depurar.slug_actual || "",
         slug_cambiado: !!depurar.slug_cambiado,
-        redireccion_301: depurar.redireccion_301 || null,
+        redireccion_301: null,
+        redireccion_301_requiere_url_vieja_productiva: !!depurar.redireccion_301_requiere_url_vieja_productiva,
         bloqueos: depurar.bloqueos_publicacion || depurar.bloqueos || []
       }, null, 2)),
       "</pre>"
     ].join(""));
+  }
+
+  function actualizarProductoSeleccionadoDespuesGuardar(depurar) {
+    depurar = depurar || {};
+    var publicacion = depurar.publicacion || {};
+    var slug = depurar.slug_actual || publicacion.slug || valor("ecom_seo_producto_slug");
+    var titulo = publicacion.titulo_publico || valor("ecom_seo_producto_titulo_publico");
+    var path = slug ? "/producto/" + slug : "";
+    var urlLocal = path ? "http://artiani.com.local" + path : "";
+    var canonical = path ? "https://artiani.com.mx" + path : "";
+    var anteriorPath = depurar.slug_anterior ? "/producto/" + depurar.slug_anterior : "";
+
+    productoSeoSeleccionado = Object.assign({}, productoSeoSeleccionado || {}, {
+      id_publicacion: publicacion.id_publicacion || valor("ecom_seo_producto_id_publicacion"),
+      id_producto_erp: publicacion.id_producto_erp || get(productoSeoSeleccionado || {}, ["id_producto_erp"], ""),
+      id_sku: publicacion.id_sku || valor("ecom_seo_producto_id_sku"),
+      estatus_publicacion: publicacion.estatus_publicacion || get(productoSeoSeleccionado || {}, ["estatus_publicacion"], ""),
+      titulo_publico: titulo,
+      slug: slug,
+      url_publica: path,
+      url_local: urlLocal,
+      canonical_url: canonical,
+      slug_profesional_sugerido: slug
+    });
+
+    setValue("ecom_seo_producto_titulo_publico", titulo);
+    setValue("ecom_seo_producto_slug", slug);
+    setText("ecom_seo_producto_editor_titulo", titulo || "Selecciona un producto");
+    setLink("ecom_seo_producto_url_local", urlLocal);
+    setLink("ecom_seo_producto_url_canonical", canonical);
+
+    var redirTo = normalizarPathUi(valor("ecom_seo_redir_to"));
+    if (path && (!redirTo || redirTo === anteriorPath)) {
+      setValue("ecom_seo_redir_to", path);
+    }
+    setEstado("Guardado; listas actualizandose", "badge-light-success");
   }
 
   function usarProductoComoRedireccion(node) {
@@ -643,6 +915,12 @@
   }
 
   function revisarProductoDesdeSugerencia(node) {
+    var producto = parseJsonSeguro(node.getAttribute("data-producto") || "{}");
+    if (producto && (producto.id_publicacion || producto.id_sku || producto.tipo === "producto")) {
+      seleccionarProductoSeo(producto);
+      setEstado("Producto cargado para editar", "badge-light-success");
+      return;
+    }
     var q = node.getAttribute("data-q") || "";
     if (!q) return;
     setValue("ecom_seo_productos_q", q.replace(/\s+\|\s+Artiani$/i, ""));
@@ -697,6 +975,24 @@
     setValue("ecom_seo_redir_from", node.getAttribute("data-from") || "");
     setValue("ecom_seo_redir_to", node.getAttribute("data-to") || "");
     setValue("ecom_seo_redir_tipo", node.getAttribute("data-tipo") || "manual");
+    var form = document.getElementById("ecom_seo_redir_from");
+    if (form && form.scrollIntoView) form.scrollIntoView({ behavior: "smooth", block: "center" });
+  }
+
+  function prepararDestinoManualDesdeUrl(node) {
+    var from = node.getAttribute("data-from") || "";
+    var tipo = node.getAttribute("data-tipo") || "producto";
+    var q = node.getAttribute("data-q") || queryDesdePathViejo(from);
+    if (tipo === "desconocido" || tipo === "busqueda" || tipo === "url") {
+      tipo = "producto";
+    }
+    setValue("ecom_seo_redir_from", from);
+    setValue("ecom_seo_redir_to", "");
+    setValue("ecom_seo_redir_tipo", tipo);
+    setValue("ecom_seo_destino_tipo", tipo);
+    setValue("ecom_seo_destino_q", q);
+    setHtml("ecom_seo_redireccion_resultado", '<div class="alert alert-info py-3">Origen cargado. Busca y elige el destino nuevo; despues guarda la redireccion.</div>');
+    buscarDestinosCanonicos();
     var form = document.getElementById("ecom_seo_redir_from");
     if (form && form.scrollIntoView) form.scrollIntoView({ behavior: "smooth", block: "center" });
   }
@@ -838,7 +1134,15 @@
       .then(function (response) {
         renderRedireccionGuardada(response, get(response, ["depurar"], {}));
         setEstado(response.error ? "Bloqueado" : "Guardado", response.error ? "badge-light-warning" : "badge-light-success");
-        if (!response.error) cargarSeo();
+        if (!response.error) {
+          marcarUrlViejaResuelta(data.from, data.tipo === "categoria" ? "redirigir_categoria" : "redirigir_producto", {
+            to: data.to,
+            status: data.status,
+            motivo: data.motivo
+          });
+          cargarSeo();
+          cargarRevisionUrls();
+        }
       })
       .catch(function (error) {
         setEstado("Error", "badge-light-danger");
@@ -1083,19 +1387,65 @@
     if (!decision) {
       delete decisiones[path];
     } else {
-      decisiones[path] = decision;
+      decisiones[path] = {
+        decision: decision,
+        fecha: new Date().toISOString(),
+        resuelta: decisionFinalUrlVieja(decision)
+      };
     }
     try {
       window.localStorage.setItem(decisionesKey, JSON.stringify(decisiones));
     } catch (e) {}
-    if (decision === "redirigir_categoria") {
+    if (decision === "redirigir_producto" || decision === "redirigir_categoria") {
+      var tipoDecision = decision === "redirigir_categoria" ? "categoria" : "producto";
       setValue("ecom_seo_redir_from", path);
-      setValue("ecom_seo_redir_tipo", "categoria");
-      setValue("ecom_seo_destino_tipo", "categoria");
+      setValue("ecom_seo_redir_to", "");
+      setValue("ecom_seo_redir_tipo", tipoDecision);
+      setValue("ecom_seo_destino_tipo", tipoDecision);
       setValue("ecom_seo_destino_q", queryDesdePathViejo(path));
       buscarDestinosCanonicos();
+      var form = document.getElementById("ecom_seo_redir_from");
+      if (form && form.scrollIntoView) form.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+    if (decision === "410_descontinuado") {
+      setValue("ecom_seo_redir_from", "");
+      setValue("ecom_seo_redir_to", "");
+      setHtml("ecom_seo_redireccion_resultado", '<div class="alert alert-info py-3">URL marcada como 410/descontinuada en la revision. No requiere destino nuevo.</div>');
     }
     setEstado(decision ? "Decision marcada" : "Decision pendiente", decision ? "badge-light-success" : "badge-light-warning");
+    if (!mostrarOcultas && decisionFinalUrlVieja(decision)) {
+      cargarRevisionUrls();
+    }
+  }
+
+  function marcarUrlViejaResuelta(path, decision, extra) {
+    path = String(path == null ? "" : path).trim();
+    if (!path) return;
+    var decisiones = cargarDecisiones();
+    decisiones[path] = Object.assign({
+      decision: decision,
+      fecha: new Date().toISOString(),
+      resuelta: true
+    }, extra || {});
+    try {
+      window.localStorage.setItem(decisionesKey, JSON.stringify(decisiones));
+    } catch (e) {}
+  }
+
+  function decisionValor(decision) {
+    if (!decision) return "";
+    if (typeof decision === "string") return decision;
+    if (typeof decision === "object") return decision.decision || "";
+    return "";
+  }
+
+  function decisionFinalUrlVieja(decision) {
+    decision = decisionValor(decision);
+    return [
+      "mantener_agotado",
+      "habilitar_basico_agotado",
+      "410_descontinuado"
+    ].indexOf(decision) !== -1;
   }
 
   function buscarDestinosCanonicos() {
@@ -1139,7 +1489,13 @@
     var partes = path.split("/").filter(Boolean);
     var ultimo = partes.length ? partes[partes.length - 1] : "";
     var penultimo = partes.length > 1 ? partes[partes.length - 2] : "";
-    var candidato = ultimo && ultimo.toLowerCase() !== "undefined" ? ultimo : penultimo;
+    var ultimoEsSku = /^[a-z]{2,}[-_]?\d{1,}|[a-z0-9]+[-_][a-z0-9]+$/i.test(ultimo || "");
+    var candidato = "";
+    if (ultimo && ultimo.toLowerCase() !== "undefined" && penultimo && ultimoEsSku) {
+      candidato = penultimo + " " + ultimo;
+    } else {
+      candidato = ultimo && ultimo.toLowerCase() !== "undefined" ? ultimo : penultimo;
+    }
     candidato = candidato.replace(/-/g, " ").replace(/\s+/g, " ").trim();
     return candidato || path.replace(/[\/-]+/g, " ").trim();
   }

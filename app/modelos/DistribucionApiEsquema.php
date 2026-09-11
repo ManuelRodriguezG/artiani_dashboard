@@ -174,6 +174,7 @@ class DistribucionApiEsquema extends DBSchema {
       "`id_token_distribucion` BIGINT NOT NULL AUTO_INCREMENT",
       "`id_cliente_distribucion` BIGINT NOT NULL",
       "`token_hash` VARCHAR(255) NOT NULL",
+      "`tipo_token` VARCHAR(40) NOT NULL DEFAULT 'sesion'",
       "`estatus` VARCHAR(30) NOT NULL DEFAULT 'activo'",
       "`ip_creacion` VARCHAR(80) NULL",
       "`user_agent` VARCHAR(255) NULL",
@@ -182,8 +183,11 @@ class DistribucionApiEsquema extends DBSchema {
       "`fecha_ultimo_uso` DATETIME NULL",
       "PRIMARY KEY (`id_token_distribucion`)",
       "UNIQUE KEY `idx_dist_token_hash` (`token_hash`)",
-      "KEY `idx_dist_token_cliente` (`id_cliente_distribucion`, `estatus`)"
+      "KEY `idx_dist_token_cliente` (`id_cliente_distribucion`, `estatus`)",
+      "KEY `idx_dist_token_tipo` (`tipo_token`, `estatus`, `fecha_expiracion`)"
     ), "ENGINE=InnoDB DEFAULT CHARSET=utf8mb4", $ejecutar);
+    $plan[] = $this->agregarColumnaSiNoExiste("erp_distribucion_tokens", "tipo_token", "VARCHAR(40) NOT NULL DEFAULT 'sesion' AFTER `token_hash`", $ejecutar);
+    $plan[] = $this->agregarIndiceSiNoExiste("erp_distribucion_tokens", "idx_dist_token_tipo", "KEY `idx_dist_token_tipo` (`tipo_token`, `estatus`, `fecha_expiracion`)", $ejecutar);
 
     $plan[] = $this->crearTablaSiNoExiste("erp_distribucion_cotizaciones", array(
       "`id_cotizacion_distribucion` BIGINT NOT NULL AUTO_INCREMENT",

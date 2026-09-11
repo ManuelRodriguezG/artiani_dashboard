@@ -162,9 +162,17 @@ class DistribucionClientesApi extends CRUD {
       $stmt->execute(array(":correo" => strtolower($correo)));
       $cliente = $stmt->fetch(PDO::FETCH_ASSOC);
       if (!$cliente || empty($cliente["contrasenia_hash"]) || !password_verify($contrasenia, $cliente["contrasenia_hash"])) {
+        $this->registrarAuditoria($db, "auth", null, "login", "error", "Credenciales Distribucion invalidas", $this->detalleAcceso($contexto, array(
+          "correo" => strtolower($correo),
+          "motivo" => "credenciales_invalidas"
+        )), null, $cliente ? intval($cliente["id_cliente_distribucion"]) : null);
         return $this->respuesta(true, "warning", "Credenciales invalidas", array("token" => null));
       }
       if ((string) $cliente["estatus"] !== "aprobado") {
+        $this->registrarAuditoria($db, "cliente", intval($cliente["id_cliente_distribucion"]), "login", "bloqueado", "Login Distribucion bloqueado por estatus", $this->detalleAcceso($contexto, array(
+          "correo" => strtolower($correo),
+          "estatus" => $cliente["estatus"]
+        )), null, intval($cliente["id_cliente_distribucion"]));
         return $this->respuesta(true, "warning", "Tu acceso comercial aun no esta aprobado", array(
           "token" => null,
           "estatus" => $cliente["estatus"]
@@ -174,8 +182,8 @@ class DistribucionClientesApi extends CRUD {
       $token = bin2hex(random_bytes(32));
       $tokenHash = hash("sha256", $token);
       $stmtToken = $db->prepare("INSERT INTO erp_distribucion_tokens
-        (id_cliente_distribucion, token_hash, estatus, ip_creacion, user_agent, fecha_expiracion, fecha_registro)
-        VALUES (:cliente, :token_hash, 'activo', :ip, :ua, DATE_ADD(NOW(), INTERVAL 12 HOUR), NOW())");
+        (id_cliente_distribucion, token_hash, tipo_token, estatus, ip_creacion, user_agent, fecha_expiracion, fecha_registro)
+        VALUES (:cliente, :token_hash, 'sesion', 'activo', :ip, :ua, DATE_ADD(NOW(), INTERVAL 12 HOUR), NOW())");
       $stmtToken->execute(array(
         ":cliente" => intval($cliente["id_cliente_distribucion"]),
         ":token_hash" => $tokenHash,
@@ -184,6 +192,10 @@ class DistribucionClientesApi extends CRUD {
       ));
       $db->prepare("UPDATE erp_distribucion_clientes SET fecha_ultimo_login=NOW() WHERE id_cliente_distribucion=:cliente")
         ->execute(array(":cliente" => intval($cliente["id_cliente_distribucion"])));
+      $this->registrarAuditoria($db, "cliente", intval($cliente["id_cliente_distribucion"]), "login", "ok", "Sesion Distribucion iniciada", $this->detalleAcceso($contexto, array(
+        "correo" => strtolower($correo),
+        "token_sesion_expira_horas" => 12
+      )), null, intval($cliente["id_cliente_distribucion"]));
 
       return $this->respuesta(false, "success", "Sesion Distribucion iniciada", array(
         "token" => $token,
@@ -221,6 +233,7 @@ class DistribucionClientesApi extends CRUD {
         FROM erp_distribucion_tokens t
         INNER JOIN erp_distribucion_clientes c ON c.id_cliente_distribucion=t.id_cliente_distribucion
         WHERE t.token_hash=:token_hash
+          AND (t.tipo_token='sesion' OR t.tipo_token IS NULL)
           AND t.estatus='activo'
           AND t.fecha_expiracion>=NOW()
         LIMIT 1");
@@ -260,7 +273,7 @@ class DistribucionClientesApi extends CRUD {
         $where[] = "estatus=:estatus";
         $params[":estatus"] = $estatus;
       }
-      $stmt = $db->prepare("SELECT id_solicitud_distribucion, folio, nombre, nombre_negocio, empresa, correo, telefono, whatsapp, rfc, ciudad, estado, tipo_interes, tipo_negocio, estatus, fecha_registro
+      $stmt = $db->prepare("SELECT id_solicitud_distribucion, id_cliente_distribucion, folio, nombre, nombre_negocio, empresa, correo, telefono, whatsapp, rfc, ciudad, estado, tipo_interes, tipo_negocio, estatus, fecha_registro
         FROM erp_distribucion_solicitudes
         WHERE " . implode(" AND ", $where) . "
         ORDER BY id_solicitud_distribucion DESC
@@ -363,6 +376,39 @@ class DistribucionClientesApi extends CRUD {
   }
 
   /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-11
+   * Proposito: listar eventos de acceso/activacion de un cliente Distribucion para soporte interno.
+   * Impacto: Admin ERP Distribucion; muestra trazabilidad sin revelar tokens, hashes ni contrasenas.
+   * Contrato: read-only sobre `erp_distribucion_auditoria`.
+   */
+  public function auditoriaClienteInterna($filtros = array()) {
+    $idCliente = intval($this->valor($filtros, "id_cliente_distribucion", 0));
+    if ($idCliente <= 0) {
+      return $this->respuesta(true, "warning", "Cliente requerido", array("items" => array()));
+    }
+    $db = $this->getConexion();
+    if (!$db || !$this->tablaExiste($db, "erp_distribucion_auditoria")) {
+      return $this->respuesta(false, "warning", "Auditoria Distribucion no disponible", array("configurado" => false, "items" => array()));
+    }
+    try {
+      $stmt = $db->prepare("SELECT id_auditoria_distribucion, entidad, id_entidad, accion, resultado, mensaje, detalle_json, id_usuario_erp, fecha_registro
+        FROM erp_distribucion_auditoria
+        WHERE id_cliente_distribucion=:cliente
+           OR (entidad='cliente' AND id_entidad=:cliente)
+        ORDER BY id_auditoria_distribucion DESC
+        LIMIT 80");
+      $stmt->execute(array(":cliente" => $idCliente));
+      return $this->respuesta(false, "success", "Auditoria Distribucion consultada", array(
+        "configurado" => true,
+        "id_cliente_distribucion" => $idCliente,
+        "items" => $stmt->fetchAll(PDO::FETCH_ASSOC)
+      ));
+    } catch (Exception $e) {
+      return $this->respuesta(true, "danger", "No se pudo consultar auditoria Distribucion", array("detalle" => "error_controlado", "items" => array()));
+    }
+  }
+
+  /**
    * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-10
    * Proposito: aprobar cliente externo desde solicitud Distribucion y configurar acceso comercial explicito.
    * Impacto: Admin ERP Distribucion; crea/actualiza prospecto sin asumir lista, permisos ni credenciales automaticas.
@@ -428,6 +474,7 @@ class DistribucionClientesApi extends CRUD {
       if (!empty($permisos)) {
         $this->aplicarPermisosCliente($db, $idCliente, $permisos);
       }
+      $activacion = $this->crearTokenActivacionContrasenia($db, $idCliente);
       $this->registrarAuditoria($db, "cliente", $idCliente, "aprobar", "ok", "Cliente Distribucion aprobado", array(
         "id_solicitud_distribucion" => $idSolicitud,
         "tipo_cliente" => $tipo,
@@ -435,7 +482,9 @@ class DistribucionClientesApi extends CRUD {
         "lista_asignada" => $idLista > 0,
         "id_lista_precio" => $idLista > 0 ? $idLista : null,
         "permisos_asignados" => !empty($permisos),
-        "permisos" => $permisos
+        "permisos" => $permisos,
+        "token_activacion_generado" => true,
+        "token_activacion_expira" => $activacion["fecha_expiracion"]
       ), $idUsuario, $idCliente);
       $db->commit();
       return $this->respuesta(false, "success", "Cliente Distribucion aprobado", array(
@@ -446,11 +495,98 @@ class DistribucionClientesApi extends CRUD {
         "id_lista_precio" => $idLista > 0 ? $idLista : null,
         "permisos" => $permisos,
         "lista_asignada_explicitamente" => $idLista > 0,
-        "permisos_asignados_explicitamente" => !empty($permisos)
+        "permisos_asignados_explicitamente" => !empty($permisos),
+        "activacion" => array(
+          "url" => $activacion["url"],
+          "fecha_expiracion" => $activacion["fecha_expiracion"],
+          "mensaje_whatsapp" => $this->mensajeActivacionWhatsApp($solicitud, $activacion["url"])
+        )
       ));
     } catch (Exception $e) {
       if ($db && $db->inTransaction()) { $db->rollBack(); }
       return $this->respuesta(true, "danger", "No se pudo aprobar cliente Distribucion", array("detalle" => "error_controlado"));
+    }
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-10
+   * Proposito: consultar token de activacion para que Distribucion muestre formulario de crear contrasenia.
+   * Impacto: Autenticacion externa; no inicia sesion ni expone hash.
+   * Contrato: POST JSON `{ token }`; token de un solo proposito y con expiracion.
+   */
+  public function activacionConsultar($datos = array()) {
+    $token = trim((string) $this->valor($datos, "token", ""));
+    if ($token === "") {
+      return $this->respuesta(true, "warning", "Token requerido", array("valido" => false));
+    }
+    $db = $this->getConexion();
+    if (!$db || !$this->tablaExiste($db, "erp_distribucion_clientes") || !$this->tablaExiste($db, "erp_distribucion_tokens")) {
+      return $this->respuesta(true, "warning", "Activacion Distribucion no disponible", array("configurado" => false, "valido" => false));
+    }
+    $cliente = $this->clientePorTokenActivacion($db, $token);
+    if (!$cliente) {
+      $this->registrarAuditoria($db, "auth", null, "activar_consultar", "error", "Link de activacion invalido o vencido", $this->detalleAcceso(array(), array(
+        "token_hash" => hash("sha256", $token)
+      )), null, null);
+      return $this->respuesta(true, "warning", "Link de activacion invalido o vencido", array("valido" => false));
+    }
+    $this->registrarAuditoria($db, "cliente", intval($cliente["id_cliente_distribucion"]), "activar_consultar", "ok", "Link de activacion consultado", $this->detalleAcceso(array(), array(
+      "correo" => $cliente["correo"]
+    )), null, intval($cliente["id_cliente_distribucion"]));
+    return $this->respuesta(false, "success", "Link de activacion valido", array(
+      "valido" => true,
+      "cliente" => array(
+        "nombre" => $cliente["nombre"],
+        "empresa" => $cliente["empresa"],
+        "correo" => $cliente["correo"],
+        "estatus" => $cliente["estatus"]
+      )
+    ));
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-10
+   * Proposito: definir contrasenia inicial desde token de activacion enviado manualmente por WhatsApp.
+   * Impacto: Autenticacion externa; consume token y no crea sesion automaticamente.
+   * Contrato: POST JSON `{ token, contrasenia }`; despues el cliente debe usar `/auth/login`.
+   */
+  public function activarContrasenia($datos = array(), $contexto = array()) {
+    $token = trim((string) $this->valor($datos, "token", ""));
+    $contrasenia = (string) $this->valor($datos, "contrasenia", "");
+    if ($token === "" || strlen($contrasenia) < 8) {
+      return $this->respuesta(true, "warning", "Token o contrasenia invalida", array("minimo_contrasenia" => 8));
+    }
+    $db = $this->getConexion();
+    if (!$db || !$this->tablaExiste($db, "erp_distribucion_clientes") || !$this->tablaExiste($db, "erp_distribucion_tokens")) {
+      return $this->respuesta(true, "warning", "Activacion Distribucion no disponible", array("configurado" => false));
+    }
+    try {
+      $cliente = $this->clientePorTokenActivacion($db, $token);
+      if (!$cliente) {
+        $this->registrarAuditoria($db, "auth", null, "activar_contrasenia", "error", "Intento de activar contrasenia con link invalido o vencido", $this->detalleAcceso($contexto, array(
+          "token_hash" => hash("sha256", $token)
+        )), null, null);
+        return $this->respuesta(true, "warning", "Link de activacion invalido o vencido");
+      }
+      $db->beginTransaction();
+      $hash = password_hash($contrasenia, PASSWORD_DEFAULT);
+      $db->prepare("UPDATE erp_distribucion_clientes SET contrasenia_hash=:hash, fecha_actualizacion=NOW() WHERE id_cliente_distribucion=:cliente")
+        ->execute(array(":hash" => $hash, ":cliente" => intval($cliente["id_cliente_distribucion"])));
+      $db->prepare("UPDATE erp_distribucion_tokens SET estatus='usado', fecha_ultimo_uso=NOW() WHERE token_hash=:token_hash AND tipo_token='activacion_contrasenia'")
+        ->execute(array(":token_hash" => hash("sha256", $token)));
+      $this->registrarAuditoria($db, "cliente", intval($cliente["id_cliente_distribucion"]), "activar_contrasenia", "ok", "Contrasenia Distribucion definida por cliente", array(
+        "ip" => $this->ipContexto($contexto),
+        "user_agent" => $this->userAgentContexto($contexto)
+      ), null, intval($cliente["id_cliente_distribucion"]));
+      $db->commit();
+      return $this->respuesta(false, "success", "Contrasenia creada. Ya puedes iniciar sesion.", array(
+        "activado" => true,
+        "requiere_login" => true,
+        "correo" => $cliente["correo"]
+      ));
+    } catch (Exception $e) {
+      if ($db && $db->inTransaction()) { $db->rollBack(); }
+      return $this->respuesta(true, "danger", "No se pudo activar la contrasenia", array("detalle" => "error_controlado"));
     }
   }
 
@@ -506,6 +642,57 @@ class DistribucionClientesApi extends CRUD {
     } catch (Exception $e) {
       if ($db && $db->inTransaction()) { $db->rollBack(); }
       return $this->respuesta(true, "danger", "No se pudo actualizar estatus Distribucion", array("detalle" => "error_controlado"));
+    }
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-10
+   * Proposito: generar/reemitir link de activacion de contrasenia para envio manual por WhatsApp/correo.
+   * Impacto: Admin ERP Distribucion; no inicia sesion y revoca activaciones previas activas.
+   * Contrato: escritura auditada; requiere cliente aprobado.
+   */
+  public function clienteActivacionLinkInterno($datos = array(), $idUsuario = null) {
+    $idCliente = intval($this->valor($datos, "id_cliente_distribucion", 0));
+    $idSolicitud = intval($this->valor($datos, "id_solicitud_distribucion", 0));
+    $db = $this->getConexion();
+    if (!$this->esquemaOperativo($db)) {
+      return $this->respuesta(true, "warning", "Esquema Distribucion no disponible", array("configurado" => false));
+    }
+    try {
+      if ($idCliente <= 0 && $idSolicitud > 0) {
+        $solicitud = $this->buscarSolicitud($db, $idSolicitud);
+        $idCliente = $solicitud ? intval($this->valor($solicitud, "id_cliente_distribucion", 0)) : 0;
+      }
+      if ($idCliente <= 0) {
+        return $this->respuesta(true, "warning", "Cliente aprobado requerido");
+      }
+      $cliente = $this->buscarCliente($db, $idCliente);
+      if (!$cliente || (string) $cliente["estatus"] !== "aprobado") {
+        return $this->respuesta(true, "warning", "Cliente aprobado requerido");
+      }
+      $db->beginTransaction();
+      $activacion = $this->crearTokenActivacionContrasenia($db, $idCliente);
+      $this->registrarAuditoria($db, "cliente", $idCliente, "generar_link_activacion", "ok", "Link de activacion Distribucion generado", array(
+        "fecha_expiracion" => $activacion["fecha_expiracion"],
+        "id_solicitud_distribucion" => $idSolicitud ?: null
+      ), $idUsuario, $idCliente);
+      $db->commit();
+      return $this->respuesta(false, "success", "Link de activacion generado", array(
+        "id_cliente_distribucion" => $idCliente,
+        "url" => $activacion["url"],
+        "fecha_expiracion" => $activacion["fecha_expiracion"],
+        "mensaje_whatsapp" => $this->mensajeActivacionWhatsApp($cliente, $activacion["url"]),
+        "cliente" => array(
+          "nombre" => $cliente["nombre"],
+          "empresa" => $cliente["empresa"],
+          "correo" => $cliente["correo"],
+          "telefono" => $cliente["telefono"],
+          "estatus" => $cliente["estatus"]
+        )
+      ));
+    } catch (Exception $e) {
+      if ($db && $db->inTransaction()) { $db->rollBack(); }
+      return $this->respuesta(true, "danger", "No se pudo generar link de activacion", array("detalle" => "error_controlado"));
     }
   }
 
@@ -610,6 +797,89 @@ class DistribucionClientesApi extends CRUD {
       $permisos[] = $fila["permiso"];
     }
     return $permisos;
+  }
+
+  private function crearTokenActivacionContrasenia($db, $idCliente) {
+    $token = bin2hex(random_bytes(32));
+    $tokenHash = hash("sha256", $token);
+    $fechaExpiracion = date("Y-m-d H:i:s", strtotime("+72 hours"));
+    $db->prepare("UPDATE erp_distribucion_tokens
+      SET estatus='revocado', fecha_ultimo_uso=NOW()
+      WHERE id_cliente_distribucion=:cliente AND tipo_token='activacion_contrasenia' AND estatus='activo'")
+      ->execute(array(":cliente" => intval($idCliente)));
+    $stmt = $db->prepare("INSERT INTO erp_distribucion_tokens
+      (id_cliente_distribucion, token_hash, tipo_token, estatus, ip_creacion, user_agent, fecha_expiracion, fecha_registro)
+      VALUES (:cliente, :token_hash, 'activacion_contrasenia', 'activo', NULL, NULL, :expira, NOW())");
+    $stmt->execute(array(
+      ":cliente" => intval($idCliente),
+      ":token_hash" => $tokenHash,
+      ":expira" => $fechaExpiracion
+    ));
+    return array(
+      "token" => $token,
+      "url" => $this->urlActivacion($token),
+      "fecha_expiracion" => $fechaExpiracion
+    );
+  }
+
+  private function urlActivacion($token) {
+    return rtrim($this->baseFrontendDistribucion(), "/") . "/activar-cuenta?token=" . rawurlencode($token);
+  }
+
+  private function baseFrontendDistribucion() {
+    if (defined("DISTRIBUCION_FRONTEND_URL")) {
+      $configurada = trim((string) DISTRIBUCION_FRONTEND_URL);
+      if ($configurada !== "") {
+        return $configurada;
+      }
+    }
+    $env = trim((string) getenv("DISTRIBUCION_FRONTEND_URL"));
+    if ($env !== "") {
+      return $env;
+    }
+    $host = isset($_SERVER["HTTP_HOST"]) ? strtolower(trim((string) $_SERVER["HTTP_HOST"])) : "";
+    $server = isset($_SERVER["SERVER_NAME"]) ? strtolower(trim((string) $_SERVER["SERVER_NAME"])) : "";
+    $host = preg_replace('/:\d+$/', '', $host);
+    $server = preg_replace('/:\d+$/', '', $server);
+    $rutaUrl = defined("RUTA_URL") ? strtolower((string) RUTA_URL) : "";
+    if (
+      in_array($host, array("localhost", "panel.com.local", "dashboard.com.local"), true)
+      || in_array($server, array("localhost", "panel.com.local", "dashboard.com.local"), true)
+      || strpos($host, ".com.local") !== false
+      || strpos($server, ".com.local") !== false
+      || strpos($rutaUrl, ".com.local") !== false
+    ) {
+      return "http://distribucion.artiani.com.local";
+    }
+    return "https://distribucion.artiani.com.mx";
+  }
+
+  private function mensajeActivacionWhatsApp($cliente, $url) {
+    $nombre = trim((string) $this->valor($cliente, "nombre", ""));
+    $correo = trim((string) $this->valor($cliente, "correo", ""));
+    if ($nombre === "") { $nombre = "buen dia"; }
+    $lineas = array(
+      "Hola " . $nombre . ", tu solicitud de acceso mayorista Artiani ya fue aprobada.",
+      "Para crear tu contrasenia entra a este link:",
+      $url,
+      $correo !== "" ? "Tu usuario sera este correo: " . $correo . "." : "Ahi podras activar tu acceso.",
+      "El link vence en 72 horas. Si necesitas apoyo, te ayudamos por este medio."
+    );
+    return implode("\n", $lineas);
+  }
+
+  private function clientePorTokenActivacion($db, $token) {
+    $stmt = $db->prepare("SELECT c.id_cliente_distribucion, c.nombre, c.empresa, c.correo, c.telefono, c.tipo_cliente, c.estatus
+      FROM erp_distribucion_tokens t
+      INNER JOIN erp_distribucion_clientes c ON c.id_cliente_distribucion=t.id_cliente_distribucion
+      WHERE t.token_hash=:token_hash
+        AND t.tipo_token='activacion_contrasenia'
+        AND t.estatus='activo'
+        AND t.fecha_expiracion>=NOW()
+        AND c.estatus='aprobado'
+      LIMIT 1");
+    $stmt->execute(array(":token_hash" => hash("sha256", trim((string) $token))));
+    return $stmt->fetch(PDO::FETCH_ASSOC);
   }
 
   private function listaPrecioActiva($db, $idLista) {
@@ -728,6 +998,20 @@ class DistribucionClientesApi extends CRUD {
       ":usuario" => $idUsuario,
       ":cliente" => $idCliente
     ));
+  }
+
+  private function detalleAcceso($contexto = array(), $extra = array()) {
+    $detalle = array(
+      "ip" => $this->ipContexto($contexto),
+      "user_agent" => $this->userAgentContexto($contexto)
+    );
+    if (is_array($extra)) {
+      foreach ($extra as $clave => $valor) {
+        if ($clave === "contrasenia" || $clave === "token") { continue; }
+        $detalle[$clave] = $valor;
+      }
+    }
+    return $detalle;
   }
 
   private function folioSolicitud($db) {

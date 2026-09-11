@@ -1549,11 +1549,8 @@ Cambios aplicados:
   - `url`;
   - `url_publica`;
   - `canonical_url`.
-- `guardarCuraduriaPublicacionAutorizada()` detecta cambio real de slug y crea/actualiza redireccion 301:
-  - `/producto/{slug_anterior}` -> `/producto/{slug_nuevo}`;
-  - tipo `producto_slug`;
-  - motivo `slug_publico_actualizado`.
-- La escritura de redireccion es transaccional junto con la curaduria cuando la tabla SEO existe.
+- `guardarCuraduriaPublicacionAutorizada()` detecta cambio real de slug, pero ya no crea 301 automaticamente porque puede ser una URL nueva interna que nunca estuvo en produccion.
+- Las redirecciones 301 se aprueban aparte desde una URL vieja productiva/importada hacia la URL canonica nueva.
 - `GET /ecommercePublico/redirecciones` queda como alias publico para redirecciones activas; mantiene compatibilidad con `/seo_redirecciones`.
 - `seo_redirecciones` agrega alias `items` ademas de `redirecciones`.
 - La preparacion interna expone `seo_url_publica` e `historial_slugs` para UI.
@@ -1576,8 +1573,8 @@ Reglas confirmadas:
 Pendiente antes de abrir indexacion:
 
 - Aplicar DDL complementario con respaldo externo y autorizacion explicita.
-- Probar cambio real de slug en una publicacion publicada y validar que se cree 301.
-- Probar `GET /ecommercePublico/producto/{slug_anterior}` y `GET /ecommercePublico/redirecciones`.
+- Probar cambio real de slug en una publicacion y validar que no cree 301 automatica.
+- Probar redireccion manual desde una URL vieja productiva con `GET /ecommercePublico/producto/{slug_anterior}` y `GET /ecommercePublico/redirecciones`.
 - Confirmar que el frontend externo convierte `tipo=redirect/status=301` en una redireccion HTTP 301 real en SSR/middleware.
 
 ### Mesa SEO de productos y slugs 2026-09-09
@@ -1590,7 +1587,7 @@ Necesidad operativa:
 Cambios aplicados:
 
 - `GET /ecommercePublico/seo_productos_slugs_erp` lista publicaciones con `SKU`, `titulo_publico`, `slug`, URL local de revision, canonical productiva y sugerencias de URLs anteriores.
-- `POST /ecommercePublico/seo_producto_slug_plan_erp` valida cambio de nombre/slug en modo read-only y muestra si se generaria 301 por cambio de slug.
+- `POST /ecommercePublico/seo_producto_slug_plan_erp` valida cambio de nombre/slug en modo read-only sin sugerir 301 por cambio de slug interno.
 - `POST /ecommercePublico/seo_producto_slug_guardar_erp` guarda nombre/slug reutilizando `guardarCuraduriaPublicacionAutorizada()` con token `ECOMMERCE_PUBLICO_PUBLICACION_CURADURIA`.
 - La vista `/ecommercePublico/seo_migracion` agrega bloque `Productos y slugs publicos` con filtros por busqueda, estatus y relacion vieja.
 - El boton de estrella sugiere slug desde el nombre actual, pero no lo cambia solo por escribir el nombre.

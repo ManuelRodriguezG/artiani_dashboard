@@ -98,6 +98,35 @@
                             <div class="ecom-seo-panel p-5 mb-5">
                                 <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
                                     <div>
+                                        <h3 class="fw-bold mb-1">Modo rapido de URLs indexadas</h3>
+                                        <div class="text-muted fs-7">Tabla simple para aceptar, editar destino, guardar 301 o marcar 410.</div>
+                                    </div>
+                                    <div class="d-flex align-items-center gap-2">
+                                        <select class="form-select form-select-sm form-select-solid w-auto" id="ecom_seo_rapido_limite">
+                                            <option value="20" selected>20 URLs</option>
+                                            <option value="50">50 URLs</option>
+                                        </select>
+                                        <button class="btn btn-sm btn-light-primary" type="button" id="ecom_seo_rapido_recargar"><i class="bi bi-arrow-clockwise"></i> Consultar</button>
+                                    </div>
+                                </div>
+                                <div class="table-responsive ecom-seo-scroll">
+                                    <table class="table table-row-dashed fs-7 gy-3 mb-0">
+                                        <thead>
+                                        <tr class="text-muted fw-bold">
+                                            <th>URL indexada</th>
+                                            <th>URL sugerida</th>
+                                            <th>Estado</th>
+                                            <th class="text-end">Resolver</th>
+                                        </tr>
+                                        </thead>
+                                        <tbody id="ecom_seo_rapido_body"></tbody>
+                                    </table>
+                                </div>
+                            </div>
+
+                            <div class="ecom-seo-panel p-5 mb-5">
+                                <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+                                    <div>
                                         <h3 class="fw-bold mb-1">Productos y slugs publicos</h3>
                                         <div class="text-muted fs-7">SKU, nombre publico, slug guardado en BD y candidatos de URLs anteriores para relacionar.</div>
                                     </div>
@@ -241,8 +270,10 @@
                                     <div class="col-md-1">
                                         <label class="form-label">Limite</label>
                                         <select class="form-select form-select-solid" id="ecom_seo_revision_limite">
+                                            <option value="20" selected>20</option>
+                                            <option value="50">50</option>
                                             <option value="80">80</option>
-                                            <option value="120" selected>120</option>
+                                            <option value="120">120</option>
                                             <option value="250">250</option>
                                             <option value="500">500</option>
                                         </select>
@@ -422,11 +453,71 @@
         </div>
     </div>
 </div>
+<div class="modal fade" id="ecom_seo_rapido_modal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title">Resolver URL indexada</h3>
+                <button type="button" class="btn btn-sm btn-icon btn-light" data-bs-dismiss="modal" aria-label="Cerrar"><i class="bi bi-x-lg"></i></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="ecom_seo_rapido_item_json">
+                <label class="form-label">URL vieja</label>
+                <input class="form-control form-control-solid mb-3" id="ecom_seo_rapido_from" readonly>
+                <div class="row g-3 mb-3">
+                    <div class="col-md-4">
+                        <label class="form-label">Decision</label>
+                        <select class="form-select form-select-solid" id="ecom_seo_rapido_decision">
+                            <option value="301">301 a destino nuevo</option>
+                            <option value="410">410 descontinuada</option>
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Tipo destino</label>
+                        <select class="form-select form-select-solid" id="ecom_seo_rapido_tipo">
+                            <option value="producto">Producto</option>
+                            <option value="categoria">Categoria</option>
+                            <option value="marca">Marca</option>
+                            <option value="manual">Manual</option>
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Status</label>
+                        <select class="form-select form-select-solid" id="ecom_seo_rapido_status">
+                            <option value="301">301</option>
+                            <option value="302">302</option>
+                            <option value="308">308</option>
+                        </select>
+                    </div>
+                </div>
+                <label class="form-label">Destino nuevo editable</label>
+                <input class="form-control form-control-solid mb-3" id="ecom_seo_rapido_to" placeholder="/producto/slug-nuevo">
+                <div class="border rounded p-3 mb-3">
+                    <div class="row g-2 align-items-end">
+                        <div class="col-md-8">
+                            <label class="form-label">Buscar destino</label>
+                            <input class="form-control form-control-solid" id="ecom_seo_rapido_buscar_q" placeholder="producto, categoria o marca">
+                        </div>
+                        <div class="col-md-4">
+                            <button class="btn btn-light-primary w-100" type="button" id="ecom_seo_rapido_buscar"><i class="bi bi-search"></i> Buscar</button>
+                        </div>
+                    </div>
+                    <div class="mt-3" id="ecom_seo_rapido_resultados"></div>
+                </div>
+                <div id="ecom_seo_rapido_mensaje"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cerrar</button>
+                <button type="button" class="btn btn-primary" id="ecom_seo_rapido_guardar"><i class="bi bi-save"></i> Guardar decision</button>
+            </div>
+        </div>
+    </div>
+</div>
 <script src="assets/plugins/global/plugins.bundle.js"></script>
 <script src="assets/js/scripts.bundle.js"></script>
 <script>
     window.ERP_CSRF_TOKEN = "<?= htmlspecialchars(SesionSeguridad::csrfToken(), ENT_QUOTES, 'UTF-8') ?>";
 </script>
-<script src="/assets/js/custom/apps/erp/ecommerce/seo_migracion.js?v=20260910-seo-slug-redir-sin-token1"></script>
+<script src="/assets/js/custom/apps/erp/ecommerce/seo_migracion.js?v=20260911-modo-rapido-lotes1"></script>
 </body>
 </html>
