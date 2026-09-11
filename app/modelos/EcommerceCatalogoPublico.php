@@ -5063,7 +5063,12 @@ class EcommerceCatalogoPublico extends CRUD {
       $limite = max(1, min(80, intval($this->valor($opciones, "limite", 30))));
       $tipo = trim((string) $this->valor($opciones, "tipo", ""));
       $q = strtolower($this->normalizarTextoPlano(trim((string) $this->valor($opciones, "q", ""))));
-      $urls = $this->seoUrlsPublicasItems($baseProduccion, 1000);
+      if ($tipo === "producto" && trim((string) $this->valor($opciones, "q", "")) !== "") {
+        return $this->seoDestinosProductosInterno($db, $baseProduccion, $baseLocal, $this->valor($opciones, "q", ""), $limite);
+      }
+      $urls = $tipo === "producto"
+        ? $this->seoUrlsComparacionMigracionItems($baseProduccion, 5000)
+        : $this->seoUrlsPublicasItems($baseProduccion, 1000);
       $items = array();
       foreach ($urls as $url) {
         $tipoUrl = (string) $this->valor($url, "tipo", "");
@@ -5075,7 +5080,11 @@ class EcommerceCatalogoPublico extends CRUD {
             $this->valor($url, "description", ""),
             $this->valor($url, "sku", "")
           ))));
-          if (strpos($texto, $q) === false) { continue; }
+          $textoSlug = $this->slugificar($texto);
+          $qSlug = $this->slugificar($q);
+          $textoCompacto = preg_replace('/[^a-z0-9]+/', '', $textoSlug);
+          $qCompacto = preg_replace('/[^a-z0-9]+/', '', $qSlug);
+          if (strpos($texto, $q) === false && strpos($textoSlug, $qSlug) === false && ($qCompacto === "" || strpos($textoCompacto, $qCompacto) === false)) { continue; }
         }
         $path = $this->normalizarSeoPathPublico($this->valor($url, "path", ""));
         $items[] = array(
@@ -5087,7 +5096,9 @@ class EcommerceCatalogoPublico extends CRUD {
           "description" => $this->valor($url, "description", ""),
           "sku" => $this->valor($url, "sku", ""),
           "id_sku" => intval($this->valor($url, "id_sku", 0)),
-          "id_publicacion" => intval($this->valor($url, "entidad_id", 0))
+          "id_publicacion" => intval($this->valor($url, "entidad_id", 0)),
+          "estatus_publicacion" => $this->valor($url, "estatus_publicacion", ""),
+          "fuente_comparacion" => $this->valor($url, "fuente_comparacion", "")
         );
         if (count($items) >= $limite) { break; }
       }
@@ -5102,6 +5113,93 @@ class EcommerceCatalogoPublico extends CRUD {
     } catch (Exception $e) {
       return $this->respuesta(true, "danger", $e->getMessage(), array("read_only" => true, "items" => array()));
     }
+  }
+
+  private function seoDestinosProductosInterno($db, $baseProduccion, $baseLocal, $qRaw, $limite) {
+    if (!$db || !$this->tablaExiste($db, "erp_ecommerce_publicaciones")) {
+      return $this->respuesta(false, "success", "Destinos producto consultados", array(
+        "read_only" => true,
+        "total_filtrado" => 0,
+        "base_produccion" => $baseProduccion,
+        "base_local_revision" => $baseLocal,
+        "items" => array(),
+        "guardrails" => array("no_escribe_bd" => true, "busqueda_sql_directa" => true)
+      ));
+    }
+    $qRaw = trim((string) $qRaw);
+    $qLike = "%" . $qRaw . "%";
+    $qSlug = "%" . $this->slugificar($qRaw) . "%";
+    $qCompacto = "%" . preg_replace('/[^a-zA-Z0-9]+/', '', $qRaw) . "%";
+    $sql = "SELECT pub.id_publicacion, pub.id_producto_erp, pub.id_sku, pub.slug, pub.url_publica, pub.canonical_url,
+        pub.titulo_publico, pub.descripcion_publica, pub.presentacion_publica, pub.estatus_publicacion,
+        s.sku, COALESCE(s.nombre, p.nombre) nombre_sku, p.nombre nombre_producto,
+        m.nombre marca, COALESCE(c.ruta, c.nombre) categoria
+      FROM erp_ecommerce_publicaciones pub
+      INNER JOIN erp_catalogo_skus s ON s.id_sku=pub.id_sku
+      INNER JOIN erp_catalogo_productos p ON p.id_producto_erp=pub.id_producto_erp
+      LEFT JOIN erp_catalogo_marcas m ON m.id_marca_erp=p.id_marca_erp
+      LEFT JOIN erp_catalogo_producto_categorias pc ON pc.id_producto_erp=p.id_producto_erp AND pc.es_principal=1
+      LEFT JOIN erp_catalogo_categorias c ON c.id_categoria_erp=pc.id_categoria_erp
+      WHERE pub.canal='catalogo_publico'
+        AND (
+          s.sku LIKE :q_like OR REPLACE(REPLACE(s.sku, '-', ''), '_', '') LIKE :q_compacto OR
+          pub.slug LIKE :q_slug OR pub.titulo_publico LIKE :q_like OR
+          s.nombre LIKE :q_like OR p.nombre LIKE :q_like OR
+          m.nombre LIKE :q_like OR c.nombre LIKE :q_like OR c.ruta LIKE :q_like
+        )
+      ORDER BY pub.estatus_publicacion='publicado' DESC,
+        CASE
+          WHEN s.sku LIKE :q_like THEN 0
+          WHEN pub.titulo_publico LIKE :q_like THEN 1
+          WHEN pub.slug LIKE :q_slug THEN 2
+          ELSE 3
+        END,
+        pub.fecha_actualizacion DESC,
+        pub.id_publicacion DESC
+      LIMIT " . intval($limite);
+    $stmt = $db->prepare($sql);
+    $stmt->execute(array(
+      ":q_like" => $qLike,
+      ":q_slug" => $qSlug,
+      ":q_compacto" => $qCompacto
+    ));
+    $items = array();
+    foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $fila) {
+      $slug = $this->slugificar($this->valor($fila, "slug", ""));
+      $path = $this->normalizarSeoPathPublico($this->valor($fila, "url_publica", ""));
+      if ($path === "" && $slug !== "") { $path = "/producto/" . $slug; }
+      if ($path === "") { continue; }
+      $url = $this->urlSeoPublica($baseProduccion, $path);
+      $titulo = trim((string) ($this->valor($fila, "titulo_publico", "") ?: $this->valor($fila, "nombre_sku", "") ?: $this->valor($fila, "nombre_producto", "")));
+      $items[] = array(
+        "tipo" => "producto",
+        "path" => $path,
+        "canonical" => $this->valor($fila, "canonical_url", "") ?: $url,
+        "url_local" => $baseLocal . $path,
+        "title" => $titulo,
+        "description" => trim(implode(" ", array(
+          $this->valor($fila, "descripcion_publica", ""),
+          $this->valor($fila, "presentacion_publica", ""),
+          $this->valor($fila, "nombre_sku", ""),
+          $this->valor($fila, "nombre_producto", ""),
+          $this->valor($fila, "marca", ""),
+          $this->valor($fila, "categoria", "")
+        ))),
+        "sku" => $this->valor($fila, "sku", ""),
+        "id_sku" => intval($this->valor($fila, "id_sku", 0)),
+        "id_publicacion" => intval($this->valor($fila, "id_publicacion", 0)),
+        "estatus_publicacion" => $this->valor($fila, "estatus_publicacion", ""),
+        "fuente_comparacion" => "publicacion_ecommerce"
+      );
+    }
+    return $this->respuesta(false, "success", "Destinos producto consultados", array(
+      "read_only" => true,
+      "total_filtrado" => count($items),
+      "base_produccion" => $baseProduccion,
+      "base_local_revision" => $baseLocal,
+      "items" => $items,
+      "guardrails" => array("no_escribe_bd" => true, "busqueda_sql_directa" => true, "incluye_borradores" => true)
+    ));
   }
 
   /**
