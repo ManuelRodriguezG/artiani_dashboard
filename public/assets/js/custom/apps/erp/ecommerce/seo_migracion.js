@@ -11,6 +11,8 @@
   var descartadasKey = "ecom_seo_urls_viejas_descartadas";
   var decisionesKey = "ecom_seo_urls_viejas_decisiones";
   var productoSeoSeleccionado = null;
+  var rapidoOffset = 0;
+  var rapidoSaltosAuto = 0;
 
   document.addEventListener("DOMContentLoaded", function () {
     bindEvents();
@@ -59,9 +61,9 @@
     if (redireccionGuardar) redireccionGuardar.addEventListener("click", guardarRedireccion);
     if (urlsSyncPlan) urlsSyncPlan.addEventListener("click", prepararSyncUrls);
     if (urlsSyncGuardar) urlsSyncGuardar.addEventListener("click", guardarSyncUrls);
-    if (revisionRecargar) revisionRecargar.addEventListener("click", cargarRevisionUrls);
+    if (revisionRecargar) revisionRecargar.addEventListener("click", function () { rapidoOffset = 0; cargarRevisionUrls(); });
     if (rapidoRecargar) rapidoRecargar.addEventListener("click", cargarRevisionUrls);
-    if (rapidoLimite) rapidoLimite.addEventListener("change", cargarRevisionUrls);
+    if (rapidoLimite) rapidoLimite.addEventListener("change", function () { rapidoOffset = 0; cargarRevisionUrls(); });
     if (rapidoBuscar) rapidoBuscar.addEventListener("click", buscarRapidoDestinos);
     if (rapidoGuardar) rapidoGuardar.addEventListener("click", guardarRapidoDecision);
     if (productosRecargar) productosRecargar.addEventListener("click", cargarProductosSlugs);
@@ -80,7 +82,7 @@
     });
     [revisionQ, revisionAccion, revisionPrioridad, revisionLimite, revisionFuente].forEach(function (node) {
       if (!node) return;
-      node.addEventListener(node === revisionQ ? "input" : "change", debounce(cargarRevisionUrls, 250));
+      node.addEventListener(node === revisionQ ? "input" : "change", debounce(function () { rapidoOffset = 0; cargarRevisionUrls(); }, 250));
     });
     [productosQ, productosEstatus, productosRelacion, productosLimite].forEach(function (node) {
       if (!node) return;
@@ -180,8 +182,14 @@
   }
 
   function cargarRevisionUrls() {
+    rapidoSaltosAuto = 0;
+    cargarRevisionUrlsDesdeOffset();
+  }
+
+  function cargarRevisionUrlsDesdeOffset() {
     var params = new URLSearchParams();
     params.set("limite", valor("ecom_seo_rapido_limite") || valor("ecom_seo_revision_limite") || "20");
+    params.set("offset", String(rapidoOffset));
     params.set("fuente", valor("ecom_seo_revision_fuente") || "indexadas");
     if (valor("ecom_seo_revision_q")) params.set("q", valor("ecom_seo_revision_q"));
     if (valor("ecom_seo_revision_accion")) params.set("accion", valor("ecom_seo_revision_accion"));
@@ -190,7 +198,14 @@
       .then(jsonResponse)
       .then(function (response) {
         renderRevisionUrls(response);
-        renderRapidoUrls(response);
+        var pendientesRapidos = renderRapidoUrls(response);
+        var items = get(response, ["depurar", "items"], []);
+        var limiteRapido = parseInt(valor("ecom_seo_rapido_limite") || "20", 10) || 20;
+        if (pendientesRapidos === 0 && Array.isArray(items) && items.length > 0 && rapidoSaltosAuto < 30) {
+          rapidoSaltosAuto++;
+          rapidoOffset += limiteRapido;
+          cargarRevisionUrlsDesdeOffset();
+        }
       })
       .catch(function (error) {
         setHtml("ecom_seo_revision_info", '<div class="alert alert-danger py-3">' + escapeHtml(error.message || "No se pudo consultar revision.") + "</div>");
@@ -430,16 +445,21 @@
     var depurar = get(response, ["depurar"], {});
     var decisiones = cargarDecisiones();
     var descartadas = cargarDescartadas();
-    var items = (Array.isArray(depurar.items) ? depurar.items : []).filter(function (item) {
+    var originales = Array.isArray(depurar.items) ? depurar.items : [];
+    var items = originales.filter(function (item) {
       var path = item.path_original || "";
       var decision = decisionValor(decisiones[path]);
       return !(!!descartadas[path] || decisionFinalUrlVieja(decision) || !!item.redireccion_existente);
     });
     if (!items.length) {
-      tbody.innerHTML = '<tr><td colspan="4" class="text-center text-muted py-6">Sin URLs pendientes para el modo rapido.</td></tr>';
-      return;
+      tbody.innerHTML = '<tr><td colspan="4" class="text-center text-muted py-6">' + (originales.length ? "Buscando el siguiente lote pendiente..." : "No hay mas URLs en esta consulta.") + '</td></tr>';
+      return 0;
     }
-    tbody.innerHTML = items.map(function (item) {
+    var limiteRapido = parseInt(valor("ecom_seo_rapido_limite") || "20", 10) || 20;
+    items = items.slice(0, limiteRapido);
+    tbody.innerHTML = [
+      '<tr><td colspan="4"><div class="alert alert-light-primary py-2 mb-0">Lote desde registro ' + escapeHtml(rapidoOffset + 1) + '. Mostrando ' + escapeHtml(items.length) + ' pendientes.</div></td></tr>'
+    ].concat(items.map(function (item) {
       var sugerencias = Array.isArray(item.sugerencias) ? item.sugerencias : [];
       var destino = item.url_destino_sugerida || "";
       var sugerencia = sugerencias.length ? sugerencias[0] : null;
@@ -456,7 +476,8 @@
         '<td class="text-end"><button class="btn btn-sm btn-primary" type="button" data-seo-rapido-editar="1" data-item="' + escapeAttr(JSON.stringify(itemRapido)) + '"><i class="bi bi-pencil-square"></i> Resolver</button></td>',
         "</tr>"
       ].join("");
-    }).join("");
+    })).join("");
+    return items.length;
   }
 
   function abrirRapidoModal(item) {

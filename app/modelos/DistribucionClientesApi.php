@@ -197,6 +197,7 @@ class DistribucionClientesApi extends CRUD {
         "token_sesion_expira_horas" => 12
       )), null, intval($cliente["id_cliente_distribucion"]));
 
+      $permisos = $this->permisosCliente($db, intval($cliente["id_cliente_distribucion"]));
       return $this->respuesta(false, "success", "Sesion Distribucion iniciada", array(
         "token" => $token,
         "perfil" => array(
@@ -205,7 +206,8 @@ class DistribucionClientesApi extends CRUD {
           "tipo_cliente" => $cliente["tipo_cliente"],
           "estatus" => $cliente["estatus"],
           "id_lista_precio" => intval($cliente["id_lista_precio"]),
-          "permisos" => $this->permisosCliente($db, intval($cliente["id_cliente_distribucion"]))
+          "permisos" => $permisos,
+          "acciones" => (new DistribucionPermisosApi())->accionesPermitidas($permisos)
         ),
         "configurado" => true,
         "no_usa_sesion_erp" => true
@@ -240,13 +242,15 @@ class DistribucionClientesApi extends CRUD {
       $stmt->execute(array(":token_hash" => hash("sha256", $token)));
       $cliente = $stmt->fetch(PDO::FETCH_ASSOC);
       if (!$cliente) { return null; }
+      $permisos = $this->permisosCliente($db, intval($cliente["id_cliente_distribucion"]));
       return array(
         "id_cliente_distribucion" => intval($cliente["id_cliente_distribucion"]),
         "nombre" => $cliente["nombre"],
         "tipo_cliente" => $cliente["tipo_cliente"],
         "estatus" => $cliente["estatus"],
         "id_lista_precio" => intval($cliente["id_lista_precio"]),
-        "permisos" => $this->permisosCliente($db, intval($cliente["id_cliente_distribucion"]))
+        "permisos" => $permisos,
+        "acciones" => (new DistribucionPermisosApi())->accionesPermitidas($permisos)
       );
     } catch (Exception $e) {
       return null;

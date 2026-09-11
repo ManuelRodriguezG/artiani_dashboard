@@ -28,10 +28,36 @@ class DistribucionApi extends Controlador {
    * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-09
    * Proposito: enrutar contratos de autenticacion externa sin usar la sesion interna del ERP.
    * Impacto: Clientes Distribucion; registro, login y activacion de contrasenia por token.
-   * Contrato: POST /auth/registro, /auth/login, /auth/activar_consultar y /auth/activar_contrasenia.
+   * Contrato: POST /auth/registro, /auth/login, /auth/activar_consultar, /auth/activar_contrasenia y GET/POST /auth/perfil.
    */
   public function auth($accion = "") {
     if ($this->esOptionsDistribucion()) { return $this->responderOpcionesDistribucion(); }
+    if ($accion === "perfil") {
+      $contexto = $this->contextoCliente();
+      if (empty($contexto["autenticado"])) {
+        return $this->responderApiDistribucion(array(
+          "error" => true,
+          "tipo" => "warning",
+          "mensaje" => "Sesion Distribucion requerida",
+          "depurar" => array(
+            "autenticado" => false,
+            "token_presente" => !empty($contexto["token_presente"]),
+            "permisos" => array(),
+            "acciones" => isset($contexto["acciones"]) ? $contexto["acciones"] : array()
+          )
+        ));
+      }
+      return $this->responderApiDistribucion(array(
+        "error" => false,
+        "tipo" => "success",
+        "mensaje" => "Perfil Distribucion consultado",
+        "depurar" => array(
+          "perfil" => $contexto,
+          "permisos" => isset($contexto["permisos"]) ? $contexto["permisos"] : array(),
+          "acciones" => isset($contexto["acciones"]) ? $contexto["acciones"] : array()
+        )
+      ));
+    }
     if (!$this->esPostDistribucion()) {
       return $this->responderApiDistribucion($this->modelo("DistribucionCatalogoApi")->metodoPostRequerido("auth/" . $accion));
     }

@@ -74,6 +74,7 @@ class DistribucionPermisosApi extends CRUD {
       "ver_precio" => in_array("distribucion.precio.ver_publico", $permisos, true) || in_array("distribucion.precio.ver_mayoreo", $permisos, true) || in_array("distribucion.precio.ver_lista_asignada", $permisos, true),
       "ver_disponibilidad" => in_array("distribucion.inventario.ver_disponibilidad", $permisos, true),
       "agregar_cotizacion" => in_array("distribucion.cotizacion.solicitar", $permisos, true),
+      "pedido_preliminar" => in_array("distribucion.pedido.preliminar", $permisos, true),
       "descargar_catalogo" => in_array("distribucion.catalogo.descargar", $permisos, true),
       "editar_cuenta" => in_array("distribucion.cuenta.editar", $permisos, true)
     );

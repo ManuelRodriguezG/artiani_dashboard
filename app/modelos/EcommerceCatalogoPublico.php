@@ -4846,6 +4846,7 @@ class EcommerceCatalogoPublico extends CRUD {
       $accion = trim((string) $this->valor($opciones, "accion", ""));
       $prioridad = trim((string) $this->valor($opciones, "prioridad", ""));
       $limite = max(1, min(500, intval($this->valor($opciones, "limite", 120))));
+      $offset = max(0, intval($this->valor($opciones, "offset", 0)));
       $db = $this->getConexion();
       $baseLocal = rtrim(trim((string) $this->valor($this->configuracionSeoPublica($db), "frontend_local", "")), "/");
       if ($baseLocal === "") { $baseLocal = "http://artiani.com.local"; }
@@ -4855,6 +4856,7 @@ class EcommerceCatalogoPublico extends CRUD {
       $redireccionesExistentes = $this->seoRedireccionesPorOrigenMapa($db);
 
       $filtrados = array();
+      $omitidosOffset = 0;
       foreach ($items as $item) {
         $pathOriginal = $this->normalizarSeoPathPublico($this->valor($item, "path_original", $this->valor($item, "url_original", "")));
         if ($q !== "") {
@@ -4904,6 +4906,10 @@ class EcommerceCatalogoPublico extends CRUD {
         if (!isset($item["confianza"])) { $item["confianza"] = "pendiente"; }
         if ($accion !== "" && (string) $this->valor($item, "accion_sugerida", "") !== $accion) { continue; }
         if ($prioridad !== "" && (string) $this->valor($item, "prioridad_revision", "") !== $prioridad) { continue; }
+        if ($omitidosOffset < $offset) {
+          $omitidosOffset++;
+          continue;
+        }
         $filtrados[] = $item;
         if (count($filtrados) >= $limite) { break; }
       }
@@ -4918,7 +4924,7 @@ class EcommerceCatalogoPublico extends CRUD {
         "total_nuevas" => intval($this->valor($payload, "total_nuevas", 0)),
         "total_filtrado" => count($filtrados),
         "resumen" => $this->valor($payload, "resumen", array()),
-        "filtros" => array("q" => $q, "accion" => $accion, "prioridad" => $prioridad, "limite" => $limite),
+        "filtros" => array("q" => $q, "accion" => $accion, "prioridad" => $prioridad, "limite" => $limite, "offset" => $offset),
         "items" => $filtrados,
         "guardrails" => array(
           "read_only" => true,
