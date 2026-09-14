@@ -5201,7 +5201,13 @@ class EcommerceCatalogoPublico extends CRUD {
       $titulo = trim((string) ($this->valor($fila, "titulo_publico", "") ?: $this->valor($fila, "nombre_sku", "") ?: $this->valor($fila, "nombre_producto", "")));
       $totalProducto = intval($this->valor($fila, "total_publicaciones_producto", 1));
       $pathGlobal = $totalProducto > 1 ? "/producto/" . $this->slugificar($this->valor($fila, "nombre_producto", "")) : $path;
-      $nivelUrl = $totalProducto > 1 ? ($pathGlobal === $path ? "producto_global" : "producto_especifico") : "producto_simple";
+      $skuDifiereDeProducto = $this->seoSkuDifiereDeProductoGlobal($fila);
+      $nivelUrl = $totalProducto > 1 ? ($pathGlobal === $path && !$skuDifiereDeProducto ? "producto_global" : "producto_especifico") : "producto_simple";
+      $slugEspecificoSugerido = $skuDifiereDeProducto ? $this->slugProductoProfesionalSugerido($fila, $this->valor($fila, "nombre_sku", "")) : "";
+      $alertasDestino = array();
+      if ($skuDifiereDeProducto && $pathGlobal === $path) {
+        $alertasDestino[] = "sku_con_nombre_distinto_usando_slug_global";
+      }
       $items[] = array(
         "tipo" => "producto",
         "path" => $path,
@@ -5226,6 +5232,9 @@ class EcommerceCatalogoPublico extends CRUD {
         "canonical_strategy" => "canonical_propio",
         "total_publicaciones_producto" => $totalProducto,
         "path_global_sugerido" => $pathGlobal,
+        "slug_especifico_sugerido" => $slugEspecificoSugerido,
+        "path_especifico_sugerido" => $slugEspecificoSugerido !== "" ? "/producto/" . $slugEspecificoSugerido : "",
+        "alertas_destino" => $alertasDestino,
         "fuente_comparacion" => "publicacion_ecommerce"
       );
     }
@@ -11287,6 +11296,17 @@ class EcommerceCatalogoPublico extends CRUD {
       $base = trim($base . " " . $skuSlug);
     }
     return $this->slugificar($base);
+  }
+
+  private function seoSkuDifiereDeProductoGlobal($fila) {
+    $nombreSku = trim((string) $this->valor($fila, "nombre_sku_raw", $this->valor($fila, "nombre_sku", "")));
+    $nombreProducto = trim((string) $this->valor($fila, "nombre_producto_raw", $this->valor($fila, "nombre_producto", "")));
+    if ($nombreSku === "" || $nombreProducto === "") { return false; }
+    $slugSku = $this->slugificar($nombreSku);
+    $slugProducto = $this->slugificar($nombreProducto);
+    if ($slugSku === "" || $slugProducto === "" || $slugSku === $slugProducto) { return false; }
+    similar_text($slugSku, $slugProducto, $porcentaje);
+    return $porcentaje < 58;
   }
 
   private function textoProductoParaSlug($texto) {

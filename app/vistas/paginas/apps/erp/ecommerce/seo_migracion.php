@@ -518,6 +518,6 @@
 <script>
     window.ERP_CSRF_TOKEN = "<?= htmlspecialchars(SesionSeguridad::csrfToken(), ENT_QUOTES, 'UTF-8') ?>";
 </script>
-<script src="/assets/js/custom/apps/erp/ecommerce/seo_migracion.js?v=20260914-destinos-niveles1"></script>
+<script src="/assets/js/custom/apps/erp/ecommerce/seo_migracion.js?v=20260914-slugs-sku-global2"></script>
 </body>
 </html>

@@ -534,7 +534,9 @@
       '<td><div class="fw-semibold ecom-seo-path">' + escapeHtml(item.path || "-") + '</div>',
       '<div class="text-muted fs-8">' + escapeHtml(item.title || "") + "</div>",
       badges ? '<div class="d-flex flex-wrap gap-2 mt-1">' + badges + "</div>" : "",
+      Array.isArray(item.alertas_destino) && item.alertas_destino.length ? '<div class="text-warning fs-8 mt-1">' + escapeHtml(item.alertas_destino.join(", ")) + "</div>" : "",
       item.path_global_sugerido && item.path_global_sugerido !== item.path ? '<div class="text-muted fs-8 ecom-seo-path">Global sugerida: ' + escapeHtml(item.path_global_sugerido) + "</div>" : "",
+      item.path_especifico_sugerido && item.path_especifico_sugerido !== item.path ? '<div class="text-muted fs-8 ecom-seo-path">Especifica sugerida: ' + escapeHtml(item.path_especifico_sugerido) + "</div>" : "",
       '<a class="fs-8 ecom-seo-path" target="_blank" rel="noopener" href="' + escapeAttr(item.url_local || "#") + '">' + escapeHtml(item.url_local || "") + "</a></td>"
     ].join("");
   }
