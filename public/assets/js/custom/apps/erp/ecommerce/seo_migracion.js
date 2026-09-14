@@ -520,6 +520,25 @@
     node.style.display = "none";
   }
 
+  function renderDestinoCanonicoItem(item) {
+    var nivel = item.nivel_url || "";
+    var indexable = item.indexable_sugerido === true || item.indexable_sugerido === 1 || item.indexable_sugerido === "1";
+    var nivelLabel = nivel === "producto_global" ? "global" : (nivel === "producto_especifico" ? "especifico" : "simple");
+    var badges = [
+      item.sku ? '<span class="badge badge-light">' + escapeHtml(item.sku) + "</span>" : "",
+      item.estatus_publicacion ? '<span class="badge badge-light">' + escapeHtml(item.estatus_publicacion) + "</span>" : "",
+      nivel ? '<span class="badge badge-light-primary">' + escapeHtml(nivelLabel) + "</span>" : "",
+      indexable ? '<span class="badge badge-light-success">indexable</span>' : '<span class="badge badge-light-warning">canonical global</span>'
+    ].filter(Boolean).join(" ");
+    return [
+      '<td><div class="fw-semibold ecom-seo-path">' + escapeHtml(item.path || "-") + '</div>',
+      '<div class="text-muted fs-8">' + escapeHtml(item.title || "") + "</div>",
+      badges ? '<div class="d-flex flex-wrap gap-2 mt-1">' + badges + "</div>" : "",
+      item.path_global_sugerido && item.path_global_sugerido !== item.path ? '<div class="text-muted fs-8 ecom-seo-path">Global sugerida: ' + escapeHtml(item.path_global_sugerido) + "</div>" : "",
+      '<a class="fs-8 ecom-seo-path" target="_blank" rel="noopener" href="' + escapeAttr(item.url_local || "#") + '">' + escapeHtml(item.url_local || "") + "</a></td>"
+    ].join("");
+  }
+
   function buscarRapidoDestinos() {
     var q = valor("ecom_seo_rapido_buscar_q");
     var tipo = valor("ecom_seo_rapido_tipo") || "producto";
@@ -541,7 +560,7 @@
           items.map(function (item) {
             return [
               "<tr>",
-              '<td><div class="fw-semibold ecom-seo-path">' + escapeHtml(item.path || "-") + '</div><div class="text-muted fs-8">' + escapeHtml(item.title || "") + '</div><a class="fs-8 ecom-seo-path" target="_blank" rel="noopener" href="' + escapeAttr(item.url_local || "#") + '">' + escapeHtml(item.url_local || "") + "</a></td>",
+              renderDestinoCanonicoItem(item),
               '<td class="text-end"><button class="btn btn-sm btn-light-primary" type="button" data-seo-rapido-usar-destino="1" data-path="' + escapeAttr(item.path || "") + '" data-tipo="' + escapeAttr(item.tipo || tipo) + '"><i class="bi bi-check2"></i></button></td>',
               "</tr>"
             ].join("");
@@ -1490,7 +1509,7 @@
           items.map(function (item) {
             return [
               "<tr>",
-              '<td><div class="fw-semibold ecom-seo-path">' + escapeHtml(item.path || "-") + '</div><div class="text-muted fs-8">' + escapeHtml(item.title || "") + '</div><a class="fs-8 ecom-seo-path" target="_blank" rel="noopener" href="' + escapeAttr(item.url_local || "#") + '">' + escapeHtml(item.url_local || "") + "</a></td>",
+              renderDestinoCanonicoItem(item),
               '<td class="text-end"><button class="btn btn-sm btn-light-primary" type="button" data-seo-usar-destino-canonico="1" data-path="' + escapeAttr(item.path || "") + '" data-tipo="' + escapeAttr(item.tipo || tipo) + '"><i class="bi bi-check2"></i></button></td>',
               "</tr>"
             ].join("");

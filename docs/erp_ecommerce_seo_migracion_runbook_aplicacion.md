@@ -33,6 +33,30 @@ Reglas:
 - No redirigir todo a home; buscar producto/categoria/marca equivalente antes de usar fallback.
 - No publicar sitemap productivo con base local.
 
+## Decision URLs de producto agrupado y producto especifico 2026-09-14
+
+La estructura publica debe soportar dos niveles cuando el catalogo lo justifique:
+
+- URL de producto agrupado/global: representa la familia comercial y sirve como landing principal del producto.
+- URL de producto especifico/SKU: representa una presentacion, tamano, color, modelo o variante con intencion de busqueda propia.
+
+Ejemplo:
+
+```text
+/producto/alimento-churro-blanco-para-peces
+/producto/alimento-churro-blanco-para-peces-25g
+/producto/alimento-churro-blanco-para-peces-100g
+```
+
+Reglas SEO:
+
+- La URL global puede ser indexable.
+- La URL especifica tambien puede ser indexable si aporta contenido diferenciable: presentacion, ficha, imagen, precio, disponibilidad, uso o metadata propia.
+- Si la variante solo preselecciona un selector y no agrega valor distinto, puede existir como URL compartible, pero debe apuntar canonical a la URL global y no entrar al sitemap indexable.
+- El frontend no debe construir slugs desde el nombre; debe consumir `url`, `canonical_url`, `slug_publico` y datos de variante entregados por API.
+- El sitemap debe incluir URLs canonicas indexables: globales y especificas aprobadas; no debe incluir URLs duplicadas, query params `?sku=` ni slugs anteriores.
+- Para redirecciones viejas, el destino debe elegirse por intencion: URL vieja generica a URL global; URL vieja de presentacion/SKU a URL especifica cuando exista y este aprobada como indexable.
+
 ## Preflight read-only
 
 Ejecutar:

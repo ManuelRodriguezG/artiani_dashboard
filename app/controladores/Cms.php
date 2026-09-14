@@ -40,6 +40,10 @@ class Cms extends Controlador {
       $this->frontend_busqueda();
       return;
     }
+    if ($pagina === "blog") {
+      $this->blog();
+      return;
+    }
     if ($pagina === "categorias") {
       $this->frontend_categorias();
       return;
@@ -223,6 +227,17 @@ class Cms extends Controlador {
   public function media() {
     $this->requerirAlgunPermiso(array("cms.ver", "catalogo.ver"));
     $this->vista("apps/erp/cms/media");
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-11
+   * Proposito: abrir CMS > Blog como submodulo editorial comercial.
+   * Impacto: CMS Blog; separa articulos/guias/videos de slots Home y catalogo.
+   * Contrato: vista protegida; la persistencia depende del esquema Blog/CMS autorizado.
+   */
+  public function blog() {
+    $this->requerirAlgunPermiso(array("cms.ver", "catalogo.ver"));
+    $this->vista("apps/erp/cms/blog");
   }
 
   /**
@@ -853,6 +868,92 @@ class Cms extends Controlador {
         "stopwords" => isset($depurar["resumen"]["stopwords"]) ? $depurar["resumen"]["stopwords"] : 0,
         "categorias_probables" => isset($depurar["resumen"]["categorias_probables"]) ? $depurar["resumen"]["categorias_probables"] : 0,
         "publicado_api" => empty($respuesta["error"])
+      )
+    ));
+    return json_encode($respuesta, JSON_UNESCAPED_UNICODE);
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-11
+   * Proposito: entregar estado interno del submodulo Blog/CMS.
+   * Impacto: CMS Blog; muestra auditoria de tablas, plan DDL y endpoints publicos.
+   * Contrato: GET protegido por cms.ver/catalogo.ver; no ejecuta DDL.
+   */
+  public function blog_admin_estado_erp() {
+    $this->requerirAlgunPermiso(array("cms.ver", "catalogo.ver"));
+    $esquema = $this->modelo("EcommercePublicoEsquema");
+    return json_encode($this->modelo("EcommerceBlogPublico")->adminEstado(
+      $esquema->auditarCmsBlog(),
+      $esquema->planActualizarCmsBlog(false)
+    ), JSON_UNESCAPED_UNICODE);
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-11
+   * Proposito: listar publicaciones Blog/CMS desde administracion.
+   * Impacto: CMS Blog; permite revisar contenido editorial sin tocar catalogo.
+   * Contrato: GET protegido read-only.
+   */
+  public function blog_admin_listar_erp() {
+    $this->requerirAlgunPermiso(array("cms.ver", "catalogo.ver"));
+    return json_encode($this->modelo("EcommerceBlogPublico")->adminListar($_GET), JSON_UNESCAPED_UNICODE);
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-11
+   * Proposito: consultar una publicacion Blog/CMS por ID desde administracion.
+   * Impacto: CMS Blog; alimenta edicion futura sin exponer borradores publicamente.
+   * Contrato: GET protegido read-only.
+   */
+  public function blog_admin_consultar_erp() {
+    $this->requerirAlgunPermiso(array("cms.ver", "catalogo.ver"));
+    return json_encode($this->modelo("EcommerceBlogPublico")->adminConsultar(isset($_GET["id_blog_publicacion"]) ? $_GET["id_blog_publicacion"] : 0), JSON_UNESCAPED_UNICODE);
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-11
+   * Proposito: guardar borrador/pausado de una publicacion Blog/CMS.
+   * Impacto: CMS Blog; persiste contenido editorial sin publicarlo automaticamente.
+   * Contrato: POST protegido por cms.editar/catalogo.editar, CSRF global y auditoria explicita.
+   */
+  public function blog_publicacion_guardar_erp() {
+    $this->requerirAlgunPermiso(array("cms.editar", "catalogo.editar"));
+    $respuesta = $this->modelo("EcommerceBlogPublico")->adminGuardar($_POST, $this->usuarioActualId());
+    $depurar = isset($respuesta["depurar"]) && is_array($respuesta["depurar"]) ? $respuesta["depurar"] : array();
+    SesionSeguridad::registrarAuditoria("cms_blog", "blog_publicacion_guardar_erp", array(
+      "resultado" => empty($respuesta["error"]) ? "ok" : "error",
+      "mensaje" => isset($respuesta["mensaje"]) ? $respuesta["mensaje"] : "",
+      "datos_despues" => array(
+        "id_blog_publicacion" => isset($depurar["id_blog_publicacion"]) ? $depurar["id_blog_publicacion"] : null,
+        "slug" => isset($depurar["slug"]) ? $depurar["slug"] : "",
+        "estado" => isset($depurar["estado"]) ? $depurar["estado"] : "",
+        "publicado_api" => false
+      )
+    ));
+    return json_encode($respuesta, JSON_UNESCAPED_UNICODE);
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-11
+   * Proposito: publicar, pausar o devolver a borrador una publicacion Blog/CMS.
+   * Impacto: CMS Blog y API publica; solo `publicado` queda visible en /ecommercePublico/blog.
+   * Contrato: POST protegido por cms.publicar/catalogo.editar, CSRF global y auditoria explicita.
+   */
+  public function blog_publicacion_estatus_erp() {
+    $this->requerirAlgunPermiso(array("cms.publicar", "catalogo.editar"));
+    $respuesta = $this->modelo("EcommerceBlogPublico")->adminEstatus($_POST, $this->usuarioActualId());
+    $depurar = isset($respuesta["depurar"]) && is_array($respuesta["depurar"]) ? $respuesta["depurar"] : array();
+    SesionSeguridad::registrarAuditoria("cms_blog", "blog_publicacion_estatus_erp", array(
+      "resultado" => empty($respuesta["error"]) ? "ok" : "error",
+      "mensaje" => isset($respuesta["mensaje"]) ? $respuesta["mensaje"] : "",
+      "datos_antes" => array(
+        "id_blog_publicacion" => isset($depurar["id_blog_publicacion"]) ? $depurar["id_blog_publicacion"] : null,
+        "estatus_anterior" => isset($depurar["estatus_anterior"]) ? $depurar["estatus_anterior"] : null
+      ),
+      "datos_despues" => array(
+        "id_blog_publicacion" => isset($depurar["id_blog_publicacion"]) ? $depurar["id_blog_publicacion"] : null,
+        "estado" => isset($depurar["estado"]) ? $depurar["estado"] : "",
+        "publicado_api" => isset($depurar["publicado_api"]) ? $depurar["publicado_api"] : false
       )
     ));
     return json_encode($respuesta, JSON_UNESCAPED_UNICODE);

@@ -4652,6 +4652,13 @@ class EcommerceCatalogoPublico extends CRUD {
           "priority" => $this->seoPriorityPorTipo($this->valor($url, "tipo", ""))
         );
       }
+      if (file_exists(RUTA_APP . "/modelos/EcommerceBlogPublico.php")) {
+        require_once RUTA_APP . "/modelos/EcommerceBlogPublico.php";
+        $blog = new EcommerceBlogPublico();
+        foreach ($blog->sitemapItemsPublicos($baseUrl, max(1, min(500, intval($this->valor($opciones, "limite_blog", 200))))) as $itemBlog) {
+          $items[] = $itemBlog;
+        }
+      }
       return $this->respuesta(false, "success", "Sitemap SEO ecommerce consultado", array(
         "base_url" => $baseUrl,
         "items" => $items,
@@ -5135,11 +5142,19 @@ class EcommerceCatalogoPublico extends CRUD {
     $qRaw = trim((string) $qRaw);
     $qLike = "%" . $qRaw . "%";
     $qSlug = "%" . $this->slugificar($qRaw) . "%";
-    $qCompacto = "%" . preg_replace('/[^a-zA-Z0-9]+/', '', $qRaw) . "%";
+    $qCompactoRaw = preg_replace('/[^a-zA-Z0-9]+/', '', $qRaw);
+    $qCompacto = "%" . $qCompactoRaw . "%";
     $sql = "SELECT pub.id_publicacion, pub.id_producto_erp, pub.id_sku, pub.slug, pub.url_publica, pub.canonical_url,
         pub.titulo_publico, pub.descripcion_publica, pub.presentacion_publica, pub.estatus_publicacion,
         s.sku, COALESCE(s.nombre, p.nombre) nombre_sku, p.nombre nombre_producto,
-        m.nombre marca, COALESCE(c.ruta, c.nombre) categoria
+        m.nombre marca, COALESCE(c.ruta, c.nombre) categoria,
+        (
+          SELECT COUNT(*)
+          FROM erp_ecommerce_publicaciones pub2
+          WHERE pub2.id_producto_erp=pub.id_producto_erp
+            AND pub2.canal='catalogo_publico'
+            AND pub2.estatus_publicacion IN ('publicado','borrador','pausado')
+        ) total_publicaciones_producto
       FROM erp_ecommerce_publicaciones pub
       INNER JOIN erp_catalogo_skus s ON s.id_sku=pub.id_sku
       INNER JOIN erp_catalogo_productos p ON p.id_producto_erp=pub.id_producto_erp
@@ -5153,7 +5168,12 @@ class EcommerceCatalogoPublico extends CRUD {
           s.nombre LIKE :q_like OR p.nombre LIKE :q_like OR
           m.nombre LIKE :q_like OR c.nombre LIKE :q_like OR c.ruta LIKE :q_like
         )
-      ORDER BY pub.estatus_publicacion='publicado' DESC,
+      ORDER BY CASE
+          WHEN s.sku=:q_exact THEN 0
+          WHEN REPLACE(REPLACE(s.sku, '-', ''), '_', '')=:q_compacto_exact THEN 1
+          ELSE 2
+        END,
+        pub.estatus_publicacion='publicado' DESC,
         CASE
           WHEN s.sku LIKE :q_like THEN 0
           WHEN pub.titulo_publico LIKE :q_like THEN 1
@@ -5167,7 +5187,9 @@ class EcommerceCatalogoPublico extends CRUD {
     $stmt->execute(array(
       ":q_like" => $qLike,
       ":q_slug" => $qSlug,
-      ":q_compacto" => $qCompacto
+      ":q_compacto" => $qCompacto,
+      ":q_exact" => $qRaw,
+      ":q_compacto_exact" => $qCompactoRaw
     ));
     $items = array();
     foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $fila) {
@@ -5177,6 +5199,9 @@ class EcommerceCatalogoPublico extends CRUD {
       if ($path === "") { continue; }
       $url = $this->urlSeoPublica($baseProduccion, $path);
       $titulo = trim((string) ($this->valor($fila, "titulo_publico", "") ?: $this->valor($fila, "nombre_sku", "") ?: $this->valor($fila, "nombre_producto", "")));
+      $totalProducto = intval($this->valor($fila, "total_publicaciones_producto", 1));
+      $pathGlobal = $totalProducto > 1 ? "/producto/" . $this->slugificar($this->valor($fila, "nombre_producto", "")) : $path;
+      $nivelUrl = $totalProducto > 1 ? ($pathGlobal === $path ? "producto_global" : "producto_especifico") : "producto_simple";
       $items[] = array(
         "tipo" => "producto",
         "path" => $path,
@@ -5194,7 +5219,13 @@ class EcommerceCatalogoPublico extends CRUD {
         "sku" => $this->valor($fila, "sku", ""),
         "id_sku" => intval($this->valor($fila, "id_sku", 0)),
         "id_publicacion" => intval($this->valor($fila, "id_publicacion", 0)),
+        "id_producto_erp" => intval($this->valor($fila, "id_producto_erp", 0)),
         "estatus_publicacion" => $this->valor($fila, "estatus_publicacion", ""),
+        "nivel_url" => $nivelUrl,
+        "indexable_sugerido" => true,
+        "canonical_strategy" => "canonical_propio",
+        "total_publicaciones_producto" => $totalProducto,
+        "path_global_sugerido" => $pathGlobal,
         "fuente_comparacion" => "publicacion_ecommerce"
       );
     }
@@ -8585,7 +8616,9 @@ class EcommerceCatalogoPublico extends CRUD {
     }
 
     $sql = "SELECT p.id_producto_erp, s.id_sku, p.codigo_producto, s.sku,
+        s.nombre nombre_sku_raw, p.nombre nombre_producto_raw,
         COALESCE(s.nombre, p.nombre) nombre_publico,
+        (SELECT COUNT(*) FROM erp_catalogo_skus sx WHERE sx.id_producto_erp=p.id_producto_erp AND sx.estatus='activo') skus_producto_total,
         m.nombre marca,
         COALESCE(c.ruta, c.nombre) categoria,
         COALESCE(NULLIF(r.unidad_venta_label, ''), u.abreviatura, u.codigo, '') presentacion_base,
@@ -8630,7 +8663,9 @@ class EcommerceCatalogoPublico extends CRUD {
   private function consultarCandidatoPorSku($db, $idSku) {
     $tienePublicaciones = $this->tablaExiste($db, "erp_ecommerce_publicaciones");
     $sql = "SELECT p.id_producto_erp, s.id_sku, p.codigo_producto, s.sku,
+        s.nombre nombre_sku_raw, p.nombre nombre_producto_raw,
         COALESCE(s.nombre, p.nombre) nombre_publico,
+        (SELECT COUNT(*) FROM erp_catalogo_skus sx WHERE sx.id_producto_erp=p.id_producto_erp AND sx.estatus='activo') skus_producto_total,
         m.nombre marca,
         COALESCE(c.ruta, c.nombre) categoria,
         COALESCE(NULLIF(r.unidad_venta_label, ''), u.abreviatura, u.codigo, '') presentacion_base,
@@ -11227,17 +11262,30 @@ class EcommerceCatalogoPublico extends CRUD {
    */
   private function slugProductoProfesionalSugerido($fila, $titulo = "") {
     $titulo = trim((string) $titulo);
+    $nombreSku = trim((string) $this->valor($fila, "nombre_sku_raw", $this->valor($fila, "nombre_sku", "")));
+    $nombreProducto = trim((string) $this->valor($fila, "nombre_producto_raw", $this->valor($fila, "nombre_producto", "")));
     if ($titulo === "") {
       $titulo = trim((string) $this->valor($fila, "titulo_publico", $this->valor($fila, "titulo_publico_publicacion", "")));
     }
     if ($titulo === "") {
       $titulo = trim((string) $this->valor($fila, "nombre_publico", $this->valor($fila, "nombre_sku", $this->valor($fila, "nombre_producto", $this->valor($fila, "nombre", "")))));
     }
+    if ($nombreSku !== "" && $nombreProducto !== "" && $this->slugificar($titulo) === $this->slugificar($nombreProducto) && $this->slugificar($nombreSku) !== $this->slugificar($nombreProducto)) {
+      $titulo = $nombreSku;
+    }
 
     $presentacion = trim((string) $this->valor($fila, "presentacion_publica", $this->valor($fila, "presentacion_publica_publicacion", $this->valor($fila, "presentacion_base", ""))));
     $tituloSlug = $this->textoProductoParaSlug($titulo);
     $presentacionSlug = $this->presentacionParaSlugProducto($presentacion, $tituloSlug);
+    $totalSkusProducto = intval($this->valor($fila, "skus_producto_total", 0));
+    $skuSlug = "";
+    if ($totalSkusProducto > 1 && $presentacionSlug === "" && $nombreSku === "") {
+      $skuSlug = $this->slugificar($this->valor($fila, "sku", ""));
+    }
     $base = trim($tituloSlug . ($presentacionSlug !== "" ? " " . $presentacionSlug : ""));
+    if ($skuSlug !== "" && strpos("-" . $this->slugificar($base) . "-", "-" . $skuSlug . "-") === false) {
+      $base = trim($base . " " . $skuSlug);
+    }
     return $this->slugificar($base);
   }
 

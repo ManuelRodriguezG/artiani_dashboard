@@ -142,6 +142,188 @@ class EcommercePublicoEsquema extends DBSchema {
   }
 
   /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-11
+   * Proposito: generar el plan DDL del Blog/CMS comercial sin ejecutarlo por defecto.
+   * Impacto: CMS Blog y ecommerce publico; prepara articulos, relaciones, slugs, videos, bloques interactivos y analytics.
+   * Contrato: con $ejecutar=false solo devuelve SQL propuesto; no crea tablas ni modifica catalogo, precios o inventario.
+   */
+  public function planActualizarCmsBlog($ejecutar = false) {
+    $opciones = "ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci";
+    $plan = array();
+
+    $plan[] = $this->crearTablaSiNoExiste("erp_ecommerce_blog_publicaciones", array(
+      "`id_blog_publicacion` BIGINT NOT NULL AUTO_INCREMENT",
+      "`tipo` VARCHAR(40) NOT NULL DEFAULT 'articulo'",
+      "`titulo` VARCHAR(255) NOT NULL",
+      "`slug` VARCHAR(180) NOT NULL",
+      "`url_publica` VARCHAR(255) NOT NULL",
+      "`estado` VARCHAR(30) NOT NULL DEFAULT 'borrador'",
+      "`autor` VARCHAR(120) NOT NULL DEFAULT 'Artiani'",
+      "`extracto` TEXT NULL",
+      "`contenido_html` LONGTEXT NULL",
+      "`contenido_texto` LONGTEXT NULL",
+      "`imagen_portada_json` TEXT NULL",
+      "`seo_json` TEXT NULL",
+      "`orden` INT NOT NULL DEFAULT 0",
+      "`destacado` TINYINT(1) NOT NULL DEFAULT 0",
+      "`fecha_publicacion` DATETIME NULL",
+      "`fecha_registro` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
+      "`fecha_actualizacion` DATETIME NULL",
+      "`creado_por` INT NULL",
+      "`actualizado_por` INT NULL",
+      "`publicado_por` INT NULL",
+      "PRIMARY KEY (`id_blog_publicacion`)",
+      "UNIQUE KEY `idx_blog_publicacion_slug` (`slug`)",
+      "KEY `idx_blog_publicacion_estado_fecha` (`estado`, `fecha_publicacion`)",
+      "KEY `idx_blog_publicacion_tipo_estado` (`tipo`, `estado`, `orden`)",
+      "FULLTEXT KEY `idx_blog_publicacion_busqueda` (`titulo`, `extracto`, `contenido_texto`)"
+    ), $opciones, $ejecutar);
+
+    $plan[] = $this->crearTablaSiNoExiste("erp_ecommerce_blog_media", array(
+      "`id_blog_media` BIGINT NOT NULL AUTO_INCREMENT",
+      "`id_blog_publicacion` BIGINT NOT NULL",
+      "`rol` VARCHAR(40) NOT NULL DEFAULT 'contenido'",
+      "`url` VARCHAR(500) NOT NULL",
+      "`url_desktop` VARCHAR(500) NULL",
+      "`url_tablet` VARCHAR(500) NULL",
+      "`url_mobile` VARCHAR(500) NULL",
+      "`url_thumbnail` VARCHAR(500) NULL",
+      "`alt_text` VARCHAR(255) NOT NULL",
+      "`caption` VARCHAR(255) NULL",
+      "`width` INT NULL",
+      "`height` INT NULL",
+      "`orden` INT NOT NULL DEFAULT 0",
+      "`estatus` VARCHAR(30) NOT NULL DEFAULT 'activo'",
+      "`metadata_json` TEXT NULL",
+      "`fecha_registro` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
+      "PRIMARY KEY (`id_blog_media`)",
+      "KEY `idx_blog_media_publicacion` (`id_blog_publicacion`, `estatus`, `orden`)"
+    ), $opciones, $ejecutar);
+
+    $plan[] = $this->crearTablaSiNoExiste("erp_ecommerce_blog_videos", array(
+      "`id_blog_video` BIGINT NOT NULL AUTO_INCREMENT",
+      "`id_blog_publicacion` BIGINT NOT NULL",
+      "`tipo` VARCHAR(40) NOT NULL DEFAULT 'tiktok'",
+      "`titulo` VARCHAR(180) NOT NULL",
+      "`descripcion` VARCHAR(255) NULL",
+      "`thumbnail` VARCHAR(500) NOT NULL",
+      "`embed_url` VARCHAR(500) NOT NULL",
+      "`url_original` VARCHAR(500) NOT NULL",
+      "`posicion` VARCHAR(40) NOT NULL DEFAULT 'contenido'",
+      "`orden` INT NOT NULL DEFAULT 0",
+      "`estatus` VARCHAR(30) NOT NULL DEFAULT 'activo'",
+      "`fecha_registro` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
+      "PRIMARY KEY (`id_blog_video`)",
+      "KEY `idx_blog_video_publicacion` (`id_blog_publicacion`, `estatus`, `orden`)"
+    ), $opciones, $ejecutar);
+
+    $plan[] = $this->crearTablaSiNoExiste("erp_ecommerce_blog_productos", array(
+      "`id_blog_producto` BIGINT NOT NULL AUTO_INCREMENT",
+      "`id_blog_publicacion` BIGINT NOT NULL",
+      "`id_publicacion` BIGINT NOT NULL",
+      "`orden` INT NOT NULL DEFAULT 0",
+      "`estatus` VARCHAR(30) NOT NULL DEFAULT 'activo'",
+      "`fecha_registro` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
+      "PRIMARY KEY (`id_blog_producto`)",
+      "KEY `idx_blog_producto_unico` (`id_blog_publicacion`, `id_publicacion`)",
+      "KEY `idx_blog_producto_publicacion` (`id_publicacion`, `estatus`)"
+    ), $opciones, $ejecutar);
+
+    $plan[] = $this->crearTablaSiNoExiste("erp_ecommerce_blog_categorias", array(
+      "`id_blog_categoria` BIGINT NOT NULL AUTO_INCREMENT",
+      "`id_blog_publicacion` BIGINT NOT NULL",
+      "`id_categoria_erp` BIGINT NULL",
+      "`nombre` VARCHAR(180) NOT NULL",
+      "`path_slug` VARCHAR(255) NOT NULL",
+      "`url_publica` VARCHAR(255) NOT NULL",
+      "`orden` INT NOT NULL DEFAULT 0",
+      "`estatus` VARCHAR(30) NOT NULL DEFAULT 'activo'",
+      "`fecha_registro` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
+      "PRIMARY KEY (`id_blog_categoria`)",
+      "KEY `idx_blog_categoria_publicacion` (`id_blog_publicacion`, `estatus`, `orden`)",
+      "KEY `idx_blog_categoria_slug` (`path_slug`, `estatus`)"
+    ), $opciones, $ejecutar);
+
+    $plan[] = $this->crearTablaSiNoExiste("erp_ecommerce_blog_bloques_interactivos", array(
+      "`id_blog_bloque_interactivo` BIGINT NOT NULL AUTO_INCREMENT",
+      "`id_blog_publicacion` BIGINT NOT NULL",
+      "`tipo` VARCHAR(60) NOT NULL DEFAULT 'imagen_productos'",
+      "`titulo` VARCHAR(180) NULL",
+      "`imagen_json` TEXT NOT NULL",
+      "`puntos_json` LONGTEXT NOT NULL",
+      "`orden` INT NOT NULL DEFAULT 0",
+      "`estatus` VARCHAR(30) NOT NULL DEFAULT 'activo'",
+      "`fecha_registro` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
+      "PRIMARY KEY (`id_blog_bloque_interactivo`)",
+      "KEY `idx_blog_interactivo_publicacion` (`id_blog_publicacion`, `estatus`, `orden`)"
+    ), $opciones, $ejecutar);
+
+    $plan[] = $this->crearTablaSiNoExiste("erp_ecommerce_blog_slugs", array(
+      "`id_blog_slug` BIGINT NOT NULL AUTO_INCREMENT",
+      "`id_blog_publicacion` BIGINT NOT NULL",
+      "`slug_anterior` VARCHAR(180) NOT NULL",
+      "`slug_actual` VARCHAR(180) NOT NULL",
+      "`estatus` VARCHAR(30) NOT NULL DEFAULT 'activo'",
+      "`fecha_registro` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
+      "`registrado_por` INT NULL",
+      "PRIMARY KEY (`id_blog_slug`)",
+      "UNIQUE KEY `idx_blog_slug_anterior` (`slug_anterior`)",
+      "KEY `idx_blog_slug_publicacion` (`id_blog_publicacion`, `estatus`)"
+    ), $opciones, $ejecutar);
+
+    $plan[] = $this->crearTablaSiNoExiste("erp_ecommerce_blog_analytics", array(
+      "`id_blog_evento` BIGINT NOT NULL AUTO_INCREMENT",
+      "`evento` VARCHAR(80) NOT NULL",
+      "`pagina` VARCHAR(255) NOT NULL",
+      "`referencia_tipo` VARCHAR(60) NULL",
+      "`referencia_slug` VARCHAR(180) NULL",
+      "`detalle_json` TEXT NULL",
+      "`ip_hash` VARCHAR(120) NULL",
+      "`user_agent_hash` VARCHAR(120) NULL",
+      "`fecha_registro` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
+      "PRIMARY KEY (`id_blog_evento`)",
+      "KEY `idx_blog_analytics_evento` (`evento`, `fecha_registro`)",
+      "KEY `idx_blog_analytics_referencia` (`referencia_tipo`, `referencia_slug`)"
+    ), $opciones, $ejecutar);
+
+    return $this->respuestaPlan($plan, $ejecutar);
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-11
+   * Proposito: auditar existencia de tablas Blog/CMS sin ejecutar DDL.
+   * Impacto: CMS Blog y ecommerce publico; permite preparar autorizacion de persistencia.
+   * Contrato: solo lectura.
+   */
+  public function auditarCmsBlog() {
+    $tablas = $this->tablasCmsBlog();
+    $auditoria = array();
+    $faltantes = 0;
+    foreach ($tablas as $tabla) {
+      $existe = $this->tablaExiste($tabla);
+      $auditoria[$tabla] = array(
+        "existe" => $existe,
+        "impacto" => $existe ? "Disponible para Blog/CMS ecommerce." : "Pendiente para publicar blog, guias y contenido comercial."
+      );
+      if (!$existe) { $faltantes++; }
+    }
+    return array(
+      "error" => false,
+      "tipo" => $faltantes > 0 ? "warning" : "success",
+      "mensaje" => $faltantes > 0 ? "Esquema Blog/CMS pendiente" : "Esquema Blog/CMS disponible",
+      "depurar" => array(
+        "read_only" => true,
+        "tablas_total" => count($tablas),
+        "tablas_faltantes" => $faltantes,
+        "auditoria" => $auditoria,
+        "no_toca_catalogo" => true,
+        "no_toca_inventario" => true,
+        "no_usa_ecom_legacy" => true
+      )
+    );
+  }
+
+  /**
    * Documentacion IA: Codex GPT-5 | Fecha: 2026-08-19
    * Proposito: proponer persistencia de biblioteca media CMS sin ejecutarla por defecto.
    * Impacto: CMS media; separa archivos reutilizables de bloques/contenido.
@@ -1028,6 +1210,19 @@ class EcommercePublicoEsquema extends DBSchema {
       "erp_ecommerce_contenido_bloques",
       "erp_ecommerce_contenido_publicaciones",
       "erp_ecommerce_contenido_media"
+    );
+  }
+
+  private function tablasCmsBlog() {
+    return array(
+      "erp_ecommerce_blog_publicaciones",
+      "erp_ecommerce_blog_media",
+      "erp_ecommerce_blog_videos",
+      "erp_ecommerce_blog_productos",
+      "erp_ecommerce_blog_categorias",
+      "erp_ecommerce_blog_bloques_interactivos",
+      "erp_ecommerce_blog_slugs",
+      "erp_ecommerce_blog_analytics"
     );
   }
 

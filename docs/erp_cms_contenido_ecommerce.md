@@ -321,6 +321,83 @@ El endpoint publico `/ecommercePublico/configuracion_inicial` ya incluye `conten
 
 El endpoint publico `/ecommercePublico/contenido_manifest` ya expone `plantillas_vista` y `componentes_frontend` en modo default/read-only para que el frontend pueda descubrir layouts/componentes permitidos sin llamar rutas internas `/cms/*`.
 
+## Blog / guias / contenido comercial
+
+Documentacion IA: Codex GPT-5  
+Fecha: 2026-09-11  
+Estado: backend inicial y contratos publicos preparados; DDL pendiente de autorizacion/aplicacion
+
+Objetivo:
+
+- Administrar publicaciones editoriales/comerciales del ecommerce publico: articulos, guias, noticias, videos, inspiracion, casos de cliente y recomendaciones de producto.
+- Servir SEO, educacion al cliente, venta asistida, contenido relacionado en producto/categoria y videos embebidos con carga diferida.
+- Mantener Blog/CMS como submodulo independiente de los slots de Home/Categorias y del catalogo ERP.
+
+Decision de arquitectura:
+
+- El blog tiene busqueda propia en `GET /ecommercePublico/blog?q={termino}`.
+- La busqueda global vive en `GET /ecommercePublico/buscar?q={termino}` y compone fuentes independientes: catalogo/productos, categorias relacionadas y blog.
+- El blog no debe acoplarse al buscador de productos ni consultar `ecom_*`.
+- El frontend debe usar componentes separados: buscador global, buscador interno de blog, resultados globales, listado blog y tarjeta de publicacion.
+
+Backend preparado:
+
+- Modelo nuevo: `app/modelos/EcommerceBlogPublico.php`.
+- Vista inicial: `app/vistas/paginas/apps/erp/cms/blog.php`.
+- JS inicial: `public/assets/js/custom/apps/erp/cms/blog.js`.
+- Esquema read-only: `EcommercePublicoEsquema::planActualizarCmsBlog(false)` y `auditarCmsBlog()`.
+- La vista `/cms/blog` ya tiene editor inicial para titulo, slug, tipo, estado, autor, fecha, portada con ALT, extracto, contenido HTML seguro y SEO basico.
+- El editor permite capturar relaciones avanzadas como JSON controlado: videos, productos relacionados, categorias relacionadas, imagenes internas y bloques interactivos.
+- El backend guarda esas relaciones si el esquema existe; antes del DDL responde `requiere_ddl` sin escribir BD.
+
+Endpoints publicos:
+
+- `GET /ecommercePublico/blog_manifest`
+- `GET /ecommercePublico/blog?pagina=1&limite=12&q=pecera`
+- `GET /ecommercePublico/blog/{slug}`
+- `GET /ecommercePublico/buscar?q=pecera`
+- `GET /ecommercePublico/producto/{slug}/contenido_relacionado`
+- `GET /ecommercePublico/categoria/{path_slug}/contenido_relacionado`
+- `POST /ecommercePublico/analytics_evento`
+
+Endpoints internos CMS:
+
+- `GET /cms/blog`
+- `GET /cms/blog_admin_estado_erp`
+- `GET /cms/blog_admin_listar_erp`
+- `GET /cms/blog_admin_consultar_erp?id_blog_publicacion=1`
+- `POST /cms/blog_publicacion_guardar_erp`
+- `POST /cms/blog_publicacion_estatus_erp`
+
+Tablas propuestas:
+
+- `erp_ecommerce_blog_publicaciones`
+- `erp_ecommerce_blog_media`
+- `erp_ecommerce_blog_videos`
+- `erp_ecommerce_blog_productos`
+- `erp_ecommerce_blog_categorias`
+- `erp_ecommerce_blog_bloques_interactivos`
+- `erp_ecommerce_blog_slugs`
+- `erp_ecommerce_blog_analytics`
+
+Guardrails:
+
+- Solo contenido con `estado=publicado` queda visible en API publica.
+- No mostrar borradores ni pausados.
+- No cargar iframes de video en primer render; API entrega thumbnail y embed URL.
+- No mostrar stock exacto.
+- No calcular precios en frontend.
+- Usar URLs publicas entregadas por API.
+- El sitemap publico agrega `/blog` y `/blog/{slug}` desde publicaciones vigentes.
+
+Pendientes:
+
+- Autorizar respaldo externo y DDL antes de usar persistencia real.
+- Convertir los JSON avanzados en selectores visuales: Media CMS, productos publicados, categorias publicas, videos y puntos interactivos.
+- Conectar selector de Media CMS para portada e imagenes internas.
+- Agregar administracion de relaciones a productos publicados y categorias publicas.
+- Fortalecer sanitizacion HTML permitida por lista blanca antes de captura masiva.
+
 El contrato operativo para implementar el renderer del frontend queda documentado en `docs/erp_cms_frontend_renderer_contrato.md`. Ese documento define endpoints publicos permitidos, forma de usar `plantilla_vista.secciones`, compatibilidad componente/bloque/slot y guardrails para no consumir rutas internas `/cms/*`.
 
 El plan para evolucionar de CMS de contenido a builder visual controlado por componentes Wokiee/Artiani queda documentado en `docs/erp_cms_visual_builder_wokiee_plan.md`. La decision central es que el CMS no guardara HTML/CSS/JS libre; administrara componentes, variantes, media, orden y vigencia para que el frontend construya el HTML final.

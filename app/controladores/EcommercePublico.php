@@ -124,6 +124,47 @@ class EcommercePublico extends Controlador {
   }
 
   /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-11
+   * Proposito: exponer busqueda global compuesta sin acoplar productos y blog.
+   * Impacto: Ecommerce publico; combina resultados de catalogo y Blog/CMS como fuentes independientes.
+   * Contrato: GET publico read-only; no registra busquedas, no expone stock exacto y no calcula precios en frontend.
+   */
+  public function buscar() {
+    if ($this->esOptionsPublicas()) { return $this->responderOpcionesPublicas(); }
+    $q = isset($_GET["q"]) ? trim((string) $_GET["q"]) : "";
+    $limite = isset($_GET["limite"]) ? max(1, min(24, intval($_GET["limite"]))) : 12;
+    $catalogo = $this->modelo("EcommerceCatalogoPublico")->busquedaInteligentePublica(array_merge($_GET, array("q" => $q, "limite" => $limite)));
+    $blog = $this->modelo("EcommerceBlogPublico");
+    $blogItems = $blog->buscarBlogPublico($q, min(8, $limite));
+    return $this->responderApiPublica(array(
+      "error" => false,
+      "tipo" => "success",
+      "mensaje" => "Busqueda global ecommerce consultada",
+      "depurar" => array(
+        "ok" => true,
+        "q" => $q,
+        "grupos" => array(
+          "productos" => $this->valorApiPublica($catalogo, array("depurar", "items"), array()),
+          "categorias" => $this->valorApiPublica($catalogo, array("depurar", "categorias_relacionadas"), array()),
+          "blog" => $blogItems
+        ),
+        "items" => array_merge(
+          $this->normalizarResultadosGlobales("producto", $this->valorApiPublica($catalogo, array("depurar", "items"), array())),
+          $this->normalizarResultadosGlobales("blog", $blogItems)
+        ),
+        "fuentes" => array("catalogo" => "/ecommercePublico/busqueda", "blog" => "/ecommercePublico/blog?q=" . rawurlencode($q)),
+        "guardrails" => array(
+          "read_only" => true,
+          "fuentes_independientes" => true,
+          "no_stock_exacto" => true,
+          "no_calcula_precio_frontend" => true,
+          "urls_entregadas_por_api" => true
+        )
+      )
+    ));
+  }
+
+  /**
    * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-09
    * Proposito: exponer manifest publico de busqueda inteligente para frontend y CMS.
    * Impacto: Frontend puede saber sinonimos/reglas activas sin leer archivos internos del ERP.
@@ -162,9 +203,71 @@ class EcommercePublico extends Controlador {
    * Impacto: Ecommerce publico; prepara ficha de producto sin usar `ecom_*` como fuente.
    * Contrato: GET publico; solo lectura y solo publicaciones con estatus `publicado`.
    */
-  public function producto($slug = "") {
+  public function producto($slug = "", $subrecurso = "") {
     if ($this->esOptionsPublicas()) { return $this->responderOpcionesPublicas(); }
+    if ($subrecurso === "contenido_relacionado") {
+      return $this->responderApiPublica($this->modelo("EcommerceBlogPublico")->contenidoProductoPublico($slug));
+    }
     return $this->responderApiPublica($this->modelo("EcommerceCatalogoPublico")->productoPublico($slug));
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-11
+   * Proposito: exponer listado y detalle publico de Blog/CMS comercial.
+   * Impacto: Frontend ecommerce; habilita /blog y /blog/{slug} con busqueda propia.
+   * Contrato: GET publico read-only; solo muestra publicaciones `publicado`.
+   */
+  public function blog($slug = "") {
+    if ($this->esOptionsPublicas()) { return $this->responderOpcionesPublicas(); }
+    $blog = $this->modelo("EcommerceBlogPublico");
+    if (trim((string) $slug) !== "") {
+      return $this->responderApiPublica($blog->blogDetallePublico($slug));
+    }
+    return $this->responderApiPublica($blog->blogPublico($_GET));
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-11
+   * Proposito: exponer manifest publico del Blog/CMS.
+   * Impacto: Frontend ecommerce; documenta endpoints, filtros y carga diferida de videos.
+   * Contrato: GET publico read-only.
+   */
+  public function blog_manifest() {
+    if ($this->esOptionsPublicas()) { return $this->responderOpcionesPublicas(); }
+    return $this->responderApiPublica($this->modelo("EcommerceBlogPublico")->manifestPublico($_GET));
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-11
+   * Proposito: exponer contenido Blog/CMS relacionado a una categoria publica.
+   * Impacto: Frontend ecommerce; soporta /categoria/{path_slug}/contenido_relacionado.
+   * Contrato: GET publico read-only; path_slug puede llegar en varios parametros.
+   */
+  public function categoria($p1 = "", $p2 = "", $p3 = "", $p4 = "", $p5 = "") {
+    if ($this->esOptionsPublicas()) { return $this->responderOpcionesPublicas(); }
+    $partes = array();
+    foreach (array($p1, $p2, $p3, $p4, $p5) as $parte) {
+      if ($parte === "contenido_relacionado") { break; }
+      if (trim((string) $parte) !== "") { $partes[] = $parte; }
+    }
+    return $this->responderApiPublica($this->modelo("EcommerceBlogPublico")->contenidoCategoriaPublica(implode("/", $partes)));
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-11
+   * Proposito: registrar analytics publicos del Blog/CMS.
+   * Impacto: Ecommerce analytics; permite medir lectura e interaccion sin cargar embeds al inicio.
+   * Contrato: POST publico; si no hay esquema responde recibido sin persistir.
+   */
+  public function analytics_evento() {
+    if ($this->esOptionsPublicas()) { return $this->responderOpcionesPublicas(); }
+    if (!isset($_SERVER["REQUEST_METHOD"]) || strtoupper((string) $_SERVER["REQUEST_METHOD"]) !== "POST") {
+      return $this->responderApiPublica(array("error" => true, "tipo" => "warning", "mensaje" => "Usa POST para registrar analytics", "depurar" => array("ok" => false)));
+    }
+    return $this->responderApiPublica($this->modelo("EcommerceBlogPublico")->registrarAnalyticsEvento($this->entradaJsonPublica(), array(
+      "ip" => $this->getRealIP(),
+      "user_agent" => isset($_SERVER["HTTP_USER_AGENT"]) ? $_SERVER["HTTP_USER_AGENT"] : ""
+    )));
   }
 
   /**
@@ -1483,6 +1586,28 @@ class EcommercePublico extends Controlador {
   }
 
   /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-11
+   * Proposito: auditar esquema Blog/CMS sin ejecutar DDL.
+   * Impacto: CMS Blog y ecommerce publico; permite revisar readiness antes de publicar guias y articulos.
+   * Contrato: GET protegido por cms.ver/catalogo.ver; solo lectura.
+   */
+  public function esquema_auditar_cms_blog() {
+    $this->requerirAlgunPermiso(array("cms.ver", "catalogo.ver"));
+    return json_encode($this->modelo("EcommercePublicoEsquema")->auditarCmsBlog(), JSON_UNESCAPED_UNICODE);
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-11
+   * Proposito: generar plan DDL read-only para Blog/CMS.
+   * Impacto: CMS Blog; prepara tablas de publicaciones, relaciones, slugs, videos y analytics.
+   * Contrato: GET protegido por cms.ver/catalogo.ver; no ejecuta DDL.
+   */
+  public function esquema_plan_cms_blog() {
+    $this->requerirAlgunPermiso(array("cms.ver", "catalogo.ver"));
+    return json_encode($this->modelo("EcommercePublicoEsquema")->planActualizarCmsBlog(false), JSON_UNESCAPED_UNICODE);
+  }
+
+  /**
    * Documentacion IA: Codex GPT-5 | Fecha: 2026-08-04
    * Proposito: auditar el esquema dedicado de Ecommerce / Analytics sin ejecutar DDL.
    * Impacto: revisa readiness de sesiones, eventos, busquedas, conversiones y resumen diario.
@@ -1524,5 +1649,46 @@ class EcommercePublico extends Controlador {
   public function esquema_plan_leads() {
     $this->requerirPermiso("catalogo.ver");
     return json_encode($this->modelo("EcommerceLeadsEsquema")->planActualizarEcommerceLeads(false));
+  }
+
+  /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-09-11
+   * Proposito: obtener valores anidados para componer respuestas publicas sin depender del modelo concreto.
+   * Impacto: Ecommerce publico; apoya busqueda global con fuentes independientes.
+   * Contrato: helper interno sin efectos laterales.
+   */
+  private function valorApiPublica($datos, $clave, $default = null) {
+    if (is_array($clave)) {
+      $actual = $datos;
+      foreach ($clave as $parte) {
+        if (!is_array($actual) || !array_key_exists($parte, $actual)) { return $default; }
+        $actual = $actual[$parte];
+      }
+      return $actual;
+    }
+    return is_array($datos) && array_key_exists($clave, $datos) ? $datos[$clave] : $default;
+  }
+
+  /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-09-11
+   * Proposito: normalizar resultados heterogeneos para la busqueda global del ecommerce.
+   * Impacto: Frontend ecommerce; permite pintar una lista combinada sin perder grupos independientes.
+   * Contrato: helper interno read-only; usa URLs ya entregadas por cada fuente.
+   */
+  private function normalizarResultadosGlobales($tipo, $items) {
+    $normalizados = array();
+    foreach ((array) $items as $item) {
+      $normalizados[] = array(
+        "tipo" => $tipo,
+        "titulo" => $this->valorApiPublica($item, "titulo", $this->valorApiPublica($item, "nombre", "")),
+        "url" => $this->valorApiPublica($item, "url", ""),
+        "thumbnail" => $this->valorApiPublica($item, "thumbnail", $this->valorApiPublica($item, "imagen", "")),
+        "extracto" => $this->valorApiPublica($item, "extracto", $this->valorApiPublica($item, "descripcion", "")),
+        "slug" => $this->valorApiPublica($item, "slug", "")
+      );
+    }
+    return $normalizados;
   }
 }
