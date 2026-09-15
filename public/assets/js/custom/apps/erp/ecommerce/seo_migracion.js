@@ -13,6 +13,7 @@
   var productoSeoSeleccionado = null;
   var rapidoOffset = 0;
   var rapidoSaltosAuto = 0;
+  var revisionRequestId = 0;
 
   document.addEventListener("DOMContentLoaded", function () {
     bindEvents();
@@ -64,7 +65,7 @@
     if (urlsSyncPlan) urlsSyncPlan.addEventListener("click", prepararSyncUrls);
     if (urlsSyncGuardar) urlsSyncGuardar.addEventListener("click", guardarSyncUrls);
     if (revisionRecargar) revisionRecargar.addEventListener("click", function () { rapidoOffset = 0; cargarRevisionUrls(); });
-    if (rapidoRecargar) rapidoRecargar.addEventListener("click", cargarRevisionUrls);
+    if (rapidoRecargar) rapidoRecargar.addEventListener("click", function () { rapidoOffset = 0; cargarRevisionUrls(); });
     if (rapidoLimite) rapidoLimite.addEventListener("change", function () { rapidoOffset = 0; cargarRevisionUrls(); });
     if (rapidoConfianza) rapidoConfianza.addEventListener("change", function () {
       setValue("ecom_seo_revision_confianza", valor("ecom_seo_rapido_confianza"));
@@ -202,10 +203,12 @@
 
   function cargarRevisionUrls() {
     rapidoSaltosAuto = 0;
-    cargarRevisionUrlsDesdeOffset();
+    revisionRequestId++;
+    cargarRevisionUrlsDesdeOffset(revisionRequestId);
   }
 
-  function cargarRevisionUrlsDesdeOffset() {
+  function cargarRevisionUrlsDesdeOffset(requestId) {
+    requestId = requestId || revisionRequestId;
     var params = new URLSearchParams();
     params.set("limite", valor("ecom_seo_rapido_limite") || valor("ecom_seo_revision_limite") || "20");
     params.set("offset", String(rapidoOffset));
@@ -215,9 +218,11 @@
     if (valor("ecom_seo_revision_prioridad")) params.set("prioridad", valor("ecom_seo_revision_prioridad"));
     var confianza = valor("ecom_seo_rapido_confianza") || valor("ecom_seo_revision_confianza");
     if (confianza) params.set("confianza", confianza);
+    setHtml("ecom_seo_rapido_body", '<tr><td colspan="4" class="text-center text-muted py-6">Cargando URLs indexadas...</td></tr>');
     fetch("/ecommercePublico/seo_urls_viejas_revision_erp?" + params.toString(), { headers: { Accept: "application/json" } })
       .then(jsonResponse)
       .then(function (response) {
+        if (requestId !== revisionRequestId) return;
         renderRevisionUrls(response);
         var pendientesRapidos = renderRapidoUrls(response);
         var items = get(response, ["depurar", "items"], []);
@@ -225,10 +230,11 @@
         if (pendientesRapidos === 0 && Array.isArray(items) && items.length > 0 && rapidoSaltosAuto < 30) {
           rapidoSaltosAuto++;
           rapidoOffset += limiteRapido;
-          cargarRevisionUrlsDesdeOffset();
+          cargarRevisionUrlsDesdeOffset(requestId);
         }
       })
       .catch(function (error) {
+        if (requestId !== revisionRequestId) return;
         setHtml("ecom_seo_revision_info", '<div class="alert alert-danger py-3">' + escapeHtml(error.message || "No se pudo consultar revision.") + "</div>");
         setHtml("ecom_seo_rapido_body", '<tr><td colspan="4"><div class="alert alert-danger py-3 mb-0">' + escapeHtml(error.message || "No se pudo consultar modo rapido.") + "</div></td></tr>");
       });
