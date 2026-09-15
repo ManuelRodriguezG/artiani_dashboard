@@ -35,12 +35,14 @@
     var revisionQ = document.getElementById("ecom_seo_revision_q");
     var revisionAccion = document.getElementById("ecom_seo_revision_accion");
     var revisionPrioridad = document.getElementById("ecom_seo_revision_prioridad");
+    var revisionConfianza = document.getElementById("ecom_seo_revision_confianza");
     var revisionLimite = document.getElementById("ecom_seo_revision_limite");
     var revisionFuente = document.getElementById("ecom_seo_revision_fuente");
     var rapidoRecargar = document.getElementById("ecom_seo_rapido_recargar");
     var rapidoBuscar = document.getElementById("ecom_seo_rapido_buscar");
     var rapidoGuardar = document.getElementById("ecom_seo_rapido_guardar");
     var rapidoLimite = document.getElementById("ecom_seo_rapido_limite");
+    var rapidoConfianza = document.getElementById("ecom_seo_rapido_confianza");
     var productosRecargar = document.getElementById("ecom_seo_productos_recargar");
     var productosQ = document.getElementById("ecom_seo_productos_q");
     var productosEstatus = document.getElementById("ecom_seo_productos_estatus");
@@ -64,6 +66,11 @@
     if (revisionRecargar) revisionRecargar.addEventListener("click", function () { rapidoOffset = 0; cargarRevisionUrls(); });
     if (rapidoRecargar) rapidoRecargar.addEventListener("click", cargarRevisionUrls);
     if (rapidoLimite) rapidoLimite.addEventListener("change", function () { rapidoOffset = 0; cargarRevisionUrls(); });
+    if (rapidoConfianza) rapidoConfianza.addEventListener("change", function () {
+      setValue("ecom_seo_revision_confianza", valor("ecom_seo_rapido_confianza"));
+      rapidoOffset = 0;
+      cargarRevisionUrls();
+    });
     if (rapidoBuscar) rapidoBuscar.addEventListener("click", buscarRapidoDestinos);
     if (rapidoGuardar) rapidoGuardar.addEventListener("click", guardarRapidoDecision);
     if (productosRecargar) productosRecargar.addEventListener("click", cargarProductosSlugs);
@@ -80,9 +87,13 @@
       revisionOcultas.innerHTML = '<i class="bi bi-eye"></i> ' + (mostrarOcultas ? "Mostrando ocultas" : "Ocultas");
       cargarRevisionUrls();
     });
-    [revisionQ, revisionAccion, revisionPrioridad, revisionLimite, revisionFuente].forEach(function (node) {
+    [revisionQ, revisionAccion, revisionPrioridad, revisionConfianza, revisionLimite, revisionFuente].forEach(function (node) {
       if (!node) return;
-      node.addEventListener(node === revisionQ ? "input" : "change", debounce(function () { rapidoOffset = 0; cargarRevisionUrls(); }, 250));
+      node.addEventListener(node === revisionQ ? "input" : "change", debounce(function () {
+        if (node === revisionConfianza) setValue("ecom_seo_rapido_confianza", valor("ecom_seo_revision_confianza"));
+        rapidoOffset = 0;
+        cargarRevisionUrls();
+      }, 250));
     });
     [productosQ, productosEstatus, productosRelacion, productosLimite].forEach(function (node) {
       if (!node) return;
@@ -100,6 +111,7 @@
       var elegirDestinoManual = event.target.closest("[data-seo-elegir-destino-manual]");
       var rapidoEditar = event.target.closest("[data-seo-rapido-editar]");
       var rapidoUsarDestino = event.target.closest("[data-seo-rapido-usar-destino]");
+      var filtroConfianza = event.target.closest("[data-seo-filtro-confianza]");
       if (usar) {
         usarRevisionComoRedireccion(usar);
       }
@@ -135,6 +147,12 @@
         setValue("ecom_seo_rapido_to", rapidoUsarDestino.getAttribute("data-path") || "");
         setValue("ecom_seo_rapido_tipo", rapidoUsarDestino.getAttribute("data-tipo") || "producto");
       }
+      if (filtroConfianza) {
+        setValue("ecom_seo_revision_confianza", filtroConfianza.getAttribute("data-seo-filtro-confianza") || "");
+        setValue("ecom_seo_rapido_confianza", filtroConfianza.getAttribute("data-seo-filtro-confianza") || "");
+        rapidoOffset = 0;
+        cargarRevisionUrls();
+      }
     });
     document.addEventListener("change", function (event) {
       var decision = event.target.closest("[data-seo-decision-url]");
@@ -157,6 +175,7 @@
     if (rapido) {
       rapido.innerHTML = '<tr><td colspan="4" class="text-center text-muted py-6">Cargando modo rapido...</td></tr>';
     }
+    renderRapidoResumen({});
   }
 
   function recargarSeoCompleto() {
@@ -194,6 +213,8 @@
     if (valor("ecom_seo_revision_q")) params.set("q", valor("ecom_seo_revision_q"));
     if (valor("ecom_seo_revision_accion")) params.set("accion", valor("ecom_seo_revision_accion"));
     if (valor("ecom_seo_revision_prioridad")) params.set("prioridad", valor("ecom_seo_revision_prioridad"));
+    var confianza = valor("ecom_seo_rapido_confianza") || valor("ecom_seo_revision_confianza");
+    if (confianza) params.set("confianza", confianza);
     fetch("/ecommercePublico/seo_urls_viejas_revision_erp?" + params.toString(), { headers: { Accept: "application/json" } })
       .then(jsonResponse)
       .then(function (response) {
@@ -374,6 +395,7 @@
       setHtml("ecom_seo_revision_info", '<div class="alert alert-info py-3">Aun no hay reporte enriquecido. Ejecuta el rastreo read-only y genera el reporte para alimentar esta mesa.</div>');
       tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-6">Sin reporte de URLs anteriores.</td></tr>';
       renderRevisionResumen({});
+      renderRapidoResumen({});
       return;
     }
     var decisiones = cargarDecisiones();
@@ -402,6 +424,7 @@
       "</div>"
     ].join(""));
     renderRevisionResumen(depurar.resumen || {});
+    renderRapidoResumen(depurar.resumen || {});
     if (visibles.length === 0) {
       tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-6">Sin URLs para los filtros actuales.</td></tr>';
       return;
@@ -478,6 +501,19 @@
       ].join("");
     })).join("");
     return items.length;
+  }
+
+  function renderRapidoResumen(resumen) {
+    var node = document.getElementById("ecom_seo_rapido_resumen");
+    if (!node) return;
+    resumen = resumen || {};
+    var confianza = resumen.confianza || {};
+    node.innerHTML = [
+      resumenCajaFiltro("Todas", resumen.total_coincidencias || 0, "", "info"),
+      resumenCajaFiltro("Exactas", confianza.exacta || 0, "exacta", "success"),
+      resumenCajaFiltro("Aprobadas", confianza.aprobada || 0, "aprobada", "success"),
+      resumenCaja("Pendientes", resumen.pendientes_no_exactas || 0)
+    ].join("");
   }
 
   function abrirRapidoModal(item) {
@@ -658,13 +694,22 @@
     var node = document.getElementById("ecom_seo_revision_resumen");
     if (!node) return;
     var acciones = resumen.accion || {};
+    var confianza = resumen.confianza || {};
     node.innerHTML = [
+      resumenCajaFiltro("Exactas", confianza.exacta || 0, "exacta", "success"),
+      resumenCajaFiltro("Aprobadas", confianza.aprobada || 0, "aprobada", "success"),
+      resumenCaja("Pendientes no exactas", resumen.pendientes_no_exactas || 0),
       resumenCaja("Sin 301", acciones.sin_redireccion_necesaria || 0),
       resumenCaja("Aprobar", acciones.aprobar_301_candidato || 0),
       resumenCaja("Validar", acciones.validar_301_candidato || 0),
       resumenCaja("Manual", acciones.revisar_manual || 0),
       resumenCaja("Excluir/410", acciones.excluir_o_410 || 0)
     ].join("");
+  }
+
+  function resumenCajaFiltro(label, valor, filtro, tono) {
+    var clase = tono === "success" ? "border-success" : (tono === "warning" ? "border-warning" : (tono === "info" ? "border-info" : "border-primary"));
+    return '<div class="col-md-2 col-6"><button class="ecom-seo-kpi w-100 text-start border ' + clase + '" type="button" data-seo-filtro-confianza="' + escapeAttr(filtro) + '"><div class="text-muted fs-8">' + escapeHtml(label) + '</div><div class="fs-3 fw-bold">' + escapeHtml(valor) + "</div></button></div>";
   }
 
   function productoSeoDesdeSugerencia(sug, path, preview) {

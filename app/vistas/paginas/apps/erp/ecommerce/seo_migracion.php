@@ -102,6 +102,11 @@
                                         <div class="text-muted fs-7">Tabla simple para aceptar, editar destino, guardar 301 o marcar 410.</div>
                                     </div>
                                     <div class="d-flex align-items-center gap-2">
+                                        <select class="form-select form-select-sm form-select-solid w-auto" id="ecom_seo_rapido_confianza">
+                                            <option value="">Todas</option>
+                                            <option value="exacta">Exactas</option>
+                                            <option value="aprobada">Aprobadas</option>
+                                        </select>
                                         <select class="form-select form-select-sm form-select-solid w-auto" id="ecom_seo_rapido_limite">
                                             <option value="20" selected>20 URLs</option>
                                             <option value="50">50 URLs</option>
@@ -109,6 +114,7 @@
                                         <button class="btn btn-sm btn-light-primary" type="button" id="ecom_seo_rapido_recargar"><i class="bi bi-arrow-clockwise"></i> Consultar</button>
                                     </div>
                                 </div>
+                                <div class="row g-3 mb-4" id="ecom_seo_rapido_resumen"></div>
                                 <div class="table-responsive ecom-seo-scroll">
                                     <table class="table table-row-dashed fs-7 gy-3 mb-0">
                                         <thead>
@@ -265,6 +271,17 @@
                                             <option value="alta">Alta</option>
                                             <option value="media">Media</option>
                                             <option value="baja">Baja</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-2">
+                                        <label class="form-label">Confianza</label>
+                                        <select class="form-select form-select-solid" id="ecom_seo_revision_confianza">
+                                            <option value="">Todas</option>
+                                            <option value="exacta">Exactas</option>
+                                            <option value="alta">Alta</option>
+                                            <option value="media">Media</option>
+                                            <option value="baja">Baja</option>
+                                            <option value="aprobada">Aprobadas</option>
                                         </select>
                                     </div>
                                     <div class="col-md-1">
@@ -518,6 +535,6 @@
 <script>
     window.ERP_CSRF_TOKEN = "<?= htmlspecialchars(SesionSeguridad::csrfToken(), ENT_QUOTES, 'UTF-8') ?>";
 </script>
-<script src="/assets/js/custom/apps/erp/ecommerce/seo_migracion.js?v=20260914-slugs-sku-global2"></script>
+<script src="/assets/js/custom/apps/erp/ecommerce/seo_migracion.js?v=20260914-exactas-indexadas2"></script>
 </body>
 </html>

@@ -32,6 +32,37 @@ Respuesta principal:
 - `depurar.json_ld`
 - `depurar.guardrails`
 
+## Actualizacion 2026-09-14 - SEO por ficha de producto
+
+`GET /ecommercePublico/producto/{slug}` entrega `depurar.seo` listo para que el frontend renderice metadatos de la ficha sin leer archivos internos del ERP ni recalcular reglas de Catalogo.
+
+Campos principales:
+
+- `title`
+- `description`
+- `canonical`
+- `canonical_path`
+- `canonical_url`
+- `robots`
+- `og_type`
+- `og_title`
+- `og_description`
+- `og_image`
+- `og_image_width`
+- `og_image_height`
+- `og_image_alt`
+- `twitter_card`
+- `json_ld`
+
+Reglas:
+
+- `canonical` y `canonical_path` son rutas publicas, por ejemplo `/producto/{slug}`.
+- `canonical_url` y `og_image` son absolutas cuando hay dominio productivo/configuracion SEO disponible.
+- `og_type` para producto es `product`.
+- `twitter_card` recomendado es `summary_large_image`.
+- `item.descripcion_publica` conserva la descripcion publica que debe mostrarse en la pagina; si falta curaduria ecommerce, usa fallback controlado desde Catalogo ERP y lo indica en `item.descripcion_publica_fuente`.
+- Para producto agrupado o variantes, el frontend debe usar `depurar.grupo_producto`, `depurar.variantes` y `depurar.fase_2.resumen_ui.mostrar_variantes`; no debe deducir agrupaciones leyendo tablas internas.
+
 ## Actualizacion 2026-09-03 - Migracion URLs y contratos SEO separados
 
 Se agrega una capa explicita para migracion SEO del ecommerce publico. El ERP administra y entrega la informacion; el frontend externo la aplica en runtime/build/hosting.

@@ -4852,6 +4852,7 @@ class EcommerceCatalogoPublico extends CRUD {
       $q = strtolower($this->normalizarTextoPlano(trim((string) $this->valor($opciones, "q", ""))));
       $accion = trim((string) $this->valor($opciones, "accion", ""));
       $prioridad = trim((string) $this->valor($opciones, "prioridad", ""));
+      $confianzaFiltro = trim((string) $this->valor($opciones, "confianza", ""));
       $limite = max(1, min(500, intval($this->valor($opciones, "limite", 120))));
       $offset = max(0, intval($this->valor($opciones, "offset", 0)));
       $db = $this->getConexion();
@@ -4860,10 +4861,20 @@ class EcommerceCatalogoPublico extends CRUD {
       $usaIndexadas = strpos($archivo, "ecommerce_seo_urls_indexadas_google_") !== false;
       $baseProduccion = $this->dominioProduccionSeoPublico($this->configuracionSeoPublica($db));
       $canonicas = $usaIndexadas ? $this->seoUrlsComparacionMigracionItems($baseProduccion, 3000) : array();
+      $canonicasExactas = $usaIndexadas ? $this->seoIndiceCanonicasExactas($canonicas) : array("paths" => array(), "skus" => array());
       $redireccionesExistentes = $this->seoRedireccionesPorOrigenMapa($db);
 
       $filtrados = array();
       $omitidosOffset = 0;
+      $totalCoincidencias = 0;
+      $resumenRevision = array(
+        "accion" => array(),
+        "confianza" => array(),
+        "prioridad" => array(),
+        "exactas_disponibles" => 0,
+        "exactas_con_301" => 0,
+        "exactas_sin_redireccion" => 0
+      );
       foreach ($items as $item) {
         $pathOriginal = $this->normalizarSeoPathPublico($this->valor($item, "path_original", $this->valor($item, "url_original", "")));
         if ($q !== "") {
@@ -4892,7 +4903,11 @@ class EcommerceCatalogoPublico extends CRUD {
           continue;
         } elseif ($usaIndexadas) {
           $tipoItem = $this->valor($item, "tipo_detectado", $this->seoTipoDetectadoPath($this->valor($item, "path_original", "")));
-          $sugerenciasIndexadas = $this->seoSugerenciasDestinoPublico($this->valor($item, "path_original", ""), $tipoItem, $canonicas, 3);
+          $sugerenciaExacta = $this->seoSugerenciaExactaRapida($this->valor($item, "path_original", ""), $tipoItem, $canonicasExactas);
+          $sugerenciasIndexadas = $sugerenciaExacta ? array($sugerenciaExacta) : array();
+          if (!$sugerenciaExacta && $confianzaFiltro !== "exacta" && ($accion !== "" || $prioridad !== "" || count($filtrados) < ($offset + $limite))) {
+            $sugerenciasIndexadas = $this->seoSugerenciasDestinoPublico($this->valor($item, "path_original", ""), $tipoItem, $canonicas, 3);
+          }
           $item["sugerencias"] = $sugerenciasIndexadas;
           if (!empty($sugerenciasIndexadas)) {
             $item["url_destino_sugerida"] = $this->valor($sugerenciasIndexadas[0], "path", "");
@@ -4913,13 +4928,33 @@ class EcommerceCatalogoPublico extends CRUD {
         if (!isset($item["confianza"])) { $item["confianza"] = "pendiente"; }
         if ($accion !== "" && (string) $this->valor($item, "accion_sugerida", "") !== $accion) { continue; }
         if ($prioridad !== "" && (string) $this->valor($item, "prioridad_revision", "") !== $prioridad) { continue; }
+        $confianzaItem = (string) $this->valor($item, "confianza", "pendiente");
+        $accionItem = (string) $this->valor($item, "accion_sugerida", "revisar_manual");
+        $prioridadItem = (string) $this->valor($item, "prioridad_revision", "media");
+        $this->seoIncrementarResumenRevision($resumenRevision["confianza"], $confianzaItem);
+        $this->seoIncrementarResumenRevision($resumenRevision["accion"], $accionItem);
+        $this->seoIncrementarResumenRevision($resumenRevision["prioridad"], $prioridadItem);
+        if ($confianzaItem === "exacta") {
+          $resumenRevision["exactas_disponibles"]++;
+          if ($accionItem === "validar_301_candidato" || $accionItem === "aprobar_301_candidato") {
+            $resumenRevision["exactas_con_301"]++;
+          }
+          if ($accionItem === "sin_redireccion_necesaria") {
+            $resumenRevision["exactas_sin_redireccion"]++;
+          }
+        }
+        if ($confianzaFiltro !== "" && $confianzaItem !== $confianzaFiltro) { continue; }
+        $totalCoincidencias++;
         if ($omitidosOffset < $offset) {
           $omitidosOffset++;
           continue;
         }
-        $filtrados[] = $item;
-        if (count($filtrados) >= $limite) { break; }
+        if (count($filtrados) < $limite) {
+          $filtrados[] = $item;
+        }
       }
+      $resumenRevision["total_coincidencias"] = $totalCoincidencias;
+      $resumenRevision["pendientes_no_exactas"] = max(0, $totalCoincidencias - intval($resumenRevision["exactas_disponibles"]) - intval($this->valor($resumenRevision["confianza"], "aprobada", 0)));
 
       return $this->respuesta(false, "success", "Revision de URLs viejas consultada", array(
         "disponible" => true,
@@ -4930,8 +4965,10 @@ class EcommerceCatalogoPublico extends CRUD {
         "total_reporte" => intval($this->valor($payload, "total", $this->valor($payload, "total_viejas", count($items)))),
         "total_nuevas" => intval($this->valor($payload, "total_nuevas", 0)),
         "total_filtrado" => count($filtrados),
-        "resumen" => $this->valor($payload, "resumen", array()),
-        "filtros" => array("q" => $q, "accion" => $accion, "prioridad" => $prioridad, "limite" => $limite, "offset" => $offset),
+        "total_coincidencias" => $totalCoincidencias,
+        "resumen" => $resumenRevision,
+        "resumen_reporte_original" => $this->valor($payload, "resumen", array()),
+        "filtros" => array("q" => $q, "accion" => $accion, "prioridad" => $prioridad, "confianza" => $confianzaFiltro, "limite" => $limite, "offset" => $offset),
         "items" => $filtrados,
         "guardrails" => array(
           "read_only" => true,
@@ -5126,6 +5163,13 @@ class EcommerceCatalogoPublico extends CRUD {
     } catch (Exception $e) {
       return $this->respuesta(true, "danger", $e->getMessage(), array("read_only" => true, "items" => array()));
     }
+  }
+
+  private function seoIncrementarResumenRevision(&$contenedor, $clave) {
+    $clave = trim((string) $clave);
+    if ($clave === "") { $clave = "sin_valor"; }
+    if (!isset($contenedor[$clave])) { $contenedor[$clave] = 0; }
+    $contenedor[$clave]++;
   }
 
   private function seoDestinosProductosInterno($db, $baseProduccion, $baseLocal, $qRaw, $limite) {
@@ -11489,6 +11533,7 @@ class EcommerceCatalogoPublico extends CRUD {
     $slugPublico = (string) $fila["slug"];
     $urlPublica = "/producto/" . $slugPublico;
     $canonicalUrl = $this->canonicalSeoPublico($this->dominioProduccionSeoPublico($this->configuracionSeoPublica($this->getConexion())), $urlPublica);
+    $descripcionPublica = trim((string) $fila["descripcion_publica"]) !== "" ? $fila["descripcion_publica"] : $this->descripcionCatalogoParaEcommerce($fila);
     return array(
       "id_publicacion" => intval($fila["id_publicacion"]),
       "id_producto_erp" => intval($fila["id_producto_erp"]),
@@ -11517,7 +11562,9 @@ class EcommerceCatalogoPublico extends CRUD {
       "categorias" => $categorias,
       "categoria_ids" => array_map(function($cat) { return intval($cat["id"]); }, $categorias),
       "presentacion" => $this->presentacionPublicaSalida($fila),
-      "descripcion" => trim((string) $fila["descripcion_publica"]) !== "" ? $fila["descripcion_publica"] : $this->descripcionCatalogoParaEcommerce($fila),
+      "descripcion" => $descripcionPublica,
+      "descripcion_publica" => $descripcionPublica,
+      "descripcion_publica_fuente" => trim((string) $fila["descripcion_publica"]) !== "" ? "publicacion_ecommerce" : "catalogo_erp_fallback",
       "imagen" => $fila["url_imagen"],
       "imagen_fuente" => $this->valor($fila, "imagen_fuente", ""),
       "imagenes" => $imagenes,
@@ -11868,9 +11915,16 @@ class EcommerceCatalogoPublico extends CRUD {
     return $breadcrumbs;
   }
 
+  /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-09-14
+   * Proposito: entregar metadatos completos para ficha publica de producto, incluyendo SEO, Open Graph y Twitter Card.
+   * Impacto: Ecommerce publico; el frontend externo puede renderizar metadata sin leer archivos internos ni inventar rutas.
+   * Contrato: devuelve canonical publico `/producto/{slug}`, imagen absoluta cuando hay dominio SEO y JSON-LD sin stock exacto.
+   */
   private function seoProductoPublico($item) {
     $nombre = trim((string) $this->valor($item, "nombre", "Producto Artiani"));
-    $descripcion = trim((string) $this->valor($item, "descripcion", ""));
+    $descripcion = $this->textoPlanoSeoPublico($this->valor($item, "descripcion_publica", $this->valor($item, "descripcion", "")));
     if ($descripcion === "") {
       $partes = array_filter(array(
         $nombre,
@@ -11880,21 +11934,42 @@ class EcommerceCatalogoPublico extends CRUD {
       ));
       $descripcion = implode(" | ", $partes);
     }
+    $descripcion = $this->textoPlanoSeoPublico($descripcion);
+    $path = "/producto/" . $this->valor($item, "slug", "");
+    $canonicalUrl = trim((string) $this->valor($item, "canonical_url", ""));
+    if ($canonicalUrl === "") {
+      $canonicalUrl = $this->canonicalSeoPublico($this->dominioProduccionSeoPublico($this->configuracionSeoPublica($this->getConexion())), $path);
+    }
+    $imagen = $this->imagenSeoProductoPublico($item, $canonicalUrl);
+    $altImagen = $this->altImagenSeoProductoPublico($item);
     $precio = $this->valor($item, "precio", null);
+    $title = $this->recortarSeoTexto($nombre . " | Artiani", 90);
+    $description = $this->recortarSeoTexto($descripcion, 160);
+    $ogDescription = $this->recortarSeoTexto($this->descripcionOpenGraphProductoPublico($item, $descripcion), 200);
     return array(
-      "title" => substr($nombre . " | Artiani", 0, 90),
-      "description" => substr($descripcion, 0, 160),
-      "canonical_path" => "/producto/" . $this->valor($item, "slug", ""),
-      "canonical_url" => $this->valor($item, "canonical_url", ""),
-      "image" => $this->valor($item, "imagen", null),
+      "title" => $title,
+      "description" => $description,
+      "canonical" => $path,
+      "canonical_path" => $path,
+      "canonical_url" => $canonicalUrl,
+      "robots" => "index,follow",
+      "og_type" => "product",
+      "og_title" => $this->recortarSeoTexto($nombre, 90),
+      "og_description" => $ogDescription,
+      "og_image" => $imagen,
+      "og_image_width" => 1200,
+      "og_image_height" => 630,
+      "og_image_alt" => $altImagen,
+      "twitter_card" => "summary_large_image",
+      "image" => $imagen,
       "json_ld" => array(
         "@context" => "https://schema.org",
         "@type" => "Product",
         "name" => $nombre,
         "sku" => $this->valor($item, "sku", ""),
         "brand" => $this->valor($item, "marca", ""),
-        "image" => $this->valor($item, "imagen", null),
-        "description" => substr($descripcion, 0, 300),
+        "image" => $imagen,
+        "description" => $this->recortarSeoTexto($descripcion, 300),
         "offers" => array(
           "@type" => "Offer",
           "priceCurrency" => $this->valor($item, "moneda", "MXN"),
@@ -11903,6 +11978,102 @@ class EcommerceCatalogoPublico extends CRUD {
         )
       )
     );
+  }
+
+  /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-09-14
+   * Proposito: limpiar HTML y espacios antes de exponer textos en metadata publica.
+   * Impacto: Ecommerce SEO; evita que meta description/OG reciban markup del catalogo.
+   * Contrato: entrada string libre, salida texto plano UTF-8.
+   */
+  private function textoPlanoSeoPublico($texto) {
+    $texto = html_entity_decode(strip_tags((string) $texto), ENT_QUOTES | ENT_HTML5, "UTF-8");
+    $texto = preg_replace('/\s+/', ' ', $texto);
+    return trim($texto);
+  }
+
+  /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-09-14
+   * Proposito: limitar textos SEO sin depender de reglas del frontend.
+   * Impacto: Ecommerce publico; normaliza title, description, Open Graph y JSON-LD.
+   * Contrato: devuelve texto plano con longitud maxima aproximada.
+   */
+  private function recortarSeoTexto($texto, $limite) {
+    $texto = $this->textoPlanoSeoPublico($texto);
+    $limite = max(1, intval($limite));
+    if (function_exists("mb_strlen") && function_exists("mb_substr")) {
+      return mb_strlen($texto, "UTF-8") > $limite ? rtrim(mb_substr($texto, 0, $limite, "UTF-8")) : $texto;
+    }
+    return strlen($texto) > $limite ? rtrim(substr($texto, 0, $limite)) : $texto;
+  }
+
+  /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-09-14
+   * Proposito: resolver imagen absoluta para Open Graph/Twitter usando imagen principal o galeria publica.
+   * Impacto: Ecommerce publico; WhatsApp/Facebook reciben una URL consumible sin leer filesystem del ERP.
+   * Contrato: devuelve URL absoluta, o null si no hay imagen publica valida.
+   */
+  private function imagenSeoProductoPublico($item, $canonicalUrl = "") {
+    $imagen = $this->cmsNormalizarUrlImagenPublica($this->valor($item, "imagen", ""));
+    if ($imagen === "") {
+      foreach ((array) $this->valor($item, "imagenes", array()) as $img) {
+        $imagen = $this->cmsNormalizarUrlImagenPublica($this->valor($img, "url", ""));
+        if ($imagen !== "") { break; }
+      }
+    }
+    if ($imagen === "") {
+      return null;
+    }
+    if (preg_match('/^https?:\/\//i', $imagen)) {
+      return $imagen;
+    }
+    $baseUrl = "";
+    if (preg_match('/^https?:\/\//i', (string) $canonicalUrl)) {
+      $partes = parse_url($canonicalUrl);
+      if (!empty($partes["scheme"]) && !empty($partes["host"])) {
+        $baseUrl = $partes["scheme"] . "://" . $partes["host"] . (!empty($partes["port"]) ? ":" . $partes["port"] : "");
+      }
+    }
+    if ($baseUrl === "") {
+      $baseUrl = $this->dominioProduccionSeoPublico($this->configuracionSeoPublica($this->getConexion()));
+    }
+    return $this->urlSeoPublica($baseUrl, $imagen);
+  }
+
+  /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-09-14
+   * Proposito: elegir texto alternativo para imagen social del producto.
+   * Impacto: SEO/accesibilidad del ecommerce publico.
+   * Contrato: prioriza alt de galeria; fallback `{nombre} Artiani`.
+   */
+  private function altImagenSeoProductoPublico($item) {
+    foreach ((array) $this->valor($item, "imagenes", array()) as $img) {
+      $alt = trim((string) $this->valor($img, "alt", ""));
+      if ($alt !== "") { return $alt; }
+    }
+    $nombre = trim((string) $this->valor($item, "nombre", "Producto"));
+    return $nombre . " Artiani";
+  }
+
+  /**
+   * IA: Codex GPT-5
+   * Fecha: 2026-09-14
+   * Proposito: componer descripcion breve para tarjetas sociales de producto.
+   * Impacto: Compartidos WhatsApp/Facebook sin copiar reglas al frontend.
+   * Contrato: usa descripcion publica, presentacion y marca disponibles.
+   */
+  private function descripcionOpenGraphProductoPublico($item, $descripcion) {
+    $partes = array_filter(array(
+      $descripcion,
+      $this->valor($item, "presentacion", ""),
+      $this->valor($item, "marca", "")
+    ));
+    $texto = implode(" | ", $partes);
+    return $texto !== "" ? $texto : "Producto disponible en Artiani.";
   }
 
   /**
@@ -11957,8 +12128,16 @@ class EcommerceCatalogoPublico extends CRUD {
       "seo" => array(
         "title" => $this->valor($seo, "title", ""),
         "description" => $this->valor($seo, "description", ""),
+        "canonical" => $this->valor($seo, "canonical", ""),
         "canonical_path" => $this->valor($seo, "canonical_path", ""),
-        "canonical_url" => $this->valor($seo, "canonical_url", "")
+        "canonical_url" => $this->valor($seo, "canonical_url", ""),
+        "robots" => $this->valor($seo, "robots", "index,follow"),
+        "og_type" => $this->valor($seo, "og_type", "product"),
+        "og_title" => $this->valor($seo, "og_title", ""),
+        "og_description" => $this->valor($seo, "og_description", ""),
+        "og_image" => $this->valor($seo, "og_image", null),
+        "og_image_alt" => $this->valor($seo, "og_image_alt", ""),
+        "twitter_card" => $this->valor($seo, "twitter_card", "summary_large_image")
       ),
       "guardrails" => array(
         "solo_publicado" => true,
@@ -12099,13 +12278,14 @@ class EcommerceCatalogoPublico extends CRUD {
       if ($slug === "") {
         continue;
       }
+      $seoProducto = $this->seoProductoPublico($producto);
       $agregar("producto", "/producto/" . $slug, array(
         "entidad_id" => intval($this->valor($producto, "id_publicacion", 0)),
         "id_sku" => intval($this->valor($producto, "id_sku", 0)),
         "sku" => trim((string) $this->valor($producto, "sku", "")),
-        "title" => $this->valor($producto, "nombre", "Producto") . " | Artiani",
-        "description" => substr(trim((string) $this->valor($producto, "descripcion", "")), 0, 160),
-        "image" => $this->valor($producto, "imagen", null)
+        "title" => $this->valor($seoProducto, "title", $this->valor($producto, "nombre", "Producto") . " | Artiani"),
+        "description" => $this->valor($seoProducto, "description", ""),
+        "image" => $this->valor($seoProducto, "og_image", $this->valor($producto, "imagen", null))
       ));
     }
 
@@ -12440,6 +12620,59 @@ class EcommerceCatalogoPublico extends CRUD {
       return intval($b["score"]) - intval($a["score"]);
     });
     return array_slice($candidatos, 0, max(1, intval($limite)));
+  }
+
+  private function seoIndiceCanonicasExactas($canonicas) {
+    $indice = array("paths" => array(), "skus" => array());
+    foreach ((array) $canonicas as $url) {
+      $tipo = (string) $this->valor($url, "tipo", "");
+      $path = $this->normalizarSeoPathPublico($this->valor($url, "path", ""));
+      if ($path === "") { continue; }
+      $item = array(
+        "path" => $path,
+        "tipo" => $tipo,
+        "title" => $this->valor($url, "title", ""),
+        "description" => $this->valor($url, "description", ""),
+        "sku" => $this->valor($url, "sku", ""),
+        "id_sku" => intval($this->valor($url, "id_sku", 0)),
+        "id_publicacion" => intval($this->valor($url, "entidad_id", 0)),
+        "estatus_publicacion" => $this->valor($url, "estatus_publicacion", ""),
+        "fuente_comparacion" => $this->valor($url, "fuente_comparacion", ""),
+        "slug" => preg_replace('/^\/producto\//', '', $path)
+      );
+      $indice["paths"][$path] = $item;
+      $sku = $this->seoSkuNormalizado($this->valor($url, "sku", ""));
+      if ($sku !== "" && !isset($indice["skus"][$sku])) {
+        $indice["skus"][$sku] = $item;
+      }
+    }
+    return $indice;
+  }
+
+  private function seoSugerenciaExactaRapida($path, $tipo, $indice) {
+    $path = $this->normalizarSeoPathPublico($path);
+    if ($path !== "" && isset($indice["paths"][$path])) {
+      $item = $indice["paths"][$path];
+      if ($tipo === "desconocido" || $tipo === "busqueda" || $this->valor($item, "tipo", "") === $tipo) {
+        $item["score"] = 1000;
+        $item["confianza"] = "exacta";
+        $item["motivo"] = "misma_uri";
+        $item["misma_uri"] = true;
+        return $item;
+      }
+    }
+    $sku = $this->seoSkuLegacyDesdePath($path);
+    if ($sku !== "" && isset($indice["skus"][$sku])) {
+      $item = $indice["skus"][$sku];
+      if ($tipo === "desconocido" || $tipo === "busqueda" || $this->valor($item, "tipo", "") === $tipo) {
+        $item["score"] = 1000;
+        $item["confianza"] = "exacta";
+        $item["motivo"] = "sku_legacy_coincide";
+        $item["misma_uri"] = $path === $this->valor($item, "path", "");
+        return $item;
+      }
+    }
+    return null;
   }
 
   private function seoSkuLegacyDesdePath($path) {
