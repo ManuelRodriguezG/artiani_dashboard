@@ -106,6 +106,7 @@
                                             <option value="">Todas</option>
                                             <option value="exacta">Exactas</option>
                                             <option value="aprobada">Aprobadas</option>
+                                            <option value="pendientes">Pendientes</option>
                                         </select>
                                         <select class="form-select form-select-sm form-select-solid w-auto" id="ecom_seo_rapido_limite">
                                             <option value="20" selected>20 URLs</option>
@@ -282,6 +283,7 @@
                                             <option value="media">Media</option>
                                             <option value="baja">Baja</option>
                                             <option value="aprobada">Aprobadas</option>
+                                            <option value="pendientes">Pendientes no exactas</option>
                                         </select>
                                     </div>
                                     <div class="col-md-1">
@@ -535,6 +537,6 @@
 <script>
     window.ERP_CSRF_TOKEN = "<?= htmlspecialchars(SesionSeguridad::csrfToken(), ENT_QUOTES, 'UTF-8') ?>";
 </script>
-<script src="/assets/js/custom/apps/erp/ecommerce/seo_migracion.js?v=20260914-exactas-indexadas2"></script>
+<script src="/assets/js/custom/apps/erp/ecommerce/seo_migracion.js?v=20260914-pendientes-indexadas1"></script>
 </body>
 </html>

@@ -509,10 +509,10 @@
     resumen = resumen || {};
     var confianza = resumen.confianza || {};
     node.innerHTML = [
-      resumenCajaFiltro("Todas", resumen.total_coincidencias || 0, "", "info"),
+      resumenCajaFiltro("Todas", resumen.total_resumen || resumen.total_coincidencias || 0, "", "info"),
       resumenCajaFiltro("Exactas", confianza.exacta || 0, "exacta", "success"),
       resumenCajaFiltro("Aprobadas", confianza.aprobada || 0, "aprobada", "success"),
-      resumenCaja("Pendientes", resumen.pendientes_no_exactas || 0)
+      resumenCajaFiltro("Pendientes", resumen.pendientes_no_exactas || 0, "pendientes", "warning")
     ].join("");
   }
 
@@ -698,7 +698,7 @@
     node.innerHTML = [
       resumenCajaFiltro("Exactas", confianza.exacta || 0, "exacta", "success"),
       resumenCajaFiltro("Aprobadas", confianza.aprobada || 0, "aprobada", "success"),
-      resumenCaja("Pendientes no exactas", resumen.pendientes_no_exactas || 0),
+      resumenCajaFiltro("Pendientes no exactas", resumen.pendientes_no_exactas || 0, "pendientes", "warning"),
       resumenCaja("Sin 301", acciones.sin_redireccion_necesaria || 0),
       resumenCaja("Aprobar", acciones.aprobar_301_candidato || 0),
       resumenCaja("Validar", acciones.validar_301_candidato || 0),

@@ -4853,6 +4853,7 @@ class EcommerceCatalogoPublico extends CRUD {
       $accion = trim((string) $this->valor($opciones, "accion", ""));
       $prioridad = trim((string) $this->valor($opciones, "prioridad", ""));
       $confianzaFiltro = trim((string) $this->valor($opciones, "confianza", ""));
+      if ($confianzaFiltro === "pendiente") { $confianzaFiltro = "pendientes"; }
       $limite = max(1, min(500, intval($this->valor($opciones, "limite", 120))));
       $offset = max(0, intval($this->valor($opciones, "offset", 0)));
       $db = $this->getConexion();
@@ -4943,7 +4944,11 @@ class EcommerceCatalogoPublico extends CRUD {
             $resumenRevision["exactas_sin_redireccion"]++;
           }
         }
-        if ($confianzaFiltro !== "" && $confianzaItem !== $confianzaFiltro) { continue; }
+        if ($confianzaFiltro === "pendientes") {
+          if ($confianzaItem === "exacta" || $confianzaItem === "aprobada") { continue; }
+        } elseif ($confianzaFiltro !== "" && $confianzaItem !== $confianzaFiltro) {
+          continue;
+        }
         $totalCoincidencias++;
         if ($omitidosOffset < $offset) {
           $omitidosOffset++;
@@ -4953,8 +4958,11 @@ class EcommerceCatalogoPublico extends CRUD {
           $filtrados[] = $item;
         }
       }
+      $totalResumenRevision = 0;
+      foreach ($resumenRevision["confianza"] as $totalConfianza) { $totalResumenRevision += intval($totalConfianza); }
       $resumenRevision["total_coincidencias"] = $totalCoincidencias;
-      $resumenRevision["pendientes_no_exactas"] = max(0, $totalCoincidencias - intval($resumenRevision["exactas_disponibles"]) - intval($this->valor($resumenRevision["confianza"], "aprobada", 0)));
+      $resumenRevision["total_resumen"] = $totalResumenRevision;
+      $resumenRevision["pendientes_no_exactas"] = max(0, $totalResumenRevision - intval($resumenRevision["exactas_disponibles"]) - intval($this->valor($resumenRevision["confianza"], "aprobada", 0)));
 
       return $this->respuesta(false, "success", "Revision de URLs viejas consultada", array(
         "disponible" => true,
