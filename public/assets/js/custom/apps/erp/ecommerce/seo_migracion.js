@@ -498,7 +498,7 @@
         query_rapida: queryDesdePathViejo(item.path_original || "")
       });
       return [
-        "<tr>",
+        '<tr data-seo-rapido-row="' + escapeAttr(item.path_original || "") + '">',
         '<td><div class="fw-semibold ecom-seo-path">' + escapeHtml(item.path_original || "-") + '</div>' + renderOrigenRevision(item) + "</td>",
         '<td><div class="fw-semibold ecom-seo-path">' + escapeHtml(destino || "Sin sugerencia") + '</div>' + (item.url_destino_local ? '<a class="fs-8 ecom-seo-path" target="_blank" rel="noopener" href="' + escapeAttr(item.url_destino_local) + '">' + escapeHtml(item.url_destino_local) + "</a>" : '<div class="text-muted fs-8">Puedes elegir destino manual.</div>') + "</td>",
         '<td>' + badgeAccion(item.accion_sugerida) + '<div class="mt-1">' + badgeConfianza(item.confianza) + '</div></td>',
@@ -626,10 +626,10 @@
       return;
     }
     if (decision === "410") {
-      guardarDecisionUrlVieja(from, "410_descontinuado");
+      marcarUrlViejaResuelta(from, "410_descontinuado", { status: "410", motivo: "revision_manual_seo" });
       setHtml("ecom_seo_rapido_mensaje", '<div class="alert alert-success py-3">URL marcada como 410.</div>');
       cerrarRapidoModal();
-      cargarRevisionUrls();
+      quitarRenglonRapido(from);
       return;
     }
     if (!to) {
@@ -651,11 +651,24 @@
       marcarUrlViejaResuelta(from, tipo === "categoria" ? "redirigir_categoria" : "redirigir_producto", { to: to, status: status, motivo: "revision_manual_seo" });
       setHtml("ecom_seo_rapido_mensaje", '<div class="alert alert-success py-3">Redireccion guardada.</div>');
       cerrarRapidoModal();
-      cargarSeo();
-      cargarRevisionUrls();
+      quitarRenglonRapido(from);
     }).catch(function (error) {
       setHtml("ecom_seo_rapido_mensaje", '<div class="alert alert-danger py-3">' + escapeHtml(error.message || "No se pudo guardar.") + "</div>");
     });
+  }
+
+  function quitarRenglonRapido(path) {
+    var tbody = document.getElementById("ecom_seo_rapido_body");
+    if (!tbody) return;
+    var selector = '[data-seo-rapido-row="' + cssEscape(path) + '"]';
+    var row = tbody.querySelector(selector);
+    if (row && row.parentNode) {
+      row.parentNode.removeChild(row);
+    }
+    var pendientes = tbody.querySelectorAll("[data-seo-rapido-row]").length;
+    if (pendientes === 0) {
+      tbody.innerHTML = '<tr><td colspan="4" class="text-center text-muted py-6">Terminaste este lote. Presiona Consultar para traer el siguiente.</td></tr>';
+    }
   }
 
   function renderOrigenRevision(item) {
@@ -1612,6 +1625,14 @@
 
   function escapeAttr(value) {
     return escapeHtml(value).replace(/`/g, "&#096;");
+  }
+
+  function cssEscape(value) {
+    value = String(value == null ? "" : value);
+    if (window.CSS && typeof window.CSS.escape === "function") {
+      return window.CSS.escape(value);
+    }
+    return value.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
   }
 
   function parseJsonSeguro(value) {
