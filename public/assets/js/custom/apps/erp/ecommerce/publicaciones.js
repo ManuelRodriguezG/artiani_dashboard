@@ -55,7 +55,13 @@
             },
             body: new URLSearchParams(data || {}).toString()
         }).then(function (response) {
-            return response.json();
+            return response.text().then(function (texto) {
+                try {
+                    return JSON.parse(texto);
+                } catch (error) {
+                    throw new Error("Respuesta no JSON en " + url + " (HTTP " + response.status + "): " + texto.substring(0, 180));
+                }
+            });
         });
     }
 
@@ -335,7 +341,13 @@
             posible_granel_textual: "Posible granel",
             html_no_permitido: "HTML no permitido",
             publicacion_no_existe: "Sin publicacion",
-            sku_no_encontrado_o_inactivo: "SKU inactivo/no encontrado"
+            sku_no_encontrado_o_inactivo: "SKU inactivo/no encontrado",
+            id_sku_requerido: "SKU requerido",
+            slug_requerido: "Slug requerido",
+            titulo_publico_requerido: "Titulo requerido",
+            slug_ya_usado_por_otro_sku: "Slug duplicado",
+            tabla_erp_ecommerce_publicaciones_pendiente: "Tabla publicaciones pendiente",
+            lote_demasiado_grande: "Lote demasiado grande"
         };
         return mapa[bloqueo] || bloqueo;
     }
@@ -551,6 +563,7 @@
                                 (estaPublicado ? "<span class=\"badge badge-light-success align-self-center\">Producto publicado en API publica</span>" : "") +
                                 (puedeGuardar && !idPublicacion ? "<button type=\"button\" class=\"btn btn-light-primary\" id=\"ecom_guardar_borrador\">Guardar borrador</button>" : "") +
                                 (puedeGuardarCuraduria ? "<button type=\"button\" class=\"btn btn-light-primary\" id=\"ecom_guardar_curaduria\">Guardar cambios</button>" : "") +
+                                "<button type=\"button\" class=\"btn btn-light-success\" id=\"ecom_publicar_informativo\">Publicar informativo</button>" +
                                 (puedePublicar ? "<button type=\"button\" class=\"btn btn-success\" id=\"ecom_publicar_borrador\">Publicar en ecommerce</button>" : "") +
                                 (puedeReactivar ? "<button type=\"button\" class=\"btn btn-success\" id=\"ecom_reactivar_actual\">Reactivar publicacion</button>" : "") +
                                 (estaPublicado ? "<button type=\"button\" class=\"btn btn-light-warning\" id=\"ecom_pausar_actual\">Pausar / ocultar</button>" : "") +
@@ -571,6 +584,10 @@
         var btnPublicar = $("ecom_publicar_borrador");
         if (btnPublicar) {
             btnPublicar.addEventListener("click", publicarBorradorActual);
+        }
+        var btnPublicarInformativo = $("ecom_publicar_informativo");
+        if (btnPublicarInformativo) {
+            btnPublicarInformativo.addEventListener("click", publicarInformativoActual);
         }
         var btnReactivar = $("ecom_reactivar_actual");
         if (btnReactivar) {
@@ -878,6 +895,29 @@
             "\nFallidos: " + Number(depurar.total_error || 0);
     }
 
+    function acumularResultadoLote(acumulado, depurar) {
+        depurar = depurar || {};
+        acumulado.total_solicitado += Number(depurar.total_solicitado || 0);
+        acumulado.total_ok += Number(depurar.total_ok || 0);
+        acumulado.total_igual += Number(depurar.total_igual || 0);
+        acumulado.total_error += Number(depurar.total_error || 0);
+        if (Array.isArray(depurar.resultados)) {
+            acumulado.resultados = acumulado.resultados.concat(depurar.resultados);
+        }
+        acumulado.resultado_lote = acumulado.total_error > 0
+            ? (acumulado.total_ok > 0 || acumulado.total_igual > 0 ? "parcial" : "sin_cambios")
+            : (acumulado.total_ok > 0 ? "completo" : "sin_cambios");
+        return acumulado;
+    }
+
+    function partirEnBloques(items, tamano) {
+        var salida = [];
+        for (var i = 0; i < items.length; i += tamano) {
+            salida.push(items.slice(i, i + tamano));
+        }
+        return salida;
+    }
+
     function actualizarSeleccionLote() {
         var total = Object.keys(seleccionLote).length;
         var contador = $("ecom_lote_seleccionados");
@@ -1005,6 +1045,54 @@
         });
     }
 
+    function publicarInformativosLote() {
+        var skus = skusSeleccionadosLote("");
+        if (!skus.length) {
+            window.alert("Selecciona al menos un producto.");
+            return;
+        }
+        if (!window.confirm("Publicar como informativos " + skus.length + " productos seleccionados? Se ocultara precio, se desactivara cotizacion/carrito directo y se dejara WhatsApp activo. En lote se exigira imagen.")) {
+            return;
+        }
+        setEstado("Preparando " + skus.length + " informativos...", "badge-light-info");
+        var bloques = partirEnBloques(skus, 60);
+        var acumulado = {total_solicitado: 0, total_ok: 0, total_igual: 0, total_error: 0, resultados: [], resultado_lote: "sin_cambios"};
+        var procesarBloque = function (indice) {
+            if (indice >= bloques.length) {
+                return Promise.resolve(acumulado);
+            }
+            setEstado("Informativos bloque " + (indice + 1) + " de " + bloques.length, "badge-light-info");
+            return postForm("/ecommercePublico/publicaciones_lote_informativo_erp", {
+                autorizar: "ECOMMERCE_PUBLICO_LOTE_INFORMATIVO",
+                id_skus: bloques[indice].join(",")
+            }).then(function (response) {
+                if (response.error && !(response.depurar && Array.isArray(response.depurar.resultados))) {
+                    throw new Error(response.mensaje || "No se pudo publicar informativos");
+                }
+                acumularResultadoLote(acumulado, response.depurar || {});
+                return procesarBloque(indice + 1);
+            });
+        };
+        procesarBloque(0).then(function (depurar) {
+            (depurar.resultados || []).forEach(function (resultado) {
+                if (!resultado || resultado.ok !== true) { return; }
+                var id = String(resultado.id_sku || "");
+                if (id) {
+                    delete seleccionLote[id];
+                    delete estatusSeleccionLote[id];
+                }
+            });
+            var totalOk = Number(depurar.total_ok || 0);
+            var totalError = Number(depurar.total_error || 0);
+            setEstado("Informativos: " + totalOk + " / Fallidos: " + totalError, totalError > 0 ? "badge-light-warning" : "badge-light-success");
+            window.alert(tituloResultadoLote("Publicacion informativa masiva", depurar) + "\n" + detalleConteoLote(depurar) + "\n\nProcesado en " + bloques.length + " bloque(s).\n\n" + resumenResultadoLote(depurar));
+            cargarTodo();
+        }).catch(function (error) {
+            setEstado("Error", "badge-light-danger");
+            window.alert(error.message || "No se pudo publicar informativos.");
+        });
+    }
+
     function cambiarEstatusIndividual(idSku, estatus, pregunta) {
         if (!idSku) {
             window.alert("Selecciona una publicacion ecommerce.");
@@ -1093,6 +1181,32 @@
         });
     }
 
+    function publicarInformativoActual() {
+        var datos = datosFormularioPublicacion();
+        if (!window.confirm("Publicar como informativo? Se ocultara el precio, se desactivara cotizacion/carrito directo y quedara disponible para WhatsApp o mas informacion.")) {
+            return;
+        }
+        datos.autorizar = "ECOMMERCE_PUBLICO_PUBLICAR_INFORMATIVO";
+        datos.mostrar_precio = "0";
+        datos.permite_cotizacion = "0";
+        datos.permite_whatsapp = "1";
+        datos.mostrar_disponibilidad = "1";
+        setEstado("Publicando informativo...", "badge-light-info");
+        postForm("/ecommercePublico/publicaciones_publicar_informativo_erp", datos).then(function (response) {
+            if (response.error) { throw new Error(response.mensaje || "No se pudo publicar informativo"); }
+            var advertencias = response.depurar && Array.isArray(response.depurar.advertencias_publicacion) ? response.depurar.advertencias_publicacion : [];
+            setEstado(advertencias.length ? "Informativo publicado con advertencias" : "Informativo publicado", advertencias.length ? "badge-light-warning" : "badge-light-success");
+            if (advertencias.length) {
+                $("ecom_preview_publicacion").insertAdjacentHTML("afterbegin", "<div class=\"alert alert-warning\">Publicado informativo. Advertencias: " + escapeHtml(advertencias.map(etiquetaBloqueo).join(", ")) + "</div>");
+            }
+            cargarPreparacion(datos.id_sku);
+            cargarTodo();
+        }).catch(function (error) {
+            setEstado("Error", "badge-light-danger");
+            $("ecom_preview_publicacion").insertAdjacentHTML("afterbegin", "<div class=\"alert alert-danger\">" + escapeHtml(error.message || String(error)) + "</div>");
+        });
+    }
+
     document.addEventListener("DOMContentLoaded", function () {
         $("ecom_recargar").addEventListener("click", cargarTodo);
         var filtroBusqueda = $("ecom_filtro_busqueda");
@@ -1122,6 +1236,7 @@
         $("ecom_lote_seleccionar_todos").addEventListener("click", seleccionarTodosFiltrados);
         $("ecom_lote_borrador").addEventListener("click", guardarBorradoresLote);
         $("ecom_lote_config_aplicar").addEventListener("click", aplicarConfiguracionLote);
+        $("ecom_lote_informativo").addEventListener("click", publicarInformativosLote);
         $("ecom_lote_publicar").addEventListener("click", publicarBorradoresLote);
         $("ecom_lote_pausar").addEventListener("click", function () {
             cambiarEstatusLote("pausado", "Pausa masiva", "Pausar/ocultar {total} productos seleccionados? Seguiran editables en el panel interno.");

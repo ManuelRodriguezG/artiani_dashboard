@@ -511,6 +511,11 @@
                 </div>
                 <label class="form-label">Destino nuevo editable</label>
                 <input class="form-control form-control-solid mb-3" id="ecom_seo_rapido_to" placeholder="/producto/slug-nuevo">
+                <div class="d-flex flex-wrap gap-2 mb-3">
+                    <button class="btn btn-sm btn-light" type="button" data-seo-rapido-destino-estatico="/contacto"><i class="bi bi-envelope"></i> Contacto</button>
+                    <button class="btn btn-sm btn-light" type="button" data-seo-rapido-destino-estatico="/"><i class="bi bi-house"></i> Inicio</button>
+                    <button class="btn btn-sm btn-light" type="button" data-seo-rapido-destino-estatico="/categorias"><i class="bi bi-grid"></i> Categorias</button>
+                </div>
                 <div class="border rounded p-3 mb-3">
                     <div class="row g-2 align-items-end">
                         <div class="col-md-8">
@@ -537,6 +542,6 @@
 <script>
     window.ERP_CSRF_TOKEN = "<?= htmlspecialchars(SesionSeguridad::csrfToken(), ENT_QUOTES, 'UTF-8') ?>";
 </script>
-<script src="/assets/js/custom/apps/erp/ecommerce/seo_migracion.js?v=20260916-rapido-sin-recarga1"></script>
+<script src="/assets/js/custom/apps/erp/ecommerce/seo_migracion.js?v=20260916-rapido-contacto2"></script>
 </body>
 </html>

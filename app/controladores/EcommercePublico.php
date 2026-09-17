@@ -1360,6 +1360,33 @@ class EcommercePublico extends Controlador {
   }
 
   /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-16
+   * Proposito: publicar un SKU como ficha informativa indexable sin precio ni carrito directo.
+   * Impacto: conserva URL publica/SEO para productos no listos para venta directa, sin tocar inventario ni precios ERP.
+   * Contrato: POST protegido por `catalogo.editar`; requiere token interno y registra auditoria explicita.
+   */
+  public function publicaciones_publicar_informativo_erp() {
+    $this->requerirPermiso("catalogo.editar");
+    $respuesta = $this->modelo("EcommerceCatalogoPublico")->publicarInformativoAutorizado($_POST, array(
+      "autorizar" => isset($_POST["autorizar"]) ? $_POST["autorizar"] : ""
+    ));
+    SesionSeguridad::registrarAuditoria("ecommerce_publico", "publicacion_publicar_informativo", array(
+      "resultado" => empty($respuesta["error"]) ? "ok" : "error",
+      "mensaje" => isset($respuesta["mensaje"]) ? $respuesta["mensaje"] : "",
+      "datos_antes" => array(
+        "id_publicacion" => isset($_POST["id_publicacion"]) ? intval($_POST["id_publicacion"]) : 0,
+        "id_sku" => isset($_POST["id_sku"]) ? intval($_POST["id_sku"]) : 0
+      ),
+      "datos_despues" => array(
+        "id_publicacion" => isset($respuesta["depurar"]["publicacion"]["id_publicacion"]) ? intval($respuesta["depurar"]["publicacion"]["id_publicacion"]) : null,
+        "estatus" => isset($respuesta["depurar"]["publicacion"]["estatus_publicacion"]) ? $respuesta["depurar"]["publicacion"]["estatus_publicacion"] : null,
+        "modo_publicacion" => "informativo"
+      )
+    ));
+    return json_encode($respuesta);
+  }
+
+  /**
    * Documentacion IA: Codex GPT-5 | Fecha: 2026-07-30
    * Proposito: cambiar estatus de una publicacion ecommerce desde gobierno interno.
    * Impacto: permite pausar/reactivar/publicar productos en Artiani sin tocar Catalogo ERP ni inventario.
@@ -1458,6 +1485,32 @@ class EcommercePublico extends Controlador {
         "campos" => isset($respuesta["depurar"]["campos_aplicados"]) ? $respuesta["depurar"]["campos_aplicados"] : array(),
         "total_ok" => isset($respuesta["depurar"]["total_ok"]) ? intval($respuesta["depurar"]["total_ok"]) : 0,
         "total_error" => isset($respuesta["depurar"]["total_error"]) ? intval($respuesta["depurar"]["total_error"]) : 0
+      )
+    ));
+    return json_encode($respuesta);
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-17
+   * Proposito: publicar por lote productos como fichas informativas indexables sin precio ni carrito directo.
+   * Impacto: acelera rescate SEO desde publicaciones ecommerce sin tocar inventario, precios ERP ni legacy `ecom_*`.
+   * Contrato: POST protegido por `catalogo.editar`; requiere token interno, CSRF y auditoria explicita.
+   */
+  public function publicaciones_lote_informativo_erp() {
+    $this->requerirPermiso("catalogo.editar");
+    $respuesta = $this->modelo("EcommerceCatalogoPublico")->publicarInformativosLoteAutorizado($_POST, array(
+      "autorizar" => isset($_POST["autorizar"]) ? $_POST["autorizar"] : ""
+    ));
+    SesionSeguridad::registrarAuditoria("ecommerce_publico", "publicacion_lote_informativo", array(
+      "resultado" => empty($respuesta["error"]) ? "ok" : "error",
+      "mensaje" => isset($respuesta["mensaje"]) ? $respuesta["mensaje"] : "",
+      "datos_antes" => array("id_skus" => isset($_POST["id_skus"]) ? (string) $_POST["id_skus"] : ""),
+      "datos_despues" => array(
+        "modo_publicacion" => "informativo",
+        "total_solicitado" => isset($respuesta["depurar"]["total_solicitado"]) ? intval($respuesta["depurar"]["total_solicitado"]) : 0,
+        "total_ok" => isset($respuesta["depurar"]["total_ok"]) ? intval($respuesta["depurar"]["total_ok"]) : 0,
+        "total_error" => isset($respuesta["depurar"]["total_error"]) ? intval($respuesta["depurar"]["total_error"]) : 0,
+        "resultado_lote" => isset($respuesta["depurar"]["resultado_lote"]) ? (string) $respuesta["depurar"]["resultado_lote"] : ""
       )
     ));
     return json_encode($respuesta);

@@ -112,6 +112,7 @@
       var elegirDestinoManual = event.target.closest("[data-seo-elegir-destino-manual]");
       var rapidoEditar = event.target.closest("[data-seo-rapido-editar]");
       var rapidoUsarDestino = event.target.closest("[data-seo-rapido-usar-destino]");
+      var rapidoDestinoEstatico = event.target.closest("[data-seo-rapido-destino-estatico]");
       var filtroConfianza = event.target.closest("[data-seo-filtro-confianza]");
       if (usar) {
         usarRevisionComoRedireccion(usar);
@@ -147,6 +148,11 @@
       if (rapidoUsarDestino) {
         setValue("ecom_seo_rapido_to", rapidoUsarDestino.getAttribute("data-path") || "");
         setValue("ecom_seo_rapido_tipo", rapidoUsarDestino.getAttribute("data-tipo") || "producto");
+      }
+      if (rapidoDestinoEstatico) {
+        setValue("ecom_seo_rapido_to", rapidoDestinoEstatico.getAttribute("data-seo-rapido-destino-estatico") || "");
+        setValue("ecom_seo_rapido_tipo", "manual");
+        setHtml("ecom_seo_rapido_mensaje", "");
       }
       if (filtroConfianza) {
         setValue("ecom_seo_revision_confianza", filtroConfianza.getAttribute("data-seo-filtro-confianza") || "");
@@ -618,7 +624,7 @@
   function guardarRapidoDecision() {
     var decision = valor("ecom_seo_rapido_decision");
     var from = valor("ecom_seo_rapido_from");
-    var to = valor("ecom_seo_rapido_to");
+    var to = normalizarDestinoManual(valor("ecom_seo_rapido_to"));
     var tipo = valor("ecom_seo_rapido_tipo") || "producto";
     var status = valor("ecom_seo_rapido_status") || "301";
     if (!from) {
@@ -636,6 +642,18 @@
       setHtml("ecom_seo_rapido_mensaje", '<div class="alert alert-warning py-3">Captura o selecciona el destino nuevo.</div>');
       return;
     }
+    setValue("ecom_seo_rapido_to", to);
+    if (esDestinoEstatico(to)) {
+      tipo = "manual";
+      setValue("ecom_seo_rapido_tipo", "manual");
+    }
+    if (normalizarDestinoManual(from) === to) {
+      marcarUrlViejaResuelta(from, "sin_redireccion_necesaria", { to: to, status: "200", motivo: "misma_url_sin_redireccion" });
+      setHtml("ecom_seo_rapido_mensaje", '<div class="alert alert-success py-3">No requiere redireccion: origen y destino son la misma URL.</div>');
+      cerrarRapidoModal();
+      quitarRenglonRapido(from);
+      return;
+    }
     setHtml("ecom_seo_rapido_mensaje", '<div class="alert alert-info py-3">Guardando redireccion...</div>');
     postJson("/ecommercePublico/seo_redireccion_guardar_erp", {
       from: from,
@@ -645,7 +663,15 @@
       motivo: "revision_manual_seo"
     }).then(function (response) {
       if (response.error) {
-        setHtml("ecom_seo_rapido_mensaje", '<div class="alert alert-warning py-3">' + escapeHtml(response.mensaje || "No se pudo guardar.") + "</div>");
+        var bloqueos = bloqueosRedireccion(response);
+        if (bloqueos.indexOf("redireccion_a_si_misma") !== -1) {
+          marcarUrlViejaResuelta(from, "sin_redireccion_necesaria", { to: to, status: "200", motivo: "misma_url_sin_redireccion" });
+          setHtml("ecom_seo_rapido_mensaje", '<div class="alert alert-success py-3">No requiere redireccion: origen y destino son la misma URL.</div>');
+          cerrarRapidoModal();
+          quitarRenglonRapido(from);
+          return;
+        }
+        setHtml("ecom_seo_rapido_mensaje", mensajeBloqueoRedireccion(response));
         return;
       }
       marcarUrlViejaResuelta(from, tipo === "categoria" ? "redirigir_categoria" : "redirigir_producto", { to: to, status: status, motivo: "revision_manual_seo" });
@@ -669,6 +695,41 @@
     if (pendientes === 0) {
       tbody.innerHTML = '<tr><td colspan="4" class="text-center text-muted py-6">Terminaste este lote. Presiona Consultar para traer el siguiente.</td></tr>';
     }
+  }
+
+  function normalizarDestinoManual(path) {
+    path = String(path == null ? "" : path).trim();
+    if (!path) return "";
+    if (/^https?:\/\//i.test(path)) {
+      try {
+        var url = new URL(path);
+        path = url.pathname + (url.search || "");
+      } catch (e) {}
+    }
+    if (path.charAt(0) !== "/") path = "/" + path;
+    path = path.replace(/\/+/g, "/");
+    return path;
+  }
+
+  function esDestinoEstatico(path) {
+    path = normalizarDestinoManual(path);
+    return ["/", "/contacto", "/categorias", "/como-comprar", "/aviso-de-privacidad"].indexOf(path) !== -1;
+  }
+
+  function bloqueosRedireccion(response) {
+    var bloqueos = get(response, ["depurar", "bloqueos"], []);
+    if (!Array.isArray(bloqueos) || !bloqueos.length) {
+      bloqueos = get(response, ["depurar", "plan", "depurar", "bloqueos"], []);
+    }
+    return Array.isArray(bloqueos) ? bloqueos : [];
+  }
+
+  function mensajeBloqueoRedireccion(response) {
+    var bloqueos = bloqueosRedireccion(response);
+    var detalle = bloqueos.length
+      ? '<div class="mt-2 fs-8">Bloqueos: ' + escapeHtml(bloqueos.join(", ")) + "</div>"
+      : "";
+    return '<div class="alert alert-warning py-3">' + escapeHtml(response.mensaje || "No se pudo guardar.") + detalle + "</div>";
   }
 
   function renderOrigenRevision(item) {
@@ -1550,7 +1611,8 @@
     return [
       "mantener_agotado",
       "habilitar_basico_agotado",
-      "410_descontinuado"
+      "410_descontinuado",
+      "sin_redireccion_necesaria"
     ].indexOf(decision) !== -1;
   }
 

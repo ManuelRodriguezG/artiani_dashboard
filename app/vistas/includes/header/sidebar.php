@@ -280,7 +280,7 @@ $gruposMenu = array(
         'permiso' => '',
         'items' => array(
             array('titulo' => 'Control Artiani', 'ruta' => '/ecommercePublico/control', 'permiso' => 'catalogo.ver'),
-            array('titulo' => 'Ecommerce publico', 'ruta' => '/ecommercePublico/publicaciones', 'permiso' => 'catalogo.ver'),
+            array('titulo' => 'Publicaciones productos', 'ruta' => '/ecommercePublico/publicaciones', 'permiso' => 'catalogo.ver'),
             array('titulo' => 'Leads / Carritos', 'ruta' => '/ecommercePublico/leads', 'permiso' => 'catalogo.ver'),
             array('titulo' => 'Cotizaciones', 'ruta' => '/ecommercePublico/cotizaciones', 'permiso' => 'catalogo.ver'),
             array('titulo' => 'Analytics', 'ruta' => '/ecommercePublico/analytics', 'permiso' => 'catalogo.ver'),

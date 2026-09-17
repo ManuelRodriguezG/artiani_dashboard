@@ -7871,6 +7871,314 @@ class EcommerceCatalogoPublico extends CRUD {
   }
 
   /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-16
+   * Proposito: crear o convertir una publicacion en modo informativo indexable sin exigir precio ni stock.
+   * Impacto: permite conservar trafico SEO/redirecciones para productos vivos del ERP que aun no estan listos para carrito.
+   * Contrato: escribe solo `erp_ecommerce_publicaciones`; fuerza sin precio/cotizacion, con WhatsApp y disponibilidad visible.
+   */
+  public function publicarInformativoAutorizado($datos = array(), $opciones = array()) {
+    $token = trim((string) $this->valor($opciones, "autorizar", $this->valor($datos, "autorizar", "")));
+    if ($token !== "ECOMMERCE_PUBLICO_PUBLICAR_INFORMATIVO") {
+      return $this->respuesta(true, "warning", "Publicacion informativa bloqueada", array(
+        "bloqueado" => true,
+        "no_escribe_bd" => true,
+        "token_requerido" => "ECOMMERCE_PUBLICO_PUBLICAR_INFORMATIVO"
+      ));
+    }
+
+    try {
+      $db = $this->getConexion();
+      if (!$db) {
+        return $this->respuesta(true, "warning", "Conexion MySQL no disponible", array("no_escribe_bd" => true));
+      }
+      if (!$this->tablaExiste($db, "erp_ecommerce_publicaciones")) {
+        return $this->respuesta(true, "warning", "Tabla de publicaciones ecommerce pendiente", array(
+          "no_escribe_bd" => true,
+          "bloqueos_publicacion" => array("tabla_erp_ecommerce_publicaciones_pendiente")
+        ));
+      }
+
+      $idPublicacion = intval($this->valor($datos, "id_publicacion", 0));
+      $idSku = intval($this->valor($datos, "id_sku", 0));
+      $actual = array();
+      if ($idPublicacion > 0 || $idSku > 0) {
+        $stmtActual = $db->prepare("SELECT * FROM erp_ecommerce_publicaciones WHERE " . ($idPublicacion > 0 ? "id_publicacion=:id" : "id_sku=:sku AND canal='catalogo_publico'") . " LIMIT 1");
+        $stmtActual->execute($idPublicacion > 0 ? array(":id" => $idPublicacion) : array(":sku" => $idSku));
+        $actual = $stmtActual->fetch(PDO::FETCH_ASSOC) ?: array();
+        if (!empty($actual)) {
+          $idSku = intval($actual["id_sku"]);
+        }
+      }
+      if ($idSku <= 0) {
+        return $this->respuesta(true, "warning", "Selecciona un SKU ERP", array(
+          "no_escribe_bd" => true,
+          "bloqueos_publicacion" => array("id_sku_requerido")
+        ));
+      }
+
+      $fila = $this->consultarCandidatoPorSku($db, $idSku);
+      if (!$fila) {
+        return $this->respuesta(true, "warning", "SKU no encontrado o inactivo", array(
+          "no_escribe_bd" => true,
+          "bloqueos_publicacion" => array("sku_no_encontrado_o_inactivo")
+        ));
+      }
+
+      $preparacion = $this->prepararPublicacion(array("id_sku" => $idSku));
+      $depurarPrep = $this->valor($preparacion, "depurar", array());
+      $sugerida = $this->valor($depurarPrep, "publicacion_sugerida", array());
+      $actualPrep = $this->valor($depurarPrep, "publicacion_actual", array());
+      $base = !empty($actual) ? $actual : $actualPrep;
+
+      $slug = $this->slugificar($this->valor($datos, "slug", $this->valor($base, "slug", $this->valor($sugerida, "slug", ""))));
+      $titulo = trim((string) $this->valor($datos, "titulo_publico", $this->valor($base, "titulo_publico", $this->valor($sugerida, "titulo_publico", $this->valor($fila, "nombre_publico", "")))));
+      $descripcion = trim((string) $this->valor($datos, "descripcion_publica", $this->valor($base, "descripcion_publica", $this->valor($sugerida, "descripcion_publica", ""))));
+      if ($descripcion === "") {
+        $descripcion = $this->descripcionCatalogoParaEcommerce($fila);
+      }
+      $presentacion = trim((string) $this->valor($datos, "presentacion_publica", $this->valor($base, "presentacion_publica", $this->valor($sugerida, "presentacion_publica", ""))));
+      $mascota = $this->normalizarMascotasPublicacion($this->valor($datos, "mascota_especie", $this->valor($base, "mascota_especie", $this->valor($sugerida, "mascota_especie", ""))));
+      $necesidades = $this->normalizarNecesidadesPublicacion($this->valor($datos, "necesidades", $this->valor($base, "necesidades_json", $this->valor($sugerida, "necesidades", array()))));
+
+      $bloqueos = array();
+      $advertencias = array();
+      $exigirImagen = intval($this->valor($datos, "exigir_imagen", $this->valor($datos, "exigir_imagen_informativa", 0))) === 1;
+      foreach ($this->bloqueosPublicacion($fila) as $bloqueo) {
+        if (in_array($bloqueo, array("venta_fraccionaria_bloqueada_fase_1", "posible_granel_textual", "html_no_permitido"), true)) {
+          $bloqueos[] = $bloqueo;
+        } elseif ($bloqueo === "imagen_faltante" && $exigirImagen) {
+          $bloqueos[] = $bloqueo;
+        } elseif ($bloqueo !== "publicacion_existente") {
+          $advertencias[] = $bloqueo;
+        }
+      }
+      $auditoriaEditorial = $this->auditoriaEditorialPublicacion($fila, array(
+        "titulo_publico" => $titulo,
+        "descripcion_publica" => $descripcion,
+        "presentacion_publica" => $presentacion
+      ));
+      foreach ($this->valor($auditoriaEditorial, "bloqueos_criticos", array()) as $bloqueoEditorial) {
+        if (in_array($bloqueoEditorial, array("posible_granel_textual", "html_no_permitido"), true)) {
+          $bloqueos[] = $bloqueoEditorial;
+        } else {
+          $advertencias[] = $bloqueoEditorial;
+        }
+      }
+      foreach ($this->valor($auditoriaEditorial, "alertas", array()) as $alertaEditorial) {
+        $advertencias[] = $alertaEditorial;
+      }
+
+      if ($slug === "") { $bloqueos[] = "slug_requerido"; }
+      if ($titulo === "") { $bloqueos[] = "titulo_publico_requerido"; }
+      if ($this->conflictoSlugPublicacion($db, $slug, $idSku)) { $bloqueos[] = "slug_ya_usado_por_otro_sku"; }
+
+      $bloqueos = array_values(array_unique($bloqueos));
+      $advertencias = array_values(array_unique($advertencias));
+      if (!empty($bloqueos)) {
+        return $this->respuesta(true, "warning", "No se publico informativo por bloqueos criticos", array(
+          "no_escribe_bd" => true,
+          "bloqueos_publicacion" => $bloqueos,
+          "advertencias_publicacion" => $advertencias,
+          "auditoria_editorial" => $auditoriaEditorial
+        ));
+      }
+
+      $publicacion = array(
+        "id_producto_erp" => intval($fila["id_producto_erp"]),
+        "id_sku" => $idSku,
+        "slug" => $slug,
+        "titulo_publico" => $titulo,
+        "descripcion_publica" => $descripcion,
+        "presentacion_publica" => $presentacion,
+        "mascota_especie" => $mascota,
+        "necesidades" => $necesidades,
+        "orden" => intval($this->valor($datos, "orden", $this->valor($base, "orden", $this->valor($sugerida, "orden", 0)))),
+        "destacado" => $this->booleanoPublicacion($this->valor($datos, "destacado", $this->valor($base, "destacado", 0)))
+      );
+
+      $db->beginTransaction();
+      $stmt = $db->prepare("INSERT INTO erp_ecommerce_publicaciones
+          (id_producto_erp, id_sku, canal, estatus_publicacion, slug, titulo_publico, descripcion_publica, presentacion_publica, mascota_especie, necesidades_json, orden, destacado, permite_cotizacion, permite_whatsapp, mostrar_precio, mostrar_disponibilidad, fecha_publicacion, fecha_registro, fecha_actualizacion)
+        VALUES
+          (:id_producto, :id_sku, 'catalogo_publico', 'publicado', :slug, :titulo, :descripcion, :presentacion, :mascota, :necesidades, :orden, :destacado, 0, 1, 0, 1, NOW(), NOW(), NOW())
+        ON DUPLICATE KEY UPDATE
+          estatus_publicacion='publicado',
+          slug=VALUES(slug),
+          titulo_publico=VALUES(titulo_publico),
+          descripcion_publica=VALUES(descripcion_publica),
+          presentacion_publica=VALUES(presentacion_publica),
+          mascota_especie=VALUES(mascota_especie),
+          necesidades_json=VALUES(necesidades_json),
+          orden=VALUES(orden),
+          destacado=VALUES(destacado),
+          permite_cotizacion=0,
+          permite_whatsapp=1,
+          mostrar_precio=0,
+          mostrar_disponibilidad=1,
+          fecha_publicacion=COALESCE(fecha_publicacion, NOW()),
+          fecha_actualizacion=NOW()");
+      $stmt->execute(array(
+        ":id_producto" => intval($publicacion["id_producto_erp"]),
+        ":id_sku" => intval($publicacion["id_sku"]),
+        ":slug" => (string) $publicacion["slug"],
+        ":titulo" => (string) $publicacion["titulo_publico"],
+        ":descripcion" => (string) $publicacion["descripcion_publica"],
+        ":presentacion" => (string) $publicacion["presentacion_publica"],
+        ":mascota" => (string) $publicacion["mascota_especie"],
+        ":necesidades" => json_encode($publicacion["necesidades"], JSON_UNESCAPED_UNICODE),
+        ":orden" => intval($publicacion["orden"]),
+        ":destacado" => intval($publicacion["destacado"])
+      ));
+
+      $columnasExtra = array();
+      if ($this->columnaExiste($db, "erp_ecommerce_publicaciones", "url_publica")) {
+        $columnasExtra[] = "url_publica=:url_publica";
+      }
+      if ($this->columnaExiste($db, "erp_ecommerce_publicaciones", "canonical_url")) {
+        $columnasExtra[] = "canonical_url=:canonical_url";
+      }
+      if ($this->columnaExiste($db, "erp_ecommerce_publicaciones", "bloquear_slug_auto")) {
+        $columnasExtra[] = "bloquear_slug_auto=1";
+      }
+      if (!empty($columnasExtra)) {
+        $paramsSeo = array(":sku" => $idSku);
+        if ($this->columnaExiste($db, "erp_ecommerce_publicaciones", "url_publica")) {
+          $paramsSeo[":url_publica"] = "/producto/" . $slug;
+        }
+        if ($this->columnaExiste($db, "erp_ecommerce_publicaciones", "canonical_url")) {
+          $paramsSeo[":canonical_url"] = $this->canonicalSeoPublico($this->dominioProduccionSeoPublico($this->configuracionSeoPublica($db)), "/producto/" . $slug);
+        }
+        $stmtSeo = $db->prepare("UPDATE erp_ecommerce_publicaciones SET " . implode(", ", $columnasExtra) . ", fecha_actualizacion=NOW() WHERE id_sku=:sku AND canal='catalogo_publico' LIMIT 1");
+        $stmtSeo->execute($paramsSeo);
+      }
+
+      $consulta = $db->prepare("SELECT id_publicacion, id_producto_erp, id_sku, canal, estatus_publicacion, slug, titulo_publico, permite_cotizacion, permite_whatsapp, mostrar_precio, mostrar_disponibilidad, fecha_publicacion
+        FROM erp_ecommerce_publicaciones
+        WHERE id_sku=:sku AND canal='catalogo_publico'
+        LIMIT 1");
+      $consulta->execute(array(":sku" => $idSku));
+      $guardada = $consulta->fetch(PDO::FETCH_ASSOC);
+      $canonical = $this->canonicalSeoPublico($this->dominioProduccionSeoPublico($this->configuracionSeoPublica($db)), "/producto/" . $slug);
+      $db->commit();
+
+      return $this->respuesta(false, "success", "Producto publicado como informativo", array(
+        "escribe_bd" => true,
+        "modo_publicacion" => "informativo",
+        "publicacion" => $guardada,
+        "advertencias_publicacion" => $advertencias,
+        "url_publica" => "/producto/" . $slug,
+        "canonical_url" => $canonical,
+        "configuracion_forzada" => array(
+          "estatus_publicacion" => "publicado",
+          "mostrar_precio" => 0,
+          "permite_cotizacion" => 0,
+          "permite_whatsapp" => 1,
+          "mostrar_disponibilidad" => 1
+        ),
+        "exigir_imagen" => $exigirImagen,
+        "no_toca_inventario" => true,
+        "no_toca_precio_erp" => true,
+        "no_toca_ecom_legacy" => true
+      ));
+    } catch (Exception $e) {
+      if (isset($db) && $db && $db->inTransaction()) {
+        $db->rollBack();
+      }
+      return $this->respuesta(true, "danger", $e->getMessage(), array("escribe_bd" => false));
+    }
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-17
+   * Proposito: publicar masivamente SKUs como fichas informativas indexables desde seleccion/filtros del panel.
+   * Impacto: acelera rescate SEO sin exigir precio ni stock, pero manteniendo calidad minima visual y bloqueos contra granel.
+   * Contrato: escribe solo `erp_ecommerce_publicaciones`; requiere token de lote y aplica la misma configuracion informativa.
+   */
+  public function publicarInformativosLoteAutorizado($datos = array(), $opciones = array()) {
+    $token = trim((string) $this->valor($opciones, "autorizar", $this->valor($datos, "autorizar", "")));
+    if ($token !== "ECOMMERCE_PUBLICO_LOTE_INFORMATIVO") {
+      return $this->respuesta(true, "warning", "Publicacion informativa masiva bloqueada", array(
+        "bloqueado" => true,
+        "no_escribe_bd" => true,
+        "token_requerido" => "ECOMMERCE_PUBLICO_LOTE_INFORMATIVO"
+      ));
+    }
+    $skus = $this->normalizarIdsSkuLote($this->valor($datos, "id_skus", array()));
+    if (empty($skus)) {
+      return $this->respuesta(true, "warning", "Selecciona al menos un SKU", array("no_escribe_bd" => true));
+    }
+    if (count($skus) > 80) {
+      return $this->respuesta(true, "warning", "Demasiados SKUs en una sola peticion; usa el panel para procesar en bloques", array(
+        "no_escribe_bd" => true,
+        "total_solicitado" => count($skus),
+        "maximo_por_peticion" => 80,
+        "bloqueos_publicacion" => array("lote_demasiado_grande")
+      ));
+    }
+
+    $db = $this->getConexion();
+    $resultados = array();
+    $ok = 0;
+    $error = 0;
+    $igual = 0;
+    foreach ($skus as $idSku) {
+      $candidatoLote = $db ? $this->consultarCandidatoPorSku($db, $idSku) : null;
+      $respuesta = $this->publicarInformativoAutorizado(array(
+        "id_sku" => $idSku,
+        "exigir_imagen" => 1
+      ), array("autorizar" => "ECOMMERCE_PUBLICO_PUBLICAR_INFORMATIVO"));
+      if (empty($respuesta["error"])) {
+        if (!empty($respuesta["depurar"]["sin_cambio"])) {
+          $igual++;
+        } else {
+          $ok++;
+        }
+      } else {
+        $error++;
+      }
+      $resultados[] = array(
+        "id_sku" => $idSku,
+        "ok" => empty($respuesta["error"]),
+        "sin_cambio" => !empty($respuesta["depurar"]["sin_cambio"]),
+        "mensaje" => isset($respuesta["mensaje"]) ? $respuesta["mensaje"] : "",
+        "tipo" => isset($respuesta["tipo"]) ? $respuesta["tipo"] : "",
+        "sku" => $candidatoLote ? $this->valor($candidatoLote, "sku", "") : "",
+        "nombre" => $candidatoLote ? $this->valor($candidatoLote, "nombre_publico", "") : "",
+        "categoria" => $candidatoLote ? $this->valor($candidatoLote, "categoria", "") : "",
+        "bloqueos" => $this->valor($respuesta, array("depurar", "bloqueos_publicacion"), array()),
+        "advertencias" => $this->valor($respuesta, array("depurar", "advertencias_publicacion"), array()),
+        "publicacion" => $this->valor($respuesta, array("depurar", "publicacion"), array())
+      );
+    }
+
+    $mensaje = $this->mensajeResultadoLote("publicacion informativa", count($skus), $ok, $error);
+    return $this->respuesta($ok === 0 && $igual === 0, $error > 0 ? "warning" : "success", $mensaje, array(
+      "escribe_bd" => $ok > 0,
+      "modo_publicacion" => "informativo",
+      "id_skus" => $skus,
+      "total_solicitado" => count($skus),
+      "total_ok" => $ok,
+      "total_igual" => $igual,
+      "total_error" => $error,
+      "resultado_lote" => $error > 0 ? ($ok > 0 || $igual > 0 ? "parcial" : "sin_cambios") : ($ok > 0 ? "completo" : "sin_cambios"),
+      "resultados" => $resultados,
+      "configuracion_forzada" => array(
+        "estatus_publicacion" => "publicado",
+        "mostrar_precio" => 0,
+        "permite_cotizacion" => 0,
+        "permite_whatsapp" => 1,
+        "mostrar_disponibilidad" => 1
+      ),
+      "exige_imagen" => true,
+      "no_exige_precio" => true,
+      "no_exige_stock" => true,
+      "no_toca_inventario" => true,
+      "no_toca_precio_erp" => true,
+      "no_toca_ecom_legacy" => true
+    ));
+  }
+
+  /**
    * Documentacion IA: Codex GPT-5 | Fecha: 2026-07-30
    * Proposito: guardar borradores ecommerce para un lote de SKUs seleccionados en panel.
    * Impacto: acelera expansion inicial sin publicar automaticamente ni tocar inventario.
@@ -8573,7 +8881,14 @@ class EcommerceCatalogoPublico extends CRUD {
     $descripcionEditorialSql = $tienePublicaciones
       ? "TRIM(COALESCE(pub.descripcion_publica, p.descripcion, ''))"
       : "TRIM(COALESCE(p.descripcion, ''))";
-    if ($filtroCalidad === "sin_precio") {
+    if ($filtroCalidad === "informativo_apto") {
+      $where[] = "COALESCE(img_sku.url_imagen, img_prod.url_imagen) IS NOT NULL";
+      $where[] = "COALESCE(r.permite_venta_fraccionaria, 0)=0";
+      $where[] = $tituloEditorialSql . "<>''";
+      $where[] = $textoEditorialSql . " NOT REGEXP 'agranel|a[[:space:]]*granel|por[[:space:]]+kilo|venta[[:space:]]+por[[:space:]]+kilo|medios|cuartos|<script|<iframe|<object|<embed|<style'";
+    } elseif ($filtroCalidad === "con_imagen") {
+      $where[] = "COALESCE(img_sku.url_imagen, img_prod.url_imagen) IS NOT NULL";
+    } elseif ($filtroCalidad === "sin_precio") {
       $where[] = "pr.id_lista_precio_detalle IS NULL";
     } elseif ($filtroCalidad === "sin_imagen") {
       $where[] = "COALESCE(img_sku.url_imagen, img_prod.url_imagen) IS NULL";
@@ -11515,7 +11830,7 @@ class EcommerceCatalogoPublico extends CRUD {
         GROUP BY id_sku_erp
       ) inv ON inv.id_sku_erp=s.id_sku
       WHERE " . implode(" AND ", $where) . "
-        AND pr.id_lista_precio_detalle IS NOT NULL
+        AND (COALESCE(pub.mostrar_precio, 1)=0 OR pr.id_lista_precio_detalle IS NOT NULL)
         AND COALESCE(r.permite_venta_fraccionaria, 0)=0";
   }
 
@@ -11734,7 +12049,7 @@ class EcommerceCatalogoPublico extends CRUD {
    * Documentacion IA: Codex GPT-5 | Fecha: 2026-08-25
    * Proposito: exponer agrupacion publica por producto ERP para que frontend pinte variantes/presentaciones sin duplicar logica.
    * Impacto: Ecommerce publico; permite cards agrupadas, selectores de presentacion y navegacion consistente entre catalogo y ficha.
-   * Contrato: solo lectura; usa publicaciones ya publicadas, con precio vigente y sin granel/fraccionario.
+   * Contrato: solo lectura; usa publicaciones ya publicadas, sin granel/fraccionario; las informativas pueden ocultar precio.
    */
   private function resumenGrupoProductoPublico($fila, $limitePreview = 6) {
     try {
@@ -15309,7 +15624,12 @@ class EcommerceCatalogoPublico extends CRUD {
   }
 
   private function consultarPublicacionParaCotizacion($db, $item) {
-    $where = array("pub.estatus_publicacion='publicado'", "p.estatus='activo'", "s.estatus='activo'");
+    $where = array(
+      "pub.estatus_publicacion='publicado'",
+      "p.estatus='activo'",
+      "s.estatus='activo'",
+      "(pub.permite_cotizacion=0 OR pr.id_lista_precio_detalle IS NOT NULL)"
+    );
     $params = array();
     $idPublicacion = intval($this->valor($item, "id_publicacion", 0));
     $idSku = intval($this->valor($item, "id_sku", 0));

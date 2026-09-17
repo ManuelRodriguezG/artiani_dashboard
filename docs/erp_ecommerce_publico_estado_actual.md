@@ -659,6 +659,32 @@ C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_cotizaciones_bandeja_read
 - Para publicar productos agotados sigue siendo necesaria confirmacion operativa (`confirmar_agotado`).
 - Decision: primero nutrir y gobernar bien el canal propio `catalogo_publico`/Artiani; despues activar la capa de terceros con `erp_ecommerce_canales_api`, credenciales, allowlist y logs.
 
+## Actualizacion 2026-09-16 - Publicaciones informativas SEO
+
+- Se agrega flujo operativo para publicar productos como fichas informativas desde `Ecommerce > Publicaciones`.
+- Nueva accion interna:
+  - `POST /ecommercePublico/publicaciones_publicar_informativo_erp`.
+- Nueva accion masiva:
+  - `POST /ecommercePublico/publicaciones_lote_informativo_erp`.
+- Token interno requerido:
+  - `ECOMMERCE_PUBLICO_PUBLICAR_INFORMATIVO`.
+  - `ECOMMERCE_PUBLICO_LOTE_INFORMATIVO` para lote.
+- Configuracion forzada para este modo:
+  - `estatus_publicacion=publicado`;
+  - `mostrar_precio=0`;
+  - `permite_cotizacion=0`;
+  - `permite_whatsapp=1`;
+  - `mostrar_disponibilidad=1`.
+- Validaciones:
+  - exige SKU vivo, titulo publico y slug unico;
+  - no bloquea por falta de precio ni por falta de stock;
+  - falta de imagen queda como advertencia;
+  - en publicacion informativa masiva, falta de imagen queda como bloqueo para mantener calidad visual minima;
+  - granel/fraccionario y HTML peligroso siguen bloqueados.
+- La API publica permite mostrar publicaciones sin lista de precio activa solo cuando `mostrar_precio=0`; los productos vendibles normales conservan la compuerta de precio vigente.
+- El panel de publicaciones agrega filtros de calidad `Con imagen` y `Aptos informativo` para seleccionar lotes grandes sin desmarcar manualmente productos sin imagen o con bloqueos criticos.
+- Objetivo: conservar URL publica, canonical y destino valido para redirecciones SEO antiguas cuando el producto existe pero aun no esta listo para venta directa.
+
 ## Actualizacion 2026-07-30 - Plan mascotas y recomendaciones
 
 - Se documenta el plan para convertir el ecommerce en una experiencia orientada a mascotas, no solo productos/categorias.

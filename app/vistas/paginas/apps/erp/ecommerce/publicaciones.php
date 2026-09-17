@@ -135,6 +135,8 @@
                                         </select>
                                         <select class="form-select form-select-solid w-180px" id="ecom_filtro_calidad">
                                             <option value="">Todos los casos</option>
+                                            <option value="informativo_apto">Aptos informativo</option>
+                                            <option value="con_imagen">Con imagen</option>
                                             <option value="bloqueados">Bloqueados</option>
                                             <option value="sin_precio">Sin precio</option>
                                             <option value="sin_imagen">Sin imagen</option>
@@ -154,6 +156,7 @@
                                             <button class="btn btn-sm btn-light-info" type="button" id="ecom_lote_seleccionar_todos">Seleccionar todos</button>
                                             <button class="btn btn-sm btn-light" type="button" id="ecom_lote_limpiar">Limpiar seleccion</button>
                                             <button class="btn btn-sm btn-light-primary" type="button" id="ecom_lote_borrador">Guardar borradores</button>
+                                            <button class="btn btn-sm btn-light-success" type="button" id="ecom_lote_informativo">Publicar informativo</button>
                                             <button class="btn btn-sm btn-success" type="button" id="ecom_lote_publicar">Publicar seleccion</button>
                                             <button class="btn btn-sm btn-light-warning" type="button" id="ecom_lote_pausar">Pausar seleccion</button>
                                             <button class="btn btn-sm btn-light-secondary" type="button" id="ecom_lote_pasara_borrador">Pasar a borrador</button>
