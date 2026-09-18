@@ -1028,7 +1028,7 @@ class EcommercePublicoEsquema extends DBSchema {
   /**
    * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-03
    * Proposito: generar plan DDL para SEO, sitemap y migracion de URLs viejas sin ejecutarlo.
-   * Impacto: Ecommerce SEO; prepara configuracion, URLs canonicas, redirecciones 301, URLs importadas y errores 404.
+   * Impacto: Ecommerce SEO; prepara configuracion, URLs canonicas, redirecciones 301, URLs importadas, errores 404 y verificacion operativa.
    * Contrato: con $ejecutar=false solo devuelve SQL propuesto; no crea tablas ni modifica datos.
    */
   public function planActualizarSeoMigracion($ejecutar = false) {
@@ -1124,6 +1124,29 @@ class EcommercePublicoEsquema extends DBSchema {
       "KEY `idx_ecom_seo_404_estado` (`atendido`, `ultima_fecha`)"
     ), $opciones, $ejecutar);
 
+    $plan[] = $this->crearTablaSiNoExiste("erp_ecommerce_seo_verificaciones", array(
+      "`id_verificacion` BIGINT NOT NULL AUTO_INCREMENT",
+      "`clave` VARCHAR(255) NOT NULL",
+      "`tipo` VARCHAR(30) NOT NULL",
+      "`path` VARCHAR(500) NOT NULL",
+      "`url_origen` VARCHAR(700) NULL",
+      "`url_destino` VARCHAR(700) NULL",
+      "`status_esperado` SMALLINT NULL",
+      "`resultado_http` VARCHAR(40) NULL",
+      "`status_http` SMALLINT NULL",
+      "`destino_status_http` SMALLINT NULL",
+      "`probada` TINYINT(1) NOT NULL DEFAULT 1",
+      "`observaciones` TEXT NULL",
+      "`fecha_verificacion` DATETIME NULL",
+      "`verificado_por` INT NULL",
+      "`fecha_registro` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
+      "`fecha_actualizacion` DATETIME NULL",
+      "PRIMARY KEY (`id_verificacion`)",
+      "UNIQUE KEY `idx_ecom_seo_verif_clave` (`clave`)",
+      "KEY `idx_ecom_seo_verif_tipo` (`tipo`, `probada`)",
+      "KEY `idx_ecom_seo_verif_fecha` (`fecha_verificacion`)"
+    ), $opciones, $ejecutar);
+
     return $this->respuestaPlan($plan, $ejecutar);
   }
 
@@ -1199,7 +1222,8 @@ class EcommercePublicoEsquema extends DBSchema {
       "erp_ecommerce_seo_urls",
       "erp_ecommerce_seo_redirecciones",
       "erp_ecommerce_seo_urls_viejas",
-      "erp_ecommerce_seo_errores_404"
+      "erp_ecommerce_seo_errores_404",
+      "erp_ecommerce_seo_verificaciones"
     );
   }
 

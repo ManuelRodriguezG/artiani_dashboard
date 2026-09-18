@@ -903,6 +903,38 @@ class EcommercePublico extends Controlador {
   }
 
   /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-18
+   * Proposito: consultar marcas persistidas de verificacion SEO en BD.
+   * Impacto: Ecommerce SEO; permite saber que URLs ya fueron probadas sin depender del navegador.
+   * Contrato: GET protegido por `catalogo.ver`; solo lectura y no prueba URLs.
+   */
+  public function seo_verificaciones_persistidas_erp() {
+    $this->requerirPermiso("catalogo.ver");
+    return json_encode($this->modelo("EcommerceCatalogoPublico")->seoVerificacionesPersistidasInterna($_GET));
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-18
+   * Proposito: guardar marca operativa de URL SEO probada/no probada.
+   * Impacto: Ecommerce SEO; crea historial compartido para auditoria futura de redirecciones y sitemap.
+   * Contrato: POST protegido por `catalogo.editar`; no modifica reglas SEO ni sitemap, solo verificacion manual.
+   */
+  public function seo_verificacion_guardar_erp() {
+    $this->requerirPermiso("catalogo.editar");
+    $datos = !empty($_POST) ? $_POST : $this->entradaJsonPublica();
+    $respuesta = $this->modelo("EcommerceCatalogoPublico")->seoVerificacionGuardarInterna($datos, $this->usuarioActualId());
+    SesionSeguridad::registrarAuditoria("ecommerce_seo", "verificacion_guardar", array(
+      "detalle" => array(
+        "clave" => isset($datos["clave"]) ? (string) $datos["clave"] : "",
+        "tipo" => isset($datos["tipo"]) ? (string) $datos["tipo"] : "",
+        "probada" => isset($datos["probada"]) ? intval($datos["probada"]) : null,
+        "error" => !empty($respuesta["error"])
+      )
+    ));
+    return json_encode($respuesta);
+  }
+
+  /**
    * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-03
    * Proposito: entregar dashboard interno read-only para preparar migracion SEO.
    * Impacto: Ecommerce SEO; permite revisar estado, URLs, redirecciones, sitemap y robots desde ERP.

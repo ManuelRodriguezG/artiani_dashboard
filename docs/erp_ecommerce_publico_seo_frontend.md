@@ -89,6 +89,9 @@ Actualizacion 2026-09-17 - Verificacion local:
 - La tabla de reglas verifica que cada origen viejo responda el status esperado y, en 301/302/308, que el `Location` apunte al path canonico nuevo.
 - La tabla de sitemap muestra las URLs indexables que hoy entregaria `/ecommercePublico/seo_sitemap`; sirve para revisar cuales entraran a `/sitemap.xml` en produccion.
 - Si el frontend local aun no implementa la ejecucion de 301/410, esta vista mostrara `Revisar`; eso significa que falta integrar el frontend, no necesariamente que la regla del ERP este mal.
+- La vista permite marcar URLs como probadas en base de datos con `erp_ecommerce_seo_verificaciones`; no depende de `localStorage`.
+- `GET /ecommercePublico/seo_verificaciones_persistidas_erp` consulta las marcas compartidas y `POST /ecommercePublico/seo_verificacion_guardar_erp` guarda/quita la marca operativa.
+- Si la tabla `erp_ecommerce_seo_verificaciones` aun no existe, la verificacion sigue funcionando en modo lectura, pero los checks quedan bloqueados hasta aplicar el plan de esquema SEO.
 
 Actualizacion 2026-09-18 - Gobierno Catalogo Ecommerce:
 

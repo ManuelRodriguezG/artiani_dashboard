@@ -10,9 +10,9 @@
     <link href="assets/css/style.bundle.css" rel="stylesheet" type="text/css">
     <!--
       Documentacion IA: Codex GPT-5, 2026-09-17.
-      Proposito: vista read-only para verificar redirecciones, 410 y sitemap contra frontend local.
+      Proposito: vista para verificar redirecciones, 410 y sitemap contra frontend local con marcas en BD.
       Impacto: Ecommerce SEO; ayuda a revisar Artiani v2 antes de produccion sin modificar reglas.
-      Contrato: solo consulta endpoints internos protegidos; no escribe BD ni cambia URLs.
+      Contrato: consulta endpoints internos protegidos y guarda marcas operativas; no cambia URLs.
     -->
     <style>
         .seo-check-card { border: 1px solid #e7e9ef; border-radius: 8px; background: #fff; }
@@ -49,7 +49,7 @@
                             <div class="alert alert-primary d-flex align-items-start justify-content-between gap-4">
                                 <div>
                                     <div class="fw-bold">Como leer esta pantalla</div>
-                                    <div>Las reglas 301/410 salen del ERP. Esta vista las prueba contra <code>http://artiani.com.local</code> para confirmar que el frontend ya las ejecuta antes de renderizar.</div>
+                                    <div>Las reglas 301/410 salen del ERP. Esta vista las prueba contra <code>http://artiani.com.local</code> y guarda en base de datos cuales ya revisaste.</div>
                                 </div>
                                 <span class="badge badge-light-primary" id="seo_check_estado">Listo</span>
                             </div>
@@ -79,13 +79,31 @@
                             </div>
 
                             <div class="row g-4 mb-5">
-                                <div class="col-md-3"><div class="seo-check-kpi"><div class="seo-check-kpi__label">Reglas</div><div class="seo-check-kpi__value" id="seo_check_kpi_reglas">0</div><div class="text-muted fs-7 mt-2">301 y 410 revisadas.</div></div></div>
-                                <div class="col-md-3"><div class="seo-check-kpi"><div class="seo-check-kpi__label">Reglas OK</div><div class="seo-check-kpi__value" id="seo_check_kpi_reglas_ok">0</div><div class="text-muted fs-7 mt-2">Status y destino correctos.</div></div></div>
-                                <div class="col-md-3"><div class="seo-check-kpi"><div class="seo-check-kpi__label">Sitemap</div><div class="seo-check-kpi__value" id="seo_check_kpi_sitemap">0</div><div class="text-muted fs-7 mt-2">URLs indexables listadas.</div></div></div>
-                                <div class="col-md-3"><div class="seo-check-kpi"><div class="seo-check-kpi__label">Revisar</div><div class="seo-check-kpi__value" id="seo_check_kpi_revisar">0</div><div class="text-muted fs-7 mt-2">Algo no respondio esperado.</div></div></div>
+                                <div class="col-md-6 col-xl"><div class="seo-check-kpi"><div class="seo-check-kpi__label">Reglas</div><div class="seo-check-kpi__value" id="seo_check_kpi_reglas">0</div><div class="text-muted fs-7 mt-2">301 y 410 revisadas.</div></div></div>
+                                <div class="col-md-6 col-xl"><div class="seo-check-kpi"><div class="seo-check-kpi__label">Reglas OK</div><div class="seo-check-kpi__value" id="seo_check_kpi_reglas_ok">0</div><div class="text-muted fs-7 mt-2">Status y destino correctos.</div></div></div>
+                                <div class="col-md-6 col-xl"><div class="seo-check-kpi"><div class="seo-check-kpi__label">Sitemap</div><div class="seo-check-kpi__value" id="seo_check_kpi_sitemap">0</div><div class="text-muted fs-7 mt-2">URLs indexables listadas.</div></div></div>
+                                <div class="col-md-6 col-xl"><div class="seo-check-kpi"><div class="seo-check-kpi__label">Revisar</div><div class="seo-check-kpi__value" id="seo_check_kpi_revisar">0</div><div class="text-muted fs-7 mt-2">Algo no respondio esperado.</div></div></div>
+                                <div class="col-md-6 col-xl"><div class="seo-check-kpi"><div class="seo-check-kpi__label">Probadas</div><div class="seo-check-kpi__value" id="seo_check_kpi_probadas">0</div><div class="text-muted fs-7 mt-2">Guardadas en BD.</div></div></div>
                             </div>
 
                             <div id="seo_check_mensaje" class="mb-5"></div>
+
+                            <div class="seo-check-card p-4 mb-5">
+                                <div class="d-flex flex-wrap gap-3 align-items-end justify-content-between">
+                                    <div>
+                                        <label class="form-label">Filtro de revision</label>
+                                        <select class="form-select form-select-solid" id="seo_check_filtro_revision">
+                                            <option value="todas">Todas</option>
+                                            <option value="pendientes">Solo pendientes</option>
+                                            <option value="probadas">Solo probadas</option>
+                                        </select>
+                                    </div>
+                                    <div class="d-flex flex-wrap gap-2">
+                                        <button class="btn btn-light" type="button" id="seo_check_marcar_visibles"><i class="bi bi-check2-square"></i> Marcar visibles como probadas</button>
+                                        <button class="btn btn-light-danger" type="button" id="seo_check_limpiar_marcas"><i class="bi bi-trash"></i> Limpiar marcas</button>
+                                    </div>
+                                </div>
+                            </div>
 
                             <div class="row g-5">
                                 <div class="col-12">
@@ -96,7 +114,7 @@
                                         </div>
                                         <div class="table-responsive seo-check-scroll">
                                             <table class="table table-row-dashed fs-7 gy-3 mb-0 seo-check-table">
-                                                <thead><tr class="text-muted fw-bold"><th>Regla</th><th>URL vieja probada</th><th>Esperado / destino nuevo</th><th>Respuesta origen</th><th>Resultado</th></tr></thead>
+                                                <thead><tr class="text-muted fw-bold"><th>Probada</th><th>Regla</th><th>URL vieja probada</th><th>Esperado / destino nuevo</th><th>Respuesta origen</th><th>Resultado</th></tr></thead>
                                                 <tbody id="seo_check_reglas_body"></tbody>
                                             </table>
                                         </div>
@@ -110,7 +128,7 @@
                                         </div>
                                         <div class="table-responsive seo-check-scroll">
                                             <table class="table table-row-dashed fs-7 gy-3 mb-0 seo-check-table">
-                                                <thead><tr class="text-muted fw-bold"><th>URL productiva</th><th>URL local</th><th>Frecuencia</th><th>Respuesta</th><th>Resultado</th></tr></thead>
+                                                <thead><tr class="text-muted fw-bold"><th>Probada</th><th>URL productiva</th><th>URL local</th><th>Frecuencia</th><th>Respuesta</th><th>Resultado</th></tr></thead>
                                                 <tbody id="seo_check_sitemap_body"></tbody>
                                             </table>
                                         </div>
@@ -133,6 +151,6 @@
 </div>
 <script src="assets/plugins/global/plugins.bundle.js"></script>
 <script src="assets/js/scripts.bundle.js"></script>
-<script src="/assets/js/custom/apps/erp/ecommerce/seo_verificacion.js?v=20260917-410-sitemap"></script>
+<script src="/assets/js/custom/apps/erp/ecommerce/seo_verificacion.js?v=20260918-bd-verificacion"></script>
 </body>
 </html>

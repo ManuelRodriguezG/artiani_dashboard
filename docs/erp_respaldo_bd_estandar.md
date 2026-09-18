@@ -569,3 +569,29 @@ Resultado:
 - Se eliminaron 1652 redirecciones automaticas `tipo='producto_slug'` con motivos `slug_profesional_pre_lanzamiento` y `slug_publico_actualizado`.
 - Quedaron 0 redirecciones automaticas por cambio interno de slug.
 - Se conservaron las redirecciones manuales reales de migracion (`motivo='revision_manual_seo'`).
+
+## Ecommerce SEO - verificaciones persistidas
+
+Fecha: 2026-09-18
+
+Respaldo previo:
+
+```txt
+C:\xampp\panel_db_backups\artianicom_sys_panel_20260917_225515_antes_ecommerce_seo_verificaciones.sql
+```
+
+Validacion:
+
+```text
+archivo_existe=true
+tamano_bytes=43248462
+sha256=a0bb576904eec64e3a7422f53c4d2548c084f442410d8a1546075a7bedfd3c05
+base=artianicom_sys
+```
+
+Alcance:
+
+- Creacion de `erp_ecommerce_seo_verificaciones` para guardar marcas de URLs SEO probadas.
+- Aplicador acotado: `storage/uat/uat_ecommerce_seo_verificaciones_schema_apply_authorized.php`.
+- Token usado: `ECOMMERCE_SEO_VERIFICACIONES_DDL`.
+- No modifica redirecciones, sitemap, catalogo, inventario ni frontend.

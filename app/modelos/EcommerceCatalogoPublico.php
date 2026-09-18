@@ -4909,6 +4909,153 @@ class EcommerceCatalogoPublico extends CRUD {
   }
 
   /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-18
+   * Proposito: leer marcas persistidas de verificacion SEO desde BD.
+   * Impacto: Ecommerce SEO; permite continuar auditorias de URLs desde cualquier navegador/equipo.
+   * Contrato: solo lectura; requiere tabla `erp_ecommerce_seo_verificaciones`.
+   */
+  public function seoVerificacionesPersistidasInterna($opciones = array()) {
+    try {
+      $db = $this->getConexion();
+      if (!$this->tablaExiste($db, "erp_ecommerce_seo_verificaciones")) {
+        return $this->respuesta(false, "warning", "Tabla de verificacion SEO pendiente", array(
+          "tabla_disponible" => false,
+          "tabla_requerida" => "erp_ecommerce_seo_verificaciones",
+          "items" => array(),
+          "total" => 0,
+          "guardrails" => array("read_only" => true, "no_escribe_bd" => true)
+        ));
+      }
+
+      $tipo = trim((string) $this->valor($opciones, "tipo", ""));
+      $params = array();
+      $where = "1=1";
+      if ($tipo !== "" && preg_match('/^[a-zA-Z0-9_\\-]+$/', $tipo)) {
+        $where .= " AND tipo=:tipo";
+        $params[":tipo"] = $tipo;
+      }
+
+      $stmt = $db->prepare("SELECT clave, tipo, path, url_origen, url_destino, status_esperado, resultado_http, status_http, destino_status_http, probada, observaciones, fecha_verificacion, verificado_por, fecha_actualizacion
+        FROM erp_ecommerce_seo_verificaciones
+        WHERE $where
+        ORDER BY fecha_verificacion DESC, id_verificacion DESC
+        LIMIT 2000");
+      $stmt->execute($params);
+      $items = array();
+      while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+        $clave = (string) $row["clave"];
+        $items[$clave] = array(
+          "clave" => $clave,
+          "tipo" => (string) $row["tipo"],
+          "path" => (string) $row["path"],
+          "url_origen" => (string) $row["url_origen"],
+          "url_destino" => (string) $row["url_destino"],
+          "status_esperado" => $row["status_esperado"] === null ? null : (int) $row["status_esperado"],
+          "resultado_http" => (string) $row["resultado_http"],
+          "status_http" => $row["status_http"] === null ? null : (int) $row["status_http"],
+          "destino_status_http" => $row["destino_status_http"] === null ? null : (int) $row["destino_status_http"],
+          "probada" => ((int) $row["probada"]) === 1,
+          "observaciones" => (string) $row["observaciones"],
+          "fecha_verificacion" => (string) $row["fecha_verificacion"],
+          "verificado_por" => $row["verificado_por"] === null ? null : (int) $row["verificado_por"],
+          "fecha_actualizacion" => (string) $row["fecha_actualizacion"]
+        );
+      }
+
+      return $this->respuesta(false, "success", "Marcas de verificacion SEO consultadas", array(
+        "tabla_disponible" => true,
+        "items" => $items,
+        "total" => count($items),
+        "guardrails" => array("read_only" => true, "no_escribe_bd" => true)
+      ));
+    } catch (Exception $e) {
+      return $this->respuesta(true, "danger", $e->getMessage(), array("tabla_disponible" => false));
+    }
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-18
+   * Proposito: persistir una marca manual de URL SEO probada.
+   * Impacto: Ecommerce SEO; conserva seguimiento operativo de redirecciones, 410 y sitemap.
+   * Contrato: escribe solo en `erp_ecommerce_seo_verificaciones`; no altera reglas SEO, URLs canonicas ni sitemap.
+   */
+  public function seoVerificacionGuardarInterna($datos = array(), $idUsuario = 0) {
+    try {
+      $db = $this->getConexion();
+      if (!$this->tablaExiste($db, "erp_ecommerce_seo_verificaciones")) {
+        return $this->respuesta(true, "warning", "Falta crear la tabla de verificacion SEO antes de guardar marcas.", array(
+          "tabla_disponible" => false,
+          "tabla_requerida" => "erp_ecommerce_seo_verificaciones",
+          "no_escribe_bd" => true
+        ));
+      }
+
+      $clave = substr(trim((string) $this->valor($datos, "clave", "")), 0, 255);
+      $tipo = substr(trim((string) $this->valor($datos, "tipo", "")), 0, 30);
+      $path = substr(trim((string) $this->valor($datos, "path", "")), 0, 500);
+      if ($clave === "" || $tipo === "" || $path === "") {
+        return $this->respuesta(true, "warning", "Faltan datos para guardar la verificacion SEO.", array("requeridos" => array("clave", "tipo", "path")));
+      }
+      if (!preg_match('/^(regla|sitemap)$/', $tipo)) {
+        return $this->respuesta(true, "warning", "Tipo de verificacion SEO no permitido.", array("tipo" => $tipo));
+      }
+
+      $probada = intval($this->valor($datos, "probada", 1)) === 1 ? 1 : 0;
+      $statusEsperado = $this->enteroNullable($this->valor($datos, "status_esperado", null));
+      $statusHttp = $this->enteroNullable($this->valor($datos, "status_http", null));
+      $destinoStatusHttp = $this->enteroNullable($this->valor($datos, "destino_status_http", null));
+      $urlOrigen = substr(trim((string) $this->valor($datos, "url_origen", "")), 0, 700);
+      $urlDestino = substr(trim((string) $this->valor($datos, "url_destino", "")), 0, 700);
+      $resultadoHttp = substr(trim((string) $this->valor($datos, "resultado_http", "")), 0, 40);
+      $observaciones = substr(trim((string) $this->valor($datos, "observaciones", "")), 0, 2000);
+
+      $stmt = $db->prepare("INSERT INTO erp_ecommerce_seo_verificaciones
+        (clave, tipo, path, url_origen, url_destino, status_esperado, resultado_http, status_http, destino_status_http, probada, observaciones, fecha_verificacion, verificado_por, fecha_registro, fecha_actualizacion)
+        VALUES
+        (:clave, :tipo, :path, :url_origen, :url_destino, :status_esperado, :resultado_http, :status_http, :destino_status_http, :probada, :observaciones, IF(:probada_fecha=1, NOW(), NULL), :verificado_por, NOW(), NOW())
+        ON DUPLICATE KEY UPDATE
+          tipo=VALUES(tipo),
+          path=VALUES(path),
+          url_origen=VALUES(url_origen),
+          url_destino=VALUES(url_destino),
+          status_esperado=VALUES(status_esperado),
+          resultado_http=VALUES(resultado_http),
+          status_http=VALUES(status_http),
+          destino_status_http=VALUES(destino_status_http),
+          probada=VALUES(probada),
+          observaciones=VALUES(observaciones),
+          fecha_verificacion=IF(VALUES(probada)=1, NOW(), NULL),
+          verificado_por=VALUES(verificado_por),
+          fecha_actualizacion=NOW()");
+      $stmt->execute(array(
+        ":clave" => $clave,
+        ":tipo" => $tipo,
+        ":path" => $path,
+        ":url_origen" => $urlOrigen,
+        ":url_destino" => $urlDestino,
+        ":status_esperado" => $statusEsperado,
+        ":resultado_http" => $resultadoHttp,
+        ":status_http" => $statusHttp,
+        ":destino_status_http" => $destinoStatusHttp,
+        ":probada" => $probada,
+        ":probada_fecha" => $probada,
+        ":observaciones" => $observaciones,
+        ":verificado_por" => intval($idUsuario) > 0 ? intval($idUsuario) : null
+      ));
+
+      return $this->respuesta(false, "success", $probada ? "URL marcada como probada." : "Marca de URL probada removida.", array(
+        "tabla_disponible" => true,
+        "clave" => $clave,
+        "tipo" => $tipo,
+        "probada" => $probada === 1,
+        "no_modifica_reglas_seo" => true
+      ));
+    } catch (Exception $e) {
+      return $this->respuesta(true, "danger", $e->getMessage(), array("tabla_disponible" => false));
+    }
+  }
+
+  /**
    * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-03
    * Proposito: simular importacion de URLs viejas y sugerir equivalencias canonicas.
    * Impacto: Ecommerce SEO; prepara carga de `erp_ecommerce_seo_urls_viejas` y redirecciones sin escribir BD.
@@ -18563,6 +18710,13 @@ class EcommerceCatalogoPublico extends CRUD {
 
   private function respuesta($error, $tipo, $mensaje, $depurar = array()) {
     return array("error" => $error, "tipo" => $tipo, "mensaje" => $mensaje, "api" => $this->apiMeta(), "depurar" => $depurar);
+  }
+
+  private function enteroNullable($valor) {
+    if ($valor === null || $valor === "" || $valor === false) {
+      return null;
+    }
+    return intval($valor);
   }
 
   private function apiMeta() {
