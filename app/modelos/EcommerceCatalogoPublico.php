@@ -4659,7 +4659,7 @@ class EcommerceCatalogoPublico extends CRUD {
   public function seoSitemapPublico($opciones = array()) {
     try {
       $baseUrl = $this->dominioProduccionSeoPublico($this->configuracionSeoPublica($this->getConexion()));
-      $urls = $this->seoUrlsPublicasItems($baseUrl, max(1, min(500, intval($this->valor($opciones, "limite", 250)))));
+      $urls = $this->seoUrlsPublicasItems($baseUrl, max(1, min(5000, intval($this->valor($opciones, "limite", 3000)))));
       $items = array();
       foreach ($urls as $url) {
         if (empty($url["indexable"]) || strpos((string) $url["path"], "/ecommercePublico") === 0) {
@@ -4674,7 +4674,7 @@ class EcommerceCatalogoPublico extends CRUD {
       if (file_exists(RUTA_APP . "/modelos/EcommerceBlogPublico.php")) {
         require_once RUTA_APP . "/modelos/EcommerceBlogPublico.php";
         $blog = new EcommerceBlogPublico();
-        foreach ($blog->sitemapItemsPublicos($baseUrl, max(1, min(500, intval($this->valor($opciones, "limite_blog", 200))))) as $itemBlog) {
+        foreach ($blog->sitemapItemsPublicos($baseUrl, max(1, min(1000, intval($this->valor($opciones, "limite_blog", 500))))) as $itemBlog) {
           $items[] = $itemBlog;
         }
       }
@@ -4804,15 +4804,18 @@ class EcommerceCatalogoPublico extends CRUD {
     try {
       $frontendBase = rtrim(trim((string) $this->valor($opciones, "frontend", "http://artiani.com.local")), "/");
       if ($frontendBase === "") { $frontendBase = "http://artiani.com.local"; }
-      $limiteReglas = max(1, min(500, intval($this->valor($opciones, "limite_reglas", $this->valor($opciones, "limite", 120)))));
-      $limiteSitemap = max(1, min(500, intval($this->valor($opciones, "limite_sitemap", $this->valor($opciones, "limite", 120)))));
+      $limiteReglas = max(1, min(1500, intval($this->valor($opciones, "limite_reglas", $this->valor($opciones, "limite", 1000)))));
+      $limiteSitemap = max(1, min(5000, intval($this->valor($opciones, "limite_sitemap", $this->valor($opciones, "limite", 2000)))));
       $probarHttp = intval($this->valor($opciones, "probar_http", 1)) === 1;
 
       $redireccionesPayload = $this->seoRedireccionesPublicas($opciones);
       $sitemapPayload = $this->seoSitemapPublico(array("limite" => $limiteSitemap));
-      $redirecciones = array_slice($this->valor($redireccionesPayload, array("depurar", "redirecciones"), array()), 0, $limiteReglas);
-      $gone = array_slice($this->valor($redireccionesPayload, array("depurar", "gone"), array()), 0, $limiteReglas);
-      $sitemap = array_slice($this->valor($sitemapPayload, array("depurar", "items"), array()), 0, $limiteSitemap);
+      $redireccionesTodas = $this->valor($redireccionesPayload, array("depurar", "redirecciones"), array());
+      $goneTodas = $this->valor($redireccionesPayload, array("depurar", "gone"), array());
+      $sitemapTodo = $this->valor($sitemapPayload, array("depurar", "items"), array());
+      $redirecciones = array_slice($redireccionesTodas, 0, $limiteReglas);
+      $gone = array_slice($goneTodas, 0, $limiteReglas);
+      $sitemap = array_slice($sitemapTodo, 0, $limiteSitemap);
 
       $reglasVerificadas = array();
       foreach ($redirecciones as $item) {
@@ -4890,6 +4893,16 @@ class EcommerceCatalogoPublico extends CRUD {
       }
 
       $resumen = $this->seoResumenVerificacion($reglasVerificadas, $sitemapVerificado);
+      $resumen["limite_reglas"] = $limiteReglas;
+      $resumen["limite_sitemap"] = $limiteSitemap;
+      $resumen["redirecciones_disponibles"] = count((array) $redireccionesTodas);
+      $resumen["gone_disponibles"] = count((array) $goneTodas);
+      $resumen["reglas_disponibles"] = count((array) $redireccionesTodas) + count((array) $goneTodas);
+      $resumen["reglas_mostradas"] = count((array) $reglasVerificadas);
+      $resumen["sitemap_disponibles"] = count((array) $sitemapTodo);
+      $resumen["sitemap_mostradas"] = count((array) $sitemapVerificado);
+      $resumen["hay_mas_reglas"] = $resumen["reglas_disponibles"] > $resumen["reglas_mostradas"];
+      $resumen["hay_mas_sitemap"] = $resumen["sitemap_disponibles"] > $resumen["sitemap_mostradas"];
       return $this->respuesta(false, "success", "Verificacion SEO frontend local generada", array(
         "frontend_base" => $frontendBase,
         "probar_http" => $probarHttp,
@@ -7321,6 +7334,7 @@ class EcommerceCatalogoPublico extends CRUD {
         "paginacion" => $paginacion,
         "items" => $this->formatearItemsGobierno($items),
         "alertas" => $this->alertasGobiernoDesdeItems($items),
+        "alertas_persistentes" => $this->listarAlertasPersistentesCatalogoGobierno(30),
         "seo" => array(
           "resumen" => $this->valor($seo, array("depurar", "resumen"), array()),
           "endpoints_internos" => $this->valor($seo, array("depurar", "endpoints_internos"), array()),
@@ -7346,6 +7360,96 @@ class EcommerceCatalogoPublico extends CRUD {
       ));
     } catch (Exception $e) {
       return $this->respuesta(true, "danger", $e->getMessage(), array("read_only" => true));
+    }
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-18
+   * Proposito: sincronizar alertas de Catalogo Ecommerce con la bandeja operativa transversal.
+   * Impacto: crea o actualiza notificaciones persistentes sin publicar, cambiar slugs, precios ni inventario.
+   * Contrato: escritura protegida por controlador con catalogo.editar, CSRF y auditoria; no resuelve alertas antiguas automaticamente.
+   */
+  public function sincronizarAlertasGobiernoInterna($filtros = array(), $idUsuario = 0) {
+    try {
+      $db = $this->getConexion();
+      if (!$db || !$this->tablaExiste($db, "erp_notificaciones")) {
+        return $this->respuesta(true, "warning", "La bandeja transversal de notificaciones no esta disponible");
+      }
+
+      $limite = max(25, min(300, intval($this->valor($filtros, "limite", 200))));
+      $baseFiltros = array(
+        "q" => trim((string) $this->valor($filtros, "q", "")),
+        "estatus_publicacion" => trim((string) $this->valor($filtros, "estatus_publicacion", "")),
+        "filtro_calidad" => trim((string) $this->valor($filtros, "filtro_calidad", "")),
+        "disponibilidad" => trim((string) $this->valor($filtros, "disponibilidad", "")),
+        "categoria_texto" => trim((string) $this->valor($filtros, "categoria_texto", "")),
+        "mascota" => $this->limpiarFiltroPublico($this->valor($filtros, "mascota", "")),
+        "necesidad" => $this->limpiarFiltroPublico($this->valor($filtros, "necesidad", "")),
+        "granel" => trim((string) $this->valor($filtros, "granel", "")),
+        "limite" => $limite,
+        "pagina" => 1
+      );
+
+      $auditoria = $this->auditarPublicabilidad($baseFiltros);
+      if (!empty($auditoria["error"])) {
+        return $auditoria;
+      }
+
+      $items = $this->valor($auditoria, array("depurar", "candidatos"), array());
+      $alertas = $this->alertasGobiernoDesdeItems($items, 500);
+      require_once __DIR__ . "/NotificacionesErp.php";
+      $notificaciones = new NotificacionesErp();
+
+      $guardadas = 0;
+      $huellas = array();
+      foreach ($alertas as $alerta) {
+        $idSku = intval($this->valor($alerta, "id_sku", 0));
+        $codigo = (string) $this->valor($alerta, "alerta", "");
+        if ($idSku <= 0 || $codigo === "") {
+          continue;
+        }
+        $huella = hash("sha256", "ecommerce_publico|catalogo_alerta|sku:" . $idSku . "|alerta:" . $codigo);
+        $huellas[] = $huella;
+        $idNotificacion = $notificaciones->guardarOperativaEnConexion($db, array(
+          "tipo" => "ecommerce_catalogo_alerta",
+          "modulo_origen" => "ecommerce_publico",
+          "entidad_origen" => "erp_catalogo_skus",
+          "id_entidad_origen" => $idSku,
+          "area_responsable" => "catalogo_ecommerce",
+          "permiso_requerido" => "catalogo.ver",
+          "titulo" => "Ecommerce: " . $this->descripcionAlertaGobierno($codigo),
+          "descripcion" => (string) $this->valor($alerta, "producto", "Producto") . " (" . (string) $this->valor($alerta, "sku", "SKU") . "): " . (string) $this->valor($alerta, "accion_sugerida", "Abrir publicacion y revisar."),
+          "prioridad" => $this->valor($alerta, "severidad", "") === "critica" ? "alta" : "normal",
+          "estatus" => "pendiente",
+          "url_accion" => (string) $this->valor($alerta, "abrir_publicacion_url", "/ecommercePublico/publicaciones"),
+          "payload_json" => array(
+            "huella" => $huella,
+            "codigo_alerta" => $codigo,
+            "id_sku" => $idSku,
+            "id_publicacion" => intval($this->valor($alerta, "id_publicacion", 0)),
+            "sku" => (string) $this->valor($alerta, "sku", ""),
+            "producto" => (string) $this->valor($alerta, "producto", ""),
+            "severidad_origen" => (string) $this->valor($alerta, "severidad", ""),
+            "accion_sugerida" => (string) $this->valor($alerta, "accion_sugerida", ""),
+            "fecha_detectada" => date("Y-m-d"),
+            "siguiente_paso" => "abrir_publicacion_y_corregir_catalogo_ecommerce"
+          ),
+          "creado_por" => intval($idUsuario) ?: null
+        ));
+        if (intval($idNotificacion) > 0) {
+          $guardadas++;
+        }
+      }
+
+      return $this->respuesta(false, "success", "Alertas ecommerce sincronizadas con bandeja operativa", array(
+        "alertas_detectadas" => count($alertas),
+        "notificaciones_guardadas" => $guardadas,
+        "huellas" => $huellas,
+        "no_resuelve_automaticamente" => true,
+        "alertas_persistentes" => $this->listarAlertasPersistentesCatalogoGobierno(30)
+      ));
+    } catch (Exception $e) {
+      return $this->respuesta(true, "danger", $e->getMessage());
     }
   }
 
@@ -9348,7 +9452,7 @@ class EcommerceCatalogoPublico extends CRUD {
    * Impacto: Gobierno ecommerce; prioriza problemas criticos sin persistir alertas todavia.
    * Contrato: read-only; las acciones sugeridas apuntan a vistas existentes.
    */
-  private function alertasGobiernoDesdeItems($items) {
+  private function alertasGobiernoDesdeItems($items, $limite = 80) {
     $alertas = array();
     foreach ((array) $items as $item) {
       $estatus = (string) $this->valor($item, "estatus_publicacion", "");
@@ -9399,7 +9503,51 @@ class EcommerceCatalogoPublico extends CRUD {
       }
       return $pesoA <=> $pesoB;
     });
-    return array_slice($alertas, 0, 80);
+    return array_slice($alertas, 0, max(1, intval($limite)));
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-18
+   * Proposito: listar alertas ecommerce ya persistidas en la bandeja transversal.
+   * Impacto: Gobierno ecommerce; muestra trabajo compartido sin crear otra cola paralela.
+   * Contrato: read-only; tolera ausencia de tabla y payloads historicos no JSON.
+   */
+  private function listarAlertasPersistentesCatalogoGobierno($limite = 30) {
+    try {
+      $db = $this->getConexion();
+      if (!$db || !$this->tablaExiste($db, "erp_notificaciones")) {
+        return array();
+      }
+      $limite = max(1, min(50, intval($limite)));
+      $stmt = $db->query("SELECT id_notificacion, titulo, descripcion, prioridad, estatus, url_accion, payload_json, fecha_registro AS fecha_creacion, fecha_actualizacion
+        FROM erp_notificaciones
+        WHERE tipo='ecommerce_catalogo_alerta'
+          AND modulo_origen='ecommerce_publico'
+          AND estatus IN ('pendiente','en_revision','bloqueada')
+        ORDER BY FIELD(prioridad,'critica','alta','normal','info'), id_notificacion DESC
+        LIMIT " . $limite);
+      $salida = array();
+      foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $fila) {
+        $payload = json_decode((string) $this->valor($fila, "payload_json", "{}"), true);
+        if (!is_array($payload)) {
+          $payload = array();
+        }
+        $salida[] = array(
+          "id_notificacion" => intval($this->valor($fila, "id_notificacion", 0)),
+          "titulo" => (string) $this->valor($fila, "titulo", ""),
+          "descripcion" => (string) $this->valor($fila, "descripcion", ""),
+          "prioridad" => (string) $this->valor($fila, "prioridad", ""),
+          "estatus" => (string) $this->valor($fila, "estatus", ""),
+          "url_accion" => (string) $this->valor($fila, "url_accion", ""),
+          "fecha_creacion" => (string) $this->valor($fila, "fecha_creacion", ""),
+          "fecha_actualizacion" => (string) $this->valor($fila, "fecha_actualizacion", ""),
+          "payload" => $payload
+        );
+      }
+      return $salida;
+    } catch (Exception $e) {
+      return array();
+    }
   }
 
   private function descripcionAlertaGobierno($codigo) {
@@ -13192,24 +13340,56 @@ class EcommerceCatalogoPublico extends CRUD {
       ));
     }
 
-    $catalogo = $this->catalogoPublico(array("limite" => $limite));
-    foreach ($this->valor($catalogo, array("depurar", "items"), array()) as $producto) {
+    foreach ($this->seoProductosPublicosItems($limite) as $producto) {
       $slug = trim((string) $this->valor($producto, "slug", ""));
       if ($slug === "") {
         continue;
       }
-      $seoProducto = $this->seoProductoPublico($producto);
-      $agregar("producto", "/producto/" . $slug, array(
-        "entidad_id" => intval($this->valor($producto, "id_publicacion", 0)),
-        "id_sku" => intval($this->valor($producto, "id_sku", 0)),
-        "sku" => trim((string) $this->valor($producto, "sku", "")),
-        "title" => $this->valor($seoProducto, "title", $this->valor($producto, "nombre", "Producto") . " | Artiani"),
-        "description" => $this->valor($seoProducto, "description", ""),
-        "image" => $this->valor($seoProducto, "og_image", $this->valor($producto, "imagen", null))
-      ));
+      $agregar("producto", "/producto/" . $slug, $producto);
     }
 
     return $urls;
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-18
+   * Proposito: construir el universo de productos indexables para sitemap sin usar el limite paginado de catalogoPublico.
+   * Impacto: Ecommerce SEO; evita que `/sitemap.xml` quede reducido a la primera pagina de catalogo.
+   * Contrato: solo lectura; mantiene reglas de publicacion, SKU/producto activo, precio si aplica y no fraccionario.
+   */
+  private function seoProductosPublicosItems($limite) {
+    $db = $this->getConexion();
+    if (!$db || !$this->tablaExiste($db, "erp_ecommerce_publicaciones")) {
+      return array();
+    }
+    $limite = max(1, min(5000, intval($limite)));
+    $where = array("pub.estatus_publicacion='publicado'", "p.estatus='activo'", "s.estatus='activo'");
+    $sql = $this->sqlPublicacionesBase($where)
+      . " AND TRIM(COALESCE(pub.slug,''))<>''"
+      . " ORDER BY pub.destacado DESC, pub.orden ASC, pub.titulo_publico ASC, pub.id_publicacion ASC"
+      . " LIMIT " . $limite;
+    $stmt = $db->query($sql);
+    $items = array();
+    foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $fila) {
+      $titulo = trim((string) $this->valor($fila, "titulo_publico", ""));
+      if ($titulo === "") {
+        $titulo = trim((string) $this->valor($fila, "nombre_sku", $this->valor($fila, "nombre_producto", "Producto")));
+      }
+      $descripcion = trim((string) $this->valor($fila, "descripcion_publica", ""));
+      if ($descripcion === "") {
+        $descripcion = trim((string) $this->valor($fila, "descripcion_catalogo", ""));
+      }
+      $items[] = array(
+        "entidad_id" => intval($this->valor($fila, "id_publicacion", 0)),
+        "id_sku" => intval($this->valor($fila, "id_sku", 0)),
+        "sku" => trim((string) $this->valor($fila, "sku", "")),
+        "slug" => trim((string) $this->valor($fila, "slug", "")),
+        "title" => $titulo . " | Artiani",
+        "description" => $descripcion,
+        "image" => $this->valor($fila, "url_imagen", null)
+      );
+    }
+    return $items;
   }
 
   /**

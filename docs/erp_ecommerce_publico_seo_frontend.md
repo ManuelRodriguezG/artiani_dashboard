@@ -95,6 +95,9 @@ Actualizacion 2026-09-17 - Verificacion local:
 - Las reglas 301/410 se validan en marcas separadas: `regla_origen` confirma que la URL vieja responde 301/410 segun corresponda, y `regla_destino` confirma que la URL nueva abre correctamente.
 - Por compatibilidad, la clave historica `regla|origen|status|destino` representa la prueba de destino nuevo; asi las marcas ya aprobadas no se pierden.
 - Al marcar un destino nuevo como probado, la UI marca tambien los destinos identicos presentes en la muestra cargada para acelerar revision.
+- La verificacion carga por defecto hasta 1000 reglas SEO y permite subir a 1500; el KPI muestra `mostradas / disponibles` para evitar confundir muestra con total.
+- El sitemap ya no toma productos desde `catalogoPublico()` porque ese endpoint pagina a maximo 60 productos; usa una consulta SEO directa de publicaciones publicadas/activas, con SKU/producto activo, precio vigente si aplica y sin fraccionarios.
+- La verificacion de sitemap carga por defecto hasta 2000 URLs y permite subir a 5000; el KPI tambien muestra `mostradas / disponibles`.
 
 Actualizacion 2026-09-18 - Gobierno Catalogo Ecommerce:
 
@@ -106,6 +109,8 @@ Actualizacion 2026-09-18 - Gobierno Catalogo Ecommerce:
 - Los cambios de slug deben hacerse desde la capa Ecommerce/SEO, conservando historial o redireccion cuando aplique.
 - Los precios ecommerce se leen desde listas ERP activas; una publicacion normal sin precio activo debe aparecer como alerta critica.
 - La vista nueva no ejecuta DDL, no publica productos y no cambia redirecciones; deriva tablero, alertas y filtros desde la auditoria de publicabilidad existente.
+- Las alertas de Catalogo Ecommerce se sincronizan con `erp_notificaciones` mediante accion explicita protegida por `catalogo.editar`; la consulta normal sigue siendo solo lectura.
+- La sincronizacion crea o actualiza notificaciones por huella, pero no resuelve automaticamente alertas antiguas para no ocultar trabajo por cambios de filtro, paginacion o muestra.
 - Vistas relacionadas: `/ecommercePublico/publicaciones`, `/ecommercePublico/seo_migracion` y `/ecommercePublico/seo_verificacion`.
 
 Regla canonica: ninguna URL publica SEO debe iniciar con `/ecommercePublico`. Esa ruta es API interna. Las URLs canonicas oficiales son:

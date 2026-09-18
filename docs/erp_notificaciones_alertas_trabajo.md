@@ -80,6 +80,14 @@ Compras detecta producto fisico sin SKU ERP.
 - Seguimiento para Compras: "Catalogo ya tiene el pendiente".
 - Desbloqueo para Compras: "Producto vinculado; ya puedes continuar".
 
+## Decision 2026-09-18 - Alertas Ecommerce/Catalogo
+
+- Las alertas de publicabilidad ecommerce son trabajo operativo cuando afectan precio, imagen, granel/fraccionario, slug, texto publico o estado de publicacion.
+- Ecommerce no debe crear una bandeja paralela: debe registrar pendientes en `erp_notificaciones` con `modulo_origen=ecommerce_publico` y `tipo=ecommerce_catalogo_alerta`.
+- La huella debe incluir SKU y codigo de alerta para evitar duplicados y permitir actualizar la misma notificacion.
+- La sincronizacion debe ser accion explicita de usuario con permiso `catalogo.editar`; consultar el tablero no debe escribir datos.
+- No se deben resolver automaticamente alertas antiguas por ausencia en una muestra filtrada o paginada. La resolucion requiere una regla confiable o una accion operativa especifica.
+
 ## Reglas de permisos
 
 Las notificaciones deben respetar permisos.

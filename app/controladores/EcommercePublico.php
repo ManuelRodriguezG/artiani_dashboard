@@ -1142,6 +1142,27 @@ class EcommercePublico extends Controlador {
   }
 
   /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-18
+   * Proposito: enviar alertas de Catalogo Ecommerce a la bandeja operativa persistente.
+   * Impacto: Ecommerce/Catalogo; crea o actualiza notificaciones, sin publicar productos ni modificar slugs.
+   * Contrato: POST protegido por `catalogo.editar`, CSRF y auditoria explicita.
+   */
+  public function catalogo_alertas_sincronizar_erp() {
+    $this->requerirPermiso("catalogo.editar");
+    $datos = !empty($_POST) ? $_POST : $this->entradaJsonPublica();
+    $respuesta = $this->modelo("EcommerceCatalogoPublico")->sincronizarAlertasGobiernoInterna($datos, $this->usuarioActualId());
+    SesionSeguridad::registrarAuditoria("ecommerce_catalogo", "alertas_sincronizar", array(
+      "resultado" => empty($respuesta["error"]) ? "ok" : "error",
+      "mensaje" => isset($respuesta["mensaje"]) ? $respuesta["mensaje"] : "",
+      "detalle" => array(
+        "alertas_detectadas" => isset($respuesta["depurar"]["alertas_detectadas"]) ? intval($respuesta["depurar"]["alertas_detectadas"]) : 0,
+        "notificaciones_guardadas" => isset($respuesta["depurar"]["notificaciones_guardadas"]) ? intval($respuesta["depurar"]["notificaciones_guardadas"]) : 0
+      )
+    ));
+    return json_encode($respuesta, JSON_UNESCAPED_UNICODE);
+  }
+
+  /**
    * Documentacion IA: Codex GPT-5 | Fecha: 2026-08-24
    * Proposito: devolver IDs de todos los SKUs que coinciden con los filtros actuales para seleccion masiva.
    * Impacto: Ecommerce publico/publicaciones; facilita lotes grandes sin seleccionar pagina por pagina.

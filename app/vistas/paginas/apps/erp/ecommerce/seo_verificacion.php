@@ -62,11 +62,11 @@
                                     </div>
                                     <div class="col-md-2">
                                         <label class="form-label">Limite reglas</label>
-                                        <input class="form-control form-control-solid" id="seo_check_limite_reglas" type="number" min="1" max="500" value="120">
+                                        <input class="form-control form-control-solid" id="seo_check_limite_reglas" type="number" min="1" max="1500" value="1000">
                                     </div>
                                     <div class="col-md-2">
                                         <label class="form-label">Limite sitemap</label>
-                                        <input class="form-control form-control-solid" id="seo_check_limite_sitemap" type="number" min="1" max="500" value="120">
+                                        <input class="form-control form-control-solid" id="seo_check_limite_sitemap" type="number" min="1" max="5000" value="2000">
                                     </div>
                                     <div class="col-md-3">
                                         <label class="form-label">Prueba HTTP</label>

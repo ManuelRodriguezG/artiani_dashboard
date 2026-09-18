@@ -36,6 +36,29 @@
             .then(function (response) { return response.json(); });
     }
 
+    function postForm(url, data) {
+        data = data || {};
+        data._csrf = window.ERP_CSRF_TOKEN || "";
+        return fetch(url, {
+            method: "POST",
+            credentials: "same-origin",
+            headers: {
+                "Accept": "application/json",
+                "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
+                "X-CSRF-Token": window.ERP_CSRF_TOKEN || ""
+            },
+            body: new URLSearchParams(data).toString()
+        }).then(function (response) {
+            return response.text().then(function (texto) {
+                try {
+                    return JSON.parse(texto);
+                } catch (error) {
+                    throw new Error("Respuesta no JSON en " + url + " (HTTP " + response.status + "): " + texto.substring(0, 180));
+                }
+            });
+        });
+    }
+
     function filtros() {
         return {
             q: $("ecomgov_q") ? $("ecomgov_q").value : "",
@@ -56,7 +79,7 @@
             paginaActual = Number(paginacionActual.pagina || paginaActual || 1);
             renderKpis(data.tablero || {});
             renderItems(data.items || []);
-            renderAlertas(data.alertas || []);
+            renderAlertas(data.alertas || [], data.alertas_persistentes || []);
             renderSeo(data.seo || {}, data.readiness || {});
             renderPaginacion(paginacionActual);
             setEstado("Read-only", "badge-light-success");
@@ -140,12 +163,31 @@
         }).join("");
     }
 
-    function renderAlertas(alertas) {
+    function renderAlertas(alertas, persistentes) {
+        persistentes = persistentes || [];
+        if (persistentes.length) {
+            $("ecomgov_alertas").innerHTML =
+                "<div class=\"alert alert-light-primary py-3 mb-4\"><div class=\"fw-bold\">Bandeja persistente</div><div class=\"fs-8 text-muted\">Mostrando notificaciones operativas abiertas de Ecommerce/Catalogo.</div></div>" +
+                persistentes.slice(0, 12).map(function (alerta) {
+                    var payload = alerta.payload || {};
+                    var badge = alerta.prioridad === "critica" || alerta.prioridad === "alta" ? "badge-light-danger" : "badge-light-warning";
+                    return "<div class=\"border rounded p-3 mb-3\">" +
+                        "<div class=\"d-flex justify-content-between gap-2 mb-2\"><span class=\"badge " + badge + "\">" + escapeHtml(alerta.prioridad || "normal") + "</span><span class=\"text-muted fs-8\">" + escapeHtml(alerta.fecha_actualizacion || alerta.fecha_creacion || "") + "</span></div>" +
+                        "<div class=\"fw-bold fs-7\">" + escapeHtml(alerta.titulo || "") + "</div>" +
+                        "<div class=\"text-muted fs-8 mb-2\">" + escapeHtml(payload.sku || "") + (payload.producto ? " | " + escapeHtml(payload.producto) : "") + "</div>" +
+                        "<div class=\"fs-8 mb-3\">" + escapeHtml(alerta.descripcion || "") + "</div>" +
+                        "<a class=\"btn btn-sm btn-light-primary\" href=\"" + escapeHtml(alerta.url_accion || "/ecommercePublico/publicaciones") + "\">Abrir publicacion</a>" +
+                    "</div>";
+                }).join("");
+            return;
+        }
         if (!alertas.length) {
             $("ecomgov_alertas").innerHTML = "<div class=\"text-muted py-4\">Sin alertas en la muestra actual.</div>";
             return;
         }
-        $("ecomgov_alertas").innerHTML = alertas.slice(0, 12).map(function (alerta) {
+        $("ecomgov_alertas").innerHTML =
+            "<div class=\"alert alert-light-warning py-3 mb-4\"><div class=\"fw-bold\">Alertas derivadas</div><div class=\"fs-8 text-muted\">Aun no hay bandeja persistente sincronizada para Ecommerce/Catalogo.</div></div>" +
+            alertas.slice(0, 12).map(function (alerta) {
             var badge = alerta.severidad === "critica" ? "badge-light-danger" : "badge-light-warning";
             return "<div class=\"border rounded p-3 mb-3\">" +
                 "<div class=\"d-flex justify-content-between gap-2 mb-2\"><span class=\"badge " + badge + "\">" + escapeHtml(alerta.severidad || "revision") + "</span><span class=\"text-muted fs-8\">" + escapeHtml(alerta.fecha_detectada || "") + "</span></div>" +
@@ -156,6 +198,31 @@
                 "<a class=\"btn btn-sm btn-light-primary\" href=\"" + escapeHtml(alerta.abrir_publicacion_url || "/ecommercePublico/publicaciones") + "\">Abrir publicacion</a>" +
             "</div>";
         }).join("");
+    }
+
+    function sincronizarAlertas() {
+        var boton = $("ecomgov_sincronizar_alertas");
+        if (boton) { boton.disabled = true; }
+        setEstado("Sincronizando alertas...", "badge-light-info");
+        postForm("/ecommercePublico/catalogo_alertas_sincronizar_erp", filtros()).then(function (response) {
+            if (response.error) { throw new Error(response.mensaje || "No fue posible sincronizar alertas"); }
+            var data = response.depurar || {};
+            setEstado("Alertas sincronizadas", "badge-light-success");
+            renderAlertas([], data.alertas_persistentes || []);
+            if (window.Swal) {
+                Swal.fire("Alertas sincronizadas", "Notificaciones guardadas: " + Number(data.notificaciones_guardadas || 0), "success");
+            }
+            cargar();
+        }).catch(function (error) {
+            setEstado("Error al sincronizar", "badge-light-danger");
+            if (window.Swal) {
+                Swal.fire("No se pudo sincronizar", error.message || String(error), "warning");
+            } else {
+                window.alert(error.message || String(error));
+            }
+        }).finally(function () {
+            if (boton) { boton.disabled = false; }
+        });
     }
 
     function renderSeo(seo, readiness) {
@@ -197,6 +264,7 @@
             el.addEventListener(id === "ecomgov_q" ? "input" : "change", resetYCargar);
         });
         $("ecomgov_recargar").addEventListener("click", cargar);
+        $("ecomgov_sincronizar_alertas").addEventListener("click", sincronizarAlertas);
         $("ecomgov_anterior").addEventListener("click", function () {
             if (paginaActual > 1) { paginaActual--; cargar(); }
         });

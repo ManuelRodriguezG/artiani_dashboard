@@ -35,8 +35,8 @@
     setHtml("seo_check_mensaje", '<div class="alert alert-info py-3">Consultando ERP, marcas guardadas y frontend local...</div>');
     var params = new URLSearchParams();
     params.set("frontend", valor("seo_check_frontend") || "http://artiani.com.local");
-    params.set("limite_reglas", valor("seo_check_limite_reglas") || "120");
-    params.set("limite_sitemap", valor("seo_check_limite_sitemap") || "120");
+    params.set("limite_reglas", valor("seo_check_limite_reglas") || "1000");
+    params.set("limite_sitemap", valor("seo_check_limite_sitemap") || "2000");
     params.set("probar_http", valor("seo_check_probar_http") || "1");
     Promise.all([
       fetch("/ecommercePublico/seo_verificacion_erp?" + params.toString(), { headers: { Accept: "application/json" } }).then(jsonResponse),
@@ -68,9 +68,9 @@
     ultimoEstado = { reglas: Array.isArray(reglas) ? reglas : [], sitemap: Array.isArray(sitemap) ? sitemap : [] };
     reconstruirItemsPorClave();
     var revisar = Number(resumen.reglas_revisar || 0) + Number(resumen.sitemap_revisar || 0);
-    setText("seo_check_kpi_reglas", resumen.reglas_total || 0);
+    setText("seo_check_kpi_reglas", textoMostradas(resumen.reglas_mostradas || resumen.reglas_total || 0, resumen.reglas_disponibles));
     setText("seo_check_kpi_reglas_ok", resumen.reglas_ok || 0);
-    setText("seo_check_kpi_sitemap", resumen.sitemap_total || 0);
+    setText("seo_check_kpi_sitemap", textoMostradas(resumen.sitemap_mostradas || resumen.sitemap_total || 0, resumen.sitemap_disponibles));
     setText("seo_check_kpi_revisar", revisar);
     setHtml("seo_check_mensaje", mensajeResumen(depurar, revisar));
     renderReglas(ultimoEstado.reglas);
@@ -95,6 +95,14 @@
       partes.push('<div class="alert alert-warning py-3 mb-3">Las pruebas se pueden consultar, pero aun falta crear la tabla <code>erp_ecommerce_seo_verificaciones</code> para guardar las marcas en BD.</div>');
     } else if (mensajePersistencia) {
       partes.push('<div class="alert alert-light-success py-3 mb-3">Las marcas se guardan en base de datos. En reglas 301 se separa URL vieja y URL nueva.</div>');
+    }
+    if (depurar.resumen && depurar.resumen.hay_mas_reglas) {
+      partes.push('<div class="alert alert-warning py-3 mb-3">Estas viendo ' + escapeHtml(depurar.resumen.reglas_mostradas || 0) + ' de ' + escapeHtml(depurar.resumen.reglas_disponibles || 0) + ' reglas SEO. Sube el limite o revisa por bloques para ver el resto.</div>');
+    } else if (depurar.resumen && Number(depurar.resumen.reglas_disponibles || 0) > 0) {
+      partes.push('<div class="alert alert-light-primary py-3 mb-3">Estas viendo todas las reglas SEO disponibles: ' + escapeHtml(depurar.resumen.reglas_mostradas || depurar.resumen.reglas_total || 0) + ' de ' + escapeHtml(depurar.resumen.reglas_disponibles || 0) + '.</div>');
+    }
+    if (depurar.resumen && depurar.resumen.hay_mas_sitemap) {
+      partes.push('<div class="alert alert-warning py-3 mb-3">Estas viendo ' + escapeHtml(depurar.resumen.sitemap_mostradas || 0) + ' de ' + escapeHtml(depurar.resumen.sitemap_disponibles || 0) + ' URLs de sitemap. Sube el limite de sitemap para ver todas.</div>');
     }
     if (revisar > 0) {
       partes.push('<div class="alert alert-warning py-3">Hay ' + escapeHtml(revisar) + ' resultado(s) para revisar en ' + escapeHtml(frontend) + '.</div>');
@@ -431,6 +439,13 @@
   function setHtml(id, html) {
     var node = document.getElementById(id);
     if (node) node.innerHTML = html;
+  }
+
+  function textoMostradas(mostradas, disponibles) {
+    if (disponibles != null && Number(disponibles) > 0) {
+      return String(mostradas || 0) + " / " + String(disponibles || 0);
+    }
+    return mostradas || 0;
   }
 
   function valor(id) {

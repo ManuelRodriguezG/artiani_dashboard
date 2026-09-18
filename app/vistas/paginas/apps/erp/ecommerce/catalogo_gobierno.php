@@ -12,7 +12,7 @@
       Documentacion IA: Codex GPT-5, 2026-09-18.
       Proposito: tablero profesional para gobernar la relacion Catalogo ERP -> Ecommerce publico.
       Impacto: muestra publicaciones, alertas y SEO sin cambiar slugs, precios, inventario ni redirecciones.
-      Contrato: vista protegida por catalogo.ver; consume GET read-only /ecommercePublico/catalogo_gobierno_erp.
+      Contrato: vista protegida por catalogo.ver; consume GET read-only y POST protegido para sincronizar alertas.
     -->
     <style>
         .ecomgov-kpi { border: 1px solid #e7e9ef; border-radius: 8px; background: #fff; padding: 14px; min-height: 98px; }
@@ -126,8 +126,11 @@
                                     <div class="card-title">
                                         <div>
                                             <h3 class="fw-bold mb-1">Alertas Ecommerce</h3>
-                                            <span class="text-muted fs-7">Bandeja read-only derivada de la muestra actual.</span>
+                                            <span class="text-muted fs-7">Bandeja persistente conectada a notificaciones operativas; si no hay sincronizacion, muestra alertas derivadas.</span>
                                         </div>
+                                    </div>
+                                    <div class="card-toolbar">
+                                        <button class="btn btn-sm btn-light-primary" type="button" id="ecomgov_sincronizar_alertas"><i class="bi bi-bell"></i> Sincronizar alertas</button>
                                     </div>
                                 </div>
                                 <div class="card-body pt-0" id="ecomgov_alertas"></div>
@@ -159,6 +162,6 @@
 </div>
 <script src="assets/plugins/global/plugins.bundle.js"></script>
 <script src="assets/js/scripts.bundle.js"></script>
-<script src="/assets/js/custom/apps/erp/ecommerce/catalogo_gobierno.js?v=20260918-1"></script>
+<script src="/assets/js/custom/apps/erp/ecommerce/catalogo_gobierno.js?v=20260918-2"></script>
 </body>
 </html>
