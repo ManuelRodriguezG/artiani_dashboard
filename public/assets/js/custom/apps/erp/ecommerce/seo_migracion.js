@@ -275,7 +275,7 @@
     setBadge("ecom_seo_robots_badge", resumen.robots_disponible ? "Robots listo" : "Robots pendiente", resumen.robots_disponible ? "badge-light-success" : "badge-light-warning");
     renderPasos(get(depurar, ["siguiente_operativo"], []));
     renderUrls(get(depurar, ["urls"], []));
-    renderRedirecciones(get(depurar, ["redirecciones"], []));
+    renderRedirecciones((get(depurar, ["redirecciones"], []) || []).concat(get(depurar, ["gone"], []) || []));
     renderSitemap(get(depurar, ["sitemap"], []));
     renderTablas(get(estado, ["tablas_seo"], {}));
     renderAutorizados(get(depurar, ["endpoints_autorizados"], {}));
@@ -317,15 +317,17 @@
     var tbody = document.getElementById("ecom_seo_redirecciones_body");
     if (!tbody) return;
     if (!Array.isArray(items) || items.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="3" class="text-center text-muted py-6">Sin redirecciones activas. Falta aplicar esquema, importar URLs viejas y aprobar equivalencias.</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="3" class="text-center text-muted py-6">Sin reglas SEO activas. Falta aplicar esquema, importar URLs viejas y aprobar equivalencias.</td></tr>';
       return;
     }
     tbody.innerHTML = items.map(function (item) {
+      var status = item.status || 301;
+      var destino = Number(status) === 410 ? "Gone sin destino" : (item.to || "-");
       return [
         "<tr>",
         '<td class="fw-semibold ecom-seo-path">' + escapeHtml(item.from || "-") + "</td>",
-        '<td class="ecom-seo-path">' + escapeHtml(item.to || "-") + "</td>",
-        "<td>" + badgeStatus(item.status || 301) + '<div class="text-muted fs-8">' + escapeHtml(item.tipo || "") + "</div></td>",
+        '<td class="ecom-seo-path">' + escapeHtml(destino) + "</td>",
+        "<td>" + badgeStatus(status) + '<div class="text-muted fs-8">' + escapeHtml(item.tipo || "") + "</div></td>",
         "</tr>"
       ].join("");
     }).join("");
@@ -632,10 +634,26 @@
       return;
     }
     if (decision === "410") {
-      marcarUrlViejaResuelta(from, "410_descontinuado", { status: "410", motivo: "revision_manual_seo" });
-      setHtml("ecom_seo_rapido_mensaje", '<div class="alert alert-success py-3">URL marcada como 410.</div>');
-      cerrarRapidoModal();
-      quitarRenglonRapido(from);
+      setHtml("ecom_seo_rapido_mensaje", '<div class="alert alert-info py-3">Guardando URL 410...</div>');
+      postJson("/ecommercePublico/seo_redireccion_guardar_erp", {
+        from: from,
+        to: "",
+        status: "410",
+        tipo: "gone",
+        motivo: "revision_manual_seo_410"
+      }).then(function (response) {
+        if (response.error) {
+          setHtml("ecom_seo_rapido_mensaje", '<div class="alert alert-danger py-3">' + escapeHtml(response.mensaje || "No se pudo guardar la URL 410.") + "</div>");
+          return;
+        }
+        marcarUrlViejaResuelta(from, "410_descontinuado", { status: "410", motivo: "revision_manual_seo_410" });
+        setHtml("ecom_seo_rapido_mensaje", '<div class="alert alert-success py-3">URL 410 guardada.</div>');
+        cerrarRapidoModal();
+        quitarRenglonRapido(from);
+        cargarDashboard();
+      }).catch(function (error) {
+        setHtml("ecom_seo_rapido_mensaje", '<div class="alert alert-danger py-3">' + escapeHtml(error.message || "No se pudo guardar la URL 410.") + "</div>");
+      });
       return;
     }
     if (!to) {
@@ -1258,18 +1276,19 @@
   }
 
   function prepararRedireccion() {
+    var status = valor("ecom_seo_redir_status") || "301";
     var data = {
       from: valor("ecom_seo_redir_from"),
-      to: valor("ecom_seo_redir_to"),
-      status: valor("ecom_seo_redir_status") || "301",
-      tipo: valor("ecom_seo_redir_tipo") || "manual",
-      motivo: "revision_manual_seo"
+      to: status === "410" ? "" : valor("ecom_seo_redir_to"),
+      status: status,
+      tipo: status === "410" ? "gone" : (valor("ecom_seo_redir_tipo") || "manual"),
+      motivo: status === "410" ? "revision_manual_seo_410" : "revision_manual_seo"
     };
-    if (!data.from || !data.to) {
-      window.alert("Captura origen y destino.");
+    if (!data.from || (status !== "410" && !data.to)) {
+      window.alert(status === "410" ? "Captura origen." : "Captura origen y destino.");
       return;
     }
-    setEstado("Validando 301", "badge-light-warning");
+    setEstado(status === "410" ? "Validando 410" : "Validando 301", "badge-light-warning");
     postJson("/ecommercePublico/seo_redireccion_plan_erp", data)
       .then(function (response) {
         renderRedireccionPlan(get(response, ["depurar"], {}));
@@ -1282,27 +1301,28 @@
   }
 
   function guardarRedireccion() {
+    var status = valor("ecom_seo_redir_status") || "301";
     var data = {
       from: valor("ecom_seo_redir_from"),
-      to: valor("ecom_seo_redir_to"),
-      status: valor("ecom_seo_redir_status") || "301",
-      tipo: valor("ecom_seo_redir_tipo") || "manual",
-      motivo: "revision_manual_seo"
+      to: status === "410" ? "" : valor("ecom_seo_redir_to"),
+      status: status,
+      tipo: status === "410" ? "gone" : (valor("ecom_seo_redir_tipo") || "manual"),
+      motivo: status === "410" ? "revision_manual_seo_410" : "revision_manual_seo"
     };
-    if (!data.from || !data.to) {
-      window.alert("Captura origen y destino.");
+    if (!data.from || (status !== "410" && !data.to)) {
+      window.alert(status === "410" ? "Captura origen." : "Captura origen y destino.");
       return;
     }
-    if (!window.confirm("Guardar esta redireccion SEO aprobada?")) {
+    if (!window.confirm(status === "410" ? "Guardar esta URL 410 aprobada?" : "Guardar esta redireccion SEO aprobada?")) {
       return;
     }
-    setEstado("Guardando 301", "badge-light-warning");
+    setEstado(status === "410" ? "Guardando 410" : "Guardando 301", "badge-light-warning");
     postJson("/ecommercePublico/seo_redireccion_guardar_erp", data)
       .then(function (response) {
         renderRedireccionGuardada(response, get(response, ["depurar"], {}));
         setEstado(response.error ? "Bloqueado" : "Guardado", response.error ? "badge-light-warning" : "badge-light-success");
         if (!response.error) {
-          marcarUrlViejaResuelta(data.from, data.tipo === "categoria" ? "redirigir_categoria" : "redirigir_producto", {
+          marcarUrlViejaResuelta(data.from, status === "410" ? "410_descontinuado" : (data.tipo === "categoria" ? "redirigir_categoria" : "redirigir_producto"), {
             to: data.to,
             status: data.status,
             motivo: data.motivo
@@ -1410,7 +1430,10 @@
   }
 
   function badgeStatus(status) {
-    return '<span class="badge badge-light-success">' + escapeHtml(status) + "</span>";
+    status = Number(status || 0);
+    var clase = status === 410 ? "badge-light-danger" : "badge-light-success";
+    var texto = status === 410 ? "410 Gone" : String(status || "-");
+    return '<span class="badge ' + clase + '">' + escapeHtml(texto) + "</span>";
   }
 
   function badgeHttp(status) {

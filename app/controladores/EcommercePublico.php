@@ -804,6 +804,17 @@ class EcommercePublico extends Controlador {
   }
 
   /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-18
+   * Proposito: abrir tablero profesional de gobierno entre Catalogo ERP y Ecommerce publico.
+   * Impacto: Ecommerce publico/SEO; concentra estado de publicaciones, alertas y estabilidad de URLs sin escribir datos.
+   * Contrato: vista protegida por `catalogo.ver`; las acciones operativas se delegan a Publicaciones y SEO.
+   */
+  public function catalogo_gobierno() {
+    $this->requerirPermiso("catalogo.ver");
+    $this->vista("apps/erp/ecommerce/catalogo_gobierno");
+  }
+
+  /**
    * Documentacion IA: Codex GPT-5 | Fecha: 2026-07-30
    * Proposito: abrir panel operativo para gobernar que se muestra en el ecommerce Artiani.
    * Impacto: Ecommerce publico; permite administrar visibilidad, estatus y curaduria sin tocar inventario.
@@ -867,6 +878,28 @@ class EcommercePublico extends Controlador {
   public function seo_migracion() {
     $this->requerirPermiso("catalogo.ver");
     $this->vista("apps/erp/ecommerce/seo_migracion");
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-17
+   * Proposito: abrir vista independiente para verificar reglas SEO contra el frontend local.
+   * Impacto: Ecommerce SEO; permite comprobar 301/410 y sitemap antes de publicar Artiani v2.
+   * Contrato: vista protegida por `catalogo.ver`; no escribe BD ni modifica redirecciones.
+   */
+  public function seo_verificacion() {
+    $this->requerirPermiso("catalogo.ver");
+    $this->vista("apps/erp/ecommerce/seo_verificacion");
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-17
+   * Proposito: verificar por HTTP el frontend local usando reglas SEO aprobadas y sitemap vigente.
+   * Impacto: Ecommerce SEO; detecta 301/410 incorrectos, destinos caidos y URLs sitemap no servidas.
+   * Contrato: GET protegido por `catalogo.ver`; read-only, solo hace requests HTTP de comprobacion.
+   */
+  public function seo_verificacion_erp() {
+    $this->requerirPermiso("catalogo.ver");
+    return json_encode($this->modelo("EcommerceCatalogoPublico")->seoVerificacionFrontendLocalInterna($_GET));
   }
 
   /**
@@ -1063,6 +1096,17 @@ class EcommercePublico extends Controlador {
   public function publicaciones_auditar_erp() {
     $this->requerirPermiso("catalogo.ver");
     return json_encode($this->modelo("EcommerceCatalogoPublico")->auditarPublicabilidad($_GET));
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-18
+   * Proposito: entregar tablero read-only de gobierno Catalogo ERP -> Ecommerce publico.
+   * Impacto: permite revisar estados, alertas, precio, imagen, slugs y SEO sin tocar inventario ni URLs.
+   * Contrato: GET protegido por `catalogo.ver`; no crea publicaciones, no ejecuta DDL y no cambia slugs.
+   */
+  public function catalogo_gobierno_erp() {
+    $this->requerirPermiso("catalogo.ver");
+    return json_encode($this->modelo("EcommerceCatalogoPublico")->catalogoGobiernoInterno($_GET), JSON_UNESCAPED_UNICODE);
   }
 
   /**

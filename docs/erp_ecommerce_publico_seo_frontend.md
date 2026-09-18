@@ -75,6 +75,33 @@ Endpoints publicos read-only:
 - `GET /ecommercePublico/seo_sitemap`
 - `GET /ecommercePublico/seo_robots`
 
+Actualizacion 2026-09-17 - URLs 410:
+
+- `GET /ecommercePublico/seo_redirecciones` devuelve redirecciones reales en `depurar.redirecciones` y URLs descontinuadas en `depurar.gone` / `depurar.urls_410`.
+- El frontend debe aplicar `status=410` antes de renderizar y responder HTTP `410 Gone` real.
+- Las URLs 410 no llevan destino, no deben generar canonical y no entran al sitemap.
+- Las reglas 410 se guardan desde la mesa SEO con el mismo endpoint interno de regla manual, usando `status=410`, `tipo=gone` y destino vacio.
+
+Actualizacion 2026-09-17 - Verificacion local:
+
+- `GET /ecommercePublico/seo_verificacion` abre una vista independiente para probar reglas SEO contra `http://artiani.com.local`.
+- `GET /ecommercePublico/seo_verificacion_erp` consolida reglas 301/410 y sitemap, convierte las URLs productivas a frontend local y hace pruebas HTTP read-only.
+- La tabla de reglas verifica que cada origen viejo responda el status esperado y, en 301/302/308, que el `Location` apunte al path canonico nuevo.
+- La tabla de sitemap muestra las URLs indexables que hoy entregaria `/ecommercePublico/seo_sitemap`; sirve para revisar cuales entraran a `/sitemap.xml` en produccion.
+- Si el frontend local aun no implementa la ejecucion de 301/410, esta vista mostrara `Revisar`; eso significa que falta integrar el frontend, no necesariamente que la regla del ERP este mal.
+
+Actualizacion 2026-09-18 - Gobierno Catalogo Ecommerce:
+
+- `GET /ecommercePublico/catalogo_gobierno` abre una vista interna read-only para gobernar la relacion entre Catalogo ERP y Ecommerce publico.
+- `GET /ecommercePublico/catalogo_gobierno_erp` entrega tablero, filtros, publicaciones, alertas y resumen SEO sin escribir BD.
+- Catalogo ERP es la fuente de verdad operativa: producto, SKU, marca, categoria, imagenes, inventario y listas de precios.
+- Ecommerce es la capa publica/SEO/comercial: publicacion, nombre publico, slug, URL, canonical, visibilidad, cotizacion, WhatsApp y decisiones editoriales.
+- Cambiar nombre en Catalogo ERP no cambia automaticamente el slug publico.
+- Los cambios de slug deben hacerse desde la capa Ecommerce/SEO, conservando historial o redireccion cuando aplique.
+- Los precios ecommerce se leen desde listas ERP activas; una publicacion normal sin precio activo debe aparecer como alerta critica.
+- La vista nueva no ejecuta DDL, no publica productos y no cambia redirecciones; deriva tablero, alertas y filtros desde la auditoria de publicabilidad existente.
+- Vistas relacionadas: `/ecommercePublico/publicaciones`, `/ecommercePublico/seo_migracion` y `/ecommercePublico/seo_verificacion`.
+
 Regla canonica: ninguna URL publica SEO debe iniciar con `/ecommercePublico`. Esa ruta es API interna. Las URLs canonicas oficiales son:
 
 - `/`

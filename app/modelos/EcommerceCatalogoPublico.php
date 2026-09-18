@@ -4553,30 +4553,47 @@ class EcommerceCatalogoPublico extends CRUD {
 
   /**
    * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-03
-   * Proposito: entregar redirecciones 301 aprobadas para migrar URLs viejas.
-   * Impacto: Frontend ecommerce; se ejecuta antes de renderizar para conservar autoridad SEO.
-   * Contrato: read-only; solo incluye activo=1 y status 301/302/308.
+   * Proposito: entregar redirecciones 301 aprobadas y URLs 410 para migrar URLs viejas.
+   * Impacto: Frontend ecommerce; se ejecuta antes de renderizar para conservar autoridad SEO y retirar URLs sin equivalente.
+   * Contrato: read-only; incluye activo=1 con status 301/302/308 como redireccion y 410 como gone.
    */
   public function seoRedireccionesPublicas($opciones = array()) {
     try {
       $db = $this->getConexion();
       $baseUrl = $this->dominioProduccionSeoPublico($this->configuracionSeoPublica($db));
       $redirecciones = array();
+      $gone = array();
       if ($db && $this->tablaExiste($db, "erp_ecommerce_seo_redirecciones")) {
         $stmt = $db->query("SELECT url_origen, url_destino, status_code, tipo, motivo, activo, revisado
           FROM erp_ecommerce_seo_redirecciones
-          WHERE activo=1 AND status_code IN (301,302,308)
+          WHERE activo=1 AND status_code IN (301,302,308,410)
           ORDER BY revisado DESC, tipo ASC, url_origen ASC");
         foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $fila) {
           $from = $this->normalizarSeoPathPublico($this->valor($fila, "url_origen", ""));
+          $status = intval($this->valor($fila, "status_code", 301));
+          if ($from === "" || $from === "/" || strpos($from, "/ecommercePublico") === 0) {
+            continue;
+          }
+          if ($status === 410) {
+            $gone[] = array(
+              "from" => $from,
+              "status" => 410,
+              "tipo" => $this->valor($fila, "tipo", "gone"),
+              "tipo_entidad" => "gone",
+              "activo" => intval($this->valor($fila, "activo", 0)) === 1,
+              "revisado" => intval($this->valor($fila, "revisado", 0)) === 1,
+              "motivo" => $this->valor($fila, "motivo", "")
+            );
+            continue;
+          }
           $to = $this->normalizarSeoPathPublico($this->valor($fila, "url_destino", ""));
-          if ($from === "" || $to === "" || $from === $to || strpos($to, "/ecommercePublico") === 0) {
+          if ($to === "" || $from === $to || strpos($to, "/ecommercePublico") === 0) {
             continue;
           }
           $redirecciones[] = array(
             "from" => $from,
             "to" => $to,
-            "status" => intval($this->valor($fila, "status_code", 301)),
+            "status" => $status,
             "tipo" => $this->valor($fila, "tipo", "manual"),
             "tipo_entidad" => $this->valor($fila, "tipo", "manual") === "producto_slug" ? "producto" : $this->valor($fila, "tipo", "manual"),
             "activo" => intval($this->valor($fila, "activo", 0)) === 1,
@@ -4589,12 +4606,14 @@ class EcommerceCatalogoPublico extends CRUD {
         "base_url" => $baseUrl,
         "items" => $redirecciones,
         "redirecciones" => $redirecciones,
+        "gone" => $gone,
+        "urls_410" => $gone,
         "fallback" => array(
           "sin_equivalente_exacto" => "/categorias",
           "preferir_categoria_cercana" => true,
           "nunca_redirigir_todo_a_home" => true
         ),
-        "guardrails" => array("frontend_aplica_antes_de_render" => true, "solo_activas" => true, "read_only" => true)
+        "guardrails" => array("frontend_aplica_antes_de_render" => true, "solo_activas" => true, "read_only" => true, "urls_410_sin_canonical" => true)
       ));
     } catch (Exception $e) {
       return $this->respuesta(true, "danger", $e->getMessage(), array("base_url" => "", "redirecciones" => array()));
@@ -4709,6 +4728,7 @@ class EcommerceCatalogoPublico extends CRUD {
       $robots = $this->seoRobotsPublico($opciones);
       $urlsItems = $this->valor($urls, array("depurar", "urls"), array());
       $redireccionesItems = $this->valor($redirecciones, array("depurar", "redirecciones"), array());
+      $goneItems = $this->valor($redirecciones, array("depurar", "gone"), array());
       $sitemapItems = $this->valor($sitemap, array("depurar", "items"), array());
       $tipos = array();
       foreach ($urlsItems as $item) {
@@ -4722,11 +4742,14 @@ class EcommerceCatalogoPublico extends CRUD {
           "urls_total_muestra" => count($urlsItems),
           "urls_por_tipo" => $tipos,
           "redirecciones_activas" => count($redireccionesItems),
+          "urls_410_activas" => count($goneItems),
           "sitemap_items_muestra" => count($sitemapItems),
           "robots_disponible" => trim((string) $this->valor($robots, array("depurar", "robots_txt"), "")) !== ""
         ),
         "urls" => $urlsItems,
         "redirecciones" => $redireccionesItems,
+        "gone" => $goneItems,
+        "urls_410" => $goneItems,
         "sitemap" => $sitemapItems,
         "robots_txt" => $this->valor($robots, array("depurar", "robots_txt"), ""),
         "endpoints_publicos" => array(
@@ -4755,7 +4778,7 @@ class EcommerceCatalogoPublico extends CRUD {
           "autorizar_respaldo_y_apply",
           "importar_urls_viejas",
           "revisar_equivalencias",
-          "aprobar_redirecciones_301",
+          "aprobar_redirecciones_301_y_410",
           "integrar_frontend"
         ),
         "guardrails" => array(
@@ -4768,6 +4791,115 @@ class EcommerceCatalogoPublico extends CRUD {
       ));
     } catch (Exception $e) {
       return $this->respuesta(true, "danger", $e->getMessage(), array("configurado" => false));
+    }
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-17
+   * Proposito: verificar reglas SEO y sitemap contra el frontend local/staging sin modificar datos.
+   * Impacto: Ecommerce SEO; permite detectar redirecciones, 410 o URLs indexables que no responden como se espera antes de produccion.
+   * Contrato: GET interno protegido; solo lectura y requests HTTP de comprobacion con limite operativo.
+   */
+  public function seoVerificacionFrontendLocalInterna($opciones = array()) {
+    try {
+      $frontendBase = rtrim(trim((string) $this->valor($opciones, "frontend", "http://artiani.com.local")), "/");
+      if ($frontendBase === "") { $frontendBase = "http://artiani.com.local"; }
+      $limiteReglas = max(1, min(500, intval($this->valor($opciones, "limite_reglas", $this->valor($opciones, "limite", 120)))));
+      $limiteSitemap = max(1, min(500, intval($this->valor($opciones, "limite_sitemap", $this->valor($opciones, "limite", 120)))));
+      $probarHttp = intval($this->valor($opciones, "probar_http", 1)) === 1;
+
+      $redireccionesPayload = $this->seoRedireccionesPublicas($opciones);
+      $sitemapPayload = $this->seoSitemapPublico(array("limite" => $limiteSitemap));
+      $redirecciones = array_slice($this->valor($redireccionesPayload, array("depurar", "redirecciones"), array()), 0, $limiteReglas);
+      $gone = array_slice($this->valor($redireccionesPayload, array("depurar", "gone"), array()), 0, $limiteReglas);
+      $sitemap = array_slice($this->valor($sitemapPayload, array("depurar", "items"), array()), 0, $limiteSitemap);
+
+      $reglasVerificadas = array();
+      foreach ($redirecciones as $item) {
+        $from = $this->normalizarSeoPathPublico($this->valor($item, "from", ""));
+        $to = $this->normalizarSeoPathPublico($this->valor($item, "to", ""));
+        $statusEsperado = intval($this->valor($item, "status", 301));
+        $urlLocal = $this->urlSeoPublica($frontendBase, $from);
+        $destinoLocal = $this->urlSeoPublica($frontendBase, $to);
+        $probe = $probarHttp ? $this->seoHttpProbeUrl($urlLocal, 6) : $this->seoHttpProbeVacio();
+        $locationPath = $this->normalizarSeoPathPublico($this->valor($probe, "location", ""));
+        $statusOk = intval($this->valor($probe, "status", 0)) === $statusEsperado;
+        $locationOk = $locationPath === $to;
+        $reglasVerificadas[] = array(
+          "tipo_regla" => "redireccion",
+          "from" => $from,
+          "to" => $to,
+          "status_esperado" => $statusEsperado,
+          "url_local" => $urlLocal,
+          "destino_local" => $destinoLocal,
+          "status_http" => intval($this->valor($probe, "status", 0)),
+          "location" => $this->valor($probe, "location", ""),
+          "location_path" => $locationPath,
+          "status_ok" => $statusOk,
+          "location_ok" => $locationOk,
+          "resultado" => !$probarHttp ? "sin_prueba_http" : ($statusOk && $locationOk ? "ok" : "revisar"),
+          "motivo" => $this->valor($item, "motivo", "")
+        );
+      }
+
+      foreach ($gone as $item) {
+        $from = $this->normalizarSeoPathPublico($this->valor($item, "from", ""));
+        $urlLocal = $this->urlSeoPublica($frontendBase, $from);
+        $probe = $probarHttp ? $this->seoHttpProbeUrl($urlLocal, 6) : $this->seoHttpProbeVacio();
+        $statusOk = intval($this->valor($probe, "status", 0)) === 410;
+        $reglasVerificadas[] = array(
+          "tipo_regla" => "gone",
+          "from" => $from,
+          "to" => "",
+          "status_esperado" => 410,
+          "url_local" => $urlLocal,
+          "destino_local" => "",
+          "status_http" => intval($this->valor($probe, "status", 0)),
+          "location" => $this->valor($probe, "location", ""),
+          "location_path" => "",
+          "status_ok" => $statusOk,
+          "location_ok" => true,
+          "resultado" => !$probarHttp ? "sin_prueba_http" : ($statusOk ? "ok" : "revisar"),
+          "motivo" => $this->valor($item, "motivo", "")
+        );
+      }
+
+      $sitemapVerificado = array();
+      foreach ($sitemap as $item) {
+        $loc = trim((string) $this->valor($item, "loc", ""));
+        $path = $this->normalizarSeoPathPublico($loc);
+        $urlLocal = $this->urlSeoPublica($frontendBase, $path);
+        $probe = $probarHttp ? $this->seoHttpProbeUrl($urlLocal, 6) : $this->seoHttpProbeVacio();
+        $status = intval($this->valor($probe, "status", 0));
+        $statusOk = $status >= 200 && $status < 400;
+        $sitemapVerificado[] = array(
+          "loc" => $loc,
+          "path" => $path,
+          "url_local" => $urlLocal,
+          "changefreq" => $this->valor($item, "changefreq", ""),
+          "priority" => $this->valor($item, "priority", ""),
+          "status_http" => $status,
+          "status_ok" => $statusOk,
+          "resultado" => !$probarHttp ? "sin_prueba_http" : ($statusOk ? "ok" : "revisar")
+        );
+      }
+
+      $resumen = $this->seoResumenVerificacion($reglasVerificadas, $sitemapVerificado);
+      return $this->respuesta(false, "success", "Verificacion SEO frontend local generada", array(
+        "frontend_base" => $frontendBase,
+        "probar_http" => $probarHttp,
+        "resumen" => $resumen,
+        "reglas" => $reglasVerificadas,
+        "sitemap" => $sitemapVerificado,
+        "explicacion_sitemap" => array(
+          "fuente" => "GET /ecommercePublico/seo_sitemap",
+          "incluye" => array("home", "categorias publicas", "marcas publicas", "productos publicados indexables", "paginas estaticas importantes", "blog publicado si aplica"),
+          "excluye" => array("URLs viejas", "301", "410", "404", "borradores", "pausados", "privados", "rutas /ecommercePublico", "URLs locales", "parametros innecesarios")
+        ),
+        "guardrails" => array("read_only" => true, "no_escribe_bd" => true, "frontend_local" => $frontendBase, "no_sigue_redirecciones" => true)
+      ));
+    } catch (Exception $e) {
+      return $this->respuesta(true, "danger", $e->getMessage(), array("read_only" => true));
     }
   }
 
@@ -5473,21 +5605,22 @@ class EcommerceCatalogoPublico extends CRUD {
       $motivo = trim((string) $this->valor($datos, "motivo", "revision_manual_seo"));
       $bloqueos = array();
       if ($from === "" || $from === "/") { $bloqueos[] = "origen_invalido"; }
-      if ($to === "" || $to === "/ecommercePublico") { $bloqueos[] = "destino_invalido"; }
-      if (strpos($from, "/ecommercePublico") === 0 || strpos($to, "/ecommercePublico") === 0) { $bloqueos[] = "no_usar_rutas_api"; }
-      if ($from === $to) { $bloqueos[] = "redireccion_a_si_misma"; }
-      if (!in_array($status, array(301, 302, 308), true)) { $bloqueos[] = "status_no_permitido"; }
+      $esGone = $status === 410;
+      if (!$esGone && ($to === "" || $to === "/" || $to === "/ecommercePublico")) { $bloqueos[] = "destino_invalido"; }
+      if (strpos($from, "/ecommercePublico") === 0 || (!$esGone && strpos($to, "/ecommercePublico") === 0)) { $bloqueos[] = "no_usar_rutas_api"; }
+      if (!$esGone && $from === $to) { $bloqueos[] = "redireccion_a_si_misma"; }
+      if (!in_array($status, array(301, 302, 308, 410), true)) { $bloqueos[] = "status_no_permitido"; }
       $sql = empty($bloqueos)
         ? "INSERT INTO erp_ecommerce_seo_redirecciones (url_origen, url_destino, status_code, tipo, motivo, activo, revisado, fecha_registro, fecha_actualizacion) VALUES (" .
           $this->sqlQuote($from) . ", " . $this->sqlQuote($to) . ", " . intval($status) . ", " . $this->sqlQuote($tipo) . ", " . $this->sqlQuote($motivo) . ", 1, 1, NOW(), NOW()) ON DUPLICATE KEY UPDATE url_destino=VALUES(url_destino), status_code=VALUES(status_code), tipo=VALUES(tipo), motivo=VALUES(motivo), activo=1, revisado=1, fecha_actualizacion=NOW();"
         : "";
-      return $this->respuesta(false, empty($bloqueos) ? "success" : "warning", empty($bloqueos) ? "Redireccion valida para aprobacion" : "Redireccion requiere correccion", array(
+      return $this->respuesta(false, empty($bloqueos) ? "success" : "warning", empty($bloqueos) ? ($esGone ? "URL 410 valida para aprobacion" : "Redireccion valida para aprobacion") : "Redireccion requiere correccion", array(
         "read_only" => true,
         "valida" => empty($bloqueos),
         "bloqueos" => $bloqueos,
         "redireccion" => array("from" => $from, "to" => $to, "status" => $status, "tipo" => $tipo, "motivo" => $motivo, "activo" => true),
         "sql_preview" => $sql,
-        "guardrails" => array("no_escribe_bd" => true, "frontend_aplica_301" => true, "no_ecommercePublico" => true)
+        "guardrails" => array("no_escribe_bd" => true, "frontend_aplica_301" => true, "frontend_aplica_410" => true, "no_ecommercePublico" => true)
       ));
     } catch (Exception $e) {
       return $this->respuesta(true, "danger", $e->getMessage(), array("read_only" => true));
@@ -5590,8 +5723,8 @@ class EcommerceCatalogoPublico extends CRUD {
 
   /**
    * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-03
-   * Proposito: guardar una redireccion SEO aprobada por operacion.
-   * Impacto: Ecommerce SEO; alimenta la fuente interna que el frontend publico debe convertir en 301/308.
+   * Proposito: guardar una redireccion SEO aprobada o una URL marcada como 410 por operacion.
+   * Impacto: Ecommerce SEO; alimenta la fuente interna que el frontend publico debe convertir en 301/308 o 410.
    * Contrato: POST interno protegido por permiso/CSRF; no exige token operativo para revision fila por fila.
    */
   public function seoRedireccionGuardarAutorizada($datos = array(), $opciones = array()) {
@@ -5619,8 +5752,8 @@ class EcommerceCatalogoPublico extends CRUD {
 
       $redireccion = $this->valor($depurar, "redireccion", array());
       $from = $this->normalizarSeoPathPublico($this->valor($redireccion, "from", ""));
-      $to = $this->normalizarSeoPathPublico($this->valor($redireccion, "to", ""));
       $status = intval($this->valor($redireccion, "status", 301));
+      $to = $status === 410 ? "" : $this->normalizarSeoPathPublico($this->valor($redireccion, "to", ""));
       $tipo = $this->limpiarFiltroPublico($this->valor($redireccion, "tipo", "manual"));
       $motivo = trim((string) $this->valor($redireccion, "motivo", "revision_manual_seo"));
 
@@ -5651,7 +5784,7 @@ class EcommerceCatalogoPublico extends CRUD {
         "escribe_bd" => true,
         "filas_afectadas" => $afectadas,
         "redireccion" => array("from" => $from, "to" => $to, "status" => $status, "tipo" => $tipo, "motivo" => $motivo, "activo" => true),
-        "guardrails" => array("permiso_catalogo_editar" => true, "sin_rutas_api" => true, "frontend_aplica_301" => true)
+        "guardrails" => array("permiso_catalogo_editar" => true, "sin_rutas_api" => true, "frontend_aplica_301" => true, "frontend_aplica_410" => true)
       ));
     } catch (Exception $e) {
       if (isset($db) && $db && $db->inTransaction()) {
@@ -6972,6 +7105,91 @@ class EcommerceCatalogoPublico extends CRUD {
           "bloquear_fraccionarios_granel" => true,
           "no_requiere_existencia_para_publicar" => true,
           "disponibilidad_publica_no_muestra_cantidad" => true
+        )
+      ));
+    } catch (Exception $e) {
+      return $this->respuesta(true, "danger", $e->getMessage(), array("read_only" => true));
+    }
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-18
+   * Proposito: consolidar tablero de gobierno entre Catalogo ERP y Ecommerce publico.
+   * Impacto: permite operar publicaciones, alertas SEO y calidad comercial desde una vista read-only sin romper slugs.
+   * Contrato: no escribe BD, no cambia publicaciones, no recalcula slugs publicados y no toca inventario.
+   */
+  public function catalogoGobiernoInterno($filtros = array()) {
+    try {
+      $limite = max(10, min(200, intval($this->valor($filtros, "limite", 50))));
+      $pagina = max(1, intval($this->valor($filtros, "pagina", 1)));
+      $baseFiltros = array(
+        "q" => trim((string) $this->valor($filtros, "q", "")),
+        "estatus_publicacion" => trim((string) $this->valor($filtros, "estatus_publicacion", "")),
+        "filtro_calidad" => trim((string) $this->valor($filtros, "filtro_calidad", "")),
+        "disponibilidad" => trim((string) $this->valor($filtros, "disponibilidad", "")),
+        "categoria_texto" => trim((string) $this->valor($filtros, "categoria_texto", "")),
+        "mascota" => $this->limpiarFiltroPublico($this->valor($filtros, "mascota", "")),
+        "necesidad" => $this->limpiarFiltroPublico($this->valor($filtros, "necesidad", "")),
+        "granel" => trim((string) $this->valor($filtros, "granel", "")),
+        "limite" => $limite,
+        "pagina" => $pagina
+      );
+
+      $auditoria = $this->auditarPublicabilidad($baseFiltros);
+      if (!empty($auditoria["error"])) {
+        return $auditoria;
+      }
+      $readiness = $this->readinessFrontendInterna(array("base_url" => $this->valor($filtros, "base_url", "http://panel.com.local")));
+      $seo = $this->seoDashboardInterno(array("limite" => 40));
+      $resumen = $this->valor($auditoria, array("depurar", "resumen"), array());
+      $items = $this->valor($auditoria, array("depurar", "candidatos"), array());
+      $paginacion = $this->valor($auditoria, array("depurar", "paginacion"), array());
+      $publicaciones = $this->valor($readiness, array("depurar", "publicaciones"), array());
+
+      $tablero = array(
+        "publicados" => intval($this->valor($publicaciones, "total_publicadas", 0)),
+        "informativos" => $this->contarPublicacionesInformativas(),
+        "borradores" => intval($this->valor($publicaciones, "total_borradores", 0)),
+        "pausados" => intval($this->valor($publicaciones, "total_pausadas", 0)),
+        "sin_publicacion" => $this->totalAuditoriaRapida(array("estatus_publicacion" => "sin_publicacion")),
+        "sin_precio" => $this->totalAuditoriaRapida(array("filtro_calidad" => "sin_precio")),
+        "sin_imagen" => $this->totalAuditoriaRapida(array("filtro_calidad" => "sin_imagen")),
+        "con_alerta_seo" => $this->totalSlugsDuplicados() + intval($this->valor($seo, array("depurar", "resumen", "redirecciones_activas"), 0)),
+        "redirecciones_pendientes" => $this->totalRedireccionesSeoPendientes(),
+        "productos_nuevos_detectados" => $this->totalAuditoriaRapida(array("estatus_publicacion" => "sin_publicacion", "filtro_calidad" => "informativo_apto")),
+        "publicables_fase_1" => intval($this->valor($resumen, "skus_publicables_fase_1", 0))
+      );
+
+      return $this->respuesta(false, "success", "Gobierno ecommerce consultado", array(
+        "read_only" => true,
+        "no_escribe_bd" => true,
+        "fuente_verdad_operativa" => "Catalogo ERP",
+        "capa_publica" => "Ecommerce SEO/comercial",
+        "tablero" => $tablero,
+        "paginacion" => $paginacion,
+        "items" => $this->formatearItemsGobierno($items),
+        "alertas" => $this->alertasGobiernoDesdeItems($items),
+        "seo" => array(
+          "resumen" => $this->valor($seo, array("depurar", "resumen"), array()),
+          "endpoints_internos" => $this->valor($seo, array("depurar", "endpoints_internos"), array()),
+          "guardrails" => $this->valor($seo, array("depurar", "guardrails"), array())
+        ),
+        "readiness" => array(
+          "senal_frontend" => $this->valor($readiness, array("depurar", "senal_frontend"), ""),
+          "bloqueos_datos_reales" => $this->valor($readiness, array("depurar", "bloqueos_datos_reales"), array())
+        ),
+        "reglas_operativas" => array(
+          "catalogo_erp_fuente_de_verdad" => true,
+          "ecommerce_es_capa_publica_seo_comercial" => true,
+          "cambio_nombre_erp_no_cambia_slug_publico" => true,
+          "slug_se_cambia_solo_desde_ecommerce_cms" => true,
+          "precios_leidos_desde_listas_erp_activas" => true,
+          "redirecciones_deben_resolver_a_entidad_estable" => true
+        ),
+        "acciones" => array(
+          "abrir_publicaciones" => "/ecommercePublico/publicaciones",
+          "abrir_seo_slugs" => "/ecommercePublico/seo_migracion",
+          "abrir_verificacion_seo" => "/ecommercePublico/seo_verificacion"
         )
       ));
     } catch (Exception $e) {
@@ -8851,6 +9069,218 @@ class EcommerceCatalogoPublico extends CRUD {
     } catch (Exception $e) {
       return 0;
     }
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-18
+   * Proposito: contar rapidamente resultados de auditoria para KPIs del tablero ecommerce.
+   * Impacto: Gobierno ecommerce; evita duplicar SQL de publicabilidad y mantiene una sola fuente de reglas.
+   * Contrato: helper read-only; limita a una fila y usa la paginacion del auditor existente.
+   */
+  private function totalAuditoriaRapida($filtros = array()) {
+    $payload = $this->auditarPublicabilidad(array_merge($filtros, array("limite" => 10, "pagina" => 1)));
+    return intval($this->valor($payload, array("depurar", "paginacion", "total"), 0));
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-18
+   * Proposito: contar publicaciones informativas sin agregar estado nuevo al esquema actual.
+   * Impacto: Tablero ecommerce; identifica fichas publicadas que deliberadamente ocultan precio/cotizacion.
+   * Contrato: read-only sobre `erp_ecommerce_publicaciones`; devuelve 0 si la tabla no existe.
+   */
+  private function contarPublicacionesInformativas() {
+    try {
+      $db = $this->getConexion();
+      if (!$db || !$this->tablaExiste($db, "erp_ecommerce_publicaciones")) {
+        return 0;
+      }
+      $stmt = $db->query("SELECT COUNT(*) FROM erp_ecommerce_publicaciones WHERE estatus_publicacion='publicado' AND COALESCE(mostrar_precio, 1)=0 AND COALESCE(permite_cotizacion, 1)=0");
+      return intval($stmt->fetchColumn());
+    } catch (Exception $e) {
+      return 0;
+    }
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-18
+   * Proposito: detectar slugs duplicados activos como alerta SEO del tablero.
+   * Impacto: Ecommerce SEO; permite actuar antes de romper URLs canonicas o publicaciones.
+   * Contrato: read-only; no normaliza ni modifica slugs.
+   */
+  private function totalSlugsDuplicados() {
+    try {
+      $db = $this->getConexion();
+      if (!$db || !$this->tablaExiste($db, "erp_ecommerce_publicaciones")) {
+        return 0;
+      }
+      $stmt = $db->query("SELECT COUNT(*) FROM (
+        SELECT slug
+        FROM erp_ecommerce_publicaciones
+        WHERE estatus_publicacion IN ('borrador','publicado','pausado')
+          AND TRIM(COALESCE(slug,''))<>''
+        GROUP BY slug
+        HAVING COUNT(*)>1
+      ) duplicados");
+      return intval($stmt->fetchColumn());
+    } catch (Exception $e) {
+      return 0;
+    }
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-18
+   * Proposito: contar URLs antiguas SEO pendientes de mapear cuando exista la mesa de migracion.
+   * Impacto: Tablero ecommerce; visibiliza trabajo SEO sin crear redirecciones automaticas.
+   * Contrato: read-only; tolera ausencia de tabla SEO.
+   */
+  private function totalRedireccionesSeoPendientes() {
+    try {
+      $db = $this->getConexion();
+      if (!$db || !$this->tablaExiste($db, "erp_ecommerce_seo_urls_viejas")) {
+        return 0;
+      }
+      $stmt = $db->query("SELECT COUNT(*) FROM erp_ecommerce_seo_urls_viejas WHERE estatus_mapeo IN ('pendiente','revision','sin_equivalente')");
+      return intval($stmt->fetchColumn());
+    } catch (Exception $e) {
+      return 0;
+    }
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-18
+   * Proposito: preparar filas compactas para la vista de gobierno ecommerce.
+   * Impacto: UI interna; evita exponer detalles innecesarios y mantiene slugs actuales como dato estable.
+   * Contrato: transformacion en memoria sin efectos laterales.
+   */
+  private function formatearItemsGobierno($items) {
+    $salida = array();
+    foreach ((array) $items as $item) {
+      $estatus = (string) $this->valor($item, "estatus_publicacion", "");
+      $mostrarPrecio = intval($this->valor($item, "mostrar_precio_publicacion", 1)) === 1;
+      $permiteCotizacion = intval($this->valor($item, "permite_cotizacion_publicacion", 1)) === 1;
+      $salida[] = array(
+        "id_producto_erp" => intval($this->valor($item, "id_producto_erp", 0)),
+        "id_sku" => intval($this->valor($item, "id_sku", 0)),
+        "id_publicacion" => intval($this->valor($item, "id_publicacion", 0)),
+        "sku" => (string) $this->valor($item, "sku", ""),
+        "nombre_erp" => (string) $this->valor($item, "nombre_publico", ""),
+        "nombre_publico" => (string) $this->valor($item, "titulo_publico_publicacion", $this->valor($item, "nombre_publico", "")),
+        "slug" => (string) $this->valor($item, "slug_publicacion", ""),
+        "url_publica" => $this->valor($item, "slug_publicacion", "") !== "" ? "/producto/" . $this->valor($item, "slug_publicacion", "") : "",
+        "estatus_publicacion" => $estatus !== "" ? $estatus : "sin_publicacion",
+        "modo_publicacion" => ($estatus === "publicado" && !$mostrarPrecio && !$permiteCotizacion) ? "informativo" : "normal",
+        "marca" => (string) $this->valor($item, "marca", ""),
+        "categoria" => (string) $this->valor($item, "categoria", ""),
+        "precio" => floatval($this->valor($item, "precio", 0)),
+        "moneda" => (string) $this->valor($item, "moneda", "MXN"),
+        "precio_activo" => intval($this->valor($item, "precio_general_activo", 0)) === 1,
+        "imagen" => (string) $this->valor($item, "url_imagen", ""),
+        "tiene_imagen" => trim((string) $this->valor($item, "url_imagen", "")) !== "",
+        "disponibilidad_publica" => (string) $this->valor($item, "disponibilidad_publica_sugerida", ""),
+        "permite_venta_fraccionaria" => intval($this->valor($item, "permite_venta_fraccionaria", 0)) === 1,
+        "bloqueos" => $this->valor($item, "bloqueos_publicacion", array()),
+        "alertas_editoriales" => $this->valor($item, "alertas_editoriales", array())
+      );
+    }
+    return $salida;
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-18
+   * Proposito: generar bandeja accionable desde la muestra filtrada de catalogo ecommerce.
+   * Impacto: Gobierno ecommerce; prioriza problemas criticos sin persistir alertas todavia.
+   * Contrato: read-only; las acciones sugeridas apuntan a vistas existentes.
+   */
+  private function alertasGobiernoDesdeItems($items) {
+    $alertas = array();
+    foreach ((array) $items as $item) {
+      $estatus = (string) $this->valor($item, "estatus_publicacion", "");
+      $idPublicacion = intval($this->valor($item, "id_publicacion", 0));
+      $idSku = intval($this->valor($item, "id_sku", 0));
+      $nombre = (string) $this->valor($item, "titulo_publico_publicacion", $this->valor($item, "nombre_publico", ""));
+      $sku = (string) $this->valor($item, "sku", "");
+      $mostrarPrecio = intval($this->valor($item, "mostrar_precio_publicacion", 1)) === 1;
+      $esPublicado = $estatus === "publicado";
+      $base = array(
+        "id_publicacion" => $idPublicacion,
+        "id_sku" => $idSku,
+        "sku" => $sku,
+        "producto" => $nombre,
+        "fecha_detectada" => date("Y-m-d"),
+        "abrir_publicacion_url" => "/ecommercePublico/publicaciones?id_sku=" . $idSku
+      );
+      foreach ((array) $this->valor($item, "bloqueos_publicacion", array()) as $bloqueo) {
+        $critica = $esPublicado || in_array($bloqueo, array("precio_general_faltante", "imagen_faltante", "venta_fraccionaria_bloqueada_fase_1", "posible_granel_textual"), true);
+        if ($bloqueo === "precio_general_faltante" && !$mostrarPrecio) {
+          $critica = false;
+        }
+        $alertas[] = array_merge($base, array(
+          "severidad" => $critica ? "critica" : "revision",
+          "alerta" => $bloqueo,
+          "que_cambio" => $this->descripcionAlertaGobierno($bloqueo),
+          "accion_sugerida" => $this->accionAlertaGobierno($bloqueo),
+          "resolver_disponible" => false,
+          "ignorar_disponible" => false
+        ));
+      }
+      foreach ((array) $this->valor($item, "alertas_editoriales", array()) as $alerta) {
+        $alertas[] = array_merge($base, array(
+          "severidad" => "revision",
+          "alerta" => $alerta,
+          "que_cambio" => $this->descripcionAlertaGobierno($alerta),
+          "accion_sugerida" => $this->accionAlertaGobierno($alerta),
+          "resolver_disponible" => false,
+          "ignorar_disponible" => false
+        ));
+      }
+    }
+    usort($alertas, function ($a, $b) {
+      $pesoA = $a["severidad"] === "critica" ? 0 : 1;
+      $pesoB = $b["severidad"] === "critica" ? 0 : 1;
+      if ($pesoA === $pesoB) {
+        return strcmp((string) $a["producto"], (string) $b["producto"]);
+      }
+      return $pesoA <=> $pesoB;
+    });
+    return array_slice($alertas, 0, 80);
+  }
+
+  private function descripcionAlertaGobierno($codigo) {
+    $mapa = array(
+      "precio_general_faltante" => "No hay precio vigente en lista activa para ecommerce.",
+      "imagen_faltante" => "El producto no tiene imagen activa para mostrar en vitrina.",
+      "venta_fraccionaria_bloqueada_fase_1" => "El SKU esta marcado como fraccionario o granel.",
+      "posible_granel_textual" => "El texto parece describir venta a granel.",
+      "html_no_permitido" => "La descripcion contiene HTML no permitido.",
+      "titulo_publico_vacio" => "Falta titulo publico curado.",
+      "titulo_publico_largo" => "El titulo publico es largo para tarjetas y SEO.",
+      "caracteres_danados" => "Hay caracteres con codificacion danada.",
+      "descripcion_publica_vacia" => "Falta descripcion publica.",
+      "descripcion_publica_muy_corta" => "La descripcion publica es muy corta.",
+      "presentacion_generica" => "La presentacion es demasiado generica.",
+      "titulo_con_espacios_extra" => "El titulo tiene espacios extra.",
+      "titulo_en_mayusculas" => "El titulo parece estar todo en mayusculas."
+    );
+    return isset($mapa[$codigo]) ? $mapa[$codigo] : $codigo;
+  }
+
+  private function accionAlertaGobierno($codigo) {
+    $mapa = array(
+      "precio_general_faltante" => "Revisar lista de precios ERP activa o publicar como informativo si aplica.",
+      "imagen_faltante" => "Agregar imagen en Catalogo ERP antes de publicar normal.",
+      "venta_fraccionaria_bloqueada_fase_1" => "Mantener fuera del ecommerce publico hasta definir regla de granel.",
+      "posible_granel_textual" => "Revisar texto y confirmar si el producto debe excluirse.",
+      "html_no_permitido" => "Limpiar descripcion publica.",
+      "titulo_publico_vacio" => "Capturar nombre publico desde Publicaciones.",
+      "titulo_publico_largo" => "Curar titulo publico sin cambiar automaticamente el slug.",
+      "caracteres_danados" => "Corregir acentos/caracteres en Catalogo o curaduria.",
+      "descripcion_publica_vacia" => "Capturar descripcion publica.",
+      "descripcion_publica_muy_corta" => "Ampliar descripcion publica.",
+      "presentacion_generica" => "Ajustar presentacion comercial.",
+      "titulo_con_espacios_extra" => "Normalizar espacios del titulo.",
+      "titulo_en_mayusculas" => "Convertir titulo a formato legible."
+    );
+    return isset($mapa[$codigo]) ? $mapa[$codigo] : "Abrir publicacion y revisar.";
   }
 
   /**
@@ -12755,6 +13185,81 @@ class EcommerceCatalogoPublico extends CRUD {
     $baseUrl = rtrim(trim((string) $baseUrl), "/");
     $path = $this->normalizarSeoPathPublico($path);
     return $baseUrl . ($path === "/" ? "/" : $path);
+  }
+
+  private function seoHttpProbeVacio() {
+    return array("status" => 0, "location" => "", "error" => "", "tiempo_ms" => 0);
+  }
+
+  private function seoHttpProbeUrl($url, $timeout = 6) {
+    $url = trim((string) $url);
+    if ($url === "" || !preg_match('/^https?:\/\//i', $url)) {
+      return array("status" => 0, "location" => "", "error" => "url_invalida", "tiempo_ms" => 0);
+    }
+    $inicio = microtime(true);
+    if (function_exists("curl_init")) {
+      $ch = curl_init($url);
+      curl_setopt($ch, CURLOPT_NOBODY, true);
+      curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+      curl_setopt($ch, CURLOPT_HEADER, true);
+      curl_setopt($ch, CURLOPT_FOLLOWLOCATION, false);
+      curl_setopt($ch, CURLOPT_TIMEOUT, max(1, intval($timeout)));
+      curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, max(1, intval($timeout)));
+      curl_setopt($ch, CURLOPT_USERAGENT, "Artiani-ERP-SEO-Verifier/1.0");
+      $headersRaw = (string) curl_exec($ch);
+      $status = intval(curl_getinfo($ch, CURLINFO_RESPONSE_CODE));
+      $location = "";
+      if (preg_match('/^Location:\s*(.+)$/im', $headersRaw, $m)) {
+        $location = trim((string) $m[1]);
+      }
+      $error = curl_error($ch);
+      curl_close($ch);
+      return array(
+        "status" => $status,
+        "location" => $location,
+        "error" => $error,
+        "tiempo_ms" => intval((microtime(true) - $inicio) * 1000)
+      );
+    }
+    $headers = @get_headers($url, 1);
+    $status = 0;
+    $location = "";
+    if (is_array($headers)) {
+      $primera = isset($headers[0]) ? (string) $headers[0] : "";
+      if (preg_match('/\s(\d{3})\s/', $primera, $m)) {
+        $status = intval($m[1]);
+      }
+      if (isset($headers["Location"])) {
+        $locationRaw = $headers["Location"];
+        $location = is_array($locationRaw) ? (string) end($locationRaw) : (string) $locationRaw;
+      }
+    }
+    return array(
+      "status" => $status,
+      "location" => $location,
+      "error" => is_array($headers) ? "" : "sin_respuesta_http",
+      "tiempo_ms" => intval((microtime(true) - $inicio) * 1000)
+    );
+  }
+
+  private function seoResumenVerificacion($reglas, $sitemap) {
+    $resumen = array(
+      "reglas_total" => count((array) $reglas),
+      "reglas_ok" => 0,
+      "reglas_revisar" => 0,
+      "sitemap_total" => count((array) $sitemap),
+      "sitemap_ok" => 0,
+      "sitemap_revisar" => 0
+    );
+    foreach ((array) $reglas as $item) {
+      if ($this->valor($item, "resultado", "") === "ok") { $resumen["reglas_ok"]++; }
+      if ($this->valor($item, "resultado", "") === "revisar") { $resumen["reglas_revisar"]++; }
+    }
+    foreach ((array) $sitemap as $item) {
+      if ($this->valor($item, "resultado", "") === "ok") { $resumen["sitemap_ok"]++; }
+      if ($this->valor($item, "resultado", "") === "revisar") { $resumen["sitemap_revisar"]++; }
+    }
+    return $resumen;
   }
 
   private function seoChangefreqPorTipo($tipo) {

@@ -48,6 +48,7 @@
                             <div class="d-flex gap-2">
                                 <a class="btn btn-light" href="/ecommercePublico/control"><i class="bi bi-sliders"></i> Control</a>
                                 <a class="btn btn-light" href="/ecommercePublico/analytics"><i class="bi bi-graph-up"></i> Analytics</a>
+                                <a class="btn btn-light-primary" href="/ecommercePublico/seo_verificacion"><i class="bi bi-shield-check"></i> Verificacion local</a>
                                 <button class="btn btn-primary" type="button" id="ecom_seo_recargar"><i class="bi bi-arrow-clockwise"></i> Recargar</button>
                             </div>
                         </div>
@@ -336,7 +337,7 @@
                                 <div class="col-xl-5">
                                     <div class="ecom-seo-panel p-5 h-100">
                                         <div class="d-flex justify-content-between align-items-center mb-4">
-                                            <h3 class="fw-bold mb-0">Redireccion manual</h3>
+                                            <h3 class="fw-bold mb-0">Regla SEO manual</h3>
                                             <div class="d-flex gap-2">
                                                 <button class="btn btn-sm btn-light-primary" type="button" id="ecom_seo_redireccion_plan"><i class="bi bi-check2-circle"></i> Validar</button>
                                                 <button class="btn btn-sm btn-primary" type="button" id="ecom_seo_redireccion_guardar"><i class="bi bi-save"></i> Guardar</button>
@@ -373,6 +374,7 @@
                                                     <option value="301">301</option>
                                                     <option value="302">302</option>
                                                     <option value="308">308</option>
+                                                    <option value="410">410 Gone</option>
                                                 </select>
                                             </div>
                                             <div class="col-6">
@@ -382,6 +384,7 @@
                                                     <option value="categoria">Categoria</option>
                                                     <option value="marca">Marca</option>
                                                     <option value="manual">Manual</option>
+                                                    <option value="gone">Gone</option>
                                                 </select>
                                             </div>
                                         </div>
@@ -426,7 +429,7 @@
                                 </div>
                                 <div class="col-xl-7">
                                     <div class="ecom-seo-panel p-5 h-100">
-                                        <h3 class="fw-bold mb-4">Redirecciones 301</h3>
+                                        <h3 class="fw-bold mb-4">Reglas SEO 301 / 410</h3>
                                         <div class="table-responsive ecom-seo-scroll">
                                             <table class="table table-row-dashed fs-7 gy-3 mb-0">
                                                 <thead><tr class="text-muted fw-bold"><th>Origen</th><th>Destino</th><th>Estado</th></tr></thead>
