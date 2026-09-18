@@ -559,6 +559,7 @@
                                 togglePublicacionHtml("destacado", "Destacado", pub.destacado) +
                             "</div><div class=\"text-muted fs-8 mt-3\">Si ocultas disponibilidad, la API publica respondera ese producto como consultar disponibilidad sin mostrar disponible, pocas piezas o agotado.</div></div></div>" +
                             avisoAgotadoHtml(agotado) +
+                            avisoNoGranelTextualHtml(bloqueos) +
                             "<div class=\"col-12 d-flex flex-wrap gap-2 justify-content-end\">" +
                                 (estaPublicado ? "<span class=\"badge badge-light-success align-self-center\">Producto publicado en API publica</span>" : "") +
                                 (puedeGuardar && !idPublicacion ? "<button type=\"button\" class=\"btn btn-light-primary\" id=\"ecom_guardar_borrador\">Guardar borrador</button>" : "") +
@@ -675,6 +676,25 @@
         return check ? check.checked : false;
     }
 
+    function avisoNoGranelTextualHtml(bloqueos) {
+        if (!Array.isArray(bloqueos) || bloqueos.indexOf("posible_granel_textual") === -1) { return ""; }
+        return "<div class=\"col-12\">" +
+            "<div class=\"alert alert-info py-3 mb-0\">" +
+                "<div class=\"fw-bold fs-7 mb-1\">Revision de posible granel</div>" +
+                "<div class=\"fs-8 mb-3\">El texto parece mencionar granel, medio kilo o cuarto kilo. Si este SKU no se vende a granel, puedes confirmarlo para permitir la publicacion.</div>" +
+                "<div class=\"form-check form-check-custom form-check-solid\">" +
+                    "<input class=\"form-check-input\" type=\"checkbox\" id=\"ecom_confirmar_no_granel_textual\">" +
+                    "<label class=\"form-check-label fs-7\" for=\"ecom_confirmar_no_granel_textual\">Confirmo que este producto no es granel</label>" +
+                "</div>" +
+            "</div>" +
+        "</div>";
+    }
+
+    function confirmarNoGranelTextual() {
+        var check = $("ecom_confirmar_no_granel_textual");
+        return check ? check.checked : false;
+    }
+
     function mascotasCheckboxesHtml(taxonomia, valorActual) {
         var mascotas = (taxonomia && Array.isArray(taxonomia.mascotas)) ? taxonomia.mascotas : [];
         var seleccionadas = String(valorActual || "").split(",").map(function (valor) { return valor.trim(); }).filter(function (valor) { return valor !== ""; });
@@ -734,6 +754,7 @@
         datos.mascota_especie = Array.prototype.map.call(form.querySelectorAll(".ecom-mascota-check:checked"), function (check) {
             return check.value || "";
         }).filter(function (valor) { return valor !== ""; }).join(",");
+        datos.confirmar_no_granel_textual = confirmarNoGranelTextual() ? "1" : "0";
         return datos;
     }
 
@@ -1106,7 +1127,8 @@
             autorizar: "ECOMMERCE_PUBLICO_GOBIERNO_ESTATUS",
             id_sku: idSku,
             estatus_publicacion: estatus,
-            confirmar_agotado: "1"
+            confirmar_agotado: "1",
+            confirmar_no_granel_textual: confirmarNoGranelTextual() ? "1" : "0"
         }).then(function (response) {
             if (response.error) { throw new Error((response.mensaje || "No se pudo cambiar estatus") + "\n" + resumenResultadoLote(response.depurar || {})); }
             setEstado(estatus === "publicado" ? "Publicado" : (estatus === "pausado" ? "Pausado" : "Borrador"), "badge-light-success");

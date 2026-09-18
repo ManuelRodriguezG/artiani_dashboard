@@ -4996,7 +4996,7 @@ class EcommerceCatalogoPublico extends CRUD {
       if ($clave === "" || $tipo === "" || $path === "") {
         return $this->respuesta(true, "warning", "Faltan datos para guardar la verificacion SEO.", array("requeridos" => array("clave", "tipo", "path")));
       }
-      if (!preg_match('/^(regla|sitemap)$/', $tipo)) {
+      if (!preg_match('/^(regla|regla_origen|regla_destino|sitemap)$/', $tipo)) {
         return $this->respuesta(true, "warning", "Tipo de verificacion SEO no permitido.", array("tipo" => $tipo));
       }
 
@@ -8121,6 +8121,7 @@ class EcommerceCatalogoPublico extends CRUD {
             return $bloqueo !== "publicacion_existente";
           }));
         }
+        $bloqueos = $this->bloqueosConConfirmacionesOperativas($bloqueos, $datos);
         $disponibilidad = $this->disponibilidadPublicaSugerida($candidato);
         if ($disponibilidad === "agotado" && intval($this->valor($datos, "confirmar_agotado", 0)) !== 1) {
           $bloqueos[] = "sku_agotado_requiere_confirmar_agotado";
@@ -8322,6 +8323,7 @@ class EcommerceCatalogoPublico extends CRUD {
           $advertencias[] = $bloqueo;
         }
       }
+      $bloqueos = $this->bloqueosConConfirmacionesOperativas($bloqueos, $datos);
       $auditoriaEditorial = $this->auditoriaEditorialPublicacion($fila, array(
         "titulo_publico" => $titulo,
         "descripcion_publica" => $descripcion,
@@ -8334,6 +8336,7 @@ class EcommerceCatalogoPublico extends CRUD {
           $advertencias[] = $bloqueoEditorial;
         }
       }
+      $bloqueos = $this->bloqueosConConfirmacionesOperativas($bloqueos, $datos);
       foreach ($this->valor($auditoriaEditorial, "alertas", array()) as $alertaEditorial) {
         $advertencias[] = $alertaEditorial;
       }
@@ -8342,7 +8345,7 @@ class EcommerceCatalogoPublico extends CRUD {
       if ($titulo === "") { $bloqueos[] = "titulo_publico_requerido"; }
       if ($this->conflictoSlugPublicacion($db, $slug, $idSku)) { $bloqueos[] = "slug_ya_usado_por_otro_sku"; }
 
-      $bloqueos = array_values(array_unique($bloqueos));
+      $bloqueos = $this->bloqueosConConfirmacionesOperativas(array_values(array_unique($bloqueos)), $datos);
       $advertencias = array_values(array_unique($advertencias));
       if (!empty($bloqueos)) {
         return $this->respuesta(true, "warning", "No se publico informativo por bloqueos criticos", array(
@@ -8870,6 +8873,7 @@ class EcommerceCatalogoPublico extends CRUD {
       if ($slug === "") { $bloqueos[] = "slug_requerido"; }
       if ($titulo === "") { $bloqueos[] = "titulo_publico_requerido"; }
       if ($this->conflictoSlugPublicacion($db, $slug, $idSku)) { $bloqueos[] = "slug_ya_usado_por_otro_sku"; }
+      $bloqueos = $this->bloqueosConConfirmacionesOperativas($bloqueos, $datos);
       if (!empty($bloqueos)) {
         return $this->respuesta(true, "warning", "No se guardo curaduria por bloqueos de validacion", array(
           "no_escribe_bd" => true,
@@ -9036,6 +9040,7 @@ class EcommerceCatalogoPublico extends CRUD {
           $bloqueos = array_values(array_filter($this->bloqueosPublicacion($candidato), function($bloqueo) {
             return $bloqueo !== "publicacion_existente";
           }));
+          $bloqueos = $this->bloqueosConConfirmacionesOperativas($bloqueos, $datos);
           if ($this->disponibilidadPublicaSugerida($candidato) === "agotado" && intval($this->valor($datos, "confirmar_agotado", 0)) !== 1) {
             $bloqueos[] = "sku_agotado_requiere_confirmar_agotado";
           }
@@ -9467,7 +9472,7 @@ class EcommerceCatalogoPublico extends CRUD {
       $where[] = "COALESCE(img_sku.url_imagen, img_prod.url_imagen) IS NOT NULL";
       $where[] = "COALESCE(r.permite_venta_fraccionaria, 0)=0";
       $where[] = $tituloEditorialSql . "<>''";
-      $where[] = $textoEditorialSql . " NOT REGEXP 'agranel|a[[:space:]]*granel|por[[:space:]]+kilo|venta[[:space:]]+por[[:space:]]+kilo|medios|cuartos|<script|<iframe|<object|<embed|<style'";
+      $where[] = $textoEditorialSql . " NOT REGEXP 'agranel|a[[:space:]]*granel|por[[:space:]]+kilo|venta[[:space:]]+por[[:space:]]+kilo|(medio|cuarto)[[:space:]]+(kilo|kg|kilogramo|kilogramos)|(1/2|1/4)[[:space:]]*(kilo|kg|kilogramo|kilogramos)|<script|<iframe|<object|<embed|<style'";
     } elseif ($filtroCalidad === "con_imagen") {
       $where[] = "COALESCE(img_sku.url_imagen, img_prod.url_imagen) IS NOT NULL";
     } elseif ($filtroCalidad === "sin_precio") {
@@ -9475,9 +9480,9 @@ class EcommerceCatalogoPublico extends CRUD {
     } elseif ($filtroCalidad === "sin_imagen") {
       $where[] = "COALESCE(img_sku.url_imagen, img_prod.url_imagen) IS NULL";
     } elseif ($filtroCalidad === "posible_granel") {
-      $where[] = "(COALESCE(r.permite_venta_fraccionaria, 0)=1 OR " . $textoEditorialSql . " REGEXP 'agranel|a[[:space:]]*granel|por[[:space:]]+kilo|venta[[:space:]]+por[[:space:]]+kilo|medios|cuartos')";
+      $where[] = "(COALESCE(r.permite_venta_fraccionaria, 0)=1 OR " . $textoEditorialSql . " REGEXP 'agranel|a[[:space:]]*granel|por[[:space:]]+kilo|venta[[:space:]]+por[[:space:]]+kilo|(medio|cuarto)[[:space:]]+(kilo|kg|kilogramo|kilogramos)|(1/2|1/4)[[:space:]]*(kilo|kg|kilogramo|kilogramos)')";
     } elseif ($filtroCalidad === "alerta_editorial") {
-      $where[] = "(" . $tituloEditorialSql . "='' OR CHAR_LENGTH(" . $tituloEditorialSql . ")>120 OR " . $descripcionEditorialSql . "='' OR CHAR_LENGTH(" . $descripcionEditorialSql . ")<35 OR " . $textoEditorialSql . " REGEXP 'agranel|a[[:space:]]*granel|por[[:space:]]+kilo|venta[[:space:]]+por[[:space:]]+kilo|medios|cuartos|<script|<iframe|<object|<embed|<style')";
+      $where[] = "(" . $tituloEditorialSql . "='' OR CHAR_LENGTH(" . $tituloEditorialSql . ")>120 OR " . $descripcionEditorialSql . "='' OR CHAR_LENGTH(" . $descripcionEditorialSql . ")<35 OR " . $textoEditorialSql . " REGEXP 'agranel|a[[:space:]]*granel|por[[:space:]]+kilo|venta[[:space:]]+por[[:space:]]+kilo|(medio|cuarto)[[:space:]]+(kilo|kg|kilogramo|kilogramos)|(1/2|1/4)[[:space:]]*(kilo|kg|kilogramo|kilogramos)|<script|<iframe|<object|<embed|<style')";
     }
     if ($busqueda !== "") {
       $where[] = "(p.nombre LIKE :q OR s.nombre LIKE :q OR s.sku LIKE :q OR p.codigo_producto LIKE :q OR m.nombre LIKE :q OR c.nombre LIKE :q OR c.ruta LIKE :q)";
@@ -9694,6 +9699,16 @@ class EcommerceCatalogoPublico extends CRUD {
     return array_values(array_unique($bloqueos));
   }
 
+  private function bloqueosConConfirmacionesOperativas($bloqueos, $datos = array()) {
+    $bloqueos = is_array($bloqueos) ? $bloqueos : array();
+    if (intval($this->valor($datos, "confirmar_no_granel_textual", 0)) === 1) {
+      $bloqueos = array_values(array_filter($bloqueos, function($bloqueo) {
+        return $bloqueo !== "posible_granel_textual";
+      }));
+    }
+    return array_values(array_unique($bloqueos));
+  }
+
   /**
    * Documentacion IA: Codex GPT-5 | Fecha: 2026-08-19
    * Proposito: detectar problemas editoriales antes de exponer productos en ecommerce.
@@ -9718,7 +9733,7 @@ class EcommerceCatalogoPublico extends CRUD {
     if (preg_match('/[Ã�Â�]|�|\?stos|\?sta|\?ste/u', $texto)) {
       $alertas[] = "caracteres_danados";
     }
-    if (preg_match('/\bagranel\b|\ba\s*granel\b|\bpor\s+kilo(s)?\b|\bventa\s+por\s+kilo(s)?\b|\bmedio(s)?\b|\bcuarto(s)?\b/u', $textoPlano)) {
+    if (preg_match('/\bagranel\b|\ba\s*granel\b|\bpor\s+kilo(s)?\b|\bventa\s+por\s+kilo(s)?\b|\b(?:medio|cuarto)\s+(?:kilo|kg|kilogramo|kilogramos)\b|\b(?:1\/2|1\/4)\s*(?:kilo|kg|kilogramo|kilogramos)\b/u', $textoPlano)) {
       $bloqueos[] = "posible_granel_textual";
     }
     if ($descripcion === "") {

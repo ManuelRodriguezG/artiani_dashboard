@@ -2,8 +2,8 @@
 
 /*
  * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-18
- * Proposito: UI para verificar reglas SEO y sitemap contra frontend local con marcas persistidas en BD.
- * Impacto: ayuda a validar Artiani v2 antes de produccion y conserva seguimiento compartido.
+ * Proposito: UI para verificar por separado URL vieja y URL nueva, con marcas persistidas en BD.
+ * Impacto: acelera la validacion SEO de Artiani v2 y conserva seguimiento compartido.
  * Contrato: consulta /seo_verificacion_erp y guarda marcas en /seo_verificacion_guardar_erp; no modifica reglas SEO.
  */
 (function () {
@@ -73,8 +73,8 @@
     setText("seo_check_kpi_sitemap", resumen.sitemap_total || 0);
     setText("seo_check_kpi_revisar", revisar);
     setHtml("seo_check_mensaje", mensajeResumen(depurar, revisar));
-    renderReglas(reglas);
-    renderSitemap(sitemap);
+    renderReglas(ultimoEstado.reglas);
+    renderSitemap(ultimoEstado.sitemap);
     renderExplicacion(get(depurar, ["explicacion_sitemap"], {}));
     actualizarKpiProbadas();
     aplicarFiltroRevision();
@@ -94,7 +94,7 @@
     if (!persistenciaDisponible) {
       partes.push('<div class="alert alert-warning py-3 mb-3">Las pruebas se pueden consultar, pero aun falta crear la tabla <code>erp_ecommerce_seo_verificaciones</code> para guardar las marcas en BD.</div>');
     } else if (mensajePersistencia) {
-      partes.push('<div class="alert alert-light-success py-3 mb-3">Las marcas de probada se guardan en base de datos.</div>');
+      partes.push('<div class="alert alert-light-success py-3 mb-3">Las marcas se guardan en base de datos. En reglas 301 se separa URL vieja y URL nueva.</div>');
     }
     if (revisar > 0) {
       partes.push('<div class="alert alert-warning py-3">Hay ' + escapeHtml(revisar) + ' resultado(s) para revisar en ' + escapeHtml(frontend) + '.</div>');
@@ -112,25 +112,37 @@
       return;
     }
     tbody.innerHTML = items.map(function (item) {
-      var marcaId = claveRegla(item);
-      var probada = marcaProbada(marcaId);
+      var origenKey = claveReglaOrigen(item);
+      var destinoKey = claveReglaDestino(item);
+      var tieneDestino = reglaTieneDestino(item);
+      var origenProbada = marcaProbada(origenKey);
+      var destinoProbada = !tieneDestino || marcaProbada(destinoKey);
+      var filaProbada = origenProbada && destinoProbada;
       var esperado = Number(item.status_esperado) === 410
         ? "410 Gone sin destino"
         : String(item.status_esperado || "301") + " -> " + linkLocal(item.destino_local || item.to || "");
-      var destinoStatus = item.destino_status_http ? '<div class="text-muted fs-8 mt-1">Destino responde: ' + escapeHtml(item.destino_status_http) + "</div>" : "";
-      var respuesta = String(item.status_http || "-");
-      if (item.location) respuesta += " | Location: " + item.location;
+      var respuestaOrigen = "Origen: " + String(item.status_http || "-");
+      if (item.location) respuestaOrigen += " | Location: " + item.location;
+      var respuestaDestino = tieneDestino ? '<div class="text-muted fs-8 mt-1">Destino: ' + escapeHtml(item.destino_status_http || "-") + "</div>" : "";
       return [
-        '<tr data-seo-check-row="' + escapeAttr(marcaId) + '" data-seo-check-probada="' + (probada ? "1" : "0") + '">',
-        '<td>' + checkboxMarca(marcaId, probada) + "</td>",
+        '<tr data-seo-check-row="' + escapeAttr(origenKey) + '" data-seo-check-probada="' + (filaProbada ? "1" : "0") + '">',
+        '<td>' + checksRegla(item, origenKey, destinoKey, origenProbada, destinoProbada, tieneDestino) + "</td>",
         '<td><span class="badge ' + (item.tipo_regla === "gone" ? "badge-light-danger" : "badge-light-primary") + '">' + escapeHtml(item.tipo_regla || "regla") + '</span><div class="fw-semibold seo-check-path mt-1">' + escapeHtml(item.from || "-") + '</div><div class="text-muted fs-8">' + escapeHtml(item.motivo || "") + "</div></td>",
-        '<td class="seo-check-path">' + linkLocal(item.url_local) + '<div class="text-muted fs-8">Origen viejo en frontend local</div></td>',
-        '<td class="seo-check-path">' + esperado + destinoStatus + "</td>",
-        '<td class="seo-check-path">' + escapeHtml(respuesta) + "</td>",
-        '<td>' + badgeResultado(item.resultado) + "</td>",
+        '<td class="seo-check-path">' + linkLocal(item.url_local) + '<div class="text-muted fs-8">Debe responder ' + escapeHtml(item.status_esperado || "301") + "</div></td>",
+        '<td class="seo-check-path">' + esperado + "</td>",
+        '<td class="seo-check-path">' + escapeHtml(respuestaOrigen) + respuestaDestino + "</td>",
+        '<td>' + badgeResultado(item.resultado) + estadoManualRegla(origenProbada, destinoProbada, tieneDestino) + "</td>",
         "</tr>"
       ].join("");
     }).join("");
+  }
+
+  function checksRegla(item, origenKey, destinoKey, origenProbada, destinoProbada, tieneDestino) {
+    var html = checkboxMarca(origenKey, origenProbada, Number(item.status_esperado) === 410 ? "Origen 410" : "Origen 301");
+    if (tieneDestino) {
+      html += '<div class="mt-2">' + checkboxMarca(destinoKey, destinoProbada, "Destino OK", "destino", destinoBulkKey(item)) + "</div>";
+    }
+    return html;
   }
 
   function renderSitemap(items) {
@@ -145,7 +157,7 @@
       var probada = marcaProbada(marcaId);
       return [
         '<tr data-seo-check-row="' + escapeAttr(marcaId) + '" data-seo-check-probada="' + (probada ? "1" : "0") + '">',
-        '<td>' + checkboxMarca(marcaId, probada) + "</td>",
+        '<td>' + checkboxMarca(marcaId, probada, "URL OK") + "</td>",
         '<td class="seo-check-path">' + escapeHtml(item.loc || "-") + '<div class="text-muted fs-8">' + escapeHtml(item.path || "") + "</div></td>",
         '<td class="seo-check-path">' + linkLocal(item.url_local) + "</td>",
         '<td>' + escapeHtml(item.changefreq || "-") + '<div class="text-muted fs-8">Prioridad ' + escapeHtml(item.priority || "-") + "</div></td>",
@@ -168,7 +180,11 @@
 
   function actualizarKpiProbadas() {
     var total = 0;
-    ultimoEstado.reglas.forEach(function (item) { if (marcaProbada(claveRegla(item))) total++; });
+    ultimoEstado.reglas.forEach(function (item) {
+      var origenOk = marcaProbada(claveReglaOrigen(item));
+      var destinoOk = !reglaTieneDestino(item) || marcaProbada(claveReglaDestino(item));
+      if (origenOk && destinoOk) total++;
+    });
     ultimoEstado.sitemap.forEach(function (item) { if (marcaProbada(claveSitemap(item))) total++; });
     setText("seo_check_kpi_probadas", total);
   }
@@ -181,10 +197,12 @@
     var claves = [];
     document.querySelectorAll("[data-seo-check-row]").forEach(function (row) {
       if (row.style.display === "none") return;
-      var id = row.getAttribute("data-seo-check-row");
-      if (id) claves.push(id);
+      row.querySelectorAll("[data-seo-check-marca]").forEach(function (check) {
+        var id = check.getAttribute("data-seo-check-marca");
+        if (id) claves.push(id);
+      });
     });
-    guardarVarias(claves, true);
+    guardarVarias(unicos(claves), true);
   }
 
   function limpiarMarcas() {
@@ -197,13 +215,13 @@
   }
 
   function guardarVarias(claves, probada) {
-    if (!claves.length) return;
+    if (!claves.length) return Promise.resolve();
     setEstado("Guardando", "badge-light-warning");
     var cadena = Promise.resolve();
     claves.forEach(function (clave) {
       cadena = cadena.then(function () { return guardarMarcaRemota(clave, probada); });
     });
-    cadena
+    return cadena
       .then(function () {
         claves.forEach(function (clave) {
           marcas[clave] = Object.assign({}, marcas[clave] || {}, { probada: probada });
@@ -217,10 +235,13 @@
       });
   }
 
-  function checkboxMarca(id, probada) {
+  function checkboxMarca(id, probada, texto, accion, bulkKey) {
     var disabled = persistenciaDisponible ? "" : " disabled";
     var title = persistenciaDisponible ? "" : ' title="Falta crear la tabla de verificacion SEO"';
-    return '<label class="form-check form-check-custom form-check-solid"' + title + '><input class="form-check-input" type="checkbox" data-seo-check-marca="' + escapeAttr(id) + '"' + (probada ? " checked" : "") + disabled + '><span class="form-check-label fs-8">' + (probada ? "Probada" : "Pendiente") + "</span></label>";
+    var attrs = ' data-seo-check-marca="' + escapeAttr(id) + '"';
+    if (accion) attrs += ' data-seo-check-accion="' + escapeAttr(accion) + '"';
+    if (bulkKey) attrs += ' data-seo-check-bulk="' + escapeAttr(bulkKey) + '"';
+    return '<label class="form-check form-check-custom form-check-solid"' + title + '><input class="form-check-input" type="checkbox"' + attrs + (probada ? " checked" : "") + disabled + '><span class="form-check-label fs-8">' + escapeHtml(texto || (probada ? "Probada" : "Pendiente")) + "</span></label>";
   }
 
   function guardarMarca(id, probada, check) {
@@ -230,21 +251,13 @@
       alert("Primero hay que crear la tabla erp_ecommerce_seo_verificaciones para guardar en base de datos.");
       return;
     }
+    var bulkKey = check ? check.getAttribute("data-seo-check-bulk") : "";
+    var esDestino = check && check.getAttribute("data-seo-check-accion") === "destino";
+    var claves = probada && esDestino && bulkKey ? clavesPorDestino(bulkKey) : [id];
     setCheckGuardando(check, true);
-    guardarMarcaRemota(id, probada)
-      .then(function () {
-        marcas[id] = Object.assign({}, marcas[id] || {}, { probada: probada });
-        actualizarFilaMarca(id, probada);
-        actualizarKpiProbadas();
-        aplicarFiltroRevision();
-      })
-      .catch(function (error) {
-        if (check) check.checked = !probada;
-        setHtml("seo_check_mensaje", '<div class="alert alert-danger py-3">' + escapeHtml(error.message || "No se pudo guardar la marca.") + "</div>");
-      })
-      .finally(function () {
-        setCheckGuardando(check, false);
-      });
+    guardarVarias(unicos(claves), probada).finally(function () {
+      setCheckGuardando(check, false);
+    });
   }
 
   function guardarMarcaRemota(id, probada) {
@@ -257,23 +270,6 @@
     });
   }
 
-  function actualizarFilaMarca(id, probada) {
-    var row = filaPorClave(id);
-    if (row) row.setAttribute("data-seo-check-probada", probada ? "1" : "0");
-    var check = row ? row.querySelector("[data-seo-check-marca]") : null;
-    if (check) check.checked = probada;
-    var label = check && check.parentElement ? check.parentElement.querySelector(".form-check-label") : null;
-    if (label) label.textContent = probada ? "Probada" : "Pendiente";
-  }
-
-  function filaPorClave(id) {
-    var rows = document.querySelectorAll("[data-seo-check-row]");
-    for (var i = 0; i < rows.length; i++) {
-      if (rows[i].getAttribute("data-seo-check-row") === id) return rows[i];
-    }
-    return null;
-  }
-
   function setCheckGuardando(check, guardando) {
     if (!check) return;
     check.disabled = guardando;
@@ -282,10 +278,10 @@
   function reconstruirItemsPorClave() {
     itemsPorClave = {};
     ultimoEstado.reglas.forEach(function (item) {
-      var clave = claveRegla(item);
-      itemsPorClave[clave] = {
-        clave: clave,
-        tipo: "regla",
+      var origen = claveReglaOrigen(item);
+      itemsPorClave[origen] = {
+        clave: origen,
+        tipo: "regla_origen",
         path: item.from || "",
         url_origen: item.url_local || "",
         url_destino: item.destino_local || item.to || "",
@@ -294,6 +290,21 @@
         status_http: item.status_http || null,
         destino_status_http: item.destino_status_http || null
       };
+      if (reglaTieneDestino(item)) {
+        var destino = claveReglaDestino(item);
+        itemsPorClave[destino] = {
+          clave: destino,
+          tipo: "regla_destino",
+          path: item.to || item.destino_local || "",
+          url_origen: item.destino_local || item.to || "",
+          url_destino: "",
+          status_esperado: 200,
+          resultado_http: item.destino_ok === true ? "ok" : (item.resultado === "sin_prueba_http" ? "sin_prueba_http" : "revisar"),
+          status_http: item.destino_status_http || null,
+          destino_status_http: null,
+          bulk_key: destinoBulkKey(item)
+        };
+      }
     });
     ultimoEstado.sitemap.forEach(function (item) {
       var clave = claveSitemap(item);
@@ -311,16 +322,46 @@
     });
   }
 
+  function clavesPorDestino(bulkKey) {
+    var claves = [];
+    Object.keys(itemsPorClave).forEach(function (clave) {
+      if (itemsPorClave[clave].tipo === "regla_destino" && itemsPorClave[clave].bulk_key === bulkKey) {
+        claves.push(clave);
+      }
+    });
+    return claves;
+  }
+
   function marcaProbada(clave) {
     return !!(marcas && marcas[clave] && marcas[clave].probada);
   }
 
-  function claveRegla(item) {
+  function reglaTieneDestino(item) {
+    return Number(item.status_esperado) !== 410 && !!(item.destino_local || item.to);
+  }
+
+  function destinoBulkKey(item) {
+    return String(item.destino_local || item.to || "").trim().toLowerCase();
+  }
+
+  function claveReglaOrigen(item) {
+    return "regla_origen|" + String(item.from || "") + "|" + String(item.status_esperado || "") + "|" + String(item.to || "");
+  }
+
+  function claveReglaDestino(item) {
     return "regla|" + String(item.from || "") + "|" + String(item.status_esperado || "") + "|" + String(item.to || "");
   }
 
   function claveSitemap(item) {
     return "sitemap|" + String(item.path || item.loc || "");
+  }
+
+  function estadoManualRegla(origenProbada, destinoProbada, tieneDestino) {
+    var pendiente = [];
+    if (!origenProbada) pendiente.push("origen");
+    if (tieneDestino && !destinoProbada) pendiente.push("destino");
+    if (!pendiente.length) return '<div class="text-success fs-8 mt-1">Revision manual completa</div>';
+    return '<div class="text-muted fs-8 mt-1">Pendiente: ' + escapeHtml(pendiente.join(" y ")) + "</div>";
   }
 
   function renderExplicacion(info) {
@@ -404,6 +445,15 @@
       cur = cur[path[i]];
     }
     return cur == null ? fallback : cur;
+  }
+
+  function unicos(items) {
+    var vistos = {};
+    return items.filter(function (item) {
+      if (!item || vistos[item]) return false;
+      vistos[item] = true;
+      return true;
+    });
   }
 
   function escapeHtml(value) {

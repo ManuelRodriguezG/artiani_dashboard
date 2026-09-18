@@ -21,7 +21,7 @@
         .seo-check-kpi__value { font-size: 1.7rem; line-height: 1; font-weight: 800; color: #181c32; letter-spacing: 0; }
         .seo-check-path { word-break: break-word; }
         .seo-check-scroll { max-height: 520px; overflow: auto; }
-        .seo-check-table { min-width: 980px; }
+        .seo-check-table { min-width: 1180px; }
     </style>
 </head>
 <body id="kt_app_body" data-kt-app-layout="dark-sidebar" data-kt-app-header-fixed="true" data-kt-app-sidebar-enabled="true" data-kt-app-sidebar-fixed="true" class="app-default">
@@ -49,7 +49,7 @@
                             <div class="alert alert-primary d-flex align-items-start justify-content-between gap-4">
                                 <div>
                                     <div class="fw-bold">Como leer esta pantalla</div>
-                                    <div>Las reglas 301/410 salen del ERP. Esta vista las prueba contra <code>http://artiani.com.local</code> y guarda en base de datos cuales ya revisaste.</div>
+                                    <div>Las reglas 301/410 salen del ERP. Esta vista separa la prueba de la URL vieja y la prueba de la URL nueva, guardando cada avance en base de datos.</div>
                                 </div>
                                 <span class="badge badge-light-primary" id="seo_check_estado">Listo</span>
                             </div>
@@ -114,7 +114,7 @@
                                         </div>
                                         <div class="table-responsive seo-check-scroll">
                                             <table class="table table-row-dashed fs-7 gy-3 mb-0 seo-check-table">
-                                                <thead><tr class="text-muted fw-bold"><th>Probada</th><th>Regla</th><th>URL vieja probada</th><th>Esperado / destino nuevo</th><th>Respuesta origen</th><th>Resultado</th></tr></thead>
+                                                <thead><tr class="text-muted fw-bold"><th>Pruebas</th><th>Regla</th><th>URL vieja probada</th><th>URL nueva esperada</th><th>Respuestas</th><th>Resultado</th></tr></thead>
                                                 <tbody id="seo_check_reglas_body"></tbody>
                                             </table>
                                         </div>
@@ -151,6 +151,6 @@
 </div>
 <script src="assets/plugins/global/plugins.bundle.js"></script>
 <script src="assets/js/scripts.bundle.js"></script>
-<script src="/assets/js/custom/apps/erp/ecommerce/seo_verificacion.js?v=20260918-bd-verificacion"></script>
+<script src="/assets/js/custom/apps/erp/ecommerce/seo_verificacion.js?v=20260918-bd-verificacion-doble"></script>
 </body>
 </html>

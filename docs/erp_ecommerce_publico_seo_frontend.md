@@ -92,6 +92,9 @@ Actualizacion 2026-09-17 - Verificacion local:
 - La vista permite marcar URLs como probadas en base de datos con `erp_ecommerce_seo_verificaciones`; no depende de `localStorage`.
 - `GET /ecommercePublico/seo_verificaciones_persistidas_erp` consulta las marcas compartidas y `POST /ecommercePublico/seo_verificacion_guardar_erp` guarda/quita la marca operativa.
 - Si la tabla `erp_ecommerce_seo_verificaciones` aun no existe, la verificacion sigue funcionando en modo lectura, pero los checks quedan bloqueados hasta aplicar el plan de esquema SEO.
+- Las reglas 301/410 se validan en marcas separadas: `regla_origen` confirma que la URL vieja responde 301/410 segun corresponda, y `regla_destino` confirma que la URL nueva abre correctamente.
+- Por compatibilidad, la clave historica `regla|origen|status|destino` representa la prueba de destino nuevo; asi las marcas ya aprobadas no se pierden.
+- Al marcar un destino nuevo como probado, la UI marca tambien los destinos identicos presentes en la muestra cargada para acelerar revision.
 
 Actualizacion 2026-09-18 - Gobierno Catalogo Ecommerce:
 

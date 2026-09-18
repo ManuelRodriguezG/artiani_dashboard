@@ -683,6 +683,7 @@ C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_cotizaciones_bandeja_read
   - granel/fraccionario y HTML peligroso siguen bloqueados.
 - La API publica permite mostrar publicaciones sin lista de precio activa solo cuando `mostrar_precio=0`; los productos vendibles normales conservan la compuerta de precio vigente.
 - El panel de publicaciones agrega filtros de calidad `Con imagen` y `Aptos informativo` para seleccionar lotes grandes sin desmarcar manualmente productos sin imagen o con bloqueos criticos.
+- Se ajusta la deteccion de `posible_granel_textual`: las palabras sueltas `medio/medios/cuarto/cuartos` ya no bloquean por si solas; solo bloquean si aparecen como venta por kilo/kg. El panel permite confirmar `No es granel` para falsos positivos textuales, sin omitir el bloqueo duro cuando el SKU esta marcado como fraccionario/granel.
 - Objetivo: conservar URL publica, canonical y destino valido para redirecciones SEO antiguas cuando el producto existe pero aun no esta listo para venta directa.
 
 ## Actualizacion 2026-07-30 - Plan mascotas y recomendaciones
