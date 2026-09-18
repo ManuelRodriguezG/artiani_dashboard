@@ -61,96 +61,92 @@
 
                             <div class="row g-4 mb-5" id="ecomgov_kpis"></div>
 
-                            <div class="row g-5">
-                                <div class="col-xl-8">
-                                    <div class="card">
-                                        <div class="card-header border-0 pt-6">
-                                            <div class="card-title gap-3 flex-wrap">
-                                                <div class="position-relative w-260px">
-                                                    <i class="bi bi-search position-absolute top-50 translate-middle-y ms-4 text-muted"></i>
-                                                    <input class="form-control form-control-solid ps-12" id="ecomgov_q" type="text" placeholder="Buscar SKU, producto, marca">
-                                                </div>
-                                                <select class="form-select form-select-solid w-190px" id="ecomgov_estatus">
-                                                    <option value="">Todos los estados</option>
-                                                    <option value="sin_publicacion">Sin publicacion</option>
-                                                    <option value="borrador">Borrador</option>
-                                                    <option value="publicado">Publicado</option>
-                                                    <option value="pausado">Pausado</option>
-                                                </select>
-                                                <select class="form-select form-select-solid w-190px" id="ecomgov_calidad">
-                                                    <option value="">Todas las alertas</option>
-                                                    <option value="sin_precio">Sin precio</option>
-                                                    <option value="sin_imagen">Sin imagen</option>
-                                                    <option value="posible_granel">Granel/fraccionario</option>
-                                                    <option value="alerta_editorial">Alerta editorial</option>
-                                                    <option value="informativo_apto">Apto informativo</option>
-                                                </select>
-                                                <select class="form-select form-select-solid w-120px" id="ecomgov_limite">
-                                                    <option value="25">25</option>
-                                                    <option value="50" selected>50</option>
-                                                    <option value="100">100</option>
-                                                </select>
-                                            </div>
-                                            <div class="card-toolbar">
-                                                <span class="badge badge-light-primary" id="ecomgov_estado">Listo</span>
-                                            </div>
+                            <div class="card mb-5">
+                                <div class="card-header border-0 pt-6">
+                                    <div class="card-title gap-3 flex-wrap">
+                                        <div class="position-relative w-260px">
+                                            <i class="bi bi-search position-absolute top-50 translate-middle-y ms-4 text-muted"></i>
+                                            <input class="form-control form-control-solid ps-12" id="ecomgov_q" type="text" placeholder="Buscar SKU, producto, marca">
                                         </div>
-                                        <div class="card-body pt-0">
-                                            <div class="ecomgov-table table-responsive">
-                                                <table class="table align-middle table-row-dashed fs-7 gy-4">
-                                                    <thead>
-                                                        <tr class="text-start text-muted fw-bold text-uppercase">
-                                                            <th>Imagen</th>
-                                                            <th>Producto / SKU</th>
-                                                            <th>Estado publico</th>
-                                                            <th>Slug / URL</th>
-                                                            <th class="text-end">Precio</th>
-                                                            <th>Alertas</th>
-                                                            <th class="text-end">Accion</th>
-                                                        </tr>
-                                                    </thead>
-                                                    <tbody id="ecomgov_items"></tbody>
-                                                </table>
-                                            </div>
-                                            <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mt-4">
-                                                <div class="text-muted fs-7" id="ecomgov_paginacion">Sin datos</div>
-                                                <div class="d-flex align-items-center gap-2">
-                                                    <button class="btn btn-sm btn-light" type="button" id="ecomgov_anterior">Anterior</button>
-                                                    <span class="badge badge-light-primary" id="ecomgov_pagina">Pagina 1</span>
-                                                    <button class="btn btn-sm btn-light" type="button" id="ecomgov_siguiente">Siguiente</button>
-                                                </div>
-                                            </div>
+                                        <select class="form-select form-select-solid w-190px" id="ecomgov_estatus">
+                                            <option value="">Todos los estados</option>
+                                            <option value="sin_publicacion">Sin publicacion</option>
+                                            <option value="borrador">Borrador</option>
+                                            <option value="publicado">Publicado</option>
+                                            <option value="pausado">Pausado</option>
+                                        </select>
+                                        <select class="form-select form-select-solid w-190px" id="ecomgov_calidad">
+                                            <option value="">Todas las alertas</option>
+                                            <option value="sin_precio">Sin precio</option>
+                                            <option value="sin_imagen">Sin imagen</option>
+                                            <option value="posible_granel">Granel/fraccionario</option>
+                                            <option value="alerta_editorial">Alerta editorial</option>
+                                            <option value="informativo_apto">Apto informativo</option>
+                                        </select>
+                                        <select class="form-select form-select-solid w-120px" id="ecomgov_limite">
+                                            <option value="25">25</option>
+                                            <option value="50" selected>50</option>
+                                            <option value="100">100</option>
+                                        </select>
+                                    </div>
+                                    <div class="card-toolbar">
+                                        <span class="badge badge-light-primary" id="ecomgov_estado">Listo</span>
+                                    </div>
+                                </div>
+                                <div class="card-body pt-0">
+                                    <div class="ecomgov-table table-responsive">
+                                        <table class="table align-middle table-row-dashed fs-7 gy-4">
+                                            <thead>
+                                                <tr class="text-start text-muted fw-bold text-uppercase">
+                                                    <th>Imagen</th>
+                                                    <th>Producto / SKU</th>
+                                                    <th>Estado publico</th>
+                                                    <th>Slug / URL</th>
+                                                    <th class="text-end">Precio</th>
+                                                    <th>Alertas</th>
+                                                    <th class="text-end">Accion</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody id="ecomgov_items"></tbody>
+                                        </table>
+                                    </div>
+                                    <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mt-4">
+                                        <div class="text-muted fs-7" id="ecomgov_paginacion">Sin datos</div>
+                                        <div class="d-flex align-items-center gap-2">
+                                            <button class="btn btn-sm btn-light" type="button" id="ecomgov_anterior">Anterior</button>
+                                            <span class="badge badge-light-primary" id="ecomgov_pagina">Pagina 1</span>
+                                            <button class="btn btn-sm btn-light" type="button" id="ecomgov_siguiente">Siguiente</button>
                                         </div>
                                     </div>
                                 </div>
-                                <div class="col-xl-4">
-                                    <div class="card mb-5">
-                                        <div class="card-header border-0 pt-6">
-                                            <div class="card-title">
-                                                <div>
-                                                    <h3 class="fw-bold mb-1">Alertas Ecommerce</h3>
-                                                    <span class="text-muted fs-7">Bandeja read-only derivada de la muestra actual.</span>
-                                                </div>
-                                            </div>
+                            </div>
+
+                            <div class="card mb-5">
+                                <div class="card-header border-0 pt-6">
+                                    <div class="card-title">
+                                        <div>
+                                            <h3 class="fw-bold mb-1">Alertas Ecommerce</h3>
+                                            <span class="text-muted fs-7">Bandeja read-only derivada de la muestra actual.</span>
                                         </div>
-                                        <div class="card-body pt-0" id="ecomgov_alertas"></div>
                                     </div>
-                                    <div class="card">
-                                        <div class="card-header border-0 pt-6">
-                                            <div class="card-title">
-                                                <div>
-                                                    <h3 class="fw-bold mb-1">SEO y Slugs</h3>
-                                                    <span class="text-muted fs-7">Resumen de URLs, sitemap y redirecciones.</span>
-                                                </div>
-                                            </div>
+                                </div>
+                                <div class="card-body pt-0" id="ecomgov_alertas"></div>
+                            </div>
+
+                            <div class="card">
+                                <div class="card-header border-0 pt-6">
+                                    <div class="card-title">
+                                        <div>
+                                            <h3 class="fw-bold mb-1">SEO y Slugs</h3>
+                                            <span class="text-muted fs-7">Resumen de URLs, sitemap y redirecciones.</span>
                                         </div>
-                                        <div class="card-body pt-0">
-                                            <div id="ecomgov_seo"></div>
-                                            <div class="d-flex flex-wrap gap-2 mt-4">
-                                                <a class="btn btn-sm btn-light-info" href="/ecommercePublico/seo_migracion">Abrir mesa SEO</a>
-                                                <a class="btn btn-sm btn-light" href="/ecommercePublico/seo_verificacion">Verificar frontend</a>
-                                            </div>
-                                        </div>
+                                    </div>
+                                </div>
+                                <div class="card-body pt-0">
+                                    <div id="ecomgov_seo"></div>
+                                    <div class="d-flex flex-wrap gap-2 mt-4">
+                                        <a class="btn btn-sm btn-light-info" href="/ecommercePublico/seo_migracion">Abrir mesa SEO</a>
+                                        <a class="btn btn-sm btn-light" href="/ecommercePublico/seo_verificacion">Verificar frontend</a>
                                     </div>
                                 </div>
                             </div>

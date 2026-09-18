@@ -4822,9 +4822,12 @@ class EcommerceCatalogoPublico extends CRUD {
         $urlLocal = $this->urlSeoPublica($frontendBase, $from);
         $destinoLocal = $this->urlSeoPublica($frontendBase, $to);
         $probe = $probarHttp ? $this->seoHttpProbeUrl($urlLocal, 6) : $this->seoHttpProbeVacio();
+        $probeDestino = $probarHttp ? $this->seoHttpProbeUrl($destinoLocal, 6) : $this->seoHttpProbeVacio();
         $locationPath = $this->normalizarSeoPathPublico($this->valor($probe, "location", ""));
         $statusOk = intval($this->valor($probe, "status", 0)) === $statusEsperado;
         $locationOk = $locationPath === $to;
+        $destinoStatus = intval($this->valor($probeDestino, "status", 0));
+        $destinoOk = $destinoStatus >= 200 && $destinoStatus < 400;
         $reglasVerificadas[] = array(
           "tipo_regla" => "redireccion",
           "from" => $from,
@@ -4835,9 +4838,11 @@ class EcommerceCatalogoPublico extends CRUD {
           "status_http" => intval($this->valor($probe, "status", 0)),
           "location" => $this->valor($probe, "location", ""),
           "location_path" => $locationPath,
+          "destino_status_http" => $destinoStatus,
+          "destino_ok" => $destinoOk,
           "status_ok" => $statusOk,
           "location_ok" => $locationOk,
-          "resultado" => !$probarHttp ? "sin_prueba_http" : ($statusOk && $locationOk ? "ok" : "revisar"),
+          "resultado" => !$probarHttp ? "sin_prueba_http" : ($statusOk && $locationOk && $destinoOk ? "ok" : "revisar"),
           "motivo" => $this->valor($item, "motivo", "")
         );
       }

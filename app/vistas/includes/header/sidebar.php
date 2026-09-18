@@ -275,18 +275,27 @@ $gruposMenu = array(
     ),
     array(
         'seccion' => 'Ecommerce',
+        'titulo' => 'Catalogo',
+        'icono' => 'bi-box-seam',
+        'permiso' => '',
+        'items' => array(
+            array('titulo' => 'Catalogo ecommerce', 'ruta' => '/ecommercePublico/catalogo_gobierno', 'permiso' => 'catalogo.ver'),
+            array('titulo' => 'Publicaciones productos', 'ruta' => '/ecommercePublico/publicaciones', 'permiso' => 'catalogo.ver'),
+            array('titulo' => 'SEO y URLs', 'ruta' => '/ecommercePublico/seo_migracion', 'permiso' => 'catalogo.ver'),
+            array('titulo' => 'Verificacion SEO', 'ruta' => '/ecommercePublico/seo_verificacion', 'permiso' => 'catalogo.ver')
+        )
+    ),
+    array(
+        'seccion' => 'Ecommerce',
         'titulo' => 'Operacion ecommerce',
         'icono' => 'bi-shop',
         'permiso' => '',
         'items' => array(
             array('titulo' => 'Control Artiani', 'ruta' => '/ecommercePublico/control', 'permiso' => 'catalogo.ver'),
-            array('titulo' => 'Publicaciones productos', 'ruta' => '/ecommercePublico/publicaciones', 'permiso' => 'catalogo.ver'),
             array('titulo' => 'Leads / Carritos', 'ruta' => '/ecommercePublico/leads', 'permiso' => 'catalogo.ver'),
             array('titulo' => 'Cotizaciones', 'ruta' => '/ecommercePublico/cotizaciones', 'permiso' => 'catalogo.ver'),
             array('titulo' => 'Analytics', 'ruta' => '/ecommercePublico/analytics', 'permiso' => 'catalogo.ver'),
-            array('titulo' => 'Flujo sesiones', 'ruta' => '/ecommercePublico/analytics_flujo', 'permiso' => 'catalogo.ver'),
-            array('titulo' => 'SEO y URLs', 'ruta' => '/ecommercePublico/seo_migracion', 'permiso' => 'catalogo.ver'),
-            array('titulo' => 'Catalogo ecommerce', 'ruta' => '/producto/catalogo', 'permiso' => 'ecommerce.ver')
+            array('titulo' => 'Flujo sesiones', 'ruta' => '/ecommercePublico/analytics_flujo', 'permiso' => 'catalogo.ver')
         )
     ),
     array(

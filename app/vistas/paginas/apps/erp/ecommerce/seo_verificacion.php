@@ -96,7 +96,7 @@
                                         </div>
                                         <div class="table-responsive seo-check-scroll">
                                             <table class="table table-row-dashed fs-7 gy-3 mb-0 seo-check-table">
-                                                <thead><tr class="text-muted fw-bold"><th>Regla</th><th>URL local probada</th><th>Esperado</th><th>Respuesta</th><th>Resultado</th></tr></thead>
+                                                <thead><tr class="text-muted fw-bold"><th>Regla</th><th>URL vieja probada</th><th>Esperado / destino nuevo</th><th>Respuesta origen</th><th>Resultado</th></tr></thead>
                                                 <tbody id="seo_check_reglas_body"></tbody>
                                             </table>
                                         </div>

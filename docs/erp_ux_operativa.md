@@ -89,6 +89,20 @@ Regla:
 - Productos ERP, XML, productos nuevos y cargos deben distinguirse con estado visual claro.
 - No duplicar captura en tablas repetidas si se puede mostrar como pendiente/alerta.
 
+## Layout de pantallas operativas
+
+Documentacion IA: Codex GPT-5  
+Fecha: 2026-09-18  
+Contexto: Gobierno Catalogo Ecommerce
+
+Regla:
+
+- En paneles operativos ERP, cada contenedor principal debe ocupar preferentemente el ancho completo de la pagina.
+- Evitar dividir el contenido en dos o mas columnas cuando haya tablas, bandejas de alertas, SEO, finanzas, inventario o listados de trabajo.
+- Si una pantalla necesita varios bloques, ordenarlos verticalmente: tablero, filtros/tabla, alertas, detalle/resumen.
+- Las columnas laterales solo deben usarse para informacion realmente secundaria y no para elementos que compiten con una tabla o bandeja principal.
+- En Ecommerce, agrupar vistas nuevas bajo el modulo `Ecommerce` y crear submenus por dominio, por ejemplo `Catalogo`, antes de agregar enlaces sueltos.
+
 ## Permisos y acciones
 
 Regla:

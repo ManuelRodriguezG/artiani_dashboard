@@ -66,15 +66,16 @@
     }
     tbody.innerHTML = items.map(function (item) {
       var esperado = Number(item.status_esperado) === 410
-        ? "410 Gone"
-        : String(item.status_esperado || "301") + " -> " + (item.destino_local || item.to || "-");
+        ? "410 Gone sin destino"
+        : String(item.status_esperado || "301") + " -> " + linkLocal(item.destino_local || item.to || "");
+      var destinoStatus = item.destino_status_http ? '<div class="text-muted fs-8 mt-1">Destino responde: ' + escapeHtml(item.destino_status_http) + "</div>" : "";
       var respuesta = String(item.status_http || "-");
       if (item.location) respuesta += " | Location: " + item.location;
       return [
         "<tr>",
         '<td><span class="badge ' + (item.tipo_regla === "gone" ? "badge-light-danger" : "badge-light-primary") + '">' + escapeHtml(item.tipo_regla || "regla") + '</span><div class="fw-semibold seo-check-path mt-1">' + escapeHtml(item.from || "-") + '</div><div class="text-muted fs-8">' + escapeHtml(item.motivo || "") + "</div></td>",
-        '<td class="seo-check-path">' + linkLocal(item.url_local) + "</td>",
-        '<td class="seo-check-path">' + escapeHtml(esperado) + "</td>",
+        '<td class="seo-check-path">' + linkLocal(item.url_local) + '<div class="text-muted fs-8">Origen viejo en frontend local</div></td>',
+        '<td class="seo-check-path">' + esperado + destinoStatus + "</td>",
         '<td class="seo-check-path">' + escapeHtml(respuesta) + "</td>",
         '<td>' + badgeResultado(item.resultado) + "</td>",
         "</tr>"
