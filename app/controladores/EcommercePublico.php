@@ -752,7 +752,7 @@ class EcommercePublico extends Controlador {
       if ($origen !== "" && $modelo->origenCorsPermitido($origen)) {
         header("Access-Control-Allow-Origin: " . $origen);
         header("Access-Control-Allow-Methods: GET, POST, OPTIONS");
-        header("Access-Control-Allow-Headers: Content-Type, X-Ecommerce-Api-Key, X-Ecommerce-Signature");
+        header("Access-Control-Allow-Headers: Content-Type, Accept, Origin, X-Ecommerce-Api-Key, X-Ecommerce-Signature");
         header("Access-Control-Max-Age: 600");
       }
     }

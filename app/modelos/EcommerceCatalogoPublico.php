@@ -644,6 +644,7 @@ class EcommerceCatalogoPublico extends CRUD {
       $resumen = $this->resumenPublicabilidad($db);
       $totalPublicables = intval(isset($resumen["skus_publicables_fase_1"]) ? $resumen["skus_publicables_fase_1"] : 0);
 
+      $origenesCors = $this->origenesCorsPermitidosEfectivos($db);
       return $this->respuesta(false, "success", "Estado API ecommerce consultado", array(
         "ready" => $tienePublicaciones && $tieneConfiguracion,
         "modo" => "catalogo_vivo_readonly",
@@ -662,7 +663,8 @@ class EcommerceCatalogoPublico extends CRUD {
           "usa_defaults" => !$tieneConfiguracion
         ),
         "seguridad" => array(
-          "cors_restringido_pendiente" => true,
+          "cors_restringido_pendiente" => empty($origenesCors),
+          "cors_origenes_publicos" => $origenesCors,
           "api_key_o_firma_pendiente" => true,
           "autenticacion_activa" => false,
           "autenticacion_modo_futuro" => "api_key_hmac",
@@ -2728,16 +2730,7 @@ class EcommerceCatalogoPublico extends CRUD {
     }
     try {
       $db = $this->getConexion();
-      if (!$db || !$this->tablaExiste($db, "erp_ecommerce_configuracion")) {
-        return false;
-      }
-      $stmt = $db->prepare("SELECT valor FROM erp_ecommerce_configuracion WHERE clave='cors_origenes_permitidos' AND estatus='activo' LIMIT 1");
-      $stmt->execute();
-      $valor = trim((string) $stmt->fetchColumn());
-      if ($valor === "") {
-        return false;
-      }
-      $permitidos = preg_split('/[\r\n,]+/', $valor);
+      $permitidos = $this->origenesCorsPermitidosEfectivos($db);
       foreach ($permitidos as $permitido) {
         if (rtrim(trim((string) $permitido), "/") === rtrim($origen, "/")) {
           return true;
@@ -2747,6 +2740,41 @@ class EcommerceCatalogoPublico extends CRUD {
       return false;
     }
     return false;
+  }
+
+  private function origenesCorsPermitidosEfectivos($db = null) {
+    $permitidos = $this->origenesCorsPermitidosDefault();
+    try {
+      if (!$db) {
+        $db = $this->getConexion();
+      }
+      if ($db && $this->tablaExiste($db, "erp_ecommerce_configuracion")) {
+        $stmt = $db->prepare("SELECT valor FROM erp_ecommerce_configuracion WHERE clave='cors_origenes_permitidos' AND estatus='activo' LIMIT 1");
+        $stmt->execute();
+        $valor = trim((string) $stmt->fetchColumn());
+        if ($valor !== "") {
+          $permitidos = array_merge($permitidos, preg_split('/[\r\n,]+/', $valor));
+        }
+      }
+    } catch (Exception $e) {
+      // Se conserva el fallback publico exacto para no dejar staging sin CORS por falla de configuracion.
+    }
+    $normalizados = array();
+    foreach ($permitidos as $permitido) {
+      $permitido = rtrim(trim((string) $permitido), "/");
+      if ($permitido !== "" && strpos($permitido, "*") === false) {
+        $normalizados[$permitido] = $permitido;
+      }
+    }
+    return array_values($normalizados);
+  }
+
+  private function origenesCorsPermitidosDefault() {
+    return array(
+      "https://artiani.com.mx",
+      "https://www.artiani.com.mx",
+      "https://prueba.artiani.com.mx"
+    );
   }
 
   /**
@@ -4395,7 +4423,7 @@ class EcommerceCatalogoPublico extends CRUD {
     try {
       $db = $this->getConexion();
       $baseUrl = $this->dominioProduccionSeoPublico($this->configuracionSeoPublica($db));
-      $limite = max(1, min(500, intval($this->valor($opciones, "limite", 500))));
+      $limite = max(1, min(5000, intval($this->valor($opciones, "limite", 3000))));
       $items = $this->seoUrlsPublicasItems($baseUrl, $limite);
       $tablaDisponible = $db && $this->tablaExiste($db, "erp_ecommerce_seo_urls");
       $existentes = array();
@@ -4481,7 +4509,7 @@ class EcommerceCatalogoPublico extends CRUD {
       }
 
       $baseUrl = $this->dominioProduccionSeoPublico($this->configuracionSeoPublica($db));
-      $limite = max(1, min(500, intval($this->valor($opciones, "limite", 500))));
+      $limite = max(1, min(5000, intval($this->valor($opciones, "limite", 3000))));
       $items = $this->seoUrlsPublicasItems($baseUrl, $limite);
       if (empty($items)) {
         return $this->respuesta(true, "warning", "No hay URLs canonicas para sincronizar", array("no_escribe_bd" => true));
