@@ -23,8 +23,36 @@
         return d.innerHTML;
     }
 
+    function attr(valor) {
+        return esc(valor).replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+    }
+
     function money(valor) {
         return "$" + Number(valor || 0).toFixed(2);
+    }
+
+    /**
+     * IA: Codex GPT-5
+     * Fecha: 2026-09-19
+     * Proposito: mostrar miniaturas de Catalogo ERP en Sugerido para seleccionar productos visualmente.
+     * Impacto: UX Compras/Sugerido; solo lectura de imagen, sin duplicar archivos ni modificar catalogo.
+     */
+    function normalizarImagenUrl(url) {
+        url = String(url || "").trim();
+        if (!url) { return ""; }
+        if (/^(https?:)?\/\//i.test(url) || url.indexOf("data:") === 0 || url.indexOf("/") === 0) {
+            return url;
+        }
+        return "/" + url;
+    }
+
+    function productoImagenHtml(item, clase) {
+        var src = normalizarImagenUrl(item && (item.imagen_portada || item.url_imagen || item.imagen));
+        var titulo = (item && (item.nombre_proveedor || item.nombre_erp || item.sku_proveedor || item.sku_erp)) || "Producto";
+        if (!src) {
+            return "<div class=\"" + clase + " sugerido-producto-imagen sugerido-producto-imagen--vacia\" title=\"Sin imagen\"><i class=\"bi bi-image\"></i></div>";
+        }
+        return "<div class=\"" + clase + " sugerido-producto-imagen\" title=\"" + attr(titulo) + "\" style=\"background-image:url('" + attr(src) + "')\"></div>";
     }
 
     /**
@@ -74,6 +102,7 @@
             sku_proveedor: x.sku_proveedor || x.sku_erp || "",
             nombre_erp: x.nombre_erp || "",
             nombre_proveedor: x.nombre_proveedor || x.nombre_erp || "",
+            imagen_portada: x.imagen_portada || x.url_imagen || x.imagen || "",
             unidad_compra: x.unidad_compra || "",
             factor_conversion: numero(x.factor_conversion || 1),
             cantidad_minima: numero(x.cantidad_minima || 1),
@@ -99,7 +128,7 @@
                 return Number(item.id_sku_proveedor || 0) === Number(x.id_sku_proveedor || 0);
             });
             return "<tr>" +
-                "<td><div class=\"fw-bold\">" + esc(x.sku_proveedor || x.sku_erp) + "</div><div class=\"text-muted fs-8\">SKU ERP: " + esc(x.sku_erp || "-") + "</div></td>" +
+                "<td><div class=\"d-flex align-items-center gap-3\">" + productoImagenHtml(x, "sugerido-producto-imagen--sm") + "<div><div class=\"fw-bold\">" + esc(x.sku_proveedor || x.sku_erp) + "</div><div class=\"text-muted fs-8\">SKU ERP: " + esc(x.sku_erp || "-") + "</div></div></div></td>" +
                 "<td>" + esc(x.nombre_proveedor || x.nombre_erp) + "<div class=\"text-muted fs-8\">" + esc(x.unidad_compra || "") + " | factor " + Number(x.factor_conversion || 1).toFixed(6) + "</div></td>" +
                 "<td class=\"text-end fw-bold\">" + money(x.costo_estimado) + "</td>" +
                 "<td class=\"text-end\"><button type=\"button\" class=\"btn btn-sm " + (yaAgregado ? "btn-light" : "btn-light-primary") + "\" data-sugerido-agregar=\"" + i + "\"" + (yaAgregado || modoLectura ? " disabled" : "") + ">" + (yaAgregado ? "Agregado" : "Agregar") + "</button></td>" +
@@ -214,6 +243,7 @@
                     x.cantidad_solicitar = numero(x.cantidad_solicitar || 0);
                     x.cantidad_solicitar_manual = 1;
                     x.costo_estimado = numero(x.costo_estimado || 0);
+                    x.imagen_portada = x.imagen_portada || x.url_imagen || x.imagen || "";
                     return x;
                 });
                 render();
@@ -249,6 +279,20 @@
                 Swal.fire({text: e.message || "No se pudieron consultar productos", icon: "error", confirmButtonText: "Aceptar"});
                 document.getElementById("sugerido_resumen").textContent = "No se pudieron consultar productos.";
             });
+    }
+
+    /**
+     * IA: Codex GPT-5
+     * Fecha: 2026-09-19
+     * Proposito: limpiar resultados de busqueda del proveedor sin quitar partidas agregadas al sugerido.
+     * Impacto: UX Compras/Sugerido; permite cambiar busqueda de forma explicita y segura.
+     */
+    function limpiarBusquedaProveedor() {
+        if (modoLectura) { return; }
+        candidatos = [];
+        document.getElementById("sugerido_buscar").value = "";
+        renderResultados();
+        document.getElementById("sugerido_resumen").textContent = "Busqueda limpia. Puedes buscar otro SKU, producto o codigo del proveedor.";
     }
 
     function recalcular(reemplazarCantidadFinal) {
@@ -385,7 +429,7 @@
             var i = items.indexOf(x);
             var maximo = x.stock_maximo === null || x.stock_maximo === "" ? "-" : Number(x.stock_maximo || 0).toFixed(2);
             return "<tr id=\"sugerido_item_" + i + "\" class=\"" + (i === partidaEnfocada ? "table-warning" : "") + "\">" +
-                "<td><div class=\"fw-bold\">" + esc(x.sku_proveedor || x.sku_erp) + "</div><div class=\"text-muted fs-8\">SKU ERP: " + esc(x.sku_erp || "-") + "</div></td>" +
+                "<td><div class=\"d-flex align-items-center gap-3\">" + productoImagenHtml(x, "sugerido-producto-imagen--md") + "<div><div class=\"fw-bold\">" + esc(x.sku_proveedor || x.sku_erp) + "</div><div class=\"text-muted fs-8\">SKU ERP: " + esc(x.sku_erp || "-") + "</div></div></div></td>" +
                 "<td>" + esc(x.nombre_proveedor || x.nombre_erp) + "<div class=\"text-muted fs-8\">" + esc(x.unidad_compra || "") + " | factor " + Number(x.factor_conversion || 1).toFixed(6) + "</div></td>" +
                 "<td class=\"text-end\"><input class=\"form-control form-control-sm text-end sugerido-cantidad-input\" inputmode=\"decimal\" data-sugerido-minimo=\"" + i + "\" value=\"" + Number(x.stock_minimo || 0) + "\"" + readonly + "></td>" +
                 "<td class=\"text-end\"><input class=\"form-control form-control-sm text-end sugerido-cantidad-input\" inputmode=\"decimal\" data-sugerido-maximo=\"" + i + "\" value=\"" + (x.stock_maximo === null || x.stock_maximo === "" ? "" : Number(x.stock_maximo || 0)) + "\"" + readonly + "></td>" +
@@ -752,6 +796,7 @@
         document.getElementById("sugerido_generar_solicitud").classList.toggle("d-none", modoLectura);
         document.getElementById("sugerido_recalcular").classList.toggle("d-none", modoLectura);
         document.getElementById("sugerido_buscar_productos").classList.toggle("d-none", modoLectura);
+        document.getElementById("sugerido_limpiar_busqueda").classList.toggle("d-none", modoLectura);
         document.getElementById("sugerido_actualizar_reglas").classList.toggle("d-none", !puedeEditar);
         document.getElementById("sugerido_actualizar_reglas_resurtido").disabled = modoLectura || !puedeEditar;
         document.getElementById("sugerido_proveedor").disabled = modoLectura;
@@ -792,6 +837,7 @@
         });
         document.getElementById("sugerido_limpiar_filtro_partidas").addEventListener("click", limpiarFiltroPartidas);
         document.getElementById("sugerido_buscar_productos").addEventListener("click", consultarProveedor);
+        document.getElementById("sugerido_limpiar_busqueda").addEventListener("click", limpiarBusquedaProveedor);
         document.getElementById("sugerido_limpiar_ceros").addEventListener("click", function () {
             ocultarCeros = !ocultarCeros;
             this.textContent = ocultarCeros ? "Mostrar todos" : "Ocultar ceros";

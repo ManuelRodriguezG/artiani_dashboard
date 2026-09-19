@@ -992,3 +992,15 @@ Modulo: Compras / Sugerido de compra
 - El sistema solo debe reemplazar `Cantidad solicitada` cuando el usuario ejecute una accion explicita de recalculo masivo.
 - El backend no debe recalcular sobre la cantidad manual solo porque haya minimos/maximos configurados.
 - Los campos numericos del sugerido deben aceptar separadores comunes para evitar que una captura valida se guarde como 0 o sea sustituida por el sugerido.
+
+## Decision UX: Imagen de producto en Sugerido
+
+Documentacion IA: Codex GPT-5  
+Fecha: 2026-09-19  
+Modulo: Compras / Sugerido de compra
+
+- El buscador de productos del proveedor y la tabla de partidas agregadas deben mostrar una miniatura del producto cuando Catalogo ERP tenga imagen.
+- La imagen se obtiene de `erp_catalogo_imagenes`, priorizando imagen del SKU y despues imagen del producto base.
+- Sugerido no debe guardar ni duplicar rutas de imagen en sus tablas de detalle; solo las consulta para apoyar la captura.
+- Si el producto no tiene imagen, la UI debe mostrar un placeholder discreto para evidenciar que falta saneamiento visual en Catalogo.
+- La accion `Limpiar busqueda` solo borra texto y resultados del proveedor; no debe eliminar partidas ya agregadas al sugerido.

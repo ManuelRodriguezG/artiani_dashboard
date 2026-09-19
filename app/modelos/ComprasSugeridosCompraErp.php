@@ -192,6 +192,8 @@ class ComprasSugeridosCompraErp extends CRUD {
      * Regla: si la lista ya esta vinculada por id_sku_proveedor/id_sku, no exige que el texto de codigo coincida con sp.sku_proveedor.
      * Actualizacion IA: Codex GPT-5 | Fecha: 2026-09-07
      * Regla: costo estimado prioriza costo vigente, lista proveedor y costo_ultimo como ultimo respaldo.
+     * Actualizacion IA: Codex GPT-5 | Fecha: 2026-09-19
+     * Regla: expone portada de SKU/producto desde Catalogo ERP para apoyar seleccion visual sin duplicar imagenes.
      */
     public function productosProveedor($filtros = array()) {
         try {
@@ -241,6 +243,29 @@ class ComprasSugeridosCompraErp extends CRUD {
                     sp.es_preferido, uc.abreviatura AS unidad_compra,
                     s.sku AS sku_erp, s.nombre AS nombre_erp, s.id_producto_erp,
                     p.nombre AS producto_erp,
+                    COALESCE(
+                        (
+                            SELECT img_sku.url_imagen
+                            FROM erp_catalogo_imagenes img_sku
+                            WHERE img_sku.id_sku=s.id_sku
+                              AND img_sku.estatus='activo'
+                              AND TRIM(COALESCE(img_sku.url_imagen,''))<>''
+                            ORDER BY FIELD(img_sku.tipo_imagen, 'portada', 'empaque', 'detalle', 'galeria', 'referencia'),
+                                     img_sku.orden ASC, img_sku.id_imagen_erp ASC
+                            LIMIT 1
+                        ),
+                        (
+                            SELECT img_prod.url_imagen
+                            FROM erp_catalogo_imagenes img_prod
+                            WHERE img_prod.id_producto_erp=p.id_producto_erp
+                              AND (img_prod.id_sku IS NULL OR img_prod.id_sku=0)
+                              AND img_prod.estatus='activo'
+                              AND TRIM(COALESCE(img_prod.url_imagen,''))<>''
+                            ORDER BY FIELD(img_prod.tipo_imagen, 'portada', 'empaque', 'detalle', 'galeria', 'referencia'),
+                                     img_prod.orden ASC, img_prod.id_imagen_erp ASC
+                            LIMIT 1
+                        )
+                    ) AS imagen_portada,
                     COALESCE(r.stock_minimo,0) AS stock_minimo,
                     r.stock_maximo,
                     COALESCE(r.punto_reorden,0) AS punto_reorden,
@@ -385,10 +410,13 @@ class ComprasSugeridosCompraErp extends CRUD {
             $costos[$clave] = $item;
         }
         foreach ($detalle as $i => $fila) {
+            $clave = intval($this->valor($fila, "id_sku_proveedor", 0)) . "|" . intval($this->valor($fila, "id_sku_erp", 0));
+            if (isset($costos[$clave])) {
+                $detalle[$i]["imagen_portada"] = $this->valor($costos[$clave], "imagen_portada", "");
+            }
             if (floatval($this->valor($fila, "costo_estimado", 0)) > 0) {
                 continue;
             }
-            $clave = intval($this->valor($fila, "id_sku_proveedor", 0)) . "|" . intval($this->valor($fila, "id_sku_erp", 0));
             if (!isset($costos[$clave]) || floatval($this->valor($costos[$clave], "costo_estimado", 0)) <= 0) {
                 continue;
             }

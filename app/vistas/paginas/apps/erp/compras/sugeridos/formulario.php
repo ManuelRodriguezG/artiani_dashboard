@@ -37,6 +37,32 @@ $modo = isset($datos["modo"]) ? $datos["modo"] : "editar";
         .sugerido-filtro-partidas {
             min-width: 16rem;
         }
+        /* IA: Codex GPT-5 | Fecha: 2026-09-19
+           Proposito: mostrar miniatura de producto en resultados y partidas de Sugerido.
+           Impacto: UX Compras/Sugerido; ayuda a identificar productos sin depender solo del codigo. */
+        .sugerido-producto-imagen {
+            flex: 0 0 auto;
+            border: 1px solid #e4e6ef;
+            border-radius: 8px;
+            background-color: #f5f8fa;
+            background-position: center;
+            background-size: cover;
+        }
+        .sugerido-producto-imagen--sm {
+            width: 46px;
+            height: 46px;
+        }
+        .sugerido-producto-imagen--md {
+            width: 54px;
+            height: 54px;
+        }
+        .sugerido-producto-imagen--vacia {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            color: #a1a5b7;
+            font-size: 1.35rem;
+        }
         .sugerido-scan-preview { position: relative; border-radius: 8px; overflow: hidden; background: #111827; min-height: 320px; }
         .sugerido-scan-preview video { width: 100%; min-height: 320px; object-fit: cover; display: block; }
         .sugerido-scan-guide { position: absolute; left: 10%; right: 10%; top: 38%; height: 86px; border: 2px solid rgba(255,255,255,.9); border-radius: 8px; box-shadow: 0 0 0 999px rgba(0,0,0,.22); pointer-events: none; }
@@ -101,6 +127,7 @@ $modo = isset($datos["modo"]) ? $datos["modo"] : "editar";
                                     </div>
                                     <button type="button" class="btn btn-light-primary" id="sugerido_scan_camera_btn" title="Escanear codigo"><i class="bi bi-camera"></i></button>
                                     <button type="button" class="btn btn-primary" id="sugerido_buscar_productos">Buscar</button>
+                                    <button type="button" class="btn btn-light" id="sugerido_limpiar_busqueda" title="Limpiar busqueda"><i class="bi bi-x-lg"></i></button>
                                 </div>
                             </div>
                         </div>
@@ -224,7 +251,7 @@ $modo = isset($datos["modo"]) ? $datos["modo"] : "editar";
 </div>
 <script src="assets/plugins/global/plugins.bundle.js"></script>
 <script src="assets/js/scripts.bundle.js"></script>
-<script src="/assets/js/custom/apps/erp/compras/sugeridos/formulario.js?v=20260910-1"></script>
+<script src="/assets/js/custom/apps/erp/compras/sugeridos/formulario.js?v=20260919-2"></script>
 </body>
 </html>
 
