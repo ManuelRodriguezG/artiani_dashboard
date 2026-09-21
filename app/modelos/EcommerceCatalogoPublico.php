@@ -4931,7 +4931,7 @@ class EcommerceCatalogoPublico extends CRUD {
       $resumen["sitemap_mostradas"] = count((array) $sitemapVerificado);
       $resumen["hay_mas_reglas"] = $resumen["reglas_disponibles"] > $resumen["reglas_mostradas"];
       $resumen["hay_mas_sitemap"] = $resumen["sitemap_disponibles"] > $resumen["sitemap_mostradas"];
-      return $this->respuesta(false, "success", "Verificacion SEO frontend local generada", array(
+      return $this->respuesta(false, "success", "Verificacion SEO frontend generada", array(
         "frontend_base" => $frontendBase,
         "probar_http" => $probarHttp,
         "resumen" => $resumen,
@@ -4942,7 +4942,7 @@ class EcommerceCatalogoPublico extends CRUD {
           "incluye" => array("home", "categorias publicas", "marcas publicas", "productos publicados indexables", "paginas estaticas importantes", "blog publicado si aplica"),
           "excluye" => array("URLs viejas", "301", "410", "404", "borradores", "pausados", "privados", "rutas /ecommercePublico", "URLs locales", "parametros innecesarios")
         ),
-        "guardrails" => array("read_only" => true, "no_escribe_bd" => true, "frontend_local" => $frontendBase, "no_sigue_redirecciones" => true)
+        "guardrails" => array("read_only" => true, "no_escribe_bd" => true, "frontend_revision" => $frontendBase, "no_sigue_redirecciones" => true)
       ));
     } catch (Exception $e) {
       return $this->respuesta(true, "danger", $e->getMessage(), array("read_only" => true));
