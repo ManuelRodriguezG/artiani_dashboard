@@ -24,7 +24,7 @@
                                 <span class="text-muted">Indicadores principales para decidir que SKU revisar primero</span>
                             </div>
                             <div class="d-flex gap-2">
-                                <?php if (SesionSeguridad::tienePermiso("rentabilidad.snapshot")): ?>
+                                <?php if (Sesionseguridad::tienePermiso("rentabilidad.snapshot")): ?>
                                 <button class="btn btn-light-success" id="rentabilidad_snapshot_guardar" type="button"><i class="bi bi-save"></i> Guardar snapshot</button>
                                 <?php endif; ?>
                                 <button class="btn btn-light-primary" id="rentabilidad_recargar" type="button"><i class="bi bi-arrow-clockwise"></i> Actualizar</button>
@@ -456,7 +456,7 @@
                                         <h3 class="fw-bold fs-5 mb-0">Recomendaciones persistentes</h3>
                                     </div>
                                     <div class="card-toolbar d-flex gap-2">
-                                        <?php if (SesionSeguridad::tienePermiso("rentabilidad.snapshot")): ?>
+                                        <?php if (Sesionseguridad::tienePermiso("rentabilidad.snapshot")): ?>
                                         <button class="btn btn-sm btn-light-success" id="rentabilidad_recomendaciones_guardar" type="button"><i class="bi bi-plus-circle"></i> Crear pendientes</button>
                                         <?php endif; ?>
                                         <button class="btn btn-sm btn-light-warning" id="rentabilidad_recomendaciones_preflight_recargar" type="button"><i class="bi bi-search"></i> Preflight</button>
@@ -550,7 +550,7 @@
 <script>
 window.RENTABILIDAD_VISTA = "analisis";
 window.RENTABILIDAD_PERMISOS = <?= json_encode(array(
-    "snapshot" => SesionSeguridad::tienePermiso("rentabilidad.snapshot")
+    "snapshot" => Sesionseguridad::tienePermiso("rentabilidad.snapshot")
 )) ?>;
 </script>
 <script src="/assets/js/custom/apps/erp/rentabilidad/analisis.js?v=20260819-1"></script>

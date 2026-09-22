@@ -993,7 +993,7 @@ class Ventas extends Controlador {
   }
 
   private function auditarExcepcionComercialPos($accion, $respuesta) {
-    SesionSeguridad::registrarAuditoria("ventas", "excepcion_comercial_" . $accion, array(
+    Sesionseguridad::registrarAuditoria("ventas", "excepcion_comercial_" . $accion, array(
       "entidad" => "erp_ventas_excepciones_comerciales",
       "entidad_id" => isset($respuesta["depurar"]["id_excepcion_comercial"]) ? $respuesta["depurar"]["id_excepcion_comercial"] : null,
       "resultado" => !empty($respuesta["error"]) ? "error" : (isset($respuesta["tipo"]) && $respuesta["tipo"] === "success" ? "ok" : "warning"),
@@ -1003,7 +1003,7 @@ class Ventas extends Controlador {
   }
 
   private function auditarCobroPos($accion, $respuesta) {
-    SesionSeguridad::registrarAuditoria("ventas", "pos_cobro_" . $accion, array(
+    Sesionseguridad::registrarAuditoria("ventas", "pos_cobro_" . $accion, array(
       "entidad" => "erp_ventas",
       "entidad_id" => isset($respuesta["depurar"]["id_venta"]) ? $respuesta["depurar"]["id_venta"] : null,
       "resultado" => !empty($respuesta["error"]) ? "error" : (isset($respuesta["tipo"]) && $respuesta["tipo"] === "success" ? "ok" : "warning"),
@@ -1013,7 +1013,7 @@ class Ventas extends Controlador {
   }
 
   private function auditarAtencionPos($accion, $respuesta) {
-    SesionSeguridad::registrarAuditoria("ventas", "pos_atencion_" . $accion, array(
+    Sesionseguridad::registrarAuditoria("ventas", "pos_atencion_" . $accion, array(
       "entidad" => "erp_pos_atenciones",
       "entidad_id" => isset($respuesta["depurar"]["id_atencion_pos"]) ? $respuesta["depurar"]["id_atencion_pos"] : null,
       "resultado" => !empty($respuesta["error"]) ? "error" : (isset($respuesta["tipo"]) && $respuesta["tipo"] === "success" ? "ok" : "warning"),
@@ -1034,7 +1034,7 @@ class Ventas extends Controlador {
     } elseif (isset($depurar["id"])) {
       $entidadId = $depurar["id"];
     }
-    SesionSeguridad::registrarAuditoria("ventas", "pos_configuracion_" . $accion, array(
+    Sesionseguridad::registrarAuditoria("ventas", "pos_configuracion_" . $accion, array(
       "entidad" => "erp_pos_configuracion",
       "entidad_id" => $entidadId,
       "resultado" => !empty($respuesta["error"]) ? "error" : (isset($respuesta["tipo"]) && $respuesta["tipo"] === "success" ? "ok" : "warning"),
@@ -1045,7 +1045,7 @@ class Ventas extends Controlador {
 
   private function auditarDiferenciaCajaPos($accion, $respuesta) {
     $depurar = isset($respuesta["depurar"]) && is_array($respuesta["depurar"]) ? $respuesta["depurar"] : array();
-    SesionSeguridad::registrarAuditoria("ventas", "pos_diferencia_caja_" . $accion, array(
+    Sesionseguridad::registrarAuditoria("ventas", "pos_diferencia_caja_" . $accion, array(
       "entidad" => "erp_pos_turnos_diferencias_revision",
       "entidad_id" => isset($depurar["id_diferencia_revision"]) ? $depurar["id_diferencia_revision"] : null,
       "resultado" => !empty($respuesta["error"]) ? "error" : (isset($respuesta["tipo"]) && $respuesta["tipo"] === "success" ? "ok" : "warning"),
@@ -1056,7 +1056,7 @@ class Ventas extends Controlador {
 
   private function auditarCierreTurnoPos($accion, $respuesta) {
     $depurar = isset($respuesta["depurar"]) && is_array($respuesta["depurar"]) ? $respuesta["depurar"] : array();
-    SesionSeguridad::registrarAuditoria("ventas", "pos_turno_" . $accion, array(
+    Sesionseguridad::registrarAuditoria("ventas", "pos_turno_" . $accion, array(
       "entidad" => "erp_pos_turnos",
       "entidad_id" => isset($depurar["id_turno_caja"]) ? $depurar["id_turno_caja"] : null,
       "resultado" => !empty($respuesta["error"]) ? "error" : (isset($respuesta["tipo"]) && $respuesta["tipo"] === "success" ? "ok" : "warning"),
@@ -1067,7 +1067,7 @@ class Ventas extends Controlador {
 
   private function auditarInventarioPendientePos($accion, $respuesta) {
     $depurar = isset($respuesta["depurar"]) && is_array($respuesta["depurar"]) ? $respuesta["depurar"] : array();
-    SesionSeguridad::registrarAuditoria("ventas", "pos_inventario_pendiente_" . $accion, array(
+    Sesionseguridad::registrarAuditoria("ventas", "pos_inventario_pendiente_" . $accion, array(
       "entidad" => "erp_pos_inventario_pendientes",
       "entidad_id" => isset($depurar["id_inventario_pendiente"]) ? $depurar["id_inventario_pendiente"] : null,
       "resultado" => !empty($respuesta["error"]) ? "error" : (isset($respuesta["tipo"]) && $respuesta["tipo"] === "success" ? "ok" : "warning"),

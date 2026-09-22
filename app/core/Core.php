@@ -47,7 +47,7 @@
 				'Utilidad', 'Ventas'
 			);
 			if ($this->controladorProtegido($this->controladorActual, $controladoresProtegidos)) {
-				SesionSeguridad::requerirSesion();
+				Sesionseguridad::requerirSesion();
 			}
 			//var_dump(new $this->controladorActual);
 			$this->controladorActual = new $this->controladorActual;
@@ -73,7 +73,7 @@
             //var_dump($this->parametros);
 			//llamar callback con parametros array
 
-			$esPostAutenticado = isset($_SERVER['REQUEST_METHOD']) && $_SERVER['REQUEST_METHOD'] === 'POST' && SesionSeguridad::autenticado();
+			$esPostAutenticado = isset($_SERVER['REQUEST_METHOD']) && $_SERVER['REQUEST_METHOD'] === 'POST' && Sesionseguridad::autenticado();
 			$csrfExentos = array('Autenticacion.inicio_session', 'Autenticacion.reautenticar_session');
 			$auditoriaExplicita = array(
 				'Sistema.seguridad_usuario_rol_asignar',
@@ -185,12 +185,12 @@
 			);
 			$rutaAccion = $nombreControlador . '.' . $this->metodoActual;
 			if ($esPostAutenticado && !in_array($rutaAccion, $csrfExentos, true)) {
-				SesionSeguridad::requerirCsrf();
+				Sesionseguridad::requerirCsrf();
 			}
 
 			$resultado = call_user_func_array([$this->controladorActual,$this->metodoActual],$this->parametros);
 			if ($esPostAutenticado && strpos($rutaAccion, 'Autenticacion.') !== 0 && !in_array($rutaAccion, $auditoriaExplicita, true)) {
-				SesionSeguridad::registrarAuditoria(strtolower($nombreControlador), $this->metodoActual, array(
+				Sesionseguridad::registrarAuditoria(strtolower($nombreControlador), $this->metodoActual, array(
 					'resultado' => http_response_code() >= 400 ? 'error' : 'ok',
 					'mensaje' => 'Peticion POST ejecutada',
 					'datos_despues' => array('campos_recibidos' => array_values(array_diff(array_keys($_POST), array('contrasenia', 'confirmar_contrasenia', '_csrf'))))

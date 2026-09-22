@@ -195,7 +195,7 @@ class Proyecto extends Controlador {
 
   private function auditarSiOk($modulo, $accion, $entidad, $respuesta, $campoId) {
     if (isset($respuesta["error"]) && $respuesta["error"] === false) {
-      SesionSeguridad::registrarAuditoria($modulo, $accion, array(
+      Sesionseguridad::registrarAuditoria($modulo, $accion, array(
         "entidad" => $entidad,
         "entidad_id" => isset($respuesta["depurar"][$campoId]) ? $respuesta["depurar"][$campoId] : null,
         "resultado" => "success",

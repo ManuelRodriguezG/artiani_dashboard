@@ -162,7 +162,7 @@ class Sistema extends Controlador {
     $motivo = isset($_POST["motivo"]) ? trim($_POST["motivo"]) : "";
     $configuracion = $this->modelo("SistemaConfiguracion");
     $respuesta = $configuracion->guardarConfiguracion($parametros, $this->usuarioActualId(), $motivo);
-    SesionSeguridad::registrarAuditoria("configuracion", "guardar_parametros", array(
+    Sesionseguridad::registrarAuditoria("configuracion", "guardar_parametros", array(
       "entidad" => "sys_configuracion_parametros",
       "resultado" => $respuesta["error"] ? "error" : "ok",
       "datos_despues" => isset($respuesta["depurar"]) ? $respuesta["depurar"] : null,
@@ -189,7 +189,7 @@ class Sistema extends Controlador {
       $this->usuarioActualId(),
       $motivo
     );
-    SesionSeguridad::registrarAuditoria("configuracion", "subir_logo", array(
+    Sesionseguridad::registrarAuditoria("configuracion", "subir_logo", array(
       "entidad" => "sys_configuracion_parametros",
       "resultado" => $respuesta["error"] ? "error" : "ok",
       "datos_despues" => isset($respuesta["depurar"]["logo"]) ? $respuesta["depurar"]["logo"] : null,
@@ -245,7 +245,7 @@ class Sistema extends Controlador {
       $_SESSION["roles"] = $autorizacion["roles"];
       $_SESSION["permisos"] = $autorizacion["permisos"];
     }
-    SesionSeguridad::registrarAuditoria("seguridad", "actualizar_permisos_rol", array(
+    Sesionseguridad::registrarAuditoria("seguridad", "actualizar_permisos_rol", array(
       "entidad" => "rol",
       "entidad_id" => $id_rol,
       "resultado" => $respuesta["error"] ? "error" : "ok",
@@ -325,12 +325,12 @@ class Sistema extends Controlador {
       "puesto" => $puesto,
       "telefono_secundario" => $telefonoSecundario,
       "notas_admin" => $notasAdmin,
-      "contrasenia_hash" => SesionSeguridad::hashContrasenia($contrasenia),
+      "contrasenia_hash" => Sesionseguridad::hashContrasenia($contrasenia),
       "id_rol" => $idRol,
       "estatus" => 1
     ));
 
-    SesionSeguridad::registrarAuditoria("seguridad", "crear_usuario", array(
+    Sesionseguridad::registrarAuditoria("seguridad", "crear_usuario", array(
       "entidad" => "usuario",
       "entidad_id" => isset($respuesta["depurar"]["id_usuario"]) ? $respuesta["depurar"]["id_usuario"] : null,
       "resultado" => $respuesta["error"] ? "error" : "ok",
@@ -419,7 +419,7 @@ class Sistema extends Controlador {
       "estatus" => $estatus
     );
     if ($contrasenia !== "") {
-      $datosActualizar["contrasenia_hash"] = SesionSeguridad::hashContrasenia($contrasenia);
+      $datosActualizar["contrasenia_hash"] = Sesionseguridad::hashContrasenia($contrasenia);
     }
     $respuesta = $seguridad->actualizarUsuarioInterno($idUsuario, $datosActualizar);
 
@@ -434,7 +434,7 @@ class Sistema extends Controlador {
       $_SESSION["puesto"] = $puesto;
     }
 
-    SesionSeguridad::registrarAuditoria("seguridad", "editar_usuario", array(
+    Sesionseguridad::registrarAuditoria("seguridad", "editar_usuario", array(
       "entidad" => "usuario",
       "entidad_id" => $idUsuario,
       "resultado" => $respuesta["error"] ? "error" : "ok",
@@ -482,7 +482,7 @@ class Sistema extends Controlador {
       $_SESSION["roles"] = $autorizacion["roles"];
       $_SESSION["permisos"] = $autorizacion["permisos"];
     }
-    SesionSeguridad::registrarAuditoria("seguridad", "asignar_rol", array(
+    Sesionseguridad::registrarAuditoria("seguridad", "asignar_rol", array(
       "entidad" => "usuario",
       "entidad_id" => $id_usuario,
       "resultado" => $respuesta["error"] ? "error" : "ok",
@@ -514,7 +514,7 @@ class Sistema extends Controlador {
       $_SESSION["roles"] = $autorizacion["roles"];
       $_SESSION["permisos"] = $autorizacion["permisos"];
     }
-    SesionSeguridad::registrarAuditoria("seguridad", "quitar_rol", array(
+    Sesionseguridad::registrarAuditoria("seguridad", "quitar_rol", array(
       "entidad" => "usuario",
       "entidad_id" => $id_usuario,
       "resultado" => $respuesta["error"] ? "error" : "ok",
@@ -540,7 +540,7 @@ class Sistema extends Controlador {
 
     $seguridad = $this->modelo("SeguridadPermisos");
     $respuesta = $seguridad->actualizarEstatusUsuario($id_usuario, $estatus);
-    SesionSeguridad::registrarAuditoria("seguridad", "actualizar_estatus_usuario", array(
+    Sesionseguridad::registrarAuditoria("seguridad", "actualizar_estatus_usuario", array(
       "entidad" => "usuario",
       "entidad_id" => $id_usuario,
       "resultado" => $respuesta["error"] ? "error" : "ok",

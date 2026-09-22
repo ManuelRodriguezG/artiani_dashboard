@@ -100,8 +100,17 @@ class Sesionseguridad {
       exit;
     }
 
-    header('Location: /autenticacion/login');
+    self::redirigirLogin();
     exit;
+  }
+
+  private static function redirigirLogin() {
+    if (!headers_sent()) {
+      header('Location: /autenticacion/login');
+      return;
+    }
+
+    echo '<!doctype html><html><head><meta charset="utf-8"><meta http-equiv="refresh" content="0;url=/autenticacion/login"></head><body><script>window.location.replace("/autenticacion/login");</script></body></html>';
   }
 
   public static function iniciarSesionUsuario($usuario) {
@@ -172,7 +181,7 @@ class Sesionseguridad {
 
   public static function registrarAuditoria($modulo, $accion, $opciones = array()) {
     try {
-      require_once '../app/modelos/SeguridadPermisos.php';
+      require_once RUTA_APP . '/modelos/SeguridadPermisos.php';
       $seguridad = new SeguridadPermisos();
       return $seguridad->registrarEvento(array_merge(array(
         'id_usuario' => self::usuarioId() ?: null,

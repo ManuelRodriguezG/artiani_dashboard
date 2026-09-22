@@ -23,7 +23,7 @@
                             <span class="text-muted">Maestro operativo de proveedores</span>
                         </div>
                         <div class="d-flex gap-3">
-                            <?php if (SesionSeguridad::tienePermiso('proveedores.listas')): ?>
+                            <?php if (Sesionseguridad::tienePermiso('proveedores.listas')): ?>
                             <a class="btn btn-light-warning" href="/proveedor/listas_variables_vivos_erp">
                                 <i class="bi bi-water"></i> Listas vivos
                             </a>
@@ -34,7 +34,7 @@
                             <a class="btn btn-light-info" href="/proveedor/manual_erp">
                                 <i class="bi bi-question-circle"></i> Manual
                             </a>
-                            <?php if (SesionSeguridad::tienePermiso('proveedores.crear')): ?>
+                            <?php if (Sesionseguridad::tienePermiso('proveedores.crear')): ?>
                             <button class="btn btn-primary" type="button" id="proveedores_erp_nuevo">
                                 <i class="bi bi-plus-lg"></i> Nuevo proveedor
                             </button>
@@ -114,14 +114,14 @@
             </div>
             <div class="modal-body">
                 <div class="d-flex flex-wrap gap-2 mb-6" id="proveedores_erp_modal_badges"></div>
-                <?php if (SesionSeguridad::tienePermiso('proveedores.editar') || SesionSeguridad::tienePermiso('proveedores.autorizar')): ?>
+                <?php if (Sesionseguridad::tienePermiso('proveedores.editar') || Sesionseguridad::tienePermiso('proveedores.autorizar')): ?>
                 <div class="d-flex justify-content-end gap-2 mb-4">
-                    <?php if (SesionSeguridad::tienePermiso('proveedores.autorizar')): ?>
+                    <?php if (Sesionseguridad::tienePermiso('proveedores.autorizar')): ?>
                     <button class="btn btn-sm btn-light-warning" type="button" id="proveedores_erp_cambiar_estatus">
                         <i class="bi bi-shield-check"></i> Cambiar estatus
                     </button>
                     <?php endif; ?>
-                    <?php if (SesionSeguridad::tienePermiso('proveedores.editar')): ?>
+                    <?php if (Sesionseguridad::tienePermiso('proveedores.editar')): ?>
                     <button class="btn btn-sm btn-light-primary" type="button" id="proveedores_erp_editar_general">
                         <i class="bi bi-pencil-square"></i> Editar generales
                     </button>
@@ -176,7 +176,7 @@
                             <div class="col-lg-6">
                                 <div class="d-flex align-items-center justify-content-between gap-3 mb-4">
                                     <h4 class="fw-bold mb-0">Datos fiscales</h4>
-                                    <?php if (SesionSeguridad::tienePermiso('proveedores.fiscales')): ?>
+                                    <?php if (Sesionseguridad::tienePermiso('proveedores.fiscales')): ?>
                                     <button class="btn btn-sm btn-light-primary" type="button" id="proveedores_erp_agregar_fiscal">
                                         <i class="bi bi-plus-lg"></i> Agregar fiscal
                                     </button>
@@ -187,7 +187,7 @@
                             <div class="col-lg-6">
                                 <div class="d-flex align-items-center justify-content-between gap-3 mb-4">
                                     <h4 class="fw-bold mb-0">Contactos</h4>
-                                    <?php if (SesionSeguridad::tienePermiso('proveedores.contactos')): ?>
+                                    <?php if (Sesionseguridad::tienePermiso('proveedores.contactos')): ?>
                                     <button class="btn btn-sm btn-light-primary" type="button" id="proveedores_erp_agregar_contacto">
                                         <i class="bi bi-plus-lg"></i> Agregar contacto
                                     </button>
@@ -202,7 +202,7 @@
                             <div class="col-lg-6">
                                 <div class="d-flex align-items-center justify-content-between gap-3 mb-4">
                                     <h4 class="fw-bold mb-0">Condiciones</h4>
-                                    <?php if (SesionSeguridad::tienePermiso('proveedores.condiciones')): ?>
+                                    <?php if (Sesionseguridad::tienePermiso('proveedores.condiciones')): ?>
                                     <button class="btn btn-sm btn-light-primary" type="button" id="proveedores_erp_agregar_condicion">
                                         <i class="bi bi-plus-lg"></i> Agregar condicion
                                     </button>
@@ -213,7 +213,7 @@
                             <div class="col-lg-6">
                                 <div class="d-flex align-items-center justify-content-between gap-3 mb-4">
                                     <h4 class="fw-bold mb-0">Documentos</h4>
-                                    <?php if (SesionSeguridad::tienePermiso('proveedores.documentos')): ?>
+                                    <?php if (Sesionseguridad::tienePermiso('proveedores.documentos')): ?>
                                     <button class="btn btn-sm btn-light-primary" type="button" id="proveedores_erp_agregar_documento">
                                         <i class="bi bi-plus-lg"></i> Agregar documento
                                     </button>
@@ -228,7 +228,7 @@
                             <div class="col-lg-8">
                                 <div class="d-flex align-items-center justify-content-between gap-3 mb-4">
                                     <h4 class="fw-bold mb-0">Listas ERP</h4>
-                                    <?php if (SesionSeguridad::tienePermiso('proveedores.listas')): ?>
+                                    <?php if (Sesionseguridad::tienePermiso('proveedores.listas')): ?>
                                     <button class="btn btn-sm btn-light-primary" type="button" id="proveedores_erp_agregar_lista">
                                         <i class="bi bi-plus-lg"></i> Agregar lista
                                     </button>
@@ -239,14 +239,14 @@
                             <div class="col-lg-4">
                                 <div class="d-flex align-items-center justify-content-between gap-3 mb-4">
                                     <h4 class="fw-bold mb-0">Costos</h4>
-                                    <?php if (SesionSeguridad::tienePermiso('proveedores.costos')): ?>
+                                    <?php if (Sesionseguridad::tienePermiso('proveedores.costos')): ?>
                                     <button class="btn btn-sm btn-light-info" type="button" id="proveedores_erp_refrescar_costos" title="Refrescar historial de costos">
                                         <i class="bi bi-arrow-clockwise"></i>
                                     </button>
                                     <?php endif; ?>
                                 </div>
                                 <div id="proveedores_erp_costos" class="d-flex flex-column gap-3"></div>
-                                <?php if (SesionSeguridad::tienePermiso('proveedores.costos')): ?>
+                                <?php if (Sesionseguridad::tienePermiso('proveedores.costos')): ?>
                                 <input class="form-control form-control-sm mt-4" id="proveedores_erp_costos_buscar" maxlength="120" placeholder="Filtrar historial de costos">
                                 <?php endif; ?>
                                 <div class="table-responsive mt-4">
@@ -256,7 +256,7 @@
                                 </div>
                             </div>
                         </div>
-                        <?php if (SesionSeguridad::tienePermiso('proveedores.auditoria')): ?>
+                        <?php if (Sesionseguridad::tienePermiso('proveedores.auditoria')): ?>
                         <div class="separator my-8"></div>
                         <div class="d-flex flex-column flex-lg-row align-items-lg-center justify-content-between gap-4 mb-4">
                             <h4 class="fw-bold mb-0">Comparativo Compras</h4>
@@ -303,7 +303,7 @@
                     <button type="button" class="btn btn-sm btn-icon btn-light" data-bs-dismiss="modal" title="Cerrar"><i class="bi bi-x-lg"></i></button>
                 </div>
                 <div class="modal-body">
-                    <input type="hidden" name="_csrf" value="<?= htmlspecialchars(SesionSeguridad::csrfToken(), ENT_QUOTES, 'UTF-8') ?>">
+                    <input type="hidden" name="_csrf" value="<?= htmlspecialchars(Sesionseguridad::csrfToken(), ENT_QUOTES, 'UTF-8') ?>">
                     <input type="hidden" name="id_proveedor" id="proveedores_erp_form_id">
                     <div class="row g-5">
                         <div class="col-md-6">
@@ -366,7 +366,7 @@
                     <button type="button" class="btn btn-sm btn-icon btn-light" data-bs-dismiss="modal" title="Cerrar"><i class="bi bi-x-lg"></i></button>
                 </div>
                 <div class="modal-body">
-                    <input type="hidden" name="_csrf" value="<?= htmlspecialchars(SesionSeguridad::csrfToken(), ENT_QUOTES, 'UTF-8') ?>">
+                    <input type="hidden" name="_csrf" value="<?= htmlspecialchars(Sesionseguridad::csrfToken(), ENT_QUOTES, 'UTF-8') ?>">
                     <input type="hidden" name="id_proveedor" id="proveedores_erp_fiscal_id_proveedor">
                     <input type="hidden" name="id_proveedor_fiscal">
                     <div class="row g-5">
@@ -411,7 +411,7 @@
                     <button type="button" class="btn btn-sm btn-icon btn-light" data-bs-dismiss="modal" title="Cerrar"><i class="bi bi-x-lg"></i></button>
                 </div>
                 <div class="modal-body">
-                    <input type="hidden" name="_csrf" value="<?= htmlspecialchars(SesionSeguridad::csrfToken(), ENT_QUOTES, 'UTF-8') ?>">
+                    <input type="hidden" name="_csrf" value="<?= htmlspecialchars(Sesionseguridad::csrfToken(), ENT_QUOTES, 'UTF-8') ?>">
                     <input type="hidden" name="id_proveedor">
                     <input type="hidden" name="id_contacto_proveedor">
                     <div class="row g-5">
@@ -464,7 +464,7 @@
                     <button type="button" class="btn btn-sm btn-icon btn-light" data-bs-dismiss="modal" title="Cerrar"><i class="bi bi-x-lg"></i></button>
                 </div>
                 <div class="modal-body">
-                    <input type="hidden" name="_csrf" value="<?= htmlspecialchars(SesionSeguridad::csrfToken(), ENT_QUOTES, 'UTF-8') ?>">
+                    <input type="hidden" name="_csrf" value="<?= htmlspecialchars(Sesionseguridad::csrfToken(), ENT_QUOTES, 'UTF-8') ?>">
                     <input type="hidden" name="id_proveedor">
                     <input type="hidden" name="id_condicion_proveedor">
                     <div class="row g-5">
@@ -516,7 +516,7 @@
                     <button type="button" class="btn btn-sm btn-icon btn-light" data-bs-dismiss="modal" title="Cerrar"><i class="bi bi-x-lg"></i></button>
                 </div>
                 <div class="modal-body">
-                    <input type="hidden" name="_csrf" value="<?= htmlspecialchars(SesionSeguridad::csrfToken(), ENT_QUOTES, 'UTF-8') ?>">
+                    <input type="hidden" name="_csrf" value="<?= htmlspecialchars(Sesionseguridad::csrfToken(), ENT_QUOTES, 'UTF-8') ?>">
                     <input type="hidden" name="id_proveedor">
                     <input type="hidden" name="id_documento_proveedor">
                     <div class="row g-5">
@@ -558,7 +558,7 @@
                     <button type="button" class="btn btn-sm btn-icon btn-light" data-bs-dismiss="modal" title="Cerrar"><i class="bi bi-x-lg"></i></button>
                 </div>
                 <div class="modal-body">
-                    <input type="hidden" name="_csrf" value="<?= htmlspecialchars(SesionSeguridad::csrfToken(), ENT_QUOTES, 'UTF-8') ?>">
+                    <input type="hidden" name="_csrf" value="<?= htmlspecialchars(Sesionseguridad::csrfToken(), ENT_QUOTES, 'UTF-8') ?>">
                     <input type="hidden" name="id_proveedor">
                     <input type="hidden" name="id_lista_proveedor_erp">
                     <div class="row g-5">
@@ -653,7 +653,7 @@
                     <span class="text-muted" id="proveedores_erp_lista_detalle_subtitulo">Renglones capturados</span>
                 </div>
                 <div class="d-flex gap-2">
-                    <?php if (SesionSeguridad::tienePermiso('proveedores.matching')): ?>
+                    <?php if (Sesionseguridad::tienePermiso('proveedores.matching')): ?>
                     <button class="btn btn-sm btn-light-info" type="button" id="proveedores_erp_lista_matching_dry_run">
                         <i class="bi bi-diagram-3"></i> Matching
                     </button>
@@ -661,7 +661,7 @@
                         <i class="bi bi-list-check"></i> Preview relaciones
                     </button>
                     <?php endif; ?>
-                    <?php if (SesionSeguridad::tienePermiso('proveedores.costos')): ?>
+                    <?php if (Sesionseguridad::tienePermiso('proveedores.costos')): ?>
                     <button class="btn btn-sm btn-light-danger" type="button" id="proveedores_erp_costos_lote_preview">
                         <i class="bi bi-currency-dollar"></i> Preview costos
                     </button>
@@ -669,12 +669,12 @@
                         <i class="bi bi-graph-up-arrow"></i> Preview costo ref
                     </button>
                     <?php endif; ?>
-                    <?php if (SesionSeguridad::tienePermiso('proveedores.auditoria')): ?>
+                    <?php if (Sesionseguridad::tienePermiso('proveedores.auditoria')): ?>
                     <button class="btn btn-sm btn-light-warning" type="button" id="proveedores_erp_lista_incidencias_dry_run">
                         <i class="bi bi-exclamation-triangle"></i> Resolver pendientes
                     </button>
                     <?php endif; ?>
-                    <?php if (SesionSeguridad::tienePermiso('proveedores.listas')): ?>
+                    <?php if (Sesionseguridad::tienePermiso('proveedores.listas')): ?>
                     <button class="btn btn-sm btn-light-secondary" type="button" id="proveedores_erp_catalogo_sugeridos_abrir">
                         <i class="bi bi-stars"></i> Sugeridos Catalogo
                     </button>
@@ -789,7 +789,7 @@
                     <button type="button" class="btn btn-sm btn-icon btn-light" data-bs-dismiss="modal" title="Cerrar"><i class="bi bi-x-lg"></i></button>
                 </div>
                 <div class="modal-body">
-                    <input type="hidden" name="_csrf" value="<?= htmlspecialchars(SesionSeguridad::csrfToken(), ENT_QUOTES, 'UTF-8') ?>">
+                    <input type="hidden" name="_csrf" value="<?= htmlspecialchars(Sesionseguridad::csrfToken(), ENT_QUOTES, 'UTF-8') ?>">
                     <input type="hidden" name="id_proveedor">
                     <input type="hidden" name="id_lista_proveedor_erp">
                     <input type="hidden" name="id_lista_detalle_erp">
@@ -898,7 +898,7 @@
                     <button type="button" class="btn btn-sm btn-icon btn-light" data-bs-dismiss="modal" title="Cerrar"><i class="bi bi-x-lg"></i></button>
                 </div>
                 <div class="modal-body">
-                    <input type="hidden" name="_csrf" value="<?= htmlspecialchars(SesionSeguridad::csrfToken(), ENT_QUOTES, 'UTF-8') ?>">
+                    <input type="hidden" name="_csrf" value="<?= htmlspecialchars(Sesionseguridad::csrfToken(), ENT_QUOTES, 'UTF-8') ?>">
                     <input type="hidden" name="id_proveedor">
                     <input type="hidden" name="id_lista_proveedor_erp">
                     <input type="hidden" name="ids_json">
@@ -999,7 +999,7 @@
                         <option value="ambiguo">Ambiguo</option>
                         <option value="sin_match">Sin match</option>
                     </select>
-                    <?php if (SesionSeguridad::tienePermiso('proveedores.matching')): ?>
+                    <?php if (Sesionseguridad::tienePermiso('proveedores.matching')): ?>
                     <button class="btn btn-sm btn-light-success" type="button" id="proveedores_erp_matching_masivo" disabled>
                         <i class="bi bi-magic"></i> Seleccionar confiables
                     </button>
@@ -1248,18 +1248,18 @@
 <script src="assets/js/scripts.bundle.js"></script>
 <script>
 window.PROVEEDORES_ERP_PERMISOS = {
-    crear: <?= json_encode(SesionSeguridad::tienePermiso('proveedores.crear')) ?>,
-    editar: <?= json_encode(SesionSeguridad::tienePermiso('proveedores.editar')) ?>,
-    fiscales: <?= json_encode(SesionSeguridad::tienePermiso('proveedores.fiscales')) ?>,
-    contactos: <?= json_encode(SesionSeguridad::tienePermiso('proveedores.contactos')) ?>,
-    condiciones: <?= json_encode(SesionSeguridad::tienePermiso('proveedores.condiciones')) ?>,
-    documentos: <?= json_encode(SesionSeguridad::tienePermiso('proveedores.documentos')) ?>,
-    documentos_sensibles: <?= json_encode(SesionSeguridad::tienePermiso('proveedores.documentos_sensibles')) ?>,
-    listas: <?= json_encode(SesionSeguridad::tienePermiso('proveedores.listas')) ?>,
-    matching: <?= json_encode(SesionSeguridad::tienePermiso('proveedores.matching')) ?>,
-    costos: <?= json_encode(SesionSeguridad::tienePermiso('proveedores.costos')) ?>,
-    auditoria: <?= json_encode(SesionSeguridad::tienePermiso('proveedores.auditoria')) ?>,
-    autorizar: <?= json_encode(SesionSeguridad::tienePermiso('proveedores.autorizar')) ?>
+    crear: <?= json_encode(Sesionseguridad::tienePermiso('proveedores.crear')) ?>,
+    editar: <?= json_encode(Sesionseguridad::tienePermiso('proveedores.editar')) ?>,
+    fiscales: <?= json_encode(Sesionseguridad::tienePermiso('proveedores.fiscales')) ?>,
+    contactos: <?= json_encode(Sesionseguridad::tienePermiso('proveedores.contactos')) ?>,
+    condiciones: <?= json_encode(Sesionseguridad::tienePermiso('proveedores.condiciones')) ?>,
+    documentos: <?= json_encode(Sesionseguridad::tienePermiso('proveedores.documentos')) ?>,
+    documentos_sensibles: <?= json_encode(Sesionseguridad::tienePermiso('proveedores.documentos_sensibles')) ?>,
+    listas: <?= json_encode(Sesionseguridad::tienePermiso('proveedores.listas')) ?>,
+    matching: <?= json_encode(Sesionseguridad::tienePermiso('proveedores.matching')) ?>,
+    costos: <?= json_encode(Sesionseguridad::tienePermiso('proveedores.costos')) ?>,
+    auditoria: <?= json_encode(Sesionseguridad::tienePermiso('proveedores.auditoria')) ?>,
+    autorizar: <?= json_encode(Sesionseguridad::tienePermiso('proveedores.autorizar')) ?>
 };
 </script>
 <script src="/assets/js/custom/apps/erp/proveedores/listado_erp.js?v=20260921-1"></script>

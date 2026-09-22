@@ -26,11 +26,11 @@ class Controlador {
   }
 
   protected function requerirSesion() {
-    return SesionSeguridad::requerirSesion();
+    return Sesionseguridad::requerirSesion();
   }
 
   protected function usuarioActualId() {
-    return SesionSeguridad::usuarioId();
+    return Sesionseguridad::usuarioId();
   }
 
   protected function requerirPermiso($permiso) {
@@ -40,8 +40,8 @@ class Controlador {
       return true;
     }
 
-    if (SesionSeguridad::esPeticionJson()) {
-      SesionSeguridad::registrarAuditoria('seguridad', 'permiso_denegado', array(
+    if (Sesionseguridad::esPeticionJson()) {
+      Sesionseguridad::registrarAuditoria('seguridad', 'permiso_denegado', array(
         'resultado' => 'denegado',
         'mensaje' => $permiso
       ));
@@ -56,7 +56,7 @@ class Controlador {
     }
 
     http_response_code(403);
-    SesionSeguridad::registrarAuditoria('seguridad', 'permiso_denegado', array(
+    Sesionseguridad::registrarAuditoria('seguridad', 'permiso_denegado', array(
       'resultado' => 'denegado',
       'mensaje' => $permiso
     ));
@@ -80,8 +80,8 @@ class Controlador {
       }
     }
 
-    if (SesionSeguridad::esPeticionJson()) {
-      SesionSeguridad::registrarAuditoria('seguridad', 'permiso_denegado', array(
+    if (Sesionseguridad::esPeticionJson()) {
+      Sesionseguridad::registrarAuditoria('seguridad', 'permiso_denegado', array(
         'resultado' => 'denegado',
         'mensaje' => implode(',', $permisos)
       ));
@@ -96,7 +96,7 @@ class Controlador {
     }
 
     http_response_code(403);
-    SesionSeguridad::registrarAuditoria('seguridad', 'permiso_denegado', array(
+    Sesionseguridad::registrarAuditoria('seguridad', 'permiso_denegado', array(
       'resultado' => 'denegado',
       'mensaje' => implode(',', $permisos)
     ));

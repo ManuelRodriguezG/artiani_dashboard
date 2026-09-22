@@ -102,7 +102,7 @@ class MigracionBd extends Controlador {
     $ejecutar = isset($_POST["ejecutar"]) && $_POST["ejecutar"] == 1;
     $modelo = $this->modelo("MigracionesBd");
     $respuesta = $modelo->aplicarPromocionCompleta($destino, $respaldoLocal, $respaldoProductivo, $autorizar, $confirmacion, $ejecutar, $this->usuarioActualId());
-    SesionSeguridad::registrarAuditoria("migraciones", "promocion_completa_aplicar", array(
+    Sesionseguridad::registrarAuditoria("migraciones", "promocion_completa_aplicar", array(
       "entidad" => "base_productiva",
       "resultado" => $respuesta["error"] ? "error" : "ok",
       "datos_despues" => isset($respuesta["depurar"]) ? array(
@@ -241,7 +241,7 @@ class MigracionBd extends Controlador {
     $politicas = isset($_POST["politicas"]) ? json_decode($_POST["politicas"], true) : array();
     $modelo = $this->modelo("MigracionesBd");
     $respuesta = $modelo->guardarPoliticas($politicas, $this->usuarioActualId());
-    SesionSeguridad::registrarAuditoria("migraciones", "politicas_guardar", array(
+    Sesionseguridad::registrarAuditoria("migraciones", "politicas_guardar", array(
       "entidad" => "sys_migraciones_tablas_politicas",
       "resultado" => $respuesta["error"] ? "error" : "ok",
       "datos_despues" => isset($respuesta["depurar"]) ? $respuesta["depurar"] : null,
@@ -263,7 +263,7 @@ class MigracionBd extends Controlador {
     $tablas = isset($_POST["tablas"]) ? json_decode($_POST["tablas"], true) : array();
     $modelo = $this->modelo("MigracionesBd");
     $respuesta = $modelo->crearPaqueteDryRun($destino, $tablas, $this->usuarioActualId());
-    SesionSeguridad::registrarAuditoria("migraciones", "paquete_dry_run_crear", array(
+    Sesionseguridad::registrarAuditoria("migraciones", "paquete_dry_run_crear", array(
       "entidad" => "sys_migraciones_paquetes",
       "entidad_id" => isset($respuesta["depurar"]["codigo"]) ? $respuesta["depurar"]["codigo"] : null,
       "resultado" => $respuesta["error"] ? "error" : "ok",
@@ -373,7 +373,7 @@ class MigracionBd extends Controlador {
     $ejecutar = isset($_POST["ejecutar"]) && $_POST["ejecutar"] == 1;
     $modelo = $this->modelo("MigracionesBd");
     $respuesta = $modelo->aplicarPaqueteControlado($codigo, $respaldo, $autorizar, $confirmacion, $this->usuarioActualId(), $ejecutar);
-    SesionSeguridad::registrarAuditoria("migraciones", $ejecutar ? "paquete_aplicar" : "paquete_aplicar_simular", array(
+    Sesionseguridad::registrarAuditoria("migraciones", $ejecutar ? "paquete_aplicar" : "paquete_aplicar_simular", array(
       "entidad" => "sys_migraciones_paquetes",
       "entidad_id" => $codigo,
       "resultado" => $respuesta["error"] ? "error" : "ok",
@@ -402,7 +402,7 @@ class MigracionBd extends Controlador {
     $confirmacion = isset($_POST["confirmacion"]) ? trim($_POST["confirmacion"]) : "";
     $modelo = $this->modelo("MigracionesBd");
     $respuesta = $modelo->autorizarPaquete($codigo, $respaldo, $autorizar, $confirmacion, $this->usuarioActualId());
-    SesionSeguridad::registrarAuditoria("migraciones", "paquete_autorizar", array(
+    Sesionseguridad::registrarAuditoria("migraciones", "paquete_autorizar", array(
       "entidad" => "sys_migraciones_paquetes",
       "entidad_id" => $codigo,
       "resultado" => $respuesta["error"] ? "error" : "ok",
@@ -453,7 +453,7 @@ class MigracionBd extends Controlador {
     $confirmacion = isset($_POST["confirmacion"]) ? trim($_POST["confirmacion"]) : "";
     $modelo = $this->modelo("MigracionesBd");
     $respuesta = $modelo->generarRespaldoLocal($alcance, $autorizar, $confirmacion, $this->usuarioActualId());
-    SesionSeguridad::registrarAuditoria("migraciones", "respaldo_generar", array(
+    Sesionseguridad::registrarAuditoria("migraciones", "respaldo_generar", array(
       "entidad" => "backup_sql",
       "resultado" => $respuesta["error"] ? "error" : "ok",
       "datos_despues" => isset($respuesta["depurar"]) ? array(
@@ -481,7 +481,7 @@ class MigracionBd extends Controlador {
     $confirmacion = isset($_POST["confirmacion"]) ? trim($_POST["confirmacion"]) : "";
     $modelo = $this->modelo("MigracionesBd");
     $respuesta = $modelo->generarRespaldoAmbienteCompleto($alias, $autorizar, $confirmacion, $this->usuarioActualId());
-    SesionSeguridad::registrarAuditoria("migraciones", "respaldo_completo_generar", array(
+    Sesionseguridad::registrarAuditoria("migraciones", "respaldo_completo_generar", array(
       "entidad" => "backup_sql",
       "resultado" => $respuesta["error"] ? "error" : "ok",
       "datos_despues" => isset($respuesta["depurar"]) ? array(
@@ -581,7 +581,7 @@ class MigracionBd extends Controlador {
             "confirmacion_ok" => $confirmacionOk
           )
         );
-        SesionSeguridad::registrarAuditoria("migraciones", "esquema_actualizar_bloqueado", array(
+        Sesionseguridad::registrarAuditoria("migraciones", "esquema_actualizar_bloqueado", array(
           "entidad" => "sys_migraciones_*",
           "resultado" => "bloqueado",
           "datos_despues" => $respuesta["depurar"],
@@ -594,7 +594,7 @@ class MigracionBd extends Controlador {
 
     $esquema = $this->modelo("MigracionesBdEsquema");
     $respuesta = $esquema->planActualizarMigracionesBd($ejecutar);
-    SesionSeguridad::registrarAuditoria("migraciones", $ejecutar ? "esquema_actualizar" : "esquema_dry_run", array(
+    Sesionseguridad::registrarAuditoria("migraciones", $ejecutar ? "esquema_actualizar" : "esquema_dry_run", array(
       "entidad" => "sys_migraciones_*",
       "resultado" => $respuesta["error"] ? "error" : "ok",
       "datos_despues" => array(

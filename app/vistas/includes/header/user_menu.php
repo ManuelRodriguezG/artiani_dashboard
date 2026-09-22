@@ -60,12 +60,12 @@ if ($navbarIniciales === "") {
       </div>
     </div>
     <div class="separator my-2"></div>
-    <?php if (SesionSeguridad::tienePermiso("seguridad.ver")): ?>
+    <?php if (Sesionseguridad::tienePermiso("seguridad.ver")): ?>
       <div class="menu-item px-5">
         <a href="/sistema/seguridad" class="menu-link px-5">Usuarios y roles</a>
       </div>
     <?php endif; ?>
-    <?php if (SesionSeguridad::tienePermiso("notificaciones.ver")): ?>
+    <?php if (Sesionseguridad::tienePermiso("notificaciones.ver")): ?>
       <div class="menu-item px-5">
         <a href="/sistema/notificaciones" class="menu-link px-5">Notificaciones</a>
       </div>

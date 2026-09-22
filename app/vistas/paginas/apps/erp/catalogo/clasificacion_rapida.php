@@ -32,7 +32,7 @@
                             </div>
                             <div class="d-flex gap-2">
                                 <a class="btn btn-light-primary" href="/catalogoerp"><i class="bi bi-box-seam"></i> Productos ERP</a>
-                                <?php if (SesionSeguridad::tienePermiso("catalogo.editar")): ?>
+                                <?php if (Sesionseguridad::tienePermiso("catalogo.editar")): ?>
                                 <a class="btn btn-light" href="/catalogoerp/configuracion"><i class="bi bi-gear"></i> Configuracion</a>
                                 <?php endif; ?>
                             </div>
@@ -128,8 +128,8 @@
 <script src="assets/js/scripts.bundle.js"></script>
 <script>
     window.CATALOGO_PERMISOS = <?= json_encode(array(
-        "ver" => SesionSeguridad::tienePermiso("catalogo.ver"),
-        "editar" => SesionSeguridad::tienePermiso("catalogo.editar")
+        "ver" => Sesionseguridad::tienePermiso("catalogo.ver"),
+        "editar" => Sesionseguridad::tienePermiso("catalogo.editar")
     )); ?>;
 </script>
 <script src="/assets/js/custom/apps/erp/catalogo/clasificacion_rapida.js?v=20260909-1"></script>

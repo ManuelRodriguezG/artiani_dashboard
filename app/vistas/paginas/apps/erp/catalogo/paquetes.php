@@ -70,7 +70,7 @@
                                             <div class="card-toolbar"><button class="btn btn-sm btn-light" type="button" id="paquetes_limpiar"><i class="bi bi-arrow-counterclockwise"></i> Limpiar</button></div>
                                         </div>
                                         <div class="card-body pt-0">
-                                            <?php if (SesionSeguridad::tienePermiso('catalogo.editar')): ?>
+                                            <?php if (Sesionseguridad::tienePermiso('catalogo.editar')): ?>
                                             <div class="border rounded p-5 mb-6 bg-light">
                                                 <div class="fw-semibold mb-4">Crear producto/SKU paquete minimo</div>
                                                 <form id="paquete_form_sku" data-erp-ajax="true">
@@ -190,9 +190,9 @@
 <script src="assets/js/scripts.bundle.js"></script>
 <script>
     window.CATALOGO_PERMISOS = <?= json_encode(array(
-        "ver" => SesionSeguridad::tienePermiso("catalogo.ver"),
-        "editar" => SesionSeguridad::tienePermiso("catalogo.editar"),
-        "costos" => SesionSeguridad::tienePermiso("catalogo.costos")
+        "ver" => Sesionseguridad::tienePermiso("catalogo.ver"),
+        "editar" => Sesionseguridad::tienePermiso("catalogo.editar"),
+        "costos" => Sesionseguridad::tienePermiso("catalogo.costos")
     )); ?>;
 </script>
 <script src="/assets/js/custom/apps/erp/catalogo/paquetes.js?v=20260828-1"></script>

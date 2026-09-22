@@ -276,7 +276,7 @@ class Cms extends Controlador {
       $_POST,
       $this->usuarioActualId()
     );
-    SesionSeguridad::registrarAuditoria("cms", "media_admin_subir_erp", array(
+    Sesionseguridad::registrarAuditoria("cms", "media_admin_subir_erp", array(
       "id_registro" => isset($respuesta["depurar"]["id_media_archivo"]) ? $respuesta["depurar"]["id_media_archivo"] : null,
       "datos_despues" => array(
         "error" => isset($respuesta["error"]) ? (bool) $respuesta["error"] : true,
@@ -317,7 +317,7 @@ class Cms extends Controlador {
   public function media_admin_eliminar_erp() {
     $this->requerirAlgunPermiso(array("cms.editar", "catalogo.editar"));
     $respuesta = $this->modelo("EcommerceCatalogoPublico")->mediaAdminEliminarInterno($_POST, $this->usuarioActualId());
-    SesionSeguridad::registrarAuditoria("cms", "media_admin_eliminar_erp", array(
+    Sesionseguridad::registrarAuditoria("cms", "media_admin_eliminar_erp", array(
       "id_registro" => isset($_POST["id_media_archivo"]) ? intval($_POST["id_media_archivo"]) : null,
       "datos_despues" => array(
         "error" => isset($respuesta["error"]) ? (bool) $respuesta["error"] : true,
@@ -507,7 +507,7 @@ class Cms extends Controlador {
     $this->requerirAlgunPermiso(array("cms.editar", "catalogo.editar"));
     $respuesta = $this->modelo("EcommerceCatalogoPublico")->contenidoBloqueGuardarInterno($_POST, $this->usuarioActualId());
     $depurar = isset($respuesta["depurar"]) && is_array($respuesta["depurar"]) ? $respuesta["depurar"] : array();
-    SesionSeguridad::registrarAuditoria("cms", "contenido_bloque_guardar_erp", array(
+    Sesionseguridad::registrarAuditoria("cms", "contenido_bloque_guardar_erp", array(
       "resultado" => empty($respuesta["error"]) ? "ok" : "error",
       "mensaje" => isset($respuesta["mensaje"]) ? $respuesta["mensaje"] : "",
       "datos_despues" => array(
@@ -531,7 +531,7 @@ class Cms extends Controlador {
     $this->requerirAlgunPermiso(array("cms.editar", "catalogo.editar"));
     $respuesta = $this->modelo("EcommerceCatalogoPublico")->contenidoBloqueEstatusInterno($_POST, $this->usuarioActualId());
     $depurar = isset($respuesta["depurar"]) && is_array($respuesta["depurar"]) ? $respuesta["depurar"] : array();
-    SesionSeguridad::registrarAuditoria("cms", "contenido_bloque_estatus_erp", array(
+    Sesionseguridad::registrarAuditoria("cms", "contenido_bloque_estatus_erp", array(
       "resultado" => empty($respuesta["error"]) ? "ok" : "error",
       "mensaje" => isset($respuesta["mensaje"]) ? $respuesta["mensaje"] : "",
       "datos_antes" => array(
@@ -557,7 +557,7 @@ class Cms extends Controlador {
     $this->requerirAlgunPermiso(array("cms.editar", "catalogo.editar"));
     $respuesta = $this->modelo("EcommerceCatalogoPublico")->contenidoPublicacionGuardarInterna($_POST, $this->usuarioActualId());
     $depurar = isset($respuesta["depurar"]) && is_array($respuesta["depurar"]) ? $respuesta["depurar"] : array();
-    SesionSeguridad::registrarAuditoria("cms", "contenido_publicacion_guardar_erp", array(
+    Sesionseguridad::registrarAuditoria("cms", "contenido_publicacion_guardar_erp", array(
       "resultado" => empty($respuesta["error"]) ? "ok" : "error",
       "mensaje" => isset($respuesta["mensaje"]) ? $respuesta["mensaje"] : "",
       "datos_despues" => array(
@@ -582,7 +582,7 @@ class Cms extends Controlador {
     $this->requerirAlgunPermiso(array("cms.publicar", "catalogo.editar"));
     $respuesta = $this->modelo("EcommerceCatalogoPublico")->contenidoPublicacionEstatusInterna($_POST, $this->usuarioActualId());
     $depurar = isset($respuesta["depurar"]) && is_array($respuesta["depurar"]) ? $respuesta["depurar"] : array();
-    SesionSeguridad::registrarAuditoria("cms", "contenido_publicacion_estatus_erp", array(
+    Sesionseguridad::registrarAuditoria("cms", "contenido_publicacion_estatus_erp", array(
       "resultado" => empty($respuesta["error"]) ? "ok" : "error",
       "mensaje" => isset($respuesta["mensaje"]) ? $respuesta["mensaje"] : "",
       "datos_antes" => array(
@@ -611,7 +611,7 @@ class Cms extends Controlador {
     $this->requerirAlgunPermiso(array("cms.publicar", "catalogo.editar"));
     $respuesta = $this->modelo("EcommerceCatalogoPublico")->frontendHomeBannerPublicarInterno($_POST, $this->usuarioActualId());
     $depurar = isset($respuesta["depurar"]) && is_array($respuesta["depurar"]) ? $respuesta["depurar"] : array();
-    SesionSeguridad::registrarAuditoria("cms", "frontend_home_banner_publicar_erp", array(
+    Sesionseguridad::registrarAuditoria("cms", "frontend_home_banner_publicar_erp", array(
       "resultado" => empty($respuesta["error"]) ? "ok" : "error",
       "mensaje" => isset($respuesta["mensaje"]) ? $respuesta["mensaje"] : "",
       "datos_despues" => array(
@@ -634,7 +634,7 @@ class Cms extends Controlador {
     $this->requerirAlgunPermiso(array("cms.publicar", "catalogo.editar"));
     $respuesta = $this->modelo("EcommerceCatalogoPublico")->frontendHomePromoPublicarInterno($_POST, $this->usuarioActualId());
     $depurar = isset($respuesta["depurar"]) && is_array($respuesta["depurar"]) ? $respuesta["depurar"] : array();
-    SesionSeguridad::registrarAuditoria("cms", "frontend_home_promo_publicar_erp", array(
+    Sesionseguridad::registrarAuditoria("cms", "frontend_home_promo_publicar_erp", array(
       "resultado" => empty($respuesta["error"]) ? "ok" : "error",
       "mensaje" => isset($respuesta["mensaje"]) ? $respuesta["mensaje"] : "",
       "datos_despues" => array(
@@ -658,7 +658,7 @@ class Cms extends Controlador {
     $this->requerirAlgunPermiso(array("cms.publicar", "catalogo.editar"));
     $respuesta = $this->modelo("EcommerceCatalogoPublico")->frontendHomeCategoriasPublicarInterno($_POST, $this->usuarioActualId());
     $depurar = isset($respuesta["depurar"]) && is_array($respuesta["depurar"]) ? $respuesta["depurar"] : array();
-    SesionSeguridad::registrarAuditoria("cms", "frontend_home_categorias_publicar_erp", array(
+    Sesionseguridad::registrarAuditoria("cms", "frontend_home_categorias_publicar_erp", array(
       "resultado" => empty($respuesta["error"]) ? "ok" : "error",
       "mensaje" => isset($respuesta["mensaje"]) ? $respuesta["mensaje"] : "",
       "datos_despues" => array(
@@ -682,7 +682,7 @@ class Cms extends Controlador {
     $this->requerirAlgunPermiso(array("cms.publicar", "catalogo.editar"));
     $respuesta = $this->modelo("EcommerceCatalogoPublico")->frontendHomePromosCategoriaPublicarInterno($_POST, $this->usuarioActualId());
     $depurar = isset($respuesta["depurar"]) && is_array($respuesta["depurar"]) ? $respuesta["depurar"] : array();
-    SesionSeguridad::registrarAuditoria("cms", "frontend_home_promos_categoria_publicar_erp", array(
+    Sesionseguridad::registrarAuditoria("cms", "frontend_home_promos_categoria_publicar_erp", array(
       "resultado" => empty($respuesta["error"]) ? "ok" : "error",
       "mensaje" => isset($respuesta["mensaje"]) ? $respuesta["mensaje"] : "",
       "datos_despues" => array(
@@ -705,7 +705,7 @@ class Cms extends Controlador {
     $this->requerirAlgunPermiso(array("cms.publicar", "catalogo.editar"));
     $respuesta = $this->modelo("EcommerceCatalogoPublico")->frontendHomeMarcasPublicarInterno($_POST, $this->usuarioActualId());
     $depurar = isset($respuesta["depurar"]) && is_array($respuesta["depurar"]) ? $respuesta["depurar"] : array();
-    SesionSeguridad::registrarAuditoria("cms", "frontend_home_marcas_publicar_erp", array(
+    Sesionseguridad::registrarAuditoria("cms", "frontend_home_marcas_publicar_erp", array(
       "resultado" => empty($respuesta["error"]) ? "ok" : "error",
       "mensaje" => isset($respuesta["mensaje"]) ? $respuesta["mensaje"] : "",
       "datos_despues" => array(
@@ -778,7 +778,7 @@ class Cms extends Controlador {
     $this->requerirAlgunPermiso(array("cms.publicar", "catalogo.editar"));
     $respuesta = $this->modelo("EcommerceCatalogoPublico")->frontendHomeEsencialesPublicarInterno($_POST, $this->usuarioActualId());
     $depurar = isset($respuesta["depurar"]) && is_array($respuesta["depurar"]) ? $respuesta["depurar"] : array();
-    SesionSeguridad::registrarAuditoria("cms", "frontend_home_esenciales_publicar_erp", array(
+    Sesionseguridad::registrarAuditoria("cms", "frontend_home_esenciales_publicar_erp", array(
       "resultado" => empty($respuesta["error"]) ? "ok" : "error",
       "mensaje" => isset($respuesta["mensaje"]) ? $respuesta["mensaje"] : "",
       "datos_despues" => array(
@@ -801,7 +801,7 @@ class Cms extends Controlador {
     $this->requerirAlgunPermiso(array("cms.publicar", "catalogo.editar"));
     $respuesta = $this->modelo("EcommerceCatalogoPublico")->frontendHomeCompraGuiadaPublicarInterno($_POST, $this->usuarioActualId());
     $depurar = isset($respuesta["depurar"]) && is_array($respuesta["depurar"]) ? $respuesta["depurar"] : array();
-    SesionSeguridad::registrarAuditoria("cms", "frontend_home_compra_guiada_publicar_erp", array(
+    Sesionseguridad::registrarAuditoria("cms", "frontend_home_compra_guiada_publicar_erp", array(
       "resultado" => empty($respuesta["error"]) ? "ok" : "error",
       "mensaje" => isset($respuesta["mensaje"]) ? $respuesta["mensaje"] : "",
       "datos_despues" => array(
@@ -824,7 +824,7 @@ class Cms extends Controlador {
     $this->requerirAlgunPermiso(array("cms.publicar", "catalogo.editar"));
     $respuesta = $this->modelo("EcommerceCatalogoPublico")->frontendCatalogoPublicarInterno($_POST, $this->usuarioActualId());
     $depurar = isset($respuesta["depurar"]) && is_array($respuesta["depurar"]) ? $respuesta["depurar"] : array();
-    SesionSeguridad::registrarAuditoria("cms", "frontend_catalogo_publicar_erp", array(
+    Sesionseguridad::registrarAuditoria("cms", "frontend_catalogo_publicar_erp", array(
       "resultado" => empty($respuesta["error"]) ? "ok" : "error",
       "mensaje" => isset($respuesta["mensaje"]) ? $respuesta["mensaje"] : "",
       "datos_despues" => array(
@@ -858,7 +858,7 @@ class Cms extends Controlador {
     $this->requerirAlgunPermiso(array("cms.publicar", "catalogo.editar"));
     $respuesta = $this->modelo("EcommerceCatalogoPublico")->guardarBusquedaInteligenteConfigInterna($_POST, $this->usuarioActualId());
     $depurar = isset($respuesta["depurar"]) && is_array($respuesta["depurar"]) ? $respuesta["depurar"] : array();
-    SesionSeguridad::registrarAuditoria("cms", "frontend_busqueda_publicar_erp", array(
+    Sesionseguridad::registrarAuditoria("cms", "frontend_busqueda_publicar_erp", array(
       "resultado" => empty($respuesta["error"]) ? "ok" : "error",
       "mensaje" => isset($respuesta["mensaje"]) ? $respuesta["mensaje"] : "",
       "datos_despues" => array(
@@ -920,7 +920,7 @@ class Cms extends Controlador {
     $this->requerirAlgunPermiso(array("cms.editar", "catalogo.editar"));
     $respuesta = $this->modelo("EcommerceBlogPublico")->adminGuardar($_POST, $this->usuarioActualId());
     $depurar = isset($respuesta["depurar"]) && is_array($respuesta["depurar"]) ? $respuesta["depurar"] : array();
-    SesionSeguridad::registrarAuditoria("cms_blog", "blog_publicacion_guardar_erp", array(
+    Sesionseguridad::registrarAuditoria("cms_blog", "blog_publicacion_guardar_erp", array(
       "resultado" => empty($respuesta["error"]) ? "ok" : "error",
       "mensaje" => isset($respuesta["mensaje"]) ? $respuesta["mensaje"] : "",
       "datos_despues" => array(
@@ -943,7 +943,7 @@ class Cms extends Controlador {
     $this->requerirAlgunPermiso(array("cms.publicar", "catalogo.editar"));
     $respuesta = $this->modelo("EcommerceBlogPublico")->adminEstatus($_POST, $this->usuarioActualId());
     $depurar = isset($respuesta["depurar"]) && is_array($respuesta["depurar"]) ? $respuesta["depurar"] : array();
-    SesionSeguridad::registrarAuditoria("cms_blog", "blog_publicacion_estatus_erp", array(
+    Sesionseguridad::registrarAuditoria("cms_blog", "blog_publicacion_estatus_erp", array(
       "resultado" => empty($respuesta["error"]) ? "ok" : "error",
       "mensaje" => isset($respuesta["mensaje"]) ? $respuesta["mensaje"] : "",
       "datos_antes" => array(
@@ -969,7 +969,7 @@ class Cms extends Controlador {
     $this->requerirAlgunPermiso(array("cms.publicar", "catalogo.editar"));
     $respuesta = $this->modelo("EcommerceCatalogoPublico")->frontendHomeProductosPublicarInterno($_POST, $this->usuarioActualId());
     $depurar = isset($respuesta["depurar"]) && is_array($respuesta["depurar"]) ? $respuesta["depurar"] : array();
-    SesionSeguridad::registrarAuditoria("cms", "frontend_home_productos_publicar_erp", array(
+    Sesionseguridad::registrarAuditoria("cms", "frontend_home_productos_publicar_erp", array(
       "resultado" => empty($respuesta["error"]) ? "ok" : "error",
       "mensaje" => isset($respuesta["mensaje"]) ? $respuesta["mensaje"] : "",
       "datos_despues" => array(
@@ -994,7 +994,7 @@ class Cms extends Controlador {
     $this->requerirAlgunPermiso(array("cms.publicar", "catalogo.editar"));
     $respuesta = $this->modelo("EcommerceCatalogoPublico")->frontendHomeColeccionesPublicarInterno($_POST, $this->usuarioActualId());
     $depurar = isset($respuesta["depurar"]) && is_array($respuesta["depurar"]) ? $respuesta["depurar"] : array();
-    SesionSeguridad::registrarAuditoria("cms", "frontend_home_colecciones_publicar_erp", array(
+    Sesionseguridad::registrarAuditoria("cms", "frontend_home_colecciones_publicar_erp", array(
       "resultado" => empty($respuesta["error"]) ? "ok" : "error",
       "mensaje" => isset($respuesta["mensaje"]) ? $respuesta["mensaje"] : "",
       "datos_despues" => array(
@@ -1018,7 +1018,7 @@ class Cms extends Controlador {
     $this->requerirAlgunPermiso(array("cms.publicar", "catalogo.editar"));
     $respuesta = $this->modelo("EcommerceCatalogoPublico")->frontendGlobalPublicarInterno($_POST, $this->usuarioActualId());
     $depurar = isset($respuesta["depurar"]) && is_array($respuesta["depurar"]) ? $respuesta["depurar"] : array();
-    SesionSeguridad::registrarAuditoria("cms", "frontend_global_publicar_erp", array(
+    Sesionseguridad::registrarAuditoria("cms", "frontend_global_publicar_erp", array(
       "resultado" => empty($respuesta["error"]) ? "ok" : "error",
       "mensaje" => isset($respuesta["mensaje"]) ? $respuesta["mensaje"] : "",
       "datos_despues" => array(
@@ -1040,7 +1040,7 @@ class Cms extends Controlador {
     $this->requerirAlgunPermiso(array("cms.publicar", "catalogo.editar"));
     $respuesta = $this->modelo("EcommerceCatalogoPublico")->frontendGlobalWhatsappPublicarInterno($_POST, $this->usuarioActualId());
     $depurar = isset($respuesta["depurar"]) && is_array($respuesta["depurar"]) ? $respuesta["depurar"] : array();
-    SesionSeguridad::registrarAuditoria("cms", "frontend_global_whatsapp_publicar_erp", array(
+    Sesionseguridad::registrarAuditoria("cms", "frontend_global_whatsapp_publicar_erp", array(
       "resultado" => empty($respuesta["error"]) ? "ok" : "error",
       "mensaje" => isset($respuesta["mensaje"]) ? $respuesta["mensaje"] : "",
       "datos_despues" => array(
@@ -1064,7 +1064,7 @@ class Cms extends Controlador {
     $this->requerirAlgunPermiso(array("cms.publicar", "catalogo.editar"));
     $respuesta = $this->modelo("EcommerceCatalogoPublico")->frontendCategoriasPublicarInterno($_POST, $this->usuarioActualId());
     $depurar = isset($respuesta["depurar"]) && is_array($respuesta["depurar"]) ? $respuesta["depurar"] : array();
-    SesionSeguridad::registrarAuditoria("cms", "frontend_categorias_publicar_erp", array(
+    Sesionseguridad::registrarAuditoria("cms", "frontend_categorias_publicar_erp", array(
       "resultado" => empty($respuesta["error"]) ? "ok" : "error",
       "mensaje" => isset($respuesta["mensaje"]) ? $respuesta["mensaje"] : "",
       "datos_despues" => array(
@@ -1087,7 +1087,7 @@ class Cms extends Controlador {
     $this->requerirAlgunPermiso(array("cms.publicar", "catalogo.editar"));
     $respuesta = $this->modelo("EcommerceCatalogoPublico")->frontendMarcasPublicarInterno($_POST, $this->usuarioActualId());
     $depurar = isset($respuesta["depurar"]) && is_array($respuesta["depurar"]) ? $respuesta["depurar"] : array();
-    SesionSeguridad::registrarAuditoria("cms", "frontend_marcas_publicar_erp", array(
+    Sesionseguridad::registrarAuditoria("cms", "frontend_marcas_publicar_erp", array(
       "resultado" => empty($respuesta["error"]) ? "ok" : "error",
       "mensaje" => isset($respuesta["mensaje"]) ? $respuesta["mensaje"] : "",
       "datos_despues" => array(
@@ -1238,7 +1238,7 @@ class Cms extends Controlador {
    */
   private function auditarPublicacionHomeCms($accion, $respuesta) {
     $depurar = isset($respuesta["depurar"]) && is_array($respuesta["depurar"]) ? $respuesta["depurar"] : array();
-    SesionSeguridad::registrarAuditoria("cms", $accion, array(
+    Sesionseguridad::registrarAuditoria("cms", $accion, array(
       "resultado" => empty($respuesta["error"]) ? "ok" : "error",
       "mensaje" => isset($respuesta["mensaje"]) ? $respuesta["mensaje"] : "",
       "datos_despues" => array(

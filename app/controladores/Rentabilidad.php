@@ -361,7 +361,7 @@ class Rentabilidad extends Controlador {
     public function incidencia_costo_derivado_resolver_erp() {
         $this->requerirPermiso("rentabilidad.snapshot");
         $respuesta = $this->modelo("RentabilidadErp")->resolverIncidenciaCostoDerivadoPersistente($_POST, $this->usuarioActualId());
-        SesionSeguridad::registrarAuditoria("rentabilidad", "incidencia_costo_derivado_resolver_erp", array(
+        Sesionseguridad::registrarAuditoria("rentabilidad", "incidencia_costo_derivado_resolver_erp", array(
             "entidad" => "erp_notificaciones",
             "resultado" => $respuesta["error"] ? "error" : "ok",
             "mensaje" => $respuesta["mensaje"],
@@ -398,7 +398,7 @@ class Rentabilidad extends Controlador {
     public function recomendaciones_guardar_erp() {
         $this->requerirPermiso("rentabilidad.snapshot");
         $respuesta = $this->modelo("RentabilidadErp")->guardarRecomendaciones($_POST, $this->usuarioActualId());
-        SesionSeguridad::registrarAuditoria("rentabilidad", "recomendaciones_guardar_erp", array(
+        Sesionseguridad::registrarAuditoria("rentabilidad", "recomendaciones_guardar_erp", array(
             "entidad" => "erp_rentabilidad_recomendaciones",
             "resultado" => $respuesta["error"] ? "error" : "ok",
             "mensaje" => $respuesta["mensaje"],
@@ -410,7 +410,7 @@ class Rentabilidad extends Controlador {
     public function aprobacion_interna_guardar_erp() {
         $this->requerirPermiso("rentabilidad.snapshot");
         $respuesta = $this->modelo("RentabilidadErp")->guardarAprobacionInterna($_POST, $this->usuarioActualId());
-        SesionSeguridad::registrarAuditoria("rentabilidad", "aprobacion_interna_guardar_erp", array(
+        Sesionseguridad::registrarAuditoria("rentabilidad", "aprobacion_interna_guardar_erp", array(
             "entidad" => "erp_rentabilidad_aprobaciones_comerciales",
             "resultado" => $respuesta["error"] ? "error" : "ok",
             "mensaje" => $respuesta["mensaje"],
@@ -422,7 +422,7 @@ class Rentabilidad extends Controlador {
     public function aprobacion_interna_resolver_erp() {
         $this->requerirPermiso("rentabilidad.snapshot");
         $respuesta = $this->modelo("RentabilidadErp")->resolverAprobacionInterna($_POST, $this->usuarioActualId());
-        SesionSeguridad::registrarAuditoria("rentabilidad", "aprobacion_interna_resolver_erp", array(
+        Sesionseguridad::registrarAuditoria("rentabilidad", "aprobacion_interna_resolver_erp", array(
             "entidad" => "erp_rentabilidad_aprobaciones_comerciales",
             "resultado" => $respuesta["error"] ? "error" : "ok",
             "mensaje" => $respuesta["mensaje"],
@@ -434,7 +434,7 @@ class Rentabilidad extends Controlador {
     public function recomendacion_resolver_erp() {
         $this->requerirPermiso("rentabilidad.snapshot");
         $respuesta = $this->modelo("RentabilidadErp")->resolverRecomendacion($_POST, $this->usuarioActualId());
-        SesionSeguridad::registrarAuditoria("rentabilidad", "recomendacion_resolver_erp", array(
+        Sesionseguridad::registrarAuditoria("rentabilidad", "recomendacion_resolver_erp", array(
             "entidad" => "erp_rentabilidad_recomendaciones",
             "resultado" => $respuesta["error"] ? "error" : "ok",
             "mensaje" => $respuesta["mensaje"],
@@ -446,7 +446,7 @@ class Rentabilidad extends Controlador {
     public function snapshot_guardar_erp() {
         $this->requerirPermiso("rentabilidad.snapshot");
         $respuesta = $this->modelo("RentabilidadErp")->guardarSnapshot($_POST, $this->usuarioActualId());
-        SesionSeguridad::registrarAuditoria("rentabilidad", "snapshot_guardar_erp", array(
+        Sesionseguridad::registrarAuditoria("rentabilidad", "snapshot_guardar_erp", array(
             "entidad" => "erp_rentabilidad_snapshots",
             "resultado" => $respuesta["error"] ? "error" : "ok",
             "mensaje" => $respuesta["mensaje"],

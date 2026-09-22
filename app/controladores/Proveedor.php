@@ -126,7 +126,7 @@ class Proveedor extends Controlador {
         $incluir_sensibles = $this->modelo("SeguridadPermisos")->usuarioTienePermiso($this->usuarioActualId(), "proveedores.documentos_sensibles");
         $respuesta = $this->modelo("Proveedores")->consultarProveedorErp($id_proveedor, $incluir_sensibles);
         if ($incluir_sensibles && !$respuesta["error"] && $this->respuestaIncluyeDocumentosSensibles($respuesta)) {
-            SesionSeguridad::registrarAuditoria("proveedores", "proveedor_documento_sensible_consultar", array(
+            Sesionseguridad::registrarAuditoria("proveedores", "proveedor_documento_sensible_consultar", array(
                 "entidad" => "erp_proveedores",
                 "entidad_id" => intval($id_proveedor),
                 "resultado" => "ok",
@@ -170,7 +170,7 @@ class Proveedor extends Controlador {
         $id_proveedor = isset($_POST["id_proveedor"]) ? intval($_POST["id_proveedor"]) : 0;
         $this->requerirPermiso($id_proveedor > 0 ? "proveedores.editar" : "proveedores.crear");
         $respuesta = $this->modelo("Proveedores")->guardarGeneralesProveedorErp($_POST, $this->usuarioActualId());
-        SesionSeguridad::registrarAuditoria("proveedores", $id_proveedor > 0 ? "proveedor_editar_generales" : "proveedor_crear", array(
+        Sesionseguridad::registrarAuditoria("proveedores", $id_proveedor > 0 ? "proveedor_editar_generales" : "proveedor_crear", array(
             "entidad" => "erp_proveedores",
             "entidad_id" => isset($respuesta["depurar"]["id_proveedor"]) ? intval($respuesta["depurar"]["id_proveedor"]) : ($id_proveedor ?: null),
             "resultado" => $respuesta["error"] ? "error" : "ok",
@@ -184,7 +184,7 @@ class Proveedor extends Controlador {
     public function proveedor_estatus_erp() {
         $this->requerirPermiso("proveedores.autorizar");
         $respuesta = $this->modelo("Proveedores")->cambiarEstatusProveedorErp($_POST, $this->usuarioActualId());
-        SesionSeguridad::registrarAuditoria("proveedores", "proveedor_estatus_cambiar", array(
+        Sesionseguridad::registrarAuditoria("proveedores", "proveedor_estatus_cambiar", array(
             "entidad" => "erp_proveedores",
             "entidad_id" => isset($respuesta["depurar"]["id_proveedor"]) ? intval($respuesta["depurar"]["id_proveedor"]) : (isset($_POST["id_proveedor"]) ? intval($_POST["id_proveedor"]) : null),
             "resultado" => $respuesta["error"] ? "error" : "ok",
@@ -202,7 +202,7 @@ class Proveedor extends Controlador {
     public function proveedor_fiscal_guardar_erp() {
         $this->requerirPermiso("proveedores.fiscales");
         $respuesta = $this->modelo("Proveedores")->guardarFiscalProveedorErp($_POST, $this->usuarioActualId());
-        SesionSeguridad::registrarAuditoria("proveedores", "proveedor_fiscal_guardar", array(
+        Sesionseguridad::registrarAuditoria("proveedores", "proveedor_fiscal_guardar", array(
             "entidad" => "erp_proveedores_fiscales",
             "entidad_id" => isset($respuesta["depurar"]["id_proveedor_fiscal"]) ? intval($respuesta["depurar"]["id_proveedor_fiscal"]) : null,
             "resultado" => $respuesta["error"] ? "error" : "ok",
@@ -216,7 +216,7 @@ class Proveedor extends Controlador {
     public function proveedor_contacto_guardar_erp() {
         $this->requerirPermiso("proveedores.contactos");
         $respuesta = $this->modelo("Proveedores")->guardarContactoProveedorErp($_POST, $this->usuarioActualId());
-        SesionSeguridad::registrarAuditoria("proveedores", "proveedor_contacto_guardar", array(
+        Sesionseguridad::registrarAuditoria("proveedores", "proveedor_contacto_guardar", array(
             "entidad" => "erp_proveedores_contactos",
             "entidad_id" => isset($respuesta["depurar"]["id_contacto_proveedor"]) ? intval($respuesta["depurar"]["id_contacto_proveedor"]) : null,
             "resultado" => $respuesta["error"] ? "error" : "ok",
@@ -230,7 +230,7 @@ class Proveedor extends Controlador {
     public function proveedor_condicion_guardar_erp() {
         $this->requerirPermiso("proveedores.condiciones");
         $respuesta = $this->modelo("Proveedores")->guardarCondicionProveedorErp($_POST, $this->usuarioActualId());
-        SesionSeguridad::registrarAuditoria("proveedores", "proveedor_condicion_guardar", array(
+        Sesionseguridad::registrarAuditoria("proveedores", "proveedor_condicion_guardar", array(
             "entidad" => "erp_proveedores_condiciones",
             "entidad_id" => isset($respuesta["depurar"]["id_condicion_proveedor"]) ? intval($respuesta["depurar"]["id_condicion_proveedor"]) : null,
             "resultado" => $respuesta["error"] ? "error" : "ok",
@@ -251,7 +251,7 @@ class Proveedor extends Controlador {
             $this->requerirPermiso("proveedores.documentos_sensibles");
         }
         $respuesta = $proveedores->guardarDocumentoProveedorErp($_POST, $this->usuarioActualId());
-        SesionSeguridad::registrarAuditoria("proveedores", "proveedor_documento_guardar", array(
+        Sesionseguridad::registrarAuditoria("proveedores", "proveedor_documento_guardar", array(
             "entidad" => "erp_proveedores_documentos",
             "entidad_id" => isset($respuesta["depurar"]["id_documento_proveedor"]) ? intval($respuesta["depurar"]["id_documento_proveedor"]) : null,
             "resultado" => $respuesta["error"] ? "error" : "ok",
@@ -271,7 +271,7 @@ class Proveedor extends Controlador {
             $this->requerirPermiso("proveedores.documentos_sensibles");
         }
         $respuesta = $proveedores->guardarListaProveedorErp($_POST, $this->usuarioActualId());
-        SesionSeguridad::registrarAuditoria("proveedores", "proveedor_lista_guardar", array(
+        Sesionseguridad::registrarAuditoria("proveedores", "proveedor_lista_guardar", array(
             "entidad" => "erp_proveedores_listas_erp",
             "entidad_id" => isset($respuesta["depurar"]["id_lista_proveedor_erp"]) ? intval($respuesta["depurar"]["id_lista_proveedor_erp"]) : null,
             "resultado" => $respuesta["error"] ? "error" : "ok",
@@ -290,7 +290,7 @@ class Proveedor extends Controlador {
             isset($_FILES["archivo_lista"]) ? $_FILES["archivo_lista"] : array(),
             $this->usuarioActualId()
         );
-        SesionSeguridad::registrarAuditoria("proveedores", "proveedor_lista_archivo_subir", array(
+        Sesionseguridad::registrarAuditoria("proveedores", "proveedor_lista_archivo_subir", array(
             "entidad" => "erp_proveedores_documentos",
             "entidad_id" => isset($respuesta["depurar"]["id_documento_proveedor"]) ? intval($respuesta["depurar"]["id_documento_proveedor"]) : null,
             "resultado" => $respuesta["error"] ? "error" : "ok",
@@ -315,7 +315,7 @@ class Proveedor extends Controlador {
         if (!is_array($respuesta) || !isset($respuesta["error"])) {
             $respuesta = array("error" => true, "tipo" => "danger", "mensaje" => "Respuesta invalida al importar la lista", "depurar" => null);
         }
-        SesionSeguridad::registrarAuditoria("proveedores", "proveedor_lista_archivo_importar", array(
+        Sesionseguridad::registrarAuditoria("proveedores", "proveedor_lista_archivo_importar", array(
             "entidad" => "erp_proveedores_listas_erp",
             "entidad_id" => isset($respuesta["depurar"]["id_lista_proveedor_erp"]) ? intval($respuesta["depurar"]["id_lista_proveedor_erp"]) : null,
             "resultado" => $respuesta["error"] ? "error" : "ok",
@@ -385,7 +385,7 @@ class Proveedor extends Controlador {
     public function proveedor_lista_catalogo_sugerido_aplicar_erp() {
         $this->requerirPermiso("proveedores.listas");
         $respuesta = $this->modelo("Proveedores")->aplicarCatalogoSugeridoListaProveedorErp($_POST, $this->usuarioActualId());
-        SesionSeguridad::registrarAuditoria("proveedores", "proveedor_lista_catalogo_sugerido_aplicar", array(
+        Sesionseguridad::registrarAuditoria("proveedores", "proveedor_lista_catalogo_sugerido_aplicar", array(
             "entidad" => "erp_proveedores_listas_detalle_erp",
             "entidad_id" => isset($respuesta["depurar"]["id_lista_detalle_erp"]) ? intval($respuesta["depurar"]["id_lista_detalle_erp"]) : null,
             "resultado" => $respuesta["error"] ? "error" : "ok",
@@ -399,7 +399,7 @@ class Proveedor extends Controlador {
     public function proveedor_lista_detalle_guardar_erp() {
         $this->requerirPermiso("proveedores.listas");
         $respuesta = $this->modelo("Proveedores")->guardarListaDetalleErp($_POST, $this->usuarioActualId());
-        SesionSeguridad::registrarAuditoria("proveedores", "proveedor_lista_detalle_guardar", array(
+        Sesionseguridad::registrarAuditoria("proveedores", "proveedor_lista_detalle_guardar", array(
             "entidad" => "erp_proveedores_listas_detalle_erp",
             "entidad_id" => isset($respuesta["depurar"]["id_lista_detalle_erp"]) ? intval($respuesta["depurar"]["id_lista_detalle_erp"]) : null,
             "resultado" => $respuesta["error"] ? "error" : "ok",
@@ -413,7 +413,7 @@ class Proveedor extends Controlador {
     public function proveedor_lista_detalle_compra_lote_erp() {
         $this->requerirPermiso("proveedores.listas");
         $respuesta = $this->modelo("Proveedores")->completarCompraListaDetalleLoteErp($_POST, $this->usuarioActualId());
-        SesionSeguridad::registrarAuditoria("proveedores", "proveedor_lista_detalle_compra_lote", array(
+        Sesionseguridad::registrarAuditoria("proveedores", "proveedor_lista_detalle_compra_lote", array(
             "entidad" => "erp_proveedores_listas_erp",
             "entidad_id" => isset($respuesta["depurar"]["id_lista_proveedor_erp"]) ? intval($respuesta["depurar"]["id_lista_proveedor_erp"]) : null,
             "resultado" => $respuesta["error"] ? "error" : "ok",
@@ -427,7 +427,7 @@ class Proveedor extends Controlador {
     public function proveedor_lista_detalle_eliminar_erp() {
         $this->requerirPermiso("proveedores.listas");
         $respuesta = $this->modelo("Proveedores")->eliminarListaDetalleErp($_POST, $this->usuarioActualId());
-        SesionSeguridad::registrarAuditoria("proveedores", "proveedor_lista_detalle_eliminar", array(
+        Sesionseguridad::registrarAuditoria("proveedores", "proveedor_lista_detalle_eliminar", array(
             "entidad" => "erp_proveedores_listas_detalle_erp",
             "entidad_id" => isset($respuesta["depurar"]["id_lista_detalle_erp"]) ? intval($respuesta["depurar"]["id_lista_detalle_erp"]) : null,
             "resultado" => $respuesta["error"] ? "error" : "ok",
@@ -441,7 +441,7 @@ class Proveedor extends Controlador {
     public function proveedor_lista_estatus_erp() {
         $this->requerirPermiso("proveedores.autorizar");
         $respuesta = $this->modelo("Proveedores")->cambiarEstatusListaProveedorErp($_POST, $this->usuarioActualId());
-        SesionSeguridad::registrarAuditoria("proveedores", "proveedor_lista_estatus", array(
+        Sesionseguridad::registrarAuditoria("proveedores", "proveedor_lista_estatus", array(
             "entidad" => "erp_proveedores_listas_erp",
             "entidad_id" => isset($respuesta["depurar"]["id_lista_proveedor_erp"]) ? intval($respuesta["depurar"]["id_lista_proveedor_erp"]) : null,
             "resultado" => $respuesta["error"] ? "error" : "ok",
@@ -462,7 +462,7 @@ class Proveedor extends Controlador {
     public function proveedor_lista_matching_decidir_erp() {
         $this->requerirPermiso("proveedores.matching");
         $respuesta = $this->modelo("Proveedores")->guardarDecisionMatchingListaErp($_POST, $this->usuarioActualId());
-        SesionSeguridad::registrarAuditoria("proveedores", "proveedor_matching_decidir", array(
+        Sesionseguridad::registrarAuditoria("proveedores", "proveedor_matching_decidir", array(
             "entidad" => "erp_proveedores_listas_detalle_erp",
             "entidad_id" => isset($respuesta["depurar"]["id_lista_detalle_erp"]) ? intval($respuesta["depurar"]["id_lista_detalle_erp"]) : null,
             "resultado" => $respuesta["error"] ? "error" : "ok",
@@ -483,7 +483,7 @@ class Proveedor extends Controlador {
     public function proveedor_lista_matching_masivo_erp() {
         $this->requerirPermiso("proveedores.matching");
         $respuesta = $this->modelo("Proveedores")->seleccionarMatchingMasivoListaErp($_POST, $this->usuarioActualId());
-        SesionSeguridad::registrarAuditoria("proveedores", "proveedor_matching_masivo", array(
+        Sesionseguridad::registrarAuditoria("proveedores", "proveedor_matching_masivo", array(
             "entidad" => "erp_proveedores_listas_detalle_erp",
             "entidad_id" => isset($respuesta["depurar"]["id_lista_proveedor_erp"]) ? intval($respuesta["depurar"]["id_lista_proveedor_erp"]) : null,
             "resultado" => $respuesta["error"] ? "error" : "ok",
@@ -497,7 +497,7 @@ class Proveedor extends Controlador {
     public function proveedor_sku_relacion_aplicar_erp() {
         $this->requerirPermiso("proveedores.matching");
         $respuesta = $this->modelo("Proveedores")->aplicarRelacionSkuProveedorErp($_POST, $this->usuarioActualId());
-        SesionSeguridad::registrarAuditoria("proveedores", "proveedor_sku_relacion_aplicar", array(
+        Sesionseguridad::registrarAuditoria("proveedores", "proveedor_sku_relacion_aplicar", array(
             "entidad" => "erp_catalogo_sku_proveedores",
             "entidad_id" => isset($respuesta["depurar"]["id_sku_proveedor"]) ? intval($respuesta["depurar"]["id_sku_proveedor"]) : null,
             "resultado" => $respuesta["error"] ? "error" : "ok",
@@ -518,7 +518,7 @@ class Proveedor extends Controlador {
     public function proveedor_sku_relaciones_lote_aplicar_erp() {
         $this->requerirPermiso("proveedores.matching");
         $respuesta = $this->modelo("Proveedores")->aplicarRelacionesSkuProveedorLoteErp($_POST, $this->usuarioActualId());
-        SesionSeguridad::registrarAuditoria("proveedores", "proveedor_sku_relaciones_lote_aplicar", array(
+        Sesionseguridad::registrarAuditoria("proveedores", "proveedor_sku_relaciones_lote_aplicar", array(
             "entidad" => "erp_catalogo_sku_proveedores",
             "entidad_id" => isset($respuesta["depurar"]["id_lista_proveedor_erp"]) ? intval($respuesta["depurar"]["id_lista_proveedor_erp"]) : null,
             "resultado" => $respuesta["error"] ? "error" : "ok",
@@ -552,7 +552,7 @@ class Proveedor extends Controlador {
     public function proveedor_costos_lote_aplicar_erp() {
         $this->requerirPermiso("proveedores.costos");
         $respuesta = $this->modelo("Proveedores")->aplicarCostosProveedorLoteErp($_POST, $this->usuarioActualId());
-        SesionSeguridad::registrarAuditoria("proveedores", "proveedor_costos_lote_aplicar", array(
+        Sesionseguridad::registrarAuditoria("proveedores", "proveedor_costos_lote_aplicar", array(
             "entidad" => "erp_proveedores_sku_costos",
             "entidad_id" => isset($respuesta["depurar"]["id_lista_proveedor_erp"]) ? intval($respuesta["depurar"]["id_lista_proveedor_erp"]) : null,
             "resultado" => $respuesta["error"] ? "error" : "ok",
@@ -573,7 +573,7 @@ class Proveedor extends Controlador {
     public function proveedor_costo_referencia_aplicar_erp() {
         $this->requerirPermiso("proveedores.costos");
         $respuesta = $this->modelo("Proveedores")->aplicarCostoReferenciaListaProveedorErp($_POST, $this->usuarioActualId());
-        SesionSeguridad::registrarAuditoria("proveedores", "proveedor_costo_referencia_aplicar", array(
+        Sesionseguridad::registrarAuditoria("proveedores", "proveedor_costo_referencia_aplicar", array(
             "entidad" => "erp_catalogo_skus",
             "entidad_id" => isset($respuesta["depurar"]["id_lista_proveedor_erp"]) ? intval($respuesta["depurar"]["id_lista_proveedor_erp"]) : null,
             "resultado" => $respuesta["error"] ? "error" : "ok",
@@ -587,7 +587,7 @@ class Proveedor extends Controlador {
     public function proveedor_costo_aplicar_erp() {
         $this->requerirPermiso("proveedores.costos");
         $respuesta = $this->modelo("Proveedores")->aplicarCostoProveedorSkuErp($_POST, $this->usuarioActualId());
-        SesionSeguridad::registrarAuditoria("proveedores", "proveedor_costo_aplicar", array(
+        Sesionseguridad::registrarAuditoria("proveedores", "proveedor_costo_aplicar", array(
             "entidad" => "erp_proveedores_sku_costos",
             "entidad_id" => isset($respuesta["depurar"]["id_costo_proveedor_sku"]) ? intval($respuesta["depurar"]["id_costo_proveedor_sku"]) : null,
             "resultado" => $respuesta["error"] ? "error" : "ok",
@@ -601,7 +601,7 @@ class Proveedor extends Controlador {
     public function proveedor_lista_detalle_sincronizar_erp() {
         $this->requerirPermiso("proveedores.costos");
         $respuesta = $this->modelo("Proveedores")->sincronizarEdicionListaDetalleErp($_POST, $this->usuarioActualId());
-        SesionSeguridad::registrarAuditoria("proveedores", "proveedor_lista_detalle_sincronizar", array(
+        Sesionseguridad::registrarAuditoria("proveedores", "proveedor_lista_detalle_sincronizar", array(
             "entidad" => "erp_proveedores_listas_detalle_erp",
             "entidad_id" => isset($respuesta["depurar"]["id_lista_detalle_erp"]) ? intval($respuesta["depurar"]["id_lista_detalle_erp"]) : null,
             "resultado" => $respuesta["error"] ? "error" : "ok",
@@ -622,7 +622,7 @@ class Proveedor extends Controlador {
     public function proveedor_lista_detalle_desvincular_erp() {
         $this->requerirPermiso("proveedores.matching");
         $respuesta = $this->modelo("Proveedores")->desvincularRelacionListaDetalleErp($_POST, $this->usuarioActualId());
-        SesionSeguridad::registrarAuditoria("proveedores", "proveedor_lista_detalle_desvincular", array(
+        Sesionseguridad::registrarAuditoria("proveedores", "proveedor_lista_detalle_desvincular", array(
             "entidad" => "erp_proveedores_listas_detalle_erp",
             "entidad_id" => isset($respuesta["depurar"]["id_lista_detalle_erp"]) ? intval($respuesta["depurar"]["id_lista_detalle_erp"]) : null,
             "resultado" => $respuesta["error"] ? "error" : "ok",
@@ -643,7 +643,7 @@ class Proveedor extends Controlador {
     public function proveedor_incidencia_crear_erp() {
         $this->requerirPermiso("proveedores.autorizar");
         $respuesta = $this->modelo("Proveedores")->crearIncidenciaProveedorErp($_POST, $this->usuarioActualId());
-        SesionSeguridad::registrarAuditoria("proveedores", "proveedor_incidencia_crear", array(
+        Sesionseguridad::registrarAuditoria("proveedores", "proveedor_incidencia_crear", array(
             "entidad" => "erp_catalogo_incidencias_calidad",
             "entidad_id" => isset($respuesta["depurar"]["id_incidencia_calidad"]) ? intval($respuesta["depurar"]["id_incidencia_calidad"]) : null,
             "resultado" => $respuesta["error"] ? "error" : "ok",
@@ -664,7 +664,7 @@ class Proveedor extends Controlador {
     public function proveedor_incidencia_resolver_erp() {
         $this->requerirPermiso("proveedores.autorizar");
         $respuesta = $this->modelo("Proveedores")->resolverIncidenciaProveedorErp($_POST, $this->usuarioActualId());
-        SesionSeguridad::registrarAuditoria("proveedores", "proveedor_incidencia_resolver", array(
+        Sesionseguridad::registrarAuditoria("proveedores", "proveedor_incidencia_resolver", array(
             "entidad" => "erp_catalogo_incidencias_calidad",
             "entidad_id" => isset($respuesta["depurar"]["id_incidencia_calidad"]) ? intval($respuesta["depurar"]["id_incidencia_calidad"]) : null,
             "resultado" => $respuesta["error"] ? "error" : "ok",

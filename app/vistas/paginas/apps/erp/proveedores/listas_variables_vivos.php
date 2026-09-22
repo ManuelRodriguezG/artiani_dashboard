@@ -39,7 +39,7 @@
                             </div>
                             <div class="card-body pt-0">
                                 <form id="proveedores_vivos_form" enctype="multipart/form-data">
-                                    <input type="hidden" name="_csrf" value="<?= htmlspecialchars(SesionSeguridad::csrfToken(), ENT_QUOTES, 'UTF-8') ?>">
+                                    <input type="hidden" name="_csrf" value="<?= htmlspecialchars(Sesionseguridad::csrfToken(), ENT_QUOTES, 'UTF-8') ?>">
                                     <div class="row g-4 align-items-end">
                                         <div class="col-lg-5">
                                             <label class="form-label required">Lista XLSX o CSV</label>
@@ -133,7 +133,7 @@
 <script src="assets/plugins/global/plugins.bundle.js"></script>
 <script src="assets/js/scripts.bundle.js"></script>
 <script>
-window.ERP_CSRF_TOKEN = <?= json_encode(SesionSeguridad::csrfToken()) ?>;
+window.ERP_CSRF_TOKEN = <?= json_encode(Sesionseguridad::csrfToken()) ?>;
 </script>
 <script src="/assets/js/custom/apps/erp/proveedores/listas_variables_vivos.js?v=20260921-1"></script>
 </body>

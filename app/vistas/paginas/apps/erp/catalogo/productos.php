@@ -29,7 +29,7 @@
                                     <h1 class="page-heading text-dark fw-bold fs-3 mb-1">Catálogo maestro ERP</h1>
                                     <span class="text-muted">Productos y SKU administrados por el núcleo del negocio</span>
                                 </div>
-                                <?php if (SesionSeguridad::tienePermiso('catalogo.editar')): ?>
+                                <?php if (Sesionseguridad::tienePermiso('catalogo.editar')): ?>
                                 <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#catalogo_modal_alta">
                                     <i class="bi bi-plus-lg fs-3"></i> Nuevo producto
                                 </button>
@@ -65,7 +65,7 @@
                                     </div>
                                     <div class="card-body pt-0">
                                         <div class="d-flex flex-wrap gap-3 mb-6" id="catalogo_resumen_saneamiento"></div>
-                                        <?php if (SesionSeguridad::tienePermiso('catalogo.editar')): ?>
+                                        <?php if (Sesionseguridad::tienePermiso('catalogo.editar')): ?>
                                         <div class="border rounded bg-light p-4 mb-6">
                                             <div class="d-flex flex-column flex-xl-row gap-3 align-items-xl-end">
                                                 <div class="form-check form-check-custom form-check-solid">
@@ -100,7 +100,7 @@
                                                         <option value="descontinuado">Descontinuado</option>
                                                     </select>
                                                 </div>
-                                                <?php if (SesionSeguridad::tienePermiso('catalogo.costos')): ?>
+                                                <?php if (Sesionseguridad::tienePermiso('catalogo.costos')): ?>
                                                 <div class="flex-grow-1">
                                                     <label class="form-label fs-8 text-muted">Proveedor para SKU sin proveedor</label>
                                                     <select class="form-select form-select-sm" id="catalogo_masivo_proveedor"><option value="">No agregar proveedor</option></select>
@@ -128,7 +128,7 @@
                                             <table class="table align-middle table-row-dashed fs-6 gy-5">
                                                 <thead>
                                                     <tr class="text-start text-muted fw-bold fs-7 text-uppercase">
-                                                        <?php if (SesionSeguridad::tienePermiso('catalogo.editar')): ?><th class="w-30px"></th><?php endif; ?>
+                                                        <?php if (Sesionseguridad::tienePermiso('catalogo.editar')): ?><th class="w-30px"></th><?php endif; ?>
                                                         <th>Código</th>
                                                         <th class="w-70px">Imagen</th>
                                                         <th>Producto</th>
@@ -264,7 +264,7 @@
         </div>
     </div>
 
-    <?php if (SesionSeguridad::tienePermiso('catalogo.editar')): ?>
+    <?php if (Sesionseguridad::tienePermiso('catalogo.editar')): ?>
     <div class="modal fade" id="catalogo_modal_alta" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered modal-xl">
             <div class="modal-content">
@@ -389,7 +389,7 @@
     </div>
     <?php endif; ?>
 
-    <?php if (SesionSeguridad::tienePermiso('catalogo.editar')): ?>
+    <?php if (Sesionseguridad::tienePermiso('catalogo.editar')): ?>
     <div class="modal fade" id="catalogo_modal_sku_temporal" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered modal-lg">
             <div class="modal-content">
@@ -438,7 +438,7 @@
                         <span class="text-muted" id="catalogo_detalle_codigo"></span>
                     </div>
                     <div class="d-flex align-items-center gap-2">
-                        <?php if (SesionSeguridad::tienePermiso('catalogo.editar')): ?>
+                        <?php if (Sesionseguridad::tienePermiso('catalogo.editar')): ?>
                         <button type="button" class="btn btn-sm btn-light-primary" id="catalogo_duplicar_abrir">
                             <i class="bi bi-copy"></i> Duplicar
                         </button>
@@ -471,7 +471,7 @@
                                     <div class="col-md-3">
                                         <div class="d-flex align-items-center justify-content-between mb-2">
                                             <label class="form-label mb-0">Categoría principal</label>
-                                            <?php if (SesionSeguridad::tienePermiso('catalogo.editar')): ?>
+                                            <?php if (Sesionseguridad::tienePermiso('catalogo.editar')): ?>
                                             <button class="btn btn-sm btn-light-warning py-1 px-2" type="button" id="catalogo_editar_categoria_limpiar" data-permiso-editar title="Quitar categoria principal">
                                                 <i class="bi bi-x-circle"></i> Quitar
                                             </button>
@@ -484,7 +484,7 @@
                                     <div class="col-12"><label class="form-label">Descripción</label><textarea class="form-control" name="descripcion" rows="3"></textarea></div>
                                     <div class="col-12"><label class="form-check form-switch form-check-custom form-check-solid"><input class="form-check-input" type="checkbox" name="maneja_variantes" value="1"><span class="form-check-label">Maneja variantes</span></label></div>
                                 </div>
-                                <?php if (SesionSeguridad::tienePermiso('catalogo.editar')): ?>
+                                <?php if (Sesionseguridad::tienePermiso('catalogo.editar')): ?>
                                 <div class="text-end mt-6"><button class="btn btn-primary" type="submit"><i class="bi bi-check-lg"></i> Guardar datos maestros</button></div>
                                 <?php endif; ?>
                             </form>
@@ -493,11 +493,11 @@
                             <div id="catalogo_sku_objetivos_resumen" class="d-flex flex-wrap gap-2 mb-5"></div>
                             <div class="table-responsive">
                                 <table class="table align-middle table-row-dashed gy-4">
-                                    <thead><tr class="text-muted fw-bold fs-7 text-uppercase"><th>SKU</th><th>Nombre</th><th>Unidad</th><th>Listas</th><th>Inventario</th><th>Calidad</th><th>Estado</th><?php if (SesionSeguridad::tienePermiso('catalogo.editar')): ?><th class="text-end">Accion</th><?php endif; ?></tr></thead>
+                                    <thead><tr class="text-muted fw-bold fs-7 text-uppercase"><th>SKU</th><th>Nombre</th><th>Unidad</th><th>Listas</th><th>Inventario</th><th>Calidad</th><th>Estado</th><?php if (Sesionseguridad::tienePermiso('catalogo.editar')): ?><th class="text-end">Accion</th><?php endif; ?></tr></thead>
                                     <tbody id="catalogo_detalle_skus_lista"></tbody>
                                 </table>
                             </div>
-                            <?php if (SesionSeguridad::tienePermiso('catalogo.editar')): ?>
+                            <?php if (Sesionseguridad::tienePermiso('catalogo.editar')): ?>
                             <div class="separator my-7"></div>
                             <h3 class="fs-5 mb-5" id="catalogo_sku_form_titulo">Agregar SKU</h3>
                             <div class="alert alert-light-info d-none mb-5" id="catalogo_sku_plantilla_alerta"></div>
@@ -619,7 +619,7 @@
                                     <tbody id="catalogo_variantes_lista"></tbody>
                                 </table>
                             </div>
-                            <?php if (SesionSeguridad::tienePermiso('catalogo.editar')): ?>
+                            <?php if (Sesionseguridad::tienePermiso('catalogo.editar')): ?>
                             <div class="separator my-7"></div>
                             <form id="catalogo_form_variantes" data-erp-ajax="true">
                                 <input type="hidden" name="id_producto_erp">
@@ -656,7 +656,7 @@
                                     <tbody id="catalogo_atributos_tecnicos_lista"></tbody>
                                 </table>
                             </div>
-                            <?php if (SesionSeguridad::tienePermiso('catalogo.editar')): ?>
+                            <?php if (Sesionseguridad::tienePermiso('catalogo.editar')): ?>
                             <div class="separator my-7"></div>
                             <form id="catalogo_form_atributos_tecnicos" data-erp-ajax="true">
                                 <input type="hidden" name="id_producto_erp">
@@ -690,11 +690,11 @@
                             </div>
                             <div class="table-responsive">
                                 <table class="table align-middle table-row-dashed gy-4">
-                                    <thead><tr class="text-muted fw-bold fs-7 text-uppercase"><th>SKU base</th><th>Presentacion</th><th>Factor operativo</th><th>Disponibilidad</th><th>Consumo</th><th>Empaque</th><th>Estado</th><?php if (SesionSeguridad::tienePermiso('catalogo.editar')): ?><th class="text-end">Accion</th><?php endif; ?></tr></thead>
+                                    <thead><tr class="text-muted fw-bold fs-7 text-uppercase"><th>SKU base</th><th>Presentacion</th><th>Factor operativo</th><th>Disponibilidad</th><th>Consumo</th><th>Empaque</th><th>Estado</th><?php if (Sesionseguridad::tienePermiso('catalogo.editar')): ?><th class="text-end">Accion</th><?php endif; ?></tr></thead>
                                     <tbody id="catalogo_presentaciones_lista"></tbody>
                                 </table>
                             </div>
-                            <?php if (SesionSeguridad::tienePermiso('catalogo.editar')): ?>
+                            <?php if (Sesionseguridad::tienePermiso('catalogo.editar')): ?>
                             <div class="separator my-7"></div>
                             <h3 class="fs-5 mb-5" id="catalogo_presentacion_form_titulo">Configurar presentacion de venta</h3>
                             <form id="catalogo_form_presentacion" data-erp-ajax="true">
@@ -760,11 +760,11 @@
                             <div id="catalogo_aperturas_empaque_estado" class="mb-6"></div>
                             <div class="table-responsive">
                                 <table class="table align-middle table-row-dashed gy-4">
-                                    <thead><tr class="text-muted fw-bold fs-7 text-uppercase"><th>SKU cerrado origen</th><th>SKU granel destino</th><th>Factor</th><th>Trazabilidad</th><th>Merma</th><th>Estado</th><?php if (SesionSeguridad::tienePermiso('catalogo.editar')): ?><th class="text-end">Accion</th><?php endif; ?></tr></thead>
+                                    <thead><tr class="text-muted fw-bold fs-7 text-uppercase"><th>SKU cerrado origen</th><th>SKU granel destino</th><th>Factor</th><th>Trazabilidad</th><th>Merma</th><th>Estado</th><?php if (Sesionseguridad::tienePermiso('catalogo.editar')): ?><th class="text-end">Accion</th><?php endif; ?></tr></thead>
                                     <tbody id="catalogo_aperturas_empaque_lista"></tbody>
                                 </table>
                             </div>
-                            <?php if (SesionSeguridad::tienePermiso('catalogo.editar')): ?>
+                            <?php if (Sesionseguridad::tienePermiso('catalogo.editar')): ?>
                             <div class="separator my-7"></div>
                             <h3 class="fs-5 mb-5" id="catalogo_apertura_empaque_form_titulo">Configurar apertura de empaque</h3>
                             <form id="catalogo_form_apertura_empaque" data-erp-ajax="true">
@@ -822,11 +822,11 @@
                             <div id="catalogo_reclasificaciones_estado" class="mb-6"></div>
                             <div class="table-responsive">
                                 <table class="table align-middle table-row-dashed gy-4">
-                                    <thead><tr class="text-muted fw-bold fs-7 text-uppercase"><th>SKU origen</th><th>SKU destino</th><th>Tipo</th><th>Trazabilidad</th><th>Autorizacion</th><th>Estado</th><?php if (SesionSeguridad::tienePermiso('catalogo.editar')): ?><th class="text-end">Accion</th><?php endif; ?></tr></thead>
+                                    <thead><tr class="text-muted fw-bold fs-7 text-uppercase"><th>SKU origen</th><th>SKU destino</th><th>Tipo</th><th>Trazabilidad</th><th>Autorizacion</th><th>Estado</th><?php if (Sesionseguridad::tienePermiso('catalogo.editar')): ?><th class="text-end">Accion</th><?php endif; ?></tr></thead>
                                     <tbody id="catalogo_reclasificaciones_lista"></tbody>
                                 </table>
                             </div>
-                            <?php if (SesionSeguridad::tienePermiso('catalogo.editar')): ?>
+                            <?php if (Sesionseguridad::tienePermiso('catalogo.editar')): ?>
                             <div class="separator my-7"></div>
                             <h3 class="fs-5 mb-5" id="catalogo_reclasificacion_form_titulo">Configurar reclasificacion</h3>
                             <form id="catalogo_form_reclasificacion" data-erp-ajax="true">
@@ -877,7 +877,7 @@
                         </div>
                         <div class="tab-pane fade" id="catalogo_detalle_imagenes">
                             <div id="catalogo_imagenes_lista" class="row g-5"></div>
-                            <?php if (SesionSeguridad::tienePermiso('catalogo.editar')): ?>
+                            <?php if (Sesionseguridad::tienePermiso('catalogo.editar')): ?>
                             <div class="separator my-7"></div>
                             <div class="catalogo-config-section">
                                 <div class="d-flex flex-column flex-lg-row align-items-lg-center justify-content-between gap-4">
@@ -925,7 +925,7 @@
                             <div class="alert alert-danger d-none mt-6" id="catalogo_imagenes_error"></div>
                         </div>
                         <div class="tab-pane fade" id="catalogo_detalle_proveedores">
-                            <?php if (SesionSeguridad::tienePermiso('catalogo.costos')): ?>
+                            <?php if (Sesionseguridad::tienePermiso('catalogo.costos')): ?>
                             <div class="d-flex justify-content-end mb-4">
                                 <button class="btn btn-sm btn-light-primary" type="button" id="catalogo_proveedor_unico_preferido">
                                     <i class="bi bi-check2-circle"></i> Marcar unicos como principales
@@ -934,11 +934,11 @@
                             <?php endif; ?>
                             <div class="table-responsive">
                                 <table class="table align-middle table-row-dashed gy-4">
-                                    <thead><tr class="text-muted fw-bold fs-7 text-uppercase"><th>SKU ERP</th><th>Proveedor</th><th>SKU proveedor</th><th>Compra</th><?php if (SesionSeguridad::tienePermiso('catalogo.costos')): ?><th>Costo</th><?php endif; ?><th>Entrega</th><th>Estado</th><?php if (SesionSeguridad::tienePermiso('catalogo.costos')): ?><th class="text-end">Accion</th><?php endif; ?></tr></thead>
+                                    <thead><tr class="text-muted fw-bold fs-7 text-uppercase"><th>SKU ERP</th><th>Proveedor</th><th>SKU proveedor</th><th>Compra</th><?php if (Sesionseguridad::tienePermiso('catalogo.costos')): ?><th>Costo</th><?php endif; ?><th>Entrega</th><th>Estado</th><?php if (Sesionseguridad::tienePermiso('catalogo.costos')): ?><th class="text-end">Accion</th><?php endif; ?></tr></thead>
                                     <tbody id="catalogo_detalle_proveedores_lista"></tbody>
                                 </table>
                             </div>
-                            <?php if (SesionSeguridad::tienePermiso('catalogo.costos')): ?>
+                            <?php if (Sesionseguridad::tienePermiso('catalogo.costos')): ?>
                             <div class="separator my-7"></div>
                             <h3 class="fs-5 mb-5" id="catalogo_sku_proveedor_form_titulo">Vincular SKU con proveedor</h3>
                             <form id="catalogo_form_sku_proveedor" data-erp-ajax="true">
@@ -969,7 +969,7 @@
         </div>
     </div>
 
-    <?php if (SesionSeguridad::tienePermiso('catalogo.editar')): ?>
+    <?php if (Sesionseguridad::tienePermiso('catalogo.editar')): ?>
     <div class="modal fade" id="catalogo_modal_duplicar" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered modal-xl">
             <div class="modal-content">
@@ -1040,9 +1040,9 @@
     <script src="assets/js/scripts.bundle.js"></script>
     <script>
         window.CATALOGO_PERMISOS = <?= json_encode(array(
-            "ver" => SesionSeguridad::tienePermiso("catalogo.ver"),
-            "editar" => SesionSeguridad::tienePermiso("catalogo.editar"),
-            "costos" => SesionSeguridad::tienePermiso("catalogo.costos")
+            "ver" => Sesionseguridad::tienePermiso("catalogo.ver"),
+            "editar" => Sesionseguridad::tienePermiso("catalogo.editar"),
+            "costos" => Sesionseguridad::tienePermiso("catalogo.costos")
         )); ?>;
     </script>
     <script src="/assets/js/custom/apps/erp/catalogo/productos.js?v=20260821-skus-vendibles-acciones-1"></script>

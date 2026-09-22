@@ -11,9 +11,9 @@
 </head>
 <body id="kt_app_body" data-kt-app-layout="dark-sidebar" data-kt-app-header-fixed="true" data-kt-app-sidebar-enabled="true" data-kt-app-sidebar-fixed="true" class="app-default">
 <input type="hidden" id="proyectos_contexto_id" value="<?= isset($datos['id_proyecto']) ? intval($datos['id_proyecto']) : 0 ?>">
-<input type="hidden" id="proyectos_puede_crear" value="<?= SesionSeguridad::tienePermiso('proyectos.crear') ? '1' : '0' ?>">
-<input type="hidden" id="proyectos_puede_editar" value="<?= SesionSeguridad::tienePermiso('proyectos.editar') ? '1' : '0' ?>">
-<input type="hidden" id="proyectos_puede_cerrar" value="<?= SesionSeguridad::tienePermiso('proyectos.cerrar') ? '1' : '0' ?>">
+<input type="hidden" id="proyectos_puede_crear" value="<?= Sesionseguridad::tienePermiso('proyectos.crear') ? '1' : '0' ?>">
+<input type="hidden" id="proyectos_puede_editar" value="<?= Sesionseguridad::tienePermiso('proyectos.editar') ? '1' : '0' ?>">
+<input type="hidden" id="proyectos_puede_cerrar" value="<?= Sesionseguridad::tienePermiso('proyectos.cerrar') ? '1' : '0' ?>">
 <div class="d-flex flex-column flex-root app-root">
     <div class="app-page flex-column flex-column-fluid">
         <?= include_once '../app/vistas/includes/header/header.php'; ?>
@@ -31,7 +31,7 @@
                                 <i class="bi bi-arrow-left fs-3"></i>
                                 Bandeja
                             </a>
-                            <?php if (SesionSeguridad::tienePermiso('proyectos.crear')): ?>
+                            <?php if (Sesionseguridad::tienePermiso('proyectos.crear')): ?>
                             <button type="button" class="btn btn-primary" id="proyectos_nueva_tarea">
                                 <i class="bi bi-check2-square fs-3"></i>
                                 Nueva tarea

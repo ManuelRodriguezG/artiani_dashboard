@@ -21,17 +21,17 @@
                         <div class="app-container container-fluid d-flex flex-stack">
                             <div><h1 class="page-heading text-dark fw-bold fs-3 mb-1">Existencias y kardex</h1><span class="text-muted">Inventario disponible por SKU, almacén, lote y ubicación</span></div>
                             <div class="d-flex gap-2">
-                                <?php if (SesionSeguridad::tienePermiso("inventario.conteo")): ?>
+                                <?php if (Sesionseguridad::tienePermiso("inventario.conteo")): ?>
                                 <a class="btn btn-light-info" href="/inventario/conteos"><i class="bi bi-clipboard-check"></i> Conteos</a>
                                 <?php endif; ?>
-                                <?php if (SesionSeguridad::tienePermiso("inventario.ajustar")): ?>
+                                <?php if (Sesionseguridad::tienePermiso("inventario.ajustar")): ?>
                                 <a class="btn btn-light-warning" href="/inventario/reservas"><i class="bi bi-bookmark-check"></i> Reservas</a>
                                 <a class="btn btn-light-primary" href="/inventario/inicial"><i class="bi bi-plus-slash-minus"></i> Ajuste</a>
                                 <?php endif; ?>
-                                <?php if (SesionSeguridad::tienePermiso("inventario.reclasificar") || SesionSeguridad::tienePermiso("inventario.ajustar")): ?>
+                                <?php if (Sesionseguridad::tienePermiso("inventario.reclasificar") || Sesionseguridad::tienePermiso("inventario.ajustar")): ?>
                                 <a class="btn btn-light-success" href="/inventario/reclasificacion"><i class="bi bi-shuffle"></i> Reclasificacion</a>
                                 <?php endif; ?>
-                                <?php if (SesionSeguridad::tienePermiso("inventario.traspasar")): ?>
+                                <?php if (Sesionseguridad::tienePermiso("inventario.traspasar")): ?>
                                 <a class="btn btn-primary" href="/inventario/transpaso"><i class="bi bi-arrow-left-right"></i> Traspaso</a>
                                 <?php endif; ?>
                             </div>

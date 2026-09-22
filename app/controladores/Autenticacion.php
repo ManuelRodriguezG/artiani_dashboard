@@ -41,7 +41,7 @@ class Autenticacion extends Controlador {
         $registro->setApellido_paterno($apellido_paterno);
         $registro->setApellido_materno($apellido_materno);
         $registro->setCelular($celular);
-        $registro->setContrasenia(SesionSeguridad::hashContrasenia($contrasenia));
+        $registro->setContrasenia(Sesionseguridad::hashContrasenia($contrasenia));
         $registro->setEstatus(0);
 
         $respuesta = $registro->crear_registro();
@@ -83,7 +83,7 @@ class Autenticacion extends Controlador {
   }
 
   private function crear_variables_session($data) {
-    SesionSeguridad::iniciarSesionUsuario($data);
+    Sesionseguridad::iniciarSesionUsuario($data);
   }
 
   function inicio_session() {
@@ -97,9 +97,9 @@ class Autenticacion extends Controlador {
         $estatus = $respuesta['depurar']['estatus'];
         if ($estatus == 1) {
           $contrasenia_db = $respuesta['depurar']['contrasenia'];
-          if (SesionSeguridad::verificarContrasenia($contrasenia, $contrasenia_db)) {
-            if (SesionSeguridad::requiereRehash($contrasenia_db)) {
-              $registro->actualizar_contrasenia($respuesta['depurar']['id_usuario'], SesionSeguridad::hashContrasenia($contrasenia));
+          if (Sesionseguridad::verificarContrasenia($contrasenia, $contrasenia_db)) {
+            if (Sesionseguridad::requiereRehash($contrasenia_db)) {
+              $registro->actualizar_contrasenia($respuesta['depurar']['id_usuario'], Sesionseguridad::hashContrasenia($contrasenia));
             }
             $variables_session = [
                 "apellido_paterno" => $respuesta['depurar']['apellido_paterno'],
@@ -117,7 +117,7 @@ class Autenticacion extends Controlador {
             $seguridad = $this->modelo("SeguridadPermisos");
             $variables_session = array_merge($variables_session, $seguridad->autorizacionUsuario($respuesta['depurar']['id_usuario']));
             $this->crear_variables_session($variables_session);
-            SesionSeguridad::registrarAuditoria('autenticacion', 'inicio_session', array(
+            Sesionseguridad::registrarAuditoria('autenticacion', 'inicio_session', array(
               'resultado' => 'ok',
               'mensaje' => 'Inicio de sesion exitoso'
             ));
@@ -128,7 +128,7 @@ class Autenticacion extends Controlador {
                 'depurar' => []
             ];
           } else {
-            SesionSeguridad::registrarAuditoria('autenticacion', 'inicio_session', array(
+            Sesionseguridad::registrarAuditoria('autenticacion', 'inicio_session', array(
               'resultado' => 'denegado',
               'mensaje' => 'Credenciales incorrectas para celular ' . $celular
             ));
@@ -173,8 +173,8 @@ class Autenticacion extends Controlador {
    * Contrato: devuelve 200 JSON si la sesion esta activa; 401 JSON si expiro.
    */
   function estado_session() {
-    if (SesionSeguridad::autenticado() && !SesionSeguridad::sesionExpirada()) {
-      SesionSeguridad::tocarActividad();
+    if (Sesionseguridad::autenticado() && !Sesionseguridad::sesionExpirada()) {
+      Sesionseguridad::tocarActividad();
       return json_encode(array('error' => false, 'tipo' => 'success', 'mensaje' => 'Sesion activa'));
     }
     http_response_code(401);
@@ -184,7 +184,7 @@ class Autenticacion extends Controlador {
   function reautenticar_session() {
     $contrasenia = isset($_POST['contrasenia']) ? $_POST['contrasenia'] : null;
     $celular = isset($_POST['celular']) ? trim($_POST['celular']) : 0;
-    $idUsuarioEsperado = SesionSeguridad::usuarioReautenticacionId();
+    $idUsuarioEsperado = Sesionseguridad::usuarioReautenticacionId();
     if ($contrasenia == null || $celular == 0) {
       return json_encode(array('error' => true, 'tipo' => 'warning', 'mensaje' => 'Ingresa celular y contrasena'));
     }
@@ -197,21 +197,21 @@ class Autenticacion extends Controlador {
     }
 
     $usuario = $respuesta['depurar'];
-    if (!SesionSeguridad::verificarContrasenia($contrasenia, $usuario['contrasenia'])) {
+    if (!Sesionseguridad::verificarContrasenia($contrasenia, $usuario['contrasenia'])) {
       return json_encode(array('error' => true, 'tipo' => 'danger', 'mensaje' => 'Usuario o contrasena incorrectos'));
     }
     if ($idUsuarioEsperado > 0 && intval($usuario['id_usuario']) !== $idUsuarioEsperado) {
       return json_encode(array('error' => true, 'tipo' => 'danger', 'mensaje' => 'Reactiva la sesion con el mismo usuario'));
     }
 
-    if (SesionSeguridad::requiereRehash($usuario['contrasenia'])) {
-      $registro->actualizar_contrasenia($usuario['id_usuario'], SesionSeguridad::hashContrasenia($contrasenia));
+    if (Sesionseguridad::requiereRehash($usuario['contrasenia'])) {
+      $registro->actualizar_contrasenia($usuario['id_usuario'], Sesionseguridad::hashContrasenia($contrasenia));
     }
 
     $seguridad = $this->modelo("SeguridadPermisos");
     $autorizacion = $seguridad->autorizacionUsuario($usuario['id_usuario']);
     $this->crear_variables_session(array_merge($usuario, $autorizacion));
-    SesionSeguridad::registrarAuditoria('autenticacion', 'reautenticar_session', array(
+    Sesionseguridad::registrarAuditoria('autenticacion', 'reautenticar_session', array(
       'resultado' => 'ok',
       'mensaje' => 'Sesion reactivada'
     ));
@@ -219,16 +219,16 @@ class Autenticacion extends Controlador {
       'error' => false,
       'tipo' => 'success',
       'mensaje' => 'Sesion reactivada',
-      'depurar' => array('csrf_token' => SesionSeguridad::csrfToken())
+      'depurar' => array('csrf_token' => Sesionseguridad::csrfToken())
     ));
   }
 
   function cerrar_session() {
-    SesionSeguridad::registrarAuditoria('autenticacion', 'cerrar_session', array(
+    Sesionseguridad::registrarAuditoria('autenticacion', 'cerrar_session', array(
       'resultado' => 'ok',
       'mensaje' => 'Cierre de sesion'
     ));
-    SesionSeguridad::cerrarSesion();
+    Sesionseguridad::cerrarSesion();
     header('Location: /autenticacion/login');
     exit;
   }

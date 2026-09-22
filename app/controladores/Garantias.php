@@ -61,7 +61,7 @@ class Garantias extends Controlador {
           )
         ));
       }
-      SesionSeguridad::registrarAuditoria("garantias", "esquema_actualizar_garantias_erp", array(
+      Sesionseguridad::registrarAuditoria("garantias", "esquema_actualizar_garantias_erp", array(
         "resultado" => "solicitado",
         "mensaje" => "Ejecucion DDL Garantias ERP autorizada",
         "datos_despues" => array("respaldo" => $respaldo)
@@ -212,7 +212,7 @@ class Garantias extends Controlador {
   public function politica_guardar_erp() {
     $this->requerirPermiso("garantias.politicas");
     $_POST["usuario_id"] = $this->usuarioActualId();
-    SesionSeguridad::registrarAuditoria("garantias", "politica_guardar_erp", array(
+    Sesionseguridad::registrarAuditoria("garantias", "politica_guardar_erp", array(
       "resultado" => "solicitado",
       "mensaje" => "Guardado operativo de politica",
       "datos_despues" => array(
@@ -233,7 +233,7 @@ class Garantias extends Controlador {
   public function politica_regla_guardar_erp() {
     $this->requerirPermiso("garantias.politicas");
     $_POST["usuario_id"] = $this->usuarioActualId();
-    SesionSeguridad::registrarAuditoria("garantias", "politica_regla_guardar_erp", array(
+    Sesionseguridad::registrarAuditoria("garantias", "politica_regla_guardar_erp", array(
       "resultado" => "solicitado",
       "mensaje" => "Guardado operativo de regla de garantia",
       "datos_despues" => array(
@@ -256,7 +256,7 @@ class Garantias extends Controlador {
   public function politica_estatus_erp() {
     $this->requerirPermiso("garantias.politicas");
     $_POST["usuario_id"] = $this->usuarioActualId();
-    SesionSeguridad::registrarAuditoria("garantias", "politica_estatus_erp", array(
+    Sesionseguridad::registrarAuditoria("garantias", "politica_estatus_erp", array(
       "resultado" => "solicitado",
       "mensaje" => "Cambio de estatus de politica de garantia",
       "datos_despues" => array(
@@ -277,7 +277,7 @@ class Garantias extends Controlador {
   public function politica_regla_estatus_erp() {
     $this->requerirPermiso("garantias.politicas");
     $_POST["usuario_id"] = $this->usuarioActualId();
-    SesionSeguridad::registrarAuditoria("garantias", "politica_regla_estatus_erp", array(
+    Sesionseguridad::registrarAuditoria("garantias", "politica_regla_estatus_erp", array(
       "resultado" => "solicitado",
       "mensaje" => "Cambio de estatus de regla de garantia",
       "datos_despues" => array(

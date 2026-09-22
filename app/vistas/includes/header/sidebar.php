@@ -489,7 +489,7 @@ $gruposMenu = array(
 </div>
 
 <script>
-window.ERP_CSRF_TOKEN = <?= json_encode(SesionSeguridad::csrfToken()) ?>;
+window.ERP_CSRF_TOKEN = <?= json_encode(Sesionseguridad::csrfToken()) ?>;
 </script>
 <script src="/assets/js/custom/security/session-guard.js"></script>
 <script src="/assets/js/custom/apps/erp/notificaciones/notificaciones.js?v=20260616-1"></script>

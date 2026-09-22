@@ -10,7 +10,7 @@
     <link href="assets/css/style.bundle.css" rel="stylesheet" type="text/css">
 </head>
 <body id="kt_app_body" data-kt-app-layout="dark-sidebar" data-kt-app-header-fixed="true" data-kt-app-sidebar-enabled="true" data-kt-app-sidebar-fixed="true" class="app-default">
-    <input type="hidden" id="seguridad_puede_administrar" value="<?= SesionSeguridad::tienePermiso('seguridad.administrar') ? '1' : '0' ?>">
+    <input type="hidden" id="seguridad_puede_administrar" value="<?= Sesionseguridad::tienePermiso('seguridad.administrar') ? '1' : '0' ?>">
     <div class="d-flex flex-column flex-root app-root" id="kt_app_root">
         <div class="app-page flex-column flex-column-fluid" id="kt_app_page">
             <?= include_once '../app/vistas/includes/header/header.php'; ?>
@@ -24,7 +24,7 @@
                                     <h1 class="page-heading text-dark fw-bold fs-3 mb-1">Usuarios y roles</h1>
                                     <span class="text-muted">Administra acceso interno al ERP</span>
                                 </div>
-                                <?php if (SesionSeguridad::tienePermiso('seguridad.administrar')): ?>
+                                <?php if (Sesionseguridad::tienePermiso('seguridad.administrar')): ?>
                                 <button type="button" id="seguridad_nuevo_usuario" class="btn btn-primary">
                                     <i class="bi bi-person-plus fs-3"></i>
                                     Nuevo usuario
@@ -44,7 +44,7 @@
                                         </div>
                                         <div class="card-toolbar d-flex gap-3">
                                             <select id="seguridad_rol_permisos" class="form-select form-select-solid w-250px"></select>
-                                            <?php if (SesionSeguridad::tienePermiso('seguridad.administrar')): ?>
+                                            <?php if (Sesionseguridad::tienePermiso('seguridad.administrar')): ?>
                                             <button id="seguridad_guardar_permisos" class="btn btn-primary">
                                                 <i class="bi bi-shield-check"></i> Guardar permisos
                                             </button>
@@ -107,7 +107,7 @@
                                         </div>
                                     </div>
                                 </div>
-                                <?php if (SesionSeguridad::tienePermiso('auditoria.ver')): ?>
+                                <?php if (Sesionseguridad::tienePermiso('auditoria.ver')): ?>
                                 <div class="card mt-6">
                                     <div class="card-header border-0 pt-6">
                                         <div class="card-title">

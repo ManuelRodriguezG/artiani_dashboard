@@ -93,7 +93,7 @@ $headerAccesosVisibles = array_values(array_filter($headerAccesos, function ($ac
                     </div>
                 </div>
 
-                <?php if (SesionSeguridad::tienePermiso("notificaciones.ver")): ?>
+                <?php if (Sesionseguridad::tienePermiso("notificaciones.ver")): ?>
                     <div class="app-navbar-item ms-1 ms-lg-3">
                         <button type="button" class="btn btn-icon btn-custom btn-icon-muted btn-active-light btn-active-color-primary w-35px h-35px w-md-40px h-md-40px position-relative" id="erp_notificaciones_toggle" data-kt-menu-trigger="click" data-kt-menu-attach="parent" data-kt-menu-placement="bottom-end" aria-label="Notificaciones">
                             <i class="bi bi-bell fs-3"></i>

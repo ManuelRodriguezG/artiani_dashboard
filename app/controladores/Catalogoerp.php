@@ -121,7 +121,7 @@ class Catalogoerp extends Controlador {
   public function propuestas_nombres_generar() {
     $this->requerirPermiso("catalogo.editar");
     $respuesta = $this->modelo("CatalogoErpOrganizacion")->generarPropuestasNombres();
-    SesionSeguridad::registrarAuditoria("catalogo", "generar_propuestas_nombres", array(
+    Sesionseguridad::registrarAuditoria("catalogo", "generar_propuestas_nombres", array(
       "entidad" => "erp_catalogo_revision_nombres",
       "resultado" => $respuesta["error"] ? "error" : "ok",
       "mensaje" => $respuesta["mensaje"],
@@ -143,7 +143,7 @@ class Catalogoerp extends Controlador {
   public function propuesta_nombre_resolver() {
     $this->requerirPermiso("catalogo.editar");
     $respuesta = $this->modelo("CatalogoErpOrganizacion")->resolverPropuestaNombre($_POST);
-    SesionSeguridad::registrarAuditoria("catalogo", "resolver_propuesta_nombre", array(
+    Sesionseguridad::registrarAuditoria("catalogo", "resolver_propuesta_nombre", array(
       "entidad" => "erp_catalogo_revision_nombres",
       "entidad_id" => isset($_POST["id_revision_nombre"]) ? intval($_POST["id_revision_nombre"]) : null,
       "resultado" => $respuesta["error"] ? "error" : "ok",
@@ -168,7 +168,7 @@ class Catalogoerp extends Controlador {
   public function fusionar_productos() {
     $this->requerirPermiso("catalogo.editar");
     $respuesta = $this->modelo("CatalogoErpOrganizacion")->fusionarProductos($_POST, $this->usuarioActualId());
-    SesionSeguridad::registrarAuditoria("catalogo", "fusionar_productos_maestros", array(
+    Sesionseguridad::registrarAuditoria("catalogo", "fusionar_productos_maestros", array(
       "entidad" => "erp_catalogo_productos",
       "entidad_id" => isset($_POST["id_producto_destino"]) ? intval($_POST["id_producto_destino"]) : null,
       "resultado" => $respuesta["error"] ? "error" : "ok",
@@ -191,7 +191,7 @@ class Catalogoerp extends Controlador {
   public function incidencia_migracion_resolver() {
     $this->requerirPermiso("catalogo.editar");
     $respuesta = $this->modelo("CatalogoErpMigracionEcommerce")->resolverIncidencia($_POST);
-    SesionSeguridad::registrarAuditoria("catalogo", "resolver_incidencia_migracion", array(
+    Sesionseguridad::registrarAuditoria("catalogo", "resolver_incidencia_migracion", array(
       "entidad" => "erp_catalogo_migracion_ecom_incidencias",
       "entidad_id" => isset($_POST["id_incidencia"]) ? intval($_POST["id_incidencia"]) : null,
       "resultado" => $respuesta["error"] ? "error" : "ok",
@@ -203,7 +203,7 @@ class Catalogoerp extends Controlador {
   public function incidencia_migracion_vincular_existente() {
     $this->requerirPermiso("catalogo.editar");
     $respuesta = $this->modelo("CatalogoErpMigracionEcommerce")->vincularIncidenciaProductoExistente($_POST);
-    SesionSeguridad::registrarAuditoria("catalogo", "vincular_incidencia_producto_existente", array(
+    Sesionseguridad::registrarAuditoria("catalogo", "vincular_incidencia_producto_existente", array(
       "entidad" => "erp_catalogo_migracion_ecom_incidencias",
       "entidad_id" => isset($_POST["id_incidencia"]) ? intval($_POST["id_incidencia"]) : null,
       "resultado" => $respuesta["error"] ? "error" : "ok",
@@ -215,7 +215,7 @@ class Catalogoerp extends Controlador {
   public function incidencia_nombre_resolver() {
     $this->requerirPermiso("catalogo.editar");
     $respuesta = $this->modelo("CatalogoErpMigracionEcommerce")->resolverNombreCodificacion($_POST);
-    SesionSeguridad::registrarAuditoria("catalogo", "resolver_nombre_codificacion", array(
+    Sesionseguridad::registrarAuditoria("catalogo", "resolver_nombre_codificacion", array(
       "entidad" => "erp_catalogo_migracion_ecom_incidencias",
       "entidad_id" => isset($_POST["id_incidencia"]) ? intval($_POST["id_incidencia"]) : null,
       "resultado" => $respuesta["error"] ? "error" : "ok",
@@ -227,7 +227,7 @@ class Catalogoerp extends Controlador {
   public function incidencia_migracion_descartar() {
     $this->requerirPermiso("catalogo.editar");
     $respuesta = $this->modelo("CatalogoErpMigracionEcommerce")->descartarIncidencia($_POST);
-    SesionSeguridad::registrarAuditoria("catalogo", "descartar_incidencia_migracion", array(
+    Sesionseguridad::registrarAuditoria("catalogo", "descartar_incidencia_migracion", array(
       "entidad" => "erp_catalogo_migracion_ecom_incidencias",
       "entidad_id" => isset($_POST["id_incidencia"]) ? intval($_POST["id_incidencia"]) : null,
       "resultado" => $respuesta["error"] ? "error" : "ok",
@@ -254,7 +254,7 @@ class Catalogoerp extends Controlador {
   public function incidencia_calidad_estatus() {
     $this->requerirPermiso("catalogo.editar");
     $respuesta = $this->modelo("CatalogoErpDatos")->cambiarEstatusIncidenciaCalidad($_POST, $this->usuarioActualId());
-    SesionSeguridad::registrarAuditoria("catalogo", "actualizar_incidencia_calidad", array(
+    Sesionseguridad::registrarAuditoria("catalogo", "actualizar_incidencia_calidad", array(
       "entidad" => "erp_catalogo_incidencias_calidad",
       "entidad_id" => isset($_POST["id_incidencia_calidad"]) ? intval($_POST["id_incidencia_calidad"]) : null,
       "resultado" => $respuesta["error"] ? "error" : "ok",
@@ -267,7 +267,7 @@ class Catalogoerp extends Controlador {
   public function incidencia_proveedor_crear_sku_temporal() {
     $this->requerirPermiso("catalogo.editar");
     $respuesta = $this->modelo("CatalogoErpDatos")->crearSkuTemporalDesdeIncidenciaProveedor($_POST, $this->usuarioActualId());
-    SesionSeguridad::registrarAuditoria("catalogo", "crear_sku_temporal_desde_proveedor", array(
+    Sesionseguridad::registrarAuditoria("catalogo", "crear_sku_temporal_desde_proveedor", array(
       "entidad" => "erp_catalogo_skus",
       "entidad_id" => isset($respuesta["depurar"]["id_sku"]) ? intval($respuesta["depurar"]["id_sku"]) : null,
       "resultado" => $respuesta["error"] ? "error" : "ok",
@@ -280,7 +280,7 @@ class Catalogoerp extends Controlador {
   public function incidencias_reglas_inventario_sincronizar() {
     $this->requerirPermiso("catalogo.editar");
     $respuesta = $this->modelo("CatalogoErpDatos")->sincronizarIncidenciasReglasInventario($this->usuarioActualId());
-    SesionSeguridad::registrarAuditoria("catalogo", "sincronizar_incidencias_reglas_inventario", array(
+    Sesionseguridad::registrarAuditoria("catalogo", "sincronizar_incidencias_reglas_inventario", array(
       "entidad" => "erp_catalogo_incidencias_calidad",
       "resultado" => $respuesta["error"] ? "error" : "ok",
       "mensaje" => $respuesta["mensaje"],
@@ -292,7 +292,7 @@ class Catalogoerp extends Controlador {
   public function incidencias_variantes_sincronizar() {
     $this->requerirPermiso("catalogo.editar");
     $respuesta = $this->modelo("CatalogoErpDatos")->sincronizarIncidenciasVariantes($this->usuarioActualId());
-    SesionSeguridad::registrarAuditoria("catalogo", "sincronizar_incidencias_variantes", array(
+    Sesionseguridad::registrarAuditoria("catalogo", "sincronizar_incidencias_variantes", array(
       "entidad" => "erp_catalogo_incidencias_calidad",
       "resultado" => $respuesta["error"] ? "error" : "ok",
       "mensaje" => $respuesta["mensaje"],
@@ -304,7 +304,7 @@ class Catalogoerp extends Controlador {
   public function incidencias_bloqueos_criticos_sincronizar() {
     $this->requerirPermiso("catalogo.editar");
     $respuesta = $this->modelo("CatalogoErpDatos")->sincronizarIncidenciasBloqueosCriticos($this->usuarioActualId());
-    SesionSeguridad::registrarAuditoria("catalogo", "sincronizar_incidencias_bloqueos_criticos", array(
+    Sesionseguridad::registrarAuditoria("catalogo", "sincronizar_incidencias_bloqueos_criticos", array(
       "entidad" => "erp_catalogo_incidencias_calidad",
       "resultado" => $respuesta["error"] ? "error" : "ok",
       "mensaje" => $respuesta["mensaje"],
@@ -316,7 +316,7 @@ class Catalogoerp extends Controlador {
   public function incidencias_compras_xml_sincronizar() {
     $this->requerirPermiso("catalogo.editar");
     $respuesta = $this->modelo("CatalogoErpDatos")->sincronizarIncidenciasComprasXml($this->usuarioActualId());
-    SesionSeguridad::registrarAuditoria("catalogo", "sincronizar_incidencias_compras_xml", array(
+    Sesionseguridad::registrarAuditoria("catalogo", "sincronizar_incidencias_compras_xml", array(
       "entidad" => "erp_catalogo_incidencias_calidad",
       "resultado" => $respuesta["error"] ? "error" : "ok",
       "mensaje" => $respuesta["mensaje"],
@@ -353,7 +353,7 @@ class Catalogoerp extends Controlador {
   public function relaciones_proveedor_sincronizar() {
     $this->requerirPermiso("catalogo.costos");
     $respuesta = $this->modelo("CatalogoErpDatos")->sincronizarRelacionesProveedorHistoricas();
-    SesionSeguridad::registrarAuditoria("catalogo", "sincronizar_relaciones_proveedor", array(
+    Sesionseguridad::registrarAuditoria("catalogo", "sincronizar_relaciones_proveedor", array(
       "entidad" => "erp_catalogo_sku_proveedores",
       "resultado" => $respuesta["error"] ? "error" : "ok",
       "mensaje" => $respuesta["mensaje"],
@@ -370,7 +370,7 @@ class Catalogoerp extends Controlador {
   public function relaciones_proveedor_aplicar_seleccion() {
     $this->requerirPermiso("catalogo.costos");
     $respuesta = $this->modelo("CatalogoErpDatos")->aplicarRelacionesProveedorSeleccionadas($_POST);
-    SesionSeguridad::registrarAuditoria("catalogo", "aplicar_relaciones_proveedor_seleccion", array(
+    Sesionseguridad::registrarAuditoria("catalogo", "aplicar_relaciones_proveedor_seleccion", array(
       "entidad" => "erp_catalogo_sku_proveedores",
       "resultado" => $respuesta["error"] ? "error" : "ok",
       "mensaje" => $respuesta["mensaje"],
@@ -387,7 +387,7 @@ class Catalogoerp extends Controlador {
   public function propuestas_costos_aplicar() {
     $this->requerirPermiso("catalogo.costos");
     $respuesta = $this->modelo("CatalogoErpDatos")->sincronizarCostosProveedor();
-    SesionSeguridad::registrarAuditoria("catalogo", "aplicar_costos_proveedor", array(
+    Sesionseguridad::registrarAuditoria("catalogo", "aplicar_costos_proveedor", array(
       "entidad" => "erp_catalogo_skus",
       "resultado" => $respuesta["error"] ? "error" : "ok",
       "mensaje" => $respuesta["mensaje"],
@@ -404,7 +404,7 @@ class Catalogoerp extends Controlador {
   public function propuestas_reorden_aplicar() {
     $this->requerirPermiso("catalogo.editar");
     $respuesta = $this->modelo("CatalogoErpDatos")->aplicarPropuestasReorden($_POST);
-    SesionSeguridad::registrarAuditoria("catalogo", "aplicar_reglas_reorden", array(
+    Sesionseguridad::registrarAuditoria("catalogo", "aplicar_reglas_reorden", array(
       "entidad" => "erp_catalogo_sku_reglas_inventario",
       "resultado" => $respuesta["error"] ? "error" : "ok",
       "mensaje" => $respuesta["mensaje"],
@@ -416,7 +416,7 @@ class Catalogoerp extends Controlador {
   public function metadatos_sincronizar() {
     $this->requerirPermiso("catalogo.editar");
     $respuesta = $this->modelo("CatalogoErpDatos")->sincronizarMetadatosCatalogo();
-    SesionSeguridad::registrarAuditoria("catalogo", "sincronizar_metadatos", array(
+    Sesionseguridad::registrarAuditoria("catalogo", "sincronizar_metadatos", array(
       "entidad" => "erp_catalogo_productos",
       "resultado" => $respuesta["error"] ? "error" : "ok",
       "mensaje" => $respuesta["mensaje"],
@@ -433,7 +433,7 @@ class Catalogoerp extends Controlador {
   public function metadatos_revision_aplicar() {
     $this->requerirPermiso("catalogo.editar");
     $respuesta = $this->modelo("CatalogoErpDatos")->aplicarRevisionMetadatosCatalogo($_POST);
-    SesionSeguridad::registrarAuditoria("catalogo", "aplicar_revision_metadatos", array(
+    Sesionseguridad::registrarAuditoria("catalogo", "aplicar_revision_metadatos", array(
       "entidad" => "erp_catalogo_productos",
       "resultado" => $respuesta["error"] ? "error" : "ok",
       "mensaje" => $respuesta["mensaje"],
@@ -451,7 +451,7 @@ class Catalogoerp extends Controlador {
   public function productos_estatus_masivo() {
     $this->requerirPermiso("catalogo.editar");
     $respuesta = $this->modelo("CatalogoErpDatos")->actualizarEstatusProductosMasivo($_POST, $this->usuarioActualId());
-    SesionSeguridad::registrarAuditoria("catalogo", "actualizar_estatus_productos_masivo", array(
+    Sesionseguridad::registrarAuditoria("catalogo", "actualizar_estatus_productos_masivo", array(
       "entidad" => "erp_catalogo_productos",
       "resultado" => $respuesta["error"] ? "error" : "ok",
       "mensaje" => $respuesta["mensaje"],
@@ -468,7 +468,7 @@ class Catalogoerp extends Controlador {
   public function taxonomia_ecommerce_sincronizar() {
     $this->requerirPermiso("catalogo.editar");
     $respuesta = $this->modelo("CatalogoErpDatos")->sincronizarTaxonomiaEcommerce();
-    SesionSeguridad::registrarAuditoria("catalogo", "sincronizar_taxonomia_ecommerce", array(
+    Sesionseguridad::registrarAuditoria("catalogo", "sincronizar_taxonomia_ecommerce", array(
       "entidad" => "erp_catalogo_taxonomias",
       "resultado" => $respuesta["error"] ? "error" : "ok",
       "mensaje" => $respuesta["mensaje"],
@@ -480,7 +480,7 @@ class Catalogoerp extends Controlador {
   public function categorias_arbol_preparar() {
     $this->requerirPermiso("catalogo.editar");
     $respuesta = $this->modelo("CatalogoErpDatos")->prepararArbolCategoriasMaestro();
-    SesionSeguridad::registrarAuditoria("catalogo", "preparar_arbol_categorias_maestro", array(
+    Sesionseguridad::registrarAuditoria("catalogo", "preparar_arbol_categorias_maestro", array(
       "entidad" => "erp_catalogo_categorias",
       "resultado" => $respuesta["error"] ? "error" : "ok",
       "mensaje" => $respuesta["mensaje"],
@@ -492,7 +492,7 @@ class Catalogoerp extends Controlador {
   public function categorias_relaciones_sincronizar() {
     $this->requerirPermiso("catalogo.editar");
     $respuesta = $this->modelo("CatalogoErpDatos")->sincronizarRelacionesCategoriasMaestras($this->usuarioActualId());
-    SesionSeguridad::registrarAuditoria("catalogo", "sincronizar_relaciones_categorias_maestras", array(
+    Sesionseguridad::registrarAuditoria("catalogo", "sincronizar_relaciones_categorias_maestras", array(
       "entidad" => "erp_catalogo_categoria_equivalencias",
       "resultado" => $respuesta["error"] ? "error" : "ok",
       "mensaje" => $respuesta["mensaje"],
@@ -505,7 +505,7 @@ class Catalogoerp extends Controlador {
     $this->requerirPermiso("catalogo.editar");
     $tipo = isset($_POST["tipo_catalogo"]) ? $_POST["tipo_catalogo"] : "";
     $respuesta = $this->modelo("CatalogoErpDatos")->guardarCatalogoAuxiliar($tipo, $_POST);
-    SesionSeguridad::registrarAuditoria("catalogo", "guardar_" . $tipo, array(
+    Sesionseguridad::registrarAuditoria("catalogo", "guardar_" . $tipo, array(
       "entidad" => "erp_catalogo_" . $tipo,
       "entidad_id" => isset($respuesta["depurar"]["id"]) ? $respuesta["depurar"]["id"] : null,
       "resultado" => $respuesta["error"] ? "error" : "ok",
@@ -541,7 +541,7 @@ class Catalogoerp extends Controlador {
   public function clasificacion_rapida_guardar() {
     $this->requerirPermiso("catalogo.editar");
     $respuesta = $this->modelo("CatalogoErpDatos")->guardarClasificacionRapida($_POST, $this->usuarioActualId());
-    SesionSeguridad::registrarAuditoria("catalogo", "guardar_clasificacion_rapida", array(
+    Sesionseguridad::registrarAuditoria("catalogo", "guardar_clasificacion_rapida", array(
       "entidad" => "erp_catalogo_productos",
       "entidad_id" => isset($_POST["id_producto_erp"]) ? intval($_POST["id_producto_erp"]) : null,
       "resultado" => $respuesta["error"] ? "error" : "ok",
@@ -594,7 +594,7 @@ class Catalogoerp extends Controlador {
   public function catalogos_comerciales_guardar() {
     $this->requerirPermiso("catalogo.editar");
     $respuesta = $this->modelo("CatalogoErpDatos")->guardarCatalogoComercial($_POST, $this->usuarioActualId());
-    SesionSeguridad::registrarAuditoria("catalogo", "guardar_catalogo_comercial", array(
+    Sesionseguridad::registrarAuditoria("catalogo", "guardar_catalogo_comercial", array(
       "entidad" => "erp_catalogo_comercial_catalogos",
       "entidad_id" => isset($respuesta["depurar"]["id_catalogo_comercial"]) ? intval($respuesta["depurar"]["id_catalogo_comercial"]) : null,
       "resultado" => $respuesta["error"] ? "error" : "ok",
@@ -614,7 +614,7 @@ class Catalogoerp extends Controlador {
     $archivo = isset($_FILES["archivo_imagen"]) ? $_FILES["archivo_imagen"] : null;
     $tipo = isset($_POST["tipo_imagen"]) ? $_POST["tipo_imagen"] : "portada";
     $respuesta = $this->guardarArchivoImagenCatalogoComercial($archivo, $tipo);
-    SesionSeguridad::registrarAuditoria("catalogo", "subir_imagen_catalogo_comercial", array(
+    Sesionseguridad::registrarAuditoria("catalogo", "subir_imagen_catalogo_comercial", array(
       "entidad" => "erp_catalogo_comercial_catalogos",
       "entidad_id" => isset($_POST["id_catalogo_comercial"]) ? intval($_POST["id_catalogo_comercial"]) : null,
       "resultado" => $respuesta["error"] ? "error" : "ok",
@@ -633,7 +633,7 @@ class Catalogoerp extends Controlador {
   public function catalogos_comerciales_archivar() {
     $this->requerirPermiso("catalogo.editar");
     $respuesta = $this->modelo("CatalogoErpDatos")->archivarCatalogoComercial($_POST, $this->usuarioActualId());
-    SesionSeguridad::registrarAuditoria("catalogo", "archivar_catalogo_comercial", array(
+    Sesionseguridad::registrarAuditoria("catalogo", "archivar_catalogo_comercial", array(
       "entidad" => "erp_catalogo_comercial_catalogos",
       "entidad_id" => isset($_POST["id_catalogo_comercial"]) ? intval($_POST["id_catalogo_comercial"]) : null,
       "resultado" => $respuesta["error"] ? "error" : "ok",
@@ -656,7 +656,7 @@ class Catalogoerp extends Controlador {
   public function registrar() {
     $this->requerirPermiso("catalogo.editar");
     $respuesta = $this->modelo("CatalogoErpDatos")->crearProductoConSku($_POST, $this->usuarioActualId());
-    SesionSeguridad::registrarAuditoria("catalogo", "crear_producto_erp", array(
+    Sesionseguridad::registrarAuditoria("catalogo", "crear_producto_erp", array(
       "entidad" => "erp_catalogo_productos",
       "entidad_id" => isset($respuesta["depurar"]["id_producto_erp"]) ? $respuesta["depurar"]["id_producto_erp"] : null,
       "resultado" => $respuesta["error"] ? "error" : "ok",
@@ -674,7 +674,7 @@ class Catalogoerp extends Controlador {
   public function duplicar_producto() {
     $this->requerirPermiso("catalogo.editar");
     $respuesta = $this->modelo("CatalogoErpDatos")->duplicarProducto($_POST, $this->usuarioActualId());
-    SesionSeguridad::registrarAuditoria("catalogo", "duplicar_producto", array(
+    Sesionseguridad::registrarAuditoria("catalogo", "duplicar_producto", array(
       "entidad" => "erp_catalogo_productos",
       "entidad_id" => isset($respuesta["depurar"]["id_producto_erp"]) ? intval($respuesta["depurar"]["id_producto_erp"]) : null,
       "resultado" => $respuesta["error"] ? "error" : "ok",
@@ -687,7 +687,7 @@ class Catalogoerp extends Controlador {
   public function actualizar() {
     $this->requerirPermiso("catalogo.editar");
     $respuesta = $this->modelo("CatalogoErpDatos")->actualizarProducto($_POST, $this->usuarioActualId());
-    SesionSeguridad::registrarAuditoria("catalogo", "actualizar_producto_erp", array(
+    Sesionseguridad::registrarAuditoria("catalogo", "actualizar_producto_erp", array(
       "entidad" => "erp_catalogo_productos",
       "entidad_id" => isset($_POST["id_producto_erp"]) ? intval($_POST["id_producto_erp"]) : null,
       "resultado" => $respuesta["error"] ? "error" : "ok",
@@ -699,7 +699,7 @@ class Catalogoerp extends Controlador {
   public function agregar_sku() {
     $this->requerirPermiso("catalogo.editar");
     $respuesta = $this->modelo("CatalogoErpDatos")->agregarSku($_POST, $this->usuarioActualId());
-    SesionSeguridad::registrarAuditoria("catalogo", "agregar_sku_erp", array(
+    Sesionseguridad::registrarAuditoria("catalogo", "agregar_sku_erp", array(
       "entidad" => "erp_catalogo_skus",
       "entidad_id" => isset($respuesta["depurar"]["id_sku"]) ? $respuesta["depurar"]["id_sku"] : null,
       "resultado" => $respuesta["error"] ? "error" : "ok",
@@ -729,7 +729,7 @@ class Catalogoerp extends Controlador {
   public function codigo_barras_liberar() {
     $this->requerirPermiso("catalogo.editar");
     $respuesta = $this->modelo("CatalogoErpDatos")->liberarCodigoBarrasArchivado($_POST, $this->usuarioActualId());
-    SesionSeguridad::registrarAuditoria("catalogo", "liberar_codigo_barras_archivado", array(
+    Sesionseguridad::registrarAuditoria("catalogo", "liberar_codigo_barras_archivado", array(
       "entidad" => "erp_catalogo_sku_codigos",
       "entidad_id" => isset($_POST["id_sku_codigo"]) ? intval($_POST["id_sku_codigo"]) : null,
       "resultado" => $respuesta["error"] ? "error" : "ok",
@@ -741,7 +741,7 @@ class Catalogoerp extends Controlador {
   public function actualizar_sku() {
     $this->requerirPermiso("catalogo.editar");
     $respuesta = $this->modelo("CatalogoErpDatos")->actualizarSku($_POST, $this->usuarioActualId());
-    SesionSeguridad::registrarAuditoria("catalogo", "actualizar_sku_erp", array(
+    Sesionseguridad::registrarAuditoria("catalogo", "actualizar_sku_erp", array(
       "entidad" => "erp_catalogo_skus",
       "entidad_id" => isset($_POST["id_sku"]) ? intval($_POST["id_sku"]) : null,
       "resultado" => $respuesta["error"] ? "error" : "ok",
@@ -804,7 +804,7 @@ class Catalogoerp extends Controlador {
   public function incidencia_costo_derivado_generar() {
     $this->requerirPermiso("catalogo.editar");
     $respuesta = $this->modelo("CatalogoErpDatos")->generarIncidenciaCostoDerivadoManual($_POST, $this->usuarioActualId());
-    SesionSeguridad::registrarAuditoria("catalogo", "generar_incidencia_costo_derivado", array(
+    Sesionseguridad::registrarAuditoria("catalogo", "generar_incidencia_costo_derivado", array(
       "entidad" => "erp_notificaciones",
       "entidad_id" => isset($respuesta["depurar"]["incidencia_costo_derivado"]["id_notificacion"]) ? intval($respuesta["depurar"]["incidencia_costo_derivado"]["id_notificacion"]) : null,
       "resultado" => $respuesta["error"] ? "error" : "ok",
@@ -840,7 +840,7 @@ class Catalogoerp extends Controlador {
   public function guardar_sku_proveedor() {
     $this->requerirPermiso("catalogo.costos");
     $respuesta = $this->modelo("CatalogoErpDatos")->guardarSkuProveedor($_POST);
-    SesionSeguridad::registrarAuditoria("catalogo", "guardar_sku_proveedor", array(
+    Sesionseguridad::registrarAuditoria("catalogo", "guardar_sku_proveedor", array(
       "entidad" => "erp_catalogo_sku_proveedores",
       "entidad_id" => isset($_POST["id_sku"]) ? intval($_POST["id_sku"]) : null,
       "resultado" => $respuesta["error"] ? "error" : "ok",
@@ -857,7 +857,7 @@ class Catalogoerp extends Controlador {
   public function proveedor_masivo_skus_sin_proveedor() {
     $this->requerirPermiso("catalogo.costos");
     $respuesta = $this->modelo("CatalogoErpDatos")->asignarProveedorMasivoSkusSinProveedor($_POST);
-    SesionSeguridad::registrarAuditoria("catalogo", "asignar_proveedor_masivo_skus_sin_proveedor", array(
+    Sesionseguridad::registrarAuditoria("catalogo", "asignar_proveedor_masivo_skus_sin_proveedor", array(
       "entidad" => "erp_catalogo_sku_proveedores",
       "resultado" => $respuesta["error"] ? "error" : "ok",
       "mensaje" => $respuesta["mensaje"],
@@ -875,7 +875,7 @@ class Catalogoerp extends Controlador {
     $this->requerirPermiso("catalogo.costos");
     $idProducto = isset($_POST["id_producto_erp"]) ? intval($_POST["id_producto_erp"]) : 0;
     $respuesta = $this->modelo("CatalogoErpDatos")->marcarProveedorUnicoPreferido($idProducto);
-    SesionSeguridad::registrarAuditoria("catalogo", "marcar_proveedor_unico_preferido", array(
+    Sesionseguridad::registrarAuditoria("catalogo", "marcar_proveedor_unico_preferido", array(
       "entidad" => "erp_catalogo_productos",
       "entidad_id" => $idProducto ?: null,
       "resultado" => $respuesta["error"] ? "error" : "ok",
@@ -888,7 +888,7 @@ class Catalogoerp extends Controlador {
   public function guardar_sku_presentacion() {
     $this->requerirPermiso("catalogo.editar");
     $respuesta = $this->modelo("CatalogoErpDatos")->guardarSkuPresentacion($_POST, $this->usuarioActualId());
-    SesionSeguridad::registrarAuditoria("catalogo", "guardar_sku_presentacion", array(
+    Sesionseguridad::registrarAuditoria("catalogo", "guardar_sku_presentacion", array(
       "entidad" => "erp_catalogo_sku_presentaciones",
       "entidad_id" => isset($_POST["id_sku_presentacion"]) ? intval($_POST["id_sku_presentacion"]) : null,
       "resultado" => $respuesta["error"] ? "error" : "ok",
@@ -901,7 +901,7 @@ class Catalogoerp extends Controlador {
   public function desactivar_sku_presentacion() {
     $this->requerirPermiso("catalogo.editar");
     $respuesta = $this->modelo("CatalogoErpDatos")->desactivarSkuPresentacion($_POST);
-    SesionSeguridad::registrarAuditoria("catalogo", "desactivar_sku_presentacion", array(
+    Sesionseguridad::registrarAuditoria("catalogo", "desactivar_sku_presentacion", array(
       "entidad" => "erp_catalogo_sku_presentaciones",
       "entidad_id" => isset($_POST["id_sku_presentacion_regla"]) ? intval($_POST["id_sku_presentacion_regla"]) : null,
       "resultado" => $respuesta["error"] ? "error" : "ok",
@@ -927,7 +927,7 @@ class Catalogoerp extends Controlador {
   public function eliminar_sku_presentacion() {
     $this->requerirPermiso("catalogo.editar");
     $respuesta = $this->modelo("CatalogoErpDatos")->eliminarSkuPresentacion($_POST);
-    SesionSeguridad::registrarAuditoria("catalogo", "eliminar_sku_presentacion", array(
+    Sesionseguridad::registrarAuditoria("catalogo", "eliminar_sku_presentacion", array(
       "entidad" => "erp_catalogo_sku_presentaciones",
       "entidad_id" => isset($_POST["id_sku_presentacion_regla"]) ? intval($_POST["id_sku_presentacion_regla"]) : null,
       "resultado" => $respuesta["error"] ? "error" : "ok",
@@ -939,7 +939,7 @@ class Catalogoerp extends Controlador {
   public function guardar_sku_apertura_empaque() {
     $this->requerirPermiso("catalogo.editar");
     $respuesta = $this->modelo("CatalogoErpDatos")->guardarSkuAperturaEmpaque($_POST, $this->usuarioActualId());
-    SesionSeguridad::registrarAuditoria("catalogo", "guardar_sku_apertura_empaque", array(
+    Sesionseguridad::registrarAuditoria("catalogo", "guardar_sku_apertura_empaque", array(
       "entidad" => "erp_catalogo_sku_aperturas_empaque",
       "entidad_id" => isset($_POST["id_apertura_empaque"]) ? intval($_POST["id_apertura_empaque"]) : null,
       "resultado" => $respuesta["error"] ? "error" : "ok",
@@ -958,7 +958,7 @@ class Catalogoerp extends Controlador {
   public function desactivar_sku_apertura_empaque() {
     $this->requerirPermiso("catalogo.editar");
     $respuesta = $this->modelo("CatalogoErpDatos")->desactivarSkuAperturaEmpaque($_POST);
-    SesionSeguridad::registrarAuditoria("catalogo", "desactivar_sku_apertura_empaque", array(
+    Sesionseguridad::registrarAuditoria("catalogo", "desactivar_sku_apertura_empaque", array(
       "entidad" => "erp_catalogo_sku_aperturas_empaque",
       "entidad_id" => isset($_POST["id_apertura_empaque"]) ? intval($_POST["id_apertura_empaque"]) : null,
       "resultado" => $respuesta["error"] ? "error" : "ok",
@@ -983,7 +983,7 @@ class Catalogoerp extends Controlador {
   public function eliminar_sku_apertura_empaque() {
     $this->requerirPermiso("catalogo.editar");
     $respuesta = $this->modelo("CatalogoErpDatos")->eliminarSkuAperturaEmpaque($_POST);
-    SesionSeguridad::registrarAuditoria("catalogo", "eliminar_sku_apertura_empaque", array(
+    Sesionseguridad::registrarAuditoria("catalogo", "eliminar_sku_apertura_empaque", array(
       "entidad" => "erp_catalogo_sku_aperturas_empaque",
       "entidad_id" => isset($_POST["id_apertura_empaque"]) ? intval($_POST["id_apertura_empaque"]) : null,
       "resultado" => $respuesta["error"] ? "error" : "ok",
@@ -995,7 +995,7 @@ class Catalogoerp extends Controlador {
   public function guardar_sku_reclasificacion() {
     $this->requerirPermiso("catalogo.editar");
     $respuesta = $this->modelo("CatalogoErpDatos")->guardarSkuReclasificacion($_POST, $this->usuarioActualId());
-    SesionSeguridad::registrarAuditoria("catalogo", "guardar_sku_reclasificacion", array(
+    Sesionseguridad::registrarAuditoria("catalogo", "guardar_sku_reclasificacion", array(
       "entidad" => "erp_catalogo_sku_reclasificaciones",
       "entidad_id" => isset($respuesta["depurar"]["id_sku_reclasificacion"]) ? intval($respuesta["depurar"]["id_sku_reclasificacion"]) : (isset($_POST["id_sku_reclasificacion"]) ? intval($_POST["id_sku_reclasificacion"]) : null),
       "resultado" => $respuesta["error"] ? "error" : "ok",
@@ -1014,7 +1014,7 @@ class Catalogoerp extends Controlador {
   public function desactivar_sku_reclasificacion() {
     $this->requerirPermiso("catalogo.editar");
     $respuesta = $this->modelo("CatalogoErpDatos")->desactivarSkuReclasificacion($_POST);
-    SesionSeguridad::registrarAuditoria("catalogo", "desactivar_sku_reclasificacion", array(
+    Sesionseguridad::registrarAuditoria("catalogo", "desactivar_sku_reclasificacion", array(
       "entidad" => "erp_catalogo_sku_reclasificaciones",
       "entidad_id" => isset($_POST["id_sku_reclasificacion"]) ? intval($_POST["id_sku_reclasificacion"]) : null,
       "resultado" => $respuesta["error"] ? "error" : "ok",
@@ -1030,7 +1030,7 @@ class Catalogoerp extends Controlador {
   public function guardar_paquete_simple() {
     $this->requerirPermiso("catalogo.editar");
     $respuesta = $this->modelo("CatalogoErpDatos")->guardarPaqueteSimple($_POST, $this->usuarioActualId());
-    SesionSeguridad::registrarAuditoria("catalogo", "guardar_paquete_simple", array(
+    Sesionseguridad::registrarAuditoria("catalogo", "guardar_paquete_simple", array(
       "entidad" => "erp_catalogo_sku_paquetes",
       "entidad_id" => isset($respuesta["depurar"]["id_paquete"]) ? intval($respuesta["depurar"]["id_paquete"]) : null,
       "resultado" => $respuesta["error"] ? "error" : "ok",
@@ -1048,7 +1048,7 @@ class Catalogoerp extends Controlador {
   public function desactivar_paquete() {
     $this->requerirPermiso("catalogo.editar");
     $respuesta = $this->modelo("CatalogoErpDatos")->desactivarPaquete($_POST);
-    SesionSeguridad::registrarAuditoria("catalogo", "desactivar_paquete", array(
+    Sesionseguridad::registrarAuditoria("catalogo", "desactivar_paquete", array(
       "entidad" => "erp_catalogo_sku_paquetes",
       "entidad_id" => isset($_POST["id_paquete"]) ? intval($_POST["id_paquete"]) : null,
       "resultado" => $respuesta["error"] ? "error" : "ok",
@@ -1072,7 +1072,7 @@ class Catalogoerp extends Controlador {
   public function eliminar_paquete() {
     $this->requerirPermiso("catalogo.editar");
     $respuesta = $this->modelo("CatalogoErpDatos")->eliminarPaquete($_POST);
-    SesionSeguridad::registrarAuditoria("catalogo", "eliminar_paquete", array(
+    Sesionseguridad::registrarAuditoria("catalogo", "eliminar_paquete", array(
       "entidad" => "erp_catalogo_sku_paquetes",
       "entidad_id" => isset($_POST["id_paquete"]) ? intval($_POST["id_paquete"]) : null,
       "resultado" => $respuesta["error"] ? "error" : "ok",
@@ -1084,7 +1084,7 @@ class Catalogoerp extends Controlador {
   public function guardar_paquete_grupo() {
     $this->requerirPermiso("catalogo.editar");
     $respuesta = $this->modelo("CatalogoErpDatos")->guardarPaqueteGrupo($_POST, $this->usuarioActualId());
-    SesionSeguridad::registrarAuditoria("catalogo", "guardar_paquete_grupo", array(
+    Sesionseguridad::registrarAuditoria("catalogo", "guardar_paquete_grupo", array(
       "entidad" => "erp_catalogo_sku_paquete_grupos",
       "entidad_id" => isset($respuesta["depurar"]["id_grupo"]) ? intval($respuesta["depurar"]["id_grupo"]) : null,
       "resultado" => $respuesta["error"] ? "error" : "ok",
@@ -1102,7 +1102,7 @@ class Catalogoerp extends Controlador {
   public function desactivar_paquete_grupo() {
     $this->requerirPermiso("catalogo.editar");
     $respuesta = $this->modelo("CatalogoErpDatos")->desactivarPaqueteGrupo($_POST);
-    SesionSeguridad::registrarAuditoria("catalogo", "desactivar_paquete_grupo", array(
+    Sesionseguridad::registrarAuditoria("catalogo", "desactivar_paquete_grupo", array(
       "entidad" => "erp_catalogo_sku_paquete_grupos",
       "entidad_id" => isset($_POST["id_grupo"]) ? intval($_POST["id_grupo"]) : null,
       "resultado" => $respuesta["error"] ? "error" : "ok",
@@ -1126,7 +1126,7 @@ class Catalogoerp extends Controlador {
   public function eliminar_paquete_grupo() {
     $this->requerirPermiso("catalogo.editar");
     $respuesta = $this->modelo("CatalogoErpDatos")->eliminarPaqueteGrupo($_POST);
-    SesionSeguridad::registrarAuditoria("catalogo", "eliminar_paquete_grupo", array(
+    Sesionseguridad::registrarAuditoria("catalogo", "eliminar_paquete_grupo", array(
       "entidad" => "erp_catalogo_sku_paquete_grupos",
       "entidad_id" => isset($_POST["id_grupo"]) ? intval($_POST["id_grupo"]) : null,
       "resultado" => $respuesta["error"] ? "error" : "ok",
@@ -1138,7 +1138,7 @@ class Catalogoerp extends Controlador {
   public function guardar_paquete_opcion() {
     $this->requerirPermiso("catalogo.editar");
     $respuesta = $this->modelo("CatalogoErpDatos")->guardarPaqueteGrupoOpcion($_POST, $this->usuarioActualId());
-    SesionSeguridad::registrarAuditoria("catalogo", "guardar_paquete_opcion", array(
+    Sesionseguridad::registrarAuditoria("catalogo", "guardar_paquete_opcion", array(
       "entidad" => "erp_catalogo_sku_paquete_grupo_opciones",
       "entidad_id" => isset($respuesta["depurar"]["id_opcion"]) ? intval($respuesta["depurar"]["id_opcion"]) : null,
       "resultado" => $respuesta["error"] ? "error" : "ok",
@@ -1156,7 +1156,7 @@ class Catalogoerp extends Controlador {
   public function desactivar_paquete_opcion() {
     $this->requerirPermiso("catalogo.editar");
     $respuesta = $this->modelo("CatalogoErpDatos")->desactivarPaqueteGrupoOpcion($_POST);
-    SesionSeguridad::registrarAuditoria("catalogo", "desactivar_paquete_opcion", array(
+    Sesionseguridad::registrarAuditoria("catalogo", "desactivar_paquete_opcion", array(
       "entidad" => "erp_catalogo_sku_paquete_grupo_opciones",
       "entidad_id" => isset($_POST["id_opcion"]) ? intval($_POST["id_opcion"]) : null,
       "resultado" => $respuesta["error"] ? "error" : "ok",
@@ -1175,7 +1175,7 @@ class Catalogoerp extends Controlador {
   public function eliminar_paquete_opcion() {
     $this->requerirPermiso("catalogo.editar");
     $respuesta = $this->modelo("CatalogoErpDatos")->eliminarPaqueteGrupoOpcion($_POST);
-    SesionSeguridad::registrarAuditoria("catalogo", "eliminar_paquete_opcion", array(
+    Sesionseguridad::registrarAuditoria("catalogo", "eliminar_paquete_opcion", array(
       "entidad" => "erp_catalogo_sku_paquete_grupo_opciones",
       "entidad_id" => isset($_POST["id_opcion"]) ? intval($_POST["id_opcion"]) : null,
       "resultado" => $respuesta["error"] ? "error" : "ok",
@@ -1187,7 +1187,7 @@ class Catalogoerp extends Controlador {
   public function guardar_variantes() {
     $this->requerirPermiso("catalogo.editar");
     $respuesta = $this->modelo("CatalogoErpDatos")->guardarVariantesProducto($_POST);
-    SesionSeguridad::registrarAuditoria("catalogo", "guardar_variantes_producto", array(
+    Sesionseguridad::registrarAuditoria("catalogo", "guardar_variantes_producto", array(
       "entidad" => "erp_catalogo_productos",
       "entidad_id" => isset($_POST["id_producto_erp"]) ? intval($_POST["id_producto_erp"]) : null,
       "resultado" => $respuesta["error"] ? "error" : "ok",
@@ -1206,7 +1206,7 @@ class Catalogoerp extends Controlador {
   public function guardar_atributos_tecnicos() {
     $this->requerirPermiso("catalogo.editar");
     $respuesta = $this->modelo("CatalogoErpDatos")->guardarAtributosTecnicosProducto($_POST);
-    SesionSeguridad::registrarAuditoria("catalogo", "guardar_atributos_tecnicos_producto", array(
+    Sesionseguridad::registrarAuditoria("catalogo", "guardar_atributos_tecnicos_producto", array(
       "entidad" => "erp_catalogo_productos",
       "entidad_id" => isset($_POST["id_producto_erp"]) ? intval($_POST["id_producto_erp"]) : null,
       "resultado" => $respuesta["error"] ? "error" : "ok",
@@ -1225,7 +1225,7 @@ class Catalogoerp extends Controlador {
   public function eliminar_variante_atributo() {
     $this->requerirPermiso("catalogo.editar");
     $respuesta = $this->modelo("CatalogoErpDatos")->eliminarVarianteAtributoProducto($_POST);
-    SesionSeguridad::registrarAuditoria("catalogo", "eliminar_variante_atributo_producto", array(
+    Sesionseguridad::registrarAuditoria("catalogo", "eliminar_variante_atributo_producto", array(
       "entidad" => "erp_catalogo_sku_atributos",
       "entidad_id" => isset($_POST["id_atributo_erp"]) ? intval($_POST["id_atributo_erp"]) : null,
       "resultado" => $respuesta["error"] ? "error" : "ok",
@@ -1250,7 +1250,7 @@ class Catalogoerp extends Controlador {
     } else {
       $respuesta = $this->modelo("CatalogoErpDatos")->guardarImagenProducto($datos);
     }
-    SesionSeguridad::registrarAuditoria("catalogo", "guardar_imagen_producto_erp", array(
+    Sesionseguridad::registrarAuditoria("catalogo", "guardar_imagen_producto_erp", array(
       "entidad" => "erp_catalogo_imagenes",
       "entidad_id" => isset($respuesta["depurar"]["id_imagen_erp"]) ? $respuesta["depurar"]["id_imagen_erp"] : null,
       "resultado" => $respuesta["error"] ? "error" : "ok",
@@ -1386,7 +1386,7 @@ class Catalogoerp extends Controlador {
   public function desactivar_imagen() {
     $this->requerirPermiso("catalogo.editar");
     $respuesta = $this->modelo("CatalogoErpDatos")->desactivarImagenProducto($_POST);
-    SesionSeguridad::registrarAuditoria("catalogo", "desactivar_imagen_producto_erp", array(
+    Sesionseguridad::registrarAuditoria("catalogo", "desactivar_imagen_producto_erp", array(
       "entidad" => "erp_catalogo_imagenes",
       "entidad_id" => isset($_POST["id_imagen_erp"]) ? intval($_POST["id_imagen_erp"]) : null,
       "resultado" => $respuesta["error"] ? "error" : "ok",
@@ -1431,7 +1431,7 @@ class Catalogoerp extends Controlador {
     } else {
       $respuesta = $this->modelo("CatalogoErpDatos")->guardarImagenCatalogoMaestro($datos);
     }
-    SesionSeguridad::registrarAuditoria("catalogo", "guardar_imagen_catalogo_maestro", array(
+    Sesionseguridad::registrarAuditoria("catalogo", "guardar_imagen_catalogo_maestro", array(
       "entidad" => isset($_POST["tipo_entidad"]) && $_POST["tipo_entidad"] === "categoria" ? "erp_catalogo_categoria_imagenes" : "erp_catalogo_marca_imagenes",
       "entidad_id" => isset($respuesta["depurar"]["id_imagen"]) ? intval($respuesta["depurar"]["id_imagen"]) : null,
       "resultado" => $respuesta["error"] ? "error" : "ok",
@@ -1526,7 +1526,7 @@ class Catalogoerp extends Controlador {
   public function imagen_maestro_desactivar() {
     $this->requerirPermiso("catalogo.editar");
     $respuesta = $this->modelo("CatalogoErpDatos")->desactivarImagenCatalogoMaestro($_POST);
-    SesionSeguridad::registrarAuditoria("catalogo", "desactivar_imagen_catalogo_maestro", array(
+    Sesionseguridad::registrarAuditoria("catalogo", "desactivar_imagen_catalogo_maestro", array(
       "entidad" => isset($_POST["tipo_entidad"]) && $_POST["tipo_entidad"] === "categoria" ? "erp_catalogo_categoria_imagenes" : "erp_catalogo_marca_imagenes",
       "entidad_id" => isset($_POST["id_imagen"]) ? intval($_POST["id_imagen"]) : null,
       "resultado" => $respuesta["error"] ? "error" : "ok",
@@ -1554,7 +1554,7 @@ class Catalogoerp extends Controlador {
   public function imagenes_ecommerce_recuperar() {
     $this->requerirPermiso("catalogo.editar");
     $respuesta = $this->modelo("CatalogoErpDatos")->recuperarImagenEcommerceSeleccionada($_POST);
-    SesionSeguridad::registrarAuditoria("catalogo", "recuperar_imagenes_ecommerce", array(
+    Sesionseguridad::registrarAuditoria("catalogo", "recuperar_imagenes_ecommerce", array(
       "entidad" => "erp_catalogo_imagenes",
       "entidad_id" => isset($respuesta["depurar"]["id_imagen_erp"]) ? $respuesta["depurar"]["id_imagen_erp"] : null,
       "resultado" => $respuesta["error"] ? "error" : "ok",

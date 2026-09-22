@@ -320,7 +320,7 @@ class EcommerceLeadsErp extends CRUD {
       $sql[] = "UPDATE `erp_ecommerce_leads_carritos` SET `estatus`='" . $estatusDestino . "', `fecha_actualizacion`=NOW() WHERE `id_carrito_lead`=" . intval($id) . " LIMIT 1;";
     }
     if (empty($bloqueos) && $nota !== "") {
-      $sql[] = "INSERT INTO `erp_ecommerce_leads_notas` (`id_carrito_lead`, `nota`, `creado_por`, `fecha_registro`) VALUES (" . intval($id) . ", ..., " . intval(SesionSeguridad::usuarioId()) . ", NOW());";
+      $sql[] = "INSERT INTO `erp_ecommerce_leads_notas` (`id_carrito_lead`, `nota`, `creado_por`, `fecha_registro`) VALUES (" . intval($id) . ", ..., " . intval(Sesionseguridad::usuarioId()) . ", NOW());";
     }
     return $this->respuesta(false, empty($bloqueos) ? "success" : "warning", empty($bloqueos) ? "Plan de accion Ecommerce Lead listo" : "Plan de accion con bloqueos", array(
       "read_only" => true,

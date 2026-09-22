@@ -228,7 +228,7 @@ class Compra extends Controlador {
     }
 
     private function auditarSugeridoCompraErp($accion, $respuesta) {
-        SesionSeguridad::registrarAuditoria("compras", "sugerido_compra_" . $accion, array(
+        Sesionseguridad::registrarAuditoria("compras", "sugerido_compra_" . $accion, array(
             "entidad" => "erp_compras_sugeridos_compra",
             "entidad_id" => isset($respuesta["depurar"]["id_sugerido_compra"]) ? $respuesta["depurar"]["id_sugerido_compra"] : null,
             "resultado" => $respuesta["error"] ? "error" : "ok",
@@ -290,7 +290,7 @@ class Compra extends Controlador {
     }
 
     private function auditarSolicitudErp($accion, $respuesta) {
-        SesionSeguridad::registrarAuditoria("compras", "solicitud_" . $accion, array(
+        Sesionseguridad::registrarAuditoria("compras", "solicitud_" . $accion, array(
             "entidad" => "erp_compras_solicitudes",
             "entidad_id" => isset($respuesta["depurar"]["id_solicitud"]) ? $respuesta["depurar"]["id_solicitud"] : null,
             "resultado" => $respuesta["error"] ? "error" : "ok",
@@ -766,7 +766,7 @@ class Compra extends Controlador {
     }
 
     private function auditarOrdenErp($accion, $respuesta) {
-        SesionSeguridad::registrarAuditoria("compras", "orden_" . $accion, array(
+        Sesionseguridad::registrarAuditoria("compras", "orden_" . $accion, array(
             "entidad" => "erp_compras_ordenes",
             "entidad_id" => isset($respuesta["depurar"]["id_orden_compra"]) ? $respuesta["depurar"]["id_orden_compra"] : null,
             "resultado" => $respuesta["error"] ? "error" : "ok",
@@ -869,7 +869,7 @@ class Compra extends Controlador {
             $_POST,
             isset($_SESSION["id_usuario"]) ? $_SESSION["id_usuario"] : 0
         );
-        SesionSeguridad::registrarAuditoria("compras", "documentos_plantilla_guardar", array(
+        Sesionseguridad::registrarAuditoria("compras", "documentos_plantilla_guardar", array(
             "entidad" => "erp_compras_documentos_plantillas",
             "entidad_id" => isset($respuesta["depurar"]["id_plantilla_documento"]) ? $respuesta["depurar"]["id_plantilla_documento"] : null,
             "resultado" => $respuesta["error"] ? "error" : "ok",
@@ -904,7 +904,7 @@ class Compra extends Controlador {
             $_POST,
             isset($_SESSION["id_usuario"]) ? $_SESSION["id_usuario"] : 0
         );
-        SesionSeguridad::registrarAuditoria("compras", "documentos_datos_negocio_guardar", array(
+        Sesionseguridad::registrarAuditoria("compras", "documentos_datos_negocio_guardar", array(
             "entidad" => "sys_configuracion_parametros",
             "resultado" => $respuesta["error"] ? "error" : "ok",
             "mensaje" => $respuesta["mensaje"],
@@ -928,7 +928,7 @@ class Compra extends Controlador {
             $this->usuarioActualId(),
             isset($_POST["motivo"]) ? trim($_POST["motivo"]) : "Logo compartido para documentos de Compras"
         );
-        SesionSeguridad::registrarAuditoria("compras", "documentos_logo_subir", array(
+        Sesionseguridad::registrarAuditoria("compras", "documentos_logo_subir", array(
             "entidad" => "sys_configuracion_parametros",
             "resultado" => $respuesta["error"] ? "error" : "ok",
             "datos_despues" => isset($respuesta["depurar"]["logo"]) ? $respuesta["depurar"]["logo"] : null,

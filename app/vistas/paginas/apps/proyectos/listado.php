@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="es">
 <head>
     <base href="../../../">
@@ -10,9 +10,9 @@
     <link href="assets/css/style.bundle.css" rel="stylesheet">
 </head>
 <body id="kt_app_body" data-kt-app-layout="dark-sidebar" data-kt-app-header-fixed="true" data-kt-app-sidebar-enabled="true" data-kt-app-sidebar-fixed="true" class="app-default">
-<input type="hidden" id="proyectos_puede_crear" value="<?= SesionSeguridad::tienePermiso('proyectos.crear') ? '1' : '0' ?>">
-<input type="hidden" id="proyectos_puede_editar" value="<?= SesionSeguridad::tienePermiso('proyectos.editar') ? '1' : '0' ?>">
-<input type="hidden" id="proyectos_puede_cerrar" value="<?= SesionSeguridad::tienePermiso('proyectos.cerrar') ? '1' : '0' ?>">
+<input type="hidden" id="proyectos_puede_crear" value="<?= Sesionseguridad::tienePermiso('proyectos.crear') ? '1' : '0' ?>">
+<input type="hidden" id="proyectos_puede_editar" value="<?= Sesionseguridad::tienePermiso('proyectos.editar') ? '1' : '0' ?>">
+<input type="hidden" id="proyectos_puede_cerrar" value="<?= Sesionseguridad::tienePermiso('proyectos.cerrar') ? '1' : '0' ?>">
 <div class="d-flex flex-column flex-root app-root">
     <div class="app-page flex-column flex-column-fluid">
         <?= include_once '../app/vistas/includes/header/header.php'; ?>
@@ -25,7 +25,7 @@
                             <h1 class="page-heading text-dark fw-bold fs-3 mb-1">Proyectos y tareas</h1>
                             <span class="text-muted">Control operativo de pendientes, responsables y objetivos</span>
                         </div>
-                        <?php if (SesionSeguridad::tienePermiso('proyectos.crear')): ?>
+                        <?php if (Sesionseguridad::tienePermiso('proyectos.crear')): ?>
                         <div class="d-flex gap-2">
                             <button type="button" class="btn btn-light-primary" id="proyectos_nueva_tarea">
                                 <i class="bi bi-check2-square fs-3"></i>

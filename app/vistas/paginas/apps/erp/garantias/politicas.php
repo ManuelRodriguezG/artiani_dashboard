@@ -10,7 +10,7 @@
     <link href="assets/css/style.bundle.css" rel="stylesheet">
 </head>
 <body id="kt_app_body" data-kt-app-layout="dark-sidebar" data-kt-app-header-fixed="true" data-kt-app-sidebar-enabled="true" data-kt-app-sidebar-fixed="true" class="app-default">
-<input type="hidden" id="garantias_puede_politicas" value="<?= SesionSeguridad::tienePermiso('garantias.politicas') ? '1' : '0' ?>">
+<input type="hidden" id="garantias_puede_politicas" value="<?= Sesionseguridad::tienePermiso('garantias.politicas') ? '1' : '0' ?>">
 <input type="hidden" id="garantias_politica_id" value="">
 <input type="hidden" id="garantias_regla_id" value="">
 <div class="d-flex flex-column flex-root app-root">
@@ -105,7 +105,7 @@
                             </div>
                         </div>
 
-                        <?php if (SesionSeguridad::tienePermiso('garantias.politicas')): ?>
+                        <?php if (Sesionseguridad::tienePermiso('garantias.politicas')): ?>
                         <div class="card mb-7">
                             <div class="card-header border-0 pt-6">
                                 <div class="card-title">
@@ -311,7 +311,7 @@
                             </div>
                         </div>
 
-                        <?php if (SesionSeguridad::tienePermiso('garantias.politicas')): ?>
+                        <?php if (Sesionseguridad::tienePermiso('garantias.politicas')): ?>
                         <div class="card mb-7">
                             <div class="card-header border-0 pt-6">
                                 <div class="card-title">

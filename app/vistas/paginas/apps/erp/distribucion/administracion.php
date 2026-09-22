@@ -12,10 +12,10 @@
 <body id="kt_app_body" data-kt-app-layout="dark-sidebar" data-kt-app-header-fixed="true" data-kt-app-sidebar-enabled="true" data-kt-app-sidebar-fixed="true" class="app-default">
     <script>
         window.DISTRIBUCION_ADMIN_PERMISOS = {
-            editar: <?= SesionSeguridad::tienePermiso('distribucion.editar') ? 'true' : 'false' ?>,
-            aprobar: <?= SesionSeguridad::tienePermiso('distribucion.aprobar_clientes') ? 'true' : 'false' ?>,
-            asignar_precios: <?= SesionSeguridad::tienePermiso('distribucion.asignar_precios') ? 'true' : 'false' ?>,
-            cotizaciones_gestionar: <?= SesionSeguridad::tienePermiso('distribucion.cotizaciones.gestionar') ? 'true' : 'false' ?>
+            editar: <?= Sesionseguridad::tienePermiso('distribucion.editar') ? 'true' : 'false' ?>,
+            aprobar: <?= Sesionseguridad::tienePermiso('distribucion.aprobar_clientes') ? 'true' : 'false' ?>,
+            asignar_precios: <?= Sesionseguridad::tienePermiso('distribucion.asignar_precios') ? 'true' : 'false' ?>,
+            cotizaciones_gestionar: <?= Sesionseguridad::tienePermiso('distribucion.cotizaciones.gestionar') ? 'true' : 'false' ?>
         };
     </script>
     <div class="d-flex flex-column flex-root app-root" id="kt_app_root">

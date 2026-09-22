@@ -205,6 +205,6 @@
 </div>
 
 <script>
-  window.ERP_CSRF_TOKEN = "<?= htmlspecialchars(SesionSeguridad::csrfToken(), ENT_QUOTES, 'UTF-8') ?>";
+  window.ERP_CSRF_TOKEN = "<?= htmlspecialchars(Sesionseguridad::csrfToken(), ENT_QUOTES, 'UTF-8') ?>";
 </script>
 <script src="/assets/js/custom/apps/erp/cms/blog.js?v=20260911-blog2"></script>

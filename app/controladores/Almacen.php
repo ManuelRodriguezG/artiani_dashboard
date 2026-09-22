@@ -155,7 +155,7 @@ class Almacen extends Controlador {
         $this->requerirPermiso("almacen.recibir");
         $almacen = $this->modelo('Almacenes');
         $respuesta = $almacen->guardar_solicitud_resurtido($_POST, $this->usuarioActualId());
-        SesionSeguridad::registrarAuditoria("almacen", "resurtido_guardar_erp", array(
+        Sesionseguridad::registrarAuditoria("almacen", "resurtido_guardar_erp", array(
             "entidad" => "erp_almacen_resurtidos",
             "entidad_id" => isset($respuesta["depurar"]["id_resurtido_almacen"]) ? intval($respuesta["depurar"]["id_resurtido_almacen"]) : 0,
             "resultado" => $respuesta["error"] ? "error" : "ok",
@@ -181,7 +181,7 @@ class Almacen extends Controlador {
         $this->requerirPermiso("almacen.recibir");
         $almacen = $this->modelo('Almacenes');
         $respuesta = $almacen->autorizar_resurtido_pendiente($_POST, $this->usuarioActualId());
-        SesionSeguridad::registrarAuditoria("almacen", "resurtido_autorizar_erp", array(
+        Sesionseguridad::registrarAuditoria("almacen", "resurtido_autorizar_erp", array(
             "entidad" => "erp_almacen_resurtidos",
             "entidad_id" => isset($respuesta["depurar"]["id_resurtido_almacen"]) ? intval($respuesta["depurar"]["id_resurtido_almacen"]) : 0,
             "resultado" => $respuesta["error"] ? "error" : "ok",
@@ -195,7 +195,7 @@ class Almacen extends Controlador {
         $this->requerirPermiso("almacen.recibir");
         $almacen = $this->modelo('Almacenes');
         $respuesta = $almacen->cancelar_resurtido_pendiente($_POST, $this->usuarioActualId());
-        SesionSeguridad::registrarAuditoria("almacen", "resurtido_cancelar_erp", array(
+        Sesionseguridad::registrarAuditoria("almacen", "resurtido_cancelar_erp", array(
             "entidad" => "erp_almacen_resurtidos",
             "entidad_id" => isset($respuesta["depurar"]["id_resurtido_almacen"]) ? intval($respuesta["depurar"]["id_resurtido_almacen"]) : 0,
             "resultado" => $respuesta["error"] ? "error" : "ok",
@@ -209,7 +209,7 @@ class Almacen extends Controlador {
         $this->requerirPermiso("almacen.ubicaciones");
         $almacen = $this->modelo('Almacenes');
         $respuesta = $almacen->guardar_politica_resurtido_pendiente($_POST, $this->usuarioActualId());
-        SesionSeguridad::registrarAuditoria("almacen", "resurtido_politica_guardar_erp", array(
+        Sesionseguridad::registrarAuditoria("almacen", "resurtido_politica_guardar_erp", array(
             "entidad" => "erp_inventario_politicas_almacen_sku",
             "entidad_id" => isset($respuesta["depurar"]["id_politica_almacen_sku"]) ? intval($respuesta["depurar"]["id_politica_almacen_sku"]) : 0,
             "resultado" => $respuesta["error"] ? "error" : "ok",
@@ -223,7 +223,7 @@ class Almacen extends Controlador {
         $this->requerirPermiso("almacen.ubicaciones");
         $almacen = $this->modelo('Almacenes');
         $respuesta = $almacen->guardar_almacen_configuracion($_POST, $this->usuarioActualId());
-        SesionSeguridad::registrarAuditoria("almacen", "almacen_configuracion_guardar_erp", array(
+        Sesionseguridad::registrarAuditoria("almacen", "almacen_configuracion_guardar_erp", array(
             "entidad" => "erp_almacenes",
             "entidad_id" => isset($respuesta["depurar"]["id_almacen"]) ? intval($respuesta["depurar"]["id_almacen"]) : 0,
             "resultado" => $respuesta["error"] ? "error" : "ok",
@@ -243,7 +243,7 @@ class Almacen extends Controlador {
         $this->requerirPermiso("almacen.ubicaciones");
         $almacen = $this->modelo('Almacenes');
         $respuesta = $almacen->guardar_ubicacion_configuracion($_POST, $this->usuarioActualId());
-        SesionSeguridad::registrarAuditoria("almacen", "ubicacion_configuracion_guardar_erp", array(
+        Sesionseguridad::registrarAuditoria("almacen", "ubicacion_configuracion_guardar_erp", array(
             "entidad" => "erp_almacen_ubicaciones",
             "entidad_id" => isset($respuesta["depurar"]["id_ubicacion"]) ? intval($respuesta["depurar"]["id_ubicacion"]) : 0,
             "resultado" => $respuesta["error"] ? "error" : "ok",
@@ -342,7 +342,7 @@ class Almacen extends Controlador {
         $this->requerirPermiso("almacen.recibir");
         $almacen = $this->modelo("Almacenes");
         $respuesta = $almacen->guardar_borrador_apertura_empaque($_POST, $this->usuarioActualId());
-        SesionSeguridad::registrarAuditoria("almacen", "apertura_guardar_borrador_erp", array(
+        Sesionseguridad::registrarAuditoria("almacen", "apertura_guardar_borrador_erp", array(
             "entidad" => "erp_almacen_aperturas_empaque",
             "entidad_id" => isset($respuesta["depurar"]["id_apertura_empaque"]) ? intval($respuesta["depurar"]["id_apertura_empaque"]) : 0,
             "resultado" => $respuesta["error"] ? "error" : "ok",
@@ -364,7 +364,7 @@ class Almacen extends Controlador {
         $id_apertura = isset($_POST["id_apertura_empaque"]) ? $_POST["id_apertura_empaque"] : 0;
         $almacen = $this->modelo("Almacenes");
         $respuesta = $almacen->confirmar_apertura_empaque($id_apertura, $this->usuarioActualId());
-        SesionSeguridad::registrarAuditoria("almacen", "apertura_confirmar_erp", array(
+        Sesionseguridad::registrarAuditoria("almacen", "apertura_confirmar_erp", array(
             "entidad" => "erp_almacen_aperturas_empaque",
             "entidad_id" => intval($id_apertura),
             "resultado" => $respuesta["error"] ? "error" : "ok",
@@ -378,7 +378,7 @@ class Almacen extends Controlador {
         $this->requerirPermiso("almacen.recibir");
         $almacen = $this->modelo("Almacenes");
         $respuesta = $almacen->guardar_borrador_preparacion($_POST, $this->usuarioActualId());
-        SesionSeguridad::registrarAuditoria("almacen", "preparacion_guardar_borrador_erp", array(
+        Sesionseguridad::registrarAuditoria("almacen", "preparacion_guardar_borrador_erp", array(
             "entidad" => "erp_almacen_preparaciones",
             "entidad_id" => isset($respuesta["depurar"]["id_preparacion_almacen"]) ? intval($respuesta["depurar"]["id_preparacion_almacen"]) : 0,
             "resultado" => $respuesta["error"] ? "error" : "ok",
@@ -393,7 +393,7 @@ class Almacen extends Controlador {
         $id_preparacion = isset($_POST["id_preparacion_almacen"]) ? $_POST["id_preparacion_almacen"] : 0;
         $almacen = $this->modelo("Almacenes");
         $respuesta = $almacen->confirmar_preparacion($id_preparacion, $this->usuarioActualId());
-        SesionSeguridad::registrarAuditoria("almacen", "preparacion_confirmar_erp", array(
+        Sesionseguridad::registrarAuditoria("almacen", "preparacion_confirmar_erp", array(
             "entidad" => "erp_almacen_preparaciones",
             "entidad_id" => intval($id_preparacion),
             "resultado" => $respuesta["error"] ? "error" : "ok",
@@ -421,7 +421,7 @@ class Almacen extends Controlador {
         $id_usuario = isset($_SESSION["id_usuario"]) ? $_SESSION["id_usuario"] : 0;
         $almacen = $this->modelo("Almacenes");
         $respuesta = $almacen->guardar_recepcion_almacen($id_recepcion_almacen, $partidas, $id_usuario);
-        SesionSeguridad::registrarAuditoria("almacen", "guardar_recepcion", array(
+        Sesionseguridad::registrarAuditoria("almacen", "guardar_recepcion", array(
             "entidad" => "erp_almacen_recepciones",
             "entidad_id" => intval($id_recepcion_almacen),
             "resultado" => $respuesta["error"] ? "error" : "ok",
@@ -439,7 +439,7 @@ class Almacen extends Controlador {
     public function etiqueta_marcar_impresa_erp() {
         $this->requerirPermiso("almacen.recibir");
         $respuesta = $this->modelo("InventarioErp")->marcarEtiquetaImpresa($_POST, $this->usuarioActualId());
-        SesionSeguridad::registrarAuditoria("almacen", "etiqueta_marcar_impresa_erp", array(
+        Sesionseguridad::registrarAuditoria("almacen", "etiqueta_marcar_impresa_erp", array(
             "entidad" => "erp_inventario_unidades",
             "entidad_id" => isset($_POST["id_inventario_unidad"]) ? intval($_POST["id_inventario_unidad"]) : 0,
             "resultado" => $respuesta["error"] ? "error" : "ok",
@@ -452,7 +452,7 @@ class Almacen extends Controlador {
     public function etiquetas_marcar_impresas_erp() {
         $this->requerirPermiso("almacen.recibir");
         $respuesta = $this->modelo("InventarioErp")->marcarEtiquetasImpresas($_POST, $this->usuarioActualId());
-        SesionSeguridad::registrarAuditoria("almacen", "etiquetas_marcar_impresas_erp", array(
+        Sesionseguridad::registrarAuditoria("almacen", "etiquetas_marcar_impresas_erp", array(
             "entidad" => "erp_inventario_unidades",
             "entidad_id" => 0,
             "resultado" => $respuesta["error"] ? "error" : "ok",
@@ -465,7 +465,7 @@ class Almacen extends Controlador {
     public function etiqueta_marcar_pegada_erp() {
         $this->requerirPermiso("almacen.recibir");
         $respuesta = $this->modelo("InventarioErp")->marcarEtiquetaPegada($_POST, $this->usuarioActualId());
-        SesionSeguridad::registrarAuditoria("almacen", "etiqueta_marcar_pegada_erp", array(
+        Sesionseguridad::registrarAuditoria("almacen", "etiqueta_marcar_pegada_erp", array(
             "entidad" => "erp_inventario_unidades",
             "entidad_id" => isset($_POST["id_inventario_unidad"]) ? intval($_POST["id_inventario_unidad"]) : 0,
             "resultado" => $respuesta["error"] ? "error" : "ok",
@@ -478,7 +478,7 @@ class Almacen extends Controlador {
     public function etiquetas_marcar_pegadas_erp() {
         $this->requerirPermiso("almacen.recibir");
         $respuesta = $this->modelo("InventarioErp")->marcarEtiquetasPegadas($_POST, $this->usuarioActualId());
-        SesionSeguridad::registrarAuditoria("almacen", "etiquetas_marcar_pegadas_erp", array(
+        Sesionseguridad::registrarAuditoria("almacen", "etiquetas_marcar_pegadas_erp", array(
             "entidad" => "erp_inventario_unidades",
             "entidad_id" => 0,
             "resultado" => $respuesta["error"] ? "error" : "ok",

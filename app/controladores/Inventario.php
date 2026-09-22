@@ -317,7 +317,7 @@ class Inventario extends Controlador {
     }
 
     private function auditarMovimiento($accion, $respuesta) {
-        SesionSeguridad::registrarAuditoria("inventario", $accion, array(
+        Sesionseguridad::registrarAuditoria("inventario", $accion, array(
             "entidad" => "erp_inventario_movimientos",
             "resultado" => $respuesta["error"] ? "error" : "ok",
             "mensaje" => $respuesta["mensaje"],

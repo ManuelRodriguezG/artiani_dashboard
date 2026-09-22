@@ -42,7 +42,7 @@
                                 <a class="btn btn-light" href="/ventas/caja_turnos"><i class="bi bi-safe"></i> Caja</a>
                                 <a class="btn btn-light" href="/ventas/reportes"><i class="bi bi-bar-chart"></i> Reportes</a>
                                 <a class="btn btn-light-primary" href="/ventas/pedidos"><i class="bi bi-list-check"></i> Pedidos</a>
-                                <?php if (SesionSeguridad::tienePermiso("ventas.operar")): ?>
+                                <?php if (Sesionseguridad::tienePermiso("ventas.operar")): ?>
                                 <a class="btn btn-primary" href="/ventas/pos"><i class="bi bi-shop-window"></i> POS</a>
                                 <?php endif; ?>
                             </div>

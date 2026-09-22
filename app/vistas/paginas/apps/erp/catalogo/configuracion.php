@@ -539,9 +539,9 @@
 <script src="assets/js/scripts.bundle.js"></script>
 <script>
     window.CATALOGO_PERMISOS = <?= json_encode(array(
-        "ver" => SesionSeguridad::tienePermiso("catalogo.ver"),
-        "editar" => SesionSeguridad::tienePermiso("catalogo.editar"),
-        "costos" => SesionSeguridad::tienePermiso("catalogo.costos")
+        "ver" => Sesionseguridad::tienePermiso("catalogo.ver"),
+        "editar" => Sesionseguridad::tienePermiso("catalogo.editar"),
+        "costos" => Sesionseguridad::tienePermiso("catalogo.costos")
     )); ?>;
 </script>
 <script src="/assets/js/custom/apps/erp/catalogo/configuracion.js?v=20260829-maestros-guardado-1"></script>

@@ -934,7 +934,7 @@ class EcommercePublico extends Controlador {
     $this->requerirPermiso("catalogo.editar");
     $datos = !empty($_POST) ? $_POST : $this->entradaJsonPublica();
     $respuesta = $this->modelo("EcommerceCatalogoPublico")->seoVerificacionGuardarInterna($datos, $this->usuarioActualId());
-    SesionSeguridad::registrarAuditoria("ecommerce_seo", "verificacion_guardar", array(
+    Sesionseguridad::registrarAuditoria("ecommerce_seo", "verificacion_guardar", array(
       "detalle" => array(
         "clave" => isset($datos["clave"]) ? (string) $datos["clave"] : "",
         "tipo" => isset($datos["tipo"]) ? (string) $datos["tipo"] : "",
@@ -1023,7 +1023,7 @@ class EcommercePublico extends Controlador {
     $this->requerirPermiso("catalogo.editar");
     $datos = !empty($_POST) ? $_POST : $this->entradaJsonPublica();
     $respuesta = $this->modelo("EcommerceCatalogoPublico")->seoProductoSlugGuardarAutorizado($datos);
-    SesionSeguridad::registrarAuditoria("ecommerce_seo", "producto_slug_guardar", array(
+    Sesionseguridad::registrarAuditoria("ecommerce_seo", "producto_slug_guardar", array(
       "resultado" => empty($respuesta["error"]) ? "ok" : "error",
       "mensaje" => isset($respuesta["mensaje"]) ? $respuesta["mensaje"] : "",
       "datos_antes" => array(
@@ -1073,7 +1073,7 @@ class EcommercePublico extends Controlador {
     $this->requerirPermiso("catalogo.editar");
     $datos = !empty($_POST) ? $_POST : $this->entradaJsonPublica();
     $respuesta = $this->modelo("EcommerceCatalogoPublico")->seoUrlsCanonicasSincronizarAutorizado($datos);
-    SesionSeguridad::registrarAuditoria("ecommerce_seo", "urls_canonicas_sincronizar", array(
+    Sesionseguridad::registrarAuditoria("ecommerce_seo", "urls_canonicas_sincronizar", array(
       "resultado" => empty($respuesta["error"]) ? "ok" : "error",
       "mensaje" => isset($respuesta["mensaje"]) ? $respuesta["mensaje"] : "",
       "datos_antes" => array("limite" => isset($datos["limite"]) ? intval($datos["limite"]) : 0),
@@ -1098,7 +1098,7 @@ class EcommercePublico extends Controlador {
     $respuesta = $this->modelo("EcommerceCatalogoPublico")->seoUrlsViejasImportarAutorizado($datos, array(
       "autorizar" => isset($datos["autorizar"]) ? $datos["autorizar"] : ""
     ));
-    SesionSeguridad::registrarAuditoria("ecommerce_seo", "urls_viejas_importar", array(
+    Sesionseguridad::registrarAuditoria("ecommerce_seo", "urls_viejas_importar", array(
       "resultado" => empty($respuesta["error"]) ? "ok" : "error",
       "mensaje" => isset($respuesta["mensaje"]) ? $respuesta["mensaje"] : "",
       "datos_antes" => array("total_recibidas" => isset($respuesta["depurar"]["total_recibidas"]) ? intval($respuesta["depurar"]["total_recibidas"]) : 0),
@@ -1121,7 +1121,7 @@ class EcommercePublico extends Controlador {
     $this->requerirPermiso("catalogo.editar");
     $datos = !empty($_POST) ? $_POST : $this->entradaJsonPublica();
     $respuesta = $this->modelo("EcommerceCatalogoPublico")->seoRedireccionGuardarAutorizada($datos);
-    SesionSeguridad::registrarAuditoria("ecommerce_seo", "redireccion_guardar", array(
+    Sesionseguridad::registrarAuditoria("ecommerce_seo", "redireccion_guardar", array(
       "resultado" => empty($respuesta["error"]) ? "ok" : "error",
       "mensaje" => isset($respuesta["mensaje"]) ? $respuesta["mensaje"] : "",
       "datos_antes" => array("from" => isset($datos["from"]) ? (string) $datos["from"] : ""),
@@ -1162,7 +1162,7 @@ class EcommercePublico extends Controlador {
     $this->requerirPermiso("catalogo.editar");
     $datos = !empty($_POST) ? $_POST : $this->entradaJsonPublica();
     $respuesta = $this->modelo("EcommerceCatalogoPublico")->sincronizarAlertasGobiernoInterna($datos, $this->usuarioActualId());
-    SesionSeguridad::registrarAuditoria("ecommerce_catalogo", "alertas_sincronizar", array(
+    Sesionseguridad::registrarAuditoria("ecommerce_catalogo", "alertas_sincronizar", array(
       "resultado" => empty($respuesta["error"]) ? "ok" : "error",
       "mensaje" => isset($respuesta["mensaje"]) ? $respuesta["mensaje"] : "",
       "detalle" => array(
@@ -1403,7 +1403,7 @@ class EcommercePublico extends Controlador {
     $respuesta = $this->modelo("EcommerceCatalogoPublico")->guardarPublicacionBorradorAutorizada($_POST, array(
       "autorizar" => isset($_POST["autorizar"]) ? $_POST["autorizar"] : ""
     ));
-    SesionSeguridad::registrarAuditoria("ecommerce_publico", "publicacion_guardar_borrador", array(
+    Sesionseguridad::registrarAuditoria("ecommerce_publico", "publicacion_guardar_borrador", array(
       "resultado" => empty($respuesta["error"]) ? "ok" : "error",
       "mensaje" => isset($respuesta["mensaje"]) ? $respuesta["mensaje"] : "",
       "datos_antes" => array("id_sku" => isset($_POST["id_sku"]) ? intval($_POST["id_sku"]) : 0),
@@ -1426,7 +1426,7 @@ class EcommercePublico extends Controlador {
     $respuesta = $this->modelo("EcommerceCatalogoPublico")->guardarCuraduriaPublicacionAutorizada($_POST, array(
       "autorizar" => isset($_POST["autorizar"]) ? $_POST["autorizar"] : ""
     ));
-    SesionSeguridad::registrarAuditoria("ecommerce_publico", "publicacion_guardar_curaduria", array(
+    Sesionseguridad::registrarAuditoria("ecommerce_publico", "publicacion_guardar_curaduria", array(
       "resultado" => empty($respuesta["error"]) ? "ok" : "error",
       "mensaje" => isset($respuesta["mensaje"]) ? $respuesta["mensaje"] : "",
       "datos_antes" => array(
@@ -1452,7 +1452,7 @@ class EcommercePublico extends Controlador {
     $respuesta = $this->modelo("EcommerceCatalogoPublico")->publicarBorradorAutorizado($_POST, array(
       "autorizar" => isset($_POST["autorizar"]) ? $_POST["autorizar"] : ""
     ));
-    SesionSeguridad::registrarAuditoria("ecommerce_publico", "publicacion_publicar_borrador", array(
+    Sesionseguridad::registrarAuditoria("ecommerce_publico", "publicacion_publicar_borrador", array(
       "resultado" => empty($respuesta["error"]) ? "ok" : "error",
       "mensaje" => isset($respuesta["mensaje"]) ? $respuesta["mensaje"] : "",
       "datos_antes" => array(
@@ -1478,7 +1478,7 @@ class EcommercePublico extends Controlador {
     $respuesta = $this->modelo("EcommerceCatalogoPublico")->publicarInformativoAutorizado($_POST, array(
       "autorizar" => isset($_POST["autorizar"]) ? $_POST["autorizar"] : ""
     ));
-    SesionSeguridad::registrarAuditoria("ecommerce_publico", "publicacion_publicar_informativo", array(
+    Sesionseguridad::registrarAuditoria("ecommerce_publico", "publicacion_publicar_informativo", array(
       "resultado" => empty($respuesta["error"]) ? "ok" : "error",
       "mensaje" => isset($respuesta["mensaje"]) ? $respuesta["mensaje"] : "",
       "datos_antes" => array(
@@ -1505,7 +1505,7 @@ class EcommercePublico extends Controlador {
     $respuesta = $this->modelo("EcommerceCatalogoPublico")->cambiarEstatusPublicacionAutorizado($_POST, array(
       "autorizar" => isset($_POST["autorizar"]) ? $_POST["autorizar"] : ""
     ));
-    SesionSeguridad::registrarAuditoria("ecommerce_publico", "publicacion_estatus", array(
+    Sesionseguridad::registrarAuditoria("ecommerce_publico", "publicacion_estatus", array(
       "resultado" => empty($respuesta["error"]) ? "ok" : "error",
       "mensaje" => isset($respuesta["mensaje"]) ? $respuesta["mensaje"] : "",
       "datos_antes" => array(
@@ -1530,7 +1530,7 @@ class EcommercePublico extends Controlador {
     $respuesta = $this->modelo("EcommerceCatalogoPublico")->cambiarEstatusLoteAutorizado($_POST, array(
       "autorizar" => isset($_POST["autorizar"]) ? $_POST["autorizar"] : ""
     ));
-    SesionSeguridad::registrarAuditoria("ecommerce_publico", "publicacion_lote_estatus", array(
+    Sesionseguridad::registrarAuditoria("ecommerce_publico", "publicacion_lote_estatus", array(
       "resultado" => empty($respuesta["error"]) ? "ok" : "error",
       "mensaje" => isset($respuesta["mensaje"]) ? $respuesta["mensaje"] : "",
       "datos_antes" => array("id_skus" => isset($_POST["id_skus"]) ? (string) $_POST["id_skus"] : ""),
@@ -1558,7 +1558,7 @@ class EcommercePublico extends Controlador {
     $respuesta = $this->modelo("EcommerceCatalogoPublico")->guardarBorradoresLoteAutorizado($_POST, array(
       "autorizar" => isset($_POST["autorizar"]) ? $_POST["autorizar"] : ""
     ));
-    SesionSeguridad::registrarAuditoria("ecommerce_publico", "publicacion_lote_borrador", array(
+    Sesionseguridad::registrarAuditoria("ecommerce_publico", "publicacion_lote_borrador", array(
       "resultado" => empty($respuesta["error"]) ? "ok" : "error",
       "mensaje" => isset($respuesta["mensaje"]) ? $respuesta["mensaje"] : "",
       "datos_antes" => array("id_skus" => isset($_POST["id_skus"]) ? (string) $_POST["id_skus"] : ""),
@@ -1585,7 +1585,7 @@ class EcommercePublico extends Controlador {
     $respuesta = $this->modelo("EcommerceCatalogoPublico")->aplicarConfiguracionLoteAutorizada($_POST, array(
       "autorizar" => isset($_POST["autorizar"]) ? $_POST["autorizar"] : ""
     ));
-    SesionSeguridad::registrarAuditoria("ecommerce_publico", "publicacion_lote_configuracion", array(
+    Sesionseguridad::registrarAuditoria("ecommerce_publico", "publicacion_lote_configuracion", array(
       "resultado" => empty($respuesta["error"]) ? "ok" : "error",
       "mensaje" => isset($respuesta["mensaje"]) ? $respuesta["mensaje"] : "",
       "datos_antes" => array("id_skus" => isset($_POST["id_skus"]) ? (string) $_POST["id_skus"] : ""),
@@ -1609,7 +1609,7 @@ class EcommercePublico extends Controlador {
     $respuesta = $this->modelo("EcommerceCatalogoPublico")->publicarInformativosLoteAutorizado($_POST, array(
       "autorizar" => isset($_POST["autorizar"]) ? $_POST["autorizar"] : ""
     ));
-    SesionSeguridad::registrarAuditoria("ecommerce_publico", "publicacion_lote_informativo", array(
+    Sesionseguridad::registrarAuditoria("ecommerce_publico", "publicacion_lote_informativo", array(
       "resultado" => empty($respuesta["error"]) ? "ok" : "error",
       "mensaje" => isset($respuesta["mensaje"]) ? $respuesta["mensaje"] : "",
       "datos_antes" => array("id_skus" => isset($_POST["id_skus"]) ? (string) $_POST["id_skus"] : ""),
@@ -1635,7 +1635,7 @@ class EcommercePublico extends Controlador {
     $respuesta = $this->modelo("EcommerceCatalogoPublico")->publicarBorradoresLoteAutorizado($_POST, array(
       "autorizar" => isset($_POST["autorizar"]) ? $_POST["autorizar"] : ""
     ));
-    SesionSeguridad::registrarAuditoria("ecommerce_publico", "publicacion_lote_publicar", array(
+    Sesionseguridad::registrarAuditoria("ecommerce_publico", "publicacion_lote_publicar", array(
       "resultado" => empty($respuesta["error"]) ? "ok" : "error",
       "mensaje" => isset($respuesta["mensaje"]) ? $respuesta["mensaje"] : "",
       "datos_antes" => array("id_skus" => isset($_POST["id_skus"]) ? (string) $_POST["id_skus"] : ""),

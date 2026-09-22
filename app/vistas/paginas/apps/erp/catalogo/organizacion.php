@@ -21,7 +21,7 @@
                         <div class="app-container container-fluid d-flex flex-stack">
                             <div><h1 class="page-heading text-dark fw-bold fs-3 mb-1">Organización del catálogo</h1><span class="text-muted">Propuestas de nombres encontradas por coincidencia exacta de SKU con listas de proveedores</span></div>
                             <div class="d-flex gap-2">
-                                <?php if (SesionSeguridad::tienePermiso("catalogo.editar")): ?>
+                                <?php if (Sesionseguridad::tienePermiso("catalogo.editar")): ?>
                                 <button class="btn btn-light-success" type="button" id="organizacion_generar_propuestas"><i class="bi bi-arrow-repeat"></i> Actualizar propuestas</button>
                                 <?php endif; ?>
                                 <a class="btn btn-light-primary" href="/catalogoerp"><i class="bi bi-box-seam"></i> Productos ERP</a>
@@ -104,9 +104,9 @@
 <script src="assets/js/scripts.bundle.js"></script>
 <script>
     window.CATALOGO_PERMISOS = <?= json_encode(array(
-        "ver" => SesionSeguridad::tienePermiso("catalogo.ver"),
-        "editar" => SesionSeguridad::tienePermiso("catalogo.editar"),
-        "costos" => SesionSeguridad::tienePermiso("catalogo.costos")
+        "ver" => Sesionseguridad::tienePermiso("catalogo.ver"),
+        "editar" => Sesionseguridad::tienePermiso("catalogo.editar"),
+        "costos" => Sesionseguridad::tienePermiso("catalogo.costos")
     )); ?>;
 </script>
 <script src="/assets/js/custom/apps/erp/catalogo/organizacion.js?v=20260908-1"></script>

@@ -170,7 +170,7 @@
 <script>
 window.RENTABILIDAD_VISTA = "herramienta";
 window.RENTABILIDAD_PERMISOS = <?= json_encode(array(
-    "snapshot" => SesionSeguridad::tienePermiso("rentabilidad.snapshot")
+    "snapshot" => Sesionseguridad::tienePermiso("rentabilidad.snapshot")
 )) ?>;
 </script>
 <script src="/assets/js/custom/apps/erp/rentabilidad/analisis.js?v=20260829-herramienta-atencion-2"></script>

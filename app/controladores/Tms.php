@@ -173,7 +173,7 @@ class Tms extends Controlador {
     $this->requerirPermiso("tms.crear");
     $respuesta = $this->modelo("TmsDelivery")->guardarServicio($_POST, $this->usuarioActualId());
     if (isset($respuesta["error"]) && $respuesta["error"] === false) {
-      SesionSeguridad::registrarAuditoria("tms", "crear_servicio", array(
+      Sesionseguridad::registrarAuditoria("tms", "crear_servicio", array(
         "entidad" => "erp_tms_servicios",
         "entidad_id" => isset($respuesta["depurar"]["id_tms_servicio"]) ? $respuesta["depurar"]["id_tms_servicio"] : null,
         "resultado" => "success",
@@ -195,7 +195,7 @@ class Tms extends Controlador {
     $this->requerirPermiso($this->permisoAccionServicio($accion));
     $respuesta = $this->modelo("TmsDelivery")->aplicarAccionServicio($_POST, $this->usuarioActualId());
     if (isset($respuesta["error"]) && $respuesta["error"] === false) {
-      SesionSeguridad::registrarAuditoria("tms", "accion_servicio_" . $accion, array(
+      Sesionseguridad::registrarAuditoria("tms", "accion_servicio_" . $accion, array(
         "entidad" => "erp_tms_servicios",
         "entidad_id" => isset($respuesta["depurar"]["id_tms_servicio"]) ? $respuesta["depurar"]["id_tms_servicio"] : null,
         "resultado" => "success",
@@ -241,7 +241,7 @@ class Tms extends Controlador {
     $this->requerirPermiso("tms.evidencias");
     $respuesta = $this->modelo("TmsDelivery")->registrarEvidencia($_POST, $this->usuarioActualId());
     if (isset($respuesta["error"]) && $respuesta["error"] === false) {
-      SesionSeguridad::registrarAuditoria("tms", "registrar_evidencia", array(
+      Sesionseguridad::registrarAuditoria("tms", "registrar_evidencia", array(
         "entidad" => "erp_tms_evidencias",
         "entidad_id" => isset($respuesta["depurar"]["id_tms_evidencia"]) ? $respuesta["depurar"]["id_tms_evidencia"] : null,
         "resultado" => "success"
@@ -261,7 +261,7 @@ class Tms extends Controlador {
     $this->requerirPermiso("tms.evidencias");
     $respuesta = $this->modelo("TmsDelivery")->cancelarEvidencia($_POST, $this->usuarioActualId());
     if (isset($respuesta["error"]) && $respuesta["error"] === false) {
-      SesionSeguridad::registrarAuditoria("tms", "cancelar_evidencia", array(
+      Sesionseguridad::registrarAuditoria("tms", "cancelar_evidencia", array(
         "entidad" => "erp_tms_evidencias",
         "entidad_id" => isset($respuesta["depurar"]["id_tms_evidencia"]) ? $respuesta["depurar"]["id_tms_evidencia"] : null,
         "resultado" => "success"
