@@ -222,9 +222,9 @@
     var items = get(depurar, ["items"], []) || [];
     var tbody = document.getElementById("seo_check_reglas_body");
     if (!tbody) return;
-    setText("seo_check_kpi_revisar", items.length || 0);
-    setHtml("seo_check_mensaje", '<div class="alert alert-warning py-3">Mostrando solo errores detectados del ultimo reporte HTTP: ' + escapeHtml(items.length || 0) + ' fila(s) para corregir. No incluye timeouts.</div>');
     if (!items.length) {
+      setText("seo_check_kpi_revisar", 0);
+      setHtml("seo_check_mensaje", '<div class="alert alert-success py-3">No hay errores accionables pendientes en el ultimo reporte.</div>');
       tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-6">No hay errores accionables en el ultimo reporte.</td></tr>';
       setEstado("Listo", "badge-light-success");
       return;
@@ -247,7 +247,17 @@
         resultado: "revisar",
         motivo: (item.problema || "error") + " | " + (item.accion_sugerida || "Revisar destino")
       };
+    }).filter(function (item) {
+      return !marcaProbada(claveReglaDestino(item));
     });
+    setText("seo_check_kpi_revisar", reglas.length || 0);
+    setHtml("seo_check_mensaje", '<div class="alert alert-warning py-3">Mostrando solo errores detectados del ultimo reporte HTTP: ' + escapeHtml(reglas.length || 0) + ' fila(s) pendientes. No incluye timeouts ni destinos ya marcados OK.</div>');
+    if (!reglas.length) {
+      tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-6">No quedan destinos pendientes en este filtro.</td></tr>';
+      renderSitemap([]);
+      setEstado("Listo", "badge-light-success");
+      return;
+    }
     ultimoEstado = { reglas: reglas, sitemap: [] };
     reconstruirItemsPorClave();
     renderReglas(reglas);
@@ -451,6 +461,15 @@
         claves.forEach(function (clave) {
           marcas[clave] = Object.assign({}, marcas[clave] || {}, { probada: probada });
         });
+        if ((valor("seo_check_filtro_revision") || "") === "errores_reporte") {
+          if (erroresReporteCache) {
+            renderErroresReporte(erroresReporteCache);
+          } else {
+            cargarErroresReporte();
+          }
+          setEstado("Listo", "badge-light-success");
+          return;
+        }
         renderUltimoEstado();
         setEstado("Listo", "badge-light-success");
       })

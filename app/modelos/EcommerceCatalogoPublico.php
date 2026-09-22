@@ -5059,6 +5059,7 @@ class EcommerceCatalogoPublico extends CRUD {
       }
       $items = $this->valor($json, "items", array());
       if (!is_array($items)) { $items = array(); }
+      $items = $this->filtrarErroresReporteSeoVigentes($items);
       return $this->respuesta(false, "success", "Reporte accionable de redirecciones consultado", array(
         "archivo" => $archivo,
         "frontend" => $this->valor($json, "frontend", ""),
@@ -5070,6 +5071,48 @@ class EcommerceCatalogoPublico extends CRUD {
     } catch (Exception $e) {
       return $this->respuesta(true, "danger", $e->getMessage(), array("items" => array(), "total" => 0));
     }
+  }
+
+  private function filtrarErroresReporteSeoVigentes($items) {
+    $db = $this->getConexion();
+    $redireccionesActuales = array();
+    if ($db && $this->tablaExiste($db, "erp_ecommerce_seo_redirecciones")) {
+      $stmt = $db->query("SELECT url_origen, url_destino
+        FROM erp_ecommerce_seo_redirecciones
+        WHERE activo=1 AND status_code IN (301,302,308)");
+      foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $fila) {
+        $from = $this->normalizarSeoPathPublico($this->valor($fila, "url_origen", ""));
+        if ($from === "") { continue; }
+        $redireccionesActuales[$from] = $this->normalizarSeoPathPublico($this->valor($fila, "url_destino", ""));
+      }
+    }
+
+    $destinosProbados = array();
+    if ($db && $this->tablaExiste($db, "erp_ecommerce_seo_verificaciones")) {
+      $stmt = $db->query("SELECT clave
+        FROM erp_ecommerce_seo_verificaciones
+        WHERE tipo='regla_destino' AND probada=1
+        LIMIT 5000");
+      foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $fila) {
+        $destinosProbados[(string) $fila["clave"]] = true;
+      }
+    }
+
+    $filtrados = array();
+    foreach ((array) $items as $item) {
+      $from = $this->normalizarSeoPathPublico($this->valor($item, "origen_viejo", ""));
+      $toReporte = $this->normalizarSeoPathPublico($this->valor($item, "destino_actual", ""));
+      if ($from === "" || $toReporte === "") { continue; }
+      if (isset($redireccionesActuales[$from]) && $redireccionesActuales[$from] !== $toReporte) {
+        continue;
+      }
+      $claveDestino = "regla|" . $from . "|301|" . $toReporte;
+      if (isset($destinosProbados[$claveDestino])) {
+        continue;
+      }
+      $filtrados[] = $item;
+    }
+    return $filtrados;
   }
 
   /**
