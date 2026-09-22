@@ -8,6 +8,7 @@
  */
 (function () {
   var ultimoEstado = { reglas: [], sitemap: [] };
+  var estadoPrincipal = { reglas: [], sitemap: [] };
   var marcas = {};
   var itemsPorClave = {};
   var persistenciaDisponible = false;
@@ -56,6 +57,7 @@
 
   function cargarVerificacion() {
     sincronizarPresetFrontend();
+    erroresReporteCache = null;
     setEstado("Verificando", "badge-light-warning");
     var parametros = parametrosVerificacion();
     setHtml("seo_check_mensaje", '<div class="alert alert-info py-3">Consultando ERP, marcas guardadas y frontend seleccionado...' + parametros.aviso + "</div>");
@@ -92,6 +94,7 @@
     var reglas = get(depurar, ["reglas"], []);
     var sitemap = get(depurar, ["sitemap"], []);
     ultimoEstado = { reglas: Array.isArray(reglas) ? reglas : [], sitemap: Array.isArray(sitemap) ? sitemap : [] };
+    estadoPrincipal = copiarEstado(ultimoEstado);
     reconstruirItemsPorClave();
     var revisar = Number(resumen.reglas_revisar || 0) + Number(resumen.sitemap_revisar || 0);
     setText("seo_check_kpi_reglas", textoMostradas(resumen.reglas_mostradas || resumen.reglas_total || 0, resumen.reglas_disponibles));
@@ -107,6 +110,7 @@
   }
 
   function renderUltimoEstado() {
+    ultimoEstado = copiarEstado(estadoPrincipal);
     reconstruirItemsPorClave();
     renderReglas(ultimoEstado.reglas);
     renderSitemap(ultimoEstado.sitemap);
@@ -120,6 +124,13 @@
       return;
     }
     renderUltimoEstado();
+  }
+
+  function copiarEstado(estado) {
+    return {
+      reglas: Array.isArray(estado && estado.reglas) ? estado.reglas.slice() : [],
+      sitemap: Array.isArray(estado && estado.sitemap) ? estado.sitemap.slice() : []
+    };
   }
 
   function mensajeResumen(depurar, revisar) {
