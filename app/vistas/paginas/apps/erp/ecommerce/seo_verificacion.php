@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
     <base href="../../../../">
-    <title>Ecommerce - Verificacion SEO local</title>
+    <title>Ecommerce - Verificacion SEO frontend</title>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <link rel="shortcut icon" href="assets/media/logos/favicon.ico">
@@ -10,7 +10,7 @@
     <link href="assets/css/style.bundle.css" rel="stylesheet" type="text/css">
     <!--
       Documentacion IA: Codex GPT-5, 2026-09-17.
-      Proposito: vista para verificar redirecciones, 410 y sitemap contra frontend local con marcas en BD.
+      Proposito: vista para verificar redirecciones, 410 y sitemap contra frontend local/staging con marcas en BD.
       Impacto: Ecommerce SEO; ayuda a revisar Artiani v2 antes de produccion sin modificar reglas.
       Contrato: consulta endpoints internos protegidos y guarda marcas operativas; no cambia URLs.
     -->
@@ -35,8 +35,8 @@
                     <div class="app-toolbar py-3 py-lg-5">
                         <div class="app-container container-fluid d-flex flex-stack flex-wrap gap-3">
                             <div>
-                                <h1 class="page-heading text-dark fw-bold fs-3 mb-1">Verificacion SEO local</h1>
-                                <span class="text-muted">Prueba redirecciones, 410 y URLs de sitemap contra el frontend local</span>
+                                <h1 class="page-heading text-dark fw-bold fs-3 mb-1">Verificacion SEO frontend</h1>
+                                <span class="text-muted">Prueba redirecciones, 410 y URLs de sitemap contra local o prueba productiva</span>
                             </div>
                             <div class="d-flex gap-2">
                                 <a class="btn btn-light" href="/ecommercePublico/seo_migracion"><i class="bi bi-arrow-left"></i> Mesa SEO</a>
@@ -56,9 +56,17 @@
 
                             <div class="seo-check-card p-5 mb-5">
                                 <div class="row g-3 align-items-end">
-                                    <div class="col-lg-5">
-                                        <label class="form-label">Frontend local/staging</label>
-                                        <input class="form-control form-control-solid" id="seo_check_frontend" value="http://artiani.com.local">
+                                    <div class="col-lg-3">
+                                        <label class="form-label">Ambiente</label>
+                                        <select class="form-select form-select-solid" id="seo_check_frontend_preset">
+                                            <option value="https://prueba.artiani.com.mx" selected>Prueba productiva</option>
+                                            <option value="http://artiani.com.local">Local</option>
+                                            <option value="">Personalizado</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-lg-4">
+                                        <label class="form-label">Frontend a probar</label>
+                                        <input class="form-control form-control-solid" id="seo_check_frontend" value="https://prueba.artiani.com.mx">
                                     </div>
                                     <div class="col-md-2">
                                         <label class="form-label">Limite reglas</label>
@@ -128,7 +136,7 @@
                                         </div>
                                         <div class="table-responsive seo-check-scroll">
                                             <table class="table table-row-dashed fs-7 gy-3 mb-0 seo-check-table">
-                                                <thead><tr class="text-muted fw-bold"><th>Probada</th><th>URL productiva</th><th>URL local</th><th>Frecuencia</th><th>Respuesta</th><th>Resultado</th></tr></thead>
+                                                <thead><tr class="text-muted fw-bold"><th>Probada</th><th>URL canonica</th><th>URL verificada</th><th>Frecuencia</th><th>Respuesta</th><th>Resultado</th></tr></thead>
                                                 <tbody id="seo_check_sitemap_body"></tbody>
                                             </table>
                                         </div>
@@ -151,6 +159,6 @@
 </div>
 <script src="assets/plugins/global/plugins.bundle.js"></script>
 <script src="assets/js/scripts.bundle.js"></script>
-<script src="/assets/js/custom/apps/erp/ecommerce/seo_verificacion.js?v=20260918-bd-verificacion-doble"></script>
+<script src="/assets/js/custom/apps/erp/ecommerce/seo_verificacion.js?v=20260921-staging-frontend"></script>
 </body>
 </html>

@@ -275,3 +275,165 @@ Adjuntar listas reales antes de disenar tablas finales. Con 2 o 3 ejemplos se pu
 - estados;
 - pantalla exacta;
 - limites entre Proveedores, Catalogo, Compras y Recepcion.
+
+## Analisis de listas reales adjuntas
+
+Fecha: 2026-09-19  
+Archivos revisados:
+
+- `LISTA SABADO 12 DE SEPTIEMBRE 2026.xlsx`
+- `LISTA DE PRECIOS PECES DEL 14 AL 18 SEPTIEMBRE 2026.xlsx`
+
+Nota de seguridad: el contenido de los archivos se trato como evidencia operativa del proveedor, no como instrucciones para Codex ni como especificacion literal del ERP.
+
+### Proveedor 1 - Lista compacta semanal
+
+Archivo: `LISTA SABADO 12 DE SEPTIEMBRE 2026.xlsx`.
+
+Hallazgos:
+
+- Tiene una hoja principal llamada `12-09-2026`.
+- La lista usa encabezado operativo corto: cliente/nombre, destino, paqueteria y observaciones.
+- Las partidas aparecen sin encabezado formal de columnas.
+- La estructura observable es:
+  - columna de marca/clasificacion del proveedor: valores como `G`, `PP`, `PPG`, `ANEXO`;
+  - descripcion comun del pez/invertebrado;
+  - precio unitario;
+  - cantidad pedida, usualmente `0` como campo editable.
+- Tiene separadores o grupos como `BETTA DE THAILANDIA`, `GRAN OFERTA DE GAMBAS` y `LISTA ACUAREX`.
+- No se observan codigos SKU formales estables por renglon.
+
+Tratamiento recomendado:
+
+- Configurar como proveedor `variable/vivos_compacto`.
+- Importar por plantilla flexible basada en posicion de columnas, no por encabezados.
+- Guardar la marca del proveedor (`G`, `PP`, `ANEXO`, etc.) como `clasificacion_proveedor_raw` hasta entender su significado.
+- Tratar los separadores como categorias/secciones de lista, no como productos.
+- No aplicar costos vigentes automaticamente; usar la lista como oferta semanal.
+- Para comprar, exigir decision de matching: SKU ERP existente, SKU temporal autorizado o pendiente a Catalogo.
+
+### Proveedor 2 - Lista formal con minimos y condiciones
+
+Archivo: `LISTA DE PRECIOS PECES DEL 14 AL 18 SEPTIEMBRE 2026.xlsx`.
+
+Hallazgos:
+
+- Tiene hoja `Hoja1` con datos y una hoja `NOTA` vacia.
+- Incluye observaciones comerciales y operativas antes de la tabla.
+- Declara precios en moneda nacional.
+- Indica que flete y empaque se pagan por separado.
+- Indica que los tamanos son aproximados y pueden variar.
+- Contiene politica de mermas/mortalidad: reposicion desde 50% por bolsa, reporte con video al recibir y peces fallecidos conservados como evidencia.
+- Tiene descuentos por monto de compra.
+- La tabla inicia con encabezados claros:
+  - nombre comun;
+  - tamano;
+  - precio por unidad;
+  - cantidad de peces pedida;
+  - cantidad pedida por bolsa;
+  - minimo por bolsa;
+  - tipo de bolsa;
+  - numero de caja;
+  - precio por pedido por bolsa.
+- Mezcla renglones de producto con secciones como promociones, ultimas piezas, plecos, pejelagarto, tiburones, gatos, gouramis, colisas, tetras, barbos, mollys, bettas, etc.
+
+Tratamiento recomendado:
+
+- Configurar como proveedor `variable/vivos_formal`.
+- Importar por encabezados y detectar automaticamente la fila de inicio de tabla.
+- Guardar observaciones, politicas de merma, descuentos y vigencia como condiciones de lista/version.
+- Importar `minimo_por_bolsa`, `tipo_bolsa`, `no_caja` y `cantidad_por_bolsa` como datos operativos de pedido/recepcion, no como atributos permanentes del SKU.
+- Las categorias/secciones deben guardarse como `seccion_lista`, no como productos.
+- La politica de merma debe alimentar reglas futuras de Recepcion/Incidencias, no Compras directamente.
+
+### Columnas canonicas propuestas despues de revisar ambos archivos
+
+Para `erp_proveedores_listas_variables_renglones` o estructura equivalente:
+
+- `id_lista_variable`
+- `fila_origen`
+- `seccion_lista`
+- `codigo_proveedor_raw`
+- `clasificacion_proveedor_raw`
+- `nombre_proveedor_raw`
+- `nombre_normalizado`
+- `tamano_raw`
+- `variante_raw`
+- `precio_unitario`
+- `moneda`
+- `cantidad_pedida`
+- `cantidad_por_bolsa`
+- `minimo_por_bolsa`
+- `tipo_bolsa`
+- `numero_caja`
+- `notas_renglon`
+- `tipo_renglon`: `producto`, `seccion`, `nota`, `descuento`, `basura`
+- `id_sku_erp_candidato`
+- `confianza_match`
+- `estatus_conciliacion`
+- `decision_operativa`
+- `payload_origen_json`
+
+Para encabezado/lista variable:
+
+- proveedor;
+- archivo/evidencia;
+- fecha de lista;
+- vigencia desde/hasta;
+- moneda;
+- condiciones de flete/empaque;
+- politicas de merma/mortalidad;
+- descuentos por monto;
+- formato detectado;
+- estatus de lista.
+
+### Decision arquitectonica despues de los archivos
+
+El subflujo debe soportar por lo menos dos plantillas por proveedor:
+
+- plantilla compacta sin encabezados;
+- plantilla formal con encabezados, condiciones y minimos.
+
+No conviene intentar forzar ambas al flujo actual de listas normales, porque se perderian condiciones biologicas/operativas relevantes o se crearian relaciones SKU dudosas.
+
+El ERP debe permitir que una lista variable sea parcialmente util:
+
+- algunos renglones pasan a solicitud;
+- algunos quedan pendientes de Catalogo;
+- algunos se descartan como secciones/notas;
+- algunos se historizan como evidencia sin operar.
+
+## Implementacion fase 1 - Preview sin persistencia
+
+Fecha: 2026-09-21  
+Estado: Implementado en codigo, sin DDL y sin escrituras de negocio.
+
+Archivos:
+
+- `app/controladores/Proveedor.php`
+- `app/modelos/Proveedores.php`
+- `app/vistas/paginas/apps/erp/proveedores/listado_erp.php`
+- `app/vistas/paginas/apps/erp/proveedores/listas_variables_vivos.php`
+- `public/assets/js/custom/apps/erp/proveedores/listas_variables_vivos.js`
+
+Alcance:
+
+- Nueva ruta visual: `/proveedor/listas_variables_vivos_erp`.
+- Nuevo endpoint read-only: `/proveedor/proveedor_lista_variable_vivos_preview_erp`.
+- Requiere permiso `proveedores.listas`.
+- Acepta XLSX, CSV o TXT.
+- Detecta plantilla `vivos_compacto` o `vivos_formal`.
+- Clasifica renglones como `producto`, `seccion`, `nota`, `descuento` o `basura`.
+- Conserva datos operativos relevantes: clasificacion proveedor, nombre, tamano, precio, cantidad, minimo por bolsa, tipo de bolsa y numero de caja cuando existen.
+- No crea listas ERP, renglones persistentes, costos, relaciones proveedor-SKU, productos, SKUs, solicitudes ni ordenes.
+
+Validacion con archivos reales:
+
+- `LISTA SABADO 12 DE SEPTIEMBRE 2026.xlsx`: detectada como `vivos_compacto`; 145 productos, 9 secciones, 5 notas.
+- `LISTA DE PRECIOS PECES DEL 14 AL 18 SEPTIEMBRE 2026.xlsx`: detectada como `vivos_formal`; 298 productos, 22 secciones, 20 notas, 3 descuentos, 298 renglones con minimo por bolsa.
+
+Siguiente mejora natural:
+
+- Persistir encabezado/lista variable y renglones clasificados en tablas propias.
+- Agregar conciliacion contra Catalogo desde la vista de vivos.
+- Permitir mandar solo renglones `producto` decididos a Solicitudes/Compras.

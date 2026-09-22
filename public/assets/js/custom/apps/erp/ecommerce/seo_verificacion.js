@@ -2,7 +2,7 @@
 
 /*
  * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-18
- * Proposito: UI para verificar por separado URL vieja y URL nueva, con marcas persistidas en BD.
+ * Proposito: UI para verificar por separado URL vieja y URL nueva contra local/staging, con marcas persistidas en BD.
  * Impacto: acelera la validacion SEO de Artiani v2 y conserva seguimiento compartido.
  * Contrato: consulta /seo_verificacion_erp y guarda marcas en /seo_verificacion_guardar_erp; no modifica reglas SEO.
  */
@@ -18,10 +18,12 @@
     var filtro = document.getElementById("seo_check_filtro_revision");
     var limpiar = document.getElementById("seo_check_limpiar_marcas");
     var marcarVisibles = document.getElementById("seo_check_marcar_visibles");
+    var presetFrontend = document.getElementById("seo_check_frontend_preset");
     if (ejecutar) ejecutar.addEventListener("click", cargarVerificacion);
     if (filtro) filtro.addEventListener("change", renderUltimoEstado);
     if (limpiar) limpiar.addEventListener("click", limpiarMarcas);
     if (marcarVisibles) marcarVisibles.addEventListener("click", marcarVisiblesComoProbadas);
+    if (presetFrontend) presetFrontend.addEventListener("change", aplicarPresetFrontend);
     document.addEventListener("change", function (event) {
       var check = event.target.closest("[data-seo-check-marca]");
       if (!check) return;
@@ -31,10 +33,11 @@
   });
 
   function cargarVerificacion() {
+    sincronizarPresetFrontend();
     setEstado("Verificando", "badge-light-warning");
-    setHtml("seo_check_mensaje", '<div class="alert alert-info py-3">Consultando ERP, marcas guardadas y frontend local...</div>');
+    setHtml("seo_check_mensaje", '<div class="alert alert-info py-3">Consultando ERP, marcas guardadas y frontend seleccionado...</div>');
     var params = new URLSearchParams();
-    params.set("frontend", valor("seo_check_frontend") || "http://artiani.com.local");
+    params.set("frontend", frontendSeleccionado());
     params.set("limite_reglas", valor("seo_check_limite_reglas") || "1000");
     params.set("limite_sitemap", valor("seo_check_limite_sitemap") || "2000");
     params.set("probar_http", valor("seo_check_probar_http") || "1");
@@ -89,7 +92,7 @@
   }
 
   function mensajeResumen(depurar, revisar) {
-    var frontend = depurar.frontend_base || "http://artiani.com.local";
+    var frontend = depurar.frontend_base || frontendSeleccionado();
     var partes = [];
     if (!persistenciaDisponible) {
       partes.push('<div class="alert alert-warning py-3 mb-3">Las pruebas se pueden consultar, pero aun falta crear la tabla <code>erp_ecommerce_seo_verificaciones</code> para guardar las marcas en BD.</div>');
@@ -402,6 +405,38 @@
   function linkLocal(url) {
     if (!url) return "-";
     return '<a href="' + escapeAttr(url) + '" target="_blank" rel="noopener" class="seo-check-path">' + escapeHtml(url) + "</a>";
+  }
+
+  function aplicarPresetFrontend() {
+    var preset = valor("seo_check_frontend_preset");
+    var input = document.getElementById("seo_check_frontend");
+    if (input && preset) input.value = normalizarFrontendBase(preset);
+  }
+
+  function sincronizarPresetFrontend() {
+    var preset = document.getElementById("seo_check_frontend_preset");
+    var input = document.getElementById("seo_check_frontend");
+    if (!preset || !input) return;
+    var actual = normalizarFrontendBase(input.value);
+    var encontrado = false;
+    Array.prototype.forEach.call(preset.options, function (option) {
+      if (normalizarFrontendBase(option.value) === actual && option.value !== "") {
+        encontrado = true;
+        preset.value = option.value;
+      }
+    });
+    if (!encontrado) preset.value = "";
+    input.value = actual;
+  }
+
+  function frontendSeleccionado() {
+    return normalizarFrontendBase(valor("seo_check_frontend") || "https://prueba.artiani.com.mx");
+  }
+
+  function normalizarFrontendBase(url) {
+    url = String(url || "").trim();
+    if (!url) return "https://prueba.artiani.com.mx";
+    return url.replace(/\/+$/, "");
   }
 
   function postJson(url, data) {

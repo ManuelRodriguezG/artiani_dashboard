@@ -23,6 +23,11 @@
                             <span class="text-muted">Maestro operativo de proveedores</span>
                         </div>
                         <div class="d-flex gap-3">
+                            <?php if (SesionSeguridad::tienePermiso('proveedores.listas')): ?>
+                            <a class="btn btn-light-warning" href="/proveedor/listas_variables_vivos_erp">
+                                <i class="bi bi-water"></i> Listas vivos
+                            </a>
+                            <?php endif; ?>
                             <a class="btn btn-light-success" href="/proveedor/analisis_abastecimiento_erp">
                                 <i class="bi bi-diagram-3"></i> Abastecimiento
                             </a>
@@ -1257,6 +1262,6 @@ window.PROVEEDORES_ERP_PERMISOS = {
     autorizar: <?= json_encode(SesionSeguridad::tienePermiso('proveedores.autorizar')) ?>
 };
 </script>
-<script src="/assets/js/custom/apps/erp/proveedores/listado_erp.js?v=20260614-20"></script>
+<script src="/assets/js/custom/apps/erp/proveedores/listado_erp.js?v=20260921-1"></script>
 </body>
 </html>

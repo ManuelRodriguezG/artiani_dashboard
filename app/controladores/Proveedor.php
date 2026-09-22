@@ -62,6 +62,17 @@ class Proveedor extends Controlador {
         $this->vista("apps/erp/proveedores/analisis_abastecimiento");
     }
 
+    /**
+     * IA: Codex GPT-5
+     * Fecha: 2026-09-21
+     * Proposito: mostrar la mesa de interpretacion para listas variables de peces vivos.
+     * Impacto: Proveedores/Listas; primera fase read-only sin crear listas, costos, SKUs ni compras.
+     */
+    public function listas_variables_vivos_erp() {
+        $this->requerirPermiso("proveedores.listas");
+        $this->vista("apps/erp/proveedores/listas_variables_vivos");
+    }
+
     private function descargarAuditoriaProveedoresJson($respuesta, $fecha) {
         header("X-Content-Type-Options: nosniff");
         header("Content-Type: application/json; charset=UTF-8");
@@ -313,6 +324,22 @@ class Proveedor extends Controlador {
             "datos_despues" => isset($respuesta["depurar"]) ? $respuesta["depurar"] : null
         ));
         echo json_encode($respuesta);
+    }
+
+    /**
+     * IA: Codex GPT-5
+     * Fecha: 2026-09-21
+     * Proposito: analizar un archivo XLSX/CSV de proveedor vivo sin persistir informacion.
+     * Impacto: Proveedores/Listas variables; no modifica Catalogo, Compras, costos ni inventario.
+     * Contrato: requiere archivo_lista y devuelve renglones clasificados para validacion operativa.
+     */
+    public function proveedor_lista_variable_vivos_preview_erp() {
+        $this->requerirPermiso("proveedores.listas");
+        $limite = isset($_POST["limite_preview"]) ? intval($_POST["limite_preview"]) : 500;
+        echo json_encode($this->modelo("Proveedores")->previewListaVariableVivosErp(
+            isset($_FILES["archivo_lista"]) ? $_FILES["archivo_lista"] : array(),
+            $limite
+        ));
     }
 
     public function proveedor_lista_detalle_erp() {

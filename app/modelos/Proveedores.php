@@ -5142,6 +5142,353 @@ class Proveedores extends CRUD {
         }
     }
 
+    /**
+     * IA: Codex GPT-5
+     * Fecha: 2026-09-21
+     * Proposito: interpretar listas variables de peces vivos antes de persistir datos.
+     * Impacto: Proveedores/Listas variables; solo lectura sobre archivo subido, no crea renglones, costos, relaciones ni SKUs.
+     * Contrato: acepta XLSX/CSV temporal y devuelve renglones clasificados para validacion operativa.
+     */
+    public function previewListaVariableVivosErp($archivo, $limiteFilas = 600) {
+        try {
+            if (!is_array($archivo) || !isset($archivo["tmp_name"]) || trim((string) $archivo["tmp_name"]) === "") {
+                return array("error" => true, "tipo" => "warning", "mensaje" => "Selecciona un archivo XLSX o CSV", "depurar" => null);
+            }
+            if (isset($archivo["error"]) && intval($archivo["error"]) !== UPLOAD_ERR_OK) {
+                return array("error" => true, "tipo" => "warning", "mensaje" => "No se pudo recibir el archivo", "depurar" => array("upload_error" => intval($archivo["error"])));
+            }
+            $ruta = (string) $archivo["tmp_name"];
+            if (!is_uploaded_file($ruta) && !file_exists($ruta)) {
+                return array("error" => true, "tipo" => "warning", "mensaje" => "Archivo temporal no disponible", "depurar" => null);
+            }
+            $nombre = isset($archivo["name"]) ? (string) $archivo["name"] : "archivo";
+            $extension = strtolower(pathinfo($nombre, PATHINFO_EXTENSION));
+            $limite = max(100, min(intval($limiteFilas), 1200));
+            if (!in_array($extension, array("xlsx", "csv", "txt"), true)) {
+                return array("error" => true, "tipo" => "warning", "mensaje" => "Por ahora analiza XLSX, CSV o TXT. Convierte XLS legado a XLSX.", "depurar" => array("extension" => $extension));
+            }
+
+            if ($extension === "xlsx") {
+                $lectura = $this->leerFilasXlsxLigeroProveedorErp($ruta, $limite, 24);
+                $hoja = $lectura["hoja"];
+                $filas = $lectura["filas"];
+            } else {
+                $hoja = null;
+                $filas = $this->leerFilasCsvVariableVivosErp($ruta, $limite);
+            }
+
+            $analisis = $this->analizarFilasListaVariableVivosErp($filas);
+            return array(
+                "error" => false,
+                "tipo" => "success",
+                "mensaje" => "Lista variable analizada sin guardar datos",
+                "depurar" => array(
+                    "archivo" => array(
+                        "nombre" => $nombre,
+                        "extension" => $extension,
+                        "tamano" => isset($archivo["size"]) ? intval($archivo["size"]) : null,
+                        "hoja" => $hoja
+                    ),
+                    "sin_escrituras" => true,
+                    "formato_detectado" => $analisis["formato_detectado"],
+                    "fila_encabezado" => $analisis["fila_encabezado"],
+                    "resumen" => $analisis["resumen"],
+                    "condiciones" => $analisis["condiciones"],
+                    "renglones" => $analisis["renglones"],
+                    "reglas" => array(
+                        "No se crearon listas ERP.",
+                        "No se aplicaron costos vigentes.",
+                        "No se crearon productos ni SKUs.",
+                        "Las secciones y notas quedan separadas de productos.",
+                        "Los renglones producto todavia requieren conciliacion con Catalogo antes de Solicitud/Orden."
+                    )
+                )
+            );
+        } catch (Throwable $e) {
+            return array("error" => true, "tipo" => "danger", "mensaje" => $e->getMessage(), "depurar" => null);
+        }
+    }
+
+    private function leerFilasCsvVariableVivosErp($ruta, $maxFilas) {
+        $handle = fopen($ruta, "r");
+        if (!$handle) {
+            throw new Exception("No fue posible abrir el archivo CSV");
+        }
+        $filas = array();
+        while (($fila = fgetcsv($handle, 0, ",")) !== false && count($filas) < intval($maxFilas)) {
+            if (count($fila) === 1 && strpos((string) $fila[0], ";") !== false) {
+                $fila = str_getcsv((string) $fila[0], ";");
+            }
+            $filas[] = array_map(function ($valor) {
+                return trim((string) $valor);
+            }, $fila);
+        }
+        fclose($handle);
+        return $filas;
+    }
+
+    private function analizarFilasListaVariableVivosErp($filas) {
+        $header = $this->detectarEncabezadoListaVariableVivosErp($filas);
+        $formato = $header >= 0 ? "vivos_formal" : "vivos_compacto";
+        $mapaFormal = $header >= 0 && isset($filas[$header]) ? $this->mapaEncabezadoFormalVariableVivosErp($filas[$header]) : array();
+        $renglones = array();
+        $condiciones = array();
+        $resumen = array(
+            "total_filas_leidas" => count($filas),
+            "productos" => 0,
+            "secciones" => 0,
+            "notas" => 0,
+            "descuentos" => 0,
+            "basura" => 0,
+            "con_precio" => 0,
+            "con_minimo_bolsa" => 0
+        );
+        $seccionActual = "";
+
+        foreach ($filas as $indice => $fila) {
+            $filaNumero = $indice + 1;
+            $fila = $this->normalizarAnchoFilaVariableVivosErp($fila, 12);
+            if (!$this->filaTieneContenidoVariableVivosErp($fila)) {
+                continue;
+            }
+            if ($header >= 0 && $indice === $header) {
+                $condiciones[] = array("tipo" => "encabezado", "fila" => $filaNumero, "texto" => implode(" | ", $this->filtrarVaciosVariableVivosErp($fila)));
+                continue;
+            }
+
+            $item = $formato === "vivos_formal"
+                ? $this->interpretarFilaFormalVariableVivosErp($fila, $filaNumero, $indice < $header, $seccionActual, $mapaFormal)
+                : $this->interpretarFilaCompactaVariableVivosErp($fila, $filaNumero, $seccionActual);
+
+            if ($item["tipo_renglon"] === "seccion") {
+                $seccionActual = $item["texto"];
+                $item["seccion_lista"] = $seccionActual;
+            }
+            if ($item["tipo_renglon"] === "nota" || $item["tipo_renglon"] === "descuento") {
+                $condiciones[] = array(
+                    "tipo" => $item["tipo_renglon"],
+                    "fila" => $filaNumero,
+                    "texto" => $item["texto"]
+                );
+            }
+            $claveResumen = $this->claveResumenTipoVariableVivosErp($item["tipo_renglon"]);
+            if (isset($resumen[$claveResumen])) {
+                $resumen[$claveResumen]++;
+            }
+            if ($item["tipo_renglon"] === "producto") {
+                if ($item["precio_unitario"] !== "") {
+                    $resumen["con_precio"]++;
+                }
+                if ($item["minimo_por_bolsa"] !== "") {
+                    $resumen["con_minimo_bolsa"]++;
+                }
+            }
+            $renglones[] = $item;
+        }
+
+        return array(
+            "formato_detectado" => $formato,
+            "fila_encabezado" => $header >= 0 ? $header + 1 : null,
+            "resumen" => $resumen,
+            "condiciones" => $condiciones,
+            "renglones" => $renglones
+        );
+    }
+
+    private function detectarEncabezadoListaVariableVivosErp($filas) {
+        $limite = min(count($filas), 50);
+        for ($i = 0; $i < $limite; $i++) {
+            $texto = $this->normalizarTextoVariableVivosErp(implode(" ", isset($filas[$i]) ? $filas[$i] : array()));
+            if (strpos($texto, "nombre comun") !== false && strpos($texto, "precio") !== false) {
+                return $i;
+            }
+        }
+        return -1;
+    }
+
+    private function mapaEncabezadoFormalVariableVivosErp($fila) {
+        $mapa = array(
+            "nombre" => 0,
+            "tamano" => 1,
+            "precio" => 2,
+            "cantidad" => 3,
+            "cantidad_bolsa" => 4,
+            "minimo_bolsa" => 5,
+            "tipo_bolsa" => 6,
+            "numero_caja" => 7
+        );
+        foreach ($fila as $indice => $celda) {
+            $texto = $this->normalizarTextoVariableVivosErp($celda);
+            if ($texto === "") {
+                continue;
+            }
+            if (strpos($texto, "nombre") !== false) {
+                $mapa["nombre"] = $indice;
+            } elseif (strpos($texto, "tamano") !== false || strpos($texto, "tamaño") !== false) {
+                $mapa["tamano"] = $indice;
+            } elseif (strpos($texto, "precio por unidad") !== false || $texto === "precio") {
+                $mapa["precio"] = $indice;
+            } elseif (strpos($texto, "cantidad de peces") !== false) {
+                $mapa["cantidad"] = $indice;
+            } elseif (strpos($texto, "cantidad pedida por bolsa") !== false) {
+                $mapa["cantidad_bolsa"] = $indice;
+            } elseif (strpos($texto, "minimo por bolsa") !== false) {
+                $mapa["minimo_bolsa"] = $indice;
+            } elseif (strpos($texto, "tipo de bolsa") !== false) {
+                $mapa["tipo_bolsa"] = $indice;
+            } elseif (strpos($texto, "no. caja") !== false || strpos($texto, "no caja") !== false) {
+                $mapa["numero_caja"] = $indice;
+            }
+        }
+        return $mapa;
+    }
+
+    private function interpretarFilaFormalVariableVivosErp($fila, $filaNumero, $antesHeader, $seccionActual, $mapa) {
+        $texto = implode(" ", $this->filtrarVaciosVariableVivosErp($fila));
+        $precio = $this->normalizarDecimalImportacionProveedorErp($this->valorFilaVariableVivosErp($fila, $mapa, "precio"));
+        $nombre = trim((string) $this->valorFilaVariableVivosErp($fila, $mapa, "nombre"));
+        if ($antesHeader) {
+            return $this->renglonBaseVariableVivosErp($filaNumero, $this->tipoTextoVariableVivosErp($texto), $texto, $seccionActual, $fila);
+        }
+        if ($nombre !== "" && $precio !== "") {
+            $item = $this->renglonBaseVariableVivosErp($filaNumero, "producto", $nombre, $seccionActual, $fila);
+            $item["nombre_proveedor_raw"] = $nombre;
+            $item["nombre_normalizado"] = $this->normalizarNombreProductoVariableVivosErp($nombre);
+            $item["tamano_raw"] = trim((string) $this->valorFilaVariableVivosErp($fila, $mapa, "tamano"));
+            $item["precio_unitario"] = $precio;
+            $item["cantidad_pedida"] = $this->normalizarDecimalImportacionProveedorErp($this->valorFilaVariableVivosErp($fila, $mapa, "cantidad"));
+            $item["cantidad_por_bolsa"] = $this->normalizarDecimalImportacionProveedorErp($this->valorFilaVariableVivosErp($fila, $mapa, "cantidad_bolsa"));
+            $item["minimo_por_bolsa"] = $this->normalizarDecimalImportacionProveedorErp($this->valorFilaVariableVivosErp($fila, $mapa, "minimo_bolsa"));
+            $item["tipo_bolsa"] = trim((string) $this->valorFilaVariableVivosErp($fila, $mapa, "tipo_bolsa"));
+            $item["numero_caja"] = trim((string) $this->valorFilaVariableVivosErp($fila, $mapa, "numero_caja"));
+            return $item;
+        }
+        $tipo = $this->tipoTextoVariableVivosErp($texto);
+        if ($tipo === "nota" && $nombre !== "" && count($this->filtrarVaciosVariableVivosErp($fila)) === 1) {
+            $tipo = "seccion";
+        }
+        return $this->renglonBaseVariableVivosErp($filaNumero, $tipo, $texto, $seccionActual, $fila);
+    }
+
+    private function valorFilaVariableVivosErp($fila, $mapa, $clave) {
+        $indice = isset($mapa[$clave]) ? intval($mapa[$clave]) : -1;
+        return $indice >= 0 && isset($fila[$indice]) ? $fila[$indice] : "";
+    }
+
+    private function claveResumenTipoVariableVivosErp($tipo) {
+        $mapa = array(
+            "producto" => "productos",
+            "seccion" => "secciones",
+            "nota" => "notas",
+            "descuento" => "descuentos",
+            "basura" => "basura"
+        );
+        return isset($mapa[$tipo]) ? $mapa[$tipo] : $tipo;
+    }
+
+    private function interpretarFilaCompactaVariableVivosErp($fila, $filaNumero, $seccionActual) {
+        $texto = implode(" ", $this->filtrarVaciosVariableVivosErp($fila));
+        $nombre = trim((string) (isset($fila[2]) ? $fila[2] : ""));
+        $precio = $this->normalizarDecimalImportacionProveedorErp(isset($fila[3]) ? $fila[3] : "");
+        if ($nombre !== "" && $precio !== "") {
+            $item = $this->renglonBaseVariableVivosErp($filaNumero, "producto", $nombre, $seccionActual, $fila);
+            $item["clasificacion_proveedor_raw"] = trim((string) (isset($fila[0]) ? $fila[0] : ""));
+            $item["nombre_proveedor_raw"] = $nombre;
+            $item["nombre_normalizado"] = $this->normalizarNombreProductoVariableVivosErp($nombre);
+            $item["precio_unitario"] = $precio;
+            $item["cantidad_pedida"] = $this->normalizarDecimalImportacionProveedorErp(isset($fila[4]) ? $fila[4] : "");
+            return $item;
+        }
+        $tipo = $this->tipoTextoVariableVivosErp($texto);
+        if ($tipo === "nota" && $texto !== "" && $precio === "") {
+            $tipo = (count($this->filtrarVaciosVariableVivosErp($fila)) <= 2 && $filaNumero > 5) ? "seccion" : $tipo;
+        }
+        return $this->renglonBaseVariableVivosErp($filaNumero, $tipo, $texto, $seccionActual, $fila);
+    }
+
+    private function renglonBaseVariableVivosErp($filaNumero, $tipo, $texto, $seccion, $fila) {
+        return array(
+            "fila_origen" => intval($filaNumero),
+            "tipo_renglon" => $tipo,
+            "seccion_lista" => $seccion,
+            "texto" => trim((string) $texto),
+            "codigo_proveedor_raw" => "",
+            "clasificacion_proveedor_raw" => "",
+            "nombre_proveedor_raw" => "",
+            "nombre_normalizado" => "",
+            "tamano_raw" => "",
+            "variante_raw" => "",
+            "precio_unitario" => "",
+            "moneda" => "MXN",
+            "cantidad_pedida" => "",
+            "cantidad_por_bolsa" => "",
+            "minimo_por_bolsa" => "",
+            "tipo_bolsa" => "",
+            "numero_caja" => "",
+            "decision_sugerida" => $tipo === "producto" ? "conciliar_catalogo" : ($tipo === "seccion" ? "guardar_seccion" : "conservar_evidencia"),
+            "raw" => $this->filtrarVaciosVariableVivosErp($fila)
+        );
+    }
+
+    private function tipoTextoVariableVivosErp($texto) {
+        $normalizado = $this->normalizarTextoVariableVivosErp($texto);
+        if ($normalizado === "") {
+            return "basura";
+        }
+        if (strpos($normalizado, "descuento") !== false || (strpos($texto, "$") !== false && strpos($texto, "%") !== false)) {
+            return "descuento";
+        }
+        $palabrasNota = array("observaciones", "flete", "empaque", "paqueteria", "factura", "pago", "merma", "mortalidad", "video", "pedido", "destino", "fecha");
+        foreach ($palabrasNota as $palabra) {
+            if (strpos($normalizado, $palabra) !== false) {
+                return "nota";
+            }
+        }
+        return "nota";
+    }
+
+    private function normalizarAnchoFilaVariableVivosErp($fila, $ancho) {
+        $normalizada = array();
+        for ($i = 0; $i < intval($ancho); $i++) {
+            $normalizada[$i] = isset($fila[$i]) ? trim((string) $fila[$i]) : "";
+        }
+        return $normalizada;
+    }
+
+    private function filaTieneContenidoVariableVivosErp($fila) {
+        foreach ($fila as $valor) {
+            if (trim((string) $valor) !== "") {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private function filtrarVaciosVariableVivosErp($fila) {
+        $resultado = array();
+        foreach ($fila as $valor) {
+            $valor = trim((string) $valor);
+            if ($valor !== "") {
+                $resultado[] = $valor;
+            }
+        }
+        return $resultado;
+    }
+
+    private function normalizarNombreProductoVariableVivosErp($texto) {
+        return preg_replace("/\s+/", " ", strtoupper(trim((string) $texto)));
+    }
+
+    private function normalizarTextoVariableVivosErp($texto) {
+        $texto = strtolower(trim((string) $texto));
+        $texto = str_replace(
+            array("á", "é", "í", "ó", "ú", "ñ", "ü", "Ã¡", "Ã©", "Ã­", "Ã³", "Ãº", "Ã±", "Ã¼"),
+            array("a", "e", "i", "o", "u", "n", "u", "a", "e", "i", "o", "u", "n", "u"),
+            $texto
+        );
+        return preg_replace("/\s+/", " ", $texto);
+    }
+
     public function eliminarListaDetalleErp($datos, $id_usuario) {
         $db = $this->getConexion();
         try {
