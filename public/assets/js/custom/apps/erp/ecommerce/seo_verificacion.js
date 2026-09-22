@@ -32,8 +32,24 @@
     });
     document.addEventListener("click", function (event) {
       var editar = event.target.closest("[data-seo-editar-redireccion]");
-      if (!editar) return;
-      editarDestinoRedireccion(editar);
+      if (editar) {
+        abrirEditorDestino(editar);
+        return;
+      }
+      var buscar = event.target.closest("[data-seo-destino-buscar]");
+      if (buscar) {
+        buscarDestinosEditor(buscar);
+        return;
+      }
+      var guardar = event.target.closest("[data-seo-destino-guardar]");
+      if (guardar) {
+        guardarDestinoEditor(guardar);
+        return;
+      }
+      var usar = event.target.closest("[data-seo-destino-usar]");
+      if (usar) {
+        usarDestinoEditor(usar);
+      }
     });
     cargarVerificacion();
   });
@@ -202,37 +218,105 @@
       setEstado("Listo", "badge-light-success");
       return;
     }
-    tbody.innerHTML = items.map(function (item) {
-      var regla = {
+    var reglas = items.map(function (item) {
+      return {
+        tipo_regla: "redireccion",
         from: item.origen_viejo || "",
         to: item.destino_actual || "",
-        status_esperado: 301,
         tipo: item.tipo || "producto",
-        motivo: "revision_manual_seo",
-        destino_local: item.url_staging || "",
-        resultado: "revisar"
+        status_esperado: 301,
+        url_local: item.origen_viejo || "",
+        destino_local: item.url_staging || item.destino_actual || "",
+        status_http: null,
+        location: "",
+        destino_status_http: item.status_destino || null,
+        destino_ok: false,
+        status_ok: false,
+        location_ok: false,
+        resultado: "revisar",
+        motivo: (item.problema || "error") + " | " + (item.accion_sugerida || "Revisar destino")
       };
-      return [
-        '<tr data-seo-check-row="' + escapeAttr("reporte|" + (item.origen_viejo || "") + "|" + (item.destino_actual || "")) + '" data-seo-check-probada="0" data-seo-check-resultado="revisar">',
-        '<td><span class="badge badge-light-warning">Revisar</span></td>',
-        '<td><span class="badge badge-light-danger">' + escapeHtml(item.problema || "error") + '</span><div class="fw-semibold seo-check-path mt-1">' + escapeHtml(item.origen_viejo || "-") + '</div><div class="text-muted fs-8">' + escapeHtml(item.accion_sugerida || "") + "</div></td>",
-        '<td class="seo-check-path">' + escapeHtml(item.origen_viejo || "-") + '<div class="text-muted fs-8">URL vieja productiva</div></td>',
-        '<td class="seo-check-path">' + linkLocal(item.url_staging || item.destino_actual || "") + '<div class="text-muted fs-8">' + escapeHtml(item.destino_actual || "") + "</div></td>",
-        '<td class="seo-check-path">Destino: ' + escapeHtml(item.status_destino || "-") + "</td>",
-        '<td>' + badgeResultado("revisar") + accionesRegla(regla) + '<div class="text-muted fs-8 mt-1">Pendiente: corregir destino</div></td>',
-        "</tr>"
-      ].join("");
-    }).join("");
+    });
+    ultimoEstado = { reglas: reglas, sitemap: [] };
+    reconstruirItemsPorClave();
+    renderReglas(reglas);
+    renderSitemap([]);
+    actualizarKpiProbadas();
     setEstado("Listo", "badge-light-success");
   }
 
-  function editarDestinoRedireccion(button) {
+  function abrirEditorDestino(button) {
     var from = button.getAttribute("data-from") || "";
     var actual = button.getAttribute("data-to") || "";
-    var nuevo = window.prompt("Nuevo destino para " + from, actual);
-    if (nuevo == null) return;
-    nuevo = String(nuevo || "").trim();
-    if (!nuevo || nuevo === actual) return;
+    var tipo = button.getAttribute("data-tipo") || "producto";
+    var celda = button.closest("td");
+    if (!celda) return;
+    var existente = celda.querySelector("[data-seo-destino-editor]");
+    if (existente) {
+      existente.remove();
+      return;
+    }
+    celda.insertAdjacentHTML("beforeend", [
+      '<div class="border rounded p-3 mt-3 bg-light" data-seo-destino-editor="1">',
+      '<div class="text-muted fs-8 mb-2">Busca el producto, categoria o marca destino. Tambien puedes pegar un path manual.</div>',
+      '<div class="input-group input-group-sm mb-2">',
+      '<input class="form-control" data-seo-destino-input value="' + escapeAttr(actual) + '" placeholder="/producto/slug-o-busqueda">',
+      '<button class="btn btn-light-primary" type="button" data-seo-destino-buscar="1" data-tipo="' + escapeAttr(tipo) + '">Buscar</button>',
+      '<button class="btn btn-primary" type="button" data-seo-destino-guardar="1" data-from="' + escapeAttr(from) + '" data-status="' + escapeAttr(button.getAttribute("data-status") || "301") + '" data-tipo="' + escapeAttr(tipo) + '" data-motivo="' + escapeAttr(button.getAttribute("data-motivo") || "revision_manual_seo") + '">Guardar</button>',
+      "</div>",
+      '<div class="small" data-seo-destino-resultados></div>',
+      "</div>"
+    ].join(""));
+  }
+
+  function buscarDestinosEditor(button) {
+    var editor = button.closest("[data-seo-destino-editor]");
+    if (!editor) return;
+    var input = editor.querySelector("[data-seo-destino-input]");
+    var resultados = editor.querySelector("[data-seo-destino-resultados]");
+    var q = input ? String(input.value || "").trim() : "";
+    var tipo = button.getAttribute("data-tipo") || "producto";
+    if (!resultados) return;
+    if (q.length < 3) {
+      resultados.innerHTML = '<div class="text-muted">Escribe al menos 3 caracteres para buscar.</div>';
+      return;
+    }
+    resultados.innerHTML = '<div class="text-muted">Buscando destinos...</div>';
+    fetch("/ecommercePublico/seo_destinos_canonicos_erp?limite=12&tipo=" + encodeURIComponent(tipo) + "&q=" + encodeURIComponent(q), { headers: { Accept: "application/json" } })
+      .then(jsonResponse)
+      .then(function (response) {
+        if (response.error) throw new Error(response.mensaje || "No se pudieron buscar destinos.");
+        var items = get(response, ["depurar", "items"], []) || [];
+        if (!items.length) {
+          resultados.innerHTML = '<div class="text-muted">Sin coincidencias. Puedes ajustar la busqueda o pegar el path manual.</div>';
+          return;
+        }
+        resultados.innerHTML = items.map(function (item) {
+          return [
+            '<button class="btn btn-sm btn-light d-block w-100 text-start mb-2" type="button" data-seo-destino-usar="1" data-path="' + escapeAttr(item.path || "") + '">',
+            '<span class="fw-semibold">' + escapeHtml(item.titulo || item.nombre || item.path || "") + "</span>",
+            '<span class="d-block text-muted seo-check-path">' + escapeHtml(item.path || "") + "</span>",
+            "</button>"
+          ].join("");
+        }).join("");
+      })
+      .catch(function (error) {
+        resultados.innerHTML = '<div class="text-danger">' + escapeHtml(error.message || "No se pudieron buscar destinos.") + "</div>";
+      });
+  }
+
+  function usarDestinoEditor(button) {
+    var editor = button.closest("[data-seo-destino-editor]");
+    var input = editor ? editor.querySelector("[data-seo-destino-input]") : null;
+    if (input) input.value = button.getAttribute("data-path") || "";
+  }
+
+  function guardarDestinoEditor(button) {
+    var editor = button.closest("[data-seo-destino-editor]");
+    var input = editor ? editor.querySelector("[data-seo-destino-input]") : null;
+    var from = button.getAttribute("data-from") || "";
+    var nuevo = input ? String(input.value || "").trim() : "";
+    if (!nuevo) return;
     if (!window.confirm("Actualizar esta redireccion?\n\nOrigen: " + from + "\nDestino nuevo: " + nuevo)) return;
     setEstado("Guardando", "badge-light-warning");
     postJson("/ecommercePublico/seo_redireccion_guardar_erp", {
@@ -244,6 +328,13 @@
     }).then(function (response) {
       if (response.error) throw new Error(response.mensaje || "No se pudo actualizar la redireccion.");
       erroresReporteCache = null;
+      if ((valor("seo_check_filtro_revision") || "") === "errores_reporte") {
+        var row = button.closest("tr");
+        if (row) row.remove();
+        setEstado("Listo", "badge-light-success");
+        setHtml("seo_check_mensaje", '<div class="alert alert-success py-3">Redireccion actualizada. La fila se quito de esta lista de trabajo; vuelve a ejecutar la auditoria HTTP cuando quieras recalcular errores.</div>');
+        return;
+      }
       setHtml("seo_check_mensaje", '<div class="alert alert-success py-3">Redireccion actualizada. Recargando verificacion...</div>');
       cargarVerificacion();
     }).catch(function (error) {
