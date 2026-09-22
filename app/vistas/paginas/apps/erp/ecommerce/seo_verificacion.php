@@ -79,8 +79,8 @@
                                     <div class="col-md-3">
                                         <label class="form-label">Prueba HTTP</label>
                                         <select class="form-select form-select-solid" id="seo_check_probar_http">
-                                            <option value="1">Si, probar URLs</option>
-                                            <option value="0">No, solo listar</option>
+                                            <option value="0" selected>No, solo listar rapido</option>
+                                            <option value="1">Si, probar URLs por bloque</option>
                                         </select>
                                     </div>
                                 </div>

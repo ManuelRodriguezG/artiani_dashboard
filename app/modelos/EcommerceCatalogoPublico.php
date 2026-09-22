@@ -4834,7 +4834,18 @@ class EcommerceCatalogoPublico extends CRUD {
       if ($frontendBase === "") { $frontendBase = "http://artiani.com.local"; }
       $limiteReglas = max(1, min(1500, intval($this->valor($opciones, "limite_reglas", $this->valor($opciones, "limite", 1000)))));
       $limiteSitemap = max(1, min(5000, intval($this->valor($opciones, "limite_sitemap", $this->valor($opciones, "limite", 2000)))));
-      $probarHttp = intval($this->valor($opciones, "probar_http", 1)) === 1;
+      $probarHttp = intval($this->valor($opciones, "probar_http", 0)) === 1;
+      $httpCapAplicado = false;
+      if ($probarHttp) {
+        if ($limiteReglas > 2) {
+          $limiteReglas = 2;
+          $httpCapAplicado = true;
+        }
+        if ($limiteSitemap > 3) {
+          $limiteSitemap = 3;
+          $httpCapAplicado = true;
+        }
+      }
 
       $redireccionesPayload = $this->seoRedireccionesPublicas($opciones);
       $sitemapPayload = $this->seoSitemapPublico(array("limite" => $limiteSitemap));
@@ -4923,6 +4934,7 @@ class EcommerceCatalogoPublico extends CRUD {
       $resumen = $this->seoResumenVerificacion($reglasVerificadas, $sitemapVerificado);
       $resumen["limite_reglas"] = $limiteReglas;
       $resumen["limite_sitemap"] = $limiteSitemap;
+      $resumen["http_cap_aplicado"] = $httpCapAplicado;
       $resumen["redirecciones_disponibles"] = count((array) $redireccionesTodas);
       $resumen["gone_disponibles"] = count((array) $goneTodas);
       $resumen["reglas_disponibles"] = count((array) $redireccionesTodas) + count((array) $goneTodas);

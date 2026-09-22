@@ -35,12 +35,13 @@
   function cargarVerificacion() {
     sincronizarPresetFrontend();
     setEstado("Verificando", "badge-light-warning");
-    setHtml("seo_check_mensaje", '<div class="alert alert-info py-3">Consultando ERP, marcas guardadas y frontend seleccionado...</div>');
+    var parametros = parametrosVerificacion();
+    setHtml("seo_check_mensaje", '<div class="alert alert-info py-3">Consultando ERP, marcas guardadas y frontend seleccionado...' + parametros.aviso + "</div>");
     var params = new URLSearchParams();
     params.set("frontend", frontendSeleccionado());
-    params.set("limite_reglas", valor("seo_check_limite_reglas") || "1000");
-    params.set("limite_sitemap", valor("seo_check_limite_sitemap") || "2000");
-    params.set("probar_http", valor("seo_check_probar_http") || "1");
+    params.set("limite_reglas", parametros.limiteReglas);
+    params.set("limite_sitemap", parametros.limiteSitemap);
+    params.set("probar_http", parametros.probarHttp);
     Promise.all([
       fetch("/ecommercePublico/seo_verificacion_erp?" + params.toString(), { headers: { Accept: "application/json" } }).then(jsonResponse),
       fetch("/ecommercePublico/seo_verificaciones_persistidas_erp", { headers: { Accept: "application/json" } }).then(jsonResponse)
@@ -106,6 +107,9 @@
     }
     if (depurar.resumen && depurar.resumen.hay_mas_sitemap) {
       partes.push('<div class="alert alert-warning py-3 mb-3">Estas viendo ' + escapeHtml(depurar.resumen.sitemap_mostradas || 0) + ' de ' + escapeHtml(depurar.resumen.sitemap_disponibles || 0) + ' URLs de sitemap. Sube el limite de sitemap para ver todas.</div>');
+    }
+    if (depurar.resumen && depurar.resumen.http_cap_aplicado) {
+      partes.push('<div class="alert alert-light-warning py-3 mb-3">Para que la pantalla no se quede cargando, la prueba HTTP se limito a ' + escapeHtml(depurar.resumen.limite_reglas || 0) + ' reglas y ' + escapeHtml(depurar.resumen.limite_sitemap || 0) + ' URLs de sitemap. Para revisar mas, hazlo por bloques.</div>');
     }
     if (revisar > 0) {
       partes.push('<div class="alert alert-warning py-3">Hay ' + escapeHtml(revisar) + ' resultado(s) para revisar en ' + escapeHtml(frontend) + '.</div>');
@@ -405,6 +409,42 @@
   function linkLocal(url) {
     if (!url) return "-";
     return '<a href="' + escapeAttr(url) + '" target="_blank" rel="noopener" class="seo-check-path">' + escapeHtml(url) + "</a>";
+  }
+
+  function parametrosVerificacion() {
+    var probarHttp = valor("seo_check_probar_http") || "0";
+    var limiteReglas = numeroEnRango(valor("seo_check_limite_reglas"), 1, 1500, 1000);
+    var limiteSitemap = numeroEnRango(valor("seo_check_limite_sitemap"), 1, 5000, 2000);
+    var avisos = [];
+    if (probarHttp === "1") {
+      if (limiteReglas > 2) {
+        limiteReglas = 2;
+        setInputValue("seo_check_limite_reglas", limiteReglas);
+        avisos.push(" reglas: 2");
+      }
+      if (limiteSitemap > 3) {
+        limiteSitemap = 3;
+        setInputValue("seo_check_limite_sitemap", limiteSitemap);
+        avisos.push(" sitemap: 3");
+      }
+    }
+    return {
+      probarHttp: probarHttp,
+      limiteReglas: String(limiteReglas),
+      limiteSitemap: String(limiteSitemap),
+      aviso: avisos.length ? " Bloque HTTP ajustado a " + escapeHtml(avisos.join(",")) + "." : ""
+    };
+  }
+
+  function numeroEnRango(value, min, max, fallback) {
+    var n = parseInt(value, 10);
+    if (!Number.isFinite(n)) n = fallback;
+    return Math.max(min, Math.min(max, n));
+  }
+
+  function setInputValue(id, value) {
+    var node = document.getElementById(id);
+    if (node) node.value = value;
   }
 
   function aplicarPresetFrontend() {
