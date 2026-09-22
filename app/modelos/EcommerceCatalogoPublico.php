@@ -4874,6 +4874,7 @@ class EcommerceCatalogoPublico extends CRUD {
           "tipo_regla" => "redireccion",
           "from" => $from,
           "to" => $to,
+          "tipo" => $this->valor($item, "tipo", "manual"),
           "status_esperado" => $statusEsperado,
           "url_local" => $urlLocal,
           "destino_local" => $destinoLocal,
@@ -5023,6 +5024,51 @@ class EcommerceCatalogoPublico extends CRUD {
       ));
     } catch (Exception $e) {
       return $this->respuesta(true, "danger", $e->getMessage(), array("tabla_disponible" => false));
+    }
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-22
+   * Proposito: leer el reporte accionable mas reciente de destinos SEO con 404 o contenido no encontrado.
+   * Impacto: Ecommerce SEO; alimenta filtro operativo en la vista sin lanzar una prueba HTTP masiva.
+   * Contrato: read-only; solo lee JSON generado en storage/tmp y no modifica reglas ni marcas.
+   */
+  public function seoRedireccionesErroresReporteInterno($opciones = array()) {
+    try {
+      $baseDir = dirname(RUTA_APP) . "/storage/tmp";
+      $archivos = glob($baseDir . "/ecommerce_destinos_redirecciones_http_*_solo_errores_accionables.json");
+      if (!$archivos) {
+        return $this->respuesta(false, "warning", "No hay reporte accionable generado todavia.", array(
+          "archivo" => "",
+          "items" => array(),
+          "total" => 0,
+          "guardrails" => array("read_only" => true, "sin_prueba_http" => true)
+        ));
+      }
+      usort($archivos, function ($a, $b) {
+        return filemtime($b) - filemtime($a);
+      });
+      $archivo = $archivos[0];
+      $json = json_decode(file_get_contents($archivo), true);
+      if (!is_array($json)) {
+        return $this->respuesta(true, "warning", "El reporte accionable no se pudo leer.", array(
+          "archivo" => $archivo,
+          "items" => array(),
+          "total" => 0
+        ));
+      }
+      $items = $this->valor($json, "items", array());
+      if (!is_array($items)) { $items = array(); }
+      return $this->respuesta(false, "success", "Reporte accionable de redirecciones consultado", array(
+        "archivo" => $archivo,
+        "frontend" => $this->valor($json, "frontend", ""),
+        "resumen" => $this->valor($json, "resumen", array()),
+        "items" => $items,
+        "total" => count($items),
+        "guardrails" => array("read_only" => true, "sin_prueba_http" => true, "fuente_reporte_local" => true)
+      ));
+    } catch (Exception $e) {
+      return $this->respuesta(true, "danger", $e->getMessage(), array("items" => array(), "total" => 0));
     }
   }
 

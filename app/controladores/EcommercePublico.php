@@ -914,6 +914,17 @@ class EcommercePublico extends Controlador {
   }
 
   /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-22
+   * Proposito: leer el ultimo reporte local de destinos SEO con errores accionables.
+   * Impacto: Ecommerce SEO; permite filtrar en la vista solo redirecciones que requieren correccion sin repetir prueba HTTP.
+   * Contrato: GET protegido por `catalogo.ver`; solo lectura de storage/tmp.
+   */
+  public function seo_redirecciones_errores_reporte_erp() {
+    $this->requerirPermiso("catalogo.ver");
+    return json_encode($this->modelo("EcommerceCatalogoPublico")->seoRedireccionesErroresReporteInterno($_GET));
+  }
+
+  /**
    * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-18
    * Proposito: guardar marca operativa de URL SEO probada/no probada.
    * Impacto: Ecommerce SEO; crea historial compartido para auditoria futura de redirecciones y sitemap.

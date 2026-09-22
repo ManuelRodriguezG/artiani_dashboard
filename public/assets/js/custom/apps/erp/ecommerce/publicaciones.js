@@ -1213,6 +1213,7 @@
         datos.permite_cotizacion = "0";
         datos.permite_whatsapp = "1";
         datos.mostrar_disponibilidad = "1";
+        datos.confirmar_no_granel_textual = confirmarNoGranelTextual() ? "1" : "0";
         setEstado("Publicando informativo...", "badge-light-info");
         postForm("/ecommercePublico/publicaciones_publicar_informativo_erp", datos).then(function (response) {
             if (response.error) { throw new Error(response.mensaje || "No se pudo publicar informativo"); }

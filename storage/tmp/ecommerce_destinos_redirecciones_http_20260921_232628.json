@@ -1,0 +1,3052 @@
+{
+    "frontend": "https://prueba.artiani.com.mx",
+    "total_destinos_unicos": 782,
+    "total_problemas": 181,
+    "problemas": [
+        {
+            "path": "/categoria/acuario-y-peces/equipamiento-tecnico/filtracion-y-oxigenacion",
+            "url": "https://prueba.artiani.com.mx/categoria/acuario-y-peces/equipamiento-tecnico/filtracion-y-oxigenacion",
+            "status": 0,
+            "final_url": "https://prueba.artiani.com.mx/categoria/acuario-y-peces/equipamiento-tecnico/filtracion-y-oxigenacion",
+            "problema": "error_http",
+            "error": "Operation timed out after 12000 milliseconds with 0 bytes received",
+            "origenes": [
+                {
+                    "from": "/producto/filtro-interno-de-flauta-/FILTF-01",
+                    "status": 301,
+                    "tipo": "categoria",
+                    "motivo": "revision_manual_seo"
+                }
+            ]
+        },
+        {
+            "path": "/categoria/acuario-y-peces/peceras-acuarios-y-muebles/bases-y-muebles",
+            "url": "https://prueba.artiani.com.mx/categoria/acuario-y-peces/peceras-acuarios-y-muebles/bases-y-muebles",
+            "status": 0,
+            "final_url": "https://prueba.artiani.com.mx/categoria/acuario-y-peces/peceras-acuarios-y-muebles/bases-y-muebles",
+            "problema": "error_http",
+            "error": "Operation timed out after 12000 milliseconds with 0 bytes received",
+            "origenes": [
+                {
+                    "from": "/producto/categoria/bases_para_peceras",
+                    "status": 301,
+                    "tipo": "categoria",
+                    "motivo": "revision_manual_seo"
+                }
+            ]
+        },
+        {
+            "path": "/categoria/aves/habitat/jaulas",
+            "url": "https://prueba.artiani.com.mx/categoria/aves/habitat/jaulas",
+            "status": 0,
+            "final_url": "https://prueba.artiani.com.mx/categoria/aves/habitat/jaulas",
+            "problema": "error_http",
+            "error": "Operation timed out after 12012 milliseconds with 0 bytes received",
+            "origenes": [
+                {
+                    "from": "/producto/Jaula-casa-libre-para-pajaros/JARO-17",
+                    "status": 301,
+                    "tipo": "categoria",
+                    "motivo": "revision_manual_seo"
+                },
+                {
+                    "from": "/producto/Jaula-pajaro-casa-mini-roja/JARO-06",
+                    "status": 301,
+                    "tipo": "categoria",
+                    "motivo": "revision_manual_seo"
+                }
+            ]
+        },
+        {
+            "path": "/marca/inaba-churu",
+            "url": "https://prueba.artiani.com.mx/marca/inaba-churu",
+            "status": 0,
+            "final_url": "https://prueba.artiani.com.mx/marca/inaba-churu",
+            "problema": "error_http",
+            "error": "Operation timed out after 12004 milliseconds with 0 bytes received",
+            "origenes": [
+                {
+                    "from": "/producto/marca/inaba-churu",
+                    "status": 301,
+                    "tipo": "marca",
+                    "motivo": "revision_manual_seo"
+                }
+            ]
+        },
+        {
+            "path": "/marca/lomas",
+            "url": "https://prueba.artiani.com.mx/marca/lomas",
+            "status": 0,
+            "final_url": "https://prueba.artiani.com.mx/marca/lomas",
+            "problema": "error_http",
+            "error": "Operation timed out after 12004 milliseconds with 0 bytes received",
+            "origenes": [
+                {
+                    "from": "/producto/marca/lomas",
+                    "status": 301,
+                    "tipo": "marca",
+                    "motivo": "revision_manual_seo"
+                }
+            ]
+        },
+        {
+            "path": "/marca/monte-verde",
+            "url": "https://prueba.artiani.com.mx/marca/monte-verde",
+            "status": 0,
+            "final_url": "https://prueba.artiani.com.mx/marca/monte-verde",
+            "problema": "error_http",
+            "error": "Operation timed out after 12008 milliseconds with 0 bytes received",
+            "origenes": [
+                {
+                    "from": "/producto/marca/monte-verde",
+                    "status": 301,
+                    "tipo": "marca",
+                    "motivo": "revision_manual_seo"
+                }
+            ]
+        },
+        {
+            "path": "/marca/ocean-aqua",
+            "url": "https://prueba.artiani.com.mx/marca/ocean-aqua",
+            "status": 0,
+            "final_url": "https://prueba.artiani.com.mx/marca/ocean-aqua",
+            "problema": "error_http",
+            "error": "Operation timed out after 12002 milliseconds with 0 bytes received",
+            "origenes": [
+                {
+                    "from": "/producto/marca/ocean-aqua",
+                    "status": 301,
+                    "tipo": "marca",
+                    "motivo": "revision_manual_seo"
+                }
+            ]
+        },
+        {
+            "path": "/marca/redkite",
+            "url": "https://prueba.artiani.com.mx/marca/redkite",
+            "status": 0,
+            "final_url": "https://prueba.artiani.com.mx/marca/redkite",
+            "problema": "error_http",
+            "error": "Operation timed out after 12000 milliseconds with 0 bytes received",
+            "origenes": [
+                {
+                    "from": "/producto/marca/redkite",
+                    "status": 301,
+                    "tipo": "marca",
+                    "motivo": "revision_manual_seo"
+                }
+            ]
+        },
+        {
+            "path": "/marca/reptilia",
+            "url": "https://prueba.artiani.com.mx/marca/reptilia",
+            "status": 0,
+            "final_url": "https://prueba.artiani.com.mx/marca/reptilia",
+            "problema": "error_http",
+            "error": "Operation timed out after 12007 milliseconds with 0 bytes received",
+            "origenes": [
+                {
+                    "from": "/producto/marca/reptilia",
+                    "status": 301,
+                    "tipo": "marca",
+                    "motivo": "revision_manual_seo"
+                }
+            ]
+        },
+        {
+            "path": "/marca/sevenpet",
+            "url": "https://prueba.artiani.com.mx/marca/sevenpet",
+            "status": 0,
+            "final_url": "https://prueba.artiani.com.mx/marca/sevenpet",
+            "problema": "error_http",
+            "error": "Operation timed out after 12005 milliseconds with 0 bytes received",
+            "origenes": [
+                {
+                    "from": "/producto/marca/sevent-pet",
+                    "status": 301,
+                    "tipo": "marca",
+                    "motivo": "revision_manual_seo"
+                }
+            ]
+        },
+        {
+            "path": "/marca/sunny",
+            "url": "https://prueba.artiani.com.mx/marca/sunny",
+            "status": 0,
+            "final_url": "https://prueba.artiani.com.mx/marca/sunny",
+            "problema": "error_http",
+            "error": "Operation timed out after 12008 milliseconds with 0 bytes received",
+            "origenes": [
+                {
+                    "from": "/producto/marca/kiki",
+                    "status": 301,
+                    "tipo": "marca",
+                    "motivo": "revision_manual_seo"
+                },
+                {
+                    "from": "/producto/marca/pawffy",
+                    "status": 301,
+                    "tipo": "marca",
+                    "motivo": "revision_manual_seo"
+                },
+                {
+                    "from": "/producto/marca/pedros",
+                    "status": 301,
+                    "tipo": "marca",
+                    "motivo": "revision_manual_seo"
+                },
+                {
+                    "from": "/producto/marca/sunny",
+                    "status": 301,
+                    "tipo": "marca",
+                    "motivo": "revision_manual_seo"
+                },
+                {
+                    "from": "/producto/marca/undefined",
+                    "status": 301,
+                    "tipo": "marca",
+                    "motivo": "revision_manual_seo"
+                }
+            ]
+        },
+        {
+            "path": "/marca/tropical",
+            "url": "https://prueba.artiani.com.mx/marca/tropical",
+            "status": 0,
+            "final_url": "https://prueba.artiani.com.mx/marca/tropical",
+            "problema": "error_http",
+            "error": "Operation timed out after 12000 milliseconds with 0 bytes received",
+            "origenes": [
+                {
+                    "from": "/producto/marca/tropical",
+                    "status": 301,
+                    "tipo": "marca",
+                    "motivo": "revision_manual_seo"
+                }
+            ]
+        },
+        {
+            "path": "/producto/aclarador-de-ojos-para-tortugas-30-ml-pza-fl1108",
+            "url": "https://prueba.artiani.com.mx/producto/aclarador-de-ojos-para-tortugas-30-ml-pza-fl1108",
+            "status": 0,
+            "final_url": "https://prueba.artiani.com.mx/producto/aclarador-de-ojos-para-tortugas-30-ml-pza-fl1108",
+            "problema": "error_http",
+            "error": "Operation timed out after 12003 milliseconds with 0 bytes received",
+            "origenes": [
+                {
+                    "from": "/producto/Aclarador-de-ojos-para-tortuga/ACLA-30",
+                    "status": 301,
+                    "tipo": "producto",
+                    "motivo": "revision_manual_seo"
+                }
+            ]
+        },
+        {
+            "path": "/producto/acrivelt-acriflavina-45ml",
+            "url": "https://prueba.artiani.com.mx/producto/acrivelt-acriflavina-45ml",
+            "status": 0,
+            "final_url": "https://prueba.artiani.com.mx/producto/acrivelt-acriflavina-45ml",
+            "problema": "error_http",
+            "error": "Operation timed out after 12010 milliseconds with 0 bytes received",
+            "origenes": [
+                {
+                    "from": "/producto/Acrivelt-Acriflavina-/ACRI-01",
+                    "status": 301,
+                    "tipo": "producto",
+                    "motivo": "revision_manual_seo"
+                }
+            ]
+        },
+        {
+            "path": "/producto/acuario-nano-reef-18l",
+            "url": "https://prueba.artiani.com.mx/producto/acuario-nano-reef-18l",
+            "status": 0,
+            "final_url": "https://prueba.artiani.com.mx/producto/acuario-nano-reef-18l",
+            "problema": "error_http",
+            "error": "Operation timed out after 12011 milliseconds with 0 bytes received",
+            "origenes": [
+                {
+                    "from": "/producto/Acuario-nano-reef-/NANO-01",
+                    "status": 301,
+                    "tipo": "producto",
+                    "motivo": "revision_manual_seo"
+                }
+            ]
+        },
+        {
+            "path": "/producto/ajolostix-70g",
+            "url": "https://prueba.artiani.com.mx/producto/ajolostix-70g",
+            "status": 0,
+            "final_url": "https://prueba.artiani.com.mx/producto/ajolostix-70g",
+            "problema": "error_http",
+            "error": "Operation timed out after 12014 milliseconds with 0 bytes received",
+            "origenes": [
+                {
+                    "from": "/producto/Alimento-para-ajolotes-ajolostix/MEDU-01",
+                    "status": 301,
+                    "tipo": "producto",
+                    "motivo": "revision_manual_seo"
+                }
+            ]
+        },
+        {
+            "path": "/producto/alimentador-automatico-para-peces",
+            "url": "https://prueba.artiani.com.mx/producto/alimentador-automatico-para-peces",
+            "status": 0,
+            "final_url": "https://prueba.artiani.com.mx/producto/alimentador-automatico-para-peces",
+            "problema": "error_http",
+            "error": "Operation timed out after 12000 milliseconds with 0 bytes received",
+            "origenes": [
+                {
+                    "from": "/producto/Alimentador-automatico-ocean-para-peces/ALAU-01",
+                    "status": 301,
+                    "tipo": "producto",
+                    "motivo": "revision_manual_seo"
+                }
+            ]
+        },
+        {
+            "path": "/producto/alimentador-de-semillas-para-aves-600g",
+            "url": "https://prueba.artiani.com.mx/producto/alimentador-de-semillas-para-aves-600g",
+            "status": 0,
+            "final_url": "https://prueba.artiani.com.mx/producto/alimentador-de-semillas-para-aves-600g",
+            "problema": "error_http",
+            "error": "Operation timed out after 12004 milliseconds with 0 bytes received",
+            "origenes": [
+                {
+                    "from": "/producto/Alimentador-de-semillas-cilindro-para-aves-6-estaciones/ALSEA-02",
+                    "status": 301,
+                    "tipo": "producto",
+                    "motivo": "revision_manual_seo"
+                }
+            ]
+        },
+        {
+            "path": "/producto/alimento-betta-bit-frasco",
+            "url": "https://prueba.artiani.com.mx/producto/alimento-betta-bit-frasco",
+            "status": 0,
+            "final_url": "https://prueba.artiani.com.mx/producto/alimento-betta-bit-frasco",
+            "problema": "error_http",
+            "error": "Operation timed out after 12011 milliseconds with 0 bytes received",
+            "origenes": [
+                {
+                    "from": "/producto/Alimento-betta-bit-frasco/ALI-25B",
+                    "status": 301,
+                    "tipo": "producto",
+                    "motivo": "revision_manual_seo"
+                }
+            ]
+        },
+        {
+            "path": "/producto/alimento-betta-hi-protein-42-krill-flavoured-10g-tropical",
+            "url": "https://prueba.artiani.com.mx/producto/alimento-betta-hi-protein-42-krill-flavoured-10g-tropical",
+            "status": 0,
+            "final_url": "https://prueba.artiani.com.mx/producto/alimento-betta-hi-protein-42-krill-flavoured-10g-tropical",
+            "problema": "error_http",
+            "error": "Operation timed out after 12014 milliseconds with 0 bytes received",
+            "origenes": [
+                {
+                    "from": "/producto/Alimento-betta-sun/ALI-10B",
+                    "status": 301,
+                    "tipo": "producto",
+                    "motivo": "revision_manual_seo"
+                }
+            ]
+        },
+        {
+            "path": "/producto/alimento-churro-blanco-para-peces-25g",
+            "url": "https://prueba.artiani.com.mx/producto/alimento-churro-blanco-para-peces-25g",
+            "status": 0,
+            "final_url": "https://prueba.artiani.com.mx/producto/alimento-churro-blanco-para-peces-25g",
+            "problema": "error_http",
+            "error": "Operation timed out after 12002 milliseconds with 0 bytes received",
+            "origenes": [
+                {
+                    "from": "/paquete/Alimento_churro_blanco_chico_para_peces/ALI-CB2",
+                    "status": 301,
+                    "tipo": "producto",
+                    "motivo": "revision_manual_seo"
+                }
+            ]
+        },
+        {
+            "path": "/producto/alimento-churro-blanco-para-peces-500g",
+            "url": "https://prueba.artiani.com.mx/producto/alimento-churro-blanco-para-peces-500g",
+            "status": 0,
+            "final_url": "https://prueba.artiani.com.mx/producto/alimento-churro-blanco-para-peces-500g",
+            "problema": "error_http",
+            "error": "Operation timed out after 12006 milliseconds with 0 bytes received",
+            "origenes": [
+                {
+                    "from": "/paquete/Alimento_churro_blanco_para_peces_500gr/ALI-CB3",
+                    "status": 301,
+                    "tipo": "producto",
+                    "motivo": "revision_manual_seo"
+                }
+            ]
+        },
+        {
+            "path": "/producto/alimento-completo-premium-para-sugar-glider-petauros-1kg",
+            "url": "https://prueba.artiani.com.mx/producto/alimento-completo-premium-para-sugar-glider-petauros-1kg",
+            "status": 0,
+            "final_url": "https://prueba.artiani.com.mx/producto/alimento-completo-premium-para-sugar-glider-petauros-1kg",
+            "problema": "error_http",
+            "error": "Operation timed out after 12003 milliseconds with 0 bytes received",
+            "origenes": [
+                {
+                    "from": "/producto/Alimento-para-sugar-glider-(petauros)-alamazonas-1kg/ALISU-01",
+                    "status": 301,
+                    "tipo": "producto",
+                    "motivo": "revision_manual_seo"
+                }
+            ]
+        },
+        {
+            "path": "/producto/alimento-croqueta-nucan-adulto-razas-medianas-y-grandes-900g",
+            "url": "https://prueba.artiani.com.mx/producto/alimento-croqueta-nucan-adulto-razas-medianas-y-grandes-900g",
+            "status": 0,
+            "final_url": "https://prueba.artiani.com.mx/producto/alimento-croqueta-nucan-adulto-razas-medianas-y-grandes-900g",
+            "problema": "error_http",
+            "error": "Operation timed out after 12004 milliseconds with 0 bytes received",
+            "origenes": [
+                {
+                    "from": "/producto/Croqueta-nucan-adulto-razas-medianas-y-grandes-/CRONU-02",
+                    "status": 301,
+                    "tipo": "producto",
+                    "motivo": "revision_manual_seo"
+                }
+            ]
+        },
+        {
+            "path": "/producto/alimento-croqueta-nucan-adulto-razas-pequenas-900g",
+            "url": "https://prueba.artiani.com.mx/producto/alimento-croqueta-nucan-adulto-razas-pequenas-900g",
+            "status": 0,
+            "final_url": "https://prueba.artiani.com.mx/producto/alimento-croqueta-nucan-adulto-razas-pequenas-900g",
+            "problema": "error_http",
+            "error": "Operation timed out after 12007 milliseconds with 0 bytes received",
+            "origenes": [
+                {
+                    "from": "/producto/Croqueta-nucan-adulto-razas-pequenas/CRONU-05",
+                    "status": 301,
+                    "tipo": "producto",
+                    "motivo": "revision_manual_seo"
+                }
+            ]
+        },
+        {
+            "path": "/producto/alimento-croqueta-nucan-cachorro-razas-medianas-y-grandes-900g",
+            "url": "https://prueba.artiani.com.mx/producto/alimento-croqueta-nucan-cachorro-razas-medianas-y-grandes-900g",
+            "status": 0,
+            "final_url": "https://prueba.artiani.com.mx/producto/alimento-croqueta-nucan-cachorro-razas-medianas-y-grandes-900g",
+            "problema": "error_http",
+            "error": "Operation timed out after 12015 milliseconds with 0 bytes received",
+            "origenes": [
+                {
+                    "from": "/producto/Croqueta-nucan-cachorro-razas-medianas-y-grandes-/CRONU-01",
+                    "status": 301,
+                    "tipo": "producto",
+                    "motivo": "revision_manual_seo"
+                }
+            ]
+        },
+        {
+            "path": "/producto/alimento-croqueta-nucan-cachorro-razas-pequenas-900g",
+            "url": "https://prueba.artiani.com.mx/producto/alimento-croqueta-nucan-cachorro-razas-pequenas-900g",
+            "status": 0,
+            "final_url": "https://prueba.artiani.com.mx/producto/alimento-croqueta-nucan-cachorro-razas-pequenas-900g",
+            "problema": "error_http",
+            "error": "Operation timed out after 12000 milliseconds with 0 bytes received",
+            "origenes": [
+                {
+                    "from": "/producto/Croqueta-nucan-cachorro-razas-pequenas/CRONU-04",
+                    "status": 301,
+                    "tipo": "producto",
+                    "motivo": "revision_manual_seo"
+                }
+            ]
+        },
+        {
+            "path": "/producto/alimento-croqueta-para-gato-adulto-indoor-nupec-3kg",
+            "url": "https://prueba.artiani.com.mx/producto/alimento-croqueta-para-gato-adulto-indoor-nupec-3kg",
+            "status": 0,
+            "final_url": "https://prueba.artiani.com.mx/producto/alimento-croqueta-para-gato-adulto-indoor-nupec-3kg",
+            "problema": "error_http",
+            "error": "Operation timed out after 12015 milliseconds with 0 bytes received",
+            "origenes": [
+                {
+                    "from": "/producto/Alimento-para-gato-adulto-indoor-nupec-3kg/NUPI-01",
+                    "status": 301,
+                    "tipo": "producto",
+                    "motivo": "revision_manual_seo"
+                }
+            ]
+        },
+        {
+            "path": "/producto/alimento-croqueta-para-gato-kitten-nupec-1-5kg",
+            "url": "https://prueba.artiani.com.mx/producto/alimento-croqueta-para-gato-kitten-nupec-1-5kg",
+            "status": 0,
+            "final_url": "https://prueba.artiani.com.mx/producto/alimento-croqueta-para-gato-kitten-nupec-1-5kg",
+            "problema": "error_http",
+            "error": "Operation timed out after 12011 milliseconds with 0 bytes received",
+            "origenes": [
+                {
+                    "from": "/producto/Croqueta-para-gato-kitten-nupec-1.5kg/KINU-02",
+                    "status": 301,
+                    "tipo": "producto",
+                    "motivo": "revision_manual_seo"
+                }
+            ]
+        },
+        {
+            "path": "/producto/alimento-croqueta-para-gato-kitten-nupec-3kg",
+            "url": "https://prueba.artiani.com.mx/producto/alimento-croqueta-para-gato-kitten-nupec-3kg",
+            "status": 0,
+            "final_url": "https://prueba.artiani.com.mx/producto/alimento-croqueta-para-gato-kitten-nupec-3kg",
+            "problema": "error_http",
+            "error": "Operation timed out after 12006 milliseconds with 0 bytes received",
+            "origenes": [
+                {
+                    "from": "/producto/Alimento-para-gato-kitten-nupec-3kg/KINU-01",
+                    "status": 301,
+                    "tipo": "producto",
+                    "motivo": "revision_manual_seo"
+                }
+            ]
+        },
+        {
+            "path": "/producto/alimento-croqueta-para-hamster-450g",
+            "url": "https://prueba.artiani.com.mx/producto/alimento-croqueta-para-hamster-450g",
+            "status": 0,
+            "final_url": "https://prueba.artiani.com.mx/producto/alimento-croqueta-para-hamster-450g",
+            "problema": "error_http",
+            "error": "Operation timed out after 12003 milliseconds with 0 bytes received",
+            "origenes": [
+                {
+                    "from": "/producto/Alimento-para-hamster-croquetas/ALIHA-02",
+                    "status": 301,
+                    "tipo": "producto",
+                    "motivo": "revision_manual_seo"
+                }
+            ]
+        },
+        {
+            "path": "/producto/alimento-croqueta-razas-medianas-a-grandes-nucan-por-nupec-adulto-25kg",
+            "url": "https://prueba.artiani.com.mx/producto/alimento-croqueta-razas-medianas-a-grandes-nucan-por-nupec-adulto-25kg",
+            "status": 0,
+            "final_url": "https://prueba.artiani.com.mx/producto/alimento-croqueta-razas-medianas-a-grandes-nucan-por-nupec-adulto-25kg",
+            "problema": "error_http",
+            "error": "Operation timed out after 12000 milliseconds with 0 bytes received",
+            "origenes": [
+                {
+                    "from": "/producto/Nucan-by-Nupec-Croqueta-Costal-Adulto-25-kg/CCNA25KG",
+                    "status": 301,
+                    "tipo": "producto",
+                    "motivo": "revision_manual_seo"
+                },
+                {
+                    "from": "/producto/Nupec-Croqueta-Costal-Adulto-Nutricion-Canina-Cientifica-8-kg/NUDE-02",
+                    "status": 301,
+                    "tipo": "producto",
+                    "motivo": "revision_manual_seo"
+                }
+            ]
+        },
+        {
+            "path": "/producto/alimento-de-hojuela-color-flakes-20g",
+            "url": "https://prueba.artiani.com.mx/producto/alimento-de-hojuela-color-flakes-20g",
+            "status": 0,
+            "final_url": "https://prueba.artiani.com.mx/producto/alimento-de-hojuela-color-flakes-20g",
+            "problema": "error_http",
+            "error": "Operation timed out after 12000 milliseconds with 0 bytes received",
+            "origenes": [
+                {
+                    "from": "/producto/Alimento-de-hojuela-color-flakes-20gr/ALICO-20",
+                    "status": 301,
+                    "tipo": "producto",
+                    "motivo": "revision_manual_seo"
+                }
+            ]
+        },
+        {
+            "path": "/producto/alimento-de-vacaciones",
+            "url": "https://prueba.artiani.com.mx/producto/alimento-de-vacaciones",
+            "status": 0,
+            "final_url": "https://prueba.artiani.com.mx/producto/alimento-de-vacaciones",
+            "problema": "error_http",
+            "error": "Operation timed out after 12000 milliseconds with 0 bytes received",
+            "origenes": [
+                {
+                    "from": "/producto/Alimento-de-vacaciones-1-pieza-para-peces/ALI-2V",
+                    "status": 301,
+                    "tipo": "producto",
+                    "motivo": "revision_manual_seo"
+                },
+                {
+                    "from": "/producto/Alimento-de-vacaciones-para-peces-de-ornato-/ALI-1V",
+                    "status": 301,
+                    "tipo": "producto",
+                    "motivo": "revision_manual_seo"
+                }
+            ]
+        },
+        {
+            "path": "/producto/alimento-en-hojuela-super-flakes-500g",
+            "url": "https://prueba.artiani.com.mx/producto/alimento-en-hojuela-super-flakes-500g",
+            "status": 0,
+            "final_url": "https://prueba.artiani.com.mx/producto/alimento-en-hojuela-super-flakes-500g",
+            "problema": "error_http",
+            "error": "Operation timed out after 12007 milliseconds with 0 bytes received",
+            "origenes": [
+                {
+                    "from": "/producto/Alimento-para-peces-super-flakes-500-grs-/ALISU-500",
+                    "status": 301,
+                    "tipo": "producto",
+                    "motivo": "revision_manual_seo"
+                }
+            ]
+        },
+        {
+            "path": "/producto/alimento-en-hojuelas-super-flakes-40g",
+            "url": "https://prueba.artiani.com.mx/producto/alimento-en-hojuelas-super-flakes-40g",
+            "status": 0,
+            "final_url": "https://prueba.artiani.com.mx/producto/alimento-en-hojuelas-super-flakes-40g",
+            "problema": "error_http",
+            "error": "Operation timed out after 12010 milliseconds with 0 bytes received",
+            "origenes": [
+                {
+                    "from": "/producto/Alimento-hojuelas-super-flakes-40-gr/ALISU-40",
+                    "status": 301,
+                    "tipo": "producto",
+                    "motivo": "revision_manual_seo"
+                }
+            ]
+        },
+        {
+            "path": "/producto/alimento-granulado-rainbow-color-bites-50g",
+            "url": "https://prueba.artiani.com.mx/producto/alimento-granulado-rainbow-color-bites-50g",
+            "status": 0,
+            "final_url": "https://prueba.artiani.com.mx/producto/alimento-granulado-rainbow-color-bites-50g",
+            "problema": "error_http",
+            "error": "Operation timed out after 12000 milliseconds with 0 bytes received",
+            "origenes": [
+                {
+                    "from": "/producto/Alimento-rainbow-color-bites-para-peces-50gr/ALICOR-50",
+                    "status": 301,
+                    "tipo": "producto",
+                    "motivo": "revision_manual_seo"
+                }
+            ]
+        },
+        {
+            "path": "/producto/alimento-hojuelas-basicas-tropicales-100g",
+            "url": "https://prueba.artiani.com.mx/producto/alimento-hojuelas-basicas-tropicales-100g",
+            "status": 0,
+            "final_url": "https://prueba.artiani.com.mx/producto/alimento-hojuelas-basicas-tropicales-100g",
+            "problema": "error_http",
+            "error": "Operation timed out after 12001 milliseconds with 0 bytes received",
+            "origenes": [
+                {
+                    "from": "/producto/Alimento-hojuela-basicas-medinano-para-peces/ALI-30H",
+                    "status": 301,
+                    "tipo": "producto",
+                    "motivo": "revision_manual_seo"
+                }
+            ]
+        },
+        {
+            "path": "/producto/alimento-hojuelas-super-flakes-20g-para-peces",
+            "url": "https://prueba.artiani.com.mx/producto/alimento-hojuelas-super-flakes-20g-para-peces",
+            "status": 0,
+            "final_url": "https://prueba.artiani.com.mx/producto/alimento-hojuelas-super-flakes-20g-para-peces",
+            "problema": "error_http",
+            "error": "Operation timed out after 12000 milliseconds with 0 bytes received",
+            "origenes": [
+                {
+                    "from": "/producto/Alimento-hojuelas-super-flakes-20gr-para-peces/ALISU-20",
+                    "status": 301,
+                    "tipo": "producto",
+                    "motivo": "revision_manual_seo"
+                }
+            ]
+        },
+        {
+            "path": "/producto/alimento-iguana-bits-300g",
+            "url": "https://prueba.artiani.com.mx/producto/alimento-iguana-bits-300g",
+            "status": 0,
+            "final_url": "https://prueba.artiani.com.mx/producto/alimento-iguana-bits-300g",
+            "problema": "error_http",
+            "error": "Operation timed out after 12001 milliseconds with 0 bytes received",
+            "origenes": [
+                {
+                    "from": "/producto/Alimento-iguana-bits-300gr/ALII-05",
+                    "status": 301,
+                    "tipo": "producto",
+                    "motivo": "revision_manual_seo"
+                }
+            ]
+        },
+        {
+            "path": "/producto/alimento-mezcla-de-semillas-para-hamster-1kg",
+            "url": "https://prueba.artiani.com.mx/producto/alimento-mezcla-de-semillas-para-hamster-1kg",
+            "status": 0,
+            "final_url": "https://prueba.artiani.com.mx/producto/alimento-mezcla-de-semillas-para-hamster-1kg",
+            "problema": "error_http",
+            "error": "Operation timed out after 12002 milliseconds with 0 bytes received",
+            "origenes": [
+                {
+                    "from": "/producto/Alimento-Mezcla-de-semillas-para-hamster-frasco/ALIHA-03",
+                    "status": 301,
+                    "tipo": "producto",
+                    "motivo": "revision_manual_seo"
+                }
+            ]
+        },
+        {
+            "path": "/producto/alimento-micropelet-flotante-azoo-2-en-1-chico",
+            "url": "https://prueba.artiani.com.mx/producto/alimento-micropelet-flotante-azoo-2-en-1-chico",
+            "status": 0,
+            "final_url": "https://prueba.artiani.com.mx/producto/alimento-micropelet-flotante-azoo-2-en-1-chico",
+            "problema": "error_http",
+            "error": "Operation timed out after 12000 milliseconds with 0 bytes received",
+            "origenes": [
+                {
+                    "from": "/producto/Alimento-micropelet-flotante-Azoo-2-en-1-chico/ALI-01MI",
+                    "status": 301,
+                    "tipo": "producto",
+                    "motivo": "revision_manual_seo"
+                },
+                {
+                    "from": "/producto/Alimento-micropelet-flotante-Azoo-2-en-1-mediano/ALI-01MI",
+                    "status": 301,
+                    "tipo": "producto",
+                    "motivo": "revision_manual_seo"
+                }
+            ]
+        },
+        {
+            "path": "/producto/alimento-mini-bolitas-para-tortuga",
+            "url": "https://prueba.artiani.com.mx/producto/alimento-mini-bolitas-para-tortuga",
+            "status": 0,
+            "final_url": "https://prueba.artiani.com.mx/producto/alimento-mini-bolitas-para-tortuga",
+            "problema": "error_http",
+            "error": "Operation timed out after 12000 milliseconds with 0 bytes received",
+            "origenes": [
+                {
+                    "from": "/producto/Alimento-mini-bolitas-para-tortuga-/ALI-TM1",
+                    "status": 301,
+                    "tipo": "producto",
+                    "motivo": "revision_manual_seo"
+                }
+            ]
+        },
+        {
+            "path": "/producto/alimento-monte-verde-para-ninfas-y-agapornis-500g",
+            "url": "https://prueba.artiani.com.mx/producto/alimento-monte-verde-para-ninfas-y-agapornis-500g",
+            "status": 0,
+            "final_url": "https://prueba.artiani.com.mx/producto/alimento-monte-verde-para-ninfas-y-agapornis-500g",
+            "problema": "error_http",
+            "error": "Operation timed out after 12011 milliseconds with 0 bytes received",
+            "origenes": [
+                {
+                    "from": "/producto/Alimento-para-agapornis-y-ninfas-monte-verde/undefined",
+                    "status": 301,
+                    "tipo": "producto",
+                    "motivo": "revision_manual_seo"
+                },
+                {
+                    "from": "/producto/Alimento-para-agapornis-y-ninfas-monteverde-/ALIVER-01",
+                    "status": 301,
+                    "tipo": "producto",
+                    "motivo": "revision_manual_seo"
+                }
+            ]
+        },
+        {
+            "path": "/producto/alimento-monte-verde-para-periquitos-australianos-500g-tropifit",
+            "url": "https://prueba.artiani.com.mx/producto/alimento-monte-verde-para-periquitos-australianos-500g-tropifit",
+            "status": 0,
+            "final_url": "https://prueba.artiani.com.mx/producto/alimento-monte-verde-para-periquitos-australianos-500g-tropifit",
+            "problema": "error_http",
+            "error": "Operation timed out after 12013 milliseconds with 0 bytes received",
+            "origenes": [
+                {
+                    "from": "/producto/Alimento-para-periquitos-australianos-monte-verde/ALIPA-07",
+                    "status": 301,
+                    "tipo": "producto",
+                    "motivo": "revision_manual_seo"
+                }
+            ]
+        },
+        {
+            "path": "/producto/alimento-para-ajolotes-60g-mini",
+            "url": "https://prueba.artiani.com.mx/producto/alimento-para-ajolotes-60g-mini",
+            "status": 0,
+            "final_url": "https://prueba.artiani.com.mx/producto/alimento-para-ajolotes-60g-mini",
+            "problema": "error_http",
+            "error": "Operation timed out after 12012 milliseconds with 0 bytes received",
+            "origenes": [
+                {
+                    "from": "/producto/Alimento-para-ajolote-axolotinas-mini-/ALIX-01",
+                    "status": 301,
+                    "tipo": "producto",
+                    "motivo": "revision_manual_seo"
+                },
+                {
+                    "from": "/producto/Alimento-para-ajolote-axolotinas-mini-/index.html",
+                    "status": 301,
+                    "tipo": "producto",
+                    "motivo": "revision_manual_seo"
+                }
+            ]
+        },
+        {
+            "path": "/producto/alimento-para-ajolotes-adultos-60g",
+            "url": "https://prueba.artiani.com.mx/producto/alimento-para-ajolotes-adultos-60g",
+            "status": 0,
+            "final_url": "https://prueba.artiani.com.mx/producto/alimento-para-ajolotes-adultos-60g",
+            "problema": "error_http",
+            "error": "Operation timed out after 12006 milliseconds with 0 bytes received",
+            "origenes": [
+                {
+                    "from": "/producto/Alimento-para-ajolote-axolotinas-adulto/ALIX-02",
+                    "status": 301,
+                    "tipo": "producto",
+                    "motivo": "revision_manual_seo"
+                },
+                {
+                    "from": "/producto/Alimento-para-ajolote-axolotinas-adulto/undefined",
+                    "status": 301,
+                    "tipo": "producto",
+                    "motivo": "revision_manual_seo"
+                }
+            ]
+        },
+        {
+            "path": "/producto/alimento-para-conejo-1-2kg",
+            "url": "https://prueba.artiani.com.mx/producto/alimento-para-conejo-1-2kg",
+            "status": 0,
+            "final_url": "https://prueba.artiani.com.mx/producto/alimento-para-conejo-1-2kg",
+            "problema": "error_http",
+            "error": "Operation timed out after 12007 milliseconds with 0 bytes received",
+            "origenes": [
+                {
+                    "from": "/producto/Alimento-para-conejo-conejina-envasada/ALI-CO1",
+                    "status": 301,
+                    "tipo": "producto",
+                    "motivo": "revision_manual_seo"
+                }
+            ]
+        },
+        {
+            "path": "/producto/alimento-para-cuyo-850g",
+            "url": "https://prueba.artiani.com.mx/producto/alimento-para-cuyo-850g",
+            "status": 0,
+            "final_url": "https://prueba.artiani.com.mx/producto/alimento-para-cuyo-850g",
+            "problema": "error_http",
+            "error": "Operation timed out after 12007 milliseconds with 0 bytes received",
+            "origenes": [
+                {
+                    "from": "/producto/Alimento-para-cuyo-pellets-balanceados/ALICU-850",
+                    "status": 301,
+                    "tipo": "producto",
+                    "motivo": "revision_manual_seo"
+                }
+            ]
+        },
+        {
+            "path": "/producto/alimento-para-erizo-1-2kg-gusano-cera",
+            "url": "https://prueba.artiani.com.mx/producto/alimento-para-erizo-1-2kg-gusano-cera",
+            "status": 0,
+            "final_url": "https://prueba.artiani.com.mx/producto/alimento-para-erizo-1-2kg-gusano-cera",
+            "problema": "error_http",
+            "error": "Operation timed out after 12010 milliseconds with 0 bytes received",
+            "origenes": [
+                {
+                    "from": "/producto/Alimento-para-erizo-bombyx-grande/undefined",
+                    "status": 301,
+                    "tipo": "producto",
+                    "motivo": "revision_manual_seo"
+                }
+            ]
+        },
+        {
+            "path": "/producto/alimento-para-erizo-250g-gusano-cera",
+            "url": "https://prueba.artiani.com.mx/producto/alimento-para-erizo-250g-gusano-cera",
+            "status": 0,
+            "final_url": "https://prueba.artiani.com.mx/producto/alimento-para-erizo-250g-gusano-cera",
+            "problema": "error_http",
+            "error": "Operation timed out after 12006 milliseconds with 0 bytes received",
+            "origenes": [
+                {
+                    "from": "/producto/Alimento-para-erizo-bombyx-chico/ALIE-05",
+                    "status": 301,
+                    "tipo": "producto",
+                    "motivo": "revision_manual_seo"
+                }
+            ]
+        },
+        {
+            "path": "/producto/alimento-para-erizo-250g-tenebrios",
+            "url": "https://prueba.artiani.com.mx/producto/alimento-para-erizo-250g-tenebrios",
+            "status": 0,
+            "final_url": "https://prueba.artiani.com.mx/producto/alimento-para-erizo-250g-tenebrios",
+            "problema": "error_http",
+            "error": "Operation timed out after 12009 milliseconds with 0 bytes received",
+            "origenes": [
+                {
+                    "from": "/producto/Alimento-para-erizo-tenebrio-chico/ALIE-250T",
+                    "status": 301,
+                    "tipo": "producto",
+                    "motivo": "revision_manual_seo"
+                }
+            ]
+        },
+        {
+            "path": "/producto/alimento-para-erizo-700g-tenebrios",
+            "url": "https://prueba.artiani.com.mx/producto/alimento-para-erizo-700g-tenebrios",
+            "status": 0,
+            "final_url": "https://prueba.artiani.com.mx/producto/alimento-para-erizo-700g-tenebrios",
+            "problema": "error_http",
+            "error": "Operation timed out after 12009 milliseconds with 0 bytes received",
+            "origenes": [
+                {
+                    "from": "/producto/Alimento_para_erizo_tenebrio_mediano/ALIE-700T",
+                    "status": 301,
+                    "tipo": "producto",
+                    "motivo": "revision_manual_seo"
+                }
+            ]
+        },
+        {
+            "path": "/producto/alimento-para-erizo-select-800g",
+            "url": "https://prueba.artiani.com.mx/producto/alimento-para-erizo-select-800g",
+            "status": 0,
+            "final_url": "https://prueba.artiani.com.mx/producto/alimento-para-erizo-select-800g",
+            "problema": "error_http",
+            "error": "Operation timed out after 12008 milliseconds with 0 bytes received",
+            "origenes": [
+                {
+                    "from": "/producto/Alimento-para-erizo-select-800gr/ALIE-07",
+                    "status": 301,
+                    "tipo": "producto",
+                    "motivo": "revision_manual_seo"
+                }
+            ]
+        },
+        {
+            "path": "/producto/alimento-para-iguana-juvenil-350g",
+            "url": "https://prueba.artiani.com.mx/producto/alimento-para-iguana-juvenil-350g",
+            "status": 0,
+            "final_url": "https://prueba.artiani.com.mx/producto/alimento-para-iguana-juvenil-350g",
+            "problema": "error_http",
+            "error": "Operation timed out after 12009 milliseconds with 0 bytes received",
+            "origenes": [
+                {
+                    "from": "/producto/Alimento-para-iguana-juvenil-350-gramos-/ALII-03",
+                    "status": 301,
+                    "tipo": "producto",
+                    "motivo": "revision_manual_seo"
+                }
+            ]
+        },
+        {
+            "path": "/producto/alimento-para-iguana-juvenil-700g",
+            "url": "https://prueba.artiani.com.mx/producto/alimento-para-iguana-juvenil-700g",
+            "status": 0,
+            "final_url": "https://prueba.artiani.com.mx/producto/alimento-para-iguana-juvenil-700g",
+            "problema": "error_http",
+            "error": "Operation timed out after 12014 milliseconds with 0 bytes received",
+            "origenes": [
+                {
+                    "from": "/producto/Alimento-para-iguana-juvenil-700-gramos/ALII-04",
+                    "status": 301,
+                    "tipo": "producto",
+                    "motivo": "revision_manual_seo"
+                }
+            ]
+        },
+        {
+            "path": "/producto/alimento-para-iguana-sticks-300g-tropical",
+            "url": "https://prueba.artiani.com.mx/producto/alimento-para-iguana-sticks-300g-tropical",
+            "status": 0,
+            "final_url": "https://prueba.artiani.com.mx/producto/alimento-para-iguana-sticks-300g-tropical",
+            "problema": "error_http",
+            "error": "Operation timed out after 12001 milliseconds with 0 bytes received",
+            "origenes": [
+                {
+                    "from": "/producto/Alimento-iguana-sunny-/ALIGU-03",
+                    "status": 301,
+                    "tipo": "producto",
+                    "motivo": "revision_manual_seo"
+                }
+            ]
+        },
+        {
+            "path": "/producto/alimento-para-peces-de-fondo-70g",
+            "url": "https://prueba.artiani.com.mx/producto/alimento-para-peces-de-fondo-70g",
+            "status": 0,
+            "final_url": "https://prueba.artiani.com.mx/producto/alimento-para-peces-de-fondo-70g",
+            "problema": "error_http",
+            "error": "Operation timed out after 12014 milliseconds with 0 bytes received",
+            "origenes": [
+                {
+                    "from": "/producto/Alimento-para-peces-de-fondo-70-grs/ALIF-01",
+                    "status": 301,
+                    "tipo": "producto",
+                    "motivo": "revision_manual_seo"
+                }
+            ]
+        },
+        {
+            "path": "/producto/alimento-para-periquitos-tropifit-budgie-700g",
+            "url": "https://prueba.artiani.com.mx/producto/alimento-para-periquitos-tropifit-budgie-700g",
+            "status": 0,
+            "final_url": "https://prueba.artiani.com.mx/producto/alimento-para-periquitos-tropifit-budgie-700g",
+            "problema": "error_http",
+            "error": "Operation timed out after 12000 milliseconds with 0 bytes received",
+            "origenes": [
+                {
+                    "from": "/producto/Alimento-para-periquitos-budgie-tropifit/ALIPA-10",
+                    "status": 301,
+                    "tipo": "producto",
+                    "motivo": "revision_manual_seo"
+                }
+            ]
+        },
+        {
+            "path": "/producto/alimento-para-tortuga-reptile-sticks-baby-70g",
+            "url": "https://prueba.artiani.com.mx/producto/alimento-para-tortuga-reptile-sticks-baby-70g",
+            "status": 0,
+            "final_url": "https://prueba.artiani.com.mx/producto/alimento-para-tortuga-reptile-sticks-baby-70g",
+            "problema": "error_http",
+            "error": "Operation timed out after 12000 milliseconds with 0 bytes received",
+            "origenes": [
+                {
+                    "from": "/producto/Alimento-para-tortuga-reptil-sticks-70-grs/ALITO-06",
+                    "status": 301,
+                    "tipo": "producto",
+                    "motivo": "revision_manual_seo"
+                },
+                {
+                    "from": "/producto/Alimento-para-tortuga-reptil-sticks-baby-70grs/ALITO-10",
+                    "status": 301,
+                    "tipo": "producto",
+                    "motivo": "revision_manual_seo"
+                }
+            ]
+        },
+        {
+            "path": "/producto/alimento-para-tortuga-reptomin-sticks-55g",
+            "url": "https://prueba.artiani.com.mx/producto/alimento-para-tortuga-reptomin-sticks-55g",
+            "status": 0,
+            "final_url": "https://prueba.artiani.com.mx/producto/alimento-para-tortuga-reptomin-sticks-55g",
+            "problema": "error_http",
+            "error": "Operation timed out after 12001 milliseconds with 0 bytes received",
+            "origenes": [
+                {
+                    "from": "/producto/Alimento-para-tortuga-reptomin-sticks-55gr/ALITO-17",
+                    "status": 301,
+                    "tipo": "producto",
+                    "motivo": "revision_manual_seo"
+                }
+            ]
+        },
+        {
+            "path": "/producto/alimento-pellet-para-mascotas-1kg",
+            "url": "https://prueba.artiani.com.mx/producto/alimento-pellet-para-mascotas-1kg",
+            "status": 0,
+            "final_url": "https://prueba.artiani.com.mx/producto/alimento-pellet-para-mascotas-1kg",
+            "problema": "error_http",
+            "error": "Operation timed out after 12000 milliseconds with 0 bytes received",
+            "origenes": [
+                {
+                    "from": "/paquete/Conejina_1kg/CONA-1KG",
+                    "status": 301,
+                    "tipo": "producto",
+                    "motivo": "revision_manual_seo"
+                },
+                {
+                    "from": "/paquete/conejina_alimento_por_kilo/ALIC-01",
+                    "status": 301,
+                    "tipo": "producto",
+                    "motivo": "revision_manual_seo"
+                },
+                {
+                    "from": "/producto/Conejina-alimento-agranel-/CONEJINA-40KG",
+                    "status": 301,
+                    "tipo": "producto",
+                    "motivo": "revision_manual_seo"
+                }
+            ]
+        },
+        {
+            "path": "/producto/alimento-pellets-petalos-de-rosas-para-chinchilla-cuyos-y-hamsters",
+            "url": "https://prueba.artiani.com.mx/producto/alimento-pellets-petalos-de-rosas-para-chinchilla-cuyos-y-hamsters",
+            "status": 0,
+            "final_url": "https://prueba.artiani.com.mx/producto/alimento-pellets-petalos-de-rosas-para-chinchilla-cuyos-y-hamsters",
+            "problema": "error_http",
+            "error": "Operation timed out after 12000 milliseconds with 0 bytes received",
+            "origenes": [
+                {
+                    "from": "/producto/Pellets-y-petalos-de-rosas-/undefined",
+                    "status": 301,
+                    "tipo": "producto",
+                    "motivo": "revision_manual_seo"
+                }
+            ]
+        },
+        {
+            "path": "/producto/alimento-pet-food-para-hamster",
+            "url": "https://prueba.artiani.com.mx/producto/alimento-pet-food-para-hamster",
+            "status": 0,
+            "final_url": "https://prueba.artiani.com.mx/producto/alimento-pet-food-para-hamster",
+            "problema": "error_http",
+            "error": "Operation timed out after 12016 milliseconds with 0 bytes received",
+            "origenes": [
+                {
+                    "from": "/producto/Alimento-pet-food-para-hamster-/ALIHA-09",
+                    "status": 301,
+                    "tipo": "producto",
+                    "motivo": "revision_manual_seo"
+                }
+            ]
+        },
+        {
+            "path": "/producto/alimento-premium-betta-8g",
+            "url": "https://prueba.artiani.com.mx/producto/alimento-premium-betta-8g",
+            "status": 0,
+            "final_url": "https://prueba.artiani.com.mx/producto/alimento-premium-betta-8g",
+            "problema": "error_http",
+            "error": "Operation timed out after 12000 milliseconds with 0 bytes received",
+            "origenes": [
+                {
+                    "from": "/producto/Alimento-betta-premium-8-gramos-/ALI-8B",
+                    "status": 301,
+                    "tipo": "producto",
+                    "motivo": "revision_manual_seo"
+                }
+            ]
+        },
+        {
+            "path": "/producto/alimento-spirulina-boost-70g",
+            "url": "https://prueba.artiani.com.mx/producto/alimento-spirulina-boost-70g",
+            "status": 0,
+            "final_url": "https://prueba.artiani.com.mx/producto/alimento-spirulina-boost-70g",
+            "problema": "error_http",
+            "error": "Operation timed out after 12000 milliseconds with 0 bytes received",
+            "origenes": [
+                {
+                    "from": "/producto/Alimento-para-pez-spirulina-boots-70-gr/ALIES-01",
+                    "status": 301,
+                    "tipo": "producto",
+                    "motivo": "revision_manual_seo"
+                }
+            ]
+        },
+        {
+            "path": "/producto/alimento-tropical-goldfish-pellets-flotantes-90g",
+            "url": "https://prueba.artiani.com.mx/producto/alimento-tropical-goldfish-pellets-flotantes-90g",
+            "status": 0,
+            "final_url": "https://prueba.artiani.com.mx/producto/alimento-tropical-goldfish-pellets-flotantes-90g",
+            "problema": "error_http",
+            "error": "Operation timed out after 12000 milliseconds with 0 bytes received",
+            "origenes": [
+                {
+                    "from": "/producto/Alimento_premium_para_pez_goldfish_90_grs/ALI-90G",
+                    "status": 301,
+                    "tipo": "producto",
+                    "motivo": "revision_manual_seo"
+                }
+            ]
+        },
+        {
+            "path": "/producto/alimento-tropical-granulado-90g",
+            "url": "https://prueba.artiani.com.mx/producto/alimento-tropical-granulado-90g",
+            "status": 0,
+            "final_url": "https://prueba.artiani.com.mx/producto/alimento-tropical-granulado-90g",
+            "problema": "error_http",
+            "error": "Operation timed out after 12006 milliseconds with 0 bytes received",
+            "origenes": [
+                {
+                    "from": "/producto/Alimento_tropical_premium_90_gramos_/ALI-90TR",
+                    "status": 301,
+                    "tipo": "producto",
+                    "motivo": "revision_manual_seo"
+                }
+            ]
+        },
+        {
+            "path": "/producto/alimento-tropical-koi-y-goldfish-colour-sticks-4kg",
+            "url": "https://prueba.artiani.com.mx/producto/alimento-tropical-koi-y-goldfish-colour-sticks-4kg",
+            "status": 0,
+            "final_url": "https://prueba.artiani.com.mx/producto/alimento-tropical-koi-y-goldfish-colour-sticks-4kg",
+            "problema": "error_http",
+            "error": "Operation timed out after 12000 milliseconds with 0 bytes received",
+            "origenes": [
+                {
+                    "from": "/paquete/Alimento_churro_blanco_para_peces_por_costal_de_4kg/ALI-CB4",
+                    "status": 301,
+                    "tipo": "producto",
+                    "motivo": "revision_manual_seo"
+                },
+                {
+                    "from": "/paquete/Alimento_churro_rojo_para_peces_por_costal_de_4_kg/ALI-CR1",
+                    "status": 301,
+                    "tipo": "producto",
+                    "motivo": "revision_manual_seo"
+                }
+            ]
+        },
+        {
+            "path": "/producto/alimento-tropical-tubi-cubi-10g",
+            "url": "https://prueba.artiani.com.mx/producto/alimento-tropical-tubi-cubi-10g",
+            "status": 0,
+            "final_url": "https://prueba.artiani.com.mx/producto/alimento-tropical-tubi-cubi-10g",
+            "problema": "error_http",
+            "error": "Operation timed out after 12013 milliseconds with 0 bytes received",
+            "origenes": [
+                {
+                    "from": "/producto/Alimento-para-peces-tubifex--tubi-cubi-/ALITUBI-01",
+                    "status": 301,
+                    "tipo": "producto",
+                    "motivo": "revision_manual_seo"
+                }
+            ]
+        },
+        {
+            "path": "/producto/alimento-tropical-turtle-bites-90g",
+            "url": "https://prueba.artiani.com.mx/producto/alimento-tropical-turtle-bites-90g",
+            "status": 0,
+            "final_url": "https://prueba.artiani.com.mx/producto/alimento-tropical-turtle-bites-90g",
+            "problema": "error_http",
+            "error": "Operation timed out after 12003 milliseconds with 0 bytes received",
+            "origenes": [
+                {
+                    "from": "/producto/Alimento-para-tortuga-bites-(bolitas)/ALITO-01",
+                    "status": 301,
+                    "tipo": "producto",
+                    "motivo": "revision_manual_seo"
+                },
+                {
+                    "from": "/producto/Alimento-para-tortuga-turtle-bites-90-grs/ALITO-07",
+                    "status": 301,
+                    "tipo": "producto",
+                    "motivo": "revision_manual_seo"
+                }
+            ]
+        },
+        {
+            "path": "/producto/alimento-tropifit-para-conejos-500g",
+            "url": "https://prueba.artiani.com.mx/producto/alimento-tropifit-para-conejos-500g",
+            "status": 0,
+            "final_url": "https://prueba.artiani.com.mx/producto/alimento-tropifit-para-conejos-500g",
+            "problema": "error_http",
+            "error": "Operation timed out after 12004 milliseconds with 0 bytes received",
+            "origenes": [
+                {
+                    "from": "/producto/Alimento-para-conejo-mezcla-de-mix/ALICO-01",
+                    "status": 301,
+                    "tipo": "producto",
+                    "motivo": "revision_manual_seo"
+                }
+            ]
+        },
+        {
+            "path": "/producto/alimento-tropifit-para-cuyo-500g",
+            "url": "https://prueba.artiani.com.mx/producto/alimento-tropifit-para-cuyo-500g",
+            "status": 0,
+            "final_url": "https://prueba.artiani.com.mx/producto/alimento-tropifit-para-cuyo-500g",
+            "problema": "error_http",
+            "error": "Operation timed out after 12003 milliseconds with 0 bytes received",
+            "origenes": [
+                {
+                    "from": "/producto/Alimento-para-cuyo-tropifit-500gr/ALICU-07",
+                    "status": 301,
+                    "tipo": "producto",
+                    "motivo": "revision_manual_seo"
+                }
+            ]
+        },
+        {
+            "path": "/producto/alimento-tropifit-para-hamster-500g",
+            "url": "https://prueba.artiani.com.mx/producto/alimento-tropifit-para-hamster-500g",
+            "status": 0,
+            "final_url": "https://prueba.artiani.com.mx/producto/alimento-tropifit-para-hamster-500g",
+            "problema": "error_http",
+            "error": "Operation timed out after 12000 milliseconds with 0 bytes received",
+            "origenes": [
+                {
+                    "from": "/producto/Alimento-para-hamster-semillas-mix/ALIHA-01",
+                    "status": 301,
+                    "tipo": "producto",
+                    "motivo": "revision_manual_seo"
+                }
+            ]
+        },
+        {
+            "path": "/producto/alimento-tropifit-premium-guinea-pig-cuyo-500g",
+            "url": "https://prueba.artiani.com.mx/producto/alimento-tropifit-premium-guinea-pig-cuyo-500g",
+            "status": 0,
+            "final_url": "https://prueba.artiani.com.mx/producto/alimento-tropifit-premium-guinea-pig-cuyo-500g",
+            "problema": "error_http",
+            "error": "Operation timed out after 12000 milliseconds with 0 bytes received",
+            "origenes": [
+                {
+                    "from": "/producto/Alimento-para-cuyo-premium/ALIST-03",
+                    "status": 301,
+                    "tipo": "producto",
+                    "motivo": "revision_manual_seo"
+                }
+            ]
+        },
+        {
+            "path": "/producto/alimento-tropifit-premium-hamster-500g",
+            "url": "https://prueba.artiani.com.mx/producto/alimento-tropifit-premium-hamster-500g",
+            "status": 0,
+            "final_url": "https://prueba.artiani.com.mx/producto/alimento-tropifit-premium-hamster-500g",
+            "problema": "error_http",
+            "error": "Operation timed out after 12002 milliseconds with 0 bytes received",
+            "origenes": [
+                {
+                    "from": "/producto/Alimento-tropifit-premium-para-hamster-500gr/ALIHA-11",
+                    "status": 301,
+                    "tipo": "producto",
+                    "motivo": "revision_manual_seo"
+                }
+            ]
+        },
+        {
+            "path": "/producto/alimento-tropifit-premium-plus-chinchilla-750g",
+            "url": "https://prueba.artiani.com.mx/producto/alimento-tropifit-premium-plus-chinchilla-750g",
+            "status": 0,
+            "final_url": "https://prueba.artiani.com.mx/producto/alimento-tropifit-premium-plus-chinchilla-750g",
+            "problema": "error_http",
+            "error": "Operation timed out after 12002 milliseconds with 0 bytes received",
+            "origenes": [
+                {
+                    "from": "/producto/Alimento-one-para-chinchilla/ALIO-03",
+                    "status": 301,
+                    "tipo": "producto",
+                    "motivo": "revision_manual_seo"
+                },
+                {
+                    "from": "/producto/Alimento-para-chinchilla-premium-/ALIST-01",
+                    "status": 301,
+                    "tipo": "producto",
+                    "motivo": "revision_manual_seo"
+                }
+            ]
+        },
+        {
+            "path": "/producto/alimento-tropifit-premium-plus-para-conejo-adulto-750g",
+            "url": "https://prueba.artiani.com.mx/producto/alimento-tropifit-premium-plus-para-conejo-adulto-750g",
+            "status": 0,
+            "final_url": "https://prueba.artiani.com.mx/producto/alimento-tropifit-premium-plus-para-conejo-adulto-750g",
+            "problema": "error_http",
+            "error": "Operation timed out after 12004 milliseconds with 0 bytes received",
+            "origenes": [
+                {
+                    "from": "/producto/Alimento-para-conejo-adulto-preminum/ALIST-05",
+                    "status": 301,
+                    "tipo": "producto",
+                    "motivo": "revision_manual_seo"
+                }
+            ]
+        },
+        {
+            "path": "/producto/alimento-vivo-grillo-mediano-por-millar-caja",
+            "url": "https://prueba.artiani.com.mx/producto/alimento-vivo-grillo-mediano-por-millar-caja",
+            "status": 0,
+            "final_url": "https://prueba.artiani.com.mx/producto/alimento-vivo-grillo-mediano-por-millar-caja",
+            "problema": "error_http",
+            "error": "Operation timed out after 12013 milliseconds with 0 bytes received",
+            "origenes": [
+                {
+                    "from": "/paquete/Grillo_por_millar_/GRI-02",
+                    "status": 301,
+                    "tipo": "producto",
+                    "motivo": "revision_manual_seo"
+                },
+                {
+                    "from": "/producto/Grillo-por-millar-a-granel-/GRI-01",
+                    "status": 301,
+                    "tipo": "producto",
+                    "motivo": "revision_manual_seo"
+                }
+            ]
+        },
+        {
+            "path": "/producto/alimento-vivo-larva-tenebrio-gusano-de-harina-1000-pzs",
+            "url": "https://prueba.artiani.com.mx/producto/alimento-vivo-larva-tenebrio-gusano-de-harina-1000-pzs",
+            "status": 0,
+            "final_url": "https://prueba.artiani.com.mx/producto/alimento-vivo-larva-tenebrio-gusano-de-harina-1000-pzs",
+            "problema": "error_http",
+            "error": "Operation timed out after 12013 milliseconds with 0 bytes received",
+            "origenes": [
+                {
+                    "from": "/paquete/Tenebrio_por_millar/TEN-02",
+                    "status": 301,
+                    "tipo": "producto",
+                    "motivo": "revision_manual_seo"
+                },
+                {
+                    "from": "/producto/Tenebrio-por-millar-agranel-/TEN-01",
+                    "status": 301,
+                    "tipo": "producto",
+                    "motivo": "revision_manual_seo"
+                }
+            ]
+        },
+        {
+            "path": "/producto/alimento-zanahoria-crunch-para-cuyo-y-conejo",
+            "url": "https://prueba.artiani.com.mx/producto/alimento-zanahoria-crunch-para-cuyo-y-conejo",
+            "status": 0,
+            "final_url": "https://prueba.artiani.com.mx/producto/alimento-zanahoria-crunch-para-cuyo-y-conejo",
+            "problema": "error_http",
+            "error": "Operation timed out after 12000 milliseconds with 0 bytes received",
+            "origenes": [
+                {
+                    "from": "/producto/Alimento-zanahoria-crunch-para-cuyo/ALICU-08",
+                    "status": 301,
+                    "tipo": "producto",
+                    "motivo": "revision_manual_seo"
+                }
+            ]
+        },
+        {
+            "path": "/producto/all-blue-45ml-azul-de-metileno",
+            "url": "https://prueba.artiani.com.mx/producto/all-blue-45ml-azul-de-metileno",
+            "status": 0,
+            "final_url": "https://prueba.artiani.com.mx/producto/all-blue-45ml-azul-de-metileno",
+            "problema": "error_http",
+            "error": "Operation timed out after 12012 milliseconds with 0 bytes received",
+            "origenes": [
+                {
+                    "from": "/producto/Azul-de-metileno-chico-/AZUL-04",
+                    "status": 301,
+                    "tipo": "producto",
+                    "motivo": "revision_manual_seo"
+                }
+            ]
+        },
+        {
+            "path": "/producto/almohaza-espiral-chica-7-x-12cm",
+            "url": "https://prueba.artiani.com.mx/producto/almohaza-espiral-chica-7-x-12cm",
+            "status": 0,
+            "final_url": "https://prueba.artiani.com.mx/producto/almohaza-espiral-chica-7-x-12cm",
+            "problema": "error_http",
+            "error": "Operation timed out after 12000 milliseconds with 0 bytes received",
+            "origenes": [
+                {
+                    "from": "/producto/Carda-de-goma-almo/CAR-03",
+                    "status": 301,
+                    "tipo": "producto",
+                    "motivo": "revision_manual_seo"
+                }
+            ]
+        },
+        {
+            "path": "/producto/anticloro-clorkill-125ml-agua-dulce-y-sal",
+            "url": "https://prueba.artiani.com.mx/producto/anticloro-clorkill-125ml-agua-dulce-y-sal",
+            "status": 0,
+            "final_url": "https://prueba.artiani.com.mx/producto/anticloro-clorkill-125ml-agua-dulce-y-sal",
+            "problema": "error_http",
+            "error": "Operation timed out after 12014 milliseconds with 0 bytes received",
+            "origenes": [
+                {
+                    "from": "/producto/Anticloro-clorkrill-125ml/clo",
+                    "status": 301,
+                    "tipo": "producto",
+                    "motivo": "revision_manual_seo"
+                }
+            ]
+        },
+        {
+            "path": "/producto/anticloro-clorkill-500ml-agua-dulce-y-salada",
+            "url": "https://prueba.artiani.com.mx/producto/anticloro-clorkill-500ml-agua-dulce-y-salada",
+            "status": 0,
+            "final_url": "https://prueba.artiani.com.mx/producto/anticloro-clorkill-500ml-agua-dulce-y-salada",
+            "problema": "error_http",
+            "error": "Operation timed out after 12000 milliseconds with 0 bytes received",
+            "origenes": [
+                {
+                    "from": "/producto/Anticloro-clorkrill-500-ml/CLO-01",
+                    "status": 301,
+                    "tipo": "producto",
+                    "motivo": "revision_manual_seo"
+                }
+            ]
+        },
+        {
+            "path": "/producto/anticloro-con-vitamina-b1-30ml",
+            "url": "https://prueba.artiani.com.mx/producto/anticloro-con-vitamina-b1-30ml",
+            "status": 0,
+            "final_url": "https://prueba.artiani.com.mx/producto/anticloro-con-vitamina-b1-30ml",
+            "problema": "error_http",
+            "error": "Operation timed out after 12000 milliseconds with 0 bytes received",
+            "origenes": [
+                {
+                    "from": "/producto/Anticloro-30-ml-/ATICl-30",
+                    "status": 301,
+                    "tipo": "producto",
+                    "motivo": "revision_manual_seo"
+                }
+            ]
+        },
+        {
+            "path": "/producto/apolo-transportadora-premium",
+            "url": "https://prueba.artiani.com.mx/producto/apolo-transportadora-premium",
+            "status": 0,
+            "final_url": "https://prueba.artiani.com.mx/producto/apolo-transportadora-premium",
+            "problema": "error_http",
+            "error": "Operation timed out after 12000 milliseconds with 0 bytes received",
+            "origenes": [
+                {
+                    "from": "/producto/Transportadora-capsula-apolo-para-mascotas/TRAP-01",
+                    "status": 301,
+                    "tipo": "producto",
+                    "motivo": "revision_manual_seo"
+                }
+            ]
+        },
+        {
+            "path": "/producto/aqua-pack-acuario-equipado-60-x-23-x-61-cm-70l",
+            "url": "https://prueba.artiani.com.mx/producto/aqua-pack-acuario-equipado-60-x-23-x-61-cm-70l",
+            "status": 0,
+            "final_url": "https://prueba.artiani.com.mx/producto/aqua-pack-acuario-equipado-60-x-23-x-61-cm-70l",
+            "problema": "error_http",
+            "error": "Operation timed out after 12015 milliseconds with 0 bytes received",
+            "origenes": [
+                {
+                    "from": "/producto/Acuario-de-coliseo-70-lts-con-mueble-/NANO-08",
+                    "status": 301,
+                    "tipo": "producto",
+                    "motivo": "revision_manual_seo"
+                }
+            ]
+        },
+        {
+            "path": "/producto/aqua-pack-acuario-equipado-80-x-27-x-61-cm-110l",
+            "url": "https://prueba.artiani.com.mx/producto/aqua-pack-acuario-equipado-80-x-27-x-61-cm-110l",
+            "status": 0,
+            "final_url": "https://prueba.artiani.com.mx/producto/aqua-pack-acuario-equipado-80-x-27-x-61-cm-110l",
+            "problema": "error_http",
+            "error": "Operation timed out after 12000 milliseconds with 0 bytes received",
+            "origenes": [
+                {
+                    "from": "/producto/Acuario-imperio-con-mueble-100-Lts-/NANO-09",
+                    "status": 301,
+                    "tipo": "producto",
+                    "motivo": "revision_manual_seo"
+                }
+            ]
+        },
+        {
+            "path": "/producto/aqua-pack-glin-acuario-50-x-21-x-50-cm-42l",
+            "url": "https://prueba.artiani.com.mx/producto/aqua-pack-glin-acuario-50-x-21-x-50-cm-42l",
+            "status": 0,
+            "final_url": "https://prueba.artiani.com.mx/producto/aqua-pack-glin-acuario-50-x-21-x-50-cm-42l",
+            "problema": "error_http",
+            "error": "Operation timed out after 12000 milliseconds with 0 bytes received",
+            "origenes": [
+                {
+                    "from": "/producto/Acuario-glin-42-lts-/NANO-10",
+                    "status": 301,
+                    "tipo": "producto",
+                    "motivo": "revision_manual_seo"
+                }
+            ]
+        },
+        {
+            "path": "/producto/aquari-sol-30ml",
+            "url": "https://prueba.artiani.com.mx/producto/aquari-sol-30ml",
+            "status": 0,
+            "final_url": "https://prueba.artiani.com.mx/producto/aquari-sol-30ml",
+            "problema": "error_http",
+            "error": "Operation timed out after 12000 milliseconds with 0 bytes received",
+            "origenes": [
+                {
+                    "from": "/producto/Aquari-sol-chico/AQUA-01",
+                    "status": 301,
+                    "tipo": "producto",
+                    "motivo": "revision_manual_seo"
+                }
+            ]
+        },
+        {
+            "path": "/producto/arena-para-gato-soluble-en-agua-costal-de-4kg",
+            "url": "https://prueba.artiani.com.mx/producto/arena-para-gato-soluble-en-agua-costal-de-4kg",
+            "status": 0,
+            "final_url": "https://prueba.artiani.com.mx/producto/arena-para-gato-soluble-en-agua-costal-de-4kg",
+            "problema": "error_http",
+            "error": "Operation timed out after 12000 milliseconds with 0 bytes received",
+            "origenes": [
+                {
+                    "from": "/producto/Arena-para-gato-soluble-en-agua-costal-de-4kg/ARE-12",
+                    "status": 301,
+                    "tipo": "producto",
+                    "motivo": "revision_manual_seo"
+                }
+            ]
+        },
+        {
+            "path": "/producto/arena-para-gatos-3kg",
+            "url": "https://prueba.artiani.com.mx/producto/arena-para-gatos-3kg",
+            "status": 0,
+            "final_url": "https://prueba.artiani.com.mx/producto/arena-para-gatos-3kg",
+            "problema": "error_http",
+            "error": "Operation timed out after 12000 milliseconds with 0 bytes received",
+            "origenes": [
+                {
+                    "from": "/producto/Arena-para-gato-3-kilos/ARE-3B",
+                    "status": 301,
+                    "tipo": "producto",
+                    "motivo": "revision_manual_seo"
+                }
+            ]
+        },
+        {
+            "path": "/producto/arena-para-gatos-aroma-lavanda-3kg-bentonita-super-aglutinante-y-99-libre-de-polvo",
+            "url": "https://prueba.artiani.com.mx/producto/arena-para-gatos-aroma-lavanda-3kg-bentonita-super-aglutinante-y-99-libre-de-polvo",
+            "status": 0,
+            "final_url": "https://prueba.artiani.com.mx/producto/arena-para-gatos-aroma-lavanda-3kg-bentonita-super-aglutinante-y-99-libre-de-polvo",
+            "problema": "error_http",
+            "error": "Operation timed out after 12011 milliseconds with 0 bytes received",
+            "origenes": [
+                {
+                    "from": "/producto/Arena-sunny-aroma-lavanda-de-3-kg-para-gato/ARE-06",
+                    "status": 301,
+                    "tipo": "producto",
+                    "motivo": "revision_manual_seo"
+                }
+            ]
+        },
+        {
+            "path": "/producto/arena-para-gatos-aroma-limo-20kg-bentonita-super-aglutinante-y-99-libre-de-polvo",
+            "url": "https://prueba.artiani.com.mx/producto/arena-para-gatos-aroma-limo-20kg-bentonita-super-aglutinante-y-99-libre-de-polvo",
+            "status": 0,
+            "final_url": "https://prueba.artiani.com.mx/producto/arena-para-gatos-aroma-limo-20kg-bentonita-super-aglutinante-y-99-libre-de-polvo",
+            "problema": "error_http",
+            "error": "Operation timed out after 12000 milliseconds with 0 bytes received",
+            "origenes": [
+                {
+                    "from": "/producto/Arena-sunny-aroma-limon-de-20-kg-para-gato/ARE-10",
+                    "status": 301,
+                    "tipo": "producto",
+                    "motivo": "revision_manual_seo"
+                }
+            ]
+        },
+        {
+            "path": "/producto/arena-para-gatos-con-aroma-lavanda-aglutinante-5kg",
+            "url": "https://prueba.artiani.com.mx/producto/arena-para-gatos-con-aroma-lavanda-aglutinante-5kg",
+            "status": 0,
+            "final_url": "https://prueba.artiani.com.mx/producto/arena-para-gatos-con-aroma-lavanda-aglutinante-5kg",
+            "problema": "error_http",
+            "error": "Operation timed out after 12000 milliseconds with 0 bytes received",
+            "origenes": [
+                {
+                    "from": "/producto/Arena-pawffy-con-aroma-lavanada-5-kg-para-gato/ARE-07",
+                    "status": 301,
+                    "tipo": "producto",
+                    "motivo": "revision_manual_seo"
+                }
+            ]
+        },
+        {
+            "path": "/producto/arena-para-gatos-pawffy-sin-aroma-5kg",
+            "url": "https://prueba.artiani.com.mx/producto/arena-para-gatos-pawffy-sin-aroma-5kg",
+            "status": 0,
+            "final_url": "https://prueba.artiani.com.mx/producto/arena-para-gatos-pawffy-sin-aroma-5kg",
+            "problema": "error_http",
+            "error": "Operation timed out after 12000 milliseconds with 0 bytes received",
+            "origenes": [
+                {
+                    "from": "/producto/Arena-pawffy-sin-aroma-de-5-kg-para-gato/ARE-08",
+                    "status": 301,
+                    "tipo": "producto",
+                    "motivo": "revision_manual_seo"
+                }
+            ]
+        },
+        {
+            "path": "/producto/arena-para-gatos-sin-aroma-3kg-bentonita-super-aglutinante-y-99-libre-de-polvo",
+            "url": "https://prueba.artiani.com.mx/producto/arena-para-gatos-sin-aroma-3kg-bentonita-super-aglutinante-y-99-libre-de-polvo",
+            "status": 0,
+            "final_url": "https://prueba.artiani.com.mx/producto/arena-para-gatos-sin-aroma-3kg-bentonita-super-aglutinante-y-99-libre-de-polvo",
+            "problema": "error_http",
+            "error": "Operation timed out after 12000 milliseconds with 0 bytes received",
+            "origenes": [
+                {
+                    "from": "/producto/Arena-fancy-sin-aroma-de-3kg-para-gatos-/ARE-03",
+                    "status": 301,
+                    "tipo": "producto",
+                    "motivo": "revision_manual_seo"
+                }
+            ]
+        },
+        {
+            "path": "/producto/arenero-basic-37-x-28-x-16-cm",
+            "url": "https://prueba.artiani.com.mx/producto/arenero-basic-37-x-28-x-16-cm",
+            "status": 0,
+            "final_url": "https://prueba.artiani.com.mx/producto/arenero-basic-37-x-28-x-16-cm",
+            "problema": "error_http",
+            "error": "Operation timed out after 12001 milliseconds with 0 bytes received",
+            "origenes": [
+                {
+                    "from": "/producto/Arenero-print-chico-cafe-/index.html",
+                    "status": 301,
+                    "tipo": "producto",
+                    "motivo": "revision_manual_seo"
+                }
+            ]
+        },
+        {
+            "path": "/producto/arenero-cafe-con-pala-37-x-28-x-16-cm",
+            "url": "https://prueba.artiani.com.mx/producto/arenero-cafe-con-pala-37-x-28-x-16-cm",
+            "status": 0,
+            "final_url": "https://prueba.artiani.com.mx/producto/arenero-cafe-con-pala-37-x-28-x-16-cm",
+            "problema": "error_http",
+            "error": "Operation timed out after 12000 milliseconds with 0 bytes received",
+            "origenes": [
+                {
+                    "from": "/paquete/Arenero_print_chico_cafe_/ARO-02K",
+                    "status": 301,
+                    "tipo": "producto",
+                    "motivo": "revision_manual_seo"
+                }
+            ]
+        },
+        {
+            "path": "/producto/arenero-cathy",
+            "url": "https://prueba.artiani.com.mx/producto/arenero-cathy",
+            "status": 0,
+            "final_url": "https://prueba.artiani.com.mx/producto/arenero-cathy",
+            "problema": "error_http",
+            "error": "Operation timed out after 12001 milliseconds with 0 bytes received",
+            "origenes": [
+                {
+                    "from": "/producto/Arenero-caty-ros/ARO-36",
+                    "status": 301,
+                    "tipo": "producto",
+                    "motivo": "revision_manual_seo"
+                }
+            ]
+        },
+        {
+            "path": "/producto/arenero-caty-ver",
+            "url": "https://prueba.artiani.com.mx/producto/arenero-caty-ver",
+            "status": 0,
+            "final_url": "https://prueba.artiani.com.mx/producto/arenero-caty-ver",
+            "problema": "error_http",
+            "error": "Operation timed out after 12002 milliseconds with 0 bytes received",
+            "origenes": [
+                {
+                    "from": "/producto/Arenero-caty-ver/ARO-36VE",
+                    "status": 301,
+                    "tipo": "producto",
+                    "motivo": "revision_manual_seo"
+                }
+            ]
+        },
+        {
+            "path": "/producto/arenero-charola-negra-grande",
+            "url": "https://prueba.artiani.com.mx/producto/arenero-charola-negra-grande",
+            "status": 0,
+            "final_url": "https://prueba.artiani.com.mx/producto/arenero-charola-negra-grande",
+            "problema": "error_http",
+            "error": "Operation timed out after 12014 milliseconds with 0 bytes received",
+            "origenes": [
+                {
+                    "from": "/producto/Arenero-charola-negra-grande-/ARO-05",
+                    "status": 301,
+                    "tipo": "producto",
+                    "motivo": "revision_manual_seo"
+                }
+            ]
+        },
+        {
+            "path": "/producto/arenero-eston-gris",
+            "url": "https://prueba.artiani.com.mx/producto/arenero-eston-gris",
+            "status": 0,
+            "final_url": "https://prueba.artiani.com.mx/producto/arenero-eston-gris",
+            "problema": "error_http",
+            "error": "Operation timed out after 12011 milliseconds with 0 bytes received",
+            "origenes": [
+                {
+                    "from": "/producto/Arenero-eston-gris/ARO-42G",
+                    "status": 301,
+                    "tipo": "producto",
+                    "motivo": "revision_manual_seo"
+                }
+            ]
+        },
+        {
+            "path": "/producto/arenero-eston-verde",
+            "url": "https://prueba.artiani.com.mx/producto/arenero-eston-verde",
+            "status": 0,
+            "final_url": "https://prueba.artiani.com.mx/producto/arenero-eston-verde",
+            "problema": "error_http",
+            "error": "Operation timed out after 12003 milliseconds with 0 bytes received",
+            "origenes": [
+                {
+                    "from": "/producto/Arenero-eston-verde-/ARO-42VE",
+                    "status": 301,
+                    "tipo": "producto",
+                    "motivo": "revision_manual_seo"
+                }
+            ]
+        },
+        {
+            "path": "/producto/arenero-frida-grisrosa",
+            "url": "https://prueba.artiani.com.mx/producto/arenero-frida-grisrosa",
+            "status": 0,
+            "final_url": "https://prueba.artiani.com.mx/producto/arenero-frida-grisrosa",
+            "problema": "error_http",
+            "error": "Operation timed out after 12006 milliseconds with 0 bytes received",
+            "origenes": [
+                {
+                    "from": "/producto/Arenero-frida-grisrosa/ARO-30G",
+                    "status": 301,
+                    "tipo": "producto",
+                    "motivo": "revision_manual_seo"
+                }
+            ]
+        },
+        {
+            "path": "/producto/arenero-furba-triple-verde",
+            "url": "https://prueba.artiani.com.mx/producto/arenero-furba-triple-verde",
+            "status": 0,
+            "final_url": "https://prueba.artiani.com.mx/producto/arenero-furba-triple-verde",
+            "problema": "error_http",
+            "error": "Operation timed out after 12015 milliseconds with 0 bytes received",
+            "origenes": [
+                {
+                    "from": "/producto/Arenero-furba-triple-verde-/ARO-23VE",
+                    "status": 301,
+                    "tipo": "producto",
+                    "motivo": "revision_manual_seo"
+                }
+            ]
+        },
+        {
+            "path": "/producto/arenero-inteligente-cathy-azul",
+            "url": "https://prueba.artiani.com.mx/producto/arenero-inteligente-cathy-azul",
+            "status": 0,
+            "final_url": "https://prueba.artiani.com.mx/producto/arenero-inteligente-cathy-azul",
+            "problema": "error_http",
+            "error": "Operation timed out after 12000 milliseconds with 0 bytes received",
+            "origenes": [
+                {
+                    "from": "/producto/Arenero-caty-inteli-azul/ARO-34",
+                    "status": 301,
+                    "tipo": "producto",
+                    "motivo": "revision_manual_seo"
+                }
+            ]
+        },
+        {
+            "path": "/producto/arenero-italiano-gris",
+            "url": "https://prueba.artiani.com.mx/producto/arenero-italiano-gris",
+            "status": 0,
+            "final_url": "https://prueba.artiani.com.mx/producto/arenero-italiano-gris",
+            "problema": "error_http",
+            "error": "Operation timed out after 12000 milliseconds with 0 bytes received",
+            "origenes": [
+                {
+                    "from": "/producto/Arenero-italiano-gris-/ARO-11G",
+                    "status": 301,
+                    "tipo": "producto",
+                    "motivo": "revision_manual_seo"
+                }
+            ]
+        },
+        {
+            "path": "/producto/arenero-tapado-azul",
+            "url": "https://prueba.artiani.com.mx/producto/arenero-tapado-azul",
+            "status": 0,
+            "final_url": "https://prueba.artiani.com.mx/producto/arenero-tapado-azul",
+            "problema": "error_http",
+            "error": "Operation timed out after 12000 milliseconds with 0 bytes received",
+            "origenes": [
+                {
+                    "from": "/producto/Arenero-tapado-verde-/ARO-07",
+                    "status": 301,
+                    "tipo": "producto",
+                    "motivo": "revision_manual_seo"
+                }
+            ]
+        },
+        {
+            "path": "/producto/arenero-tina-gris",
+            "url": "https://prueba.artiani.com.mx/producto/arenero-tina-gris",
+            "status": 0,
+            "final_url": "https://prueba.artiani.com.mx/producto/arenero-tina-gris",
+            "problema": "error_http",
+            "error": "Operation timed out after 12000 milliseconds with 0 bytes received",
+            "origenes": [
+                {
+                    "from": "/producto/Arenero-tina-gris/ARO-04G",
+                    "status": 301,
+                    "tipo": "producto",
+                    "motivo": "revision_manual_seo"
+                }
+            ]
+        },
+        {
+            "path": "/producto/azul-de-metileno-60ml",
+            "url": "https://prueba.artiani.com.mx/producto/azul-de-metileno-60ml",
+            "status": 0,
+            "final_url": "https://prueba.artiani.com.mx/producto/azul-de-metileno-60ml",
+            "problema": "error_http",
+            "error": "Operation timed out after 12000 milliseconds with 0 bytes received",
+            "origenes": [
+                {
+                    "from": "/producto/Azul-de-metileno-30-ml-/AZUL-01",
+                    "status": 301,
+                    "tipo": "producto",
+                    "motivo": "revision_manual_seo"
+                }
+            ]
+        },
+        {
+            "path": "/producto/bacteria-co-grande-120ml",
+            "url": "https://prueba.artiani.com.mx/producto/bacteria-co-grande-120ml",
+            "status": 0,
+            "final_url": "https://prueba.artiani.com.mx/producto/bacteria-co-grande-120ml",
+            "problema": "error_http",
+            "error": "Operation timed out after 12013 milliseconds with 0 bytes received",
+            "origenes": [
+                {
+                    "from": "/producto/Bacteria-co-grande-120-ml/BAC-03",
+                    "status": 301,
+                    "tipo": "producto",
+                    "motivo": "revision_manual_seo"
+                }
+            ]
+        },
+        {
+            "path": "/producto/bacteria-co-mediana-60ml",
+            "url": "https://prueba.artiani.com.mx/producto/bacteria-co-mediana-60ml",
+            "status": 0,
+            "final_url": "https://prueba.artiani.com.mx/producto/bacteria-co-mediana-60ml",
+            "problema": "error_http",
+            "error": "Operation timed out after 12000 milliseconds with 0 bytes received",
+            "origenes": [
+                {
+                    "from": "/producto/Bacteria-co-mediana-60ml/BAC-01",
+                    "status": 301,
+                    "tipo": "producto",
+                    "motivo": "revision_manual_seo"
+                }
+            ]
+        },
+        {
+            "path": "/producto/bahia-comedero-y-bebedero-doble",
+            "url": "https://prueba.artiani.com.mx/producto/bahia-comedero-y-bebedero-doble",
+            "status": 0,
+            "final_url": "https://prueba.artiani.com.mx/producto/bahia-comedero-y-bebedero-doble",
+            "problema": "error_http",
+            "error": "Operation timed out after 12000 milliseconds with 0 bytes received",
+            "origenes": [
+                {
+                    "from": "/producto/Comedero-y-bebedero-bahia-rosa/DIS-15",
+                    "status": 301,
+                    "tipo": "producto",
+                    "motivo": "revision_manual_seo"
+                }
+            ]
+        },
+        {
+            "path": "/producto/banera-casa-para-hamster-verde",
+            "url": "https://prueba.artiani.com.mx/producto/banera-casa-para-hamster-verde",
+            "status": 0,
+            "final_url": "https://prueba.artiani.com.mx/producto/banera-casa-para-hamster-verde",
+            "problema": "error_http",
+            "error": "Operation timed out after 12000 milliseconds with 0 bytes received",
+            "origenes": [
+                {
+                    "from": "/producto/Banera-casa-para-hamster-verde-/TINA-02H",
+                    "status": 301,
+                    "tipo": "producto",
+                    "motivo": "revision_manual_seo"
+                }
+            ]
+        },
+        {
+            "path": "/producto/barra-de-semillas-para-loritos-y-ninfas-para-pajaros",
+            "url": "https://prueba.artiani.com.mx/producto/barra-de-semillas-para-loritos-y-ninfas-para-pajaros",
+            "status": 0,
+            "final_url": "https://prueba.artiani.com.mx/producto/barra-de-semillas-para-loritos-y-ninfas-para-pajaros",
+            "problema": "error_http",
+            "error": "Operation timed out after 12000 milliseconds with 0 bytes received",
+            "origenes": [
+                {
+                    "from": "/producto/Barra-de-semillas-para-loritos-y-ninfas-para-pajaros/ALIS-04",
+                    "status": 301,
+                    "tipo": "producto",
+                    "motivo": "revision_manual_seo"
+                }
+            ]
+        },
+        {
+            "path": "/producto/barrita-de-mijo-para-aves-1",
+            "url": "https://prueba.artiani.com.mx/producto/barrita-de-mijo-para-aves-1",
+            "status": 0,
+            "final_url": "https://prueba.artiani.com.mx/producto/barrita-de-mijo-para-aves-1",
+            "problema": "error_http",
+            "error": "Operation timed out after 12006 milliseconds with 0 bytes received",
+            "origenes": [
+                {
+                    "from": "/producto/Barra-de-semillas-mijo-para-pajaros/ALIS-03",
+                    "status": 301,
+                    "tipo": "producto",
+                    "motivo": "revision_manual_seo"
+                }
+            ]
+        },
+        {
+            "path": "/producto/base-cubo-40-x-40-x-70-cm-altura",
+            "url": "https://prueba.artiani.com.mx/producto/base-cubo-40-x-40-x-70-cm-altura",
+            "status": 200,
+            "final_url": "https://prueba.artiani.com.mx/producto/base-cubo-40-x-40-x-70-cm-altura",
+            "problema": "contenido_no_encontrado",
+            "error": "",
+            "origenes": [
+                {
+                    "from": "/producto/Base-cuadrada-de-herreria-para-pecera-de-40-x-40-cm/BASC-03",
+                    "status": 301,
+                    "tipo": "producto",
+                    "motivo": "revision_manual_seo"
+                }
+            ]
+        },
+        {
+            "path": "/producto/bomba-sumergible-4-5-m",
+            "url": "https://prueba.artiani.com.mx/producto/bomba-sumergible-4-5-m",
+            "status": 404,
+            "final_url": "https://prueba.artiani.com.mx/producto/bomba-sumergible-4-5-m",
+            "problema": "status_no_ok",
+            "error": "",
+            "origenes": [
+                {
+                    "from": "/producto/Bomba-sumergible-4.5-m-/BS-450",
+                    "status": 301,
+                    "tipo": "producto",
+                    "motivo": "revision_manual_seo"
+                }
+            ]
+        },
+        {
+            "path": "/producto/carda-sevenpet-grande-roja-sebla",
+            "url": "https://prueba.artiani.com.mx/producto/carda-sevenpet-grande-roja-sebla",
+            "status": 404,
+            "final_url": "https://prueba.artiani.com.mx/producto/carda-sevenpet-grande-roja-sebla",
+            "problema": "status_no_ok",
+            "error": "",
+            "origenes": [
+                {
+                    "from": "/producto/Carda-sebla/CAR-13",
+                    "status": 301,
+                    "tipo": "producto",
+                    "motivo": "revision_manual_seo"
+                }
+            ]
+        },
+        {
+            "path": "/producto/cluster-rack-nupec-alimento-humedo-cachorro-alto-en-pollo-16-latas-100g-c-u",
+            "url": "https://prueba.artiani.com.mx/producto/cluster-rack-nupec-alimento-humedo-cachorro-alto-en-pollo-16-latas-100g-c-u",
+            "status": 404,
+            "final_url": "https://prueba.artiani.com.mx/producto/cluster-rack-nupec-alimento-humedo-cachorro-alto-en-pollo-16-latas-100g-c-u",
+            "problema": "status_no_ok",
+            "error": "",
+            "origenes": [
+                {
+                    "from": "/producto/Cluster-Rack-Nupec-Alimento-Humedo-Cachorro-Alto-en-Pollo-16-Latas-100-gr-cu-/CRNC16L",
+                    "status": 301,
+                    "tipo": "producto",
+                    "motivo": "revision_manual_seo"
+                }
+            ]
+        },
+        {
+            "path": "/producto/cluster-rack-nupec-alimento-humedo-felino-urinary-gato-problema-urinario-con-pescado-y-arandanos-16-latas-100g-c-u-paq",
+            "url": "https://prueba.artiani.com.mx/producto/cluster-rack-nupec-alimento-humedo-felino-urinary-gato-problema-urinario-con-pescado-y-arandanos-16-latas-100g-c-u-paq",
+            "status": 404,
+            "final_url": "https://prueba.artiani.com.mx/producto/cluster-rack-nupec-alimento-humedo-felino-urinary-gato-problema-urinario-con-pescado-y-arandanos-16-latas-100g-c-u-paq",
+            "problema": "status_no_ok",
+            "error": "",
+            "origenes": [
+                {
+                    "from": "/producto/Cluster-Rack-Nupec-Alimento-Humedo-Felino-Urinary-(Gato-problema-urinario)-con-Pescado-y-Arandanos-16-Latas-100-gr-cu-/CRNFU16L",
+                    "status": 301,
+                    "tipo": "producto",
+                    "motivo": "revision_manual_seo"
+                }
+            ]
+        },
+        {
+            "path": "/producto/corral-armin-rejilla-cuadrada-30-30cm-12-paneles",
+            "url": "https://prueba.artiani.com.mx/producto/corral-armin-rejilla-cuadrada-30-30cm-12-paneles",
+            "status": 404,
+            "final_url": "https://prueba.artiani.com.mx/producto/corral-armin-rejilla-cuadrada-30-30cm-12-paneles",
+            "problema": "status_no_ok",
+            "error": "",
+            "origenes": [
+                {
+                    "from": "/producto/Corral--armin-rejilla-cuadrada-30-x-30cm-12-paneles/CORRA-08",
+                    "status": 301,
+                    "tipo": "producto",
+                    "motivo": "revision_manual_seo"
+                }
+            ]
+        },
+        {
+            "path": "/producto/corral-armin-rejilla-cuadrada-30-x-30cm-12-paneles",
+            "url": "https://prueba.artiani.com.mx/producto/corral-armin-rejilla-cuadrada-30-x-30cm-12-paneles",
+            "status": 404,
+            "final_url": "https://prueba.artiani.com.mx/producto/corral-armin-rejilla-cuadrada-30-x-30cm-12-paneles",
+            "problema": "status_no_ok",
+            "error": "",
+            "origenes": [
+                {
+                    "from": "/producto/Corral-gala-rejilla-cerrada-30-x-30cm-8-paneles-/CORRA-07",
+                    "status": 301,
+                    "tipo": "producto",
+                    "motivo": "revision_manual_seo"
+                }
+            ]
+        },
+        {
+            "path": "/producto/corral-galvanizado-6-panel-de-60-x-60-cm-3-cm-separacion",
+            "url": "https://prueba.artiani.com.mx/producto/corral-galvanizado-6-panel-de-60-x-60-cm-3-cm-separacion",
+            "status": 404,
+            "final_url": "https://prueba.artiani.com.mx/producto/corral-galvanizado-6-panel-de-60-x-60-cm-3-cm-separacion",
+            "problema": "status_no_ok",
+            "error": "",
+            "origenes": [
+                {
+                    "from": "/producto/Corral-gala-60-x-60cm-de-6-paneles/CORRA-04",
+                    "status": 301,
+                    "tipo": "producto",
+                    "motivo": "revision_manual_seo"
+                }
+            ]
+        },
+        {
+            "path": "/producto/correa-de-cuerda-roja-1-60-mts-para-perro",
+            "url": "https://prueba.artiani.com.mx/producto/correa-de-cuerda-roja-1-60-mts-para-perro",
+            "status": 404,
+            "final_url": "https://prueba.artiani.com.mx/producto/correa-de-cuerda-roja-1-60-mts-para-perro",
+            "problema": "status_no_ok",
+            "error": "",
+            "origenes": [
+                {
+                    "from": "/producto/Correa-de-cuerda-roja-1.60-mts-para-perro/CORE-05",
+                    "status": 301,
+                    "tipo": "producto",
+                    "motivo": "revision_manual_seo"
+                }
+            ]
+        },
+        {
+            "path": "/producto/cueva-dona-cama-para-gatos",
+            "url": "https://prueba.artiani.com.mx/producto/cueva-dona-cama-para-gatos",
+            "status": 404,
+            "final_url": "https://prueba.artiani.com.mx/producto/cueva-dona-cama-para-gatos",
+            "problema": "status_no_ok",
+            "error": "",
+            "origenes": [
+                {
+                    "from": "/producto/Cueva-dona-cama-para-gatos-gris/CUDA-02",
+                    "status": 301,
+                    "tipo": "producto",
+                    "motivo": "revision_manual_seo"
+                }
+            ]
+        },
+        {
+            "path": "/producto/desifectante-para-patas-y-cojines",
+            "url": "https://prueba.artiani.com.mx/producto/desifectante-para-patas-y-cojines",
+            "status": 404,
+            "final_url": "https://prueba.artiani.com.mx/producto/desifectante-para-patas-y-cojines",
+            "problema": "status_no_ok",
+            "error": "",
+            "origenes": [
+                {
+                    "from": "/producto/Desifectante-para-patas-y-cojines-/index.html",
+                    "status": 301,
+                    "tipo": "producto",
+                    "motivo": "revision_manual_seo"
+                }
+            ]
+        },
+        {
+            "path": "/producto/dispensadores-cometa",
+            "url": "https://prueba.artiani.com.mx/producto/dispensadores-cometa",
+            "status": 404,
+            "final_url": "https://prueba.artiani.com.mx/producto/dispensadores-cometa",
+            "problema": "status_no_ok",
+            "error": "",
+            "origenes": [
+                {
+                    "from": "/producto/Dispensadores-cometa/DIS-08",
+                    "status": 301,
+                    "tipo": "producto",
+                    "motivo": "revision_manual_seo"
+                }
+            ]
+        },
+        {
+            "path": "/producto/fibra-de-coco-mezcla-medio-70-30-210l",
+            "url": "https://prueba.artiani.com.mx/producto/fibra-de-coco-mezcla-medio-70-30-210l",
+            "status": 404,
+            "final_url": "https://prueba.artiani.com.mx/producto/fibra-de-coco-mezcla-medio-70-30-210l",
+            "problema": "status_no_ok",
+            "error": "",
+            "origenes": [
+                {
+                    "from": "/producto/Sustrato-organico-para-reptil-fibra-de-coco-2.1-Gal/index.html",
+                    "status": 301,
+                    "tipo": "producto",
+                    "motivo": "revision_manual_seo"
+                },
+                {
+                    "from": "/producto/Sustrato-organico-para-reptil-fibra-de-coco-2.1-Gal/SUT-04",
+                    "status": 301,
+                    "tipo": "producto",
+                    "motivo": "revision_manual_seo"
+                }
+            ]
+        },
+        {
+            "path": "/producto/filtro-de-esponja",
+            "url": "https://prueba.artiani.com.mx/producto/filtro-de-esponja",
+            "status": 404,
+            "final_url": "https://prueba.artiani.com.mx/producto/filtro-de-esponja",
+            "problema": "status_no_ok",
+            "error": "",
+            "origenes": [
+                {
+                    "from": "/producto/Filtro-de-esponja-cilindro/XY-2836",
+                    "status": 301,
+                    "tipo": "producto",
+                    "motivo": "revision_manual_seo"
+                }
+            ]
+        },
+        {
+            "path": "/producto/filtro-interno-ocean-750",
+            "url": "https://prueba.artiani.com.mx/producto/filtro-interno-ocean-750",
+            "status": 404,
+            "final_url": "https://prueba.artiani.com.mx/producto/filtro-interno-ocean-750",
+            "problema": "status_no_ok",
+            "error": "",
+            "origenes": [
+                {
+                    "from": "/producto/filtro-interno-ocean-750/FIOP-02",
+                    "status": 301,
+                    "tipo": "producto",
+                    "motivo": "revision_manual_seo"
+                }
+            ]
+        },
+        {
+            "path": "/producto/foco-de-noche-para-reptil-50w",
+            "url": "https://prueba.artiani.com.mx/producto/foco-de-noche-para-reptil-50w",
+            "status": 404,
+            "final_url": "https://prueba.artiani.com.mx/producto/foco-de-noche-para-reptil-50w",
+            "problema": "status_no_ok",
+            "error": "",
+            "origenes": [
+                {
+                    "from": "/producto/Foco-de-noche-para-reptil-50w/FLOR-02",
+                    "status": 301,
+                    "tipo": "producto",
+                    "motivo": "revision_manual_seo"
+                }
+            ]
+        },
+        {
+            "path": "/producto/foco-repti-glo-5-0-exo-terra-13-w",
+            "url": "https://prueba.artiani.com.mx/producto/foco-repti-glo-5-0-exo-terra-13-w",
+            "status": 404,
+            "final_url": "https://prueba.artiani.com.mx/producto/foco-repti-glo-5-0-exo-terra-13-w",
+            "problema": "status_no_ok",
+            "error": "",
+            "origenes": [
+                {
+                    "from": "/producto/Foco-para-reptil-UVB-100-13w/FLOR-09",
+                    "status": 301,
+                    "tipo": "producto",
+                    "motivo": "revision_manual_seo"
+                }
+            ]
+        },
+        {
+            "path": "/producto/foco-repti-glo-5-0-exo-terra-26-w",
+            "url": "https://prueba.artiani.com.mx/producto/foco-repti-glo-5-0-exo-terra-26-w",
+            "status": 404,
+            "final_url": "https://prueba.artiani.com.mx/producto/foco-repti-glo-5-0-exo-terra-26-w",
+            "problema": "status_no_ok",
+            "error": "",
+            "origenes": [
+                {
+                    "from": "/producto/Foco-para-reptil-UVB-100-26w/FLOR-11",
+                    "status": 301,
+                    "tipo": "producto",
+                    "motivo": "revision_manual_seo"
+                }
+            ]
+        },
+        {
+            "path": "/producto/jaula-esfera-amarilla-para-pajaro",
+            "url": "https://prueba.artiani.com.mx/producto/jaula-esfera-amarilla-para-pajaro",
+            "status": 404,
+            "final_url": "https://prueba.artiani.com.mx/producto/jaula-esfera-amarilla-para-pajaro",
+            "problema": "status_no_ok",
+            "error": "",
+            "origenes": [
+                {
+                    "from": "/producto/Jaula-esfera-amarilla-para-pajaro-/index.html",
+                    "status": 301,
+                    "tipo": "producto",
+                    "motivo": "revision_manual_seo"
+                },
+                {
+                    "from": "/producto/Jaula-esfera-amarilla-para-pajaro-/JARO-05AM",
+                    "status": 301,
+                    "tipo": "producto",
+                    "motivo": "revision_manual_seo"
+                }
+            ]
+        },
+        {
+            "path": "/producto/jaula-esfera-azul-para-pajaro",
+            "url": "https://prueba.artiani.com.mx/producto/jaula-esfera-azul-para-pajaro",
+            "status": 404,
+            "final_url": "https://prueba.artiani.com.mx/producto/jaula-esfera-azul-para-pajaro",
+            "problema": "status_no_ok",
+            "error": "",
+            "origenes": [
+                {
+                    "from": "/producto/Jaula-esfera-azul-para-pajaro-/undefined",
+                    "status": 301,
+                    "tipo": "producto",
+                    "motivo": "revision_manual_seo"
+                }
+            ]
+        },
+        {
+            "path": "/producto/jaula-esfera-blanca-para-pajaro",
+            "url": "https://prueba.artiani.com.mx/producto/jaula-esfera-blanca-para-pajaro",
+            "status": 404,
+            "final_url": "https://prueba.artiani.com.mx/producto/jaula-esfera-blanca-para-pajaro",
+            "problema": "status_no_ok",
+            "error": "",
+            "origenes": [
+                {
+                    "from": "/producto/jaula-esfera-blanca-para-pajaro-/JARO-05",
+                    "status": 301,
+                    "tipo": "producto",
+                    "motivo": "revision_manual_seo"
+                }
+            ]
+        },
+        {
+            "path": "/producto/jaula-hamster-invisible-azul",
+            "url": "https://prueba.artiani.com.mx/producto/jaula-hamster-invisible-azul",
+            "status": 404,
+            "final_url": "https://prueba.artiani.com.mx/producto/jaula-hamster-invisible-azul",
+            "problema": "status_no_ok",
+            "error": "",
+            "origenes": [
+                {
+                    "from": "/producto/jaula-hamster-invisible-azul-/JHA-11",
+                    "status": 301,
+                    "tipo": "producto",
+                    "motivo": "revision_manual_seo"
+                }
+            ]
+        },
+        {
+            "path": "/producto/jaula-sen-con-doble-division-para-aves",
+            "url": "https://prueba.artiani.com.mx/producto/jaula-sen-con-doble-division-para-aves",
+            "status": 404,
+            "final_url": "https://prueba.artiani.com.mx/producto/jaula-sen-con-doble-division-para-aves",
+            "problema": "status_no_ok",
+            "error": "",
+            "origenes": [
+                {
+                    "from": "/producto/Jaula-doble-sen-para-pajaro/JARO-07",
+                    "status": 301,
+                    "tipo": "producto",
+                    "motivo": "revision_manual_seo"
+                }
+            ]
+        },
+        {
+            "path": "/producto/juguete-de-hilo-con-soporte",
+            "url": "https://prueba.artiani.com.mx/producto/juguete-de-hilo-con-soporte",
+            "status": 404,
+            "final_url": "https://prueba.artiani.com.mx/producto/juguete-de-hilo-con-soporte",
+            "problema": "status_no_ok",
+            "error": "",
+            "origenes": [
+                {
+                    "from": "/producto/Juguete-de-hilo-con-soporte-/JUG-36",
+                    "status": 301,
+                    "tipo": "producto",
+                    "motivo": "revision_manual_seo"
+                }
+            ]
+        },
+        {
+            "path": "/producto/juguete-de-zanahoria-con-aroma-a-panque-de-zanahoria-chico-para-perros",
+            "url": "https://prueba.artiani.com.mx/producto/juguete-de-zanahoria-con-aroma-a-panque-de-zanahoria-chico-para-perros",
+            "status": 404,
+            "final_url": "https://prueba.artiani.com.mx/producto/juguete-de-zanahoria-con-aroma-a-panque-de-zanahoria-chico-para-perros",
+            "problema": "status_no_ok",
+            "error": "",
+            "origenes": [
+                {
+                    "from": "/producto/Juguete-de-zanahoria-con-aroma-a-panque-de-zanahoria-chico-para-perros/JUG-48",
+                    "status": 301,
+                    "tipo": "producto",
+                    "motivo": "revision_manual_seo"
+                }
+            ]
+        },
+        {
+            "path": "/producto/juguete-para-aves-3-esferas-monte-verde-4-15-cm",
+            "url": "https://prueba.artiani.com.mx/producto/juguete-para-aves-3-esferas-monte-verde-4-15-cm",
+            "status": 404,
+            "final_url": "https://prueba.artiani.com.mx/producto/juguete-para-aves-3-esferas-monte-verde-4-15-cm",
+            "problema": "status_no_ok",
+            "error": "",
+            "origenes": [
+                {
+                    "from": "/producto/Juguete-para-aves-3-esferas/JUP-16",
+                    "status": 301,
+                    "tipo": "producto",
+                    "motivo": "revision_manual_seo"
+                }
+            ]
+        },
+        {
+            "path": "/producto/juguete-para-gato-canatira-verde",
+            "url": "https://prueba.artiani.com.mx/producto/juguete-para-gato-canatira-verde",
+            "status": 404,
+            "final_url": "https://prueba.artiani.com.mx/producto/juguete-para-gato-canatira-verde",
+            "problema": "status_no_ok",
+            "error": "",
+            "origenes": [
+                {
+                    "from": "/producto/-Juguete-para-gato-canatira-verde-/JUGG-08V",
+                    "status": 301,
+                    "tipo": "producto",
+                    "motivo": "revision_manual_seo"
+                }
+            ]
+        },
+        {
+            "path": "/producto/juguete-pelota-chico-de-tenis-bicolor-3-pz",
+            "url": "https://prueba.artiani.com.mx/producto/juguete-pelota-chico-de-tenis-bicolor-3-pz",
+            "status": 404,
+            "final_url": "https://prueba.artiani.com.mx/producto/juguete-pelota-chico-de-tenis-bicolor-3-pz",
+            "problema": "status_no_ok",
+            "error": "",
+            "origenes": [
+                {
+                    "from": "/producto/Juguete-pelota-mini-bicolor-para-perro/JUG-22",
+                    "status": 301,
+                    "tipo": "producto",
+                    "motivo": "revision_manual_seo"
+                }
+            ]
+        },
+        {
+            "path": "/producto/juguete-raton-mini-para-gato",
+            "url": "https://prueba.artiani.com.mx/producto/juguete-raton-mini-para-gato",
+            "status": 404,
+            "final_url": "https://prueba.artiani.com.mx/producto/juguete-raton-mini-para-gato",
+            "problema": "status_no_ok",
+            "error": "",
+            "origenes": [
+                {
+                    "from": "/producto/Juguete-raton-mini-para-gato/JUGG-11",
+                    "status": 301,
+                    "tipo": "producto",
+                    "motivo": "revision_manual_seo"
+                }
+            ]
+        },
+        {
+            "path": "/producto/larva-de-mosca-soldado-negro-deshidratada-hermetia-illucens-black-soldier-fly-larvae-500g",
+            "url": "https://prueba.artiani.com.mx/producto/larva-de-mosca-soldado-negro-deshidratada-hermetia-illucens-black-soldier-fly-larvae-500g",
+            "status": 404,
+            "final_url": "https://prueba.artiani.com.mx/producto/larva-de-mosca-soldado-negro-deshidratada-hermetia-illucens-black-soldier-fly-larvae-500g",
+            "problema": "status_no_ok",
+            "error": "",
+            "origenes": [
+                {
+                    "from": "/producto/Larva-de-mosca-soldado-para-peces-/LAR-P",
+                    "status": 301,
+                    "tipo": "producto",
+                    "motivo": "revision_manual_seo"
+                },
+                {
+                    "from": "/producto/Larva-de-mosca-soldado/ALIL-01",
+                    "status": 301,
+                    "tipo": "producto",
+                    "motivo": "revision_manual_seo"
+                }
+            ]
+        },
+        {
+            "path": "/producto/mano-masajeadora-punta-metal-cepi",
+            "url": "https://prueba.artiani.com.mx/producto/mano-masajeadora-punta-metal-cepi",
+            "status": 0,
+            "final_url": "https://prueba.artiani.com.mx/producto/mano-masajeadora-punta-metal-cepi",
+            "problema": "error_http",
+            "error": "Operation timed out after 12009 milliseconds with 0 bytes received",
+            "origenes": [
+                {
+                    "from": "/producto/Carda-de-goma-cepi/CAR-04",
+                    "status": 301,
+                    "tipo": "producto",
+                    "motivo": "revision_manual_seo"
+                }
+            ]
+        },
+        {
+            "path": "/producto/mi-carda-metalica-blister-mediana-azul",
+            "url": "https://prueba.artiani.com.mx/producto/mi-carda-metalica-blister-mediana-azul",
+            "status": 404,
+            "final_url": "https://prueba.artiani.com.mx/producto/mi-carda-metalica-blister-mediana-azul",
+            "problema": "status_no_ok",
+            "error": "",
+            "origenes": [
+                {
+                    "from": "/producto/Carda-azu/CAR-10",
+                    "status": 301,
+                    "tipo": "producto",
+                    "motivo": "revision_manual_seo"
+                }
+            ]
+        },
+        {
+            "path": "/producto/mi-carda-piel-sensible-chica",
+            "url": "https://prueba.artiani.com.mx/producto/mi-carda-piel-sensible-chica",
+            "status": 404,
+            "final_url": "https://prueba.artiani.com.mx/producto/mi-carda-piel-sensible-chica",
+            "problema": "status_no_ok",
+            "error": "",
+            "origenes": [
+                {
+                    "from": "/producto/Carda-puntas-cubiertas-chica/CAR-05",
+                    "status": 301,
+                    "tipo": "producto",
+                    "motivo": "revision_manual_seo"
+                }
+            ]
+        },
+        {
+            "path": "/producto/mi-carda-piel-sensible-grande",
+            "url": "https://prueba.artiani.com.mx/producto/mi-carda-piel-sensible-grande",
+            "status": 404,
+            "final_url": "https://prueba.artiani.com.mx/producto/mi-carda-piel-sensible-grande",
+            "problema": "status_no_ok",
+            "error": "",
+            "origenes": [
+                {
+                    "from": "/producto/Carda-puntas-cubiertas-mediana-/CAR-06",
+                    "status": 301,
+                    "tipo": "producto",
+                    "motivo": "revision_manual_seo"
+                }
+            ]
+        },
+        {
+            "path": "/producto/nupec-croqueta-costal-cachorro-nutricion-canina-cientifica-20kg-nuec-c20k-granel",
+            "url": "https://prueba.artiani.com.mx/producto/nupec-croqueta-costal-cachorro-nutricion-canina-cientifica-20kg-nuec-c20k-granel",
+            "status": 404,
+            "final_url": "https://prueba.artiani.com.mx/producto/nupec-croqueta-costal-cachorro-nutricion-canina-cientifica-20kg-nuec-c20k-granel",
+            "problema": "status_no_ok",
+            "error": "",
+            "origenes": [
+                {
+                    "from": "/producto/Nupec-Croqueta-Costal-Cachorro-Nutricion-Canina-Cientifica-20-kg/NUC20K",
+                    "status": 301,
+                    "tipo": "producto",
+                    "motivo": "revision_manual_seo"
+                }
+            ]
+        },
+        {
+            "path": "/producto/nupec-croqueta-costal-cachorro-razas-pequenas-nutricion-canina-cientifica",
+            "url": "https://prueba.artiani.com.mx/producto/nupec-croqueta-costal-cachorro-razas-pequenas-nutricion-canina-cientifica",
+            "status": 404,
+            "final_url": "https://prueba.artiani.com.mx/producto/nupec-croqueta-costal-cachorro-razas-pequenas-nutricion-canina-cientifica",
+            "problema": "status_no_ok",
+            "error": "",
+            "origenes": [
+                {
+                    "from": "/producto/Nupec-Croqueta-Costal-Cachorro-Razas-pequenas-Nutricion-Canina-Cientifica-8-kg/NUCCRP8K",
+                    "status": 301,
+                    "tipo": "producto",
+                    "motivo": "revision_manual_seo"
+                }
+            ]
+        },
+        {
+            "path": "/producto/panales-para-perro-chicos",
+            "url": "https://prueba.artiani.com.mx/producto/panales-para-perro-chicos",
+            "status": 404,
+            "final_url": "https://prueba.artiani.com.mx/producto/panales-para-perro-chicos",
+            "problema": "status_no_ok",
+            "error": "",
+            "origenes": [
+                {
+                    "from": "/producto/panales-para-perro-chicos-/PAÑA-04",
+                    "status": 301,
+                    "tipo": "producto",
+                    "motivo": "revision_manual_seo"
+                }
+            ]
+        },
+        {
+            "path": "/producto/panales-para-perro-mediano",
+            "url": "https://prueba.artiani.com.mx/producto/panales-para-perro-mediano",
+            "status": 404,
+            "final_url": "https://prueba.artiani.com.mx/producto/panales-para-perro-mediano",
+            "problema": "status_no_ok",
+            "error": "",
+            "origenes": [
+                {
+                    "from": "/producto/Panales-para-perro-mediano-/index.html",
+                    "status": 301,
+                    "tipo": "producto",
+                    "motivo": "revision_manual_seo"
+                }
+            ]
+        },
+        {
+            "path": "/producto/pecera-40-x-20-x-40-cm-3-mm-32l-rectangular",
+            "url": "https://prueba.artiani.com.mx/producto/pecera-40-x-20-x-40-cm-3-mm-32l-rectangular",
+            "status": 200,
+            "final_url": "https://prueba.artiani.com.mx/producto/pecera-40-x-20-x-40-cm-3-mm-32l-rectangular",
+            "problema": "contenido_no_encontrado",
+            "error": "",
+            "origenes": [
+                {
+                    "from": "/producto/Pecera-rectangular-40-x-20-x-40-cm-altura-32-litros-3-mm/PERA-4040",
+                    "status": 301,
+                    "tipo": "producto",
+                    "motivo": "revision_manual_seo"
+                }
+            ]
+        },
+        {
+            "path": "/producto/pecera-40-x-40-x-40-cm-6-mm-64l-cubo",
+            "url": "https://prueba.artiani.com.mx/producto/pecera-40-x-40-x-40-cm-6-mm-64l-cubo",
+            "status": 200,
+            "final_url": "https://prueba.artiani.com.mx/producto/pecera-40-x-40-x-40-cm-6-mm-64l-cubo",
+            "problema": "contenido_no_encontrado",
+            "error": "",
+            "origenes": [
+                {
+                    "from": "/producto/Pecera-cubo-40-x-40-x-40-cm-altura-64-litros-6-mm/product.html",
+                    "status": 301,
+                    "tipo": "producto",
+                    "motivo": "revision_manual_seo"
+                },
+                {
+                    "from": "/producto/Pecera-cubo-40-x-40-x-40-cm-altura-64-litros-6-mm/undefined",
+                    "status": 301,
+                    "tipo": "producto",
+                    "motivo": "revision_manual_seo"
+                }
+            ]
+        },
+        {
+            "path": "/producto/pecera-80-40-50-cm-altura-6-mm-160l",
+            "url": "https://prueba.artiani.com.mx/producto/pecera-80-40-50-cm-altura-6-mm-160l",
+            "status": 404,
+            "final_url": "https://prueba.artiani.com.mx/producto/pecera-80-40-50-cm-altura-6-mm-160l",
+            "problema": "status_no_ok",
+            "error": "",
+            "origenes": [
+                {
+                    "from": "/producto/Pecera-de-80-x-40-x-50-cm-160-litros-6-mm/PERA-8050",
+                    "status": 301,
+                    "tipo": "producto",
+                    "motivo": "revision_manual_seo"
+                }
+            ]
+        },
+        {
+            "path": "/producto/pecera-80-x-40-x-35-cm",
+            "url": "https://prueba.artiani.com.mx/producto/pecera-80-x-40-x-35-cm",
+            "status": 404,
+            "final_url": "https://prueba.artiani.com.mx/producto/pecera-80-x-40-x-35-cm",
+            "problema": "status_no_ok",
+            "error": "",
+            "origenes": [
+                {
+                    "from": "/producto/Pecera-rectangular-80-x-40-x-35-cm-altura-112-litros-6-mm/PERA-8035",
+                    "status": 301,
+                    "tipo": "producto",
+                    "motivo": "revision_manual_seo"
+                }
+            ]
+        },
+        {
+            "path": "/producto/placa-termica-para-reptil-36-x-26-cm",
+            "url": "https://prueba.artiani.com.mx/producto/placa-termica-para-reptil-36-x-26-cm",
+            "status": 404,
+            "final_url": "https://prueba.artiani.com.mx/producto/placa-termica-para-reptil-36-x-26-cm",
+            "problema": "status_no_ok",
+            "error": "",
+            "origenes": [
+                {
+                    "from": "/producto/Placa-termica-para-reptil-36-x-26-cm-/PLICA-06",
+                    "status": 301,
+                    "tipo": "producto",
+                    "motivo": "revision_manual_seo"
+                }
+            ]
+        },
+        {
+            "path": "/producto/premios-yummy-crunch-para-gato-50g",
+            "url": "https://prueba.artiani.com.mx/producto/premios-yummy-crunch-para-gato-50g",
+            "status": 404,
+            "final_url": "https://prueba.artiani.com.mx/producto/premios-yummy-crunch-para-gato-50g",
+            "problema": "status_no_ok",
+            "error": "",
+            "origenes": [
+                {
+                    "from": "/producto/Premios-yummy-crunch-para-gato-50-gr/GAT-02",
+                    "status": 301,
+                    "tipo": "producto",
+                    "motivo": "revision_manual_seo"
+                }
+            ]
+        },
+        {
+            "path": "/producto/smartbones-de-camote",
+            "url": "https://prueba.artiani.com.mx/producto/smartbones-de-camote",
+            "status": 404,
+            "final_url": "https://prueba.artiani.com.mx/producto/smartbones-de-camote",
+            "problema": "status_no_ok",
+            "error": "",
+            "origenes": [
+                {
+                    "from": "/producto/Smartbones-de-camote/BONS-02",
+                    "status": 301,
+                    "tipo": "producto",
+                    "motivo": "revision_manual_seo"
+                }
+            ]
+        },
+        {
+            "path": "/producto/sustrato-de-maiz-5kg",
+            "url": "https://prueba.artiani.com.mx/producto/sustrato-de-maiz-5kg",
+            "status": 200,
+            "final_url": "https://prueba.artiani.com.mx/producto/sustrato-de-maiz-5kg",
+            "problema": "contenido_no_encontrado",
+            "error": "",
+            "origenes": [
+                {
+                    "from": "/producto/Sustrato-de-maiz-para-roedores-5kgr/SUS-M2",
+                    "status": 301,
+                    "tipo": "producto",
+                    "motivo": "revision_manual_seo"
+                }
+            ]
+        },
+        {
+            "path": "/producto/sustrato-de-viruta-natural-250g-222009-250gr",
+            "url": "https://prueba.artiani.com.mx/producto/sustrato-de-viruta-natural-250g-222009-250gr",
+            "status": 404,
+            "final_url": "https://prueba.artiani.com.mx/producto/sustrato-de-viruta-natural-250g-222009-250gr",
+            "problema": "status_no_ok",
+            "error": "",
+            "origenes": [
+                {
+                    "from": "/producto/Sustrato-de-viruta-natural-/undefined",
+                    "status": 301,
+                    "tipo": "producto",
+                    "motivo": "revision_manual_seo"
+                }
+            ]
+        },
+        {
+            "path": "/producto/sustrato-de-viruta-natural-ber-pine-bedding-141l",
+            "url": "https://prueba.artiani.com.mx/producto/sustrato-de-viruta-natural-ber-pine-bedding-141l",
+            "status": 404,
+            "final_url": "https://prueba.artiani.com.mx/producto/sustrato-de-viruta-natural-ber-pine-bedding-141l",
+            "problema": "status_no_ok",
+            "error": "",
+            "origenes": [
+                {
+                    "from": "/producto/Sustrato-de-viruta-natural-141-L-para-roedor-/SUSV-02",
+                    "status": 301,
+                    "tipo": "producto",
+                    "motivo": "revision_manual_seo"
+                }
+            ]
+        },
+        {
+            "path": "/producto/sustrato-de-viruta-natural-libre-de-polvo-ber-pine-bedding-24l",
+            "url": "https://prueba.artiani.com.mx/producto/sustrato-de-viruta-natural-libre-de-polvo-ber-pine-bedding-24l",
+            "status": 404,
+            "final_url": "https://prueba.artiani.com.mx/producto/sustrato-de-viruta-natural-libre-de-polvo-ber-pine-bedding-24l",
+            "problema": "status_no_ok",
+            "error": "",
+            "origenes": [
+                {
+                    "from": "/producto/Sustrato-de-viruta-natural-24-L-para-roedor-/SUSV-01",
+                    "status": 301,
+                    "tipo": "producto",
+                    "motivo": "revision_manual_seo"
+                }
+            ]
+        },
+        {
+            "path": "/producto/sustrato-polvillo-de-coco-90-10-200l",
+            "url": "https://prueba.artiani.com.mx/producto/sustrato-polvillo-de-coco-90-10-200l",
+            "status": 404,
+            "final_url": "https://prueba.artiani.com.mx/producto/sustrato-polvillo-de-coco-90-10-200l",
+            "problema": "status_no_ok",
+            "error": "",
+            "origenes": [
+                {
+                    "from": "/producto/Sustrato-organico-coco-50-fibra-50-polvillo/index.html",
+                    "status": 301,
+                    "tipo": "producto",
+                    "motivo": "revision_manual_seo"
+                }
+            ]
+        },
+        {
+            "path": "/producto/tapa-de-plastico-40-x-20-cm-para-pecera-estandar-con-marco-de-plastico",
+            "url": "https://prueba.artiani.com.mx/producto/tapa-de-plastico-40-x-20-cm-para-pecera-estandar-con-marco-de-plastico",
+            "status": 404,
+            "final_url": "https://prueba.artiani.com.mx/producto/tapa-de-plastico-40-x-20-cm-para-pecera-estandar-con-marco-de-plastico",
+            "problema": "status_no_ok",
+            "error": "",
+            "origenes": [
+                {
+                    "from": "/producto/Tapa-para-pecera-de-plastico-con-puerta-40-cm/TAP-02",
+                    "status": 301,
+                    "tipo": "producto",
+                    "motivo": "revision_manual_seo"
+                }
+            ]
+        },
+        {
+            "path": "/producto/tapete-entrenador-para-perros-30-pza",
+            "url": "https://prueba.artiani.com.mx/producto/tapete-entrenador-para-perros-30-pza",
+            "status": 404,
+            "final_url": "https://prueba.artiani.com.mx/producto/tapete-entrenador-para-perros-30-pza",
+            "problema": "status_no_ok",
+            "error": "",
+            "origenes": [
+                {
+                    "from": "/producto/Tapete-entrenador-desechable-soft-30-pza-para-mascotas/undefined",
+                    "status": 301,
+                    "tipo": "producto",
+                    "motivo": "revision_manual_seo"
+                }
+            ]
+        },
+        {
+            "path": "/producto/tapete-entrenador-soft-pad-7-pz",
+            "url": "https://prueba.artiani.com.mx/producto/tapete-entrenador-soft-pad-7-pz",
+            "status": 404,
+            "final_url": "https://prueba.artiani.com.mx/producto/tapete-entrenador-soft-pad-7-pz",
+            "problema": "status_no_ok",
+            "error": "",
+            "origenes": [
+                {
+                    "from": "/producto/Tapete-entrenador-desechable-soft-7-pza-para-mascotas/TAP-06",
+                    "status": 301,
+                    "tipo": "producto",
+                    "motivo": "revision_manual_seo"
+                }
+            ]
+        },
+        {
+            "path": "/producto/tapete-impermeable-doble-vista-para-corral-de-60-60cm",
+            "url": "https://prueba.artiani.com.mx/producto/tapete-impermeable-doble-vista-para-corral-de-60-60cm",
+            "status": 404,
+            "final_url": "https://prueba.artiani.com.mx/producto/tapete-impermeable-doble-vista-para-corral-de-60-60cm",
+            "problema": "status_no_ok",
+            "error": "",
+            "origenes": [
+                {
+                    "from": "/producto/Tapete-impermeable-doble-vista-para-corral-de-60-x-60cm-/TAIM-01",
+                    "status": 301,
+                    "tipo": "producto",
+                    "motivo": "revision_manual_seo"
+                }
+            ]
+        },
+        {
+            "path": "/producto/tazon-comedero-para-mascotas-16oz-azul",
+            "url": "https://prueba.artiani.com.mx/producto/tazon-comedero-para-mascotas-16oz-azul",
+            "status": 404,
+            "final_url": "https://prueba.artiani.com.mx/producto/tazon-comedero-para-mascotas-16oz-azul",
+            "problema": "status_no_ok",
+            "error": "",
+            "origenes": [
+                {
+                    "from": "/producto/Tazon-comedero-para-mascotas-16Oz-azul/ACE-05",
+                    "status": 301,
+                    "tipo": "producto",
+                    "motivo": "revision_manual_seo"
+                }
+            ]
+        },
+        {
+            "path": "/producto/tazon-gato",
+            "url": "https://prueba.artiani.com.mx/producto/tazon-gato",
+            "status": 404,
+            "final_url": "https://prueba.artiani.com.mx/producto/tazon-gato",
+            "problema": "status_no_ok",
+            "error": "",
+            "origenes": [
+                {
+                    "from": "/producto/Tazon-gato/TAZ-05",
+                    "status": 301,
+                    "tipo": "producto",
+                    "motivo": "revision_manual_seo"
+                }
+            ]
+        },
+        {
+            "path": "/producto/terrario-40-x-40-x-60-cm-de-madera-con-malla-metalica",
+            "url": "https://prueba.artiani.com.mx/producto/terrario-40-x-40-x-60-cm-de-madera-con-malla-metalica",
+            "status": 404,
+            "final_url": "https://prueba.artiani.com.mx/producto/terrario-40-x-40-x-60-cm-de-madera-con-malla-metalica",
+            "problema": "status_no_ok",
+            "error": "",
+            "origenes": [
+                {
+                    "from": "/producto/Terrario-deli-40-x-40-x-60cm-altura-malla-metalica/TERAM-09M",
+                    "status": 301,
+                    "tipo": "producto",
+                    "motivo": "revision_manual_seo"
+                }
+            ]
+        },
+        {
+            "path": "/producto/terrario-cuba-40-x-40-x-40-cm-6-mm-cubo",
+            "url": "https://prueba.artiani.com.mx/producto/terrario-cuba-40-x-40-x-40-cm-6-mm-cubo",
+            "status": 200,
+            "final_url": "https://prueba.artiani.com.mx/producto/terrario-cuba-40-x-40-x-40-cm-6-mm-cubo",
+            "problema": "contenido_no_encontrado",
+            "error": "",
+            "origenes": [
+                {
+                    "from": "/producto/Terrario-cuba-puertas-delizables-40-x-40cm-/TERAL-01",
+                    "status": 301,
+                    "tipo": "producto",
+                    "motivo": "revision_manual_seo"
+                }
+            ]
+        },
+        {
+            "path": "/producto/terrario-cublok-40-x-40-x-40-cm-3-mm-cubo",
+            "url": "https://prueba.artiani.com.mx/producto/terrario-cublok-40-x-40-x-40-cm-3-mm-cubo",
+            "status": 200,
+            "final_url": "https://prueba.artiani.com.mx/producto/terrario-cublok-40-x-40-x-40-cm-3-mm-cubo",
+            "problema": "contenido_no_encontrado",
+            "error": "",
+            "origenes": [
+                {
+                    "from": "/producto/Terrario-cublok-40-cm-largo-40cm-altura/TERA-10",
+                    "status": 301,
+                    "tipo": "producto",
+                    "motivo": "revision_manual_seo"
+                }
+            ]
+        },
+        {
+            "path": "/producto/terrario-delmy-80-x-40-x-60-cm-de-madera-con-malla-metalica",
+            "url": "https://prueba.artiani.com.mx/producto/terrario-delmy-80-x-40-x-60-cm-de-madera-con-malla-metalica",
+            "status": 200,
+            "final_url": "https://prueba.artiani.com.mx/producto/terrario-delmy-80-x-40-x-60-cm-de-madera-con-malla-metalica",
+            "problema": "contenido_no_encontrado",
+            "error": "",
+            "origenes": [
+                {
+                    "from": "/producto/Terrario-delmy-80cm-malla-de-tela/index.html",
+                    "status": 301,
+                    "tipo": "producto",
+                    "motivo": "revision_manual_seo"
+                },
+                {
+                    "from": "/producto/Terrario-delmy-80cm-malla-de-tela/TERAM-06",
+                    "status": 301,
+                    "tipo": "producto",
+                    "motivo": "revision_manual_seo"
+                }
+            ]
+        },
+        {
+            "path": "/producto/terrario-sumak-40-x-20-x-40-cm-3-mm-rectangular",
+            "url": "https://prueba.artiani.com.mx/producto/terrario-sumak-40-x-20-x-40-cm-3-mm-rectangular",
+            "status": 200,
+            "final_url": "https://prueba.artiani.com.mx/producto/terrario-sumak-40-x-20-x-40-cm-3-mm-rectangular",
+            "problema": "contenido_no_encontrado",
+            "error": "",
+            "origenes": [
+                {
+                    "from": "/producto/Terrario-sumak-40cm-largo-40-cm-altura/TERA-12",
+                    "status": 301,
+                    "tipo": "producto",
+                    "motivo": "revision_manual_seo"
+                }
+            ]
+        },
+        {
+            "path": "/producto/tonico-para-aves-catarro-redkite",
+            "url": "https://prueba.artiani.com.mx/producto/tonico-para-aves-catarro-redkite",
+            "status": 200,
+            "final_url": "https://prueba.artiani.com.mx/producto/tonico-para-aves-catarro-redkite",
+            "problema": "contenido_no_encontrado",
+            "error": "",
+            "origenes": [
+                {
+                    "from": "/producto/Tonico-para-aves-catarro/TONI-02",
+                    "status": 301,
+                    "tipo": "producto",
+                    "motivo": "revision_manual_seo"
+                }
+            ]
+        },
+        {
+            "path": "/producto/tonico-para-aves-multivitaminas-redkite",
+            "url": "https://prueba.artiani.com.mx/producto/tonico-para-aves-multivitaminas-redkite",
+            "status": 200,
+            "final_url": "https://prueba.artiani.com.mx/producto/tonico-para-aves-multivitaminas-redkite",
+            "problema": "contenido_no_encontrado",
+            "error": "",
+            "origenes": [
+                {
+                    "from": "/producto/Tonico-para-aves-multivitaminas/TONI-03",
+                    "status": 301,
+                    "tipo": "producto",
+                    "motivo": "revision_manual_seo"
+                }
+            ]
+        }
+    ],
+    "resumen": {
+        "error_http": 119,
+        "contenido_no_encontrado": 10,
+        "status_no_ok": 52
+    }
+}

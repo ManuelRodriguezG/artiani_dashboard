@@ -102,6 +102,8 @@
                                         <label class="form-label">Filtro de revision</label>
                                         <select class="form-select form-select-solid" id="seo_check_filtro_revision">
                                             <option value="todas">Todas</option>
+                                            <option value="errores_reporte">Solo errores detectados</option>
+                                            <option value="errores_http">Solo errores de la prueba actual</option>
                                             <option value="pendientes">Solo pendientes</option>
                                             <option value="probadas">Solo probadas</option>
                                         </select>
@@ -159,6 +161,6 @@
 </div>
 <script src="assets/plugins/global/plugins.bundle.js"></script>
 <script src="assets/js/scripts.bundle.js"></script>
-<script src="/assets/js/custom/apps/erp/ecommerce/seo_verificacion.js?v=20260921-staging-frontend"></script>
+<script src="/assets/js/custom/apps/erp/ecommerce/seo_verificacion.js?v=20260921-filtro-errores-reporte"></script>
 </body>
 </html>

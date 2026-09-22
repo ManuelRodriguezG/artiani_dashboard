@@ -12,6 +12,7 @@
   var itemsPorClave = {};
   var persistenciaDisponible = false;
   var mensajePersistencia = "";
+  var erroresReporteCache = null;
 
   document.addEventListener("DOMContentLoaded", function () {
     var ejecutar = document.getElementById("seo_check_ejecutar");
@@ -20,7 +21,7 @@
     var marcarVisibles = document.getElementById("seo_check_marcar_visibles");
     var presetFrontend = document.getElementById("seo_check_frontend_preset");
     if (ejecutar) ejecutar.addEventListener("click", cargarVerificacion);
-    if (filtro) filtro.addEventListener("change", renderUltimoEstado);
+    if (filtro) filtro.addEventListener("change", aplicarCambioFiltro);
     if (limpiar) limpiar.addEventListener("click", limpiarMarcas);
     if (marcarVisibles) marcarVisibles.addEventListener("click", marcarVisiblesComoProbadas);
     if (presetFrontend) presetFrontend.addEventListener("change", aplicarPresetFrontend);
@@ -28,6 +29,11 @@
       var check = event.target.closest("[data-seo-check-marca]");
       if (!check) return;
       guardarMarca(check.getAttribute("data-seo-check-marca"), check.checked, check);
+    });
+    document.addEventListener("click", function (event) {
+      var editar = event.target.closest("[data-seo-editar-redireccion]");
+      if (!editar) return;
+      editarDestinoRedireccion(editar);
     });
     cargarVerificacion();
   });
@@ -92,6 +98,14 @@
     aplicarFiltroRevision();
   }
 
+  function aplicarCambioFiltro() {
+    if ((valor("seo_check_filtro_revision") || "") === "errores_reporte") {
+      cargarErroresReporte();
+      return;
+    }
+    renderUltimoEstado();
+  }
+
   function mensajeResumen(depurar, revisar) {
     var frontend = depurar.frontend_base || frontendSeleccionado();
     var partes = [];
@@ -140,16 +154,102 @@
       if (item.location) respuestaOrigen += " | Location: " + item.location;
       var respuestaDestino = tieneDestino ? '<div class="text-muted fs-8 mt-1">Destino: ' + escapeHtml(item.destino_status_http || "-") + "</div>" : "";
       return [
-        '<tr data-seo-check-row="' + escapeAttr(origenKey) + '" data-seo-check-probada="' + (filaProbada ? "1" : "0") + '">',
+        '<tr data-seo-check-row="' + escapeAttr(origenKey) + '" data-seo-check-probada="' + (filaProbada ? "1" : "0") + '" data-seo-check-resultado="' + escapeAttr(item.resultado || "") + '">',
         '<td>' + checksRegla(item, origenKey, destinoKey, origenProbada, destinoProbada, tieneDestino) + "</td>",
         '<td><span class="badge ' + (item.tipo_regla === "gone" ? "badge-light-danger" : "badge-light-primary") + '">' + escapeHtml(item.tipo_regla || "regla") + '</span><div class="fw-semibold seo-check-path mt-1">' + escapeHtml(item.from || "-") + '</div><div class="text-muted fs-8">' + escapeHtml(item.motivo || "") + "</div></td>",
         '<td class="seo-check-path">' + linkLocal(item.url_local) + '<div class="text-muted fs-8">Debe responder ' + escapeHtml(item.status_esperado || "301") + "</div></td>",
         '<td class="seo-check-path">' + esperado + "</td>",
         '<td class="seo-check-path">' + escapeHtml(respuestaOrigen) + respuestaDestino + "</td>",
-        '<td>' + badgeResultado(item.resultado) + estadoManualRegla(origenProbada, destinoProbada, tieneDestino) + "</td>",
+        '<td>' + badgeResultado(item.resultado) + accionesRegla(item) + estadoManualRegla(origenProbada, destinoProbada, tieneDestino) + "</td>",
         "</tr>"
       ].join("");
     }).join("");
+  }
+
+  function accionesRegla(item) {
+    if (!reglaTieneDestino(item)) return "";
+    return '<div class="mt-2"><button class="btn btn-sm btn-light-warning" type="button" data-seo-editar-redireccion="1" data-from="' + escapeAttr(item.from || "") + '" data-to="' + escapeAttr(item.to || "") + '" data-status="' + escapeAttr(item.status_esperado || "301") + '" data-tipo="' + escapeAttr(item.tipo || "producto") + '" data-motivo="' + escapeAttr(item.motivo || "revision_manual_seo") + '"><i class="bi bi-pencil-square"></i> Editar destino</button></div>';
+  }
+
+  function cargarErroresReporte() {
+    setEstado("Cargando errores", "badge-light-warning");
+    if (erroresReporteCache) {
+      renderErroresReporte(erroresReporteCache);
+      return;
+    }
+    fetch("/ecommercePublico/seo_redirecciones_errores_reporte_erp", { headers: { Accept: "application/json" } })
+      .then(jsonResponse)
+      .then(function (response) {
+        if (response.error) throw new Error(response.mensaje || "No se pudo cargar el reporte de errores.");
+        erroresReporteCache = response;
+        renderErroresReporte(response);
+      })
+      .catch(function (error) {
+        setEstado("Error", "badge-light-danger");
+        setHtml("seo_check_mensaje", '<div class="alert alert-danger py-3">' + escapeHtml(error.message || "No se pudo cargar el reporte de errores.") + "</div>");
+      });
+  }
+
+  function renderErroresReporte(response) {
+    var depurar = get(response, ["depurar"], {});
+    var items = get(depurar, ["items"], []) || [];
+    var tbody = document.getElementById("seo_check_reglas_body");
+    if (!tbody) return;
+    setText("seo_check_kpi_revisar", items.length || 0);
+    setHtml("seo_check_mensaje", '<div class="alert alert-warning py-3">Mostrando solo errores detectados del ultimo reporte HTTP: ' + escapeHtml(items.length || 0) + ' fila(s) para corregir. No incluye timeouts.</div>');
+    if (!items.length) {
+      tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-6">No hay errores accionables en el ultimo reporte.</td></tr>';
+      setEstado("Listo", "badge-light-success");
+      return;
+    }
+    tbody.innerHTML = items.map(function (item) {
+      var regla = {
+        from: item.origen_viejo || "",
+        to: item.destino_actual || "",
+        status_esperado: 301,
+        tipo: item.tipo || "producto",
+        motivo: "revision_manual_seo",
+        destino_local: item.url_staging || "",
+        resultado: "revisar"
+      };
+      return [
+        '<tr data-seo-check-row="' + escapeAttr("reporte|" + (item.origen_viejo || "") + "|" + (item.destino_actual || "")) + '" data-seo-check-probada="0" data-seo-check-resultado="revisar">',
+        '<td><span class="badge badge-light-warning">Revisar</span></td>',
+        '<td><span class="badge badge-light-danger">' + escapeHtml(item.problema || "error") + '</span><div class="fw-semibold seo-check-path mt-1">' + escapeHtml(item.origen_viejo || "-") + '</div><div class="text-muted fs-8">' + escapeHtml(item.accion_sugerida || "") + "</div></td>",
+        '<td class="seo-check-path">' + escapeHtml(item.origen_viejo || "-") + '<div class="text-muted fs-8">URL vieja productiva</div></td>',
+        '<td class="seo-check-path">' + linkLocal(item.url_staging || item.destino_actual || "") + '<div class="text-muted fs-8">' + escapeHtml(item.destino_actual || "") + "</div></td>",
+        '<td class="seo-check-path">Destino: ' + escapeHtml(item.status_destino || "-") + "</td>",
+        '<td>' + badgeResultado("revisar") + accionesRegla(regla) + '<div class="text-muted fs-8 mt-1">Pendiente: corregir destino</div></td>',
+        "</tr>"
+      ].join("");
+    }).join("");
+    setEstado("Listo", "badge-light-success");
+  }
+
+  function editarDestinoRedireccion(button) {
+    var from = button.getAttribute("data-from") || "";
+    var actual = button.getAttribute("data-to") || "";
+    var nuevo = window.prompt("Nuevo destino para " + from, actual);
+    if (nuevo == null) return;
+    nuevo = String(nuevo || "").trim();
+    if (!nuevo || nuevo === actual) return;
+    if (!window.confirm("Actualizar esta redireccion?\n\nOrigen: " + from + "\nDestino nuevo: " + nuevo)) return;
+    setEstado("Guardando", "badge-light-warning");
+    postJson("/ecommercePublico/seo_redireccion_guardar_erp", {
+      from: from,
+      to: nuevo,
+      status: button.getAttribute("data-status") || "301",
+      tipo: button.getAttribute("data-tipo") || "producto",
+      motivo: button.getAttribute("data-motivo") || "revision_manual_seo"
+    }).then(function (response) {
+      if (response.error) throw new Error(response.mensaje || "No se pudo actualizar la redireccion.");
+      erroresReporteCache = null;
+      setHtml("seo_check_mensaje", '<div class="alert alert-success py-3">Redireccion actualizada. Recargando verificacion...</div>');
+      cargarVerificacion();
+    }).catch(function (error) {
+      setEstado("Error", "badge-light-danger");
+      setHtml("seo_check_mensaje", '<div class="alert alert-danger py-3">' + escapeHtml(error.message || "No se pudo actualizar la redireccion.") + "</div>");
+    });
   }
 
   function checksRegla(item, origenKey, destinoKey, origenProbada, destinoProbada, tieneDestino) {
@@ -185,10 +285,18 @@
 
   function aplicarFiltroRevision() {
     var filtro = valor("seo_check_filtro_revision") || "todas";
+    if (filtro === "errores_reporte") {
+      cargarErroresReporte();
+      return;
+    }
     var rows = document.querySelectorAll("[data-seo-check-row]");
     rows.forEach(function (row) {
       var probada = row.getAttribute("data-seo-check-probada") === "1";
-      var visible = filtro === "todas" || (filtro === "probadas" && probada) || (filtro === "pendientes" && !probada);
+      var resultado = row.getAttribute("data-seo-check-resultado") || "";
+      var visible = filtro === "todas" ||
+        (filtro === "probadas" && probada) ||
+        (filtro === "pendientes" && !probada) ||
+        (filtro === "errores_http" && resultado === "revisar");
       row.style.display = visible ? "" : "none";
     });
   }
