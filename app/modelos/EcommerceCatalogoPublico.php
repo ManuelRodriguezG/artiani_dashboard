@@ -5106,7 +5106,7 @@ class EcommerceCatalogoPublico extends CRUD {
       if (isset($redireccionesActuales[$from]) && $redireccionesActuales[$from] !== $toReporte) {
         continue;
       }
-      $claveDestino = "regla|" . $from . "|301|" . $toReporte;
+      $claveDestino = substr("regla|" . $from . "|301|" . $toReporte, 0, 255);
       if (isset($destinosProbados[$claveDestino])) {
         continue;
       }

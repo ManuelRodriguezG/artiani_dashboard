@@ -589,15 +589,20 @@
   }
 
   function claveReglaOrigen(item) {
-    return "regla_origen|" + String(item.from || "") + "|" + String(item.status_esperado || "") + "|" + String(item.to || "");
+    return claveVerificacion("regla_origen|" + String(item.from || "") + "|" + String(item.status_esperado || "") + "|" + String(item.to || ""));
   }
 
   function claveReglaDestino(item) {
-    return "regla|" + String(item.from || "") + "|" + String(item.status_esperado || "") + "|" + String(item.to || "");
+    return claveVerificacion("regla|" + String(item.from || "") + "|" + String(item.status_esperado || "") + "|" + String(item.to || ""));
   }
 
   function claveSitemap(item) {
-    return "sitemap|" + String(item.path || item.loc || "");
+    return claveVerificacion("sitemap|" + String(item.path || item.loc || ""));
+  }
+
+  function claveVerificacion(clave) {
+    clave = String(clave || "");
+    return clave.length > 255 ? clave.slice(0, 255) : clave;
   }
 
   function estadoManualRegla(origenProbada, destinoProbada, tieneDestino) {
