@@ -7812,11 +7812,13 @@
     var uso = picker.contexto === "global" ? "global" : "";
     var tipo = "";
     if (String(picker.contexto || "").indexOf("home_") === 0) uso = "home";
+    if (picker.contexto === "banner" || picker.contexto === "hero") uso = "home";
     if (picker.campo === "logo_principal") tipo = "logo";
     if (picker.campo === "logo_blanco") tipo = "logo_blanco";
     if (picker.campo === "favicon") tipo = "favicon";
     if (picker.campo === "og_image_default") tipo = "open_graph";
     if (picker.campo === "logo") tipo = "logo";
+    if (picker.campo === "logo_superior") tipo = "logo";
     if (picker.campo === "imagen") tipo = "card";
     if (picker.contexto === "home_esenciales" || picker.contexto === "home_esencial_principal") tipo = "editorial";
     if (!tipo && picker.campo && picker.campo.indexOf("imagen_desktop") !== -1) tipo = "hero";
@@ -7957,6 +7959,8 @@
       }
       guardarMediaLocalItems(mezclarMediaItems(mediaLocalItems(), [item]));
       estado.mediaBiblioteca.items = mezclarMediaItems(estado.mediaBiblioteca.items, [item]);
+      estado.mediaBiblioteca.cargada = true;
+      estado.mediaPicker.seleccion = item.id;
       estado.mediaPicker.archivo = null;
       estado.mediaPicker.dataUrl = "";
       if ($("cms_actual_media_archivo")) $("cms_actual_media_archivo").value = "";
@@ -8257,9 +8261,12 @@
 
   /** IA: Codex GPT-6 | Fecha: 2026-09-24. Proposito: usar exclusivamente archivos vigentes; impacto: el editor conserva la URL original sin token de preview. */
   function aplicarMediaSeleccionada(id) {
-    if (!estado.mediaBiblioteca.cargada) return;
-    var media = estado.mediaBiblioteca.items.filter(function (item) { return item.id === id; })[0];
-    if (!media) return;
+    var itemsBiblioteca = estado.mediaBiblioteca.items || [];
+    var media = itemsBiblioteca.filter(function (item) { return item.id === id; })[0];
+    if (!media) {
+      setText("cms_actual_estado", "No se encontro la imagen seleccionada en Media CMS. Cierra y abre el selector para refrescar la galeria.");
+      return;
+    }
     if (!esMediaServidor(media)) {
       var preview = $("cms_actual_media_preview_seleccion");
       if (preview) {
@@ -8292,7 +8299,10 @@
     if (picker.contexto === "cms_marca") target = marcasCmsData("marcas_items").items[picker.index];
     if (picker.contexto === "cms_pagina") target = paginasCmsData("paginas_items").items[picker.index];
     if (picker.contexto === "global_whatsapp_contacto") target = whatsappGlobalData().contactos[picker.index];
-    if (!target) return;
+    if (!target) {
+      setText("cms_actual_estado", "No se pudo aplicar la imagen en esta seccion. Recarga la pagina e intenta de nuevo.");
+      return;
+    }
     setPath(target, picker.campo, normalizarUrlMediaCms(media.url));
     if (picker.contexto === "cms_categoria" && picker.campo === "imagen_card" && !target.alt_card && media.alt) target.alt_card = media.alt;
     if (picker.contexto === "cms_categoria" && (picker.campo === "imagen_banner" || picker.campo === "imagen_banner_mobile") && !target.alt_banner && media.alt) target.alt_banner = media.alt;
