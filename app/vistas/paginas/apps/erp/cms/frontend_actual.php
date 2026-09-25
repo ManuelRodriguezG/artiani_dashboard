@@ -159,6 +159,6 @@
 </script>
 <!-- IA: Codex GPT-6 | Fecha: 2026-09-24. Media CMS: optimizacion voluntaria en formato original y selector con gestion de archivos. -->
 <script src="/assets/js/custom/apps/erp/cms/media_tools.js?v=20260924-media2"></script>
-<script src="/assets/js/custom/apps/erp/cms/frontend_actual.js?v=20260925-home-publicacion1"></script>
+<script src="/assets/js/custom/apps/erp/cms/frontend_actual.js?v=20260925-home-hidratar-publicado1"></script>
 </body>
 </html>

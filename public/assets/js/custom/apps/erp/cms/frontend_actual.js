@@ -998,6 +998,9 @@
     renderTodo();
     cargarCatalogoCategoriasCms();
     cargarCatalogoMarcasCms();
+    if (estado.grupo === "home" && !tieneBorrador) {
+      cargarHomePublicadoFrontend(false);
+    }
     if (!tieneBorrador) {
       cargarGlobalPublicadoFrontend(false);
     }
@@ -1169,6 +1172,14 @@
 
   function renderAccionesGrupo(grupo) {
     if (!grupo) return "";
+    if (grupo.codigo === "home") {
+      return '<div class="alert alert-light-primary d-flex justify-content-between align-items-center flex-wrap gap-3 mb-4">' +
+        '<div><div class="fw-bold">Contenido publicado del Home</div><div class="fs-7 text-muted">Carga en este editor los componentes, imagenes y textos que ya estan publicados en la API.</div></div>' +
+        '<div class="d-flex flex-wrap gap-2">' +
+          '<button class="btn btn-sm btn-light-info" type="button" id="cms_actual_home_cargar_publicado"><i class="bi bi-arrow-clockwise"></i> Cargar publicado</button>' +
+        '</div>' +
+      '</div><div class="alert alert-light-secondary fs-7 py-3 mb-4 d-none" id="cms_actual_home_publicado_estado"></div>';
+    }
     if (grupo.codigo === "categorias") {
       return '<div class="alert alert-light-primary d-flex justify-content-between align-items-center flex-wrap gap-3 mb-4">' +
         '<div><div class="fw-bold">Publicacion de categorias frontend</div><div class="fs-7 text-muted">Guarda imagenes, textos SEO, destacado, visible y orden sin modificar categorias reales del ERP.</div></div>' +
@@ -1288,6 +1299,221 @@
       '<div class="fs-7 text-break">' + escapeHtml(codigos) + '</div>' +
       '<button class="btn btn-sm btn-light mt-3" type="button" data-status-jump="' + escapeAttr(botonId) + '"><i class="bi bi-broadcast"></i> Ver detalle</button>' +
     '</div>';
+  }
+
+  function cargarHomePublicadoFrontend(manual) {
+    if (!window.fetch) return;
+    var node = $("cms_actual_home_publicado_estado");
+    if (node) {
+      node.className = "alert alert-light-info fs-7 py-3 mb-4";
+      node.textContent = "Cargando contenido publicado del Home...";
+    }
+    setText("cms_actual_estado", "Cargando Home publicado");
+    fetch("/ecommercePublico/cms_frontend?pagina=home&_ts=" + Date.now(), {
+      method: "GET",
+      credentials: "same-origin",
+      headers: {
+        "Accept": "application/json",
+        "X-Requested-With": "XMLHttpRequest"
+      }
+    }).then(function (response) {
+      return response.text().then(function (text) {
+        var json = null;
+        try {
+          json = JSON.parse(text);
+        } catch (error) {
+          throw new Error("Respuesta no JSON al cargar Home publicado");
+        }
+        if (!response.ok || !json || json.error) throw new Error((json && json.mensaje) || "No se pudo cargar Home publicado");
+        return json;
+      });
+    }).then(function (json) {
+      var depurar = json && json.depurar ? json.depurar : {};
+      var cambios = aplicarHomePublicadoEnEditor(depurar);
+      sincronizarCategoriasCmsSeparadas();
+      renderTodo();
+      guardarBorradorFrontendLocal(true);
+      setText("cms_actual_estado", "Home publicado cargado");
+      var estadoNode = $("cms_actual_home_publicado_estado");
+      if (estadoNode) {
+        estadoNode.className = "alert alert-light-success fs-7 py-3 mb-4";
+        estadoNode.textContent = "Home publicado cargado en el editor: " + cambios.join(", ") + ".";
+      }
+    }).catch(function (error) {
+      setText("cms_actual_estado", "No se pudo cargar Home publicado");
+      var estadoNode = $("cms_actual_home_publicado_estado");
+      if (estadoNode || manual) {
+        if (!estadoNode) return;
+        estadoNode.className = "alert alert-light-danger fs-7 py-3 mb-4";
+        estadoNode.textContent = error.message || "No se pudo cargar Home publicado.";
+      }
+    });
+  }
+
+  function aplicarHomePublicadoEnEditor(depurar) {
+    var cambios = [];
+    var secciones = Array.isArray(depurar.secciones) ? depurar.secciones : [];
+    var componentes = secciones.filter(function (seccion) {
+      return seccion && tiposHomeComponentesGestionados().indexOf(String(seccion.tipo || "")) !== -1;
+    }).map(normalizarHomeComponentePublicado);
+    var estadoComponentes = depurar.componentes_home || {};
+    var estadosPublicados = Array.isArray(estadoComponentes.secciones_estado) ? estadoComponentes.secciones_estado : [];
+    estadosPublicados.forEach(function (seccionEstado) {
+      if (!seccionEstado || !seccionEstado.tipo) return;
+      if (tiposHomeComponentesGestionados().indexOf(String(seccionEstado.tipo || "")) === -1) return;
+      var existe = componentes.some(function (actual) { return actual.codigo === seccionEstado.codigo; });
+      if (!existe) componentes.push(normalizarHomeComponentePublicado(seccionEstado));
+    });
+    if (estadoComponentes.publicados === true || componentes.length) {
+      estado.datos.home.home_componentes.secciones = componentes.sort(function (a, b) {
+        return Number(a.orden || 0) - Number(b.orden || 0);
+      });
+      cambios.push("componentes");
+    }
+    var hero = primerBloquePublicadoSlot(depurar, "home.hero");
+    if (hero) {
+      aplicarHeroPublicadoEnBanner(hero);
+      cambios.push("banner");
+    }
+    var marcas = primerBloquePublicadoSlot(depurar, "home.marcas");
+    if (marcas) {
+      estado.datos.home.home_marcas_destacadas = normalizarBloqueSimplePublicado(marcas, estado.datos.home.home_marcas_destacadas);
+      cambios.push("marcas");
+    }
+    var esenciales = primerBloquePublicadoSlot(depurar, "home.esenciales");
+    if (esenciales) {
+      estado.datos.home.home_esenciales_artiani = normalizarBloqueSimplePublicado(esenciales, estado.datos.home.home_esenciales_artiani);
+      cambios.push("esenciales");
+    }
+    return cambios.length ? cambios : ["sin bloques publicados"];
+  }
+
+  function tiposHomeComponentesGestionados() {
+    return ["mascotas_destacadas", "fabricacion_artiani", "seleccion_artiani", "banner_ancho_completo", "banners_divididos", "ubicacion_mapa"];
+  }
+
+  function primerBloquePublicadoSlot(depurar, slotCodigo) {
+    var slots = depurar && Array.isArray(depurar.slots) ? depurar.slots : [];
+    for (var i = 0; i < slots.length; i++) {
+      if (!slots[i] || slots[i].slot !== slotCodigo) continue;
+      var bloques = Array.isArray(slots[i].bloques) ? slots[i].bloques : [];
+      for (var j = 0; j < bloques.length; j++) {
+        if (bloques[j] && bloques[j].visible !== false && bloques[j].activo !== false) return bloques[j];
+      }
+    }
+    return null;
+  }
+
+  function normalizarHomeComponentePublicado(seccion) {
+    return {
+      codigo: seccion.codigo || codigoHomeComponenteDefault(seccion.tipo),
+      tipo: seccion.tipo || "",
+      slot: seccion.slot || slotHomeComponenteDefault(seccion.tipo),
+      layout: seccion.layout || (seccion.config || {}).variante || "",
+      visible: seccion.visible !== false && seccion.activo !== false,
+      orden: Number(seccion.orden || 100),
+      eyebrow: seccion.eyebrow || "",
+      titulo: seccion.titulo || tituloHomeComponenteDefault(seccion.tipo),
+      subtitulo: seccion.subtitulo || "",
+      items: (Array.isArray(seccion.items) ? seccion.items : []).map(normalizarHomeComponenteItemPublicado),
+      config: seccion.config && typeof seccion.config === "object" ? seccion.config : {},
+      cta: seccion.cta && typeof seccion.cta === "object" ? seccion.cta : {},
+      tracking: seccion.tracking && typeof seccion.tracking === "object" ? seccion.tracking : {}
+    };
+  }
+
+  function normalizarHomeComponenteItemPublicado(item) {
+    var categoria = item.categoria && typeof item.categoria === "object" ? item.categoria : {};
+    var categoriaId = item.categoria_id || item.id_categoria || categoria.id || 0;
+    var pathSlug = item.path_slug || item.categoria_slug || categoria.path_slug || "";
+    var cta = item.cta && typeof item.cta === "object" ? item.cta : {};
+    return {
+      categoria_id: categoriaId,
+      id_categoria: categoriaId,
+      path_slug: pathSlug,
+      categoria_slug: pathSlug,
+      categoria: categoria,
+      titulo: item.titulo || categoria.nombre || "",
+      subtitulo: item.subtitulo || "",
+      descripcion: item.descripcion || item.descripcion_breve || "",
+      etiqueta: item.etiqueta || item.eyebrow || "",
+      texto_enlace: item.texto_enlace || cta.label || "Ver categoria",
+      imagen_modo: item.imagen_fuente === "cms" ? "personalizada" : "categoria",
+      imagen_fuente: item.imagen_fuente || (item.imagen_desktop || item.imagen ? "cms" : "categoria"),
+      imagen_desktop: item.imagen_desktop || item.imagen || item.imagen_card || item.imagen_banner || "",
+      imagen_mobile: item.imagen_mobile || "",
+      imagen: item.imagen || item.imagen_desktop || "",
+      alt: item.alt || item.alt_text || "",
+      orden: Number(item.orden || 10),
+      visible: item.visible !== false,
+      cta: {
+        label: cta.label || item.texto_enlace || "Ver categoria",
+        url: cta.url || item.url || (categoria.url || "")
+      },
+      url: item.url || cta.url || categoria.url || ""
+    };
+  }
+
+  function slotHomeComponenteDefault(tipo) {
+    var mapa = {
+      mascotas_destacadas: "home.mascotas",
+      fabricacion_artiani: "home.fabricacion",
+      seleccion_artiani: "home.seleccion",
+      banner_ancho_completo: "home.banner_ancho_completo",
+      banners_divididos: "home.banners_divididos",
+      ubicacion_mapa: "home.ubicacion"
+    };
+    return mapa[tipo] || "";
+  }
+
+  function codigoHomeComponenteDefault(tipo) {
+    var mapa = {
+      mascotas_destacadas: "home_mascotas",
+      fabricacion_artiani: "home_fabricacion",
+      seleccion_artiani: "home_seleccion",
+      ubicacion_mapa: "home_ubicacion"
+    };
+    return mapa[tipo] || ("home_" + (tipo || "componente"));
+  }
+
+  function tituloHomeComponenteDefault(tipo) {
+    var mapa = {
+      mascotas_destacadas: "Elige tu mascota",
+      fabricacion_artiani: "Fabricacion Artiani",
+      seleccion_artiani: "Seleccion Artiani",
+      banner_ancho_completo: "Banner panoramico",
+      banners_divididos: "Banners divididos",
+      ubicacion_mapa: "Ubicacion"
+    };
+    return mapa[tipo] || "";
+  }
+
+  function aplicarHeroPublicadoEnBanner(hero) {
+    var item = Array.isArray(hero.items) && hero.items.length ? hero.items[0] : {};
+    var media = hero.media && typeof hero.media === "object" ? hero.media : {};
+    estado.datos.home.home_banner.visible = hero.visible !== false;
+    estado.datos.home.home_banner.orden = Number(hero.orden || estado.datos.home.home_banner.orden || 60);
+    estado.datos.home.home_banner.items = [{
+      texto_superior: hero.texto_superior || item.texto_superior || "",
+      logo_superior: hero.logo_superior || item.logo_superior || "",
+      titulo: hero.titulo || item.titulo || "",
+      subtitulo: hero.subtitulo || item.subtitulo || "",
+      imagen_desktop: media.imagen_desktop || item.imagen_desktop || "",
+      imagen_mobile: media.imagen_mobile || item.imagen_mobile || "",
+      alt: media.alt || item.alt || "",
+      cta: hero.cta || item.cta || { label: "", url: "" },
+      visible: true,
+      orden: 10
+    }];
+  }
+
+  function normalizarBloqueSimplePublicado(bloque, base) {
+    var copia = JSON.parse(JSON.stringify(base || {}));
+    Object.keys(bloque || {}).forEach(function (key) {
+      if (["id", "id_bloque", "id_publicacion_contenido", "publicacion", "vigencia", "estatus"].indexOf(key) !== -1) return;
+      copia[key] = bloque[key];
+    });
+    return copia;
   }
 
   function cargarBorradorFrontendLocal(usarGrupoGuardado) {
@@ -2075,6 +2301,7 @@
     on("cms_actual_home_visual_productos_api", "click", function () { consultarApiModuloHomeCategoria("visual_productos"); });
     on("cms_actual_home_componentes_publicar", "click", publicarHomeComponentes);
     on("cms_actual_home_componentes_api", "click", consultarApiHomeComponentes);
+    on("cms_actual_home_cargar_publicado", "click", function () { cargarHomePublicadoFrontend(true); });
     Array.prototype.forEach.call(document.querySelectorAll("[data-home-comp-publish]"), function (button) {
       button.addEventListener("click", publicarHomeComponentes);
     });
