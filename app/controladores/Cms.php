@@ -372,6 +372,29 @@ class Cms extends Controlador {
     return json_encode($respuesta, JSON_UNESCAPED_UNICODE);
   }
 
+  /** IA: Codex GPT-6 | Fecha: 2026-09-25
+   * Proposito: habilitar lectura publica de un medio existente sin sustituirlo.
+   * Impacto: imagenes ya utilizadas; requiere editar/publicar y deja auditoria de permisos.
+   * Contrato: POST con ID, CSRF global, chmod solo 0644 sobre el medio validado; no admite rutas del cliente.
+   */
+  public function media_admin_reparar_acceso_erp() {
+    $this->requerirAlgunPermiso(array("cms.editar", "catalogo.editar"));
+    $this->requerirAlgunPermiso(array("cms.publicar", "catalogo.editar"));
+    $this->mediaRequerirPost();
+    $respuesta = $this->modelo("EcommerceCatalogoPublico")->mediaAdminRepararAccesoInterno($_POST, $this->usuarioActualId());
+    Sesionseguridad::registrarAuditoria("cms", "media_admin_reparar_acceso_erp", array(
+      "id_registro" => isset($_POST["id_media_archivo"]) ? intval($_POST["id_media_archivo"]) : null,
+      "resultado" => empty($respuesta["error"]) ? "ok" : "error",
+      "datos_antes" => array("permisos" => $respuesta["depurar"]["permisos_antes"] ?? null),
+      "datos_despues" => array("error" => $respuesta["error"], "tipo" => $respuesta["tipo"],
+        "mensaje" => $respuesta["mensaje"], "url" => $respuesta["depurar"]["url"] ?? null,
+        "permisos" => $respuesta["depurar"]["permisos_despues"] ?? null,
+        "acceso_reparado" => $respuesta["depurar"]["acceso_reparado"] ?? false,
+        "validacion_archivo" => $respuesta["depurar"]["validacion_archivo"] ?? null)
+    ));
+    return json_encode($respuesta, JSON_UNESCAPED_UNICODE);
+  }
+
   /** IA: Codex GPT-6 | Fecha: 2026-09-24
    * Proposito: impedir mutaciones Media mediante GET u otros verbos sin CSRF POST.
    * Impacto: altas, reemplazos y bajas; responde JSON/405 sin ejecutar el modelo.

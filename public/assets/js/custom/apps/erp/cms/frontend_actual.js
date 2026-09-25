@@ -7755,7 +7755,7 @@
         '<div class="modal-body">' +
           '<div class="alert alert-info py-3 fs-7">Usa una imagen de la biblioteca o pulsa <strong>Subir y usar</strong>. Puedes mejorar el nombre o cambiar a WebP por eleccion. Las referencias anteriores siguen funcionando; reemplazar actualiza todos sus usos. ICO conserva su formato al subir.</div>' +
           '<div class="alert alert-light-primary py-3 fs-7" id="cms_actual_media_recomendacion"></div>' +
-          '<div class="text-muted mb-3" id="cms_actual_media_estado" role="status"></div>' +
+          '<div class="text-muted mb-3" id="cms_actual_media_estado" role="status" aria-live="polite" tabindex="-1"></div>' +
           '<div class="border rounded p-4 mb-5 bg-light" id="cms_actual_media_carga" hidden>' +
             '<div class="fw-bold mb-3">Cargar nueva imagen</div>' +
             '<div class="row g-3 align-items-end">' +
@@ -7954,6 +7954,7 @@
         throw new Error(json && json.mensaje ? json.mensaje : "No se pudo subir la imagen");
       }
       var item = normalizarMediaServidor(json.depurar && (json.depurar.item || json.depurar));
+      if (json.tipo === "warning") setMediaPickerEstado(json.mensaje || "Imagen registrada con advertencias. Revisa su acceso publico.", "warning");
       if (!item || !item.id) {
         setMediaPickerEstado("El servidor confirmo el guardado pero no devolvio la referencia de la imagen. No vuelvas a subirla; recarga la biblioteca para revisarla.", "warning");
         return;
@@ -7968,13 +7969,14 @@
       setText("cms_actual_media_preview_nuevo", "Imagen guardada. Comprobando archivo y acceso publico...");
       var comprobacion = await comprobarMediaPickerGuardada(item);
       setText("cms_actual_media_preview_nuevo", comprobacion.mensaje);
-      setMediaPickerEstado(comprobacion.mensaje + (json.tipo === "warning" && json.mensaje ? " " + json.mensaje : ""), comprobacion.ok && json.tipo !== "warning" ? "success" : "warning");
+      setMediaPickerEstado(unirMensajesMediaPicker(comprobacion.mensaje, json.tipo === "warning" ? json.mensaje : ""), comprobacion.ok && json.tipo !== "warning" ? "success" : "warning");
       if (comprobacion.ok && json.tipo !== "warning") {
         aplicarMediaSeleccionada(item.id);
         setText("cms_actual_estado", "Imagen guardada, acceso publico verificado y aplicada a esta seccion.");
       }
     }).catch(function (error) {
       setText("cms_actual_media_preview_nuevo", error.message || "No se pudo subir la imagen.");
+      setMediaPickerEstado(error.message || "No se pudo subir la imagen.", "danger");
     }).finally(function () {
       estado.mediaBiblioteca.ocupada = false;
       if (boton) boton.disabled = false;
@@ -7997,7 +7999,7 @@
       cargarPaginaMediaPicker(0, [])
     ]).then(function (resultados) {
         biblioteca.permisos = resultados[0].permisos || {};
-        biblioteca.items = resultados[1];
+        biblioteca.items = mezclarMediaItems(biblioteca.items, resultados[1]).filter(function (item) { return resultados[1].some(function (actual) { return actual.id === item.id; }); });
         biblioteca.cargada = true;
         biblioteca.usos = {};
         guardarMediaLocalItems(biblioteca.items);
@@ -8112,6 +8114,8 @@
       '<div class="text-muted fs-7 mt-1">' + escapeHtml(item.alt) + '</div>' +
       '<div class="d-flex flex-wrap gap-2 mt-3"><span class="badge ' + (esServidor ? 'badge-light-success' : 'badge-light-warning') + '">' + (esServidor ? 'Servidor BD' : 'Temporal local') + '</span><span class="badge badge-light-primary">' + escapeHtml(labelUsoMedia(item.uso)) + '</span><span class="badge badge-light-info">' + escapeHtml(labelTipoMedia(item.tipo)) + '</span><span class="badge badge-light">' + escapeHtml(formatoBytes(item.bytes)) + '</span></div>' +
       '<div class="text-muted fs-7 mt-3">' + escapeHtml(resumenArchivoMediaPicker(item)) + '</div>' +
+      (item.validacion_archivo && !item.validacion_archivo.ok ? '<div class="alert alert-warning mt-3" role="alert">' + escapeHtml(item.validacion_archivo.mensaje || 'No se confirmo el acceso al archivo.') + (puedeReemplazar && /^(permisos_restringidos|no_legible)$/.test(item.validacion_archivo.estado) ? ' Usa Reparar acceso para ajustar los permisos del archivo.' : '') + '</div>' : '') +
+      (puedeReemplazar ? '<button class="btn btn-light-primary w-100 mt-3" type="button" id="cms_actual_media_reparar_acceso"' + disabled + '>Reparar acceso</button>' : '') +
       (esServidor ? '<button class="btn btn-primary w-100 mt-4" type="button" id="cms_actual_media_usar_seleccion"' + disabled + '><i class="bi bi-check2-circle"></i> Usar imagen seleccionada</button>' : '') +
       '<div class="border-top mt-4 pt-4"><div class="fw-semibold mb-2">Donde se usa</div>' +
       (usos && usos.usos ? '<div class="fs-8">' + (usos.usos.length ? usos.usos.map(function (uso) { return '<div class="mb-2 text-break">' + escapeHtml([uso.origen, uso.referencia, uso.estado].filter(Boolean).join(' · ')) + '</div>'; }).join('') : 'Sin referencias guardadas detectadas.') + '</div>' : '<div class="text-muted fs-8">' + escapeHtml(usos && usos.error ? usos.error : 'Consultando referencias guardadas...') + '</div>') +
@@ -8130,6 +8134,7 @@
       aplicarMediaSeleccionada(item.id);
     });
     on("cms_actual_media_reemplazar", "click", function () { modificarArchivoMediaPicker(item, "reemplazar"); });
+    on("cms_actual_media_reparar_acceso", "click", function () { repararAccesoMediaPicker(item); });
     on("cms_actual_media_optimizar", "click", function () { modificarArchivoMediaPicker(item, "optimizar"); });
     on("cms_actual_media_guardar_nombre", "click", function () { modificarArchivoMediaPicker(item, "guardar"); });
     on("cms_actual_media_convertir_webp", "click", function () { modificarArchivoMediaPicker(item, "webp"); });
@@ -8214,6 +8219,7 @@
       data.append('nombre_seo', nombre);
       if (alt !== item.alt) data.append('alt', alt);
       var result = await solicitarMediaPicker('/cms/media_admin_reemplazar_erp', data, true);
+      if (result.tipo === "warning") setMediaPickerEstado(result.mensaje || "Cambios guardados con advertencias. Revisa el acceso publico.", "warning");
       var actualizada = normalizarMediaServidor(result.depurar && (result.depurar.item || result.depurar));
       if (!actualizada) {
         setMediaPickerEstado("El servidor confirmo el cambio pero no devolvio la imagen actualizada. No repitas el reemplazo; abre de nuevo el selector para verificarla.", "warning");
@@ -8222,11 +8228,11 @@
       biblioteca.items = mezclarMediaItems(biblioteca.items, [actualizada]);
       guardarMediaLocalItems(biblioteca.items);
       delete biblioteca.usos[item.id];
-      setMediaPickerEstado("Cambios guardados. Comprobando archivo y acceso publico...", "info");
+      if (result.tipo !== "warning") setMediaPickerEstado("Cambios guardados. Comprobando archivo y acceso publico...", "info");
       var comprobacion = await comprobarMediaPickerGuardada(actualizada);
-      setMediaPickerEstado((comprobacion.ok ? "Imagen actualizada. " + (file ? "Peso: " + formatoBytes(item.bytes) + " → " + formatoBytes(actualizada.bytes) + ". " : "") : "") + comprobacion.mensaje + (result.tipo === "warning" && result.mensaje ? " " + result.mensaje : ""), comprobacion.ok && result.tipo !== "warning" ? "success" : "warning");
+      setMediaPickerEstado((comprobacion.ok ? "Imagen actualizada. " + (file ? "Peso: " + formatoBytes(item.bytes) + " → " + formatoBytes(actualizada.bytes) + ". " : "") : "") + unirMensajesMediaPicker(comprobacion.mensaje, result.tipo === "warning" ? result.mensaje : ""), comprobacion.ok && result.tipo !== "warning" ? "success" : "warning");
     } catch (error) {
-      setText("cms_actual_media_estado", error.message || "No se pudo actualizar la imagen.");
+      setMediaPickerEstado(error.message || "No se pudo actualizar la imagen.", "danger");
     } finally {
       biblioteca.ocupada = false;
       renderMediaPicker();
@@ -8235,15 +8241,54 @@
 
   /** IA: Codex GPT-6 | Fecha: 2026-09-25. Proposito: comprobar acceso tras persistencia; impacto: selector; contrato: herramienta faltante nunca convierte un guardado en error de carga. */
   function comprobarMediaPickerGuardada(item) {
+    if (item && item.validacion_archivo && !item.validacion_archivo.ok) return Promise.resolve({ok: false, mensaje: item.validacion_archivo.mensaje || "El servidor no pudo confirmar el archivo. Revisa su diagnostico antes de utilizarlo."});
     return window.CmsMediaTools && window.CmsMediaTools.verificarDisponibilidad ? window.CmsMediaTools.verificarDisponibilidad(item) : Promise.resolve({ok: false, mensaje: "Guardada en la biblioteca; acceso no confirmado. Recarga la pagina para cargar la comprobacion. No vuelvas a subirla."});
   }
 
-  /** IA: Codex GPT-6 | Fecha: 2026-09-25. Proposito: distinguir advertencia de acceso de error al guardar; impacto: selector; contrato: texto seguro sin insertar respuesta HTML. */
+  /** IA: Codex GPT-6 | Fecha: 2026-09-25. Proposito: reparar lectura sin recargar la imagen; impacto: selector CMS; contrato: conserva ID/URL, POST con permisos y CSRF, comprueba acceso anonimo y no aplica automaticamente. */
+  async function repararAccesoMediaPicker(item) {
+    var biblioteca = estado.mediaBiblioteca;
+    if (biblioteca.ocupada || !esMediaServidor(item) || !biblioteca.permisos.editar || !biblioteca.permisos.publicar) return;
+    biblioteca.ocupada = true;
+    renderMediaPickerPreview(item);
+    setMediaPickerEstado("Reparando permisos de lectura de la imagen...", "info");
+    try {
+      var data = new FormData(); data.append('id_media_archivo', item.media_id);
+      var result = await solicitarMediaPicker('/cms/media_admin_reparar_acceso_erp', data, true);
+      var actualizada = normalizarMediaServidor(result.depurar && (result.depurar.item || result.depurar));
+      if (actualizada) {
+        actualizada.preview_url = (actualizada.preview_url || actualizada.url) + ((actualizada.preview_url || actualizada.url).indexOf('?') >= 0 ? '&' : '?') + 'acceso=' + Date.now();
+        biblioteca.items = mezclarMediaItems(biblioteca.items, [actualizada]);
+        guardarMediaLocalItems(biblioteca.items);
+      }
+      if (result.tipo === "warning") setMediaPickerEstado(result.mensaje || "No se pudo confirmar la reparacion del acceso.", "warning");
+      var comprobacion = await comprobarMediaPickerGuardada(actualizada);
+      setMediaPickerEstado(unirMensajesMediaPicker(result.mensaje, comprobacion.mensaje), comprobacion.ok && result.tipo !== "warning" ? "success" : "warning");
+    } catch (error) { setMediaPickerEstado(error.message || "No se pudieron reparar los permisos de la imagen.", "danger"); }
+    finally { biblioteca.ocupada = false; renderMediaPicker(); }
+  }
+
+  /** IA: Codex GPT-6 | Fecha: 2026-09-25. Proposito: evitar diagnosticos repetidos; impacto: avisos selector; contrato: conserva ambos textos salvo que uno ya contenga al otro. */
+  function unirMensajesMediaPicker(primero, segundo) {
+    primero = String(primero || ""); segundo = String(segundo || "");
+    if (primero.indexOf(segundo) >= 0) return primero;
+    if (segundo.indexOf(primero) >= 0) return segundo;
+    return primero + " " + segundo;
+  }
+
+  /** IA: Codex GPT-6 | Fecha: 2026-09-25. Proposito: mostrar advertencias incluso fuera del viewport del modal; impacto: selector; contrato: aviso persistente con foco/desplazamiento, texto seguro sin HTML recibido. */
   function setMediaPickerEstado(mensaje, tipo) {
     var node = $("cms_actual_media_estado");
     if (!node) return;
-    node.className = "alert alert-light-" + (tipo === "success" ? "success" : tipo === "warning" ? "warning" : "info") + " mb-3";
+    node.className = "alert alert-" + (tipo === "success" ? "success" : tipo === "warning" ? "warning" : tipo === "danger" ? "danger" : "info") + " mb-3";
     node.textContent = mensaje;
+    node.hidden = false;
+    if (tipo === "warning" || tipo === "danger") {
+      node.tabIndex = -1;
+      if (node.setAttribute) { node.setAttribute("role", "alert"); node.setAttribute("aria-live", "assertive"); }
+      if (node.focus) node.focus({preventScroll: true});
+      if (node.scrollIntoView) node.scrollIntoView({behavior: "auto", block: "center"});
+    }
   }
 
   /** IA: Codex GPT-6 | Fecha: 2026-09-24. Proposito: sugerir nombre desde contenido disponible; impacto: SEO; contrato: sin inventar descripcion. */
@@ -8439,6 +8484,7 @@
     return labels[String(tipo || "")] || tipo || "Editorial";
   }
 
+  /** IA: Codex GPT-6 | Fecha: 2026-09-25. Proposito: conservar diagnosticos recientes al refrescar; impacto: selector; contrato: solo conserva la validacion cuando URL/hash/peso siguen iguales. */
   function mezclarMediaItems(actuales, nuevos) {
     var salida = (actuales || []).slice();
     (nuevos || []).forEach(function (item) {
@@ -8447,6 +8493,8 @@
         return actual.id === item.id || (actual.codigo && item.codigo && actual.codigo === item.codigo);
       });
       if (index >= 0) {
+        var anterior = salida[index];
+        if (!item.validacion_archivo && anterior.url === item.url && anterior.hash_sha256 === item.hash_sha256 && anterior.bytes === item.bytes) item.validacion_archivo = anterior.validacion_archivo;
         salida[index] = item;
       } else {
         salida.unshift(item);

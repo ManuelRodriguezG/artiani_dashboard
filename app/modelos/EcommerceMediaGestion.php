@@ -40,6 +40,62 @@ trait EcommerceMediaGestion {
     }
   }
 
+  /** IA: Codex GPT-6 | Fecha: 2026-09-25
+   * Proposito: recuperar lectura publica de una imagen registrada con permisos privados.
+   * Impacto: Media CMS usada/publicada; conserva contenido, ID, URL y todas sus referencias.
+   * Contrato: solo ID autorizado; bloqueo por fila, imagen/huella verificadas, chmod puntual 0644,
+   * sin modificar BD ni directorios. El acceso HTTP se vuelve a comprobar desde el navegador.
+   */
+  public function mediaAdminRepararAccesoInterno($datos = array(), $idUsuario = 0) {
+    $db = $this->getConexion(); $item = array(); $permisosAntes = null; $confirmado = false;
+    try {
+      $id = intval($this->valor($datos, 'id_media_archivo', 0));
+      if ($id <= 0) throw new Exception('Selecciona una imagen guardada en la biblioteca.');
+      if (!$db || !$db->beginTransaction()) throw new Exception('No fue posible iniciar la revision del acceso.');
+      $lock = $db->prepare('SELECT id_media_archivo FROM erp_ecommerce_media_archivos WHERE id_media_archivo=:id FOR UPDATE');
+      if (!$lock || !$lock->execute(array(':id' => $id))) throw new Exception('No fue posible bloquear la imagen para revisar su acceso.');
+      $item = $this->mediaBuscarPorId($db, $id);
+      if (!$item) throw new Exception('La imagen de Media CMS no existe.');
+      $ruta = CmsMediaArchivo::ruta($item['url']);
+      clearstatcache(true, $ruta);
+      if (!is_file($ruta)) throw new Exception('El archivo no existe en este servidor. Reemplazalo desde su ficha; cambiar permisos no lo recupera.');
+      if (!is_readable($ruta)) throw new Exception('PHP no puede leer la imagen. Revisa su propietario y permisos desde el hosting.');
+      // No dar acceso publico a bytes ajenos o alterados bajo el nombre de un medio conocido.
+      $inspeccion = CmsMediaArchivo::inspeccionar($ruta, $item['nombre_archivo']);
+      if ((int) $item['bytes'] !== $inspeccion['bytes'] || !hash_equals((string) ($item['hash_sha256'] ?? ''), $inspeccion['hash'])) {
+        throw new Exception('El archivo no coincide con el registrado. No se cambiaron sus permisos; revisa la version o reemplazalo desde su ficha.');
+      }
+      $modo = @fileperms($ruta);
+      if (PHP_OS_FAMILY !== 'Windows' && $modo === false) throw new Exception('No se pudieron leer los permisos actuales. Revisa el propietario del archivo en el hosting.');
+      $permisosAntes = PHP_OS_FAMILY !== 'Windows' ? sprintf('%04o', $modo & 0777) : null;
+      if ($permisosAntes !== '0644' && !CmsMediaArchivo::asegurarLecturaPublica($ruta)) {
+        throw new Exception('El hosting no permitio confirmar los permisos de lectura publica. Revisa el propietario del archivo o establece 0644 desde su administrador de archivos.');
+      }
+      $confirmado = true;
+      $item = $this->mediaAdjuntarValidacionArchivo($item);
+      $item['permisos_antes'] = $permisosAntes;
+      $item['permisos_despues'] = $item['validacion_archivo']['permisos'];
+      $item['acceso_reparado'] = true;
+      if (!$db->commit()) throw new Exception('No se pudo cerrar la revision del acceso.');
+      $ok = $item['validacion_archivo']['ok'];
+      return $this->respuesta(false, $ok ? ($permisosAntes === '0644' ? 'info' : 'success') : 'warning',
+        $ok ? 'Permisos de lectura publica habilitados. La imagen y sus referencias se conservaron; falta comprobar su URL.' : 'Se habilitaron los permisos, pero falta verificar el archivo. ' . $item['validacion_archivo']['mensaje'], $item);
+    } catch (Throwable $error) {
+      $cerrada = $this->mediaRevertirTransaccion($db);
+      if ($item) {
+        $item = $this->mediaAdjuntarValidacionArchivo($item);
+        $item['permisos_antes'] = $permisosAntes;
+        $item['permisos_despues'] = $item['validacion_archivo']['permisos'];
+        $item['acceso_reparado'] = $confirmado;
+      }
+      // chmod no es transaccional: un fallo al liberar el bloqueo no revierte los permisos habilitados.
+      if ($confirmado) return $this->respuesta(false, 'warning', 'Los permisos de lectura publica quedaron habilitados, pero no se pudo cerrar la revision. Comprueba el acceso y actualiza la biblioteca.', $item);
+      $mensaje = $error instanceof PDOException ? 'No se pudo consultar la imagen para reparar su acceso.' : $error->getMessage();
+      if (!$cerrada) $mensaje .= ' No se pudo cerrar la revision; actualiza la biblioteca antes de reintentar.';
+      return $this->respuesta(true, 'danger', $mensaje, $item);
+    }
+  }
+
   /** IA: Codex GPT-6 | Fecha: 2026-09-24
    * Proposito: cambiar archivo/formato/nombre manteniendo ID, codigo y aliases publicos.
    * Contrato: nombre_seo y alt opcionales; archivo opcional para renombrar, resguardo y rollback.

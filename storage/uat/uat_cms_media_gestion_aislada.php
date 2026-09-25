@@ -2,7 +2,7 @@
 /**
  * IA: Codex GPT-6 | Fecha: 2026-09-24
  * Proposito: reproducir fallos de archivos y transacciones sin BD ni medios reales.
- * Impacto: regresion de reemplazos WebP, nombres SEO, aliases, bajas y validacion ICO/AVIF.
+ * Impacto: regresion de reemplazos WebP, nombres SEO, aliases, bajas, reparacion de permisos y validacion ICO/AVIF.
  * Contrato: ejecutar por CLI; PDO simulado y fixtures exclusivos en un directorio temporal nuevo.
  */
 namespace {
@@ -74,7 +74,11 @@ namespace CmsMediaUat {
     private $copia;
     private $transaccion = false;
     public function __construct($item) { $this->item = $item; }
-    public function beginTransaction(): bool { $this->copia = $this->item; $this->transaccion = true; return true; }
+    /** IA: Codex GPT-6 | Fecha: 2026-09-25 | Rechazar reparaciones sin bloqueo y aislar fallos de transaccion. */
+    public function beginTransaction(): bool {
+      if (!empty(Escenario::$fallos['inicio_transaccion'])) return false;
+      $this->copia = $this->item; $this->transaccion = true; return true;
+    }
     public function inTransaction(): bool { return $this->transaccion; }
     public function prepare($query, $options = array()): PDOStatement|false { return new Consulta($this, $query); }
     public function commit(): bool {
@@ -94,9 +98,16 @@ namespace CmsMediaUat {
     private $db;
     private $sql;
     private $leida = false;
+    private $idSolicitado;
     public function __construct($db, $sql) { $this->db = $db; $this->sql = $sql; }
     public function execute(?array $params = null): bool {
+      // IA: Codex GPT-6 | 2026-09-25 | El fixture respeta identidad consultada y fallos del bloqueo SELECT.
+      if (strpos($this->sql, 'SELECT ') === 0) {
+        if (!empty(Escenario::$fallos['select'])) return false;
+        $this->idSolicitado = isset($params[':id']) ? (int) $params[':id'] : null;
+      }
       if (strpos($this->sql, 'UPDATE ') === 0 || strpos($this->sql, 'DELETE ') === 0) {
+        Escenario::$eventos[] = array('sql_modifica', $this->db->inTransaction());
         if (!empty(Escenario::$fallos['sql'])) return false;
         if (!empty(Escenario::$fallos['excepcion_sql'])) throw new \PDOException('SQL simulado');
       }
@@ -112,11 +123,15 @@ namespace CmsMediaUat {
       return true;
     }
     /** IA: Codex GPT-6 | Fecha: 2026-09-24 | Entrega metadata bloqueada desde el snapshot simulado. */
-    public function fetchColumn(int $column = 0): mixed { return $this->db->item['metadata_json'] ?? null; }
+    public function fetchColumn(int $column = 0): mixed {
+      if ($this->idSolicitado !== null && $this->idSolicitado !== (int) ($this->db->item['id_media_archivo'] ?? 0)) return false;
+      return $this->db->item['metadata_json'] ?? null;
+    }
     /** IA: Codex GPT-6 | Fecha: 2026-09-24 | Iteracion de una sola fila permite ejecutar resolver real sin BD. */
     public function fetch(int $mode = PDO::FETCH_DEFAULT, int $cursorOrientation = PDO::FETCH_ORI_NEXT, int $cursorOffset = 0): mixed {
       if ($this->leida) return false;
       $this->leida = true;
+      if ($this->idSolicitado !== null && $this->idSolicitado !== (int) ($this->db->item['id_media_archivo'] ?? 0)) return false;
       return $this->db->item ?: false;
     }
     /** IA: Codex GPT-6 | Fecha: 2026-09-24 | Reporta finalizacion normal de lectura simulada. */
@@ -127,11 +142,22 @@ namespace CmsMediaUat {
   class CmsMediaArchivo {
     public static function ruta($url) {
       exigir(strpos($url, '/assets/media/cms/ecommerce/') === 0 && strpos($url, '..') === false, 'Ruta Media fuera del fixture');
-      return Escenario::$dir . '/' . basename($url);
+      $ruta = Escenario::$dir . '/' . basename($url);
+      // IA: Codex GPT-6 | 2026-09-25 | Conservar en el adaptador la restriccion real contra enlaces.
+      exigir(!is_link($ruta), 'Enlace Media fuera del contrato de archivo regular');
+      return $ruta;
     }
     public static function inspeccionar($ruta, $nombre) { return \CmsMediaArchivo::inspeccionar($ruta, $nombre); }
     /** IA: Codex GPT-6 | 2026-09-25 | Validar integridad real dentro del fixture aislado. */
-    public static function verificarGuardado($ruta, $bytes, $hash) { return \CmsMediaArchivo::verificarGuardado($ruta, $bytes, $hash); }
+    public static function verificarGuardado($ruta, $bytes, $hash) {
+      $informe = \CmsMediaArchivo::verificarGuardado($ruta, $bytes, $hash);
+      // IA: Codex GPT-6 | 2026-09-25 | Una reparacion aplicada puede conservar advertencias de acceso.
+      if (!empty(Escenario::$fallos['validacion_final']) && count(array_filter(Escenario::$eventos, function ($evento) { return $evento[0] === 'permisos'; }))) {
+        $informe['ok'] = false; $informe['estado'] = 'no_verificable';
+        $informe['mensaje'] = 'No se pudo confirmar la lectura publica despues de modificar los permisos.';
+      }
+      return $informe;
+    }
     /** IA: Codex GPT-6 | Fecha: 2026-09-25 | Inyecta fallos de permisos y ejecuta helper real sobre fixtures. */
     public static function asegurarLecturaPublica($ruta) {
       Escenario::$eventos[] = array('permisos', Escenario::$db->inTransaction());
@@ -158,7 +184,7 @@ namespace CmsMediaUat {
     private function valor($datos, $key, $default) { return $datos[$key] ?? $default; }
     private function respuesta($error, $tipo, $mensaje, $depurar) { return compact('error','tipo','mensaje','depurar'); }
     private function mediaBuscarPorId($db, $id) {
-      if (!$db->item) return null;
+      if (!$db->item || (int) $db->item['id_media_archivo'] !== (int) $id) return null;
       $item = $db->item;
       $metadata = json_decode($item['metadata_json'] ?? '{}', true) ?: array();
       $item['urls_anteriores'] = $metadata['rutas_anteriores'] ?? array();
@@ -382,6 +408,91 @@ namespace CmsMediaUat {
       exigir(Escenario::$estadoHttp === 404 && !Escenario::$cabeceras, 'Alias a archivo ausente no devolvio 404');
     } finally { \rename(Escenario::$dir.'/destino_ausente', $rutaActual); }
     echo 'OK controlador alias GET/HEAD301, POST405, desconocidos/self/externos/ausentes404' . PHP_EOL;
+    /** IA: Codex GPT-6 | Fecha: 2026-09-25
+     * Proposito: reparar solo lectura publica de una imagen registrada, sin cambiar bytes, URL ni BD.
+     * Impacto: verifica rechazos antes de chmod y advierte cuando falla una comprobacion posterior.
+     * Contrato: fixtures desechables; fallos PDO/validacion inyectados sin conexiones reales.
+     */
+    $casosReparacion = array(
+      array('Reparar: exige identificador', array('sin_id'=>true), true, false),
+      array('Reparar: identificador no corresponde', array('otro_id'=>true), true, false),
+      array('Reparar: registro ausente', array('sin_registro'=>true), true, false),
+      array('Reparar: falla inicio de transaccion', array('inicio_transaccion'=>true), true, false),
+      array('Reparar: falla bloqueo SELECT', array('select'=>true), true, false),
+      array('Reparar: archivo ausente', array('ausente'=>true), true, false),
+      array('Reparar: rechaza ruta externa', array('ruta_externa'=>true), true, false),
+      array('Reparar: rechaza traversal', array('traversal'=>true), true, false),
+      array('Reparar: rechaza contenido que no es imagen', array('no_imagen'=>true), true, false),
+      array('Reparar: rechaza peso diferente', array('bytes_distintos'=>true), true, false),
+      array('Reparar: rechaza hash diferente', array('hash_distinto'=>true), true, false),
+      array('Reparar: rechaza hash vacio', array('hash_vacio'=>true), true, false),
+      array('Reparar: chmod denegado', array('permisos_publicacion'=>true), true, true),
+      array('Reparar: chmod denegado y rollback lanza', array('permisos_publicacion'=>true,'rollback'=>true), true, true),
+      array('Reparar: conserva resultado si commit falla', array('commit'=>true), false, true),
+      array('Reparar: conserva resultado si commit y rollback fallan', array('commit'=>true,'rollback'=>true), false, true),
+      array('Reparar: advierte validacion posterior fallida', array('validacion_final'=>true), false, true),
+      array('Reparar: habilita lectura publica', array(), false, true)
+    );
+    foreach ($casosReparacion as [$titulo,$fallos,$esperarError,$esperarChmod]) {
+      limpiarFixture(); Escenario::$fallos = $fallos; Escenario::$eventos = array(); Escenario::$accion = 'reparar'; Escenario::$duplicado = null;
+      $original = !empty($fallos['no_imagen']) ? str_repeat('x', strlen($png)) : $png;
+      $rutaFixture = Escenario::$dir.'/imagen.png';
+      if (empty($fallos['ausente'])) { file_put_contents($rutaFixture, $original); chmod($rutaFixture, 0600); }
+      $item = itemFixture($original);
+      if (!empty($fallos['ruta_externa'])) $item['url'] = $item['ruta_publica'] = 'https://externo.invalid/imagen.png';
+      if (!empty($fallos['traversal'])) $item['url'] = $item['ruta_publica'] = '/assets/media/cms/ecommerce/../imagen.png';
+      if (!empty($fallos['bytes_distintos'])) $item['bytes']++;
+      if (!empty($fallos['hash_distinto'])) $item['hash_sha256'] = str_repeat('a',64);
+      if (!empty($fallos['hash_vacio'])) $item['hash_sha256'] = '';
+      Escenario::$db = new Conexion(!empty($fallos['sin_registro']) ? null : $item);
+      $registroOriginal = Escenario::$db->item;
+      $datos = !empty($fallos['sin_id']) ? array() : array('id_media_archivo'=>!empty($fallos['otro_id']) ? 18 : 17);
+      $res = (new Modelo())->mediaAdminRepararAccesoInterno($datos, 1);
+      exigir($res['error'] === $esperarError, $titulo . ': ' . json_encode($res));
+      $eventosPermisos = array_values(array_filter(Escenario::$eventos, function ($evento) { return $evento[0] === 'permisos'; }));
+      exigir(count($eventosPermisos) === ($esperarChmod ? 1 : 0), $titulo . ': cambio permisos antes de validar identidad/integridad');
+      foreach ($eventosPermisos as $evento) exigir($evento[1] === true, $titulo . ': chmod sin bloqueo de registro');
+      exigir(Escenario::$db->item === $registroOriginal, $titulo . ': modifico el registro');
+      exigir(!array_filter(Escenario::$eventos, function ($evento) { return $evento[0] === 'sql_modifica'; }), $titulo . ': ejecuto escritura BD');
+      exigir(!Escenario::$db->inTransaction(), $titulo . ': dejo la transaccion abierta');
+      if (empty($fallos['ausente'])) {
+        exigir(file_get_contents($rutaFixture) === $original && hash_file('sha256', $rutaFixture) === hash('sha256', $original), $titulo . ': cambio contenido');
+        clearstatcache(true, $rutaFixture);
+        if (PHP_OS_FAMILY !== 'Windows') {
+          $modoEsperado = $esperarChmod && empty($fallos['permisos_publicacion']) ? 0644 : 0600;
+          exigir((fileperms($rutaFixture) & 0777) === $modoEsperado, $titulo . ': mascara de permisos inesperada');
+        }
+      } else { exigir(!file_exists($rutaFixture), $titulo . ': creo un archivo ausente'); }
+      if (!$esperarError) {
+        exigir($res['depurar']['id_media_archivo'] === 17 && $res['depurar']['url'] === $item['url'] && $res['depurar']['hash_sha256'] === $item['hash_sha256'], $titulo . ': cambio identidad/URL/hash');
+        exigir(isset($res['depurar']['validacion_archivo']), $titulo . ': no devolvio diagnostico');
+        exigir($res['depurar']['acceso_reparado'] === true && array_key_exists('permisos_antes', $res['depurar']) && array_key_exists('permisos_despues', $res['depurar']), $titulo . ': no informo el cambio aplicado');
+        if (PHP_OS_FAMILY !== 'Windows') exigir($res['depurar']['permisos_antes'] === '0600' && $res['depurar']['permisos_despues'] === '0644', $titulo . ': no informo los permisos POSIX correctos');
+        if (!empty($fallos['commit']) || !empty($fallos['validacion_final'])) exigir($res['tipo'] === 'warning', $titulo . ': oculto fallo posterior');
+        else exigir($res['depurar']['validacion_archivo']['ok'] === true, $titulo . ': no comprobo lectura e integridad');
+      }
+      exigir(count(glob(Escenario::$dir.'/*')) === (empty($fallos['ausente']) ? 1 : 0), $titulo . ': creo archivos adicionales');
+      echo 'OK ' . $titulo . PHP_EOL;
+    }
+    $repetida = (new Modelo())->mediaAdminRepararAccesoInterno(array('id_media_archivo'=>17), 1);
+    exigir(!$repetida['error'] && $repetida['depurar']['url'] === $res['depurar']['url'] && $repetida['depurar']['validacion_archivo']['ok'] === true, 'Reparar nuevamente cambio URL o fallo');
+    exigir(Escenario::$db->item === $registroOriginal && file_get_contents($rutaFixture) === $png, 'Reparacion repetida cambio contenido/registro');
+    echo 'OK reparar nuevamente conserva URL, contenido y registro' . PHP_EOL;
+    // IA: Codex GPT-6 | 2026-09-25 | En Linux prueba el helper real; Windows puede prohibir crear symlinks.
+    $enlace = Escenario::$dir.'/enlace.png';
+    if (@symlink($rutaFixture, $enlace)) {
+      try {
+        exigir(!\CmsMediaArchivo::asegurarLecturaPublica($enlace), 'Reparar: helper acepto chmod mediante un enlace');
+        $conEnlace = $registroOriginal;
+        $conEnlace['url'] = $conEnlace['ruta_publica'] = '/assets/media/cms/ecommerce/enlace.png';
+        $conEnlace['nombre_archivo'] = 'enlace.png';
+        Escenario::$db = new Conexion($conEnlace); Escenario::$eventos = array();
+        $resEnlace = (new Modelo())->mediaAdminRepararAccesoInterno(array('id_media_archivo'=>17), 1);
+        exigir($resEnlace['error'] === true && !array_filter(Escenario::$eventos, function ($evento) { return $evento[0] === 'permisos'; }), 'Reparar: modifico permisos de un enlace');
+        exigir(Escenario::$db->item === $conEnlace && file_get_contents($rutaFixture) === $png, 'Reparar: enlace cambio registro o contenido');
+        echo 'OK reparar rechaza enlaces simbolicos sin cambiar su destino' . PHP_EOL;
+      } finally { \unlink($enlace); }
+    } else { echo 'SKIP symlink: este entorno no permite crear enlaces simbolicos de prueba.' . PHP_EOL; }
     $dib = pack('VVVvvVVVVVV',40,1,2,1,32,0,0,0,0,0,0);
     $crearIco = function ($contenido) { return pack('vvv',0,1,1).pack('CCCCvvVV',1,1,0,0,1,32,strlen($contenido),22).$contenido; };
     $rechazado = false;

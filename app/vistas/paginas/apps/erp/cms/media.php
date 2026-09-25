@@ -126,7 +126,7 @@
 
                                 <div class="col-12">
                                     <div class="cms-media-panel p-5 mb-5">
-                                        <div id="cms_media_estado" class="alert alert-light-info" role="status" aria-live="polite">Cargando biblioteca...</div>
+                                        <div id="cms_media_estado" class="alert alert-light-info" role="status" aria-live="polite" tabindex="-1">Cargando biblioteca...</div>
                                         <div id="cms_media_preflight" class="text-muted fs-7 mb-4"></div>
                                         <div class="d-flex justify-content-between align-items-end flex-wrap gap-3 mb-4">
                                             <div>
@@ -181,8 +181,8 @@
 <script>
     window.ERP_CSRF_TOKEN = "<?= htmlspecialchars(Sesionseguridad::csrfToken(), ENT_QUOTES, 'UTF-8') ?>";
 </script>
-<!-- IA: Codex GPT-6 | 2026-09-25 | Cargar validacion de archivo/acceso despues de subir o reemplazar. -->
-<script src="/assets/js/custom/apps/erp/cms/media_tools.js?v=20260925-media-validacion1"></script>
-<script src="/assets/js/custom/apps/erp/cms/media.js?v=20260925-media-validacion1"></script>
+<!-- IA: Codex GPT-6 | 2026-09-25 | Renovar cache para avisos visibles y reparacion puntual de acceso, conservando ID y URL. -->
+<script src="/assets/js/custom/apps/erp/cms/media_tools.js?v=20260925-media-acceso2"></script>
+<script src="/assets/js/custom/apps/erp/cms/media.js?v=20260925-media-acceso2"></script>
 </body>
 </html>

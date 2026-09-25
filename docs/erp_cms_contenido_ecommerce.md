@@ -1,5 +1,18 @@
 # CMS - Contenido ecommerce
 
+## Reparacion puntual de acceso Media / 2026-09-25
+
+Documentacion IA: Codex GPT-6. El dueno confirma mediante la respuesta productiva que el medio28 existe, PHP lo lee y sus permisos son `0600`; solicita poder modificarlos y ver la advertencia.
+
+- Se agrega **Reparar acceso** a la imagen seleccionada, tanto en la biblioteca como en el selector. Usa `POST /cms/media_admin_reparar_acceso_erp` con ID y CSRF. Exige `cms.editar` y `cms.publicar` (alternativa existente `catalogo.editar`), igual que reemplazar un medio utilizado.
+- El servidor bloquea la ficha durante la revision, obtiene la ruta desde BD, comprueba que sea una imagen valida y que peso/hash coincidan, y habilita `0644` solamente en ese archivo. Conserva ID, contenido, URL, aliases y usos; no cambia directorios, no usa `777` ni ejecuta reparaciones masivas.
+- Si falta el archivo, su contenido difiere, hay un enlace/ruta no valida o el hosting impide modificar sus permisos, devuelve un mensaje accionable. La reparacion no reemplaza archivos ni corrige el propietario del sistema operativo.
+- La operacion es repetible y deja auditoria explicita de permisos antes/despues. Un fallo posterior de BD al cerrar la revision no se describe como una reversion de chmod, porque el permiso ya aplicado no es transaccional. No se escriben filas de Media; solo auditoria de la accion.
+- Despues de habilitar lectura se vuelve a probar la URL sin sesion. Un permiso correcto no descarta otras restricciones del servidor.
+- `error:false, tipo:warning` requiere un aviso visible. Los avisos de estas operaciones reciben foco/scroll, se conservan junto al detalle seleccionado y no deben quedar ocultos por la recarga de la lista. El diagnostico se conserva al recargar solo mientras ID/ruta/hash/peso coincidan. Las versiones de los JS y las vistas se incrementan para evitar mezclar el backend nuevo con el selector anterior en cache.
+
+Pruebas aisladas cubren reparacion correcta e idempotente, permiso denegado, registro/archivo ausentes, ruta/contenido ajenos, integridad antes de chmod y fallos al cerrar la revision. No se modifico el archivo productivo desde esta tarea: despues del despliegue, el operador debe seleccionar el logotipo y pulsar **Reparar acceso**. Desplegar modelo/trait, controlador, Core (auditoria), JS CMS y ambas vistas juntos.
+
 ## Validacion de cargas Media / 2026-09-25
 
 Documentacion IA: Codex GPT-6. Solicitud del dueno: comprobar al subir que la imagen existe en el servidor y distinguir errores de permisos/acceso.

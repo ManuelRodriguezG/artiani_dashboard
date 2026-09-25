@@ -106,6 +106,7 @@
       data.append("uso", valor("cms_media_uso") || "home"); data.append("tipo", valor("cms_media_tipo") || "banner");
       var json = await enviarMedia("/cms/media_admin_subir_erp", data);
       var item = normalizarItemServidor(json.depurar && (json.depurar.item || json.depurar));
+      if (json.tipo === "warning") setEstado(json.mensaje || "Imagen registrada con advertencias. Revisa su acceso publico.", "warning");
       if (item) { mezclarItemsServidor([item]); estado.activo = item.id; }
       estado.archivoPendiente = null; $("cms_media_archivo").value = ""; $("cms_media_alt").value = "";
       $("cms_media_nombre_seo").value = ""; renderNombreAlta();
@@ -113,10 +114,10 @@
       estado.previewTemporal = "";
       if ($("ecom_cms_visual")) $("ecom_cms_visual").innerHTML = "";
       renderTodo();
-      setEstado("Imagen guardada. Comprobando archivo y acceso publico...", "info");
+      if (json.tipo !== "warning") setEstado("Imagen guardada. Comprobando archivo y acceso publico...", "info");
       var comprobacion = await comprobarMediaGuardada(item);
       var avisoListado = await refrescarMediaTrasGuardar();
-      setEstado((comprobacion.ok ? (json.mensaje || "Imagen agregada a biblioteca.") + " " + resumenAhorro(file.size, archivoFinal.size) + " " : "") + comprobacion.mensaje + (json.tipo === "warning" && json.mensaje ? " " + json.mensaje : "") + avisoListado, comprobacion.ok && !avisoListado && json.tipo !== "warning" ? "success" : "warning");
+      setEstado((comprobacion.ok && json.tipo !== "warning" ? (json.mensaje || "Imagen agregada a biblioteca.") + " " + resumenAhorro(file.size, archivoFinal.size) + " " : "") + unirMensajesMedia(comprobacion.mensaje, json.tipo === "warning" ? json.mensaje : "") + avisoListado, comprobacion.ok && !avisoListado && json.tipo !== "warning" ? "success" : "warning");
     } catch (error) { setEstado(error.message || "No se pudo subir la imagen.", "danger"); }
     finally { establecerOcupado(false); }
   }
@@ -166,7 +167,9 @@
       '<div class="cms-media-meta fs-7 mb-4">' + meta("Uso / tipo", labelUsoMedia(item.uso) + " / " + labelTipoMedia(item.tipo)) +
       meta("Formato", extensionMedia(item).toUpperCase()) + meta("Peso", formatoBytes(item.bytes)) + meta("Dimensiones", dimensiones(item)) +
       meta("Origen", servidor ? "Biblioteca compartida" : "Temporal de este navegador") + meta("Creado", String(item.creado_en || "").substring(0, 10)) + '</div>' +
+      (item.validacion_archivo && !item.validacion_archivo.ok ? '<div class="alert alert-warning" role="alert">' + escapeHtml(item.validacion_archivo.mensaje || 'No se confirmo el acceso al archivo.') + (puedeReemplazar && /^(permisos_restringidos|no_legible)$/.test(item.validacion_archivo.estado) ? ' Usa Reparar acceso para ajustar los permisos del archivo.' : '') + '</div>' : '') +
       '<div class="cms-media-actions"><button class="btn btn-sm btn-light-primary" type="button" data-media-detail-action="copiar">Copiar referencia</button>' +
+      (puedeReemplazar ? '<button class="btn btn-sm btn-light-primary" type="button" data-media-detail-action="reparar">Reparar acceso</button>' : '') +
       (servidor ? '<button class="btn btn-sm btn-light" type="button" data-media-detail-action="usos">Actualizar usos</button>' : '<button class="btn btn-sm btn-light-warning" type="button" data-media-detail-action="archivar">' + (item.estatus === "archivado" ? "Restaurar temporal" : "Archivar temporal") + '</button>') +
       ((!servidor || estado.permisos.editar) ? '<button class="btn btn-sm btn-light-danger" type="button" data-media-detail-action="eliminar">Eliminar' + (!servidor ? " temporal" : "") + '</button>' : '') + '</div>' +
       (servidor ? '<div class="mt-5"><h5>Donde se utiliza</h5><div id="cms_media_usos" aria-live="polite">Consultando usos guardados...</div></div>' : '') +
@@ -251,6 +254,7 @@
     if (accion === "copiar") { copiarReferencia(item); return; }
     if (accion === "usos" && esItemServidor(item)) { consultarUsos(item).catch(function (error) { mostrarErrorUsos(id, error); }); return; }
     if (accion === "sugerir") { sugerirNombre("cms_media_detalle_nombre_seo", valor("cms_media_detalle_alt") || item.nombre); renderNombreDetalle(); return; }
+    if (accion === "reparar") { repararAccesoMediaServidor(item); return; }
     if (["reemplazar", "optimizar", "webp", "guardar"].indexOf(accion) !== -1) { reemplazarMediaServidor(item, accion); return; }
     if (esItemServidor(item)) { if (accion === "eliminar" && estado.permisos.editar) eliminarMediaServidor(item); return; }
     if (accion === "archivar") item.estatus = item.estatus === "archivado" ? "activo" : "archivado";
@@ -318,20 +322,48 @@
       if (alt !== item.alt) data.append("alt", alt);
       setEstado("Actualizando imagen...", "info");
       var json = await enviarMedia("/cms/media_admin_reemplazar_erp", data);
+      if (json.tipo === "warning") setEstado(json.mensaje || "Cambios guardados con advertencias. Revisa el acceso publico.", "warning");
       estado.previewVersion[item.id] = Date.now();
       var actualizado = normalizarItemServidor(json.depurar && (json.depurar.item || json.depurar));
       if (actualizado) mezclarItemsServidor([actualizado]);
-      setEstado("Cambios guardados. Comprobando archivo y acceso publico...", "info");
+      if (json.tipo !== "warning") setEstado("Cambios guardados. Comprobando archivo y acceso publico...", "info");
       var comprobacion = await comprobarMediaGuardada(actualizado);
       var avisoListado = await refrescarMediaTrasGuardar();
-      setEstado((comprobacion.ok ? (json.mensaje || "Imagen actualizada conservando sus referencias.") + (file ? " " + resumenAhorro(item.bytes, file.size) : "") + " " : "") + comprobacion.mensaje + (json.tipo === "warning" && json.mensaje ? " " + json.mensaje : "") + avisoListado, comprobacion.ok && !avisoListado && json.tipo !== "warning" ? "success" : "warning");
+      setEstado((comprobacion.ok && json.tipo !== "warning" ? (json.mensaje || "Imagen actualizada conservando sus referencias.") + (file ? " " + resumenAhorro(item.bytes, file.size) : "") + " " : "") + unirMensajesMedia(comprobacion.mensaje, json.tipo === "warning" ? json.mensaje : "") + avisoListado, comprobacion.ok && !avisoListado && json.tipo !== "warning" ? "success" : "warning");
     } catch (error) { setEstado(error.message || "No se pudo actualizar la imagen.", "danger"); }
     finally { establecerOcupado(false); }
   }
 
   /** IA: Codex GPT-6 | Fecha: 2026-09-25. Proposito: comprobar acceso despues del guardado; impacto: mensajes CMS; contrato: helper faltante advierte sin anunciar fallo de escritura. */
   function comprobarMediaGuardada(item) {
+    if (item && item.validacion_archivo && !item.validacion_archivo.ok) return Promise.resolve({ok: false, mensaje: item.validacion_archivo.mensaje || "El servidor no pudo confirmar el archivo. Revisa su diagnostico antes de utilizarlo."});
     return window.CmsMediaTools && window.CmsMediaTools.verificarDisponibilidad ? window.CmsMediaTools.verificarDisponibilidad(item) : Promise.resolve({ok: false, mensaje: "Guardada en la biblioteca; acceso no confirmado. Actualiza la pagina para cargar la herramienta de comprobacion. No vuelvas a subirla."});
+  }
+
+  /** IA: Codex GPT-6 | Fecha: 2026-09-25. Proposito: reparar lectura de un medio existente; impacto: biblioteca CMS; contrato: POST autenticado con ID, conserva URL y comprueba acceso anonimo. */
+  async function repararAccesoMediaServidor(item) {
+    if (estado.ocupado || !esItemServidor(item) || !estado.permisos.editar || !estado.permisos.publicar) return;
+    establecerOcupado(true);
+    try {
+      setEstado("Reparando permisos de lectura de la imagen...", "info");
+      var data = new FormData(); data.append("id_media_archivo", item.media_id);
+      var json = await enviarMedia("/cms/media_admin_reparar_acceso_erp", data);
+      var actualizado = normalizarItemServidor(json.depurar && (json.depurar.item || json.depurar));
+      if (actualizado) { mezclarItemsServidor([actualizado]); estado.previewVersion[item.id] = Date.now(); }
+      renderTodo();
+      if (json.tipo === "warning") setEstado(json.mensaje || "No se pudo confirmar la reparacion del acceso.", "warning");
+      var comprobacion = await comprobarMediaGuardada(actualizado);
+      setEstado(unirMensajesMedia(json.mensaje, comprobacion.mensaje), comprobacion.ok && json.tipo !== "warning" ? "success" : "warning");
+    } catch (error) { setEstado(error.message || "No se pudieron reparar los permisos de la imagen.", "danger"); }
+    finally { establecerOcupado(false); }
+  }
+
+  /** IA: Codex GPT-6 | Fecha: 2026-09-25. Proposito: evitar diagnosticos repetidos; impacto: avisos CMS; contrato: conserva ambos textos salvo que uno ya contenga al otro. */
+  function unirMensajesMedia(primero, segundo) {
+    primero = String(primero || ""); segundo = String(segundo || "");
+    if (primero.indexOf(segundo) >= 0) return primero;
+    if (segundo.indexOf(primero) >= 0) return segundo;
+    return primero + " " + segundo;
   }
 
   /** IA: Codex GPT-6 | Fecha: 2026-09-25. Proposito: refrescar sin confundir un fallo de listado con fallo al guardar; impacto: biblioteca; contrato: conserva el item devuelto por POST. */
@@ -389,8 +421,12 @@
     items.forEach(function (item) { var index = estado.items.findIndex(function (actual) { return actual.id === item.id; }); if (index < 0) estado.items.unshift(item); else estado.items[index] = item; });
   }
 
-  /** IA: Codex GPT-6 | Fecha: 2026-09-24. Proposito: retirar cache obsoleta; impacto: biblioteca; contrato: listado servidor autoritativo conserva temporales. */
+  /** IA: Codex GPT-6 | Fecha: 2026-09-25. Proposito: refrescar sin perder diagnosticos recientes; impacto: biblioteca; contrato: conserva validacion solo para el mismo archivo/hash, retira medios ausentes. */
   function reconciliarItemsServidor(items) {
+    items.forEach(function (item) {
+      var anterior = buscarMedia(item.id);
+      if (!item.validacion_archivo && anterior && anterior.url === item.url && anterior.hash_sha256 === item.hash_sha256 && anterior.bytes === item.bytes) item.validacion_archivo = anterior.validacion_archivo;
+    });
     estado.items = estado.items.filter(function (item) { return !esItemServidor(item); }); mezclarItemsServidor(items);
     if (!buscarMedia(estado.activo)) estado.activo = estado.items[0] ? estado.items[0].id : "";
   }
@@ -492,8 +528,19 @@
   function meta(label, value) { return '<div><div class="text-muted fs-8 text-uppercase fw-bold">' + escapeHtml(label) + '</div><div class="fw-semibold">' + escapeHtml(value || "") + '</div></div>'; }
   function formatoBytes(bytes) { bytes = Number(bytes) || 0; return bytes < 1024 ? bytes + " B" : bytes < 1024 * 1024 ? Math.round(bytes / 1024) + " KB" : (bytes / (1024 * 1024)).toFixed(2) + " MB"; }
 
-  /** IA: Codex GPT-6 | Fecha: 2026-09-24. Proposito: presentar resultado accesible; impacto: UX; contrato: texto visible aun en solo lectura. */
-  function setEstado(texto, clase) { var node = $("cms_media_estado"); if (node) { node.className = "alert alert-" + (clase || "info"); node.textContent = texto; } }
+  /** IA: Codex GPT-6 | Fecha: 2026-09-25. Proposito: hacer visible el diagnostico fuera del area de carga/detalle; impacto: UX; contrato: alertas persistentes con foco y desplazamiento, sin HTML recibido. */
+  function setEstado(texto, clase) {
+    var node = $("cms_media_estado");
+    if (!node) return;
+    node.className = "alert alert-" + (clase || "info"); node.textContent = texto;
+    node.hidden = false;
+    if (clase === "warning" || clase === "danger") {
+      node.tabIndex = -1;
+      if (node.setAttribute) { node.setAttribute("role", "alert"); node.setAttribute("aria-live", "assertive"); }
+      if (node.focus) node.focus({preventScroll: true});
+      if (node.scrollIntoView) node.scrollIntoView({behavior: "auto", block: "center"});
+    }
+  }
 
   function setText(id, value) { var node = $(id); if (node) node.textContent = String(value == null ? "" : value); }
   function valor(id) { var node = $(id); return node ? String(node.value || "") : ""; }

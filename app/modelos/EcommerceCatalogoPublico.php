@@ -1075,6 +1075,8 @@ class EcommerceCatalogoPublico extends CRUD {
         "archivar" => "/cms/media_admin_archivar_erp",
         "eliminar" => "/cms/media_admin_eliminar_erp",
         "reemplazar" => "/cms/media_admin_reemplazar_erp",
+        // IA: Codex GPT-6 | 2026-09-25 | Reparacion puntual de lectura publica, sin cambiar contenido ni URL.
+        "reparar_acceso" => "/cms/media_admin_reparar_acceso_erp",
         "usos" => "/cms/media_admin_usos_erp"
       ),
       "esquema" => isset($planEsquema["depurar"]) ? $planEsquema["depurar"] : array(),

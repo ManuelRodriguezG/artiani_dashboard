@@ -12,7 +12,7 @@ const root = path.resolve(__dirname, '../..');
 
 /* IA: Codex GPT-6 | Fecha: 2026-09-24. Proposito: simular elementos usados por render Media; contrato: captura HTML y acciones, no abre navegador. */
 function element(value = '') {
-  return {value, innerHTML: '', textContent: '', addEventListener() {}};
+  return {value, innerHTML: '', textContent: '', focused: 0, scrolled: 0, attributes: {}, addEventListener() {}, focus() {this.focused++;}, scrollIntoView() {this.scrolled++;}, setAttribute(key, value) {this.attributes[key] = value;}};
 }
 
 /* IA: Codex GPT-6 | Fecha: 2026-09-24. Proposito: probar fuente autoritativa, formatos y permisos; impacto: impide regresiones de selector y borrados. */
@@ -22,6 +22,7 @@ async function probarPicker() {
   let fallar = false;
   let informeAcceso = {ok: false, mensaje: 'Guardada en la biblioteca; acceso no confirmado. HTTP 403. No vuelvas a subirla.'};
   let tipoRespuesta = 'success';
+  let validacionRespuesta = null, rechazarReparacion = false;
   const comprobadas = [], aplicadas = [];
   const context = {
     window: {ERP_CSRF_TOKEN: 'uat-mock', confirm: () => true},
@@ -36,9 +37,10 @@ async function probarPicker() {
     fetch: async (url, options) => {
       requests.push({url, options});
       if (fallar) throw new Error('Sin conexion simulada');
-      const depurar = url.includes('reemplazar') || url.includes('subir') ? {
+      if (url.includes('reparar_acceso') && rechazarReparacion) return {ok: false, status: 403, json: async () => ({error: true, mensaje: 'Sin permiso para reparar.'})};
+      const depurar = url.includes('reemplazar') || url.includes('subir') || url.includes('reparar_acceso') ? {
         id_media_archivo: 4, url: '/assets/media/cms/ecommerce/collar-perro-4-abcd1234.webp', nombre_seo: options.body.get('nombre_seo') || 'collar-perro',
-        alt: options.body.get('alt') || 'Collar de perro', bytes: 100, urls_anteriores: ['/assets/media/cms/ecommerce/logo.ico']
+        alt: options.body.get('alt') || 'Collar de perro', bytes: 100, urls_anteriores: ['/assets/media/cms/ecommerce/logo.ico'], validacion_archivo: validacionRespuesta
       } : url.includes('preflight') ? {permisos: {editar: true, publicar: false}} : {
         items: [{id_media_archivo: url.includes('offset=0') ? 2 : 1, url: '/assets/media/cms/ecommerce/test.png', ancho: 64, alto: 64, bytes: 42}],
         hay_mas: url.includes('offset=0')
@@ -49,7 +51,7 @@ async function probarPicker() {
   vm.createContext(context);
   const source = fs.readFileSync(path.join(root, 'public/assets/js/custom/apps/erp/cms/frontend_actual.js'), 'utf8');
   vm.runInContext(fs.readFileSync(path.join(root, 'public/assets/js/custom/apps/erp/cms/media_tools.js'), 'utf8'), context);
-  vm.runInContext(source.replace(/\}\)\(\);\s*$/, 'globalThis.uat = {estado, validarMediaFile, normalizarMediaServidor, mediaEnEditorActual, cargarMediaServidorPicker, eliminarArchivoMediaPicker, modificarArchivoMediaPicker, agregarYUsarMediaDesdeModal, renderMediaPicker, simularAplicar: function(fn) {aplicarMediaSeleccionada = fn;}};})();'), context);
+  vm.runInContext(source.replace(/\}\)\(\);\s*$/, 'globalThis.uat = {estado, validarMediaFile, normalizarMediaServidor, mediaEnEditorActual, cargarMediaServidorPicker, eliminarArchivoMediaPicker, modificarArchivoMediaPicker, agregarYUsarMediaDesdeModal, renderMediaPicker, repararAccesoMediaPicker, mezclarMediaItems, simularAplicar: function(fn) {aplicarMediaSeleccionada = fn;}};})();'), context);
   const t = context.uat;
   context.window.CmsMediaTools.verificarDisponibilidad = async item => {comprobadas.push(item); return informeAcceso;};
   t.simularAplicar(id => aplicadas.push(id));
@@ -78,6 +80,7 @@ async function probarPicker() {
   assert(html.includes('logo.ico?v=abc')); assert(!html.includes('<script>prueba'));
   assert(/id="cms_actual_media_eliminar" disabled/.test(html), 'Borrador bloquea eliminar en UI');
   assert(html.includes('cms_actual_media_reemplazar'));
+  assert(html.includes('cms_actual_media_reparar_acceso'), 'Editar+publicar habilita reparacion de acceso');
   assert(!html.includes('id="cms_actual_media_optimizar"'), 'ICO no ofrece optimizacion');
   assert(!html.includes('id="cms_actual_media_convertir_webp"'), 'ICO no ofrece conversion de la imagen actual');
   assert(html.includes('accept=".jpg,.jpeg,.png,.webp,.gif,.avif,.ico"'), 'Reemplazo permite formato diferente');
@@ -85,6 +88,7 @@ async function probarPicker() {
   t.estado.mediaBiblioteca.permisos = {};
   t.renderMediaPicker(); html = nodes.cms_actual_media_preview_seleccion.innerHTML;
   assert(!html.includes('id="cms_actual_media_reemplazar"')); assert(!html.includes('id="cms_actual_media_eliminar"'));
+  assert(!html.includes('id="cms_actual_media_reparar_acceso"'), 'Reparacion oculta sin permisos');
   delete nodes.cms_actual_media_lista; delete nodes.cms_actual_media_preview_seleccion;
   nodes.cms_actual_media_reemplazo = element();
   nodes.cms_actual_media_reemplazo.files = [new File(['webp-fixture'], 'collar.webp', {type: 'image/webp'})];
@@ -134,6 +138,34 @@ async function probarPicker() {
   assert.equal(aplicadas.length, 1, 'Advertencia de backend no se oculta ni autoaplica');
   assert(nodes.cms_actual_media_estado.className.includes('warning'));
   assert(nodes.cms_actual_media_estado.textContent.includes('Aviso servidor simulado.'));
+  // IA: Codex GPT-6 | 2026-09-25 | Reproduce error=false/warning/0600: visible, preservado ante helper obsoleto y sin autoaplicar; reparacion usa ID y CSRF.
+  validacionRespuesta = {ok: false, estado: 'permisos_restringidos', existe: true, legible: true, permisos_publicos: false, permisos: '0600', mensaje: 'El archivo existe, pero tiene permisos restringidos (0600).'};
+  const antesAplicadas = aplicadas.length, antesComprobadas = comprobadas.length;
+  t.estado.mediaPicker.archivo = file; t.estado.mediaPicker.dataUrl = 'data:fixture';
+  await t.agregarYUsarMediaDesdeModal();
+  assert(nodes.cms_actual_media_estado.textContent.includes('0600'));
+  assert.equal(nodes.cms_actual_media_estado.attributes.role, 'alert');
+  assert(nodes.cms_actual_media_estado.focused > 0 && nodes.cms_actual_media_estado.scrolled > 0, 'Aviso recibe foco y se desplaza al viewport del modal');
+  assert.equal(aplicadas.length, antesAplicadas); assert.equal(comprobadas.length, antesComprobadas, 'Diagnostico de disco prevalece sobre helper antiguo');
+  const restringida = t.estado.mediaBiblioteca.items.find(x => x.id === row.id);
+  const refrescada = t.normalizarMediaServidor({id_media_archivo: 4, url: restringida.url, bytes: restringida.bytes});
+  assert.equal(t.mezclarMediaItems([restringida], [refrescada])[0].validacion_archivo.permisos, '0600');
+  t.estado.mediaBiblioteca.permisos.publicar = false;
+  const solicitudesAntes = requests.length;
+  await t.repararAccesoMediaPicker(restringida); assert.equal(requests.length, solicitudesAntes, 'Sin publicar no solicita reparacion');
+  t.estado.mediaBiblioteca.permisos.publicar = true;
+  rechazarReparacion = true;
+  await t.repararAccesoMediaPicker(restringida);
+  assert(nodes.cms_actual_media_estado.className.includes('danger')); assert(nodes.cms_actual_media_estado.textContent.includes('Sin permiso'));
+  assert.equal(t.estado.mediaBiblioteca.ocupada, false);
+  rechazarReparacion = false; validacionRespuesta = {ok: true, permisos: '0644'}; tipoRespuesta = 'success';
+  await t.repararAccesoMediaPicker(restringida);
+  const reparacion = requests.filter(x => x.url.includes('reparar_acceso')).at(-1);
+  assert.equal(reparacion.options.method, 'POST'); assert.equal(reparacion.options.body.get('id_media_archivo'), '4');
+  assert.equal(reparacion.options.body.get('_csrf'), 'uat-mock'); assert.equal(reparacion.options.body.has('archivo'), false);
+  assert.equal(t.estado.mediaBiblioteca.items.find(x => x.id === row.id).url, restringida.url, 'Reparacion conserva URL');
+  assert(nodes.cms_actual_media_estado.className.includes('success')); assert.equal(aplicadas.length, antesAplicadas, 'Reparar no aplica ni cierra el selector');
+  validacionRespuesta = null;
   tipoRespuesta = 'success';
   cache.erp_cms_media_biblioteca_local_v1 = JSON.stringify([{id: 'bd_99', origen: 'bd', url: '/assets/media/cms/ecommerce/eliminada.png'}]);
   t.cargarMediaServidorPicker();
@@ -155,7 +187,7 @@ async function probarBiblioteca() {
   const requests = [];
   let registro = {id_media_archivo: 9, url: '/assets/media/cms/ecommerce/vieja.png', bytes: 300, alt: 'Collar azul', nombre_seo: 'vieja', extension: 'png'};
   let informeAcceso = {ok: false, mensaje: 'Guardada en la biblioteca; acceso no confirmado. HTTP 404. No vuelvas a subirla.'};
-  let tipoRespuesta = 'success', fallarListado = false;
+  let tipoRespuesta = 'success', fallarListado = false, rechazarReparacion = false;
   const comprobadas = [];
   const context = {
     window: {ERP_CSRF_TOKEN: 'uat-biblioteca', confirm: () => true}, FormData, File,
@@ -164,11 +196,12 @@ async function probarBiblioteca() {
     fetch: async (url, options) => {
       requests.push({url, options});
       if (fallarListado && url.includes('listar')) throw new Error('Listado desconectado');
+      if (url.includes('reparar_acceso') && rechazarReparacion) return {ok: false, status: 403, json: async () => ({error: true, mensaje: 'Sin permiso para reparar.'})};
       let depurar;
       if (url.includes('reemplazar')) {
         registro = Object.assign({}, registro, {url: '/assets/media/cms/ecommerce/collar-azul-9-abcd1234.webp', extension: 'webp', nombre_seo: options.body.get('nombre_seo') || registro.nombre_seo, bytes: 100, urls_anteriores: ['/assets/media/cms/ecommerce/vieja.png']});
         depurar = registro;
-      } else if (url.includes('subir')) depurar = registro;
+      } else if (url.includes('subir') || url.includes('reparar_acceso')) depurar = registro;
       else if (url.includes('usos')) depurar = {usos: [], total: 0, puede_eliminar: true};
       else depurar = {persistencia_real: true, items: [registro], hay_mas: false};
       return {ok: true, json: async () => ({error: false, tipo: tipoRespuesta, mensaje: 'Aviso servidor simulado.', depurar})};
@@ -177,7 +210,7 @@ async function probarBiblioteca() {
   vm.createContext(context);
   vm.runInContext(fs.readFileSync(path.join(root, 'public/assets/js/custom/apps/erp/cms/media_tools.js'), 'utf8'), context);
   const source = fs.readFileSync(path.join(root, 'public/assets/js/custom/apps/erp/cms/media.js'), 'utf8');
-  vm.runInContext(source.replace(/\}\)\(\);\s*$/, 'globalThis.uat = {estado, normalizarItemServidor, reemplazarMediaServidor, subirArchivoServidor};})();'), context);
+  vm.runInContext(source.replace(/\}\)\(\);\s*$/, 'globalThis.uat = {estado, normalizarItemServidor, reemplazarMediaServidor, subirArchivoServidor, repararAccesoMediaServidor, reconciliarItemsServidor};})();'), context);
   context.window.CmsMediaTools.verificarDisponibilidad = async item => {comprobadas.push(item); return informeAcceso;};
   const t = context.uat, row = t.normalizarItemServidor(registro);
   t.estado.items = [row]; t.estado.activo = row.id; t.estado.permisos = {editar: true, publicar: true};
@@ -212,6 +245,31 @@ async function probarBiblioteca() {
   nodes.cms_media_alt.value = 'Collar azul'; t.estado.archivoPendiente = new File(['webp'], 'collar.webp', {type: 'image/webp'});
   await t.subirArchivoServidor();
   assert(nodes.cms_media_estado.className.includes('warning')); assert(nodes.cms_media_estado.textContent.includes('Aviso servidor simulado.'));
+  // IA: Codex GPT-6 | 2026-09-25 | Permisos 0600 sobreviven refresco y helper ausente; reparar valida permiso y muestra errores 403 sin perder el archivo.
+  registro.validacion_archivo = {ok: false, estado: 'permisos_restringidos', permisos: '0600', mensaje: 'El archivo existe, pero tiene permisos restringidos (0600).'};
+  const herramientas = context.window.CmsMediaTools; delete context.window.CmsMediaTools;
+  nodes.cms_media_alt.value = 'Collar azul'; t.estado.archivoPendiente = new File(['webp'], 'collar.webp', {type: 'image/webp'});
+  await t.subirArchivoServidor();
+  assert(nodes.cms_media_estado.textContent.includes('0600')); assert.equal(nodes.cms_media_estado.attributes.role, 'alert');
+  assert(nodes.cms_media_estado.focused > 0 && nodes.cms_media_estado.scrolled > 0, 'Aviso visible desde alta y detalle');
+  const restringida = t.estado.items[0];
+  t.reconciliarItemsServidor([t.normalizarItemServidor(Object.assign({}, registro, {validacion_archivo: null}))]);
+  assert.equal(t.estado.items[0].validacion_archivo.permisos, '0600', 'Listado no borra diagnostico reciente del mismo archivo');
+  t.estado.permisos.publicar = false;
+  const solicitudesAntes = requests.length;
+  await t.repararAccesoMediaServidor(restringida); assert.equal(requests.length, solicitudesAntes);
+  t.estado.permisos.publicar = true; rechazarReparacion = true;
+  await t.repararAccesoMediaServidor(restringida);
+  assert(nodes.cms_media_estado.className.includes('danger')); assert(nodes.cms_media_estado.textContent.includes('Sin permiso'));
+  assert.equal(t.estado.ocupado, false);
+  rechazarReparacion = false; tipoRespuesta = 'success'; registro.validacion_archivo = {ok: true, permisos: '0644'};
+  context.window.CmsMediaTools = herramientas;
+  await t.repararAccesoMediaServidor(restringida);
+  const reparacion = requests.filter(x => x.url.includes('reparar_acceso')).at(-1);
+  assert.equal(reparacion.options.body.get('id_media_archivo'), '9'); assert.equal(reparacion.options.body.get('_csrf'), 'uat-biblioteca');
+  assert.equal(reparacion.options.body.has('archivo'), false); assert.equal(t.estado.items[0].url, restringida.url);
+  assert(nodes.cms_media_estado.className.includes('success')); assert.equal(t.estado.items[0].validacion_archivo.permisos, '0644');
+  registro.validacion_archivo = null;
   tipoRespuesta = 'success'; fallarListado = true;
   nodes.cms_media_alt.value = 'Collar azul'; t.estado.archivoPendiente = new File(['webp'], 'collar.webp', {type: 'image/webp'});
   await t.subirArchivoServidor();

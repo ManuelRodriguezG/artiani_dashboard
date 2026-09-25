@@ -122,7 +122,8 @@
 				'EcommercePublico.publicaciones_lote_publicar_erp',
 				'Cms.contenido_bloque_guardar_erp',
 				// IA: Codex GPT-6 | 2026-09-24 | Media registra resultado explicito; evitar duplicarlo.
-				'Cms.media_admin_subir_erp', 'Cms.media_admin_eliminar_erp', 'Cms.media_admin_reemplazar_erp',
+				// IA: Codex GPT-6 | 2026-09-25 | Reparacion de lectura tiene auditoria explicita de permisos antes/despues.
+				'Cms.media_admin_subir_erp', 'Cms.media_admin_eliminar_erp', 'Cms.media_admin_reemplazar_erp', 'Cms.media_admin_reparar_acceso_erp',
 				'Cms.contenido_bloque_estatus_erp',
 				'Cms.contenido_publicacion_guardar_erp',
 				'Cms.contenido_publicacion_estatus_erp',
