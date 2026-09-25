@@ -10,13 +10,15 @@
   var MEDIA_STORAGE_KEY = "erp_cms_media_biblioteca_local_v1";
   var FRONTEND_DRAFT_STORAGE_KEY = "erp_cms_frontend_actual_borrador_v1";
   var MEDIA_MAX_BYTES = 2 * 1024 * 1024;
-  var MEDIA_MIMES = ["image/jpeg", "image/png", "image/webp", "image/vnd.microsoft.icon", "image/x-icon", "image/icon", "application/ico"];
+  var MEDIA_MIMES = ["image/jpeg", "image/png", "image/webp", "image/gif", "image/avif", "image/vnd.microsoft.icon", "image/x-icon", "image/icon", "application/ico"];
 
   var estado = {
     grupo: "global",
     vistaDedicada: false,
     borradorLocalCargado: false,
     mediaPicker: { contexto: "", index: 0, campo: "", archivo: null, dataUrl: "", seleccion: "" },
+    // IA: Codex GPT-6 | Fecha: 2026-09-24. CMS Media: solo el listado vigente autoriza seleccionar archivos; la cache no restaura eliminados.
+    mediaBiblioteca: { items: [], cargada: false, permisos: {}, cargando: false, ocupada: false, usos: {} },
     catalogos: { categorias: [], categoriasPorId: {}, marcas: [], marcasPorId: {} },
     datos: {
       global: {
@@ -617,6 +619,21 @@
             mostrar_badges: true
           }
         },
+        home_componentes: {
+          codigo: "home_componentes",
+          tipo: "home_composicion",
+          visible: true,
+          orden: 30,
+          contrato: "home-componentes-2026-09-24",
+          titulo: "Componentes del Home",
+          subtitulo: "Orden publicado de los modulos visuales del inicio.",
+          secciones: [
+            { codigo: "home_mascotas", tipo: "mascotas_destacadas", slot: "home.mascotas", titulo: "Elige tu mascota", visible: false, orden: 30, items: [] },
+            { codigo: "home_fabricacion", tipo: "fabricacion_artiani", slot: "home.fabricacion", titulo: "Fabricacion Artiani", visible: false, orden: 40, items: [] },
+            { codigo: "home_seleccion", tipo: "seleccion_artiani", slot: "home.seleccion", titulo: "Seleccion Artiani", visible: false, orden: 50, items: [] },
+            { codigo: "home_ubicacion", tipo: "ubicacion_mapa", slot: "home.ubicacion", titulo: "Ubicacion", visible: true, orden: 90, items: [], config: { fuente: "cms_global" } }
+          ]
+        },
         home_productos_carrusel: {
           codigo: "home_nuevos_acuario",
           tipo: "productos_carrusel",
@@ -785,7 +802,9 @@
           },
           items: [
             {
-              titulo: "Encuentra lo que necesitas para tu mascota",
+              texto_superior: "Artiani",
+              logo_superior: "",
+              titulo: "Encuentra lo que necesitas para tus mascotas",
               subtitulo: "",
               imagen_desktop: "",
               imagen_mobile: "",
@@ -893,10 +912,15 @@
       prioridad: 7,
       secciones: [
         seccion("home_hero_carrusel", "hero_carrusel", "Banner principal con imagen desktop/mobile y slides.", ["items", "autoplay", "intervalo_ms", "cta"]),
-        seccion("home_orden_componentes", "orden_componentes", "Orden visible de componentes del Home; el hero se mantiene fijo arriba.", ["slot", "tipo", "orden", "visible"]),
+        seccion("home_orden_componentes", "orden_componentes", "Orden visible de componentes del Home; el hero se mantiene fijo arriba y beneficios queda debajo.", ["slot", "tipo", "orden", "visible"]),
+        seccion("home_mascotas_destacadas", "mascotas_destacadas", "Elige tu mascota.", ["categoria", "titulo", "imagen", "orden"]),
+        seccion("home_fabricacion_artiani", "fabricacion_artiani", "Fabricacion Artiani: exactamente dos categorias.", ["categoria", "titulo", "descripcion", "imagen"]),
+        seccion("home_seleccion_artiani", "seleccion_artiani", "Seleccion Artiani: exactamente cuatro categorias.", ["categoria", "etiqueta", "titulo", "imagen"]),
+        seccion("home_banner_ancho_completo", "banner_ancho_completo", "Banners panoramicos repetibles.", ["categoria", "imagen_desktop", "imagen_mobile", "orden"]),
+        seccion("home_banners_divididos", "banners_divididos", "Componentes de dos banners repetibles.", ["categoria", "imagen", "titulo", "orden"]),
+        seccion("home_ubicacion_mapa", "ubicacion_mapa", "Mapa ordenable que usa CMS Global.", ["orden", "visible"]),
         seccion("home_promo", "promo_strip", "Franja corta para avisos, WhatsApp, envios o mensajes comerciales.", ["texto", "icono", "cta", "visible"]),
-        seccion("home_promos_categoria", "promos_categoria", "Promos visuales grandes hacia categorias comerciales fuertes.", ["titulo", "imagen", "url", "path_slug"]),
-        seccion("home_categorias_destacadas", "categorias_destacadas", "Categorias reales publicadas con imagen card/banner.", ["categoria_id", "slug", "imagen_card", "imagen_banner"]),
+        seccion("home_categorias_destacadas", "categorias_destacadas", "Categorias reales publicadas con imagen card/banner. Legacy compatible mientras se migra a componentes.", ["categoria_id", "slug", "imagen_card", "imagen_banner"]),
         seccion("home_productos_destacados", "productos_destacados", "Productos por criterio o lista manual.", ["fuente.modo", "fuente.criterio", "fuente.productos", "limite"]),
         seccion("home_productos_carrusel", "productos_carrusel", "Nuevos productos por categoria con carrusel de 8 productos.", ["categoria_slug", "incluir_hijos", "limite", "orden"]),
         seccion("home_promo_editorial", "promo_editorial", "Banner editorial grande de categoria con imagen desktop/mobile.", ["titulo", "imagen", "cta", "config"]),
@@ -1202,16 +1226,26 @@
     if (!node) return;
     var hero = bloquesSlotPublicado(depurar, "home.hero");
     var promo = bloquesSlotPublicado(depurar, "home.promo");
-    var promosCategoria = bloquesSlotPublicado(depurar, "home.promos");
     var categorias = bloquesSlotPublicado(depurar, "home.categorias");
     var marcas = bloquesSlotPublicado(depurar, "home.marcas");
     var destacados = bloquesSlotPublicado(depurar, "home.destacados");
     var esenciales = bloquesSlotPublicado(depurar, "home.esenciales");
     var compraGuiada = bloquesSlotPublicado(depurar, "home.compra_guiada");
+    var mascotas = bloquesSlotPublicado(depurar, "home.mascotas");
+    var fabricacion = bloquesSlotPublicado(depurar, "home.fabricacion");
+    var seleccion = bloquesSlotPublicado(depurar, "home.seleccion");
+    var bannerAncho = bloquesSlotPublicado(depurar, "home.banner_ancho_completo");
+    var bannersDivididos = bloquesSlotPublicado(depurar, "home.banners_divididos");
+    var ubicacion = bloquesSlotPublicado(depurar, "home.ubicacion");
     node.innerHTML = [
       tarjetaEstadoHome("Hero / Banner", hero, "home.hero", "cms_actual_banner_api"),
       tarjetaEstadoHome("Promo", promo, "home.promo", "cms_actual_promo_api"),
-      tarjetaEstadoHome("Promos categoria", promosCategoria, "home.promos", "cms_actual_home_promos_api"),
+      tarjetaEstadoHome("Elige tu mascota", mascotas, "home.mascotas", "cms_actual_home_componentes_api"),
+      tarjetaEstadoHome("Fabricacion Artiani", fabricacion, "home.fabricacion", "cms_actual_home_componentes_api"),
+      tarjetaEstadoHome("Seleccion Artiani", seleccion, "home.seleccion", "cms_actual_home_componentes_api"),
+      tarjetaEstadoHome("Banner panoramico", bannerAncho, "home.banner_ancho_completo", "cms_actual_home_componentes_api"),
+      tarjetaEstadoHome("Banners divididos", bannersDivididos, "home.banners_divididos", "cms_actual_home_componentes_api"),
+      tarjetaEstadoHome("Ubicacion / mapa", ubicacion, "home.ubicacion", "cms_actual_home_componentes_api"),
       tarjetaEstadoHome("Categorias", categorias, "home.categorias", "cms_actual_home_categorias_api"),
       tarjetaEstadoHome("Marcas", marcas, "home.marcas", "cms_actual_home_marcas_api"),
       tarjetaEstadoHome("Destacados", destacados, "home.destacados", "cms_actual_home_productos_api"),
@@ -1343,6 +1377,9 @@
     if (item.codigo === "home_orden_componentes") {
       return renderHomeOrdenComponentes(item);
     }
+    if (esHomeComponenteSeparado(item.codigo)) {
+      return renderHomeComponenteSeparado(item);
+    }
     if (item.codigo === "home_promo") {
       return renderPromoHome(item);
     }
@@ -1461,7 +1498,6 @@
   function homeComponentesOrdenables() {
     var defs = [
       ["home_promo", "home.promo", "Promo / avisos"],
-      ["home_promos_categoria", "home.promos", "Promos por categoria"],
       ["home_categorias_destacadas", "home.categorias", "Categorias destacadas"],
       ["home_productos_destacados", "home.destacados", "Productos destacados"],
       ["home_productos_carrusel", "home.productos_carrusel", "Nuevos productos por categoria"],
@@ -1489,6 +1525,195 @@
       '<td><input class="form-control form-control-sm" data-home-order-key="' + escapeAttr(item.key) + '" data-home-order-field="orden" value="' + escapeAttr(item.data.orden || 10) + '"></td>' +
       '<td><div class="d-flex gap-2"><button class="btn btn-sm btn-light" type="button" data-home-order-key="' + escapeAttr(item.key) + '" data-home-order-action="subir"><i class="bi bi-arrow-up"></i></button><button class="btn btn-sm btn-light" type="button" data-home-order-key="' + escapeAttr(item.key) + '" data-home-order-action="bajar"><i class="bi bi-arrow-down"></i></button><button class="btn btn-sm btn-light-warning" type="button" data-home-order-key="' + escapeAttr(item.key) + '" data-home-order-action="toggle"><i class="bi ' + (visible ? 'bi-eye-slash' : 'bi-eye') + '"></i></button></div></td>' +
     '</tr>';
+  }
+
+  function renderHomeComponentes(item) {
+    var data = homeComponentesData();
+    var secciones = data.secciones || [];
+    return '<div class="cms-actual-card mb-4">' +
+      '<div class="d-flex justify-content-between align-items-start gap-3 flex-wrap mb-4">' +
+        '<div><div class="fw-bold">' + escapeHtml(item.codigo) + '</div><div class="text-muted fs-8">' + escapeHtml(item.descripcion) + '</div></div>' +
+        '<div class="d-flex flex-wrap gap-2"><button class="btn btn-sm btn-light-primary" type="button" data-home-comp-add="banner_ancho_completo"><i class="bi bi-plus-circle"></i> Banner panoramico</button><button class="btn btn-sm btn-light-primary" type="button" data-home-comp-add="banners_divididos"><i class="bi bi-plus-circle"></i> Dos banners</button><button class="btn btn-sm btn-light-info" type="button" id="cms_actual_home_componentes_api"><i class="bi bi-broadcast"></i> Ver API publicada</button><button class="btn btn-sm btn-primary" type="button" id="cms_actual_home_componentes_publicar"><i class="bi bi-cloud-check"></i> Publicar componentes</button></div>' +
+      '</div>' +
+      '<div class="alert alert-light-info fs-7 py-3 mb-4">Administra componentes independientes del Home. Puedes activar, ocultar, mover o quitar cada componente. Hero y beneficios se mantienen como piezas fijas del frontend.</div>' +
+      secciones.map(renderHomeComponenteSeccion).join("") +
+      '<textarea class="d-none" id="cms_actual_home_componentes_json">' + escapeHtml(JSON.stringify({ secciones: secciones }, null, 2)) + '</textarea>' +
+      '<div class="alert alert-light-warning fs-7 py-3 mt-4 mb-0" id="cms_actual_home_componentes_estado" data-home-comp-status>Cada componente visible debe estar completo. Los componentes incompletos no se enviaran a la API.</div>' +
+    '</div>';
+  }
+
+  function esHomeComponenteSeparado(codigo) {
+    return [
+      "home_mascotas_destacadas",
+      "home_fabricacion_artiani",
+      "home_seleccion_artiani",
+      "home_banner_ancho_completo",
+      "home_banners_divididos",
+      "home_ubicacion_mapa"
+    ].indexOf(codigo) !== -1;
+  }
+
+  function homeComponenteTipoDesdeCodigo(codigo) {
+    var mapa = {
+      home_mascotas_destacadas: "mascotas_destacadas",
+      home_fabricacion_artiani: "fabricacion_artiani",
+      home_seleccion_artiani: "seleccion_artiani",
+      home_banner_ancho_completo: "banner_ancho_completo",
+      home_banners_divididos: "banners_divididos",
+      home_ubicacion_mapa: "ubicacion_mapa"
+    };
+    return mapa[codigo] || "";
+  }
+
+  function renderHomeComponenteSeparado(item) {
+    var tipo = homeComponenteTipoDesdeCodigo(item.codigo);
+    var indices = indicesHomeComponenteTipo(tipo);
+    if (!indices.length && tipo) {
+      indices = [asegurarHomeComponenteTipo(tipo)];
+    }
+    var repetible = homeComponenteMeta(tipo).repetible;
+    return '<div class="cms-actual-card mb-4">' +
+      '<div class="d-flex justify-content-between align-items-start gap-3 flex-wrap mb-4">' +
+        '<div><div class="fw-bold">' + escapeHtml(item.codigo) + '</div><div class="text-muted fs-8">' + escapeHtml(item.descripcion) + '</div></div>' +
+        '<div class="d-flex flex-wrap gap-2">' +
+          (repetible ? '<button class="btn btn-sm btn-light-primary" type="button" data-home-comp-add="' + escapeAttr(tipo) + '"><i class="bi bi-plus-circle"></i> Agregar componente</button>' : '') +
+          '<button class="btn btn-sm btn-light-info" type="button" data-home-comp-api><i class="bi bi-broadcast"></i> Ver API publicada</button>' +
+          '<button class="btn btn-sm btn-primary" type="button" data-home-comp-publish><i class="bi bi-cloud-check"></i> Publicar componentes</button>' +
+        '</div>' +
+      '</div>' +
+      '<div class="alert alert-light-info fs-7 py-3 mb-4">Esta es una seccion independiente. Puedes activarla, moverla u ocultarla sin revolverla con otros componentes.</div>' +
+      indices.map(function (seccionIndex) {
+        var seccion = (homeComponentesData().secciones || [])[seccionIndex];
+        return renderHomeComponenteSeccion(seccion, seccionIndex);
+      }).join("") +
+      '<div class="alert alert-light-warning fs-7 py-3 mt-4 mb-0" data-home-comp-status>Publica para enviar estos componentes a la API del Home.</div>' +
+    '</div>';
+  }
+
+  function renderHomeComponenteSeccion(seccion, seccionIndex) {
+    var items = seccion.items || [];
+    var meta = homeComponenteMeta(seccion.tipo);
+    var puedeAgregar = meta.max > items.length && seccion.tipo !== "ubicacion_mapa";
+    return '<div class="cms-actual-slide mb-4">' +
+      '<div class="d-flex justify-content-between align-items-start gap-3 flex-wrap mb-3">' +
+        '<div><div class="fw-bold">' + escapeHtml(seccion.titulo || seccion.codigo || seccion.tipo) + '</div><div class="text-muted fs-8"><span class="badge badge-light me-2">' + escapeHtml(seccion.slot || "") + '</span>' + escapeHtml(seccion.codigo || "") + '</div></div>' +
+        '<div class="d-flex flex-wrap gap-2">' +
+          '<button class="btn btn-sm btn-light" type="button" data-home-comp-action="up" data-section-index="' + escapeAttr(seccionIndex) + '"><i class="bi bi-arrow-up"></i></button>' +
+          '<button class="btn btn-sm btn-light" type="button" data-home-comp-action="down" data-section-index="' + escapeAttr(seccionIndex) + '"><i class="bi bi-arrow-down"></i></button>' +
+          '<button class="btn btn-sm btn-light-warning" type="button" data-home-comp-action="toggle" data-section-index="' + escapeAttr(seccionIndex) + '"><i class="bi ' + (seccion.visible === false ? 'bi-eye' : 'bi-eye-slash') + '"></i></button>' +
+          (meta.repetible ? '<button class="btn btn-sm btn-light-danger" type="button" data-home-comp-action="remove" data-section-index="' + escapeAttr(seccionIndex) + '"><i class="bi bi-trash"></i></button>' : '') +
+        '</div>' +
+      '</div>' +
+      '<div class="row g-3 mb-4">' +
+        inputHomeComponenteSeccion(seccionIndex, "codigo", "Codigo estable", seccion.codigo, "col-md-3") +
+        inputHomeComponenteSeccion(seccionIndex, "titulo", "Titulo modulo", seccion.titulo, "col-md-3") +
+        inputHomeComponenteSeccion(seccionIndex, "subtitulo", "Subtitulo modulo", seccion.subtitulo, "col-md-4") +
+        inputHomeComponenteSeccion(seccionIndex, "orden", "Orden", seccion.orden, "col-md-2") +
+      '</div>' +
+      (seccion.tipo === "ubicacion_mapa" ? '<div class="alert alert-light-secondary fs-7 mb-0">Este bloque solo se ordena. La direccion, horarios y mapa vienen de CMS / Frontend / Global.</div>' :
+        '<div class="d-flex justify-content-between align-items-center gap-2 flex-wrap mb-3"><div class="fw-semibold">Items de categoria <span class="text-muted fs-8">(' + items.length + ' de ' + (meta.max === 99 ? 'varios' : meta.max) + ')</span></div>' +
+        (puedeAgregar ? '<button class="btn btn-sm btn-light-primary" type="button" data-home-comp-item-add="' + escapeAttr(seccionIndex) + '"><i class="bi bi-plus-circle"></i> Agregar item</button>' : '') + '</div>' +
+        items.map(function (item, itemIndex) { return renderHomeComponenteItem(seccion, seccionIndex, item, itemIndex); }).join("")) +
+    '</div>';
+  }
+
+  function renderHomeComponenteItem(seccion, seccionIndex, item, itemIndex) {
+    var mediaIndex = seccionIndex + ":" + itemIndex;
+    var categoriaId = item.categoria_id || (item.categoria || {}).id || 0;
+    var preview = item.imagen_desktop || item.imagen || "";
+    return '<div class="border rounded p-3 mb-3 bg-light">' +
+      '<div class="d-flex justify-content-between align-items-center gap-2 flex-wrap mb-3">' +
+        '<div class="fw-semibold">Item ' + escapeHtml(itemIndex + 1) + '</div>' +
+        '<div class="d-flex gap-2">' +
+          '<button class="btn btn-sm btn-light" type="button" data-home-comp-item-action="up" data-section-index="' + escapeAttr(seccionIndex) + '" data-item-index="' + escapeAttr(itemIndex) + '"><i class="bi bi-arrow-up"></i></button>' +
+          '<button class="btn btn-sm btn-light" type="button" data-home-comp-item-action="down" data-section-index="' + escapeAttr(seccionIndex) + '" data-item-index="' + escapeAttr(itemIndex) + '"><i class="bi bi-arrow-down"></i></button>' +
+          '<button class="btn btn-sm btn-light-success" type="button" data-home-comp-item-action="category-image" data-section-index="' + escapeAttr(seccionIndex) + '" data-item-index="' + escapeAttr(itemIndex) + '"><i class="bi bi-image"></i> Usar categoria</button>' +
+          '<button class="btn btn-sm btn-light-danger" type="button" data-home-comp-item-action="remove" data-section-index="' + escapeAttr(seccionIndex) + '" data-item-index="' + escapeAttr(itemIndex) + '"><i class="bi bi-trash"></i></button>' +
+        '</div>' +
+      '</div>' +
+      (preview ? '<div class="mb-3"><img src="' + escapeAttr(urlPreviewSeguro(preview)) + '" alt="' + escapeAttr(item.alt || item.titulo || "") + '" style="width:100%;max-height:150px;object-fit:cover;border-radius:8px;border:1px solid #e7e9ef;background:#fff;"></div>' : '') +
+      '<div class="row g-3">' +
+        '<div class="col-md-12"><label class="form-label fs-8 fw-bold">Categoria real</label><select class="form-select form-select-sm" data-home-comp-category="' + escapeAttr(seccionIndex) + '" data-item-index="' + escapeAttr(itemIndex) + '">' + opcionesCategoriasCms(categoriaId) + '</select></div>' +
+        inputHomeComponenteItem(seccionIndex, itemIndex, "titulo", "Titulo visible", item.titulo, "col-md-4") +
+        inputHomeComponenteItem(seccionIndex, itemIndex, "subtitulo", "Subtitulo", item.subtitulo, "col-md-4") +
+        inputHomeComponenteItem(seccionIndex, itemIndex, "texto_enlace", "Texto enlace", item.texto_enlace || (item.cta || {}).label || "Ver categoria", "col-md-4") +
+        inputHomeComponenteItem(seccionIndex, itemIndex, "descripcion", "Descripcion breve", item.descripcion, "col-md-6") +
+        inputHomeComponenteItem(seccionIndex, itemIndex, "etiqueta", "Etiqueta corta", item.etiqueta, "col-md-3") +
+        inputHomeComponenteItem(seccionIndex, itemIndex, "orden", "Orden item", item.orden || ((itemIndex + 1) * 10), "col-md-3") +
+        inputHomeComponenteItem(seccionIndex, itemIndex, "imagen_desktop", "Imagen desktop personalizada", item.imagen_desktop || item.imagen || "", "col-md-6", true, mediaIndex) +
+        inputHomeComponenteItem(seccionIndex, itemIndex, "imagen_mobile", "Imagen mobile personalizada", item.imagen_mobile || "", "col-md-6", true, mediaIndex) +
+        inputHomeComponenteItem(seccionIndex, itemIndex, "alt", "Alt", item.alt, "col-md-6") +
+      '</div>' +
+    '</div>';
+  }
+
+  function inputHomeComponenteSeccion(seccionIndex, campo, label, value, col) {
+    return '<div class="' + escapeAttr(col || "col-md-4") + '"><label class="form-label fs-8 fw-bold">' + escapeHtml(label) + '</label><input class="form-control form-control-sm" data-home-comp-field="' + escapeAttr(campo) + '" data-section-index="' + escapeAttr(seccionIndex) + '" value="' + escapeAttr(value == null ? "" : value) + '"></div>';
+  }
+
+  function inputHomeComponenteItem(seccionIndex, itemIndex, campo, label, value, col, media, mediaIndex) {
+    var input = '<input class="form-control form-control-sm" data-home-comp-item-field="' + escapeAttr(campo) + '" data-section-index="' + escapeAttr(seccionIndex) + '" data-item-index="' + escapeAttr(itemIndex) + '" value="' + escapeAttr(value == null ? "" : value) + '">';
+    if (media) {
+      input = '<div class="input-group input-group-sm">' + input + '<button class="btn btn-light-primary" type="button" data-media-picker="home_componentes" data-index="' + escapeAttr(mediaIndex) + '" data-field="' + escapeAttr(campo) + '"><i class="bi bi-images"></i> Media</button></div>';
+    }
+    return '<div class="' + escapeAttr(col || "col-md-6") + '"><label class="form-label fs-8 fw-bold">' + escapeHtml(label) + '</label>' + input + '</div>';
+  }
+
+  function homeComponenteMeta(tipo) {
+    var mapa = {
+      mascotas_destacadas: { min: 1, max: 99, repetible: false },
+      fabricacion_artiani: { min: 2, max: 2, repetible: false },
+      seleccion_artiani: { min: 4, max: 4, repetible: false },
+      banner_ancho_completo: { min: 1, max: 1, repetible: true },
+      banners_divididos: { min: 2, max: 2, repetible: true },
+      ubicacion_mapa: { min: 0, max: 0, repetible: false }
+    };
+    return mapa[tipo] || { min: 0, max: 99, repetible: true };
+  }
+
+  function indicesHomeComponenteTipo(tipo) {
+    var secciones = homeComponentesData().secciones || [];
+    var indices = [];
+    secciones.forEach(function (seccion, index) {
+      if (seccion && seccion.tipo === tipo) indices.push(index);
+    });
+    return indices;
+  }
+
+  function asegurarHomeComponenteTipo(tipo) {
+    var data = homeComponentesData();
+    if (!Array.isArray(data.secciones)) data.secciones = [];
+    var existente = indicesHomeComponenteTipo(tipo);
+    if (existente.length) return existente[0];
+    var slotMapa = {
+      mascotas_destacadas: "home.mascotas",
+      fabricacion_artiani: "home.fabricacion",
+      seleccion_artiani: "home.seleccion",
+      ubicacion_mapa: "home.ubicacion"
+    };
+    var tituloMapa = {
+      mascotas_destacadas: "Elige tu mascota",
+      fabricacion_artiani: "Fabricacion Artiani",
+      seleccion_artiani: "Seleccion Artiani",
+      ubicacion_mapa: "Ubicacion"
+    };
+    var codigoMapa = {
+      mascotas_destacadas: "home_mascotas",
+      fabricacion_artiani: "home_fabricacion",
+      seleccion_artiani: "home_seleccion",
+      ubicacion_mapa: "home_ubicacion"
+    };
+    data.secciones.push({
+      codigo: codigoMapa[tipo] || ("home_" + tipo),
+      tipo: tipo,
+      slot: slotMapa[tipo] || "",
+      titulo: tituloMapa[tipo] || tipo,
+      visible: false,
+      orden: (data.secciones.length + 3) * 10,
+      items: [],
+      config: tipo === "ubicacion_mapa" ? { fuente: "cms_global" } : {}
+    });
+    return data.secciones.length - 1;
   }
 
   function renderPromoHome(item) {
@@ -1662,6 +1887,47 @@
         ejecutarHomeOrdenAccion(button.getAttribute("data-home-order-key") || "", button.getAttribute("data-home-order-action") || "");
       });
     });
+    Array.prototype.forEach.call(document.querySelectorAll("[data-home-comp-field]"), function (node) {
+      node.addEventListener("input", function () {
+        actualizarHomeComponenteSeccion(parseInt(node.getAttribute("data-section-index") || "0", 10), node.getAttribute("data-home-comp-field") || "", node.value);
+      });
+      node.addEventListener("change", function () {
+        actualizarHomeComponenteSeccion(parseInt(node.getAttribute("data-section-index") || "0", 10), node.getAttribute("data-home-comp-field") || "", node.value);
+      });
+    });
+    Array.prototype.forEach.call(document.querySelectorAll("[data-home-comp-item-field]"), function (node) {
+      node.addEventListener("input", function () {
+        actualizarHomeComponenteItem(parseInt(node.getAttribute("data-section-index") || "0", 10), parseInt(node.getAttribute("data-item-index") || "0", 10), node.getAttribute("data-home-comp-item-field") || "", node.value);
+      });
+      node.addEventListener("change", function () {
+        actualizarHomeComponenteItem(parseInt(node.getAttribute("data-section-index") || "0", 10), parseInt(node.getAttribute("data-item-index") || "0", 10), node.getAttribute("data-home-comp-item-field") || "", node.value);
+      });
+    });
+    Array.prototype.forEach.call(document.querySelectorAll("[data-home-comp-category]"), function (node) {
+      node.addEventListener("change", function () {
+        seleccionarCategoriaHomeComponente(parseInt(node.getAttribute("data-home-comp-category") || "0", 10), parseInt(node.getAttribute("data-item-index") || "0", 10), node.value);
+      });
+    });
+    Array.prototype.forEach.call(document.querySelectorAll("[data-home-comp-action]"), function (button) {
+      button.addEventListener("click", function () {
+        ejecutarHomeComponenteAccion(parseInt(button.getAttribute("data-section-index") || "0", 10), button.getAttribute("data-home-comp-action") || "");
+      });
+    });
+    Array.prototype.forEach.call(document.querySelectorAll("[data-home-comp-item-action]"), function (button) {
+      button.addEventListener("click", function () {
+        ejecutarHomeComponenteItemAccion(parseInt(button.getAttribute("data-section-index") || "0", 10), parseInt(button.getAttribute("data-item-index") || "0", 10), button.getAttribute("data-home-comp-item-action") || "");
+      });
+    });
+    Array.prototype.forEach.call(document.querySelectorAll("[data-home-comp-item-add]"), function (button) {
+      button.addEventListener("click", function () {
+        agregarHomeComponenteItem(parseInt(button.getAttribute("data-home-comp-item-add") || "0", 10));
+      });
+    });
+    Array.prototype.forEach.call(document.querySelectorAll("[data-home-comp-add]"), function (button) {
+      button.addEventListener("click", function () {
+        agregarHomeComponenteSeccion(button.getAttribute("data-home-comp-add") || "");
+      });
+    });
     Array.prototype.forEach.call(document.querySelectorAll("[data-esenciales-config]"), function (node) {
       node.addEventListener("input", function () {
         actualizarEsencialesConfig(node.getAttribute("data-esenciales-config"), node.value);
@@ -1807,6 +2073,14 @@
     on("cms_actual_home_promo_editorial_api", "click", function () { consultarApiModuloHomeCategoria("promo_editorial"); });
     on("cms_actual_home_visual_productos_publicar", "click", function () { publicarModuloHomeCategoria("visual_productos"); });
     on("cms_actual_home_visual_productos_api", "click", function () { consultarApiModuloHomeCategoria("visual_productos"); });
+    on("cms_actual_home_componentes_publicar", "click", publicarHomeComponentes);
+    on("cms_actual_home_componentes_api", "click", consultarApiHomeComponentes);
+    Array.prototype.forEach.call(document.querySelectorAll("[data-home-comp-publish]"), function (button) {
+      button.addEventListener("click", publicarHomeComponentes);
+    });
+    Array.prototype.forEach.call(document.querySelectorAll("[data-home-comp-api]"), function (button) {
+      button.addEventListener("click", consultarApiHomeComponentes);
+    });
     Array.prototype.forEach.call(document.querySelectorAll("[data-colecciones-config]"), function (node) {
       node.addEventListener("input", function () {
         actualizarColeccionesConfig(node.getAttribute("data-colecciones-config"), node.value);
@@ -4481,13 +4755,14 @@
       '<div class="alert alert-light-warning fs-7 py-3 mb-4" id="cms_actual_banner_estado">Pendiente de publicar en la API. Usa una imagen guardada en Media CMS y captura el alt obligatorio.</div>' +
       '<div class="alert alert-light-secondary fs-7 py-3 mb-4 d-none" id="cms_actual_banner_api_estado"></div>' +
       (data.items || []).map(renderBannerItem).join("") +
-      '<div class="alert alert-light-info fs-7 mb-0">Por ahora se usa como banner estatico. Si despues el frontend lo soporta como carrusel, los items ya quedan preparados.</div>' +
+      '<div class="alert alert-light-info fs-7 mb-0"><strong>Medidas recomendadas:</strong> desktop 1920x820 px, mobile 768x980 px. Mantén texto/logotipo importante centrado para que no se corte en pantallas pequeñas. Por ahora se usa como banner estatico; si despues el frontend lo soporta como carrusel, los items ya quedan preparados.</div>' +
     '</div>';
   }
 
   function renderBannerItem(item, index) {
     var bg = item.imagen_desktop ? ' style="background-image:url(' + escapeAttr(urlPreviewSeguro(item.imagen_desktop)) + ')"' : "";
     var resumenImagen = resumenUrlMedia(item.imagen_desktop);
+    var logoSuperior = item.logo_superior ? '<img src="' + escapeAttr(urlPreviewSeguro(item.logo_superior)) + '" alt="" style="max-height:42px;max-width:160px;object-fit:contain" class="mb-2">' : '<div class="text-uppercase fs-8 fw-bold mb-2">' + escapeHtml(item.texto_superior || "Artiani") + '</div>';
     var estadoImagen = esUrlMediaCms(item.imagen_desktop)
       ? '<span class="badge badge-light-success">Imagen Media CMS lista para API</span>'
       : '<span class="badge badge-light-warning">Imagen no guardada en Media CMS</span>';
@@ -4500,9 +4775,11 @@
           '<button class="btn btn-sm btn-light-danger" type="button" data-banner-action="eliminar" data-index="' + escapeAttr(index) + '"><i class="bi bi-trash"></i></button>' +
         '</div>' +
       '</div>' +
-      '<div class="cms-actual-slide-preview mb-4"' + bg + '><div><h2 class="text-white fw-bold mb-2">' + escapeHtml(item.titulo || "Banner de Home") + '</h2><div class="opacity-75">' + escapeHtml(item.subtitulo || "") + '</div></div></div>' +
+      '<div class="cms-actual-slide-preview mb-4"' + bg + '><div>' + logoSuperior + '<h2 class="text-white fw-bold mb-2">' + escapeHtml(item.titulo || "Banner de Home") + '</h2><div class="opacity-75">' + escapeHtml(item.subtitulo || "") + '</div></div></div>' +
       '<div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3">' + estadoImagen + '<span class="text-muted fs-8 text-truncate mw-100">Desktop: ' + escapeHtml(resumenImagen) + '</span></div>' +
       '<div class="row g-3">' +
+        inputBanner(index, "texto_superior", "Texto superior", item.texto_superior, "col-md-4") +
+        inputBanner(index, "logo_superior", "Logo superior opcional", item.logo_superior, "col-md-4") +
         inputBanner(index, "titulo", "Titulo visible", item.titulo, "col-md-4") +
         inputBanner(index, "subtitulo", "Subtitulo visible", item.subtitulo, "col-md-4") +
         inputBanner(index, "alt", "Alt obligatorio", item.alt, "col-md-4") +
@@ -4519,7 +4796,7 @@
   }
 
   function inputConMedia(contexto, index, campo, label, value, col, dataAttr) {
-    var esImagen = campo === "imagen_desktop" || campo === "imagen_mobile" || campo === "imagen_card" || campo === "imagen_banner";
+    var esImagen = campo === "imagen_desktop" || campo === "imagen_mobile" || campo === "imagen_card" || campo === "imagen_banner" || campo === "logo_superior";
     var inputValue = esImagen && String(value || "").indexOf("data:image/") === 0 ? "" : value;
     var input = '<input class="form-control form-control-sm" ' + dataAttr + '="' + escapeAttr(campo) + '" data-index="' + escapeAttr(index) + '" value="' + escapeAttr(inputValue == null ? "" : inputValue) + '">';
     if (esImagen) {
@@ -4891,6 +5168,176 @@
     publicarHomeLista("promos_categoria", promosCategoriaData(), "/cms/frontend_home_promos_categoria_publicar_erp", "promos_categoria");
   }
 
+  function actualizarHomeComponenteSeccion(seccionIndex, campo, valorNuevo) {
+    var seccion = (homeComponentesData().secciones || [])[seccionIndex];
+    if (!seccion) return;
+    if (campo === "orden") seccion[campo] = parseInt(valorNuevo || "0", 10) || 0;
+    else seccion[campo] = valorNuevo;
+    guardarBorradorFrontendLocal(true);
+    sincronizarHomeComponentesJson();
+  }
+
+  function actualizarHomeComponenteItem(seccionIndex, itemIndex, campo, valorNuevo) {
+    var item = homeComponenteItem(seccionIndex, itemIndex);
+    if (!item) return;
+    if (campo === "orden") item[campo] = parseInt(valorNuevo || "0", 10) || 0;
+    else if (campo === "texto_enlace") {
+      if (!item.cta) item.cta = {};
+      item.cta.label = valorNuevo;
+      item.texto_enlace = valorNuevo;
+    } else {
+      item[campo] = valorNuevo;
+      if (campo === "imagen_desktop" || campo === "imagen_mobile") item.imagen_modo = valorNuevo ? "personalizada" : "categoria";
+    }
+    guardarBorradorFrontendLocal(true);
+    sincronizarHomeComponentesJson();
+  }
+
+  function seleccionarCategoriaHomeComponente(seccionIndex, itemIndex, categoriaId) {
+    var item = homeComponenteItem(seccionIndex, itemIndex);
+    var categoria = categoriaCmsPorId(categoriaId);
+    if (!item || !categoria) return;
+    aplicarCategoriaCmsDestino(item, categoria, true);
+    item.categoria_slug = item.path_slug;
+    item.categoria = {
+      id: parseInt(categoria.id || "0", 10) || 0,
+      nombre: categoria.nombre || "",
+      nombre_completo: categoria.nombre_completo || categoria.nombre || "",
+      path_slug: categoria.path_slug || categoria.slug_publico || "",
+      url: categoria.url_canonica || categoria.url || (categoria.path_slug ? "/categoria/" + categoria.path_slug : "")
+    };
+    if (!item.cta) item.cta = {};
+    item.cta.url = item.categoria.url;
+    if (!item.cta.label) item.cta.label = item.texto_enlace || "Ver categoria";
+    guardarBorradorFrontendLocal(true);
+    renderGrupo();
+  }
+
+  function ejecutarHomeComponenteAccion(seccionIndex, accion) {
+    var secciones = homeComponentesData().secciones || [];
+    var seccion = secciones[seccionIndex];
+    if (!seccion) return;
+    if (accion === "toggle") seccion.visible = seccion.visible === false;
+    if (accion === "remove" && homeComponenteMeta(seccion.tipo).repetible) secciones.splice(seccionIndex, 1);
+    if (accion === "up" && seccionIndex > 0) {
+      var anterior = secciones[seccionIndex - 1];
+      secciones[seccionIndex - 1] = seccion;
+      secciones[seccionIndex] = anterior;
+      reordenarHomeComponentes();
+    }
+    if (accion === "down" && seccionIndex < secciones.length - 1) {
+      var siguiente = secciones[seccionIndex + 1];
+      secciones[seccionIndex + 1] = seccion;
+      secciones[seccionIndex] = siguiente;
+      reordenarHomeComponentes();
+    }
+    guardarBorradorFrontendLocal(true);
+    renderGrupo();
+  }
+
+  function ejecutarHomeComponenteItemAccion(seccionIndex, itemIndex, accion) {
+    var seccion = (homeComponentesData().secciones || [])[seccionIndex];
+    if (!seccion || !Array.isArray(seccion.items)) return;
+    var item = seccion.items[itemIndex];
+    if (!item) return;
+    if (accion === "remove") seccion.items.splice(itemIndex, 1);
+    if (accion === "category-image") {
+      var categoria = categoriaCmsPorId(item.categoria_id || (item.categoria || {}).id || 0);
+      var imagen = imagenCategoriaCms(categoria);
+      if (imagen) {
+        item.imagen_desktop = imagen;
+        item.imagen_mobile = imagen;
+        item.imagen_modo = "categoria";
+        item.imagen_fuente = "categoria";
+        if (!item.alt) item.alt = "Categoria " + (categoria.nombre || categoria.nombre_completo || item.titulo || "");
+      }
+    }
+    if (accion === "up" && itemIndex > 0) {
+      seccion.items[itemIndex] = seccion.items[itemIndex - 1];
+      seccion.items[itemIndex - 1] = item;
+      reordenarHomeComponenteItems(seccion);
+    }
+    if (accion === "down" && itemIndex < seccion.items.length - 1) {
+      seccion.items[itemIndex] = seccion.items[itemIndex + 1];
+      seccion.items[itemIndex + 1] = item;
+      reordenarHomeComponenteItems(seccion);
+    }
+    guardarBorradorFrontendLocal(true);
+    renderGrupo();
+  }
+
+  function agregarHomeComponenteItem(seccionIndex) {
+    var seccion = (homeComponentesData().secciones || [])[seccionIndex];
+    if (!seccion) return;
+    if (!Array.isArray(seccion.items)) seccion.items = [];
+    var meta = homeComponenteMeta(seccion.tipo);
+    if (seccion.items.length >= meta.max) return;
+    seccion.items.push({
+      categoria_id: 0,
+      path_slug: "",
+      titulo: "Nuevo item",
+      subtitulo: "",
+      descripcion: "",
+      etiqueta: "",
+      imagen_modo: "categoria",
+      imagen_desktop: "",
+      imagen_mobile: "",
+      alt: "",
+      texto_enlace: "Ver categoria",
+      cta: { label: "Ver categoria", url: "" },
+      visible: true,
+      orden: (seccion.items.length + 1) * 10
+    });
+    guardarBorradorFrontendLocal(true);
+    renderGrupo();
+  }
+
+  function agregarHomeComponenteSeccion(tipo) {
+    var data = homeComponentesData();
+    if (!Array.isArray(data.secciones)) data.secciones = [];
+    var consecutivo = data.secciones.filter(function (seccion) { return seccion.tipo === tipo; }).length + 1;
+    var slot = tipo === "banner_ancho_completo" ? "home.banner_ancho_completo" : "home.banners_divididos";
+    var items = tipo === "banners_divididos" ? [{}, {}] : [{}];
+    data.secciones.push({
+      codigo: tipo + "_" + consecutivo,
+      tipo: tipo,
+      slot: slot,
+      layout: tipo === "banner_ancho_completo" ? "wokiee_full_width_banner" : "wokiee_split_banners",
+      visible: true,
+      orden: (data.secciones.length + 3) * 10,
+      titulo: tipo === "banner_ancho_completo" ? "Banner panoramico" : "Banners divididos",
+      subtitulo: "",
+      items: items.map(function (_, index) {
+        return { categoria_id: 0, path_slug: "", titulo: "Nuevo banner", subtitulo: "", imagen_modo: "categoria", imagen_desktop: "", imagen_mobile: "", alt: "", texto_enlace: "Ver categoria", cta: { label: "Ver categoria", url: "" }, visible: true, orden: (index + 1) * 10 };
+      })
+    });
+    guardarBorradorFrontendLocal(true);
+    renderGrupo();
+  }
+
+  function homeComponenteItem(seccionIndex, itemIndex) {
+    var seccion = (homeComponentesData().secciones || [])[seccionIndex];
+    if (!seccion || !Array.isArray(seccion.items)) return null;
+    return seccion.items[itemIndex] || null;
+  }
+
+  function reordenarHomeComponentes() {
+    (homeComponentesData().secciones || []).forEach(function (seccion, index) {
+      seccion.orden = (index + 3) * 10;
+    });
+  }
+
+  function reordenarHomeComponenteItems(seccion) {
+    (seccion.items || []).forEach(function (item, index) {
+      item.orden = (index + 1) * 10;
+    });
+  }
+
+  function sincronizarHomeComponentesJson() {
+    var textarea = $("cms_actual_home_componentes_json");
+    if (textarea) textarea.value = JSON.stringify({ secciones: homeComponentesData().secciones || [] }, null, 2);
+  }
+
   function publicarHomeMarcas() {
     publicarHomeLista("marcas", marcasHomeData(), "/cms/frontend_home_marcas_publicar_erp", "marcas_destacadas");
   }
@@ -4941,6 +5388,76 @@
       setHomeListaEstado(contexto, error.message || "Error al publicar.", "danger");
     }).finally(function () {
       if (boton) boton.disabled = false;
+    });
+  }
+
+  function publicarHomeComponentes(event) {
+    var payload = { secciones: homeComponentesData().secciones || [] };
+    if (!Array.isArray(payload.secciones) || !payload.secciones.length) {
+      setHomeComponentesEstado("No hay componentes Home para publicar. Agrega o activa un componente primero.", "warning");
+      return;
+    }
+    sincronizarHomeComponentesJson();
+    guardarBorradorFrontendLocal(true);
+    var boton = event && event.currentTarget ? event.currentTarget : $("cms_actual_home_componentes_publicar");
+    var form = new FormData();
+    form.append("_csrf", window.ERP_CSRF_TOKEN || "");
+    form.append("payload_json", JSON.stringify(payload));
+    if (boton) boton.disabled = true;
+    setHomeComponentesEstado("Publicando componentes del Home...", "info");
+    fetch("/cms/frontend_home_componentes_publicar_erp", {
+      method: "POST",
+      body: form,
+      credentials: "same-origin",
+      headers: {
+        "X-CSRF-Token": window.ERP_CSRF_TOKEN || "",
+        "Accept": "application/json",
+        "X-Requested-With": "XMLHttpRequest"
+      }
+    }).then(function (response) {
+      return response.text().then(function (text) {
+        var json = null;
+        try {
+          json = JSON.parse(text);
+        } catch (error) {
+          throw new Error("Respuesta no JSON del servidor (" + response.status + "): " + text.substring(0, 140));
+        }
+        if (!response.ok && json && json.mensaje) throw new Error(json.mensaje);
+        return json;
+      });
+    }).then(function (json) {
+      if (!json || json.error) throw new Error(json && json.mensaje ? json.mensaje : "No se pudo publicar");
+      var alertas = json && json.depurar && Array.isArray(json.depurar.alertas) ? json.depurar.alertas : [];
+      setHomeComponentesEstado(alertas.length ? ("Componentes publicados con advertencias. Omitidos: " + alertas.slice(0, 4).join(", ")) : "Componentes publicados. Verifica la API publicada.", alertas.length ? "warning" : "success");
+      consultarEstadoHomePublicado();
+      consultarApiHomeComponentes();
+    }).catch(function (error) {
+      setHomeComponentesEstado(error.message || "Error al publicar componentes.", "danger");
+    }).finally(function () {
+      if (boton) boton.disabled = false;
+    });
+  }
+
+  function consultarApiHomeComponentes() {
+    setHomeComponentesEstado("Consultando /ecommercePublico/contenido_pagina?pagina=home ...", "info");
+    fetch("/ecommercePublico/contenido_pagina?pagina=home", { credentials: "same-origin" })
+      .then(function (response) { return response.json(); })
+      .then(function (json) {
+        var depurar = json && json.depurar ? json.depurar : {};
+        var componentes = depurar.componentes_home || {};
+        var secciones = depurar.secciones || [];
+        setHomeComponentesEstado("API Home: componentes publicados=" + (componentes.publicados ? "si" : "no") + ", secciones=" + secciones.length + ".", secciones.length ? "success" : "warning");
+      }).catch(function (error) {
+        setHomeComponentesEstado(error.message || "No se pudo consultar API Home.", "danger");
+      });
+  }
+
+  function setHomeComponentesEstado(mensaje, tipo) {
+    var nodes = Array.prototype.slice.call(document.querySelectorAll("#cms_actual_home_componentes_estado, [data-home-comp-status]"));
+    if (!nodes.length) return;
+    nodes.forEach(function (node) {
+      node.className = "alert alert-light-" + (tipo || "info") + " fs-7 py-3 mt-4 mb-0";
+      node.textContent = mensaje;
     });
   }
 
@@ -5397,6 +5914,8 @@
   function agregarBannerItem() {
     var items = bannerData().items;
     items.push({
+      texto_superior: "Artiani",
+      logo_superior: "",
       titulo: "Nuevo banner",
       subtitulo: "",
       imagen_desktop: "",
@@ -5419,6 +5938,8 @@
       return;
     }
     item.imagen_desktop = normalizarUrlMediaCms(item.imagen_desktop);
+    if (item.logo_superior) item.logo_superior = normalizarUrlMediaCms(item.logo_superior);
+    if (!String(item.texto_superior || "").trim() && !item.logo_superior) item.texto_superior = "Artiani";
     if (!esUrlMediaCms(item.imagen_desktop)) {
       setBannerEstado("Selecciona una imagen guardada en Media CMS. Si apenas elegiste un archivo local, primero usa Subir y usar.", "warning");
       renderGrupo();
@@ -5518,6 +6039,8 @@
         '<div class="fw-bold mb-2">Banner publicado para frontend</div>' +
         '<div><span class="fw-semibold">Fuente:</span> ' + escapeHtml(depurar.fuente || "sin fuente") + '</div>' +
         '<div><span class="fw-semibold">Titulo:</span> ' + escapeHtml(bloque.titulo || "") + '</div>' +
+        '<div><span class="fw-semibold">Texto superior:</span> ' + escapeHtml(bloque.texto_superior || ((bloque.items || [])[0] || {}).texto_superior || "") + '</div>' +
+        '<div class="text-break"><span class="fw-semibold">Logo superior:</span> ' + escapeHtml(bloque.logo_superior || ((bloque.items || [])[0] || {}).logo_superior || "") + '</div>' +
         '<div class="text-break"><span class="fw-semibold">Desktop:</span> ' + escapeHtml(media.imagen_desktop || "") + '</div>' +
         '<div class="text-break"><span class="fw-semibold">Mobile:</span> ' + escapeHtml(media.imagen_mobile || "") + '</div>' +
         '<div><span class="fw-semibold">Alt:</span> ' + escapeHtml(media.alt || "") + '</div>',
@@ -6708,7 +7231,7 @@
         secciones: grupo.secciones.map(function (item, index) {
           if (item.codigo === "home_hero_carrusel") return hero;
           if (item.codigo === "home_promo") return promoData();
-          if (item.codigo === "home_promos_categoria") return promosCategoriaData();
+          if (item.codigo === "home_componentes") return homeComponentesData();
           if (item.codigo === "home_categorias_destacadas") return categoriasData();
           if (item.codigo === "home_productos_destacados") return productosData();
           if (item.codigo === "home_marcas_destacadas") return marcasHomeData();
@@ -6746,6 +7269,10 @@
 
   function promosCategoriaData() {
     return estado.datos.home.home_promos_categoria;
+  }
+
+  function homeComponentesData() {
+    return estado.datos.home.home_componentes;
   }
 
   function productosData() {
@@ -6968,9 +7495,17 @@
     }).filter(Boolean);
   }
 
+  /** IA: Codex GPT-6 | Fecha: 2026-09-24. Proposito: revalidar archivos/permisos al abrir; impacto: selector CMS sin media obsoleta. */
   function abrirSelectorMedia(contexto, index, campo, seccionCodigo) {
     estado.mediaPicker = { contexto: contexto, index: index, campo: campo, seccionCodigo: seccionCodigo || "", archivo: null, dataUrl: "", seleccion: "" };
+    estado.mediaBiblioteca.cargada = false;
+    estado.mediaBiblioteca.usos = {};
     asegurarModalMedia();
+    if ($("cms_actual_media_archivo")) $("cms_actual_media_archivo").value = "";
+    if ($("cms_actual_media_optimizar_nuevo")) $("cms_actual_media_optimizar_nuevo").checked = false;
+    if ($("cms_actual_media_webp_nuevo")) $("cms_actual_media_webp_nuevo").checked = false;
+    if ($("cms_actual_media_nuevo_nombre_seo")) $("cms_actual_media_nuevo_nombre_seo").value = "";
+    setText("cms_actual_media_preview_nuevo", "");
     aplicarDefaultsMediaPicker();
     renderMediaPicker();
     cargarMediaServidorPicker();
@@ -6983,6 +7518,7 @@
     }
   }
 
+  /** IA: Codex GPT-6 | Fecha: 2026-09-24. Proposito: ofrecer formatos originales, peso y gestion; impacto: selector Media compartido por editores CMS. */
   function asegurarModalMedia() {
     if ($("cms_actual_media_modal")) return;
     var wrapper = document.createElement("div");
@@ -6990,22 +7526,27 @@
       '<div class="modal-dialog modal-xl modal-dialog-scrollable"><div class="modal-content">' +
         '<div class="modal-header"><div><h3 class="modal-title fw-bold">Seleccionar imagen de Media</h3><div class="text-muted fs-7">Biblioteca Media CMS.</div></div><button type="button" class="btn btn-icon btn-sm btn-light" data-bs-dismiss="modal"><i class="bi bi-x-lg"></i></button></div>' +
         '<div class="modal-body">' +
-          '<div class="alert alert-info py-3 fs-7">Seleccionar un archivo solo muestra preview. Para guardarlo en servidor pulsa <strong>Subir y usar</strong>; despues quedara en Media CMS y podra salir en la API publica.</div>' +
+          '<div class="alert alert-info py-3 fs-7">Usa una imagen de la biblioteca o pulsa <strong>Subir y usar</strong>. Puedes mejorar el nombre o cambiar a WebP por eleccion. Las referencias anteriores siguen funcionando; reemplazar actualiza todos sus usos. ICO conserva su formato al subir.</div>' +
           '<div class="alert alert-light-primary py-3 fs-7" id="cms_actual_media_recomendacion"></div>' +
-          '<div class="border rounded p-4 mb-5 bg-light">' +
+          '<div class="text-muted mb-3" id="cms_actual_media_estado" role="status"></div>' +
+          '<div class="border rounded p-4 mb-5 bg-light" id="cms_actual_media_carga" hidden>' +
             '<div class="fw-bold mb-3">Cargar nueva imagen</div>' +
             '<div class="row g-3 align-items-end">' +
-              '<div class="col-md-4"><label class="form-label fs-8 fw-bold">Archivo</label><input class="form-control form-control-sm" id="cms_actual_media_archivo" type="file" accept="image/jpeg,image/png,image/webp,image/vnd.microsoft.icon,image/x-icon,.ico"></div>' +
+              '<div class="col-md-4"><label class="form-label fs-8 fw-bold" for="cms_actual_media_archivo">Archivo</label><input class="form-control form-control-sm" id="cms_actual_media_archivo" type="file" accept=".jpg,.jpeg,.png,.webp,.gif,.avif,.ico,image/jpeg,image/png,image/webp,image/gif,image/avif,image/vnd.microsoft.icon,image/x-icon"></div>' +
               '<div class="col-md-2"><label class="form-label fs-8 fw-bold">Uso</label><select class="form-select form-select-sm" id="cms_actual_media_nuevo_uso"><option value="home">Home</option><option value="categoria">Categoria</option><option value="producto">Producto</option><option value="global">Global</option><option value="blog">Blog futuro</option></select></div>' +
               '<div class="col-md-2"><label class="form-label fs-8 fw-bold">Tipo</label><select class="form-select form-select-sm" id="cms_actual_media_nuevo_tipo"><option value="logo">Logo principal</option><option value="logo_blanco">Logo blanco</option><option value="favicon">Favicon</option><option value="open_graph">Imagen social SEO</option><option value="banner">Banner</option><option value="hero">Hero</option><option value="card">Card</option><option value="thumb">Thumbnail</option><option value="editorial">Editorial</option></select></div>' +
               '<div class="col-md-3"><label class="form-label fs-8 fw-bold">Alt text</label><input class="form-control form-control-sm" id="cms_actual_media_nuevo_alt" type="text"></div>' +
-              '<div class="col-md-2"><button class="btn btn-sm btn-primary w-100" type="button" id="cms_actual_media_agregar_usar"><i class="bi bi-cloud-upload"></i> Subir y usar</button></div>' +
+              '<div class="col-md-8"><label class="form-label fs-8 fw-bold" for="cms_actual_media_nuevo_nombre_seo">Nombre del archivo para SEO (sin extension)</label><div class="input-group input-group-sm"><input class="form-control" id="cms_actual_media_nuevo_nombre_seo" type="text" maxlength="120" placeholder="collares-para-perros"><button class="btn btn-light" type="button" id="cms_actual_media_sugerir_nombre">Sugerir desde descripcion</button></div><div class="text-muted fs-8 mt-2" id="cms_actual_media_nombre_preview">Ejemplo: collares-para-perros.webp</div></div>' +
+              '<div class="col-md-4"><button class="btn btn-sm btn-primary w-100" type="button" id="cms_actual_media_agregar_usar"><i class="bi bi-cloud-upload"></i> Subir y usar</button></div>' +
             '</div>' +
+            '<div class="text-muted fs-8 mt-3">JPG, JPEG, PNG, WebP, GIF, AVIF o ICO. Archivo final: maximo 2 MB.</div>' +
+            '<label class="form-check form-check-custom form-check-sm mt-3"><input class="form-check-input me-2" type="checkbox" id="cms_actual_media_optimizar_nuevo"> Reducir peso antes de subir (JPG, PNG o WebP estatico; conserva formato).</label>' +
+            '<label class="form-check form-check-custom form-check-sm mt-3"><input class="form-check-input me-2" type="checkbox" id="cms_actual_media_webp_nuevo"> Convertir a WebP al subir (opcional; JPG, PNG y WebP estaticos).</label><div class="text-muted fs-8 mt-2">Nombre breve y descriptivo, sin repetir palabras clave. La conversion puede ajustar calidad y dimensiones; revisaras el peso antes de subir. ICO y animaciones se conservan originales.</div>' +
             '<div class="mt-3" id="cms_actual_media_preview_nuevo"></div>' +
           '</div>' +
           '<div class="row g-4">' +
             '<div class="col-lg-8">' +
-              '<div class="d-flex justify-content-between align-items-end flex-wrap gap-3 mb-4"><div><div class="fw-bold">Galeria disponible</div><div class="text-muted fs-8">Previsualiza y elige una imagen.</div></div><div class="d-flex gap-2"><button class="btn btn-sm btn-light-warning" type="button" id="cms_actual_media_limpiar_temporales"><i class="bi bi-eraser"></i> Limpiar temporales</button><input class="form-control form-control-sm w-200px" id="cms_actual_media_buscar" type="text" placeholder="Filtro opcional"><select class="form-select form-select-sm w-150px" id="cms_actual_media_uso"><option value="">Todos</option><option value="home">Home</option><option value="categoria">Categoria</option><option value="producto">Producto</option><option value="global">Global</option><option value="blog">Blog futuro</option></select></div></div>' +
+              '<div class="d-flex justify-content-between align-items-end flex-wrap gap-3 mb-4"><div><div class="fw-bold">Galeria disponible</div><div class="text-muted fs-8">Previsualiza y elige una imagen.</div></div><div class="d-flex flex-wrap gap-2"><input class="form-control form-control-sm w-200px" id="cms_actual_media_buscar" type="text" placeholder="Buscar imagen" aria-label="Buscar imagen"><select class="form-select form-select-sm w-150px" id="cms_actual_media_uso" aria-label="Filtrar por uso"><option value="">Todos</option><option value="home">Home</option><option value="categoria">Categoria</option><option value="producto">Producto</option><option value="global">Global</option><option value="blog">Blog futuro</option></select><select class="form-select form-select-sm w-150px" id="cms_actual_media_orden" aria-label="Ordenar imagenes"><option value="recientes">Mas recientes</option><option value="peso">Mayor peso</option><option value="nombre">Nombre</option></select></div></div>' +
               '<div class="row g-4" id="cms_actual_media_lista"></div>' +
             '</div>' +
             '<div class="col-lg-4">' +
@@ -7020,12 +7561,15 @@
     on("cms_actual_media_agregar_usar", "click", agregarYUsarMediaDesdeModal);
     on("cms_actual_media_nuevo_uso", "change", renderMediaRecomendacion);
     on("cms_actual_media_nuevo_tipo", "change", renderMediaRecomendacion);
+    on("cms_actual_media_nuevo_nombre_seo", "input", renderNombreMediaPickerAlta);
+    on("cms_actual_media_webp_nuevo", "change", renderNombreMediaPickerAlta);
+    on("cms_actual_media_sugerir_nombre", "click", function () { $("cms_actual_media_nuevo_nombre_seo").value = sugerenciaNombreMediaPicker(valor("cms_actual_media_nuevo_alt") || (estado.mediaPicker.archivo || {}).name); renderNombreMediaPickerAlta(); });
     on("cms_actual_media_usar_seleccion", "click", function () {
       if (estado.mediaPicker && estado.mediaPicker.seleccion) aplicarMediaSeleccionada(estado.mediaPicker.seleccion);
     });
     on("cms_actual_media_buscar", "input", renderMediaPicker);
     on("cms_actual_media_uso", "change", renderMediaPicker);
-    on("cms_actual_media_limpiar_temporales", "click", limpiarMediaTemporalesPicker);
+    on("cms_actual_media_orden", "change", renderMediaPicker);
     var lista = $("cms_actual_media_lista");
     if (lista) {
       lista.addEventListener("click", function (event) {
@@ -7079,6 +7623,7 @@
     return "JPG/WebP optimizada, menos de 500 KB si se puede, con alt text descriptivo.";
   }
 
+  /** IA: Codex GPT-6 | Fecha: 2026-09-24. Proposito: previsualizar originales sin convertir; impacto: ICO/animaciones CMS conservan su contenido. */
   function prepararMediaDesdeModal() {
     var input = $("cms_actual_media_archivo");
     var file = input && input.files && input.files[0] ? input.files[0] : null;
@@ -7086,7 +7631,7 @@
     estado.mediaPicker.dataUrl = "";
     setText("cms_actual_media_preview_nuevo", "");
     if (!file) return;
-    var bloqueo = validarMediaFile(file);
+    var bloqueo = validarMediaFile(file, true);
     if (bloqueo) {
       setText("cms_actual_media_preview_nuevo", bloqueo);
       input.value = "";
@@ -7095,10 +7640,12 @@
     var reader = new FileReader();
     reader.onload = function () {
       estado.mediaPicker.archivo = file;
+      if (!valor("cms_actual_media_nuevo_nombre_seo")) $("cms_actual_media_nuevo_nombre_seo").value = sugerenciaNombreMediaPicker(valor("cms_actual_media_nuevo_alt") || file.name);
+      renderNombreMediaPickerAlta();
       estado.mediaPicker.dataUrl = String(reader.result || "");
       var node = $("cms_actual_media_preview_nuevo");
       if (node) {
-        node.innerHTML = '<div class="d-flex align-items-center gap-3"><img src="' + escapeAttr(estado.mediaPicker.dataUrl) + '" alt="' + escapeAttr(file.name) + '" style="width:120px;aspect-ratio:16/10;object-fit:cover;border-radius:8px;border:1px solid #e7e9ef;background:#fff;"><div><div class="fw-semibold">' + escapeHtml(file.name) + '</div><div class="text-muted fs-8">' + escapeHtml(formatoBytes(file.size)) + '</div></div></div>';
+        node.innerHTML = '<div class="d-flex align-items-center gap-3"><img src="' + escapeAttr(estado.mediaPicker.dataUrl) + '" alt="' + escapeAttr(file.name) + '" style="width:120px;aspect-ratio:16/10;object-fit:contain;border-radius:8px;border:1px solid #e7e9ef;background:#fff;"><div><div class="fw-semibold">' + escapeHtml(file.name) + '</div><div class="text-muted fs-8">' + escapeHtml(formatoBytes(file.size)) + ' · ' + escapeHtml(file.name.split('.').pop().toUpperCase()) + '</div>' + (file.size > MEDIA_MAX_BYTES ? '<div class="text-warning fs-8">Supera 2 MB. Activa reducir peso para JPG, PNG o WebP estatico, o elige un archivo mas ligero.</div>' : '') + '</div></div>';
       }
     };
     reader.onerror = function () {
@@ -7107,7 +7654,9 @@
     reader.readAsDataURL(file);
   }
 
+  /** IA: Codex GPT-6 | Fecha: 2026-09-24. Proposito: subir original u optimizado voluntario; impacto: CMS, formato y 2 MB finales validados antes de POST. */
   function agregarYUsarMediaDesdeModal() {
+    if (!estado.mediaBiblioteca.permisos.editar || estado.mediaBiblioteca.ocupada) return;
     var file = estado.mediaPicker.archivo;
     var dataUrl = estado.mediaPicker.dataUrl;
     if (!file || !dataUrl) {
@@ -7120,15 +7669,35 @@
       return;
     }
     var boton = $("cms_actual_media_agregar_usar");
+    var optimizar = $("cms_actual_media_optimizar_nuevo").checked;
+    var convertir = $("cms_actual_media_webp_nuevo").checked;
+    var bloqueo = validarMediaFile(file, optimizar || convertir);
+    if (bloqueo) {
+      setText("cms_actual_media_preview_nuevo", bloqueo);
+      return;
+    }
+    if ((optimizar || convertir) && !window.CmsMediaTools) {
+      setText("cms_actual_media_preview_nuevo", "No se cargo la herramienta para reducir peso. Recarga la pagina.");
+      return;
+    }
     var data = new FormData();
     data.append("_csrf", window.ERP_CSRF_TOKEN || "");
-    data.append("archivo", file);
     data.append("alt", alt);
+    if (valor("cms_actual_media_nuevo_nombre_seo").trim()) data.append("nombre_seo", valor("cms_actual_media_nuevo_nombre_seo").trim());
     data.append("uso", valor("cms_actual_media_nuevo_uso") || "home");
     data.append("tipo", valor("cms_actual_media_nuevo_tipo") || "banner");
     if (boton) boton.disabled = true;
-    setText("cms_actual_media_preview_nuevo", "Subiendo imagen a Media CMS...");
-    fetch("/cms/media_admin_subir_erp", {
+    estado.mediaBiblioteca.ocupada = true;
+    renderMediaPicker();
+    setText("cms_actual_media_preview_nuevo", optimizar ? "Reduciendo peso de la imagen..." : "Subiendo imagen a Media CMS...");
+    Promise.resolve().then(function () {
+      return convertir ? window.CmsMediaTools.convertirWebp(file) : optimizar ? window.CmsMediaTools.optimizar(file) : file;
+    }).then(function (archivoFinal) {
+      var error = validarMediaFile(archivoFinal);
+      if (error) throw new Error(error);
+      if (convertir && !window.confirm("Subir como WebP?\n\nPeso: " + formatoBytes(file.size) + " → " + formatoBytes(archivoFinal.size) + (archivoFinal.size >= file.size ? "\nLa version WebP no reduce el peso frente al original." : "") + "\nPuede ajustar calidad y dimensiones.")) throw new Error("Carga cancelada. No se modifico la biblioteca.");
+      data.append("archivo", archivoFinal);
+      return fetch("/cms/media_admin_subir_erp", {
       method: "POST",
       body: data,
       credentials: "same-origin",
@@ -7137,6 +7706,7 @@
         "Accept": "application/json",
         "X-Requested-With": "XMLHttpRequest"
       }
+      });
     }).then(function (response) {
       return response.text().then(function (text) {
         var json = null;
@@ -7159,6 +7729,7 @@
         throw new Error("El servidor no devolvio la imagen guardada");
       }
       guardarMediaLocalItems(mezclarMediaItems(mediaLocalItems(), [item]));
+      estado.mediaBiblioteca.items = mezclarMediaItems(estado.mediaBiblioteca.items, [item]);
       estado.mediaPicker.archivo = null;
       estado.mediaPicker.dataUrl = "";
       if ($("cms_actual_media_archivo")) $("cms_actual_media_archivo").value = "";
@@ -7167,33 +7738,89 @@
     }).catch(function (error) {
       setText("cms_actual_media_preview_nuevo", error.message || "No se pudo subir la imagen.");
     }).finally(function () {
+      estado.mediaBiblioteca.ocupada = false;
       if (boton) boton.disabled = false;
+      renderMediaPicker();
     });
   }
 
+  /** IA: Codex GPT-6 | Fecha: 2026-09-24. Proposito: leer biblioteca completa y permisos; impacto: ningun archivo eliminado reaparece desde cache local. */
   function cargarMediaServidorPicker() {
-    if (!window.fetch) return;
-    fetch("/cms/media_admin_listar_erp?limite=80", { credentials: "same-origin" })
-      .then(function (response) { return response.json(); })
-      .then(function (json) {
-        var data = json && json.depurar ? json.depurar : {};
-        if (!Array.isArray(data.items)) return;
-        guardarMediaLocalItems(reconciliarMediaServidor(mediaLocalItems(), data.items.map(normalizarMediaServidor).filter(Boolean)));
+    var biblioteca = estado.mediaBiblioteca;
+    if (biblioteca.cargando) return;
+    biblioteca.cargando = true;
+    biblioteca.cargada = false;
+    biblioteca.permisos = {};
+    $("cms_actual_media_carga").hidden = true;
+    setText("cms_actual_media_estado", "Consultando biblioteca y permisos...");
+    renderMediaPicker();
+    Promise.all([
+      solicitarMediaPicker("/cms/media_admin_preflight_erp"),
+      cargarPaginaMediaPicker(0, [])
+    ]).then(function (resultados) {
+        biblioteca.permisos = resultados[0].permisos || {};
+        biblioteca.items = resultados[1];
+        biblioteca.cargada = true;
+        biblioteca.usos = {};
+        guardarMediaLocalItems(biblioteca.items);
+        $("cms_actual_media_carga").hidden = !biblioteca.permisos.editar;
+        setText("cms_actual_media_estado", biblioteca.items.length + " imagenes disponibles." + (!biblioteca.permisos.editar ? " Biblioteca de solo lectura." : ""));
         renderMediaPicker();
       })
-      .catch(function () {
-        // La galeria local queda como fallback visual si el listado protegido no responde.
+      .catch(function (error) {
+        setText("cms_actual_media_estado", error.message || "No se pudo consultar Media. Cierra y abre el selector para reintentar.");
+      }).finally(function () {
+        biblioteca.cargando = false;
       });
   }
 
+  /** IA: Codex GPT-6 | Fecha: 2026-09-24. Proposito: recorrer listado paginado; impacto: filtro/orden por peso abarca toda la biblioteca. */
+  function cargarPaginaMediaPicker(offset, acumuladas) {
+    return solicitarMediaPicker("/cms/media_admin_listar_erp?limite=120&offset=" + offset).then(function (data) {
+      if (!Array.isArray(data.items)) throw new Error("El servidor no devolvio la biblioteca Media.");
+      var items = acumuladas.concat(data.items.map(normalizarMediaServidor).filter(Boolean));
+      if (data.hay_mas && data.items.length) return cargarPaginaMediaPicker(offset + data.items.length, items);
+      return items;
+    });
+  }
+
+  /** IA: Codex GPT-6 | Fecha: 2026-09-24. Proposito: manejar JSON/CSRF de Media; contrato: resuelve depurar y rechaza errores HTTP o de dominio. */
+  function solicitarMediaPicker(url, data) {
+    var options = { credentials: "same-origin", cache: "no-store", headers: { "Accept": "application/json", "X-Requested-With": "XMLHttpRequest" } };
+    if (data) {
+      data.append("_csrf", window.ERP_CSRF_TOKEN || "");
+      options.method = "POST";
+      options.body = data;
+      options.headers["X-CSRF-Token"] = window.ERP_CSRF_TOKEN || "";
+    }
+    return fetch(url, options).then(function (response) {
+      return response.json().catch(function () { throw new Error("No se pudo leer la respuesta de Media. Recarga la pagina y reintenta."); }).then(function (json) {
+        if (!response.ok || !json || json.error) throw new Error(json && json.mensaje ? json.mensaje : "No se pudo completar la operacion de Media.");
+        return json.depurar || {};
+      });
+    });
+  }
+
+  /** IA: Codex GPT-6 | Fecha: 2026-09-24. Proposito: presentar metadata y ordenar archivos vigentes; impacto: facilita localizar imagenes pesadas del CMS. */
   function renderMediaPicker() {
     var node = $("cms_actual_media_lista");
     if (!node) return;
-    var items = mediaLocalItems().filter(function (item) {
+    if (!estado.mediaBiblioteca.cargada) {
+      node.innerHTML = '<div class="col-12 text-muted">Esperando el listado vigente del servidor.</div>';
+      renderMediaPickerPreview(null);
+      return;
+    }
+    var items = estado.mediaBiblioteca.items.filter(function (item) {
       var busqueda = valor("cms_actual_media_buscar").toLowerCase();
       var uso = valor("cms_actual_media_uso");
       var texto = [item.nombre, item.alt, item.uso, item.tipo].join(" ").toLowerCase();
       return item.estatus !== "archivado" && (!uso || item.uso === uso) && (!busqueda || texto.indexOf(busqueda) !== -1);
+    });
+    items.sort(function (a, b) {
+      var orden = valor("cms_actual_media_orden");
+      if (orden === "peso") return b.bytes - a.bytes || Number(b.media_id) - Number(a.media_id);
+      if (orden === "nombre") return String(a.nombre).localeCompare(String(b.nombre));
+      return Number(b.media_id) - Number(a.media_id);
     });
     if (!items.length) {
       node.innerHTML = '<div class="col-12"><div class="text-muted">Sin imagenes disponibles. Sube una imagen o revisa /cms/media.</div></div>';
@@ -7207,9 +7834,10 @@
       var esServidor = esMediaServidor(item);
       return '<div class="col-md-4 col-xl-3">' +
         '<div class="border rounded overflow-hidden h-100 bg-white ' + (item.id === estado.mediaPicker.seleccion ? 'border-primary' : '') + '">' +
-          '<img src="' + escapeAttr(item.url) + '" alt="' + escapeAttr(item.alt) + '" style="width:100%;aspect-ratio:16/10;object-fit:cover;background:#f3f6f9;">' +
+          '<img loading="lazy" src="' + escapeAttr(item.preview_url || item.url) + '" alt="' + escapeAttr(item.alt) + '" style="width:100%;aspect-ratio:16/10;object-fit:contain;background:#f3f6f9;">' +
           '<div class="p-3">' +
             '<div class="fw-bold text-truncate">' + escapeHtml(item.nombre) + '</div>' +
+            '<div class="fs-8 fw-semibold my-2">' + escapeHtml(resumenArchivoMediaPicker(item)) + '</div>' +
             '<div class="text-muted fs-8 text-truncate mb-3">' + escapeHtml(item.alt) + '</div>' +
             '<div class="d-flex justify-content-between align-items-center gap-2 mb-3"><span class="badge ' + (esServidor ? 'badge-light-success' : 'badge-light-warning') + '">' + (esServidor ? 'Servidor BD' : 'Temporal local') + '</span><span class="text-muted fs-8">' + escapeHtml(labelUsoMedia(item.uso)) + ' / ' + escapeHtml(labelTipoMedia(item.tipo)) + '</span></div>' +
             '<button type="button" class="btn btn-sm btn-light-primary w-100" data-media-select="' + escapeAttr(item.id) + '"><i class="bi bi-eye"></i> Previsualizar</button>' +
@@ -7217,7 +7845,7 @@
         '</div>' +
       '</div>';
     }).join("");
-    renderMediaPickerPreview(mediaLocalItems().filter(function (item) { return item.id === estado.mediaPicker.seleccion; })[0] || null);
+    renderMediaPickerPreview(estado.mediaBiblioteca.items.filter(function (item) { return item.id === estado.mediaPicker.seleccion; })[0] || null);
   }
 
   function seleccionarMediaPreview(id) {
@@ -7225,6 +7853,7 @@
     renderMediaPicker();
   }
 
+  /** IA: Codex GPT-6 | Fecha: 2026-09-24. Proposito: gestionar seleccionado, nombres y formatos; impacto: referencias previas operativas y borrado protege contenido. */
   function renderMediaPickerPreview(item) {
     var node = $("cms_actual_media_preview_seleccion");
     if (!node) return;
@@ -7233,21 +7862,176 @@
       return;
     }
     var esServidor = esMediaServidor(item);
-    node.innerHTML = '<div class="fw-bold mb-3">Preview seleccionado</div>' +
-      '<img src="' + escapeAttr(item.url) + '" alt="' + escapeAttr(item.alt) + '" style="width:100%;aspect-ratio:16/11;object-fit:cover;border-radius:8px;border:1px solid #e7e9ef;background:#f3f6f9;">' +
+    var permisos = estado.mediaBiblioteca.permisos;
+    var puedeReemplazar = esServidor && permisos.editar && permisos.publicar;
+    var disabled = estado.mediaBiblioteca.ocupada ? ' disabled' : '';
+    var usos = estado.mediaBiblioteca.usos[item.id];
+    var usadaLocal = mediaEnEditorActual(item.url, item.urls_anteriores);
+    var puedeEliminar = usos && usos.puede_eliminar === true && !usadaLocal;
+    node.innerHTML = '<div class="fw-bold mb-3">Imagen seleccionada</div>' +
+      '<img src="' + escapeAttr(item.preview_url || item.url) + '" alt="' + escapeAttr(item.alt) + '" style="width:100%;aspect-ratio:16/11;object-fit:contain;border-radius:8px;border:1px solid #e7e9ef;background:#f3f6f9;">' +
       '<div class="fw-semibold mt-3 text-break">' + escapeHtml(item.nombre) + '</div>' +
       '<div class="text-muted fs-7 mt-1">' + escapeHtml(item.alt) + '</div>' +
       '<div class="d-flex flex-wrap gap-2 mt-3"><span class="badge ' + (esServidor ? 'badge-light-success' : 'badge-light-warning') + '">' + (esServidor ? 'Servidor BD' : 'Temporal local') + '</span><span class="badge badge-light-primary">' + escapeHtml(labelUsoMedia(item.uso)) + '</span><span class="badge badge-light-info">' + escapeHtml(labelTipoMedia(item.tipo)) + '</span><span class="badge badge-light">' + escapeHtml(formatoBytes(item.bytes)) + '</span></div>' +
-      (esServidor
-        ? '<button class="btn btn-primary w-100 mt-4" type="button" id="cms_actual_media_usar_seleccion"><i class="bi bi-check2-circle"></i> Usar imagen seleccionada</button>'
-        : '<div class="alert alert-light-warning fs-7 mt-4 mb-0">Esta imagen solo vive en este navegador. Para usarla en el banner primero subela con <strong>Subir y usar</strong>.</div>');
+      '<div class="text-muted fs-7 mt-3">' + escapeHtml(resumenArchivoMediaPicker(item)) + '</div>' +
+      (esServidor ? '<button class="btn btn-primary w-100 mt-4" type="button" id="cms_actual_media_usar_seleccion"' + disabled + '><i class="bi bi-check2-circle"></i> Usar imagen seleccionada</button>' : '') +
+      '<div class="border-top mt-4 pt-4"><div class="fw-semibold mb-2">Donde se usa</div>' +
+      (usos && usos.usos ? '<div class="fs-8">' + (usos.usos.length ? usos.usos.map(function (uso) { return '<div class="mb-2 text-break">' + escapeHtml([uso.origen, uso.referencia, uso.estado].filter(Boolean).join(' · ')) + '</div>'; }).join('') : 'Sin referencias guardadas detectadas.') + '</div>' : '<div class="text-muted fs-8">' + escapeHtml(usos && usos.error ? usos.error : 'Consultando referencias guardadas...') + '</div>') +
+      (usadaLocal ? '<div class="text-warning fs-8 mt-2">El editor actual contiene esta imagen. Cambia esas referencias antes de eliminarla.</div>' : '') + '</div>' +
+      (puedeReemplazar ? '<div class="border-top mt-4 pt-4"><div class="fw-semibold mb-2">Nombre, descripcion y archivo</div><div class="text-muted fs-8 mb-3">Puedes cambiar nombre o formato; las referencias anteriores siguen funcionando. El reemplazo afecta todos sus usos publicados.</div>' +
+        '<label class="form-label fs-8" for="cms_actual_media_detalle_nombre_seo">Nombre SEO (sin extension)</label><input class="form-control form-control-sm" id="cms_actual_media_detalle_nombre_seo" maxlength="120" placeholder="collares-para-perros" value="' + escapeAttr(item.nombre_seo || sugerenciaNombreMediaPicker(item.nombre)) + '"' + disabled + '><div class="text-muted fs-8 mt-2" id="cms_actual_media_detalle_nombre_preview"></div>' +
+        '<label class="form-label fs-8 mt-3" for="cms_actual_media_detalle_alt">Descripcion accesible (Alt de biblioteca)</label><input class="form-control form-control-sm" id="cms_actual_media_detalle_alt" value="' + escapeAttr(item.alt) + '"' + disabled + '><button class="btn btn-sm btn-light mt-2" type="button" id="cms_actual_media_sugerir_detalle"' + disabled + '>Sugerir nombre desde descripcion</button><div class="text-muted fs-8 mt-2">El Alt de biblioteca no modifica las descripciones de paginas publicadas.</div>' +
+        '<label class="form-label fs-8 mt-3" for="cms_actual_media_reemplazo">Nuevo archivo (opcional; admite otro formato)</label><input type="file" class="form-control form-control-sm" id="cms_actual_media_reemplazo" accept=".jpg,.jpeg,.png,.webp,.gif,.avif,.ico"' + disabled + '>' +
+        '<label class="form-check mt-3"><input class="form-check-input" type="checkbox" id="cms_actual_media_reemplazo_webp"' + disabled + '>Convertir nuevo archivo a WebP</label><label class="form-check mt-3"><input class="form-check-input" type="checkbox" id="cms_actual_media_reemplazo_optimizar"' + disabled + '>Reducir peso del nuevo archivo</label><div class="text-muted fs-8 mt-2">Solo JPG, PNG y WebP estaticos; fuente hasta 20 MB y resultado hasta 2 MB. Revisa el peso antes de guardar.</div>' +
+        '<div class="d-flex flex-wrap gap-2 mt-3"><button class="btn btn-sm btn-light-primary" type="button" id="cms_actual_media_reemplazar"' + disabled + '>Revisar reemplazo</button><button class="btn btn-sm btn-light-primary" type="button" id="cms_actual_media_guardar_nombre"' + disabled + '>Guardar nombre y descripcion</button>' +
+        (/^(jpe?g|png|webp)$/.test(item.extension) ? '<button class="btn btn-sm btn-light-primary" type="button" id="cms_actual_media_optimizar"' + disabled + '>Reducir peso actual</button>' : '') +
+        (/^(jpe?g|png|webp)$/.test(item.extension) && item.tipo !== 'favicon' ? '<button class="btn btn-sm btn-light-primary" type="button" id="cms_actual_media_convertir_webp"' + disabled + '>Convertir actual a WebP</button>' : '') + '</div></div>' : '') +
+      (permisos.editar ? '<div class="border-top mt-4 pt-4"><button class="btn btn-sm btn-light-danger" type="button" id="cms_actual_media_eliminar"' + (disabled || !puedeEliminar ? ' disabled' : '') + '>Eliminar archivo</button><div class="text-muted fs-8 mt-2">Disponible solo cuando no hay referencias guardadas ni en este editor.</div></div>' : '') +
+      '<div class="fs-7 mt-3" id="cms_actual_media_accion_estado" role="status"></div>';
     on("cms_actual_media_usar_seleccion", "click", function () {
       aplicarMediaSeleccionada(item.id);
     });
+    on("cms_actual_media_reemplazar", "click", function () { modificarArchivoMediaPicker(item, "reemplazar"); });
+    on("cms_actual_media_optimizar", "click", function () { modificarArchivoMediaPicker(item, "optimizar"); });
+    on("cms_actual_media_guardar_nombre", "click", function () { modificarArchivoMediaPicker(item, "guardar"); });
+    on("cms_actual_media_convertir_webp", "click", function () { modificarArchivoMediaPicker(item, "webp"); });
+    on("cms_actual_media_sugerir_detalle", "click", function () { $("cms_actual_media_detalle_nombre_seo").value = sugerenciaNombreMediaPicker(valor("cms_actual_media_detalle_alt") || item.nombre); renderNombreMediaPickerDetalle(item); });
+    on("cms_actual_media_detalle_nombre_seo", "input", function () { renderNombreMediaPickerDetalle(item); });
+    on("cms_actual_media_reemplazo", "change", function () { renderNombreMediaPickerDetalle(item); });
+    on("cms_actual_media_reemplazo_webp", "change", function () { renderNombreMediaPickerDetalle(item); });
+    renderNombreMediaPickerDetalle(item);
+    on("cms_actual_media_eliminar", "click", function () { eliminarArchivoMediaPicker(item); });
+    if (esServidor && !usos) consultarUsosMediaPicker(item);
   }
 
+  /** IA: Codex GPT-6 | Fecha: 2026-09-24. Proposito: mostrar peso/formato/dimensiones; impacto: galeria y detalle CMS comparten metadata real. */
+  function resumenArchivoMediaPicker(item) {
+    return formatoBytes(item.bytes) + ' · ' + String(item.extension || item.mime || 'Formato no disponible').toUpperCase() + (item.ancho && item.alto ? ' · ' + item.ancho + ' × ' + item.alto + ' px' : '');
+  }
+
+  /** IA: Codex GPT-6 | Fecha: 2026-09-24. Proposito: revisar referencias persistidas; impacto: CMS; fallo de consulta no habilita eliminar. */
+  function consultarUsosMediaPicker(item) {
+    var cache = estado.mediaBiblioteca.usos;
+    cache[item.id] = { cargando: true };
+    solicitarMediaPicker('/cms/media_admin_usos_erp?id_media_archivo=' + encodeURIComponent(item.media_id)).then(function (data) {
+      cache[item.id] = data;
+    }).catch(function (error) {
+      cache[item.id] = { error: error.message };
+    }).finally(function () {
+      if (estado.mediaBiblioteca.usos === cache && estado.mediaPicker.seleccion === item.id) renderMediaPickerPreview(item);
+    });
+  }
+
+  /** IA: Codex GPT-6 | Fecha: 2026-09-24. Proposito: proteger referencias aun no guardadas; contrato: inspecciona el borrador actual, no modifica contenido. */
+  function mediaEnEditorActual(url, urlsAnteriores) {
+    var rutas = [url].concat(urlsAnteriores || []).map(normalizarUrlMediaCms);
+    function contiene(valorActual) {
+      if (typeof valorActual === 'string') return rutas.indexOf(normalizarUrlMediaCms(valorActual)) !== -1;
+      if (Array.isArray(valorActual)) return valorActual.some(contiene);
+      if (valorActual && typeof valorActual === 'object') return Object.keys(valorActual).some(function (clave) { return contiene(valorActual[clave]); });
+      return false;
+    }
+    return contiene(estado.datos);
+  }
+
+  /** IA: Codex GPT-6 | Fecha: 2026-09-24. Proposito: actualizar nombre, formato o archivo con confirmacion global; impacto: CMS; contrato: ID estable y URLs previas operativas. */
+  async function modificarArchivoMediaPicker(item, accion) {
+    var biblioteca = estado.mediaBiblioteca;
+    if (biblioteca.ocupada || !biblioteca.permisos.editar || !biblioteca.permisos.publicar) return;
+    var input = $("cms_actual_media_reemplazo");
+    var file = input && input.files && input.files[0];
+    var soloNombre = accion === "guardar", optimizarActual = accion === "optimizar", webpActual = accion === "webp";
+    var convertir = webpActual || (accion === "reemplazar" && $("cms_actual_media_reemplazo_webp").checked);
+    var optimizarNuevo = accion === "reemplazar" && $("cms_actual_media_reemplazo_optimizar").checked;
+    var nombre = valor("cms_actual_media_detalle_nombre_seo").trim(), alt = valor("cms_actual_media_detalle_alt").trim();
+    if (!nombre || !sugerenciaNombreMediaPicker(nombre)) { setText("cms_actual_media_accion_estado", "Escribe un nombre descriptivo para el archivo."); return; }
+    if (!alt) { setText("cms_actual_media_accion_estado", "Escribe una descripcion accesible para la biblioteca."); return; }
+    if (soloNombre) file = null;
+    if (accion === "reemplazar") {
+      if (!file) { setText("cms_actual_media_accion_estado", "Selecciona el archivo de reemplazo."); return; }
+      var bloqueo = validarMediaFile(file, convertir || optimizarNuevo);
+      if (bloqueo) { setText("cms_actual_media_accion_estado", bloqueo); return; }
+    }
+    biblioteca.ocupada = true;
+    renderMediaPickerPreview(item);
+    setText("cms_actual_media_accion_estado", "Preparando cambios...");
+    try {
+      if ((convertir || optimizarActual || optimizarNuevo) && !window.CmsMediaTools) throw new Error("No se cargo la herramienta de imagenes. Recarga la pagina.");
+      if (webpActual) file = await window.CmsMediaTools.convertirWebpUrl(item.preview_url || item.url);
+      else if (optimizarActual) file = await window.CmsMediaTools.optimizarUrl(item.preview_url || item.url);
+      else if (convertir) file = await window.CmsMediaTools.convertirWebp(file);
+      else if (optimizarNuevo) file = await window.CmsMediaTools.optimizar(file);
+      if (file) {
+        var errorArchivo = validarMediaFile(file);
+        if (errorArchivo) throw new Error(errorArchivo);
+        if (optimizarActual && file.size >= item.bytes) throw new Error("La imagen ya tiene un peso adecuado. No se modifico el archivo.");
+      }
+      var aviso = "Guardar cambios de " + item.nombre + "?\n\nNombre: " + sugerenciaNombreMediaPicker(nombre) + "." + (file ? file.name.split('.').pop().toLowerCase() : item.extension) + (file ? "\nPeso: " + formatoBytes(item.bytes) + " → " + formatoBytes(file.size) : "\nSe conserva el archivo actual.") + (convertir && file.size >= item.bytes ? "\nWebP no reduce el peso frente a la imagen actual." : "");
+      if (!window.confirm(aviso + "\n\nLas referencias anteriores siguen funcionando. El reemplazo actualiza TODOS sus usos, incluidos los publicados. El Alt solo cambia en biblioteca.")) { setText("cms_actual_media_estado", "Cambio cancelado. No se modifico la imagen."); return; }
+      var data = new FormData();
+      data.append('id_media_archivo', item.media_id);
+      if (file) data.append('archivo', file);
+      // En legacy el nombre visible puede ser una sugerencia aun no persistida; el servidor decide si hay cambio real.
+      data.append('nombre_seo', nombre);
+      if (alt !== item.alt) data.append('alt', alt);
+      var result = await solicitarMediaPicker('/cms/media_admin_reemplazar_erp', data);
+      var actualizada = normalizarMediaServidor(result);
+      if (!actualizada) throw new Error("El servidor no devolvio la imagen actualizada. Abre de nuevo el selector para verificarla.");
+      biblioteca.items = mezclarMediaItems(biblioteca.items, [actualizada]);
+      guardarMediaLocalItems(biblioteca.items);
+      delete biblioteca.usos[item.id];
+      setText("cms_actual_media_estado", "Imagen actualizada. " + (file ? "Peso: " + formatoBytes(item.bytes) + " → " + formatoBytes(actualizada.bytes) + ". " : "") + "Las referencias anteriores siguen funcionando.");
+    } catch (error) {
+      setText("cms_actual_media_estado", error.message || "No se pudo actualizar la imagen.");
+    } finally {
+      biblioteca.ocupada = false;
+      renderMediaPicker();
+    }
+  }
+
+  /** IA: Codex GPT-6 | Fecha: 2026-09-24. Proposito: sugerir nombre desde contenido disponible; impacto: SEO; contrato: sin inventar descripcion. */
+  function sugerenciaNombreMediaPicker(texto) { return window.CmsMediaTools ? window.CmsMediaTools.sugerirNombreSeo(texto) : ""; }
+  /** IA: Codex GPT-6 | Fecha: 2026-09-24. Proposito: anticipar extension final de alta; impacto: CMS; contrato: nombre orientativo sin sufijo unico del servidor. */
+  function renderNombreMediaPickerAlta() {
+    var file = estado.mediaPicker.archivo, opcion = $("cms_actual_media_webp_nuevo");
+    setText("cms_actual_media_nombre_preview", (sugerenciaNombreMediaPicker(valor("cms_actual_media_nuevo_nombre_seo")) || "collares-para-perros") + "." + (opcion && opcion.checked ? "webp" : file ? file.name.split('.').pop().toLowerCase() : "webp") + " · El servidor agrega un identificador unico.");
+  }
+  /** IA: Codex GPT-6 | Fecha: 2026-09-24. Proposito: anticipar nombre y formato elegido; impacto: CMS; contrato: no cambia referencias al editar campos. */
+  function renderNombreMediaPickerDetalle(item) {
+    var input = $("cms_actual_media_reemplazo"), file = input && input.files && input.files[0], opcion = $("cms_actual_media_reemplazo_webp");
+    setText("cms_actual_media_detalle_nombre_preview", (sugerenciaNombreMediaPicker(valor("cms_actual_media_detalle_nombre_seo")) || "collares-para-perros") + "." + (opcion && opcion.checked ? "webp" : file ? file.name.split('.').pop().toLowerCase() : item.extension) + " · Nombre breve y descriptivo; se agrega un identificador unico.");
+  }
+
+  /** IA: Codex GPT-6 | Fecha: 2026-09-24. Proposito: eliminar un archivo sin uso; impacto: backend revalida referencias antes del borrado fisico. */
+  function eliminarArchivoMediaPicker(item) {
+    var biblioteca = estado.mediaBiblioteca;
+    var usos = biblioteca.usos[item.id];
+    if (biblioteca.ocupada || !biblioteca.permisos.editar || !usos || usos.puede_eliminar !== true || mediaEnEditorActual(item.url, item.urls_anteriores)) return;
+    if (!window.confirm("Eliminar definitivamente " + item.nombre + " (" + formatoBytes(item.bytes) + ")?\n\nEl servidor volvera a revisar sus referencias antes de borrar el archivo. Esta accion no se puede deshacer.")) return;
+    biblioteca.ocupada = true;
+    renderMediaPickerPreview(item);
+    setText("cms_actual_media_accion_estado", "Revisando referencias y eliminando...");
+    var data = new FormData();
+    data.append('id_media_archivo', item.media_id);
+    solicitarMediaPicker('/cms/media_admin_eliminar_erp', data).then(function () {
+      biblioteca.items = biblioteca.items.filter(function (actual) { return actual.id !== item.id; });
+      guardarMediaLocalItems(biblioteca.items);
+      biblioteca.ocupada = false;
+      estado.mediaPicker.seleccion = '';
+      renderMediaPicker();
+      setText("cms_actual_media_estado", "Archivo eliminado de la biblioteca.");
+    }).catch(function (error) {
+      biblioteca.ocupada = false;
+      delete biblioteca.usos[item.id];
+      renderMediaPicker();
+      setText("cms_actual_media_estado", error.message);
+    });
+  }
+
+  /** IA: Codex GPT-6 | Fecha: 2026-09-24. Proposito: usar exclusivamente archivos vigentes; impacto: el editor conserva la URL original sin token de preview. */
   function aplicarMediaSeleccionada(id) {
-    var media = mediaLocalItems().filter(function (item) { return item.id === id; })[0];
+    if (!estado.mediaBiblioteca.cargada) return;
+    var media = estado.mediaBiblioteca.items.filter(function (item) { return item.id === id; })[0];
     if (!media) return;
     if (!esMediaServidor(media)) {
       var preview = $("cms_actual_media_preview_seleccion");
@@ -7267,6 +8051,10 @@
     if (picker.contexto === "home_marcas") target = marcasHomeData().items[picker.index];
     if (picker.contexto === "home_esenciales") target = esencialesData().items[picker.index];
     if (picker.contexto === "home_esencial_principal") target = esencialesData().categoria_principal;
+    if (picker.contexto === "home_componentes") {
+      var partesHomeComp = String(picker.index || "0:0").split(":");
+      target = homeComponenteItem(parseInt(partesHomeComp[0] || "0", 10), parseInt(partesHomeComp[1] || "0", 10));
+    }
     if (String(picker.contexto || "").indexOf("home_modulo_") === 0) {
       target = moduloHomeCategoriaData(String(picker.contexto || "").replace("home_modulo_", ""));
     }
@@ -7287,6 +8075,11 @@
     if (picker.contexto === "home_promos_categoria" && picker.campo === "imagen" && !target.alt && media.alt) target.alt = media.alt;
     if (picker.contexto === "home_esenciales" && picker.campo === "imagen" && !target.alt && media.alt) target.alt = media.alt;
     if (picker.contexto === "home_esencial_principal" && picker.campo === "imagen" && !target.alt && media.alt) target.alt = media.alt;
+    if (picker.contexto === "home_componentes") {
+      target.imagen_modo = "personalizada";
+      target.imagen_fuente = "cms";
+      if (!target.alt && media.alt) target.alt = media.alt;
+    }
     if (picker.contexto === "home_marcas" && picker.campo === "logo" && !target.alt_logo && media.alt) target.alt_logo = media.alt;
     if (String(picker.contexto || "").indexOf("home_modulo_") === 0) {
       var contextoModuloHome = String(picker.contexto || "").replace("home_modulo_", "");
@@ -7321,6 +8114,7 @@
     localStorage.setItem(MEDIA_STORAGE_KEY, JSON.stringify(items || []));
   }
 
+  /** IA: Codex GPT-6 | Fecha: 2026-09-24. Proposito: conservar metadata/preview del servidor; impacto: Media usa URL estable y muestra la version actualizada. */
   function normalizarMediaServidor(item) {
     if (!item || !item.url) return null;
     var mediaId = item.id_media_archivo || item.media_id || "";
@@ -7328,10 +8122,17 @@
       id: mediaId ? "bd_" + mediaId : (item.codigo || item.url),
       media_id: mediaId,
       codigo: item.codigo || "",
-      nombre: item.nombre_original || item.nombre || item.nombre_archivo || "Imagen CMS",
+      nombre: item.nombre_seo || item.nombre_original || item.nombre || item.nombre_archivo || "Imagen CMS",
+      nombre_seo: item.nombre_seo || "",
+      urls_anteriores: Array.isArray(item.urls_anteriores) ? item.urls_anteriores : [],
       mime: item.mime || "",
+      nombre_archivo: item.nombre_archivo || String(item.url).split('/').pop().split('?')[0],
+      extension: String(item.extension || String(item.url).split('?')[0].split('.').pop()).toLowerCase(),
+      ancho: Number(item.ancho || 0),
+      alto: Number(item.alto || 0),
       bytes: Number(item.bytes || 0),
       url: item.url,
+      preview_url: item.preview_url || item.url,
       alt: item.alt || item.alt_text || "",
       uso: item.uso || item.uso_sugerido || "general",
       tipo: item.tipo || item.tipo_sugerido || "editorial",
@@ -7407,11 +8208,14 @@
     setText("cms_actual_estado", "Temporales limpiados");
   }
 
-  function validarMediaFile(file) {
+  /** IA: Codex GPT-6 | Fecha: 2026-09-24. Proposito: validar formatos y limites; contrato: 20 MB fuente optimizable, siempre 2 MB para subir. */
+  function validarMediaFile(file, fuenteOptimizable) {
     var nombre = String(file.name || "").toLowerCase();
     var esIco = /\.ico$/.test(nombre);
-    if (MEDIA_MIMES.indexOf(file.type) === -1 && !esIco) return "Tipo no permitido. Usa JPG, PNG, WebP o ICO.";
-    if (file.size > MEDIA_MAX_BYTES) return "La imagen supera 2 MB.";
+    if (!/\.(jpe?g|png|webp|gif|avif|ico)$/.test(nombre) || (file.type && MEDIA_MIMES.indexOf(file.type) === -1 && !esIco)) return "Tipo no permitido. Usa JPG, JPEG, PNG, WebP, GIF, AVIF o ICO.";
+    if (!file.size) return "El archivo esta vacio.";
+    var limite = fuenteOptimizable && /\.(jpe?g|png|webp)$/.test(nombre) ? 20 * 1024 * 1024 : MEDIA_MAX_BYTES;
+    if (file.size > limite) return limite === MEDIA_MAX_BYTES ? "La imagen supera 2 MB. Reduce su peso o elige un archivo mas ligero." : "La imagen original supera 20 MB. Reduce su peso antes de seleccionarla.";
     return "";
   }
 

@@ -2,6 +2,10 @@
 Options -Multiviews
 RewriteEngine On
 RewriteBase /
+# IA: Codex GPT-6 | 2026-09-24 | URLs Media anteriores redirigen al formato/nombre actual.
+# Solo archivos faltantes; no altera el servicio estatico de imagenes actuales.
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteRule ^assets/media/cms/ecommerce/([A-Za-z0-9_.-]+\.(?:jpg|jpeg|png|gif|webp|avif|ico))$ index.php?url=EcommercePublico/media_alias/$1 [L,NC]
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteRule \.(?:css|js|map|jpg|jpeg|png|gif|webp|svg|ico|woff|woff2|ttf|eot|otf|pdf)$ - [R=404,L,NC]
 RewriteCond %{REQUEST_FILENAME} !-d

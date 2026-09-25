@@ -1,5 +1,28 @@
 # CMS - Contenido ecommerce
 
+## Handoff Media / continuidad 2026-09-24
+
+Documentacion IA: Codex GPT-6.
+
+### Ampliacion autorizada: formatos y nombres SEO
+
+- El dueno solicita reemplazar PNG/JPG por WebP y mejorar nombres. Se supera la restriccion previa de mismo formato: ID y codigo siguen estables; la URL canonica cambia si cambia formato o nombre descriptivo.
+- Las URLs antiguas se conservan como aliases en `metadata_json.rutas_anteriores` y responden 301 al archivo actual, con extension/MIME reales. No se reescriben masivamente payloads ni se ejecuta DDL. Los enlaces guardados siguen funcionando y nuevas selecciones usan la URL canonica descriptiva.
+- El detector de usos debe revisar tambien TODOS los aliases. Los archivos anteriores se retiran solo dentro de la operacion individual con resguardo/rollback, para que no se sirva una copia obsoleta en lugar de redirigir. Las caches externas previas pueden tardar en revalidar.
+- `nombre_seo` es una descripcion propuesta por el operador, normalizada con guiones; sufijo corto evita colisiones. No se inventan etiquetas comerciales ni se renombran imagenes existentes automaticamente. El alt es independiente y su edicion en biblioteca no sustituye textos contextuales previamente publicados.
+- Conversion a WebP explicita para JPG/PNG/WebP estaticos; ICO y animaciones conservan originales por defecto. La biblioteca muestra peso antes/despues y permite subir un WebP ya preparado.
+- Verificacion ampliada: UAT de gestion incluye cambio real de formato en fixtures, renombrados sucesivos y rollback; UAT de aliases revisa URLs inseguras/ambiguas y referencias historicas; UAT JS cubre conversion y guardado de nombre/alt sin archivo. HTTP local de solo lectura comprobo imagen actual200, alias desconocido404 y ausencia de bucles. La biblioteca real (14 imagenes) sigue compatible sin cambios de datos.
+
+- Necesidad del dueno: localizar imagenes pesadas, eliminarlas de forma segura y reemplazarlas sin romper usos existentes; respetar formatos como ICO. El servidor conserva originales y el navegador ofrece optimizacion voluntaria del mismo formato.
+- Biblioteca `/cms/media` y modal del editor comparten `media_tools.js`: JPG/JPEG, PNG, WebP, GIF, AVIF e ICO; 2 MB finales. Optimizacion JPG/PNG/WebP estaticos hasta 2560 px, fuente hasta 20 MB, calidad82 cuando aplica, solo si ahorra bytes. No aplana animaciones ni convierte favicons.
+- Reemplazo individual: mismo ID/codigo; cambia URL al renombrar/cambiar formato, con aliases301 hacia la actual. Afecta todos sus usos. Exige `cms.editar` y `cms.publicar` con equivalencia existente `catalogo.editar`; POST/CSRF y auditoria explicita.
+- Eliminacion individual: comprueba TODOS los estados guardados de CMS, Blog, usos registrados y fallback Home/categorias. Corrige la busqueda INSTR que recibia porcentajes literales y omitia usos publicados independientes. No detecta referencias externas o borradores exclusivos de otros navegadores.
+- Archivos: `EcommerceMediaGestion.php` extiende el modelo principal; `CmsMediaArchivo.php` valida originales/rutas; `CmsMediaReferencias.php` revisa dependencias. Resguardo temporal privado en `storage/cms_media_resguardo`; rollback recupera archivo ante fallo, limpieza tras exito.
+- Contratos: `media_admin_listar_erp` acepta offset/limite (max120) y orden=peso, responde total/hay_mas. `preview_url` lleva hash; `url` es la canonica, `urls_anteriores` el historial y `nombre_seo` la descripcion. `media_admin_usos_erp` GET devuelve usos/total/puede_eliminar. `media_admin_reemplazar_erp` POST recibe id_media_archivo, archivo opcional, nombre_seo/alt opcionales. El optimizador/conversor entrega archivo validado al mismo endpoint. `public/.htaccess` deriva archivos CMS faltantes a `EcommercePublico/media_alias`, que responde301 solo a un destino CMS existente y diferente.
+- Sin migraciones ni cambios de esquema. No se alteraron imagenes/filas existentes durante implementacion. Nombre SEO/alt estan disponibles; otros metadatos y archivado real siguen pendientes. Notas historicas que describen usos como bloqueados o exigen mismo formato quedan superadas por este avance.
+- Verificacion: `storage/uat/uat_cms_media_gestion_readonly.php` revisa biblioteca real sin escribir (14 imagenes, 10 con usos, columnas de reemplazo disponibles). `storage/uat/uat_cms_media_gestion_aislada.php` prueba recuperacion ante fallos y formatos ICO/AVIF con fixtures privados; `storage/uat/uat_cms_media_picker.js` verifica selector y optimizador de forma aislada. El preflight historico de 2026-08 solo comprobaba cadenas de codigo, no seguridad de reemplazo/borrado. La inspeccion visual no se completo: Computer Use no pudo determinar de forma fiable la URL de Chrome y se detuvo.
+- Continuidad: nuevas fuentes que guarden URLs Media deben agregarse al detector de referencias. No quitar proteccion de borradores o fallback para permitir borrados; retirar/guardar referencias o reemplazar el archivo. Si se necesita versionar URLs publicas o resolverlas por ID, coordinar contrato con frontend antes de cambiarlo.
+
 ## Cambio de rumbo 2026-08-13
 
 Se detiene el enfoque de constructor generico tipo WordPress/Wix para no seguir invirtiendo tiempo en una abstraccion que no esta conectada al frontend actual.

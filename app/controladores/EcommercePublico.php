@@ -2,6 +2,23 @@
 
 class EcommercePublico extends Controlador {
 
+  /** IA: Codex GPT-6 | Fecha: 2026-09-24
+   * Proposito: mantener imagenes previamente publicadas tras cambiar nombre o formato.
+   * Impacto: GET/HEAD publico de archivos Media anteriores, sin sesiones ni escrituras.
+   * Contrato: 301 solo a otra ruta CMS validada; no revela metadatos ni acepta destinos externos.
+   */
+  public function media_alias($archivo = '') {
+    if (!in_array($_SERVER['REQUEST_METHOD'] ?? 'GET', array('GET', 'HEAD'), true)) {
+      http_response_code(405); header('Allow: GET, HEAD'); return '';
+    }
+    $ruta = '/assets/media/cms/ecommerce/' . $archivo;
+    $destino = $this->modelo('EcommerceCatalogoPublico')->mediaResolverAliasInterno($ruta);
+    if (!$destino) { http_response_code(404); return ''; }
+    header('Cache-Control: no-cache');
+    header('Location: ' . $destino['url'], true, 301);
+    return '';
+  }
+
   /**
    * Documentacion IA: Codex GPT-5 | Fecha: 2026-07-12
    * Proposito: exponer manifiesto de contratos API que consumira el proyecto ecommerce externo.

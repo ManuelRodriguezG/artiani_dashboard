@@ -218,6 +218,61 @@ Reglas para usarlo:
 
 Ruta: `/cms/frontend/home`.
 
+Actualizacion 2026-09-24 - Home Componentes y Orden:
+
+- El contrato vigente para la primera version del Home esta documentado en `C:\xampp\htdocs\frontend\ecommerce-publico\docs\HOME_CMS_COMPONENTES_Y_ORDEN.md`.
+- La pantalla Home separa los componentes en secciones propias: `Elige tu mascota`, `Fabricacion Artiani`, `Seleccion Artiani`, `Banner panoramico`, `Banners divididos` y `Mapa`.
+- Cada seccion tiene sus propios botones y campos; ya no se administran dentro de un grupo visual unico.
+- Cada componente permite subir/bajar, activar/ocultar, agregar items, seleccionar categoria y usar Media para imagen personalizada.
+- El endpoint interno de publicacion es `POST /cms/frontend_home_componentes_publicar_erp`.
+- El endpoint publico para frontend es `GET /ecommercePublico/contenido_pagina?pagina=home`.
+- Cuando existen componentes publicados, la API entrega `depurar.componentes_home.publicados=true`, `depurar.version_contenido` y una sola lista `depurar.secciones` en el orden final publicado.
+- `depurar.componentes_home.tipos_gestionados` identifica los tipos que controla este editor: `mascotas_destacadas`, `fabricacion_artiani`, `seleccion_artiani`, `banner_ancho_completo`, `banners_divididos` y `ubicacion_mapa`.
+- Desactivar un componente y presionar `Publicar componentes` actualiza la API publica. Guardar solo borrador no cambia la web.
+- Si todos los componentes gestionados quedan apagados, `depurar.componentes_home.publicados` permanece en `true`, `componentes_total=0` y una lista vacia es una publicacion valida.
+- Cada publicacion genera una `version_contenido` con revision unica; el frontend puede conservar respuestas hasta 120 segundos, asi que un cambio publicado puede tardar hasta dos minutos en verse sin limpiar cache local.
+- La compatibilidad con `GET /ecommercePublico/cms_frontend?pagina=home` se mantiene para lectura del frontend.
+
+Componentes soportados:
+
+- `mascotas_destacadas`, slot `home.mascotas`: permite una o varias categorias publicas para la seccion "Elige tu mascota".
+- `fabricacion_artiani`, slot `home.fabricacion`: exige exactamente dos categorias visibles.
+- `seleccion_artiani`, slot `home.seleccion`: exige exactamente cuatro categorias visibles.
+- `banner_ancho_completo`, slot `home.banner_ancho_completo`: permite instancias repetibles, cada una con una categoria.
+- `banners_divididos`, slot `home.banners_divididos`: permite instancias repetibles, cada una con exactamente dos categorias.
+- `ubicacion_mapa`, slot `home.ubicacion`: instancia unica `home_ubicacion`; usa `cms_global` para direccion, horarios y mapa.
+
+Reglas de publicacion:
+
+- Cada componente necesita `codigo` unico y estable, `tipo`, `slot`, `orden` y `visible`.
+- Cada item visible que apunte a categoria debe usar `categoria_id` o `path_slug` de una categoria publica real.
+- El CMS resuelve al publicar: nombre de categoria, URL canonica, `path_slug`, imagen desktop, imagen mobile, alt e `imagen_fuente`.
+- El enlace siempre apunta a la categoria seleccionada; no se debe construir URL desde el titulo.
+- Si `imagen_modo` es `personalizada`, se usa la imagen de Media/CMS; si no, se hereda la imagen de categoria.
+- Si la imagen mobile queda vacia, la API usa fallback de la imagen desktop.
+- El bloque antiguo `home_promos_categoria` queda como legado y no debe reactivarse para los nuevos componentes.
+
+Medidas sugeridas para preparar imagenes:
+
+- Mascotas: 600 x 600 px.
+- Fabricacion Artiani: 1200 x 900 px.
+- Seleccion Artiani: 800 x 800 px.
+- Banner panoramico desktop: 1920 x 480 px.
+- Banner panoramico mobile: 800 x 900 px.
+- Mitades de banners divididos: 1200 x 750 px.
+
+Como verificar:
+
+- Publica desde la seccion del componente que estes editando.
+- Usa `Agregar item` dentro de `Elige tu mascota`, `Fabricacion Artiani` y `Seleccion Artiani` hasta completar las cantidades requeridas.
+- Usa `Banner panoramico` o `Dos banners` para crear instancias repetibles con posicion independiente.
+- Para cada item selecciona una categoria real; si quieres heredar imagen, usa `Usar categoria`; si quieres reemplazarla, usa `Media`.
+- Abre `GET /ecommercePublico/contenido_pagina?pagina=home`.
+- Confirma que `depurar.componentes_home.publicados` sea `true`.
+- Confirma que `depurar.secciones` venga como una sola lista ordenada.
+- Confirma que cada item entregue `categoria.url`, `imagen_desktop`, `imagen_mobile`, `alt` e `imagen_fuente`.
+- Si falta una categoria publica, una cantidad exacta o una imagen, ese componente incompleto no se envia a la API; los demas componentes validos si se publican.
+
 Orden del Home:
 
 - La seccion `home_orden_componentes` permite acomodar la portada sin tocar codigo del frontend.
@@ -401,6 +456,7 @@ Estado actual:
 
 - `home.banner` ya tiene editor local operativo como banner de Home.
 - Por ahora esta pensado como imagen estatica: desktop, mobile, alt text, titulo, subtitulo y CTA.
+- Permite capturar `Texto superior` y `Logo superior opcional` para mostrar marca/logotipo arriba del titulo visible.
 - La estructura usa `items` para que despues pueda crecer a slides si el frontend lo soporta.
 - Permite visible/oculto, variante visual y modo `estatico` o `slides futuro`.
 - Permite agregar, duplicar, ocultar/mostrar y eliminar items de banner.
@@ -415,6 +471,8 @@ Reglas para usarlo:
 - Primero sube o selecciona una imagen con etiqueta `Servidor BD`; las imagenes `Temporal local` solo sirven para previsualizar antes de subir.
 - No lo amarres a temporada, promociones o campañas salvo que ese sea el contenido puntual del momento.
 - Toda imagen visible debe tener `alt`.
+- Medidas recomendadas del banner principal: desktop `1920 x 820 px`, mobile `768 x 980 px`.
+- Si usas `Logo superior`, selecciona una imagen desde Media CMS; si lo dejas vacio, frontend puede mostrar `Texto superior`.
 - Si despues se requiere carrusel, se activa desde frontend usando los `items` ya preparados.
 
 ## CMS > Frontend actual > Home promo
@@ -987,15 +1045,15 @@ Esta pantalla administra la biblioteca Media CMS para el frontend. Su objetivo e
 
 En la fase actual:
 
-- sube imagenes JPG, PNG o WebP al servidor
+- sube originales JPG/JPEG, PNG, WebP, GIF, AVIF e ICO al servidor, sin convertirlos por su uso o tipo
 - guarda la referencia en `erp_ecommerce_media_archivos`
 - valida tipo MIME real, extension, peso maximo de 2 MB, dimensiones y hash SHA-256
 - exige `alt text`
 - clasifica por uso: Home, Categoria, Producto, Global o Blog futuro
-- acepta JPG, PNG, WebP e ICO para favicon
+- conserva un favicon ICO como ICO; elegir tipo Favicon no convierte PNG u otros formatos
 - distingue origen `Servidor BD` contra `Temporal local`
 - permite eliminar temporales locales del navegador
-- permite eliminar archivos reales de Media CMS solo si no estan usados por contenido publicado
+- permite eliminar archivos reales solo despues de verificar referencias CMS/Blog, incluidos borradores, pausados y seleccion automatica
 - sincroniza con BD y quita automaticamente referencias antiguas `Servidor BD` que ya no existan en servidor
 - incluye boton `Limpiar temporales` para borrar de la galeria lo que solo vive en el navegador
 - clasifica por tipo: logo principal, logo blanco, favicon, imagen social SEO, banner, hero, card, thumbnail o editorial
@@ -1004,7 +1062,30 @@ En la fase actual:
 
 Tambien consulta `/cms/media_admin_preflight_erp`, que muestra carpeta publica, tablas, limites y endpoints disponibles.
 
-Importante: la subida real ya esta activa; editar metadatos, archivar en BD y registrar usos reales siguen pendientes.
+La subida, reemplazo multiformato, nombre SEO, alt de biblioteca y eliminacion controlada estan activos. Archivar en BD y registrar relaciones de uso automaticamente siguen pendientes; la consulta de usos revisa las referencias guardadas, incluidas sus direcciones anteriores.
+
+### Reducir peso, reemplazar y eliminar (2026-09-24)
+
+Documentacion IA: Codex GPT-6. Estas acciones estan disponibles tanto en la biblioteca como en el selector del editor.
+
+1. Ordena por `Mayor peso` para localizar imagenes grandes. Cada imagen muestra formato, peso y dimensiones. El listado recorre toda la biblioteca, incluidos archivos antiguos.
+2. Para cargar un original, deja desmarcada la opcion de reducir peso. Se valida la extension contra el contenido real; no se convierte el favicon automaticamente.
+3. Para reducir peso, activa la optimizacion al subir o usa `Optimizar` en una imagen guardada. Trabaja en el navegador con JPG, PNG o WebP estaticos: conserva formato y transparencia, limita el lado mayor a 2560 px y usa calidad 82% donde el formato la admite. Solo usa el resultado si pesa menos. GIF, ICO, AVIF y las animaciones se conservan originales. Fuente para optimizar: hasta 20 MB; archivo final para servidor: hasta 2 MB.
+4. `Reemplazar` conserva ID, codigo y clasificacion y acepta otro formato permitido, por ejemplo PNG por WebP. Si cambia formato o nombre, genera una URL canonica nueva y las direcciones anteriores responden con redireccion 301 hacia la actual. Todos sus usos siguen funcionando, incluidos los publicados. Requiere permisos de edicion y publicacion y confirmacion antes de enviar.
+5. Puedes subir un WebP preparado o elegir `Convertir a WebP` para una imagen estatica JPG/PNG/WebP. La conversion es explicita y muestra peso antes/despues; puede producir mas bytes y por eso debe revisarse antes de confirmar. No convierte ICO ni aplana animaciones. El nombre del archivo final siempre termina en su formato real.
+6. `Ver usos` identifica referencias CMS y Blog, borradores y contenido pausado, usos registrados y la imagen predeterminada usada como fallback. `Eliminar` vuelve a comprobar esas referencias en servidor y bloquea si encuentra alguna. Quitar una referencia exige guardar el contenido antes de intentar eliminar otra vez.
+
+La deteccion no puede conocer URLs copiadas en sitios externos ni borradores que solo estan en otros navegadores. El selector protege ademas el contenido del editor abierto. Las previsualizaciones usan una version del hash; cuando cambia nombre o formato las URLs guardadas siguen funcionando mediante redirecciones. Las caches externas/CDN pueden tardar en mostrar el reemplazo.
+
+### Nombres descriptivos y SEO
+
+El campo `Nombre SEO` define el nombre publico sin extension: por ejemplo `collares-para-perros` o `accesorios-para-gatos`. El servidor normaliza minusculas, acentos y guiones y agrega un sufijo corto para evitar colisiones. No agrega palabras comerciales ni intenta deducir lo que aparece en la imagen. Puedes editar el nombre al subir, al reemplazar o sin cargar otro archivo mediante `Guardar nombre y descripcion`.
+
+El `Alt` describe lo visible y es independiente del nombre: por ejemplo `Collares ajustables para perros en distintos colores`. Guardarlo aqui actualiza la biblioteca para nuevas selecciones; no sobrescribe los textos alternativos contextuales que ya se guardaron en paginas publicadas.
+
+Los nombres cortos y descriptivos aportan una señal ligera a Google; el alt, la calidad y el contexto de la pagina tambien importan. No rellenar nombres o alt con listas de palabras clave. WebP ayuda cuando reduce peso conservando calidad, no garantiza posicionamiento por su extension. Fuente: [Google Search Central, SEO de imagenes](https://developers.google.com/search/docs/appearance/google-images).
+
+Las operaciones individuales usan resguardo temporal privado para recuperar el archivo si falla la BD. Tras exito se limpia el temporal; si falla una recuperacion o limpieza se informa para revision administrativa. No se comprimen, reemplazan ni eliminan archivos existentes automaticamente al desplegar este cambio.
 
 ### Flujo recomendado
 
@@ -1106,13 +1187,13 @@ Diferencias de imagen:
 ### Importante
 
 - Esta pantalla ya sube archivos al servidor usando `/cms/media_admin_subir_erp`.
-- Esta pantalla todavia no borra archivos fisicos.
+- La eliminacion controlada retira la fila y el archivo fisico si no hay referencias detectadas.
 - Esta pantalla ya guarda media en BD dentro de `erp_ecommerce_media_archivos`.
 - La carpeta publica activa es `/assets/media/cms/ecommerce`.
 - Las tablas del modulo son `erp_ecommerce_media_archivos` y `erp_ecommerce_media_usos`.
 - El endpoint `/cms/media_admin_preflight_erp` solo lee contrato.
 - El endpoint `/cms/media_admin_listar_erp` es solo lectura.
-- Los endpoints `/cms/media_admin_actualizar_erp`, `/cms/media_admin_archivar_erp` y `/cms/media_admin_usos_erp` siguen bloqueados.
+- `/cms/media_admin_usos_erp` consulta usos por GET; `/cms/media_admin_reemplazar_erp` recibe archivo opcional, nombre_seo y alt por POST y conserva referencias mediante aliases. El endpoint separado de metadatos y el archivado siguen bloqueados; nombre/alt se guardan en la accion de reemplazo.
 - No se deben guardar rutas internas del ERP para que el frontend las lea directamente.
 
 ### Errores comunes

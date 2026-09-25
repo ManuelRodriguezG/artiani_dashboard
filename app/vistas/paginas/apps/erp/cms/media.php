@@ -9,18 +9,18 @@
     <link href="assets/plugins/global/plugins.bundle.css" rel="stylesheet" type="text/css">
     <link href="assets/css/style.bundle.css" rel="stylesheet" type="text/css">
     <!--
-      Documentacion IA: Codex GPT-5, 2026-08-14.
-      Proposito: administrar biblioteca media del CMS para imagenes de frontend.
-      Impacto: CMS media; reemplaza captura manual de URLs por subida publica controlada.
-      Contrato: alta real autorizada; no borra fisicos ni modifica catalogo, precios o inventario.
+      IA: Codex GPT-6 | Fecha: 2026-09-24.
+      Proposito: administrar formatos originales, peso, reemplazo y usos de medios CMS.
+      Impacto: biblioteca compartida por el contenido ecommerce.
+      Contrato: acciones segun permisos; reemplazo conserva referencias y eliminacion valida usos en servidor.
     -->
     <style>
         .cms-media-panel { border: 1px solid #e7e9ef; border-radius: 8px; background: #fff; }
         .cms-media-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 16px; }
         .cms-media-card { border: 1px solid #e7e9ef; border-radius: 8px; background: #fff; overflow: hidden; cursor: pointer; }
         .cms-media-card.is-active { border-color: #009ef7; box-shadow: 0 0 0 3px rgba(0, 158, 247, .12); }
-        .cms-media-thumb { width: 100%; aspect-ratio: 16 / 10; object-fit: cover; background: #f3f6f9; display: block; }
-        .cms-media-detail-img, .ecom-cms-preview-img { width: 100%; aspect-ratio: 16 / 9; object-fit: cover; border: 1px solid #e7e9ef; border-radius: 8px; background: #f3f6f9; }
+        .cms-media-thumb { width: 100%; aspect-ratio: 16 / 10; object-fit: contain; background: #f3f6f9; display: block; }
+        .cms-media-detail-img, .ecom-cms-preview-img { width: 100%; max-height: 300px; object-fit: contain; border: 1px solid #e7e9ef; border-radius: 8px; background: #f3f6f9; }
         .cms-media-actions { display: flex; flex-wrap: wrap; gap: 8px; }
         .cms-media-drop { border: 1px dashed #b5c4d8; border-radius: 8px; background: #f8fbff; padding: 18px; }
         .cms-media-meta { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
@@ -39,13 +39,13 @@
                         <div class="app-container container-fluid d-flex flex-stack flex-wrap gap-3">
                             <div>
                                 <h1 class="page-heading text-dark fw-bold fs-3 mb-1">CMS / Media / Archivos</h1>
-                                <span class="text-muted">Biblioteca inicial para imagenes del frontend ecommerce</span>
+                                <span class="text-muted">Imagenes reutilizables del sitio: revisa peso, formato y donde se utilizan.</span>
                             </div>
                             <div class="d-flex gap-2">
                                 <a class="btn btn-light" href="/cms/frontend/home"><i class="bi bi-house"></i> Home</a>
                                 <a class="btn btn-light" href="/docs/erp_cms_manual_uso.md" target="_blank" rel="noopener"><i class="bi bi-journal-text"></i> Manual</a>
                                 <button class="btn btn-light-warning" type="button" id="cms_media_limpiar_temporales"><i class="bi bi-eraser"></i> Limpiar temporales</button>
-                                <button class="btn btn-light-danger" type="button" id="cms_media_limpiar_archivados"><i class="bi bi-archive"></i> Limpiar archivados</button>
+                                <button class="btn btn-light-danger" type="button" id="cms_media_limpiar_archivados"><i class="bi bi-archive"></i> Limpiar temporales archivados</button>
                             </div>
                         </div>
                     </div>
@@ -55,27 +55,35 @@
                                 <i class="bi bi-images fs-2"></i>
                                 <div>
                                     <div class="fw-bold">Biblioteca Media CMS</div>
-                                    <div>Sube imagenes publicas para Home, categorias, Global y secciones editoriales. Cada imagen se guarda con alt text, uso sugerido, tipo, hash y URL publica controlada.</div>
+                                    <div>Puedes mejorar el nombre, convertir a WebP por eleccion o reemplazar con otro formato. Las referencias anteriores siguen funcionando. Los archivos conservan su formato original salvo que elijas convertirlos; incluido ICO para favicon. Para eliminar, primero se revisan sus usos guardados.</div>
                                 </div>
                             </div>
 
                             <div class="row g-5">
-                                <div class="col-xl-4">
-                                    <div class="cms-media-panel p-5 mb-5">
+                                <div class="col-12">
+                                    <div class="cms-media-panel p-5" id="cms_media_alta_panel" hidden>
                                         <div class="d-flex justify-content-between align-items-start gap-3 mb-4">
                                             <div>
                                                 <h3 class="fw-bold mb-1">Agregar imagen</h3>
-                                                <span class="text-muted fs-7">JPG, PNG, WebP o ICO. Maximo permitido: 2 MB.</span>
+                                                <span class="text-muted fs-7">JPG, JPEG, PNG, WebP, GIF, AVIF o ICO. Maximo: 2 MB por archivo.</span>
                                             </div>
-                                            <span class="badge badge-light-primary" id="cms_media_estado">Listo</span>
                                         </div>
                                         <div class="cms-media-drop mb-4">
-                                            <label class="form-label fw-bold">Archivo</label>
-                                            <input class="form-control" type="file" id="cms_media_archivo" accept="image/jpeg,image/png,image/webp,image/vnd.microsoft.icon,image/x-icon,.ico">
+                                            <label class="form-label fw-bold" for="cms_media_archivo">Archivo</label>
+                                            <input class="form-control" type="file" id="cms_media_archivo" accept=".jpg,.jpeg,.png,.webp,.gif,.avif,.ico">
+                                            <label class="form-check form-check-custom form-check-solid mt-4">
+                                                <input class="form-check-input" type="checkbox" id="cms_media_optimizar">
+                                                <span class="form-check-label">Optimizar al subir (JPG, PNG y WebP estaticos; conserva el formato)</span>
+                                            </label>
+                                            <label class="form-check form-check-custom form-check-solid mt-3">
+                                                <input class="form-check-input" type="checkbox" id="cms_media_webp">
+                                                <span class="form-check-label">Convertir a WebP al subir (opcional; JPG, PNG y WebP estaticos)</span>
+                                            </label>
+                                            <div class="text-muted fs-7 mt-2">Sin esta opcion se conserva el archivo original. Optimizar admite una fuente de hasta 20 MB y reduce a un maximo de 2560 px por lado y calidad 82% cuando el formato lo permite; se aplica solo si pesa menos y el resultado no supera 2 MB. GIF, AVIF, ICO e imagenes animadas se conservan sin optimizacion.</div>
                                         </div>
                                         <div class="row g-3">
-                                            <div class="col-md-6">
-                                                <label class="form-label">Uso</label>
+                                            <div class="col-md-3">
+                                                <label class="form-label" for="cms_media_uso">Uso</label>
                                                 <select class="form-select form-select-solid" id="cms_media_uso">
                                                     <option value="home">Home</option>
                                                     <option value="categoria">Categoria</option>
@@ -84,8 +92,8 @@
                                                     <option value="blog">Blog futuro</option>
                                                 </select>
                                             </div>
-                                            <div class="col-md-6">
-                                                <label class="form-label">Tipo</label>
+                                            <div class="col-md-3">
+                                                <label class="form-label" for="cms_media_tipo">Tipo</label>
                                                 <select class="form-select form-select-solid" id="cms_media_tipo">
                                                     <option value="logo">Logo principal</option>
                                                     <option value="logo_blanco">Logo blanco</option>
@@ -98,9 +106,15 @@
                                                     <option value="editorial">Editorial</option>
                                                 </select>
                                             </div>
-                                            <div class="col-12">
-                                                <label class="form-label">Alt text</label>
+                                            <div class="col-md-6">
+                                                <label class="form-label" for="cms_media_alt">Alt text</label>
                                                 <input class="form-control form-control-solid" id="cms_media_alt" type="text" placeholder="Descripcion accesible de la imagen">
+                                            </div>
+                                            <div class="col-12">
+                                                <label class="form-label" for="cms_media_nombre_seo">Nombre del archivo para SEO (sin extension)</label>
+                                                <div class="input-group"><input class="form-control form-control-solid" id="cms_media_nombre_seo" maxlength="120" type="text" placeholder="collares-para-perros"><button class="btn btn-light" type="button" id="cms_media_sugerir_nombre">Sugerir desde descripcion</button></div>
+                                                <div class="text-muted fs-7 mt-2">Usa un nombre breve que describa lo visible, sin repetir palabras clave. Revisa la sugerencia antes de subir.</div>
+                                                <div class="text-muted fs-7 mt-2" id="cms_media_nombre_preview">Ejemplo: collares-para-perros.webp</div>
                                             </div>
                                             <div class="col-12">
                                                 <button class="btn btn-primary w-100" type="button" id="cms_media_agregar"><i class="bi bi-cloud-upload"></i> Subir a biblioteca</button>
@@ -108,40 +122,20 @@
                                         </div>
                                     </div>
 
-                                    <div class="cms-media-panel p-5 mb-5">
-                                        <h3 class="fw-bold mb-4">Politica inicial</h3>
-                                        <div class="d-flex flex-column gap-3 fs-7">
-                                            <div><span class="badge badge-light-success me-2">OK</span>Validar extension, peso y alt text antes de usar.</div>
-                                            <div><span class="badge badge-light-primary me-2">Global</span>Logo: uso Global + tipo Logo principal. Favicon: uso Global + tipo Favicon.</div>
-                                            <div><span class="badge badge-light-info me-2">Preflight</span><code>/cms/media_admin_preflight_erp</code></div>
-                                            <div><span class="badge badge-light-success me-2">Activo</span>Subida real a carpeta publica controlada.</div>
-                                            <div><span class="badge badge-light-warning me-2">Pendiente</span>Editar metadatos, archivar y registrar usos reales.</div>
-                                            <div><span class="badge badge-light-danger me-2">No</span>No guardar rutas internas del ERP como URL publica.</div>
-                                        </div>
-                                    </div>
-
-                                    <div class="cms-media-panel p-5">
-                                        <div class="d-flex justify-content-between align-items-start gap-3 mb-4">
-                                            <div>
-                                                <h3 class="fw-bold mb-1">Preflight servidor</h3>
-                                                <span class="text-muted fs-7">Contrato de persistencia y endpoints disponibles.</span>
-                                            </div>
-                                            <span class="badge badge-light-info" id="cms_media_preflight_estado">Read-only</span>
-                                        </div>
-                                        <div id="cms_media_preflight"></div>
-                                    </div>
                                 </div>
 
-                                <div class="col-xl-5">
+                                <div class="col-12">
                                     <div class="cms-media-panel p-5 mb-5">
+                                        <div id="cms_media_estado" class="alert alert-light-info" role="status" aria-live="polite">Cargando biblioteca...</div>
+                                        <div id="cms_media_preflight" class="text-muted fs-7 mb-4"></div>
                                         <div class="d-flex justify-content-between align-items-end flex-wrap gap-3 mb-4">
                                             <div>
                                                 <h3 class="fw-bold mb-1">Biblioteca</h3>
-                                                <span class="text-muted fs-7">Imagenes disponibles para seleccionar en Home y paginas futuras.</span>
+                                                <span class="text-muted fs-7" id="cms_media_resumen">Selecciona una imagen para consultar sus usos y administrarla.</span>
                                             </div>
-                                            <div class="d-flex gap-2">
-                                                <input class="form-control form-control-sm form-control-solid w-200px" id="cms_media_buscar" type="text" placeholder="Buscar">
-                                                <select class="form-select form-select-sm form-select-solid w-150px" id="cms_media_filtro_uso">
+                                            <div class="d-flex flex-wrap gap-2">
+                                                <input class="form-control form-control-sm form-control-solid w-200px" id="cms_media_buscar" type="search" placeholder="Buscar nombre o descripcion" aria-label="Buscar imagen">
+                                                <select class="form-select form-select-sm form-select-solid w-150px" id="cms_media_filtro_uso" aria-label="Filtrar uso">
                                                     <option value="">Todos</option>
                                                     <option value="home">Home</option>
                                                     <option value="categoria">Categoria</option>
@@ -149,13 +143,19 @@
                                                     <option value="global">Global</option>
                                                     <option value="blog">Blog futuro</option>
                                                 </select>
+                                                <select class="form-select form-select-sm form-select-solid w-200px" id="cms_media_orden" aria-label="Ordenar biblioteca">
+                                                    <option value="peso_desc">Mayor peso primero</option>
+                                                    <option value="recientes">Mas recientes</option>
+                                                    <option value="nombre">Nombre</option>
+                                                </select>
+                                                <button class="btn btn-sm btn-light" id="cms_media_recargar" type="button">Actualizar</button>
                                             </div>
                                         </div>
                                         <div class="cms-media-grid" id="cms_media_biblioteca"></div>
                                     </div>
                                 </div>
 
-                                <div class="col-xl-3">
+                                <div class="col-12">
                                     <div class="cms-media-panel p-5 mb-5">
                                         <div class="d-flex justify-content-between align-items-start gap-3 mb-4">
                                             <div>
@@ -181,6 +181,7 @@
 <script>
     window.ERP_CSRF_TOKEN = "<?= htmlspecialchars(Sesionseguridad::csrfToken(), ENT_QUOTES, 'UTF-8') ?>";
 </script>
-<script src="/assets/js/custom/apps/erp/cms/media.js?v=20260827-global-tipos1"></script>
+<script src="/assets/js/custom/apps/erp/cms/media_tools.js?v=20260924-media2"></script>
+<script src="/assets/js/custom/apps/erp/cms/media.js?v=20260924-media2"></script>
 </body>
 </html>

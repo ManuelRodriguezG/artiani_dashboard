@@ -241,15 +241,23 @@ class Cms extends Controlador {
   }
 
   /**
-   * Documentacion IA: Codex GPT-5 | Fecha: 2026-08-19
-   * Proposito: entregar preflight read-only para persistencia real de Media CMS.
+   * Documentacion IA: Codex GPT-6 | Fecha: 2026-09-24
+   * Proposito: entregar capacidades y permisos efectivos para Media CMS.
    * Impacto: CMS media; define carpeta publica, limites, MIME y DDL futuro sin subir archivos.
    * Contrato: GET protegido; no escribe BD, no mueve archivos y no borra fisicos.
    */
   public function media_admin_preflight_erp() {
     $this->requerirAlgunPermiso(array("cms.ver", "catalogo.ver"));
     $plan = $this->modelo("EcommercePublicoEsquema")->planActualizarCmsMediaBiblioteca(false);
-    return json_encode($this->modelo("EcommerceCatalogoPublico")->mediaAdminPreflightInterno($plan), JSON_UNESCAPED_UNICODE);
+    $respuesta = $this->modelo("EcommerceCatalogoPublico")->mediaAdminPreflightInterno($plan);
+    $seguridad = $this->modelo("SeguridadPermisos");
+    $id = $this->usuarioActualId();
+    $catalogo = $seguridad->usuarioTienePermiso($id, "catalogo.editar");
+    $respuesta["depurar"]["permisos"] = array(
+      "editar" => $catalogo || $seguridad->usuarioTienePermiso($id, "cms.editar"),
+      "publicar" => $catalogo || $seguridad->usuarioTienePermiso($id, "cms.publicar")
+    );
+    return json_encode($respuesta, JSON_UNESCAPED_UNICODE);
   }
 
   /**
@@ -264,13 +272,14 @@ class Cms extends Controlador {
   }
 
   /**
-   * Documentacion IA: Codex GPT-5 | Fecha: 2026-08-21
-   * Proposito: subir imagenes publicas a la biblioteca Media CMS.
+   * Documentacion IA: Codex GPT-6 | Fecha: 2026-09-24
+   * Proposito: subir originales con metodo POST explicito a la biblioteca Media CMS.
    * Impacto: CMS media; habilita imagenes reutilizables para Home/categorias/marcas sin tocar catalogo, precios ni inventario.
    * Contrato: POST protegido por permiso, CSRF global y auditoria explicita; solo acepta imagenes publicas validadas.
    */
   public function media_admin_subir_erp() {
     $this->requerirAlgunPermiso(array("cms.editar", "catalogo.editar"));
+    $this->mediaRequerirPost();
     $respuesta = $this->modelo("EcommerceCatalogoPublico")->mediaAdminSubirInterno(
       isset($_FILES["archivo"]) ? $_FILES["archivo"] : array(),
       $_POST,
@@ -309,13 +318,14 @@ class Cms extends Controlador {
   }
 
   /**
-   * Documentacion IA: Codex GPT-5 | Fecha: 2026-08-24
-   * Proposito: eliminar imagenes de Media CMS no usadas por contenido publicado.
+   * Documentacion IA: Codex GPT-6 | Fecha: 2026-09-24
+   * Proposito: eliminar imagenes de Media CMS sin referencias guardadas ni fallback.
    * Impacto: CMS media; permite limpiar duplicados sin romper banners o paginas activas.
    * Contrato: POST protegido por permiso, CSRF global, auditoria explicita y validacion de ruta publica CMS.
    */
   public function media_admin_eliminar_erp() {
     $this->requerirAlgunPermiso(array("cms.editar", "catalogo.editar"));
+    $this->mediaRequerirPost();
     $respuesta = $this->modelo("EcommerceCatalogoPublico")->mediaAdminEliminarInterno($_POST, $this->usuarioActualId());
     Sesionseguridad::registrarAuditoria("cms", "media_admin_eliminar_erp", array(
       "id_registro" => isset($_POST["id_media_archivo"]) ? intval($_POST["id_media_archivo"]) : null,
@@ -329,13 +339,47 @@ class Cms extends Controlador {
   }
 
   /**
-   * Documentacion IA: Codex GPT-5 | Fecha: 2026-08-20
-   * Proposito: reservar endpoint futuro para registrar usos de Media CMS.
-   * Impacto: CMS media; prepara trazabilidad de imagenes usadas por Home/categorias/marcas/paginas.
-   * Contrato: POST protegido; siempre bloqueado en fase actual.
+   * IA: Codex GPT-6 | Fecha: 2026-09-24
+   * Proposito: consultar referencias guardadas antes de eliminar una imagen.
+   * Impacto: CMS y Blog; no crea relaciones ni modifica contenido.
+   * Contrato: solo lectura con permisos de consulta existentes.
    */
   public function media_admin_usos_erp() {
-    return json_encode($this->respuestaEscrituraCmsMediaBloqueada("media_admin_usos_erp"), JSON_UNESCAPED_UNICODE);
+    $this->requerirAlgunPermiso(array("cms.ver", "catalogo.ver"));
+    return json_encode($this->modelo("EcommerceCatalogoPublico")->mediaAdminUsosInterno($_GET), JSON_UNESCAPED_UNICODE);
+  }
+
+  /** IA: Codex GPT-6 | Fecha: 2026-09-24
+   * Proposito: reemplazar una imagen conservando todas sus referencias publicas.
+   * Impacto: requiere editar y publicar porque el cambio alcanza los usos ya publicados.
+   * Contrato: POST con archivo opcional, nombre_seo/alt, CSRF y auditoria; URL anterior sigue por 301.
+   */
+  public function media_admin_reemplazar_erp() {
+    $this->requerirAlgunPermiso(array("cms.editar", "catalogo.editar"));
+    $this->requerirAlgunPermiso(array("cms.publicar", "catalogo.editar"));
+    $this->mediaRequerirPost();
+    $respuesta = $this->modelo("EcommerceCatalogoPublico")->mediaAdminReemplazarInterno(
+      isset($_FILES["archivo"]) ? $_FILES["archivo"] : array(), $_POST, $this->usuarioActualId()
+    );
+    Sesionseguridad::registrarAuditoria("cms", "media_admin_reemplazar_erp", array(
+      "id_registro" => isset($_POST["id_media_archivo"]) ? intval($_POST["id_media_archivo"]) : null,
+      "resultado" => empty($respuesta["error"]) ? "ok" : "error",
+      "datos_antes" => isset($respuesta["depurar"]["anterior"]) ? $respuesta["depurar"]["anterior"] : array(),
+      "datos_despues" => $respuesta
+    ));
+    return json_encode($respuesta, JSON_UNESCAPED_UNICODE);
+  }
+
+  /** IA: Codex GPT-6 | Fecha: 2026-09-24
+   * Proposito: impedir mutaciones Media mediante GET u otros verbos sin CSRF POST.
+   * Impacto: altas, reemplazos y bajas; responde JSON/405 sin ejecutar el modelo.
+   */
+  private function mediaRequerirPost() {
+    if (isset($_SERVER["REQUEST_METHOD"]) && $_SERVER["REQUEST_METHOD"] === "POST") return;
+    http_response_code(405);
+    header("Allow: POST");
+    echo json_encode(array("error" => true, "tipo" => "warning", "mensaje" => "Esta accion requiere POST.", "depurar" => array()), JSON_UNESCAPED_UNICODE);
+    exit;
   }
 
   /**
@@ -811,6 +855,19 @@ class Cms extends Controlador {
         "publicado_api" => isset($depurar["publicado_api"]) ? $depurar["publicado_api"] : false
       )
     ));
+    return json_encode($respuesta, JSON_UNESCAPED_UNICODE);
+  }
+
+  /**
+   * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-24
+   * Proposito: publicar la composicion completa de componentes del Home.
+   * Impacto: CMS/API Home; alimenta `/ecommercePublico/contenido_pagina?pagina=home` con una lista unica ordenada.
+   * Contrato: POST protegido por cms.publicar/catalogo.editar y CSRF; solo referencia categorias publicas.
+   */
+  public function frontend_home_componentes_publicar_erp() {
+    $this->requerirAlgunPermiso(array("cms.publicar", "catalogo.editar"));
+    $respuesta = $this->modelo("EcommerceCatalogoPublico")->frontendHomeComponentesPublicarInterno($_POST, $this->usuarioActualId());
+    $this->auditarPublicacionHomeCms("frontend_home_componentes_publicar_erp", $respuesta);
     return json_encode($respuesta, JSON_UNESCAPED_UNICODE);
   }
 
