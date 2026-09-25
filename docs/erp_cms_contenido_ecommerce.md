@@ -1,5 +1,53 @@
 # CMS - Contenido ecommerce
 
+## Validacion de cargas Media / 2026-09-25
+
+Documentacion IA: Codex GPT-6. Solicitud del dueno: comprobar al subir que la imagen existe en el servidor y distinguir errores de permisos/acceso.
+
+- Alta y reemplazo comprueban el archivo final antes de registrar/confirmar: existencia, lectura por PHP, permisos de lectura POSIX cuando aplican, peso y SHA256 contra el archivo recibido. Si la copia esta incompleta o alterada, no se confirma; el reemplazo recupera el original.
+- La respuesta del POST incluye `validacion_archivo` en el item y su `hash_sha256`. Tambien se comprueban altas duplicadas y reemplazos sin cambios; existir en BD no demuestra que exista el archivo. El listado no recalcula hashes de toda la biblioteca.
+- La biblioteca `/cms/media` y el selector del editor comprueban despues la URL publica mediante GET del mismo servidor, sin sesion, sin seguir redirecciones y con una version unica para evitar una copia antigua. Esperan como maximo 10 segundos y revisan HTTP, tipo, formato/peso y hash si el navegador dispone de WebCrypto.
+- Solo se anuncia acceso confirmado cuando pasan ambas comprobaciones. Los avisos distinguen archivo ausente/no legible/permisos restringidos/contenido distinto, URL404, acceso401/403, redireccion, HTML en vez de imagen, fallo del servidor o tiempo agotado. Un403 indica acceso denegado; no prueba por si solo que el permiso del archivo sea su unica causa.
+- Si ya se guardo, un fallo HTTP o de refresco del listado se muestra como advertencia; no se borra, revierte ni invita a duplicar la carga. El selector conserva la imagen en biblioteca y no la asigna automaticamente al contenido cuando la comprobacion falla. Las advertencias previas del backend tambien se conservan.
+- Si el INSERT termino pero falla consultar su ficha, el alta conserva archivo/recibo y devuelve advertencia. Fallos de prepare/execute previos a guardar limpian el archivo nuevo. No se ejecutan reparaciones masivas ni DDL.
+
+Verificacion aislada: `uat_cms_media_upload_aislada.php` cubre altas, duplicados, corrupcion y fallos de persistencia/consulta; `uat_cms_media_gestion_aislada.php` cubre integridad y recuperacion; `uat_cms_media_permisos_aislada.php` diferencia permisos y contenido; `uat_cms_media_picker.js` cubre ambas interfaces y respuestas HTTP simuladas. Ninguna prueba carga imagenes reales ni modifica la BD.
+
+Para activar en productivo deben subirse juntos los cambios de `CmsMediaArchivo`, `EcommerceMediaGestion`, alta/formato de item en `EcommerceCatalogoPublico`, auditoria en `Cms`, los tres JS CMS (`media_tools`, `media`, `frontend_actual`) y sus vistas con la version de assets actualizada. La verificacion se ejecuta al subir/reemplazar en ese servidor; los resultados de XAMPP no diagnostican los permisos de cPanel.
+
+## Incidente Media en productivo / continuidad 2026-09-25
+
+Documentacion IA: Codex GPT-6. Revision de solo lectura contra `https://sys.artiani.com.mx`, host productivo documentado; pendiente confirmar que es el host usado por el operador.
+
+- La URL reportada `/assets/media/cms/ecommerce/imagen-logotipo-artiani-en-blanaco-png-transparente-c1d4bdaf.png?v=b33e8c14a034e8d9` devuelve `302` a `/autenticacion/login`, no una imagen. El mismo resultado ocurre con otra query y con Referer de `/cms/media`.
+- Sin query devuelve `200 image/png`, pero con `CF-Cache-Status: HIT`: es una copia de cache, no prueba de disponibilidad del origen. Pesa 568527 bytes y coincide con el archivo del checkout. La ficha BD del medio 28 conserva esa ruta, sin aliases, pero su peso/hash difieren de esa copia. No se modificaron archivo ni ficha para hacerlos coincidir.
+- Otras imagenes PNG/WebP y el JS de Media responden `200` incluso con query nueva. Por ello no se debe quitar `?v` globalmente ni atribuirlo a extension PNG: ocultaria el fallo y podria mostrar una version antigua tras reemplazar.
+- El controlador publico directo `index.php?url=EcommercePublico/media_alias/ARCHIVO` responde `404` para esta ruta actual (correcto: no es alias); `/ecommercePublico/estado` responde JSON. No se puede inferir el despliegue completo de `.htaccess` ni los permisos fisicos a partir de estas respuestas HTTP.
+
+### Correccion preventiva realizada
+
+Se detecto un defecto independiente verificable: `tempnam` crea archivos `0600` en Linux; copiar el original sobre ese temporal y renombrarlo a publico conserva esos permisos. Lo mismo ocurria al recuperar una copia de resguardo. Esto puede impedir que el servidor web sirva el medio aunque PHP lo lea.
+
+- `CmsMediaArchivo::asegurarLecturaPublica()` establece y comprueba `0644`, sin escritura de grupo/otros, antes de publicar.
+- Alta valida permisos antes de INSERT; reemplazo/renombrado antes de retirar el original; recuperacion antes de restaurar. Si falla, no se confirma la operacion y se conserva el resguardo necesario.
+- El directorio de resguardo permanece privado `0700`. No se ejecutaron reparaciones masivas, DDL, ni cambios sobre imagenes reales.
+- Pasaron sintaxis PHP, UAT aislada de gestion/rollback/aliases y UAT de permisos POSIX simulados. Windows no permite demostrar los permisos reales de cPanel.
+
+### Pendiente en el servidor productivo
+
+1. Desplegar juntos `app/core/CmsMediaArchivo.php`, `app/modelos/EcommerceMediaGestion.php` y el bloque de alta de `app/modelos/EcommerceCatalogoPublico.php`, preservando otros cambios del proyecto. Esto previene el defecto; no repara retroactivamente archivos existentes.
+2. Revisar el archivo exacto en `public/assets/media/cms/ecommerce`: existencia, propietario, permisos y version. Si existe con permisos privados, la correccion puntual esperada es `0644`; revisar acceso de recorrido a sus directorios sin abrir permisos generales ni aplicar `777`.
+3. Comparar las reglas `.htaccess` desplegadas con las del proyecto y revisar si un error `403/404` termina redirigido al login. Si el archivo falta, recuperarlo desde la version correcta o reemplazarlo desde su ficha; no crear otra ficha que rompa referencias.
+4. Confirmar HTTP `200` con `Content-Type` de imagen usando la URL con `?v`, y comprobar su peso/version. Solo despues revisar la cache de la URL concreta si todavia sirve bytes antiguos.
+
+Diagnostico opcional por terminal en el servidor (CLI, solo lectura, no necesita publicar un endpoint):
+
+```sh
+php storage/uat/uat_cms_media_archivo_diagnostico_readonly.php --host=sys.artiani.com.mx --ruta=/assets/media/cms/ecommerce/imagen-logotipo-artiani-en-blanaco-png-transparente-c1d4bdaf.png
+```
+
+El script informa existencia, lectura por PHP, permisos POSIX, coincidencia de peso/hash con BD y alias. `ok=true` significa que termino la consulta, no que el acceso HTTP funcione. Para probar el checkout usar `--host=panel.com.local`; sus resultados no describen el filesystem productivo. Queda pendiente ejecutar esta lectura en cPanel y validar la correccion en origen; no se tiene acceso al filesystem de ese servidor en esta tarea.
+
 ## Handoff Media / continuidad 2026-09-24
 
 Documentacion IA: Codex GPT-6.

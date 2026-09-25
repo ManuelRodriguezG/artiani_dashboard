@@ -22,7 +22,7 @@ La fase actual deja listo el contrato para que frontend implemente:
 Base ERP/API actual:
 
 ```text
-https://panel.artiani.com.mx/ecommercePublico
+https://sys.artiani.com.mx/ecommercePublico
 ```
 
 En local o staging interno puede variar, pero las rutas son estas:
@@ -94,6 +94,14 @@ Endpoint:
 GET /ecommercePublico/seo_sitemap
 ```
 
+Para staging/pruebas:
+
+```text
+GET /ecommercePublico/seo_sitemap?ambiente=staging&public_url=https://prueba.artiani.com.mx
+```
+
+En staging el frontend NO debe publicar sitemap indexable. Si necesita responder `/sitemap.xml`, debe devolver `404`, `204` o un XML vacio no enviado a Google. No debe anunciarlo en `robots.txt`.
+
 Respuesta relevante:
 
 ```json
@@ -148,6 +156,19 @@ Endpoint:
 GET /ecommercePublico/seo_robots
 ```
 
+Para staging/pruebas:
+
+```text
+GET /ecommercePublico/seo_robots?ambiente=staging&public_url=https://prueba.artiani.com.mx
+```
+
+Respuesta esperada en staging:
+
+```text
+User-agent: *
+Disallow: /
+```
+
 Respuesta relevante actual:
 
 ```json
@@ -193,6 +214,26 @@ Sitemap: https://artiani.com.mx/sitemap.xml
 
 ## Pruebas Obligatorias en Staging
 
+### Robots staging
+
+```bash
+curl "https://prueba.artiani.com.mx/robots.txt"
+```
+
+Esperado:
+
+```text
+User-agent: *
+Disallow: /
+```
+
+No debe contener:
+
+```text
+Allow: /
+Sitemap: https://artiani.com.mx/sitemap.xml
+```
+
 ### Redirección 301
 
 Probar una URL vieja:
@@ -226,18 +267,19 @@ HTTP/2 200
 curl -I "https://prueba.artiani.com.mx/sitemap.xml"
 ```
 
-Esperado:
+Esperado en staging:
 
 ```text
-HTTP/2 200
-content-type: application/xml
+HTTP/2 404
 ```
 
-Validar contenido:
+Tambien es aceptable `204`. Si temporalmente responde `200`, debe estar bloqueado por robots y no debe ser enviado a Search Console. Produccion si debe responder `200`.
+
+Validar contenido de sitemap productivo:
 
 - Debe tener `urlset`.
-- Debe contener URLs con dominio `https://artiani.com.mx` para producción final.
-- No debe contener `prueba.artiani.com.mx` si ya se está preparando el sitemap productivo.
+- Debe contener URLs con dominio `https://artiani.com.mx`.
+- No debe contener `prueba.artiani.com.mx`.
 - No debe contener `/ecommercePublico/`.
 
 ### Robots
@@ -246,7 +288,7 @@ Validar contenido:
 curl "https://prueba.artiani.com.mx/robots.txt"
 ```
 
-Esperado:
+Esperado en produccion:
 
 ```text
 User-agent: *
@@ -260,8 +302,10 @@ Antes de publicar en dominio principal:
 
 - Todas las URLs viejas probadas deben responder `301`.
 - El destino de cada 301 debe responder `200`.
-- `/sitemap.xml` debe responder `200`.
-- `/robots.txt` debe responder `200`.
+- En staging, `/robots.txt` debe responder `Disallow: /`.
+- En staging, `/sitemap.xml` no debe estar anunciado en robots.
+- En produccion, `/sitemap.xml` debe responder `200`.
+- En produccion, `/robots.txt` debe responder `Allow: /` y anunciar `https://artiani.com.mx/sitemap.xml`.
 - El sitemap no debe incluir rutas viejas, rutas internas ni URLs de staging.
 - Search Console debe recibir `https://artiani.com.mx/sitemap.xml`.
 

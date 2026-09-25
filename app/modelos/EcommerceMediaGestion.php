@@ -5,6 +5,23 @@
  * Impacto: extension del modelo EcommerceCatalogoPublico; no aplica DDL.
  */
 trait EcommerceMediaGestion {
+  /** IA: Codex GPT-6 | Fecha: 2026-09-25
+   * Proposito: adjuntar comprobacion fisica al resultado de una carga, incluso si ya estaba registrada.
+   * Impacto: mensajes Media distinguen almacenamiento de acceso HTTP sin exponer rutas privadas.
+   * Contrato: no escribe ni repara; nunca convierte un guardado confirmado en un error de subida.
+   */
+  private function mediaAdjuntarValidacionArchivo($item) {
+    $item['validacion_archivo'] = array('ok' => false, 'estado' => 'no_verificable', 'existe' => false,
+      'legible' => false, 'permisos_publicos' => null, 'permisos' => null,
+      'bytes_coinciden' => null, 'hash_coincide' => null,
+      'mensaje' => 'No se pudo comprobar el archivo en el servidor. Revisa su ficha antes de volver a subirlo.');
+    try {
+      $item['validacion_archivo'] = CmsMediaArchivo::verificarGuardado(
+        CmsMediaArchivo::ruta($item['url']), $item['bytes'], $item['hash_sha256'] ?? '');
+    } catch (Throwable $error) { /* Carpeta ausente o ruta invalida: no exponer detalles del filesystem. */ }
+    return $item;
+  }
+
   /** IA: Codex GPT-6 | Fecha: 2026-09-24
    * Proposito: mostrar dependencias persistidas antes de borrar.
    * Contrato: GET solo lectura; errores nunca se interpretan como cero usos.
@@ -73,7 +90,9 @@ trait EcommerceMediaGestion {
       $cambiaArchivo = $cambiaRuta || !$mismosBytes;
       if (!$cambiaArchivo && $alt === $item['alt'] && !$cambiaNombre) {
         $db->rollBack();
-        return $this->respuesta(false, 'info', 'La imagen ya contiene ese archivo y esos datos.', $item);
+        $item = $this->mediaAdjuntarValidacionArchivo($item);
+        return $this->respuesta(false, $item['validacion_archivo']['ok'] ? 'info' : 'warning',
+          $item['validacion_archivo']['ok'] ? 'La imagen ya contiene ese archivo y esos datos.' : 'La imagen ya esta registrada. ' . $item['validacion_archivo']['mensaje'], $item);
       }
       $aliases = CmsMediaAlias::rutas(array_merge($item, array('metadata_json' => $metadataTexto)));
       if ($cambiaRuta) {
@@ -85,6 +104,8 @@ trait EcommerceMediaGestion {
         if ($hayArchivo) {
           if (!@move_uploaded_file($archivo['tmp_name'], $temporal)) throw new Exception('No fue posible preparar el archivo nuevo.');
         } elseif (!@copy($rutaAnterior, $temporal)) { throw new Exception('No fue posible preparar el cambio de nombre.'); }
+        // IA: Codex GPT-6 | 2026-09-25 | tempnam/copy deja 0600; preparar lectura antes de publicar o retirar el original.
+        if (!CmsMediaArchivo::asegurarLecturaPublica($temporal)) throw new Exception('No fue posible habilitar la lectura publica. Se conserva la imagen anterior.');
         if (is_file($rutaAnterior)) {
           $respaldo = $this->mediaTemporalPrivado();
           if (!@copy($rutaAnterior, $respaldo)) throw new Exception('No fue posible resguardar la imagen anterior.');
@@ -97,6 +118,9 @@ trait EcommerceMediaGestion {
           $retirado = true;
         }
       }
+      // IA: Codex GPT-6 | 2026-09-25 | Detectar copia incompleta antes de guardar metadata o confirmar el reemplazo.
+      $validacion = CmsMediaArchivo::verificarGuardado($destino, $nuevo['bytes'], $nuevo['hash']);
+      if (!$validacion['ok']) throw new Exception($validacion['mensaje'] . ' No se confirmo el cambio.');
       $stmt = $db->prepare('UPDATE erp_ecommerce_media_archivos SET nombre_original=:nombre, nombre_archivo=:archivo, ruta_publica=:ruta, extension=:extension, mime=:mime, bytes=:bytes, ancho=:ancho, alto=:alto, hash_sha256=:hash, alt_text=:alt, metadata_json=:metadata, actualizado_por=:usuario, fecha_actualizacion=NOW() WHERE id_media_archivo=:id');
       if (!$stmt || !$stmt->execute(array(
         ':nombre' => $hayArchivo ? mb_substr(basename($archivo['name']), 0, 255) : $item['nombre_original'],
@@ -106,6 +130,7 @@ trait EcommerceMediaGestion {
         ':usuario' => intval($idUsuario) ?: null, ':id' => $id
       ))) throw new Exception('No fue posible registrar el cambio de Media CMS.');
       $resultado = $this->mediaBuscarPorId($db, $id);
+      $resultado['validacion_archivo'] = $validacion;
       if (!$db->commit()) throw new Exception('No fue posible confirmar el cambio de Media CMS.');
       $confirmado = true;
       $resultado['bytes_antes'] = $item['bytes'];
@@ -123,7 +148,8 @@ trait EcommerceMediaGestion {
       if ($movido && !$confirmado) {
         $mismaRuta = $destino === $rutaAnterior;
         if ($respaldo && is_file($respaldo) && ($mismaRuta || $retirado)) {
-          if (!@rename($respaldo, $rutaAnterior)) { $conservarRespaldo = true; $falloRestauracion = true; }
+          // IA: Codex GPT-6 | 2026-09-25 | Recuperar bytes y lectura publica; conservar respaldo si cualquiera falla.
+          if (!CmsMediaArchivo::asegurarLecturaPublica($respaldo) || !@rename($respaldo, $rutaAnterior)) { $conservarRespaldo = true; $falloRestauracion = true; }
           else $respaldo = '';
         }
         if (!$mismaRuta && is_file($destino) && !@unlink($destino)) $falloRestauracion = true;
@@ -189,7 +215,8 @@ trait EcommerceMediaGestion {
       // tempnam crea un archivo vacio: solamente contiene el original despues de un rename exitoso.
       $falloRestauracion = false;
       if (!$confirmado && $retirado && $respaldo && is_file($respaldo)) {
-        $falloRestauracion = !@rename($respaldo, $ruta);
+        // IA: Codex GPT-6 | 2026-09-25 | Una baja revertida debe recuperar una imagen publicamente legible.
+        $falloRestauracion = !CmsMediaArchivo::asegurarLecturaPublica($respaldo) || !@rename($respaldo, $ruta);
         if ($falloRestauracion) error_log('Media CMS: restauracion pendiente del resguardo ' . $respaldo);
       } elseif (!$retirado && $respaldo && is_file($respaldo)) { @unlink($respaldo); }
       $rollbackCompleto = $this->mediaRevertirTransaccion($db);

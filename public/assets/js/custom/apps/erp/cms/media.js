@@ -85,7 +85,7 @@
     return "";
   }
 
-  /** IA: Codex GPT-6 | Fecha: 2026-09-24. Proposito: subir original, optimizado o WebP explicito; impacto: biblioteca; contrato: final <=2MB y nombre SEO opcional. */
+  /** IA: Codex GPT-6 | Fecha: 2026-09-25. Proposito: subir y verificar archivo/acceso publico; impacto: biblioteca; contrato: un fallo de acceso conserva el guardado y muestra advertencia. */
   async function subirArchivoServidor() {
     if (estado.ocupado || !estado.permisos.editar) return;
     var file = estado.archivoPendiente;
@@ -113,8 +113,10 @@
       estado.previewTemporal = "";
       if ($("ecom_cms_visual")) $("ecom_cms_visual").innerHTML = "";
       renderTodo();
-      await cargarListadoServidor(true);
-      setEstado((json.mensaje || "Imagen agregada a biblioteca.") + " " + resumenAhorro(file.size, archivoFinal.size), "success");
+      setEstado("Imagen guardada. Comprobando archivo y acceso publico...", "info");
+      var comprobacion = await comprobarMediaGuardada(item);
+      var avisoListado = await refrescarMediaTrasGuardar();
+      setEstado((comprobacion.ok ? (json.mensaje || "Imagen agregada a biblioteca.") + " " + resumenAhorro(file.size, archivoFinal.size) + " " : "") + comprobacion.mensaje + (json.tipo === "warning" && json.mensaje ? " " + json.mensaje : "") + avisoListado, comprobacion.ok && !avisoListado && json.tipo !== "warning" ? "success" : "warning");
     } catch (error) { setEstado(error.message || "No se pudo subir la imagen.", "danger"); }
     finally { establecerOcupado(false); }
   }
@@ -276,7 +278,7 @@
     finally { establecerOcupado(false); }
   }
 
-  /** IA: Codex GPT-6 | Fecha: 2026-09-24. Proposito: cambiar nombre/formato con confirmacion global; impacto: CMS; contrato: ID estable, URLs anteriores operativas, archivo opcional. */
+  /** IA: Codex GPT-6 | Fecha: 2026-09-25. Proposito: cambiar nombre/formato y verificar acceso; impacto: CMS; contrato: ID/referencias estables, advertir acceso fallido sin revertir un guardado confirmado. */
   async function reemplazarMediaServidor(item, accion) {
     if (estado.ocupado || !esItemServidor(item) || !estado.permisos.editar || !estado.permisos.publicar) return;
     var input = $("cms_media_reemplazo"), file = input && input.files ? input.files[0] : null;
@@ -319,10 +321,23 @@
       estado.previewVersion[item.id] = Date.now();
       var actualizado = normalizarItemServidor(json.depurar && (json.depurar.item || json.depurar));
       if (actualizado) mezclarItemsServidor([actualizado]);
-      await cargarListadoServidor(true);
-      setEstado((json.mensaje || "Imagen actualizada conservando sus referencias.") + (file ? " " + resumenAhorro(item.bytes, file.size) : ""), "success");
+      setEstado("Cambios guardados. Comprobando archivo y acceso publico...", "info");
+      var comprobacion = await comprobarMediaGuardada(actualizado);
+      var avisoListado = await refrescarMediaTrasGuardar();
+      setEstado((comprobacion.ok ? (json.mensaje || "Imagen actualizada conservando sus referencias.") + (file ? " " + resumenAhorro(item.bytes, file.size) : "") + " " : "") + comprobacion.mensaje + (json.tipo === "warning" && json.mensaje ? " " + json.mensaje : "") + avisoListado, comprobacion.ok && !avisoListado && json.tipo !== "warning" ? "success" : "warning");
     } catch (error) { setEstado(error.message || "No se pudo actualizar la imagen.", "danger"); }
     finally { establecerOcupado(false); }
+  }
+
+  /** IA: Codex GPT-6 | Fecha: 2026-09-25. Proposito: comprobar acceso despues del guardado; impacto: mensajes CMS; contrato: helper faltante advierte sin anunciar fallo de escritura. */
+  function comprobarMediaGuardada(item) {
+    return window.CmsMediaTools && window.CmsMediaTools.verificarDisponibilidad ? window.CmsMediaTools.verificarDisponibilidad(item) : Promise.resolve({ok: false, mensaje: "Guardada en la biblioteca; acceso no confirmado. Actualiza la pagina para cargar la herramienta de comprobacion. No vuelvas a subirla."});
+  }
+
+  /** IA: Codex GPT-6 | Fecha: 2026-09-25. Proposito: refrescar sin confundir un fallo de listado con fallo al guardar; impacto: biblioteca; contrato: conserva el item devuelto por POST. */
+  async function refrescarMediaTrasGuardar() {
+    try { await cargarListadoServidor(true); return ""; }
+    catch (error) { return " Los cambios estan guardados, pero no se pudo actualizar el listado. Usa Recargar biblioteca; no repitas la carga."; }
   }
 
   /** IA: Codex GPT-6 | Fecha: 2026-09-24. Proposito: unificar respuestas autenticadas; impacto: endpoints media; contrato: no muestra HTML tecnico ante errores. */
@@ -355,7 +370,7 @@
     } catch (error) { window.prompt("Copia la referencia de esta imagen:", payload); }
   }
 
-  /** IA: Codex GPT-6 | Fecha: 2026-09-24. Proposito: adaptar contrato de listado; impacto: metadata; contrato: separa URL original de preview. */
+  /** IA: Codex GPT-6 | Fecha: 2026-09-25. Proposito: adaptar metadata y diagnostico; impacto: biblioteca; contrato: conserva validacion del archivo/hash devueltos por la mutacion. */
   function normalizarItemServidor(item) {
     if (!item || !item.url) return null;
     var id = item.id_media_archivo || item.media_id || "";
@@ -363,6 +378,7 @@
       id: id ? "bd_" + id : (item.codigo || item.url), media_id: id, codigo: item.codigo || "",
       nombre: item.nombre_seo || item.nombre_original || item.nombre || item.nombre_archivo || "Imagen CMS", nombre_archivo: item.nombre_archivo || "", nombre_seo: item.nombre_seo || "", urls_anteriores: Array.isArray(item.urls_anteriores) ? item.urls_anteriores : [],
       mime: item.mime || "", extension: item.extension || "", bytes: Number(item.bytes || 0), ancho: item.ancho, alto: item.alto,
+      validacion_archivo: item.validacion_archivo || null, hash_sha256: item.hash_sha256 || "",
       url: item.url, preview_url: item.preview_url || "", alt: item.alt || item.alt_text || "", uso: item.uso || item.uso_sugerido || "general",
       tipo: item.tipo || item.tipo_sugerido || "editorial", estatus: item.estatus || "activo", creado_en: item.creado_en || item.fecha_registro || "", origen: "bd"
     };

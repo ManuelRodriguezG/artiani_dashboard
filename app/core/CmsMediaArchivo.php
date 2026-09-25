@@ -8,6 +8,77 @@
 class CmsMediaArchivo {
   const MAX_BYTES = 2097152;
 
+  /** IA: Codex GPT-6 | Fecha: 2026-09-25
+   * Proposito: evitar publicar imagenes con permisos privados heredados de temporales Linux.
+   * Impacto: altas, reemplazos y recuperaciones Media; solo el propietario puede escribir.
+   * Contrato: ruta local ya validada por Media, archivo regular sin enlaces; false impide confirmar.
+   * Los temporales preparados siguen privados por el directorio de resguardo 0700.
+   */
+  public static function asegurarLecturaPublica($ruta) {
+    if (!is_file($ruta) || is_link($ruta) || !@chmod($ruta, 0644)) return false;
+    clearstatcache(true, $ruta);
+    if (!is_readable($ruta)) return false;
+    // Windows solo implementa el atributo de escritura; la mascara POSIX se verifica en Linux.
+    if (PHP_OS_FAMILY !== 'Windows') {
+      $permisos = @fileperms($ruta);
+      if ($permisos === false || ($permisos & 0777) !== 0644) return false;
+    }
+    return true;
+  }
+
+
+  /** IA: Codex GPT-6 | Fecha: 2026-09-25
+   * Proposito: comprobar que el archivo guardado existe, es legible y conserva los bytes recibidos.
+   * Impacto: alta/reemplazo Media; separa verificacion fisica de la posterior prueba HTTP del navegador.
+   * Contrato: ruta local ya autorizada; solo lectura, sin rutas internas ni excepciones en el informe.
+   */
+  public static function verificarGuardado($ruta, $bytesEsperados, $hashEsperado) {
+    $informe = array('ok' => false, 'estado' => 'no_verificable', 'existe' => false, 'legible' => false,
+      'permisos_publicos' => null, 'permisos' => null, 'bytes_coinciden' => null, 'hash_coincide' => null,
+      'mensaje' => 'No se pudo comprobar el archivo en el servidor. Revisa su ficha antes de volver a subirlo.');
+    try {
+      clearstatcache(true, $ruta);
+      if (is_link($ruta)) return $informe;
+      $informe['existe'] = is_file($ruta);
+      if (!$informe['existe']) {
+        $informe['estado'] = 'ausente';
+        $informe['mensaje'] = 'El archivo no existe en la carpeta de Media de este servidor. Revisa el almacenamiento o reemplazalo desde su ficha.';
+        return $informe;
+      }
+      $informe['legible'] = is_readable($ruta);
+      $modo = @fileperms($ruta);
+      if (PHP_OS_FAMILY !== 'Windows' && $modo !== false) {
+        $informe['permisos'] = sprintf('%04o', $modo & 0777);
+        $informe['permisos_publicos'] = ($modo & 0044) === 0044;
+      }
+      if (!$informe['legible']) {
+        $informe['estado'] = 'no_legible';
+        $informe['mensaje'] = 'El archivo existe, pero PHP no puede leerlo. Revisa sus permisos y propietario en el servidor.';
+        return $informe;
+      }
+      if ($informe['permisos_publicos'] === false) {
+        $informe['estado'] = 'permisos_restringidos';
+        $informe['mensaje'] = 'El archivo existe, pero tiene permisos restringidos (' . $informe['permisos'] . '). Revisa su lectura publica en el servidor.';
+        return $informe;
+      }
+      if ((PHP_OS_FAMILY !== 'Windows' && $modo === false) || (int) $bytesEsperados < 1 || !preg_match('/\A[a-f0-9]{64}\z/D', (string) $hashEsperado)) return $informe;
+      $bytes = @filesize($ruta);
+      $hash = @hash_file('sha256', $ruta);
+      if ($bytes === false || $hash === false) return $informe;
+      $informe['bytes_coinciden'] = $bytes === (int) $bytesEsperados;
+      $informe['hash_coincide'] = hash_equals((string) $hashEsperado, $hash);
+      if (!$informe['bytes_coinciden'] || !$informe['hash_coincide']) {
+        $informe['estado'] = 'contenido_distinto';
+        $informe['mensaje'] = 'El archivo existe, pero su contenido no coincide con el registrado. Revisa la version del archivo en el servidor.';
+        return $informe;
+      }
+      $informe['ok'] = true;
+      $informe['estado'] = 'verificado';
+      $informe['mensaje'] = 'Archivo comprobado en el servidor: existe, es legible y su contenido coincide. Falta comprobar su acceso publico.';
+    } catch (Throwable $error) { /* No filtrar rutas fisicas ni errores internos en la respuesta administrativa. */ }
+    return $informe;
+  }
+
   /** IA: Codex GPT-6 | Fecha: 2026-09-24
    * Proposito: comprobar formato real, extension, dimensiones y peso.
    * Contrato: recibe ruta local ya autorizada; retorna metadata o lanza excepcion.

@@ -94,5 +94,97 @@
     return String(texto || '').replace(/\.(jpe?g|png|webp|gif|avif|ico)$/i, '').replace(/^cms_\d{8}_\d{6}_[a-f0-9]+_/i, '')
       .normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 120).replace(/-+$/g, '');
   }
-  window.CmsMediaTools = {optimizar: optimizar, optimizarUrl: optimizarUrl, convertirWebp: convertirWebp, convertirWebpUrl: convertirWebpUrl, sugerirNombreSeo: sugerirNombreSeo};
+  /** IA: Codex GPT-6 | Fecha: 2026-09-25. Proposito: reconocer AVIF sin asumir posicion de ftyp o marcas; impacto: comprobacion publica; contrato: recorre cajas y marcas declaradas dentro del buffer limitado a 2 MB. */
+  function tieneMarcaAvif(buffer) {
+    var view = new DataView(buffer), bytes = new Uint8Array(buffer), offset = 0;
+    function texto(inicio) { return String.fromCharCode.apply(null, bytes.subarray(inicio, inicio + 4)); }
+    while (offset + 8 <= bytes.length) {
+      var tamano = view.getUint32(offset), header = 8, tipo = texto(offset + 4);
+      if (tamano === 1) {
+        if (offset + 16 > bytes.length || view.getUint32(offset + 8) !== 0) return false;
+        tamano = view.getUint32(offset + 12); header = 16;
+      } else if (tamano === 0) tamano = bytes.length - offset;
+      if (tamano < header || tamano > bytes.length - offset) return false;
+      if (tipo === 'ftyp') {
+        var inicio = offset + header, fin = offset + tamano;
+        if (fin - inicio < 8 || (fin - inicio) % 4 !== 0) return false;
+        if (texto(inicio) === 'avif' || texto(inicio) === 'avis') return true;
+        for (var marca = inicio + 8; marca + 4 <= fin; marca += 4) {
+          if (texto(marca) === 'avif' || texto(marca) === 'avis') return true;
+        }
+      }
+      offset += tamano;
+    }
+    return false;
+  }
+  /* IA: Codex GPT-6 | Fecha: 2026-09-25
+   * Proposito: confirmar archivo guardado y acceso publico real antes de anunciar una carga completa.
+   * Impacto: biblioteca/selector CMS; una falla de acceso no deshace ni duplica el guardado.
+   * Contrato: Promise<{ok, estado, mensaje, http_status?, hash_verificado?}>; nunca arroja por red,
+   * solicita solo el archivo CMS del mismo origen, sin sesion, sin cache ni seguir redirecciones.
+   */
+  async function verificarDisponibilidad(item) {
+    var timer, controller;
+    var aviso = 'Guardada en la biblioteca; acceso no confirmado. ';
+    function fallo(estado, detalle, status) {
+      return {ok: false, estado: estado, mensaje: aviso + detalle + ' No vuelvas a subirla: revisa este aviso y conserva la referencia.', http_status: status || null};
+    }
+    try {
+      var validacion = item && item.validacion_archivo;
+      if (!validacion) return fallo('sin_validacion', 'El servidor no devolvio la comprobacion del archivo. Actualiza los archivos del CMS en el servidor.');
+      if (validacion.ok !== true) return fallo(validacion.estado || 'no_verificable', validacion.mensaje || 'No fue posible confirmar el archivo o sus permisos en el servidor.');
+      var parsed = new URL(item.preview_url || item.url, window.location.origin);
+      if (parsed.origin !== window.location.origin || parsed.username || parsed.password || !/^\/assets\/media\/cms\/ecommerce\/[A-Za-z0-9_-][A-Za-z0-9_.-]*\.(jpe?g|png|webp|gif|avif|ico)$/i.test(parsed.pathname)) return fallo('ruta_no_valida', 'La ruta devuelta no pertenece a Media CMS de este servidor.');
+      var extension = parsed.pathname.split('.').pop().toLowerCase();
+      var esperado = Number(item.bytes || 0);
+      if (!Number.isInteger(esperado) || esperado <= 0 || esperado > 2 * 1024 * 1024) return fallo('sin_tamano', 'El servidor no devolvio un peso valido para comprobar la descarga.');
+      if (typeof AbortController === 'undefined' || typeof fetch !== 'function') return fallo('navegador', 'Este navegador no permite comprobar el acceso publico.');
+      controller = new AbortController();
+      parsed.hash = '';
+      parsed.searchParams.set('_cms_verificar', Date.now().toString(36) + '-' + Math.random().toString(36).slice(2));
+      var tiempo = new Promise(function (resolve, reject) {
+        timer = setTimeout(function () { controller.abort(); var error = new Error('Tiempo agotado'); error.name = 'TimeoutError'; reject(error); }, 10000);
+      });
+      var consulta = (async function () {
+        var response = await fetch(parsed.href, {method: 'GET', credentials: 'omit', cache: 'no-store', redirect: 'manual', signal: controller.signal, referrerPolicy: 'no-referrer'});
+        var status = Number(response.status || 0);
+        if (response.type === 'opaqueredirect' || response.redirected || (status >= 300 && status < 400)) return fallo('redireccion', 'La URL redirige a otra pagina; revisa reglas de acceso o inicio de sesion.', status);
+        if (status === 401 || status === 403) return fallo('acceso_denegado', 'El servidor denego el acceso publico (HTTP ' + status + '). Revisa permisos del archivo y reglas de acceso.', status);
+        if (status === 404) return fallo('no_encontrada', 'El archivo existe para PHP, pero su URL publica responde 404. Revisa la carpeta publica y las reglas de rutas.', status);
+        if (status >= 500) return fallo('error_servidor', 'El servidor fallo al entregar la imagen (HTTP ' + status + ').', status);
+        if (!response.ok || status !== 200) return fallo('http_invalido', 'La URL no devolvio la imagen completa (HTTP ' + status + ').', status);
+        var finalUrl = new URL(response.url || parsed.href, window.location.origin);
+        if (finalUrl.origin !== parsed.origin || finalUrl.pathname !== parsed.pathname) return fallo('redireccion', 'La respuesta proviene de otra ruta; revisa las redirecciones.', status);
+        var mime = String(response.headers.get('Content-Type') || '').split(';')[0].trim().toLowerCase();
+        var mimes = {jpg: ['image/jpeg'], jpeg: ['image/jpeg'], png: ['image/png'], gif: ['image/gif'], webp: ['image/webp'], avif: ['image/avif'], ico: ['image/x-icon', 'image/vnd.microsoft.icon', 'image/ico']};
+        if (mimes[extension].indexOf(mime) === -1) return fallo('contenido_no_imagen', mime.indexOf('text/html') === 0 ? 'La URL devuelve una pagina HTML en lugar de la imagen; puede ser el inicio de sesion o una pagina de error.' : 'El tipo de contenido entregado no corresponde al formato de la imagen. Revisa la configuracion de archivos estaticos.', status);
+        var longitud = Number(response.headers.get('Content-Length') || 0);
+        if (longitud > 2 * 1024 * 1024) return fallo('contenido_distinto', 'La URL devuelve un archivo mas grande que el guardado.', status);
+        var buffer = await response.arrayBuffer();
+        if (buffer.byteLength !== esperado) return fallo('contenido_distinto', 'El peso descargado no coincide con el archivo guardado. Revisa cache, rutas o reemplazos.', status);
+        var bytes = new Uint8Array(buffer), firma = String.fromCharCode.apply(null, bytes.subarray(0, 32));
+        var firmas = {
+          jpg: bytes[0] === 255 && bytes[1] === 216 && bytes[2] === 255,
+          png: firma.slice(0, 8) === '\x89PNG\r\n\x1a\n',
+          gif: /^(GIF87a|GIF89a)/.test(firma),
+          webp: firma.slice(0, 4) === 'RIFF' && firma.slice(8, 12) === 'WEBP',
+          avif: extension === 'avif' && tieneMarcaAvif(buffer),
+          ico: bytes.length >= 6 && bytes[0] === 0 && bytes[1] === 0 && bytes[2] === 1 && bytes[3] === 0
+        };
+        if (!firmas[extension === 'jpeg' ? 'jpg' : extension]) return fallo('contenido_distinto', 'La respuesta no contiene la firma del formato guardado.', status);
+        var hashVerificado = false;
+        if (/^[a-f0-9]{64}$/i.test(item.hash_sha256 || '') && window.crypto && window.crypto.subtle) {
+          var digest = await window.crypto.subtle.digest('SHA-256', buffer);
+          var hash = Array.from(new Uint8Array(digest)).map(function (byte) { return byte.toString(16).padStart(2, '0'); }).join('');
+          if (hash !== item.hash_sha256.toLowerCase()) return fallo('contenido_distinto', 'El contenido descargado no coincide con la imagen guardada. Revisa cache o reglas de rutas.', status);
+          hashVerificado = true;
+        }
+        return {ok: true, estado: 'verificado', http_status: status, hash_verificado: hashVerificado, mensaje: 'Archivo confirmado en el servidor y accesible sin iniciar sesion. ' + (hashVerificado ? 'Contenido verificado.' : 'Formato y peso verificados; comparacion completa de contenido no disponible en este navegador.')};
+      }());
+      return await Promise.race([consulta, tiempo]);
+    } catch (error) {
+      return fallo(error && (error.name === 'AbortError' || error.name === 'TimeoutError') ? 'tiempo_agotado' : 'conexion', error && (error.name === 'AbortError' || error.name === 'TimeoutError') ? 'La comprobacion tardo mas de 10 segundos.' : 'No se pudo completar la comprobacion publica. Revisa la conexion y las reglas del servidor.');
+    } finally { if (timer) clearTimeout(timer); }
+  }
+  window.CmsMediaTools = {optimizar: optimizar, optimizarUrl: optimizarUrl, convertirWebp: convertirWebp, convertirWebpUrl: convertirWebpUrl, sugerirNombreSeo: sugerirNombreSeo, verificarDisponibilidad: verificarDisponibilidad};
 }());

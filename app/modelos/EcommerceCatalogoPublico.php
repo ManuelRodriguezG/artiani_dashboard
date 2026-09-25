@@ -1184,6 +1184,7 @@ class EcommerceCatalogoPublico extends CRUD {
     $rutaDestino = "";
     $archivoMovido = false;
     $insertado = false;
+    $itemGuardado = array();
     try {
       if (!$this->tablaExiste($db, "erp_ecommerce_media_archivos")) {
         throw new Exception("La tabla de Media CMS no existe. Ejecuta primero la persistencia autorizada.");
@@ -1216,10 +1217,14 @@ class EcommerceCatalogoPublico extends CRUD {
 
       $existente = $this->mediaBuscarPorHash($db, $hash);
       if ($existente) {
-        if ($existente["estatus"] !== "activo" || !is_file(CmsMediaArchivo::ruta($existente["url"]))) {
-          throw new Exception("Este archivo existe archivado o falta en el servidor. Revisa su registro antes de reutilizarlo.");
+        if ($existente["estatus"] !== "activo") {
+          throw new Exception("Este archivo existe archivado. Revisa su registro antes de reutilizarlo.");
         }
-        return $this->respuesta(false, "info", "La imagen ya existia en la biblioteca", $existente);
+        // IA: Codex GPT-6 | 2026-09-25 | Un duplicado en BD no demuestra que el archivo siga disponible.
+        $existente = $this->mediaAdjuntarValidacionArchivo($existente);
+        $validacion = $existente['validacion_archivo'];
+        return $this->respuesta(false, $validacion['ok'] ? "info" : "warning",
+          $validacion['ok'] ? "La imagen ya existia en la biblioteca" : "La imagen ya esta registrada. " . $validacion['mensaje'], $existente);
       }
 
       $directorio = dirname(__DIR__, 2) . DIRECTORY_SEPARATOR . "public" . DIRECTORY_SEPARATOR . "assets" . DIRECTORY_SEPARATOR . "media" . DIRECTORY_SEPARATOR . "cms" . DIRECTORY_SEPARATOR . "ecommerce";
@@ -1250,6 +1255,14 @@ class EcommerceCatalogoPublico extends CRUD {
       }
       $archivoMovido = true;
 
+      // IA: Codex GPT-6 | 2026-09-25 | No registrar un alta que el servidor web no podra leer en Linux.
+      if (!CmsMediaArchivo::asegurarLecturaPublica($rutaDestino)) {
+        throw new Exception("No fue posible habilitar la lectura publica de la imagen. No se registro la carga.");
+      }
+      // IA: Codex GPT-6 | 2026-09-25 | Verificar la copia final antes de registrar una carga como exitosa.
+      $validacion = CmsMediaArchivo::verificarGuardado($rutaDestino, $inspeccion['bytes'], $hash);
+      if (!$validacion['ok']) throw new Exception($validacion['mensaje'] . ' No se registro la carga.');
+
       $codigo = "media_" . $corto . "_" . $unico;
       $rutaPublica = "/assets/media/cms/ecommerce/" . $nombreArchivo;
       $bytesFinal = $inspeccion["bytes"];
@@ -1264,6 +1277,14 @@ class EcommerceCatalogoPublico extends CRUD {
         "mime_original" => $mime
       );
 
+      // IA: Codex GPT-6 | 2026-09-25 | Conservar recibo de alta si falla la consulta de la ficha despues del INSERT.
+      $itemGuardado = array('id_media_archivo' => 0, 'codigo' => $codigo, 'url' => $rutaPublica,
+        'preview_url' => $rutaPublica . '?v=' . substr($hash, 0, 16), 'hash_sha256' => $hash,
+        'nombre_original' => mb_substr(basename($archivo['name']), 0, 255), 'nombre_archivo' => $nombreArchivo,
+        'nombre_seo' => $base, 'urls_anteriores' => array(), 'mime' => $mime, 'extension' => $extension,
+        'bytes' => $bytesFinal, 'ancho' => $metadata['ancho'], 'alto' => $metadata['alto'],
+        'alt' => $alt, 'uso' => $uso, 'tipo' => $tipo, 'estatus' => 'activo');
+
       $stmt = $db->prepare("INSERT INTO erp_ecommerce_media_archivos
         (codigo, nombre_original, nombre_archivo, ruta_publica, mime, extension,
          bytes, ancho, alto, hash_sha256, alt_text, uso_sugerido, tipo_sugerido,
@@ -1271,7 +1292,8 @@ class EcommerceCatalogoPublico extends CRUD {
         VALUES (:codigo, :original, :archivo, :ruta, :mime, :extension,
           :bytes, :ancho, :alto, :hash, :alt, :uso, :tipo,
           'activo', :metadata, :usuario)");
-      $stmt->execute(array(
+      if (!$stmt) throw new Exception('No fue posible preparar el registro de Media CMS.');
+      $guardado = $stmt->execute(array(
         ":codigo" => $codigo,
         ":original" => mb_substr(basename($archivo["name"]), 0, 255),
         ":archivo" => $nombreArchivo,
@@ -1288,12 +1310,21 @@ class EcommerceCatalogoPublico extends CRUD {
         ":metadata" => json_encode($metadata, JSON_UNESCAPED_UNICODE),
         ":usuario" => intval($idUsuario) ?: null
       ));
-
-      $id = intval($db->lastInsertId());
+      if (!$guardado) throw new Exception('No fue posible registrar la imagen en Media CMS.');
       $insertado = true;
+      $id = intval($db->lastInsertId());
+      $itemGuardado['id_media_archivo'] = $id;
       $item = $this->mediaBuscarPorId($db, $id);
-      return $this->respuesta(false, "success", "Imagen subida a Media CMS", $item);
+      if (!$item) throw new Exception('No se pudo consultar la ficha despues de guardar.');
+      $item = $this->mediaAdjuntarValidacionArchivo($item);
+      return $this->respuesta(false, $item['validacion_archivo']['ok'] ? "success" : "warning",
+        $item['validacion_archivo']['ok'] ? "Imagen subida a Media CMS" : "La imagen quedo registrada. " . $item['validacion_archivo']['mensaje'], $item);
     } catch (Throwable $e) {
+      if ($insertado) {
+        // IA: Codex GPT-6 | 2026-09-25 | Un error de lectura posterior no deshace el alta ni invita a duplicarla.
+        return $this->respuesta(false, 'warning', 'La imagen quedo guardada, pero no se pudo consultar su ficha completa. Actualiza la biblioteca; no vuelvas a subirla.',
+          $this->mediaAdjuntarValidacionArchivo($itemGuardado));
+      }
       if ($archivoMovido && !$insertado && $rutaDestino && is_file($rutaDestino)) {
         unlink($rutaDestino);
       }
@@ -1798,6 +1829,8 @@ class EcommerceCatalogoPublico extends CRUD {
       "urls_anteriores" => array_values(array_filter($aliases, function ($ruta) use ($rutaActual) { return $ruta !== $rutaActual; })),
       "url" => (string) $row["ruta_publica"],
       "preview_url" => (string) $row["ruta_publica"] . "?v=" . substr((string) $this->valor($row, "hash_sha256", ""), 0, 16),
+      // IA: Codex GPT-6 | 2026-09-25 | El navegador compara la respuesta publica con esta huella del medio.
+      "hash_sha256" => (string) $this->valor($row, "hash_sha256", ""),
       "mime" => (string) $row["mime"],
       "extension" => (string) $row["extension"],
       "bytes" => (int) $row["bytes"],
@@ -4585,6 +4618,21 @@ class EcommerceCatalogoPublico extends CRUD {
    */
   public function seoSitemapPublico($opciones = array()) {
     try {
+      if ($this->seoAmbienteNoIndex($opciones)) {
+        return $this->respuesta(false, "success", "Sitemap SEO ecommerce bloqueado para ambiente no productivo", array(
+          "base_url" => trim((string) $this->valor($opciones, "public_url", $this->valor($opciones, "app_public_url", ""))),
+          "items" => array(),
+          "ambiente" => $this->seoAmbientePublico($opciones),
+          "sitemap_publicable" => false,
+          "robots_txt_recomendado" => "User-agent: *\nDisallow: /",
+          "guardrails" => array(
+            "noindex_ambiente_no_productivo" => true,
+            "no_urls_api" => true,
+            "solo_indexables" => false,
+            "read_only" => true
+          )
+        ));
+      }
       $baseUrl = $this->dominioProduccionSeoPublico($this->configuracionSeoPublica($this->getConexion()));
       $urls = $this->seoUrlsPublicasItems($baseUrl, max(1, min(5000, intval($this->valor($opciones, "limite", 3000)))));
       $items = array();
@@ -4623,6 +4671,20 @@ class EcommerceCatalogoPublico extends CRUD {
    */
   public function seoRobotsPublico($opciones = array()) {
     try {
+      if ($this->seoAmbienteNoIndex($opciones)) {
+        return $this->respuesta(false, "success", "Robots SEO ecommerce consultado para ambiente no productivo", array(
+          "robots_txt" => "User-agent: *\nDisallow: /",
+          "base_url" => trim((string) $this->valor($opciones, "public_url", $this->valor($opciones, "app_public_url", ""))),
+          "ambiente" => $this->seoAmbientePublico($opciones),
+          "sitemap_publicable" => false,
+          "guardrails" => array(
+            "frontend_sirve_robots_txt" => true,
+            "noindex_ambiente_no_productivo" => true,
+            "sin_sitemap_en_staging" => true,
+            "read_only" => true
+          )
+        ));
+      }
       $config = $this->configuracionSeoPublica($this->getConexion());
       $baseUrl = $this->dominioProduccionSeoPublico($config);
       $robots = trim((string) $this->valor($config, "robots_default", ""));
@@ -4637,6 +4699,23 @@ class EcommerceCatalogoPublico extends CRUD {
     } catch (Exception $e) {
       return $this->respuesta(true, "danger", $e->getMessage(), array("robots_txt" => "User-agent: *\nAllow: /"));
     }
+  }
+
+  private function seoAmbientePublico($opciones) {
+    $ambiente = strtolower(trim((string) $this->valor($opciones, "ambiente", $this->valor($opciones, "app_env", ""))));
+    if ($ambiente !== "") {
+      return $ambiente;
+    }
+    $publicUrl = strtolower(trim((string) $this->valor($opciones, "public_url", $this->valor($opciones, "app_public_url", ""))));
+    if ($publicUrl !== "" && (strpos($publicUrl, "prueba.") !== false || strpos($publicUrl, "staging") !== false || strpos($publicUrl, "localhost") !== false)) {
+      return "staging";
+    }
+    return "production";
+  }
+
+  private function seoAmbienteNoIndex($opciones) {
+    $ambiente = $this->seoAmbientePublico($opciones);
+    return in_array($ambiente, array("staging", "test", "testing", "development", "dev", "local"), true);
   }
 
   /**

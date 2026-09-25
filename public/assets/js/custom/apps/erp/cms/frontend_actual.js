@@ -3898,8 +3898,8 @@
         } catch (error) {
           throw new Error("Respuesta no JSON del servidor (" + response.status + "): " + text.substring(0, 140));
         }
-        if (!response.ok && json && json.mensaje) {
-          throw new Error(json.mensaje);
+        if (!response.ok) {
+          throw new Error(json && json.mensaje ? json.mensaje : "No se pudo completar la carga (HTTP " + response.status + ").");
         }
         return json;
       });
@@ -7883,7 +7883,7 @@
     reader.readAsDataURL(file);
   }
 
-  /** IA: Codex GPT-6 | Fecha: 2026-09-24. Proposito: subir original u optimizado voluntario; impacto: CMS, formato y 2 MB finales validados antes de POST. */
+  /** IA: Codex GPT-6 | Fecha: 2026-09-25. Proposito: subir y comprobar archivo/acceso publico; impacto: selector CMS; contrato: conserva guardado ante advertencia y solo aplica automaticamente imagen verificada. */
   function agregarYUsarMediaDesdeModal() {
     if (!estado.mediaBiblioteca.permisos.editar || estado.mediaBiblioteca.ocupada) return;
     var file = estado.mediaPicker.archivo;
@@ -7919,7 +7919,7 @@
     estado.mediaBiblioteca.ocupada = true;
     renderMediaPicker();
     setText("cms_actual_media_preview_nuevo", optimizar ? "Reduciendo peso de la imagen..." : "Subiendo imagen a Media CMS...");
-    Promise.resolve().then(function () {
+    return Promise.resolve().then(function () {
       return convertir ? window.CmsMediaTools.convertirWebp(file) : optimizar ? window.CmsMediaTools.optimizar(file) : file;
     }).then(function (archivoFinal) {
       var error = validarMediaFile(archivoFinal);
@@ -7949,13 +7949,14 @@
         }
         return json;
       });
-    }).then(function (json) {
+    }).then(async function (json) {
       if (!json || json.error) {
         throw new Error(json && json.mensaje ? json.mensaje : "No se pudo subir la imagen");
       }
-      var item = normalizarMediaServidor(json.depurar || {});
+      var item = normalizarMediaServidor(json.depurar && (json.depurar.item || json.depurar));
       if (!item || !item.id) {
-        throw new Error("El servidor no devolvio la imagen guardada");
+        setMediaPickerEstado("El servidor confirmo el guardado pero no devolvio la referencia de la imagen. No vuelvas a subirla; recarga la biblioteca para revisarla.", "warning");
+        return;
       }
       guardarMediaLocalItems(mezclarMediaItems(mediaLocalItems(), [item]));
       estado.mediaBiblioteca.items = mezclarMediaItems(estado.mediaBiblioteca.items, [item]);
@@ -7964,8 +7965,14 @@
       estado.mediaPicker.archivo = null;
       estado.mediaPicker.dataUrl = "";
       if ($("cms_actual_media_archivo")) $("cms_actual_media_archivo").value = "";
-      setText("cms_actual_media_preview_nuevo", "");
-      aplicarMediaSeleccionada(item.id);
+      setText("cms_actual_media_preview_nuevo", "Imagen guardada. Comprobando archivo y acceso publico...");
+      var comprobacion = await comprobarMediaPickerGuardada(item);
+      setText("cms_actual_media_preview_nuevo", comprobacion.mensaje);
+      setMediaPickerEstado(comprobacion.mensaje + (json.tipo === "warning" && json.mensaje ? " " + json.mensaje : ""), comprobacion.ok && json.tipo !== "warning" ? "success" : "warning");
+      if (comprobacion.ok && json.tipo !== "warning") {
+        aplicarMediaSeleccionada(item.id);
+        setText("cms_actual_estado", "Imagen guardada, acceso publico verificado y aplicada a esta seccion.");
+      }
     }).catch(function (error) {
       setText("cms_actual_media_preview_nuevo", error.message || "No se pudo subir la imagen.");
     }).finally(function () {
@@ -8015,8 +8022,8 @@
     });
   }
 
-  /** IA: Codex GPT-6 | Fecha: 2026-09-24. Proposito: manejar JSON/CSRF de Media; contrato: resuelve depurar y rechaza errores HTTP o de dominio. */
-  function solicitarMediaPicker(url, data) {
+  /** IA: Codex GPT-6 | Fecha: 2026-09-25. Proposito: manejar JSON/CSRF y advertencias de guardado; impacto: selector; contrato: respuestaCompleta conserva tipo/mensaje, lectura habitual resuelve depurar. */
+  function solicitarMediaPicker(url, data, respuestaCompleta) {
     var options = { credentials: "same-origin", cache: "no-store", headers: { "Accept": "application/json", "X-Requested-With": "XMLHttpRequest" } };
     if (data) {
       data.append("_csrf", window.ERP_CSRF_TOKEN || "");
@@ -8027,7 +8034,7 @@
     return fetch(url, options).then(function (response) {
       return response.json().catch(function () { throw new Error("No se pudo leer la respuesta de Media. Recarga la pagina y reintenta."); }).then(function (json) {
         if (!response.ok || !json || json.error) throw new Error(json && json.mensaje ? json.mensaje : "No se pudo completar la operacion de Media.");
-        return json.depurar || {};
+        return respuestaCompleta ? json : json.depurar || {};
       });
     });
   }
@@ -8166,6 +8173,7 @@
   }
 
   /** IA: Codex GPT-6 | Fecha: 2026-09-24. Proposito: actualizar nombre, formato o archivo con confirmacion global; impacto: CMS; contrato: ID estable y URLs previas operativas. */
+  // IA: Codex GPT-6 | 2026-09-25 | Valida archivo/acceso tras persistir; una advertencia conserva ID, referencias y biblioteca actualizada.
   async function modificarArchivoMediaPicker(item, accion) {
     var biblioteca = estado.mediaBiblioteca;
     if (biblioteca.ocupada || !biblioteca.permisos.editar || !biblioteca.permisos.publicar) return;
@@ -8205,19 +8213,37 @@
       // En legacy el nombre visible puede ser una sugerencia aun no persistida; el servidor decide si hay cambio real.
       data.append('nombre_seo', nombre);
       if (alt !== item.alt) data.append('alt', alt);
-      var result = await solicitarMediaPicker('/cms/media_admin_reemplazar_erp', data);
-      var actualizada = normalizarMediaServidor(result);
-      if (!actualizada) throw new Error("El servidor no devolvio la imagen actualizada. Abre de nuevo el selector para verificarla.");
+      var result = await solicitarMediaPicker('/cms/media_admin_reemplazar_erp', data, true);
+      var actualizada = normalizarMediaServidor(result.depurar && (result.depurar.item || result.depurar));
+      if (!actualizada) {
+        setMediaPickerEstado("El servidor confirmo el cambio pero no devolvio la imagen actualizada. No repitas el reemplazo; abre de nuevo el selector para verificarla.", "warning");
+        return;
+      }
       biblioteca.items = mezclarMediaItems(biblioteca.items, [actualizada]);
       guardarMediaLocalItems(biblioteca.items);
       delete biblioteca.usos[item.id];
-      setText("cms_actual_media_estado", "Imagen actualizada. " + (file ? "Peso: " + formatoBytes(item.bytes) + " → " + formatoBytes(actualizada.bytes) + ". " : "") + "Las referencias anteriores siguen funcionando.");
+      setMediaPickerEstado("Cambios guardados. Comprobando archivo y acceso publico...", "info");
+      var comprobacion = await comprobarMediaPickerGuardada(actualizada);
+      setMediaPickerEstado((comprobacion.ok ? "Imagen actualizada. " + (file ? "Peso: " + formatoBytes(item.bytes) + " → " + formatoBytes(actualizada.bytes) + ". " : "") : "") + comprobacion.mensaje + (result.tipo === "warning" && result.mensaje ? " " + result.mensaje : ""), comprobacion.ok && result.tipo !== "warning" ? "success" : "warning");
     } catch (error) {
       setText("cms_actual_media_estado", error.message || "No se pudo actualizar la imagen.");
     } finally {
       biblioteca.ocupada = false;
       renderMediaPicker();
     }
+  }
+
+  /** IA: Codex GPT-6 | Fecha: 2026-09-25. Proposito: comprobar acceso tras persistencia; impacto: selector; contrato: herramienta faltante nunca convierte un guardado en error de carga. */
+  function comprobarMediaPickerGuardada(item) {
+    return window.CmsMediaTools && window.CmsMediaTools.verificarDisponibilidad ? window.CmsMediaTools.verificarDisponibilidad(item) : Promise.resolve({ok: false, mensaje: "Guardada en la biblioteca; acceso no confirmado. Recarga la pagina para cargar la comprobacion. No vuelvas a subirla."});
+  }
+
+  /** IA: Codex GPT-6 | Fecha: 2026-09-25. Proposito: distinguir advertencia de acceso de error al guardar; impacto: selector; contrato: texto seguro sin insertar respuesta HTML. */
+  function setMediaPickerEstado(mensaje, tipo) {
+    var node = $("cms_actual_media_estado");
+    if (!node) return;
+    node.className = "alert alert-light-" + (tipo === "success" ? "success" : tipo === "warning" ? "warning" : "info") + " mb-3";
+    node.textContent = mensaje;
   }
 
   /** IA: Codex GPT-6 | Fecha: 2026-09-24. Proposito: sugerir nombre desde contenido disponible; impacto: SEO; contrato: sin inventar descripcion. */
@@ -8347,11 +8373,12 @@
     }
   }
 
+  /** IA: Codex GPT-6 | Fecha: 2026-09-25. Proposito: conservar cache sin afectar cargas confirmadas; impacto: selector; contrato: almacenamiento del navegador opcional. */
   function guardarMediaLocalItems(items) {
-    localStorage.setItem(MEDIA_STORAGE_KEY, JSON.stringify(items || []));
+    try { localStorage.setItem(MEDIA_STORAGE_KEY, JSON.stringify(items || [])); } catch (error) { /* La biblioteca autoritativa vive en el servidor. */ }
   }
 
-  /** IA: Codex GPT-6 | Fecha: 2026-09-24. Proposito: conservar metadata/preview del servidor; impacto: Media usa URL estable y muestra la version actualizada. */
+  /** IA: Codex GPT-6 | Fecha: 2026-09-25. Proposito: conservar metadata/diagnostico del servidor; impacto: Media; contrato: validacion y hash disponibles para comprobar acceso tras guardar. */
   function normalizarMediaServidor(item) {
     if (!item || !item.url) return null;
     var mediaId = item.id_media_archivo || item.media_id || "";
@@ -8368,6 +8395,8 @@
       ancho: Number(item.ancho || 0),
       alto: Number(item.alto || 0),
       bytes: Number(item.bytes || 0),
+      validacion_archivo: item.validacion_archivo || null,
+      hash_sha256: item.hash_sha256 || "",
       url: item.url,
       preview_url: item.preview_url || item.url,
       alt: item.alt || item.alt_text || "",

@@ -181,7 +181,8 @@
 <script>
     window.ERP_CSRF_TOKEN = "<?= htmlspecialchars(Sesionseguridad::csrfToken(), ENT_QUOTES, 'UTF-8') ?>";
 </script>
-<script src="/assets/js/custom/apps/erp/cms/media_tools.js?v=20260924-media2"></script>
-<script src="/assets/js/custom/apps/erp/cms/media.js?v=20260924-media2"></script>
+<!-- IA: Codex GPT-6 | 2026-09-25 | Cargar validacion de archivo/acceso despues de subir o reemplazar. -->
+<script src="/assets/js/custom/apps/erp/cms/media_tools.js?v=20260925-media-validacion1"></script>
+<script src="/assets/js/custom/apps/erp/cms/media.js?v=20260925-media-validacion1"></script>
 </body>
 </html>

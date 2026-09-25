@@ -291,7 +291,9 @@ class Cms extends Controlador {
         "error" => isset($respuesta["error"]) ? (bool) $respuesta["error"] : true,
         "mensaje" => isset($respuesta["mensaje"]) ? $respuesta["mensaje"] : "",
         "codigo" => isset($respuesta["depurar"]["codigo"]) ? $respuesta["depurar"]["codigo"] : "",
-        "url" => isset($respuesta["depurar"]["url"]) ? $respuesta["depurar"]["url"] : ""
+        "url" => isset($respuesta["depurar"]["url"]) ? $respuesta["depurar"]["url"] : "",
+        // IA: Codex GPT-6 | 2026-09-25 | Trazar comprobacion fisica sin rutas privadas ni resultado HTTP aun pendiente.
+        "validacion_archivo" => $respuesta["depurar"]["validacion_archivo"] ?? null
       )
     ));
     return json_encode($respuesta, JSON_UNESCAPED_UNICODE);

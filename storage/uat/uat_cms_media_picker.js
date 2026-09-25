@@ -20,6 +20,9 @@ async function probarPicker() {
   const nodes = {cms_actual_media_carga: element(), cms_actual_media_estado: element()};
   const cache = {}, requests = [];
   let fallar = false;
+  let informeAcceso = {ok: false, mensaje: 'Guardada en la biblioteca; acceso no confirmado. HTTP 403. No vuelvas a subirla.'};
+  let tipoRespuesta = 'success';
+  const comprobadas = [], aplicadas = [];
   const context = {
     window: {ERP_CSRF_TOKEN: 'uat-mock', confirm: () => true},
     document: {
@@ -33,21 +36,23 @@ async function probarPicker() {
     fetch: async (url, options) => {
       requests.push({url, options});
       if (fallar) throw new Error('Sin conexion simulada');
-      const depurar = url.includes('reemplazar') ? {
+      const depurar = url.includes('reemplazar') || url.includes('subir') ? {
         id_media_archivo: 4, url: '/assets/media/cms/ecommerce/collar-perro-4-abcd1234.webp', nombre_seo: options.body.get('nombre_seo') || 'collar-perro',
         alt: options.body.get('alt') || 'Collar de perro', bytes: 100, urls_anteriores: ['/assets/media/cms/ecommerce/logo.ico']
       } : url.includes('preflight') ? {permisos: {editar: true, publicar: false}} : {
         items: [{id_media_archivo: url.includes('offset=0') ? 2 : 1, url: '/assets/media/cms/ecommerce/test.png', ancho: 64, alto: 64, bytes: 42}],
         hay_mas: url.includes('offset=0')
       };
-      return {ok: true, json: async () => ({error: false, depurar})};
+      return {ok: true, json: async () => ({error: false, tipo: tipoRespuesta, mensaje: 'Aviso servidor simulado.', depurar}), text: async () => JSON.stringify({error: false, tipo: tipoRespuesta, mensaje: 'Aviso servidor simulado.', depurar})};
     }, FormData, File
   };
   vm.createContext(context);
   const source = fs.readFileSync(path.join(root, 'public/assets/js/custom/apps/erp/cms/frontend_actual.js'), 'utf8');
   vm.runInContext(fs.readFileSync(path.join(root, 'public/assets/js/custom/apps/erp/cms/media_tools.js'), 'utf8'), context);
-  vm.runInContext(source.replace(/\}\)\(\);\s*$/, 'globalThis.uat = {estado, validarMediaFile, normalizarMediaServidor, mediaEnEditorActual, cargarMediaServidorPicker, eliminarArchivoMediaPicker, modificarArchivoMediaPicker, renderMediaPicker};})();'), context);
+  vm.runInContext(source.replace(/\}\)\(\);\s*$/, 'globalThis.uat = {estado, validarMediaFile, normalizarMediaServidor, mediaEnEditorActual, cargarMediaServidorPicker, eliminarArchivoMediaPicker, modificarArchivoMediaPicker, agregarYUsarMediaDesdeModal, renderMediaPicker, simularAplicar: function(fn) {aplicarMediaSeleccionada = fn;}};})();'), context);
   const t = context.uat;
+  context.window.CmsMediaTools.verificarDisponibilidad = async item => {comprobadas.push(item); return informeAcceso;};
+  t.simularAplicar(id => aplicadas.push(id));
   for (const ext of ['jpg', 'jpeg', 'png', 'webp', 'gif', 'avif', 'ico']) assert.equal(t.validarMediaFile({name: 'test.' + ext, type: '', size: 100}), '');
   assert.notEqual(t.validarMediaFile({name: 'x.svg', type: 'image/svg+xml', size: 100}), '');
   assert.notEqual(t.validarMediaFile({name: 'x.jpg', type: 'image/jpeg', size: 0}), '');
@@ -95,6 +100,9 @@ async function probarPicker() {
   assert.equal(post.options.body.get('_csrf'), 'uat-mock');
   const reemplazada = t.estado.mediaBiblioteca.items.find(x => x.id === row.id);
   assert.equal(reemplazada.extension, 'webp'); assert.equal(reemplazada.urls_anteriores[0], row.url);
+  assert.equal(comprobadas[0].id, row.id, 'Reemplazo comprueba la referencia guardada');
+  assert(nodes.cms_actual_media_estado.className.includes('warning'), 'Reemplazo confirmado con HTTP fallido es advertencia');
+  assert(nodes.cms_actual_media_estado.textContent.includes('No vuelvas a subirla'));
   nodes.cms_actual_media_detalle_nombre_seo.value = 'collar-perro-rojo';
   await t.modificarArchivoMediaPicker(reemplazada, 'guardar');
   post = requests.filter(x => x.url.includes('reemplazar')).at(-1);
@@ -105,6 +113,28 @@ async function probarPicker() {
   nodes.cms_actual_media_detalle_alt.value = '';
   await t.modificarArchivoMediaPicker(reemplazada, 'guardar');
   assert.equal(requests.filter(x => x.url.includes('reemplazar')).length, numPosts, 'Alt vacio bloquea cambios');
+  // IA: Codex GPT-6 | 2026-09-25 | Alta conserva biblioteca si falla acceso y no autoasigna; con comprobacion completa aplica una vez.
+  nodes.cms_actual_media_nuevo_alt = element('Collar'); nodes.cms_actual_media_nuevo_nombre_seo = element('collar');
+  nodes.cms_actual_media_optimizar_nuevo = {checked: false}; nodes.cms_actual_media_webp_nuevo = {checked: false};
+  nodes.cms_actual_media_archivo = element(); nodes.cms_actual_media_preview_nuevo = element();
+  const file = new File(['webp'], 'collar.webp', {type: 'image/webp'});
+  t.estado.mediaPicker.archivo = file; t.estado.mediaPicker.dataUrl = 'data:fixture';
+  await t.agregarYUsarMediaDesdeModal();
+  assert.equal(aplicadas.length, 0, 'No autoaplica imagen guardada pero inaccesible');
+  assert(t.estado.mediaBiblioteca.items.some(x => x.id === 'bd_4'), 'No borra imagen por fallo HTTP');
+  assert.equal(t.estado.mediaPicker.archivo, null, 'Limpia captura confirmada para evitar reenviar');
+  assert(nodes.cms_actual_media_estado.className.includes('warning'));
+  informeAcceso = {ok: true, mensaje: 'Archivo confirmado y acceso publico verificado.'};
+  t.estado.mediaPicker.archivo = file; t.estado.mediaPicker.dataUrl = 'data:fixture';
+  await t.agregarYUsarMediaDesdeModal();
+  assert.deepEqual(aplicadas, ['bd_4'], 'Comprobacion positiva aplica exactamente la imagen guardada');
+  tipoRespuesta = 'warning';
+  t.estado.mediaPicker.archivo = file; t.estado.mediaPicker.dataUrl = 'data:fixture';
+  await t.agregarYUsarMediaDesdeModal();
+  assert.equal(aplicadas.length, 1, 'Advertencia de backend no se oculta ni autoaplica');
+  assert(nodes.cms_actual_media_estado.className.includes('warning'));
+  assert(nodes.cms_actual_media_estado.textContent.includes('Aviso servidor simulado.'));
+  tipoRespuesta = 'success';
   cache.erp_cms_media_biblioteca_local_v1 = JSON.stringify([{id: 'bd_99', origen: 'bd', url: '/assets/media/cms/ecommerce/eliminada.png'}]);
   t.cargarMediaServidorPicker();
   await new Promise(setImmediate);
@@ -124,25 +154,31 @@ async function probarBiblioteca() {
   const nodes = {cms_media_estado: element(), cms_media_reemplazo: element(), cms_media_detalle_nombre_seo: element('collar-azul'), cms_media_detalle_alt: element('Collar azul')};
   const requests = [];
   let registro = {id_media_archivo: 9, url: '/assets/media/cms/ecommerce/vieja.png', bytes: 300, alt: 'Collar azul', nombre_seo: 'vieja', extension: 'png'};
+  let informeAcceso = {ok: false, mensaje: 'Guardada en la biblioteca; acceso no confirmado. HTTP 404. No vuelvas a subirla.'};
+  let tipoRespuesta = 'success', fallarListado = false;
+  const comprobadas = [];
   const context = {
     window: {ERP_CSRF_TOKEN: 'uat-biblioteca', confirm: () => true}, FormData, File,
     document: {addEventListener() {}, querySelectorAll: () => [], getElementById: id => nodes[id] || null},
     localStorage: {setItem() {}},
     fetch: async (url, options) => {
       requests.push({url, options});
+      if (fallarListado && url.includes('listar')) throw new Error('Listado desconectado');
       let depurar;
       if (url.includes('reemplazar')) {
         registro = Object.assign({}, registro, {url: '/assets/media/cms/ecommerce/collar-azul-9-abcd1234.webp', extension: 'webp', nombre_seo: options.body.get('nombre_seo') || registro.nombre_seo, bytes: 100, urls_anteriores: ['/assets/media/cms/ecommerce/vieja.png']});
         depurar = registro;
-      } else if (url.includes('usos')) depurar = {usos: [], total: 0, puede_eliminar: true};
+      } else if (url.includes('subir')) depurar = registro;
+      else if (url.includes('usos')) depurar = {usos: [], total: 0, puede_eliminar: true};
       else depurar = {persistencia_real: true, items: [registro], hay_mas: false};
-      return {ok: true, json: async () => ({error: false, depurar})};
+      return {ok: true, json: async () => ({error: false, tipo: tipoRespuesta, mensaje: 'Aviso servidor simulado.', depurar})};
     }
   };
   vm.createContext(context);
   vm.runInContext(fs.readFileSync(path.join(root, 'public/assets/js/custom/apps/erp/cms/media_tools.js'), 'utf8'), context);
   const source = fs.readFileSync(path.join(root, 'public/assets/js/custom/apps/erp/cms/media.js'), 'utf8');
-  vm.runInContext(source.replace(/\}\)\(\);\s*$/, 'globalThis.uat = {estado, normalizarItemServidor, reemplazarMediaServidor};})();'), context);
+  vm.runInContext(source.replace(/\}\)\(\);\s*$/, 'globalThis.uat = {estado, normalizarItemServidor, reemplazarMediaServidor, subirArchivoServidor};})();'), context);
+  context.window.CmsMediaTools.verificarDisponibilidad = async item => {comprobadas.push(item); return informeAcceso;};
   const t = context.uat, row = t.normalizarItemServidor(registro);
   t.estado.items = [row]; t.estado.activo = row.id; t.estado.permisos = {editar: true, publicar: true};
   nodes.cms_media_reemplazo.files = [new File(['webp'], 'collar.webp', {type: 'image/webp'})];
@@ -150,6 +186,8 @@ async function probarBiblioteca() {
   let post = requests.filter(x => x.url.includes('reemplazar')).at(-1);
   assert(post, 'Biblioteca acepta PNG reemplazado por WebP'); assert.equal(post.options.body.get('archivo').name, 'collar.webp');
   assert.equal(t.estado.items[0].extension, 'webp'); assert.equal(t.estado.items[0].urls_anteriores[0], row.url);
+  assert.equal(comprobadas[0].id, row.id);
+  assert(nodes.cms_media_estado.className.includes('warning')); assert(nodes.cms_media_estado.textContent.includes('HTTP 404'));
   await t.reemplazarMediaServidor(t.estado.items[0], 'guardar');
   post = requests.filter(x => x.url.includes('reemplazar')).at(-1);
   assert.equal(post.options.body.get('nombre_seo'), t.estado.items[0].nombre_seo, 'Guardar envia nombre aunque coincida con sugerencia visible');
@@ -159,6 +197,26 @@ async function probarBiblioteca() {
   post = requests.filter(x => x.url.includes('reemplazar')).at(-1);
   assert.equal(post.options.body.has('archivo'), false); assert.equal(post.options.body.get('nombre_seo'), 'collar-azul-perro');
   assert.equal(post.options.body.has('alt'), false); assert.equal(post.options.body.get('_csrf'), 'uat-biblioteca');
+  // IA: Codex GPT-6 | 2026-09-25 | Confirmar que alta/duplicada se comprueba tambien, mantiene item y nunca marca exito tras fallo publico.
+  nodes.cms_media_archivo = element(); nodes.cms_media_alt = element('Collar azul'); nodes.cms_media_nombre_seo = element('collar');
+  t.estado.archivoPendiente = new File(['webp'], 'collar.webp', {type: 'image/webp'});
+  await t.subirArchivoServidor();
+  assert.equal(comprobadas.length, 4); assert.equal(t.estado.archivoPendiente, null);
+  assert.equal(t.estado.items.length, 1, 'Respuesta de alta duplicada conserva un solo medio');
+  assert(nodes.cms_media_estado.className.includes('warning'));
+  informeAcceso = {ok: true, mensaje: 'Archivo y acceso publico verificados.'};
+  nodes.cms_media_alt.value = 'Collar azul'; t.estado.archivoPendiente = new File(['webp'], 'collar.webp', {type: 'image/webp'});
+  await t.subirArchivoServidor();
+  assert(nodes.cms_media_estado.className.includes('success'));
+  tipoRespuesta = 'warning';
+  nodes.cms_media_alt.value = 'Collar azul'; t.estado.archivoPendiente = new File(['webp'], 'collar.webp', {type: 'image/webp'});
+  await t.subirArchivoServidor();
+  assert(nodes.cms_media_estado.className.includes('warning')); assert(nodes.cms_media_estado.textContent.includes('Aviso servidor simulado.'));
+  tipoRespuesta = 'success'; fallarListado = true;
+  nodes.cms_media_alt.value = 'Collar azul'; t.estado.archivoPendiente = new File(['webp'], 'collar.webp', {type: 'image/webp'});
+  await t.subirArchivoServidor();
+  assert(nodes.cms_media_estado.className.includes('warning')); assert(nodes.cms_media_estado.textContent.includes('Los cambios estan guardados'));
+  assert.equal(t.estado.items.length, 1, 'Fallo al refrescar conserva item confirmado por POST');
   return 'biblioteca: PNG a WebP, alias preservado, nombre editable sin archivo y Alt estable';
 }
 
@@ -236,7 +294,77 @@ async function probarOptimizador() {
   return 'optimizador/conversor: WebP explicito, firma, alpha, dimensiones, animaciones, peso comparado, nombres y limites';
 }
 
-Promise.all([probarPicker(), probarBiblioteca(), probarOptimizador()]).then(resultados => {
+/* IA: Codex GPT-6 | Fecha: 2026-09-25
+ * Proposito: probar diagnostico publico con respuestas y tiempos simulados.
+ * Impacto: subidas/reemplazos; contrato: no red real y falla de acceso conserva resultado de guardado.
+ */
+async function probarDisponibilidad() {
+  const crypto = require('node:crypto'), contenido = png(), requests = [];
+  let caso = {};
+  const context = {
+    window: {location: {origin: 'https://panel.test'}, crypto: crypto.webcrypto}, URL, Uint8Array, DataView, AbortController,
+    setTimeout(fn, ms) {assert.equal(ms, 10000); return setTimeout(fn, caso.timeout ? 0 : ms);}, clearTimeout,
+    fetch: async (url, options) => {
+      requests.push({url, options});
+      if (caso.network) throw new Error('Falla simulada');
+      if (caso.timeout) return new Promise((resolve, reject) => {options.signal.addEventListener('abort', () => {const e = new Error('aborted'); e.name = 'AbortError'; reject(e);});});
+      return {
+        ok: !caso.status || caso.status === 200, status: caso.status || 200,
+        url: caso.url || url, type: caso.type || 'basic', redirected: !!caso.redirected,
+        headers: {get(name) {return name === 'Content-Type' ? caso.mime || 'image/png' : String((caso.body || contenido).length);}},
+        arrayBuffer: async () => new Uint8Array(caso.body || contenido).buffer
+      };
+    }
+  };
+  vm.createContext(context);
+  vm.runInContext(fs.readFileSync(path.join(root, 'public/assets/js/custom/apps/erp/cms/media_tools.js'), 'utf8'), context);
+  const t = context.window.CmsMediaTools;
+  const item = {url: '/assets/media/cms/ecommerce/logo.png', preview_url: '/assets/media/cms/ecommerce/logo.png?v=abc', bytes: contenido.length, hash_sha256: crypto.createHash('sha256').update(contenido).digest('hex'), validacion_archivo: {ok: true}};
+  let result = await t.verificarDisponibilidad(item);
+  assert.equal(result.ok, true); assert.equal(result.hash_verificado, true);
+  assert.equal(requests[0].options.credentials, 'omit'); assert.equal(requests[0].options.redirect, 'manual');
+  assert.equal(requests[0].options.cache, 'no-store'); assert(requests[0].url.includes('_cms_verificar='));
+  assert(requests[0].url.includes('v=abc'), 'Valida tambien la URL de preview que usa cachebuster');
+  for (const [mock, estado] of [
+    [{status: 401}, 'acceso_denegado'], [{status: 403}, 'acceso_denegado'], [{status: 404}, 'no_encontrada'],
+    [{status: 503}, 'error_servidor'], [{status: 302}, 'redireccion'], [{type: 'opaqueredirect'}, 'redireccion'],
+    [{redirected: true}, 'redireccion'], [{mime: 'text/html; charset=utf-8'}, 'contenido_no_imagen'],
+    [{mime: 'image/jpeg'}, 'contenido_no_imagen'], [{body: Buffer.alloc(1)}, 'contenido_distinto'],
+    [{body: Buffer.alloc(contenido.length)}, 'contenido_distinto'], [{network: true}, 'conexion'], [{timeout: true}, 'tiempo_agotado'],
+    [{url: 'https://externo.test/assets/media/cms/ecommerce/logo.png'}, 'redireccion']
+  ]) {
+    caso = mock; result = await t.verificarDisponibilidad(item);
+    assert.equal(result.ok, false); assert.equal(result.estado, estado); assert(result.mensaje.includes('No vuelvas a subirla'));
+  }
+  caso = {};
+  result = await t.verificarDisponibilidad(Object.assign({}, item, {hash_sha256: 'a'.repeat(64)}));
+  assert.equal(result.estado, 'contenido_distinto', 'Peso/firma iguales no ocultan hash distinto');
+  const anteriores = requests.length;
+  for (const estado of ['ausente', 'no_legible', 'permisos_restringidos', 'contenido_distinto', 'no_verificable']) {
+    result = await t.verificarDisponibilidad(Object.assign({}, item, {validacion_archivo: {ok: false, estado, mensaje: 'Diagnostico de archivo.'}}));
+    assert.equal(result.estado, estado); assert(result.mensaje.includes('Diagnostico de archivo.'));
+  }
+  assert.equal((await t.verificarDisponibilidad(Object.assign({}, item, {validacion_archivo: null}))).estado, 'sin_validacion');
+  for (const url of ['https://externo.test/assets/media/cms/ecommerce/logo.png', '/app/config/mysql.php', '/assets/media/cms/ecommerce/../logo.png']) {
+    assert.equal((await t.verificarDisponibilidad(Object.assign({}, item, {url, preview_url: url}))).estado, 'ruta_no_valida');
+  }
+  assert.equal(requests.length, anteriores, 'Servidor fallido o ruta ajena no dispara descarga');
+  context.window.crypto = null;
+  result = await t.verificarDisponibilidad(item);
+  assert.equal(result.ok, true); assert.equal(result.hash_verificado, false); assert(result.mensaje.includes('Formato y peso'));
+  const avif = Buffer.alloc(48);
+  avif.writeUInt32BE(8, 0); avif.write('free', 4);
+  avif.writeUInt32BE(40, 8); avif.write('ftypmif1', 12); avif.write('mif1msf1miafmiafavifavis', 24);
+  caso = {mime: 'image/avif', body: avif};
+  const itemAvif = {url: '/assets/media/cms/ecommerce/foto.avif', bytes: avif.length, validacion_archivo: {ok: true}};
+  result = await t.verificarDisponibilidad(itemAvif);
+  assert.equal(result.ok, true, 'AVIF admite caja previa y marca compatible despues del byte 32 sin WebCrypto');
+  avif.writeUInt32BE(60, 8);
+  assert.equal((await t.verificarDisponibilidad(itemAvif)).estado, 'contenido_distinto', 'AVIF rechaza caja ftyp que excede buffer');
+  return 'disponibilidad: disco previo, acceso sin sesion, nonce, 200/401/403/404/503, redirecciones, HTML, MIME, firma, peso, hash, red y tiempo';
+}
+
+Promise.all([probarPicker(), probarBiblioteca(), probarOptimizador(), probarDisponibilidad()]).then(resultados => {
   resultados.forEach(resultado => console.log('OK ' + resultado));
   console.log('UAT completada. Sin solicitudes reales, cambios de BD ni archivos media.');
 }).catch(error => {console.error(error); process.exitCode = 1;});

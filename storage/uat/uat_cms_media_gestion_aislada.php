@@ -44,7 +44,10 @@ namespace CmsMediaUat {
     $tipo = $esRetiro ? 'retiro' : ($esRestauracion ? 'restauracion' : 'reemplazo');
     Escenario::$eventos[] = array($tipo, Escenario::$db->inTransaction());
     if (!empty(Escenario::$fallos[$tipo])) return false;
-    return \rename($origen, $destino);
+    $movido = \rename($origen, $destino);
+    // IA: Codex GPT-6 | 2026-09-25 | Simular copia publica corrupta aun si rename informa exito.
+    if ($movido && $tipo === 'reemplazo' && !empty(Escenario::$fallos['contenido'])) file_put_contents($destino, str_repeat('x', filesize($destino)));
+    return $movido;
   }
   /** IA: Codex GPT-6 | Fecha: 2026-09-24 | Prueba fallo de retiro del nombre anterior durante cambio de formato. */
   function unlink($ruta) {
@@ -99,7 +102,8 @@ namespace CmsMediaUat {
       }
       if (strpos($this->sql, 'DELETE ') === 0) $this->db->item = null;
       if (strpos($this->sql, 'UPDATE ') === 0) {
-        preg_match_all('/([a-z_]+)\s*=\s*(:[a-z_]+)/i', $this->sql, $asignaciones, PREG_SET_ORDER);
+        // IA: Codex GPT-6 | 2026-09-25 | Incluir columnas con digitos, como hash_sha256, en la persistencia simulada.
+        preg_match_all('/([a-z_][a-z0-9_]*)\s*=\s*(:[a-z_][a-z0-9_]*)/i', $this->sql, $asignaciones, PREG_SET_ORDER);
         foreach ($asignaciones as $asignacion) {
           if ($asignacion[1] !== 'id_media_archivo') $this->db->item[$asignacion[1]] = $params[$asignacion[2]];
         }
@@ -126,6 +130,15 @@ namespace CmsMediaUat {
       return Escenario::$dir . '/' . basename($url);
     }
     public static function inspeccionar($ruta, $nombre) { return \CmsMediaArchivo::inspeccionar($ruta, $nombre); }
+    /** IA: Codex GPT-6 | 2026-09-25 | Validar integridad real dentro del fixture aislado. */
+    public static function verificarGuardado($ruta, $bytes, $hash) { return \CmsMediaArchivo::verificarGuardado($ruta, $bytes, $hash); }
+    /** IA: Codex GPT-6 | Fecha: 2026-09-25 | Inyecta fallos de permisos y ejecuta helper real sobre fixtures. */
+    public static function asegurarLecturaPublica($ruta) {
+      Escenario::$eventos[] = array('permisos', Escenario::$db->inTransaction());
+      $restauracion = strpos(basename($ruta), 'resguardo_') === 0;
+      if (!empty(Escenario::$fallos[$restauracion ? 'permisos_restauracion' : 'permisos_publicacion'])) return false;
+      return \CmsMediaArchivo::asegurarLecturaPublica($ruta);
+    }
   }
   /** IA: Codex GPT-6 | Fecha: 2026-09-24 | Simula dependencias sin consultar las tablas del CMS. */
   class CmsMediaReferencias {
@@ -165,6 +178,8 @@ namespace CmsMediaUat {
       $archivo = fopen($ruta, 'x');
       if (!$archivo) throw new \RuntimeException('No se pudo crear temporal de fixture');
       fclose($archivo);
+      // IA: Codex GPT-6 | 2026-09-25 | Reproducir el 0600 de tempnam en Linux, incluido copy sobre el temporal.
+      chmod($ruta, 0600);
       return $ruta;
     }
     public function eliminar() { return $this->mediaGestionEliminar(array('id_media_archivo'=>17), 1); }
@@ -207,21 +222,25 @@ namespace CmsMediaUat {
     array('baja: SQL exception', 'eliminar', array('excepcion_sql'=>true), false),
     array('baja: commit false', 'eliminar', array('commit'=>true), false),
     array('baja: conserva resguardo si restauracion falla', 'eliminar', array('sql'=>true,'restauracion'=>true), false),
+    array('baja: conserva resguardo si permisos fallan al restaurar', 'eliminar', array('sql'=>true,'permisos_restauracion'=>true), false),
     array('baja: tiene referencias', 'eliminar', array('referencias'=>true), false),
     array('baja exitosa', 'eliminar', array(), true),
     array('reemplazo: copia falla', 'reemplazar', array('copia'=>true), false),
     array('reemplazo: rename falla', 'reemplazar', array('reemplazo'=>true), false),
+    array('reemplazo: permisos fallan antes de publicar', 'reemplazar', array('permisos_publicacion'=>true), false),
+    array('reemplazo: contenido corrupto con mismo peso', 'reemplazar', array('contenido'=>true), false),
     array('reemplazo: SQL false', 'reemplazar', array('sql'=>true), false),
     array('reemplazo: commit false', 'reemplazar', array('commit'=>true), false),
     array('reemplazo: rollback lanza', 'reemplazar', array('sql'=>true,'rollback'=>true), false),
     array('reemplazo: conserva resguardo si restauracion falla', 'reemplazar', array('sql'=>true,'restauracion'=>true), false),
+    array('reemplazo: conserva resguardo si permisos fallan al restaurar', 'reemplazar', array('sql'=>true,'permisos_restauracion'=>true), false),
     array('reemplazo: recuperacion de archivo ausente falla', 'reemplazar', array('sql'=>true,'ausente'=>true), false),
     array('reemplazo exitoso', 'reemplazar', array(), true)
   );
   try {
     foreach ($casos as [$titulo, $accion, $fallos, $exito]) {
       limpiarFixture(); Escenario::$fallos = $fallos; Escenario::$eventos = array(); Escenario::$accion = $accion;
-      if (empty($fallos['ausente'])) file_put_contents(Escenario::$dir . '/imagen.png', $png);
+      if (empty($fallos['ausente'])) { file_put_contents(Escenario::$dir . '/imagen.png', $png); chmod(Escenario::$dir . '/imagen.png', 0644); }
       file_put_contents(Escenario::$dir . '/nuevo.png', $png . 'fixture_nuevo');
       $item = itemFixture($png);
       Escenario::$db = new Conexion($item);
@@ -229,7 +248,7 @@ namespace CmsMediaUat {
       $respuesta = $accion === 'eliminar' ? $modelo->eliminar() : $modelo->mediaAdminReemplazarInterno(array('tmp_name'=>Escenario::$dir.'/nuevo.png','name'=>'nuevo.png','error'=>UPLOAD_ERR_OK), array('id_media_archivo'=>17), 1);
       exigir($respuesta['error'] === !$exito, $titulo . ': respuesta inesperada');
       if (!$exito) {
-        if (!empty($fallos['restauracion'])) {
+        if (!empty($fallos['restauracion']) || !empty($fallos['permisos_restauracion'])) {
           $resguardos = glob(Escenario::$dir.'/resguardo_*');
           exigir(count($resguardos) === 1 && file_get_contents($resguardos[0]) === $png, $titulo . ': no conservo el original para recuperar');
         } elseif (!empty($fallos['ausente'])) {
@@ -239,11 +258,17 @@ namespace CmsMediaUat {
       } elseif ($accion === 'eliminar') {
         exigir(!file_exists(Escenario::$dir.'/imagen.png') && Escenario::$db->item === null, $titulo . ': baja incompleta');
       } else {
+        exigir($respuesta['depurar']['validacion_archivo']['ok'] === true, $titulo . ': falta comprobacion del archivo guardado');
         exigir(file_get_contents(Escenario::$dir.'/imagen.png') === $png.'fixture_nuevo', $titulo . ': no cambio archivo');
         exigir(Escenario::$db->item['url'] === $item['url'] && Escenario::$db->item['codigo'] === $item['codigo'], $titulo . ': referencias cambiaron');
       }
-      foreach (Escenario::$eventos as [$evento,$bloqueado]) if ($evento === 'restauracion') exigir($bloqueado, $titulo . ': restauracion sin bloqueo');
-      exigir(count(glob(Escenario::$dir.'/resguardo_*')) === (!empty($fallos['restauracion']) ? 1 : 0), $titulo . ': resguardos inesperados');
+      foreach (Escenario::$eventos as [$evento,$bloqueado]) if (in_array($evento, array('restauracion','permisos'), true)) exigir($bloqueado, $titulo . ': recuperacion/publicacion sin bloqueo');
+      exigir(count(glob(Escenario::$dir.'/resguardo_*')) === ((!empty($fallos['restauracion']) || !empty($fallos['permisos_restauracion'])) ? 1 : 0), $titulo . ': resguardos inesperados');
+      // IA: Codex GPT-6 | 2026-09-25 | Comprobar permisos reales cuando esta suite se ejecute en Linux.
+      if (PHP_OS_FAMILY !== 'Windows' && is_file(Escenario::$dir.'/imagen.png') && empty($fallos['restauracion']) && empty($fallos['permisos_restauracion'])) {
+        clearstatcache(true, Escenario::$dir.'/imagen.png');
+        exigir((fileperms(Escenario::$dir.'/imagen.png') & 0777) === 0644, $titulo . ': archivo publico sin permisos 0644');
+      }
       exigir(count(glob(Escenario::$dir.'/staging_*')) === 0, $titulo . ': staging sin limpiar');
       echo 'OK ' . $titulo . PHP_EOL;
     }
@@ -253,18 +278,22 @@ namespace CmsMediaUat {
       array('WebP en imagen utilizada', array('referencias'=>true), true, true),
       array('WebP: copia falla', array('copia'=>true), false, true),
       array('WebP: instalacion falla', array('reemplazo'=>true), false, true),
+      array('WebP: permisos fallan antes de publicar', array('permisos_publicacion'=>true), false, true),
+      array('WebP: contenido corrupto con mismo peso', array('contenido'=>true), false, true),
       array('WebP: retiro anterior falla', array('retiro'=>true), false, true),
       array('WebP: SQL false', array('sql'=>true), false, true),
       array('WebP: SQL exception', array('excepcion_sql'=>true), false, true),
       array('WebP: commit false', array('commit'=>true), false, true),
       array('WebP: rollback lanza', array('sql'=>true,'rollback'=>true), false, true),
       array('WebP: restauracion falla y conserva respaldo', array('sql'=>true,'restauracion'=>true), false, true),
+      array('WebP: permisos de restauracion fallan y conserva respaldo', array('sql'=>true,'permisos_restauracion'=>true), false, true),
       array('WebP: original ausente y SQL falla', array('ausente'=>true,'sql'=>true), false, true),
       array('WebP: recupera original ausente', array('ausente'=>true), true, true),
       array('WebP: hash de otro registro', array('duplicado'=>true), false, true),
       array('WebP: rechaza PNG con extension WebP', array('formato_falso'=>true), false, true),
       array('WebP: metadata corrupta', array('metadata_invalida'=>true), false, true),
       array('Nombre: conserva formato y contenido', array(), true, false),
+      array('Nombre: permisos fallan antes de publicar', array('permisos_publicacion'=>true), false, false),
       array('Nombre: SQL falla', array('sql'=>true), false, false),
       array('Nombre: commit falla', array('commit'=>true), false, false),
       array('Nombre: exige archivo existente', array('ausente'=>true), false, false),
@@ -272,7 +301,7 @@ namespace CmsMediaUat {
     );
     foreach ($casosCambio as [$titulo, $fallos, $exito, $subir]) {
       limpiarFixture(); Escenario::$fallos = $fallos; Escenario::$eventos = array(); Escenario::$accion = 'reemplazar'; Escenario::$duplicado = null;
-      if (empty($fallos['ausente'])) file_put_contents(Escenario::$dir.'/imagen.png', $png);
+      if (empty($fallos['ausente'])) { file_put_contents(Escenario::$dir.'/imagen.png', $png); chmod(Escenario::$dir.'/imagen.png', 0644); }
       file_put_contents(Escenario::$dir.'/nuevo.webp', empty($fallos['formato_falso']) ? $webp : $png);
       $item = itemFixture($png);
       $metadata = json_decode($item['metadata_json'], true);
@@ -293,12 +322,13 @@ namespace CmsMediaUat {
         $ruta = CmsMediaArchivo::ruta($guardado['url']);
         exigir(file_get_contents($ruta) === ($subir ? $webp : $png), $titulo . ': contenido incorrecto');
         exigir(\CmsMediaArchivo::inspeccionar($ruta, $guardado['nombre_archivo'])['extension'] === $extension, $titulo . ': formato real incorrecto');
+        if (PHP_OS_FAMILY !== 'Windows') exigir((fileperms($ruta) & 0777) === 0644, $titulo . ': archivo publico sin permisos 0644');
         $despues = json_decode($guardado['metadata_json'], true);
         exigir($despues['editorial'] === $metadata['editorial'] && $guardado['alt_text'] === $item['alt_text'], $titulo . ': cambio metadata editorial');
         exigir(count($despues['rutas_anteriores']) === 2 && in_array($item['url'], $despues['rutas_anteriores'], true) && in_array('/assets/media/cms/ecommerce/antecesora.png', $res['depurar']['urls_anteriores'], true), $titulo . ': se perdio alias anterior');
       } else {
         exigir(Escenario::$db->item === $item, $titulo . ': registro o metadata alterado');
-        if (!empty($fallos['restauracion'])) {
+        if (!empty($fallos['restauracion']) || !empty($fallos['permisos_restauracion'])) {
           $resguardos = glob(Escenario::$dir.'/resguardo_*');
           exigir(count($resguardos) === 1 && file_get_contents($resguardos[0]) === $png, $titulo . ': respaldo perdido');
         } elseif (empty($fallos['ausente'])) {
@@ -307,8 +337,8 @@ namespace CmsMediaUat {
         exigir(count(glob(Escenario::$dir.'/pelota-*')) === 0, $titulo . ': nuevo archivo huerfano');
       }
       exigir(count(glob(Escenario::$dir.'/staging_*')) === 0, $titulo . ': staging sin limpiar');
-      exigir(count(glob(Escenario::$dir.'/resguardo_*')) === (!empty($fallos['restauracion']) ? 1 : 0), $titulo . ': resguardos inesperados');
-      foreach (Escenario::$eventos as [$evento,$bloqueado]) if (in_array($evento, array('restauracion','retiro'), true)) exigir($bloqueado, $titulo . ': operacion sin bloqueo');
+      exigir(count(glob(Escenario::$dir.'/resguardo_*')) === ((!empty($fallos['restauracion']) || !empty($fallos['permisos_restauracion'])) ? 1 : 0), $titulo . ': resguardos inesperados');
+      foreach (Escenario::$eventos as [$evento,$bloqueado]) if (in_array($evento, array('restauracion','retiro','permisos'), true)) exigir($bloqueado, $titulo . ': operacion sin bloqueo');
       echo 'OK ' . $titulo . PHP_EOL;
     }
     // IA: Codex GPT-6 | 2026-09-24 | Encadenar cambios debe apuntar todos los aliases a una sola identidad actual.
@@ -324,7 +354,7 @@ namespace CmsMediaUat {
     exigir(count($rutas) === 3 && in_array('/assets/media/cms/ecommerce/imagen.png', $rutas, true) && in_array($primero['depurar']['url'], $rutas, true) && in_array($segundo['depurar']['url'], $rutas, true), 'Nombres sucesivos perdieron rutas');
     exigir(!file_exists(CmsMediaArchivo::ruta($primero['depurar']['url'])) && file_get_contents(CmsMediaArchivo::ruta($segundo['depurar']['url'])) === $webp, 'Renombre sucesivo no movio el archivo');
     $sinCambios = (new Modelo())->mediaAdminReemplazarInterno(null, array('id_media_archivo'=>17,'nombre_seo'=>'Pelota azul para perros'), 1);
-    exigir(!$sinCambios['error'] && $sinCambios['tipo'] === 'info' && $sinCambios['depurar']['url'] === $segundo['depurar']['url'], 'Guardar mismo nombre cambio URL');
+    exigir(!$sinCambios['error'] && $sinCambios['tipo'] === 'info' && $sinCambios['depurar']['url'] === $segundo['depurar']['url'], 'Guardar mismo nombre cambio URL: ' . json_encode($sinCambios));
     $soloAlt = (new Modelo())->mediaAdminReemplazarInterno(null, array('id_media_archivo'=>17,'alt'=>'Pelota azul de prueba'), 1);
     exigir(!$soloAlt['error'] && $soloAlt['depurar']['url'] === $segundo['depurar']['url'] && $soloAlt['depurar']['alt'] === 'Pelota azul de prueba' && count(CmsMediaAlias::rutas($soloAlt['depurar'])) === 3, 'Edicion alt cambio ruta o perdio aliases');
     exigir(Escenario::$db->item['id_media_archivo'] === 17 && Escenario::$db->item['codigo'] === 'media_fixture', 'Renombres cambiaron identidad');
