@@ -2,6 +2,91 @@
 
 Documentacion IA: Codex GPT-5 | Fecha: 2026-09-09
 
+## Correccion previa al lanzamiento / continuidad
+
+IA: Codex GPT-6 | Fecha: 2026-09-25
+
+Estado: implementado en codigo local y validado con la conexion configurada del proyecto
+en una transaccion READ ONLY. Pendiente desplegar en `https://sys.artiani.com.mx`
+y repetir QA HTTP/frontend. No se ejecutaron migraciones ni escrituras de productos.
+
+Causa corregida: se elegia `alimento` antes de la frase completa y se ordenaba una
+muestra ya limitada de la primera pagina. Esto perdia `erizo`, cambiaba el prefijo
+de sugerencias y repetia productos entre paginas.
+
+Contrato vigente (mantiene `fase` v1 por compatibilidad):
+
+- `/busqueda`, `/busqueda_sugerencias` y `/busqueda_manifest` entregan
+  `depurar.motor_version=terminos_and_sql_v2` para verificar el despliegue.
+- AND entre todos los conceptos de la consulta; OR entre sus sinonimos y plurales.
+  `interpretacion.terminos_requeridos` separa conceptos originales de expansiones.
+- La ultima palabra admite prefijo desde dos letras para mantener autocompletado
+  (`alimento eriz`). Ambos endpoints aplican el mismo criterio; no amplia numeros.
+- Se comparan titulo publico, nombre SKU/producto, SKU, marca y presentacion.
+  La extension de agrupacion tambien permite coincidencias con valores de atributos
+  de selector activos (`es_variante=1`) del SKU, nunca con atributos administrativos.
+  Las etiquetas genericas de mascota/categoria no agregan otros productos como
+  coincidencias principales. Las categorias relacionadas se entregan por separado.
+- La base de datos filtra, calcula relevancia y ordena antes de `LIMIT/OFFSET`.
+  El desempate final es `id_publicacion`. Los boosts de nombre/categoria/marca/SKU,
+  categoria probable, imagen y precio se aplican al ranking global. Orden explicito por nombre, precio
+  o recientes se respeta en todas las paginas.
+- `items`, `total` y `paginacion.total` son coincidencias principales. No se amplia
+  silenciosamente a una sola palabra si no hay coincidencias completas.
+- `recomendaciones_ampliadas=[]` queda separado y actualmente vacio. Usar
+  `sugerencias` y `categorias_relacionadas` para ofrecer otra consulta al cliente.
+- `/busqueda_sugerencias` devuelve en `grupos.productos` un prefijo del mismo orden
+  de `/busqueda?orden=relevancia`, con los mismos filtros. `total_productos` cuenta
+  todas las coincidencias; `resumen.productos` cuenta solo las sugerencias devueltas.
+- `paginacion.primera/anterior/siguiente/ultima` apunta a `/ecommercePublico/busqueda`
+  y conserva la frase original, filtros, limite y orden. Frontend debe seguir esos
+  enlaces, sin descargar todo, recalcular totales, reordenar ni deduplicar paginas.
+- Numero y unidad son una restriccion conjunta: `40 litros` no equivale a `40 cm`
+  ni a `400 litros`. La coincidencia textual no certifica compatibilidad tecnica.
+- Una consulta vacia, solo conectores o sin coincidencias devuelve cero productos.
+  Los fallos de consulta conservan `error=true`; no son un cero exitoso.
+- `/catalogo?q=...` conserva busqueda literal legacy y puede dar un conjunto distinto.
+  No usarlo para reemplazar un cero valido de `/busqueda` ni para paginar sus resultados.
+- Slugs, canonical, redirecciones y sitemap no se modifican por esta correccion.
+
+Validacion del 2026-09-25: 48 comprobaciones aprobadas con codigo local:
+
+- `Alimento para erizo`: 8 alimentos del diagnostico; incluye Premium.
+- Sugerencias de 6 son exactamente los primeros 6 de limite 12 y de busqueda.
+- Recorrido con limite 3 recupera los 8 sin duplicados ni omisiones.
+- `alimento` con paginas de 12 coincide con los primeros 24 en una sola pagina.
+- Singular/plural, mayusculas, acentos y sinonimo `comida` conservan los 8 alimentos.
+- `areneros`: 59 publicaciones con los datos actuales.
+- `Filtro para pecera de 40 litros`: 0 coincidencias completas con los campos
+  actuales. Conserva capacidad 40 y categorias relacionadas. Fixtures SQL read-only
+  prueban positivos de 40 l/40 litros y negativos de 40 cm/400 litros/25 litros.
+
+Pruebas reproducibles:
+
+```text
+C:\xampp\php\php.exe storage\uat\uat_ecommerce_busqueda_relevancia_readonly.php --model
+C:\xampp\php\php.exe storage\uat\uat_ecommerce_busqueda_relevancia_readonly.php --base=https://sys.artiani.com.mx
+```
+
+El fixture de ocho slugs es evidencia del diagnostico, no una regla del motor. Si
+cambian publicaciones o slugs, actualizar el fixture de prueba de forma explicita.
+El modo HTTP valida endpoints; los fixtures SQL controlados corren en modo `--model`.
+
+Siguiente paso: desplegar `app/modelos/EcommerceCatalogoPublico.php`, consultar el
+manifest para confirmar version, ejecutar UAT por HTTP y revisar buscador frontend.
+Si frontend conserva respuestas cacheadas de busqueda/sugerencias, invalidarlas al
+desplegar esta version. No hace falta cambiar URLs de productos ni redirecciones.
+
+Verificacion remota posterior a las pruebas: sys todavia devuelve `total=178`,
+`query_usada_catalogo=alimento` y no entrega `motor_version` para el caso erizo.
+Esto confirma que el cambio local aun no esta desplegado.
+
+Extension del mismo dia: `agrupacion=producto` activa tarjetas agrupadas antes de
+paginar, conservando los ocho alimentos para erizo como productos separados. Ver
+`docs/erp_ecommerce_descripciones_agrupacion.md`. El parametro se debe propagar a
+busqueda y sugerencias; su default sigue siendo `sku`. El despliegue incluye ahora
+tambien `app/modelos/EcommerceCatalogoPresentacion.php`.
+
 ## Endpoint recomendado
 
 Frontend debe preferir este endpoint para la pagina publica `/buscar/{termino}`:
@@ -239,7 +324,7 @@ En una fase posterior se debe crear administracion para:
 Para validar el contrato local:
 
 ```text
-C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_busqueda_inteligente_readonly.php --base=http://panel.com.local --q="Filtro para pecera de 40 litros" --limite=3
+C:\xampp\php\php.exe storage\uat\uat_ecommerce_publico_busqueda_inteligente_readonly.php --base=http://panel.com.local --q="Alimento para erizo" --limite=3
 ```
 
 Debe responder:

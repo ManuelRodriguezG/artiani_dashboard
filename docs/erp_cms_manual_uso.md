@@ -273,6 +273,21 @@ Como verificar:
 - Confirma que cada item entregue `categoria.url`, `imagen_desktop`, `imagen_mobile`, `alt` e `imagen_fuente`.
 - Si falta una categoria publica, una cantidad exacta o una imagen, ese componente incompleto no se envia a la API; los demas componentes validos si se publican.
 
+Actualizacion 2026-09-25 - Sincronizacion CMS / Frontend Home:
+
+- El documento principal vigente del Home es `C:\xampp\htdocs\frontend\ecommerce-publico\docs\HOME_CMS_COMPONENTES_Y_ORDEN.md`; prevalece sobre propuestas anteriores.
+- `GET /ecommercePublico/contenido_pagina?pagina=home` y `GET /ecommercePublico/cms_frontend?pagina=home` deben leer la misma publicacion.
+- `codigo` identifica una instancia unica e inmutable; dos banners pueden compartir `tipo` y `slot`, pero nunca `codigo`.
+- `depurar.componentes_home.publicados=true` se conserva aunque no haya componentes activos; una lista vacia publicada no debe restaurar ejemplos ni caer a fallback.
+- `depurar.secciones` y `depurar.slots[].bloques` deben salir de la misma publicacion, con los mismos codigos, estados, ordenes y contenido.
+- `home.banner_ancho_completo` y `home.banners_divididos` son slots repetibles; si una instancia esta publicada y visible, su slot no debe entregar `bloques=[]`.
+- El mapa `home_ubicacion` solo declara `config.fuente=cms_global` y no duplica direccion, horarios ni mapa dentro del Home.
+- El panel permite publicar aunque la lista gestionada quede vacia; esto sirve para apagar todos los componentes gestionados sin que vuelvan ejemplos.
+- Los banners repetibles nuevos deben nacer con codigos claros, por ejemplo `home_banner_ancho_completo_01` y `home_banners_divididos_01`.
+- El boton `Ver API publicada` resume conteos por slot para validar rapido si ya existen panoramicos o dos banners publicados.
+- Si un modulo aparece en el editor pero `Activo en frontend` esta en `No`, al publicar queda guardado como apagado y no sale en `depurar.secciones` ni en `slots[].bloques`.
+- Para publicar `banner_ancho_completo` o `banners_divididos`: usa `Agregar componente`, deja `Activo en frontend=Si`, selecciona categoria real, define imagen/textos y despues presiona `Publicar componentes`.
+
 Orden del Home:
 
 - La seccion `home_orden_componentes` permite acomodar la portada sin tocar codigo del frontend.

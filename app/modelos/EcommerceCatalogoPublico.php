@@ -1,9 +1,11 @@
 <?php
 
 require_once __DIR__ . '/EcommerceMediaGestion.php';
+require_once __DIR__ . '/EcommerceCatalogoPresentacion.php';
 
 class EcommerceCatalogoPublico extends CRUD {
   use EcommerceMediaGestion;
+  use EcommerceCatalogoPresentacion;
 
   private $cacheBusquedaInteligenteConfig = null;
 
@@ -522,6 +524,7 @@ class EcommerceCatalogoPublico extends CRUD {
         ),
         "pruebas_con_api" => $this->pruebasFrontendHandoff($baseApi, $slugEjemplo, $payloadCotizacion),
         "contratos_ui" => array(
+          "presentacion_catalogo" => $this->contratoPresentacionCatalogoPublico(),
           "configuracion_inicial" => array("depurar.ready", "depurar.fase_2.primer_render", "depurar.guardrails"),
           "contenido_manifest" => array("depurar.plantillas", "depurar.tipos_bloque", "depurar.guardrails"),
           "contenido_pagina" => array("depurar.slots", "depurar.resumen", "depurar.guardrails"),
@@ -2690,7 +2693,8 @@ class EcommerceCatalogoPublico extends CRUD {
    * Impacto: Ecommerce publico; entrega imagen, precio, marca, categoria, mascota/necesidad y disponibilidad simple.
    * Contrato: solo lectura; si el esquema no existe responde lista vacia y `configurado=false`.
    */
-  public function catalogoPublico($filtros = array()) {
+  // IA: Codex GPT-6 | 2026-09-25. Busqueda interna: AND y ranking SQL antes de LIMIT; conserva reglas publicas.
+  public function catalogoPublico($filtros = array(), $interpretacionBusqueda = null) {
     try {
       $db = $this->getConexion();
       if (!$db) {
@@ -2749,13 +2753,31 @@ class EcommerceCatalogoPublico extends CRUD {
       $pagina = max(1, intval($this->valor($filtros, "pagina", 1)));
       $limite = max(1, min(60, intval($this->valor($filtros, "limite", 24))));
       $vista = $this->normalizarVistaCatalogoPublico($this->valor($filtros, "vista", "card"));
+      // IA: Codex GPT-6 | 2026-09-25. Agrupacion opt-in: filtros -> representante -> grupos -> pagina.
+      $agrupacion = $this->normalizarAgrupacionCatalogoPublico($this->valor($filtros, "agrupacion", "sku"));
       $offset = ($pagina - 1) * $limite;
       $where = array("pub.estatus_publicacion='publicado'", "p.estatus='activo'", "s.estatus='activo'");
       $params = array();
 
+      $productoId = max(0, intval($this->valor($filtros, "producto_id", 0)));
+      if ($productoId > 0) {
+        $where[] = "pub.id_producto_erp=:producto_id";
+        $params[":producto_id"] = $productoId;
+      }
+
       $q = trim((string) $this->valor($filtros, "q", ""));
-      if ($q !== "") {
-        $where[] = "(pub.titulo_publico LIKE :q OR p.nombre LIKE :q OR s.nombre LIKE :q OR s.sku LIKE :q OR m.nombre LIKE :q)";
+      $criterioBusqueda = null;
+      if (is_array($interpretacionBusqueda)) {
+        $criterioBusqueda = $this->criterioBusquedaPublicaSql($interpretacionBusqueda);
+        $where = array_merge($where, $criterioBusqueda["where"]);
+        $params = array_merge($params, $criterioBusqueda["params"]);
+      } elseif ($q !== "") {
+        $coincidencia = "pub.titulo_publico LIKE :q OR p.nombre LIKE :q OR s.nombre LIKE :q OR s.sku LIKE :q OR m.nombre LIKE :q";
+        if ($this->atributosSelectorDisponibles()) {
+          $coincidencia .= " OR " . $this->sqlCoincidenciaAtributoSelector(":q_atributo", false);
+          $params[":q_atributo"] = "%" . $q . "%";
+        }
+        $where[] = "(" . $coincidencia . ")";
         $params[":q"] = "%" . $q . "%";
       }
       $mascota = $this->limpiarFiltroPublico($this->valor($filtros, "mascota", ""));
@@ -2801,27 +2823,50 @@ class EcommerceCatalogoPublico extends CRUD {
       }
       $orden = trim((string) $this->valor($filtros, "orden", "relevancia"));
       $ordenSql = $this->ordenCatalogoPublicoSql($orden);
+      if ($criterioBusqueda !== null && $this->ordenCatalogoPublicoNormalizado($orden) === "relevancia") {
+        $ordenSql = "relevancia_busqueda DESC, " . $ordenSql;
+      }
+      $ordenSql .= ", pub.id_publicacion ASC";
 
       $sqlBase = $this->sqlPublicacionesBase($where);
-      $stmtTotal = $db->prepare("SELECT COUNT(*) FROM (" . $sqlBase . ") t");
+      $stmtTotal = $db->prepare("SELECT COUNT(*) total_skus, COUNT(DISTINCT id_producto_erp) total_productos FROM (" . $sqlBase . ") t");
       $stmtTotal->execute($params);
-      $total = intval($stmtTotal->fetchColumn());
+      $totales = $stmtTotal->fetch(PDO::FETCH_ASSOC);
+      $totalSkus = intval($totales["total_skus"]);
+      $total = $agrupacion === "producto" ? intval($totales["total_productos"]) : $totalSkus;
 
-      $sql = $sqlBase . " ORDER BY " . $ordenSql . " LIMIT " . intval($limite) . " OFFSET " . intval($offset);
+      $sqlItems = $criterioBusqueda !== null
+        ? "SELECT " . $criterioBusqueda["score"] . " AS relevancia_busqueda, " . substr($sqlBase, strlen("SELECT "))
+        : $sqlBase;
+      $sql = ($agrupacion === "producto" ? $this->sqlCatalogoAgrupadoPublico($sqlItems, $orden, $criterioBusqueda !== null) : $sqlItems . " ORDER BY " . $ordenSql)
+        . " LIMIT " . intval($limite) . " OFFSET " . intval($offset);
       $stmt = $db->prepare($sql);
-      $stmt->execute($params);
+      $paramsItems = $params;
+      if ($criterioBusqueda !== null) {
+        $paramsItems = array_merge($paramsItems, $criterioBusqueda["params_score"]);
+      }
+      $stmt->execute($paramsItems);
       $items = array();
       foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $fila) {
         $item = $this->formatearPublicacion($fila);
-        $items[] = $vista === "card" ? $this->publicacionCardPublica($item) : $item;
+        if ($agrupacion === "producto") {
+          $item["grupo_producto"]["frontend"]["agrupado_por_api"] = true;
+        }
+        $item = $vista === "card" ? $this->publicacionCardPublica($item) : $item;
+        if ($criterioBusqueda !== null) {
+          $item["relevancia_busqueda"] = intval($fila["relevancia_busqueda"]);
+        }
+        $items[] = $item;
       }
 
       $filtrosAplicados = array(
         "q" => $q,
+        "agrupacion" => $agrupacion,
+        "producto_id" => $productoId,
         "mascota" => $mascota,
         "necesidad" => $necesidad,
-        "marca" => $marcaIdFiltro,
-        "marca_id" => $marcaIdFiltro,
+        "marca" => $marcaIdFiltro > 0 ? $marcaIdFiltro : $marca,
+        "marca_id" => $marcaIdFiltro > 0 ? $marcaIdFiltro : $marca,
         "marca_slug" => $marcaSlug,
         "categoria" => $categoria,
         "categoria_id" => $categoria,
@@ -2834,9 +2879,13 @@ class EcommerceCatalogoPublico extends CRUD {
         "vista" => $vista
       );
       $paginacion = $this->paginacionCatalogoPublico($pagina, $limite, $total, $filtrosAplicados);
+      $paginacion["unidad"] = $agrupacion === "producto" ? "grupos" : "skus";
+      $paginacion["total_skus"] = $totalSkus;
 
       return $this->respuesta(false, "success", "Catalogo publico consultado", array(
         "configurado" => true,
+        "agrupacion" => $agrupacion,
+        "presentacion_version" => "presentacion_catalogo_v1",
         "items" => $items,
         "paginacion" => $paginacion,
         "filtros_aplicados" => $filtrosAplicados,
@@ -2858,9 +2907,9 @@ class EcommerceCatalogoPublico extends CRUD {
   }
 
   /**
-   * Documentacion IA: Codex GPT-5 | Fecha: 2026-09-09
-   * Proposito: entregar busqueda inteligente v1 para frases naturales simples del ecommerce publico.
-   * Impacto: Frontend puede usar /buscar/{termino} con interpretacion, sugerencias y fallback sin inventar URLs.
+   * Documentacion IA: Codex GPT-6 | Fecha: 2026-09-25
+   * Proposito: exigir todos los conceptos y ordenar globalmente antes de paginar.
+   * Impacto: busqueda y autocomplete comparten coincidencias; conserva frase y filtros entre paginas.
    * Contrato: GET publico read-only; reutiliza catalogoPublico, no registra busquedas y no expone stock exacto.
    */
   public function busquedaInteligentePublica($filtros = array()) {
@@ -2871,47 +2920,21 @@ class EcommerceCatalogoPublico extends CRUD {
       $vista = $this->normalizarVistaCatalogoPublico($this->valor($filtros, "vista", "card"));
       $orden = trim((string) $this->valor($filtros, "orden", "relevancia"));
       $interpretacion = $this->interpretarBusquedaPublica($qOriginal);
-      $candidatos = $this->queriesBusquedaInteligente($qOriginal, $interpretacion);
-      $catalogo = null;
-      $queryUsada = "";
-
-      foreach ($candidatos as $query) {
-        $limiteInterno = $pagina === 1 ? min(24, max($limite, $limite * 3)) : $limite;
-        $params = array(
-          "q" => $query,
-          "pagina" => $pagina,
-          "limite" => $limiteInterno,
-          "orden" => $orden,
-          "vista" => $vista
-        );
-        foreach (array("categoria_slug", "categoria", "categoria_id", "marca", "marca_slug", "disponibilidad", "destacado", "incluir_hijos") as $clave) {
-          $valor = $this->valor($filtros, $clave, null);
-          if ($valor !== null && trim((string) $valor) !== "") {
-            $params[$clave] = $valor;
-          }
-        }
-        $catalogo = $this->catalogoPublico($params);
-        $total = intval($this->valor($catalogo, array("depurar", "paginacion", "total"), 0));
-        $queryUsada = $query;
-        if ($total > 0 || $query === end($candidatos)) {
-          break;
-        }
+      $queryUsada = $interpretacion["texto_normalizado"];
+      $catalogo = $this->catalogoPublico(array_merge($filtros, array(
+        "q" => $qOriginal, "pagina" => $pagina, "limite" => $limite, "orden" => $orden, "vista" => $vista
+      )), $interpretacion);
+      if (!empty($catalogo["error"])) {
+        return $catalogo;
       }
 
       $items = $this->valor($catalogo, array("depurar", "items"), array());
       $paginacion = $this->valor($catalogo, array("depurar", "paginacion"), array("pagina" => $pagina, "limite" => $limite, "total" => 0));
       $total = intval($this->valor($paginacion, "total", 0));
-      if ($pagina === 1 && !empty($items)) {
-        $items = $this->ordenarItemsBusquedaInteligente($items, $interpretacion);
-        $items = array_slice($items, 0, $limite);
-      }
-      if ($pagina === 1) {
-        $paginacion["limite"] = $limite;
-        $paginacion = $this->paginacionCatalogoPublico($pagina, $limite, $total, array_merge(
-          $this->valor($catalogo, array("depurar", "filtros_aplicados"), array()),
-          array("q" => $queryUsada, "vista" => $vista)
-        ));
-      }
+      $filtrosAplicados = $this->valor($catalogo, array("depurar", "filtros_aplicados"), array());
+      $paginacion = $this->paginacionCatalogoPublico($pagina, $limite, $total, $filtrosAplicados, "/ecommercePublico/busqueda");
+      $paginacion["unidad"] = $this->valor($catalogo, array("depurar", "paginacion", "unidad"), "skus");
+      $paginacion["total_skus"] = intval($this->valor($catalogo, array("depurar", "paginacion", "total_skus"), $total));
       $relacionadas = $this->categoriasRelacionadasBusqueda($interpretacion, $limite, $items);
       $marcasRelacionadas = $this->marcasRelacionadasBusqueda($interpretacion, $limite);
       $sugerencias = $this->sugerenciasBusquedaInteligente($qOriginal, $interpretacion, $relacionadas, $total);
@@ -2921,11 +2944,16 @@ class EcommerceCatalogoPublico extends CRUD {
       return $this->respuesta(false, $tipo, $total > 0 ? "Resultados de busqueda" : "Sin resultados exactos", array(
         "ok" => true,
         "fase" => "busqueda_inteligente_v1",
+        "motor_version" => "terminos_and_sql_v2",
+        "agrupacion" => $this->valor($filtrosAplicados, "agrupacion", "sku"),
+        "presentacion_version" => "presentacion_catalogo_v1",
         "q" => $qOriginal,
         "query_usada_catalogo" => $queryUsada,
         "items" => $items,
         "total" => $total,
         "paginacion" => $paginacion,
+        "filtros_aplicados" => $filtrosAplicados,
+        "recomendaciones_ampliadas" => array(),
         "interpretacion" => $interpretacion,
         "sugerencias" => $sugerencias,
         "categorias_relacionadas" => $relacionadas,
@@ -2973,6 +3001,21 @@ class EcommerceCatalogoPublico extends CRUD {
     $config = $this->busquedaInteligenteConfigPublica();
     return $this->respuesta(false, "success", "Manifest de busqueda inteligente ecommerce consultado", array(
       "fase" => "busqueda_inteligente_v1",
+      // IA: Codex GPT-6 | 2026-09-25. Contrato consultable por frontend sin leer documentos internos.
+      "motor_version" => "terminos_and_sql_v2",
+      "coincidencias" => array(
+        "todos_los_terminos_requeridos" => true,
+        "sinonimos_como_alternativas" => true,
+        "prefijo_ultimo_termino" => "Desde 2 letras; mismo criterio para busqueda y sugerencias. No aplica a numeros.",
+        "campos" => array("titulo_publico", "nombre_sku", "nombre_producto", "sku", "marca", "presentacion_publica", "atributos_selector"),
+        "orden_global_antes_de_paginar" => true,
+        "desempate" => "id_publicacion ASC",
+        "sugerencias_prefijo_de_busqueda" => true,
+        "filtros_y_frase_en_paginacion" => true,
+        "recomendaciones_ampliadas" => "Separadas de items y total; actualmente vacias. Usar categorias_relacionadas y sugerencias para ampliar.",
+        "capacidad" => "Coincidencia textual de numero y unidad; no certifica compatibilidad tecnica.",
+        "catalogo_q" => "Busqueda literal legacy; no equivale al motor de /busqueda."
+      ),
       "fuente" => $this->valor($config, "fuente", "defaults_codigo"),
       "configuracion" => array(
         "sinonimos" => $this->valor($config, "sinonimos", array()),
@@ -3031,6 +3074,8 @@ class EcommerceCatalogoPublico extends CRUD {
           "slug_ejemplo" => $slugEjemplo
         ),
         "parametros_soportados" => array(
+          "agrupacion" => array("tipo" => "enum", "valores" => array("sku", "producto"), "default" => "sku", "uso" => "producto agrupa antes de paginar; total cuenta tarjetas."),
+          "producto_id" => array("tipo" => "int", "uso" => "Consultar publicaciones visibles de un producto ERP, por ejemplo variantes paginadas."),
           "q" => array("tipo" => "string", "uso" => "Busqueda por texto libre."),
           "mascota" => array("tipo" => "string", "fuente" => "/ecommercePublico/filtros depurar.mascotas"),
           "necesidad" => array("tipo" => "string", "fuente" => "/ecommercePublico/filtros depurar.necesidades"),
@@ -3047,6 +3092,7 @@ class EcommerceCatalogoPublico extends CRUD {
           "pagina" => array("tipo" => "int", "min" => 1, "default" => 1),
           "limite" => array("tipo" => "int", "min" => 1, "max" => 60, "default" => 24)
         ),
+        "presentacion_catalogo" => $this->contratoPresentacionCatalogoPublico(),
         "ordenamientos" => array(
           array("valor" => "relevancia", "label" => "Relevancia"),
           array("valor" => "nombre", "label" => "Nombre"),
@@ -3269,6 +3315,7 @@ class EcommerceCatalogoPublico extends CRUD {
         ));
       }
       $item = $this->formatearPublicacion($fila);
+      $item["atributos_selector"] = $this->atributosSelectorSkuPublicos($item["id_sku"]);
       $variantes = $this->variantesProductoPublico($db, $fila);
       $relacionados = $this->relacionadosProductoPublico($db, $fila);
       $breadcrumbs = $this->breadcrumbsProductoPublico($item);
@@ -3281,6 +3328,8 @@ class EcommerceCatalogoPublico extends CRUD {
       );
       return $this->respuesta(false, "success", "Producto publico consultado", array(
         "item" => $item,
+        "descripcion_version" => "descripcion_editorial_v1",
+        "agrupacion_bloques" => array("variantes" => "sku", "relacionados" => "sku"),
         "variantes" => $variantes,
         "relacionados" => $relacionados,
         "breadcrumbs" => $breadcrumbs,
@@ -3643,7 +3692,7 @@ class EcommerceCatalogoPublico extends CRUD {
   }
 
   /**
-   * Documentacion IA: Codex GPT-5 | Fecha: 2026-07-31
+   * Documentacion IA: Codex GPT-6 | Fecha: 2026-09-25
    * Proposito: entregar sugerencias publicas para buscador ecommerce.
    * Impacto: Frontend publico; permite autocompletar productos, marcas, categorias, mascotas y necesidades.
    * Contrato: solo lectura; no registra busquedas, no expone stock exacto y solo usa publicaciones vigentes.
@@ -3653,28 +3702,22 @@ class EcommerceCatalogoPublico extends CRUD {
       $q = trim((string) $this->valor($opciones, "q", ""));
       $limite = max(1, min(12, intval($this->valor($opciones, "limite", 6))));
       $interpretacion = $this->interpretarBusquedaPublica($q);
-      $queryProductos = $q;
-      $catalogo = null;
-      foreach ($this->queriesBusquedaInteligente($q, $interpretacion) as $query) {
-        $catalogo = $this->catalogoPublico(array(
-          "q" => $query,
-          "limite" => $limite,
-          "orden" => "relevancia"
-        ));
-        $queryProductos = $query;
-        if (intval($this->valor($catalogo, array("depurar", "paginacion", "total"), 0)) > 0) {
-          break;
-        }
-      }
-      if ($catalogo === null) {
-        $catalogo = $this->catalogoPublico(array("q" => $q, "limite" => $limite, "orden" => "relevancia"));
+      $queryProductos = $interpretacion["texto_normalizado"];
+      $catalogo = $this->catalogoPublico(array_merge($opciones, array(
+        "q" => $q, "pagina" => 1, "limite" => $limite, "orden" => "relevancia", "vista" => "card"
+      )), $interpretacion);
+      if (!empty($catalogo["error"])) {
+        return $catalogo;
       }
       $filtros = $this->filtrosPublicos();
       $productos = array();
-      $itemsCatalogo = $this->ordenarItemsBusquedaInteligente($this->valor($catalogo, array("depurar", "items"), array()), $interpretacion);
+      $itemsCatalogo = $this->valor($catalogo, array("depurar", "items"), array());
       foreach ($itemsCatalogo as $item) {
         $productos[] = array(
           "tipo" => "producto",
+          "id_publicacion" => intval($this->valor($item, "id_publicacion", 0)),
+          "id_sku" => intval($this->valor($item, "id_sku", 0)),
+          "id_producto_erp" => intval($this->valor($item, "id_producto_erp", 0)),
           "label" => $this->valor($item, "nombre", ""),
           "subtitulo" => trim((string) $this->valor($item, "marca", "") . " " . (string) $this->valor($item, "presentacion", "")),
           "valor" => $this->valor($item, "slug", ""),
@@ -3683,7 +3726,10 @@ class EcommerceCatalogoPublico extends CRUD {
           "precio" => $this->valor($item, "precio", null),
           "moneda" => $this->valor($item, "moneda", null),
           "disponibilidad" => $this->valor($item, "disponibilidad", "consultar_disponibilidad"),
-          "relevancia_busqueda" => intval($this->valor($item, "relevancia_busqueda", 0))
+          "relevancia_busqueda" => intval($this->valor($item, "relevancia_busqueda", 0)),
+          "grupo_producto" => $this->valor($item, "grupo_producto", null),
+          "permite_cotizacion" => !empty($this->valor($item, "permite_cotizacion", false)),
+          "permite_whatsapp" => !empty($this->valor($item, "permite_whatsapp", false))
         );
         if (count($productos) >= $limite) {
           break;
@@ -3709,6 +3755,10 @@ class EcommerceCatalogoPublico extends CRUD {
       return $this->respuesta(false, "success", "Sugerencias ecommerce consultadas", array(
         "q" => $q,
         "fase" => "busqueda_sugerencias_inteligente_v1",
+        "agrupacion" => $this->valor($catalogo, array("depurar", "agrupacion"), "sku"),
+        "motor_version" => "terminos_and_sql_v2",
+        "total_productos" => intval($this->valor($catalogo, array("depurar", "paginacion", "total"), 0)),
+        "recomendaciones_ampliadas" => array(),
         "query_usada_productos" => $queryProductos,
         "interpretacion" => $interpretacion,
         "configurado" => !empty($this->valor($catalogo, array("depurar", "configurado"), false)),
@@ -3877,6 +3927,7 @@ class EcommerceCatalogoPublico extends CRUD {
 
       return $this->respuesta(false, "success", "Secciones ecommerce consultadas", array(
         "configurado" => true,
+        "agrupacion" => "sku",
         "secciones" => $secciones,
         "limite_por_seccion" => $limite,
         "fase_2" => $this->fase2SeccionesPublicas($secciones, $limite),
@@ -7910,7 +7961,8 @@ class EcommerceCatalogoPublico extends CRUD {
       $metadata = $this->inferirMetadataMascotas($fila);
       $taxonomiaPublicacion = $this->taxonomiaPublicacionControlada();
       $titulo = trim((string) $fila["nombre_publico"]);
-      $descripcionCatalogo = $this->descripcionCatalogoParaEcommerce($fila);
+      // IA: Codex GPT-6 | 2026-09-25. El vacio editorial se conserva; ERP queda solo como referencia interna.
+      $descripcionPublica = $this->sanearDescripcionPublica($publicacionActual["descripcion_publica"]);
       $presentacion = trim((string) $fila["presentacion_base"]);
       $slugSugerido = $this->slugProductoProfesionalSugerido($fila, $titulo);
       $necesidadesSugeridas = $metadata["necesidades"];
@@ -7920,7 +7972,7 @@ class EcommerceCatalogoPublico extends CRUD {
       $necesidadesSugeridas = $this->normalizarNecesidadesPublicacion($necesidadesSugeridas);
       $auditoriaEditorial = $this->auditoriaEditorialPublicacion($fila, array(
         "titulo_publico" => $publicacionActual["titulo_publico"] !== "" ? $publicacionActual["titulo_publico"] : $titulo,
-        "descripcion_publica" => $publicacionActual["descripcion_publica"] !== "" ? $publicacionActual["descripcion_publica"] : $descripcionCatalogo,
+        "descripcion_publica" => $descripcionPublica,
         "presentacion_publica" => $publicacionActual["presentacion_publica"] !== "" ? $publicacionActual["presentacion_publica"] : $presentacion
       ));
       foreach ($this->valor($auditoriaEditorial, "bloqueos_criticos", array()) as $bloqueoEditorial) {
@@ -7937,6 +7989,7 @@ class EcommerceCatalogoPublico extends CRUD {
         "bloqueos_publicacion" => $bloqueos,
         "auditoria_editorial" => $auditoriaEditorial,
         "producto_vivo_erp" => array(
+          "descripcion_catalogo_referencia" => $this->descripcionCatalogoParaEcommerce($fila),
           "id_producto_erp" => intval($fila["id_producto_erp"]),
           "id_sku" => intval($fila["id_sku"]),
           "sku" => $fila["sku"],
@@ -7965,7 +8018,7 @@ class EcommerceCatalogoPublico extends CRUD {
           "slug" => $publicacionActual["slug"] !== "" ? $publicacionActual["slug"] : $slugSugerido,
           "slug_profesional_sugerido" => $slugSugerido,
           "titulo_publico" => $publicacionActual["titulo_publico"] !== "" ? $publicacionActual["titulo_publico"] : $titulo,
-          "descripcion_publica" => $publicacionActual["descripcion_publica"] !== "" ? $publicacionActual["descripcion_publica"] : $descripcionCatalogo,
+          "descripcion_publica" => $descripcionPublica,
           "presentacion_publica" => $publicacionActual["presentacion_publica"] !== "" ? $publicacionActual["presentacion_publica"] : $presentacion,
           "mascota_especie" => $publicacionActual["mascota_especie"] !== "" ? $publicacionActual["mascota_especie"] : $metadata["mascota_especie"],
           "necesidades" => $necesidadesSugeridas,
@@ -8083,10 +8136,8 @@ class EcommerceCatalogoPublico extends CRUD {
 
       $necesidades = $this->normalizarNecesidadesPublicacion($this->valor($datos, "necesidades", $this->valor($sugerida, "necesidades", array())));
       $mascota = $this->normalizarMascotasPublicacion($this->valor($datos, "mascota_especie", $this->valor($sugerida, "mascota_especie", "")));
-      $descripcionPublica = trim((string) $this->valor($datos, "descripcion_publica", $this->valor($sugerida, "descripcion_publica", "")));
-      if ($descripcionPublica === "") {
-        $descripcionPublica = $this->descripcionCatalogoParaEcommerce($fila);
-      }
+      // IA: Codex GPT-6 | 2026-09-25. Guardar solo contenido editorial saneado; vacio no importa catalogo.
+      $descripcionPublica = $this->sanearDescripcionPublica($this->valor($datos, "descripcion_publica", $this->valor($sugerida, "descripcion_publica", "")));
       $publicacion = array(
         "id_producto_erp" => intval($fila["id_producto_erp"]),
         "id_sku" => intval($fila["id_sku"]),
@@ -8516,10 +8567,8 @@ class EcommerceCatalogoPublico extends CRUD {
 
       $slug = $this->slugificar($this->valor($datos, "slug", $this->valor($base, "slug", $this->valor($sugerida, "slug", ""))));
       $titulo = trim((string) $this->valor($datos, "titulo_publico", $this->valor($base, "titulo_publico", $this->valor($sugerida, "titulo_publico", $this->valor($fila, "nombre_publico", "")))));
-      $descripcion = trim((string) $this->valor($datos, "descripcion_publica", $this->valor($base, "descripcion_publica", $this->valor($sugerida, "descripcion_publica", ""))));
-      if ($descripcion === "") {
-        $descripcion = $this->descripcionCatalogoParaEcommerce($fila);
-      }
+      // IA: Codex GPT-6 | 2026-09-25. Publicacion informativa respeta vacio y sanea HTML editorial.
+      $descripcion = $this->sanearDescripcionPublica($this->valor($datos, "descripcion_publica", $this->valor($base, "descripcion_publica", $this->valor($sugerida, "descripcion_publica", ""))));
       $presentacion = trim((string) $this->valor($datos, "presentacion_publica", $this->valor($base, "presentacion_publica", $this->valor($sugerida, "presentacion_publica", ""))));
       $mascota = $this->normalizarMascotasPublicacion($this->valor($datos, "mascota_especie", $this->valor($base, "mascota_especie", $this->valor($sugerida, "mascota_especie", ""))));
       $necesidades = $this->normalizarNecesidadesPublicacion($this->valor($datos, "necesidades", $this->valor($base, "necesidades_json", $this->valor($sugerida, "necesidades", array()))));
@@ -9075,10 +9124,8 @@ class EcommerceCatalogoPublico extends CRUD {
       $slugAnterior = $this->slugificar($actual["slug"]);
       $slugCambio = $slugAnterior !== "" && $slug !== "" && $slugAnterior !== $slug;
       $titulo = trim((string) $this->valor($datos, "titulo_publico", $actual["titulo_publico"]));
-      $descripcion = trim((string) $this->valor($datos, "descripcion_publica", $actual["descripcion_publica"]));
-      if ($descripcion === "") {
-        $descripcion = $this->descripcionCatalogoParaEcommerce($fila);
-      }
+      // IA: Codex GPT-6 | 2026-09-25. Curaduria puede borrar el texto publico sin recuperar notas del ERP.
+      $descripcion = $this->sanearDescripcionPublica($this->valor($datos, "descripcion_publica", $actual["descripcion_publica"]));
       $presentacion = trim((string) $this->valor($datos, "presentacion_publica", $actual["presentacion_publica"]));
       $mascota = $this->normalizarMascotasPublicacion($this->valor($datos, "mascota_especie", $actual["mascota_especie"]));
       $necesidades = $this->normalizarNecesidadesPublicacion($this->valor($datos, "necesidades", $actual["necesidades_json"]));
@@ -9974,7 +10021,8 @@ class EcommerceCatalogoPublico extends CRUD {
    */
   private function auditoriaEditorialPublicacion($fila, $publicacion = array()) {
     $titulo = trim((string) $this->valor($publicacion, "titulo_publico", $this->valor($fila, "titulo_publico_publicacion", $this->valor($fila, "nombre_publico", $this->valor($fila, "nombre_sku", "")))));
-    $descripcion = trim((string) $this->valor($publicacion, "descripcion_publica", $this->valor($fila, "descripcion_publica_publicacion", $this->valor($fila, "descripcion_catalogo", ""))));
+    // IA: Codex GPT-6 | 2026-09-25. Auditar el contenido editorial real, sin fallback operativo.
+    $descripcion = trim((string) $this->valor($publicacion, "descripcion_publica", $this->valor($fila, "descripcion_publica_publicacion", "")));
     $presentacion = trim((string) $this->valor($publicacion, "presentacion_publica", $this->valor($fila, "presentacion_publica_publicacion", $this->valor($fila, "presentacion_base", ""))));
     $texto = trim($titulo . " " . $descripcion . " " . $presentacion);
     $textoPlano = strtolower($this->normalizarTextoPlano(strip_tags($texto)));
@@ -13184,11 +13232,13 @@ class EcommerceCatalogoPublico extends CRUD {
   }
 
   private function sqlPublicacionesBase($where) {
+    // IA: Codex GPT-6 | 2026-09-25. Columnas de orden internas para ranking agrupado; no se exponen como datos ERP.
     return "SELECT pub.id_publicacion, pub.id_producto_erp, pub.id_sku, pub.slug,
+        pub.orden orden_publicacion, COALESCE(pub.fecha_publicacion, pub.fecha_registro) fecha_orden_publicacion,
         pub.titulo_publico, pub.descripcion_publica, pub.presentacion_publica,
         pub.mascota_especie, pub.necesidades_json, pub.destacado,
         pub.permite_cotizacion, pub.permite_whatsapp, pub.mostrar_precio, pub.mostrar_disponibilidad,
-        s.sku, COALESCE(s.nombre, p.nombre) nombre_sku, p.nombre nombre_producto, p.descripcion descripcion_catalogo,
+        s.sku, COALESCE(s.nombre, p.nombre) nombre_sku, p.nombre nombre_producto,
         m.id_marca_erp, m.nombre marca, pc.id_categoria_erp, c.nombre categoria_nombre, COALESCE(c.ruta, c.nombre) categoria,
         pr.precio, pr.moneda, pr.id_lista_precio, pr.lista_codigo, pr.lista_nombre,
         COALESCE(img_sku.url_imagen, img_prod.url_imagen) url_imagen,
@@ -13271,7 +13321,8 @@ class EcommerceCatalogoPublico extends CRUD {
     $slugPublico = (string) $fila["slug"];
     $urlPublica = "/producto/" . $slugPublico;
     $canonicalUrl = $this->canonicalSeoPublico($this->dominioProduccionSeoPublico($this->configuracionSeoPublica($this->getConexion())), $urlPublica);
-    $descripcionPublica = trim((string) $fila["descripcion_publica"]) !== "" ? $fila["descripcion_publica"] : $this->descripcionCatalogoParaEcommerce($fila);
+    // IA: Codex GPT-6 | 2026-09-25. Un campo publico vacio es intencional, tambien en variantes y SEO.
+    $descripcionPublica = $this->sanearDescripcionPublica($this->valor($fila, "descripcion_publica", ""));
     return array(
       "id_publicacion" => intval($fila["id_publicacion"]),
       "id_producto_erp" => intval($fila["id_producto_erp"]),
@@ -13302,11 +13353,14 @@ class EcommerceCatalogoPublico extends CRUD {
       "presentacion" => $this->presentacionPublicaSalida($fila),
       "descripcion" => $descripcionPublica,
       "descripcion_publica" => $descripcionPublica,
-      "descripcion_publica_fuente" => trim((string) $fila["descripcion_publica"]) !== "" ? "publicacion_ecommerce" : "catalogo_erp_fallback",
+      "descripcion_publica_fuente" => "publicacion_ecommerce",
+      "descripcion_publica_formato" => preg_match('/<(p|br|ul|ol|li|strong|b|em|i|h[2-4])\b/i', $descripcionPublica) ? "html" : "texto",
       "imagen" => $fila["url_imagen"],
       "imagen_fuente" => $this->valor($fila, "imagen_fuente", ""),
       "imagenes" => $imagenes,
       "precio" => $mostrarPrecio ? floatval($fila["precio"]) : null,
+      "mostrar_precio" => $mostrarPrecio,
+      "mostrar_disponibilidad" => $mostrarDisponibilidad,
       "moneda" => $mostrarPrecio ? ($fila["moneda"] ?: "MXN") : null,
       "disponibilidad" => $mostrarDisponibilidad ? $this->disponibilidadPublicaSugerida($fila) : "consultar_disponibilidad",
       "mascota_especie" => $this->mascotaPrincipalPublicacion($fila["mascota_especie"]),
@@ -13333,8 +13387,14 @@ class EcommerceCatalogoPublico extends CRUD {
         "tipo" => (string) $this->valor($grupo, "tipo", "simple"),
         "total_variantes_publicadas" => intval($this->valor($grupo, "total_variantes_publicadas", 1)),
         "seleccion_actual" => $this->valor($grupo, "seleccion_actual", array()),
+        "variantes_url" => $this->valor($grupo, "variantes_url", null),
         "frontend" => $this->valor($grupo, "frontend", array())
       );
+      // IA: Codex GPT-6 | 2026-09-25. El payload legacy SKU sigue ligero; el modo agrupado incluye selector.
+      if (!empty($this->valor($grupo, array("frontend", "agrupado_por_api"), false))) {
+        $grupoCard["variantes_preview"] = $this->valor($grupo, "variantes_preview", array());
+        $grupoCard["variantes_preview_completo"] = !empty($this->valor($grupo, "variantes_preview_completo", false));
+      }
     }
     $imagen = $this->valor($item, "imagen", "");
     $imagenes = $this->valor($item, "imagenes", array());
@@ -13545,7 +13605,7 @@ class EcommerceCatalogoPublico extends CRUD {
   }
 
   /**
-   * Documentacion IA: Codex GPT-5 | Fecha: 2026-08-25
+   * Documentacion IA: Codex GPT-6 | Fecha: 2026-09-25
    * Proposito: exponer agrupacion publica por producto ERP para que frontend pinte variantes/presentaciones sin duplicar logica.
    * Impacto: Ecommerce publico; permite cards agrupadas, selectores de presentacion y navegacion consistente entre catalogo y ficha.
    * Contrato: solo lectura; usa publicaciones ya publicadas, sin granel/fraccionario; las informativas pueden ocultar precio.
@@ -13570,8 +13630,8 @@ class EcommerceCatalogoPublico extends CRUD {
       $agrupable = $total > 1;
       $preview = array();
       if ($agrupable) {
-        $stmt = $db->prepare($sqlBase . " ORDER BY pr.precio ASC, pub.orden ASC, pub.titulo_publico ASC LIMIT " . max(1, intval($limitePreview)));
-        $stmt->execute(array(":producto" => $idProducto));
+        $stmt = $db->prepare($sqlBase . " ORDER BY CASE WHEN pub.id_publicacion=:actual THEN 0 ELSE 1 END ASC, pr.precio ASC, pub.orden ASC, pub.titulo_publico ASC, pub.id_publicacion ASC LIMIT " . max(1, intval($limitePreview)));
+        $stmt->execute(array(":producto" => $idProducto, ":actual" => intval($this->valor($fila, "id_publicacion", 0))));
         foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
           $preview[] = $this->variantePreviewPublica($this->formatearPublicacion($row, false), intval($this->valor($fila, "id_sku", 0)));
         }
@@ -13589,15 +13649,18 @@ class EcommerceCatalogoPublico extends CRUD {
           "url" => "/producto/" . (string) $this->valor($fila, "slug", "")
         ),
         "variantes_preview" => $preview,
+        "variantes_preview_completo" => count($preview) >= $total || !$agrupable,
+        "variantes_url" => "/ecommercePublico/catalogo?producto_id=" . $idProducto . "&agrupacion=sku&vista=card&limite=24",
         "frontend" => array(
           "mostrar_como_producto_agrupado" => $agrupable,
           "selector_recomendado" => "chips_presentacion_o_color",
-          "deduplicar_catalogo_opcional" => true,
+          "deduplicar_catalogo_opcional" => false,
+          "agrupado_por_api" => false,
           "campo_agrupador" => "id_producto_erp"
         )
       );
     } catch (Exception $e) {
-      return $this->grupoProductoSimple($fila);
+      throw $e;
     }
   }
 
@@ -13615,6 +13678,8 @@ class EcommerceCatalogoPublico extends CRUD {
         "url" => "/producto/" . (string) $this->valor($fila, "slug", "")
       ),
       "variantes_preview" => array(),
+      "variantes_preview_completo" => true,
+      "variantes_url" => "/ecommercePublico/catalogo?producto_id=" . intval($this->valor($fila, "id_producto_erp", 0)) . "&agrupacion=sku&vista=card&limite=24",
       "frontend" => array(
         "mostrar_como_producto_agrupado" => false,
         "selector_recomendado" => "ninguno",
@@ -13624,17 +13689,26 @@ class EcommerceCatalogoPublico extends CRUD {
     );
   }
 
+  /** IA: Codex GPT-6 | 2026-09-25. Selector ligero con identidad, permisos y atributos propios; sin herencia entre SKUs. */
   private function variantePreviewPublica($item, $idSkuActual) {
     return array(
       "id_publicacion" => intval($this->valor($item, "id_publicacion", 0)),
       "id_sku" => intval($this->valor($item, "id_sku", 0)),
       "sku" => (string) $this->valor($item, "sku", ""),
       "slug" => (string) $this->valor($item, "slug", ""),
+      "slug_publico" => (string) $this->valor($item, "slug_publico", ""),
+      "canonical_url" => (string) $this->valor($item, "canonical_url", ""),
       "url" => "/producto/" . (string) $this->valor($item, "slug", ""),
       "nombre" => (string) $this->valor($item, "nombre", ""),
+      "label" => (string) $this->valor($item, "nombre", ""),
       "presentacion" => (string) $this->valor($item, "presentacion", ""),
       "precio" => $this->valor($item, "precio", null),
       "moneda" => $this->valor($item, "moneda", "MXN"),
+      "mostrar_precio" => $this->valor($item, "precio", null) !== null,
+      "mostrar_disponibilidad" => !empty($this->valor($item, "mostrar_disponibilidad", false)),
+      "permite_cotizacion" => !empty($this->valor($item, "permite_cotizacion", false)),
+      "permite_whatsapp" => !empty($this->valor($item, "permite_whatsapp", false)),
+      "atributos_selector" => $this->atributosSelectorSkuPublicos($this->valor($item, "id_sku", 0)),
       "disponibilidad" => (string) $this->valor($item, "disponibilidad", "consultar_disponibilidad"),
       "imagen" => $this->valor($item, "imagen", null),
       "imagen_fuente" => (string) $this->valor($item, "imagen_fuente", ""),
@@ -13650,14 +13724,17 @@ class EcommerceCatalogoPublico extends CRUD {
       "pub.id_producto_erp=:producto",
       "pub.id_publicacion<>:publicacion"
     );
-    $stmt = $db->prepare($this->sqlPublicacionesBase($where) . " ORDER BY pr.precio ASC, pub.orden ASC, pub.titulo_publico ASC LIMIT " . intval($limite));
+    // IA: Codex GPT-6 | 2026-09-25. Desempate estable y atributos explicitos del SKU para selector de detalle.
+    $stmt = $db->prepare($this->sqlPublicacionesBase($where) . " ORDER BY pr.precio ASC, pub.orden ASC, pub.titulo_publico ASC, pub.id_publicacion ASC LIMIT " . intval($limite));
     $stmt->execute(array(
       ":producto" => intval($this->valor($fila, "id_producto_erp", 0)),
       ":publicacion" => intval($this->valor($fila, "id_publicacion", 0))
     ));
     $items = array();
     foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $variante) {
-      $items[] = $this->formatearPublicacion($variante, false);
+      $item = $this->formatearPublicacion($variante, false);
+      $item["atributos_selector"] = $this->atributosSelectorSkuPublicos($item["id_sku"]);
+      $items[] = $item;
     }
     return $items;
   }
@@ -13810,7 +13887,10 @@ class EcommerceCatalogoPublico extends CRUD {
    * Contrato: entrada string libre, salida texto plano UTF-8.
    */
   private function textoPlanoSeoPublico($texto) {
-    $texto = html_entity_decode(strip_tags((string) $texto), ENT_QUOTES | ENT_HTML5, "UTF-8");
+    // IA: Codex GPT-6 | 2026-09-25. SEO plano y sin texto activo; conserva separacion de parrafos/listas.
+    $texto = $this->sanearDescripcionPublica($texto);
+    $texto = preg_replace('/<br\s*\/?\s*>|<\/(p|li|h[2-4])>/i', ' ', $texto);
+    $texto = strip_tags(html_entity_decode($texto, ENT_QUOTES | ENT_HTML5, "UTF-8"));
     $texto = preg_replace('/\s+/', ' ', $texto);
     return trim($texto);
   }
@@ -14129,10 +14209,8 @@ class EcommerceCatalogoPublico extends CRUD {
       if ($titulo === "") {
         $titulo = trim((string) $this->valor($fila, "nombre_sku", $this->valor($fila, "nombre_producto", "Producto")));
       }
-      $descripcion = trim((string) $this->valor($fila, "descripcion_publica", ""));
-      if ($descripcion === "") {
-        $descripcion = trim((string) $this->valor($fila, "descripcion_catalogo", ""));
-      }
+      // IA: Codex GPT-6 | 2026-09-25. Metadata publica sin fallback ERP; mismas identidades/rutas indexables.
+      $descripcion = $this->recortarSeoTexto($this->valor($fila, "descripcion_publica", ""), 160);
       $items[] = array(
         "entidad_id" => intval($this->valor($fila, "id_publicacion", 0)),
         "id_sku" => intval($this->valor($fila, "id_sku", 0)),
@@ -14742,6 +14820,8 @@ class EcommerceCatalogoPublico extends CRUD {
       return;
     }
     $secciones[] = array(
+      // IA: Codex GPT-6 | 2026-09-25. Los bloques existentes declaran su unidad, sin deduplicacion implicita.
+      "agrupacion" => "sku",
       "codigo" => $this->valor($definicion, "codigo", ""),
       "titulo" => $this->valor($definicion, "titulo", ""),
       "tipo" => $this->valor($definicion, "tipo", "catalogo"),
@@ -15672,7 +15752,8 @@ class EcommerceCatalogoPublico extends CRUD {
     );
   }
 
-  private function paginacionCatalogoPublico($pagina, $limite, $total, $filtrosAplicados) {
+  /** IA: Codex GPT-6 | 2026-09-25. Conserva endpoint, frase y filtros en enlaces; solo construye URLs. */
+  private function paginacionCatalogoPublico($pagina, $limite, $total, $filtrosAplicados, $endpoint = "/ecommercePublico/catalogo") {
     $pagina = max(1, intval($pagina));
     $limite = max(1, min(60, intval($limite)));
     $total = max(0, intval($total));
@@ -15684,10 +15765,10 @@ class EcommerceCatalogoPublico extends CRUD {
       "total_paginas" => $totalPaginas,
       "hay_siguiente" => $totalPaginas > 0 && $pagina < $totalPaginas,
       "hay_anterior" => $pagina > 1,
-      "primera" => "/ecommercePublico/catalogo?" . $this->queryCatalogoPublico($filtrosAplicados, 1, $limite),
-      "anterior" => $pagina > 1 ? "/ecommercePublico/catalogo?" . $this->queryCatalogoPublico($filtrosAplicados, $pagina - 1, $limite) : null,
-      "siguiente" => ($totalPaginas > 0 && $pagina < $totalPaginas) ? "/ecommercePublico/catalogo?" . $this->queryCatalogoPublico($filtrosAplicados, $pagina + 1, $limite) : null,
-      "ultima" => $totalPaginas > 0 ? "/ecommercePublico/catalogo?" . $this->queryCatalogoPublico($filtrosAplicados, $totalPaginas, $limite) : null
+      "primera" => $endpoint . "?" . $this->queryCatalogoPublico($filtrosAplicados, 1, $limite),
+      "anterior" => $pagina > 1 ? $endpoint . "?" . $this->queryCatalogoPublico($filtrosAplicados, $pagina - 1, $limite) : null,
+      "siguiente" => ($totalPaginas > 0 && $pagina < $totalPaginas) ? $endpoint . "?" . $this->queryCatalogoPublico($filtrosAplicados, $pagina + 1, $limite) : null,
+      "ultima" => $totalPaginas > 0 ? $endpoint . "?" . $this->queryCatalogoPublico($filtrosAplicados, $totalPaginas, $limite) : null
     );
   }
 
@@ -15741,7 +15822,7 @@ class EcommerceCatalogoPublico extends CRUD {
 
   private function queryCatalogoPublico($filtrosAplicados, $pagina, $limite) {
     $query = array();
-    foreach (array("q", "mascota", "necesidad", "marca", "marca_slug", "categoria", "categoria_slug", "disponibilidad", "orden", "vista") as $clave) {
+    foreach (array("q", "mascota", "necesidad", "marca", "marca_slug", "categoria", "categoria_slug", "disponibilidad", "orden", "vista", "agrupacion", "producto_id") as $clave) {
       $valor = $this->valor($filtrosAplicados, $clave, "");
       if ($clave === "orden" && $valor === "relevancia") {
         continue;
@@ -16452,6 +16533,7 @@ class EcommerceCatalogoPublico extends CRUD {
     );
   }
 
+  /** IA: Codex GPT-6 | 2026-09-25. Conserva conceptos obligatorios separados de sinonimos; contrato publico aditivo. */
   private function interpretarBusquedaPublica($q) {
     $textoOriginal = trim((string) $q);
     $texto = strtolower($this->normalizarTextoPlano($textoOriginal));
@@ -16492,6 +16574,7 @@ class EcommerceCatalogoPublico extends CRUD {
       "texto_original" => $textoOriginal,
       "texto_normalizado" => implode(" ", array_values(array_unique($terminosExpandidos))),
       "terminos" => array_values(array_unique($terminosExpandidos)),
+      "terminos_requeridos" => array_values(array_unique($terminos)),
       "termino_principal" => $terminoPrincipal,
       "intencion" => $this->intencionBusquedaPublica($terminosExpandidos, $atributos),
       "categoria_probable" => $categoriaProbable,
@@ -16505,15 +16588,123 @@ class EcommerceCatalogoPublico extends CRUD {
     return (array) $this->valor($configBusqueda, "sinonimos", array());
   }
 
+  /** IA: Codex GPT-6 | 2026-09-25. Normaliza plurales comunes sin truncar bigotes a bigot; afecta interpretacion. */
   private function normalizarPluralBusqueda($token) {
     $token = trim((string) $token);
-    if (strlen($token) > 5 && substr($token, -2) === "es") {
+    if (in_array($token, array("lunes", "martes", "miercoles", "jueves", "viernes", "arnes"), true)) {
+      return $token;
+    }
+    if (strlen($token) > 4 && substr($token, -3) === "ces") {
+      return substr($token, 0, -3) . "z";
+    }
+    if (strlen($token) > 5 && preg_match('/[rlndj]es$/', $token)) {
       return substr($token, 0, -2);
     }
-    if (strlen($token) > 4 && substr($token, -1) === "s" && !preg_match('/\d+s$/', $token)) {
+    if (strlen($token) > 3 && preg_match('/[aeiou]s$/', $token)) {
       return substr($token, 0, -1);
     }
     return $token;
+  }
+
+  /**
+   * IA: Codex GPT-6 | Fecha: 2026-09-25
+   * Proposito: AND entre conceptos, OR entre sinonimos y plurales; ranking global SQL.
+   * Impacto: busqueda y sugerencias. No cambia publicaciones, precios ni destinos SEO.
+   * Contrato: devuelve SQL fijo y parametros enlazados separados para COUNT y ORDER BY.
+   */
+  private function criterioBusquedaPublicaSql($interpretacion) {
+    $terminos = (array) $this->valor($interpretacion, "terminos_requeridos", array());
+    $sinonimos = $this->sinonimosBusquedaPublica();
+    $config = $this->busquedaInteligenteConfigPublica();
+    $boosts = $this->valor($config, "boosts", array());
+    $principal = $this->valor($interpretacion, "termino_principal", "");
+    $nombre = $this->textoBusquedaPublicaSql(array("pub.titulo_publico", "s.nombre", "p.nombre"));
+    // Las etiquetas editoriales amplias no convierten alimento generico en coincidencia especifica.
+    $texto = $this->textoBusquedaPublicaSql(array("pub.titulo_publico", "s.nombre", "p.nombre", "s.sku", "m.nombre", "pub.presentacion_publica"));
+    $camposScore = array(
+      "nombre" => $nombre,
+      "categoria" => $this->textoBusquedaPublicaSql(array("c.nombre", "c.ruta")),
+      "marca" => $this->textoBusquedaPublicaSql(array("m.nombre")),
+      "sku" => $this->textoBusquedaPublicaSql(array("s.sku"))
+    );
+    $where = array();
+    $params = array();
+    $paramsScore = array();
+    $scores = array();
+    $capacidad = intval($this->valor($interpretacion, array("atributos_detectados", "capacidad_litros"), 0));
+    foreach ($terminos as $i => $termino) {
+      // Numero y unidad forman una restriccion conjunta: 40 cm no equivale a 40 litros.
+      if ($capacidad > 0 && in_array($termino, array("l", "lt", "lts", "litro"), true)) {
+        continue;
+      }
+      $variantes = array($termino);
+      if (isset($sinonimos[$termino])) {
+        $variantes[] = $sinonimos[$termino];
+      }
+      foreach ($sinonimos as $original => $normalizado) {
+        if ($this->normalizarPluralBusqueda($normalizado) === $termino) {
+          $variantes[] = $original;
+        }
+      }
+      $patrones = array();
+      foreach (array_unique($variantes) as $variante) {
+        $variante = $this->normalizarPluralBusqueda(strtolower($this->normalizarTextoPlano($variante)));
+        if (!preg_match('/^[a-z0-9]+$/', $variante)) { continue; }
+        $plural = preg_match('/[aeiou]$/', $variante) ? $variante . "s" : $variante . "es";
+        if (substr($variante, -1) === "z") { $plural = substr($variante, 0, -1) . "ces"; }
+        $patrones[] = $variante;
+        if (!ctype_digit($variante)) { $patrones[] = $plural; }
+      }
+      if (empty($patrones)) {
+        $where[] = "1=0";
+        continue;
+      }
+      $prefijoFinal = $i === count($terminos) - 1 && strlen($termino) >= 2 && !ctype_digit($termino) ? "[[:alpha:]]*" : "";
+      $patron = "(^|[^[:alnum:]])(" . implode("|", array_unique($patrones)) . ")" . $prefijoFinal . "([^[:alnum:]]|$)";
+      $esCapacidad = $capacidad > 0 && $termino === (string) $capacidad;
+      if ($esCapacidad) {
+        $patron = "(^|[^[:alnum:]])" . $capacidad . "[[:space:]]*(l|lt|lts|litro|litros)([^[:alnum:]]|$)";
+      }
+      $clave = ":busqueda_" . $i;
+      $params[$clave] = $patron;
+      $condicion = $texto . " REGEXP " . $clave;
+      if ($this->atributosSelectorDisponibles()) {
+        $claveAtributo = ":busqueda_atributo_" . $i;
+        $params[$claveAtributo] = $patron;
+        $condicion .= " OR " . $this->sqlCoincidenciaAtributoSelector($claveAtributo);
+      }
+      $where[] = "(" . $condicion . ")";
+      foreach ($camposScore as $campo => $expresion) {
+        $boost = intval($this->valor($boosts, $campo . "_termino", 0));
+        if ($termino === $principal && in_array($campo, array("nombre", "categoria"), true)) {
+          $boost += intval($this->valor($boosts, $campo . "_principal", 0));
+        }
+        $claveScore = ":busqueda_score_" . $campo . "_" . $i;
+        $paramsScore[$claveScore] = $patron;
+        $scores[] = "CASE WHEN " . $expresion . " REGEXP " . $claveScore . " THEN " . $boost . " ELSE 0 END";
+      }
+    }
+    // Una frase formada solo por conectores o signos no debe devolver todo el catalogo.
+    if (empty($where)) { $where[] = "1=0"; }
+    $categoriaProbable = trim((string) $this->valor($interpretacion, array("categoria_probable", "nombre"), ""));
+    if ($categoriaProbable !== "") {
+      $categoriaNormalizada = @iconv("UTF-8", "ASCII//TRANSLIT//IGNORE", $categoriaProbable);
+      $paramsScore[":busqueda_categoria_probable"] = "%" . strtolower($categoriaNormalizada !== false ? $categoriaNormalizada : $categoriaProbable) . "%";
+      $scores[] = "CASE WHEN " . $camposScore["categoria"] . " LIKE :busqueda_categoria_probable THEN " . intval($this->valor($boosts, "categoria_probable", 40)) . " ELSE 0 END";
+    }
+    $scores[] = "CASE WHEN COALESCE(img_sku.url_imagen, img_prod.url_imagen, '')<>'' THEN " . intval($this->valor($boosts, "imagen", 3)) . " ELSE 0 END";
+    $scores[] = "CASE WHEN pub.mostrar_precio=1 AND pr.precio>0 THEN " . intval($this->valor($boosts, "precio", 3)) . " ELSE 0 END";
+    return array("where" => $where, "params" => $params, "params_score" => $paramsScore,
+      "score" => empty($scores) ? "0" : "(" . implode(" + ", $scores) . ")");
+  }
+
+  /** IA: Codex GPT-6 | 2026-09-25. Normaliza acentos y caja en campos SQL internos para REGEXP MySQL/MariaDB. */
+  private function textoBusquedaPublicaSql($campos) {
+    $sql = "LOWER(CONCAT_WS(' ', " . implode(", ", $campos) . "))";
+    foreach (array("\u{00e1}" => "a", "\u{00e9}" => "e", "\u{00ed}" => "i", "\u{00f3}" => "o", "\u{00fa}" => "u", "\u{00fc}" => "u", "\u{00f1}" => "n") as $de => $a) {
+      $sql = "REPLACE(" . $sql . ", '" . $de . "', '" . $a . "')";
+    }
+    return $sql;
   }
 
   private function atributosBusquedaPublica($texto, $terminos) {
@@ -18234,6 +18425,7 @@ class EcommerceCatalogoPublico extends CRUD {
       $slotsDef = $this->cmsContenidoSlotsDesdeBd($db, (int) $plantilla["id_plantilla"]);
       $slots = array();
       $bloquesTotal = 0;
+      $estadoComponentesHome = $pagina === "home" ? $this->cmsHomeComponentesPublicacionEstado($db, (int) $plantilla["id_plantilla"]) : array("publicados" => false);
       foreach ($slotsDef as $slotDef) {
         if ((string) $slotDef["pagina"] !== $pagina) {
           continue;
@@ -18248,7 +18440,7 @@ class EcommerceCatalogoPublico extends CRUD {
         );
       }
 
-      if ($bloquesTotal <= 0) {
+      if ($bloquesTotal <= 0 && empty($estadoComponentesHome["publicados"])) {
         return null;
       }
       $secciones = array();

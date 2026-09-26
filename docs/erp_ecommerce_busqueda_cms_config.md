@@ -2,6 +2,22 @@
 
 Documentacion IA: Codex GPT-5 | Fecha: 2026-09-09
 
+## Continuidad del motor al 2026-09-25
+
+IA: Codex GPT-6. La correccion `terminos_and_sql_v2` usa todos los conceptos de la
+frase como obligatorios. Los sinonimos son alternativas dentro de cada concepto;
+`prioridad_terminos` prioriza relevancia pero no elimina las otras palabras.
+Los boosts se aplican en SQL antes de paginar, incluidos nombre/categoria/marca/SKU,
+categoria probable, imagen y precio. CMS conserva su clave de configuracion.
+Los sinonimos de varias palabras no son parte del motor actual; usar equivalencias
+de un termino. Las etiquetas de mascota/categoria sirven de contexto editorial,
+no bastan para clasificar alimento generico como coincidencia especifica de erizo.
+
+Estado: implementado y probado con codigo local; pendiente despliegue y validacion
+HTTP en sys. Contrato publico: `/ecommercePublico/busqueda_manifest`, campo
+`depurar.motor_version`. Detalle de pruebas y handoff en
+`docs/erp_ecommerce_busqueda_inteligente_frontend.md`.
+
 ## Objetivo
 
 Permitir que CMS/Ecommerce administre busqueda inteligente sin tocar codigo PHP.

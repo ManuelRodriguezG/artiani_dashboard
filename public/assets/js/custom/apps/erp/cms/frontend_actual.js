@@ -1794,25 +1794,27 @@
   function renderHomeComponenteSeparado(item) {
     var tipo = homeComponenteTipoDesdeCodigo(item.codigo);
     var indices = indicesHomeComponenteTipo(tipo);
-    if (!indices.length && tipo) {
+    var metaTipo = homeComponenteMeta(tipo);
+    if (!indices.length && tipo && !metaTipo.repetible) {
       indices = [asegurarHomeComponenteTipo(tipo)];
     }
-    var repetible = homeComponenteMeta(tipo).repetible;
+    var repetible = metaTipo.repetible;
+    var contenido = indices.length ? indices.map(function (seccionIndex) {
+      var seccion = (homeComponentesData().secciones || [])[seccionIndex];
+      return renderHomeComponenteSeccion(seccion, seccionIndex);
+    }).join("") : '<div class="alert alert-light-warning fs-7 py-3 mb-4">Todavia no hay una instancia de este modulo. Usa <strong>Agregar componente</strong>, completa categoria e imagen, deja activo el componente y publica.</div>';
     return '<div class="cms-actual-card mb-4">' +
       '<div class="d-flex justify-content-between align-items-start gap-3 flex-wrap mb-4">' +
         '<div><div class="fw-bold">' + escapeHtml(item.codigo) + '</div><div class="text-muted fs-8">' + escapeHtml(item.descripcion) + '</div></div>' +
         '<div class="d-flex flex-wrap gap-2">' +
           (repetible ? '<button class="btn btn-sm btn-light-primary" type="button" data-home-comp-add="' + escapeAttr(tipo) + '"><i class="bi bi-plus-circle"></i> Agregar componente</button>' : '') +
-          '<button class="btn btn-sm btn-light-info" type="button" data-home-comp-api><i class="bi bi-broadcast"></i> Ver API publicada</button>' +
-          '<button class="btn btn-sm btn-primary" type="button" data-home-comp-publish><i class="bi bi-cloud-check"></i> Publicar componentes</button>' +
+          '<button class="btn btn-sm btn-light-info" type="button" data-home-comp-api data-home-comp-tipo="' + escapeAttr(tipo) + '"><i class="bi bi-broadcast"></i> Ver API publicada</button>' +
+          '<button class="btn btn-sm btn-primary" type="button" data-home-comp-publish data-home-comp-tipo="' + escapeAttr(tipo) + '"><i class="bi bi-cloud-check"></i> Publicar componentes</button>' +
         '</div>' +
       '</div>' +
       '<div class="alert alert-light-info fs-7 py-3 mb-4">Esta es una seccion independiente. Puedes activarla, moverla u ocultarla sin revolverla con otros componentes.</div>' +
-      indices.map(function (seccionIndex) {
-        var seccion = (homeComponentesData().secciones || [])[seccionIndex];
-        return renderHomeComponenteSeccion(seccion, seccionIndex);
-      }).join("") +
-      '<div class="alert alert-light-warning fs-7 py-3 mt-4 mb-0" data-home-comp-status>Publica para enviar estos componentes a la API del Home.</div>' +
+      contenido +
+      '<div class="alert alert-light-warning fs-7 py-3 mt-4 mb-0" data-home-comp-status data-home-comp-status-tipo="' + escapeAttr(tipo) + '">Publica para enviar estos componentes a la API del Home.</div>' +
     '</div>';
   }
 
@@ -1831,9 +1833,10 @@
         '</div>' +
       '</div>' +
       '<div class="row g-3 mb-4">' +
+        selectHomeComponenteSeccion(seccionIndex, "visible", "Activo en frontend", seccion.visible === false ? "0" : "1", "col-md-2", [["1", "Si"], ["0", "No"]]) +
         inputHomeComponenteSeccion(seccionIndex, "codigo", "Codigo estable", seccion.codigo, "col-md-3") +
         inputHomeComponenteSeccion(seccionIndex, "titulo", "Titulo modulo", seccion.titulo, "col-md-3") +
-        inputHomeComponenteSeccion(seccionIndex, "subtitulo", "Subtitulo modulo", seccion.subtitulo, "col-md-4") +
+        inputHomeComponenteSeccion(seccionIndex, "subtitulo", "Subtitulo modulo", seccion.subtitulo, "col-md-2") +
         inputHomeComponenteSeccion(seccionIndex, "orden", "Orden", seccion.orden, "col-md-2") +
       '</div>' +
       (seccion.tipo === "ubicacion_mapa" ? '<div class="alert alert-light-secondary fs-7 mb-0">Este bloque solo se ordena. La direccion, horarios y mapa vienen de CMS / Frontend / Global.</div>' :
@@ -1877,6 +1880,13 @@
     return '<div class="' + escapeAttr(col || "col-md-4") + '"><label class="form-label fs-8 fw-bold">' + escapeHtml(label) + '</label><input class="form-control form-control-sm" data-home-comp-field="' + escapeAttr(campo) + '" data-section-index="' + escapeAttr(seccionIndex) + '" value="' + escapeAttr(value == null ? "" : value) + '"></div>';
   }
 
+  function selectHomeComponenteSeccion(seccionIndex, campo, label, value, col, opciones) {
+    var opts = (opciones || []).map(function (opcion) {
+      return '<option value="' + escapeAttr(opcion[0]) + '"' + (String(value) === String(opcion[0]) ? ' selected' : '') + '>' + escapeHtml(opcion[1]) + '</option>';
+    }).join("");
+    return '<div class="' + escapeAttr(col || "col-md-3") + '"><label class="form-label fs-8 fw-bold">' + escapeHtml(label) + '</label><select class="form-select form-select-sm" data-home-comp-field="' + escapeAttr(campo) + '" data-section-index="' + escapeAttr(seccionIndex) + '">' + opts + '</select></div>';
+  }
+
   function inputHomeComponenteItem(seccionIndex, itemIndex, campo, label, value, col, media, mediaIndex) {
     var input = '<input class="form-control form-control-sm" data-home-comp-item-field="' + escapeAttr(campo) + '" data-section-index="' + escapeAttr(seccionIndex) + '" data-item-index="' + escapeAttr(itemIndex) + '" value="' + escapeAttr(value == null ? "" : value) + '">';
     if (media) {
@@ -1915,6 +1925,8 @@
       mascotas_destacadas: "home.mascotas",
       fabricacion_artiani: "home.fabricacion",
       seleccion_artiani: "home.seleccion",
+      banner_ancho_completo: "home.banner_ancho_completo",
+      banners_divididos: "home.banners_divididos",
       ubicacion_mapa: "home.ubicacion"
     };
     var tituloMapa = {
@@ -5399,6 +5411,7 @@
     var seccion = (homeComponentesData().secciones || [])[seccionIndex];
     if (!seccion) return;
     if (campo === "orden") seccion[campo] = parseInt(valorNuevo || "0", 10) || 0;
+    else if (campo === "visible") seccion[campo] = String(valorNuevo) === "1";
     else seccion[campo] = valorNuevo;
     guardarBorradorFrontendLocal(true);
     sincronizarHomeComponentesJson();
@@ -5523,10 +5536,14 @@
     var data = homeComponentesData();
     if (!Array.isArray(data.secciones)) data.secciones = [];
     var consecutivo = data.secciones.filter(function (seccion) { return seccion.tipo === tipo; }).length + 1;
-    var slot = tipo === "banner_ancho_completo" ? "home.banner_ancho_completo" : "home.banners_divididos";
+    var slot = slotHomeComponenteTipo(tipo);
+    if (!slot) {
+      setHomeComponentesEstado("Tipo de componente no soportado: " + tipo, "warning");
+      return;
+    }
     var items = tipo === "banners_divididos" ? [{}, {}] : [{}];
     data.secciones.push({
-      codigo: tipo + "_" + consecutivo,
+      codigo: codigoHomeComponenteNuevo(tipo, consecutivo),
       tipo: tipo,
       slot: slot,
       layout: tipo === "banner_ancho_completo" ? "wokiee_full_width_banner" : "wokiee_split_banners",
@@ -5540,6 +5557,27 @@
     });
     guardarBorradorFrontendLocal(true);
     renderGrupo();
+  }
+
+  function slotHomeComponenteTipo(tipo) {
+    var mapa = {
+      mascotas_destacadas: "home.mascotas",
+      fabricacion_artiani: "home.fabricacion",
+      seleccion_artiani: "home.seleccion",
+      banner_ancho_completo: "home.banner_ancho_completo",
+      banners_divididos: "home.banners_divididos",
+      ubicacion_mapa: "home.ubicacion"
+    };
+    return mapa[tipo] || "";
+  }
+
+  function codigoHomeComponenteNuevo(tipo, consecutivo) {
+    var prefijos = {
+      banner_ancho_completo: "home_banner_ancho_completo",
+      banners_divididos: "home_banners_divididos"
+    };
+    var base = prefijos[tipo] || ("home_" + String(tipo || "componente"));
+    return base + "_" + ("0" + (parseInt(consecutivo || "1", 10) || 1)).slice(-2);
   }
 
   function homeComponenteItem(seccionIndex, itemIndex) {
@@ -5619,11 +5657,9 @@
   }
 
   function publicarHomeComponentes(event) {
+    var tipoActual = event && event.currentTarget ? (event.currentTarget.getAttribute("data-home-comp-tipo") || "") : "";
     var payload = { secciones: homeComponentesData().secciones || [] };
-    if (!Array.isArray(payload.secciones) || !payload.secciones.length) {
-      setHomeComponentesEstado("No hay componentes Home para publicar. Agrega o activa un componente primero.", "warning");
-      return;
-    }
+    if (!Array.isArray(payload.secciones)) payload.secciones = [];
     sincronizarHomeComponentesJson();
     guardarBorradorFrontendLocal(true);
     var boton = event && event.currentTarget ? event.currentTarget : $("cms_actual_home_componentes_publicar");
@@ -5631,7 +5667,7 @@
     form.append("_csrf", window.ERP_CSRF_TOKEN || "");
     form.append("payload_json", JSON.stringify(payload));
     if (boton) boton.disabled = true;
-    setHomeComponentesEstado("Publicando componentes del Home...", "info");
+    setHomeComponentesEstado(payload.secciones.length ? "Publicando componentes del Home..." : "Publicando Home sin componentes activos gestionados...", "info", tipoActual);
     fetch("/cms/frontend_home_componentes_publicar_erp", {
       method: "POST",
       body: form,
@@ -5655,34 +5691,56 @@
     }).then(function (json) {
       if (!json || json.error) throw new Error(json && json.mensaje ? json.mensaje : "No se pudo publicar");
       var alertas = json && json.depurar && Array.isArray(json.depurar.alertas) ? json.depurar.alertas : [];
-      setHomeComponentesEstado(alertas.length ? ("Componentes publicados con advertencias. Omitidos: " + alertas.slice(0, 4).join(", ")) : "Componentes publicados. Verifica la API publicada.", alertas.length ? "warning" : "success");
+      setHomeComponentesEstado(alertas.length ? ("Componentes publicados con advertencias. Omitidos: " + alertas.slice(0, 4).join(", ")) : "Componentes publicados. Verifica la API publicada.", alertas.length ? "warning" : "success", tipoActual);
       consultarEstadoHomePublicado();
-      consultarApiHomeComponentes();
+      consultarApiHomeComponentes(null, tipoActual);
     }).catch(function (error) {
-      setHomeComponentesEstado(error.message || "Error al publicar componentes.", "danger");
+      setHomeComponentesEstado(error.message || "Error al publicar componentes.", "danger", tipoActual);
     }).finally(function () {
       if (boton) boton.disabled = false;
     });
   }
 
-  function consultarApiHomeComponentes() {
-    setHomeComponentesEstado("Consultando /ecommercePublico/contenido_pagina?pagina=home ...", "info");
+  function consultarApiHomeComponentes(event, tipoForzado) {
+    var tipoActual = tipoForzado || (event && event.currentTarget ? (event.currentTarget.getAttribute("data-home-comp-tipo") || "") : "");
+    setHomeComponentesEstado("Consultando /ecommercePublico/contenido_pagina?pagina=home ...", "info", tipoActual);
     fetch("/ecommercePublico/contenido_pagina?pagina=home", { credentials: "same-origin" })
       .then(function (response) { return response.json(); })
       .then(function (json) {
         var depurar = json && json.depurar ? json.depurar : {};
         var componentes = depurar.componentes_home || {};
         var secciones = depurar.secciones || [];
-        setHomeComponentesEstado("API Home: componentes publicados=" + (componentes.publicados ? "si" : "no") + ", secciones=" + secciones.length + ".", secciones.length ? "success" : "warning");
+        var slots = resumenSlotsHomeComponentes(depurar.slots || []);
+        var mensaje = "API Home: publicados=" + (componentes.publicados ? "si" : "no") +
+          ", secciones=" + secciones.length +
+          ", mascotas=" + (slots["home.mascotas"] || 0) +
+          ", fabricacion=" + (slots["home.fabricacion"] || 0) +
+          ", seleccion=" + (slots["home.seleccion"] || 0) +
+          ", panoramicos=" + (slots["home.banner_ancho_completo"] || 0) +
+          ", dos banners=" + (slots["home.banners_divididos"] || 0) +
+          ", mapa=" + (slots["home.ubicacion"] || 0) + ".";
+        setHomeComponentesEstado(mensaje, componentes.publicados ? "success" : "warning", tipoActual);
       }).catch(function (error) {
-        setHomeComponentesEstado(error.message || "No se pudo consultar API Home.", "danger");
+        setHomeComponentesEstado(error.message || "No se pudo consultar API Home.", "danger", tipoActual);
       });
   }
 
-  function setHomeComponentesEstado(mensaje, tipo) {
+  function resumenSlotsHomeComponentes(slots) {
+    var resumen = {};
+    (slots || []).forEach(function (slot) {
+      if (!slot || !slot.slot) return;
+      resumen[slot.slot] = Array.isArray(slot.bloques) ? slot.bloques.length : 0;
+    });
+    return resumen;
+  }
+
+  function setHomeComponentesEstado(mensaje, tipo, tipoComponente) {
     var nodes = Array.prototype.slice.call(document.querySelectorAll("#cms_actual_home_componentes_estado, [data-home-comp-status]"));
     if (!nodes.length) return;
     nodes.forEach(function (node) {
+      var tipoNodo = node.getAttribute("data-home-comp-status-tipo") || "";
+      if (tipoComponente && tipoNodo && tipoNodo !== tipoComponente) return;
+      if (tipoComponente && !tipoNodo && node.id !== "cms_actual_home_componentes_estado") return;
       node.className = "alert alert-light-" + (tipo || "info") + " fs-7 py-3 mt-4 mb-0";
       node.textContent = mensaje;
     });

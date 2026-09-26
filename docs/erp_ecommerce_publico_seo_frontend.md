@@ -60,7 +60,7 @@ Reglas:
 - `canonical_url` y `og_image` son absolutas cuando hay dominio productivo/configuracion SEO disponible.
 - `og_type` para producto es `product`.
 - `twitter_card` recomendado es `summary_large_image`.
-- `item.descripcion_publica` conserva la descripcion publica que debe mostrarse en la pagina; si falta curaduria ecommerce, usa fallback controlado desde Catalogo ERP y lo indica en `item.descripcion_publica_fuente`.
+- Actualizacion IA Codex GPT-6, 2026-09-25: `item.descripcion_publica` contiene solo contenido editorial saneado. Un campo vacio es intencional y no usa fallback del Catalogo ERP; `item.descripcion_publica_fuente=publicacion_ecommerce`. Los metadatos SEO se mantienen planos y cortos. Ver `docs/erp_ecommerce_descripciones_agrupacion.md` para contrato y despliegue pendiente.
 - Para producto agrupado o variantes, el frontend debe usar `depurar.grupo_producto`, `depurar.variantes` y `depurar.fase_2.resumen_ui.mostrar_variantes`; no debe deducir agrupaciones leyendo tablas internas.
 
 ## Actualizacion 2026-09-03 - Migracion URLs y contratos SEO separados

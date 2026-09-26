@@ -160,6 +160,6 @@
 <!-- IA: Codex GPT-6 | Fecha: 2026-09-24. Media CMS: optimizacion voluntaria en formato original y selector con gestion de archivos. -->
 <!-- IA: Codex GPT-6 | 2026-09-25 | Renovar cache para avisos visibles y reparacion de acceso conservando ajustes de logos y banners. -->
 <script src="/assets/js/custom/apps/erp/cms/media_tools.js?v=20260925-media-acceso2"></script>
-<script src="/assets/js/custom/apps/erp/cms/frontend_actual.js?v=20260925-media-logo-banner-acceso2"></script>
+<script src="/assets/js/custom/apps/erp/cms/frontend_actual.js?v=20260925-home-componentes-visibles1"></script>
 </body>
 </html>
