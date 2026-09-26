@@ -6,9 +6,10 @@ Documentacion IA: Codex GPT-5 | Fecha: 2026-09-09
 
 IA: Codex GPT-6 | Fecha: 2026-09-25
 
-Estado: implementado en codigo local y validado con la conexion configurada del proyecto
-en una transaccion READ ONLY. Pendiente desplegar en `https://sys.artiani.com.mx`
-y repetir QA HTTP/frontend. No se ejecutaron migraciones ni escrituras de productos.
+Estado actualizado 2026-09-26: activo en `https://sys.artiani.com.mx`, con 42
+comprobaciones de regresion HTTP aprobadas. Las 48 comprobaciones locales incluyen
+ademas fixtures SQL que no corren por HTTP. Pendiente QA visual/frontend.
+No se ejecutaron migraciones ni escrituras de productos.
 
 Causa corregida: se elegia `alimento` antes de la frase completa y se ordenaba una
 muestra ya limitada de la primera pagina. Esto perdia `erizo`, cambiaba el prefijo
@@ -72,14 +73,15 @@ El fixture de ocho slugs es evidencia del diagnostico, no una regla del motor. S
 cambian publicaciones o slugs, actualizar el fixture de prueba de forma explicita.
 El modo HTTP valida endpoints; los fixtures SQL controlados corren en modo `--model`.
 
-Siguiente paso: desplegar `app/modelos/EcommerceCatalogoPublico.php`, consultar el
-manifest para confirmar version, ejecutar UAT por HTTP y revisar buscador frontend.
+Siguiente paso: revisar buscador frontend; la UAT HTTP ya paso el 2026-09-26.
 Si frontend conserva respuestas cacheadas de busqueda/sugerencias, invalidarlas al
 desplegar esta version. No hace falta cambiar URLs de productos ni redirecciones.
 
-Verificacion remota posterior a las pruebas: sys todavia devuelve `total=178`,
+Evidencia historica del 2026-09-25: sys devolvia `total=178`,
 `query_usada_catalogo=alimento` y no entrega `motor_version` para el caso erizo.
-Esto confirma que el cambio local aun no esta desplegado.
+Superada por la verificacion HTTP del 2026-09-26: total=8, query=alimento erizo,
+sugerencias/paginas consistentes, areneros=59 y filtro de 40 litros=0 coincidencias
+completas. No ampliar automaticamente este ultimo caso a productos incompatibles.
 
 Extension del mismo dia: `agrupacion=producto` activa tarjetas agrupadas antes de
 paginar, conservando los ocho alimentos para erizo como productos separados. Ver

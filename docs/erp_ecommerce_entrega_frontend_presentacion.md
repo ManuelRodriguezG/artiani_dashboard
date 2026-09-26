@@ -7,10 +7,11 @@ sus archivos ni sus tablas para implementar o comprobar este contrato.
 
 ## Estado y activacion
 
-El codigo local implementa el contrato. La comprobacion HTTP del 2026-09-25 en
-https://sys.artiani.com.mx/ecommercePublico sigue mostrando la version anterior:
-churro devuelve 6 tarjetas y no declara agrupacion ni presentacion_version.
-No activar el modo agrupado hasta que las siguientes comprobaciones sean correctas.
+Actualizacion 2026-09-26: la API en https://sys.artiani.com.mx/ecommercePublico
+ya paso 30 comprobaciones HTTP de activacion (7 GET). Entrega el contrato nuevo,
+churro devuelve 2 tarjetas/6 SKUs y erizo conserva 8 grupos distintos. La evidencia
+del 2026-09-25 correspondia a la version anterior y queda superada por esta prueba.
+Frontend puede integrar el modo explicito; aun requiere su QA visual y de navegacion.
 
 Base API: https://sys.artiani.com.mx/ecommercePublico
 
@@ -111,6 +112,6 @@ Con los datos publicados del diagnostico del 2026-09-25 comprobar:
   de variante conservan filtros, URL, precio/permisos e identidad de carrito.
 - API vacia o fallida muestra su estado, nunca tarjetas ficticias ni carga masiva.
 
-Pendientes: desplegar backend, pasar aceptacion HTTP, integrar y probar frontend,
-y completar textos comerciales aprobados. Las pruebas de modelo local no certifican
-el despliegue ni sustituyen la verificacion visual en frontend.
+Pendientes: integrar y probar frontend, invalidar sus respuestas antiguas y completar
+textos comerciales aprobados. La aceptacion HTTP del backend ya paso el 2026-09-26;
+no sustituye la verificacion visual en frontend ni certifica todo el sitio para lanzamiento.

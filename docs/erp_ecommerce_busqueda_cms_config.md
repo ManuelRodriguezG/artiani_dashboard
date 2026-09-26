@@ -13,8 +13,8 @@ Los sinonimos de varias palabras no son parte del motor actual; usar equivalenci
 de un termino. Las etiquetas de mascota/categoria sirven de contexto editorial,
 no bastan para clasificar alimento generico como coincidencia especifica de erizo.
 
-Estado: implementado y probado con codigo local; pendiente despliegue y validacion
-HTTP en sys. Contrato publico: `/ecommercePublico/busqueda_manifest`, campo
+Estado actualizado 2026-09-26: activo en sys, con 42 comprobaciones de regresion
+HTTP aprobadas; pendiente QA del buscador frontend. Contrato publico: `/ecommercePublico/busqueda_manifest`, campo
 `depurar.motor_version`. Detalle de pruebas y handoff en
 `docs/erp_ecommerce_busqueda_inteligente_frontend.md`.
 

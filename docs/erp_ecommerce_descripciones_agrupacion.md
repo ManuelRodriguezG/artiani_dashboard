@@ -37,9 +37,10 @@ su redaccion comercial sigue pendiente del operador.
 
 ## Continuidad
 
-Estado: implementado en codigo local; validado con conexion configurada en READ ONLY.
-Pendiente desplegar en sys y conectar el modo agrupado en frontend. Los cambios
-previos de busqueda permanecen en el modelo y deben desplegarse juntos.
+Estado actualizado 2026-09-26: contrato activo en sys, con 30 comprobaciones HTTP
+aprobadas mediante 7 GET. El codigo local tambien fue validado en READ ONLY.
+Pendiente conectar el modo agrupado en frontend y realizar QA visual. Modelo y trait
+ya estan incluidos en el commit local 8f4f25e; esta sesion no hizo commit, push ni deploy.
 Las descripciones existentes que ya contengan notas internas en el propio campo
 publico requieren revision editorial: sanear HTML no certifica contenido comercial.
 
@@ -147,7 +148,9 @@ Su contenido puede compartirse completo: frontend consulta los contratos en la A
 y no necesita acceso a este archivo ni al proyecto ERP.
 
 Secuencia pendiente:
-1. Identificar el proceso habitual de despliegue de sys (consultado al dueno).
+1. El dueno confirmo el 2026-09-26 que despliega por Git. La rama local es master;
+   no se conoce aun si el servidor hace pull manual o despliegue automatico. No
+   inferir el commit exacto del servidor a partir de las respuestas HTTP.
 2. Desplegar modelo y trait juntos, conservando respaldo de la version previa.
    Si la carga es manual, subir el trait antes del modelo para evitar dependencia
    ausente. No incluir credenciales, imagenes CMS ni cambios paralelos de otros chats.
@@ -157,3 +160,8 @@ Secuencia pendiente:
    afectadas y realiza QA visual de variantes, filtros, ficha, navegacion y carrito.
 5. Completar revision editorial de descripciones. No requiere migraciones ni cambia
    URLs, slugs, relaciones de redireccion, precios o inventario.
+
+Actualizacion de esta secuencia al 2026-09-26: la prueba HTTP ya paso sus 30
+comprobaciones en sys; quedan pendientes los pasos de frontend y contenido editorial.
+La evidencia historica de contrato ausente del 2026-09-25 ya no representa el estado
+actual. No se ejecuto despliegue, escritura de BD ni operacion Git remota en esta sesion.
