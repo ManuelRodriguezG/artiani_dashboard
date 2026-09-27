@@ -8,8 +8,10 @@ define('RUTA_APP', dirname(dirname(__FILE__)));
 define('SESSION_TIMEOUT_SECONDS', 1800);
 $server_name_config = isset($_SERVER["SERVER_NAME"]) ? $_SERVER["SERVER_NAME"] : "";
 $ecommerce_publico_local = in_array($server_name_config, array("localhost", "panel.com.local", "dashboard.com.local"), true);
-define('ECOMMERCE_ANALYTICS_TRACKING_PUBLICO', $ecommerce_publico_local);
-define('ECOMMERCE_LEADS_PUBLICO', $ecommerce_publico_local);
+$ecommerce_publico_productivo = in_array($server_name_config, array("sys.artiani.com.mx"), true);
+// IA: Codex GPT-5 | 2026-09-27. Activa persistencia publica en sys.artiani.com.mx; CORS sigue controlando origenes permitidos.
+define('ECOMMERCE_ANALYTICS_TRACKING_PUBLICO', $ecommerce_publico_local || $ecommerce_publico_productivo);
+define('ECOMMERCE_LEADS_PUBLICO', $ecommerce_publico_local || $ecommerce_publico_productivo);
 ini_set('session.gc_maxlifetime', SESSION_TIMEOUT_SECONDS);
 ini_set('session.cookie_httponly', 1);
 ini_set('session.cookie_samesite', 'Lax');
