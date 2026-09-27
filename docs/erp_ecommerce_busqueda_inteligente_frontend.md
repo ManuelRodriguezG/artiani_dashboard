@@ -4,11 +4,10 @@ Documentacion IA: Codex GPT-5 | Fecha: 2026-09-09
 
 ## Correccion previa al lanzamiento / continuidad
 
-IA: Codex GPT-6 | Fecha: 2026-09-25
+IA: Codex GPT-5 | Fecha: 2026-09-26
 
-Estado actualizado 2026-09-26: activo en `https://sys.artiani.com.mx`, con 42
-comprobaciones de regresion HTTP aprobadas. Las 48 comprobaciones locales incluyen
-ademas fixtures SQL que no corren por HTTP. Pendiente QA visual/frontend.
+Estado actual: revision contextual v3 implementada localmente, pendiente despliegue
+Git y nueva validacion HTTP. La verificacion anterior en sys certifico v2, no v3.
 No se ejecutaron migraciones ni escrituras de productos.
 
 Causa corregida: se elegia `alimento` antes de la frase completa y se ordenaba una
@@ -18,16 +17,20 @@ de sugerencias y repetia productos entre paginas.
 Contrato vigente (mantiene `fase` v1 por compatibilidad):
 
 - `/busqueda`, `/busqueda_sugerencias` y `/busqueda_manifest` entregan
-  `depurar.motor_version=terminos_and_sql_v2` para verificar el despliegue.
-- AND entre todos los conceptos de la consulta; OR entre sus sinonimos y plurales.
-  `interpretacion.terminos_requeridos` separa conceptos originales de expansiones.
+  `depurar.motor_version=intencion_contextual_sql_v3` para verificar el despliegue.
+- AND entre conceptos esenciales de producto/contexto; OR entre sinonimos/plurales.
+  Conectores se descartan. `terminos_consulta` conserva conceptos originales;
+  `terminos_requeridos` excluye la capacidad, que se declara en `preferencias`.
+  No se descarta erizo para ampliar a todos los alimentos ni se usa popularidad como
+  sustituto de pertinencia. Prioridad comercial de terminos sigue configurada en CMS.
 - La ultima palabra admite prefijo desde dos letras para mantener autocompletado
   (`alimento eriz`). Ambos endpoints aplican el mismo criterio; no amplia numeros.
 - Se comparan titulo publico, nombre SKU/producto, SKU, marca y presentacion.
   La extension de agrupacion tambien permite coincidencias con valores de atributos
   de selector activos (`es_variante=1`) del SKU, nunca con atributos administrativos.
-  Las etiquetas genericas de mascota/categoria no agregan otros productos como
-  coincidencias principales. Las categorias relacionadas se entregan por separado.
+  Para pecera/acuario tambien se consulta categoria principal/alterna como contexto:
+  un filtro de categoria Acuario no necesita repetir pecera en el titulo. Esto no
+  vuelve opcional la especie solicitada ni convierte alimento de perro en erizo.
 - La base de datos filtra, calcula relevancia y ordena antes de `LIMIT/OFFSET`.
   El desempate final es `id_publicacion`. Los boosts de nombre/categoria/marca/SKU,
   categoria probable, imagen y precio se aplican al ranking global. Orden explicito por nombre, precio
@@ -42,15 +45,23 @@ Contrato vigente (mantiene `fase` v1 por compatibilidad):
 - `paginacion.primera/anterior/siguiente/ultima` apunta a `/ecommercePublico/busqueda`
   y conserva la frase original, filtros, limite y orden. Frontend debe seguir esos
   enlaces, sin descargar todo, recalcular totales, reordenar ni deduplicar paginas.
-- Numero y unidad son una restriccion conjunta: `40 litros` no equivale a `40 cm`
-  ni a `400 litros`. La coincidencia textual no certifica compatibilidad tecnica.
+- Capacidad en litros es preferencia de ranking antes de paginar, NO restriccion.
+  Se prioriza coincidencia textual de 40 litros/40l; 40 cm, 400 litros y caudal
+  40 l/h no reciben ese boost. Se permiten otras opciones del producto/contexto,
+  con mensaje_cliente y coincidencia_busqueda.compatibilidad_capacidad_confirmada=false.
+  Nunca certificar capacidad tecnica por coincidencia textual ni prometer que todas
+  las opciones son compatibles. No hay descarga masiva/filtro posterior en frontend.
+- Busqueda y sugerencias siempre devuelven SKU; ignoran agrupacion=producto legado.
+  Categoria en /catalogo agrupa por defecto y permite override explicito; filtros
+  de categoria dentro de /busqueda NO cambian su modo SKU.
 - Una consulta vacia, solo conectores o sin coincidencias devuelve cero productos.
   Los fallos de consulta conservan `error=true`; no son un cero exitoso.
 - `/catalogo?q=...` conserva busqueda literal legacy y puede dar un conjunto distinto.
   No usarlo para reemplazar un cero valido de `/busqueda` ni para paginar sus resultados.
 - Slugs, canonical, redirecciones y sitemap no se modifican por esta correccion.
 
-Validacion del 2026-09-25: 48 comprobaciones aprobadas con codigo local:
+Validacion contextual del 2026-09-26: 71 comprobaciones aprobadas con codigo local
+y conexion configurada en READ ONLY (incluye fixtures SQL):
 
 - `Alimento para erizo`: 8 alimentos del diagnostico; incluye Premium.
 - Sugerencias de 6 son exactamente los primeros 6 de limite 12 y de busqueda.
@@ -58,9 +69,10 @@ Validacion del 2026-09-25: 48 comprobaciones aprobadas con codigo local:
 - `alimento` con paginas de 12 coincide con los primeros 24 en una sola pagina.
 - Singular/plural, mayusculas, acentos y sinonimo `comida` conservan los 8 alimentos.
 - `areneros`: 59 publicaciones con los datos actuales.
-- `Filtro para pecera de 40 litros`: 0 coincidencias completas con los campos
-  actuales. Conserva capacidad 40 y categorias relacionadas. Fixtures SQL read-only
-  prueban positivos de 40 l/40 litros y negativos de 40 cm/400 litros/25 litros.
+- `Filtro para pecera de 40 litros`: 45 opciones de producto/contexto; capacidad
+  orientativa. Sugerencias 6/12, pagina 2 y limite 24 conservan ranking estable.
+  Fixtures verifican orden preferido para 40 l, contexto en categoria sin titulo
+  y no confundir caudal 40 l/h con capacidad. 40l y 40 litros recuperan lo mismo.
 
 Pruebas reproducibles:
 
@@ -73,21 +85,18 @@ El fixture de ocho slugs es evidencia del diagnostico, no una regla del motor. S
 cambian publicaciones o slugs, actualizar el fixture de prueba de forma explicita.
 El modo HTTP valida endpoints; los fixtures SQL controlados corren en modo `--model`.
 
-Siguiente paso: revisar buscador frontend; la UAT HTTP ya paso el 2026-09-26.
+Siguiente paso: desplegar modelo y trait por Git y repetir UAT HTTP de v3.
 Si frontend conserva respuestas cacheadas de busqueda/sugerencias, invalidarlas al
 desplegar esta version. No hace falta cambiar URLs de productos ni redirecciones.
 
 Evidencia historica del 2026-09-25: sys devolvia `total=178`,
 `query_usada_catalogo=alimento` y no entrega `motor_version` para el caso erizo.
-Superada por la verificacion HTTP del 2026-09-26: total=8, query=alimento erizo,
-sugerencias/paginas consistentes, areneros=59 y filtro de 40 litros=0 coincidencias
-completas. No ampliar automaticamente este ultimo caso a productos incompatibles.
+La verificacion HTTP de v2 posterior recupero erizo=8 pero filtro 40 litros=0.
+El dueno rechazo ese cero por regla excesiva y solicito la correccion contextual v3.
 
-Extension del mismo dia: `agrupacion=producto` activa tarjetas agrupadas antes de
-paginar, conservando los ocho alimentos para erizo como productos separados. Ver
-`docs/erp_ecommerce_descripciones_agrupacion.md`. El parametro se debe propagar a
-busqueda y sugerencias; su default sigue siendo `sku`. El despliegue incluye ahora
-tambien `app/modelos/EcommerceCatalogoPresentacion.php`.
+Se revoca la instruccion anterior de propagar agrupacion=producto a busqueda y
+sugerencias. La agrupacion automatica es para categorias. El despliegue incluye
+`app/modelos/EcommerceCatalogoPublico.php` y `app/modelos/EcommerceCatalogoPresentacion.php`.
 
 ## Endpoint recomendado
 

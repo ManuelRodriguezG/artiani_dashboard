@@ -7,10 +7,12 @@ IA: Codex GPT-6 | Fecha: 2026-09-25
 Acuerdo recibido de frontend: descripcion publica vacia es intencional; no importar
 notas del ERP. Agrupar antes de paginar conservando URLs e identidades de SKU.
 
-Se implementa un modo explicito `agrupacion=producto` para catalogo y busqueda,
-incluyendo filtros de categoria principal/alterna, rama y marca. El modo compatible
-predeterminado sigue siendo `agrupacion=sku`. No activar agrupacion en frontend
-hasta comprobar el contrato en catalogo_manifest/frontend_handoff desplegados.
+Decision corregida por el dueno el 2026-09-26: agrupar por defecto las categorias
+desde la API, no la busqueda. En catalogo con categoria/categoria_id/categoria_slug
+se usa producto sin parametro adicional. Catalogo permite override explicito; sin
+categoria sigue SKU. Busqueda y sugerencias siempre SKU, aun si reciben parametro
+producto de las instrucciones anteriores. Selector por producto_id sigue SKU.
+El contrato publica revision=categorias_default_v2; requiere nuevo despliegue Git.
 
 La regla actual `grupo_producto.agrupable` corresponde a mas de una publicacion
 visible del mismo id_producto_erp. Un producto con una sola publicacion sigue como
@@ -37,10 +39,10 @@ su redaccion comercial sigue pendiente del operador.
 
 ## Continuidad
 
-Estado actualizado 2026-09-26: contrato activo en sys, con 30 comprobaciones HTTP
-aprobadas mediante 7 GET. El codigo local tambien fue validado en READ ONLY.
-Pendiente conectar el modo agrupado en frontend y realizar QA visual. Modelo y trait
-ya estan incluidos en el commit local 8f4f25e; esta sesion no hizo commit, push ni deploy.
+Estado actual: revision categorias_default_v2 e intencion_contextual_sql_v3 locales,
+pendientes nuevo despliegue Git y QA HTTP/frontend. El contrato anterior se verifico
+en sys con 30 checks, pero esa evidencia no certifica esta revision posterior.
+No se hizo commit, push ni deploy desde esta sesion. Ver entrega frontend actualizada.
 Las descripciones existentes que ya contengan notas internas en el propio campo
 publico requieren revision editorial: sanear HTML no certifica contenido comercial.
 
@@ -53,11 +55,12 @@ publico requieren revision editorial: sanear HTML no certifica contenido comerci
   `depurar.agrupacion=producto`, `items` son representantes, `paginacion.total=2`,
   `paginacion.total_skus=6`, `paginacion.unidad=grupos` con los datos del diagnostico.
 - `GET /ecommercePublico/busqueda?q=Alimento%20para%20erizo&agrupacion=producto`:
-  ocho tarjetas, conserva motor_version=terminos_and_sql_v2.
+  ocho SKU (ignora agrupacion=producto), motor_version=intencion_contextual_sql_v3.
 - `GET /ecommercePublico/busqueda_sugerencias?q=churro&agrupacion=producto&limite=6`:
-  mismo prefijo de representantes que busqueda por relevancia con mismos filtros.
+  mismo prefijo de SKU que busqueda por relevancia con mismos filtros; sin agrupacion.
 - Categoria/alternas/rama y marca: mismo endpoint catalogo y filtros actuales,
-  agregando `agrupacion=producto`. Los enlaces de pagina conservan el parametro.
+  agrupa automaticamente cuando hay categoria, incluso combinada con marca.
+  Solo marca o catalogo general sigue SKU salvo modo explicito. Enlaces conservan modo.
 - Para las variantes de una tarjeta seguir `grupo_producto.variantes_url`, equivalente
   a `/ecommercePublico/catalogo?producto_id=50&agrupacion=sku&vista=card&limite=24`.
   Su paginacion cuenta SKUs y permite recuperar grupos mayores que el preview.
@@ -165,3 +168,25 @@ Actualizacion de esta secuencia al 2026-09-26: la prueba HTTP ya paso sus 30
 comprobaciones en sys; quedan pendientes los pasos de frontend y contenido editorial.
 La evidencia historica de contrato ausente del 2026-09-25 ya no representa el estado
 actual. No se ejecuto despliegue, escritura de BD ni operacion Git remota en esta sesion.
+
+## Correccion posterior solicitada por el dueno
+
+La instruccion previa de agrupar busqueda/sugerencias queda revocada. La API resuelve
+las categorias agrupadas sin exigir logica adicional al frontend. Si frontend manda
+agrupacion=sku de forma explicita en categorias, debe omitirlo para usar el default.
+Los totales/paginas son grupos, antes de LIMIT; facetas y bloques legacy mantienen SKU.
+Busqueda mantiene SKU incluso con agrupacion=producto enviado por cliente antiguo.
+
+El cero de filtro para pecera de 40 litros se debia a AND literal sobre la capacidad
+y al contexto acuario ausente en nombres. v3 conserva filtro + contexto (incluidas
+categorias principales/alternas) y trata litros como preferencia de relevancia, sin
+certificar compatibilidad. El mensaje publico invita a revisar capacidad. No se
+eliminan especies como erizo ni se rellenan consultas sin coincidencias pertinentes.
+
+Regresion local READ ONLY: 218 comprobaciones de presentacion, 71 de busqueda y
+39 de release aprobadas (328 en total). Filtro 40 litros devuelve 45 opciones,
+erizo 8, areneros 59. La prueba de release exige revision de categorias, modo SKU de busqueda, ID/slug de categoria
+y continuidad entre paginas/limites. No incluye escrituras ni modificaciones SEO.
+Pendiente: desplegar ambos archivos de modelo por Git y repetir aceptacion HTTP;
+despues invalidar caches del frontend y revisar visualmente. No reutilizar el resultado
+HTTP de v2 para declarar esta revision publicada.

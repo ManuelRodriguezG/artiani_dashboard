@@ -483,10 +483,34 @@ class OrdenesCompraErp extends CRUD {
                 COALESCE(u.abreviatura, '') unidad, sp.id_sku_proveedor,
                 COALESCE(sp.sku_proveedor, '') sku_proveedor,
                 CASE
-                    WHEN :sku_proveedor_case <> '' AND LOWER(TRIM(sp.sku_proveedor)) = LOWER(TRIM(:sku_proveedor_val_case)) THEN 1
-                    WHEN :sku_case <> '' AND LOWER(TRIM(sp.sku_proveedor)) = LOWER(TRIM(:sku_sp_val_case)) THEN 2
-                    WHEN :sku_catalogo_case <> '' AND LOWER(TRIM(s.sku)) = LOWER(TRIM(:sku_catalogo_val_case)) THEN 3
-                    WHEN :nombre_case <> '' AND LOWER(TRIM(s.nombre)) = LOWER(TRIM(:nombre_val_case)) THEN 4
+                    WHEN :sku_proveedor_lista_case <> '' AND EXISTS (
+                        SELECT 1 FROM erp_proveedores_listas_detalle_erp ld
+                        INNER JOIN erp_proveedores_listas_erp l ON l.id_lista_proveedor_erp=ld.id_lista_proveedor_erp
+                        WHERE l.id_proveedor=sp.id_proveedor
+                          AND ld.id_sku_proveedor=sp.id_sku_proveedor
+                          AND ld.id_sku=sp.id_sku
+                          AND (
+                            LOWER(TRIM(ld.sku_proveedor))=LOWER(TRIM(:sku_proveedor_lista_val_case))
+                            OR LOWER(TRIM(ld.codigo_interno))=LOWER(TRIM(:sku_proveedor_lista_val_case))
+                            OR LOWER(TRIM(ld.codigo_barras))=LOWER(TRIM(:sku_proveedor_lista_val_case))
+                          )
+                    ) THEN 1
+                    WHEN :sku_lista_case <> '' AND EXISTS (
+                        SELECT 1 FROM erp_proveedores_listas_detalle_erp ld
+                        INNER JOIN erp_proveedores_listas_erp l ON l.id_lista_proveedor_erp=ld.id_lista_proveedor_erp
+                        WHERE l.id_proveedor=sp.id_proveedor
+                          AND ld.id_sku_proveedor=sp.id_sku_proveedor
+                          AND ld.id_sku=sp.id_sku
+                          AND (
+                            LOWER(TRIM(ld.sku_proveedor))=LOWER(TRIM(:sku_lista_val_case))
+                            OR LOWER(TRIM(ld.codigo_interno))=LOWER(TRIM(:sku_lista_val_case))
+                            OR LOWER(TRIM(ld.codigo_barras))=LOWER(TRIM(:sku_lista_val_case))
+                          )
+                    ) THEN 2
+                    WHEN :sku_proveedor_case <> '' AND LOWER(TRIM(sp.sku_proveedor)) = LOWER(TRIM(:sku_proveedor_val_case)) THEN 3
+                    WHEN :sku_case <> '' AND LOWER(TRIM(sp.sku_proveedor)) = LOWER(TRIM(:sku_sp_val_case)) THEN 4
+                    WHEN :sku_catalogo_case <> '' AND LOWER(TRIM(s.sku)) = LOWER(TRIM(:sku_catalogo_val_case)) THEN 5
+                    WHEN :nombre_case <> '' AND LOWER(TRIM(s.nombre)) = LOWER(TRIM(:nombre_val_case)) THEN 6
                     ELSE 9
                 END prioridad
             FROM erp_catalogo_sku_proveedores sp
@@ -496,7 +520,31 @@ class OrdenesCompraErp extends CRUD {
                   AND sp.estatus='activo'
                   AND (
                 (:sku_proveedor_cmp <> '' AND LOWER(TRIM(sp.sku_proveedor)) = LOWER(TRIM(:sku_proveedor_val)))
+                OR (:sku_proveedor_lista_cmp <> '' AND EXISTS (
+                    SELECT 1 FROM erp_proveedores_listas_detalle_erp ld
+                    INNER JOIN erp_proveedores_listas_erp l ON l.id_lista_proveedor_erp=ld.id_lista_proveedor_erp
+                    WHERE l.id_proveedor=sp.id_proveedor
+                      AND ld.id_sku_proveedor=sp.id_sku_proveedor
+                      AND ld.id_sku=sp.id_sku
+                      AND (
+                        LOWER(TRIM(ld.sku_proveedor))=LOWER(TRIM(:sku_proveedor_lista_val))
+                        OR LOWER(TRIM(ld.codigo_interno))=LOWER(TRIM(:sku_proveedor_lista_val))
+                        OR LOWER(TRIM(ld.codigo_barras))=LOWER(TRIM(:sku_proveedor_lista_val))
+                      )
+                ))
                 OR (:sku_cmp <> '' AND LOWER(TRIM(sp.sku_proveedor)) = LOWER(TRIM(:sku_sp_val)))
+                OR (:sku_lista_cmp <> '' AND EXISTS (
+                    SELECT 1 FROM erp_proveedores_listas_detalle_erp ld
+                    INNER JOIN erp_proveedores_listas_erp l ON l.id_lista_proveedor_erp=ld.id_lista_proveedor_erp
+                    WHERE l.id_proveedor=sp.id_proveedor
+                      AND ld.id_sku_proveedor=sp.id_sku_proveedor
+                      AND ld.id_sku=sp.id_sku
+                      AND (
+                        LOWER(TRIM(ld.sku_proveedor))=LOWER(TRIM(:sku_lista_val))
+                        OR LOWER(TRIM(ld.codigo_interno))=LOWER(TRIM(:sku_lista_val))
+                        OR LOWER(TRIM(ld.codigo_barras))=LOWER(TRIM(:sku_lista_val))
+                      )
+                ))
                 OR (:sku_catalogo_cmp <> '' AND LOWER(TRIM(s.sku)) = LOWER(TRIM(:sku_catalogo_val)))
                 OR (:nombre_cmp <> '' AND LOWER(TRIM(s.nombre)) = LOWER(TRIM(:nombre_val)))
                 OR (:sku_norm_cmp <> '' AND LOWER(REPLACE(REPLACE(TRIM(sp.sku_proveedor), '-', ''), ' ', '')) = LOWER(:sku_norm_val))
@@ -509,6 +557,10 @@ class OrdenesCompraErp extends CRUD {
         $skuNormalizadoBusqueda = $skuProveedorNormalizado !== "" ? $skuProveedorNormalizado : $skuNormalizado;
         $stmt->execute(array(
             ":proveedor" => intval($idProveedor),
+            ":sku_proveedor_lista_case" => $skuProveedor,
+            ":sku_proveedor_lista_val_case" => $skuProveedor,
+            ":sku_lista_case" => $sku,
+            ":sku_lista_val_case" => $sku,
             ":sku_proveedor_case" => $skuProveedor,
             ":sku_proveedor_val_case" => $skuProveedor,
             ":sku_case" => $sku,
@@ -519,8 +571,12 @@ class OrdenesCompraErp extends CRUD {
             ":nombre_val_case" => $nombre,
             ":sku_proveedor_cmp" => $skuProveedor,
             ":sku_proveedor_val" => $skuProveedor,
+            ":sku_proveedor_lista_cmp" => $skuProveedor,
+            ":sku_proveedor_lista_val" => $skuProveedor,
             ":sku_cmp" => $sku,
             ":sku_sp_val" => $sku,
+            ":sku_lista_cmp" => $sku,
+            ":sku_lista_val" => $sku,
             ":sku_catalogo_cmp" => $sku,
             ":sku_catalogo_val" => $sku,
             ":nombre_cmp" => $nombre,
@@ -531,7 +587,13 @@ class OrdenesCompraErp extends CRUD {
             ":sku_norm_catalogo_val" => $skuNormalizado
         ));
         $matches = $stmt->fetchAll(PDO::FETCH_ASSOC);
-        return count($matches) === 1 ? $matches[0] : null;
+        if (count($matches) === 0) {
+            return null;
+        }
+        if (count($matches) > 1 && intval($matches[0]["prioridad"]) === intval($matches[1]["prioridad"])) {
+            return null;
+        }
+        return $matches[0];
     }
 
     public function guardar($datos, $idUsuario) {
@@ -1113,6 +1175,9 @@ class OrdenesCompraErp extends CRUD {
                 if ($esNoInventariable) {
                     $tipoItem = $tipoSolicitado;
                     $requiereRevision = 0;
+                } elseif ($tipoSolicitado === "producto_ambiguo") {
+                    $tipoItem = "producto_ambiguo";
+                    $requiereRevision = 1;
                 }
             }
             $skuTexto = $skuTexto === "" ? (isset($item["sku"]) ? trim((string) $item["sku"]) : "") : $skuTexto;
@@ -1505,7 +1570,11 @@ class OrdenesCompraErp extends CRUD {
             $idSku = intval(isset($item["id_sku"]) ? $item["id_sku"] : 0);
             $idSkuProveedor = intval(isset($item["id_sku_proveedor"]) ? $item["id_sku_proveedor"] : 0);
             if ($idSku <= 0) {
-                $advertencias[] = $this->advertenciaOperativaOrden($item, "sku_sin_relacion", "warning", "Partida sin SKU ERP relacionado");
+                $mensaje = $tipoItem === "producto_ambiguo"
+                    ? "SKU de proveedor con varias relaciones posibles; selecciona la variante/SKU ERP"
+                    : "Partida sin SKU ERP relacionado";
+                $codigo = $tipoItem === "producto_ambiguo" ? "sku_proveedor_ambiguo" : "sku_sin_relacion";
+                $advertencias[] = $this->advertenciaOperativaOrden($item, $codigo, "warning", $mensaje);
                 continue;
             }
             if ($idSkuProveedor <= 0) {
@@ -1585,9 +1654,16 @@ class OrdenesCompraErp extends CRUD {
                 $moduloResponsable = "catalogo";
 
                 if ($idSku <= 0 && !$this->esTipoItemNoInventariable($tipoItem)) {
-                    $tipoIncidencia = "compra_producto_pendiente_alta";
-                    $titulo = "Producto pendiente de alta desde orden de compra";
-                    $descripcion = "Compras capturo un producto fisico sin SKU ERP. Catalogo debe revisar si se crea, se vincula o se descarta antes de envio/recepcion.";
+                    if ($tipoItem === "producto_ambiguo") {
+                        $tipoIncidencia = "compra_sku_proveedor_ambiguo";
+                        $titulo = "SKU proveedor con varias relaciones posibles";
+                        $descripcion = "Compras cargo un concepto donde el SKU proveedor coincide con varias variantes/SKUs ERP. Proveedores/Catalogo deben definir la relacion exacta antes de enviar la orden.";
+                        $moduloResponsable = "proveedores";
+                    } else {
+                        $tipoIncidencia = "compra_producto_pendiente_alta";
+                        $titulo = "Producto pendiente de alta desde orden de compra";
+                        $descripcion = "Compras capturo un producto fisico sin SKU ERP. Catalogo debe revisar si se crea, se vincula o se descarta antes de envio/recepcion.";
+                    }
                 } elseif ($idSku > 0 && $idSkuProveedor <= 0) {
                     $tipoIncidencia = "compra_sku_sin_relacion_proveedor";
                     $titulo = "SKU ERP sin relacion activa con proveedor";
@@ -1620,7 +1696,7 @@ class OrdenesCompraErp extends CRUD {
                     "datos_fiscales_json" => isset($item["datos_fiscales_json"]) ? $item["datos_fiscales_json"] : "{}"
                 );
                 $propuestaJson = array(
-                    "accion" => $idSku <= 0 ? "crear_o_vincular_sku_erp" : "crear_o_activar_relacion_proveedor_sku",
+                    "accion" => $tipoItem === "producto_ambiguo" ? "seleccionar_relacion_proveedor_sku" : ($idSku <= 0 ? "crear_o_vincular_sku_erp" : "crear_o_activar_relacion_proveedor_sku"),
                     "modulo_responsable" => $moduloResponsable,
                     "no_resolver_desde_compras" => true
                 );
@@ -1661,7 +1737,7 @@ class OrdenesCompraErp extends CRUD {
             WHERE origen='compra'
               AND referencia_tipo='erp_compras_ordenes'
               AND id_referencia=:id
-              AND tipo_incidencia IN ('compra_producto_pendiente_alta','compra_sku_sin_relacion_proveedor')
+              AND tipo_incidencia IN ('compra_producto_pendiente_alta','compra_sku_sin_relacion_proveedor','compra_sku_proveedor_ambiguo')
               AND estatus IN ('pendiente','en_revision','bloqueada')");
         $stmt->execute(array(":id" => intval($idOrden)));
 
@@ -1707,13 +1783,23 @@ class OrdenesCompraErp extends CRUD {
                 $prioridad = "normal";
 
                 if ($idSku <= 0 && !$this->esTipoItemNoInventariable($tipoItem)) {
-                    $tipoNotificacion = "compra_producto_pendiente_alta";
-                    $area = "catalogo";
-                    $permiso = "catalogo.editar";
-                    $titulo = "Producto pendiente de alta desde " . $folio;
-                    $descripcion = "Compras capturo un producto fisico sin SKU ERP: " . ($sku !== "" ? $sku . " - " : "") . $nombre;
-                    $url = "/catalogoerp/configuracion";
-                    $prioridad = "alta";
+                    if ($tipoItem === "producto_ambiguo") {
+                        $tipoNotificacion = "compra_sku_proveedor_ambiguo";
+                        $area = "proveedores";
+                        $permiso = "proveedores.matching";
+                        $titulo = "SKU proveedor ambiguo desde " . $folio;
+                        $descripcion = "El SKU proveedor " . ($sku !== "" ? $sku : "sin codigo") . " coincide con varias variantes/SKUs ERP. Se debe seleccionar la relacion exacta antes de enviar la orden.";
+                        $url = "/proveedor/mostrar_proveedores_erp";
+                        $prioridad = "alta";
+                    } else {
+                        $tipoNotificacion = "compra_producto_pendiente_alta";
+                        $area = "catalogo";
+                        $permiso = "catalogo.editar";
+                        $titulo = "Producto pendiente de alta desde " . $folio;
+                        $descripcion = "Compras capturo un producto fisico sin SKU ERP: " . ($sku !== "" ? $sku . " - " : "") . $nombre;
+                        $url = "/catalogoerp/configuracion";
+                        $prioridad = "alta";
+                    }
                 } elseif ($idSku > 0 && $idSkuProveedor <= 0) {
                     $tipoNotificacion = "compra_sku_sin_relacion_proveedor";
                     $area = "proveedores";
@@ -1862,7 +1948,7 @@ class OrdenesCompraErp extends CRUD {
             WHERE modulo_origen='compras'
               AND entidad_origen='erp_compras_ordenes'
               AND id_entidad_origen=:id
-              AND tipo IN ('compra_producto_pendiente_alta','compra_sku_sin_relacion_proveedor')
+              AND tipo IN ('compra_producto_pendiente_alta','compra_sku_sin_relacion_proveedor','compra_sku_proveedor_ambiguo')
               AND estatus IN ('pendiente','en_revision','bloqueada')");
         $stmt->execute(array(":id" => intval($idOrden)));
 

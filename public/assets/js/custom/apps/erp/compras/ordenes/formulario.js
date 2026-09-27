@@ -122,6 +122,9 @@ function costoUnitarioConImpuestos(item) {
 function esTipoItemNoInventariable(tipoItem) {
     return ["servicio", "cargo", "no_inventariable", "adicional"].indexOf(String(tipoItem || "").toLowerCase()) >= 0;
 }
+function esTipoItemAmbiguo(tipoItem) {
+    return String(tipoItem || "").toLowerCase() === "producto_ambiguo";
+}
 /**
  * Ordenes compra ERP
  * Documentacion IA: Codex GPT-5
@@ -139,6 +142,7 @@ function tipoItemControlHtml(item, index, disabled) {
     }
     var opciones = [
         ["producto_nuevo", "Producto nuevo"],
+        ["producto_ambiguo", "SKU proveedor ambiguo"],
         ["servicio", "Servicio"],
         ["cargo", "Cargo"],
         ["adicional", "Adicional"],
@@ -165,6 +169,9 @@ function camposFiscalModal() {
 function etiquetaRegistroProducto(item) {
     if (esTipoItemNoInventariable(item && item.tipo_item)) {
         return "<span class=\"badge badge-light-info\">No inventariable</span>";
+    }
+    if (esTipoItemAmbiguo(item && item.tipo_item)) {
+        return "<span class=\"badge badge-light-warning\">Seleccionar variante/SKU ERP</span>";
     }
     if (parseInt(item && item.id_sku_erp || 0, 10) > 0 || parseInt(item && item.producto_registrado || 0, 10) === 1) {
         return "<span class=\"badge badge-light-success\">Producto registrado</span>";
@@ -202,6 +209,15 @@ function decisionAbastecimientoHtml(item) {
 }
 function estadoFiscalTexto(item) {
     return fiscalCompleto(item && item.datos_fiscales || {}) ? "fiscal_ok" : "fiscal_pendiente";
+}
+/**
+ * IA: Codex GPT-5
+ * Fecha: 2026-09-26
+ * Proposito: unificar que resultados XML cuentan como resueltos para no mostrar pendientes falsos.
+ * Impacto: Compras XML; `coincidencia_catalogo` se trata como relacion proveedor/SKU valida.
+ */
+function resultadoXmlResuelto(resultado) {
+    return ["coincidencia_exacta", "coincidencia_catalogo", "coincidencia_manual"].indexOf(String(resultado || "")) >= 0;
 }
 function renderResumenFiscales() {
     var body = document.getElementById("orden_fiscales_pendientes");
@@ -331,9 +347,12 @@ function renderResumenCatalogoFiscales() {
             costo_unitario_incluye_impuesto: parseFlag(concepto.costo_unitario_incluye_impuesto || concepto.valor_unitario_incluye_impuesto),
             cantidad: parseDecimal(concepto.cantidad_xml),
             sku: String(concepto.no_identificacion || "").trim(),
+            sku_proveedor: String(concepto.sku_proveedor || concepto.no_identificacion || "").trim(),
             nombre: String(concepto.descripcion || "").trim() || "Producto XML",
             unidad: String(concepto.unidad || concepto.unidad_medida || "Pza").trim(),
             resultado_conciliacion: String(concepto.resultado_conciliacion || ""),
+            tipo_item: Number(concepto.id_sku_erp || 0) > 0 ? "producto" :
+                (String(concepto.resultado_conciliacion || "") === "ambigua" ? "producto_ambiguo" : "producto_nuevo"),
             datos_fiscales: normalizarDatosFiscales({
                 clave_sat: concepto.clave_producto_sat || concepto.clave_prod_serv || concepto.clave_sat || concepto.ClaveProdServ,
                 clave_unidad_sat: concepto.clave_unidad_sat || concepto.clave_unidad || concepto.ClaveUnidad,
@@ -349,6 +368,8 @@ function renderResumenCatalogoFiscales() {
     }
 function normalizarConceptoParaItems(concepto) {
     var idSku = Number(concepto.id_sku_erp || concepto.id_sku || 0);
+    var resultado = String(concepto.resultado_conciliacion || "");
+    var tipoItem = idSku > 0 ? "producto" : (resultado === "ambigua" ? "producto_ambiguo" : "producto_nuevo");
     return {
         id_detalle: 0,
             id_solicitud_detalle: 0,
@@ -363,7 +384,7 @@ function normalizarConceptoParaItems(concepto) {
             sku_proveedor: String(concepto.sku_proveedor || concepto.no_identificacion || "").trim(),
             nombre: String(concepto.nombre || concepto.descripcion || "Producto XML").trim(),
             unidad: String(concepto.unidad_erp || concepto.unidad || concepto.unidad_medida || "Pza").trim(),
-            resultado_conciliacion: String(concepto.resultado_conciliacion || ""),
+            resultado_conciliacion: resultado,
             datos_fiscales: normalizarDatosFiscales({
                 clave_sat: concepto.clave_producto_sat || concepto.clave_prod_serv || concepto.clave_sat || concepto.ClaveProdServ,
                 clave_unidad_sat: concepto.clave_unidad_sat || concepto.clave_unidad || concepto.ClaveUnidad,
@@ -375,7 +396,7 @@ function normalizarConceptoParaItems(concepto) {
                 incluye_iva: concepto.valor_unitario_incluye_impuesto,
                 requiere_factura: concepto.requiere_factura
             }),
-        tipo_item: idSku > 0 ? "producto" : "producto_nuevo",
+        tipo_item: tipoItem,
         producto_registrado: idSku > 0 ? 1 : 0,
         requiere_revision: idSku > 0 ? 0 : 1,
         es_importado_xml: true,
@@ -938,10 +959,13 @@ function agregarProductoNuevoPendiente() {
                         if (concepto.nombre) { item.nombre = concepto.nombre; }
                         if (concepto.unidad) { item.unidad = concepto.unidad; }
                         if (!item.sku && concepto.sku) { item.sku = concepto.sku; }
+                        if (!item.sku_proveedor && concepto.sku_proveedor) { item.sku_proveedor = concepto.sku_proveedor; }
                         if (concepto.id_sku_erp && !item.id_sku_erp) { item.id_sku_erp = concepto.id_sku_erp; }
+                        if (concepto.id_sku_proveedor && !item.id_sku_proveedor) { item.id_sku_proveedor = concepto.id_sku_proveedor; }
                         if (!item.producto_registrado) { item.producto_registrado = concepto.id_sku_erp > 0 ? 1 : 0; }
                         if (concepto.id_sku_erp > 0 && item.requiere_revision) { item.requiere_revision = 0; item.tipo_item = "producto"; }
-                        item.tipo_item = item.tipo_item || (item.id_sku_erp > 0 ? "producto" : "producto_nuevo");
+                        item.tipo_item = concepto.id_sku_erp > 0 ? "producto" : (item.tipo_item || concepto.tipo_item || "producto_nuevo");
+                        if (concepto.tipo_item === "producto_ambiguo" && item.tipo_item === "producto_nuevo") { item.tipo_item = "producto_ambiguo"; }
                         item.datos_fiscales = mergearDatosFiscales(item.datos_fiscales, concepto.datos_fiscales);
                         if (mapaDetalle[concepto.id_orden_detalle] && !item.sku_proveedor) {
                             item.sku_proveedor = mapaDetalle[concepto.id_orden_detalle].sku_proveedor || "";
@@ -976,10 +1000,15 @@ function agregarProductoNuevoPendiente() {
                         if (concepto.descuento > 0) { existente.descuento = concepto.descuento; }
                         if (concepto.nombre) { existente.nombre = concepto.nombre; }
                         if (concepto.unidad) { existente.unidad = concepto.unidad; }
+                        if (!existente.sku && concepto.sku) { existente.sku = concepto.sku; }
+                        if (!existente.sku_proveedor && concepto.sku_proveedor) { existente.sku_proveedor = concepto.sku_proveedor; }
+                        if (concepto.id_sku_erp && !existente.id_sku_erp) { existente.id_sku_erp = concepto.id_sku_erp; }
+                        if (concepto.id_sku_proveedor && !existente.id_sku_proveedor) { existente.id_sku_proveedor = concepto.id_sku_proveedor; }
                         existente.datos_fiscales = mergearDatosFiscales(existente.datos_fiscales, concepto.datos_fiscales);
                         if (!existente.producto_registrado) { existente.producto_registrado = concepto.id_sku_erp > 0 ? 1 : 0; }
                         if (concepto.id_sku_erp > 0 && existente.requiere_revision) { existente.requiere_revision = 0; existente.tipo_item = "producto"; }
-                        existente.tipo_item = existente.tipo_item || (concepto.id_sku_erp > 0 ? "producto" : "producto_nuevo");
+                        existente.tipo_item = concepto.id_sku_erp > 0 ? "producto" : (existente.tipo_item || concepto.tipo_item || "producto_nuevo");
+                        if (concepto.tipo_item === "producto_ambiguo" && existente.tipo_item === "producto_nuevo") { existente.tipo_item = "producto_ambiguo"; }
                         if (existente.costo_unitario_incluye_impuesto === undefined || existente.costo_unitario_incluye_impuesto === null) {
                             existente.costo_unitario_incluye_impuesto = false;
                         }
@@ -1003,7 +1032,7 @@ function agregarProductoNuevoPendiente() {
                         costo_unitario_incluye_impuesto: parseFlag(concepto.costo_unitario_incluye_impuesto),
                         porcentaje_impuesto: concepto.porcentaje_impuesto >= 0 ? concepto.porcentaje_impuesto : parseDecimal(filaDetalle.porcentaje_impuesto || 0),
                         descuento: concepto.descuento,
-                        tipo_item: concepto.id_sku_erp ? "producto" : "producto_nuevo",
+                        tipo_item: concepto.tipo_item || (concepto.id_sku_erp ? "producto" : "producto_nuevo"),
                         producto_registrado: concepto.id_sku_erp ? 1 : 0,
                         requiere_revision: concepto.id_sku_erp ? 0 : 1,
                         datos_fiscales: concepto.datos_fiscales,
@@ -1050,6 +1079,7 @@ function agregarProductoNuevoPendiente() {
                 if (!item.producto_registrado) { item.producto_registrado = concepto.id_sku_erp > 0 ? 1 : 0; }
                 if (concepto.id_sku_erp > 0 && item.requiere_revision) { item.requiere_revision = 0; item.tipo_item = "producto"; }
                 item.tipo_item = item.tipo_item || (item.id_sku_erp > 0 ? "producto" : "producto_nuevo");
+                if (concepto.tipo_item === "producto_ambiguo" && item.tipo_item === "producto_nuevo") { item.tipo_item = "producto_ambiguo"; }
                 item.datos_fiscales = mergearDatosFiscales(item.datos_fiscales, concepto.datos_fiscales);
                 item.es_importado_xml = true;
                 item.esImportadoXml = true;
@@ -1479,20 +1509,20 @@ function eliminarProductosSeleccionados() {
                 document.getElementById("orden_conciliacion_faltantes").textContent = resumen.esperados_no_incluidos || 0;
 
                 document.getElementById("orden_conciliacion_conceptos").innerHTML = conceptos.map(function (x) {
-                    var puedeAccion = puedeEditar && x.resultado_conciliacion !== "coincidencia_manual" &&
-                        x.resultado_conciliacion !== "coincidencia_exacta";
+                    var resuelto = resultadoXmlResuelto(x.resultado_conciliacion);
+                    var puedeAccion = puedeEditar && !resuelto;
                     var filaSeleccion = "<td><input type=\"checkbox\" class=\"form-check-input\" data-concepto-check=\"" +
                         esc(x.id_documento_concepto) + "\" value=\"" + esc(x.id_documento_concepto) + "\"" +
                         (puedeAccion ? "" : " disabled") + "></td>";
                     var relacionado = x.id_orden_detalle
                         ? "<div class=\"fw-bold\">" + esc(x.sku_orden || "") + "</div><div class=\"text-muted fs-8\">" + esc(x.nombre_orden || "") + "</div>"
-                        : "<span class=\"text-muted\">Sin relacion</span>";
+                        : (x.id_sku_erp
+                            ? "<div class=\"fw-bold\">" + esc(x.sku_proveedor || x.no_identificacion || "") + "</div><div class=\"text-muted fs-8\">Relacion proveedor/SKU detectada</div>"
+                            : "<span class=\"text-muted\">Sin relacion</span>");
                     var diferencias = x.id_orden_detalle
                         ? "<div>Cant. " + Number(x.diferencia_cantidad || 0).toFixed(6) +
                             "</div><div class=\"text-muted fs-8\">Costo $" + Number(x.diferencia_costo || 0).toFixed(6) + "</div>"
                         : "-";
-                    var resuelto = x.resultado_conciliacion === "coincidencia_exacta" ||
-                        x.resultado_conciliacion === "coincidencia_manual";
                     var accion = "";
                     if (puedeAccion) {
                         accion = "<div class=\"d-flex gap-2\"><select class=\"form-select form-select-sm\" data-concepto-select=\"" +
@@ -1827,7 +1857,7 @@ function render() {
                 if (esTipoItemNoInventariable(item.tipo_item)) {
                     item.requiere_revision = 0;
                 } else if (parseInt(item.id_sku_erp || 0, 10) <= 0) {
-                    item.tipo_item = "producto_nuevo";
+                    item.tipo_item = esTipoItemAmbiguo(item.tipo_item) ? "producto_ambiguo" : "producto_nuevo";
                     item.requiere_revision = 1;
                 }
             } else if (campo === "costo_sin_impuestos") {

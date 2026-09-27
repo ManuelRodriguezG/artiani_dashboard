@@ -2753,8 +2753,8 @@ class EcommerceCatalogoPublico extends CRUD {
       $pagina = max(1, intval($this->valor($filtros, "pagina", 1)));
       $limite = max(1, min(60, intval($this->valor($filtros, "limite", 24))));
       $vista = $this->normalizarVistaCatalogoPublico($this->valor($filtros, "vista", "card"));
-      // IA: Codex GPT-6 | 2026-09-25. Agrupacion opt-in: filtros -> representante -> grupos -> pagina.
-      $agrupacion = $this->normalizarAgrupacionCatalogoPublico($this->valor($filtros, "agrupacion", "sku"));
+      // IA: Codex GPT-5 | 2026-09-26. Categorias agrupadas desde API; busqueda siempre conserva SKU.
+      $agrupacion = $this->agrupacionContextualCatalogoPublico($filtros, is_array($interpretacionBusqueda));
       $offset = ($pagina - 1) * $limite;
       $where = array("pub.estatus_publicacion='publicado'", "p.estatus='activo'", "s.estatus='activo'");
       $params = array();
@@ -2851,10 +2851,14 @@ class EcommerceCatalogoPublico extends CRUD {
         $item = $this->formatearPublicacion($fila);
         if ($agrupacion === "producto") {
           $item["grupo_producto"]["frontend"]["agrupado_por_api"] = true;
+        } elseif ($criterioBusqueda !== null) {
+          $item["grupo_producto"]["frontend"]["mostrar_como_producto_agrupado"] = false;
+          $item["grupo_producto"]["frontend"]["selector_recomendado"] = "ninguno";
         }
         $item = $vista === "card" ? $this->publicacionCardPublica($item) : $item;
         if ($criterioBusqueda !== null) {
           $item["relevancia_busqueda"] = intval($fila["relevancia_busqueda"]);
+          $item["coincidencia_busqueda"] = $this->coincidenciaCapacidadBusquedaPublica($interpretacionBusqueda);
         }
         $items[] = $item;
       }
@@ -2908,7 +2912,7 @@ class EcommerceCatalogoPublico extends CRUD {
 
   /**
    * Documentacion IA: Codex GPT-6 | Fecha: 2026-09-25
-   * Proposito: exigir todos los conceptos y ordenar globalmente antes de paginar.
+   * Proposito: conservar producto/uso; capacidad orienta ranking y no bloquea resultados (2026-09-26).
    * Impacto: busqueda y autocomplete comparten coincidencias; conserva frase y filtros entre paginas.
    * Contrato: GET publico read-only; reutiliza catalogoPublico, no registra busquedas y no expone stock exacto.
    */
@@ -2944,7 +2948,7 @@ class EcommerceCatalogoPublico extends CRUD {
       return $this->respuesta(false, $tipo, $total > 0 ? "Resultados de busqueda" : "Sin resultados exactos", array(
         "ok" => true,
         "fase" => "busqueda_inteligente_v1",
-        "motor_version" => "terminos_and_sql_v2",
+        "motor_version" => "intencion_contextual_sql_v3",
         "agrupacion" => $this->valor($filtrosAplicados, "agrupacion", "sku"),
         "presentacion_version" => "presentacion_catalogo_v1",
         "q" => $qOriginal,
@@ -2960,7 +2964,7 @@ class EcommerceCatalogoPublico extends CRUD {
         "marcas_relacionadas" => $marcasRelacionadas,
         "terminos_relacionados" => $this->terminosRelacionadosBusqueda($interpretacion),
         "mensaje_cliente" => $total > 0
-          ? ""
+          ? $this->mensajeCapacidadBusquedaPublica($interpretacion)
           : $this->valor($configBusqueda, array("mensajes", "sin_resultados"), "No encontramos una coincidencia exacta, pero estos productos o categorias pueden ayudarte a encontrar una opcion adecuada."),
         "frontend" => array(
           "endpoint_preferido_para_buscar" => "/ecommercePublico/busqueda",
@@ -3002,9 +3006,11 @@ class EcommerceCatalogoPublico extends CRUD {
     return $this->respuesta(false, "success", "Manifest de busqueda inteligente ecommerce consultado", array(
       "fase" => "busqueda_inteligente_v1",
       // IA: Codex GPT-6 | 2026-09-25. Contrato consultable por frontend sin leer documentos internos.
-      "motor_version" => "terminos_and_sql_v2",
+      "motor_version" => "intencion_contextual_sql_v3",
       "coincidencias" => array(
-        "todos_los_terminos_requeridos" => true,
+        "todos_los_terminos_requeridos" => false,
+        "conceptos_esenciales" => "Producto y contexto conservados; conectores eliminados. No descartar especie como erizo.",
+        "agrupacion" => "sku; busqueda y sugerencias no agrupan aunque reciban agrupacion=producto",
         "sinonimos_como_alternativas" => true,
         "prefijo_ultimo_termino" => "Desde 2 letras; mismo criterio para busqueda y sugerencias. No aplica a numeros.",
         "campos" => array("titulo_publico", "nombre_sku", "nombre_producto", "sku", "marca", "presentacion_publica", "atributos_selector"),
@@ -3013,7 +3019,8 @@ class EcommerceCatalogoPublico extends CRUD {
         "sugerencias_prefijo_de_busqueda" => true,
         "filtros_y_frase_en_paginacion" => true,
         "recomendaciones_ampliadas" => "Separadas de items y total; actualmente vacias. Usar categorias_relacionadas y sugerencias para ampliar.",
-        "capacidad" => "Coincidencia textual de numero y unidad; no certifica compatibilidad tecnica.",
+        "capacidad" => "Preferencia de ranking, no filtro obligatorio; resultados orientativos sin certificar compatibilidad tecnica.",
+        "contexto_acuario" => "Pecera/acuario puede coincidir en nombre, atributos o categoria principal/alterna.",
         "catalogo_q" => "Busqueda literal legacy; no equivale al motor de /busqueda."
       ),
       "fuente" => $this->valor($config, "fuente", "defaults_codigo"),
@@ -3074,7 +3081,7 @@ class EcommerceCatalogoPublico extends CRUD {
           "slug_ejemplo" => $slugEjemplo
         ),
         "parametros_soportados" => array(
-          "agrupacion" => array("tipo" => "enum", "valores" => array("sku", "producto"), "default" => "sku", "uso" => "producto agrupa antes de paginar; total cuenta tarjetas."),
+          "agrupacion" => array("tipo" => "enum", "valores" => array("sku", "producto"), "default" => "sku", "default_con_categoria" => "producto", "uso" => "Catalogo con categoria: producto automaticamente; sin categoria: sku. Override explicito en catalogo; busqueda/sugerencias siempre sku."),
           "producto_id" => array("tipo" => "int", "uso" => "Consultar publicaciones visibles de un producto ERP, por ejemplo variantes paginadas."),
           "q" => array("tipo" => "string", "uso" => "Busqueda por texto libre."),
           "mascota" => array("tipo" => "string", "fuente" => "/ecommercePublico/filtros depurar.mascotas"),
@@ -3609,6 +3616,8 @@ class EcommerceCatalogoPublico extends CRUD {
         ));
       }
       $base = $this->normalizarFiltrosCatalogoPublico($db, $opciones);
+      // IA: Codex GPT-5 | 2026-09-26. Facetas conservan conteos SKU aunque el listado de categoria agrupe.
+      $base["agrupacion"] = "sku";
       $catalogoBase = $this->catalogoPublico(array_merge($base, array("limite" => 1)));
       $categorias = array();
       foreach ($this->categoriasPublicasItems($db) as $cat) {
@@ -3672,6 +3681,7 @@ class EcommerceCatalogoPublico extends CRUD {
           "necesidad" => $this->valor($base, "necesidad", "")
         ),
         "resultado_actual" => array(
+          "unidad" => "skus",
           "total" => intval($this->valor($catalogoBase, array("depurar", "paginacion", "total"), 0)),
           "hay_resultados" => intval($this->valor($catalogoBase, array("depurar", "paginacion", "total"), 0)) > 0
         ),
@@ -3729,7 +3739,8 @@ class EcommerceCatalogoPublico extends CRUD {
           "relevancia_busqueda" => intval($this->valor($item, "relevancia_busqueda", 0)),
           "grupo_producto" => $this->valor($item, "grupo_producto", null),
           "permite_cotizacion" => !empty($this->valor($item, "permite_cotizacion", false)),
-          "permite_whatsapp" => !empty($this->valor($item, "permite_whatsapp", false))
+          "permite_whatsapp" => !empty($this->valor($item, "permite_whatsapp", false)),
+          "coincidencia_busqueda" => $this->valor($item, "coincidencia_busqueda", array())
         );
         if (count($productos) >= $limite) {
           break;
@@ -3756,7 +3767,8 @@ class EcommerceCatalogoPublico extends CRUD {
         "q" => $q,
         "fase" => "busqueda_sugerencias_inteligente_v1",
         "agrupacion" => $this->valor($catalogo, array("depurar", "agrupacion"), "sku"),
-        "motor_version" => "terminos_and_sql_v2",
+        "motor_version" => "intencion_contextual_sql_v3",
+        "mensaje_cliente" => !empty($productos) ? $this->mensajeCapacidadBusquedaPublica($interpretacion) : "",
         "total_productos" => intval($this->valor($catalogo, array("depurar", "paginacion", "total"), 0)),
         "recomendaciones_ampliadas" => array(),
         "query_usada_productos" => $queryProductos,
@@ -14812,6 +14824,8 @@ class EcommerceCatalogoPublico extends CRUD {
 
   private function agregarSeccionPublica(&$secciones, $definicion, $limite, $incluirVacias) {
     $params = $this->valor($definicion, "params", array());
+    // IA: Codex GPT-5 | 2026-09-26. Bloques legacy siguen declarados y consultados por SKU.
+    $params["agrupacion"] = "sku";
     $params["limite"] = $limite;
     $catalogo = $this->catalogoPublico($params);
     $items = $this->valor($catalogo, array("depurar", "items"), array());
@@ -16533,7 +16547,7 @@ class EcommerceCatalogoPublico extends CRUD {
     );
   }
 
-  /** IA: Codex GPT-6 | 2026-09-25. Conserva conceptos obligatorios separados de sinonimos; contrato publico aditivo. */
+  /** IA: Codex GPT-5 | 2026-09-26. Separa producto/contexto de capacidad orientativa; conserva consulta original. */
   private function interpretarBusquedaPublica($q) {
     $textoOriginal = trim((string) $q);
     $texto = strtolower($this->normalizarTextoPlano($textoOriginal));
@@ -16542,6 +16556,7 @@ class EcommerceCatalogoPublico extends CRUD {
       $texto = strtolower($transliterado);
     }
     $texto = preg_replace('/[^a-z0-9\s]+/', ' ', $texto);
+    $texto = preg_replace('/\b(\d+)(l|lt|lts|litros?)\b/', '$1 $2', $texto);
     $texto = preg_replace('/\s+/', ' ', trim($texto));
     $configBusqueda = $this->busquedaInteligenteConfigPublica();
     $stopwords = $this->valor($configBusqueda, "stopwords", array("para", "de", "del", "la", "el", "los", "las", "con", "en", "un", "una", "por", "y", "producto", "productos"));
@@ -16569,12 +16584,18 @@ class EcommerceCatalogoPublico extends CRUD {
     $atributos = $this->atributosBusquedaPublica($texto, $terminosExpandidos);
     $terminoPrincipal = $this->terminoPrincipalBusqueda($terminosExpandidos);
     $categoriaProbable = $this->categoriaProbableBusqueda($terminosExpandidos, $atributos);
+    $preferencias = array();
+    if (!empty($atributos["capacidad_litros"])) {
+      $preferencias = array((string) $atributos["capacidad_litros"], "l", "lt", "lts", "litro");
+    }
 
     return array(
       "texto_original" => $textoOriginal,
       "texto_normalizado" => implode(" ", array_values(array_unique($terminosExpandidos))),
       "terminos" => array_values(array_unique($terminosExpandidos)),
-      "terminos_requeridos" => array_values(array_unique($terminos)),
+      "terminos_consulta" => array_values(array_unique($terminos)),
+      "terminos_requeridos" => array_values(array_diff(array_unique($terminos), $preferencias)),
+      "preferencias" => empty($preferencias) ? array() : array("capacidad_litros" => $atributos["capacidad_litros"]),
       "termino_principal" => $terminoPrincipal,
       "intencion" => $this->intencionBusquedaPublica($terminosExpandidos, $atributos),
       "categoria_probable" => $categoriaProbable,
@@ -16607,13 +16628,13 @@ class EcommerceCatalogoPublico extends CRUD {
   }
 
   /**
-   * IA: Codex GPT-6 | Fecha: 2026-09-25
-   * Proposito: AND entre conceptos, OR entre sinonimos y plurales; ranking global SQL.
+   * IA: Codex GPT-5 | Fecha: 2026-09-26
+   * Proposito: producto/contexto obligatorios con sinonimos; capacidad como preferencia SQL antes de paginar.
    * Impacto: busqueda y sugerencias. No cambia publicaciones, precios ni destinos SEO.
    * Contrato: devuelve SQL fijo y parametros enlazados separados para COUNT y ORDER BY.
    */
   private function criterioBusquedaPublicaSql($interpretacion) {
-    $terminos = (array) $this->valor($interpretacion, "terminos_requeridos", array());
+    $terminos = (array) $this->valor($interpretacion, "terminos_consulta", $this->valor($interpretacion, "terminos_requeridos", array()));
     $sinonimos = $this->sinonimosBusquedaPublica();
     $config = $this->busquedaInteligenteConfigPublica();
     $boosts = $this->valor($config, "boosts", array());
@@ -16633,7 +16654,7 @@ class EcommerceCatalogoPublico extends CRUD {
     $scores = array();
     $capacidad = intval($this->valor($interpretacion, array("atributos_detectados", "capacidad_litros"), 0));
     foreach ($terminos as $i => $termino) {
-      // Numero y unidad forman una restriccion conjunta: 40 cm no equivale a 40 litros.
+      // Numero y unidad forman una preferencia conjunta: 40 cm no equivale a 40 litros.
       if ($capacidad > 0 && in_array($termino, array("l", "lt", "lts", "litro"), true)) {
         continue;
       }
@@ -16663,18 +16684,41 @@ class EcommerceCatalogoPublico extends CRUD {
       $patron = "(^|[^[:alnum:]])(" . implode("|", array_unique($patrones)) . ")" . $prefijoFinal . "([^[:alnum:]]|$)";
       $esCapacidad = $capacidad > 0 && $termino === (string) $capacidad;
       if ($esCapacidad) {
-        $patron = "(^|[^[:alnum:]])" . $capacidad . "[[:space:]]*(l|lt|lts|litro|litros)([^[:alnum:]]|$)";
+        $patron = "(^|[^[:alnum:]])" . $capacidad . "[[:space:]]*(litros|litro|lts|lt|l)(?![[:alnum:]]|[[:space:]]*(/|por|x)[[:space:]]*(h|hora))";
       }
-      $clave = ":busqueda_" . $i;
-      $params[$clave] = $patron;
-      $condicion = $texto . " REGEXP " . $clave;
-      if ($this->atributosSelectorDisponibles()) {
-        $claveAtributo = ":busqueda_atributo_" . $i;
-        $params[$claveAtributo] = $patron;
-        $condicion .= " OR " . $this->sqlCoincidenciaAtributoSelector($claveAtributo);
+      if (!$esCapacidad) {
+        $clave = ":busqueda_" . $i;
+        $params[$clave] = $patron;
+        $condicion = $texto . " REGEXP " . $clave;
+        if ($this->atributosSelectorDisponibles()) {
+          $claveAtributo = ":busqueda_atributo_" . $i;
+          $params[$claveAtributo] = $patron;
+          $condicion .= " OR " . $this->sqlCoincidenciaAtributoSelector($claveAtributo);
+        }
+        // Habitat puede estar en taxonomia, sin usar categorias genericas para omitir especies solicitadas.
+        if (in_array("acuario", $variantes, true) || in_array("pecera", $variantes, true)) {
+          $claveCategoria = ":busqueda_contexto_" . $i;
+          $claveAlterna = ":busqueda_contexto_alterno_" . $i;
+          $params[$claveCategoria] = $patron;
+          $params[$claveAlterna] = $patron;
+          $condicion .= " OR " . $camposScore["categoria"] . " REGEXP " . $claveCategoria;
+          $condicion .= " OR EXISTS (SELECT 1 FROM erp_catalogo_producto_categorias bus_pc
+            INNER JOIN erp_catalogo_categorias bus_cat ON bus_cat.id_categoria_erp=bus_pc.id_categoria_erp
+            WHERE bus_pc.id_producto_erp=p.id_producto_erp AND "
+            . $this->textoBusquedaPublicaSql(array("bus_cat.nombre", "bus_cat.ruta")) . " REGEXP " . $claveAlterna . ")";
+        }
+        $where[] = "(" . $condicion . ")";
+      } else {
+        $paramsScore[":busqueda_capacidad_preferida"] = $patron;
+        $preferencia = $texto . " REGEXP :busqueda_capacidad_preferida";
+        if ($this->atributosSelectorDisponibles()) {
+          $paramsScore[":busqueda_capacidad_atributo"] = $patron;
+          $preferencia .= " OR " . $this->sqlCoincidenciaAtributoSelector(":busqueda_capacidad_atributo");
+        }
+        $scores[] = "CASE WHEN (" . $preferencia . ") THEN 10000 ELSE 0 END";
       }
-      $where[] = "(" . $condicion . ")";
       foreach ($camposScore as $campo => $expresion) {
+        if ($esCapacidad) { continue; }
         $boost = intval($this->valor($boosts, $campo . "_termino", 0));
         if ($termino === $principal && in_array($campo, array("nombre", "categoria"), true)) {
           $boost += intval($this->valor($boosts, $campo . "_principal", 0));
@@ -16696,6 +16740,20 @@ class EcommerceCatalogoPublico extends CRUD {
     $scores[] = "CASE WHEN pub.mostrar_precio=1 AND pr.precio>0 THEN " . intval($this->valor($boosts, "precio", 3)) . " ELSE 0 END";
     return array("where" => $where, "params" => $params, "params_score" => $paramsScore,
       "score" => empty($scores) ? "0" : "(" . implode(" + ", $scores) . ")");
+  }
+
+  /** IA: Codex GPT-5 | 2026-09-26. Metadatos publicos: no confundir sugerencia de producto con compatibilidad certificada. */
+  private function coincidenciaCapacidadBusquedaPublica($interpretacion) {
+    $capacidad = intval($this->valor($interpretacion, array("atributos_detectados", "capacidad_litros"), 0));
+    return array("tipo" => $capacidad > 0 ? "producto_y_contexto" : "terminos_requeridos",
+      "capacidad_solicitada_litros" => $capacidad > 0 ? $capacidad : null,
+      "compatibilidad_capacidad_confirmada" => false);
+  }
+
+  /** IA: Codex GPT-5 | 2026-09-26. Aviso compartido entre resultados/sugerencias cuando la capacidad solo orienta ranking. */
+  private function mensajeCapacidadBusquedaPublica($interpretacion) {
+    $capacidad = intval($this->valor($interpretacion, array("atributos_detectados", "capacidad_litros"), 0));
+    return $capacidad > 0 ? "Mostramos opciones relacionadas. Revisa la capacidad recomendada de cada producto para " . $capacidad . " litros." : "";
   }
 
   /** IA: Codex GPT-6 | 2026-09-25. Normaliza acentos y caja en campos SQL internos para REGEXP MySQL/MariaDB. */

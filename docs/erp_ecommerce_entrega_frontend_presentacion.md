@@ -7,43 +7,46 @@ sus archivos ni sus tablas para implementar o comprobar este contrato.
 
 ## Estado y activacion
 
-Actualizacion 2026-09-26: la API en https://sys.artiani.com.mx/ecommercePublico
-ya paso 30 comprobaciones HTTP de activacion (7 GET). Entrega el contrato nuevo,
-churro devuelve 2 tarjetas/6 SKUs y erizo conserva 8 grupos distintos. La evidencia
-del 2026-09-25 correspondia a la version anterior y queda superada por esta prueba.
-Frontend puede integrar el modo explicito; aun requiere su QA visual y de navegacion.
+Correccion solicitada el 2026-09-26: agrupar automaticamente en categorias, NO en
+busqueda. Capacidad en litros orienta relevancia pero no bloquea por falta de texto
+literal. Esta revision es local y requiere nuevo despliegue Git; las pruebas HTTP
+anteriores certificaron v2, no certifican estas nuevas reglas.
 
 Base API: https://sys.artiani.com.mx/ecommercePublico
 
 1. Consultar GET /catalogo_manifest y comprobar
-   depurar.presentacion_catalogo.version = presentacion_catalogo_v1.
+   depurar.presentacion_catalogo.version = presentacion_catalogo_v1 y
+   depurar.presentacion_catalogo.revision = categorias_default_v2.
 2. El contrato completo tambien estara en GET /frontend_handoff,
    depurar.contratos_ui.presentacion_catalogo.
 3. Comprobar en GET /busqueda?q=Alimento%20para%20erizo&limite=12&vista=card
-   que depurar.motor_version = terminos_and_sql_v2.
+   que depurar.motor_version = intencion_contextual_sql_v3.
 4. Si falta la version, reportar API pendiente de despliegue/cache. No deduplicar
    localmente ni descargar todas las paginas como sustituto. Mantener el modo SKU
    compatible hasta que backend y frontend puedan activarse juntos.
 
 ## Listados, busqueda y paginacion
 
-Agregar agrupacion=producto a catalogo, busqueda y busqueda_sugerencias:
+Categorias: enviar categoria/categoria_id/categoria_slug y la API agrupa sin parametro
+adicional. No forzar agrupacion=sku en categorias. Catalogo permite override explicito
+para otros usos. Busqueda y sugerencias siempre entregan SKU, incluso si un cliente
+conserva agrupacion=producto de las instrucciones anteriores (que quedan revocadas).
 
 ```text
 GET /catalogo?q=churro&agrupacion=producto&pagina=1&limite=12&vista=card
-GET /catalogo?categoria_slug={slug_entregado_por_API}&incluir_hijos=1&agrupacion=producto&pagina=1&limite=24&vista=card
-GET /catalogo?marca={id_entregado_por_API}&agrupacion=producto&pagina=1&limite=24&vista=card
-GET /busqueda?q=Alimento%20para%20erizo&agrupacion=producto&pagina=1&limite=12&vista=card
-GET /busqueda_sugerencias?q=Alimento%20para%20erizo&agrupacion=producto&limite=6
+GET /catalogo?categoria_slug={slug_entregado_por_API}&incluir_hijos=1&pagina=1&limite=24&vista=card
+GET /catalogo?categoria={id_de_API}&marca={id_de_API}&pagina=1&limite=24&vista=card
+GET /busqueda?q=Alimento%20para%20erizo&pagina=1&limite=12&vista=card
+GET /busqueda_sugerencias?q=Alimento%20para%20erizo&limite=6
 ```
 
 Usar /busqueda para resultados inteligentes. /catalogo?q mantiene busqueda literal;
 no intercambiar endpoints entre pagina inicial y paginas siguientes. Enviar siempre
 la frase original, sin sustituirla por interpretaciones como "alimento".
 
-La API filtra, elige variante coincidente, agrupa, ordena y luego pagina.
+En categorias, la API filtra, elige variante coincidente, agrupa, ordena y luego pagina.
 Pintar depurar.items directamente. No fusionar por nombre ni eliminar repetidos
-despues de paginar. Sin agrupacion explicita el contrato sigue siendo SKU.
+despues de paginar. Catalogo sin categoria ni agrupacion explicita sigue siendo SKU.
 
 Usar depurar.paginacion.total y total_paginas para el listado. Con modo producto,
 unidad=grupos y total_skus es un contador separado. Los conteos de facetas,
@@ -52,8 +55,17 @@ Seguir los enlaces de paginacion de API conservando origen API, filtros, orden y
 no utilizarlos como canonical ni como URL visible del frontend.
 
 Sugerencias devuelve productos en depurar.grupos.productos; valor es el slug,
-no el ID. total_productos cuenta grupos cuando agrupacion=producto. Comparar su
+no el ID. total_productos cuenta SKU, no grupos. Comparar su
 prefijo con /busqueda por relevancia y mismos filtros, no con otros ordenamientos.
+
+Para "Filtro para pecera de 40 litros": se descartan conectores, filtro sigue siendo
+el producto solicitado y pecera/acuario puede reconocerse en categoria principal o
+alterna. Capacidad es preferencia: la coincidencia textual de 40 litros tiene prioridad,
+sin excluir otras opciones de filtros de acuario. Flujo 40 l/h no equivale a 40 litros.
+Pintar mensaje_cliente y no anunciar compatibilidad confirmada: cada item incluye
+coincidencia_busqueda.compatibilidad_capacidad_confirmada=false. Revisar la ficha.
+No se descarta una especie solicitada como erizo ni se prometen resultados para
+consultas sin producto/contexto reconocible o excluidas por filtros explicitos.
 
 ## Variantes e identidad
 
@@ -61,7 +73,8 @@ La tarjeta sigue representando un SKU real. Conservar id_publicacion, id_sku,
 nombre, slug/url/canonical, imagen, precio y permisos de esa seleccion.
 grupo_producto.id_producto_erp es identidad del grupo, nunca identidad de carrito.
 
-Si grupo_producto.agrupable=true, mostrar selector con variantes_preview (hasta 6,
+En tarjetas agrupadas de categoria o detalle, si grupo_producto.agrupable=true,
+mostrar selector con variantes_preview (hasta 6,
 incluida seleccion actual). variantes_preview_completo indica si estan todas;
 si es false, seguir variantes_url paginada cuando el usuario abra el selector.
 El preview incluye variantes publicadas del producto, aunque no coincidan todas
@@ -112,6 +125,6 @@ Con los datos publicados del diagnostico del 2026-09-25 comprobar:
   de variante conservan filtros, URL, precio/permisos e identidad de carrito.
 - API vacia o fallida muestra su estado, nunca tarjetas ficticias ni carga masiva.
 
-Pendientes: integrar y probar frontend, invalidar sus respuestas antiguas y completar
-textos comerciales aprobados. La aceptacion HTTP del backend ya paso el 2026-09-26;
-no sustituye la verificacion visual en frontend ni certifica todo el sitio para lanzamiento.
+Pendientes: desplegar esta revision del backend, repetir aceptacion HTTP, comprobar
+frontend, invalidar sus respuestas antiguas y completar textos comerciales aprobados.
+Las comprobaciones de versiones anteriores no certifican este cambio ni todo el sitio.

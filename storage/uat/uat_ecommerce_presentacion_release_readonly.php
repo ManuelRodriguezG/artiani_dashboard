@@ -5,6 +5,7 @@
  * Impacto: solo GET, o modelo local dentro de READ ONLY; no publica ni cambia datos.
  * Contrato: --base=https://sys.artiani.com.mx/ecommercePublico o --model; exit 1 ante fallo.
  * Los conteos de churro/erizo son fixtures publicados del diagnostico del 2026-09-25.
+ * Revision IA: Codex GPT-5 | 2026-09-26. Exige categorias_default_v2 e intencion_contextual_sql_v3.
  */
 if (PHP_SAPI !== 'cli') { http_response_code(404); exit; }
 $opciones = getopt('', array('base:', 'model'));
@@ -84,6 +85,7 @@ try {
   verificarRelease(($contrato['version'] ?? '') === 'presentacion_catalogo_v1',
     'API sin presentacion_catalogo_v1. No activar agrupacion en frontend: revisar despliegue/cache.');
   verificarRelease(($contrato['agrupacion_default'] ?? '') === 'sku', 'Default compatible SKU');
+  verificarRelease(($contrato['revision'] ?? '') === 'categorias_default_v2', 'Revision de categorias automaticas activa');
   verificarRelease(($contrato['descripcion']['fallback_erp'] ?? null) === false, 'Contrato sin fallback editorial ERP');
   $params = array('q' => 'churro', 'vista' => 'card', 'limite' => 12, 'agrupacion' => 'producto');
   $grupo = consultarRelease('catalogo', $params);
@@ -92,6 +94,19 @@ try {
   verificarRelease(($grupo['paginacion']['total'] ?? 0) === 2 && ($grupo['paginacion']['total_skus'] ?? 0) === 6,
     'Fixture churro: dos grupos y seis SKUs; si cambio el catalogo, revisar fixture sin omitir el control de agrupacion');
   verificarRelease(count($grupo['items']) === 2, 'Dos tarjetas en respuesta');
+  $categoria = $grupo['items'][0]['categoria_obj'];
+  $categoriaBase = array('categoria_slug' => $categoria['path_slug'], 'vista' => 'card', 'limite' => 12);
+  $categoriaAuto = consultarRelease('catalogo', $categoriaBase);
+  $categoriaExplicita = consultarRelease('catalogo', array_merge($categoriaBase, array('agrupacion' => 'producto')));
+  verificarRelease($categoriaAuto['agrupacion'] === 'producto' && $categoriaAuto['paginacion']['unidad'] === 'grupos', 'Categoria por slug agrupa automaticamente');
+  verificarRelease(array_column($categoriaAuto['items'], 'id_publicacion') === array_column($categoriaExplicita['items'], 'id_publicacion'), 'Categoria automatica y explicita equivalentes');
+  $categoriaId = consultarRelease('catalogo', array('categoria' => $categoria['id'], 'vista' => 'card', 'limite' => 12));
+  verificarRelease(array_column($categoriaAuto['items'], 'id_publicacion') === array_column($categoriaId['items'], 'id_publicacion'), 'Categoria ID y slug equivalentes sin parametro');
+  $categoria2 = consultarRelease('catalogo', array_merge($categoriaBase, array('pagina' => 2)));
+  $categoria24 = consultarRelease('catalogo', array_merge($categoriaBase, array('limite' => 24)));
+  $recorridoCategoria = array_merge(array_column($categoriaAuto['items'], 'id_producto_erp'), array_column($categoria2['items'], 'id_producto_erp'));
+  verificarRelease($recorridoCategoria === array_column($categoria24['items'], 'id_producto_erp'), 'Paginacion de categoria agrupada conserva orden entre limites');
+  verificarRelease(count($recorridoCategoria) === count(array_unique($recorridoCategoria)), 'Categoria sin grupos duplicados entre paginas');
   $recorrido = array();
   foreach (array(1, 2) as $pagina) {
     $parte = consultarRelease('catalogo', array_merge($params, array('limite' => 1, 'pagina' => $pagina)));
@@ -122,11 +137,16 @@ try {
   verificarRelease(stripos($detalle['item']['descripcion_publica'], '4 kgrs') === false, 'Ficha 100 g no anuncia empaque de 4 kg');
   verificarRelease($detalle['item']['id_sku'] === 1759 && $detalle['item']['slug'] === 'alimento-churro-blanco-para-peces-100g', 'Identidad y slug conservados');
   $erizo = consultarRelease('busqueda', array('q' => 'Alimento para erizo', 'agrupacion' => 'producto', 'limite' => 12, 'vista' => 'card'));
-  verificarRelease(($erizo['motor_version'] ?? '') === 'terminos_and_sql_v2', 'Motor de busqueda actualizado');
+  verificarRelease(($erizo['motor_version'] ?? '') === 'intencion_contextual_sql_v3', 'Motor de busqueda contextual actualizado');
   verificarRelease($erizo['total'] === 8 && count(array_unique(array_column($erizo['items'], 'id_producto_erp'))) === 8, 'Ocho alimentos distintos, sin fusionar');
   $sugerencias = consultarRelease('busqueda_sugerencias', array('q' => 'Alimento para erizo', 'agrupacion' => 'producto', 'limite' => 6));
-  verificarRelease(($sugerencias['agrupacion'] ?? '') === 'producto' && $sugerencias['total_productos'] === 8, 'Sugerencias con mismo modo y total');
+  verificarRelease(($sugerencias['agrupacion'] ?? '') === 'sku' && $erizo['agrupacion'] === 'sku' && $sugerencias['total_productos'] === 8, 'Busqueda y sugerencias individuales aun con parametro heredado');
   verificarRelease(array_column($sugerencias['grupos']['productos'], 'valor') === array_slice(array_column($erizo['items'], 'slug'), 0, 6), 'Sugerencias consistentes con resultados');
+  $busquedaChurro = consultarRelease('busqueda', array('q' => 'churro', 'agrupacion' => 'producto', 'vista' => 'card', 'limite' => 12));
+  verificarRelease($busquedaChurro['agrupacion'] === 'sku' && $busquedaChurro['total'] === 6, 'Busqueda conserva seis SKU aunque cliente antiguo pida agrupar');
+  verificarRelease($busquedaChurro['items'][0]['grupo_producto']['frontend']['mostrar_como_producto_agrupado'] === false, 'Busqueda no instruye a frontend a agrupar tarjetas');
+  $filtroCapacidad = consultarRelease('busqueda', array('q' => 'Filtro para pecera de 40 litros', 'limite' => 6, 'vista' => 'card'));
+  verificarRelease($filtroCapacidad['total'] > 0 && $filtroCapacidad['mensaje_cliente'] !== '', 'Busqueda de filtro retorna opciones con aviso de capacidad');
   $salida = array('ok' => true, 'contrato' => 'presentacion_catalogo_v1', 'churro_grupos' => 2, 'erizo_grupos' => 8);
 } catch (Throwable $e) {
   $codigo = 1;

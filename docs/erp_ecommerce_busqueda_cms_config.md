@@ -2,10 +2,12 @@
 
 Documentacion IA: Codex GPT-5 | Fecha: 2026-09-09
 
-## Continuidad del motor al 2026-09-25
+## Continuidad del motor al 2026-09-26
 
-IA: Codex GPT-6. La correccion `terminos_and_sql_v2` usa todos los conceptos de la
-frase como obligatorios. Los sinonimos son alternativas dentro de cada concepto;
+IA: Codex GPT-5. `intencion_contextual_sql_v3` conserva producto y contexto, pero
+capacidad en litros es preferencia de ranking, no filtro obligatorio. El contexto
+pecera/acuario tambien puede coincidir en categorias principales/alternas.
+Los sinonimos son alternativas dentro de cada concepto;
 `prioridad_terminos` prioriza relevancia pero no elimina las otras palabras.
 Los boosts se aplican en SQL antes de paginar, incluidos nombre/categoria/marca/SKU,
 categoria probable, imagen y precio. CMS conserva su clave de configuracion.
@@ -13,8 +15,9 @@ Los sinonimos de varias palabras no son parte del motor actual; usar equivalenci
 de un termino. Las etiquetas de mascota/categoria sirven de contexto editorial,
 no bastan para clasificar alimento generico como coincidencia especifica de erizo.
 
-Estado actualizado 2026-09-26: activo en sys, con 42 comprobaciones de regresion
-HTTP aprobadas; pendiente QA del buscador frontend. Contrato publico: `/ecommercePublico/busqueda_manifest`, campo
+Estado: v3 local, pendiente nuevo despliegue Git y pruebas HTTP. La validacion
+remota anterior certifico v2. Busqueda/sugerencias siempre SKU; categoria en catalogo
+agrupa automaticamente. Contrato publico: `/ecommercePublico/busqueda_manifest`, campo
 `depurar.motor_version`. Detalle de pruebas y handoff en
 `docs/erp_ecommerce_busqueda_inteligente_frontend.md`.
 

@@ -4,6 +4,7 @@
  * Proposito: regresion real de relevancia, sugerencias y paginacion antes del lanzamiento.
  * Impacto: Ecommerce publico; fallo devuelve exit 1, nunca registra eventos ni altera productos.
  * Contrato: --base=https://sys.artiani.com.mx (GET) o --model (codigo local, conexion configurada, READ ONLY).
+ * Revision IA: Codex GPT-5 | 2026-09-26. Capacidad orientativa y contexto por categoria, sin mezclar especies.
  */
 if (PHP_SAPI !== 'cli') { http_response_code(404); exit; }
 $opciones = getopt('', array('base::', 'model'));
@@ -73,9 +74,17 @@ try {
     }
     if (strpos($consulta, '40 litros') !== false) {
       comprobarRelevancia($busqueda['interpretacion']['atributos_detectados']['capacidad_litros'] === 40, 'Conserva capacidad solicitada');
+      comprobarRelevancia($busqueda['total'] > 0, 'Capacidad orientativa no oculta los filtros de acuario publicados');
+      comprobarRelevancia(!in_array('40', $busqueda['interpretacion']['terminos_requeridos'], true), 'Capacidad no es requisito literal');
+      comprobarRelevancia($busqueda['mensaje_cliente'] !== '', 'Avisar que se debe revisar capacidad');
       foreach ($busqueda['items'] as $item) {
-        comprobarRelevancia(preg_match('/\b40\s*(l|lt|lts|litros?)\b/i', $item['nombre'] . ' ' . $item['presentacion']) === 1, 'No confundir 40 cm o 400 l/h con 40 litros');
+        comprobarRelevancia($item['coincidencia_busqueda']['compatibilidad_capacidad_confirmada'] === false, 'No certificar capacidad por coincidencia textual');
       }
+      $pagina2 = consultarRelevancia('busqueda', array('q' => $consulta, 'pagina' => 2, 'limite' => 12));
+      $veinticuatro = consultarRelevancia('busqueda', array('q' => $consulta, 'limite' => 24));
+      comprobarRelevancia(array_merge(slugsRelevancia($busqueda['items']), slugsRelevancia($pagina2['items'])) === slugsRelevancia($veinticuatro['items']), 'Capacidad orientativa mantiene orden y total antes de paginar');
+      $compacta = consultarRelevancia('busqueda', array('q' => 'Filtro para pecera de 40l', 'limite' => 12));
+      comprobarRelevancia(slugsRelevancia($compacta['items']) === slugsRelevancia($busqueda['items']), '40l y 40 litros interpretan lo mismo');
     }
     $resumen[$consulta] = array('total' => $busqueda['total'], 'sugerencias' => count($a), 'query' => $busqueda['query_usada_catalogo']);
   }
@@ -137,8 +146,8 @@ function comprobarRelevancia($ok, $mensaje) {
 }
 
 /**
- * IA: Codex GPT-6 | 2026-09-25. Fixtures como SELECT de constantes, sin tablas temporales ni escrituras.
- * Verifica positivos/negativos de capacidad y acentos aunque el catalogo real no tenga un filtro de 40 l.
+ * IA: Codex GPT-5 | 2026-09-26. Fixtures SELECT sin tablas temporales ni escrituras.
+ * Verifica ranking por capacidad, contexto de categoria y no confundir capacidad con caudal.
  */
 function probarMotorSqlFixtures($modelo, $db) {
   $interpretar = new ReflectionMethod('EcommerceCatalogoPublico', 'interpretarBusquedaPublica');
@@ -158,7 +167,10 @@ function probarMotorSqlFixtures($modelo, $db) {
     10 => 'Shampoo erizo',
     11 => 'Arenero cubierto',
     12 => 'Areneros grandes',
-    13 => "Juguete p\u{00e1}jaro"
+    13 => "Juguete p\u{00e1}jaro",
+    14 => 'Filtro aquaflow',
+    15 => 'Filtro bebedero gato',
+    16 => 'Filtro pecera 40 l/h'
   );
   $selects = array();
   foreach ($nombres as $id => $nombre) {
@@ -166,12 +178,12 @@ function probarMotorSqlFixtures($modelo, $db) {
   }
   $from = ' FROM (' . implode(' UNION ALL ', $selects) . ') pub
     CROSS JOIN (SELECT NULL nombre, NULL sku, -1 id_sku) s
-    CROSS JOIN (SELECT NULL nombre) p CROSS JOIN (SELECT NULL nombre) m
-    CROSS JOIN (SELECT NULL nombre, NULL ruta) c
+    CROSS JOIN (SELECT NULL nombre, -1 id_producto_erp) p CROSS JOIN (SELECT NULL nombre) m
+    LEFT JOIN (SELECT 14 id_pub, NULL nombre, \'Acuario y peces / Filtracion y oxigenacion\' ruta) c ON c.id_pub=pub.id_publicacion
     CROSS JOIN (SELECT NULL url_imagen) img_sku CROSS JOIN (SELECT NULL url_imagen) img_prod
     CROSS JOIN (SELECT 0 precio) pr';
   foreach (array(
-    'Filtro para pecera de 40 litros' => array(1, 2),
+    'Filtro para pecera de 40 litros' => array(1, 2, 4, 6, 7, 14, 16),
     'Alimento para erizo' => array(5, 8),
     'areneros' => array(11, 12),
     'aren' => array(11, 12),
@@ -182,7 +194,17 @@ function probarMotorSqlFixtures($modelo, $db) {
     $consulta = 'SELECT pub.id_publicacion, ' . $sql['score'] . ' score' . $from . ' WHERE ' . implode(' AND ', $sql['where']) . ' ORDER BY score DESC, pub.id_publicacion';
     $stmt = $db->prepare($consulta);
     $stmt->execute(array_merge($sql['params'], $sql['params_score']));
-    $ids = array_map('intval', $stmt->fetchAll(PDO::FETCH_COLUMN));
+    $filas = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    $ids = array_map('intval', array_column($filas, 'id_publicacion'));
+    if (strpos($q, '40 litros') !== false) {
+      comprobarRelevancia(array_slice($ids, 0, 2) === array(1, 2), 'Capacidad textual prioriza antes de limitar');
+      foreach ($filas as $fila) {
+        if (!in_array(intval($fila['id_publicacion']), array(1, 2), true)) {
+          comprobarRelevancia(intval($fila['score']) < 10000, '40 l/h, 400 litros/h y 25 litros no reciben boost de 40 litros');
+        }
+      }
+      sort($ids);
+    }
     comprobarRelevancia($ids === $esperado, 'Fixture SQL: ' . $q);
   }
 }

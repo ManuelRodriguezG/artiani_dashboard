@@ -7,6 +7,7 @@
 - No realizar cambios en `C:\xampp\htdocs\panel` para este proyecto salvo que el dueno lo pida explicitamente.
 - Si la sesion, IDE o herramienta muestra otra ruta, confirmar y usar `C:\xampp\htdocs\panel_de_control` como `workdir` antes de editar.
 - Los documentos, controladores, modelos, vistas y assets nuevos de ERP/POS deben crearse en `panel_de_control`.
+- La base de datos operativa usada actualmente por el proyecto es productiva. Tratar cualquier escritura, DDL, script `apply_authorized`, migracion, limpieza, truncado o actualizacion masiva como cambio sobre productivo aunque se ejecute desde XAMPP/local. No asumir `artianilocal` como base de pruebas salvo que el dueno lo indique explicitamente para una tarea puntual.
 Este archivo es la puerta de entrada para agentes que trabajen en este proyecto. Su objetivo es reducir lecturas repetidas, ubicar rapido las reglas de negocio y evitar inventar decisiones. Si una regla de negocio no esta clara en codigo o docs, pregunta al dueno del proyecto antes de implementarla.
 
 ## Lectura inicial recomendada
@@ -192,12 +193,14 @@ Conserva este contrato salvo que el modulo ya use otro formato.
 
 ## Esquema y base de datos
 
+- El entorno actual puede apuntar a base productiva segun `app/config/mysql.php` y `SERVER_NAME`; no exponer credenciales ni asumir que una conexion local es segura para pruebas destructivas.
+- Las consultas de lectura pueden usarse para diagnostico puntual, cuidando volumen y filtros; cualquier escritura requiere autorizacion explicita del dueno.
 - `app/core/DBSchema.php` provee helpers para listar tablas, verificar columnas/indices y generar/ejecutar DDL.
 - Los modelos `*Esquema.php` deben preferirse para evolucionar tablas del modulo.
 - Los endpoints de esquema suelen separar auditoria de actualizacion.
 - El dump `dbesquema/artianilocal.sql` es pesado y debe ser ultima opcion para busquedas puntuales.
 - Si falta una tabla/columna, primero busca si existe un `*Esquema.php` que ya la declare.
-- Para respaldos externos antes de DDL o scripts `apply_authorized`, usar la ruta estandar `C:\xampp\panel_db_backups` y documentar el archivo en `docs/erp_respaldo_bd_estandar.md`.
+- Para respaldos externos antes de DDL, scripts `apply_authorized`, escrituras masivas o cambios de datos sensibles, usar la ruta estandar `C:\xampp\panel_db_backups` y documentar el archivo en `docs/erp_respaldo_bd_estandar.md`.
 
 ## Comandos y verificaciones utiles
 

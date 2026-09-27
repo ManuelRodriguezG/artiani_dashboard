@@ -26,6 +26,18 @@ Tablero vivo consolidado:
 
 La estrategia actual es construir todo en ERP, sin depender de tablas `ecom_*`. Ecommerce debe alimentarse despues desde ERP, no al reves.
 
+## Contexto operativo actual de base de datos
+
+Documentacion IA: Codex GPT-5  
+Fecha: 2026-09-26  
+Modulo: Compras / Solicitudes / Ordenes
+
+- El proyecto `panel_de_control` esta trabajando actualmente contra base de datos productiva configurada por el entorno.
+- No asumir que `artianilocal` es una base de pruebas para Compras; si se menciona en respaldos antiguos o dumps, tratarlo como referencia historica salvo indicacion explicita del dueno.
+- Cualquier escritura en Compras, Proveedores, Catalogo, Almacen, pagos, adjuntos, XML, costos, permisos o esquemas puede afectar operacion real.
+- Antes de DDL, scripts de esquema, truncados, limpiezas, recalculos masivos o actualizaciones correctivas, solicitar autorizacion explicita y generar respaldo externo en `C:\xampp\panel_db_backups`.
+- Las pruebas UAT del modulo deben preferir operaciones funcionales controladas desde la UI o endpoints ya existentes; no hacer escrituras directas en base salvo autorizacion.
+
 ## Principios del modulo
 
 - Todo endpoint debe validar sesion.
@@ -1004,3 +1016,34 @@ Modulo: Compras / Sugerido de compra
 - Sugerido no debe guardar ni duplicar rutas de imagen en sus tablas de detalle; solo las consulta para apoyar la captura.
 - Si el producto no tiene imagen, la UI debe mostrar un placeholder discreto para evidenciar que falta saneamiento visual en Catalogo.
 - La accion `Limpiar busqueda` solo borra texto y resultados del proveedor; no debe eliminar partidas ya agregadas al sugerido.
+
+## Decision operativa: XML y relacion proveedor/SKU
+
+Documentacion IA: Codex GPT-5  
+Fecha: 2026-09-26  
+Modulo: Compras / Ordenes / XML
+
+- Si un concepto del XML coincide con una relacion activa proveedor/SKU, debe tratarse como producto registrado aunque no exista todavia una partida relacionada en la orden.
+- El resultado `coincidencia_catalogo` es una coincidencia valida y no debe generar pendiente de alta.
+- Si un SKU proveedor coincide con varias relaciones activas, el resultado correcto es `ambigua`; no debe mostrarse como producto pendiente de alta, sino como pendiente de seleccionar variante/SKU ERP.
+- La conciliacion de XML debe buscar por SKU del proveedor, codigo interno, codigo de barras y SKU ERP, aceptando diferencias menores de guiones, espacios y mayusculas.
+- Este proceso no crea productos ni relaciones nuevas; solo usa las relaciones activas de Proveedores ERP y Catalogo ERP.
+- Si despues de relacionar un SKU en proveedor/catalogo se vuelve a abrir la orden y se carga/consulta el XML, debe recalcular la coincidencia antes de marcar un producto como pendiente.
+
+## Politica de saneamiento: relaciones proveedor/SKU
+
+Documentacion IA: Codex GPT-5  
+Fecha: 2026-09-26  
+Modulo: Compras / Proveedores / Catalogo
+
+- Compras debe confiar primero en relaciones proveedor/SKU respaldadas por un renglon real de lista del proveedor (`erp_proveedores_listas_detalle_erp` + `erp_proveedores_listas_erp`).
+- Las relaciones activas en `erp_catalogo_sku_proveedores` sin respaldo de lista pueden existir como historicas o manuales, pero no deben ganar sobre una relacion respaldada por lista cuando el XML o el buscador traen el SKU/codigo del proveedor.
+- Si un SKU proveedor tiene una sola relacion respaldada por lista y varias relaciones sueltas, la relacion de lista gana automaticamente.
+- Si un SKU proveedor tiene dos o mas relaciones respaldadas por lista para el mismo proveedor, el caso sigue siendo ambiguo y debe resolverse manualmente.
+- No se deben borrar ni inactivar relaciones sueltas sin respaldo externo, autorizacion y reporte previo de impacto.
+- Antes de limpiar datos, clasificar:
+  - `mantener`: relacion respaldada por lista, costo vigente o uso operativo actual.
+  - `revisar`: relacion suelta usada en solicitudes, ordenes, recepciones, costos o historial.
+  - `candidata_inactivar`: relacion suelta sin lista, sin costo vigente y sin uso operativo conocido.
+  - `ambigua_real`: varias relaciones respaldadas por lista para el mismo SKU proveedor.
+- La limpieza debe hacerse por inactivacion logica, no por borrado fisico, salvo que el dueno autorice explicitamente otra politica.

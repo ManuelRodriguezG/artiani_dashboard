@@ -3,6 +3,7 @@
  * IA: Codex GPT-6 | 2026-09-25. Regresion de contenido y agrupacion con datos reales y fixtures SQL.
  * Impacto: contrato frontend; solo SELECT dentro de transaccion READ ONLY, sin migraciones ni eventos.
  * Uso: php storage/uat/uat_ecommerce_presentacion_readonly.php
+ * Revision IA: Codex GPT-5 | 2026-09-26. Categorias automaticas y busqueda individual aun con parametro heredado.
  */
 if (PHP_SAPI !== 'cli') { http_response_code(404); exit; }
 $_SERVER['SERVER_NAME'] = 'panel.com.local';
@@ -117,8 +118,13 @@ try {
   }
   foreach ($filtros as $filtro) {
     $base = array_merge(array('q' => 'churro', 'limite' => 60, 'orden' => 'precio_desc'), $filtro);
-    $individuales = catalogoPresentacion($modelo, $base);
+    $individuales = catalogoPresentacion($modelo, array_merge($base, array('agrupacion' => 'sku')));
     $agrupados = catalogoPresentacion($modelo, array_merge($base, array('agrupacion' => 'producto')));
+    if (isset($filtro['categoria_id'])) {
+      $automaticos = catalogoPresentacion($modelo, $base);
+      comprobarPresentacion($automaticos['agrupacion'] === 'producto' && $automaticos['paginacion']['unidad'] === 'grupos', 'Categoria agrupa sin pedir parametro');
+      comprobarPresentacion(array_column($automaticos['items'], 'id_publicacion') === array_column($agrupados['items'], 'id_publicacion'), 'Categoria automatica equivale al modo explicito');
+    }
     comprobarPresentacion($agrupados['paginacion']['total'] === count(array_unique(array_column($individuales['items'], 'id_producto_erp'))), 'Marca/categoria/rama: filtrar antes de agrupar');
     foreach ($agrupados['items'] as $item) {
       comprobarPresentacion(in_array($item['id_publicacion'], array_column($individuales['items'], 'id_publicacion'), true), 'Representante pertenece al conjunto filtrado');
@@ -128,7 +134,8 @@ try {
   }
   $sg = respuestaPresentacion($modelo->busquedaSugerenciasPublicas(array('q' => 'churro', 'agrupacion' => 'producto', 'limite' => 6)));
   $bg = respuestaPresentacion($modelo->busquedaInteligentePublica(array('q' => 'churro', 'agrupacion' => 'producto', 'limite' => 12)));
-  comprobarPresentacion(array_column($sg['grupos']['productos'], 'valor') === array_column($bg['items'], 'slug'), 'Sugerencias agrupadas usan mismo representante y ranking');
+  comprobarPresentacion($sg['agrupacion'] === 'sku' && $bg['agrupacion'] === 'sku' && $bg['total'] === 6, 'Busqueda ignora agrupacion heredada y muestra seis SKUs');
+  comprobarPresentacion(array_column($sg['grupos']['productos'], 'valor') === array_column($bg['items'], 'slug'), 'Sugerencias individuales usan mismo ranking');
   $incorrecto = $modelo->catalogoPublico(array('agrupacion' => 'inexistente'));
   comprobarPresentacion(!empty($incorrecto['error']), 'Modo invalido no se simula como exito');
   $resultados['churro'] = array('skus' => 6, 'tarjetas' => 2, 'variantes_grupo_50' => count($preview), 'descripcion_100g' => $detalle['item']['descripcion_publica']);

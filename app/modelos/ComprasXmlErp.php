@@ -151,6 +151,8 @@ class ComprasXmlErp extends CRUD {
      * Fecha: 2026-06-15
      * Descripcion: En parseo temporal de XML, reconoce conceptos contra relaciones activas
      * SKU-proveedor sin crear productos ni modificar contratos de proveedor.
+     * Actualizacion IA: Codex GPT-5 | Fecha: 2026-09-26
+     * Impacto: usa tambien campos de listas de proveedor y trata coincidencia_catalogo como conciliacion valida.
      */
     private function enriquecerConceptosConProveedor($conceptos, $idProveedor) {
         if (!is_array($conceptos) || intval($idProveedor) <= 0) {
@@ -165,6 +167,11 @@ class ComprasXmlErp extends CRUD {
                 continue;
             }
             if (!empty($match["ambigua"])) {
+                $conceptos[$idx]["sku_proveedor"] = isset($concepto["no_identificacion"]) ? trim((string) $concepto["no_identificacion"]) : "";
+                $conceptos[$idx]["tipo_item"] = "producto_ambiguo";
+                $conceptos[$idx]["producto_registrado"] = 0;
+                $conceptos[$idx]["requiere_revision"] = 1;
+                $conceptos[$idx]["candidatos_sku_proveedor"] = isset($match["candidatos"]) ? $match["candidatos"] : array();
                 $conceptos[$idx]["resultado_conciliacion"] = "ambigua";
                 continue;
             }
@@ -189,12 +196,39 @@ class ComprasXmlErp extends CRUD {
         if ($clave === "" && $descripcion === "") {
             return null;
         }
+        $claveNormalizada = $this->normalizarClaveProveedor($clave);
+        $descripcionNormalizada = $this->normalizarClaveProveedor($descripcion);
         $stmt = $db->prepare("SELECT s.id_sku, s.sku, s.nombre, COALESCE(u.abreviatura, '') unidad,
                 sp.id_sku_proveedor, sp.sku_proveedor, COALESCE(sp.costo_ultimo, 0) costo_ultimo,
                 CASE
-                    WHEN :clave_case <> '' AND LOWER(TRIM(sp.sku_proveedor)) = LOWER(TRIM(:clave_sp_case)) THEN 1
-                    WHEN :clave_sku_case <> '' AND LOWER(TRIM(s.sku)) = LOWER(TRIM(:clave_sku_val_case)) THEN 2
-                    WHEN :desc_case <> '' AND LOWER(TRIM(s.nombre)) = LOWER(TRIM(:desc_val_case)) THEN 3
+                    WHEN :clave_lista_case <> '' AND EXISTS (
+                        SELECT 1 FROM erp_proveedores_listas_detalle_erp ldp
+                        INNER JOIN erp_proveedores_listas_erp lp ON lp.id_lista_proveedor_erp=ldp.id_lista_proveedor_erp
+                        WHERE lp.id_proveedor=sp.id_proveedor
+                          AND ldp.id_sku_proveedor=sp.id_sku_proveedor
+                          AND ldp.id_sku=sp.id_sku
+                          AND (
+                            LOWER(TRIM(ldp.sku_proveedor))=LOWER(TRIM(:clave_lista_val_case))
+                            OR LOWER(TRIM(ldp.codigo_interno))=LOWER(TRIM(:clave_lista_val_case))
+                            OR LOWER(TRIM(ldp.codigo_barras))=LOWER(TRIM(:clave_lista_val_case))
+                          )
+                    ) THEN 1
+                    WHEN :clave_case <> '' AND LOWER(TRIM(sp.sku_proveedor)) = LOWER(TRIM(:clave_sp_case)) THEN 2
+                    WHEN :clave_sku_case <> '' AND LOWER(TRIM(s.sku)) = LOWER(TRIM(:clave_sku_val_case)) THEN 3
+                    WHEN :clave_norm_lista_case <> '' AND EXISTS (
+                        SELECT 1 FROM erp_proveedores_listas_detalle_erp ldn
+                        INNER JOIN erp_proveedores_listas_erp ln ON ln.id_lista_proveedor_erp=ldn.id_lista_proveedor_erp
+                        WHERE ln.id_proveedor=sp.id_proveedor
+                          AND ldn.id_sku_proveedor=sp.id_sku_proveedor
+                          AND ldn.id_sku=sp.id_sku
+                          AND (
+                            LOWER(REPLACE(REPLACE(TRIM(ldn.sku_proveedor), '-', ''), ' ', ''))=LOWER(:clave_norm_lista_val_case)
+                            OR LOWER(REPLACE(REPLACE(TRIM(ldn.codigo_interno), '-', ''), ' ', ''))=LOWER(:clave_norm_lista_val_case)
+                            OR LOWER(REPLACE(REPLACE(TRIM(ldn.codigo_barras), '-', ''), ' ', ''))=LOWER(:clave_norm_lista_val_case)
+                          )
+                    ) THEN 4
+                    WHEN :clave_norm_case <> '' AND LOWER(REPLACE(REPLACE(TRIM(sp.sku_proveedor), '-', ''), ' ', '')) = LOWER(:clave_norm_val_case) THEN 5
+                    WHEN :desc_case <> '' AND LOWER(TRIM(s.nombre)) = LOWER(TRIM(:desc_val_case)) THEN 7
                     ELSE 9
                 END prioridad
             FROM erp_catalogo_sku_proveedores sp
@@ -203,8 +237,41 @@ class ComprasXmlErp extends CRUD {
             WHERE sp.id_proveedor=:proveedor AND sp.estatus='activo'
               AND (
                 (:clave_cmp <> '' AND LOWER(TRIM(sp.sku_proveedor)) = LOWER(TRIM(:clave_sp)))
+                OR (:clave_lista_cmp <> '' AND EXISTS (
+                    SELECT 1 FROM erp_proveedores_listas_detalle_erp ld
+                    INNER JOIN erp_proveedores_listas_erp l ON l.id_lista_proveedor_erp=ld.id_lista_proveedor_erp
+                    WHERE l.id_proveedor=sp.id_proveedor
+                      AND ld.id_sku_proveedor=sp.id_sku_proveedor
+                      AND ld.id_sku=sp.id_sku
+                      AND (
+                        LOWER(TRIM(ld.sku_proveedor))=LOWER(TRIM(:clave_lista_val))
+                        OR LOWER(TRIM(ld.codigo_interno))=LOWER(TRIM(:clave_lista_val))
+                        OR LOWER(TRIM(ld.codigo_barras))=LOWER(TRIM(:clave_lista_val))
+                      )
+                ))
                 OR (:clave_sku_cmp <> '' AND LOWER(TRIM(s.sku)) = LOWER(TRIM(:clave_sku_val)))
+                OR (:clave_norm_cmp <> '' AND LOWER(REPLACE(REPLACE(TRIM(sp.sku_proveedor), '-', ''), ' ', '')) = LOWER(:clave_norm_val))
+                OR (:clave_norm_lista_cmp <> '' AND EXISTS (
+                    SELECT 1 FROM erp_proveedores_listas_detalle_erp ldx
+                    INNER JOIN erp_proveedores_listas_erp lx ON lx.id_lista_proveedor_erp=ldx.id_lista_proveedor_erp
+                    WHERE lx.id_proveedor=sp.id_proveedor
+                      AND ldx.id_sku_proveedor=sp.id_sku_proveedor
+                      AND ldx.id_sku=sp.id_sku
+                      AND (
+                        LOWER(REPLACE(REPLACE(TRIM(ldx.sku_proveedor), '-', ''), ' ', ''))=LOWER(:clave_norm_lista_val)
+                        OR LOWER(REPLACE(REPLACE(TRIM(ldx.codigo_interno), '-', ''), ' ', ''))=LOWER(:clave_norm_lista_val)
+                        OR LOWER(REPLACE(REPLACE(TRIM(ldx.codigo_barras), '-', ''), ' ', ''))=LOWER(:clave_norm_lista_val)
+                      )
+                ))
                 OR (:desc_cmp <> '' AND LOWER(TRIM(s.nombre)) = LOWER(TRIM(:desc_val)))
+                OR (:desc_norm_cmp <> '' AND EXISTS (
+                    SELECT 1 FROM erp_proveedores_listas_detalle_erp ldd
+                    INNER JOIN erp_proveedores_listas_erp lpd ON lpd.id_lista_proveedor_erp=ldd.id_lista_proveedor_erp
+                    WHERE lpd.id_proveedor=sp.id_proveedor
+                      AND ldd.id_sku_proveedor=sp.id_sku_proveedor
+                      AND ldd.id_sku=sp.id_sku
+                      AND LOWER(REPLACE(REPLACE(TRIM(ldd.descripcion_proveedor), '-', ''), ' ', ''))=LOWER(:desc_norm_val)
+                ))
               )
             ORDER BY prioridad ASC, sp.es_preferido DESC, sp.id_sku_proveedor DESC
             LIMIT 2");
@@ -212,23 +279,37 @@ class ComprasXmlErp extends CRUD {
             ":proveedor" => intval($idProveedor),
             ":clave_case" => $clave,
             ":clave_sp_case" => $clave,
+            ":clave_lista_case" => $clave,
+            ":clave_lista_val_case" => $clave,
             ":clave_sku_case" => $clave,
             ":clave_sku_val_case" => $clave,
+            ":clave_norm_case" => $claveNormalizada,
+            ":clave_norm_val_case" => $claveNormalizada,
+            ":clave_norm_lista_case" => $claveNormalizada,
+            ":clave_norm_lista_val_case" => $claveNormalizada,
             ":desc_case" => $descripcion,
             ":desc_val_case" => $descripcion,
             ":clave_cmp" => $clave,
             ":clave_sp" => $clave,
+            ":clave_lista_cmp" => $clave,
+            ":clave_lista_val" => $clave,
             ":clave_sku_cmp" => $clave,
             ":clave_sku_val" => $clave,
+            ":clave_norm_cmp" => $claveNormalizada,
+            ":clave_norm_val" => $claveNormalizada,
+            ":clave_norm_lista_cmp" => $claveNormalizada,
+            ":clave_norm_lista_val" => $claveNormalizada,
             ":desc_cmp" => $descripcion,
-            ":desc_val" => $descripcion
+            ":desc_val" => $descripcion,
+            ":desc_norm_cmp" => $descripcionNormalizada,
+            ":desc_norm_val" => $descripcionNormalizada
         ));
         $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
         if (count($rows) === 0) {
             return null;
         }
         if (count($rows) > 1 && intval($rows[0]["prioridad"]) === intval($rows[1]["prioridad"])) {
-            return array("ambigua" => true);
+            return array("ambigua" => true, "candidatos" => array_slice($rows, 0, 10));
         }
         return $rows[0];
     }
@@ -238,7 +319,7 @@ class ComprasXmlErp extends CRUD {
             $db = $this->getConexion();
             $stmt = $db->prepare("SELECT d.*,
                 COUNT(c.id_documento_concepto) conceptos,
-                SUM(c.resultado_conciliacion='coincidencia_exacta') coincidencias,
+                SUM(c.resultado_conciliacion IN ('coincidencia_exacta','coincidencia_catalogo','coincidencia_manual')) coincidencias,
                 SUM(c.resultado_conciliacion='sin_coincidencia') sin_coincidencia
                 FROM erp_compras_documentos_fiscales d
                 LEFT JOIN erp_compras_documentos_fiscales_conceptos c
@@ -439,6 +520,7 @@ class ComprasXmlErp extends CRUD {
                 c.valor_unitario costo_xml, c.importe, c.descuento,
                 c.iva_porcentaje, c.ieps_porcentaje, c.resultado_conciliacion,
                 c.observaciones_conciliacion, f.uuid, f.serie, f.folio,
+                COALESCE(sp.sku_proveedor, '') sku_proveedor,
                 d.sku sku_orden, d.nombre_producto nombre_orden,
                 d.cantidad cantidad_orden, d.costo_unitario costo_orden,
                 CASE WHEN d.id_detalle IS NULL THEN NULL
@@ -450,6 +532,8 @@ class ComprasXmlErp extends CRUD {
                     ON f.id_documento_fiscal=c.id_documento_fiscal
                 LEFT JOIN erp_compras_ordenes_detalle d
                     ON d.id_detalle=c.id_orden_detalle AND d.id_orden_compra=f.id_orden_compra
+                LEFT JOIN erp_catalogo_sku_proveedores sp
+                    ON sp.id_sku_proveedor=c.id_sku_proveedor
                 WHERE f.id_orden_compra=:orden
                 ORDER BY f.id_documento_fiscal DESC, c.id_documento_concepto");
             $stmt->execute(array(":orden" => $idOrden));
@@ -460,11 +544,11 @@ class ComprasXmlErp extends CRUD {
                 d.costo_unitario, d.id_solicitud_detalle,
                 COALESCE(SUM(CASE WHEN f.id_documento_fiscal IS NOT NULL
                     AND c.resultado_conciliacion IN
-                    ('coincidencia_exacta','coincidencia_manual')
+                    ('coincidencia_exacta','coincidencia_catalogo','coincidencia_manual')
                     THEN c.cantidad ELSE 0 END),0) cantidad_xml,
                 COUNT(CASE WHEN f.id_documento_fiscal IS NOT NULL
                     AND c.resultado_conciliacion IN
-                    ('coincidencia_exacta','coincidencia_manual')
+                    ('coincidencia_exacta','coincidencia_catalogo','coincidencia_manual')
                     THEN 1 END) conceptos_relacionados
                 FROM erp_compras_ordenes_detalle d
                 LEFT JOIN erp_compras_documentos_fiscales_conceptos c
@@ -490,7 +574,7 @@ class ComprasXmlErp extends CRUD {
             );
             foreach ($conceptos as $concepto) {
                 if (in_array($concepto["resultado_conciliacion"],
-                    array("coincidencia_exacta", "coincidencia_manual"), true)) {
+                    array("coincidencia_exacta", "coincidencia_catalogo", "coincidencia_manual"), true)) {
                     $resumen["coincidencias"]++;
                 } elseif ($concepto["resultado_conciliacion"] !== "descartado") {
                     $resumen["requieren_revision"]++;
@@ -683,7 +767,7 @@ class ComprasXmlErp extends CRUD {
     private function conciliarConcepto($db, $idOrden, $concepto) {
         $clave = trim($concepto["no_identificacion"]);
         if ($clave !== "") {
-            $stmt = $db->prepare("SELECT d.id_detalle, d.id_sku_erp, d.id_sku_proveedor
+            $stmt = $db->prepare("SELECT d.id_detalle, d.id_sku_erp, d.id_sku_proveedor, d.tipo_item
                 FROM erp_compras_ordenes_detalle d
                 LEFT JOIN erp_catalogo_sku_proveedores sp ON sp.id_sku_proveedor=d.id_sku_proveedor
                 WHERE d.id_orden_compra=:orden
@@ -692,6 +776,15 @@ class ComprasXmlErp extends CRUD {
             $stmt->execute(array(":orden" => $idOrden, ":clave" => $clave, ":clave2" => $clave));
             $coincidencias = $stmt->fetchAll(PDO::FETCH_ASSOC);
             if (count($coincidencias) === 1) {
+                if (intval($coincidencias[0]["id_sku_erp"]) <= 0) {
+                    $tipoItem = strtolower(trim((string) (isset($coincidencias[0]["tipo_item"]) ? $coincidencias[0]["tipo_item"] : "")));
+                    return array(
+                        "id_detalle" => intval($coincidencias[0]["id_detalle"]),
+                        "id_sku" => 0,
+                        "id_sku_proveedor" => 0,
+                        "resultado" => $tipoItem === "producto_ambiguo" ? "ambigua" : "sin_coincidencia"
+                    );
+                }
                 return array(
                     "id_detalle" => intval($coincidencias[0]["id_detalle"]),
                     "id_sku" => intval($coincidencias[0]["id_sku_erp"]),
@@ -790,7 +883,7 @@ class ComprasXmlErp extends CRUD {
         $stmt = $db->prepare("SELECT COUNT(*) FROM
             erp_compras_documentos_fiscales_conceptos
             WHERE id_documento_fiscal=:documento
-            AND resultado_conciliacion NOT IN ('coincidencia_exacta','coincidencia_manual','descartado')");
+            AND resultado_conciliacion NOT IN ('coincidencia_exacta','coincidencia_catalogo','coincidencia_manual','descartado')");
         $stmt->execute(array(":documento" => intval($idDocumento)));
         $estatus = intval($stmt->fetchColumn()) > 0 ? "requiere_revision" : "conciliado";
         $db->prepare("UPDATE erp_compras_documentos_fiscales
@@ -847,10 +940,10 @@ class ComprasXmlErp extends CRUD {
             d.sku, d.nombre_producto, d.cantidad,
             COUNT(CASE WHEN f.id_documento_fiscal IS NOT NULL
                 AND c.resultado_conciliacion IN
-                ('coincidencia_exacta','coincidencia_manual') THEN 1 END) coincidencias,
+                ('coincidencia_exacta','coincidencia_catalogo','coincidencia_manual') THEN 1 END) coincidencias,
             COALESCE(SUM(CASE WHEN f.id_documento_fiscal IS NOT NULL
                 AND c.resultado_conciliacion IN
-                ('coincidencia_exacta','coincidencia_manual')
+                ('coincidencia_exacta','coincidencia_catalogo','coincidencia_manual')
                 THEN c.cantidad ELSE 0 END),0) cantidad_comprada
             FROM erp_compras_ordenes o
             INNER JOIN erp_compras_ordenes_detalle d
@@ -934,7 +1027,7 @@ class ComprasXmlErp extends CRUD {
                     f.estatus_conciliacion, o.folio folio_orden,
                     COUNT(c.id_documento_concepto) conceptos,
                     SUM(CASE WHEN c.resultado_conciliacion NOT IN
-                        ('coincidencia_exacta','coincidencia_manual','descartado') THEN 1 ELSE 0 END) pendientes
+                        ('coincidencia_exacta','coincidencia_catalogo','coincidencia_manual','descartado') THEN 1 ELSE 0 END) pendientes
                 FROM erp_compras_documentos_fiscales f
                 INNER JOIN erp_compras_ordenes o ON o.id_orden_compra=f.id_orden_compra
                 LEFT JOIN erp_compras_documentos_fiscales_conceptos c
@@ -1071,6 +1164,16 @@ class ComprasXmlErp extends CRUD {
 
     private function huellaNotificacionXml($idOrden, $idDocumento) {
         return hash("sha256", "notificacion|compras|xml|orden:" . intval($idOrden) . "|documento:" . intval($idDocumento));
+    }
+
+    /**
+     * IA: Codex GPT-5
+     * Fecha: 2026-09-26
+     * Proposito: comparar claves de proveedor/XML ignorando diferencias menores de formato.
+     * Impacto: Compras XML; evita marcar como pendiente un SKU relacionado con guiones o espacios distintos.
+     */
+    private function normalizarClaveProveedor($valor) {
+        return strtolower(preg_replace("/[\s-]+/", "", trim((string) $valor)));
     }
 
     private function attr($nodo, $nombre) {

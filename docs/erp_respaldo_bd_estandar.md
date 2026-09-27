@@ -49,6 +49,8 @@ C:\xampp\panel_db_backups\artianilocal_panel_20260717_153000_antes_ecommerce_pub
 - En documentacion y comandos usar la ruta completa del respaldo o una referencia externa verificable.
 - No exponer credenciales de `app/config/mysql.php` en documentos ni respuestas.
 - Para no llenar el servidor, los respaldos de productivo pueden generarse desde la computadora local y almacenarse en `C:\xampp\panel_db_backups`.
+- Estado operativo actual, 2026-09-26: `panel_de_control` usa base productiva. Los ejemplos historicos con `artianilocal` no deben copiarse automaticamente para nuevos respaldos; antes de respaldar o aplicar cambios, confirmar la base real configurada por el entorno y nombrar el archivo como productivo cuando corresponda.
+- Para Compras y modulos conectados, toda escritura directa, DDL, truncado, limpieza o recalculo masivo requiere respaldo externo nuevo y autorizacion explicita del dueno.
 
 ## Respaldo productivo post-activacion
 

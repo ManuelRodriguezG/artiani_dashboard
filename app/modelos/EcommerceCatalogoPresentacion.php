@@ -19,6 +19,19 @@ trait EcommerceCatalogoPresentacion {
     return $valor;
   }
 
+  /** IA: Codex GPT-5 | 2026-09-26. Categorias agrupadas por defecto; busqueda y selector conservan SKU. */
+  private function agrupacionContextualCatalogoPublico($filtros, $esBusqueda) {
+    if ($esBusqueda) { return 'sku'; }
+    $explicita = trim((string) $this->valor($filtros, 'agrupacion', ''));
+    if ($explicita !== '') { return $this->normalizarAgrupacionCatalogoPublico($explicita); }
+    if (intval($this->valor($filtros, 'producto_id', 0)) > 0) { return 'sku'; }
+    foreach (array('categoria', 'categoria_id', 'categoria_slug') as $campo) {
+      $valor = trim((string) $this->valor($filtros, $campo, ''));
+      if ($valor !== '' && $valor !== '0') { return 'producto'; }
+    }
+    return 'sku';
+  }
+
   /**
    * IA: Codex GPT-6 | 2026-09-25. Ranking SQL sobre candidatos ya filtrados, antes de LIMIT.
    * Contrato: requiere funciones ventana; cada representante cumple filtros. No modifica datos.
@@ -44,10 +57,14 @@ trait EcommerceCatalogoPresentacion {
   private function contratoPresentacionCatalogoPublico() {
     return array(
       'version' => 'presentacion_catalogo_v1',
+      'revision' => 'categorias_default_v2',
       'agrupacion_default' => 'sku',
+      'agrupacion_por_contexto' => array('catalogo_con_categoria' => 'producto', 'catalogo_general' => 'sku',
+        'busqueda' => 'sku', 'busqueda_sugerencias' => 'sku', 'selector_producto_id' => 'sku'),
       'agrupacion_producto' => array(
         'parametro' => 'agrupacion=producto',
-        'endpoints' => array('/ecommercePublico/catalogo', '/ecommercePublico/busqueda', '/ecommercePublico/busqueda_sugerencias'),
+        'endpoints' => array('/ecommercePublico/catalogo'),
+        'activacion' => 'Automatica al filtrar categoria por ID o slug. El catalogo permite override explicito; busqueda/sugerencias siempre entregan SKU.',
         'identidad_grupo' => 'id_producto_erp',
         'regla' => 'Mismo producto ERP con varias publicaciones visibles; productos simples conservan tarjeta individual.',
         'representante' => 'Primera publicacion que cumple filtros segun orden solicitado y desempate id_publicacion.',
